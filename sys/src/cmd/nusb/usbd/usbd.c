@@ -311,6 +311,17 @@ startdev(Port *p)
 		fprint(2, "okay what?\n");
 		return -1;
 	}
+	if(d->usb->class == Clhub){
+		/*
+		 * Hubs are handled directly by this process avoiding
+		 * concurrent operation so that at most one device
+		 * has the config address in use.
+		 * We cancel kernel debug for these eps. too chatty.
+		 */
+		if((p->hub = newhub(d->dir, d)) == nil)
+			return -1;
+		return 0;
+	}
 	close(d->dfd);
 	d->dfd = -1;
 	pushevent(formatdev(d));
