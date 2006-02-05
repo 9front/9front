@@ -340,13 +340,20 @@ find the IP addresses.  Returns
 domain name
 .RI ( dom )
 and ip address
-.RI ( ip )
+.RI ( ip ).
+.TP
+.B ipv6
+find the IPv6 addresses.  Returns
+domain name
+.RI ( dom )
+and ipv6 address
+.RI ( ipv6 ).
 .TP
 .B mx
 look up the mail exchangers.  Returns preference
 .RI ( pref )
 and exchanger
-.RI ( mx )
+.RI ( mx ).
 .TP
 .B ptr
 do a reverse query.  Here
@@ -356,13 +363,13 @@ must be an
 IP address.  Returns reverse name
 .RI ( ptr )
 and domain name
-.RI ( dom )
+.RI ( dom ).
 .TP
 .B cname
 get the system that this name is a nickname for.  Returns the nickname
 .RI ( dom )
 and the real name
-.RI ( cname )
+.RI ( cname ).
 .TP
 .B soa
 return the start of area record for this field.  Returns
@@ -381,11 +388,26 @@ expiration time in seconds
 and minimum time to lie
 .RI ( ttl ).
 .TP
+.B srv
+get the service records.  Returns the priority of target host
+.RI ( priority ),
+relative weight
+.RI ( weight )
+for entries with the same priority,
+port on this target host of this service
+.RI ( port ),
+and the domain name of the target host
+.RI ( target ).
+.TP
+.B txt
+get the descriptive text. The semantics of the text depends
+on the domain.
+.TP
 .B ns
 name servers.  Returns domain name
 .RI ( dom )
 and name server
-.RI ( ns )
+.RI ( ns ).
 .PP
 .I Ndbfindattr
 searches
