@@ -45,7 +45,7 @@ echo @@ merge different files @@
 		cd b
 		qq $G/pull
 		$G/merge origin/front || status=''
-		q $G/commit -m merged .
+		q $G/commit -m merged
 	}
 }
 
@@ -56,6 +56,7 @@ flag +x
 test -x b/a || die merge preserve exec
 ! test -x b/b || die merge preserve nonexec b
 ! test -x b/c || die merge preserve nonexec c
+@{rfork ne ; cd b ; git/fs; git/walk -q} || die merge commit dropped files
 
 echo @@ merge concurent edits @@
 @{

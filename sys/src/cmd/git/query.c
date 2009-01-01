@@ -186,9 +186,8 @@ main(int argc, char **argv)
 	if((n = resolverefs(&h, query)) == -1)
 		sysfatal("resolve: %r");
 	if(changes){
-		if(n != 2)
-			sysfatal("diff: need 2 commits, got %d", n);
-		diffcommits(h[0], h[1]);
+		for(i = 1; i < n; i++)
+			diffcommits(h[0], h[i]);
 	}else{
 		p = (fullpath ? objpfx : "");
 		for(j = 0; j < n; j++)
