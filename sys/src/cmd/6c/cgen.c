@@ -1517,7 +1517,6 @@ sugen(Node *n, Node *nn, long w)
 
 		regsalloc(&nod0, n->right);
 		sugen(n->right, &nod0, w);
-		warn(n, "non-interruptable temporary");
 		sugen(&nod0, n->left, w);
 		sugen(&nod0, nn, w);
 		break;
