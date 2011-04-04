@@ -51,12 +51,23 @@ Xasync(void)
 	setvar("apid", newword(buf, (word *)0));
 }
 
+char*
+erealloc(char *p, long n)
+{
+	p = realloc(p, n);		/* botch, should be Realloc */
+	if(p==0)
+		panic("Can't realloc %d bytes\n", n);
+	return p;
+}
+
+enum { Stralloc = 100, };
+
 void
 Xbackq(void)
 {
-	char wd[8193], **argv;
-	int c;
-	char *s, *ewd=&wd[8192], *stop;
+	char **argv;
+	int c, l;
+	char *s, *wd, *ewd, *stop;
 	struct io *f;
 	var *ifs = vlook("ifs");
 	word *v, *nextv;
@@ -84,14 +95,20 @@ Xbackq(void)
 	}
 
 	f = openfd(pfd[0]);
-	s = wd;
+		s = wd = ewd = 0;
 	v = 0;
 	while((c=rchr(f))!=EOF){
-		if(strchr(stop, c) || s==ewd){
+		if(s==ewd){
+			l = s-wd;
+			wd = erealloc(wd, l+Stralloc);
+			ewd = wd+l+Stralloc-1;
+			s = wd+l;
+		}
+		if(strchr(stop, c)){
 			if(s!=wd){
 				*s='\0';
-				v=newword(wd, v);
-				s=wd;
+				v = newword(wd, v);
+				s = wd;
 			}
 		}
 		else *s++=c;
@@ -100,6 +117,8 @@ Xbackq(void)
 		*s='\0';
 		v=newword(wd, v);
 	}
+	if(wd)
+		efree(wd);
 	closeio(f);
 	Waitfor(pid, 1);
 	/* v points to reversed arglist -- reverse it onto argv */

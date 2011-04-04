@@ -71,18 +71,26 @@ Xpipe(void)
 	}
 }
 
-enum { Wordmax = 8192, };
+char*
+erealloc(char *p, long n)
+{
+	p = realloc(p, n);		/* botch, should be Realloc */
+	if(p==0)
+		panic("Can't realloc %d bytes\n", n);
+	return p;
+}
 
 /*
  * Who should wait for the exit from the fork?
  */
+enum { Stralloc = 100, };
+
 void
 Xbackq(void)
 {
-	int c, pid;
+	int c, l, pid;
 	int pfd[2];
-	char wd[Wordmax + 1];
-	char *s, *ewd = &wd[Wordmax], *stop;
+	char *s, *wd, *ewd, *stop;
 	struct io *f;
 	var *ifs = vlook("ifs");
 	word *v, *nextv;
@@ -108,18 +116,16 @@ Xbackq(void)
 		addwaitpid(pid);
 		close(pfd[PWR]);
 		f = openfd(pfd[PRD]);
-		s = wd;
+		s = wd = ewd = 0;
 		v = 0;
-		/*
-		 * this isn't quite right for utf.  stop could have utf
-		 * in it, and we're processing the input as bytes, not
-		 * utf encodings of runes.  further, if we run out of
-		 * room in wd, we can chop in the middle of a utf encoding
-		 * (not to mention stepping on one of the bytes).
-		 * presotto's Strings seem like the right data structure here.
-		 */
 		while((c = rchr(f))!=EOF){
-			if(strchr(stop, c) || s==ewd){
+			if(s==ewd){
+				l = s-wd;
+				wd = erealloc(wd, l+Stralloc);
+				ewd = wd+l+Stralloc-1;
+				s = wd+l;
+			}
+			if(strchr(stop, c)){
 				if(s!=wd){
 					*s='\0';
 					v = newword(wd, v);
@@ -132,6 +138,8 @@ Xbackq(void)
 			*s='\0';
 			v = newword(wd, v);
 		}
+		if(wd)
+			efree(wd);
 		closeio(f);
 		Waitfor(pid, 0);
 		/* v points to reversed arglist -- reverse it onto argv */
