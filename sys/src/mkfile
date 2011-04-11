@@ -40,7 +40,7 @@ CMDS=cmd\
 	games\
 
 SUBSYS=ape\
-	/acme\
+#	/acme\
 
 none:VQ:
 	echo mk all, install, clean, nuke, release, kernels, or libs
