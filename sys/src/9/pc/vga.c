@@ -12,8 +12,8 @@
 #include <cursor.h>
 #include "screen.h"
 
-static Memimage* back;
 static Memimage *conscol;
+static Memimage *back;
 
 static Point curpos;
 static Rectangle window;
@@ -23,25 +23,10 @@ Lock vgascreenlock;
 int drawdebug;
 
 void
-vgaimageinit(ulong chan)
+vgaimageinit(ulong)
 {
-	if(back == nil){
-		back = allocmemimage(Rect(0,0,1,1), chan);	/* RSC BUG */
-		if(back == nil)
-			panic("back alloc");		/* RSC BUG */
-		back->flags |= Frepl;
-		back->clipr = Rect(-0x3FFFFFF, -0x3FFFFFF, 0x3FFFFFF, 0x3FFFFFF);
-		memfillcolor(back, DBlack);
-	}
-
-	if(conscol == nil){
-		conscol = allocmemimage(Rect(0,0,1,1), chan);	/* RSC BUG */
-		if(conscol == nil)
-			panic("conscol alloc");	/* RSC BUG */
-		conscol->flags |= Frepl;
-		conscol->clipr = Rect(-0x3FFFFFF, -0x3FFFFFF, 0x3FFFFFF, 0x3FFFFFF);
-		memfillcolor(conscol, DWhite);
-	}
+	conscol = memblack;
+	back = memwhite;
 }
 
 static void
@@ -69,13 +54,11 @@ vgascreenputc(VGAscr* scr, char* buf, Rectangle *flushr)
 	int h, w, pos;
 	Rectangle r;
 
-//	drawdebug = 1;
 	if(xp < xbuf || xp >= &xbuf[sizeof(xbuf)])
 		xp = xbuf;
 
 	h = scr->memdefont->height;
 	switch(buf[0]){
-
 	case '\n':
 		if(curpos.y+h >= window.max.y){
 			vgascroll(scr);
@@ -100,7 +83,7 @@ vgascreenputc(VGAscr* scr, char* buf, Rectangle *flushr)
 		pos = 4-(pos%4);
 		*xp++ = curpos.x;
 		r = Rect(curpos.x, curpos.y, curpos.x+pos*w, curpos.y + h);
-		memimagedraw(scr->gscreen, r, back, back->r.min, nil, back->r.min, S);
+		memimagedraw(scr->gscreen, r, back, ZP, nil, ZP, S);
 		curpos.x += pos*w;
 		break;
 
@@ -109,7 +92,7 @@ vgascreenputc(VGAscr* scr, char* buf, Rectangle *flushr)
 			break;
 		xp--;
 		r = Rect(*xp, curpos.y, curpos.x, curpos.y+h);
-		memimagedraw(scr->gscreen, r, back, back->r.min, nil, ZP, S);
+		memimagedraw(scr->gscreen, r, back, r.min, nil, ZP, S);
 		combinerect(flushr, r);
 		curpos.x = *xp;
 		break;
@@ -126,12 +109,11 @@ vgascreenputc(VGAscr* scr, char* buf, Rectangle *flushr)
 
 		*xp++ = curpos.x;
 		r = Rect(curpos.x, curpos.y, curpos.x+w, curpos.y+h);
-		memimagedraw(scr->gscreen, r, back, back->r.min, nil, back->r.min, S);
+		memimagedraw(scr->gscreen, r, back, r.min, nil, ZP, S);
 		memimagestring(scr->gscreen, curpos, conscol, ZP, scr->memdefont, buf);
 		combinerect(flushr, r);
 		curpos.x += w;
 	}
-//	drawdebug = 0;
 }
 
 static void
@@ -184,18 +166,60 @@ vgascreenputs(char* s, int n)
 	unlock(&vgascreenlock);
 }
 
+static Memimage*
+mkcolor(Memimage *screen, ulong color)
+{
+	Memimage *i;
+
+	if(i = allocmemimage(Rect(0,0,1,1), screen->chan)){
+		i->flags |= Frepl;
+		i->clipr = screen->r;
+		memfillcolor(i, color);
+	}
+	return i;
+}
+
 void
 vgascreenwin(VGAscr* scr)
 {
-	int h, w;
+	Memimage *i;
+	Rectangle r;
+	Point p;
+	int h;
 
+	qlock(&drawlock);
+	
 	h = scr->memdefont->height;
-	w = scr->memdefont->info[' '].width;
+	r = scr->gscreen->r;
 
-	window = insetrect(scr->gscreen->r, 48);
-	window.max.x = window.min.x+((window.max.x-window.min.x)/w)*w;
-	window.max.y = window.min.y+((window.max.y-window.min.y)/h)*h;
+	if(i = mkcolor(scr->gscreen, 0x444488FF)){
+		memimagedraw(scr->gscreen, r, i, ZP, nil, ZP, S);
+		freememimage(i);
+	}
+
+	window = insetrect(r, 20);
+	memimagedraw(scr->gscreen, window, conscol, ZP, memopaque, ZP, S);
+	window = insetrect(window, 4);
+	memimagedraw(scr->gscreen, window, back, ZP, memopaque, ZP, S);
+
+	if(i = mkcolor(scr->gscreen, 0xAAAAAAFF)){
+		memimagedraw(scr->gscreen, Rect(window.min.x, window.min.y,
+			window.max.x, window.min.y+h+5+6), i, ZP, nil, ZP, S);
+		freememimage(i);
+
+		window = insetrect(window, 5);
+		p = addpt(window.min, Pt(10, 0));
+		memimagestring(scr->gscreen, p, memblack, ZP, scr->memdefont, " Plan 9 Console ");
+		window.min.y += h+6;
+	} else
+		window = insetrect(window, 5);
+
+	window.max.y = window.min.y+(Dy(window)/h)*h;
 	curpos = window.min;
+
+	flushmemscreen(r);
+
+	qunlock(&drawlock);
 
 	screenputs = vgascreenputs;
 }
@@ -239,25 +263,4 @@ addvgaseg(char *name, ulong pa, ulong size)
 	seg.pa = pa;
 	seg.size = size;
 	addphysseg(&seg);
-}
-
-void
-cornerstring(char *s)
-{
-	int h, w;
-	VGAscr *scr;
-	Rectangle r;
-	Point p;
-
-	scr = &vgascreen[0];
-	if(scr->vaddr == nil || screenputs != vgascreenputs)
-		return;
-	p = memsubfontwidth(scr->memdefont, s);
-	w = p.x;
-	h = scr->memdefont->height;
-
-	r = Rect(0, 0, w, h);
-	memimagedraw(scr->gscreen, r, back, back->r.min, nil, back->r.min, S);
-	memimagestring(scr->gscreen, r.min, conscol, ZP, scr->memdefont, s);
-//	flushmemscreen(r);
 }

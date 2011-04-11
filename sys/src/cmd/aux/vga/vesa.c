@@ -31,8 +31,8 @@ struct Vbe
 
 struct Vmode
 {
-	char	name[32];
-	char	chan[32];
+	char	size[Namelen+1];
+	char	chan[Namelen+1];
 	int	id;
 	int	attr;	/* flags */
 	int	bpl;
@@ -89,7 +89,9 @@ enum {
 #define PLONG(p, v) (p)[0] = (v); (p)[1] = (v)>>8; (p)[2] = (v)>>16; (p)[3] = (v)>>24
 
 static Vbe *vbe;
-static Edid edid;
+static Edid *edid;
+
+extern Mode *vesamodes[];
 
 Vbe *mkvbe(void);
 int vbecheck(Vbe*);
@@ -116,6 +118,7 @@ dbvesa(Vga* vga)
 		fprint(2, "dbvesa: %r\n");
 		return 0;
 	}
+
 	vga->link = alloc(sizeof(Ctlr));
 	*vga->link = vesa;
 	vga->vesa = vga->link;
@@ -129,32 +132,38 @@ dbvesa(Vga* vga)
 }
 
 Mode*
-dbvesamode(char *mode)
+dbvesamode(char *size)
 {
-	int i;
+	int i, width;
 	uchar *p, *ep;
+	Attr *a;
 	Vmode vm;
 	Mode *m;
+	Modelist *l;
 	
 	if(vbe == nil)
 		return nil;
 
-	p = vbemodes(vbe);
-	if(p == nil)
-		return nil;
-	for(ep=p+1024; (p[0]!=0xFF || p[1]!=0xFF) && p<ep; p+=2){
-		if(vbemodeinfo(vbe, WORD(p), &vm) < 0)
-			continue;
-		if(strcmp(vm.name, mode) == 0)
+	if(strncmp(size, "0x", 2) == 0){
+		if(vbemodeinfo(vbe, strtol(size+2, nil, 16), &vm) == 0)
 			goto havemode;
-	}
-	if(1){
-		fprint(2, "warning: scanning for unoffered vesa modes\n");
-		for(i=0x100; i<0x200; i++){
-			if(vbemodeinfo(vbe, i, &vm) < 0)
-				continue;
-			if(strcmp(vm.name, mode) == 0)
-				goto havemode;
+	}else{
+		if(p = vbemodes(vbe)){
+			for(ep=p+1024; (p[0]!=0xFF || p[1]!=0xFF) && p<ep; p+=2){
+				if(vbemodeinfo(vbe, WORD(p), &vm) < 0)
+					continue;
+				if(strcmp(vm.size, size) == 0)
+					goto havemode;
+			}
+		}
+		if(1){
+			fprint(2, "warning: scanning for unoffered vesa modes\n");
+			for(i=0x100; i<0x200; i++){
+				if(vbemodeinfo(vbe, i, &vm) < 0)
+					continue;
+				if(strcmp(vm.size, size) == 0)
+					goto havemode;
+			}
 		}
 	}
 	werrstr("no such vesa mode");
@@ -162,13 +171,8 @@ dbvesamode(char *mode)
 
 havemode:
 	m = alloc(sizeof(Mode));
-	strcpy(m->type, "vesa");
-	strcpy(m->size, vm.name);
-	strcpy(m->chan, vm.chan);
-	m->frequency = 100;
 	m->x = vm.dx;
 	m->y = vm.dy;
-	m->z = vm.depth;
 	m->ht = m->x;
 	m->shb = m->x;
 	m->ehb = m->x;
@@ -177,11 +181,49 @@ havemode:
 	m->vt = m->y;
 	m->vrs = m->y;
 	m->vre = m->y;
+	m->frequency = m->ht * m->vt * 60;
 
-	m->attr = alloc(sizeof(Attr));
-	m->attr->attr = "id";
-	m->attr->val = alloc(32);
-	sprint(m->attr->val, "0x%x", vm.id);
+	/* get default monitor timing */
+	for(i=0; vesamodes[i]; i++){
+		if(vesamodes[i]->x != vm.dx || vesamodes[i]->y != vm.dy)
+			continue;
+		*m = *vesamodes[i];
+		break;
+	}
+	if(edid){
+		for(l = edid->modelist; l; l = l->next){
+			if(l->x != vm.dx || l->y != vm.dy)
+				continue;
+			*m = *((Mode*)l);
+			break;
+		}
+	}
+
+	strcpy(m->type, "vesa");
+	strcpy(m->size, vm.size);
+	strcpy(m->chan, vm.chan);
+	m->z = vm.depth;
+
+	a = alloc(sizeof(Attr));
+	a->attr = "id";
+	a->val = alloc(32);
+	sprint(a->val, "0x%x", vm.id);
+
+	a->next = nil;
+	m->attr = a;
+
+	/* account for framebuffer stride */
+	width = vm.bpl * 8 / m->z;
+	if(width > m->x){
+		a = alloc(sizeof(Attr));
+		a->attr = "virtx";
+		a->val = alloc(32);
+		sprint(a->val, "%d", width);
+
+		a->next = m->attr;
+		m->attr = a;
+	}
+
 	return m;
 }
 
@@ -194,7 +236,20 @@ snarf(Vga* vga, Ctlr* ctlr)
 		vga->vesa = ctlr;
 	vbesnarf(vbe, vga);
 	vga->linear = 1;
-	ctlr->flag |= Hlinear|Ulinear;
+	ctlr->flag |= Hlinear|Ulinear|Fsnarf;
+}
+
+static void
+options(Vga *vga, Ctlr *ctlr)
+{
+	char *v;
+
+	if(v = dbattr(vga->mode->attr, "virtx")){
+		vga->virtx = atoi(v);
+		vga->virty = vga->mode->y;
+		vga->panning = 0;
+	}
+	ctlr->flag |= Foptions;
 }
 
 static void
@@ -233,18 +288,14 @@ dump(Vga*, Ctlr*)
 	for(i=0x100; i<0x1FF; i++)
 		if(!did[i])
 			vbeprintmodeinfo(vbe, i, " (unoffered)");
-				
-	
-	if(vbeddcedid(vbe, &edid) < 0)
-		fprint(2, "warning: reading edid: %r\n");
-	else
-		printedid(&edid);
+	if(edid)
+		printedid(edid);
 }
 
 Ctlr vesa = {
 	"vesa",			/* name */
 	snarf,				/* snarf */
-	0,			/* options */
+	options,			/* options */
 	0,				/* init */
 	load,				/* load */
 	dump,				/* dump */
@@ -273,19 +324,34 @@ static Flag capabilityflag[] = {
 	0
 };
 
+enum {
+	AttrSupported	= 1<<0,
+	AttrTTY		= 1<<2,
+	AttrColor	= 1<<3,
+	AttrGraphics	= 1<<4,
+	AttrNotVGA	= 1<<5,
+	AttrNotWinVGA	= 1<<6,
+	AttrLinear	= 1<<7,
+	AttrDoublescan	= 1<<8,
+	AttrInterlace	= 1<<9,
+	AttrTriplebuf	= 1<<10,
+	AttrStereo	= 1<<11,
+	AttrDualAddr	= 1<<12,
+};
+
 static Flag modeattributesflags[] = {
-	1<<0, "supported",
-	1<<2, "tty",
-	1<<3, "color",
-	1<<4, "graphics",
-	1<<5, "not-vga",
-	1<<6, "no-windowed-vga",
-	1<<7, "linear",
-	1<<8, "double-scan",
-	1<<9, "interlace",
-	1<<10, "triple-buffer",
-	1<<11, "stereoscopic",
-	1<<12, "dual-start-addr",
+	AttrSupported,	"supported",
+	AttrTTY,	"tty",
+	AttrColor,	"color",
+	AttrGraphics,	"graphics",
+	AttrNotVGA,	"not-vga",
+	AttrNotWinVGA,	"no-windowed-vga",
+	AttrLinear,	"linear",
+	AttrDoublescan,	"double-scan",
+	AttrInterlace,	"interlace",
+	AttrTriplebuf,	"triple-buffer",
+	AttrStereo,	"stereoscopic",
+	AttrDualAddr,	"dual-start-addr",
 	0
 };
 
@@ -302,9 +368,28 @@ static Flag directcolorflags[] = {
 	0
 };
 
-static char *modelstr[] = {
-	"text", "cga", "hercules", "planar", "packed", "non-chain4", "direct", "YUV"
+enum {
+	ModText = 0,
+	ModCGA,
+	ModHercules,
+	ModPlanar,
+	ModPacked,
+	ModNonChain4,
+	ModDirect,
+	ModYUV,
 };
+
+static char *modelstr[] = {
+	[ModText]	"text",
+	[ModCGA]	"cga",
+	[ModHercules]	"hercules",
+	[ModPlanar]	"planar",
+	[ModPacked]	"packed",
+	[ModNonChain4]	"non-chain4",
+	[ModDirect]	"direct",
+	[ModYUV]	"YUV",
+};
+
 
 static void
 printflags(Flag *f, int b)
@@ -402,8 +487,12 @@ vbecheck(Vbe *vbe)
 	strcpy((char*)p, "VBE2");
 	if(vbecall(vbe, &u) < 0)
 		return -1;
-	if(memcmp(p, "VESA", 4) != 0 || p[5] < 2){
-		werrstr("invalid vesa signature %.4H %.4H\n", p, p+4);
+	if(memcmp(p, "VESA", 4)){
+		werrstr("invalid vesa signature %.4H\n", p);
+		return -1;
+	}
+	if(p[5] < 2){
+		werrstr("invalid vesa version: %.4H\n", p+4);
 		return -1;
 	}
 	return 0;
@@ -422,6 +511,13 @@ vbesnarf(Vbe *vbe, Vga *vga)
 	if(memcmp(p, "VESA", 4) != 0 || p[5] < 2)
 		return -1;
 	vga->apz = WORD(p+18)*0x10000UL;
+	if(edid == nil){
+		edid = alloc(sizeof(Edid));
+		if(vbeddcedid(vbe, edid) < 0){
+			free(edid);
+			edid = nil;
+		}
+	}
 	return 0;
 }
 
@@ -474,11 +570,9 @@ vbemodes(Vbe *vbe)
 int
 vbemodeinfo(Vbe *vbe, int id, Vmode *m)
 {
-	int o;
-	ulong d, c, x;
 	uchar *p;
-	char tmp[sizeof m->chan];
 	Ureg u;
+	int mod;
 
 	p = vbesetup(vbe, &u, 0x4F01);
 	u.cx = id;
@@ -487,11 +581,31 @@ vbemodeinfo(Vbe *vbe, int id, Vmode *m)
 
 	m->id = id;
 	m->attr = WORD(p);
+	if(!(m->attr & AttrSupported))
+		goto Unsupported;
+	if(!(m->attr & AttrGraphics))
+		goto Unsupported;
+	if(!(m->attr & AttrLinear))
+		goto Unsupported;
 	m->bpl = WORD(p+16);
 	m->dx = WORD(p+18);
 	m->dy = WORD(p+20);
 	m->depth = p[25];
-	m->model = p[27] < nelem(modelstr) ? modelstr[p[27]] : "unknown";
+	if((m->dx * m->dy * m->depth) <= 0)
+		goto Unsupported;
+	mod = p[27];
+	switch(mod){
+	default:
+	Unsupported:
+		werrstr("mode unsupported");
+		return -1;
+	case ModCGA:
+	case ModHercules:
+	case ModPacked:
+	case ModDirect:
+		m->model = modelstr[mod];
+		break;
+	}
 	m->r = p[31];
 	m->g = p[33];
 	m->b = p[35];
@@ -502,44 +616,49 @@ vbemodeinfo(Vbe *vbe, int id, Vmode *m)
 	m->xo = p[38];
 	m->directcolor = p[39];
 	m->paddr = LONG(p+40);
-	snprint(m->name, sizeof m->name, "%dx%dx%d",
-		m->dx, m->dy, m->depth);
-	if(m->depth <= 8) {
-		snprint(m->chan, sizeof m->chan, "m%d", m->depth);
-		return 0;
-	}
 
-	m->xo = m->x = 0;
-	d = 1 << (m->depth - 1);
-	d |= d - 1;
-	c  = ((1<<m->r)-1) << m->ro;
-	c |= ((1<<m->g)-1) << m->go;
-	c |= ((1<<m->b)-1) << m->bo;
-	x = d ^ c;
-	if(x != 0){
-		for(; (x & 1) == 0; x >>= 1)
-			m->xo++;
-		for(; x & 1; x >>= 1)
-			m->x++;
-	}
+	snprint(m->size, sizeof m->size, "%dx%dx%d", m->dx, m->dy, m->depth);
+	if(m->depth <= 8)
+		snprint(m->chan, sizeof m->chan, "%c%d", 
+			(m->attr & AttrColor) ? 'm' : 'k', m->depth);
+	else {
+		int o;
+		ulong d, c, x;
 
-	m->chan[0] = o = 0;
-	while(o < m->depth){
-		if(m->r && m->ro == o){
-			snprint(tmp, sizeof tmp, "r%d%s", m->r, m->chan);
-			o += m->r;
-		}else if(m->g && m->go == o){
-			snprint(tmp, sizeof tmp, "g%d%s", m->g, m->chan);
-			o += m->g;
-		}else if(m->b && m->bo == o){
-			snprint(tmp, sizeof tmp, "b%d%s", m->b, m->chan);
-			o += m->b;
-		}else if(m->x && m->xo == o){
-			snprint(tmp, sizeof tmp, "x%d%s", m->x, m->chan);
-			o += m->x;
-		}else
-			break;
-		strncpy(m->chan, tmp, sizeof m->chan);
+		m->xo = m->x = 0;
+		d = 1<<m->depth-1;
+		d |= d-1;
+		c = ((1<<m->r)-1) << m->ro;
+		c |= ((1<<m->g)-1) << m->go;
+		c |= ((1<<m->b)-1) << m->bo;
+		if(x = d ^ c){
+			for(; (x & 1) == 0; x >>= 1)
+				m->xo++;
+			for(; (x & 1) == 1; x >>= 1)
+				m->x++;
+		}
+
+		o = 0;
+		m->chan[0] = 0;
+		while(o < m->depth){
+			char tmp[sizeof m->chan];
+
+			if(m->r && m->ro == o){
+				snprint(tmp, sizeof tmp, "r%d%s", m->r, m->chan);
+				o += m->r;
+			}else if(m->g && m->go == o){
+				snprint(tmp, sizeof tmp, "g%d%s", m->g, m->chan);
+				o += m->g;
+			}else if(m->b && m->bo == o){
+				snprint(tmp, sizeof tmp, "b%d%s", m->b, m->chan);
+				o += m->b;
+			}else if(m->x && m->xo == o){
+				snprint(tmp, sizeof tmp, "x%d%s", m->x, m->chan);
+				o += m->x;
+			}else
+				break;
+			strncpy(m->chan, tmp, sizeof m->chan);
+		}
 	}
 	return 0;
 }
@@ -549,13 +668,11 @@ vbeprintmodeinfo(Vbe *vbe, int id, char *suffix)
 {
 	Vmode m;
 
-	if(vbemodeinfo(vbe, id, &m) < 0){
-	//	Bprint(&stdout, "vesa: cannot get mode 0x%ux: %r\n", id);
+	if(vbemodeinfo(vbe, id, &m) < 0)
 		return;
-	}
 	printitem("vesa", "mode");
 	Bprint(&stdout, "0x%ux %s %s %s%s\n",
-		m.id, m.name, m.chan, m.model, suffix);
+		m.id, m.size, m.chan, m.model, suffix);
 }
 
 int
@@ -572,33 +689,12 @@ vbegetmode(Vbe *vbe)
 int
 vbesetmode(Vbe *vbe, int id)
 {
-	uchar *p;
 	Ureg u;
 
-	p = vbesetup(vbe, &u, 0x4F02);
-	if(id != 3)
-		id |= 3<<14;	/* graphics: use linear, do not clear */
+	vbesetup(vbe, &u, 0x4F02);
 	u.bx = id;
-	USED(p);
-	/*
-	 * can set mode specifics (ht hss hse vt vss vse 0 clockhz refreshhz):
-	 *
-		u.bx |= 1<<11;
-		n = atoi(argv[2]); PWORD(p, n); p+=2;
-		n = atoi(argv[3]); PWORD(p, n); p+=2;
-		n = atoi(argv[4]); PWORD(p, n); p+=2;
-		n = atoi(argv[5]); PWORD(p, n); p+=2;
-		n = atoi(argv[6]); PWORD(p, n); p+=2;
-		n = atoi(argv[7]); PWORD(p, n); p+=2;
-		*p++ = atoi(argv[8]);
-		n = atoi(argv[9]); PLONG(p, n); p += 4;
-		n = atoi(argv[10]); PWORD(p, n); p += 2;
-		if(p != vbe.buf+19){
-			fprint(2, "prog error\n");
-			return;
-		}
-	 *
-	 */
+	if(id != 3)
+		u.bx |= 3<<14;	/* graphics: use linear, do not clear */
 	return vbecall(vbe, &u);
 }
 
@@ -679,8 +775,16 @@ printedid(Edid *e)
 	
 	for(l=e->modelist; l; l=l->next){
 		printitem("edid", l->name);
-		Bprint(&stdout, "\n\t\tclock=%g\n\t\tshb=%d ehb=%d ht=%d\n\t\tvrs=%d vre=%d vt=%d\n\t\thsync=%c vsync=%c %s\n",
-			l->frequency/1.e6, l->shb, l->ehb, l->ht, l->vrs, l->vre, l->vt, l->hsync?l->hsync:'?', l->vsync?l->vsync:'?', l->interlace?"interlace=v" : "");
+		Bprint(&stdout, "\n\t\tclock=%g\n"
+			"\t\tshb=%d ehb=%d ht=%d\n"
+			"\t\tvrs=%d vre=%d vt=%d\n"
+			"\t\thsync=%c vsync=%c %s\n",
+			l->frequency/1.e6, 
+			l->shb, l->ehb, l->ht,
+			l->vrs, l->vre, l->vt,
+			l->hsync?l->hsync:'?',
+			l->vsync?l->vsync:'?',
+			l->interlace?"interlace=v" : "");
 	}
 }
 
@@ -690,9 +794,8 @@ addmode(Modelist *l, Mode m)
 	int rr;
 	Modelist **lp;
 
-//m.z = 8; // BUG
 	rr = (m.frequency+m.ht*m.vt/2)/(m.ht*m.vt);
-	snprint(m.name, sizeof m.name, "%dx%dx%d@%dHz", m.x, m.y, m.z, rr);
+	snprint(m.name, sizeof m.name, "%dx%d@%dHz", m.x, m.y, rr);
 
 	if(m.shs == 0)
 		m.shs = m.shb;
@@ -831,8 +934,6 @@ decodedtb(Mode *m, uchar *p)
 
 	return 0;
 }
-
-extern Mode *vesamodes[];
 
 int
 vesalookup(Mode *m, char *name)

@@ -62,15 +62,19 @@ vbecall(Ureg *u)
 		nexterror();
 	}
 	pa = PADDR(RMBUF);
-	/* TODO: check read and write return values */
-	devtab[cmem->type]->write(cmem, modebuf, sizeof modebuf, pa);
-	u->trap = 0x10;
-	devtab[creg->type]->write(creg, u, sizeof *u, 0);
+	if(devtab[cmem->type]->write(cmem, modebuf, sizeof(modebuf), pa) != sizeof(modebuf))
+		error("write modebuf");
 
-	devtab[creg->type]->read(creg, u, sizeof *u, 0);
+	u->trap = 0x10;
+	if(devtab[creg->type]->write(creg, u, sizeof(*u), 0) != sizeof(*u))
+		error("write ureg");
+	if(devtab[creg->type]->read(creg, u, sizeof(*u), 0) != sizeof(*u))
+		error("read ureg");
 	if((u->ax&0xFFFF) != 0x004F)
 		error("vesa bios error");
-	devtab[cmem->type]->read(cmem, modebuf, sizeof modebuf, pa);
+
+	if(devtab[cmem->type]->read(cmem, modebuf, sizeof(modebuf), pa) != sizeof(modebuf))
+		error("read modebuf");
 
 	poperror();
 	cclose(creg);
@@ -124,7 +128,7 @@ vesalinear(VGAscr *scr, int, int)
 	Pcidev *pci;
 
 	if(hardscreen) {
-		scr->vaddr = 0;
+		scr->vaddr = hardscreen;
 		scr->paddr = scr->apsize = 0;
 		return;
 	}
@@ -180,7 +184,6 @@ vesalinear(VGAscr *scr, int, int)
 
 	if(Usesoftscreen){
 		hardscreen = scr->vaddr;
-		scr->vaddr = 0;
 		scr->paddr = scr->apsize = 0;
 	}
 }

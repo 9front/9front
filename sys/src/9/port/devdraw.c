@@ -365,9 +365,8 @@ addflush(Rectangle r)
 	int abb, ar, anbb;
 	Rectangle nbb;
 
-	if(sdraw.softscreen==0 || !rectclip(&r, screenimage->r))
+	if(sdraw.softscreen==0 || screenimage == nil || !rectclip(&r, screenimage->r))
 		return;
-
 	if(flushrect.min.x >= flushrect.max.x){
 		flushrect = r;
 		waste = 0;
@@ -413,13 +412,7 @@ dstflush(int dstid, Memimage *dst, Rectangle r)
 		combinerect(&flushrect, r);
 		return;
 	}
-	/* how can this happen? -rsc, dec 12 2002 */
-	if(dst == 0){
-		print("nil dstflush\n");
-		return;
-	}
-	l = dst->layer;
-	if(l == nil)
+	if(screenimage == nil || dst == nil || (l = dst->layer) == nil)
 		return;
 	do{
 		if(l->screen->image->data != screenimage->data)
@@ -433,7 +426,7 @@ dstflush(int dstid, Memimage *dst, Rectangle r)
 void
 drawflush(void)
 {
-	if(flushrect.min.x < flushrect.max.x)
+	if(screenimage && flushrect.min.x < flushrect.max.x)
 		flushmemscreen(flushrect);
 	flushrect = Rect(10000, 10000, -10000, -10000);
 }
@@ -676,12 +669,10 @@ drawfreedimage(DImage *dimage)
 		drawfreedimage(dimage->fromname);
 		goto Return;
 	}
-//	if(dimage->image == screenimage)	/* don't free the display */
-//		goto Return;
 	ds = dimage->dscreen;
 	if(ds){
 		l = dimage->image;
-		if(l->data == screenimage->data)
+		if(screenimage && l->data == screenimage->data)
 			addflush(l->layer->screenr);
 		if(l->layer->refreshfn == drawrefresh)	/* else true owner will clean up */
 			free(l->layer->refreshptr);
@@ -929,26 +920,36 @@ makescreenimage(void)
 	Memdata *md;
 	Memimage *i;
 	Rectangle r;
+	uchar *data;
 
-	md = malloc(sizeof *md);
-	if(md == nil)
+	if((data = attachscreen(&r, &chan, &depth, &width, &sdraw.softscreen)) == nil)
 		return nil;
-	md->allocd = 1;
-	md->base = nil;
-	md->bdata = attachscreen(&r, &chan, &depth, &width, &sdraw.softscreen);
-	if(md->bdata == nil){
-		free(md);
-		return nil;
-	}
-	md->ref = 1;
-	i = allocmemimaged(r, chan, md);
-	if(i == nil){
-		free(md);
-		return nil;
+	if(sdraw.softscreen == 0xa110c){
+		/* hack: softscreen is memimage. */
+		md = *((Memdata**)(data - sizeof(ulong) - sizeof(Memdata*)));
+
+		assert(md->bdata == data);
+		assert(md->ref > 1);
+		assert(md->allocd);
+
+		if((i = allocmemimaged(r, chan, md)) == nil){
+			md->ref--;
+			return nil;
+		}
+	}else{
+		if((md = malloc(sizeof *md)) == nil)
+			return nil;
+		md->allocd = 1;
+		md->base = nil;
+		md->bdata = data;
+		md->ref = 1;
+		if((i = allocmemimaged(r, chan, md)) == nil){
+			free(md);
+			return nil;
+		}
 	}
 	i->width = width;
 	i->clipr = r;
-
 	di = allocdimage(i);
 	if(di == nil){
 		freememimage(i);	/* frees md */
@@ -1859,7 +1860,7 @@ drawmesg(Client *client, void *av, int n)
 			if(pp == nil)
 				error(Enomem);
 			doflush = 0;
-			if(dstid==0 || (dst->layer && dst->layer->screen->image->data == screenimage->data))
+			if(dstid==0 || (screenimage && dst->layer && dst->layer->screen->image->data == screenimage->data))
 				doflush = 1;	/* simplify test in loop */
 			ox = oy = 0;
 			esize = 0;
@@ -2048,7 +2049,7 @@ drawmesg(Client *client, void *av, int n)
 				memltofrontn(lp, nw);
 			else
 				memltorearn(lp, nw);
-			if(lp[0]->layer->screen->image->data == screenimage->data)
+			if(screenimage && lp[0]->layer->screen->image->data == screenimage->data)
 				for(j=0; j<nw; j++)
 					addflush(lp[j]->layer->screenr);
 			ll = drawlookup(client, BGLONG(a+1+1+2), 1);

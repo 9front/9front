@@ -19,7 +19,6 @@ Point ZP = {0, 0};
 
 Rectangle physgscreenr;
 
-Memdata gscreendata;
 Memimage *gscreen;
 
 VGAscr vgascreen[1];
@@ -40,13 +39,18 @@ Cursor	arrow = {
 
 int didswcursorinit;
 
-static void *softscreen;
-
 int
-screensize(int x, int y, int z, ulong chan)
+screensize(int x, int y, int, ulong chan)
 {
 	VGAscr *scr;
-	void *oldsoft;
+
+	qlock(&drawlock);
+	if(waserror()){
+		qunlock(&drawlock);
+		nexterror();
+	}
+
+	memimageinit();
 
 	lock(&vgascreenlock);
 	if(waserror()){
@@ -54,54 +58,51 @@ screensize(int x, int y, int z, ulong chan)
 		nexterror();
 	}
 
-	memimageinit();
 	scr = &vgascreen[0];
-	oldsoft = softscreen;
+	scr->gscreendata = nil;
+	scr->gscreen = nil;
+	if(gscreen){
+		freememimage(gscreen);
+		gscreen = nil;
+	}
 
 	if(scr->paddr == 0){
-		int width = (x*z)/BI2WD;
-		void *p;
-
-		p = xalloc(width*BY2WD*y);
-		if(p == nil)
-			error("no memory for vga soft screen");
-		gscreendata.bdata = softscreen = p;
+		gscreen = allocmemimage(Rect(0,0,x,y), chan);
 		if(scr->dev && scr->dev->page){
 			scr->vaddr = KADDR(VGAMEM());
 			scr->apsize = 1<<16;
 		}
 		scr->useflush = 1;
-	}
-	else{
-		gscreendata.bdata = scr->vaddr;
+	}else{
+		static Memdata md;
+
+		md.ref = 1;
+		md.bdata = scr->vaddr;
+		gscreen = allocmemimaged(Rect(0,0,x,y), chan, &md);
 		scr->useflush = scr->dev && scr->dev->flush;
 	}
-
-	scr->gscreen = nil;
-	if(gscreen)
-		freememimage(gscreen);
-	gscreen = allocmemimaged(Rect(0,0,x,y), chan, &gscreendata);
 	if(gscreen == nil)
 		error("no memory for vga memimage");
-	vgaimageinit(chan);
 
 	scr->palettedepth = 6;	/* default */
-	scr->gscreendata = &gscreendata;
 	scr->memdefont = getmemdefont();
 	scr->gscreen = gscreen;
+	scr->gscreendata = gscreen->data;
 
 	physgscreenr = gscreen->r;
+
+	vgaimageinit(chan);
+
 	unlock(&vgascreenlock);
 	poperror();
-	if(oldsoft)
-		xfree(oldsoft);
 
-	memimagedraw(gscreen, gscreen->r, memblack, ZP, nil, ZP, S);
-	flushmemscreen(gscreen->r);
-
+	drawcmap();
 	if(didswcursorinit)
 		swcursorinit();
-	drawcmap();
+
+	qunlock(&drawlock);
+	poperror();
+
 	return 0;
 }
 
@@ -152,8 +153,17 @@ attachscreen(Rectangle* r, ulong* chan, int* d, int* width, int *softscreen)
 	*chan = scr->gscreen->chan;
 	*d = scr->gscreen->depth;
 	*width = scr->gscreen->width;
-	*softscreen = scr->useflush;
-
+	if(scr->gscreendata->allocd){
+		/*
+		 * we use a memimage as softscreen. devdraw will create its own
+		 * screen image on the backing store of that image. when our gscreen
+		 * and devdraws screenimage gets freed, the imagedata will
+		 * be released.
+		 */
+		*softscreen = 0xa110c;
+		scr->gscreendata->ref++;
+	} else
+		*softscreen = scr->useflush ? 1 : 0;
 	return scr->gscreendata->bdata;
 }
 
@@ -168,12 +178,12 @@ flushmemscreen(Rectangle r)
 	int y, len, incs, off, page;
 
 	scr = &vgascreen[0];
+	if(scr->gscreen == nil || scr->useflush == 0)
+		return;
 	if(scr->dev && scr->dev->flush){
 		scr->dev->flush(scr, r);
 		return;
 	}
-	if(scr->gscreen == nil || scr->useflush == 0)
-		return;
 	if(scr->dev == nil || scr->dev->page == nil)
 		return;
 
@@ -185,7 +195,6 @@ flushmemscreen(Rectangle r)
 	switch(scr->gscreen->depth){
 	default:
 		len = 0;
-		panic("flushmemscreen: depth\n");
 		break;
 	case 8:
 		len = Dx(r);
@@ -358,36 +367,31 @@ hwdraw(Memdrawparam *par)
 {
 	VGAscr *scr;
 	Memimage *dst, *src, *mask;
+	Memdata *scrd;
 	int m;
 
-	if(hwaccel == 0)
-		return 0;
-
 	scr = &vgascreen[0];
-	if((dst=par->dst) == nil || dst->data == nil)
+	scrd = scr->gscreendata;
+	if(scr->gscreen == nil || scrd == nil)
 		return 0;
-	if((src=par->src) == nil || src->data == nil)
+	if((dst = par->dst) == nil || dst->data == nil)
 		return 0;
-	if((mask=par->mask) == nil || mask->data == nil)
-		return 0;
-
+	if((src = par->src) && src->data == nil)
+		src = nil;
+	if((mask = par->mask) && mask->data == nil)
+		mask = nil;
 	if(scr->cur == &swcursor){
-		/*
-		 * always calling swcursorhide here doesn't cure
-		 * leaving cursor tracks nor failing to refresh menus
-		 * with the latest libmemdraw/draw.c.
-		 */
-		if(dst->data->bdata == gscreendata.bdata)
+		if(dst->data->bdata == scrd->bdata)
 			swcursoravoid(par->r);
-		if(src->data->bdata == gscreendata.bdata)
+		if(src && src->data->bdata == scrd->bdata)
 			swcursoravoid(par->sr);
-		if(mask->data->bdata == gscreendata.bdata)
+		if(mask && mask->data->bdata == scrd->bdata)
 			swcursoravoid(par->mr);
 	}
-	
-	if(dst->data->bdata != gscreendata.bdata)
+	if(hwaccel == 0)
 		return 0;
-
+	if(dst->data->bdata != scrd->bdata || src == nil || mask == nil)
+		return 0;
 	if(scr->fill==nil && scr->scroll==nil)
 		return 0;
 
@@ -607,29 +611,6 @@ swcursordraw(void)
 	swvisible = 1;
 }
 
-/*
- * Need to lock drawlock for ourselves.
- */
-void
-swenable(VGAscr*)
-{
-	swenabled = 1;
-	if(canqlock(&drawlock)){
-		swcursordraw();
-		qunlock(&drawlock);
-	}
-}
-
-void
-swdisable(VGAscr*)
-{
-	swenabled = 0;
-	if(canqlock(&drawlock)){
-		swcursorhide();
-		qunlock(&drawlock);
-	}
-}
-
 void
 swload(VGAscr*, Cursor *curs)
 {
@@ -693,7 +674,7 @@ swcursorclock(void)
 void
 swcursorinit(void)
 {
-	static int init, warned;
+	static int init;
 	VGAscr *scr;
 
 	didswcursorinit = 1;
@@ -701,40 +682,54 @@ swcursorinit(void)
 		init = 1;
 		addclock0link(swcursorclock, 10);
 	}
-	scr = &vgascreen[0];
-	if(scr==nil || scr->gscreen==nil)
-		return;
 
-	if(scr->dev == nil || scr->dev->linear == nil){
-		if(!warned){
-			print("cannot use software cursor on non-linear vga screen\n");
-			warned = 1;
-		}
+	scr = &vgascreen[0];
+	if(scr->gscreen==nil)
 		return;
-	}
 
 	if(swback){
 		freememimage(swback);
 		freememimage(swmask);
 		freememimage(swmask1);
 		freememimage(swimg);
-		freememimage(swimg1);
+		freememimage(swimg1); 
 	}
-
 	swback = allocmemimage(Rect(0,0,32,32), gscreen->chan);
 	swmask = allocmemimage(Rect(0,0,16,16), GREY8);
 	swmask1 = allocmemimage(Rect(0,0,16,16), GREY1);
 	swimg = allocmemimage(Rect(0,0,16,16), GREY8);
 	swimg1 = allocmemimage(Rect(0,0,16,16), GREY1);
-	if(swback==nil || swmask==nil || swmask1==nil || swimg==nil || swimg1 == nil){
+	if(swback==nil || swmask==nil || swmask1==nil || swimg==nil || swimg1 == nil)
 		print("software cursor: allocmemimage fails");
-		return;
-	}
-
+	memfillcolor(swback, DTransparent);
 	memfillcolor(swmask, DOpaque);
 	memfillcolor(swmask1, DOpaque);
 	memfillcolor(swimg, DBlack);
 	memfillcolor(swimg1, DBlack);
+}
+
+/*
+ * Need to lock drawlock for ourselves.
+ */
+void
+swenable(VGAscr *scr)
+{
+	swenabled = 1;
+	if(canqlock(&drawlock)){
+		swload(scr, &arrow);
+		swcursordraw();
+		qunlock(&drawlock);
+	}
+}
+
+void
+swdisable(VGAscr*)
+{
+	swenabled = 0;
+	if(canqlock(&drawlock)){
+		swcursorhide();
+		qunlock(&drawlock);
+	}
 }
 
 VGAcur swcursor =

@@ -368,11 +368,6 @@ vgactl(Cmdbuf *cb)
 		if(screenaperture(size, align) < 0)
 			error("not enough free address space");
 		return;
-/*	
-	case CMmemset:
-		memset((void*)strtoul(cb->f[1], 0, 0), atoi(cb->f[2]), atoi(cb->f[3]));
-		return;
-*/
 
 	case CMblank:
 		drawblankscreen(1);
