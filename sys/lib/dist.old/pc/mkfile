@@ -1,0 +1,100 @@
+out=outside			# outside web server
+s=/sys/lib/dist/pc
+x=`{bind -b /sys/lib/dist/bin/$cputype /bin}
+default:V: ndisk
+	ls -l ndisk
+
+SUB=`{ls sub inst}
+boot.raw:Q: proto $SUB
+	rm -rf boot
+	mkdir boot
+	bind /dev/null /sys/log/timesync
+	# make files writable for now.
+	cat proto | sed 's!d000!d775!;s!000!664!;s!555!775!;s!444!664!' >proto.cp
+	disk/mkfs -a proto.cp | disk/mkext -d boot
+	@{
+		cd boot/386
+		strip init
+		cd bin
+		strip * */* >[2]/dev/null || status=''
+	}
+	cat proto | sed 's!/.*!!' >proto.cp
+	disk/mkfs -a -s boot proto.cp | tee >{wc -c >[1=2]} | 
+		touchfs 1000000000 >boot.raw
+
+boot.bz2:Q: boot.raw
+	ls -l boot.raw
+	bflz -n 32 < boot.raw >boot.bflz
+	ls -l boot.bflz
+	bzip2 -9 < boot.bflz >$target
+	ls -l $target
+
+root.bz2:Q: boot.bz2
+	{
+		echo bzfilesystem
+		cat boot.bz2
+		dd -if /dev/zero -bs 1024 -count 1 >[2]/dev/null
+	} >$target
+	ls -l $target
+
+/sys/src/9/pc/9pcflop.gz: root.bz2
+	@{
+		rfork n
+		cd /sys/src/9/pc
+		mk 'CONF=pcflop' 9pcflop.gz
+	}
+
+/sys/src/9/pc/9pccd.gz:
+	@{
+		cd /sys/src/9/pc
+		mk 'CONF=pccd' 9pccd.gz
+	}
+
+# disk/format apparently uses stat to obtain a file's real name, so
+# binding 9loadusb onto 9load will store the name 9loadusb in the
+# generated fat filesystem.  the same is true for plan9.ini.cd and plan9.ini.
+
+9load: /386/9loadlite
+#	cp $prereq $target
+	if (test -e /386/9loadnousb)
+		cp  /386/9loadnousb $target	# cater to old bioses
+	cp /386/9loadlitedebug 9loaddebug
+
+ndisk: 9load /sys/src/9/pc/9pcflop.gz plan9.ini /lib/vgadb
+	dd -if /dev/zero -of ndisk -bs 1024 -count 1440 >[2]/dev/null
+	disk/format -f -b /386/pbs -d ndisk \
+		9load /sys/src/9/pc/9pcflop.gz plan9.ini /lib/vgadb
+	ls -l ndisk
+
+# cannot list both 9pcflop.gz and 9pccd.gz because they cannot be built 
+# in parallel.  stupid mk
+cddisk:DV: 9load /sys/src/9/pc/9pcflop.gz plan9.ini.cd /lib/vgadb
+	mk -a /sys/src/9/pc/9pccd.gz
+	mk -a /sys/src/9/pc/9pcflop.gz
+	rfork n
+	cp -x plan9.ini.cd subst/plan9.ini
+	dd -if /dev/zero -of cddisk -bs 1024 -count 2880 >[2]/dev/null
+	disk/format -t 3½QD -f -b /386/pbs -d cddisk \
+		9load /sys/src/9/pc/^(9pcflop.gz 9pccd.gz) \
+		subst/plan9.ini /lib/vgadb
+	ls -l cddisk
+
+clean:V:
+	if (! unmount 9load >[2]/dev/null)
+		;
+	rm -rf boot boot.bz2 boot.bflz boot.raw root.bz2 9pcflop ndisk 9load cddisk proto.cp 9loaddebug
+
+install:V: ndisk 9loaddebug
+	9fs $out
+	dst=/n/$out/sys/lib/dist/web.protect
+	cp 9loaddebug $dst
+	gzip -9 < ndisk > $dst/plan9.flp.gz
+	# mk clean
+
+test:V: ndisk 9loaddebug
+	cp 9loaddebug ../web.protect2/n9loaddebug
+	cp ndisk ../web.protect2/ndisk
+
+cd0:D:	cddisk
+	rm -f cd0
+	disk/mk9660 -9cj -v 'Plan 9 4th Edition' -s . -p cd0.proto -b cddisk cd0

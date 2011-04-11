@@ -71,7 +71,7 @@ close(void *f)
 static int
 isowalk(Extend *ex, int drive, char *path)
 {
-	char name[Maxpath], pad, *end;
+	char name[Maxpath], c, *end;
 	int i;
 	Dir d;
 
@@ -97,8 +97,16 @@ isowalk(Extend *ex, int drive, char *path)
 			break;
 		i = d.dirlen - (Dirsz + d.namelen);
 		while(i-- > 0)
-			read(ex, &pad, 1);
-		name[d.namelen] = 0;
+			read(ex, &c, 1);
+		for(i=0; i<d.namelen; i++){
+			c = name[i];
+			if(c >= 'A' && c <= 'Z'){
+				c -= 'A';
+				c += 'a';
+			}
+			name[i] = c;
+		}
+		name[i] = 0;
 		while(*path == '/')
 			path++;
 		if((end = strchr(path, '/')) == 0)
