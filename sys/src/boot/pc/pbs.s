@@ -1,46 +1,7 @@
-/*
- * FAT Partition Boot Sector. Loaded at 0x7C00:
- *	8a pbs.s; 8l -o pbs -l -H3 -T0x7C00 pbs.8
- * Will load the target at LOADSEG*16+LOADOFF, so the target
- * should be probably be loaded with LOADOFF added to the
- * -Taddress.
- * If LOADSEG is a multiple of 64KB and LOADOFF is 0 then
- * targets larger than 64KB can be loaded.
- *
- * This code uses the traditional INT13 BIOS interface and can
- * therefore only access the first 8.4GB of the disc.
- *
- * It relies on the _volid field in the FAT header containing
- * the LBA of the root directory.
- */
 #include "x16.h"
 #include "mem.h"
 
-#define LOADSEG		(0x10000/16)	/* where to load code (64KB) */
-#define LOADOFF		0
-#define DIROFF		0x0200		/* where to read the root directory */
-
-/*
- * FAT directory entry.
- */
-#define Dname		0x00
-#define Dext		0x08
-#define Dattr		0x0B
-#define Dtime		0x16
-#define Ddate		0x18
-#define Dstart		0x1A
-#define Dlengthlo	0x1C
-#define Dlengthhi	0x1E
-
-#define Dirsz		0x20
-
-/*
- * Data is kept on the stack, indexed by rBP.
- */
-#define Xdap		0x00		/* disc address packet */
-#define Xrootsz		0x10		/* file data area */
-#define Xdrive		0x12		/* boot drive, passed by BIOS or MBR */
-#define Xtotal		0x14		/* sum of allocated data above */
+#define RELOC 0x7c00
 
 TEXT _magic(SB), $0
 	BYTE $0xEB; BYTE $0x3C;		/* jmp .+ 0x3C  (_start0x3E) */
@@ -96,57 +57,73 @@ _start0x3E:
 	MTSR(rAX, rSS)			/* 0000 -> rSS */
 	MTSR(rAX, rDS)			/* 0000 -> rDS, source segment */
 	MTSR(rAX, rES)
-	LWI(_magic-Xtotal(SB), rSP)
-	MW(rSP, rBP)			/* set the indexed-data pointer */
 
-	SBPB(rDL, Xdrive)		/* save the boot drive */
+	LWI(0x100, rCX)
+	LWI(RELOC, rSI)
+	MW(rSI, rSP)
+	LWI(_magic(SB), rDI)
+	CLD
+	REP; MOVSL			/* MOV DS:[(E)SI] -> ES:[(E)DI] */
 
-	/* booting from a CD starts us at 7C0:0.  Move to 0:7C00 */
-	PUSHR(rAX)
-	LWI(_nxt(SB), rAX)
-	PUSHR(rAX)
-	BYTE $0xCB	/* FAR RET */
+	PUSHA
+	MW(rSP, rBP)
 
-TEXT _nxt(SB), $0
+	PUSHR(rCX)
+	PUSHI(start16(SB))
+	BYTE $0xCB			/* FAR RET */
+
+TEXT halt(SB), $0
+_halt:
+	JMP _halt
+
+TEXT start16(SB), $0
 	STI
-
-	LWI(confidence(SB), rSI)	/* for that warm, fuzzy feeling */
-	CALL16(BIOSputs(SB))
-
-	CALL16(dreset(SB))
-
-_jmp00:
+	LWI(hello(SB), rSI)
+	CALL16(print16(SB))
+	LWI(crnl(SB), rSI)
+	CALL16(print16(SB))
 	LW(_volid(SB), rAX)		/* Xrootlo */
-	LW(_volid+2(SB), rDX)		/* Xroothi */
+	LW(_volid+2(SB), rBX)		/* Xroothi */
+	PUSHR(rBP)
+	LW(_sectsize(SB), rCX)
+	SUB(rCX, rSP)
+	MW(rSP, rBP)
+	MW(rSP, rSI)
 
-	LWI(_magic+DIROFF(SB), rBX)
-	CALL16(BIOSread(SB))		/* read the root directory */
+_nextsect:
+	PUSHR(rAX)
+	CALL16(readsect16(SB))
+	OR(rAX, rAX)
+	JNE _halt
 
-	LWI((512/Dirsz), rBX)
+	LW(_sectsize(SB), rCX)
+	SHRI(5, rCX)
 
-	LWI(_magic+DIROFF(SB), rDI)	/* compare first directory entry */
-
-_cmp00:
-	PUSHR(rDI)			/* save for later if it matches */
-	LWI(bootfile(SB), rSI)
-	LWI(Dattr, rCX)
+_nextdir:
+	PUSHR(rCX)
+	PUSHR(rSI)			/* save for later if it matches */
+	LWI(bootname(SB), rDI)
+	LW(bootnamelen(SB), rCX)
+	CLD
 	REP
 	CMPSB
-	POPR(rDI)
-	JEQ _jmp02
+	POPR(rSI)
+	POPR(rCX)
+	JEQ _found
+	ADDI(0x20, rSI)	
+	LOOP _nextdir
+	POPR(rAX)
+	ADDI(1, rAX)
+	ADC(rCX, rBX)
+	JMP _nextsect
 
-	DEC(rBX)
-	JEQ _jmp01
+_found:
+	PUSHR(rDX)
 
-	ADDI(Dirsz, rDI)
-	JMP _cmp00
-_jmp01:
-	CALL16(buggery(SB))
+	CLR(rBX)
 
-_jmp02:
-	CLR(rBX)			/* a handy value */
 	LW(_rootsize(SB), rAX)		/* calculate and save Xrootsz */
-	LWI(Dirsz, rCX)
+	LWI(0x20, rCX)
 	MUL(rCX)
 	LW(_sectsize(SB), rCX)
 	PUSHR(rCX)
@@ -157,10 +134,7 @@ _jmp02:
 	DIV(rCX)
 	PUSHR(rAX)			/* Xrootsz */
 
-	/*
-	 * rDI points to the matching directory entry.
-	 */
-	LXW(Dstart, xDI, rAX)		/* starting sector address */
+	LXW(0x1a, xSI, rAX)		/* starting sector address */
 	DEC(rAX)			/* that's just the way it is */
 	DEC(rAX)
 	LB(_clustsize(SB), rCL)
@@ -176,8 +150,8 @@ _jmp02:
 
 	PUSHR(rAX)			/* calculate how many sectors to read */
 	PUSHR(rDX)
-	LXW(Dlengthlo, xDI, rAX)
-	LXW(Dlengthhi, xDI, rDX)
+	LXW(0x1c, xSI, rAX)
+	LXW(0x1e, xSI, rDX)
 	LW(_sectsize(SB), rCX)
 	PUSHR(rCX)
 	DEC(rCX)
@@ -186,187 +160,100 @@ _jmp02:
 	POPR(rCX)			/* _sectsize(SB) */
 	DIV(rCX)
 	MW(rAX, rCX)
-	POPR(rDX)
-	POPR(rAX)
-
-	LWI(LOADSEG, rBX)		/* address to load into (seg+offset) */
-	MTSR(rBX, rES)			/*  seg */
-	LWI(LOADOFF, rBX)		/*  offset */
-
-_readboot:
-	CALL16(BIOSread(SB))		/* read the sector */
-
-	LW(_sectsize(SB), rDI)		/* bump addresses/counts */
-	ADD(rDI, rBX)
-	JCC _incsecno
-
-	MFSR(rES, rDI)			/* next 64KB segment */
-	ADDI(0x1000, rDI)
-	MTSR(rDI, rES)
-
-_incsecno:
-	CLR(rDI)
-	INC(rAX)
-	ADC(rDI, rDX)
-	LOOP _readboot
-
-	LWI(LOADSEG, rDI)		/* set rDS for loaded code */
-	MTSR(rDI, rDS)
-	FARJUMP16(LOADSEG, LOADOFF)	/* no deposit, no return */
-
-TEXT buggery(SB), $0
-	LWI(error(SB), rSI)
-	CALL16(BIOSputs(SB))
-
-_wait:
-	CLR(rAX)			/* wait for almost any key */
-	BIOSCALL(0x16)
-
-_reset:
-	CLR(rBX)			/* set ES segment for BIOS area */
-	MTSR(rBX, rES)
-
-	LWI(0x0472, rBX)		/* warm-start code address */
-	LWI(0x1234, rAX)		/* warm-start code */
-	POKEW				/* MOVW	AX, ES:[BX] */
-
-	FARJUMP16(0xFFFF, 0x0000)	/* reset */
-
-/*
- * Read a sector from a disc. On entry:
- *   rDX:rAX	sector number
- *   rES:rBX	buffer address
- * For BIOSCALL(0x13):
- *   rAH	0x02
- *   rAL	number of sectors to read (1)
- *   rCH	low 8 bits of cylinder
- *   rCL	high 2 bits of cylinder (7-6), sector (5-0)
- *   rDH	head
- *   rDL	drive
- *   rES:rBX	buffer address
- */
-TEXT BIOSread(SB), $0
-	LWI(5, rDI)			/* retry count (ATAPI ZIPs suck) */
-_retry:
-	PUSHA				/* may be trashed by BIOSCALL */
-	PUSHR(rBX)
-
-	LW(_trksize(SB), rBX)
-	LW(_nheads(SB), rDI)
-	IMUL(rDI, rBX)
-	OR(rBX, rBX)
-	JZ _ioerror
-
-_okay:
-	DIV(rBX)			/* cylinder -> rAX, track,sector -> rDX */
-
-	MW(rAX, rCX)			/* save cylinder */
-	ROLI(0x08, rCX)			/* swap rC[HL] */
-	SHLBI(0x06, rCL)		/* move high bits up */
-
-	MW(rDX, rAX)
-	CLR(rDX)
-	LW(_trksize(SB), rBX)
-
-	DIV(rBX)			/* head -> rAX, sector -> rDX */
-
-	INC(rDX)			/* sector numbers are 1-based */
-	ANDI(0x003F, rDX)		/* should not be necessary */
-	OR(rDX, rCX)
-
-	MW(rAX, rDX)
-	SHLI(0x08, rDX)			/* form head */
-	LBPB(Xdrive, rDL)		/* form drive */
-
 	POPR(rBX)
-	LWI(0x0201, rAX)		/* form command and sectors */
-	BIOSCALL(0x13)			/* CF set on failure */
-	JCC _BIOSreadret
+	POPR(rAX)
+	POPR(rDX)
 
-	POPA
-	DEC(rDI)			/* too many retries? */
-	JEQ _ioerror
+	LWI(RELOC, rSI)
+	PUSHR(rSI)
 
-	CALL16(dreset(SB))
-	JMP _retry
+_loadnext:
+	PUSHR(rCX)
+	PUSHR(rAX)
+	CALL16(readsect16(SB))
+	OR(rAX, rAX)
+	JNE _loaderror
+	POPR(rAX)
+	CLR(rCX)
+	ADDI(1, rAX)
+	ADC(rCX, rBX)
+	LW(_sectsize(SB), rCX)
+	ADD(rCX, rSI)
+	POPR(rCX)
+	LOOP _loadnext
+	CLI
+	RET
 
-_ioerror:
+_loaderror:
 	LWI(ioerror(SB), rSI)
-	CALL16(BIOSputs(SB))
-	JMP _wait
+	CALL16(print16(SB))
+	CALL16(halt(SB))
 
-_BIOSreadret:
-	POPA
-	RET
-
-TEXT dreset(SB), $0
-	PUSHA
-	CLR(rAX)			/* rAH == 0 == reset disc system */
-	LBPB(Xdrive, rDL)
-	BIOSCALL(0x13)
-	ORB(rAH, rAH)			/* status (0 == success) */
-	POPA
-	JNE _ioerror
-	RET
-
-/*
- * Output a string to the display.
- * String argument is in rSI.
- */
-TEXT BIOSputs(SB), $0
+TEXT print16(SB), $0
 	PUSHA
 	CLR(rBX)
-_BIOSputs:
+_printnext:
 	LODSB
 	ORB(rAL, rAL)
-	JEQ _BIOSputsret
-
+	JEQ _printret
 	LBI(0x0E, rAH)
 	BIOSCALL(0x10)
-	JMP _BIOSputs
-
-_BIOSputsret:
+	JMP _printnext
+_printret:
 	POPA
 	RET
 
-/* "Bad format or I/O error\r\nPress almost any key to reboot..."*/
-TEXT error(SB), $0
-	BYTE $'B'; BYTE $'a'; BYTE $'d'; BYTE $' ';
-	BYTE $'f'; BYTE $'o'; BYTE $'r'; BYTE $'m';
-	BYTE $'a'; BYTE $'t'; BYTE $' '; BYTE $'o';
-	BYTE $'r'; BYTE $' ';
-/* "I/O error\r\nPress almost any key to reboot..." */
+/*
+ * in:
+ *	DL drive
+ *	AX:BX lba32,
+ *	0000:SI buffer
+ */
+TEXT readsect16(SB), $0
+	PUSHA
+	CLR(rCX)
+
+	PUSHR(rCX)		/* qword lba */
+	PUSHR(rCX)
+	PUSHR(rBX)
+	PUSHR(rAX)
+
+	PUSHR(rCX)		/* dword buffer */
+	PUSHR(rSI)
+
+	INC(rCX)
+	PUSHR(rCX)		/* word # of sectors */
+
+	PUSHI(0x0010)		/* byte reserved, byte packet size */
+
+	MW(rSP, rSI)
+	LWI(0x4200, rAX)
+	BIOSCALL(0x13)
+	JCC _readok
+	ADDI(0x10, rSP)
+	POPA
+	CLR(rAX)
+	DEC(rAX)
+	RET
+_readok:
+	ADDI(0x10, rSP)
+	POPA
+	CLR(rAX)
+	RET
+
+TEXT bootnamelen(SB), $0
+	WORD $8
+TEXT bootname(SB), $0
+	BYTE $'9'; BYTE $'B'; BYTE $'O'; BYTE $'O';
+	BYTE $'T'; BYTE $'F'; BYTE $'A'; BYTE $'T';
+	BYTE $0
+
 TEXT ioerror(SB), $0
-	BYTE $'I'; BYTE $'/'; BYTE $'O'; BYTE $' ';
-	BYTE $'e'; BYTE $'r'; BYTE $'r'; BYTE $'o';
-	BYTE $'r'; BYTE $'\r';BYTE $'\n';
-	BYTE $'P'; BYTE $'r'; BYTE $'e'; BYTE $'s';
-	BYTE $'s'; BYTE $' '; BYTE $'a'; BYTE $' ';
-	BYTE $'k'; BYTE $'e'; BYTE $'y';
-	BYTE $' '; BYTE $'t'; BYTE $'o'; BYTE $' ';
-	BYTE $'r'; BYTE $'e'; BYTE $'b'; BYTE $'o';
-	BYTE $'o'; BYTE $'t';
-	BYTE $'.'; BYTE $'.'; BYTE $'.';
-	BYTE $'\z';
+	BYTE $'i'; BYTE $'/'; BYTE $'o'; BYTE $'-';
+	BYTE $'e'; BYTE $'r'; BYTE $'r'; BYTE $0
 
-#ifdef USEBCOM
-/* "B       COM" */
-TEXT bootfile(SB), $0
-	BYTE $'B'; BYTE $' '; BYTE $' '; BYTE $' ';
-	BYTE $' '; BYTE $' '; BYTE $' '; BYTE $' ';
-	BYTE $'C'; BYTE $'O'; BYTE $'M';
-	BYTE $'\z';
-#else
-/* "9LOAD      " */
-TEXT bootfile(SB), $0
-	BYTE $'9'; BYTE $'L'; BYTE $'O'; BYTE $'A';
-	BYTE $'D'; BYTE $' '; BYTE $' '; BYTE $' ';
-	BYTE $' '; BYTE $' '; BYTE $' ';
-	BYTE $'\z';
-#endif /* USEBCOM */
+TEXT hello(SB), $0
+	BYTE $'p'; BYTE $'b'; BYTE $'s'; BYTE $0
 
-/* "PBS..." */
-TEXT confidence(SB), $0
-	BYTE $'P'; BYTE $'B'; BYTE $'S'; BYTE $'1'; 
-	BYTE $'.'; BYTE $'.'; BYTE $'.';
-	BYTE $'\z';
+TEXT crnl(SB), $0
+	BYTE $'\r'; BYTE $'\n'; BYTE $0

@@ -156,4 +156,4 @@
 
 /* operand size switch. */
 #define OPSIZE		BYTE $0x66
-
+#define ADSIZE		BYTE $0x67
