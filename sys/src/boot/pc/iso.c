@@ -155,7 +155,7 @@ start(void *sp)
 	readn(&ex, origin, ex.len);
 	close(&ex);
 
-	if(isowalk(f = &ex, drive, "plan9.ini")){
+	if(isowalk(f = &ex, drive, "/cfg/plan9.ini")){
 		print("no config\r\n");
 		f = 0;
 	}

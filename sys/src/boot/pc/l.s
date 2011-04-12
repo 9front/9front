@@ -237,6 +237,7 @@ TEXT readsect(SB), $0
 #ifdef ISO
 
 TEXT bootname(SB), $0
+	BYTE $'3'; BYTE $'8'; BYTE $'6'; BYTE $'/';
 	BYTE $'9'; BYTE $'b'; BYTE $'o'; BYTE $'o';
 	BYTE $'t'; BYTE $'i'; BYTE $'s'; BYTE $'o';
 	BYTE $0
