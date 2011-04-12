@@ -111,13 +111,6 @@ _pret32:
 	ANDL $0xFFFF, AX
 	RET
 
-TEXT a20(SB), $0
-	CALL rmode16(SB)
-	STI
-	LWI(0x2401, rAX)
-	BIOSCALL(0x15)
-	JMP _pret32
-
 #ifdef PXE
 
 TEXT pxecallret(SB), $0
