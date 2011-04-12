@@ -1,13 +1,9 @@
 </$objtype/mkfile
 
 BIN=/$objtype/bin/aux
-MAN=/sys/man/8
 
 TARG=realemu
 OFILES=decode.$O arg.$O xec.$O fmt.$O pit.$O main.$O
 HFILES=dat.h fns.h
 
 </sys/src/cmd/mkone
-
-install:V:
-	cp $TARG.man $MAN/$TARG
