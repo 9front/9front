@@ -8,6 +8,7 @@ fn cd { builtin cd $* && awd }  # for acme
 switch($service){
 case terminal
 	plumber
+	webfs
 	echo -n accelerated > '#m/mousectl'
 	echo -n 'res 3' > '#m/mousectl'
 	prompt=('term% ' '	')
