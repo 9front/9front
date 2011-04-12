@@ -65,9 +65,6 @@ mnt
 	wrap
 	wsys
 n
-net
-proc
-srv
 sys
 	games
 		+
@@ -108,7 +105,14 @@ sys
 tmp
 usr
 	glenda
-		+
+		bin
+			386
+				+
+			rc
+				+
+		lib
+			*
+		tmp
 
 LICENSE
 LICENSE.afpl

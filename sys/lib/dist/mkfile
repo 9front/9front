@@ -1,12 +1,10 @@
-iso=/tmp/9front.iso
-
-cd:V: $iso
+cd:V: /tmp/9front.iso
 	
 
-clean:V:
-	rm -fr $iso
-
-%.iso: pc/plan9.ini.cd
-	bind $prereq /n/src9/cfg/plan9.ini
+%.iso: pc/cdproto pc/plan9.ini.cd
+	bind pc/plan9.ini.cd /n/src9/cfg/plan9.ini
 	disk/mk9660 -9cj -B 386/9bootiso -p pc/cdproto -s /n/src9 -v 'Plan 9 Front' $target
 	unmount /n/src9/cfg/plan9.ini
+
+%.bz2: %
+	bzip2 $prereq
