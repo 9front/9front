@@ -55,34 +55,15 @@ case go
 	if not if(! test -f /n/9fat/plan9.ini)
 		need9fatformat=yes
 
-	if (test -e  /n/newfs/386/9loadnousb)
-		bind /n/newfs/386/9loadnousb /n/newfs/386/9load	# cater to old bioses
 	if(~ $need9fatformat yes){
 		log Initializing Plan 9 FAT partition.
 		disk/format -r 2 -d -b /386/pbs \
-			/dev/$disk/9fat /n/newfs/386/9load
-		# silently install pbslba if the partition is way into the disk.
-		# it''s our only hope.  only need this for >8.5GB into the disk.
-		# but...
-		# there are so few non-LBA bioses out
-		# there anymore that we'll do this even if we're only 2GB into
-		# the disk.  it's just not worth the headaches of dealing with
-		# crappy bioses that don't address the whole 8.5GB properly
-
-		9fatoffset=`{grep '^part 9fat ' /dev/$disk/ctl | awk '{print $4}'}
-		if(! ~ $#9fatoffset 1) {
-			echo 'could not find plan 9 partition.'
-			echo 'cannot happen'
-			exit bad
-		}
-		if(test $9fatoffset -gt 2097152)	# 2GB
-			disk/format -b /386/pbslba /dev/$disk/9fat
-
+			/dev/$disk/9fat /n/newfs/386/9bootfat
 		mount -c /srv/dos /n/9fat /dev/$disk/9fat
 	}
 
 	if(! test -f /n/9fat/4e){
-		logprog cp /n/newfs/386/9load /n/9fat/9load
+		logprog cp /n/newfs/386/9bootfat /n/9fat/9bootfat
 		logprog cp /n/newfs/386/9pcf /n/9fat/9pcf
 		if(test -f /n/9fat/plan9.ini && ! test -f /n/9fat/plan9-3e.ini)
 			logprog mv /n/9fat/plan9.ini /n/9fat/plan9-3e.ini
@@ -97,9 +78,7 @@ case go
 	echo 'There are myriad ways to boot a Plan 9 system.'
 	echo 'You can use any of the following.'
 	echo
-	echo '  floppy - create a boot floppy'
 	echo '  plan9  - make the plan 9 disk partition the default for booting'
-	echo '  win9x  - add a plan 9 option to windows 9x boot menu'
 	echo '  winnt  - add a plan 9 option to windows nt/2000/xp boot manager'
 	echo
 	echo 'If you are upgrading an extant third edition installation and booting'
@@ -109,7 +88,7 @@ case go
 	oldbootsetup=$didbootsetup
 	didbootsetup=1
 	export didbootsetup
-	prompt 'Enable boot method' floppy plan9 win9x winnt
+	prompt 'Enable boot method' plan9 winnt
 	
 	if(! boot$rd){
 		didbootsetup=$oldbootsetup

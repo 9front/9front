@@ -7,9 +7,8 @@ cd /bin/inst
 textinst=1
 export textinst
 
-tailfsrv &
-while(! test -f /srv/log)
-	sleep 1
+# use stderr as logfile
+echo 2 >/srv/log
 log `{date} Installation process started
 inst/mainloop
 
