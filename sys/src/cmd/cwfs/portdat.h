@@ -699,6 +699,7 @@ enum
 	Devfloppy,		/* floppy drive */
 	Devswab,		/* swab data between mem and device */
 	Devmirr,		/* mirror devices */
+	Devsrv,		/* pipes and network connections */
 	MAXDEV
 };
 

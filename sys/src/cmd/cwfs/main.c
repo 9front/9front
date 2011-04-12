@@ -7,6 +7,7 @@ extern int oldcachefmt;
 
 Map *devmap;
 
+int sfd, rfd;
 Biobuf bin;
 
 void
@@ -148,6 +149,57 @@ confinit(void)
 		mapinit(conf.devmap);
 }
 
+static int
+srvfd(char *s, int mode, int sfd)
+{
+	int fd;
+	char buf[32];
+
+	fd = create(s, ORCLOSE|OWRITE, mode);
+	if(fd < 0){
+		remove(s);
+		fd = create(s, ORCLOSE|OWRITE, mode);
+		if(fd < 0)
+			panic(s);
+	}
+	sprint(buf, "%d", sfd);
+	if(write(fd, buf, strlen(buf)) != strlen(buf))
+		panic("srv write");
+	return sfd;
+}
+
+static void
+postservice(void)
+{
+	char buf[3*NAMELEN];
+	int p[2];
+
+	if(sfd < 0){
+		if(pipe(p) < 0)
+			panic("can't make a pipe");
+		sfd = p[0];
+		rfd = p[1];
+	}
+
+	/* post 9p service */
+	snprint(buf, sizeof(buf), "#s/%s", service);
+	srvfd(buf, 0666, sfd);
+	close(sfd);
+	srvchan(rfd, buf);
+
+	if(pipe(p) < 0)
+		panic("can't make a pipe");
+
+	/* post cmd service */
+	snprint(buf, sizeof(buf), "#s/%s.cmd", service);
+	srvfd(buf, 0222, p[0]);
+	close(p[0]);
+
+	/* use it as stdin */
+	dup(p[1], 0);
+	close(p[1]);
+}
+
 /*
  * compute BUFSIZE*(NDBLOCK+INDPERBUF+INDPERBUF⁲+INDPERBUF⁳+INDPERBUF⁴)
  * while watching for overflow; in that case, return 0.
@@ -224,8 +276,7 @@ printsizes(void)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-cf][-a ann-str][-m dev-map] config-dev\n",
-		argv0);
+	fprint(2, "usage: %s [ -csC ] [ -a ann-str ] [ -m dev-map ] [-f config-dev ]\n", argv0);
 	exits("usage");
 }
 
@@ -234,11 +285,13 @@ main(int argc, char **argv)
 {
 	int i, nets = 0;
 	char *ann;
-
+	
 	rfork(RFNOTEG);
 	formatinit();
 	machinit();
-	conf.confdev = "n";		/* Devnone */
+	conf.confdev = "/dev/sdC0/cwfs";
+
+	rfd = sfd = -1;
 
 	ARGBEGIN{
 	case 'a':			/* announce on this net */
@@ -250,11 +303,24 @@ main(int argc, char **argv)
 		}
 		annstrs[nets++] = ann;
 		break;
-	case 'c':			/* use new, faster cache layout */
+	case 's':
+		sfd = dup(0, -1);
+		rfd = dup(1, -1);
+		close(0);
+		if(open("/dev/cons", OREAD) < 0)
+			open("#c/cons", OREAD);
+		close(1);
+		if(open("/dev/cons", OWRITE) < 0)
+			open("#c/cons", OWRITE);
+		break;
+	case 'C':			/* use new, faster cache layout */
 		oldcachefmt = 0;
 		break;
-	case 'f':			/* enter configuration mode first */
+	case 'c':
 		conf.configfirst++;
+		break;
+	case 'f':			/* device / partition / file  */
+		conf.confdev = EARGF(usage());
 		break;
 	case 'm':			/* name device-map file */
 		conf.devmap = EARGF(usage());
@@ -264,9 +330,8 @@ main(int argc, char **argv)
 		break;
 	}ARGEND
 
-	if (argc != 1)
+	if(argc != 0)
 		usage();
-	conf.confdev = argv[0];	/* config string for dev holding full config */
 
 	Binit(&bin, 0, OREAD);
 	confinit();
@@ -304,6 +369,13 @@ main(int argc, char **argv)
 	print("sysinit\n");
 	sysinit();
 
+	srvinit();
+
+	/*
+	 * post filedescriptors to /srv
+	 */
+	postservice();
+
 	/*
 	 * Ethernet i/o processes
 	 */
@@ -326,16 +398,14 @@ main(int argc, char **argv)
 	newproc(wormcopy, 0, "wcp");
 
 	/*
+	 * "sync" copy process
+	 */
+	newproc(synccopy, 0, "scp");
+
+	/*
 	 * processes to read the console
 	 */
 	consserve();
-
-	/*
-	 * "sync" copy process
-	 * this doesn't return.
-	 */
-	procsetname("scp");
-	synccopy();
 }
 
 /*
@@ -541,7 +611,7 @@ wormcopy(void *)
  * to get up-to-date.
  */
 void
-synccopy(void)
+synccopy(void *)
 {
 	int f;
 
@@ -584,3 +654,4 @@ inqsize(char *file)
 	free(data);
 	return rv;
 }
+

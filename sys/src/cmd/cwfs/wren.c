@@ -116,5 +116,6 @@ wrenwrite(Device *d, Off b, void *c)
 		cons.nwrenwe++;
 		r = 1;
 	}
+
 	return r;
 }

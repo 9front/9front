@@ -614,7 +614,9 @@ Zfmt(Fmt* fmt)
 	case Devlworm:
 		if (c == '\0')
 			c = 'l';
-		if(d->wren.ctrl == 0 && d->wren.lun == 0)
+		if(d->wren.file)
+			snprint(s, sizeof(s), "%c\"%s\"", c, d->wren.file);
+		else if(d->wren.ctrl == 0 && d->wren.lun == 0)
 			sprint(s, "%c%d", c, d->wren.targ);
 		else
 			sprint(s, "%c%d.%d.%d", c, d->wren.ctrl, d->wren.targ,

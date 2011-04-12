@@ -36,13 +36,10 @@ consserve1(void *)
 	char *conline;
 
 	for (;;) {
-		/* conslock(); */
 		do {
-			print("%s: ", service);
-			if ((conline = Brdline(&bin, '\n')) == nil)
-				print("\n");
-			else {
+			if ((conline = Brdline(&bin, '\n')) != nil) {
 				conline[Blinelen(&bin)-1] = '\0';
+				print("%s: %s\n", service, conline);
 				cmd_exec(conline);
 			}
 		} while (conline != nil);

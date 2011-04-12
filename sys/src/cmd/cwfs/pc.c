@@ -33,7 +33,7 @@ mconfinit(void)
 		}
 		Bterm(bp);
 		if (pgsize > 0 && userpgs > 0)
-			size = (((userpgs - userused)*3LL)/4)*pgsize;
+			size = (((userpgs - userused)*1LL)/4)*pgsize;
 	}
 	mconf.memsize = size;
 	mbp = mconf.bank;

@@ -204,21 +204,36 @@ int
 checktag(Iobuf *p, int tag, Off qpath)
 {
 	Tag *t;
-	static Off lastaddr;
+	ulong pc;
 
+	qpath &= ~QPDIR;
 	t = (Tag*)(p->iobuf+BUFSIZE);
+	if((tag != t->tag) || ((qpath != QPNONE) && (qpath != t->path))){
+		pc = getcallerpc(&p);
+
+		if(qpath == QPNONE){
+			print("checktag pc=%lux %Z(%llux) tag/path=%G/%llud; expected %G\n",
+				pc, p->dev, (Wideoff)p->addr, t->tag, (Wideoff)t->path, tag);
+		} else {
+			print("checktag pc=%lux %Z(%llux) tag/path=%G/%llud; expected %G/%llud\n",
+				pc, p->dev, (Wideoff)p->addr, t->tag, (Wideoff)t->path, tag, qpath);
+		}
+		return 1;
+	}
+
+	/*
 	if(t->tag != tag) {
 		if(p->flags & Bmod) {
-			print("\ttag = %d/%llud; expected %lld/%d -- not flushed\n",
+			print("\t%llux: tag = %G/%llud; expected %G/%d -- not flushed\n",
 				t->tag, (Wideoff)t->path, (Wideoff)qpath, tag);
 			return 2;
 		}
 		if(p->dev != nil && p->dev->type == Devcw)
 			cwfree(p->dev, p->addr);
 		if(p->addr != lastaddr)
-			print("\ttag = %G/%llud; expected %G/%lld -- flushed (%lld)\n",
-				t->tag, (Wideoff)t->path, tag, (Wideoff)qpath,
-				(Wideoff)p->addr);
+			print("\t%llux: tag = %G/%llud; expected %G/%lld -- flushed\n",
+				(Wideoff)p->addr, t->tag, (Wideoff)t->path, tag, (Wideoff)qpath);
+
 		lastaddr = p->addr;
 		p->dev = devnone;
 		p->addr = -1;
@@ -226,13 +241,14 @@ checktag(Iobuf *p, int tag, Off qpath)
 		return 2;
 	}
 	if(qpath != QPNONE) {
-		if((qpath ^ t->path) & ~QPDIR) {
-			if(1 || CHAT(0))
-				print("\ttag/path = %llud; expected %d/%llux\n",
-					(Wideoff)t->path, tag, (Wideoff)qpath);
+		if(qpath ^ t->path) {
+			print("\t%llux: tag/path = %G/%llud; expected %G/%llux\n",
+				(Wideoff)p->addr, t->tag, (Wideoff)t->path, tag, (Wideoff)qpath);
 			return 0;
 		}
 	}
+	*/
+	
 	return 0;
 }
 

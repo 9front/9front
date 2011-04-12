@@ -82,6 +82,11 @@ devcmpr(Device *d1, Device *d2)
 		case Devwren:
 		case Devworm:
 		case Devlworm:
+			if(d1->wren.file || d2->wren.file){
+				if(d1->wren.file == nil || d2->wren.file == nil)
+					return 1;
+				return !!strcmp(d1->wren.file, d2->wren.file);
+			}
 			if(d1->wren.ctrl == d2->wren.ctrl)
 			if(d1->wren.targ == d2->wren.targ)
 			if(d1->wren.lun == d2->wren.lun)
@@ -222,7 +227,7 @@ config(void)
 {
 	int c, m;
 	Device *d;
-	char *icp;
+	char *icp, *s, *e;
 
 	if(f.error)
 		return devnone;
@@ -248,7 +253,41 @@ config(void)
 		d->type = Devnone;
 		break;
 
+	case '/':	/* /path/to/file	mapped file */
+	case '"':	/* "/path/to/file"	mapped file */
+	case '\'':	/* '/path/to/file'	mapped file */
+	Mapped:
+		d->type = Devwren;
+		if(c == '/'){
+			s = f.charp-1;
+			for(e = s+1; *e; e++)
+				if(*e == ')' || *e == ']' || *e == '}')
+					break;
+			f.charp = e;
+		} else {
+			s = f.charp;
+			if((e = strchr(s, c)) == nil){
+				cdiag("unterminated string", c);
+				return devnone;
+			}
+			f.charp = e+1;
+		}
+		d->wren.ctrl = -1;
+		d->wren.targ = -1;
+		d->wren.lun = -1;
+		d->wren.file = malloc((e - s) + 1);
+		memmove(d->wren.file, s, e - s);
+		d->wren.file[e - s] = 0;
+		break;
+
 	case 'w':	/* w[#.]#[.#] wren	[ctrl] unit [lun] */
+		switch(*f.charp){
+		case '/':
+		case '"':
+		case '\'':
+			c = *f.charp++;
+			goto Mapped;
+		}
 	case 'r':	/* r# worm side */
 	case 'l':	/* l# labelled-worm side */
 		icp = f.charp;

@@ -27,10 +27,12 @@ OFILES=\
 	time.$O\
 	uidgid.$O\
 	wren.$O\
+	srv.$O\
 
 HFILES=\
 	../32bit.h\
 	../64bit.h\
+	../64xbit.h\
 	../9p1.h\
 	../all.h\
 	dat.h\
