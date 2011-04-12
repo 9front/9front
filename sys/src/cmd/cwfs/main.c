@@ -174,6 +174,9 @@ postservice(void)
 	char buf[3*NAMELEN];
 	int p[2];
 
+	if(service[0] == 0)
+		panic("no service name");
+
 	if(sfd < 0){
 		if(pipe(p) < 0)
 			panic("can't make a pipe");
@@ -290,6 +293,7 @@ main(int argc, char **argv)
 	formatinit();
 	machinit();
 	conf.confdev = "/dev/sdC0/cwfs";
+	strcpy(service, "cwfs");
 
 	rfd = sfd = -1;
 
