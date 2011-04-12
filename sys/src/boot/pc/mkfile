@@ -54,17 +54,18 @@ $BIN/%:	%
 test.iso: 9bootiso
 	rm -fr tmp $target
 	mkdir tmp
-	cp 9bootiso tmp
 	touch tmp/foo
 	touch tmp/bar
 	touch tmp/baz
 	touch tmp/386aaa
 	mkdir tmp/386
+	cp /386/9bootiso tmp/386
 	cp /386/9pc tmp/386
 	cp /386/9pcload tmp/386
 	cp /386/9pcf tmp/386
-	#echo 'bootfile=/386/9pc' >tmp/plan9.ini
-	disk/mk9660 -B 9bootiso -p /sys/lib/sysconfig/proto/allproto -s tmp $target
+	mkdir tmp/cfg
+	echo 'bootfile=/386/9pc' >tmp/cfg/plan9.ini
+	disk/mk9660 -B 386/9bootiso -p /sys/lib/sysconfig/proto/allproto -s tmp $target
 	rm -fr tmp
 
 test.dsk: 9bootfat mbr pbs 
