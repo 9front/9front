@@ -1,21 +1,17 @@
-src9=/n/src9
-scr=/tmp/dist
+scr=/tmp/cdstub
+iso=/tmp/9front.iso
 
-x=`{mkdir -p $scr}
-
-cd:V: $scr/plan9.iso
+cd:V: $iso
 	
+
 clean:V:
-	rm -rf $scr
+	rm -fr $scr $iso
 
-$scr/cdstub:D:	$src9/386/9bootiso
-	mkdir -p $target
-	cp $prereq $target
-	cp pc/plan9.ini.cd $target/plan9.ini
-
-$scr/plan9.iso: $scr/cdstub
-	bind -a $src9 $scr/cdstub 
-	bind /n/empty $scr/cdstub/.hg
-	disk/mk9660 -9cj -s $scr/cdstub -B 9bootiso $target
-	unmount $scr/cdstub/.hg
-	unmount $scr/cdstub
+%.iso:	/n/src9/386/9bootiso
+	mkdir -p $scr
+	cp $prereq $scr
+	cp pc/plan9.ini.cd $scr/plan9.ini
+	bind -a /n/src9 $scr
+	disk/mk9660 -9cj -B 9bootiso -p pc/cdproto -s $scr -v 'Plan 9 Front' $target
+	unmount $scr
+	rm -fr $scr
