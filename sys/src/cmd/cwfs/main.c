@@ -293,7 +293,6 @@ main(int argc, char **argv)
 	formatinit();
 	machinit();
 	conf.confdev = "/dev/sdC0/cwfs";
-	strcpy(service, "cwfs");
 
 	rfd = sfd = -1;
 
