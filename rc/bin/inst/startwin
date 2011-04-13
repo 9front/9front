@@ -37,10 +37,9 @@ if(test $loght -lt 130)
 textht=`{hoc -e $ht^-$loght}
 
 window 0,$textht,$statwid,$ht stats -lmisce
-window $statwid,$textht,^`{hoc -e $logwid+$statwid}^,$ht tailfsrv
 window 0,0,^`{hoc -e $logwid+$statwid}^,$textht inst/mainloop
-
+rm -f /srv/log
+window $statwid,$textht,^`{hoc -e $logwid+$statwid}^,$ht 'echo 2 >/srv/log; while(){sleep 1000}'
 while(! test -f /srv/log)
 	sleep 1
-
 log `{time} Installation process started
