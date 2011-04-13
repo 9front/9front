@@ -344,7 +344,6 @@ first database file searched
 .IR con (1),
 .IR dial (2),
 .IR ndb (2),
-.IR 9load (8),
 .IR booting (8),
 .IR dhcpd (8),
 .IR ipconfig (8),
