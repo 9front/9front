@@ -13,9 +13,6 @@ TEXT a20(SB), $0
 	RET
 
 _biosfail:
-	LWI((0x0E00|'!'), rAX)
-	BIOSCALL(0x10);
-
 	CLI
 	CALL16(pmode32(SB))
 
