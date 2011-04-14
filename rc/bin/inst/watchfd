@@ -14,4 +14,4 @@ if(~ $textinst 1)
 {
 	while(test -f /proc/$p/fd)
 		grep '^ *'^$2^' ' /proc/$p/fd >[2]/dev/null
-} | awk '{print $9 " '^$3^'"; fflush("/dev/stdout")}' | bargraph $baropt $4
+} | awk '{print $9 " '^$3^'"; fflush("/dev/stdout")}' | aux/statusbar $baropt $4
