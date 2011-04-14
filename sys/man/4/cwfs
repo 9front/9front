@@ -4,15 +4,17 @@ cwfs \- cached-worm file server, dump
 .SH SYNOPSIS
 .B cwfs
 [
-.B -cf
+.B -csC
 ] [
 .B -a
 .I announce-string
 ] ... [
 .B -m
 .I device-map
-]
+] [
+.B -f
 .I config-device
+]
 .SH DESCRIPTION
 .I Cwfs
 is a cached-worm file server that runs
@@ -46,11 +48,21 @@ in order to be compatible with some existing file systems, notably
 These parameters can be changed by recompilation.
 .PP
 .I Cwfs
-expects to find the configuration block on
-.IR config-device .
+places its server 9P connaction in
+.BI /srv/ name\f1
+and its command pipe in
+.BI /srv/ name\f1 .cmd,
+where
+.I name
+is the service name. 
 .PP
 Options are:
-.TF -m
+.TP
+.B -f
+specify
+.IR config-device
+other than the default
+.LR /dev/sdC0/cwfs .
 .TP
 .B -a
 announce on
@@ -58,7 +70,7 @@ announce on
 instead of
 .LR tcp!*!9fs .
 .TP
-.B -c
+.B -C
 use a newer, faster, and incompatible cache-device layout.
 To convert an old file system's cache to the new layout,
 dump the file system, note the last superblock number,
@@ -67,17 +79,22 @@ halt
 restart
 .I cwfs
 with
-.BR -cf ,
+.BR -cC ,
 .I recover
 the file system, and start
 .I cwfs
 with
-.B -c
+.B -C
 thereafter.
 .TP
-.B -f
+.B -c
 enter the file server's configuration mode
 before starting normal operation.
+.TP
+.B -s
+Post file descriptor zero in
+.BI /srv/ service
+and read and write protocol messages on file descriptor one.
 .TP
 .B -m
 the file
@@ -224,6 +241,18 @@ and
 (see
 .IR auth/wrkey ).
 .PP
+Files can be used directly as wren devices by giving
+a file name rooted at
+.I /
+or using double or single quotes. Such a file name
+can be appended to the
+.L w
+device instead of specifying
+.L target
+and
+.L lun
+numbers.
+.PP
 .IR fs (4)'s
 device names
 .L h
@@ -288,7 +317,6 @@ ls -lp /n/dump/1992/02??/mips/bin/vc | uniq
 .IR yesterday (1),
 .IR fs (3),
 .IR sd (3),
-.IR fossil (4),
 .IR fs (4),
 .IR srv (4),
 .IR fs (8),
@@ -310,8 +338,3 @@ deciding which to serve by sniffing the first packet on each connection.
 .PP
 File system block size and disk address size (32- or 64-bit) are fixed
 at compilation time, and this is not easily changed.
-.PP
-.I Cwfs
-is probably not the right choice of file server for new file systems.
-It's intended to cope with existing file systems on optical jukeboxes
-or images thereof.
