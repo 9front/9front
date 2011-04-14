@@ -1,9 +1,0 @@
-#!/bin/rc
-
-rfork e
-
-if(test -f /dev/sd*/dos*){
-	dosmnt 1 /n/c:
-	dosmnt 1 /n/c
-	exit
-}
