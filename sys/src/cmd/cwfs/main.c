@@ -279,7 +279,7 @@ printsizes(void)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [ -csC ] [ -a ann-str ] [ -m dev-map ] [-f config-dev ]\n", argv0);
+	fprint(2, "usage: %s [ -csC ] [-n service] [ -a ann-str ] [ -m dev-map ] [-f config-dev ]\n", argv0);
 	exits("usage");
 }
 
@@ -305,6 +305,9 @@ main(int argc, char **argv)
 			exits("too many nets");
 		}
 		annstrs[nets++] = ann;
+		break;
+	case 'n':
+		strcpy(service, EARGF(usage()));
 		break;
 	case 's':
 		sfd = dup(0, -1);

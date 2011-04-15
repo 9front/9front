@@ -6,6 +6,9 @@ cwfs \- cached-worm file server, dump
 [
 .B -csC
 ] [
+.B -n
+.I service
+] [
 .B -a
 .I announce-string
 ] ... [
@@ -54,7 +57,7 @@ and its command pipe in
 .BI /srv/ name\f1 .cmd,
 where
 .I name
-is the service name. 
+is the service name.
 .PP
 Options are:
 .TP
@@ -90,6 +93,11 @@ thereafter.
 .B -c
 enter the file server's configuration mode
 before starting normal operation.
+.TP
+.B -n
+overrides the 
+.I service
+name of the file server's configuration.
 .TP
 .B -s
 Post file descriptor zero in
