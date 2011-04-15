@@ -24,20 +24,21 @@ reboots the machine;
 other methods of rebooting are mentioned for some machines.
 .SS PCs
 To boot a PC, it is necessary to get
-.B /386/9load
+.B /386/9bootfat
+.B /386/9bootiso
 or
-.B /386/9pxeload
+.B /386/9bootpxe
 loaded into memory.
 There are many ways to do this.  A Plan 9 boot floppy prepared by
 .B format
 (see
 .IR prep (8))
 will load
-.B 9load
+.B 9bootfat
 when the PC is reset or powered on.
 Other methods are described in 
-.IR 9load (8).
-.B 9load
+.IR 9boot (8).
+.B 9boot
 then locates and loads a Plan 9 kernel, using configuration information
 from the file
 .B plan9.ini
@@ -45,7 +46,7 @@ stored in the
 .B 9fat
 configuration partition or on a DOS file system.
 See 
-.IR 9load (8)
+.IR 9boot (8)
 for details.
 .PP
 Once the kernel is booted, it behaves like the others.
@@ -252,7 +253,7 @@ when reset.
 .
 .SH "SEE ALSO"
 .IR ndb (6),
-.IR 9load (8),
+.IR 9boot (8),
 .IR boot (8),
 .IR init (8),
 .IR plan9.ini (8)
