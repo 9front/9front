@@ -29,6 +29,15 @@ struct Name {
 	char *s;
 };
 
+typedef struct Opt Opt;
+struct Opt {
+	int level;
+	char *skip;
+	char *uid;
+	char *gid;
+	Opt *prev;
+};
+
 typedef struct Mkaux Mkaux;
 struct Mkaux {
 	Mkfserr *warn;
@@ -42,6 +51,8 @@ struct Mkaux {
 	Name fullname;
 	int	lineno;
 	int	indent;
+
+	Opt *opt;
 
 	void *a;
 };
@@ -60,6 +71,7 @@ static void	mktree(Mkaux*, File*, int);
 static void	setnames(Mkaux*, File*);
 static void	skipdir(Mkaux*);
 static void	warn(Mkaux*, char *, ...);
+static void	popopt(Mkaux *mkaux);
 
 //static void
 //mprint(char *new, char *old, Dir *d, void*)
@@ -86,6 +98,7 @@ rdproto(char *proto, char *root, Mkfsenum *mkenum, Mkfserr *mkerr, void *a)
 	m->proto = proto;
 	m->lineno = 0;
 	m->indent = 0;
+	m->opt = nil;
 	if((m->b = Bopen(proto, OREAD)) == nil) {
 		werrstr("open '%s': %r", proto);
 		return -1;
@@ -102,6 +115,8 @@ rdproto(char *proto, char *root, Mkfsenum *mkenum, Mkfserr *mkerr, void *a)
 		rv = -1;
 	free(m->oldfile.s);
 	free(m->fullname.s);
+	m->indent = -1;
+	popopt(m);
 	return rv;
 }
 
@@ -169,10 +184,12 @@ mktree(Mkaux *mkaux, File *me, int rec)
 		warn(mkaux, "can't open %s: %r", mkaux->oldfile.s);
 		return;
 	}
-
 	child = *me;
 	while((n = dirread(fd, &d)) > 0){
 		for(i = 0; i < n; i++){
+			if(mkaux->opt && mkaux->opt->skip)
+				if(strstr(d[i].name, mkaux->opt->skip))
+					continue;
 			child.new = mkpath(mkaux, me->new, d[i].name);
 			if(me->old)
 				child.old = mkpath(mkaux, me->old, d[i].name);
@@ -216,13 +233,14 @@ setname(Mkaux *mkaux, Name *name, char *s1, char *s2)
 		name->s = emalloc(mkaux, l+SLOP);
 		name->n = l+SLOP;
 	}
-	snprint(name->s, name->n, "%s%s%s", s1, s1[0]==0 || s1[strlen(s1)-1]!='/' ? "/" : "", s2);
+	snprint(name->s, name->n, "%s%s%s", s1, *s1==0 || s1[strlen(s1)-1]!='/' ? "/" : "", s2);
 }
 
 static int
 copyfile(Mkaux *mkaux, File *f, Dir *d, int permonly)
 {
 	Dir *nd;
+	Opt *o;
 	ulong xmode;
 	char *p;
 
@@ -240,10 +258,15 @@ copyfile(Mkaux *mkaux, File *f, Dir *d, int permonly)
 		xmode = (d->mode >> 6) & 7;
 		d->mode |= xmode | (xmode << 3);
 	}
+	o = mkaux->opt;
 	if(strcmp(f->uid, "-") != 0)
 		d->uid = f->uid;
+	else if(o && o->uid)
+		d->uid = o->uid;
 	if(strcmp(f->gid, "-") != 0)
 		d->gid = f->gid;
+	else if(o && o->gid)
+		d->gid = o->gid;
 	if(f->mode != ~0){
 		if(permonly)
 			d->mode = (d->mode & ~0666) | (f->mode & 0666);
@@ -257,7 +280,6 @@ copyfile(Mkaux *mkaux, File *f, Dir *d, int permonly)
 		d->name = p+1;
 	else
 		d->name = f->new;
-
 	mkaux->mkenum(f->new, mkaux->fullname.s, d, mkaux->a);
 	xmode = d->mode;
 	free(nd);
@@ -289,6 +311,59 @@ setnames(Mkaux *mkaux, File *f)
 			setname(mkaux, &mkaux->oldfile, mkaux->root, f->old);
 	} else
 		setname(mkaux, &mkaux->oldfile, mkaux->root, f->new);
+}
+
+static void
+setopt(Mkaux *mkaux, char *key, char *val)
+{
+	Opt *o;
+
+	o = mkaux->opt;
+	if(o == nil || mkaux->indent > o->level){
+		o = emalloc(mkaux, sizeof(*o));
+		if(o == nil)
+			longjmp(mkaux->jmp, 1);
+		if(mkaux->opt){
+			*o = *mkaux->opt;
+			if(o->skip)
+				o->skip = estrdup(mkaux, o->skip);
+			if(o->uid)
+				o->uid = estrdup(mkaux, o->uid);
+			if(o->gid)
+				o->gid = estrdup(mkaux, o->gid);
+		}else
+			memset(o, 0, sizeof(*o));
+		o->level = mkaux->indent;
+		o->prev = mkaux->opt;
+		mkaux->opt = o;
+	} else if(mkaux->indent < o->level)
+		return;
+	if(strcmp(key, "skip") == 0){
+		free(o->skip); 
+		o->skip = *val ? estrdup(mkaux, val) : nil;
+	} else if(strcmp(key, "uid") == 0){
+		free(o->uid); 
+		o->uid = *val ? estrdup(mkaux, val) : nil;
+	} else if(strcmp(key, "gid") == 0){
+		free(o->gid); 
+		o->gid = *val ? estrdup(mkaux, val) : nil;
+	}
+}
+
+static void
+popopt(Mkaux *mkaux)
+{
+	Opt *o;
+
+	while(o = mkaux->opt){
+		if(o->level <= mkaux->indent)
+			break;
+		mkaux->opt = o->prev;
+		free(o->skip);
+		free(o->uid);
+		free(o->gid);
+		free(o);
+	}
 }
 
 static void
@@ -330,6 +405,7 @@ skipdir(Mkaux *mkaux)
 			else
 				break;
 		if(mkaux->indent <= level){
+			popopt(mkaux);
 			Bseek(mkaux->b, -Blinelen(mkaux->b), 1);
 			mkaux->lineno--;
 			return;
@@ -342,7 +418,7 @@ getfile(Mkaux *mkaux, File *old)
 {
 	File *f;
 	char *elem;
-	char *p;
+	char *p, *s;
 	int c;
 
 	if(mkaux->indent < 0)
@@ -365,6 +441,14 @@ loop:
 	if(c == '\n' || c == '#')
 		goto loop;
 	p--;
+	popopt(mkaux);
+	*strchr(p, '\n') = 0;
+	if(s = strchr(p, '=')){
+		*s++ = 0;
+		setopt(mkaux, p, s);
+		goto loop;
+	}else
+		p[strlen(p)] = '\n';
 	f = emalloc(mkaux, sizeof *f);
 	p = getname(mkaux, p, &elem);
 	if(p == nil)

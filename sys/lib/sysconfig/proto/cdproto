@@ -1,0 +1,106 @@
+skip=.dummy
+uid=sys
+gid=sys
+adm	d775 adm adm
+	uid=adm
+	gid=adm
+	timezone	d775
+		*
+cfg	d775
+	+
+fd	d775
+lib	d775
+	+
+rc	d775
+	+
+mail	d775 upas upas
+	uid=upas
+	gid=upas
+	box	d775
+		glenda	d775 glenda glenda
+			mbox	a662 glenda glenda
+	faxoutqueue	d777
+	faxqueue	d777
+	fs	d555
+	grey	d775
+	lib	d775
+		*
+	queue	d777
+	tmp	d777
+$cputype	d775
+	+
+acme	d775
+	+
+mnt	d775
+	acme	d555
+	apeselect	d555
+	apm	d555
+	cd	d555
+	cons	d555
+		cons	d555
+		consctl	d555
+	consoles	d555
+	doc	d555
+	exportfs	d555
+		*
+	keys	d555
+	lp	d555
+	netkeys	d555
+	news	d555
+	plumb	d555
+	rdb	d555
+	temp	d555
+	term	d555
+	ums	d555
+	vmware	d555
+	web	d555
+	webcookies	d555
+	wiki	d555
+	wrap	d555
+	wsys	d555
+n	d775
+sys	d775
+	games
+		+
+	include
+		+
+	lib
+		+
+	log
+	man
+		fonts
+		1
+			*
+		2
+			*
+		3
+			*
+		4
+			*
+		5
+			*
+		6
+			*
+		7
+			*
+		8
+			*
+	src
+		+
+tmp	d555
+usr	d775
+	glenda	d775 glenda glenda
+		uid=glenda
+		gid=glenda
+		bin d775
+			386 d775
+				+
+			rc d775
+				+
+		lib d775
+			*
+		tmp d775
+LICENSE	444
+LICENSE.afpl	444
+LICENSE.gpl	444
+NOTICE	444
