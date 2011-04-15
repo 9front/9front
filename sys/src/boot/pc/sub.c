@@ -85,50 +85,6 @@ readn(void *f, void *data, int len)
 	return p - (uchar*)data;
 }
 
-static ushort
-beswab(ushort s)
-{
-	uchar *p;
-
-	p = (uchar*)&s;
-	return (p[0]<<8) | p[1];
-}
-
-static ulong
-beswal(ulong l)
-{
-	uchar *p;
-
-	p = (uchar*)&l;
-	return (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
-}
-
-char*
-bootkern(void *f)
-{
-	uchar *e, *d;
-	Exec ex;
-	int n;
-
-	a20();
-	if(readn(f, &ex, sizeof(ex)) != sizeof(ex))
-		return "bad header";
-	if(beswal(ex.magic) != I_MAGIC)
-		return "bad magic";
-	e = (uchar*)(beswal(ex.entry) & ~0xF0000000UL);
-	n = beswal(ex.text);
-	if(readn(f, e, n) != n)
-		goto err;
-	d = (uchar*)(((ulong)e + n + 0xFFF) & ~0xFFFUL);
-	n = beswal(ex.data);
-	if(readn(f, d, n) != n)
-		goto err;
-	close(f);
-	jump(e);
-err:		
-	return "i/o error";
-}
-
 static int
 readline(void *f, char buf[64])
 {
@@ -169,6 +125,7 @@ configure(void *f, char *path)
 	char line[64], *p, *kern;
 	int inblock, n;
 
+Clear:
 	kern = 0;
 	inblock = 0;
 	p = (char*)((CONFADDR + 64) & ~0xF0000000UL);
@@ -179,6 +136,10 @@ Loop:
 		if(*line == '['){
 			inblock = memcmp("[common]", line, 8);
 			continue;
+		}
+		if(memcmp("clear", line, 6) == 0){
+			print("ok\r\n");
+			goto Clear;
 		}
 		if(memcmp("boot", line, 5) == 0)
 			break;
@@ -205,4 +166,49 @@ Loop:
 	if(p = strrchr(kern, '!'))
 		kern = p+1;
 	return kern;
+}
+
+
+static ushort
+beswab(ushort s)
+{
+	uchar *p;
+
+	p = (uchar*)&s;
+	return (p[0]<<8) | p[1];
+}
+
+static ulong
+beswal(ulong l)
+{
+	uchar *p;
+
+	p = (uchar*)&l;
+	return (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
+}
+
+char*
+bootkern(void *f)
+{
+	uchar *e, *d;
+	Exec ex;
+	int n;
+
+	a20();
+	if(readn(f, &ex, sizeof(ex)) != sizeof(ex))
+		return "bad header";
+	if(beswal(ex.magic) != I_MAGIC)
+		return "bad magic";
+	e = (uchar*)(beswal(ex.entry) & ~0xF0000000UL);
+	n = beswal(ex.text);
+	if(readn(f, e, n) != n)
+		goto Error;
+	d = (uchar*)(((ulong)e + n + 0xFFF) & ~0xFFFUL);
+	n = beswal(ex.data);
+	if(readn(f, d, n) != n)
+		goto Error;
+	close(f);
+	jump(e);
+Error:		
+	return "i/o error";
 }
