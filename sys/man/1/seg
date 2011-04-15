@@ -1,0 +1,51 @@
+.TH SEG 1
+.SH NAME
+seg \- access a named segment
+.SH SYNOPSIS
+.B seg
+[
+.B -WLrw
+]
+.I segment
+.I segment-size
+.I offset
+[
+.I value
+]
+.SH DESCRIPTION
+.B seg
+accesses a named segment as provided by e.g. certain drivers.
+The operation to be performed is selected with
+.B -r
+and
+.B -w
+for reading and writing, respectively.
+The default operation size is a byte.
+C style notation for integers (e.g.
+.B 0x42
+or
+.BR 023 )
+is accepted for the
+.IR segment-size ,
+.IR offset
+and
+.I value
+parameters.
+.PP
+.TP
+.B  -W
+Perform a word (16 bit) operation
+.TP
+.B  -L
+Perform a long / double word (32 bit) operation.
+.SH SOURCE
+.B /sys/src/cmd/seg.c
+.SH SEE ALSO
+.IR io (1)
+.SH BUGS
+No check of the
+.I segment-size
+and
+.I offset
+parameters is performed whatsoever.
+Odd values may cause the front to fall off.

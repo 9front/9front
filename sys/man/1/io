@@ -1,0 +1,44 @@
+.TH IO 1
+.SH NAME
+io \- access PC I/O registers
+.SH SYNOPSIS
+.B io
+[
+.B -WLMrw
+]
+.I address
+[
+.I value
+]
+.SH DESCRIPTION
+.I io
+accesses PC I/O space.
+The operation to be performed is selected with
+.B -r
+or
+.B -w
+for reading or writing, respectively.
+The default operation size is a byte.
+C style notation for integers (e.g.
+.B 0x42
+or
+.BR 023 )
+is accepted for the
+.I address
+and
+.I value
+parameters.
+.PP
+.TP
+.B  -W
+Perform a word (16 bit) operation.
+.TP
+.B  -L
+Perform a long / double word (32 bit) operation.
+.TP
+.B  -M
+Access a 64 bit wide machine specific register (MSR).
+.SH SOURCE
+.B /sys/src/cmd/io.c
+.SH SEE ALSO
+.IR seg (1)
