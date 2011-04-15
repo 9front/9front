@@ -30,6 +30,8 @@ Ctlr* ctlrs[] = {
 	&et4000,				/* ctlr */
 	&et4000hwgc,				/* hwgc */
 	&generic,				/* ctlr */
+	&geode,				/* ctlr */
+	&geodehwgc,			/* hwgc */
 	&hiqvideo,				/* ctlr */
 	&hiqvideohwgc,				/* hwgc */
 	&i81x,				/* ctlr */

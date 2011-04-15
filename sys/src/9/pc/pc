@@ -108,6 +108,7 @@ misc
 	vgatvp3026	=cur
 	vgavesa
 	vgavmware	+cur
+	vgageode	+cur
 
 ip
 	tcp

@@ -11,6 +11,7 @@ static int iobfd = -1;
 static int iowfd = -1;
 static int iolfd = -1;
 static int biosfd = -1;
+static int msrfd = -1;
 static ulong biosoffset = 0;
 
 enum {
@@ -104,6 +105,29 @@ outportl(long port, ulong data)
 
 	if(pwrite(iolfd, &data, sizeof(data), port) != sizeof(data))
 		error("outportl(0x%4.4lx, 0x%2.2luX): %r\n", port, data);
+}
+
+uvlong
+rdmsr(long port)
+{
+	uvlong data;
+
+	if(msrfd == -1)
+		msrfd = devopen("#P/msr", ORDWR);
+
+	if(pread(msrfd, &data, sizeof(data), port) != sizeof(data))
+		error("rdmsr(0x%4.4lx): %r\n", port);
+	return data;
+}
+
+void
+wrmsr(long port, uvlong data)
+{
+	if(msrfd == -1)
+		msrfd = devopen("#P/msr", ORDWR);
+
+	if(pwrite(msrfd, &data, sizeof(data), port) != sizeof(data))
+		error("wrmsr(0x%4.4lx, 0x%2.2lluX): %r\n", port, data);
 }
 
 static void

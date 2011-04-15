@@ -25,6 +25,7 @@ OFILES=\
 	ics2494.$O\
 	ics534x.$O\
 	io.$O\
+	geode.$O\
 	mach32.$O\
 	mach64.$O\
 	mach64xx.$O\
