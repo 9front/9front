@@ -570,7 +570,8 @@ atadmamode(Drive* drive)
 		if(drive->dma)
 			drive->dma |= 'U'<<16;
 	}
-
+	if(!getconf("*nodma"))
+		drive->dmactl = drive->dma;
 	return dma;
 }
 
