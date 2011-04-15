@@ -1,7 +1,6 @@
 # config for initial cd booting
 # very cautious settings to get started.
 # will defeat booting from usb devices.
-*nomp=1
 *nodumpstack=1
 partition=new
 mouseport=ask
