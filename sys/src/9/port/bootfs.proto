@@ -1,0 +1,45 @@
+$cputype
+	bin
+		9660srv
+		awk
+		bind
+		bzfs
+		cat
+		dd
+		disk
+			fdisk
+			kfs
+			prep
+		dossrv
+		echo
+		fossil
+			fossil
+		grep
+		gunzip
+		hoc
+		ip
+			ipconfig
+		ls
+		mount
+		ramfs
+		rc
+		read
+		rm
+		sed
+		seq
+		srv
+		test
+		unmount
+		xd
+rc
+	lib
+		rcmain
+		conf.rc 555 sys sys ../boot/conf.rc
+		local.rc 555 sys sys ../boot/local.rc
+		menu.rc 555 sys sys ../boot/menu.rc
+		tcp.rc 555 sys sys ../boot/tcp.rc
+	bin
+		diskparts
+		bootrc 555 sys sys ../boot/bootrc
+tmp
+
