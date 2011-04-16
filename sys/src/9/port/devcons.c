@@ -594,6 +594,7 @@ enum{
 	Qtime,
 	Quser,
 	Qzero,
+	Qmordor,
 	Qconfig,
 };
 
@@ -627,6 +628,7 @@ static Dirtab consdir[]={
 	"user",		{Quser},	0,		0666,
 	"zero",		{Qzero},	0,		0444,
 	"config",	{Qconfig},	0,		0444,
+	"mordor",	{Qmordor},	0,		0666,
 };
 
 int
@@ -958,6 +960,10 @@ consread(Chan *c, void *buf, long n, vlong off)
 	case Qzero:
 		memset(buf, 0, n);
 		return n;
+	
+	case Qmordor:
+		error("one does not simply read from mordor");
+		return 0;
 
 	case Qosversion:
 		snprint(tmp, sizeof tmp, "2000");
@@ -1122,6 +1128,10 @@ conswrite(Chan *c, void *va, long n, vlong off)
 			buf[n-1] = 0;
 		kstrdup(&sysname, buf);
 		break;
+	
+	case Qmordor:
+		error("one does not simply write to mordor");
+		return 0;
 
 	default:
 		print("conswrite: %#llux\n", c->qid.path);

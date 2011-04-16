@@ -334,6 +334,10 @@ the textual file descriptor number of a file or device on which to swap.
 See
 .IR swap (8).
 .PP
+Reads and writes to
+.IR mordor
+will inevitably cause the front to fall off.
+.PP
 The other files served by the
 .I cons
 device are all single numbers:
