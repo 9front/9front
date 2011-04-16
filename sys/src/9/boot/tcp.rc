@@ -1,0 +1,61 @@
+#!/bin/rc
+
+fn isvalidip{
+	# TODO: more precise test
+	if(! ~ $#1 0 && ! test `{echo $1 | sed '/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/d'})
+		echo -n
+}
+
+fn configtcp{
+	# TODO: 
+	# should we accept a different mount point?
+	# should we add more interfaces?
+
+	# bind in an ip interface
+	for(i in I l`{seq 0 3})
+		bind -a '#'$i /net >/dev/null >[2=1]
+
+	if(! test -x /bin/ip/ipconfig){
+		echo no ipconfig
+		exit noipconfig
+	}
+
+	ip/ipconfig	# TODO: should receive args passed to boot(8)
+	
+	# XXX: should configuration from file override the values from ipconfig(8)?
+	if(~ $#fs 0){
+		_fsip=`{grep fs /net/ndb | awk -F'=' '{print $2}' >/dev/null >[2=1]}
+		if(! ~ $#_fsip 0 && `{isvalidip $_fsip})
+			fsip=$_fsip
+	}
+
+	# if we didn't get a file and auth server from either 
+	# the configuration file or ipconfig(8), ask the user
+	if(~ $#fsip 0){
+		while(! isvalidip $fsip){
+			echo -n 'filesystem IP address: '
+			fsip=`{read}
+		}
+	}
+	
+	if(~ $#auth 0){
+		_authip=`{grep auth /net/ndb | awk -F'=' '{print $2}' >/dev/null >[2=1]}
+		if(! ~ $#_authip 0 && `{isvalidip $_authip})
+			authip=_authip
+	}
+	
+	if(~ $#authip 0){
+		while(! isvalidip $authip){
+			echo -n 'authentication server IP address: '
+			authip=`{read}
+		}
+	}
+
+	authaddr=tcp!$authip!567	# leave this for factotum(4)
+
+	rm -f /env/_authip /env/_fsip
+}
+
+fn connecttcp{
+	srv -q tcp!$fsip!564 boot 
+}

@@ -1,0 +1,50 @@
+#!/bin/rc
+
+mounted=0
+found=0
+
+fn confmount{
+	part=`{echo $1 | sed 's!^.*/!!g; s!''$!!g'}
+
+	switch($part){
+	case dos
+		mprog=dossrv
+	case 9fat
+		mprog=dossrv
+	case fd?disk
+		mprog=dossrv
+	case data
+		mprog=9660srv
+	case *
+		mprog=0
+		mounted=0
+	}
+
+	if(! ~ $mprog 0){
+		$mprog -f $1 conf >/dev/null >[2=1]
+		mount /srv/conf /mnt/conf
+		mounted=1
+	}
+}
+
+fn findconf{
+	# search cd/dvd drives first
+	for(d in $cddevs /dev/sd* /dev/fd*disk)
+	for(p in `{ls $d}){
+		if(~ $found 0){
+			confmount $p
+			if(test -e /mnt/conf/plan9.ini)
+				found=1
+			if(test $mounted -eq 1 -a $found -eq 0){
+				unmount /mnt/conf
+				rm /srv/conf
+			}
+		}
+	}
+}
+
+fn bootconf{
+	findconf
+	if(~ $found 1)
+		parseconf
+}

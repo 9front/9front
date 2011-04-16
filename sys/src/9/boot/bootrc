@@ -1,0 +1,183 @@
+# TODO
+# settime
+# handle rootspec
+# handle rootdir
+# clean rc environment before running init(8)
+# kfs
+# caching
+
+rfork e
+# boot methods
+mlocal = (configlocal connectlocal)
+mtcp = (configtcp connecttcp)
+mtab = (mlocal mtcp)
+config=1
+connect=2
+bootargs=()
+
+. /rc/lib/conf.rc
+. /rc/lib/menu.rc
+. /rc/lib/local.rc
+. /rc/lib/tcp.rc
+
+cputype=`{cat '#e'/cputype}
+
+fn fatal {
+	echo $*
+	exit $"*
+}
+
+fn must {
+	$* || fatal $"*^': '^$status
+}
+
+
+fn usbinit{
+	if(test -f '#u'){
+		bind -a '#u' /dev
+		# TODO: check access to /dev/usb
+		must usbd
+	}
+}
+
+fn kbmap{
+	if(! ~ $#kbmap 0){
+		bind -a '#κ' /dev
+		cat $kbmap > /dev/kbmap
+	}
+}
+
+fn readmethod{
+	resp=()
+	timeo=5
+	found=0
+
+	echo
+	echo Storage devices
+	for(i in /dev/sd??){
+		echo -n local!^$i'	'
+		echo `{sed 's/inquiry[ ]+//g; q' $i/ctl}\
+			partitions: `{cat $i/ctl | grep part | awk '{print $2}'}
+	}
+
+	while(~ $found 0){
+		if(~ $#pcload 0)
+			echo -n 'root is from: '
+		if not
+			echo -n 'kernel is at: '
+
+		while(~ $#resp 0){
+			resp=`{tread $timeo}
+			if(! ~ $status ''){
+				bootconf	# set configuration from file
+				if(! ~ $#nobootprompt 0)
+					bootargs=$nobootprompt
+				resp=$bootargs
+			}
+			if(~ $resp !rc)
+				rc
+			timeo=0
+		}
+
+		method=`{echo $resp | awk -F! '{print $1}'}
+		NF=`{echo $resp | awk -F! '{print NF}'}
+
+		for(i in `{seq 1 $#mtab}){
+			if(~ $mtab($i) m^$method)
+				found = $i 
+		}
+
+	 	if(~ $found 0){
+			echo method $method not found
+			resp=()
+		}
+	}
+
+	methodarg = `{echo $resp | sed 's/^[A-Za-z]+!(.*)$/\1/'}
+	mp = $$mtab($found)
+}
+
+fn authentication{
+	# in pcload we only need to read the kernel
+	if(~ $pcload 1)
+		user=none
+
+	if(! test -x /boot/factotum){
+		if(~ $#user 0)
+			user=glenda
+		echo -n $user > '#c'/hostowner
+	}
+	
+	if not{
+		x=(/boot/factotum -u -sfactotum)
+		if(~ $cpuflag 1)
+			x=($x -S)
+		if(! ~ $#authaddr 0)
+			x=($x -a $authaddr)
+		if(! ~ $#debugfactotum 0)
+			x=($x -p)
+
+		must $x
+	}
+}
+
+fn swapproc{
+	if(test -x '#c'/swap)
+		echo -n start > '#c'/swap
+}
+
+usbinit		# set up usb keyboard, mouse, and disk, if any
+kbmap
+
+configlocal	# add partitions and binds
+
+readmethod
+$mp($config)
+
+switch($method){
+case local
+	islocal=1
+case hybrid
+	ishybrid=1
+}
+
+# authentication agent
+authentication
+
+# connect to the root file system
+$mp($connect)
+
+swapproc
+
+mount -c '#s/boot' /root
+
+# remove part of our temporary root
+unmount /$cputype/bin /bin
+/mnt/broot/$cputype/bin/unmount /rc/bin /bin
+/mnt/broot/$cputype/bin/unmount /boot /bin
+/mnt/broot/$cputype/bin/unmount /
+
+if(~ $pcload 1)
+	/boot/echo reboot /root/$kern >/dev/reboot
+
+# create the name space, mount the root fs
+/mnt/broot/$cputype/bin/bind / /
+/mnt/broot/$cputype/bin/mount -ac '#s/boot' /
+
+# remove the remaining temporary root
+/mnt/broot/$cputype/bin/unmount /mnt/broot
+
+rootdir=/root
+
+if(~ $#init 0){
+	init=/$cputype/init
+	if(~ $cpuflag 1)
+		init=($init -c)
+	if not
+		init=($init -t)
+	# TODO handle mflag
+}
+
+$init
+
+

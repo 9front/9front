@@ -2,67 +2,6 @@
 #include <libc.h>
 #include <../boot/boot.h>
 
-/*
-int
-plumb(char *dir, char *dest, int *efd, char *here)
-{
-	char buf[128];
-	char name[128];
-	int n;
-
-	sprint(name, "%s/clone", dir);
-	efd[0] = open(name, ORDWR);
-	if(efd[0] < 0)
-		return -1;
-	n = read(efd[0], buf, sizeof(buf)-1);
-	if(n < 0){
-		close(efd[0]);
-		return -1;
-	}
-	buf[n] = 0;
-	sprint(name, "%s/%s/data", dir, buf);
-	if(here){
-		sprint(buf, "announce %s", here);
-		if(sendmsg(efd[0], buf) < 0){
-			close(efd[0]);
-			return -1;
-		}
-	}
-	sprint(buf, "connect %s", dest);
-	if(sendmsg(efd[0], buf) < 0){
-		close(efd[0]);
-		return -1;
-	}
-	efd[1] = open(name, ORDWR);
-	if(efd[1] < 0){
-		close(efd[0]);
-		return -1;
-	}
-	return efd[1];
-}
- */
-
-int
-sendmsg(int fd, char *msg)
-{
-	int n;
-
-	n = strlen(msg);
-	if(write(fd, msg, n) != n)
-		return -1;
-	return 0;
-}
-
-void
-warning(char *s)
-{
-	char buf[ERRMAX];
-
-	buf[0] = '\0';
-	errstr(buf, sizeof buf);
-	fprint(2, "boot: %s: %s\n", s, buf);
-}
-
 void
 fatal(char *s)
 {
@@ -90,6 +29,33 @@ readfile(char *name, char *buf, int len)
 	return 0;
 }
 
+void
+run(char *file, ...)
+{
+	char buf[64];
+	Waitmsg *w;
+	int pid;
+
+	switch(pid = fork()){
+	case -1:
+		fatal("fork");
+	case 0:
+		exec(file, &file);
+		snprint(buf, sizeof buf, "can't exec %s", file);
+		fatal(buf);
+	default:
+		while((w = wait()) != nil)
+			if(w->pid == pid)
+				break;
+		if(w == nil){
+			snprint(buf, sizeof buf, "wait returned nil running %s", file);
+			free(w);
+			fatal(buf);
+		}
+		free(w);
+	}
+}
+
 int
 writefile(char *name, char *buf, int len)
 {
@@ -104,12 +70,12 @@ writefile(char *name, char *buf, int len)
 }
 
 void
-setenv(char *name, char *val)
+setenv(char *name, char *val, int ec)
 {
 	int f;
 	char ename[64];
 
-	snprint(ename, sizeof ename, "#e/%s", name);
+	snprint(ename, sizeof ename, "#e%s/%s", ec ? "c" : "", name);
 	f = create(ename, 1, 0666);
 	if(f < 0){
 		fprint(2, "create %s: %r\n", ename);
@@ -142,41 +108,3 @@ srvcreate(char *name, int fd)
 	close(f);
 }
 
-void
-catchint(void *a, char *note)
-{
-	USED(a);
-	if(strcmp(note, "alarm") == 0)
-		noted(NCONT);
-	noted(NDFLT);
-}
-
-int
-outin(char *prompt, char *def, int len)
-{
-	int n;
-	char buf[256];
-
-	if(len >= sizeof buf)
-		len = sizeof(buf)-1;
-
-	if(cpuflag){
-		notify(catchint);
-		alarm(15*1000);
-	}
-	print("%s[%s]: ", prompt, *def ? def : "no default");
-	memset(buf, 0, sizeof buf);
-	n = read(0, buf, len);
-	if(cpuflag){
-		alarm(0);
-		notify(0);
-	}
-
-	if(n < 0)
-		return 1;
-	if(n > 1){
-		buf[n-1] = 0;
-		strcpy(def, buf);
-	}
-	return n;
-}

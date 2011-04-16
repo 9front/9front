@@ -12,53 +12,6 @@ cat <<'---'
 #include <libc.h>
 #include "../boot/boot.h"
 
-Method	method[]={
----
-
-#
-#  configure all remote methods, i.e. all methods in the 'boot' section
-#
-#  EXAMPLE
-#	boot
-#		incon
-#		9600
-#		19200
-#
-../port/mkextract boot 0 $* | awk '{
-	printf "	{ \""  "" $1 "\", "\
-	"config" $1 ", "\
-	"connect" $1 ", "
-	print fieldn(2) " },"
-	}
-
-	func fieldn(n,	s,i)
-	{
-		s = $0
-		while (n > 1) {
-			sub(/^[ \t]*/, "", s)
-			if (substr(s, 1, 1) == "\"") {
-				sub(/^"[^\"]*"/, "", s)
-			} else {
-				sub(/^[^ \t]*/, "", s)
-			}
-			n--
-		}
-		sub(/^[ \t]*/, "", s)
-		if (substr(s, 1, 1) == "\"") {
-			i = index(substr(s, 2), "\"")
-			if (i > 0)
-				return substr(s, 1, i+1)
-			else
-				return s
-		} else {
-			sub(/[ \t].*/, "", s)
-			return s
-		}
-	}'
-
-cat <<'---'
-	{ 0 },
-};
 ---
 
 awk '

@@ -79,6 +79,9 @@ $p$CONF:	$CONF.c $OBJ $LIB
 	$LD -o $target -T$KTZERO -l $OBJ $CONF.$O $LIB
 	size $target
 
+rootfs.bz2:
+	rc ../port/mkbootfs
+
 # don't strip the gzipped kernels -- too frustrating when that's all you have!
 $p%.gz:D:	$p%
 	gzip -9 <$p$stem >$p$stem.gz
