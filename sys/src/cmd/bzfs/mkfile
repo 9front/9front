@@ -10,7 +10,7 @@ OFILES=\
 
 HFILES=bzfs.h
 
-BIN=/sys/lib/dist/bin/$objtype
+BIN=/$objtype/bin
 LIB=/sys/src/cmd/bzip2/lib/libbzip2.a$O
 </sys/src/cmd/mkone
 
