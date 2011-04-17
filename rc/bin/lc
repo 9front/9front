@@ -1,2 +1,2 @@
 #!/bin/rc
-ls -p $* | mc
+ls -pF $* | mc
