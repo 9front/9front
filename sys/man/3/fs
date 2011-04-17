@@ -17,8 +17,6 @@ driver builds complex disk files out of simpler disk files.
 Inspired by the Plan 9 file server kernel's configuration strings,
 it provides device mirroring, partitioning, interleaving, and catenation
 for disk-based services like
-.IR fossil (4)
-or
 .IR venti (8).
 .PP
 The device is intended to be bound at
@@ -244,7 +242,6 @@ in
 .IR cat (1),
 .IR dd (1),
 .IR sd (3),
-.IR fossil (4),
 .IR fs (8),
 .IR plan9.ini (8),
 .IR prep (8),
