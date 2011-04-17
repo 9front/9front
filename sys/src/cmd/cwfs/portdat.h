@@ -42,7 +42,6 @@ enum {
 	NTLOCK		= 200,		/* number of active file Tlocks */
 };
 
-typedef struct	Auth	Auth;
 typedef	struct	Bp	Bp;
 typedef	struct	Bucket	Bucket;
 typedef	struct	Cache	Cache;
@@ -77,8 +76,6 @@ typedef	struct	Tlock	Tlock;
 typedef	struct	Tm	Tm;
 typedef	struct	Uid	Uid;
 typedef	struct	Wpath	Wpath;
-
-#pragma incomplete Auth
 
 struct	Tag
 {

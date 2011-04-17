@@ -155,7 +155,6 @@ void	newscsi(Device *d, Scsi *sc);
 Queue*	newqueue(int, char*);
 void	newstart(void);
 Wpath*	newwp(void);
-Auth*	newauth(void);
 int	nvrcheck(void);
 char*	nvrgetconfig(void);
 int	nvrsetconfig(char*);
