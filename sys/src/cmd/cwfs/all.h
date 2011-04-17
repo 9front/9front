@@ -81,16 +81,14 @@ struct Fspar {
 ulong	roflag;
 ulong	errorflag;
 ulong	chatflag;
-ulong	attachflag;
 ulong	authdebugflag;
-ulong	authdisableflag;
-int	noattach;
+int	noattach;		/* attach is disabled */
+int	noauth;			/* auth is disable */
 int	wstatallow;		/* set to circumvent wstat permissions */
 int	writeallow;		/* set to circumvent write permissions */
 int	duallow;		/* single user to allow du */
 int	readonly;		/* disable writes if true */
 
-int	noauth;			/* Debug */
 
 int	rawreadok;		/* allow reading raw data */
 

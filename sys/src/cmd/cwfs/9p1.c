@@ -264,14 +264,8 @@ f_attach(Chan *cp, Fcall *in, Fcall *ou)
 
 	strncpy(cp->whoname, in->uname, sizeof(cp->whoname));
 	cp->whotime = time(nil);
-	if(cons.flags & attachflag)
-		print("9p1: attach %s %T to \"%s\" C%d\n",
-			cp->whoname, cp->whotime, fs->name, cp->chan);
 
 out:
-	if((cons.flags & attachflag) && ou->err)
-		print("9p1: attach %s %T SUCK EGGS --- %s\n",
-			in->uname, time(nil), errstr9p[ou->err]);
 	if(p)
 		putbuf(p);
 	if(f) {

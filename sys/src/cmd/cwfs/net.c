@@ -44,9 +44,7 @@ struct Network {
 
 static Network netif[Maxnets];
 
-char *annstrs[Maxnets] = {
-	"tcp!*!9fs",
-};
+char *annstrs[Maxnets];
 
 static void
 neti(void *v)

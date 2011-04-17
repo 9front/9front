@@ -1,5 +1,4 @@
 #include	"all.h"
-
 #include	"9p1.h"
 
 void

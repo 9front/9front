@@ -696,6 +696,14 @@ cmd_time(int argc, char *argv[])
 }
 
 void
+cmd_noauth(int, char *[])
+{
+	noauth = !noauth;
+	if(noauth)
+		print("authentication is DISABLED\n");
+}
+
+void
 cmd_noattach(int, char *[])
 {
 	noattach = !noattach;
@@ -759,15 +767,14 @@ installcmds(void)
 	cmd_install("who", "[user ...] -- print attaches", cmd_who);
 	cmd_install("hangup", "chan -- clunk files", cmd_hangup);
 	cmd_install("printconf", "-- print configuration", cmd_printconf);
+	cmd_install("noauth", "toggle noauth flag", cmd_noauth);
 	cmd_install("noattach", "toggle noattach flag", cmd_noattach);
 	cmd_install("files", "report on files structure", cmd_files);
 
-	attachflag = flag_install("attach", "-- attach calls");
 	chatflag = flag_install("chat", "-- verbose");
 	errorflag = flag_install("error", "-- on errors");
 	whoflag = flag_install("allchans", "-- on who");
 	authdebugflag = flag_install("authdebug", "-- report authentications");
-	authdisableflag = flag_install("authdisable", "-- disable authentication");
 }
 
 int

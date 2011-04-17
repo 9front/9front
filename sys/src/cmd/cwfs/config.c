@@ -440,6 +440,10 @@ mergeconf(Iobuf *p)
 			cp = getwrd(word, cp);
 			if(service[0] == 0)
 				strncpy(service, word, sizeof service);
+		} else if(strcmp(word, "noauth") == 0){
+			noauth = 1;
+		} else if(strcmp(word, "readonly") == 0){
+			readonly = 1;
 		} else if(strcmp(word, "ipauth") == 0)	/* obsolete */
 			cp = getwrd(word, cp);
 		else if(astrcmp(word, "ip") == 0)	/* obsolete */
@@ -579,7 +583,10 @@ start:
 			if(fs->conf && fs->conf[0] != '\0')
 				cp = seprint(cp, ep, "filsys %s %s\n", fs->name,
 					fs->conf);
-
+		if(noauth)
+			cp = seprint(cp, ep, "noauth\n");
+		if(readonly)
+			cp = seprint(cp, ep, "readonly\n");
 		for (fsp = fspar; fsp->name != nil; fsp++)
 			cp = seprint(cp, ep, "%s %ld\n",
 				fsp->name, fsp->declared);
@@ -591,7 +598,7 @@ start:
 	}
 	putbuf(p);
 
-	print("service    %s\n", service);
+	print("service %s\n", service);
 
 loop:
 	/*
@@ -954,12 +961,6 @@ arginit(void)
 				querychanger(iconfig(word));
 			continue;
 		}
-
-		if(strcmp(word, "allow") == 0) {
-			wstatallow = 1;
-			writeallow = 1;
-			continue;
-		}
 		if(strcmp(word, "copyworm") == 0) {
 			copyworm = 1;
 			continue;
@@ -976,16 +977,18 @@ arginit(void)
 			copydev = 1;
 			continue;
 		}
-		if(strcmp(word, "noauth") == 0) {
-			noauth = !noauth;
-			continue;
-		}
 		if(strcmp(word, "noattach") == 0) {
 			noattach = !noattach;
 			continue;
 		}
+		if(strcmp(word, "noauth") == 0) {
+			noauth = !noauth;
+			f.modconf = 1;
+			continue;
+		}
 		if(strcmp(word, "readonly") == 0) {
-			readonly = 1;
+			readonly = !readonly;
+			f.modconf = 1;
 			continue;
 		}
 

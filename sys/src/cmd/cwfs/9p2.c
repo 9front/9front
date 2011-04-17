@@ -165,7 +165,7 @@ auth(Chan* chan, Fcall* f, Fcall* r)
 	Filsys *fs;
 	int error;
 
-	if(cons.flags & authdisableflag)
+	if(noauth || wstatallow)
 		return Eauthdisabled;
 
 	error = 0;
@@ -202,9 +202,6 @@ auth(Chan* chan, Fcall* f, Fcall* r)
 	}
 	r->aqid = file->qid;
 out:
-	if((cons.flags & attachflag) && error)
-		print("9p2: auth %s %T SUCK EGGS --- %s\n",
-			f->uname, time(nil), errstr9p[error]);
 	if(file != nil){
 		qunlock(file);
 		if(error)
@@ -229,10 +226,10 @@ authorize(Chan* chan, Fcall* f)
 		return uid;
 	}
 
-	if(cons.flags & authdisableflag){
+	if(noauth || wstatallow){
 		uid = strtouid(f->uname);
 		if(db)
-			print("permission granted by authdisable uid %s = %d\n",
+			print("permission granted by noauth uid %s = %d\n",
 				f->uname, uid);
 		return uid;
 	}
@@ -326,14 +323,7 @@ attach(Chan* chan, Fcall* f, Fcall* r)
 
 	strncpy(chan->whoname, f->uname, sizeof(chan->whoname));
 	chan->whotime = time(nil);
-	if(cons.flags & attachflag)
-		print("9p2: attach %s %T to \"%s\" C%d\n",
-			chan->whoname, chan->whotime, fs->name, chan->chan);
-
 out:
-	if((cons.flags & attachflag) && error)
-		print("9p2: attach %s %T SUCK EGGS --- %s\n",
-			f->uname, time(nil), errstr9p[error]);
 	if(p != nil)
 		putbuf(p);
 	if(file != nil){
