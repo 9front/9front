@@ -51,7 +51,7 @@ in order to be compatible with some existing file systems, notably
 These parameters can be changed by recompilation.
 .PP
 .I Cwfs
-places its server 9P connaction in
+places its server 9P connection in
 .BI /srv/ name\f1
 and its command pipe in
 .BI /srv/ name\f1 .cmd,
