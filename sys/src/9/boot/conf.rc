@@ -28,8 +28,7 @@ fn confmount{
 }
 
 fn findconf{
-	# search cd/dvd drives first
-	for(d in $cddevs /dev/sd* /dev/fd*disk)
+	for(d in /dev/sd*)
 	for(p in `{ls $d}){
 		if(~ $found 0){
 			confmount $p

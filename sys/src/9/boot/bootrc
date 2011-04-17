@@ -67,22 +67,17 @@ fn readmethod{
 		timeo=5
 		resp=()
 		while(~ $#resp 0){
-			if(~ $#pcload 0)
-				echo -n 'root is from: '
-			if not
-				echo -n 'kernel is at: '
-			resp=`{read}
+			echo -n 'root is from: '
+			resp=`{tread $timeo}
 			if(! ~ $status ''){
 				bootconf	# set configuration from file
 				if(! ~ $#nobootprompt 0)
 					bootargs=$nobootprompt
 				resp=$bootargs
 			}
-			if(~ $resp !rc){
+			if(~ $resp !rc)
 				rc -i
-				resp=()
-			}
-			timo=0
+			timeo=0
 		}
 
 		method=`{echo $resp | awk -F! '{print $1}'}
@@ -103,9 +98,6 @@ fn readmethod{
 
 fn authentication{
 	if(! test -f /srv/factotum){
-		# in pcload we only need to read the kernel
-		if(~ $pcload 1)
-			user=none
 		x=(auth/factotum -sfactotum)
 		if(~ $cpuflag 1)
 			x=($x -kS)
@@ -142,10 +134,6 @@ fn main{
 	$mp($connect)
 
 	must mount -c /srv/boot /root
-	if(~ $pcload 1){
-		echo reboot /root/$kern >/dev/reboot
-		fatal kernel load failed: $kern
-	}
 
 	swapproc
 

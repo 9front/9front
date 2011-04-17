@@ -5,13 +5,6 @@ fn configlocal{
 	fstype=`{echo $disk | sed 's,.*/(.*)$,\1,g'}
 	disk=`{echo $disk | sed 's,(.*)/.*$,\1,'}
 
-	if(~ $pcload 1){
-		kern=`{echo $methodarg | sed 's,.*!(.*)$,\1,g'}
-
-		# for now we only allow kernels in the same dev/part of $methodargs
-		if(~ $#kern 0 || ! ~ $#bootfile 0)
-			kern=`{echo $bootfile | sed 's,.*!(.*)$,\1,g'}
-	}
 	diskparts
 }
 

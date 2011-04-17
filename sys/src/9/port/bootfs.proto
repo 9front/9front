@@ -30,6 +30,7 @@ $cputype
 		seq
 		srv
 		test
+		tread	555 sys sys ../boot/tread
 		unmount
 		usb
 			usbd
