@@ -214,7 +214,7 @@ out:
 	return error;
 }
 
-int
+static int
 authorize(Chan* chan, Fcall* f)
 {
 	File* af;
@@ -244,6 +244,10 @@ authorize(Chan* chan, Fcall* f)
 			print("authorize: af == nil\n");
 		return -1;
 	}
+
+	/* fake read to get auth info */
+	authread(af, nil, 0);
+
 	if(af->auth == nil){
 		if(db)
 			print("authorize: af->auth == nil\n");

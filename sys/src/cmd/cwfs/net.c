@@ -101,10 +101,8 @@ netinit(void)
 		net->dialstr = annstrs[net - netif];
 		if (net->dialstr == nil)
 			continue;
-		net->annfd = announce(net->dialstr, net->anndir);
-		/* /bin/service/tcp564 may already have grabbed the port */
-		if (net->annfd < 0)
-			sysfatal("can't announce %s: %r", net->dialstr);
+		if((net->annfd = announce(net->dialstr, net->anndir)) < 0)
+			print("can't announce %s: %r", net->dialstr);
 		print("netinit: announced on %s\n", net->dialstr);
 	}
 }
