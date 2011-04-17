@@ -919,11 +919,14 @@ dodevcopy(void)
 	return 0;
 }
 
-static void
+static int
 setconfig(char *dev)
 {
-	if (dev != nil && !testconfig(dev))
+	if (dev && !testconfig(dev)){
 		nvrsetconfig(dev);	/* if it fails, it will complain */
+		return 0;
+	}
+	return -1;
 }
 
 void
@@ -934,14 +937,10 @@ arginit(void)
 	char word[Maxword+1], *cp;
 	Filsys *fs;
 
-	if(nvrcheck() == 0) {
-		setconfig(conf.confdev);
-		if (!conf.configfirst)
-			return;
-	}
+	nvrcheck();
+	if(!setconfig(conf.confdev) && !conf.configfirst)
+		return;
 
-	/* nvr was bad or invoker requested configuration step */
-	setconfig(conf.confdev);
 	for (;;) {
 		print("config: ");
 		if ((line = Brdline(&bin, '\n')) == nil)
