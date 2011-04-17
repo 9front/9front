@@ -42,3 +42,5 @@ flag suppresses this rewriting.
 The names of files printed by
 .I ns
 will be inaccurate if a file or directory it includes has been renamed.
+
+The name of this tool is reminiscent of national socialism and nextstep, it's hard to decide which one is worse.
