@@ -140,7 +140,6 @@ confinit(void)
 	localconfinit();
 
 	conf.nwpath = conf.nfile*8;
-	conf.nauth =  conf.nfile/10;
 	conf.gidspace = conf.nuid*3;
 
 	cons.flags = 0;
@@ -364,7 +363,6 @@ main(int argc, char **argv)
 	wpaths = malloc(conf.nwpath * sizeof(*wpaths));
 	uid = malloc(conf.nuid * sizeof(*uid));
 	gidspace = malloc(conf.gidspace * sizeof(*gidspace));
-	authinit();
 
 	print("iobufinit\n");
 	iobufinit();

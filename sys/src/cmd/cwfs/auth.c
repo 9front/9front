@@ -16,7 +16,6 @@ nvrgetconfig(void)
 /*
  * we shouldn't be writing nvram any more.
  * the secstore/config field is now just secstore key.
- * we still use authid, authdom and machkey for authentication.
  */
 
 int
@@ -84,161 +83,77 @@ conslock(void)
 	return 1;
 }
 
-/* authentication structure */
-struct	Auth
-{
-	int	inuse;
-	char	uname[NAMELEN];	/* requestor's remote user name */
-	char	aname[NAMELEN];	/* requested aname */
-	Userid	uid;		/* uid decided on */
-	AuthRpc *rpc;
-};
+static char *keyspec = "proto=p9any role=server";
 
-Auth*	auths;
-Lock	authlock;
-
-void
-authinit(void)
-{
-	auths = malloc(conf.nauth * sizeof(*auths));
-}
-
-static int
-failure(Auth *s, char *why)
+void*
+authnew(void)
 {
 	AuthRpc *rpc;
+	int fd;
 
-	if(why && *why)print("authentication failed: %s: %r\n", why);
-	s->uid = -1;
-	if(rpc = s->rpc){
-		s->rpc = 0;
+	if(access("/mnt/factotum", 0) < 0)
+		if((fd = open("/srv/factotum", ORDWR)) >= 0)
+			mount(fd, -1, "/mnt", MBEFORE, "");
+	if((fd = open("/mnt/factotum/rpc", ORDWR)) < 0)
+		return nil;
+	if((rpc = auth_allocrpc(fd)) == nil){
+		close(fd);
+		return nil;
+	}
+	if(auth_rpc(rpc, "start", keyspec, strlen(keyspec)) != ARok){
 		auth_freerpc(rpc);
+		return nil;
 	}
-	return -1;
-}
-
-Auth*
-authnew(char *uname, char *aname)
-{
-	static int si = 0;
-	int afd, i, nwrap;
-	Auth *s;
-
-	i = si;
-	nwrap = 0;
-	for(;;){
-		if(i < 0 || i >= conf.nauth){
-			if(++nwrap > 1)
-				return nil;
-			i = 0;
-		}
-		s = &auths[i++];
-		if(s->inuse)
-			continue;
-		lock(&authlock);
-		if(s->inuse == 0){
-			s->inuse = 1;
-			strncpy(s->uname, uname, NAMELEN-1);
-			strncpy(s->aname, aname, NAMELEN-1);
-			failure(s, "");
-			si = i;
-			unlock(&authlock);
-			break;
-		}
-		unlock(&authlock);
-	}
-	if((afd = open("/mnt/factotum/rpc", ORDWR)) < 0){
-		failure(s, "open /mnt/factotum/rpc");
-		return s;
-	}
-	if((s->rpc = auth_allocrpc(afd)) == 0){
-		failure(s, "auth_allocrpc");
-		close(afd);
-		return s;
-	}
-	if(auth_rpc(s->rpc, "start", "proto=p9any role=server", 23) != ARok)
-		failure(s, "auth_rpc: start");
-	return s;
+	return rpc;
 }
 
 void
-authfree(Auth *s)
+authfree(void *auth)
 {
-	if(s){
-		failure(s, "");
-		s->inuse = 0;
-	}
+	AuthRpc *rpc;
+
+	if(rpc = auth)
+		auth_freerpc(rpc);
 }
 
 int
-authread(File* file, uchar* data, int n)
+authread(File *file, uchar *data, int count)
 {
 	AuthInfo *ai;
-	Auth *s;
+	AuthRpc *rpc;
 
-	s = file->auth;
-	if(s == nil)
+	if((rpc = file->auth) == nil)
 		return -1;
-	if(s->rpc == nil)
-		return -1;
-	switch(auth_rpc(s->rpc, "read", nil, 0)){
-	default:
-		failure(s, "auth_rpc: read");
-		break;
+	switch(auth_rpc(rpc, "read", nil, 0)){
 	case ARdone:
-		if((ai = auth_getinfo(s->rpc)) == nil){
-			failure(s, "auth_getinfo failed");
-			break;
-		}
-		if(ai->cuid == nil || *ai->cuid == '\0'){
-			failure(s, "auth with no cuid");
-			auth_freeAI(ai);
-			break;
-		}
-		failure(s, "");
-		s->uid = strtouid(ai->cuid);
+		if((ai = auth_getinfo(rpc)) == nil)
+			return -1;
+		file->uid = strtouid(ai->cuid);
 		auth_freeAI(ai);
+		if(file->uid < 0)
+			return -1;
 		return 0;
 	case ARok:
-		if(n < s->rpc->narg)
-			break;
-		memmove(data, s->rpc->arg, s->rpc->narg);
-		return s->rpc->narg;
+		if(count < rpc->narg)
+			return -1;
+		memmove(data, rpc->arg, rpc->narg);
+		return rpc->narg;
+	case ARphase:
+		return -1;
+	default:
+		return -1;
 	}
-	return -1;
 }
 
 int
-authwrite(File* file, uchar *data, int n)
+authwrite(File *file, uchar *data, int count)
 {
-	Auth *s;
+	AuthRpc *rpc;
 
-	s = file->auth;
-	if(s == nil)
+	if((rpc = file->auth) == nil)
 		return -1;
-	if(s->rpc == nil)
+	if(auth_rpc(rpc, "write", data, count) != ARok)
 		return -1;
-	if(auth_rpc(s->rpc, "write", data, n) != ARok){
-		failure(s, "auth_rpc: write");
-		return -1;
-	}
-	return n;
+	return count;
 }
 
-int
-authuid(Auth* s)
-{
-	return s->uid;
-}
-
-char*
-authaname(Auth* s)
-{
-	return s->aname;
-}
-
-char*
-authuname(Auth* s)
-{
-	return s->uname;
-}

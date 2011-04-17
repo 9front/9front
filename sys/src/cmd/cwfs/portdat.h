@@ -358,7 +358,7 @@ struct	File
 	Off	lastra;		/* read ahead address */
 	ulong	fid;
 	Userid	uid;
-	Auth	*auth;
+	void	*auth;
 	char	open;
 		#define	FREAD	1
 		#define	FWRITE	2
@@ -434,7 +434,6 @@ struct	Conf
 	char	*confdev;
 	char	*devmap;	/* name of config->file device mapping file */
 
-	ulong	nauth;		/* number of Auth structs */
 	uchar	nodump;		/* no periodic dumps */
 	uchar	dumpreread;	/* read and compare in dump copy */
 };

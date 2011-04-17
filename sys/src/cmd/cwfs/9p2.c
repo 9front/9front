@@ -152,14 +152,14 @@ version(Chan* chan, Fcall* f, Fcall* r)
 	return 0;
 }
 
-struct {
-	Lock;
-	ulong	hi;
-} authpath;
 
 static int
 auth(Chan* chan, Fcall* f, Fcall* r)
 {
+	static struct {
+		Lock;
+		ulong	hi;
+	} authpath;
 	char *aname;
 	File *file;
 	Filsys *fs;
@@ -195,13 +195,12 @@ auth(Chan* chan, Fcall* f, Fcall* r)
 	file->open = FREAD+FWRITE;
 	freewp(file->wpath);
 	file->wpath = 0;
-	file->auth = authnew(f->uname, f->aname);
-	if(file->auth == nil){
+	file->uid = -1;
+	if((file->auth = authnew()) == nil){
 		error = Eauthfile;
 		goto out;
 	}
 	r->aqid = file->qid;
-
 out:
 	if((cons.flags & attachflag) && error)
 		print("9p2: auth %s %T SUCK EGGS --- %s\n",
@@ -218,7 +217,7 @@ static int
 authorize(Chan* chan, Fcall* f)
 {
 	File* af;
-	int db, uid = -1;
+	int db, uid;
 
 	db = cons.flags & authdebugflag;
 
@@ -247,26 +246,9 @@ authorize(Chan* chan, Fcall* f)
 
 	/* fake read to get auth info */
 	authread(af, nil, 0);
-
-	if(af->auth == nil){
-		if(db)
-			print("authorize: af->auth == nil\n");
-		goto out;
-	}
-	if(strcmp(f->uname, authuname(af->auth)) != 0){
-		if(db)
-			print("authorize: strcmp(f->uname, authuname(af->auth)) != 0\n");
-		goto out;
-	}
-	if(strcmp(f->aname, authaname(af->auth)) != 0){
-		if(db)
-			print("authorize: strcmp(f->aname, authaname(af->auth)) != 0\n");
-		goto out;
-	}
-	uid = authuid(af->auth);
+	uid = af->uid;
 	if(db)
 		print("authorize: uid is %d\n", uid);
-out:
 	qunlock(af);
 	return uid;
 }
@@ -1321,6 +1303,7 @@ _clunk(File* file, int remove, int wok)
 	file->open = 0;
 	freewp(file->wpath);
 	authfree(file->auth);
+	file->auth = 0;
 	freefp(file);
 	qunlock(file);
 
@@ -1368,7 +1351,7 @@ fs_stat(Chan* chan, Fcall* f, Fcall* r, uchar* data)
 		d = &dentry;
 		mkqid9p1(&d->qid, &file->qid);
 		strcpy(d->name, "#¿");
-		d->uid = authuid(file->auth);
+		d->uid = file->uid;
 		d->gid = d->uid;
 		d->muid = d->uid;
 		d->atime = time(nil);
