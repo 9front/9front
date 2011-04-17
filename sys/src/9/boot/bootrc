@@ -56,7 +56,7 @@ fn kbmap{
 fn readmethod{
 	echo
 	echo Storage devices
-	for(i in /dev/sd??){
+	for(i in /dev/sd[A-Z][0-9]*){
 		echo -n local!^$i'	'
 		echo `{sed 's/inquiry[ ]+//g; q' $i/ctl}\
 			partitions: `{cat $i/ctl | grep part | awk '{print $2}'}
