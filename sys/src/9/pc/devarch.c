@@ -987,6 +987,20 @@ archctlwrite(Chan*, void *a, long n, vlong)
 	return n;
 }
 
+static long
+mordorread(Chan*, void*, long, vlong)
+{
+	error("one does not simply read from mordor");
+	return 0;
+}
+
+static long
+mordorwrite(Chan*, void*, long, vlong)
+{
+	error("one does not simply write into mordor");
+	return 0;
+}
+
 void
 archinit(void)
 {
@@ -1035,6 +1049,7 @@ archinit(void)
 
 	addarchfile("cputype", 0444, cputyperead, nil);
 	addarchfile("archctl", 0664, archctlread, archctlwrite);
+	addarchfile("mordor", 0666, mordorread, mordorwrite);
 }
 
 /*
