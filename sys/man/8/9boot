@@ -42,7 +42,7 @@ boot parameters. It is chainloaded by
 .IR pbs,
 wich locates it in the root of the active
 FAT partition. The
-.B plan9.ini
+.B plan9.ini (8)
 file is read from the root directory of the FAT
 filesystem.
 .SH CD-ROM BOOTING
@@ -50,8 +50,8 @@ Booting from CD-ROM requires
 .IR 9bootiso
 to be included in the ISO-9660 image under
 .B 386/9bootiso,
-set as a non emulation bootblock. See
-.IR mk9660 (8).
+set as a non emulation bootblock (see
+.IR mk9660 (8)).
 The BIOS loads the first 2K of 
 .B 386/9bootiso
 into memory and then executes the program. The remainder
