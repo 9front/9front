@@ -1,6 +1,8 @@
 $cputype
 	bin
 		9660srv
+		auth
+			factotum
 		awk
 		bind
 		bzfs
@@ -12,8 +14,7 @@ $cputype
 			prep
 		dossrv
 		echo
-		fossil
-			fossil
+		cwfs64x
 		grep
 		gunzip
 		hoc
@@ -30,6 +31,8 @@ $cputype
 		srv
 		test
 		unmount
+		usb
+			usbd
 		xd
 rc
 	lib

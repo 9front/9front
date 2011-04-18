@@ -36,11 +36,12 @@ fn configlocal{
 }
 
 fn connectlocal{
+	rm -f /srv/boot
 	switch($fstype){
-	case fossil
-		connectlocalfossil
 	case fs
 		connectlocalkfs
+	case fscache fsworm
+		must cwfs64x -n boot -f $disk^/$fstype 
 	case data
 		# test for cd/dvd
 		x=`{sed '/([Cc][Dd]|[Dd][Vv][Dd])/!d' $disk^/ctl}
@@ -50,23 +51,3 @@ fn connectlocal{
 		fatal unknown partition $fstype
 	}
 }
-
-fn connectlocalfossil{
-	if(! test -x /bin/fossil/fossil){
-		echo no fossil
-		exit nofossil
-	}
-
-	partition=$disk^/$fstype
-
-	# settime(1, -1, nil)
-
-	# make venti available
-
-	# start fossil
-	echo 'fossil('$partition')...'
-	must fossil/fossil -f $partition -c 'srv -A boot' -c 'srv -p fscons'
-}
-
-
-

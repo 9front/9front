@@ -125,8 +125,6 @@ boot boot #S/sdD0/data
 
 bootdir
 	bootpccd.out boot
-	/386/bin/auth/factotum
 	/386/bin/bzfs
-	/386/bin/echo
 	/386/bin/mntgen
 	rootfs.bz2

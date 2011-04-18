@@ -410,6 +410,9 @@ main(int argc, char **argv)
 	 * processes to read the console
 	 */
 	consserve();
+
+	/* success */
+	exits(nil);
 }
 
 /*
