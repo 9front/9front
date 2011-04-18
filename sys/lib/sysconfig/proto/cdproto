@@ -27,8 +27,30 @@ mail	d775 upas upas
 		*
 	queue	d777
 	tmp	d777
-$cputype	d775
+
+386	d775
 	+
+68000	d775
+	+
+68020	d775
+	+
+alpha	d775
+	+
+amd64	d775
+	+
+arm	d775
+	+
+power	d775
+	+
+power64	d775
+	+
+sparc	d775
+	+
+sparc64	d775
+	+
+mips	d775
+	+
+
 acme	d775
 	+
 mnt	d775
@@ -100,6 +122,7 @@ usr	d775
 		lib d775
 			*
 		tmp d775
+
 LICENSE	444
 LICENSE.afpl	444
 LICENSE.gpl	444
