@@ -42,7 +42,7 @@ fn devinit{
 fn usbinit{
 	if(test -e '#u'){
 		bind -a '#u' /dev
-		must usb/usbd
+		usb/usbd
 	}
 }
 
