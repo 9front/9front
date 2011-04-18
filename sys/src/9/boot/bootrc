@@ -67,7 +67,7 @@ fn readmethod{
 			echo -n 'kernel is at: '
 
 		while(~ $#resp 0){
-			resp=`{tread $timeo}
+			resp=`{read}
 			if(! ~ $status ''){
 				bootconf	# set configuration from file
 				if(! ~ $#nobootprompt 0)
