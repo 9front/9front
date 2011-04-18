@@ -1,4 +1,4 @@
-# pcf - pc terminal with fossil root and maybe venti block store
+# pcf - pc terminal with local disk
 dev
 	root
 	cons
@@ -130,8 +130,6 @@ boot boot #S/sdC0/
 
 bootdir
 	bootpcf.out boot
-	/386/bin/auth/factotum
 	/386/bin/bzfs
-	/386/bin/echo
 	/386/bin/mntgen
 	rootfs.bz2
