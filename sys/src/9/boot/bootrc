@@ -31,6 +31,13 @@ fn must {
 	$* || fatal $"*^': '^$status
 }
 
+fn devinit{
+	bind -qa '#c' /dev
+	bind -qa '#S' /dev
+	bind -qa '#f' /dev
+	bind -qa '#k' /dev
+	bind -qa '#æ' /dev
+}
 
 fn usbinit{
 	if(test -e '#u'){
@@ -134,9 +141,11 @@ fn main{
 	# connect to the root file system
 	$mp($connect)
 
-	mount -c /srv/boot /root
-	if(~ $pcload 1)
+	must mount -c /srv/boot /root
+	if(~ $pcload 1){
 		echo reboot /root/$kern >/dev/reboot
+		fatal kernel load failed: $kern
+	}
 
 	swapproc
 
@@ -166,9 +175,13 @@ fn main{
 	exec $init
 }
 
+bind -q '#p' /proc
+
+devinit
 usbinit		# set up usb keyboard, mouse, and disk, if any
-configlocal	# add partitions and binds
 kbmap
+
+configlocal	# add partitions and binds
 
 while(){
 	@{rfork n; main}

@@ -1,16 +1,5 @@
 #!/bin/rc
 
-cddevs=()
-
-# fill cddevs with cd or dvd devices
-fn findcds{
-	for(dev in /dev/sd*){
-		x=`{sed '/([Cc][Dd]|[Dd][Vv][Dd])/!d' $dev/ctl >[2]/dev/null}
-		if(! ~ $#x 0)
-			cddevs=($cddevs $dev)
-	}
-}
-
 fn configlocal{
 	disk=`{echo $methodarg | sed 's,(.*)!.*,\1,g'}
 	fstype=`{echo $disk | sed 's,.*/(.*)$,\1,g'}
@@ -23,30 +12,18 @@ fn configlocal{
 		if(~ $#kern 0 || ! ~ $#bootfile 0)
 			kern=`{echo $bootfile | sed 's,.*!(.*)$,\1,g'}
 	}
-
-	bind -a '#c' /dev >/dev/null >[2=1] 
-	bind '#p' /proc >[2=1] >/dev/null >[2=1]  
-	bind -a '#S' /dev >/dev/null >[2=1] 
-	bind -a '#f' /dev >/dev/null >[2=1] 
-	bind -a '#k' /dev >/dev/null >[2=1] 
-	bind -a '#æ' /dev >/dev/null >[2=1] 
-
 	diskparts
-	findcds
 }
 
 fn connectlocal{
 	rm -f /srv/boot
 	switch($fstype){
-	case fs
-		connectlocalkfs
-	case fscache fsworm
+	case kfs fs
+		must disk/kfs -n boot -f $disk^/$fstype 
+	case cwfs fscache fsworm w0 w1 w2 w3
 		must cwfs64x -n boot -f $disk^/$fstype 
 	case data
-		# test for cd/dvd
-		x=`{sed '/([Cc][Dd]|[Dd][Vv][Dd])/!d' $disk^/ctl}
-		if(! ~ $#x 0)
-			must 9660srv -f $disk^/$fstype boot >/dev/null >[2=1]
+		must 9660srv -f $disk^/$fstype boot
 	case *
 		fatal unknown partition $fstype
 	}
