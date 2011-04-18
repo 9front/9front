@@ -1,7 +1,7 @@
 default:V: all
 
 all allall first default clean nuke install installall safeinstall safeinstallall update man:V:
-	cd cwfs && mk $target
+	cd cwfs64x && mk $target
 
 emelie.%:V:
 	cd emelie && mk $stem
