@@ -194,7 +194,7 @@ postservice(void)
 
 	/* post cmd service */
 	snprint(buf, sizeof(buf), "#s/%s.cmd", service);
-	srvfd(buf, 0222, p[0]);
+	srvfd(buf, 0220, p[0]);
 	close(p[0]);
 
 	/* use it as stdin */
