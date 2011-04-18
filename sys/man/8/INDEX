@@ -42,7 +42,6 @@ diskparts diskparts
 dmaon diskparts
 disksim disksim
 drawterm drawterm
-fossilcons fossilcons
 exsort fs
 fs fs
 fsconfig fsconfig

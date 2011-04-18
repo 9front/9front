@@ -120,7 +120,6 @@ Default file holding blocks.
 .SH SOURCE
 .B /sys/src/cmd/disk/kfs
 .SH "SEE ALSO"
-.IR fossil (4),
 .IR kfscmd (8),
 .IR mkfs (8),
 .IR prep (8),

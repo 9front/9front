@@ -63,13 +63,6 @@ The
 .B -n
 option goes through the motions but does not burn any tracks
 on the Blu-ray disc.
-As a side-effect,
-.I backup
-run on the default dump set,
-.LR set1 ,
-will also print the last few
-.I fossil
-dump scores.
 .PP
 .I Tobackup
 prints the names of all the sealed arenas not yet backed up to a disc

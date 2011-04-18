@@ -26,9 +26,6 @@ ext2srv ext2srv
 factotum factotum
 fgui factotum
 flashfs flashfs
-flchk fossil
-flfmt fossil
-fossil fossil
 fs fs
 ftpfs ftpfs
 httpfile httpfile

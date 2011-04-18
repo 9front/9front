@@ -10,9 +10,7 @@ by running the
 .I uname
 command on the console of the file server
 (see
-.IR users (6)
-and
-.IR fossilcons (8)).
+.IR users (6)).
 Next, give the user a password using
 .I auth/changeuser
 on the console of the authentication server (see
@@ -112,7 +110,5 @@ that reflect the properties of the local environment.
 .IR passwd (1),
 .IR rio (1),
 .IR namespace (4),
-.IR fossil (4),
 .IR users (6),
-.IR auth (8),
-.IR fossilcons (8).
+.IR auth (8).
