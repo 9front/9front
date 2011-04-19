@@ -128,7 +128,9 @@ configure(void *f, char *path)
 Clear:
 	kern = 0;
 	inblock = 0;
-	p = (char*)((CONFADDR + 64) & ~0xF0000000UL);
+	p = (char*)(CONFADDR & ~0xF0000000UL);
+	memset(p, 0, 0xE00);
+	p += 64;
 Loop:
 	while((n = readline(f, line)) > 0){
 		if(*line == 0 || strchr("#;=", *line))

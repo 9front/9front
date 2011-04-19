@@ -16,7 +16,3 @@ $BOOTFILES:	$BOOTDIR/boot.h
 
 %.$O:	$BOOTDIR/%.c
 	$CC -I$BOOTDIR $CFLAGS $BOOTDIR/$stem.c
-
-tread: tread.c
-	$CC tread.c
-	$LD -o tread tread.8

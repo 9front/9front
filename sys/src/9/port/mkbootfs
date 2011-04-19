@@ -33,11 +33,6 @@ fn rootbz2 {
 	rm boot.bz2
 }
 
-@{cd ../boot
-	. /$cputype/mkfile
-	mk -f bootmkfile tread
-}
-
 bootraw
 bootbz2
 rootbz2

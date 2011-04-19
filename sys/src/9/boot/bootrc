@@ -13,14 +13,9 @@ mtcp = (configtcp connecttcp)
 mtab = (mlocal mtcp)
 config=1
 connect=2
-bootargs=()
 
-. /rc/lib/conf.rc
-. /rc/lib/menu.rc
 . /rc/lib/local.rc
 . /rc/lib/tcp.rc
-
-cputype=`{cat '#e'/cputype}
 
 fn fatal {
 	echo $*
@@ -31,74 +26,66 @@ fn must {
 	$* || fatal $"*^': '^$status
 }
 
-fn devinit{
-	bind -qa '#c' /dev
-	bind -qa '#S' /dev
-	bind -qa '#f' /dev
-	bind -qa '#k' /dev
-	bind -qa '#æ' /dev
-}
-
-fn usbinit{
-	if(test -e '#u'){
-		bind -a '#u' /dev
-		usb/usbd
+fn ask {
+	echo -n $1
+	echo -n $2
+	if(! ~ $#3 0){
+		echo -n ' ['
+		echo -n $3
+		echo -n '] '
 	}
-}
-
-fn kbmap{
-	if(! ~ $#kbmap 0){
-		bind -a '#κ' /dev
-		cat $kbmap > /dev/kbmap
+	$1=`{read}
+	if(~ $#$1 0)
+		$1=$3
+	if(~ $"$1 '!rc'){
+		rc -i
+		$1=()
 	}
+	if(~ $#$1 0)
+		ask $*
 }
 
 fn readmethod{
-	echo
-	echo Storage devices
-	for(i in /dev/sd[A-Z][0-9]*){
-		echo -n local!^$i'	'
-		echo `{sed 's/inquiry[ ]+//g; q' $i/ctl}\
-			partitions: `{cat $i/ctl | grep part | awk '{print $2}'}
-	}
-
 	found=0
 	while(~ $found 0){
-		timeo=5
-		resp=()
-		while(~ $#resp 0){
-			echo -n 'root is from: '
-			resp=`{tread $timeo}
-			if(! ~ $status ''){
-				bootconf	# set configuration from file
-				if(! ~ $#nobootprompt 0)
-					bootargs=$nobootprompt
-				resp=$bootargs
-			}
-			if(~ $resp !rc)
-				rc -i
-			timeo=0
+		if(~ $#nobootprompt 0){
+			echo
+			showlocaldevs
+			ask bootargs ' are? (tcp, local!device)' $"bootargs
 		}
-
-		method=`{echo $resp | awk -F! '{print $1}'}
-		NF=`{echo $resp | awk -F! '{print NF}'}
-
+		if not {
+			bootargs=$nobootprompt
+			nobootprompt=()
+		}
+		method=`{echo $bootargs | awk -F! '{print $1}'}
+		NF=`{echo $bootargs | awk -F! '{print NF}'}
 		for(i in `{seq 1 $#mtab}){
 			if(~ $mtab($i) m^$method)
-				found = $i 
+				found=$i 
 		}
-	 	if(~ $found 0){
+		if(~ $found 0)
 			echo method $method not found
-		}
 	}
-
-	methodarg = `{echo $resp | sed 's/^[A-Za-z]+!(.*)$/\1/'}
+	methodarg = `{echo $bootargs | awk -F! '{print $2}'}
 	mp = $$mtab($found)
 }
 
-fn authentication{
+fn main{
+	rm -f /srv/boot
+
+	readmethod
+	$mp($config) $methodarg
+
+	switch($method){
+	case local
+		islocal=1
+	case hybrid
+		ishybrid=1
+	}
+
+	# authentication agent
 	if(! test -f /srv/factotum){
-		x=(auth/factotum -sfactotum)
+		x=(/boot/factotum -sfactotum)
 		if(~ $cpuflag 1)
 			x=($x -kS)
 		if not
@@ -109,38 +96,20 @@ fn authentication{
 			x=($x -p)
 		must $x
 	}
-}
-
-fn swapproc{
-	if(test -x '#c'/swap)
-		echo -n start > '#c'/swap
-}
-
-fn main{
-	readmethod
-	$mp($config)
-
-	switch($method){
-	case local
-		islocal=1
-	case hybrid
-		ishybrid=1
-	}
-
-	# authentication agent
-	authentication
 
 	# connect to the root file system
-	$mp($connect)
+	$mp($connect) $methodarg
 
+	# mount root filesystem
 	must mount -c /srv/boot /root
 
-	swapproc
+	# start pager
+	if(test -x /dev/swap)
+		echo -n start >/dev/swap
 
 	# remove part of our temporary root
-	unmount /$cputype/bin /bin
+	/mnt/broot/$cputype/bin/unmount /$cputype/bin /bin
 	/mnt/broot/$cputype/bin/unmount /rc/bin /bin
-	/mnt/broot/$cputype/bin/unmount /boot /bin
 	/mnt/broot/$cputype/bin/unmount /
 
 	# create the name space, mount the root fs
@@ -165,12 +134,26 @@ fn main{
 
 bind -q '#p' /proc
 
-devinit
-usbinit		# set up usb keyboard, mouse, and disk, if any
-kbmap
+bind -qa '#S' /dev
+bind -qa '#f' /dev
+bind -qa '#k' /dev
+bind -qa '#æ' /dev
+
+if(test -e '#u'){
+	bind -a '#u' /dev
+	usb/usbd
+	sleep 1
+}
+
+if(! ~ $#kbmap 0){
+	bind -a '#κ' /dev
+	if(test -r $"kbmap)
+		cat $"kbmap >/dev/kbmap
+}
 
 configlocal	# add partitions and binds
 
-while(){
-	@{rfork n; main}
+while()@{
+	rfork n
+	main
 }

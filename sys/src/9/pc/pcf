@@ -132,4 +132,5 @@ bootdir
 	bootpcf.out boot
 	/386/bin/bzfs
 	/386/bin/mntgen
+	/386/bin/auth/factotum
 	rootfs.bz2

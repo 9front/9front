@@ -1,8 +1,6 @@
 $cputype
 	bin
 		9660srv
-		auth
-			factotum
 		awk
 		bind
 		bzfs
@@ -28,9 +26,9 @@ $cputype
 		rm
 		sed
 		seq
+		sleep
 		srv
 		test
-		tread	555 sys sys ../boot/tread
 		unmount
 		usb
 			usbd
@@ -38,12 +36,9 @@ $cputype
 rc
 	lib
 		rcmain
-		conf.rc 555 sys sys ../boot/conf.rc
 		local.rc 555 sys sys ../boot/local.rc
-		menu.rc 555 sys sys ../boot/menu.rc
 		tcp.rc 555 sys sys ../boot/tcp.rc
 	bin
 		diskparts
 		bootrc 555 sys sys ../boot/bootrc
 tmp
-
