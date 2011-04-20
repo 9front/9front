@@ -752,12 +752,10 @@ bad:
 
 
 int
-cwgrow(Device *dev, Superb *sb, int uid)
+cwgrow(Device *dev, Superb *sb, int)
 {
-	char str[NAMELEN];
 	Iobuf *cb;
 	Cache *h;
-	Filsys *filsys;
 	Off fs, nfs, ws;
 
 	cb = getbuf(CDEV(dev), CACHE_ADDR, Brd|Bmod|Bres);
@@ -773,16 +771,6 @@ cwgrow(Device *dev, Superb *sb, int uid)
 	putbuf(cb);
 
 	sb->fsize = nfs;
-	filsys = dev2fs(dev);
-/*
-	if (filsys == nil)
-		print("%Z", dev);
-	else
-		print("%s", filsys->name);
-	uidtostr(str, uid, 1);
-	print(" grow from %lld to %lld limit %lld by %s uid=%d\n",
-		(Wideoff)fs, (Wideoff)nfs, (Wideoff)ws, str, uid);
-*/
 	for(nfs--; nfs>=fs; nfs--)
 		switch(cwio(dev, nfs, 0, Ogrow)) {
 		case Cerror:
