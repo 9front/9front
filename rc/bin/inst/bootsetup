@@ -22,7 +22,7 @@ case go
 	if(! test -f /tmp/plan9.ini) {
 		{
 			sfs=`{echo $fs | sed 's;/dev;#S;'}
-			if(~ $fstype fossil fossil+venti){
+			if(~ $fstype fossil cwfs){
 				echo bootfile'='$bootfat!9pcf
 				echo 'bootargs=local!'^$sfs
 				echo 'bootdisk=local!'^$sfs

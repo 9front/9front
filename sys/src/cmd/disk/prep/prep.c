@@ -80,6 +80,9 @@ Auto autox[] =
 	{	"other",	200*MB,	0,	4,	},
 	{	"swap",		100*MB,	512*MB,	1,	},
 	{	"cache",	50*MB,	1*GB,	2,	},
+
+	{	"fscache",	200*MB,	0,	4,	},
+	{	"fsworm",	500*MB,	0,	20,	},
 };
 
 void

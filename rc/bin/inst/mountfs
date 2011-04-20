@@ -4,8 +4,8 @@
 # prereq: configfs
 
 switch($fstype){
-case fossil fossil+venti
-	exec mountfossil $*
+case cwfs
+	exec mountcwfs $*
 case *
 	mountfs=notdone
 	export mountfs

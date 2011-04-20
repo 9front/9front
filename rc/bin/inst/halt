@@ -2,12 +2,8 @@
 
 echo -n 'Halting file systems...'
 
-if(ps | grep -s ' venti$')
-	venti/sync -h tcp!127.0.0.1!17034
-if(ps | grep -s ' fossil$'){
-	echo fsys all halt >>/srv/fscons
-	slay fossil|rc
-}
+if(ps | grep -s ' cwfs$')
+	echo halt >>/srv/cwfs.cmd
 
 echo done
 echo

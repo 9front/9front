@@ -27,6 +27,7 @@ sleep 1
 
 f=`{ls /srv/fscons*>[2]/dev/null}
 k=`{ls /srv/kfs*cmd >[2]/dev/null|sort -r}
+c=`{ls /srv/cwfs*cmd >[2]/dev/null}
 
 echo -n syncing...
 for(i in $f) @ {
@@ -55,6 +56,12 @@ for (i in $k){
 	case *
 		disk/kfscmd -n `{echo $i | sed -n 's%/srv/kfs.(.*).cmd%\1%p'} sync
 	}
+	sleep 2
+}
+
+for (i in $c){
+	echo -n $i...
+	echo halt >>$i
 	sleep 2
 }
 
