@@ -151,7 +151,7 @@ static Optab optab0F[256] = {
 //B0 - mostly arcana
   {OBAD,          }, {OBAD,          }, {OLFP,ASS,AGv,AMp},{OBTR,AEv,AGv   },
   {OLFP,AFS,AGv,AMp},{OLFP,AGS,AGv,AMp},{OMOVZX,AGv,AEb }, {OMOVZX,AGv,AEw },
-  {OBAD,          }, {OBAD,          }, {OBAD,          }, {OBAD,          },
+  {OBAD,          }, {OBAD,          }, {OGP8,          }, {OBAD,          },
   {OBSF,AGv,AEv   }, {OBSR,AGv,AEv   }, {OMOVSX,AGv,AEb }, {OMOVSX,AGv,AEw },
 //C0 - more arcana
   {OBAD,          }, {OBAD,          }, {OBAD,          }, {OBAD,          },
@@ -208,6 +208,11 @@ static Optab optabgp5[8] = {
   {OJUMP, AEv,    }, {OJUMP, AMp,    }, {OPUSH,  AEv,   }, {OBAD,          },
 };
 
+static Optab optabgp8[8] = {
+  {OMOV,          }, {OBAD,          }, {OBAD,          }, {OBAD,          },
+  {OBT, AEv, AIb  }, {OBTS, AEv, AIb }, {OBTR, AEv, AIb }, {OBTC, AEv, AIb },
+};
+
 static Optab optabgp10[8] = {
   {OPOP, AEv,     }, {OBAD,          }, {OBAD,          }, {OBAD,          },
   {OBAD,          }, {OBAD,          }, {OBAD,          }, {OBAD,          },
@@ -235,6 +240,7 @@ static Optab *optabgp[NUMOP] = {
 	[OGP3v]	optabgp3v,
 	[OGP4]	optabgp4,
 	[OGP5]	optabgp5,
+	[OGP8]	optabgp8,
 	[OGP10]	optabgp10,
 	[OGP12] optabgp12,
 };

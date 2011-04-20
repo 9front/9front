@@ -292,6 +292,7 @@ enum {
 	OGP3v,
 	OGP4,
 	OGP5,
+	OGP8,
 	OGP10,
 	OGP12,
 	OHLT,
