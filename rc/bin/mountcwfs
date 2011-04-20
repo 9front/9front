@@ -1,0 +1,97 @@
+#!/bin/rc
+
+# desc: choose and mount file system partition
+
+switch($1){
+case go
+	echo 'The following partitions named fscache* were found.'
+	echo
+	echo 'Please choose one to use as the installation file system'
+	echo 'for your Plan 9 installation.'
+	echo
+	files=(`{ls /dev/sd*/fscache* /dev/fs/fscache* >[2]/dev/null})
+	ls -l $files
+	echo
+	if(~ $#files 1)
+		default=(-d $files)
+	if not
+		default=()
+	prompt $default 'Cwfs partition to use for Plan 9 installation' $files
+	fs=$rd
+	export fs
+
+	if(! test -f /tmp/fsconfig) {
+		{
+			echo service cwfs
+			echo nvram /dev/sdC0/nvram
+			echo config /dev/sdC0/fscache
+			echo filsys main c'('/dev/sdC0/fscache')'f'('/dev/sdC0/fsworm')'
+			echo filsys dump o
+			echo filsys other '('/dev/sdC0/other')'
+			echo ream main
+			echo ream other
+			echo end
+		} >/tmp/fsconfig
+	}
+
+	log Starting cwfs file server for $fs
+	unmount /n/newfs >[2]/dev/null
+	echo halt >>/srv/cwfs.cmd >[2]/dev/null
+	rm -f /srv/cwfs /srv/cwfs.cmd
+	logprog cwfs -c -C -f $fs </tmp/fsconfig
+	echo allow >>/srv/cwfs.cmd
+	echo noauth >>/srv/cwfs.cmd
+	echo users default >>/srv/cwfs.cmd
+
+	log Mounting cwfs file server for $fs
+	if(! logprog mount -c /srv/cwfs /n/newfs){
+		echo 'mounting cwfs: '^$status
+		exit oops
+	}
+
+	if(test -d /n/newfs/wrap){
+		moveoldfs go
+		if(test -d /n/newfs/wrap)
+			exit cannotsmashold
+	}
+	if(! test -f /n/newfs/dist/replica/client/plan9.log){
+		echo 'create /dist sys sys 775 d' >>/srv/cwfs.cmd
+		echo 'create /dist/replica sys sys 775 d' >>/srv/cwfs.cmd
+		echo 'create /dist/replica/ndist sys sys 775' >>/srv/cwfs.cmd
+		echo 'create /dist/replica/client sys sys 775 d' >>/srv/cwfs.cmd
+		echo 'create /dist/replica/client/plan9.db sys sys 664' >>/srv/cwfs.cmd
+		echo 'create /dist/replica/client/plan9.log sys sys 664 a' >>/srv/cwfs.cmd
+	}
+
+case checkready checkdone
+	if(! test -f /dev/sd*/fscache*){
+		mountfs=notdone
+		export mountfs
+		exit
+	}
+	if(! ~ $#fs 1 || ! test -f $fs){
+		mountfs=ready
+		export mountfs
+		exit
+	}
+	if(! test -f /srv/cwfs){
+		echo halt >>/srv/cwfs.cmd
+		rm -f /srv/cwfs /srv/cwfs.cmd
+		logprog cwfs -C -f $fs
+		echo allow >>/srv/cwfs.cmd >>[2]/srv/log
+	}
+	if(test -f /srv/cwfs && ! test -f /n/newfs/dist/replica/client/plan9.log){
+		log Mounting cwfs file server for $fs
+		if(! logprog mount -c /srv/cwfs /n/newfs)
+			echo 'mounting cwfs: '^$status
+		echo allow >>/srv/cwfs.cmd >>[2]/srv/log
+	}
+	if(test -f /srv/cwfs && test -f /n/newfs/dist/replica/client/plan9.log){
+		mountfs=done
+		export mountfs
+		exit
+	}
+	mountfs=ready
+	export mountfs
+	exit
+}
