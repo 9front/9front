@@ -14,6 +14,14 @@ TEXT a20(SB), $0
 _biosfail:
 	CALL16(pmode32(SB))
 
+	/* fast a20 */
+	MOVL $0x92, DX
+	INB
+	ANDB $0xFE, AX
+	ORB $0x02, AX
+	OUTB
+
+	/* slow a20 */
 	CALL a20wait(SB)
 	MOVL $0x64, DX
 	MOVB $0xAD, AL

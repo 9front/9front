@@ -212,30 +212,17 @@ bootkern(void *f)
 	if(beswal(ex.magic) != I_MAGIC)
 		return "bad magic";
 
-	/* load address */
 	e = (uchar*)(beswal(ex.entry) & ~0xF0000000UL);
-
-	/*
-	 * the kernels load addess (entry) might overlap
-	 * with some bios memory (pxe) that is needed to load
-	 * it. so we read it to this address and after
-	 * we finished, move it to final location.
-	 */
-	t = (uchar*)0x200000;
-
+	t = e;
 	n = beswal(ex.text);
 	if(readn(f, t, n) != n)
 		goto Error;
-	d = t + ((uchar*)PGROUND((ulong)e + n) - e);
+	d = (uchar*)PGROUND((ulong)t + n);
 	n = beswal(ex.data);
 	if(readn(f, d, n) != n)
 		goto Error;
 	close(f);
-
 	unload();
-
-	n = (d + n) - t;
-	memmove(e, t, n);
 	jump(e);
 Error:		
 	return "i/o error";

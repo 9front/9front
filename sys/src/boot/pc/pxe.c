@@ -113,8 +113,14 @@ unload(void)
 		uchar status[2];
 		uchar junk[10];
 	} buf;
-	memset(&buf, 0, sizeof(buf));
-	pxecall(0x70, &buf);
+	static uchar shutdown[] = { 0x05, 0x070, 0x02, 0 };
+	uchar *o;
+
+	for(o = shutdown; *o; o++){ 
+		memset(&buf, 0, sizeof(buf));
+		if(pxecall(*o, &buf))
+			break;
+	}
 }
 
 static int
