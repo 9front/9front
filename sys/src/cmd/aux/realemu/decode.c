@@ -348,7 +348,7 @@ getmodrm32(Iarg *ip, Inst *i)
 		i->off = ar(areg(ip->cpu, 4, i->rm + RAX));
 		break;
 	case 4:
-		b = ar(ip); i->off++;
+		b = ar(ip); ip->off++;
 		i->scale = b>>6;
 		i->index = (b>>3)&7;
 		i->base = b&7;
