@@ -57,6 +57,7 @@ struct Dhcp
 	char bootfile[128];
 };
 
+int pxeinit(void);
 int pxecall(int op, void *buf);
 
 static void*
@@ -103,6 +104,17 @@ static void
 moveip(IP4 d, IP4 s)
 {
 	memmove(d, s, sizeof(d));
+}
+
+void
+unload(void)
+{
+	struct {
+		uchar status[2];
+		uchar junk[10];
+	} buf;
+	puts(buf.status, 0);
+	pxecall(0x70, &buf);
 }
 
 static int
@@ -153,7 +165,7 @@ udpopen(IP4 sip)
 static int
 udpclose(void)
 {
-	char status[2];
+	uchar status[2];
 	puts(status, 0);
 	return pxecall(0x31, status);
 }
@@ -268,6 +280,7 @@ close(void *f)
 	udpclose();
 }
 
+
 static int
 tftpopen(Tftp *t, char *path, IP4 sip, IP4 dip, IP4 gip)
 {
@@ -311,6 +324,10 @@ start(void *)
 	void *f;
 	Tftp t;
 
+	if(pxeinit()){
+		print("pxe init\r\n");
+		halt();
+	}
 	if(getip(yip, sip, gip, mac)){
 		print("bad dhcp\r\n");
 		halt();

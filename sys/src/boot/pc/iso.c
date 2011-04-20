@@ -39,6 +39,11 @@ struct Dir
 
 int readsect(ulong drive, ulong lba, void *buf);
 
+void
+unload(void)
+{
+}
+
 int
 read(void *f, void *data, int len)
 {

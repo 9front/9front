@@ -79,9 +79,6 @@ TEXT rmode16(SB), $0
 	JMP _segret
 
 TEXT rmode16x(SB), $0
-	/* reload idt */
-	SEGSS; LIDT(tidtptr(SB))
-
 	/* disable protected mode */
 	MFCR(rCR0, rCX)
 	ANDB $0xfe, CL
@@ -123,10 +120,6 @@ TEXT tgdt(SB), $0
 TEXT tgdtptr(SB), $0 
          WORD $(5*8) 
          LONG $tgdt(SB)
-
-TEXT tidtptr(SB), $0
-	WORD $0x3ff
-	LONG $0
 
 TEXT jump(SB), $0
 	MOVL 4(SP), AX
@@ -180,6 +173,33 @@ _pret32:
 
 #ifdef PXE
 
+TEXT pxeinit(SB), $0
+	CALL rmode16(SB)
+
+	/* get pxe env structure in ES:BX */
+	LWI(0x5650, rAX)
+	BIOSCALL(0x1A)
+	JC _pret32
+
+	/* !PXE or PXEENV+ signature */
+	SEGES; LXW(0, xBX, rAX)
+	CMPI((('!'<<0)|('P'<<8)), rAX)
+	JEQ _getentry
+	CMPI((('P'<<0)|('X'<<8)), rAX)
+	JNE _pret32
+
+	SEGES; LXW(0x2A, xBX, rAX)
+	SEGES; LXW(0x28, xBX, rBX)
+	MTSR(rAX, rES)
+
+_getentry:
+	SEGES; LXW(0x12, xBX, rAX)
+	SW(rAX, pxepseg(SB))
+	SEGES; LXW(0x10, xBX, rAX)
+	SW(rAX, pxepoff(SB))
+	CLR(rAX)
+	JMP _pret32
+
 TEXT pxecallret(SB), $0
 	ADDI(6, rSP)
 	JMP _pret32
@@ -200,26 +220,9 @@ TEXT pxecall(SB), $0
 	PUSHR(rCX)
 	PUSHI(pxecallret(SB))
 
-	/* get pxe env structure in ES:BX */
-	LWI(0x5650, rAX)
-	BIOSCALL(0x1A)
-	JC _farret
-
-	/* !PXE or PXEENV+ signature */
-	SEGES; LXW(0, xBX, rAX)
-	CMPI((('!'<<0)|('P'<<8)), rAX)
-	JEQ _getentry
-	CMPI((('P'<<0)|('X'<<8)), rAX)
-	JNE _farret
-
-	SEGES; LXW(0x2A, xBX, rAX)
-	SEGES; LXW(0x28, xBX, rBX)
-	MTSR(rAX, rES)
-
-_getentry:
-	SEGES; LXW(0x12, xBX, rAX)
+	LW(pxepseg(SB), rAX)
 	PUSHR(rAX)
-	SEGES; LXW(0x10, xBX, rAX)
+	LW(pxepoff(SB), rAX)
 	PUSHR(rAX)
 
 	CALL16(spllo(SB))
@@ -230,8 +233,12 @@ _getentry:
 	CLR(rDX)
 	CLR(rDI)
 	CLR(rSI)
-_farret:
 	FARRET
+
+TEXT pxepseg(SB), $0
+	WORD $0
+TEXT pxepoff(SB), $0
+	WORD $0
 
 #else /* PXE */
 

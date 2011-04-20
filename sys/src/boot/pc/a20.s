@@ -4,16 +4,14 @@
 
 TEXT a20(SB), $0
 	CALL rmode16(SB)
-	STI
+	CALL16(spllo(SB))
 	LWI(0x2401, rAX)
 	BIOSCALL(0x15)
 	JC _biosfail
-	CLI
 	CALL16(pmode32(SB))
 	RET
 
 _biosfail:
-	CLI
 	CALL16(pmode32(SB))
 
 	CALL a20wait(SB)

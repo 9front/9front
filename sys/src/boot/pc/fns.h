@@ -16,6 +16,7 @@ void jump(void *pc);
 int read(void *f, void *data, int len);
 int readn(void *f, void *data, int len);
 void close(void *f);
+void unload(void);
 
 void memset(void *p, int v, int n);
 void memmove(void *dst, void *src, int n);

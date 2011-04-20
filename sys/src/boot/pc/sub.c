@@ -18,9 +18,18 @@ memmove(void *dst, void *src, int n)
 {
 	uchar *d = dst;
 	uchar *s = src;
-	while(n > 0){
-		*d++ = *s++;
-		n--;
+	if(d < s){
+		while(n > 0){
+			*d++ = *s++;
+			n--;
+		}
+	} if(d > s){
+		s += n;
+		d += n;
+		while(n > 0){
+			*--d = *--s;
+			n--;
+		}
 	}
 }
 
@@ -192,9 +201,9 @@ beswal(ulong l)
 char*
 bootkern(void *f)
 {
-	uchar *e, *d;
+	uchar *e, *d, *t;
+	ulong n;
 	Exec ex;
-	int n;
 
 	a20();
 	if(readn(f, &ex, sizeof(ex)) != sizeof(ex))
@@ -202,14 +211,25 @@ bootkern(void *f)
 	if(beswal(ex.magic) != I_MAGIC)
 		return "bad magic";
 	e = (uchar*)(beswal(ex.entry) & ~0xF0000000UL);
+
+	/*
+	 * the kernels load addess (entry) might overlap
+	 * with some bios memory (pxe) that is needed to load
+	 * it. so we read it to this address and after
+	 * we finished, move it to final location.
+	 */
+	t = (uchar*)0x200000;
 	n = beswal(ex.text);
-	if(readn(f, e, n) != n)
+	if(readn(f, t, n) != n)
 		goto Error;
-	d = (uchar*)(((ulong)e + n + 0xFFF) & ~0xFFFUL);
+	d = t + ((uchar*)PGROUND((ulong)e + n) - e);
 	n = beswal(ex.data);
 	if(readn(f, d, n) != n)
 		goto Error;
 	close(f);
+	unload();
+	n = (d + n) - t;
+	memmove(e, t, n);
 	jump(e);
 Error:		
 	return "i/o error";
