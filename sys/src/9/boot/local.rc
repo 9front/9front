@@ -5,7 +5,7 @@ fn showlocaldevs{
 	for(c in /dev/sd*/ctl){
 		d=`{echo $c | sed 's,/ctl,,g'}
 		echo $d':' `{sed 's/inquiry[ ]+//g; q' $c}
-		for(i in `{awk '/^part/{print $2}' $c})
+		for(i in `{ls -p $d | grep -v -e 'ctl|raw'})
 			echo $d'/'$i
 		echo
 	}
