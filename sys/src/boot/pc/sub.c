@@ -18,6 +18,7 @@ memmove(void *dst, void *src, int n)
 {
 	uchar *d = dst;
 	uchar *s = src;
+
 	if(d < s){
 		while(n > 0){
 			*d++ = *s++;
@@ -210,6 +211,8 @@ bootkern(void *f)
 		return "bad header";
 	if(beswal(ex.magic) != I_MAGIC)
 		return "bad magic";
+
+	/* load address */
 	e = (uchar*)(beswal(ex.entry) & ~0xF0000000UL);
 
 	/*
@@ -219,6 +222,7 @@ bootkern(void *f)
 	 * we finished, move it to final location.
 	 */
 	t = (uchar*)0x200000;
+
 	n = beswal(ex.text);
 	if(readn(f, t, n) != n)
 		goto Error;
@@ -227,7 +231,9 @@ bootkern(void *f)
 	if(readn(f, d, n) != n)
 		goto Error;
 	close(f);
+
 	unload();
+
 	n = (d + n) - t;
 	memmove(e, t, n);
 	jump(e);

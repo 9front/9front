@@ -113,7 +113,7 @@ unload(void)
 		uchar status[2];
 		uchar junk[10];
 	} buf;
-	puts(buf.status, 0);
+	memset(&buf, 0, sizeof(buf));
 	pxecall(0x70, &buf);
 }
 
