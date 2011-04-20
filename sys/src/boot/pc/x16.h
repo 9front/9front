@@ -153,6 +153,9 @@
 #define LGDT(gdtptr)	BYTE $0x0F;		/* LGDT */			\
 			BYTE $0x01; BYTE $0x16;					\
 			WORD $gdtptr
+#define LIDT(idtptr)	BYTE $0x0F;		/* LIDT */			\
+			BYTE $0x01; BYTE $0x1e;					\
+			WORD $idtptr
 
 /* operand size switch. */
 #define OPSIZE		BYTE $0x66

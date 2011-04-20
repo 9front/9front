@@ -32,6 +32,7 @@ struct Tftp
 	char *rp;
 	char *ep;
 
+	int seq;
 	int eof;
 	
 	char pkt[2+2+Segsize];
@@ -217,14 +218,9 @@ int
 read(void *f, void *data, int len)
 {
 	Tftp *t = f;
-	int n;
+	int seq, n;
 
-	if(!t->eof && t->rp >= t->ep){
-		if(t->rp){
-			hnputs(t->pkt, Tftp_ACK);
-			udpwrite(t->dip, t->gip, t->sport, t->dport, 4, t->pkt);
-			t->rp = t->ep = 0;
-		}
+	while(!t->eof && t->rp >= t->ep){
 		for(;;){
 			n = sizeof(t->pkt);
 			if(udpread(t->dip, t->sip, &t->dport, t->sport, &n, t->pkt))
@@ -234,6 +230,15 @@ read(void *f, void *data, int len)
 		}
 		switch(nhgets(t->pkt)){
 		case Tftp_DATA:
+			seq = nhgets(t->pkt+2);
+			if(seq <= t->seq){
+				putc('@');
+				continue;
+			}
+			hnputs(t->pkt, Tftp_ACK);
+			while(udpwrite(t->dip, t->gip, t->sport, t->dport, 4, t->pkt))
+				putc('!');
+			t->seq = seq;
 			t->rp = t->pkt + 4;
 			t->ep = t->pkt + n;
 			t->eof = n < Segsize;
@@ -245,6 +250,7 @@ read(void *f, void *data, int len)
 			t->eof = 1;
 			return -1;
 		}
+		break;
 	}
 	n = t->ep - t->rp;
 	if(len > n)
@@ -275,6 +281,7 @@ tftpopen(Tftp *t, char *path, IP4 sip, IP4 dip, IP4 gip)
 	t->sport = xport++;
 	t->dport = 0;
 	t->rp = t->ep = 0;
+	t->seq = -1;
 	t->eof = 0;
 	t->nul = 0;
 	if(r = udpopen(t->sip))
