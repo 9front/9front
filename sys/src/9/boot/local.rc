@@ -3,11 +3,13 @@
 fn showlocaldevs{
 	echo local devices found:
 	for(c in /dev/sd*/ctl){
-		d=`{echo $c | sed 's,/ctl,,g'}
-		echo $d':' `{sed 's/inquiry[ ]+//g; q' $c}
-		for(i in `{ls -p $d | grep -v -e 'ctl|raw'})
-			echo $d'/'$i
-		echo
+		if(test -r $c){
+			d=`{echo $c | sed 's,/ctl,,g'}
+			echo $d':' `{sed 's/inquiry[ ]+//g; q' $c}
+			for(i in `{ls -p $d | grep -v -e 'ctl|raw'})
+				echo $d'/'$i `{fstype $d'/'$i}
+			echo
+		}
 	}
 }
 
@@ -24,16 +26,15 @@ fn configlocal{
 }
 
 fn connectlocal{
-	part=`{echo $* | sed 's,.*/([^ ]+),\1,g'}
-	part=$part(1)
-	switch($part){
-	case kfs fs
-		must disk/kfs -n boot -f $*
-	case cwfs fscache fsworm w0 w1 w2 w3
-		must cwfs64x -n boot -f $*
-	case data
+	t=`{fstype $1}
+	if(~ $#t 0)
+		fatal unknown fstype $1
+	switch($t){
+	case 9660
 		must 9660srv -f $* boot
+	case kfs
+		must disk/kfs -n boot -f $*
 	case *
-		fatal unknown partition $part
+		must $t -n boot -f $*
 	}
 }

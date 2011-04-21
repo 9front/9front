@@ -39,6 +39,7 @@ rc
 		local.rc 555 sys sys ../boot/local.rc
 		tcp.rc 555 sys sys ../boot/tcp.rc
 	bin
+		fstype
 		diskparts
 		bootrc 555 sys sys ../boot/bootrc
 tmp
