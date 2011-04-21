@@ -20,8 +20,6 @@ fn showlocaldevs{
 fn configlocal{
 	if(~ $pcload 1){
 		kern=`{echo $* | sed 's,.*!(.*)$,\1,g'}
-
-		# for now we only allow kernels in the same dev/part of $methodargs
 		if(~ $#kern 0 || ! ~ $#bootfile 0)
 			kern=`{echo $bootfile | sed 's,.*!(.*)$,\1,g'}
 	}
@@ -41,3 +39,6 @@ fn connectlocal{
 	}
 	{$t -s -f $* &} <[0=1] | echo 0 >/srv/boot
 }
+
+mlocal=(configlocal connectlocal)
+mt=(mlocal $mt)

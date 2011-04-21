@@ -1,21 +1,8 @@
-# TODO
-# settime
-# handle rootspec
-# handle rootdir
-# clean rc environment before running init(8)
-# kfs
-# caching
-
 rfork e
-# boot methods
-mlocal = (configlocal connectlocal)
-mtcp = (configtcp connecttcp)
-mtab = (mlocal mtcp)
-config=1
-connect=2
 
-. /rc/lib/local.rc
+mt=()
 . /rc/lib/tcp.rc
+. /rc/lib/local.rc
 
 fn fatal {
 	echo $*
@@ -29,7 +16,7 @@ fn must {
 fn ask {
 	echo -n $1
 	echo -n $2
-	if(! ~ $#3 0){
+	if(! ~ $3 ''){
 		echo -n ' ['
 		echo -n $3
 		echo -n '] '
@@ -45,43 +32,41 @@ fn ask {
 		ask $*
 }
 
-fn readmethod{
-	found=0
-	while(~ $found 0){
+fn getmethod{
+	mp=()
+	while(~ $#mp 0){
 		if(~ $#nobootprompt 0){
 			echo
 			showlocaldevs
-			ask bootargs ' are? (tcp, local!device)' $"bootargs
+			ask bootargs ' are? (tcp, local!device)' $bootargs
 		}
 		if not {
 			bootargs=$nobootprompt
 			nobootprompt=()
 		}
-		method=`{echo $bootargs | awk -F! '{print $1}'}
-		NF=`{echo $bootargs | awk -F! '{print NF}'}
-		for(i in `{seq 1 $#mtab}){
-			if(~ $mtab($i) m^$method)
-				found=$i 
+		mn=`{echo $bootargs | awk -F! '{print $1}'}
+		ma=`{echo $bootargs | awk -F! '{print $2}'}
+		for(i in `{seq 1 $#mt}){
+			if(~ $mt($i) m^$mn)
+				mp=$$mt($i)
 		}
-		if(~ $found 0)
-			echo method $method not found
 	}
-	methodarg = `{echo $bootargs | awk -F! '{print $2}'}
-	mp = $$mtab($found)
 }
 
 fn main{
 	rm -f /srv/boot
 
-	readmethod
-	$mp($config) $methodarg
+	getmethod
 
-	switch($method){
+	switch($mn){
 	case local
 		islocal=1
 	case hybrid
 		ishybrid=1
 	}
+
+	# config method
+	$mp(1) $ma
 
 	# authentication agent
 	if(! test -f /srv/factotum){
@@ -97,8 +82,8 @@ fn main{
 		must $x
 	}
 
-	# connect to the root file system
-	$mp($connect) $methodarg
+	# connect method
+	$mp(2) $ma
 
 	# mount root filesystem
 	must mount -c /srv/boot /root
@@ -106,6 +91,9 @@ fn main{
 	# start pager
 	if(test -x /dev/swap)
 		echo -n start >/dev/swap
+
+	# remove enviroment variables
+	rm -f /env/^$mt /env/? /env/?? '/env/fn#'* 
 
 	# remove part of our temporary root
 	/mnt/broot/$cputype/bin/unmount /$cputype/bin /bin
@@ -142,7 +130,6 @@ bind -qa '#æ' /dev
 if(test -e '#u'){
 	bind -a '#u' /dev
 	usb/usbd
-	sleep 1
 }
 
 if(! ~ $#kbmap 0){
@@ -154,6 +141,6 @@ if(! ~ $#kbmap 0){
 configlocal	# add partitions and binds
 
 while()@{
-	rfork n
+	rfork ne
 	main
 }

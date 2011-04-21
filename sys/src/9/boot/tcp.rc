@@ -3,7 +3,7 @@
 fn configtcp{
 	# bind in an ip interface
 	for(i in I l`{seq 0 3})
-		bind -a '#'$i /net >/dev/null >[2=1]
+		bind -qa '#'$i /net
 
 	must ip/ipconfig -p $*
 	
@@ -12,9 +12,9 @@ fn configtcp{
 	if(~ $#auth 0)
 		auth=`{awk -F'=' '/auth=/{print $2; exit}' /net/ndb}
 	if(~ $#fs 0)
-		ask fs ' ip is?' $"auth
+		ask fs ' ip is?' $auth
 	if(~ $#auth 0)
-		ask auth ' ip is?' $"fs
+		ask auth ' ip is?' $fs
 	
 	fsaddr=tcp!$fs!564
 	authaddr=tcp!$auth!567
@@ -23,3 +23,6 @@ fn configtcp{
 fn connecttcp{
 	srv -q $"fsaddr boot 
 }
+
+mtcp=(configtcp connecttcp)
+mt=(mtcp $mt)
