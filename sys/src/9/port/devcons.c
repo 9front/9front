@@ -1130,7 +1130,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 		break;
 	
 	case Qmordor:
-		error("one does not simply write to mordor");
+		error("one does not simply write into mordor");
 		return 0;
 
 	default:
