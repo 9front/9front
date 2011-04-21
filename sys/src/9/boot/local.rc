@@ -6,9 +6,13 @@ fn showlocaldevs{
 		if(test -r $c){
 			d=`{echo $c | sed 's,/ctl,,g'}
 			echo $d':' `{sed 's/inquiry[ ]+//g; q' $c}
-			for(i in `{ls -p $d | grep -v -e 'ctl|raw'})
-				echo $d'/'$i `{fstype $d'/'$i}
-			echo
+			for(i in `{ls -p $d | grep -v -e 'ctl|raw'}){
+				p=$d/$i
+				t=`{fstype $p}
+				if(~ $#bootargs 0 && ! ~ $t '')
+					bootargs=local!$p
+				echo $p $t
+			}
 		}
 	}
 }
