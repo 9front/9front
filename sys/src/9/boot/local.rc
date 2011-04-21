@@ -31,10 +31,9 @@ fn connectlocal{
 		fatal unknown fstype $1
 	switch($t){
 	case 9660
-		must 9660srv -f $* boot
+		t=9660srv
 	case kfs
-		must disk/kfs -n boot -f $*
-	case *
-		must $t -n boot -f $*
+		t=disk/kfs
 	}
+	{$t -s -f $* &} <[0=1] | echo 0 >/srv/boot
 }
