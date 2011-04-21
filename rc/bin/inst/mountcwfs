@@ -81,6 +81,13 @@ case go
 		echo newuser $user
 		echo newuser sys +$user
 		echo newuser adm +$user
+		if(! ~ $fsother ''){
+			echo cfs other
+			echo create /usr sys sys 775 d
+			echo create /usr/$user $user $user 775 d
+			echo create /usr/$user/tmp $user $user 750 d
+			echo cfs main
+		}
 		# not synchronized
 		sleep 5
 	} >>/srv/cwfs.cmd
