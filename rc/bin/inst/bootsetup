@@ -12,33 +12,15 @@ case go
 	fat=(/dev/sd*/9fat)
 	fat=$fat(1)
 	disk=`{echo $fat | sed 's:/dev/::;s:/9fat::'}
-	bootfs=`{echo $fs | sed 's:/dev/(sd..)/(.*):\1!\2:'}
-	bootfat=`{echo $fs | sed 's:/dev/(sd..)/(.*):\1!9fat:'}
-	if(! test -f /dev/$disk/9fat) {
+	if(! test -f $fat) {
 		echo 'You have no 9fat partition.  Can''t setup booting.'
 		exit
 	}
 
 	if(! test -f /tmp/plan9.ini) {
 		{
-			sfs=`{echo $fs | sed 's;/dev;#S;'}
-			if(~ $fstype fossil cwfs){
-				echo bootfile'='$bootfat!9pcf
-				echo 'bootargs=local!'^$sfs
-				echo 'bootdisk=local!'^$sfs
-			}
-			if not {
-				echo bootfile'='$bootfs!/386/9pcdisk
-				echo 'bootdisk=local!'^$sfs
-			}
-			if(~ $fstype fossil+venti){
-				venti=`{echo $ventiarena | sed 's;/dev;#S;'}
-				echo venti'='^$venti
-			}
-			# sort -u avoids dups which could otherwise trigger
-			# pointless boot menus.
-			grep -v '(^\[)|menuitem|adisk|bootfile|bootdisk|bootargs|nobootprompt|mouseport|vgasize|monitor|cdboot' /tmp/plan9.orig |
-				sort -u
+			echo bootfile'='9pcf
+			echo 'bootargs=local!'^$fs
 			echo 'mouseport='^$mouseport
 			echo 'monitor='^$monitor
 			echo 'vgasize='^$vgasize
@@ -48,8 +30,10 @@ case go
 		cp /tmp/plan9.ini /tmp/plan9ini.bak
 
 	need9fatformat=no
-	if(! isfat /dev/$disk/9fat)
+	if(! isfat $fat)
 		need9fatformat=yes
+	if(! test -f /srv/dos)
+		dossrv
 	if not if(! mount -c /srv/dos /n/9fat /dev/$disk/9fat >[2]/dev/null)
 		need9fatformat=yes
 	if not if(! test -f /n/9fat/plan9.ini)
@@ -57,22 +41,15 @@ case go
 
 	if(~ $need9fatformat yes){
 		log Initializing Plan 9 FAT partition.
-		disk/format -r 2 -d -b /386/pbs \
-			/dev/$disk/9fat /n/newfs/386/9bootfat
-		mount -c /srv/dos /n/9fat /dev/$disk/9fat
+		disk/format -r 2 -d -b /386/pbs $fat /n/newfs/386/9bootfat
+		mount -c /srv/dos /n/9fat $fat
 	}
 
-	if(! test -f /n/9fat/4e){
-		logprog cp /n/newfs/386/9bootfat /n/9fat/9bootfat
-		logprog cp /n/newfs/386/9pcf /n/9fat/9pcf
-		if(test -f /n/9fat/plan9.ini && ! test -f /n/9fat/plan9-3e.ini)
-			logprog mv /n/9fat/plan9.ini /n/9fat/plan9-3e.ini
-		if(test -f /n/9fat/9pcdisk && ! test -f /n/9fat/9pc3e)
-			logprog mv /n/9fat/9pcdisk /n/9fat/9pc3e
-
-		awk -f /bin/inst/mkini.awk >/n/9fat/plan9.ini
-		>/n/9fat/4e
-	}
+	logprog cp /tmp/plan9.ini /n/9fat/plan9.ini
+	if(test -f /tmp/plan9ini.bak)
+		logprog cp /tmp/plan9ini.bak /n/9fat/plan9ini.bak
+	logprog cp /n/newfs/386/9bootfat /n/9fat/9bootfat
+	logprog cp /n/newfs/386/9pcf /n/9fat/9pcf
 
 	echo
 	echo 'There are myriad ways to boot a Plan 9 system.'

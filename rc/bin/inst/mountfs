@@ -4,7 +4,7 @@
 # prereq: configfs
 
 switch($fstype){
-case cwfs
+case cwfs cwfs64 cwfs64x
 	exec mountcwfs $*
 case *
 	mountfs=notdone

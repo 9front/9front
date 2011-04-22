@@ -5,26 +5,23 @@
 
 switch($1){
 case checkready
-	if(! test -d /n/dist/dist/replica){
+	if(! test -f /n/dist/LICENSE){
 		copydist=notdone
 		export copydist
 		exit
 	}
-	if(test -f /n/newfs/dist/replica/didplan9){
+	if(test -f /n/newfs/LICENSE && test -f /tmp/copydone){
 		copydist=done
 		export copydist
 		exit
 	}
 case go
-	inst/watchfd applylog 0 `{ls -l /n/dist/dist/replica/plan9.log | awk '{print $6}'} 'Installing file system' &
-	replica/pull -c / /rc/bin/inst/replcfg
-	if(~ $status '' *conflicts || test -f /n/newfs/dist/replica/didplan9witherrors)
-		>/n/newfs/dist/replica/didplan9
-	if not
-		>/n/newfs/dist/replica/didplan9witherrors
+	rm -f /tmp/copydone
+	disk/mkfs -s /n/dist -d /n/newfs /sys/lib/sysconfig/proto/allproto
+	touch /tmp/copydone
 
 case checkdone
-	if(! test -f /n/newfs/dist/replica/didplan9){
+	if(! test -f /tmp/copydone){
 		copydist=notdone
 		export copydist
 	}

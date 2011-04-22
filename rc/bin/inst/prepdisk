@@ -4,8 +4,10 @@
 # prereq: partdisk
 
 fn autotype {
-	if(~ $fstype cwfs)
+	switch($fstype){
+	case cwfs cwfs64 cwfs64x
 		echo -a 9fat -a nvram -a fscache -a fsworm -a other
+	}
 }
 
 switch($1) {
@@ -41,16 +43,7 @@ case go
 case checkdone
 	if(! test -f /dev/sd*/9fat)
 		prepdisk=ready
-
-	if(! ~ $prepdisk ready){
+	if(! ~ $prepdisk ready)
 		prepdisk=done
-		switch($fstype){
-		case cwfs
-			if(! test -f /dev/sd*/fscache* && ! test -f /dev/fs/fscache*)
-				prepdisk=ready
-			if(! test -f /dev/sd*/fsworm* && ! test -f /dev/fs/fsworm*)
-				prepdisk=ready
-		}
-	}
 	export prepdisk
 }

@@ -4,19 +4,18 @@
 
 switch($1){
 case checkdone
-	if(! ~ $fstype cwfs){
+	if(~ $#fstype 1 && test -f /bin/$fstype)
+		configfs=done
+	if not
 		configfs=ready
-		export configfs
-	}
+	export configfs
 
 case go
 	echo 'You can install the following types of file systems:'
 	echo
-	echo '	cwfs	the cached-worm file server'
+	echo '	cwfs64x	the cached-worm file server'
 	echo
-	prompt -d fossil 'File system' cwfs
+	prompt -d cwfs64x 'File system' cwfs64x
 	fstype=$rd
 	export fstype
 }
-
-

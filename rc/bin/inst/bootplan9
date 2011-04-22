@@ -1,11 +1,5 @@
 #!/bin/rc
 
-first=`{ls -p '#S' | sed 1q}
-if(! ~ $first $disk) {
-	echo 'warning: The plan 9 partition is not on the boot disk,'
-	echo 'so making it the active partition will have no effect.'
-}
-
 p9offset=`{grep '^part 9fat ' /dev/$disk/ctl |awk '{print $3}'}
 if(! ~ $#p9offset 1) {
 	echo 'could not find plan 9 partition.'

@@ -1,0 +1,117 @@
+#!/bin/rc
+
+# desc: choose and mount file system partition
+
+switch($1){
+case go
+	echo
+	echo The please choose your $fstype partitions
+	echo
+
+	files=(`{ls /dev/sd*/fscache* /dev/fs/fscache* >[2]/dev/null})
+	ls -l $files
+	echo
+	if(~ $#files 1)
+		default=(-d $files)
+	if not
+		default=()
+	prompt $default 'Cwfs cache partition' $files
+	fs=$rd
+	export fs
+
+	files=(`{ls /dev/sd*/fsworm* /dev/fs/fsworm* >[2]/dev/null})
+	ls -l $files
+	echo
+	if(~ $#files 1)
+		default=(-d $files)
+	if not
+		default=()
+	prompt $default 'Cwfs worm partition' $files
+	fsworm=$rd
+	export fsworm
+
+	files=(`{ls /dev/sd*/other* /dev/fs/other* >[2]/dev/null})
+	ls -l $files
+	echo
+	if(~ $#files 1)
+		default=(-d $files)
+	if not
+		default=()
+	prompt $default 'Cwfs other partition' $files
+	fsother=$rd
+	export fsother
+
+	if(! test -f /tmp/fsconfig){
+		{
+			echo service cwfs
+			echo config $fs
+
+			# new config option
+			echo noauth
+
+			echo filsys main c'('$fs')('$fsworm')'
+			echo filsys dump o
+			if(! ~ $fsother ''){
+				echo filsys other '('$fsother')'
+				echo ream other
+			}
+			echo ream main
+			echo end
+		} >/tmp/fsconfig
+	}
+
+	log Starting $fstype file server for $fs
+	unmount /n/newfs >[2]/dev/null
+	echo halt >>/srv/cwfs.cmd >[2]/dev/null
+	rm -f /srv/cwfs /srv/cwfs.cmd
+	if(! $fstype -c -C -f $fs </tmp/fsconfig){
+		mountfs=ready
+		export mountfs
+		exit oops
+	}
+
+	{
+		echo allow
+		echo users default
+		echo filsys main
+		echo create /adm adm adm 775 d
+		echo create /adm/users adm adm 664
+		echo create /usr sys sys 775 d
+		echo newuser $user
+		echo newuser sys +$user
+		echo newuser adm +$user
+		# not synchronized
+		sleep 5
+	} >>/srv/cwfs.cmd
+
+	log Mounting $fstype file server for $fs
+	if(! logprog mount -c /srv/cwfs /n/newfs){
+		mountfs=ready
+		export mountfs
+		exit
+	}
+
+case checkready checkdone
+	if(! ~ $fstype '' && ~ $#fs 1 && test -f $fs){
+		if(! test -f /srv/cwfs){
+			logprog $fstype -C -f $fs
+			echo allow >>/srv/cwfs.cmd >>[2]/srv/log
+		}
+		if(test -f /srv/cwfs && ! test -f /n/newfs/adm/users){
+			log Mounting $fstype file server for $fs
+			if(! logprog mount -c /srv/cwfs /n/newfs){
+				mountfs=ready
+				export mountfs
+				exit
+			}
+		}
+		if(test -f /srv/cwfs && test -f /n/newfs/adm/users){
+			mountfs=done
+			export mountfs
+			exit
+		}
+	}
+	mountfs=ready
+	export mountfs
+	exit
+}
