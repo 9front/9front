@@ -1,4 +1,4 @@
-# pccpuf - pc cpu server with fossil root and maybe venti block store
+# pccpuf - pc cpu server with local disk
 dev
 	root
 	cons
@@ -124,9 +124,7 @@ boot cpu boot #S/sdC0/
 
 bootdir
 	bootpccpuf.out boot
-	/386/bin/ip/ipconfig
+	/386/bin/bzfs
+	/386/bin/mntgen
 	/386/bin/auth/factotum
-#	/386/bin/disk/kfs
-	/386/bin/fossil/fossil
-	/386/bin/venti/venti
-	/386/bin/usb/usbd
+	rootfs.bz2
