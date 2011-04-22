@@ -1040,7 +1040,84 @@ opstos(Cpu *cpu, Inst *i)
 	}
 	aw(areg(cpu, i->alen, RDI), d->off);
 	if(cx)
-		aw(cx, 0);
+		aw(cx, c);
+}
+
+static int
+repcond(Cpu *cpu, int rep)
+{
+	switch(rep){
+	case OREPNE:
+		return (cpu->reg[RFL] & ZF) == 0;
+	case OREPE:
+	default:
+		return !rep || (cpu->reg[RFL] & ZF) != 0;
+	}
+}
+
+static void
+opscas(Cpu *cpu, Inst *i)
+{
+	Iarg *cx, *s;
+	ulong c;
+	long a;
+	int n;
+
+	s = adup(i->a1);
+	n = s->len;
+	if(cpu->reg[RFL] & DF)
+		n = -n;
+	if(i->rep){
+		cx = areg(cpu, i->alen, RCX);
+		c = ar(cx);
+	} else {
+		cx = nil;
+		c = 1;
+	}
+	a = ars(i->a2);
+	while(c){
+		sub(cpu->reg + RFL, a, ars(s), 0, s->len*8);
+		s->off += n;
+		c--;
+		if(repcond(cpu, i->rep))
+			break;
+	}
+	aw(areg(cpu, i->alen, RDI), s->off);
+	if(cx)
+		aw(cx, c);
+}
+
+static void
+opcmps(Cpu *cpu, Inst *i)
+{
+	Iarg *cx, *s, *d;
+	ulong c;
+	int n;
+
+	d = adup(i->a1);
+	s = adup(i->a2);
+	n = s->len;
+	if(cpu->reg[RFL] & DF)
+		n = -n;
+	if(i->rep){
+		cx = areg(cpu, i->alen, RCX);
+		c = ar(cx);
+	} else {
+		cx = nil;
+		c = 1;
+	}
+	while(c){
+		sub(cpu->reg + RFL, ars(s), ars(d), 0, s->len*8);
+		s->off += n;
+		d->off += n;
+		c--;
+		if(repcond(cpu, i->rep))
+			break;
+	}
+	aw(areg(cpu, i->alen, RDI), d->off);
+	aw(areg(cpu, i->alen, RSI), s->off);
+	if(cx)
+		aw(cx, c);
 }
 
 static void
@@ -1159,8 +1236,10 @@ static void (*exctab[NUMOP])(Cpu *cpu, Inst*) = {
 	[OCPUID] = opcpuid,
 
 	[OMOVS] = opmovs,
-	[OSTOS] = opstos,
 	[OLODS] = oplods,
+	[OSTOS] = opstos,
+	[OSCAS] = opscas,
+	[OCMPS] = opcmps,
 
 	[OIN] = opin,
 	[OOUT] = opout,
