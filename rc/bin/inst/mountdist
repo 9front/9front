@@ -111,32 +111,14 @@ case go
 			echo Which directory contains the distribution?
 			echo 'Any of the following will suffice (in order of preference):'
 			echo '	- the root directory of the cd image'
-			echo '	- the directory containing plan9.iso'
-			echo '	- the directory containing plan9.iso.bz2'
-			echo 'Typing `browse'' will put you in a shell that you can use to'
-			echo 'look for the directory.'
 			echo
 			first=no
 		}
 
-		prompt -d browse 'Location of archives'
+		prompt -d $dir 'Location of archives'
 		dir=$rd
-		if(~ $dir browse){
-			echo This is a simple shell.  Commands are:
-			echo '	cd directory	- change to directory'
-			echo '	lc				- list contents of current directory'
-			echo '	exit			- exit shell'
-			echo 
-			echo 'Move to the directory containing the distribution'
-			echo 'and then exit.'
-			echo
-			oifs=$ifs
-			ifs=$nl
-			dir=`{cdsh -r /n/distmedia}
-			ifs=$oifs
-		}
 		if(~ $#dir 0)
-			dir=safdsfdsfdsf
+			dir=/
 		if(! ~ $#dir 1)
 			dir=$"dir
 		if(! havedist /n/distmedia/$dir)

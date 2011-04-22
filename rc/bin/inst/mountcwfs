@@ -64,16 +64,17 @@ case go
 	unmount /n/newfs >[2]/dev/null
 	echo halt >>/srv/cwfs.cmd >[2]/dev/null
 	rm -f /srv/cwfs /srv/cwfs.cmd
-	if(! $fstype -c -C -f $fs </tmp/fsconfig){
+	if(! $fstype -c -f $fs </tmp/fsconfig){
 		mountfs=ready
 		export mountfs
 		exit oops
 	}
 
+	log Configuering $fstype file server for $fs
 	{
 		echo allow
 		echo users default
-		echo filsys main
+		echo cfs main
 		echo create /adm adm adm 775 d
 		echo create /adm/users adm adm 664
 		echo create /usr sys sys 775 d
@@ -94,7 +95,7 @@ case go
 case checkready checkdone
 	if(! ~ $fstype '' && ~ $#fs 1 && test -f $fs){
 		if(! test -f /srv/cwfs){
-			logprog $fstype -C -f $fs
+			logprog $fstype -f $fs
 			echo allow >>/srv/cwfs.cmd >>[2]/srv/log
 		}
 		if(test -f /srv/cwfs && ! test -f /n/newfs/adm/users){
