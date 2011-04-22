@@ -28,7 +28,9 @@ is the same as
 .IR ls ,
 but sets the
 .B -p
-option and pipes the output through
+and
+.B -F
+options and pipes the output through
 .IR mc (1).
 .PP
 There are a number of options:
