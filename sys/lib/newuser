@@ -11,6 +11,11 @@ x='$'
 mkdir bin bin/rc bin/mips bin/386 bin/power bin/arm
 mkdir lib tmp
 chmod +t tmp
+# try to create tmp space on other
+9fs other >/dev/null >[2=1] && \
+	mkdir -m 775 /n/other/usr/$user >/dev/null >[2=1] && \
+	mkdir -m 750 /n/other/usr/$user/tmp >/dev/null >[2=1] && \
+	bind -c /n/other/usr/$user/tmp $home/tmp
 bind -c $home/tmp /tmp
 
 mail -c
