@@ -150,7 +150,7 @@ struct	File
 	long	addr;
 	long	slot;
 	long	lastra;		/* read ahead address */
-	short	fid;
+	ulong	fid;
 	short	uid;
 	char	open;
 		#define	FREAD	1

@@ -89,7 +89,7 @@ loop:
 			goto out;
 		}
 	}
-else print("cannot find %p.%d (list=%p)\n", cp, fid, cp->flist);
+else print("cannot find %p.%ud (list=%p)\n", cp, fid, cp->flist);
 	unlock(&cp->flock);
 	return 0;
 
