@@ -44,6 +44,21 @@ case sourcesdump
 case sourcessnap
 	9fs sources
 	mount -n /srv/sources /n/sourcessnap main/snapshot
+# arbitrary venti archives
+case vac:*
+	vacfs <{echo $1}
+case *.vac
+	if (test -e $1)
+		score=$1
+	if not if (! ~ $1 /* && test -e $home/lib/vac/$1)
+		score=$home/lib/vac/$1
+	if not if (! ~ $1 /* && test -e /lib/vac/$1)
+		score=/lib/vac/$1
+	if not {
+		echo $0: $1: no such score file >[1=2]
+		exit 'no score file'
+	}
+	vacfs -m /n/`{basename $1 .vac} `{cat $score}
 case wiki
 	srv -m 'net!plan9.bell-labs.com!wiki' wiki /mnt/wiki
 case *
