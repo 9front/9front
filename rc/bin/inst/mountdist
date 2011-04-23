@@ -45,7 +45,7 @@ case go
 
 	echo Please wait... Scanning storage devices...
 
-	parts=`{ls /dev/sd??/* >[2]/dev/null | grep -v '/(plan9.*|ctl|log|raw)$'}
+	parts=`{ls /dev/sd[A-Z][0-9]*/* >[2]/dev/null | grep -v '/(plan9.*|ctl|log|raw)$'}
 	for (i in $parts) {
 		echo -n '	'^$i
 		n=`{echo $i | sed 's;/;_;g'}
