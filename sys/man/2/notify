@@ -233,6 +233,7 @@ portions of the notes are machine-dependent.
 .br
 .B /sys/src/libc/port/atnotify.c
 .SH SEE ALSO
+.IR postnote (2),
 .IR intro (2),
 .I notejmp
 in
