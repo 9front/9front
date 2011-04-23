@@ -329,7 +329,6 @@ static void
 bcmtransclean(Ether *edev)
 {
 	Ctlr *ctlr;
-	ulong incr;
 	
 	ctlr = edev->ctlr;
 	ilock(&ctlr->txlock);
@@ -378,7 +377,7 @@ bcmerror(Ether *edev)
 	ctlr = edev->ctlr;
 	if(csr32(ctlr, FlowAttention)) {
 		if(csr32(ctlr, FlowAttention) & 0xF8FF8080UL) {
-			panic("bcm: fatal error %#.8ux", csr32(ctlr, FlowAttention));
+			panic("bcm: fatal error %#.8ulx", csr32(ctlr, FlowAttention));
 		}
 		csr32(ctlr, FlowAttention) = 0;
 	}
@@ -390,7 +389,7 @@ bcmerror(Ether *edev)
 	}
 	if(csr32(ctlr, RISCState)) {
 		if(csr32(ctlr, RISCState) & 0x78000403) {
-			panic("bcm: RISC halted %#.8ux", csr32(ctlr, RISCState));
+			panic("bcm: RISC halted %#.8ulx", csr32(ctlr, RISCState));
 		}
 		csr32(ctlr, RISCState) = 0;
 	}
