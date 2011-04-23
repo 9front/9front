@@ -9,7 +9,8 @@ case go
 	echo
 
 	files=(`{ls /dev/sd*/fscache* /dev/fs/fscache* >[2]/dev/null})
-	ls -l $files
+	if(! ~ $#files 0)
+		ls -l $files
 	echo
 	if(~ $#files 1)
 		default=(-d $files)
@@ -20,7 +21,8 @@ case go
 	export fs
 
 	files=(`{ls /dev/sd*/fsworm* /dev/fs/fsworm* >[2]/dev/null})
-	ls -l $files
+	if(! ~ $#files 0)
+		ls -l $files
 	echo
 	if(~ $#files 1)
 		default=(-d $files)
@@ -31,7 +33,8 @@ case go
 	export fsworm
 
 	files=(`{ls /dev/sd*/other* /dev/fs/other* >[2]/dev/null})
-	ls -l $files
+	if(! ~ $#files 0)
+		ls -l $files
 	echo
 	if(~ $#files 1)
 		default=(-d $files)
