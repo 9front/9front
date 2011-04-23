@@ -16,7 +16,7 @@ fn must {
 fn ask {
 	echo -n $1
 	echo -n $2
-	if(! ~ $3 ''){
+	if(! ~ $#3 0){
 		echo -n ' ['
 		echo -n $3
 		echo -n '] '
