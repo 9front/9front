@@ -22,7 +22,7 @@
 
 typedef struct Ctlr Ctlr;
 struct Ctlr {
-	Lock txlock;
+	Lock txlock, imlock;
 	Ctlr *link;
 	Pcidev *pdev;
 	ulong *nic, *status;
@@ -404,6 +404,7 @@ bcminterrupt(Ureg*, void *arg)
 	
 	edev = arg;
 	ctlr = edev->ctlr;
+	ilock(&ctlr->imlock);
 	dummyread(csr32(ctlr, InterruptMailbox));
 	csr32(ctlr, InterruptMailbox) = 1;
 	status = ctlr->status[0];
@@ -416,6 +417,7 @@ bcminterrupt(Ureg*, void *arg)
 	bcmtransclean(edev);
 	bcmtransmit(edev);
 	csr32(ctlr, InterruptMailbox) = tag << 24;
+	iunlock(&ctlr->imlock);
 }
 
 static void
@@ -664,5 +666,5 @@ bcmpnp(Ether* edev)
 void
 etherbcmlink(void)
 {
-	addethercard("BCM57xx", bcmpnp);
+	addethercard("BCM5755", bcmpnp);
 }

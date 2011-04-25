@@ -5,3 +5,4 @@ monitor=ask
 vgasize=ask
 cdboot=yes
 bootfile=/386/9pcf
+*nomp=1

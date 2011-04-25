@@ -154,6 +154,8 @@ mkioapic(PCMPioapic* p)
 		return 0;
 
 	apic = &mpapic[apicno];
+	if(apic->flags != 0)
+		print("mkioapic: APIC ID conflict at %d\n", p->apicno);
 	apic->type = PcmpIOAPIC;
 	apic->apicno = apicno;
 	apic->addr = va;
@@ -484,6 +486,46 @@ mpstartap(Apic* apic)
 	nvramwrite(0x0F, 0x00);
 }
 
+static void
+dumpmp(uchar *p, uchar *e)
+{
+	int i;
+
+	for(i = 0; p < e; p++) {
+		if((i % 16) == 0) print("*mp%d=", i/16);
+		print("%.2x ", *p);
+		if((++i % 16) == 0) print("\n");
+	}
+	if((i % 16) != 0) print("\n");
+}
+
+static void
+mpoverride(uchar** newp, uchar** e)
+{
+	int size, i, j;
+	char buf[20];
+	uchar* p;
+	char* s;
+	
+	size = atoi(getconf("*mp"));
+	if(size == 0) panic("mpoverride: invalid size in *mp");
+	*newp = p = malloc(size);
+	if(p == nil) panic("mpoverride: can't allocate memory");
+	*e = p + size;
+	for(i = 0; ; i++){
+		snprint(buf, sizeof buf, "*mp%d", i);
+		s = getconf(buf);
+		if(s == nil) break;
+		while(*s){
+			j = strtol(s, &s, 16);
+			if(*s && *s != ' ' || j < 0 || j > 0xff) panic("mpoverride: invalid entry in %s", buf);
+			if(p >= *e) panic("mpoverride: overflow in %s", buf);
+			*p++ = j;
+		}
+	}
+	if(p != *e) panic("mpoverride: size doesn't match");
+}
+
 void
 mpinit(void)
 {
@@ -518,6 +560,10 @@ mpinit(void)
 	 */
 	p = ((uchar*)pcmp)+sizeof(PCMP);
 	e = ((uchar*)pcmp)+pcmp->length;
+	if(getconf("*dumpmp") != nil)
+		dumpmp(p, e);
+	if(getconf("*mp") != nil)
+		mpoverride(&p, &e);
 	while(p < e) switch(*p){
 
 	default:
@@ -683,7 +729,7 @@ mpintrenablex(Vctl* v, int tbdf)
 			break;
 	}
 	if(bus == nil){
-		print("ioapicirq: can't find bus type %d\n", type);
+		print("ioapicirq: can't find bus type %d, number %d\n", type, bno);
 		return -1;
 	}
 
