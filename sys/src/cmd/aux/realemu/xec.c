@@ -814,6 +814,12 @@ opjump(Cpu *cpu, Inst *i)
 }
 
 static void
+opset(Cpu *cpu, Inst *i)
+{
+	aw(i->a1, cctrue(cpu, i));
+}
+
+static void
 oploop(Cpu *cpu, Inst *i)
 {
 	Iarg *cx;
@@ -1155,6 +1161,7 @@ static void (*exctab[NUMOP])(Cpu *cpu, Inst*) = {
 
 	[OCALL] = opcall,
 	[OJUMP] = opjump,
+	[OSET] = opset,
 
 	[OLOOP] = oploop,
 	[OLOOPZ] = oploop,
