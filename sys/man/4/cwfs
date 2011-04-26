@@ -1,6 +1,6 @@
 .TH CWFS 4
 .SH NAME
-cwfs \- cached-worm file server, dump
+cwfs \- cinap_lenrek's working file server, dump
 .SH SYNOPSIS
 .B cwfs
 [
