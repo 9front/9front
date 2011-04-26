@@ -485,36 +485,40 @@ opror(Cpu *cpu, Inst *i)
 }
 
 static void
-opbts(Cpu *cpu, Inst *i)
+opbt(Cpu *cpu, Inst *i)
 {
 	ulong a, m;
-	int n;
+	int n, s;
+	Iarg *x;
 
-	a = ar(i->a1);
-	n = ar(i->a2) & 31;
+	n = ar(i->a2);
+	x = i->a1;
+	s = x->len*8;
+	if(x->tag == TMEM){
+		x = adup(x);
+		x->off += n / s;
+		x->off &= mask(i->alen*8);
+	}
+	a = ar(x);
+	n &= s-1;
 	m = 1<<n;
 	if(a & m)
-		cpu->reg[RFL] |= CF;
-	else {
+		cpu->reg[RFL] |= CF;			
+	else
 		cpu->reg[RFL] &= ~CF;
-		aw(i->a1, a | m);
+	switch(i->op){
+	case OBT:
+		break;
+	case OBTS:
+		aw(x, a | m);
+		break;
+	case OBTR:
+		aw(x, a & ~m);
+		break;
+	case OBTC:
+		aw(x, a ^ m);
+		break;
 	}
-}
-
-static void
-opbtr(Cpu *cpu, Inst *i)
-{
-	ulong a, m;
-	int n;
-
-	a = ar(i->a1);
-	n = ar(i->a2) & 31;
-	m = 1<<n;
-	if(a & m){
-		cpu->reg[RFL] |= CF;
-		aw(i->a1, a & ~m);
-	} else
-		cpu->reg[RFL] &= ~CF;
 }
 
 static void
@@ -1204,8 +1208,11 @@ static void (*exctab[NUMOP])(Cpu *cpu, Inst*) = {
 	[OROL] = oprol,
 	[OROR] = opror,
 
-	[OBTS] = opbts,
-	[OBTR] = opbtr,
+	[OBT] = opbt,
+	[OBTS] = opbt,
+	[OBTR] = opbt,
+	[OBTC] = opbt,
+
 	[OBSF] = opbitscan,
 	[OBSR] = opbitscan,
 

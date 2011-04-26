@@ -86,7 +86,7 @@ sys	d775
 		+
 	include
 		+
-	lib
+	lib d775
 		+
 	log
 	man
