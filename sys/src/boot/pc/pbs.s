@@ -4,7 +4,7 @@
 #define RELOC 0x7c00
 
 TEXT _magic(SB), $0
-	BYTE $0xEB; BYTE $0x3C;		/* jmp .+ 0x3C  (_start0x3E) */
+	BYTE $0xEB; BYTE $0x58;		/* jmp .+ 0x58  (_start0x5A) */
 	BYTE $0x90			/* nop */
 TEXT _version(SB), $0
 	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00;
@@ -35,9 +35,26 @@ TEXT _nhiddenhi(SB), $0
 	BYTE $0x00; BYTE $0x00;
 TEXT _bigvolsize(SB), $0
 	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00;
+/* FAT32 structure, starting @0x24 */
+TEXT _fatsz32(SB), $0
+	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00
+TEXT _extflags(SB), $0
+	BYTE $0x00; BYTE $0x00
+TEXT _fsver(SB), $0
+	BYTE $0x00; BYTE $0x00
+TEXT _rootclust(SB), $0
+	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00
+TEXT _fsinfo(SB), $0
+	BYTE $0x00; BYTE $0x00
+TEXT _bkboot(SB), $0
+	BYTE $0x00; BYTE $0x00
+TEXT _reserved0(SB), $0
+	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00;
+	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00;
+	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00
 TEXT _driveno(SB), $0
 	BYTE $0x00
-TEXT _reserved0(SB), $0
+TEXT _reserved1(SB), $0
 	BYTE $0x00
 TEXT _bootsig(SB), $0
 	BYTE $0x00
@@ -49,9 +66,9 @@ TEXT _label(SB), $0
 	BYTE $0x00; BYTE $0x00; BYTE $0x00
 TEXT _type(SB), $0
 	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00;
-	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00;
+	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00
 
-_start0x3E:
+_start0x5A:
 	CLI
 	CLR(rAX)
 	MTSR(rAX, rSS)			/* 0000 -> rSS */
