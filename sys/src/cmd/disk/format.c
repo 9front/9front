@@ -442,9 +442,9 @@ dosfs(int dofat, int dopbs, Disk *disk, char *label, int argc, char *argv[], int
 	memmove(b->version, "Plan9.00", sizeof(b->version));
 	
 	/*
-	 * Add bootstrapping code; assume it starts 
-	 * at 0x3E (the destination of the jump we just
-	 * wrote to b->magic).
+	 * Add bootstrapping code; offset is
+	 * determined from short jump (0xEB 0x??)
+	 * instruction.
 	 */
 	if(dopbs) {
 		pbsbuf = malloc(secsize);
@@ -466,11 +466,15 @@ dosfs(int dofat, int dopbs, Disk *disk, char *label, int argc, char *argv[], int
 			memmove(pbsbuf, bootprog, sizeof(bootprog));
 			npbs = nbootprog;
 		}
-		if(npbs <= 0x3E)
+		n = buf[1] + 2;
+		if(npbs <= 0x3 || npbs < n)
 			fprint(2, "warning: pbs too small\n");
-		else
-			memmove(buf+0x3E, pbsbuf+0x3E, npbs-0x3E);
-
+		else if(buf[0] != 0xEB)
+			fprint(2, "warning: pbs doesn't start with short jump\n");
+		else{
+			memmove(buf, pbsbuf, 3);
+			memmove(buf+n, pbsbuf+n, npbs-n);
+		}
 		free(pbsbuf);
 	}
 
@@ -558,6 +562,11 @@ if(chatty) print("driveno = %ux\n", b->driveno);
 		b->bootsig = 0x29;
 		x = disk->offset + b->nfats*fatsecs + nresrv;
 		PUTLONG(b->volid, x);
+		/*
+		 * FAT32 9boot PBS requires volid at this
+		 * offset even for FAT16/FAT12 partitions.
+		 */
+		PUTLONG(b->volid+28, x);
 if(chatty) print("volid = %lux %lux\n", x, GETLONG(b->volid));
 		memmove(b->label, label, sizeof(b->label));
 		sprint(r, "FAT%d    ", fatbits);
