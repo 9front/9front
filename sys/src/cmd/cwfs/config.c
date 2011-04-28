@@ -41,7 +41,7 @@ devcmpr(Device *d1, Device *d2)
 
 		switch(d1->type) {
 		default:
-			print("can't compare dev: %Z\n", d1);
+			fprint(2, "can't compare dev: %Z\n", d1);
 			panic("devcmp");
 			return 1;
 
@@ -208,17 +208,16 @@ map(Device *d)
 			break;
 	if (map == nil)
 		return;
-	if (access(map->to, AEXIST) >= 0)
-{ print("map: mapped wren %Z to existing file %s\n", d, map->to); // DEBUG
+	if (access(map->to, AEXIST) >= 0){
+		if(chatty)
+			print("map: mapped wren %Z to existing file %s\n", d, map->to);
 		d->wren.file = map->to;		/* wren -> file mapping */
-}
-	else if (map->tdev != nil)
-{ print("map: mapped wren %Z to dev %Z\n", d, map->tdev); // DEBUG
+	} else if (map->tdev != nil){
+		if(chatty)
+			print("map: mapped wren %Z to dev %Z\n", d, map->tdev);
 		*d = *map->tdev;		/* wren -> wren mapping */
-}
-	else
-		print("bad mapping %Z to %s; no such file or device",
-			d, map->to);
+	} else
+		fprint(2, "bad mapping %Z to %s; no such file or device", d, map->to);
 	d->wren.mapped = 1;
 }
 
@@ -476,7 +475,7 @@ mergeconf(Iobuf *p)
 		} else if ((fsp = getpar(word)) != nil) {
 			cp = getwrd(word, cp);
 			if (!isascii(word[0]) || !isdigit(word[0]))
-				print("bad %s value: %s", fsp->name, word);
+				fprint(2, "bad %s value: %s", fsp->name, word);
 			else
 				fsp->declared = atol(word);
 		} else {
@@ -539,7 +538,8 @@ start:
 	devnone = iconfig("n");
 
 	cp = nvrgetconfig();
-	print("config %s\n", cp);
+	if(chatty)
+		print("config %s\n", cp);
 
 	confdev = d = iconfig(cp);
 	devinit(d);
@@ -568,7 +568,7 @@ start:
 		}
 		/* warn if declared value is not our compiled-in value */
 		if (fsp->declared != fsp->actual)
-			print("warning: config %s %ld != compiled-in %ld\n",
+			fprint(2, "warning: config %s %ld != compiled-in %ld\n",
 				fsp->name, fsp->declared, fsp->actual);
 	}
 
@@ -593,12 +593,12 @@ start:
 
 		putbuf(p);
 		f.modconf = f.newconf = 0;
-		print("config block written\n");
 		goto start;
 	}
 	putbuf(p);
 
-	print("service %s\n", service);
+	if(chatty)
+		print("service %s\n", service);
 
 loop:
 	/*
@@ -618,7 +618,8 @@ loop:
 	 */
 	error = 0;
 	for(fs=filsys; fs->name; fs++) {
-		print("filsys %s %s\n", fs->name, fs->conf);
+		if(chatty)
+			print("filsys %s %s\n", fs->name, fs->conf);
 		fs->dev = iconfig(fs->conf);
 		if(f.error) {
 			error = 1;
@@ -633,7 +634,8 @@ loop:
 	 */
 	for(fs=filsys; fs->name; fs++) {
 		delay(3000);
-		print("sysinit: %s\n", fs->name);
+		if(chatty)
+			print("sysinit: %s\n", fs->name);
 		if(fs->flags & FREAM)
 			devream(fs->dev, 1);
 		if(fs->flags & FRECOVER)
@@ -669,7 +671,7 @@ blockok(Device *d, Off a)
 	Iobuf *p = getbuf(d, a, Brd);
 
 	if (p == 0) {
-		print("i/o error reading %Z block %lld\n", d, (Wideoff)a);
+		fprint(2, "i/o error reading %Z block %lld\n", d, (Wideoff)a);
 		return 0;
 	}
 	putbuf(p);
@@ -695,7 +697,6 @@ wormof(Device *dev)
 		if (cw != nil && cw->type == Devcw)
 			worm = cw->cw.w;
 	}
-	// print("wormof(%Z)=%Z\n", dev, worm);
 	return worm;
 }
 
@@ -709,7 +710,8 @@ writtensize(Device *worm)
 	Devsize lim = devsize(worm);
 	Iobuf *p;
 
-	print("devsize(%Z) = %lld\n", worm, (Wideoff)lim);
+	if(chatty)
+		print("devsize(%Z) = %lld\n", worm, (Wideoff)lim);
 	if (!blockok(worm, 0) || !blockok(worm, lim-1))
 		return 0;
 	delay(5*1000);
@@ -729,7 +731,8 @@ writtensize(Device *worm)
 			break;
 		}
 	}
-	print("limit(%Z) = %lld\n", worm, (Wideoff)lim);
+	if(chatty)
+		print("limit(%Z) = %lld\n", worm, (Wideoff)lim);
 	if (lim <= 0)
 		return 0;
 	return lim + 1;
@@ -898,7 +901,7 @@ dodevcopy(void)
 		 * be contiguous.
 		 */
 		if (p == 0) {
-			print("%lld not written yet; can't read\n", (Wideoff)a);
+			fprint(2, "%lld not written yet; can't read\n", (Wideoff)a);
 			continue;
 		}
 		if (to != 0 && devwrite(to, p->addr, p->iobuf) != 0) {

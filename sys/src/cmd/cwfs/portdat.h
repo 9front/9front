@@ -768,3 +768,4 @@ extern char	*annstrs[];
 extern Biobuf	bin;
 extern Map	*devmap;
 extern int	(*fsprotocol[])(Msgbuf*);
+extern int	chatty;

@@ -9,6 +9,7 @@ Map *devmap;
 
 int sfd, rfd;
 Biobuf bin;
+int chatty = 0;
 
 void
 machinit(void)
@@ -59,7 +60,7 @@ panic(char *fmt, ...)
 	n = vseprint(buf, buf + sizeof buf, fmt, arg) - buf;
 	va_end(arg);
 	buf[n] = '\0';
-	print("panic: %s\n", buf);
+	fprint(2, "panic: %s\n", buf);
 	exit();
 }
 
@@ -92,12 +93,12 @@ mapinit(char *mapfile)
 	if (bp == nil)
 		sysfatal("can't read %s", mapfile);
 	devmap = nil;
-	while ((ln = Brdline(bp, '\n')) != nil) {
+	while((ln = Brdline(bp, '\n')) != nil) {
 		ln[Blinelen(bp)-1] = '\0';
-		if (*ln == '\0' || *ln == '#')
+		if(*ln == '\0' || *ln == '#')
 			continue;
 		nf = tokenize(ln, fields, nelem(fields));
-		if (nf != 2)
+		if(nf != 2)
 			continue;
 		if(testconfig(fields[0]) != 0) {
 			print("bad `from' device %s in %s\n",
@@ -109,7 +110,7 @@ mapinit(char *mapfile)
 		map->to =   strdup(fields[1]);
 		map->fdev = iconfig(fields[0]);
 		map->tdev = nil;
-		if (access(map->to, AEXIST) < 0) {
+		if(access(map->to, AEXIST) < 0) {
 			/*
 			 * map->to isn't an existing file, so it had better be
 			 * a config string for a device.
@@ -291,7 +292,7 @@ main(int argc, char **argv)
 	rfork(RFNOTEG);
 	formatinit();
 	machinit();
-	conf.confdev = "/dev/sdC0/cwfs";
+	conf.confdev = "/dev/sdC0/fscache";
 
 	rfd = sfd = -1;
 
@@ -330,6 +331,9 @@ main(int argc, char **argv)
 	case 'm':			/* name device-map file */
 		conf.devmap = EARGF(usage());
 		break;
+	case 'd':
+		chatty++;
+		break;
 	default:
 		usage();
 		break;
@@ -341,9 +345,11 @@ main(int argc, char **argv)
 	Binit(&bin, 0, OREAD);
 	confinit();
 
-	print("\nPlan 9 %d-bit cached-worm file server with %d-deep indir blks\n",
-		sizeof(Off)*8 - 1, NIBLOCK);
-	printsizes();
+	if(chatty){
+		print("\nPlan 9 %d-bit cached-worm file server with %d-deep indir blks\n",
+			sizeof(Off)*8 - 1, NIBLOCK);
+		printsizes();
+	}
 
 	qlock(&reflock);
 	qunlock(&reflock);
@@ -364,15 +370,12 @@ main(int argc, char **argv)
 	uid = malloc(conf.nuid * sizeof(*uid));
 	gidspace = malloc(conf.gidspace * sizeof(*gidspace));
 
-	print("iobufinit\n");
 	iobufinit();
 
 	arginit();
 	boottime = time(nil);
 
-	print("sysinit\n");
 	sysinit();
-
 	srvinit();
 
 	/*
@@ -509,11 +512,9 @@ serve(void *)
 					cp->protocol = fsprotocol[i];
 					break;
 				}
-			if(cp->protocol == nil){
+			if(cp->protocol == nil && (chatty > 1)){
 				print("no protocol for message\n");
-				for(i = 0; i < 12; i++)
-					print(" %2.2uX", mb->data[i]);
-				print("\n");
+				hexdump(mb->data, 12);
 			}
 		} else
 			/* process the request, generate an answer and reply */
@@ -551,7 +552,7 @@ nextdump(Timet t)
 {
 	Timet nddate = nextime(t+MINUTE(100), DUMPTIME, WEEKMASK);
 
-	if(!conf.nodump)
+	if(!conf.nodump && chatty)
 		print("next dump at %T\n", nddate);
 	return nddate;
 }
@@ -578,10 +579,6 @@ wormcopy(void *)
 		}
 		dt = time(nil) - t;
 		if(dt < 0 || dt > MINUTE(100)) {
-			if(dt < 0)
-				print("time went back\n");
-			else
-				print("time jumped ahead\n");
 			dorecalc = 1;
 			continue;
 		}

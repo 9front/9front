@@ -57,7 +57,9 @@ iobufinit(void)
 	wlock(&mainlock);	/* init */
 	wunlock(&mainlock);
 
-	prbanks();
+	if(chatty)
+		prbanks();
+
 	m = 0;
 	for(mbp = mconf.bank; mbp < &mconf.bank[mconf.nbank]; mbp++)
 		m += mbp->limit - mbp->base;
@@ -66,7 +68,8 @@ iobufinit(void)
 	nhiob = niob / HWIDTH;
 	while(!prime(nhiob))
 		nhiob++;
-	print("\t%ld buffers; %ld hashes\n", niob, nhiob);
+	if(chatty)
+		print("\t%ld buffers; %ld hashes\n", niob, nhiob);
 	hiob = ialloc(nhiob * sizeof(Hiob), 0);
 	hp = hiob;
 	for(i=0; i<nhiob; i++) {
@@ -78,7 +81,6 @@ iobufinit(void)
 	xiop = ialloc(niob * RBUFSIZE, 0);
 	hp = hiob;
 	for(i=0; i < niob; i++) {
-//		p->name = "buf";
 		qlock(p);
 		qunlock(p);
 		if(hp == hiob)
@@ -97,7 +99,6 @@ iobufinit(void)
 		}
 		p->dev = devnone;
 		p->addr = -1;
-//		p->xiobuf = ialloc(RBUFSIZE, RBUFSIZE);
 		p->xiobuf = xiop;
 		p->iobuf = (char*)-1;
 		p++;
@@ -112,7 +113,8 @@ iobufinit(void)
 	i = 0;
 	for(mbp = mconf.bank; mbp < &mconf.bank[mconf.nbank]; mbp++)
 		i += mbp->limit - mbp->base;
-	print("\tmem left = %,d, out of %,ld\n", i, conf.mem);
+	if(chatty)
+		print("\tmem left = %,d, out of %,ld\n", i, conf.mem);
 	/* paranoia: add this command as late as is easy */
 	cmd_install("memory", "-- print ranges of memory banks", cmd_memory);
 }

@@ -14,8 +14,6 @@ struct	Wren
 	Devsize	nblock;			/* number of blocks -- from config */
 	long	mult;			/* multiplier to get physical blocks */
 	Devsize	max;			/* number of logical blocks */
-
-//	char	*sddir;			/* /dev/sdXX name */
 };
 
 char *
@@ -57,8 +55,9 @@ wreninit(Device *d)
 
 	dr->block = inqsize(d->wren.sddata);
 	if(dr->block <= 0 || dr->block >= 16*1024) {
-		print("\twreninit %Z block size %ld, setting to %d\n",
-			d, dr->block, Sectorsz);
+		if(chatty)
+			print("\twreninit %Z block size %ld, setting to %d\n",
+				d, dr->block, Sectorsz);
 		dr->block = Sectorsz;
 	}
 
@@ -68,10 +67,12 @@ wreninit(Device *d)
 
 	dr->mult = (RBUFSIZE + dr->block - 1) / dr->block;
 	dr->max = (dr->nblock + 1) / dr->mult;
-	print("\tdisk drive %Z: %,lld %ld-byte sectors, ",
-		d, (Wideoff)dr->nblock, dr->block);
-	print("%,lld %d-byte blocks\n", (Wideoff)dr->max, RBUFSIZE);
-	print("\t\t%ld multiplier\n", dr->mult);
+	if(chatty){
+		print("\tdisk drive %Z: %,lld %ld-byte sectors, ",
+			d, (Wideoff)dr->nblock, dr->block);
+		print("%,lld %d-byte blocks\n", (Wideoff)dr->max, RBUFSIZE);
+		print("\t\t%ld multiplier\n", dr->mult);
+	}
 }
 
 Devsize
@@ -89,10 +90,10 @@ wrenread(Device *d, Off b, void *c)
 	if (dr == nil)
 		panic("wrenread: no drive (%Z) block %lld", d, (Wideoff)b);
 	if(b >= dr->max) {
-		print("wrenread: block out of range %Z(%lld)\n", d, (Wideoff)b);
+		fprint(2, "wrenread: block out of range %Z(%lld)\n", d, (Wideoff)b);
 		r = 0x040;
 	} else if (pread(d->wren.fd, c, RBUFSIZE, (vlong)b*RBUFSIZE) != RBUFSIZE) {
-		print("wrenread: error on %Z(%lld): %r\n", d, (Wideoff)b);
+		fprint(2, "wrenread: error on %Z(%lld): %r\n", d, (Wideoff)b);
 		cons.nwrenre++;
 		r = 1;
 	}
@@ -108,11 +109,11 @@ wrenwrite(Device *d, Off b, void *c)
 	if (dr == nil)
 		panic("wrenwrite: no drive (%Z) block %lld", d, (Wideoff)b);
 	if(b >= dr->max) {
-		print("wrenwrite: block out of range %Z(%lld)\n",
+		fprint(2, "wrenwrite: block out of range %Z(%lld)\n",
 			d, (Wideoff)b);
 		r = 0x040;
 	} else if (pwrite(d->wren.fd, c, RBUFSIZE, (vlong)b*RBUFSIZE) != RBUFSIZE) {
-		print("wrenwrite: error on %Z(%lld): %r\n", d, (Wideoff)b);
+		fprint(2, "wrenwrite: error on %Z(%lld): %r\n", d, (Wideoff)b);
 		cons.nwrenwe++;
 		r = 1;
 	}

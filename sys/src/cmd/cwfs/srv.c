@@ -52,7 +52,8 @@ srvput(Srv *srv)
 	if(decref(srv))
 		return;
 
-	print("%s closed\n", srv->name);
+	if(chatty)
+		print("%s closed\n", srv->name);
 
 	chanhangup(srv->chan, "", 0);
 	memset(srv->buf, 0, sizeof(srv->buf));
@@ -70,8 +71,6 @@ srvo(void *)
 	Msgbuf *mb;
 	char buf[ERRMAX];
 
-	print("srvo\n");
-
 	for(;;){
 		mb = fs_recv(srvoq, 0);
 		if(mb == nil)
@@ -87,7 +86,7 @@ srvo(void *)
 			if(strstr(buf, "interrupt"))
 				continue;
 
-			if(buf[0])
+			if(buf[0] && chatty)
 				print("srvo %s: %s\n", srv->name, buf);
 			chanhangup(srv->chan, buf, 0);
 			break;
@@ -105,8 +104,6 @@ srvi(void *aux)
 	uchar *b, *p, *e;
 	int n, m;
 	char buf[ERRMAX];
-
-	print("srvi %s\n", srv->name);
 
 	if((mb = mballoc(IOHDRSZ+Maxfdata, srv->chan, Mbeth1)) == nil)
 		panic("srvi %s: mballoc failed", srv->name);
@@ -154,7 +151,7 @@ Error:
 	if(strstr(buf, "interrupt"))
 		goto Read;
 
-	if(buf[0])
+	if(buf[0] && chatty)
 		print("srvi %s: %s\n", srv->name, buf);
 	chanhangup(srv->chan, buf, 0);
 	srvput(srv);

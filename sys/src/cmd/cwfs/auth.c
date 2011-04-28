@@ -24,16 +24,18 @@ nvrcheck(void)
 	uchar csum;
 
 	if (readnvram(&nvr, NVread) < 0) {
-		print("nvrcheck: can't read nvram\n");
+		fprint(2, "nvrcheck: can't read nvram\n");
 		return 1;
 	} else
 		gotnvr = 1;
-	print("nvr read\n");
+
+	if(chatty)
+		print("nvr read\n");
 
 	csum = nvcsum(nvr.machkey, sizeof nvr.machkey);
 	if(csum != nvr.machsum) {
-		print("\n\n ** NVR key checksum is incorrect  **\n");
-		print(" ** set password to allow attaches **\n\n");
+		fprint(2, "\n\n ** NVR key checksum is incorrect  **\n");
+		fprint(2, " ** set password to allow attaches **\n\n");
 		memset(nvr.machkey, 0, sizeof nvr.machkey);
 		return 1;
 	}

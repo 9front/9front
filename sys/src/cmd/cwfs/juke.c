@@ -103,8 +103,8 @@ newlabel(Device *d, Off labelblk, char *labelbuf, unsigned vord)
 		print("NOT writing new label\n");
 	else if (wormwrite(d, labelblk, labelbuf))
 		/* wormwrite will have complained in detail */
-		print("can't write new label on side %d\n", vord);
-	else
+		fprint(2, "can't write new label on side %d\n", vord);
+	else if (chatty)
 		print("wrote new label on side %d\n", vord);
 }
 
@@ -129,13 +129,12 @@ wormlabel(Device *d, Side *v)
 		 * no need to repeat most of that detail.
 		 * probably an unwritten WORM-disc label; write a new one.
 		 */
-		print("error reading label block of side %d\n", vord);
+		fprint(2, "error reading label block of side %d\n", vord);
 		newlabel(d, labelblk, labelbuf, vord);
 	} else if (label->magic != Labmagic) {
 		swab8(&label->magic);
 		if (label->magic == Labmagic) {
-			print(
-"side %d's label magic byte-swapped; filsys should be configured with xD",
+			fprint(2, "side %d's label magic byte-swapped; filsys should be configured with xD",
 				vord);
 			swab2(&label->ord);
 			/* could look for Devswab in Juke's filsys */
@@ -145,7 +144,7 @@ wormlabel(Device *d, Side *v)
 			 * probably the label is empty on RW media,
 			 * so create a new one and try to write it.
 			 */
-			print("bad magic number in label of side %d\n", vord);
+			fprint(2, "bad magic number in label of side %d\n", vord);
 			newlabel(d, labelblk, labelbuf, vord);
 		}
 	}
@@ -155,15 +154,14 @@ wormlabel(Device *d, Side *v)
 		panic("wormlabel: side %d switched ordinal to %d underfoot",
 			vord, v->ord);
 	if (label->ord != vord) {
-		print(
-	"labelled worm side %Z has wrong ordinal in label (%d, want %d)",
+		fprint(2, "labelled worm side %Z has wrong ordinal in label (%d, want %d)",
 			d, label->ord, vord);
 		qunlock(v);
 		cmd_wormreset(0, nil);			/* put discs away */
 		panic("wrong ordinal in label");
 	}
-
-	print("label %Z ordinal %d\n", d, v->ord);
+	if(chatty)
+		print("label %Z ordinal %d\n", d, v->ord);
 	qunlock(v);
 	/*
 	 * wormunit should return without calling us again,
@@ -213,7 +211,8 @@ wormunit(Device *d)			/* d is l0 or r2 (e.g.) */
 			qunlock(w);
 			delay(100);
 		}
-		print("\tload   r%ld drive %Z\n", v-w->side, w->drive[drive]);
+		if(chatty)
+			print("\tload   r%ld drive %Z\n", v-w->side, w->drive[drive]);
 		if(mmove(w, w->mt0, v->elem, w->dt0+drive, v->rot)) {
 			qunlock(w);
 			goto sbad;
@@ -230,9 +229,9 @@ wormunit(Device *d)			/* d is l0 or r2 (e.g.) */
 		dr = w->drive[v->drive];
 	if(v->status != Sstart) {
 		if(v->status == Sempty)
-			print("worm: unit empty %Z\n", d);
+			fprint(2, "worm: unit empty %Z\n", d);
 		else
-			print("worm: not started %Z\n", d);
+			fprint(2, "worm: not started %Z\n", d);
 		goto sbad;
 	}
 
@@ -259,14 +258,15 @@ wormunit(Device *d)			/* d is l0 or r2 (e.g.) */
 	if (dr->wren.fd == 0)
 		dr->wren.fd = open(dr->wren.sddata, ORDWR);
 	if (dr->wren.fd < 0) {
-		print("wormunit: can't open %s for %Z: %r\n", dr->wren.sddata, d);
+		fprint(2, "wormunit: can't open %s for %Z: %r\n", dr->wren.sddata, d);
 		goto sbad;
 	}
 
 	v->block = inqsize(dr->wren.sddata);
 	if(v->block <= 0) {
-		print("\twormunit %Z block size %ld, setting to %d\n",
-			d, v->block, Sectorsz);
+		if(chatty)
+			print("\twormunit %Z block size %ld, setting to %d\n",
+				d, v->block, Sectorsz);
 		v->block = Sectorsz;
 	}
 
@@ -277,11 +277,13 @@ wormunit(Device *d)			/* d is l0 or r2 (e.g.) */
 	v->mult = (RBUFSIZE + v->block - 1) / v->block;
 	v->max = (v->nblock + 1) / v->mult;
 
-	print("\tworm %Z: drive %Z (juke drive %d)\n",
-		d, w->drive[v->drive], v->drive);
-	print("\t\t%,ld %ld-byte sectors, ", v->nblock, v->block);
-	print("%,ld %d-byte blocks\n", v->max, RBUFSIZE);
-	print("\t\t%ld multiplier\n", v->mult);
+	if(chatty){
+		print("\tworm %Z: drive %Z (juke drive %d)\n",
+			d, w->drive[v->drive], v->drive);
+		print("\t\t%,ld %ld-byte sectors, ", v->nblock, v->block);
+		print("%,ld %d-byte blocks\n", v->max, RBUFSIZE);
+		print("\t\t%ld multiplier\n", v->mult);
+	}
 	if(d->type == Devlworm)
 		return wormlabel(d, v);
 	else
@@ -303,7 +305,7 @@ waitready(Juke *w, Device *d)
 		panic("waitready: bad magic in Juke (d->private) for %Z", d);
 	p = d->wren.targ;
 	if(p < 0 || p >= w->nside) {
-		print("waitready: target %d out of range for %Z\n", p, d);
+		fprint(2, "waitready: target %d out of range for %Z\n", p, d);
 		return 0;
 	}
 
@@ -322,16 +324,16 @@ waitready(Juke *w, Device *d)
 
 	rv = 0;
 	for(e=0; e < 100; e++) {
-		if (e == 10)
-			print("waitready: waiting for %s to exist\n", datanm); // DEBUG
-		if (access(datanm, AEXIST) >= 0) {
+		if(e == 10 && chatty)
+			print("waitready: waiting for %s to exist\n", datanm);
+		if(access(datanm, AEXIST) >= 0){
 			rv = 1;
 			break;
 		}
 		delay(200);
 	}
-	if (rv == 0)
-		print("waitready: %s for %Z didn't come ready\n", datanm, d);
+	if(rv == 0)
+		fprint(2, "waitready: %s for %Z didn't come ready\n", datanm, d);
 	free(datanm);
 	return rv;
 }
@@ -395,8 +397,9 @@ loop:
 				qunlock(v);
 				goto loop;
 			}
-			print("\tunload r%ld drive %Z\n",
-				v-w->side, w->drive[drive]);
+			if(chatty)
+				print("\tunload r%ld drive %Z\n",
+					v-w->side, w->drive[drive]);
 			if(mmove(w, w->mt0, w->dt0+drive, v->elem, v->rot)) {
 				qunlock(v);
 				goto loop;
@@ -417,7 +420,7 @@ wormsize(Device *d)
 
 	w = d->private;
 	if (w->magic != Jukemagic)
-		print("wormsize: bad magic in Juke (d->private) for %Z\n", d);
+		fprint(2, "wormsize: bad magic in Juke (d->private) for %Z\n", d);
 	if(w->isfixedsize && w->fixedsize != 0)
 		size = w->fixedsize;	/* fixed size is now known */
 	else {
@@ -450,8 +453,7 @@ devtojuke(Device *d, Device *top)
 	while (d != nil)
 		switch(d->type) {
 		default:
-			print("devtojuke: type of device %Z of %Z unknown\n",
-				d, top);
+			fprint(2, "devtojuke: type of device %Z of %Z unknown\n", d, top);
 			return nil;
 
 		case Devjuke:
@@ -469,8 +471,8 @@ devtojuke(Device *d, Device *top)
 			 * d->private is a (Juke *) with nside, etc.,
 			 * but we're not supposed to get here.
 			 */
-			print("devtojuke: (l)worm %Z of %Z encountered\n",
-				d, top);
+			if(chatty)
+				print("devtojuke: (l)worm %Z of %Z encountered\n", d, top);
 			/* FALL THROUGH */
 		case Devwren:
 			return nil;
@@ -509,7 +511,7 @@ findside(Device *juke, int side, Device *top)
 
 	for (x = mcat->cat.first; x != nil; x = x->link) {
 		if (!devisside(x)) {
-			print("wormsizeside: %Z of %Z of %Z type not (l)worm\n",
+			fprint(2, "wormsizeside: %Z of %Z of %Z type not (l)worm\n",
 				x, mcat, top);
 			return nil;
 		}
@@ -523,7 +525,7 @@ findside(Device *juke, int side, Device *top)
 	if (x == nil)
 		return nil;
 	if (w->side[i].time == 0) {
-		print("wormsizeside: side %d not in jukebox %Z\n", i, juke);
+		fprint(2, "wormsizeside: side %d not in jukebox %Z\n", i, juke);
 		return nil;
 	}
 	return x;
@@ -581,7 +583,7 @@ visitsides(Device *d, Device *parentj, Visit *vp)
 	 */
 	x = d->cat.first;
 	if (x == nil) {
-		print("visitsides: %Z of %Z: empty mcat\n", d, vp->topdev);
+		fprint(2, "visitsides: %Z of %Z: empty mcat\n", d, vp->topdev);
 		return 0;
 	}
 	if (!devisside(x)) {
@@ -592,7 +594,7 @@ visitsides(Device *d, Device *parentj, Visit *vp)
 
 	/* the side we want is in this jukebox, thus this mcat (d) */
 	if (parentj == nil) {
-		print("visitsides: no parent juke for sides mcat %Z\n", d);
+		fprint(2, "visitsides: no parent juke for sides mcat %Z\n", d);
 		vp->sleft = -1;
 		return 0;
 	}
@@ -628,7 +630,7 @@ wormsizeside(Device *d, int side)
 	visit.topdev = d;
 	size = visitsides(d, nil, &visit);
 	if (visit.sawjuke && (visit.sleft != 0 || !visit.sized)) {
-		print("wormsizeside: fewer than %d sides in %Z\n", side, d);
+		fprint(2, "wormsizeside: fewer than %d sides in %Z\n", side, d);
 		return 0;
 	}
 	return size;
@@ -667,11 +669,11 @@ wormread(Device *d, Off b, void *c)
 		panic("wormread: unopened fd for %Z", d);
 	max = (d->type == Devlworm? v->max + 1: v->max);
 	if(b >= max) {
-		print("wormread: block out of range %Z(%lld)\n", d, (Wideoff)b);
+		fprint(2, "wormread: block out of range %Z(%lld)\n", d, (Wideoff)b);
 		r = 0x071;
 	} else if (pread(dr->wren.fd, c, RBUFSIZE, (vlong)b*RBUFSIZE) != RBUFSIZE) {
 		fd2path(dr->wren.fd, name, sizeof name);
-		print("wormread: error on %Z(%lld) on %s in %s: %r\n",
+		fprint(2, "wormread: error on %Z(%lld) on %s in %s: %r\n",
 			d, (Wideoff)b, name, dr->wren.sddir);
 		cons.nwormre++;
 		r = 1;
@@ -697,12 +699,11 @@ wormwrite(Device *d, Off b, void *c)
 		panic("wormwrite: unopened fd for %Z", d);
 	max = (d->type == Devlworm? v->max + 1: v->max);
 	if(b >= max) {
-		print("wormwrite: block out of range %Z(%lld)\n",
-			d, (Wideoff)b);
+		fprint(2, "wormwrite: block out of range %Z(%lld)\n", d, (Wideoff)b);
 		r = 0x071;
 	} else if (pwrite(dr->wren.fd, c, RBUFSIZE, (vlong)b*RBUFSIZE) != RBUFSIZE) {
 		fd2path(dr->wren.fd, name, sizeof name);
-		print("wormwrwite: error on %Z(%lld) on %s in %s: %r\n",
+		fprint(2, "wormwrwite: error on %Z(%lld) on %s in %s: %r\n",
 			d, (Wideoff)b, name, dr->wren.sddir);
 		cons.nwormwe++;
 		r = 1;
@@ -814,35 +815,35 @@ element(Juke *w, int e)
 
 	s = scsiio(w->juke, SCSIread, cmd, sizeof cmd, buf, sizeof buf); /* read elem sts */
 	if(s) {
-		print("scsiio #%x\n", s);
+		fprint(2, "scsiio #%x\n", s);
 		goto bad;
 	}
 
 	s = (buf[0]<<8) | buf[1];
 	if(s != e) {
-		print("element = %d\n", s);
+		fprint(2, "element = %d\n", s);
 		goto bad;
 	}
 	if(buf[3] != 1) {
-		print("number reported = %d\n", buf[3]);
+		fprint(2, "number reported = %d\n", buf[3]);
 		goto bad;
 	}
 	s = (buf[8+8+0]<<8) | buf[8+8+1];
 	if(s != e) {
-		print("element1 = %d\n", s);
+		fprint(2, "element1 = %d\n", s);
 		goto bad;
 	}
 
 	switch(buf[8+0]) {	/* element type */
 	default:
-		print("unknown element %d: %d\n", e, buf[8+0]);
+		fprint(2, "unknown element %d: %d\n", e, buf[8+0]);
 		goto bad;
 	case 1:			/* transport */
 		s = e - w->mt0;
 		if(s < 0 || s >= w->nmt)
 			goto bad;
 		if(buf[8+8+2] & 1)
-			print("transport %d full %d.%d\n", s,
+			fprint(2, "transport %d full %d.%d\n", s,
 				(buf[8+8+10]<<8) | buf[8+8+11],
 				(buf[8+8+9]>>6) & 1);
 		break;
@@ -860,25 +861,26 @@ element(Juke *w, int e)
 		s = e - w->ie0;
 		if(s < 0 || s >= w->nie)
 			goto bad;
-		print("import/export %d #%.2x %d.%d\n", s,
-			buf[8+8+2],
-			(buf[8+8+10]<<8) | buf[8+8+11],
-			(buf[8+8+9]>>6) & 1);
+		if(chatty)
+			print("import/export %d #%.2x %d.%d\n", s,
+				buf[8+8+2],
+				(buf[8+8+10]<<8) | buf[8+8+11],
+				(buf[8+8+9]>>6) & 1);
 		break;
 	case 4:			/* data transfer */
 		s = e - w->dt0;
 		if(s < 0 || s >= w->ndt)
 			goto bad;
-		print("data transfer %d #%.2x %d.%d\n", s,
-			buf[8+8+2],
-			(buf[8+8+10]<<8) | buf[8+8+11],
-			(buf[8+8+9]>>6) & 1);
+		if(chatty)
+			print("data transfer %d #%.2x %d.%d\n", s,
+				buf[8+8+2],
+				(buf[8+8+10]<<8) | buf[8+8+11],
+				(buf[8+8+9]>>6) & 1);
 		if(buf[8+8+2] & 1) {
 			t = ((buf[8+8+10]<<8) | buf[8+8+11]) - w->se0;
 			if (t < 0 || t >= w->nse || t >= MAXSIDE ||
 			    s >= MAXDRIVE) {
-				print(
-		"element: juke %Z lies; claims side %d is in drive %d\n",
+				fprint(2, "element: juke %Z lies; claims side %d is in drive %d\n",
 					w->juke, t, s);	/* lying sack of ... */
 				/*
 				 * at minimum, we've avoided corrupting our
@@ -890,18 +892,18 @@ element(Juke *w, int e)
 				 */
 				goto bad;
 			}
-			print("r%d in drive %d\n", t, s);
-			if(mmove(w, w->mt0, w->dt0+s, w->se0+t,
-			    (buf[8+8+9]>>6) & 1)) {
-				print("mmove initial unload\n");
+			if(chatty)
+				print("r%d in drive %d\n", t, s);
+			if(mmove(w, w->mt0, w->dt0+s, w->se0+t,(buf[8+8+9]>>6) & 1)){
+				fprint(2, "mmove initial unload\n");
 				goto bad;
 			}
 			w->side[t].status = Sunload;
 			if(w->rot)
 				w->side[w->nse+t].status = Sunload;
 		}
-		if(buf[8+8+2] & 4) {
-			print("drive w%d has exception #%.2x #%.2x\n", s,
+		if(buf[8+8+2] & 4){
+			fprint(2, "drive w%d has exception #%.2x #%.2x\n", s,
 				buf[8+8+4], buf[8+8+5]);
 			goto bad;
 		}
@@ -956,7 +958,7 @@ jinit(Juke *w, Device *d, int o)
 
 	switch(d->type) {
 	default:
-		print("juke platter not (devmcat of) dev(l)worm: %Z\n", d);
+		fprint(2, "juke platter not (devmcat of) dev(l)worm: %Z\n", d);
 		panic("jinit: type");
 
 	case Devmcat:
@@ -977,7 +979,7 @@ jinit(Juke *w, Device *d, int o)
 		/* FALL THROUGH */
 	case Devworm:
 		if(d->private) {
-			print("juke platter private pointer set %p\n",
+			fprint(2, "juke platter private pointer set %p\n",
 				d->private);
 			panic("jinit: private");
 		}
@@ -996,7 +998,7 @@ wormi(char *arg)
 	i = number(arg, -1, 10) - 1;
 	w = jukelist;
 	if(i < 0 || i >= w->nside) {
-		print("bad unit number %s (%d)\n", arg, i+1);
+		fprint(2, "bad unit number %s (%d)\n", arg, i+1);
 		return 0;
 	}
 	j = i;
@@ -1045,7 +1047,7 @@ cmd_wormoffline(int argc, char *argv[])
 	u = number(argv[1], -1, 10);
 	w = jukelist;
 	if(u < 0 || u >= w->ndrive) {
-		print("bad drive %s (0<=%d<%d)\n", argv[1], u, w->ndrive);
+		fprint(2, "bad drive %s (0<=%d<%d)\n", argv[1], u, w->ndrive);
 		return;
 	}
 	if(w->offline[u])
@@ -1154,7 +1156,7 @@ querychanger(Device *xdev)
 	if (xdev == nil)
 		panic("querychanger: nil Device");
 	if(xdev->type != Devwren) {
-		print("juke changer not wren %Z\n", xdev);
+		fprint(2, "juke changer not wren %Z\n", xdev);
 		goto bad;
 	}
 	for(w=jukelist; w; w=w->link)
@@ -1171,7 +1173,9 @@ querychanger(Device *xdev)
 	w->link = jukelist;
 	jukelist = w;
 
-	print("alloc juke %Z\n", xdev);
+	if(chatty)
+		print("alloc juke %Z\n", xdev);
+
 	qlock(w);
 	qunlock(w);
 //	w->name = "juke";
@@ -1190,7 +1194,7 @@ querychanger(Device *xdev)
 	if(w->rot)
 		w->nside += w->nside;
 	if(w->nside > MAXSIDE) {
-		print("too many sides: %d max %d\n", w->nside, MAXSIDE);
+		fprint(2, "too many sides: %d max %d\n", w->nside, MAXSIDE);
 		goto bad;
 	}
 	for(i=0; i < w->nse; i++) {
@@ -1203,7 +1207,8 @@ querychanger(Device *xdev)
 
 	w->ndrive = w->ndt;
 	if(w->ndrive > MAXDRIVE) {
-		print("ndrives truncated to %d\n", MAXDRIVE);
+		if(chatty)
+			print("ndrives truncated to %d\n", MAXDRIVE);
 		w->ndrive = MAXDRIVE;
 	}
 
@@ -1231,7 +1236,7 @@ jukeinit(Device *d)
 		panic("jukeinit: nil Device");
 	xdev = d->j.j;
 	if(xdev == nil || xdev->type != Devmcat) {
-		print("juke union not mcat\n");
+		fprint(2, "juke union not mcat\n");
 		goto bad;
 	}
 
@@ -1260,24 +1265,24 @@ jukeinit(Device *d)
 	i = 0;
 	while(xdev = xdev->link) {
 		if(xdev->type != Devwren) {
-			print("drive not devwren: %Z\n", xdev);
+			fprint(2, "drive not devwren: %Z\n", xdev);
 			goto bad;
 		}
 		if(w->drive[i]->type != Devnone &&
 		   xdev != w->drive[i]) {
-			print("double init drive %d %Z %Z\n",
+			fprint(2, "double init drive %d %Z %Z\n",
 				i, w->drive[i], xdev);
 			goto bad;
 		}
 		if(i >= w->ndrive) {
-			print("too many drives %Z\n", xdev);
+			fprint(2, "too many drives %Z\n", xdev);
 			goto bad;
 		}
 		w->drive[i++] = xdev;
 	}
 
 	if(i <= 0) {
-		print("no drives\n");
+		fprint(2, "no drives\n");
 		goto bad;
 	}
 
@@ -1314,8 +1319,9 @@ wormprobe(void)
 				continue;
 			if(v->status == Sstart && t > v->time) {
 				drive = v->drive;
-				print("\ttime   r%ld drive %Z\n",
-					v-w->side, w->drive[drive]);
+				if(chatty)
+					print("\ttime   r%ld drive %Z\n",
+						v-w->side, w->drive[drive]);
 				mmove(w, w->mt0, w->dt0+drive, v->elem, v->rot);
 				v->status = Sunload;
 			}

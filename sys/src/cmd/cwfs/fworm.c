@@ -2,8 +2,6 @@
 
 #define	FDEV(d)		((d)->fw.fw)
 
-enum { DEBUG = 0 };
-
 Devsize
 fwormsize(Device *d)
 {
@@ -21,13 +19,16 @@ fwormream(Device *d)
 	Device *fdev;
 	Off a, b;
 
-	print("fworm ream\n");
+	if(chatty)
+		print("fworm ream\n");
 	devinit(d);
 	fdev = FDEV(d);
 	a = fwormsize(d);
 	b = devsize(fdev);
-	print("\tfwsize = %lld\n", (Wideoff)a);
-	print("\tbwsize = %lld\n", (Wideoff)b-a);
+	if(chatty){
+		print("\tfwsize = %lld\n", (Wideoff)a);
+		print("\tbwsize = %lld\n", (Wideoff)b-a);
+	}
 	for(; a < b; a++) {
 		p = getbuf(fdev, a, Bmod|Bres);
 		if(!p)
@@ -52,7 +53,7 @@ fwormread(Device *d, Off b, void *c)
 	Device *fdev;
 	Devsize l;
 
-	if(DEBUG)
+	if(chatty > 1)
 		print("fworm read  %lld\n", (Wideoff)b);
 	fdev = FDEV(d);
 	l = devsize(fdev);
@@ -67,7 +68,7 @@ fwormread(Device *d, Off b, void *c)
 	l = b % (BUFSIZE*8);
 	if(!(p->iobuf[l/8] & (1<<(l%8)))) {
 		putbuf(p);
-		print("fworm: read %lld\n", (Wideoff)b);
+		fprint(2, "fworm: read %lld\n", (Wideoff)b);
 		return 1;
 	}
 	putbuf(p);
@@ -81,7 +82,7 @@ fwormwrite(Device *d, Off b, void *c)
 	Device *fdev;
 	Devsize l;
 
-	if(DEBUG)
+	if(chatty > 1)
 		print("fworm write %lld\n", (Wideoff)b);
 	fdev = FDEV(d);
 	l = devsize(fdev);
@@ -96,7 +97,7 @@ fwormwrite(Device *d, Off b, void *c)
 	l = b % (BUFSIZE*8);
 	if((p->iobuf[l/8] & (1<<(l%8)))) {
 		putbuf(p);
-		print("fworm: write %lld\n", (Wideoff)b);
+		fprint(2, "fworm: write %lld\n", (Wideoff)b);
 		return 1;
 	}
 	p->iobuf[l/8] |= 1<<(l%8);

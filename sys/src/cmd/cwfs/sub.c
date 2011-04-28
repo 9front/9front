@@ -187,7 +187,7 @@ newfp(void)
 		return f;
 	} while(i != start);
 
-	print("out of files\n");
+	fprint(2, "out of files\n");
 	return 0;
 }
 
@@ -328,7 +328,7 @@ newwp(void)
 		if(w >= ew)
 			w = &wpaths[0];
 		if(w == sw) {
-			print("out of wpaths\n");
+			fprint(2, "out of wpaths\n");
 			return 0;
 		}
 		if(w->refs)
@@ -466,7 +466,7 @@ bufalloc(Device *dev, int tag, long qid, int uid)
 
 	p = getbuf(dev, superaddr(dev), Brd|Bmod);
 	if(!p || checktag(p, Tsuper, QPSUPER)) {
-		print("bufalloc: super block\n");
+		fprint(2, "bufalloc: super block\n");
 		if(p)
 			putbuf(p);
 		return 0;
@@ -477,7 +477,7 @@ loop:
 	n = --sb->fbuf.nfree;
 	sb->tfree--;
 	if(n < 0 || n >= FEPERBUF) {
-		print("bufalloc: %Z: bad freelist\n", dev);
+		fprint(2, "bufalloc: %Z: bad freelist\n", dev);
 		n = 0;
 		sb->fbuf.free[0] = 0;
 	}
@@ -495,7 +495,7 @@ loop:
 					goto loop;
 			}
 			putbuf(p);
-			print("fs %Z full uid=%d\n", dev, uid);
+			fprint(2, "fs %Z full uid=%d\n", dev, uid);
 			return 0;
 		}
 		bp = getbuf(dev, a, Brd);
@@ -955,7 +955,7 @@ fs_send(Queue *q, void *a)
 			sleep(1000);
 		if(!q->waitedfor) {
 			/* likely a bug; don't wait forever */
-			print("no readers yet for %s q\n", q->name);
+			fprint(2, "no readers yet for %s q\n", q->name);
 			abort();
 		}
 	}
@@ -1029,7 +1029,7 @@ devread(Device *d, Off b, void *c)
 			return e;
 
 		case Devnone:
-			print("read from device none(%lld)\n", (Wideoff)b);
+			fprint(2, "read from device none(%lld)\n", (Wideoff)b);
 			return 1;
 		default:
 			panic("illegal device in devread: %Z %lld",
@@ -1059,7 +1059,7 @@ devwrite(Device *d, Off b, void *c)
 			break;
 
 		case Devro:
-			print("write to ro device %Z(%lld)\n", d, (Wideoff)b);
+			fprint(2, "write to ro device %Z(%lld)\n", d, (Wideoff)b);
 			return 1;
 
 		case Devwren:
@@ -1206,10 +1206,11 @@ devream(Device *d, int top)
 	Device *l;
 
 loop:
-	print("\tdevream: %Z %d\n", d, top);
+	if(chatty)
+		print("\tdevream %Z %d\n", d, top);
 	switch(d->type) {
 	default:
-		print("ream: unknown dev type %Z\n", d);
+		fprint(2, "devream: unknown dev type %Z\n", d);
 		return;
 
 	case Devcw:
@@ -1262,10 +1263,11 @@ void
 devrecover(Device *d)
 {
 	for (;;) {
-		print("recover: %Z\n", d);
+		if(chatty)
+			print("recover %Z\n", d);
 		switch(d->type) {
 		default:
-			print("recover: unknown dev type %Z\n", d);
+			fprint(2, "devrecover: unknown dev type %Z\n", d);
 			return;
 
 		case Devcw:
@@ -1288,10 +1290,11 @@ devinit(Device *d)
 		if(d->init)
 			return;
 		d->init = 1;
-		print("\tdevinit %Z\n", d);
+		if(chatty)
+			print("\tdevinit %Z\n", d);
 		switch(d->type) {
 		default:
-			print("devinit unknown device %Z\n", d);
+			fprint(2, "devinit: unknown device %Z\n", d);
 			return;
 
 		case Devro:
@@ -1339,7 +1342,6 @@ devinit(Device *d)
 			break;
 
 		case Devnone:
-			print("devinit of Devnone\n");
 			return;
 		}
 	}
@@ -1429,18 +1431,9 @@ swab(void *c, int flag)
 
 	/* swab each block type */
 	switch(t->tag) {
-
 	default:
-		print("no swab for tag=%G rw=%d\n", t->tag, flag);
-		for(j=0; j<16; j++)
-			print(" %.2x", p[BUFSIZE+j]);
-		print("\n");
-		for(i=0; i<16; i++) {
-			print("%.4x", i*16);
-			for(j=0; j<16; j++)
-				print(" %.2x", p[i*16+j]);
-			print("\n");
-		}
+		fprint(2, "no swab for tag=%G rw=%d\n", t->tag, flag);
+		hexdump(p, 256);
 		panic("swab");
 		break;
 
