@@ -24,17 +24,16 @@ case go
 			echo 'mouseport='^$mouseport
 			echo 'monitor='^$monitor
 			echo 'vgasize='^$vgasize
+			echo '*nomp=1'
 		} >/tmp/plan9.ini
 	}
-	if(! test -f /tmp/plan9ini.bak)
-		cp /tmp/plan9.ini /tmp/plan9ini.bak
 
 	need9fatformat=no
 	if(! isfat $fat)
 		need9fatformat=yes
 	if(! test -f /srv/dos)
 		dossrv
-	if not if(! mount -c /srv/dos /n/9fat /dev/$disk/9fat >[2]/dev/null)
+	if(! mount -c /srv/dos /n/9fat $fat >[2]/dev/null)
 		need9fatformat=yes
 	if not if(! test -f /n/9fat/plan9.ini)
 		need9fatformat=yes
@@ -44,10 +43,7 @@ case go
 		disk/format -r 2 -d -b /386/pbs $fat /n/newfs/386/9bootfat
 		mount -c /srv/dos /n/9fat $fat
 	}
-
 	logprog cp /tmp/plan9.ini /n/9fat/plan9.ini
-	if(test -f /tmp/plan9ini.bak)
-		logprog cp /tmp/plan9ini.bak /n/9fat/plan9ini.bak
 	logprog cp /n/newfs/386/9bootfat /n/9fat/9bootfat
 	logprog cp /n/newfs/386/9pcf /n/9fat/9pcf
 

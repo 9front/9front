@@ -44,33 +44,50 @@ case go
 	fsother=$rd
 	export fsother
 
-	if(! test -f /tmp/fsconfig){
-		{
-			echo service cwfs
-			echo config $fs
-
-			# new config option
-			echo noauth
-
-			echo filsys main c'('$fs')('$fsworm')'
-			echo filsys dump o
-			if(! ~ $fsother ''){
-				echo filsys other '('$fsother')'
-				echo ream other
-			}
-			echo ream main
-			echo end
-		} >/tmp/fsconfig
-	}
+	ream=no
+	if(! ~ $fstype `{fstype $fs})
+		ream=yes
+	prompt -d $ream 'Ream the filesystem?' yes no
+	ream=$rd
 
 	log Starting $fstype file server for $fs
 	unmount /n/newfs >[2]/dev/null
 	echo halt >>/srv/cwfs.cmd >[2]/dev/null
 	rm -f /srv/cwfs /srv/cwfs.cmd
-	if(! $fstype -c -f $fs </tmp/fsconfig){
-		mountfs=ready
-		export mountfs
-		exit oops
+
+	if(~ $ream yes){
+		if(! test -f /tmp/fsconfig){
+			{
+				echo service cwfs
+				echo config $fs
+
+				# new config option
+				echo noauth
+
+				echo filsys main c'('$fs')('$fsworm')'
+				echo filsys dump o
+				if(! ~ $fsother ''){
+					echo filsys other '('$fsother')'
+					echo ream other
+				}
+				echo ream main
+				echo end
+			} >/tmp/fsconfig
+		}
+		echo 'Reaming filesystem'
+		if(! $fstype -f $fs -c </tmp/fsconfig){
+			mountfs=ready
+			export mountfs
+			exit oops
+		}
+	}
+	if not {
+		echo 'Entering manual configuration mode. when done, type end'
+		if(! $fstype -n cwfs -f $fs -c){
+			mountfs=ready
+			export mountfs
+			exit oops
+		}
 	}
 
 	log Configuering $fstype file server for $fs
@@ -91,9 +108,8 @@ case go
 			echo create /usr/$user/tmp $user $user 750 d
 			echo cfs main
 		}
-		# not synchronized
-		sleep 5
 	} >>/srv/cwfs.cmd
+	sleep 5
 
 	log Mounting $fstype file server for $fs
 	if(! logprog mount -c /srv/cwfs /n/newfs){
