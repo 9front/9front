@@ -7,9 +7,9 @@ extern int oldcachefmt;
 
 Map *devmap;
 
-int sfd, rfd;
 Biobuf bin;
 int chatty = 0;
+int sfd = -1;
 
 void
 machinit(void)
@@ -177,23 +177,23 @@ postservice(void)
 	if(service[0] == 0)
 		panic("no service name");
 
-	if(sfd < 0){
-		if(pipe(p) < 0)
-			panic("can't make a pipe");
-		sfd = p[0];
-		rfd = p[1];
+	/* serve 9p for -s */
+	if(sfd >= 0){
+		srvchan(sfd, "stdio");
+		sfd = -1;
 	}
 
 	/* post 9p service */
-	snprint(buf, sizeof(buf), "#s/%s", service);
-	srvfd(buf, 0666, sfd);
-	close(sfd);
-	srvchan(rfd, buf);
-
 	if(pipe(p) < 0)
 		panic("can't make a pipe");
+	snprint(buf, sizeof(buf), "#s/%s", service);
+	srvfd(buf, 0666, p[0]);
+	close(p[0]);
+	srvchan(p[1], buf);
 
 	/* post cmd service */
+	if(pipe(p) < 0)
+		panic("can't make a pipe");
 	snprint(buf, sizeof(buf), "#s/%s.cmd", service);
 	srvfd(buf, 0220, p[0]);
 	close(p[0]);
@@ -294,8 +294,6 @@ main(int argc, char **argv)
 	machinit();
 	conf.confdev = "/dev/sdC0/fscache";
 
-	rfd = sfd = -1;
-
 	ARGBEGIN{
 	case 'a':			/* announce on this net */
 		ann = EARGF(usage());
@@ -310,8 +308,8 @@ main(int argc, char **argv)
 		strcpy(service, EARGF(usage()));
 		break;
 	case 's':
-		sfd = dup(0, -1);
-		rfd = dup(1, -1);
+		dup(0, -1);
+		sfd = dup(1, -1);
 		close(0);
 		if(open("/dev/cons", OREAD) < 0)
 			open("#c/cons", OREAD);

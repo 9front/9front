@@ -1,6 +1,8 @@
 bind -a $home/bin/rc /bin
 bind -a $home/bin/$cputype /bin
-bind -c tmp /tmp
+mount -qC /srv/cwfs /n/other other
+bind -qc /n/other/usr/$user/tmp $home/tmp
+bind -c $home/tmp /tmp
 if(! syscall create /tmp/xxx 1 0666 >[2]/dev/null)
 	ramfs	# in case we're running off a cd
 font = /lib/font/bit/pelm/euro.9.font
@@ -26,12 +28,10 @@ case cpu
 	bind -a /mnt/term/dev /dev
 	prompt=('cpu% ' '	')
 	fn cpu%{ $* }
-	news
 	if (! test -e /mnt/term/mnt/wsys) {	# cpu call from drawterm
 		font=/lib/font/bit/pelm/latin1.8.font
 		exec rio
 	}
 case con
 	prompt=('cpu% ' '	')
-	news
 }
