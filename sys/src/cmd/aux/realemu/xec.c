@@ -15,6 +15,7 @@ push(Iarg *sp, Iarg *a)
 
 	p = amem(sp->cpu, a->len, RSS, ar(sp));
 	p->off -= a->len;
+	p->off &= mask(sp->len*8);
 	aw(p, ar(a));
 	aw(sp, p->off);
 }
@@ -495,12 +496,9 @@ opbittest(Cpu *cpu, Inst *i)
 	x = i->a1;
 	s = x->len*8;
 	if(x->tag == TMEM){
-		int z;
-
 		x = adup(x);
 		x->off += (n / s) * x->len;
-		z = i->alen*8;
-		x->off &= mask(z);
+		x->off &= mask(i->alen*8);
 	}
 	a = ar(x);
 	n &= s-1;
@@ -972,9 +970,10 @@ static void
 opmovs(Cpu *cpu, Inst *i)
 {
 	Iarg *cx, *d, *s;
-	ulong c;
+	ulong c, m;
 	int n;
 
+	m = mask(i->alen*8);
 	d = adup(i->a1);
 	s = adup(i->a2);
 	n = s->len;
@@ -990,7 +989,9 @@ opmovs(Cpu *cpu, Inst *i)
 	while(c){
 		aw(d, ar(s));
 		d->off += n;
+		d->off &= m;
 		s->off += n;
+		s->off &= m;
 		c--;
 	}
 	aw(areg(cpu, i->alen, RDI), d->off);
@@ -1003,9 +1004,10 @@ static void
 oplods(Cpu *cpu, Inst *i)
 {
 	Iarg *cx, *s;
-	ulong c;
+	ulong c, m;
 	int n;
 
+	m = mask(i->alen*8);
 	s = adup(i->a2);
 	n = s->len;
 	if(cpu->reg[RFL] & DF)
@@ -1019,8 +1021,10 @@ oplods(Cpu *cpu, Inst *i)
 	}
 	if(c){
 		s->off += n*(c-1);
+		s->off &= m;
 		aw(i->a1, ar(s));
 		s->off += n;
+		s->off &= m;
 	}
 	aw(areg(cpu, i->alen, RSI), s->off);
 	if(cx)
@@ -1031,9 +1035,10 @@ static void
 opstos(Cpu *cpu, Inst *i)
 {
 	Iarg *cx, *d;
-	ulong c, a;
+	ulong c, a, m;
 	int n;
 
+	m = mask(i->alen*8);
 	d = adup(i->a1);
 	n = d->len;
 	if(cpu->reg[RFL] & DF)
@@ -1049,6 +1054,7 @@ opstos(Cpu *cpu, Inst *i)
 	while(c){
 		aw(d, a);
 		d->off += n;
+		d->off &= m;
 		c--;
 	}
 	aw(areg(cpu, i->alen, RDI), d->off);
@@ -1059,26 +1065,25 @@ opstos(Cpu *cpu, Inst *i)
 static int
 repcond(Cpu *cpu, int rep)
 {
-	switch(rep){
-	case OREPNE:
+	if(rep == OREPNE)
 		return (cpu->reg[RFL] & ZF) == 0;
-	case OREPE:
-	default:
-		return !rep || (cpu->reg[RFL] & ZF) != 0;
-	}
+	return !rep || (cpu->reg[RFL] & ZF) != 0;
 }
 
 static void
 opscas(Cpu *cpu, Inst *i)
 {
-	Iarg *cx, *s;
-	ulong c;
+	Iarg *cx, *d;
+	ulong *f, c, m;
 	long a;
-	int n;
+	int n, z;
 
-	s = adup(i->a1);
-	n = s->len;
-	if(cpu->reg[RFL] & DF)
+	m = mask(i->alen*8);
+	d = adup(i->a1);
+	n = d->len;
+	z = n*8;
+	f = cpu->reg + RFL;
+	if(*f & DF)
 		n = -n;
 	if(i->rep){
 		cx = areg(cpu, i->alen, RCX);
@@ -1089,13 +1094,14 @@ opscas(Cpu *cpu, Inst *i)
 	}
 	a = ars(i->a2);
 	while(c){
-		sub(cpu->reg + RFL, a, ars(s), 0, s->len*8);
-		s->off += n;
+		sub(f, a, ars(d), 0, z);
+		d->off += n;
+		d->off &= m;
 		c--;
 		if(repcond(cpu, i->rep))
 			break;
 	}
-	aw(areg(cpu, i->alen, RDI), s->off);
+	aw(areg(cpu, i->alen, RDI), d->off);
 	if(cx)
 		aw(cx, c);
 }
@@ -1104,13 +1110,16 @@ static void
 opcmps(Cpu *cpu, Inst *i)
 {
 	Iarg *cx, *s, *d;
-	ulong c;
-	int n;
+	ulong *f, c, m;
+	int n, z;
 
+	m = mask(i->alen*8);
 	d = adup(i->a1);
 	s = adup(i->a2);
 	n = s->len;
-	if(cpu->reg[RFL] & DF)
+	z = n*8;
+	f = cpu->reg + RFL;
+	if(*f & DF)
 		n = -n;
 	if(i->rep){
 		cx = areg(cpu, i->alen, RCX);
@@ -1120,9 +1129,11 @@ opcmps(Cpu *cpu, Inst *i)
 		c = 1;
 	}
 	while(c){
-		sub(cpu->reg + RFL, ars(s), ars(d), 0, s->len*8);
+		sub(f, ars(s), ars(d), 0, z);
 		s->off += n;
+		s->off &= m;
 		d->off += n;
+		d->off &= m;
 		c--;
 		if(repcond(cpu, i->rep))
 			break;
