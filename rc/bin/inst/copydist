@@ -17,7 +17,7 @@ case checkready
 	}
 case go
 	rm -f /tmp/copydone
-	disk/mkfs -z 16384 -p -s /n/dist -d /n/newfs /sys/lib/sysconfig/proto/allproto
+	disk/mkfs -z 16372 -U -s /n/dist -d /n/newfs /sys/lib/sysconfig/proto/allproto
 	touch /tmp/copydone
 
 case checkdone

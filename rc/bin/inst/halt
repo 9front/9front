@@ -1,8 +1,3 @@
 #!/bin/rc
-
-echo -n 'Halting file systems...'
-fshalt
-
-echo
-echo Remember to take the install disk out of the drive.
-echo Feel free to turn off your computer.
+fshalt -r
+while(){}

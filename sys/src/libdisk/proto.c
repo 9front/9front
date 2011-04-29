@@ -68,7 +68,7 @@ static char*	getpath(Mkaux*, char*);
 static int	mkfile(Mkaux*, File*);
 static char*	mkpath(Mkaux*, char*, char*);
 static void	mktree(Mkaux*, File*, int);
-static void	setnames(Mkaux*, File*);
+static void	setname(Mkaux*, Name*, File*);
 static void	skipdir(Mkaux*);
 static void	warn(Mkaux*, char *, ...);
 static void	popopt(Mkaux *mkaux);
@@ -154,7 +154,7 @@ domkfs(Mkaux *mkaux, File *me, int level)
 		rec = child->elem[0] == '+';
 		free(child->new);
 		child->new = estrdup(mkaux, me->new);
-		setnames(mkaux, child);
+		setname(mkaux, &mkaux->oldfile, child);
 		mktree(mkaux, child, rec);
 		freefile(child);
 		child = getfile(mkaux, me);
@@ -194,7 +194,7 @@ mktree(Mkaux *mkaux, File *me, int rec)
 			if(me->old)
 				child.old = mkpath(mkaux, me->old, d[i].name);
 			child.elem = d[i].name;
-			setnames(mkaux, &child);
+			setname(mkaux, &mkaux->oldfile, &child);
 			if((!(d[i].mode&DMDIR) || rec) && copyfile(mkaux, &child, &d[i], 1) && rec)
 				mktree(mkaux, &child, rec);
 			free(child.new);
@@ -223,18 +223,35 @@ enum {
 };
 
 static void
-setname(Mkaux *mkaux, Name *name, char *s1, char *s2)
+setname(Mkaux *mkaux, Name *name, File *f)
 {
+	char *s1, *s2, *ss;
 	int l;
+	
+	s1 = mkaux->root;
+	s2 = "";
+	if(f->old){
+		/* if old is not a absolute path, dont append root to it */
+		if(f->old[0] != '/')
+			s1 = f->old;
+		else
+			s2 = f->old;
+	}else
+		s2 = f->new;
 
-	l = strlen(s1)+strlen(s2)+1;
+	l = strlen(s1);
+	ss = (*s1 && *s2 && *s2 != '/' && s1[l-1] != '/') ? "/" : "";
+	l += strlen(ss);
+	l += strlen(s2);
+	l++;
 	if(name->n < l+SLOP/2) {
 		free(name->s);
 		name->s = emalloc(mkaux, l+SLOP);
 		name->n = l+SLOP;
 	}
-	snprint(name->s, name->n, "%s%s%s", s1, *s1==0 || s1[strlen(s1)-1]!='/' ? "/" : "", s2);
+	snprint(name->s, name->n, "%s%s%s", s1, ss, s2);
 }
+
 
 static int
 copyfile(Mkaux *mkaux, File *f, Dir *d, int permonly)
@@ -244,7 +261,8 @@ copyfile(Mkaux *mkaux, File *f, Dir *d, int permonly)
 	ulong xmode;
 	char *p;
 
-	setname(mkaux, &mkaux->fullname, mkaux->root, f->old ? f->old : f->new);
+	setname(mkaux, &mkaux->fullname, f);
+
 	/*
 	 * Extra stat here is inefficient but accounts for binds.
 	 */
@@ -298,19 +316,6 @@ mkpath(Mkaux *mkaux, char *prefix, char *elem)
 	strcat(p, "/");
 	strcat(p, elem);
 	return p;
-}
-
-static void
-setnames(Mkaux *mkaux, File *f)
-{
-	
-	if(f->old){
-		if(f->old[0] == '/')
-			setname(mkaux, &mkaux->oldfile, f->old, "");
-		else
-			setname(mkaux, &mkaux->oldfile, mkaux->root, f->old);
-	} else
-		setname(mkaux, &mkaux->oldfile, mkaux->root, f->new);
 }
 
 static void
@@ -475,7 +480,7 @@ loop:
 		free(f->old);
 		f->old = 0;
 	}
-	setnames(mkaux, f);
+	setname(mkaux, &mkaux->oldfile, f);
 
 	return f;
 }
