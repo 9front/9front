@@ -1,14 +1,8 @@
 #!/bin/rc
 
 echo -n 'Halting file systems...'
+fshalt
 
-if(ps | grep -s ' cwfs$')
-	echo halt >>/srv/cwfs.cmd
-
-echo done
 echo
 echo Remember to take the install disk out of the drive.
 echo Feel free to turn off your computer.
-while()
-	sleep 3600
-
