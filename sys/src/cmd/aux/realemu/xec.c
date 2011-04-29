@@ -485,7 +485,7 @@ opror(Cpu *cpu, Inst *i)
 }
 
 static void
-opbt(Cpu *cpu, Inst *i)
+opbittest(Cpu *cpu, Inst *i)
 {
 	ulong a, m;
 	int n, s;
@@ -495,9 +495,12 @@ opbt(Cpu *cpu, Inst *i)
 	x = i->a1;
 	s = x->len*8;
 	if(x->tag == TMEM){
+		int z;
+
 		x = adup(x);
-		x->off += n / s;
-		x->off &= mask(i->alen*8);
+		x->off += (n / s) * x->len;
+		z = i->alen*8;
+		x->off &= mask(z);
 	}
 	a = ar(x);
 	n &= s-1;
@@ -1208,10 +1211,10 @@ static void (*exctab[NUMOP])(Cpu *cpu, Inst*) = {
 	[OROL] = oprol,
 	[OROR] = opror,
 
-	[OBT] = opbt,
-	[OBTS] = opbt,
-	[OBTR] = opbt,
-	[OBTC] = opbt,
+	[OBT] = opbittest,
+	[OBTS] = opbittest,
+	[OBTR] = opbittest,
+	[OBTC] = opbittest,
 
 	[OBSF] = opbitscan,
 	[OBSR] = opbitscan,
