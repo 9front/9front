@@ -440,7 +440,9 @@ mergeconf(Iobuf *p)
 			if(service[0] == 0)
 				strncpy(service, word, sizeof service);
 		} else if(strcmp(word, "noauth") == 0){
+			noauth = 1;
 		} else if(strcmp(word, "readonly") == 0){
+			readonly = 1;
 		} else if(strcmp(word, "ipauth") == 0)	/* obsolete */
 			cp = getwrd(word, cp);
 		else if(astrcmp(word, "ip") == 0)	/* obsolete */
@@ -978,18 +980,15 @@ arginit(void)
 		}
 		if(strcmp(word, "noattach") == 0) {
 			noattach = !noattach;
-			print("attach is now %s\n", noattach ? "disallowed" : "allowed");
 			continue;
 		}
 		if(strcmp(word, "noauth") == 0) {
 			noauth = !noauth;
-			print("auth is now %s\n", noauth ? "disabled" : "enabled");
 			f.modconf = 1;
 			continue;
 		}
 		if(strcmp(word, "readonly") == 0) {
 			readonly = !readonly;
-			print("filesystem is now %s\n", readonly ? "readonly" : "writable");
 			f.modconf = 1;
 			continue;
 		}
