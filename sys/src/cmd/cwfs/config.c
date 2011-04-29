@@ -633,7 +633,6 @@ loop:
 	 * part 4 -- initialize the devices
 	 */
 	for(fs=filsys; fs->name; fs++) {
-		delay(3000);
 		if(chatty)
 			print("sysinit: %s\n", fs->name);
 		if(fs->flags & FREAM)
@@ -715,7 +714,7 @@ writtensize(Device *worm)
 	if (!blockok(worm, 0) || !blockok(worm, lim-1))
 		return 0;
 	delay(5*1000);
-	if (userabort("sanity checks"))
+	if(userabort("sanity checks"))
 		return 0;
 
 	/* find worm's last valid block in case "worm" is an (f)worm */
@@ -834,10 +833,10 @@ dowormcopy(void)
 	 */
 	print("copied %lld blocks from %Z to %Z\n", (Wideoff)a, from, to);
 	sync("wormcopy");
-	delay(2000);
+	
 	print("looping; reset the machine at any time.\n");
-	for (; ; )
-		continue;		/* await reset */
+	for(;;)
+		delay(10000);		/* await reset */
 }
 
 /* copy device from src to dest */
