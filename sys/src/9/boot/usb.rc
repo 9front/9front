@@ -7,14 +7,14 @@ fn configusb{
 }
 
 fn connectusb{
-	m=/mnt/usb
+	m=/mnt/dosusb
 	if(! test -r $1)
 		fatal device $1 does not exist
 	if(! test -r $1/dos)
-		fatal device $1 does not have dos partition
+		fatal device $1 does not have a dos partition
 	mkdir -p $m
-	dossrv -r -f $1/dos usb
-	mount /srv/usb $m
+	dossrv -r -f $1/dos dosusb
+	mount /srv/dosusb $m
 	if(! test -r $m/9front.iso)
 		fatal $m/9front.iso not found
 	{9660srv -s -f $m/9front.iso &} <[0=1] | echo 0 >/srv/boot
