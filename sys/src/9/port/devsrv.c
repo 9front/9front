@@ -205,11 +205,8 @@ srvremove(Chan *c)
 
 	/*
 	 * Only eve can remove system services.
-	 * No one can remove #s/boot.
 	 */
 	if(strcmp(sp->owner, eve) == 0 && !iseve())
-		error(Eperm);
-	if(strcmp(sp->name, "boot") == 0)
 		error(Eperm);
 
 	/*

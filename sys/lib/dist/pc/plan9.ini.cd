@@ -1,8 +1,6 @@
 # config for initial cd booting
-*nodumpstack=1
+*nomp=1
 mouseport=ask
 monitor=ask
 vgasize=ask
-cdboot=yes
 bootfile=/386/9pcf
-*nomp=1

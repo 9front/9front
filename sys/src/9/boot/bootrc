@@ -1,8 +1,32 @@
-rfork e
+#!/bin/rc
 
-mt=()
-. /rc/lib/tcp.rc
-. /rc/lib/local.rc
+bind -q '#p' /proc
+
+bind -qa '#S' /dev
+bind -qa '#f' /dev
+bind -qa '#k' /dev
+bind -qa '#æ' /dev
+
+fn set {
+	a=$$1
+	$1=()
+	rm -f '#e'/$1 '#ec'/$1 /env/$1
+	if(! ~ $#a 0)
+		$1=$a
+}
+
+# convert plan9.ini variables
+set init
+set user
+set nvram
+set rootdir
+set bootargs
+set nobootprompt
+set debugfactotum
+set fs
+set fsaddr
+set auth
+set authaddr
 
 fn fatal {
 	echo $*
@@ -32,18 +56,19 @@ fn ask {
 		ask $*
 }
 
-fn getmethod{
+mt=()
+. /rc/lib/tcp.rc
+. /rc/lib/local.rc
+
+fn main{
 	mp=()
 	while(~ $#mp 0){
 		if(~ $#nobootprompt 0){
 			echo
 			showlocaldevs
-			ask bootargs ' are? (tcp, local!device)' $bootargs
+			ask bootargs ' is (tcp, local!device)' $bootargs
 		}
-		if not {
-			bootargs=$nobootprompt
-			nobootprompt=()
-		}
+		if not bootargs=$nobootprompt
 		mn=`{echo $bootargs | awk -F! '{print $1}'}
 		ma=`{echo $bootargs | awk -F! '{print $2}'}
 		for(i in `{seq 1 $#mt}){
@@ -51,12 +76,6 @@ fn getmethod{
 				mp=$$mt($i)
 		}
 	}
-}
-
-fn main{
-	rm -f /srv/boot
-
-	getmethod
 
 	switch($mn){
 	case local
@@ -81,16 +100,18 @@ fn main{
 			x=($x -p)
 		must $x
 	}
+	if not user=`{cat /dev/hostowner}
 
 	# connect method
 	$mp(2) $ma
 
-	# mount root filesystem
-	must mount -c /srv/boot /root
+	# mount and change root in new enviroment and namespace
+	rfork ne
 
-	# start pager
-	if(test -x /dev/swap)
-		echo -n start >/dev/swap
+	# mount root filesystem
+	if(~ $#rootdir 0)
+		rootdir=/root
+	must mount -c /srv/boot $rootdir
 
 	# remove enviroment variables
 	rm -f /env/^$mt /env/? /env/?? '/env/fn#'* 
@@ -107,25 +128,15 @@ fn main{
 	# remove the remaining temporary root
 	/mnt/broot/$cputype/bin/unmount /mnt/broot
 
-	rootdir=/root
-
 	if(~ $#init 0){
 		init=/$cputype/init
 		if(~ $cpuflag 1)
 			init=($init -c)
 		if not
 			init=($init -t)
-		# TODO handle mflag
 	}
 	exec $init
 }
-
-bind -q '#p' /proc
-
-bind -qa '#S' /dev
-bind -qa '#f' /dev
-bind -qa '#k' /dev
-bind -qa '#æ' /dev
 
 if(test -e '#u'){
 	bind -a '#u' /dev
@@ -140,7 +151,12 @@ if(! ~ $#kbmap 0){
 
 configlocal	# add partitions and binds
 
-while()@{
-	rfork ne
-	main
+while(){
+	@{main}
+	sleep 1
+
+	# cleanup so it can be restarted
+	nobootprompt=()
+	user=()
+	rm -f /srv/boot /srv/slashn /srv/cs /srv/dns
 }
