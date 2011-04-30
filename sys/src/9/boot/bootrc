@@ -3,6 +3,7 @@ rfork e
 mt=()
 . /rc/lib/tcp.rc
 . /rc/lib/local.rc
+. /rc/lib/usb.rc
 
 fn fatal {
 	echo $*
@@ -55,6 +56,7 @@ fn getmethod{
 
 fn main{
 	rm -f /srv/boot
+	rm -f /srv/usb
 
 	getmethod
 
@@ -138,6 +140,7 @@ if(! ~ $#kbmap 0){
 		cat $"kbmap >/dev/kbmap
 }
 
+configusb		# run partfs on usb disks
 configlocal	# add partitions and binds
 
 while()@{
