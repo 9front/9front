@@ -10,6 +10,7 @@ $cputype
 			fdisk
 			kfs
 			prep
+			partfs
 		dossrv
 		echo
 		cwfs64x
@@ -19,6 +20,7 @@ $cputype
 		ip
 			ipconfig
 		ls
+		mkdir
 		mount
 		ramfs
 		rc
@@ -38,6 +40,7 @@ rc
 		rcmain
 		local.rc 555 sys sys ../boot/local.rc
 		tcp.rc 555 sys sys ../boot/tcp.rc
+		usb.rc 555 sys sys ../boot/usb.rc
 	bin
 		fstype
 		diskparts

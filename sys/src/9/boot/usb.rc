@@ -1,0 +1,24 @@
+fn configusb{
+	for(c in /dev/sdU*[0-9]){
+		d=`{echo $c | sed 's,^/dev/(.*),\1p,g'}
+		if(! test -d /dev/$d)
+			disk/partfs -d $d $c/data
+	}
+}
+
+fn connectusb{
+	m=/mnt/usb
+	if(! test -r $1)
+		fatal device $1 does not exist
+	if(! test -r $1/dos)
+		fatal device $1 does not have dos partition
+	mkdir -p $m
+	dossrv -r -f $1/dos usb
+	mount /srv/usb $m
+	if(! test -r $m/9front.iso)
+		fatal $m/9front.iso not found
+	{9660srv -s -f $m/9front.iso &} <[0=1] | echo 0 >/srv/boot
+}
+
+musb=(configusb connectusb)
+mt=(musb $mt)

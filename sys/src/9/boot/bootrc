@@ -59,6 +59,7 @@ fn ask {
 mt=()
 . /rc/lib/tcp.rc
 . /rc/lib/local.rc
+. /rc/lib/usb.rc
 
 fn main{
 	mp=()
@@ -146,6 +147,7 @@ if(! ~ $#kbmap 0){
 for(i in I l`{seq 0 3})
 	bind -qa '#'$i /net
 
+configusb	# run partfs on usb disks
 configlocal	# add partitions and binds
 
 while(){
