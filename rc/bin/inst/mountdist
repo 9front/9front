@@ -77,7 +77,10 @@ case go
 
 	mountstatus=x
 	while(! ~ $mountstatus ''){
-		prompt -w '' 'Distribution disk' $fat $x9660
+		default=()
+		if(! ~ $#cdboot 0 && ! ~ $#x9660 0)
+			default=(-d $x9660(1))
+		prompt $default 'Distribution disk' $fat $x9660
 		disk=$rd
 
 		srvmedia=()

@@ -1,5 +1,6 @@
 # config for initial cd booting
 *nomp=1
+cdboot=yes
 mouseport=ask
 monitor=ask
 vgasize=ask
