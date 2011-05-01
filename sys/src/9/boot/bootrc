@@ -91,7 +91,7 @@ fn main{
 	if(! test -f /srv/factotum){
 		x=(/boot/factotum -sfactotum)
 		if(~ $cpuflag 1)
-			x=($x -kS)
+			x=($x -S)
 		if not
 			x=($x -u)
 		if(! ~ $#authaddr 0)
