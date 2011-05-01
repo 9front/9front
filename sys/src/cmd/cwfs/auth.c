@@ -119,43 +119,62 @@ authfree(void *auth)
 }
 
 int
-authread(File *file, uchar *data, int count)
+authread(Chan *chan, File *file, uchar *data, int count)
 {
 	AuthInfo *ai;
 	AuthRpc *rpc;
 
-	if((rpc = file->auth) == nil)
+	if((rpc = file->auth) == nil){
+		snprint(chan->err, sizeof(chan->err),
+			"not an auth fid");
 		return -1;
+	}
+
 	switch(auth_rpc(rpc, "read", nil, 0)){
+	default:
+		snprint(chan->err, sizeof(chan->err),
+			"authread: auth protocol not finished");
+		return -1;
 	case ARdone:
 		if((ai = auth_getinfo(rpc)) == nil)
-			return -1;
+			goto Phase;
 		file->uid = strtouid(ai->cuid);
 		auth_freeAI(ai);
-		if(file->uid < 0)
+		if(file->uid < 0){
+			snprint(chan->err, sizeof(chan->err),
+				"unknown user '%s'", ai->cuid);
 			return -1;
+		}
 		return 0;
 	case ARok:
-		if(count < rpc->narg)
+		if(count < rpc->narg){
+			snprint(chan->err, sizeof(chan->err),
+				"not enough data in auth read");
 			return -1;
+		}
 		memmove(data, rpc->arg, rpc->narg);
 		return rpc->narg;
 	case ARphase:
-		return -1;
-	default:
+	Phase:
+		rerrstr(chan->err, sizeof(chan->err));
 		return -1;
 	}
 }
 
 int
-authwrite(File *file, uchar *data, int count)
+authwrite(Chan *chan, File *file, uchar *data, int count)
 {
 	AuthRpc *rpc;
 
-	if((rpc = file->auth) == nil)
+	if((rpc = file->auth) == nil){
+		snprint(chan->err, sizeof(chan->err),
+			"not an auth fid");
 		return -1;
-	if(auth_rpc(rpc, "write", data, count) != ARok)
+	}
+	if(auth_rpc(rpc, "write", data, count) != ARok){
+		rerrstr(chan->err, sizeof(chan->err));
 		return -1;
+	}
 	return count;
 }
 

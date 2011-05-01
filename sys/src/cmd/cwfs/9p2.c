@@ -242,7 +242,7 @@ authorize(Chan* chan, Fcall* f)
 	}
 
 	/* fake read to get auth info */
-	authread(af, nil, 0);
+	authread(chan, af, nil, 0);
 	uid = af->uid;
 	if(db)
 		print("authorize: uid is %d\n", uid);
@@ -1001,7 +1001,7 @@ fs_read(Chan* chan, Fcall* f, Fcall* r, uchar* data)
 		goto out;
 	}
 	if(file->qid.type & QTAUTH){
-		nread = authread(file, (uchar*)data, count);
+		nread = authread(chan, file, (uchar*)data, count);
 		if(nread < 0)
 			error = Eauth2;
 		goto out;
@@ -1198,7 +1198,7 @@ fs_write(Chan* chan, Fcall* f, Fcall* r)
 	}
 
 	if(file->qid.type & QTAUTH){
-		nwrite = authwrite(file, (uchar*)f->data, count);
+		nwrite = authwrite(chan, file, (uchar*)f->data, count);
 		if(nwrite < 0)
 			error = Eauth2;
 		goto out;
@@ -1733,6 +1733,7 @@ print("didn't like %d byte message\n", mb->count);
 	r.tag = f.tag;
 	error = 0;
 	data = nil;
+	chan->err[0] = 0;
 
 	switch(type){
 	default:
@@ -1786,7 +1787,9 @@ print("didn't like %d byte message\n", mb->count);
 
 	if(error != 0){
 		r.type = Rerror;
-		if(error >= MAXERR){
+		if(chan->err[0])
+			r.ename = chan->err;
+		else if(error >= MAXERR){
 			snprint(ename, sizeof(ename), "error %d", error);
 			r.ename = ename;
 		} else

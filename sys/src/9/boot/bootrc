@@ -70,18 +70,11 @@ fn main{
 		}
 		if not bootargs=$nobootprompt
 		mn=`{echo $bootargs | awk -F! '{print $1}'}
-		ma=`{echo $bootargs | awk -F! '{print $2}'}
+		ma=`{echo $bootargs | sed 's/[^!]+!//'}
 		for(i in `{seq 1 $#mt}){
 			if(~ $mt($i) m^$mn)
 				mp=$$mt($i)
 		}
-	}
-
-	switch($mn){
-	case local
-		islocal=1
-	case hybrid
-		ishybrid=1
 	}
 
 	# config method
@@ -148,6 +141,10 @@ if(! ~ $#kbmap 0){
 	if(test -r $"kbmap)
 		cat $"kbmap >/dev/kbmap
 }
+
+# bind in an ip interface
+for(i in I l`{seq 0 3})
+	bind -qa '#'$i /net
 
 configlocal	# add partitions and binds
 

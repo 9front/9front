@@ -267,6 +267,8 @@ struct	Chan
 	uchar	authinfo[64];
 
 	void*	pdata;			/* sometimes is a Netconn* */
+
+	char	err[ERRMAX];
 };
 
 struct	Filsys

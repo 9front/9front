@@ -54,19 +54,18 @@ neti(void *v)
 	Network *net;
 
 	net = v;
-	print("net%di\n", net->ctlrno);
-Listen:
-	if((lisfd = listen(net->anndir, net->lisdir)) < 0){
-		print("listen %s failed: %r\n", net->anndir);
-		return;
-	}
+	if(chatty)
+		print("net%di\n", net->ctlrno);
 	for(;;) {
+		if((lisfd = listen(net->anndir, net->lisdir)) < 0){
+			fprint(2, "listen %s failed: %r\n", net->anndir);
+			break;
+		}
 		/* got new call on lisfd */
 		if((accfd = accept(lisfd, net->lisdir)) < 0){
-			print("accept %d (from %s) failed: %r\n",
-				lisfd, net->lisdir);
+			fprint(2, "accept %d (from %s) failed: %r\n", lisfd, net->lisdir);
 			close(lisfd);
-			goto Listen;
+			continue;
 		}
 		nci = getnetconninfo(net->lisdir, accfd);
 		srvchan(accfd, nci->raddr);
@@ -97,10 +96,11 @@ netinit(void)
 		if(net->dialstr == nil)
 			continue;
 		if((net->annfd = announce(net->dialstr, net->anndir)) < 0){
-			print("can't announce %s: %r", net->dialstr);
+			fprint(2, "can't announce %s: %r", net->dialstr);
 			net->dialstr = nil;
 			continue;
 		}
-		print("netinit: announced on %s\n", net->dialstr);
+		if(chatty)
+			print("netinit: announced on %s\n", net->dialstr);
 	}
 }

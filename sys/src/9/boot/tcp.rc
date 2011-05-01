@@ -1,10 +1,6 @@
 #!/bin/rc
 
 fn configtcp{
-	# bind in an ip interface
-	for(i in I l`{seq 0 3})
-		bind -qa '#'$i /net
-
 	must ip/ipconfig -p $*
 	
 	if(~ $#fs 0)
