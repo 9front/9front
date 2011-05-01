@@ -119,11 +119,13 @@ authfree(void *auth)
 }
 
 int
-authread(Chan *chan, File *file, uchar *data, int count)
+authread(File *file, uchar *data, int count)
 {
 	AuthInfo *ai;
 	AuthRpc *rpc;
+	Chan *chan;
 
+	chan = file->cp;
 	if((rpc = file->auth) == nil){
 		snprint(chan->err, sizeof(chan->err),
 			"not an auth fid");
@@ -162,10 +164,12 @@ authread(Chan *chan, File *file, uchar *data, int count)
 }
 
 int
-authwrite(Chan *chan, File *file, uchar *data, int count)
+authwrite(File *file, uchar *data, int count)
 {
 	AuthRpc *rpc;
+	Chan *chan;
 
+	chan = file->cp;
 	if((rpc = file->auth) == nil){
 		snprint(chan->err, sizeof(chan->err),
 			"not an auth fid");

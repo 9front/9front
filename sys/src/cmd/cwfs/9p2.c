@@ -242,7 +242,7 @@ authorize(Chan* chan, Fcall* f)
 	}
 
 	/* fake read to get auth info */
-	authread(chan, af, nil, 0);
+	authread(af, nil, 0);
 	uid = af->uid;
 	if(db)
 		print("authorize: uid is %d\n", uid);
@@ -283,6 +283,7 @@ attach(Chan* chan, Fcall* f, Fcall* r)
 			error = Ebadu;
 			goto out;
 		}
+		chan->err[0] = 0;
 	}
 	file->uid = u;
 
@@ -1001,7 +1002,7 @@ fs_read(Chan* chan, Fcall* f, Fcall* r, uchar* data)
 		goto out;
 	}
 	if(file->qid.type & QTAUTH){
-		nread = authread(chan, file, (uchar*)data, count);
+		nread = authread(file, (uchar*)data, count);
 		if(nread < 0)
 			error = Eauth2;
 		goto out;
@@ -1198,7 +1199,7 @@ fs_write(Chan* chan, Fcall* f, Fcall* r)
 	}
 
 	if(file->qid.type & QTAUTH){
-		nwrite = authwrite(chan, file, (uchar*)f->data, count);
+		nwrite = authwrite(file, (uchar*)f->data, count);
 		if(nwrite < 0)
 			error = Eauth2;
 		goto out;
