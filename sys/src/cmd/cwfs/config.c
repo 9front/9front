@@ -21,6 +21,8 @@ static Device* confdev;
 static int copyworm = 0, copydev = 0;
 static char *src, *dest;
 
+static int noauthset = 0;
+static int readonlyset = 0;
 static int resetparams;
 
 Fspar fspar[] = {
@@ -428,6 +430,10 @@ mergeconf(Iobuf *p)
 	Filsys *fs;
 	Fspar *fsp;
 
+	if(!noauthset)
+		noauth = 0;
+	if(!readonlyset)
+		readonly = 0;
 	for (cp = p->iobuf; *cp != '\0'; cp++) {
 		cp = getwrd(word, cp);
 		if(word[0] == '\0')
@@ -440,9 +446,11 @@ mergeconf(Iobuf *p)
 			if(service[0] == 0)
 				strncpy(service, word, sizeof service);
 		} else if(strcmp(word, "noauth") == 0){
-			noauth = 1;
+			if(!noauthset)
+				noauth = 1;
 		} else if(strcmp(word, "readonly") == 0){
-			readonly = 1;
+			if(!readonlyset)
+				readonly = 1;
 		} else if(strcmp(word, "ipauth") == 0)	/* obsolete */
 			cp = getwrd(word, cp);
 		else if(astrcmp(word, "ip") == 0)	/* obsolete */
@@ -593,6 +601,7 @@ start:
 
 		putbuf(p);
 		f.modconf = f.newconf = 0;
+		noauthset = readonlyset = 0;
 		goto start;
 	}
 	putbuf(p);
@@ -980,15 +989,20 @@ arginit(void)
 		}
 		if(strcmp(word, "noattach") == 0) {
 			noattach = !noattach;
+			print("attach is now %s\n", noattach ? "disallowed" : "allowed");
 			continue;
 		}
 		if(strcmp(word, "noauth") == 0) {
 			noauth = !noauth;
+			print("auth is now %s\n", noauth ? "disabled" : "enabled");
+			noauthset++;
 			f.modconf = 1;
 			continue;
 		}
 		if(strcmp(word, "readonly") == 0) {
 			readonly = !readonly;
+			print("filesystem is now %s\n", readonly ? "readonly" : "writable");
+			readonlyset++;
 			f.modconf = 1;
 			continue;
 		}
