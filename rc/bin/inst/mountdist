@@ -16,8 +16,35 @@ fn exitifdone{
 }
 
 fn havedist {
-	test -f $1/LICENSE
+	test -f $1/LICENSE || test -f $1/9front.iso || test -f $1/9front.iso.bz2
 }
+
+fn trycdimage{
+	if(test -f $1){
+		rm -f /srv/9660.dist
+		unmount /n/dist
+		9660srv 9660.dist >[2]/dev/null
+		logprog mount /srv/9660.dist /n/dist $1
+		exitifdone
+		mountdist=notdone
+		export mountdist
+		exit notdone
+	}
+}
+
+fn trycdimagebz2 {
+	if(test -f $1){
+		echo -n 'bunzip2 < '^$1^' >/n/newfs/dist/9front.iso'
+		bunzip2 < $1 >/n/newfs/dist/_9front.iso &&
+		mv /n/newfs/dist/_9front.iso /n/newfs/dist/9front.iso
+		echo
+		trycdimage /n/newfs/dist/9front.iso
+		mountdist=notdone
+		export mountdist
+		exit notdone
+	}
+}
+
 
 switch($1){
 case checkready
@@ -40,23 +67,20 @@ case checkready
 		
 case go
 	fat=()
-	ext2=()
 	x9660=()
 
 	echo Please wait... Scanning storage devices...
 
-	parts=`{ls /dev/sd[A-Z][0-9]*/* >[2]/dev/null | grep -v '/(plan9.*|ctl|log|raw)$'}
+	parts=`{ls /dev/sd*/* >[2]/dev/null | grep -v '/(plan9.*|nvram|ctl|log|raw)$'}
 	for (i in $parts) {
 		echo -n '	'^$i
-		n=`{echo $i | sed 's;/;_;g'}
-		if(! test -f /tmp/localpart.$n)
-			dd -if $i -bs 2048 -count 32 -of /tmp/localpart.$n >[2]/dev/null
-		if(isfat /tmp/localpart.$n)
+		t=`{fstype $i}
+		switch($t){
+		case dos
 			fat=($fat $i)
-		if(isext2 /tmp/localpart.$n)
-			ext2=($ext2 $i)
-		if(is9660 /tmp/localpart.$n)
+		case 9660
 			x9660=($x9660 $i)
+		}
 		echo
 	}
 	echo
@@ -67,8 +91,6 @@ case go
 		switch($i){
 		case $fat
 			echo 	'	'^$i^' (microsoft fat)'
-		case $ext2
-			echo 	'	'^$i^' (linux ext2)'
 		case $x9660
 			echo 	'	'^$i^' (iso9660 cdrom)'
 		}
@@ -80,7 +102,7 @@ case go
 		default=()
 		if(! ~ $#cdboot 0 && ! ~ $#x9660 0)
 			default=(-d $x9660(1))
-		prompt $default 'Distribution disk' $fat $x9660
+		prompt $default 'Distribution disk' $fat $x9660 $fs
 		disk=$rd
 
 		srvmedia=()
@@ -91,9 +113,6 @@ case go
 		case $fat
 			srvmedia=(dossrv)
 			mountmedia=(mount /srv/dos /n/distmedia $disk)
-		case $ext2
-			srvmedia=(ext2srv -r)
-			mountmedia=(mount /srv/ext2 /n/distmedia $disk)
 		case $x9660
 			srvmedia=(9660srv)
 			mountmedia=(mount /srv/9660 /n/distmedia $disk)
@@ -114,6 +133,8 @@ case go
 			echo Which directory contains the distribution?
 			echo 'Any of the following will suffice (in order of preference):'
 			echo '	- the root directory of the cd image'
+			echo '	- the directory containing 9front.iso'
+			echo '	- the directory containing 9front.iso.bz2'
 			echo
 			first=no
 		}
@@ -145,13 +166,19 @@ case checkdone
 
 	exitifdone
 
-	if(havedist /n/distmedia/$distmediadir){
+	if(test -f /n/distmedia/$distmediadir/LICENSE){
 		bind /n/distmedia/$distmediadir /n/dist
 		exitifdone
 		mountdist=notdone
 		export mountdist
 		exit notdone
 	}
+
+	trycdimage /n/distmedia/$distmediadir/9front.iso
+	trycdimage /n/newfs/dist/9front.iso
+
+	trycdimagebz2 /n/distmedia/$distmediadir/9front.iso.bz2
+	trycdimagebz2 /n/newfs/dist/9front.iso.bz2
 
 	mountdist=notdone
 	export mountdist

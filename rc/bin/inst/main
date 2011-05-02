@@ -14,12 +14,10 @@ echo -n 'Preparing menu...'
 tasks=(\
 	configfs\
 	partdisk prepdisk\
-	fmtfossil\
 	mountfs\
 	configdist\
 	confignet\
 	mountdist\
-	fmtventi\
 	download\
 	copydist\
 	bootsetup finish stop\

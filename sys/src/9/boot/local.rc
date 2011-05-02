@@ -10,7 +10,7 @@ fn showlocaldevs{
 			for(i in `{ls -p $d}){
 				p=$d/$i
 				switch($i){
-				case ctl raw
+				case ctl raw log
 					;
 				case 9fat plan9 nvram
 					echo $p

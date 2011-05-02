@@ -29,7 +29,7 @@ case go
 	}
 
 	need9fatformat=no
-	if(! isfat $fat)
+	if(! ~ `{fstype $fat} dos)
 		need9fatformat=yes
 	if(! test -f /srv/dos)
 		dossrv
@@ -70,7 +70,8 @@ case go
 
 case checkdone
 	xxxfat=(/dev/sd*/9fat)
-	if(! isfat $xxxfat(1) || ! ~ $didbootsetup 1){
+	xxxfat=$xxxfat(1)
+	if(! ~ `{fstype $xxxfat} dos || ! ~ $didbootsetup 1){
 		bootsetup=ready
 		export bootsetup
 	}
