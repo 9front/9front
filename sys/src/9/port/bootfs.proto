@@ -40,7 +40,6 @@ rc
 		rcmain
 		local.rc 555 sys sys ../boot/local.rc
 		tcp.rc 555 sys sys ../boot/tcp.rc
-		usb.rc 555 sys sys ../boot/usb.rc
 	bin
 		fstype
 		diskparts

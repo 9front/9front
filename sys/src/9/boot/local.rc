@@ -2,42 +2,67 @@
 
 fn showlocaldevs{
 	echo local devices found:
-	for(c in /dev/sd*/ctl){
-		if(test -r $c){
-			d=`{echo $c | sed 's,/ctl,,g'}
-			echo $d':' `{sed 's/inquiry[ ]+//g; q' $c}
-			for(i in `{ls -p $d | grep -v -e 'ctl|raw'}){
+	for(d in /dev/sd*){
+		if(test -r $d/ctl){
+			q=`{sed 's,(inquiry|geometry),\
+\1,g' $d/ctl | grep inquiry}
+			echo $d':' $q(2-)
+			for(i in `{ls -p $d}){
 				p=$d/$i
-				t=`{fstype $p}
-				if(~ $#bootargs 0 && ! ~ $t '')
-					bootargs=local!$p
-				echo $p $t
+				switch($i){
+				case ctl raw
+					;
+				case 9fat plan9 nvram
+					echo $p
+				case *
+					t=`{fstype $p}
+					if(~ $#bootargs 0 && ! ~ $t '')
+						bootargs=local!$p
+					echo $p $t
+				}
 			}
 		}
 	}
 }
 
 fn configlocal{
-	if(~ $pcload 1){
-		kern=`{echo $* | sed 's,.*!(.*)$,\1,g'}
-		if(~ $#kern 0 || ! ~ $#bootfile 0)
-			kern=`{echo $bootfile | sed 's,.*!(.*)$,\1,g'}
-	}
 	diskparts
+}
 
+fn bootfs{
+	{$1 -s -f $*(2-) &} <[0=1] | echo 0 >/srv/boot
 }
 
 fn connectlocal{
-	t=`{fstype $1}
-	if(~ $#t 0)
-		fatal unknown fstype $1
-	switch($t){
-	case 9660
-		t=9660srv
-	case kfs
-		t=disk/kfs
+	if(test -r $1)
+		t=`{fstype $1}
+	if not {
+		t=$1; shift
 	}
-	{$t -s -f $* &} <[0=1] | echo 0 >/srv/boot
+	switch($t){
+	case ''
+		fatal unknown fstype $1
+	case 9660
+		bootfs 9660srv $*
+	case kfs
+		bootfs disk/kfs $*
+	case dos
+		if(! test -f /srv/dos)
+			dossrv
+		m=/mnt/dosboot
+		must mount /srv/dos $m $1
+		shift
+		if(~ $#* 0)
+			f=$m/9front.iso
+		if not
+			f=$m/$1
+		if(test -r $f)
+			connectlocal $f
+		if not
+			connectlocal $*
+	case *
+		bootfs $t $*
+	}
 }
 
 mlocal=(configlocal connectlocal)

@@ -59,7 +59,6 @@ fn ask {
 mt=()
 . /rc/lib/tcp.rc
 . /rc/lib/local.rc
-. /rc/lib/usb.rc
 
 fn main{
 	mp=()
@@ -147,7 +146,6 @@ if(! ~ $#kbmap 0){
 for(i in I l`{seq 0 3})
 	bind -qa '#'$i /net
 
-configusb		# run partfs on usb disks
 configlocal	# add partitions and binds
 
 while(){
@@ -157,5 +155,5 @@ while(){
 	# cleanup so it can be restarted
 	nobootprompt=()
 	user=()
-	rm -f /srv/boot /srv/dosusb /srv/slashn /srv/cs /srv/dns
+	rm -f /srv/boot /srv/slashn /srv/cs /srv/dns
 }

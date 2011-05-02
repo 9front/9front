@@ -1,8 +1,14 @@
 #!/bin/rc
 # set up any disk partitions
-rfork e
 if (! test -e /dev/sdctl)
 	bind -b '#S' /dev
+
+# attach partfs to usb disks
+for(disk in /dev/sdU*[0-9]){
+	pdev=`{echo $disk | sed 's,^/dev/(.*),\1p,'}
+	if(! test -d /dev/$pdev && test -f $disk/data)
+		disk/partfs -d $pdev $disk/data
+}
 
 # set up any /dev/sd partitions.
 # note that really big disks (e.g., aoe devices) may have no mbr

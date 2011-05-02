@@ -1,8 +1,17 @@
 #!/bin/rc
+rfork e
 m=`{dd -if $1 -bs 2048 -skip 16 >[2]/dev/null | xd -c | sed 1q | \
 	sed 's/.........(....................).*/\1/; s/ //g'}
 if(~ $"m 01CD00101){
 	echo 9660
+	exit
+}
+fn fat {
+	m=`{dd -if $1 -bs 1 -count 3 -skip $2 >[2]/dev/null}
+	~ $"m FAT
+}
+if(fat $1 54 || fat $1 82){
+	echo dos
 	exit
 }
 dd -if $1 -count 1 >[2]/dev/null | \
