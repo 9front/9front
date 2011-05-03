@@ -124,7 +124,7 @@ usr	d775
 
 dist	d775
 	plan9front d775
-		.hgignore 555
+		.hgignore 664
 		.hg d775
 			+
 
