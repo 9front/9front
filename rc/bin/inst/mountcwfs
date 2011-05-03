@@ -98,6 +98,7 @@ case go
 		echo create /adm adm adm 775 d
 		echo create /adm/users adm adm 664
 		echo create /usr sys sys 775 d
+		echo create /dist sys sys 775 d
 		echo newuser $user
 		echo newuser sys +$user
 		echo newuser adm +$user
@@ -106,6 +107,7 @@ case go
 			echo create /usr sys sys 775 d
 			echo create /usr/$user $user $user 775 d
 			echo create /usr/$user/tmp $user $user 750 d
+			echo create /dist sys sys 775 d
 			echo cfs main
 		}
 	} >>/srv/cwfs.cmd
@@ -117,22 +119,15 @@ case go
 		export mountfs
 		exit
 	}
+	if(! ~ $fsother ''){
+		log Mounting $fstype file server for $fsother
+		if(logprog mount -c /srv/cwfs /n/other other)
+			bind -qc /n/other/dist /n/newfs/dist
+	}
 
 case checkready checkdone
 	if(! ~ $fstype '' && ~ $#fs 1 && test -f $fs){
-		if(! test -f /srv/cwfs){
-			logprog $fstype -f $fs
-			echo allow >>/srv/cwfs.cmd >>[2]/srv/log
-		}
-		if(test -f /srv/cwfs && ! test -f /n/newfs/adm/users){
-			log Mounting $fstype file server for $fs
-			if(! logprog mount -c /srv/cwfs /n/newfs){
-				mountfs=ready
-				export mountfs
-				exit
-			}
-		}
-		if(test -f /srv/cwfs && test -f /n/newfs/adm/users){
+		if(test -f /srv/cwfs && test -d /n/newfs/dist){
 			mountfs=done
 			export mountfs
 			exit

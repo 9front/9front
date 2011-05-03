@@ -11,12 +11,12 @@ fn domount{
 }
 
 fn exitifdone{
-	if(test -f /n/dist/LICENSE)
+	if(test -d /n/dist/dist/plan9front)
 		exit
 }
 
 fn havedist {
-	test -f $1/LICENSE || test -f $1/9front.iso || test -f $1/9front.iso.bz2
+	test -d $1/dist/plan9front || test -f $1/9front.iso || test -f $1/9front.iso.bz2
 }
 
 fn trycdimage{
@@ -166,7 +166,7 @@ case checkdone
 
 	exitifdone
 
-	if(test -f /n/distmedia/$distmediadir/LICENSE){
+	if(test -d /n/distmedia/$distmediadir/dist/plan9front){
 		bind /n/distmedia/$distmediadir /n/dist
 		exitifdone
 		mountdist=notdone

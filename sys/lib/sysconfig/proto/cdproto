@@ -1,4 +1,3 @@
-skip=.dummy
 uid=sys
 gid=sys
 adm	d775 adm adm
@@ -122,6 +121,12 @@ usr	d775
 		lib d775
 			*
 		tmp d775
+
+dist	d775
+	plan9front d775
+		.hgignore 555
+		.hg d775
+			+
 
 LICENSE	444
 LICENSE.afpl	444

@@ -107,6 +107,7 @@ mkdir -p arm/bin/upas
 mkdir -p arm/bin/usb
 mkdir -p arm/bin/venti
 mkdir -p arm/lib/ape
+mkdir -p dist/plan9front
 mkdir -p fd
 mkdir -p lib/audio
 mkdir -p mail/faxoutqueue

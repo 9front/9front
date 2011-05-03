@@ -5,12 +5,12 @@
 
 switch($1){
 case checkready
-	if(! test -f /n/dist/LICENSE){
+	if(! test -d /n/dist/dist/plan9front){
 		copydist=notdone
 		export copydist
 		exit
 	}
-	if(test -f /n/newfs/LICENSE && test -f /tmp/copydone){
+	if(test -d /n/newfs/dist/plan9front && test -f /tmp/copydone){
 		copydist=done
 		export copydist
 		exit
