@@ -1,6 +1,6 @@
 </$objtype/mkfile
 
-DIRS=`{ls -l | sed '/^d/!d; s/.* //; /\./d'}
+DIRS=z `{ls -l | sed '/^d/!d; s/.* //; /\./d'}
 
 none:V:
 	echo mk all, install, installall, clean, or nuke
