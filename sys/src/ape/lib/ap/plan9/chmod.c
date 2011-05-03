@@ -7,27 +7,39 @@
 int
 chmod(const char *path, mode_t mode)
 {
-	Dir d;
+	Dir d, *dir;
 
-	_nulldir(&d);
-	d.mode = mode & 0777;
-	if(_dirwstat(path, &d) < 0){
-		_syserrno();	
+	dir = _dirstat(path);
+	if(dir == nil){
+error:
+		_syserrno();
 		return -1;
 	}
+	_nulldir(&d);
+	d.mode = (dir->mode & ~0777) | (mode & 0777);
+	free(dir);
+	if(_dirwstat(path, &d) < 0)
+		goto error;
+
 	return 0;
 }
 
 int
 fchmod(int fd, mode_t mode)
 {
-	Dir d;
+	Dir d, *dir;
 
-	_nulldir(&d);
-	d.mode = mode & 0777;
-	if(_dirfwstat(fd, &d) < 0){
-		_syserrno();	
+	dir = _dirfstat(fd);
+	if(dir == nil){
+error:
+		_syserrno();
 		return -1;
 	}
+	_nulldir(&d);
+	d.mode = (dir->mode & ~ 0777) | (mode & 0777);
+	free(dir);
+	if(_dirfwstat(fd, &d) < 0)
+		goto error;
+
 	return 0;
 }
