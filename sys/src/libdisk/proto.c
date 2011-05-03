@@ -4,6 +4,7 @@
 #include <auth.h>
 #include <fcall.h>
 #include <disk.h>
+#include <regexp.h>
 
 enum {
 	LEN	= 8*1024,
@@ -32,7 +33,7 @@ struct Name {
 typedef struct Opt Opt;
 struct Opt {
 	int level;
-	char *skip;
+	Reprog *skip;
 	char *uid;
 	char *gid;
 	Opt *prev;
@@ -187,9 +188,13 @@ mktree(Mkaux *mkaux, File *me, int rec)
 	child = *me;
 	while((n = dirread(fd, &d)) > 0){
 		for(i = 0; i < n; i++){
-			if(mkaux->opt && mkaux->opt->skip)
-				if(strstr(d[i].name, mkaux->opt->skip))
+			if(mkaux->opt && mkaux->opt->skip){
+				Resub m[8];
+
+				memset(m, 0, sizeof(m));
+				if(regexec(mkaux->opt->skip, d[i].name, m, nelem(m)))
 					continue;
+			}
 			child.new = mkpath(mkaux, me->new, d[i].name);
 			if(me->old)
 				child.old = mkpath(mkaux, me->old, d[i].name);
@@ -330,8 +335,6 @@ setopt(Mkaux *mkaux, char *key, char *val)
 			longjmp(mkaux->jmp, 1);
 		if(mkaux->opt){
 			*o = *mkaux->opt;
-			if(o->skip)
-				o->skip = estrdup(mkaux, o->skip);
 			if(o->uid)
 				o->uid = estrdup(mkaux, o->uid);
 			if(o->gid)
@@ -344,8 +347,7 @@ setopt(Mkaux *mkaux, char *key, char *val)
 	} else if(mkaux->indent < o->level)
 		return;
 	if(strcmp(key, "skip") == 0){
-		free(o->skip); 
-		o->skip = *val ? estrdup(mkaux, val) : nil;
+		o->skip = regcomp(val);
 	} else if(strcmp(key, "uid") == 0){
 		free(o->uid); 
 		o->uid = *val ? estrdup(mkaux, val) : nil;
@@ -364,7 +366,6 @@ popopt(Mkaux *mkaux)
 		if(o->level <= mkaux->indent)
 			break;
 		mkaux->opt = o->prev;
-		free(o->skip);
 		free(o->uid);
 		free(o->gid);
 		free(o);

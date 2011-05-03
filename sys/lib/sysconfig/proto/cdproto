@@ -86,6 +86,7 @@ sys	d775
 	include
 		+
 	lib d775
+		skip=\.(pyo|pyc)$
 		+
 	log
 	man
@@ -107,6 +108,7 @@ sys	d775
 		8
 			*
 	src
+		skip=\.[ao]?[12578vqki]?$
 		+
 tmp	d555
 usr	d775
