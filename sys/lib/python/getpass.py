@@ -65,11 +65,19 @@ def win_getpass(prompt='Password: ', stream=None):
     msvcrt.putch('\n')
     return pw
 
-
 def default_getpass(prompt='Password: ', stream=None):
-    print >>sys.stderr, "Warning: Problem with getpass. Passwords may be echoed."
-    return _raw_input(prompt, stream)
-
+    try:
+        ctl = open("/dev/consctl", "w")
+        ctl.write("rawon")
+        ctl.flush()
+        buf = _raw_input(prompt, stream)
+        ctl.write("rawoff")
+        ctl.flush()
+        ctl.close()
+        return buf;
+    except:
+        buf = _raw_input(prompt, stream)
+    return buf
 
 def _raw_input(prompt="", stream=None):
     # A raw_input() replacement that doesn't save the string in the
@@ -79,6 +87,7 @@ def _raw_input(prompt="", stream=None):
     prompt = str(prompt)
     if prompt:
         stream.write(prompt)
+        stream.flush()
     line = sys.stdin.readline()
     if not line:
         raise EOFError
@@ -113,16 +122,6 @@ try:
     # McMillan Installer, make sure we have a UNIX-compatible termios
     termios.tcgetattr, termios.tcsetattr
 except (ImportError, AttributeError):
-    try:
-        import msvcrt
-    except ImportError:
-        try:
-            from EasyDialogs import AskPassword
-        except ImportError:
-            getpass = default_getpass
-        else:
-            getpass = AskPassword
-    else:
-        getpass = win_getpass
+    getpass = default_getpass
 else:
     getpass = unix_getpass
