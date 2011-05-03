@@ -1,0 +1,52 @@
+APE=/sys/src/ape
+<$APE/config
+
+CFLAGS=-FVwN
+BIN=/$objtype/bin
+
+TARG=\
+	python\
+
+OFILES=\
+	config.$O\
+	plan9.$O\
+	libextra.a$O\
+
+LIB= \
+	/$objtype/lib/ape/libpython.a\
+	/$objtype/lib/ape/libssl.a\
+	/$objtype/lib/ape/libcrypto.a
+
+LIBDIRS=Modules Objects Parser Python
+
+</sys/src/cmd/mkone
+
+CFLAGS=-c -I. -IInclude -DT$objtype -DPy_BUILD_CORE -DNDEBUG
+
+/$objtype/lib/ape/libpython.a:
+	for (i in $LIBDIRS) @{
+		cd $i
+		mk 
+	}
+
+libextra.a$O:
+	@{
+		cd Extra
+		mk
+	}
+
+Extra/config:
+	for(i in `{du -a Extra | grep '.c$'  | awk '{print $2}' | sed 's/..$//'})
+		echo `{basename $i} >> Extra/config
+
+config.c: Modules/config Extra/config mkconfig
+	./mkconfig Modules/config Extra/config >config.c
+
+clean:V:
+	for(i in $LIBDIRS Extra)@{
+		cd $i
+		mk $target
+	}
+	rm -f *.[$OS] [$OS].out y.tab.? y.debug y.output libextra.a$O
+	rm -f Extra/config config.c
+	rm -f /$objtype/lib/ape/libpython.a

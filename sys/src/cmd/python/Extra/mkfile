@@ -1,0 +1,16 @@
+APE=/sys/src/ape
+<$APE/config
+
+LIB=../libextra.a$O
+
+OFILES=`{du -a . | grep '.c$'  | awk '{print $2}' | sed 's/.$/\$O/'}
+
+</sys/src/cmd/mklib
+
+CFLAGS=-c -I.. -I../Include -DT$objtype -D_SUSV2_SOURCE -DNDEBUG
+
+%.$O: %.c
+	$CC $CFLAGS -o $stem.$O $stem.c
+
+clean:V:
+	rm -fr $OFILES

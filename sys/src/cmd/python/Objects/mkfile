@@ -1,0 +1,46 @@
+APE=/sys/src/ape
+<$APE/config
+
+LIB=/$objtype/lib/ape/libpython.a
+
+OFILES=\
+	abstract.$O\
+	boolobject.$O\
+	bufferobject.$O\
+	cellobject.$O\
+	classobject.$O\
+	cobject.$O\
+	codeobject.$O\
+	complexobject.$O\
+	descrobject.$O\
+	dictobject.$O\
+	enumobject.$O\
+	exceptions.$O\
+	fileobject.$O\
+	floatobject.$O\
+	frameobject.$O\
+	funcobject.$O\
+	genobject.$O\
+	intobject.$O\
+	iterobject.$O\
+	listobject.$O\
+	longobject.$O\
+	methodobject.$O\
+	moduleobject.$O\
+	object.$O\
+	obmalloc.$O\
+	rangeobject.$O\
+	setobject.$O\
+	sliceobject.$O\
+	stringobject.$O\
+	structseq.$O\
+	tupleobject.$O\
+	typeobject.$O\
+	unicodectype.$O\
+	unicodeobject.$O\
+	weakrefobject.$O\
+
+</sys/src/cmd/mklib
+
+CFLAGS=-c -I.. -I../Include -DT$objtype -DPy_BUILD_CORE -DNDEBUG
+

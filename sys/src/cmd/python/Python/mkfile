@@ -1,0 +1,64 @@
+</$cputype/mkfile
+cpuO=$O
+APE=/sys/src/ape
+<$APE/config
+
+LIB=/$objtype/lib/ape/libpython.a
+
+OFILES=\
+	Python-ast.$O\
+	asdl.$O\
+	ast.$O\
+	bltinmodule.$O\
+	ceval.$O\
+	codecs.$O\
+	compile.$O\
+	dynload_stub.$O\
+	errors.$O\
+#	fmod.$O\
+	frozen.$O\
+	frozenmain.$O\
+	future.$O\
+	getargs.$O\
+	getcompiler.$O\
+	getcopyright.$O\
+	getmtime.$O\
+	getopt.$O\
+	getplatform.$O\
+	getversion.$O\
+	import.$O\
+	importdl.$O\
+	marshal.$O\
+	modsupport.$O\
+	mysnprintf.$O\
+	mystrtoul.$O\
+	pyarena.$O\
+	pyfpe.$O\
+	pystate.$O\
+	pystrtod.$O\
+	pythonrun.$O\
+#	sigcheck.$O\
+	structmember.$O\
+	symtable.$O\
+	sysmodule.$O\
+	thread.$O\
+	traceback.$O\
+	graminit.$O\
+
+</sys/src/cmd/mksyslib
+
+CFLAGS=-c -I.. -I../Include -DT$objtype -DPy_BUILD_CORE -DNDEBUG
+
+graminit.c ../Include/graminit.h:V: ../Parser/$cpuO.pgen
+	../Parser/$cpuO.pgen ../Grammar/Grammar graminit.h graminit.c
+	mv graminit.h ../Include
+
+
+# when cputype!=objtype, $PGENO causes unnecessary object files to be created.
+# but when cputype==objtype, it keeps this mkfile from fighting with mkfile.pgen
+# over creating some of these.
+../Parser/$cpuO.pgen:V: $PGENO
+	@{
+		cd ../Parser
+		objtype=$cputype mk $cpuO.pgen
+	}

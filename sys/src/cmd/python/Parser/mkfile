@@ -1,0 +1,44 @@
+APE=/sys/src/ape
+<$APE/config
+
+LIB=/$objtype/lib/ape/libpython.a
+
+OFILES=\
+	acceler.$O\
+	bitset.$O\
+	firstsets.$O\
+	grammar1.$O\
+	listnode.$O\
+	metagrammar.$O\
+	myreadline.$O\
+	node.$O\
+	parser.$O\
+	parsetok.$O\
+	tokenizer.$O\
+
+CLEANFILES=$O.pgen
+
+</sys/src/cmd/mksyslib
+
+CFLAGS=-c -I.. -I../Include -DT$objtype -DPy_BUILD_CORE -DNDEBUG
+
+PGENOFILES=\
+	acceler.$O\
+	bitset.$O\
+	firstsets.$O\
+	grammar.$O\
+	grammar1.$O\
+	listnode.$O\
+	metagrammar.$O\
+	node.$O\
+	parser.$O\
+	parsetok.$O\
+	pgen.$O\
+	pgenmain.$O\
+	printgrammar.$O\
+	tokenizer_pgen.$O\
+	../Objects/obmalloc.$O\
+	../Python/mysnprintf.$O\
+
+$O.pgen:	$PGENOFILES
+	$LD -o $target $prereq

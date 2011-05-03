@@ -1,5 +1,7 @@
 syntax: regexp
-\.a?[12578vqki]?$
+\.[ao]?[12578vqki]?$
+\.(pyo|exe)$
+^\.dummy$
 ^(dev|fd|net|srv|env|root|mnt|n)/
 ^(386|68000|68020|alpha|amd64|arm|power|power64|sparc|sparc64)/(bin|lib)/
 ^acme/bin/(386|68000|68020|alpha|amd64|arm|power|power64|sparc|sparc64)/

@@ -1,0 +1,17 @@
+default:V: none
+
+all clean nuke install installall:V:
+	echo nothing to be done
+
+none:VQ:
+	echo mk setup
+
+setup:V:
+	mkdir -p /sys/src/cmd/python/Extra/mercurial
+	cp mercurial/*.c /sys/src/cmd/python/Extra/mercurial
+	for(i in mercurial hgext){
+		mkdir -p /sys/lib/python/$i
+		dircp mercurial /sys/lib/python/$i
+	}
+	cp hg /rc/bin/hg
+	echo Now rebuild python!

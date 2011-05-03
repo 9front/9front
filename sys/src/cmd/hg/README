@@ -1,0 +1,10 @@
+Basic install:
+
+ $ make            # see install targets
+ $ make install    # do a system-wide install
+ $ hg debuginstall # sanity-check setup
+ $ hg              # see help
+
+See http://mercurial.selenic.com/ for detailed installation
+instructions, platform-specific notes, and Mercurial user information.
+

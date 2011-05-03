@@ -1,0 +1,12 @@
+Python 2.5.1 for APE.
+
+Requires:
+- /n/sources/patch/ape-chmod-dirbit
+
+Federico G. Benavento
+November 2009
+benavento@gmail.com
+
+Some fixes by Felipe Bichued
+October 2008
+bichued@gmail.com
