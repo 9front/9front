@@ -1,0 +1,14 @@
+# APE Libs - Z
+386	- sys sys
+	lib	- sys sys
+		ape	- sys sys
+			libz.a	- sys sys
+sys	- sys sys
+	include	- sys sys
+		ape	- sys sys
+			zlib.h	- sys sys
+	src	- sys sys
+		ape	- sys sys
+			lib	- sys sys
+				z	- sys sys
+					+ 	- sys sys

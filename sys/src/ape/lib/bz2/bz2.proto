@@ -1,0 +1,14 @@
+# APE Libs - BZ2
+386	- sys sys
+	lib	- sys sys
+		ape	- sys sys
+			libbz2.a	- sys sys
+sys	- sys sys
+	include	- sys sys
+		ape	- sys sys
+			bzlib.h	- sys sys
+	src	- sys sys
+		ape	- sys sys
+			lib	- sys sys
+				bz2	- sys sys
+					+ 	- sys sys

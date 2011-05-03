@@ -1,0 +1,31 @@
+APE=/sys/src/ape
+</$APE/config
+
+LIB=/$objtype/lib/ape/libbz2.a
+
+OFILES=\
+	blocksort.$O\
+	bzassert.$O\
+	bzcompress.$O\
+	bzdecompress.$O\
+	bzfeof.$O\
+	bzlib.$O\
+	bzread.$O\
+	bzversion.$O\
+	bzwrite.$O\
+	bzzlib.$O\
+	compress.$O\
+	crctable.$O\
+	decompress.$O\
+	huffman.$O\
+	randtable.$O\
+
+HFILES=\
+	/sys/include/ape/bzlib.h\
+
+</sys/src/cmd/mksyslib
+
+CFLAGS=-c -D_POSIX_SOURCE
+
+%.$O: /sys/src/cmd/bzip2/lib/%.c
+	$CC $CFLAGS /sys/src/cmd/bzip2/lib/$stem.c

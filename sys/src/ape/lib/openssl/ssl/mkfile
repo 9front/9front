@@ -1,0 +1,57 @@
+APE=/sys/src/ape
+<$APE/config
+
+LIB=/$objtype/lib/ape/libssl.a
+
+OFILES=\
+	bio_ssl.$O\
+	d1_both.$O\
+	d1_clnt.$O\
+	d1_enc.$O\
+	d1_lib.$O\
+	d1_meth.$O\
+	d1_pkt.$O\
+	d1_srvr.$O\
+	kssl.$O\
+	s23_clnt.$O\
+	s23_lib.$O\
+	s23_meth.$O\
+	s23_pkt.$O\
+	s23_srvr.$O\
+	s2_clnt.$O\
+	s2_enc.$O\
+	s2_lib.$O\
+	s2_meth.$O\
+	s2_pkt.$O\
+	s2_srvr.$O\
+	s3_both.$O\
+	s3_clnt.$O\
+	s3_enc.$O\
+	s3_lib.$O\
+	s3_meth.$O\
+	s3_pkt.$O\
+	s3_srvr.$O\
+	ssl_algs.$O\
+	ssl_asn1.$O\
+	ssl_cert.$O\
+	ssl_ciph.$O\
+	ssl_err.$O\
+	ssl_err2.$O\
+	ssl_lib.$O\
+	ssl_rsa.$O\
+	ssl_sess.$O\
+	ssl_stat.$O\
+	ssl_txt.$O\
+	t1_clnt.$O\
+	t1_enc.$O\
+	t1_lib.$O\
+	t1_meth.$O\
+	t1_srvr.$O\
+
+HFILES=\
+	../include/buildinf.h\
+	../include/e_os.h\
+
+</sys/src/cmd/mksyslib
+
+CFLAGS=-c -I. -I../include -I../crypto -D_POSIX_SOURCE -D_BSD_EXTENSION -DPLAN9 -DT$objtype

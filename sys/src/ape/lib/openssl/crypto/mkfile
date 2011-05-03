@@ -1,0 +1,718 @@
+APE=/sys/src/ape
+<$APE/config
+
+LIB=/$objtype/lib/ape/libcrypto.a
+
+OFILES=\
+#	LPdir_unix.$O\
+	cpt_err.$O\
+	cryptlib.$O\
+	cversion.$O\
+	ebcdic.$O\
+	ex_data.$O\
+	mem.$O\
+	mem_clr.$O\
+	mem_dbg.$O\
+	o_dir.$O\
+	o_str.$O\
+	o_time.$O\
+	tmdiff.$O\
+	uid.$O\
+# aes \
+	aes_cbc.$O\
+	aes_cfb.$O\
+	aes_core.$O\
+	aes_ctr.$O\
+	aes_ecb.$O\
+	aes_ige.$O\
+	aes_misc.$O\
+	aes_ofb.$O\
+# asn1 \
+	a_bitstr.$O\
+	a_bool.$O\
+	a_bytes.$O\
+	a_d2i_fp.$O\
+	a_digest.$O\
+	a_dup.$O\
+	a_enum.$O\
+	a_gentm.$O\
+	a_hdr.$O\
+	a_i2d_fp.$O\
+	a_int.$O\
+	a_mbstr.$O\
+	a_meth.$O\
+	a_object.$O\
+	a_octet.$O\
+	a_print.$O\
+	a_set.$O\
+	a_sign.$O\
+	a_strex.$O\
+	a_strnid.$O\
+	a_time.$O\
+	a_type.$O\
+	a_utctm.$O\
+	a_utf8.$O\
+	a_verify.$O\
+	asn1_err.$O\
+	asn1_gen.$O\
+	asn1_lib.$O\
+	asn1_par.$O\
+	asn_moid.$O\
+	asn_pack.$O\
+	d2i_pr.$O\
+	d2i_pu.$O\
+	evp_asn1.$O\
+	f_enum.$O\
+	f_int.$O\
+	f_string.$O\
+	i2d_pr.$O\
+	i2d_pu.$O\
+	n_pkey.$O\
+	nsseq.$O\
+	p5_pbe.$O\
+	p5_pbev2.$O\
+	p8_pkey.$O\
+	t_bitst.$O\
+	t_crl.$O\
+	t_pkey.$O\
+	t_req.$O\
+	t_spki.$O\
+	t_x509.$O\
+	t_x509a.$O\
+	tasn_dec.$O\
+	tasn_enc.$O\
+	tasn_fre.$O\
+	tasn_new.$O\
+	tasn_typ.$O\
+	tasn_utl.$O\
+	x_algor.$O\
+	x_attrib.$O\
+	x_bignum.$O\
+	x_crl.$O\
+	x_exten.$O\
+	x_info.$O\
+	x_long.$O\
+	x_name.$O\
+	x_pkey.$O\
+	x_pubkey.$O\
+	x_req.$O\
+	x_sig.$O\
+	x_spki.$O\
+	x_val.$O\
+	x_x509.$O\
+	x_x509a.$O\
+# bf \
+	bf_cfb64.$O\
+	bf_ecb.$O\
+	bf_enc.$O\
+	bf_ofb64.$O\
+	bf_skey.$O\
+# bio \
+	b_dump.$O\
+	b_print.$O\
+	b_sock.$O\
+	bf_buff.$O\
+	bf_lbuf.$O\
+	bf_nbio.$O\
+	bf_null.$O\
+	bio_cb.$O\
+	bio_err.$O\
+	bio_lib.$O\
+	bss_acpt.$O\
+	bss_bio.$O\
+	bss_conn.$O\
+	bss_dgram.$O\
+	bss_fd.$O\
+	bss_file.$O\
+	bss_log.$O\
+	bss_mem.$O\
+	bss_null.$O\
+	bss_sock.$O\
+# bn \
+	bn_add.$O\
+	bn_asm.$O\
+	bn_blind.$O\
+	bn_ctx.$O\
+	bn_depr.$O\
+	bn_div.$O\
+	bn_err.$O\
+	bn_exp.$O\
+	bn_exp2.$O\
+	bn_gcd.$O\
+	bn_gf2m.$O\
+	bn_kron.$O\
+	bn_lib.$O\
+	bn_mod.$O\
+	bn_mont.$O\
+	bn_mpi.$O\
+	bn_mul.$O\
+	bn_nist.$O\
+	bn_prime.$O\
+	bn_print.$O\
+	bn_rand.$O\
+	bn_recp.$O\
+	bn_shift.$O\
+	bn_sqr.$O\
+	bn_sqrt.$O\
+	bn_word.$O\
+# buffer \
+	buf_err.$O\
+	buffer.$O\
+# camelia \
+	camellia.$O\
+	cmll_cbc.$O\
+	cmll_cfb.$O\
+	cmll_ctr.$O\
+	cmll_ecb.$O\
+	cmll_misc.$O\
+	cmll_ofb.$O\
+# cast \
+	c_cfb64.$O\
+	c_ecb.$O\
+	c_enc.$O\
+	c_ofb64.$O\
+	c_skey.$O\
+# comp \
+	c_rle.$O\
+	c_zlib.$O\
+	comp_err.$O\
+	comp_lib.$O\
+# conf \
+	conf_api.$O\
+	conf_def.$O\
+	conf_err.$O\
+	conf_lib.$O\
+	conf_mall.$O\
+	conf_mod.$O\
+	conf_sap.$O\
+# des \
+	cbc_cksm.$O\
+	cbc_enc.$O\
+	cfb64ede.$O\
+	cfb64enc.$O\
+	cfb_enc.$O\
+	des_enc.$O\
+	des_old.$O\
+	des_old2.$O\
+	ecb3_enc.$O\
+	ecb_enc.$O\
+	ede_cbcm_enc.$O\
+	enc_read.$O\
+	enc_writ.$O\
+	fcrypt.$O\
+	fcrypt_b.$O\
+	ofb64ede.$O\
+	ofb64enc.$O\
+	ofb_enc.$O\
+	pcbc_enc.$O\
+	qud_cksm.$O\
+	rand_key.$O\
+	read2pwd.$O\
+	rpc_enc.$O\
+	set_key.$O\
+	str2key.$O\
+	xcbc_enc.$O\
+# dh \
+	dh_asn1.$O\
+	dh_check.$O\
+	dh_depr.$O\
+	dh_err.$O\
+	dh_gen.$O\
+	dh_key.$O\
+	dh_lib.$O\
+# dsa \
+	dsa_asn1.$O\
+	dsa_depr.$O\
+	dsa_err.$O\
+	dsa_gen.$O\
+	dsa_key.$O\
+	dsa_lib.$O\
+	dsa_ossl.$O\
+	dsa_sign.$O\
+	dsa_vrf.$O\
+# dso \
+	dso_dl.$O\
+	dso_dlfcn.$O\
+	dso_err.$O\
+	dso_lib.$O\
+	dso_null.$O\
+	dso_openssl.$O\
+	dso_vms.$O\
+	dso_win32.$O\
+# ec \
+	ec2_mult.$O\
+	ec2_smpl.$O\
+	ec_asn1.$O\
+	ec_check.$O\
+	ec_curve.$O\
+	ec_cvt.$O\
+	ec_err.$O\
+	ec_key.$O\
+	ec_lib.$O\
+	ec_mult.$O\
+	ec_print.$O\
+	ecp_mont.$O\
+	ecp_nist.$O\
+	ecp_smpl.$O\
+# ecdsa \
+	ecs_asn1.$O\
+	ecs_err.$O\
+	ecs_lib.$O\
+	ecs_ossl.$O\
+	ecs_sign.$O\
+	ecs_vrf.$O\
+# ecdh \
+	ech_err.$O\
+	ech_key.$O\
+	ech_lib.$O\
+	ech_ossl.$O\
+# engine \
+	eng_all.$O\
+	eng_cnf.$O\
+	eng_cryptodev.$O\
+	eng_ctrl.$O\
+	eng_dyn.$O\
+	eng_err.$O\
+	eng_fat.$O\
+	eng_init.$O\
+	eng_lib.$O\
+	eng_list.$O\
+	eng_openssl.$O\
+	eng_padlock.$O\
+	eng_pkey.$O\
+	eng_table.$O\
+	tb_cipher.$O\
+	tb_dh.$O\
+	tb_digest.$O\
+	tb_dsa.$O\
+	tb_ecdh.$O\
+	tb_ecdsa.$O\
+	tb_rand.$O\
+	tb_rsa.$O\
+	tb_store.$O\
+# err \
+	err.$O\
+	err_all.$O\
+	err_prn.$O\
+# evp \
+	bio_b64.$O\
+	bio_enc.$O\
+	bio_md.$O\
+	bio_ok.$O\
+	c_all.$O\
+	c_allc.$O\
+	c_alld.$O\
+	digest.$O\
+	e_aes.$O\
+	e_bf.$O\
+	e_camellia.$O\
+	e_cast.$O\
+	e_des.$O\
+	e_des3.$O\
+	e_idea.$O\
+	e_null.$O\
+	e_old.$O\
+	e_rc2.$O\
+	e_rc4.$O\
+	e_rc5.$O\
+	e_seed.$O\
+	e_xcbc_d.$O\
+	encode.$O\
+	evp_acnf.$O\
+	evp_enc.$O\
+	evp_err.$O\
+	evp_key.$O\
+	evp_lib.$O\
+	evp_pbe.$O\
+	evp_pkey.$O\
+	m_dss.$O\
+	m_dss1.$O\
+	m_ecdsa.$O\
+	m_md2.$O\
+	m_md4.$O\
+	m_md5.$O\
+	m_mdc2.$O\
+	m_null.$O\
+	m_ripemd.$O\
+	m_sha.$O\
+	m_sha1.$O\
+	names.$O\
+	openbsd_hw.$O\
+	p5_crpt.$O\
+	p5_crpt2.$O\
+	p_dec.$O\
+	p_enc.$O\
+	p_lib.$O\
+	p_open.$O\
+	p_seal.$O\
+	p_sign.$O\
+	p_verify.$O\
+# hmac \
+	hmac.$O\
+# idea \
+	i_cbc.$O\
+	i_cfb64.$O\
+	i_ecb.$O\
+	i_ofb64.$O\
+	i_skey.$O\
+# krb5 \
+	krb5_asn.$O\
+# lhash \
+	lh_stats.$O\
+	lhash.$O\
+# md2 \
+	md2_dgst.$O\
+	md2_one.$O\
+# md4 \
+	md4_dgst.$O\
+	md4_one.$O\
+# md5 \
+	md5_dgst.$O\
+	md5_one.$O\
+# mdc2 \
+	mdc2_one.$O\
+	mdc2dgst.$O\
+# objects \
+	o_names.$O\
+	obj_dat.$O\
+	obj_err.$O\
+	obj_lib.$O\
+# ocsp \
+	ocsp_asn.$O\
+	ocsp_cl.$O\
+	ocsp_err.$O\
+	ocsp_ext.$O\
+	ocsp_ht.$O\
+	ocsp_lib.$O\
+	ocsp_prn.$O\
+	ocsp_srv.$O\
+	ocsp_vfy.$O\
+# pem \
+	pem_all.$O\
+	pem_err.$O\
+	pem_info.$O\
+	pem_lib.$O\
+	pem_oth.$O\
+	pem_pk8.$O\
+	pem_pkey.$O\
+	pem_seal.$O\
+	pem_sign.$O\
+	pem_x509.$O\
+	pem_xaux.$O\
+# pkcs12 \
+	p12_add.$O\
+	p12_asn.$O\
+	p12_attr.$O\
+	p12_crpt.$O\
+	p12_crt.$O\
+	p12_decr.$O\
+	p12_init.$O\
+	p12_key.$O\
+	p12_kiss.$O\
+	p12_mutl.$O\
+	p12_npas.$O\
+	p12_p8d.$O\
+	p12_p8e.$O\
+	p12_utl.$O\
+	pk12err.$O\
+# pkcs7 \
+	pk7_asn1.$O\
+	pk7_attr.$O\
+	pk7_doit.$O\
+	pk7_lib.$O\
+	pk7_mime.$O\
+	pk7_smime.$O\
+	pkcs7err.$O\
+# pqueue \
+	pqueue.$O\
+# rand \
+	md_rand.$O\
+	rand_egd.$O\
+	rand_err.$O\
+	rand_lib.$O\
+	rand_os2.$O\
+	rand_unix.$O\
+	rand_win.$O\
+	randfile.$O\
+# rc2 \
+	rc2_cbc.$O\
+	rc2_ecb.$O\
+	rc2_skey.$O\
+	rc2cfb64.$O\
+	rc2ofb64.$O\
+# rc4 \
+	rc4_enc.$O\
+	rc4_skey.$O\
+# rc5 \
+	rc5_ecb.$O\
+	rc5_enc.$O\
+	rc5_skey.$O\
+	rc5cfb64.$O\
+	rc5ofb64.$O\
+# ripemd \
+	rmd_dgst.$O\
+	rmd_one.$O\
+# rsa \
+	rsa_asn1.$O\
+	rsa_chk.$O\
+	rsa_depr.$O\
+	rsa_eay.$O\
+	rsa_err.$O\
+	rsa_gen.$O\
+	rsa_lib.$O\
+	rsa_none.$O\
+	rsa_null.$O\
+	rsa_oaep.$O\
+	rsa_pk1.$O\
+	rsa_pss.$O\
+	rsa_saos.$O\
+	rsa_sign.$O\
+	rsa_ssl.$O\
+	rsa_x931.$O\
+# seed \
+	seed.$O\
+	seed_cbc.$O\
+	seed_cfb.$O\
+	seed_ecb.$O\
+	seed_ofb.$O\
+# sha \
+	sha1_one.$O\
+	sha1dgst.$O\
+	sha256.$O\
+	sha512.$O\
+	sha_dgst.$O\
+	sha_one.$O\
+# stack \
+	stack.$O\
+# txt_db \
+	txt_db.$O\
+# ui \
+	ui_compat.$O\
+	ui_err.$O\
+	ui_lib.$O\
+	ui_openssl.$O\
+	ui_util.$O\
+# x509 \
+	by_dir.$O\
+	by_file.$O\
+	x509_att.$O\
+	x509_cmp.$O\
+	x509_d2.$O\
+	x509_def.$O\
+	x509_err.$O\
+	x509_ext.$O\
+	x509_lu.$O\
+	x509_obj.$O\
+	x509_r2x.$O\
+	x509_req.$O\
+	x509_set.$O\
+	x509_trs.$O\
+	x509_txt.$O\
+	x509_v3.$O\
+	x509_vfy.$O\
+	x509_vpm.$O\
+	x509cset.$O\
+	x509name.$O\
+	x509rset.$O\
+	x509spki.$O\
+	x509type.$O\
+	x_all.$O\
+# x509v3 \
+	pcy_cache.$O\
+	pcy_data.$O\
+	pcy_lib.$O\
+	pcy_map.$O\
+	pcy_node.$O\
+	pcy_tree.$O\
+	v3_addr.$O\
+	v3_akey.$O\
+	v3_akeya.$O\
+	v3_alt.$O\
+	v3_asid.$O\
+	v3_bcons.$O\
+	v3_bitst.$O\
+	v3_conf.$O\
+	v3_cpols.$O\
+	v3_crld.$O\
+	v3_enum.$O\
+	v3_extku.$O\
+	v3_genn.$O\
+	v3_ia5.$O\
+	v3_info.$O\
+	v3_int.$O\
+	v3_lib.$O\
+	v3_ncons.$O\
+	v3_ocsp.$O\
+	v3_pci.$O\
+	v3_pcia.$O\
+	v3_pcons.$O\
+	v3_pku.$O\
+	v3_pmaps.$O\
+	v3_prn.$O\
+	v3_purp.$O\
+	v3_skey.$O\
+	v3_sxnet.$O\
+	v3_utl.$O\
+	v3err.$O\
+# ../engines \
+	e_4758cca.$O\
+	e_aep.$O\
+	e_atalla.$O\
+	e_chil.$O\
+	e_cswift.$O\
+	e_gmp.$O\
+	e_nuron.$O\
+	e_sureware.$O\
+	e_ubsec.$O\
+
+HFILES=\
+	../include/buildinf.h\
+	../include/e_os.h\
+
+</sys/src/cmd/mksyslib
+
+CFLAGS=-c -I. -I../include -D_POSIX_SOURCE -D_BSD_EXTENSION -DZLIB -DPLAN9 -DT$objtype
+
+%.$O: aes/%.c
+	$CC $CFLAGS aes/$stem.c
+
+%.$O: asn1/%.c
+	$CC $CFLAGS asn1/$stem.c
+
+%.$O: bf/%.c
+	$CC $CFLAGS bf/$stem.c
+
+%.$O: bio/%.c
+	$CC $CFLAGS bio/$stem.c
+
+%.$O: bn/%.c
+	$CC $CFLAGS bn/$stem.c
+
+%.$O: buffer/%.c
+	$CC $CFLAGS buffer/$stem.c
+
+%.$O: camellia/%.c
+	$CC $CFLAGS camellia/$stem.c
+
+%.$O: cast/%.c
+	$CC $CFLAGS cast/$stem.c
+
+%.$O: comp/%.c
+	$CC $CFLAGS comp/$stem.c
+
+%.$O: conf/%.c
+	$CC $CFLAGS conf/$stem.c
+
+%.$O: des/%.c
+	$CC $CFLAGS des/$stem.c
+
+%.$O: dh/%.c
+	$CC $CFLAGS dh/$stem.c
+
+%.$O: dsa/%.c
+	$CC $CFLAGS dsa/$stem.c
+
+%.$O: dso/%.c
+	$CC $CFLAGS dso/$stem.c
+
+%.$O: ec/%.c
+	$CC $CFLAGS ec/$stem.c
+
+%.$O: ecdh/%.c
+	$CC $CFLAGS ecdh/$stem.c
+
+%.$O: ecdsa/%.c
+	$CC $CFLAGS ecdsa/$stem.c
+
+%.$O: engine/%.c
+	$CC $CFLAGS engine/$stem.c
+
+%.$O: err/%.c
+	$CC $CFLAGS err/$stem.c
+
+%.$O: evp/%.c
+	$CC $CFLAGS evp/$stem.c
+
+%.$O: hmac/%.c
+	$CC $CFLAGS hmac/$stem.c
+
+%.$O: idea/%.c
+	$CC $CFLAGS idea/$stem.c
+
+%.$O: krb5/%.c
+	$CC $CFLAGS krb5/$stem.c
+
+%.$O: lhash/%.c
+	$CC $CFLAGS lhash/$stem.c
+
+%.$O: md2/%.c
+	$CC $CFLAGS md2/$stem.c
+
+%.$O: md4/%.c
+	$CC $CFLAGS md4/$stem.c
+
+%.$O: md5/%.c
+	$CC $CFLAGS md5/$stem.c
+
+%.$O: mdc2/%.c
+	$CC $CFLAGS mdc2/$stem.c
+
+%.$O: objects/%.c
+	$CC $CFLAGS objects/$stem.c
+
+%.$O: ocsp/%.c
+	$CC $CFLAGS ocsp/$stem.c
+
+%.$O: pem/%.c
+	$CC $CFLAGS pem/$stem.c
+
+%.$O: pkcs7/%.c
+	$CC $CFLAGS pkcs7/$stem.c
+
+%.$O: pqueue/%.c
+	$CC $CFLAGS pqueue/$stem.c
+
+%.$O: pkcs12/%.c
+	$CC $CFLAGS pkcs12/$stem.c
+
+%.$O: rand/%.c
+	$CC $CFLAGS rand/$stem.c
+
+%.$O: rc2/%.c
+	$CC $CFLAGS rc2/$stem.c
+
+%.$O: rc4/%.c
+	$CC $CFLAGS rc4/$stem.c
+
+%.$O: rc5/%.c
+	$CC $CFLAGS rc5/$stem.c
+
+%.$O: ripemd/%.c
+	$CC $CFLAGS ripemd/$stem.c
+
+%.$O: rsa/%.c
+	$CC $CFLAGS rsa/$stem.c
+
+%.$O: seed/%.c
+	$CC $CFLAGS seed/$stem.c
+
+%.$O: sha/%.c
+	$CC $CFLAGS sha/$stem.c
+
+%.$O: stack/%.c
+	$CC $CFLAGS stack/$stem.c
+
+%.$O: txt_db/%.c
+	$CC $CFLAGS txt_db/$stem.c
+
+%.$O: ui/%.c
+	$CC $CFLAGS ui/$stem.c
+
+%.$O: x509/%.c
+	$CC $CFLAGS x509/$stem.c
+
+%.$O: x509v3/%.c
+	$CC $CFLAGS x509v3/$stem.c
+
+%.$O: ../engines/%.c
+	$CC $CFLAGS ../engines/$stem.c

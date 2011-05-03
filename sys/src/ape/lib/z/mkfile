@@ -1,0 +1,48 @@
+APE=/sys/src/ape
+<$APE/config
+
+LIB=/$objtype/lib/ape/libz.a
+
+OFILES=\
+	adler32.$O\
+	compress.$O\
+	crc32.$O\
+	deflate.$O\
+	gzio.$O\
+	infback.$O\
+	inffast.$O\
+	inflate.$O\
+	inftrees.$O\
+	trees.$O\
+	uncompr.$O\
+	zutil.$O\
+
+TARG=\
+	example\
+	minigzip\
+
+TOOLS=${TARG:%=$O.%}
+
+HFILES=\
+	/sys/include/ape/zlib.h\
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+	${LIB:/$objtype/%=/386/%}\
+
+CLEANFILES=$TOOLS
+
+</sys/src/cmd/mksyslib
+
+CFLAGS=-c -D_POSIX_SOURCE -D_C99_SNPRINTF_EXTENSION
+
+%.$O: /sys/src/cmd/gs/zlib/%.c
+	$CC $CFLAGS /sys/src/cmd/gs/zlib/$stem.c
+
+$O.%: %.$O $LIB
+	$LD -o $target $prereq
+
+tools: $LIB
+	mk $TOOLS

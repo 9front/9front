@@ -1,0 +1,16 @@
+# APE Libs - OpenSSL
+386	- sys sys
+	lib	- sys sys
+		ape	- sys sys
+			libcrypto.a	- sys sys
+			libssl.a	- sys sys
+sys	- sys sys
+	include	- sys sys
+		ape	- sys sys
+			openssl	- sys sys
+				+	- sys sys
+	src	- sys sys
+		ape	- sys sys
+			lib	- sys sys
+				openssl	- sys sys
+					+ 	- sys sys
