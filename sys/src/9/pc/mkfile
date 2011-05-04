@@ -157,6 +157,13 @@ uartaxp.i:	a100p.cp
 	 echo '};'
 	} > $target
 
+etherm10g%.i:	etherm10g%.fw
+	{echo 'static char fw'^$stem^'[] = {'
+	 xd -1x $prereq |
+		sed -e 's/^[0-9a-f]+ //' -e '/^$/d' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
+	 echo '};'
+	} > $target
+
 acid:V:
 	8c -a -w -I. i8253.c>acid
 
