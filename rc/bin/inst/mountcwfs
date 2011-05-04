@@ -102,6 +102,7 @@ case go
 		echo newuser $user
 		echo newuser sys +$user
 		echo newuser adm +$user
+		echo newuser upas +$user
 		if(! ~ $fsother ''){
 			echo cfs other
 			echo create /usr sys sys 775 d
