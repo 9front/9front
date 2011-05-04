@@ -234,7 +234,7 @@ of March 1, 1992
 will be named
 .B /1992/0301/
 in the dump file system.
-.SS "Changes from fs(4)"
+.SS "Changes from fs"
 .IR fs (4)'s
 IP configuration is ignored and the underlying system's is used.
 .PP

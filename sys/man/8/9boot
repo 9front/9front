@@ -42,7 +42,7 @@ boot parameters. It is chainloaded by
 .IR pbs,
 wich locates it in the root of the active
 FAT partition. The
-.B plan9.ini (8)
+.IR plan9.ini (8)
 file is read from the root directory of the FAT
 filesystem.
 .SH CD-ROM BOOTING

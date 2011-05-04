@@ -107,4 +107,4 @@ print.out:V: permind
 	} > print.out
 
 clean:V:
-	rm -f man.out
+	rm -f man.out print.out

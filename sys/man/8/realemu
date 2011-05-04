@@ -1,4 +1,4 @@
-.TH realemu 8
+.TH REALEMU 8
 .SH NAME
 realemu \- software emulation of /dev/realmode
 .SH SYNOPSIS
@@ -97,6 +97,7 @@ completes:
 .IP
 .EX
 % @{rfork n; aux/realemu; aux/vga -m vesa -l $vgasize}
+.EE
 .SH SOURCE
 .B /sys/src/cmd/aux/realemu
 .SH "SEE ALSO"

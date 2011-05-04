@@ -32,7 +32,7 @@
 #define TILDE	0177		/* actually RUBOUT, not ~ */
 #define	N	30
 #define	MAX	N*BUFSIZ
-#define LMAX	2048
+#define LMAX	4096
 #define MAXT	2048
 #define MASK	03777
 #define ON	1
@@ -239,12 +239,12 @@ main(int argc, char **argv)
 	fclose(sortptr);
 
 	if(fork()==0){
-		execl("/bin/sort", "sort", sortopt, "+0", "-1", "+1",
-			sortfile, "-o", sortfile, 0);
-		diag("Sort exec failed","");
+		execl("/bin/sort", "sort", sortopt, "+0", "-1", "+1", "-o",
+			sortfile, sortfile, 0);
+		diag("sort exec failed","");
 	}
 	if((w = wait()) == NULL || w->msg[0] != '\0')
-		diag("Sort failed","");
+		diag("sort failed","");
 	free(w);
 
 	makek();
@@ -252,17 +252,13 @@ main(int argc, char **argv)
 		if(dup(create(wfile,OWRITE|OTRUNC,0666),1) == -1)
 			diag("Cannot create width file:",wfile);
 		execl(roff, roff, "-a", kfile, 0);
-		diag("Sort exec failed","");
+		diag("troff exec failed","");
 	}
 	if((w = wait()) == NULL || w->msg[0] != '\0')
-		diag("Sort failed","");
+		diag("troff failed", "");
 	free(w);
 
 	getsort();
-/*
-	remove(sortfile);
-	remove(kfile);
- */
 	fflush(0);
 	_exits(0);
 /* I don't know what's wrong with the atexit func... */
@@ -288,10 +284,6 @@ void
 diag(char *s, char *arg)
 {
 	msg(s,arg);
-/*
-	remove(sortfile);
-	remove(kfile);
-*/
 	exits(s);
 }
 
