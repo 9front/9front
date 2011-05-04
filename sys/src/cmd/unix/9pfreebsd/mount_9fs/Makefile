@@ -2,7 +2,7 @@
 
 PROG=	mount_9fs
 SRCS=	mount_9fs.c getmntopts.c crypt.c
-MAN8=	mount_9fs.8
+MAN8=	mount_9fs.8.man
 
 CFLAGS = -ggdb -O0
 
