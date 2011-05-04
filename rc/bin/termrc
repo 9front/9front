@@ -29,7 +29,7 @@ if(! test -e /srv/cs && ! test -e /net/cs)
 	ndb/cs -f $NDBFILE
 sysname=`{cat /dev/sysname}
 if(~ $#sysname 0 || ~ $sysname ''){
-	sysname=gnot			# default
+	sysname=cirno			# default
 	echo -n $sysname >/dev/sysname
 }
 

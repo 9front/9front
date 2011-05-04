@@ -17,7 +17,7 @@ if(test -e /rc/bin/cpurc.local)
 	. /rc/bin/cpurc.local
 
 if (~ $#sysname 0 || ~ $sysname '') {
-	sysname = helix			# default
+	sysname = cirno			# default
 	echo -n $sysname >/dev/sysname
 }
 prompt=($sysname^'# ' '	')
