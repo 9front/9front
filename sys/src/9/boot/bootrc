@@ -22,6 +22,7 @@ set nvram
 set rootdir
 set bootargs
 set nobootprompt
+set sysname
 set debugfactotum
 set fs
 set fsaddr
