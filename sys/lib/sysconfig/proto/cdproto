@@ -3,10 +3,13 @@ gid=sys
 adm	d775 adm adm
 	uid=adm
 	gid=adm
+	keys.who 665
 	timezone	d775
 		*
 cfg	d775
 	+
+cron	d777 sys sys
+	bootes	d775 bootes bootes
 fd	d775
 lib	d775
 	+
@@ -16,6 +19,8 @@ mail	d775 upas upas
 	uid=upas
 	gid=upas
 	box	d775
+		bootes	d775 bootes bootes
+			mbox	a662 bootes bootes
 		glenda	d775 glenda glenda
 			mbox	a662 glenda glenda
 	faxoutqueue	d777
@@ -88,7 +93,8 @@ sys	d775
 	lib	d775
 		skip=\.(pyo|pyc)$
 		+
-	log	d775
+	log	d777 sys sys
+		cron	a664 bootes bootes
 	man	d775
 		+
 	src	d775
@@ -97,6 +103,17 @@ sys	d775
 		
 tmp	d555
 usr	d775
+	bootes	d775 bootes bootes
+		uid=bootes
+		gid=bootes
+		bin d775
+			386 d775
+				+
+			rc d775
+				+
+		lib d775
+			*
+		tmp d775
 	glenda	d775 glenda glenda
 		uid=glenda
 		gid=glenda

@@ -1,6 +1,7 @@
 #!/bin/rc
 
 # desc: choose and mount file system partition
+# prereq: systype
 
 switch($1){
 case go
@@ -61,8 +62,10 @@ case go
 				echo service cwfs
 				echo config $fs
 
-				# new config option
-				echo noauth
+				if(! ~ $syst cpu){
+					# new config option
+					echo noauth
+				}
 
 				echo filsys main c'('$fs')('$fsworm')'
 				echo filsys dump o
@@ -97,18 +100,23 @@ case go
 		echo cfs main
 		echo create /adm adm adm 775 d
 		echo create /adm/users adm adm 664
-		echo create /usr sys sys 775 d
 		echo create /dist sys sys 775 d
+		echo create /usr sys sys 775 d
+		echo newuser adm +bootes
+		echo newuser sys +bootes
+		echo newuser upas +bootes
 		echo newuser $user
-		echo newuser sys +$user
 		echo newuser adm +$user
+		echo newuser sys +$user
 		echo newuser upas +$user
 		if(! ~ $fsother ''){
 			echo cfs other
+			echo create /dist sys sys 775 d
 			echo create /usr sys sys 775 d
+			echo create /usr/bootes bootes bootes 775 d
+			echo create /usr/bootes/tmp bootes bootes 750 d
 			echo create /usr/$user $user $user 775 d
 			echo create /usr/$user/tmp $user $user 750 d
-			echo create /dist sys sys 775 d
 			echo cfs main
 		}
 	} >>/srv/cwfs.cmd

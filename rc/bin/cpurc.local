@@ -9,3 +9,6 @@ site=EXAMPLE
 fileserver=kfs
 # replace FACEDOM with the local domain to be used in the faces database
 facedom=FACEDOM
+
+for(i in m i P S t)
+	bind -a '#'^$i /dev >/dev/null >[2=1]

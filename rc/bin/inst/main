@@ -12,6 +12,7 @@ echo -n 'Preparing menu...'
 
 # must be topologically sorted (by prereq)
 tasks=(\
+	systype\
 	configfs\
 	partdisk prepdisk\
 	mountfs\
@@ -20,6 +21,7 @@ tasks=(\
 	mountdist\
 	download\
 	copydist\
+	authsetup\
 	bootsetup finish stop\
 	stopether stopppp\
 )

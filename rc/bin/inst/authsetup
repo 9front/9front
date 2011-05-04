@@ -1,0 +1,36 @@
+#!/bin/rc
+
+# desc: set system password for auth, invalidate nvram
+# prereq: systype copydist
+
+nvram=`{echo `{basename -d $fs}^/nvram}
+
+switch($1) {
+case checkdone
+	if(! ~ $syst cpu || ! grep trust $nvram){
+		authsetup=ready
+		export authsetup
+	}
+case go
+	echo
+	echo 'Setup keyfs and provide a password for the machine'
+	echo
+
+	auth/keyfs
+
+	if(! grep trust $nvram)
+		echo 'trust, but verify' >$nvram >[2=1]
+
+	echo
+	echo 'You will be asked to enter an authid, authdom, secstore key,'
+	echo 'and password upon next boot. The authid is the hostowner.'
+	echo 'The authdom is the domain from your network configuration.'
+	echo 'The secstore key and password should be a secret password'
+	echo 'of eight characters or greater in length. Remember the'
+	echo 'password, you will need to use it again when creating the'
+	echo 'bootes user on the auth server.'
+	echo
+
+	authsetup=done
+	export authsetup
+}
