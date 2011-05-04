@@ -81,35 +81,20 @@ mnt	d775
 	wsys	d555
 n	d775
 sys	d775
-	games
+	games	d775
 		+
-	include
+	include	d775
 		+
-	lib d775
+	lib	d775
 		skip=\.(pyo|pyc)$
 		+
-	log
-	man
-		fonts
-		1
-			*
-		2
-			*
-		3
-			*
-		4
-			*
-		5
-			*
-		6
-			*
-		7
-			*
-		8
-			*
-	src
+	log	d775
+	man	d775
+		+
+	src	d775
 		skip=\.[ao]?[12578vqki]?$
 		+
+		
 tmp	d555
 usr	d775
 	glenda	d775 glenda glenda
