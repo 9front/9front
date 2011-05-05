@@ -1,0 +1,20 @@
+</$objtype/mkfile
+
+all: $O.unpkg
+	echo
+
+$O.unpkg: unpkg.c
+	$CC unpkg.c
+	$LD -o $O.unpkg unpkg.$O
+
+install:V: $O.unpkg
+	mkdir -p /$objtype/bin/pkg
+	cp $O.unpkg /$objtype/bin/pkg/unpkg
+	cp create install list remove /$objtype/bin/pkg
+
+clean:
+	rm -f $O.unpkg *.$O
+
+nuke: clean
+	rm -f /$objtype/bin/pkg/*
+
