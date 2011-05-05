@@ -6,10 +6,9 @@
 # ip/ipconfig -g your-gateway ether /net/ether0 your-ip-address your-subnet-mask
 
 # example: adjust to fit your network
-ip/ipconfig -g 192.168.0.1 ether /net/ether0 192.168.0.2 255.255.255.0
-ndb/dns -rs
+#ip/ipconfig -g 192.168.0.1 ether /net/ether0 192.168.0.2 255.255.255.0
+#ndb/dns -rs
+#aux/timesync -Ln pool.ntp.org
 
 # outgoing mail will appear to originate from this domain
-site=9front
-
-ntp=pool.ntp.org
+#site=9front
