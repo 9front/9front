@@ -1,0 +1,12 @@
+#!/bin/rc -e
+
+cd /
+mkdir -p /sys/lib/pkg
+if (test -s /sys/lib/pkg/$1) {
+	echo $i already installed
+	exit
+}
+echo Installing $1
+hget http://pkg.violetti.org/$cputype/$1.tbz | bunzip2 | pkg/unpkg>[2]/sys/lib/pkg/$1
+echo Done
+

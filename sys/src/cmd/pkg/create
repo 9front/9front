@@ -1,0 +1,21 @@
+#!/bin/rc -e
+
+i=`{basename $1}
+d=$1
+echo Creating $i
+C=`{pwd}
+@{
+rfork en
+cd $d
+mkdir /tmp/$i
+mk
+divergefs -p /tmp/$i /
+mk install clean
+unmount /
+}
+cd /tmp/$i/files
+rm -r env
+tar cv * | bzip2 -9 > $C/$i.tbz
+cd /tmp
+rm -r $i
+echo Created $C/$i.tbz
