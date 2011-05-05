@@ -4,24 +4,26 @@ hg \- Mercurial source code management system
 .SH SYNOPSIS
 .B hg
 [
-.I global option ...
+.I globaloptions
 ]
 .I command
 [
-.I command/global option ...
+.I commandoptions
 ] [
-.I argument ...
+.I arguments
 ]
 .SH DESCRIPTION
 The
-.IR hg (1)
+.I hg
 command provides a command line interface to the Mercurial system.
 .sp
 .SH "COMMAND ELEMENTS"
 .PP
 files ...
 .RS 4
-indicates one or more filename or relative path filenames; see "FILE NAME PATTERNS" for information on pattern matching
+indicates one or more filename or relative path filenames; see
+.I "FILE PATTERNS"
+for information on pattern matching
 .RE
 .PP
 path

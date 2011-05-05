@@ -84,7 +84,7 @@ prologues(void) {
 	for (i=0; i<build_char_cnt; i++) {
 		sprint(charlibname, "%s/%s", CHARLIB, build_char_list[i]->name);
 		if (cat(charlibname))
-		Bprint(Bstderr, "cannot open %s\n", charlibname);
+			Bprint(Bstderr, "cannot open %s\n", charlibname);
 	}
 
 	Bprint(Bstdout, "%s", ENDSETUP);

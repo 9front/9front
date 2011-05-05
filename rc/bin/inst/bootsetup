@@ -19,12 +19,13 @@ case go
 
 	if(! test -f /tmp/plan9.ini) {
 		{
-			echo bootfile'='9pcf
+			echo 'bootfile=9pcf'
 			echo 'bootargs=local!'^$fs
 			echo 'mouseport='^$mouseport
 			echo 'monitor='^$monitor
 			echo 'vgasize='^$vgasize
-			echo '*nomp=1'
+			if(test -f '#ec/*nomp')
+				echo '*nomp='
 		} >/tmp/plan9.ini
 	}
 
