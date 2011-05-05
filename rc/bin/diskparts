@@ -1,4 +1,6 @@
 #!/bin/rc
+rfork e
+
 # set up any disk partitions
 if (! test -e /dev/sdctl)
 	bind -b '#S' /dev
