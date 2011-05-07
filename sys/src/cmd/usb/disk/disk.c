@@ -38,6 +38,129 @@ static Dirtab dirtab[] =
 	[Qdata]	"data",	0640,
 };
 
+ulong ctlmode = 0664;
+
+/*
+ * Partition management (adapted from disk/partfs)
+ */
+int
+addpart(Umsc *lun, char *name, vlong start, vlong end)
+{
+	Part *p;
+
+	if(start < 0 || start > end || end > lun->blocks){
+		werrstr("bad partition boundaries");
+		return -1;
+	}
+
+	if (strcmp(name, "ctl") == 0 || strcmp(name, "data") == 0) {
+		werrstr("partition name already in use");
+		return -1;
+	}
+	for (p = lun->part; p < lun->part + Maxparts && p->inuse; p++)
+		if (strcmp(p->name, name) == 0) {
+			werrstr("partition name already in use");
+			return -1;
+		}
+	if(p == lun->part + Maxparts){
+		werrstr("no free partition slots");
+		return -1;
+	}
+
+	p->inuse = 1;
+	free(p->name);
+	p->name = estrdup(name);
+	p->offset = start;
+	p->length = end - start;
+	p->mode = ctlmode;
+	p->vers++;
+	return 0;
+}
+
+int
+delpart(Umsc *lun, char *s)
+{
+	Part *p;
+
+	for (p = lun->part; p < lun->part + Maxparts; p++)
+		if(p->inuse && strcmp(p->name, s) == 0)
+			break;
+	if(p == lun->part + Maxparts){
+		werrstr("partition not found");
+		return -1;
+	}
+
+	p->inuse = 0;
+	free(p->name);
+	p->name = nil;
+	return 0;
+}
+
+/*
+ * ctl parsing & formatting (adapted from partfs)
+ */
+
+static char*
+ctlstring(Usbfs *fs)
+{
+	Part *p, *part;
+	Fmt fmt;
+	Umsc *lun;
+	Ums *ums;
+	
+	ums = fs->dev->aux;
+	lun = fs->aux;
+	part = &lun->part[0];
+
+	fmtstrinit(&fmt);
+	fmtprint(&fmt, "%s lun %ld: ", fs->dev->dir, lun - &ums->lun[0]);
+	if(lun->flags & Finqok)
+		fmtprint(&fmt, "inquiry %s ", lun->inq);
+	if(lun->blocks > 0)
+		fmtprint(&fmt, "geometry %llud %ld", lun->blocks, lun->lbsize);
+	fmtprint(&fmt, "\n");
+	for (p = part; p < &part[Maxparts]; p++)
+		if (p->inuse)
+			fmtprint(&fmt, "part %s %lld %lld\n",
+				p->name, p->offset, p->length);
+	return fmtstrflush(&fmt);
+}
+
+static int
+ctlparse(Usbfs *fs, char *msg)
+{
+	vlong start, end;
+	char *argv[16];
+	int argc;
+	Umsc *lun;
+	
+	lun = fs->aux;
+	argc = tokenize(msg, argv, nelem(argv));
+
+	if(argc < 1){
+		werrstr("empty control message");
+		return -1;
+	}
+
+	if(strcmp(argv[0], "part") == 0){
+		if(argc != 4){
+			werrstr("part takes 3 args");
+			return -1;
+		}
+		start = strtoll(argv[2], 0, 0);
+		end = strtoll(argv[3], 0, 0);
+		return addpart(lun, argv[1], start, end);
+	}else if(strcmp(argv[0], "delpart") == 0){
+		if(argc != 2){
+			werrstr("delpart takes 1 arg");
+			return -1;
+		}
+		return delpart(lun, argv[1]);
+	}
+	werrstr("unknown ctl");
+	return -1;
+}
+
 /*
  * These are used by scuzz scsireq
  */
@@ -461,8 +584,8 @@ dread(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 {
 	long n;
 	ulong path;
-	char buf[1024];
-	char *s, *e;
+	char buf[64];
+	char *s;
 	Umsc *lun;
 	Ums *ums;
 	Qid q;
@@ -478,15 +601,9 @@ dread(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 		count = usbdirread(fs, q, data, count, offset, dirgen, nil);
 		break;
 	case Qctl:
-		e = buf + sizeof(buf);
-		s = seprint(buf, e, "%s lun %ld: ", fs->dev->dir, lun - &ums->lun[0]);
-		if(lun->flags & Finqok)
-			s = seprint(s, e, "inquiry %s ", lun->inq);
-		if(lun->blocks > 0)
-			s = seprint(s, e, "geometry %llud %ld",
-				lun->blocks, lun->lbsize);
-		s = seprint(s, e, "\n");
-		count = usbreadbuf(data, count, offset, buf, s - buf);
+		s = ctlstring(fs);
+		count = usbreadbuf(data, count, offset, s, strlen(s));
+		free(s);
 		break;
 	case Qraw:
 		if(lun->lbsize <= 0 && umscapacity(lun) < 0){
@@ -548,6 +665,7 @@ dwrite(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 	uvlong bno;
 	Ums *ums;
 	Umsc *lun;
+	char *s;
 
 	ums = fs->dev->aux;
 	lun = fs->aux;
@@ -560,7 +678,13 @@ dwrite(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 		count = -1;
 		break;
 	case Qctl:
-		dprint(2, "usb/disk: ctl ignored\n");
+		s = emallocz(count+1, 1);
+		memmove(s, data, count);
+		if(s[count-1] == '\n')
+			s[count-1] = 0;
+		if(ctlparse(fs, s) == -1)
+			count = -1;
+		free(s);
 		break;
 	case Qraw:
 		if(lun->lbsize <= 0 && umscapacity(lun) < 0){

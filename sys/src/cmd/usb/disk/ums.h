@@ -7,6 +7,7 @@ typedef struct Umsc Umsc;
 typedef struct Ums Ums;
 typedef struct Cbw Cbw;			/* command block wrapper */
 typedef struct Csw Csw;			/* command status wrapper */
+typedef struct Part Part;
 
 enum
 {
@@ -42,12 +43,26 @@ enum
 	CswOk		= 0,
 	CswFailed	= 1,
 	CswPhaseErr	= 2,
+	
+	Maxparts		= 8,
 };
 
 /*
  * corresponds to a lun.
  * these are ~600+Maxiosize bytes each; ScsiReq is not tiny.
  */
+
+struct Part
+{
+	int inuse;
+	int vers;
+	ulong mode;
+	char	*name;
+	vlong offset;		/* in lbsize units */
+	vlong length;		/* in lbsize units */
+};
+
+
 struct Umsc
 {
 	ScsiReq;
@@ -58,6 +73,9 @@ struct Umsc
 	char	*bufp;
 	long	off;		/* offset within a block */
 	long	nb;		/* byte count */
+
+	/* partitions */
+	Part part[Maxparts];
 
 	uchar 	rawcmd[10];
 	uchar	phase;
