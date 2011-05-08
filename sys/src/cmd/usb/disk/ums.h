@@ -44,7 +44,7 @@ enum
 	CswFailed	= 1,
 	CswPhaseErr	= 2,
 	
-	Maxparts		= 8,
+	Maxparts		= 16,
 };
 
 /*
@@ -54,6 +54,7 @@ enum
 
 struct Part
 {
+	int id;
 	int inuse;
 	int vers;
 	ulong mode;

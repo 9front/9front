@@ -20,7 +20,8 @@ enum
 	Qctl,
 	Qraw,
 	Qdata,
-	Qmax,
+	Qpart,
+	Qmax = Maxparts,
 };
 
 typedef struct Dirtab Dirtab;
@@ -30,21 +31,40 @@ struct Dirtab
 	int	mode;
 };
 
-static Dirtab dirtab[] =
-{
-	[Qdir]	"/",	DMDIR|0555,
-	[Qctl]	"ctl",	0664,		/* nothing secret here */
-	[Qraw]	"raw",	0640,
-	[Qdata]	"data",	0640,
-};
-
 ulong ctlmode = 0664;
 
 /*
  * Partition management (adapted from disk/partfs)
  */
+
+Part *
+lookpart(Umsc *lun, char *name)
+{
+	Part *part, *p;
+	
+	part = lun->part;
+	for(p=part; p < &part[Qmax]; p++){
+		if(p->inuse && strcmp(p->name, name) == 0)
+			return p;
+	}
+	return nil;
+}
+
+Part *
+freepart(Umsc *lun)
+{
+	Part *part, *p;
+	
+	part = lun->part;
+	for(p=part; p < &part[Qmax]; p++){
+		if(!p->inuse)
+			return p;
+	}
+	return nil;
+}
+
 int
-addpart(Umsc *lun, char *name, vlong start, vlong end)
+addpart(Umsc *lun, char *name, vlong start, vlong end, ulong mode)
 {
 	Part *p;
 
@@ -52,28 +72,22 @@ addpart(Umsc *lun, char *name, vlong start, vlong end)
 		werrstr("bad partition boundaries");
 		return -1;
 	}
-
-	if (strcmp(name, "ctl") == 0 || strcmp(name, "data") == 0) {
+	if(lookpart(lun, name) != nil) {
 		werrstr("partition name already in use");
 		return -1;
 	}
-	for (p = lun->part; p < lun->part + Maxparts && p->inuse; p++)
-		if (strcmp(p->name, name) == 0) {
-			werrstr("partition name already in use");
-			return -1;
-		}
-	if(p == lun->part + Maxparts){
+	p = freepart(lun);
+	if(p == nil){
 		werrstr("no free partition slots");
 		return -1;
 	}
-
 	p->inuse = 1;
 	free(p->name);
+	p->id = p - lun->part;
 	p->name = estrdup(name);
 	p->offset = start;
 	p->length = end - start;
-	p->mode = ctlmode;
-	p->vers++;
+	p->mode = mode;
 	return 0;
 }
 
@@ -82,18 +96,25 @@ delpart(Umsc *lun, char *s)
 {
 	Part *p;
 
-	for (p = lun->part; p < lun->part + Maxparts; p++)
-		if(p->inuse && strcmp(p->name, s) == 0)
-			break;
-	if(p == lun->part + Maxparts){
+	p = lookpart(lun, s);
+	if(p == nil || p->id <= Qdata){
 		werrstr("partition not found");
 		return -1;
 	}
-
 	p->inuse = 0;
 	free(p->name);
 	p->name = nil;
+	p->vers++;
 	return 0;
+}
+
+void
+makeparts(Umsc *lun)
+{
+	addpart(lun, "/", 0, 0, DMDIR | 0555);
+	addpart(lun, "ctl", 0, 0, 0664);
+	addpart(lun, "raw", 0, 0, 0640);
+	addpart(lun, "data", 0, lun->blocks, 0640);
 }
 
 /*
@@ -113,13 +134,13 @@ ctlstring(Usbfs *fs)
 	part = &lun->part[0];
 
 	fmtstrinit(&fmt);
-	fmtprint(&fmt, "%s lun %ld: ", fs->dev->dir, lun - &ums->lun[0]);
+	fmtprint(&fmt, "dev %s\n", fs->dev->dir);
+	fmtprint(&fmt, "lun %ld\n", lun - &ums->lun[0]);
 	if(lun->flags & Finqok)
-		fmtprint(&fmt, "inquiry %s ", lun->inq);
+		fmtprint(&fmt, "inquiry %s\n", lun->inq);
 	if(lun->blocks > 0)
-		fmtprint(&fmt, "geometry %llud %ld", lun->blocks, lun->lbsize);
-	fmtprint(&fmt, "\n");
-	for (p = part; p < &part[Maxparts]; p++)
+		fmtprint(&fmt, "geometry %llud %ld\n", lun->blocks, lun->lbsize);
+	for (p = &part[Qdata+1]; p < &part[Qmax]; p++)
 		if (p->inuse)
 			fmtprint(&fmt, "part %s %lld %lld\n",
 				p->name, p->offset, p->length);
@@ -149,7 +170,7 @@ ctlparse(Usbfs *fs, char *msg)
 		}
 		start = strtoll(argv[2], 0, 0);
 		end = strtoll(argv[3], 0, 0);
-		return addpart(lun, argv[1], start, end);
+		return addpart(lun, argv[1], start, end, 0640);
 	}else if(strcmp(argv[0], "delpart") == 0){
 		if(argc != 2){
 			werrstr("delpart takes 1 arg");
@@ -275,6 +296,7 @@ umscapacity(Umsc *lun)
 	}
 	lun->blocks++; /* SRcapacity returns LBA of last block */
 	lun->capacity = (vlong)lun->blocks * lun->lbsize;
+	lun->part[Qdata].length = lun->blocks;
 	if(diskdebug)
 		fprint(2, "disk: logical block size %lud, # blocks %llud\n",
 			lun->lbsize, lun->blocks);
@@ -452,59 +474,65 @@ Fail:
 static int
 dwalk(Usbfs *fs, Fid *fid, char *name)
 {
-	int i;
-	Qid qid;
-
-	qid = fid->qid;
-	if((qid.type & QTDIR) == 0){
+	Umsc *lun;
+	Part *p;
+	
+	lun = fs->aux;
+	
+	if((fid->qid.type & QTDIR) == 0){
 		werrstr("walk in non-directory");
 		return -1;
 	}
-
 	if(strcmp(name, "..") == 0)
 		return 0;
-
-	for(i = 1; i < nelem(dirtab); i++)
-		if(strcmp(name, dirtab[i].name) == 0){
-			qid.path = i | fs->qid;
-			qid.vers = 0;
-			qid.type = dirtab[i].mode >> 24;
-			fid->qid = qid;
-			return 0;
-		}
-	werrstr(Enotfound);
-	return -1;
+	
+	p = lookpart(lun, name);
+	if(p == nil){
+		werrstr(Enotfound);
+		return -1;
+	}
+	fid->qid.path = p->id | fs->qid;
+	fid->qid.vers = p->vers;
+	fid->qid.type = p->mode >> 24;
+	return 0;
 }
+static int
+dstat(Usbfs *fs, Qid qid, Dir *d);
 
 static void
 dostat(Usbfs *fs, int path, Dir *d)
 {
-	Dirtab *t;
 	Umsc *lun;
+	Part *p;
 
-	t = &dirtab[path];
-	d->qid.path = path;
-	d->qid.type = t->mode >> 24;
-	d->mode = t->mode;
-	d->name = t->name;
 	lun = fs->aux;
-	if(path == Qdata)
-		d->length = lun->capacity;
-	else
-		d->length = 0;
+	p = &lun->part[path];
+	d->qid.path = path;
+	d->qid.vers = p->vers;
+	d->qid.type =p->mode >> 24;
+	d->mode = p->mode;
+	d->length = (vlong) p->length * lun->lbsize;
+	strecpy(d->name, d->name + Namesz - 1, p->name);
 }
 
 static int
-dirgen(Usbfs *fs, Qid, int i, Dir *d, void*)
+dirgen(Usbfs *fs, Qid, int n, Dir *d, void*)
 {
-	i++;	/* skip dir */
-	if(i >= Qmax)
-		return -1;
-	else{
-		dostat(fs, i, d);
-		d->qid.path |= fs->qid;
-		return 0;
+	Umsc *lun;
+	int i;
+	
+	lun = fs->aux;
+	for(i = Qctl; i < Qmax; i++){
+		if(lun->part[i].inuse == 0)
+			continue;
+		if(n-- == 0)
+			break;
 	}
+	if(i == Qmax)
+		return -1;
+	dostat(fs, i, d);
+	d->qid.path |= fs->qid;
+	return 0;
 }
 
 static int
@@ -540,7 +568,7 @@ dopen(Usbfs *fs, Fid *fid, int)
  * since we don't need general division nor its cost.
  */
 static int
-setup(Umsc *lun, char *data, int count, vlong offset)
+setup(Umsc *lun, Part *p, char *data, int count, vlong offset)
 {
 	long nb, lbsize, lbshift, lbmask;
 	uvlong bno;
@@ -555,13 +583,14 @@ setup(Umsc *lun, char *data, int count, vlong offset)
 
 	bno = offset >> lbshift;	/* offset / lbsize */
 	nb = ((offset + count + lbsize - 1) >> lbshift) - bno;
+	bno += p->offset;		/* start of partition */
 
-	if(bno + nb > lun->blocks)		/* past end of device? */
-		nb = lun->blocks - bno;
+	if(bno + nb > p->length)		/* past end of partition? */
+		nb = p->length - bno;
 	if(nb * lbsize > Maxiosize)
 		nb = Maxiosize / lbsize;
 	lun->nb = nb;
-	if(bno >= lun->blocks || nb == 0)
+	if(bno >= p->length || nb == 0)
 		return 0;
 
 	lun->offset = bno;
@@ -586,6 +615,7 @@ dread(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 	ulong path;
 	char buf[64];
 	char *s;
+	Part *p;
 	Umsc *lun;
 	Ums *ums;
 	Qid q;
@@ -632,7 +662,14 @@ dread(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 		}
 		break;
 	case Qdata:
-		count = setup(lun, data, count, offset);
+	default:
+		p = &lun->part[path];
+		if(!p->inuse){
+			count = -1;
+			werrstr(Eperm);
+			break;
+		}
+		count = setup(lun, p, data, count, offset);
 		if (count <= 0)
 			break;
 		n = SRread(lun, lun->bufp, lun->nb * lun->lbsize);
@@ -664,6 +701,7 @@ dwrite(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 	ulong path;
 	uvlong bno;
 	Ums *ums;
+	Part *p;
 	Umsc *lun;
 	char *s;
 
@@ -673,9 +711,9 @@ dwrite(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 
 	qlock(ums);
 	switch(path){
-	default:
-		werrstr(Eperm);
+	case Qdir:
 		count = -1;
+		werrstr(Eperm);
 		break;
 	case Qctl:
 		s = emallocz(count+1, 1);
@@ -721,8 +759,15 @@ dwrite(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 		}
 		break;
 	case Qdata:
+	default:
+		p = &lun->part[path];
+		if(!p->inuse){
+			count = -1;
+			werrstr(Eperm);
+			break;
+		}
 		len = ocount = count;
-		count = setup(lun, data, count, offset);
+		count = setup(lun, p, data, count, offset);
 		if (count <= 0)
 			break;
 		bno = lun->offset;
@@ -883,7 +928,7 @@ diskmain(Dev *dev, int argc, char **argv)
 	if(argc != 0) {
 		return usage();
 	}
-
+	
 //	notify(ding);
 	ums = dev->aux = emallocz(sizeof(Ums), 1);
 	ums->maxlun = -1;
@@ -912,6 +957,7 @@ diskmain(Dev *dev, int argc, char **argv)
 		lun->fs.dev = dev;
 		incref(dev);
 		lun->fs.aux = lun;
+		makeparts(lun);
 		usbfsadd(&lun->fs);
 	}
 	return 0;
