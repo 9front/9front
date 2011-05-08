@@ -109,6 +109,24 @@ delpart(Umsc *lun, char *s)
 }
 
 void
+fixlength(Umsc *lun, vlong blocks)
+{
+	Part *part, *p;
+	
+	part = lun->part;
+	part[Qdata].length = blocks;
+	for(p=&part[Qdata+1]; p < &part[Qmax]; p++){
+		if(p->inuse && p->offset + p->length > blocks){
+			if(p->offset > blocks){
+				p->offset =blocks;
+				p->length = 0;
+			}else
+				p->length = blocks - p->offset;
+		}
+	}
+}
+
+void
 makeparts(Umsc *lun)
 {
 	addpart(lun, "/", 0, 0, DMDIR | 0555);
@@ -143,7 +161,7 @@ ctlstring(Usbfs *fs)
 	for (p = &part[Qdata+1]; p < &part[Qmax]; p++)
 		if (p->inuse)
 			fmtprint(&fmt, "part %s %lld %lld\n",
-				p->name, p->offset, p->length);
+				p->name, p->offset, p->offset + p->length);
 	return fmtstrflush(&fmt);
 }
 
@@ -296,7 +314,7 @@ umscapacity(Umsc *lun)
 	}
 	lun->blocks++; /* SRcapacity returns LBA of last block */
 	lun->capacity = (vlong)lun->blocks * lun->lbsize;
-	lun->part[Qdata].length = lun->blocks;
+	fixlength(lun, lun->blocks);
 	if(diskdebug)
 		fprint(2, "disk: logical block size %lud, # blocks %llud\n",
 			lun->lbsize, lun->blocks);
@@ -583,7 +601,6 @@ setup(Umsc *lun, Part *p, char *data, int count, vlong offset)
 
 	bno = offset >> lbshift;	/* offset / lbsize */
 	nb = ((offset + count + lbsize - 1) >> lbshift) - bno;
-	bno += p->offset;		/* start of partition */
 
 	if(bno + nb > p->length)		/* past end of partition? */
 		nb = p->length - bno;
@@ -593,6 +610,7 @@ setup(Umsc *lun, Part *p, char *data, int count, vlong offset)
 	if(bno >= p->length || nb == 0)
 		return 0;
 
+	bno += p->offset;		/* start of partition */
 	lun->offset = bno;
 	lun->off = offset & lbmask;		/* offset % lbsize */
 	if(lun->off == 0 && (count & lbmask) == 0)
