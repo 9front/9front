@@ -49,7 +49,7 @@ ctlstring(void)
 	for (p = tab; p < tab + nelem(tab); p++)
 		if (p->inuse)
 			fmtprint(&fmt, "part %s %lld %lld\n",
-				p->name, p->offset, p->length);
+				p->name, p->offset, p->offset + p->length);
 	return fmtstrflush(&fmt);
 }
 
@@ -67,11 +67,14 @@ addpart(char *name, vlong start, vlong end)
 		werrstr("partition name already in use");
 		return -1;
 	}
-	for (p = tab; p < tab + nelem(tab) && p->inuse; p++)
-		if (strcmp(p->name, name) == 0) {
+	for (p = tab; p < tab + nelem(tab); p++)
+		if (p->inuse && strcmp(p->name, name) == 0) {
 			werrstr("partition name already in use");
 			return -1;
 		}
+	for (p = tab; p < tab + nelem(tab); p++)
+		if (!p->inuse) 
+			break;
 	if(p == tab + nelem(tab)){
 		werrstr("no free partition slots");
 		return -1;
