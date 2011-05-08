@@ -9,6 +9,7 @@ TARG=4s\
 	life\
 	memo\
 	mole\
+	glendy\
 
 OFILES=
 HFILES=
