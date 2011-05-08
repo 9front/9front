@@ -1,5 +1,5 @@
 #!/bin/rc
-# cpu-specific startup
+# terminal-specific startup
 
 # Since booting from venti could have started loopback,
 # don't test for existing interfaces, just use ipconfig.
