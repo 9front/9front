@@ -235,7 +235,7 @@ dirgen(int off, Dir *d, void*)
 	for(p = tab; p < tab + nelem(tab); p++, n++){
 		if(!p->inuse)
 			continue;
-		if(n == off){
+		if(off-- == 0){
 			d->name = estrdup9p(p->name);
 			d->length = p->length*sectsize;
 			d->mode = p->mode;

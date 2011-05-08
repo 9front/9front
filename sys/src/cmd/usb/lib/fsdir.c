@@ -183,6 +183,8 @@ fswalk(Usbfs*, Fid *fid, char *name)
 	int rc;
 	Dev *dev;
 	Dir d;
+	char dname[Namesz];
+	
 	int (*xfswalk)(Usbfs *fs, Fid *f, char *name);
 
 	q = fid->qid;
@@ -218,6 +220,7 @@ fswalk(Usbfs*, Fid *fid, char *name)
 	for(i = 0; i < nfs; i++)
 		if(fs[i] != nil && strcmp(name, fs[i]->name) == 0){
 			q.path = mkqid(i, Qdir);
+			d.name = dname;
 			fs[i]->stat(fs[i], q, &d); /* may be a file */
 			fid->qid = d.qid;
 			qunlock(&fslck);
