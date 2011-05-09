@@ -13,7 +13,7 @@ enum {
 	Fat32 = 4,
 };
 
-typedef struct Extend Extend;
+typedef struct File File;
 typedef struct Dir Dir;
 typedef struct Pbs Pbs;
 typedef struct Fat Fat;
@@ -31,7 +31,7 @@ struct Fat
 	ulong datalba;
 };
 
-struct Extend
+struct File
 {
 	Fat *fat;
 	ulong lba;
@@ -113,21 +113,21 @@ unload(void)
 }
 
 static ulong
-readnext(Extend *ex, ulong clust)
+readnext(File *fp, ulong clust)
 {
-	Fat *fat = ex->fat;
+	Fat *fat = fp->fat;
 	uint b = fat->ver;
 	ulong sect, off;
 	
 	sect = clust * b / Sectsz;
 	off = clust * b % Sectsz;
-	if(readsect(fat->drive, fat->fatlba + sect, ex->buf))
-		memset(ex->buf, 0xff, 4);
+	if(readsect(fat->drive, fat->fatlba + sect, fp->buf))
+		memset(fp->buf, 0xff, 4);
 	switch(fat->ver){
 	case Fat16:
-		return GETSHORT(&ex->buf[off]);
+		return GETSHORT(&fp->buf[off]);
 	case Fat32:
-		return GETLONG(&ex->buf[off])& 0x0fffffff;
+		return GETLONG(&fp->buf[off])& 0x0fffffff;
 	}
 	return 0;
 }
@@ -135,45 +135,45 @@ readnext(Extend *ex, ulong clust)
 int
 read(void *f, void *data, int len)
 {
-	Extend *ex = f;
-	Fat *fat = ex->fat;
+	File *fp = f;
+	Fat *fat = fp->fat;
 
-	if(ex->len > 0 && ex->rp >= ex->ep){
-		if(ex->clust != ~0U){
-			if(ex->lbaoff % fat->clustsize == 0){
-				if((ex->clust >> 4) == fat->eofmark)
+	if(fp->len > 0 && fp->rp >= fp->ep){
+		if(fp->clust != ~0U){
+			if(fp->lbaoff % fat->clustsize == 0){
+				if((fp->clust >> 4) == fat->eofmark)
 					return -1;
-				ex->lbaoff = (ex->clust - 2) * fat->clustsize;
+				fp->lbaoff = (fp->clust - 2) * fat->clustsize;
 				putc('.');
-				ex->clust = readnext(ex, ex->clust);
-				ex->lba = ex->lbaoff + fat->datalba;
+				fp->clust = readnext(fp, fp->clust);
+				fp->lba = fp->lbaoff + fat->datalba;
 			}
-			ex->lbaoff++;
+			fp->lbaoff++;
 		}
-		if(readsect(fat->drive, ex->lba++, ex->rp = ex->buf))
+		if(readsect(fat->drive, fp->lba++, fp->rp = fp->buf))
 			return -1;
 	}
-	if(ex->len < len)
-		len = ex->len;
-	if(len > (ex->ep - ex->rp))
-		len = ex->ep - ex->rp;
-	memmove(data, ex->rp, len);
-	ex->rp += len;
-	ex->len -= len;
+	if(fp->len < len)
+		len = fp->len;
+	if(len > (fp->ep - fp->rp))
+		len = fp->ep - fp->rp;
+	memmove(data, fp->rp, len);
+	fp->rp += len;
+	fp->len -= len;
 	return len;
 }
 
 void
 open(Fat *fat, void *f, ulong lba)
 {
-	Extend *ex = f;
+	File *fp = f;
 
-	ex->fat = fat;
-	ex->lba = lba;
-	ex->len = 0;
-	ex->lbaoff = 0;
-	ex->clust = ~0U;
-	ex->rp = ex->ep = ex->buf + Sectsz;
+	fp->fat = fat;
+	fp->lba = lba;
+	fp->len = 0;
+	fp->lbaoff = 0;
+	fp->clust = ~0U;
+	fp->rp = fp->ep = fp->buf + Sectsz;
 }
 
 void
@@ -218,22 +218,22 @@ dirclust(Dir *d)
 }
 
 static int
-fatwalk(Extend *ex, Fat *fat, char *path)
+fatwalk(File *fp, Fat *fat, char *path)
 {
 	char name[Maxpath], *end;
 	int i, j;
 	Dir d;
 
 	if(fat->ver == Fat32){
-		open(fat, ex, 0);
-		ex->clust = fat->dirstart;
-		ex->len = ~0U;
+		open(fat, fp, 0);
+		fp->clust = fat->dirstart;
+		fp->len = ~0U;
 	}else{
-		open(fat, ex, fat->dirstart);
-		ex->len = fat->dirents * Dirsz;
+		open(fat, fp, fat->dirstart);
+		fp->len = fat->dirents * Dirsz;
 	}
 	for(;;){
-		if(readn(ex, &d, Dirsz) != Dirsz)
+		if(readn(fp, &d, Dirsz) != Dirsz)
 			break;
 		if((i = dirname(&d, name)) <= 0)
 			continue;
@@ -243,13 +243,13 @@ fatwalk(Extend *ex, Fat *fat, char *path)
 			end = path + strlen(path);
 		j = end - path;
 		if(i == j && memcmp(name, path, j) == 0){
-			open(fat, ex, 0);
-			ex->clust = dirclust(&d);
-			ex->len = *((ulong*)d.len);
+			open(fat, fp, 0);
+			fp->clust = dirclust(&d);
+			fp->len = *((ulong*)d.len);
 			if(*end == 0)
 				return 0;
 			else if(d.attr & 0x10){
-				ex->len = fat->clustsize * Sectsz;
+				fp->len = fat->clustsize * Sectsz;
 				path = end;
 				continue;
 			}
@@ -354,7 +354,7 @@ start(void *sp)
 {
 	char path[Maxpath], *kern;
 	int drive;
-	Extend ex;
+	File fi;
 	Fat fat;
 	void *f;
 
@@ -366,17 +366,17 @@ start(void *sp)
 		print("no fat\r\n");
 		halt();
 	}
-	if(fatwalk(f = &ex, &fat, "plan9.ini")){
+	if(fatwalk(f = &fi, &fat, "plan9.ini")){
 		print("no config\r\n");
 		f = 0;
 	}
 	for(;;){
 		kern = configure(f, path); f = 0;
-		if(fatwalk(&ex, &fat, kern)){
+		if(fatwalk(&fi, &fat, kern)){
 			print("not found\r\n");
 			continue;
 		}
-		print(bootkern(&ex));
+		print(bootkern(&fi));
 		print(crnl);
 	}
 }
