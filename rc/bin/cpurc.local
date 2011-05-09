@@ -1,5 +1,5 @@
 #!/bin/rc
-# local cpu startup
+# the 9pccpuf kernel runs this file
 
 # used only by upas, as default return domain appended to all unqualified
 # return addresses, even local ones
@@ -12,4 +12,5 @@ facedom=FACEDOM
 
 for(i in m i P S t u)
 	bind -a '#'^$i /dev >/dev/null >[2=1]
+
 mount -qa /srv/usb /dev

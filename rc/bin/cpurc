@@ -1,5 +1,6 @@
 #!/bin/rc
-# cpu server start up
+# the pccpuf kernel runs this file
+
 date > /env/boottime
 
 # mount points
