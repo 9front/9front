@@ -1,4 +1,7 @@
+# the 9pccpuf kernel runs this file
+
 aux/listen -q -t /rc/bin/service.auth -d /rc/bin/service tcp
+
 @{
 	rfork n
 	if(~ $monitor vesa)
