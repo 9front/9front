@@ -39,9 +39,11 @@ size_t fwrite(const void *p, size_t recl, size_t nrec, FILE *f){
 					goto ret;
 				}
 			}else{
-				if(_IO_putc(*s, f)==EOF)
+				if(f->flags&APPEND) lseek(f->fd, 0L, SEEK_END);
+				if((d=write(f->fd, s, n))<=0) {
+					f->state=ERR;
 					goto ret;
-				d=1;
+				}
 			}
 		}
 		s+=d;
