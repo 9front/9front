@@ -17,9 +17,8 @@ class factotumbasic(urllib2.BaseHandler):
 		chal = urllib2.parse_keqv_list(urllib2.parse_http_list(authreq[1]))
 		realm = chal['realm']
 		self.f.start(proto="pass", host=host, realm=realm, role="client")
-		pw = self.f.read()
-		user = self.f.attr()["user"]
-		val = 'Basic %s' % base64.b64encode(user + ':' + pw).strip()
+		pw = self.f.read().replace(' ', ':', 1)
+		val = 'Basic %s' % base64.b64encode(pw).strip()
 		if req.headers.get('Authorization', None) == val: return None
 		req.add_header('Authorization', val)
 		return self.parent.open(req)
