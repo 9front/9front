@@ -34,11 +34,13 @@ TARG=\
 	searchfs\
 	statusbar\
 	stub\
+	tablet\
 	timesync\
 	trampoline\
 	unbflz\
 	usage\
 	write\
+	wacom\
 	zerotrunc\
 
 BIN=/$objtype/bin/aux

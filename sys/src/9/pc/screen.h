@@ -7,6 +7,7 @@ struct Cursorinfo {
 
 /* devmouse.c */
 extern void mousetrack(int, int, int, int);
+extern void absmousetrack(int, int, int, int);
 extern Point mousexy(void);
 
 extern void mouseaccelerate(int);

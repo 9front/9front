@@ -454,16 +454,19 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		buf[n] = 0;
 		p = 0;
 		pt.x = strtol(buf+1, &p, 0);
-		if(p == 0)
+		if(*p == 0)
 			error(Eshort);
 		pt.y = strtol(p, &p, 0);
-		if(p == 0)
+		if(*p == 0)
 			error(Eshort);
 		b = strtol(p, &p, 0);
 		msec = strtol(p, &p, 0);
 		if(msec == 0)
 			msec = TK2MS(MACHP(0)->ticks);
-		mousetrack(pt.x, pt.y, b, msec);
+		if(buf[0] == 'A')
+			absmousetrack(pt.x, pt.y, b, msec);
+		else
+			mousetrack(pt.x, pt.y, b, msec);
 		return n;
 
 	case Qmouse:
@@ -593,6 +596,45 @@ mousetrack(int dx, int dy, int b, int msec)
 	if(x >= gscreen->clipr.max.x)
 		x = gscreen->clipr.max.x;
 	y = mouse.xy.y + dy;
+	if(y < gscreen->clipr.min.y)
+		y = gscreen->clipr.min.y;
+	if(y >= gscreen->clipr.max.y)
+		y = gscreen->clipr.max.y;
+
+	lastb = mouse.buttons;
+	mouse.xy = Pt(x, y);
+	mouse.buttons = b|kbdbuttons;
+	mouse.redraw = 1;
+	mouse.counter++;
+	mouse.msec = msec;
+
+	/*
+	 * if the queue fills, we discard the entire queue and don't
+	 * queue any more events until a reader polls the mouse.
+	 */
+	if(!mouse.qfull && lastb != b) {	/* add to ring */
+		mouse.queue[mouse.wi] = mouse.Mousestate;
+		if(++mouse.wi == nelem(mouse.queue))
+			mouse.wi = 0;
+		if(mouse.wi == mouse.ri)
+			mouse.qfull = 1;
+	}
+	wakeup(&mouse.r);
+	drawactive(1);
+}
+
+void
+absmousetrack(int x, int y, int b, int msec)
+{
+	int lastb;
+
+	if(gscreen==nil)
+		return;
+
+	if(x < gscreen->clipr.min.x)
+		x = gscreen->clipr.min.x;
+	if(x >= gscreen->clipr.max.x)
+		x = gscreen->clipr.max.x;
 	if(y < gscreen->clipr.min.y)
 		y = gscreen->clipr.min.y;
 	if(y >= gscreen->clipr.max.y)
