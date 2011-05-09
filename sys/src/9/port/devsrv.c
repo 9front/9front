@@ -352,3 +352,15 @@ Dev srvdevtab = {
 	srvremove,
 	srvwstat,
 };
+
+void
+srvrenameuser(char *old, char *new)
+{
+	Srv *sp;
+
+	qlock(&srvlk);
+	for(sp = srv; sp; sp = sp->link)
+		if(sp->owner!=nil && strcmp(old, sp->owner)==0)
+			kstrdup(&sp->owner, new);
+	qunlock(&srvlk);
+}

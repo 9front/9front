@@ -2,6 +2,8 @@ $cputype
 	bin
 		9660srv
 		awk
+		aux
+			kbdfs
 		bind
 		bzfs
 		cat

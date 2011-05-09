@@ -11,38 +11,12 @@
 void	(*consdebug)(void) = nil;
 void	(*screenputs)(char*, int) = nil;
 
-Queue*	kbdq;			/* unprocessed console input */
-Queue*	lineq;			/* processed console input */
 Queue*	serialoq;		/* serial console output */
 Queue*	kprintoq;		/* console output, for /dev/kprint */
 ulong	kprintinuse;		/* test and set whether /dev/kprint is open */
 int	iprintscreenputs = 1;
 
 int	panicking;
-
-static struct
-{
-	QLock;
-
-	int	raw;		/* true if we shouldn't process input */
-	Ref	ctl;		/* number of opens to the control file */
-	int	x;		/* index into line */
-	char	line[1024];	/* current input line */
-
-	int	count;
-	int	ctlpoff;
-
-	/* a place to save up characters at interrupt time before dumping them in the queue */
-	Lock	lockputc;
-	char	istage[1024];
-	char	*iw;
-	char	*ir;
-	char	*ie;
-} kbd = {
-	.iw	= kbd.istage,
-	.ir	= kbd.istage,
-	.ie	= kbd.istage + sizeof(kbd.istage),
-};
 
 char	*sysname;
 vlong	fasthz;
@@ -70,10 +44,6 @@ Cmdtab rebootmsg[] =
 void
 printinit(void)
 {
-	lineq = qopen(2*1024, 0, nil, nil);
-	if(lineq == nil)
-		panic("printinit");
-	qnoblock(lineq, 1);
 }
 
 int
@@ -179,7 +149,7 @@ putstrn0(char *str, int n, int usewrite)
 
 	while(n > 0) {
 		t = memchr(str, '\n', n);
-		if(t && !kbd.raw) {
+		if(t) {
 			m = t-str;
 			if(usewrite){
 				qwrite(serialoq, str, m);
@@ -206,17 +176,12 @@ putstrn(char *str, int n)
 	putstrn0(str, n, 0);
 }
 
-int noprint;
-
 int
 print(char *fmt, ...)
 {
 	int n;
 	va_list arg;
 	char buf[PRINTSIZE];
-
-	if(noprint)
-		return -1;
 
 	va_start(arg, fmt);
 	n = vseprint(buf, buf+sizeof(buf), fmt, arg) - buf;
@@ -350,231 +315,10 @@ pprint(char *fmt, ...)
 	return n;
 }
 
-static void
-echoscreen(char *buf, int n)
-{
-	char *e, *p;
-	char ebuf[128];
-	int x;
-
-	p = ebuf;
-	e = ebuf + sizeof(ebuf) - 4;
-	while(n-- > 0){
-		if(p >= e){
-			screenputs(ebuf, p - ebuf);
-			p = ebuf;
-		}
-		x = *buf++;
-		if(x == 0x15){
-			*p++ = '^';
-			*p++ = 'U';
-			*p++ = '\n';
-		} else
-			*p++ = x;
-	}
-	if(p != ebuf)
-		screenputs(ebuf, p - ebuf);
-}
-
-static void
-echoserialoq(char *buf, int n)
-{
-	char *e, *p;
-	char ebuf[128];
-	int x;
-
-	p = ebuf;
-	e = ebuf + sizeof(ebuf) - 4;
-	while(n-- > 0){
-		if(p >= e){
-			qiwrite(serialoq, ebuf, p - ebuf);
-			p = ebuf;
-		}
-		x = *buf++;
-		if(x == '\n'){
-			*p++ = '\r';
-			*p++ = '\n';
-		} else if(x == 0x15){
-			*p++ = '^';
-			*p++ = 'U';
-			*p++ = '\n';
-		} else
-			*p++ = x;
-	}
-	if(p != ebuf)
-		qiwrite(serialoq, ebuf, p - ebuf);
-}
-
-static void
-echo(char *buf, int n)
-{
-	static int ctrlt, pid;
-	int x;
-	char *e, *p;
-
-	if(n == 0)
-		return;
-
-	e = buf+n;
-	for(p = buf; p < e; p++){
-		switch(*p){
-		case 0x10:	/* ^P */
-			if(cpuserver && !kbd.ctlpoff){
-				active.exiting = 1;
-				return;
-			}
-			break;
-		case 0x14:	/* ^T */
-			ctrlt++;
-			if(ctrlt > 2)
-				ctrlt = 2;
-			continue;
-		}
-
-		if(ctrlt != 2)
-			continue;
-
-		/* ^T escapes */
-		ctrlt = 0;
-		switch(*p){
-		case 'S':
-			x = splhi();
-			dumpstack();
-			procdump();
-			splx(x);
-			return;
-		case 's':
-			dumpstack();
-			return;
-		case 'x':
-			xsummary();
-			ixsummary();
-			mallocsummary();
-		//	memorysummary();
-			pagersummary();
-			return;
-		case 'd':
-			if(consdebug == nil)
-				consdebug = rdb;
-			else
-				consdebug = nil;
-			print("consdebug now %#p\n", consdebug);
-			return;
-		case 'D':
-			if(consdebug == nil)
-				consdebug = rdb;
-			consdebug();
-			return;
-		case 'p':
-			x = spllo();
-			procdump();
-			splx(x);
-			return;
-		case 'q':
-			scheddump();
-			return;
-		case 'k':
-			killbig("^t ^t k");
-			return;
-		case 'r':
-			exit(0);
-			return;
-		}
-	}
-
-	qproduce(kbdq, buf, n);
-	if(kbd.raw)
-		return;
-	kmesgputs(buf, n);
-	if(screenputs != nil)
-		echoscreen(buf, n);
-	if(serialoq)
-		echoserialoq(buf, n);
-}
-
-/*
- *  Called by a uart interrupt for console input.
- *
- *  turn '\r' into '\n' before putting it into the queue.
- */
-int
-kbdcr2nl(Queue*, int ch)
-{
-	char *next;
-
-	ilock(&kbd.lockputc);		/* just a mutex */
-	if(ch == '\r' && !kbd.raw)
-		ch = '\n';
-	next = kbd.iw+1;
-	if(next >= kbd.ie)
-		next = kbd.istage;
-	if(next != kbd.ir){
-		*kbd.iw = ch;
-		kbd.iw = next;
-	}
-	iunlock(&kbd.lockputc);
-	return 0;
-}
-
-/*
- *  Put character, possibly a rune, into read queue at interrupt time.
- *  Called at interrupt time to process a character.
- */
-int
-kbdputc(Queue*, int ch)
-{
-	int i, n;
-	char buf[3];
-	Rune r;
-	char *next;
-
-	if(kbd.ir == nil)
-		return 0;		/* in case we're not inited yet */
-	
-	ilock(&kbd.lockputc);		/* just a mutex */
-	r = ch;
-	n = runetochar(buf, &r);
-	for(i = 0; i < n; i++){
-		next = kbd.iw+1;
-		if(next >= kbd.ie)
-			next = kbd.istage;
-		if(next == kbd.ir)
-			break;
-		*kbd.iw = buf[i];
-		kbd.iw = next;
-	}
-	iunlock(&kbd.lockputc);
-	return 0;
-}
-
-/*
- *  we save up input characters till clock time to reduce
- *  per character interrupt overhead.
- */
-static void
-kbdputcclock(void)
-{
-	char *iw;
-
-	/* this amortizes cost of qproduce */
-	if(kbd.iw != kbd.ir){
-		iw = kbd.iw;
-		if(iw < kbd.ir){
-			echo(kbd.ir, kbd.ie-kbd.ir);
-			kbd.ir = kbd.istage;
-		}
-		if(kbd.ir != iw){
-			echo(kbd.ir, iw-kbd.ir);
-			kbd.ir = iw;
-		}
-	}
-}
-
 enum{
 	Qdir,
 	Qbintime,
 	Qcons,
-	Qconsctl,
 	Qcputime,
 	Qdrivers,
 	Qkmesg,
@@ -607,7 +351,6 @@ static Dirtab consdir[]={
 	".",	{Qdir, 0, QTDIR},	0,		DMDIR|0555,
 	"bintime",	{Qbintime},	24,		0664,
 	"cons",		{Qcons},	0,		0660,
-	"consctl",	{Qconsctl},	0,		0220,
 	"cputime",	{Qcputime},	6*NUMSIZE,	0444,
 	"drivers",	{Qdrivers},	0,		0444,
 	"hostdomain",	{Qhostdomain},	DOMLEN,		0664,
@@ -665,11 +408,6 @@ consinit(void)
 {
 	todinit();
 	randominit();
-	/*
-	 * at 115200 baud, the 1024 char buffer takes 56 ms to process,
-	 * processing it every 22 ms should be fine
-	 */
-	addclock0link(kbdputcclock, 22);
 }
 
 static Chan*
@@ -696,10 +434,6 @@ consopen(Chan *c, int omode)
 	c->aux = nil;
 	c = devopen(c, omode, consdir, nelem(consdir), devgen);
 	switch((ulong)c->qid.path){
-	case Qconsctl:
-		incref(&kbd.ctl);
-		break;
-
 	case Qkprint:
 		if(tas(&kprintinuse) != 0){
 			c->flag &= ~COPEN;
@@ -724,14 +458,6 @@ static void
 consclose(Chan *c)
 {
 	switch((ulong)c->qid.path){
-	/* last close of control file turns off raw */
-	case Qconsctl:
-		if(c->flag&COPEN){
-			if(decref(&kbd.ctl) == 0)
-				kbd.raw = 0;
-		}
-		break;
-
 	/* close of kprint allows other opens */
 	case Qkprint:
 		if(c->flag & COPEN){
@@ -747,9 +473,9 @@ consread(Chan *c, void *buf, long n, vlong off)
 {
 	ulong l;
 	Mach *mp;
-	char *b, *bp, ch;
+	char *b, *bp;
 	char tmp[256];		/* must be >= 18*NUMSIZE (Qswap) */
-	int i, k, id, send;
+	int i, k, id;
 	vlong offset = off;
 	extern char configfile[];
 
@@ -761,49 +487,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 		return devdirread(c, buf, n, consdir, nelem(consdir), devgen);
 
 	case Qcons:
-		qlock(&kbd);
-		if(waserror()) {
-			qunlock(&kbd);
-			nexterror();
-		}
-		while(!qcanread(lineq)){
-			if(qread(kbdq, &ch, 1) == 0)
-				continue;
-			send = 0;
-			if(ch == 0){
-				/* flush output on rawoff -> rawon */
-				if(kbd.x > 0)
-					send = !qcanread(kbdq);
-			}else if(kbd.raw){
-				kbd.line[kbd.x++] = ch;
-				send = !qcanread(kbdq);
-			}else{
-				switch(ch){
-				case '\b':
-					if(kbd.x > 0)
-						kbd.x--;
-					break;
-				case 0x15:	/* ^U */
-					kbd.x = 0;
-					break;
-				case '\n':
-				case 0x04:	/* ^D */
-					send = 1;
-				default:
-					if(ch != 0x04)
-						kbd.line[kbd.x++] = ch;
-					break;
-				}
-			}
-			if(send || kbd.x == sizeof kbd.line){
-				qwrite(lineq, kbd.line, kbd.x);
-				kbd.x = 0;
-			}
-		}
-		n = qread(lineq, buf, n);
-		qunlock(&kbd);
-		poperror();
-		return n;
+		error(Egreg);
 
 	case Qcputime:
 		k = offset;
@@ -980,7 +664,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 static long
 conswrite(Chan *c, void *va, long n, vlong off)
 {
-	char buf[256], ch;
+	char buf[256];
 	long l, bp;
 	char *a;
 	Mach *mp;
@@ -1007,29 +691,6 @@ conswrite(Chan *c, void *va, long n, vlong off)
 			putstrn0(buf, bp, 1);
 			a += bp;
 			l -= bp;
-		}
-		break;
-
-	case Qconsctl:
-		if(n >= sizeof(buf))
-			n = sizeof(buf)-1;
-		strncpy(buf, a, n);
-		buf[n] = 0;
-		for(a = buf; a;){
-			if(strncmp(a, "rawon", 5) == 0){
-				kbd.raw = 1;
-				/* clumsy hack - wake up reader */
-				ch = 0;
-				qwrite(kbdq, &ch, 1);			
-			} else if(strncmp(a, "rawoff", 6) == 0){
-				kbd.raw = 0;
-			} else if(strncmp(a, "ctlpon", 6) == 0){
-				kbd.ctlpoff = 0;
-			} else if(strncmp(a, "ctlpoff", 7) == 0){
-				kbd.ctlpoff = 1;
-			}
-			if(a = strchr(a, ' '))
-				a++;
 		}
 		break;
 

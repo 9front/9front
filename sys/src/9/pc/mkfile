@@ -1,6 +1,6 @@
-CONF=pc
-CONFLIST=pc pccpu pcf pccpuf
-CRAPLIST=pccd pcflop
+CONF=pcf
+CONFLIST=pcf pccpuf
+CRAPLIST=pc pccpu pccd pcflop
 EXTRACOPIES=
 #EXTRACOPIES=lookout boundary	# copy to these servers on install
 
@@ -49,7 +49,6 @@ OBJ=\
 	cga.$O\
 	i8253.$O\
 	i8259.$O\
-	kbd.$O\
 	main.$O\
 	memory.$O\
 	mmu.$O\

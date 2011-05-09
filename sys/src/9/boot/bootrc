@@ -2,6 +2,12 @@
 
 bind -q '#p' /proc
 
+if(test -e '#b' && ! test -e /dev/kbd){
+	bind -a '#b' /dev
+	aux/kbdfs -s cons
+	exec /rc/bin/bootrc </dev/cons >/dev/cons >[2]/dev/cons
+}
+
 bind -qa '#S' /dev
 bind -qa '#f' /dev
 bind -qa '#k' /dev

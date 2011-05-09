@@ -22,9 +22,8 @@ dev
 
 	draw		screen vga vgax
 	mouse		mouse
+	kbd
 	vga
-	kbmap
-	kbin
 
 	sd
 	floppy		dma
