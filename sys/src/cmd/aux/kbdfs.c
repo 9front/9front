@@ -377,6 +377,7 @@ keyproc(void *)
 	while(recv(keychan, &key) > 0){
 		if(key.down){
 			switch(key.r){
+			case No:
 			case Caps:
 			case Num:
 			case Shift:
