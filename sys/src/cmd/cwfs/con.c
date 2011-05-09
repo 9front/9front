@@ -740,11 +740,22 @@ cmd_files(int, char *[])
 	print("%ld out of %ld files used\n", n, conf.nfile);
 }
 
+void
+cmd_chatty(int argc, char *argv[])
+{
+	if(argc < 2) {
+		print("cmd_chatty: usage: chatty n\n");
+		return;
+	}
+	chatty = atoi(argv[1]);
+}
+
 static void
 installcmds(void)
 {
 	cmd_install("allow", "-- disable permission checking", cmd_allow);
 	cmd_install("cfs", "[file] -- set current filesystem", cmd_cfs);
+	cmd_install("chatty", "n -- set chattiness", cmd_chatty);
 	cmd_install("clean", "file [bno [addr]] -- block print/fix", cmd_clean);
 	cmd_install("check", "[options]", cmd_check);
 	cmd_install("clri", "[file ...] -- purge files/dirs", cmd_clri);

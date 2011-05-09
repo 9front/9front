@@ -1,0 +1,3 @@
+#!/bin/rc
+
+hget http://pkg.violetti.org/$cputype | htmlfmt | grep '\.tbz' | sed -e 's/\.tbz$//'

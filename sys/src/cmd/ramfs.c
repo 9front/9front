@@ -157,9 +157,11 @@ main(int argc, char *argv[])
 	int p[2];
 	int fd;
 	int stdio = 0;
+	int mountflags;
 
 	service = "ramfs";
 	defmnt = "/tmp";
+	mountflags = 0;
 	ARGBEGIN{
 	case 'i':
 		defmnt = 0;
@@ -186,9 +188,20 @@ main(int argc, char *argv[])
 		defmnt = 0;
 		service = EARGF(usage());
 		break;
+	case 'b':
+		mountflags |= MBEFORE;
+		break;
+	case 'c':
+		mountflags |= MCREATE;
+		break;
+	case 'a':
+		mountflags |= MAFTER;
+		break;
 	default:
 		usage();
 	}ARGEND
+	if(mountflags == 0)
+		mountflags = MREPL | MCREATE;
 
 	if(pipe(p) < 0)
 		error("pipe failed");
@@ -239,7 +252,7 @@ main(int argc, char *argv[])
 		break;
 	default:
 		close(p[0]);	/* don't deadlock if child fails */
-		if(defmnt && mount(p[1], -1, defmnt, MREPL|MCREATE, "") < 0)
+		if(defmnt && mount(p[1], -1, defmnt, mountflags, "") < 0)
 			error("mount failed");
 	}
 	exits(0);
@@ -902,6 +915,6 @@ estrdup(char *q)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-Dipsu] [-m mountpoint] [-S srvname]\n", argv0);
+	fprint(2, "usage: %s [-Dipsubac] [-m mountpoint] [-S srvname]\n", argv0);
 	exits("usage");
 }

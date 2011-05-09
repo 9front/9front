@@ -8,9 +8,9 @@ database=
 
 auth=sources.cs.bell-labs.com authdom=outside.plan9.bell-labs.com
 
-auth=cirno.9front authdom=9front
+#auth=cirno.9front authdom=9front
 
-ntp=pool.ntp.org
+#ntp=pool.ntp.org
 
 #
 #  because the public demands the name localsource
@@ -18,12 +18,12 @@ ntp=pool.ntp.org
 ip=127.0.0.1 sys=localhost dom=localhost
 
 # example: adjust to fit your network
-ipnet=9front ip=192.168.0.0 ipmask=255.255.255.0
-	auth=cirno.9front
-	cpu=cirno.9front
-	dns=192.168.0.2
-	dnsdom=9front
-	smtp=cirno.9front
-
-ip=192.168.0.1 sys=gw dom=gw.9front
-ip=192.168.0.2 sys=cirno dom=cirno.9front
+#ipnet=9front ip=192.168.0.0 ipmask=255.255.255.0
+#	auth=cirno.9front
+#	cpu=cirno.9front
+#	dns=192.168.0.2
+#	dnsdom=9front
+#	smtp=cirno.9front
+#
+#ip=192.168.0.1 sys=gw dom=gw.9front
+#ip=192.168.0.2 sys=cirno dom=cirno.9front
