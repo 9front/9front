@@ -1,0 +1,21 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/ip
+TARG=cifsd
+
+HFILES=dat.h fns.h
+
+OFILES=\
+	pack.$O \
+	util.$O \
+	error.$O \
+	smb.$O \
+	rap.$O \
+	share.$O \
+	tree.$O \
+	dir.$O \
+	file.$O \
+	find.$O \
+	main.$O \
+	
+</sys/src/cmd/mkone

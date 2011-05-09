@@ -1,0 +1,20 @@
+look at the cifsd.man manpage for instrctions. 
+
+check for new releases on the web:
+http://9hal.ath.cx/usr/cinap_lenrek/cifsd.tgz
+http://9hal.ath.cx/usr/cinap_lenrek/
+
+or on sources:
+/n/sources/contrib/cinap_lenrek/cifsd.tgz
+/n/sources/contrib/cinap_lenrek
+
+you can email me for requests/bugreports/contrib at:
+cinap_lenrek AT gmx DOT de
+
+special thanks goes to:
+
+capso (http://nanosouffle.net/)
+for testing and bug reporting
+
+steve simon (http://quintile.net/)
+factotum/authsrv support for NTLM auth and cifsd testing and bug reporting
