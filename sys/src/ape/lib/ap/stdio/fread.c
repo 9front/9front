@@ -20,7 +20,7 @@ size_t fread(void *p, size_t recl, size_t nrec, FILE *f){
 			memcpy(s, f->rp, d);
 			f->rp+=d;
 		}else{
-			if(n >= BIGN && f->state==RD && !(f->flags&STRING) && f->buf!=f->unbuf){
+			if(n >= BIGN && f->state==RD && !(f->flags&STRING) && f->buf!=f->unbuf || f->buf == f->unbuf){
 				d=read(f->fd, s, n);
 				if(d<=0){
 					f->state=(d==0)?END:ERR;
