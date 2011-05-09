@@ -355,21 +355,24 @@ kbdclose(Chan *c)
 }
 
 static Block*
-kbdbread(Chan *c, long n, ulong)
+kbdbread(Chan *c, long n, ulong off)
 {
-	if(c->qid.path != Qscancode)
-		error(Egreg);
-
-	return qbread(kbd.q, n);
+	if(c->qid.path == Qscancode)
+		return qbread(kbd.q, n);
+	else
+		return devbread(c, n, off);
 }
 
 static long
 kbdread(Chan *c, void *a, long n, vlong)
 {
-	if(c->qid.path != Qscancode)
-		error(Egreg);
+	if(c->qid.path == Qscancode)
+		return qread(kbd.q, a, n);
+	if(c->qid.path == Qdir)
+		return devdirread(c, a, n, kbdtab, nelem(kbdtab), devgen);
 
-	return qread(kbd.q, a, n);
+	error(Egreg);
+	return 0;
 }
 
 static long
