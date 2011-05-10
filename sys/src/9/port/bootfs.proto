@@ -12,7 +12,6 @@ $cputype
 			fdisk
 			kfs
 			prep
-			partfs
 		dossrv
 		echo
 		cwfs64x

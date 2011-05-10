@@ -9,7 +9,7 @@ adm	d775 adm adm
 cfg	d775
 	+
 cron	d777 sys sys
-	bootes	d775 bootes bootes
+	bootes	664 bootes bootes
 fd	d775
 lib	d775
 	+
