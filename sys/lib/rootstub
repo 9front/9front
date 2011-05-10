@@ -237,5 +237,7 @@ mkdir -p sys/lib/lp/log
 mkdir -p sys/lib/lp/tmp
 mkdir -p sys/log
 mkdir -p tmp
+mkdir -p usr/bootes/bin/386
+mkdir -p usr/bootes/tmp
 mkdir -p usr/glenda/bin/386
 mkdir -p usr/glenda/tmp
