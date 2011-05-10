@@ -164,19 +164,6 @@ read(void *f, void *data, int len)
 }
 
 void
-open(Fat *fat, void *f, ulong lba)
-{
-	File *fp = f;
-
-	fp->fat = fat;
-	fp->lba = lba;
-	fp->len = 0;
-	fp->lbaoff = 0;
-	fp->clust = ~0U;
-	fp->rp = fp->ep = fp->buf + Sectsz;
-}
-
-void
 close(void *)
 {
 }
@@ -217,6 +204,17 @@ dirclust(Dir *d)
 	return *((ushort*)d->starthi)<<16 | *((ushort*)d->startlo);
 }
 
+static void
+fileinit(File *fp, Fat *fat, ulong lba)
+{
+	fp->fat = fat;
+	fp->lba = lba;
+	fp->len = 0;
+	fp->lbaoff = 0;
+	fp->clust = ~0U;
+	fp->rp = fp->ep = fp->buf + Sectsz;
+}
+
 static int
 fatwalk(File *fp, Fat *fat, char *path)
 {
@@ -225,11 +223,11 @@ fatwalk(File *fp, Fat *fat, char *path)
 	Dir d;
 
 	if(fat->ver == Fat32){
-		open(fat, fp, 0);
+		fileinit(fp, fat, 0);
 		fp->clust = fat->dirstart;
 		fp->len = ~0U;
 	}else{
-		open(fat, fp, fat->dirstart);
+		fileinit(fp, fat, fat->dirstart);
 		fp->len = fat->dirents * Dirsz;
 	}
 	for(;;){
@@ -243,7 +241,7 @@ fatwalk(File *fp, Fat *fat, char *path)
 			end = path + strlen(path);
 		j = end - path;
 		if(i == j && memcmp(name, path, j) == 0){
-			open(fat, fp, 0);
+			fileinit(fp, fat, 0);
 			fp->clust = dirclust(&d);
 			fp->len = *((ulong*)d.len);
 			if(*end == 0)
