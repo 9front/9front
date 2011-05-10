@@ -56,7 +56,7 @@
 #define	DYAD	57401
 #define	UTILDE	57402
 
-#line	17	"/sys/src/cmd/eqn/eqn.y"
+#line	17	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 #include "e.h"
 
 int	yylex(void);
@@ -72,7 +72,7 @@ YYSTYPE	yyval;
 #define YYEOFCODE 1
 #define YYERRCODE 2
 
-#line	140	"/sys/src/cmd/eqn/eqn.y"
+#line	140	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 
 short	yyexca[] =
 {-1, 0,
@@ -485,256 +485,256 @@ yyerrlab:
 	switch(yym) {
 		
 case 1:
-#line	24	"/sys/src/cmd/eqn/eqn.y"
+#line	24	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { putout(yypt[-0].yyv); } break;
 case 2:
-#line	25	"/sys/src/cmd/eqn/eqn.y"
+#line	25	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { ERROR "syntax error" WARNING; } break;
 case 3:
-#line	26	"/sys/src/cmd/eqn/eqn.y"
+#line	26	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { eqnreg = 0; } break;
 case 5:
-#line	30	"/sys/src/cmd/eqn/eqn.y"
+#line	30	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { eqnbox(yypt[-1].yyv, yypt[-0].yyv, 0); } break;
 case 6:
-#line	31	"/sys/src/cmd/eqn/eqn.y"
+#line	31	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { eqnbox(yypt[-1].yyv, yypt[-0].yyv, 1); } break;
 case 7:
-#line	32	"/sys/src/cmd/eqn/eqn.y"
+#line	32	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { lineup(0); } break;
 case 8:
-#line	35	"/sys/src/cmd/eqn/eqn.y"
+#line	35	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = yypt[-0].yyv; lineup(1); } break;
 case 9:
-#line	38	"/sys/src/cmd/eqn/eqn.y"
+#line	38	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = yypt[-0].yyv; } break;
 case 10:
-#line	39	"/sys/src/cmd/eqn/eqn.y"
+#line	39	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = 0; } break;
 case 11:
-#line	42	"/sys/src/cmd/eqn/eqn.y"
+#line	42	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = yypt[-0].yyv; } break;
 case 12:
-#line	43	"/sys/src/cmd/eqn/eqn.y"
+#line	43	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = 0; } break;
 case 13:
-#line	46	"/sys/src/cmd/eqn/eqn.y"
+#line	46	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = yypt[-1].yyv; } break;
 case 14:
-#line	47	"/sys/src/cmd/eqn/eqn.y"
+#line	47	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { text(QTEXT, (char *) yypt[-0].yyv); } break;
 case 15:
-#line	48	"/sys/src/cmd/eqn/eqn.y"
+#line	48	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { text(CONTIG, (char *) yypt[-0].yyv); } break;
 case 16:
-#line	49	"/sys/src/cmd/eqn/eqn.y"
+#line	49	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { text(SPACE, (char *) 0); } break;
 case 17:
-#line	50	"/sys/src/cmd/eqn/eqn.y"
+#line	50	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { text(THIN, (char *) 0); } break;
 case 18:
-#line	51	"/sys/src/cmd/eqn/eqn.y"
+#line	51	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { text(TAB, (char *) 0); } break;
 case 19:
-#line	52	"/sys/src/cmd/eqn/eqn.y"
+#line	52	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { funny(SUM); } break;
 case 20:
-#line	53	"/sys/src/cmd/eqn/eqn.y"
+#line	53	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { funny(PROD); } break;
 case 21:
-#line	54	"/sys/src/cmd/eqn/eqn.y"
+#line	54	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { funny(UNION); } break;
 case 22:
-#line	55	"/sys/src/cmd/eqn/eqn.y"
+#line	55	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { funny(INTER); } break;
 case 23:
-#line	56	"/sys/src/cmd/eqn/eqn.y"
+#line	56	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { boverb(yypt[-2].yyv, yypt[-0].yyv); } break;
 case 24:
-#line	57	"/sys/src/cmd/eqn/eqn.y"
+#line	57	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { mark(yypt[-0].yyv); } break;
 case 25:
-#line	58	"/sys/src/cmd/eqn/eqn.y"
+#line	58	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { size(yypt[-1].yyv, yypt[-0].yyv); } break;
 case 26:
-#line	59	"/sys/src/cmd/eqn/eqn.y"
+#line	59	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { font(yypt[-1].yyv, yypt[-0].yyv); } break;
 case 27:
-#line	60	"/sys/src/cmd/eqn/eqn.y"
+#line	60	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { fatbox(yypt[-0].yyv); } break;
 case 28:
-#line	61	"/sys/src/cmd/eqn/eqn.y"
+#line	61	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { sqrt(yypt[-0].yyv); } break;
 case 29:
-#line	62	"/sys/src/cmd/eqn/eqn.y"
+#line	62	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 {ps -= deltaps;} break;
 case 30:
-#line	62	"/sys/src/cmd/eqn/eqn.y"
+#line	62	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { subsup(yypt[-4].yyv, yypt[-1].yyv, yypt[-0].yyv); } break;
 case 31:
-#line	63	"/sys/src/cmd/eqn/eqn.y"
+#line	63	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 {ps -= deltaps;} break;
 case 32:
-#line	63	"/sys/src/cmd/eqn/eqn.y"
+#line	63	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { subsup(yypt[-3].yyv, 0, yypt[-0].yyv); } break;
 case 33:
-#line	64	"/sys/src/cmd/eqn/eqn.y"
+#line	64	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 {ps -= deltaps;} break;
 case 34:
-#line	64	"/sys/src/cmd/eqn/eqn.y"
+#line	64	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { integral(yypt[-4].yyv, yypt[-1].yyv, yypt[-0].yyv); } break;
 case 35:
-#line	65	"/sys/src/cmd/eqn/eqn.y"
+#line	65	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 {ps -= deltaps;} break;
 case 36:
-#line	65	"/sys/src/cmd/eqn/eqn.y"
+#line	65	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { integral(yypt[-3].yyv, 0, yypt[-0].yyv); } break;
 case 37:
-#line	66	"/sys/src/cmd/eqn/eqn.y"
+#line	66	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { integral(yypt[-0].yyv, 0, 0); } break;
 case 38:
-#line	67	"/sys/src/cmd/eqn/eqn.y"
+#line	67	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 {ps -= deltaps;} break;
 case 39:
-#line	67	"/sys/src/cmd/eqn/eqn.y"
+#line	67	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { fromto(yypt[-4].yyv, yypt[-1].yyv, yypt[-0].yyv); } break;
 case 40:
-#line	68	"/sys/src/cmd/eqn/eqn.y"
+#line	68	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 {ps -= deltaps;} break;
 case 41:
-#line	68	"/sys/src/cmd/eqn/eqn.y"
+#line	68	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { fromto(yypt[-3].yyv, 0, yypt[-0].yyv); } break;
 case 42:
-#line	69	"/sys/src/cmd/eqn/eqn.y"
+#line	69	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { paren(yypt[-2].yyv, yypt[-1].yyv, yypt[-0].yyv); } break;
 case 43:
-#line	70	"/sys/src/cmd/eqn/eqn.y"
+#line	70	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { paren(yypt[-1].yyv, yypt[-0].yyv, 0); } break;
 case 44:
-#line	71	"/sys/src/cmd/eqn/eqn.y"
+#line	71	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { diacrit(yypt[-1].yyv, yypt[-0].yyv); } break;
 case 45:
-#line	72	"/sys/src/cmd/eqn/eqn.y"
+#line	72	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { move(FWD, yypt[-1].yyv, yypt[-0].yyv); } break;
 case 46:
-#line	73	"/sys/src/cmd/eqn/eqn.y"
+#line	73	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { move(UP, yypt[-1].yyv, yypt[-0].yyv); } break;
 case 47:
-#line	74	"/sys/src/cmd/eqn/eqn.y"
+#line	74	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { move(BACK, yypt[-1].yyv, yypt[-0].yyv); } break;
 case 48:
-#line	75	"/sys/src/cmd/eqn/eqn.y"
+#line	75	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { move(DOWN, yypt[-1].yyv, yypt[-0].yyv); } break;
 case 49:
-#line	76	"/sys/src/cmd/eqn/eqn.y"
+#line	76	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { pile(yypt[-0].yyv); ct = yypt[-0].yyv; } break;
 case 50:
-#line	77	"/sys/src/cmd/eqn/eqn.y"
+#line	77	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 {yyval=ct;} break;
 case 51:
-#line	77	"/sys/src/cmd/eqn/eqn.y"
+#line	77	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { matrix(yypt[-3].yyv); ct = yypt[-3].yyv; } break;
 case 52:
-#line	80	"/sys/src/cmd/eqn/eqn.y"
+#line	80	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { setintegral(); } break;
 case 53:
-#line	83	"/sys/src/cmd/eqn/eqn.y"
+#line	83	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = atoi((char *) yypt[-1].yyv); } break;
 case 54:
-#line	84	"/sys/src/cmd/eqn/eqn.y"
+#line	84	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = atoi((char *) yypt[-1].yyv); } break;
 case 55:
-#line	85	"/sys/src/cmd/eqn/eqn.y"
+#line	85	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = atoi((char *) yypt[-1].yyv); } break;
 case 56:
-#line	86	"/sys/src/cmd/eqn/eqn.y"
+#line	86	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = atoi((char *) yypt[-1].yyv); } break;
 case 57:
-#line	88	"/sys/src/cmd/eqn/eqn.y"
+#line	88	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = HAT; } break;
 case 58:
-#line	89	"/sys/src/cmd/eqn/eqn.y"
+#line	89	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = VEC; } break;
 case 59:
-#line	90	"/sys/src/cmd/eqn/eqn.y"
+#line	90	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = DYAD; } break;
 case 60:
-#line	91	"/sys/src/cmd/eqn/eqn.y"
+#line	91	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = BAR; } break;
 case 61:
-#line	92	"/sys/src/cmd/eqn/eqn.y"
+#line	92	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = LOWBAR; } break;
 case 62:
-#line	93	"/sys/src/cmd/eqn/eqn.y"
+#line	93	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = HIGHBAR; } break;
 case 63:
-#line	94	"/sys/src/cmd/eqn/eqn.y"
+#line	94	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = UNDER; } break;
 case 64:
-#line	95	"/sys/src/cmd/eqn/eqn.y"
+#line	95	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = DOT; } break;
 case 65:
-#line	96	"/sys/src/cmd/eqn/eqn.y"
+#line	96	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = TILDE; } break;
 case 66:
-#line	97	"/sys/src/cmd/eqn/eqn.y"
+#line	97	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = UTILDE; } break;
 case 67:
-#line	98	"/sys/src/cmd/eqn/eqn.y"
+#line	98	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = DOTDOT; } break;
 case 68:
-#line	101	"/sys/src/cmd/eqn/eqn.y"
+#line	101	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = ((char *)yypt[-0].yyv)[0]; } break;
 case 69:
-#line	102	"/sys/src/cmd/eqn/eqn.y"
+#line	102	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = '{'; } break;
 case 70:
-#line	105	"/sys/src/cmd/eqn/eqn.y"
+#line	105	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = ((char *)yypt[-0].yyv)[0]; } break;
 case 71:
-#line	106	"/sys/src/cmd/eqn/eqn.y"
+#line	106	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = '}'; } break;
 case 74:
-#line	113	"/sys/src/cmd/eqn/eqn.y"
+#line	113	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { column(yypt[-3].yyv, DEFGAP); } break;
 case 75:
-#line	114	"/sys/src/cmd/eqn/eqn.y"
+#line	114	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 {yyval=atoi((char*)yypt[-0].yyv);} break;
 case 76:
-#line	114	"/sys/src/cmd/eqn/eqn.y"
+#line	114	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { column(yypt[-5].yyv, yypt[-3].yyv); } break;
 case 77:
-#line	117	"/sys/src/cmd/eqn/eqn.y"
+#line	117	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = startcol(LCOL); } break;
 case 78:
-#line	118	"/sys/src/cmd/eqn/eqn.y"
+#line	118	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = startcol(CCOL); } break;
 case 79:
-#line	119	"/sys/src/cmd/eqn/eqn.y"
+#line	119	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = startcol(RCOL); } break;
 case 80:
-#line	120	"/sys/src/cmd/eqn/eqn.y"
+#line	120	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = startcol(COL); } break;
 case 81:
-#line	123	"/sys/src/cmd/eqn/eqn.y"
+#line	123	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { lp[ct++] = yypt[-0].yyv; } break;
 case 82:
-#line	124	"/sys/src/cmd/eqn/eqn.y"
+#line	124	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { lp[ct++] = yypt[-0].yyv; } break;
 case 83:
-#line	127	"/sys/src/cmd/eqn/eqn.y"
+#line	127	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { yyval = ps; setsize((char *) yypt[-0].yyv); } break;
 case 84:
-#line	130	"/sys/src/cmd/eqn/eqn.y"
+#line	130	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { static char R[]="R"; setfont(R); } break;
 case 85:
-#line	131	"/sys/src/cmd/eqn/eqn.y"
+#line	131	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { static char I[]="I"; setfont(I); } break;
 case 86:
-#line	132	"/sys/src/cmd/eqn/eqn.y"
+#line	132	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { static char B[]="B"; setfont(B); } break;
 case 87:
-#line	133	"/sys/src/cmd/eqn/eqn.y"
+#line	133	"/dist/plan9front/sys/src/cmd/eqn/eqn.y"
 { setfont((char *)yypt[-0].yyv); } break;
 	}
 	goto yystack;  /* stack new state and value */
