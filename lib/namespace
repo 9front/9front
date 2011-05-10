@@ -10,11 +10,12 @@ bind -c #e /env
 bind #p /proc
 bind -c #s /srv
 bind -a #¤ /dev
-bind -a #S /dev
+
+# userspace devices
+mount -qb /srv/cons /dev
 
 # mount points
 mount -a /srv/slashn /n
-mount -b /srv/cons /dev
 
 # authentication
 mount -a /srv/factotum /mnt

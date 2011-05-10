@@ -5,10 +5,12 @@ NDBFILE=/lib/ndb/local
 
 mntgen -s slashn && chmod 666 /srv/slashn
 
-# bind all likely devices (#S was bound in boot)
-for(i in f t m v L P u U '$' Σ κ)
-	/bin/bind -a '#'^$i /dev >/dev/null >[2=1]
+# bind all likely devices
+for(i in S f k t m i v L P u U '$' Σ κ)
+	bind -a '#'^$i /dev >/dev/null >[2=1]
 rm -f /env/i
+
+mount -qa /srv/usb /dev
 
 # set up any partitions
 diskparts
@@ -110,8 +112,7 @@ if(! ~ $"vgasize '' text none){
 }
 rm -f '/env/fn#ask'
 
-usbstart
 if (test -f /dev/apm)
 	aux/apm
 
-dontkill '^(ipconfig|factotum|mntgen|fossil|kfs|cwfs|cs|dns|listen|reboot)$'
+dontkill '^(ipconfig|factotum|mntgen|fossil|kfs|cwfs.*|cs|dns|listen|reboot)$'

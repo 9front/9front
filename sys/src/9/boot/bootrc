@@ -2,38 +2,18 @@
 
 bind -q '#p' /proc
 
-if(test -e '#b' && ! test -e /dev/kbd){
-	bind -a '#b' /dev
-	aux/kbdfs -s cons
-	exec /rc/bin/bootrc </dev/cons >/dev/cons >[2]/dev/cons
+for(i in S f k æ t){
+	bind -a '#'^$i /dev >/dev/null >[2=1]
 }
 
-bind -qa '#S' /dev
-bind -qa '#f' /dev
-bind -qa '#k' /dev
-bind -qa '#æ' /dev
-
-fn set {
-	a=$$1
-	$1=()
-	rm -f '#e'/$1 '#ec'/$1 /env/$1
+for(i in init user nvram rootdir bootargs nobootprompt sysname \
+	debugfactotum fs fsaddr auth authaddr){
+	a=$$i
+	$i=()
+	rm -f '#e'/$i '#ec'/$i /env/$i
 	if(! ~ $#a 0)
-		$1=$a
+		$i=$a
 }
-
-# convert plan9.ini variables
-set init
-set user
-set nvram
-set rootdir
-set bootargs
-set nobootprompt
-set sysname
-set debugfactotum
-set fs
-set fsaddr
-set auth
-set authaddr
 
 fn fatal {
 	echo $*
@@ -138,15 +118,14 @@ fn main{
 	exec $init
 }
 
-if(test -e '#u'){
-	bind -a '#u' /dev
-	usb/usbd
+if(test -e '#b' && test -x /bin/aux/kbdfs){
+	bind -a '#b' /dev
+	aux/kbdfs -s cons
 }
 
-if(! ~ $#kbmap 0){
-	bind -a '#κ' /dev
-	if(test -r $"kbmap)
-		cat $"kbmap >/dev/kbmap
+if(test -e '#u' && test -x /bin/usb/usbd){
+	bind -a '#u' /dev
+	usb/usbd
 }
 
 # bind in an ip interface
@@ -163,4 +142,4 @@ while(){
 	nobootprompt=()
 	user=()
 	rm -f /srv/boot /srv/slashn /srv/cs /srv/dns
-}
+} </dev/cons >/dev/cons >[2]/dev/cons 

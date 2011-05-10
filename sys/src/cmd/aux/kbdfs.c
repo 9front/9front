@@ -1085,7 +1085,10 @@ elevate(void)
 	}
 
 	/* get higher than normal priority */
-	fprint(fd, "pri 16");
+	fprint(fd, "pri 16\n");
+
+	/* always present in physical memory */
+	fprint(fd, "noswap\n");
 
 	/* dont let anybody kill us */
 	if(d = dirfstat(fd)){
