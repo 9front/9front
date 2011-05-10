@@ -947,6 +947,8 @@ load_source_module(char *name, char *pathname, FILE *fp)
 		if (Py_VerboseFlag)
 			PySys_WriteStderr("import %s # from %s\n",
 				name, pathname);
+
+		if(0)	/* disabled this for now -- cinap */
 		if (cpathname)
 			write_compiled_module(co, cpathname, mtime);
 	}
