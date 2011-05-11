@@ -337,6 +337,7 @@ keyboardthread(void*)
 	char *s;
 
 	threadsetname("keyboardthread");
+
 	while(s = recvp(kbdchan)){
 		if(input == nil || sendp(input->ck, s) <= 0)
 			free(s);
@@ -360,8 +361,10 @@ keyboardsend(char *s, int cnt)
 		r = runemalloc(cnt);
 		cvttorunes(s, cnt, r, &nb, &nr, nil);
 		for(i=0; i<nr; i++){
-			chanprint(kbdchan, "%C", r[i]);
-			chanprint(kbdchan, "");
+			if(r[i]){
+				chanprint(kbdchan, "%C", r[i]);
+				chanprint(kbdchan, "");
+			}
 		}
 		free(r);
 	}
@@ -1191,13 +1194,13 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 }
 
 static void
-kbdioproc(void *arg)
+kbdproc(void *arg)
 {
 	Channel *c = arg;
 	char buf[128], *p, *e;
 	int fd, cfd, kfd, n;
 
-	threadsetname("kbdioproc");
+	threadsetname("kbdproc");
 
 	if((fd = open("/dev/cons", OREAD)) < 0){
 		chanprint(c, "%r");
@@ -1234,8 +1237,10 @@ kbdioproc(void *arg)
 			e = p + n;
 			while(p < e && fullrune(p, e - p)){
 				p += chartorune(&r, p);
-				chanprint(c, "%C", r);
-				chanprint(c, "");
+				if(r){
+					chanprint(c, "%C", r);
+					chanprint(c, "");
+				}
 			}
 			n = e - p;
 			if(n > 0){
@@ -1252,15 +1257,15 @@ Channel*
 initkbd(void)
 {
 	Channel *c;
-	char *err;
+	char *e;
 
 	c = chancreate(sizeof(char*), 16);
-	proccreate(kbdioproc, c, STACK);
-	if(err = recvp(c)){
+	proccreate(kbdproc, c, STACK);
+	if(e = recvp(c)){
 		chanfree(c);
-		werrstr(err);
-		free(err);
-		return nil;
+		c = nil;
+		werrstr(e);
+		free(e);
 	}
 	return c;
 }

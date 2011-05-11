@@ -400,7 +400,8 @@ consproc(void *)
 		x = buf + n;
 		while(p < x && fullrune(p, x - p)){
 			p += chartorune(&r, p);
-			send(rawchan, &r);
+			if(r)
+				send(rawchan, &r);
 		}
 		n = x - p;
 		if(n > 0){

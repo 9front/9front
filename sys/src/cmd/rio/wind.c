@@ -23,7 +23,6 @@ enum
 
 static	int		topped;
 static	int		id;
-static	int		reverse;
 
 static	Image	*cols[NCOL];
 static	Image	*grey;
@@ -31,7 +30,6 @@ static	Image	*darkgrey;
 static	Cursor	*lastcursor;
 static	Image	*titlecol;
 static	Image	*lighttitlecol;
-static	Image	*dholdcol;
 static	Image	*holdcol;
 static	Image	*lightholdcol;
 static	Image	*paleholdcol;
@@ -43,36 +41,19 @@ wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
 	Rectangle r;
 
 	if(cols[0] == nil){
-		/* there are no pastel paints in the dungeons and dragons world
-		 * - rob pike
-		 */
-		reverse = 0;
-		if(getenv("reverse") != nil)
-			reverse = ~0xFF;
-
 		/* greys are multiples of 0x11111100+0xFF, 14* being palest */
-		grey = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0xEEEEEEFF^reverse);
-		darkgrey = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x666666FF^reverse);
-		cols[BACK] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0xFFFFFFFF^reverse);
-		cols[HIGH] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0xCCCCCCFF^reverse);
+		grey = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0xEEEEEEFF);
+		darkgrey = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x666666FF);
+		cols[BACK] = display->white;
+		cols[HIGH] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0xCCCCCCFF);
 		cols[BORD] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x999999FF);
-		cols[TEXT] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x000000FF^reverse);
-		cols[HTEXT] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x000000FF^reverse);
-		if(reverse == 0) {
-			titlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DGreygreen);
-			lighttitlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DPalegreygreen);
-		} else {
-			titlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DPurpleblue);
-			lighttitlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x666666FF^reverse);
-		}
-		dholdcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DMedblue);
+		cols[TEXT] = display->black;
+		cols[HTEXT] = display->black;
+		titlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DGreygreen);
+		lighttitlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DPalegreygreen);
+		holdcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DMedblue);
 		lightholdcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DGreyblue);
 		paleholdcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DPalegreyblue);
-
-		if(reverse == 0)
-			holdcol = dholdcol;
-		else
-			holdcol = paleholdcol;
 	}
 	w = emalloc(sizeof(Window));
 	w->screenr = i->r;
@@ -623,8 +604,8 @@ wkeyctl(Window *w, Rune r)
 
 	if(w->deleted)
 		return;
-	/* navigation keys work only when mouse is not open */
-	if(!w->mouseopen)
+	/* navigation keys work only when mouse and kbd is not open */
+	if(!w->mouseopen && !w->kbdopen)
 		switch(r){
 		case Kdown:
 			n = w->maxlines/3;
@@ -759,7 +740,7 @@ wsetcols(Window *w)
 			w->cols[TEXT] = w->cols[HTEXT] = lightholdcol;
 	else
 		if(w == input)
-			w->cols[TEXT] = w->cols[HTEXT] = cols[TEXT];
+			w->cols[TEXT] = w->cols[HTEXT] = display->black;
 		else
 			w->cols[TEXT] = w->cols[HTEXT] = darkgrey;
 }
@@ -1360,6 +1341,7 @@ wclosewin(Window *w)
 		if(hidden[i] == w){
 			--nhidden;
 			memmove(hidden+i, hidden+i+1, (nhidden-i)*sizeof(hidden[0]));
+			hidden[nhidden] = nil;
 			break;
 		}
 	for(i=0; i<nwindow; i++)
