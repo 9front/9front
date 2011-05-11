@@ -243,6 +243,13 @@ xfidopen(Xfid *x)
 			return;
 		}
 		break;
+	case Qkbd:
+		if(w->kbdopen){
+			filsysrespond(x->fs, x, &t, Einuse);
+			return;
+		}
+		w->kbdopen = TRUE;
+		break;
 	case Qmouse:
 		if(w->mouseopen){
 			filsysrespond(x->fs, x, &t, Einuse);
@@ -317,6 +324,9 @@ xfidclose(Xfid *x)
 	case Qcursor:
 		w->cursorp = nil;
 		wsetcursor(w, FALSE);
+		break;
+	case Qkbd:
+		w->kbdopen = FALSE;
 		break;
 	case Qmouse:
 		w->resized = FALSE;
@@ -587,6 +597,7 @@ xfidread(Xfid *x)
 	Consreadmesg crm;
 	Mousereadmesg mrm;
 	Consreadmesg cwrm;
+	Kbdreadmesg krm;
 	Stringpair pair;
 	enum { CRdata, CRflush, NCR };
 	enum { MRdata, MRflush, NMR };
@@ -694,6 +705,42 @@ xfidread(Xfid *x)
 		fc.count = min(n, cnt);
 		filsysrespond(x->fs, x, &fc, nil);
 		qunlock(&x->active);
+		break;
+
+	case Qkbd:
+		x->flushtag = x->tag;
+
+		alts[MRdata].c = w->kbdread;
+		alts[MRdata].v = &krm;
+		alts[MRdata].op = CHANRCV;
+		alts[MRflush].c = x->flushc;
+		alts[MRflush].v = nil;
+		alts[MRflush].op = CHANRCV;
+		alts[NMR].op = CHANEND;
+
+		switch(alt(alts)){
+		case MRdata:
+			break;
+		case MRflush:
+			filsyscancel(x);
+			return;
+		}
+
+		/* received data */
+		t = recvp(krm.ck);
+		x->flushtag = -1;
+		if(x->flushing){
+			free(t);		/* wake up window and toss data */
+			recv(x->flushc, nil);		/* wake up flushing xfid */
+			filsyscancel(x);
+			return;
+		}
+		qlock(&x->active);
+		fc.data = t;
+		fc.count = strlen(t)+1;
+		filsysrespond(x->fs, x, &fc, nil);
+		qunlock(&x->active);
+		free(t);
 		break;
 
 	case Qcursor:

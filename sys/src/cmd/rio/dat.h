@@ -9,6 +9,7 @@ enum
 	Qwinname,
 	Qkbdin,
 	Qlabel,
+	Qkbd,
 	Qmouse,
 	Qnew,
 	Qscreen,
@@ -22,16 +23,11 @@ enum
 	QMAX,
 };
 
-enum
-{
-	Kscrolloneup = KF|0x20,
-	Kscrollonedown = KF|0x21,
-};
-
 #define	STACK	8192
 
 typedef	struct	Consreadmesg Consreadmesg;
 typedef	struct	Conswritemesg Conswritemesg;
+typedef struct	Kbdreadmesg Kbdreadmesg;
 typedef	struct	Stringpair Stringpair;
 typedef	struct	Dirtab Dirtab;
 typedef	struct	Fid Fid;
@@ -98,6 +94,11 @@ struct Mousereadmesg
 	Channel	*cm;		/* chan(Mouse) */
 };
 
+struct Kbdreadmesg
+{
+	Channel *ck;		/* chan(char*) */
+};
+
 struct Stringpair	/* rune and nrune or byte and nbyte */
 {
 	void		*s;
@@ -129,12 +130,13 @@ struct Window
 	Image		*i;
 	Mousectl		mc;
 	Mouseinfo	mouse;
-	Channel		*ck;			/* chan(Rune[10]) */
+	Channel		*ck;			/* chan(char*) */
 	Channel		*cctl;		/* chan(Wctlmesg)[20] */
 	Channel		*conswrite;	/* chan(Conswritemesg) */
 	Channel		*consread;	/* chan(Consreadmesg) */
 	Channel		*mouseread;	/* chan(Mousereadmesg) */
 	Channel		*wctlread;		/* chan(Consreadmesg) */
+	Channel		*kbdread;	/* chan(Kbdreadmesg) */
 	uint			nr;			/* number of runes in window */
 	uint			maxr;		/* number of runes allocated in r */
 	Rune			*r;
@@ -167,6 +169,7 @@ struct Window
 	uchar		wctlopen;
 	uchar		deleted;
 	uchar		mouseopen;
+	uchar		kbdopen;
 	char			*label;
 	int			pid;
 	char			*dir;
@@ -303,7 +306,6 @@ struct Timer
 Font		*font;
 Mousectl	*mousectl;
 Mouse	*mouse;
-Keyboardctl	*keyboardctl;
 Display	*display;
 Image	*view;
 Screen	*wscreen;

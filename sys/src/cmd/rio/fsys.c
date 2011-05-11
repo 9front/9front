@@ -32,6 +32,7 @@ Dirtab dirtab[]=
 	{ "winname",	QTFILE,	Qwinname,	0400 },
 	{ "kbdin",		QTFILE,	Qkbdin,		0200 },
 	{ "label",		QTFILE,	Qlabel,		0600 },
+	{ "kbd",	QTFILE,	Qkbd,		0600 },
 	{ "mouse",	QTFILE,	Qmouse,		0600 },
 	{ "screen",		QTFILE,	Qscreen,		0400 },
 	{ "snarf",		QTFILE,	Qsnarf,		0600 },

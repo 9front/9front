@@ -65,6 +65,7 @@ wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
 	w->cursorp = nil;
 	w->conswrite = chancreate(sizeof(Conswritemesg), 0);
 	w->consread =  chancreate(sizeof(Consreadmesg), 0);
+	w->kbdread =  chancreate(sizeof(Kbdreadmesg), 0);
 	w->mouseread =  chancreate(sizeof(Mousereadmesg), 0);
 	w->wctlread =  chancreate(sizeof(Consreadmesg), 0);
 	w->scrollr = r;
@@ -184,37 +185,42 @@ wclose(Window *w)
 void
 winctl(void *arg)
 {
-	Rune *rp, *bp, *tp, *up, *kbdr;
+	Rune *rp, *bp, *tp, *up;
 	uint qh;
 	int nr, nb, c, wid, i, npart, initial, lastb;
 	char *s, *t, part[3];
 	Window *w;
 	Mousestate *mp, m;
-	enum { WKey, WMouse, WMouseread, WCtl, WCwrite, WCread, WWread, NWALT };
+	enum { WKbd, WKbdread, WMouse, WMouseread, WCtl, WCwrite, WCread, WWread, NWALT };
 	Alt alts[NWALT+1];
 	Mousereadmesg mrm;
+	Kbdreadmesg krm;
 	Conswritemesg cwm;
 	Consreadmesg crm;
 	Consreadmesg cwrm;
 	Stringpair pair;
 	Wctlmesg wcm;
-	char buf[4*12+1];
+	char buf[4*12+1], *kbdq[8], *kbds;
+	int kbdqr, kbdqw;
 
 	w = arg;
 	snprint(buf, sizeof buf, "winctl-id%d", w->id);
 	threadsetname(buf);
 
 	mrm.cm = chancreate(sizeof(Mouse), 0);
+	krm.ck = chancreate(sizeof(char*), 0);
 	cwm.cw = chancreate(sizeof(Stringpair), 0);
 	crm.c1 = chancreate(sizeof(Stringpair), 0);
 	crm.c2 = chancreate(sizeof(Stringpair), 0);
 	cwrm.c1 = chancreate(sizeof(Stringpair), 0);
 	cwrm.c2 = chancreate(sizeof(Stringpair), 0);
 	
-
-	alts[WKey].c = w->ck;
-	alts[WKey].v = &kbdr;
-	alts[WKey].op = CHANRCV;
+	alts[WKbd].c = w->ck;
+	alts[WKbd].v = &kbds;
+	alts[WKbd].op = CHANRCV;
+	alts[WKbdread].c = w->kbdread;
+	alts[WKbdread].v = &krm;
+	alts[WKbdread].op = CHANSND;
 	alts[WMouse].c = w->mc.c;
 	alts[WMouse].v = &w->mc.Mouse;
 	alts[WMouse].op = CHANRCV;
@@ -235,21 +241,20 @@ winctl(void *arg)
 	alts[WWread].op = CHANSND;
 	alts[NWALT].op = CHANEND;
 
+	memset(kbdq, 0, sizeof(kbdq));
+	kbdqr = kbdqw = 0;
 	npart = 0;
 	lastb = -1;
 	for(;;){
-		if(w->mouseopen && w->mouse.counter != w->mouse.lastcounter)
-			alts[WMouseread].op = CHANSND;
-		else
-			alts[WMouseread].op = CHANNOP;
-		if(!w->scrolling && !w->mouseopen && w->qh>w->org+w->nchars)
-			alts[WCwrite].op = CHANNOP;
-		else
-			alts[WCwrite].op = CHANSND;
-		if(w->deleted || !w->wctlready)
-			alts[WWread].op = CHANNOP;
-		else
-			alts[WWread].op = CHANSND;
+		alts[WKbdread].op = (w->kbdopen && kbdqw != kbdqr) ?
+			CHANSND : CHANNOP;
+		alts[WMouseread].op = (w->mouseopen && w->mouse.counter != w->mouse.lastcounter) ? 
+			CHANSND : CHANNOP;
+		alts[WCwrite].op = (!w->scrolling && !w->mouseopen && w->qh>w->org+w->nchars) ?
+			CHANNOP : CHANSND;
+		alts[WWread].op = (w->deleted || !w->wctlready) ?
+			CHANNOP : CHANSND;
+
 		/* this code depends on NL and EOT fitting in a single byte */
 		/* kind of expensive for each loop; worth precomputing? */
 		if(w->holding)
@@ -267,13 +272,36 @@ winctl(void *arg)
 			}
 		}
 		switch(alt(alts)){
-		case WKey:
-			for(i=0; kbdr[i]!=L'\0'; i++)
-				wkeyctl(w, kbdr[i]);
-//			wkeyctl(w, r);
-///			while(nbrecv(w->ck, &r))
-//				wkeyctl(w, r);
+		case WKbd:
+			if(utflen(kbds) >= utflen(kbdq[kbdqw] ? kbdq[kbdqw] : "")){
+				Rune r;
+
+				i = 0;
+				r = 0;
+				while(kbds[i])
+					i += chartorune(&r, kbds+i);
+				wkeyctl(w, r);
+			}
+			if(w->kbdopen){
+				i = (kbdqw+1) % nelem(kbdq);
+				if(i != kbdqr)
+					kbdqw = i;
+			}
+			free(kbdq[kbdqw]);
+			kbdq[kbdqw] = kbds;
 			break;
+
+		case WKbdread:
+			i = (kbdqr+1) % nelem(kbdq);
+			if(kbdqr != kbdqw)
+				kbdqr = i;
+			if(kbdq[i]){
+				sendp(krm.ck, kbdq[i]);
+				kbdq[i] = nil;
+			}else
+				sendp(krm.ck, strdup(""));
+			continue;
+
 		case WMouse:
 			if(w->mouseopen) {
 				w->mouse.counter++;
@@ -309,9 +337,12 @@ winctl(void *arg)
 			continue;
 		case WCtl:
 			if(wctlmesg(w, wcm.type, wcm.r, wcm.image) == Exited){
+				for(i=0; i<nelem(kbdq); i++)
+					free(kbdq[i]);
 				chanfree(crm.c1);
 				chanfree(crm.c2);
 				chanfree(mrm.cm);
+				chanfree(krm.ck);
 				chanfree(cwm.cw);
 				chanfree(cwrm.c1);
 				chanfree(cwrm.c2);
@@ -560,8 +591,17 @@ wkeyctl(Window *w, Rune r)
 	Rune *rp;
 	int *notefd;
 
-	if(r == 0)
+	switch(r){
+	case 0:
+	case Kcaps:
+	case Knum:
+	case Kshift:
+	case Kalt:
+	case Kctl:
+	case Kaltgr:
 		return;
+	}
+
 	if(w->deleted)
 		return;
 	/* navigation keys work only when mouse is not open */
@@ -615,14 +655,14 @@ wkeyctl(Window *w, Rune r)
 		case Kend:
 			wshow(w, w->nr);
 			return;
-		case 0x01:	/* ^A: beginning of line */
+		case Ksoh:	/* ^A: beginning of line */
 			if(w->q0==0 || w->q0==w->qh || w->r[w->q0-1]=='\n')
 				return;
 			nb = wbswidth(w, 0x15 /* ^U */);
 			wsetselect(w, w->q0-nb, w->q0-nb);
 			wshow(w, w->q0);
 			return;
-		case 0x05:	/* ^E: end of line */
+		case Kenq:	/* ^E: end of line */
 			q0 = w->q0;
 			while(q0 < w->nr && w->r[q0]!='\n')
 				q0++;
@@ -634,29 +674,29 @@ wkeyctl(Window *w, Rune r)
 		waddraw(w, &r, 1);
 		return;
 	}
-	if(r==0x1B || (w->holding && r==0x7F)){	/* toggle hold */
+	if(r==Kesc || (w->holding && r==Kdel)){	/* toggle hold */
 		if(w->holding)
 			--w->holding;
 		else
 			w->holding++;
 		wrepaint(w);
-		if(r == 0x1B)
+		if(r == Kesc)
 			return;
 	}
-	if(r != 0x7F){
+	if(r != Kdel){
 		wsnarf(w);
 		wcut(w);
 	}
 	switch(r){
-	case 0x7F:		/* send interrupt */
+	case Kdel:	/* send interrupt */
 		w->qh = w->nr;
 		wshow(w, w->qh);
 		notefd = emalloc(sizeof(int));
 		*notefd = w->notefd;
 		proccreate(interruptproc, notefd, 4096);
 		return;
-	case 0x06:	/* ^F: file name completion */
-	case Kins:		/* Insert: file name completion */
+	case Kack:	/* ^F: file name completion */
+	case Kins:	/* Insert: file name completion */
 		rp = namecomplete(w);
 		if(rp == nil)
 			return;
@@ -666,9 +706,9 @@ wkeyctl(Window *w, Rune r)
 		wshow(w, q0+nr);
 		free(rp);
 		return;
-	case 0x08:	/* ^H: erase character */
-	case 0x15:	/* ^U: erase line */
-	case 0x17:	/* ^W: erase word */
+	case Kbs:	/* ^H: erase character */
+	case Knack:	/* ^U: erase line */
+	case Ketb:	/* ^W: erase word */
 		if(w->q0==0 || w->q0==w->qh)
 			return;
 		nb = wbswidth(w, r);
@@ -1122,6 +1162,7 @@ wctlmesg(Window *w, int m, Rectangle r, Image *i)
 		chanfree(w->consread);
 		chanfree(w->mouseread);
 		chanfree(w->wctlread);
+		chanfree(w->kbdread);
 		free(w->raw);
 		free(w->r);
 		free(w->dir);

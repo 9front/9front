@@ -33,6 +33,7 @@ void		refresh(Rectangle);
 void		resized(void);
 Channel	*exitchan;	/* chan(int) */
 Channel	*winclosechan; /* chan(Window*); */
+Channel *kbdchan;	/* chan(char*); */
 Rectangle	viewr;
 int		threadrforkflag = 0;	/* should be RFENVG but that hides rio from plumber */
 
@@ -41,6 +42,7 @@ void	keyboardthread(void*);
 void winclosethread(void*);
 void deletethread(void*);
 void	initcmd(void*);
+Channel* initkbd(void);
 
 char		*fontname;
 int		mainpid;
@@ -189,8 +191,8 @@ threadmain(int argc, char *argv[])
 	if(mousectl == nil)
 		error("can't find mouse");
 	mouse = mousectl;
-	keyboardctl = initkeyboard(nil);
-	if(keyboardctl == nil)
+	kbdchan = initkbd();
+	if(kbdchan == nil)
 		error("can't find keyboard");
 	wscreen = allocscreen(screen, background, 0);
 	if(wscreen == nil)
@@ -332,21 +334,12 @@ killprocs(void)
 void
 keyboardthread(void*)
 {
-	Rune buf[2][20], *rp;
-	int n, i;
+	char *s;
 
 	threadsetname("keyboardthread");
-	n = 0;
-	for(;;){
-		rp = buf[n];
-		n = 1-n;
-		recv(keyboardctl->c, rp);
-		for(i=1; i<nelem(buf[0])-1; i++)
-			if(nbrecv(keyboardctl->c, rp+i) <= 0)
-				break;
-		rp[i] = L'\0';
-		if(input != nil)
-			sendp(input->ck, rp);
+	while(s = recvp(kbdchan)){
+		if(input == nil || sendp(input->ck, s) <= 0)
+			free(s);
 	}
 }
 
@@ -356,15 +349,22 @@ keyboardthread(void*)
 void
 keyboardsend(char *s, int cnt)
 {
-	Rune *r;
-	int i, nb, nr;
+	if(cnt <= 0)
+		return;
+	if(s[cnt-1] == 0)
+		chanprint(kbdchan, "%s", s);
+	else {
+		Rune *r;
+		int i, nb, nr;
 
-	r = runemalloc(cnt);
-	/* BUGlet: partial runes will be converted to error runes */
-	cvttorunes(s, cnt, r, &nb, &nr, nil);
-	for(i=0; i<nr; i++)
-		send(keyboardctl->c, &r[i]);
-	free(r);
+		r = runemalloc(cnt);
+		cvttorunes(s, cnt, r, &nb, &nr, nil);
+		for(i=0; i<nr; i++){
+			chanprint(kbdchan, "%C", r[i]);
+			chanprint(kbdchan, "");
+		}
+		free(r);
+	}
 }
 
 int
@@ -1141,7 +1141,7 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 	if(i == nil)
 		return nil;
 	cm = chancreate(sizeof(Mouse), 0);
-	ck = chancreate(sizeof(Rune*), 0);
+	ck = chancreate(sizeof(char*), 0);
 	cctl = chancreate(sizeof(Wctlmesg), 4);
 	cpid = chancreate(sizeof(int), 0);
 	if(cm==nil || ck==nil || cctl==nil)
@@ -1188,4 +1188,79 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 		w->dir = estrdup(dir);
 	chanfree(cpid);
 	return w;
+}
+
+static void
+kbdioproc(void *arg)
+{
+	Channel *c = arg;
+	char buf[128], *p, *e;
+	int fd, cfd, kfd, n;
+
+	threadsetname("kbdioproc");
+
+	if((fd = open("/dev/cons", OREAD)) < 0){
+		chanprint(c, "%r");
+		return;
+	}
+	if((cfd = open("/dev/consctl", OWRITE)) < 0){
+		chanprint(c, "%r");
+		return;
+	}
+	fprint(cfd, "rawon");
+
+	if(sendp(c, nil) <= 0){
+		close(cfd);
+		close(fd);
+		return;
+	}
+
+	if((kfd = open("/dev/kbd", OREAD)) >= 0){
+		close(fd);
+
+		/* read kbd state */
+		while((n = read(kfd, buf, sizeof(buf))) > 0)
+			chanprint(c, "%.*s", n, buf);
+		close(kfd);
+	} else {
+		/* read single characters */
+		p = buf;
+		for(;;){
+			Rune r;
+
+			e = buf + sizeof(buf);
+			if((n = read(fd, p, e-p)) <= 0)
+				break;
+			e = p + n;
+			while(p < e && fullrune(p, e - p)){
+				p += chartorune(&r, p);
+				chanprint(c, "%C", r);
+				chanprint(c, "");
+			}
+			n = e - p;
+			if(n > 0){
+				memmove(buf, p, n);
+				p = buf + n;
+			}
+		}
+		close(fd);
+	}
+	close(cfd);
+}
+
+Channel*
+initkbd(void)
+{
+	Channel *c;
+	char *err;
+
+	c = chancreate(sizeof(char*), 16);
+	proccreate(kbdioproc, c, STACK);
+	if(err = recvp(c)){
+		chanfree(c);
+		werrstr(err);
+		free(err);
+		return nil;
+	}
+	return c;
 }
