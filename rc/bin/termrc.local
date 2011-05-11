@@ -1,5 +1,5 @@
 #!/bin/rc
-# local terminal startup
+# the 9pcf kernel runs this file
 
 # used only by upas, as default return domain appended to all unqualified
 # return addresses, even local ones

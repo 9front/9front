@@ -1,5 +1,7 @@
 #!/bin/rc
 
+echo scroll > /dev/wctl
+
 cd /bin/inst
 . defs
 

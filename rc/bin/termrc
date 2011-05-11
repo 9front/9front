@@ -1,5 +1,6 @@
 #!/bin/rc
-# terminal startup
+# the 9pcf kernel runs this file
+
 TIMESYNCARGS=(-rLa1000000)
 NDBFILE=/lib/ndb/local
 

@@ -30,7 +30,7 @@ case go
 			echo 'monitor='^$monitor
 			echo 'vgasize='^$vgasize
 			if(test -f '#ec/*nomp')
-				echo '*nomp='
+				echo '*nomp=1'
 		} >/tmp/plan9.ini
 	}
 

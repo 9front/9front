@@ -1,9 +1,5 @@
 #!/bin/rc
-# terminal-specific startup
-
-# Since booting from venti could have started loopback,
-# don't test for existing interfaces, just use ipconfig.
-# ip/ipconfig -g your-gateway ether /net/ether0 your-ip-address your-subnet-mask
+# the 9pcf kernerl runs this file
 
 # example: adjust to fit your network
 #ip/ipconfig -g 192.168.0.1 ether /net/ether0 192.168.0.2 255.255.255.0
