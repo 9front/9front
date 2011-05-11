@@ -12,7 +12,7 @@ kbdfs \- keyboard and console filesystem
 .B -m
 .I mntpnt
 ] [
-.I consfile
+.I filename
 ]
 .nf
 
@@ -61,8 +61,7 @@ The
 option causes
 .IR kbdfs
 to post its channel on
-.B /srv/
-.I srv.
+.B /srv/\fIsrv\fP.
 On system startup,
 .IR boot (8)
 sets this to
@@ -71,13 +70,13 @@ With the
 .B -m
 option,
 .IR kbdfs
-mounts itself before (see
-.IR bind (2))
-on
+mounts itself on
 .I mntpnt
+(see
+.IR bind (2)),
 otherwise on
 .B /dev
-(default).
+(the default).
 .SS Console
 .PP
 Reading the
@@ -102,7 +101,7 @@ encoding (see
 .IR utf (6))
 before putting them into the buffer. A
 .IR read (2)
-of length greater than zero causes the process to wait until a newline
+of a length greater than zero causes the process to wait until a newline
 or a
 .LR ^D
 ends the buffer, and then returns as much of the buffer as the
@@ -141,11 +140,11 @@ to
 .BR cons
 causes the characters to be printed on the console screen.
 .PP
-When
+When a
+.I filename
+is passed to
 .IR kbdfs (8)
-gets a
-.I consfile
-passed as its last argument, it reads and processes the
+as its last argument, it reads and processes the
 characters from that file and forwards them to the
 .BR cons
 file with the same text processing applied as on keyboard input.
@@ -153,7 +152,7 @@ This is used on serial consoles.
 .SS Keyboard
 A read on the
 .BR kbd
-file returns a null terminated variable-length
+file returns a null terminated, variable-length,
 .SM UTF
 encoded string of all the keys that are currently pressed (key is
 down) on the keyboard.  This includes all keys that have a keyboard
@@ -162,17 +161,17 @@ is generated on each state change or at keyboard repeat rate and put
 in a buffer. Each
 .IR read (2)
 will return a single event or block until there are new events
-available.  There always will be a null-byte at the end of the read
-data, so when all keys are released (all keys are up), a single
-null-byte will be returned.  New pressed keys are appended to the
-string at the end before the null-byte.  Key releases remove the
-character from the string.  Change on modifier keys like
+available.  The read data is always terminated with a null-byte,
+so when all keys are released (all keys are up), a single
+null-byte will be returned.  Newly pressed keys are appended to the
+string before the null-byte.  Key releases remove the
+character from the string.  Change on a modifier key like
 .B Shift
 or
 .B Num
 will not change
-the characters in the string of keys already pressed down, but take
-effect on newly pressed keys.
+the characters already present in the string, but will
+take effect on newly pressed keys.
 .PP
 Raw scancodes can be written to the
 .BR kbin
