@@ -1232,7 +1232,7 @@ kbdproc(void *arg)
 			Rune r;
 
 			e = buf + sizeof(buf);
-			if((n = read(fd, p, e-p)) <= 0)
+			if((n = read(fd, p, e-p)) < 0)
 				break;
 			e = p + n;
 			while(p < e && fullrune(p, e - p)){
