@@ -8,6 +8,8 @@ import base64
 class factotumbasic(urllib2.BaseHandler):
 	def __init__(self, passmgr=None):
 		self.f = factotum.Factotum()
+		self.retried = 0
+		self.auth = None
 	def http_error_401(self, req, fp, code, msg, headers):
 		host = urllib2.urlparse.urlparse(req.get_full_url())[1]
 		authreq = headers.get('www-authenticate', None)
@@ -16,13 +18,23 @@ class factotumbasic(urllib2.BaseHandler):
 		if authreq[0].lower() != 'basic': return None
 		chal = urllib2.parse_keqv_list(urllib2.parse_http_list(authreq[1]))
 		realm = chal['realm']
+		self.auth = (host, realm)
+		self.retried += 1
+		if self.retried >= 3:
+			self.f.delkey(proto="pass", host=host, realm=realm, role="client")
 		self.f.start(proto="pass", host=host, realm=realm, role="client")
 		pw = self.f.read().replace(' ', ':', 1)
 		val = 'Basic %s' % base64.b64encode(pw).strip()
 		if req.headers.get('Authorization', None) == val: return None
 		req.add_header('Authorization', val)
-		return self.parent.open(req)
-
+		result = self.parent.open(req)
+		self.retried = 0
+		return result
+	def http_error_403(self, req, fp, code, msg, headers):
+		if self.auth != None:
+			self.f.delkey(proto="pass", host=self.auth[0], realm=self.auth[1], role="client")
+			self.auth = None
+		
 class factotumdigest(urllib2.BaseHandler):
 	auth_header = 'Authorization'
 	handler_order = 490
