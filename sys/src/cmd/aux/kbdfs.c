@@ -21,7 +21,7 @@ enum {
 	Rawoff,
 	Kbdflush,
 
-	STACKSZ = 8*1024,
+	STACK = 8*1024,
 };
 
 typedef struct Key Key;
@@ -51,33 +51,34 @@ struct Qtab {
 	int type;
 } qtab[Nqid] = {
 	"/",
-		DMDIR|0555,
+		DMDIR|0500,
 		QTDIR,
 
 	"kbd",
-		0666,
+		0600,
 		0,
 
 	"kbin",
-		0222,	
+		0200,	
 		0,
 
 	"kbmap",
-		0666,	
+		0600,	
 		0,
 
 	"cons",
-		0666,	
+		0600,	
 		0,
 
 	"consctl",
-		0666,
+		0600,
 		0,
 };
 
 char Eshort[] = "read count too small";
 char Ebadarg[] = "invalid argument";
 char Eperm[] = "permission denied";
+char Einuse[] = "file in use";
 char Enonexist[] = "file does not exist";
 char Ebadspec[] = "bad attach specifier";
 char Ewalk[] = "walk in non directory";
@@ -91,6 +92,9 @@ int echofd;
 
 int kbdopen;
 int consopen;
+int consctlopen;
+
+int debug;
 
 Channel *keychan;	/* Key */
 
@@ -491,12 +495,12 @@ ctlproc(void *)
 	cook = chancreate(sizeof(Rune), 0);
 
 	if(scanfd >= 0)
-		proccreate(scanproc, nil, STACKSZ);
+		proccreate(scanproc, nil, STACK);
 	if(consfd >= 0)
-		proccreate(consproc, nil, STACKSZ);
+		proccreate(consproc, nil, STACK);
 
-	threadcreate(keyproc, nil, STACKSZ);
-	threadcreate(lineproc, cook, STACKSZ);
+	threadcreate(keyproc, nil, STACK);
+	threadcreate(lineproc, cook, STACK);
 
 	raw = 0;
 
@@ -569,8 +573,7 @@ ctlproc(void *)
 			switch(c){
 			case Rawoff:
 			case Rawon:
-				raw = (c == Rawon);
-				if(raw){
+				if(raw = (c == Rawon)){
 					while(s = nbrecvp(linechan))
 						free(s);
 					r = '\0';
@@ -757,14 +760,36 @@ kbmapwrite(Req *req)
  * Filesystem
  */
 
+static char*
+getauser(void)
+{
+	static char user[64];
+	int fd;
+	int n;
+
+	if(*user)
+		return user;
+	if((fd = open("/dev/user", OREAD)) < 0)
+		strcpy(user, "none");
+	else {
+		n = read(fd, user, (sizeof user)-1);
+		close(fd);
+		if(n < 0)
+			strcpy(user, "none");
+		else
+			user[n] = 0;
+	}
+	return user;
+}
+
 static int
 fillstat(ulong qid, Dir *d)
 {
 	struct Qtab *t;
 
 	memset(d, 0, sizeof *d);
-	d->uid = "kbd";
-	d->gid = "kbd";
+	d->uid = getauser();
+	d->gid = getauser();
 	d->muid = "";
 	d->qid = (Qid){qid, 0, 0};
 	d->atime = time(0);
@@ -839,20 +864,25 @@ fsopen(Req *r)
 
 	f = r->fid;
 	t = qtab + f->qid.path;
-	n = need[r->ifcall.mode & 3];
+	n = need[r->ifcall.mode & 3]<<6;
 	if((n & t->mode) != n)
 		respond(r, Eperm);
 	else{
 		f->aux = nil;
 		switch((ulong)f->qid.path){
 		case Qkbd:
-			if(kbdopen++ == 0)
-				sendul(ctlchan, Kbdflush);
+			if(kbdopen){
+				respond(r, Einuse);
+				return;
+			}
+			kbdopen++;
+			sendul(ctlchan, Kbdflush);
 			break;
 		case Qcons:
+			consopen++;
+			break;
 		case Qconsctl:
-			if(consopen++ == 0)
-				sendul(ctlchan, Rawoff);
+			consctlopen++;
 			break;
 		}
 		respond(r, nil);
@@ -994,8 +1024,11 @@ fsdestroyfid(Fid *f)
 			kbdopen--;
 			break;
 		case Qcons:
-		case Qconsctl:
 			consopen--;
+			break;
+		case Qconsctl:
+			if(--consctlopen == 0)
+				sendul(ctlchan, Rawoff);
 			break;
 		}
 }
@@ -1023,6 +1056,9 @@ reboot(void)
 {
 	int fd;
 
+	if(debug)
+		return;
+
 	if((fd = open("/dev/reboot", OWRITE)) < 0){
 		fprint(2, "can't open /dev/reboot: %r\n");
 		return;
@@ -1037,6 +1073,9 @@ elevate(void)
 	char buf[128];
 	Dir *d, nd;
 	int fd;
+
+	if(debug)
+		return;
 
 	snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
 	if((fd = open(buf, OWRITE)) < 0){
@@ -1065,7 +1104,7 @@ elevate(void)
 void
 usage(void)
 {
-	fprint(2, "usage: kbdfs [-m mntpnt]\n");
+	fprint(2, "usage: %s [ -dD ] [ -s srv ] [ -m mntpnt ] [ file ]\n", argv0);
 	exits("usage");
 }
 
@@ -1074,40 +1113,39 @@ threadmain(int argc, char** argv)
 {
 	char *mtpt = "/dev";
 	char *srv = nil;
-	char *cons = nil;
 
 	consfd = -1;
 	echofd = 1;
 
 	ARGBEGIN{
+	case 'd':
+		debug++;
+		break;
 	case 'D':
 		chatty9p++;
-		break;
-	case 'm':
-		mtpt = EARGF(usage());
 		break;
 	case 's':
 		srv = EARGF(usage());
 		break;
-	case 'c':
-		cons = EARGF(usage());
+	case 'm':
+		mtpt = EARGF(usage());
 		break;
 	default:
 		usage();
 	}ARGEND
 
 	if((scanfd = open("/dev/scancode", OREAD)) < 0)
-		fprint(2, "can't open /dev/scancode: %r\n");
+		fprint(2, "%s: warning: can't open /dev/scancode: %r\n", argv0);
 	if((ledsfd = open("/dev/leds", OWRITE)) < 0)
-		fprint(2, "can't open /dev/leds: %r\n");
+		fprint(2, "%s: warning: can't open /dev/leds: %r\n", argv0);
 
-	if(cons){
-		if((consfd = open(cons, ORDWR)) < 0)
-			fprint(2, "can't open %s: %r\n", cons);
+	if(*argv){
+		if((consfd = open(*argv, ORDWR)) < 0)
+			fprint(2, "%s: warning: can't open %s: %r\n", argv0, *argv);
 		else
 			echofd = consfd;
-	}	
-	
+	}
+
 	keychan = chancreate(sizeof(Key), 8);
 	reqchan = chancreate(sizeof(Req*), 0);
 	ctlchan = chancreate(sizeof(int), 0);
@@ -1115,9 +1153,10 @@ threadmain(int argc, char** argv)
 	linechan = chancreate(sizeof(char*), 16);
 	kbdchan = chancreate(sizeof(char*), 16);
 
+	if(!(keychan && reqchan && ctlchan && rawchan && linechan && kbdchan))
+		sysfatal("allocating chans");
+
 	elevate();
-
-	procrfork(ctlproc, nil, STACKSZ, RFNAMEG|RFNOTEG);
-
+	procrfork(ctlproc, nil, STACK, RFNAMEG|RFNOTEG);
 	threadpostmountsrv(&fs, srv, mtpt, MBEFORE);
 }
