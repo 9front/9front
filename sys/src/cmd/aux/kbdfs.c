@@ -586,7 +586,7 @@ ctlproc(void *)
 				s = emalloc9p(UTFmax+1);
 				s[runetochar(s, &r)] = 0;
 			} else {
-				send(cook, &r);
+				nbsend(cook, &r);
 				break;
 			}
 			/* no break */
