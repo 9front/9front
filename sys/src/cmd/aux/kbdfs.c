@@ -462,15 +462,6 @@ lineproc(void *aux)
 	}
 }
 
-enum {
-	Areq,
-	Actl,
-	Araw,
-	Aline,
-	Akbd,
-	Aend,
-};
-
 /*
  * Queue reads to cons and kbd, flushing and
  * relay data between 9p and rawchan / kbdchan.
@@ -482,6 +473,7 @@ ctlproc(void *)
 		Req *h;
 		Req **t;
 	} qcons, qkbd, *q;
+	enum { Areq, Actl, Araw, Aline, Akbd, Aend };
 	Alt a[Aend+1];
 	Req *req;
 	Fid *fid;
@@ -635,6 +627,7 @@ ctlproc(void *)
 					respond(req, nil);
 				}
 			}
+			free(s);
 			break;
 		}
 	}
