@@ -22,14 +22,14 @@ for the system; typing 'q' quits.
 requires that the file
 .B /dev/kbmap
 served by 
-.IR kbmap (3)
+.IR kbdfs (8)
 exists and is writable.
 ..SH FILES
 .TF /lib/kbmap/*
 .SH SOURCE
 .B /sys/src/cmd/kbmap.c
 .SH "SEE ALSO"
-.IR kbmap (3)
+.IR kbdfs (8)
 .SH BUGS
 Not all keyboards map the entire set of characters, so one has to
 switch back to the default map before changing to another.

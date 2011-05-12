@@ -1,0 +1,222 @@
+.TH KBDFS 8
+.SH NAME
+kbdfs \- keyboard and console filesystem
+.SH SYNOPSIS
+.B aux/kbdfs
+[
+.B -Dd
+] [
+.B -s
+.I srv
+] [
+.B -m
+.I mntpnt
+] [
+.I consfile
+]
+.nf
+
+.B mount -b /srv/cons /dev
+.B /dev/cons
+.B /dev/consctl
+.B /dev/kbd
+.B /dev/kbin
+.B /dev/kbmap
+.fi
+.SH DESCRIPTION
+.PP
+Started on 
+.IR boot (8),
+.IR kbdfs
+translates raw keyboard scancodes from 
+.B /dev/scancode
+(see
+.IR kbd (3))
+and its
+.BR kbin
+file and optionaly reads console input from
+.I consfile
+to provide initial keyboard and console input.
+.PP
+It serves a one-level directory containing the files
+.BR cons,
+.BR consctl,
+.BR kbd,
+.BR kbin
+and
+.BR kbmap.
+.PP
+The
+.B -D
+flag enables a debug trace of
+.I 9p
+messages and
+.B -d
+prevents 
+.IR kbdfs
+from making its memory private.
+.PP
+The
+.B -s
+option causes
+.IR kbdfs
+to post its channel on
+.B /srv/
+.I srv.
+On system startup,
+.IR boot (8)
+sets this to
+.B cons.
+With the
+.B -m
+option,
+.IR kbdfs
+mounts itself before (see
+.IR bind (2))
+on
+.I mntpnt
+otherwise on
+.B /dev
+(default).
+.SS Console
+.PP
+Reading the
+.BR cons
+file returns characters typed on the console.  Normally, characters
+are buffered to enable erase and kill processing.  A control-U, 
+.LR ^U ,
+typed at the keyboard
+.I kills
+the current input line (removes all
+characters from the buffer of characters not yet read via cons), and a
+backspace
+.I erases
+the previous non-kill, non-erase character from the
+input buffer.  Killing and erasing only delete characters back to, but
+not including, the last newline.  Characters typed at the keyboard
+actually produce 16-bit runes (see
+.IR utf (6)),
+but the runes are translated into the variable-length
+.SM UTF
+encoding (see
+.IR utf (6))
+before putting them into the buffer. A
+.IR read (2)
+of length greater than zero causes the process to wait until a newline
+or a
+.LR ^D
+ends the buffer, and then returns as much of the buffer as the
+argument to read allows, but only up to one complete line.  A
+terminating
+.LR ^D
+is not put into the buffer.  If part of the line remains, the next
+read will return bytes from that remainder and not part of any new
+line that has been typed since.
+.PP
+If the string
+.B rawon
+has been written to the
+.BR consctl
+file and the file
+is still open,
+.BR cons
+is in
+.IR "raw mode" :
+characters are not echoed as they are typed,
+backspace,
+.L ^U
+and
+.L ^D
+are not treated specially, and characters are
+available to read as soon as they are typed.  Ordinary mode is
+reentered when
+.B rawoff
+is written to
+.BR consctl
+or this file is closed.
+.PP
+A write (see 
+.IR read (2))
+to
+.BR cons
+causes the characters to be printed on the console screen.
+.PP
+When
+.IR kbdfs (8)
+gets a
+.I consfile
+passed as its last argument, it reads and processes the
+characters from that file and forwards them to the
+.BR cons
+file with the same text processing applied as on keyboard input.
+This is used on serial consoles.
+.SS Keyboard
+A read on the
+.BR kbd
+file returns a null terminated variable-length
+.SM UTF
+encoded string of all the keys that are currently pressed (key is
+down) on the keyboard.  This includes all keys that have a keyboard
+mapping and modifier keys.  No key is treated specially. A new event
+is generated on each state change or at keyboard repeat rate and put
+in a buffer. Each
+.IR read (2)
+will return a single event or block until there are new events
+available.  There always will be a null-byte at the end of the read
+data, so when all keys are released (all keys are up), a single
+null-byte will be returned.  New pressed keys are appended to the
+string at the end before the null-byte.  Key releases remove the
+character from the string.  Change on modifier keys like
+.B Shift
+or
+.B Num
+will not change
+the characters in the string of keys already pressed down, but take
+effect on newly pressed keys.
+.PP
+Raw scancodes can be written to the
+.BR kbin
+file for external keyboard input (used for usb keyboards).
+.SS "Keyboard map"
+Scancodes are maped to Unicode characters with a number of
+translation tables. These tables can be accessed with the
+.BR kbmap
+file.
+.PP
+Reads return the current contents of the map.
+Each entry is one line containing three 11 character numeric fields,
+each followed by a space:
+a table number, an index into the table (scan code), and the decimal value
+of the corresponding Unicode character (0 if none).
+The table numbers are platform dependent; they typically distinguish
+between unshifted and shifted keys.
+The scan code values are hardware dependent and can vary
+from keyboard to keyboard.
+.PP
+Writes to the file change the map.
+Lines written to the file must contain three space-separated fields,
+representing the table number, scan code index, and Unicode character.
+Values are taken to be decimal unless they start with
+.B 0x
+(hexadecimal) or
+.B 0
+(octal).
+The Unicode character can also be represented as
+.BI ' x
+where
+.I x
+gives the UTF-8 representation of the character
+(see
+.IR utf (6)),
+or as 
+.BI ^ X
+to represent a control character.
+.SH "SEE ALSO"
+.IR cons (3),
+.IR keyboard (6),
+.IR utf (6),
+.IR kbd (3)
+.SH FILES
+.B /dev/lib/kbmap/*
+.SH SOURCE
+.B /sys/src/cmd/aux/kbdfs.c

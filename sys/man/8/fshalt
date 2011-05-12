@@ -11,13 +11,13 @@ fshalt, reboot \- halt any local file systems and optionally reboot the system
 .SH DESCRIPTION
 .I Fshalt
 syncs all local
-.IR fossil (4),
+.IR cwfs (4),
 .IR venti (8),
 and
 .IR kfs (4)
 servers,
 then halts all local
-.IR fossil
+.IR cwfs
 and
 .IR kfs
 servers.

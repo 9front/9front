@@ -175,7 +175,9 @@ supports USB keyboards and mice either as separate USB devices
 or as a single combined USB device.
 Scan codes from the keyboard are sent to
 .B /dev/kbin
-to let the kernel process them.
+to let
+.IR kbdfs (8)
+process them.
 Mouse events are sent to
 .B /dev/mousein
 in the same way.
@@ -487,13 +489,13 @@ at once, with one action per line.
 .SH SOURCE
 .B /sys/src/cmd/usb
 .SH "SEE ALSO"
-.IR kbin (3),
 .IR mouse (3),
 .IR sd (3),
 .IR uart (3),
 .IR usb (3),
 .IR usbd (4),
-.IR partfs (8)
+.IR partfs (8),
+.IR kbdfs (8)
 .SH BUGS
 The various device drivers are generic USB drivers and
 may work only for certain devices on each class.

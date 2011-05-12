@@ -8,7 +8,6 @@ cons \- console, clocks, process/process group ids, user, null, reboot, etc.
 .B /dev/bintime
 .B /dev/config
 .B /dev/cons
-.B /dev/consctl
 .B /dev/cputime
 .B /dev/drivers
 .B /dev/hostdomain
@@ -31,73 +30,8 @@ cons \- console, clocks, process/process group ids, user, null, reboot, etc.
 .fi
 .SH DESCRIPTION
 The console device serves a one-level directory
-giving access to the console and
+giving access to the console screen and
 miscellaneous information.
-.PP
-Reading the
-.B cons
-file returns characters typed on the keyboard.
-Normally, characters are buffered to enable erase and kill processing.
-A control-U,
-.LR ^U ,
-typed at the keyboard
-.I kills
-the current input line (removes all characters
-from the buffer of characters
-not yet read via
-.BR cons ),
-and a backspace
-.I erases
-the previous non-kill, non-erase character from the input buffer.
-Killing and erasing only delete characters back to, but not including,
-the last newline.
-Characters typed at the keyboard actually produce 16-bit runes (see
-.IR utf (6)),
-but the runes are translated into the variable-length
-.SM UTF
-encoding (see
-.IR utf (6))
-before putting them into the buffer.
-A
-.IR read (2)
-of length greater than zero causes the process to wait until a
-newline or a
-.L ^D
-ends the buffer, and then returns as much of the buffer as the argument
-to
-.B read
-allows, but only up to one complete line.
-A terminating
-.L ^D
-is not put into the buffer.
-If part of the line remains, the next
-.B read
-will return bytes from that remainder and not part of any new line
-that has been typed since.
-.PP
-If
-the string
-.B rawon
-has been written to the
-.B consctl
-file and the file is still open,
-.B cons
-is in
-.IR "raw mode" :
-characters are not echoed as they are typed,
-backspace,
-.L ^U
-and
-.L ^D
-are not treated specially,
-and characters are available to
-.I read
-as soon as they are typed.
-Ordinary mode is reentered when
-.B rawoff
-is written to
-.B consctl
-or this file is closed.
 .PP
 A
 .I write
@@ -105,7 +39,9 @@ A
 .IR read (2))
 to
 .B cons
-causes the characters to be printed on the console screen.
+causes the characters to be printed on the console screen. Console
+input is handled by a different program (see
+.IR kbdfs (8)).
 .PP
 The
 .B osversion
@@ -352,29 +288,11 @@ process number
 parent's process number
 .SH SEE ALSO
 .IR draw (3),
+.IR kbd (3),
+.IR kbdfs (8),
 .IR keyboard (6),
 .IR authsrv (6),
 .IR utf (6),
 .IR swap (8)
 .SH SOURCE
 .B /sys/src/9/port/devcons.c
-.SH BUGS
-For debugging, two control-T's followed by a letter
-generate console output and manage debugging:
-.L ^T^Td
-toggles whether the console debugger will be run if the system fails.
-.L ^T^TD
-starts the console debugger immediately.
-.L ^T^Tk
-kills the largest process; use with care.
-.L ^T^Tp
-prints data about processes.
-.L ^T^Tq
-prints the run queue for processor 0.
-.L ^T^Ts
-prints the kernel stack.
-.L ^T^Tx
-prints data about kernel memory allocation.
-.PP
-The system can be rebooted by typing
-.LR ^T^Tr .

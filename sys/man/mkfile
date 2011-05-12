@@ -13,7 +13,7 @@ indices:V:
 	$LIB/mksearchindex > searchindex	# index for man2html searches
 
 permind:V:
-	rm -f /sys/lib/man/permind/toc
+	rm -f $LIB/permind/toc
 	{
 		echo .am TH
 		echo .tm '\\$1' '\\$2' '\\n%'
@@ -35,7 +35,7 @@ permind:V:
 				}
 			builtin cd ..
 		}
-	} | troff -$MAN > /dev/null >[2] /sys/lib/man/permind/toc
+	} | troff -$MAN > /dev/null >[2] $LIB/permind/toc
 	builtin cd $LIB/permind
 	rm -f out
 	mk out > /dev/null >[2] /dev/null
@@ -116,6 +116,6 @@ print.out:V: permind
 	ps2pdf $prereq $target
 
 clean:V:
-	rm -f man.out print.out searchindex $LIB/lookman/index [0-8]^/INDEX^('' .html)
+	rm -f man.out print.out searchindex $LIB/permind/toc $LIB/lookman/index [0-8]^/INDEX^('' .html)
 	builtin cd $LIB/permind
 	mk clean

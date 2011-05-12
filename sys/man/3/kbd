@@ -1,0 +1,43 @@
+.TH KBD 3 
+.SH NAME
+kbd \- pc keyboard driver
+.SH SYNOPSIS
+.nf
+.B bind -a #b /dev
+
+.B /dev/scancode
+.B /dev/leds
+.fi
+.SH DESCRIPTION
+.PP
+The
+.I kbd
+device serves a one-level directory containing the files
+.BR scancode
+and
+.BR leds .
+.PP
+Reading the
+.BR scancode
+file returns the raw scancode stream as it is emited by the keyboard
+device without any translation. It is usualy
+.IR kbdfs (8)
+task to interpret the scancodes and provide device independent
+keyboard input to programs. The
+.BR scancode
+file can be only opend once by the hostowner.
+.PP
+Writing a number to the write only 
+.BR leds
+file changes the status leds on the keyboard. the value of the
+number is the addition of 1, 2 and 4 representing activated
+Scroll, Num and Caps leds.
+.SH EXAMPLE 
+Set the Scroll and Caps leds:
+.EX
+echo 5 >/dev/leds
+.EE
+.SH "SEE ALSO"
+.IR kbdfs (8)
+.SH SOURCE
+.B /sys/src/9/pc/devkbd.c

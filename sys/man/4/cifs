@@ -170,7 +170,7 @@ DNS paths are usually assigned dynamicially as a form of load balancing.
 .B /sys/src/cmd/cifs
 .SH SEE ALSO
 .IR factotum (4),
-.IR aquarela (8)
+.IR cifsd (8)
 .SH BUGS
 NetApp Filer compatibility has not yet been tested; there may not be any.
 .PP
@@ -182,7 +182,6 @@ NetBios name resolution is not supported, though it is now rarely used.
 .PP
 .I Cifs
 has only been tested against
-.IR aquarela (8),
-Windows 95, NT4.0sp6,
+aquarela, Windows 95, NT4.0sp6,
 Windows server 2003, WinXP pro, Samba 3.0, and Samba 2.0 (Pluto VideoSpace).
 No support is attempted for servers predating NT 4.0.

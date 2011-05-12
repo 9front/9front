@@ -132,10 +132,15 @@ A
 .IR cfs (4)
 file system cache.
 .TP
-.B fossil
+.B fscahe
 A
-.IR fossil (4)
-file system.
+.IR cwfs (4)
+worm cache partition.
+.TP
+.B fsworm
+A
+.IR cwfs (4)
+worm filesystem.
 .TP
 .B fs
 A
@@ -157,7 +162,7 @@ A one-sector partition used to simulate non-volatile RAM on PCs.
 .TP
 .B other
 A non-archived
-.IR fossil (4)
+.IR cwfs (4)
 file system.
 .TP
 .B swap
@@ -583,13 +588,6 @@ listed are added, in order,
 to the root
 directory of the FAT file system.  The files are
 contiguously allocated.
-If a file is named
-.BR 9load ,
-it will be created with the
-.B SYSTEM
-attribute set so that
-.IR dossrv (4)
-keeps it contiguous when modifying it.
 .PP
 .I Format
 checks for a number of common mistakes; in particular,
@@ -623,15 +621,11 @@ It gets loaded by the BIOS at 0x7C00,
 reads the first sector of the
 root directory into address 0x7E00, and looks for
 a directory entry named
-.BR 9LOAD .
+.BR 9BOOTFAT .
 If it finds such an entry,
 it uses
-single sector reads to load the file into address 0x10000 and then
+single sector reads to load the file into address 0x7C00 and then
 jumps to the loaded file image.
-The file
-.B /386/pbslba
-is similar, but because it uses LBA addressing (not supported
-by older BIOSes), it can access more than the first 8.5GB of the disk.
 .PP
 .I Mbr
 installs a new boot block in sector 0 (the master boot record)
@@ -652,7 +646,7 @@ partition and then executes the boot block for
 that partition.
 The partition boot block then loads a bootstrap
 program such as
-.IR 9load (8),
+.IR 9boot (8),
 which then loads the operating system.
 If MS-DOS or Windows 9[58] is already installed
 on your hard disk, the master boot record
@@ -691,38 +685,15 @@ for(disk in /dev/sd??) {
 }
 .EE
 .PP
-Create a Plan 9 boot floppy on a previously formatted diskette.
-.IP
-.EX
-disk/format -b /386/pbs -df /dev/fd0disk \e
-	/386/9load /tmp/plan9.ini /386/9pcf.gz
-.EE
-.PP
 Initialize the blank hard disk
 .BR /dev/sdC0/data .
 .IP
 .EX
 disk/mbr -m /386/mbr /dev/sdC0/data
 disk/fdisk -baw /dev/sdC0/data
-disk/prep -bw -a^(9fat nvram fossil cache swap) /dev/sdC0/plan9
-disk/format -b /386/pbslba -d -r 2 /dev/sdC0/9fat \e
-	/386/9load /386/9pcf /tmp/plan9.ini
-.EE
-.PP
-Create a bootable USB disk or flash-memory device to be booted
-via the BIOS and containing only a FAT Plan 9 partition.
-.IP
-.EX
-mount /srv/usb /n/usb
-ls -d /n/usb/sdU*		# note the name, normally sdU0.0
-disk/partfs /n/usb/sdU0.0/data
-cd /dev/sdXX
-disk/mbr -m /386/mbr data
-disk/fdisk -baw data
-disk/prep -bw -a^(9fat nvram fossil) plan9
-cp /386/9loadusb /tmp/9load  # force format to use the name `9load'
-disk/format -b /386/pbslba -d -r 2 9fat /tmp/9load \e
-	/386/9pccpuf /tmp/plan9.ini
+disk/prep -bw -a^(9fat nvram fscache fsworm other swap) /dev/sdC0/plan9
+disk/format -b /386/pbs -d -r 2 /dev/sdC0/9fat \e
+	/386/9bootfat /386/9pcf /tmp/plan9.ini
 .EE
 .SH FILES
 .TF /386/mbr.bootmgr
@@ -746,7 +717,7 @@ compilable on (l)unix
 .IR floppy (3),
 .IR sd (3),
 .IR usb (4),
-.IR 9load (8),
+.IR 9boot (8),
 .IR partfs (8)
 .SH BUGS
 .I Format
