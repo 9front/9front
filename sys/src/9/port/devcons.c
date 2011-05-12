@@ -32,6 +32,7 @@ enum
 	CMhalt,
 	CMreboot,
 	CMpanic,
+	CMrdb,
 };
 
 Cmdtab rebootmsg[] =
@@ -39,6 +40,7 @@ Cmdtab rebootmsg[] =
 	CMhalt,		"halt",		1,
 	CMreboot,	"reboot",	0,
 	CMpanic,	"panic",	0,
+	CMrdb,		"rdb",		0,
 };
 
 void
@@ -740,6 +742,11 @@ conswrite(Chan *c, void *va, long n, vlong off)
 		case CMpanic:
 			*(ulong*)0=0;
 			panic("/dev/reboot");
+		case CMrdb:
+			if(consdebug == nil)
+				consdebug = rdb;
+			consdebug();
+			break;
 		}
 		poperror();
 		free(cb);
