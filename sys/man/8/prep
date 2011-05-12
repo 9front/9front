@@ -132,7 +132,7 @@ A
 .IR cfs (4)
 file system cache.
 .TP
-.B fscahe
+.B fscache
 A
 .IR cwfs (4)
 worm cache partition.
