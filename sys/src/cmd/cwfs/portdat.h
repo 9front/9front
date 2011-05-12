@@ -126,6 +126,7 @@ struct	Dentry
 		#define	DDIR	0x4000
 		#define	DAPND	0x2000
 		#define	DLOCK	0x1000
+		#define DTMP	0x0800
 		#define	DREAD	0x4
 		#define	DWRITE	0x2
 		#define	DEXEC	0x1
@@ -621,6 +622,7 @@ enum
 	Cwdump2,
 	Cuidbuf,
 	Cckbuf,
+	Cwtmp,
 };
 
 /*

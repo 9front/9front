@@ -18,6 +18,8 @@ mkmode9p1(ulong mode9p2)
 		mode |= DAPND;
 	if(mode9p2 & DMDIR)
 		mode |= DDIR;
+	if(mode9p2 & DMTMP)
+		mode |= DTMP;
 
 	return mode;
 }
@@ -45,6 +47,8 @@ mktype9p2(int mode9p1)
 		type |= QTAPPEND;
 	if(mode9p1 & DDIR)
 		type |= QTDIR;
+	if(mode9p1 & DTMP)
+		type |= QTTMP;
 
 	return type;
 }
@@ -61,6 +65,8 @@ mkmode9p2(int mode9p1)
 		mode |= DMAPPEND;
 	if(mode9p1 & DDIR)
 		mode |= DMDIR;
+	if(mode9p1 & DTMP)
+		mode |= DMTMP;
 
 	return mode;
 }
@@ -1488,7 +1494,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 		error = Ewstatq;
 		goto out;
 	}
-	if(dir.mode & ~(DMDIR|DMAPPEND|DMEXCL|0777)){
+	if(dir.mode & ~(DMDIR|DMAPPEND|DMEXCL|DMTMP|0777)){
 		error = Ewstatb;
 		goto out;
 	}

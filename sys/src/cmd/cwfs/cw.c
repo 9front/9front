@@ -1233,6 +1233,7 @@ split(Cw *cw, Iobuf *p, Off addr)
 		putbuf(p);
 		p = 0;
 	}
+
 	state = cwio(cw->dev, addr, 0, Onone);	/* read the state (twice?) */
 	switch(state) {
 	default:
@@ -1249,13 +1250,14 @@ split(Cw *cw, Iobuf *p, Off addr)
 		/*
 		 * botch.. could be done by relabeling
 		 */
-		if(!p) {
+		if(!p){
 			p = getbuf(cw->dev, addr, Brd);
 			if(p == nil) {
 				fprint(2, "split: null getbuf\n");
 				break;
 			}
 		}
+
 		na = cw->fsize;
 		cw->fsize = na+1;
 		cwio(cw->dev, na, 0, Ogrow);
@@ -1293,8 +1295,9 @@ isdirty(Cw *cw, Iobuf *p, Off addr, int tag)
 Off
 cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 {
-	Iobuf *p;
+	Iobuf *p, *b;
 	Dentry *d;
+	long qp1;
 	int i, j, shouldstop;
 	Off na;
 	char *np;
@@ -1323,6 +1326,7 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 	}
 	cw->depth++;
 
+	b = nil;
 	switch(tag) {
 	default:
 		fprint(2, "cwrecur: unknown tag %d %s\n", tag, cw->name);
@@ -1334,9 +1338,12 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 	case Tdir:
 		if(!p) {
 			p = getbuf(cw->dev, addr, Brd);
-			if(p == nil) {
-				fprint(2, "cwrecur: Tdir p null %s\n",
-					cw->name);
+			if(!p || checktag(p, tag, qp)) {
+				fprint(2, "cwrecur: Tdir p null %s\n", cw->name);
+				if(p){
+					putbuf(p);
+					p = nil;
+				}
 				break;
 			}
 		}
@@ -1353,11 +1360,12 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 			d = getdir(p, i);
 			if(!(d->mode & DALLOC))
 				continue;
-			qp = d->qid.path & ~QPDIR;
+			if(d->mode & DTMP)
+				continue;
+			qp1 = d->qid.path & ~QPDIR;
 			if(tag == Tdir)
 				strncpy(np, d->name, NAMELEN);
-			else
-			if(i > 0)
+			else if(i > 0)
 				fprint(2, "cwrecur: root with >1 directory\n");
 			tag1 = Tfile;
 			if(d->mode & DDIR)
@@ -1365,7 +1373,7 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 			for(j=0; j<NDBLOCK; j++) {
 				na = d->dblock[j];
 				if(na) {
-					na = cwrecur(cw, na, tag1, 0, qp);
+					na = cwrecur(cw, na, tag1, 0, qp1);
 					if(na) {
 						d->dblock[j] = na;
 						p->flags |= Bmod;
@@ -1375,12 +1383,26 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 			for (j = 0; j < NIBLOCK; j++) {
 				na = d->iblocks[j];
 				if(na) {
-					na = cwrecur(cw, na, Tind1+j, tag1, qp);
+					na = cwrecur(cw, na, Tind1+j, tag1, qp1);
 					if(na) {
 						d->iblocks[j] = na;
 						p->flags |= Bmod;
 					}
 				}
+			}
+		}
+
+		for(i=0; i<DIRPERBUF; i++){
+			d = getdir(p, i);
+			if(!(d->mode & DALLOC))
+				continue;
+			if(d->mode & DTMP){
+				if(!b){
+					b = getbuf(devnone, Cwtmp, 0);
+					memmove(b->iobuf, p->iobuf, RBUFSIZE);
+				}
+				memset(d, 0, sizeof(Dentry));
+				p->flags |= Bmod;
 			}
 		}
 		break;
@@ -1400,8 +1422,12 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 	tind:
 		if(!p) {
 			p = getbuf(cw->dev, addr, Brd);
-			if(p == nil) {
+			if(!p || checktag(p, tag, qp)) {
 				fprint(2, "cwrecur: Tind p null %s\n", cw->name);
+				if(p){
+					putbuf(p);
+					p = nil;
+				}
 				break;
 			}
 		}
@@ -1417,15 +1443,35 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 		}
 		break;
 	}
+
 	na = split(cw, p, addr);
+
 	cw->depth--;
-	if(na && shouldstop) {
-		if(cw->falsehits < 10)
-			fprint(2, "shouldstop %lld %lld t=%s %s\n",
-				(Wideoff)addr, (Wideoff)na,
-				tagnames[tag], cw->name);
-		cw->falsehits++;
+
+	if(na){
+		if(b){
+			p = getbuf(cw->dev, na, Brd);
+			if(!p || checktag(p, tag, qp)){
+				fprint(2, "cwrecur: b/p null %s\n", cw->name);
+				na = 0;
+			} else {
+				memmove(p->iobuf, b->iobuf, RBUFSIZE);
+				p->flags |= Bmod|Bimm;
+			}
+			if(p)
+				putbuf(p);
+		}
+		if(shouldstop){
+			if(cw->falsehits < 10)
+				fprint(2, "shouldstop %lld %lld t=%s %s\n",
+					(Wideoff)addr, (Wideoff)na,
+					tagnames[tag], cw->name);
+			cw->falsehits++;
+		}
 	}
+	if(b)
+		putbuf(b);
+
 	return na;
 }
 
