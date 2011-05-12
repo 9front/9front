@@ -533,12 +533,6 @@ int			editing;
 int			messagesize;		/* negotiated in 9P version setup */
 int			globalautoindent;
 
-enum
-{
-	Kscrolloneup		= KF|0x20,
-	Kscrollonedown	= KF|0x21,
-};
-
 Channel	*cplumb;		/* chan(Plumbmsg*) */
 Channel	*cwait;		/* chan(Waitmsg) */
 Channel	*ccommand;	/* chan(Command*) */

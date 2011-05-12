@@ -344,12 +344,6 @@ int			webctlfd;
 char			*charset;
 int			procstderr;
 
-enum
-{
-	Kscrolloneup		= KF|0x20,
-	Kscrollonedown	= KF|0x21,
-};
-
 Channel		*cplumb;		/* chan(Plumbmsg*) */
 Channel		*cexit;		/* chan(int) */
 Channel		*crefresh;		/* chan(page *) */
