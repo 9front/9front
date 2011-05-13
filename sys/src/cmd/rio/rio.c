@@ -1232,7 +1232,7 @@ kbdproc(void *arg)
 			Rune r;
 
 			e = buf + sizeof(buf);
-			if((n = read(fd, p, e-p)) < 0)
+			if((n = read(fd, p, e-p)) <= 0)
 				break;
 			e = p + n;
 			while(p < e && fullrune(p, e - p)){
@@ -1243,10 +1243,9 @@ kbdproc(void *arg)
 				}
 			}
 			n = e - p;
-			if(n > 0){
+			if(n > 0)
 				memmove(buf, p, n);
-				p = buf + n;
-			}
+			p = buf + n;
 		}
 		close(fd);
 	}
