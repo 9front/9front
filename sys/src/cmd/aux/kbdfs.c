@@ -401,7 +401,7 @@ void
 consproc(void *)
 {
 	char *p, *e, *x, buf[64];
-	int n, i;
+	int n;
 	Rune r;
 
 	threadsetname("consproc");
@@ -411,12 +411,7 @@ consproc(void *)
 	while((n = read(consfd, p, e - p)) > 0){
 		x = buf + n;
 		while(p < x && fullrune(p, x - p)){
-			i = chartorune(&r, p);
-			if(i <= 0){
-				p++;
-				continue;
-			}
-			p += i;
+			p += chartorune(&r, p);
 			if(r)
 				send(rawchan, &r);
 		}
@@ -462,10 +457,6 @@ lineproc(void *aux)
 					int i;
 
 					i = chartorune(&x, s);
-					if(i <= 0){
-						s++;
-						continue;
-					}
 					s += i;
 					if(r == '\b'){
 						if(s >= p){

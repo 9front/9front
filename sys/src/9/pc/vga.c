@@ -148,11 +148,6 @@ vgascreenputs(char* s, int n)
 
 	while(n > 0){
 		i = chartorune(&r, s);
-		if(i <= 0){
-			s++;
-			--n;
-			continue;
-		}
 		memmove(buf, s, i);
 		buf[i] = 0;
 		n -= i;

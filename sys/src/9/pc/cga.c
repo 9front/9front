@@ -154,11 +154,6 @@ cgascreenputs(char* s, int n)
 
 	while(n > 0){
 		i = chartorune(&r, s);
-		if(i <= 0){
-			s++;
-			--n;
-			continue;
-		}
 		cgascreenputc(r);
 		s += i;
 		n -= i;
