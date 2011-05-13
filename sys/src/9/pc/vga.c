@@ -148,7 +148,7 @@ vgascreenputs(char* s, int n)
 
 	while(n > 0){
 		i = chartorune(&r, s);
-		if(i == 0){
+		if(i <= 0){
 			s++;
 			--n;
 			continue;

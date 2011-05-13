@@ -209,6 +209,15 @@ Rune kbtabctrl[Nscan] =
 [0x78]	0,	'', 	0,	'\b',	0,	0,	0,	0,
 };
 
+Rune
+mapold(Rune r)
+{
+	switch(r){
+	default:
+		return r;
+	}
+}
+
 void reboot(void);
 
 /*
@@ -247,6 +256,18 @@ kbdputsc(Scan *scan, int c)
 		key.r = kbtabctrl[key.c];
 	else
 		key.r = kbtab[key.c];
+
+	switch(key.r){
+	case Spec|0x60:
+		key.r = Kshift;
+		break;
+	case Spec|0x62:
+		key.r = Kctl;
+		break;
+	case Spec|0x63:
+		key.r = Kalt;
+		break;
+	}
 
 	if(scan->caps && key.r<='z' && key.r>='a')
 		key.r += 'A' - 'a';
@@ -389,8 +410,8 @@ void
 consproc(void *)
 {
 	char *p, *e, *x, buf[64];
+	int n, i;
 	Rune r;
-	int n;
 
 	threadsetname("consproc");
 
@@ -399,7 +420,12 @@ consproc(void *)
 	while((n = read(consfd, p, e - p)) > 0){
 		x = buf + n;
 		while(p < x && fullrune(p, x - p)){
-			p += chartorune(&r, p);
+			i = chartorune(&r, p);
+			if(i <= 0){
+				p++;
+				continue;
+			}
+			p += i;
 			if(r)
 				send(rawchan, &r);
 		}
@@ -428,7 +454,7 @@ lineproc(void *aux)
 
 	for(;;){
 		l = emalloc9p(1024);
-		p = s = l;
+		p = l;
 		e = l + 1024-(UTFmax+1);
 		done = 0;
 		do {
@@ -438,24 +464,45 @@ lineproc(void *aux)
 				p = l;
 				continue;
 			case '\b':	/* backspace */
-				while(p > l){
-					--p;
-					if(fullrune(p, s - p))
-						break;
+			case Knack:	/* ^U */
+				s = l;
+				while(s < p){
+					Rune x;
+					int i;
+
+					i = chartorune(&x, s);
+					if(i <= 0){
+						s++;
+						continue;
+					}
+					s += i;
+					if(r == '\b'){
+						if(s >= p){
+							write(echofd, "\b", 1);
+							s -= i;
+							break;
+						}
+					} else
+						write(echofd, "\b", 1);
 				}
-				write(echofd, "\b", 1);
+				if(r == '\b')
+					p = s;
+				else
+					p = l;
 				continue;
-			case Keof:
-				p = l;
+			case Keof:	/* ^D */
 				done = 1;
 				break;
 			case '\r':
 				continue;
 			case '\n':
 				done = 1;
+				/* no break */
 			default:
-				p += runetochar(s = p, &r);
-				write(echofd, s, p - s);
+				s = p;
+				p += runetochar(p, &r);
+				if(p > s)
+					write(echofd, s, p - s);
 			}
 		} while(!done && p < e);
 		*p = 0;
