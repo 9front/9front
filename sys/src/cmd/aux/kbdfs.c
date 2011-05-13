@@ -39,8 +39,8 @@ struct Scan {
 	int	caps;
 	int	num;
 	int	shift;
-	int	ctrl;
-	int	latin;
+	int	ctl;
+	int	alt;
 	int	altgr;
 	int	leds;
 };
@@ -189,7 +189,7 @@ Rune kbtabaltgr[Nscan] =
 [0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
 };
 
-Rune kbtabctrl[Nscan] =
+Rune kbtabctl[Nscan] =
 {
 [0x00]	0,	'', 	'', 	'', 	'', 	'', 	'', 	'', 
 [0x08]	'', 	'', 	'', 	'', 	'', 	'', 	'\b',	'\t',
@@ -208,15 +208,6 @@ Rune kbtabctrl[Nscan] =
 [0x70]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x78]	0,	'', 	0,	'\b',	0,	0,	0,	0,
 };
-
-Rune
-mapold(Rune r)
-{
-	switch(r){
-	default:
-		return r;
-	}
-}
 
 void reboot(void);
 
@@ -252,8 +243,8 @@ kbdputsc(Scan *scan, int c)
 		key.r = kbtabshift[key.c];
 	else if(scan->altgr)
 		key.r = kbtabaltgr[key.c];
-	else if(scan->ctrl)
-		key.r = kbtabctrl[key.c];
+	else if(scan->ctl)
+		key.r = kbtabctl[key.c];
 	else
 		key.r = kbtab[key.c];
 
@@ -272,7 +263,7 @@ kbdputsc(Scan *scan, int c)
 	if(scan->caps && key.r<='z' && key.r>='a')
 		key.r += 'A' - 'a';
 
-	if(scan->ctrl && scan->latin && key.r == Kdel)
+	if(scan->ctl && scan->alt && key.r == Kdel)
 		reboot();
 
 	send(keychan, &key);
@@ -287,13 +278,13 @@ kbdputsc(Scan *scan, int c)
 		scan->shift = key.down;
 		break;
 	case Kctl:
-		scan->ctrl = key.down;
+		scan->ctl = key.down;
 		break;
 	case Kaltgr:
 		scan->altgr = key.down;
 		break;
 	case Kalt:
-		scan->latin = key.down;
+		scan->alt = key.down;
 		break;
 	case Knum:
 		scan->num ^= key.down;
@@ -702,7 +693,7 @@ kbmapent(int t, int sc)
 	case 3:
 		return &kbtabaltgr[sc];
 	case 4:
-		return &kbtabctrl[sc];
+		return &kbtabctl[sc];
 	}
 }
 
