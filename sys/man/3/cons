@@ -141,6 +141,10 @@ except that the
 .B bootfile
 variable is set to
 .IR kernelpath .
+Writing the string
+.B rdb
+activates the remote kernel debugger (see
+.IR rdbfs (4)).
 Only the host
 owner has the ability to open this file.
 .PP

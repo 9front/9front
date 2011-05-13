@@ -86,9 +86,7 @@ char Efront[] = "the front fell off";
 
 int scanfd;
 int ledsfd;
-
 int consfd;
-int echofd;
 
 int kbdopen;
 int consopen;
@@ -401,25 +399,31 @@ void
 consproc(void *)
 {
 	char *p, *e, *x, buf[64];
-	int n;
+	int n, cr;
 	Rune r;
 
 	threadsetname("consproc");
 
+	cr = 0;
 	p = buf;
 	e = buf + sizeof(buf);
 	while((n = read(consfd, p, e - p)) > 0){
 		x = buf + n;
 		while(p < x && fullrune(p, x - p)){
 			p += chartorune(&r, p);
-			if(r)
+			if(r){
+				if(r == '\n' && cr){
+					cr = 0;
+					continue;
+				}
+				if(cr = (r == '\r'))
+					r = '\n';
 				send(rawchan, &r);
+			}
 		}
 		n = x - p;
-		if(n > 0){
-			memmove(buf, p, n);
-			p = buf + n;
-		}
+		memmove(buf, p, n);
+		p = buf + n;
 	}
 }
 
@@ -429,66 +433,44 @@ consproc(void *)
 void
 lineproc(void *aux)
 {
-	char *l, *p, *e, *s;
+	Rune rb[256], r;
 	Channel *cook;
-	int done;
-	Rune r;
-
+	int nr, done;
+	
 	cook = aux;
 
 	threadsetname("lineproc");
 
 	for(;;){
-		l = emalloc9p(1024);
-		p = l;
-		e = l + 1024-(UTFmax+1);
+		nr = 0;
 		done = 0;
 		do {
 			recv(cook, &r);
 			switch(r){
 			case '\0':	/* flush */
-				p = l;
+				nr = 0;
 				continue;
 			case '\b':	/* backspace */
 			case Knack:	/* ^U */
-				s = l;
-				while(s < p){
-					Rune x;
-					int i;
-
-					i = chartorune(&x, s);
-					s += i;
-					if(r == '\b'){
-						if(s >= p){
-							write(echofd, "\b", 1);
-							s -= i;
-							break;
-						}
-					} else
-						write(echofd, "\b", 1);
+				while(nr > 0){
+					nr--;
+					fprint(1, "\b");
+					if(r == '\b')
+						break;
 				}
-				if(r == '\b')
-					p = s;
-				else
-					p = l;
 				continue;
 			case Keof:	/* ^D */
 				done = 1;
 				break;
-			case '\r':
-				continue;
 			case '\n':
 				done = 1;
 				/* no break */
 			default:
-				s = p;
-				p += runetochar(p, &r);
-				if(p > s)
-					write(echofd, s, p - s);
+				rb[nr++] = r;
+				fprint(1, "%C", r);
 			}
-		} while(!done && p < e);
-		*p = 0;
-		sendp(linechan, l);
+		} while(!done && nr < nelem(rb));
+		sendp(linechan, utfconv(rb, nr));
 	}
 }
 
@@ -978,7 +960,7 @@ fswrite(Req *r)
 
 	case Qcons:
 		n = r->ifcall.count;
-		if(write(echofd, r->ifcall.data, n) != n){
+		if(write(1, r->ifcall.data, n) != n){
 			responderror(r);
 			return;
 		}
@@ -1138,7 +1120,6 @@ threadmain(int argc, char** argv)
 	char *srv = nil;
 
 	consfd = -1;
-	echofd = 1;
 
 	ARGBEGIN{
 	case 'd':
@@ -1162,12 +1143,9 @@ threadmain(int argc, char** argv)
 	if((ledsfd = open("/dev/leds", OWRITE)) < 0)
 		fprint(2, "%s: warning: can't open /dev/leds: %r\n", argv0);
 
-	if(*argv){
-		if((consfd = open(*argv, ORDWR)) < 0)
+	if(*argv)
+		if((consfd = open(*argv, OREAD)) < 0)
 			fprint(2, "%s: warning: can't open %s: %r\n", argv0, *argv);
-		else
-			echofd = consfd;
-	}
 
 	keychan = chancreate(sizeof(Key), 8);
 	reqchan = chancreate(sizeof(Req*), 0);
