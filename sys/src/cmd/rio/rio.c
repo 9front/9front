@@ -1243,8 +1243,7 @@ kbdproc(void *arg)
 				}
 			}
 			n = e - p;
-			if(n > 0)
-				memmove(buf, p, n);
+			memmove(buf, p, n);
 			p = buf + n;
 		}
 		close(fd);
