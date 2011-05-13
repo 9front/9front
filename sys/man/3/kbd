@@ -27,7 +27,7 @@ keyboard input to programs. The
 .BR scancode
 file can be only opend once by the hostowner.
 .PP
-Writing a number to the write only 
+Writing a number to the write-only 
 .BR leds
 file changes the status leds on the keyboard. the value of the
 number is the addition of 1, 2 and 4 representing activated
