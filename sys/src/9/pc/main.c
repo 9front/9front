@@ -4,6 +4,7 @@
 #include	"dat.h"
 #include	"fns.h"
 #include	"io.h"
+#include	"tos.h"
 #include	"ureg.h"
 #include	"init.h"
 #include	"pool.h"
@@ -289,10 +290,10 @@ bootargs(void *base)
 	char *cp = BOOTLINE;
 	char buf[64];
 
-	sp = (uchar*)base + BY2PG - MAXSYSARG*BY2WD;
+	sp = (uchar*)base + BY2PG - sizeof(Tos);
 
 	ac = 0;
-	av[ac++] = pusharg("/386/9dos");
+	av[ac++] = pusharg("boot");
 
 	/* when boot is changed to only use rc, this code can go away */
 	cp[BOOTLINELEN-1] = 0;
@@ -313,9 +314,10 @@ bootargs(void *base)
 	sp -= (ac+1)*sizeof(sp);
 	lsp = (uchar**)sp;
 	for(i = 0; i < ac; i++)
-		*lsp++ = av[i] + ((USTKTOP - BY2PG) - (ulong)base);
-	*lsp = 0;
-	sp += (USTKTOP - BY2PG) - (ulong)base - sizeof(ulong);
+		lsp[i] = av[i] + ((USTKTOP - BY2PG) - (ulong)base);
+	lsp[i] = 0;
+	sp += (USTKTOP - BY2PG) - (ulong)base;
+	sp -= BY2WD;
 }
 
 char*
