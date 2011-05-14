@@ -284,50 +284,28 @@ e820conf(void)
 	if((bx = e820(0, &e)) == 0)
 		return;
 
+	s = confend;
 	memmove(confend, "e820=", 5);
 	confend += 5;
 
 	do{
-		s = confend;
-		v = e.base;
-		addconfx("", 8, v>>32);
-		addconfx("", 8, v&0xffffffff);
-		v = e.base + e.len;
-		addconfx(" ", 8, v>>32);
-		addconfx("", 8, v&0xffffffff);
-
-		print(s);
-
-		switch(e.typ){
-		case 1:
-			print(" ram");
-			break;
-		case 2:
-			print(" reserved");
-			break;
-		case 3:
-			print(" acpi reclaim");
-			break;
-		case 4:
-			print(" acpi nvs");
-			break;
-		case 5:
-			print(" bad");
-			break;
-		default:
-			print(" ???");
-		}
-		print(crnl);
-
-		if(e.typ == 1 && (e.ext & 1) == 0)
+		if(e.typ == 1 && (e.ext & 1) == 0 && e.len){
+			v = e.base;
+			addconfx("", 8, v>>32);
+			addconfx("", 8, v&0xffffffff);
+			v = e.base + e.len;
+			addconfx(" ", 8, v>>32);
+			addconfx("", 8, v&0xffffffff);
 			*confend++ = ' ';
-		else
-			confend = s;
+		}
+
 		memset(&e, 0, sizeof(e));
 	} while(bx = e820(bx, &e));
 
-	*confend++ = '\n';
 	*confend = 0;
+	print(s); print(crnl);
+
+	*confend++ = '\n';
 }
 
 void a20(void);
