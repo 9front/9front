@@ -31,6 +31,7 @@ struct Key {
 	int	down;
 	int	c;
 	Rune	r;
+	Rune	b;
 };
 
 struct Scan {
@@ -258,6 +259,11 @@ kbdputsc(Scan *scan, int c)
 		break;
 	}
 
+	if(scan->esc1)
+		key.b = key.r;
+	else
+		key.b = kbtab[key.c];
+
 	if(scan->caps && key.r<='z' && key.r>='a')
 		key.r += 'A' - 'a';
 
@@ -348,8 +354,8 @@ utfconv(Rune *r, int n)
 void
 keyproc(void *)
 {
+	Rune rb[Nscan*2];
 	int cb[Nscan];
-	Rune rb[Nscan];
 	Key key;
 	int i, nb;
 	char *s;
@@ -376,15 +382,20 @@ keyproc(void *)
 		for(i=0; i<nb && cb[i] != key.c; i++)
 			;
 		if(!key.down){
-			if(i < nb){
+			while(i < nb && cb[i] == key.c){
 				memmove(cb+i, cb+i+1, (nb-i+1) * sizeof(cb[0]));
 				memmove(rb+i, rb+i+1, (nb-i+1) * sizeof(rb[0]));
 				nb--;
 			}
-		} else if(i == nb && nb < nelem(cb) && key.r){
+		} else if(i == nb && nb < nelem(cb) && key.b){
 			cb[nb] = key.c;
-			rb[nb] = key.r;
+			rb[nb] = key.b;
 			nb++;
+			if(nb < nelem(cb) && key.r && key.b != key.r){
+				cb[nb] = key.c;
+				rb[nb] = key.r;
+				nb++;
+			}
 		}
 		s = utfconv(rb, nb);
 		if(nbsendp(kbdchan, s) <= 0)
