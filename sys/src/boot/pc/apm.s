@@ -7,19 +7,19 @@ TEXT apm(SB), $0
 
 	PUSHR(rBX)
 	LWI(0x5300, rAX)
-	INT $0x15
+	BIOSCALL(0x15)
 	POPR(rBX)
 	JC noapm
 
 	PUSHR(rBX)
 	LWI(0x5304, rAX)
-	INT $0x15
+	BIOSCALL(0x15)
 	POPR(rBX)
 	CLC
 
 	/* connect */
 	LWI(0x5303, rAX)
-	INT $0x15
+	BIOSCALL(0x15)
 	JC noapm
 
 	OPSIZE; PUSHR(rSI)

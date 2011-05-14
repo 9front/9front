@@ -673,35 +673,51 @@ e820scan(void)
 	ulong cont, base, len;
 	uvlong last;
 	Emap *e;
+	char *s;
 
-	if(getconf("*norealmode") || getconf("*noe820scan"))
-		return -1;
-
-	cont = 0;
-	for(i=0; i<nelem(emap); i++){
-		memset(&u, 0, sizeof u);
-		u.ax = 0xE820;
-		u.bx = cont;
-		u.cx = 20;
-		u.dx = SMAP;
-		u.es = (PADDR(RMBUF)>>4)&0xF000;
-		u.di = PADDR(RMBUF)&0xFFFF;
-		u.trap = 0x15;
-		realmode(&u);
-		cont = u.bx;
-		if((u.flags&Carry) || u.ax != SMAP || u.cx != 20)
-			break;
-		e = &emap[nemap++];
-		*e = *(Emap*)RMBUF;
-		if(u.bx == 0)
-			break;
+	if((s = getconf("e820")) != nil){
+		for(nemap = 0; nemap < nelem(emap); nemap++){
+			if(*s == 0)
+				break;
+			e = emap + nemap;
+			e->base = strtoull(s, &s, 16);
+			if(*s != ' ')
+				break;
+			e->len = strtoull(s, &s, 16) - e->base;
+			if(*s != ' ' && *s != 0 || e->len >= 1ull<<32 || e->len == 0)
+				break;
+			e->type = Ememory;
+		}
+	}else{
+		if(getconf("*norealmode") || getconf("*noe820scan"))
+			return -1;
+		cont = 0;
+		for(i=0; i<nelem(emap); i++){
+			memset(&u, 0, sizeof u);
+			u.ax = 0xE820;
+			u.bx = cont;
+			u.cx = 20;
+			u.dx = SMAP;
+			u.es = (PADDR(RMBUF)>>4)&0xF000;
+			u.di = PADDR(RMBUF)&0xFFFF;
+			u.trap = 0x15;
+			realmode(&u);
+			cont = u.bx;
+			if((u.flags&Carry) || u.ax != SMAP || u.cx != 20)
+				break;
+			e = &emap[nemap++];
+			*e = *(Emap*)RMBUF;
+			if(u.bx == 0)
+				break;
+		}
 	}
+
 	if(nemap == 0)
 		return -1;
 	
 	qsort(emap, nemap, sizeof emap[0], emapcmp);
 
-	if(getconf("*noe820print") == nil){
+	if(s == nil && getconf("*noe820print") == nil){
 		for(i=0; i<nemap; i++){
 			e = &emap[i];
 			print("E820: %.8llux %.8llux ", e->base, e->base+e->len);

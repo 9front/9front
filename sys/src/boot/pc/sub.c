@@ -235,6 +235,8 @@ addconfx(char *s, int w, ulong v)
 	*confend = 0;
 }
 
+void apm(int id);
+
 static void
 apmconf(int id)
 {
@@ -263,12 +265,81 @@ apmconf(int id)
 	*confend++ = '\n';
 }
 
+ulong e820(ulong bx, void *p);
+
+static void
+e820conf(void)
+{
+	struct {
+		uvlong	base;
+		uvlong	len;
+		ulong	typ;
+		ulong	ext;
+	} e;
+	uvlong v;
+	ulong bx;
+	char *s;
+
+	memset(&e, 0, sizeof(e));
+	if((bx = e820(0, &e)) == 0)
+		return;
+
+	memmove(confend, "e820=", 5);
+	confend += 5;
+
+	do{
+		s = confend;
+		v = e.base;
+		addconfx("", 8, v>>32);
+		addconfx("", 8, v&0xffffffff);
+		v = e.base + e.len;
+		addconfx(" ", 8, v>>32);
+		addconfx("", 8, v&0xffffffff);
+
+		print(s);
+
+		switch(e.typ){
+		case 1:
+			print(" ram");
+			break;
+		case 2:
+			print(" reserved");
+			break;
+		case 3:
+			print(" acpi reclaim");
+			break;
+		case 4:
+			print(" acpi nvs");
+			break;
+		case 5:
+			print(" bad");
+			break;
+		default:
+			print(" ???");
+		}
+		print(crnl);
+
+		if(e.typ == 1 && (e.ext & 1) == 0)
+			*confend++ = ' ';
+		else
+			confend = s;
+		memset(&e, 0, sizeof(e));
+	} while(bx = e820(bx, &e));
+
+	*confend++ = '\n';
+	*confend = 0;
+}
+
+void a20(void);
+
 char*
 bootkern(void *f)
 {
 	uchar *e, *d, *t;
 	ulong n;
 	Exec ex;
+
+	e820conf();
 
 	a20();
 	if(readn(f, &ex, sizeof(ex)) != sizeof(ex))
