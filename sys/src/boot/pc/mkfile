@@ -36,7 +36,7 @@ pbs:	pbs.$O
 	$LD -o $target -H3 -T0x0600 -l $prereq
 	ls -l $target
 
-9boot&:	l%.$O %.$O sub.$O a20.$O
+9boot&:	l%.$O %.$O sub.$O apm.$O a20.$O
 	$LD -o $target -H3 -T0x7c00 -l $prereq
 	ls -l $target
 

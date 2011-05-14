@@ -129,18 +129,26 @@ readline(void *f, char buf[64])
 	return p - buf;
 }
 
+#define BOOTLINE	((char*)CONFADDR)
+#define BOOTLINELEN	64
+#define BOOTARGS	((char*)(CONFADDR+BOOTLINELEN))
+#define	BOOTARGSLEN	(4096-0x200-BOOTLINELEN)
+
+char *confend;
+
+static void apmconf(int);
+
 char*
 configure(void *f, char *path)
 {
-	char line[64], *p, *kern;
+	char line[64], *kern, *p;
 	int inblock, n;
-
 Clear:
 	kern = 0;
 	inblock = 0;
-	p = (char*)(CONFADDR & ~0xF0000000UL);
-	memset(p, 0, 0xE00);
-	p += 64;
+
+	confend = (char*)BOOTARGS;
+	memset(confend, 0, BOOTARGSLEN);
 Loop:
 	while((n = readline(f, line)) > 0){
 		if(*line == 0 || strchr("#;=", *line))
@@ -149,21 +157,25 @@ Loop:
 			inblock = memcmp("[common]", line, 8);
 			continue;
 		}
-		if(memcmp("clear", line, 6) == 0){
+		if(!memcmp("clear", line, 6)){
 			print("ok\r\n");
 			goto Clear;
 		}
-		if(memcmp("boot", line, 5) == 0)
+		if(!memcmp("boot", line, 5))
 			break;
 		if(inblock || !strrchr(line, '='))
 			continue;
-		print(line); print(crnl);
-		if(memcmp("bootfile=", line, 9) == 0)
+		if(!memcmp("bootfile=", line, 9))
 			memmove(kern = path, line+9, 1 + n-9);
-		memmove(p, line, n); p += n;
-		*p++ = '\n';
+		if(!memcmp("apm", line, 3) && line[4]=='='){
+			apmconf('0' - line[3]);
+			continue;
+		}
+		memmove(confend, line, n); confend += n;
+		*confend++ = '\n';
+		print(line); print(crnl);
 	}
-	*p = 0;
+	*confend = 0;
 	if(f){
 		close(f);
 		f = 0;
@@ -177,6 +189,7 @@ Loop:
 			goto Loop;
 	if(p = strrchr(kern, '!'))
 		kern = p+1;
+
 	return kern;
 }
 
@@ -197,6 +210,57 @@ beswal(ulong l)
 
 	p = (uchar*)&l;
 	return (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
+}
+
+static void
+hexfmt(char *s, int i, ulong a)
+{
+	s += i;
+	while(i > 0){
+		*--s = hex[a&15];
+		a >>= 4;
+		i--;
+	}
+}
+
+static void
+addconfx(char *s, int w, ulong v)
+{
+	int n;
+
+	n = strlen(s);
+	memmove(confend, s, n);
+	hexfmt(confend+n, w, v);
+	confend += n+w;
+	*confend = 0;
+}
+
+static void
+apmconf(int id)
+{
+	uchar *a;
+	char *s;
+
+	a = (uchar*)CONFADDR;
+	memset(a, 0, 20);
+
+	apm(id);
+	if(memcmp(a, "APM", 4))
+		return;
+
+	s = confend;
+
+	addconfx("apm", 1, id);
+	addconfx("=ax=", 4, *((ushort*)(a+4)));
+	addconfx(" ebx=", 8, *((ulong*)(a+12)));
+	addconfx(" cx=", 4, *((ushort*)(a+6)));
+	addconfx(" dx=", 4, *((ushort*)(a+8)));
+	addconfx(" di=", 4, *((ushort*)(a+10)));
+	addconfx(" esi=", 8, *((ulong*)(a+16)));
+
+	print(s); print(crnl);
+
+	*confend++ = '\n';
 }
 
 char*
@@ -223,6 +287,7 @@ bootkern(void *f)
 		goto Error;
 	close(f);
 	unload();
+	memset(BOOTLINE, 0, BOOTLINELEN);
 	jump(e);
 Error:		
 	return "i/o error";

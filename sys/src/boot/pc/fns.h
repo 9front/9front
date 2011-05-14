@@ -10,6 +10,7 @@ int getc(void);
 int gotc(void);
 void putc(int c);
 void a20(void);
+void apm(int id);
 void halt(void);
 void jump(void *pc);
 

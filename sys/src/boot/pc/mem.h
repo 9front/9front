@@ -16,8 +16,8 @@
 /*
  * Fundamental addresses
  */
-#define CONFADDR	0x80001200		/* info passed from boot loader */
-#define BIOSXCHG	0x80006000		/* To exchange data with the BIOS */
+#define CONFADDR	0x1200		/* info passed from boot loader */
+#define BIOSXCHG	0x6000		/* To exchange data with the BIOS */
 
 #define SELGDT	(0<<3)	/* selector is in gdt */
 #define	SELLDT	(1<<3)	/* selector is in ldt */
