@@ -20,6 +20,7 @@ BIN=/$objtype/bin/games
 DIRS=\
 #	blabs\
 	mahjongg\
+	mines\
 	mp3dec\
 	mp3enc\
 	music\

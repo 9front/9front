@@ -1,0 +1,61 @@
+#	Mines ver. 1.0
+#
+#	Copyright (C) 2001 Antonin Vecera
+#
+#	email: antonin.vecera@gmail.com
+#
+#	This program is free software; you can redistribute it and/or modify
+#	it under the terms of the GNU General Public License as published by
+#	the Free Software Foundation; either version 2 of the License, or
+#	(at your option) any later version.
+#
+#	This program is distributed in the hope that it will be useful,
+#	but WITHOUT ANY WARRANTY; without even the implied warranty of
+#	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#	GNU General Public License for more details.
+#
+#	You should have received a copy of the GNU General Public License
+#	along with this program; if not, write to the Free Software
+#	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+</$objtype/mkfile
+
+TARG=mines
+
+OFILES=mines.$O\
+	game.$O\
+	push.$O\
+	move.$O\
+	win.$O\
+	oops.$O\
+	sign.$O\
+	digit0.$O\
+	digit1.$O\
+	digit2.$O\
+	digit3.$O\
+	digit4.$O\
+	digit5.$O\
+	digit6.$O\
+	digit7.$O\
+	digit8.$O\
+	digit9.$O\
+	unknown.$O\
+	empty0.$O\
+	empty1.$O\
+	empty2.$O\
+	empty3.$O\
+	empty4.$O\
+	empty5.$O\
+	empty6.$O\
+	empty7.$O\
+	empty8.$O\
+	query.$O\
+	mouse.$O\
+	mark.$O\
+	mined.$O\
+	explosion.$O\
+	fault.$O
+
+BIN=/$objtype/bin/games
+
+</sys/src/cmd/mkone
