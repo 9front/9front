@@ -170,6 +170,8 @@ Clear:
 
 	confend = BOOTARGS;
 	memset(confend, 0, BOOTARGSLEN);
+
+	e820conf();
 Loop:
 	while((n = readline(f, line)) > 0){
 		if(*line == 0 || strchr("#;=", *line))
@@ -196,14 +198,13 @@ Loop:
 		*confend++ = '\n';
 		print(line); print(crnl);
 	}
-	e820conf();
 	*confend = 0;
 
 	if(f){
 		close(f);
 		f = 0;
 
-		if(kern && timeout(500))
+		if(kern && timeout(1000))
 			goto Loop;
 	}
 
@@ -217,24 +218,6 @@ Loop:
 	return kern;
 }
 
-
-static ushort
-beswab(ushort s)
-{
-	uchar *p;
-
-	p = (uchar*)&s;
-	return (p[0]<<8) | p[1];
-}
-
-static ulong
-beswal(ulong l)
-{
-	uchar *p;
-
-	p = (uchar*)&l;
-	return (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
-}
 
 static void
 hexfmt(char *s, int i, ulong a)
@@ -332,6 +315,24 @@ e820conf(void)
 	*confend++ = '\n';
 }
 
+static ushort
+beswab(ushort s)
+{
+	uchar *p;
+
+	p = (uchar*)&s;
+	return (p[0]<<8) | p[1];
+}
+
+static ulong
+beswal(ulong l)
+{
+	uchar *p;
+
+	p = (uchar*)&l;
+	return (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
+}
+
 void a20(void);
 
 char*
@@ -340,9 +341,6 @@ bootkern(void *f)
 	uchar *e, *d, *t;
 	ulong n;
 	Exec ex;
-
-	print("boot");
-	print(crnl);
 
 	a20();
 
@@ -365,7 +363,7 @@ bootkern(void *f)
 	close(f);
 	unload();
 
-	print("go!");
+	print("boot");
 	print(crnl);
 
 	jump(e);
