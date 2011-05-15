@@ -10,7 +10,7 @@ $O.unpkg: unpkg.c
 install:V: $O.unpkg
 	mkdir -p /$objtype/bin/pkg
 	cp $O.unpkg /$objtype/bin/pkg/unpkg
-	cp create install list remove /$objtype/bin/pkg
+	cp create install list local remove /$objtype/bin/pkg
 
 clean:
 	rm -f $O.unpkg *.$O
