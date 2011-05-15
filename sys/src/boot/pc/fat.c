@@ -144,7 +144,6 @@ read(void *f, void *data, int len)
 				if((fp->clust >> 4) == fat->eofmark)
 					return -1;
 				fp->lbaoff = (fp->clust - 2) * fat->clustsize;
-				putc('.');
 				fp->clust = readnext(fp, fp->clust);
 				fp->lba = fp->lbaoff + fat->datalba;
 			}

@@ -85,13 +85,19 @@ readn(void *f, void *data, int len)
 {
 	uchar *p, *e;
 
+	putc(' ');
 	p = data;
 	e = p + len;
 	while(p < e){
+		if(((ulong)p & 0xF000) == 0){
+			putc('\b');
+			putc(hex[((ulong)p>>16)&0xF]);
+		}
 		if((len = read(f, p, e - p)) <= 0)
 			break;
 		p += len;
 	}
+	putc('\b');
 	return p - (uchar*)data;
 }
 
@@ -110,7 +116,7 @@ readline(void *f, char buf[64])
 				putc(*p = getc());
 				if(*p == '\r')
 					putc('\n');
-				else if(*p == 0x08 && p > buf){
+				else if(*p == '\b' && p > buf){
 					p--;
 					continue;
 				}
@@ -149,6 +155,7 @@ timeout(int ms)
 char *confend;
 
 static void apmconf(int);
+static void e820conf(void);
 
 char*
 configure(void *f, char *path)
@@ -159,7 +166,9 @@ Clear:
 	kern = 0;
 	inblock = 0;
 
-	confend = (char*)BOOTARGS;
+	memset(BOOTLINE, 0, BOOTLINELEN);
+
+	confend = BOOTARGS;
 	memset(confend, 0, BOOTARGSLEN);
 Loop:
 	while((n = readline(f, line)) > 0){
@@ -187,6 +196,7 @@ Loop:
 		*confend++ = '\n';
 		print(line); print(crnl);
 	}
+	e820conf();
 	*confend = 0;
 
 	if(f){
@@ -331,9 +341,11 @@ bootkern(void *f)
 	ulong n;
 	Exec ex;
 
-	e820conf();
+	print("boot");
+	print(crnl);
 
 	a20();
+
 	if(readn(f, &ex, sizeof(ex)) != sizeof(ex))
 		return "bad header";
 	if(beswal(ex.magic) != I_MAGIC)
@@ -342,16 +354,22 @@ bootkern(void *f)
 	e = (uchar*)(beswal(ex.entry) & ~0xF0000000UL);
 	t = e;
 	n = beswal(ex.text);
+
 	if(readn(f, t, n) != n)
 		goto Error;
 	d = (uchar*)PGROUND((ulong)t + n);
 	n = beswal(ex.data);
+
 	if(readn(f, d, n) != n)
 		goto Error;
 	close(f);
 	unload();
-	memset(BOOTLINE, 0, BOOTLINELEN);
+
+	print("go!");
+	print(crnl);
+
 	jump(e);
+
 Error:		
 	return "i/o error";
 }
