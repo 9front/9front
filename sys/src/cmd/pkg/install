@@ -1,5 +1,8 @@
 #!/bin/rc -e
 
+if(~ $#PKG_PATH 0)
+	PKG_PATH=http://pkg.violetti.org
+
 cd /
 mkdir -p /sys/lib/pkg
 if (test -s /sys/lib/pkg/$1) {
@@ -7,6 +10,6 @@ if (test -s /sys/lib/pkg/$1) {
 	exit
 }
 echo Installing $1
-hget http://pkg.violetti.org/$cputype/$1.tbz | bunzip2 | pkg/unpkg>[2]/sys/lib/pkg/$1
+hget $PKG_PATH/$cputype/$1.tbz | bunzip2 | pkg/unpkg>[2]/sys/lib/pkg/$1
 echo Done
 

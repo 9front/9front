@@ -8,22 +8,53 @@ database=
 
 auth=sources.cs.bell-labs.com authdom=outside.plan9.bell-labs.com
 
-#auth=cirno.9front authdom=9front
+auth=hr99.actron authdom=actron
 
-#ntp=pool.ntp.org
+auth=l299.onoff authdom=onoff
+
+auth=cb.inri authdom=inri
+
+auth=sp.inri.net authdom=inri.net
+
+ntp=64.90.182.55
 
 #
 #  because the public demands the name localsource
 #
 ip=127.0.0.1 sys=localhost dom=localhost
 
-# example: adjust to fit your network
-#ipnet=9front ip=192.168.0.0 ipmask=255.255.255.0
-#	auth=cirno.9front
-#	cpu=cirno.9front
-#	dns=192.168.0.2
-#	dnsdom=9front
-#	smtp=cirno.9front
-#
-#ip=192.168.0.1 sys=gw dom=gw.9front
-#ip=192.168.0.2 sys=cirno dom=cirno.9front
+ipnet=onoff ip=192.168.77.0 ipmask=255.255.255.0
+	auth=l299.onoff
+	cpu=l299.onoff
+	dns=8.8.8.8
+	dnsdom=onoff
+	smtp=phoenix
+
+ip=192.168.77.52 sys=l299 dom=l299.onoff
+ip=192.168.77.57 sys=holon99 dom=holon99.onoff
+ip=192.168.77.63 sys=rg99 dom=rg99.onoff
+ip=192.168.77.92 sys=pham99 dom=pham99.onoff
+
+ip=192.168.4.2 sys=onoff dom=onoff.inri
+ip=192.168.4.9 sys=frontier dom=frontier.inri
+ip=192.168.4.52 sys=l2 dom=l2.inri
+ip=192.168.4.56 sys=ipad dom=ipad.inri
+ip=192.168.4.57 sys=holon dom=holon.inri
+ip=192.168.4.58 sys=sdf1 dom=sdf1.inri
+ip=192.168.4.63 sys=rg dom=rg.inri
+ip=192.168.4.80 sys=hr dom=hr.inri
+ip=192.168.4.86 sys=vf1s dom=vf1s.inri
+ip=192.168.4.90 sys=cb dom=cb.inri
+ip=192.168.4.92 sys=pham dom=pham.inri
+
+ip=174.136.104.193 sys=gw dom=gw.inri.net
+ip=174.136.104.194 sys=phoenix dom=phoenix.inri.net
+ip=174.136.104.195 sys=lain dom=lain.inri.net
+ip=174.136.104.196 sys=sp dom=sp.inri.net
+
+ip=192.168.77.80 sys=hr99 dom=hr99.actron
+
+ip=192.168.6.129 sys=re9714 dom=re9714.att
+
+
+
