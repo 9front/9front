@@ -9,6 +9,7 @@ void start(void *sp);
 int getc(void);
 int gotc(void);
 void putc(int c);
+void usleep(int t);
 void halt(void);
 void jump(void *pc);
 

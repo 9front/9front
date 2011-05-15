@@ -171,6 +171,17 @@ _pret32:
 	ANDL $0xFFFF, AX
 	RET
 
+TEXT usleep(SB), $0
+	MOVL t+4(SP), AX
+	PUSHL AX
+	CALL rmode16(SB)
+	CALL16(spllo(SB))
+	POPR(rDX)
+	POPR(rCX)
+	MOVB $0x86, AH
+	BIOSCALL(0x15)
+	JMP _pret32
+
 #ifdef PXE
 
 TEXT pxeinit(SB), $0

@@ -129,6 +129,18 @@ readline(void *f, char buf[64])
 	return p - buf;
 }
 
+static int
+timeout(int ms)
+{
+	while(ms > 0){
+		if(gotc())
+			return 1;
+		usleep(100000);
+		ms -= 100;
+	}
+	return 0;
+}
+
 #define BOOTLINE	((char*)CONFADDR)
 #define BOOTLINELEN	64
 #define BOOTARGS	((char*)(CONFADDR+BOOTLINELEN))
@@ -176,17 +188,19 @@ Loop:
 		print(line); print(crnl);
 	}
 	*confend = 0;
+
 	if(f){
 		close(f);
 		f = 0;
+
+		if(kern && timeout(500))
+			goto Loop;
 	}
+
 	if(!kern){
 		print("no bootfile\r\n");
 		goto Loop;
 	}
-	for(n=0; n<10000; n++)
-		if(gotc())
-			goto Loop;
 	if(p = strrchr(kern, '!'))
 		kern = p+1;
 
