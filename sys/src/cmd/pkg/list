@@ -1,6 +1,9 @@
 #!/bin/rc
 
-if(~ $#PKG_PATH 0)
-	PKG_PATH=http://pkg.violetti.org
+if(~ $#pkgpath 0)
+	pkgpath=http://pkg.violetti.org/$cputype
 
-hget $PKG_PATH/$cputype | htmlfmt | grep '\.tbz' | sed -e 's/\.tbz$//'
+if(~ $pkgpath ftp* http*)
+	hget $pkgpath | htmlfmt | grep '\.tbz' | sed -e 's/\.tbz$//'
+if not
+	ls -p $pkgpath
