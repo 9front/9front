@@ -4,7 +4,7 @@
 
 TEXT a20(SB), $0
 	CALL rmode16(SB)
-	CALL16(spllo(SB))
+	STI
 	LWI(0x2401, rAX)
 	BIOSCALL(0x15)
 	JC _biosfail

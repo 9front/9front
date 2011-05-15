@@ -25,14 +25,6 @@ TEXT origin(SB), $0
 TEXT pmode32(SB), $0
 	CLI
 
-	/* disable nmi */
-	PUSHA
-	LWI(0x70, rDX)
-	INB
-	ANDB $0x7F, AL
-	OUTB
-	POPA
-
 	/* get return pc */
 	POPR(rDI)
 
@@ -129,21 +121,9 @@ TEXT halt(SB), $0
 _halt:
 	JMP _halt
 
-TEXT spllo(SB), $0
-	/* enable nmi */
-	PUSHA
-	LWI(0x70, rDX)
-	INB
-	ORB $0x80, AL
-	OUTB
-	POPA
-
-	STI
-	RET
-
 TEXT getc(SB), $0
 	CALL rmode16(SB)
-	CALL16(spllo(SB))
+	STI
 	MOVB $0x00, AH
 	BIOSCALL(0x16)
 _getcret:
@@ -153,7 +133,7 @@ _getcret:
 
 TEXT gotc(SB), $0
 	CALL rmode16(SB)
-	CALL16(spllo(SB))
+	STI
 	MOVB $0x01, AH
 	BIOSCALL(0x16)
 	JNZ _getcret
@@ -163,7 +143,7 @@ TEXT gotc(SB), $0
 TEXT putc(SB), $0
 	MOVL 4(SP),AX
 	CALL rmode16(SB)
-	CALL16(spllo(SB))
+	STI
 	MOVB $0x0E, AH
 	BIOSCALL(0x10)
 _pret32:
@@ -175,7 +155,7 @@ TEXT usleep(SB), $0
 	MOVL t+4(SP), AX
 	PUSHL AX
 	CALL rmode16(SB)
-	CALL16(spllo(SB))
+	STI
 	POPR(rDX)
 	POPR(rCX)
 	MOVB $0x86, AH
@@ -236,7 +216,7 @@ TEXT pxecall(SB), $0
 	LW(pxepoff(SB), rAX)
 	PUSHR(rAX)
 
-	CALL16(spllo(SB))
+	STI
 
 	CLR(rAX)
 	CLR(rBX)
@@ -297,7 +277,7 @@ TEXT readsect(SB), $0
 	MOVW 10(SP), BX
 	MOVL 12(SP), SI 
 	CALL rmode16(SB)
-	CALL16(spllo(SB))
+	STI
 	CALL16(readsect16(SB))
 	CALL16(pmode32(SB))
 	ANDL $0xFFFF, AX
