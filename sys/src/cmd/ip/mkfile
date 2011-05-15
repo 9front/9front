@@ -18,6 +18,7 @@ TARG = 	6in4\
 	telnet\
 	telnetd\
 	tftpd\
+	tftpfs\
 	traceroute\
 	udpecho\
 	wol\
