@@ -10,7 +10,7 @@ fileserver=cwfs
 # replace FACEDOM with the local domain to be used in the faces database
 facedom=FACEDOM
 
-for(i in m i P S t u)
+for(i in m i P S t u '$')
 	bind -a '#'^$i /dev >/dev/null >[2=1]
 
 mount -qa /srv/usb /dev
