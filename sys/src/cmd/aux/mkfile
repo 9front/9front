@@ -16,6 +16,7 @@ TARG=\
 	depend\
 	disksim\
 	getflags\
+	icanhasmsi\
 	kbdfs\
 	lines\
 	listen\
