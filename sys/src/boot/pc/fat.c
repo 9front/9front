@@ -358,7 +358,6 @@ start(void *sp)
 	/* drive passed in DL */
 	drive = ((ushort*)sp)[5] & 0xFF;
 
-	print("9bootfat\r\n");
 	if(findfat(&fat, drive)){
 		print("no fat\r\n");
 		halt();
