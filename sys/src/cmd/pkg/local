@@ -1,0 +1,3 @@
+#!/bin/rc
+
+ls -p /sys/lib/pkg
