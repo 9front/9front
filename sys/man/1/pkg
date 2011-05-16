@@ -1,0 +1,82 @@
+.TH PKG 1
+.SH NAME
+create, install, list, local, remove \- trivial package management
+.SH SYNOPSIS
+.B pkg/create
+.I name
+.br
+.B pkg/install
+.I name
+.br
+.B pkg/list
+.br
+.B pkg/local
+.br
+.B pkg/remove
+.I name
+.SH DESCRIPTION
+.I Pkg 
+is a simple package management system primarily written in
+.IR rc (1).
+It can be used to create, install, and remove software packages
+from an arbitrary package repository, indicated by the environment
+variable
+.I $pkgpath.
+If
+.I $pkgpath
+is not set, the system defaults to a hardcoded repository of approved
+packages.
+.TP
+.I Pkg/create 
+Create builds a new package
+.IR name ,
+then packs it into a
+.IR bzip2 (1)
+compressed
+.IR tar(1)
+archive suitable for upload to a package
+repository.
+.TP
+.I Pkg/install 
+Install the package
+.I name
+from the current repository.
+.TP
+.I Pkg/list
+List packages available from the current repository.
+.TP
+.I Pkg/local
+List locally installed packages.
+.TP
+.I Pkg/remove
+Remove the package
+.I name
+from the local system.
+.SH EXAMPLES
+.LP
+Install the
+.B Go
+programming language.
+.sp 1
+.EX
+% pkg/install go-2011.05.10
+.EE
+.SH FILES
+.TF /sys/lib/pkg/*
+.TP
+.B /sys/lib/pkg/*
+hash files of packages installed locally.
+.SH SOURCE
+.B /sys/src/cmd/pkg/create
+.br
+.B /sys/src/cmd/pkg/install
+.br
+.B /sys/src/cmd/pkg/list
+.br
+.B /sys/src/cmd/pkg/local
+.br
+.B /sys/src/cmd/pkg/remove
+.br
+.B /sys/src/cmd/pkg/unpkg.c
+.SH SEE ALSO
+.IR contrib (1)
