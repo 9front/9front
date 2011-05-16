@@ -5,7 +5,6 @@
 #include	"fns.h"
 #include	"io.h"
 #include	"../port/error.h"
-#include	"../port/audio.h"
 
 typedef struct Audioprobe Audioprobe;
 struct Audioprobe {

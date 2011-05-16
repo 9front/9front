@@ -5,7 +5,6 @@
 #include "fns.h"
 #include "io.h"
 #include "../port/error.h"
-#include "../port/audio.h"
 
 typedef struct Hwdesc Hwdesc;
 typedef struct Ctlr Ctlr;
@@ -140,6 +139,11 @@ enum {
 #define csr8w(c, r, b)	(outb((c)->port+(r), (int)(b)))
 #define csr16w(c, r, w)	(outs((c)->port+(r), (ushort)(w)))
 #define csr32w(c, r, w)	(outl((c)->port+(r), (ulong)(w)))
+
+/* audioac97mix */
+extern int ac97hardrate(Audio *, int);
+extern void ac97mixreset(Audio *, void (*wr)(Audio*,int,ushort), 
+	ushort (*rr)(Audio*,int));
 
 static void
 ac97waitcodec(Audio *adev)

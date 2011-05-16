@@ -8,7 +8,6 @@
 #include "fns.h"
 #include "io.h"
 #include "../port/error.h"
-#include "../port/audio.h"
 
 typedef struct	AQueue	AQueue;
 typedef struct	Buf	Buf;

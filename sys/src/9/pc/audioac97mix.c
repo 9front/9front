@@ -5,7 +5,6 @@
 #include "fns.h"
 #include "io.h"
 #include "../port/error.h"
-#include "../port/audio.h"
 
 typedef ushort (*ac97rdfn)(Audio *, int);
 typedef void (*ac97wrfn)(Audio *, int, ushort);
