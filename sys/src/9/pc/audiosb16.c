@@ -37,9 +37,7 @@ enum
 enum
 {
 	Bufsize	= 1024,	/* 5.8 ms each, must be power of two */
-	Nbuf		= 128,	/* .74 seconds total */
-	Dma		= 6,
-	IrqAUDIO	= 7,
+	Nbuf	= 128,	/* .74 seconds total */
 	SBswab	= 0,
 };
 
@@ -364,7 +362,6 @@ contindma(void)
 	audio.current = b;
 	if(b == 0)
 		goto shutdown;
-	iprint("d");
 	if(dmasetup(blaster.dma, b->virt, Bufsize, 0) >= 0)
 		return;
 	print("#A%d: dmasetup fail\n", audio.ctlrno);
@@ -400,12 +397,17 @@ sb16startdma(void)
 	sbcmd(speed>>8);
 	sbcmd(speed);
 
-	count = (Bufsize >> 1) - 1;
 	if(0)
 		sbcmd(0xbe);			/* A/D, autoinit */
 	else
 		sbcmd(0xb6);			/* D/A, autoinit */
 	sbcmd(0x30);				/* stereo, signed 16 bit */
+
+	/*
+	 * not really sure if this is correct, but
+	 * it works in bochs
+	 */
+	count = (Bufsize >> 2) - 1;
 	sbcmd(count);
 	sbcmd(count>>8);
 
@@ -518,46 +520,40 @@ pokeaudio(void)
 static void
 sb16intr(void)
 {
-	int stat, dummy;
+	int stat;
 
-	stat = mxread(0x82) & 7;		/* get irq status */
-	iprint("i%d",stat);
-	if(stat) {
-		dummy = 0;
-		if(stat & 2) {
-			ilock(&blaster);
-			dummy = inb(blaster.clri16);
+	stat = mxread(0x82);		/* get irq status */
+	if(stat & 7) {
+		ilock(&blaster);
+		if(stat & 2)
+			inb(blaster.clri16);
+		else if(stat & 1)
+			inb(blaster.clri8);
+		if(stat & 3){
 			contindma();
 			iunlock(&blaster);
+
 			audio.intr = 1;
 			wakeup(&audio.vous);
 		}
-		if(stat & 1) {
-			dummy = inb(blaster.clri8);
-		}
-		if(stat & 4) {
-			dummy = inb(blaster.clri401);
-		}
-		USED(dummy);
+		if(stat & 4)
+			inb(blaster.clri401);
 	}
 }
 
 static void
 ess1688intr(void)
 {
-	int dummy;
-
 	if(audio.active){
 		ilock(&blaster);
 		contindma();
-		dummy = inb(blaster.clri8);
+		inb(blaster.clri8);
 		iunlock(&blaster);
 		audio.intr = 1;
 		wakeup(&audio.vous);
-		USED(dummy);
+		return;
 	}
-	else
-		print("#A%d: unexpected ess1688 interrupt\n", audio.ctlrno);
+	print("#A%d: unexpected ess1688 interrupt\n", audio.ctlrno);
 }
 
 void
@@ -596,6 +592,7 @@ waitaudio(void)
 	pokeaudio();
 	tsleep(&audio.vous, anybuf, 0, 10000);
 	if(audio.intr == 0) {
+		audio.active = 0;
 		print("#A%d: audio timeout\n", audio.ctlrno);	/**/
 		return -1;
 	}
@@ -709,10 +706,8 @@ audiowrite(Audio *, void *vp, long n, vlong)
 		if(b == 0) {
 			b = getbuf(&audio.empty);
 			if(b == 0) {
-				if(waitaudio() < 0){
-					audio.active = 0;
+				if(waitaudio())
 					pokeaudio();
-				}
 				continue;
 			}
 			audio.filling = b;
@@ -840,13 +835,14 @@ audioprobe(Audio *adev)
 	ISAConf sbconf;
 	int i, x;
 	static int irq[] = {2,5,7,10};
+	static int dma16[] = {0,5,6,7};
 
 	if(audio.probed)
 		return -1;
 
 	sbconf.port = 0x220;
-	sbconf.dma = Dma;
-	sbconf.irq = IrqAUDIO;
+	sbconf.dma = 1;
+	sbconf.irq = 5;
 	if(isaconfig("audio", adev->ctlrno, &sbconf) == 0)
 		return -1;
 
@@ -876,23 +872,6 @@ audioprobe(Audio *adev)
 		print("#A%d: cannot ioalloc range %lux+0x01\n", audio.ctlrno, sbconf.port+0x100);
 		return -1;
 	}
-
-	switch(sbconf.irq){
-	case 2:
-	case 5:
-	case 7:
-	case 9:
-	case 10:
-		break;
-	default:
-		print("#A%d: bad irq %d\n", audio.ctlrno, sbconf.irq);
-		iofree(sbconf.port);
-		iofree(sbconf.port+0x100);
-		return -1;
-	}
-
-	print("#A%d: %s port 0x%04lux irq %d\n", audio.ctlrno, sbconf.type,
-		sbconf.port, sbconf.irq);
 
 	blaster.reset = sbconf.port + 0x6;
 	blaster.read = sbconf.port + 0xa;
@@ -954,41 +933,55 @@ audioprobe(Audio *adev)
 	 * but then use the contents in case the write is
 	 * disallowed.
 	 */
-	mxcmd(0x80,			/* irq */
-		(sbconf.irq==2)? 1:
-		(sbconf.irq==5)? 2:
-		(sbconf.irq==7)? 4:
-		(sbconf.irq==9)? 1:
-		(sbconf.irq==10)? 8:
-		0);
-
-	mxcmd(0x81, 1<<blaster.dma);	/* dma */
-
-	x = mxread(0x81);
-	for(i=5; i<=7; i++)
-		if(x & (1<<i)){
-			blaster.dma = i;
+	for(i=0; i<nelem(irq); i++){
+		if(irq[i] == sbconf.irq){
+			mxcmd(0x80, 1<<i);
 			break;
 		}
-
+	}
 	x = mxread(0x80);
-	for(i=0; i<=3; i++)
+	for(i=0; i<nelem(irq); i++)
 		if(x & (1<<i)){
 			sbconf.irq = irq[i];
 			break;
 		}
 
-	adev->write = audiowrite;
-	adev->close = audioclose;
-	adev->status = audiostatus;
-	adev->buffered = audiobuffered;
+	if(blaster.dma < 4)
+		mxcmd(0x81, 1<<blaster.dma);
+	else {
+		for(i=0; i<nelem(dma16); i++){
+			if(dma16[i] == blaster.dma){
+				x = mxread(0x81);
+				mxcmd(0x81, 0x10<<i | (x & 0xf));
+				break;
+			}
+		}
+	}
+	x = mxread(0x81);
+	for(i=0; i<4; i++)
+		if(x & (1<<i))
+			blaster.dma = i;
+	for(i=0; i<nelem(dma16); i++)
+		if(x & (0x10<<i)){
+			blaster.dma = dma16[i];
+			break;
+		}
 
-	dmainit(blaster.dma, Bufsize);
+	print("#A%d: %s port 0x%04lux irq %d dma %d\n", audio.ctlrno, sbconf.type,
+		sbconf.port, sbconf.irq, blaster.dma);
+
+	if(dmainit(blaster.dma, Bufsize))
+		return -1;
 	intrenable(sbconf.irq, pcaudiosbintr, 0, BUSUNKNOWN, "sb16");
 
 	sbbufinit();
 	setempty();
 	mxvolume();
+
+	adev->write = audiowrite;
+	adev->close = audioclose;
+	adev->status = audiostatus;
+	adev->buffered = audiobuffered;
 
 	return 0;
 }
