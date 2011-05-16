@@ -848,7 +848,7 @@ threadmain(int argc, char *argv[])
 	snprint(buf, sizeof(buf), "/sys/games/lib/%dscores", N);
 	scores = open(buf, OWRITE);
 	if(scores < 0)
-		sysfatal("can't open %s: %r", buf);
+		print("can't open %s: %r\n", buf);
 	tb = 0;
 	if(screen->depth < 3){
 		tb = allocimage(display, Rect(0,0,16,16), 0, 1, -1);
@@ -881,7 +881,7 @@ threadmain(int argc, char *argv[])
 	points = 0;
 	memset(board, 0, sizeof(board));
 	redraw(0);
-	if(play()){
+	if(play() && scores >= 0){
 		endtime = time(0);
 		fprint(scores, "%ld\t%s\t%lud\t%ld\n",
 			points, getuser(), starttime, endtime-starttime);
