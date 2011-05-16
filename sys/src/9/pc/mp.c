@@ -17,7 +17,6 @@ static int mpeisabus = -1;
 extern int i8259elcr;			/* mask of level-triggered interrupts */
 static Apic mpapic[MaxAPICNO+1];
 static int machno2apicno[MaxAPICNO+1];	/* inverse map: machno -> APIC ID */
-static Ref mpvnoref;			/* unique vector assignment */
 static int mpmachno = 1;
 static Lock mpphysidlock;
 static int mpphysid;
