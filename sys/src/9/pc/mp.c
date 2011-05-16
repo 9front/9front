@@ -705,6 +705,24 @@ mpintrcpu(void)
 	return mpapic[i].apicno;
 }
 
+/* hardcoded VectorAPIC and stuff. bad. */
+static int
+allocvector(void)
+{
+	static int round = 0, num = 1;
+	static Lock l;
+	int vno;
+	
+	lock(&l);
+	if(num >= 24) {
+		if(++round >= 8) round = 0;
+		num = 1;
+	}
+	vno = 64 + num++ * 8 + round;
+	unlock(&l);
+	return vno;
+}
+
 static int
 mpintrenablex(Vctl* v, int tbdf)
 {
@@ -806,13 +824,7 @@ mpintrenablex(Vctl* v, int tbdf)
 		 *    vector regardless of whether the devices on that pin use
 		 *    the same IRQ as devices on another pin.
 		 */
-		vno = VectorAPIC + (incref(&mpvnoref)-1)*8;
-//print("%s vector %d (imask)\n", v->name, vno);
-		if(vno > MaxVectorAPIC){
-			print("mpintrenable: vno %d, irq %d, tbdf %uX\n",
-				vno, v->irq, tbdf);
-			return -1;
-		}
+		vno = allocvector();
 		hi = mpintrcpu()<<24;
 		lo = mpintrinit(bus, aintr->intr, vno, v->irq);
 		//print("lo 0x%uX: busno %d intr %d vno %d irq %d elcr 0x%uX\n",
@@ -869,11 +881,7 @@ msiintrenable(Vctl *v)
 			break;
 	}
 	
-	vno = VectorAPIC + (incref(&mpvnoref)-1)*8;
-	if(vno > MaxVectorAPIC) {
-		print("msiintrenable: vno %d\n", vno);
-		return -1;
-	}
+	vno = allocvector();
 	cpu = mpintrcpu();
 	pcicfgw32(pci, cap + MSIAddr, (0xFEE << 20) | (cpu << 12));
 	pcicfgw32(pci, cap + MSIAddr + 4, 0);
