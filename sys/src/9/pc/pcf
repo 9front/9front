@@ -30,7 +30,7 @@ dev
 	aoe
 	lpt
 
-	audio		dma
+	audio
 	pccard
 	i82365		cis
 	uart
@@ -73,6 +73,7 @@ link
 	usbohci
 	usbehci		usbehcipc
 
+	audiosb16	dma
 	audioac97	audioac97mix
 
 misc
