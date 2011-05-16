@@ -30,7 +30,7 @@ dev
 	aoe
 	lpt
 
-	audio
+	audio		dma
 	pccard
 	i82365		cis
 	uart

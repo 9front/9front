@@ -65,7 +65,6 @@ static	struct
 	QLock;
 	Rendez	vous;
 	int	buffered;		/* number of bytes en route */
-	int	bufinit;		/* boolean if buffers allocated */
 	int	curcount;		/* how much data in current buffer */
 	int	active;		/* boolean dma running */
 	int	intr;			/* boolean an interrupt has happened */
@@ -147,7 +146,7 @@ sbcmd(int val)
 			return 0;
 		}
 	}
-/*	print("#A%d: sbcmd (%#.2x) timeout\n", audio.ctlrno, val);	/**/
+	print("#A%d: sbcmd (%#.2x) timeout\n", audio.ctlrno, val);	/**/
 	return 1;
 }
 
@@ -162,7 +161,7 @@ sbread(void)
 			return inb(blaster.read);
 		}
 	}
-/*	print("#A%d: sbread did not respond\n", audio.ctlrno);	/**/
+	print("#A%d: sbread did not respond\n", audio.ctlrno);	/**/
 	return -1;
 }
 
@@ -365,7 +364,7 @@ contindma(void)
 	audio.current = b;
 	if(b == 0)
 		goto shutdown;
-
+	iprint("d");
 	if(dmasetup(blaster.dma, b->virt, Bufsize, 0) >= 0)
 		return;
 	print("#A%d: dmasetup fail\n", audio.ctlrno);
@@ -406,7 +405,7 @@ sb16startdma(void)
 		sbcmd(0xbe);			/* A/D, autoinit */
 	else
 		sbcmd(0xb6);			/* D/A, autoinit */
-	sbcmd(0x30);				/* stereo, 16 bit */
+	sbcmd(0x30);				/* stereo, signed 16 bit */
 	sbcmd(count);
 	sbcmd(count>>8);
 
@@ -522,6 +521,7 @@ sb16intr(void)
 	int stat, dummy;
 
 	stat = mxread(0x82) & 7;		/* get irq status */
+	iprint("i%d",stat);
 	if(stat) {
 		dummy = 0;
 		if(stat & 2) {
@@ -588,7 +588,7 @@ anybuf(void*)
  * wait for some output to get
  * empty buffers back.
  */
-static void
+static int
 waitaudio(void)
 {
 
@@ -596,10 +596,10 @@ waitaudio(void)
 	pokeaudio();
 	tsleep(&audio.vous, anybuf, 0, 10000);
 	if(audio.intr == 0) {
-/*		print("#A%d: audio timeout\n", audio.ctlrno);	/**/
-		audio.active = 0;
-		pokeaudio();
+		print("#A%d: audio timeout\n", audio.ctlrno);	/**/
+		return -1;
 	}
+	return 0;
 }
 
 static	void
@@ -690,7 +690,7 @@ audiostatus(Audio *, void *a, long n, vlong off)
 }
 
 static long
-audiowrite(Audio *, void *vp, long n, vlong off)
+audiowrite(Audio *, void *vp, long n, vlong)
 {
 	long m, n0;
 	Buf *b;
@@ -704,22 +704,15 @@ audiowrite(Audio *, void *vp, long n, vlong off)
 		nexterror();
 	}
 
-	if(off == 0){
-		if(audio.bufinit == 0) {
-			audio.bufinit = 1;
-			sbbufinit();
-		}
-		setempty();
-		audio.curcount = 0;
-		mxvolume();
-	}
-
 	while(n > 0) {
 		b = audio.filling;
 		if(b == 0) {
 			b = getbuf(&audio.empty);
 			if(b == 0) {
-				waitaudio();
+				if(waitaudio() < 0){
+					audio.active = 0;
+					pokeaudio();
+				}
 				continue;
 			}
 			audio.filling = b;
@@ -752,6 +745,10 @@ static void
 audioclose(Audio *)
 {
 	qlock(&audio);
+	if(waserror()){
+		qunlock(&audio);
+		nexterror();
+	}
 	if(1) {
 		Buf *b;
 
@@ -767,13 +764,10 @@ audioclose(Audio *)
 		if(!audio.active && audio.full.first)
 			pokeaudio();
 	}
-	if(waserror()){
-		qunlock(&audio);
-		nexterror();
-	}
-	while(audio.active)
-		waitaudio();
+	while(audio.active && waitaudio() == 0)
+		;
 	setempty();
+	audio.curcount = 0;
 	poperror();
 	qunlock(&audio);
 }
@@ -918,7 +912,7 @@ audioprobe(Audio *adev)
 	resetlevel();
 
 	outb(blaster.reset, 1);
-	delay(1);			/* >3 υs */
+	delay(3);			/* >3 υs */
 	outb(blaster.reset, 0);
 	delay(1);
 
@@ -991,6 +985,11 @@ audioprobe(Audio *adev)
 
 	dmainit(blaster.dma, Bufsize);
 	intrenable(sbconf.irq, pcaudiosbintr, 0, BUSUNKNOWN, "sb16");
+
+	sbbufinit();
+	setempty();
+	mxvolume();
+
 	return 0;
 }
 
