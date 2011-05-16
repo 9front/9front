@@ -48,6 +48,7 @@ cp /bin/ns /tmp
 cp /bin/rc /tmp
 cp /bin/sed /tmp
 cp /bin/sleep /tmp
+cp /bin/scram /tmp
 bind /tmp /rc
 bind /tmp /bin
 
@@ -77,6 +78,7 @@ fn x {
 		echo rebooting...
 		echo reboot >'#c/reboot'
 	}
+	if not scram
 }
 
 x

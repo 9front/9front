@@ -1,6 +1,6 @@
 .TH FSHALT 8
 .SH NAME
-fshalt, reboot \- halt any local file systems and optionally reboot the system
+fshalt, scram, reboot \- halt any local file systems and optionally shut down or reboot the system
 .SH SYNOPSIS
 .B fshalt
 [
@@ -8,6 +8,8 @@ fshalt, reboot \- halt any local file systems and optionally reboot the system
 ]
 .br
 .B reboot
+.br
+.B scram
 .SH DESCRIPTION
 .I Fshalt
 syncs all local
@@ -25,6 +27,9 @@ If given
 .BR -r ,
 .I fshalt
 will then reboot the machine.
+Else it will invoke
+.I scram
+to shut down the machine.
 The halting and rebooting is done by copying all necessary
 commands into a
 .IR ramfs (4)
@@ -35,6 +40,9 @@ local file systems.
 .PP
 .I Reboot
 restarts the machine it is invoked on.
+.PP
+.I Scram
+shuts down the machine it is invoked on.
 .SH SOURCE
 .B /rc/bin/fshalt
 .br
@@ -43,6 +51,9 @@ restarts the machine it is invoked on.
 .IR cons (3),
 .IR reboot (8)
 .SH BUGS
-On standalone machines, it will be impossible to do anything
+On standalone machines, it will be impossible to do anything if scram fails
 after invoking bare
-.LR fshalt .
+.IR fshalt .
+
+.I Scram
+is limited to the PC and requires APM.
