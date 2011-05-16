@@ -349,6 +349,7 @@ score1(int x, int y) {
 		if(next < min)
 			min = next;
 	}
+	if(min == 999) return 998;
 	return 1+min;
 }
 
