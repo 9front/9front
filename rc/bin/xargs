@@ -19,3 +19,5 @@ while(~ $1 -*) {
 }
 while(x = `{read -n $nargs})
 	$* $x
+if(! ~ $#x 0)
+	$* $x
