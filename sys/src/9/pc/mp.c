@@ -838,10 +838,61 @@ mpintrenablex(Vctl* v, int tbdf)
 	return -1;
 }
 
+enum {
+	MSICtrl = 0x02, /* message control register (16 bit) */
+	MSIAddr = 0x04, /* message address register (64 bit) */
+	MSIData = 0x0C, /* message data register (16 bit) */
+};
+
+static int
+msiintrenable(Vctl *v)
+{
+	int tbdf, vno, cap, cpu;
+	Pcidev *pci;
+
+	if(getconf("*msi") == nil)
+		return -1;
+	tbdf = v->tbdf;
+	if(tbdf == BUSUNKNOWN || BUSTYPE(tbdf) != BusPCI)
+		return -1;
+	pci = pcimatchtbdf(tbdf);
+	if(pci == nil) {
+		print("msiintrenable: could not find Pcidev for tbdf %.8x\n", tbdf);
+		return -1;
+	}
+	cap = 0;
+	for(;;) {
+		cap = pcinextcap(pci, cap);
+		if(cap == 0)
+			return -1;
+		if(pcicfgr8(pci, cap) == 0x05) /* MSI block */
+			break;
+	}
+	
+	vno = VectorAPIC + (incref(&mpvnoref)-1)*8;
+	if(vno > MaxVectorAPIC) {
+		print("msiintrenable: vno %d\n", vno);
+		return -1;
+	}
+	cpu = mpintrcpu();
+	pcicfgw32(pci, cap + MSIAddr, (0xFEE << 20) | (cpu << 12));
+	pcicfgw32(pci, cap + MSIAddr + 4, 0);
+	pcicfgw16(pci, cap + MSIData, vno | (1<<14));
+	pcicfgw16(pci, cap + MSICtrl, 1);
+	print("msiintrenable: success with tbdf %.8x, vector %d, cpu %d\n", tbdf, vno, cpu);
+	v->isr = lapicisr;
+	v->eoi = lapiceoi;
+	return vno;
+}
+
 int
 mpintrenable(Vctl* v)
 {
 	int irq, tbdf, vno;
+
+	vno = msiintrenable(v);
+	if(vno != -1)
+		return vno;
 
 	/*
 	 * If the bus is known, try it.

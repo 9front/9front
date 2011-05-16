@@ -112,6 +112,7 @@ enum {					/* type 0 & type 1 pre-defined header */
 	PciBAR0		= 0x10,		/* base address */
 	PciBAR1		= 0x14,
 
+	PciCAP		= 0x34,		/* capabilities pointer */
 	PciINTL		= 0x3C,		/* interrupt line */
 	PciINTP		= 0x3D,		/* interrupt pin */
 };

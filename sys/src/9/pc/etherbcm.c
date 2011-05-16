@@ -547,8 +547,7 @@ bcminit(Ether *edev)
 	csr32(ctlr, MACHash+12) = -1;
 	for(i = 0; i < 8; i++) csr32(ctlr, ReceiveRules + 8 * i) = 0;
 	csr32(ctlr, ReceiveRulesConfiguration) = 1 << 3;
-	csr32(ctlr, MSIMode) &= ~Enable;
-	while(csr32(ctlr, MSIMode) & Enable);
+	csr32(ctlr, MSIMode) |= Enable;
 	csr32(ctlr, MiscHostCtl) &= ~(MaskPCIInt | ClearIntA);
 }
 
