@@ -17,6 +17,7 @@ static int mpeisabus = -1;
 extern int i8259elcr;			/* mask of level-triggered interrupts */
 static Apic mpapic[MaxAPICNO+1];
 static int machno2apicno[MaxAPICNO+1];	/* inverse map: machno -> APIC ID */
+static int mpapicremap[MaxAPICNO+1];
 static int mpmachno = 1;
 static Lock mpphysidlock;
 static int mpphysid;
@@ -135,11 +136,22 @@ mpgetbus(int busno)
 	return 0;
 }
 
+static int
+freeapicid(void)
+{
+	int i;
+	
+	for(i = 0; i < MaxAPICNO+1; i++)
+		if(mpapic[i].flags == 0)
+			return i;
+	return -1;
+}
+
 static Apic*
 mkioapic(PCMPioapic* p)
 {
 	void *va;
-	int apicno;
+	int apicno, new;
 	Apic *apic;
 
 	apicno = p->apicno;
@@ -153,8 +165,18 @@ mkioapic(PCMPioapic* p)
 		return 0;
 
 	apic = &mpapic[apicno];
-	if(apic->flags != 0)
-		print("mkioapic: APIC ID conflict at %d\n", p->apicno);
+	if(apic->flags != 0) {
+		new = freeapicid();
+		if(new < 0)
+			print("mkioapic: out of APIC IDs\n");
+		else {
+			mpapicremap[p->apicno] = new;
+			print("mkioapic: APIC ID conflict at %d, remapping to %d\n", p->apicno, new);
+			p->apicno = apicno = new;
+			apic = &mpapic[apicno];
+		}
+	} else
+		mpapicremap[p->apicno] = p->apicno;
 	apic->type = PcmpIOAPIC;
 	apic->apicno = apicno;
 	apic->addr = va;
@@ -177,8 +199,14 @@ mkiointr(PCMPintr* p)
 	 * It's unclear how that can possibly be correct so treat it as
 	 * an error for now.
 	 */
-	if(p->apicno == 0xFF)
+	if(p->apicno > MaxAPICNO)
 		return 0;
+	
+	if(mpapicremap[p->apicno] < 0) {
+		print("iointr: non-existing IOAPIC %d\n", p->apicno);
+		return 0;
+	}
+	p->apicno = mpapicremap[p->apicno];
 	if((bus = mpgetbus(p->busno)) == 0)
 		return 0;
 
@@ -528,7 +556,7 @@ mpoverride(uchar** newp, uchar** e)
 void
 mpinit(void)
 {
-	int ncpu;
+	int ncpu, i;
 	char *cp;
 	PCMP *pcmp;
 	uchar *e, *p;
@@ -551,6 +579,9 @@ mpinit(void)
 	print("LAPIC: %.8lux %.8lux\n", pcmp->lapicbase, (ulong)va);
 
 	bpapic = nil;
+	
+	for(i = 0; i <= MaxAPICNO; i++)
+		mpapicremap[i] = -1;
 
 	/*
 	 * Run through the table saving information needed for starting
