@@ -1,0 +1,20 @@
+.TH HOLD 1
+.SH NAME
+hold \- text editor
+.SH SYNOPSIS
+.B hold
+.I file
+.SH DESCRIPTION
+.PP
+.I Hold
+sets hold mode on the
+.IR rio(1)
+window where it was launched. If a
+.I file
+argument is given, the contents of the named file is printed
+above the live editing area.
+.SH SOURCE
+.B /rc/bin/hold
+.SH "SEE ALSO"
+.IR emacs (1),
+.IR rio (4)
