@@ -17,4 +17,4 @@ above the live editing area.
 .B /rc/bin/hold
 .SH "SEE ALSO"
 .IR emacs (1),
-.IR rio (4)
+.IR rio (1)
