@@ -316,9 +316,6 @@ vgactl(Cmdbuf *cb)
 		deletescreenimage();
 		if(screensize(x, y, z, chan))
 			error(Egreg);
-		vgascreenwin(scr);
-		resetscreenimage();
-		cursoron(1);
 		return;
 
 	case CMactualsize:
@@ -355,6 +352,9 @@ vgactl(Cmdbuf *cb)
 			error("drawinit: no gscreen");
 		if(scr->dev && scr->dev->drawinit)
 			scr->dev->drawinit(scr);
+		vgascreenwin(scr);
+		resetscreenimage();
+		cursoron(1);
 		return;
 	
 	case CMlinear:
