@@ -212,12 +212,15 @@ dmasetup(int chan, void *va, long len, int flags)
 	else
 		xp->len = 0;
 
+	mode =	((flags & DMAREAD) ? 0x44 : 0x48) |	/* read or write */
+		((flags & DMALOOP) ? 0x10 : 0) |	/* auto init mode */
+		chan;
+
 	/*
 	 * this setup must be atomic
 	 */
 	ilock(dp);
-	mode = ((flags & DMAREAD) ? 0x44 : 0x48) | ((flags & DMALOOP) ? 0x10 : 0) | chan;
-	outb(dp->mode, mode);	/* single mode dma (give CPU a chance at mem) */
+	outb(dp->mode, mode);
 	outb(dp->page[chan], pa>>16);
 	outb(dp->cbp, 0);		/* set count & address to their first byte */
 	outb(dp->addr[chan], pa>>dp->shift);		/* set address */
