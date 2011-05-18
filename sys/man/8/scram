@@ -1,0 +1,12 @@
+.TH SCRAM 8
+.SH NAME
+scram \- apm halt
+.SH SYNOPSIS
+.B scram
+.SH DESCRIPTION
+.PP
+Writes apm shutdown signal to
+.I /dev/apm,
+which results powering off the machine.
+.SH SOURCE
+.B /sys/src/cmd/scram.c
