@@ -5,8 +5,12 @@ scram \- apm halt
 .B scram
 .SH DESCRIPTION
 .PP
-Writes apm shutdown signal to
+Writes APM shutdown call to
 .I /dev/apm,
-which results powering off the machine.
+which results in powering off an APM-enabled machine.
 .SH SOURCE
 .B /sys/src/cmd/scram.c
+.SH "SEE ALSO"
+.IR apm (3),
+.IR apm (8)
+
