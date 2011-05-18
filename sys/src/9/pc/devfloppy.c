@@ -857,7 +857,7 @@ floppyxfer(FDrive *dp, int cmd, void *a, long off, long n)
 		dmaend(DMAchan);
 		nexterror();
 	}
-	dp->len = dmasetup(DMAchan, a, dp->len, cmd==Fread);
+	dp->len = dmasetup(DMAchan, a, dp->len, cmd==Fread ? DMAREAD : DMAWRITE);
 	if(dp->len < 0)
 		error(Eio);
 
@@ -999,7 +999,7 @@ floppyformat(FDrive *dp, Cmdbuf *cb)
 			dmaend(DMAchan);
 			nexterror();
 		}
-		if(dmasetup(DMAchan, buf, bp-buf, 0) < 0)
+		if(dmasetup(DMAchan, buf, bp-buf, DMAWRITE) < 0)
 			error(Eio);
 
 		/*

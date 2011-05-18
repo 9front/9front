@@ -18,6 +18,7 @@ enum {
 	Qaudioctl,
 	Qaudiostatus,
 	Qvolume,
+
 	Maxaudioprobes = 8,
 };
 
@@ -48,19 +49,26 @@ audioreset(void)
 	int i, ctlrno = 0;
 	Audio **pp;
 	Audioprobe *probe;
+
 	pp = &audiodevs;
 	*pp = malloc(sizeof(Audio));
-	(*pp)->ctlrno = ctlrno++;
-	for(i = 0; i < naudioprobes; i++){
+
+	for(i=0; i<naudioprobes; i++){
 		probe = &audioprobes[i];
-		(*pp)->name = probe->name;
-		while(!probe->probe(*pp)){
+
+		for(;;){
+			memset(*pp, 0, sizeof(Audio));
+			(*pp)->ctlrno = ctlrno;
+			(*pp)->name = probe->name;
+			if(probe->probe(*pp))
+				break;
+
+			ctlrno++;
 			pp = &(*pp)->next;
 			*pp = malloc(sizeof(Audio));
-			(*pp)->ctlrno = ctlrno++;
-			(*pp)->name = probe->name;
 		}
 	}
+
 	free(*pp);
 	*pp = nil;
 }
