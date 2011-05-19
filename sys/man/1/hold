@@ -1,0 +1,23 @@
+.TH HOLD 1
+.SH NAME
+hold \- simple text editor
+.SH SYNOPSIS
+.B hold
+.I file
+.SH DESCRIPTION
+.PP
+.I Hold
+sets hold mode on the
+.IR rio(1)
+window where it was launched. If a
+.I file
+argument is given, the contents of the named file is printed
+above the live editing area and the newly entered text is saved
+in the named file upon exit. If no
+.I file
+is specified, the newly entered text is printed on stdout.
+.SH SOURCE
+.B /rc/bin/hold
+.SH "SEE ALSO"
+.IR emacs (1),
+.IR rio (1)

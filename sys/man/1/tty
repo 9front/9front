@@ -1,0 +1,26 @@
+.TH TTY 1
+.SH NAME
+tty \- cooked mode emulator
+.SH SYNOPSIS
+.B tty
+[-D]
+.I cmd
+.I arg1
+.I arg2
+.I ...
+.SH DESCRIPTION
+.PP
+.I Tty
+binds an intermediate "cooked mode" layer between
+.I cmd
+and
+.I /dev/cons.
+.SH EXAMPLE
+.LP
+Provide <DEL> support for a command run on the text console:
+.sp 1
+.EX
+% tty import -c cirno / /n/cirno
+.EE
+.SH SOURCE
+.B /sys/src/cmd/tty.c

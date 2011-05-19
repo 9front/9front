@@ -1,0 +1,19 @@
+.TH ICANHASMSI 8
+.SH NAME
+icanhasmsi \- print MSI configuration
+.SH SYNOPSIS
+.B aux/icanhasmsi
+.SH DESCRIPTION
+Prints information about Message Signaled Interrupt (MSI) devices
+found on the system, one line per device.
+.SH SOURCE
+.B /sys/src/cmd/aux/icanhasmsi.c
+.SH SEE ALSO
+.IR pci (8),
+.IR pnp (3)
+.SH BUGS
+Should probably be renamed to
+.I
+msi
+or merged with
+.IR pci (8).
