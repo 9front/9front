@@ -917,7 +917,7 @@ msiintrenable(Vctl *v)
 	ok64 = (pcicfgr16(pci, cap + MSICtrl) & (1<<7)) != 0;
 	pcicfgw32(pci, cap + MSIAddr, (0xFEE << 20) | (cpu << 12));
 	if(ok64) pcicfgw32(pci, cap + MSIAddr + 4, 0);
-	pcicfgw16(pci, cap + ok64 ? MSIData64 : MSIData32, vno | (1<<14));
+	pcicfgw16(pci, cap + (ok64 ? MSIData64 : MSIData32), vno | (1<<14));
 	pcicfgw16(pci, cap + MSICtrl, 1);
 	print("msiintrenable: success with tbdf %.8x, vector %d, cpu %d\n", tbdf, vno, cpu);
 	v->isr = lapicisr;
