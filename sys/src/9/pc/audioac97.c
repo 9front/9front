@@ -8,7 +8,6 @@
 
 typedef struct Hwdesc Hwdesc;
 typedef struct Ctlr Ctlr;
-static uint sis7012 = 0;
 
 enum {
 	Ioc	=	1<<31,
@@ -70,6 +69,7 @@ struct Ctlr {
 	int hardrate;
 
 	int attachok;
+	int sis7012;
 
 	/* for probe */
 	Pcidev *pcidev;
@@ -207,7 +207,7 @@ ac97interrupt(Ureg *, void *arg)
 
 	ilock(ctlr);
 	if(stat & Point){
-		if(sis7012)
+		if(ctlr->sis7012)
 			csr16w(ctlr, Out + Picb, csr16r(ctlr, Out + Picb) & ~Dch);
 		else
 			csr16w(ctlr, Out + Sr, csr16r(ctlr, Out + Sr) & ~Dch);
@@ -428,50 +428,24 @@ ac97match(Pcidev *p)
 {
 	/* not all of the matched devices have been tested */
 	while(p = pcimatch(p, 0, 0))
-		switch(p->vid){
-		default:
-			break;
-		case 0x1039:
-			switch(p->did){
-			default:
-				break;
-			case 0x7012:
-				sis7012 = 1;
-				return p;
-			}
-		case 0x1022:
-			switch(p->did){
-			default:
-				break;
-			case 0x746d:
-			case 0x7445:
-				return p;
-			}
-		case 0x10de:
-			switch(p->did){
-			default:
-				break;
-			case 0x01b1:
-			case 0x006a:
-			case 0x00da:
-			case 0x00ea:
-				return p;
-			}
-		case 0x8086:
-			switch(p->did){
-			default:
-				break;
-			case 0x2415:
-			case 0x2425:
-			case 0x2445:
-			case 0x2485:
-			case 0x24c5:
-			case 0x24d5:
-			case 0x25a6:
-			case 0x266e:
-			case 0x7195:
-				return p;
-			}
+		switch((p->vid<<16)|p->did){
+		case (0x1039<<16)|0x7012:
+		case (0x1022<<16)|0x746d:
+		case (0x1022<<16)|0x7445:
+		case (0x10de<<16)|0x01b1:
+		case (0x10de<<16)|0x006a:
+		case (0x10de<<16)|0x00da:
+		case (0x10de<<16)|0x00ea:
+		case (0x8086<<16)|0x2415:
+		case (0x8086<<16)|0x2425:
+		case (0x8086<<16)|0x2445:
+		case (0x8086<<16)|0x2485:
+		case (0x8086<<16)|0x24c5:
+		case (0x8086<<16)|0x24d5:
+		case (0x8086<<16)|0x25a6:
+		case (0x8086<<16)|0x266e:
+		case (0x8086<<16)|0x7195:
+			return p;
 		}
 	return nil;
 }
@@ -519,6 +493,9 @@ Found:
 	ctlr->targetrate = 44100;
 	ctlr->hardrate = 44100;
 
+	if(p->vid == 0x1039 && p->did == 0x7012)
+		ctlr->sis7012 = 1;
+
 	if(p->mem[0].size == 64){
 		ctlr->port = p->mem[0].bar & ~3;
 		ctlr->mixport = p->mem[1].bar & ~3;
@@ -549,7 +526,7 @@ Found:
 	for(i = 0; i < Ndesc; i++){
 		int size, off = i * (Bufsize/Ndesc);
 		
-		if(sis7012)
+		if(ctlr->sis7012)
 			size = (Bufsize/Ndesc);
 		else
 			size = (Bufsize/Ndesc) / 2;
