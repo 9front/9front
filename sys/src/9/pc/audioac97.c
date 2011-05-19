@@ -70,6 +70,10 @@ struct Ctlr {
 	int hardrate;
 
 	int attachok;
+
+	/* for probe */
+	Pcidev *pcidev;
+	Ctlr *next;
 };
 
 #define iorl(c, r)	(inl((c)->port+(r)))
@@ -483,20 +487,34 @@ sethwp(Ctlr *ctlr, long off, void *ptr)
 static int
 ac97reset(Audio *adev)
 {
-	static int ncards = 1;
-	int i, irq, tbdf;
+	static Ctlr *cards = nil;
 	Pcidev *p;
+	int i, irq, tbdf;
 	Ctlr *ctlr;
 	ulong ctl, stat = 0;
 
-	p = nil;
-	for(i = 0; i < ncards; i++)
-		if((p = ac97match(p)) == nil)
-			return -1;
-	ncards++;
+	/* make a list of all ac97 cards if not already done */
+	if(cards == nil){
+		p = nil;
+		while(p = ac97match(p)){
+			ctlr = xspanalloc(sizeof(Ctlr), 8, 0);
+			memset(ctlr, 0, sizeof(Ctlr));
+			ctlr->pcidev = p;
+			ctlr->next = cards;
+			cards = ctlr;
+		}
+	}
 
-	ctlr = xspanalloc(sizeof(Ctlr), 8, 0);
-	memset(ctlr, 0, sizeof(Ctlr));
+	/* pick a card from the list */
+	for(ctlr = cards; ctlr; ctlr = ctlr->next){
+		if(p = ctlr->pcidev){
+			ctlr->pcidev = nil;
+			goto Found;
+		}
+	}
+	return -1;
+
+Found:
 	adev->ctlr = ctlr;
 	ctlr->targetrate = 44100;
 	ctlr->hardrate = 44100;
