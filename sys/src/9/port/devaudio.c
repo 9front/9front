@@ -116,7 +116,7 @@ audioclone(Chan *c, Audio *adev)
 static Chan*
 audioattach(char *spec)
 {
-	static int first = 1;
+	static int attached = 0;
 	Audiochan *ac;
 	Audio *adev;
 	Chan *c;
@@ -127,7 +127,7 @@ audioattach(char *spec)
 	else
 		i = 0;
 	for(adev = audiodevs; adev; adev = adev->next)
-		if(i-- == 0)
+		if(adev->ctlrno == i)
 			break;
 	if(adev == nil)
 		error(Enodev);
@@ -138,9 +138,10 @@ audioattach(char *spec)
 	if((ac = audioclone(c, adev)) == nil)
 		error(Enomem);
 
-	if(first && adev->volwrite){
-		first = 0;
- 
+	i = 1<<adev->ctlrno;
+	if((attached & i) == 0 && adev->volwrite){
+		attached |= i;
+
 		strcpy(ac->buf, "speed 44100");
 		if(!waserror()){
 			adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
