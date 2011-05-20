@@ -538,5 +538,5 @@ Found:
 void
 audioac97link(void)
 {
-	addaudiocard("ac97audio", ac97reset);
+	addaudiocard("ac97", ac97reset);
 }

@@ -56,7 +56,6 @@ struct Blaster
 	int	clri8;
 	int	clri16;
 	int	clri401;
-	int	dma;
 
 	void	(*startdma)(Ctlr*);
 	void	(*intr)(Ctlr*);
@@ -73,9 +72,14 @@ struct Ctlr
 	vlong	tottime;	/* time at which totcount bytes were processed */
 	Ring	ring;		/* dma ring buffer */
 	Blaster	blaster;
+
 	int	lvol[Nvol];
 	int	rvol[Nvol];
+
+	/* for probe */
 	Audio	*adev;
+	ISAConf conf;
+	Ctlr *next;
 };
 
 static Volume voltab[] = {
@@ -278,12 +282,12 @@ contindma(Ctlr *ctlr)
 	blaster = &ctlr->blaster;
 	ring = &ctlr->ring;
 	if(buffered(ring) >= Blocksize){
-		ring->ri = ring->nbuf - dmacount(blaster->dma);
+		ring->ri = ring->nbuf - dmacount(ctlr->conf.dma);
 
 		ctlr->totcount += Blocksize;
 		ctlr->tottime = todget(nil);
 	}else{
-		dmaend(blaster->dma);
+		dmaend(ctlr->conf.dma);
 		sbcmd(blaster, 0xd9);	/* exit at end of count */
 		sbcmd(blaster, 0xd5);	/* pause */
 		ctlr->active = 0;
@@ -306,7 +310,7 @@ sb16startdma(Ctlr *ctlr)
 	blaster = &ctlr->blaster;
 	ring = &ctlr->ring;
 	ilock(blaster);
-	dmaend(blaster->dma);
+	dmaend(ctlr->conf.dma);
 	if(0)
 		sbcmd(blaster, 0x42);	/* input sampling rate */
 	else
@@ -327,7 +331,7 @@ sb16startdma(Ctlr *ctlr)
 	sbcmd(blaster, count>>8);
 
 	ctlr->active = 1;
-	if(dmasetup(blaster->dma, ring->buf, ring->nbuf, DMAWRITE|DMALOOP) < 0){
+	if(dmasetup(ctlr->conf.dma, ring->buf, ring->nbuf, DMAWRITE|DMALOOP) < 0){
 		ctlr->active = 0;
 		print("#A%d: dmasetup fail\n", ctlr->adev->ctlrno);
 	}
@@ -370,7 +374,7 @@ ess1688startdma(Ctlr *ctlr)
 	ring = &ctlr->ring;
 
 	ilock(blaster);
-	dmaend(blaster->dma);
+	dmaend(ctlr->conf.dma);
 
 	ess1688reset(blaster, ctlr->adev->ctlrno);
 
@@ -421,7 +425,7 @@ ess1688startdma(Ctlr *ctlr)
 	ess1688w(blaster, 0xB8, x|0x05);
 
 	ctlr->active = 1;
-	if(dmasetup(blaster->dma, ring->buf, ring->nbuf, DMAWRITE|DMALOOP) < 0){
+	if(dmasetup(ctlr->conf.dma, ring->buf, ring->nbuf, DMAWRITE|DMALOOP) < 0){
 		ctlr->active = 0;
 		print("#A%d: dmasetup fail\n", ctlr->adev->ctlrno);
 	}
@@ -681,57 +685,76 @@ static int
 audioprobe(Audio *adev)
 {
 	static int irq[] = {9,5,7,10};
+	static Ctlr *cards = nil;
 
 	Ctlr *ctlr;
 	Blaster *blaster;
-	ISAConf sbconf;
 	int i, x;
 
-	sbconf.port = 0x220;
-	sbconf.irq = 5;
-	sbconf.dma = 0;
-	if(isaconfig("audio", adev->ctlrno, &sbconf) == 0)
-		return -1;
+	/* make a list of audio isa cards if not already done */
+	if(cards == nil){
+		for(i=0; i<nelem(irq); i++){
+			ctlr = malloc(sizeof(Ctlr));
+			memset(ctlr, 0, sizeof(Ctlr));
+			ctlr->conf.port = 0x220 + i*0x10;
+			ctlr->conf.irq = irq[i];
+			ctlr->conf.dma = 0;
+			if(isaconfig("audio", i, &ctlr->conf) == 0){
+				free(ctlr);
+				break;
+			}
+			ctlr->next = cards;
+			cards = ctlr;
+		}
+	}
 
-	switch(sbconf.port){
+	/* pick a card */
+	for(ctlr = cards; ctlr; ctlr = ctlr->next){
+		if(ctlr->conf.type && strcmp(adev->name, ctlr->conf.type) == 0){
+			ctlr->conf.type = nil;
+			goto Found;
+		}
+	}
+	return -1;
+
+Found:
+	switch(ctlr->conf.port){
 	case 0x220:
 	case 0x240:
 	case 0x260:
 	case 0x280:
 		break;
 	default:
-		print("#A%d: bad port %#lux\n", adev->ctlrno, sbconf.port);
+		print("#A%d: bad port %#lux\n", adev->ctlrno, ctlr->conf.port);
 		return -1;
 	}
 
-	if(ioalloc(sbconf.port, 0x10, 0, "audio") < 0){
+	if(ioalloc(ctlr->conf.port, 0x10, 0, "audio") < 0){
 		print("#A%d: cannot ioalloc range %lux+0x10\n",
-			adev->ctlrno, sbconf.port);
+			adev->ctlrno, ctlr->conf.port);
 		return -1;
 	}
-	if(ioalloc(sbconf.port+0x100, 1, 0, "audio.mpu401") < 0){
-		iofree(sbconf.port);
+	if(ioalloc(ctlr->conf.port+0x100, 1, 0, "audio.mpu401") < 0){
+		iofree(ctlr->conf.port);
 		print("#A%d: cannot ioalloc range %lux+0x01\n",
-			adev->ctlrno, sbconf.port+0x100);
+			adev->ctlrno, ctlr->conf.port+0x100);
 		return -1;
 	}
 
-	ctlr = malloc(sizeof(Ctlr));
 	ctlr->adev = adev;
 	adev->ctlr = ctlr;
 
 	blaster = &ctlr->blaster;
-	blaster->reset = sbconf.port + 0x6;
-	blaster->read = sbconf.port + 0xa;
-	blaster->write = sbconf.port + 0xc;
-	blaster->wstatus = sbconf.port + 0xc;
-	blaster->rstatus = sbconf.port + 0xe;
-	blaster->mixaddr = sbconf.port + 0x4;
-	blaster->mixdata = sbconf.port + 0x5;
-	blaster->clri8 = sbconf.port + 0xe;
-	blaster->clri16 = sbconf.port + 0xf;
-	blaster->clri401 = sbconf.port + 0x100;
-	blaster->dma = sbconf.dma;
+	blaster->reset = ctlr->conf.port + 0x6;
+	blaster->read = ctlr->conf.port + 0xa;
+	blaster->write = ctlr->conf.port + 0xc;
+	blaster->wstatus = ctlr->conf.port + 0xc;
+	blaster->rstatus = ctlr->conf.port + 0xe;
+	blaster->mixaddr = ctlr->conf.port + 0x4;
+	blaster->mixdata = ctlr->conf.port + 0x5;
+	blaster->clri8 = ctlr->conf.port + 0xe;
+	blaster->clri16 = ctlr->conf.port + 0xf;
+	blaster->clri401 = ctlr->conf.port + 0x100;
 
 	blaster->startdma = sb16startdma;
 	blaster->intr = sb16intr;
@@ -745,9 +768,8 @@ audioprobe(Audio *adev)
 	if(i != 0xaa) {
 		print("#A%d: no response #%.2x\n", adev->ctlrno, i);
 Errout:
-		iofree(sbconf.port);
-		iofree(sbconf.port+0x100);
-		free(ctlr);
+		iofree(ctlr->conf.port);
+		iofree(ctlr->conf.port+0x100);
 		return -1;
 	}
 
@@ -757,7 +779,7 @@ Errout:
 
 	if(ctlr->major != 4) {
 		if(ctlr->major != 3 || ctlr->minor != 1 ||
-			ess1688(&sbconf, blaster, adev->ctlrno)){
+			ess1688(&ctlr->conf, blaster, adev->ctlrno)){
 			print("#A%d: model %#.2x %#.2x; not SB 16 compatible\n",
 				adev->ctlrno, ctlr->major, ctlr->minor);
 			goto Errout;
@@ -780,7 +802,7 @@ Errout:
 
 	/* set irq */
 	for(i=0; i<nelem(irq); i++){
-		if(sbconf.irq == irq[i]){
+		if(ctlr->conf.irq == irq[i]){
 			mxcmd(blaster, 0x80, 1<<i);
 			break;
 		}
@@ -788,38 +810,37 @@ Errout:
 	x = mxread(blaster, 0x80);
 	for(i=0; i<nelem(irq); i++){
 		if(x & (1<<i)){
-			sbconf.irq = irq[i];
+			ctlr->conf.irq = irq[i];
 			break;
 		}
 	}
 
 	for(;;){
 		/* set 16bit dma */
-		if(blaster->dma>=5 && blaster->dma<=7){
+		if(ctlr->conf.dma>=5 && ctlr->conf.dma<=7){
 			x = mxread(blaster, 0x81);
-			mxcmd(blaster, 0x81, (1<<blaster->dma) & 0xF0 | (x & 0x0F));
+			mxcmd(blaster, 0x81, (1<<ctlr->conf.dma) & 0xF0 | (x & 0x0F));
 		}
 		x = mxread(blaster, 0x81);
 		for(i=5; i<=7; i++){
 			if(x & (1<<i)){
-				blaster->dma = i;
+				ctlr->conf.dma = i;
 				break;
 			}
 		}
-		if(blaster->dma>=5)
+		if(ctlr->conf.dma>=5)
 			break;
-
-		blaster->dma = 7;
+		ctlr->conf.dma = 7;
 	}
 
-	print("#A%d: %s port 0x%04lux irq %d dma %d\n", adev->ctlrno, sbconf.type,
-		sbconf.port, sbconf.irq, blaster->dma);
+	print("#A%d: %s port 0x%04lux irq %d dma %lud\n", adev->ctlrno, adev->name,
+		ctlr->conf.port, ctlr->conf.irq, ctlr->conf.dma);
 
 	ctlr->ring.nbuf = Blocks*Blocksize;
-	if(dmainit(blaster->dma, ctlr->ring.nbuf))
+	if(dmainit(ctlr->conf.dma, ctlr->ring.nbuf))
 		goto Errout;
-	ctlr->ring.buf = dmabva(blaster->dma);
-	print("#A%d: %s dma buffer %p-%p\n", adev->ctlrno, sbconf.type,
+	ctlr->ring.buf = dmabva(ctlr->conf.dma);
+	print("#A%d: %s dma buffer %p-%p\n", adev->ctlrno, adev->name,
 		ctlr->ring.buf, ctlr->ring.buf+ctlr->ring.nbuf);
 
 	setempty(ctlr);
@@ -831,7 +852,7 @@ Errout:
 	adev->status = audiostatus;
 	adev->buffered = audiobuffered;
 
-	intrenable(sbconf.irq, audiointr, adev, BUSUNKNOWN, sbconf.type);
+	intrenable(ctlr->conf.irq, audiointr, adev, BUSUNKNOWN, adev->name);
 
 	return 0;
 }
