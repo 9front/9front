@@ -37,10 +37,10 @@ enum {
 
 static Dirtab audiodir[] = {
 	".",	{Qdir, 0, QTDIR},	0,	DMDIR|0555,
-	"audio",	{Qaudio},			0,	0666,
-	"audioctl",	{Qaudioctl},			0,	0666,
-	"audiostat",	{Qaudiostatus},			0,	0666,
-	"volume",	{Qvolume},			0,	0666,
+	"audio",	{Qaudio},	0,	0666,
+	"audioctl",	{Qaudioctl},	0,	0666,
+	"audiostat",	{Qaudiostatus},	0,	0444,
+	"volume",	{Qvolume},	0,	0666,
 };
 
 
