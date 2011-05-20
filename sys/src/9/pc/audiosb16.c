@@ -503,9 +503,9 @@ audiostatus(Audio *adev, void *a, long n, vlong)
 	Ctlr *ctlr = adev->ctlr;
 
 	return snprint((char*)a, n, 
-		"bufsize %6lud buffered %6ld "
+		"bufsize %6d buffered %6ld "
 		"offset %10lud time %19lld\n",
-		ctlr->ring.nbuf, buffered(&ctlr->ring),
+		Blocksize, buffered(&ctlr->ring),
 		ctlr->totcount, ctlr->tottime);
 }
 
