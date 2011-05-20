@@ -8,6 +8,7 @@
 #include "fns.h"
 #include "io.h"
 #include "../port/error.h"
+#include "../port/audioif.h"
 
 typedef struct	Ring	Ring;
 typedef struct	Blaster	Blaster;
@@ -15,11 +16,8 @@ typedef struct	Ctlr	Ctlr;
 
 enum
 {
-	Fmono		= 1,
-	Fin		= 2,
-	Fout		= 4,
-
-	Vaudio		= 0,
+	Vmaster,
+	Vaudio,
 	Vsynth,
 	Vcd,
 	Vline,
@@ -27,11 +25,10 @@ enum
 	Vspeaker,
 	Vtreb,
 	Vbass,
+	Vigain,
+	Vogain,
 	Vspeed,
 	Nvol,
-
-	Speed		= 44100,
-	Ncmd		= 50,		/* max volume command words */
 
 	Blocksize	= 4096,
 	Blocks		= 65536/Blocksize,
@@ -70,44 +67,34 @@ struct Ctlr
 	QLock;
 	Rendez	vous;
 	int	active;		/* boolean dma running */
-	int	rivol[Nvol];	/* right/left input/output volumes */
-	int	livol[Nvol];
-	int	rovol[Nvol];
-	int	lovol[Nvol];
 	int	major;		/* SB16 major version number (sb 4) */
 	int	minor;		/* SB16 minor version number */
 	ulong	totcount;	/* how many bytes processed since open */
 	vlong	tottime;	/* time at which totcount bytes were processed */
 	Ring	ring;		/* dma ring buffer */
 	Blaster	blaster;
+	int	lvol[Nvol];
+	int	rvol[Nvol];
 	Audio	*adev;
 };
 
-static struct
-{
-	char*	name;
-	int	flag;
-	int	ilval;		/* initial values */
-	int	irval;
-} volumes[] = {
-	[Vaudio]		"audio",	Fout, 		50,	50,
-	[Vsynth]		"synth",	Fin|Fout,	0,	0,
-	[Vcd]		"cd",		Fin|Fout,	0,	0,
-	[Vline]		"line",	Fin|Fout,	0,	0,
-	[Vmic]		"mic",	Fin|Fout|Fmono,	0,	0,
-	[Vspeaker]	"speaker",	Fout|Fmono,	0,	0,
-
-	[Vtreb]		"treb",		Fout, 		50,	50,
-	[Vbass]		"bass",		Fout, 		50,	50,
-
-	[Vspeed]	"speed",	Fin|Fout|Fmono,	Speed,	Speed,
-	0
+static Volume voltab[] = {
+	[Vmaster] "master", 0x30, 0xff, Stereo, 0,
+	[Vaudio] "audio", 0x32, 0xff, Stereo, 0,
+	[Vsynth] "synth", 0x34, 0xff, Stereo, 0,
+	[Vcd] "cd", 0x36, 0xff, Stereo, 0,
+	[Vline] "line", 0x38, 0xff, Stereo, 0,
+	[Vmic] "mic", 0x3a, 0xff, Mono, 0,
+	[Vspeaker] "speaker", 0x3b, 0xff, Mono, 0,
+	[Vtreb] "treb", 0x44, 0xff, Stereo, 0,
+	[Vbass] "bass", 0x46, 0xff, Stereo, 0,
+	[Vigain] "recgain", 0x3f, 0xff, Stereo, 0,
+	[Vogain] "outgain", 0x41, 0xff, Stereo, 0,
+	[Vspeed] "speed", 0, 0, Absolute, 0,
+	0,
 };
 
 static	char	Emajor[]	= "soundblaster not responding/wrong version";
-static	char	Emode[]		= "illegal open mode";
-static	char	Evolume[]	= "illegal volume specifier";
-
 
 static long
 buffered(Ring *r)
@@ -242,109 +229,44 @@ mxread(Blaster *blaster, int addr)
 	return s;
 }
 
-static	void
-mxcmds(Blaster *blaster, int s, int v)
-{
-
-	if(v > 100)
-		v = 100;
-	if(v < 0)
-		v = 0;
-	mxcmd(blaster, s, (v*255)/100);
-}
-
-static	void
-mxcmdt(Blaster *blaster, int s, int v)
-{
-
-	if(v > 100)
-		v = 100;
-	if(v <= 0)
-		mxcmd(blaster, s, 0);
-	else
-		mxcmd(blaster, s, 255-100+v);
-}
-
-static	void
-mxcmdu(Blaster *blaster, int s, int v)
-{
-
-	if(v > 100)
-		v = 100;
-	if(v <= 0)
-		v = 0;
-	mxcmd(blaster, s, 128-50+v);
-}
-
-static	void
-mxvolume(Ctlr *ctlr)
+static int
+mxsetvol(Audio *adev, int x, int a[2])
 {
 	Blaster *blaster;
-	int *left, *right;
-	int source;
+	Ctlr *ctlr = adev->ctlr;
+	Volume *vol;
 
-	if(0){
-		left = ctlr->livol;
-		right = ctlr->rivol;
-	}else{
-		left = ctlr->lovol;
-		right = ctlr->rovol;
+	if(x == Vspeed){
+		ctlr->lvol[x] = ctlr->rvol[x] = a[0];
+		return 0;
 	}
 
+	vol = voltab+x;
 	blaster = &ctlr->blaster;
-
 	ilock(blaster);
-
-	mxcmd(blaster, 0x30, 255);		/* left master */
-	mxcmd(blaster, 0x31, 255);		/* right master */
-	mxcmd(blaster, 0x3f, 0);		/* left igain */
-	mxcmd(blaster, 0x40, 0);		/* right igain */
-	mxcmd(blaster, 0x41, 0);		/* left ogain */
-	mxcmd(blaster, 0x42, 0);		/* right ogain */
-
-	mxcmds(blaster, 0x32, left[Vaudio]);
-	mxcmds(blaster, 0x33, right[Vaudio]);
-
-	mxcmds(blaster, 0x34, left[Vsynth]);
-	mxcmds(blaster, 0x35, right[Vsynth]);
-
-	mxcmds(blaster, 0x36, left[Vcd]);
-	mxcmds(blaster, 0x37, right[Vcd]);
-
-	mxcmds(blaster, 0x38, left[Vline]);
-	mxcmds(blaster, 0x39, right[Vline]);
-
-	mxcmds(blaster, 0x3a, left[Vmic]);
-	mxcmds(blaster, 0x3b, left[Vspeaker]);
-
-	mxcmdu(blaster, 0x44, left[Vtreb]);
-	mxcmdu(blaster, 0x45, right[Vtreb]);
-
-	mxcmdu(blaster, 0x46, left[Vbass]);
-	mxcmdu(blaster, 0x47, right[Vbass]);
-
-	source = 0;
-	if(left[Vsynth])
-		source |= 1<<6;
-	if(right[Vsynth])
-		source |= 1<<5;
-	if(left[Vaudio])
-		source |= 1<<4;
-	if(right[Vaudio])
-		source |= 1<<3;
-	if(left[Vcd])
-		source |= 1<<2;
-	if(right[Vcd])
-		source |= 1<<1;
-	if(left[Vmic])
-		source |= 1<<0;
-	if(0)
-		mxcmd(blaster, 0x3c, 0);		/* output switch */
-	else
-		mxcmd(blaster, 0x3c, source);
-	mxcmd(blaster, 0x3d, source);		/* input left switch */
-	mxcmd(blaster, 0x3e, source);		/* input right switch */
+	switch(vol->type){
+	case Stereo:
+		ctlr->rvol[x] = a[1];
+		mxcmd(blaster, vol->reg+1, a[1]);
+		/* no break */
+	case Mono:
+		ctlr->lvol[x] = a[0];
+		mxcmd(blaster, vol->reg, a[0]);
+	}
 	iunlock(blaster);
+
+	return 0;
+}
+
+static int
+mxgetvol(Audio *adev, int x, int a[2])
+{
+	Ctlr *ctlr = adev->ctlr;
+
+	a[0] = ctlr->lvol[x];
+	a[1] = ctlr->rvol[x];
+
+	return 0;
 }
 
 static	void
@@ -385,22 +307,20 @@ sb16startdma(Ctlr *ctlr)
 	ring = &ctlr->ring;
 	ilock(blaster);
 	dmaend(blaster->dma);
-	if(0) {
-		sbcmd(blaster, 0x42);			/* input sampling rate */
-		speed = ctlr->livol[Vspeed];
-	} else {
-		sbcmd(blaster, 0x41);			/* output sampling rate */
-		speed = ctlr->lovol[Vspeed];
-	}
+	if(0)
+		sbcmd(blaster, 0x42);	/* input sampling rate */
+	else
+		sbcmd(blaster, 0x41);	/* output sampling rate */
+	speed = ctlr->lvol[Vspeed];
 	sbcmd(blaster, speed>>8);
 	sbcmd(blaster, speed);
 
 	if(0)
-		sbcmd(blaster, 0xbe);			/* A/D, autoinit */
+		sbcmd(blaster, 0xbe);	/* A/D, autoinit */
 	else
-		sbcmd(blaster, 0xb6);			/* D/A, autoinit */
+		sbcmd(blaster, 0xb6);	/* D/A, autoinit */
 
-	sbcmd(blaster, 0x30);				/* stereo, signed 16 bit */
+	sbcmd(blaster, 0x30);	/* stereo, signed 16 bit */
 
 	count = (Blocksize>>1) - 1;
 	sbcmd(blaster, count);
@@ -420,7 +340,7 @@ ess1688reset(Blaster *blaster, int ctlrno)
 	int i;
 
 	outb(blaster->reset, 3);
-	delay(1);			/* >3 υs */
+	delay(1);	/* >3 υs */
 	outb(blaster->reset, 0);
 	delay(1);
 
@@ -430,7 +350,7 @@ ess1688reset(Blaster *blaster, int ctlrno)
 		return 1;
 	}
 
-	if(sbcmd(blaster, 0xC6)){		/* extended mode */
+	if(sbcmd(blaster, 0xC6)){	/* extended mode */
 		print("#A%d: barf 3\n", ctlrno);
 		return 1;
 	}
@@ -457,15 +377,11 @@ ess1688startdma(Ctlr *ctlr)
 	/*
 	 * Set the speed.
 	 */
-	if(0)
-		speed = ctlr->livol[Vspeed];
-	else
-		speed = ctlr->lovol[Vspeed];
+	speed = ctlr->lvol[Vspeed];
 	if(speed < 4000)
 		speed = 4000;
 	else if(speed > 48000)
 		speed = 48000;
-
 	if(speed > 22000)
 		  x = 0x80|(256-(795500+speed/2)/speed);
 	else
@@ -477,15 +393,15 @@ ess1688startdma(Ctlr *ctlr)
 	ess1688w(blaster, 0xA2, x & 0xFF);
 
 	if(0)
-		ess1688w(blaster, 0xB8, 0x0E);		/* A/D, autoinit */
+		ess1688w(blaster, 0xB8, 0x0E);	/* A/D, autoinit */
 	else
-		ess1688w(blaster, 0xB8, 0x04);		/* D/A, autoinit */
+		ess1688w(blaster, 0xB8, 0x04);	/* D/A, autoinit */
 	x = ess1688r(blaster, 0xA8) & ~0x03;
-	ess1688w(blaster, 0xA8, x|0x01);			/* 2 channels */
-	ess1688w(blaster, 0xB9, 2);			/* demand mode, 4 bytes per request */
+	ess1688w(blaster, 0xA8, x|0x01);	/* 2 channels */
+	ess1688w(blaster, 0xB9, 2);	/* demand mode, 4 bytes per request */
 
 	if(1)
-		ess1688w(blaster, 0xB6, 0);		/* for output */
+		ess1688w(blaster, 0xB6, 0);	/* for output */
 
 	ess1688w(blaster, 0xB7, 0x71);
 	ess1688w(blaster, 0xB7, 0xBC);
@@ -496,7 +412,7 @@ ess1688startdma(Ctlr *ctlr)
 	ess1688w(blaster, 0xB2, x|0x50);
 
 	if(1)
-		sbcmd(blaster, 0xD1);			/* speaker on */
+		sbcmd(blaster, 0xD1);	/* speaker on */
 
 	count = -Blocksize;
 	ess1688w(blaster, 0xA4, count & 0xFF);
@@ -571,19 +487,6 @@ setempty(Ctlr *ctlr)
 	iunlock(&ctlr->blaster);
 }
 
-static void
-resetlevel(Ctlr *ctlr)
-{
-	int i;
-
-	for(i=0; volumes[i].name; i++) {
-		ctlr->lovol[i] = volumes[i].ilval;
-		ctlr->rovol[i] = volumes[i].irval;
-		ctlr->livol[i] = volumes[i].ilval;
-		ctlr->rivol[i] = volumes[i].irval;
-	}
-}
-
 static long
 audiobuffered(Audio *adev)
 {
@@ -591,17 +494,15 @@ audiobuffered(Audio *adev)
 }
 
 static long
-audiostatus(Audio *adev, void *a, long n, vlong off)
+audiostatus(Audio *adev, void *a, long n, vlong)
 {
-	char buf[300];
-	Ctlr *ctlr;
+	Ctlr *ctlr = adev->ctlr;
 
-	ctlr = adev->ctlr;
-	snprint(buf, sizeof(buf), 
-		"buffered %.4lx/%.4lx  offset %10lud time %19lld\n",
-		buffered(&ctlr->ring), available(&ctlr->ring),
+	return snprint((char*)a, n, 
+		"bufsize %6lud buffered %6ld "
+		"offset %10lud time %19lld\n",
+		ctlr->ring.nbuf, buffered(&ctlr->ring),
 		ctlr->totcount, ctlr->tottime);
-	return readstr(off, a, n, buf);
 }
 
 static int
@@ -626,7 +527,6 @@ audiowrite(Audio *adev, void *vp, long n, vlong)
 	uchar *p, *e;
 	Ctlr *ctlr;
 	Ring *ring;
-	long m;
 
 	p = vp;
 	e = p + n;
@@ -638,17 +538,15 @@ audiowrite(Audio *adev, void *vp, long n, vlong)
 	}
 	ring = &ctlr->ring;
 	while(p < e) {
-		if((m = writering(ring, p, e - p)) <= 0){
+		if((n = writering(ring, p, e - p)) <= 0){
 			if(!ctlr->active && ring->ri == 0)
 				ctlr->blaster.startdma(ctlr);
-			if(!ctlr->active){
+			if(!ctlr->active)
 				setempty(ctlr);
-				continue;
-			}
-			sleep(&ctlr->vous, anybuf, ctlr);
-			continue;
+			else
+				sleep(&ctlr->vous, anybuf, ctlr);
 		}
-		p += m;
+		p += n;
 	}
 	poperror();
 	qunlock(ctlr);
@@ -673,6 +571,49 @@ audioclose(Audio *adev)
 	qunlock(ctlr);
 }
 
+static long
+audiovolread(Audio *adev, void *a, long n, vlong)
+{
+	return genaudiovolread(adev, a, n, 0, voltab, mxgetvol, 0);
+}
+
+static long
+audiovolwrite(Audio *adev, void *a, long n, vlong)
+{
+	Blaster *blaster;
+	Ctlr *ctlr;
+	int source;
+
+	ctlr = adev->ctlr;
+	blaster = &ctlr->blaster;
+
+	n = genaudiovolwrite(adev, a, n, 0, voltab, mxsetvol, 0);
+
+	source = 0;
+	if(ctlr->lvol[Vsynth])
+		source |= 1<<6;
+	if(ctlr->rvol[Vsynth])
+		source |= 1<<5;
+	if(ctlr->lvol[Vaudio])
+		source |= 1<<4;
+	if(ctlr->rvol[Vaudio])
+		source |= 1<<3;
+	if(ctlr->lvol[Vcd])
+		source |= 1<<2;
+	if(ctlr->rvol[Vcd])
+		source |= 1<<1;
+	if(ctlr->lvol[Vmic])
+		source |= 1<<0;
+
+	ilock(blaster);
+	mxcmd(blaster, 0x3c, source);	/* output switch */
+	mxcmd(blaster, 0x3d, source);	/* input left switch */
+	mxcmd(blaster, 0x3e, source);	/* input right switch */
+	iunlock(blaster);
+
+	return n;
+}
+
 static int
 ess1688(ISAConf* sbconf, Blaster *blaster, int ctlrno)
 {
@@ -685,7 +626,8 @@ ess1688(ISAConf* sbconf, Blaster *blaster, int ctlrno)
 	major = sbread(blaster);
 	minor = sbread(blaster);
 	if(major != 0x68 || minor != 0x8B){
-		print("#A%d: model %#.2x %#.2x; not ESS1688 compatible\n", ctlrno, major, minor);
+		print("#A%d: model %#.2x %#.2x; not ESS1688 compatible\n",
+			ctlrno, major, minor);
 		return -1;
 	}
 
@@ -763,12 +705,14 @@ audioprobe(Audio *adev)
 	}
 
 	if(ioalloc(sbconf.port, 0x10, 0, "audio") < 0){
-		print("#A%d: cannot ioalloc range %lux+0x10\n", adev->ctlrno, sbconf.port);
+		print("#A%d: cannot ioalloc range %lux+0x10\n",
+			adev->ctlrno, sbconf.port);
 		return -1;
 	}
 	if(ioalloc(sbconf.port+0x100, 1, 0, "audio.mpu401") < 0){
 		iofree(sbconf.port);
-		print("#A%d: cannot ioalloc range %lux+0x01\n", adev->ctlrno, sbconf.port+0x100);
+		print("#A%d: cannot ioalloc range %lux+0x01\n",
+			adev->ctlrno, sbconf.port+0x100);
 		return -1;
 	}
 
@@ -792,8 +736,6 @@ audioprobe(Audio *adev)
 	blaster->startdma = sb16startdma;
 	blaster->intr = sb16intr;
 
-	resetlevel(ctlr);
-
 	outb(blaster->reset, 1);
 	delay(1);			/* >3 υs */
 	outb(blaster->reset, 0);
@@ -802,6 +744,7 @@ audioprobe(Audio *adev)
 	i = sbread(blaster);
 	if(i != 0xaa) {
 		print("#A%d: no response #%.2x\n", adev->ctlrno, i);
+Errout:
 		iofree(sbconf.port);
 		iofree(sbconf.port+0x100);
 		free(ctlr);
@@ -813,12 +756,11 @@ audioprobe(Audio *adev)
 	ctlr->minor = sbread(blaster);
 
 	if(ctlr->major != 4) {
-		if(ctlr->major != 3 || ctlr->minor != 1 || ess1688(&sbconf, blaster, adev->ctlrno)){
+		if(ctlr->major != 3 || ctlr->minor != 1 ||
+			ess1688(&sbconf, blaster, adev->ctlrno)){
 			print("#A%d: model %#.2x %#.2x; not SB 16 compatible\n",
 				adev->ctlrno, ctlr->major, ctlr->minor);
-			iofree(sbconf.port);
-			iofree(sbconf.port+0x100);
-			return -1;
+			goto Errout;
 		}
 		ctlr->major = 4;
 	}
@@ -827,7 +769,14 @@ audioprobe(Audio *adev)
 	 * initialize the mixer
 	 */
 	mxcmd(blaster, 0x00, 0);			/* Reset mixer */
-	mxvolume(ctlr);
+
+	for(i=0; i<Nvol; i++){
+		int a[2];
+
+		a[0] = 0;
+		a[1] = 0;
+		mxsetvol(adev, i, a);
+	}
 
 	/* set irq */
 	for(i=0; i<nelem(irq); i++){
@@ -857,32 +806,32 @@ audioprobe(Audio *adev)
 				break;
 			}
 		}
-		if(blaster->dma<5){
-			blaster->dma = 7;
-			continue;
-		}
-		break;
+		if(blaster->dma>=5)
+			break;
+
+		blaster->dma = 7;
 	}
 
 	print("#A%d: %s port 0x%04lux irq %d dma %d\n", adev->ctlrno, sbconf.type,
 		sbconf.port, sbconf.irq, blaster->dma);
 
 	ctlr->ring.nbuf = Blocks*Blocksize;
-	if(dmainit(blaster->dma, ctlr->ring.nbuf)){
-		free(ctlr);
-		return -1;
-	}
+	if(dmainit(blaster->dma, ctlr->ring.nbuf))
+		goto Errout;
 	ctlr->ring.buf = dmabva(blaster->dma);
-
-	intrenable(sbconf.irq, audiointr, adev, BUSUNKNOWN, sbconf.type);
+	print("#A%d: %s dma buffer %p-%p\n", adev->ctlrno, sbconf.type,
+		ctlr->ring.buf, ctlr->ring.buf+ctlr->ring.nbuf);
 
 	setempty(ctlr);
-	mxvolume(ctlr);
 
 	adev->write = audiowrite;
 	adev->close = audioclose;
+	adev->volread = audiovolread;
+	adev->volwrite = audiovolwrite;
 	adev->status = audiostatus;
 	adev->buffered = audiobuffered;
+
+	intrenable(sbconf.irq, audiointr, adev, BUSUNKNOWN, sbconf.type);
 
 	return 0;
 }

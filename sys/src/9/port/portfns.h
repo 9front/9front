@@ -4,7 +4,6 @@ Timer*		addclock0link(void (*)(void), int);
 int		addphysseg(Physseg*);
 void		addbootfile(char*, uchar*, ulong);
 void		addwatchdog(Watchdog*);
-void		addaudiocard(char *, int (*)(Audio *));
 Block*		adjustblock(Block*, int);
 void		alarmkproc(void*);
 Block*		allocb(int);

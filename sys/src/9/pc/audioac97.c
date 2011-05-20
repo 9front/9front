@@ -5,6 +5,7 @@
 #include "fns.h"
 #include "io.h"
 #include "../port/error.h"
+#include "../port/audioif.h"
 
 typedef struct Hwdesc Hwdesc;
 typedef struct Ctlr Ctlr;
@@ -65,10 +66,6 @@ struct Ctlr {
 	ulong civstat[Ndesc];
 	ulong lvistat[Ndesc];
 
-	int targetrate;
-	int hardrate;
-
-	int attachok;
 	int sis7012;
 
 	/* for probe */
@@ -145,8 +142,8 @@ enum {
 #define csr32w(c, r, w)	(outl((c)->port+(r), (ulong)(w)))
 
 /* audioac97mix */
-extern int ac97hardrate(Audio *, int);
-extern void ac97mixreset(Audio *, void (*wr)(Audio*,int,ushort), 
+extern void ac97mixreset(Audio *,
+	void (*wr)(Audio*,int,ushort), 
 	ushort (*rr)(Audio*,int));
 
 static void
@@ -202,11 +199,9 @@ ac97interrupt(Ureg *, void *arg)
 	adev = arg;
 	ctlr = adev->ctlr;
 	stat = csr32r(ctlr, Sta);
-
 	stat &= S2ri | Sri | Pri | Mint | Point | Piint | Moint | Miint | Gsci;
-
-	ilock(ctlr);
 	if(stat & Point){
+		ilock(ctlr);
 		if(ctlr->sis7012)
 			csr16w(ctlr, Out + Picb, csr16r(ctlr, Out + Picb) & ~Dch);
 		else
@@ -232,10 +227,11 @@ ac97interrupt(Ureg *, void *arg)
 		if(ctlr->outavail > Bufsize/2)
 			wakeup(&ctlr->outr);
 		stat &= ~Point;	
+		iunlock(ctlr);
 	}
-	iunlock(ctlr);
 	if(stat) /* have seen 0x400, which is sdin0 resume */
-		print("#A%d: ac97 unhandled interrupt(s): stat 0x%lux\n", adev->ctlrno, stat);
+		iprint("#A%d: ac97 unhandled interrupt(s): stat 0x%lux\n",
+			adev->ctlrno, stat);
 }
 
 static int
@@ -272,52 +268,30 @@ ac97medianoutrate(Audio *adev)
 	return ts[Nts/2] / BytesPerSample;
 }
 
-static void
-ac97volume(Audio *adev, char *msg)
-{
-	adev->volwrite(adev, msg, strlen(msg), 0);
-}
-
-static void
-ac97attach(Audio *adev)
-{
-	Ctlr *ctlr;
-	ctlr = adev->ctlr;
-	if(!ctlr->attachok){
-		ac97hardrate(adev, ctlr->hardrate);
-		ac97volume(adev, "audio 75");
-		ac97volume(adev, "head 100");
-		ac97volume(adev, "master 100");
-		ctlr->attachok = 1;
-	}
-}
-
 static long
-ac97status(Audio *adev, void *a, long n, vlong off)
+ac97status(Audio *adev, void *a, long n, vlong)
 {
+	char *p, *e;
 	Ctlr *ctlr;
-	char *buf;
-	long i, l;
+	int i;
+
 	ctlr = adev->ctlr;
-	l = 0;
-	buf = malloc(READSTR);
-	l += snprint(buf + l, READSTR - l, "rate %d\n", ctlr->targetrate);
-	l += snprint(buf + l, READSTR - l, "median rate %lud\n", ac97medianoutrate(adev));
-	l += snprint(buf + l, READSTR - l, "hard rate %d\n", ac97hardrate(adev, -1));
 
-	l += snprint(buf + l, READSTR - l, "civ stats");
+	p = a;
+	e = p + n;
+
+	p += snprint(p, e - p, "median rate %lud\n", ac97medianoutrate(adev));
+	p += snprint(p, e - p, "civ stats");
 	for(i = 0; i < Ndesc; i++)
-		l += snprint(buf + l, READSTR - l, " %lud", ctlr->civstat[i]);
-	l += snprint(buf + l, READSTR - l, "\n");
+		p += snprint(p, e - p, " %lud", ctlr->civstat[i]);
+	p += snprint(p, e - p, "\n");
 
-	l += snprint(buf + l, READSTR - l, "lvi stats");
+	p += snprint(p, e - p, "lvi stats");
 	for(i = 0; i < Ndesc; i++)
-		l += snprint(buf + l, READSTR - l, " %lud", ctlr->lvistat[i]);
-	snprint(buf + l, READSTR - l, "\n");
+		p += snprint(p, e - p, " %lud", ctlr->lvistat[i]);
+	p += snprint(p, e - p, "\n");
 
-	n = readstr(off, a, n, buf);
-	free(buf);
-	return n;
+	return p - (char*)a;
 }
 
 static long
@@ -326,41 +300,6 @@ ac97buffered(Audio *adev)
 	Ctlr *ctlr;
 	ctlr = adev->ctlr;
 	return Bufsize - Bufsize/Ndesc - ctlr->outavail;
-}
-
-static long
-ac97ctl(Audio *adev, void *a, long n, vlong)
-{
-	Ctlr *ctlr;
-	char *tok[2], *p;
-	int ntok;
-	long t;
-
-	ctlr = adev->ctlr;
-	if(n > READSTR)
-		n = READSTR - 1;
-	p = malloc(READSTR);
-
-	if(waserror()){
-		free(p);
-		nexterror();
-	}
-	memmove(p, a, n);
-	p[n] = 0;
-	ntok = tokenize(p, tok, nelem(tok));
-	if(ntok > 1 && !strcmp(tok[0], "rate")){
-		t = strtol(tok[1], 0, 10);
-		if(t < 8000 || t > 48000)
-			error("rate must be between 8000 and 48000");
-		ctlr->targetrate = t;
-		ctlr->hardrate = t;
-		ac97hardrate(adev, ctlr->hardrate);
-		poperror();
-		free(p);
-		return n;
-	}
-	error("invalid ctl");
-	return n; /* shut up, you compiler you */
 }
 
 static void
@@ -490,9 +429,6 @@ ac97reset(Audio *adev)
 
 Found:
 	adev->ctlr = ctlr;
-	ctlr->targetrate = 44100;
-	ctlr->hardrate = 44100;
-
 	if(p->vid == 0x1039 && p->did == 0x7012)
 		ctlr->sis7012 = 1;
 
@@ -588,13 +524,11 @@ Found:
 	csr8w(ctlr, Out+Cr, Ioce);	/*  | Lvbie | Feie */
 	csr8w(ctlr, Mic+Cr, Ioce);	/*  | Lvbie | Feie */
 
-	adev->attach = ac97attach;
+	ac97mixreset(adev, ac97mixw, ac97mixr);
+
 	adev->write = ac97write;
 	adev->status = ac97status;
-	adev->ctl = ac97ctl;
 	adev->buffered = ac97buffered;
-	
-	ac97mixreset(adev, ac97mixw, ac97mixr);
 
 	intrenable(irq, ac97interrupt, adev, tbdf, adev->name);
 

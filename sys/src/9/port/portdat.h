@@ -1,5 +1,4 @@
 typedef struct Alarms	Alarms;
-typedef struct Audio	Audio;
 typedef struct Block	Block;
 typedef struct Chan	Chan;
 typedef struct Cmdbuf	Cmdbuf;
@@ -918,23 +917,6 @@ struct Uart
 };
 
 extern	Uart*	consuart;
-
-struct Audio {
-	Audio *next;
-	char *name;
-	void *ctlr;
-	void *mixer;
-	void (*attach)(Audio *);
-	long (*read)(Audio *, void *, long, vlong);
-	long (*write)(Audio *, void *, long, vlong);
-	long (*volread)(Audio *, void *, long, vlong);
-	long (*volwrite)(Audio *, void *, long, vlong);
-	void (*close)(Audio *);
-	long (*ctl)(Audio *, void *, long, vlong);
-	long (*status)(Audio *, void *, long, vlong);
-	long (*buffered)(Audio *);
-	int ctlrno;
-};
 
 /*
  *  performance timers, all units in perfticks

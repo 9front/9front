@@ -5,11 +5,26 @@
 #include	"fns.h"
 #include	"io.h"
 #include	"../port/error.h"
+#include	"../port/audioif.h"
 
 typedef struct Audioprobe Audioprobe;
-struct Audioprobe {
+typedef struct Audiochan Audiochan;
+
+struct Audioprobe
+{
 	char *name;
 	int (*probe)(Audio*);
+};
+
+struct Audiochan
+{
+	QLock;
+
+	Chan *owner;
+	Audio *adev;
+
+	char *data;
+	char buf[1024+1];
 };
 
 enum {
@@ -18,13 +33,7 @@ enum {
 	Qaudioctl,
 	Qaudiostatus,
 	Qvolume,
-
-	Maxaudioprobes = 8,
 };
-
-static int naudioprobes;
-static Audioprobe audioprobes[Maxaudioprobes];
-static Audio *audiodevs;
 
 static Dirtab audiodir[] = {
 	".",	{Qdir, 0, QTDIR},	0,	DMDIR|0555,
@@ -34,10 +43,22 @@ static Dirtab audiodir[] = {
 	"volume",	{Qvolume},			0,	0666,
 };
 
+
+static int naudioprobes;
+static Audioprobe audioprobes[16];
+static Audio *audiodevs;
+
+static char Evolume[] = "illegal volume specifier";
+
+
 void
 addaudiocard(char *name, int (*probefn)(Audio *))
 {
 	Audioprobe *probe;
+
+	if(naudioprobes >= nelem(audioprobes))
+		return;
+
 	probe = &audioprobes[naudioprobes++];
 	probe->name = name;
 	probe->probe = probefn;
@@ -73,47 +94,106 @@ audioreset(void)
 	*pp = nil;
 }
 
+static Audiochan*
+audioclone(Chan *c, Audio *adev)
+{
+	Audiochan *ac;
+
+	ac = malloc(sizeof(Audiochan));
+	if(ac == nil){
+		cclose(c);
+		return nil;
+	}
+
+	c->aux = ac;
+	ac->owner = c;
+	ac->adev = adev;
+	ac->data = nil;
+
+	return ac;
+}
+
 static Chan*
 audioattach(char *spec)
 {
+	static int first = 1;
+	Audiochan *ac;
+	Audio *adev;
 	Chan *c;
-	Audio *p;
 	int i;
+
 	if(spec != nil && *spec != '\0')
 		i = strtol(spec, 0, 10);
 	else
 		i = 0;
-	for(p = audiodevs; p; p = p->next)
+	for(adev = audiodevs; adev; adev = adev->next)
 		if(i-- == 0)
 			break;
-	if(p == nil)
+	if(adev == nil)
 		error(Enodev);
+
 	c = devattach('A', spec);
 	c->qid.path = Qdir;
-	c->aux = p;
-	if(p->attach)
-		p->attach(p);
+
+	if((ac = audioclone(c, adev)) == nil)
+		error(Enomem);
+
+	if(first && adev->volwrite){
+		first = 0;
+ 
+		strcpy(ac->buf, "speed 44100");
+		if(!waserror()){
+			adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
+			poperror();
+		}
+		strcpy(ac->buf, "master 100");
+		if(!waserror()){
+			adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
+			poperror();
+		}
+		strcpy(ac->buf, "audio 100");
+		if(!waserror()){
+			adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
+			poperror();
+		}
+		strcpy(ac->buf, "head 100");
+		if(!waserror()){
+			adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
+			poperror();
+		}
+	}
+
 	return c;
+}
+
+static Chan*
+audioopen(Chan *c, int omode)
+{
+	return devopen(c, omode, audiodir, nelem(audiodir), devgen);
 }
 
 static long
 audioread(Chan *c, void *a, long n, vlong off)
 {
+	Audiochan *ac;
 	Audio *adev;
 	long (*fn)(Audio *, void *, long, vlong);
-	adev = c->aux;
+
+	ac = c->aux;
+	adev = ac->adev;
+
+	fn = nil;
 	switch((ulong)c->qid.path){
-	default:
-		error("audio bugger (rd)");
-	case Qaudioctl:
-		fn = adev->ctl;
-		break;
 	case Qdir:
+		/* BUG: race */
 		if(adev->buffered)
 			audiodir[Qaudio].length = adev->buffered(adev);
 		return devdirread(c, a, n, audiodir, nelem(audiodir), devgen);
 	case Qaudio:
 		fn = adev->read;
+		break;
+	case Qaudioctl:
+		fn = adev->ctl;
 		break;
 	case Qaudiostatus:
 		fn = adev->status;
@@ -123,19 +203,49 @@ audioread(Chan *c, void *a, long n, vlong off)
 		break;
 	}
 	if(fn == nil)
-		error("not implemented");
+		error(Egreg);
+
+	switch((ulong)c->qid.path){
+	case Qaudioctl:
+	case Qaudiostatus:
+	case Qvolume:
+		qlock(ac);
+		if(waserror()){
+			qunlock(ac);
+			nexterror();
+		}
+		/* generate the text on first read */
+		if(ac->data == nil || off == 0){
+			long l;
+
+			ac->data = nil;
+			l = fn(adev, ac->buf, sizeof(ac->buf)-1, 0);
+			if(l < 0)
+				l = 0;
+			ac->buf[l] = 0;
+			ac->data = ac->buf;
+		}
+		/* then serve all requests from buffer */
+		n = readstr(off, a, n, ac->data);
+		qunlock(ac);
+		poperror();
+		return n;
+	}
 	return fn(adev, a, n, off);
 }
 
 static long
 audiowrite(Chan *c, void *a, long n, vlong off)
 {
+	Audiochan *ac;
 	Audio *adev;
 	long (*fn)(Audio *, void *, long, vlong);
-	adev = c->aux;
+
+	ac = c->aux;
+	adev = ac->adev;
+
+	fn = nil;
 	switch((ulong)c->qid.path){
-	default:
-		error("audio bugger (wr)");
 	case Qaudio:
 		fn = adev->write;
 		break;
@@ -147,46 +257,195 @@ audiowrite(Chan *c, void *a, long n, vlong off)
 		break;
 	}
 	if(fn == nil)
-		error("not implemented");
+		error(Egreg);
+
+	switch((ulong)c->qid.path){
+	case Qaudioctl:
+	case Qvolume:
+		if(n >= sizeof(ac->buf))
+			error(Etoobig);
+
+		/* copy data to audiochan buffer so it can be modified */
+		qlock(ac);
+		if(waserror()){
+			qunlock(ac);
+			nexterror();
+		}
+		ac->data = nil;
+		memmove(ac->buf, a, n);
+		ac->buf[n] = 0;
+		n = fn(adev, ac->buf, n, 0);
+		qunlock(ac);
+		poperror();
+		return n;
+	}
 	return fn(adev, a, n, off);
 }
 
 static void
 audioclose(Chan *c)
 {
+	Audiochan *ac;
 	Audio *adev;
-	adev = c->aux;
-	switch((ulong)c->qid.path){
-	default:
-		return;
-	case Qaudio:
-		if(adev->close == nil)
-			return;
-		adev->close(adev);
-		return;
+
+	ac = c->aux;
+	adev = ac->adev;
+	if(c->qid.path == Qaudio && (c->flag & COPEN))
+		if(adev->close)
+			adev->close(adev);
+
+	if(ac->owner == c){
+		ac->owner = nil;
+		c->aux = nil;
+		free(ac);
 	}
 }
 
 static Walkqid*
 audiowalk(Chan *c, Chan *nc, char **name, int nname)
 {
-	return devwalk(c, nc, name, nname, audiodir, nelem(audiodir), devgen);
+	Audiochan *ac;
+	Audio *adev;
+	Walkqid *wq;
+
+	ac = c->aux;
+	adev = ac->adev;
+	wq = devwalk(c, nc, name, nname, audiodir, nelem(audiodir), devgen);
+	if(wq && wq->clone){
+		if(audioclone(wq->clone, adev) == nil){
+			free(wq);
+			wq = nil;
+		}
+	}
+	return wq;
 }
 
 static int
 audiostat(Chan *c, uchar *dp, int n)
 {
+	Audiochan *ac;
 	Audio *adev;
-	adev = c->aux;
+
+	ac = c->aux;
+	adev = ac->adev;
+
+	/* BUG: race */
 	if(adev->buffered && (ulong)c->qid.path == Qaudio)
 		audiodir[Qaudio].length = adev->buffered(adev);
+
 	return devstat(c, dp, n, audiodir, nelem(audiodir), devgen);
 }
 
-static Chan*
-audioopen(Chan *c, int omode)
+/*
+ * audioread() made sure the buffer is big enougth so a full volume
+ * table can be serialized in one pass.
+ */
+long
+genaudiovolread(Audio *adev, void *a, long n, vlong,
+	Volume *vol, int (*volget)(Audio *, int, int *), ulong caps)
 {
-	return devopen(c, omode, audiodir, nelem(audiodir), devgen);
+	int i, j, v[2];
+	char *p, *e;
+
+	p = a;
+	e = p + n;
+	for(i = 0; vol[i].name != 0; ++i){
+		if(vol[i].cap && (vol[i].cap & caps) == 0)
+			continue;
+		v[0] = 0;
+		v[1] = 0;
+		if((*volget)(adev, i, v) != 0)
+			continue;
+		if(vol[i].type == Absolute)
+			p += snprint(p, e - p, "%s %d\n", vol[i].name, v[0]);
+		else {
+			for(j=0; j<2; j++){
+				if(v[j] < 0)
+					v[j] = 0;
+				if(v[j] > vol[i].range)
+					v[j] = vol[i].range;
+				v[j] = (v[j]*100)/vol[i].range;
+			}
+			switch(vol[i].type){
+			case Left:
+				p += snprint(p, e - p, "%s %d\n", vol[i].name, v[0]);
+				break;
+			case Right:
+				p += snprint(p, e - p, "%s %d\n", vol[i].name, v[1]);
+				break;
+			case Stereo:
+				p += snprint(p, e - p, "%s %d %d\n", vol[i].name, v[0], v[1]);
+				break;
+			}
+		}
+	}
+
+	return p - (char*)a;
+}
+
+/*
+ * genaudiovolwrite modifies the buffer that gets passed to it. this
+ * is ok as long as it is called from inside Audio.volwrite() because
+ * audiowrite() copies the data to Audiochan.buf[] and inserts a
+ * terminating \0 byte before calling Audio.volwrite().
+ */
+long
+genaudiovolwrite(Audio *adev, void *a, long n, vlong,
+	Volume *vol, int (*volset)(Audio *, int, int *), ulong caps)
+{
+	int ntok, i, j, v[2];
+	char *p, *e, *x, *tok[4];
+
+	p = a;
+	e = p + n;
+
+	for(;p < e; p = x){
+		if(x = strchr(p, '\n'))
+			*x++ = 0;
+		else
+			x = e;
+		ntok = tokenize(p, tok, 4);
+		if(ntok <= 0)
+			continue;
+		if(ntok == 1){
+			tok[1] = tok[0];
+			tok[0] = "master";
+			ntok = 2;
+		}
+		for(i = 0; vol[i].name != 0; i++){
+			if(vol[i].cap && (vol[i].cap & caps) == 0)
+				continue;
+			if(cistrcmp(vol[i].name, tok[0]))
+				continue;
+	
+			if((ntok>2) && (!cistrcmp(tok[1], "out") || !cistrcmp(tok[1], "in")))
+				memmove(tok+1, tok+2, --ntok);
+
+			v[0] = 0;
+			v[1] = 0;
+			if(ntok > 1)
+				v[0] = v[1] = atoi(tok[1]);
+			if(ntok > 2)
+				v[1] = atoi(tok[2]);
+			if(vol[i].type == Absolute)
+				(*volset)(adev, i, v);
+			else {
+				for(j=0; j<2; j++){
+					v[j] = (50+(v[j]*vol[i].range))/100;
+					if(v[j] < 0)
+						v[j] = 0;
+					if(v[j] > vol[i].range)
+						v[j] = vol[i].range;
+				}
+				(*volset)(adev, i, v);
+			}
+			break;
+		}
+		if(vol[i].name == nil)
+			error(Evolume);
+	}
+
+	return n;
 }
 
 Dev audiodevtab = {

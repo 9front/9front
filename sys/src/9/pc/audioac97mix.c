@@ -5,19 +5,7 @@
 #include "fns.h"
 #include "io.h"
 #include "../port/error.h"
-
-typedef ushort (*ac97rdfn)(Audio *, int);
-typedef void (*ac97wrfn)(Audio *, int, ushort);
-
-typedef struct Mixer Mixer;
-typedef struct Volume Volume;
-
-struct Mixer {
-	QLock;
-	ac97wrfn wr;
-	ac97rdfn rr;
-	int vra;
-};
+#include "../port/audioif.h"
 
 enum { Maxbusywait = 500000 };
 
@@ -33,22 +21,8 @@ enum {
 		Capadc18 = 0x100,
 		Capadc20 = 0x200,
 		Capenh = 0xfc00,
-	Master = 0x02,
-	Headphone = 0x04,
-	Monomaster = 0x06,
-	Mastertone = 0x08,
-	Pcbeep = 0x0A,
-	Phone = 0x0C,
-	Mic = 0x0E,
-	Line = 0x10,
-	Cd = 0x12,
-	Video = 0x14,
-	Aux = 0x16,
-	Pcmout = 0x18,
-		Mute = 0x8000,
+
 	Recsel = 0x1A,
-	Recgain = 0x1C,
-	Micgain = 0x1E,
 	General = 0x20,
 	ThreeDctl = 0x22,
 	Ac97RESER = 0x24,
@@ -118,14 +92,6 @@ enum {
 		Spdifv = 1<<15,
 	VID1 = 0x7c,
 	VID2 = 0x7e,
-	Speed = 0x1234567,
-};
-
-enum {
-	Left,
-	Right,
-	Stereo,
-	Absolute,
 };
 
 enum {
@@ -143,195 +109,125 @@ enum {
 	Vaux,
 	Vrecgain,
 	Vmicgain,
+	Vspeed,
 };
 
-struct Volume {
-	int reg;
-	int range;
-	int type;
-	int cap;
-	char *name;
+static Volume voltab[] = {
+	[Vmaster] "master", 0x02, 63, Stereo, 0,
+	[Vaudio] "audio", 0x18, 31, Stereo, 0,
+	[Vhead] "head", 0x04, 31, Stereo, Capheadphones,
+	[Vbass] "bass", 0x08, 15, Left, Captonectl,
+	[Vtreb] "treb", 0x08, 15, Right, Captonectl,
+	[Vbeep] "beep", 0x0a, 31, Right, 0,
+	[Vphone] "phone", 0x0c, 31, Right, 0,
+	[Vmic] "mic", 0x0e, 31, Right, Capmic,
+	[Vline] "line", 0x10, 31, Stereo, 0,
+	[Vcd] "cd", 0x12, 31, Stereo,	0,
+	[Vvideo] "video", 0x14, 31, Stereo, 0,
+	[Vaux] "aux", 0x16, 63, Stereo, 0,
+	[Vrecgain] "recgain", 0x1c, 15, Stereo, 0,
+	[Vmicgain] "micgain", 0x1e, 15, Right, Capmic,
+	[Vspeed] "speed", 0x2c, 0, Absolute, 0,
+	0
 };
 
-struct Topology {
-	Volume *this;
-	Volume *next[2];
-};
-
-Volume vol[] = {
-[Vmaster]	{Master, 63, Stereo, 0, "master"},
-[Vaudio]	{Pcmout, 31, Stereo,	0, "audio"},
-[Vhead]	{Headphone, 31, Stereo, Capheadphones, "head"},
-[Vbass]	{Mastertone, 15, Left, Captonectl, "bass"},
-[Vtreb]	{Mastertone, 15, Right, Captonectl, "treb"},
-[Vbeep]	{Pcbeep, 31, Right, 0, "beep"},
-[Vphone]	{Phone, 31, Right, 0, "phone"},
-[Vmic]	{Mic, 31, Right, Capmic, "mic"},
-[Vline]	{Line, 31, Stereo, 0, "line"},
-[Vcd]	{Cd, 31, Stereo,	0, "cd"},
-[Vvideo]	{Video, 31, Stereo, 0, "video"},
-[Vaux]	{Aux, 63, Stereo, 0, "aux"},
-[Vrecgain]	{Recgain, 15, Stereo, 0, "recgain"},
-[Vmicgain]	{Micgain, 15, Right, Capmic, "micgain"},
-	{0, 0, 0, 0, 0},
-};
-
-long
-ac97mixtopology(Audio *adev, void *a, long n, vlong off)
+typedef struct Mixer Mixer;
+struct Mixer
 {
-	Mixer *m;
-	char *buf;
-	long l;
-	ulong caps;
-	m = adev->mixer;
-	qlock(m);
-	caps = m->rr(adev, Reset);
-	caps |= m->rr(adev, Extid) << 16;
-	l = 0;
-	buf = malloc(READSTR);
-	l += snprint(buf+l, READSTR-l, "not implemented. have fun.\n");
-	USED(caps);
-	USED(l);
-	qunlock(m);
-	n = readstr(off, a, n, buf);
-	free(buf);
-	return n;
-}
+	ushort (*rr)(Audio *, int);
+	void (*wr)(Audio *, int, ushort);
+	int vra;
+};
 
-long
-ac97mixread(Audio *adev, void *a, long n, vlong off)
+static int
+ac97volget(Audio *adev, int x, int a[2])
 {
-	Mixer *m;
-	char *nam, *buf;
-	long l;
+	Mixer *m = adev->mixer;
+	Volume *vol;
 	ushort v;
-	ulong caps;
-	int i, rang, le, ri;
-	buf = malloc(READSTR);
-	m = adev->mixer;
-	qlock(m);
-	l = 0;
-	caps = m->rr(adev, Reset);
-	caps |= m->rr(adev, Extid) << 16;
-	for(i = 0; vol[i].name != 0; ++i){
-		if(vol[i].cap && ((vol[i].cap & caps) == 0))
-			continue;
-		v = m->rr(adev, vol[i].reg);
-		nam = vol[i].name;
-		rang = vol[i].range;
-		if(vol[i].type == Absolute){
-			l += snprint(buf+l, READSTR-l, "%s %d", nam, v);
+
+	vol = voltab+x;
+	switch(vol->type){
+	case Absolute:
+		a[0] = m->rr(adev, vol->reg);
+		break;
+	default:
+		v = m->rr(adev, vol->reg);
+		if(v & 0x8000){
+			a[0] = 0;
+			a[1] = 0;
 		} else {
-			ri = ((rang-(v&rang)) * 100) / rang;
-			le = ((rang-((v>>8)&rang)) * 100) / rang;
-			if(vol[i].type == Stereo)
-				l += snprint(buf+l, READSTR-l, "%s %d %d", nam, le, ri);
-			if(vol[i].type == Left)
-				l += snprint(buf+l, READSTR-l, "%s %d", nam, le);
-			if(vol[i].type == Right)
-				l += snprint(buf+l, READSTR-l, "%s %d", nam, ri);
-			if(v&Mute)
-				l += snprint(buf+l, READSTR-l, " mute");
+			a[0] = vol->range - ((v>>8) & 0x7f);
+			a[1] = vol->range - (v & 0x7f);
 		}
-		l += snprint(buf+l, READSTR-l, "\n");
 	}
-	qunlock(m);
-	n = readstr(off, a, n, buf);
-	free(buf);
-	return n;
+	return 0;
 }
 
-long
+static int
+ac97volset(Audio *adev, int x, int a[2])
+{
+	Mixer *m = adev->mixer;
+	Volume *vol;
+	ushort v, w;
+
+	vol = voltab+x;
+	switch(vol->type){
+	case Absolute:
+		m->wr(adev, vol->reg, a[0]);
+		break;
+	case Left:
+		v = (vol->range - a[0]) & 0x7f;
+		w = m->rr(adev, vol->reg) & 0x7f;
+		m->wr(adev, vol->reg, (v<<8)|w);
+		break;
+	case Right:
+		v = m->rr(adev, vol->reg) & 0x7f00;
+		w = (vol->range - a[1]) & 0x7f;
+		m->wr(adev, vol->reg, v|w);
+		break;
+	case Stereo:
+		v = (vol->range - a[0]) & 0x7f;
+		w = (vol->range - a[1]) & 0x7f;
+		m->wr(adev, vol->reg, (v<<8)|w);
+		break;
+	}
+	return 0;
+}
+
+
+static long
+ac97mixread(Audio *adev, void *a, long n, vlong)
+{
+	Mixer *m = adev->mixer;
+	ulong caps;
+
+	caps = m->rr(adev, Reset);
+	caps |= m->rr(adev, Extid) << 16;
+	return genaudiovolread(adev, a, n, 0, voltab, ac97volget, caps);
+}
+
+static long
 ac97mixwrite(Audio *adev, void *a, long n, vlong)
 {
-	Mixer *m;
-	char *tok[4];
-	int ntok, i, left, right, rang, reg;
-	ushort v;
-	m = adev->mixer;
-	qlock(m);
-	ntok = tokenize(a, tok, 4);
-	for(i = 0; vol[i].name != 0; ++i){
-		if(!strcmp(vol[i].name, tok[0])){
-			rang = vol[i].range;
-			reg = vol[i].reg;
-			left = right = 0;
-			if(ntok > 1)
-				left = right = atoi(tok[1]);
-			if(ntok > 2)
-				right = atoi(tok[2]);
+	Mixer *m = adev->mixer;
+	ulong caps;
 
-			if(vol[i].type == Absolute){
-				m->wr(adev, reg, left);
-			} else {
-				left = rang - ((left*rang)) / 100;
-				right = rang - ((right*rang)) / 100;
-				switch(vol[i].type){
-				default:
-					break;
-				case Left:
-					v = m->rr(adev, reg);
-					v = (v & 0x007f) | (left << 8);
-					m->wr(adev, reg, v);
-					break;
-				case Right:
-					v = m->rr(adev, reg);
-					v = (v & 0x7f00) | right;
-					m->wr(adev, reg, v);
-					break;
-				case Stereo:
-					v = (left<<8) | right;
-					m->wr(adev, reg, v);
-					break;
-				}
-			}
-			qunlock(m);
-			return n;
-		}
-	}
-	if(vol[i].name == nil){
-		char *p;
-		for(p = tok[0]; *p; ++p)
-			if(*p < '0' || *p > '9') {
-				qunlock(m);
-				error("no such volume setting");
-			}
-		rang = vol[0].range;
-		reg = vol[0].reg;
-		left = right = rang - ((atoi(tok[0])*rang)) / 100;
-		v = (left<<8) | right;
-		m->wr(adev, reg, v);
-	}
-	qunlock(m);
-
-	return n;
-}
-
-int
-ac97hardrate(Audio *adev, int rate)
-{
-	Mixer *m;
-	int oldrate;
-	m = adev->mixer;
-	oldrate = m->rr(adev, Pcmfrontdacrate);
-	if(rate > 0)
-		m->wr(adev, Pcmfrontdacrate, rate);
-	return oldrate;
+	caps = m->rr(adev, Reset);
+	caps |= m->rr(adev, Extid) << 16;
+	return genaudiovolwrite(adev, a, n, 0, voltab, ac97volset, caps);
 }
 
 void
-ac97mixreset(Audio *adev, ac97wrfn wr, ac97rdfn rr)
+ac97mixreset(Audio *adev, void (*wr)(Audio*,int,ushort), ushort (*rr)(Audio*,int))
 {
 	Mixer *m;
-	int i;
 	ushort t;
-	if(adev->mixer == nil)
-		adev->mixer = malloc(sizeof(Mixer));
-	m = adev->mixer;
+	int i;
+
+	m = malloc(sizeof(Mixer));
 	m->wr = wr;
 	m->rr = rr;
-	adev->volread = ac97mixread;
-	adev->volwrite = ac97mixwrite;
 	m->wr(adev, Reset, 0);
 	m->wr(adev, Powerdowncsr, 0);
 
@@ -361,4 +257,8 @@ ac97mixreset(Audio *adev, ac97wrfn wr, ac97rdfn rr)
 		print("#A%d: ac97 vra extension not supported\n", adev->ctlrno);
 		m->vra = 0;
 	}
+
+	adev->mixer = m;
+	adev->volread = ac97mixread;
+	adev->volwrite = ac97mixwrite;
 }
