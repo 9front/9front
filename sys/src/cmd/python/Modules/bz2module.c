@@ -1007,8 +1007,10 @@ BZ2File_seek(BZ2FileObject *self, PyObject *args)
 #if !defined(HAVE_LARGEFILE_SUPPORT)
 	offset = PyInt_AsLong(offobj);
 #else
-	offset = PyLong_Check(offobj) ?
-		PyLong_AsLongLong(offobj) : PyInt_AsLong(offobj);
+	if(PyLong_Check(offobj))
+		offset = PyLong_AsLongLong(offobj);
+	else
+		offset = PyInt_AsLong(offobj);
 #endif
 	if (PyErr_Occurred())
 		return NULL;

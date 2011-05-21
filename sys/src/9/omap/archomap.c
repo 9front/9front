@@ -1282,11 +1282,6 @@ archreboot(void)
 }
 
 void
-kbdinit(void)
-{
-}
-
-void
 lastresortprint(char *buf, long bp)
 {
 	iprint("%.*s", (int)bp, buf);	/* nothing else seems to work */

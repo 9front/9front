@@ -29,7 +29,6 @@ main(void)
 	mmuinit();
 	hwintrinit();
 	clockinit();
-	kbdinit();
 	procinit0();
 	initseg();
 	timersinit();

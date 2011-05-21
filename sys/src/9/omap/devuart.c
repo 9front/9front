@@ -225,11 +225,8 @@ uartreset(void)
 		p->dev = i;
 		if(p->console || p->special){
 			if(uartenable(p) != nil){
-				if(p->console && up){
-					kbdq = p->iq;
+				if(p->console && up)
 					serialoq = p->oq;
-					p->putc = kbdcr2nl;
-				}
 				p->opens++;
 			}
 		}

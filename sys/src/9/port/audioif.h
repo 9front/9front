@@ -8,6 +8,8 @@ struct Audio
 	void *ctlr;
 	void *mixer;
 
+	Ref audioopen;
+
 	long (*read)(Audio *, void *, long, vlong);
 	long (*write)(Audio *, void *, long, vlong);
 	void (*close)(Audio *);

@@ -16,7 +16,6 @@ PORT=\
 	chan.$O\
 	dev.$O\
 	fault.$O\
-	latin1.$O\
 	log.$O\
 	edf.$O\
 	mul64fract.$O\
@@ -46,7 +45,6 @@ OBJ=\
 	fdc37c93x.$O\
 	fptrap.$O\
 	i8259.$O\
-	kbd.$O\
 	main.$O\
 	mmu.$O\
 	random.$O\
@@ -78,6 +76,9 @@ $p$CONF:	$CONF.c $OBJ $LIB
 install:V: $p$CONF
 	cp $p$CONF /$objtype/$p$CONF
 
+rootfs.bz2:
+	rc ../port/mkbootfs
+
 <../boot/bootmkfile
 <../port/portmkfile
 <|../port/mkbootrules $CONF
@@ -95,7 +96,6 @@ clock.$O:	/$objtype/include/ureg.h axp.h
 devarch.$O:	axp.h
 faultalpha.$O:	/$objtype/include/ureg.h
 fptrap.$O:	/$objtype/include/ureg.h
-kbd.$O:		/$objtype/include/ureg.h
 l.$O:		osf1pal.h
 main.$O: 	/$objtype/include/ureg.h errstr.h init.h
 mmu.$O:		/sys/src/boot/alphapc/conf.h

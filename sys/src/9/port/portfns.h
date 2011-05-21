@@ -150,7 +150,6 @@ void		(*kproftimer)(ulong);
 void		ksetenv(char*, char*, int);
 void		kstrcpy(char*, char*, int);
 void		kstrdup(char**, char*);
-long		latin1(Rune*, int);
 int		lock(Lock*);
 void		logopen(Log*);
 void		logclose(Log*);

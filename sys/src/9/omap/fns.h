@@ -54,7 +54,6 @@ extern void intrsoff(void);
 extern int isaconfig(char*, int, ISAConf*);
 extern int isdmadone(int);
 extern int ispow2(uvlong);
-extern void kbdenable(void);
 extern void l2cacheuinv(void);
 extern void l2cacheuwb(void);
 extern void l2cacheuwbinv(void);

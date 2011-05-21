@@ -766,8 +766,6 @@ extern	Dev*	devtab[];
 extern	char*	eve;
 extern	char	hostdomain[];
 extern	uchar	initcode[];
-extern	int	kbdbuttons;
-extern	Queue*	kbdq;
 extern	Queue*	kprintoq;
 extern 	Ref	noteidalloc;
 extern	int	nsyscall;

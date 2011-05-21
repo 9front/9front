@@ -99,7 +99,6 @@ main(void)
 	printinit();
 	/* it's now safe to print */
 	/* dumpopts();			/* DEBUG */
-	kbdinit();
 	i8250console();
 	quotefmtinstall();
 	print("\nPlan 9\n");

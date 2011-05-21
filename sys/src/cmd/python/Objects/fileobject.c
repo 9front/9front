@@ -553,8 +553,10 @@ file_seek(PyFileObject *f, PyObject *args)
 #if !defined(HAVE_LARGEFILE_SUPPORT)
 	offset = PyInt_AsLong(offobj);
 #else
-	offset = PyLong_Check(offobj) ?
-		PyLong_AsLongLong(offobj) : PyInt_AsLong(offobj);
+	if(PyLong_Check(offobj))
+		offset = PyLong_AsLongLong(offobj);
+	else
+		offset = PyInt_AsLong(offobj);
 #endif
 	if (PyErr_Occurred())
 		return NULL;
@@ -610,9 +612,10 @@ file_truncate(PyFileObject *f, PyObject *args)
 #if !defined(HAVE_LARGEFILE_SUPPORT)
 		newsize = PyInt_AsLong(newsizeobj);
 #else
-		newsize = PyLong_Check(newsizeobj) ?
-				PyLong_AsLongLong(newsizeobj) :
-				PyInt_AsLong(newsizeobj);
+		if(PyLong_Check(newsizeobj))
+			newsize = PyLong_AsLongLong(newsizeobj);
+		else
+			newsize = PyInt_AsLong(newsizeobj);
 #endif
 		if (PyErr_Occurred())
 			return NULL;

@@ -259,7 +259,7 @@ wave('l');
 
 	delay(250);			/* let uart catch up */
 	printinit();
-	kbdenable();
+//	kbdenable();
 
 	cpuidprint();
 //	chkmissing();
@@ -445,8 +445,6 @@ init0(void)
 	dmatest();		/* needs `up' set, so can't do it earlier */
 	chandevinit();
 	i8250console();		/* might be redundant, but harmless */
-	if(kbdq == nil)
-		panic("init0: nil kbdq");
 	if(serialoq == nil)
 		panic("init0: nil serialoq");
 	normalprint = 1;

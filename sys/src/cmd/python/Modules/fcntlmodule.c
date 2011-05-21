@@ -339,9 +339,10 @@ fcntl_lockf(PyObject *self, PyObject *args)
 #if !defined(HAVE_LARGEFILE_SUPPORT)
 			l.l_start = PyInt_AsLong(startobj);
 #else
-			l.l_start = PyLong_Check(startobj) ?
-					PyLong_AsLongLong(startobj) :
-					PyInt_AsLong(startobj);
+			if(PyLong_Check(startobj))
+				l.l_start = PyLong_AsLongLong(startobj);
+			else
+				l.l_start = PyInt_AsLong(startobj);
 #endif
 			if (PyErr_Occurred())
 				return NULL;
@@ -350,9 +351,10 @@ fcntl_lockf(PyObject *self, PyObject *args)
 #if !defined(HAVE_LARGEFILE_SUPPORT)
 			l.l_len = PyInt_AsLong(lenobj);
 #else
-			l.l_len = PyLong_Check(lenobj) ?
-					PyLong_AsLongLong(lenobj) :
-					PyInt_AsLong(lenobj);
+			if(PyLong_Check(lenobj))
+				l.l_len = PyLong_AsLongLong(lenobj);
+			else
+				l.l_len = PyInt_AsLong(lenobj);
 #endif
 			if (PyErr_Occurred())
 				return NULL;

@@ -156,9 +156,13 @@ static PY_LONG_LONG CallExternalTimer(ProfilerObject *pObj)
 	return result;
 }
 
-#define CALL_TIMER(pObj)	((pObj)->externalTimer ?		\
-					CallExternalTimer(pObj) :	\
-					hpTimer())
+static PY_LONG_LONG
+CALL_TIMER(ProfilerObject *pObj)
+{
+	if(pObj->externalTimer)
+		return CallExternalTimer(pObj);
+	return hpTimer();
+}
 
 /*** ProfilerObject ***/
 

@@ -25,16 +25,19 @@ TESTNAME(PyObject *error(const char*))
 	base = 1;
 	for (i = 0;
 	     i < NBITS + 1;  /* on last, base overflows to 0 */
-	     ++i, base <<= 1)
+	     ++i)
 	{
 		int j;
+
 		for (j = 0; j < 6; ++j) {
 			TYPENAME in, out;
 			unsigned TYPENAME uin, uout;
 
 			/* For 0, 1, 2 use base; for 3, 4, 5 use -base */
-			uin = j < 3 ? base
-				    : (unsigned TYPENAME)(-(TYPENAME)base);
+			if(j < 3)
+				uin = base;
+			else
+				uin = (unsigned TYPENAME)(-(TYPENAME)base);
 
 			/* For 0 & 3, subtract 1.
 			 * For 1 & 4, leave alone.
@@ -71,6 +74,8 @@ TESTNAME(PyObject *error(const char*))
 					"signed output != input");
 			UNBIND(pyresult);
 		}
+
+		base <<= 1;
 	}
 
 	/* Overflow tests.  The loop above ensured that all limit cases that

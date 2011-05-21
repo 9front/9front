@@ -6053,8 +6053,10 @@ posix_lseek(PyObject *self, PyObject *args)
 #if !defined(HAVE_LARGEFILE_SUPPORT)
 	pos = PyInt_AsLong(posobj);
 #else
-	pos = PyLong_Check(posobj) ?
-		PyLong_AsLongLong(posobj) : PyInt_AsLong(posobj);
+	if(PyLong_Check(posobj))
+		pos = PyLong_AsLongLong(posobj);
+	else
+		pos = PyInt_AsLong(posobj);
 #endif
 	if (PyErr_Occurred())
 		return NULL;
@@ -6384,8 +6386,10 @@ posix_ftruncate(PyObject *self, PyObject *args)
 #if !defined(HAVE_LARGEFILE_SUPPORT)
 	length = PyInt_AsLong(lenobj);
 #else
-	length = PyLong_Check(lenobj) ?
-		PyLong_AsLongLong(lenobj) : PyInt_AsLong(lenobj);
+	if(PyLong_Check(lenobj))
+		length = PyLong_AsLongLong(lenobj);
+	else
+		length = PyInt_AsLong(lenobj);
 #endif
 	if (PyErr_Occurred())
 		return NULL;

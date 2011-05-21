@@ -51,7 +51,6 @@ void	iofree(int);
 void	ioinit(void);
 int	iprint(char*, ...);
 int	isaconfig(char*, int, ISAConf*);
-void	kbdinit(void);
 #define kexit(a)
 #define	kmapinval()
 void	links(void);

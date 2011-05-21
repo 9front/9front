@@ -54,7 +54,6 @@ void	ioinit(void);
 int	iounused(int, int);
 int	irqallocread(char*, long, vlong);
 int	isaconfig(char*, int, ISAConf*);
-void	kbdinit(void);
 #define kexit(a)
 #define	kmapinval()
 void	*kmapv(uvlong, int);

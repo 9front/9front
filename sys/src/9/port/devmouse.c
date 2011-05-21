@@ -72,15 +72,12 @@ static Cmdtab mousectlmsg[] =
 Mouseinfo	mouse;
 Cursorinfo	cursor;
 int		mouseshifted;
-int		kbdbuttons;
-void		(*kbdmouse)(int);
 Cursor		curs;
 
 void	Cursortocursor(Cursor*);
 int	mousechanged(void*);
 
 static void mouseclock(void);
-static void xkbdmouse(int);
 
 enum{
 	Qdir,
@@ -120,13 +117,6 @@ mousereset(void)
 	addclock0link(mouseclock, 33);
 }
 
-static void
-mousefromkbd(int buttons)
-{
-	kbdbuttons = buttons;
-	mousetrack(0, 0, 0, TK2MS(MACHP(0)->ticks));
-}
-
 static int
 mousedevgen(Chan *c, char *name, Dirtab *tab, int ntab, int i, Dir *dp)
 {
@@ -147,7 +137,6 @@ mouseinit(void)
 	curs = arrow;
 	Cursortocursor(&arrow);
 	cursoron(1);
-	kbdmouse = mousefromkbd;
 	mousetime = seconds();
 }
 
@@ -603,7 +592,7 @@ mousetrack(int dx, int dy, int b, int msec)
 
 	lastb = mouse.buttons;
 	mouse.xy = Pt(x, y);
-	mouse.buttons = b|kbdbuttons;
+	mouse.buttons = b;
 	mouse.redraw = 1;
 	mouse.counter++;
 	mouse.msec = msec;
@@ -642,7 +631,7 @@ absmousetrack(int x, int y, int b, int msec)
 
 	lastb = mouse.buttons;
 	mouse.xy = Pt(x, y);
-	mouse.buttons = b|kbdbuttons;
+	mouse.buttons = b;
 	mouse.redraw = 1;
 	mouse.counter++;
 	mouse.msec = msec;

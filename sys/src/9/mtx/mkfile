@@ -17,7 +17,6 @@ PORT=\
 	dev.$O\
 	edf.$O\
 	fault.$O\
-	latin1.$O\
 	log.$O\
 	mul64fract.$O\
 	rebootcmd.$O\
@@ -43,7 +42,6 @@ OBJ=\
 	inb.$O\
 	clock.$O\
 	i8259.$O\
-	kbd.$O\
 	main.$O\
 	mmu.$O\
 	random.$O\

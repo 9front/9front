@@ -59,9 +59,6 @@ $CONF.c:	../port/mkdevc $CONF
 errstr.h:	../port/mkerrstr ../port/error.h
 	rc ../port/mkerrstr > errstr.h
 
-../port/latin1.h:	/lib/keyboard
-	aux/mklatinkbd /lib/keyboard > ../port/latin1.h
-
 %.db:		main.$O
 	$CC -s$stem main.c | dbfmt > $stem.db
 
@@ -69,6 +66,7 @@ alloc.$O:	/sys/include/pool.h
 devmnt.$O:	/sys/include/fcall.h
 proc.$O:	errstr.h
 devroot.$O:	errstr.h
+devaudio.$O:	../port/audioif.h
 devaoe.$O:	/$objtype/include/ureg.h
 devfs.$O:	/$objtype/include/ureg.h
 devsd.$O:	/$objtype/include/ureg.h
@@ -83,7 +81,6 @@ devuart.$O:	../port/netif.h
 devmouse.$O:	screen.h /sys/include/memdraw.h
 devdraw.$O:	screen.h /sys/include/memdraw.h
 screen.$O:	screen.h /sys/include/memdraw.h
-latin1.$O:	../port/latin1.h
 thwack.$O:	../port/thwack.h
 unthwack.$O:	../port/thwack.h
 devsdp.$O:	../port/thwack.h

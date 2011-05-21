@@ -84,8 +84,6 @@
 /* Generate 80386 code? */
 #if defined(PLAN9) && defined(T386)
 #define I386_ONLY
-#else
-#error unknown objtype
 #endif
 #if !(defined(VMS) || defined(__VMS)) /* VMS uses logical names instead */
 #if defined(HEADER_CRYPTLIB_H) && !defined(OPENSSLDIR)

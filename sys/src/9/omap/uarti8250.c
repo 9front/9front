@@ -812,9 +812,7 @@ i8250console(void)
 
 	if(uartenable(uart) != nil /* && uart->console */){
 		// iprint("i8250console: enabling console uart\n");
-		kbdq = uart->iq;
 		serialoq = uart->oq;
-		uart->putc = kbdcr2nl;
 		uart->opens++;
 		consuart = uart;
 	}

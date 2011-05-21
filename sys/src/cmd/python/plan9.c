@@ -6,6 +6,8 @@
 
 #if defined(T386)
 #define	FPINVAL	(1<<0)
+#elif defined(Tarm)
+#define FPINVAL (1<<16)
 #else
 Error define FPINVAL for your arch. grep /$cputype/include/u.h
 #endif

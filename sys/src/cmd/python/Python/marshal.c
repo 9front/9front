@@ -971,7 +971,7 @@ PyMarshal_ReadLastObjectFromFile(FILE *fp)
 		if (filesize <= SMALL_FILE_LIMIT)
 			pBuf = buf;
 		else if (filesize <= REASONABLE_FILE_LIMIT)
-			pBuf = (char *)PyMem_MALLOC(filesize);
+			pBuf = (char *)PyMem_MALLOC((int)filesize);
 		if (pBuf != NULL) {
 			PyObject* v;
 			size_t n;

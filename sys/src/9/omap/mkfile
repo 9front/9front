@@ -22,7 +22,6 @@ PORT=\
 	dev.$O\
 	edf.$O\
 	fault.$O\
-	latin1.$O\
 	mul64fract.$O\
 	rebootcmd.$O\
 	page.$O\
@@ -50,7 +49,6 @@ OBJ=\
 	fpi.$O\
 	fpiarm.$O\
 	fpimem.$O\
-	kbd.$O\
 	main.$O\
 	mmu.$O\
 	random.$O\
@@ -93,6 +91,9 @@ install:V: /$objtype/$p$CONF
 	{ cp -x $p$CONF s$p$CONF /$objtype } &
 	wait
 	touch $target
+
+rootfs.bz2:
+	rc ../port/mkbootfs
 
 <../boot/bootmkfile
 <../port/portmkfile

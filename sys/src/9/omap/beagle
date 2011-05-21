@@ -25,8 +25,6 @@ dev
 
 	draw		screen
 	dss
-	kbmap
-	kbin
 	mouse
 
 	uart
@@ -73,10 +71,11 @@ port
 
 boot cpu
 	tcp
+	local
 
 bootdir
 	boot$CONF.out boot
-	/arm/bin/ip/ipconfig ipconfig
-	/arm/bin/auth/factotum factotum
-	/arm/bin/usb/usbd
-	nvram
+	/arm/bin/bzfs
+	/arm/bin/mntgen
+	/arm/bin/auth/factotum
+	rootfs.bz2

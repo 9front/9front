@@ -49,7 +49,7 @@ static Audioprobe audioprobes[16];
 static Audio *audiodevs;
 
 static char Evolume[] = "illegal volume specifier";
-
+static char Ebusy[] = "device is busy";
 
 void
 addaudiocard(char *name, int (*probefn)(Audio *))
@@ -170,6 +170,15 @@ audioattach(char *spec)
 static Chan*
 audioopen(Chan *c, int omode)
 {
+	Audiochan *ac;
+	Audio *adev;
+
+	ac = c->aux;
+	adev = ac->adev;
+	if(c->qid.path == Qaudio && incref(&adev->audioopen) != 1){
+		decref(&adev->audioopen);
+		error(Ebusy);
+	}
 	return devopen(c, omode, audiodir, nelem(audiodir), devgen);
 }
 
@@ -291,9 +300,11 @@ audioclose(Chan *c)
 
 	ac = c->aux;
 	adev = ac->adev;
-	if(c->qid.path == Qaudio && (c->flag & COPEN))
+	if(c->qid.path == Qaudio && (c->flag & COPEN)){
 		if(adev->close)
 			adev->close(adev);
+		decref(&adev->audioopen);
+	}
 
 	if(ac->owner == c){
 		ac->owner = nil;

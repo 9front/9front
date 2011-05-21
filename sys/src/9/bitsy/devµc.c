@@ -12,7 +12,6 @@ enum{
 	Qbattery,
 	Qbuttons,
 	Qcruft,
-	Qkbdin,
 	Qled,
 	Qversion,
 	Qpower,
@@ -28,34 +27,12 @@ enum{
 	SOF=	0x2,		/* start of frame */
 };
 
-/* from /sys/include/keyboard.h */
-enum {
-	KF=	0xF000,	/* Rune: beginning of private Unicode space */
-	/* KF|1, KF|2, ..., KF|0xC is F1, F2, ..., F12 */
-	Khome=	KF|0x0D,
-	Kup=	KF|0x0E,
-	Kpgup=	KF|0x0F,
-	Kprint=	KF|0x10,
-	Kleft=	KF|0x11,
-	Kright=	KF|0x12,
-	Kdown=	0x80,
-	Kview=	0x80,
-	Kpgdown=	KF|0x13,
-	Kins=	KF|0x14,
-	Kend=	'\r',	/* [sic] */
-
-	Kalt=		KF|0x15,
-	Kshift=	KF|0x16,
-	Kctl=		KF|0x17,
-};
-
 Dirtab µcdir[]={
 	".",			{ Qdir, 0, QTDIR },	0,	DMDIR|0755,
 	"backlight",		{ Qbacklight, 0 },	0,	0664,
 	"battery",		{ Qbattery, 0 },		0,	0664,
 	"buttons",		{ Qbuttons, 0 },		0,	0664,
 	"cruft",		{ Qcruft, 0 },		0,	0664,
-	"kbdin",		{ Qkbdin, 0 },		0,	0664,
 	"led",			{ Qled, 0 },			0,	0664,
 	"version",		{ Qversion, 0 },		0,	0664,
 	"power",		{ Qpower, 0 },		0,	0600,
@@ -81,13 +58,6 @@ static struct µcontroller
 	/* version string */
 	char	version[16+2];
 } ctlr;
-
-/* button map */
-Rune bmap[2][4] = 
-{
-	{Kup, Kright, Kleft, Kdown},	/* portrait mode */
-	{Kright, Kdown, Kup, Kleft},	/* landscape mode */
-};
 
 extern int landscape;
 
@@ -148,12 +118,8 @@ int
 			b = p[0] & 0x7f;
 			up = p[0] & 0x80;
 
-			if(b > 5) {
-				/* rocker panel acts like arrow keys */
-				if(b < 10 && !up)
-					kbdputc(kbdq, bmap[landscape][b-6]);
-			} else {
-				/* the rest like mouse buttons */
+			if(b <= 5){
+				/* like mouse buttons */
 				if(--b == 0)
 					b = 5;
 				penbutton(up, 1<<b);
@@ -359,17 +325,6 @@ static long
 	extern ulong resumeaddr[];
 	extern void power_resume(void);
 
-	if(c->qid.path == Qkbdin){
-		if(n >= sizeof(str))
-			n = sizeof(str)-1;
-		memmove(str, a, n);
-		str[n] = 0;
-		for(i = 0; i < n; i += j){
-			j = chartorune(&r, &str[i]);
-			kbdcr2nl(nil, r);
-		}
-		return n;
-	}
 	if(c->qid.path == Qpower){
 		if(!iseve())
 			error(Eperm);
