@@ -66,8 +66,6 @@ usbfsadd(Usbfs *dfs)
 {
 	int i, j;
 
-	print("%s: %s\n", argv0, dfs->name);
-
 	dprint(2, "%s: fsadd %s\n", argv0, dfs->name);
 	qlock(&fslck);
 	for(i = 1; i < nfs; i++)

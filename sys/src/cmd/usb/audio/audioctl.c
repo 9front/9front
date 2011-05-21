@@ -131,7 +131,7 @@ findalt(int rec, int nchan, int res, int speed)
 int
 setspeed(int rec, int speed)
 {
-	int ps, n, no, dist, i;
+	int n, no, dist, i;
 	Audioalt *a;
 	Altc *da;
 	Ep *ep;
@@ -214,15 +214,6 @@ setspeed(int rec, int speed)
 				speed = n;
 		}
 		dprint(2, " speed now %d Hz;", speed);
-	}
-	ps = ((speed * da->interval + 999) / 1000)
-		* controls[rec][Channel_control].value[0]
-		* controls[rec][Resolution_control].value[0]/8;
-	if(ps > ep->maxpkt){
-		fprint(2, "%s: setspeed(rec %d, speed %d): packet size %d > "
-			"maximum packet size %d\n",
-			argv0, rec, speed, ps, ep->maxpkt);
-		return Undef;
 	}
 	dprint(2, "Configuring %s endpoint for %d Hz\n",
 				rec?"record":"playback", speed);

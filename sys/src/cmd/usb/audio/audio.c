@@ -358,17 +358,17 @@ threadmain(int argc, char **argv)
 		if(setrec){
 			value[0] = i;
 			if(setcontrol(Record, "channels", value) == Undef)
-				sysfatal("Can't set record channels");
+				fprint(2, "%s: can't set record channels\n", argv0);
 			value[0] = 16;
 			if(setcontrol(Record, "resolution", value) == Undef)
-				sysfatal("Can't set record resolution");
+				fprint(2, "%s: can't set record resolution\n", argv0);
 		}
 	}
 
 	getcontrols();	/* Get the initial value of all controls */
 	value[0] = defaultspeed[Play];
 	if(endpt[Play] >= 0 && setcontrol(Play, "speed", value) < 0)
-		sysfatal("can't set play speed");
+		fprint(2, "%s: can't set play speed\n", argv0);
 	value[0] = defaultspeed[Record];
 	if(endpt[Record] >= 0 && setcontrol(Record, "speed", value) < 0)
 		fprint(2, "%s: can't set record speed\n", argv0);

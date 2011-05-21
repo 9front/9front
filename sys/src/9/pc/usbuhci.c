@@ -1107,7 +1107,6 @@ episoread(Ep *ep, Isoio *iso, void *a, int count)
 		error(iso->err ? iso->err : Eio);
 	}
 	iso->state = Qdone;
-	assert(iso->tdu != iso->tdi);
 
 	for(tot = 0; iso->tdi != iso->tdu && tot < count; tot += nr){
 		tdu = iso->tdu;

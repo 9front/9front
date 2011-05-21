@@ -13,13 +13,13 @@ typedef struct Usbdev Usbdev;
 
 enum {
 	/* fundamental constants */
-	Nep	= 16,	/* max. endpoints per usb device & per interface */
+	Nep	= 256,	/* max. endpoints per usb device & per interface */
 
 	/* tunable parameters */
 	Nconf	= 16,	/* max. configurations per usb device */
 	Nddesc	= 8*Nep, /* max. device-specific descriptors per usb device */
 	Niface	= 16,	/* max. interfaces per configuration */
-	Naltc	= 16,	/* max. alt configurations per interface */
+	Naltc	= 256,	/* max. alt configurations per interface */
 	Uctries	= 4,	/* no. of tries for usbcmd */
 	Ucdelay	= 50,	/* delay before retrying */
 
