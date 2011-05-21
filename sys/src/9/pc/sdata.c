@@ -2023,6 +2023,7 @@ atapnp(void)
 		case (0x5513<<16)|0x1039:	/* SiS 962 */
 		case (0x0646<<16)|0x1095:	/* CMD 646 */
 		case (0x0571<<16)|0x1106:	/* VIA 82C686 */
+		case (0x9001<<16)|0x1106:	/* VIA chipset in VIA PV530 */
 		case (0x2363<<16)|0x197b:	/* JMicron SATA */
 		case (0x1230<<16)|0x8086:	/* 82371FB (PIIX) */
 		case (0x7010<<16)|0x8086:	/* 82371SB (PIIX3) */
