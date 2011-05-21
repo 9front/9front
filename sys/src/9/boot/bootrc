@@ -57,9 +57,9 @@ fn main{
 		}
 		if not bootargs=$nobootprompt
 		mn=`{echo $bootargs | awk -F! '{print $1}'}
-		ma=`{echo $bootargs | sed 's/[^!]+!?//'}
+		ma=`{echo $bootargs | sed 's/[^!]*!?//'}
 		for(i in `{seq 1 $#mt}){
-			if(~ $mt($i) m^$mn)
+			if(~ $mt($i) m$"mn)
 				mp=$$mt($i)
 		}
 	}
