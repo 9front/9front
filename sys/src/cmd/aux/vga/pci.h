@@ -99,8 +99,6 @@ typedef struct Pcidev {
 	uchar	intl;			/* interrupt line */
 	ushort	ccru;
 
-
 	Pcidev*	list;
-	Pcidev*	bridge;			/* down a bus */
-	Pcidev*	link;			/* next device on this bno */
+	int rawfd;
 };
