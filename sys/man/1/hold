@@ -9,13 +9,10 @@ hold \- simple text editor
 .I Hold
 sets hold mode on the
 .IR rio(1)
-window where it was launched. If a
-.I file
-argument is given, the contents of the named file is printed
+window where it was launched.
+The contents of the named file is printed
 above the live editing area and the newly entered text is saved
-in the named file upon exit. If no
-.I file
-is specified, the newly entered text is printed on stdout.
+in the named file upon exit.
 .SH SOURCE
 .B /rc/bin/hold
 .SH "SEE ALSO"
