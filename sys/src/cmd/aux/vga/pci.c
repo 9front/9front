@@ -28,6 +28,7 @@ pcicfginit(void)
 		if(strstr(d[i].name, "ctl") == nil)
 			continue;
 
+		strncpy(buf, d[i].name, sizeof(buf));
 		bno = strtoul(buf, &s, 10);
 		dno = strtoul(s+1, &s, 10);
 		fno = strtoul(s+1, nil, 10);
