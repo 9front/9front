@@ -27,8 +27,11 @@ pcicfginit(void)
 	for(i=0; i<n; i++) {
 		if(strstr(d[i].name, "ctl") == nil)
 			continue;
+		if((j = strlen(d[i].name)-3) < 5)
+			continue;
 
-		sprint(buf, "%s", d[i].name);
+		sprint(buf, "%.*s", j, d[i].name);
+
 		bno = strtoul(buf, &s, 10);
 		dno = strtoul(s+1, &s, 10);
 		fno = strtoul(s+1, nil, 10);
@@ -37,22 +40,25 @@ pcicfginit(void)
 		p->tbdf = MKBUS(BusPCI, bno, dno, fno);
 		sprint(buf, "%s/%d.%d.%draw", base, bno, dno, fno);
 		if((p->rawfd = open(buf, ORDWR)) < 0){
+			fprint(2, "raw: %r\n");
 			free(p);
 			continue;
 		}
 		sprint(buf, "%s/%d.%d.%dctl", base, bno, dno, fno);
 		if((fd = open(buf, OREAD)) < 0){
+			fprint(2, "ctl: %r\n");
 			close(p->rawfd);
 			free(p);
 			continue;
 		}
-		if((n = read(fd, buf, sizeof(buf)-1)) <= 0){
+		if((j = read(fd, buf, sizeof(buf)-1)) <= 0){
+			fprint(2, "read: %r\n");
 			close(p->rawfd);
 			close(fd);
 			free(p);
 			continue;
 		}
-		buf[n] = 0;
+		buf[j] = 0;
 		close(fd);
 
 		p->ccru = strtol(buf + 3, nil, 16);
