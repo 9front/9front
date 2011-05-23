@@ -1258,7 +1258,7 @@ initkbd(void)
 	char *e;
 
 	c = chancreate(sizeof(char*), 16);
-	proccreate(kbdproc, c, STACK);
+	procrfork(kbdproc, c, STACK, RFFDG);
 	if(e = recvp(c)){
 		chanfree(c);
 		c = nil;
