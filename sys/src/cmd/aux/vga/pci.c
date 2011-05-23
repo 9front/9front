@@ -23,8 +23,6 @@ pcicfginit(void)
 			return;
 	n = dirreadall(fd, &d);
 	close(fd);
-	if(n < 0)
-		return;
 	
 	for(i=0; i<n; i++) {
 		if(strstr(d[i].name, "ctl") == nil)
