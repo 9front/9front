@@ -62,15 +62,16 @@ pcicfginit(void)
 
 		p->rid = pcicfgr8(p, PciRID);
 
-		trace("did=%X vid=%X rid=%X intl=%d ccru=%X\n", p->did, p->vid, p->rid, p->intl, p->ccru);
+		trace("%d.%d.%d: did=%X vid=%X rid=%X intl=%d ccru=%X\n",
+			bno, dno, fno, p->did, p->vid, p->rid, p->intl, p->ccru);
 
 		while(*s == ' '){
 			j = strtol(s+1, &s, 10);
 			if(j < 0 || j >= nelem(p->mem))
 				break;
-			p->mem[j].bar = strtol(s+1, &s, 16);
-			p->mem[j].size = strtol(s+1, &s, 10);
-			trace("\t->mem[%d] = %p %d\n", j, p->mem[j].bar, p->mem[j].size);
+			p->mem[j].bar = strtoul(s+1, &s, 16);
+			p->mem[j].size = strtoul(s+1, &s, 10);
+			trace("\tmem[%d] = %p %d\n", j, p->mem[j].bar, p->mem[j].size);
 		}
 
 		if(pcilist != nil)
