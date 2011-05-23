@@ -702,7 +702,7 @@ findendpoints(Serial *ser, int ifc)
 	 */
 	eps = ser->dev->usb->conf[0]->iface[ifc]->ep;
 
-	for(i = 0; i < Niface; i++){
+	for(i = 0; i < Nep; i++){
 		if((ep = eps[i]) == nil)
 			continue;
 		if(ser->hasepintr && ep->type == Eintr &&
