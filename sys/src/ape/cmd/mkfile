@@ -64,6 +64,8 @@ mv.$O: mv.c
 $O.mv: mv.$O
 	mk -f /sys/src/cmd/mkfile $O.mv
 
+$BIN/%: %.rc
+	cp -x $stem.rc $BIN/$stem
 
 install.rc:V: $BIN/psh
 
