@@ -400,3 +400,7 @@ int	okThumbprint(uchar *sha1, Thumbprint *ok);
 /* readcert.c */
 uchar	*readcert(char *filename, int *pcertlen);
 PEMChain*readcertchain(char *filename);
+
+/* aes_xts.c */
+int aes_xts_encrypt(ulong tweak[], ulong ecb[],  vlong sectorNumber, uchar *input, uchar *output, ulong len) ;
+int aes_xts_decrypt(ulong tweak[], ulong ecb[], vlong sectorNumber, uchar *input, uchar *output, ulong len);

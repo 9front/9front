@@ -1,0 +1,10 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin
+TARG=cryptsetup
+OFILES=\
+	cryptsetup.$O\
+	readcons.$O\
+	pbkdf2.$O\
+
+</sys/src/cmd/mkone

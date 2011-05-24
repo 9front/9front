@@ -21,6 +21,9 @@
 #include "io.h"
 #include "ureg.h"
 #include "../port/error.h"
+#include "libsec.h"
+
+int  dec16(uchar *out, int lim, char *in, int n);
 
 enum
 {
@@ -32,6 +35,7 @@ enum
 	Fclear,			/* start over */
 	Fdel,			/* delete a configure device */
 	Fdisk,			/* set default tree and sector sz*/
+	Fcrypt,			/* encrypted device */
 
 	Sectorsz = 1,
 	Blksize	= 8*1024,	/* for Finter only */
@@ -65,6 +69,7 @@ enum
 typedef struct Inner Inner;
 typedef struct Fsdev Fsdev;
 typedef struct Tree Tree;
+typedef struct Key Key;
 
 struct Inner
 {
@@ -85,6 +90,7 @@ struct Fsdev
 	vlong	start;		/* start address (for Fpart) */
 	uint	ndevs;		/* number of inner devices */
 	Inner	*inner[Ndevs];	/* inner devices */
+	void *extra;                /* extra state for the device */
 };
 
 struct Tree
@@ -93,6 +99,10 @@ struct Tree
 	Fsdev	**devs;		/* devices in dir. */
 	uint	ndevs;		/* number of devices */
 	uint	nadevs;		/* number of allocated devices in devs */
+};
+
+struct Key {
+	AESstate tweak, ecb;
 };
 
 #define dprint if(debug)print
@@ -121,6 +131,7 @@ static char* tnames[] = {
 	[Fcat]		"cat",
 	[Finter]	"inter",
 	[Fpart]		"part",
+	[Fcrypt]	"crypt",
 };
 
 static Cmdtab configs[] = {
@@ -131,6 +142,7 @@ static Cmdtab configs[] = {
 	Fclear,	"clear",	1,
 	Fdel,	"del",		2,
 	Fdisk,	"disk",		0,
+	Fcrypt,	"crypt",	0,
 };
 
 static char Egone[] = "device is gone";		/* file has been removed */
@@ -156,6 +168,7 @@ seprintdev(char *s, char *e, Fsdev *mp)
 	case Fmirror:
 	case Fcat:
 	case Finter:
+	case Fcrypt:
 		s = strecpy(s, e, "\n");
 		break;
 	case Fpart:
@@ -434,6 +447,13 @@ setdsize(Fsdev* mp, vlong *ilen)
 				mp->size = inlen - mp->start;
 			}
 			break;
+		case Fcrypt:
+			if(inlen > (64*1024)) {
+				mp->size = inlen - (64 * 1024);
+			} else {
+				mp->size = 0;
+			}
+			break;
 		}
 	}
 	if(mp->type == Finter)
@@ -477,6 +497,10 @@ parseconfig(char *a, long n, Cmdbuf **cbp, Cmdtab **ctp)
 	case Fpart:
 		if(cb->nf != 4 && (cb->nf != 3 || source == nil))
 			error("ctl usage: part new [file] off len");
+		break;
+	case Fcrypt:
+		if(cb->nf != 3)
+			error("ctl usage: crypt newname device keyhex");
 		break;
 	}
 }
@@ -529,6 +553,7 @@ mconfig(char* a, long n)
 	vlong	size, start;
 	vlong	*ilen;
 	char	*tname, *dname, *fakef[4];
+	uchar key[32];
 	Chan	**idev;
 	Cmdbuf	*cb;
 	Cmdtab	*ct;
@@ -575,6 +600,10 @@ mconfig(char* a, long n)
 		free(cb);
 		mdelctl("*", "*");		/* del everything */
 		return;
+	case Fcrypt:
+		dec16(key, 32, cb->f[2], 64);
+		cb->nf -= 1;
+		break;
 	case Fpart:
 		if(cb->nf == 3){
 			/*
@@ -662,6 +691,15 @@ Fail:
 		mp->start = start * sectorsz;
 		mp->size = size * sectorsz;
 	}
+	if(mp->type == Fcrypt) {
+		Key *k = mallocz(sizeof(Key), 1);
+		if(k == nil)
+			error(Enomem);
+		setupAESstate(&k->tweak, &key[0], 16, nil);
+		setupAESstate(&k->ecb, &key[16], 16, nil);
+		memset(key, 0, 32);
+		mp->extra = k;
+	}
 	for(i = 1; i < cb->nf; i++){
 		inprv = mp->inner[i-1] = mallocz(sizeof(Inner), 1);
 		if(inprv == nil)
@@ -672,6 +710,8 @@ Fail:
 		idev[i-1] = nil;
 	}
 	setdsize(mp, ilen);
+
+
 
 	poperror();
 	wunlock(&lck);
@@ -970,6 +1010,63 @@ io(Fsdev *mp, Inner *in, int isread, void *a, long l, vlong off)
 	return wl;
 }
 
+static long
+cryptio(Fsdev *mp, int isread, uchar *a, long l, vlong off)
+{
+	long wl, ws, wo;
+	uchar *buf;
+	Chan	*mc;
+	Inner *in;
+	Key *k;
+
+	in = mp->inner[0];
+	// Header
+	off += 64*1024;
+
+	mc = in->idev;
+	if(mc == nil)
+		error(Egone);
+	if (waserror()) {
+		print("#k: %s: byte %,lld count %ld (of #k/%s): %s error: %s\n",
+			in->iname, off, l, mp->name, (isread? "read": "write"),
+			(up && up->errstr? up->errstr: ""));
+		nexterror();
+	}
+	
+	if(off % 512 != 0 || l%512 !=0)
+		error(Eio);
+	
+	wo = (l > 16384) ? 16384 : l;
+	buf = mallocz(wo, 1);
+	if(!buf)
+		error(Enomem);
+	k = (Key*)(mp->extra);
+
+	for(ws = 0; ws < l; ws+=wo) {
+		if (isread) {
+			wl = devtab[mc->type]->read(mc, buf, wo, off);
+			if(wl!=wo)
+				error(Eio);
+			for(wl=0; wl<wo; wl+=512) {
+				aes_xts_decrypt(k->tweak.ekey, k->ecb.dkey, off, buf+wl, a+ws+wl, 512);
+				off += 512;
+			}
+		} else {
+			for(wl=0; wl<wo; wl+=512) {
+				aes_xts_encrypt(k->tweak.ekey, k->ecb.ekey, off, a+ws+wl, buf+wl, 512);
+				off += 512;
+			}
+
+			wl = devtab[mc->type]->write(mc, buf, wo, off-wo);
+			if(wl!=wo)
+				error(Eio);
+		}
+	}
+	free(buf);
+	poperror();
+	return ws;
+}
+
 /* NB: a transfer could span multiple inner devices */
 static long
 catio(Fsdev *mp, int isread, void *a, long n, vlong off)
@@ -1140,6 +1237,9 @@ mread(Chan *c, void *a, long n, vlong off)
 				"from mirror: %s\n", mp->name, off, n,
 				(up && up->errstr? up->errstr: ""));
 		break;
+	case Fcrypt:
+		res = cryptio(mp, Isread, a, n, off);
+		break;
 	}
 Done:
 	poperror();
@@ -1234,6 +1334,9 @@ mwrite(Chan *c, void *a, long n, vlong off)
 				"to mirror: %s\n", mp->name, off, n,
 				(up && up->errstr? up->errstr: ""));
 
+		break;
+	case Fcrypt:
+		res = cryptio(mp, Iswrite, a, n, off);
 		break;
 	}
 Done:
