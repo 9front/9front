@@ -1212,11 +1212,8 @@ kbdproc(void *arg)
 	}
 	fprint(cfd, "rawon");
 
-	if(sendp(c, nil) <= 0){
-		close(cfd);
-		close(fd);
+	if(sendp(c, nil) <= 0)
 		return;
-	}
 
 	if((kfd = open("/dev/kbd", OREAD)) >= 0){
 		close(fd);
@@ -1246,9 +1243,7 @@ kbdproc(void *arg)
 			memmove(buf, p, n);
 			p = buf + n;
 		}
-		close(fd);
 	}
-	close(cfd);
 }
 
 Channel*

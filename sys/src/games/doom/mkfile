@@ -1,0 +1,143 @@
+</$objtype/mkfile
+BIN=/$objtype/bin/games
+
+TARG=doom
+
+OFILES=\
+	doomdef.$O\
+	doomstat.$O\
+	dstrings.$O\
+	tables.$O\
+	f_finale.$O\
+	f_wipe.$O\
+	d_main.$O\
+	d_net.$O\
+	d_items.$O\
+	g_game.$O\
+	m_menu.$O\
+	m_misc.$O\
+	m_argv.$O\
+	m_bbox.$O\
+	m_fixed.$O\
+	m_swap.$O\
+	m_cheat.$O\
+	m_random.$O\
+	am_map.$O\
+	p_ceilng.$O\
+	p_doors.$O\
+	p_enemy.$O\
+	p_floor.$O\
+	p_inter.$O\
+	p_lights.$O\
+	p_map.$O\
+	p_maputl.$O\
+	p_plats.$O\
+	p_pspr.$O\
+	p_setup.$O\
+	p_sight.$O\
+	p_spec.$O\
+	p_switch.$O\
+	p_mobj.$O\
+	p_telept.$O\
+	p_tick.$O\
+	p_saveg.$O\
+	p_user.$O\
+	r_bsp.$O\
+	r_data.$O\
+	r_draw.$O\
+	r_main.$O\
+	r_plane.$O\
+	r_segs.$O\
+	r_sky.$O\
+	r_things.$O\
+	w_wad.$O\
+	wi_stuff.$O\
+	v_video.$O\
+	st_lib.$O\
+	st_stuff.$O\
+	hu_stuff.$O\
+	hu_lib.$O\
+	s_sound.$O\
+	z_zone.$O\
+	info.$O\
+	sounds.$O\
+	i_main.$O\
+	i_net.$O\
+	i_sound.$O\
+	i_system.$O\
+	i_video.$O\
+
+HFILES=\
+	am_map.h\
+	d_englsh.h\
+	d_event.h\
+	d_french.h\
+	d_items.h\
+	d_main.h\
+	d_net.h\
+	d_player.h\
+	d_textur.h\
+	d_think.h\
+	d_ticcmd.h\
+	doomdata.h\
+	doomdef.h\
+	doomstat.h\
+	doomtype.h\
+	dstrings.h\
+	f_finale.h\
+	f_wipe.h\
+	g_game.h\
+	hu_lib.h\
+	hu_stuff.h\
+	i_net.h\
+	i_sound.h\
+	i_system.h\
+	i_video.h\
+	info.h\
+	m_argv.h\
+	m_bbox.h\
+	m_cheat.h\
+	m_fixed.h\
+	m_menu.h\
+	m_misc.h\
+	m_random.h\
+	m_swap.h\
+	p_inter.h\
+	p_local.h\
+	p_mobj.h\
+	p_pspr.h\
+	p_saveg.h\
+	p_setup.h\
+	p_spec.h\
+	p_tick.h\
+	r_bsp.h\
+	r_data.h\
+	r_defs.h\
+	r_draw.h\
+	r_local.h\
+	r_main.h\
+	r_plane.h\
+	r_segs.h\
+	r_sky.h\
+	r_state.h\
+	r_things.h\
+	s_sound.h\
+	sounds.h\
+	st_lib.h\
+	st_stuff.h\
+	tables.h\
+	v_video.h\
+	w_wad.h\
+	wi_stuff.h\
+	z_zone.h\
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+
+</sys/src/cmd/mkone
+
+d_net.$O : d_net.c
+	$CC -FVw d_net.c
+

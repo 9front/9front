@@ -299,7 +299,8 @@ winctl(void *arg)
 				r = 0;
 				while(kbds[i])
 					i += chartorune(&r, kbds+i);
-				wkeyctl(w, r);
+				if(!w->kbdopen)
+					wkeyctl(w, r);
 			}
 			if(w->kbdopen){
 				i = (kbdqw+1) % nelem(kbdq);
@@ -624,7 +625,7 @@ wkeyctl(Window *w, Rune r)
 	if(w->deleted)
 		return;
 	/* navigation keys work only when mouse and kbd is not open */
-	if(!w->mouseopen && !w->kbdopen)
+	if(!w->mouseopen)
 		switch(r){
 		case Kdown:
 			n = w->maxlines/3;
