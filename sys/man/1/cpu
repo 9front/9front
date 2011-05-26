@@ -197,8 +197,9 @@ Binds and mounts done after the terminal
 .B lib/profile
 is run are not reflected in the new name space.
 .PP
-When using the
-.B -a
-option to `log in' as another user, be aware that
-resources in the local name space will be made
-available to that user.
+By default, the entire namespace of the local system is
+exported to the remote system. Use of the
+.B -P
+option in conjunction with a customized patternfile can
+limit this exposure, but also limits the usefulness of
+.B /mnt/term.

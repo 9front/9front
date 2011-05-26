@@ -30,6 +30,8 @@ packages.
 .I Pkg/create 
 Create builds a new package
 .IR name ,
+whose source is found in directory
+.IR name ,
 then packs it into a
 .IR bzip2 (1)
 compressed
@@ -53,6 +55,15 @@ Remove the package
 .I name
 from the local system.
 .SH EXAMPLES
+.LP
+Create the package
+.B links-variable-2011.05.23
+.sp 1
+.EX
+% cd /sys/src
+% pkg/create links-variable-2011.05.23
+.EE
+
 .LP
 Install the
 .B Go
