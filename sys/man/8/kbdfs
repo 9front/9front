@@ -171,7 +171,11 @@ or
 .B Num
 will not change
 the characters already present in the string, but will
-take effect on newly pressed keys.
+take effect on newly pressed keys. Opening the
+.BR kbd
+file disables input processing on the
+.BR cons
+file until it is closed again.
 .PP
 Raw scancodes can be written to the
 .BR kbin

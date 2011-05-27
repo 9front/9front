@@ -605,7 +605,7 @@ ctlproc(void *)
 			break;
 
 		case Araw:
-			if(raw){
+			if(raw || kbdopen){
 				s = emalloc9p(UTFmax+1);
 				s[runetochar(s, &r)] = 0;
 			} else {
@@ -620,6 +620,11 @@ ctlproc(void *)
 			e = s + strlen(s);
 
 		Havereq:
+			if(kbdopen){
+				free(b);
+				b = nil;
+				break;
+			}
 			while(b && (req = qcons.h)){
 				if((qcons.h = req->aux) == nil)
 					qcons.t = &qcons.h;
