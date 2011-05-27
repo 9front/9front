@@ -10,6 +10,7 @@
 #include <keyboard.h>
 
 static int resized;
+static int mouseactive;
 
 static Rectangle grabout;
 static Point center;
@@ -18,19 +19,6 @@ static void kbdproc(void*);
 static void mouseproc(void*);
 
 static uchar cmap[3*256];
-
-static void
-nocursor(void)
-{
-	char curs[2*4+2*2*16];
-	int fd;
-
-	if((fd = open("/dev/cursor", ORDWR|OCEXEC)) < 0)
-		return;
-	memset(curs, 0, sizeof curs);
-	write(fd, curs, sizeof curs);
-}
-
 
 void I_InitGraphics(void)
 {
@@ -41,7 +29,6 @@ void I_InitGraphics(void)
 
 	center = addpt(screen->r.min, Pt(Dx(screen->r)/2, Dy(screen->r)/2));
 	grabout = insetrect(screen->r, Dx(screen->r)/8);
-	nocursor();
 
 	proccreate(kbdproc, nil, 8*1024);
 	proccreate(mouseproc, nil, 8*1024);
@@ -131,6 +118,22 @@ void I_FinishUpdate(void)
 	flushimage(display, 1);
 }
 
+void I_MouseEnable(int on)
+{
+	static char nocurs[2*4+2*2*16];
+	static int fd = -1;
+
+	if(mouseactive == on)
+		return;
+	if(mouseactive = on){
+		if((fd = open("/dev/cursor", ORDWR|OCEXEC)) < 0)
+			return;
+		write(fd, nocurs, sizeof(nocurs));
+	}else if(fd >= 0) {
+		close(fd);
+		fd = -1;
+	}
+}
 
 void I_ReadScreen(byte *scr)
 {
@@ -277,6 +280,9 @@ mouseproc(void *)
 			resized = 1;
 			/* fall through */
 		case 'm':
+			if(!mouseactive)
+				break;
+
 			m.xy.x = atoi(buf+1+0*12);
 			m.xy.y = atoi(buf+1+1*12);
 			m.buttons = atoi(buf+1+2*12);

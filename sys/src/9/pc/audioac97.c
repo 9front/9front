@@ -139,7 +139,7 @@ available(Ring *r)
 {
 	long m;
 
-	m = (r->nbuf - 1) - buffered(r);
+	m = (r->nbuf - BytesPerSample) - buffered(r);
 	if(m < 0)
 		m = 0;
 	return m;

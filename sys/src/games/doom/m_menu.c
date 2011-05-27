@@ -1710,10 +1710,12 @@ void M_StartControlPanel (void)
     // intro might call this repeatedly
     if (menuactive)
 	return;
-    
+  
     menuactive = 1;
     currentMenu = &MainDef;         // JDC
     itemOn = currentMenu->lastOn;   // JDC
+
+    I_MouseEnable(0);	// disable mouse grab
 }
 
 
@@ -1796,6 +1798,8 @@ void M_Drawer (void)
 void M_ClearMenus (void)
 {
     menuactive = 0;
+    I_MouseEnable(1);	// enable mouse grabbing
+
     // if (!netgame && usergame && paused)
     //       sendpause = true;
 }

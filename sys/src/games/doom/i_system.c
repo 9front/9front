@@ -17,6 +17,7 @@ void I_Init (void)
 {
 	I_InitSound();
 	I_InitGraphics();
+	I_MouseEnable(1);
 }
 
 byte* I_ZoneBase (int *size)
