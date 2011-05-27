@@ -1114,24 +1114,19 @@ void M_ChangeSensitivity(int choice)
 
 
 
-void M_ChangeDetail(int /*choice*/)
+void M_ChangeDetail(int)
 {
-    detailLevel = 1 - detailLevel;
+	return;
 
-    // FIXME - does not work. Remove anyway?
-    fprintf( stderr, "M_ChangeDetail: low detail mode n.a.\n");
-
-    return;
-    
-    /*R_SetViewSize (screenblocks, detailLevel);
-
-    if (!detailLevel)
-	players[consoleplayer].message = DETAILHI;
-    else
-	players[consoleplayer].message = DETAILLO;*/
+	/* does not work
+	detailLevel = 1 - detailLevel;
+	R_SetViewSize (screenblocks, detailLevel);
+	if (!detailLevel)
+		players[consoleplayer].message = DETAILHI;
+	else
+		players[consoleplayer].message = DETAILLO;
+	*/
 }
-
-
 
 
 void M_SizeDisplay(int choice)
