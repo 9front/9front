@@ -450,7 +450,7 @@ int I_StartSound(int id, int vol, int sep, int pitch, int priority)
 void I_StopSound(int handle)
 {
 	USED(handle);
-	printf("PORTME i_sound.c I_StopSound\n");
+//	printf("PORTME i_sound.c I_StopSound\n");
 }
 
 int I_SoundIsPlaying(int handle)
@@ -471,53 +471,53 @@ void I_UpdateSoundParams(int handle, int vol, int sep, int pitch)
 
 void I_InitMusic(void)
 {
-	printf("PORTME i_sound.c I_InitMusic\n");
+//	printf("PORTME i_sound.c I_InitMusic\n");
 }
 
 void I_ShutdownMusic(void)
 {
-	printf("PORTME i_sound.c I_ShutdownMusic\n");
+//	printf("PORTME i_sound.c I_ShutdownMusic\n");
 }
 
 void I_SetMusicVolume(int volume)
 {
 	USED(volume);
-	printf("PORTME i_sound.c I_SetMusicVolume\n");
+//	printf("PORTME i_sound.c I_SetMusicVolume\n");
 }
 
 void I_PauseSong(int handle)
 {
 	USED(handle);
-	printf("PORTME i_sound.c I_PauseSong\n");
+//	printf("PORTME i_sound.c I_PauseSong\n");
 }
 
 void I_ResumeSong(int handle)
 {
 	USED(handle);
-	printf("PORTME i_sound.c I_ResumeSong\n");
+//	printf("PORTME i_sound.c I_ResumeSong\n");
 }
 
 int I_RegisterSong(void *data)
 {
 	USED(data);
-	printf("PORTME i_sound.c I_RegisterSong\n");
+//	printf("PORTME i_sound.c I_RegisterSong\n");
 	return 0;
 }
 
 void I_PlaySong(int handle, int looping)
 {
 	USED(handle, looping);
-	printf("PORTME i_sound.c I_PlaySong\n");
+//	printf("PORTME i_sound.c I_PlaySong\n");
 }
 
 void I_StopSong(int handle)
 {
 	USED(handle);
-	printf("PORTME i_sound.c I_StopSong\n");
+//	printf("PORTME i_sound.c I_StopSong\n");
 }
 
 void I_UnRegisterSong(int handle)
 {
 	USED(handle);
-	printf("PORTME i_sound.c I_UnregisterSong\n");
+//	printf("PORTME i_sound.c I_UnregisterSong\n");
 }
