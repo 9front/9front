@@ -543,7 +543,7 @@ ST_Responder (event_t* ev)
       // if (gameskill != sk_nightmare) {
       
       // 'dqd' cheat for toggleable god mode
-      if (cht_CheckCheat(&cheat_god, ev->data1))
+      if (cht_CheckCheat(&cheat_god, ev->data2))
       {
 	plyr->cheats ^= CF_GODMODE;
 	if (plyr->cheats & CF_GODMODE)
@@ -558,7 +558,7 @@ ST_Responder (event_t* ev)
 	  plyr->message = STSTR_DQDOFF;
       }
       // 'fa' cheat for killer fucking arsenal
-      else if (cht_CheckCheat(&cheat_ammonokey, ev->data1))
+      else if (cht_CheckCheat(&cheat_ammonokey, ev->data2))
       {
 	plyr->armorpoints = 200;
 	plyr->armortype = 2;
@@ -572,7 +572,7 @@ ST_Responder (event_t* ev)
 	plyr->message = STSTR_FAADDED;
       }
       // 'kfa' cheat for key full ammo
-      else if (cht_CheckCheat(&cheat_ammo, ev->data1))
+      else if (cht_CheckCheat(&cheat_ammo, ev->data2))
       {
 	plyr->armorpoints = 200;
 	plyr->armortype = 2;
@@ -589,7 +589,7 @@ ST_Responder (event_t* ev)
 	plyr->message = STSTR_KFAADDED;
       }
       // 'mus' cheat for changing music
-      else if (cht_CheckCheat(&cheat_mus, ev->data1))
+      else if (cht_CheckCheat(&cheat_mus, ev->data2))
       {
 	
 	char	buf[3];
@@ -619,8 +619,8 @@ ST_Responder (event_t* ev)
       }
       // Simplified, accepting both "noclip" and "idspispopd".
       // no clipping mode cheat
-      else if ( cht_CheckCheat(&cheat_noclip, ev->data1) 
-		|| cht_CheckCheat(&cheat_commercial_noclip,ev->data1) )
+      else if ( cht_CheckCheat(&cheat_noclip, ev->data2) 
+		|| cht_CheckCheat(&cheat_commercial_noclip,ev->data2) )
       {	
 	plyr->cheats ^= CF_NOCLIP;
 	
@@ -632,7 +632,7 @@ ST_Responder (event_t* ev)
       // 'behold?' power-up cheats
       for (i=0;i<6;i++)
       {
-	if (cht_CheckCheat(&cheat_powerup[i], ev->data1))
+	if (cht_CheckCheat(&cheat_powerup[i], ev->data2))
 	{
 	  if (!plyr->powers[i])
 	    P_GivePower( plyr, i);
@@ -646,19 +646,19 @@ ST_Responder (event_t* ev)
       }
       
       // 'behold' power-up menu
-      if (cht_CheckCheat(&cheat_powerup[6], ev->data1))
+      if (cht_CheckCheat(&cheat_powerup[6], ev->data2))
       {
 	plyr->message = STSTR_BEHOLD;
       }
       // 'choppers' invulnerability & chainsaw
-      else if (cht_CheckCheat(&cheat_choppers, ev->data1))
+      else if (cht_CheckCheat(&cheat_choppers, ev->data2))
       {
 	plyr->weaponowned[wp_chainsaw] = true;
 	plyr->powers[pw_invulnerability] = true;
 	plyr->message = STSTR_CHOPPERS;
       }
       // 'mypos' for player position
-      else if (cht_CheckCheat(&cheat_mypos, ev->data1))
+      else if (cht_CheckCheat(&cheat_mypos, ev->data2))
       {
 	static char	buf[ST_MSGWIDTH];
 	sprintf(buf, "ang=0x%x;x,y=(0x%x,0x%x)",
@@ -670,7 +670,7 @@ ST_Responder (event_t* ev)
     }
     
     // 'clev' change-level cheat
-    if (cht_CheckCheat(&cheat_clev, ev->data1))
+    if (cht_CheckCheat(&cheat_clev, ev->data2))
     {
       char		buf[3];
       int		epsd;

@@ -179,13 +179,8 @@ runetokey(Rune r)
 	case Kalt:
 		return KEY_RALT;
 
-	case KEY_MINUS:
-	case KEY_EQUALS:
-	case KEY_BACKSPACE:
-	case KEY_ESCAPE:
-	case KEY_TAB:
-		return r;
-
+	case Kbs:
+		return KEY_BACKSPACE;
 	case '\n':
 		return KEY_ENTER;
 
@@ -203,7 +198,6 @@ runetokey(Rune r)
 	case KF|12:
 		return KEY_F1+(r-(KF|1));
 	}
-
 	if(r > 0x7f)
 		return 0;
 	return r;
@@ -231,8 +225,11 @@ kbdproc(void *)
 			s += chartorune(&r, s);
 			if(utfrune(buf2, r) == nil){
 				e.type = ev_keydown;
-				if(e.data1 = runetokey(r))
+				if(e.data1 = runetokey(r)){
+					e.data2 = *s == 0 ? e.data1 : -1;
+					e.data3 = *s ? e.data1 : -1;
 					D_PostEvent(&e);
+				}
 			}
 		}
 		s = buf2;
@@ -240,8 +237,11 @@ kbdproc(void *)
 			s += chartorune(&r, s);
 			if(utfrune(buf, r) == nil){
 				e.type = ev_keyup;
-				if(e.data1 = runetokey(r))
+				if(e.data1 = runetokey(r)){
+					e.data2 = -1;
+					e.data3 = -1;
 					D_PostEvent(&e);
+				}
 			}
 		}
 		strcpy(buf2, buf);

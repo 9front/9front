@@ -1426,7 +1426,7 @@ boolean M_Responder (event_t* ev)
 	else
 	    if (ev->type == ev_keydown)
 	    {
-		ch = ev->data1;
+		ch = ev->data2;
 	    }
     }
     
