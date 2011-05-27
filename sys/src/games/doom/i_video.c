@@ -34,8 +34,10 @@ nocursor(void)
 
 void I_InitGraphics(void)
 {
-	if (initdraw(nil, nil, "doom") < 0)
+	if(initdraw(nil, nil, "doom") < 0)
 		I_Error("I_InitGraphics failed");
+
+	draw(screen, screen->r, display->black, nil, ZP);
 
 	center = addpt(screen->r.min, Pt(Dx(screen->r)/2, Dy(screen->r)/2));
 	grabout = insetrect(screen->r, Dx(screen->r)/8);
@@ -73,6 +75,10 @@ void I_FinishUpdate(void)
 		resized = 0;
 		if(getwindow(display, Refnone) < 0)
 			sysfatal("getwindow failed: %r");
+
+		/* make black background */
+		draw(screen, screen->r, display->black, nil, ZP);
+
 		center = addpt(screen->r.min, Pt(Dx(screen->r)/2, Dy(screen->r)/2));
 		grabout = insetrect(screen->r, Dx(screen->r)/8);
 	}
