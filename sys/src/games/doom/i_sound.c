@@ -133,7 +133,7 @@ void I_InitSound(void)
 
 	audio_fd = open("/dev/audio", ORDWR);
 	if(audio_fd < 0) {
-		printf("WARN Failed to open '#A'/audio, sound disabled\n");
+		printf("WARN Failed to open /dev/audio, sound disabled\n");
 		return;
 	}
 
