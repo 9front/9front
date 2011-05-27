@@ -107,26 +107,13 @@ M_WriteFile
   void*		source,
   int		length )
 {
-	USED(name, source, length);
-	I_Error("PORTME: m_misc.c M_WriteFile");
-	return false;
-/*
-    int		handle;
-    int		count;
-	
-    handle = open ( name, O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666);
+	int fd, n;
 
-    if (handle == -1)
-	return false;
-
-    count = write (handle, source, length);
-    close (handle);
-	
-    if (count < length)
-	return false;
-		
-    return true;
-*/
+	if((fd = create(name, OWRITE | OTRUNC, 0666)) < 0)
+		return false;
+	n = write(fd, source, length);
+	close(fd);
+	return n == length;
 }
 
 
@@ -138,32 +125,23 @@ M_ReadFile
 ( char const*	name,
   byte**	buffer )
 {
-	USED(name, buffer);
-	I_Error("PORTME m_misc.c M_ReadFile");
-	return -1;
-/*
-    int		handle, count, length;
-    struct stat	fileinfo;
-    byte	*buf;
+	int fd, length;
+	Dir *d;
+	byte *buf;
 
-	length = 0;
+	if((fd = open(name, OREAD)) < 0)
+		I_Error ("Couldn't open file %s", name);
+	if((d = dirfstat(fd)) == nil)
+		I_Error ("Couldn't stat file %s", name);
+	length = d->length;
+	free(d);
 
-    handle = I_Open (name);
-    if (handle == -1)
-	I_Error ("Couldn't read file %s", name);
-    if (fstat (handle,&fileinfo) == -1)
-	I_Error ("Couldn't read file %s", name);
-    length = fileinfo.st_size;
-    buf = Z_Malloc (length, PU_STATIC, NULL);
-    count = I_Read (handle, buf, length);
-    I_Close (handle);
-	
-    if (count < length)
-	I_Error ("Couldn't read file %s", name);
-		
-    *buffer = buf;
-    return length;
-*/
+	buf = Z_Malloc(length, PU_STATIC, NULL);
+	if(readn(fd, buf, length) != length)
+		I_Error ("Couldn't read file %s", name);
+	close(fd);
+	*buffer = buf;
+	return length;
 }
 
 

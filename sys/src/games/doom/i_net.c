@@ -50,7 +50,7 @@ printf("PORTME i_net.c I_InitNetwork (use 9P)\n");
 
 //	netsend = PacketSend;
 //	netget = PacketGet;
-	netgame = true;
+//	netgame = true;
 
 	/* parse player number and host list */
 //	doomcom->consoleplayer = myargv[i+1][0]-'1';
