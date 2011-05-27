@@ -7,6 +7,7 @@
 #include "../port/error.h"
 #include "../port/audioif.h"
 
+typedef struct Ring Ring;
 typedef struct Hwdesc Hwdesc;
 typedef struct Ctlr Ctlr;
 
@@ -22,10 +23,21 @@ struct Hwdesc {
 
 enum {
 	Ndesc = 32,
-	Nts = 33,
 	Bufsize = 32768,	/* bytes, must be divisible by ndesc */
+	Blocksize = Bufsize/Ndesc,
 	Maxbusywait = 500000, /* microseconds, roughly */
 	BytesPerSample = 4,
+};
+
+struct Ring
+{
+	Rendez r;
+
+	uchar	*buf;
+	ulong	nbuf;
+
+	ulong	ri;
+	ulong	wi;
 };
 
 struct Ctlr {
@@ -35,36 +47,11 @@ struct Ctlr {
 	Hwdesc micdesc[Ndesc];
 
 	Lock;
-	Rendez outr;
 
 	ulong port;
 	ulong mixport;
 
-	char *out;
-	char *in;
-	char *mic;
-
-	char *outp;
-	char *inp;
-	char *micp;
-
-	/* shared variables, ilock to access */
-	int outavail;
-	int inavail;
-	int micavail;
-
-	/* interrupt handler alone */
-	int outciv;
-	int inciv;
-	int micciv;
-
-	int tsouti;
-	uvlong tsoutp;
-	ulong tsout[Nts];
-	int tsoutb[Nts];
-
-	ulong civstat[Ndesc];
-	ulong lvistat[Ndesc];
+	Ring inring, micring, outring;
 
 	int sis7012;
 
@@ -134,6 +121,76 @@ enum {
 		Casp = 1<<0,	/* set to 1 on read if zero, cleared by hardware */
 };
 
+static long
+buffered(Ring *r)
+{
+	ulong ri, wi;
+
+	ri = r->ri;
+	wi = r->wi;
+	if(wi >= ri)
+		return wi - ri;
+	else
+		return r->nbuf - (ri - wi);
+}
+
+static long
+available(Ring *r)
+{
+	long m;
+
+	m = (r->nbuf - 1) - buffered(r);
+	if(m < 0)
+		m = 0;
+	return m;
+}
+
+static long
+readring(Ring *r, uchar *p, long n)
+{
+	long n0, m;
+
+	n0 = n;
+	while(n > 0){
+		if((m = buffered(r)) <= 0)
+			break;
+		if(m > n)
+			m = n;
+		if(p){
+			if(r->ri + m > r->nbuf)
+				m = r->nbuf - r->ri;
+			memmove(p, r->buf + r->ri, m);
+			p += m;
+		}
+		r->ri = (r->ri + m) % r->nbuf;
+		n -= m;
+	}
+	return n0 - n;
+}
+
+static long
+writering(Ring *r, uchar *p, long n)
+{
+	long n0, m;
+
+	n0 = n;
+	while(n > 0){
+		if((m = available(r)) <= 0)
+			break;
+		if(m > n)
+			m = n;
+		if(p){
+			if(r->wi + m > r->nbuf)
+				m = r->nbuf - r->wi;
+			memmove(r->buf + r->wi, p, m);
+			p += m;
+		}
+		r->wi = (r->wi + m) % r->nbuf;
+		n -= m;
+	}
+	return n0 - n;
+}
+
 #define csr8r(c, r)	(inb((c)->port+(r)))
 #define csr16r(c, r)	(ins((c)->port+(r)))
 #define csr32r(c, r)	(inl((c)->port+(r)))
@@ -179,22 +236,13 @@ ac97mixr(Audio *adev, int port)
 	return ins(ctlr->mixport+port);
 }
 
-static int
-outavail(void *arg)
-{
-	Ctlr *ctlr;
-	ctlr = arg;
-	return ctlr->outavail > 0;
-}
-
 static void
 ac97interrupt(Ureg *, void *arg)
 {
 	Audio *adev;
 	Ctlr *ctlr;
-	int civ, n, i;
+	Ring *ring;
 	ulong stat;
-	uvlong now;
 
 	adev = arg;
 	ctlr = adev->ctlr;
@@ -206,92 +254,15 @@ ac97interrupt(Ureg *, void *arg)
 			csr16w(ctlr, Out + Picb, csr16r(ctlr, Out + Picb) & ~Dch);
 		else
 			csr16w(ctlr, Out + Sr, csr16r(ctlr, Out + Sr) & ~Dch);
-		
-		civ = csr8r(ctlr, Out + Civ);
-		n = 0;
-		while(ctlr->outciv != civ){
-			ctlr->civstat[ctlr->outciv++]++;
-			if(ctlr->outciv == Ndesc)
-				ctlr->outciv = 0;
-			n += Bufsize/Ndesc;
-		}
-
-		now = fastticks(0);
-		i = ctlr->tsouti;
-		ctlr->tsoutb[i] = n;
-		ctlr->tsout[i] = now - ctlr->tsoutp;
-		ctlr->tsouti = (i + 1) % Nts;
-		ctlr->tsoutp = now;
-		ctlr->outavail += n;
-		
-		if(ctlr->outavail > Bufsize/2)
-			wakeup(&ctlr->outr);
-		stat &= ~Point;	
+		ring = &ctlr->outring;
+		ring->ri = csr8r(ctlr, Out + Civ) * Blocksize;
 		iunlock(ctlr);
+		wakeup(&ring->r);
+		stat &= ~Point;	
 	}
 	if(stat) /* have seen 0x400, which is sdin0 resume */
 		iprint("#A%d: ac97 unhandled interrupt(s): stat 0x%lux\n",
 			adev->ctlrno, stat);
-}
-
-static int
-off2lvi(char *base, char *p)
-{
-	int lvi;
-	lvi = p - base;
-	return lvi / (Bufsize/Ndesc);
-}
-
-static long
-ac97medianoutrate(Audio *adev)
-{
-	ulong ts[Nts], t;
-	uvlong hz;
-	int i, j;
-	Ctlr *ctlr;
-	ctlr = adev->ctlr;
-	fastticks(&hz);
-	for(i = 0; i < Nts; i++)
-		if(ctlr->tsout[i] > 0)
-			ts[i] = (ctlr->tsoutb[i] * hz) / ctlr->tsout[i];
-		else
-			ts[i] = 0;
-	for(i = 1; i < Nts; i++){
-		t = ts[i];
-		j = i;
-		while(j > 0 && ts[j-1] > t){
-			ts[j] = ts[j-1];
-			j--;
-		}
-		ts[j] = t;
-	}
-	return ts[Nts/2] / BytesPerSample;
-}
-
-static long
-ac97status(Audio *adev, void *a, long n, vlong)
-{
-	char *p, *e;
-	Ctlr *ctlr;
-	int i;
-
-	ctlr = adev->ctlr;
-
-	p = a;
-	e = p + n;
-
-	p += snprint(p, e - p, "median rate %lud\n", ac97medianoutrate(adev));
-	p += snprint(p, e - p, "civ stats");
-	for(i = 0; i < Ndesc; i++)
-		p += snprint(p, e - p, " %lud", ctlr->civstat[i]);
-	p += snprint(p, e - p, "\n");
-
-	p += snprint(p, e - p, "lvi stats");
-	for(i = 0; i < Ndesc; i++)
-		p += snprint(p, e - p, " %lud", ctlr->lvistat[i]);
-	p += snprint(p, e - p, "\n");
-
-	return p - (char*)a;
 }
 
 static long
@@ -299,7 +270,7 @@ ac97buffered(Audio *adev)
 {
 	Ctlr *ctlr;
 	ctlr = adev->ctlr;
-	return Bufsize - Bufsize/Ndesc - ctlr->outavail;
+	return buffered(&ctlr->outring);
 }
 
 static void
@@ -308,58 +279,41 @@ ac97kick(Ctlr *ctlr, long reg)
 	csr8w(ctlr, reg+Cr, Ioce | Rpbm);
 }
 
-static long
-ac97write(Audio *adev, void *a, long nwr, vlong)
+static int
+outavail(void *arg)
 {
-	Ctlr *ctlr;
-	char *p, *sp, *ep;
-	int len, lvi, olvi;
-	int t;
-	long n;
+	Ctlr *ctlr = arg;
+	return available(&ctlr->outring);
+}
 
+static long
+ac97write(Audio *adev, void *vp, long n, vlong)
+{
+	uchar *p, *e;
+	Ctlr *ctlr;
+	Ring *ring;
+	ulong oi, ni;
+
+	p = vp;
+	e = p + n;
 	ctlr = adev->ctlr;
-	ilock(ctlr);
-	p = ctlr->outp;
-	sp = a;
-	ep = ctlr->out + Bufsize;
-	olvi = off2lvi(ctlr->out, p);
-	n = nwr;
-	while(n > 0){
-		len = ep - p;
-		if(ctlr->outavail < len)
-			len = ctlr->outavail;
-		if(n < len)
-			len = n;
-		ctlr->outavail -= len;
-		iunlock(ctlr);
-		memmove(p, sp, len);
-		ilock(ctlr);
-		p += len;
-		sp += len;
-		n -= len;
-		if(p == ep)
-			p = ctlr->out;
-		lvi = off2lvi(ctlr->out, p);
-		if(olvi != lvi){
-			t = olvi;
-			while(t != lvi){
-				t = (t + 1) % Ndesc;
-				ctlr->lvistat[t]++;
-				csr8w(ctlr, Out+Lvi, t);
-				ac97kick(ctlr, Out);
-			}
-			olvi = lvi;
+	ring = &ctlr->outring;
+	while(p < e) {
+		oi = ring->wi / Blocksize;
+		if((n = writering(ring, p, e - p)) <= 0){
+			sleep(&ring->r, outavail, ctlr);
+			continue;
 		}
-		if(ctlr->outavail == 0){
-			ctlr->outp = p;
-			iunlock(ctlr);
-			sleep(&ctlr->outr, outavail, ctlr);
-			ilock(ctlr);
+		ni = ring->wi / Blocksize;
+		while(oi != ni){
+			csr8w(ctlr, Out+Lvi, oi);
+			ac97kick(ctlr, Out);
+			oi = (oi + 1) % Ndesc;
 		}
+		p += n;
 	}
-	ctlr->outp = p;
-	iunlock(ctlr);
-	return nwr;
+
+	return p - (uchar*)vp;
 }
 
 static Pcidev*
@@ -455,28 +409,35 @@ Found:
 	pcisetbme(p);
 	pcisetioe(p);
 
-	ctlr->mic = xspanalloc(Bufsize, 8, 0);
-	ctlr->in = xspanalloc(Bufsize, 8, 0);
-	ctlr->out = xspanalloc(Bufsize, 8, 0);
+	ctlr->micring.buf = xspanalloc(Bufsize, 8, 0);
+	ctlr->micring.nbuf = Bufsize;
+	ctlr->micring.ri = 0;
+	ctlr->micring.wi = 0;
+
+	ctlr->inring.buf = xspanalloc(Bufsize, 8, 0);
+	ctlr->inring.nbuf = Bufsize;
+	ctlr->inring.ri = 0;
+	ctlr->inring.wi = 0;
+
+	ctlr->outring.buf = xspanalloc(Bufsize, 8, 0);
+	ctlr->outring.nbuf = Bufsize;
+	ctlr->outring.ri = 0;
+	ctlr->outring.wi = 0;
 
 	for(i = 0; i < Ndesc; i++){
-		int size, off = i * (Bufsize/Ndesc);
+		int size, off = i * Blocksize;
 		
 		if(ctlr->sis7012)
-			size = (Bufsize/Ndesc);
+			size = Blocksize;
 		else
-			size = (Bufsize/Ndesc) / 2;
-		
-		ctlr->micdesc[i].addr = PCIWADDR(ctlr->mic + off);
+			size = Blocksize / 2;
+		ctlr->micdesc[i].addr = PCIWADDR(ctlr->micring.buf + off);
 		ctlr->micdesc[i].size = Ioc | size;
-		ctlr->indesc[i].addr = PCIWADDR(ctlr->in + off);
+		ctlr->indesc[i].addr = PCIWADDR(ctlr->inring.buf + off);
 		ctlr->indesc[i].size = Ioc | size;
-		ctlr->outdesc[i].addr = PCIWADDR(ctlr->out + off);
+		ctlr->outdesc[i].addr = PCIWADDR(ctlr->outring.buf + off);
 		ctlr->outdesc[i].size = Ioc | size;
 	}
-
-	ctlr->outavail = Bufsize - Bufsize/Ndesc;
-	ctlr->outp = ctlr->out;
 
 	ctl = csr32r(ctlr, Cnt);
 	ctl &= ~(EnaRESER | Aclso);
@@ -527,7 +488,6 @@ Found:
 	ac97mixreset(adev, ac97mixw, ac97mixr);
 
 	adev->write = ac97write;
-	adev->status = ac97status;
 	adev->buffered = ac97buffered;
 
 	intrenable(irq, ac97interrupt, adev, tbdf, adev->name);

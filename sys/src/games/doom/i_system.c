@@ -15,7 +15,7 @@ int mb_used = 6;	/* 6MB heap */
 
 void I_Init (void)
 {
-	// I_InitSound();
+	I_InitSound();
 	I_InitGraphics();
 }
 
