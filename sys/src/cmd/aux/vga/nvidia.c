@@ -206,6 +206,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 		case 0x0210:
 		case 0x0290:	/* nvidia 7950 */
 		case 0x0390:
+		case 0x0420:
 			nv->arch = 40;
 			break;
 		default:
@@ -1155,7 +1156,7 @@ dump(Vga* vga, Ctlr* ctlr)
 	n = (nv->vpll >> 8) & 0xFF;
 	m = nv->vpll & 0xFF;
 	trouble = nv->crystalfreq;
-	trouble = trouble * n / (m<<p);
+	trouble = trouble * n / ((m<<p) + 0.000000001);
 	f = trouble+0.5;
 	printitem(ctlr->name, "dclk m n p");
 	Bprint(&stdout, " %d %d - %d %d\n", f, m, n, p);
