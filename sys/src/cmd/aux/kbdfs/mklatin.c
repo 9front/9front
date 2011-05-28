@@ -1,6 +1,6 @@
 /*
- * Parse /lib/keyboard to create latin1.h table for kernel.
- * mklatinkbd -r prints an array of integers rather than a Rune string literal.
+ * Parse /lib/keyboard to create latin1.h table for kbdfs.
+ * mklatin -r prints an array of integers rather than a Rune string literal.
  */
 
 #include <u.h>
@@ -21,8 +21,8 @@ char *head = ""
 " */\n";
 
 /*
- * latin1.c assumes that strlen(ld) is at most 2.
- * It also assumes that latintab[i].ld can be a prefix of latintab[j].ld
+ * kbdfs assumes that strlen(ld) is at most 2.
+ * It also assumes that tab[i].ld can be a prefix of tab[j].ld
  * only when j < i.  We ensure this by sorting the output by prefix length.
  * The so array is indexed by the character value.
  */
