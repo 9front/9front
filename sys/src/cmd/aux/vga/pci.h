@@ -97,7 +97,8 @@ typedef struct Pcidev {
 	} mem[6];
 
 	uchar	intl;			/* interrupt line */
-	ushort	ccru;
+	uchar	ccru;
+	uchar	ccrb;
 
 	Pcidev*	list;
 	int rawfd;
