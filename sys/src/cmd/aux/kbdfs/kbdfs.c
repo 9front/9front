@@ -101,6 +101,7 @@ Channel *reqchan;	/* Req* */
 Channel *ctlchan;	/* int */
 
 Channel *rawchan;	/* Rune */
+Channel *runechan;	/* Rune */
 Channel *linechan;	/* char * */
 Channel *kbdchan;	/* char* */
 
@@ -354,7 +355,7 @@ utfconv(Rune *r, int n)
 void
 keyproc(void *)
 {
-	Rune rb[Nscan*2];
+	Rune rb[Nscan*2+1];
 	int cb[Nscan];
 	Key key;
 	int i, nb;
@@ -364,42 +365,35 @@ keyproc(void *)
 
 	nb = 0;
 	while(recv(keychan, &key) > 0){
-		if(key.down){
-			switch(key.r){
-			case 0:
-			case Kcaps:
-			case Knum:
-			case Kshift:
-			case Kalt:
-			case Kctl:
-			case Kaltgr:
-				break;
-			default:
-				nbsend(rawchan, &key.r);
-			}
-		}
+		if(key.down && key.r)
+			nbsend(rawchan, &key.r);
 
+		rb[0] = 0;
 		for(i=0; i<nb && cb[i] != key.c; i++)
 			;
 		if(!key.down){
 			while(i < nb && cb[i] == key.c){
 				memmove(cb+i, cb+i+1, (nb-i+1) * sizeof(cb[0]));
-				memmove(rb+i, rb+i+1, (nb-i+1) * sizeof(rb[0]));
+				memmove(rb+i+1, rb+i+2, (nb-i+1) * sizeof(rb[0]));
 				nb--;
+				rb[0] = 'K';
 			}
 		} else if(i == nb && nb < nelem(cb) && key.b){
 			cb[nb] = key.c;
-			rb[nb] = key.b;
+			rb[nb+1] = key.b;
 			nb++;
 			if(nb < nelem(cb) && key.r && key.b != key.r){
 				cb[nb] = key.c;
-				rb[nb] = key.r;
+				rb[nb+1] = key.r;
 				nb++;
 			}
+			rb[0] = 'k';
 		}
-		s = utfconv(rb, nb);
-		if(nbsendp(kbdchan, s) <= 0)
-			free(s);
+		if(rb[0]){
+			s = utfconv(rb, nb+1);
+			if(nbsendp(kbdchan, s) <= 0)
+				free(s);
+		}
 	}
 }
 
@@ -429,12 +423,107 @@ consproc(void *)
 				}
 				if(cr = (r == '\r'))
 					r = '\n';
-				send(rawchan, &r);
+				send(runechan, &r);
 			}
 		}
 		n = x - p;
 		memmove(buf, p, n);
 		p = buf + n;
+	}
+}
+
+static int
+nextrune(Channel *ch, Rune *r)
+{
+	while(recv(ch, r) > 0){
+		switch(*r){
+		case 0:
+		case Kcaps:
+		case Knum:
+		case Kshift:
+		case Kctl:
+		case Kaltgr:
+			/* ignore these special keys */
+			continue;
+
+		case Kalt:
+			/* latin escape! */
+			return 1;
+		}
+		return 0;
+	}
+	return -1;
+}
+
+/*
+ * Read runes from rawchan, possibly compose special characters
+ * and output the new runes to runechan
+ */
+void
+runeproc(void *)
+{
+	static struct {
+		char	*ld;		/* must be seen before using this conversion */
+		char	*si;		/* options for last input characters */
+		Rune	*so;		/* the corresponding Rune for each si entry */
+	} tab[] = {
+#include "latin1.h"
+	};
+	Rune r, rr;
+	int i, j;
+
+	threadsetname("runeproc");
+
+	while((i = nextrune(rawchan, &r)) >= 0){
+		if(i == 0){
+Forward:
+			send(runechan, &r);
+			continue;
+		}
+
+		/* latin sequence */
+		if(nextrune(rawchan, &r))
+			continue;
+
+		if(r == 'X'){
+			r = 0;
+			for(i = 0; i<4; i++){
+				if(nextrune(rawchan, &rr))
+					break;
+				r <<= 4;
+				if(rr >= '0' && rr <= '9')
+					r |= (rr - '0');
+				else if(rr >= 'a' && rr <= 'f')
+					r |= 10 + (rr - 'a');
+				else if(rr >= 'A' && rr <= 'F')
+					r |= 10 + (rr - 'A');
+				else
+					break;
+			}
+			if(i == 4 && r > 0)
+				goto Forward;
+		} else {
+			if(nextrune(rawchan, &rr))
+				continue;
+			for(i = 0; i<nelem(tab); i++){
+				if(tab[i].ld[0] != r)
+					continue;
+				if(tab[i].ld[1] == 0)
+					break;	
+				if(tab[i].ld[1] == rr){
+					nextrune(rawchan, &rr);
+					break;
+				}
+			}
+			if(i == nelem(tab) || rr == 0)
+				continue;
+			for(j = 0; tab[i].si[j]; j++){
+				if(tab[i].si[j] != rr)
+					continue;
+				r = tab[i].so[j];
+				goto Forward;
+			}
+		}
 	}
 }
 
@@ -496,7 +585,7 @@ ctlproc(void *)
 		Req *h;
 		Req **t;
 	} qcons, qkbd, *q;
-	enum { Areq, Actl, Araw, Aline, Akbd, Aend };
+	enum { Areq, Actl, Arune, Aline, Akbd, Aend };
 	Alt a[Aend+1];
 	Req *req;
 	Fid *fid;
@@ -510,12 +599,13 @@ ctlproc(void *)
 	cook = chancreate(sizeof(Rune), 0);
 
 	if(scanfd >= 0)
-		proccreate(scanproc, nil, STACK);
+		proccreate(scanproc, nil, STACK);	/* scanfd -> keychan */
 	if(consfd >= 0)
-		proccreate(consproc, nil, STACK);
+		proccreate(consproc, nil, STACK);	/* consfd -> runechan */
 
-	threadcreate(keyproc, nil, STACK);
-	threadcreate(lineproc, cook, STACK);
+	threadcreate(keyproc, nil, STACK);		/* keychan -> rawchan, kbdchan */
+	threadcreate(runeproc, nil, STACK);		/* rawchan -> runechan */
+	threadcreate(lineproc, cook, STACK);		/* cook -> linechan */
 
 	raw = 0;
 
@@ -536,9 +626,9 @@ ctlproc(void *)
 	a[Actl].v = &c;
 	a[Actl].op = CHANRCV;
 
-	a[Araw].c = rawchan;
-	a[Araw].v = &r;
-	a[Araw].op = CHANRCV;
+	a[Arune].c = runechan;
+	a[Arune].v = &r;
+	a[Arune].op = CHANRCV;
 
 	a[Aline].c = linechan;
 	a[Aline].v = &s;
@@ -553,9 +643,15 @@ ctlproc(void *)
 	for(;;){
 		s = nil;
 
-		a[Araw].op = (b == nil) ? CHANRCV : CHANNOP;
-		a[Aline].op = (b == nil) ? CHANRCV : CHANNOP;
-		a[Akbd].op = qkbd.h || !kbdopen ? CHANRCV : CHANNOP;
+		if(kbdopen){
+			a[Arune].op = qkbd.h ? CHANRCV : CHANNOP;
+			a[Akbd].op = qkbd.h ? CHANRCV : CHANNOP;
+			a[Aline].op = CHANNOP;
+		}else{
+			a[Arune].op = (b == nil) ? CHANRCV : CHANNOP;
+			a[Akbd].op = CHANRCV;
+			a[Aline].op = (b == nil) ? CHANRCV : CHANNOP;
+		}
 
 		switch(alt(a)){
 		case Areq:
@@ -604,8 +700,15 @@ ctlproc(void *)
 			}
 			break;
 
-		case Araw:
-			if(raw || kbdopen){
+		case Arune:
+			if(kbdopen){
+				s = emalloc9p(UTFmax+2);
+				s[0] = 'c';
+				s[1+runetochar(s+1, &r)] = 0;
+				goto Havekbd;
+			}
+
+			if(raw){
 				s = emalloc9p(UTFmax+1);
 				s[runetochar(s, &r)] = 0;
 			} else {
@@ -620,11 +723,6 @@ ctlproc(void *)
 			e = s + strlen(s);
 
 		Havereq:
-			if(kbdopen){
-				free(b);
-				b = nil;
-				break;
-			}
 			while(b && (req = qcons.h)){
 				if((qcons.h = req->aux) == nil)
 					qcons.t = &qcons.h;
@@ -643,6 +741,7 @@ ctlproc(void *)
 			break;
 
 		case Akbd:
+		Havekbd:
 			if(req = qkbd.h){
 				if((qkbd.h = req->aux) == nil)
 					qkbd.t = &qkbd.h;
@@ -1166,11 +1265,12 @@ threadmain(int argc, char** argv)
 	keychan = chancreate(sizeof(Key), 8);
 	reqchan = chancreate(sizeof(Req*), 0);
 	ctlchan = chancreate(sizeof(int), 0);
-	rawchan = chancreate(sizeof(Rune), 32);
+	rawchan = chancreate(sizeof(Rune), 16);
+	runechan = chancreate(sizeof(Rune), 32);
 	linechan = chancreate(sizeof(char*), 16);
 	kbdchan = chancreate(sizeof(char*), 16);
 
-	if(!(keychan && reqchan && ctlchan && rawchan && linechan && kbdchan))
+	if(!(keychan && reqchan && ctlchan && rawchan && runechan && linechan && kbdchan))
 		sysfatal("allocating chans");
 
 	elevate();

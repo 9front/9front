@@ -292,20 +292,16 @@ winctl(void *arg)
 		}
 		switch(alt(alts)){
 		case WKbd:
-			if(utflen(kbds) >= utflen(kbdq[kbdqw] ? kbdq[kbdqw] : "")){
-				Rune r;
-
-				i = 0;
-				r = 0;
-				while(kbds[i])
-					i += chartorune(&r, kbds+i);
-				if(!w->kbdopen)
-					wkeyctl(w, r);
-			}
 			if(w->kbdopen){
 				i = (kbdqw+1) % nelem(kbdq);
 				if(i != kbdqr)
 					kbdqw = i;
+			} else if(*kbds == 'c'){
+				Rune r;
+
+				chartorune(&r, kbds+1);
+				if(r)
+					wkeyctl(w, r);
 			}
 			free(kbdq[kbdqw]);
 			kbdq[kbdqw] = kbds;
@@ -319,7 +315,7 @@ winctl(void *arg)
 				sendp(krm.ck, kbdq[i]);
 				kbdq[i] = nil;
 			}else
-				sendp(krm.ck, strdup(""));
+				sendp(krm.ck, strdup("K"));
 			continue;
 
 		case WMouse:

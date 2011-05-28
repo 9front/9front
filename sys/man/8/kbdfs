@@ -152,26 +152,41 @@ This is used on serial consoles.
 .SS Keyboard
 A read on the
 .BR kbd
-file returns a null terminated, variable-length,
-.SM UTF
-encoded string of all the keys that are currently pressed (key is
-down) on the keyboard.  This includes all keys that have a keyboard
-mapping and modifier keys.  No key is treated specially. A new event
-is generated on each state change or at keyboard repeat rate and put
-in a buffer. Each
-.IR read (2)
-will return a single event or block until there are new events
-available.  The read data is always terminated with a null-byte,
-so when all keys are released (all keys are up), a single
-null-byte will be returned.  Newly pressed keys are appended to the
-string before the null-byte.  Key releases remove the
-character from the string.  Change on a modifier key like
-.B Shift
+file returns the character
+.B k,
+.B K
 or
-.B Num
-will not change
-the characters already present in the string, but will
-take effect on newly pressed keys. Opening the
+.B c
+followed by a null terminated, variable-length,
+.SM UTF
+encoded string. The
+.B k
+message is send when a key is pressed down
+and
+.B K
+when a key is released. The following string contains all the keycodes
+of the keys that are currently pressed down in decomposed form. 
+This includes all keys that have a keyboard mapping and modifier keys.
+Some keys may produce multiple characters like
+.B Shift
+and
+.B a
+will produce
+.B Shift,
+.B a,
+.B A
+in the string. The string following the
+.B c
+message contains the single character that would have been appeared
+on the
+.BR cons
+file instead. The
+.B c
+message will be resent at the keyboard repeat rate.
+Each
+.IR read (2)
+will return a single message or block until there are new messages
+available. Opening the
 .BR kbd
 file disables input processing on the
 .BR cons
@@ -222,4 +237,4 @@ to represent a control character.
 .SH FILES
 .B /dev/lib/kbmap/*
 .SH SOURCE
-.B /sys/src/cmd/aux/kbdfs.c
+.B /sys/src/cmd/aux/kbdfs

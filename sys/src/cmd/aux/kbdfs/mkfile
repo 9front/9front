@@ -1,0 +1,16 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/aux
+
+TARG=kbdfs
+OFILES=kbdfs.$O
+HFILES=latin1.h
+CLEANFILES=latin1.h mklatin.$cputype
+
+</sys/src/cmd/mkone
+
+mklatin.$cputype:	mkfile.mklatin
+	@{objtype=$cputype mk -f $prereq $target}
+
+latin1.h:	mklatin.$cputype /lib/keyboard
+	$prereq >$target

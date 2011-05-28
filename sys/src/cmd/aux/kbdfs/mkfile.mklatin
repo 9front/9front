@@ -1,0 +1,7 @@
+</$objtype/mkfile
+
+mklatin.$cputype:	mklatin.$O
+	$LD $LDFLAGS -o $target $prereq
+
+</sys/src/cmd/mkone
+

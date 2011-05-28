@@ -17,11 +17,9 @@ TARG=\
 	disksim\
 	getflags\
 	icanhasmsi\
-	kbdfs\
 	lines\
 	listen\
 	listen1\
-	mklatinkbd\
 	ms2\
 	msexceltables\
 	mswordstrings\
@@ -57,6 +55,7 @@ UPDATE=\
 DIRS=mnihongo\
 	flashfs\
 	gps\
+	kbdfs\
 	na\
 	vga\
 	realemu

@@ -1234,10 +1234,8 @@ kbdproc(void *arg)
 			e = p + n;
 			while(p < e && fullrune(p, e - p)){
 				p += chartorune(&r, p);
-				if(r){
-					chanprint(c, "%C", r);
-					chanprint(c, "");
-				}
+				if(r)
+					chanprint(c, "c%C", r);
 			}
 			n = e - p;
 			memmove(buf, p, n);

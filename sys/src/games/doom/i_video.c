@@ -217,32 +217,40 @@ kbdproc(void *)
 		sysfatal("can't open kbd: %r");
 
 	buf2[0] = 0;
+	buf2[1] = 0;
 	while((n = read(kfd, buf, sizeof(buf))) > 0){
 		buf[n-1] = 0;
 
-		s = buf;
-		while(*s){
-			s += chartorune(&r, s);
-			if(utfrune(buf2, r) == nil){
-				e.type = ev_keydown;
-				if(e.data1 = runetokey(r)){
-					e.data2 = *s == 0 ? e.data1 : -1;
-					e.data3 = *s ? e.data1 : -1;
-					D_PostEvent(&e);
+		switch(buf[0]){
+		case 'k':
+			s = buf+1;
+			while(*s){
+				s += chartorune(&r, s);
+				if(utfrune(buf2+1, r) == nil){
+					if(e.data1 = runetokey(r)){
+						e.data2 = *s == 0 ? e.data1 : -1;
+						e.data3 = -1;
+						e.type = ev_keydown;
+						D_PostEvent(&e);
+					}
 				}
 			}
-		}
-		s = buf2;
-		while(*s){
-			s += chartorune(&r, s);
-			if(utfrune(buf, r) == nil){
-				e.type = ev_keyup;
-				if(e.data1 = runetokey(r)){
-					e.data2 = -1;
-					e.data3 = -1;
-					D_PostEvent(&e);
+			break;
+		case 'K':
+			s = buf2+1;
+			while(*s){
+				s += chartorune(&r, s);
+				if(utfrune(buf+1, r) == nil){
+					if(e.data1 = runetokey(r)){
+						e.data2 = e.data3 = -1;
+						e.type = ev_keyup;
+						D_PostEvent(&e);
+					}
 				}
 			}
+			break;
+		default:
+			continue;
 		}
 		strcpy(buf2, buf);
 	}
