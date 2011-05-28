@@ -441,13 +441,13 @@ nextrune(Channel *ch, Rune *r)
 		case Kcaps:
 		case Knum:
 		case Kshift:
-		case Kctl:
 		case Kaltgr:
-			/* ignore these special keys */
+			/* ignore modifiers */
 			continue;
 
+		case Kctl:
 		case Kalt:
-			/* latin escape! */
+			/* composing escapes */
 			return 1;
 		}
 		return 0;
@@ -463,25 +463,40 @@ void
 runeproc(void *)
 {
 	static struct {
-		char	*ld;		/* must be seen before using this conversion */
-		char	*si;		/* options for last input characters */
-		Rune	*so;		/* the corresponding Rune for each si entry */
+		char	*ld;	/* must be seen before using this conversion */
+		char	*si;	/* options for last input characters */
+		Rune	*so;	/* the corresponding Rune for each si entry */
 	} tab[] = {
 #include "latin1.h"
 	};
 	Rune r, rr;
 	int i, j;
+	int ctl;
 
 	threadsetname("runeproc");
 
+	ctl = 0;
 	while((i = nextrune(rawchan, &r)) >= 0){
 		if(i == 0){
+			ctl = 0;
 Forward:
 			send(runechan, &r);
 			continue;
 		}
 
-		/* latin sequence */
+		if(r == Kctl){
+			ctl = 1;
+			continue;
+		}
+
+		/*
+		 * emulators like qemu and vmware use Ctrl+Alt to lock
+		 * keyboard input so dont confuse them for a compose
+		 * sequence.
+		 */
+		if(r != Kalt || ctl)
+			continue;
+
 		if(nextrune(rawchan, &r))
 			continue;
 
@@ -500,7 +515,7 @@ Forward:
 				else
 					break;
 			}
-			if(i == 4 && r > 0)
+			if(i == 4 && r)
 				goto Forward;
 		} else {
 			if(nextrune(rawchan, &rr))
