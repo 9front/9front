@@ -361,10 +361,8 @@ keyboardsend(char *s, int cnt)
 		r = runemalloc(cnt);
 		cvttorunes(s, cnt, r, &nb, &nr, nil);
 		for(i=0; i<nr; i++){
-			if(r[i]){
-				chanprint(kbdchan, "%C", r[i]);
-				chanprint(kbdchan, "");
-			}
+			if(r[i])
+				chanprint(kbdchan, "c%C", r[i]);
 		}
 		free(r);
 	}
