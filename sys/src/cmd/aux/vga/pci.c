@@ -55,7 +55,7 @@ pcicfginit(void)
 		buf[j] = 0;
 		close(fd);
 
-		p->ccru = strtol(buf + 3, nil, 16);
+		p->ccru = strtol(buf + 0, nil, 16) << 8;
 		p->vid = strtol(buf + 9, &s, 16);
 		p->did = strtol(s + 1, &s, 16);
 		p->intl = strtol(s + 1, &s, 10);

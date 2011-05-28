@@ -222,6 +222,9 @@ snarf(Vga* vga, Ctlr* ctlr)
 	 * Unlock
 	 */
 	vgaxo(Crtx, 0x1F, 0x57);
+	outportb(Crtx, 0x11);
+	outportb(Crtx+1, inportb(Crtx+1) & ~0x80);
+	trace("nvidia: Unlocked\n");
 
 	if (nv->pextdev[0] & 0x40)
 		nv->crystalfreq = RefFreq;
