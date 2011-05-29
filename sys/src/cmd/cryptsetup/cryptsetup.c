@@ -4,15 +4,15 @@
 #include		<libc.h>
 #include		"crypt.h"
 
-void format(char *file);
-void copen(char *file);
+void format(char *file[]);
+void copen(char *file[], int);
 char*readcons(char *prompt, char *def, int raw, char *buf, int nbuf);
 int pkcs5_pbkdf2(const unsigned char *pass, int pass_len, const unsigned char *salt, int salt_len, unsigned char *key, int key_len, int rounds);
 
 void 
 usage(void)
 {
-	print("usage: \ncryptsetup -f deviceorfile \t\t\t\t\t# Format file or device\ncryptsetup -o deviceorfile >> /dev/fs/ctl \t# Open file or device\n");
+	print("usage: \ncryptsetup -f files \t\t# Format file or device\ncryptsetup -o files \t\t# Print commandline for open\ncryptsetup -i files\t\t# Install (open) files\n");
 	exits("usage");
 }
 
@@ -21,6 +21,7 @@ enum
 	NoMode,
 	Format,
 	Open,
+	Install,
 };
 
 
@@ -28,7 +29,6 @@ void
 main(int argc, char *argv[])
 {
 	int mode;
-	char *file;
 
 	mode = 0;
 
@@ -41,25 +41,27 @@ main(int argc, char *argv[])
 	case 'o':
 		mode = Open;
 		break;
+	case 'i':
+		mode = Install;
+		break;
 	} ARGEND;
 
-	if((mode == NoMode) || (argc != 1))
+	if((mode == NoMode) || (argc < 1))
 		usage();
-
-	file = argv[0];
 
 	switch(mode) {
 	case Format:
-		format(file);
+		format(argv);
 		break;
+	case Install:
 	case Open:
-		copen(file);
+		copen(argv, mode);
 		break;
 	}
 }
 
 void
-format(char *file)
+format(char *files[])
 {
 	char trand[48], pass1[64], pass2[64];
 	unsigned char tkey[16], tivec[16], buf[64*1024];
@@ -78,96 +80,110 @@ format(char *file)
 
 	srand(truerand());
 
-	for(i = 0; i < 16*4096; i++)
-		buf[i] = rand();
+	for(;*files;files++) {
+
+		for(i = 0; i < 16*4096; i++)
+			buf[i] = rand();
 	
-	for(i = 0; i < 48; i+=4)
-		*((unsigned*)&trand[i]) = truerand();
-	memcpy(s.Master, trand, 32);
-	memcpy(s.Slots[0].Salt, trand+32, 16);
+		for(i = 0; i < 48; i+=4)
+			*((unsigned*)&trand[i]) = truerand();
+		memcpy(s.Master, trand, 32);
+		memcpy(s.Slots[0].Salt, trand+32, 16);
 
-	pkcs5_pbkdf2((unsigned char*)pass1, strlen(pass1), s.Slots[0].Salt, 16, (unsigned char*)tkey, 16, 9999);
-	memset(tivec, 0, 16);
-	setupAESstate(&cbc, tkey, 16, tivec);
-	memcpy(s.Slots[0].Key, s.Master, 32);
-	aesCBCencrypt(s.Slots[0].Key, 32, &cbc);
+		pkcs5_pbkdf2((unsigned char*)pass1, strlen(pass1), s.Slots[0].Salt, 16, (unsigned char*)tkey, 16, 9999);
+		memset(tivec, 0, 16);
+		setupAESstate(&cbc, tkey, 16, tivec);
+		memcpy(s.Slots[0].Key, s.Master, 32);
+		aesCBCencrypt(s.Slots[0].Key, 32, &cbc);
 
-	for(i=0; i<16; i++)
-		for(j=0; j<8; j++) {
-			buf[(4096*i)]  = 1;
-			buf[(4096*i)+(4*j)+1] = s.Slots[j].Salt[i];
-			buf[(4096*i)+(4*j)+2] = s.Slots[j].Key[i];
-			buf[(4096*i)+(4*j)+3] = s.Slots[j].Key[i+16];
+		for(i=0; i<16; i++)
+			for(j=0; j<8; j++) {
+				buf[(4096*i)]  = 1;
+				buf[(4096*i)+(4*j)+1] = s.Slots[j].Salt[i];
+				buf[(4096*i)+(4*j)+2] = s.Slots[j].Key[i];
+				buf[(4096*i)+(4*j)+3] = s.Slots[j].Key[i+16];
+			}
+
+		if((fd = open(*files, OWRITE)) < 0)
+			exits("Cannot open disk ");
+	
+		/* make the pad for checking crypto */
+		for(i=0; i<8; i++) {
+			buf[(64*1024)-8+i] = ~buf[(64*1024)-16+i];
 		}
+		memset(tivec, 0, 16);
+		setupAESstate(&cbc, s.Master, 16, tivec);
+		aes_encrypt(cbc.ekey, cbc.rounds, &buf[(64*1024)-16], &buf[(64*1024)-16]);
 
-	if((fd = open(file, OWRITE)) < 0)
-		exits("Cannot open disk");
-	
-	/* make the pad for checking crypto */
-	for(i=0; i<8; i++) {
-		buf[(64*1024)-8+i] = ~buf[(64*1024)-16+i];
+		write(fd, buf, 16*4096);
+
+		print("Disk %s written\n", *files);
 	}
-	memset(tivec, 0, 16);
-	setupAESstate(&cbc, s.Master, 16, tivec);
-	aes_encrypt(cbc.ekey, cbc.rounds, &buf[(64*1024)-16], &buf[(64*1024)-16]);
-
-	write(fd, buf, 16*4096);
-
-	print("Disk written\n");
 }
 
-void copen(char *file) {
-	unsigned char pass[32], buf[1024*64], tkey[16], tivec[16];
+void copen(char *files[], int mode) {
+	unsigned char pass[32], buf[1024*64], tkey[16], tivec[16], cbuf[16];
 	XtsState s;
-	int i,j,fd;
+	int i,j,fd, oldpass;
 	AESstate cbc;
 	char *base, fdpath[1024];
 
-
-	if((fd = open(file, OREAD)) < 0)
-		exits("Cannot open disk");
+	oldpass = 0;
+	for(;*files; files++) {
+		if((fd = open(*files, OREAD)) < 0)
+			exits("Cannot open disk");
 	
-	if(read(fd, buf, 1024*64) != 1024*64) 
-		exits("Cannot read disk");
+		if(read(fd, buf, 1024*64) != 1024*64) 
+			exits("Cannot read disk");
 	
-	for(i=0; i<16; i++) 
-		for(j=0; j<8; j++) {
-			s.Slots[j].Salt[i] = buf[(4096*i)+(4*j)+1];
-			s.Slots[j].Key[i] = buf[(4096*i)+(4*j)+2];
-			s.Slots[j].Key[i+16] = buf[(4096*i)+(4*j)+3];
-		}
+		openpass:
+			for(i=0; i<16; i++) 
+				for(j=0; j<8; j++) {
+					s.Slots[j].Salt[i] = buf[(4096*i)+(4*j)+1];
+					s.Slots[j].Key[i] = buf[(4096*i)+(4*j)+2];
+					s.Slots[j].Key[i+16] = buf[(4096*i)+(4*j)+3];
+				}
 
+			if(!oldpass)
+				readcons("Password", nil, 1, (char*)pass, 32);
 
+			memcpy(s.Master, s.Slots[0].Key, 32);
 
-	openpass:
-		readcons("Password", nil, 1, (char*)pass, 32);
-
-		memcpy(s.Master, s.Slots[0].Key, 32);
-
-		pkcs5_pbkdf2(pass, strlen((char*)pass), s.Slots[0].Salt, 16, tkey, 16, 9999);
-		memset(tivec, 0, 16);
-		setupAESstate(&cbc, tkey, 16, tivec);
-		aesCBCdecrypt(s.Master, 32, &cbc);
+			pkcs5_pbkdf2(pass, strlen((char*)pass), s.Slots[0].Salt, 16, tkey, 16, 9999);
+			memset(tivec, 0, 16);
+			setupAESstate(&cbc, tkey, 16, tivec);
+			aesCBCdecrypt(s.Master, 32, &cbc);
 		
-		memset(tivec, 0, 16);
-		setupAESstate(&cbc, s.Master, 16, tivec);
+			memset(tivec, 0, 16);
+			setupAESstate(&cbc, s.Master, 16, tivec);
 
-		aes_decrypt(cbc.dkey, cbc.rounds, &buf[(64*1024)-16], &buf[(64*1024)-16]);
+			memcpy(cbuf, &buf[(64*1024)-16], 16);
+			aes_decrypt(cbc.dkey, cbc.rounds, cbuf, cbuf);
 
-		/* make the pad for checking crypto */
-		for(i=0; i<8; i++)
-			if((buf[(64*1024)-8+i] ^ buf[(64*1024)-16+i]) != 255) {
-				goto openpass;
-			}
+			/* make the pad for checking crypto */
+			for(i=0; i<8; i++)
+				if((cbuf[i] ^ cbuf[i+8]) != 255) {
+					oldpass=0;
+					goto openpass;
+				}
 
-	base = utfrrune(file, '/');
-	fd2path(fd, fdpath, 1024);
-	j = sprint((char*)buf, "crypt %s %s ", base ? base+1 : file, fdpath);
+		base = utfrrune(*files, '/');
+		fd2path(fd, fdpath, 1024);
+		j = sprint((char*)buf, "crypt %s %s ", base ? base+1 : *files, fdpath);
 	
-	for(i=0; i<32; i++) {
-		sprint((char*)&buf[j], "%02X", s.Master[i]);
-		j += 2; 
+		for(i=0; i<32; i++) {
+			sprint((char*)&buf[j], "%02X", s.Master[i]);
+			j += 2; 
+		}
+		buf[j++] = '\n';
+		close(fd);
+		if(mode == Install) {
+			fd = open("/dev/fs/ctl", OWRITE);
+			write(fd, buf, j);
+			close(fd);
+		} else {
+			write(1, buf, j);
+		}
+		oldpass=1;
 	}
-	sprint((char*)&buf[j], "\n");
-	print("%s\n", (char*)buf);
 }
