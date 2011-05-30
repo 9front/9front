@@ -1,6 +1,7 @@
 #!/bin/rc
 
-echo scroll > /dev/wctl
+if(test -w /dev/wctl)
+	echo scroll > /dev/wctl
 
 cd /bin/inst
 . defs
