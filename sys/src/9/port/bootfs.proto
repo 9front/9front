@@ -7,6 +7,7 @@ $cputype
 		bind
 		bzfs
 		cat
+		cryptsetup
 		dd
 		disk
 			fdisk
