@@ -1,0 +1,43 @@
+#!/bin/rc
+
+9FRONT=/dist/plan9front
+
+# prepare the enviroment
+bind -c $9FRONT /n/src9
+
+# create empty directories (hg wont track them for us)
+cd /n/src9
+. sys/lib/rootstub
+
+# bind stuff to /
+for(i in $objtype rc acme mail cron sys lib){bind -c /n/src9/$i /$i}
+
+# build everything
+cd /sys/src
+mk nuke
+mk install
+mk clean
+
+# use new binaries
+bind /$objtype/bin /bin
+bind -a /rc/bin /bin
+
+# build manpage indices
+cd /sys/man
+mk
+
+# build bootloader
+cd /sys/src/boot/pc
+mk install
+mk clean
+
+# build cd kernel
+cd /sys/src/9/pc
+mk 'CONF=pcf' install
+mk clean
+mk 'CONF=pccpuf' install
+mk clean
+
+# build /tmp/9front.iso
+cd /sys/lib/dist
+mk cd
