@@ -4,9 +4,10 @@
 #include "mem.h"
 
 void
-memset(void *p, int v, int n)
+memset(void *dst, int v, int n)
 {
-	uchar *d = p;
+	uchar *d = dst;
+
 	while(n > 0){
 		*d++ = v;
 		n--;
@@ -20,17 +21,13 @@ memmove(void *dst, void *src, int n)
 	uchar *s = src;
 
 	if(d < s){
-		while(n > 0){
+		while(n-- > 0)
 			*d++ = *s++;
-			n--;
-		}
-	} if(d > s){
+	} else if(d > s){
 		s += n;
 		d += n;
-		while(n > 0){
+		while(n-- > 0)
 			*--d = *--s;
-			n--;
-		}
 	}
 }
 
@@ -40,8 +37,11 @@ memcmp(void *src, void *dst, int n)
 	uchar *d = dst;
 	uchar *s = src;
 	int r = 0;
-	while((n > 0) && (r = (*d++ - *s++)) == 0)
-		n--;
+
+	while(n-- > 0)
+		if(r = (*d++ - *s++))
+			break;
+
 	return r;
 }
 
@@ -49,8 +49,10 @@ int
 strlen(char *s)
 {
 	char *p = s;
+
 	while(*p)
 		p++;
+
 	return p - s;
 }
 
@@ -60,16 +62,18 @@ strchr(char *s, int c)
 	for(; *s; s++)
 		if(*s == c)
 			return s;
+
 	return 0;
 }
 
 char*
 strrchr(char *s, int c)
 {
-	char *r;
-	r = 0;
+	char *r = 0;
+
 	while(s = strchr(s, c))
 		r = s++;
+
 	return r;
 }
 
@@ -98,6 +102,7 @@ readn(void *f, void *data, int len)
 		p += len;
 	}
 	putc('\b');
+
 	return p - (uchar*)data;
 }
 
@@ -132,6 +137,7 @@ readline(void *f, char buf[64])
 			p--;
 	}while(p == buf);
 	*p = 0;
+
 	return p - buf;
 }
 
@@ -157,11 +163,34 @@ char *confend;
 static void apmconf(int);
 static void e820conf(void);
 
+static int
+delconf(char *s)
+{
+	char *p, *e;
+
+	for(p = BOOTARGS; p < confend; p = e){
+		for(e = p+1; e < confend; e++){
+			if(*e == '\n'){
+				e++;
+				break;
+			}
+		}
+		if(!memcmp(p, s, strlen(s))){
+			memmove(p, e, confend - e);
+			confend -= e - p;
+			*confend = 0;
+			return 1;
+		}
+	}
+	return 0;
+}
+
 char*
 configure(void *f, char *path)
 {
-	char line[64], *kern, *p;
+	char line[64], *kern, *s, *p;
 	int inblock, n;
+
 Clear:
 	kern = 0;
 	inblock = 0;
@@ -173,32 +202,48 @@ Clear:
 
 	e820conf();
 Loop:
-	while((n = readline(f, line)) > 0){
+	while(readline(f, line) > 0){
 		if(*line == 0 || strchr("#;=", *line))
 			continue;
 		if(*line == '['){
 			inblock = memcmp("[common]", line, 8);
 			continue;
 		}
-		if(!memcmp("clear", line, 6)){
-			print("ok\r\n");
-			goto Clear;
-		}
 		if(!memcmp("boot", line, 5))
 			break;
-		if(inblock || !strrchr(line, '='))
+		if(!memcmp("clear", line, 5)){
+			if(line[5] == 0){
+				print("ok");
+				print(crnl);
+				goto Clear;
+			} else if(line[5] == ' ' && delconf(line+6)){
+				print("ok");
+				print(crnl);
+			}
 			continue;
-		if(!memcmp("bootfile=", line, 9))
-			memmove(kern = path, line+9, 1 + n-9);
-		if(!memcmp("apm", line, 3) && line[4]=='='){
+		}
+		if(inblock || (p = strchr(line, '=')) == nil)
+			continue;
+		*p++ = 0;
+		delconf(line);
+		if(!memcmp("apm", line, 3)){
 			apmconf('0' - line[3]);
 			continue;
 		}
-		memmove(confend, line, n); confend += n;
+		if(!memcmp("bootfile", line, 8))
+			memmove(kern = path, p, strlen(p)+1);
+
+		s = confend;
+		memmove(confend, line, n = strlen(line)); confend += n;
+		*confend++ = '=';
+		memmove(confend, p, n = strlen(p)); confend += n;
+		*confend = 0;
+
+		print(s); print(crnl);
+
 		*confend++ = '\n';
-		print(line); print(crnl);
+		*confend = 0;
 	}
-	*confend = 0;
 
 	if(f){
 		close(f);
@@ -270,6 +315,7 @@ apmconf(int id)
 	print(s); print(crnl);
 
 	*confend++ = '\n';
+	*confend = 0;
 }
 
 ulong e820(ulong bx, void *p);
@@ -313,6 +359,7 @@ e820conf(void)
 	print(s); print(crnl);
 
 	*confend++ = '\n';
+	*confend = 0;
 }
 
 static ushort
