@@ -15,13 +15,18 @@ static int mouseactive;
 static Rectangle grabout;
 static Point center;
 
-static void kbdproc(void*);
-static void mouseproc(void*);
+static void kbdproc(void);
+static void mouseproc(void);
 
 static uchar cmap[3*256];
 
+static int kbdpid = -1;
+static int mousepid = -1;
+
 void I_InitGraphics(void)
 {
+	int pid;
+
 	if(initdraw(nil, nil, "doom") < 0)
 		I_Error("I_InitGraphics failed");
 
@@ -30,14 +35,31 @@ void I_InitGraphics(void)
 	center = addpt(screen->r.min, Pt(Dx(screen->r)/2, Dy(screen->r)/2));
 	grabout = insetrect(screen->r, Dx(screen->r)/8);
 
-	proccreate(kbdproc, nil, 8*1024);
-	proccreate(mouseproc, nil, 8*1024);
+	if((pid = rfork(RFPROC|RFMEM|RFFDG)) == 0){
+		kbdproc();
+		exits(nil);
+	}
+	kbdpid = pid;
+
+	if((pid = rfork(RFPROC|RFMEM|RFFDG)) == 0){
+		mouseproc();
+		exits(nil);
+	}
+	mousepid = pid;
 
 	screens[0] = (unsigned char*) malloc(SCREENWIDTH * SCREENHEIGHT);
 }
 
 void I_ShutdownGraphics(void)
 {
+	if(kbdpid != -1){
+		postnote(PNPROC, kbdpid, "shutdown");
+		kbdpid = -1;
+	}
+	if(mousepid != -1){
+		postnote(PNPROC, mousepid, "shutdown");
+		mousepid = -1;
+	}
 }
 
 void I_SetPalette(byte *palette)
@@ -177,6 +199,8 @@ runetokey(Rune r)
 	case Kctl:
 		return KEY_RCTRL;
 	case Kalt:
+		return KEY_LALT;
+	case Kaltgr:
 		return KEY_RALT;
 
 	case Kbs:
@@ -197,21 +221,21 @@ runetokey(Rune r)
 	case KF|11:
 	case KF|12:
 		return KEY_F1+(r-(KF|1));
+
+	default:
+		if(r < 0x80)
+			return r;
 	}
-	if(r > 0x7f)
-		return 0;
-	return r;
+	return 0;
 }
 
 static void
-kbdproc(void *)
+kbdproc(void)
 {
 	char buf[128], buf2[128], *s;
 	int kfd, n;
 	Rune r;
 	event_t e;
-
-	threadsetname("kbdproc");
 
 	if((kfd = open("/dev/kbd", OREAD)) < 0)
 		sysfatal("can't open kbd: %r");
@@ -221,15 +245,27 @@ kbdproc(void *)
 	while((n = read(kfd, buf, sizeof(buf))) > 0){
 		buf[n-1] = 0;
 
+		e.data1 = -1;
+		e.data2 = -1;
+		e.data3 = -1;
+
 		switch(buf[0]){
+		case 'c':
+			chartorune(&r, buf+1);
+			if(r){
+				e.data1 = r;
+				e.type = ev_char;
+				D_PostEvent(&e);
+			}
+			/* no break */
+		default:
+			continue;
 		case 'k':
 			s = buf+1;
 			while(*s){
 				s += chartorune(&r, s);
 				if(utfrune(buf2+1, r) == nil){
 					if(e.data1 = runetokey(r)){
-						e.data2 = *s == 0 ? e.data1 : -1;
-						e.data3 = -1;
 						e.type = ev_keydown;
 						D_PostEvent(&e);
 					}
@@ -242,15 +278,12 @@ kbdproc(void *)
 				s += chartorune(&r, s);
 				if(utfrune(buf+1, r) == nil){
 					if(e.data1 = runetokey(r)){
-						e.data2 = e.data3 = -1;
 						e.type = ev_keyup;
 						D_PostEvent(&e);
 					}
 				}
 			}
 			break;
-		default:
-			continue;
 		}
 		strcpy(buf2, buf);
 	}
@@ -258,14 +291,12 @@ kbdproc(void *)
 }
 
 static void
-mouseproc(void *)
+mouseproc(void)
 {
 	int fd, n, nerr;
 	Mouse m, om;
 	char buf[1+5*12];
 	event_t e;
-
-	threadsetname("mouseproc");
 
 	if((fd = open("/dev/mouse", ORDWR)) < 0)
 		sysfatal("can't open mouse: %r");
@@ -276,7 +307,6 @@ mouseproc(void *)
 	for(;;){
 		n = read(fd, buf, sizeof buf);
 		if(n != 1+4*12){
-			yield();	/* if error is due to exiting, we'll exit here */
 			fprint(2, "mouse: bad count %d not 49: %r\n", n);
 			if(n<0 || ++nerr>10)
 				break;

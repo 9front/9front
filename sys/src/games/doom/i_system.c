@@ -45,7 +45,7 @@ void I_Quit (void)
 	I_ShutdownMusic();
 	M_SaveDefaults ();
 	I_ShutdownGraphics();
-	threadexitsall(nil);
+	exits(nil);
 }
 
 byte* I_AllocLow (int length)
@@ -108,7 +108,7 @@ void I_Error (char *error, ...)
     D_QuitNetGame ();
     I_ShutdownGraphics();
 
-    threadexitsall("I_Error");
+    exits("I_Error");
 }
 
 int I_FileExists (char *filepath)

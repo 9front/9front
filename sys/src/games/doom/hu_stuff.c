@@ -507,7 +507,6 @@ boolean HU_Responder(event_t *ev)
     static char		lastmessage[HU_MAXLINELENGTH+1];
     char*		macromessage;
     boolean		eatkey = false;
-    static boolean	shiftdown = false;
     static boolean	altdown = false;
     int			c;
     int			i;
@@ -527,19 +526,20 @@ boolean HU_Responder(event_t *ev)
     for (i=0 ; i<MAXPLAYERS ; i++)
 	numplayers += playeringame[i];
 
-    if (ev->data1 == KEY_RSHIFT)
-    {
-	shiftdown = ev->type == ev_keydown;
-	return false;
-    }
-    else if (ev->data1 == KEY_RALT || ev->data1 == KEY_LALT)
-    {
+    switch(ev->type){
+    case ev_keydown:
+    case ev_keyup:
+        if (ev->data1 == KEY_RALT || ev->data1 == KEY_LALT)
+        {
 	altdown = ev->type == ev_keydown;
 	return false;
+        }
+        /* no break */
+    case ev_char:
+        break;
+    default:
+        return false;
     }
-
-    if (ev->type != ev_keydown)
-	return false;
 
     if (!chat_on)
     {
@@ -588,9 +588,7 @@ boolean HU_Responder(event_t *ev)
     }
     else
     {
-	c = ev->data2;
-	if(c == -1)
-		return false;
+	c = ev->data1;
 
 	// send a macro
 	if (altdown)
@@ -598,7 +596,6 @@ boolean HU_Responder(event_t *ev)
 	    c = c - '0';
 	    if (c < 0 || c > 9)
 		return false;
-	    // fprintf(stderr, "got here\n");
 	    macromessage = chat_macros[c];
 	    
 	    // kill last message with a '\n'

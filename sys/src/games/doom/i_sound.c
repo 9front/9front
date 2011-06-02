@@ -132,10 +132,8 @@ void I_InitSound(void)
 	int i;
 
 	audio_fd = open("/dev/audio", ORDWR);
-	if(audio_fd < 0) {
+	if(audio_fd < 0) 
 		printf("WARN Failed to open /dev/audio, sound disabled\n");
-		return;
-	}
 
 	/* Initialize external data (all sounds) at start, keep static. */
 	for (i=1 ; i<NUMSFX ; i++)
@@ -276,7 +274,8 @@ void I_UpdateSound(void)
 
 void I_SubmitSound(void)
 {
-	write(audio_fd, mixbuffer, MIXBUFFERSIZE);
+	if(audio_fd >= 0)
+		write(audio_fd, mixbuffer, MIXBUFFERSIZE);
 }
 
 void I_ShutdownSound(void)

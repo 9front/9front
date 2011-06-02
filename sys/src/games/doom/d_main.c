@@ -657,7 +657,8 @@ void FindResponseFile (void)
 	    handle = fopen (&myargv[i][1],"rb");
 	    if (!handle)
 	    {
-                threadexitsall("No such response file!");
+		fprint(2, "No such response file!\n");
+		exits("open");
 	    }
 	    printf("Found response file %s!\n",&myargv[i][1]);
 	    fseek (handle,0,SEEK_END);

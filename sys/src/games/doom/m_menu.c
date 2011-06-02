@@ -1086,9 +1086,9 @@ void M_QuitDOOM(int /*choice*/)
   // We pick index 0 which is language sensitive,
   //  or one at random, between 1 and maximum number.
   if (language != english )
-    sprintf(endstring,"%s\n\n"DOSY, endmsg[0] );
+    snprintf(endstring, sizeof(endstring), "%s\n\n"DOSY, endmsg[0] );
   else
-    sprintf(endstring,"%s\n\n"DOSY, endmsg[ (gametic%(NUM_QUITMESSAGES-2))+1 ]);
+    snprintf(endstring, sizeof(endstring), "%s\n\n"DOSY, endmsg[ (gametic%(NUM_QUITMESSAGES-2))+1 ]);
   
   M_StartMessage(endstring,M_QuitResponse,true);
 }
@@ -1419,41 +1419,46 @@ boolean M_Responder (event_t* ev)
 	    }
 	}
 	else
-	    if (ev->type == ev_keydown)
+	    if (ev->type == ev_keydown || ev->type == ev_char)
 	    {
-		ch = ev->data2;
+		ch = ev->data1;
 	    }
     }
     
     if (ch == -1)
 	return false;
-
     
     // Save Game string input
     if (saveStringEnter)
     {
 	switch(ch)
 	{
-	  case KEY_BACKSPACE:
-	    if (saveCharIndex > 0)
-	    {
-		saveCharIndex--;
-		savegamestrings[saveSlot][saveCharIndex] = 0;
-	    }
-	    break;
-				
 	  case KEY_ESCAPE:
-	    saveStringEnter = 0;
+	    if(ev->type != ev_keydown)
+		return false;
+  	    saveStringEnter = 0;
 	    strcpy(&savegamestrings[saveSlot][0],saveOldString);
 	    break;
 				
 	  case KEY_ENTER:
+	    if(ev->type != ev_keydown)
+		return false;
 	    saveStringEnter = 0;
 	    if (savegamestrings[saveSlot][0])
 		M_DoSave(saveSlot);
 	    break;
 				
 	  default:
+	    if(ev->type != ev_char)
+		return false;
+	    if (ch == '\b'){
+	    	if (saveCharIndex > 0)
+	    	{
+			saveCharIndex--;
+			savegamestrings[saveSlot][saveCharIndex] = 0;
+		}
+		break;
+	    }
 	    ch = toupper(ch);
 	    if (ch != 32)
 		if (ch-HU_FONTSTART < 0 || ch-HU_FONTSTART >= HU_FONTSIZE)
@@ -1470,6 +1475,9 @@ boolean M_Responder (event_t* ev)
 	}
 	return true;
     }
+
+    if(ev->type != ev_keydown)
+        return false;
     
     // Take care of any messages that need input
     if (messageToPrint)
@@ -1483,7 +1491,7 @@ boolean M_Responder (event_t* ev)
 	if (messageRoutine)
 	    messageRoutine(ch);
 			
-	menuactive = false;
+	M_ClearMenus();
 	S_StartSound(NULL,sfx_swtchx);
 	return true;
     }
@@ -1493,8 +1501,7 @@ boolean M_Responder (event_t* ev)
 	G_ScreenShot ();
 	return true;
     }
-		
-    
+
     // F-Keys
     if (!menuactive)
 	switch(ch)
@@ -1706,7 +1713,7 @@ void M_StartControlPanel (void)
     if (menuactive)
 	return;
   
-    menuactive = 1;
+    menuactive = true;
     currentMenu = &MainDef;         // JDC
     itemOn = currentMenu->lastOn;   // JDC
 
@@ -1721,15 +1728,15 @@ void M_StartControlPanel (void)
 //
 void M_Drawer (void)
 {
-    static short	x;
-    static short	y;
-    short		i;
-    short		max;
+    static int	x;
+    static int	y;
+    int		i;
+    int		n;
+    int		max;
     char		string[40];
     int			start;
 
     inhelpscreens = false;
-
     
     // Horiz. & Vertically center string and print it.
     if (messageToPrint)
@@ -1738,18 +1745,18 @@ void M_Drawer (void)
 	y = 100 - M_StringHeight(messageString)/2;
 	while(*(messageString+start))
 	{
-	    for (i = 0;i < strlen(messageString+start);i++)
+	    n = strlen(messageString+start);
+	    for (i = 0;i < n;i++)
 		if (*(messageString+start+i) == '\n')
 		{
-		    memset(string,0,40);
-		    strncpy(string,messageString+start,i);
+		    snprint(string, sizeof(string), "%.*s", i, messageString+start);
 		    start += i+1;
 		    break;
 		}
 				
-	    if (i == strlen(messageString+start))
+	    if (i == n)
 	    {
-		strcpy(string,messageString+start);
+		snprint(string, sizeof(string), "%s", messageString+start);
 		start += i;
 	    }
 				
@@ -1792,7 +1799,7 @@ void M_Drawer (void)
 //
 void M_ClearMenus (void)
 {
-    menuactive = 0;
+    menuactive = false;
     I_MouseEnable(1);	// enable mouse grabbing
 
     // if (!netgame && usergame && paused)
@@ -1831,7 +1838,7 @@ void M_Ticker (void)
 void M_Init (void)
 {
     currentMenu = &MainDef;
-    menuactive = 0;
+    menuactive = false;
     itemOn = currentMenu->lastOn;
     whichSkull = 0;
     skullAnimCounter = 10;

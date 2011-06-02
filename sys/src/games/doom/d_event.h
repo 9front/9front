@@ -37,16 +37,17 @@ typedef enum
     ev_keydown,
     ev_keyup,
     ev_mouse,
-    ev_joystick
+    ev_joystick,
+    ev_char,
 } evtype_t;
 
 // Event structure.
 typedef struct
 {
     evtype_t	type;
-    int		data1;		// raw keys / mouse/joystick buttons
-    int		data2;		// composed key down, mouse/joystick x move
-    int		data3;		// raw key down, mouse/joystick y move
+    int		data1;		// char / key / mouse/joystick buttons
+    int		data2;		// mouse/joystick x move
+    int		data3;		// mouse/joystick y move
 } event_t;
 
  

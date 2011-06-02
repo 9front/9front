@@ -26,7 +26,6 @@
 #include <u.h>
 #include <libc.h>
 #include <stdio.h>
-#include <thread.h>
 
 //
 // Global parameters/defines.
