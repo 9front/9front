@@ -138,7 +138,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 
 		p = nil;
 		while((p = pcimatch(p, 0x10DE, 0)) != nil){
-			if((p->ccru>>8) == 3)
+			if(p->ccrb == 3)
 				break;
 		}
 		if(p == nil)
@@ -399,7 +399,6 @@ options(Vga*, Ctlr* ctlr)
 {
 	ctlr->flag |= Hlinear|Foptions;
 }
-
 
 static void
 clock(Vga* vga, Ctlr* ctlr)

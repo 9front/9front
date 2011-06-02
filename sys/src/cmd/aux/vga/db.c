@@ -142,7 +142,7 @@ dbpci(Vga *vga, Ndbtuple *tuple)
 			else if((did=atoi(td->val)) == 0)
 				continue;
 			for(pci=nil; pci=pcimatch(pci, vid, did);)
-				if((pci->ccru>>8) == 3)
+				if(pci->ccrb == 3)
 					break;
 			if(pci == nil)
 				continue;
