@@ -110,8 +110,8 @@ mktime(struct tm *t)
 	d = ptm->tm_hour;
 	ptm = localtime(&a);
 	d -= ptm->tm_hour;
-	if(d < 0)
-		d += 24;
+//	if(d < 0)
+//		d += 24;
 	if(t->tm_isdst == 0 && ptm->tm_isdst)
 		d--;
 	if(t->tm_isdst > 0 && !ptm->tm_isdst)
