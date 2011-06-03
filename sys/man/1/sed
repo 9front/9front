@@ -255,6 +255,30 @@ Append the pattern space to
 if a replacement
 was made.
 .RE
+.IP
+An ampersand 
+.L &
+appearing in the replacement
+is replaced by the string matching the regular expression.
+The characters
+.BI \e n\f1,
+where
+.I n
+is a digit,
+are replaced by the text matched by the
+.IR n -th
+regular subexpression
+enclosed between
+.L (
+and
+.LR ) .
+When
+nested parenthesized subexpressions
+are present,
+.I n
+is determined by counting occurrences of
+.L (
+starting from the left.
 .TP
 .BI t " label"
 Test.

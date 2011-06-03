@@ -243,6 +243,13 @@ converts its numerical argument, a character number, to a
 .SM UTF
 string
 .TP
+.BI substr( s , " m")
+the maximum length substring of
+.I s
+that begins at position
+.IR m
+counted from 1.
+.TP
 .BI substr( s , " m" , " n\fL)
 the
 .IR n -character
@@ -303,6 +310,10 @@ If
 is not given,
 .B $0
 is used.
+.B &
+in
+.I t
+is replaced by the match.
 .TP
 .B gsub
 same as
