@@ -49,10 +49,11 @@ case go
 		disk/format -r 2 -d -b /386/pbs $fat
 		mount -c /srv/dos /n/9fat $fat
 	}
-	logprog cp /tmp/plan9.ini /n/9fat/plan9.ini
+	logprog rm -f /n/9fat/^(9bootfat plan9.ini 9pcf 9pccpuf)
 	logprog cp /n/newfs/386/9bootfat /n/9fat/9bootfat
 	# make file continous on disk
 	logprog chmod +al /n/9fat/9bootfat
+	logprog cp /tmp/plan9.ini /n/9fat/plan9.ini
 	logprog cp /n/newfs/386/9pcf /n/9fat/9pcf
 	logprog cp /n/newfs/386/9pccpuf /n/9fat/9pccpuf
 
