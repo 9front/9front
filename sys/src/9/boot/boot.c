@@ -55,12 +55,12 @@ boot(int argc, char *argv[])
 	setenv("bootdisk", bootdisk, 0);
 	
 	/* setup the boot namespace */
-	run("/boot/paqfs", "-m" "/root", "/boot/bootfs.paq", nil);
+	bind("/boot", "/bin", MAFTER);
+	run("/bin/paqfs", "-q", "-c", "8", "-m" "/root", "/boot/bootfs.paq", nil);
 	bind("/root", "/", MAFTER);
 	snprint(buf, sizeof(buf), "/%s/bin", cputype);
 	bind(buf, "/bin", MAFTER);
 	bind("/rc/bin", "/bin", MAFTER);
-	bind("/boot", "/bin", MAFTER);
 
 	switch(pid = rfork(RFFDG|RFREND|RFPROC)){
 	case -1:

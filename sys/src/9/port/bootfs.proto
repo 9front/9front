@@ -16,21 +16,16 @@ $cputype
 		echo
 		cwfs64x
 		grep
-		gunzip
-		hoc
 		ip
 			ipconfig
 		ls
 		mkdir
 		mntgen
 		mount
-		ramfs
 		rc
 		read
 		rm
 		sed
-		seq
-		sleep
 		srv
 		test
 		unmount
