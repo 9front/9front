@@ -66,15 +66,12 @@ port
 	int cpuserver = 1;
 	int i8250freq = 3686000;
 
-boot cpu
+boot boot
 	tcp
-#	paq
+	local
 
 bootdir
-	boot$CONF.out boot
-	/arm/bin/ip/ipconfig
-	/arm/bin/auth/factotum
-#	/arm/bin/paqfs
-	/arm/bin/usb/usbd
-# nvram not needed any longer, it's in flash
-	nvram
+	boot$CONF.out	boot
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	bootfs.paq

@@ -92,9 +92,6 @@ install:V: /$objtype/$p$CONF
 	wait
 	touch $target
 
-rootfs.bz2:
-	rc ../port/mkbootfs
-
 <../boot/bootmkfile
 <../port/portmkfile
 <|../port/mkbootrules $CONF

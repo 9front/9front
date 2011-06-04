@@ -77,9 +77,6 @@ $p$CONF:	$CONF.c $OBJ $LIB
 	$LD -o $target -T$KTZERO -l $OBJ $CONF.$O $LIB
 	size $target
 
-rootfs.bz2:
-	rc ../port/mkbootfs
-
 # don't strip the gzipped kernels -- too frustrating when that's all you have!
 $p%.gz:D:	$p%
 	gzip -9 <$p$stem >$p$stem.gz
@@ -188,13 +185,3 @@ checkdist:VQ:
 
 %.clean:V:
 	rm -f $stem.c [9bz]$stem [9bz]$stem.gz boot$stem.* reboot.h apbootstrap.h init.h
-
-# testing
-9load:D: /usr/rsc/boot/$O.load 9pcload
-	cat $prereq >$target
-
-9load.flp: 9load
-	disk/format -b /386/pbs -df $target $prereq
-
-$p$CONF.flp: /386/9load plan9.ini $p$CONF.gz
-	disk/format -b /386/pbs -df $target $prereq

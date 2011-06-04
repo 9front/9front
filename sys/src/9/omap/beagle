@@ -69,13 +69,12 @@ port
 	int cpuserver = 1;
 	int i8250freq = 3686000;
 
-boot cpu
+boot boot
 	tcp
 	local
 
 bootdir
-	boot$CONF.out boot
-	/arm/bin/bzfs
-	/arm/bin/mntgen
-	/arm/bin/auth/factotum
-	rootfs.bz2
+	boot$CONF.out	boot
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	bootfs.paq

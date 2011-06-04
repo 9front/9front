@@ -1,5 +1,11 @@
 #!/bin/rc
 
+mntgen -s slash /mnt
+bind /root /mnt/broot
+unmount /root
+
+ramfs
+
 bind -q '#p' /proc
 
 for(i in S f k æ t){
@@ -99,6 +105,7 @@ fn main{
 	# remove part of our temporary root
 	/mnt/broot/$cputype/bin/unmount /$cputype/bin /bin
 	/mnt/broot/$cputype/bin/unmount /rc/bin /bin
+	/mnt/broot/$cputype/bin/unmount /tmp
 	/mnt/broot/$cputype/bin/unmount /
 
 	# create the name space, mount the root fs

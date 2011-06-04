@@ -16,6 +16,7 @@ boot(int argc, char *argv[])
 {
 	Waitmsg *w;
 	int pid, i;
+	char buf[32];
 
 	fmtinstall('r', errfmt);
 
@@ -54,10 +55,10 @@ boot(int argc, char *argv[])
 	setenv("bootdisk", bootdisk, 0);
 	
 	/* setup the boot namespace */
-	run("/boot/mntgen", "-s", "slash", "/mnt", nil);
-	run("/boot/bzfs", "-f", "/boot/rootfs.bz2", "-m", "/mnt/broot", nil);
-	bind("/mnt/broot", "/", MAFTER);
-	bind("/386/bin", "/bin", MAFTER);
+	run("/boot/paqfs", "-m" "/root", "/boot/bootfs.paq", nil);
+	bind("/root", "/", MAFTER);
+	snprint(buf, sizeof(buf), "/%s/bin", cputype);
+	bind(buf, "/bin", MAFTER);
 	bind("/rc/bin", "/bin", MAFTER);
 	bind("/boot", "/bin", MAFTER);
 

@@ -55,12 +55,12 @@ ip
 port
 	int cpuserver = 0;
 
-boot
+boot boot
 	tcp
+	local
 
 bootdir
-	bootapc.out boot
-	/alpha/bin/disk/kfs
-	/alpha/bin/auth/factotum
-	/alpha/bin/ip/ipconfig
-
+	boot$CONF.out	boot
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	bootfs.paq

@@ -30,7 +30,7 @@ all:V:
 		mk 'CONF='$i
 
 clean:V:
-	rm -f *.[$OS] *.i *.root.s *.rootc.c cfs.h fs.h init.h conf.h *.out *.m errstr.h rootfs.bz2
+	rm -f *.[$OS] *.i *.root.s *.rootc.c cfs.h fs.h init.h conf.h *.out *.m errstr.h bootfs.paq
 	for(i in $CONFLIST $CRAPLIST)
 		mk $i.clean
 
@@ -92,3 +92,13 @@ boot$CONF.out: $CONF print.$O $BOOTDIR/boot.c $BOOTLIB
 	$CC $CFLAGS boot$CONF.c
 	$CC $CFLAGS ../boot/printstub.c
 	$LD -o boot$CONF.out boot$CONF.$O $BOOTLIB printstub.$O
+
+bootfs.paq:	../port/bootfs.proto
+	mkdir -p bootfs
+	disk/mkfs -s / -d bootfs ../port/bootfs.proto
+	@{
+		cd bootfs/$objtype/bin
+		strip * */* >[2]/dev/null || status=''
+	}
+	mkpaqfs -o $target bootfs
+	rm -rf bootfs

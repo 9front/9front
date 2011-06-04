@@ -76,9 +76,6 @@ $p$CONF:	$CONF.c $OBJ $LIB
 install:V: $p$CONF
 	cp $p$CONF /$objtype/$p$CONF
 
-rootfs.bz2:
-	rc ../port/mkbootfs
-
 <../boot/bootmkfile
 <../port/portmkfile
 <|../port/mkbootrules $CONF

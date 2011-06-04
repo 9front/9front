@@ -127,13 +127,12 @@ ip
 port
 	int cpuserver = 0;
 
-boot boot #S/sdC0/
+boot boot
 	tcp
 	local
 
 bootdir
-	bootpcf.out boot
-	/386/bin/bzfs
-	/386/bin/mntgen
-	/386/bin/auth/factotum
-	rootfs.bz2
+	boot$CONF.out	boot
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	bootfs.paq
