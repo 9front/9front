@@ -678,8 +678,7 @@ void inittimezone(PyObject *m) {
 	PyModule_AddIntConstant(m, "timezone", _timezone);
 #else /* !PYOS_OS2 */
 #ifdef PLAN9APE
-	//PyModule_AddIntConstant(m, "timezone", timezone);
-	PyModule_AddIntConstant(m, "timezone", 0);
+	PyModule_AddIntConstant(m, "timezone", timezone);
 #endif
 #endif /* PYOS_OS2 */
 #ifdef HAVE_ALTZONE
@@ -689,14 +688,12 @@ void inittimezone(PyObject *m) {
 	PyModule_AddIntConstant(m, "altzone", _timezone-3600);
 #else /* !PYOS_OS2 */
 #ifdef PLAN9APE
-	//PyModule_AddIntConstant(m, "altzone", timezone-3600);
-	PyModule_AddIntConstant(m, "altzone", 3600);
+	PyModule_AddIntConstant(m, "altzone", timezone-3600);
 #endif
 #endif /* PYOS_OS2 */
 #endif
 #ifdef PLAN9APE
-	//PyModule_AddIntConstant(m, "daylight", daylight);
-	PyModule_AddIntConstant(m, "daylight", 0);
+	PyModule_AddIntConstant(m, "daylight", daylight);
 	PyModule_AddObject(m, "tzname",
 			   Py_BuildValue("(zz)", tzname[0], tzname[1]));
 #endif
