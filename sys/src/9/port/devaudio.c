@@ -215,15 +215,15 @@ audioread(Chan *c, void *a, long n, vlong off)
 	if(fn == nil)
 		error(Egreg);
 
+	qlock(ac);
+	if(waserror()){
+		qunlock(ac);
+		nexterror();
+	}
 	switch((ulong)c->qid.path){
 	case Qaudioctl:
 	case Qaudiostatus:
 	case Qvolume:
-		qlock(ac);
-		if(waserror()){
-			qunlock(ac);
-			nexterror();
-		}
 		/* generate the text on first read */
 		if(ac->data == nil || off == 0){
 			long l;
@@ -237,11 +237,14 @@ audioread(Chan *c, void *a, long n, vlong off)
 		}
 		/* then serve all requests from buffer */
 		n = readstr(off, a, n, ac->data);
-		qunlock(ac);
-		poperror();
-		return n;
+		break;
+
+	default:
+		n = fn(adev, a, n, off);
 	}
-	return fn(adev, a, n, off);
+	qunlock(ac);
+	poperror();
+	return n;
 }
 
 static long
