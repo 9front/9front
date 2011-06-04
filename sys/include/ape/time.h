@@ -52,6 +52,12 @@ extern char *ctime_r(const time_t *, char *);
 
 #ifdef _POSIX_SOURCE
 extern void tzset(void);
+
+struct timespec {
+	time_t tv_sec;
+	long tv_nsec;
+};
+extern int nanosleep(const struct timespec *req, struct timespec *rem);
 #endif
 
 #ifdef __cplusplus

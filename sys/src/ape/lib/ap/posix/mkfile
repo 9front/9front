@@ -10,6 +10,7 @@ OFILES=\
 	sigset.$O\
 	sysconf.$O\
 	tzset.$O\
+	nanosleep.$O\
 
 </sys/src/cmd/mksyslib
 
