@@ -60,5 +60,5 @@ boot(int argc, char *argv[])
 	snprint(buf, sizeof(buf), "/%s/bin", cputype);
 	bind(buf, "/bin", MAFTER);
 	bind("/rc/bin", "/bin", MAFTER);
-	run("/bin/bootrc", nil);
+	execl("/bin/bootrc", "bootrc", nil);
 }
