@@ -63,7 +63,6 @@ struct Blaster
 
 struct Ctlr
 {
-	QLock;
 	Rendez	vous;
 	int	active;		/* boolean dma running */
 	int	major;		/* SB16 major version number (sb 4) */
@@ -535,11 +534,6 @@ audiowrite(Audio *adev, void *vp, long n, vlong)
 	p = vp;
 	e = p + n;
 	ctlr = adev->ctlr;
-	qlock(ctlr);
-	if(waserror()){
-		qunlock(ctlr);
-		nexterror();
-	}
 	ring = &ctlr->ring;
 	while(p < e) {
 		if((n = writering(ring, p, e - p)) <= 0){
@@ -552,9 +546,6 @@ audiowrite(Audio *adev, void *vp, long n, vlong)
 		}
 		p += n;
 	}
-	poperror();
-	qunlock(ctlr);
-
 	return p - (uchar*)vp;
 }
 
@@ -564,15 +555,8 @@ audioclose(Audio *adev)
 	Ctlr *ctlr;
 
 	ctlr = adev->ctlr;
-	qlock(ctlr);
-	if(waserror()){
-		qunlock(ctlr);
-		nexterror();
-	}
 	sleep(&ctlr->vous, inactive, ctlr);
 	setempty(ctlr);
-	poperror();
-	qunlock(ctlr);
 }
 
 static long

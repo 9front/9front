@@ -269,6 +269,11 @@ audiowrite(Chan *c, void *a, long n, vlong off)
 	if(fn == nil)
 		error(Egreg);
 
+	qlock(ac);
+	if(waserror()){
+		qunlock(ac);
+		nexterror();
+	}
 	switch((ulong)c->qid.path){
 	case Qaudioctl:
 	case Qvolume:
@@ -276,20 +281,16 @@ audiowrite(Chan *c, void *a, long n, vlong off)
 			error(Etoobig);
 
 		/* copy data to audiochan buffer so it can be modified */
-		qlock(ac);
-		if(waserror()){
-			qunlock(ac);
-			nexterror();
-		}
 		ac->data = nil;
 		memmove(ac->buf, a, n);
 		ac->buf[n] = 0;
-		n = fn(adev, ac->buf, n, 0);
-		qunlock(ac);
-		poperror();
-		return n;
+		a = ac->buf;
+		off = 0;
 	}
-	return fn(adev, a, n, off);
+	n = fn(adev, a, n, off);
+	qunlock(ac);
+	poperror();
+	return n;
 }
 
 static void
