@@ -5,8 +5,6 @@
 #include "../boot/boot.h"
 
 char	cputype[64];
-char 	reply[256];
-int	printcol;
 int	mflag;
 int	fflag;
 int	kflag;
@@ -14,8 +12,6 @@ int	kflag;
 void
 boot(int argc, char *argv[])
 {
-	Waitmsg *w;
-	int pid, i;
 	char buf[32];
 
 	fmtinstall('r', errfmt);
@@ -33,6 +29,8 @@ boot(int argc, char *argv[])
 	bind("#s", "/srv", MREPL|MCREATE);
 
 	if(Debug){
+		int i;
+
 		print("argc=%d\n", argc);
 		for(i = 0; i < argc; i++)
 			print("%lux %s ", (ulong)argv[i], argv[i]);
@@ -53,7 +51,8 @@ boot(int argc, char *argv[])
 
 	readfile("#e/cputype", cputype, sizeof(cputype));
 	setenv("bootdisk", bootdisk, 0);
-	
+	setenv("cpuflag", cpuflag ? "1" : "0", 0);
+
 	/* setup the boot namespace */
 	bind("/boot", "/bin", MAFTER);
 	run("/bin/paqfs", "-q", "-c", "8", "-m" "/root", "/boot/bootfs.paq", nil);
@@ -61,26 +60,5 @@ boot(int argc, char *argv[])
 	snprint(buf, sizeof(buf), "/%s/bin", cputype);
 	bind(buf, "/bin", MAFTER);
 	bind("/rc/bin", "/bin", MAFTER);
-
-	switch(pid = rfork(RFFDG|RFREND|RFPROC)){
-	case -1:
-		fatal("fork error");
-	case 0:
-		setenv("cpuflag", cpuflag ? "1" : "0", 0);
-		run("/bin/rc", "/rc/bin/bootrc", nil);
-		break;
-	default:
-		while((w = wait()) != nil)
-			if(w->pid == pid)
-				break;
-		if(w == nil){
-			free(w);
-			fatal("wait error");
-		}
-		free(w);
-		break;
-	}
-
-	for(;;)
-		;
+	run("/bin/bootrc", nil);
 }

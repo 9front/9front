@@ -69,7 +69,7 @@ port
 	int cpuserver = 1;
 	int i8250freq = 3686000;
 
-boot boot
+boot cpu
 	tcp
 	local
 

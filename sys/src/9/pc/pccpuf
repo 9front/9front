@@ -118,7 +118,7 @@ ip
 port
 	int cpuserver = 1;
 
-boot boot
+boot cpu
 	tcp
 	local
 

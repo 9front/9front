@@ -34,7 +34,7 @@ fn ask {
 		echo -n $3
 		echo -n '] '
 	}
-	$1=`{read}
+	$1=`{dd -bs 64 -count 1 >[2]/dev/null}
 	if(~ $#$1 0)
 		$1=$3
 	if(~ $"$1 '!rc'){

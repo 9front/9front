@@ -23,7 +23,6 @@ $cputype
 		mntgen
 		mount
 		rc
-		read
 		rm
 		sed
 		srv

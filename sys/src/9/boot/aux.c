@@ -84,27 +84,3 @@ setenv(char *name, char *val, int ec)
 	write(f, val, strlen(val));
 	close(f);
 }
-
-void
-srvcreate(char *name, int fd)
-{
-	char *srvname;
-	int f;
-	char buf[64];
-
-	srvname = strrchr(name, '/');
-	if(srvname)
-		srvname++;
-	else
-		srvname = name;
-
-	snprint(buf, sizeof buf, "#s/%s", srvname);
-	f = create(buf, 1, 0666);
-	if(f < 0)
-		fatal(buf);
-	sprint(buf, "%d", fd);
-	if(write(f, buf, strlen(buf)) != strlen(buf))
-		fatal("write");
-	close(f);
-}
-
