@@ -45,7 +45,6 @@ typedef unsigned short u_short;
 typedef unsigned long u_long;
 
 #define EISCONN	63
-#define EWOULDBLOCK 64
 
 #define FD_SETSIZE 96	/* see /sys/include/ape/sys/select.h */
 
