@@ -64,7 +64,7 @@ struct
 	long	stdiff;
 	long	dldiff;
 	long	dlpairs[TZSIZE];
-} timezone;
+} tz;
 
 char*
 ctime(const time_t *t)
@@ -151,14 +151,14 @@ localtime_r(const time_t *timp, struct tm *result)
 	int i, dlflag;
 
 	tim = *timp;
-	if(timezone.stname[0] == 0)
+	if(tz.stname[0] == 0)
 		readtimezone();
-	t = tim + timezone.stdiff;
+	t = tim + tz.stdiff;
 	dlflag = 0;
-	for(p = timezone.dlpairs; *p; p += 2)
+	for(p = tz.dlpairs; *p; p += 2)
 		if(t >= p[0])
 		if(t < p[1]) {
-			t = tim + timezone.dldiff;
+			t = tim + tz.dldiff;
 			dlflag++;
 			break;
 		}
@@ -242,25 +242,25 @@ readtimezone(void)
 		goto error;
 	close(i);
 	p = buf;
-	if(rd_name(&p, timezone.stname))
+	if(rd_name(&p, tz.stname))
 		goto error;
-	if(rd_long(&p, &timezone.stdiff))
+	if(rd_long(&p, &tz.stdiff))
 		goto error;
-	if(rd_name(&p, timezone.dlname))
+	if(rd_name(&p, tz.dlname))
 		goto error;
-	if(rd_long(&p, &timezone.dldiff))
+	if(rd_long(&p, &tz.dldiff))
 		goto error;
 	for(i=0; i<TZSIZE; i++) {
-		if(rd_long(&p, &timezone.dlpairs[i]))
+		if(rd_long(&p, &tz.dlpairs[i]))
 			goto error;
-		if(timezone.dlpairs[i] == 0)
+		if(tz.dlpairs[i] == 0)
 			return;
 	}
 
 error:
-	timezone.stdiff = 0;
-	strcpy(timezone.stname, "GMT");
-	timezone.dlpairs[0] = 0;
+	tz.stdiff = 0;
+	strcpy(tz.stname, "GMT");
+	tz.dlpairs[0] = 0;
 }
 
 static
