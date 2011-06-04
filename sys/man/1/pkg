@@ -35,7 +35,7 @@ whose source is found in directory
 then packs it into a
 .IR bzip2 (1)
 compressed
-.IR tar(1)
+.IR tar (1)
 archive suitable for upload to a package
 repository.
 .TP

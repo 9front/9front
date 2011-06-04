@@ -8,7 +8,7 @@ hold \- simple text editor
 .PP
 .I Hold
 sets hold mode on the
-.IR rio(1)
+.IR rio (1)
 window where it was launched.
 The contents of the named file is printed
 above the live editing area and the newly entered text is saved
