@@ -75,6 +75,7 @@ link
 
 	audiosb16	dma
 	audioac97	audioac97mix
+	audiohda
 
 misc
 	archmp		mp apic
