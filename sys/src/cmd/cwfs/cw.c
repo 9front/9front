@@ -1448,19 +1448,21 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 
 	cw->depth--;
 
-	if(na){
-		if(b){
-			p = getbuf(cw->dev, na, Brd);
-			if(!p || checktag(p, tag, qp)){
-				fprint(2, "cwrecur: b/p null %s\n", cw->name);
-				na = 0;
-			} else {
-				memmove(p->iobuf, b->iobuf, RBUFSIZE);
-				p->flags |= Bmod|Bimm;
-			}
-			if(p)
-				putbuf(p);
+	if(b){
+		p = getbuf(cw->dev, na ? na : addr, Brd);
+		if(!p || checktag(p, tag, qp)){
+			fprint(2, "cwrecur: b/p null\n");
+			na = 0;
+		} else {
+			memmove(p->iobuf, b->iobuf, RBUFSIZE);
+			p->flags |= Bmod|Bimm;
 		}
+		if(p)
+			putbuf(p);
+		putbuf(b);
+	}
+
+	if(na){
 		if(shouldstop){
 			if(cw->falsehits < 10)
 				fprint(2, "shouldstop %lld %lld t=%s %s\n",
@@ -1469,8 +1471,6 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 			cw->falsehits++;
 		}
 	}
-	if(b)
-		putbuf(b);
 
 	return na;
 }
