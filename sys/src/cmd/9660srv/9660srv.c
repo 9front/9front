@@ -569,7 +569,6 @@ rzdir(Xfs *fs, Dir *d, int fmt, Drec *dp)
 	char buf[Maxname+UTFmax+1];
 	uchar *q;
 	Rune r;
-	enum { ONAMELEN = 28 };	/* old Plan 9 directory name length */
 
 	have = 0;
 	flags = 0;
@@ -622,23 +621,23 @@ rzdir(Xfs *fs, Dir *d, int fmt, Drec *dp)
 		 * from plan9 directory extension
 		 */
 		nl = *s;
-		if(nl >= ONAMELEN)
-			nl = ONAMELEN-1;
+		if(nl >= Maxname)
+			nl = Maxname-1;
 		if(nl) {
-			memset(d->name, 0, ONAMELEN);
+			memset(d->name, 0, Maxname);
 			memmove(d->name, s+1, nl);
 		}
 		s += 1 + *s;
 		nl = *s;
-		if(nl >= ONAMELEN)
-			nl = ONAMELEN-1;
-		memset(d->uid, 0, ONAMELEN);
+		if(nl >= Maxname)
+			nl = Maxname-1;
+		memset(d->uid, 0, Maxname);
 		memmove(d->uid, s+1, nl);
 		s += 1 + *s;
 		nl = *s;
-		if(nl >= ONAMELEN)
-			nl = ONAMELEN-1;
-		memset(d->gid, 0, ONAMELEN);
+		if(nl >= Maxname)
+			nl = Maxname-1;
+		memset(d->gid, 0, Maxname);
 		memmove(d->gid, s+1, nl);
 		s += 1 + *s;
 		if(((uintptr)s) & 1)

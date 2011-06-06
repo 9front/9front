@@ -195,8 +195,7 @@ Creadblock(Cdimg *cd, void *buf, ulong block, ulong len)
 int
 parsedir(Cdimg *cd, Direc *d, uchar *buf, int len, char *(*cvtname)(uchar*, int))
 {
-	enum { NAMELEN = 28 };
-	char name[NAMELEN];
+	char name[256];
 	uchar *p;
 	Cdir *c;
 
@@ -230,7 +229,6 @@ parsedir(Cdimg *cd, Direc *d, uchar *buf, int len, char *(*cvtname)(uchar*, int)
 		if((p-buf)&1)
 			p++;
 		assert(p < buf+c->len);
-		assert(*p < NAMELEN);
 		if(*p != 0) {
 			memmove(name, p+1, *p);
 			name[*p] = '\0';
@@ -238,12 +236,10 @@ parsedir(Cdimg *cd, Direc *d, uchar *buf, int len, char *(*cvtname)(uchar*, int)
 			d->name = atom(name);
 		}
 		p += *p+1;
-		assert(*p < NAMELEN);
 		memmove(name, p+1, *p);
 		name[*p] = '\0';
 		d->uid = atom(name);
 		p += *p+1;
-		assert(*p < NAMELEN);
 		memmove(name, p+1, *p);
 		name[*p] = '\0';
 		d->gid = atom(name);
