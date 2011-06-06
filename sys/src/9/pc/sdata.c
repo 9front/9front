@@ -2046,7 +2046,9 @@ atapnp(void)
 //		case (0x27C4<<16)|0x8086:	/* 82801GBM SATA (ICH7) */
 		case (0x27C5<<16)|0x8086:	/* 82801GBM SATA AHCI (ICH7) */
 		case (0x2820<<16)|0x8086:	/* 82801HB/HR/HH/HO SATA IDE */
+		case (0x2850<<16)|0x8086:	/* 82801HBM/HEM PATA */
 		case (0x2828<<16)|0x8086:	/* 82801HBM SATA (ICH8-M) */
+		case (0x2829<<16)|0x8086:	/* 82801HBM SATA AHCI (ICH8-M) */
 		case (0x2920<<16)|0x8086:	/* 82801(IB)/IR/IH/IO SATA IDE (ICH9) */
 		case (0x3a20<<16)|0x8086:	/* 82801JI (ICH10) */
 		case (0x3a26<<16)|0x8086:	/* 82801JI (ICH10) */
