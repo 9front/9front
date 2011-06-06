@@ -1156,7 +1156,8 @@ fsdestroyfid(Fid *f)
 			}
 			break;
 		case Qkbd:
-			kbdopen--;
+			if(--kbdopen == 0)
+				sendul(ctlchan, Kbdflush);
 			break;
 		case Qcons:
 			consopen--;
