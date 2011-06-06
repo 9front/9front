@@ -11,9 +11,6 @@ bind #p /proc
 bind -c #s /srv
 bind -a #¤ /dev
 
-# userspace devices
-mount -qb /srv/cons /dev
-
 # mount points
 mount -a /srv/slashn /n
 

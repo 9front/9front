@@ -1,7 +1,6 @@
 #!/bin/rc
 # terminal startup
 TIMESYNCARGS=(-rLa1000000)
-NDBFILE=/lib/ndb/local
 
 mntgen -s slashn && chmod 666 /srv/slashn
 
@@ -10,6 +9,7 @@ for(i in S f k t m i v L P u U A '$' Σ κ)
 	bind -a '#'^$i /dev >/dev/null >[2=1]
 rm -f /env/i
 
+mount -qb /srv/cons /dev
 mount -qa /srv/usb /dev
 
 # set up any partitions
@@ -21,19 +21,16 @@ if (! ~ $#disk 0)
 	swap $disk(1) >/dev/null >[2=1]
 rm -f /env/disk
 
-# we do this before we have a name.  we may need to do network
-# setup so that we can get a name.
-if(test -e /rc/bin/termrc.local)
-	. /rc/bin/termrc.local
-
-# cs sets sysname (termrc.local may already have started it so check)
-if(! test -e /srv/cs && ! test -e /net/cs)
-	ndb/cs -f $NDBFILE
+# cs sets sysname
+ndb/cs
 sysname=`{cat /dev/sysname}
 if(~ $#sysname 0 || ~ $sysname ''){
 	sysname=cirno			# default
 	echo -n $sysname >/dev/sysname
 }
+
+# parallelism for mk
+NPROC = `{wc -l </dev/sysstat}
 
 # machine specific startup (e.g., for devices not probed)
 if(test -e /cfg/$sysname/termrc)
