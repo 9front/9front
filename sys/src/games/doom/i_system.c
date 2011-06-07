@@ -140,12 +140,14 @@ char* I_IdentifyWAD(char *wadname)
 {
 	char path[1024];
 
-	/* /sys/lib/doom/... */
 	snprintf(path, sizeof path, "/sys/lib/doom/%s", wadname);
 	if (I_FileExists (path))
 		return path;
 
-	/* $home/lib/doom/... */
+	snprintf(path, sizeof path, "/sys/games/lib/doom/%s", wadname);
+	if (I_FileExists (path))
+		return path;
+
 	snprintf(path, sizeof path, "%s/lib/doom/%s", getenv("home"), wadname);
 	if (I_FileExists (path))
 		return path;
