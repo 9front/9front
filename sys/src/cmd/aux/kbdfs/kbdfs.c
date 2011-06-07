@@ -653,29 +653,29 @@ reqproc(void *aux)
 			if(0){
 		case ASTR:
 				p = s;
-			} else if(s == nil)
-				continue;
-			if((r = q) == nil)
-				continue;
-			if((q = q->aux) == nil)
-				qq = &q;
+			}
 
-			e = s + strlen(s);
-			if(p == s && r->fid->qid.path == Qkbd)
-				e++; /* send terminating \0 if its kbd file */
+			while(s && q){
+				r = q;
+				if((q = q->aux) == nil)
+					qq = &q;
 
-			n = e - p;
-			if(n > r->ifcall.count)
-				n = r->ifcall.count;
+				e = s + strlen(s);
+				if(p == s && r->fid->qid.path == Qkbd)
+					e++; /* send terminating \0 if its kbd file */
+				n = e - p;
+				if(n > r->ifcall.count)
+					n = r->ifcall.count;
 
-			r->ofcall.count = n;
-			memmove(r->ofcall.data, p, n);
-			respond(r, nil);
+				r->ofcall.count = n;
+				memmove(r->ofcall.data, p, n);
+				respond(r, nil);
 
-			p += n;
-			if(p >= e){
-				free(s);
-				s = nil;
+				p += n;
+				if(p >= e){
+					free(s);
+					s = nil;
+				}
 			}
 		}
 	}
