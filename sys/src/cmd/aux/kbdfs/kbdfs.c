@@ -19,7 +19,6 @@ enum {
 
 	Rawon=	0,
 	Rawoff,
-	Kbdflush,
 
 	STACK = 8*1024,
 };
@@ -83,27 +82,30 @@ char Einuse[] = "file in use";
 char Enonexist[] = "file does not exist";
 char Ebadspec[] = "bad attach specifier";
 char Ewalk[] = "walk in non directory";
-char Efront[] = "the front fell off";
+char Ephase[] = "the front fell off";
+char Eintr[] = "interrupted";
 
 int scanfd;
 int ledsfd;
 int consfd;
 
 int kbdopen;
-int consopen;
 int consctlopen;
 
 int debug;
 
-Channel *keychan;	/* Key */
+Channel *keychan;	/* chan(Key) */
 
-Channel *reqchan;	/* Req* */
-Channel *ctlchan;	/* int */
+Channel *kbdreqchan;	/* chan(Req*) */
+Channel *consreqchan;	/* chan(Req*) */
 
-Channel *rawchan;	/* Rune */
-Channel *runechan;	/* Rune */
-Channel *linechan;	/* char * */
-Channel *kbdchan;	/* char* */
+Channel *ctlchan;	/* chan(int) */
+
+Channel *rawchan;	/* chan(Rune) */
+Channel *runechan;	/* chan(Rune) */
+
+Channel *conschan;	/* chan(char*) */
+Channel *kbdchan;	/* chan(char*) */
 
 /*
  * The codes at 0x79 and 0x7b are produced by the PFU Happy Hacking keyboard.
@@ -366,7 +368,7 @@ keyproc(void *)
 	nb = 0;
 	while(recv(keychan, &key) > 0){
 		if(key.down && key.r)
-			nbsend(rawchan, &key.r);
+			send(rawchan, &key.r);
 
 		rb[0] = 0;
 		for(i=0; i<nb && cb[i] != key.c; i++)
@@ -389,7 +391,7 @@ keyproc(void *)
 			}
 			rb[0] = 'k';
 		}
-		if(rb[0]){
+		if(rb[0] && kbdopen){
 			s = utfconv(rb, nb+1);
 			if(nbsendp(kbdchan, s) <= 0)
 				free(s);
@@ -551,7 +553,8 @@ lineproc(void *aux)
 	Rune rb[256], r;
 	Channel *cook;
 	int nr, done;
-	
+	char *s;
+
 	cook = aux;
 
 	threadsetname("lineproc");
@@ -585,33 +588,114 @@ lineproc(void *aux)
 				fprint(1, "%C", r);
 			}
 		} while(!done && nr < nelem(rb));
-		sendp(linechan, utfconv(rb, nr));
+		s = utfconv(rb, nr);
+		if(nbsendp(conschan, s) <= 0)
+			free(s);
 	}
 }
 
 /*
- * Queue reads to cons and kbd, flushing and
- * relay data between 9p and rawchan / kbdchan.
+ * Reads Tread and Tflush requests from reqchan and responds
+ * to them with data received on the string channel.
+ */
+void
+reqproc(void *aux)
+{
+	enum { AREQ, ASTR, AEND };
+	Alt a[AEND+1];
+	Channel **ac;
+	Req *r, *q, **qq;
+	char *s, *p, *e;
+	int n;
+
+	threadsetname("reqproc");
+
+	s = nil;
+	p = nil;
+
+	q = nil;
+	qq = &q;
+
+	ac = aux;
+	a[AREQ].c = ac[0];	/* chan(Req*) */
+	a[AREQ].v = &r;
+	a[ASTR].c = ac[1];	/* chan(char*) */
+	a[ASTR].v = &s;
+	a[AEND].op = CHANEND;
+
+	for(;;){
+		a[AREQ].op = CHANRCV;
+		a[ASTR].op = (q != nil && s == nil) ? CHANRCV : CHANNOP;
+		switch(alt(a)){
+		case AREQ:
+			if(r->ifcall.type == Tflush){
+				Req **rr, **xx;
+
+				for(rr = &q; *rr; rr=xx){
+					xx = &((*rr)->aux);
+					if(*rr == r->oldreq){
+						if((*rr = *xx) == nil)
+							qq = rr;
+						respond(r->oldreq, Eintr);
+						break;
+					}
+				}
+				respond(r, nil);
+				continue;
+			} else if(r->ifcall.type != Tread){
+				respond(r, Ephase);
+				continue;
+			}
+			r->aux = nil;
+			*qq = r;
+			qq = &r->aux;
+
+			if(0){
+		case ASTR:
+				p = s;
+			} else if(s == nil)
+				continue;
+			if((r = q) == nil)
+				continue;
+			if((q = q->aux) == nil)
+				qq = &q;
+
+			e = s + strlen(s);
+			if(p == s && r->fid->qid.path == Qkbd)
+				e++; /* send terminating \0 if its kbd file */
+
+			n = e - p;
+			if(n > r->ifcall.count)
+				n = r->ifcall.count;
+
+			r->ofcall.count = n;
+			memmove(r->ofcall.data, p, n);
+			respond(r, nil);
+
+			p += n;
+			if(p >= e){
+				free(s);
+				s = nil;
+			}
+		}
+	}
+}
+
+/*
+ * Keep track of rawing state and distribute the runes from
+ * runechan to the right channels depending on the state.
  */
 void
 ctlproc(void *)
 {
-	struct {
-		Req *h;
-		Req **t;
-	} qcons, qkbd, *q;
-	enum { Areq, Actl, Arune, Aline, Akbd, Aend };
-	Alt a[Aend+1];
-	Req *req;
-	Fid *fid;
+	Channel *cook, *aconsr[2], *akbdr[2];
+	enum { ACTL, ARUNE, AEND };
+	Alt a[AEND+1];
 	Rune r;
-	char *s, *b, *p, *e;
-	int c, n, raw;
-	Channel *cook;
+	int c, raw;
+	char *s;
 
 	threadsetname("ctlproc");
-
-	cook = chancreate(sizeof(Rune), 0);
 
 	if(scanfd >= 0)
 		proccreate(scanproc, nil, STACK);	/* scanfd -> keychan */
@@ -620,156 +704,59 @@ ctlproc(void *)
 
 	threadcreate(keyproc, nil, STACK);		/* keychan -> rawchan, kbdchan */
 	threadcreate(runeproc, nil, STACK);		/* rawchan -> runechan */
-	threadcreate(lineproc, cook, STACK);		/* cook -> linechan */
+
+	aconsr[0] = consreqchan;
+	aconsr[1] = conschan;
+	threadcreate(reqproc, aconsr, STACK);		/* consreqchan,conschan -> respond */
+
+	akbdr[0] = kbdreqchan;
+	akbdr[1] = kbdchan;
+	threadcreate(reqproc, akbdr, STACK);		/* kbdreqchan,kbdchan -> respond */
+
+	cook = chancreate(sizeof(Rune), 0);
+	threadcreate(lineproc, cook, STACK);		/* cook -> conschan */
 
 	raw = 0;
 
-	b = p = e = nil;
+	a[ACTL].c = ctlchan;
+	a[ACTL].v = &c;
+	a[ACTL].op = CHANRCV;
 
-	qcons.h = nil;
-	qcons.t = &qcons.h;
-	qkbd.h = nil;
-	qkbd.t = &qkbd.h;
+	a[ARUNE].c = runechan;
+	a[ARUNE].v = &r;
+	a[ARUNE].op = CHANRCV;
 
-	memset(a, 0, sizeof a);
-
-	a[Areq].c = reqchan;
-	a[Areq].v = &req;
-	a[Areq].op = CHANRCV;
-
-	a[Actl].c = ctlchan;
-	a[Actl].v = &c;
-	a[Actl].op = CHANRCV;
-
-	a[Arune].c = runechan;
-	a[Arune].v = &r;
-	a[Arune].op = CHANRCV;
-
-	a[Aline].c = linechan;
-	a[Aline].v = &s;
-	a[Aline].op = CHANRCV;
-
-	a[Akbd].c = kbdchan;
-	a[Akbd].v = &s;
-	a[Akbd].op = CHANRCV;
-
-	a[Aend].op = CHANEND;
+	a[AEND].op = CHANEND;
 
 	for(;;){
-		s = nil;
-
-		if(kbdopen){
-			a[Arune].op = qkbd.h ? CHANRCV : CHANNOP;
-			a[Akbd].op = qkbd.h ? CHANRCV : CHANNOP;
-			a[Aline].op = CHANNOP;
-		}else{
-			a[Arune].op = (b == nil) ? CHANRCV : CHANNOP;
-			a[Akbd].op = CHANRCV;
-			a[Aline].op = (b == nil) ? CHANRCV : CHANNOP;
-		}
-
 		switch(alt(a)){
-		case Areq:
-			fid = req->fid;
-			if(req->ifcall.type == Tflush){
-				Req **rr;
-
-				fid = req->oldreq->fid;
-				q = fid->qid.path == Qcons ? &qcons : &qkbd;
-				for(rr = &q->h; *rr && *rr != req->oldreq; rr = &((*rr)->aux))
-					;
-				if(*rr == req->oldreq){
-					if((*rr = req->oldreq->aux) == nil)
-						q->t = rr;
-					req->oldreq->aux = nil;
-					respond(req->oldreq, "interrupted");
-				}
-				respond(req, nil);
-			} else if(req->ifcall.type == Tread){
-				q = fid->qid.path == Qcons ? &qcons : &qkbd;
-				req->aux = nil;
-				*q->t = req;
-				q->t = &req->aux;
-				goto Havereq;
-			} else
-				respond(req, Efront);
-			break;
-
-		case Actl:
+		case ACTL:
 			switch(c){
 			case Rawoff:
 			case Rawon:
 				if(raw = (c == Rawon)){
-					while(s = nbrecvp(linechan))
-						free(s);
-					r = '\0';
-					send(cook, &r);
-					free(b);
-					b = nil;
+					r = 0;
+					nbsend(cook, &r);
 				}
-				break;
-			case Kbdflush:
-				while(s = nbrecvp(kbdchan))
-					free(s);
-				break;
 			}
 			break;
-
-		case Arune:
+		case ARUNE:
 			if(kbdopen){
 				s = emalloc9p(UTFmax+2);
 				s[0] = 'c';
 				s[1+runetochar(s+1, &r)] = 0;
-				goto Havekbd;
+				if(nbsendp(kbdchan, s) <= 0)
+					free(s);
+				break;
 			}
-
 			if(raw){
 				s = emalloc9p(UTFmax+1);
 				s[runetochar(s, &r)] = 0;
-			} else {
-				nbsend(cook, &r);
+				if(nbsendp(conschan, s) <= 0)
+					free(s);
 				break;
 			}
-			/* no break */
-
-		case Aline:
-			b = s;
-			p = s;
-			e = s + strlen(s);
-
-		Havereq:
-			while(b && (req = qcons.h)){
-				if((qcons.h = req->aux) == nil)
-					qcons.t = &qcons.h;
-				n = e - p;
-				if(req->ifcall.count < n)
-					n = req->ifcall.count;
-				req->ofcall.count = n;
-				memmove(req->ofcall.data, p, n);
-				respond(req, nil);
-				p += n;
-				if(p >= e){
-					free(b);
-					b = nil;
-				}
-			}
-			break;
-
-		case Akbd:
-		Havekbd:
-			if(req = qkbd.h){
-				if((qkbd.h = req->aux) == nil)
-					qkbd.t = &qkbd.h;
-				n = strlen(s) + 1;
-				if(n > req->ifcall.count)
-					respond(req, Eshort);
-				else {
-					req->ofcall.count = n;
-					memmove(req->ofcall.data, s, n);
-					respond(req, nil);
-				}
-			}
-			free(s);
+			nbsend(cook, &r);
 			break;
 		}
 	}
@@ -1011,10 +998,6 @@ fsopen(Req *r)
 				return;
 			}
 			kbdopen++;
-			sendul(ctlchan, Kbdflush);
-			break;
-		case Qcons:
-			consopen++;
 			break;
 		case Qconsctl:
 			consctlopen++;
@@ -1055,19 +1038,18 @@ fsread(Req *r)
 	f = r->fid;
 	switch((ulong)f->qid.path){
 	default:
-		respond(r, Efront);
+		respond(r, Ephase);
 		return;
-
 	case Qroot:
 		r->ofcall.count = readtopdir(f, (void*)r->ofcall.data, r->ifcall.offset,
 			r->ifcall.count, r->ifcall.count);
 		break;
-
 	case Qkbd:
-	case Qcons:
-		sendp(reqchan, r);
+		sendp(kbdreqchan, r);
 		return;
-
+	case Qcons:
+		sendp(consreqchan, r);
+		return;
 	case Qkbmap:
 		kbmapread(r);
 		return;
@@ -1085,7 +1067,7 @@ fswrite(Req *r)
 	f = r->fid;
 	switch((ulong)f->qid.path){
 	default:
-		respond(r, Efront);
+		respond(r, Ephase);
 		return;
 
 	case Qcons:
@@ -1134,8 +1116,10 @@ fsflush(Req *r)
 {
 	switch((ulong)r->oldreq->fid->qid.path) {
 	case Qkbd:
+		sendp(kbdreqchan, r);
+		return;
 	case Qcons:
-		sendp(reqchan, r);
+		sendp(consreqchan, r);
 		return;
 	}
 	respond(r, nil);
@@ -1156,11 +1140,7 @@ fsdestroyfid(Fid *f)
 			}
 			break;
 		case Qkbd:
-			if(--kbdopen == 0)
-				sendul(ctlchan, Kbdflush);
-			break;
-		case Qcons:
-			consopen--;
+			kbdopen--;
 			break;
 		case Qconsctl:
 			if(--consctlopen == 0)
@@ -1278,16 +1258,15 @@ threadmain(int argc, char** argv)
 		if((consfd = open(*argv, OREAD)) < 0)
 			fprint(2, "%s: warning: can't open %s: %r\n", argv0, *argv);
 
-	keychan = chancreate(sizeof(Key), 8);
-	reqchan = chancreate(sizeof(Req*), 0);
-	ctlchan = chancreate(sizeof(int), 0);
-	rawchan = chancreate(sizeof(Rune), 16);
-	runechan = chancreate(sizeof(Rune), 32);
-	linechan = chancreate(sizeof(char*), 16);
-	kbdchan = chancreate(sizeof(char*), 16);
+	consreqchan = chancreate(sizeof(Req*), 0);
+	kbdreqchan = chancreate(sizeof(Req*), 0);
 
-	if(!(keychan && reqchan && ctlchan && rawchan && runechan && linechan && kbdchan))
-		sysfatal("allocating chans");
+	keychan = chancreate(sizeof(Key), 8);
+	ctlchan = chancreate(sizeof(int), 0);
+	rawchan = chancreate(sizeof(Rune), 0);
+	runechan = chancreate(sizeof(Rune), 32);
+	conschan = chancreate(sizeof(char*), 16);
+	kbdchan = chancreate(sizeof(char*), 16);
 
 	elevate();
 	procrfork(ctlproc, nil, STACK, RFNAMEG|RFNOTEG);
