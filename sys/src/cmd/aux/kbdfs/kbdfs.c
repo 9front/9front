@@ -617,15 +617,18 @@ reqproc(void *aux)
 	qq = &q;
 
 	ac = aux;
+	a[AREQ].op = CHANRCV;
 	a[AREQ].c = ac[0];	/* chan(Req*) */
 	a[AREQ].v = &r;
+
 	a[ASTR].c = ac[1];	/* chan(char*) */
 	a[ASTR].v = &s;
+
 	a[AEND].op = CHANEND;
 
 	for(;;){
-		a[AREQ].op = CHANRCV;
-		a[ASTR].op = (q != nil && s == nil) ? CHANRCV : CHANNOP;
+		a[ASTR].op = s ? CHANNOP : CHANRCV;
+
 		switch(alt(a)){
 		case AREQ:
 			if(r->ifcall.type == Tflush){
