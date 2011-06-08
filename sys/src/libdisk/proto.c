@@ -33,6 +33,8 @@ struct Name {
 typedef struct Opt Opt;
 struct Opt {
 	int level;
+	long mode;
+	long mask;
 	Reprog *skip;
 	char *uid;
 	char *gid;
@@ -275,12 +277,6 @@ copyfile(Mkaux *mkaux, File *f, Dir *d, int permonly)
 		d = nd;
 
 	d->name = f->elem;
-	if(d->type != 'M'){
-		d->uid = "sys";
-		d->gid = "sys";
-		xmode = (d->mode >> 6) & 7;
-		d->mode |= xmode | (xmode << 3);
-	}
 	o = mkaux->opt;
 	if(strcmp(f->uid, "-") != 0)
 		d->uid = f->uid;
@@ -297,7 +293,8 @@ copyfile(Mkaux *mkaux, File *f, Dir *d, int permonly)
 			warn(mkaux, "inconsistent mode for %s", f->new);
 		else
 			d->mode = f->mode;
-	}
+	} else if(o && o->mask)
+		d->mode = (d->mode & ~o->mask) | (o->mode & o->mask);
 
 	if(p = strrchr(f->new, '/'))
 		d->name = p+1;
@@ -321,6 +318,92 @@ mkpath(Mkaux *mkaux, char *prefix, char *elem)
 	strcat(p, "/");
 	strcat(p, elem);
 	return p;
+}
+
+static int
+parsemode(char *spec, long *pmask, long *pmode)
+{
+	char op, set, *s;
+	long mode;
+	long mask;
+
+	s = spec;
+	op = set = 0;
+	mode = 0;
+	mask = DMAPPEND | DMEXCL | DMTMP;
+
+	if(*s >= '0' && *s <= '7'){
+		mask = 0666;
+		mode = strtoul(s, 0, 8);
+		op = '=';
+		s = "!";
+	}
+
+	for(; *s && op == 0; s++){
+		switch(*s){
+		case 'a':
+			mask |= 0666;
+			break;
+		case 'u':
+			mask |= 0600;
+			break;
+		case 'g':
+			mask |= 060;
+			break;
+		case 'o':
+			mask |= 06;
+			break;
+		case '-':
+		case '+':
+		case '=':
+			op = *s;
+			break;
+		default:
+			return 0;
+		}
+	}
+	if(s == spec)
+		mask |= 0666;
+
+	for(; *s; s++){
+		switch(*s){
+		case 'r':
+			mode |= 0444;
+			break;
+		case 'w':
+			mode |= 0222;
+			break;
+		case 'x':
+			mode |= 0111;
+			break;
+		case 'a':
+			mode |= DMAPPEND;
+			break;
+		case 'l':
+			mode |= DMEXCL;
+			break;
+		case 't':
+			mode |= DMTMP;
+			break;
+		case '!':
+			set = 1;
+			break;
+		default:
+			return 0;
+		}
+	}
+
+	if(op == '+' || op == '-')
+		mask &= mode;
+	if(op == '-')
+		mode = ~mode;
+	if(set)
+		*pmask = 0;
+
+	*pmask |= mask;
+	*pmode = (*pmode & ~mask) | (mode & mask);
+
+	return 1;
 }
 
 static void
@@ -354,6 +437,11 @@ setopt(Mkaux *mkaux, char *key, char *val)
 	} else if(strcmp(key, "gid") == 0){
 		free(o->gid); 
 		o->gid = *val ? estrdup(mkaux, val) : nil;
+	} else if(strcmp(key, "mode") == 0){
+		if(!parsemode(val, &o->mask, &o->mode))
+			warn(mkaux, "bad mode specification %s", val);
+	} else {
+		warn(mkaux, "bad option %s=%s", key, val);
 	}
 }
 

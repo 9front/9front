@@ -1,15 +1,15 @@
+mode=ug+rw
+mode=o-w
 uid=sys
 gid=sys
 adm	d775 adm adm
 	uid=adm
 	gid=adm
-	keys.who 665
 	timezone	d775
 		*
 cfg	d775
 	+
-cron	d777 sys sys
-	bootes	664 bootes bootes
+cron	d775
 fd	d775
 lib	d775
 	+
@@ -20,17 +20,17 @@ mail	d775 upas upas
 	gid=upas
 	box	d775
 		bootes	d775 bootes bootes
-			mbox	a662 bootes bootes
+			mbox	a662 bootes bootes /sys/lib/dist/empty
 		glenda	d775 glenda glenda
-			mbox	a662 glenda glenda
-	faxoutqueue	d777
-	faxqueue	d777
+			mbox	a662 glenda glenda /sys/lib/dist/empty
+	faxoutqueue	d775
+	faxqueue	d775
 	fs	d555
 	grey	d775
 	lib	d775
 		*
-	queue	d777
-	tmp	d777
+	queue	d775
+	tmp	d775
 
 386	d775
 	+
@@ -54,7 +54,6 @@ sparc64	d775
 	+
 mips	d775
 	+
-
 acme	d775
 	+
 mnt	d775
@@ -93,8 +92,30 @@ sys	d775
 	lib	d775
 		skip=\.(pyo|pyc)$
 		+
-	log	d777 sys sys
-		cron	a664 bootes bootes
+	log	d775
+		auth	a662 sys sys /sys/lib/dist/empty
+		cpu	a662 sys sys /sys/lib/dist/empty
+		cron	a662 sys sys /sys/lib/dist/empty
+		cs	a662 sys sys /sys/lib/dist/empty
+		dns	a662 sys sys /sys/lib/dist/empty
+
+		cifsd	a662 sys sys /sys/lib/dist/empty
+		ftp	a662 sys sys /sys/lib/dist/empty
+		httpd	a662 sys sys /sys/lib/dist/empty
+		imap4d	a662 sys sys /sys/lib/dist/empty
+		ipboot	a662 sys sys /sys/lib/dist/empty
+		listen	a662 sys sys /sys/lib/dist/empty
+
+		mail		a662 sys sys /sys/lib/dist/empty
+		smtp		a662 sys sys /sys/lib/dist/empty
+		smtp.fail	a662 sys sys /sys/lib/dist/empty
+		smtpd		a662 sys sys /sys/lib/dist/empty
+		smtpd.mx	a662 sys sys /sys/lib/dist/empty
+		runq		a662 sys sys /sys/lib/dist/empty
+
+		secstore	a662 sys sys /sys/lib/dist/empty
+		timesync	a662 sys sys /sys/lib/dist/empty
+		
 	man	d775
 		+
 	src	d775
@@ -106,34 +127,34 @@ usr	d775
 	bootes	d775 bootes bootes
 		uid=bootes
 		gid=bootes
-		bin d775
-			386 d775
+		bin	d775
+			386	d775
 				+
-			rc d775
+			rc	d775
 				+
-		lib d775
+		lib	d775
 			*
-		tmp d775
+		tmp	d775
 	glenda	d775 glenda glenda
 		uid=glenda
 		gid=glenda
-		bin d775
-			386 d775
+		bin	d775
+			386	d775
 				+
-			rc d775
+			rc	d775
 				+
-		lib d775
+		lib	d775
 			*
-		tmp d775
+		tmp	d775
 
 dist	d775
-	plan9front d775
+	plan9front	d775
 		uid=glenda
-		.hgignore 664
-		.hg d775
+		.hgignore	664
+		.hg		d775
 			+
 
+NOTICE	444
 LICENSE	444
 LICENSE.afpl	444
 LICENSE.gpl	444
-NOTICE	444
