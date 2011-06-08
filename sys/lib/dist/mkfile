@@ -2,8 +2,10 @@ cd:V: /tmp/9front.iso
 	
 
 %.iso: pc/plan9.ini.cd
+	bind usr /n/src9/usr
 	bind /n/src9 /n/src9/dist/plan9front
 	bind pc/plan9.ini.cd /n/src9/cfg/plan9.ini
 	disk/mk9660 -c9j -B 386/9bootiso -p /n/src9/sys/lib/sysconfig/proto/cdproto -s /n/src9 -v 'Plan 9 Front' $target
 	unmount /n/src9/cfg/plan9.ini
 	unmount /n/src9/dist/plan9front
+	unmount /n/src9/usr
