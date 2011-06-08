@@ -78,51 +78,48 @@ void
 copy(char *from, char *to, int todir)
 {
 	Dir *dirb, dirt;
-	char name[256];
+	char *name;
 	int fdf, fdt, mode;
 
+	name = nil;
 	if(todir){
 		char *s, *elem;
 		elem=s=from;
 		while(*s++)
 			if(s[-1]=='/')
 				elem=s;
-		sprint(name, "%s/%s", to, elem);
-		to=name;
+		name = smprint("%s/%s", to, elem);
+		to = name;
 	}
 
+	fdf = fdt = -1;
 	if((dirb=dirstat(from))==nil){
 		fprint(2,"cp: can't stat %s: %r\n", from);
 		failed = 1;
-		return;
+		goto out;
 	}
 	mode = dirb->mode;
 	if(mode&DMDIR){
 		fprint(2, "cp: %s is a directory\n", from);
-		free(dirb);
 		failed = 1;
-		return;
+		goto out;
 	}
 	if(samefile(dirb, from, to)){
-		free(dirb);
 		failed = 1;
-		return;
+		goto out;
 	}
 	mode &= 0777;
 	fdf=open(from, OREAD);
 	if(fdf<0){
 		fprint(2, "cp: can't open %s: %r\n", from);
-		free(dirb);
 		failed = 1;
-		return;
+		goto out;
 	}
 	fdt=create(to, OWRITE, mode);
 	if(fdt<0){
 		fprint(2, "cp: can't create %s: %r\n", to);
-		close(fdf);
-		free(dirb);
 		failed = 1;
-		return;
+		goto out;
 	}
 	if(copy1(fdf, fdt, from, to)==0 && (xflag || gflag || uflag)){
 		nulldir(&dirt);
@@ -137,9 +134,13 @@ copy(char *from, char *to, int todir)
 		if(dirfwstat(fdt, &dirt) < 0)
 			fprint(2, "cp: warning: can't wstat %s: %r\n", to);
 	}			
+out:
 	free(dirb);
-	close(fdf);
-	close(fdt);
+	if(fdf >= 0)
+		close(fdf);
+	if(fdt >= 0)
+		close(fdt);
+	free(name);
 }
 
 int
