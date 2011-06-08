@@ -21,7 +21,6 @@ mkdir -p 68000/bin/aux
 mkdir -p 68000/bin/bitsy
 mkdir -p 68000/bin/dial
 mkdir -p 68000/bin/disk
-mkdir -p 68000/bin/fossil
 mkdir -p 68000/bin/fs
 mkdir -p 68000/bin/games
 mkdir -p 68000/bin/ip/httpd
@@ -38,7 +37,6 @@ mkdir -p 68020/bin/aux
 mkdir -p 68020/bin/bitsy
 mkdir -p 68020/bin/dial
 mkdir -p 68020/bin/disk
-mkdir -p 68020/bin/fossil
 mkdir -p 68020/bin/fs
 mkdir -p 68020/bin/games
 mkdir -p 68020/bin/ip/httpd
@@ -64,7 +62,6 @@ mkdir -p alpha/bin/aux
 mkdir -p alpha/bin/bitsy
 mkdir -p alpha/bin/dial
 mkdir -p alpha/bin/disk
-mkdir -p alpha/bin/fossil
 mkdir -p alpha/bin/fs
 mkdir -p alpha/bin/games
 mkdir -p alpha/bin/ip/httpd
@@ -80,7 +77,6 @@ mkdir -p amd64/bin/aux
 mkdir -p amd64/bin/bitsy
 mkdir -p amd64/bin/dial
 mkdir -p amd64/bin/disk
-mkdir -p amd64/bin/fossil
 mkdir -p amd64/bin/fs
 mkdir -p amd64/bin/games
 mkdir -p amd64/bin/ip/httpd
@@ -97,7 +93,6 @@ mkdir -p arm/bin/aux
 mkdir -p arm/bin/bitsy
 mkdir -p arm/bin/dial
 mkdir -p arm/bin/disk
-mkdir -p arm/bin/fossil
 mkdir -p arm/bin/fs
 mkdir -p arm/bin/games
 mkdir -p arm/bin/ip/httpd
@@ -172,7 +167,6 @@ mkdir -p power/bin/aux
 mkdir -p power/bin/bitsy
 mkdir -p power/bin/dial
 mkdir -p power/bin/disk
-mkdir -p power/bin/fossil
 mkdir -p power/bin/fs
 mkdir -p power/bin/games
 mkdir -p power/bin/ip/httpd
@@ -189,7 +183,6 @@ mkdir -p power64/bin/aux
 mkdir -p power64/bin/bitsy
 mkdir -p power64/bin/dial
 mkdir -p power64/bin/disk
-mkdir -p power64/bin/fossil
 mkdir -p power64/bin/fs
 mkdir -p power64/bin/games
 mkdir -p power64/bin/ip/httpd
@@ -209,7 +202,6 @@ mkdir -p sparc/bin/aux
 mkdir -p sparc/bin/bitsy
 mkdir -p sparc/bin/dial
 mkdir -p sparc/bin/disk
-mkdir -p sparc/bin/fossil
 mkdir -p sparc/bin/fs
 mkdir -p sparc/bin/games
 mkdir -p sparc/bin/ip/httpd
@@ -226,7 +218,6 @@ mkdir -p sparc64/bin/aux
 mkdir -p sparc64/bin/bitsy
 mkdir -p sparc64/bin/dial
 mkdir -p sparc64/bin/disk
-mkdir -p sparc64/bin/fossil
 mkdir -p sparc64/bin/fs
 mkdir -p sparc64/bin/games
 mkdir -p sparc64/bin/ip/httpd
