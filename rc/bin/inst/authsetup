@@ -23,12 +23,12 @@ case go
 
 	echo
 	echo 'You will be asked to enter an authid, authdom, secstore key,'
-	echo 'and password upon next boot. The authid is the hostowner.'
-	echo 'The authdom is the domain from your network configuration.'
-	echo 'The secstore key and password should be a secret password'
-	echo 'of eight characters or greater in length. Remember the'
-	echo 'password, you will need to use it again when creating the'
-	echo 'bootes user on the auth server.'
+	echo 'and password upon next boot. The authid is the hostowner,'
+	echo 'in this case '$user'. The authdom is the domain from your'
+	echo 'network configuration. The secstore key and password should'
+	echo 'be a secret password of eight characters or greater in length.'
+	echo 'Remember the password, you will need to use it again when'
+	echo 'setting the password for '$user' on the auth server.'
 	echo
 
 	authsetup=done

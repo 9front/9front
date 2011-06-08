@@ -102,9 +102,6 @@ case go
 		echo create /adm/users adm adm 664
 		echo create /dist sys sys 775 d
 		echo create /usr sys sys 775 d
-		echo newuser adm +bootes
-		echo newuser sys +bootes
-		echo newuser upas +bootes
 		echo newuser $user
 		echo newuser adm +$user
 		echo newuser sys +$user
@@ -113,8 +110,6 @@ case go
 			echo cfs other
 			echo create /dist sys sys 775 d
 			echo create /usr sys sys 775 d
-			echo create /usr/bootes bootes bootes 775 d
-			echo create /usr/bootes/tmp bootes bootes 750 d
 			echo create /usr/$user $user $user 775 d
 			echo create /usr/$user/tmp $user $user 750 d
 			echo cfs main
