@@ -76,6 +76,7 @@ _start0x5A:
 	MTSR(rAX, rES)
 
 	LWI(0x100, rCX)
+	MW(rSI,rBX)			/* address of partition record -> rBX */
 	LWI(RELOC, rSI)
 	MW(rSI, rSP)
 	LWI(_magic(SB), rDI)
@@ -97,10 +98,38 @@ TEXT start16(SB), $0
 	STI
 	LWI(hello(SB), rSI)
 	CALL16(print16(SB))
-	LWI(crnl(SB), rSI)
-	CALL16(print16(SB))
-	LW(_volid(SB), rAX)		/* Xrootlo */
-	LW(_volid+2(SB), rBX)		/* Xroothi */
+
+	PUSHR(rDX)
+	PUSHR(rBX)
+
+	LB(_nfats(SB), rCL)		/* # of fats */
+	LW(_fatsize(SB), rAX)	/* fat size */
+	MUL(rCX)				/* DX:AX = #sectors */
+	JNE	_fatszok			/* zero? it's FAT32 */
+
+	LW(_fatsz32+2(SB), rBX)	/* hi word */
+	IMUL(rCX, rBX)			/* ... in sectors */
+	LW(_fatsz32(SB), rAX)	/* lo word */
+	MUL(rCX)				/* ... in sectors */
+	ADD(rBX, rDX)			/* DX:AX = #sectors */
+
+_fatszok:
+	POPR(rBX)			/* address of partition record */
+
+	LXW(8, xBX, rCX)	/* lo partition LBA */
+	ADD(rCX, rAX)
+	LXW(10, xBX, rCX)	/* hi partition LBA */
+	ADC(rCX, rDX)
+
+	CLR(rBX)
+	LW(_nresrv(SB), rCX)	/* # of reserved */
+	ADD(rCX, rAX)
+	ADC(rDX, rBX)
+
+	SW(rAX, _volid(SB))		/* save for later use */
+	SW(rDX, _volid+2(SB))
+	POPR(rDX)
+
 	PUSHR(rBP)
 	LW(_sectsize(SB), rCX)
 	SUB(rCX, rSP)
@@ -270,7 +299,5 @@ TEXT ioerror(SB), $0
 	BYTE $'e'; BYTE $'r'; BYTE $'r'; BYTE $0
 
 TEXT hello(SB), $0
-	BYTE $'p'; BYTE $'b'; BYTE $'s'; BYTE $0
-
-TEXT crnl(SB), $0
-	BYTE $'\r'; BYTE $'\n'; BYTE $0
+	BYTE $'p'; BYTE $'b'; BYTE $'s'; BYTE $'\r';
+	BYTE $'\n'; BYTE $0
