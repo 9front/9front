@@ -44,7 +44,7 @@ if(! test -e /srv/dns)
 
 if(! ps|grep -s timesync){
 	if(~ $#ntp 0)
-		eval `{ndb/ipquery sys $sysname ntp}
+		. <{ndb/ipquery sys $sysname ntp | sed 's, +,\n,g'}
 	if(~ $#ntp 0)
 		ntp=pool.ntp.org
 	aux/timesync -n $ntp
@@ -52,7 +52,7 @@ if(! ps|grep -s timesync){
 }
 
 if(~ $#auth 0)
-	eval `{ndb/ipquery sys $sysname auth}
+	. <{ndb/ipquery sys $sysname auth | sed 's, +,\n,g'}
 switch($auth){
 case `{	echo $sysname; ndb/query sys $sysname dom
 	for(i in `{awk '/u\ *$/{print $1}' /net/ipselftab}){
@@ -66,12 +66,9 @@ case *
 	aux/listen -q -d /rc/bin/service tcp
 }
 
-# cpu-specific late startup
-if(test -e /cfg/$sysname/cpustart)
-	. /cfg/$sysname/cpustart
+if(test -f /dev/apm)
+	aux/apm
 
 # mode of /proc/*/ctl is inherited across rfork, and sets modes on
 # other /proc files, such as note, so let listen be killed.
 dontkill '^(ipconfig|factotum|mntgen|venti|kfs|cwfs.*|cs|dns|reboot)$'
-
-exit ''
