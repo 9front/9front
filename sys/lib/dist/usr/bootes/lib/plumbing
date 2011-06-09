@@ -1,6 +1,0 @@
-# to update: cp /usr/bootes/lib/plumbing /mnt/plumb/rules
-
-editor = acme
-
-include basic
-
