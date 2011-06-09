@@ -29,7 +29,7 @@ case go
 	prompt $default 'Plan 9 FAT partition' $fats
 	9fat=$rd
 	export 9fat
-	
+
 	if(! test -f /tmp/plan9.ini) {
 		if(~ $syst cpu)
 			bootfile=9pccpuf
@@ -85,8 +85,10 @@ case go
 	oldbootsetup=$didbootsetup
 	didbootsetup=1
 	export didbootsetup
+
 	prompt 'Enable boot method' plan9 winnt
-	
+
+	disk=`{basename -d $9fat}
 	if(! boot$rd){
 		didbootsetup=$oldbootsetup
 		export didbootsetup
