@@ -21,7 +21,7 @@ tasks=(\
 	mountdist\
 	download\
 	copydist\
-	authsetup\
+	nvramsetup\
 	bootsetup finish stop\
 	stopether stopppp\
 )

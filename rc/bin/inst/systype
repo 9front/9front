@@ -9,9 +9,6 @@ case checkdone
 	if not
 		systype=ready
 	export systype
-	if(~ $syst terminal)
-		tasks=`{echo $tasks | sed 's/authsetup//g'}
-	export tasks
 case go
 	echo
 

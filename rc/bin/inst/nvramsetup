@@ -3,12 +3,37 @@
 # desc: invalidate nvram
 # prereq: systype copydist
 
-nvram=(/dev/sd*/nvram)
-nvram=$nvram(1)
+files=(/dev/sd*/nvram)
 
 switch($1){
+case checkdone checkready
+	if(~ $#files 0 && ! ~ $syst cpu)
+		nvramsetup=done
+	if not {
+		if(~ $#nvram 1 && grep -s trust $nvram)
+			nvramsetup=done
+		if not
+			nvramsetup=ready
+	}
+	export nvramsetup
+
 case go
+	echo
+	echo 'Setup Plan 9 NVRAM configuration partition (nvram)'
+	echo
+
+	if(~ $#files 1)
+		default=(-d $files)
+	if not
+		default=()
+	prompt $default 'Nvram partition' $files
+	nvram=$rd
+	export nvram
+
 	echo 'trust, but verify' >$nvram
+
+	if(! ~ $syst cpu)
+		exit
 
 	echo
 	echo 'You will be asked to enter an authid, authdom, secstore key,'
@@ -19,12 +44,4 @@ case go
 	echo 'the password will be used to encrypt the user database'
 	echo '/adm/keys'
 	echo
-
-	authsetup=done
-	export authsetup
-case checkdone
-	if(~ $syst cpu && test -w $nvram && ! grep -s trust $nvram){
-		authsetup=ready
-		export authsetup
-	}
 }

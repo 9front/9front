@@ -3,20 +3,29 @@
 # desc: create a boot floppy or configure hard disk to boot plan 9
 # prereq: systype copydist
 
+fats=(/dev/sd*/9fat)
+
 switch($1) {
+case checkdone checkready
+	if(~ $#fats 0 || ~ $#9fat 1 && ~ `{fstype $9fat} dos && ~ $didbootsetup 1)
+		bootsetup=done
+	if not
+		bootsetup=ready
+	export bootsetup
+
 case go
 	echo
-	echo 'Initializing Plan 9 FAT configuration partition (9fat)'
+	echo 'Setup Plan 9 FAT boot partition (9fat)'
 	echo
-	
-	fat=(/dev/sd*/9fat)
-	fat=$fat(1)
-	disk=`{echo $fat | sed 's:/dev/::;s:/9fat::'}
-	if(! test -f $fat) {
-		echo 'You have no 9fat partition.  Can''t setup booting.'
-		exit
-	}
 
+	if(~ $#fats 1)
+		default=(-d $fats)
+	if not
+		default=()
+	prompt $default 'Plan 9 FAT partition' $fats
+	9fat=$rd
+	export 9fat
+	
 	if(! test -f /tmp/plan9.ini) {
 		if(~ $syst cpu)
 			bootfile=9pccpuf
@@ -25,6 +34,8 @@ case go
 		{
 			echo 'bootfile='^$bootfile
 			echo 'bootargs=local!'^$fs
+			if(~ $#nvram 1)
+				echo 'nvram='^$nvram
 			echo 'mouseport='^$mouseport
 			echo 'monitor='^$monitor
 			echo 'vgasize='^$vgasize
@@ -34,19 +45,19 @@ case go
 	}
 
 	need9fatformat=no
-	if(! ~ `{fstype $fat} dos)
+	if(! ~ `{fstype $9fat} dos)
 		need9fatformat=yes
 	if(! test -f /srv/dos)
 		dossrv
-	if(! mount -c /srv/dos /n/9fat $fat >[2]/dev/null)
+	if(! mount -c /srv/dos /n/9fat $9fat >[2]/dev/null)
 		need9fatformat=yes
 	if not if(! test -f /n/9fat/plan9.ini)
 		need9fatformat=yes
 
 	if(~ $need9fatformat yes){
 		log Initializing Plan 9 FAT partition.
-		disk/format -r 2 -d -b /386/pbs $fat
-		mount -c /srv/dos /n/9fat $fat
+		disk/format -r 2 -d -b /386/pbs $9fat
+		mount -c /srv/dos /n/9fat $9fat
 	}
 	logprog rm -f /n/9fat/^(9bootfat plan9.ini 9pcf 9pccpuf)
 	logprog cp /n/newfs/386/9bootfat /n/9fat/9bootfat
@@ -75,13 +86,5 @@ case go
 	if(! boot$rd){
 		didbootsetup=$oldbootsetup
 		export didbootsetup
-	}
-
-case checkdone
-	xxxfat=(/dev/sd*/9fat)
-	xxxfat=$xxxfat(1)
-	if(! ~ `{fstype $xxxfat} dos || ! ~ $didbootsetup 1){
-		bootsetup=ready
-		export bootsetup
 	}
 }
