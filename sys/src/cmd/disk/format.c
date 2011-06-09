@@ -560,14 +560,6 @@ if(chatty) print("try %d fatbits => %d clusters of %d\n", fatbits, clusters, clu
 if(chatty) print("driveno = %ux\n", b->driveno);
 	
 		b->bootsig = 0x29;
-		x = disk->offset + b->nfats*fatsecs + nresrv;
-		PUTLONG(b->volid, x);
-		/*
-		 * FAT32 9boot PBS requires volid at this
-		 * offset even for FAT16/FAT12 partitions.
-		 */
-		PUTLONG(b->volid+28, x);
-if(chatty) print("volid = %lux %lux\n", x, GETLONG(b->volid));
 		memmove(b->label, label, sizeof(b->label));
 		sprint(r, "FAT%d    ", fatbits);
 		memmove(b->type, r, sizeof(b->type));
