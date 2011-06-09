@@ -1,14 +1,14 @@
 proto=/n/src9/sys/lib/sysconfig/proto/cdproto
-ini=pc/plan9.ini.cd
 iso=/tmp/9front.iso
 
 cd:V:	$iso
 	
 
-%.iso:  $proto $ini
+%.iso:  $proto
 	@{rfork n
 	bind usr /n/src9/usr
+	bind cfg /n/src9/cfg
+	bind ndb /n/src9/lib/ndb
 	bind /n/src9 /n/src9/dist/plan9front
-	bind $ini /n/src9/cfg/plan9.ini
 	disk/mk9660 -c9j -B 386/9bootiso -p $proto -s /n/src9 -v 'Plan 9 Front' $target
 	}

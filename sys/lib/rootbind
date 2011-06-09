@@ -1,4 +1,5 @@
 bind `{pwd} /n/src9
 bind /n/src9/$objtype/bin /bin
 bind -a /n/src9/rc/bin /bin
+bind /lib/ndb /n/src9/lib/ndb
 for(i in $objtype rc acme mail sys lib cron){bind -c /n/src9/$i /$i}
