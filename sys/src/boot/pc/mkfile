@@ -33,7 +33,7 @@ mbr:	mbr.$O
 	ls -l $target
 
 pbs:	pbs.$O
-	$LD -o $target -H3 -T0x0600 -l $prereq
+	$LD -o $target -H3 -T0x0800 -l $prereq
 	ls -l $target
 
 9boot&:	l%.$O %.$O sub.$O apm.$O e820.$O a20.$O
@@ -67,8 +67,8 @@ test.dsk: 9bootfat mbr pbs
 	mkdir tmp
 	cp 9bootfat tmp
 	mkdir tmp/386
-	cp /386/9pc tmp/386
-	echo 'bootfile=/386/9pc' >tmp/plan9.ini
+	cp /386/9pcf tmp/386
+	echo 'bootfile=/386/9pcf' >tmp/plan9.ini
 	dd -if /dev/zero -of $target -bs 512 -count 32768
 	disk/partfs -m /n/$target $target
 	disk=/n/$target/sdXX
