@@ -3,7 +3,11 @@
 # desc: create a boot floppy or configure hard disk to boot plan 9
 # prereq: systype copydist
 
-fats=(/dev/sd*/9fat)
+fats=()
+for(i in /dev/sd*/9fat){
+	if(test -f $i)
+		fats=($fats $i)
+}
 
 switch($1) {
 case checkdone checkready

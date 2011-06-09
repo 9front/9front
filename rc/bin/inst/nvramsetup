@@ -3,7 +3,11 @@
 # desc: invalidate nvram
 # prereq: systype copydist
 
-files=(/dev/sd*/nvram)
+files=()
+for(i in /dev/sd*/nvram){
+	if(test -f $i)
+		files=($files $i)
+}
 
 switch($1){
 case checkdone checkready
