@@ -103,7 +103,6 @@ sys	d775
 		httpd	a662 sys sys /sys/lib/dist/empty
 		imap4d	a662 sys sys /sys/lib/dist/empty
 		ipboot	a662 sys sys /sys/lib/dist/empty
-		ipboot	a662 sys sys /sys/lib/dist/empty
 		listen	a662 sys sys /sys/lib/dist/empty
 
 		mail		a662 sys sys /sys/lib/dist/empty
