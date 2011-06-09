@@ -88,7 +88,8 @@ case go
 
 	prompt 'Enable boot method' plan9 winnt
 
-	disk=`{basename -d $9fat}
+	disk=`{basename `{basename -d $9fat}}
+
 	if(! boot$rd){
 		didbootsetup=$oldbootsetup
 		export didbootsetup
