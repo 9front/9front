@@ -34,7 +34,7 @@ if(! grep u /net/ipselftab | grep -sv 127.0.0.1){
 	ether=`{ndb/query sys $sysname ether}
 	if(~ $#ether 1){
 		# try /lib/ndb first, then do dhcp
-		ip/ipconfig -N || ip/ipconfig
+		ip/ipconfig -N >[2]/dev/null || ip/ipconfig
 	}
 	rm -f /env/ether
 }
