@@ -36,19 +36,17 @@ NPROC = `{wc -l </dev/sysstat}
 if(test -e /cfg/$sysname/termrc)
 	. /cfg/$sysname/termrc
 
-# start IP on the LAN, if not already configured.  diskless terminals
-# are already configured by now.  It's commented out to avoid a long timeout
-# on startup waiting for DHCP.
-#
-# If your site provides DHCP service,
-#
-#if(! test -e /net/ipifc/0/ctl)
-#	ip/ipconfig
-#
-# Otherwise, see /cfg/$sysname/termrc (/cfg/example/termrc is an example).
+# automatic ip address setup
+if(! grep u /net/ipselftab | grep -sv 127.0.0.1){
+	ether=`{ndb/query sys $sysname ether}
+	if(~ $#ether 1){
+		# try /lib/ndb first, then do dhcp
+		ip/ipconfig -N || ip/ipconfig
+	}
+	rm -f /env/ether
+}
 
-# start dns if we have an internet
-if(test -e /net/ipifc/0/ctl && ! test -e /srv/dns)
+if(! test -e /srv/dns)
 	ndb/dns -r
 
 if(! ~ $terminal *vx32*){
@@ -100,7 +98,7 @@ if(! ~ $"vgasize '' text none){
 }
 rm -f '/env/fn#ask'
 
-if (test -f /dev/apm)
+if(test -f /dev/apm)
 	aux/apm
 
 dontkill '^(ipconfig|factotum|mntgen|kfs|cwfs.*|cs|dns|listen|reboot)$'

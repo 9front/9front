@@ -3,6 +3,8 @@
 # desc: choose and mount file system partition
 # prereq: systype
 
+service=cwfs
+
 switch($1){
 case go
 	echo
@@ -53,13 +55,13 @@ case go
 
 	log Starting $fstype file server for $fs
 	unmount /n/newfs >[2]/dev/null
-	echo halt >>/srv/cwfs.cmd >[2]/dev/null
-	rm -f /srv/cwfs /srv/cwfs.cmd
+	echo halt >>/srv/$service.cmd >[2]/dev/null
+	rm -f /srv/$service /srv/$service.cmd
 
 	if(~ $ream yes){
 		if(! test -f /tmp/fsconfig){
 			{
-				echo service cwfs
+				echo service $service
 				echo config $fs
 
 				if(! ~ $syst cpu){
@@ -86,7 +88,7 @@ case go
 	}
 	if not {
 		echo 'Entering manual configuration mode. when done, type end'
-		if(! $fstype -n cwfs -f $fs -c){
+		if(! $fstype -n $service -f $fs -c){
 			mountfs=ready
 			export mountfs
 			exit oops
@@ -95,6 +97,7 @@ case go
 
 	log Configuering $fstype file server for $fs
 	{
+		echo noattach
 		echo allow
 		echo users default
 		echo cfs main
@@ -102,9 +105,6 @@ case go
 		echo create /adm/users adm adm 664
 		echo create /dist sys sys 775 d
 		echo create /usr sys sys 775 d
-		echo newuser adm +bootes
-		echo newuser sys +bootes
-		echo newuser upas +bootes
 		echo newuser $user
 		echo newuser adm +$user
 		echo newuser sys +$user
@@ -113,30 +113,26 @@ case go
 			echo cfs other
 			echo create /dist sys sys 775 d
 			echo create /usr sys sys 775 d
-			echo create /usr/bootes bootes bootes 775 d
-			echo create /usr/bootes/tmp bootes bootes 750 d
 			echo create /usr/$user $user $user 775 d
 			echo create /usr/$user/tmp $user $user 750 d
 			echo cfs main
 		}
-	} >>/srv/cwfs.cmd
-	sleep 5
+		echo noattach
+		sleep 2
+	} >>/srv/$service.cmd
 
 	log Mounting $fstype file server for $fs
-	if(! logprog mount -c /srv/cwfs /n/newfs){
-		mountfs=ready
-		export mountfs
-		exit
-	}
+	while(! logprog mount -c /srv/$service /n/newfs)
+		sleep 2
 	if(! ~ $fsother ''){
 		log Mounting $fstype file server for $fsother
-		if(logprog mount -c /srv/cwfs /n/other other)
+		if(logprog mount -c /srv/$service /n/other other)
 			bind -qc /n/other/dist /n/newfs/dist
 	}
 
 case checkready checkdone
 	if(! ~ $fstype '' && ~ $#fs 1 && test -f $fs){
-		if(test -f /srv/cwfs && test -d /n/newfs/dist){
+		if(test -f /srv/$service && test -d /n/newfs/dist){
 			mountfs=done
 			export mountfs
 			exit

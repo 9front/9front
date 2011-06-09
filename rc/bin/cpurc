@@ -19,8 +19,8 @@ sysname=`{cat /dev/sysname}
 # parallelism for mk
 NPROC = `{wc -l </dev/sysstat}
 
-if (~ $#sysname 0 || ~ $sysname '') {
-	sysname = cirno			# default
+if (~ $#sysname 0 || ~ $sysname ''){
+	sysname=cirno			# default
 	echo -n $sysname >/dev/sysname
 }
 prompt=($sysname^'# ' '	')
@@ -29,37 +29,41 @@ prompt=($sysname^'# ' '	')
 if(test -e /cfg/$sysname/cpurc)
 	. /cfg/$sysname/cpurc
 
-# start up internet if we don't already have an address
-if(! grep u /net/ipselftab | grep -sv 127.0.0.1)
-	ip/ipconfig
+# automatic ip address setup
+if(! grep u /net/ipselftab | grep -sv 127.0.0.1){
+	ether=`{ndb/query sys $sysname ether}
+	if(~ $#ether 1){
+		# try /lib/ndb first, then do dhcp
+		ip/ipconfig -N || ip/ipconfig
+	}
+	rm -f /env/ether
+}
 
-# if we're not a server, start a dns resolver
 if(! test -e /srv/dns)
 	ndb/dns -r
 
-# If you are on an auth server, start these before listening:
-#
-auth/keyfs -wp -m /mnt/keys /adm/keys >/dev/null >[2=1]
-auth/cron >>/sys/log/cron >[2=1] &
-#
-# also rename some files:
-#
-# if(! test -e /rc/bin/service.auth/tcp567){
-#	mv /rc/bin/service.auth/authsrv.il566 /rc/bin/service.auth/il566
-#	mv /rc/bin/service.auth/authsrv.tcp567 /rc/bin/service.auth/tcp567
-#	mv /rc/bin/service/il566 /rc/bin/service/_il566
-#	mv /rc/bin/service/tcp567 /rc/bin/service/_tcp567
-# }
+if(! ps|grep -s timesync){
+	if(~ $#ntp 0)
+		eval `{ndb/ipquery sys $sysname ntp}
+	if(~ $#ntp 0)
+		ntp=pool.ntp.org
+	aux/timesync -n $ntp
+	sleep 2
+}
 
-# start listeners
-aux/listen -q -t /rc/bin/service.auth -d /rc/bin/service tcp
-
-if(! ps|grep -s timesync) {
-	aux/timesync -n pool.ntp.org
-	if (test -e '#r/rtc') @ {
-		sleep 10			# let timesync correct the time
-		awk '{print $1}' /dev/time >'#r/rtc'	# fix hw clock
-	} &
+if(~ $#auth 0)
+	eval `{ndb/ipquery sys $sysname auth}
+switch($auth){
+case `{	echo $sysname; ndb/query sys $sysname dom
+	for(i in `{awk '/u\ *$/{print $1}' /net/ipselftab}){
+		echo $i; ndb/ipquery ip $i dom; ndb/ipquery ip $i sys
+	} | sed 's,[^ ]+=,,g'}
+	# cpu+auth server
+	auth/keyfs -wp -m /mnt/keys /adm/keys
+	aux/listen -q -t /rc/bin/service.auth -d /rc/bin/service tcp
+case *
+	# cpu server
+	aux/listen -q -d /rc/bin/service tcp
 }
 
 # cpu-specific late startup
@@ -70,5 +74,4 @@ if(test -e /cfg/$sysname/cpustart)
 # other /proc files, such as note, so let listen be killed.
 dontkill '^(ipconfig|factotum|mntgen|venti|kfs|cwfs.*|cs|dns|reboot)$'
 
-# echo `{date} $sysname >>/sys/log/boot
 exit ''

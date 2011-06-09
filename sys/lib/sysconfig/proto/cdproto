@@ -19,8 +19,6 @@ mail	d775 upas upas
 	uid=upas
 	gid=upas
 	box	d775
-		bootes	d775 bootes bootes
-			mbox	a662 bootes bootes /sys/lib/dist/empty
 		glenda	d775 glenda glenda
 			mbox	a662 glenda glenda /sys/lib/dist/empty
 	faxoutqueue	d775
@@ -94,6 +92,7 @@ sys	d775
 		+
 	log	d775
 		auth	a662 sys sys /sys/lib/dist/empty
+		boot	a662 sys sys /sys/lib/dist/empty
 		cpu	a662 sys sys /sys/lib/dist/empty
 		cron	a662 sys sys /sys/lib/dist/empty
 		cs	a662 sys sys /sys/lib/dist/empty
@@ -104,14 +103,15 @@ sys	d775
 		httpd	a662 sys sys /sys/lib/dist/empty
 		imap4d	a662 sys sys /sys/lib/dist/empty
 		ipboot	a662 sys sys /sys/lib/dist/empty
+		ipboot	a662 sys sys /sys/lib/dist/empty
 		listen	a662 sys sys /sys/lib/dist/empty
 
 		mail		a662 sys sys /sys/lib/dist/empty
+		runq		a662 sys sys /sys/lib/dist/empty
 		smtp		a662 sys sys /sys/lib/dist/empty
 		smtp.fail	a662 sys sys /sys/lib/dist/empty
 		smtpd		a662 sys sys /sys/lib/dist/empty
 		smtpd.mx	a662 sys sys /sys/lib/dist/empty
-		runq		a662 sys sys /sys/lib/dist/empty
 
 		secstore	a662 sys sys /sys/lib/dist/empty
 		timesync	a662 sys sys /sys/lib/dist/empty
@@ -121,20 +121,10 @@ sys	d775
 	src	d775
 		skip=\.[ao]?[12578vqki]?$
 		+
-		
+
 tmp	d555
+
 usr	d775
-	bootes	d775 bootes bootes
-		uid=bootes
-		gid=bootes
-		bin	d775
-			386	d775
-				+
-			rc	d775
-				+
-		lib	d775
-			*
-		tmp	d775
 	glenda	d775 glenda glenda
 		uid=glenda
 		gid=glenda

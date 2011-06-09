@@ -25,7 +25,6 @@ case go
 		{
 			echo 'bootfile='^$bootfile
 			echo 'bootargs=local!'^$fs
-			echo 'sysname=cirno'
 			echo 'mouseport='^$mouseport
 			echo 'monitor='^$monitor
 			echo 'vgasize='^$vgasize
