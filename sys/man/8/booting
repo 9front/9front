@@ -17,37 +17,12 @@ Be sure to read
 to understand what happens after the kernel is loaded.
 .SS Terminals
 To bootstrap a diskless terminal or a CPU server, a file server must be running.
-PCs can boot from a floppy disk or any FAT16 partition.
-On all the terminals, typing two control-T's followed by a lower-case
-.B r
-reboots the machine;
-other methods of rebooting are mentioned for some machines.
 .SS PCs
-To boot a PC, it is necessary to get
-.B /386/9bootfat
-.B /386/9bootiso
-or
-.B /386/9bootpxe
-loaded into memory.
-There are many ways to do this.  A Plan 9 boot floppy prepared by
-.B format
-(see
-.IR prep (8))
-will load
-.B 9bootfat
-when the PC is reset or powered on.
-Other methods are described in 
-.IR 9boot (8).
-.B 9boot
-then locates and loads a Plan 9 kernel, using configuration information
-from the file
-.B plan9.ini
-stored in the
-.B 9fat
-configuration partition or on a DOS file system.
-See 
+On a PC, the
 .IR 9boot (8)
-for details.
+program is used to load the kernel
+.B /386/9pcf
+into memory.
 .PP
 Once the kernel is booted, it behaves like the others.
 See
@@ -91,12 +66,9 @@ for terminals.
 .SS CPU Servers
 The Plan 9 CPU servers are multi-user, so they do not request a user name
 when booting.
-On the CPU servers, typing a control-P on the console reboots the machine.
 .SS PC CPU Server
 Proceed as for the PC terminal, but load
-.B /386/9pccpu
-or
-.BR /386/9pccpudisk .
+.B /386/9pccpuf .
 .SS Alpha PC CPU Server
 Proceed as for the Alpha PC terminal, but use
 .B /alpha/9apccpu
