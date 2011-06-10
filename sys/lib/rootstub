@@ -108,7 +108,7 @@ mkdir -p dist/plan9front
 mkdir -p fd
 mkdir -p lib/audio
 mkdir -p lib/ndb
-mkdir -p mail/box/bootes
+mkdir -p mail/box
 mkdir -p mail/box/glenda
 mkdir -p mail/faxoutqueue
 mkdir -p mail/faxqueue
