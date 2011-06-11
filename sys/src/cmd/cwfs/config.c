@@ -451,6 +451,8 @@ mergeconf(Iobuf *p)
 		} else if(strcmp(word, "readonly") == 0){
 			if(!readonlyset)
 				readonly = 1;
+		} else if(strcmp(word, "newcache") == 0){
+			conf.newcache = 1;
 		} else if(strcmp(word, "ipauth") == 0)	/* obsolete */
 			cp = getwrd(word, cp);
 		else if(astrcmp(word, "ip") == 0)	/* obsolete */
@@ -595,6 +597,8 @@ start:
 			cp = seprint(cp, ep, "noauth\n");
 		if(readonly)
 			cp = seprint(cp, ep, "readonly\n");
+		if(conf.newcache)
+			cp = seprint(cp, ep, "newcache\n");
 		for (fsp = fspar; fsp->name != nil; fsp++)
 			cp = seprint(cp, ep, "%s %ld\n",
 				fsp->name, fsp->declared);

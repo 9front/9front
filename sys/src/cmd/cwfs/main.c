@@ -3,8 +3,6 @@
 #include "io.h"
 #include "9p1.h"
 
-extern int oldcachefmt;
-
 Map *devmap;
 
 Biobuf bin;
@@ -293,6 +291,7 @@ main(int argc, char **argv)
 	formatinit();
 	machinit();
 	conf.confdev = "/dev/sdC0/fscache";
+	conf.newcache = 0;
 
 	ARGBEGIN{
 	case 'a':			/* announce on this net */
@@ -318,7 +317,7 @@ main(int argc, char **argv)
 			open("#c/cons", OWRITE);
 		break;
 	case 'C':			/* use new, faster cache layout */
-		oldcachefmt = 0;
+		conf.newcache = 1;
 		break;
 	case 'c':
 		conf.configfirst++;

@@ -436,6 +436,7 @@ struct	Conf
 
 	uchar	nodump;		/* no periodic dumps */
 	uchar	dumpreread;	/* read and compare in dump copy */
+	uchar	newcache;
 };
 
 enum {

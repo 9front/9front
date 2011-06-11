@@ -84,8 +84,6 @@ static char* cwnames[] =
 	[Orele]		"rele",
 };
 
-int oldcachefmt = 1;
-
 Centry*	getcentry(Bucket*, Off);
 int	cwio(Device*, Off, void*, int);
 void	cmd_cwcmd(int, char*[]);
@@ -302,10 +300,10 @@ dumpblock(Device *dev)
 	return 0;
 
 found:
-	if (oldcachefmt)
-		a = a*CEPERBK + (c - b->entry) + caddr;
-	else
+	if (conf.newcache)
 		a += (c - b->entry)*msize + caddr;
+	else
+		a = a*CEPERBK + (c - b->entry) + caddr;
 	p1 = getbuf(devnone, Cwdump1, 0);
 	count = 0;
 
@@ -562,10 +560,10 @@ cwio(Device *dev, Off addr, void *buf, int opcode)
 
 	bn = addr % h->msize;
 	a1 = h->maddr + bn/BKPERBLK;
-	if (oldcachefmt)
-		a2 = bn*CEPERBK + h->caddr;
-	else
+	if (conf.newcache)
 		a2 = bn + h->caddr;
+	else
+		a2 = bn*CEPERBK + h->caddr;
 	max = h->wmax;
 
 	putbuf(cb);
@@ -583,10 +581,10 @@ cwio(Device *dev, Off addr, void *buf, int opcode)
 			cw->cdev, (Wideoff)a1);
 		return Cerror;
 	}
-	if (oldcachefmt)
-		a2 += c - b->entry;
-	else
+	if (conf.newcache)
 		a2 += (c - b->entry) * h->msize;
+	else
+		a2 += c - b->entry;
 
 	state = c->state;
 	switch(opcode) {
