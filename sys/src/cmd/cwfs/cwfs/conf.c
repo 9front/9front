@@ -19,7 +19,7 @@ localconfinit(void)
 	conf.nfile = 40000;
 	conf.nodump = 0;
 //	conf.nodump = 1;		/* jukebox is r/o */
-	conf.firstsb = 13219302;
+	conf.firstsb = 0;
 	conf.recovsb = 0;
 	conf.nlgmsg = 100;
 	conf.nsmmsg = 500;
