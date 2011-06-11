@@ -80,7 +80,7 @@ case go
 			} >/tmp/fsconfig
 		}
 		echo 'Reaming filesystem'
-		if(! $fstype -f $fs -c </tmp/fsconfig){
+		if(! $fstype -f $fs -C -c </tmp/fsconfig){
 			mountfs=ready
 			export mountfs
 			exit oops
@@ -111,7 +111,6 @@ case go
 		echo newuser upas +$user
 		if(! ~ $fsother ''){
 			echo cfs other
-			echo create /dist sys sys 775 d
 			echo create /usr sys sys 775 d
 			echo create /usr/$user $user $user 775 d
 			echo create /usr/$user/tmp $user $user 750 d
@@ -126,8 +125,7 @@ case go
 		sleep 2
 	if(! ~ $fsother ''){
 		log Mounting $fstype file server for $fsother
-		if(logprog mount -c /srv/$service /n/other other)
-			bind -qc /n/other/dist /n/newfs/dist
+		logprog mount -c /srv/$service /n/other other
 	}
 
 case checkready checkdone
