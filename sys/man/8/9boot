@@ -82,8 +82,6 @@ is the MAC address of the client's network card
 in lower case hex, and use this as its
 .IR plan9.ini (8)
 file.
-.SH SOURCE
-.BR /sys/src/boot/pc .
 .SH FILES
 .TP
 .B /386/pbs
@@ -93,5 +91,7 @@ file.
 .B /386/9bootiso
 .TP
 .B /386/9bootpxe
+.SH SOURCE
+.BR /sys/src/boot/pc .
 .SH "SEE ALSO"
 .IR plan9.ini (8)
