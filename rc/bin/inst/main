@@ -21,14 +21,13 @@ tasks=(\
 	mountdist\
 	download\
 	copydist\
-	nvramsetup\
+	ndbsetup nvramsetup\
 	bootsetup finish stop\
 	stopether stopppp\
 )
-#	startether startppp stopether stopppp download\
 
 # these don't show up in the menu but still matter
-pseudotasks=(configip havefiles etherup etherdown pppup pppdown)
+pseudotasks=(havefiles etherup etherdown pppup pppdown)
 
 for(i in $tasks $pseudotasks)
 	$i=notdone

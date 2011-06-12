@@ -1,16 +1,15 @@
 #!/bin/rc
 
-# prereq: configdist
-# desc: configure the network to download the distribution
+# desc: configure the network
 
 switch($1){
 case checkready checkdone
-	if(! ~ $distisfrom net){
-		confignet=notdone
+	if(~ $netisfrom none){
+		confignet=done
 		export confignet
 		exit
 	}
-	if(~ $distisfrom net && ~ $netisfrom ppp ether){
+	if(~ $netisfrom ppp ether){
 		x=config$netisfrom
 		$x=done
 		config$netisfrom checkdone
@@ -24,16 +23,15 @@ case checkready checkdone
 
 case go
 	devs=''
-	if(test -d '#l/ether0' >[2]/dev/null)
+	if(test -d /net/ether0 >[2]/dev/null)
 		devs=$devs^ether
-	if(test -f '#t'/eia? >[2]/dev/null)
+	if(test -f /dev/eia? >[2]/dev/null)
 		devs=$devs^ppp
 	
 	switch($devs){
 	case ''
 		echo
 		echo 'Could not find ethernet card nor serial port nor modem.'
-		echo 'Please use a local copy of the distribution archive.'
 		echo
 		netisfrom=none
 	
@@ -56,12 +54,16 @@ case go
 		echo 'You can connect to the internet via'
 		echo 'a local ethernet or a dial-up PPP connection.'
 		echo
-		prompt 'Interface to use' ether ppp
+		prompt -d ether 'Interface to use' ether ppp
 		netisfrom=$rd
 	}
 	
 	export netisfrom
 	if(~ $netisfrom ether ppp)
 		exec config$netisfrom go
-}
 
+	if(! test -f /srv/cs && ! test -f /net/cs)
+		ndb/cs
+	if(! test -f /srv/dns && ! test -f /net/dns)
+		ndb/dns -r
+}

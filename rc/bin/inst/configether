@@ -11,7 +11,7 @@ case go
 	echo '	dhcp - use DHCP to automatically configure'
 	echo
 	
-	prompt 'Configuration method' manual dhcp
+	prompt -d dhcp 'Configuration method' manual dhcp
 	ethermethod=$rd
 	gwaddr=xxx
 	ipaddr=xxx

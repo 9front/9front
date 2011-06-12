@@ -18,16 +18,6 @@ case checkready
 	}
 
 case go
-	if(! test -f /srv/cs) {
-		log starting cs, dns
-		logprog ndb/cs >>/srv/log >[2=1]
-		logprog ndb/dns -r >>/srv/log >[2=1]
-	}
-	if(! test -f /net/cs) {
-		logprog mount -a /srv/cs /net
-		logprog mount -a /srv/dns /net
-	}
-
 	# BUG make restartable
 	echo 'Downloading distribution package...'
 	baropt='-w 145,129,445,168'
