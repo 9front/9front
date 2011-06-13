@@ -60,9 +60,15 @@ case go
 
 	if(~ $need9fatformat yes){
 		log Initializing Plan 9 FAT partition.
-		disk/format -r 2 -d -b /386/pbs $9fat
-		mount -c /srv/dos /n/9fat $9fat
+		logprog disk/format -r 2 -d -b /386/pbs $9fat
+		logprog mount -c /srv/dos /n/9fat $9fat
 	}
+	if not {
+		log Updating bootsector.
+		logprog dd -if $9fat -of /n/9fat/pbs.bak -bs 512 -count 1
+		logprog disk/format -b /386/pbs $9fat
+	}
+
 	logprog rm -f /n/9fat/^(9bootfat plan9.ini 9pcf 9pccpuf)
 	logprog cp /n/newfs/386/9bootfat /n/9fat/9bootfat
 	# make file continous on disk
