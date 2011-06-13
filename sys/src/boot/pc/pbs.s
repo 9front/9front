@@ -36,8 +36,10 @@ TEXT _nhiddenhi(SB), $0
 TEXT _bigvolsize(SB), $0
 	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00;
 /* FAT32 structure, starting @0x24 */
-TEXT _fatsz32(SB), $0
-	BYTE $0x00; BYTE $0x00; BYTE $0x00; BYTE $0x00
+TEXT _fatsz32lo(SB), $0
+	BYTE $0x00; BYTE $0x00
+TEXT _fatsz32hi(SB), $0
+	BYTE $0x00; BYTE $0x00
 TEXT _extflags(SB), $0
 	BYTE $0x00; BYTE $0x00
 TEXT _fsver(SB), $0
@@ -76,14 +78,12 @@ _start0x5A:
 	MTSR(rAX, rES)
 
 	LWI(0x100, rCX)
-	MW(rSI,rBX)			/* address of partition record -> rBX */
 	LWI(RELOC, rSI)
 	MW(rSI, rSP)
 	LWI(_magic(SB), rDI)
 	CLD
 	REP; MOVSL			/* MOV DS:[(E)SI] -> ES:[(E)DI] */
 
-	PUSHA
 	MW(rSP, rBP)
 
 	PUSHR(rCX)
@@ -96,39 +96,41 @@ _halt:
 
 TEXT start16(SB), $0
 	STI
+
 	LWI(hello(SB), rSI)
 	CALL16(print16(SB))
 
-	PUSHR(rDX)
-	PUSHR(rBX)
+	PUSHR(rDX)	/* drive */
 
-	LB(_nfats(SB), rCL)		/* # of fats */
-	LW(_fatsize(SB), rAX)	/* fat size */
-	MUL(rCX)				/* DX:AX = #sectors */
-	JNE	_fatszok			/* zero? it's FAT32 */
+	CLR(rDX)
+	LW(_fatsize(SB), rAX)
+	CLR(rCX)
+	LB(_nfats(SB), rCL)
+	MUL(rCX)
+	OR(rCX, rCX)
+	JNE _fatszok	/* zero? it's FAT32 */
 
-	LW(_fatsz32+2(SB), rBX)	/* hi word */
-	IMUL(rCX, rBX)			/* ... in sectors */
-	LW(_fatsz32(SB), rAX)	/* lo word */
-	MUL(rCX)				/* ... in sectors */
-	ADD(rBX, rDX)			/* DX:AX = #sectors */
+	LW(_fatsz32hi(SB), rBX)
+	IMUL(rCX, rBX)
+	LW(_fatsz32lo(SB), rAX)
+	MUL(rCX)
+	ADD(rBX, rDX)
 
 _fatszok:
-	POPR(rBX)			/* address of partition record */
-
-	LXW(8, xBX, rCX)	/* lo partition LBA */
+	LW(_nhiddenlo(SB), rCX)
 	ADD(rCX, rAX)
-	LXW(10, xBX, rCX)	/* hi partition LBA */
+	LW(_nhiddenhi(SB), rCX)
 	ADC(rCX, rDX)
 
 	CLR(rBX)
-	LW(_nresrv(SB), rCX)	/* # of reserved */
+	LW(_nresrv(SB), rCX)
 	ADD(rCX, rAX)
 	ADC(rDX, rBX)
 
-	SW(rAX, _volid(SB))		/* save for later use */
-	SW(rDX, _volid+2(SB))
-	POPR(rDX)
+	SW(rAX, _volid(SB))	/* save for later use */
+	SW(rBX, _volid+2(SB))
+
+	POPR(rDX)	/* drive */
 
 	PUSHR(rBP)
 	LW(_sectsize(SB), rCX)
@@ -164,7 +166,7 @@ _nextdir:
 	JMP _nextsect
 
 _found:
-	PUSHR(rDX)
+	PUSHR(rDX)			/* drive */
 
 	CLR(rBX)
 
@@ -208,7 +210,7 @@ _found:
 	MW(rAX, rCX)
 	POPR(rBX)
 	POPR(rAX)
-	POPR(rDX)
+	POPR(rDX)			/* drive */
 
 	LWI(RELOC, rSI)
 	PUSHR(rSI)
