@@ -8,8 +8,9 @@ bind -q '#p' /proc
 for(i in S f k æ t)
 	bind -a '#'^$i /dev >/dev/null >[2=1]
 
-for(i in init user nvram rootdir bootargs nobootprompt sysname \
-	debugfactotum fs fsaddr auth authaddr){
+for(i in init sysname user nvram rootdir bootdisk bootargs \
+	nobootprompt debugfactotum \
+	fs fsaddr auth authaddr){
 	a=$$i
 	$i=()
 	rm -f '#e'/$i '#ec'/$i /env/$i
@@ -58,6 +59,7 @@ fn main{
 			ask bootargs ' is (tcp, local!device)' $bootargs
 		}
 		if not bootargs=$nobootprompt
+		nobootprompt=()
 		mn=`{echo $bootargs | awk -F! '{print $1}'}
 		ma=`{echo $bootargs | sed 's/[^!]*!?//'}
 		switch(m$"mn){
@@ -73,8 +75,11 @@ fn main{
 	# authentication agent
 	if(! test -f /srv/factotum){
 		x=(/boot/factotum -sfactotum)
-		if(~ $cpuflag 1)
+		if(~ $cpuflag 1){
 			x=($x -S)
+			if(~ -k $ff)
+				x=($x -k)
+		}
 		if not
 			x=($x -u)
 		if(! ~ $#authaddr 0)
@@ -96,6 +101,17 @@ fn main{
 		rootdir=/root
 	must mount -c /srv/boot $rootdir
 
+	# compile init command
+	if(~ $#init 0){
+		init=/$cputype/init
+		if(~ $cpuflag 1)
+			init=($init -c)
+		if not
+			init=($init -t)
+		if(~ -m $ff)
+			init=($init -m)
+	}
+
 	# remove enviroment variables
 	rm -f /env/^$mt /env/? /env/?? '/env/fn#'* 
 
@@ -111,13 +127,6 @@ fn main{
 	# remove the remaining temporary root
 	/mnt/broot/$cputype/bin/unmount /mnt/broot
 
-	if(~ $#init 0){
-		init=/$cputype/init
-		if(~ $cpuflag 1)
-			init=($init -c)
-		if not
-			init=($init -t)
-	}
 	exec $init
 }
 
@@ -139,6 +148,33 @@ for(i in I l^(0 1 2 3))
 	bind -qa '#'$i /net
 
 configlocal	# add partitions and binds
+
+# boot(8) command line arguments
+ff=()
+aa=()
+while(! ~ $#* 0){
+	if(~ $1 -*){
+		if(! ~ $1 -u*){
+			if(~ $1 -*f*)
+				ff=($ff -f)
+			if(~ $1 -*k*)
+				ff=($ff -k)
+			if(~ $1 -*m*)
+				ff=($ff -m)
+		}
+		shift
+	}
+	if not {
+		while(! ~ $#* 0){
+			aa=($aa $1)
+			shift
+		}
+	}
+}
+if(! ~ $#aa 0 && ~ $#bootargs 0 && ~ $#nobootprompt 0){
+	bootargs=$aa
+	nobootprompt=$aa
+}
 
 while(){
 	@{main}

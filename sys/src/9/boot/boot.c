@@ -4,14 +4,10 @@
 #include <fcall.h>
 #include "../boot/boot.h"
 
-char	cputype[64];
-int	mflag;
-int	fflag;
-int	kflag;
-
 void
 boot(int argc, char *argv[])
 {
+	char cputype[64];
 	char buf[32];
 
 	fmtinstall('r', errfmt);
@@ -37,18 +33,6 @@ boot(int argc, char *argv[])
 		print("\n");
 	}
 
-	ARGBEGIN{
-	case 'k':
-		kflag = 1;
-		break;
-	case 'm':
-		mflag = 1;
-		break;
-	case 'f':
-		fflag = 1;
-		break;
-	}ARGEND
-
 	readfile("#e/cputype", cputype, sizeof(cputype));
 	setenv("bootdisk", bootdisk, 0);
 	setenv("cpuflag", cpuflag ? "1" : "0", 0);
@@ -60,5 +44,5 @@ boot(int argc, char *argv[])
 	snprint(buf, sizeof(buf), "/%s/bin", cputype);
 	bind(buf, "/bin", MAFTER);
 	bind("/rc/bin", "/bin", MAFTER);
-	execl("/bin/bootrc", "bootrc", nil);
+	exec("/bin/bootrc", argv);
 }
