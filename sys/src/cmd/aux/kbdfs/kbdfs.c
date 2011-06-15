@@ -568,16 +568,19 @@ lineproc(void *aux)
 			case '\0':	/* flush */
 				nr = 0;
 				continue;
-			case '\b':	/* backspace */
-			case Knack:	/* ^U */
+			case Kbs:	/* ^H: erase character */
+			case Knack:	/* ^U: erase line */
+			case Ketb:	/* ^W: erase word */
 				while(nr > 0){
 					nr--;
 					fprint(1, "\b");
-					if(r == '\b')
+					if(r == Kbs)
+						break;
+					if(r == Ketb && utfrune(" \t", rb[nr]))
 						break;
 				}
 				continue;
-			case Keof:	/* ^D */
+			case Keof:	/* ^D: eof */
 				done = 1;
 				break;
 			case '\n':
