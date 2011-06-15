@@ -118,6 +118,7 @@ static int	ntptimediff(NTPserver *ns);
 static int	openfreqfile(void);
 static vlong	readfreqfile(int fd, vlong ohz, vlong minhz, vlong maxhz);
 static long	rtctime(void);
+static void	setrtctime(long);
 static vlong	sample(long (*get)(void));
 static void	setpriority(void);
 static void	setrootid(char *d);
@@ -145,6 +146,7 @@ main(int argc, char **argv)
 	int i, t, fd, nservenet;
 	int secs;		/* sampling period */
 	int tsecs;		/* temporary sampling period */
+	int syncrtc;
 	uvlong hz, minhz, maxhz, period, nhz;
 	vlong diff, accuracy, taccuracy;
 	char *servenet[4];
@@ -153,6 +155,7 @@ main(int argc, char **argv)
 
 	type = Fs;		/* by default, sync with the file system */
 	debug = 0;
+	syncrtc = 1;
 	accuracy = 1000000LL;	/* default accuracy is 1 millisecond */
 	nservenet = 0;
 	tsecs = secs = MinSampleSecs;
@@ -225,6 +228,7 @@ main(int argc, char **argv)
 	case 'r':
 		type = Rtc;
 		stratum = 0;
+		syncrtc = 0;
 		break;
 	case 'U':
 		type = Utc;
@@ -440,6 +444,10 @@ main(int argc, char **argv)
 				settime(-1, 0, diff, 4*secs);
 
 		}
+
+		if(syncrtc)
+			setrtctime(s->stime / SEC);
+
 		if(debug)
 			fprint(2, "δ %lld avgδ %lld f %lld\n", diff, avgerr, hz);
 
@@ -1231,6 +1239,21 @@ rtctime(void)
 				break;
 	}
 	return strtoul(b, 0, 10)+gmtdelta;
+}
+
+static void
+setrtctime(long t)
+{
+	static int f = -1;
+
+	if(f < 0)
+		f = open("/dev/rtc", OWRITE|OCEXEC);
+	if(f < 0)
+		return;
+	if(seek(f, 0, 0) < 0 || fprint(f, "%ld", t-gmtdelta) < 0){
+		close(f);
+		f = -1;
+	}
 }
 
 

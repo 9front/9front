@@ -15,8 +15,6 @@ case *
 path=(/bin)
 builtin cd /
 
-setrtc
-
 unmount /mnt/consoles >[2]/dev/null
 kill consolefs | rc			# don't compete with /mnt/consoles
 sleep 1
