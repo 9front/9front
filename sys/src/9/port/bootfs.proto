@@ -6,6 +6,7 @@ $cputype
 			kbdfs
 		bind
 		cat
+		cfs
 		cryptsetup
 		dd
 		disk
@@ -22,6 +23,7 @@ $cputype
 		mkdir
 		mntgen
 		mount
+		mv
 		rc
 		rm
 		sed

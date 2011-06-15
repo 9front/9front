@@ -8,7 +8,7 @@ bind -q '#p' /proc
 for(i in S f k æ t)
 	bind -a '#'^$i /dev >/dev/null >[2=1]
 
-for(i in init sysname user nvram rootdir bootdisk bootargs \
+for(i in init sysname user nvram rootdir cfs bootdisk bootargs \
 	nobootprompt debugfactotum \
 	fs fsaddr auth authaddr){
 	a=$$i
@@ -92,6 +92,20 @@ fn main{
 
 	# connect method
 	$mp(2) $ma
+
+	# insert cfs in the pipeline
+	if(test -x /bin/cfs){
+		if(~ $#bootdisk 1 && ~ $#cfs 0)
+			cfs=$bootdisk/cache
+		if(~ $#cfs 1 && ! ~ $cfs off && test -f $cfs){
+			x=(/bin/cfs -s -f $cfs)
+			if(~ -f $ff)
+				x=($x -r)
+			{$x </srv/boot &} | echo 0 >/srv/cfs
+			rm /srv/boot
+			mv /srv/cfs /srv/boot
+		}
+	}
 
 	# mount and change root in new enviroment and namespace
 	rfork ne
@@ -182,5 +196,5 @@ while(){
 	# cleanup so it can be restarted
 	nobootprompt=()
 	user=()
-	rm -f /srv/boot /srv/slashn /srv/cs /srv/dns
+	rm -f /srv/cfs /srv/boot /srv/slashn /srv/cs /srv/dns
 } </dev/cons >/dev/cons >[2]/dev/cons 

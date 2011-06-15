@@ -98,7 +98,7 @@ bootfs.paq:	../port/bootfs.proto
 	disk/mkfs -s / -d bootfs ../port/bootfs.proto
 	@{
 		cd bootfs/$objtype/bin
-		strip * */* >[2]/dev/null || status=''
+		strip * */* */*/* >[2]/dev/null || status=''
 	}
 	mkpaqfs -o $target bootfs
 	rm -rf bootfs
