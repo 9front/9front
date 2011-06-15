@@ -716,8 +716,6 @@ disk/format -b /386/pbs -d -r 2 /dev/sdC0/9fat \e
 .I Format
 can create FAT12 and FAT16
 file systems, but not FAT32 file systems.
-The boot block can only read from
-FAT12 and FAT16 file systems.
 .PP
 If
 .L "prep -p"
