@@ -186,7 +186,7 @@ attribute.
 .TP
 .B bootf
 file to download for initial bootstrap;
-.B /386/9pxeload
+.B /386/9bootpxe
 to boot a PC via PXE.
 .TP
 .B ipnet

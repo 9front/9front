@@ -696,23 +696,16 @@ disk/format -b /386/pbs -d -r 2 /dev/sdC0/9fat \e
 	/386/9bootfat /386/9pcf /tmp/plan9.ini
 .EE
 .SH FILES
-.TF /386/mbr.bootmgr
 .TP
 .B /386/mbr
 .TP
-.B /386/mbr.bootmgr
-self-configuring `smart boot manager'
+.B /386/pbs
 .SH SOURCE
 .TF /sys/src/cmd/disk/prep
 .TP
 .B /sys/src/cmd/disk/prep
 .TP
 .B /sys/src/boot/pc
-.TP
-.B /n/sources/extra/bootmgr.tgz
-source for
-.BR /386/mbr.bootmgr ;
-compilable on (l)unix
 .SH SEE ALSO
 .IR floppy (3),
 .IR sd (3),
