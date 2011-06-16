@@ -15,21 +15,14 @@ cat <<'---'
 ---
 
 awk '
-	BEGIN	{ cpuflag = 0; bootprog = "boot"; bootdisk = "#S/sdC0/"; rootdir = "/root"; }
+	BEGIN	{ bootprog = "boot"; bootdisk = "/dev/sdC0/"; }
 	$0 ~ "^boot" && $2=="cpu"\
-		{ cpuflag = 1
-		  if(NF == 4 && $3 == "boot")
+		{ if(NF == 4 && $3 == "boot")
 			bootdisk = $4
 		}
-	$0 ~ "^boot" && $2=="rootdir" && NF==3\
-		{ rootdir = $3 }
-	$0 ~ "^boot" && ($2=="bboot" || $2=="romboot" || $2=="dosboot")\
-		{ cpuflag = 1;  bootprog = $2; }
 	$0 ~ "^boot" && $2=="boot" && NF==3\
 		{ bootdisk = $3 }
-	END 	{ print "int cpuflag = " cpuflag ";"
-		  print "char* rootdir = \"" rootdir "\";"
-		  print "char* bootdisk = \"" bootdisk "\";"
+	END 	{ print "char* bootdisk = \"" bootdisk "\";"
 		  print "extern void " bootprog "(int, char**);"
 		  print "void"
 		  print "main(int argc, char **argv)"
@@ -38,17 +31,3 @@ awk '
 		  print "}"
 		}
 ' $1
-
-#
-#  configure in a cache file system if a 
-# /386/bin/root appears in the bootdir section.
-#
-../port/mkextract bootdir 0 $* | awk '
-	BEGIN			{ cfs = 0 }
-	$1 ~ "bin/cfs$"	{ cfs = 1 }
-	END			{ if(cfs)
-					print "int (*cfs)(int) = cache;"
-				  else
-					print "int (*cfs)(int) = 0;"
-				}
-	'

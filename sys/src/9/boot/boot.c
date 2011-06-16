@@ -35,7 +35,6 @@ boot(int argc, char *argv[])
 
 	readfile("#e/cputype", cputype, sizeof(cputype));
 	setenv("bootdisk", bootdisk, 0);
-	setenv("cpuflag", cpuflag ? "1" : "0", 0);
 
 	/* setup the boot namespace */
 	bind("/boot", "/bin", MAFTER);
