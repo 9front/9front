@@ -415,7 +415,6 @@ struct	Superb
 struct	Conf
 {
 	ulong	nmach;		/* processors */
-	ulong	mem;		/* total physical bytes of memory */
 	ulong	nuid;		/* distinct uids */
 	ulong	nserve;		/* server processes */
 	ulong	nfile;		/* number of fid -- system wide */

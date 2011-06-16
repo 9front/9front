@@ -21,7 +21,7 @@ OFILES=\
 	malloc.$O\
 	mworm.$O\
 	net.$O\
-	pc.$O\
+	proc.$O\
 	scsi.$O\
 	sub.$O\
 	time.$O\

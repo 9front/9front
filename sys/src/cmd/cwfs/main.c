@@ -128,8 +128,6 @@ confinit(void)
 {
 	conf.nmach = 1;
 
-	conf.mem = meminit();
-
 	conf.nuid = 1000;
 	conf.nserve = 15;		/* tunable */
 	conf.nfile = 30000;

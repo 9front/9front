@@ -1,6 +1,40 @@
 #include "all.h"
 #include "io.h"
 
+static ulong
+memsize(void)
+{
+	int nf, pgsize = 0;
+	ulong userpgs = 0, userused = 0;
+	char *ln, *sl;
+	char *fields[2];
+	Biobuf *bp;
+
+	bp = Bopen("#c/swap", OREAD);
+	if (bp != nil) {
+		while ((ln = Brdline(bp, '\n')) != nil) {
+			ln[Blinelen(bp)-1] = '\0';
+			nf = tokenize(ln, fields, nelem(fields));
+			if (nf != 2)
+				continue;
+			if (strcmp(fields[1], "pagesize") == 0)
+				pgsize = atoi(fields[0]);
+			else if (strcmp(fields[1], "user") == 0) {
+				sl = strchr(fields[0], '/');
+				if (sl == nil)
+					continue;
+				userpgs = atol(sl+1);
+				userused = atol(fields[0]);
+			}
+		}
+		Bterm(bp);
+		if (pgsize > 0 && userused > userpgs)
+			return (userpgs - userused)*pgsize;
+	}
+	return 64*MB;
+}
+
+
 long	niob;
 long	nhiob;
 Hiob	*hiob;
@@ -17,25 +51,9 @@ ialloc(ulong n, int align)
 
 	if (p == nil)
 		panic("ialloc: out of memory");
+	setmalloctag(p, getcallerpc(&n));
 	memset(p, 0, n);
 	return p;
-}
-
-void
-prbanks(void)
-{
-	Mbank *mbp;
-
-	for(mbp = mconf.bank; mbp < &mconf.bank[mconf.nbank]; mbp++)
-		print("bank[%ld]: base 0x%8.8lux, limit 0x%8.8lux (%.0fMB)\n",
-			mbp - mconf.bank, mbp->base, mbp->limit,
-			(mbp->limit - mbp->base)/(double)MB);
-}
-
-static void
-cmd_memory(int, char *[])
-{
-	prbanks();
 }
 
 enum { HWIDTH = 8 };		/* buffers per hash */
@@ -52,18 +70,11 @@ iobufinit(void)
 	char *xiop;
 	Iobuf *p, *q;
 	Hiob *hp;
-	Mbank *mbp;
 
 	wlock(&mainlock);	/* init */
 	wunlock(&mainlock);
 
-	if(chatty)
-		prbanks();
-
-	m = 0;
-	for(mbp = mconf.bank; mbp < &mconf.bank[mconf.nbank]; mbp++)
-		m += mbp->limit - mbp->base;
-
+	m = memsize() / 4;
 	niob = m / (sizeof(Iobuf) + RBUFSIZE + sizeof(Hiob)/HWIDTH);
 	nhiob = niob / HWIDTH;
 	while(!prime(nhiob))
@@ -104,19 +115,6 @@ iobufinit(void)
 		p++;
 		xiop += RBUFSIZE;
 	}
-
-	/*
-	 * Make sure that no more of bank[0] can be used.
-	 */
-	mconf.bank[0].base = mconf.bank[0].limit;
-
-	i = 0;
-	for(mbp = mconf.bank; mbp < &mconf.bank[mconf.nbank]; mbp++)
-		i += mbp->limit - mbp->base;
-	if(chatty)
-		print("\tmem left = %,d, out of %,ld\n", i, conf.mem);
-	/* paranoia: add this command as late as is easy */
-	cmd_install("memory", "-- print ranges of memory banks", cmd_memory);
 }
 
 void*

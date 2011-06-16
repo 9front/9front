@@ -131,7 +131,6 @@ void	machinit(void);
 Msgbuf*	mballoc(int, Chan*, int);
 void	mbinit(void);
 void	mbfree(Msgbuf*);
-ulong	meminit(void);
 Iobuf*	movebuf(Iobuf*);
 void	mcatinit(Device*);
 int	mcatread(Device*, Off, void*);
