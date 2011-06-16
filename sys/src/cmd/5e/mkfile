@@ -1,0 +1,7 @@
+</$objtype/mkfile
+
+TARG=5e
+OFILES=5e.$O seg.$O proc.$O util.$O arm.$O sys.$O
+HFILES=dat.h fns.h
+
+</sys/src/cmd/mkone
