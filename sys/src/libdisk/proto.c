@@ -208,6 +208,7 @@ mktree(Mkaux *mkaux, File *me, int rec)
 			if(child.old)
 				free(child.old);
 		}
+		free(d);
 	}
 	close(fd);
 }
