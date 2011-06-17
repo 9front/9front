@@ -82,16 +82,21 @@ otherwise on
 Reading the
 .BR cons
 file returns characters typed on the console.  Normally, characters
-are buffered to enable erase and kill processing.  A control-U, 
+are buffered to enable erase and kill processing.  
+A control-U, 
 .LR ^U ,
 typed at the keyboard
-.I kills
+.I erases
 the current input line (removes all
 characters from the buffer of characters not yet read via cons), and a
 backspace
 .I erases
 the previous non-kill, non-erase character from the
-input buffer.  Killing and erasing only delete characters back to, but
+input buffer.
+The combination control-W,
+.LR ^W ,
+deletes the input last word.
+Killing and erasing only delete characters back to, but
 not including, the last newline.  Characters typed at the keyboard
 actually produce 16-bit runes (see
 .IR utf (6)),
@@ -123,7 +128,8 @@ is in
 .IR "raw mode" :
 characters are not echoed as they are typed,
 backspace,
-.L ^U
+.L ^U,
+.L ^W
 and
 .L ^D
 are not treated specially, and characters are
@@ -177,7 +183,7 @@ will produce
 .B A
 in the string. The string following the
 .B c
-message contains the single character that would have been appeared
+message contains the single character that would have been returned
 on the
 .BR cons
 file instead. The

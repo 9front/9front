@@ -85,7 +85,11 @@ appear in both those directories.
 .PP
 Some of these files supply virtual versions of services available from the underlying
 environment, in particular the character terminal files
-.IR cons (3),
+.B cons
+and
+.B kbd
+(see
+.IR kbdfs (8)),
 and the mouse files
 .IR mouse (3)
 and
@@ -102,15 +106,15 @@ Other files are unique to
 .TF window
 .TP
 .B cons
-is a virtual version of the standard terminal file
-.IR cons (3).
+a virtual version of the standard terminal file from
+.IR kbdfs (8).
 .I Rio
 supplies extra editing features and a scroll bar
 (see
 .IR rio (1)).
 .TP
 .B consctl
-controls interpretation of keyboard input.
+controls interpretation of console input.
 Writing strings to it sets these modes:
 .B rawon
 turns on raw mode;
@@ -122,6 +126,14 @@ turns on hold mode;
 turns off hold mode.
 Closing the file makes the window revert to default state
 (raw off, hold off).
+.TP
+.B kbd
+represents the raw keyboard events (see
+.IR kbdfs(8))
+for the corresponding window. While open,
+navigation keys and input on the
+.IR cons
+file is disabled.
 .TP
 .B cursor
 Like
@@ -402,6 +414,6 @@ lp /dev/wsys/123/window
 .IR rio (1),
 .IR draw (3),
 .IR mouse (3),
-.IR cons (3),
+.IR kbdfs (8),
 .IR event (2),
 .IR graphics (2).
