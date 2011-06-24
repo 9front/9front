@@ -4,8 +4,9 @@ typedef struct Fdtable Fdtable;
 typedef struct Fd Fd;
 
 enum {
-	STACKTOP = 0x80000000UL,
-	STACKSIZE = 0x10000,
+	STACKSIZE = 0x100000,
+	
+	NAMEMAX = 27,
 	
 	FDBLOCK = 16,
 	SEGNUM = 8,
@@ -25,17 +26,23 @@ enum {
 };
 
 struct Process {
-	Segment* S[SEGNUM];
+	Segment *S[SEGNUM];
 	u32int R[16];		/* general purpose registers / PC (R15) */
 	u32int CPSR;		/* status register */
 	char errbuf[ERRMAX];
+	char name[NAMEMAX+1];
+	Ref *path; /* Ref + string data */
 	Fd *fd;
 	int pid;
+	Process *prev, *next;
 };
 
 extern void **_privates;
 extern int _nprivates;
 #define P (*(Process**)_privates)
+extern Ref nproc;
+extern Process plist;
+extern Lock plistlock;
 
 enum {
 	SEGFLLOCK = 1,
@@ -44,16 +51,16 @@ enum {
 struct Segment {
 	Ref;
 	int flags;
-	RWLock rw; /* lock for SEGLOCK segments */
+	RWLock rw; /* lock for SEGFLLOCK segments */
 	Lock lock; /* atomic accesses */
 	u32int start, size;
 	void *data;
-	Ref *ref;
+	Ref *dref;
 };
 
 struct Fd {
 	RWLock;
-	Ref ref;
+	Ref;
 	u8int *fds;
 	int nfds;
 };

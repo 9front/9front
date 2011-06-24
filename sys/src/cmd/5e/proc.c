@@ -8,12 +8,74 @@
 #include "dat.h"
 #include "fns.h"
 
+Process plist;
+Lock plistlock;
+
 void
 initproc(void)
 {
 	P = emallocz(sizeof(Process));
 	P->pid = getpid();
 	P->fd = newfd();
+	incref(&nproc);
+	plist.prev = P;
+	plist.next = P;
+	P->prev = &plist;
+	P->next = &plist;
+}
+
+void
+addproc(Process *p)
+{
+	lock(&plistlock);
+	p->prev = plist.prev;
+	p->next = &plist;
+	plist.prev->next = p;
+	plist.prev = p;
+	unlock(&plistlock);
+}
+
+void
+remproc(Process *p)
+{
+	lock(&plistlock);
+	p->prev->next = p->next;
+	p->next->prev = p->prev;
+	unlock(&plistlock);
+}
+
+Process *
+findproc(int pid)
+{
+	Process *p;
+
+	lock(&plistlock);
+	for(p = plist.next; p != &plist; p = p->next)
+		if(p->pid == pid)
+			break;
+	unlock(&plistlock);
+	if(p != &plist)
+		return p;
+	return nil;
+}
+
+static void
+copyname(char *file)
+{
+	char *p;
+	
+	p = strrchr(file, '/');
+	if(p == nil)
+		p = file;
+	else
+		p++;
+	strncpy(P->name, p, NAMEMAX);
+
+	if(P->path != nil && decref(P->path) == 0)
+		free(P->path);
+	P->path = emallocz(5 + strlen(file));
+	incref(P->path);
+	strcpy((char*)(P->path + 1), file);
 }
 
 static void
@@ -21,7 +83,7 @@ initstack(int argc, char **argv)
 {
 	ulong tos, sp, ap, size, i, len;
 	
-	tos = STACKTOP - sizeof(Tos) * 2;
+	tos = mach->utop - sizeof(Tos) * 2;
 	sp = tos;
 	
 	size = 8;
@@ -31,22 +93,22 @@ initstack(int argc, char **argv)
 	sp -= size;
 	sp &= ~7;
 	P->R[0] = tos;
-	P->R[1] = STACKTOP - 4;
+	P->R[1] = mach->utop - 4;
 	P->R[13] = sp;
 	
-	*(ulong *) vaddrnol(sp) = argc;
+	*(ulong *) vaddrnol(sp, 4) = argc;
 	sp += 4;
 	ap = sp + (argc + 1) * 4;
 	for(i = 0; i < argc; i++) {
-		*(ulong *) vaddrnol(sp) = ap;
+		*(ulong *) vaddrnol(sp, 4) = ap;
 		sp += 4;
 		len = strlen(argv[i]) + 1;
-		memcpy(vaddrnol(ap), argv[i], len);
+		memcpy(vaddrnol(ap, len), argv[i], len);
 		ap += len;
 	}
-	*(ulong *) vaddrnol(sp) = 0;
+	*(ulong *) vaddrnol(sp, 4) = 0;
 
-	((Tos *) vaddrnol(tos))->pid = getpid();
+	((Tos *) vaddrnol(tos, sizeof(Tos)))->pid = getpid();
 }
 
 static int
@@ -104,9 +166,9 @@ invalid:
 int
 loadtext(char *file, int argc, char **argv)
 {
-	int fd, i;
+	int fd;
 	Fhdr fp;
-	Segment *text, *data, *bss, *stack;
+	Segment *text, *data, *bss;
 	char buf[2];
 	
 	fd = open(file, OREAD);
@@ -114,21 +176,18 @@ loadtext(char *file, int argc, char **argv)
 	if(pread(fd, buf, 2, 0) == 2 && buf[0] == '#' && buf[1] == '!')
 		return loadscript(fd, file, argc, argv);
 	seek(fd, 0, 0);
-	if(crackhdr(fd, &fp) == 0) {
+	if(crackhdr(fd, &fp) == 0 || fp.magic != E_MAGIC) {
 		werrstr("exec header invalid");
 		return -1;
 	}
-	if(fp.magic != E_MAGIC) {
-		werrstr("exec header invalid");
-		return -1;
-	}
+	copyname(file);
 	freesegs();
 	memset(P->R, 0, sizeof(P->R));
 	P->CPSR = 0;
 	text = newseg(fp.txtaddr - fp.hdrsz, fp.txtsz + fp.hdrsz, SEGTEXT);
 	data = newseg(fp.dataddr, fp.datsz, SEGDATA);
 	bss = newseg(fp.dataddr + fp.datsz, fp.bsssz, SEGBSS);
-	stack = newseg(STACKTOP - STACKSIZE, STACKSIZE, SEGSTACK);
+	newseg(mach->utop - STACKSIZE, STACKSIZE, SEGSTACK);
 	seek(fd, fp.txtoff - fp.hdrsz, 0);
 	if(readn(fd, text->data, fp.txtsz + fp.hdrsz) < fp.txtsz + fp.hdrsz)
 		sysfatal("%r");
@@ -136,19 +195,11 @@ loadtext(char *file, int argc, char **argv)
 	if(readn(fd, data->data, fp.datsz) < fp.datsz)
 		sysfatal("%r");
 	memset(bss->data, 0, bss->size);
-	memset(stack->data, 0, stack->size);
 	P->R[15] = fp.entry;
 	if(havesymbols && syminit(fd, &fp) < 0)
 		fprint(2, "initializing symbol table: %r\n");
 	close(fd);
-	for(i = 0; i < P->fd->nfds * 8; i++)
-		if(iscexec(P->fd, i))
-			close(i);
-	wlock(P->fd);
-	free(P->fd->fds);
-	P->fd->fds = nil;
-	P->fd->nfds = 0;
-	wunlock(P->fd);
+	fdclear(P->fd);
 	initstack(argc, argv);
 	return 0;
 }
@@ -178,7 +229,7 @@ newfd(void)
 	Fd *fd;
 	
 	fd = emallocz(sizeof(*fd));
-	incref(&fd->ref);
+	incref(fd);
 	return fd;
 }
 
@@ -201,7 +252,7 @@ copyfd(Fd *old)
 void
 fddecref(Fd *fd)
 {
-	if(decref(&fd->ref) == 0) {
+	if(decref(fd) == 0) {
 		free(fd->fds);
 		free(fd);
 	}
@@ -240,5 +291,27 @@ setcexec(Fd *fd, int n, int status)
 		fd->fds[n / 8] &= ~(1 << (n % 8));
 	else
 		fd->fds[n / 8] |= (1 << (n % 8));
+	wunlock(fd);
+}
+
+void
+fdclear(Fd *fd)
+{
+	int i, j, k;
+
+	wlock(fd);
+	if(fd->nfds == 0) {
+		wunlock(fd);
+		return;
+	}
+	for(i = 0; i < fd->nfds; i++) {
+		j = fd->fds[i];
+		for(k = 0; k < 8; k++)
+			if(j & (1<<k))
+				close(8 * i + k);
+	}
+	free(fd->fds);
+	fd->nfds = 0;
+	fd->fds = nil;
 	wunlock(fd);
 }

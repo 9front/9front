@@ -4,9 +4,8 @@
 #include "dat.h"
 #include "fns.h"
 
-Process **PP;
-
-static int nflag;
+int nflag, pflag, bflag;
+Ref nproc;
 
 void
 dump(void)
@@ -37,16 +36,35 @@ cleanup(void)
 	if(P == nil)
 		return;
 
+	remproc(P);
+	decref(&nproc);
 	freesegs();
 	fddecref(P->fd);
+	if(P->path != nil && decref(P->path) == 0)
+		free(P->path);
 	free(P);
 }
 
 static void
 usage(void)
 {
-	fprint(2, "usage: 5e [ -n ] text [ args ]\n");
+	fprint(2, "usage: 5e [-npb] text [...]\n");
 	exits(nil);
+}
+
+void
+suicide(char *fmt, ...)
+{
+	va_list va;
+	char buf[1024];
+	
+	va_start(va, fmt);
+	vsnprint(buf, sizeof(buf), fmt, va);
+	va_end(va);
+	fprint(2, "%s\n", buf);
+	if(!bflag)
+		exits(buf);
+	abort();
 }
 
 void
@@ -54,6 +72,8 @@ main(int argc, char **argv)
 {
 	ARGBEGIN {
 	case 'n': nflag++; break;
+	case 'p': pflag++; break;
+	case 'b': bflag++; break;
 	default: usage();
 	} ARGEND;
 	if(argc < 1)
@@ -65,6 +85,8 @@ main(int argc, char **argv)
 	atexit(cleanup);
 	if(nflag)
 		adjustns();
+	if(pflag)
+		initfs("armproc", "/proc");
 	initproc();
 	if(loadtext(argv[0], argc, argv) < 0)
 		sysfatal("%r");

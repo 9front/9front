@@ -9,7 +9,7 @@ static u32int
 arg(int n)
 {
 	/* no locking necessary, since we're on the stack */
-	return *(u32int*) vaddrnol(P->R[13] + 4 + 4 * n);
+	return *(u32int*) vaddrnol(P->R[13] + 4 + 4 * n, 4);
 }
 
 static u64int
@@ -127,7 +127,7 @@ sysseek(void)
 	vlong n, *ret;
 	Segment *seg;
 	
-	ret = vaddr(arg(0), &seg);
+	ret = vaddr(arg(0), 8, &seg);
 	fd = arg(1);
 	n = argv(2);
 	type = arg(4);
@@ -202,7 +202,7 @@ sysexits(void)
 	if(arg(0) == 0)
 		exits(nil);
 	else
-		exits(vaddrnol(arg(0)));
+		exits(vaddrnol(arg(0), 0));
 }
 
 static void
@@ -218,10 +218,10 @@ sysbrk(void)
 		sysfatal("bss length < 0, wtf?");
 	s = P->S[SEGBSS];
 	wlock(&s->rw);
-	s->ref = realloc(s->ref, v - s->start + 4);
-	if(s->ref == nil)
+	s->dref = realloc(s->dref, v - s->start + 4);
+	if(s->dref == nil)
 		sysfatal("error reallocating");
-	s->data = s->ref + 1;
+	s->data = s->dref + 1;
 	if(s->size < v - s->start)
 		memset((char*)s->data + s->size, 0, v - s->start - s->size);
 	s->size = v - s->start;
@@ -276,16 +276,17 @@ sysrfork(void)
 	Process *p;
 	Segment *s, *t;
 	Fd *old;
-	enum {
-		RFORKPASS = RFENVG | RFCENVG | RFNOTEG | RFNOMNT | RFNAMEG | RFCNAMEG | RFNOWAIT | RFREND | RFFDG | RFCFDG,
-		RFORKHANDLED = RFPROC | RFMEM,
-	};
 	
 	flags = arg(0);
 	if(systrace)
 		fprint(2, "rfork(%#o)\n", flags);
-	if(flags & ~(RFORKPASS | RFORKHANDLED))
-		sysfatal("rfork with unhandled flags %#o", flags & ~(RFORKPASS | RFORKHANDLED));
+	if((flags & (RFFDG | RFCFDG)) == (RFFDG | RFCFDG) ||
+	   (flags & (RFNAMEG | RFCNAMEG)) == (RFNAMEG | RFCNAMEG) ||
+	   (flags & (RFENVG | RFCENVG)) == (RFENVG | RFCENVG)) {
+		P->R[0] = -1;
+		cherrstr("bad arg in syscall");
+		return;
+	}
 	if((flags & RFPROC) == 0) {
 		if(flags & RFFDG) {
 			old = P->fd;
@@ -297,9 +298,10 @@ sysrfork(void)
 			P->fd = newfd();
 			fddecref(old);
 		}
-		P->R[0] = noteerr(rfork(flags & RFORKPASS), 0);
+		P->R[0] = noteerr(rfork(flags), 0);
 		return;
 	}
+	incref(&nproc);
 	p = emallocz(sizeof(Process));
 	memcpy(p, P, sizeof(Process));
 	for(i = 0; i < SEGNUM; i++) {
@@ -311,15 +313,15 @@ sysrfork(void)
 			incref(t);
 			t->size = s->size;
 			t->start = s->start;
-			t->ref = emalloc(sizeof(Ref) + s->size);
-			memset(t->ref, 0, sizeof(Ref));
-			incref(t->ref);
-			t->data = t->ref + 1;
+			t->dref = emalloc(sizeof(Ref) + s->size);
+			memset(t->dref, 0, sizeof(Ref));
+			incref(t->dref);
+			t->data = t->dref + 1;
 			memcpy(t->data, s->data, s->size);
 			p->S[i] = t;
 		} else {
+			incref(s->dref);
 			incref(s);
-			incref(s->ref);
 		}
 	}
 	
@@ -328,15 +330,17 @@ sysrfork(void)
 	else if(flags & RFCFDG)
 		p->fd = newfd();
 	else
-		incref(&P->fd->ref);
+		incref(P->fd);
 
-	rc = rfork(RFPROC | RFMEM | (flags & RFORKPASS));
-	if(rc < 0)
-		sysfatal("rfork: %r");
+	incref(P->path);
+	rc = rfork(RFMEM | flags);
+	if(rc < 0) /* this should NEVER happen */
+		sysfatal("rfork failed wtf: %r");
 	if(rc == 0) {
 		P = p;
 		atexit(cleanup);
 		P->pid = getpid();
+		addproc(P);
 	}
 	P->R[0] = rc;
 }
@@ -351,16 +355,16 @@ sysexec(void)
 	
 	name = arg(0);
 	argv = arg(1);
-	namet = strdup(vaddr(name, &seg1));
+	namet = strdup(vaddr(name, 0, &seg1));
 	segunlock(seg1);
-	argvt = vaddr(argv, &seg1);
+	argvt = vaddr(argv, 0, &seg1);
 	if(systrace)
 		fprint(2, "exec(%#ux=\"%s\", %#ux)\n", name, namet, argv);
 	for(argc = 0; argvt[argc]; argc++)
 		;
 	argvv = emalloc(sizeof(char *) * argc);
 	for(i = 0; i < argc; i++) {
-		argvv[i] = strdup(vaddr(argvt[i], &seg2));
+		argvv[i] = strdup(vaddr(argvt[i], 0, &seg2));
 		segunlock(seg2);
 	}
 	segunlock(seg1);

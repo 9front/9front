@@ -1,7 +1,7 @@
 </$objtype/mkfile
 
 TARG=5e
-OFILES=5e.$O seg.$O proc.$O util.$O arm.$O sys.$O
+OFILES=5e.$O seg.$O proc.$O util.$O arm.$O sys.$O fs.$O
 HFILES=dat.h fns.h
 BIN=/$objtype/bin
 
