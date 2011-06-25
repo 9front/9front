@@ -80,6 +80,22 @@ notehandler(void *, char *note)
 	return 1;
 }
 
+static void
+dotext(int argc, char **argv)
+{
+	char *file;
+	
+	if(**argv == '/' || **argv == '.' || **argv == '#') {
+		if(loadtext(*argv, argc, argv) < 0)
+			sysfatal("loadtext: %r");
+		return;
+	}
+	file = smprint("/bin/%s", *argv);
+	if(loadtext(file, argc, argv) < 0)
+		sysfatal("loadtext: %r");
+	free(file);
+}
+
 void
 main(int argc, char **argv)
 {
@@ -96,13 +112,12 @@ main(int argc, char **argv)
 	if(rfork(RFREND | RFNAMEG | RFENVG) < 0)
 		sysfatal("rfork: %r");
 	atexit(cleanup);
-	if(nflag)
+	if(!nflag)
 		adjustns();
 	if(pflag)
 		initfs("armproc", "/proc");
 	initproc();
-	if(loadtext(argv[0], argc, argv) < 0)
-		sysfatal("%r");
+	dotext(argc, argv);
 	atnotify(notehandler, 1);
 	for(;;) {
 		if(ultraverbose)
