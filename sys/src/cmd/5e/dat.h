@@ -32,6 +32,9 @@ struct Process {
 	Segment *S[SEGNUM];	/* memory */
 	u32int R[16];		/* general purpose registers / PC (R15) */
 	u32int CPSR;		/* status register */
+	
+	u32int FPSR;
+	long double F[8];
 
 	char errbuf[ERRMAX];
 	Fd *fd;			/* bitmap of OCEXEC files */

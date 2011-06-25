@@ -19,7 +19,7 @@ enum {
 	fH = 1<<5,
 };
 
-static void
+void
 invalid(u32int instr)
 {
 	suicide("undefined instruction %8ux @ %8ux", instr, P->R[15] - 4);
@@ -467,6 +467,12 @@ step(void)
 		syscall();
 	else if((instr & (7<<25)) == (4 << 25))
 		block(instr);
+	else if((instr & 0x0E000F00) == 0x0C000100)
+		fpatransfer(instr);
+	else if((instr & 0x0E000F10) == 0x0E000100)
+		fpaoperation(instr);
+	else if((instr & 0x0E000F10) == 0x0E000110)
+		fparegtransfer(instr);
 	else
 		invalid(instr);
 }
