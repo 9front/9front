@@ -94,6 +94,7 @@ copyifnec(u32int addr, int len, int *copied)
 	if(len < 0)
 		len = strlen(targ) + 1;
 	ret = emalloc(len);
+	setmalloctag(ret, getcallerpc(&addr));
 	memcpy(ret, targ, len);
 	segunlock(seg);
 	*copied = 1;
@@ -103,7 +104,7 @@ copyifnec(u32int addr, int len, int *copied)
 void *
 bufifnec(u32int addr, int len, int *buffered)
 {
-	void *targ;
+	void *targ, *v;
 	Segment *seg;
 	
 	targ = vaddr(addr, len, &seg);
@@ -113,7 +114,9 @@ bufifnec(u32int addr, int len, int *buffered)
 	}
 	segunlock(seg);
 	*buffered = 1;
-	return emalloc(len);
+	v = emalloc(len);
+	setmalloctag(v, getcallerpc(&addr));
+	return v;
 }
 
 void
@@ -122,8 +125,10 @@ copyback(u32int addr, int len, void *data)
 	void *targ;
 	Segment *seg;
 
-	if(len <= 0)
+	if(len <= 0) {
+		free(data);
 		return;
+	}
 	targ = vaddr(addr, len, &seg);
 	memmove(targ, data, len);
 	segunlock(seg);

@@ -181,6 +181,7 @@ loadtext(char *file, int argc, char **argv)
 		return -1;
 	}
 	copyname(file);
+	P->notehandler = P->innote = P->notein = P->noteout = 0;
 	freesegs();
 	memset(P->R, 0, sizeof(P->R));
 	P->CPSR = 0;
@@ -314,4 +315,67 @@ fdclear(Fd *fd)
 	fd->nfds = 0;
 	fd->fds = nil;
 	wunlock(fd);
+}
+
+/* call this from a notehandler if you don't want the front to fall off */
+void
+addnote(char *msg)
+{
+	int new;
+	
+	new = P->notein + 1;
+	if((new - P->noteout) % NNOTE == 0)
+		return;
+
+	strncpy(P->notes[P->notein % NNOTE], msg, ERRMAX - 1);
+	P->notein = new;
+}
+
+/* the following code is not for the weak of heart */
+void
+donote(char *msg, ulong type)
+{
+	int rc;
+	u32int *ureg, *sp, uregp, msgp;
+	char *msgb;
+
+	if(P->notehandler == 0)
+		exits(msg);
+
+	uregp = P->R[13] - 18 * 4;
+	ureg = vaddrnol(uregp, 18 * 4);
+	memcpy(ureg, P->R, 15 * 4);
+	ureg[15] = type;
+	ureg[16] = P->CPSR;
+	ureg[17] = P->R[15];
+	P->R[13] = uregp;
+	msgp = P->R[13] -= strlen(msg) + 1;
+	msgb = vaddrnol(msgp, strlen(msg) + 1);
+	strcpy(msgb, msg);
+	P->R[13] -= 3 * 4;
+	sp = vaddrnol(P->R[13], 3 * 4);
+	sp[0] = 0;
+	sp[2] = msgp;
+	P->R[0] = uregp;
+	P->R[15] = P->notehandler;
+	P->innote = 1;
+	switch(rc = setjmp(P->notejmp) - 1) {
+	case -1:
+		for(;;) {
+			if(ultraverbose)
+				dump();
+			step();
+		}
+	case NDFLT:
+		exits(msg);
+	case NCONT:
+		break;
+	default:
+		sysfatal("unhandled noted argument %d", rc);
+	}
+	P->innote = 0;
+	ureg = vaddrnol(uregp, 18 * 4); /* just to be sure */
+	memcpy(P->R, ureg, 15 * 4);
+	P->CPSR = ureg[16];
+	P->R[15] = ureg[17];
 }

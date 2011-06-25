@@ -27,3 +27,6 @@ void fdclear(Fd *);
 void addproc(Process *);
 void remproc(Process *);
 Process *findproc(int);
+void donote(char *, ulong);
+void addnote(char *);
+void dump(void);

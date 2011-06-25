@@ -12,6 +12,7 @@ emalloc(u32int size)
 	v = malloc(size);
 	if(v == nil)
 		sysfatal("%r");
+	setmalloctag(v, getcallerpc(&size));
 	return v;
 }
 
@@ -22,6 +23,7 @@ emallocz(u32int size)
 	
 	v = emalloc(size);
 	memset(v, 0, size);
+	setmalloctag(v, getcallerpc(&size));
 	return v;
 }
 
@@ -33,5 +35,6 @@ erealloc(void *old, u32int size)
 	v = realloc(old, size);
 	if(v == nil)
 		sysfatal("%r");
+	setrealloctag(v, getcallerpc(&old));
 	return v;
 }

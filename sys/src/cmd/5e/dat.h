@@ -5,10 +5,8 @@ typedef struct Fd Fd;
 
 enum {
 	STACKSIZE = 0x100000,
-	
 	NAMEMAX = 27,
-	
-	FDBLOCK = 16,
+	NNOTE = 5,
 	SEGNUM = 8,
 
 	flN = 1<<31,
@@ -26,15 +24,24 @@ enum {
 };
 
 struct Process {
-	Segment *S[SEGNUM];
+	Process *prev, *next;	/* linked list (for fs) */
+	int pid;
+	char name[NAMEMAX+1];	/* name for status file */
+	Ref *path;		/* Ref + string data */
+
+	Segment *S[SEGNUM];	/* memory */
 	u32int R[16];		/* general purpose registers / PC (R15) */
 	u32int CPSR;		/* status register */
+
 	char errbuf[ERRMAX];
-	char name[NAMEMAX+1];
-	Ref *path; /* Ref + string data */
-	Fd *fd;
-	int pid;
-	Process *prev, *next;
+	Fd *fd;			/* bitmap of OCEXEC files */
+	
+	/* note handling */
+	u32int notehandler;
+	int innote;
+	jmp_buf notejmp;
+	char notes[ERRMAX][NNOTE];
+	long notein, noteout;
 };
 
 extern void **_privates;
@@ -69,4 +76,3 @@ struct Fd {
 #define havesymbols 0
 #define ultraverbose 0
 #define systrace 0
-

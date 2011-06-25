@@ -197,6 +197,46 @@ sysfstat(void)
 }
 
 static void
+syswstat(void)
+{
+	u32int name, edir, nedir;
+	char *namet;
+	void *edirt;
+	int copied, copied2;
+	
+	name = arg(0);
+	namet = copyifnec(name, -1, &copied);
+	edir = arg(1);
+	nedir = arg(2);
+	edirt = copyifnec(edir, nedir, &copied2);
+	if(systrace)
+		fprint(2, "wstat(%#ux=\"%s\", %#ux, %ud)\n", name, namet, edir, nedir);
+	P->R[0] = noteerr(wstat(namet, edirt, nedir), nedir);
+	if(copied)
+		free(namet);
+	if(copied2)
+		free(edirt);
+}
+
+static void
+sysfwstat(void)
+{
+	u32int fd, edir, nedir;
+	void *edirt;
+	int copied;
+	
+	fd = arg(0);
+	edir = arg(1);
+	nedir = arg(2);
+	edirt = copyifnec(edir, nedir, &copied);
+	if(systrace)
+		fprint(2, "fwstat(%d, %#ux, %d)\n", fd, edir, nedir);
+	P->R[0] = noteerr(fwstat(fd, edirt, nedir), nedir);
+	if(copied)
+		free(edirt);
+}
+
+static void
 sysexits(void)
 {
 	if(arg(0) == 0)
@@ -266,6 +306,27 @@ syschdir(void)
 static void
 sysnotify(void)
 {
+	u32int handler;
+	
+	handler = arg(0);
+	if(systrace)
+		fprint(2, "notify(%#ux)\n", handler);
+	P->notehandler = handler;
+	P->R[0] = 0;
+}
+
+static void
+sysnoted(void)
+{
+	u32int v;
+	
+	v = arg(0);
+	if(systrace)
+		fprint(2, "noted(%d)\n", v);
+	if(P->innote)
+		longjmp(P->notejmp, v + 1);
+	cherrstr("the front fell off");
+	P->R[0] = -1;
 }
 
 static void
@@ -541,6 +602,17 @@ sysremove(void)
 		free(filet);
 }
 
+static void
+sysalarm(void)
+{
+	u32int msec;
+	
+	msec = arg(0);
+	if(systrace)
+		fprint(2, "alarm(%d)\n", msec);
+	P->R[0] = alarm(msec);
+}
+
 void
 syscall(void)
 {
@@ -556,10 +628,13 @@ syscall(void)
 		[ERRSTR] syserrstr,
 		[STAT] sysstat,
 		[FSTAT] sysfstat,
+		[WSTAT] syswstat,
+		[FWSTAT] sysfwstat,
 		[SEEK] sysseek,
 		[CHDIR] syschdir,
 		[FD2PATH] sysfd2path,
 		[NOTIFY] sysnotify,
+		[NOTED] sysnoted,
 		[RFORK] sysrfork,
 		[EXEC] sysexec,
 		[AWAIT] sysawait,
@@ -571,6 +646,7 @@ syscall(void)
 		[DUP] sysdup,
 		[MOUNT] sysmount,
 		[REMOVE] sysremove,
+		[ALARM] sysalarm,
 	};
 	
 	n = P->R[0];

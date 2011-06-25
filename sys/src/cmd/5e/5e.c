@@ -67,6 +67,19 @@ suicide(char *fmt, ...)
 	abort();
 }
 
+int
+notehandler(void *, char *note)
+{
+	if(strncmp(note, "sys:", 4) == 0)
+		return 0;
+	
+	if(strncmp(note, "emu:", 4) == 0)
+		exits(note);
+
+	addnote(note);
+	return 1;
+}
+
 void
 main(int argc, char **argv)
 {
@@ -90,9 +103,14 @@ main(int argc, char **argv)
 	initproc();
 	if(loadtext(argv[0], argc, argv) < 0)
 		sysfatal("%r");
+	atnotify(notehandler, 1);
 	for(;;) {
 		if(ultraverbose)
 			dump();
 		step();
+		while((P->notein - P->noteout) % NNOTE) {
+			donote(P->notes[P->noteout % NNOTE], 0);
+			ainc(&P->noteout);
+		}
 	}
 }
