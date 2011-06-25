@@ -4,14 +4,6 @@
 #include <u.h>
 #include <lib9.h>
 
-#if defined(T386)
-#define	FPINVAL	(1<<0)
-#elif defined(Tarm)
-#define FPINVAL (1<<16)
-#else
-Error define FPINVAL for your arch. grep /$cputype/include/u.h
-#endif
-
 Threadarg *_threadarg;
 
 extern DL_EXPORT(int) Py_Main(int, char **);
@@ -21,7 +13,14 @@ main(int argc, char **argv)
 {
 	Threadarg ta;
 
-	setfcr(getfcr()&~FPINVAL);
+#if defined(T386)
+	setfcr(getfcr()&~(1<<0));
+#elif defined(Tarm)
+	setfsr(getfsr()&~(1<<16));
+#else
+Error define code for disabling fp exceptions for your arch.
+#endif
+
 	memset(&ta, 0, sizeof ta);
 	_threadarg = &ta;
 	if(setjmp(ta.jb)){
