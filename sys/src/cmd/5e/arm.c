@@ -19,10 +19,10 @@ enum {
 	fH = 1<<5,
 };
 
-static void
+void
 invalid(u32int instr)
 {
-	sysfatal("undefined instruction %8ux @ %8ux", instr, P->R[15] - 4);
+	suicide("undefined instruction %8ux @ %8ux", instr, P->R[15] - 4);
 }
 
 static u32int
@@ -81,7 +81,7 @@ single(u32int instr)
 		addr = *Rn;
 	if(instr & fP)
 		addr += offset;
-	targ = vaddr(addr, &seg);
+	targ = vaddr(addr, 4, &seg);
 	switch(instr & (fB | fL)) {
 	case 0:
 		*(u32int*) targ = *Rd;
@@ -120,7 +120,7 @@ swap(u32int instr)
 	Rn = P->R + ((instr >> 16) & 15);
 	if(Rm == P->R + 15 || Rd == P->R + 15 || Rn == P->R + 15)
 		invalid(instr);
-	targ = (u32int *) vaddr(*Rn, &seg);
+	targ = (u32int *) vaddr(*Rn, 4, &seg);
 	lock(&seg->lock);
 	if(instr & fB) {
 		tmp = *(u8int*) targ;
@@ -256,11 +256,11 @@ halfword(u32int instr)
 	if(instr & fP)
 		target += offset;
 	switch(instr & (fSg | fH | fL)) {
-	case fSg: *(u8int*) vaddr(target, &seg) = *Rd; break;
-	case fSg | fL: *Rd = (long) *(char*) vaddr(target, &seg); break;
-	case fH: case fSg | fH: *(u16int*) vaddr(target, &seg) = *Rd; break;
-	case fH | fL: *Rd = *(u16int*) vaddr(target, &seg); break;
-	case fH | fL | fSg: *Rd = (long) *(short*) vaddr(target, &seg); break;
+	case fSg: *(u8int*) vaddr(target, 1, &seg) = *Rd; break;
+	case fSg | fL: *Rd = (long) *(char*) vaddr(target, 1, &seg); break;
+	case fH: case fSg | fH: *(u16int*) vaddr(target, 2, &seg) = *Rd; break;
+	case fH | fL: *Rd = *(u16int*) vaddr(target, 2, &seg); break;
+	case fH | fL | fSg: *Rd = (long) *(short*) vaddr(target, 2, &seg); break;
 	}
 	segunlock(seg);
 	if(!(instr & fP))
@@ -289,9 +289,9 @@ block(u32int instr)
 			if(instr & fP)
 				targ += 4;
 			if(instr & fL)
-				P->R[i] = *(u32int*) vaddr(targ, &seg);
+				P->R[i] = *(u32int*) vaddr(targ, 4, &seg);
 			else
-				*(u32int*) vaddr(targ, &seg) = P->R[i];
+				*(u32int*) vaddr(targ, 4, &seg) = P->R[i];
 			segunlock(seg);
 			if(!(instr & fP))
 				targ += 4;
@@ -303,9 +303,9 @@ block(u32int instr)
 			if(instr & fP)
 				targ -= 4;
 			if(instr & fL)
-				P->R[i] = *(u32int*) vaddr(targ, &seg);
+				P->R[i] = *(u32int*) vaddr(targ, 4, &seg);
 			else
-				*(u32int*) vaddr(targ, &seg) = P->R[i];
+				*(u32int*) vaddr(targ, 4, &seg) = P->R[i];
 			segunlock(seg);
 			if(!(instr & fP))
 				targ -= 4;
@@ -382,7 +382,7 @@ singleex(u32int instr)
 	if(Rd == P->R + 15 || Rn == P->R + 15)
 		invalid(instr);
 	if(instr & fS) {
-		targ = vaddr(*Rn, &seg);
+		targ = vaddr(*Rn, 4, &seg);
 		lock(&seg->lock);
 		*Rd = *targ;
 		segunlock(seg);
@@ -390,11 +390,11 @@ singleex(u32int instr)
 		Rm = P->R + (instr & 15);
 		if(Rm == P->R + 15)
 			invalid(instr);
-		targ = vaddr(*Rn, &seg);
+		targ = vaddr(*Rn, 4, &seg);
 		if(canlock(&seg->lock)) {
 			*Rd = 1;
 		} else {
-			*targ = *Rd;
+			*targ = *Rm;
 			unlock(&seg->lock);
 			*Rd = 0;
 		}
@@ -408,7 +408,7 @@ step(void)
 	u32int instr;
 	Segment *seg;
 
-	instr = *(u32int*) vaddr(P->R[15], &seg);
+	instr = *(u32int*) vaddr(P->R[15], 4, &seg);
 	segunlock(seg);
 	if(fulltrace) {
 		print("%d ", P->pid);
@@ -467,6 +467,12 @@ step(void)
 		syscall();
 	else if((instr & (7<<25)) == (4 << 25))
 		block(instr);
+	else if((instr & 0x0E000F00) == 0x0C000100)
+		fpatransfer(instr);
+	else if((instr & 0x0E000F10) == 0x0E000100)
+		fpaoperation(instr);
+	else if((instr & 0x0E000F10) == 0x0E000110)
+		fparegtransfer(instr);
 	else
 		invalid(instr);
 }

@@ -10,7 +10,7 @@ ls, lc \- list contents of directory
 .PP
 .B lc
 [
-.B -dlmnqrstuFQT
+.B -dlmnqrstuQT
 ]
 .I name ...
 .SH DESCRIPTION

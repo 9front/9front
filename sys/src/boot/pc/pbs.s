@@ -107,7 +107,7 @@ TEXT start16(SB), $0
 	CLR(rCX)
 	LB(_nfats(SB), rCL)
 	MUL(rCX)
-	OR(rCX, rCX)
+	OR(rAX, rAX)
 	JNE _fatszok	/* zero? it's FAT32 */
 
 	LW(_fatsz32hi(SB), rBX)
