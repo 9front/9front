@@ -23,6 +23,7 @@ enum
 	Qnoteid,
 	Qnotepg,
 	Qns,
+	Qppid,
 	Qproc,
 	Qregs,
 	Qsegment,
@@ -87,6 +88,7 @@ Dirtab procdir[] =
 	"noteid",	{Qnoteid},	0,			0664,
 	"notepg",	{Qnotepg},	0,			0000,
 	"ns",		{Qns},		0,			0444,
+	"ppid",		{Qppid},	0,			0444,
 	"proc",		{Qproc},	0,			0400,
 	"regs",		{Qregs},	sizeof(Ureg),		0000,
 	"segment",	{Qsegment},	0,			0444,
@@ -417,6 +419,7 @@ procopen(Chan *c, int omode)
 	case Qregs:
 	case Qfpregs:
 	case Qsyscall:	
+	case Qppid:
 		nonone(p);
 		break;
 
@@ -963,6 +966,8 @@ procread(Chan *c, void *va, long n, vlong off)
 
 	case Qnoteid:
 		return readnum(offset, va, n, p->noteid, NUMSIZE);
+	case Qppid:
+		return readnum(offset, va, n, p->parentpid, NUMSIZE);
 	case Qfd:
 		return procfds(p, va, n, offset);
 	}
