@@ -1,0 +1,10 @@
+</$objtype/mkfile
+
+TARG=hgfs
+CFLAGS=-FTVw
+
+HFILES=dat.h fns.h
+
+OFILES=zip.$O patch.$O hash.$O revlog.$O tree.$O info.$O fs.$O
+
+</sys/src/cmd/mkone
