@@ -1,0 +1,137 @@
+.TH 5E 1
+.SH NAME
+5e \- user-mode ARM emulation
+.SH SYNOPSIS
+.B 5e
+[
+.B -npb
+]
+.I text
+[
+.I arguments
+]
+.SH DESCRIPTION
+.I 5e
+simulates the execution of an ARM binary in a Plan 9 environment.
+Unlike its predecessor
+.IR 5i (1)
+it supports, among others, the syscalls
+.IR rfork (2)
+and
+.IR exec (2),
+i.e. it allows execution of threaded programs, e.g.
+.IR rio (1)
+or
+.IR catclock (1).
+.PP
+.I 5e
+executes the specified binary
+.IR text ,
+which is prepended by
+.B /bin
+if it does not begin with a slash, dot or hash sign.
+Unless
+.B -n
+is specified,
+.B /bin
+is replaced by the union of
+.B /arm/bin
+and
+.BR /rc/bin .
+.PP
+Unlike
+.IR 5i (1),
+.IR 5e (1)
+does not provide built-in debugging facilities.
+It
+.I does
+provide emulation of the
+.B /proc
+directory, if the
+.B -p
+flag is specified, to attach a proper debugger like
+.IR acid (1).
+There is no equivalent of the profiling facilities, no caches or TLBs are simulated, either.
+.PP
+.IR 5e (1)
+currently has three options.
+.TP
+.B -n
+By default,
+.IR 5e (1)
+replaces
+.B /bin
+as mentioned above and also sets the variables
+.B cputype
+and
+.B objtype
+to
+.BR arm.
+Supplying the
+.B -n
+option suppresses this behaviour.
+.TP
+.B -p
+The
+.B -p
+option activates emulation of a 
+.B /proc
+file system, which is mounted at
+.B /proc
+and also posted as
+.BR /srv/armproc ,
+cf.
+.IR srv (3).
+.TP
+.B -b
+Supplying
+.B -b
+causes failing processes to call
+.IR abort (2)
+instead of
+.IR sysfatal (2),
+but see below.
+.SH SOURCE
+.B /sys/src/cmd/5e
+.SH SEE ALSO
+.IR 5i (1)
+.SH BUGS
+The host is required to be little endian and is assumed to have a floating point implementation conforming to IEEE 754.
+
+Broken processes are simulated in a rather unsatisfactory manner.
+The
+.B -b
+option leaks memory.
+The emulator does not post
+.B sys:
+notes.
+
+Obscure opcodes, in particular uncommon operations on R15, are not implemented.
+Careless use of the
+.B LDREX
+and
+.B STREX
+instructions can lead to deadlock, however a real processor is supposed behave undefined in these cases.
+
+Accesses spanning segment boundaries will be treated like page faults.
+Many syscalls like
+.IR pread (2)
+will shuffle data around (in most cases unnecessarily), if invoked on potentially shared segments of variable length, in particular the bss segment.
+
+FPA emulation leaves much to desire, rounding modes are ignored, all calculations are performed at extended precision.
+Floating point exceptions crash the emulator.
+
+Several syscalls, most notably the
+.IR segattach (2)
+family, are not implemented (this should not be hard to fix).
+The emulator notes the value of
+.IR errstr (2)
+only under obvious circumstances; with most syscalls only if the return value is negative.
+
+.B /proc
+emulation is more than unsatisfactory.
+
+The
+.I text
+argument should behave more like it would if it was entered in
+.IR rc (1).
