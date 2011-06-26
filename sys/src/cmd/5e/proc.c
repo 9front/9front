@@ -108,8 +108,16 @@ initstack(int argc, char **argv)
 		ap += len;
 	}
 	*(ulong *) vaddrnol(sp, 4) = 0;
+	inittos();
+}
 
-	((Tos *) vaddrnol(tos, sizeof(Tos)))->pid = getpid();
+void
+inittos(void)
+{
+	ulong tos;
+
+	tos = mach->utop - sizeof(Tos) * 2;
+	((Tos *) vaddrnol(tos, sizeof(Tos)))->pid = P->pid;
 }
 
 static int

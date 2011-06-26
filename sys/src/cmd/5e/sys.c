@@ -401,6 +401,7 @@ sysrfork(void)
 		P = p;
 		atexit(cleanup);
 		P->pid = getpid();
+		inittos();
 		addproc(P);
 	}
 	P->R[0] = rc;
