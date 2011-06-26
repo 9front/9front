@@ -21,7 +21,7 @@ getproc(int pid)
 {
 	Proc *p;
 	
-	for(p = buck[pid % NBUCKETS].first; p; p = p->next)
+	for(p = buck[pid % NBUCKETS].first; p; p = p->bnext)
 		if(p->pid == pid)
 			return p;
 
