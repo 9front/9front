@@ -739,16 +739,13 @@ pdbunmap(ulong *pdb, ulong va, int size)
 	vae = va+size;
 	while(va < vae){
 		table = &pdb[PDX(va)];
-		if(!(*table & PTEVALID)){
+		if(!(*table & PTEVALID))
 			panic("vunmap: not mapped");
-			/* 
-			va = (va+4*MB-1) & ~(4*MB-1);
-			continue;
-			*/
-		}
 		if(*table & PTESIZE){
+			if(va & 4*MB-1)
+				panic("vunmap: misaligned: %#p\n", va);
 			*table = 0;
-			va = (va+4*MB-1) & ~(4*MB-1);
+			va += 4*MB;
 			continue;
 		}
 		table = KADDR(PPN(*table));
