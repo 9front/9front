@@ -1,6 +1,7 @@
 </$objtype/mkfile
 
 TARG=hgfs
+BIN=/$objtype/bin
 CFLAGS=-FTVw
 
 HFILES=dat.h fns.h
