@@ -147,10 +147,10 @@ fsmkqid(Qid *q, int level, void *aux)
 		break;
 	case Qtree:
 		nd = aux;
-		if(nd->hash){
-			q->type = 0;
-		} else {
+		if(nd->down){
 			q->type = QTDIR;
+		} else {
+			q->type = 0;
 		}
 		q->path = nd->path;
 		q->vers = 0;
@@ -300,6 +300,8 @@ findrev(Revlog *rl, char *name)
 	int n, i, rev;
 	char *s;
 
+	if(strcmp(name, "tip") == 0)
+		return rl->nmap-1;
 	rev = strtol(name, &s, 10);
 	if(s > name && (*s == 0 || ispunct(*s)))
 		return rev;
@@ -452,7 +454,18 @@ fsdestroyfid(Fid *fid)
 static void
 fsopen(Req *r)
 {
-	respond(r, nil);
+	Revfile *rf;
+
+	rf = r->fid->aux;
+	switch(r->ifcall.mode & 3){
+	case OEXEC:
+		if(rf->node == nil || rf->node->mode != 'x')
+			break;
+	case OREAD:
+		respond(r, nil);
+		return;
+	}
+	respond(r, "permission denied");
 }
 
 static int
@@ -495,95 +508,87 @@ static void
 fsread(Req *r)
 {
 	Revfile *rf;
+	char buf[MAXPATH];
+	Revlog rl;
+	char *s;
+	int i, n;
 
 	rf = r->fid->aux;
-	if(r->fid->qid.type == QTDIR){
-		switch(rf->level){
-		default:
-			respond(r, "bug in fsread");
+	switch(rf->level){
+	case Qroot:
+		revlogupdate(&changelog);
+		revlogupdate(&manifest);
+		dirread9p(r, rootgen, nil);
+		respond(r, nil);
+		return;
+	case Qrev:
+		dirread9p(r, revgen, rf->info);
+		respond(r, nil);
+		return;
+	case Qrev1:
+	case Qrev2:
+		s = nil;
+		if(rf->buf)
+			goto Strgen;
+		if((i = hashrev(&changelog, rf->info->chash)) >= 0){
+			if(rf->level == Qrev1)
+				i = changelog.map[i].p1rev;
+			else
+				i = changelog.map[i].p2rev;
+			if(i >= 0)
+				snprint(s = buf, sizeof(buf), "%d.%H", i, changelog.map[i].hash);
+		}
+		goto Strgen;
+	case Qlog:
+		if(rf->fd >= 0)
+			goto Fdgen;
+		if((rf->fd = revlogopentemp(&changelog, hashrev(&changelog, rf->info->chash))) < 0){
+			responderror(r);
 			return;
-		case Qroot:
-			revlogupdate(&changelog);
-			revlogupdate(&manifest);
-
-			dirread9p(r, rootgen, nil);
-			respond(r, nil);
-			return;
-		case Qrev:
-			dirread9p(r, revgen, rf->info);
-			respond(r, nil);
-			return;
-		case Qtree:
-		case Qfiles:
-		case Qchanges:
+		}
+		goto Fdgen;
+	case Qwho:
+		s = rf->info->who;
+		goto Strgen;
+	case Qwhy:
+		s = rf->info->why;
+	Strgen:
+		if(rf->buf == nil)
+			rf->buf = s ? smprint("%s\n", s) : estrdup9p("");
+		readstr(r, rf->buf);
+		respond(r, nil);
+		return;
+	case Qtree:
+		if(rf->node->down){
+	case Qfiles:
+	case Qchanges:
 			dirread9p(r, treegen, rf->node->down);
 			respond(r, nil);
 			return;
 		}
-	} else {
-		char buf[MAXPATH];
-		Revlog rl;
-		char *s;
-		int i, n;
-
-		switch(rf->level){
-		default:
-			respond(r, "bug in fsread");
+		if(rf->fd >= 0)
+			goto Fdgen;
+		nodepath(seprint(buf, buf+sizeof(buf), ".hg/store/data"), buf+sizeof(buf), rf->node);
+		if(revlogopen(&rl, buf, OREAD) < 0){
+			responderror(r);
 			return;
-		case Qlog:
-			if(rf->fd >= 0)
-				break;
-			if((rf->fd = revlogopentemp(&changelog, hashrev(&changelog, rf->info->chash))) < 0){
-				responderror(r);
-				return;
-			}
-			break;
-		case Qrev1:
-		case Qrev2:
-			s = nil;
-			if((i = hashrev(&changelog, rf->info->chash)) >= 0){
-				if(rf->level == Qrev1)
-					i = changelog.map[i].p1rev;
-				else
-					i = changelog.map[i].p2rev;
-				if(i >= 0)
-					snprint(s = buf, sizeof(buf), "%d.%H", i, changelog.map[i].hash);
-			}
-			goto Strgen;
-		case Qwho:
-			s = rf->info->who;
-			goto Strgen;
-		case Qwhy:
-			s = rf->info->why;
-		Strgen:
-			if(rf->buf == nil)
-				rf->buf = s ? smprint("%s\n", s) : estrdup9p("");
-			readstr(r, rf->buf);
-			respond(r, nil);
-			return;
-		case Qtree:
-			if(rf->fd >= 0)
-				break;
-			nodepath(seprint(buf, buf+sizeof(buf), ".hg/store/data"), buf+sizeof(buf), rf->node);
-			if(revlogopen(&rl, buf, OREAD) < 0){
-				responderror(r);
-				return;
-			}
-			if((rf->fd = revlogopentemp(&rl, hashrev(&rl, rf->node->hash))) < 0){
-				responderror(r);
-				revlogclose(&rl);
-				return;
-			}
-			revlogclose(&rl);
-			break;
 		}
+		if((rf->fd = revlogopentemp(&rl, hashrev(&rl, rf->node->hash))) < 0){
+			responderror(r);
+			revlogclose(&rl);
+			return;
+		}
+		revlogclose(&rl);
+	Fdgen:
 		if((n = pread(rf->fd, r->ofcall.data, r->ifcall.count, r->ifcall.offset)) < 0){
 			responderror(r);
 			return;
 		}
 		r->ofcall.count = n;
 		respond(r, nil);
+		return;
 	}
+	respond(r, "bug in fsread");
 }
 
 Srv fs = 
