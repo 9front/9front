@@ -197,8 +197,7 @@ fsmkdir(Dir *d, int level, void *aux)
 		goto Strgen;
 	case Qlog:
 		ri = aux;
-		if((rev = hashrev(&changelog, ri->chash)) >= 0)
-			d->length = changelog.map[rev].flen;
+		d->length = ri->loglen;
 		goto Namegen;
 	case Qwho:
 		ri = aux;
@@ -512,6 +511,11 @@ fsread(Req *r)
 	Revlog rl;
 	char *s;
 	int i, n;
+	vlong off;
+	int len;
+
+	off = r->ifcall.offset;
+	len = r->ifcall.count;
 
 	rf = r->fid->aux;
 	switch(rf->level){
@@ -540,6 +544,11 @@ fsread(Req *r)
 		}
 		goto Strgen;
 	case Qlog:
+		if(off >= rf->info->loglen)
+			len = 0;
+		else if((off + len) >= rf->info->loglen)
+			len = rf->info->loglen - off;
+		off += rf->info->logoff;
 		if(rf->fd >= 0)
 			goto Fdgen;
 		if((rf->fd = revlogopentemp(&changelog, hashrev(&changelog, rf->info->chash))) < 0){
@@ -580,7 +589,7 @@ fsread(Req *r)
 		}
 		revlogclose(&rl);
 	Fdgen:
-		if((n = pread(rf->fd, r->ofcall.data, r->ifcall.count, r->ifcall.offset)) < 0){
+		if((n = pread(rf->fd, r->ofcall.data, len, off)) < 0){
 			responderror(r);
 			return;
 		}

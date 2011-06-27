@@ -201,41 +201,41 @@ loadchangestree(Revlog *changelog, Revlog *manifest, Revinfo *ri)
 {
 	char buf[BUFSZ], *p, *e;
 	Hashstr *ht[256], *he, **hp;
-	int fd, done, line, n;
+	int fd, n;
 	Revtree *t;
+	vlong off;
 
 	if((fd = revlogopentemp(changelog, hashrev(changelog, ri->chash))) < 0)
 		return nil;
 
-	done = 0;
-	line = 0;
+	off = seek(fd, ri->logoff, 0);
+	if(off < 0){
+		close(fd);
+		return nil;
+	}
+
 	memset(ht, 0, sizeof(ht));
 
 	p = buf;
 	e = buf + BUFSZ;
-	while((n = read(fd, p, e - p)) > 0){
+	while((off - ri->logoff) < ri->loglen){
+		if((n = read(fd, p, e - p)) <= 0)
+			break;
 		p += n;
 		while((p > buf) && (e = memchr(buf, '\n', p - buf))){
 			*e++ = 0;
 
-			if(++line >= 4){
-				if(*buf == 0){
-					done = 1;
-					break;
-				}
+			he = malloc(sizeof(*he) + strlen(buf)+1);
+			hp = &ht[hashstr(strcpy(he->str, buf)) % nelem(ht)];
+			he->next = *hp;
+			*hp = he;
 
-				he = malloc(sizeof(*he) + strlen(buf)+1);
-				hp = &ht[hashstr(strcpy(he->str, buf)) % nelem(ht)];
-				he->next = *hp;
-				*hp = he;
-			}
-
-			p -= e - buf;
+			n = e - buf;
+			p -= n;
 			if(p > buf)
 				memmove(buf, e, p - buf);
+			off += n;
 		}
-		if(done)
-			break;
 		e = buf + BUFSZ;
 	}
 	close(fd);

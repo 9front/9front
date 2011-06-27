@@ -63,6 +63,9 @@ struct Revinfo
 	char	*who;
 	char	*why;
 	long	when;
+
+	vlong	logoff;
+	vlong	loglen;
 };
 
 struct Revtree

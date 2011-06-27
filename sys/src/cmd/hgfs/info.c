@@ -10,6 +10,7 @@ loadrevinfo(Revlog *changelog, int rev)
 	char buf[BUFSZ], *p, *e;
 	int fd, line, inmsg, n;
 	Revinfo *ri;
+	vlong off;
 
 	if((fd = revlogopentemp(changelog, rev)) < 0)
 		return nil;
@@ -23,6 +24,7 @@ loadrevinfo(Revlog *changelog, int rev)
 
 	memmove(ri->chash, changelog->map[rev].hash, HASHSZ);
 
+	off = 0;
 	line = 0;
 	inmsg = 0;
 	p = buf;
@@ -42,19 +44,25 @@ loadrevinfo(Revlog *changelog, int rev)
 			case 2:
 				ri->when = strtol(buf, nil, 10);
 				break;
+			case 3:
+				ri->logoff = off;
 			default:
 				if(!inmsg){
-					if(*buf == 0)
+					if(*buf == 0){
+						ri->loglen = off - ri->logoff;
 						inmsg = 1;
+					}
 				} else {
 					n = ri->why ? strlen(ri->why) : 0;
 					ri->why = realloc(ri->why, n + strlen(buf)+1);
 					strcpy(ri->why + n, buf);
 				}
 			}
-			p -= e - buf;
+			n = e - buf;
+			p -= n;
 			if(p > buf)
 				memmove(buf, e, p - buf);
+			off += n;
 		}
 		e = buf + BUFSZ;
 	}
