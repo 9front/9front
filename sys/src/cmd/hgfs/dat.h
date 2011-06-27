@@ -51,6 +51,8 @@ struct Revnode
 	Revnode	*up;
 	Revnode	*next;
 	Revnode	*down;
+
+	char	mode;
 };
 
 struct Revinfo

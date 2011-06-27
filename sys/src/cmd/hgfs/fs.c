@@ -219,6 +219,8 @@ fsmkdir(Dir *d, int level, void *aux)
 	case Qtree:
 		nd = aux;
 		d->name = estrdup9p(nd->name);
+		if(nd->mode == 'x')
+			d->mode |= 0111;
 		if(nd->hash){
 			char path[MAXPATH];
 			Revlog rl;

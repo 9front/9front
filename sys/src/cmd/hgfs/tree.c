@@ -44,7 +44,7 @@ nodepath(char *s, char *e, Revnode *nd)
 }
 
 static void
-addnode(Revnode *d, char *path, uchar *hash)
+addnode(Revnode *d, char *path, uchar *hash, char mode)
 {
 	char *slash, *x;
 	Revnode *c, *p;
@@ -61,10 +61,13 @@ addnode(Revnode *d, char *path, uchar *hash)
 			c->path = 1;
 			x = (char*)&c[1];
 			if(!slash){
+				c->mode = mode;
 				memmove(c->hash = (uchar*)x, hash, HASHSZ);
 				x += HASHSZ;
-			} else
+			}else{
+				c->mode = 0;
 				c->hash = nil;
+			}
 			strcpy(c->name = x, path);
 			c->up = d;
 			c->down = nil;
@@ -117,7 +120,7 @@ hashstr(char *s)
 static int
 loadmanifest(Revnode *root, int fd, Hashstr **ht, int nh)
 {
-	char buf[BUFSZ], *p, *e;
+	char buf[BUFSZ], *p, *e, *x;
 	uchar hash[HASHSZ];
 	int n;
 
@@ -128,15 +131,19 @@ loadmanifest(Revnode *root, int fd, Hashstr **ht, int nh)
 		while((p > buf) && (e = memchr(buf, '\n', p - buf))){
 			*e++ = 0;
 
-			strhash(buf + strlen(buf) + 1, hash);
+			x = buf;
+			x += strlen(x) + 1;
+			strhash(x, hash);
+			x += HASHSZ*2;
+
 			if(ht == nil)
-				addnode(root, buf, hash);
+				addnode(root, buf, hash, *x);
 			else {
 				Hashstr *he;
 
 				for(he = ht[hashstr(buf) % nh]; he; he = he->next){
 					if(strcmp(he->str, buf) == 0){
-						addnode(root, buf, hash);
+						addnode(root, buf, hash, *x);
 						break;
 					}
 				}
