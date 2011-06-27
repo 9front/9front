@@ -35,3 +35,4 @@ void invalid(u32int);
 void fpatransfer(u32int);
 void fpaoperation(u32int);
 void fparegtransfer(u32int);
+void inittos(void);
