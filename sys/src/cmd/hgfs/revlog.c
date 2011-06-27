@@ -13,15 +13,16 @@ fmktemp(void)
 	return create(mktemp(temp), OTRUNC|ORCLOSE|ORDWR, 0666);
 }
 
-static void
-readindex(Revlog *r)
+void
+revlogupdate(Revlog *r)
 {
 	uchar buf[64];
 	Revmap *m;
 	int rev;
 
-	seek(r->ifd, 0, 0);
-	for(rev=0;;rev++){
+	if(seek(r->ifd, r->ioff, 0) < 0)
+		return;
+	for(rev=r->nmap;;rev++){
 		if(readn(r->ifd, buf, sizeof(buf)) != sizeof(buf))
 			break;
 		if((rev % 16) == 0)
@@ -48,8 +49,9 @@ readindex(Revlog *r)
 
 		if(r->dfd < 0){
 			m->hoff = seek(r->ifd, 0, 1);
-			seek(r->ifd, m->hlen, 1);
-		}
+			r->ioff = seek(r->ifd, m->hlen, 1);
+		} else
+			r->ioff = seek(r->ifd, 0, 1);
 	}
 	r->nmap = rev;
 }
@@ -67,9 +69,10 @@ revlogopen(Revlog *r, char *path, int mode)
 	path[strlen(path)-1] = 'd';
 	r->dfd = open(path, mode);
 	free(path);
+	r->ioff = 0;
 	r->nmap = 0;
 	r->map = nil;
-	readindex(r);
+	revlogupdate(r);
 	return 0;
 }
 

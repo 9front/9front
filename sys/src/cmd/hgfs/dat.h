@@ -36,6 +36,8 @@ struct Revlog
 	int	ifd;
 	int	dfd;
 
+	vlong	ioff;
+
 	int	nmap;
 	Revmap	*map;
 };

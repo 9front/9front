@@ -311,6 +311,9 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 	} else {
 		switch(rf->level){
 		case Qroot:
+			revlogupdate(&changelog);
+			revlogupdate(&manifest);
+
 			i = findrev(&changelog, name);
 			if(rf->info = getrevinfo(i)){
 				rf->level = Qrev;
@@ -455,6 +458,9 @@ fsread(Req *r)
 			respond(r, "bug in fsread");
 			return;
 		case Qroot:
+			revlogupdate(&changelog);
+			revlogupdate(&manifest);
+
 			dirread9p(r, rootgen, nil);
 			respond(r, nil);
 			return;

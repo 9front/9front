@@ -13,6 +13,7 @@ int funzip(int ofd, int zfd, int len);
 /* revlog */
 int fmktemp(void);
 int revlogopen(Revlog *r, char *path, int mode);
+void revlogupdate(Revlog *r);
 void revlogclose(Revlog *r);
 int revlogextract(Revlog *r, int rev, int ofd);
 uchar *revhash(Revlog *r, int rev);
