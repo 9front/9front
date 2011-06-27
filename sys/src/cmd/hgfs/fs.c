@@ -53,6 +53,47 @@ getrevinfo(int rev)
 	return ri;
 }
 
+static Revtree*
+getrevtree(Revtree *(*fn)(Revlog *, Revlog *, Revinfo *), Revinfo *ri)
+{
+	static ulong gen;
+	static struct {
+		ulong g;
+		void *f;
+		Revinfo *i;
+		Revtree *t;
+	} cache[4];
+	Revtree *rt;
+	int i, j;
+
+	for(i=j=0; i<nelem(cache); i++){
+		if(cache[i].t == nil){
+			j = i;
+			continue;
+		}
+		if(cache[i].f == fn && cache[i].i == ri){
+			cache[i].g = ++gen;
+			rt = cache[i].t;
+			goto found;
+		}
+		if(cache[j].t && cache[i].g < cache[j].g)
+			j = i;
+	}
+	if((rt = (*fn)(&changelog, &manifest, ri)) == nil)
+		return nil;
+
+	closerevtree(cache[j].t);
+
+	cache[j].g = ++gen;
+	cache[j].f = fn;
+	cache[j].i = ri;
+	cache[j].t = rt;
+
+found:
+	incref(rt);
+	return rt;
+}
+
 static char*
 fsmkuid(char *s)
 {
@@ -281,6 +322,7 @@ findrev(Revlog *rl, char *name)
 static char*
 fswalk1(Fid *fid, char *name, Qid *qid)
 {
+	Revtree* (*loadfn)(Revlog *, Revlog *, Revinfo *);
 	Revfile *rf;
 	Revnode *nd;
 	int i;
@@ -329,19 +371,20 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 				if(strcmp(name, nametab[i]) == 0)
 					break;
 			}
+			loadfn = nil;
 			switch(i){
 			case Qtree:
 				goto Notfound;
 			case Qfiles:
-				if((rf->tree = loadfilestree(&changelog, &manifest, rf->info)) == nil)
-					goto Notfound;
+				loadfn = loadfilestree;
 				break;
 			case Qchanges:
-				if((rf->tree = loadchangestree(&changelog, &manifest, rf->info)) == nil)
-					goto Notfound;
+				loadfn = loadchangestree;
 				break;
 			}
-			if(rf->tree){
+			if(loadfn){
+				if((rf->tree = getrevtree(loadfn, rf->info)) == nil)
+					goto Notfound;
 				rf->node = rf->tree->root;
 				rf->tree->level = i;
 			}

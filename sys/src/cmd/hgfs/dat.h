@@ -66,10 +66,7 @@ struct Revinfo
 struct Revtree
 {
 	Ref;
-
 	int	level;
-
-	Revinfo	*info;
 	Revnode	*root;
 };
 

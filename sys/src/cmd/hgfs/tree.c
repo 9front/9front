@@ -164,8 +164,6 @@ loadtree(Revlog *manifest, Revinfo *ri, Hashstr **ht, int nh)
 	memset(t, 0, sizeof(*t));
 	incref(t);
 
-	t->info = ri;
-
 	t->root = malloc(sizeof(Revnode));
 	t->root->path = 0;
 	t->root->name = 0;
