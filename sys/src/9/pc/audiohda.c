@@ -277,9 +277,9 @@ struct Ctlr {
 	uchar *mem;
 	ulong size;
 	
+	Queue *q;
 	ulong *corb;
 	ulong corbsize;
-	
 	ulong *rirb;
 	ulong rirbsize;
 	
@@ -369,6 +369,8 @@ static char *pinloc2[] = {
 	"sep",
 	"other",
 };
+
+Ctlr *lastcard;
 
 static int
 waitup8(Ctlr *ctlr, int reg, uchar mask, uchar set)
@@ -1264,6 +1266,45 @@ hdamatch(Pcidev *p)
 	return nil;
 }
 
+static long
+hdacmdread(Chan *, void *a, long n, vlong)
+{
+	Ctlr *ctlr;
+	
+	ctlr = lastcard;
+	if(ctlr == nil)
+		error(Enodev);
+	if(n & 7)
+		error(Ebadarg);
+	return qread(ctlr->q, a, n);
+}
+
+static long
+hdacmdwrite(Chan *, void *a, long n, vlong)
+{
+	Ctlr *ctlr;
+	ulong *lp;
+	int i;
+	uint w[2];
+	
+	ctlr = lastcard;
+	if(ctlr == nil)
+		error(Enodev);
+	if(n & 3)
+		error(Ebadarg);
+	lp = a;
+	qlock(ctlr);
+	for(i=0; i<n/4; i++){
+		if(hdacmd(ctlr, lp[i], w) < 0){
+			w[0] = 0;
+			w[1] = ~0;
+		}
+		qproduce(ctlr->q, w, sizeof(w));
+	}
+	qunlock(ctlr);
+	return n;
+}
+
 static int
 hdareset(Audio *adev)
 {
@@ -1304,6 +1345,7 @@ Found:
 	
 	ctlr->no = adev->ctlrno;
 	ctlr->size = p->mem[0].size;
+	ctlr->q = qopen(256, 0, 0, 0);
 	ctlr->mem = vmap(p->mem[0].bar & ~0x0F, ctlr->size);
 	if(ctlr->mem == nil){
 		print("#A%d: can't map %.8lux\n", ctlr->no, p->mem[0].bar);
@@ -1345,6 +1387,8 @@ Found:
 	adev->ctl = hdactl;
 	
 	intrenable(irq, hdainterrupt, adev, tbdf, "hda");
+	lastcard = ctlr;
+	addarchfile("hdacmd", 0664, hdacmdread, hdacmdwrite);
 	
 	return 0;
 }
@@ -1354,3 +1398,4 @@ audiohdalink(void)
 {
 	addaudiocard("hda", hdareset);
 }
+
