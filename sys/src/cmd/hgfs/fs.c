@@ -51,7 +51,6 @@ getrevlog(Revnode *nd)
 	rl = emalloc9p(sizeof(*rl));
 	memset(rl, 0, sizeof(*rl));
 	if(revlogopen(rl, path, OREAD) < 0){
-		fprint(2, "getrevlod %s: %r\n", path);
 		free(rl);
 		return nil;
 	}

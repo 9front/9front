@@ -94,6 +94,7 @@ revlogclose(Revlog *r)
 	r->map = nil;
 	r->nmap = 0;
 	free(r->path);
+	r->path = nil;
 }
 
 uchar*
