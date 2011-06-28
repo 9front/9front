@@ -202,8 +202,14 @@ enum {
 		Asetleft = 1<<13,
 		Asetright = 1<<12,
 		Asetmute = 1<<7,
-		Aidx = 8,
+		Asetidx = 8,
+		Agetin = 0<<15,
+		Agetout = 1<<15,
+		Agetleft = 1<<13,
+		Agetright = 1<<15,
+		Agetidx = 0,
 		Again = 0,
+		Againmask = 0x7f,
 	Getconvfmt = 0xa,
 	Setconvfmt = 0x2,
 };
@@ -277,9 +283,9 @@ struct Ctlr {
 	uchar *mem;
 	ulong size;
 	
+	Queue *q;
 	ulong *corb;
 	ulong corbsize;
-	
 	ulong *rirb;
 	ulong rirbsize;
 	
@@ -369,6 +375,8 @@ static char *pinloc2[] = {
 	"sep",
 	"other",
 };
+
+Ctlr *lastcard;
 
 static int
 waitup8(Ctlr *ctlr, int reg, uchar mask, uchar set)
@@ -471,78 +479,74 @@ newnid(Id id, uint nid)
 	return id;
 }
 
-/* vol is 0...127 or ~0 for 0dB; mute is 0/1 */
-static void
-setoutamp(Widget *w, int mute, uint vol)
+static uint
+getoutamprange(Widget *w)
 {
-	uint q, r;
-	uint zerodb, range;
-
-	if((w->cap & Woutampcap) == 0)
-		return;
-
+	uint r;
 	r = cmd(w->id, Getparm, Outampcap);
-	range = (r >> 8) & 0x7f;
-	zerodb = r & 127;
-
-	q = Asetout | Asetleft | Asetright;
-	if(mute)
-		q |= Asetmute;
-	else if(vol == ~0)
-		q |= zerodb << Again;
-	else if(range > 0)
-		q |= (range * vol / 128) << Again;
-
-	cmd(w->id, Setamp, q);
+	return (r >> 8) & 0x7f;
 }
 
 static void
-getoutamp(Widget *w, int v[2])
+getoutamp(Widget *w, int vol[2])
 {
-	uint q, r, range;
-	
-	v[0] = 0;
-	v[1] = 0;
-	
+	vol[0] = vol[1] = 0;
 	if((w->cap & Woutampcap) == 0)
 		return;
-		
-	r = cmd(w->id, Getparm, Outampcap);
-	range = (r >> 8) & 0x7f;
-	
-	q = (1 << 15) | (1 << 13);
-	r = cmd(w->id, Getamp, q);
-	v[0] = (r & 0x7f) * 128 / range;
-	
-	q = (1 << 15) | (0 << 13);
-	r = cmd(w->id, Getamp, q);
-	v[1] = (r & 0x7f) * 128 / range;
+	vol[0] = cmd(w->id, Getamp, Agetout | Agetleft) & Againmask;
+	vol[1] = cmd(w->id, Getamp, Agetout | Agetright) & Againmask;
 }
-	
-/* vol is 0...127 or ~0 for 0dB; mute is 0/1; in is widget or nil for all */
+
+/* vol is 0...range or nil for 0dB; mute is 0/1 */
 static void
-setinamp(Widget *w, Widget *in, int mute, uint vol)
+setoutamp(Widget *w, int mute, int *vol)
 {
 	uint q, r, i;
-	uint zerodb, range;
+	uint zerodb;
+
+	if((w->cap & Woutampcap) == 0)
+		return;
+
+	r = cmd(w->id, Getparm, Outampcap);
+	zerodb = r & 0x7f;
+	
+	for(i=0; i<2; i++){
+		q = Asetout | (i == 0 ? Asetleft : Asetright);
+		if(mute)
+			q |= Asetmute;
+		else if(vol == nil)
+			q |= zerodb << Again;
+		else
+			q |= vol[i] << Again;
+		cmd(w->id, Setamp, q);
+	}
+}
+
+/* vol is 0...range or nil for 0dB; mute is 0/1; in is widget or nil for all */
+static void
+setinamp(Widget *w, Widget *in, int mute, int *vol)
+{
+	uint q, r, i, j;
+	uint zerodb;
 
 	if((w->cap & Winampcap) == 0)
 		return;
 
 	r = cmd(w->id, Getparm, Inampcap);
-	range = (r >> 8) & 0x7f;
-	zerodb = r & 127;
-
-	q = Asetin | Asetleft | Asetright;
-	if(mute)
-		q |= Asetmute;
-	else if(vol == ~0)
-		q |= zerodb << Again;
-	else if(range > 0)
-		q |= (range * vol / 128) << Again;
-	for(i=0; i<w->nlist; i++){
-		if(in == nil || w->list[i] == in)
-			cmd(w->id, Setamp, q | (i << Aidx));
+	zerodb = r & 0x7f;
+	
+	for(i=0; i<2; i++){
+		q = Asetin | (i == 0 ? Asetleft : Asetright);
+		if(mute)
+			q |= Asetmute;
+		else if(vol == nil)
+			q |= zerodb << Again;
+		else
+			q |= vol[i] << Again;
+		for(j=0; j<w->nlist; j++){
+			if(in == nil || w->list[j] == in)
+				cmd(w->id, Setamp, q | (j << Asetidx));
+		}
 	}
 }
 
@@ -583,14 +587,14 @@ connectpath(Widget *src, Widget *dst, uint stream)
 	uint i;
 
 	for(w=src->fg->first; w != nil; w=w->next){
-		setoutamp(w, 1, 0);
-		setinamp(w, nil, 1, 0);
+		setoutamp(w, 1, nil);
+		setinamp(w, nil, 1, nil);
 		cmd(w->id, Setstream, 0);
 	}
 	for(w=dst; w != src; w=v){
 		v = w->from;
-		setoutamp(w, 0, ~0);
-		setinamp(v, w, 0, ~0);
+		setoutamp(w, 0, nil);
+		setinamp(v, w, 0, nil);
 		if(v->type == Waout || v->type == Wamix)
 			continue;
 		if(v->nlist == 1)
@@ -599,7 +603,7 @@ connectpath(Widget *src, Widget *dst, uint stream)
 			;
 		cmd(v->id, Setconn, i);
 	}
-	setoutamp(src, 0, ~0);
+	setoutamp(src, 0, nil);
 	cmd(src->id, Setpinctl, Pinctlout);
 	cmd(dst->id, Setstream, (stream << 4) | 0);
 	cmd(dst->id, Setconvfmt, (1 << 14) | (1 << 4) | 1);
@@ -1042,9 +1046,7 @@ hdactl(Audio *adev, void *va, long n, vlong)
 		if(ntok <= 0)
 			continue;
 		if(cistrcmp(tok[0], "pin") == 0 && ntok == 2){
-			qlock(ctlr);
 			connectpin(ctlr, strtoul(tok[1], 0, 0));
-			qunlock(ctlr);
 		}else
 			error(Ebadctl);
 	}
@@ -1099,12 +1101,8 @@ static int
 hdagetvol(Audio *adev, int, int a[2])
 {
 	Ctlr *ctlr = adev->ctlr;
-	
-	if(ctlr->amp == nil)
-		return -1;
-	qlock(ctlr);
-	getoutamp(ctlr->amp, a);
-	qunlock(ctlr);
+	if(ctlr->amp != nil)
+		getoutamp(ctlr->amp, a);
 	return 0;
 }
 
@@ -1112,24 +1110,32 @@ static int
 hdasetvol(Audio *adev, int, int a[2])
 {
 	Ctlr *ctlr = adev->ctlr;
-	
-	if(ctlr->amp == nil)
-		return -1;
-	qlock(ctlr);
-	setoutamp(ctlr->amp, 0, a[0]);
-	qunlock(ctlr);
+	if(ctlr->amp != nil)
+		setoutamp(ctlr->amp, 0, a);
 	return 0;
+}
+
+static void
+fillvoltab(Ctlr *ctlr, Volume *vt)
+{
+	memmove(vt, voltab, sizeof(voltab));
+	if(ctlr->amp != nil)
+		vt[0].range = getoutamprange(ctlr->amp);
 }
 
 static long
 hdavolread(Audio *adev, void *a, long n, vlong)
 {
+	Volume voltab[2];
+	fillvoltab(adev->ctlr, voltab);
 	return genaudiovolread(adev, a, n, 0, voltab, hdagetvol, 0);
 }
 
 static long
 hdavolwrite(Audio *adev, void *a, long n, vlong)
 {
+	Volume voltab[2];
+	fillvoltab(adev->ctlr, voltab);
 	return genaudiovolwrite(adev, a, n, 0, voltab, hdasetvol, 0);
 }
 
@@ -1264,6 +1270,45 @@ hdamatch(Pcidev *p)
 	return nil;
 }
 
+static long
+hdacmdread(Chan *, void *a, long n, vlong)
+{
+	Ctlr *ctlr;
+	
+	ctlr = lastcard;
+	if(ctlr == nil)
+		error(Enodev);
+	if(n & 7)
+		error(Ebadarg);
+	return qread(ctlr->q, a, n);
+}
+
+static long
+hdacmdwrite(Chan *, void *a, long n, vlong)
+{
+	Ctlr *ctlr;
+	ulong *lp;
+	int i;
+	uint w[2];
+	
+	ctlr = lastcard;
+	if(ctlr == nil)
+		error(Enodev);
+	if(n & 3)
+		error(Ebadarg);
+	lp = a;
+	qlock(ctlr);
+	for(i=0; i<n/4; i++){
+		if(hdacmd(ctlr, lp[i], w) < 0){
+			w[0] = 0;
+			w[1] = ~0;
+		}
+		qproduce(ctlr->q, w, sizeof(w));
+	}
+	qunlock(ctlr);
+	return n;
+}
+
 static int
 hdareset(Audio *adev)
 {
@@ -1304,6 +1349,7 @@ Found:
 	
 	ctlr->no = adev->ctlrno;
 	ctlr->size = p->mem[0].size;
+	ctlr->q = qopen(256, 0, 0, 0);
 	ctlr->mem = vmap(p->mem[0].bar & ~0x0F, ctlr->size);
 	if(ctlr->mem == nil){
 		print("#A%d: can't map %.8lux\n", ctlr->no, p->mem[0].bar);
@@ -1345,6 +1391,8 @@ Found:
 	adev->ctl = hdactl;
 	
 	intrenable(irq, hdainterrupt, adev, tbdf, "hda");
+	lastcard = ctlr;
+	addarchfile("hdacmd", 0664, hdacmdread, hdacmdwrite);
 	
 	return 0;
 }
@@ -1354,3 +1402,4 @@ audiohdalink(void)
 {
 	addaudiocard("hda", hdareset);
 }
+

@@ -10,12 +10,17 @@ enum {
 	KbdCSP		= 0x010103,	/* keyboard.boot.hid */
 
 	/* Requests */
+	Getreport = 0x01,
+	Setreport = 0x09,
 	Getproto	= 0x03,
 	Setproto	= 0x0b,
 
 	/* protocols for SET_PROTO request */
 	Bootproto	= 0,
 	Reportproto	= 1,
+
+	/* protocols for SET_REPORT request */
+	Reportout = 0x0200,
 };
 
 enum {

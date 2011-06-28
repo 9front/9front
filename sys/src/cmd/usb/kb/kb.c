@@ -124,6 +124,12 @@ setbootproto(KDev* f, int eid)
 	return usbcmd(f->dev, r, Setproto, Bootproto, id, nil, 0);
 }
 
+static int
+setleds(KDev* f, int eid, uchar leds)
+{
+	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setreport, Reportout, 0, &leds, 1);
+}
+
 /*
  * Try to recover from a babble error. A port reset is the only way out.
  * BUG: we should be careful not to reset a bundle with several devices.
@@ -537,7 +543,10 @@ kbstart(Dev *d, Ep *ep, Kin *in, void (*f)(void*), int accel)
 		kd->ep = nil;
 		return;
 	}
-
+	if(setleds(kd, ep->id, 0) < 0){
+		fprint(2, "kb: %s: setleds: %r\n", d->dir);
+		return;
+	}
 	incref(d);
 	proccreate(f, kd, Stack);
 }
