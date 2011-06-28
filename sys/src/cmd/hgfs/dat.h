@@ -33,6 +33,10 @@ struct Revmap
 
 struct Revlog
 {
+	Ref;
+
+	char	*path;
+
 	int	ifd;
 	int	dfd;
 
@@ -51,6 +55,7 @@ struct Revnode
 	Revnode	*up;
 	Revnode	*next;
 	Revnode	*down;
+	Revnode *before;
 
 	char	mode;
 };
@@ -82,6 +87,7 @@ struct Revfile
 	Revinfo	*info;
 	Revtree	*tree;
 	Revnode	*node;
+	Revlog	*rlog;
 
 	char	*buf;
 	int	fd;

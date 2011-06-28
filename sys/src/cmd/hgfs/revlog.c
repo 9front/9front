@@ -68,7 +68,10 @@ revlogopen(Revlog *r, char *path, int mode)
 	}
 	path[strlen(path)-1] = 'd';
 	r->dfd = open(path, mode);
-	free(path);
+
+	path[strlen(path)-2] = 0;
+	r->path = path;
+
 	r->ioff = 0;
 	r->nmap = 0;
 	r->map = nil;
@@ -90,6 +93,7 @@ revlogclose(Revlog *r)
 	free(r->map);
 	r->map = nil;
 	r->nmap = 0;
+	free(r->path);
 }
 
 uchar*

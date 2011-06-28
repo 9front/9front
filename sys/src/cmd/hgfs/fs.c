@@ -21,9 +21,10 @@ enum {
 			Qfiles,
 			Qchanges,
 				Qtree,
+				Qtreerev,
 };
 
-static char *nametab[Qtree+1] = {
+static char *nametab[] = {
 	"/",
 		nil,
 			"rev1",
@@ -34,10 +35,40 @@ static char *nametab[Qtree+1] = {
 			"files",
 			"changes",
 				nil,
+				nil,
 };
 
 static Revlog changelog;
 static Revlog manifest;
+
+static Revlog*
+getrevlog(Revnode *nd)
+{
+	char path[MAXPATH];
+	Revlog *rl;
+
+	nodepath(seprint(path, path+MAXPATH, ".hg/store/data"), path+MAXPATH, nd);
+	rl = emalloc9p(sizeof(*rl));
+	memset(rl, 0, sizeof(*rl));
+	if(revlogopen(rl, path, OREAD) < 0){
+		fprint(2, "getrevlod %s: %r\n", path);
+		free(rl);
+		return nil;
+	}
+	incref(rl);
+	return rl;
+}
+
+static void
+closerevlog(Revlog *rl)
+{
+	if(rl == nil)
+		return;
+	if(decref(rl))
+		return;
+	revlogclose(rl);
+	free(rl);
+}
 
 static Revinfo*
 getrevinfo(int rev)
@@ -146,13 +177,14 @@ fsmkqid(Qid *q, int level, void *aux)
 		q->vers = 0;
 		break;
 	case Qtree:
+	case Qtreerev:
 		nd = aux;
-		if(nd->down){
+		if(level == Qtree && nd->down){
 			q->type = QTDIR;
 		} else {
 			q->type = 0;
 		}
-		q->path = nd->path;
+		q->path = nd->path + (level - Qtree);
 		q->vers = 0;
 		break;
 	}
@@ -183,6 +215,7 @@ fsmkdir(Dir *d, int level, void *aux)
 	case Qrev1:
 	case Qrev2:
 		ri = aux;
+	Revgen:
 		rev = hashrev(&changelog, ri->chash);
 		if(level == Qrev1)
 			rev = changelog.map[rev].p1rev;
@@ -208,6 +241,8 @@ fsmkdir(Dir *d, int level, void *aux)
 		s = ri->why;
 	Strgen:
 		d->length = s ? strlen(s)+1 : 0;
+		if(level == Qtreerev)
+			break;
 	case Qfiles:
 	case Qchanges:
 		ri = aux;
@@ -216,22 +251,24 @@ fsmkdir(Dir *d, int level, void *aux)
 		d->name = estrdup9p(nametab[level]);
 		break;
 	case Qtree:
+	case Qtreerev:
 		nd = aux;
 		d->name = estrdup9p(nd->name);
 		if(nd->mode == 'x')
 			d->mode |= 0111;
 		if(nd->hash){
-			char path[MAXPATH];
-			Revlog rl;
+			Revlog *rl;
 
-			nodepath(seprint(path, path+MAXPATH, ".hg/store/data"), path+MAXPATH, nd);
-			if(revlogopen(&rl, path, OREAD) < 0)
+			if((rl = getrevlog(nd)) == nil)
 				break;
-			if((rev = hashrev(&rl, nd->hash)) >= 0){
-				d->length = rl.map[rev].flen;
-				ri = getrevinfo(rl.map[rev].linkrev);
+			if((rev = hashrev(rl, nd->hash)) >= 0){
+				if(level == Qtree)
+					d->length = rl->map[rev].flen;
+				ri = getrevinfo(rl->map[rev].linkrev);
 			}
-			revlogclose(&rl);
+			closerevlog(rl);
+			if(level == Qtreerev && ri)
+				goto Revgen;
 		}
 		break;
 	}
@@ -270,6 +307,7 @@ fsattach(Req *r)
 	rf->info = nil;
 	rf->tree = nil;
 	rf->node = nil;
+	rf->rlog = nil;
 
 	rf->fd = -1;
 	rf->buf = nil;
@@ -326,9 +364,11 @@ static char*
 fswalk1(Fid *fid, char *name, Qid *qid)
 {
 	Revtree* (*loadfn)(Revlog *, Revlog *, Revinfo *);
-	Revfile *rf;
+	char path[MAXPATH];
 	Revnode *nd;
-	int i;
+	Revfile *rf;
+	char *sname;
+	int i, level;
 
 	if(!(fid->qid.type&QTDIR))
 		return "walk in non-directory";
@@ -349,6 +389,8 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 			rf->level = Qrev;
 			break;
 		case Qtree:
+			closerevlog(rf->rlog);
+			rf->rlog = nil;
 			if((rf->node = rf->node->up) == rf->tree->root)
 				rf->level = rf->tree->level;
 			break;
@@ -396,13 +438,56 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 		case Qtree:
 		case Qfiles:
 		case Qchanges:
+			i = 0;
+			level = Qtree;
+			sname = name;
+		Searchtree:
 			for(nd = rf->node->down; nd; nd = nd->next)
-				if(strcmp(nd->name, name) == 0)
+				if(strcmp(nd->name, sname) == 0)
 					break;
-			if(nd == nil)
+			if(nd == nil){
+				if(sname == name){
+					sname = strrchr(name, '.');
+					if((i = sname - name) > 0){
+						sname++;
+						if(strncmp(sname, "rev", 3) == 0){
+							level = Qtreerev;
+							sname += 3;
+						}
+						snprint(path, sizeof(path), "%.*s", i, name);
+						i = atoi(sname);
+						sname = path;
+						goto Searchtree;
+					}
+				}
+				goto Notfound;
+			}
+			if(nd->hash){
+				Revnode *nb;
+				int j;
+
+				if((rf->rlog = getrevlog(nd)) == nil)
+					goto Notfound;
+				j = hashrev(rf->rlog, nd->hash) - i;
+				if(i < 0 || j < 0 || j >= rf->rlog->nmap){
+					closerevlog(rf->rlog);
+					rf->rlog = nil;
+					goto Notfound;
+				}
+				for(nb = nd; nb; nb = nb->before)
+					if(hashrev(rf->rlog, nb->hash) == j)
+						break;
+				if(nb == nil){
+					nb = mknode(nd->name, revhash(rf->rlog, j), nd->mode);
+					nb->up = nd->up;
+					nb->before = nd->before;
+					nd->before = nb;
+				}
+				nd = nb;
+			} else if(i || level != Qtree)
 				goto Notfound;
 			rf->node = nd;
-			rf->level = Qtree;
+			rf->level = level;
 			break;
 		}
 	}
@@ -425,6 +510,8 @@ fsclone(Fid *oldfid, Fid *newfid)
 	if(orf = oldfid->aux){
 		rf = emalloc9p(sizeof(*rf));
 		*rf = *orf;
+		if(rf->rlog)
+			incref(rf->rlog);
 		if(rf->tree)
 			incref(rf->tree);
 		if(rf->fd >= 0)
@@ -442,6 +529,7 @@ fsdestroyfid(Fid *fid)
 	Revfile *rf;
 
 	if(rf = fid->aux){
+		closerevlog(rf->rlog);
 		closerevtree(rf->tree);
 		if(rf->fd >= 0)
 			close(rf->fd);
@@ -508,7 +596,6 @@ fsread(Req *r)
 {
 	Revfile *rf;
 	char buf[MAXPATH];
-	Revlog rl;
 	char *s;
 	int i, n;
 	vlong off;
@@ -539,10 +626,16 @@ fsread(Req *r)
 				i = changelog.map[i].p1rev;
 			else
 				i = changelog.map[i].p2rev;
+	Revgen:
 			if(i >= 0)
 				snprint(s = buf, sizeof(buf), "%d.%H", i, changelog.map[i].hash);
 		}
 		goto Strgen;
+	case Qtreerev:
+		s = nil;
+		if((i = hashrev(rf->rlog, rf->node->hash)) >= 0)
+			i = rf->rlog->map[i].linkrev;
+		goto Revgen;
 	case Qlog:
 		if(off >= rf->info->loglen)
 			len = 0;
@@ -577,17 +670,10 @@ fsread(Req *r)
 		}
 		if(rf->fd >= 0)
 			goto Fdgen;
-		nodepath(seprint(buf, buf+sizeof(buf), ".hg/store/data"), buf+sizeof(buf), rf->node);
-		if(revlogopen(&rl, buf, OREAD) < 0){
+		if((rf->fd = revlogopentemp(rf->rlog, hashrev(rf->rlog, rf->node->hash))) < 0){
 			responderror(r);
 			return;
 		}
-		if((rf->fd = revlogopentemp(&rl, hashrev(&rl, rf->node->hash))) < 0){
-			responderror(r);
-			revlogclose(&rl);
-			return;
-		}
-		revlogclose(&rl);
 	Fdgen:
 		if((n = pread(rf->fd, r->ofcall.data, len, off)) < 0){
 			responderror(r);

@@ -22,7 +22,7 @@ nodepath(char *s, char *e, Revnode *nd)
 
 	p = nd->name;
 	for(i=0; i<nelem(frogs); i++)
-		if(strcmp(frogs[i], p) == 0)
+		if(strncmp(frogs[i], p, strlen(frogs[i])) == 0)
 			return seprint(s, e, "%.2s~%.2x%s", p, p[2], p+3);
 
 	for(; s+4 < e && *p; p++){
@@ -43,10 +43,35 @@ nodepath(char *s, char *e, Revnode *nd)
 	return s;
 }
 
+Revnode*
+mknode(char *name, uchar *hash, char mode)
+{
+	Revnode *d;
+	char *s;
+
+	d = malloc(sizeof(*d) + (hash ? HASHSZ : 0) + (name ? strlen(name)+1 : 0));
+	d->up = d->down = d->next = d->before = nil;
+	s = (char*)&d[1];
+	if(hash){
+		d->path = *((uvlong*)hash);
+		memmove(d->hash = (uchar*)s, hash, HASHSZ);
+		s += HASHSZ;
+	} else {
+		d->path = 1;
+		d->hash = nil;
+	}
+	if(name)
+		strcpy(d->name = s, name);
+	else
+		d->name = nil;
+	d->mode = mode;
+	return d;
+}
+
 static void
 addnode(Revnode *d, char *path, uchar *hash, char mode)
 {
-	char *slash, *x;
+	char *slash;
 	Revnode *c, *p;
 
 	while(path && *path){
@@ -57,20 +82,8 @@ addnode(Revnode *d, char *path, uchar *hash, char mode)
 			if(strcmp(c->name, path) == 0)
 				break;
 		if(c == nil){
-			c = malloc(sizeof(*c) + (!slash ? HASHSZ : 0) + strlen(path)+1);
-			c->path = 1;
-			x = (char*)&c[1];
-			if(!slash){
-				c->mode = mode;
-				memmove(c->hash = (uchar*)x, hash, HASHSZ);
-				x += HASHSZ;
-			}else{
-				c->mode = 0;
-				c->hash = nil;
-			}
-			strcpy(c->name = x, path);
+			c = mknode(path, slash ? nil : hash, slash ? 0 : mode);
 			c->up = d;
-			c->down = nil;
 			if(p){
 				c->next = p->next;
 				p->next = c;
@@ -78,7 +91,6 @@ addnode(Revnode *d, char *path, uchar *hash, char mode)
 				c->next = d->down;
 				d->down = c;
 			}
-
 			if(c->hash){
 				p = c;
 				p->path = *((uvlong*)c->hash);
@@ -170,21 +182,12 @@ loadtree(Revlog *manifest, Revinfo *ri, Hashstr **ht, int nh)
 	t = malloc(sizeof(*t));
 	memset(t, 0, sizeof(*t));
 	incref(t);
-
-	t->root = malloc(sizeof(Revnode));
-	t->root->path = 0;
-	t->root->name = 0;
-	t->root->up = nil;
-	t->root->down = nil;
-	t->root->next = nil;
-	t->root->hash = nil;
-
+	t->root = mknode(nil, nil, 0);
 	if(loadmanifest(t->root, fd, ht, nh) < 0){
 		close(fd);
 		closerevtree(t);
 		return nil;
 	}
-
 	close(fd);
 
 	return t;
@@ -259,6 +262,7 @@ freenode(Revnode *nd)
 		return;
 	freenode(nd->down);
 	freenode(nd->next);
+	freenode(nd->before);
 	free(nd);
 }
 

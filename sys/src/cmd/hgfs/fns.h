@@ -25,6 +25,7 @@ Revinfo *loadrevinfo(Revlog *changelog, int rev);
 
 /* tree */
 char *nodepath(char *s, char *e, Revnode *nd);
+Revnode *mknode(char *name, uchar *hash, char mode);
 Revtree *loadfilestree(Revlog *changelog, Revlog *manifest, Revinfo *ri);
 Revtree *loadchangestree(Revlog *changelog, Revlog *manifest, Revinfo *ri);
 void closerevtree(Revtree *t);
