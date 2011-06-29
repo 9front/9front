@@ -21,18 +21,21 @@ hgfs \- mercurial file system
 Mercurial is a distributed version control system. It tracks
 and organizes files and keeps a change history of them. The
 file revisions are stored as packed deltas in a repository
-and can be checked out with the
+that can be checked out with the
 .IR hg (1)
 program.
 
-Hgfs allows read only access to all stored file revisions
+.I Hgfs
+allows read-only access to all stored file revisions
 in a repository as simple files.
 
-Starting hgfs without any options finds the repository of
-the current working directory and mounts itself to
+Starting
+.I hgfs
+without any options locates the repository of
+the current working directory and mounts itself on
 .B /n/hg.
 
-The served directory contains a list of subdirectories
+The resulting served directory contains a list of subdirectories,
 each corresponding to a specific changeset revision.
 
 The special
@@ -42,41 +45,42 @@ corresponds to the latest changeset but is not listed.
 
 In each revision directory the following files can be found:
 .TP
-.B rev1,rev2
-These files contain the two parent revision ids as text.
+.B rev1
+contains the parent revision id as text.
+.TP
+.B rev2
+If the changeset was a merge, contains the other parent revision id. Otherwise, a zero size file.
 .TP
 .B log
 The
 .B log
-file contains a list of file names, separated by newline, that where
+file contains a list of file names, separated by a newline, that where
 touched in this changeset. Files that are listed in the log
 but are not visible in
-.B files or
+.B files
+or
 .B changes
 where deleted in this changeset.
 .TP
-.B who,why
-These files contains the commiter and the commit message of
-the changeset.
+.B who
+committer of the changeset.
 .TP
-.B files,changes
-These directories contain a snapshot of the filetree when this
-change was made. The 
-.B changes
-directory contains only the changed
-files.
-
-On files in the
+.B why
+commit message of the changeset.
+.TP
 .B files
-and
-.B changes
-directories, one can append
+A directory that contains a snapshot of the filetree when this change was made.
+To retrieve the \fIn\fRth
+past version of a file, append
 .I .n
-(or
-.I .revn
-to get the revision id)
-to the filename where
-.I n
-is the nth past version of the file.
+to the filename. For revision id
+.I revn,
+append
+.I .revn.
+.TP
+.B changes
+Same as
+.B files,
+but contains only the changed files.
 .SH SEE ALSO
 .IR hg (1)
