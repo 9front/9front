@@ -26,22 +26,52 @@ that can be checked out with the
 program.
 
 .I Hgfs
-allows read-only access to all stored file revisions
-in a repository as simple files.
+serves a mercurial repository as a read only filesystem where
+each file revision and its metadata is accessible as files.
 
-Starting
-.I hgfs
-without any options locates the repository of
-the current working directory and mounts itself on
-.B /n/hg.
+The repository can be specified by passing the working directory
+.I dir
+as the last argument. When omited, hgfs locates the repository by waking
+upwards from the current working directory until the
+.B .hg
+sub-directory is found. If no
+.I mtpt
+was specified with
+.B -m
+, then hgfs will mount itself on
+.B /n/hg
+(default). When a
+.I service
+name is given with the
+.B -s
+flag, then the 9p service pipe 
+.B /srv/\fIservice\fR
+is created and can be mounted from another namespace.
+The
+.B -D
+flag enables 9p debug messages.
 
-The resulting served directory contains a list of subdirectories,
-each corresponding to a specific changeset revision.
+The root of the served filesystem contains directories each 
+corresponding to a specific changeset revision in the
+repository.
 
-The special
-name
+The revision directories are named by ther revision id wich
+has the form [\fId\fB.\fR]\fIhhhhhhhhhhhh\fR where
+.I d
+is the decimal revision number starting from 0 and
+.I hhhhhhhhhhhh
+is the hexadecimal hash prefix of the changeset. As both,
+the revision number
+.I d
+and the hash prefix
+.I hhhhhhhhhhhh
+are able to identify
+a revision uniquely, only one of them needs to be given
+when walking the root directory. The hexadecimal hash
+can be shortend as long as the resulting lookup yields
+a uniqueue result. The special name
 .B tip
-corresponds to the latest changeset but is not listed.
+corresponds to the latest revision but is not listed.
 
 In each revision directory the following files can be found:
 .TP
@@ -55,12 +85,12 @@ If the changeset was a merge, contains the other parent revision id. Otherwise, 
 The
 .B log
 file contains a list of file names, separated by a newline, that where
-touched in this changeset. Files that are listed in the log
-but are not visible in
+affected in this changeset. Files that are listed in the log
+but are not accessible in
 .B files
 or
 .B changes
-where deleted in this changeset.
+directories have been deleted in this changeset.
 .TP
 .B who
 committer of the changeset.
@@ -69,18 +99,21 @@ committer of the changeset.
 commit message of the changeset.
 .TP
 .B files
-A directory that contains a snapshot of the filetree when this change was made.
+A directory that contains a snapshot of the tree at the time
+the changeset was commited.
+
 To retrieve the \fIn\fRth
-past version of a file, append
-.I .n
-to the filename. For revision id
-.I revn,
-append
-.I .revn.
+past version of a file relative to the changeset,
+one can append \fB.\fIn\fR
+to the filename. Appending \fB.rev\fIn\fR yields
+a file that contains its revision id as text. Note that
+appending \fB.rev\fI0\fR or \fB.rev\fR yields the file containing the
+revision id of the changeset when the file was last modified
+and \fB.\fI0\fR yields the same file as when omiting the appendix.
 .TP
 .B changes
 Same as
 .B files,
-but contains only the changed files.
+but contains only the changed files of the changeset.
 .SH SEE ALSO
 .IR hg (1)
