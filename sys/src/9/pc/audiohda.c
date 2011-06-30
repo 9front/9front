@@ -441,7 +441,7 @@ hdacmd(Ctlr *ctlr, uint request, uint reply[2])
 		if(csr16(ctlr, Rirbwp) != re){
 			re = (re + 1) % ctlr->rirbsize;
 			memmove(reply, &ctlr->rirb[re*2], 8);
-			return 8;
+			return 1;
 		}
 		microdelay(1);
 	}
@@ -457,7 +457,9 @@ cmderr(Id id, uint verb, uint par, uint *ret)
 		q |= (verb << 8) | par;
 	else
 		q |= (verb << 16) | par;
-	if(hdacmd(id.ctlr, q, w) != 8)
+	if(hdacmd(id.ctlr, q, w) != 1)
+		return -1;
+	if(w[1] != id.codec)
 		return -1;
 	*ret = w[0];
 	return 0;
@@ -1299,7 +1301,7 @@ hdacmdwrite(Chan *, void *a, long n, vlong)
 	lp = a;
 	qlock(ctlr);
 	for(i=0; i<n/4; i++){
-		if(hdacmd(ctlr, lp[i], w) < 0){
+		if(hdacmd(ctlr, lp[i], w) <= 0){
 			w[0] = 0;
 			w[1] = ~0;
 		}
