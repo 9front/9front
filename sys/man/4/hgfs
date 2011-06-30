@@ -26,27 +26,30 @@ that can be checked out with the
 program.
 
 .I Hgfs
-serves a mercurial repository as a read only filesystem where
+serves a mercurial repository as a read-only filesystem where
 each file revision and its metadata is accessible as files.
 
-The repository can be specified by passing the working directory
+The repository may be specified by passing the working directory
 .I dir
-as the last argument. When omited, hgfs locates the repository by waking
+as the final argument. When omitted,
+.I hgfs
+locates the repository by waking
 upwards from the current working directory until the
 .B .hg
 sub-directory is found. If no
 .I mtpt
 was specified with
 .B -m
-, then hgfs will mount itself on
+,
+then hgfs will mount itself on
 .B /n/hg
 (default). When a
 .I service
 name is given with the
 .B -s
-flag, then the 9p service pipe 
+flag, the 9p service pipe 
 .B /srv/\fIservice\fR
-is created and can be mounted from another namespace.
+is created and may be mounted from another namespace.
 The
 .B -D
 flag enables 9p debug messages.
@@ -55,23 +58,24 @@ The root of the served filesystem contains directories each
 corresponding to a specific changeset revision in the
 repository.
 
-The revision directories are named by ther revision id wich
-has the form [\fId\fB.\fR]\fIhhhhhhhhhhhh\fR where
+Revision directories are named by a revision id which
+takes the form [\fId\fB.\fR]\fIhhhhhhhhhhhh\fR, where
 .I d
 is the decimal revision number starting from 0 and
 .I hhhhhhhhhhhh
-is the hexadecimal hash prefix of the changeset. As both,
+is the hexadecimal hash prefix of the changeset. Both
 the revision number
 .I d
 and the hash prefix
 .I hhhhhhhhhhhh
 are able to identify
-a revision uniquely, only one of them needs to be given
+a revision uniquely; only one of them needs to be given
 when walking the root directory. The hexadecimal hash
-can be shortend as long as the resulting lookup yields
-a uniqueue result. The special name
+may be shortend so long as the resulting lookup yields
+a unique result. The special name
 .B tip
-corresponds to the latest revision but is not listed.
+corresponds to the latest revision but does not appear
+in the directory listing.
 
 In each revision directory the following files can be found:
 .TP
@@ -86,7 +90,7 @@ The
 .B log
 file contains a list of file names, separated by a newline, that where
 affected in this changeset. Files that are listed in the log
-but are not accessible in
+but are not accessible in the
 .B files
 or
 .B changes
@@ -109,7 +113,7 @@ to the filename. Appending \fB.rev\fIn\fR yields
 a file that contains its revision id as text. Note that
 appending \fB.rev\fI0\fR or \fB.rev\fR yields the file containing the
 revision id of the changeset when the file was last modified
-and \fB.\fI0\fR yields the same file as when omiting the appendix.
+and \fB.\fI0\fR yields the same file as when omitting the appendix.
 .TP
 .B changes
 Same as
