@@ -13,7 +13,7 @@ nodepath(char *s, char *e, Revnode *nd)
 		"lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9",
 	};
 	char *p;
-	int i;
+	int i, l;
 
 	if(nd == nil || nd->name == nil)
 		return s;
@@ -21,10 +21,11 @@ nodepath(char *s, char *e, Revnode *nd)
 	s = seprint(nodepath(s, e, nd->up), e, "/");
 
 	p = nd->name;
-	for(i=0; i<nelem(frogs); i++)
-		if(strncmp(frogs[i], p, strlen(frogs[i])) == 0)
+	for(i=0; i<nelem(frogs); i++){
+		l = strlen(frogs[i]);
+		if((strncmp(frogs[i], p, l) == 0) && (p[l] == 0 || p[l] == '.'))
 			return seprint(s, e, "%.2s~%.2x%s", p, p[2], p+3);
-
+	}
 	for(; s+4 < e && *p; p++){
 		if(*p == '_'){
 			*s++ = '_';
@@ -50,20 +51,16 @@ mknode(char *name, uchar *hash, char mode)
 	char *s;
 
 	d = malloc(sizeof(*d) + (hash ? HASHSZ : 0) + (name ? strlen(name)+1 : 0));
-	d->up = d->down = d->next = d->before = nil;
+	memset(d, 0, sizeof(*d));
 	s = (char*)&d[1];
 	if(hash){
 		d->path = *((uvlong*)hash);
 		memmove(d->hash = (uchar*)s, hash, HASHSZ);
 		s += HASHSZ;
-	} else {
+	}else
 		d->path = 1;
-		d->hash = nil;
-	}
 	if(name)
 		strcpy(d->name = s, name);
-	else
-		d->name = nil;
 	d->mode = mode;
 	return d;
 }

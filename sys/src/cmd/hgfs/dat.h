@@ -35,6 +35,8 @@ struct Revlog
 {
 	Ref;
 
+	Revlog	*next;
+
 	char	*path;
 
 	int	ifd;
@@ -67,7 +69,7 @@ struct Revinfo
 
 	char	*who;
 	char	*why;
-	long	when;
+	ulong	when;
 
 	vlong	logoff;
 	vlong	loglen;

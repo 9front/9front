@@ -18,6 +18,7 @@ revlogupdate(Revlog *r)
 {
 	uchar buf[64];
 	Revmap *m;
+	vlong noff;
 	int rev;
 
 	if(seek(r->ifd, r->ioff, 0) < 0)
@@ -47,11 +48,14 @@ revlogupdate(Revlog *r)
 		m->p2rev = buf[28]<<24 | buf[29]<<16 | buf[30]<<8 | buf[31];
 		memmove(m->hash, buf+32, HASHSZ);
 
+		noff = r->ioff + sizeof(buf);
 		if(r->dfd < 0){
-			m->hoff = seek(r->ifd, 0, 1);
-			r->ioff = seek(r->ifd, m->hlen, 1);
-		} else
-			r->ioff = seek(r->ifd, 0, 1);
+			m->hoff = noff;
+			noff = seek(r->ifd, m->hoff + m->hlen, 0);
+			if(noff < 0)
+				break;
+		}
+		r->ioff = noff;
 	}
 	r->nmap = rev;
 }

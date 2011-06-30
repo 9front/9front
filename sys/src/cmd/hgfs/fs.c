@@ -40,20 +40,31 @@ static char *nametab[] = {
 
 static Revlog changelog;
 static Revlog manifest;
+static Revlog *revlogs;
+
+static char dothg[MAXPATH];
 
 static Revlog*
 getrevlog(Revnode *nd)
 {
-	char path[MAXPATH];
+	char buf[MAXPATH];
 	Revlog *rl;
 
-	nodepath(seprint(path, path+MAXPATH, ".hg/store/data"), path+MAXPATH, nd);
-	rl = emalloc9p(sizeof(*rl));
-	memset(rl, 0, sizeof(*rl));
-	if(revlogopen(rl, path, OREAD) < 0){
-		free(rl);
-		return nil;
-	}
+	nodepath(seprint(buf, buf+sizeof(buf), "%s/store/data", dothg), buf+sizeof(buf), nd);
+	for(rl = revlogs; rl; rl = rl->next)
+		if(strcmp(buf, rl->path) == 0)
+			break;
+	if(rl == nil){
+		rl = emalloc9p(sizeof(*rl));
+		memset(rl, 0, sizeof(*rl));
+		if(revlogopen(rl, buf, OREAD) < 0){
+			free(rl);
+			return nil;
+		}
+		rl->next = revlogs;
+		revlogs = rl;
+	} else
+		revlogupdate(rl);
 	incref(rl);
 	return rl;
 }
@@ -61,10 +72,16 @@ getrevlog(Revnode *nd)
 static void
 closerevlog(Revlog *rl)
 {
-	if(rl == nil)
+	Revlog **pp;
+
+	if(rl == nil || decref(rl))
 		return;
-	if(decref(rl))
-		return;
+	for(pp = &revlogs; *pp; pp = &((*pp)->next)){
+		if(*pp == rl){
+			*pp = rl->next;
+			break;
+		}
+	}
 	revlogclose(rl);
 	free(rl);
 }
@@ -189,6 +206,15 @@ fsmkqid(Qid *q, int level, void *aux)
 	}
 }
 
+static char*
+fsmkrevname(char *buf, int nbuf, int rev)
+{
+	if(rev < 0 || rev >= changelog.nmap)
+		return nil;
+	snprint(buf, nbuf, "%d.%H", rev, changelog.map[rev].hash);
+	return buf;
+}
+
 static void
 fsmkdir(Dir *d, int level, void *aux)
 {
@@ -205,7 +231,6 @@ fsmkdir(Dir *d, int level, void *aux)
 	if(d->qid.type == QTDIR)
 		d->mode |= DMDIR | 0111;
 
-	s = nil;
 	ri = nil;
 	switch(level){
 	case Qroot:
@@ -220,10 +245,9 @@ fsmkdir(Dir *d, int level, void *aux)
 			rev = changelog.map[rev].p1rev;
 		else if(level == Qrev2)
 			rev = changelog.map[rev].p2rev;
-		if(rev >= 0)
-			snprint(s = buf, sizeof(buf), "%d.%H", rev, changelog.map[rev].hash);
+		s = fsmkrevname(buf, sizeof(buf), rev);
 		if(level == Qrev){
-			d->name = estrdup9p(buf);
+			d->name = estrdup9p(s);
 			break;
 		}
 		goto Strgen;
@@ -252,9 +276,9 @@ fsmkdir(Dir *d, int level, void *aux)
 	case Qtree:
 	case Qtreerev:
 		nd = aux;
-		d->name = estrdup9p(nd->name);
-		if(nd->mode == 'x')
+		if(level == Qtree && nd->mode == 'x')
 			d->mode |= 0111;
+		d->name = estrdup9p(nd->name);
 		if(nd->hash){
 			Revlog *rl;
 
@@ -363,10 +387,9 @@ static char*
 fswalk1(Fid *fid, char *name, Qid *qid)
 {
 	Revtree* (*loadfn)(Revlog *, Revlog *, Revinfo *);
-	char path[MAXPATH];
+	char buf[MAXPATH], *sname;
 	Revnode *nd;
 	Revfile *rf;
-	char *sname;
 	int i, level;
 
 	if(!(fid->qid.type&QTDIR))
@@ -453,9 +476,9 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 							level = Qtreerev;
 							sname += 3;
 						}
-						snprint(path, sizeof(path), "%.*s", i, name);
+						snprint(buf, sizeof(buf), "%.*s", i, name);
 						i = atoi(sname);
-						sname = path;
+						sname = buf;
 						goto Searchtree;
 					}
 				}
@@ -483,7 +506,7 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 					nd->before = nb;
 				}
 				nd = nb;
-			} else if(i || level != Qtree)
+			} else if(name != sname)
 				goto Notfound;
 			rf->node = nd;
 			rf->level = level;
@@ -593,9 +616,8 @@ treegen(int i, Dir *d, void *aux)
 static void
 fsread(Req *r)
 {
+	char buf[MAXPATH], *s;
 	Revfile *rf;
-	char buf[MAXPATH];
-	char *s;
 	int i, n;
 	vlong off;
 	int len;
@@ -620,18 +642,15 @@ fsread(Req *r)
 		s = nil;
 		if(rf->buf)
 			goto Strgen;
-		if((i = hashrev(&changelog, rf->info->chash)) >= 0){
-			if(rf->level == Qrev1)
-				i = changelog.map[i].p1rev;
-			else
-				i = changelog.map[i].p2rev;
+		i = hashrev(&changelog, rf->info->chash);
+		if(rf->level == Qrev1)
+			i = changelog.map[i].p1rev;
+		else
+			i = changelog.map[i].p2rev;
 	Revgen:
-			if(i >= 0)
-				snprint(s = buf, sizeof(buf), "%d.%H", i, changelog.map[i].hash);
-		}
+		s = fsmkrevname(buf, sizeof(buf), i);
 		goto Strgen;
 	case Qtreerev:
-		s = nil;
 		if((i = hashrev(rf->rlog, rf->node->hash)) >= 0)
 			i = rf->rlog->map[i].linkrev;
 		goto Revgen;
@@ -699,7 +718,7 @@ Srv fs =
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-D] [-m mtpt] [-s srv]\n", argv0);
+	fprint(2, "usage: %s [-D] [-m mtpt] [-s srv] [root]\n", argv0);
 	exits("usage");
 }
 
@@ -707,6 +726,7 @@ void
 main(int argc, char *argv[])
 {
 	char *srv, *mtpt;
+	char buf[MAXPATH];
 
 	inflateinit();
 	fmtinstall('H', Hfmt);
@@ -728,9 +748,29 @@ main(int argc, char *argv[])
 		usage();
 	} ARGEND;
 
-	if(revlogopen(&changelog, ".hg/store/00changelog", OREAD) < 0)
+	if(*argv){
+		snprint(dothg, sizeof(dothg), "%s/.hg", *argv);
+	}else{
+		if(getwd(buf, sizeof(buf)) == nil)
+			sysfatal("can't get working dir: %r");
+		for(;;){
+			char *s;
+
+			snprint(dothg, sizeof(dothg), "%s/.hg", buf);
+			if(access(dothg, AEXIST) == 0)
+				break;
+			if((s = strrchr(buf, '/')) == nil)
+				break;
+			*s = 0;
+		}
+	}
+	cleanname(dothg);
+
+	snprint(buf, sizeof(buf), "%s/store/00changelog", dothg);
+	if(revlogopen(&changelog, buf, OREAD) < 0)
 		sysfatal("can't open changelog: %r\n");
-	if(revlogopen(&manifest, ".hg/store/00manifest", OREAD) < 0)
+	snprint(buf, sizeof(buf), "%s/store/00manifest", dothg);
+	if(revlogopen(&manifest, buf, OREAD) < 0)
 		sysfatal("can't open menifest: %r\n");
 
 	postmountsrv(&fs, srv, mtpt, MREPL);
