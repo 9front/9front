@@ -95,18 +95,22 @@ Tail(addr)
 defn
 Magic(m)
 {
-	if m == FREE_MAGIC then
-		return "free";
-	if m == ARENA_MAGIC then
-		return "arena";
-	if m == UNKEMPT_MAGIC then
-		return "unkempt";
-	if m == KEMPT_MAGIC then
-		return "kempt";
-	if m == ARENATAIL_MAGIC then
-		return "arenatail";
 	if m == DEAD_MAGIC then
 		return "dead";
+	if m == FREE_MAGIC then
+		return "free";
+	if m == ALLOC_MAGIC then
+		return "alloc";
+	if m == UNALLOC_MAGIC then
+		return "unalloc";
+	if m == ARENA_MAGIC then
+		return "arena";
+	if m == ARENATAIL_MAGIC then
+		return "arenatail";
+	if m == ALIGN_MAGIC then
+		return "align";
+	if m == FLOATING_MAGIC then
+		return "floating";
 	return "unknown magic";
 }
 
@@ -150,7 +154,7 @@ checkblock(addr)
 	taddr = B2T(addr);
 	complex Btail taddr;
 
-	if addr.magic == FREE_MAGIC || addr.magic == UNKEMPT_MAGIC then {
+	if addr.magic == FREE_MAGIC || addr.magic == UNALLOC_MAGIC then {
 		if taddr.magic0 != TAIL_MAGIC0 || taddr.magic1 != TAIL_MAGIC1 then
 			print(addr\X, " corrupt tail magic\n");
 		if taddr.size != addr.size then
@@ -170,7 +174,7 @@ checkblock(addr)
 			print(addr\X, " bad size in arena tail\n");
 	}
 
-	if addr.magic == KEMPT_MAGIC then {
+	if addr.magic == ALLOC_MAGIC then {
 		a = addr;
 		complex Alloc a;
 		if a.size > 1024*1024*1024 then 
@@ -296,8 +300,8 @@ blockhdr(addr)
 
 	while *addr != FREE_MAGIC 
 		&& *addr !=  ARENA_MAGIC
-		&& *addr != UNKEMPT_MAGIC
-		&& *addr != KEMPT_MAGIC
+		&& *addr != UNALLOC_MAGIC
+		&& *addr != ALLOC_MAGIC
 		&& *addr != ARENATAIL_MAGIC
 	do
 		addr = addr-4;
