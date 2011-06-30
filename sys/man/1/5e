@@ -19,10 +19,10 @@ it supports, among others, the syscalls
 .IR rfork (2)
 and
 .IR exec (2),
-i.e. it allows execution of threaded programs, e.g.
+which allows for the execution of threaded programs (e.g.,
 .IR rio (1)
 or
-.IR catclock (1).
+.IR catclock (1)).
 .PP
 .I 5e
 executes the specified binary
@@ -89,8 +89,8 @@ Supplying
 causes failing processes to call
 .IR abort (2)
 instead of
-.IR sysfatal (2),
-but see below.
+.IR sysfatal (2).
+See below.
 .SH SOURCE
 .B /sys/src/cmd/5e
 .SH SEE ALSO
@@ -111,14 +111,14 @@ Careless use of the
 .B LDREX
 and
 .B STREX
-instructions can lead to deadlock, however a real processor is supposed behave undefined in these cases.
+instructions can lead to deadlock, while a real processor will exhibit undefined behavior in these cases.
 
-Accesses spanning segment boundaries will be treated like page faults.
-Many syscalls like
+Accesses spanning segment boundaries will be treated as page faults.
+Many syscalls such as
 .IR pread (2)
-will shuffle data around (in most cases unnecessarily), if invoked on potentially shared segments of variable length, in particular the bss segment.
+will shuffle data around (in most cases unnecessarily) if invoked on potentially shared segments of variable length, in particular the bss segment.
 
-FPA emulation leaves much to desire, rounding modes are ignored, all calculations are performed at extended precision.
+FPA emulation leaves much to be desired, rounding modes are ignored, all calculations are performed at extended precision.
 Floating point exceptions crash the emulator.
 
 Several syscalls, most notably the
@@ -133,5 +133,5 @@ emulation is more than unsatisfactory.
 
 The
 .I text
-argument should behave more like it would if it was entered in
+argument should behave more like it would if it had been entered as an argument to
 .IR rc (1).
