@@ -111,7 +111,9 @@ Careless use of the
 .B LDREX
 and
 .B STREX
-instructions can lead to deadlock, while a real processor will exhibit undefined behavior in these cases.
+instructions can lead to deadlock, while the
+.I ARM Architecture Reference Manual
+indicates a real processor will exhibit undefined behavior in these cases.
 
 Accesses spanning segment boundaries will be treated as page faults.
 Many syscalls such as
