@@ -36,7 +36,7 @@ loadrevinfo(Revlog *changelog, int rev)
 
 			switch(line++){
 			case 0:
-				strhash(buf, ri->mhash);
+				hex2hash(buf, ri->mhash);
 				break;
 			case 1:
 				ri->who = strdup(buf);

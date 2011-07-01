@@ -1,6 +1,7 @@
 /* hash */
 int Hfmt(Fmt *f);
-int strhash(char *s, uchar *h);
+int hex2hash(char *s, uchar *h);
+uvlong hash2qid(uchar *h);
 int fhash(int fd, uchar p1[], uchar p2[], uchar h[]);
 
 /* patch */
@@ -24,7 +25,7 @@ int revlogopentemp(Revlog *r, int rev);
 Revinfo *loadrevinfo(Revlog *changelog, int rev);
 
 /* tree */
-char *nodepath(char *s, char *e, Revnode *nd);
+char *nodepath(char *s, char *e, Revnode *nd, int mange);
 Revnode *mknode(char *name, uchar *hash, char mode);
 Revtree *loadfilestree(Revlog *changelog, Revlog *manifest, Revinfo *ri);
 Revtree *loadchangestree(Revlog *changelog, Revlog *manifest, Revinfo *ri);

@@ -42,7 +42,7 @@ fhash(int fd, uchar p1[], uchar p2[], uchar h[])
 }
 
 int
-strhash(char *s, uchar *h)
+hex2hash(char *s, uchar *h)
 {
 	uchar *b;
 	int n;
@@ -66,4 +66,16 @@ strhash(char *s, uchar *h)
 		s++;
 	}
 	return h - b;
+}
+
+uvlong
+hash2qid(uchar *h)
+{
+	uvlong v;
+	int i;
+
+	v = 0;
+	for(i=0; i<8; i++)
+		v |= (uvlong)h[i]<<(56-8*i);
+	return v;
 }

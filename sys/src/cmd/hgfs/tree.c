@@ -5,7 +5,7 @@
 #include "fns.h"
 
 char*
-nodepath(char *s, char *e, Revnode *nd)
+nodepath(char *s, char *e, Revnode *nd, int mangle)
 {
 	static char *frogs[] = {
 		"con", "prn", "aux", "nul",
@@ -18,9 +18,11 @@ nodepath(char *s, char *e, Revnode *nd)
 	if(nd == nil || nd->name == nil)
 		return s;
 
-	s = seprint(nodepath(s, e, nd->up), e, "/");
-
+	s = seprint(nodepath(s, e, nd->up, mangle), e, "/");
 	p = nd->name;
+	if(!mangle)
+		return seprint(s, e, "%s", p);
+
 	for(i=0; i<nelem(frogs); i++){
 		l = strlen(frogs[i]);
 		if((strncmp(frogs[i], p, l) == 0) && (p[l] == 0 || p[l] == '.'))
@@ -54,7 +56,7 @@ mknode(char *name, uchar *hash, char mode)
 	memset(d, 0, sizeof(*d));
 	s = (char*)&d[1];
 	if(hash){
-		d->path = *((uvlong*)hash);
+		d->path = hash2qid(hash);
 		memmove(d->hash = (uchar*)s, hash, HASHSZ);
 		s += HASHSZ;
 	}else
@@ -88,10 +90,9 @@ addnode(Revnode *d, char *path, uchar *hash, char mode)
 				c->next = d->down;
 				d->down = c;
 			}
-			if(c->hash){
+			if(!slash){
 				p = c;
-				p->path = *((uvlong*)c->hash);
-				while(d->up){
+				while(d){
 					d->path += p->path;
 					p = d;
 					d = d->up;
@@ -142,7 +143,7 @@ loadmanifest(Revnode *root, int fd, Hashstr **ht, int nh)
 
 			x = buf;
 			x += strlen(x) + 1;
-			strhash(x, hash);
+			hex2hash(x, hash);
 			x += HASHSZ*2;
 
 			if(ht == nil)

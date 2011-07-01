@@ -50,7 +50,8 @@ getrevlog(Revnode *nd)
 	char buf[MAXPATH];
 	Revlog *rl;
 
-	nodepath(seprint(buf, buf+sizeof(buf), "%s/store/data", dothg), buf+sizeof(buf), nd);
+	nodepath(seprint(buf, buf+sizeof(buf), "%s/store/data", dothg),
+		buf+sizeof(buf), nd, 1);
 	for(rl = revlogs; rl; rl = rl->next)
 		if(strcmp(buf, rl->path) == 0)
 			break;
@@ -189,7 +190,7 @@ fsmkqid(Qid *q, int level, void *aux)
 		q->type = 0;
 		}
 		ri = aux;
-		q->path = *((uvlong*)ri->chash) + (level - Qrev);
+		q->path = hash2qid(ri->chash) + (level - Qrev);
 		q->vers = 0;
 		break;
 	case Qtree:
@@ -368,7 +369,7 @@ findrev(Revlog *rl, char *name)
 	rev = -1;
 	if(s = strchr(name, '.'))
 		name = s+1;
-	if((n = strhash(name, hash)) > 0){
+	if((n = hex2hash(name, hash)) > 0){
 		for(i=0; i<rl->nmap; i++){
 			if(memcmp(rl->map[i].hash, hash, n) == 0){
 				if(rev < 0)
