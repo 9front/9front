@@ -1213,9 +1213,9 @@ hdastatus(Audio *adev, void *a, long n, vlong)
 	char *s;
 	
 	s = a;
-	k = snprint(s, n, 
-		"bufsize %6d buffered %6ud codec %2d pin %3d\n",
-		Bufsize, ringused(&ctlr->ring), ctlr->codec.id.codec, ctlr->pin);
+	k = snprint(s, n, "bufsize %6d buffered %6ud\ncodec %2d pin %3d\n",
+		ctlr->ring.blocksize, ringused(&ctlr->ring),
+		ctlr->codec.id.codec, ctlr->pin);
 	
 	for(fg=ctlr->codec.fgroup; fg; fg=fg->next){
 		for(w=fg->first; w; w=w->next){

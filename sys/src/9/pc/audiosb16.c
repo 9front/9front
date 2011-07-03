@@ -68,8 +68,6 @@ struct Ctlr
 	int	active;		/* boolean dma running */
 	int	major;		/* SB16 major version number (sb 4) */
 	int	minor;		/* SB16 minor version number */
-	ulong	totcount;	/* how many bytes processed since open */
-	vlong	tottime;	/* time at which totcount bytes were processed */
 	Ring	ring;		/* dma ring buffer */
 	Blaster	blaster;
 
@@ -288,12 +286,9 @@ contindma(Ctlr *ctlr)
 
 	blaster = &ctlr->blaster;
 	ring = &ctlr->ring;
-	if(buffered(ring) >= Blocksize){
+	if(buffered(ring) >= Blocksize)
 		ring->ri = ring->nbuf - dmacount(ctlr->conf.dma);
-
-		ctlr->totcount += Blocksize;
-		ctlr->tottime = todget(nil);
-	}else{
+	else{
 		dmaend(ctlr->conf.dma);
 		sbcmd(blaster, 0xd9);	/* exit at end of count */
 		sbcmd(blaster, 0xd5);	/* pause */
@@ -493,8 +488,6 @@ setempty(Ctlr *ctlr)
 	ilock(&ctlr->blaster);
 	ctlr->ring.ri = 0;
 	ctlr->ring.wi = 0;
-	ctlr->totcount = 0;
-	ctlr->tottime = 0LL;
 	iunlock(&ctlr->blaster);
 }
 
@@ -508,19 +501,14 @@ static long
 audiostatus(Audio *adev, void *a, long n, vlong)
 {
 	Ctlr *ctlr = adev->ctlr;
-
-	return snprint((char*)a, n, 
-		"bufsize %6d buffered %6ld "
-		"offset %10lud time %19lld\n",
-		Blocksize, buffered(&ctlr->ring),
-		ctlr->totcount, ctlr->tottime);
+	return snprint((char*)a, n, "bufsize %6d buffered %6ld\n",
+		Blocksize, buffered(&ctlr->ring));
 }
 
 static int
 inactive(void *arg)
 {
 	Ctlr *ctlr = arg;
-
 	return !ctlr->active;
 }
 
@@ -528,7 +516,6 @@ static int
 anybuf(void *arg)
 {
 	Ctlr *ctlr = arg;
-
 	return available(&ctlr->ring) || inactive(ctlr);
 }
 

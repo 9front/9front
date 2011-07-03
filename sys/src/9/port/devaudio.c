@@ -31,7 +31,7 @@ enum {
 	Qdir = 0,
 	Qaudio,
 	Qaudioctl,
-	Qaudiostatus,
+	Qaudiostat,
 	Qvolume,
 };
 
@@ -39,7 +39,7 @@ static Dirtab audiodir[] = {
 	".",	{Qdir, 0, QTDIR},	0,	DMDIR|0555,
 	"audio",	{Qaudio},	0,	0666,
 	"audioctl",	{Qaudioctl},	0,	0222,
-	"audiostat",	{Qaudiostatus},	0,	0444,
+	"audiostat",	{Qaudiostat},	0,	0444,
 	"volume",	{Qvolume},	0,	0666,
 };
 
@@ -139,7 +139,7 @@ audioattach(char *spec)
 		error(Enomem);
 
 	i = 1<<adev->ctlrno;
-	if((attached & i) == 0 && adev->volwrite){
+	if((attached & i) == 0){
 		static char *settings[] = {
 			"speed 44100",
 			"delay 882",	/* 20 ms */
@@ -149,7 +149,7 @@ audioattach(char *spec)
 		};
 
 		attached |= i;
-		for(i=0; i<nelem(settings); i++){
+		for(i=0; i<nelem(settings) && adev->volwrite; i++){
 			strcpy(ac->buf, settings[i]);
 			if(!waserror()){
 				adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
@@ -169,7 +169,7 @@ audioopen(Chan *c, int omode)
 
 	ac = c->aux;
 	adev = ac->adev;
-	if(c->qid.path == Qaudio && incref(&adev->audioopen) != 1){
+	if((c->qid.path == Qaudio) && (incref(&adev->audioopen) != 1)){
 		decref(&adev->audioopen);
 		error(Ebusy);
 	}
@@ -189,14 +189,12 @@ audioread(Chan *c, void *a, long n, vlong off)
 	fn = nil;
 	switch((ulong)c->qid.path){
 	case Qdir:
-		/* BUG: race */
-		if(adev->buffered)
-			audiodir[Qaudio].length = adev->buffered(adev);
+		audiodir[Qaudio].length = adev->buffered ? adev->buffered(adev) : 0;
 		return devdirread(c, a, n, audiodir, nelem(audiodir), devgen);
 	case Qaudio:
 		fn = adev->read;
 		break;
-	case Qaudiostatus:
+	case Qaudiostat:
 		fn = adev->status;
 		break;
 	case Qvolume:
@@ -212,7 +210,7 @@ audioread(Chan *c, void *a, long n, vlong off)
 		nexterror();
 	}
 	switch((ulong)c->qid.path){
-	case Qaudiostatus:
+	case Qaudiostat:
 	case Qvolume:
 		/* generate the text on first read */
 		if(ac->data == nil || off == 0){
@@ -294,12 +292,15 @@ audioclose(Chan *c)
 
 	ac = c->aux;
 	adev = ac->adev;
-	if(c->qid.path == Qaudio && (c->flag & COPEN)){
-		if(adev->close)
-			adev->close(adev);
+	if((c->qid.path == Qaudio) && (c->flag & COPEN)){
+		if(adev->close){
+			if(!waserror()){
+				adev->close(adev);
+				poperror();
+			}
+		}
 		decref(&adev->audioopen);
 	}
-
 	if(ac->owner == c){
 		ac->owner = nil;
 		c->aux = nil;
@@ -334,11 +335,8 @@ audiostat(Chan *c, uchar *dp, int n)
 
 	ac = c->aux;
 	adev = ac->adev;
-
-	/* BUG: race */
-	if(adev->buffered && (ulong)c->qid.path == Qaudio)
-		audiodir[Qaudio].length = adev->buffered(adev);
-
+	if((ulong)c->qid.path == Qaudio)
+		audiodir[Qaudio].length = adev->buffered ? adev->buffered(adev) : 0;
 	return devstat(c, dp, n, audiodir, nelem(audiodir), devgen);
 }
 

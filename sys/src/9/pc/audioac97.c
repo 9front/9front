@@ -269,15 +269,16 @@ ac97interrupt(Ureg *, void *arg)
 static long
 ac97buffered(Audio *adev)
 {
-	Ctlr *ctlr;
-	ctlr = adev->ctlr;
+	Ctlr *ctlr = adev->ctlr;
 	return buffered(&ctlr->outring);
 }
 
-static void
-ac97kick(Ctlr *ctlr, long reg)
+static long
+ac97status(Audio *adev, void *a, long n, vlong)
 {
-	csr8w(ctlr, reg+Cr, Ioce | Rpbm);
+	Ctlr *ctlr = adev->ctlr;
+	return snprint((char*)a, n, "bufsize %6d buffered %6ld\n",
+		Blocksize, buffered(&ctlr->outring));
 }
 
 static int
@@ -316,7 +317,7 @@ ac97write(Audio *adev, void *vp, long n, vlong)
 		ni = ring->wi / Blocksize;
 		while(oi != ni){
 			csr8w(ctlr, Out+Lvi, oi);
-			ac97kick(ctlr, Out);
+			csr8w(ctlr, Out+Cr, Ioce | Rpbm);
 			oi = (oi + 1) % Ndesc;
 		}
 		p += n;
@@ -499,6 +500,7 @@ Found:
 
 	adev->write = ac97write;
 	adev->buffered = ac97buffered;
+	adev->status = ac97status;
 
 	intrenable(irq, ac97interrupt, adev, tbdf, adev->name);
 
