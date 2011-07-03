@@ -277,7 +277,8 @@ struct Ctlr {
 	Lock;			/* interrupt lock */
 	QLock;			/* command lock */
 	Rendez outr;
-	
+
+	Audio *adev;
 	Pcidev *pcidev;
 	
 	uchar *mem;
@@ -991,6 +992,14 @@ outavail(void *arg)
 }
 
 static int
+outrate(void *arg)
+{
+	Ctlr *ctlr = arg;
+	int delay = ctlr->adev->delay*4;
+	return (delay <= 0) || (ringused(&ctlr->ring) <= delay) || (ctlr->active == 0);
+}
+
+static int
 checkptr(Ctlr *ctlr)
 {
 	Ring *r;
@@ -1082,6 +1091,7 @@ hdawrite(Audio *adev, void *vp, long vn, vlong)
 		}
 	}
 	hdakick(ctlr);
+	sleep(&ctlr->outr, outrate, ctlr);
 	return vn;
 }
 
@@ -1094,26 +1104,57 @@ hdaclose(Audio *adev)
 	hdakick(ctlr);
 }
 
+enum {
+	Vmaster,
+	Vspeed,
+	Vdelay,
+	Nvol,
+};
+
 static Volume voltab[] = {
-	[0] "master", 0, 0x7f, Stereo, 0,
+	[Vmaster] "master", 0, 0x7f, Stereo, 0,
+	[Vspeed] "speed", 0, 0, Absolute, 0,
+	[Vdelay] "delay", 0, 0, Absolute, 0,
 	0
 };
 
 static int
-hdagetvol(Audio *adev, int, int a[2])
+hdagetvol(Audio *adev, int x, int a[2])
 {
 	Ctlr *ctlr = adev->ctlr;
-	if(ctlr->amp != nil)
-		getoutamp(ctlr->amp, a);
+
+	switch(x){
+	case Vmaster:
+		if(ctlr->amp != nil)
+			getoutamp(ctlr->amp, a);
+		break;
+	case Vspeed:
+		a[0] = adev->speed;
+		break;
+	case Vdelay:
+		a[0] = adev->delay;
+		break;
+	}
 	return 0;
 }
 
 static int
-hdasetvol(Audio *adev, int, int a[2])
+hdasetvol(Audio *adev, int x, int a[2])
 {
 	Ctlr *ctlr = adev->ctlr;
-	if(ctlr->amp != nil)
-		setoutamp(ctlr->amp, 0, a);
+
+	switch(x){
+	case Vmaster:
+		if(ctlr->amp != nil)
+			setoutamp(ctlr->amp, 0, a);
+		break;
+	case Vspeed:
+		adev->speed = a[0];
+		break;
+	case Vdelay:
+		adev->delay = a[0];
+		break;
+	}
 	return 0;
 }
 
@@ -1122,13 +1163,13 @@ fillvoltab(Ctlr *ctlr, Volume *vt)
 {
 	memmove(vt, voltab, sizeof(voltab));
 	if(ctlr->amp != nil)
-		vt[0].range = getoutamprange(ctlr->amp);
+		vt[Vmaster].range = getoutamprange(ctlr->amp);
 }
 
 static long
 hdavolread(Audio *adev, void *a, long n, vlong)
 {
-	Volume voltab[2];
+	Volume voltab[Nvol+1];
 	fillvoltab(adev->ctlr, voltab);
 	return genaudiovolread(adev, a, n, 0, voltab, hdagetvol, 0);
 }
@@ -1136,7 +1177,7 @@ hdavolread(Audio *adev, void *a, long n, vlong)
 static long
 hdavolwrite(Audio *adev, void *a, long n, vlong)
 {
-	Volume voltab[2];
+	Volume voltab[Nvol+1];
 	fillvoltab(adev->ctlr, voltab);
 	return genaudiovolwrite(adev, a, n, 0, voltab, hdasetvol, 0);
 }
@@ -1342,6 +1383,7 @@ hdareset(Audio *adev)
 
 Found:
 	adev->ctlr = ctlr;
+	ctlr->adev = adev;
 
 	irq = p->intl;
 	tbdf = p->tbdf;

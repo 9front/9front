@@ -38,7 +38,7 @@ enum {
 static Dirtab audiodir[] = {
 	".",	{Qdir, 0, QTDIR},	0,	DMDIR|0555,
 	"audio",	{Qaudio},	0,	0666,
-	"audioctl",	{Qaudioctl},	0,	0666,
+	"audioctl",	{Qaudioctl},	0,	0222,
 	"audiostat",	{Qaudiostatus},	0,	0444,
 	"volume",	{Qvolume},	0,	0666,
 };
@@ -140,27 +140,21 @@ audioattach(char *spec)
 
 	i = 1<<adev->ctlrno;
 	if((attached & i) == 0 && adev->volwrite){
-		attached |= i;
+		static char *settings[] = {
+			"speed 44100",
+			"delay 882",	/* 20 ms */
+			"master 100",
+			"audio 100",
+			"head 100",
+		};
 
-		strcpy(ac->buf, "speed 44100");
-		if(!waserror()){
-			adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
-			poperror();
-		}
-		strcpy(ac->buf, "master 100");
-		if(!waserror()){
-			adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
-			poperror();
-		}
-		strcpy(ac->buf, "audio 100");
-		if(!waserror()){
-			adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
-			poperror();
-		}
-		strcpy(ac->buf, "head 100");
-		if(!waserror()){
-			adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
-			poperror();
+		attached |= i;
+		for(i=0; i<nelem(settings); i++){
+			strcpy(ac->buf, settings[i]);
+			if(!waserror()){
+				adev->volwrite(adev, ac->buf, strlen(ac->buf), 0);
+				poperror();
+			}
 		}
 	}
 
@@ -202,9 +196,6 @@ audioread(Chan *c, void *a, long n, vlong off)
 	case Qaudio:
 		fn = adev->read;
 		break;
-	case Qaudioctl:
-		fn = adev->ctl;
-		break;
 	case Qaudiostatus:
 		fn = adev->status;
 		break;
@@ -221,7 +212,6 @@ audioread(Chan *c, void *a, long n, vlong off)
 		nexterror();
 	}
 	switch((ulong)c->qid.path){
-	case Qaudioctl:
 	case Qaudiostatus:
 	case Qvolume:
 		/* generate the text on first read */

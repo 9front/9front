@@ -21,6 +21,9 @@ struct Audio
 	long (*status)(Audio *, void *, long, vlong);
 	long (*buffered)(Audio *);
 
+	int delay;
+	int speed;
+
 	int ctlrno;
 	Audio *next;
 };

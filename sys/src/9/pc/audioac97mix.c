@@ -110,6 +110,7 @@ enum {
 	Vrecgain,
 	Vmicgain,
 	Vspeed,
+	Vdelay,
 };
 
 static Volume voltab[] = {
@@ -128,6 +129,7 @@ static Volume voltab[] = {
 	[Vrecgain] "recgain", 0x1c, 15, Stereo, 0,
 	[Vmicgain] "micgain", 0x1e, 15, Right, Capmic,
 	[Vspeed] "speed", 0x2c, 0, Absolute, 0,
+	[Vdelay] "delay", 0, 0, Absolute, 0,
 	0
 };
 
@@ -149,6 +151,10 @@ ac97volget(Audio *adev, int x, int a[2])
 	vol = voltab+x;
 	switch(vol->type){
 	case Absolute:
+		if(x == Vdelay){
+			a[0] = adev->delay;
+			break;
+		}
 		a[0] = m->rr(adev, vol->reg);
 		break;
 	default:
@@ -174,7 +180,13 @@ ac97volset(Audio *adev, int x, int a[2])
 	vol = voltab+x;
 	switch(vol->type){
 	case Absolute:
-		m->wr(adev, vol->reg, a[0]);
+		if(x == Vdelay){
+			adev->delay = a[0];
+			return 0;
+		}
+		m->wr(adev, vol->reg, a[0]);		
+		if(x == Vspeed)
+			adev->speed = m->rr(adev, vol->reg);
 		break;
 	case Left:
 		v = (vol->range - a[0]) & 0x7f;

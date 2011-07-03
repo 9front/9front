@@ -56,6 +56,7 @@ struct Ctlr {
 	int sis7012;
 
 	/* for probe */
+	Audio *adev;
 	Pcidev *pcidev;
 	Ctlr *next;
 };
@@ -286,6 +287,14 @@ outavail(void *arg)
 	return available(&ctlr->outring);
 }
 
+static int
+outrate(void *arg)
+{
+	Ctlr *ctlr = arg;
+	int delay = ctlr->adev->delay*BytesPerSample;
+	return (delay <= 0) || (buffered(&ctlr->outring) <= delay);
+}
+
 static long
 ac97write(Audio *adev, void *vp, long n, vlong)
 {
@@ -312,7 +321,7 @@ ac97write(Audio *adev, void *vp, long n, vlong)
 		}
 		p += n;
 	}
-
+	sleep(&ring->r, outrate, ctlr);
 	return p - (uchar*)vp;
 }
 
@@ -383,6 +392,7 @@ ac97reset(Audio *adev)
 
 Found:
 	adev->ctlr = ctlr;
+	ctlr->adev = adev;
 	if(p->vid == 0x1039 && p->did == 0x7012)
 		ctlr->sis7012 = 1;
 

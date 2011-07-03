@@ -28,6 +28,7 @@ enum
 	Vigain,
 	Vogain,
 	Vspeed,
+	Vdelay,
 	Nvol,
 
 	Blocksize	= 4096,
@@ -94,6 +95,7 @@ static Volume voltab[] = {
 	[Vigain] "recgain", 0x3f, 0xff, Stereo, 0,
 	[Vogain] "outgain", 0x41, 0xff, Stereo, 0,
 	[Vspeed] "speed", 0, 0, Absolute, 0,
+	[Vdelay] "delay", 0, 0, Absolute, 0,
 	0,
 };
 
@@ -239,15 +241,21 @@ mxsetvol(Audio *adev, int x, int a[2])
 	Ctlr *ctlr = adev->ctlr;
 	Volume *vol;
 
-	if(x == Vspeed){
-		ctlr->lvol[x] = ctlr->rvol[x] = a[0];
-		return 0;
-	}
-
 	vol = voltab+x;
 	blaster = &ctlr->blaster;
 	ilock(blaster);
 	switch(vol->type){
+	case Absolute:
+		switch(x){
+		case Vdelay:
+			adev->delay = a[0];
+			break;
+		case Vspeed:
+			adev->speed = a[0];
+			break;
+		}
+		ctlr->lvol[x] = ctlr->rvol[x] = a[0];
+		break;
 	case Stereo:
 		ctlr->rvol[x] = a[1];
 		mxcmd(blaster, vol->reg+1, a[1]);
@@ -314,7 +322,7 @@ sb16startdma(Ctlr *ctlr)
 		sbcmd(blaster, 0x42);	/* input sampling rate */
 	else
 		sbcmd(blaster, 0x41);	/* output sampling rate */
-	speed = ctlr->lvol[Vspeed];
+	speed = ctlr->adev->speed;
 	sbcmd(blaster, speed>>8);
 	sbcmd(blaster, speed);
 
@@ -380,7 +388,7 @@ ess1688startdma(Ctlr *ctlr)
 	/*
 	 * Set the speed.
 	 */
-	speed = ctlr->lvol[Vspeed];
+	speed = ctlr->adev->speed;
 	if(speed < 4000)
 		speed = 4000;
 	else if(speed > 48000)
@@ -524,6 +532,14 @@ anybuf(void *arg)
 	return available(&ctlr->ring) || inactive(ctlr);
 }
 
+static int
+ratebuf(void *arg)
+{
+	Ctlr *ctlr = arg;
+	int delay = ctlr->adev->delay*4;
+	return (delay <= 0) || (buffered(&ctlr->ring) <= delay) || inactive(ctlr);
+}
+
 static long
 audiowrite(Audio *adev, void *vp, long n, vlong)
 {
@@ -546,6 +562,7 @@ audiowrite(Audio *adev, void *vp, long n, vlong)
 		}
 		p += n;
 	}
+	sleep(&ctlr->vous, ratebuf, ctlr);
 	return p - (uchar*)vp;
 }
 
