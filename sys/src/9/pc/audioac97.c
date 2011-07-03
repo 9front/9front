@@ -326,6 +326,20 @@ ac97write(Audio *adev, void *vp, long n, vlong)
 	return p - (uchar*)vp;
 }
 
+static void
+ac97close(Audio *adev)
+{
+	Ctlr *ctlr;
+	Ring *ring;
+	uchar z[1];
+
+	z[0] = 0;
+	ctlr = adev->ctlr;
+	ring = &ctlr->outring;
+	while(ring->wi % Blocksize)
+		ac97write(adev, z, sizeof(z), 0);
+}
+
 static Pcidev*
 ac97match(Pcidev *p)
 {
@@ -499,6 +513,7 @@ Found:
 	ac97mixreset(adev, ac97mixw, ac97mixr);
 
 	adev->write = ac97write;
+	adev->close = ac97close;
 	adev->buffered = ac97buffered;
 	adev->status = ac97status;
 
