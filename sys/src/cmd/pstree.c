@@ -151,6 +151,7 @@ printargs(int pid)
 	while(*p == ' ')
 		*p-- = 0;
 	print("%s", b);
+	close(fd);
 }
 
 void
