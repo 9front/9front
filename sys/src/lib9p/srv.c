@@ -755,8 +755,6 @@ respond(Req *r, char *error)
 	r->error = error;
 
 	switch(r->ifcall.type){
-	default:
-		assert(0);
 	/*
 	 * Flush is special.  If the handler says so, we return
 	 * without further processing.  Respond will be called
