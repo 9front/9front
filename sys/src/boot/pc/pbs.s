@@ -236,7 +236,6 @@ _printret:
 
 /*
  * in:
- *	DL drive
  *	AX:BX lba32,
  *	0000:SI buffer
  */
