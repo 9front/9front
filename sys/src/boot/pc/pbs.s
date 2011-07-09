@@ -90,17 +90,13 @@ _start0x5A:
 	PUSHI(start16(SB))
 	BYTE $0xCB			/* FAR RET */
 
-TEXT halt(SB), $0
-_halt:
-	JMP _halt
-
 TEXT start16(SB), $0
 	STI
 
 	LWI(hello(SB), rSI)
 	CALL16(print16(SB))
 
-	PUSHR(rDX)	/* drive */
+	STB(rDL, _driveno(SB))
 
 	CLR(rDX)
 	LW(_fatsize(SB), rAX)
@@ -130,8 +126,6 @@ _fatszok:
 	SW(rAX, _volid(SB))	/* save for later use */
 	SW(rBX, _volid+2(SB))
 
-	POPR(rDX)	/* drive */
-
 	PUSHR(rBP)
 	LW(_sectsize(SB), rCX)
 	SUB(rCX, rSP)
@@ -139,11 +133,7 @@ _fatszok:
 	MW(rSP, rSI)
 
 _nextsect:
-	PUSHR(rAX)
 	CALL16(readsect16(SB))
-	OR(rAX, rAX)
-	JNE _halt
-
 	LW(_sectsize(SB), rCX)
 	SHRI(5, rCX)
 
@@ -160,14 +150,11 @@ _nextdir:
 	JEQ _found
 	ADDI(0x20, rSI)	
 	LOOP _nextdir
-	POPR(rAX)
 	ADDI(1, rAX)
 	ADC(rCX, rBX)
 	JMP _nextsect
 
 _found:
-	PUSHR(rDX)			/* drive */
-
 	CLR(rBX)
 
 	LW(_rootsize(SB), rAX)		/* calculate and save Xrootsz */
@@ -205,37 +192,33 @@ _found:
 	DEC(rCX)
 	ADD(rCX, rAX)
 	ADC(rBX, rDX)
-	POPR(rCX)			/* _sectsize(SB) */
+	POPR(rCX)	/* _sectsize(SB) */
 	DIV(rCX)
 	MW(rAX, rCX)
 	POPR(rBX)
 	POPR(rAX)
-	POPR(rDX)			/* drive */
 
 	LWI(RELOC, rSI)
-	PUSHR(rSI)
+	PUSHR(rSI)	/* entry */
 
 _loadnext:
-	PUSHR(rCX)
-	PUSHR(rAX)
 	CALL16(readsect16(SB))
-	OR(rAX, rAX)
-	JNE _loaderror
-	POPR(rAX)
-	CLR(rCX)
+
+	LW(_sectsize(SB), rDX)
+	ADD(rDX, rSI)
+
+	CLR(rDX)
 	ADDI(1, rAX)
-	ADC(rCX, rBX)
-	LW(_sectsize(SB), rCX)
-	ADD(rCX, rSI)
-	POPR(rCX)
+	ADC(rDX, rBX)
+
 	LOOP _loadnext
+
+	LWI(ok(SB), rSI)
+	CALL16(print16(SB))
+
+	LB(_driveno(SB), rDL)
 	CLI
 	RET
-
-_loaderror:
-	LWI(ioerror(SB), rSI)
-	CALL16(print16(SB))
-	CALL16(halt(SB))
 
 TEXT print16(SB), $0
 	PUSHA
@@ -258,35 +241,38 @@ _printret:
  *	0000:SI buffer
  */
 TEXT readsect16(SB), $0
+_retry:
 	PUSHA
-	CLR(rCX)
+	CLR(rDX)
 
-	PUSHR(rCX)		/* qword lba */
-	PUSHR(rCX)
+	PUSHR(rDX)		/* qword lba */
+	PUSHR(rDX)
 	PUSHR(rBX)
 	PUSHR(rAX)
 
-	PUSHR(rCX)		/* dword buffer */
+	PUSHR(rDX)		/* dword buffer */
 	PUSHR(rSI)
 
-	INC(rCX)
-	PUSHR(rCX)		/* word # of sectors */
+	INC(rDX)
+	PUSHR(rDX)		/* word # of sectors */
 
 	PUSHI(0x0010)		/* byte reserved, byte packet size */
 
 	MW(rSP, rSI)
+	LB(_driveno(SB), rDL)
 	LWI(0x4200, rAX)
 	BIOSCALL(0x13)
 	JCC _readok
+	LWI((0x0E00|'!'), rAX)
+	BIOSCALL(0x10)
 	ADDI(0x10, rSP)
 	POPA
-	CLR(rAX)
-	DEC(rAX)
-	RET
+	JMP _retry
 _readok:
+	LWI((0x0E00|'.'), rAX)
+	BIOSCALL(0x10)
 	ADDI(0x10, rSP)
 	POPA
-	CLR(rAX)
 	RET
 
 TEXT bootnamelen(SB), $0
@@ -296,10 +282,8 @@ TEXT bootname(SB), $0
 	BYTE $'T'; BYTE $'F'; BYTE $'A'; BYTE $'T';
 	BYTE $0
 
-TEXT ioerror(SB), $0
-	BYTE $'i'; BYTE $'/'; BYTE $'o'; BYTE $'-';
-	BYTE $'e'; BYTE $'r'; BYTE $'r'; BYTE $0
-
 TEXT hello(SB), $0
-	BYTE $'p'; BYTE $'b'; BYTE $'s'; BYTE $'\r';
-	BYTE $'\n'; BYTE $0
+	BYTE $'p'; BYTE $'b'; BYTE $'s'; BYTE $0
+TEXT ok(SB), $0
+	BYTE $'o'; BYTE $'k'; BYTE $'\r'; BYTE $'\n';
+	BYTE $0
