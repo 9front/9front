@@ -1156,8 +1156,6 @@ qnotfull(void *a)
 	return q->len < q->limit || (q->state & Qclosed);
 }
 
-ulong noblockcnt;
-
 /*
  *  add a block to a queue obeying flow control
  */
@@ -1191,15 +1189,18 @@ qbwrite(Queue *q, Block *b)
 		error(q->err);
 	}
 
-	/* if nonblocking, don't queue over the limit */
+	/* don't queue over the limit */
 	if(q->len >= q->limit){
 		if(q->noblock){
 			iunlock(q);
 			freeb(b);
-			noblockcnt += n;
 			qunlock(&q->wlock);
 			poperror();
 			return n;
+		}
+		if(q->len >= q->limit*2){
+			iunlock(q);
+			error(Egreg);
 		}
 	}
 
