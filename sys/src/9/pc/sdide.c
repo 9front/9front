@@ -2146,7 +2146,7 @@ atapnp(void)
 		case (0x4379<<16)|0x1002:	/* SB4xx sata */
 		case (0x437a<<16)|0x1002:	/* SB4xx sata ctlr #2 */
 		case (0x437c<<16)|0x1002:	/* Rx6xx pata */
- 		case (0x438c<<16)|0x1002:	/* ATI SB600 PATA */
+		case (0x438c<<16)|0x1002:	/* ATI SB600 PATA */
 		case (0x439c<<16)|0x1002:	/* SB7xx pata */
 			break;
 		case (0x0211<<16)|0x1166:	/* ServerWorks IB6566 */
@@ -2201,7 +2201,7 @@ atapnp(void)
 		case (0x27C0<<16)|0x8086:	/* 82801GB SATA (ICH7) */
 		case (0x27C4<<16)|0x8086:	/* 82801GBM SATA (ICH7) */
 		case (0x27C5<<16)|0x8086:	/* 82801GBM SATA AHCI (ICH7) */
- 		case (0x2850<<16)|0x8086:	/* 82801HBM/HEM PATA */
+		case (0x2850<<16)|0x8086:	/* 82801HBM/HEM PATA */
 		case (0x2820<<16)|0x8086:	/* 82801HB/HR/HH/HO SATA IDE */
 		case (0x2828<<16)|0x8086:	/* 82801HBM SATA (ICH8-M) */
 		case (0x2829<<16)|0x8086:	/* 82801HBM SATA AHCI (ICH8-M) */
