@@ -60,7 +60,7 @@ enum
 static Lock pcicfglock;
 static Lock pcicfginitlock;
 static int pcicfgmode = -1;
-static int pcimaxbno = 7;
+static int pcimaxbno = 255;
 static int pcimaxdno;
 static Pcidev* pciroot;
 static Pcidev* pcilist;
@@ -640,8 +640,9 @@ static Bridge southbridges[] = {
 	{ 0x8086, 0x2410, pIIxget, pIIxset },	/* Intel 82801AA */
 	{ 0x8086, 0x2420, pIIxget, pIIxset },	/* Intel 82801AB */
 	{ 0x8086, 0x2440, pIIxget, pIIxset },	/* Intel 82801BA */
-	{ 0x8086, 0x244c, pIIxget, pIIxset },	/* Intel 82801BAM */
 	{ 0x8086, 0x2448, pIIxget, pIIxset },	/* Intel 82801BAM/CAM/DBM */
+	{ 0x8086, 0x244c, pIIxget, pIIxset },	/* Intel 82801BAM */
+	{ 0x8086, 0x244e, pIIxget, pIIxset },	/* Intel 82801 */
 	{ 0x8086, 0x2480, pIIxget, pIIxset },	/* Intel 82801CA */
 	{ 0x8086, 0x248c, pIIxget, pIIxset },	/* Intel 82801CAM */
 	{ 0x8086, 0x24c0, pIIxget, pIIxset },	/* Intel 82801DBL */
@@ -650,9 +651,24 @@ static Bridge southbridges[] = {
 	{ 0x8086, 0x25a1, pIIxget, pIIxset },	/* Intel 6300ESB */
 	{ 0x8086, 0x2640, pIIxget, pIIxset },	/* Intel 82801FB */
 	{ 0x8086, 0x2641, pIIxget, pIIxset },	/* Intel 82801FBM */
+	{ 0x8086, 0x2670, pIIxget, pIIxset },	/* Intel 632xesb */	
 	{ 0x8086, 0x27b8, pIIxget, pIIxset },	/* Intel 82801GB */
 	{ 0x8086, 0x27b9, pIIxget, pIIxset },	/* Intel 82801GBM */
-	{ 0x8086, 0x2916, pIIxget, pIIxset },	/* Intel 82801? */
+	{ 0x8086, 0x2810, pIIxget, pIIxset },	/* Intel 82801HB/HR (ich8/r) */
+	{ 0x8086, 0x2812, pIIxget, pIIxset },	/* Intel 82801HH (ich8dh) */
+	{ 0x8086, 0x2912, pIIxget, pIIxset },	/* Intel 82801ih ich9dh */
+	{ 0x8086, 0x2914, pIIxget, pIIxset },	/* Intel 82801io ich9do */
+	{ 0x8086, 0x2916, pIIxget, pIIxset },	/* Intel 82801ibr ich9r */
+	{ 0x8086, 0x2917, pIIxget, pIIxset },	/* Intel 82801iem ich9m-e  */
+	{ 0x8086, 0x2918, pIIxget, pIIxset },	/* Intel 82801ib ich9 */
+	{ 0x8086, 0x2919, pIIxget, pIIxset },	/* Intel 82801? ich9m  */
+	{ 0x8086, 0x3a16, pIIxget, pIIxset },	/* Intel 82801jir ich10r */
+	{ 0x8086, 0x3a40, pIIxget, pIIxset },	/* Intel 82801ji */
+	{ 0x8086, 0x3a42, pIIxget, pIIxset },	/* Intel 82801ji */
+	{ 0x8086, 0x3a48, pIIxget, pIIxset },	/* Intel 82801ji */
+	{ 0x8086, 0x3b06, pIIxget, pIIxset },	/* Intel 82801? ibex peak */
+	{ 0x8086, 0x3b14, pIIxget, pIIxset },	/* Intel 82801? 3420 */
+	{ 0x8086, 0x1c54, pIIxget, pIIxset },	/* Intel 82q67 cougar point pch */
 	{ 0x1106, 0x0586, viaget, viaset },	/* Viatech 82C586 */
 	{ 0x1106, 0x0596, viaget, viaset },	/* Viatech 82C596 */
 	{ 0x1106, 0x0686, viaget, viaset },	/* Viatech 82C686 */
@@ -671,6 +687,7 @@ static Bridge southbridges[] = {
 	{ 0x1166, 0x0200, nil, nil },		/* ServerWorks ServerSet III LE */
 	{ 0x1002, 0x4377, nil, nil },		/* ATI Radeon Xpress 200M */
 	{ 0x1002, 0x4372, nil, nil },		/* ATI SB400 */
+	{ 0x1002, 0x9601, nil, nil },		/* AMD SB710 */
 };
 
 typedef struct Slot Slot;
@@ -963,11 +980,8 @@ pcicfginit(void)
 
 	fmtinstall('T', tbdffmt);
 
-	if(p = getconf("*pcimaxbno")){
-		n = strtoul(p, 0, 0);
-		if(n < pcimaxbno)
-			pcimaxbno = n;
-	}
+	if(p = getconf("*pcimaxbno"))
+		pcimaxbno = strtoul(p, 0, 0) & 0xff;
 	if(p = getconf("*pcimaxdno")){
 		n = strtoul(p, 0, 0);
 		if(n < pcimaxdno)
