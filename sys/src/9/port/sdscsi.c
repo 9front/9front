@@ -153,7 +153,8 @@ scsirio(SDreq* r)
 			/*
 			 * If no medium present, bail out.
 			 * If unit is becoming ready, rather than not
-			 * not ready, wait a little then poke it again. 				 */
+			 * not ready, wait a little then poke it again.
+			 */
 			if(r->sense[12] == 0x3A)
 				break;
 			if(r->sense[12] != 0x04 || r->sense[13] != 0x01)
@@ -175,22 +176,91 @@ scsirio(SDreq* r)
 	return -1;
 }
 
+static void
+cap10(SDreq *r)
+{
+	r->cmd[0] = 0x25;
+	r->cmd[1] = r->lun<<5;
+	r->clen = 10;
+	r->dlen = 8;
+}
+
+static void
+cap16(SDreq *r)
+{
+	uint i;
+
+	i = 32;
+	r->cmd[0] = 0x9e;
+	r->cmd[1] = 0x10;
+	r->cmd[10] = i>>24;
+	r->cmd[11] = i>>16;
+	r->cmd[12] = i>>8;
+	r->cmd[13] = i;
+	r->clen = 16;
+	r->dlen = i;
+}
+
+static uint
+belong(uchar *u)
+{
+	return u[0]<<24 | u[1]<<16 | u[2]<<8 | u[3];
+}
+
+static uvlong
+capreply(SDreq *r, ulong *secsize)
+{
+	uchar *u;
+	ulong ss;
+	uvlong s;
+
+	*secsize = 0;
+	u = r->data;
+	if(r->clen == 16){
+		s = (uvlong)belong(u)<<32 | belong(u + 4);
+		ss = belong(u + 8);
+	}else{
+		s = belong(u);
+		ss = belong(u + 4);
+	}
+	/*
+	 * Some ATAPI CD readers lie about the block size.
+	 * Since we don't read audio via this interface
+	 * it's okay to always fudge this.
+	 */
+	if(ss == 2352)
+		ss = 2048;
+	/*
+	 * Devices with removable media may return 0 sectors
+	 * when they have empty media (e.g. sata dvd writers);
+	 * if so, keep the count zero.
+	 *
+	 * Read-capacity returns the LBA of the last sector,
+	 * therefore the number of sectors must be incremented.
+	 */
+	if(s != 0)
+		s++;
+	*secsize = ss;
+	return s;
+}
+
 int
 scsionline(SDunit* unit)
 {
 	SDreq *r;
 	uchar *p;
 	int ok, retries;
+	void (*cap)(SDreq*);
 
-	if((r = malloc(sizeof(SDreq))) == nil)
+	if((r = malloc(sizeof *r)) == nil)
 		return 0;
-	if((p = sdmalloc(8)) == nil){
+	if((p = sdmalloc(32)) == nil){
 		free(r);
 		return 0;
 	}
 
 	ok = 0;
-
+	cap = cap10;
 	r->unit = unit;
 	r->lun = 0;				/* ??? */
 	for(retries = 0; retries < 10; retries++){
@@ -201,39 +271,21 @@ scsionline(SDunit* unit)
 		 * plain slow getting their act together after a reset.
 		 */
 		r->write = 0;
-		memset(r->cmd, 0, sizeof(r->cmd));
-		r->cmd[0] = 0x25;
-		r->cmd[1] = r->lun<<5;
-		r->clen = 10;
 		r->data = p;
-		r->dlen = 8;
 		r->flags = 0;
+		memset(r->cmd, 0, sizeof r->cmd);
+		cap(r);
 
 		r->status = ~0;
 		switch(scsirio(r)){
 		default:
 			break;
 		case 0:
-			unit->sectors = (p[0]<<24)|(p[1]<<16)|(p[2]<<8)|p[3];
-			unit->secsize = (p[4]<<24)|(p[5]<<16)|(p[6]<<8)|p[7];
-
-			/*
-			 * Some ATAPI CD readers lie about the block size.
-			 * Since we don't read audio via this interface
-			 * it's okay to always fudge this.
-			 */
-			if(unit->secsize == 2352)
-				unit->secsize = 2048;
-			/*
-			 * Devices with removable media may return 0 sectors
-			 * when they have empty media (e.g. sata dvd writers);
-			 * if so, keep the count zero.
-			 *
-			 * Read-capacity returns the LBA of the last sector,
-			 * therefore the number of sectors must be incremented.
-			 */
-			if(unit->sectors != 0)
-				unit->sectors++;
+			unit->sectors = capreply(r, &unit->secsize);
+			if(unit->sectors == 0xffffffff && cap == cap10){
+				cap = cap16;
+				continue;
+			}
 			ok = 1;
 			break;
 		case 1:
@@ -251,56 +303,6 @@ scsionline(SDunit* unit)
 		return ok+retries;
 	else
 		return 0;
-}
-
-int
-scsiexec(SDunit* unit, int write, uchar* cmd, int clen, void* data, int* dlen)
-{
-	SDreq *r;
-	int status;
-
-	if((r = malloc(sizeof(SDreq))) == nil)
-		return SDmalloc;
-	r->unit = unit;
-	r->lun = cmd[1]>>5;		/* ??? */
-	r->write = write;
-	memmove(r->cmd, cmd, clen);
-	r->clen = clen;
-	r->data = data;
-	if(dlen)
-		r->dlen = *dlen;
-	r->flags = 0;
-
-	r->status = ~0;
-
-	/*
-	 * Call the device-specific I/O routine.
-	 * There should be no calls to 'error()' below this
-	 * which percolate back up.
-	 */
-	switch(status = unit->dev->ifc->rio(r)){
-	case SDok:
-		if(dlen)
-			*dlen = r->rlen;
-		/*FALLTHROUGH*/
-	case SDcheck:
-		/*FALLTHROUGH*/
-	default:
-		/*
-		 * It's more complicated than this. There are conditions
-		 * which are 'ok' but for which the returned status code
-		 * is not 'SDok'.
-		 * Also, not all conditions require a reqsense, might
-		 * need to do a reqsense here and make it available to the
-		 * caller somehow.
-		 *
-		 * Mañana.
-		 */
-		break;
-	}
-	sdfree(r);
-
-	return status;
 }
 
 static void
@@ -367,7 +369,7 @@ scsibio(SDunit* unit, int lun, int write, void* data, long nb, uvlong bno)
 	r->lun = lun;
 again:
 	r->write = write;
-	if(bno >= (1ULL<<32))
+	if(bno > 0xffffffff)
 		scsifmt16(r, write, lun, nb, bno);
 	else
 		scsifmt10(r, write, lun, nb, bno);
@@ -381,8 +383,19 @@ again:
 		rlen = -1;
 		break;
 	case 0:
-		rlen = r->rlen;
-		break;
+		/*
+		 * scsi allows commands to return successfully
+		 * but return sense data, indicating that the
+		 * operation didn't proceed as expected.
+		 * (confusing, no).  this allows the raw commands
+		 * to successfully return errors.  but any sense
+		 * data bio sees must be an error.  bomb out.
+		 */
+		if(r->status == SDok && r->rlen > 0
+		&& ((r->flags & SDvalidsense) == 0 || r->sense[2] == 0)){
+			rlen = r->rlen;
+			break;
+		}
 	case 2:
 		rlen = -1;
 		if(!(r->flags & SDvalidsense))
@@ -415,6 +428,10 @@ again:
 				goto again;
 			break;
 		}
+		snprint(up->genbuf, sizeof up->genbuf, "%s %.2ux%.2ux%.2ux %lld",
+			Eio, r->sense[2], r->sense[12], r->sense[13], bno);
+		free(r);
+		error(up->genbuf);
 		break;
 	}
 	free(r);

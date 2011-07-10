@@ -1,9 +1,8 @@
-/*
- * ATA-over-Ethernet (AoE) protocol
- */
 enum {
 	ACata,
 	ACconfig,
+	ACmask,
+	ACres,
 };
 
 enum {
@@ -15,23 +14,55 @@ enum {
 };
 
 enum {
-	AEcmd	= 1,
-	AEarg,
-	AEdev,
-	AEcfg,
-	AEver,
+	AEunk,
+	AEcmd,				/* bad command */
+	AEarg,				/* bad argument */
+	AEoff,				/* device offline */
+	AEcfg,				/* config string already set */
+	AEver,				/* unsupported version */
+	AEres,				/* target reserved */
 };
 
 enum {
-	Aoetype	= 0x88a2,
-	Aoesectsz = 512,			/* standard sector size */
-	Aoever	= 1,
+	/* mask commands */
+	Mread		= 0,
+	Medit,
 
-	AFerr	= 1<<2,
-	AFrsp	= 1<<3,
+	/* mask directives */
+	MDnop		= 0,
+	MDadd,
+	MDdel,
 
-	AAFwrite= 1,
-	AAFext	= 1<<6,
+	/* mask errors */
+	MEunk		= 1,
+	MEbad,
+	MEfull,
+
+	/* reserve / release */
+	Rrread		= 0,
+	Rrset,
+	Rrforce,
+};
+
+enum {
+	Aoetype		= 0x88a2,
+	Aoesectsz 	= 512,
+	Aoemaxcfg	= 1024,
+
+	Aoehsz		= 24,
+	Aoeatasz	= 12,
+	Aoecfgsz		= 8,
+	Aoerrsz		= 2,
+	Aoemsz		= 4,
+	Aoemdsz	= 8,
+
+	Aoever		= 1,
+
+	AFerr		= 1<<2,
+	AFrsp		= 1<<3,
+
+	AAFwrite	= 1,
+	AAFext		= 1<<6,
 };
 
 typedef struct {
@@ -44,35 +75,43 @@ typedef struct {
 	uchar	minor;
 	uchar	cmd;
 	uchar	tag[4];
-	uchar	payload[];
 } Aoehdr;
 
-#define AOEHDRSZ	offsetof(Aoehdr, payload[0])
-
 typedef struct {
-	Aoehdr;
 	uchar	aflag;
 	uchar	errfeat;
 	uchar	scnt;
 	uchar	cmdstat;
 	uchar	lba[6];
 	uchar	res[2];
-	uchar	payload[];
 } Aoeata;
 
-#define AOEATASZ	offsetof(Aoeata, payload[0])
-
 typedef struct {
-	Aoehdr;
 	uchar	bufcnt[2];
 	uchar	fwver[2];
 	uchar	scnt;
 	uchar	verccmd;
 	uchar	cslen[2];
-	uchar	payload[];
-} Aoeqc;
+} Aoecfg;
 
-#define AOEQCSZ		offsetof(Aoeqc, payload[0])
+typedef struct {
+	uchar	dres;
+	uchar	dcmd;
+	uchar	ea[Eaddrlen];
+} Aoemd;
+
+typedef struct {
+	uchar	mres;
+	uchar	mcmd;
+	uchar	merr;
+	uchar	mcnt;
+} Aoem;
+
+typedef struct {
+	uchar	rcmd;
+	uchar	nea;
+	uchar	ea0[];
+} Aoerr;
 
 extern char Echange[];
 extern char Enotup[];

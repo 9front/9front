@@ -1,0 +1,15 @@
+</$objtype/mkfile
+
+LIB=/$objtype/lib/libfis.a
+OFILES=\
+	fis.$O\
+
+HFILES=/sys/include/fis.h
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+	${LIB:/$objtype/%=/386/%}\
+
+</sys/src/cmd/mksyslib

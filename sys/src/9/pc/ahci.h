@@ -1,33 +1,7 @@
 /*
  * advanced host controller interface (sata)
- * © 2007  coraid, inc
+ * © 2007-9  coraid, inc
  */
-
-/* ata errors */
-enum {
-	Emed	= 1<<0,		/* media error */
-	Enm	= 1<<1,		/* no media */
-	Eabrt	= 1<<2,		/* abort */
-	Emcr	= 1<<3,		/* media change request */
-	Eidnf	= 1<<4,		/* no user-accessible address */
-	Emc	= 1<<5,		/* media change */
-	Eunc	= 1<<6,		/* data error */
-	Ewp	= 1<<6,		/* write protect */
-	Eicrc	= 1<<7,		/* interface crc error */
-
-	Efatal	= Eidnf|Eicrc,	/* must sw reset */
-};
-
-/* ata status */
-enum {
-	ASerr	= 1<<0,		/* error */
-	ASdrq	= 1<<3,		/* request */
-	ASdf	= 1<<5,		/* fault */
-	ASdrdy	= 1<<6,		/* ready */
-	ASbsy	= 1<<7,		/* busy */
-
-	ASobs	= 1<<1|1<<2|1<<4,
-};
 
 /* pci configuration */
 enum {
@@ -47,26 +21,25 @@ enum {
 
 /* cap bits: supported features */
 enum {
-	Hs64a	= 1<<31,	/* 64-bit addressing */
-	Hsncq	= 1<<30,	/* ncq */
-	Hssntf	= 1<<29,	/* snotification reg. */
-	Hsmps	= 1<<28,	/* mech pres switch */
-	Hsss	= 1<<27,	/* staggered spinup */
-	Hsalp	= 1<<26,	/* aggressive link pm */
-	Hsal	= 1<<25,	/* activity led */
-	Hsclo	= 1<<24,	/* command-list override */
+	H64a	= 1<<31,	/* 64-bit addressing */
+	Hncq	= 1<<30,	/* ncq */
+	Hsntf	= 1<<29,	/* snotification reg. */
+	Hmps	= 1<<28,	/* mech pres switch */
+	Hss	= 1<<27,	/* staggered spinup */
+	Halp	= 1<<26,	/* aggressive link pm */
+	Hal	= 1<<25,	/* activity led */
+	Hclo	= 1<<24,	/* command-list override */
 	Hiss	= 1<<20,	/* for interface speed */
-//	Hsnzo	= 1<<19,
-	Hsam	= 1<<18,	/* ahci-mode only */
-	Hspm	= 1<<17,	/* port multiplier */
-//	Hfbss	= 1<<16,
+	Ham	= 1<<18,	/* ahci-mode only */
+	Hpm	= 1<<17,	/* port multiplier */
+	Hfbs	= 1<<16,	/* fis-based switching */
 	Hpmb	= 1<<15,	/* multiple-block pio */
 	Hssc	= 1<<14,	/* slumber state */
 	Hpsc	= 1<<13,	/* partial-slumber state */
 	Hncs	= 1<<8,		/* n command slots */
 	Hcccs	= 1<<7,		/* coal */
 	Hems	= 1<<6,		/* enclosure mgmt. */
-	Hsxs	= 1<<5,		/* external sata */
+	Hxs	= 1<<5,		/* external sata */
 	Hnp	= 1<<0,		/* n ports */
 };
 
@@ -75,6 +48,29 @@ enum {
 	Hae	= 1<<31,	/* enable ahci */
 	Hie	= 1<<1,		/* " interrupts */
 	Hhr	= 1<<0,		/* hba reset */
+};
+
+/* cap2 bits */
+enum {
+	Apts	= 1<<2,	/* automatic partial to slumber */
+	Nvmp	= 1<<1,	/* nvmhci present; nvram */
+	Boh	= 1<<0,	/* bios/os handoff supported */
+};
+
+/* emctl bits */
+enum {
+	Pm	= 1<<27,	/* port multiplier support */
+	Alhd	= 1<<26,	/* activity led hardware driven */
+	Xonly	= 1<<25,	/* rx messages not supported */
+	Smb	= 1<<24,	/* single msg buffer; rx limited */
+	Esgpio	= 1<<19,	/* sgpio messages supported */
+	Eses2	= 1<<18,	/* ses-2 supported */
+	Esafte	= 1<<17,	/* saf-te supported */
+	Elmt	= 1<<16,	/* led msg types support */
+	Emrst	= 1<<9,	/* reset all em logic */
+	Tmsg	= 1<<8,	/* transmit message */
+	Mr	= 1<<0,	/* message rx'd */
+	Emtype	= Esgpio | Eses2 | Esafte | Elmt,
 };
 
 typedef struct {
@@ -87,6 +83,8 @@ typedef struct {
 	ulong	cccports;
 	ulong	emloc;
 	ulong	emctl;
+	ulong	cap2;
+	ulong	bios;
 } Ahba;
 
 enum {
@@ -147,6 +145,8 @@ enum {
 	Aalpe 	= 1<<26,	/* aggressive link pm enable */
 	Adlae	= 1<<25,	/* drive led on atapi */
 	Aatapi	= 1<<24,	/* device is atapi */
+	Apste	= 1<<23,	/* automatic slumber to partial cap */
+	Afbsc	= 1<<22,	/* fis-based switching capable */
 	Aesp	= 1<<21,	/* external sata port */
 	Acpd	= 1<<20,	/* cold presence detect */
 	Ampsp	= 1<<19,	/* mechanical pres. */
@@ -164,6 +164,7 @@ enum {
 	Ast	= 1<<0,		/* start */
 
 	Arun	= Ast|Acr|Afre|Afr,
+	Apwr	= Apod|Asud,
 };
 
 /* ctl register bits */
@@ -173,13 +174,41 @@ enum {
 	Adet	= 1<<0,		/* device detection */
 };
 
+/* sstatus register bits */
+enum{
+	/* sstatus det */
+	Smissing		= 0<<0,
+	Spresent		= 1<<0,
+	Sphylink		= 3<<0,
+	Sbist		= 4<<0,
+	Smask		= 7<<0,
+
+	/* sstatus speed */
+	Gmissing		= 0<<4,
+	Gi		= 1<<4,
+	Gii		= 2<<4,
+	Giii		= 3<<4,
+	Gmask		= 7<<4,
+
+	/* sstatus ipm */
+	Imissing		= 0<<8,
+	Iactive		= 1<<8,
+	Isleepy		= 2<<8,
+	Islumber		= 6<<8,
+	Imask		= 7<<8,
+
+	SImask		= Smask | Imask,
+	SSmask		= Smask | Isleepy,
+};
+
 #define	sstatus	scr0
 #define	sctl	scr2
 #define	serror	scr1
 #define	sactive	scr3
+#define	ntf	scr4
 
 typedef struct {
-	ulong	list;		/* PxCLB must be 1kb aligned. */
+	ulong	list;		/* PxCLB must be 1kb aligned */
 	ulong	listhi;
 	ulong	fis;		/* 256-byte aligned */
 	ulong	fishi;
@@ -194,9 +223,10 @@ typedef struct {
 	ulong	scr1;
 	ulong	scr3;
 	ulong	ci;		/* command issue */
-	ulong	ntf;
-	uchar	res2[8];
-	ulong	vendor;
+	ulong	scr4;
+	ulong	fbs;
+	ulong	res2[11];
+	ulong	vendor[4];
 } Aport;
 
 /* in host's memory; not memory mapped */
@@ -244,26 +274,49 @@ typedef struct {
 	Aprdt	prdt;
 } Actab;
 
+/* enclosure message header */
+enum {
+	Mled	= 0,
+	Msafte	= 1,
+	Mses2	= 2,
+	Msgpio	= 3,
+};
+
+typedef struct {
+	uchar	dummy;
+	uchar	msize;
+	uchar	dsize;
+	uchar	type;
+	uchar	hba;		/* bits 0:4 are the port */
+	uchar	pm;
+	uchar	led[2];
+} Aledmsg;
+
+enum {
+	Aled	= 1<<0,
+	Locled	= 1<<3,
+	Errled	= 1<<6,
+
+	Ledoff	= 0,
+	Ledon	= 1,
+};
+
+typedef struct {
+	uint	encsz;
+	ulong	*enctx;
+	ulong	*encrx;
+} Aenc;
+
 enum {
 	Ferror	= 1,
 	Fdone	= 2,
-};
-
-enum {
-	Dllba 	= 1,
-	Dsmart	= 1<<1,
-	Dpower	= 1<<2,
-	Dnop	= 1<<3,
-	Datapi	= 1<<4,
-	Datapi16= 1<<5,
 };
 
 typedef struct {
 	QLock;
 	Rendez;
 	uchar	flag;
-	uchar	feat;
-	uchar	smart;
+	Sfis;
 	Afis	fis;
 	Alist	*list;
 	Actab	*ctab;

@@ -81,11 +81,13 @@ misc
 	archmp		mp apic
 	mtrr
 
-	sdata		pci sdscsi
+	sdaoe
+	sdide		pci sdscsi
 	sd53c8xx	pci sdscsi
 	sdmylex		pci sdscsi
-	sdiahci		pci sdscsi
-	sdaoe
+	sdiahci		pci sdscsi led
+	sdodin		pci sdscsi led
+	sdloop
 
 	uarti8250
 	uartpci		pci
