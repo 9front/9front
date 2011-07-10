@@ -538,7 +538,8 @@ atadmamode(SDunit *unit, Drive* drive)
 	}
 	if(unit != nil){
 		snprint(buf, sizeof buf, "*%sdma", unit->name);
-		if((s = getconf(buf)) && strcmp(s, "on") == 0){
+		s = getconf(buf);
+		if((s && !strcmp(s, "on")) || (!s && !getconf("*nodma"))){
 			print("set %s dma\n", unit->name);
 			drive->dmactl = drive->dma;
 		}
@@ -2145,6 +2146,7 @@ atapnp(void)
 		case (0x4379<<16)|0x1002:	/* SB4xx sata */
 		case (0x437a<<16)|0x1002:	/* SB4xx sata ctlr #2 */
 		case (0x437c<<16)|0x1002:	/* Rx6xx pata */
+ 		case (0x438c<<16)|0x1002:	/* ATI SB600 PATA */
 		case (0x439c<<16)|0x1002:	/* SB7xx pata */
 			break;
 		case (0x0211<<16)|0x1166:	/* ServerWorks IB6566 */
@@ -2166,6 +2168,7 @@ atapnp(void)
 		case (0x5513<<16)|0x1039:	/* SiS 962 */
 		case (0x0646<<16)|0x1095:	/* CMD 646 */
 		case (0x0571<<16)|0x1106:	/* VIA 82C686 */
+		case (0x9001<<16)|0x1106:	/* VIA chipset in VIA PV530 */
 		case (0x0502<<16)|0x100b:	/* National Semiconductor SC1100/SCx200 */
 			break;
 		case (0x2360<<16)|0x197b:	/* jmicron jmb360 */
@@ -2198,8 +2201,10 @@ atapnp(void)
 		case (0x27C0<<16)|0x8086:	/* 82801GB SATA (ICH7) */
 		case (0x27C4<<16)|0x8086:	/* 82801GBM SATA (ICH7) */
 		case (0x27C5<<16)|0x8086:	/* 82801GBM SATA AHCI (ICH7) */
+ 		case (0x2850<<16)|0x8086:	/* 82801HBM/HEM PATA */
 		case (0x2820<<16)|0x8086:	/* 82801HB/HR/HH/HO SATA IDE */
 		case (0x2828<<16)|0x8086:	/* 82801HBM SATA (ICH8-M) */
+		case (0x2829<<16)|0x8086:	/* 82801HBM SATA AHCI (ICH8-M) */
 		case (0x2920<<16)|0x8086:	/* 82801(IB)/IR/IH/IO SATA (ICH9) port 0-3 */
 		case (0x2921<<16)|0x8086:	/* 82801(IB)/IR/IH/IO SATA (ICH9) port 0-1 */
 		case (0x2926<<16)|0x8086:	/* 82801(IB)/IR/IH/IO SATA (ICH9) port 4-5 */
