@@ -1604,6 +1604,7 @@ i82563pci(void)
 			type = i82566;
 			break;
 		case 0x10cd:		/* lf */
+		case 0x10bf:
 		case 0x10ce:		/* v-2 */
 		case 0x10de:		/* lm-3 */
 		case 0x10f5:		/* lm-2 */
