@@ -68,6 +68,7 @@ extern void pidput(u32int);
 void	procrestore(Proc *);
 void	procsave(Proc*);
 void	procsetup(Proc*);
+void	procfork(Proc*);
 extern void _reset(void);
 extern void setr13(int, u32int*);
 extern void syscallfmt(int syscallno, ulong pc, va_list list);

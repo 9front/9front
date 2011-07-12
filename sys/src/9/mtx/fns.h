@@ -85,6 +85,7 @@ void	pcisetbme(Pcidev*);
 #define procrestore(p)
 void	procsave(Proc*);
 void	procsetup(Proc*);
+void	procfork(Proc*);
 void	putdec(ulong);
 void	puthid0(ulong);
 void	puthid1(ulong);

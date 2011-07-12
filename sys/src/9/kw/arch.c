@@ -126,6 +126,11 @@ procsetup(Proc* p)
 	fpusysprocsetup(p);
 }
 
+void
+procfork(Proc *)
+{
+}
+
 /*
  *  Save the mach dependent part of the process state.
  */

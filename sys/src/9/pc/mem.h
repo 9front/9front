@@ -92,8 +92,10 @@
 #define	APMCSEG16	7	/* APM 16-bit code segment */
 #define	APMDSEG		8	/* APM data segment */
 #define	KESEG16		9	/* kernel executable 16-bit */
-#define	NGDT		10	/* number of GDT entries required */
-/* #define	APM40SEG	8	/* APM segment 0x40 */
+#define	LDTSEG		10	/* local descriptor table */
+#define	PROCSEG0	11	/* per process descriptor0 */
+#define	NPROCSEG	3	/* number of per process descriptors */
+#define	NGDT		14	/* number of GDT entries required */
 
 #define	SELGDT	(0<<2)	/* selector is in gdt */
 #define	SELLDT	(1<<2)	/* selector is in ldt */
@@ -109,7 +111,7 @@
 #define	APMCSEL 	SELECTOR(APMCSEG, SELGDT, 0)
 #define	APMCSEL16	SELECTOR(APMCSEG16, SELGDT, 0)
 #define	APMDSEL		SELECTOR(APMDSEG, SELGDT, 0)
-/* #define	APM40SEL	SELECTOR(APM40SEG, SELGDT, 0) */
+#define	LDTSEL	SELECTOR(LDTSEG, SELGDT, 0)
 
 /*
  *  fields in segment descriptors
@@ -120,6 +122,7 @@
 #define	SEGCG	(0x0C<<8)	/* call gate */
 #define	SEGIG	(0x0E<<8)	/* interrupt gate */
 #define	SEGTG	(0x0F<<8)	/* trap gate */
+#define	SEGLDT	(0x02<<8)	/* local descriptor table */
 #define	SEGTYPE	(0x1F<<8)
 
 #define	SEGP	(1<<15)		/* segment present */

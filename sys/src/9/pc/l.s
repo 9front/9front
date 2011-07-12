@@ -243,6 +243,17 @@ _idle:
 	HLT
 	JMP	_idle
 
+
+TEXT load_fs(SB), $0
+	MOVW fs+0(FP), AX
+	MOVW AX, FS
+	RET
+
+TEXT load_gs(SB), $0
+	MOVW gs+0(FP), AX
+	MOVW AX, GS
+	RET
+
 /*
  * Save registers.
  */
@@ -599,6 +610,11 @@ TEXT outsl(SB), $0
 TEXT lgdt(SB), $0				/* GDTR - global descriptor table */
 	MOVL	gdtptr+0(FP), AX
 	MOVL	(AX), GDTR
+	RET
+
+TEXT lldt(SB), $0				/* LDTR - local descriptor table */
+	MOVL	sel+0(FP), AX
+	BYTE $0x0F; BYTE $0x00; BYTE $0xD0	/* LLDT AX */
 	RET
 
 TEXT lidt(SB), $0				/* IDTR - interrupt descriptor table */

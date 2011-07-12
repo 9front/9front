@@ -70,6 +70,7 @@ extern vlong probeaddr(uintptr);
 extern void procrestore(Proc *);
 extern void procsave(Proc*);
 extern void procsetup(Proc*);
+extern void procfork(Proc*);
 extern void _reset(void);
 extern void screenclockson(void);
 extern void screeninit(void);

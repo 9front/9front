@@ -77,6 +77,7 @@ void	pcicfgw32(Pcidev*, int, int);
 void	pcicfgw8(Pcidev*, int, int);
 void	procsave(Proc*);
 void	procsetup(Proc*);
+void	procfork(Proc*);
 void	putdcmp(ulong);
 void	putdec(ulong);
 void	puthash1(ulong);

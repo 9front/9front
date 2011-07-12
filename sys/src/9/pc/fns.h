@@ -87,6 +87,7 @@ void	kbdenable(void);
 void	kbdinit(void);
 #define	kmapinval()
 void	lgdt(ushort[3]);
+void	lldt(ulong);
 void	lidt(ushort[3]);
 void	links(void);
 void	ltr(ulong);
@@ -147,6 +148,7 @@ int	pdbmap(ulong*, ulong, ulong, int);
 void	procrestore(Proc*);
 void	procsave(Proc*);
 void	procsetup(Proc*);
+void	procfork(Proc*);
 void	putcr0(ulong);
 void	putcr3(ulong);
 void	putcr4(ulong);
@@ -173,7 +175,6 @@ void	umbrwfree(ulong, int);
 ulong	upaalloc(int, int);
 void	upafree(ulong, int);
 void	upareserve(ulong, int);
-#define	userureg(ur) (((ur)->cs & 0xFFFF) == UESEL)
 void	vectortable(void);
 void*	vmap(ulong, int);
 int	vmapsync(ulong);
@@ -182,6 +183,7 @@ void	wbinvd(void);
 void	wrmsr(int, vlong);
 int	xchgw(ushort*, int);
 
+#define	userureg(ur)	(((ur)->cs & 3) == 3)
 #define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
 #define	KADDR(a)	kaddr(a)
 #define PADDR(a)	paddr((void*)(a))

@@ -287,6 +287,11 @@ procsetup(Proc *p)
 }
 
 void
+procfork(Proc *)
+{
+}
+
+void
 procrestore(Proc *p)
 {
 	uvlong t;

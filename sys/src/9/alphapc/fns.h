@@ -88,6 +88,7 @@ void	printinit(void);
 #define	procrestore(p)
 void	procsave(Proc*);
 void	procsetup(Proc*);
+void	procfork(Proc*);
 void	restfpregs(FPsave*);
 uvlong	rpcc(uvlong*);
 void	screeninit(void);

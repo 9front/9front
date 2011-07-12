@@ -85,6 +85,7 @@ void	powerkproc(void*);
 #define	procrestore(p)
 void	procsave(Proc*);
 void	procsetup(Proc*);
+void	procfork(Proc*);
 void	putdac(ulong);
 void	putttb(ulong);
 void	putpid(ulong);

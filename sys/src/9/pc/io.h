@@ -10,6 +10,8 @@ enum {
 	VectorCNA	= 7,		/* coprocessor not available */
 	Vector2F	= 8,		/* double fault */
 	VectorCSO	= 9,		/* coprocessor segment overrun */
+	VectorSNP	= 11,		/* segment not present */
+	VectorGPF	= 13,		/* general protection fault */
 	VectorPF	= 14,		/* page fault */
 	Vector15	= 15,		/* reserved */
 	VectorCERR	= 16,		/* coprocessor error */

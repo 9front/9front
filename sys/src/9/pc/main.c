@@ -225,8 +225,7 @@ userinit(void)
 	kstrdup(&p->text, "*init*");
 	kstrdup(&p->user, eve);
 
-	p->fpstate = FPinit;
-	fpoff();
+	procsetup(p);
 
 	/*
 	 * Kernel Stack
@@ -585,6 +584,24 @@ procsetup(Proc*p)
 {
 	p->fpstate = FPinit;
 	fpoff();
+
+	memset(p->gdt, 0, sizeof(p->gdt));
+	p->ldt = nil;
+	p->nldt = 0;
+}
+
+void
+procfork(Proc *p)
+{
+	/* inherit user descriptors */
+	memmove(p->gdt, up->gdt, sizeof(p->gdt));
+
+	/* copy local descriptor table */
+	if(up->ldt != nil && up->nldt > 0){
+		p->ldt = malloc(sizeof(Segdesc) * up->nldt);
+		memmove(p->ldt, up->ldt, sizeof(Segdesc) * up->nldt);
+		p->nldt = up->nldt;
+	}
 }
 
 void

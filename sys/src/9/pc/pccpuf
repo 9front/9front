@@ -35,6 +35,7 @@ dev
 	usb
 
 link
+	segdesc
 	realmode
 	devpccard
 	devi82365

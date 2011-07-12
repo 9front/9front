@@ -187,6 +187,9 @@ sysrfork(ulong *arg)
 
 	kstrdup(&p->text, up->text);
 	kstrdup(&p->user, up->user);
+
+	procfork(p);
+
 	/*
 	 *  since the bss/data segments are now shareable,
 	 *  any mmu info about this process is now stale
@@ -472,11 +475,6 @@ sysexec(ulong *arg)
 	poperror();
 	cclose(tc);
 
-	/*
-	 *  At this point, the mmu contains info about the old address
-	 *  space and needs to be flushed
-	 */
-	flushmmu();
 	qlock(&up->debug);
 	up->nnote = 0;
 	up->notify = 0;
@@ -484,9 +482,15 @@ sysexec(ulong *arg)
 	up->privatemem = 0;
 	procsetup(up);
 	qunlock(&up->debug);
+
+	/*
+	 *  At this point, the mmu contains info about the old address
+	 *  space and needs to be flushed
+	 */
+	flushmmu();
+
 	if(up->hang)
 		up->procctl = Proc_stopme;
-
 	return execregs(entry, ssize, nargs);
 }
 

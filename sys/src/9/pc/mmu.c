@@ -294,6 +294,8 @@ void
 mmuswitch(Proc* proc)
 {
 	ulong *pdb;
+	ulong x;
+	int n;
 
 	if(proc->newtlb){
 		mmuptefree(proc);
@@ -307,6 +309,14 @@ mmuswitch(Proc* proc)
 		taskswitch(proc->mmupdb->pa, (ulong)(proc->kstack+KSTACK));
 	}else
 		taskswitch(PADDR(m->pdb), (ulong)(proc->kstack+KSTACK));
+
+	memmove(&m->gdt[PROCSEG0], proc->gdt, sizeof(proc->gdt));
+	if((x = (ulong)proc->ldt) && (n = proc->nldt) > 0){
+		m->gdt[LDTSEG].d0 = (x<<16)|((n * sizeof(Segdesc)) - 1);
+		m->gdt[LDTSEG].d1 = (x&0xFF000000)|((x>>16)&0xFF)|SEGLDT|SEGPL(0)|SEGP;
+		lldt(LDTSEL);
+	} else
+		lldt(NULLSEL);
 }
 
 /*
@@ -366,6 +376,11 @@ mmurelease(Proc* proc)
 	if(proc->mmufree && palloc.r.p)
 		wakeup(&palloc.r);
 	proc->mmufree = 0;
+	if(proc->ldt){
+		free(proc->ldt);
+		proc->ldt = nil;
+		proc->nldt = 0;
+	}
 }
 
 /*

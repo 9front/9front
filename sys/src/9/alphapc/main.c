@@ -272,6 +272,11 @@ procsetup(Proc *p)
 }
 
 void
+procfork(Proc *)
+{
+}
+
+void
 procsave(Proc *p)
 {
 	if(p->fpstate == FPactive){

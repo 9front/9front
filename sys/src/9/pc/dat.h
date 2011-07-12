@@ -108,6 +108,12 @@ struct Conf
 	int	nuart;		/* number of uart devices */
 };
 
+struct Segdesc
+{
+	ulong	d0;
+	ulong	d1;
+};
+
 /*
  *  MMU stuff in proc
  */
@@ -120,6 +126,10 @@ struct PMMU
 	Page*	kmaptable;		/* page table used by kmap */
 	uint	lastkmap;		/* last entry used by kmap */
 	int	nkmap;			/* number of current kmaps */
+
+	Segdesc	gdt[NPROCSEG];	/* per process descriptors */
+	Segdesc	*ldt;	/* local descriptor table */
+	int	nldt;	/* number of ldt descriptors allocated */
 };
 
 /*
@@ -162,12 +172,6 @@ typedef struct {
 	ulong	ldt;			/* selector for task's LDT */
 	ulong	iomap;			/* I/O map base address + T-bit */
 } Tss;
-
-struct Segdesc
-{
-	ulong	d0;
-	ulong	d1;
-};
 
 struct Mach
 {

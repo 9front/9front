@@ -326,7 +326,7 @@ trap(Ureg* ureg)
 	}
 
 	m->perf.intrts = perfticks();
-	user = (ureg->cs & 0xFFFF) == UESEL;
+	user = userureg(ureg);
 	if(user){
 		up->dbgreg = ureg;
 		cycles(&up->kentry);
@@ -424,6 +424,48 @@ trap(Ureg* ureg)
 			while(m->machno != 0)
 				;
 		}
+
+		if(vno == VectorGPF || vno == VectorSNP){
+			ulong *sp;
+			uchar *pc;
+
+			/* l.s */
+			extern void load_fs(ulong);
+			extern void load_gs(ulong);
+
+			/*
+			 * CS, SS, DS and ES are initialized by strayintr
+			 * in l.s. initialize the others too so we dont trap
+			 * again when restoring the old context.
+			 */
+			load_fs(NULLSEL);
+			load_gs(NULLSEL);
+
+			pc = (uchar*)ureg->pc;
+			sp = (ulong*)&ureg->sp;
+
+			/*
+			 * we test for the instructions used by forkret()
+			 * to load the segments. this needs to be changed
+			 * if forkret changes!
+			 */
+
+			/* POP */
+			if((pc[0] == 0x0f && (pc[1] == 0xa9 /*GS*/ || 
+				pc[1] == 0xa1 /*FS*/)) || (pc[0] == 0x07) /*ES*/ ||	
+				(pc[0] == 0x1f) /*DS*/){
+				sp[0] = NULLSEL;
+				return;
+			}
+
+			/* IRET */
+			if(pc[0] == 0xcf){
+				sp[1] = UESEL;	/*CS*/
+				sp[4] = UDSEL;	/*SS*/
+				return;
+			}
+		}
+
 		dumpregs(ureg);
 		if(!user){
 			ureg->sp = (ulong)&ureg->sp;
@@ -461,7 +503,10 @@ dumpregs2(Ureg* ureg)
 		iprint("cpu%d: registers for kernel\n", m->machno);
 	iprint("FLAGS=%luX TRAP=%luX ECODE=%luX PC=%luX",
 		ureg->flags, ureg->trap, ureg->ecode, ureg->pc);
-	iprint(" SS=%4.4luX USP=%luX\n", ureg->ss & 0xFFFF, ureg->usp);
+	if(userureg(ureg))
+		iprint(" SS=%4.4luX USP=%luX\n", ureg->ss & 0xFFFF, ureg->usp);
+	else
+		iprint(" SP=%luX\n", (ulong)&ureg->sp);
 	iprint("  AX %8.8luX  BX %8.8luX  CX %8.8luX  DX %8.8luX\n",
 		ureg->ax, ureg->bx, ureg->cx, ureg->dx);
 	iprint("  SI %8.8luX  DI %8.8luX  BP %8.8luX\n",
@@ -619,7 +664,7 @@ fault386(Ureg* ureg, void*)
 	addr = getcr2();
 	read = !(ureg->ecode & 2);
 
-	user = (ureg->cs & 0xFFFF) == UESEL;
+	user = userureg(ureg);
 	if(!user){
 		if(vmapsync(addr))
 			return;
@@ -666,7 +711,7 @@ syscall(Ureg* ureg)
 	ulong scallnr;
 	vlong startns, stopns;
 
-	if((ureg->cs & 0xFFFF) != UESEL)
+	if(!userureg(ureg))
 		panic("syscall: cs 0x%4.4luX", ureg->cs);
 
 	cycles(&up->kentry);
@@ -850,6 +895,8 @@ if(0) print("%s %lud: notify %.8lux %.8lux %.8lux %s\n",
 	*(ulong*)(sp+0*BY2WD) = 0;			/* arg 0 is pc */
 	ureg->usp = sp;
 	ureg->pc = (ulong)up->notify;
+	ureg->cs = UESEL;
+	ureg->ss = ureg->ds = ureg->es = UDSEL;
 	up->notified = 1;
 	up->nnote--;
 	memmove(&up->lastnote, &up->note[0], sizeof(Note));
@@ -889,23 +936,10 @@ noted(Ureg* ureg, ulong arg0)
 		pexit("Suicide", 0);
 	}
 
-	/*
-	 * Check the segment selectors are all valid, otherwise
-	 * a fault will be taken on attempting to return to the
-	 * user process.
-	 * Take care with the comparisons as different processor
-	 * generations push segment descriptors in different ways.
-	 */
-	if((nureg->cs & 0xFFFF) != UESEL || (nureg->ss & 0xFFFF) != UDSEL
-	  || (nureg->ds & 0xFFFF) != UDSEL || (nureg->es & 0xFFFF) != UDSEL
-	  || (nureg->fs & 0xFFFF) != UDSEL || (nureg->gs & 0xFFFF) != UDSEL){
-		qunlock(&up->debug);
-		pprint("bad segment selector in noted\n");
-		pexit("Suicide", 0);
-	}
-
 	/* don't let user change system flags */
 	nureg->flags = (ureg->flags & ~0xCD5) | (nureg->flags & 0xCD5);
+	nureg->cs |= 3;
+	nureg->ss |= 3;
 
 	memmove(ureg, nureg, sizeof(Ureg));
 
@@ -968,6 +1002,9 @@ execregs(ulong entry, ulong ssize, ulong nargs)
 	ureg = up->dbgreg;
 	ureg->usp = (ulong)sp;
 	ureg->pc = entry;
+	ureg->cs = UESEL;
+	ureg->ss = ureg->ds = ureg->es = UDSEL;
+	ureg->fs = ureg->gs = NULLSEL;
 	return USTKTOP-sizeof(Tos);		/* address of kernel/user shared data */
 }
 
@@ -989,23 +1026,13 @@ userpc(void)
 void
 setregisters(Ureg* ureg, char* pureg, char* uva, int n)
 {
-	ulong cs, ds, es, flags, fs, gs, ss;
+	ulong flags;
 
-	ss = ureg->ss;
 	flags = ureg->flags;
-	cs = ureg->cs;
-	ds = ureg->ds;
-	es = ureg->es;
-	fs = ureg->fs;
-	gs = ureg->gs;
 	memmove(pureg, uva, n);
-	ureg->gs = gs;
-	ureg->fs = fs;
-	ureg->es = es;
-	ureg->ds = ds;
-	ureg->cs = cs;
-	ureg->flags = (ureg->flags & 0x00FF) | (flags & 0xFF00);
-	ureg->ss = ss;
+	ureg->flags = (ureg->flags & 0xCD5) | (flags & ~0xCD5);
+	ureg->cs |= 3;
+	ureg->ss |= 3;
 }
 
 static void
