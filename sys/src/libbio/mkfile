@@ -9,6 +9,7 @@ OFILES=\
 	bgetc.$O\
 	bgetd.$O\
 	binit.$O\
+	blethal.$O\
 	boffset.$O\
 	bprint.$O\
 	bputrune.$O\

@@ -28,8 +28,10 @@ loop:
 	bp->gbuf = bp->bbuf;
 	if(i <= 0) {
 		bp->state = Bracteof;
-		if(i < 0)
+		if(i < 0) {
 			bp->state = Binactive;
+			Berror(bp, "read error: %r");
+		}
 		return Beof;
 	}
 	if(i < bp->bsize) {

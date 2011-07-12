@@ -67,6 +67,8 @@ Brdstr(Biobufhdr *bp, int delim, int nulldelim)
 		ip = (char*)bp->bbuf + i;
 		while(i < bp->bsize) {
 			j = read(bp->fid, ip, bp->bsize-i);
+			if(j < 0)
+				Berror(bp, "read error: %r");
 			if(j <= 0 && i == 0)
 				return p;
 			if(j <= 0 && i > 0){

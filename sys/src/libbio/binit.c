@@ -83,6 +83,7 @@ Binits(Biobufhdr *bp, int f, int mode, uchar *p, int size)
 	bp->rdline = 0;
 	bp->offset = 0;
 	bp->runesize = 0;
+	bp->errorf = nil;
 	return 0;
 }
 

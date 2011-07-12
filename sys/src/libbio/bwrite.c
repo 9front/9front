@@ -24,8 +24,10 @@ Bwrite(Biobufhdr *bp, void *ap, long count)
 			i = write(bp->fid, bp->bbuf, bp->bsize);
 			if(i != bp->bsize) {
 				errstr(errbuf, sizeof errbuf);
-				if(strstr(errbuf, "interrupt") == nil)
+				if(strstr(errbuf, "interrupt") == nil) {
 					bp->state = Binactive;
+					Berror(bp, "write error: %s", errbuf);
+				}
 				errstr(errbuf, sizeof errbuf);
 				return Beof;
 			}

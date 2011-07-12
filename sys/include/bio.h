@@ -32,6 +32,7 @@ struct	Biobufhdr
 	uchar*	bbuf;		/* pointer to beginning of buffer */
 	uchar*	ebuf;		/* pointer to end of buffer */
 	uchar*	gbuf;		/* pointer to good data in buf */
+	void	(*errorf)(char *);	/* called on error if not nil */
 };
 
 struct	Biobuf
@@ -70,5 +71,7 @@ int	Bterm(Biobufhdr*);
 int	Bungetc(Biobufhdr*);
 int	Bungetrune(Biobufhdr*);
 long	Bwrite(Biobufhdr*, void*, long);
+void	Blethal(Biobufhdr*, void(*)(char*));
+void	Berror(Biobufhdr*, char*, ...);
 
 #pragma	varargck	argpos	Bprint	2
