@@ -446,22 +446,20 @@ trap(Ureg* ureg)
 
 			/*
 			 * we test for the instructions used by forkret()
-			 * to load the segments. this needs to be changed
-			 * if forkret changes!
+			 * to load the segments and replace the selectors 
+			 * on the (kernel) stack with null selectors.
 			 */
-
-			/* POP */
-			if((pc[0] == 0x0f && (pc[1] == 0xa9 /*GS*/ || 
-				pc[1] == 0xa1 /*FS*/)) || (pc[0] == 0x07) /*ES*/ ||	
-				(pc[0] == 0x1f) /*DS*/){
+			switch(pc[0]){
+			case 0x0f:	/* POP GS/FS */
+				if(pc[1] != 0xa9 && pc[1] != 0xa1)
+					break;
+			case 0x07:	/* POP ES */
+			case 0x1f:	/* POP DS */
 				sp[0] = NULLSEL;
 				return;
-			}
-
-			/* IRET */
-			if(pc[0] == 0xcf){
-				sp[1] = UESEL;	/*CS*/
-				sp[4] = UDSEL;	/*SS*/
+			case 0xcf:	/* IRET */
+				sp[1] = UESEL;	/* CS */
+				sp[4] = UDSEL;	/* SS */
 				return;
 			}
 		}
