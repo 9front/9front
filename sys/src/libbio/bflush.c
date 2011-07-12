@@ -20,6 +20,7 @@ Bflush(Biobufhdr *bp)
 		}
 		bp->state = Binactive;
 		bp->ocount = 0;
+		Berror(bp, "write error: %r");
 		break;
 
 	case Bracteof:

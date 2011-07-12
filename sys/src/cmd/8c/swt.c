@@ -199,6 +199,7 @@ outcode(void)
 		return;
 	}
 	Binit(&b, f, OWRITE);
+	Blethal(&b, nil);
 	Bseek(&b, 0L, 2);
 	outhist(&b);
 	for(sym=0; sym<NSYM; sym++) {
