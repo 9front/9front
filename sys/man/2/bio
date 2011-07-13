@@ -78,6 +78,9 @@ int	Bflush(Biobufhdr *bp)
 .B
 int	Bbuffered(Biobufhdr *bp)
 .PP
+.B
+void	Blethal(Biobufhdr *bp, void (*errorf)(char *));
+.PP
 .SH DESCRIPTION
 These routines implement fast buffered I/O.
 I/O on different file descriptors is independent.
@@ -311,6 +314,14 @@ returns the number of bytes in the buffer.
 When reading, this is the number of bytes still available from the last
 read on the file; when writing, it is the number of bytes ready to be
 written.
+.PP
+.I Blethal
+arranges
+.I errorf
+to be called in case of an error happening on read/write.
+An argument of
+.B nil
+will have the program terminated in case of error.
 .SH SOURCE
 .B /sys/src/libbio
 .SH SEE ALSO
@@ -330,6 +341,10 @@ returns zero if the file cannot be opened in the given mode.
 All routines set
 .I errstr
 on error.
+.PP
+An error during read or write will call an error handler specified by
+.IR Blethal ,
+if any.
 .SH BUGS
 .I Brdline
 returns an error on strings longer than the buffer associated
