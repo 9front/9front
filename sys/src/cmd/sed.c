@@ -688,9 +688,11 @@ newfile(enum PTYPE type, char *name)
 {
 	if (type == P_ARG)
 		prog.curr = name;
-	else if ((prog.bp = Bopen(name, OREAD)) == 0)
-		quit("Cannot open pattern-file: %s\n", name);
-	Blethal(prog.bp, nil);
+	else {
+		if ((prog.bp = Bopen(name, OREAD)) == 0)
+			quit("Cannot open pattern-file: %s\n", name);
+		Blethal(prog.bp, nil);
+	}
 	prog.type = type;
 }
 
