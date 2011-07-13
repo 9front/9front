@@ -2,13 +2,13 @@
 .SH NAME
 9bootfat, 9bootiso, 9bootpxe \- PC bootloader for FAT, ISO and PXE network booting
 .SH SYNOPSIS
-started by PC BIOS or chainloaded by partition bootsector
+Started by PC BIOS or chainloaded by partition bootsector
 .SH DESCRIPTION
 9boot is the bootloader used on PCs to start the Plan 9 kernel.
 Its task is to read and parse the
 .IR plan9.ini (8)
 configuration file, gather some basic system information like
-the amount of usable system memory, do some low level system
+the amount of usable system memory, do some basic system
 initialization and load the kernel from the boot media into memory.
 
 After reading the configuration, the loader will automatically 
@@ -25,7 +25,8 @@ the
 file.
 .BR
 The word
-.B clear [
+.B clear
+[
 .I prefix
 ]
 can be used to remove parameters from the current configuration.
@@ -34,8 +35,7 @@ If a
 is specified, the first parameter that matches the prefix
 is removed. If the
 .IR prefix
-argument is omited, the whole configuration will be reset.
-.BR
+argument is omitted, the whole configuration will be reset.
 The word
 .B boot
 will end the console and resume booting the kernel.
@@ -46,23 +46,23 @@ was split into a number of distinct programs one for each boot
 method.
 .SH FAT BOOTING
 When booting Plan 9 from a harddisk or USB pen drive, a
-FAT16/32 partition (
-.IR 9fat
-) is used to store the kernel and 
+FAT16/32 partition
+.IR (9fat) 
+is used to store the kernel and 
 .IR plan9.ini (8)
 configuration. Due to size limitations, instead of loading
-the kernel directly, the bootsector (
-.IR pbs
-) of the FAT partition loads
+the kernel directly, the bootsector
+.IR (pbs)
+of the FAT partition loads
 a 2nd stage bootloader 
-.IR 9bootfat
+.IR (9bootfat)
 from the root directory of the filesystem.
 .SH CD-ROM BOOTING
-Booting from CD-ROM requires only
+Booting from CD-ROM requires only the 
 .IR 9bootiso
-to be included in the ISO-9660 image under
+bootloader to be included in the ISO-9660 image under
 .B 386/9bootiso,
-set as a non emulation bootblock (see
+set as a non-emulation bootblock (see
 .IR mk9660 (8)).
 Boot parameters are read from
 .B cfg/plan9.ini.
@@ -70,7 +70,8 @@ Boot parameters are read from
 With a PXE capable BIOS and network card one can download
 .IR 9bootpxe
 and boot the kernel from a TFTP server (see
-.IR dhcpd (8),
+.IR dhcpd (8)
+and
 .IR ndb (6)
 for details). Once started,
 .IR 9bootpxe
@@ -83,15 +84,14 @@ in lower case hex, and use this as its
 .IR plan9.ini (8)
 file.
 .SH FILES
-.TP
 .B /386/pbs
-.TP
+.br
 .B /386/9bootfat
-.TP
+.br
 .B /386/9bootiso
-.TP
+.br
 .B /386/9bootpxe
 .SH SOURCE
-.BR /sys/src/boot/pc .
+.BR /sys/src/boot/pc
 .SH "SEE ALSO"
 .IR plan9.ini (8)
