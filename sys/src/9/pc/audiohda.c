@@ -1194,11 +1194,8 @@ hdainterrupt(Ureg *, void *arg)
 	
 	ilock(ctlr);
 	sts = csr32(ctlr, Intsts);
-	if(sts & Sismask){
+	if(sts & Sismask)
 		streamupdate(ctlr);
-	}else{
-		iprint("#A%d: hda unhandled interrupt\n", ctlr->no);
-	}
 	iunlock(ctlr);
 }
 
