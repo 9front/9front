@@ -21,7 +21,9 @@ main(int argc, char *argv[])
 		fprint(2, "p: can't open /dev/cons\n");
 		exits("missing /dev/cons");
 	}
+	Blethal(cons, nil);
 	Binit(&bout, 1, OWRITE);
+	Blethal(&bout, nil);
 	n = 0;
 	while(argc > 1) {
 		--argc; argv++;
@@ -54,6 +56,7 @@ printfile(int f)
 
 	b = malloc(sizeof(Biobuf));
 	Binit(b, f, OREAD);
+	Blethal(b, nil);
 	for(;;){
 		for(i=1; i <= pglen; i++) {
 			s = Brdline(b, '\n');

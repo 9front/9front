@@ -207,6 +207,7 @@ main(int argc, char **argv)
 
 	lnum = 0;
 	Binit(&fout, 1, OWRITE);
+	Blethal(&fout, nil);
 	fcode[nfiles++] = &fout;
 	compfl = 0;
 
@@ -610,6 +611,7 @@ open_file(char *name)
 	    (fd = create(name, OWRITE, 0666)) < 0)
 		quit("Cannot create %s", name);
 	Binit(bp, fd, OWRITE);
+	Blethal(bp, nil);
 	Bseek(bp, 0, 2);
 	fcode[nfiles++] = bp;
 	return bp;
@@ -688,6 +690,7 @@ newfile(enum PTYPE type, char *name)
 		prog.curr = name;
 	else if ((prog.bp = Bopen(name, OREAD)) == 0)
 		quit("Cannot open pattern-file: %s\n", name);
+	Blethal(prog.bp, nil);
 	prog.type = type;
 }
 
@@ -1347,6 +1350,7 @@ arout(void)
 			*s = '\0';
 			if((fi = Bopen(buf, OREAD)) == 0)
 				continue;
+			Blethal(fi, nil);
 			while((c = Bgetc(fi)) >= 0)
 				Bputc(&fout, c);
 			Bterm(fi);
@@ -1450,6 +1454,7 @@ opendata(void)
 		Binit(&stdin, 0, OREAD);
 		f = &stdin;
 	}
+	Blethal(f, nil);
 	fhead = fhead->next;
 	return 1;
 }

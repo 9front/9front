@@ -402,6 +402,7 @@ others(void)
 	finput = Bopen(parser, OREAD);
 	if(finput == 0)
 		error("cannot find parser %s", parser);
+	Blethal(finput, nil);
 	warray("yyr1", levprd, nprod);
 	aryfil(temp1, nprod, 0);
 	PLOOP(1, i)
@@ -481,6 +482,7 @@ others(void)
 				faction = Bopen(actname, OREAD);
 				if(faction == 0)
 					error("cannot reopen action tempfile");
+				Blethal(faction, nil);
 				while((c=Bgetrune(faction)) != Beof)
 					Bputrune(ftable, c);
 				Bterm(faction);
@@ -1217,6 +1219,8 @@ setup(int argc, char *argv[])
 	faction = Bopen(actname = mktemp(tactname), OWRITE);
 	if(ftemp == 0 || faction == 0)
 		error("cannot open temp file");
+	Blethal(ftemp, nil);
+	Blethal(faction, nil);
 	if(argc < 1)
 		error("no input file");
 	infile = argv[0];
@@ -1232,6 +1236,7 @@ setup(int argc, char *argv[])
 	finput = Bopen(infile, OREAD);
 	if(finput == 0)
 		error("cannot open '%s'", argv[0]);
+	Blethal(finput, nil);
 	cnamp = cnames;
 
 	defin(0, "$end");
@@ -2127,6 +2132,7 @@ openup(char *stem, int dflag, int vflag, int ytab, char *ytabc)
 		foutput = Bopen(buf, OWRITE);
 		if(foutput == 0)
 			error("cannot open %s", buf);
+		Blethal(foutput, nil);
 	}
 	if(yydebug) {
 		snprint(buf, sizeof buf, "%s.%s", stem, FILEDEBUG);
@@ -2138,6 +2144,7 @@ openup(char *stem, int dflag, int vflag, int ytab, char *ytabc)
 		fdefine = Bopen(buf, OWRITE);
 		if(fdefine == 0)
 			error("can't create %s", buf);
+		Blethal(fdefine, nil);
 	}
 	if(ytab == 0)
 		snprint(buf, sizeof buf, "%s.%s", stem, OFILE);
@@ -2146,6 +2153,7 @@ openup(char *stem, int dflag, int vflag, int ytab, char *ytabc)
 	ftable = Bopen(buf, OWRITE);
 	if(ftable == 0)
 		error("cannot open table file %s", buf);
+	Blethal(ftable, nil);
 }
 
 /*
@@ -2619,6 +2627,7 @@ callopt(void)
 	finput = Bopen(tempname, OREAD);
 	if(finput == 0)
 		error("optimizer cannot open tempfile");
+	Blethal(finput, nil);
 
 	pgo[0] = 0;
 	temp1[0] = 0;

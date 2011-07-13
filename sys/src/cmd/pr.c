@@ -147,6 +147,7 @@ main(int argc, char *argv[])
 	int nfdone = 0;
 
 	Binit(&bout, 1, OWRITE);
+	Blethal(&bout, nil);
 	Files = fstr;
 	for(argc = findopt(argc, argv); argc > 0; --argc, ++argv)
 		if(Multi == 'm') {
@@ -600,6 +601,7 @@ mustopen(char *s, Fils *f)
 		if(f->f_f == 0)
 			cerror("no memory");
 		Binit(f->f_f, 0, OREAD);
+		Blethal(f->f_f, nil);
 	} else
 	if((f->f_f = Bopen(f->f_name = s, OREAD)) == 0) {
 		tmp = ffiler(f->f_name);
@@ -607,6 +609,7 @@ mustopen(char *s, Fils *f)
 		free(tmp);
 	}
 	if(f->f_f != 0) {
+		Blethal(f->f_f, nil);
 		if((f->f_nextc = Bgetrune(f->f_f)) >= 0 || Multi == 'm')
 			return f->f_f;
 		sprint(s = (char*)getspace(strlen(f->f_name) + 1 + EMPTY),
