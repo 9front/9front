@@ -539,10 +539,8 @@ atadmamode(SDunit *unit, Drive* drive)
 	if(unit != nil){
 		snprint(buf, sizeof buf, "*%sdma", unit->name);
 		s = getconf(buf);
-		if((s && !strcmp(s, "on")) || (!s && !getconf("*nodma"))){
-			print("set %s dma\n", unit->name);
+		if((s && !strcmp(s, "on")) || (!s && !getconf("*nodma")))
 			drive->dmactl = drive->dma;
-		}
 	}
 	return dma;
 }
