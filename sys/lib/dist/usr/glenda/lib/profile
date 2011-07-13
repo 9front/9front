@@ -1,7 +1,6 @@
 bind -a $home/bin/rc /bin
 bind -a $home/bin/$cputype /bin
 mount -qC /srv/cwfs /n/other other
-bind -qc /n/other/dist /dist
 bind -qc /n/other/usr/$user/tmp $home/tmp
 bind -c $home/tmp /tmp
 if(! syscall create /tmp/xxx 1 0666 >[2]/dev/null)
@@ -17,7 +16,7 @@ case terminal
 	echo -n 'res 3' > '#m/mousectl'
 	prompt=('term% ' '	')
 	fn term%{ $* }
-	exec rio -s -i riostart
+	exec rio -i riostart
 case cpu
 	if (test -e /mnt/term/mnt/wsys) { # rio already running
 		bind -a /mnt/term/mnt/wsys /dev
@@ -31,7 +30,7 @@ case cpu
 	fn cpu%{ $* }
 	if (! test -e /mnt/term/mnt/wsys) {	# cpu call from drawterm
 		font=/lib/font/bit/pelm/latin1.8.font
-		exec rio -s
+		exec rio
 	}
 case con
 	prompt=('cpu% ' '	')
