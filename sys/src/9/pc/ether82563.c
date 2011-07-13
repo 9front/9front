@@ -792,6 +792,7 @@ i82563rballoc(Rbpool *p)
 			p->nfast++;
 			p->x = b->next;
 			b->next = nil;
+			_xinc(&b->ref);
 			return b;
 		}
 
