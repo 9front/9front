@@ -405,7 +405,7 @@ mkpart(char *name, int primary, vlong lba, vlong size, Tentry *t)
 
 	p->changed = 0;
 	p->start = lba/sec2cyl;
-	p->end = (lba+size)/sec2cyl;
+	p->end = (lba+size+sec2cyl-1)/sec2cyl;
 	p->ctlstart = lba;
 	p->ctlend = lba+size;
 	p->lba = lba;
@@ -1028,7 +1028,7 @@ wrextend(Edit *edit, int i, vlong xbase, vlong startlba, vlong *endlba)
 
 	p = (Dospart*)edit->part[i];
 	if(p->primary){
-		*endlba = (vlong)p->start*sec2cyl;
+		*endlba = (vlong)p->ctlstart;
 		goto Finish;
 	}
 
@@ -1037,15 +1037,15 @@ wrextend(Edit *edit, int i, vlong xbase, vlong startlba, vlong *endlba)
 	tp = table.entry;
 	ep = tp+NTentry;
 
-	ni = wrextend(edit, i+1, xbase, p->end*sec2cyl, endlba);
+	ni = wrextend(edit, i+1, xbase, p->ctlend, endlba);
 
 	*tp = p->Tentry;
-	wrtentry(disk, tp, p->type, startlba, startlba+disk->s, p->end*sec2cyl);
+	wrtentry(disk, tp, p->type, startlba, startlba+disk->s, p->ctlend);
 	tp++;
 
-	if(p->end*sec2cyl != *endlba){
+	if(p->ctlend != *endlba){
 		memset(tp, 0, sizeof *tp);
-		wrtentry(disk, tp, TypeEXTENDED, xbase, p->end*sec2cyl, *endlba);
+		wrtentry(disk, tp, TypeEXTENDED, xbase, p->ctlend, *endlba);
 		tp++;
 	}
 
@@ -1081,14 +1081,14 @@ wrpart(Edit *edit)
 		if(p->start == 0)
 			s = disk->s;
 		else
-			s = p->start*sec2cyl;
+			s = p->ctlstart;
 		if(p->primary) {
 			*tp = p->Tentry;
-			wrtentry(disk, tp, p->type, 0, s, p->end*sec2cyl);
+			wrtentry(disk, tp, p->type, 0, s, p->ctlend);
 			tp++;
 			i++;
 		} else {
-			ni = wrextend(edit, i, p->start*sec2cyl, p->start*sec2cyl, &endlba);
+			ni = wrextend(edit, i, p->ctlstart, p->ctlstart, &endlba);
 			memset(tp, 0, sizeof *tp);
 			if(endlba >= 1024*sec2cyl)
 				t = TypeEXTHUGE;
