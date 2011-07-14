@@ -1,0 +1,16 @@
+.TH NIETZSCHE 1
+.SH NAME
+nietzsche \- print out Nietzsche quote
+.SH SYNOPSIS
+.B nietzsche
+[
+.I numbers
+]
+.SH DESCRIPTION
+.I Nietzsche
+cites ``Human, all too human'' by Friedrich Nietzsche.
+It prints the aphorisms with the numbers given as arguments, or a random one, if no argument is supplied.
+.SH FILES
+.B /lib/human
+.SH SOURCE
+.B /rc/bin/nietzsche
