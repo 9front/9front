@@ -640,6 +640,7 @@ retry:
 		if(drive->feat & Datapi16)
 			drive->pkt = 16;
 	}else{
+		drive->pkt = 0;
 		if(drive->feat & Dlba)
 			drive->dev |= Lba;
 		atarwmmode(drive, cmdport, ctlport, dev);
@@ -1165,7 +1166,7 @@ static int
 atapktio0(Drive *drive, SDreq *r)
 {
 	uchar *cmd;
-	int as, cmdport, ctlport, len, rv, timeo;
+	int as, cmdport, ctlport, len, rv;
 	Ctlr *ctlr;
 
 	rv = SDok;
@@ -1217,21 +1218,14 @@ atapktio0(Drive *drive, SDreq *r)
 	}
 	iunlock(ctlr);
 
-	while(waserror())
-		;
-	if(!drive->pktdma)
-		sleep(ctlr, atadone, ctlr);
-	else for(timeo = 0; !ctlr->done; timeo++){
-		tsleep(ctlr, atadone, ctlr, 1000);
-		if(ctlr->done)
-			break;
+	if(iowait(drive, 20*1000, 1) <= 0){
 		ilock(ctlr);
-		atadmainterrupt(drive, 0);
-		if(!drive->error && timeo > 20){
+		if(!drive->error){
 			ataabort(drive, 0);
-			atadmastop(ctlr);
-			drive->dmactl = 0;
-			drive->error |= Abrt;
+			if(drive->pktdma){
+				atadmastop(ctlr);
+				drive->dmactl = 0;
+			}
 		}
 		if(drive->error){
 			drive->status |= Chk;
@@ -1239,7 +1233,6 @@ atapktio0(Drive *drive, SDreq *r)
 		}
 		iunlock(ctlr);
 	}
-	poperror();
 
 	if(drive->status & Chk)
 		rv = SDcheck;
@@ -1456,7 +1449,7 @@ atagenio(Drive* drive, SDreq *r)
 
 		if(drive->status & Err){
 			qunlock(ctlr);
-print("atagenio: %llud:%d\n", lba, drive->count);
+			print("atagenio: %llud:%d\n", lba, drive->count);
 			return sdsetsense(r, SDcheck, 4, 8, drive->error);
 		}
 		count -= drive->count;
