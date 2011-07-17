@@ -1,6 +1,6 @@
 .TH BIO 2
 .SH NAME
-Bopen, Binit, Binits, Brdline, Brdstr, Bgetc, Bgetrune, Bgetd, Bungetc, Bungetrune, Bread, Bseek, Boffset, Bfildes, Blinelen, Bputc, Bputrune, Bprint, Bvprint, Bwrite, Bflush, Bterm, Bbuffered \- buffered input/output
+Bopen, Binit, Binits, Brdline, Brdstr, Bgetc, Bgetrune, Bgetd, Bungetc, Bungetrune, Bread, Bseek, Boffset, Bfildes, Blinelen, Bputc, Bputrune, Bprint, Bvprint, Bwrite, Bflush, Bterm, Bbuffered, Blethal \- buffered input/output
 .SH SYNOPSIS
 .ta \w'Biobuf* 'u
 .B #include <u.h>
@@ -79,7 +79,7 @@ int	Bflush(Biobufhdr *bp)
 int	Bbuffered(Biobufhdr *bp)
 .PP
 .B
-void	Blethal(Biobufhdr *bp, void (*errorf)(char *));
+void	Blethal(Biobufhdr *bp, void (*errorf)(char *))
 .PP
 .SH DESCRIPTION
 These routines implement fast buffered I/O.

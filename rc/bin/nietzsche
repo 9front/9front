@@ -1,0 +1,7 @@
+#!/bin/rc
+if(~ $#* 0)
+	n=`{seq 1 638 | fortune /fd/0}
+if not
+	n=$*
+for(i in $n)
+	cat /lib/human | sed -n '/^'$i'\./,/^$/p' | nroff | grep .
