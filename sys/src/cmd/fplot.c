@@ -101,6 +101,10 @@ int nfns;
 Token *opstackbot;
 double xmin = -10, xmax = 10;
 double ymin = -10, ymax = 10;
+Image *color;
+int cflag;
+char *imagedata;
+int picx = 640, picy = 480;
 
 void *
 emalloc(int size)
@@ -317,62 +321,84 @@ calc(Code *c, double x)
 }
 
 double
-convx(Image *i, int x)
+convx(Rectangle *r, int x)
 {
-	return (xmax - xmin) * (x - i->r.min.x) / (i->r.max.x - i->r.min.x) + xmin;
+	return (xmax - xmin) * (x - r->min.x) / (r->max.x - r->min.x) + xmin;
 }
 
 int
-deconvx(Image *i, double dx)
+deconvx(Rectangle *r, double dx)
 {
-	return (dx - xmin) * (i->r.max.x - i->r.min.x) / (xmax - xmin) + i->r.min.x + 0.5;
+	return (dx - xmin) * (r->max.x - r->min.x) / (xmax - xmin) + r->min.x + 0.5;
 }
 
 double
-convy(Image *i, int y)
+convy(Rectangle *r, int y)
 {
-	return (ymax - ymin) * (i->r.max.y - y) / (i->r.max.y - i->r.min.y) + ymin;
+	return (ymax - ymin) * (r->max.y - y) / (r->max.y - r->min.y) + ymin;
 }
 
 int
-deconvy(Image *i, double dy)
+deconvy(Rectangle *r, double dy)
 {
-	return (ymax - dy) * (i->r.max.y - i->r.min.y) / (ymax - ymin) + i->r.min.y + 0.5;
+	return (ymax - dy) * (r->max.y - r->min.y) / (ymax - ymin) + r->min.y + 0.5;
 }
 
 void
-drawinter(Code *co, Image *i, Image *c, double x1, double x2, int n)
+pixel(int x, int y)
+{
+	char *p;
+
+	if(cflag) {
+		if(x >= picx || y >= picy || x < 0 || y < 0)
+			return;
+		p = imagedata + (picx * y + x) * 3;
+		p[0] = p[1] = p[2] = 0;
+	} else
+		draw(screen, Rect(x, y, x + 1, y + 1), color, nil, ZP);
+}
+
+void
+drawinter(Code *co, Rectangle *r, double x1, double x2, int n)
 {
 	double y1, y2;
 	int iy1, iy2;
 	int ix1, ix2;
 
-	ix1 = deconvx(i, x1);
-	ix2 = deconvx(i, x2);
+	ix1 = deconvx(r, x1);
+	ix2 = deconvx(r, x2);
 	iy1 = iy2 = 0;
 	y1 = calc(co, x1);
 	if(!isNaN(y1)) {
-		iy1 = deconvy(i, y1);
-		draw(i, Rect(ix1, iy1, ix1 + 1, iy1 + 1), c, nil, ZP);
+		iy1 = deconvy(r, y1);
+		pixel(ix1, iy1);
 	}
 	y2 = calc(co, x2);
 	if(!isNaN(y2)) {
-		iy2 = deconvy(i, y2);
-		draw(i, Rect(ix2, iy2, ix2 + 1, iy2 + 1), c, nil, ZP);
+		iy2 = deconvy(r, y2);
+		pixel(ix2, iy2);
 	}
-	if(!isNaN(y1) && !isNaN(y2) && (iy2 < iy1 - 1 || iy2 > iy1 + 1) && n < 10) {
-		drawinter(co, i, c, x1, (x1 + x2) / 2, n + 1);
-		drawinter(co, i, c, (x1 + x2) / 2, x2, n + 1);
-	}
+	if(isNaN(y1) || isNaN(y2))
+		return;
+	if(n >= 10)
+		return;
+	if(iy2 >= iy1 - 1 && iy2 <= iy1 + 1)
+		return;
+	if(iy1 > r->max.y && iy2 > r->max.y)
+		return;
+	if(iy1 < r->min.y && iy2 < r->min.y)
+		return;
+	drawinter(co, r, x1, (x1 + x2) / 2, n + 1);
+	drawinter(co, r, (x1 + x2) / 2, x2, n + 1);
 }
 
 void
-drawgraph(Code *co, Image *i, Image *c)
+drawgraph(Code *co, Rectangle *r)
 {
 	int x;
 	
-	for(x = i->r.min.x; x < i->r.max.x; x++)
-		drawinter(co, i, c, convx(i, x), convx(i, x + 1), 0);
+	for(x = r->min.x; x < r->max.x; x++)
+		drawinter(co, r, convx(r, x), convx(r, x + 1), 0);
 }
 
 void
@@ -380,15 +406,16 @@ drawgraphs(void)
 {
 	int i;
 	
+	color = display->black;
 	for(i = 0; i < nfns; i++)
-		drawgraph(&fns[i], screen, display->black);
+		drawgraph(&fns[i], &screen->r);
 	flushimage(display, 1);
 }
 
 void
 usage(void)
 {
-	fprint(2, "usage: fplot function\n");
+	fprint(2, "usage: fplot [-c [-s size]] [-r range] functions ...\n");
 	exits("usage");
 }
 
@@ -403,10 +430,10 @@ zoom(void)
 	r = egetrect(1, &m);
 	if(r.min.x == 0 && r.min.y == 0 && r.max.x == 0 && r.max.y == 0)
 		return;
-	xmin_ = convx(screen, r.min.x);
-	xmax_ = convx(screen, r.max.x);
-	ymin_ = convy(screen, r.max.y);
-	ymax_ = convy(screen, r.min.y);
+	xmin_ = convx(&screen->r, r.min.x);
+	xmax_ = convx(&screen->r, r.max.x);
+	ymin_ = convy(&screen->r, r.max.y);
+	ymax_ = convy(&screen->r, r.min.y);
 	xmin = xmin_;
 	xmax = xmax_;
 	ymin = ymin_;
@@ -433,24 +460,73 @@ parsefns(int n, char **s)
 }
 
 void
+parserange(char *s)
+{
+	while(*s && !isdigit(*s)) s++;
+	if(*s == 0) return;
+	xmin = strtod(s, &s);
+	while(*s && !isdigit(*s)) s++;
+	if(*s == 0) return;
+	xmax = strtod(s, &s);
+	while(*s && !isdigit(*s)) s++;
+	if(*s == 0) return;
+	ymin = strtod(s, &s);
+	while(*s && !isdigit(*s)) s++;
+	if(*s == 0) return;
+	ymax = strtod(s, &s);
+}
+
+void
+parsesize(char *s)
+{
+	while(*s && !isdigit(*s)) s++;
+	if(*s == 0) return;
+	picx = strtol(s, &s, 0);
+	while(*s && !isdigit(*s)) s++;
+	if(*s == 0) return;
+	picy = strtol(s, &s, 0);
+}
+
+void
 main(int argc, char **argv)
 {
 	Event e;
+	Rectangle r;
+	int i;
 
-	if(argc < 2)
+	ARGBEGIN {
+	case 'r': parserange(EARGF(usage())); break;
+	case 's': parsesize(EARGF(usage())); break;
+	case 'c': cflag++; break;
+	default: usage();
+	} ARGEND;
+	if(argc < 1)
 		usage();
 	setfcr(getfcr() & ~(FPZDIV | FPINVAL));
-	parsefns(argc - 1, argv + 1);
-	if(initdraw(nil, nil, "fplot") < 0)
-		sysfatal("initdraw: %r");
-	einit(Emouse | Ekeyboard);
-	drawgraphs();
-	for(;;) {
-		switch(event(&e)) {
-		case Ekeyboard:
-			switch(e.kbdc) {
-			case 'q': exits(nil);
-			case 'z': zoom();
+	parsefns(argc, argv);
+	if(cflag) {
+		imagedata = emalloc(picx * picy * 3);
+		memset(imagedata, 0xFF, picx * picy * 3);
+		print("%11s %11d %11d %11d %11d ", "r8g8b8", 0, 0, picx, picy);
+		r.min.x = r.min.y = 0;
+		r.max.x = picx;
+		r.max.y = picy;
+		for(i = 0; i < nfns; i++)
+			drawgraph(&fns[i], &r);
+		if(write(1, imagedata, picx * picy * 3) < picx * picy * 3)
+			sysfatal("write: %r");
+	} else {
+		if(initdraw(nil, nil, "fplot") < 0)
+			sysfatal("initdraw: %r");
+		einit(Emouse | Ekeyboard);
+		drawgraphs();
+		for(;;) {
+			switch(event(&e)) {
+			case Ekeyboard:
+				switch(e.kbdc) {
+				case 'q': exits(nil);
+				case 'z': zoom();
+				}
 			}
 		}
 	}
