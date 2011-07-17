@@ -88,6 +88,7 @@ char Eintr[] = "interrupted";
 int scanfd;
 int ledsfd;
 int consfd;
+int mctlfd;
 
 int kbdopen;
 int consctlopen;
@@ -391,10 +392,21 @@ keyproc(void *)
 			}
 			rb[0] = 'k';
 		}
-		if(rb[0] && kbdopen){
-			s = utfconv(rb, nb+1);
-			if(nbsendp(kbdchan, s) <= 0)
-				free(s);
+		if(rb[0]){
+			if(key.r == Kshift && mctlfd >= 0){
+				if(key.down){
+					fprint(mctlfd, "buttonmap 132");
+				} else {
+					fprint(mctlfd, "swap");
+					fprint(mctlfd, "swap");
+				}
+			}
+
+			if(kbdopen){
+				s = utfconv(rb, nb+1);
+				if(nbsendp(kbdchan, s) <= 0)
+					free(s);
+			}
 		}
 	}
 }
@@ -1259,6 +1271,8 @@ threadmain(int argc, char** argv)
 		fprint(2, "%s: warning: can't open /dev/scancode: %r\n", argv0);
 	if((ledsfd = open("/dev/leds", OWRITE)) < 0)
 		fprint(2, "%s: warning: can't open /dev/leds: %r\n", argv0);
+	if((mctlfd = open("/dev/mousectl", OWRITE)) < 0)
+		fprint(2, "%s: warning: can't open /dev/mousectl: %r\n", argv0);
 
 	if(*argv)
 		if((consfd = open(*argv, OREAD)) < 0)

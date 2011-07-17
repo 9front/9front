@@ -5,7 +5,7 @@ bind /root /mnt/broot
 unmount /root
 
 bind -q '#p' /proc
-for(i in S f k æ t)
+for(i in S f k æ t m)
 	bind -a '#'^$i /dev >/dev/null >[2=1]
 
 # make variables settable by copying them from #ec
