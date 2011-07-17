@@ -14,7 +14,7 @@ enum {
 	Mpart = 64,
 };
 
-static void rdpart(Edit*, uvlong, uvlong);
+static void rdpart(Edit*, uvlong, uvlong, int);
 static void findmbr(Edit*);
 static void autopart(Edit*);
 static void wrpart(Edit*);
@@ -27,7 +27,6 @@ static int dowrite;
 static int file;
 static int rdonly;
 static int doauto;
-static vlong mbroffset;
 static int printflag;
 static int printchs;
 static int sec2cyl;
@@ -151,7 +150,7 @@ main(int argc, char **argv)
 	if(blank)
 		blankpart(&edit);
 	else
-		rdpart(&edit, 0, 0);
+		rdpart(&edit, 0, 0, 0);
 
 	if(doauto)
 		autopart(&edit);
@@ -263,9 +262,9 @@ struct Dospart {
 	Part;
 	Tentry;
 
-	u32int	lba;
-	u32int	size;
-	int		primary;
+	int	ebrtype;
+	vlong	ebrstart;
+	int	primary;
 };
 
 struct Recover {
@@ -385,11 +384,13 @@ Error:
 }
 
 static Dospart*
-mkpart(char *name, int primary, vlong lba, vlong size, Tentry *t)
+mkpart(char *name, vlong lba, vlong size, Tentry *t, vlong ebrstart, int ebrtype)
 {
 	static int n;
+	int primary;
 	Dospart *p;
 
+	primary = (ebrstart == 0) && (ebrtype == 0);
 	p = emalloc(sizeof(*p));
 	if(name)
 		p->name = estrdup(name);
@@ -406,16 +407,23 @@ mkpart(char *name, int primary, vlong lba, vlong size, Tentry *t)
 	p->changed = 0;
 	p->start = lba/sec2cyl;
 	p->end = (lba+size+sec2cyl-1)/sec2cyl;
+
 	p->ctlstart = lba;
 	p->ctlend = lba+size;
-	p->lba = lba;
-	if (p->lba != lba)
-		fprint(2, "%s: start of partition (%lld) won't fit in MBR table\n", argv0, lba);
-	p->size = size;
-	if (p->size != size)
-		fprint(2, "%s: size of partition (%lld) won't fit in MBR table\n", argv0, size);
+
+	p->ebrstart = ebrstart;
+	p->ebrtype = ebrtype;
 	p->primary = primary;
+
 	return p;
+}
+
+static int
+mkebrtype(vlong end)
+{
+	if(end >= 1024*sec2cyl)
+		return TypeEXTHUGE;
+	return TypeEXTENDED;
 }
 
 /*
@@ -481,7 +489,7 @@ recover(Edit *edit)
  * from the disk into the part array.
  */
 static void
-rdpart(Edit *edit, uvlong lba, uvlong xbase)
+rdpart(Edit *edit, uvlong xbase, uvlong ebrstart, int ebrtype)
 {
 	char *err;
 	Table table;
@@ -489,15 +497,12 @@ rdpart(Edit *edit, uvlong lba, uvlong xbase)
 	Dospart *p;
 
 	if(xbase == 0)
-		xbase = lba;
+		xbase = ebrstart;
 
-	diskread(edit->disk, &table, sizeof table, mbroffset+lba, Toffset);
-	addrecover(table, mbroffset+lba);
-
-	if(table.magic[0] != Magic0 || table.magic[1] != Magic1) {
-		assert(lba != 0);
+	diskread(edit->disk, &table, sizeof table, ebrstart, Toffset);
+	addrecover(table, ebrstart);
+	if(table.magic[0] != Magic0 || table.magic[1] != Magic1)
 		return;
-	}
 
 	for(tp=table.entry, ep=tp+NTentry; tp<ep && npart < Mpart; tp++) {
 		switch(tp->type) {
@@ -506,10 +511,10 @@ rdpart(Edit *edit, uvlong lba, uvlong xbase)
 		case TypeEXTENDED:
 		case TypeEXTHUGE:
 		case TypeLINUXEXT:
-			rdpart(edit, xbase+getle32(tp->xlba), xbase);
+			rdpart(edit, xbase, xbase+getle32(tp->xlba), tp->type);
 			break;
 		default:
-			p = mkpart(nil, lba==0, lba+getle32(tp->xlba), getle32(tp->xsize), tp);
+			p = mkpart(nil, ebrstart+getle32(tp->xlba), getle32(tp->xsize), tp, ebrstart, ebrtype);
 			if(err = addpart(edit, p))
 				fprint(2, "adding partition: %s\n", err);
 			break;
@@ -532,10 +537,6 @@ findmbr(Edit *edit)
 	diskread(edit->disk, &table, sizeof(Table), 0, Toffset);
 	if(table.magic[0] != Magic0 || table.magic[1] != Magic1)
 		sysfatal("did not find master boot record");
-
-	for(tp = table.entry; tp < &table.entry[NTentry]; tp++)
-		if(tp->type == TypeDMDDO)
-			mbroffset = edit->disk->s;
 }
 
 static int
@@ -639,7 +640,7 @@ autopart(Edit *edit)
 		bigstart += edit->disk->s;
 		bigsize -= edit->disk->s;
 	}
-	p = mkpart(nil, 1, bigstart, bigsize, nil);
+	p = mkpart(nil, bigstart, bigsize, nil, 0, 0);
 	p->active = active;
 	p->changed = 1;
 	p->type = Type9;
@@ -662,7 +663,6 @@ plan9print(Dospart *part, int fd)
 	int i, ok;
 	char *name, *vname;
 	Name *n;
-	vlong start, end;
 	char *sep;
 
 	vname = types[part->type].name;
@@ -670,9 +670,6 @@ plan9print(Dospart *part, int fd)
 		part->ctlname = "";
 		return;
 	}
-
-	start = mbroffset+part->lba;
-	end = start+part->size;
 
 	/* avoid names like plan90 */
 	i = strlen(vname) - 1;
@@ -703,7 +700,7 @@ plan9print(Dospart *part, int fd)
 	part->ctlname = name;
 
 	if(fd >= 0)
-		print("part %s %lld %lld\n", name, start, end);
+		print("part %s %lld %lld\n", name, part->ctlstart, part->ctlend);
 }
 
 static void
@@ -798,14 +795,26 @@ static char*
 cmdadd(Edit *edit, char *name, vlong start, vlong end)
 {
 	Dospart *p;
+	vlong ebrstart;
+	int ebrtype;
 
 	if(!haveroom(edit, name[0]=='p', start))
 		return "no room for partition";
 	start *= sec2cyl;
 	end *= sec2cyl;
-	if(start == 0 || name[0] != 'p')
+	if(name[0] == 'p'){
+		ebrtype = 0;
+		ebrstart = 0;
+		if(start == 0)
+			start += edit->disk->s;
+	}else{
+		if(start == 0)
+			start += edit->disk->s;
+		ebrtype =  mkebrtype(end);
+		ebrstart = start;
 		start += edit->disk->s;
-	p = mkpart(name, name[0]=='p', start, end-start, nil);
+	}
+	p = mkpart(name, start, end-start, nil, ebrstart, ebrtype);
 	p->changed = 1;
 	p->type = Type9;
 	return addpart(edit, p);
@@ -1006,46 +1015,60 @@ wrextend(Edit *edit, int i, vlong xbase, vlong startlba, vlong *endlba)
 	Tentry *tp, *ep;
 	Dospart *p;
 	Disk *disk;
+	vlong nextebrstart;
+	int nextebrtype;
 
 	if(i == edit->npart){
 		*endlba = edit->disk->secs;
 	Finish:
 		if(startlba < *endlba){
 			disk = edit->disk;
-			diskread(disk, &table, sizeof table, mbroffset+startlba, Toffset);
+			diskread(disk, &table, sizeof table, startlba, Toffset);
 			tp = table.entry;
 			ep = tp+NTentry;
 			for(; tp<ep; tp++)
 				memset(tp, 0, sizeof *tp);
 			table.magic[0] = Magic0;
 			table.magic[1] = Magic1;
-
-			if(diskwrite(edit->disk, &table, sizeof table, mbroffset+startlba, Toffset) < 0)
+			if(diskwrite(edit->disk, &table, sizeof table, startlba, Toffset) < 0)
 				recover(edit);
 		}
 		return i;
 	}
-
 	p = (Dospart*)edit->part[i];
 	if(p->primary){
-		*endlba = (vlong)p->ctlstart;
+		*endlba = startlba;
 		goto Finish;
 	}
 
 	disk = edit->disk;
-	diskread(disk, &table, sizeof table, mbroffset+startlba, Toffset);
+	diskread(disk, &table, sizeof table, startlba, Toffset);
 	tp = table.entry;
 	ep = tp+NTentry;
 
-	ni = wrextend(edit, i+1, xbase, p->ctlend, endlba);
+	nextebrtype = TypeEMPTY;
+	if(i+1 >= edit->npart)
+		nextebrstart = p->ctlend;
+	else{
+		Dospart *x = (Dospart*)edit->part[i+1];
+		if(x->primary)
+			nextebrstart = x->ctlstart;
+		else{
+			nextebrstart = x->ebrstart;
+			nextebrtype = x->ebrtype;
+		}
+	}
+	ni = wrextend(edit, i+1, xbase, nextebrstart, endlba);
 
 	*tp = p->Tentry;
-	wrtentry(disk, tp, p->type, startlba, startlba+disk->s, p->ctlend);
+	wrtentry(disk, tp, p->type, startlba, p->ctlstart, p->ctlend);
 	tp++;
 
-	if(p->ctlend != *endlba){
+	if(nextebrstart != *endlba){
 		memset(tp, 0, sizeof *tp);
-		wrtentry(disk, tp, TypeEXTENDED, xbase, p->ctlend, *endlba);
+		if(nextebrtype == TypeEMPTY)
+			nextebrtype = mkebrtype(*endlba);
+		wrtentry(disk, tp, nextebrtype, xbase, nextebrstart, *endlba);
 		tp++;
 	}
 
@@ -1055,7 +1078,7 @@ wrextend(Edit *edit, int i, vlong xbase, vlong startlba, vlong *endlba)
 	table.magic[0] = Magic0;
 	table.magic[1] = Magic1;
 
-	if(diskwrite(edit->disk, &table, sizeof table, mbroffset+startlba, Toffset) < 0)
+	if(diskwrite(edit->disk, &table, sizeof table, startlba, Toffset) < 0)
 		recover(edit);
 	return ni;
 }	
@@ -1063,38 +1086,30 @@ wrextend(Edit *edit, int i, vlong xbase, vlong startlba, vlong *endlba)
 static void
 wrpart(Edit *edit)
 {	
-	int i, ni, t;
+	int i, ni;
 	Table table;
 	Tentry *tp, *ep;
 	Disk *disk;
-	vlong s, endlba;
+	vlong endlba;
 	Dospart *p;
 
 	disk = edit->disk;
 
-	diskread(disk, &table, sizeof table, mbroffset, Toffset);
+	diskread(disk, &table, sizeof table, 0, Toffset);
 
 	tp = table.entry;
 	ep = tp+NTentry;
 	for(i=0; i<edit->npart && tp<ep; ) {
 		p = (Dospart*)edit->part[i];
-		if(p->start == 0)
-			s = disk->s;
-		else
-			s = p->ctlstart;
 		if(p->primary) {
 			*tp = p->Tentry;
-			wrtentry(disk, tp, p->type, 0, s, p->ctlend);
+			wrtentry(disk, tp, p->type, 0, p->ctlstart, p->ctlend);
 			tp++;
 			i++;
 		} else {
-			ni = wrextend(edit, i, p->ctlstart, p->ctlstart, &endlba);
+			ni = wrextend(edit, i, p->ebrstart, p->ebrstart, &endlba);
 			memset(tp, 0, sizeof *tp);
-			if(endlba >= 1024*sec2cyl)
-				t = TypeEXTHUGE;
-			else
-				t = TypeEXTENDED;
-			wrtentry(disk, tp, t, 0, s, endlba);
+			wrtentry(disk, tp, p->ebrtype, 0, p->ebrstart, endlba);
 			tp++;
 			i = ni;
 		}
@@ -1105,7 +1120,7 @@ wrpart(Edit *edit)
 	if(i != edit->npart)
 		sysfatal("cannot happen #1");
 
-	if(diskwrite(disk, &table, sizeof table, mbroffset, Toffset) < 0)
+	if(diskwrite(disk, &table, sizeof table, 0, Toffset) < 0)
 		recover(edit);
 
 	/* bring parts up to date */
