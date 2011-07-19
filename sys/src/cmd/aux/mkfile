@@ -31,6 +31,7 @@ TARG=\
 	rdwr\
 	reboot\
 	searchfs\
+	seek\
 	statusbar\
 	stub\
 	tablet\
