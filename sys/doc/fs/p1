@@ -1,0 +1,39 @@
+.SH
+Process Structure
+.PP
+The Plan 9 file system server is made from
+an ancient version of the Plan 9 kernel.
+The kernel contains process control,
+synchronization,
+locks,
+and some memory
+allocation.
+The kernel has no user processes or
+virtual memory.
+.PP
+The structure of the file system server
+is a set of kernel processes
+synchronizing mostly through message passing.
+In
+.I fs64
+there are 27 processes of 11 types:
+.KS
+.TS
+center ;
+c l c
+n lf(CW) l .
+number	name	function
+_
+15	srv	Main file system server processes
+1	rah	Block read-ahead processes
+1	scp	Sync process
+1	wcp	WORM copy process
+1	con	Console process
+1	ilo	IL protocol process
+1	ilt	IL timer process
+2	ethi	Ethernet input process
+2	etho	Ethernet output process
+1	flo	Floppy disk process
+1	snt	sntp clock-synchronisation process
+.TE
+.KE
