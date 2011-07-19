@@ -326,18 +326,20 @@ bcmreceive(Ether *edev)
 }
 
 static void
-bcmtransclean(Ether *edev)
+bcmtransclean(Ether *edev, int dolock)
 {
 	Ctlr *ctlr;
 	
 	ctlr = edev->ctlr;
-	ilock(&ctlr->txlock);
+	if(dolock)
+		ilock(&ctlr->txlock);
 	while(ctlr->sendcleani != (ctlr->status[4] >> 16)) {
-		freeb(ctlr->sends[ctlr->sendri]);
-		ctlr->sends[ctlr->sendri] = 0;
+		freeb(ctlr->sends[ctlr->sendcleani]);
+		ctlr->sends[ctlr->sendcleani] = 0;
 		ctlr->sendcleani = (ctlr->sendcleani + 1) & (SendRingLen - 1);
 	}
-	iunlock(&ctlr->txlock);
+	if(dolock)
+		iunlock(&ctlr->txlock);
 }
 
 static void
@@ -355,6 +357,11 @@ bcmtransmit(Ether *edev)
 		if(incr == (ctlr->status[4] >> 16)) {
 			print("bcm: send queue full\n");
 			break;
+		}
+		if(incr == ctlr->sendcleani) {
+			bcmtransclean(edev, 0);
+			if(incr == ctlr->sendcleani)
+				break;
 		}
 		bp = qget(edev->oq);
 		if(bp == nil) break;
@@ -414,7 +421,7 @@ bcminterrupt(Ureg*, void *arg)
 	if(status & LinkStateChange) checklink(edev);
 //	print("bcm: interrupt %8ulx %8ulx\n", ctlr->status[2], ctlr->status[4]);
 	bcmreceive(edev);
-	bcmtransclean(edev);
+	bcmtransclean(edev, 1);
 	bcmtransmit(edev);
 	csr32(ctlr, InterruptMailbox) = tag << 24;
 	iunlock(&ctlr->imlock);
