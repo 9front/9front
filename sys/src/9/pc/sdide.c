@@ -1194,7 +1194,10 @@ atapktio0(Drive *drive, SDreq *r)
 	outb(cmdport+Features, drive->pktdma);
 	outb(cmdport+Count, 0);
 	outb(cmdport+Sector, 0);
-	len = 16*drive->secsize;
+	if(drive->secsize)
+		len = 16*drive->secsize;
+	else
+		len = 0x8000;
 	outb(cmdport+Bytelo, len);
 	outb(cmdport+Bytehi, len>>8);
 	outb(cmdport+Dh, drive->dev);
