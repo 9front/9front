@@ -397,7 +397,8 @@ archread(Chan *c, void *a, long n, vlong offset)
 			error(Ebadarg);
 		vp = a;
 		for(port = offset; port < offset+n; port += 8)
-			rdmsr(port, vp++);
+			if(tryrdmsr(port, vp++) < 0)
+				error(Ebadarg);
 		return n;
 
 	case Qioalloc:
@@ -475,7 +476,8 @@ archwrite(Chan *c, void *a, long n, vlong offset)
 			error(Ebadarg);
 		vp = a;
 		for(port = offset; port < offset+n; port += 8)
-			wrmsr(port, *vp++);
+			if(trywrmsr(port, *vp++) < 0)
+				error(Ebadarg);
 		return n;
 
 	default:

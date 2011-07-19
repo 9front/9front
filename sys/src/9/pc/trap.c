@@ -463,7 +463,13 @@ trap(Ureg* ureg)
 				return;
 			}
 		}
-
+		if(vno == VectorGPF && !user &&
+				(ureg->pc == (ulong)(void*)tryrdmsrbody ||
+				ureg->pc == (ulong)(void*)trywrmsrbody)){
+			ureg->bp = -1;
+			ureg->pc += 2;
+			return;
+		}
 		dumpregs(ureg);
 		if(!user){
 			ureg->sp = (ulong)&ureg->sp;
