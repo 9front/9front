@@ -76,7 +76,10 @@ fn x {
 		echo rebooting...
 		echo reboot >'#c/reboot'
 	}
-	if not scram
+	if not {
+		bind -b '#P' /dev
+		scram
+	}
 }
 
 x
