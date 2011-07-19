@@ -117,6 +117,8 @@ sys	d775
 		
 	man	d775
 		+
+	doc	d775
+		+
 	src	d775
 		skip=\.[ao]?[12578vqki]?$
 		+
