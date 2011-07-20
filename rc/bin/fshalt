@@ -33,6 +33,9 @@ for (i in $k){
 	sleep 2
 }
 
+# for scram
+bind -b '#P' /dev
+
 # halting (binaries we run can't be on the fs we're halting)
 ramfs
 builtin cd /tmp
@@ -76,10 +79,7 @@ fn x {
 		echo rebooting...
 		echo reboot >'#c/reboot'
 	}
-	if not {
-		bind -b '#P' /dev
-		scram
-	}
+	if not scram
 }
 
 x
