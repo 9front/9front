@@ -363,6 +363,8 @@ genaudiovolread(Audio *adev, void *a, long n, vlong,
 		if(vol[i].type == Absolute)
 			p += snprint(p, e - p, "%s %d\n", vol[i].name, v[0]);
 		else {
+			if(vol[i].range == 0)
+				continue;
 			for(j=0; j<2; j++){
 				if(v[j] < 0)
 					v[j] = 0;
