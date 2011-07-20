@@ -579,6 +579,7 @@ bcmpci(void)
 		case 0x14e41672:
 		case 0x14e41673:
 		case 0x14e41674:
+		case 0x14e41677:
 		case 0x14e4167A:
 		case 0x14e4167b:
 		case 0x14e41693:
