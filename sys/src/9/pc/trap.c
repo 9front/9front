@@ -425,51 +425,48 @@ trap(Ureg* ureg)
 				;
 		}
 
-		if(vno == VectorGPF || vno == VectorSNP){
-			ulong *sp;
-			uchar *pc;
+		if(!user){
+			void (*pc)(void);
+			ulong *sp; 
 
-			/* l.s */
+			extern void _forkretpopgs(void);
+			extern void _forkretpopfs(void);
+			extern void _forkretpopes(void);
+			extern void _forkretpopds(void);
+			extern void _forkretiret(void);
+			extern void _tryrdmsrinst(void);
+			extern void _trywrmsrinst(void);
+
 			extern void load_fs(ulong);
 			extern void load_gs(ulong);
 
-			/*
-			 * CS, SS, DS and ES are initialized by strayintr
-			 * in l.s. initialize the others too so we dont trap
-			 * again when restoring the old context.
-			 */
 			load_fs(NULLSEL);
 			load_gs(NULLSEL);
 
-			pc = (uchar*)ureg->pc;
-			sp = (ulong*)&ureg->sp;
+			sp = (ulong*)&ureg->sp;	/* kernel stack */
+			pc = (void*)ureg->pc;
 
-			/*
-			 * we test for the instructions used by forkret()
-			 * to load the segments and replace the selectors 
-			 * on the (kernel) stack with null selectors.
-			 */
-			switch(pc[0]){
-			case 0x0f:	/* POP GS/FS */
-				if(pc[1] != 0xa9 && pc[1] != 0xa1)
-					break;
-			case 0x07:	/* POP ES */
-			case 0x1f:	/* POP DS */
-				sp[0] = NULLSEL;
-				return;
-			case 0xcf:	/* IRET */
-				sp[1] = UESEL;	/* CS */
-				sp[4] = UDSEL;	/* SS */
-				return;
+			if(pc == _forkretpopgs || pc == _forkretpopfs || 
+			   pc == _forkretpopes || pc == _forkretpopds){
+				if(vno == VectorGPF || vno == VectorSNP){
+					sp[0] = NULLSEL;
+					return;
+				}
+			} else if(pc == _forkretiret){
+				if(vno == VectorGPF || vno == VectorSNP){
+					sp[1] = UESEL;	/* CS */
+					sp[4] = UDSEL;	/* SS */
+					return;
+				}
+			} else if(pc == _tryrdmsrinst || pc == _trywrmsrinst){
+				if(vno == VectorGPF){
+					ureg->bp = -1;
+					ureg->pc += 2;
+					return;
+				}
 			}
 		}
-		if(vno == VectorGPF && !user &&
-				(ureg->pc == (ulong)(void*)tryrdmsrbody ||
-				ureg->pc == (ulong)(void*)trywrmsrbody)){
-			ureg->bp = -1;
-			ureg->pc += 2;
-			return;
-		}
+
 		dumpregs(ureg);
 		if(!user){
 			ureg->sp = (ulong)&ureg->sp;

@@ -695,7 +695,7 @@ TEXT rdmsr(SB), $0				/* model-specific register */
 TEXT tryrdmsr(SB), $0				/* model-specific register */
 	MOVL	$0, BP
 	MOVL	index+0(FP), CX
-TEXT tryrdmsrbody(SB), $0
+TEXT _tryrdmsrinst(SB), $0
 	RDMSR
 	MOVL	vlong+4(FP), CX			/* &vlong */
 	MOVL	AX, 0(CX)			/* lo */
@@ -715,7 +715,7 @@ TEXT trywrmsr(SB), $0
 	MOVL	index+0(FP), CX
 	MOVL	lo+4(FP), AX
 	MOVL	hi+8(FP), DX
-TEXT trywrmsrbody(SB), $0
+TEXT _trywrmsrinst(SB), $0
 	WRMSR
 	MOVL	BP, AX
 	RET
@@ -1065,11 +1065,16 @@ intrcommon:
 TEXT forkret(SB), $0
 	POPL	AX
 	POPAL
+TEXT _forkretpopgs(SB), $0
 	POPL	GS
+TEXT _forkretpopfs(SB), $0
 	POPL	FS
+TEXT _forkretpopes(SB), $0
 	POPL	ES
+TEXT _forkretpopds(SB), $0
 	POPL	DS
 	ADDL	$8, SP			/* pop error code and trap type */
+TEXT _forkretiret(SB), $0
 	IRETL
 
 TEXT vectortable(SB), $0
