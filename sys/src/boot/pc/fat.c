@@ -314,7 +314,7 @@ conffat(Fat *fat, void *buf)
 }
 
 static int
-findfat(Fat *fat, int drive)
+findfat(Fat *fat, int drive, ulong xbase, ulong lba)
 {
 	struct {
 		uchar status;
@@ -327,21 +327,35 @@ findfat(Fat *fat, int drive)
 	uchar buf[Sectsz];
 	int i;
 
-	if(readsect(drive, 0, buf))
+	if(xbase == 0)
+		xbase = lba;
+	if(readsect(drive, lba, buf))
 		return -1;
 	if(buf[0x1fe] != 0x55 || buf[0x1ff] != 0xAA)
 		return -1;
 	p = (void*)&buf[0x1be];
 	for(i=0; i<4; i++){
-		if(p[i].status != 0x80)
+		switch(p[i].typ){
+		case 0x05:
+		case 0x0f:
+		case 0x85:
+			/* extended partitions */
+			if(!findfat(fat, drive, xbase, xbase + GETLONG(p[i].lba)))
+				return 0;
+			/* no break */
+		case 0x00:
 			continue;
-		fat->drive = drive;
-		fat->partlba = *((ulong*)p[i].lba);
-		if(readsect(drive, fat->partlba, buf))
-			continue;
-		if(conffat(fat, buf))
-			continue;
-		return 0;
+		default:
+			if(p[i].status != 0x80)
+				continue;
+			fat->drive = drive;
+			fat->partlba = lba + GETLONG(p[i].lba);
+			if(readsect(drive, fat->partlba, buf))
+				continue;
+			if(conffat(fat, buf))
+				continue;
+			return 0;
+		}
 	}
 	return -1;
 }
@@ -358,7 +372,7 @@ start(void *sp)
 	/* drive passed in DL */
 	drive = ((ushort*)sp)[5] & 0xFF;
 
-	if(findfat(&fat, drive)){
+	if(findfat(&fat, drive, 0, 0)){
 		print("no fat\r\n");
 		halt();
 	}
