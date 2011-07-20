@@ -5,7 +5,7 @@
 
 switch($1){
 case go
-	disks=`{ls /dev/sd*/data >[2]/dev/null | sed 's!/dev/(sd..)/data!\1!'}
+	disks=`{ls /dev/sd*/data >[2]/dev/null | sed 's!/dev/(sd.*)/data!\1!'}
 	if(~ $#disks 0) {
 		echo 'No disk devices were found on your system.'
 		echo 'The installation process cannot continue.'
@@ -61,7 +61,7 @@ case go
 case checkdone
 	# we want at least one disk with both an mbr and a plan9 partition
 	mbrandplan9=0
-	disks=`{ls /dev/sd*/plan9 >[2]/dev/null | sed 's!/dev/(sd..)/plan9!\1!'}
+	disks=`{ls /dev/sd*/plan9 >[2]/dev/null | sed 's!/dev/(sd.*)/plan9!\1!'}
 	for(disk in $disks) {
 		if(hasmbr /dev/$disk/data)
 			mbrandplan9=1
