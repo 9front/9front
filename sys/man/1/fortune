@@ -1,8 +1,13 @@
 .TH FORTUNE 1
 .SH NAME
-fortune \- sample lines from a file
+fortune, troll \- sample lines from a file
 .SH SYNOPSIS
 .B fortune
+[
+.I file
+]
+.br
+.B troll
 [
 .I file
 ]
@@ -14,10 +19,22 @@ If a
 is specified, the saying is taken from that file;
 otherwise it is selected from
 .BR /sys/games/lib/fortunes .
+.LP
+.I
+Troll
+is more specific than
+.I fortune;
+it specializes in inflammatory rhetoric.
 .SH FILES
 .B /sys/games/lib/fortunes
 .br
 .B /sys/games/lib/fortunes.index
 \ \ fast lookup table, maintained automatically
+.br
+.B /sys/games/lib/trolls
 .SH SOURCE
 .B /sys/src/cmd/fortune.c
+.br
+.B /rc/bin/troll
+.SH AUTHORS
+Some initial trolls were provided by ChrisPBS.
