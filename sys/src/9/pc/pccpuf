@@ -28,6 +28,7 @@ dev
 	vga
 
 	sd
+	audio		dma
 	floppy		dma
 	aoe
 
@@ -71,6 +72,10 @@ link
 	usbohci
 	usbehci		usbehcipc
 
+	audiosb16	dma
+	audioac97	audioac97mix
+	audiohda
+
 misc
 	archmp		mp apic
 	mtrr
@@ -94,6 +99,7 @@ misc
 	vgact65545	+cur
 	vgacyber938x	+cur
 	vgaet4000	+cur
+	vgageode	+cur
 	vgahiqvideo	+cur
 	vgai81x	+cur
 	vgamach64xx	+cur
