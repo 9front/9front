@@ -268,7 +268,7 @@ authfutz(char *dom, char *user)
 
 	/* try ticket request using bootes key */
 	snprint(prompt, sizeof prompt, "\tcpu server owner for domain %s ", dom);
-	readcons(prompt, "bootes", 0, tr.authid, sizeof tr.authid);
+	readcons(prompt, "glenda", 0, tr.authid, sizeof tr.authid);
 	convTR2M(&tr, trbuf);
 	if(_asgetticket(fd, trbuf, tbuf) < 0){
 		close(fd);
