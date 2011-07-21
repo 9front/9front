@@ -3,6 +3,7 @@
 #	and optionally reboot
 rfork e
 reboot=no
+scram=no
 switch ($#*) {
 case 0
 case 1
@@ -14,6 +15,8 @@ case *
 
 path=(/bin)
 builtin cd /
+bind -c '#s' /srv
+bind '#p' /proc
 
 unmount /mnt/consoles >[2]/dev/null
 kill consolefs | rc			# don't compete with /mnt/consoles
@@ -33,8 +36,11 @@ for (i in $k){
 	sleep 2
 }
 
-# for scram
+# for scram, don't scram other systems
 bind -b '#P' /dev
+if (test -e '#P'/apm)
+	if (! ~ $reboot yes)
+		scram=yes
 
 # halting (binaries we run can't be on the fs we're halting)
 ramfs
@@ -79,7 +85,8 @@ fn x {
 		echo rebooting...
 		echo reboot >'#c/reboot'
 	}
-	if not scram
+	if (~ $scram yes)
+		scram
 }
 
 x
