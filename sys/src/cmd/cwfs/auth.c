@@ -103,7 +103,7 @@ authnew(void)
 		return nil;
 	}
 	if(auth_rpc(rpc, "start", keyspec, strlen(keyspec)) != ARok){
-		auth_freerpc(rpc);
+		authfree(rpc);
 		return nil;
 	}
 	return rpc;
@@ -114,8 +114,10 @@ authfree(void *auth)
 {
 	AuthRpc *rpc;
 
-	if(rpc = auth)
+	if(rpc = auth){
+		close(rpc->afd);
 		auth_freerpc(rpc);
+	}
 }
 
 int
