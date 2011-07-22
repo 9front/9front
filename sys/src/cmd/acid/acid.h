@@ -27,7 +27,6 @@ typedef struct Type	Type;
 typedef struct Frtype	Frtype;
 
 Extern int	kernel;
-Extern int	remote;
 Extern int	text;
 Extern int	silent;
 Extern Fhdr	fhdr;
