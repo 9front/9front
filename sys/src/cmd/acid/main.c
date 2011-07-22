@@ -567,6 +567,9 @@ system(void)
 		q = strchr(p, ' ');
 		if(q)
 			*q = 0;
+		q = strrchr(p, '/');
+		if(q)
+			p = q + 1;
 	}
 
 	if(kernel != nil)
