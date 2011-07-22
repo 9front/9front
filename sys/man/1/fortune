@@ -1,16 +1,15 @@
 .TH FORTUNE 1
 .SH NAME
-fortune, troll \- sample lines from a file
+fortune, theo, troll \- sample lines from a file
 .SH SYNOPSIS
 .B fortune
 [
 .I file
 ]
 .br
+.B theo
+.br
 .B troll
-[
-.I file
-]
 .SH DESCRIPTION
 .I Fortune
 prints a one-line aphorism chosen at random.
@@ -25,15 +24,27 @@ Troll
 is more specific than
 .I fortune;
 it specializes in inflammatory rhetoric.
+.LP
+.I
+Theo
+is more specific than
+.I troll;
+it presents quotes from OpenBSD founder
+Theo de Raadt.
 .SH FILES
 .B /sys/games/lib/fortunes
 .br
 .B /sys/games/lib/fortunes.index
 \ \ fast lookup table, maintained automatically
 .br
-.B /sys/games/lib/trolls
+.B /lib/theo
+.br
+.B /lib/troll
 .SH SOURCE
 .B /sys/src/cmd/fortune.c
+.br
+.br
+.B /rc/bin/theo
 .br
 .B /rc/bin/troll
 .SH AUTHORS
