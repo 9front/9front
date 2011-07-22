@@ -358,18 +358,16 @@ bcmtransmit(Ether *edev)
 			print("bcm: send queue full\n");
 			break;
 		}
-		if(incr == ctlr->sendcleani) {
-			bcmtransclean(edev, 0);
-			if(incr == ctlr->sendcleani)
-				break;
-		}
 		bp = qget(edev->oq);
 		if(bp == nil) break;
+		setmalloctag(bp, (ulong)(void*)bcmtransmit);
 		next = ctlr->sendr + ctlr->sendri * 4;
 		next[0] = 0;
 		next[1] = PADDR(bp->rp);
 		next[2] = (BLEN(bp) << 16) | PacketEnd;
 		next[3] = 0;
+		if(ctlr->sends[ctlr->sendri] != 0)
+			freeb(ctlr->sends[ctlr->sendri]);
 		ctlr->sends[ctlr->sendri] = bp;
 		csr32(ctlr, SendBDRingHostIndex) = ctlr->sendri = incr;
 	}
