@@ -259,7 +259,7 @@ typedef struct Prd {			/* Physical Region Descriptor */
 } Prd;
 
 enum {
-	BMspan		= 64*1024,	/* must be power of 2 <= 64*1024 */
+	BMspan		= 32*1024,	/* must be power of 2 <= 64*1024 */
 
 	Nprd		= SDmaxio/BMspan+2,
 };
@@ -272,6 +272,7 @@ typedef struct Ctlr {
 	int	bmiba;			/* bus master interface base address */
 	int	maxio;			/* sector count transfer maximum */
 	int	span;			/* don't span this boundary with dma */
+	int	maxdma;			/* don't attempt dma transfers bigger than this */
 
 	Pcidev*	pcidev;
 	void	(*ienable)(Ctlr*);
@@ -1019,6 +1020,8 @@ atadmasetup(Drive* drive, int len)
 	pa = PCIWADDR(drive->data);
 	if(pa & 0x03)
 		return -1;
+	if(ctlr->maxdma && len > ctlr->maxdma)
+		return -1;
 
 	/*
 	 * Sometimes drives identify themselves as being DMA capable
@@ -1047,7 +1050,7 @@ atadmasetup(Drive* drive, int len)
 		prd++;
 	}
 	if(i == Nprd)
-		(prd-1)->count |= PrdEOT;
+		return -1;
 
 	bmiba = ctlr->bmiba;
 	outl(bmiba+Bmidtpx, PCIWADDR(ctlr->prdt));
@@ -1134,6 +1137,8 @@ atapktinterrupt(Drive* drive)
 		break;
 
 	case 0:
+		if(drive->pktdma)
+			goto Pktdma;
 		len = (inb(cmdport+Bytehi)<<8)|inb(cmdport+Bytelo);
 		if(drive->data+len > drive->limit){
 			atanop(drive, 0);
@@ -1144,6 +1149,8 @@ atapktinterrupt(Drive* drive)
 		break;
 
 	case Io:
+		if(drive->pktdma)
+			goto Pktdma;
 		len = (inb(cmdport+Bytehi)<<8)|inb(cmdport+Bytelo);
 		if(drive->data+len > drive->limit){
 			atanop(drive, 0);
@@ -1154,9 +1161,10 @@ atapktinterrupt(Drive* drive)
 		break;
 
 	case Io|Cd:
-		if(drive->pktdma)
+		if(drive->pktdma){
+	Pktdma:
 			atadmainterrupt(drive, drive->dlen);
-		else
+		} else
 			ctlr->done = 1;
 		break;
 	}
@@ -1186,26 +1194,25 @@ atapktio0(Drive *drive, SDreq *r)
 		return SDnostatus;
 
 	ilock(ctlr);
-	if(drive->dlen && drive->dmactl && !atadmasetup(drive, drive->dlen))
+	if(drive->dlen && drive->dmactl && !atadmasetup(drive, drive->dlen)){
 		drive->pktdma = Dma;
-	else
+		len = 0;		/* bytecount should be 0 for dma */
+	}else{
 		drive->pktdma = 0;
-
+		if(drive->secsize)
+			len = 16*drive->secsize;
+		else
+			len = 0x8000;
+	}
 	outb(cmdport+Features, drive->pktdma);
 	outb(cmdport+Count, 0);
 	outb(cmdport+Sector, 0);
-	if(drive->secsize)
-		len = 16*drive->secsize;
-	else
-		len = 0x8000;
 	outb(cmdport+Bytelo, len);
 	outb(cmdport+Bytehi, len>>8);
 	outb(cmdport+Dh, drive->dev);
 	ctlr->done = 0;
 	ctlr->curdrive = drive;
 	ctlr->command = Cpkt;		/* debugging */
-	if(drive->pktdma)
-		atadmastart(ctlr, drive->write);
 	outb(cmdport+Command, Cpkt);
 
 	if((drive->info[Iconfig] & Mdrq) != 0x0020){
@@ -1219,23 +1226,22 @@ atapktio0(Drive *drive, SDreq *r)
 		}else
 			atapktinterrupt(drive);
 	}
+	if(drive->pktdma)
+		atadmastart(ctlr, drive->write);
 	iunlock(ctlr);
 
 	if(iowait(drive, 20*1000, 1) <= 0){
 		ilock(ctlr);
-		if(!drive->error){
-			ataabort(drive, 0);
-			if(drive->pktdma){
-				atadmastop(ctlr);
-				drive->dmactl = 0;
-			}
-		}
-		if(drive->error){
-			drive->status |= Chk;
-			ctlr->curdrive = nil;
-		}
-		iunlock(ctlr);
+		ataabort(drive, 0);
+	} else
+		ilock(ctlr);
+	if(drive->error){
+		if(drive->pktdma)
+			atadmastop(ctlr);
+		drive->status |= Chk;
+		ctlr->curdrive = nil;
 	}
+	iunlock(ctlr);
 
 	if(drive->status & Chk)
 		rv = SDcheck;
@@ -2001,7 +2007,7 @@ static SDev*
 atapnp(void)
 {
 	char *s;
-	int channel, map, ispc87415, maxio, pi, r, span, tbdf;
+	int channel, map, ispc87415, maxio, pi, r, span, maxdma, tbdf;
 	Ctlr *ctlr;
 	Pcidev *p;
 	SDev *sdev, *head, *tail;
@@ -2034,6 +2040,7 @@ atapnp(void)
 		pi = p->ccrp;
 		map = 3;
 		ispc87415 = 0;
+		maxdma = 0;
 		maxio = 0;
 		if(s = getconf("*idemaxio"))
 			maxio = atoi(s);
@@ -2172,9 +2179,10 @@ atapnp(void)
 		case (0x2366<<16)|0x197b:	/* jmicron jmb366 */
 		case (0x2368<<16)|0x197b:	/* jmicron jmb368 */
 			break;
-		case (0x1230<<16)|0x8086:	/* 82371FB (PIIX) */
 		case (0x7010<<16)|0x8086:	/* 82371SB (PIIX3) */
+		case (0x1230<<16)|0x8086:	/* 82371FB (PIIX) */
 		case (0x7111<<16)|0x8086:	/* 82371[AE]B (PIIX4[E]) */
+			maxdma = 0x20000;
 			break;
 		case (0x2411<<16)|0x8086:	/* 82801AA (ICH) */
 		case (0x2421<<16)|0x8086:	/* 82801AB (ICH0) */
@@ -2246,6 +2254,7 @@ atapnp(void)
 			ctlr->tbdf = tbdf;
 			ctlr->pcidev = p;
 			ctlr->maxio = maxio;
+			ctlr->maxdma = maxdma;
 			ctlr->span = span;
 			ctlr->irqack = irqack;
 			if(pi & 0x80)
