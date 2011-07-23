@@ -28,7 +28,7 @@ memsize(void)
 			}
 		}
 		Bterm(bp);
-		if (pgsize > 0 && userused > userpgs)
+		if (pgsize > 0 && userused < userpgs)
 			return (userpgs - userused)*pgsize;
 	}
 	return 64*MB;

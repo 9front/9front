@@ -60,19 +60,11 @@ main(int argc, char *argv[])
 	case 'q':
 		quiet = 0;
 		break;
-	case 'r':
-		pid = 1;
-		remote++;
-		kernel++;
-		break;
 	default:
 		usage();
 	}ARGEND
 
 	if(argc > 0) {
-		if(remote)
-			aout = argv[0];
-		else
 		if(isnumeric(argv[0])) {
 			pid = strtol(argv[0], 0, 0);
 			snprint(prog, sizeof(prog), "/proc/%d/text", pid);
@@ -89,9 +81,7 @@ main(int argc, char *argv[])
 			}
 			aout = argv[0];
 		}
-	} else
-	if(remote)
-		aout = "/mips/9ch";
+	}
 
 	fmtinstall('x', xfmt);
 	fmtinstall('L', Lfmt);
@@ -258,7 +248,6 @@ readtext(char *s)
 	Value *v;
 	uvlong length;
 	Symbol sym;
-	extern Machdata mipsmach;
 
 	if(mtype != 0){
 		symmap = newmap(0, 1);
@@ -273,8 +262,6 @@ readtext(char *s)
 		setmap(symmap, text, 0, length, 0, "binary");
 		return;
 	}
-
-	machdata = &mipsmach;
 
 	if(!crackhdr(text, &fhdr)) {
 		print("can't decode file header\n");
@@ -553,20 +540,19 @@ system(void)
 	static char *kernel;
 
 	cpu = getenv("cputype");
-	if(cpu == 0) {
-		cpu = "mips";
-		print("$cputype not set; assuming %s\n", cpu);
-	}
+	if(cpu == 0)
+		sysfatal("$cputype not set");
 	p = getenv("terminal");
-	if(p == 0 || (p=strchr(p, ' ')) == 0 || p[1] == ' ' || p[1] == 0) {
-		p = "ch";
-		print("missing or bad $terminal; assuming %s\n", p);
-	}
+	if(p == 0 || (p=strchr(p, ' ')) == 0 || p[1] == ' ' || p[1] == 0)
+		sysfatal("$terminal not set");
 	else{
 		p++;
 		q = strchr(p, ' ');
 		if(q)
 			*q = 0;
+		q = strrchr(p, '/');
+		if(q)
+			p = q + 1;
 	}
 
 	if(kernel != nil)
