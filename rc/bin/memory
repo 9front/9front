@@ -1,0 +1,16 @@
+#!/bin/rc
+awk '
+function human(name, n) {
+	printf "%-15s", name
+	if(n >= 1000000000) printf "%.3g GB\n", n / 1073741824
+	else if(n >= 1000000) printf "%.3g MB\n", n / 1048576
+	else if(n >= 1000) printf "%.3g KB\n", n / 1024
+	else printf "%d B\n", n
+}
+$2 == "memory" { human("total", $1) }
+$2 == "pagesize" { pagesize = $1 }
+$2 == "kernel" && NF == 2 { human("total kernel", $1 * pagesize) }
+$2 == "user" { split($1, a, "/"); human("total user", a[2] * pagesize); print ""; human("used  user", a[1] * pagesize) }
+$2 == "kernel" && $3 == "malloc" { split($1, a, "/"); human("used  kernel", a[1]) }
+$2 == "kernel" && $3 == "draw" { split($1, a, "/"); human("used  draw", a[1]) }
+' < /dev/swap
