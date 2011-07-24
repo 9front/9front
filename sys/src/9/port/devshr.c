@@ -103,6 +103,35 @@ shrlookup(char *name, ulong qidpath)
 	return nil;
 }
 
+static int
+shrremovemnt(Shr *sp, int id)
+{
+	Mount *m, **l;
+
+	wlock(&sp->umh.lock);
+	l = &sp->umh.mount;
+	for(m = *l; m; m = m->next){
+		if(m->mountid == id){
+			cclose(m->to);
+			*l = m->next;
+			free(m);
+			break;
+		}
+		l = &m->next;
+	}
+
+	if(m == nil){
+		wunlock(&sp->umh.lock);
+		return -1;
+	}
+	qlock(&sp->desclock);
+	free(sp->desc);
+	sp->desc = nil;
+	qunlock(&sp->desclock);
+	wunlock(&sp->umh.lock);
+	return 0;
+}
+
 static Walkqid*
 shrwalk(Chan *c, Chan *nc, char **name, int nname)
 {
@@ -360,7 +389,7 @@ shrremove(Chan *c)
 
 	if(strcmp(sp->owner, eve) == 0 && !iseve())
 		error(Eperm);
-	if((sp->perm&7) != 7 && strcmp(sp->owner, up->user) && !iseve())
+	if((sp->perm&7) != 7 && strcmp(sp->owner, up->user) != 0 && !iseve())
 		error(Eperm);
 
 	*l = sp->link;
@@ -454,7 +483,7 @@ shrread(Chan *c, void *va, long n, vlong off)
 		rlock(&sp->umh.lock);
 		for(f = sp->umh.mount; f != nil; f = f->next)
 			nn += 32 + strlen((char*)(f + 1));
-		s = sp->desc = smalloc(nn);
+		s = sp->desc = smalloc(nn + 1);
 		e = s + nn;
 		for(f = sp->umh.mount; f != nil; f = f->next)
 			s = seprint(s, e, "%lud %s %C %lud %lld\n", f->mountid, (char*)(f + 1), devtab[f->to->mchan->type]->dc, f->to->mchan->dev, f->to->qid.path);
@@ -470,7 +499,7 @@ shrwrite(Chan *c, void *va, long n, vlong)
 {
 	Shr *sp;
 	char *buf, *p, *desc, *aname;
-	int mode, fd;
+	int mode, fd, id;
 	Chan *bc, *c0;
 	Mount *m, *mm;
 	struct{
@@ -501,6 +530,22 @@ shrwrite(Chan *c, void *va, long n, vlong)
 	memmove(buf, va, n);
 	buf[n] = 0;
 	
+	if(*buf == 'u'){
+		p = buf + 1;
+		while(*p <= ' ' && *p != '\n')
+			p++;
+		if(*p == 0 || *p == '\n')
+			error(Ebadarg);
+		id = strtol(p, 0, 10);
+		if(shrremovemnt(sp, id) < 0)
+			error(Ebadarg);
+		shrdecref(sp);
+		free(buf);
+		poperror();
+		poperror();
+		return n;
+	}
+	
 	p = buf;
 	mode = 0;
 	for(; *p > ' '; p++)
@@ -514,9 +559,9 @@ shrwrite(Chan *c, void *va, long n, vlong)
 
 	if((mode & (MAFTER|MBEFORE)) == 0 || (mode & (MAFTER|MBEFORE)) == (MAFTER|MBEFORE))
 		error(Ebadarg);
-	while(*p <= ' ')
+	while(*p <= ' ' && *p != '\n')
 		p++;
-	if(*p == 0)
+	if(*p == 0 || *p == '\n')
 		error(Ebadarg);
 	fd = strtol(p, &p, 10);
 	while(*p <= ' ' && *p != '\n')
