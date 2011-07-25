@@ -8,6 +8,8 @@ ken is an idiot, he could have learned C++ instead of inventing Go
 transparent terminals provide a huge productivity boost
 Cirno is the official 9front mascot and the best you could ever think of
 no woman would voluntarily prostitute themselves
+TODO: recursive userlevel page fault handler, shared libraries and async i/o
+Cirno's been our mascot for a while.
 We removed private namespaces from Plan 9 to support hotplugging better.
 Plan 9 is just a shitty rip-off of GNU/HURD
 Copyright protects the author.
@@ -18,3 +20,7 @@ Socialism and national socialism are unrelated concepts.
 The phallic form of the shell prompt just demonstrates the patriarchic nature of Plan 9.
 We live in a society based on Christianity, there is no place for other religions.
 XMPP is a great standard.
+fossil file system corrupts after a power cut
+Survey: Current Fossil+venti Filesystem
+can't access fossil dumps anymore
+how to mount an inert fossil partition?
