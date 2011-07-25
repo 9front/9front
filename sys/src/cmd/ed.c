@@ -127,6 +127,7 @@ main(int argc, char *argv[])
 	char *p1, *p2;
 
 	Binit(&bcons, 0, OREAD);
+	Blethal(&bcons, nil);
 	notify(notifyf);
 	ARGBEGIN {
 	case 'o':
@@ -322,6 +323,7 @@ commands(void)
 				free(d);
 			}
 			Binit(&iobuf, io, OREAD);
+			Blethal(&iobuf, nil);
 			setwide();
 			squeeze(0);
 			c = zero != dol;
@@ -370,6 +372,7 @@ commands(void)
 				if((io = create(file, OWRITE, 0666)) < 0)
 					error(file);
 			Binit(&iobuf, io, OWRITE);
+			Blethal(&iobuf, nil);
 			wrapp = 0;
 			if(dol > zero)
 				putfile();
@@ -669,6 +672,7 @@ rescue(void)
 		io = create("ed.hup", OWRITE, 0666);
 		if(io > 0){
 			Binit(&iobuf, io, OWRITE);
+			Blethal(&iobuf, nil);
 			putfile();
 		}
 	}
