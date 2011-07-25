@@ -372,7 +372,6 @@ commands(void)
 				if((io = create(file, OWRITE, 0666)) < 0)
 					error(file);
 			Binit(&iobuf, io, OWRITE);
-			Blethal(&iobuf, nil);
 			wrapp = 0;
 			if(dol > zero)
 				putfile();
@@ -672,7 +671,6 @@ rescue(void)
 		io = create("ed.hup", OWRITE, 0666);
 		if(io > 0){
 			Binit(&iobuf, io, OWRITE);
-			Blethal(&iobuf, nil);
 			putfile();
 		}
 	}
