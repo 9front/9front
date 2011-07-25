@@ -29,8 +29,12 @@ static void
 shrdecref(Shr *sp)
 {
 	Mount *m, *mm;
+	int n;
 
-	if(decref(sp) != 0)
+	qlock(&shrlk);
+	n = decref(sp);
+	qunlock(&shrlk);
+	if(n != 0)
 		return;
 	
 	for(m = sp->umh.mount; m != nil; m = mm) {
@@ -38,6 +42,8 @@ shrdecref(Shr *sp)
 		mm = m->next;
 		free(m);
 	}
+	if(sp->desc != nil)
+		free(sp->desc);
 	free(sp->owner);
 	free(sp->name);
 	free(sp);
@@ -491,6 +497,7 @@ shrread(Chan *c, void *va, long n, vlong off)
 	}
 	ret = readstr(off, va, n, sp->desc);
 	qunlock(&sp->desclock);
+	shrdecref(sp);
 	return ret;
 }
 
@@ -511,19 +518,14 @@ shrwrite(Chan *c, void *va, long n, vlong)
 	
 	qlock(&shrlk);
 	sp = shrlookup(nil, c->qid.path);
-	if(sp == nil) {
-		qunlock(&shrlk);
-		error(Enonexist);
-	}
-	incref(sp);
+	if(sp != nil)
+		incref(sp);
 	qunlock(&shrlk);
-	if(waserror()){
-		shrdecref(sp);
-		nexterror();
-	}
-
+	if(sp == nil)
+		error(Enonexist);
 	buf = smalloc(n+1);
 	if(waserror()){
+		shrdecref(sp);
 		free(buf);
 		nexterror();
 	}
@@ -541,7 +543,6 @@ shrwrite(Chan *c, void *va, long n, vlong)
 			error(Ebadarg);
 		shrdecref(sp);
 		free(buf);
-		poperror();
 		poperror();
 		return n;
 	}
@@ -615,7 +616,6 @@ shrwrite(Chan *c, void *va, long n, vlong)
 	qunlock(&sp->desclock);
 	shrdecref(sp);
 	free(buf);
-	poperror();
 	poperror();
 	return n;
 }
