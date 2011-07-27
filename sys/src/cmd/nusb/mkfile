@@ -1,7 +1,8 @@
 </$objtype/mkfile
 
-# order matters here.  build lib first and usbd last.
 DIRS=\
+	lib\
+	kb\
 	usbd\
 
 UPDATE=\
@@ -21,7 +22,6 @@ install installall safeinstall safeinstallall:V:
 	for (i in $DIRS) @{
 		cd $i && mk $target
 	}
-	cp probe /$objtype/bin/usb/probe
 
 update:V:
 	update $UPDATEFLAGS $UPDATE

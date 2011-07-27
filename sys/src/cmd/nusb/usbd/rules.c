@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <thread.h>
 #include <ctype.h>
+#include "usb.h"
 #include "dat.h"
 #include "fns.h"
 
@@ -63,7 +64,7 @@ parsesh(int *argc, char ***argv)
 	}
 }
 
-static Dev dummy;
+static Usbdev dummy;
 
 struct field {
 	char *s;
@@ -72,6 +73,7 @@ struct field {
 	"class", &dummy.class,
 	"vid", &dummy.vid,
 	"did", &dummy.did,
+	"csp", &dummy.csp,
 	nil, nil,
 };
 
@@ -218,7 +220,7 @@ parserules(char *s)
 }
 
 Rule *
-rulesmatch(Dev *dev)
+rulesmatch(Usbdev *dev)
 {
 	Rule *r;
 	Cond *c;

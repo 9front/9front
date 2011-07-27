@@ -3,6 +3,7 @@
 OFILES=\
 	usbd.$O\
 	rules.$O\
+	hub.$O\
 
 HFILES=\
 	dat.h\
@@ -10,4 +11,6 @@ HFILES=\
 
 TARG=usbd
 BIN=/$objtype/bin/nusb
+LIB=../lib/usb.a$O
 </sys/src/cmd/mkone
+CFLAGS=-I../lib $CFLAGS

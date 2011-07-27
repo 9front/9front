@@ -1,3 +1,7 @@
+nusb/kb
+	csp=0x010103
+	csp=0x020103
+
 nusb/disk
 	class=8
 
