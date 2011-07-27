@@ -1,0 +1,5 @@
+nusb/disk
+	class=8
+
+nusb/serial
+	vid=0x9e88 did=0x9e8f

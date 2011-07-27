@@ -1,0 +1,13 @@
+</$objtype/mkfile
+
+OFILES=\
+	usbd.$O\
+	rules.$O\
+
+HFILES=\
+	dat.h\
+	fns.h\
+
+TARG=usbd
+BIN=/$objtype/bin/nusb
+</sys/src/cmd/mkone
