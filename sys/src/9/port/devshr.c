@@ -574,8 +574,8 @@ shrwrite(Chan *c, void *va, long n, vlong)
 			*p = 0;
 	} else
 		desc = "";
-	aname = strchr(buf, '\n') + 1;
-	if(aname != nil && *aname == 0)
+	aname = strchr(buf, '\n');
+	if(aname != nil && *++aname == 0)
 		aname = nil;
 	if(strlen(desc) > 128)
 		error(Ebadarg);
