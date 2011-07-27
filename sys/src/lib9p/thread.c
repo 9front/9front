@@ -25,8 +25,8 @@ threadpostmountsrv(Srv *s, char *name, char *mtpt, int flag)
 }
 
 void
-threadpostsharesrv(Srv *s, char *name, char *mtpt, int flag)
+threadpostsharesrv(Srv *s, char *name, char *mtpt, char *desc, char* flag)
 {
 	_forker = tforker;
-	_postmountsrv(s, name, mtpt, flag);
+	_postsharesrv(s, name, mtpt, desc, flag);
 }
