@@ -226,6 +226,7 @@ int		chatty9p;
 void		respond(Req*, char*);
 void		responderror(Req*);
 void		threadpostmountsrv(Srv*, char*, char*, int);
+void		threadpostsharesrv(Srv*, char*, char*, char*, char*);
 void		threadlistensrv(Srv *s, char *addr);
 
 /*
