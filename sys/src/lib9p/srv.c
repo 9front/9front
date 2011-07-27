@@ -851,3 +851,29 @@ postfd(char *name, int pfd)
 	return 0;
 }
 
+int
+sharefd(char *name, char *desc, char *flags, int pfd)
+{
+	int fd;
+	char buf[80];
+
+	snprint(buf, sizeof buf, "#σc/%s", name);
+	if(chatty9p)
+		fprint(2, "sharefd %s\n", buf);
+	fd = create(buf, OWRITE, 0600);
+	if(fd < 0){
+		if(chatty9p)
+			fprint(2, "create fails: %r\n");
+		return -1;
+	}
+	if(fprint(fd, "%s %d %s\n", flags, pfd, desc) < 0){
+		if(chatty9p)
+			fprint(2, "write fails: %r\n");
+		close(fd);
+		return -1;
+	}
+	close(fd);
+	if(chatty9p)
+		fprint(2, "sharefd successful\n");
+	return 0;
+}

@@ -32,3 +32,9 @@ postmountsrv(Srv *s, char *name, char *mtpt, int flag)
 	_postmountsrv(s, name, mtpt, flag);
 }
 
+void
+postsharesrv(Srv *s, char *name, char *mtpt, char *desc, char *flag)
+{
+	_forker = rforker;
+	_postsharesrv(s, name, mtpt, desc, flag);
+}
