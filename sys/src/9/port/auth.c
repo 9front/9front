@@ -134,6 +134,7 @@ hostownerwrite(char *a, int n)
 
 	renameuser(eve, buf);
 	srvrenameuser(eve, buf);
+	shrrenameuser(eve, buf);
 	kstrdup(&eve, buf);
 	kstrdup(&up->user, buf);
 	up->basepri = PriNormal;

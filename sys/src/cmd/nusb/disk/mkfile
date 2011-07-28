@@ -13,7 +13,7 @@ HFILES =\
 
 LIB=../lib/usb.a$O
 
-BIN=/$objtype/bin/usb
+BIN=/$objtype/bin/nusb
 
 </sys/src/cmd/mkone
 CFLAGS=-I../lib $CFLAGS
