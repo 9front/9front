@@ -5,7 +5,7 @@
 #include "dat.h"
 #include "fns.h"
 
-static Hub *hubs;
+Hub *hubs;
 static int nhubs;
 static int mustdump;
 static int pollms = Pollms;
