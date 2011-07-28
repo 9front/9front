@@ -640,3 +640,15 @@ Dev shrdevtab = {
 	shrremove,
 	shrwstat,
 };
+
+void
+shrrenameuser(char *old, char *new)
+{
+	Shr *sp;
+
+	qlock(&shrlk);
+	for(sp = shr; sp; sp = sp->link)
+		if(sp->owner!=nil && strcmp(old, sp->owner)==0)
+			kstrdup(&sp->owner, new);
+	qunlock(&shrlk);
+}

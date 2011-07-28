@@ -9,6 +9,7 @@ dev
 	proc
 	mnt
 	srv
+	shr
 	dup
 	rtc
 	ssl
