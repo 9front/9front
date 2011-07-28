@@ -26,10 +26,10 @@ struct Event {
 	char *data;
 	int len;
 	Event *link;
-	int ref;
+	int ref, prev;
 };
 
-static Event *evfirst, *evlast;
+static Event *evlast;
 static Req *reqfirst, *reqlast;
 static QLock evlock;
 
@@ -59,10 +59,7 @@ fulfill(Req *req, Event *e)
 static void
 initevent(void)
 {
-	evfirst = mallocz(sizeof(*evfirst), 1);
-	if(evfirst == nil)
-		sysfatal("malloc: %r");
-	evlast = evfirst;
+	evlast = mallocz(sizeof(Event), 1);
 }
 
 static void
@@ -80,8 +77,8 @@ readevent(Req *req)
 	fulfill(req, e);
 	req->fid->aux = e->link;
 	e->link->ref++;
-	if(--e->ref == 0 && e == evfirst){
-		evfirst = e->link;
+	if(--e->ref == 0 && e->prev == 0){
+		e->link->prev--;
 		free(e->data);
 		free(e);
 	}
@@ -104,6 +101,7 @@ pushevent(char *data)
 	e->data = data;
 	e->len = strlen(data);
 	e->link = ee;
+	ee->prev++;
 	for(r = reqfirst; r != nil; r = rr){
 		rr = r->aux;
 		r->aux = nil;
@@ -113,8 +111,8 @@ pushevent(char *data)
 		fulfill(r, e);
 		respond(r, nil);
 	}
-	if(e->ref == 0 && e == evfirst){
-		evfirst = ee;
+	if(e->ref == 0 && e->prev == 0){
+		ee->prev--;
 		free(e->data);
 		free(e);
 	}
@@ -199,13 +197,50 @@ usbdstat(Req *req)
 		respond(req, nil);
 }
 
+static char *
+formatdev(Dev *d)
+{
+	Usbdev *u;
+	
+	u = d->usb;
+	return smprint("in id %d vid 0x%.4x did 0x%.4x csp 0x%.8lx\n",
+		d->id, u->vid, u->did, u->csp);
+}
+
+static void
+enumerate(Event **l)
+{
+	Event *e;
+	Hub *h;
+	Port *p;
+	extern Hub *hubs;
+	
+	for(h = hubs; h != nil; h = h->next){
+		for(p = h->port; p < h->port + h->nport; p++){
+			if(p->dev == nil || p->dev->usb == nil || p->hub != nil)
+				continue;
+			e = mallocz(sizeof(Event), 1);
+			if(e == nil)
+				sysfatal("malloc: %r");
+			e->data = formatdev(p->dev);
+			e->len = strlen(e->data);
+			e->prev = 1;
+			*l = e;
+			l = &e->link;
+		}
+	}
+	*l = evlast;
+	evlast->prev++;
+}
+
 static void
 usbdopen(Req *req)
 {
 	if(req->fid->qid.path == Qusbevent){
 		qlock(&evlock);
-		req->fid->aux = evlast;
-		evlast->ref++;
+		enumerate(&req->fid->aux);
+		((Event *)req->fid->aux)->ref++;
+		((Event *)req->fid->aux)->prev--;
 		qunlock(&evlock);
 	}
 	respond(req, nil);
@@ -219,14 +254,14 @@ usbddestroyfid(Fid *fid)
 	if(fid->qid.path == Qusbevent){
 		qlock(&evlock);
 		e = fid->aux;
-		if(--e->ref == 0 && e == evfirst){
-			while(e->ref == 0 && e != evlast){
+		if(--e->ref == 0 && e->prev == 0){
+			while(e->ref == 0 && e->prev == 0 && e != evlast){
 				ee = e->link;
+				ee->prev--;
 				free(e->data);
 				free(e);
 				e = ee;
 			}
-			evfirst = e;
 		}
 		qunlock(&evlock);
 	}
@@ -264,15 +299,12 @@ int
 startdev(Port *p)
 {
 	Dev *d;
-	Usbdev *u;
 
-	if((d = p->dev) == nil || (u = p->dev->usb) == nil){
+	if((d = p->dev) == nil || p->dev->usb == nil){
 		fprint(2, "okay what?\n");
 		return -1;
 	}
-	pushevent(smprint("in id %d vid 0x%.4x did 0x%.4x csp 0x%.8x\n",
-		d->id, u->vid, u->did, u->csp));
-	closedev(p->dev);
+	pushevent(formatdev(d));
 	return 0;
 }
 
