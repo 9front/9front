@@ -24,6 +24,9 @@ enum
 	Qmax = Maxparts,
 };
 
+Dev *dev;
+Ums *ums;
+
 typedef struct Dirtab Dirtab;
 struct Dirtab
 {
@@ -140,19 +143,15 @@ makeparts(Umsc *lun)
  */
 
 static char*
-ctlstring(Usbfs *fs)
+ctlstring(Umsc *lun)
 {
 	Part *p, *part;
 	Fmt fmt;
-	Umsc *lun;
-	Ums *ums;
 	
-	ums = fs->dev->aux;
-	lun = fs->aux;
 	part = &lun->part[0];
 
 	fmtstrinit(&fmt);
-	fmtprint(&fmt, "dev %s\n", fs->dev->dir);
+	fmtprint(&fmt, "dev %s\n", dev->dir);
 	fmtprint(&fmt, "lun %ld\n", lun - &ums->lun[0]);
 	if(lun->flags & Finqok)
 		fmtprint(&fmt, "inquiry %s\n", lun->inq);
@@ -166,14 +165,12 @@ ctlstring(Usbfs *fs)
 }
 
 static int
-ctlparse(Usbfs *fs, char *msg)
+ctlparse(Umsc *lun, char *msg)
 {
 	vlong start, end;
 	char *argv[16];
 	int argc;
-	Umsc *lun;
 	
-	lun = fs->aux;
 	argc = tokenize(msg, argv, nelem(argv));
 
 	if(argc < 1){
@@ -216,7 +213,7 @@ ding(void *, char *msg)
 }
 
 static int
-getmaxlun(Dev *dev)
+getmaxlun(void)
 {
 	uchar max;
 	int r;
@@ -233,12 +230,12 @@ getmaxlun(Dev *dev)
 }
 
 static int
-umsreset(Ums *ums)
+umsreset(void)
 {
 	int r;
 
 	r = Rh2d|Rclass|Riface;
-	if(usbcmd(ums->dev, r, Umsreset, 0, 0, nil, 0) < 0){
+	if(usbcmd(dev, r, Umsreset, 0, 0, nil, 0) < 0){
 		fprint(2, "disk: reset: %r\n");
 		return -1;
 	}
@@ -246,27 +243,27 @@ umsreset(Ums *ums)
 }
 
 static int
-umsrecover(Ums *ums)
+umsrecover(void)
 {
-	if(umsreset(ums) < 0)
+	if(umsreset() < 0)
 		return -1;
-	if(unstall(ums->dev, ums->epin, Ein) < 0)
+	if(unstall(dev, ums->epin, Ein) < 0)
 		dprint(2, "disk: unstall epin: %r\n");
 
 	/* do we need this when epin == epout? */
-	if(unstall(ums->dev, ums->epout, Eout) < 0)
+	if(unstall(dev, ums->epout, Eout) < 0)
 		dprint(2, "disk: unstall epout: %r\n");
 	return 0;
 }
 
 static void
-umsfatal(Ums *ums)
+umsfatal(void)
 {
-	int i;
+//	int i;
 
-	devctl(ums->dev, "detach");
-	for(i = 0; i < ums->maxlun; i++)
-		usbfsdel(&ums->lun[i].fs);
+	devctl(dev, "detach");
+//	for(i = 0; i < ums->maxlun; i++)
+//		usbfsdel(&ums->lun[i].fs);
 }
 
 static int
@@ -322,14 +319,14 @@ umscapacity(Umsc *lun)
 }
 
 static int
-umsinit(Ums *ums)
+umsinit(void)
 {
 	uchar i;
 	Umsc *lun;
 	int some;
 
-	umsreset(ums);
-	ums->maxlun = getmaxlun(ums->dev);
+	umsreset();
+	ums->maxlun = getmaxlun();
 	ums->lun = mallocz((ums->maxlun+1) * sizeof(*ums->lun), 1);
 	some = 0;
 	for(i = 0; i <= ums->maxlun; i++){
@@ -364,7 +361,7 @@ umsinit(Ums *ums)
 	}
 	if(some == 0){
 		dprint(2, "disk: all luns failed\n");
-		devctl(ums->dev, "detach");
+		devctl(dev, "detach");
 		return -1;
 	}
 	return 0;
@@ -430,14 +427,14 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 				fprint(2, "disk: data: %d bytes\n", n);
 		if(n <= 0)
 			if(data->write == 0)
-				unstall(ums->dev, ums->epin, Ein);
+				unstall(dev, ums->epin, Ein);
 	}
 
 	/* read the transfer's status */
 	n = read(ums->epin->dfd, &csw, CswLen);
 	if(n <= 0){
 		/* n == 0 means "stalled" */
-		unstall(ums->dev, ums->epin, Ein);
+		unstall(dev, ums->epin, Ein);
 		n = read(ums->epin->dfd, &csw, CswLen);
 	}
 
@@ -482,64 +479,80 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 Fail:
 	*status = STharderr;
 	if(ums->nerrs++ > 15){
-		fprint(2, "disk: %s: too many errors: device detached\n", ums->dev->dir);
-		umsfatal(ums);
+		fprint(2, "disk: %s: too many errors: device detached\n", dev->dir);
+		umsfatal();
 	}else
-		umsrecover(ums);
+		umsrecover();
 	return -1;
 }
 
-static int
-dwalk(Usbfs *fs, Fid *fid, char *name)
+static void
+dattach(Req *req)
+{
+	req->fid->qid = (Qid) {0, 0, QTDIR};
+	req->ofcall.qid = req->fid->qid;
+	respond(req, nil);
+}
+
+static char *
+dwalk(Fid *fid, char *name, Qid *qid)
 {
 	Umsc *lun;
 	Part *p;
-	
-	lun = fs->aux;
-	
-	if((fid->qid.type & QTDIR) == 0){
-		werrstr("walk in non-directory");
-		return -1;
+
+	if((fid->qid.type & QTDIR) == 0)
+		return "walk in non-directory";
+	if(strcmp(name, "..") == 0){
+		fid->qid = (Qid){0, 0, QTDIR};
+		*qid = fid->qid;
+		return nil;
 	}
-	if(strcmp(name, "..") == 0)
-		return 0;
-	
+	if(fid->qid.path == 0){
+		for(lun = ums->lun; lun <= ums->lun + ums->maxlun; lun++)
+			if(strcmp(lun->name, name) == 0){
+				fid->qid.path = (lun - ums->lun + 1) << 16;
+				fid->qid.vers = 0;
+				fid->qid.type = QTDIR;
+				*qid = fid->qid;
+				return nil;
+			}
+		return "does not exist";
+	}
+	lun = ums->lun + (fid->qid.path >> 16) - 1;
 	p = lookpart(lun, name);
-	if(p == nil){
-		werrstr(Enotfound);
-		return -1;
-	}
-	fid->qid.path = p->id | fs->qid;
+	if(p == nil)
+		return "does not exist";
+	fid->qid.path |= p->id;
 	fid->qid.vers = p->vers;
 	fid->qid.type = p->mode >> 24;
-	return 0;
+	*qid = fid->qid;
+	return nil;
 }
-static int
-dstat(Usbfs *fs, Qid qid, Dir *d);
 
 static void
-dostat(Usbfs *fs, int path, Dir *d)
+dostat(Umsc *lun, int path, Dir *d)
 {
-	Umsc *lun;
 	Part *p;
 
-	lun = fs->aux;
 	p = &lun->part[path];
 	d->qid.path = path;
 	d->qid.vers = p->vers;
 	d->qid.type =p->mode >> 24;
 	d->mode = p->mode;
 	d->length = (vlong) p->length * lun->lbsize;
-	strecpy(d->name, d->name + Namesz - 1, p->name);
+	d->name = strdup(p->name);
+	d->uid = strdup(getuser());
+	d->gid = strdup(d->uid);
+	d->muid = strdup(d->uid);
 }
 
 static int
-dirgen(Usbfs *fs, Qid, int n, Dir *d, void*)
+dirgen(int n, Dir* d, void *aux)
 {
 	Umsc *lun;
 	int i;
 	
-	lun = fs->aux;
+	lun = aux;
 	for(i = Qctl; i < Qmax; i++){
 		if(lun->part[i].inuse == 0)
 			continue;
@@ -548,36 +561,71 @@ dirgen(Usbfs *fs, Qid, int n, Dir *d, void*)
 	}
 	if(i == Qmax)
 		return -1;
-	dostat(fs, i, d);
-	d->qid.path |= fs->qid;
+	dostat(lun, i, d);
+	d->qid.path |= (lun - ums->lun) << 16;
 	return 0;
 }
 
 static int
-dstat(Usbfs *fs, Qid qid, Dir *d)
+rootgen(int n, Dir *d, void *)
+{
+	Umsc *lun;
+
+	if(n > ums->maxlun)
+		return -1;
+	lun = ums->lun + n;
+	d->qid.path = (n + 1) << 16;
+	d->qid.type = QTDIR;
+	d->mode = 0555 | DMDIR;
+	d->name = strdup(lun->name);
+	d->uid = strdup(getuser());
+	d->gid = strdup(d->uid);
+	d->muid = strdup(d->uid);
+	return 0;
+}
+
+
+static void
+dstat(Req *req)
 {
 	int path;
+	Dir *d;
+	Umsc *lun;
 
-	path = qid.path & ~fs->qid;
-	dostat(fs, path, d);
-	d->qid.path |= fs->qid;
-	return 0;
+	d = &req->d;
+	d->qid = req->fid->qid;
+	if(req->fid->qid.path == 0){
+		d->name = strdup("");
+		d->mode = 0555 | DMDIR;
+		d->uid = strdup(getuser());
+		d->gid = strdup(d->uid);
+		d->muid = strdup(d->uid);
+	}else{
+		path = req->fid->qid.path & 0xFFFF;
+		lun = ums->lun + (req->fid->qid.path >> 16) - 1;
+		dostat(lun, path, d);
+	}
+	respond(req, nil);
 }
 
-static int
-dopen(Usbfs *fs, Fid *fid, int)
+static void
+dopen(Req *req)
 {
 	ulong path;
 	Umsc *lun;
 
-	path = fid->qid.path & ~fs->qid;
-	lun = fs->aux;
+	if(req->ofcall.qid.path == 0){
+		respond(req, nil);
+		return;
+	}
+	path = req->ofcall.qid.path & 0xFFFF;
+	lun = ums->lun + (req->ofcall.qid.path >> 16) - 1;
 	switch(path){
 	case Qraw:
 		lun->phase = Pcmd;
 		break;
 	}
-	return 0;
+	respond(req, nil);
 }
 
 /*
@@ -626,8 +674,8 @@ setup(Umsc *lun, Part *p, char *data, int count, vlong offset)
  * and ask again for the capacity of the media.
  * BUG: How to proceed to avoid confussing dossrv??
  */
-static long
-dread(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
+static void
+dread(Req *req)
 {
 	long n;
 	ulong path;
@@ -635,47 +683,63 @@ dread(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 	char *s;
 	Part *p;
 	Umsc *lun;
-	Ums *ums;
 	Qid q;
+	long count;
+	void *data;
+	vlong offset;
 
-	q = fid->qid;
-	path = fid->qid.path & ~fs->qid;
-	ums = fs->dev->aux;
-	lun = fs->aux;
+	q = req->fid->qid;
+	if(q.path == 0){
+		dirread9p(req, rootgen, nil);
+		respond(req, nil);
+		return;
+	}
+	path = q.path & 0xFFFF;
+	lun = ums->lun + (q.path >> 16) - 1;
+	count = req->ifcall.count;
+	data = req->ofcall.data;
+	offset = req->ifcall.offset;
 
 	qlock(ums);
 	switch(path){
 	case Qdir:
-		count = usbdirread(fs, q, data, count, offset, dirgen, nil);
+		dirread9p(req, dirgen, lun);
+		respond(req, nil);
 		break;
 	case Qctl:
-		s = ctlstring(fs);
-		count = usbreadbuf(data, count, offset, s, strlen(s));
+		s = ctlstring(lun);
+		readstr(req, s);
 		free(s);
+		respond(req, nil);
 		break;
 	case Qraw:
 		if(lun->lbsize <= 0 && umscapacity(lun) < 0){
-			count = -1;
+			respond(req, "phase error");
 			break;
 		}
 		switch(lun->phase){
 		case Pcmd:
-			qunlock(ums);
-			werrstr("phase error");
-			return -1;
+			respond(req, "phase error");
+			break;
 		case Pdata:
 			lun->data.p = data;
 			lun->data.count = count;
 			lun->data.write = 0;
 			count = umsrequest(lun,&lun->cmd,&lun->data,&lun->status);
 			lun->phase = Pstatus;
-			if(count < 0)
+			if(count < 0){
 				lun->lbsize = 0;  /* medium may have changed */
+				responderror(req);
+			}else{
+				req->ofcall.count = count;
+				respond(req, nil);
+			}
 			break;
 		case Pstatus:
 			n = snprint(buf, sizeof buf, "%11.0ud ", lun->status);
-			count = usbreadbuf(data, count, 0LL, buf, n);
+			readbuf(req, buf, n);
 			lun->phase = Pcmd;
+			respond(req, nil);
 			break;
 		}
 		break;
@@ -683,17 +747,19 @@ dread(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 	default:
 		p = &lun->part[path];
 		if(!p->inuse){
-			count = -1;
-			werrstr(Eperm);
+			respond(req, "permission denied");
 			break;
 		}
 		count = setup(lun, p, data, count, offset);
-		if (count <= 0)
+		if (count <= 0){
+			responderror(req);
 			break;
+		}
 		n = SRread(lun, lun->bufp, lun->nb * lun->lbsize);
 		if(n < 0){
 			lun->lbsize = 0;	/* medium may have changed */
-			count = -1;
+			responderror(req);
+			break;
 		} else if (lun->bufp == data)
 			count = n;
 		else{
@@ -706,59 +772,65 @@ dread(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 			if(count > 0)
 				memmove(data, lun->bufp + lun->off, count);
 		}
+		req->ofcall.count = count;
+		respond(req, nil);
 		break;
 	}
 	qunlock(ums);
-	return count;
 }
 
-static long
-dwrite(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
+static void
+dwrite(Req *req)
 {
 	long len, ocount;
 	ulong path;
 	uvlong bno;
-	Ums *ums;
 	Part *p;
 	Umsc *lun;
 	char *s;
+	long count;
+	void *data;
+	vlong offset;
 
-	ums = fs->dev->aux;
-	lun = fs->aux;
-	path = fid->qid.path & ~fs->qid;
+	lun = ums->lun + (req->fid->qid.path >> 16) - 1;
+	path = req->fid->qid.path & 0xFFFF;
+	count = req->ifcall.count;
+	data = req->ifcall.data;
+	offset = req->ifcall.offset;
 
 	qlock(ums);
 	switch(path){
-	case Qdir:
-		count = -1;
-		werrstr(Eperm);
-		break;
 	case Qctl:
 		s = emallocz(count+1, 1);
 		memmove(s, data, count);
 		if(s[count-1] == '\n')
 			s[count-1] = 0;
-		if(ctlparse(fs, s) == -1)
-			count = -1;
+		if(ctlparse(lun, s) == -1)
+			responderror(req);
+		else{
+			req->ofcall.count = count;
+			respond(req, nil);
+		}
 		free(s);
 		break;
 	case Qraw:
 		if(lun->lbsize <= 0 && umscapacity(lun) < 0){
-			count = -1;
+			respond(req, "phase error");
 			break;
 		}
 		switch(lun->phase){
 		case Pcmd:
 			if(count != 6 && count != 10){
-				qunlock(ums);
-				werrstr("bad command length");
-				return -1;
+				respond(req, "bad command length");
+				break;
 			}
 			memmove(lun->rawcmd, data, count);
 			lun->cmd.p = lun->rawcmd;
 			lun->cmd.count = count;
 			lun->cmd.write = 1;
 			lun->phase = Pdata;
+			req->ofcall.count = count;
+			respond(req, nil);
 			break;
 		case Pdata:
 			lun->data.p = data;
@@ -766,13 +838,17 @@ dwrite(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 			lun->data.write = 1;
 			count = umsrequest(lun,&lun->cmd,&lun->data,&lun->status);
 			lun->phase = Pstatus;
-			if(count < 0)
+			if(count < 0){
 				lun->lbsize = 0;  /* medium may have changed */
+				responderror(req);
+			}else{
+				req->ofcall.count = count;
+				respond(req, nil);
+			}
 			break;
 		case Pstatus:
 			lun->phase = Pcmd;
-			werrstr("phase error");
-			count = -1;
+			respond(req, "phase error");
 			break;
 		}
 		break;
@@ -780,19 +856,21 @@ dwrite(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 	default:
 		p = &lun->part[path];
 		if(!p->inuse){
-			count = -1;
-			werrstr(Eperm);
+			respond(req, "permission denied");
 			break;
 		}
 		len = ocount = count;
 		count = setup(lun, p, data, count, offset);
-		if (count <= 0)
+		if (count <= 0){
+			responderror(req);
 			break;
+		}
 		bno = lun->offset;
 		if (lun->bufp == lun->buf) {
 			count = SRread(lun, lun->bufp, lun->nb * lun->lbsize);
 			if(count < 0) {
 				lun->lbsize = 0;  /* medium may have changed */
+				responderror(req);
 				break;
 			}
 			/*
@@ -807,9 +885,11 @@ dwrite(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 
 		lun->offset = bno;
 		count = SRwrite(lun, lun->bufp, lun->nb * lun->lbsize);
-		if(count < 0)
+		if(count < 0){
 			lun->lbsize = 0;	/* medium may have changed */
-		else{
+			responderror(req);
+			break;
+		}else{
 			if(lun->off + len > count)
 				count -= lun->off; /* short write */
 			/* never report more bytes written than requested */
@@ -818,10 +898,11 @@ dwrite(Usbfs *fs, Fid *fid, void *data, long count, vlong offset)
 			else if(count > ocount)
 				count = ocount;
 		}
+		req->ofcall.count = count;
+		respond(req, nil);
 		break;
 	}
 	qunlock(ums);
-	return count;
 }
 
 int
@@ -833,7 +914,7 @@ findendpoints(Ums *ums)
 	int i, epin, epout;
 
 	epin = epout = -1;
-	ud = ums->dev->usb;
+	ud = dev->usb;
 	for(i = 0; i < nelem(ud->ep); i++){
 		if((ep = ud->ep[i]) == nil)
 			continue;
@@ -855,7 +936,7 @@ findendpoints(Ums *ums)
 	dprint(2, "disk: ep ids: in %d out %d\n", epin, epout);
 	if(epin == -1 || epout == -1)
 		return -1;
-	ums->epin = openep(ums->dev, epin);
+	ums->epin = openep(dev, epin);
 	if(ums->epin == nil){
 		fprint(2, "disk: openep %d: %r\n", epin);
 		return -1;
@@ -864,7 +945,7 @@ findendpoints(Ums *ums)
 		incref(ums->epin);
 		ums->epout = ums->epin;
 	}else
-		ums->epout = openep(ums->dev, epout);
+		ums->epout = openep(dev, epout);
 	if(ums->epout == nil){
 		fprint(2, "disk: openep %d: %r\n", epout);
 		closedev(ums->epin);
@@ -890,16 +971,16 @@ findendpoints(Ums *ums)
 	if(usbdebug > 1 || diskdebug > 2){
 		devctl(ums->epin, "debug 1");
 		devctl(ums->epout, "debug 1");
-		devctl(ums->dev, "debug 1");
+		devctl(dev, "debug 1");
 	}
 	return 0;
 }
 
-static int
+static void
 usage(void)
 {
-	werrstr("usage: usb/disk [-d] [-N nb]");
-	return -1;
+	fprint(2, "usage: usb/disk [-d] devid");
+	exits("usage");
 }
 
 static void
@@ -917,45 +998,39 @@ umsdevfree(void *a)
 }
 
 static Srv diskfs = {
-	.walk = dwalk,
+	.attach = dattach,
+	.walk1 = dwalk,
 	.open =	 dopen,
 	.read =	 dread,
 	.write = dwrite,
 	.stat =	 dstat,
 };
 
-int
-diskmain(Dev *dev, int argc, char **argv)
+void
+main(int argc, char **argv)
 {
-	Ums *ums;
 	Umsc *lun;
-	int i, devid;
+	int i;
 
-	devid = dev->id;
 	ARGBEGIN{
 	case 'd':
 		scsidebug(diskdebug);
 		diskdebug++;
 		break;
-	case 'N':
-		devid = atoi(EARGF(usage()));
-		break;
 	default:
-		return usage();
+		usage();
 	}ARGEND
-	if(argc != 0) {
-		return usage();
-	}
+	if(argc != 1)
+		usage();
 	
-//	notify(ding);
+	dev = getdev(atoi(*argv));
+	if(dev == nil)
+		sysfatal("getdev: %r");
 	ums = dev->aux = emallocz(sizeof(Ums), 1);
 	ums->maxlun = -1;
-	ums->dev = dev;
 	dev->free = umsdevfree;
-	if(findendpoints(ums) < 0){
-		werrstr("disk: endpoints not found");
-		return -1;
-	}
+	if(findendpoints(ums) < 0)
+		sysfatal("endpoints not found");
 
 	/*
 	 * SanDISK 512M gets residues wrong.
@@ -963,20 +1038,14 @@ diskmain(Dev *dev, int argc, char **argv)
 	if(dev->usb->vid == 0x0781 && dev->usb->did == 0x5150)
 		ums->wrongresidues = 1;
 
-	if(umsinit(ums) < 0){
-		dprint(2, "disk: umsinit: %r\n");
-		return -1;
-	}
+	if(umsinit() < 0)
+		sysfatal("umsinit: %r\n");
 
 	for(i = 0; i <= ums->maxlun; i++){
 		lun = &ums->lun[i];
-		lun->fs = diskfs;
-		snprint(lun->fs.name, sizeof(lun->fs.name), "sdU%d.%d", devid, i);
-		lun->fs.dev = dev;
-		incref(dev);
-		lun->fs.aux = lun;
+		snprint(lun->name, sizeof(lun->name), "sdU%d.%d", dev->id, i);
 		makeparts(lun);
-		usbfsadd(&lun->fs);
 	}
-	return 0;
+	postsharesrv(&diskfs, "usbdisk", "usb", "disk", "b");
+	exits(nil);
 }

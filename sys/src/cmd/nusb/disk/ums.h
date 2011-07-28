@@ -67,6 +67,7 @@ struct Part
 struct Umsc
 {
 	ScsiReq;
+	char name[40];
 	uvlong	blocks;
 	vlong	capacity;
 
@@ -88,7 +89,6 @@ struct Umsc
 struct Ums
 {
 	QLock;
-	Dev	*dev;
 	Dev	*epin;
 	Dev	*epout;
 	Umsc	*lun;
