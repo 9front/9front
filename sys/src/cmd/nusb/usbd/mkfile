@@ -2,7 +2,6 @@
 
 OFILES=\
 	usbd.$O\
-	rules.$O\
 	hub.$O\
 
 HFILES=\
