@@ -26,7 +26,10 @@ struct Event {
 	char *data;
 	int len;
 	Event *link;
-	int ref, prev;
+	int ref;  /* number of readers which will read this one
+                     the next time they'll read */
+	int prev; /* number of events pointing to this one with
+                     their link pointers */
 };
 
 static Event *evlast;
@@ -59,7 +62,7 @@ fulfill(Req *req, Event *e)
 static void
 initevent(void)
 {
-	evlast = mallocz(sizeof(Event), 1);
+	evlast = emallocz(sizeof(Event), 1);
 }
 
 static void
@@ -95,8 +98,6 @@ pushevent(char *data)
 	qlock(&evlock);
 	e = evlast;
 	ee = emallocz(sizeof(Event), 1);
-	if(ee == nil)
-		sysfatal("malloc: %r");
 	evlast = ee;
 	e->data = data;
 	e->len = strlen(data);
@@ -180,6 +181,10 @@ usbdread(Req *req)
 		respond(req, nil);
 		break;
 	case Qusbevent:
+		if(req->fid->aux == nil){
+			respond(req, "the front fell off");
+			return;
+		}
 		readevent(req);
 		break;
 	default:
@@ -219,9 +224,7 @@ enumerate(Event **l)
 		for(p = h->port; p < h->port + h->nport; p++){
 			if(p->dev == nil || p->dev->usb == nil || p->hub != nil)
 				continue;
-			e = mallocz(sizeof(Event), 1);
-			if(e == nil)
-				sysfatal("malloc: %r");
+			e = emallocz(sizeof(Event), 1);
 			e->data = formatdev(p->dev);
 			e->len = strlen(e->data);
 			e->prev = 1;
@@ -251,7 +254,7 @@ usbddestroyfid(Fid *fid)
 {
 	Event *e, *ee;
 
-	if(fid->qid.path == Qusbevent){
+	if(fid->qid.path == Qusbevent && fid->aux != nil){
 		qlock(&evlock);
 		e = fid->aux;
 		if(--e->ref == 0 && e->prev == 0){
