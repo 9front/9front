@@ -6,6 +6,7 @@
 #include "fns.h"
 
 Hub *hubs;
+QLock hublock;
 static int nhubs;
 static int mustdump;
 static int pollms = Pollms;
@@ -676,6 +677,7 @@ work(void)
 	 * have to poll the root hub(s) in any case.
 	 */
 	for(;;){
+		qlock(&hublock);
 Again:
 		for(h = hubs; h != nil; h = h->next)
 			for(i = 1; i <= h->nport; i++)
@@ -683,6 +685,7 @@ Again:
 					/* changes in hub list; repeat */
 					goto Again;
 				}
+		qunlock(&hublock);
 		sleep(pollms);
 		if(mustdump)
 			dump();

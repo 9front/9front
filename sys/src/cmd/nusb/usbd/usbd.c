@@ -239,12 +239,16 @@ enumerate(Event **l)
 static void
 usbdopen(Req *req)
 {
+	extern QLock hublock;
+
 	if(req->fid->qid.path == Qusbevent){
+		qlock(&hublock);
 		qlock(&evlock);
 		enumerate(&req->fid->aux);
 		((Event *)req->fid->aux)->ref++;
 		((Event *)req->fid->aux)->prev--;
 		qunlock(&evlock);
+		qunlock(&hublock);
 	}
 	respond(req, nil);
 }
@@ -307,6 +311,8 @@ startdev(Port *p)
 		fprint(2, "okay what?\n");
 		return -1;
 	}
+	close(d->dfd);
+	d->dfd = -1;
 	pushevent(formatdev(d));
 	return 0;
 }
