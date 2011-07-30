@@ -5,6 +5,8 @@ DIRS=\
 	kb\
 	audio\
 	usbd\
+	disk\
+	serial\
 
 UPDATE=\
 	mkfile\
