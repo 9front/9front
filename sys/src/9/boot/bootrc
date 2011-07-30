@@ -152,10 +152,7 @@ if(test -e '#b' && test -x /bin/aux/kbdfs){
 	aux/kbdfs -s cons $a
 }
 
-if(test -e '#u' && test -x /bin/usb/usbd){
-	bind -a '#u' /dev
-	usb/usbd
-}
+nusbrc
 
 # bind in an ip interface
 for(i in I l^(0 1 2 3))

@@ -208,8 +208,7 @@ formatdev(Dev *d)
 	Usbdev *u;
 	
 	u = d->usb;
-	return smprint("in id %d vid 0x%.4x did 0x%.4x csp 0x%.8lx\n",
-		d->id, u->vid, u->did, u->csp);
+	return smprint("dev %d %.4x %.4x %.8lx\n", d->id, u->vid, u->did, u->csp);
 }
 
 static void
@@ -333,8 +332,10 @@ main(int argc, char **argv)
 {
 	int fd, i, nd;
 	Dir *d;
-	
-	argc--; argv++;
+
+	ARGBEGIN {
+	} ARGEND;
+
 	initevent();
 	rfork(RFNOTEG);
 	switch(rfork(RFPROC|RFMEM)){
@@ -358,4 +359,5 @@ main(int argc, char **argv)
 			rendezvous(work, strdup(argv[i]));
 	rendezvous(work, nil);
 	postsharesrv(&usbdsrv, nil, "usb", "usbd", "b");
+	exits(nil);
 }

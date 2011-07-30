@@ -1,0 +1,18 @@
+#!/bin/rc
+
+if(! bind -a '#u' /dev)
+	exit
+if(! nusb/usbd)
+	exit
+
+fn dev {
+	switch($4){
+	case *03
+		nusb/kb $1
+	case *08
+		nusb/disk $1
+	}
+}
+rc </dev/usbevent &
+
+bind -a '#σ/usb' /dev

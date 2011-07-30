@@ -30,8 +30,10 @@ $cputype
 		srv
 		test
 		unmount
-		usb
+		nusb
 			usbd
+			disk
+			kb
 		xd
 rc
 	lib
@@ -41,5 +43,6 @@ rc
 	bin
 		fstype
 		diskparts
+		nusbrc 555 sys sys ../boot/nusbrc
 		bootrc 555 sys sys ../boot/bootrc
 tmp
