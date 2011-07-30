@@ -5,6 +5,8 @@ if(! bind -a '#u' /dev)
 if(! nusb/usbd)
 	exit
 
+bind -a '#σ/usb' /dev
+
 fn dev {
 	switch($4){
 	case *03
@@ -15,4 +17,3 @@ fn dev {
 }
 rc </dev/usbevent &
 
-bind -a '#σ/usb' /dev
