@@ -3,6 +3,7 @@
 DIRS=\
 	lib\
 	kb\
+	audio\
 	usbd\
 
 UPDATE=\

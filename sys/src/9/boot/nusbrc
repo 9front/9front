@@ -5,15 +5,17 @@ if(! bind -a '#u' /dev)
 if(! nusb/usbd)
 	exit
 
-bind -a '#σ/usb' /dev
-
-fn dev {
-	switch($4){
-	case *03
-		nusb/kb $1
-	case *08
-		nusb/disk $1
+@{
+	rfork ne
+	fn dev {
+		switch($4){
+		case *03
+			nusb/kb $1
+		case *08
+			nusb/disk $1
+		}
 	}
+	rc < '#σ/usb/usbevent' &
 }
-rc </dev/usbevent &
 
+bind -a '#σ/usb' /dev
