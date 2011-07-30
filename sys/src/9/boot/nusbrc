@@ -8,7 +8,7 @@ if(! nusb/usbd)
 
 @{
 	rfork ne
-	fn dev {
+	fn attach {
 		switch($4){
 		case *03
 			nusb/kb $1
@@ -16,8 +16,8 @@ if(! nusb/usbd)
 			nusb/disk $1
 		}
 	}
-	fn rmdev {
-		rm -f '#σc/usb/'*'-'^$2
+	fn detach {
+		rm '#σc/usb/'*'-'^$1
 	}
 	rc < '#σ/usb/usbevent' &
 }

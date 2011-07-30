@@ -208,7 +208,7 @@ formatdev(Dev *d, int type)
 	Usbdev *u;
 	
 	u = d->usb;
-	return smprint("%s %d %.4x %.4x %.8lx\n", type ? "rmdev" : "dev", d->id, u->vid, u->did, u->csp);
+	return smprint("%s %d %.4x %.4x %.8lx\n", type ? "detach" : "attach", d->id, u->vid, u->did, u->csp);
 }
 
 static void
