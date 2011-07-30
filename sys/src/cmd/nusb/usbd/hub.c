@@ -622,9 +622,10 @@ enumhub(Hub *h, int p)
 		if(portattach(h, p, sts) != nil)
 			if(startdev(pp) < 0)
 				portdetach(h, p);
-	}else if(portgone(pp, sts))
+	}else if(portgone(pp, sts)){
+		removedev(pp);
 		portdetach(h, p);
-	else if(portresetwanted(h, p))
+	}else if(portresetwanted(h, p))
 		portreset(h, p);
 	else if(pp->sts != sts){
 		dprint(2, "%s: %s port %d: sts %s %#x ->",

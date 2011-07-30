@@ -203,12 +203,12 @@ usbdstat(Req *req)
 }
 
 static char *
-formatdev(Dev *d)
+formatdev(Dev *d, int type)
 {
 	Usbdev *u;
 	
 	u = d->usb;
-	return smprint("dev %d %.4x %.4x %.8lx\n", d->id, u->vid, u->did, u->csp);
+	return smprint("%s %d %.4x %.4x %.8lx\n", type ? "rmdev" : "dev", d->id, u->vid, u->did, u->csp);
 }
 
 static void
@@ -224,7 +224,7 @@ enumerate(Event **l)
 			if(p->dev == nil || p->dev->usb == nil || p->hub != nil)
 				continue;
 			e = emallocz(sizeof(Event), 1);
-			e->data = formatdev(p->dev);
+			e->data = formatdev(p->dev, 0);
 			e->len = strlen(e->data);
 			e->prev = 1;
 			*l = e;
@@ -323,7 +323,17 @@ startdev(Port *p)
 	}
 	close(d->dfd);
 	d->dfd = -1;
-	pushevent(formatdev(d));
+	pushevent(formatdev(d, 0));
+	return 0;
+}
+
+int
+removedev(Port *p)
+{
+	Dev *d;
+	if((d = p->dev) == nil || p->dev->usb == nil)
+		return -1;
+	pushevent(formatdev(d, 1));
 	return 0;
 }
 
@@ -358,6 +368,6 @@ main(int argc, char **argv)
 		for(i = 0; i < argc; i++)
 			rendezvous(work, strdup(argv[i]));
 	rendezvous(work, nil);
-	postsharesrv(&usbdsrv, nil, "usb", "usbd", "b");
+	postsharesrv(&usbdsrv, nil, "usb", "usbd");
 	exits(nil);
 }
