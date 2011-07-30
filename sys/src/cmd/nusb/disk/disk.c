@@ -1011,6 +1011,7 @@ main(int argc, char **argv)
 {
 	Umsc *lun;
 	int i;
+	char buf[20];
 
 	ARGBEGIN{
 	case 'd':
@@ -1046,6 +1047,7 @@ main(int argc, char **argv)
 		snprint(lun->name, sizeof(lun->name), "sdU%d.%d", dev->id, i);
 		makeparts(lun);
 	}
-	postsharesrv(&diskfs, "usbdisk", "usb", "disk", "b");
+	snprint(buf, sizeof buf, "disk-%s", *argv);
+	postsharesrv(&diskfs, nil, "usb", buf);
 	exits(nil);
 }

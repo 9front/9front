@@ -57,7 +57,7 @@ _postmountsrv(Srv *s, char *name, char *mtpt, int flag)
 }
 
 void
-_postsharesrv(Srv *s, char *name, char *mtpt, char *desc, char *flag)
+_postsharesrv(Srv *s, char *name, char *mtpt, char *desc)
 {
 	int fd[2];
 
@@ -99,7 +99,7 @@ _postsharesrv(Srv *s, char *name, char *mtpt, char *desc, char *flag)
 	}
 
 	if(mtpt){
-		if(sharefd(mtpt, desc, flag, s->srvfd) < 0)
+		if(sharefd(mtpt, desc, s->srvfd) < 0)
 			sysfatal("sharefd %s: %r", mtpt);
 	}else
 		close(s->srvfd);

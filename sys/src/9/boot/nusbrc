@@ -2,6 +2,7 @@
 
 if(! bind -a '#u' /dev)
 	exit
+mkdir '#σc/usb'
 if(! nusb/usbd)
 	exit
 
@@ -14,6 +15,9 @@ if(! nusb/usbd)
 		case *08
 			nusb/disk $1
 		}
+	}
+	fn rmdev {
+		rm -f '#σc/usb/'*'-'^$2
 	}
 	rc < '#σ/usb/usbevent' &
 }

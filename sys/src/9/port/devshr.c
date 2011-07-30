@@ -14,10 +14,8 @@ struct Shr
 	char	*owner;
 	ulong	perm;
 	Shr	*link;
-	ulong	path;
+	uvlong	path;
 	Mhead	umh; /* only lock and mount are used */
-	char	*desc; /* contents of file; nil if invalid, rebuild if necessary */
-	QLock	desclock;
 };
 
 static QLock	shrlk;
@@ -42,8 +40,6 @@ shrdecref(Shr *sp)
 		mm = m->next;
 		free(m);
 	}
-	if(sp->desc != nil)
-		free(sp->desc);
 	free(sp->owner);
 	free(sp->name);
 	free(sp);
@@ -69,10 +65,10 @@ shrgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 		return -1;
 	}
 
-	mkqid(&q, sp->path, 0, c->dev ? QTFILE : QTDIR);
+	mkqid(&q, sp->path, 0, QTDIR);
 	/* make sure name string continues to exist after we release lock */
 	kstrcpy(up->genbuf, sp->name, sizeof up->genbuf);
-	devdir(c, q, up->genbuf, 0, sp->owner, sp->perm & (c->dev ? ~0111 : ~0), dp);
+	devdir(c, q, up->genbuf, 0, sp->owner, sp->perm, dp);
 	qunlock(&shrlk);
 	return 1;
 }
@@ -100,13 +96,54 @@ shrattach(char *spec)
 }
 
 static Shr*
-shrlookup(char *name, ulong qidpath)
+shrlookup(char *name, uvlong qidpath)
 {
 	Shr *sp;
+	qidpath &= 0xFFFFFFFF00000000ULL;
 	for(sp = shr; sp; sp = sp->link)
 		if(sp->path == qidpath || (name && strcmp(sp->name, name) == 0))
 			return sp;
 	return nil;
+}
+
+static Mount*
+mntlookup(Shr *sp, char *name, uvlong qidpath)
+{
+	Mount *m;
+	qidpath &= 0xFFFFFFFFULL;
+	for(m = sp->umh.mount; m != nil; m = m->next)
+		if(m->mountid == qidpath || (name && strcmp((char*)(m + 1), name) == 0))
+			return m;
+	return nil;
+}
+
+static int
+shrcnfgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
+{
+	Shr *sp;
+	Mount *m;
+	Qid q;
+	
+	qlock(&shrlk);
+	sp = shrlookup(nil, c->qid.path);
+	if(sp == nil){
+		qunlock(&shrlk);
+		return -1;
+	}
+	rlock(&sp->umh.lock);
+	for(m = sp->umh.mount; m != nil && s > 0; m = m->next)
+		s--;
+	if(m == nil){
+		runlock(&sp->umh.lock);
+		qunlock(&shrlk);
+		return -1;
+	}
+	kstrcpy(up->genbuf, (char*)(m + 1), sizeof up->genbuf);
+	mkqid(&q, sp->path | m->mountid, 0, QTFILE);
+	devdir(c, q, up->genbuf, 0, sp->owner, sp->perm, dp);
+	runlock(&sp->umh.lock);
+	qunlock(&shrlk);
+	return 1;
 }
 
 static int
@@ -130,10 +167,6 @@ shrremovemnt(Shr *sp, int id)
 		wunlock(&sp->umh.lock);
 		return -1;
 	}
-	qlock(&sp->desclock);
-	free(sp->desc);
-	sp->desc = nil;
-	qunlock(&sp->desclock);
 	wunlock(&sp->umh.lock);
 	return 0;
 }
@@ -191,12 +224,12 @@ shrwalk(Chan *c, Chan *nc, char **name, int nname)
 				}
 				devpermcheck(sp->owner, sp->perm, OEXEC);
 				poperror();
-				mkqid(&nc->qid, sp->path, 0, c->dev ? QTFILE : QTDIR);
+				mkqid(&nc->qid, sp->path, 0, QTDIR);
 			}
 			qunlock(&shrlk);
 			if(sp == nil)
 				goto Error;
-		} else {
+		} else if(c->dev == 0) {
 			qlock(&shrlk);
 			sp = shrlookup(nil, nc->qid.path);
 			if(sp != nil)
@@ -225,6 +258,25 @@ shrwalk(Chan *c, Chan *nc, char **name, int nname)
 			poperror();
 			return wq;
 		}
+		else{
+			qlock(&shrlk);
+			sp = shrlookup(nil, nc->qid.path);
+			if(sp == nil){
+				qunlock(&shrlk);
+				goto Error;
+			}
+			rlock(&sp->umh.lock);
+			f = mntlookup(sp, n, -1);
+			if(f == nil){
+				runlock(&sp->umh.lock);
+				qunlock(&shrlk);
+				goto Error;
+			}
+			nc->qid.path |= f->mountid;
+			nc->qid.type = QTFILE;
+			runlock(&sp->umh.lock);
+			qunlock(&shrlk);
+		}
 		wq->qid[wq->nqid++] = nc->qid;
 	}
 
@@ -247,7 +299,43 @@ Done:
 static int
 shrstat(Chan *c, uchar *db, int n)
 {
-	return devstat(c, db, n, 0, 0, shrgen);
+	Shr *sp;
+	Mount *f;
+	Dir dir;
+	int rc;
+
+	if(c->qid.path == 0)
+		devdir(c, c->qid, c->dev ? "#σc" : "#σ", 0, eve, 0555, &dir);
+	else {
+		qlock(&shrlk);
+		if(waserror()){
+			qunlock(&shrlk);
+			nexterror();
+		}
+		sp = shrlookup(nil, c->qid.path);
+		if(sp == nil)
+			error(Enonexist);
+		if((c->qid.path & 0xFFFF) == 0){
+			kstrcpy(up->genbuf, sp->name, sizeof up->genbuf);
+			devdir(c, c->qid, up->genbuf, 0, sp->owner, sp->perm, &dir);
+		}else{
+			rlock(&sp->umh.lock);
+			f = mntlookup(sp, nil, c->qid.path);
+			if(f == nil){
+				runlock(&sp->umh.lock);
+				error(Enonexist);
+			}
+			kstrcpy(up->genbuf, (char*)(f + 1), sizeof up->genbuf);
+			devdir(c, c->qid, up->genbuf, 0, sp->owner, sp->perm, &dir);
+			runlock(&sp->umh.lock);
+		}
+		qunlock(&shrlk);
+		poperror();
+	}
+	rc = convD2M(&dir, db, n);
+	if(rc == 0)
+		error(Ebadarg);
+	return rc;
 }
 
 static Chan*
@@ -266,7 +354,7 @@ shropen(Chan *c, int omode)
 		sp = shrlookup(nil, c->qid.path);
 		if(sp == nil)
 			error(Enonexist);
-		if(c->qid.type == QTDIR)
+		if(c->dev == 0)
 			c->umh = &sp->umh;
 		devpermcheck(sp->owner, sp->perm, openmode(omode));
 		qunlock(&shrlk);
@@ -281,43 +369,42 @@ shropen(Chan *c, int omode)
 }
 
 static void
-shrunioncreate(Chan *c, char *name, int omode, ulong perm)
+shrcnfcreate(Chan *c, char *name, int omode, ulong)
 {
 	Shr *sp;
-	Mount *m;
-	Walkqid *wq;
-	
-	error(Enocreate); /* code below is broken */
+	Mount *m, *mm;
 	
 	qlock(&shrlk);
-	sp = shrlookup(nil, c->qid.path);
-	if(sp != nil)
-		incref(sp);
-	qunlock(&shrlk);
-	if(sp == nil)
-		error(Enonexist);
 	if(waserror()){
-		shrdecref(sp);
+		qunlock(&shrlk);
 		nexterror();
 	}
-	for(m = sp->umh.mount; m != nil; m = m->next)
-		if(m->mflag & MCREATE)
-			break;
-	if(m == nil)
-		error(Enocreate);
-
-	wq = devtab[m->to->type]->walk(m->to, c, nil, 0);
-	if(wq == nil)
-		error(Egreg);
-	if(wq->clone != c){
-		cclose(wq->clone);
-		free(wq);
-		error(Egreg);
+	sp = shrlookup(nil, c->qid.path);
+	if(sp == nil)
+		error(Enonexist);
+	wlock(&sp->umh.lock);
+	if(mntlookup(sp, name, -1)){
+		wunlock(&sp->umh.lock);
+		error(Eexist);
 	}
-	free(wq);
-	devtab[c->type]->create(c, name, omode, perm);
-	shrdecref(sp);
+	m = smalloc(sizeof(Mount) + strlen(name) + 1);
+	m->mountid = ++mntid;
+	mkqid(&c->qid, m->mountid | sp->path, 0, QTFILE);
+	strcpy((char*)(m + 1), name);
+	if(sp->umh.mount != nil) {
+		for(mm = sp->umh.mount; mm->next != nil; mm = mm->next)
+			;
+		mm->next = m;
+	} else {
+		m->next = sp->umh.mount;
+		sp->umh.mount = m;
+	}
+	wunlock(&sp->umh.lock);
+	qunlock(&shrlk);
 	poperror();
+
+	c->flag |= COPEN;
+	c->mode = openmode(omode);
 }
 
 static void
@@ -326,16 +413,19 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 	char *sname;
 	Shr *sp;
 	
-	if(c->qid.path != 0) {
-		shrunioncreate(c, name, omode, perm);
-		return;
-	}
-	
-	if(c->dev != 1)
-		error(Eperm);
-
 	if(omode & OCEXEC)	/* can't happen */
 		panic("someone broke namec");
+
+	if(c->dev == 0 && c->qid.path != 0)
+		error(Enocreate);
+	
+	if(c->qid.path != 0){
+		shrcnfcreate(c, name, omode, perm);
+		return;
+	}
+
+	if(c->dev != 1 || (perm & DMDIR) == 0 || openmode(omode) != OREAD)
+		error(Eperm);
 
 	sp = smalloc(sizeof *sp);
 	sname = smalloc(strlen(name)+1);
@@ -352,22 +442,22 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 	if(shrlookup(name, -1))
 		error(Eexist);
 
-	sp->path = qidpath++;
+	sp->path = ((uvlong)qidpath++) << 32;
 	sp->link = shr;
 	strcpy(sname, name);
 	sp->name = sname;
 	incref(sp);
-	c->qid.type = QTFILE;
+	c->qid.type = QTDIR;
 	c->qid.path = sp->path;
 	shr = sp;
 	qunlock(&shrlk);
 	poperror();
 
 	kstrdup(&sp->owner, up->user);
-	sp->perm = (perm&0777) | ((perm&0444)>>2);
+	sp->perm = perm & 0777;
 
 	c->flag |= COPEN;
-	c->mode = OWRITE;
+	c->mode = OREAD;
 }
 
 static void
@@ -385,13 +475,20 @@ shrremove(Chan *c)
 	}
 	l = &shr;
 	for(sp = *l; sp; sp = sp->link) {
-		if(sp->path == c->qid.path)
+		if(sp->path == (c->qid.path & 0xFFFFFFFF00000000ULL))
 			break;
 
 		l = &sp->link;
 	}
 	if(sp == 0)
 		error(Enonexist);
+	if(c->qid.path & 0xFFFFFFFF){
+		if(shrremovemnt(sp, c->qid.path) < 0)
+			error(Enonexist);
+		qunlock(&shrlk);
+		poperror();
+		return;
+	}
 
 	if(strcmp(sp->owner, eve) == 0 && !iseve())
 		error(Eperm);
@@ -462,159 +559,82 @@ shrclose(Chan *c)
 }
 
 static long
-shrread(Chan *c, void *va, long n, vlong off)
+shrread(Chan *c, void *va, long n, vlong)
 {
-	Shr *sp;
-	long ret;
-	int nn;
-	Mount *f;
-	char *s, *e;
-
 	if(c->qid.path == 0)
 		return devdirread(c, va, n, 0, 0, shrgen);
 	
-	if(c->qid.type & QTDIR)
+	if(c->dev == 0)
 		return unionread(c, va, n);
 	
-	qlock(&shrlk);
-	sp = shrlookup(nil, c->qid.path);
-	if(sp != nil)
-		incref(sp);
-	qunlock(&shrlk);
-	if(sp == nil)
-		error(Enonexist);
-	qlock(&sp->desclock);
-	if(sp->desc == nil){
-		nn = 0;
-		rlock(&sp->umh.lock);
-		for(f = sp->umh.mount; f != nil; f = f->next)
-			nn += 32 + strlen((char*)(f + 1));
-		s = sp->desc = smalloc(nn + 1);
-		e = s + nn;
-		for(f = sp->umh.mount; f != nil; f = f->next)
-			s = seprint(s, e, "%lud %s %C %lud %lld\n", f->mountid, (char*)(f + 1), devtab[f->to->mchan->type]->dc, f->to->mchan->dev, f->to->qid.path);
-		runlock(&sp->umh.lock);
-	}
-	ret = readstr(off, va, n, sp->desc);
-	qunlock(&sp->desclock);
-	shrdecref(sp);
-	return ret;
+	if((long)c->qid.path == 0)
+		return devdirread(c, va, n, 0, 0, shrcnfgen);
+	
+	error(Egreg);
+	return 0;
 }
 
 static long
 shrwrite(Chan *c, void *va, long n, vlong)
 {
 	Shr *sp;
-	char *buf, *p, *desc, *aname;
-	int mode, fd, id;
+	char *buf, *p, *aname;
+	int fd;
 	Chan *bc, *c0;
-	Mount *m, *mm;
+	Mount *m;
 	struct{
 		Chan	*chan;
 		Chan	*authchan;
 		char	*spec;
 		int	flags;
 	}bogus;
-	
-	qlock(&shrlk);
-	sp = shrlookup(nil, c->qid.path);
-	if(sp != nil)
-		incref(sp);
-	qunlock(&shrlk);
-	if(sp == nil)
-		error(Enonexist);
+
 	buf = smalloc(n+1);
 	if(waserror()){
-		shrdecref(sp);
 		free(buf);
 		nexterror();
 	}
 	memmove(buf, va, n);
 	buf[n] = 0;
 	
-	if(*buf == 'u'){
-		p = buf + 1;
-		while(*p <= ' ' && *p != '\n')
-			p++;
-		if(*p == 0 || *p == '\n')
-			error(Ebadarg);
-		id = strtol(p, 0, 10);
-		if(shrremovemnt(sp, id) < 0)
-			error(Ebadarg);
-		shrdecref(sp);
-		free(buf);
-		poperror();
-		return n;
-	}
-	
-	p = buf;
-	mode = 0;
-	for(; *p > ' '; p++)
-		switch(*p) {
-		case 'a': mode |= MAFTER; break;
-		case 'b': mode |= MBEFORE; break;
-		case 'c': mode |= MCREATE; break;
-		case 'C': mode |= MCACHE; break;
-		default: error(Ebadarg);
-		}
-
-	if((mode & (MAFTER|MBEFORE)) == 0 || (mode & (MAFTER|MBEFORE)) == (MAFTER|MBEFORE))
+	fd = strtol(buf, &p, 10);
+	if(p == buf || (*p != 0 && *p != '\n'))
 		error(Ebadarg);
-	while(*p <= ' ' && *p != '\n')
-		p++;
-	if(*p == 0 || *p == '\n')
-		error(Ebadarg);
-	fd = strtol(p, &p, 10);
-	while(*p <= ' ' && *p != '\n')
-		p++;
-	if(*p != 0 && *p != '\n') {
-		desc = p;
-		p = strchr(desc, '\n');
-		if(p != nil)
-			*p = 0;
-	} else
-		desc = "";
-	aname = strchr(buf, '\n');
-	if(aname != nil && *++aname == 0)
+	if(*p == '\n' && *(p+1) != 0)
+		aname = p + 1;
+	else
 		aname = nil;
-	if(strlen(desc) > 128)
-		error(Ebadarg);
-
+	
 	bc = fdtochan(fd, ORDWR, 0, 1);
 	if(waserror()) {
 		cclose(bc);
 		nexterror();
 	}
-	bogus.flags = mode & MCACHE;
+	bogus.flags = 0;
 	bogus.chan = bc;
 	bogus.authchan = nil;
 	bogus.spec = aname;
 	c0 = devtab[devno('M', 0)]->attach((char*)&bogus);
 	cclose(bc);
 	poperror();
-
-	m = smalloc(sizeof(Mount) + strlen(desc) + 1);
-	strcpy((char*)(m + 1), desc);
-	m->to = c0;
-	m->mflag = mode;
 	qlock(&shrlk);
-	m->mountid = ++mntid;
-	qunlock(&shrlk);
-	wlock(&sp->umh.lock);
-	if((mode & MAFTER) != 0 && sp->umh.mount != nil) {
-		for(mm = sp->umh.mount; mm->next != nil; mm = mm->next)
-			;
-		mm->next = m;
-	} else {
-		m->next = sp->umh.mount;
-		sp->umh.mount = m;
+	sp = shrlookup(nil, c->qid.path);
+	if(sp == nil){
+		qunlock(&shrlk);
+		cclose(c0);
+		error(Enonexist);
 	}
-	wunlock(&sp->umh.lock);
-	qlock(&sp->desclock);
-	free(sp->desc);
-	sp->desc = nil;
-	qunlock(&sp->desclock);
-	shrdecref(sp);
+	rlock(&sp->umh.lock);
+	m = mntlookup(sp, nil, c->qid.path);
+	if(m == nil){
+		runlock(&sp->umh.lock);
+		qunlock(&shrlk);
+		cclose(c0);
+		error(Enonexist);
+	}
+	m->to = c0;
+	runlock(&sp->umh.lock);
+	qunlock(&shrlk);
 	free(buf);
 	poperror();
 	return n;
