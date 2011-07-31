@@ -65,6 +65,20 @@ initevent(void)
 	evlast = emallocz(sizeof(Event), 1);
 }
 
+static Event*
+putevent(Event *e)
+{
+	Event *ee;
+
+	ee = e->link;
+	if(e->ref || e->prev)
+		return ee;
+	ee->prev--;
+	free(e->data);
+	free(e);
+	return ee;
+}
+
 static void
 readevent(Req *req)
 {
@@ -80,11 +94,8 @@ readevent(Req *req)
 	fulfill(req, e);
 	req->fid->aux = e->link;
 	e->link->ref++;
-	if(--e->ref == 0 && e->prev == 0){
-		e->link->prev--;
-		free(e->data);
-		free(e);
-	}
+	e->ref--;
+	putevent(e);
 	qunlock(&evlock);
 	respond(req, nil);
 }
@@ -112,11 +123,7 @@ pushevent(char *data)
 		fulfill(r, e);
 		respond(r, nil);
 	}
-	if(e->ref == 0 && e->prev == 0){
-		ee->prev--;
-		free(e->data);
-		free(e);
-	}
+	putevent(e);
 	reqfirst = nil;
 	reqlast = nil;
 	qunlock(&evlock);
@@ -214,13 +221,17 @@ formatdev(Dev *d, int type)
 static void
 enumerate(Event **l)
 {
+	extern Hub *hubs;
+
 	Event *e;
 	Hub *h;
 	Port *p;
-	extern Hub *hubs;
+	int i;
 	
 	for(h = hubs; h != nil; h = h->next){
-		for(p = h->port; p < h->port + h->nport; p++){
+		for(i = 1; i <= h->nport; i++){
+			p = &h->port[i];
+
 			if(p->dev == nil || p->dev->usb == nil || p->hub != nil)
 				continue;
 			e = emallocz(sizeof(Event), 1);
@@ -229,6 +240,7 @@ enumerate(Event **l)
 			e->prev = 1;
 			*l = e;
 			l = &e->link;
+
 		}
 	}
 	*l = evlast;
@@ -241,11 +253,16 @@ usbdopen(Req *req)
 	extern QLock hublock;
 
 	if(req->fid->qid.path == Qusbevent){
+		Event *e;
+
 		qlock(&hublock);
 		qlock(&evlock);
+
 		enumerate(&req->fid->aux);
-		((Event *)req->fid->aux)->ref++;
-		((Event *)req->fid->aux)->prev--;
+		e = req->fid->aux;
+		e->ref++;
+		e->prev--;
+
 		qunlock(&evlock);
 		qunlock(&hublock);
 	}
@@ -255,20 +272,14 @@ usbdopen(Req *req)
 static void
 usbddestroyfid(Fid *fid)
 {
-	Event *e, *ee;
+	Event *e;
 
 	if(fid->qid.path == Qusbevent && fid->aux != nil){
 		qlock(&evlock);
 		e = fid->aux;
-		if(--e->ref == 0 && e->prev == 0){
-			while(e->ref == 0 && e->prev == 0 && e != evlast){
-				ee = e->link;
-				ee->prev--;
-				free(e->data);
-				free(e);
-				e = ee;
-			}
-		}
+		if(--e->ref == 0 && e->prev == 0)
+			while(e->ref == 0 && e->prev == 0 && e != evlast)
+				e = putevent(e);
 		qunlock(&evlock);
 	}
 }
@@ -302,14 +313,10 @@ Srv usbdsrv = {
 };
 
 int
-startdev(Port *p)
+attachdev(Port *p)
 {
-	Dev *d;
+	Dev *d = p->dev;
 
-	if((d = p->dev) == nil || p->dev->usb == nil){
-		fprint(2, "okay what?\n");
-		return -1;
-	}
 	if(d->usb->class == Clhub){
 		/*
 		 * Hubs are handled directly by this process avoiding
@@ -321,20 +328,17 @@ startdev(Port *p)
 			return -1;
 		return 0;
 	}
+
 	close(d->dfd);
 	d->dfd = -1;
 	pushevent(formatdev(d, 0));
 	return 0;
 }
 
-int
-removedev(Port *p)
+void
+detachdev(Port *p)
 {
-	Dev *d;
-	if((d = p->dev) == nil || p->dev->usb == nil)
-		return -1;
-	pushevent(formatdev(d, 1));
-	return 0;
+	pushevent(formatdev(p->dev, 1));
 }
 
 void

@@ -620,10 +620,11 @@ enumhub(Hub *h, int p)
 	}
 	if((pp->sts & PSpresent) == 0 && (sts & PSpresent) != 0){
 		if(portattach(h, p, sts) != nil)
-			if(startdev(pp) < 0)
+			if(attachdev(pp) < 0)
 				portdetach(h, p);
 	}else if(portgone(pp, sts)){
-		removedev(pp);
+		if(pp->dev)
+			detachdev(pp);
 		portdetach(h, p);
 	}else if(portresetwanted(h, p))
 		portreset(h, p);
