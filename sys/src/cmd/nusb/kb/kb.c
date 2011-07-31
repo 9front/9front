@@ -543,7 +543,7 @@ kbstart(Dev *d, Ep *ep, Kin *in, void (*f)(void*), int accel)
 		kd->ep = nil;
 		return;
 	}
-	if(setleds(kd, ep->id, 0) < 0){
+	if(f == kbdwork && setleds(kd, ep->id, 0) < 0){
 		fprint(2, "kb: %s: setleds: %r\n", d->dir);
 		return;
 	}
