@@ -131,7 +131,7 @@ void I_InitSound(void)
 {
 	int i;
 
-	audio_fd = open("/dev/audio", ORDWR);
+	audio_fd = open("/dev/audio", OWRITE);
 	if(audio_fd < 0) 
 		printf("WARN Failed to open /dev/audio, sound disabled\n");
 
