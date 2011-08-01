@@ -10,7 +10,9 @@ for(i in S f k t m i v L P u U A '$' Σ κ)
 rm -f /env/i
 
 mount -qb /srv/cons /dev
-mount -qa /srv/usb /dev
+
+# usb listener
+nusbrc
 
 # set up any partitions
 diskparts

@@ -7,7 +7,9 @@ for(i in m i P S t u '$')
 	bind -a '#'^$i /dev >/dev/null >[2=1]
 
 mount -qb /srv/cons /dev
-mount -qa /srv/usb /dev
+
+# usb listener
+nusbrc
 
 # mount points
 mntgen -s slashn && chmod 666 /srv/slashn

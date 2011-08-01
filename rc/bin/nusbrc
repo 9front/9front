@@ -1,0 +1,31 @@
+#!/bin/rc
+
+if(! test -e '#σ/usb/usbevent')
+	exit
+if(! bind -a '#u' /dev)
+	exit
+
+@{
+	rfork ne
+	fn attach {
+		switch($4){
+		case *01
+			nusb/audio $1
+		case *02
+			# serial and ethernet
+			nusb/serial $1
+		case *03
+			# handled /sys/src/9/boot/nusbrc
+			# nusb/kb $1
+		case *08
+			# handled /sys/src/9/boot/nusbrc
+			# nusb/disk $1
+		}
+	}
+	fn detach {
+		# handled /sys/src/9/boot/nusbrc
+	}
+	rc < '#σ/usb/usbevent' &
+}
+
+bind -a '#σ/usb' /dev
