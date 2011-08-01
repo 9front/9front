@@ -88,6 +88,7 @@ enum
 	CMdebugep,		/* debug n (set/clear debug for this ep) */
 	CMname,			/* name str (show up as #u/name as well) */
 	CMtmout,		/* timeout n (activate timeouts for ep) */
+	CMsampledelay,		/* maximum delay introduced by buffering (iso) */
 	CMpreset,		/* reset the port */
 
 	/* Hub feature selectors */
@@ -132,6 +133,7 @@ static Cmdtab epctls[] =
 	{CMclrhalt,	"clrhalt",	1},
 	{CMname,	"name",		2},
 	{CMtmout,	"timeout",	2},
+	{CMsampledelay,	"sampledelay",	2},
 	{CMpreset,	"reset",	1},
 };
 
@@ -1308,6 +1310,11 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 		ep->tmout = strtoul(cb->f[1], nil, 0);
 		if(ep->tmout != 0 && ep->tmout < Xfertmout)
 			ep->tmout = Xfertmout;
+		break;
+	case CMsampledelay:
+		if(ep->ttype != Tiso)
+			error("ctl ignored for this endpoint type");
+		ep->sampledelay = strtoul(cb->f[1], nil, 0);
 		break;
 	case CMpreset:
 		deprint("usb epctl %s\n", cb->f[0]);

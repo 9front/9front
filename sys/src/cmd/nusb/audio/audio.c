@@ -14,6 +14,7 @@ struct Audio
 	int	maxfreq;
 };
 
+int audiodelay = 882;
 int audiofreq = 44100;
 int audiochan = 2;
 int audiores = 16;
@@ -85,15 +86,17 @@ Foundaltc:
 	b[1] = speed >> 8;
 	b[2] = speed >> 16;
 	if(usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, 0x100, e->addr, b, 3) < 0)
-		fprint(2, "warning: set freq: %r");
+		fprint(2, "warning: set freq: %r\n");
 
 	if((d = openep(d, e->id)) == nil){
 		werrstr("openep: %r");
 		return nil;
 	}
-	devctl(d, "pollival %d", 1);
+	devctl(d, "pollival %d", a->interval);
 	devctl(d, "samplesz %d", audiochan*audiores/8);
+	devctl(d, "sampledelay %d", audiodelay);
 	devctl(d, "hz %d", speed);
+	devctl(d, "name audio");
 	return d;
 }
 
@@ -102,7 +105,7 @@ fsread(Req *r)
 {
 	char *msg;
 
-	msg = smprint("master 100 100\nspeed %d\n", audiofreq);
+	msg = smprint("master 100 100\nspeed %d\ndelay %d\n", audiofreq, audiodelay);
 	readstr(r, msg);
 	respond(r, nil);
 	free(msg);
@@ -112,7 +115,7 @@ void
 fswrite(Req *r)
 {
 	char msg[256], *f[4];
-	int nf;
+	int nf, speed;
 
 	snprint(msg, sizeof(msg), "%.*s", r->ifcall.count, r->ifcall.data);
 	nf = tokenize(msg, f, nelem(f));
@@ -122,17 +125,20 @@ fswrite(Req *r)
 	}
 	if(strcmp(f[0], "speed") == 0){
 		Dev *d;
-		int speed;
 
 		speed = atoi(f[1]);
+Setup:
 		if((d = setupep(audiodev, audioep, speed)) == nil){
 			responderror(r);
 			return;
 		}
-		devctl(d, "name audio");
 		closedev(d);
 
 		audiofreq = speed;
+	} else if(strcmp(f[0], "delay") == 0){
+		audiodelay = atoi(f[1]);
+		speed = audiofreq;
+		goto Setup;
 	}
 	r->ofcall.count = r->ifcall.count;
 	respond(r, nil);
@@ -185,7 +191,6 @@ Foundendp:
 	audioep = e;
 	if((d = setupep(audiodev, audioep, audiofreq)) == nil)
 		sysfatal("setupep: %r");
-	devctl(d, "name audio");
 	closedev(d);
 
 	fs.tree = alloctree(user, "usb", DMDIR|0555, nil);

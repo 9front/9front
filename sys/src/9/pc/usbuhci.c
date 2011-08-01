@@ -195,6 +195,7 @@ struct Isoio
 	int	debug;		/* debug flag from the endpoint */
 	Isoio*	next;		/* in list of active Isoios */
 	Td*	tdps[Nframes];	/* pointer to Td used for i-th frame or nil */
+	int	delay;		/* maximum number of bytes to buffer */
 };
 
 struct Tdpool
@@ -775,6 +776,29 @@ isocanwrite(void *a)
 		iso->tok == Tdtokout && iso->tdu->next != iso->tdi);
 }
 
+static int
+isodelay(void *a)
+{
+	Isoio *iso;
+	int delay;
+	Td *tdi;
+
+	iso = a;
+	if(iso->state == Qclose || iso->err || iso->delay == 0)
+		return 1;
+
+	delay = 0;
+	for(tdi = iso->tdi; tdi->next != iso->tdu; tdi = tdi->next){
+		if((tdi->csw & Tdactive) == 0)
+			continue;
+		delay += maxtdlen(tdi);
+		if(delay > iso->delay)
+			break;
+	}
+
+	return delay <= iso->delay;
+}
+
 static void
 tdisoinit(Isoio *iso, Td *td, long count)
 {
@@ -812,7 +836,6 @@ isointerrupt(Ctlr *ctlr, Isoio* iso)
 	nframes = iso->nframes / 2;		/* limit how many we look */
 	if(nframes > 64)
 		nframes = 64;
-
 	for(i = 0; i < nframes && (tdi->csw & Tdactive) == 0; i++){
 		tdi->csw &= ~Tdioc;
 		err = tdi->csw & Tderrors;
@@ -839,7 +862,7 @@ isointerrupt(Ctlr *ctlr, Isoio* iso)
 		}
 		tdi = tdi->next;
 	}
-	ddiprint("isointr: %d frames processed\n", nframes);
+	ddiprint("isointr: %d frames processed\n", i);
 	if(i == nframes)
 		tdi->csw |= Tdioc;
 	iso->tdi = tdi;
@@ -848,7 +871,6 @@ isointerrupt(Ctlr *ctlr, Isoio* iso)
 			iso->tdi, iso->tdu);
 		wakeup(iso);
 	}
-
 }
 
 /*
@@ -1005,6 +1027,7 @@ episowrite(Ep *ep, Isoio *iso, void *a, long count)
 	char *err;
 
 	iso->debug = ep->debug;
+	iso->delay = ep->sampledelay * ep->samplesz;
 	diprint("uhci: episowrite: %#p ep%d.%d\n", iso, ep->dev->nb, ep->nb);
 
 	ctlr = ep->hp->aux;
@@ -1044,6 +1067,11 @@ episowrite(Ep *ep, Isoio *iso, void *a, long count)
 			panic("episowrite: iso not running");
 		iunlock(ctlr);		/* We could page fault here */
 		nw = putsamples(iso, b+tot, count-tot);
+		ilock(ctlr);
+	}
+	while(isodelay(iso) == 0){
+		iunlock(ctlr);
+		sleep(iso, isodelay, iso);
 		ilock(ctlr);
 	}
 	if(iso->state != Qclose)
@@ -1678,7 +1706,7 @@ isoopen(Ep *ep)
 	}
 	ltd->next = iso->tdps[iso->td0frno];
 	iso->tdi = iso->tdps[iso->td0frno];
-	iso->tdu = iso->tdi;	/* read: right now; write: 1s ahead */
+	iso->tdu = iso->tdi;
 	ilock(ctlr);
 	frno = iso->td0frno;
 	for(i = 0; i < iso->nframes; i++){

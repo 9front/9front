@@ -220,6 +220,7 @@ struct Isoio
 	ulong	frno;		/* next frame number avail for I/O */
 	ulong	left;		/* remainder after rounding Hz to samples/ms */
 	int	nerrs;		/* consecutive errors on iso I/O */
+	int	delay;		/* maximum number of frames to buffer */
 };
 
 /*
@@ -1101,6 +1102,17 @@ isocanwrite(void *a)
 		iso->navail > iso->nframes / 2;
 }
 
+static int
+isodelay(void *a)
+{
+	Isoio *iso;
+
+	iso = a;
+	if(iso->state == Qclose || iso->err != nil || iso->delay == 0)
+		return 1;
+	return (iso->nframes - iso->navail) <= iso->delay;
+}
+
 /*
  * Service a completed/failed Td from the done queue.
  * It may be of any transfer type.
@@ -1780,6 +1792,7 @@ episowrite(Ep *ep, void *a, long count)
 
 	ctlr = ep->hp->aux;
 	iso = ep->aux;
+	iso->delay = (ep->sampledelay*ep->samplesz + ep->maxpkt-1) / ep->maxpkt;
 	iso->debug = ep->debug;
 
 	qlock(iso);
@@ -1819,6 +1832,11 @@ episowrite(Ep *ep, void *a, long count)
 			panic("episowrite: iso not running");
 		iunlock(ctlr);		/* We could page fault here */
 		nw = putsamples(ctlr, ep, iso, b+tot, count-tot);
+		ilock(ctlr);
+	}
+	while(isodelay(iso) == 0){
+		iunlock(ctlr);
+		sleep(iso, isodelay, iso);
 		ilock(ctlr);
 	}
 	if(iso->state != Qclose)

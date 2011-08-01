@@ -170,6 +170,7 @@ struct Ep
 	long	samplesz;	/* sample size (iso) */
 	int	ntds;		/* nb. of Tds per µframe */
 	int	tmout;		/* 0 or timeout for transfers (ms) */
+	int	sampledelay;	/* maximum delay introduced by buffering (iso) */
 };
 
 /*

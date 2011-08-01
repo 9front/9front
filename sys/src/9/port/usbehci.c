@@ -215,6 +215,7 @@ struct Isoio
 	ulong	maxsize;	/* ntds * ep->maxpkt */
 	long	nleft;		/* number of bytes left from last write */
 	int	debug;		/* debug flag from the endpoint */
+	int	delay;		/* max number of bytes to buffer */
 	int	hs;		/* is high speed? */
 	Isoio*	next;		/* in list of active Isoios */
 	ulong	td0frno;	/* first frame used in ctlr */
@@ -1291,6 +1292,43 @@ itdactive(Itd *td)
 }
 
 static int
+isodelay(void *a)
+{
+	Isoio *iso;
+	int delay;
+
+	iso = a;
+	if(iso->state == Qclose || iso->err || iso->delay == 0)
+		return 1;
+
+	delay = 0;
+	if(iso->hs){
+		Itd *i;
+
+		for(i = iso->tdi; i->next != iso->tdu; i = i->next){
+			if(!itdactive(i))
+				continue;
+			delay += i->mdata;
+			if(delay > iso->delay)
+				break;
+		}
+	} else {
+		Sitd *i;
+
+		for(i = iso->stdi; i->next != iso->stdu; i = i->next){
+			if((i->csw & Stdactive) == 0)
+				continue;
+			delay += i->mdata;
+			if(delay > iso->delay)
+				break;
+		}
+	}
+
+	return delay <= iso->delay;
+}
+
+
+static int
 isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 {
 	int err, i, nframes, t;
@@ -1996,6 +2034,7 @@ episowrite(Ep *ep, Isoio *iso, void *a, long count)
 	int tot, nw;
 	char *err;
 
+	iso->delay = ep->sampledelay * ep->samplesz;
 	iso->debug = ep->debug;
 	diprint("ehci: episowrite: %#p ep%d.%d\n", iso, ep->dev->nb, ep->nb);
 
@@ -2037,6 +2076,11 @@ episowrite(Ep *ep, Isoio *iso, void *a, long count)
 			panic("episowrite: iso not running");
 		iunlock(ctlr);		/* We could page fault here */
 		nw = putsamples(iso, b+tot, count-tot);
+		ilock(ctlr);
+	}
+	while(isodelay(iso) == 0){
+		iunlock(ctlr);
+		sleep(iso, isodelay, iso);
 		ilock(ctlr);
 	}
 	if(iso->state != Qclose)
