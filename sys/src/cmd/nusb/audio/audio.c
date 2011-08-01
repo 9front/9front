@@ -1,17 +1,32 @@
 #include <u.h>
 #include <libc.h>
+#include <fcall.h>
 #include <thread.h>
+#include <9p.h>
 #include "usb.h"
+
+typedef struct Audio Audio;
+struct Audio
+{
+	Audio	*next;
+
+	int	minfreq;
+	int	maxfreq;
+};
 
 int audiofreq = 44100;
 int audiochan = 2;
 int audiores = 16;
 
-char validaltc[] = "";
+char user[] = "audio";
+
+Dev *audiodev = nil;
+Ep *audioep = nil;
 
 void
 parsedescr(Desc *dd)
 {
+	Audio *a, **ap;
 	uchar *b;
 	int i;
 
@@ -24,26 +39,109 @@ parsedescr(Desc *dd)
 		return;
 	if(b[6] != audiores)
 		return;
+
+	ap = (Audio**)&dd->altc->aux;
 	if(b[7] == 0){
-		int minfreq, maxfreq;
-
-		minfreq = b[8] | b[9]<<8 | b[10]<<16;
-		maxfreq = b[11] | b[12]<<8 | b[13]<<16;
-		if(minfreq > audiofreq || maxfreq < audiofreq)
-			return;
+		a = mallocz(sizeof(*a), 1);
+		a->minfreq = b[8] | b[9]<<8 | b[10]<<16;
+		a->maxfreq = b[11] | b[12]<<8 | b[13]<<16;
+		a->next = *ap;
+		*ap = a;
 	} else {
-		int freq;
-
 		for(i=0; i<b[7]; i++){
-			freq = b[8+3*i] | b[9+3*i]<<8 | b[10+3*i]<<16;
-			if(freq == audiofreq)
-				break;
+			a = mallocz(sizeof(*a), 1);
+			a->minfreq = b[8+3*i] | b[9+3*i]<<8 | b[10+3*i]<<16;
+			a->maxfreq = a->minfreq;
+			a->next = *ap;
+			*ap = a;
 		}
-		if(i == b[7])
-			return;
 	}
-	dd->altc->aux = validaltc;
 }
+
+Dev*
+setupep(Dev *d, Ep *e, int speed)
+{
+	uchar b[4];
+	Audio *x;
+	Altc *a;
+	int i;
+
+	for(i = 0; i < nelem(e->iface->altc); i++)
+		if(a = e->iface->altc[i])
+			for(x = a->aux; x; x = x->next)
+				if(speed >= x->minfreq && speed <= x->maxfreq)
+					goto Foundaltc;
+
+	werrstr("no altc found");
+	return nil;
+
+Foundaltc:
+	if(usbcmd(d, Rh2d|Rstd|Riface, Rsetiface, i, e->iface->id, nil, 0) < 0){
+		werrstr("set altc: %r");
+		return nil;
+	}
+
+	b[0] = speed;
+	b[1] = speed >> 8;
+	b[2] = speed >> 16;
+	if(usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, 0x100, e->addr, b, 3) < 0)
+		fprint(2, "warning: set freq: %r");
+
+	if((d = openep(d, e->id)) == nil){
+		werrstr("openep: %r");
+		return nil;
+	}
+	devctl(d, "pollival %d", 1);
+	devctl(d, "samplesz %d", audiochan*audiores/8);
+	devctl(d, "hz %d", speed);
+	return d;
+}
+
+void
+fsread(Req *r)
+{
+	char *msg;
+
+	msg = smprint("master 100 100\nspeed %d\n", audiofreq);
+	readstr(r, msg);
+	respond(r, nil);
+	free(msg);
+}
+
+void
+fswrite(Req *r)
+{
+	char msg[256], *f[4];
+	int nf;
+
+	snprint(msg, sizeof(msg), "%.*s", r->ifcall.count, r->ifcall.data);
+	nf = tokenize(msg, f, nelem(f));
+	if(nf < 2){
+		respond(r, "invalid ctl message");
+		return;
+	}
+	if(strcmp(f[0], "speed") == 0){
+		Dev *d;
+		int speed;
+
+		speed = atoi(f[1]);
+		if((d = setupep(audiodev, audioep, speed)) == nil){
+			responderror(r);
+			return;
+		}
+		devctl(d, "name audio");
+		closedev(d);
+
+		audiofreq = speed;
+	}
+	r->ofcall.count = r->ifcall.count;
+	respond(r, nil);
+}
+
+Srv fs = {
+	.read = fsread,
+	.write = fswrite,
+};
 
 void
 usage(void)
@@ -55,10 +153,8 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	Dev *d, *ed;
-	Usbdev *ud;
-	uchar b[4];
-	Altc *a;
+	char buf[32];
+	Dev *d;
 	Ep *e;
 	int i;
 
@@ -72,15 +168,13 @@ main(int argc, char *argv[])
 		sysfatal("getdev: %r");
 	if(configdev(d) < 0)
 		sysfatal("configdev: %r");
-
-	ud = d->usb;
+	audiodev = d;
 
 	/* parse descriptors, mark valid altc */
-	for(i = 0; i < nelem(ud->ddesc); i++)
-		parsedescr(ud->ddesc[i]);
-
-	for(i = 0; i < nelem(ud->ep); i++){
-		e = ud->ep[i];
+	for(i = 0; i < nelem(d->usb->ddesc); i++)
+		parsedescr(d->usb->ddesc[i]);
+	for(i = 0; i < nelem(d->usb->ep); i++){
+		e = d->usb->ep[i];
 		if(e && e->iface && e->iface->csp == CSP(Claudio, 2, 0) && e->dir == Eout)
 			goto Foundendp;
 	}
@@ -88,31 +182,17 @@ main(int argc, char *argv[])
 	return;
 
 Foundendp:
-	for(i = 0; i < nelem(e->iface->altc); i++){
-		a = e->iface->altc[i];
-		if(a && a->aux == validaltc)
-			goto Foundaltc;
-	}
-	sysfatal("no altc found");
+	audioep = e;
+	if((d = setupep(audiodev, audioep, audiofreq)) == nil)
+		sysfatal("setupep: %r");
+	devctl(d, "name audio");
+	closedev(d);
 
-Foundaltc:
-	if(usbcmd(d, Rh2d|Rstd|Riface, Rsetiface, i, e->iface->id, nil, 0) < 0)
-		sysfatal("usbcmd: set altc: %r");
+	fs.tree = alloctree(user, "usb", DMDIR|0555, nil);
+	createfile(fs.tree->root, "volume", user, 0666, nil);
 
-	b[0] = audiofreq;
-	b[1] = audiofreq >> 8;
-	b[2] = audiofreq >> 16;
-	if(usbcmd(d, Rh2d|Rclass|Rep, Rsetcur, 0x100, e->addr, b, 3) < 0)
-		fprint(2, "warning: set freq: %r");
-
-	if((ed = openep(d, e->id)) == nil)
-		sysfatal("openep: %r");
-	devctl(ed, "pollival %d", 1);
-	devctl(ed, "samplesz %d", audiochan*audiores/8);
-	devctl(ed, "hz %d", audiofreq);
-
-	/* rename endpoint to #u/audio */
-	devctl(ed, "name audio");
+	snprint(buf, sizeof buf, "%d.audio", audiodev->id);
+	postsharesrv(&fs, nil, "usb", buf);
 
 	exits(0);
 }
