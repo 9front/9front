@@ -17,7 +17,7 @@ if(! nusb/usbd)
 		}
 	}
 	fn detach {
-		rm '#σc/usb/'*'-'^$1
+		rm -f '#σc/usb/'^$1.*
 	}
 	rc < '#σ/usb/usbevent' &
 }

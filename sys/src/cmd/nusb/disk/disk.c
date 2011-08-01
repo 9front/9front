@@ -979,7 +979,7 @@ findendpoints(Ums *ums)
 static void
 usage(void)
 {
-	fprint(2, "usage: usb/disk [-d] devid");
+	fprint(2, "usage: %s [-d] devid\n", argv0);
 	exits("usage");
 }
 
@@ -1047,7 +1047,7 @@ main(int argc, char **argv)
 		snprint(lun->name, sizeof(lun->name), "sdU%d.%d", dev->id, i);
 		makeparts(lun);
 	}
-	snprint(buf, sizeof buf, "disk-%s", *argv);
+	snprint(buf, sizeof buf, "%d.disk", dev->id);
 	postsharesrv(&diskfs, nil, "usb", buf);
 	exits(nil);
 }

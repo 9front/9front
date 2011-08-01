@@ -157,9 +157,9 @@ kbfatal(KDev *kd, char *sts)
 	Dev *dev;
 
 	if(sts != nil)
-		fprint(2, "kb: fatal: %s\n", sts);
+		fprint(2, "%s: fatal: %s\n", argv0, sts);
 	else
-		fprint(2, "kb: exiting\n");
+		fprint(2, "%s: exiting\n", argv0);
 	if(kd->repeatc != nil)
 		nbsendul(kd->repeatc, Diemsg);
 	dev = kd->dev;
@@ -269,7 +269,7 @@ ptrwork(void* a)
 		if(c > 3 && buf[3] == -1)	/* down */
 			b |= 0x10;
 		if(kbdebug > 1)
-			fprint(2, "kb: m%11d %11d %11d\n", x, y, b);
+			fprint(2, "%s: m%11d %11d %11d\n", argv0, x, y, b);
 		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", x, y,b);
 		if(write(mfd, mbuf, strlen(mbuf)) < 0)
 			kbfatal(f, "mousein i/o");
@@ -468,7 +468,7 @@ kbdwork(void *a)
 		assert(f->ep != nil);
 		if(c < 0){
 			rerrstr(err, sizeof(err));
-			fprint(2, "kb: %s: read: %s\n", f->ep->dir, err);
+			fprint(2, "%s: %s: read: %s\n", argv0, f->ep->dir, err);
 			if(strstr(err, "babble") != 0 && ++nerrs < 3){
 				recoverkb(f);
 				continue;
@@ -506,7 +506,6 @@ freekdev(void *a)
 		}
 		qunlock(&inlck);
 	}
-	dprint(2, "freekdev\n");
 	free(kd);
 }
 
@@ -519,7 +518,7 @@ kbstart(Dev *d, Ep *ep, Kin *in, void (*f)(void*), int accel)
 	if(in->fd < 0){
 		in->fd = open(in->name, OWRITE);
 		if(in->fd < 0){
-			fprint(2, "kb: %s: %r\n", in->name);
+			fprint(2, "%s: %s: %r\n", argv0, in->name);
 			qunlock(&inlck);
 			return;
 		}
@@ -531,17 +530,17 @@ kbstart(Dev *d, Ep *ep, Kin *in, void (*f)(void*), int accel)
 	kd->in = in;
 	kd->dev = d;
 	if(setbootproto(kd, ep->id) < 0){
-		fprint(2, "kb: %s: bootproto: %r\n", d->dir);
+		fprint(2, "%s: %s: bootproto: %r\n", argv0, d->dir);
 		return;
 	}
 	kd->accel = accel;
 	kd->ep = openep(d, ep->id);
 	if(kd->ep == nil){
-		fprint(2, "kb: %s: openep %d: %r\n", d->dir, ep->id);
+		fprint(2, "%s: %s: openep %d: %r\n", argv0, d->dir, ep->id);
 		return;
 	}
 	if(opendevdata(kd->ep, OREAD) < 0){
-		fprint(2, "kb: %s: opendevdata: %r\n", kd->ep->dir);
+		fprint(2, "%s: %s: opendevdata: %r\n", argv0, kd->ep->dir);
 		closedev(kd->ep);
 		kd->ep = nil;
 		return;
@@ -553,7 +552,7 @@ kbstart(Dev *d, Ep *ep, Kin *in, void (*f)(void*), int accel)
 static void
 usage(void)
 {
-	werrstr("usage: usb/kb [-dkm] [-a n] [-N nb]");
+	fprint(2, "usage: %s [-d] [-a n] devid\n", argv0);
 	threadexits("usage");
 }
 

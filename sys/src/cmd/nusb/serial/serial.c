@@ -729,7 +729,7 @@ findendpoints(Serial *ser, int ifc)
 static void
 usage(void)
 {
-	fprint(2, "usage: usb/serial [-dD] [-m mtpt] [-s srv] devid\n");
+	fprint(2, "usage: %s [-d] devid\n", argv0);
 	threadexitsall("usage");
 }
 
@@ -789,8 +789,8 @@ threadmain(int argc, char* argv[])
 	Serial *ser;
 	Dev *dev;
 	char buf[50];
-	int i, devid;
 	Serialport *p;
+	int i;
 
 	ARGBEGIN{
 	case 'd':
@@ -801,8 +801,7 @@ threadmain(int argc, char* argv[])
 	}ARGEND
 	if(argc != 1)
 		usage();
-	devid = atoi(*argv);
-	dev = getdev(devid);
+	dev = getdev(atoi(*argv));
 	if(dev == nil)
 		sysfatal("getdev: %r");
 
@@ -852,13 +851,13 @@ threadmain(int argc, char* argv[])
 		if(p->isjtag){
 			snprint(p->name, sizeof p->name, "jtag");
 			dsprint(2, "serial: JTAG interface %d %p\n", i, p);
-			snprint(p->name, sizeof p->name, "jtag%d.%d", devid, i);
+			snprint(p->name, sizeof p->name, "jtag%d.%d", dev->id, i);
 		} else {
 			snprint(p->name, sizeof p->name, "eiaU");
 			if(i == 0)
-				snprint(p->name, sizeof p->name, "eiaU%d", devid);
+				snprint(p->name, sizeof p->name, "eiaU%d", dev->id);
 			else
-				snprint(p->name, sizeof p->name, "eiaU%d.%d", devid, i);
+				snprint(p->name, sizeof p->name, "eiaU%d.%d", dev->id, i);
 		}
 		fprint(2, "%s...", p->name);
 		incref(dev);
@@ -870,7 +869,7 @@ threadmain(int argc, char* argv[])
 
 	qunlock(ser);
 	if(nports > 0){
-		snprint(buf, sizeof buf, "serial-%d", devid);
+		snprint(buf, sizeof buf, "%d.serial", dev->id);
 		threadpostsharesrv(&serialfs, nil, "usb", buf);
 	}
 }
