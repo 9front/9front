@@ -451,6 +451,9 @@ kbdwork(void *a)
 	if(f->ep->maxpkt < 3 || f->ep->maxpkt > sizeof buf)
 		kbfatal(f, "weird maxpkt");
 
+	if(setleds(f, f->ep->id, 0) < 0)
+		kbfatal(f, "setleds failed");
+
 	f->repeatc = chancreate(sizeof(ulong), 0);
 	if(f->repeatc == nil)
 		kbfatal(f, "chancreate failed");
@@ -541,10 +544,6 @@ kbstart(Dev *d, Ep *ep, Kin *in, void (*f)(void*), int accel)
 		fprint(2, "kb: %s: opendevdata: %r\n", kd->ep->dir);
 		closedev(kd->ep);
 		kd->ep = nil;
-		return;
-	}
-	if(f == kbdwork && setleds(kd, ep->id, 0) < 0){
-		fprint(2, "kb: %s: setleds: %r\n", d->dir);
 		return;
 	}
 	incref(d);
