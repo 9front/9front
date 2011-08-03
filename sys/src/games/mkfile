@@ -10,6 +10,7 @@ TARG=4s\
 	memo\
 	mole\
 	glendy\
+	packet\
 
 OFILES=
 HFILES=
