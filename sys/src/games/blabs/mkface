@@ -27,8 +27,8 @@ if(~ $file notfound) {
 	echo 'uchar '$who'bits[] = {'
 	switch($file) {
 	case *48x48x8* *48x48x4*
-		fb/enc2bit $file | dd -bs 60 -skip 1 >[2]/dev/null | xd |
-		sed 's#^.......##' | unhex
+		iconv -u $file | dd -bs 60 -skip 1 >[2]/dev/null | xd |
+		sed 's#^.......##' | unhex | sed 's/0x/~&/g'
 	case *48x48x2* *48x48x1*
 		cat $file | unhex
 	}

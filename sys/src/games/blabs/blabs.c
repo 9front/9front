@@ -383,7 +383,7 @@ undraw(Dot *d)
 	r = rectaddpt(r, d->pos);
 	r = rectaddpt(r, screen->r.min);
 	
-	draw(screen, r, display->black, d->mask, d->face->r.min);
+	draw(screen, r, display->white, d->mask, d->face->r.min);
 
 /*
 	if (track_width > 0)
@@ -460,7 +460,7 @@ spin(Dot *d)
 {
 	int	i;
 
-	if (d->spin > 0)
+	if (0&&d->spin > 0)
 	{
 		i = (d->facei + d->spin) % nels(d->faces);
 		d->face = d->faces[i];
@@ -652,7 +652,7 @@ setup(Dot *d, char *who, uchar *face, int n_els)
 			for(k = 0; k < repl; k++)
 			{
 				tmpface[n] |= (mask-bits) << (k*nbits);
-				tmpmask[n] |= (bits==mask ? 0 : mask) << (k*nbits);
+				tmpmask[n] |= (bits!=0 ? mask : 0) << (k*nbits);
 			}
 			n++;
 		}
@@ -718,25 +718,6 @@ setup(Dot *d, char *who, uchar *face, int n_els)
 	drawdot(d);
 }
 
-int
-msec(void)
-{
-	static int fd;
-	int n;
-	char buf[64];
-
-	if(fd <= 0)
-		fd = open("/dev/msec", OREAD);
-	if(fd < 0)
-		return 0;
-	if(seek(fd, 0, 0) < 0)
-		return 0;
-	if((n=read(fd, buf, sizeof(buf)-1)) < 0)
-		return 0;
-	buf[n] = 0;
-	return atoi(buf);
-}
-
 /*
  * debugging: make del pause so that we can
  * inspect window.
@@ -754,7 +735,7 @@ void
 main(int argc, char *argv[])
 {
 	int c;
-	long now, then;
+	vlong now, then;
 
 	ARGBEGIN
 	{
@@ -801,7 +782,7 @@ main(int argc, char *argv[])
 	initdraw(0,0,0);
 	im = eallocimage(display, Rect(0, 0, PDUP*NPJW, PDUP*NPJW), CMAP8, 0, DNofill);
 
-	draw(screen, screen->r, display->black, nil, ZP);
+	draw(screen, screen->r, display->white, nil, ZP);
 	
 /*	track = balloc(Rect(0, 0, track_width, track_width), 0); */
 
@@ -832,8 +813,8 @@ main(int argc, char *argv[])
 	SET(c);
 	USED(c);
 
-#define DELAY 100
-	for (then = msec();; then = msec())
+#define DELAY 50000000LL
+	for (then = nsec();; then = nsec())
 	{
 		Dot	*d;
 
@@ -843,8 +824,8 @@ main(int argc, char *argv[])
 			upd(d);
 		draw(screen, screen->r, screen, nil, screen->r.min);
 		flushimage(display, 1);
-		now = msec();
+		now = nsec();
 		if(now - then < DELAY)
-			sleep(DELAY - (now - then));
+			sleep((DELAY - (now - then))/1000000);
 	}
 }
