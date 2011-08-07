@@ -614,6 +614,36 @@ sysalarm(void)
 	P->R[0] = alarm(msec);
 }
 
+static void
+syssemacquire(void)
+{
+	u32int addr, block;
+	long *addrt;
+
+	addr = arg(0);
+	block = arg(1);
+	if(systrace)
+		fprint(2, "semacquire(%#ux, %ud)\n", addr, block);
+	addrt = vaddrnol(addr, 4);
+	P->R[0] = noteerr(semacquire(addrt, block), 0);
+}
+
+static void
+syssemrelease(void)
+{
+	u32int addr, count;
+	long *addrt;
+	Segment *seg;
+
+	addr = arg(0);
+	count = arg(1);
+	if(systrace)
+		fprint(2, "semrelease(%#ux, %ud)\n", addr, count);
+	addrt = vaddr(addr, 4, &seg);
+	P->R[0] = noteerr(semrelease(addrt, count), 0);
+	segunlock(seg);
+}
+
 void
 syscall(void)
 {
@@ -648,6 +678,8 @@ syscall(void)
 		[MOUNT] sysmount,
 		[REMOVE] sysremove,
 		[ALARM] sysalarm,
+		[SEMACQUIRE] syssemacquire,
+		[SEMRELEASE] syssemrelease,
 	};
 	
 	n = P->R[0];
