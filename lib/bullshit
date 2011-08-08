@@ -1,0 +1,20 @@
+cloud
+metadata
+replication
+factory
+interface
+singleton
+framework
+NoSQL
+content-addressed ^
+asynchronous ^
+object-oriented ^
+immutable ^
+distributed ^
+virtual ^
+SQL *
+JSON *
+XML *
+YAML *
+XMPP *
+solution $
