@@ -6,6 +6,46 @@ interface
 singleton
 framework
 NoSQL
+cache
+self-signing
+template
+API
+service
+polling
+firewall
+standard
+GPU
+shader
+leveraged ^
+extended ^
+basic ^
+core
+hardware
+software
+DOM
+CSS
+descriptor
+method
+table
+package
+open-source ^
+module
+social ^
+component
+patented ^
+abstract ^
+stateless ^
+general-purpose |
+generic ^
+property |
+secure ^
+overflow-preventing ^
+self-healing ^
+ISO-certified ^
+encrypted ^
+proven ^
+open ^
+RESTful ^
 content-addressed ^
 asynchronous ^
 object-oriented ^
@@ -17,4 +57,11 @@ JSON *
 XML *
 YAML *
 XMPP *
+SOAP *
+HTML *
+AJAX *
+ORM *
+ACPI *
 solution $
+-oriented %
+-based %
