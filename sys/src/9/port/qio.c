@@ -1173,14 +1173,10 @@ qbwrite(Queue *q, Block *b)
 	}
 
 	dowakeup = 0;
-	eqlock(&q->wlock);
 	if(waserror()){
-		if(b != nil)
-			freeb(b);
-		qunlock(&q->wlock);
+		freeb(b);
 		nexterror();
 	}
-
 	ilock(q);
 
 	/* give up if the queue is closed */
@@ -1194,7 +1190,6 @@ qbwrite(Queue *q, Block *b)
 		if(q->noblock){
 			iunlock(q);
 			freeb(b);
-			qunlock(&q->wlock);
 			poperror();
 			return n;
 		}
@@ -1214,7 +1209,6 @@ qbwrite(Queue *q, Block *b)
 	q->len += BALLOC(b);
 	q->dlen += n;
 	QDEBUG checkb(b, "qbwrite");
-	b = nil;
 
 	/* make sure other end gets awakened */
 	if(q->state & Qstarve){
@@ -1222,6 +1216,7 @@ qbwrite(Queue *q, Block *b)
 		dowakeup = 1;
 	}
 	iunlock(q);
+	poperror();
 
 	/*  get output going again */
 	if(q->kick && (dowakeup || (q->state&Qkick)))
@@ -1255,12 +1250,17 @@ qbwrite(Queue *q, Block *b)
 		ilock(q);
 		q->state |= Qflow;
 		iunlock(q);
-		sleep(&q->wr, qnotfull, q);
-	}
-	USED(b);
 
-	qunlock(&q->wlock);
-	poperror();
+		eqlock(&q->wlock);
+		if(waserror()){
+			qunlock(&q->wlock);
+			nexterror();
+		}
+		sleep(&q->wr, qnotfull, q);
+		qunlock(&q->wlock);
+		poperror();
+	}
+
 	return n;
 }
 
