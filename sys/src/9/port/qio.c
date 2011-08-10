@@ -1017,7 +1017,7 @@ qbread(Queue *q, int len)
 	Block *b, *nb;
 	int n;
 
-	qlock(&q->rlock);
+	eqlock(&q->rlock);
 	if(waserror()){
 		qunlock(&q->rlock);
 		nexterror();
@@ -1072,7 +1072,7 @@ qread(Queue *q, void *vp, int len)
 	Block *b, *first, **l;
 	int m, n;
 
-	qlock(&q->rlock);
+	eqlock(&q->rlock);
 	if(waserror()){
 		qunlock(&q->rlock);
 		nexterror();
@@ -1173,7 +1173,7 @@ qbwrite(Queue *q, Block *b)
 	}
 
 	dowakeup = 0;
-	qlock(&q->wlock);
+	eqlock(&q->wlock);
 	if(waserror()){
 		if(b != nil)
 			freeb(b);

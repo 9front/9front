@@ -204,7 +204,7 @@ audioread(Chan *c, void *a, long n, vlong off)
 	if(fn == nil)
 		error(Egreg);
 
-	qlock(ac);
+	eqlock(ac);
 	if(waserror()){
 		qunlock(ac);
 		nexterror();
@@ -260,7 +260,7 @@ audiowrite(Chan *c, void *a, long n, vlong off)
 	if(fn == nil)
 		error(Egreg);
 
-	qlock(ac);
+	eqlock(ac);
 	if(waserror()){
 		qunlock(ac);
 		nexterror();

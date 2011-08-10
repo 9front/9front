@@ -735,6 +735,7 @@ struct Proc
 	int	trace;		/* process being traced? */
 
 	ulong	qpc;		/* pc calling last blocking qlock */
+	QLock	*eql;		/* interruptable eqlock, protected by rlock */
 
 	int	setargs;
 

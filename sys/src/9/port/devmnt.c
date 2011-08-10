@@ -105,7 +105,7 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	uvlong oo;
 	char buf[128];
 
-	qlock(&c->umqlock);	/* make sure no one else does this until we've established ourselves */
+	eqlock(&c->umqlock);	/* make sure no one else does this until we've established ourselves */
 	if(waserror()){
 		qunlock(&c->umqlock);
 		nexterror();

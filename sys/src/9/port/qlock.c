@@ -4,6 +4,8 @@
 #include "dat.h"
 #include "fns.h"
 
+#include	"../port/error.h"
+
 struct {
 	ulong rlock;
 	ulong rlockq;
@@ -12,6 +14,59 @@ struct {
 	ulong qlock;
 	ulong qlockq;
 } rwstats;
+
+void
+eqlock(QLock *q)
+{
+	Proc *p;
+
+	if(m->ilockdepth != 0)
+		print("eqlock: %#p: ilockdepth %d\n", getcallerpc(&q), m->ilockdepth);
+	if(up != nil && up->nlocks.ref)
+		print("eqlock: %#p: nlocks %lud\n", getcallerpc(&q), up->nlocks.ref);
+
+	if(q->use.key == 0x55555555)
+		panic("eqlock: q %#p, key 5*\n", q);
+
+	lock(&q->use);
+	rwstats.qlock++;
+	if(!q->locked) {
+		q->locked = 1;
+		unlock(&q->use);
+		return;
+	}
+	if(up == 0)
+		panic("eqlock");
+	if(up->notepending){
+		unlock(&q->use);
+		error(Eintr);
+	}
+	rwstats.qlockq++;
+
+	p = q->tail;
+	if(p == 0)
+		q->head = up;
+	else
+		p->qnext = up;
+	q->tail = up;
+
+	up->qnext = 0;
+	up->qpc = getcallerpc(&q);
+	up->state = Queueing;
+
+	lock(&up->rlock);
+	up->eql = q;
+	unlock(&up->rlock);
+
+	unlock(&q->use);
+
+	sched();
+
+	if(up->notepending){
+		up->notepending = 0;
+		error(Eintr);
+	}
+}
 
 void
 qlock(QLock *q)
@@ -73,6 +128,12 @@ qunlock(QLock *q)
 			getcallerpc(&q));
 	p = q->head;
 	if(p){
+		if(p->eql){
+			lock(&p->rlock);
+			if(p->eql == q)
+				p->eql = 0;
+			unlock(&p->rlock);
+		}
 		q->head = p->qnext;
 		if(q->head == 0)
 			q->tail = 0;

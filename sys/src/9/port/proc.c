@@ -900,8 +900,6 @@ int
 postnote(Proc *p, int dolock, char *n, int flag)
 {
 	int s, ret;
-	Rendez *r;
-	Proc *d, **l;
 
 	if(dolock)
 		qlock(&p->debug);
@@ -921,6 +919,8 @@ postnote(Proc *p, int dolock, char *n, int flag)
 
 	/* this loop is to avoid lock ordering problems. */
 	for(;;){
+		Rendez *r;
+
 		s = splhi();
 		lock(&p->rlock);
 		r = p->r;
@@ -948,24 +948,59 @@ postnote(Proc *p, int dolock, char *n, int flag)
 	unlock(&p->rlock);
 	splx(s);
 
-	if(p->state != Rendezvous)
-		return ret;
+Pullout:
+	switch(p->state){
+	case Queueing:
+		/* Try and pull out of a eqlock */
+		lock(&p->rlock);
+		if(p->state == Queueing && p->eql && p->notepending){
+			Proc *d, *l;
+			QLock *q;
 
-	/* Try and pull out of a rendezvous */
-	lock(p->rgrp);
-	if(p->state == Rendezvous) {
-		p->rendval = ~0;
-		l = &REND(p->rgrp, p->rendtag);
-		for(d = *l; d; d = d->rendhash) {
-			if(d == p) {
-				*l = p->rendhash;
-				break;
+			q = p->eql;
+			if(!canlock(&q->use)){
+				unlock(&p->rlock);
+				sched();
+				goto Pullout;
 			}
-			l = &d->rendhash;
+			for(l = nil, d = q->head; d; l = d, d = d->qnext)
+				if(d == p){
+					if(l)
+						l->qnext = p->qnext;
+					else
+						q->head = p->qnext;
+					if(p->qnext == 0)
+						q->tail = l;
+					p->qnext = 0;
+					p->eql = 0;
+					ready(p);
+					break;
+				}
+			unlock(&q->use);
+			break;
 		}
-		ready(p);
+		unlock(&p->rlock);
+		break;
+	case Rendezvous:
+		/* Try and pull out of a rendezvous */
+		lock(p->rgrp);
+		if(p->state == Rendezvous) {
+			Proc *d, **l;
+
+			p->rendval = ~0;
+			l = &REND(p->rgrp, p->rendtag);
+			for(d = *l; d; d = d->rendhash) {
+				if(d == p) {
+					*l = p->rendhash;
+					break;
+				}
+				l = &d->rendhash;
+			}
+			ready(p);
+		}
+		unlock(p->rgrp);
+		break;
 	}
-	unlock(p->rgrp);
 	return ret;
 }
 

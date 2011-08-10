@@ -98,6 +98,7 @@ int		eqchan(Chan*, Chan*, int);
 int		eqchantdqid(Chan*, int, int, Qid, int);
 int		eqqid(Qid, Qid);
 void		error(char*);
+void		eqlock(QLock*);
 long		execregs(ulong, ulong, ulong);
 void		exhausted(char*);
 void		exit(int);
