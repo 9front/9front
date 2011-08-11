@@ -57,7 +57,7 @@ logread(Log *alog, void *a, ulong, long n)
 	int i, d;
 	char *p, *rptr;
 
-	qlock(&alog->readq);
+	eqlock(&alog->readq);
 	if(waserror()){
 		qunlock(&alog->readq);
 		nexterror();

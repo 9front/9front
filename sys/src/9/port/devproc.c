@@ -370,7 +370,7 @@ procopen(Chan *c, int omode)
 	}
 		
 	p = proctab(SLOT(c->qid));
-	qlock(&p->debug);
+	eqlock(&p->debug);
 	if(waserror()){
 		qunlock(&p->debug);
 		nexterror();
@@ -476,12 +476,13 @@ procwstat(Chan *c, uchar *db, int n)
 	p = proctab(SLOT(c->qid));
 	nonone(p);
 	d = nil;
+
+	eqlock(&p->debug);
 	if(waserror()){
-		free(d);
 		qunlock(&p->debug);
+		free(d);
 		nexterror();
 	}
-	qlock(&p->debug);
 
 	if(p->pid != PID(c->qid))
 		error(Eprocdied);
@@ -503,9 +504,9 @@ procwstat(Chan *c, uchar *db, int n)
 	if(d->mode != ~0UL)
 		p->procmode = d->mode&0777;
 
+	qunlock(&p->debug);
 	poperror();
 	free(d);
-	qunlock(&p->debug);
 	return n;
 }
 
@@ -563,7 +564,7 @@ procfds(Proc *p, char *va, int count, long offset)
 		count = sizeof buf;
 	a = buf;
 
-	qlock(&p->debug);
+	eqlock(&p->debug);
 	f = p->fgrp;
 	if(f == nil){
 		qunlock(&p->debug);
@@ -721,7 +722,7 @@ procread(Chan *c, void *va, long n, vlong off)
 
 	switch(QID(c->qid)){
 	case Qargs:
-		qlock(&p->debug);
+		eqlock(&p->debug);
 		j = procargs(p, up->genbuf, sizeof up->genbuf);
 		qunlock(&p->debug);
 		if(offset >= j)
@@ -776,7 +777,7 @@ procread(Chan *c, void *va, long n, vlong off)
 		return n;
 
 	case Qnote:
-		qlock(&p->debug);
+		eqlock(&p->debug);
 		if(waserror()){
 			qunlock(&p->debug);
 			nexterror();
@@ -929,7 +930,7 @@ procread(Chan *c, void *va, long n, vlong off)
 		return n;
 
 	case Qns:
-		qlock(&p->debug);
+		eqlock(&p->debug);
 		if(waserror()){
 			qunlock(&p->debug);
 			nexterror();
@@ -1035,7 +1036,7 @@ procwrite(Chan *c, void *va, long n, vlong off)
 		return n;
 	}
 
-	qlock(&p->debug);
+	eqlock(&p->debug);
 	if(waserror()){
 		qunlock(&p->debug);
 		nexterror();

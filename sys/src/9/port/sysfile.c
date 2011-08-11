@@ -328,7 +328,7 @@ unionread(Chan *c, void *va, long n)
 	Mhead *m;
 	Mount *mount;
 
-	qlock(&c->umqlock);
+	eqlock(&c->umqlock);
 	m = c->umh;
 	rlock(&m->lock);
 	mount = m->mount;
@@ -368,7 +368,7 @@ unionread(Chan *c, void *va, long n)
 static void
 unionrewind(Chan *c)
 {
-	qlock(&c->umqlock);
+	eqlock(&c->umqlock);
 	c->uri = 0;
 	if(c->umc){
 		cclose(c->umc);
