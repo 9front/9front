@@ -54,9 +54,9 @@ eqlock(QLock *q)
 	up->qpc = getcallerpc(&q);
 	up->state = Queueing;
 
-	lock(&up->rlock);
+	lock(&up->eqlock);
 	up->eql = q;
-	unlock(&up->rlock);
+	unlock(&up->eqlock);
 
 	unlock(&q->use);
 
@@ -129,10 +129,10 @@ qunlock(QLock *q)
 	p = q->head;
 	if(p){
 		if(p->eql){
-			lock(&p->rlock);
+			lock(&p->eqlock);
 			if(p->eql == q)
 				p->eql = 0;
-			unlock(&p->rlock);
+			unlock(&p->eqlock);
 		}
 		q->head = p->qnext;
 		if(q->head == 0)

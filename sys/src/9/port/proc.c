@@ -952,17 +952,18 @@ Pullout:
 	switch(p->state){
 	case Queueing:
 		/* Try and pull out of a eqlock */
-		lock(&p->rlock);
+		lock(&p->eqlock);
 		if(p->state == Queueing && p->eql && p->notepending){
 			Proc *d, *l;
 			QLock *q;
 
 			q = p->eql;
 			if(!canlock(&q->use)){
-				unlock(&p->rlock);
+				unlock(&p->eqlock);
 				sched();
 				goto Pullout;
 			}
+
 			for(l = nil, d = q->head; d; l = d, d = d->qnext)
 				if(d == p){
 					if(l)
@@ -977,9 +978,8 @@ Pullout:
 					break;
 				}
 			unlock(&q->use);
-			break;
 		}
-		unlock(&p->rlock);
+		unlock(&p->eqlock);
 		break;
 	case Rendezvous:
 		/* Try and pull out of a rendezvous */
