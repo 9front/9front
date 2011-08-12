@@ -44,7 +44,7 @@ END {
 		n += 2
 	for(i = 0; i < n; i++)
 		printf "%s%s ", word[last = int(rand() * nword)], suffix()
-	if(rand() > 0.05 || (last >= 0 && noend[last]) || hassuffix)
+	if(rand() < 0.1 || (last >= 0 && noend[last]) || hassuffix)
 		printf "%s ", end[int(rand() * nend)]
 	print ""
 }
