@@ -5,9 +5,9 @@ factory
 interface
 singleton
 framework
-NoSQL
+NoSQL |
 cache
-self-signing
+self-signing |
 template
 API
 service
