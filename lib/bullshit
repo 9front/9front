@@ -8,6 +8,7 @@ framework
 NoSQL |
 cache
 self-signing |
+scripting |
 template
 API
 service
@@ -22,19 +23,39 @@ basic ^
 core
 hardware
 software
+database
+rich-client
 DOM
 CSS
+CMS
+SCM
+map/reduce
+reduce/map
 descriptor
+hypervisor
+callback
 method
 table
 package
+plugin
+browser
+extension
 open-source ^
 module
+proxy
+wrapper
+storage
 social ^
+private ^
 component
+markup
 patented ^
 abstract ^
 stateless ^
+optimized ^
+virtualized ^
+session |
+high-performance |
 general-purpose |
 generic ^
 property |
@@ -50,8 +71,15 @@ content-addressed ^
 asynchronous ^
 object-oriented ^
 immutable ^
+anonymous ^
+transactional ^
 distributed ^
+structured ^
+managed ^
+lossless ^
 virtual ^
+shared ^
+stable ^
 SQL *
 JSON *
 XML *
@@ -61,7 +89,17 @@ SOAP *
 HTML *
 AJAX *
 ORM *
+SVG *
 ACPI *
+WEB2.0 *
+SSL *
+HTTP *
+TOR *
+manager $
+framework $
+generator $
+optimizer $
 solution $
 -oriented %
 -based %
+-aware %
