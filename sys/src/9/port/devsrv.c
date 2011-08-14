@@ -124,7 +124,7 @@ srvopen(Chan *c, int omode)
 		error(Eshutdown);
 
 	if(omode&OTRUNC)
-		error("srv file already exists");
+		error(Eexist);
 	if(openmode(omode)!=sp->chan->mode && sp->chan->mode!=ORDWR)
 		error(Eperm);
 	devpermcheck(sp->owner, sp->perm, omode);
@@ -144,9 +144,6 @@ srvcreate(Chan *c, char *name, int omode, ulong perm)
 
 	if(openmode(omode) != OWRITE)
 		error(Eperm);
-
-	if(omode & OCEXEC)	/* can't happen */
-		panic("someone broke namec");
 
 	sp = smalloc(sizeof *sp);
 	sname = smalloc(strlen(name)+1);
