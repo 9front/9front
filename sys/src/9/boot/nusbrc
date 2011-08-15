@@ -14,10 +14,26 @@ if(! nusb/usbd)
 			nusb/kb $1
 		case *08
 			nusb/disk $1
+			@{
+				rfork ne
+				cd '#σ/usb'
+				for(dev in sdU^$1.*){
+					echo $dev...
+					diskparts $dev
+					for(part in $dev/dos* $dev/9fat){
+						if(test -r $part) {
+							mkdir -m 0700 '#σc/'^$dev
+							{dossrv -s -f $part &} <[0=1] |
+								echo 0 >'#σc/'^$dev/dos
+							exit
+						}
+					}
+				}
+			} &
 		}
 	}
 	fn detach {
-		rm -f '#σc/usb/'^$1.*
+		rm -rf '#σc/usb/'^$1.* '#σc/sdU'^$1.*
 	}
 	rc < '#σ/usb/usbevent' &
 }

@@ -1,35 +1,42 @@
 #!/bin/rc
 rfork e
 
-# set up any disk partitions
-if (! test -e /dev/sdctl)
-	bind -b '#S' /dev
-
-# set up any /dev/sd partitions.
 # note that really big disks (e.g., aoe devices) may have no mbr
 # partition table because the mbr partition table can't cope with large
 # block numbers, so we may have to examine the data file with prep if
 # there's no plan9 file.  beware that `disk/prep -p data' on a disk with
 # no plan 9 partition table will delete all extant partitions.
-for(disk in /dev/sd*) {
-	if(test -f $disk/data && test -f $disk/ctl)
-		{ disk/fdisk -p $disk/data |
-			grep -v '^delpart ' >$disk/ctl } >[2]/dev/null
-	if(test -f $disk/plan9)
-		parts=($disk/plan9*)
+fn setup {
+	if(test -f $1/data && test -f $1/ctl)
+		{ disk/fdisk -p $1/data |
+			grep -v '^delpart ' >$1/ctl } >[2]/dev/null
+	if(test -f $1/plan9)
+		parts=($1/plan9*)
 	if not
-		parts=($disk/data)
+		parts=($1/data)
 	for(part in $parts)
 		if(test -f $part)
 			 { disk/prep -p $part |
-				grep -v '^delpart ' >$disk/ctl } >[2]/dev/null
+				grep -v '^delpart ' >$1/ctl } >[2]/dev/null
 }
 
-sysname=`{cat /dev/sysname}
-
-# set up any fs(3) partitions
-if (! test -e /dev/fs/ctl && test -e '#k/fs')
-	bind -b '#k' /dev
-if (~ $#sysname 1 && ! ~ $sysname '' &&
-    test -r /cfg/$sysname/fsconfig && test -w /dev/fs/ctl)
-	awk '{print $0; fflush}' /cfg/$sysname/fsconfig >/dev/fs/ctl
+if(~ $#* 0){
+	# set up any disk partitions
+	if (! test -e /dev/sdctl)
+		bind -b '#S' /dev
+	for(disk in /dev/sd*) {
+		setup $disk
+	}
+	sysname=`{cat /dev/sysname}
+	# set up any fs(3) partitions
+	if (! test -e /dev/fs/ctl && test -e '#k/fs')
+		bind -b '#k' /dev
+	if (~ $#sysname 1 && ! ~ $sysname '' &&
+	  test -r /cfg/$sysname/fsconfig && test -w /dev/fs/ctl)
+		awk '{print $0; fflush}' /cfg/$sysname/fsconfig >/dev/fs/ctl
+}
+if not {
+	for(disk) {
+		setup $disk
+	}
+}

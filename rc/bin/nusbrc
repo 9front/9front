@@ -20,10 +20,11 @@ if(! bind -a '#u' /dev)
 		case *08
 			# handled /sys/src/9/boot/nusbrc
 			# nusb/disk $1
+		case *10106
+			nusb/ptp $1
 		}
 	}
 	fn detach {
-		# handled /sys/src/9/boot/nusbrc
 	}
 	rc < '#σ/usb/usbevent' &
 }
