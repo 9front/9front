@@ -392,6 +392,8 @@ shropen(Chan *c, int omode)
 		devpermcheck(shr->owner, shr->perm, openmode(omode));
 		break;
 	case Qcmpt:
+		if(omode&OTRUNC)
+			error(Eexist);
 		shr = sch->shr;
 		mpt = sch->mpt;
 		devpermcheck(mpt->owner, mpt->perm, openmode(omode));
@@ -430,6 +432,12 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 	default:
 		error(Enocreate);
 	case Qcroot:
+	case Qcshr:
+		if(strcmp(up->user, "none") == 0)
+			error(Eperm);
+	}
+	switch(sch->level){
+	case Qcroot:
 		if((perm & DMDIR) == 0 || openmode(omode) != OREAD)
 			error(Eperm);
 
@@ -461,10 +469,13 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 		sch->shr = shr;
 		break;
 	case Qcshr:
-		shr = sch->shr;
-		devpermcheck(shr->owner, shr->perm, ORDWR);
 		if((perm & DMDIR) || openmode(omode) != OWRITE)
 			error(Eperm);
+
+		shr = sch->shr;
+		if(strcmp(shr->owner, eve) == 0 && !iseve())
+			error(Eperm);
+		devpermcheck(shr->owner, shr->perm, ORDWR);
 
 		h = &shr->umh;
 		wlock(&h->lock);
@@ -520,8 +531,16 @@ shrremove(Chan *c)
 	default:
 		error(Eperm);
 	case Qcshr:
+	case Qcmpt:
 		shr = sch->shr;
-		devpermcheck(shr->owner, shr->perm, ORDWR);
+		if(!iseve()){
+			if(strcmp(shr->owner, eve) == 0)
+				error(Eperm);
+			devpermcheck(shr->owner, shr->perm, ORDWR);
+		}
+	}
+	switch(sch->level){
+	case Qcshr:
 		h = &shr->umh;
 		qlock(&shrslk);
 		rlock(&h->lock);
@@ -541,8 +560,6 @@ shrremove(Chan *c)
 		qunlock(&shrslk);
 		break;
 	case Qcmpt:
-		shr = sch->shr;
-		devpermcheck(shr->owner, shr->perm, ORDWR);
 		mpt = sch->mpt;
 		m = &mpt->m;
 		h = &shr->umh;
@@ -630,7 +647,6 @@ shrwstat(Chan *c, uchar *dp, int n)
 		wunlock(&h->lock);
 		break;
 	}
-
 	return n;
 }
 

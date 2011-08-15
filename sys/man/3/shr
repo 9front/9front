@@ -14,7 +14,9 @@ shr \- global mountpoints
 The
 .I shr
 device provides global mountpoints in the form of share directories
-where 9p services can be mounted and unmounted dynamically.
+where
+.IR 9P
+services can be mounted on.
 
 Effectively, it is a global mountpoint registry that is separate from
 private namespaces.
@@ -26,7 +28,7 @@ in the mount tree
 .BI #σ
 are the share mountpoints themselve and in the control tree
 .BI #σc
-share directories can be created or removed.
+share directories list the service files of the share.
 .PP
 To create a new share, create the directory
 .B #σc/myshare
@@ -37,13 +39,26 @@ and then write a text string (suitable for
 .IR strtoul ;
 see
 .IR atof (2))
-giving the file descriptor number of an open 9p service.  Any process
+giving the file descriptor number of an open
+.I 9P
+service.  Any process
 with the proper permission may then access
 .B #σ/myshare
-to use the service.
+on the mount tree.
 .PP
-Multiple services can be mounted under a share.  New services get
-mounted before old ones.  Removing the service file from a share
-removes the service as soon as the last reference goes away.
+The service file can be reopened and passed to
+.IR mount
+(see
+.IR bind(2))
+or added to another share.
+.PP
+Multiple services can be mounted under a share forming a union
+directory. New services get mounted before old ones.
+Removing the service file unmounts the service from the share.
+.PP
+Creating shares and mounts requires read-write access in the share
+directory. The special user
+.B none
+is prohibited from these operations.
 .SH SOURCE
 .B /sys/src/9/port/devshr.c

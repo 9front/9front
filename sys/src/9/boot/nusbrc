@@ -2,7 +2,7 @@
 
 if(! bind -a '#u' /dev)
 	exit
-mkdir '#σc/usb'
+mkdir -m 0700 '#σc/usb'
 if(! nusb/usbd)
 	exit
 
