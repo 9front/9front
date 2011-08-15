@@ -857,6 +857,9 @@ sharefd(char *name, char *desc, int pfd)
 	int fd;
 	char buf[80];
 
+	snprint(buf, sizeof buf, "#σc/%s", name);
+	if((fd = create(buf, OREAD, 0700|DMDIR)) >= 0)
+		close(fd);
 	snprint(buf, sizeof buf, "#σc/%s/%s", name, desc);
 	if(chatty9p)
 		fprint(2, "sharefd %s\n", buf);
