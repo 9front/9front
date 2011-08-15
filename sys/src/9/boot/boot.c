@@ -23,6 +23,7 @@ boot(int argc, char *argv[])
 	bind("#ec", "/env", MREPL);
 	bind("#e", "/env", MBEFORE|MCREATE);
 	bind("#s", "/srv", MREPL|MCREATE);
+	bind("#σ", "/shr", MREPL);
 
 	if(Debug){
 		int i;

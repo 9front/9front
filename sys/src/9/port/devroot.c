@@ -104,6 +104,7 @@ rootreset(void)
 	addrootdir("proc");
 	addrootdir("root");
 	addrootdir("srv");
+	addrootdir("shr");
 }
 
 static Chan*

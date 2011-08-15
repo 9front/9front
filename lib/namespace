@@ -9,6 +9,7 @@ bind #d /fd
 bind -c #e /env
 bind #p /proc
 bind -c #s /srv
+bind -q #σ /shr
 bind -a #¤ /dev
 
 # mount points
