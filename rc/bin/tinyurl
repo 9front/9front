@@ -1,7 +1,6 @@
 #!/bin/rc
-if(! ~ $#* 1) {
-	echo usage: tinyurl http://research.swtch.com/2008/02/hideous-name.html >[1=2]
-	exit usage
+# tinyurl url
+for (url) {
+	hget http://tinyurl.com/api-create.php?url'='$url
+	echo
 }
-hget http://tinyurl.com/api-create.php?url'='$1
-echo

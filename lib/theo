@@ -1,44 +1,174 @@
-On December 20 [1994], Theo de Raadt was asked to resign from the NetBSD Project by the remaining members of 'core'. This was a very difficult decision to make, and resulted from Theo's long history of rudeness towards and abuse of users and developers of NetBSD. -- Adam Glass, NetBSD mailing list, December 23, 1994
-Admittedly, I was apprehensive about interviewing Theo de Raadt. -- Julie Bresnick, Newsforge, January 30, 2001
-It's widely claimed that I'm "the one" who ejected Theo from the NetBSD community. That is false. At that time in NetBSD's history, Chris G. Demetriou was playing the role of alpha male, and I wasn't even given a choice. I was certain it was going to bite us in the ass. I think the question for historians is not whether it did bite us in the ass, but how many times and how hard. -- Charles M. Hannum, ONLamp.com, September 14, 2006
-The X documentation is full of lies.
-The world doesn't live off jam and fancy perfumes - it lives off bread and meat and potatoes. Nothing changes. All the big fancy stuff is sloppy stuff that crashes. I don't need dancing baloney - I need stuff that works. That's not as pretty, and just as hard.
-I actually am fairly uncomfortable about it, even if our firm stipulation was that they cannot tell us what to do. We are simply doing what we do anyways -- securing software -- and they have no say in the matter. I try to convince myself that our grant means a half of a cruise missile doesn't get built.
-Low code quality keeps haunting our entire industry. That, and sloppy programmers who don't understand the frameworks they work within. They're like plumbers high on glue.
-Hardware donations do not come from vendors who use OpenSSH on parts of their stuff. They come from individuals. The hardware vendors who use OpenSSH on all of their products have given us a total of one laptop since we developed OpenSSH five years ago. And asking them for that laptop took a year. That was IBM.
-So the HP guy comes up to me (at the Melbourne conference) and he says, 'If you say nasty things like that to vendors you're not going to get anything'. I said 'no, in eight years of saying nothing, we've got nothing, and I'm going to start saying nasty things, in the hope that some of these vendors will start giving me money so I'll shut up'.
-This is a software monopoly but at least it was written by people who care about security, so it's not like Microsoft's monopoly.
-It's terrible, everyone is using it, and they don't realize how bad it is. And the Linux people will just stick with it and add to it rather than stepping back and saying, 'This is garbage and we should fix it.
-Linux people do what they do because they hate Microsoft. We do what we do because we love Unix.
-I think it is astounding that people could argue for "you just must trust someone else to fix it" instead of "you could fix it yourself, or hire someone to fix it." There is a contractor base out there that can solve these problems as well as or better than the major vendors could. But I think the major vendors are still having more luck at getting the ear of the press.
-Well, we do not do this so that other players can make profit. We've actually been doing this for a long time and I do not know of anyone who specifically makes money off OpenBSD. They may, at best, save some money by not having to re-engineer the same software that we have already written. It is not exactly that we are letting them make a profit, but that we are doing a proper job and saving someone else from having to do the same job in a corporate setting. In our eyes, that is perhaps a waste of planet-wide engineer talents, rewriting the same thing over and over. Why can\u2019t we just get it right once?
-What's so exciting is to be able to just take something and polish it so much that hopefully in the future people will start borrowing things from it.
-...you are being the usual slimy hypocritical asshole... You may have had value ten years ago, but people will see that you don't anymore.
-The only way to make it clear to him that he should not come here to our lists in the future, is to teach him a hard lesson, and that is done by continually re-adding cc's back to him -- because the mails talk about him -- even when his friends come our mailing lists and delete the his address from the cc list. Like this message, which adds him back in. Richard, you are a lying cheating hypocrite.
 Buttons are for idiots.
-A solid systems's approach should not be based on "but it works". Yet, time and time again, we see that for most people this is the case. They don't care about good software, only about "good enough" software. So the programmers can continue to make such mistakes.
 Why are you guys so fork paranoid? Do you want everyone to vote for the same political party, too?
 I think your computer science teachers are still teaching you from books written in the 80's, when the word "micro-kernel" was associated with a future utopia.
 But software which OpenBSD uses and redistributes must be free to all (be they people or companies), for any purpose they wish to use it, including modification, use, peeing on, or even integration into baby mulching machines or atomic bombs to be dropped on Australia.
-Do you trust glibc? OK, perhaps that snide remark is overstating things a bit, but secure software only happens when all the pieces have 100% correct behavior.
-I say things as they are. Slackers are called slackers, people who can't read manual pages are called losers, and in general, calling things what they are results in developers wasting less time.
 You did not create these mailing lists, so you can take your opinions about why these lists were created and shove them up your ass.
-We don't normally recommend that you use it over another operating system. Or even under, or beside, or even near. "Instead of " -- that describes how we use it ;)
-It's the little things that make Freedom become Not Freedom.
 I am simply astounded at some of the things people keep repeating. I don't mean this applies to everyone, but is there a high quantity of attention deficit disorder in our user community? Or retards? Or is it just the same old trolling? OpenBSD does not incorporate non-free software.
-They may want to use some GPL'd build tools but if they start putting GPL parts directly into X, then that is going to cause another X split. I promise.
 Scaling isn't really our concern; I barely know what the word means. There is one group of people who we do know scales. Whiners. They scale really well.
 I am very easy to get along with, but I don't have time to waste being nice to people who are being stupid.
-In the Unix system view, anything which needs to talk to raw devices INSTEAD OF THE KERNEL DOING SO is broken. There are no apologies to be made. Period. If you want X to talk to IO devices, what next? ls?
 Hardly surprising. Apple. They build crap and make you pay extra.
-Complexity does not avert risk. Ever. Period.
 You are absolutely deluded, if not stupid, if you think that a worldwide collection of software engineers who can't write operating systems or applications without security holes, can then turn around and suddenly write virtualization layers without security holes.
-Shut up and hack.
-I could live in a tent and be happy, but all the ISP's want fixed addresses....
-I started working on OpenBSD, and many earlier projects, because I have always felt that vendor systems were not designed for quality.
-I work on OpenBSD fulltime, as the project leader. I set some directions, increase communication between the developers, and try to be involved in nearly every aspect of the base system.
-In some industry markets, high quality can be tied to making more money, but I am sure by now all of us know the computer industry is not like that.
-The primary goal of a vendor is to make money.
-As I read the news, it comes to me that these days companies in the United States appear to have more rights than either individuals or nonprofit organizations, so I am not surprised.
-I think it is entirely a U.S. trend, and you should look at how the legal system has changed in your country over the last few years.
-Thank you for thinking about this.
+In the modern world of search engines, this question lands at the same level as trolling.
+You are very confused.
+Have you considered trying to live 100% without our software?
+Your grief would seem more sincere if didn't look like a shopping list.
+You are not listening.
+You enabled things which are disabled for a good reason.
+You are missing the point.  Your bug report is huge, but we have no idea what went wrong.
+It is pretty clear you are a troll.
+No, please, don't explain.
+You obviously have zero experience.
+You clearly cannot read.
+You better get back to class; your potty break is over.
+Go read the source code some time.
+Nope.
+No.
+Bullshit.
+The rest of your new email is bullshit, too.
+Noone deserves anything from us.  People get good things, and they are happy.  The developers in this project do the best they can writing innovative software, and will not accept preaching from pompous self-entitled American pricks like you.
+I believe you deserve to stop running the software.
+You are wrong.
+Don't be ridiculous.
+Yes, we should build a survey.  And a wiki.  It would be awesome. We'd get rich.
+One word can change the meaning of a sentence.  You failed at what you intended, and you also confused people.
+You made a decision to keep running code that old, and thus you are on your own.  You won't spend time figuring out which one of our changes over 2 years might fix the problem you are having, and we won't either.
+Your hopes are misplaced.
+I still think you are a loser.
+If you have endured a real bug for a long time, and not filed a bug report to have it fixed.. and then feel it is your right to scold people who attempt to explain the bug, then quite frankly, then YOU TOTALLY SUCK.
+You are astoundingly naive.  We simply don't need the grief of entertaining users like you.
+Basically what you submitted was not a bug report.
+User is using a heavily tuned kernel and refuses to listen to advice about de-tuning all those things; as a result, noone can help him.
+Holy cow, you are dense.
+You don't know what you are talking about, and you don't seem to have the ability to wrap your mind around all the parts that are involved.
+I am not reading your mails again.
+Totally false.
+You must not be reading the same code I am.
+Your approach is wrong.
+What you just said was utterly careless.
+No.  You misread the code.
+All the many eyes are apparently attached to a lot of hands that type lots of words about many eyes, and never actually audit code.
+I am so bloody dissapointed in the community that uses our stuff.
+What a dismal world view.
+That is a simplistic viewpoint held by your simplistic mind.
+I hope that one day due process is denied you.
+Such an American viewpoint.
+It didn't work out for Don Quixote either.
+You have it entirely backwards.
+But you decided you are special, and don't want us to help us help you.
+Oh good grief, grow up.
+Things change.  Learn to cope.
+Bye bye.
+Stop thinking of only yourself.
+You don't listen well either.
+The comedy just never ends.
+Hahahahaha.  That's a good one.
+I have a hard time believing you.
+You are using FreeBSD, aren't you.
+These programs are all bad.
+If you expected any of us to reply as if we are contractors or your employees, you came to the wrong place.
+If you want the answers you are looking for, do the work yourself.
+That is not our problem.
+If you are not careful, why should we be?
+Enjoy your windmill tilting.
+I should probably ask -- did you even read the panic?  Is the wording too poor to understand (and thus result in peeking at the code) or is the problem above the keyboard?
+Oh, but linux people told you it was the best.  I get it.
+God god, do you live in some stupid fantasy world?
+You already have a prompt that asks you that question.
+Since your PR contains absolutely zero information about your machine I am sending you back to kindergarden.  Because you totally suck.
+We'll be waiting for your fix then.
+Come on.  Read it carefully.
+You have no right to speak.
+It's a pity you don't go jump in a lake and drown yourself.
+Thanks for telling me do so some reading, but a google of your name on these mailing lists will show a 10 year pattern of you not being able to self-help.  Something to do with your parents, probably.
+Hey look everyone, it's another uneducated user mouthing off on a noisy mailing list.  He goes blah blah blah, loving the sound of his own noise.
+I don't see any humility.
+What a load of bullshit.
+You are killing us with hyperbole.  It is now hard to take anything you say seriously.
+FULL STOP.
+Why don't you figure that out.
+Your usage case is "Give me a button to push".
+Balony.
+Anyways, who cares.
+We couldn't care what you believe, unless you have diffs of your own to submit.
+You're kidding.
+You are making up rules as you go along.  Why don't you go read the code?
+Oh cut the crap.
+Frankly, I think you are a whiner.
+In your dreams..
+No.  You must be at least this tall to use OpenBSD; sorry -- you are a midget.
+You've got it all wrong.
+You'll experience anguish, and then if you try to ask for sympathy a lot of people will laugh at you.
+I don't know for certain, but I believe you are just making things up as you go along, because you are nothing but a troll.
+In summary -- the entire effort is a complete load of crap.
+Oh come on, admit it, you are wrong.
+That's a lot of words.
+Sorry, but I have lost all appetite to help you.
+Oh sorry, I forgot to think like an American for a second there.
+If you have so many ideas you should go ahead and start your own project.  Good luck building a successfull project based on 'ideas'.
+I'm not even going to read to the end.
+You are a prick.
+Tell linus.  You can google for his email address. 
+Just pathetic.  Hope you actually get a life sometime.
+Wrong.
+You missed the point.
+Don't worry.  Most of us see your name and at that moment delete the mail.  This reply is an exception.
+You realize that you are going to run into thousands of other problems as a result of that practice?
+What you suggest is absolute rubbish. It is just talk -- not action -- but furthermore you don't have a clue what you are talking about.
+Really.  How interesting.
+Let's keep it simple.  Why don't you just go away, and stop acting the fool?
+I am just plain fed up with the bullshit you cowards spew.
+I don't believe you.  You suggested it because you only thought of your own benefit, not of the amount of work others would have to do.
+Have you thought this through, at all?
+Some days I want to just quit and say fuck it all.
+All I ever wanted was a hobby. If this pathetic slob doesn't like our hobby, they should stop relying on it.
+Let idiots suffer on their own.
+The point is that you are a crybaby.
+We really are not interested in the story of your life.
+So you presume.
+You probably rape children in your spare time, and here you are, yelling at us for violating your perceived entitlement.
+Can you please leave?
+Now, again, please leave.
+You know, you have an option available to you regarding this. You could come to the conclusion that you are not entitled and stop posting, and it will work out better in the long term. I did not read anything more you said.
+Your attitude stinks.  Good luck with life.
+Pulease...
+I don't know who you are, but you do nothing.  What do you do?
+I don't see your name on any the source code. So you shut up, loser.  Just go away.
+Perhaps we made mistakes.  Perhaps they'll be changed. But you are just spouting bullshit.
+I am not being sarcastic.  I truly am sick of having my time wasted.
+Yes you are wrong, and damn infuriating too.
+You need to learn how to listen.
+Read what it says.
+You just like listening to yourself talk.  Shut up.
+Can you please stop acting as if you are smarter than us?  I am sorry to say it, but we have thought this through for many hours by the time you show up to "play system designer".
+I don't see the point.
+Please don't.
+The best part is that noone cares about that.
+It is disgraceful to see what type of code being written these days.
+You accept how we do it, and you will shut up, or less service will be provided in the future.
+If you don't like it, run something else.
+I don't care.
+I don't give a shit.
+I really don't give a shit what you admire or not. 
+You are a whiny snively jerk, and every time you open your mouth I go work on something else.
+Your sense of self-importance just makes other people not even want to try.
+I could not give a rats ass what you say.
+You just plain don't understand the problem.
+Your attitude is not very nice.
+You had me going for a moment.
+Wow, your process stinks.
+You need to read more carefully.
+If you are just grandstanding, please stop.
+Ah, we have another talker in the house.
+Perhaps you should get a good delicing. 
+You'll never be a developer, so who cares?
+Oh my god, the tears!  Look at his tears!
+Just give it up and get lost.
+Wow, you sure like to make presumptions.
+Thing is, you won't get help here.
+Your lack of any attempt to educate yourself is your problem.
+No, no no no no.
+No.  You have it wrong.  Go back to reading school.
+Come on.. stop making assumptions.
+We are not believers in buttons.  Knobs are for knobs.
+Oh yeah, that's a great idea!
+I'm making fun of you.
