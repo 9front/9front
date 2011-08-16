@@ -474,11 +474,10 @@ uartctl(Uart *p, char *cmd)
 			break;
 		case 'X':
 		case 'x':
-			if(p->enabled){
-				ilock(&p->tlock);
-				p->xonoff = n;
-				iunlock(&p->tlock);
-			}
+			ilock(&p->tlock);
+			p->xonoff = n;
+			p->blocked = 0;
+			iunlock(&p->tlock);
 			break;
 		}
 	}

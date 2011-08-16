@@ -431,6 +431,8 @@ consproc(void *)
 		while(p < x && fullrune(p, x - p)){
 			p += chartorune(&r, p);
 			if(r){
+				if(r == 021 || r == 023)	/* XON/XOFF */
+					continue;
 				if(r == '\n' && cr){
 					cr = 0;
 					continue;
@@ -1232,7 +1234,6 @@ elevate(void)
 	}
 
 	close(fd);
-	
 }
 
 void
