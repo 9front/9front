@@ -56,16 +56,16 @@ test.iso: 9bootiso
 	mkdir tmp
 	mkdir tmp/386
 	cp 9bootiso tmp/386
-	cp /386/9pccd tmp/386
+	cp /386/9pcf tmp/386
 	mkdir tmp/cfg
 	echo 'bootfile=/386/9pccd' >tmp/cfg/plan9.ini
 	disk/mk9660 -B 386/9bootiso -p /sys/lib/sysconfig/proto/allproto -s tmp $target
 	rm -fr tmp
 
-test.dsk: 9bootfat mbr pbs 
+test.dsk: 9bootfat mbr pbs test.iso
 	rm -fr tmp $target
 	mkdir tmp
-	cp 9bootfat tmp
+	cp test.iso 9bootfat tmp
 	mkdir tmp/386
 	cp /386/9pcf tmp/386
 	echo 'bootfile=/386/9pcf' >tmp/plan9.ini
