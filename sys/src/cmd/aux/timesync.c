@@ -1273,6 +1273,7 @@ sample(long (*get)(void))
 	last = (*get)();
 	for(;;){
 		gettime(&start, 0, 0);
+		sleep(5);
 		this = (*get)();
 		gettime(&end, 0, 0);
 		if(this != last)
