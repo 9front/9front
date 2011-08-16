@@ -25,6 +25,7 @@ if(! bind -a '#u' /dev)
 		}
 	}
 	fn detach {
+		# handled /sys/src/9/boot/nusbrc
 	}
 	rc < '#σ/usb/usbevent' &
 }

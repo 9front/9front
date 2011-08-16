@@ -17,16 +17,13 @@ if(! nusb/usbd)
 			@{
 				rfork ne
 				cd '#σ/usb'
-				for(dev in sdU^$1.*){
-					echo $dev...
+				for(dev in sdU^$1.*) if(test -d $dev) {
 					diskparts $dev
-					for(part in $dev/dos* $dev/9fat){
-						if(test -r $part) {
-							mkdir -m 0700 '#σc/'^$dev
-							{dossrv -s -f $part &} <[0=1] |
-								echo 0 >'#σc/'^$dev/dos
-							exit
-						}
+					for(part in $dev/dos* $dev/9fat) if(test -r $part) {
+						mkdir -m 0700 '#σc/'^$dev || exit
+						{dossrv -s -f $part &} <[0=1] |
+							echo 0 >'#σc/'^$dev/dos
+						exit
 					}
 				}
 			} &
