@@ -14,6 +14,11 @@ if(fat $1 54 || fat $1 82){
 	echo dos
 	exit
 }
+m=`{dd -if $1 -bs 4 -count 1 >[2]/dev/null | xd | sed 's,0000000  ,,;q'}
+if(~ $"m 529ab12b){
+	echo paqfs
+	exit
+}
 dd -if $1 -count 1 >[2]/dev/null | \
 awk '
 /^kfs/{fs["kfs"]++}
