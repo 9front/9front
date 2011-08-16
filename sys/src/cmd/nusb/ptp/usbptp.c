@@ -122,10 +122,13 @@ isinterrupt(void)
 static int
 usbread(Dev *ep, void *data, int len)
 {
-	int n;
+	int n, try;
 
-	for(;;){
+	n = 0;
+	for(try = 0; try < 4; try++){
 		n = read(ep->dfd, data, len);
+		if(n == 0)
+			continue;
 		if(n >= 0 || !isinterrupt())
 			break;
 	}
@@ -135,10 +138,13 @@ usbread(Dev *ep, void *data, int len)
 static int
 usbwrite(Dev *ep, void *data, int len)
 {
-	int n;
+	int n, try;
 
-	for(;;){
+	n = 0;
+	for(try = 0; try < 4; try++){
 		n = write(ep->dfd, data, len);
+		if(n == 0)
+			continue;
 		if(n >= 0 || !isinterrupt())
 			break;
 	}
@@ -198,7 +204,7 @@ ptpcheckerr(Ptprpc *rpc, int type, int transid, int length)
 	char *s;
 
 	if(length < 4+2+2+4){
-		werrstr("short response");
+		werrstr("short response: %d < %d", length, 4+2+2+4);
 		return -1;
 	}
 	if(GET4(rpc->length) < length){
@@ -291,6 +297,7 @@ ptprpc(int code, int flags, ...)
 
 		if((n = usbread(usbep[In], &rpc, sizeof(rpc))) < 0)
 			return -1;
+		
 		if(debug)
 			hexdump("data<", (uchar*)&rpc, n);
 		if(ptpcheckerr(&rpc, 2, t, n))
