@@ -27,9 +27,27 @@ typedef struct Filelist	Filelist;
 typedef struct Tree		Tree;
 typedef struct Readdir	Readdir;
 typedef struct Srv Srv;
+typedef struct Reqqueue Reqqueue;
+typedef struct Queueelem Queueelem;
 
 #pragma incomplete Filelist
 #pragma incomplete Readdir
+
+struct Queueelem
+{
+	Queueelem *prev, *next;
+	void (*f)(Req *);
+};
+
+struct Reqqueue
+{
+	QLock;
+	Rendez;
+	Queueelem;
+	int pid;
+	Req *cur;
+	jmp_buf flush;
+};
 
 struct Fid
 {
@@ -60,6 +78,8 @@ struct Req
 	Fid*		afid;
 	Fid*		newfid;
 	Srv*		srv;
+	
+	Queueelem qu;
 
 /* below is implementation-specific; don't use */
 	QLock	lk;
@@ -255,3 +275,7 @@ int		authattach(Req*);
 
 extern void (*_forker)(void (*)(void*), void*, int);
 
+Reqqueue*	reqqueuecreate(void);
+void		reqqueuepush(Reqqueue*, Req*, void (*)(Req *));
+void		reqqueueflush(Reqqueue*, Req*);
+int		reqqueueflushed(void);

@@ -12,6 +12,7 @@ OFILES=\
 	req.$O\
 	parse.$O\
 	post.$O\
+	queue.$O\
 	rfork.$O\
 	srv.$O\
 	thread.$O\
