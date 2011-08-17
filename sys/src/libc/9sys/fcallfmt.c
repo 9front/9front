@@ -78,7 +78,7 @@ fcallfmt(Fmt *fmt)
 			f->qid.path, f->qid.vers, qidtype(tmp, f->qid.type), f->iounit);
 		break;
 	case Tcreate:	/* 114 */
-		seprint(buf, e, "Tcreate tag %ud fid %ud name %s perm %M mode %d", tag, fid, f->name, (ulong)f->perm, f->mode);
+		seprint(buf, e, "Tcreate tag %ud fid %ud name %s perm 0%luo mode %d", tag, fid, f->name, (ulong)f->perm, f->mode);
 		break;
 	case Rcreate:
 		seprint(buf, e, "Rcreate tag %ud qid " QIDFMT " iounit %ud ", tag,
