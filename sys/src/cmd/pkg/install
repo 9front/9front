@@ -6,7 +6,7 @@ if(~ $#pkgpath 0)
 cd /
 mkdir -p /sys/lib/pkg
 if (test -s /sys/lib/pkg/$1) {
-	echo $i already installed
+	echo $1 already installed
 	exit
 }
 echo Installing $1

@@ -56,6 +56,7 @@ void main(int argc, char *argv[]) {
 	struct th th;
 	ulong off;
 	uchar b[512];
+	char err[ERRMAX];
 	DigestState *s;
 	int r, wfd;
 
@@ -76,13 +77,18 @@ void main(int argc, char *argv[]) {
 			sysfatal("%r", th.name);
 		s = nil;
 		for(off=0; off<th.size; off+=512) {
-			int n = th.size-off;
-			n = n<512 ? n : 512;
-			if(readn(0, b, 512) != 512)
-				sysfatal("%r");
-			if(write(wfd, b, n) != n)
-				sysfatal("%s: %r", th.name);
-			s = sha1(b, n, nil, s);
+			if(readn(0, b, 512) == 512){
+				if((r = th.size-off) > 512)
+					r = 512;
+				if(write(wfd, b, r) == r){
+					s = sha1(b, r, nil, s);
+					continue;
+				}
+			}
+			errstr(err, sizeof(err));
+			remove(th.name);
+			errstr(err, sizeof(err));
+			sysfatal("%s: %r", th.name);
 		}
 
 		uchar digest[20], hdigest[41];
