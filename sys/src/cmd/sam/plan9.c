@@ -136,10 +136,10 @@ emalloc(ulong n)
 {
 	void *p;
 
-	p = malloc(n);
+	p = mallocz(n, 1);
 	if(p == 0)
 		panic("malloc fails");
-	memset(p, 0, n);
+	setmalloctag(p, getcallerpc(&n));
 	return p;
 }
 
@@ -149,5 +149,6 @@ erealloc(void *p, ulong n)
 	p = realloc(p, n);
 	if(p == 0)
 		panic("realloc fails");
+	setmalloctag(p, getcallerpc(&p));
 	return p;
 }
