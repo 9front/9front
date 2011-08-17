@@ -3,7 +3,7 @@
 shr \- global mountpoints
 .SH SYNOPSIS
 .nf
-.B bind -a '#σ/share' /dev
+.B bind '#σ' /shr
 
 .BI #σ/ share1
 .BI #σc/ share1/service1
@@ -23,7 +23,8 @@ private namespaces.
 .PP
 The
 .I shr
-device exports a mount tree and a control tree. The directories
+device exports a mount tree and a control tree.
+The directories
 in the mount tree
 .BI #σ
 are the share mountpoints themselve and in the control tree

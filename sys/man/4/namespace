@@ -56,6 +56,8 @@ Time zone description for the local time zone; a copy of one of the other files 
 .TP
 .B /srv
 .TP
+.B /shr
+.TP
 .B /tmp
 All empty unwritable directories, place holders for mounted services and directories.
 .TP
@@ -368,6 +370,11 @@ which provides debugging access to active processes.
 Mounted here is the dup device,
 .IR dup (3),
 which holds pseudonyms for open file descriptors.
+.TP
+.B /shr
+Mounted here is the global mountpoint device,
+.IR shr (3),
+which holds mounted filesystems visible in all namespaces.
 .TP
 .B /srv
 Mounted here is the service registry,
