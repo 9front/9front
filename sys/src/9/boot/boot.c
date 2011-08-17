@@ -33,6 +33,7 @@ boot(int argc, char *argv[])
 			print("%lux %s ", (ulong)argv[i], argv[i]);
 		print("\n");
 	}
+	USED(argc);
 
 	readfile("#e/cputype", cputype, sizeof(cputype));
 	setenv("bootdisk", bootdisk, 0);

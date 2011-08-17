@@ -209,7 +209,7 @@ struct Dev
 	Walkqid*(*walk)(Chan*, Chan*, char**, int);
 	int	(*stat)(Chan*, uchar*, int);
 	Chan*	(*open)(Chan*, int);
-	void	(*create)(Chan*, char*, int, ulong);
+	Chan*	(*create)(Chan*, char*, int, ulong);
 	void	(*close)(Chan*);
 	long	(*read)(Chan*, void*, long, vlong);
 	Block*	(*bread)(Chan*, long, ulong);

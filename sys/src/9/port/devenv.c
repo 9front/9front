@@ -137,7 +137,7 @@ envopen(Chan *c, int omode)
 	return c;
 }
 
-static void
+static Chan*
 envcreate(Chan *c, char *name, int omode, ulong)
 {
 	Egrp *eg;
@@ -183,6 +183,7 @@ envcreate(Chan *c, char *name, int omode, ulong)
 	c->offset = 0;
 	c->mode = omode;
 	c->flag |= COPEN;
+	return c;
 }
 
 static void

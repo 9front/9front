@@ -418,7 +418,10 @@ shropen(Chan *c, int omode)
 	return c;
 }
 
-static void
+/* chan.c */
+Chan* createdir(Chan *c, Mhead *m);
+
+static Chan*
 shrcreate(Chan *c, char *name, int omode, ulong perm)
 {
 	Sch *sch;
@@ -426,17 +429,34 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 	Mpt *mpt;
 	Mhead *h;
 	Mount *m;
+	Chan *nc;
 
 	sch = tosch(c);
 	switch(sch->level){
-	default:
-		error(Enocreate);
 	case Qcroot:
 	case Qcshr:
 		if(strcmp(up->user, "none") == 0)
 			error(Eperm);
 	}
 	switch(sch->level){
+	default:
+		error(Eperm);
+	case Qshr:
+		incref(c);
+		if(waserror()){
+			cclose(c);
+			nexterror();
+		}
+		nc = createdir(c, &sch->shr->umh);
+		poperror();
+		if(waserror()){
+			cclose(nc);
+			nexterror();
+		}
+		nc = devtab[nc->type]->create(nc, name, omode, perm);
+		poperror();
+		cclose(c);
+		return nc;	
 	case Qcroot:
 		if((perm & DMDIR) == 0 || openmode(omode) != OREAD)
 			error(Eperm);
@@ -498,6 +518,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 		mpt->perm = perm;
 
 		incref(mpt);
+		mpt->m.mflag = (h->mount == nil) ? MCREATE : 0;
 		mpt->m.head = h;
 		mpt->m.next = h->mount;
 		h->mount = &mpt->m;
@@ -511,6 +532,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 	}
 	c->flag |= COPEN;
 	c->mode = openmode(omode);
+	return c;
 }
 
 static void

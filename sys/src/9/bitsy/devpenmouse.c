@@ -214,12 +214,13 @@ penmouseopen(Chan *c, int omode)
 	return c;
 }
 
-static void
+static Chan*
 penmousecreate(Chan*, char*, int, ulong)
 {
 	if(!conf.monitor)
 		error(Egreg);
 	error(Eperm);
+	return 0;
 }
 
 static void

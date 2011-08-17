@@ -208,12 +208,13 @@ mouseopen(Chan *c, int omode)
 	return c;
 }
 
-static void
+static Chan*
 mousecreate(Chan*, char*, int, ulong)
 {
 	if(!conf.monitor)
 		error(Egreg);
 	error(Eperm);
+	return 0;
 }
 
 static void

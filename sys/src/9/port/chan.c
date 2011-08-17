@@ -1592,7 +1592,7 @@ if(c->umh != nil){
 			cnew->path = c->path;
 			incref(cnew->path);
 
-			devtab[cnew->type]->create(cnew, e.elems[e.nelems-1], omode&~(OEXCL|OCEXEC), perm);
+			cnew = devtab[cnew->type]->create(cnew, e.elems[e.nelems-1], omode&~(OEXCL|OCEXEC), perm);
 			poperror();
 			if(omode & OCEXEC)
 				cnew->flag |= CCEXEC;

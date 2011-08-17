@@ -7,6 +7,7 @@ dev
 	proc
 	mnt
 	srv
+	shr
 	dup
 	arch
 	ssl

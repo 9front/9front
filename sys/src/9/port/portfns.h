@@ -61,7 +61,7 @@ Block*		devbread(Chan*, long, ulong);
 long		devbwrite(Chan*, Block*, ulong);
 Chan*		devclone(Chan*);
 int		devconfig(int, char *, DevConf *);
-void		devcreate(Chan*, char*, int, ulong);
+Chan*		devcreate(Chan*, char*, int, ulong);
 void		devdir(Chan*, Qid, char*, vlong, char*, long, Dir*);
 long		devdirread(Chan*, char*, long, Dirtab*, int, Devgen*);
 Devgen		devgen;

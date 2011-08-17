@@ -68,6 +68,8 @@ LIB=\
 	/$objtype/lib/libip.a\
 	/$objtype/lib/libsec.a\
 	/$objtype/lib/libc.a\
+	/$objtype/lib/libmp.a\
+	/$objtype/lib/libfis.a\
 
 9:V: $p$CONF s$p$CONF
 

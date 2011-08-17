@@ -53,9 +53,11 @@ etheropen(Chan* chan, int omode)
 	return netifopen(etherxx[chan->dev], chan, omode);
 }
 
-static void
+static Chan*
 ethercreate(Chan*, char*, int, ulong)
 {
+	error(Eperm);
+	return 0;
 }
 
 static void

@@ -383,10 +383,11 @@ Return:
 	return c;
 }
 
-void
+Chan*
 devcreate(Chan*, char*, int, ulong)
 {
 	error(Eperm);
+	return 0;
 }
 
 Block*
