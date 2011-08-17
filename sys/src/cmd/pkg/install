@@ -1,4 +1,4 @@
-#!/bin/rc -e
+#!/bin/rc
 
 if(~ $#pkgpath 0)
 	pkgpath=http://pkg.violetti.org/$cputype
@@ -14,6 +14,6 @@ if(~ $pkgpath ftp* http*)
 	cmd=hget
 if not
 	cmd=cat
-$cmd $pkgpath/$1.tbz | bunzip2 | pkg/unpkg>[2]/sys/lib/pkg/$1
-echo Done
-
+if(! $cmd $pkgpath/$1.tbz | bunzip2 | pkg/unpkg >/sys/lib/pkg/$1)
+	if(! test -s /sys/lib/pkg/$1)
+		rm -f /sys/lib/pkg/$1
