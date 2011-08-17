@@ -1,4 +1,4 @@
-$cputype
+$objtype
 	bin
 		9660srv
 		awk
