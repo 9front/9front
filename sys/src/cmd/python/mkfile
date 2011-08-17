@@ -47,6 +47,9 @@ clean:V:
 		cd $i
 		mk $target
 	}
-	rm -f *.[$OS] [$OS].out y.tab.? y.debug y.output libextra.a$O
+	rm -f *.[$OS] [$OS].out y.tab.? y.debug y.output $OFILES
 	rm -f Extra/config config.c
+
+nuke:V:
+	mk clean
 	rm -f /$objtype/lib/ape/libpython.a
