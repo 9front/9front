@@ -48,7 +48,7 @@ upon attachment of the device to the bus. All drivers except
 take the decimal usb 
 .I devid
 of the device they should handle as ther last argument. A
-drivers instance handles only one device at a time.
+driver's instance handles only one device at a time.
 .PP
 Drivers that provide file systems make them available as shares under
 .B /shr
@@ -65,9 +65,9 @@ Options
 .B \-d
 and
 .B \-D
-present on most drivers trigger debug diagnostics and
-file system debugging diagnostics.
-Repeating any one of these may increase verbosity.
+trigger debug diagnostics and file system debugging
+diagnostics for most drivers. Repeating any one of these may
+increase verbosity.
 .SS Hubs
 .I Usbd
 enumerates the tree of USB hubs and configures the device on
@@ -75,7 +75,7 @@ attachment. It provides a filesystem with the the file
 .B usbevent
 (usualy seen as
 .BR /dev/usbevent )
-wich when read, returns a 5 column space separated line of
+which, when read, returns a 5 column, space separated line of
 text, one for each event. The columns are:
 .B attach
 or
@@ -109,11 +109,11 @@ The option
 .B \-a
 accelerates the mouse to level
 .I n
-(similar to the kernel mouse driver acceleration).
+(similar to the kernel's mouse driver acceleration).
 .SS Disks
 .I Disk
 configures and manages USB mass storage devices. It
-provides a file system (usually seen at
+provides a file system (usually seen under
 .BR /dev )
 that includes one directory per storage device, named
 .BI sdU N . M
@@ -137,28 +137,26 @@ The
 file supplies the device geometry and partitions when read.
 .SS Serial and JTAG ports
 .I Serial
-provides a file system (usually seen at
+provides a file system (usually seen under
 .BR /dev )
-that includes two files,
-.BI eiaU N ,
+that includes one directory per USB serial port, named
+.BI eiaU N
+or
+.BI eiaU N . M.
+In this directory there are two files,
+.BR eiaU ,
 similar to
 .BI eia N
 in
-.IR uart (3)
-but where
-.I N
-is the
-.I devid
-or
-.IR devid . lun,
+.IR uart (3),
 and
-.BI eiaU N ctl,
+.BR eiaUctl ,
 which admits writes in the same format as
 .BI eia N ctl
 in
 .IR uart (3).
 Reading from
-.BI eiaU N ctl
+.B eiaUctl
 gives the serial port's settings in the same format as
 .BI eia N status
 in
@@ -168,24 +166,19 @@ Options are similar to those of
 .PP
 JTAG ports are similar
 but the files are named
-.BI jtag N
+.B jtag
 and
-.BI jtag N ctl .
+.BR jtagctl .
 .
 .SS Audio devices
 .I Audio
 configures and manages a USB audio device.
-It implements a file system, (normally seen at
+It implements a file system, (normally seen under
 .BI /dev )
-containing files
+containing the files
 .BR volume
 and
 .BR audio .
-.SS Ptp devices
-.I Ptp
-supports PTP (picture transfer protocol) devices like cameras.
-The filesystem can be accessed under
-.BI /shr/sdU devid .0 .
 .SH SOURCE
 .B /sys/src/cmd/nusb
 .SH "SEE ALSO"
@@ -198,7 +191,7 @@ The filesystem can be accessed under
 .IR kbdfs (8)
 .SH BUGS
 The various device drivers are generic USB drivers and
-may work only for certain devices on each class.
+may work only for certain devices of each class.
 .PP
 USB ATA storage devices are not supported.
 .PP
@@ -207,6 +200,6 @@ and control of the
 .B dcd
 and
 .B dsr
-signals and some of the extra features are unimplemented.
+signals and some of the extra features are not implemented.
 For Ftdi, only the Sheevaplug and Guruplug have been tried.
 There is support for the EHCI debug port, but it loses bytes.
