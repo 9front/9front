@@ -139,24 +139,26 @@ file supplies the device geometry and partitions when read.
 .I Serial
 provides a file system (usually seen at
 .BR /dev )
-that includes one directory per USB serial port, named
-.BI eiaU N
-or
-.BI eiaU N . M.
-In this directory there are two files,
-.BR eiaU ,
+that includes two files,
+.BI eiaU N ,
 similar to
 .BI eia N
 in
-.IR uart (3),
+.IR uart (3)
+but where
+.I N
+is the
+.I devid
+or
+.IR devid . lun,
 and
-.BR eiaUctl ,
+.BI eiaU N ctl,
 which admits writes in the same format as
 .BI eia N ctl
 in
 .IR uart (3).
 Reading from
-.B eiaUctl
+.BI eiaU N ctl
 gives the serial port's settings in the same format as
 .BI eia N status
 in
@@ -166,9 +168,9 @@ Options are similar to those of
 .PP
 JTAG ports are similar
 but the files are named
-.B jtag
+.BI jtag N
 and
-.BR jtagctl .
+.BI jtag N ctl .
 .
 .SS Audio devices
 .I Audio
@@ -179,6 +181,11 @@ containing files
 .BR volume
 and
 .BR audio .
+.SS Ptp devices
+.I Ptp
+supports PTP (picture transfer protocol) devices like cameras.
+The filesystem can be accessed under
+.BI /shr/sdU devid .0 .
 .SH SOURCE
 .B /sys/src/cmd/nusb
 .SH "SEE ALSO"
