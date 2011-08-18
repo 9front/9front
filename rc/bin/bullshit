@@ -1,4 +1,8 @@
 #!/bin/rc
+if(~ $#1 0)
+	file=/lib/bullshit
+if not
+	file=$1
 awk '
 function min(a, b){
 	if(a > b)
@@ -48,4 +52,4 @@ END {
 		printf "%s ", end[int(rand() * nend)]
 	print ""
 }
-' /lib/bullshit
+' $file
