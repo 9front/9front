@@ -13,7 +13,7 @@ cpurc, cpurc.local, termrc, termrc.local \- boot scripts
 After the kernel boots, it execs
 .B /boot
 (see
-.IR root (3)),
+.IR boot (8)),
 which in turn execs
 .BR /$cputype/init .
 .IR Init (8)
@@ -82,7 +82,7 @@ machine-specific boot script for
 .br
 .B /cfg/$sysname/*rc
 .SH "SEE ALSO"
-.IR srv (4),
 .IR namespace (6),
+.IR boot (8)
 .IR init (8),
 .IR listen (8)
