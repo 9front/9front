@@ -1,0 +1,10 @@
+.TH MEMORY 8
+.SH NAME
+memory \- print memory statistics in human-readable format
+.SH SYNOPSIS
+.B memory
+.SH DESCRIPTION
+.I Memory
+prints statistics about the total system memory, followed by the memory that is currently use.
+.SH SOURCE
+.B /rc/bin/memory
