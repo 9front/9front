@@ -1,0 +1,23 @@
+.TH NUSBRC 8
+.SH NAME
+nusbrc - Universal Serial Bus startup script
+.SH SYNOPSIS
+.B nusbrc
+.SH DESCRIPTION
+Started by
+.I bootrc
+(see
+.IR boot (8)),
+.I termrc
+or
+.I cpurc
+(see
+.IR cpurc (8)),
+.I nusbrc
+handles the startup and shutdown of usb drivers on physical
+device attach and detach events.
+.SH SOURCE
+.B /rc/bin/nusbrc
+.B /sys/src/9/boot/nusbrc
+.SH "SEE ALSO"
+.IR nusb (4)

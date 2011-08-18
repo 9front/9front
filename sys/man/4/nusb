@@ -1,0 +1,205 @@
+.TH NUSB 4
+.SH NAME
+audio,
+disk,
+kb,
+serial,
+ptp,
+usbd - Universal Serial Bus drivers
+.SH SYNOPSIS
+.B nusb/audio
+.I devid
+.PP
+.B nusb/disk
+[
+.B -d
+]
+.I devid
+.PP
+.B nusb/kb
+[
+.B -d
+] [
+.B -a
+.I n
+] 
+.I devid
+.PP
+.B nusb/serial
+[
+.B -d
+]
+.I devid
+.PP
+.B nusb/ptp
+[
+.B -dD
+]
+.I devid
+.PP
+.B nusb/usbd
+.SH DESCRIPTION
+These programs drive USB devices of specific classes via
+.IR usb (3).
+Usually they are started by
+.IR nusbrc (8)
+upon attachment of the device to the bus. All drivers except
+.I usbd
+take the decimal usb 
+.I devid
+of the device they should handle as ther last argument. A
+drivers instance handles only one device at a time.
+.PP
+Drivers that provide file systems make them available as shares under
+.B /shr
+(see
+.IR shr (3))
+or
+.BR /shr/usb
+(wich is bound after
+.BR /dev
+by
+.IR nusbrc (8)). 
+.PP
+Options
+.B \-d
+and
+.B \-D
+present on most drivers trigger debug diagnostics and
+file system debugging diagnostics.
+Repeating any one of these may increase verbosity.
+.SS Hubs
+.I Usbd
+enumerates the tree of USB hubs and configures the device on
+attachment. It provides a filesystem with the the file
+.B usbevent
+(usualy seen as
+.BR /dev/usbevent )
+wich when read, returns a 5 column space separated line of
+text, one for each event. The columns are:
+.B attach
+or
+.B detach
+.I devid
+.I vid
+.I did
+and
+.I csp .
+All but
+.I devid
+are formated as 4 digit hexadecimal. This file is read by
+.IR nusbrc (8)
+and the
+.I devid
+is passed to a suitable driver.
+.SS Keyboards and mice
+.I Kb
+supports USB keyboards and mice either as separate USB devices
+or as a single combined USB device.
+Scan codes from the keyboard are sent to
+.B /dev/kbin
+to let
+.IR kbdfs (8)
+process them.
+Mouse events are sent to
+.BR /dev/mousein
+in the same way.
+.PP
+The option
+.B \-a
+accelerates the mouse to level
+.I n
+(similar to the kernel mouse driver acceleration).
+.SS Disks
+.I Disk
+configures and manages USB mass storage devices. It
+provides a file system (usually seen at
+.BR /dev )
+that includes one directory per storage device, named
+.BI sdU N . M
+in correspondence with the usb device number and the storage
+unit number (or LUN).
+For example, LUN number 2 on
+.B /dev/usb/ep3.0
+can be accessed through
+.BR /dev/sdU3.2 .
+.PP
+The storage device directory contains the usual files
+served by
+.IR sd (3):
+.BR data ,
+.BR raw ,
+and
+.BR ctl .
+.PP
+The
+.B ctl
+file supplies the device geometry and partitions when read.
+.SS Serial and JTAG ports
+.I Serial
+provides a file system (usually seen at
+.BR /dev )
+that includes one directory per USB serial port, named
+.BI eiaU N
+or
+.BI eiaU N . M.
+In this directory there are two files,
+.BR eiaU ,
+similar to
+.BI eia N
+in
+.IR uart (3),
+and
+.BR eiaUctl ,
+which admits writes in the same format as
+.BI eia N ctl
+in
+.IR uart (3).
+Reading from
+.B eiaUctl
+gives the serial port's settings in the same format as
+.BI eia N status
+in
+.IR uart (3).
+Options are similar to those of
+.IR disk .
+.PP
+JTAG ports are similar
+but the files are named
+.B jtag
+and
+.BR jtagctl .
+.
+.SS Audio devices
+.I Audio
+configures and manages a USB audio device.
+It implements a file system, (normally seen at
+.BI /dev )
+containing files
+.BR volume
+and
+.BR audio .
+.SH SOURCE
+.B /sys/src/cmd/nusb
+.SH "SEE ALSO"
+.IR mouse (3),
+.IR sd (3),
+.IR uart (3),
+.IR usb (3),
+.IR shr (3),
+.IR nusbrc (8),
+.IR kbdfs (8)
+.SH BUGS
+The various device drivers are generic USB drivers and
+may work only for certain devices on each class.
+.PP
+USB ATA storage devices are not supported.
+.PP
+The serial driver works only for the Prolific chip and Ftdi,
+and control of the
+.B dcd
+and
+.B dsr
+signals and some of the extra features are unimplemented.
+For Ftdi, only the Sheevaplug and Guruplug have been tried.
+There is support for the EHCI debug port, but it loses bytes.
