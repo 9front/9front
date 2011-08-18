@@ -16,7 +16,7 @@ The
 device provides global mountpoints in the form of share directories
 where
 .IR 9P
-services can be mounted on.
+services can be mounted.
 
 Effectively, it is a global mountpoint registry that is separate from
 private namespaces.
@@ -27,9 +27,9 @@ device exports a mount tree and a control tree.
 The directories
 in the mount tree
 .BI #σ
-are the share mountpoints themselve and in the control tree
+are the share mountpoints themselves, while the control tree
 .BI #σc
-share directories list the service files of the share.
+lists the service files of the share.
 .PP
 To create a new share, create the directory
 .B #σc/myshare
