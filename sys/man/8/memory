@@ -5,6 +5,9 @@ memory \- print memory statistics in human-readable format
 .B memory
 .SH DESCRIPTION
 .I Memory
-prints statistics about the total system memory, followed by the memory that is currently use.
+prints statistics about the total system memory, followed by
+the memory that is currently use, by concatenating the file
+.B /dev/swap
+and filtering the output for human consumption.
 .SH SOURCE
 .B /rc/bin/memory
