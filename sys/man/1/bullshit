@@ -1,0 +1,20 @@
+.TH BULLSHIT 1
+.SH NAME
+bullshit \- assemble a stream of bullshit from words in a file
+.SH SYNOPSIS
+.B bullshit
+[
+.I file
+]
+.SH DESCRIPTION
+.I Bullshit
+prints a one-line nonsense phrase assembled from random words.
+If a
+.I file
+is specified, the words are taken from that file;
+otherwise they are selected from
+.BR /lib/bullshit .
+.SH FILES
+.B /lib/bullshit
+.SH SOURCE
+.B /rc/bin/bullshit
