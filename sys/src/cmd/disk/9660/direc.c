@@ -32,7 +32,7 @@ strecmp(char *a, char *ea, char *b)
 
 	if(b[ea-a] == '\0')
 		return 0;
-	return 1;
+	return -1;
 }
 
 /*
