@@ -682,31 +682,19 @@ rwstat(Req*, char*)
 {
 }
 
-void
-srv(Srv *srv)
+static void
+srvwork(void *v)
 {
+	Srv *srv = v;
 	Req *r;
 
-	fmtinstall('D', dirfmt);
-	fmtinstall('F', fcallfmt);
-
-	if(srv->fpool == nil)
-		srv->fpool = allocfidpool(srv->destroyfid);
-	if(srv->rpool == nil)
-		srv->rpool = allocreqpool(srv->destroyreq);
-	if(srv->msize == 0)
-		srv->msize = 8192+IOHDRSZ;
-
-	changemsize(srv, srv->msize);
-
-	srv->fpool->srv = srv;
-	srv->rpool->srv = srv;
-
+	incref(&srv->sref);
 	while(r = getreq(srv)){
 		if(r->error){
 			respond(r, r->error);
 			continue;	
 		}
+		qlock(&srv->slock);
 		switch(r->ifcall.type){
 		default:
 			respond(r, "unknown message");
@@ -725,7 +713,10 @@ srv(Srv *srv)
 		case Tstat:	sstat(srv, r);	break;
 		case Twstat:	swstat(srv, r);	break;
 		}
+		qunlock(&srv->slock);
 	}
+	if(decref(&srv->sref))
+		return;
 
 	free(srv->rbuf);
 	srv->rbuf = nil;
@@ -739,6 +730,42 @@ srv(Srv *srv)
 
 	if(srv->end)
 		srv->end(srv);
+}
+
+void
+srvacquire(Srv *srv)
+{
+	incref(&srv->sref);
+	qlock(&srv->slock);
+}
+
+void
+srvrelease(Srv *srv)
+{
+	if(decref(&srv->sref) == 0)
+		_forker(srvwork, srv, 0);
+	qunlock(&srv->slock);
+}
+
+void
+srv(Srv *srv)
+{
+	fmtinstall('D', dirfmt);
+	fmtinstall('F', fcallfmt);
+
+	if(srv->fpool == nil)
+		srv->fpool = allocfidpool(srv->destroyfid);
+	if(srv->rpool == nil)
+		srv->rpool = allocreqpool(srv->destroyreq);
+	if(srv->msize == 0)
+		srv->msize = 8192+IOHDRSZ;
+
+	changemsize(srv, srv->msize);
+
+	srv->fpool->srv = srv;
+	srv->rpool->srv = srv;
+
+	srvwork(srv);
 }
 
 void

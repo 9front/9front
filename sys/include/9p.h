@@ -231,6 +231,9 @@ struct Srv {
 	QLock	wlock;
 	
 	char*	addr;
+
+	QLock	slock;
+	Ref	sref;
 };
 
 void		srv(Srv*);
@@ -274,6 +277,9 @@ void		authdestroy(Fid*);
 int		authattach(Req*);
 
 extern void (*_forker)(void (*)(void*), void*, int);
+
+void		srvacquire(Srv *);
+void		srvrelease(Srv *);
 
 Reqqueue*	reqqueuecreate(void);
 void		reqqueuepush(Reqqueue*, Req*, void (*)(Req *));
