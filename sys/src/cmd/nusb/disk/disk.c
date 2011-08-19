@@ -256,15 +256,6 @@ umsrecover(void)
 	return 0;
 }
 
-static void
-umsfatal(void)
-{
-//	int i;
-
-	devctl(dev, "detach");
-//	for(i = 0; i < ums->maxlun; i++)
-//		usbfsdel(&ums->lun[i].fs);
-}
 
 static int
 ispow2(uvlong ul)
@@ -478,11 +469,9 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 
 Fail:
 	*status = STharderr;
-	if(ums->nerrs++ > 15){
-		fprint(2, "disk: %s: too many errors: device detached\n", dev->dir);
-		umsfatal();
-	}else
-		umsrecover();
+	if(ums->nerrs++ > 15)
+		sysfatal("%s: too many errors", dev->dir);
+	umsrecover();
 	return -1;
 }
 
@@ -700,7 +689,6 @@ dread(Req *req)
 	data = req->ofcall.data;
 	offset = req->ifcall.offset;
 
-	qlock(ums);
 	switch(path){
 	case Qdir:
 		dirread9p(req, dirgen, lun);
@@ -776,7 +764,6 @@ dread(Req *req)
 		respond(req, nil);
 		break;
 	}
-	qunlock(ums);
 }
 
 static void
@@ -798,7 +785,6 @@ dwrite(Req *req)
 	data = req->ifcall.data;
 	offset = req->ifcall.offset;
 
-	qlock(ums);
 	switch(path){
 	case Qctl:
 		s = emallocz(count+1, 1);
@@ -902,7 +888,6 @@ dwrite(Req *req)
 		respond(req, nil);
 		break;
 	}
-	qunlock(ums);
 }
 
 int

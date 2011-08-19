@@ -88,7 +88,6 @@ struct Umsc
 
 struct Ums
 {
-	QLock;
 	Dev	*epin;
 	Dev	*epout;
 	Umsc	*lun;
@@ -119,6 +118,3 @@ struct Csw
 	long	dataresidue;
 	uchar	status;
 };
-
-
-int	diskmain(Dev*, int, char**);
