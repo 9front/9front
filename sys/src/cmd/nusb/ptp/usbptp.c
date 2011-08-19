@@ -112,43 +112,16 @@ hexdump(char *prefix, uchar *p, int n)
 }
 
 static int
-isinterrupt(void)
+wasinterrupt(void)
 {
 	char err[ERRMAX];
+
 	rerrstr(err, sizeof(err));
-	return !!(strstr(err, "interrupted") || strstr(err, "request timed out"));
-}
-
-static int
-usbread(Dev *ep, void *data, int len)
-{
-	int n, try;
-
-	n = 0;
-	for(try = 0; try < 4; try++){
-		n = read(ep->dfd, data, len);
-		if(n == 0)
-			continue;
-		if(n >= 0 || !isinterrupt())
-			break;
+	if(strstr(err, "interrupted") || strstr(err, "request timed out")){
+		werrstr("interrupted");
+		return 1;
 	}
-	return n;
-}
-
-static int
-usbwrite(Dev *ep, void *data, int len)
-{
-	int n, try;
-
-	n = 0;
-	for(try = 0; try < 4; try++){
-		n = write(ep->dfd, data, len);
-		if(n == 0)
-			continue;
-		if(n >= 0 || !isinterrupt())
-			break;
-	}
-	return n;
+	return 0;
 }
 
 static char *
@@ -205,32 +178,31 @@ ptpcheckerr(Ptprpc *rpc, int type, int transid, int length)
 
 	if(length < 4+2+2+4){
 		werrstr("short response: %d < %d", length, 4+2+2+4);
-		return -1;
+		return 1;
 	}
 	if(GET4(rpc->length) < length){
 		werrstr("unexpected response length 0x%x < 0x%x", GET4(rpc->length), length);
-		return -1;
+		return 1;
 	}
 	if(GET4(rpc->transid) != transid){
 		werrstr("unexpected transaction id 0x%x != 0x%x", GET4(rpc->transid), transid);
-		return -1;
+		return 1;
+	}
+	if(GET2(rpc->type) != type){
+		werrstr("unexpected response type 0x%x != 0x%x", GET2(rpc->type), type);
+		return 1;
 	}
 	if(s = ptperrstr(GET2(rpc->code))){
 		werrstr("%s", s);
 		return -GET2(rpc->code);
 	}
-	if(GET2(rpc->type) != type){
-		werrstr("unexpected response type 0x%x != 0x%x", GET2(rpc->type), type);
-		return -1;
-	}
 	return 0;
 }
 
 static int
-ptprpc(int code, int flags, ...)
+vptprpc(int code, int flags, va_list a)
 {
 	Ptprpc rpc;
-	va_list a;
 	int np, n, t, i, l;
 	uchar *b, *p, *e;
 
@@ -243,15 +215,18 @@ ptprpc(int code, int flags, ...)
 	PUT2(rpc.code, code);
 	PUT4(rpc.transid, t);
 
-	va_start(a, flags);
 	for(i=0; i<np; i++){
 		int x = va_arg(a, int);
 		PUT4(rpc.p[i], x);
 	}
 	if(debug)
 		hexdump("req>", (uchar*)&rpc, n);
-	if(usbwrite(usbep[Out], &rpc, n) < 0)
+
+	werrstr("");
+	if(write(usbep[Out]->dfd, &rpc, n) != n){
+		wasinterrupt();
 		return -1;
+	}
 
 	if(flags & DataSend){
 		void *sdata;
@@ -276,11 +251,15 @@ ptprpc(int code, int flags, ...)
 
 		if(debug)
 			hexdump("data>", (uchar*)&rpc, n);
-		if(usbwrite(usbep[Out], &rpc, n) < 0)
+		if(write(usbep[Out]->dfd, &rpc, n) != n){
+			wasinterrupt();
 			return -1;
+		}
 		while(p < e){	
-			if((n = usbwrite(usbep[Out], p, e-p)) < 0)
+			if((n = write(usbep[Out]->dfd, p, e-p)) < 0){
+				wasinterrupt();
 				break;
+			}
 			p += n;
 		}
 	}
@@ -295,13 +274,16 @@ ptprpc(int code, int flags, ...)
 		*prdata = nil;
 		*prdatalen = 0;
 
-		if((n = usbread(usbep[In], &rpc, sizeof(rpc))) < 0)
-			return -1;
-		
-		if(debug)
-			hexdump("data<", (uchar*)&rpc, n);
-		if(ptpcheckerr(&rpc, 2, t, n))
-			goto Err;
+		do{
+			if((n = read(usbep[In]->dfd, &rpc, sizeof(rpc))) < 0){
+				wasinterrupt();
+				return -1;
+			}
+			if(debug > 1)
+				hexdump("data<", (uchar*)&rpc, n);
+			if((l = ptpcheckerr(&rpc, 2, t, n)) < 0)
+				return -1;
+		} while(l);
 
 		l = GET4(rpc.length);
 		if((l < 4+2+2+4) || (l < n)){
@@ -319,7 +301,8 @@ ptprpc(int code, int flags, ...)
 		p += n;
 
 		while(p < e){
-			if((n = usbread(usbep[In], p, e-p)) < 0){
+			if((n = read(usbep[In]->dfd, p, e-p)) < 0){
+				wasinterrupt();
 				free(b);
 				return -1;
 			}
@@ -329,16 +312,16 @@ ptprpc(int code, int flags, ...)
 		*prdatalen =  e-b;
 	}
 
-	if((n = usbread(usbep[In], &rpc, sizeof(rpc))) < 0)
-		return -1;
-	if(debug)
-		hexdump("resp<", (uchar*)&rpc, n);
-
-Err:
-	if(ptpcheckerr(&rpc, 3, t, n) < 0){
-		werrstr("ptp %x: %r", code);
-		return -1;
-	}
+	do {
+		if((n = read(usbep[In]->dfd, &rpc, sizeof(rpc))) < 0){
+			wasinterrupt();
+			return -1;
+		}
+		if(debug > 1)
+			hexdump("resp<", (uchar*)&rpc, n);
+		if((l = ptpcheckerr(&rpc, 3, t, n)) < 0)
+			return -1;
+	} while(l);
 
 	if(flags & OutParam){
 		int *pp;
@@ -349,8 +332,34 @@ Err:
 			*pp = GET4(rpc.p[i]);
 		}
 	}
-	va_end(a);
 	return 0;
+}
+
+static int
+ptprpc(Req *r, int code, int flags, ...)
+{
+	static long ptpsem = 1;
+	va_list a;
+	int i;
+
+	if(r != nil){
+		r->aux = (void*)getpid();
+		srvrelease(r->srv);
+	}
+	i = semacquire(&ptpsem, 1);
+	if(i == 1){
+		va_start(a, flags);
+		i = vptprpc(code, flags, a);
+		va_end(a);
+		semrelease(&ptpsem, 1);
+	}
+	if(i < 0 && debug)
+		fprint(2, "ptprpc: req=%p %r\n", r);
+	if(r != nil){
+		srvacquire(r->srv);
+		r->aux = (void*)-1;
+	}
+	return i;
 }
 
 static int*
@@ -424,7 +433,7 @@ copydir(Dir *d, Dir *s)
 }
 
 static Node*
-getnode(uvlong path)
+getnode(uvlong path, Req *r)
 {
 	int i, j;
 	Node *x;
@@ -451,10 +460,12 @@ getnode(uvlong path)
 	x->d.gid = estrdup9p(uname);
 	x->d.atime = x->d.mtime = time0;
 
+	p = nil;
+	np = 0;
 	switch(TYPE(path)){
 	case Qroot:
 		x->d.qid.type = QTDIR;
-		x->d.mode = DMDIR|0555;
+		x->d.mode = DMDIR|0777;
 		x->d.name = estrdup9p("/");
 		break;
 
@@ -462,33 +473,48 @@ getnode(uvlong path)
 		x->store = NUM(path);
 		x->handle = 0xffffffff;
 		x->d.qid.type = QTDIR;
-		x->d.mode = DMDIR|0555;
+		x->d.mode = DMDIR|0777;
 		x->d.name = emalloc9p(10);
 		sprint(x->d.name, "%x", x->store);
 		break;
 
 	case Qobj:
 	case Qthumb:
-		x->handle = NUM(path);
-		if(ptprpc(GetObjectInfo, 1|DataRecv, x->handle, &p, &np) < 0)
+		if(ptprpc(r, GetObjectInfo, 1|DataRecv, NUM(path), &p, &np) < 0)
 			goto err;
-		if(debug)
+		if(debug > 1)
 			hexdump("objectinfo", p, np);
 		if(np < 52){
 			werrstr("bad objectinfo");
 			goto err;
 		}
+
+		j = -1;
+		for(i=0; i<nnodes; i++){
+			if(nodes[i] == nil){
+				j = i;
+				continue;
+			}
+			if(nodes[i]->d.qid.path == path){
+				/* never mind */
+				cleardir(&x->d);
+				free(x);
+				return nodes[i];
+			}
+		}
+
 		if((x->d.name = ptpstring2(p+52, p+np)) == nil){
 			werrstr("bad objectinfo");
 			goto err;
 		}
+		x->handle = NUM(path);
 		x->store = GET4(p);
 		x->format = GET2(p+4);
 		if(x->format == 0x3001 && GET2(p+42) == 1){
 			x->d.qid.type = QTDIR;
-			x->d.mode = DMDIR|0555;
+			x->d.mode = DMDIR|0777;
 		} else {
-			x->d.mode = 0444;
+			x->d.mode = 0666;
 			if(TYPE(path) == Qthumb){
 				char *t;
 
@@ -541,6 +567,8 @@ getnode(uvlong path)
 err:
 	cleardir(&x->d);
 	free(x);
+	free(p);
+
 	return nil;
 }
 
@@ -562,7 +590,7 @@ freenode(Node *nod)
 }
 
 static int
-readchilds(Node *nod)
+readchilds(Node *nod, Req *r)
 {
 	int i;
 	int *a;
@@ -570,31 +598,33 @@ readchilds(Node *nod)
 	int np;
 	Node *x, **xx;
 
-	xx = &nod->child;
 	switch(TYPE(nod->d.qid.path)){
 	case Qroot:
-		if(ptprpc(GetStorageIds, 0|DataRecv, &p, &np) < 0)
+		if(ptprpc(r, GetStorageIds, 0|DataRecv, &p, &np) < 0)
 			return -1;
 		a = ptparray4(p, p+np);
 		free(p);
+		xx = &nod->child;
 		for(i=0; a && i<a[0]; i++){
-			if(x = getnode(PATH(Qstore, a[i+1]))){
+			if(x = getnode(PATH(Qstore, a[i+1]), r)){
 				x->parent = nod;
 				*xx = x;
 				xx = &x->next;
 			}
 		}		
+		*xx = nil;
 		free(a);
 		break;
 
 	case Qstore:
 	case Qobj:
-		if(ptprpc(GetObjectHandles, 3|DataRecv, nod->store, 0, nod->handle, &p, &np) < 0)
+		if(ptprpc(r, GetObjectHandles, 3|DataRecv, nod->store, 0, nod->handle, &p, &np) < 0)
 			return -1;
 		a = ptparray4(p, p+np);
 		free(p);
+		xx = &nod->child;
 		for(i=0; a && i<a[0]; i++){
-			if(x = getnode(PATH(Qobj, a[i+1]))){
+			if(x = getnode(PATH(Qobj, a[i+1]), r)){
 				x->parent = nod;
 				*xx = x;
 				xx = &x->next;
@@ -603,16 +633,16 @@ readchilds(Node *nod)
 				if((x->format & 0xFF00) != 0x3800)
 					continue;
 			}
-			if(x = getnode(PATH(Qthumb, a[i+1]))){
+			if(x = getnode(PATH(Qthumb, a[i+1]), r)){
 				x->parent = nod;
 				*xx = x;
 				xx = &x->next;
 			}
 		}
+		*xx = nil;
 		free(a);
 		break;
 	}
-	*xx = nil;
 
 	return 0;
 }
@@ -638,7 +668,7 @@ fsstat(Req *r)
 {
 	Node *nod;
 
-	if((nod = getnode(r->fid->qid.path)) == nil){
+	if((nod = getnode(r->fid->qid.path, r)) == nil){
 		responderror(r);
 		return;
 	}
@@ -661,34 +691,31 @@ nodegen(int i, Dir *d, void *aux)
 }
 
 static char*
-fswalk1(Fid *fid, char *name, Qid *qid)
+fswalk1(Req *r, char *name, Qid *qid)
 {
-	Node *nod;
-	uvlong path;
 	static char buf[ERRMAX];
+	uvlong path;
+	Node *nod;
+	Fid *fid;
 
+	fid = r->newfid;
 	path = fid->qid.path;
 	if(!(fid->qid.type&QTDIR))
 		return "walk in non-directory";
 
-	if((nod = getnode(path)) == nil)
+	if((nod = getnode(path, r)) == nil)
 		goto err;
 
 	if(strcmp(name, "..") == 0){
-		if(nod = nod->parent){
+		if(nod = nod->parent)
 			*qid = nod->d.qid;
-			fid->qid = *qid;
-		}
 		return nil;
 	}
-
-	if(readchilds(nod) < 0)
+	if(readchilds(nod, r) < 0)
 		goto err;
-
 	for(nod=nod->child; nod; nod=nod->next){
 		if(strcmp(nod->d.name, name) == 0){
 			*qid = nod->d.qid;
-			fid->qid = *qid;
 			return nil;
 		}
 	}
@@ -699,21 +726,50 @@ err:
 	return buf;
 }
 
+static char*
+oldwalk1(Fid *fid, char *name, void *arg)
+{
+	Qid qid;
+	char *e;
+	Req *r;
+
+	r = arg;
+	assert(fid == r->newfid);
+	if(e = fswalk1(r, name, &qid))
+		return e;
+	fid->qid = qid;
+	return nil;
+}
+
+static char*
+oldclone(Fid *, Fid *, void *)
+{
+	return nil;
+}
+
+static void
+fswalk(Req *r)
+{
+	walkandclone(r, oldwalk1, oldclone, r);
+}
+
 static void
 fsread(Req *r)
 {
-	Node *nod;
 	uvlong path;
+	Node *nod;
+	uchar *p;
+	int np;
 
+	np = 0;
+	p = nil;
 	path = r->fid->qid.path;
-
-	if((nod = getnode(path)) == nil)
+	if((nod = getnode(path, r)) == nil)
 		goto err;
 
 	if(nod->d.qid.type & QTDIR){
-		if(readchilds(nod) < 0)
+		if(readchilds(nod, r) < 0)
 			goto err;
-
 		dirread9p(r, nodegen, nod);
 		respond(r, nil);
 		return;
@@ -727,14 +783,11 @@ fsread(Req *r)
 	case Qobj:
 	case Qthumb:
 		if(nod->data == nil){
-			uchar *p;
-			int np;
-
 			if(TYPE(path)==Qthumb){
-				if(ptprpc(GetThumb, 1|DataRecv, nod->handle, &p, &np) < 0)
+				if(ptprpc(r, GetThumb, 1|DataRecv, nod->handle, &p, &np) < 0)
 					goto err;
 			} else {
-				if(ptprpc(GetObject, 1|DataRecv, nod->handle, &p, &np) < 0)
+				if(ptprpc(r, GetObject, 1|DataRecv, nod->handle, &p, &np) < 0)
 					goto err;
 			}
 			nod->data = p;
@@ -744,8 +797,8 @@ fsread(Req *r)
 		respond(r, nil);
 		return;
 	}
-
 err:
+	free(p);
 	responderror(r);
 }
 
@@ -756,25 +809,21 @@ fsremove(Req *r)
 	uvlong path;
 
 	path = r->fid->qid.path;
-
-	if((nod = getnode(path)) == nil)
+	if((nod = getnode(path, r)) == nil)
 		goto err;
 
 	switch(TYPE(path)){
 	default:
 		werrstr("bug in fsremove path=%llux", path);
 		break;
-
 	case Qobj:
-		if(ptprpc(DeleteObject, 2, nod->handle, 0) < 0)
+		if(ptprpc(r, DeleteObject, 2, nod->handle, 0) < 0)
 			goto err;
-
 	case Qthumb:
 		freenode(nod);
 		respond(r, nil);
 		return;
 	}
-
 err:
 	responderror(r);
 }
@@ -782,12 +831,27 @@ err:
 static void
 fsopen(Req *r)
 {
+	if(r->ifcall.mode != OREAD){
+		respond(r, "permission denied");
+		return;
+	}
 	respond(r, nil);
 }
 
 static void
 fsflush(Req *r)
 {
+	Req *o;
+
+	if(o = r->oldreq){
+		if(debug)
+			fprint(2, "fsflush: req=%p\n", o);
+		int pid = (int)o->aux;
+		if(pid != -1 && pid != 0){
+			o->aux = (void*)-1;
+			postnote(PNPROC, pid, "interrupt");
+		}
+	}
 	respond(r, nil);
 }
 
@@ -801,7 +865,7 @@ fsdestroyfid(Fid *fid)
 	switch(TYPE(path)){
 	case Qobj:
 	case Qthumb:
-		if(nod = getnode(path)){
+		if(nod = getnode(path, nil)){
 			free(nod->data);
 			nod->data = nil;
 			nod->ndata = 0;
@@ -813,7 +877,7 @@ fsdestroyfid(Fid *fid)
 static void
 fsend(Srv *)
 {
-	ptprpc(CloseSession, 0);
+	ptprpc(nil, CloseSession, 0);
 }
 
 static int
@@ -854,7 +918,7 @@ Srv fs =
 {
 .attach=		fsattach,
 .destroyfid=	fsdestroyfid,
-.walk1=		fswalk1,
+.walk=		fswalk,
 .open=		fsopen,
 .read=		fsread,
 .remove=		fsremove,
@@ -871,7 +935,7 @@ usage(void)
 }
 
 void
-threadmain(int argc, char **argv)
+main(int argc, char **argv)
 {
 	int epin, epout;
 	char name[64], desc[64];
@@ -879,8 +943,7 @@ threadmain(int argc, char **argv)
 
 	ARGBEGIN {
 	case 'd':
-		debug = 1;
-		usbdebug++;
+		debug++;
 		break;
 	case 'D':
 		chatty9p++;
@@ -910,7 +973,7 @@ threadmain(int argc, char **argv)
 		sysfatal("open endpoints: %r");
 
 	sessionId = getpid();
-	if(ptprpc(OpenSession, 1, sessionId) < 0)
+	if(ptprpc(nil, OpenSession, 1, sessionId) < 0)
 		return;
 
 	atnotify(inote, 1);
@@ -918,7 +981,7 @@ threadmain(int argc, char **argv)
 
 	snprint(name, sizeof name, "sdU%d.0", d->id);
 	snprint(desc, sizeof desc, "%d.ptp", d->id);
-	threadpostsharesrv(&fs, nil, name, desc);
+	postsharesrv(&fs, nil, name, desc);
 
-	threadexits(0);
+	exits(0);
 }
