@@ -5,18 +5,9 @@
 #include <9p.h>
 
 static int
-_reqqueuenote(void *uregs, char *note)
+_reqqueuenote(void *, char *note)
 {
-	Reqqueue *q;
-
-	if(strcmp(note, "flush") != 0)
-		return 0;
-	q = *threaddata();
-	if(q != nil){
-		q->cur = nil;
-		notejmp(uregs, q->flush, 1);
-	}
-	return 1;
+	return strcmp(note, "flush") == 0;
 }
 
 static void
@@ -43,10 +34,6 @@ _reqqueueproc(void *v)
 		memset(&r->qu, 0, sizeof(r->qu));
 		qunlock(&r->lk);
 		q->cur = r;
-		if(setjmp(q->flush)){
-			respond(r, "interrupted");
-			continue;
-		}
 		qunlock(q);
 		f(r);
 	}
@@ -97,17 +84,4 @@ reqqueueflush(Reqqueue *q, Req *r)
 		qunlock(q);
 		respond(r, "interrupted");
 	}
-}
-
-int
-reqqueueflushed(void)
-{
-	Reqqueue *q;
-	
-	q = *threaddata();
-	qlock(q);
-	if(setjmp(q->flush))
-		return 1;
-	qunlock(q);
-	return 0;
 }

@@ -46,7 +46,6 @@ struct Reqqueue
 	Queueelem;
 	int pid;
 	Req *cur;
-	jmp_buf flush;
 };
 
 struct Fid
