@@ -18,7 +18,6 @@ _reqqueueproc(void *v)
 	void (*f)(Req *);
 	
 	q = v;
-	*threaddata() = q;
 	rfork(RFNOTEG);
 	threadnotify(_reqqueuenote, 1);
 	for(;;){
@@ -30,9 +29,7 @@ _reqqueueproc(void *v)
 		r->qu.next->prev = r->qu.prev;
 		r->qu.prev->next = r->qu.next;
 		f = r->qu.f;
-		qlock(&r->lk);
 		memset(&r->qu, 0, sizeof(r->qu));
-		qunlock(&r->lk);
 		q->cur = r;
 		qunlock(q);
 		f(r);
@@ -49,7 +46,6 @@ reqqueuecreate(void)
 	q->l = q;
 	q->next = q->prev = q;
 	q->pid = threadpid(proccreate(_reqqueueproc, q, mainstacksize));
-	print("%d\n", q->pid);
 	return q;
 }
 
@@ -62,7 +58,7 @@ reqqueuepush(Reqqueue *q, Req *r, void (*f)(Req *))
 	r->qu.prev = q->prev;
 	q->prev->next = &r->qu;
 	q->prev = &r->qu;
-	rwakeupall(q);
+	rwakeup(q);
 	qunlock(q);
 }
 
@@ -78,9 +74,7 @@ reqqueueflush(Reqqueue *q, Req *r)
 			r->qu.next->prev = r->qu.prev;
 			r->qu.prev->next = r->qu.next;
 		}
-		qlock(&r->lk);
 		memset(&r->qu, 0, sizeof(r->qu));
-		qunlock(&r->lk);
 		qunlock(q);
 		respond(r, "interrupted");
 	}
