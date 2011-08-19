@@ -1031,7 +1031,7 @@ episowrite(Ep *ep, Isoio *iso, void *a, long count)
 	diprint("uhci: episowrite: %#p ep%d.%d\n", iso, ep->dev->nb, ep->nb);
 
 	ctlr = ep->hp->aux;
-	qlock(iso);
+	eqlock(iso);
 	if(waserror()){
 		qunlock(iso);
 		nexterror();
@@ -1104,7 +1104,7 @@ episoread(Ep *ep, Isoio *iso, void *a, int count)
 
 	b = a;
 	ctlr = ep->hp->aux;
-	qlock(iso);
+	eqlock(iso);
 	if(waserror()){
 		qunlock(iso);
 		nexterror();
@@ -1303,7 +1303,7 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 		print("uchi epio: user data: %s\n", buf);
 	}
 	if(mustlock){
-		qlock(io);
+		eqlock(io);
 		if(waserror()){
 			qunlock(io);
 			nexterror();
@@ -1442,7 +1442,7 @@ epread(Ep *ep, void *a, long count)
 	switch(ep->ttype){
 	case Tctl:
 		cio = ep->aux;
-		qlock(cio);
+		eqlock(cio);
 		if(waserror()){
 			qunlock(cio);
 			nexterror();
@@ -1515,7 +1515,7 @@ epctlio(Ep *ep, Ctlio *cio, void *a, long count)
 		cio, ep->dev->nb, ep->nb, count);
 	if(count < Rsetuplen)
 		error("short usb comand");
-	qlock(cio);
+	eqlock(cio);
 	free(cio->data);
 	cio->data = nil;
 	cio->ndata = 0;
@@ -2001,7 +2001,7 @@ portenable(Hci *hp, int port, int on)
 	ctlr = hp->aux;
 	dprint("uhci: %#x port %d enable=%d\n", ctlr->port, port, on);
 	ioport = PORT(port-1);
-	qlock(&ctlr->portlck);
+	eqlock(&ctlr->portlck);
 	if(waserror()){
 		qunlock(&ctlr->portlck);
 		nexterror();
@@ -2058,7 +2058,7 @@ portstatus(Hci *hp, int port)
 
 	ctlr = hp->aux;
 	ioport = PORT(port-1);
-	qlock(&ctlr->portlck);
+	eqlock(&ctlr->portlck);
 	if(waserror()){
 		iunlock(ctlr);
 		qunlock(&ctlr->portlck);
