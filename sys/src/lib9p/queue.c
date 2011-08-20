@@ -4,24 +4,27 @@
 #include <fcall.h>
 #include <9p.h>
 
-static int
-_reqqueuenote(void *, char *note)
-{
-	return strcmp(note, "flush") == 0;
-}
-
 static void
 _reqqueueproc(void *v)
 {
 	Reqqueue *q;
 	Req *r;
 	void (*f)(Req *);
+	int fd;
+	char *buf;
 	
 	q = v;
 	rfork(RFNOTEG);
-	threadnotify(_reqqueuenote, 1);
+	
+	buf = smprint("/proc/%d/ctl", getpid());
+	fd = open(buf, OWRITE);
+	free(buf);
+	
 	for(;;){
 		qlock(q);
+		q->flush = 0;
+		if(fd >= 0)
+			write(fd, "nointerrupt", 11);
 		q->cur = nil;
 		while(q->next == q)
 			rsleep(q);
@@ -65,9 +68,18 @@ reqqueuepush(Reqqueue *q, Req *r, void (*f)(Req *))
 void
 reqqueueflush(Reqqueue *q, Req *r)
 {
+	char buf[128];
+	int fd;
+
 	qlock(q);
 	if(q->cur == r){
-		postnote(PNPROC, q->pid, "flush");
+		sprint(buf, "/proc/%d/ctl", q->pid);
+		fd = open(buf, OWRITE);
+		if(fd >= 0){
+			write(fd, "interrupt", 9);
+			close(fd);
+		}
+		q->flush++;
 		qunlock(q);
 	}else{
 		if(r->qu.next != nil){

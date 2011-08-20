@@ -904,11 +904,11 @@ postnote(Proc *p, int dolock, char *n, int flag)
 	if(dolock)
 		qlock(&p->debug);
 
-	if(flag != NUser && (p->notify == 0 || p->notified))
+	if(n != nil && flag != NUser && (p->notify == 0 || p->notified))
 		p->nnote = 0;
 
 	ret = 0;
-	if(p->nnote < NNOTE) {
+	if(p->nnote < NNOTE && n != nil) {
 		strcpy(p->note[p->nnote].msg, n);
 		p->note[p->nnote++].flag = flag;
 		ret = 1;

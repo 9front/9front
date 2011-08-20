@@ -53,6 +53,8 @@ enum
 	CMwaitstop,
 	CMwired,
 	CMtrace,
+	CMinterrupt,
+	CMnointerrupt,
 	/* real time */
 	CMperiod,
 	CMdeadline,
@@ -118,6 +120,8 @@ Cmdtab proccmd[] = {
 	CMwaitstop,		"waitstop",		1,
 	CMwired,		"wired",		2,
 	CMtrace,		"trace",		0,
+	CMinterrupt,		"interrupt",		1,
+	CMnointerrupt,		"nointerrupt",		1,
 	CMperiod,		"period",		2,
 	CMdeadline,		"deadline",		2,
 	CMcost,			"cost",			2,
@@ -1413,6 +1417,15 @@ procctlreq(Proc *p, char *va, int n)
 		default:
 			error("args");
 		}
+		break;
+	case CMinterrupt:
+		postnote(p, 0, nil, NUser);
+		break;
+	case CMnointerrupt:
+		if(p->nnote == 0)
+			p->notepending = 0;
+		else
+			error("notes pending");
 		break;
 	/* real time */
 	case CMperiod:

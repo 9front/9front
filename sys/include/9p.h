@@ -44,7 +44,7 @@ struct Reqqueue
 	QLock;
 	Rendez;
 	Queueelem;
-	int pid;
+	int pid, flush;
 	Req *cur;
 };
 
