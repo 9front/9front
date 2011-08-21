@@ -32,7 +32,7 @@ IHASHSIZE = 64;
 defn imagecacheline(h) {
 	while h != 0 do {
 		complex Image h;
-		print (h\X, " ", qid(h.qid), " type ", h.type\D, " ref ", h.ref, " next ", h.next\X, " ", cname(h.c.name), "\n");
+		print (h\X, " ", qid(h.qid), " type ", h.type\D, " ref ", h.ref, " next ", h.next\X, " ", cname(h.c), "\n");
 		h = h.hash;
 	}
 }
@@ -46,6 +46,10 @@ defn imagecache() {
 	}
 }
 
+defn cname(c) {
+	return *(((Path)c.path).s\s);
+}
+
 // dump channels
 defn chan(c) {
 	local d, q;
@@ -56,9 +60,9 @@ defn chan(c) {
 	print("chan(", c\X, "): ref=", c.ref\D, " #", d.dc\r, c.dev\D, " (", q.path, " ", q.vers\D, " ", q.type\X, ")");
 	print(" fid=", c.fid\D, " iounit=", c.iounit\D);
 	if c.ref != 0 then {
-		print(" ", cname(c.name), " mchan=", c.mchan\X);
+		print(" ", cname(c), " mchan=", c.mchan\X);
 		if c.mchan != 0 then {
-			print(" ", cname(c.mchan.name));
+			print(" ", cname(c.mchan));
 		}
 	}
 	print("\n");
