@@ -696,7 +696,7 @@ void
 takeanote(void *u, char *note)
 {
 	USED(u);
-	if(strstr(note, "flushed"))
+	if(strstr(note, "interrupted"))
 		noted(NCONT);
 	noted(NDFLT);
 }
