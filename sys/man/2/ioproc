@@ -3,6 +3,7 @@
 closeioproc,
 iocall,
 ioclose,
+ioflush,
 iointerrupt,
 iodial,
 ioopen,
@@ -33,6 +34,7 @@ long	ioreadn(Ioproc *io, int fd, void *a, long n);
 long	iowrite(Ioproc *io, int fd, void *a, long n);
 int	iodial(Ioproc *io, char *addr, char *local, char *dir, char *cdfp);
 .XX
+int	ioflush(Ioproc *io);
 void	iointerrupt(Ioproc *io);
 void	closeioproc(Ioproc *io);
 .XX
@@ -74,14 +76,16 @@ and
 .IR dial (2))
 in the slave process associated with
 .IR io .
-It is an error to execute more than one call
-at a time in an I/O proc.
 .PP
 .I Iointerrupt
-interrupts the call currently executing in the I/O proc.
-If no call is executing,
+interrupts the next or currently executing call in the I/O proc.  If
+there was no call executing, the interrupt will stay pending and the
+next I/O call will get interrupted.
+.PP
+.I Ioflush
+executes a non-op in the I/O proc. It is commonly called after
 .IR iointerrupt
-is a no-op.
+to clear a pending interrupt.
 .PP
 .I Closeioproc
 terminates the I/O proc and frees the associated

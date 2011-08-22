@@ -25,6 +25,7 @@ typedef struct Tqueue	Tqueue;
 typedef struct Thread	Thread;
 typedef struct Execargs	Execargs;
 typedef struct Proc		Proc;
+typedef struct Iocall	Iocall;
 
 /* must match list in sched.c */
 typedef enum
@@ -135,7 +136,8 @@ struct Proc
 	char		threadint;		/* tag for threadexitsall() */
 };
 
-struct Pqueue {		/* Proc queue */
+struct Pqueue		/* Proc queue */
+{
 	Lock		lock;
 	Proc		*head;
 	Proc		**tail;
@@ -143,14 +145,18 @@ struct Pqueue {		/* Proc queue */
 
 struct Ioproc
 {
-	int tid;
-	Channel *c, *creply;
-	int inuse;
-	long (*op)(va_list*);
-	va_list arg;
-	long ret;
-	char err[ERRMAX];
-	Ioproc *next;
+	QLock;
+	int		intr;
+	int		ctl;
+	Channel		*c, *creply;
+};
+
+struct Iocall
+{
+	long		(*op)(va_list*);
+	va_list		arg;
+	long		ret;
+	char		err[ERRMAX];
 };
 
 void	_freeproc(Proc*);

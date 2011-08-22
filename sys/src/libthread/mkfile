@@ -21,6 +21,7 @@ OFILES=\
 	ioreadn.$O\
 	iosleep.$O\
 	iowrite.$O\
+	ioflush.$O\
 	kill.$O\
 	lib.$O\
 	main.$O\

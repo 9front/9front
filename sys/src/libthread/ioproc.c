@@ -11,55 +11,80 @@ enum
 void
 iointerrupt(Ioproc *io)
 {
-	if(!io->inuse)
-		return;
-	threadint(io->tid);
+	qlock(io);
+	if(++io->intr == 1)
+		write(io->ctl, "interrupt", 9);
+	qunlock(io);
 }
 
 static void
 xioproc(void *a)
 {
-	Ioproc *io, *x;
-	io = a;
-	/*
-	 * first recvp acquires the ioproc.
-	 * second tells us that the data is ready.
-	 */
-	for(;;){
-		while(recv(io->c, &x) == -1)
-			;
-		if(x == 0)	/* our cue to leave */
-			break;
-		assert(x == io);
+	Channel *c;
+	Ioproc *io;
+	Iocall *r;
 
-		/* caller is now committed -- even if interrupted he'll return */
-		while(recv(io->creply, &x) == -1)
-			;
-		if(x == 0)	/* caller backed out */
-			continue;
-		assert(x == io);
+	c = a;
+	if(io = mallocz(sizeof(*io), 1)){
+		char buf[128];
 
-		io->ret = io->op(&io->arg);
-		if(io->ret < 0)
-			rerrstr(io->err, sizeof io->err);
-		while(send(io->creply, &io) == -1)
-			;
-		while(recv(io->creply, &x) == -1)
-			;
+		snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
+		if((io->ctl = open(buf, OWRITE)) < 0){
+			free(io);
+			io = nil;
+		} else {
+			if((io->creply = chancreate(sizeof(void*), 0)) == nil){
+				close(io->ctl);
+				free(io);
+				io = nil;
+			} else
+				io->c = c;
+		}
 	}
+	while(send(c, &io) < 0)
+		;
+	if(io == nil)
+		return;
+
+	for(;;){
+		while(recv(io->c, &r) < 0)
+			;
+		if(r == 0)
+			break;
+		if(io->intr){
+			r->ret = -1;
+			strcpy(r->err, "interrupted");
+		} else if((r->ret = r->op(&r->arg)) < 0)
+			rerrstr(r->err, sizeof r->err);
+		qlock(io);
+		if(io->intr){
+			io->intr = 0;
+			write(io->ctl, "nointerrupt", 11);
+		}
+		while(send(io->creply, &r) < 0)
+			;
+		qunlock(io);
+	}
+
+	close(io->ctl);
+	chanfree(io->c);
+	chanfree(io->creply);
+	free(io);
 }
 
 Ioproc*
 ioproc(void)
 {
+	Channel *c;
 	Ioproc *io;
 
-	io = mallocz(sizeof(*io), 1);
+	if((c = chancreate(sizeof(void*), 0)) == nil)
+		sysfatal("ioproc chancreate");
+	proccreate(xioproc, c, STACK);
+	while(recv(c, &io) < 0)
+		;
 	if(io == nil)
-		sysfatal("ioproc malloc: %r");
-	io->c = chancreate(sizeof(void*), 0);
-	io->creply = chancreate(sizeof(void*), 0);
-	io->tid = proccreate(xioproc, io, STACK);
+		sysfatal("ioproc alloc");
 	return io;
 }
 
@@ -69,9 +94,6 @@ closeioproc(Ioproc *io)
 	if(io == nil)
 		return;
 	iointerrupt(io);
-	while(send(io->c, 0) == -1)
+	while(sendp(io->c, nil) < 0)
 		;
-	chanfree(io->c);
-	chanfree(io->creply);
-	free(io);
 }
