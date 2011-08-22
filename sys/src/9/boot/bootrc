@@ -16,11 +16,10 @@ for(i in I l^(0 1 2 3))
 cat '#r/rtc' >/dev/time >[2]/dev/null
 
 # reparse #ec variables, move to #e
-for(i in init service sysname user nvram rootdir cfs bootdisk bootargs \
-	nobootprompt debugfactotum fs fsaddr auth authaddr console){
+for(i in `{ls -p '#ec'}){
 	a=`{echo $$i}
 	$i=()
-	rm -f '#e'/$i '#ec'/$i
+	rm -f /env/$i
 	if(! ~ $#a 0)
 		$i=$a
 }
