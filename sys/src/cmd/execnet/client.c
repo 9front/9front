@@ -178,7 +178,7 @@ findrdreq(Client *c, Req *r)
 			*l = r->aux;
 			if(*l == nil)
 				c->erq = l;
-			respond(r, "flushed");
+			respond(r, "interrupted");
 			break;
 		}
 	}
@@ -194,7 +194,7 @@ findwrreq(Client *c, Req *r)
 			*l = r->aux;
 			if(*l == nil)
 				c->ewq = l;
-			respond(r, "flushed");
+			respond(r, "interrupted");
 			return;
 		}
 	}
@@ -252,6 +252,7 @@ clientflush(Req *or, Client *c)
 		if(c->execreq == or){
 			c->execreq = nil;
 			iointerrupt(c->writerproc);
+			ioflush(c->writerproc);
 		}
 		findwrreq(c, or);
 		if(c->curw == or){
@@ -298,6 +299,7 @@ writethread(void *a)
 		c->wq = r->aux;
 		c->curw = r;
 		n = iowrite(io, c->fd[1], r->ifcall.data, r->ifcall.count);
+		c->curw = nil;
 		if(chatty9p)
 			fprint(2, "io->write returns %d\n", n);
 		if(n >= 0){
