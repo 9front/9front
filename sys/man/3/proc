@@ -341,6 +341,15 @@ Without an argument, toggle trace event generation for this process into
 With a zero argument, tracing for the proc is turned off, with a non-zero numeric
 argument, it is turned on.
 .TP 10n
+.B interrupt
+Interrupt a blocking system call. If no blocking call was in progress,
+the interrupt will be pending and the next attempt to block will be interrupted.
+This is similar to posting a note but, unlike notes, a pending interrupt is not
+cleared when crossing the user/kernel boundary.
+.TP 10n
+.B nointerrupt
+Clear a pending interrupt.
+.TP 10n
 .B "period\ \fInu
 Set the real-time scheduling period of the process to
 .IR nu ,
