@@ -104,7 +104,7 @@ bootargs is (tcp, local!device)[/dev/sdC0/fscache]:
 A newline picks the default. Entering
 .B !rc
 breaks into the
-.IR rc(1)
+.IR rc (1)
 shell.
 Other possible responses are
 .I method

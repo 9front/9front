@@ -50,7 +50,7 @@ on the mount tree.
 The service file can be reopened and passed to
 .IR mount
 (see
-.IR bind(2))
+.IR bind (2))
 or added to another share.
 .PP
 Multiple services can be mounted under a share forming a union

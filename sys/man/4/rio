@@ -129,7 +129,7 @@ Closing the file makes the window revert to default state
 .TP
 .B kbd
 represents the raw keyboard events (see
-.IR kbdfs(8))
+.IR kbdfs (8))
 for the corresponding window. While open,
 navigation keys and input on the
 .IR cons
