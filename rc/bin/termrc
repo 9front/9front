@@ -103,4 +103,4 @@ rm -f '/env/fn#ask'
 if(test -f /dev/apm)
 	aux/apm
 
-dontkill '^(ipconfig|factotum|mntgen|kfs|cwfs.*|cs|dns|listen|reboot)$'
+dontkill '^(ipconfig|factotum|mntgen|kfs|cwfs.*|cs|dns|listen|reboot|usbd|disk)$'

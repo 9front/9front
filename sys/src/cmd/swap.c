@@ -1,66 +1,54 @@
 #include <u.h>
 #include <libc.h>
 
-void error(char *);
-
 void
 main(int argc, char **argv)
 {
-	Dir *d;
 	int swapfd, cswfd;
-	char buf[128], *p;
-	int i, j;
+	char buf[1024], *p;
+	Dir *d;
 
-	if(argc != 2) {
-		print("Usage: swap path\n");
-		exits("swap: failed");
+	ARGBEGIN {
+	} ARGEND;
+
+	if(argc != 1){
+		fprint(2, "Usage: swap file\n");
+		exits("usage");
 	}
 
-	d = dirstat(argv[1]);
-	if(d == nil){
-		print("swap: can't stat %s: %r\n", argv[1]);
-		exits("swap: failed");
+	swapfd = -1;
+	if(d = dirstat(p = *argv)){
+		if(d->mode & DMDIR){
+			p = getenv("sysname");
+			if(p == 0)
+				p = "swap";
+			snprint(buf, sizeof buf, "%s/%sXXXXXXX", *argv, p);
+			p = mktemp(buf);
+		} else
+			swapfd = open(p, ORDWR);
 	}
-	if(d->type != 'M'){		/* kernel device */
-		swapfd = open(argv[1], ORDWR);
-		p = argv[1];
-	}
-	else {
-		p = getenv("sysname");
-		if(p == 0)
-			p = "swap";
-		sprint(buf, "%s/%sXXXXXXX", argv[1], p);
-		p = mktemp(buf);
-		swapfd = create(p, ORDWR|ORCLOSE, 0600);
-	}
+	if(d == nil || (d->mode & DMDIR)){
+		if((swapfd = create(p, ORDWR|ORCLOSE, 0600)) >= 0){
+			Dir nd;
 
-	if(swapfd < 0 || (p[0] == '/' && p[1] == '\0')) {
-		print("swap: failed to make a file: %r\n");
-		exits("swap: failed");
+			nulldir(&nd);
+			nd.mode = DMTMP|0600;
+			dirfwstat(swapfd, &nd);
+		}
 	}
+	if(swapfd < 0)
+		sysfatal("%r");
+	if(fd2path(swapfd, p = buf, sizeof buf))
+		sysfatal("fd2path: %r");
+	if(putenv("swap", p) < 0)
+		sysfatal("putenv: %r");
 
-	i = create("/env/swap", OWRITE, 0666);
-	if(i < 0) 
-		error("open /env/swap");
-
-	if(write(i, p, strlen(p)) != strlen(p))
-		error("sysname");
-	close(i);
 	print("swap: %s\n", p);
 
-	cswfd = open("/dev/swap", OWRITE);
-	if(cswfd < 0)
-		error("open: /dev/swap");
+	if((cswfd = open("/dev/swap", OWRITE)) < 0)
+		sysfatal("open: %r");
+	if(fprint(cswfd, "%d", swapfd) < 0)
+		sysfatal("write: %r");
 
-	j = sprint(buf, "%d", swapfd);
-	if(write(cswfd, buf, j) != j)
-		error("write: /dev/swap");
 	exits(0);
-}
-
-void
-error(char *s)
-{
-	perror(s);
-	exits(s);
 }

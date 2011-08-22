@@ -6,11 +6,14 @@ swap \- establish a swap file
 .I file 
 .SH DESCRIPTION
 .I Swap
-establishes a file or device for the system to swap on.
+establishes a file for the system to swap on.
 If
 .I file
-is a device, the device is used directly; if a directory,
-a unique file is created in that directory on which to swap.
+is an existing file, it is used for system swap. If it
+does not exist, a new file is created. If
+.I file
+is a directory, a unique file is created in that directory
+on which to swap.
 The environment variable
 .B swap
 is set to the full name of the resulting file.
@@ -27,4 +30,10 @@ the device an error is returned instead.
 .SH BUGS
 Swapping to a file served by a local user-level process, such as
 .IR kfs (4),
-can lead to deadlock; use raw devices or remote files instead.
+will lead to deadlock if the process isn't made non-swappable
+(see the
+.B noswap
+ctl-message in
+.IR proc (3)).
+.SH "SEE ALSO"
+.IR proc (3)
