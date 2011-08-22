@@ -72,7 +72,6 @@ int	qflag;
 Fid *	newfid(int);
 void	paqstat(PaqDir*, char*);
 void	io(int fd);
-void	*erealloc(void*, ulong);
 void	*emalloc(ulong);
 void 	*emallocz(ulong n);
 char 	*estrdup(char*);
@@ -300,7 +299,7 @@ rattach(Fid *f)
 	if(rhdr.uname[0])
 		f->user = estrdup(rhdr.uname);
 	else
-		f->user = "none";
+		f->user = estrdup("none");
 	return 0;
 }
 
@@ -317,7 +316,7 @@ clone(Fid *f, Fid **res)
 	nf->busy = 1;
 	nf->open = 0;
 	nf->paq = paqCpy(f->paq);
-	nf->user = strdup(f->user);
+	nf->user = estrdup(f->user);
 	*res = nf;
 	return 0;
 }
@@ -570,7 +569,9 @@ rclunk(Fid *f)
 	f->busy = 0;
 	f->open = 0;
 	free(f->user);
+	f->user = 0;
 	paqFree(f->paq);
+	f->paq = 0;
 	return 0;
 }
 
@@ -1075,15 +1076,6 @@ emallocz(ulong n)
 	p = emalloc(n);
 	memset(p, 0, n);
 
-	return p;
-}
-
-void *
-erealloc(void *p, ulong n)
-{
-	p = realloc(p, n);
-	if(!p)
-		sysfatal("out of memory");
 	return p;
 }
 
