@@ -35,6 +35,9 @@ enum {
 };
 
 typedef struct Ptprpc Ptprpc;
+typedef struct Node Node;
+typedef struct Ioflush Ioflush;
+
 struct Ptprpc
 {
 	uchar	length[4];
@@ -47,7 +50,6 @@ struct Ptprpc
 	};
 };
 
-typedef struct Node Node;
 struct Node
 {
 	Dir		d;
@@ -64,14 +66,21 @@ struct Node
 	int		ndata;
 };
 
-int debug;
+struct Ioflush
+{
+	Channel	*c;
+	Ioproc	*io;
+};
+
 
 enum {
 	In,
 	Out,
 };
+
 static Dev *usbep[2];
 
+static int debug;
 static ulong time0;
 static int maxpacket = 64;
 static int sessionId = 0;
@@ -80,7 +89,10 @@ static int transId = 0;
 static Node **nodes;
 static int nnodes;
 
-static char *uname;
+static Channel *iochan;
+
+char Eperm[] = "permission denied";
+char Einterrupt[] = "interrupted";
 
 #define PATH(type, n)		((uvlong)(type)|((uvlong)(n)<<4))
 #define TYPE(path)			((int)((path)&0xF))
@@ -117,8 +129,8 @@ wasinterrupt(void)
 	char err[ERRMAX];
 
 	rerrstr(err, sizeof(err));
-	if(strstr(err, "interrupted") || strstr(err, "request timed out")){
-		werrstr("interrupted");
+	if(strstr(err, Einterrupt) || strstr(err, "timed out")){
+		werrstr(Einterrupt);
 		return 1;
 	}
 	return 0;
@@ -200,7 +212,7 @@ ptpcheckerr(Ptprpc *rpc, int type, int transid, int length)
 }
 
 static int
-vptprpc(int code, int flags, va_list a)
+vptprpc(Ioproc *io, int code, int flags, va_list a)
 {
 	Ptprpc rpc;
 	int np, n, t, i, l;
@@ -223,7 +235,7 @@ vptprpc(int code, int flags, va_list a)
 		hexdump("req>", (uchar*)&rpc, n);
 
 	werrstr("");
-	if(write(usbep[Out]->dfd, &rpc, n) != n){
+	if(iowrite(io, usbep[Out]->dfd, &rpc, n) != n){
 		wasinterrupt();
 		return -1;
 	}
@@ -251,14 +263,14 @@ vptprpc(int code, int flags, va_list a)
 
 		if(debug)
 			hexdump("data>", (uchar*)&rpc, n);
-		if(write(usbep[Out]->dfd, &rpc, n) != n){
+		if(iowrite(io, usbep[Out]->dfd, &rpc, n) != n){
 			wasinterrupt();
 			return -1;
 		}
 		while(p < e){	
-			if((n = write(usbep[Out]->dfd, p, e-p)) < 0){
-				wasinterrupt();
-				break;
+			if((n = iowrite(io, usbep[Out]->dfd, p, e-p)) < 0){
+				if(!wasinterrupt())
+					return -1;
 			}
 			p += n;
 		}
@@ -275,11 +287,11 @@ vptprpc(int code, int flags, va_list a)
 		*prdatalen = 0;
 
 		do{
-			if((n = read(usbep[In]->dfd, &rpc, sizeof(rpc))) < 0){
+			if((n = ioread(io, usbep[In]->dfd, &rpc, sizeof(rpc))) < 0){
 				wasinterrupt();
 				return -1;
 			}
-			if(debug > 1)
+			if(debug)
 				hexdump("data<", (uchar*)&rpc, n);
 			if((l = ptpcheckerr(&rpc, 2, t, n)) < 0)
 				return -1;
@@ -301,7 +313,7 @@ vptprpc(int code, int flags, va_list a)
 		p += n;
 
 		while(p < e){
-			if((n = read(usbep[In]->dfd, p, e-p)) < 0){
+			if((n = ioread(io, usbep[In]->dfd, p, e-p)) < 0){
 				wasinterrupt();
 				free(b);
 				return -1;
@@ -313,11 +325,11 @@ vptprpc(int code, int flags, va_list a)
 	}
 
 	do {
-		if((n = read(usbep[In]->dfd, &rpc, sizeof(rpc))) < 0){
+		if((n = ioread(io, usbep[In]->dfd, &rpc, sizeof(rpc))) < 0){
 			wasinterrupt();
 			return -1;
 		}
-		if(debug > 1)
+		if(debug)
 			hexdump("resp<", (uchar*)&rpc, n);
 		if((l = ptpcheckerr(&rpc, 3, t, n)) < 0)
 			return -1;
@@ -335,30 +347,60 @@ vptprpc(int code, int flags, va_list a)
 	return 0;
 }
 
+static void
+ioflusher(void *aux)
+{
+	Ioflush f = *((Ioflush*)aux);
+	while(recvp(f.c))
+		iointerrupt(f.io);
+	chanfree(f.c);
+}
+
 static int
 ptprpc(Req *r, int code, int flags, ...)
 {
-	static long ptpsem = 1;
-	va_list a;
+	va_list va;
+	Ioflush f;
+	Alt a[3];
+	char *m;
 	int i;
 
-	if(r != nil){
-		r->aux = (void*)getpid();
+	i = -1;
+	f.c = nil;
+	f.io = nil;
+	m = Einterrupt;
+	a[0].op = CHANRCV;
+	a[0].c = iochan;
+	a[0].v = &f.io;
+	if(r){
+		f.c = chancreate(sizeof(char*), 0);
+		a[1].op = CHANRCV;
+		a[1].c = f.c;
+		a[1].v = &m;
+		a[2].op = CHANEND;
+		r->aux = f.c;
 		srvrelease(r->srv);
-	}
-	i = semacquire(&ptpsem, 1);
-	if(i == 1){
-		va_start(a, flags);
-		i = vptprpc(code, flags, a);
-		va_end(a);
-		semrelease(&ptpsem, 1);
-	}
-	if(i < 0 && debug)
-		fprint(2, "ptprpc: req=%p %r\n", r);
-	if(r != nil){
+	} else
+		a[1].op = CHANEND;
+	if(alt(a) == 0){
+		ioflush(f.io);
+		if(f.c)
+			threadcreate(ioflusher, &f, 4*1024);
+		va_start(va, flags);
+		i = vptprpc(f.io, code, flags, va);
+		va_end(va);
+	} else
+		werrstr("%s", m);
+	if(r){
 		srvacquire(r->srv);
-		r->aux = (void*)-1;
+		r->aux = nil;
 	}
+	if(f.io){
+		if(f.c)
+			sendp(f.c, nil);
+		sendp(iochan, f.io);
+	} else if(f.c)
+		chanfree(f.c);
 	return i;
 }
 
@@ -433,31 +475,42 @@ copydir(Dir *d, Dir *s)
 }
 
 static Node*
-getnode(uvlong path, Req *r)
+cachednode(uvlong path, Node ***pf)
 {
-	int i, j;
 	Node *x;
-	uchar *p;
-	int np;
-	char *s;
+	int i;
 
-	j = -1;
+	if(pf)
+		*pf = nil;
 	for(i=0; i<nnodes; i++){
 		if((x = nodes[i]) == nil){
-			j = i;
+			if(pf)
+				*pf = &nodes[i];
 			continue;
 		}
 		if(x->d.qid.path == path)
 			return x;
 	}
+	return nil;
+}
 
+static Node*
+getnode(Req *r, uvlong path)
+{
+	Node *x, *y, **f;
+	uchar *p;
+	int np;
+	char *s;
+
+	if(x = cachednode(path, &f))
+		return x;
+
+	y = nil;
 	x = emalloc9p(sizeof(*x));
-
 	memset(x, 0, sizeof(*x));
-
 	x->d.qid.path = path;
-	x->d.uid = estrdup9p(uname);
-	x->d.gid = estrdup9p(uname);
+	x->d.uid = estrdup9p("ptp");
+	x->d.gid = estrdup9p("usb");
 	x->d.atime = x->d.mtime = time0;
 
 	p = nil;
@@ -467,7 +520,7 @@ getnode(uvlong path, Req *r)
 		x->d.qid.type = QTDIR;
 		x->d.mode = DMDIR|0777;
 		x->d.name = estrdup9p("/");
-		break;
+		goto Addnode;
 
 	case Qstore:
 		x->store = NUM(path);
@@ -476,36 +529,29 @@ getnode(uvlong path, Req *r)
 		x->d.mode = DMDIR|0777;
 		x->d.name = emalloc9p(10);
 		sprint(x->d.name, "%x", x->store);
-		break;
+		goto Addnode;
 
 	case Qobj:
 	case Qthumb:
 		if(ptprpc(r, GetObjectInfo, 1|DataRecv, NUM(path), &p, &np) < 0)
-			goto err;
-		if(debug > 1)
+			break;
+		if(debug)
 			hexdump("objectinfo", p, np);
 		if(np < 52){
 			werrstr("bad objectinfo");
-			goto err;
+			break;
 		}
 
-		j = -1;
-		for(i=0; i<nnodes; i++){
-			if(nodes[i] == nil){
-				j = i;
-				continue;
-			}
-			if(nodes[i]->d.qid.path == path){
-				/* never mind */
-				cleardir(&x->d);
-				free(x);
-				return nodes[i];
-			}
-		}
+		/*
+		 * another proc migh'v come in and done it for us,
+		 * so check the cache again.
+		 */
+		if(y = cachednode(path, &f))
+			break;
 
 		if((x->d.name = ptpstring2(p+52, p+np)) == nil){
 			werrstr("bad objectinfo");
-			goto err;
+			break;
 		}
 		x->handle = NUM(path);
 		x->store = GET4(p);
@@ -554,22 +600,19 @@ getnode(uvlong path, Req *r)
 			free(s);
 		}
 		free(p);
-		break;
+	Addnode:
+		if(f == nil){
+			if(nnodes % 64 == 0)
+				nodes = erealloc9p(nodes, sizeof(nodes[0]) * (nnodes + 64));
+			f = &nodes[nnodes++];
+		}
+		return *f = x;
 	}
 
-	if(j < 0){
-		if(nnodes % 64 == 0)
-			nodes = erealloc9p(nodes, sizeof(nodes[0]) * (nnodes + 64));
-		j = nnodes++;
-	}
-	return nodes[j] = x;
-
-err:
 	cleardir(&x->d);
 	free(x);
 	free(p);
-
-	return nil;
+	return y;
 }
 
 static void
@@ -590,14 +633,15 @@ freenode(Node *nod)
 }
 
 static int
-readchilds(Node *nod, Req *r)
+readchilds(Req *r, Node *nod)
 {
-	int i;
+	int e, i;
 	int *a;
 	uchar *p;
 	int np;
 	Node *x, **xx;
 
+	e = 0;
 	switch(TYPE(nod->d.qid.path)){
 	case Qroot:
 		if(ptprpc(r, GetStorageIds, 0|DataRecv, &p, &np) < 0)
@@ -605,14 +649,17 @@ readchilds(Node *nod, Req *r)
 		a = ptparray4(p, p+np);
 		free(p);
 		xx = &nod->child;
-		for(i=0; a && i<a[0]; i++){
-			if(x = getnode(PATH(Qstore, a[i+1]), r)){
-				x->parent = nod;
-				*xx = x;
-				xx = &x->next;
-			}
-		}		
 		*xx = nil;
+		for(i=0; a && i<a[0]; i++){
+			if((x = getnode(r, PATH(Qstore, a[i+1]))) == nil){
+				e = -1;
+				break;
+			}
+			x->parent = nod;
+			*xx = x;
+			xx = &x->next;
+			*xx = nil;
+		}		
 		free(a);
 		break;
 
@@ -623,28 +670,34 @@ readchilds(Node *nod, Req *r)
 		a = ptparray4(p, p+np);
 		free(p);
 		xx = &nod->child;
-		for(i=0; a && i<a[0]; i++){
-			if(x = getnode(PATH(Qobj, a[i+1]), r)){
-				x->parent = nod;
-				*xx = x;
-				xx = &x->next;
-
-				/* skip thumb when not image format */
-				if((x->format & 0xFF00) != 0x3800)
-					continue;
-			}
-			if(x = getnode(PATH(Qthumb, a[i+1]), r)){
-				x->parent = nod;
-				*xx = x;
-				xx = &x->next;
-			}
-		}
 		*xx = nil;
+		for(i=0; a && i<a[0]; i++){
+			if((x = getnode(r, PATH(Qobj, a[i+1]))) == nil){
+				e = -1;
+				break;
+			}
+			x->parent = nod;
+			*xx = x;
+			xx = &x->next;
+			*xx = nil;
+
+			/* skip thumb when not image format */
+			if((x->format & 0xFF00) != 0x3800)
+				continue;
+			if((x = getnode(r, PATH(Qthumb, a[i+1]))) == nil){
+				e = -1;
+				break;
+			}
+			x->parent = nod;
+			*xx = x;
+			xx = &x->next;
+			*xx = nil;
+		}
 		free(a);
 		break;
 	}
 
-	return 0;
+	return e;
 }
 
 static void
@@ -654,8 +707,6 @@ fsattach(Req *r)
 		respond(r, "invalid attach specifier");
 		return;
 	}
-	if(uname == nil)
-		uname = estrdup9p(r->ifcall.uname);
 	r->fid->qid.path = PATH(Qroot, 0);
 	r->fid->qid.type = QTDIR;
 	r->fid->qid.vers = 0;
@@ -668,7 +719,7 @@ fsstat(Req *r)
 {
 	Node *nod;
 
-	if((nod = getnode(r->fid->qid.path, r)) == nil){
+	if((nod = getnode(r, r->fid->qid.path)) == nil){
 		responderror(r);
 		return;
 	}
@@ -702,26 +753,22 @@ fswalk1(Req *r, char *name, Qid *qid)
 	path = fid->qid.path;
 	if(!(fid->qid.type&QTDIR))
 		return "walk in non-directory";
-
-	if((nod = getnode(path, r)) == nil)
-		goto err;
-
-	if(strcmp(name, "..") == 0){
-		if(nod = nod->parent)
-			*qid = nod->d.qid;
-		return nil;
-	}
-	if(readchilds(nod, r) < 0)
-		goto err;
-	for(nod=nod->child; nod; nod=nod->next){
-		if(strcmp(nod->d.name, name) == 0){
-			*qid = nod->d.qid;
+	if(nod = getnode(r, path)){
+		if(strcmp(name, "..") == 0){
+			if(nod = nod->parent)
+				*qid = nod->d.qid;
 			return nil;
 		}
+		if(readchilds(r, nod) == 0){
+			for(nod=nod->child; nod; nod=nod->next){
+				if(strcmp(nod->d.name, name) == 0){
+					*qid = nod->d.qid;
+					return nil;
+				}
+			}
+			return "directory entry not found";
+		}
 	}
-	return "directory entry not found";
-
-err:
 	rerrstr(buf, sizeof(buf));
 	return buf;
 }
@@ -764,40 +811,32 @@ fsread(Req *r)
 	np = 0;
 	p = nil;
 	path = r->fid->qid.path;
-	if((nod = getnode(path, r)) == nil)
-		goto err;
-
-	if(nod->d.qid.type & QTDIR){
-		if(readchilds(nod, r) < 0)
-			goto err;
-		dirread9p(r, nodegen, nod);
-		respond(r, nil);
-		return;
-	}
-
-	switch(TYPE(path)){
-	default:
-		werrstr("bug in fsread path=%llux", path);
-		break;
-
-	case Qobj:
-	case Qthumb:
-		if(nod->data == nil){
-			if(TYPE(path)==Qthumb){
-				if(ptprpc(r, GetThumb, 1|DataRecv, nod->handle, &p, &np) < 0)
-					goto err;
-			} else {
-				if(ptprpc(r, GetObject, 1|DataRecv, nod->handle, &p, &np) < 0)
-					goto err;
+	if(nod = getnode(r, path)){
+		switch(TYPE(path)){
+		case Qroot:
+		case Qstore:
+		case Qobj:
+			if(nod->d.qid.type & QTDIR){
+				if(readchilds(r, nod) < 0)
+					break;
+				dirread9p(r, nodegen, nod);
+				respond(r, nil);
+				return;
 			}
-			nod->data = p;
-			nod->ndata = np;
+			/* no break */
+		case Qthumb:
+			if(nod->data == nil){
+				if(ptprpc(r, TYPE(path)==Qthumb ? GetThumb : GetObject,
+					1|DataRecv, nod->handle, &p, &np) < 0)
+					break;
+				nod->data = p;
+				nod->ndata = np;
+			}
+			readbuf(r, nod->data, nod->ndata);
+			respond(r, nil);
+			return;
 		}
-		readbuf(r, nod->data, nod->ndata);
-		respond(r, nil);
-		return;
 	}
-err:
 	free(p);
 	responderror(r);
 }
@@ -809,22 +848,22 @@ fsremove(Req *r)
 	uvlong path;
 
 	path = r->fid->qid.path;
-	if((nod = getnode(path, r)) == nil)
-		goto err;
-
-	switch(TYPE(path)){
-	default:
-		werrstr("bug in fsremove path=%llux", path);
-		break;
-	case Qobj:
-		if(ptprpc(r, DeleteObject, 2, nod->handle, 0) < 0)
-			goto err;
-	case Qthumb:
-		freenode(nod);
-		respond(r, nil);
-		return;
+	if(nod = getnode(r, path)){
+		switch(TYPE(path)){
+		default:
+			werrstr(Eperm);
+			break;
+		case Qobj:
+			if(ptprpc(r, DeleteObject, 2, nod->handle, 0) < 0)
+				break;
+			/* no break */
+		case Qthumb:
+			if(nod = cachednode(path, nil))
+				freenode(nod);
+			respond(r, nil);
+			return;
+		}
 	}
-err:
 	responderror(r);
 }
 
@@ -832,7 +871,7 @@ static void
 fsopen(Req *r)
 {
 	if(r->ifcall.mode != OREAD){
-		respond(r, "permission denied");
+		respond(r, Eperm);
 		return;
 	}
 	respond(r, nil);
@@ -841,17 +880,10 @@ fsopen(Req *r)
 static void
 fsflush(Req *r)
 {
-	Req *o;
+	Channel *c;
 
-	if(o = r->oldreq){
-		if(debug)
-			fprint(2, "fsflush: req=%p\n", o);
-		int pid = (int)o->aux;
-		if(pid != -1 && pid != 0){
-			o->aux = (void*)-1;
-			postnote(PNPROC, pid, "interrupt");
-		}
-	}
+	if(c = r->oldreq->aux)
+		sendp(c, Einterrupt);
 	respond(r, nil);
 }
 
@@ -865,7 +897,7 @@ fsdestroyfid(Fid *fid)
 	switch(TYPE(path)){
 	case Qobj:
 	case Qthumb:
-		if(nod = getnode(path, nil)){
+		if(nod = cachednode(path, nil)){
 			free(nod->data);
 			nod->data = nil;
 			nod->ndata = 0;
@@ -878,6 +910,7 @@ static void
 fsend(Srv *)
 {
 	ptprpc(nil, CloseSession, 0);
+	closeioproc(recvp(iochan));
 }
 
 static int
@@ -906,39 +939,31 @@ findendpoints(Dev *d, int *epin, int *epout)
 	return -1;
 }
 
-static int
-inote(void *, char *msg)
-{
-	if(strstr(msg, "interrupt"))
-		return 1;
-	return 0;
-}
-
 Srv fs = 
 {
-.attach=		fsattach,
-.destroyfid=	fsdestroyfid,
-.walk=		fswalk,
-.open=		fsopen,
-.read=		fsread,
-.remove=		fsremove,
-.stat=		fsstat,
-.flush=		fsflush,
-.end=		fsend,
+	.attach = fsattach,
+	.destroyfid = fsdestroyfid,
+	.walk = fswalk,
+	.open = fsopen,
+	.read = fsread,
+	.remove = fsremove,
+	.stat = fsstat,
+	.flush = fsflush,
+	.end = fsend,
 };
 
 static void
 usage(void)
 {
 	fprint(2, "usage: %s [-dD] devid\n", argv0);
-	exits("usage");
+	threadexits("usage");
 }
 
 void
-main(int argc, char **argv)
+threadmain(int argc, char **argv)
 {
-	int epin, epout;
 	char name[64], desc[64];
+	int epin, epout;
 	Dev *d;
 
 	ARGBEGIN {
@@ -972,16 +997,18 @@ main(int argc, char **argv)
 	if(usbep[In]->dfd < 0 || usbep[Out]->dfd < 0)
 		sysfatal("open endpoints: %r");
 
+	iochan = chancreate(sizeof(Ioproc*), 1);
+	sendp(iochan, ioproc());
+
 	sessionId = getpid();
 	if(ptprpc(nil, OpenSession, 1, sessionId) < 0)
-		return;
+		sysfatal("open session: %r");
 
-	atnotify(inote, 1);
 	time0 = time(0);
 
 	snprint(name, sizeof name, "sdU%d.0", d->id);
 	snprint(desc, sizeof desc, "%d.ptp", d->id);
-	postsharesrv(&fs, nil, name, desc);
+	threadpostsharesrv(&fs, nil, name, desc);
 
-	exits(0);
+	threadexits(0);
 }

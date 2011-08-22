@@ -5,7 +5,7 @@ LIB=../lib/usb.a$O
 
 TARG=ptp
 HFILES=
-OFILES=usbptp.$O
+OFILES=ptp.$O
 
 </sys/src/cmd/mkone
 
