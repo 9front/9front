@@ -239,6 +239,8 @@ mkdir -p sparc64/bin/upas
 mkdir -p sparc64/bin/usb
 mkdir -p sparc64/bin/venti
 mkdir -p sparc64/lib/ape
+mkdir -p sys/lib/dist/usr/glenda/bin/386
+mkdir -p sys/lib/dist/usr/glenda/tmp
 mkdir -p sys/lib/lp/log
 mkdir -p sys/lib/lp/tmp
 mkdir -p sys/log
