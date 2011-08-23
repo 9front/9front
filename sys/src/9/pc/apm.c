@@ -103,8 +103,6 @@ apmlink(void)
 	if(isaconfig("apm", 0, &isa) == 0)
 		return;
 
-/* XXX use realmode() */
-
 	/*
 	 * APM info passed from boot loader.
 	 * Now we need to set up the GDT entries for APM.
@@ -146,7 +144,7 @@ apmlink(void)
 
 	addarchfile("apm", 0660, apmread, apmwrite);
 
-print("apm0: configured cbase %.8lux off %.8lux\n", ax<<4, ebx);
+	print("apm: configured cbase %.8lux off %.8lux\n", ax<<4, ebx);
 
 	return;
 }
