@@ -53,14 +53,7 @@ vbesetup(Ureg *u, int ax)
 static void
 vbecall(Ureg *u)
 {
-	static QLock callq;
 	ulong pa;
-
-	eqlock(&callq);
-	if(waserror()){
-		qunlock(&callq);
-		nexterror();
-	}
 
 	pa = PADDR(RMBUF);
 	if(devtab[cmem->type]->write(cmem, modebuf, sizeof(modebuf), pa) != sizeof(modebuf))
@@ -76,9 +69,6 @@ vbecall(Ureg *u)
 
 	if(devtab[cmem->type]->read(cmem, modebuf, sizeof(modebuf), pa) != sizeof(modebuf))
 		error("read modebuf");
-
-	poperror();
-	qunlock(&callq);
 }
 
 static void
@@ -229,12 +219,14 @@ vesaproc(void*)
 	while(vesactl != Cdisable){
 		if(!waserror()){
 			sleep(&vesar, vesadisabled, nil);
+
 			vbesetup(&u, 0x4f10);
 			if(vesactl == Cblank)
 				u.bx = 0x0101;
 			else	
 				u.bx = 0x0001;
 			vbecall(&u);
+
 			poperror();
 		}
 	}
