@@ -848,10 +848,8 @@ ctlwrite(Req *r)
 		respondx(r, apmsetpowerstate(&apm, dev, PowerStandby));
 	else if(strcmp(p, "on")==0)
 		respondx(r, apmsetpowerstate(&apm, dev, PowerEnabled));
-/*
 	else if(strcmp(p, "off")==0)
 		respondx(r, apmsetpowerstate(&apm, dev, PowerOff));
-*/
 	else if(strcmp(p, "suspend")==0)
 		respondx(r, apmsetpowerstate(&apm, dev, PowerSuspend));
 	else

@@ -80,6 +80,7 @@ and
 .BR enable ,
 .BR disable ,
 .BR standby ,
+.BR off
 and 
 .BR on .
 .B Enable
