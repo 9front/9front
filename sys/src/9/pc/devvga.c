@@ -277,8 +277,13 @@ vgactl(Cmdbuf *cb)
 		for(i = 0; vgadev[i]; i++){
 			if(strcmp(cb->f[1], vgadev[i]->name))
 				continue;
-			if(scr->dev && scr->dev->disable)
-				scr->dev->disable(scr);
+			if(scr->dev){
+				if(scr->dev->disable)
+					scr->dev->disable(scr);
+				scr->fill = nil;
+				scr->scroll = nil;
+				scr->blank = nil;
+			}
 			scr->dev = vgadev[i];
 			if(scr->dev->enable)
 				scr->dev->enable(scr);
@@ -352,6 +357,8 @@ vgactl(Cmdbuf *cb)
 			error("drawinit: no gscreen");
 		if(scr->dev && scr->dev->drawinit)
 			scr->dev->drawinit(scr);
+		hwblank = scr->blank != nil;
+		hwaccel = scr->scroll || scr->fill;
 		vgascreenwin(scr);
 		resetscreenimage();
 		cursoron(1);

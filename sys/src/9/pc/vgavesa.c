@@ -1,8 +1,5 @@
 /*
  * vga driver using just vesa bios to set up.
- *
- * note that setting hwaccel to zero will cause cursor ghosts to be
- * left behind.  hwaccel set non-zero repairs this.
  */
 #include "u.h"
 #include "../port/lib.h"
@@ -21,10 +18,18 @@
 
 enum {
 	Usesoftscreen = 1,
+
+	Cdisable = 0,
+	Cenable,
+	Cblank,
 };
 
 static void *hardscreen;
 static uchar modebuf[0x1000];
+static Chan *creg, *cmem;
+static QLock vesaq;
+static Rendez vesar;
+static int vesactl;
 
 #define WORD(p) ((p)[0] | ((p)[1]<<8))
 #define LONG(p) ((p)[0] | ((p)[1]<<8) | ((p)[2]<<16) | ((p)[3]<<24))
@@ -48,19 +53,15 @@ vbesetup(Ureg *u, int ax)
 static void
 vbecall(Ureg *u)
 {
-	Chan *creg, *cmem;
+	static QLock callq;
 	ulong pa;
 
-	cmem = namec("/dev/realmodemem", Aopen, ORDWR, 0);
+	eqlock(&callq);
 	if(waserror()){
-		cclose(cmem);
+		qunlock(&callq);
 		nexterror();
 	}
-	creg = namec("/dev/realmode", Aopen, ORDWR, 0);
-	if(waserror()){
-		cclose(creg);
-		nexterror();
-	}
+
 	pa = PADDR(RMBUF);
 	if(devtab[cmem->type]->write(cmem, modebuf, sizeof(modebuf), pa) != sizeof(modebuf))
 		error("write modebuf");
@@ -77,9 +78,7 @@ vbecall(Ureg *u)
 		error("read modebuf");
 
 	poperror();
-	cclose(creg);
-	poperror();
-	cclose(cmem);
+	qunlock(&callq);
 }
 
 static void
@@ -216,13 +215,88 @@ vesaflush(VGAscr *scr, Rectangle r)
 	}
 }
 
+static int
+vesadisabled(void *)
+{
+	return vesactl == Cdisable;
+}
+
+static void
+vesaproc(void*)
+{
+	Ureg u;
+
+	while(vesactl != Cdisable){
+		if(!waserror()){
+			sleep(&vesar, vesadisabled, nil);
+			vbesetup(&u, 0x4f10);
+			if(vesactl == Cblank)
+				u.bx = 0x0101;
+			else	
+				u.bx = 0x0001;
+			vbecall(&u);
+			poperror();
+		}
+	}
+	cclose(cmem);
+	cclose(creg);
+	cmem = creg = nil;
+	qunlock(&vesaq);
+
+	pexit("", 1);
+}
+
+static void
+vesaenable(VGAscr *)
+{
+	eqlock(&vesaq);
+	if(waserror()){
+		qunlock(&vesaq);
+		nexterror();
+	}
+	cmem = namec("/dev/realmodemem", Aopen, ORDWR, 0);
+	if(waserror()){
+		cclose(cmem);
+		cmem = nil;
+		nexterror();
+	}
+	creg = namec("/dev/realmode", Aopen, ORDWR, 0);
+	poperror();
+	poperror();
+
+	vesactl = Cenable;
+	kproc("vesa", vesaproc, nil);
+}
+
+static void
+vesadisable(VGAscr *)
+{
+	vesactl = Cdisable;
+	wakeup(&vesar);
+}
+
+static void
+vesablank(VGAscr *, int blank)
+{
+	if(vesactl != Cdisable){
+		vesactl = blank ? Cblank : Cenable;
+		wakeup(&vesar);
+	}
+}
+
+static void
+vesadrawinit(VGAscr *scr)
+{
+	scr->blank = vesablank;
+}
+
 VGAdev vgavesadev = {
 	"vesa",
-	0,
-	0,
+	vesaenable,
+	vesadisable,
 	0,
 	vesalinear,
-	0,
+	vesadrawinit,
 	0,
 	0,
 	0,
