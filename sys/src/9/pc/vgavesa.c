@@ -265,6 +265,10 @@ vesadisable(VGAscr *)
 {
 	vesactl = Cdisable;
 	wakeup(&vesar);
+
+	/* wait for vesaproc to finish */
+	qlock(&vesaq);
+	qunlock(&vesaq);
 }
 
 static void
