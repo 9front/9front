@@ -10,18 +10,21 @@ fault(ulong addr, int read)
 {
 	Segment *s;
 	char *sps;
+	int pnd;
 
 	if(up == nil)
 		panic("fault: nil up");
 	if(up->nlocks.ref)
 		print("fault: nlocks %ld\n", up->nlocks.ref);
 
+	pnd = up->notepending;
 	sps = up->psstate;
 	up->psstate = "Fault";
-	spllo();
 
 	m->pfault++;
 	for(;;) {
+		spllo();
+
 		s = seg(up, addr, 1);		/* leaves s->lk qlocked if seg != nil */
 		if(s == 0) {
 			up->psstate = sps;
@@ -36,9 +39,18 @@ fault(ulong addr, int read)
 
 		if(fixfault(s, addr, read, 1) == 0)
 			break;
+
+		splhi();
+		switch(up->procctl){
+		case Proc_exitme:
+		case Proc_exitbig:
+			procctl(up);
+		}
 	}
 
 	up->psstate = sps;
+	up->notepending |= pnd;
+
 	return 0;
 }
 
@@ -267,10 +279,17 @@ retry:
 				/* another process did it for me */
 				putpage(new);
 				goto done;
-			} else {
+			} else if(*p) {
 				/* another process and the pager got in */
 				putpage(new);
 				goto retry;
+			} else {
+				/* another process segfreed the page */
+				k = kmap(new);
+				memset((void*)VA(k), 0, ask);
+				kunmap(k);
+				*p = new;
+				goto done;
 			}
 		}
 

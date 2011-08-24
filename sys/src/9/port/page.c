@@ -123,7 +123,7 @@ newpage(int clear, Segment **s, ulong va)
 	Page *p;
 	KMap *k;
 	uchar ct;
-	int i, hw, dontalloc, color;
+	int i, hw, color;
 
 	lock(&palloc);
 	color = getpgcolor(va);
@@ -135,23 +135,22 @@ newpage(int clear, Segment **s, ulong va)
 			break;
 
 		unlock(&palloc);
-		dontalloc = 0;
-		if(s && *s) {
+		if(s)
 			qunlock(&((*s)->lk));
-			*s = 0;
-			dontalloc = 1;
+
+		if(!waserror()){
+			eqlock(&palloc.pwait);	/* Hold memory requesters here */
+
+			if(!waserror()){
+				kickpager();
+				tsleep(&palloc.r, ispages, 0, 1000);
+				poperror();
+			}
+
+			qunlock(&palloc.pwait);
+
+			poperror();
 		}
-		qlock(&palloc.pwait);	/* Hold memory requesters here */
-
-		while(waserror())	/* Ignore interrupts */
-			;
-
-		kickpager();
-		tsleep(&palloc.r, ispages, 0, 1000);
-
-		poperror();
-
-		qunlock(&palloc.pwait);
 
 		/*
 		 * If called from fault and we lost the segment from
@@ -159,8 +158,10 @@ newpage(int clear, Segment **s, ulong va)
 		 * a page. Fault will call newpage again when it has
 		 * reacquired the segment locks
 		 */
-		if(dontalloc)
+		if(s){
+			*s = 0;
 			return 0;
+		}
 
 		lock(&palloc);
 	}
