@@ -134,7 +134,7 @@ loop:
 	sleep(&swapalloc.r, needpages, 0);
 
 	while(needpages(junk)) {
-		if(swapimage.c) {
+		if(swapimage.c && swapalloc.free) {
 			p++;
 			if(p >= ep){
 				p = proctab(0);
