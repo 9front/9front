@@ -176,13 +176,9 @@ loop:
 			}
 			qunlock(&p->seglock);
 		} else {
-			print("out of memory\n");
 			killbig("out of memory");
 			freebroken();		/* can use the memory */
-
-			/* Emulate the old system if no swap channel */
-			if(!swapimage.c)
-				tsleep(&up->sleep, return0, 0, 5000);
+			sched();
 		}
 	}
 	goto loop;
