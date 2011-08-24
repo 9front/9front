@@ -13,6 +13,7 @@ template
 API
 service
 polling
+pipelining
 firewall
 standard
 GPU
