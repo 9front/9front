@@ -406,14 +406,6 @@ header(char *s)
 void
 trailer(void)
 {
-
-#ifdef LUCENT
-	Tm *t;
-	t = localtime(time(nil));
-	Bprint(&bout, TABLE "<tr height=20><td></table>\n");
-	Bprint(&bout, "<font size=-1><a href=\"http://www.lucent.com/copyright.html\">\n");
-	Bprint(&bout, "Copyright</A> &#169; %d Alcatel-Lucent.  All rights reserved.</font>\n", t->year+1900);
-#endif
 	Bprint(&bout, "</body></html>\n");
 }
 
