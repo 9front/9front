@@ -41,6 +41,7 @@ package
 plugin
 browser
 extension
+software ^
 open-source ^
 module
 proxy
