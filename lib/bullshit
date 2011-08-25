@@ -7,11 +7,13 @@ singleton
 framework
 NoSQL |
 cache
+persistent |
 self-signing |
 scripting |
 template
 API
 service
+event
 polling
 pipelining
 firewall
@@ -51,6 +53,8 @@ social ^
 private ^
 component
 markup
+lifecycle
+flexible ^
 patented ^
 abstract ^
 stateless ^
@@ -98,6 +102,9 @@ SSL *
 HTTP *
 TOR *
 manager $
+backend $
+control $
+controller $
 framework $
 generator $
 optimizer $
