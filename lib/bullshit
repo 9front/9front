@@ -7,7 +7,7 @@ singleton
 framework
 NoSQL |
 cache
-persistent |
+persistence |
 self-signing |
 scripting |
 template
@@ -33,7 +33,7 @@ rich-client
 DOM
 CSS
 CMS
-map/reduce
+/map/reduce
 reduce/map
 descriptor
 hypervisor
