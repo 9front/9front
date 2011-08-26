@@ -12,9 +12,11 @@ self-signing |
 scripting |
 template
 API
+depenency
 service
 event
 polling
+injection
 pipelining
 firewall
 standard
@@ -109,6 +111,7 @@ framework $
 generator $
 optimizer $
 solution $
+locator $
 -oriented %
 -based %
 -aware %
