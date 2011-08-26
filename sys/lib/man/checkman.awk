@@ -34,6 +34,7 @@ BEGIN {
 	Skipdirs["lml"] = 1
 	Skipdirs["type1"] = 1
 	Skipdirs["service.alt"] = 1
+	Skipdirs["inst"] = 1
 
 	Omitted["411"] = 1
 	Omitted["Kill"] = 1

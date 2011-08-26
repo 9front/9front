@@ -1,6 +1,9 @@
 .TH CWFS 4
 .SH NAME
-cwfs \- cached-worm file server, dump
+cwfs, \
+cwfs64, \
+cwfs64x, \
+fs64 - cached-worm file server, dump
 .SH SYNOPSIS
 .B cwfs
 [
