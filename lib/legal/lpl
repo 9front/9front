@@ -11,11 +11,11 @@ with the following notable exceptions:
    These directories contain material copyrights by B&H Inc. and Y&Y Inc.
 
 2. The printer fonts identified in subdirectory /sys/lib/ghostscript/font
-   are subject to the GNU GPL, reproduced in the file /lib/LICENSE.gpl.
+   are subject to the GNU GPL, reproduced in the file /lib/legal/gpl.
 
 3. The ghostscript program in the subdirectory /sys/src/cmd/gs is
    covered by the Aladdin Free Public License, reproduced in the file
-   /lib/LICENSE.afpl.
+   /lib/legal/afpl.
 
 Other, less notable exceptions are marked in the file tree with
 COPYING, COPYRIGHT, or LICENSE files.
