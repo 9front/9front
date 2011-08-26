@@ -365,5 +365,4 @@ Default mount point for the music database.
 .SH SOURCE
 .B /sys/src/games/music
 .SH SEE ALSO
-.IR playlistfs (7),
-.IR audio (7)
+.IR playlistfs (7).

@@ -152,5 +152,4 @@ Volume control file
 .SH SOURCE
 .B /sys/src/games/music/playlistfs
 .SH SEE ALSO
-.IR juke (7),
-.IR audio (7)
+.IR juke (7).

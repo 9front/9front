@@ -196,7 +196,6 @@ dd -conv swab | games/mp3enc -a -r -m m --resample 16 -b 24
 .IR mp3dec (1),
 .IR audio (3),
 .IR cdfs (4),
-.IR audio (7),
 .IR juke (7),
 .IR playlistfs (7)
 .br

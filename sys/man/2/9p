@@ -63,7 +63,9 @@ typedef struct Srv {
 .ta \w'\fLvoid* 'u
 int	srv(Srv *s)
 void	postmountsrv(Srv *s, char *name, char *mtpt, int flag)
+void	postsharesrv(Srv *s, char *name, char *mtpt, char *desc)
 void	threadpostmountsrv(Srv *s, char *name, char *mtpt, int flag)
+void	threadpostsharesrv(Srv *s, char *name, char *mtpt, char *desc)
 void	listensrv(Srv *s, char *addr)
 void	threadlistensrv(Srv *s, char *addr)
 int	postfd(char *srvname, int fd)
@@ -75,6 +77,15 @@ typedef int Dirgen(int n, Dir *dir, void *aux)
 void		dirread9p(Req *r, Dirgen *gen, void *aux)
 void	walkandclone(Req *r, char *(*walk1)(Fid *old, char *name, void *v),
           char *(*clone)(Fid *old, Fid *new, void *v), void *v)
+.fi
+.PP
+.nf
+.ft L
+.ta \w'\fLvoid* 'u
+void	srvrelease(Srv *s)
+void	srvacquire(Srv *s)
+.fi
+.PP
 .fi
 .PP
 .nf
@@ -224,6 +235,18 @@ this process, the entire process is terminated by calling
 (see
 .IR perror (2)).
 .PP
+.I Postsharesrv
+is similar to
+.I Postmountsrv
+but instead of mounting the service on a directory, it is
+put in a share (see
+.IR shr (3))
+where
+.IB mtpt
+is the name of the share and
+.IB desc
+is the name of the service channel.
+.PP
 .I Listensrv
 and
 .I threadlistensrv
@@ -333,6 +356,15 @@ is single-threaded.
 If it is expected that some requests might
 block, arranging for alternate processes
 to handle them is suggested.
+.PP
+.I Srvrelease
+detaches the calling process from the server loop and
+if neccesary spawns a new process to handle 9p requests.
+When released, the process is free to do blocking work
+or even exit because it now running in parallel to the
+server loop.
+.I Srvacquire
+joins the calling (released) process with the server loop.
 .PP
 The constraints on the service functions are as follows.
 These constraints are checked while the server executes.
@@ -781,6 +813,7 @@ or is maintained elsewhere.
 .IR 9pfid (2),
 .IR 9pfile (2),
 .IR srv (3),
+.IR shr (3),
 .IR intro (5)
 .SH BUGS
 The switch to 9P2000 was taken as an opportunity to tidy
