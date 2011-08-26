@@ -8,12 +8,16 @@ estrdup9p,
 listensrv,
 postfd,
 postmountsrv,
+postsharesrv,
 readbuf,
 readstr,
 respond,
 responderror,
+srvacquire,
+srvrelease,
 threadlistensrv,
 threadpostmountsrv,
+threadpostsharesrv,
 srv \- 9P file service
 .SH SYNOPSIS
 .ft L
