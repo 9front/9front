@@ -1,0 +1,50 @@
+.TH FSTYPE 1
+.SH NAME
+fstype \- determine file system type
+.SH SYNOPSIS
+.B fstype
+.I File
+.SH DESCRIPTION
+.I file
+being a partition or file system image,
+.I fstype
+determines the type of a disk filesystem and prints it.
+If the type cannot be determined, then the error status
+is set.
+.PP
+Known filesystem are:
+.TP 12
+.B 9660
+ISO9660 CD-ROM (see
+.IR dossrv (4))
+.TP
+.B dos
+FAT12/FAT16/FAT32 DOS (see
+.IR dossrv (4))
+.TP
+.B paqfs
+compressed
+.IR paqfs (4)
+.TP
+.B kfs
+Plan 9 disk file system (see
+.IR kfs (4))
+.TP
+.B fs
+32-bit and
+.TP
+.B fs64
+64-bit dump file system (see
+.IR fs (4))
+.TP
+.B cwfs
+32-bit,
+.TP
+.B cwfs64
+64-bit and
+.TP
+.B cwfs64x
+long file name cache worm file system (see
+.IR cwfs (4))
+.SH SOURCE
+.B /rc/bin/fstype

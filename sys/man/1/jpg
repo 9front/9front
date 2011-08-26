@@ -1,6 +1,6 @@
 .TH JPG 1
 .SH NAME
-jpg, gif, png, ppm, bmp, v210, yuv, ico, togif, toppm, topng, toico \- view and convert pictures
+jpg, gif, png, ppm, bmp, v210, yuv, ico, tga, togif, toppm, topng, toico \- view and convert pictures
 .SH SYNOPSIS
 .B jpg
 [
@@ -36,6 +36,13 @@ jpg, gif, png, ppm, bmp, v210, yuv, ico, togif, toppm, topng, toico \- view and 
 ]
 .br
 .B v210
+[
+.B -39cdektv
+] [
+.I file ...
+]
+.br
+.B tga
 [
 .B -39cdektv
 ] [
@@ -105,6 +112,7 @@ These programs read, display, and write image files in public formats.
 .IR png ,
 .IR ppm ,
 .IR bmp ,
+.IR tga ,
 .IR v210 ,
 and
 .IR yuv
