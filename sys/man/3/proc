@@ -132,8 +132,7 @@ the six 11-character numbers also held in the process's
 .B #c/cputime
 file
 .IP \-
-the amount of memory used by the process, except its stack,
-in units of 1024 bytes
+the amount of memory used by the process in units of 1024 bytes
 .IP \-
 the base and current scheduling priority, each 11 character numbers
 .PP

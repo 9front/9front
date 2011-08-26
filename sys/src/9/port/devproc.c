@@ -863,14 +863,15 @@ procread(Chan *c, void *va, long n, vlong off)
 			l = TK2MS(l);
 			readnum(0, statbuf+j+NUMSIZE*i, NUMSIZE, l, NUMSIZE);
 		}
-		/* ignore stack, which is mostly non-existent */
 		l = 0;
-		for(i=1; i<NSEG; i++){
-			s = p->seg[i];
-			if(s)
-				l += s->top - s->base;
+		for(i=0; i<NSEG; i++){
+			if(s = p->seg[i]){
+				eqlock(&s->lk);
+				l += mcountseg(s);
+				qunlock(&s->lk);
+			}
 		}
-		readnum(0, statbuf+j+NUMSIZE*6, NUMSIZE, l>>10, NUMSIZE);
+		readnum(0, statbuf+j+NUMSIZE*6, NUMSIZE, l*BY2PG/1024, NUMSIZE);
 		readnum(0, statbuf+j+NUMSIZE*7, NUMSIZE, p->basepri, NUMSIZE);
 		readnum(0, statbuf+j+NUMSIZE*8, NUMSIZE, p->priority, NUMSIZE);
 		memmove(a, statbuf+offset, n);

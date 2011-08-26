@@ -513,6 +513,27 @@ ibrk(ulong addr, int seg)
 /*
  *  called with s->lk locked
  */
+int
+mcountseg(Segment *s)
+{
+	int i, j, pages;
+	Page **map;
+
+	pages = 0;
+	for(i = 0; i < s->mapsize; i++){
+		if(s->map[i] == 0)
+			continue;
+		map = s->map[i]->pages;
+		for(j = 0; j < PTEPERTAB; j++)
+			if(map[j])
+				pages++;
+	}
+	return pages;
+}
+
+/*
+ *  called with s->lk locked
+ */
 void
 mfreeseg(Segment *s, ulong start, int pages)
 {

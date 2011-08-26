@@ -1507,8 +1507,10 @@ killbig(char *why)
 		l = 0;
 		for(i=1; i<NSEG; i++) {
 			s = p->seg[i];
-			if(s != 0)
-				l += s->top - s->base;
+			if(s == 0 || !canqlock(&s->lk))
+				continue;
+			l += (ulong)mcountseg(s);
+			qunlock(&s->lk);
 		}
 		if(l > max && ((p->procmode&0222) || strcmp(eve, p->user)!=0)) {
 			kp = p;

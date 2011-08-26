@@ -167,6 +167,7 @@ void*		malloc(ulong);
 void*		mallocalign(ulong, ulong, long, ulong);
 void		mallocsummary(void);
 Block*		mem2bl(uchar*, int);
+int		mcountseg(Segment*);
 void		mfreeseg(Segment*, ulong, int);
 void		microdelay(int);
 uvlong		mk64fract(uvlong, uvlong);
