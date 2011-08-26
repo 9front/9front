@@ -1,0 +1,12 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/nusb
+LIB=../lib/usb.a$O
+
+TARG=ether
+HFILES=
+OFILES=ether.$O
+
+</sys/src/cmd/mkone
+
+CFLAGS=-I../lib $CFLAGS
