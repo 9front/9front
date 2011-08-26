@@ -12,7 +12,6 @@ mkdir -p 386/bin/ndb
 mkdir -p 386/bin/nusb
 mkdir -p 386/bin/replica
 mkdir -p 386/bin/upas
-mkdir -p 386/bin/usb
 mkdir -p 386/bin/venti
 mkdir -p 386/lib/ape
 mkdir -p 68000/bin/ape
@@ -29,7 +28,6 @@ mkdir -p 68000/bin/ndb
 mkdir -p 68000/bin/nusb
 mkdir -p 68000/bin/replica
 mkdir -p 68000/bin/upas
-mkdir -p 68000/bin/usb
 mkdir -p 68000/bin/venti
 mkdir -p 68000/lib/ape
 mkdir -p 68020/bin/ape
@@ -46,7 +44,6 @@ mkdir -p 68020/bin/ndb
 mkdir -p 68020/bin/nusb
 mkdir -p 68020/bin/replica
 mkdir -p 68020/bin/upas
-mkdir -p 68020/bin/usb
 mkdir -p 68020/bin/venti
 mkdir -p 68020/lib/ape
 mkdir -p acme/bin/386
@@ -72,7 +69,6 @@ mkdir -p alpha/bin/ndb
 mkdir -p alpha/bin/nusb
 mkdir -p alpha/bin/replica
 mkdir -p alpha/bin/upas
-mkdir -p alpha/bin/usb
 mkdir -p alpha/bin/venti
 mkdir -p amd64/bin/ape
 mkdir -p amd64/bin/audio
@@ -88,7 +84,6 @@ mkdir -p amd64/bin/ndb
 mkdir -p amd64/bin/nusb
 mkdir -p amd64/bin/replica
 mkdir -p amd64/bin/upas
-mkdir -p amd64/bin/usb
 mkdir -p amd64/bin/venti
 mkdir -p amd64/lib/ape
 mkdir -p arm/bin/ape
@@ -105,7 +100,6 @@ mkdir -p arm/bin/ndb
 mkdir -p arm/bin/nusb
 mkdir -p arm/bin/replica
 mkdir -p arm/bin/upas
-mkdir -p arm/bin/usb
 mkdir -p arm/bin/venti
 mkdir -p arm/lib/ape
 mkdir -p cfg
@@ -182,7 +176,6 @@ mkdir -p power/bin/ndb
 mkdir -p power/bin/nusb
 mkdir -p power/bin/replica
 mkdir -p power/bin/upas
-mkdir -p power/bin/usb
 mkdir -p power/bin/venti
 mkdir -p power/lib/ape
 mkdir -p power64/bin/ape
@@ -199,7 +192,6 @@ mkdir -p power64/bin/ndb
 mkdir -p power64/bin/nusb
 mkdir -p power64/bin/replica
 mkdir -p power64/bin/upas
-mkdir -p power64/bin/usb
 mkdir -p power64/bin/venti
 mkdir -p power64/lib/ape
 mkdir -p rc/bin/aux
@@ -219,7 +211,6 @@ mkdir -p sparc/bin/ndb
 mkdir -p sparc/bin/nusb
 mkdir -p sparc/bin/replica
 mkdir -p sparc/bin/upas
-mkdir -p sparc/bin/usb
 mkdir -p sparc/bin/venti
 mkdir -p sparc/lib/ape
 mkdir -p sparc64/bin/ape
@@ -236,7 +227,6 @@ mkdir -p sparc64/bin/ndb
 mkdir -p sparc64/bin/nusb
 mkdir -p sparc64/bin/replica
 mkdir -p sparc64/bin/upas
-mkdir -p sparc64/bin/usb
 mkdir -p sparc64/bin/venti
 mkdir -p sparc64/lib/ape
 mkdir -p sys/lib/dist/usr/glenda/bin/386
