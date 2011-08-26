@@ -709,7 +709,7 @@ disk/format -b /386/pbs -d -r 2 /dev/sdC0/9fat \e
 .SH SEE ALSO
 .IR floppy (3),
 .IR sd (3),
-.IR usb (4),
+.IR nusb (4),
 .IR 9boot (8),
 .IR partfs (8)
 .SH BUGS

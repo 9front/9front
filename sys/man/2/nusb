@@ -1,17 +1,15 @@
-.TH USB 2
+.TH NUSB 2
 .SH NAME
 usbcmd,
 classname,
 closedev,
 configdev,
 devctl,
-finddevs,
+getdev,
 loaddevstr,
-matchdevcsp,
 opendev,
 opendevdata,
 openep,
-startdevs,
 unstall,
 class,
 subclass,
@@ -22,7 +20,6 @@ CSP \- USB device driver library
 .ta 8n +8n +8n +8n +8n +8n +8n
 #include <u.h>
 #include <libc.h>
-#include <thread.h>
 #include "../lib/usb.h"
 .sp 0.3v
 struct Dev {
@@ -118,18 +115,15 @@ int	configdev(Dev *d);
 int	devctl(Dev *dev, char *fmt, ...);
 void*	emallocz(ulong size, int zero);
 char*	estrdup(char *s);
-int	finddevs(int (*matchf)(char*,void*), void *farg, char** dirs, int ndirs);
 char*	hexstr(void *a, int n);
 char*	loaddevstr(Dev *d, int sid);
-int	matchdevcsp(char *info, void *a);
 Dev*	opendev(char *fn);
 int	opendevdata(Dev *d, int mode);
 Dev*	openep(Dev *d, int id);
-void	startdevs(char *args, char *argv[], int argc,
-		int (*mf)(char*,void*), void*ma, int (*df)(Dev*,int,char**));
 int	unstall(Dev *dev, Dev *ep, int dir);
 int	usbcmd(Dev *d, int type, int req,
 		int value, int index, uchar *data, int count);
+Dev*	getdev(int id);
 .sp 0.3v
 extern int usbdebug;	/* more messages for bigger values */
 .EE
@@ -140,26 +134,13 @@ It is not intended for user programs using USB devices.
 See
 .IR usb (3)
 for a description of the interfaces provided for that purpose.
-For drivers that provide a file system and may be embedded into
-.IR usbd ,
-the library includes a file system implementation toolkit described in
-.IR usbfs (2).
 .PP
 Usb drivers rely on
 .IR usb (3)
 to perform I/O through USB as well as on
-.IR usbd (4)
+.IR usbd
 to perform the initial configuration for the device's setup endpoint.
 The rest of the work is up to the driver and is where this library may help.
-.PP
-In most cases, a driver locates the devices of interest and configures them
-by calling
-.I startdevs
-and
-then sets up additional endpoints as needed (by calling
-.IR openep )
-to finally perform I/O by reading and writing the
-data files for the endpoints.
 .PP
 An endpoint as provided by
 .IR usb (3)
@@ -238,54 +219,6 @@ to the library are kept unparsed at
 as an aid for the driver
 (which should know how to parse them and what to do with the information).
 .SS Configuration
-.I Startdevs
-is a wrapper that locates devices of interest, loads their configuration
-information, and starts a
-.IR thread (2)'s
-.I proc
-for each device located so that it executes
-.I f
-as its main entry point. The entry point is called with a pointer to
-the
-.B Dev
-for the device it has to process,
-.BR argc ,
-and
-.BR argv .
-Devices are located either from the arguments (after options) in
-.IR argv ,
-if any,
-or by calling the helper function
-.I mf
-with the argument
-.I ma
-to determine (for each device available) if the device belongs to
-the driver or not. If the function returns -1 then the device is not for us.
-.PP
-In many cases,
-.I matchdevcsp
-may be supplied as
-.I mf
-along with a (null terminated) vector of CSP values supplied as
-.IR ma .
-This function returns 0 for any device with a CSP matching one in the
-vector supplied as an argument and -1 otherwise.
-In other cases (eg., when a particular vendor and device ids are the
-ones identifying the device) the driver must include its own function
-and supply it as an argument to
-.IR startdevs .
-The first argument of the function corresponds to the information
-known about the device (the second line in its
-.B ctl
-file).
-.I Openep
-creates the endpoint number
-.I id
-for the device
-.I d
-and returns a
-.B Dev
-structure to operate on it (with just the control file open).
 .PP
 .I Opendev
 creates a
@@ -306,11 +239,6 @@ loads and parses its configuration information.
 After calling it, the device is ready for I/O and the USB description in
 .B Dev.usb
 is valid.
-When using
-.IR startdevs
-it is not desirable to call this function (because
-.IR startdevs
-already calls it).
 .PP
 Control requests for an endpoint may be written by calling
 .I devctl
@@ -450,11 +378,9 @@ and memory must be released by the caller.
 returns the string obtained by reading the device string descriptor number
 .IR sid .
 .SH SOURCE
-.B /sys/src/cmd/usb/lib
+.B /sys/src/cmd/nusb/lib
 .SH "SEE ALSO"
-.IR usbfs (2),
 .IR usb (3),
-.IR usb (4),
-.IR usbd (4).
+.IR nusb (4).
 .SH BUGS
 Not heavily exercised yet.

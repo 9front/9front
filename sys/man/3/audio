@@ -126,4 +126,4 @@ Defaults to 44100.
 .SH SOURCE
 .B /sys/src/9/port/devaudio.c
 .SH SEE ALSO
-.IR usb (4)
+.IR nusb (4)
