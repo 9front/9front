@@ -10,6 +10,7 @@ ioopen,
 ioproc,
 ioread,
 ioreadn,
+iosleep,
 iowrite \- slave I/O processes for threaded programs
 .SH SYNOPSIS
 .PP
@@ -33,6 +34,7 @@ long	ioread(Ioproc *io, int fd, void *a, long n);
 long	ioreadn(Ioproc *io, int fd, void *a, long n);
 long	iowrite(Ioproc *io, int fd, void *a, long n);
 int	iodial(Ioproc *io, char *addr, char *local, char *dir, char *cdfp);
+int	iosleep(Ioproc *io, long n);
 .XX
 int	ioflush(Ioproc *io);
 void	iointerrupt(Ioproc *io);
@@ -65,6 +67,7 @@ rather than return an error.
 .IR ioread ,
 .IR ioreadn ,
 .IR iowrite ,
+.IR iosleep ,
 and
 .IR iodial
 execute the
@@ -178,5 +181,6 @@ ioread(Ioproc *io, int fd, void *a, long n)
 .IR dial (2),
 .IR open (2),
 .IR read (2),
+.IR sleep (2),
 .IR thread (2)
 
