@@ -175,7 +175,7 @@ In most cases, the correct course of action after noticing the stall
 is for the device driver to issue a `clear halt' request (see
 .I unstall
 in
-.IR usb (2))
+.IR nusb (2))
 to resume I/O.
 The most common error is
 .L crc/timeout
@@ -348,7 +348,7 @@ In most cases
 the driver does not issue them, leaving the task to either
 .IR usbd
 or the usb driver library documented in
-.IR usb (2).
+.IR nusb (2).
 .TF "\fLsamplehz\fI n
 .TP
 .B detach
@@ -521,7 +521,7 @@ root of the USB interface
 .br
 .B /sys/src/9/pc/usb?hci.c
 .SH "SEE ALSO"
-.IR usb (2),
+.IR nusb (2),
 .IR nusb (4),
 .IR plan9.ini (8)
 .SH BUGS
