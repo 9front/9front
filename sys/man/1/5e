@@ -14,7 +14,7 @@
 .I 5e
 simulates the execution of an ARM binary in a Plan 9 environment.
 Unlike its predecessor
-.IR 5i (1)
+.IR vi (1)
 it supports, among others, the syscalls
 .IR rfork (2)
 and
@@ -40,7 +40,7 @@ and
 .BR /rc/bin .
 .PP
 Unlike
-.IR 5i (1),
+.IR vi (1),
 .IR 5e (1)
 does not provide built-in debugging facilities.
 It
@@ -89,12 +89,12 @@ Supplying
 causes failing processes to call
 .IR abort (2)
 instead of
-.IR sysfatal (2).
+.I sysfatal.
 See below.
 .SH SOURCE
 .B /sys/src/cmd/5e
 .SH SEE ALSO
-.IR 5i (1)
+.IR vi (1)
 .SH BUGS
 The host is required to be little endian and is assumed to have a floating point implementation conforming to IEEE 754.
 

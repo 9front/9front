@@ -33,7 +33,8 @@ Create builds a new package
 whose source is found in directory
 .IR name ,
 then packs it into a
-.IR bzip2 (1)
+.I bzip2 (see
+.IR gzip (1))
 compressed
 .IR tar (1)
 archive suitable for upload to a package
