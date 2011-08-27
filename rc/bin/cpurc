@@ -76,4 +76,4 @@ if(test -e /cfg/$sysname/cpustart)
 
 # mode of /proc/*/ctl is inherited across rfork, and sets modes on
 # other /proc files, such as note, so let listen be killed.
-dontkill '^(ipconfig|factotum|mntgen|venti|kfs|cfs|cwfs.*|9660srv|dossrv|paqfs|cs|dns|reboot|usbd|disk)$'
+dontkill '^(ipconfig|factotum|mntgen|venti|kfs|cfs|cwfs.*|9660srv|dossrv|paqfs|cs|dns|reboot|usbd|kb|disk|ether)$'
