@@ -12,6 +12,7 @@ arch \- architecture-specific information and control
 .B /dev/iol
 .B /dev/iow
 .B /dev/irqalloc
+.B /dev/msr
 .SH DESCRIPTION
 This device presents textual information about PC hardware and allows
 user-level control of the I/O ports on x86-class and DEC Alpha machines.
@@ -116,11 +117,15 @@ Reads and writes to
 .IR iob ,
 .IR iow ,
 and
-.I iol
+.IR iol
 cause 8-bit wide, 16-bit wide, and 32-bit wide requests to
 I/O ports.
 The port accessed is determined by the byte offset of the
 file descriptor.
+.PP
+Reads and writes to
+.I msr
+go to the P4/P6/Core/Core2/AMD64 MSRs.
 .SH EXAMPLE
 The following code reads from an x86 byte I/O port.
 .IP
