@@ -9,6 +9,6 @@ if (! ~ $#* 1) {
 psu | awk '$NF ~ /'$1'/ {
 c="/proc/"$2"/ctl"
 print "chmod +w "c
-print "echo noswap >"c
+print "@{echo noswap >"c"}"
 print "chmod -w "c
 }' | rc >/dev/null >[2=1]
