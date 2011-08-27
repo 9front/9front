@@ -880,4 +880,6 @@ threadmain(int argc, char **argv)
 	snprint(s, sizeof(s), "%d.ether", d->id);
 	closedev(d);
 	threadpostsharesrv(&fs, nil, "usbnet", s);
+
+	threadexits(0);
 }
