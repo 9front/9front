@@ -2,6 +2,7 @@
 .SH NAME
 audio,
 disk,
+ether,
 kb,
 serial,
 ptp,
@@ -13,6 +14,12 @@ usbd - Universal Serial Bus drivers
 .B nusb/disk
 [
 .B -d
+]
+.I devid
+.PP
+.B nusb/ether
+[
+.B -dD
 ]
 .I devid
 .PP
@@ -135,6 +142,21 @@ and
 The
 .B ctl
 file supplies the device geometry and partitions when read.
+.SS Ethernet
+.I Ether
+handles USB ethernet devices. The file system provided is
+compatible to
+.IR ether (3)
+and added to the share
+.B usbnet
+(see
+.IR shr (3))
+wich is bound after
+.B /net
+by
+.IR nusbrc (8)
+so the device will appear as
+.BI /net/etherU N .
 .SS Serial and JTAG ports
 .I Serial
 provides a file system (usually seen under
@@ -175,13 +197,13 @@ and
 configures and manages a USB audio device.
 It implements a file system, (normally seen under
 .BI /dev )
-containing the files
-.BR volume
-and
-.BR audio .
+compatible to
+.IR audio (3).
 .SH SOURCE
 .B /sys/src/cmd/nusb
 .SH "SEE ALSO"
+.IR audio (3),
+.IR ether (3),
 .IR mouse (3),
 .IR sd (3),
 .IR uart (3),
