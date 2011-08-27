@@ -16,9 +16,14 @@ for(i in I l^(0 1 2 3))
 cat '#r/rtc' >/dev/time >[2]/dev/null
 
 # reparse #ec variables, move to #e
-for(i in `{ls -p '#ec'}){
-	cat '#ec/'^$i >'#e/'^$i
-	$i=`{echo $$i}
+for(i in `{ls -Qp '#ec'}){
+	switch($i){
+	case '*'* e820
+		# ignore these
+	case *
+		cat '#ec/'^$i >'#e/'^$i
+		$i=`{echo $$i}
+	}
 }
 
 fn fatal {
