@@ -17,11 +17,8 @@ cat '#r/rtc' >/dev/time >[2]/dev/null
 
 # reparse #ec variables, move to #e
 for(i in `{ls -p '#ec'}){
-	a=`{echo $$i}
-	$i=()
-	rm -f /env/$i
-	if(! ~ $#a 0)
-		$i=$a
+	cat '#ec/'^$i >'#e/'^$i
+	$i=`{echo $$i}
 }
 
 fn fatal {
