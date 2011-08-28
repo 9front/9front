@@ -36,3 +36,7 @@ if(! nusb/usbd)
 }
 
 bind -a '#σ/usb' /dev
+
+# wait for devices getting activated
+sleep 3
+

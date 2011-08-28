@@ -1,7 +1,20 @@
 #!/bin/rc
 
+fn showlocaldev {
+	echo $1'	' $2
+	if(~ $#bootargs 0){
+		if(! ~ $#cdboot 0){
+			if(~ $2 9660)
+				bootargs=local!$1
+		}
+		if not {
+			if(! ~ $2 '' dos)
+				bootargs=local!$1
+		}
+	}
+}
+
 fn showlocaldevs{
-	echo local devices found:
 	for(d in /dev/sd*) if(test -r $d/ctl){
 		q=`{sed 's,(inquiry|geometry),\
 \1,g' $d/ctl | grep inquiry}
@@ -11,13 +24,10 @@ fn showlocaldevs{
 			switch($i){
 			case ctl raw log
 				;
-			case 9fat plan9 nvram
+			case plan9 nvram swap
 				echo $p
 			case *
-				t=`{fstype $p}
-				if(~ $#bootargs 0 && ! ~ $t '')
-					bootargs=local!$p
-				echo $p $t
+				showlocaldev $p `{fstype $p}
 			}
 		}
 	}
@@ -25,11 +35,7 @@ fn showlocaldevs{
 		echo $d':'
 		for(p in $d/*.^(iso kfs paq)) if(test -f $p){
 			t=`{fstype $p}
-			if(! ~ $t ''){
-				if(~ $#bootargs 0)
-					bootargs=local!$p
-				echo $p $t
-			}
+			~ $#t 0 || showlocaldev $p $t
 		}
 	}
 }

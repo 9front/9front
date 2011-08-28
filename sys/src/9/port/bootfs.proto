@@ -27,6 +27,7 @@ $objtype
 		rc
 		rm
 		sed
+		sleep
 		srv
 		test
 		unmount

@@ -15,13 +15,12 @@ for(i in I l^(0 1 2 3))
 # usualy better than 1970
 cat '#r/rtc' >/dev/time >[2]/dev/null
 
-# reparse #ec variables, move to #e
+# reparse variables
 for(i in `{ls -Qp '#ec'}){
 	switch($i){
-	case '*'* e820
+	case '*'* 
 		# ignore these
 	case *
-		cat '#ec/'^$i >'#e/'^$i
 		$i=`{echo $$i}
 	}
 }
@@ -81,22 +80,23 @@ fn main{
 	$mp(1) $ma
 
 	# authentication agent
-	if(! test -f /srv/factotum){
-		x=(/boot/factotum -sfactotum)
-		if(~ $service cpu){
-			x=($x -S)
-			if(~ -k $ff)
-				x=($x -k)
-		}
-		if not
-			x=($x -u)
-		if(! ~ $#authaddr 0)
-			x=($x -a $authaddr)
-		if(! ~ $#debugfactotum 0)
-			x=($x -p)
-		must $x
+	if(test -f /srv/factotum){
+		rm -f /srv/factotum
+		user=`{cat /dev/hostowner}
 	}
-	if not user=`{cat /dev/hostowner}
+	x=(/boot/factotum -sfactotum)
+	if(~ $service cpu){
+		x=($x -S)
+		if(~ -k $ff)
+			x=($x -k)
+	}
+	if not
+		x=($x -u)
+	if(! ~ $#authaddr 0)
+		x=($x -a $authaddr)
+	if(! ~ $#debugfactotum 0)
+		x=($x -p)
+	must $x
 
 	# connect method
 	$mp(2) $ma
