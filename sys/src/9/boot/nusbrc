@@ -37,6 +37,6 @@ if(! nusb/usbd)
 
 bind -a '#σ/usb' /dev
 
-# wait for devices getting activated
-sleep 3
+if(! ~ $#usbdelay 0)
+	sleep $usbdelay
 
