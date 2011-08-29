@@ -14,7 +14,7 @@ OUTOFDATE=old
 NOMK=$NOTSYS|$BUGGERED|$OUTOFDATE
 
 cpuobjtype=`{sed -n 's/^O=//p' /$cputype/mkfile}
-DIRS=`{ls -l | sed '/^d/!d; s/.* //; /^('$NOMK')$/d'}
+DIRS=`{echo */mkfile | sed 's,/mkfile *,\n,g' | grep -v '^('$NOMK')$'}
 APEDIRS=awk bzip2 compress cvs eqn grap gs links-ape lp pic postscript spin \
 	tex troff
 
