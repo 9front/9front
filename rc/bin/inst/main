@@ -22,6 +22,7 @@ tasks=(\
 	download\
 	copydist\
 	ndbsetup nvramsetup\
+	tzsetup\
 	bootsetup finish stop\
 	stopether stopppp\
 )
