@@ -30,6 +30,8 @@ YFILES=eqn.y\
 HFILES=e.h\
 	y.tab.h\
 
+CLEANFILES=prevy.tab.h\
+
 BIN=/$objtype/bin
 </sys/src/cmd/mkone
 CC=pcc
