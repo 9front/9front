@@ -670,7 +670,7 @@ rtl8169init(Ether* edev)
 	 * Transmitter.
 	 */
 	memset(ctlr->td, 0, sizeof(D)*ctlr->ntd);
-	ctlr->tdh = ctlr->tdt = 0;
+	ctlr->tdh = ctlr->tdt = ctlr->ntq = 0;
 	ctlr->td[ctlr->ntd-1].control = Eor;
 
 	/*
@@ -759,12 +759,9 @@ rtl8169init(Ether* edev)
 
 	/*
 	 * Interrupts.
-	 * Disable Tdu|Tok for now, the transmit routine will tidy.
-	 * Tdu means the NIC ran out of descriptors to send, so it
-	 * doesn't really need to ever be on.
 	 */
 	csr32w(ctlr, Timerint, 0);
-	ctlr->imr = Serr|Timeout|Fovw|Punlc|Rdu|Ter|Rer|Rok;
+	ctlr->imr = Serr|Timeout|Fovw|Punlc|Rdu|Ter|Rer|Rok|Tdu;
 	csr16w(ctlr, Imr, ctlr->imr);
 
 	/*
@@ -890,20 +887,15 @@ rtl8169transmit(Ether* edev)
 	D *d;
 	Block *bp;
 	Ctlr *ctlr;
-	int control, x;
+	int x;
 
 	ctlr = edev->ctlr;
 
 	ilock(&ctlr->tlock);
 	for(x = ctlr->tdh; ctlr->ntq > 0; x = NEXT(x, ctlr->ntd)){
 		d = &ctlr->td[x];
-		if((control = d->control) & Own)
+		if(d->control & Own)
 			break;
-
-		/*
-		 * Check errors and log here.
-		 */
-		USED(control);
 
 		/*
 		 * Free it up.
@@ -913,7 +905,6 @@ rtl8169transmit(Ether* edev)
 		 */
 		freeb(ctlr->tb[x]);
 		ctlr->tb[x] = nil;
-		d->control &= Eor;
 
 		ctlr->ntq--;
 	}
@@ -927,19 +918,22 @@ rtl8169transmit(Ether* edev)
 		d = &ctlr->td[x];
 		d->addrlo = PCIWADDR(bp->rp);
 		d->addrhi = 0;
-		ctlr->tb[x] = bp;
 		coherence();
-		d->control |= Own | Fs | Ls | BLEN(bp);
+		ctlr->tb[x] = bp;
+		d->control = (d->control & Eor) | Own | Fs | Ls | BLEN(bp);
 
 		x = NEXT(x, ctlr->ntd);
 		ctlr->ntq++;
 	}
-	if(x != ctlr->tdt){
+	if(x != ctlr->tdt)
 		ctlr->tdt = x;
-		csr8w(ctlr, Tppoll, Npq);
-	}
 	else if(ctlr->ntq >= (ctlr->ntd-1))
 		ctlr->txdu++;
+
+	if(ctlr->ntq > 0){
+		coherence();
+		csr8w(ctlr, Tppoll, Npq);
+	}
 
 	iunlock(&ctlr->tlock);
 }
@@ -1029,6 +1023,7 @@ rtl8169interrupt(Ureg*, void* arg)
 		csr16w(ctlr, Isr, isr);
 		if((isr & ctlr->imr) == 0)
 			break;
+
 		if(isr & (Fovw|Punlc|Rdu|Rer|Rok)){
 			rtl8169receive(edev);
 			if(!(isr & (Punlc|Rok)))
