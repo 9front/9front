@@ -260,6 +260,7 @@ typedef struct Ctlr {
 	QLock	alock;			/* attach */
 	Lock	ilock;			/* init */
 	int	init;			/*  */
+	Rendez	reset;
 
 	int	pciv;			/*  */
 	int	macv;			/* MAC version */
@@ -306,7 +307,6 @@ typedef struct Ctlr {
 	uint	rer;
 	uint	rdu;
 	uint	punlc;
-	uint	fovw;
 	uint	mcast;
 	uint	frag;			/* partial packets; rb was too small */
 } Ctlr;
@@ -556,7 +556,6 @@ rtl8169ifstat(Ether* edev, void* a, long n, ulong offset)
 	l += snprint(p+l, READSTR-l, "rer: %ud\n", ctlr->rer);
 	l += snprint(p+l, READSTR-l, "rdu: %ud\n", ctlr->rdu);
 	l += snprint(p+l, READSTR-l, "punlc: %ud\n", ctlr->punlc);
-	l += snprint(p+l, READSTR-l, "fovw: %ud\n", ctlr->fovw);
 
 	l += snprint(p+l, READSTR-l, "tcr: %#8.8ux\n", ctlr->tcr);
 	l += snprint(p+l, READSTR-l, "rcr: %#8.8ux\n", ctlr->rcr);
@@ -810,9 +809,30 @@ rtl8169init(Ether* edev)
 
 	iunlock(&ctlr->ilock);
 
-//	rtl8169mii(ctlr);
-
 	return 0;
+}
+
+static void
+rtl8169reseter(void *arg)
+{
+	Ether *edev;
+	Ctlr *ctlr;
+
+	edev = arg;
+	ctlr = edev->ctlr;
+
+	for(;;){
+		print("rtl8169: reset\n");
+		rtl8169init(edev);
+		qunlock(&ctlr->alock);
+
+		while(waserror())
+			;
+		sleep(&ctlr->reset, return0, nil);
+		poperror();
+
+		qlock(&ctlr->alock);
+	}
 }
 
 static void
@@ -834,8 +854,10 @@ rtl8169attach(Ether* edev)
 		ctlr->rb = malloc(Nrd*sizeof(Block*));
 		ctlr->nrd = Nrd;
 		ctlr->dtcc = mallocalign(sizeof(Dtcc), 64, 0, 0);
-		rtl8169init(edev);
 		ctlr->init = 1;
+
+		kproc("rtl8169", rtl8169reseter, edev);
+		qlock(&ctlr->alock);	/* reset proc unlocks when finished */
 	}
 	qunlock(&ctlr->alock);
 
@@ -1010,6 +1032,25 @@ rtl8169receive(Ether* edev)
 }
 
 static void
+rtl8169restart(Ctlr *ctlr)
+{
+	ilock(&ctlr->ilock);
+
+	/* disable interrupts */
+	ctlr->imr = 0;
+	csr16w(ctlr, Imr, ctlr->imr);
+	csr16w(ctlr, Isr, 0xFFFF);
+
+	/* software reset */
+	csr8w(ctlr, Cr, Rst);
+	csr8r(ctlr, Cr);
+
+	wakeup(&ctlr->reset);
+
+	iunlock(&ctlr->ilock);
+}
+
+static void
 rtl8169interrupt(Ureg*, void* arg)
 {
 	Ctlr *ctlr;
@@ -1024,7 +1065,12 @@ rtl8169interrupt(Ureg*, void* arg)
 		if((isr & ctlr->imr) == 0)
 			break;
 
-		if(isr & (Fovw|Punlc|Rdu|Rer|Rok)){
+		if(isr & Fovw){
+			rtl8169restart(ctlr);
+			break;
+		}
+
+		if(isr & (Punlc|Rdu|Rer|Rok)){
 			rtl8169receive(edev);
 			if(!(isr & (Punlc|Rok)))
 				ctlr->ierrs++;
@@ -1034,9 +1080,7 @@ rtl8169interrupt(Ureg*, void* arg)
 				ctlr->rdu++;
 			if(isr & Punlc)
 				ctlr->punlc++;
-			if(isr & Fovw)
-				ctlr->fovw++;
-			isr &= ~(Fovw|Rdu|Rer|Rok);
+			isr &= ~(Rdu|Rer|Rok);
 		}
 
 		if(isr & (Tdu|Ter|Tok)){
