@@ -53,8 +53,10 @@ if(! ps|grep -s timesync){
 	sleep 2
 }
 
-if(~ $#auth 0)
+if(~ $#auth 0){
+	auth=`{ndb/query sys $sysname auth}
 	. <{ndb/ipquery sys $sysname auth | sed 's, +,\n,g'}
+}
 switch($auth){
 case `{	echo $sysname; ndb/query sys $sysname dom
 	for(i in `{awk '/u\ *$/{print $1}' /net/ipselftab}){
