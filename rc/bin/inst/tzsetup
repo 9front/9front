@@ -14,11 +14,11 @@ case go
 	echo 'Setup Time Zone'
 	echo
 
-	options=`{ls -p /adm/timezone | grep -v -e '(README|local)'}
+	options=`{ls -p /n/newfs/adm/timezone | grep -v -e '(README|local)'}
 	prompt -d US_Eastern 'Time Zone' $options
 	
-	if(test -f /adm/timezone/$rd){
-		cp /adm/timezone/$rd /adm/timezone/local >[2]/dev/null
+	if(test -f /n/newfs/adm/timezone/$rd){
+		cp /n/newfs/adm/timezone/$rd /n/newfs/adm/timezone/local
 		tzd=done
 	}
 	if not
