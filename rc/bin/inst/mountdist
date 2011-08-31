@@ -71,7 +71,8 @@ case go
 
 	echo Please wait... Scanning storage devices...
 
-	parts=`{ls /dev/sd*/* >[2]/dev/null | grep -v '/(plan9.*|nvram|ctl|log|raw)$'}
+	parts=`{ls /dev/sd*/* /srv/sd*/*.iso >[2]/dev/null |
+		grep -v '/(plan9.*|nvram|ctl|log|raw)$'}
 	for (i in $parts) {
 		echo -n '	'^$i
 		t=`{fstype $i}
@@ -100,14 +101,16 @@ case go
 	mountstatus=x
 	while(! ~ $mountstatus ''){
 		default=()
-		if(! ~ $#cdboot 0 && ! ~ $#x9660 0)
-			default=(-d $x9660(1))
-		prompt $default 'Distribution disk' $fat $x9660 $fs
+		if(! ~ $#cdboot 0)
+			default=(-d /root)
+		prompt $default 'Distribution disk' $fat $x9660 $fs /root
 		disk=$rd
 
 		srvmedia=()
 		mountmedia=()
 		switch($disk){
+		case /root
+			mountmedia=(bind /root /n/distmedia)
 		case $fs
 			mountmedia=(bind /n/newfs /n/distmedia)
 		case $fat
