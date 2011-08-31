@@ -102,15 +102,15 @@ case go
 	while(! ~ $mountstatus ''){
 		default=()
 		if(! ~ $#cdboot 0)
-			default=(-d /root)
-		prompt $default 'Distribution disk' $fat $x9660 $fs /root
+			default=(-d /)
+		prompt $default 'Distribution disk' $fat $x9660 $fs /
 		disk=$rd
 
 		srvmedia=()
 		mountmedia=()
 		switch($disk){
-		case /root
-			mountmedia=(bind /root /n/distmedia)
+		case /
+			mountmedia=(mount /srv/boot /n/distmedia)
 		case $fs
 			mountmedia=(bind /n/newfs /n/distmedia)
 		case $fat
