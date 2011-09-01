@@ -30,7 +30,9 @@ root directory
 .PP
 Each line of the
 .I proto
-file specifies a file to copy.
+file specifies a file to copy except lines in the form of
+.IB attr = val
+wich sets an attribute (see below).
 Blank lines and lines beginning with
 .B #
 are ignored.
@@ -70,6 +72,45 @@ all of the files are copied, and all subdirectories
 are recursively considered listed.
 All files are considered relative to
 .IR root .
+.PP
+Attributes, lines in the form of
+.IB attr = val,
+apply to all files in the current
+indention level after the attribute line.
+Attributes are inherited to deeper levels but
+each level can override them individualy.
+The attribute
+.BI skip= regexp
+skips all file names matching the regular expression
+.I regexp
+for
+.B *
+and
+.B +
+operations using
+.IR regexp (2).
+If owner or group is left unspecified on a file, the attributes
+.BI uid= owner
+and
+.BI gid= group
+will override these fields.
+The
+.BI mode= mode
+attribute adds, sets or masks file permission bits if permissions
+where not explicitly specified on the file. If multiple
+.B mode=
+lines are given and
+.I mode
+is not a set operation (forced by
+.B !
+character)
+the modes are combined.
+Except for the special
+.B !
+character,
+.I mode
+has the same syntax as in
+.IR chmod (1).
 .PP
 For each file named by the
 .IR proto ,
@@ -128,4 +169,6 @@ generic prototype file.
 .B /sys/src/libdisk/proto.c
 .SH SEE ALSO
 .IR mk9660 (8),
-.IR mkfs (8)
+.IR mkfs (8),
+.IR regexp (2),
+.IR chmod (1).

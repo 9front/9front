@@ -10,11 +10,7 @@ loaddevstr,
 opendev,
 opendevdata,
 openep,
-unstall,
-class,
-subclass,
-proto,
-CSP \- USB device driver library
+unstall - USB device driver library
 .SH SYNOPSIS
 .EX
 .ta 8n +8n +8n +8n +8n +8n +8n
