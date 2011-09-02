@@ -92,6 +92,7 @@ int mctlfd;
 
 int kbdopen;
 int consctlopen;
+int quiet = 0;
 
 int debug;
 
@@ -1187,6 +1188,17 @@ Srv fs = {
 	.end=			fsend,
 };
 
+int
+eopen(char *name, int mode)
+{
+	int fd;
+
+	fd = open(name, mode);
+	if(fd < 0 && !quiet)
+		fprint(2, "%s: warning: can't open %s: %r\n", argv0, name);
+	return fd;
+}
+
 void
 reboot(void)
 {
@@ -1195,10 +1207,8 @@ reboot(void)
 	if(debug)
 		return;
 
-	if((fd = open("/dev/reboot", OWRITE)) < 0){
-		fprint(2, "can't open /dev/reboot: %r\n");
+	if((fd = eopen("/dev/reboot", OWRITE)) < 0)
 		return;
-	}
 	fprint(fd, "reboot\n");
 	close(fd);
 }
@@ -1214,10 +1224,8 @@ elevate(void)
 		return;
 
 	snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
-	if((fd = open(buf, OWRITE)) < 0){
-		fprint(2, "can't open %s: %r\n", buf);
+	if((fd = eopen(buf, OWRITE)) < 0)
 		return;
-	}
 
 	/* get higher than normal priority */
 	fprint(fd, "pri 16\n");
@@ -1239,7 +1247,7 @@ elevate(void)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [ -dD ] [ -s srv ] [ -m mntpnt ] [ file ]\n", argv0);
+	fprint(2, "usage: %s [ -qdD ] [ -s srv ] [ -m mntpnt ] [ file ]\n", argv0);
 	exits("usage");
 }
 
@@ -1264,20 +1272,19 @@ threadmain(int argc, char** argv)
 	case 'm':
 		mtpt = EARGF(usage());
 		break;
+	case 'q':
+		quiet++;
+		break;
 	default:
 		usage();
 	}ARGEND
 
-	if((scanfd = open("/dev/scancode", OREAD)) < 0)
-		fprint(2, "%s: warning: can't open /dev/scancode: %r\n", argv0);
-	if((ledsfd = open("/dev/leds", OWRITE)) < 0)
-		fprint(2, "%s: warning: can't open /dev/leds: %r\n", argv0);
-	if((mctlfd = open("/dev/mousectl", OWRITE)) < 0)
-		fprint(2, "%s: warning: can't open /dev/mousectl: %r\n", argv0);
+	scanfd = eopen("/dev/scancode", OREAD);
+	ledsfd = eopen("/dev/leds", OWRITE);
+	mctlfd = eopen("/dev/mousectl", OWRITE);
 
 	if(*argv)
-		if((consfd = open(*argv, OREAD)) < 0)
-			fprint(2, "%s: warning: can't open %s: %r\n", argv0, *argv);
+		consfd = eopen(*argv, OREAD);
 
 	consreqchan = chancreate(sizeof(Req*), 0);
 	kbdreqchan = chancreate(sizeof(Req*), 0);

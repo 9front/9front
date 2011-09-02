@@ -157,7 +157,7 @@ if(test -x /bin/aux/kbdfs){
 	a=$console(1)
 	if(! ~ $#a 0)
 		a=/dev/eia^$a
-	aux/kbdfs -s cons $a
+	aux/kbdfs -q -s cons $a
 }
 
 # usb devices
