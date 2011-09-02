@@ -32,11 +32,13 @@ enum {
 	GetObject			=	0x1009,
 	GetThumb		=	0x100A,
 	DeleteObject		=	0x100B,
+	GetPartialObject	=	0x101B,
+
+	Maxio			=	0x2000,
 };
 
 typedef struct Ptprpc Ptprpc;
 typedef struct Node Node;
-typedef struct Ioflush Ioflush;
 
 struct Ptprpc
 {
@@ -46,7 +48,7 @@ struct Ptprpc
 	uchar	transid[4];
 	union {
 		uchar	p[5][4];
-		uchar	d[500];
+		uchar	d[52];
 	};
 };
 
@@ -66,25 +68,20 @@ struct Node
 	int		ndata;
 };
 
-struct Ioflush
-{
-	Channel	*c;
-	Ioproc	*io;
-};
-
-
 enum {
 	In,
 	Out,
+	Int,
+	Setup,
 };
 
-static Dev *usbep[2];
+static Dev *usbep[Setup+1];
 
-static int debug;
+static int debug = 0;
 static ulong time0;
 static int maxpacket = 64;
-static int sessionId = 0;
-static int transId = 0;
+static int sessionId = 1;
+static int transId = 1;
 
 static Node **nodes;
 static int nnodes;
@@ -233,7 +230,6 @@ vptprpc(Ioproc *io, int code, int flags, va_list a)
 	}
 	if(debug)
 		hexdump("req>", (uchar*)&rpc, n);
-
 	werrstr("");
 	if(iowrite(io, usbep[Out]->dfd, &rpc, n) != n){
 		wasinterrupt();
@@ -267,10 +263,13 @@ vptprpc(Ioproc *io, int code, int flags, va_list a)
 			wasinterrupt();
 			return -1;
 		}
-		while(p < e){	
-			if((n = iowrite(io, usbep[Out]->dfd, p, e-p)) < 0){
-				if(!wasinterrupt())
-					return -1;
+		while(p < e){
+			n = e - p;
+			if(n > Maxio)
+				n = Maxio;
+			if((n = iowrite(io, usbep[Out]->dfd, p, n)) < 0){
+				wasinterrupt();
+				return -1;
 			}
 			p += n;
 		}
@@ -286,55 +285,70 @@ vptprpc(Ioproc *io, int code, int flags, va_list a)
 		*prdata = nil;
 		*prdatalen = 0;
 
-		do{
-			if((n = ioread(io, usbep[In]->dfd, &rpc, sizeof(rpc))) < 0){
+		while((n = ioread(io, usbep[In]->dfd, &rpc, sizeof(rpc))) <= 0){
+			if(n < 0){
 				wasinterrupt();
 				return -1;
 			}
-			if(debug)
-				hexdump("data<", (uchar*)&rpc, n);
-			if((l = ptpcheckerr(&rpc, 2, t, n)) < 0)
-				return -1;
-		} while(l);
+		}
+		if((l = ptpcheckerr(&rpc, 2, t, n)) < 0)
+			return -1;
+		if(l && GET2(rpc.type) == 3)
+			goto Resp1;
 
 		l = GET4(rpc.length);
-		if((l < 4+2+2+4) || (l < n)){
-			werrstr("invalid recvdata length");
-			return -1;
-		}
-
 		l -= (4+2+2+4);
 		n -= (4+2+2+4);
-
+	
 		b = emalloc9p(l);
 		p = b;
 		e = b+l;
-		memmove(p, rpc.d, n);
-		p += n;
-
-		while(p < e){
-			if((n = ioread(io, usbep[In]->dfd, p, e-p)) < 0){
-				wasinterrupt();
-				free(b);
-				return -1;
-			}
+		if(n <= l){
+			if(debug)
+				hexdump("data<", rpc.d, n);
+			memmove(p, rpc.d, n);
 			p += n;
+			while(p < e){
+				n = e-p;
+				if(n > Maxio)
+					n = Maxio;
+				while((n = ioread(io, usbep[In]->dfd, p, n)) <= 0){
+					if(n < 0){
+						wasinterrupt();
+						free(b);
+						return -1;
+					}
+				}
+				if(debug)
+					hexdump("data<", p, n);
+				p += n;
+			}
+			*prdata = b;
+			*prdatalen = e-b;
+		} else {
+			if(debug)
+				hexdump("data<", rpc.d, l);
+			memmove(p, rpc.d, l);
+			*prdata = b;
+			*prdatalen = e-b;
+
+			n -= l;
+			memmove(&rpc, rpc.d+l, n);
+			goto Resp1;
 		}
-		*prdata = b;
-		*prdatalen =  e-b;
 	}
 
-	do {
-		if((n = ioread(io, usbep[In]->dfd, &rpc, sizeof(rpc))) < 0){
+	while((n = ioread(io, usbep[In]->dfd, &rpc, sizeof(rpc))) <= 0){
+		if(n < 0){
 			wasinterrupt();
 			return -1;
 		}
-		if(debug)
-			hexdump("resp<", (uchar*)&rpc, n);
-		if((l = ptpcheckerr(&rpc, 3, t, n)) < 0)
-			return -1;
-	} while(l);
-
+	}
+Resp1:
+	if(debug)
+		hexdump("resp<", (uchar*)&rpc, n);
+	if(ptpcheckerr(&rpc, 3, t, n))
+		return -1;
 	if(flags & OutParam){
 		int *pp;
 
@@ -347,60 +361,49 @@ vptprpc(Ioproc *io, int code, int flags, va_list a)
 	return 0;
 }
 
-static void
-ioflusher(void *aux)
-{
-	Ioflush f = *((Ioflush*)aux);
-	while(recvp(f.c))
-		iointerrupt(f.io);
-	chanfree(f.c);
-}
-
 static int
 ptprpc(Req *r, int code, int flags, ...)
 {
 	va_list va;
-	Ioflush f;
+	Channel *c;
+	Ioproc *io;
 	Alt a[3];
 	char *m;
 	int i;
 
 	i = -1;
-	f.c = nil;
-	f.io = nil;
+	c = nil;
+	io = nil;
 	m = Einterrupt;
 	a[0].op = CHANRCV;
 	a[0].c = iochan;
-	a[0].v = &f.io;
+	a[0].v = &io;
 	if(r){
-		f.c = chancreate(sizeof(char*), 0);
+		c = chancreate(sizeof(char*), 0);
 		a[1].op = CHANRCV;
-		a[1].c = f.c;
+		a[1].c = c;
 		a[1].v = &m;
 		a[2].op = CHANEND;
-		r->aux = f.c;
+		r->aux = c;
 		srvrelease(r->srv);
 	} else
 		a[1].op = CHANEND;
 	if(alt(a) == 0){
-		ioflush(f.io);
-		if(f.c)
-			threadcreate(ioflusher, &f, 4*1024);
 		va_start(va, flags);
-		i = vptprpc(f.io, code, flags, va);
+		i = vptprpc(io, code, flags, va);
 		va_end(va);
+		if(i < 0 && debug)
+			fprint(2, "rpc: %r\n");
 	} else
 		werrstr("%s", m);
 	if(r){
 		srvacquire(r->srv);
 		r->aux = nil;
 	}
-	if(f.io){
-		if(f.c)
-			sendp(f.c, nil);
-		sendp(iochan, f.io);
-	} else if(f.c)
-		chanfree(f.c);
+	if(io)
+		sendp(iochan, io);
+	if(c)
+		chanfree(c);
 	return i;
 }
 
@@ -823,12 +826,44 @@ fsread(Req *r)
 				respond(r, nil);
 				return;
 			}
+			while(nod->data == nil){
+				int offset, count, pos;
+
+				offset = r->ifcall.offset;
+				if(offset >= nod->d.length){
+					r->ofcall.count = 0;
+					respond(r, nil);
+					return;
+				}
+				/* are these people stupid? */
+				pos = (offset == 0) ? 1 : 2;
+				count = r->ifcall.count;
+				if((count + offset) > nod->d.length){
+					count = nod->d.length - offset;
+					pos = 3;
+				}
+				if(!ptprpc(r, GetPartialObject, 4|DataRecv, 
+					nod->handle, offset, count, pos, &p, &np)){
+					if(np <= count){
+						memmove(r->ofcall.data, p, np);
+						r->ofcall.count = np;
+						respond(r, nil);
+						free(p);
+						return;
+					}
+				}
+				free(p);
+			}
 			/* no break */
 		case Qthumb:
 			if(nod->data == nil){
+				p = nil;
+				np = 0;
 				if(ptprpc(r, TYPE(path)==Qthumb ? GetThumb : GetObject,
-					1|DataRecv, nod->handle, &p, &np) < 0)
+					1|DataRecv, nod->handle, &p, &np) < 0){
+					free(p);
 					break;
+				}
 				nod->data = p;
 				nod->ndata = np;
 			}
@@ -837,7 +872,6 @@ fsread(Req *r)
 			return;
 		}
 	}
-	free(p);
 	responderror(r);
 }
 
@@ -883,7 +917,7 @@ fsflush(Req *r)
 	Channel *c;
 
 	if(c = r->oldreq->aux)
-		sendp(c, Einterrupt);
+		nbsendp(c, Einterrupt);
 	respond(r, nil);
 }
 
@@ -914,17 +948,19 @@ fsend(Srv *)
 }
 
 static int
-findendpoints(Dev *d, int *epin, int *epout)
+findendpoints(Dev *d, int *epin, int *epout, int *epint)
 {
 	int i;
 	Ep *ep;
 	Usbdev *ud;
 
 	ud = d->usb;
-	*epin = *epout = -1;
+	*epin = *epout = *epint = -1;
 	for(i=0; i<nelem(ud->ep); i++){
 		if((ep = ud->ep[i]) == nil)
 			continue;
+		if(ep->type == Eintr && *epint == -1)
+			*epint = ep->id;
 		if(ep->type != Ebulk)
 			continue;
 		if(ep->dir == Eboth || ep->dir == Ein)
@@ -933,9 +969,9 @@ findendpoints(Dev *d, int *epin, int *epout)
 		if(ep->dir == Eboth || ep->dir == Eout)
 			if(*epout == -1)
 				*epout = ep->id;
-		if(*epin >= 0 && *epout >= 0)
-			return 0;
 	}
+	if(*epin >= 0 && *epout >= 0)
+		return 0;
 	return -1;
 }
 
@@ -963,7 +999,7 @@ void
 threadmain(int argc, char **argv)
 {
 	char name[64], desc[64];
-	int epin, epout;
+	int epin, epout, epint;
 	Dev *d;
 
 	ARGBEGIN {
@@ -981,10 +1017,12 @@ threadmain(int argc, char **argv)
 		usage();
 	if((d = getdev(atoi(*argv))) == nil)
 		sysfatal("opendev: %r");
-	if(findendpoints(d, &epin, &epout)  < 0)
+	if(configdev(d) < 0)
+		sysfatal("configdev: %r");
+	if(findendpoints(d, &epin, &epout, &epint)  < 0)
 		sysfatal("findendpoints: %r");
 
-	usbep[In] = openep(d, epin);
+	usbep[In] = openep(usbep[Setup] = d, epin);
 	if(epin == epout){
 		incref(usbep[In]);
 		usbep[Out] = usbep[In];
@@ -996,7 +1034,6 @@ threadmain(int argc, char **argv)
 	}
 	if(usbep[In]->dfd < 0 || usbep[Out]->dfd < 0)
 		sysfatal("open endpoints: %r");
-
 	iochan = chancreate(sizeof(Ioproc*), 1);
 	sendp(iochan, ioproc());
 
