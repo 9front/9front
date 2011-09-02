@@ -472,10 +472,10 @@ chanfree(Chan *c)
 void
 cclose(Chan *c)
 {
-	if(c->flag&CFREE)
+	if(c == nil || c->ref < 1 || c->flag&CFREE)
 		panic("cclose %#p", getcallerpc(&c));
 
-	DBG("cclose %p name=%s ref=%ld\n", c, c->path->s, c->ref);
+	DBG("cclose %p name=%s ref=%ld\n", c, chanpath(c), c->ref);
 	if(decref(c))
 		return;
 
@@ -503,10 +503,10 @@ void closeproc(void*);
 void
 ccloseq(Chan *c)
 {
-	if(c->flag&CFREE)
-		panic("cclose %#p", getcallerpc(&c));
+	if(c == nil || c->ref < 1 || c->flag&CFREE)
+		panic("ccloseq %#p", getcallerpc(&c));
 
-	DBG("ccloseq %p name=%s ref=%ld\n", c, c->path->s, c->ref);
+	DBG("ccloseq %p name=%s ref=%ld\n", c, chanpath(c), c->ref);
 
 	if(decref(c))
 		return;
@@ -822,6 +822,8 @@ cclone(Chan *c)
 	Chan *nc;
 	Walkqid *wq;
 
+	if(c == nil || c->ref < 1 || c->flag&CFREE)
+		panic("cclone: %#p", getcallerpc(&c));
 	wq = devtab[c->type]->walk(c, nil, nil, 0);
 	if(wq == nil)
 		error("clone failed");
