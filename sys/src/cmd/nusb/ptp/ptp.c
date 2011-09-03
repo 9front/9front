@@ -826,7 +826,7 @@ fsread(Req *r)
 				respond(r, nil);
 				return;
 			}
-			while(nod->data == nil){
+			if(nod->data == nil){
 				int offset, count, pos;
 
 				offset = r->ifcall.offset;
@@ -857,8 +857,8 @@ fsread(Req *r)
 			/* no break */
 		case Qthumb:
 			if(nod->data == nil){
-				p = nil;
 				np = 0;
+				p = nil;
 				if(ptprpc(r, TYPE(path)==Qthumb ? GetThumb : GetObject,
 					1|DataRecv, nod->handle, &p, &np) < 0){
 					free(p);
