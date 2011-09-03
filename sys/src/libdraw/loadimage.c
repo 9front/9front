@@ -5,7 +5,7 @@
 int
 loadimage(Image *i, Rectangle r, uchar *data, int ndata)
 {
-	long dy;
+	long dx, dy;
 	int n, bpl;
 	uchar *a;
 	int chunk;
@@ -24,14 +24,18 @@ loadimage(Image *i, Rectangle r, uchar *data, int ndata)
 	}
 	ndata = 0;
 	while(r.max.y > r.min.y){
-		dy = r.max.y - r.min.y;
+		dy = Dy(r);
+		dx = Dx(r);
 		if(dy*bpl > chunk)
 			dy = chunk/bpl;
 		if(dy <= 0){
-			werrstr("loadimage: image too wide for buffer");
-			return -1;
-		}
-		n = dy*bpl;
+			dy = 1;
+			dx = ((chunk*dx)/bpl) & ~7;
+			n = bytesperline(Rect(r.min.x, r.min.y, r.min.x+dx, r.min.y+dy), i->depth);
+			if(loadimage(i, Rect(r.min.x+dx, r.min.y, r.max.x, r.min.y+dy), data+n, bpl-n) < 0)
+				return -1;
+		} else
+			n = dy*bpl;
 		a = bufimage(i->display, 21+n);
 		if(a == nil){
 			werrstr("bufimage failed");
@@ -41,14 +45,12 @@ loadimage(Image *i, Rectangle r, uchar *data, int ndata)
 		BPLONG(a+1, i->id);
 		BPLONG(a+5, r.min.x);
 		BPLONG(a+9, r.min.y);
-		BPLONG(a+13, r.max.x);
+		BPLONG(a+13, r.min.x+dx);
 		BPLONG(a+17, r.min.y+dy);
 		memmove(a+21, data, n);
-		ndata += n;
-		data += n;
+		ndata += dy*bpl;
+		data += dy*bpl;
 		r.min.y += dy;
 	}
-	if(flushimage(i->display, 0) < 0)
-		return -1;
 	return ndata;
 }

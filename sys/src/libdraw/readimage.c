@@ -72,6 +72,8 @@ readimage(Display *d, int fd, int dolock)
 	maxy = r.max.y;
 
 	l = bytesperline(r, chantodepth(chan));
+	if(l > chunk)
+		chunk = l;
 	if(d){
 		if(dolock)
 			lockdisplay(d);
@@ -85,7 +87,6 @@ readimage(Display *d, int fd, int dolock)
 		if(i == nil)
 			return nil;
 	}
-
 	tmp = malloc(chunk);
 	if(tmp == nil)
 		goto Err;
@@ -93,10 +94,6 @@ readimage(Display *d, int fd, int dolock)
 		dy = maxy - miny;
 		if(dy*l > chunk)
 			dy = chunk/l;
-		if(dy <= 0){
-			werrstr("readimage: image too wide for buffer");
-			goto Err;
-		}
 		n = dy*l;
 		m = readn(fd, tmp, n);
 		if(m != n){
