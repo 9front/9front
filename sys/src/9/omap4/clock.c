@@ -8,7 +8,11 @@
 
 extern uchar *periph;
 ulong *global, *local;
-enum { PERIPHCLK = 506965000 } ;
+enum {
+	PERIPHCLK = 506965000,
+	MaxPeriod = PERIPHCLK / (256 * 100),
+	MinPeriod = MaxPeriod / 100,
+} ;
 
 void
 globalclockinit(void)
@@ -63,30 +67,32 @@ perfticks(void)
 void
 clocktick(Ureg* ureg)
 {
-	extern void _dumpstack(ulong, ulong);
-	static int n;
-
-//	if(++n % 128 == 0 && up && up->pid == 1)
-//		_dumpstack(ureg->sp, ureg->pc);
 	timerintr(ureg, 0);
 }
 
 void
 localclockinit(void)
 {
-	local[2] = 0xFF07;
+	local[2] = 0xFF06;
 	intenable(29, clocktick);
+	timerset(0);
 }
 
 void
 timerset(uvlong val)
 {
 	uvlong now, ticks;
-	
-	cycles(&now);
-	ticks = (val - now) * (PERIPHCLK / 256) / 1000000000;
-	if(ticks == 0)
-		ticks++;
+
+	if(val == 0)
+		ticks = MaxPeriod;
+	else{
+		cycles(&now);
+		ticks = (val - now) / 256;
+		if(ticks < MinPeriod)
+			ticks = MinPeriod;
+		if(ticks > MaxPeriod)
+			ticks = MaxPeriod;
+	}
 	local[2] &= ~1;
 	local[0] = local[1] = ticks;
 	local[2] |= 1;

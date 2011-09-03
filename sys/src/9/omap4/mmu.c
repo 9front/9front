@@ -9,6 +9,7 @@
 char iopages[NIOPAGES / 8];
 Lock iopagelock;
 uchar *periph;
+ulong *ledgpio;
 
 static int
 isfree(int i)
@@ -95,6 +96,21 @@ vunmap(void *virt, ulong length)
 }
 
 void
+setled(int n, int s)
+{
+	ulong *r;
+	
+	r = &ledgpio[0x190/4];
+	r[s != 0] = (1 << (7 + n));
+}
+
+void
+markidle(int n)
+{
+	setled(m->machno, !n);
+}
+
+void
 mmuinit(void)
 {
 	ulong *l1, l2, *pl2;
@@ -110,6 +126,8 @@ mmuinit(void)
 		l2 += L2SIZ;
 	}
 	uart = vmap((ulong) uart, BY2PG);
+	ledgpio = vmap(0x4A310000, BY2PG);
+	periph = vmap(0x48240000, 2 * BY2PG);
 	memset(l1, 0, sizeof(ulong) * (IZERO / MiB));
 	l1[4095] = PRIVL2 | Coarse;
 	pl2 = KADDR(PRIVL2);
@@ -119,7 +137,9 @@ mmuinit(void)
 	pl2[241] = FIRSTMACH | L2AP(Krw) | Small | Cached | Buffered;
 	flushtlb();
 	m = (Mach *) MACHADDR;
-	periph = vmap(0x48240000, 2 * BY2PG);
+	ledgpio[0x134/4] &= ~((1<<8)|(1<<7));
+	setled(0, 1);
+	setled(1, 1);
 }
 
 void

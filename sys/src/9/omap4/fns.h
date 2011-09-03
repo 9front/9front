@@ -4,6 +4,7 @@
 #define getpgcolor(x)	0
 #define kmapinval()
 #define checkmmu(a,b)
+#define userureg(ur)	(((ur)->psr & 0x1F) == 0x10)
 
 extern void procsave(Proc *);
 extern void procrestore(Proc *);
@@ -18,6 +19,7 @@ extern uintptr cankaddr(uintptr);
 extern void* KADDR(ulong);
 extern ulong paddr(void *);
 extern void cycles(uvlong *);
+extern void markidle(int);
 #define PADDR(x) paddr((void*)(x))
 
 void	mmuinit(void);
@@ -32,3 +34,6 @@ void	links(void);
 void	globalclockinit(void);
 void	localclockinit(void);
 void	intenable(int, void(*)(Ureg*));
+void	setled(int, int);
+void	uartinit(void);
+void	irqroute(int, void(*)(Ureg*));

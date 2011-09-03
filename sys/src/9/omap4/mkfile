@@ -44,7 +44,6 @@ OBJ=\
 	random.$O\
 	clock.$O\
 	arch.$O\
-	uart.$O\
 	trap.$O\
 	$CONF.root.$O\
 	$CONF.rootc.$O\

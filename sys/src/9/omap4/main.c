@@ -1,5 +1,6 @@
 #include "u.h"
 #include "ureg.h"
+#include "pool.h"
 #include "../port/lib.h"
 #include "mem.h"
 #include "dat.h"
@@ -35,6 +36,7 @@ machinit(void)
 	conf.nproc = 100;
 	conf.pipeqsize = 32768;
 	conf.nimage = 200;
+	conf.ialloc = 65536;
 }
 
 void
@@ -53,6 +55,7 @@ init0(void)
 		ksetenv("terminal", "generic /sys/src/9/omap4/panda", 0);
 		ksetenv("cputype", "arm", 0);
 		ksetenv("service", "cpu", 0);
+		ksetenv("console", "0", 0);
 		poperror();
 	}
 	kproc("alarm", alarmkproc, 0);
@@ -144,8 +147,6 @@ userinit(void)
 void
 main()
 {
-	extern int chandebug;
-
 	wave('f');
 	memset(edata, 0, end - edata);
 	wave('r');
@@ -154,6 +155,7 @@ main()
 	mmuinit();
 	wave('m');
 	trapinit();
+	uartinit();
 	print(" Bell Labs\n");
 	xinit();
 	globalclockinit();
@@ -166,7 +168,6 @@ main()
 	quotefmtinstall();
 	chandevreset();
 	links();
-	chandebug++;
 	userinit();
 	schedinit();
 }

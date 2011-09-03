@@ -226,12 +226,11 @@ TEXT _trap(SB), 1, $-4
 	MOVW	R13, R0
 	SUB	$8, R13
 	BL trap(SB)
-	ADD	$8, R13
-	MOVW	64(R13), R0
+	MOVW	72(R13), R0
 	AND	$PsrMask, R0
 	CMP	$PsrMusr, R0
-	MOVW.EQ	R13, R0
-	B.EQ	gotouser
+	B.EQ	_forkret
+	ADD	$8, R13
 	MOVW	68(R13), R0
 	MOVW	R0, 60(R13)
 	MOVW	64(R13), R0
@@ -255,11 +254,12 @@ TEXT _syscall(SB), 1, $-4
 	BL	syscall(SB)
 
 TEXT forkret(SB), 1, $-4
+_forkret:
 	ADD	$8, R13
 	MOVW	R13, R0
+	ADD	$72, R13
 
 TEXT touser(SB), 1, $-4
-gotouser:
 	ADD	$52, R0
 	MOVM.IA.S	(R0), [R13-R14]
 	SUB	$52, R0
@@ -295,4 +295,8 @@ TEXT getdfar(SB), 0, $-4
 
 TEXT getifar(SB), 0, $-4
 	MRC	CpSC, 0, R0, C(6), C(0), 2
+	RET
+
+TEXT getr13(SB), 0, $-4
+	MOVW	R13, R0
 	RET

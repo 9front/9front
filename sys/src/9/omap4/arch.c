@@ -29,13 +29,34 @@ dbgpc(Proc *p)
 }
 
 void
-procsave(Proc *)
+setkernur(Ureg *ureg, Proc *p)
+{
+	ureg->pc = p->sched.pc;
+	ureg->sp = p->sched.sp+4;
+	ureg->r14 = (ulong) sched;
+}
+
+void
+setregisters(Ureg *, char *, char *, int)
 {
 }
 
 void
-procrestore(Proc *)
+procsave(Proc *p)
 {
+	uvlong t;
+	
+	cycles(&t);
+	p->pcycles += t;
+}
+
+void
+procrestore(Proc *p)
+{
+	uvlong t;
+
+	cycles(&t);
+	p->pcycles -= t;
 }
 
 void
@@ -105,12 +126,6 @@ evenaddr(uintptr addr)
 		postnote(up, 1, "sys: odd address", NDebug);
 		error(Ebadarg);
 	}
-}
-
-Segment *
-data2txt(Segment *)
-{
-	panic("data2txt");
 }
 
 void
