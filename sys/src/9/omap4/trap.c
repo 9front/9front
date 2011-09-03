@@ -8,10 +8,11 @@
 #include "fns.h"
 #include "io.h"
 #include "arm.h"
+#include "tos.h"
 
 extern uchar *periph;
 ulong *intc, *intd;
-void (*irqhandler[256])(Ureg*);
+void (*irqhandler[MAXMACH][256])(Ureg*);
 
 static char *trapname[] = {
 	"reset", /* wtf */
@@ -53,8 +54,22 @@ trapinit(void)
 void
 intenable(int i, void (*fn)(Ureg *))
 {
-	intd[0x40 + (i / 32)] |= 1 << (i % 32);
-	irqhandler[i] = fn;
+	intd[0x40 + (i / 32)] = 1 << (i % 32);
+	irqhandler[m->machno][i] = fn;
+}
+
+void
+irqroute(int i, void (*fn)(Ureg *))
+{
+	ulong x, y, z;
+	
+	intenable(32 + i, fn);
+	x = intd[0x208 + i/4];
+	y = 0xFF << ((i%4) * 8);
+	z = 1 << (m->machno + (i%4) * 8);
+	x = (x & ~y) | z;
+	intd[0x208 + i/4] = x;
+//	intd[0x200/4 + (i+32)/32] = 1 << (i % 32);
 }
 
 void
@@ -78,10 +93,12 @@ faultarm(Ureg *ureg)
 	}
 	if(!user && addr >= KZERO){
 	kernel:
+		serialoq = nil;
 		printureg(ureg);
-		panic("kernel fault: addr=%#.8lux pc=%#.8lux sr=%#.8lux", addr, ureg->pc, sr);
+		panic("kernel fault: addr=%#.8lux pc=%#.8lux lr=%#.8lux sr=%#.8lux", addr, ureg->pc, ureg->r14, sr);
 	}
 	if(up == nil){
+		serialoq = nil;
 		printureg(ureg);
 		panic("%s fault: up=nil addr=%#.8lux pc=%#.8lux sr=%#.8lux", user ? "user" : "kernel", addr, ureg->pc, sr);
 	}
@@ -91,6 +108,7 @@ faultarm(Ureg *ureg)
 	if(n < 0){
 		if(!user)
 			goto kernel;
+		spllo();
 		sprint(buf, "sys: trap: fault %s addr=0x%lux", read ? "read" : "write", addr);
 		postnote(up, 1, buf, NDebug);
 	}
@@ -98,14 +116,29 @@ faultarm(Ureg *ureg)
 }
 
 void
+updatetos(void)
+{
+	Tos *tos;
+	uvlong t;
+	
+	tos = (Tos*) (USTKTOP - sizeof(Tos));
+	cycles(&t);
+	tos->kcycles += t - up->kentry;
+	tos->pcycles = up->pcycles;
+	tos->pid = up->pid;
+}
+
+void
 trap(Ureg *ureg)
 {
 	int user, intn, x;
+	char buf[ERRMAX];
 	
 	user = (ureg->psr & PsrMask) == PsrMusr;
 	if(user){
 		fillureguser(ureg);
 		up->dbgreg = ureg;
+		cycles(&up->kentry);
 	}
 	switch(ureg->type){
 	case 3:
@@ -114,9 +147,9 @@ trap(Ureg *ureg)
 		break;
 	case 6:
 		x = intc[3];
-		intn = x & 0x3F;
-		if(irqhandler[intn] != nil)
-			irqhandler[intn](ureg);
+		intn = x & 0x3FF;
+		if(irqhandler[m->machno][intn] != nil)
+			irqhandler[m->machno][intn](ureg);
 		intc[4] = x;
 		if(intn != 29)
 			preempted();
@@ -126,11 +159,20 @@ trap(Ureg *ureg)
 		}
 		break;
 	default:
-		printureg(ureg);
-		panic("%s", trapname[ureg->type]);
+		if(user){
+			spllo();
+			sprint("sys: trap: %s", trapname[ureg->type]);
+			postnote(up, 1, buf, NDebug);
+		}else{
+			serialoq = nil;
+			printureg(ureg);
+			panic("%s", trapname[ureg->type]);
+		}
 	}
-	if(user)
+	if(user){
+		updatetos();
 		up->dbgreg = nil;
+	}
 }
 
 void
@@ -144,6 +186,7 @@ syscall(Ureg *ureg)
 	up->insyscall = 1;
 	up->pc = ureg->pc;
 	up->dbgreg = ureg;
+	cycles(&up->kentry);
 	if(up->procctl == Proc_tracesyscall){
 		up->procctl = Proc_stopme;
 		procctl(up);
@@ -188,5 +231,6 @@ syscall(Ureg *ureg)
 		sched();
 		splhi();
 	}
+	updatetos();
 	up->dbgreg = nil;
 }

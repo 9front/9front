@@ -4,11 +4,11 @@ dev
 	cons
 	env
 	pipe
-#	proc
+	proc
 	mnt
 	srv
 	shr
-#	dup
+	dup
 #	arch
 #	ssl
 #	tls
@@ -28,7 +28,7 @@ dev
 #	dss
 #	mouse
 
-#	uart
+	uart
 #	usb
 
 link
@@ -63,6 +63,7 @@ misc
 #	uarti8250
 #	ucalloc
 #	ucallocb
+	uartomap
 
 port
 	int cpuserver = 1;
