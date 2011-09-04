@@ -41,22 +41,17 @@ writeimage(int fd, Image *i, int dolock)
 	bpl = bytesperline(r, i->depth);
 	n = Dy(r)*bpl;
 	data = malloc(n);
-	ncblock = _compblocksize(r, i->depth);
-	outbuf = malloc(ncblock);
-	hash = malloc(NHASH*sizeof(Hlist));
-	chain = malloc(NMEM*sizeof(Hlist));
-	if(data == 0 || outbuf == 0 || hash == 0 || chain == 0){
-	ErrOut:
+	if(data == 0){
+	ErrOut0:
 		free(data);
-		free(outbuf);
-		free(hash);
-		free(chain);
 		return -1;
 	}
 	for(miny = r.min.y; miny != r.max.y; miny += dy){
 		dy = r.max.y-miny;
 		if(dy*bpl > chunk)
 			dy = chunk/bpl;
+		if(dy <= 0)
+			dy = 1;
 		if(dolock)
 			lockdisplay(i->display);
 		nb = unloadimage(i, Rect(r.min.x, miny, r.max.x, miny+dy),
@@ -64,7 +59,29 @@ writeimage(int fd, Image *i, int dolock)
 		if(dolock)
 			unlockdisplay(i->display);
 		if(nb != dy*bpl)
-			goto ErrOut;
+			goto ErrOut0;
+	}
+	ncblock = _compblocksize(r, i->depth);
+	if(ncblock > chunk){
+		sprint(hdr, "%11s %11d %11d %11d %11d ",
+			chantostr(cbuf, i->chan), r.min.x, r.min.y, r.max.x, r.max.y);
+		if(write(fd, hdr, 5*12) != 5*12)
+			goto ErrOut0;
+		if(write(fd, data, n) != n)
+			goto ErrOut0;
+		free(data);
+		return 0;
+	}
+
+	outbuf = malloc(ncblock);
+	hash = malloc(NHASH*sizeof(Hlist));
+	chain = malloc(NMEM*sizeof(Hlist));
+	if(outbuf == 0 || hash == 0 || chain == 0){
+	ErrOut:
+		free(outbuf);
+		free(hash);
+		free(chain);
+		goto ErrOut0;
 	}
 	sprint(hdr, "compressed\n%11s %11d %11d %11d %11d ",
 		chantostr(cbuf, i->chan), r.min.x, r.min.y, r.max.x, r.max.y);
