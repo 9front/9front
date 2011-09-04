@@ -1,0 +1,35 @@
+</$objtype/mkfile
+
+TARG=mothra
+LIB=libpanel/libpanel.$O.a 
+CFILES= \
+	cistr.c \
+	crackurl.c \
+	file.c \
+	filetype.c \
+	forms.c \
+	ftp.c \
+	getpix.c \
+	gopher.c \
+	html.syntax.c \
+	http.c \
+	mothra.c \
+	rdhtml.c \
+	auth.c \
+
+OFILES=${CFILES:%.c=%.$O} version.$O
+HFILES=mothra.h html.h tcs.h libpanel/panel.h libpanel/rtext.h
+BIN=/$objtype/bin
+</sys/src/cmd/mkone
+
+CFLAGS=-Dplan9 -Ilibpanel
+version.c:	$CFILES
+	date|sed 's/^... //;s/ +/-/g;s/.*/char version[]="&";/' >version.c
+
+$LIB:V:
+	cd libpanel
+	mk
+
+clean nuke:V:
+	@{ cd libpanel; mk $target }
+	rm -f *.[$OS] [$OS].out $TARG
