@@ -19,8 +19,12 @@ resample(Memimage *dst, Rectangle r, Memimage *src, Rectangle sr)
 	bpp = src->depth/8;
 	bpl = src->width*sizeof(int);
 
-	qp.x = (ssize.x<<12)/dsize.x;
-	qp.y = (ssize.y<<12)/dsize.y;
+	qp = Pt(0, 0);
+	if(dsize.x > 0)
+		qp.x = (ssize.x<<12)/dsize.x;
+	if(dsize.y > 0)
+		qp.y = (ssize.y<<12)/dsize.y;
+
 	_sp.y = sr.min.y<<12;
 	for(dp.y=0; dp.y<=dsize.y; dp.y++){
 		sp.y = _sp.y>>12;
