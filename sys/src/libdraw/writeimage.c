@@ -39,6 +39,28 @@ writeimage(int fd, Image *i, int dolock)
 	chunk = i->display->bufsize - 32;	/* a little room for header */
 	r = i->r;
 	bpl = bytesperline(r, i->depth);
+	ncblock = _compblocksize(r, i->depth);
+	if(ncblock > chunk){
+		sprint(hdr, "%11s %11d %11d %11d %11d ",
+			chantostr(cbuf, i->chan), r.min.x, r.min.y, r.max.x, r.max.y);
+		if(write(fd, hdr, 5*12) != 5*12)
+			return -1;
+		data = malloc(bpl);
+		for(miny = r.min.y; miny != r.max.y; miny++){
+			if(dolock)
+				lockdisplay(i->display);
+			nb = unloadimage(i, Rect(r.min.x, miny, r.max.x, miny+1), data, bpl);
+			if(dolock)
+				unlockdisplay(i->display);
+			if(nb != bpl)
+				goto ErrOut0;
+			if(write(fd, data, nb) != nb)
+				goto ErrOut0;
+		}
+		free(data);
+		return 0;
+	}
+
 	n = Dy(r)*bpl;
 	data = malloc(n);
 	if(data == 0){
@@ -60,17 +82,6 @@ writeimage(int fd, Image *i, int dolock)
 			unlockdisplay(i->display);
 		if(nb != dy*bpl)
 			goto ErrOut0;
-	}
-	ncblock = _compblocksize(r, i->depth);
-	if(ncblock > chunk){
-		sprint(hdr, "%11s %11d %11d %11d %11d ",
-			chantostr(cbuf, i->chan), r.min.x, r.min.y, r.max.x, r.max.y);
-		if(write(fd, hdr, 5*12) != 5*12)
-			goto ErrOut0;
-		if(write(fd, data, n) != n)
-			goto ErrOut0;
-		free(data);
-		return 0;
 	}
 
 	outbuf = malloc(ncblock);

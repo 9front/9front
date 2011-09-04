@@ -27,12 +27,10 @@ writememimage(int fd, Memimage *i)
 	uchar *line, *eline;			/* input line, end pointer */
 	uchar *data, *edata;			/* input buffer, end pointer */
 	ulong n;				/* length of input buffer */
-	ulong nb;				/* # of bytes returned by unloadimage */
 	int bpl;				/* input line length */
 	int offs, runlen;			/* offset, length of consumed data */
 	uchar dumpbuf[NDUMP];			/* dump accumulator */
 	int ndump;				/* length of dump accumulator */
-	int miny, dy;				/* y values while unloading input */
 	int ncblock;				/* size of compressed blocks */
 	Rectangle r;
 	uchar *p, *q, *s, *es, *t;
@@ -41,6 +39,18 @@ writememimage(int fd, Memimage *i)
 
 	r = i->r;
 	bpl = bytesperline(r, i->depth);
+	ncblock = _compblocksize(r, i->depth);
+	if(ncblock > CHUNK){
+		sprint(hdr, "%11s %11d %11d %11d %11d ",
+			chantostr(cbuf, i->chan), r.min.x, r.min.y, r.max.x, r.max.y);
+		if(write(fd, hdr, 5*12) != 5*12)
+			return -1;
+		for(; r.min.y < r.max.y; r.min.y++)
+			if(write(fd, byteaddr(i, r.min), bpl) != bpl)
+				return -1;
+		return 0;
+	}
+
 	n = Dy(r)*bpl;
 	data = malloc(n);
 	if(data == 0){
@@ -48,31 +58,8 @@ writememimage(int fd, Memimage *i)
 		free(data);
 		return -1;
 	}
-	for(miny = r.min.y; miny != r.max.y; miny += dy){
-		dy = r.max.y-miny;
-		if(dy*bpl > CHUNK)
-			dy = CHUNK/bpl;
-		if(dy <= 0)
-			dy = 1;
-		nb = unloadmemimage(i, Rect(r.min.x, miny, r.max.x, miny+dy),
-			data+(miny-r.min.y)*bpl, dy*bpl);
-		if(nb != dy*bpl)
-			goto ErrOut0;
-	}
-
-	ncblock = _compblocksize(r, i->depth);
-
-	if(ncblock > CHUNK){
-		sprint(hdr, "%11s %11d %11d %11d %11d ",
-			chantostr(cbuf, i->chan), r.min.x, r.min.y, r.max.x, r.max.y);
-		if(write(fd, hdr, 5*12) != 5*12)
-			goto ErrOut0;
-		if(write(fd, data, n) != n)
-			goto ErrOut0;
-		free(data);
-		return 0;
-	}
-
+	if(unloadmemimage(i, r, data, n) != n)
+		goto ErrOut0;
 	outbuf = malloc(ncblock);
 	hash = malloc(NHASH*sizeof(Hlist));
 	chain = malloc(NMEM*sizeof(Hlist));
