@@ -85,10 +85,6 @@ readmemimage(int fd)
 		dy = maxy - miny;
 		if(dy*l > chunk)
 			dy = chunk/l;
-		if(dy <= 0){
-			werrstr("readmemimage: image too wide for buffer");
-			goto Err;
-		}
 		n = dy*l;
 		m = readn(fd, tmp, n);
 		if(m != n){
