@@ -370,9 +370,10 @@ httpopen(Client *c, Url *url)
 		werrstr("Partial Content (206)");
 		goto Error;
 
+	case 303:	/* See Other */
+		c->havepostbody = 0;
 	case 301:	/* Moved Permanently */
 	case 302:	/* Moved Temporarily */
-	case 303:	/* See Other */
 	case 307: /* Temporary Redirect  */
 		redirect = 1;
 		break;
