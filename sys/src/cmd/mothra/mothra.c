@@ -795,16 +795,6 @@ Err:
 /*
  * select the file at the given url
  */
-void seturl(Url *url, char *urlname, char *base){
-	strncpy(url->reltext, urlname, sizeof(url->reltext));
-	strcpy(url->basename, base);
-	url->fullname[0] = 0;
-	url->charset[0] = 0;
-	url->tag[0] = 0;
-	url->type = 0;
-	url->map = 0;
-}
-
 void selurl(char *urlname){
 	static Url url;
 	seturl(&url, urlname, current?
@@ -812,6 +802,15 @@ void selurl(char *urlname){
 		defurl.fullname);
 	selection=&url;
 	message("selected: %s", selection->fullname);
+}
+void seturl(Url *url, char *urlname, char *base){
+	strncpy(url->reltext, urlname, sizeof(url->reltext));
+	strncpy(url->basename, base, sizeof(url->basename));
+	url->fullname[0] = 0;
+	url->charset[0] = 0;
+	url->tag[0] = 0;
+	url->type = 0;
+	url->map = 0;
 }
 Url *copyurl(Url *u){
 	Url *v;
