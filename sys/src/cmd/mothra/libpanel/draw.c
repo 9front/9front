@@ -128,6 +128,7 @@ Point pl_boxsize(Point interior, int state){
 	case FRAME:
 		return addpt(interior, Pt(4*FWID+2*SPACE, 4*FWID+2*SPACE));
 	}
+	return Pt(0, 0);
 }
 void pl_interior(int state, Point *ul, Point *size){
 	switch(state){

@@ -35,10 +35,13 @@ struct Fontdata{
 	"lucidasans/typeunicode.16", 0, 0,
 };
 Fontdata *pl_whichfont(int f, int s){
-	char name[100];
+	char name[NNAME];
+
+	assert(f >= 0 && f < 4);
+	assert(s >= 0 && s < 4);
+
 	if(fontlist[f][s].font==0){
-		snprint(name, sizeof(name), "/lib/font/bit/%s.font",
-			fontlist[f][s].name);
+		snprint(name, sizeof(name), "/lib/font/bit/%s.font", fontlist[f][s].name);
 		fontlist[f][s].font=openfont(display, name);
 		if(fontlist[f][s].font==0) fontlist[f][s].font=font;
 		fontlist[f][s].space=stringwidth(fontlist[f][s].font, "0");

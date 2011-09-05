@@ -951,7 +951,7 @@ void paste(Panel *p){
 	fd=open("/dev/snarf", OREAD);
 	strncpy(buf, plentryval(p), sizeof(buf));
 	len=strlen(buf);
-	n=read(fd, buf+len, 1023-len);
+	n=read(fd, buf+len, sizeof(buf)-len-1);
 	if(n>0){
 		buf[len+n]='\0';
 		plinitentry(cmd, PACKE|EXPAND, 0, buf, docmd);
@@ -960,7 +960,7 @@ void paste(Panel *p){
 	close(fd);
 }
 void hit3(int button, int item){
-	char name[100], *home;
+	char name[NNAME], *home;
 	Panel *swap;
 	int fd;
 	USED(button);

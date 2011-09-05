@@ -89,7 +89,10 @@ void pl_childspaceentry(Panel *p, Point *ul, Point *size){
 	USED(p, ul, size);
 }
 void pl_freeentry(Panel *p){
-	free(((Entry *)p->data)->entry);
+	Entry *ep;
+	ep = p->data;
+	free(ep->entry);
+	ep->entry = ep->eent = 0;
 }
 void plinitentry(Panel *v, int flags, int wid, char *str, void (*hit)(Panel *, char *)){
 	int elen;
@@ -106,13 +109,11 @@ void plinitentry(Panel *v, int flags, int wid, char *str, void (*hit)(Panel *, c
 	v->free=pl_freeentry;
 	elen=100;
 	if(str) elen+=strlen(str);
-	ep->entry=pl_emalloc(elen+SLACK);
+	if(ep->entry==nil)
+		ep->entry=pl_emalloc(elen+SLACK);
 	ep->eent=ep->entry+elen;
-	if(str)
-		strcpy(ep->entry, str);
-	else ep->entry[0]='\0';
+	strecpy(ep->entry, ep->eent, str ? str : "");
 	ep->entp=ep->entry+strlen(ep->entry);
-	/* strcat(ep->entry, "◀"); */
 	ep->hit=hit;
 	v->kind="entry";
 }

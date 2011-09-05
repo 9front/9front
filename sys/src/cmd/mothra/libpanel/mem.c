@@ -6,7 +6,7 @@
 #include "pldefs.h"
 void *pl_emalloc(int n){
 	void *v;
-	v=malloc(n);
+	v=mallocz(n, 1);
 	if(v==0){
 		fprint(2, "Can't malloc!\n");
 		exits("no mem");
