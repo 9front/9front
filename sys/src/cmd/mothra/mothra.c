@@ -711,9 +711,45 @@ int readstr(char *buf, int nbuf, char *base, char *name)
 	return n;
 }
 
+int fileurlopen(Url *url){
+	char *rel, *base, *x;
+	int fd;
+
+	rel = base = nil;
+	if(cistrncmp(url->basename, "file:", 5) == 0)
+		base = url->basename+5;
+	if(cistrncmp(url->reltext, "file:", 5) == 0)
+		rel = url->reltext+5;
+	if(rel == nil && base == nil)
+		return -1;
+	if(rel == nil)
+		rel = url->reltext;
+	if(base && base[0] == '/' && rel[0] != '/'){
+		if(x = strrchr(base, '/'))
+			*x = 0;
+		snprint(url->fullname, sizeof(url->fullname), "%s/%s", base, rel);
+		if(x)	*x = '/';
+		fd = open(cleanname(url->fullname), OREAD);
+	}else
+		fd = open(rel, OREAD);
+	if(fd < 0)
+		return -1;
+	memset(url->fullname, 0, sizeof(url->fullname));
+	strcpy(url->fullname, "file:");
+	fd2path(fd, url->fullname+5, sizeof(url->fullname)-6);
+	url->type = content2type("application/octet-stream", url->fullname);
+	return fd;
+}
+
 int urlopen(Url *url, int method, char *body){
 	int conn, ctlfd, fd, n;
 	char buf[1024+1];
+
+	if(debug) fprint(2, "urlopen %s (%s)\n", url->reltext, url->basename); 
+
+	if(method == GET)
+		if((fd = fileurlopen(url)) >= 0)
+			return fd;
 
 	snprint(buf, sizeof buf, "%s/clone", mtpt);
 	if((ctlfd = open(buf, ORDWR)) < 0)
@@ -801,7 +837,7 @@ void selurl(char *urlname){
 		current->url->fullname :
 		defurl.fullname);
 	selection=&url;
-	message("selected: %s", selection->fullname);
+	message("selected: %s", selection->fullname[0] ? selection->fullname : selection->reltext);
 }
 void seturl(Url *url, char *urlname, char *base){
 	strncpy(url->reltext, urlname, sizeof(url->reltext));
@@ -960,7 +996,7 @@ void paste(Panel *p){
 	close(fd);
 }
 void hit3(int button, int item){
-	char name[NNAME], *home;
+	char name[NNAME];
 	Panel *swap;
 	int fd;
 	USED(button);
@@ -986,12 +1022,7 @@ void hit3(int button, int item){
 		paste(cmd);
 		break;
 	case 3:
-		home=getenv("home");
-		if(home==0){
-			message("no $home");
-			return;
-		}
-		snprint(name, sizeof(name), "%s/lib/mothra/hit.html", home);
+		snprint(name, sizeof(name), "%s/hit.html", home);
 		fd=open(name, OWRITE);
 		if(fd==-1){
 			fd=create(name, OWRITE, 0666);
@@ -1008,12 +1039,7 @@ void hit3(int button, int item){
 		close(fd);
 		break;
 	case 4:
-		home=getenv("home");
-		if(home==0){
-			message("no $home");
-			return;
-		}
-		snprint(name, sizeof(name), "file:%s/lib/mothra/hit.html", home);
+		snprint(name, sizeof(name), "file:%s/hit.html", home);
 		geturl(name, GET, 0, 1, 0);
 		break;
 	case 5:

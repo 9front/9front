@@ -611,11 +611,11 @@ void h_submitinput(Panel *p, int){
 		break;
 	}
 	if(form->method==GET){
-fprint(2, "GET %s\n", buf);
+		if(debug)fprint(2, "GET %s\n", buf);
 		geturl(buf, GET, 0, 0, 0);
 	}
 	else{
-fprint(2, "POST %s: %s\n", form->action, buf);
+		if(debug)fprint(2, "POST %s: %s\n", form->action, buf);
 		geturl(form->action, POST, buf, 0, 0);
 	}
 	free(buf);
