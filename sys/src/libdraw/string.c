@@ -134,11 +134,8 @@ _string(Image *dst, Point pt, Image *src, Point sp, Font *f, char *s, Rune *r, i
 				else
 					break;
 			}
-			/* 
-			 * must not free sf until cachechars has found it in the cache
-			 * and picked up its own reference.
-			 */
 		}
 	}
+	freesubfont(sf);
 	return pt;
 }

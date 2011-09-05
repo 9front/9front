@@ -19,8 +19,12 @@ readimage(Display *d, int fd, int dolock)
 
 	if(readn(fd, hdr, 11) != 11)
 		return nil;
-	if(memcmp(hdr, "compressed\n", 11) == 0)
-		return creadimage(d, fd, dolock);
+	if(memcmp(hdr, "compressed\n", 11) == 0){
+		if(i = creadimage(d, fd, dolock))
+			goto Done;
+		return nil;
+	}
+		
 	if(readn(fd, hdr+11, 5*12-11) != 5*12-11)
 		return nil;
 	if(d)
@@ -123,5 +127,7 @@ readimage(Display *d, int fd, int dolock)
 		miny += dy;
 	}
 	free(tmp);
+   Done:
+	setmalloctag(i, getcallerpc(&d));
 	return i;
 }

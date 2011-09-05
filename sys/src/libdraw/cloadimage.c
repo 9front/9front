@@ -20,14 +20,14 @@ cloadimage(Image *i, Rectangle r, uchar *data, int ndata)
 		maxy = atoi((char*)data+0*12);
 		nb = atoi((char*)data+1*12);
 		if(maxy<=miny || r.max.y<maxy){
-			werrstr("creadimage: bad maxy %d", maxy);
+			werrstr("cloadimage: bad maxy %d", maxy);
 			return -1;
 		}
 		data += 2*12;
 		ndata -= 2*12;
 		m += 2*12;
 		if(nb<=0 || ncblock<nb || nb>ndata){
-			werrstr("creadimage: bad count %d", nb);
+			werrstr("cloadimage: bad count %d", nb);
 			return -1;
 		}
 		a = bufimage(i->display, 21+nb);

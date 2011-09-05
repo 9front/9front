@@ -7,7 +7,7 @@
  */
 
 static char	*lastname;
-Subfont	*lastsubfont;
+static Subfont	*lastsubfont;
 
 Subfont*
 lookupsubfont(Display *d, char *name)

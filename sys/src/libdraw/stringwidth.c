@@ -12,6 +12,7 @@ _stringnwidth(Font *f, char *s, Rune *r, int len)
 	Rune rune, **rptr;
 	char *subfontname, **sptr;
 	Font *def;
+	Subfont *sf;
 
 	if(s == nil){
 		s = "";
@@ -23,6 +24,7 @@ _stringnwidth(Font *f, char *s, Rune *r, int len)
 		rptr = nil;
 	}else
 		rptr = &r;
+	sf = nil;
 	twid = 0;
 	while(len>0 && (*s || *r)){
 		max = Max;
@@ -43,7 +45,8 @@ _stringnwidth(Font *f, char *s, Rune *r, int len)
 				return twid;
 			}
 			if(subfontname){
-				if(_getsubfont(f->display, subfontname) == 0){
+				freesubfont(sf);
+				if((sf=_getsubfont(f->display, subfontname)) == 0){
 					def = f->display->defaultfont;
 					if(def && f!=def)
 						f = def;
@@ -56,6 +59,7 @@ _stringnwidth(Font *f, char *s, Rune *r, int len)
 		twid += wid;
 		len -= l;
 	}
+	freesubfont(sf);
 	return twid;
 }
 

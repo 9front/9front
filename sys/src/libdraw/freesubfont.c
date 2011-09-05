@@ -5,10 +5,7 @@
 void
 freesubfont(Subfont *f)
 {
-	if(f == 0)
-		return;
-	f->ref--;
-	if(f->ref > 0)
+	if(f == nil || --f->ref)
 		return;
 	uninstallsubfont(f);
 	free(f->name);
