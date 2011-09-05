@@ -225,6 +225,7 @@ enum
 	Bool,
 	Int,
 	String,
+	XRel,
 	XUrl,
 	Fn,
 };
@@ -253,7 +254,7 @@ Ctab globaltab[] = {
 
 Ctab clienttab[] = {
 	"baseurl",			XUrl,		(void*)offsetof(Client, baseurl),
-	"url",				XUrl,		(void*)offsetof(Client, url),
+	"url",				XRel,		(void*)offsetof(Client, url),
 };
 
 static Ctab*
@@ -270,9 +271,10 @@ findcmd(char *cmd, Ctab *tab, int ntab)
 static void
 parseas(Req *r, char *arg, int type, void *a)
 {
-	Url *u;
+	Url *u, *base;
 	char e[ERRMAX];
 
+	base = nil;
 	switch(type){
 	case Bool:
 		if(strcmp(arg, "on")==0 || strcmp(arg, "1")==0)
@@ -284,8 +286,10 @@ parseas(Req *r, char *arg, int type, void *a)
 		free(*(char**)a);
 		*(char**)a = estrdup(arg);
 		break;
+	case XRel:
+		base = ((Client*)a)->baseurl;
 	case XUrl:
-		u = parseurl(arg, nil);
+		u = parseurl(arg, base);
 		if(u == nil){
 			snprint(e, sizeof e, "parseurl: %r");
 			respond(r, e);

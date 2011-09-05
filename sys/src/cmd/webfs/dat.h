@@ -24,6 +24,7 @@ struct Client
 {
 	Url	*url;
 	Url	*baseurl;
+
 	Ctl ctl;
 	Channel *creq;	/* chan(Req*) */
 	int num;
