@@ -39,7 +39,7 @@ void getimage(Rtext *t, Www *w){
 	Pix *p;
 
 	ap=t->user;
-	crackurl(&url, ap->image, w->base);
+	seturl(&url, ap->image, w->url->fullname);
 	for(p=w->pix;p!=nil; p=p->next)
 		if(strcmp(ap->image, p->name)==0 && ap->width==p->width && ap->height==p->height){
 			storebitmap(t, p->b);
@@ -105,12 +105,55 @@ void getimage(Rtext *t, Www *w){
 }
 
 void getpix(Rtext *t, Www *w){
+	int i, pid, nworker, worker[NXPROC];
 	Action *ap;
+
+	nworker = 0;
+	for(i=0; i<nelem(worker); i++)
+		worker[i] = -1;
 
 	for(;t!=0;t=t->next){
 		ap=t->user;
-		if(ap && ap->image)
-			getimage(t, w);
+		if(ap && ap->image){
+			pid = rfork(RFFDG|RFPROC|RFMEM);
+			switch(pid){
+			case -1:
+				fprint(2, "fork: %r\n");
+				break;
+			case 0:
+				getimage(t, w);
+				exits(0);
+			default:
+				for(i=0; i<nelem(worker); i++)
+					if(worker[i] == -1){
+						worker[i] = pid;
+						nworker++;
+						break;
+					}
+
+				while(nworker == nelem(worker)){
+					if((pid = waitpid()) < 0)
+						break;
+					for(i=0; i<nelem(worker); i++)
+						if(worker[i] == pid){
+							worker[i] = -1;
+							nworker--;
+							break;
+						}
+				}
+			}
+			
+		}
+	}
+	while(nworker > 0){
+		if((pid = waitpid()) < 0)
+			break;
+		for(i=0; i<nelem(worker); i++)
+			if(worker[i] == pid){
+				worker[i] = -1;
+				nworker--;
+				break;
+			}
 	}
 }
 

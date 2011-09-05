@@ -679,7 +679,6 @@ void plrdhtml(char *name, int fd, Www *dst){
 	g.tp=g.text;
 	g.etext=g.text+NTITLE-1;
 	dst->title[0]='\0';
-	dst->base=dst->url;
 	g.spacc=0;
 	g.form=0;
 	g.charset[0] = '\0';
@@ -795,12 +794,6 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_b:
 		case Tag_strong:
 			g.state->font=BOLD;
-			break;
-		case Tag_base:
-			if(str=pl_getattr(g.attr, "href")){
-				dst->base=emalloc(sizeof(Url));
-				crackurl(dst->base, str, dst->url);
-			}
 			break;
 		case Tag_blockquot:
 			g.spacc=0;

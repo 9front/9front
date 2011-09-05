@@ -11,6 +11,7 @@ void *pl_emalloc(int n){
 		fprint(2, "Can't malloc!\n");
 		exits("no mem");
 	}
+	setmalloctag(v, getcallerpc(&n));
 	return v;
 }
 void pl_unexpected(Panel *g, char *rou){

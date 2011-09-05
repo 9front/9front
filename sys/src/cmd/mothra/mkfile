@@ -3,19 +3,12 @@
 TARG=mothra
 LIB=libpanel/libpanel.$O.a 
 CFILES= \
-	cistr.c \
-	crackurl.c \
-	file.c \
 	filetype.c \
 	forms.c \
-	ftp.c \
 	getpix.c \
-	gopher.c \
 	html.syntax.c \
-	http.c \
 	mothra.c \
 	rdhtml.c \
-	auth.c \
 
 OFILES=${CFILES:%.c=%.$O} version.$O
 HFILES=mothra.h html.h tcs.h libpanel/panel.h libpanel/rtext.h

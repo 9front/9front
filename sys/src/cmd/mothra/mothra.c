@@ -23,29 +23,22 @@ Panel *list;	/* list of previously acquired www pages */
 Panel *msg;	/* message display */
 Panel *menu3;	/* button 3 menu */
 Mouse mouse;	/* current mouse data */
-char helpfile[] = "file:/sys/lib/mothra/help.html";
 char mothra[] = "mothra!";
 Url defurl={
-	"http://plan9.bell-labs.com/",
-	0,
-	"plan9.bell-labs.com",
-	"/",
+	"http://cat-v.org/",
 	"",
-	"", "", "",
-	80,
-	HTTP,
-	HTML
+	"http://cat-v.org/",
+	"",
+	"",
+	HTML,
 };
 Url badurl={
+	"",
+	"",
 	"No file loaded",
-	0,
 	"",
-	"/dev/null",
-	"", "", "",
 	"",
-	0,
-	FILE,
-	HTML
+	HTML,
 };
 Cursor patientcurs={
 	0, 0,
@@ -83,6 +76,7 @@ Cursor readingcurs={
 	0x0E, 0x60, 0x1C, 0x00, 0x38, 0x00, 0x71, 0xB6,
 	0x61, 0xB6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
+char *mtpt="/mnt/web";
 Www *current=0;
 Url *selection=0;
 int logfile;
@@ -210,6 +204,7 @@ int mkmfile(char *stem, int mode){
 			sprint(home, "%s/lib/mothra", henv);
 			f=create(home, OREAD, DMDIR|0777);
 			if(f!=-1) close(f);
+			free(henv);
 		}
 		else
 			strcpy(home, "/tmp");
@@ -231,6 +226,9 @@ void main(int argc, char *argv[]){
 	ARGBEGIN{
 	case 'd': debug++; break;
 	case 'v': verbose=1; break;
+	case 'm':
+		if(mtpt = ARGF())
+			break;
 	default:  goto Usage;
 	}ARGEND
 
@@ -243,12 +241,12 @@ void main(int argc, char *argv[]){
 	switch(argc){
 	default:
 	Usage:
-		fprint(2, "Usage: %s [-d] [url]\n", argv[0]);
+		fprint(2, "Usage: %s [-d] [-m mtpt] [url]\n", argv[0]);
 		exits("usage");
 	case 0:
 		url=getenv("url");
 		if(url==0 || url[0]=='\0')
-			url="file:/sys/lib/mothra/start.html";
+			url=defurl.fullname;
 		break;
 	case 1: url=argv[0]; break;
 	}
@@ -284,7 +282,6 @@ void main(int argc, char *argv[]){
 	fillellipse(bullet, Pt(4,4), 3, 3, display->black, ZP);
 	new = www(-1);
 	new->url=&badurl;
-	new->base=&badurl;
 	strcpy(new->title, "See error message above");
 	plrtstr(&new->text, 0, 0, font, "See error message above", 0, 0);
 	new->alldone=1;
@@ -527,10 +524,6 @@ void docmd(Panel *p, char *s){
 	default:
 		message("Unknown command %s, type h for help", s);
 		break;
-	case '?':
-	case 'h':
-		geturl(helpfile, GET, 0, 1, 0);
-		break;
 	case 'g':
 		s=arg(s);
 		if(*s=='\0'){
@@ -543,9 +536,8 @@ void docmd(Panel *p, char *s){
 		break;
 	case 'r':
 		s = arg(s);
-		if(*s == '\0')
-			s = selection ? selection->fullname : helpfile;
-		geturl(s, GET, 0, 0, 0);
+		if(*s == '\0' && selection)
+			geturl(selection->fullname, GET, 0, 0, 0);
 		break;
 	case 'W':
 		s=arg(s);
@@ -697,57 +689,79 @@ void popwin(char *cmd){
 		_exits(0);
 	}
 }
-int urlopen(Url *url, int method, char *body){
-	int fd;
-	Url prev;
-	int nredir;
-	Dir *dir;
-	nredir=0;
-Again:
-	if(++nredir==NREDIR){
-		werrstr("redir loop");
-		return -1;
-	}
-	seek(logfile, 0, 2);
-	fprint(logfile, "%s\n", url->fullname);
-	switch(url->access){
-	default:
-		werrstr("unknown access type");
-		return -1;
-	case FTP:
-		url->type = suffix2type(url->reltext);
-		return ftp(url);
-	case HTTP:
-		fd=http(url, method, body);
-		if(url->type==FORWARD){
-			prev=*url;
-			crackurl(url, prev.redirname, &prev);
 
-			/*
-			 * I'm not convinced that the following two lines are right,
-			 * but once I got a redir loop because they were missing.
-			 */
-			method=GET;
-			body=0;
-			goto Again;
-		}
-		return fd;	
-	case FILE:
-		url->type=suffix2type(url->reltext);
-		fd=open(url->reltext, OREAD);
-		if(fd!=-1){
-			dir=dirfstat(fd);
-			if(dir->mode&DMDIR){
-				url->type=HTML;
-				free(dir);
-				return dir2html(url->reltext, fd);
-			}
-			free(dir);
-		}
-		return fd;
-	case GOPHER:
-		return gopher(url);
+int readstr(char *buf, int nbuf, char *base, char *name)
+{
+	char path[128];
+	int n, fd;
+
+	snprint(path, sizeof path, "%s/%s", base, name);
+	if((fd = open(path, OREAD)) < 0){
+	ErrOut:
+		memset(buf, 0, nbuf);
+		return 0;
 	}
+	n = read(fd, buf, nbuf-1);
+	close(fd);
+	if(n <= 0){
+		close(fd);
+		goto ErrOut;
+	}
+	buf[n] = 0;
+	return n;
+}
+
+int urlopen(Url *url, int method, char *body){
+	int conn, ctlfd, fd, n;
+	char buf[1024+1];
+
+	snprint(buf, sizeof buf, "%s/clone", mtpt);
+	if((ctlfd = open(buf, ORDWR)) < 0)
+		return -1;
+	if((n = read(ctlfd, buf, sizeof buf-1)) <= 0){
+		close(ctlfd);
+		return -1;
+	}
+	buf[n] = 0;
+	conn = atoi(buf);
+
+	if(url->basename[0]){
+		n = snprint(buf, sizeof buf, "baseurl %s", url->basename);
+		write(ctlfd, buf, n);
+	}
+	n = snprint(buf, sizeof buf, "url %s", url->reltext);
+	if(write(ctlfd, buf, n) != n){
+	ErrOut:
+		close(ctlfd);
+		return -1;
+	}
+
+	if(method == POST && body){
+		snprint(buf, sizeof buf, "%s/%d/postbody", mtpt, conn);
+		if((fd = open(buf, OWRITE)) < 0)
+			goto ErrOut;
+		n = strlen(body);
+		if(write(fd, body, n) != n){
+			close(fd);
+			goto ErrOut;
+		}
+		close(fd);
+	}
+
+	snprint(buf, sizeof buf, "%s/%d/body", mtpt, conn);
+	if((fd = open(buf, OREAD)) < 0)
+		goto ErrOut;
+
+	snprint(buf, sizeof buf, "%s/%d/parsed", mtpt, conn);
+	readstr(url->fullname, sizeof(url->fullname), buf, "url");
+	readstr(url->tag, sizeof(url->tag), buf, "fragment");
+
+	snprint(buf, sizeof buf, "%s/%d", mtpt, conn);
+	readstr(buf, sizeof buf, buf, "contenttype");
+	url->type = content2type(buf, url->fullname);
+
+	close(ctlfd);
+	return fd;
 }
 
 int pipeline(char *cmd, int fd)
@@ -781,27 +795,21 @@ Err:
 /*
  * select the file at the given url
  */
+void seturl(Url *url, char *urlname, char *base){
+	strncpy(url->reltext, urlname, sizeof(url->reltext));
+	strcpy(url->basename, base);
+	url->fullname[0] = 0;
+	url->charset[0] = 0;
+	url->tag[0] = 0;
+	url->type = 0;
+	url->map = 0;
+}
+
 void selurl(char *urlname){
-	Url *cur;
 	static Url url;
-	if(current){
-		cur=current->base;
-		/*
-		 * I believe that the following test should never succeed
-		 */
-		if(cur==0){
-			cur=current->url;
-			if(cur==0){
-				fprint(2, "bad base & url, getting %s\n", urlname);
-				cur=&defurl;
-			}
-			else
-				fprint(2, "bad base, current %s, getting %s\n",
-					current->url->fullname, urlname);
-		}
-	}
-	else cur=&defurl;
-	crackurl(&url, urlname, cur);
+	seturl(&url, urlname, current?
+		current->url->fullname :
+		defurl.fullname);
 	selection=&url;
 	message("selected: %s", selection->fullname);
 }
@@ -828,61 +836,15 @@ void geturl(char *urlname, int method, char *body, int cache, int map){
 	selurl(urlname);
 	selection->map=map;
 
-	message("getting %s", selection->fullname);
+	message("getting %s", selection->reltext);
 	esetcursor(&patientcurs);
-	switch(selection->access){
-	default:
-		message("unknown access %d", selection->access);
-		break;
-	case TELNET:
-		sprint(cmd, "telnet %s", selection->reltext);
-		popwin(cmd);
-		break;
-	case MAILTO:
-		if(body){
-			/*
-			 * Undocumented Mozilla feature
-			 */
-			pipe(pfd);
-			switch(rfork(RFFDG|RFPROC|RFNOWAIT)){
-			case -1:
-				message("Can't fork!");
-				break;
-			case 0:
-				close(0);
-				dup(pfd[1], 0);
-				close(pfd[1]);
-				close(pfd[0]);
-				execl("/bin/upas/send",
-					"sendmail", selection->reltext, 0);
-				message("Can't exec sendmail");
-				_exits(0);
-			default:
-				close(pfd[1]);
-				fprint(pfd[0],
-				    "Content-type: application/x-www-form-urlencoded\n"
-				    "Subject: Form posted from Mothra\n"
-				    "\n"
-				    "%s\n", body);
-				close(pfd[0]);
-				break;
-			}
-		}
-		else{
-			snprint(cmd, sizeof(cmd), "mail %s", selection->reltext);
-			popwin(cmd);
-		}
-		break;
-	case FTP:
-	case HTTP:
-	case FILE:
-	case GOPHER:
-		fd=urlopen(selection, method, body);
-		if(fd==-1){
+	for(;;){
+		if((fd=urlopen(selection, method, body)) < 0){
 			message("%r");
 			setcurrent(-1, 0);
 			break;
 		}
+		message("getting %s", selection->fullname);
 		if(selection->type&COMPRESS)
 			fd=pipeline("/bin/uncompress", fd);
 		else if(selection->type&GUNZIP)
@@ -908,19 +870,11 @@ void geturl(char *urlname, int method, char *body, int cache, int map){
 				freetext(w->text);
 				freeform(w->form);
 				freepix(w->pix);
-				if(w->base != w->url)
-					freeurl(w->base);
 				freeurl(w->url);
 				memset(w, 0, sizeof(*w));
 			}
-			if(selection->map){
-				if(current && current->base)	/* always succeeds */
-					w->url=copyurl(current->base);
-				else{
-					fprint(2, "no base for map!\n");
-					w->url=copyurl(selection);
-				}
-			}
+			if(selection->map)
+				w->url=copyurl(current->url);
 			else
 				w->url=copyurl(selection);
 			w->finished = 0;
@@ -944,6 +898,7 @@ void geturl(char *urlname, int method, char *body, int cache, int map){
 			filter("fb/xbm2pic|fb/9v", fd);
 			break;
 		}
+		break;
 	}
 	donecurs();
 }

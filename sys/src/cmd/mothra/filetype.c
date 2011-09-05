@@ -86,7 +86,7 @@ Kind content[]={
 	"application/pdf",		PDF,
 	"application/octet-stream",	SUFFIX,
 	"application/zip",		ZIP,
-	0,				HTML
+	0,				SUFFIX
 };
 int content2type(char *s, char *name){
 	int type;

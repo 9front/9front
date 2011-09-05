@@ -1,5 +1,6 @@
 enum{
 	NWWW=64,	/* # of pages we hold in the log */
+	NXPROC=5,	/* # of parallel procs loading the pix */
 	NNAME=512,
 	NLINE=256,
 	NAUTH=128,
@@ -11,14 +12,7 @@ enum{
 typedef struct Action Action;
 typedef struct Url Url;
 typedef struct Www Www;
-typedef struct Scheme Scheme;
 typedef struct Field Field;
-struct Scheme{
-	char *name;
-	int type;
-	int flags;
-	int port;
-};
 struct Action{
 	char *image;
 	Field *field;
@@ -30,23 +24,15 @@ struct Action{
 };
 struct Url{
 	char fullname[NNAME];
-	Scheme *scheme;
-	char ipaddr[NNAME];
+	char basename[NNAME];
 	char reltext[NNAME];
 	char tag[NNAME];
-	char redirname[NNAME];
-	char autharg[NAUTH];
-	char authtype[NTITLE];
 	char charset[NNAME];
-	int port;
-	int access;
 	int type;
 	int map;			/* is this an image map? */
-	int ssl;
 };
 struct Www{
 	Url *url;
-	Url *base;
 	void *pix;
 	void *form;
 	char title[NTITLE];
@@ -83,18 +69,6 @@ enum{
 };
 
 /*
- * url access types
- */
-enum{
-	HTTP=1,
-	FTP,
-	FILE,
-	TELNET,
-	MAILTO,
-	GOPHER,
-};
-
-/*
  *  authentication types
  */
 enum{
@@ -119,7 +93,7 @@ enum{
 void plrdhtml(char *, int, Www *);
 void plrdplain(char *, int, Www *);
 void htmlerror(char *, int, char *, ...);	/* user-supplied routine */
-void crackurl(Url *, char *, Url *);
+void seturl(Url *, char *, char *);
 void getpix(Rtext *, Www *);
 int pipeline(char *, int);
 int urlopen(Url *, int, char *);
@@ -128,16 +102,9 @@ void *emalloc(int);
 void *emallocz(int, int);
 void setbitmap(Rtext *);
 void message(char *, ...);
-int ftp(Url *);
-int http(Url *, int, char *);
-int gopher(Url *);
-int cistrcmp(char *, char *);
-int cistrncmp(char *, char *, int);
 int suffix2type(char *);
 int content2type(char *, char *);
 int encoding2type(char *);
 void mkfieldpanel(Rtext *);
 void geturl(char *, int, char *, int, int);
-int dir2html(char *, int);
-int auth(Url*, char*, int);
 char version[];

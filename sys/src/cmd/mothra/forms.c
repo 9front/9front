@@ -12,7 +12,7 @@ typedef struct Field Field;
 typedef struct Option Option;
 struct Form{
 	int method;
-	Url *action;
+	char *action;
 	Field *fields, *efields;
 	Form *next;
 };
@@ -98,12 +98,8 @@ void rdform(Hglob *g){
 			break;
 		}
 		g->form=emallocz(sizeof(Form), 1);
-		g->form->action=emalloc(sizeof(Url));
 		s=pl_getattr(g->attr, "action");
-		if(s==0)
-			*g->form->action=*g->dst->url;
-		else
-			crackurl(g->form->action, s, g->dst->base);
+		g->form->action=strdup((s && s[0]) ? s : g->dst->url->fullname);
 		s=pl_getattr(g->attr, "method");
 		if(s==0)
 			g->form->method=GET;
@@ -268,12 +264,8 @@ void rdform(Hglob *g){
 		form=emalloc(sizeof(Form));
 		form->fields=0;
 		form->efields=0;
-		form->action=emalloc(sizeof(Url));
 		s=pl_getattr(g->attr, "action");
-		if(s==0)
-			*form->action=*g->dst->url;
-		else
-			crackurl(form->action, s, g->dst->base);
+		form->action=strdup((s && s[0]) ? s : g->dst->url->fullname);
 		form->method=GET;
 		form->fields=0;
 		f=newfield(form);
@@ -537,7 +529,7 @@ void h_submitinput(Panel *p, int){
 	Field *f;
 	Option *o;
 	form=((Field *)p->userp)->form;
-	if(form->method==GET) size=ulen(form->action->fullname)+1;
+	if(form->method==GET) size=ulen(form->action)+1;
 	else size=1;
 	for(f=form->fields;f;f=f->next) switch(f->type){
 	case TYPEIN:
@@ -564,7 +556,7 @@ void h_submitinput(Panel *p, int){
 	}
 	buf=emalloc(size);
 	if(form->method==GET){
-		strcpy(buf, form->action->fullname);
+		strcpy(buf, form->action);
 		sep='?';
 	}
 	else{
@@ -623,8 +615,8 @@ fprint(2, "GET %s\n", buf);
 		geturl(buf, GET, 0, 0, 0);
 	}
 	else{
-fprint(2, "POST %s: %s\n", form->action->fullname, buf);
-		geturl(form->action->fullname, POST, buf, 0, 0);
+fprint(2, "POST %s: %s\n", form->action, buf);
+		geturl(form->action, POST, buf, 0, 0);
 	}
 	free(buf);
 }
