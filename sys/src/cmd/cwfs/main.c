@@ -373,6 +373,11 @@ main(int argc, char **argv)
 	sysinit();
 	srvinit();
 
+	installcmds();
+	cmd_exec("cfs");
+	cmd_exec("users");
+	cmd_exec("version");
+
 	/*
 	 * post filedescriptors to /srv
 	 */
