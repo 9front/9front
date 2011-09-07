@@ -373,15 +373,15 @@ main(int argc, char **argv)
 	sysinit();
 	srvinit();
 
-	installcmds();
-	cmd_exec("cfs");
-	cmd_exec("users");
-	cmd_exec("version");
-
 	/*
 	 * post filedescriptors to /srv
 	 */
 	postservice();
+
+	/*
+	 * processes to read the console
+	 */
+	consserve();
 
 	/*
 	 * Ethernet i/o processes
@@ -408,11 +408,6 @@ main(int argc, char **argv)
 	 * "sync" copy process
 	 */
 	newproc(synccopy, 0, "scp");
-
-	/*
-	 * processes to read the console
-	 */
-	consserve();
 
 	/* success */
 	exits(nil);

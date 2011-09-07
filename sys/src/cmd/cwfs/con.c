@@ -6,6 +6,7 @@ static	char	statsdef[20];	/* default stats list */
 static	int	whoflag;
 
 static	void	consserve1(void *);
+static	void	installcmds(void);
 
 void
 consserve(void)
@@ -13,7 +14,12 @@ consserve(void)
 	int i;
 
 	strncpy(cons.chan->whochan, "console", sizeof(cons.chan->whochan));
+	installcmds();
 	con_session();
+	cmd_exec("cfs");
+	cmd_exec("users");
+	cmd_exec("version");
+
 	for(i = 0; command[i].arg0; i++)
 		if(strcmp("cwcmd", command[i].arg0) == 0){
 			cmd_exec("cwcmd touchsb");
@@ -744,7 +750,7 @@ cmd_chatty(int argc, char *argv[])
 	chatty = atoi(argv[1]);
 }
 
-void
+static void
 installcmds(void)
 {
 	cmd_install("allow", "-- disable permission checking", cmd_allow);

@@ -29,7 +29,6 @@ int	cksum(void*, int, int);
 int	cksum0(int, int);
 void	cyclstart(void);
 void	dotrace(int);
-void	installcmds(void);
 void	consserve(void);
 int	conslock(void);
 int	con_attach(int, char*, char*);
