@@ -164,7 +164,6 @@ struct	Queue
 	Rendez	empty;
 	Rendez	full;
 
-	int	waitedfor;	/* flag */
 	char*	name;		/* for debugging */
 
 	int	size;		/* size of queue */

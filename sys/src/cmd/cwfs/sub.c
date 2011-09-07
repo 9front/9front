@@ -928,7 +928,6 @@ fs_recv(Queue *q, int)
 	if(q == nil)
 		panic("recv null q");
 	qlock(q);
-	q->waitedfor = 1;
 	while((c = q->count) <= 0)
 		rsleep(&q->empty);
 	i = q->loc;
@@ -950,15 +949,6 @@ fs_send(Queue *q, void *a)
 
 	if(q == nil)
 		panic("send null q");
-	if(!q->waitedfor) {
-		for (i = 0; i < 5 && !q->waitedfor; i++)
-			sleep(1000);
-		if(!q->waitedfor) {
-			/* likely a bug; don't wait forever */
-			fprint(2, "no readers yet for %s q\n", q->name);
-			abort();
-		}
-	}
 	qlock(q);
 	while((c = q->count) >= q->size)
 		rsleep(&q->full);

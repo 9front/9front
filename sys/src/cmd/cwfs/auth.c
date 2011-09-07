@@ -143,12 +143,13 @@ authread(File *file, uchar *data, int count)
 		if((ai = auth_getinfo(rpc)) == nil)
 			goto Phase;
 		file->uid = strtouid(ai->cuid);
-		auth_freeAI(ai);
 		if(file->uid < 0){
 			snprint(chan->err, sizeof(chan->err),
 				"unknown user '%s'", ai->cuid);
+			auth_freeAI(ai);
 			return -1;
 		}
+		auth_freeAI(ai);
 		return 0;
 	case ARok:
 		if(count < rpc->narg){
