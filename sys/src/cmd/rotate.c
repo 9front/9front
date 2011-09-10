@@ -74,7 +74,7 @@ rot90(Memimage *m)
 }
 
 Memimage*
-rot180(Memimage *m)
+upsidedown(Memimage *m)
 {
 	uchar *s, *d, *t;
 	int w, y, dy;
@@ -94,12 +94,6 @@ rot180(Memimage *m)
 	return m;
 }
 
-Memimage*
-rot270(Memimage *m)
-{
-	return rot90(rot180(m));
-}
-
 void
 usage(void)
 {
@@ -112,10 +106,18 @@ main(int argc, char *argv[])
 {
 	Memimage *m;
 	int fd, r;
+	char f;
 
+	f = 0;
 	r = 0;
 	fd = 0;
 	ARGBEGIN {
+	case 'u':
+		f = 'u';
+		break;
+	case 'l':
+		f = 'l';
+		break;
 	case 'r':
 		r = atoi(EARGF(usage()));
 		break;
@@ -130,15 +132,18 @@ main(int argc, char *argv[])
 	memimageinit();
 	if((m = readmemimage(fd)) == nil)
 		sysfatal("readmemimage: %r");
+	if(f == 'u' || f == 'l'){
+		m = upsidedown(m);
+		if(f == 'l')
+			r = 180;
+	}
 	switch(r % 360){
+	case 270:
+		m = rot90(m);
+	case 180:
+		m = rot90(m);
 	case 90:
 		m = rot90(m);
-		break;
-	case 180:
-		m = rot180(m);
-		break;
-	case 270:
-		m = rot270(m);
 		break;
 	}
 	if(writememimage(1, m) < 0)
