@@ -97,7 +97,7 @@ upsidedown(Memimage *m)
 void
 usage(void)
 {
-	fprint(2, "usage: %s -r degree [ file ]\n", argv0);
+	fprint(2, "usage: %s [ -r degree ] [ -u | -l ] [ file ]\n", argv0);
 	exits("usage");
 }
 

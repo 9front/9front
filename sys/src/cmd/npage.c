@@ -25,9 +25,12 @@ struct Page {
 	Page	*tail;
 };
 
-int rotate = 0;
-int viewgen = 0;
-int pagegen = 0;
+int ppi = 100;
+int imode;
+int newwin;
+int rotate;
+int viewgen;
+int pagegen;
 Point resize, pos;
 Page *root, *current;
 QLock pagelock;
@@ -45,15 +48,16 @@ enum {
 char *pagemenugen(int i);
 
 char *menuitems[] = {
+	"orig size",
 	"rotate 90",
-	"rotate 180",
+	"upside down",
 	"",
-	"fit to width",
-	"fit to height",
-	"original size",
+	"fit width",
+	"fit height",
 	"",
 	"next",
 	"prev",
+	"zerox",
 	"",
 	"quit",
 	nil
@@ -125,7 +129,7 @@ createtmp(ulong id, char *pfx)
 {
 	char nam[64];
 
-	sprint(nam, "%s%s%.12d%.8lux", pagespool, pfx, getpid(), id ^ 0xcafebabe);
+	snprint(nam, sizeof nam, "%s%s%.12d%.8lux", pagespool, pfx, getpid(), id ^ 0xcafebabe);
 	return create(nam, OEXCL|ORCLOSE|ORDWR, 0600);
 }
 
@@ -141,7 +145,7 @@ pipeline(int fd, char *fmt, ...)
 		dup(nullfd, fd);
 		return;
 	}
-	switch(rfork(RFPROC|RFFDG|RFNOWAIT)){
+	switch(rfork(RFPROC|RFFDG|RFREND|RFNOWAIT)){
 	case -1:
 		close(pfd[0]);
 		close(pfd[1]);
@@ -162,7 +166,7 @@ pipeline(int fd, char *fmt, ...)
 		argv[2] = buf;
 		argv[3] = nil;
 		exec("/bin/rc", argv);
-		exits(nil);
+		sysfatal("exec: %r");
 	}
 	close(pfd[1]);
 	dup(pfd[0], fd);
@@ -282,7 +286,7 @@ popengs(Page *p)
 		goto Err1;
 	}
 
-	switch(rfork(RFPROC|RFFDG)){
+	switch(rfork(RFREND|RFPROC|RFFDG|RFNOWAIT)){
 	case -1:
 		goto Err2;
 	case 0:
@@ -324,11 +328,12 @@ popengs(Page *p)
 		argv[6] = "-dQUIET";
 		argv[7] = "-dTextAlphaBits=4";
 		argv[8] = "-dGraphicsAlphaBits=4";
-		argv[9] = "-r100";
+		snprint(buf, sizeof buf, "-r%d", ppi);
+		argv[9] = buf;
 		argv[10] = pdf ? "-" : "/fd/4";
 		argv[11] = nil;
 		exec("/bin/gs", argv);
-		exits("exec");
+		sysfatal("exec: %r");
 	}
 
 	close(pin[1]);
@@ -401,7 +406,6 @@ Out:
 	close(pin[0]);
 	close(pout[0]);
 	close(pdat[0]);
-	waitpid();
 	return -1;
 }
 
@@ -563,9 +567,7 @@ loadpage(Page *p)
 			pagegen++;
 			if(rotate)
 				pipeline(fd, "rotate -r %d", rotate);
-			if(resize.x && resize.y)
-				pipeline(fd, "resize -x %d -y %d", resize.x, resize.y);
-			else if(resize.x)
+			if(resize.x)
 				pipeline(fd, "resize -x %d", resize.x);
 			else if(resize.y)
 				pipeline(fd, "resize -y %d", resize.y);
@@ -611,8 +613,12 @@ unloadpages(int age)
 }
 
 void
+resizewin(Point);
+
+void
 loadpages(Page *p, int ahead, int oviewgen)
 {
+	Point size;
 	int i;
 
 	unloadpages(NAHEAD*2);
@@ -628,10 +634,17 @@ loadpages(Page *p, int ahead, int oviewgen)
 				qunlock(p);
 				break;
 			}
+			size = p->image ? subpt(p->image->r.max, p->image->r.min) : ZP;
 			qunlock(p);
-			if(p == current)
-				eresized(0);
 			i++;
+
+			if(p == current){
+				if(size.x && size.y && newwin){
+					newwin = 0;
+					resizewin(size);
+				}
+				eresized(0);
+			}
 		}
 	}
 }
@@ -698,7 +711,21 @@ gendrawdiff(Image *dst, Rectangle bot, Rectangle top,
 	}
 }
 
-void eresized(int new)
+void
+resizewin(Point size)
+{
+	int wctl;
+
+	if((wctl = open("/dev/wctl", OWRITE)) < 0)
+		return;
+	/* add rio border */
+	size = addpt(size, Pt(Borderwidth, Borderwidth));
+	fprint(wctl, "resize -dx %d -dy %d\n", size.x, size.y);
+	close(wctl);
+}
+
+void
+eresized(int new)
 {
 	Rectangle r;
 	Image *i;
@@ -730,7 +757,7 @@ void eresized(int new)
 	r = rectaddpt(rectaddpt(Rpt(ZP, subpt(i->r.max, i->r.min)), screen->r.min), pos);
 	draw(screen, r, i, nil, i->r.min);
 	gendrawdiff(screen, screen->r, r, display->white, ZP, nil, ZP, S);
-	border(screen, r, -4, display->black, ZP);
+	border(screen, r, -Borderwidth, display->black, ZP);
 	flushimage(display, 1);
 	esetcursor(nil);
 Out:
@@ -738,7 +765,8 @@ Out:
 	qunlock(p);
 }
 
-void translate(Page *p, Point d)
+void
+translate(Page *p, Point d)
 {
 	Rectangle r, or, nr;
 	Image *i;
@@ -756,7 +784,7 @@ void translate(Page *p, Point d)
 		draw(screen, rectaddpt(or, d), screen, nil, or.min);
 		gendrawdiff(screen, nr, rectaddpt(or, d), i, i->r.min, nil, ZP, S);
 		gendrawdiff(screen, screen->r, nr, display->white, ZP, nil, ZP, S);
-		border(screen, nr, -4, display->black, ZP);
+		border(screen, nr, -Borderwidth, display->black, ZP);
 		flushimage(display, 1);
 	}
 	qunlock(p);
@@ -812,9 +840,9 @@ showpage(Page *p)
 
 	if(p == nil)
 		return;
+	esetcursor(&reading);
 	current = p;
 	oviewgen = viewgen;
-	esetcursor(&reading);
 	if(++nproc > NPROC)
 		if(waitpid() > 0)
 			nproc--;
@@ -851,6 +879,44 @@ shortname(char *s)
 }
 
 void
+zerox(Page *p)
+{
+	char nam[64], *argv[4];
+	int fd;
+
+	if(p == nil)
+		return;
+	esetcursor(&reading);
+	qlock(p);
+	if(p->open == nil || (fd = p->open(p)) < 0){
+		p->open = nil;
+		goto Out;
+	}
+	if(rfork(RFREND|RFFDG|RFPROC|RFENVG|RFNOTEG|RFNOWAIT) == 0){
+		dup(fd, 0);
+		close(fd);
+
+		snprint(nam, sizeof nam, "/bin/%s", argv0);
+		argv[0] = argv0;
+		argv[1] = "-w";
+		argv[2] = nil;
+		exec(nam, argv);
+		sysfatal("exec: %r");
+	}
+	close(fd);
+Out:
+	qunlock(p);
+	esetcursor(nil);
+}
+
+void
+usage(void)
+{
+	fprint(2, "usage: %s [ -iRw ] [ -p ppi ] [ file ... ]\n", argv0);
+	exits("usage");
+}
+
+void
 main(int argc, char *argv[])
 {
 	enum { Eplumb = 4 };
@@ -861,27 +927,50 @@ main(int argc, char *argv[])
 	char *s;
 	int i;
 
+	ARGBEGIN {
+	case 'a':
+	case 'v':
+	case 'V':
+	case 'P':
+		break;
+	case 'R':
+		newwin = -1;
+		break;
+	case 'w':
+		newwin = 1;
+		break;
+	case 'i':
+		imode = 1;
+		break;
+	case 'p':
+		ppi = atoi(EARGF(usage()));
+		break;
+	default:
+		usage();
+	} ARGEND;
+
 	/*
 	 * so that we can stop all subprocesses with a note,
 	 * and to isolate rendezvous from other processes
 	 */
 	rfork(RFNOTEG|RFNAMEG|RFREND);
 	atexit(killcohort);
-
-	ARGBEGIN {
-	} ARGEND;
-
-	nullfd = open("/dev/null", ORDWR);
-
-	initdraw(drawerr, nil, "npage");
+	if(newwin > 0){
+		s = smprint("-pid %d", getpid());
+		if(newwindow(s) < 0)
+			sysfatal("newwindow: %r");
+		free(s);
+	}
+	initdraw(drawerr, nil, argv0);
 	display->locking = 1;
 	unlockdisplay(display);
 	einit(Ekeyboard|Emouse);
 	eplumb(Eplumb, "image");
-
+	nullfd = open("/dev/null", ORDWR);
 	current = root = addpage(nil, "root", nil, nil, -1);
-	if(*argv == nil)
-		addpage(root, "-", popenfile, strdup("/fd/0"), -1);
+
+	if(*argv == nil && !imode)
+		addpage(root, "stdin", popenfile, strdup("/fd/0"), -1);
 	for(; *argv; argv++)
 		addpage(root, shortname(*argv), popenfile, strdup(*argv), -1);
 
@@ -899,61 +988,68 @@ main(int argc, char *argv[])
 						break;
 					translate(current, subpt(m.xy, o));
 				}
-				unlockdisplay(display);
-				continue;
+				goto Unlock;
 			}
 			if(m.buttons & 2){
 				i = emenuhit(2, &m, &menu);
-				unlockdisplay(display);
-
 				if(i < 0 || i >= nelem(menuitems) || menuitems[i]==nil)
-					continue;
+					goto Unlock;
 				s = menuitems[i];
-				if(strncmp(s, "rotate ", 7)==0){
-					rotate += atoi(s+7);
-					rotate %= 360;
-					goto Unload;
-				}
-				if(strcmp(s, "fit to width")==0){
-					pos = ZP;
-					resize = subpt(screen->r.max, screen->r.min);
-					resize.y = 0;
-					goto Unload;
-				}
-				if(strcmp(s, "fit to height")==0){
-					pos = ZP;
-					resize = subpt(screen->r.max, screen->r.min);
-					resize.x = 0;
-					goto Unload;
-				}
-				if(strcmp(s, "original size")==0){
+				if(strcmp(s, "orig size")==0){
 					pos = ZP;
 					resize = ZP;
 					rotate = 0;
 				Unload:
 					viewgen++;
+					unlockdisplay(display);
 					esetcursor(&reading);
 					unloadpages(0);
 					showpage(current);
 					continue;
 				}
+				if(strncmp(s, "rotate ", 7)==0){
+					rotate += atoi(s+7);
+					rotate %= 360;
+					goto Unload;
+				}
+				if(strcmp(s, "upside down")==0){
+					rotate += 180;
+					goto Unload;
+				}
+				if(strcmp(s, "fit width")==0){
+					pos = ZP;
+					resize = subpt(screen->r.max, screen->r.min);
+					resize.y = 0;
+					goto Unload;
+				}
+				if(strcmp(s, "fit height")==0){
+					pos = ZP;
+					resize = subpt(screen->r.max, screen->r.min);
+					resize.x = 0;
+					goto Unload;
+				}
+				unlockdisplay(display);
 				if(strcmp(s, "next")==0)
 					showpage(nextpage(current));
 				if(strcmp(s, "prev")==0)
 					showpage(prevpage(current));
+				if(strcmp(s, "zerox")==0)
+					zerox(current);
 				if(strcmp(s, "quit")==0)
 					exits(0);
 				continue;
 			}
 			if(m.buttons & 4){
+				if(root->down == nil)
+					goto Unlock;
 				pagemenu.lasthit = pageindex(current);
 				i = emenuhit(3, &m, &pagemenu);
 				unlockdisplay(display);
-
 				if(i != -1)
 					showpage(pageat(i));
 				continue;
 			}
+		Unlock:
 			unlockdisplay(display);
 			break;
 		case Ekeyboard:
