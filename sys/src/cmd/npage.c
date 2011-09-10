@@ -33,9 +33,13 @@ Page *root, *current;
 QLock pagelock;
 int nullfd;
 
+char pagespool[] = "/tmp/pagespool.";
+
 enum {
 	NPROC = 4,
 	NAHEAD = 2,
+	NBUF = 8*1024,
+	NPATH = 1024,
 };
 
 char *pagemenugen(int i);
@@ -80,7 +84,7 @@ Cursor reading = {
 };
 
 void
-setpage(Page *);
+showpage(Page *);
 
 Page*
 addpage(Page *up, char *label, int (*popen)(Page *), void *pdata, int fd)
@@ -112,7 +116,7 @@ addpage(Page *up, char *label, int (*popen)(Page *), void *pdata, int fd)
 	qunlock(&pagelock);
 
 	if(up && current == up)
-		setpage(p);
+		showpage(p);
 	return p;
 }
 
@@ -120,7 +124,8 @@ int
 createtmp(ulong id, char *pfx)
 {
 	char nam[64];
-	sprint(nam, "/tmp/page%s%.12d%.8lux", pfx, getpid(), id ^ 0xcafebabe);
+
+	sprint(nam, "%s%s%.12d%.8lux", pagespool, pfx, getpid(), id ^ 0xcafebabe);
 	return create(nam, OEXCL|ORCLOSE|ORDWR, 0600);
 }
 
@@ -165,8 +170,12 @@ pipeline(int fd, char *fmt, ...)
 }
 
 int
+popenfile(Page*);
+
+int
 popenconv(Page *p)
 {
+	char nam[NPATH];
 	int fd;
 
 	if((fd = dup(p->fd, -1)) < 0){
@@ -174,9 +183,23 @@ popenconv(Page *p)
 		p->fd = -1;
 		return -1;
 	}
+
 	seek(fd, 0, 0);
 	if(p->data)
 		pipeline(fd, "%s", (char*)p->data);
+
+	/*
+	 * dont keep the file descriptor arround if it can simply
+	 * be reopened.
+	 */
+	fd2path(p->fd, nam, sizeof(nam));
+	if(strncmp(nam, pagespool, strlen(pagespool))){
+		close(p->fd);
+		p->fd = -1;
+		p->data = strdup(nam);
+		p->open = popenfile;
+	}
+
 	return fd;
 }
 
@@ -193,7 +216,7 @@ struct Ghost
 int
 popenpdf(Page *p)
 {
-	char buf[8*1024];
+	char buf[NBUF];
 	int n, pfd[2];
 	Ghost *gs;
 
@@ -229,7 +252,7 @@ int
 popengs(Page *p)
 {
 	int n, i, pdf, ifd, ofd, pin[2], pout[2], pdat[2];
-	char buf[8*1024], nam[32], *argv[12];
+	char buf[NBUF], nam[32], *argv[12];
 
 	pdf = 0;
 	ifd = p->fd;
@@ -385,7 +408,7 @@ Out:
 int
 popenfile(Page *p)
 {
-	char tmp[8*1024], *file;
+	char buf[NBUF], *file;
 	int i, n, fd, tfd;
 	Dir *d;
 
@@ -419,56 +442,56 @@ popenfile(Page *p)
 	}
 	free(d);
 
-	memset(tmp, 0, 32+1);
-	if((n = read(fd, tmp, 32)) <= 0)
+	memset(buf, 0, 32+1);
+	if((n = read(fd, buf, 32)) <= 0)
 		goto Err1;
 
 	p->fd = fd;
 	p->data = nil;
 	p->open = popenconv;
-	if(memcmp(tmp, "%PDF-", 5) == 0 || strstr(tmp, "%!"))
+	if(memcmp(buf, "%PDF-", 5) == 0 || strstr(buf, "%!"))
 		p->open = popengs;
-	else if(memcmp(tmp, "x T ", 4) == 0){
+	else if(memcmp(buf, "x T ", 4) == 0){
 		p->data = "lp -dstdout";
 		p->open = popengs;
 	}
-	else if(memcmp(tmp, "\xF7\x02\x01\x83\x92\xC0\x1C;", 8) == 0){
+	else if(memcmp(buf, "\xF7\x02\x01\x83\x92\xC0\x1C;", 8) == 0){
 		p->data = "dvips -Pps -r0 -q1 -f1";
 		p->open = popengs;
 	}
-	else if(memcmp(tmp, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8) == 0){
+	else if(memcmp(buf, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8) == 0){
 		p->data = "doc2ps";
 		p->open = popengs;
 	}
-	else if(memcmp(tmp, "GIF", 3) == 0)
+	else if(memcmp(buf, "GIF", 3) == 0)
 		p->data = "gif -t9";
-	else if(memcmp(tmp, "\111\111\052\000", 4) == 0) 
+	else if(memcmp(buf, "\111\111\052\000", 4) == 0) 
 		p->data = "fb/tiff2pic | fb/3to1 rgbv | fb/pcp -tplan9";
-	else if(memcmp(tmp, "\115\115\000\052", 4) == 0)
+	else if(memcmp(buf, "\115\115\000\052", 4) == 0)
 		p->data = "fb/tiff2pic | fb/3to1 rgbv | fb/pcp -tplan9";
-	else if(memcmp(tmp, "\377\330\377", 3) == 0)
+	else if(memcmp(buf, "\377\330\377", 3) == 0)
 		p->data = "jpg -t9";
-	else if(memcmp(tmp, "\211PNG\r\n\032\n", 3) == 0)
+	else if(memcmp(buf, "\211PNG\r\n\032\n", 3) == 0)
 		p->data = "png -t9";
-	else if(memcmp(tmp, "compressed\n", 11) == 0)
+	else if(memcmp(buf, "compressed\n", 11) == 0)
 		p->data = nil;
-	else if(memcmp(tmp, "\0PC Research, Inc", 17) == 0)
+	else if(memcmp(buf, "\0PC Research, Inc", 17) == 0)
 		p->data = "aux/g3p9bit -g";
-	else if(memcmp(tmp, "TYPE=ccitt-g31", 14) == 0)
+	else if(memcmp(buf, "TYPE=ccitt-g31", 14) == 0)
 		p->data = "aux/g3p9bit -g";
-	else if(memcmp(tmp, "II*", 3) == 0)
+	else if(memcmp(buf, "II*", 3) == 0)
 		p->data = "aux/g3p9bit -g";
-	else if(memcmp(tmp, "TYPE=", 5) == 0)
+	else if(memcmp(buf, "TYPE=", 5) == 0)
 		p->data = "fb/3to1 rgbv |fb/pcp -tplan9";
-	else if(tmp[0] == 'P' && '0' <= tmp[1] && tmp[1] <= '9')
+	else if(buf[0] == 'P' && '0' <= buf[1] && buf[1] <= '9')
 		p->data = "ppm -t9";
-	else if(memcmp(tmp, "BM", 2) == 0)
+	else if(memcmp(buf, "BM", 2) == 0)
 		p->data = "bmp -t9";
-	else if(memcmp(tmp, "          ", 10) == 0 &&
-		'0' <= tmp[10] && tmp[10] <= '9' &&
-		tmp[11] == ' ')
+	else if(memcmp(buf, "          ", 10) == 0 &&
+		'0' <= buf[10] && buf[10] <= '9' &&
+		buf[11] == ' ')
 		p->data = nil;
-	else if(strtochan((char*)tmp) != 0)
+	else if(strtochan((char*)buf) != 0)
 		p->data = nil;
 	else {
 		werrstr("unknown image format");
@@ -477,17 +500,17 @@ popenfile(Page *p)
 
 	if(seek(fd, 0, 0) < 0)
 		goto Noseek;
-	if((i = read(fd, tmp+n, n)) < 0)
+	if((i = read(fd, buf+n, n)) < 0)
 		goto Err1;
-	if(i != n || memcmp(tmp, tmp+n, i)){
+	if(i != n || memcmp(buf, buf+n, i)){
 		n += i;
 	Noseek:
-		if((tfd = createtmp((ulong)p, "spool")) < 0)
+		if((tfd = createtmp((ulong)p, "file")) < 0)
 			goto Err1;
 		while(n > 0){
-			if(write(tfd, tmp, n) != n)
+			if(write(tfd, buf, n) != n)
 				goto Err2;
-			if((n = read(fd, tmp, sizeof(tmp))) < 0)
+			if((n = read(fd, buf, sizeof(buf))) < 0)
 				goto Err2;
 		}
 		if(dup(tfd, fd) < 0){
@@ -498,7 +521,6 @@ popenfile(Page *p)
 		close(tfd);
 	}
 	free(file);
-
 	return p->open(p);
 }
 
@@ -781,7 +803,7 @@ pagemenugen(int i)
 }
 
 void
-setpage(Page *p)
+showpage(Page *p)
 {
 	static int nproc;
 	int oviewgen;
@@ -909,13 +931,13 @@ main(int argc, char *argv[])
 				Unload:
 					viewgen++;
 					unloadpages(0);
-					setpage(current);
+					showpage(current);
 					continue;
 				}
 				if(strcmp(s, "next")==0)
-					setpage(nextpage(current));
+					showpage(nextpage(current));
 				if(strcmp(s, "prev")==0)
-					setpage(prevpage(current));
+					showpage(prevpage(current));
 				if(strcmp(s, "quit")==0)
 					exits(0);
 				continue;
@@ -926,7 +948,7 @@ main(int argc, char *argv[])
 				unlockdisplay(display);
 
 				if(i != -1)
-					setpage(pageat(i));
+					showpage(pageat(i));
 				continue;
 			}
 			unlockdisplay(display);
@@ -947,7 +969,7 @@ main(int argc, char *argv[])
 					pos.y = 0;
 				unlockdisplay(display);
 			case Kleft:
-				setpage(prevpage(current));
+				showpage(prevpage(current));
 				break;
 			case Kdown:
 				lockdisplay(display);
@@ -962,7 +984,7 @@ main(int argc, char *argv[])
 				unlockdisplay(display);
 			case ' ':
 			case Kright:
-				setpage(nextpage(current));
+				showpage(nextpage(current));
 				break;
 			}
 			break;
@@ -980,8 +1002,11 @@ main(int argc, char *argv[])
 						fprint(2, "plumb: createtmp: %r\n");
 						goto Plumbfree;
 					}
-					s = mallocz(1024, 1);
-					fd2path(fd, s, 1024);
+					s = malloc(NPATH);
+					if(fd2path(fd, s, NPATH) < 0){
+						close(fd);
+						goto Plumbfree;
+					}
 					write(fd, pm->data, pm->ndata);
 				}else if(pm->data[0] == '/'){
 					s = strdup(pm->data);
@@ -990,7 +1015,7 @@ main(int argc, char *argv[])
 					sprint(s, "%s/%s", pm->wdir, pm->data);
 					cleanname(s);
 				}
-				setpage(addpage(root, shortname(s), popenfile, s, fd));
+				showpage(addpage(root, shortname(s), popenfile, s, fd));
 			}
 		Plumbfree:
 			plumbfree(pm);
