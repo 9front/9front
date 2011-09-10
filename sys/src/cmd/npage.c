@@ -600,7 +600,9 @@ unloadpages(int age)
 	Page *p;
 
 	for(p = root->down; p; p = nextpage(p)){
-		if(!canqlock(p))
+		if(age == 0)	/* synchronous flush */
+			qlock(p);
+		else if(!canqlock(p))
 			continue;
 		if((pagegen - p->gen) >= age)
 			unloadpage(p);
@@ -930,6 +932,7 @@ main(int argc, char *argv[])
 					rotate = 0;
 				Unload:
 					viewgen++;
+					esetcursor(&reading);
 					unloadpages(0);
 					showpage(current);
 					continue;
