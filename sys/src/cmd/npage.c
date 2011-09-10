@@ -132,14 +132,12 @@ pipeline(int fd, char *fmt, ...)
 	int pfd[2];
 
 	if(pipe(pfd) < 0){
-		fprint(2, "pipe: %r\n");
 	Err:
 		dup(nullfd, fd);
 		return;
 	}
 	switch(rfork(RFPROC|RFFDG|RFNOWAIT)){
 	case -1:
-		fprint(2, "rfork: %r\n");
 		close(pfd[0]);
 		close(pfd[1]);
 		goto Err;
@@ -172,7 +170,6 @@ popenconv(Page *p)
 	int fd;
 
 	if((fd = dup(p->fd, -1)) < 0){
-		fprint(2, "popenconv: dup: %r\n");
 		close(p->fd);
 		p->fd = -1;
 		return -1;
@@ -183,47 +180,100 @@ popenconv(Page *p)
 	return fd;
 }
 
+typedef struct Ghost Ghost;
+struct Ghost
+{
+	QLock;
+
+	int	pin;
+	int	pout;
+	int	pdat;
+};
+
+int
+popenpdf(Page *p)
+{
+	char buf[8*1024];
+	int n, pfd[2];
+	Ghost *gs;
+
+	if(pipe(pfd) < 0)
+		return -1;
+	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT)){
+	case -1:
+		close(pfd[0]);
+		close(pfd[1]);
+		return -1;
+	case 0:
+		close(pfd[0]);
+		gs = p->data;
+		qlock(gs);
+		fprint(gs->pin, "%s DoPDFPage\n"
+			"(/fd/3) (w) file "
+			"dup flushfile "
+			"dup (THIS IS NOT AN INFERNO BITMAP\\n) writestring "
+			"flushfile\n", p->label);
+		while((n = read(gs->pdat, buf, sizeof buf)) > 0){
+			if(memcmp(buf, "THIS IS NOT AN INFERNO BITMAP\n", 30) == 0)
+				break;
+			write(pfd[1], buf, n);
+		}
+		qunlock(gs);
+		exits(nil);
+	}
+	close(pfd[1]);
+	return pfd[0];
+}
+
 int
 popengs(Page *p)
 {
-	int n, i, ifd, ofd, pin[2], pout[2], pdat[2];
+	int n, i, pdf, ifd, ofd, pin[2], pout[2], pdat[2];
 	char buf[8*1024], nam[32], *argv[12];
 
+	pdf = 0;
 	ifd = p->fd;
-	seek(ifd, 0, 0);
 	p->fd = -1;
+	seek(ifd, 0, 0);
+	if(read(ifd, buf, 5) != 5)
+		goto Err0;
+	seek(ifd, 0, 0);
+	if(memcmp(buf, "%PDF-", 5) == 0)
+		pdf = 1;
 	p->text = strdup(p->label);
-	if(p->data)
-		pipeline(ifd, "%s", (char*)p->data);
 	if(pipe(pin) < 0){
-		fprint(2, "popengs: pipe: %r\n");
 	Err0:
 		close(ifd);
 		return -1;
 	}
 	if(pipe(pout) < 0){
-		fprint(2, "popengs: pipe: %r\n");
 	Err1:
 		close(pin[0]);
 		close(pin[1]);
 		goto Err0;
 	}
 	if(pipe(pdat) < 0){
-		fprint(2, "popengs: pipe: %r\n");
 	Err2:
 		close(pdat[0]);
 		close(pdat[1]);
 		goto Err1;
 	}
+
 	switch(rfork(RFPROC|RFFDG)){
 	case -1:
-		fprint(2, "popengs: rfork: %r\n");
 		goto Err2;
 	case 0:
-		if(dup(pin[1], 0)<0)
-			exits("dup");
-		if(dup(pout[1], 1)<0)
-			exits("dup");
+		if(pdf){
+			if(dup(pin[1], 0)<0)
+				exits("dup");
+			if(dup(pout[1], 1)<0)
+				exits("dup");
+		} else {
+			if(dup(nullfd, 0)<0)
+				exits("dup");
+			if(dup(nullfd, 1)<0)
+				exits("dup");
+		}
 		if(dup(nullfd, 2)<0)
 			exits("dup");
 		if(dup(pdat[1], 3)<0)
@@ -239,17 +289,20 @@ popengs(Page *p)
 		close(pdat[1]);
 		close(ifd);
 
+		if(p->data)
+			pipeline(4, "%s", (char*)p->data);
+
 		argv[0] = "gs";
 		argv[1] = "-q";
 		argv[2] = "-sDEVICE=plan9";
 		argv[3] = "-sOutputFile=/fd/3";
 		argv[4] = "-dBATCH";
-		argv[5] = "-dSAFER";
+		argv[5] = pdf ? "-dDELAYSAFER" : "-dSAFER";
 		argv[6] = "-dQUIET";
 		argv[7] = "-dTextAlphaBits=4";
 		argv[8] = "-dGraphicsAlphaBits=4";
 		argv[9] = "-r100";
-		argv[10] = "/fd/4";
+		argv[10] = pdf ? "-" : "/fd/4";
 		argv[11] = nil;
 		exec("/bin/gs", argv);
 		exits("exec");
@@ -260,7 +313,47 @@ popengs(Page *p)
 	close(pdat[1]);
 	close(ifd);
 
-	if(rfork(RFMEM|RFPROC) == 0){
+	if(pdf){
+		Ghost *gs;
+		char *prolog =
+			"/PAGEOUT (/fd/1) (w) file def\n"
+			"/PAGE== { PAGEOUT exch write==only PAGEOUT (\\n) writestring PAGEOUT flushfile } def\n"
+			"\n"
+			"/Page null def\n"
+			"/Page# 0 def\n"
+			"/PDFSave null def\n"
+			"/DSCPageCount 0 def\n"
+			"/DoPDFPage {dup /Page# exch store pdfgetpage pdfshowpage } def\n"
+			"\n"
+			"GS_PDF_ProcSet begin\n"
+			"pdfdict begin\n"
+			"(/fd/4) (r) file { DELAYSAFER { .setsafe } if } stopped pop pdfopen begin\n"
+			"\n"
+			"pdfpagecount PAGE==\n";
+
+		n = strlen(prolog);
+		if(write(pin[0], prolog, n) != n)
+			goto Out;
+		if((n = read(pout[0], buf, sizeof(buf)-1)) < 0)
+			goto Out;
+		buf[n] = 0;
+		n = atoi(buf);
+		if(n <= 0){
+			werrstr("no pages");
+			goto Out;
+		}
+		gs = mallocz(sizeof(*gs), 1);
+		gs->pin = pin[0];
+		gs->pout = pout[0];
+		gs->pdat = pdat[0];
+		for(i=1; i<=n; i++){
+			snprint(nam, sizeof nam, "%d", i);
+			addpage(p, nam, popenpdf, gs, -1);
+		}
+
+		/* keep ghostscript arround */
+		return -1;
+	} else {
 		i = 0;
 		ofd = -1;
 		while((n = read(pdat[0], buf, sizeof(buf))) >= 0){
@@ -273,40 +366,19 @@ popengs(Page *p)
 				break;
 			if(ofd < 0){
 				snprint(nam, sizeof nam, "%.4d", ++i);
-				if((ofd = createtmp((ulong)p, nam)) < 0){
-					fprint(2, "popengs: createtmp: %r\n");
+				if((ofd = createtmp((ulong)p, nam)) < 0)
 					ofd = dup(nullfd, -1);
-				}
 			}
-			if(write(ofd, buf, n) != n)
-				fprint(2, "popengs: write tmp: %r\n");
+			write(ofd, buf, n);
 		}
 		if(ofd >= 0)
 			close(ofd);
-		close(pdat[0]);
-		exits(nil);
 	}
-
-	for(;;){
-		if((n = read(pout[0], buf, sizeof(buf)-1)) <= 0){
-			if(n < 0)
-				fprint(2, "popengs: read: %r\n");
-			break;
-		}
-		buf[n] = 0;
-		if(strstr(buf, "showpage") == 0)
-			continue;
-		if(write(pin[0], "\n", 1) != 1){
-			fprint(2, "popengs: write: %r\n");
-			break;
-		}
-	}
+Out:
 	close(pin[0]);
 	close(pout[0]);
-
+	close(pdat[0]);
 	waitpid();
-	waitpid();
-
 	return -1;
 }
 
@@ -610,10 +682,8 @@ void eresized(int new)
 
 	if(new){
 		lockdisplay(display);
-		if(getwindow(display, Refnone) == -1) {
-			fprint(2, "getwindow: %r\n");
-			exits("getwindow");
-		}
+		if(getwindow(display, Refnone) == -1)
+			sysfatal("getwindow: %r");
 		unlockdisplay(display);
 	}
 
