@@ -25,6 +25,7 @@ struct Page {
 	Page	*tail;
 };
 
+int zoom = 1;
 int ppi = 100;
 int imode;
 int newwin;
@@ -54,6 +55,9 @@ char *menuitems[] = {
 	"",
 	"fit width",
 	"fit height",
+	"",
+	"zoom in",
+	"zoom out",
 	"",
 	"next",
 	"prev",
@@ -87,8 +91,9 @@ Cursor reading = {
 	 0x00, 0x00, 0x01, 0xb6, 0x01, 0xb6, 0x00, 0x00, }
 };
 
-void
-showpage(Page *);
+void showpage(Page *);
+void drawpage(Page *);
+Point pagesize(Page *);
 
 Page*
 addpage(Page *up, char *label, int (*popen)(Page *), void *pdata, int fd)
@@ -639,7 +644,6 @@ unloadpages(int age)
 void
 loadpages(Page *p, int ahead, int oviewgen)
 {
-	Point size;
 	int i;
 
 	ahead++;	/* load at least one */
@@ -654,16 +658,20 @@ loadpages(Page *p, int ahead, int oviewgen)
 				qunlock(p);
 				break;
 			}
-			size = p->image ? subpt(p->image->r.max, p->image->r.min) : ZP;
-			qunlock(p);
-
 			if(p == current){
+				Point size;
+
+				esetcursor(nil);
+				size = pagesize(p);
 				if(size.x && size.y && newwin){
 					newwin = 0;
 					resizewin(size);
 				}
-				eresized(0);
+				lockdisplay(display);
+				drawpage(p);
+				unlockdisplay(display);
 			}
+			qunlock(p);
 		}
 	}
 }
@@ -731,23 +739,64 @@ gendrawdiff(Image *dst, Rectangle bot, Rectangle top,
 }
 
 void
-eresized(int new)
+zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
+{
+	int w, x, y;
+	Image *t;
+	Point a;
+
+	if(f <= 1){
+		gendrawdiff(d, r, top, s, sp, nil, ZP, S);
+		return;
+	}
+	a = ZP;
+	if(r.min.x < d->r.min.x){
+		sp.x += (d->r.min.x - r.min.x)/f;
+		a.x = (d->r.min.x - r.min.x)%f;
+		r.min.x = d->r.min.x;
+	}
+	if(r.min.y < d->r.min.y){
+		sp.y += (d->r.min.y - r.min.y)/f;
+		a.y = (d->r.min.y - r.min.y)%f;
+		r.min.y = d->r.min.y;
+	}
+	rectclip(&r, d->r);
+	w = s->r.max.x - sp.x;
+	if(w > Dx(r))
+		w = Dx(r);
+	t = allocimage(display, Rect(r.min.x, r.min.y, r.min.x+w, r.max.y), s->chan, 0, DNofill);
+	if(t == nil)
+		return;
+	for(y=r.min.y; y<r.max.y; y++){
+		draw(t, Rect(r.min.x, y, r.min.x+w, y+1), s, nil, sp);
+		if(++a.y == zoom){
+			a.y = 0;
+			sp.y++;
+		}
+	}
+	sp = t->r.min;
+	for(x=r.min.x; x<r.max.x; x++){
+		gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, t, sp, nil, ZP, S);
+		if(++a.x == f){
+			a.x = 0;
+			sp.x++;
+		}
+	}
+	freeimage(t);
+}
+
+Point
+pagesize(Page *p)
+{
+	return p->image ? mulpt(subpt(p->image->r.max, p->image->r.min), zoom) : ZP;
+}
+
+void
+drawpage(Page *p)
 {
 	Rectangle r;
 	Image *i;
-	Page *p;
 
-	if(new){
-		lockdisplay(display);
-		if(getwindow(display, Refnone) == -1)
-			sysfatal("getwindow: %r");
-		unlockdisplay(display);
-	}
-	if((p = current) == nil)
-		return;
-
-	qlock(p);
-	lockdisplay(display);
 	if((i = p->image) == nil){
 		char *s;
 
@@ -760,15 +809,12 @@ eresized(int new)
 		draw(screen, r, display->white, nil, ZP);
 		string(screen, r.min, display->black, ZP, font, s);
 	} else {
-		r = rectaddpt(rectaddpt(Rpt(ZP, subpt(i->r.max, i->r.min)), screen->r.min), pos);
-		draw(screen, r, i, nil, i->r.min);
+		r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
+		zoomdraw(screen, r, ZR, i, i->r.min, zoom);
 	}
 	gendrawdiff(screen, screen->r, r, display->white, ZP, nil, ZP, S);
 	border(screen, r, -Borderwidth, display->black, ZP);
 	flushimage(display, 1);
-	esetcursor(nil);
-	unlockdisplay(display);
-	qunlock(p);
 }
 
 void
@@ -777,35 +823,19 @@ translate(Page *p, Point d)
 	Rectangle r, or, nr;
 	Image *i;
 
-	if(p == nil || d.x==0 && d.y==0)
+	i = p->image;
+	if((i==0) || (d.x==0 && d.y==0))
 		return;
-	if(!canqlock(p))
-		return;
-	if(i = p->image){
-		r = rectaddpt(rectaddpt(Rpt(ZP, subpt(i->r.max, i->r.min)), screen->r.min), pos);
-		pos = addpt(pos, d);
-		nr = rectaddpt(r, d);
-		or = r;
-		rectclip(&or, screen->r);
-		draw(screen, rectaddpt(or, d), screen, nil, or.min);
-		gendrawdiff(screen, nr, rectaddpt(or, d), i, i->r.min, nil, ZP, S);
-		gendrawdiff(screen, screen->r, nr, display->white, ZP, nil, ZP, S);
-		border(screen, nr, -Borderwidth, display->black, ZP);
-		flushimage(display, 1);
-	}
-	qunlock(p);
-}
-
-Point
-pagesize(Page *p)
-{
-	Point t = ZP;
-	if(p && canqlock(p)){
-		if(p->image)
-			t = subpt(p->image->r.max, p->image->r.min);
-		qunlock(p);
-	}
-	return t;
+	r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
+	pos = addpt(pos, d);
+	nr = rectaddpt(r, d);
+	or = r;
+	rectclip(&or, screen->r);
+	draw(screen, rectaddpt(or, d), screen, nil, or.min);
+	zoomdraw(screen, nr, rectaddpt(or, d), i, i->r.min, zoom);
+	gendrawdiff(screen, screen->r, nr, display->white, ZP, nil, ZP, S);
+	border(screen, nr, -Borderwidth, display->black, ZP);
+	flushimage(display, 1);
 }
 
 Page*
@@ -890,6 +920,23 @@ Out:
 	esetcursor(nil);
 }
 
+void
+eresized(int new)
+{
+	Page *p;
+
+	lockdisplay(display);
+	if(new && getwindow(display, Refnone) == -1)
+		sysfatal("getwindow: %r");
+	if(p = current){
+		if(canqlock(p)){
+			drawpage(p);
+			qunlock(p);
+		}
+	}
+	unlockdisplay(display);
+}
+
 void killcohort(void)
 {
 	int i;
@@ -898,6 +945,7 @@ void killcohort(void)
 		sleep(1);
 	}
 }
+
 void drawerr(Display *, char *msg)
 {
 	sysfatal("draw: %s", msg);
@@ -985,6 +1033,8 @@ main(int argc, char *argv[])
 			lockdisplay(display);
 			m = e.mouse;
 			if(m.buttons & 1){
+				if(current == nil || !canqlock(current))
+					goto Unlock;
 				for(;;) {
 					o = m.xy;
 					m = emouse();
@@ -992,6 +1042,7 @@ main(int argc, char *argv[])
 						break;
 					translate(current, subpt(m.xy, o));
 				}
+				qunlock(current);
 				goto Unlock;
 			}
 			if(m.buttons & 2){
@@ -1001,6 +1052,7 @@ main(int argc, char *argv[])
 				s = menuitems[i];
 				if(strcmp(s, "orig size")==0){
 					pos = ZP;
+					zoom = 1;
 					resize = ZP;
 					rotate = 0;
 				Unload:
@@ -1022,15 +1074,35 @@ main(int argc, char *argv[])
 				}
 				if(strcmp(s, "fit width")==0){
 					pos = ZP;
+					zoom = 1;
 					resize = subpt(screen->r.max, screen->r.min);
 					resize.y = 0;
 					goto Unload;
 				}
 				if(strcmp(s, "fit height")==0){
 					pos = ZP;
+					zoom = 1;
 					resize = subpt(screen->r.max, screen->r.min);
 					resize.x = 0;
 					goto Unload;
+				}
+				if(strncmp(s, "zoom", 4)==0){
+					if(current && canqlock(current)){
+						o = subpt(m.xy, screen->r.min);
+						if(strstr(s, "in")){
+							if(zoom < 0x40000000){
+								zoom *= 2;
+								pos =  addpt(mulpt(subpt(pos, o), 2), o);
+							}
+						}else{
+							if(zoom > 1){
+								zoom /= 2;
+								pos =  addpt(divpt(subpt(pos, o), 2), o);
+							}
+						}
+						drawpage(current);
+						qunlock(current);
+					}
 				}
 				unlockdisplay(display);
 				if(strcmp(s, "next")==0)
@@ -1062,30 +1134,45 @@ main(int argc, char *argv[])
 			case Kdel:
 			case Keof:
 				exits(0);
+			case 'd':
+				qlock(current);
+				lockdisplay(display);
+				translate(current, Pt(-1, -1));
+				unlockdisplay(display);
+				qunlock(current);
+				break;
 			case Kup:
+				if(current == nil || !canqlock(current))
+					break;
 				lockdisplay(display);
 				if(pos.y < 0){
 					translate(current, Pt(0, Dy(screen->r)/2));
 					unlockdisplay(display);
+					qunlock(current);
 					continue;
 				}
+				unlockdisplay(display);
+				qunlock(current);
 				if(prevpage(current))
 					pos.y = 0;
-				unlockdisplay(display);
 			case Kleft:
 				showpage(prevpage(current));
 				break;
 			case Kdown:
-				lockdisplay(display);
+				if(current == nil || !canqlock(current))
+					break;
 				o = addpt(pos, pagesize(current));
+				lockdisplay(display);
 				if(o.y > Dy(screen->r)){
 					translate(current, Pt(0, -Dy(screen->r)/2));
 					unlockdisplay(display);
+					qunlock(current);
 					continue;
 				}
+				unlockdisplay(display);
+				qunlock(current);
 				if(nextpage(current))
 					pos.y = 0;
-				unlockdisplay(display);
 			case ' ':
 			case Kright:
 				showpage(nextpage(current));
