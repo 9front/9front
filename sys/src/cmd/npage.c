@@ -124,6 +124,19 @@ addpage(Page *up, char *label, int (*popen)(Page *), void *pdata, int fd)
 	return p;
 }
 
+void
+resizewin(Point size)
+{
+	int wctl;
+
+	if((wctl = open("/dev/wctl", OWRITE)) < 0)
+		return;
+	/* add rio border */
+	size = addpt(size, Pt(Borderwidth*2, Borderwidth*2));
+	fprint(wctl, "resize -dx %d -dy %d\n", size.x, size.y);
+	close(wctl);
+}
+
 int
 createtmp(ulong id, char *pfx)
 {
@@ -555,22 +568,33 @@ prevpage(Page *x)
 	return nil;
 }
 
+int
+openpage(Page *p)
+{
+	int fd;
+
+	fd = -1;
+	if(p->open == nil || (fd = p->open(p)) < 0)
+		p->open = nil;
+	else {
+		if(rotate)
+			pipeline(fd, "rotate -r %d", rotate);
+		if(resize.x)
+			pipeline(fd, "resize -x %d", resize.x);
+		else if(resize.y)
+			pipeline(fd, "resize -y %d", resize.y);
+	}
+	return fd;
+}
+
 void
 loadpage(Page *p)
 {
 	int fd;
 
 	if(p->open && p->image == nil && p->text == nil){
-		if((fd = p->open(p)) < 0)
-			p->open = nil;
-		else {
+		if((fd = openpage(p)) >= 0){
 			pagegen++;
-			if(rotate)
-				pipeline(fd, "rotate -r %d", rotate);
-			if(resize.x)
-				pipeline(fd, "resize -x %d", resize.x);
-			else if(resize.y)
-				pipeline(fd, "resize -y %d", resize.y);
 			p->image = readimage(display, fd, 1);
 			close(fd);
 		}
@@ -613,18 +637,14 @@ unloadpages(int age)
 }
 
 void
-resizewin(Point);
-
-void
 loadpages(Page *p, int ahead, int oviewgen)
 {
 	Point size;
 	int i;
 
-	unloadpages(NAHEAD*2);
-
 	ahead++;	/* load at least one */
-	for(i = 0; i < ahead && p; p = nextpage(p)){
+	unloadpages(ahead*2);
+	for(i = 0; i < ahead && p; p = nextpage(p), i++){
 		if(viewgen != oviewgen)
 			break;
 		if(canqlock(p)){
@@ -636,7 +656,6 @@ loadpages(Page *p, int ahead, int oviewgen)
 			}
 			size = p->image ? subpt(p->image->r.max, p->image->r.min) : ZP;
 			qunlock(p);
-			i++;
 
 			if(p == current){
 				if(size.x && size.y && newwin){
@@ -712,19 +731,6 @@ gendrawdiff(Image *dst, Rectangle bot, Rectangle top,
 }
 
 void
-resizewin(Point size)
-{
-	int wctl;
-
-	if((wctl = open("/dev/wctl", OWRITE)) < 0)
-		return;
-	/* add rio border */
-	size = addpt(size, Pt(Borderwidth, Borderwidth));
-	fprint(wctl, "resize -dx %d -dy %d\n", size.x, size.y);
-	close(wctl);
-}
-
-void
 eresized(int new)
 {
 	Rectangle r;
@@ -737,7 +743,6 @@ eresized(int new)
 			sysfatal("getwindow: %r");
 		unlockdisplay(display);
 	}
-
 	if((p = current) == nil)
 		return;
 
@@ -745,22 +750,23 @@ eresized(int new)
 	lockdisplay(display);
 	if((i = p->image) == nil){
 		char *s;
+
 		if((s = p->text) == nil)
-			goto Out;
+			s = "...";
 		r.min = ZP;
 		r.max = stringsize(font, p->text);
-		if((i = allocimage(display, r, screen->chan, 0, DWhite)) == nil)
-			goto Out;
-		string(i, r.min, display->black, ZP, font, s);
-		p->image = i;
+		r = rectaddpt(r, addpt(subpt(divpt(subpt(screen->r.max, screen->r.min), 2), divpt(r.max, 2)),
+			screen->r.min));
+		draw(screen, r, display->white, nil, ZP);
+		string(screen, r.min, display->black, ZP, font, s);
+	} else {
+		r = rectaddpt(rectaddpt(Rpt(ZP, subpt(i->r.max, i->r.min)), screen->r.min), pos);
+		draw(screen, r, i, nil, i->r.min);
 	}
-	r = rectaddpt(rectaddpt(Rpt(ZP, subpt(i->r.max, i->r.min)), screen->r.min), pos);
-	draw(screen, r, i, nil, i->r.min);
 	gendrawdiff(screen, screen->r, r, display->white, ZP, nil, ZP, S);
 	border(screen, r, -Borderwidth, display->black, ZP);
 	flushimage(display, 1);
 	esetcursor(nil);
-Out:
 	unlockdisplay(display);
 	qunlock(p);
 }
@@ -855,6 +861,35 @@ showpage(Page *p)
 	}
 }
 
+void
+zerox(Page *p)
+{
+	char nam[64], *argv[4];
+	int fd;
+
+	if(p == nil)
+		return;
+	esetcursor(&reading);
+	qlock(p);
+	if((fd = openpage(p)) < 0)
+		goto Out;
+	if(rfork(RFREND|RFFDG|RFPROC|RFENVG|RFNOTEG|RFNOWAIT) == 0){
+		dup(fd, 0);
+		close(fd);
+
+		snprint(nam, sizeof nam, "/bin/%s", argv0);
+		argv[0] = argv0;
+		argv[1] = "-w";
+		argv[2] = nil;
+		exec(nam, argv);
+		sysfatal("exec: %r");
+	}
+	close(fd);
+Out:
+	qunlock(p);
+	esetcursor(nil);
+}
+
 void killcohort(void)
 {
 	int i;
@@ -876,37 +911,6 @@ shortname(char *s)
 		if(x[1] != 0)
 			return x+1;
 	return s;
-}
-
-void
-zerox(Page *p)
-{
-	char nam[64], *argv[4];
-	int fd;
-
-	if(p == nil)
-		return;
-	esetcursor(&reading);
-	qlock(p);
-	if(p->open == nil || (fd = p->open(p)) < 0){
-		p->open = nil;
-		goto Out;
-	}
-	if(rfork(RFREND|RFFDG|RFPROC|RFENVG|RFNOTEG|RFNOWAIT) == 0){
-		dup(fd, 0);
-		close(fd);
-
-		snprint(nam, sizeof nam, "/bin/%s", argv0);
-		argv[0] = argv0;
-		argv[1] = "-w";
-		argv[2] = nil;
-		exec(nam, argv);
-		sysfatal("exec: %r");
-	}
-	close(fd);
-Out:
-	qunlock(p);
-	esetcursor(nil);
 }
 
 void
@@ -1056,6 +1060,7 @@ main(int argc, char *argv[])
 			switch(e.kbdc){
 			case 'q':
 			case Kdel:
+			case Keof:
 				exits(0);
 			case Kup:
 				lockdisplay(display);
@@ -1073,7 +1078,7 @@ main(int argc, char *argv[])
 			case Kdown:
 				lockdisplay(display);
 				o = addpt(pos, pagesize(current));
-				if(o.y >= Dy(screen->r)){
+				if(o.y > Dy(screen->r)){
 					translate(current, Pt(0, -Dy(screen->r)/2));
 					unlockdisplay(display);
 					continue;
@@ -1094,6 +1099,8 @@ main(int argc, char *argv[])
 
 				fd = -1;
 				s = plumblookup(pm->attr, "action");
+				if(s && strcmp(s, "quit")==0)
+					exits(0);
 				if(s && strcmp(s, "showdata")==0){
 					static ulong plumbid;
 
