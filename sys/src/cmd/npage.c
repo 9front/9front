@@ -1134,13 +1134,6 @@ main(int argc, char *argv[])
 			case Kdel:
 			case Keof:
 				exits(0);
-			case 'd':
-				qlock(current);
-				lockdisplay(display);
-				translate(current, Pt(-1, -1));
-				unlockdisplay(display);
-				qunlock(current);
-				break;
 			case Kup:
 				if(current == nil || !canqlock(current))
 					break;
