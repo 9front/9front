@@ -151,6 +151,18 @@ createtmp(ulong id, char *pfx)
 	return create(nam, OEXCL|ORCLOSE|ORDWR, 0600);
 }
 
+int
+catchnote(void *, char *msg)
+{
+	if(strstr(msg, "sys: write on closed pipe"))
+		return 1;
+	if(strstr(msg, "hangup"))
+		return 1;
+	if(strstr(msg, "alarm"))
+		return 1;
+	return 0;
+}
+
 void
 pipeline(int fd, char *fmt, ...)
 {
@@ -179,6 +191,7 @@ pipeline(int fd, char *fmt, ...)
 		va_start(arg, fmt);
 		vsnprint(buf, sizeof buf, fmt, arg);
 		va_end(arg);
+
 		argv[0] = "rc";
 		argv[1] = "-c";
 		argv[2] = buf;
@@ -261,7 +274,12 @@ popenpdf(Page *p)
 		while((n = read(gs->pdat, buf, sizeof buf)) > 0){
 			if(memcmp(buf, "THIS IS NOT AN INFERNO BITMAP\n", 30) == 0)
 				break;
-			write(pfd[1], buf, n);
+			if(pfd[1] < 0)
+				continue;
+			if(write(pfd[1], buf, n) != n){
+				close(pfd[1]);
+				pfd[1]=-1;
+			}
 		}
 		qunlock(gs);
 		exits(nil);
@@ -415,7 +433,8 @@ popengs(Page *p)
 				if((ofd = createtmp((ulong)p, nam)) < 0)
 					ofd = dup(nullfd, -1);
 			}
-			write(ofd, buf, n);
+			if(write(ofd, buf, n) != n)
+				break;
 		}
 		if(ofd >= 0)
 			close(ofd);
@@ -604,7 +623,7 @@ loadpage(Page *p)
 			close(fd);
 		}
 		if(p->image == nil && p->text == nil)
-			p->text = smprint("error: %r");
+			p->text = smprint("%s: %r", p->label);
 	}
 	p->gen = pagegen;
 }
@@ -1007,6 +1026,7 @@ main(int argc, char *argv[])
 	 */
 	rfork(RFNOTEG|RFNAMEG|RFREND);
 	atexit(killcohort);
+	atnotify(catchnote, 1);
 	if(newwin > 0){
 		s = smprint("-pid %d", getpid());
 		if(newwindow(s) < 0)
