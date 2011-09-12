@@ -289,6 +289,22 @@ popenpdf(Page *p)
 }
 
 int
+infernobithdr(char *buf, int n)
+{
+	if(n >= 11){
+		if(memcmp(buf, "compressed\n", 11) == 0)
+			return 1;
+		if(strtochan((char*)buf))
+			return 1;
+		if(memcmp(buf, "          ", 10) == 0 && 
+			'0' <= buf[10] && buf[10] <= '9' &&
+			buf[11] == ' ')
+			return 1;
+	}
+	return 0;
+}
+
+int
 popengs(Page *p)
 {
 	int n, i, pdf, ifd, ofd, pin[2], pout[2], pdat[2];
@@ -421,7 +437,7 @@ popengs(Page *p)
 		i = 0;
 		ofd = -1;
 		while((n = read(pdat[0], buf, sizeof(buf))) >= 0){
-			if(ofd >= 0 && (n <= 0 || memcmp(buf, "compressed\n", 11) == 0)){
+			if(ofd >= 0 && (n <= 0 || infernobithdr(buf, n))){
 				snprint(nam, sizeof nam, "%d", i);
 				addpage(p, nam, popenconv, nil, ofd);
 				ofd = -1;
@@ -500,6 +516,10 @@ popenfile(Page *p)
 		p->data = "dvips -Pps -r0 -q1 -f1";
 		p->open = popengs;
 	}
+	else if(memcmp(buf, "\x1F\x8B", 2) == 0){
+		p->data = "gunzip";
+		p->open = popengs;
+	}
 	else if(memcmp(buf, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8) == 0){
 		p->data = "doc2ps";
 		p->open = popengs;
@@ -514,8 +534,6 @@ popenfile(Page *p)
 		p->data = "jpg -t9";
 	else if(memcmp(buf, "\211PNG\r\n\032\n", 3) == 0)
 		p->data = "png -t9";
-	else if(memcmp(buf, "compressed\n", 11) == 0)
-		p->data = nil;
 	else if(memcmp(buf, "\0PC Research, Inc", 17) == 0)
 		p->data = "aux/g3p9bit -g";
 	else if(memcmp(buf, "TYPE=ccitt-g31", 14) == 0)
@@ -528,11 +546,7 @@ popenfile(Page *p)
 		p->data = "ppm -t9";
 	else if(memcmp(buf, "BM", 2) == 0)
 		p->data = "bmp -t9";
-	else if(memcmp(buf, "          ", 10) == 0 &&
-		'0' <= buf[10] && buf[10] <= '9' &&
-		buf[11] == ' ')
-		p->data = nil;
-	else if(strtochan((char*)buf) != 0)
+	else if(infernobithdr(buf, n))
 		p->data = nil;
 	else {
 		werrstr("unknown image format");
@@ -793,7 +807,7 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
 			sp.y++;
 		}
 	}
-	sp = t->r.min;
+	sp = r.min;
 	for(x=r.min.x; x<r.max.x; x++){
 		gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, t, sp, nil, ZP, S);
 		if(++a.x == f){
