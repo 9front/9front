@@ -45,3 +45,5 @@ Epistemology is the most important science.
 The problem with all the economists is that they base their theories on empiric observations.
 Why would you program in C if you know Lisp anyway?
 Dead Island dev apologises for "feminist whore" code.
+fossil deadlock
+I can easily get fossil to deadlock. It would be great if anyone with fossil internals expertise could comment.
