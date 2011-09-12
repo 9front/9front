@@ -308,7 +308,7 @@ int
 popengs(Page *p)
 {
 	int n, i, pdf, ifd, ofd, pin[2], pout[2], pdat[2];
-	char buf[NBUF], nam[32], *argv[12];
+	char buf[NBUF], nam[32], *argv[16];
 
 	pdf = 0;
 	ifd = p->fd;
@@ -382,8 +382,9 @@ popengs(Page *p)
 		argv[8] = "-dGraphicsAlphaBits=4";
 		snprint(buf, sizeof buf, "-r%d", ppi);
 		argv[9] = buf;
-		argv[10] = pdf ? "-" : "/fd/4";
-		argv[11] = nil;
+		argv[10] = "-dDOINTERPOLATE";
+		argv[11] = pdf ? "-" : "/fd/4";
+		argv[12] = nil;
 		exec("/bin/gs", argv);
 		sysfatal("exec: %r");
 	}
