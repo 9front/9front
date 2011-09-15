@@ -873,6 +873,26 @@ translate(Page *p, Point d)
 }
 
 Page*
+findpage(char *name)
+{
+	Page *p;
+	int n;
+
+	n = strlen(name);
+	/* look in current document first */
+	if(current && current->up){
+		for(p = current->up->down; p; p = p->next)
+			if(cistrncmp(p->label, name, n) == 0)
+				return p;
+	}
+	/* look everywhere */
+	for(p = root->down; p; p = nextpage(p))
+		if(cistrncmp(p->label, name, n) == 0)
+			return p;
+	return nil;
+}
+
+Page*
 pageat(int i)
 {
 	Page *p;
@@ -1006,6 +1026,7 @@ void
 main(int argc, char *argv[])
 {
 	enum { Eplumb = 4 };
+	char jump[32];
 	Plumbmsg *pm;
 	Point o;
 	Mouse m;
@@ -1061,6 +1082,7 @@ main(int argc, char *argv[])
 	for(; *argv; argv++)
 		addpage(root, shortname(*argv), popenfile, strdup(*argv), -1);
 
+	jump[0] = 0;
 	for(;;){
 		i=event(&e);
 		switch(i){
@@ -1183,6 +1205,8 @@ main(int argc, char *argv[])
 				qunlock(current);
 				if(prevpage(current))
 					pos.y = 0;
+			case '-':
+			case Kbs:
 			case Kleft:
 				showpage(prevpage(current));
 				break;
@@ -1201,10 +1225,22 @@ main(int argc, char *argv[])
 				qunlock(current);
 				if(nextpage(current))
 					pos.y = 0;
+			case '\n':
+				if(jump[0]){
+					showpage(findpage(jump));
+					jump[0] = 0;
+					break;
+				}
 			case ' ':
 			case Kright:
 				showpage(nextpage(current));
 				break;
+			default:
+				i = strlen(jump);
+				if(i+1 < sizeof(jump)){
+					jump[i] = e.kbdc;
+					jump[i+1] = 0;
+				}
 			}
 			break;
 		case Eplumb:

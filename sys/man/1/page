@@ -80,27 +80,6 @@ The
 .B -r
 option reverses the order in which pages are displayed.
 .PP
-When viewing a document,
-.I page
-will try to guess the true bounding box, usually rounding up from
-the file's bounding box to
-8½×11 or A4 size.
-The 
-.B -b
-option causes it to respect the bounding box given in the file.
-As a more general problem,
-some PostScript files claim to conform to Adobe's
-Document Structuring Conventions but do not.
-The 
-.B -P
-option enables a slightly slower and slightly more
-skeptical version of the PostScript processing code.
-Unfortunately, there are PostScript documents
-that can only be viewed with the
-.B -P
-option, and there are PostScript documents that
-can only be viewed without it.
-.PP
 When viewing images with 
 .IR page ,
 it listens to the 
@@ -117,21 +96,6 @@ to not load any graphics files nor to read
 from standard input but rather to listen
 for ones to load from the plumbing channel.
 .PP
-The 
-.B -v
-option turns on extra debugging output, and
-the
-.B -V
-option turns on even more debugging output.
-The 
-.B -a
-option causes 
-.I page
-to call
-.IR abort (2)
-rather than exit cleanly on errors,
-to facilitate debugging.
-.PP
 Pressing and holding button 1 permits panning about the page.
 .PP
 Button 2 raises a menu of operations on the current image or the
@@ -145,10 +109,9 @@ The button 2 menu operations are:
 Restores the image to the original. All modifications are lost.
 .TP
 .B Zoom
-Prompts the user to sweep a rectangle on the image which is 
-expanded proportionally to the rectangle.
+controls magnification.
 .TP
-.B Fit window
+.B Fit
 Resizes the image so that it fits in the current window.
 .TP
 .B Rotate 90
@@ -166,12 +129,6 @@ Displays the previous page.
 .B Zerox
 Displays the current image in a new page window. 
 Useful for selecting important pages from large documents.
-.TP
-.B Reverse
-Reverses the order in which pages are displayed.
-.TP
-.B Write
-Writes the image to file.
 .PD
 .PP
 Button 3 raises a menu of the
@@ -182,23 +139,6 @@ Typing a
 .B q
 or
 control-D exits the program.
-Typing a
-.B u
-toggles whether images are displayed upside-down.
-(This is useful in the common case of mistransmitted upside-down faxes).
-Typing a
-.B r
-reverses the order in which pages are displayed.
-Typing a 
-.B w
-will write the currently viewed page to a new file as a compressed
-.IR image (6)
-file.
-When possible, the filename is of the form
-.IR basename . pagenum . bit .
-Typing a 
-.B d
-removes an image from the working set.
 .PP
 To go to a specific page, one can type its number followed by enter.
 Typing left arrow, backspace, or minus displays the previous page.
@@ -238,34 +178,7 @@ Preview this manual in a new window.
 .IR troff (1)
 .SH SOURCE
 .B /sys/src/cmd/page
-.SH DIAGNOSTICS
-The mouse cursor changes to an arrow and ellipsis
-when
-.I page
-is reading or writing a file.
 .SH BUGS
-.I Page
-supports reading of only one document
-file at a time, and
-the user interface is clumsy when viewing very large documents.
-.PP
-When viewing multipage PostScript files that do not contain
-.RB `` %%Page ''
-comments, the button 3 menu only contains
-``this page'' and ``next page'':
-correctly determining 
-page boundaries in Postscript code is not computable
-in the general case.
-.PP
-If
-.I page
-has trouble viewing a Postscript file,
-it might not be exactly conforming: try viewing it with the 
-.B -P
-option.
-.PP
 The interface to the plumber is unsatisfactory.  In particular,
 document references cannot be sent 
 via plumbing messages.
-.PP
-There are too many keyboard commands.
