@@ -25,4 +25,4 @@ $LIB:V:
 
 clean nuke:V:
 	@{ cd libpanel; mk $target }
-	rm -f *.[$OS] [$OS].out $TARG
+	rm -f *.[$OS] [$OS].out version.c $TARG
