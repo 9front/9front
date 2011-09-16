@@ -11,6 +11,7 @@ TARG=4s\
 	mole\
 	glendy\
 	packet\
+	mandel\
 
 OFILES=
 HFILES=
