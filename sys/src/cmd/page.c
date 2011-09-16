@@ -36,6 +36,7 @@ Point resize, pos;
 Page *root, *current;
 QLock pagelock;
 int nullfd;
+Image *background;
 
 char pagespool[] = "/tmp/pagespool.";
 
@@ -894,7 +895,7 @@ drawpage(Page *p)
 		r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
 		zoomdraw(screen, r, ZR, i, i->r.min, zoom);
 	}
-	gendrawdiff(screen, screen->r, r, display->white, ZP, nil, ZP, S);
+	gendrawdiff(screen, screen->r, r, background, ZP, nil, ZP, S);
 	border(screen, r, -Borderwidth, display->black, ZP);
 	flushimage(display, 1);
 }
@@ -915,7 +916,7 @@ translate(Page *p, Point d)
 	rectclip(&or, screen->r);
 	draw(screen, rectaddpt(or, d), screen, nil, or.min);
 	zoomdraw(screen, nr, rectaddpt(or, d), i, i->r.min, zoom);
-	gendrawdiff(screen, screen->r, nr, display->white, ZP, nil, ZP, S);
+	gendrawdiff(screen, screen->r, nr, background, ZP, nil, ZP, S);
 	border(screen, nr, -Borderwidth, display->black, ZP);
 	flushimage(display, 1);
 }
@@ -1118,6 +1119,9 @@ main(int argc, char *argv[])
 		free(s);
 	}
 	initdraw(drawerr, nil, argv0);
+	background = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x777777FF);
+	draw(screen, screen->r, background, nil, ZP);
+	flushimage(display, 1);
 	display->locking = 1;
 	unlockdisplay(display);
 	einit(Ekeyboard|Emouse);
