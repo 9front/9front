@@ -52,7 +52,7 @@ eresized(int new)
 	border(screen, r, -Border, nil, ZP);
 	r.min.x += allims[which]->r.min.x - allims[0]->r.min.x;
 	r.min.y += allims[which]->r.min.y - allims[0]->r.min.y;
-	drawop(screen, r, allims[which], allmasks[which], allims[which]->r.min, S);
+	drawop(screen, r, allims[which], allmasks[which], allims[which]->r.min, SoverD);
 	flushimage(display, 1);
 }
 
