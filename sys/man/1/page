@@ -177,7 +177,7 @@ Preview this manual in a new window.
 .IR tex (1),
 .IR troff (1)
 .SH SOURCE
-.B /sys/src/cmd/page
+.B /sys/src/cmd/page.c
 .SH BUGS
 The interface to the plumber is unsatisfactory.  In particular,
 document references cannot be sent 
