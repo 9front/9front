@@ -743,7 +743,7 @@ int fileurlopen(Url *url){
 
 int urlopen(Url *url, int method, char *body){
 	int conn, ctlfd, fd, n;
-	char buf[1024+1];
+	char buf[1024+1], *p;
 
 	if(debug) fprint(2, "urlopen %s (%s)\n", url->reltext, url->basename); 
 
@@ -794,6 +794,15 @@ int urlopen(Url *url, int method, char *body){
 
 	snprint(buf, sizeof buf, "%s/%d", mtpt, conn);
 	readstr(buf, sizeof buf, buf, "contenttype");
+	url->charset[0] = 0;
+	if(p = cistrstr(buf, "charset=")){
+		p += 8;
+		strncpy(url->charset, p, sizeof(url->charset));
+		if(p = strchr(url->charset, ';'))
+			*p = 0;
+	}
+	if(p = strchr(buf, ';'))
+		*p = 0;
 	url->type = content2type(buf, url->fullname);
 
 	close(ctlfd);
@@ -977,7 +986,7 @@ void snarf(Panel *p){
 	int fd;
 	fd=create("/dev/snarf", OWRITE, 0666);
 	if(fd>=0){
-		fprint(fd, "%s", selection->fullname);
+		fprint(fd, "%s", selection->fullname[0] ? selection->fullname : selection->reltext);
 		close(fd);
 	}
 }
