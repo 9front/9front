@@ -241,8 +241,9 @@ popenconv(Page *p)
 int
 popentape(Page *p)
 {
-	char mnt[32], cmd[NPATH], *argv[4];
+	char mnt[32], cmd[64], *argv[4];
 
+	seek(p->fd, 0, 0);
 	snprint(mnt, sizeof(mnt), "/n/tapefs.%.12d%.8lux", getpid(), (ulong)p);
 	switch(rfork(RFREND|RFPROC|RFFDG)){
 	case -1:
@@ -251,6 +252,7 @@ popentape(Page *p)
 		return -1;
 	case 0:
 		dup(p->fd, 0);
+		close(p->fd);
 		argv[0] = "rc";
 		argv[1] = "-c";
 		snprint(cmd, sizeof(cmd), "%s -m %s /fd/0", p->data, mnt);
@@ -259,11 +261,11 @@ popentape(Page *p)
 		exec("/bin/rc", argv);
 		sysfatal("exec: %r");
 	}
-	waitpid();
 	close(p->fd);
+	waitpid();
 	p->fd = -1;
-	p->open = popenfile;
 	p->data = strdup(mnt);
+	p->open = popenfile;
 	return p->open(p);
 }
 
@@ -494,6 +496,17 @@ Out:
 }
 
 int
+dircmp(void *p1, void *p2)
+{
+	Dir *d1, *d2;
+
+	d1 = p1;
+	d2 = p2;
+
+	return strcmp(d1->name, d2->name);
+}
+
+int
 popenfile(Page *p)
 {
 	char buf[NBUF], *file;
@@ -522,6 +535,7 @@ popenfile(Page *p)
 		d = nil;
 		if((n = dirreadall(fd, &d)) < 0)
 			goto Err1;
+		qsort(d, n, sizeof d[0], dircmp);
 		for(i = 0; i<n; i++)
 			addpage(p, d[i].name, popenfile, smprint("%s/%s", file, d[i].name), -1);
 		free(d);
