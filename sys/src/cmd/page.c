@@ -238,6 +238,36 @@ popenconv(Page *p)
 	return fd;
 }
 
+int
+popentape(Page *p)
+{
+	char mnt[32], cmd[NPATH], *argv[4];
+
+	snprint(mnt, sizeof(mnt), "/n/tapefs.%.12d%.8lux", getpid(), (ulong)p);
+	switch(rfork(RFREND|RFPROC|RFFDG)){
+	case -1:
+		close(p->fd);
+		p->fd = -1;
+		return -1;
+	case 0:
+		dup(p->fd, 0);
+		argv[0] = "rc";
+		argv[1] = "-c";
+		snprint(cmd, sizeof(cmd), "%s -m %s /fd/0", p->data, mnt);
+		argv[2] = cmd;
+		argv[3] = nil;
+		exec("/bin/rc", argv);
+		sysfatal("exec: %r");
+	}
+	waitpid();
+	close(p->fd);
+	p->fd = -1;
+	p->open = popenfile;
+	p->data = strdup(mnt);
+	return p->open(p);
+}
+
+
 typedef struct Ghost Ghost;
 struct Ghost
 {
@@ -524,6 +554,10 @@ popenfile(Page *p)
 	else if(memcmp(buf, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8) == 0){
 		p->data = "doc2ps";
 		p->open = popengs;
+	}
+	else if(memcmp(buf, "PK\x03\x04", 4) == 0){
+		p->data = "fs/zipfs";
+		p->open = popentape;
 	}
 	else if(memcmp(buf, "GIF", 3) == 0)
 		p->data = "gif -t9";
