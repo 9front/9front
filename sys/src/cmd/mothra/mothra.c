@@ -729,9 +729,14 @@ int fileurlopen(Url *url){
 			*x = 0;
 		snprint(url->fullname, sizeof(url->fullname), "%s/%s", base, rel);
 		if(x)	*x = '/';
-		fd = open(cleanname(url->fullname), OREAD);
 	}else
-		fd = open(rel, OREAD);
+		snprint(url->fullname, sizeof(url->fullname), "%s", rel);
+	url->tag[0] = 0;
+	if(x = strrchr(url->fullname, '#')){
+		*x++ = 0;
+		strncpy(url->tag, x, sizeof(url->tag));
+	}
+	fd = open(cleanname(url->fullname), OREAD);
 	if(fd < 0)
 		return -1;
 	memset(url->fullname, 0, sizeof(url->fullname));
