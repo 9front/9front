@@ -148,7 +148,7 @@ createtmp(ulong id, char *pfx)
 {
 	char nam[64];
 
-	snprint(nam, sizeof nam, "%s%s%.12d%.8lux", pagespool, pfx, getpid(), id ^ 0xcafebabe);
+	snprint(nam, sizeof nam, "%s%s%.12d%.8lux", pagespool, pfx, getpid(), id);
 	return create(nam, OEXCL|ORCLOSE|ORDWR, 0600);
 }
 
@@ -323,9 +323,9 @@ popenepub(Page *p)
 		addpage(p, shortname(buf), popenfile, strdup(buf), -1);
 	}
 	close(fd);
+	p->text = strdup(p->label);
 	return -1;
 }
-
 
 typedef struct Ghost Ghost;
 struct Ghost
@@ -623,7 +623,9 @@ popenfile(Page *p)
 		p->data = "lp -dstdout";
 		p->open = popengs;
 	}
-	else if(memcmp(buf, "<?xml", 5) == 0){
+	else if(cistrncmp(buf, "<?xml", 5) == 0 ||
+		cistrncmp(buf, "<!DOCTYPE", 9) == 0 ||
+		cistrncmp(buf, "<HTML", 5) == 0){
 		p->data = "htmlfmt -c utf8 | lp -dstdout";
 		p->open = popengs;
 	}
