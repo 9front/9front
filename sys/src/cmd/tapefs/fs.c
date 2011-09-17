@@ -263,7 +263,7 @@ rwalk(Fid *f)
 			if(!dir->replete)
 				popdir(dir);
 			for(r=dir->child; r; r=r->next)
-				if(r->busy && strcmp(name, r->name)==0)
+				if(r->busy && cistrcmp(name, r->name)==0)
 					goto Accept;
 			break;	/* file not found */
 		}
