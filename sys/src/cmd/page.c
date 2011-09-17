@@ -167,7 +167,7 @@ catchnote(void *, char *msg)
 void
 pipeline(int fd, char *fmt, ...)
 {
-	char buf[128], *argv[4];
+	char buf[NPATH], *argv[4];
 	va_list arg;
 	int pfd[2];
 
@@ -203,6 +203,16 @@ pipeline(int fd, char *fmt, ...)
 	close(pfd[1]);
 	dup(pfd[0], fd);
 	close(pfd[0]);
+}
+
+char*
+shortname(char *s)
+{
+	char *x;
+	if(x = strrchr(s, '/'))
+		if(x[1] != 0)
+			return x+1;
+	return s;
 }
 
 int
@@ -268,6 +278,52 @@ popentape(Page *p)
 	p->data = strdup(mnt);
 	p->open = popenfile;
 	return p->open(p);
+}
+
+int
+popenepub(Page *p)
+{
+	char buf[NPATH], *s, *e;
+	int n, fd;
+
+	fd = p->fd;
+	p->fd = -1;
+	s = buf;
+	e = buf+sizeof(buf)-1;
+	s += snprint(s, e-s, "%s/", (char*)p->data);
+	free(p->data);
+	p->data = nil;
+	pipeline(fd, "awk '/\\<rootfile/{"
+		"if(match($0, /full\\-path\\=\\\"([^\\\"]+)\\\"/)){"
+		"print substr($0, RSTART+11,RLENGTH-12);exit}}'");
+	n = read(fd, s, e - s);
+	close(fd);
+	if(n <= 0)
+		return -1;
+	while(n > 0 && s[n-1] == '\n')
+		n--;
+	s += n;
+	*s = 0;
+	if((fd = open(buf, OREAD)) < 0)
+		return -1;
+	pipeline(fd, "awk '/\\<item/{"
+		"if(match($0, /id\\=\\\"([^\\\"]+)\\\"/)){"
+		"id=substr($0, RSTART+4, RLENGTH-5);"
+		"if(match($0, /href\\=\\\"([^\\\"]+)\\\"/)){"
+		"item[id]=substr($0, RSTART+6, RLENGTH-7)}}};"
+		"/\\<itemref/{"
+		"if(match($0, /idref\\=\\\"([^\\\"]+)\\\"/)){"
+		"ref=substr($0, RSTART+7, RLENGTH-8);"
+		"print item[ref]; fflush}}'");
+	s = strrchr(buf, '/')+1;
+	while((n = read(fd, s, e-s)) > 0){
+		while(n > 0 && s[n-1] == '\n')
+			n--;
+		s[n] = 0;
+		addpage(p, shortname(buf), popenfile, strdup(buf), -1);
+	}
+	close(fd);
+	return -1;
 }
 
 
@@ -534,6 +590,15 @@ popenfile(Page *p)
 	if(d->mode & DMDIR){
 		free(d);
 		d = nil;
+
+		snprint(buf, sizeof(buf), "%s/META-INF/container.xml", file);
+		if((tfd = open(buf, OREAD)) >= 0){
+			close(fd);
+			p->fd = tfd;
+			p->open = popenepub;
+			return p->open(p);
+		}
+
 		if((n = dirreadall(fd, &d)) < 0)
 			goto Err1;
 		qsort(d, n, sizeof d[0], dircmp);
@@ -558,6 +623,10 @@ popenfile(Page *p)
 		p->data = "lp -dstdout";
 		p->open = popengs;
 	}
+	else if(memcmp(buf, "<?xml", 5) == 0){
+		p->data = "htmlfmt -c utf8 | lp -dstdout";
+		p->open = popengs;
+	}
 	else if(memcmp(buf, "\xF7\x02\x01\x83\x92\xC0\x1C;", 8) == 0){
 		p->data = "dvips -Pps -r0 -q1 -f1";
 		p->open = popengs;
@@ -573,8 +642,7 @@ popenfile(Page *p)
 	else if(memcmp(buf, "PK\x03\x04", 4) == 0){
 		p->data = "fs/zipfs";
 		p->open = popentape;
-	}
-	else if(memcmp(buf, "GIF", 3) == 0)
+	}else if(memcmp(buf, "GIF", 3) == 0)
 		p->data = "gif -t9";
 	else if(memcmp(buf, "\111\111\052\000", 4) == 0) 
 		p->data = "fb/tiff2pic | fb/3to1 rgbv | fb/pcp -tplan9";
@@ -1052,16 +1120,6 @@ void killcohort(void)
 void drawerr(Display *, char *msg)
 {
 	sysfatal("draw: %s", msg);
-}
-
-char*
-shortname(char *s)
-{
-	char *x;
-	if(x = strrchr(s, '/'))
-		if(x[1] != 0)
-			return x+1;
-	return s;
 }
 
 void
