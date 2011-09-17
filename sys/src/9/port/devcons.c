@@ -321,6 +321,7 @@ enum{
 	Qdir,
 	Qbintime,
 	Qcons,
+	Qconsctl,
 	Qcputime,
 	Qdrivers,
 	Qkmesg,
@@ -353,6 +354,7 @@ static Dirtab consdir[]={
 	".",	{Qdir, 0, QTDIR},	0,		DMDIR|0555,
 	"bintime",	{Qbintime},	24,		0664,
 	"cons",		{Qcons},	0,		0660,
+	"consctl",	{Qconsctl},	0,		0220,
 	"cputime",	{Qcputime},	6*NUMSIZE,	0444,
 	"drivers",	{Qdrivers},	0,		0444,
 	"hostdomain",	{Qhostdomain},	DOMLEN,		0664,
@@ -695,6 +697,9 @@ conswrite(Chan *c, void *va, long n, vlong off)
 			l -= bp;
 		}
 		break;
+
+	case Qconsctl:
+		error(Egreg);
 
 	case Qtime:
 		if(!iseve())
