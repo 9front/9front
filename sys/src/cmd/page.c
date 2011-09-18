@@ -626,7 +626,7 @@ popenfile(Page *p)
 	else if(cistrncmp(buf, "<?xml", 5) == 0 ||
 		cistrncmp(buf, "<!DOCTYPE", 9) == 0 ||
 		cistrncmp(buf, "<HTML", 5) == 0){
-		p->data = "htmlfmt -c utf8 | lp -dstdout";
+		p->data = "html2ms | troff -ms | lp -dstdout";
 		p->open = popengs;
 	}
 	else if(memcmp(buf, "\xF7\x02\x01\x83\x92\xC0\x1C;", 8) == 0){
