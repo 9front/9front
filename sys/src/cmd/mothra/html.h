@@ -192,8 +192,6 @@ enum{
 	ERR,		/* tag must not occur */
 };
 Tag tag[];
-Entity pl_entity[];
-int pl_entities;
 void rdform(Hglob *);
 void endform(Hglob *);
 char *pl_getattr(Pair *, char *);

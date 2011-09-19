@@ -11,7 +11,7 @@ CFILES= \
 	rdhtml.c \
 
 OFILES=${CFILES:%.c=%.$O} version.$O
-HFILES=mothra.h html.h tcs.h libpanel/panel.h libpanel/rtext.h
+HFILES=mothra.h html.h libpanel/panel.h libpanel/rtext.h
 BIN=/$objtype/bin
 </sys/src/cmd/mkone
 

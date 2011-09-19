@@ -154,58 +154,6 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 	g->dst->changed=1;
 }
 
-void pl_applycharset(Hglob *g)
-{
-	int fd, pfd[2], n;
-	char buf[NHBUF];
-	char **cs, *charset;
-
-	charset = nil;
-	for(cs = tcs; *cs; cs += 2){
-		if(cistrcmp(cs[0], g->charset) == 0){
-			charset = cs[1];
-			break;
-		}
-	}
-	/* make sure we dont convet multiple times */
-	g->charset[0]=0;
-
-	/* no match, dont convert */
-	if(charset == nil)
-		return;
-
-	fd = g->hfd;
-	n = g->ehbuf - g->hbufp;
-	memcpy(buf, g->hbufp, n);
-
-	if(pipe(pfd)==-1)
-		return;
-	switch(rfork(RFFDG|RFPROC|RFNOWAIT)){
-	case -1:
-		close(pfd[0]);
-		close(pfd[1]);
-		return;
-	case 0:
-		dup(fd, 0);
-		dup(pfd[1], 1);
-		close(pfd[0]);
-		close(pfd[1]);
-		close(fd);
-
-		write(1, buf, n);
-		while((n=read(0, buf, sizeof(buf)))>0)
-			write(1, buf, n);
-		_exits("no exec!");
-	}
-	dup(pfd[0], fd);
-	close(pfd[0]);
-	close(pfd[1]);
-	g->hbufp = g->ehbuf;
-	snprint(buf, sizeof(buf), "tcs -s -f %s -t utf", charset);
-	if((fd=pipeline(buf, fd)) >= 0)
-		g->hfd = fd;
-}
-
 /*
  * Buffered read, no translation
  * Save in cache.
@@ -297,22 +245,6 @@ int pl_nextc(Hglob *g){
 int entchar(int c){
 	return c=='#' || 'a'<=c && c<='z' || 'A'<=c && c<='Z' || '0'<=c && c<='9';
 }
-Entity *entsearch(char *s){
-	int i, m, n, r;
-	i=0;
-	n=pl_entities;
-	while ((n-i) > 0) {
-		m=i+(n-i)/2;
-		r=strcmp(s, pl_entity[m].name);
-		if (r > 0)
-			i=m+1;
-		else if (r < 0)
-			n=m;
-		else
-			return &pl_entity[m];
-	}
-	return 0;
-}
 /*
  * remove entity references, in place.
  * Potential bug:
@@ -333,30 +265,22 @@ void pl_rmentities(Hglob *g, char *s){
 			u=s;
 			while(entchar(*s)) s++;
 			svc=*s;
-			if(svc!=';')
-				htmlerror(g->name, g->lineno, "entity syntax error");
-			*s++='\0';
-			if(*u=='#'){
-				if (u[1]=='X' || u[1]=='x')
-					r=strtol(u+2, 0, 16);
-				else
-					r=atoi(u+1);
-				t+=runetochar(t, &r);
-				if(svc!=';') *--s=svc;
-			}
-			else{
-				ep=entsearch(u);
-				if(ep && ep->name){
-					t+=runetochar(t, &ep->value);
-					if(svc!=';') *--s=svc;
-				}
-				else{
-					htmlerror(g->name, g->lineno,
-						"unknown entity %s", u);
-					s[-1]=svc;
-					s=u;
-					*t++='&';
-				}
+			*s = 0;
+			if(svc==';') s++;
+			if(strcmp(u, "lt") == 0)
+				*t++='<';
+			else if(strcmp(u, "gt") == 0)
+				*t++='>';
+			else if(strcmp(u, "quot") == 0)
+				*t++='"';
+			else if(strcmp(u, "amp") == 0)
+				*t++='&';
+			else {
+				if(svc==';') s--;
+				*s=svc;
+				*t++='&';
+				while(u<s)
+					*t++=*u++;
 			}
 		}	
 		else *t++=c;
@@ -644,7 +568,6 @@ void plrdplain(char *name, int fd, Www *dst){
 	g.spacc=0;
 	g.form=0;
 	strncpy(g.text, name, NTITLE);
-	pl_applycharset(&g);
 	plaintext(&g);
 	dst->finished=1;
 }
@@ -713,13 +636,6 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_end:	/* unrecognized start tag */
 			break;
 		case Tag_meta:
-			if((str=pl_getattr(g.attr, "http-equiv")) &&
-			   (cistrcmp(str, "content-type"))==0 &&
-			   (str=pl_getattr(g.attr, "content")) &&
-			   (str=cistrstr(str, "charset="))){
-				strncpy(g.charset, str+8, sizeof(g.charset));
-				pl_applycharset(&g);
-			}
 			break;
 		case Tag_img:
 			if(str=pl_getattr(g.attr, "src"))
@@ -805,7 +721,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			g.state->indent=20;
 			break;
 		case Tag_body:
-			pl_applycharset(&g);
+			break;
 		case Tag_head:
 			g.state->font=ROMAN;
 			g.state->size=NORMAL;
