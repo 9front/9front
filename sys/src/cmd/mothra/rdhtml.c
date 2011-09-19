@@ -6,7 +6,6 @@
 #include "mothra.h"
 #include "html.h"
 #include "rtext.h"
-#include "tcs.h"
 
 typedef struct Fontdata Fontdata;
 struct Fontdata{
