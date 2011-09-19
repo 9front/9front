@@ -30,11 +30,18 @@ tcs.$O:			conv.h
 tcs.$O:			8859.h
 tcs.$O:			ms.h
 tcs.$O:			misc.h
+tcs.$O:			alias.h
 conv%.$O:		conv.h
 conv_ksc.$O:		ksc.h
 
+charsets.txt:
+	hget http://www.iana.org/assignments/character-sets | sed 's///' >$target
+
+alias.h: charsets.awk charsets.txt alias.txt
+	charsets.awk charsets.txt alias.txt >$target
+
 clean:V:
-	rm -f *.[$OS] [$OS].out y.tab.? y.debug y.output $TARG
+	rm -f *.[$OS] [$OS].out y.tab.? y.debug y.output alias.h $TARG
 
 nuke:V:
-	rm -f *.[$OS] [$OS].out y.tab.? y.debug y.output $TARG
+	rm -f *.[$OS] [$OS].out y.tab.? y.debug y.output alias.h $TARG

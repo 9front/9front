@@ -404,24 +404,25 @@ html_in(int fd, long *x, struct convert *out)
 				c = Bgetc(&b);
 				if(c == Beof)
 					break;
-				buf[i++] = c;
-				if(strchr("; \t\r\n", c))
+				if(strchr(";&</> \t\r\n", c)){
+					if(c != ';')
+						Bungetc(&b);
 					break;
+				}
+				buf[i++] = c;
 			}
 			buf[i] = 0;
-			if(buf[i-1] == ';'){
-				buf[i-1] = 0;
+			if(i > 1){
 				if((c = findbyname(buf+1)) != Runeerror){
 					*r++ = c;
 					continue;
 				}
-				buf[i-1] = ';';
-				if(buf[1] == '#'){
-					if(buf[2] == 'x')
+				if(i > 2 && buf[1] == '#'){
+					if(i > 3 && strchr("xX", buf[2]))
 						c = strtol(buf+3, &p, 16);
 					else
 						c = strtol(buf+2, &p, 10);
-					if(*p != ';' || c >= NRUNE || c < 0)
+					if(*p || c >= NRUNE || c < 0)
 						goto bad;
 					*r++ = c;
 					continue;
