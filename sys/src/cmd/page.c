@@ -623,9 +623,9 @@ popenfile(Page *p)
 		p->data = "lp -dstdout";
 		p->open = popengs;
 	}
-	else if(cistrncmp(buf, "<?xml", 5) == 0 ||
-		cistrncmp(buf, "<!DOCTYPE", 9) == 0 ||
-		cistrncmp(buf, "<HTML", 5) == 0){
+	else if(cistrstr(buf, "<?xml") ||
+		cistrstr(buf, "<!DOCTYPE") ||
+		cistrstr(buf, "<HTML")){
 		p->data = "uhtml | html2ms | troff -ms | lp -dstdout";
 		p->open = popengs;
 	}

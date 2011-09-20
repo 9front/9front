@@ -62,6 +62,11 @@ main(int argc, char *argv[])
 	if((nbuf = read(0, buf, sizeof(buf)-1)) < 0)
 		sysfatal("read: %r");
 	buf[nbuf] = 0;
+
+	/* useless BOM marker */
+	if(memcmp(buf, "\xEF\xBB\xBF", 3)==0)
+		memmove(buf, buf+3, nbuf-3);
+
 	for(;;){
 		if(s = cistrstr(buf, "encoding="))
 			if(s = strval(s+9)){

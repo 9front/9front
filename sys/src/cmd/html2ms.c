@@ -142,8 +142,24 @@ onfont(Text *text, Tag *tag)
 }
 
 void
-ona(Text *text, Tag *)
+restoreunderline(Text *text, Tag *tag)
 {
+	text->underline = tag->restore;
+	emit(text, "");
+}
+
+void
+ona(Text *text, Tag *tag)
+{
+	int i;
+
+	for(i=0; i<tag->nattr; i++)
+		if(cistrcmp(tag->attr[i].attr, "href") == 0)
+			break;
+	if(i == tag->nattr)
+		return;
+	tag->restore = text->underline;
+	tag->close = restoreunderline;
 	text->underline = 1;
 }
 
@@ -207,10 +223,13 @@ parsecomment(void)
 			if(n != 7 || cistrncmp(buf, "[CDATA[", 7))
 				continue;
 			while((c = Bgetc(&in)) > 0){
-				if(c == ']')
-					if(Bgetc(&in) == ']')
-						if(Bgetc(&in) == '>')
-							return;
+				if(c == ']'){
+					if(Bgetc(&in) == ']'){
+						if(Bgetc(&in) != '>')
+							Bungetc(&in);
+						return;
+					}
+				}
 			}
 		}
 	}
@@ -425,18 +444,17 @@ parsetext(Text *text, Tag *tag)
 			case '\r':
 			case ' ':
 			case '\t':
-				if(text->pre == 0){
-					text->space = 1;
+				text->space = 1;
+				if(text->pre == 0)
 					continue;
-				}
 			default:
 				if(r == '\n' || r == '\r')
 					text->pos = 0;
 				if(text->space){
 					text->space = 0;
 					if(text->underline){
-						emit(text, "");
-						text->pos = Bprint(&out, ".UL ");
+						emit(text, ".UL ");
+						text->pos = 1;
 					} else if(text->pos >= 70){
 						text->pos = 0;
 						Bputc(&out, '\n');
@@ -445,16 +463,15 @@ parsetext(Text *text, Tag *tag)
 						Bputc(&out, ' ');
 					}
 				}
-				if(text->pos == 0 && r == '.'){
-					text->pos++;
-					Bputc(&out, ' ');
-				}
-				text->pos++;
-				if(r == 0xA0){
+				if(text->pos == 0 && r == '.')
+					text->pos += Bprint(&out, "\\&");
+				else if(r == '\\')
+					text->pos += Bprint(&out, "\\&\\");
+				else if(r == 0xA0){
 					r = ' ';
-					Bputc(&out, '\\');
+					text->pos += Bprint(&out, "\\");
 				}
-				Bprint(&out, "%C", r);
+				text->pos += Bprint(&out, "%C", r);
 			}
 		}
 	}
@@ -473,7 +490,10 @@ main(void)
 	Binit(&out, 1, OWRITE);
 
 	memset(&text, 0, sizeof(text));
+
+	text.font = "R";
 	text.output = 1;
+
 	parsetext(&text, nil);
 	emit(&text, "\n");
 }
