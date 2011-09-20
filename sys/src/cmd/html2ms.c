@@ -23,17 +23,16 @@ struct Tag {
 	void	(*close)(Text *, Tag *);
 	union {
 		void	*aux;
-		int	restore;
 	};
 };
 
 struct Text {
-	char*	font;
+	char*	fontstyle;
+	char*	fontsize;
 	int	pre;
 	int	pos;
 	int	space;
 	int	output;
-	int	underline;
 };
 
 void eatwhite(void);
@@ -44,29 +43,44 @@ int parseattr(Attr *);
 Biobuf in, out;
 
 void
-emit(Text *text, char *fmt, ...)
+emitrune(Text *text, Rune r)
 {
-	va_list a;
-
-	if(text->pos > 0){
+	if(r == '\r' || r =='\n')
 		text->pos = 0;
-		Bputc(&out, '\n');
-	}
-	va_start(a, fmt);
-	Bvprint(&out, fmt, a);
-	va_end(a);
+	else
+		text->pos++;
+	Bputrune(&out, r);
 }
 
 void
-restoreoutput(Text *text, Tag *tag)
+emit(Text *text, char *fmt, ...)
 {
-	text->output = tag->restore;
+	Rune buf[64];
+	va_list a;
+	int i;
+
+	if(fmt[0] == '.' && text->pos){
+		emitrune(text, '\n');
+		text->space = 0;
+	}
+	va_start(a, fmt);
+	runevsnprint(buf, nelem(buf), fmt, a);
+	va_end(a);
+	for(i=0; buf[i]; i++)
+		emitrune(text, buf[i]);
+}
+
+void
+restoreoutput(Text *text, Tag *)
+{
+	text->output = 1;
 }
 
 void
 ongarbage(Text *text, Tag *tag)
 {
-	tag->restore = text->output;
+	if(text->output == 0)
+		return;
 	tag->close = restoreoutput;
 	text->output = 0;
 }
@@ -78,16 +92,17 @@ onp(Text *text, Tag *)
 }
 
 void
-restorepre(Text *text, Tag *tag)
+restorepre(Text *text, Tag *)
 {
-	text->pre = tag->restore;
+	text->pre = 0;
 	emit(text, ".DE\n");
 }
 
 void
 onpre(Text *text, Tag *tag)
 {
-	tag->restore = text->pre;
+	if(text->pre)
+		return;
 	tag->close = restorepre;
 	text->pre = 1;
 	emit(text, ".DS L\n");
@@ -107,7 +122,7 @@ onli(Text *text, Tag *tag)
 void
 onh(Text *text, Tag *tag)
 {
-	emit(text, ".SH %c\n", tag->tag[1]);
+	emit(text, ".SH\n");
 	tag->close = onp;
 }
 
@@ -121,69 +136,126 @@ onbr(Text *text, Tag *tag)
 }
 
 void
-restorefont(Text *text, Tag *tag)
+fontstyle(Text *text, char *style)
 {
-	text->font = tag->aux;
-	text->pos += Bprint(&out, "\\f%s", text->font);
-}
-
-void
-onfont(Text *text, Tag *tag)
-{
-	if(text->font == 0)
-		text->font = "R";
-	tag->aux = text->font;
-	tag->close = restorefont;
-	if(cistrcmp(tag->tag, "i") == 0)
-		text->font = "I";
-	else if(cistrcmp(tag->tag, "b") == 0)
-		text->font = "B";
-	text->pos += Bprint(&out, "\\f%s", text->font);
-}
-
-void
-restoreunderline(Text *text, Tag *tag)
-{
-	text->underline = tag->restore;
-	emit(text, "");
-}
-
-void
-ona(Text *text, Tag *tag)
-{
-	int i;
-
-	for(i=0; i<tag->nattr; i++)
-		if(cistrcmp(tag->attr[i].attr, "href") == 0)
-			break;
-	if(i == tag->nattr)
+	if(strcmp(text->fontstyle, style) == 0)
 		return;
-	tag->restore = text->underline;
-	tag->close = restoreunderline;
-	text->underline = 1;
+	text->fontstyle = style;
+	emit(text, "\\f%s", style);
+}
+
+void
+fontsize(Text *text, char *size)
+{
+	if(strcmp(text->fontsize, size) == 0)
+		return;
+	text->fontsize = size;
+	emit(text, ".%s\n", size);
+}
+
+void
+restorefontstyle(Text *text, Tag *tag)
+{
+	fontstyle(text, tag->aux);
+}
+
+void
+restorefontsize(Text *text, Tag *tag)
+{
+	fontsize(text, tag->aux);
+}
+
+void
+oni(Text *text, Tag *tag)
+{
+	tag->aux = text->fontstyle;
+	tag->close = restorefontstyle;
+	fontstyle(text, "I");
+}
+
+void
+onb(Text *text, Tag *tag)
+{
+	tag->aux = text->fontstyle;
+	tag->close = restorefontstyle;
+	fontstyle(text, "B");
+}
+
+void
+ontt(Text *text, Tag *tag)
+{
+	tag->aux = text->fontsize;
+	tag->close = restorefontsize;
+	fontsize(text, "CW");
+}
+
+void
+onsmall(Text *text, Tag *tag)
+{
+	tag->aux = text->fontsize;
+	tag->close = restorefontsize;
+	fontsize(text, "SM");
+}
+
+void
+onbig(Text *text, Tag *tag)
+{
+	tag->aux = text->fontsize;
+	tag->close = restorefontsize;
+	fontsize(text, "LG");
+}
+
+void
+endquote(Text *text, Tag *tag)
+{
+	if(cistrcmp(tag->tag, "q") == 0)
+		emitrune(text, '"');
+	emit(text, ".QE\n");
+}
+
+void
+onquote(Text *text, Tag *tag)
+{
+	tag->close = endquote;
+	if(cistrcmp(tag->tag, "q") == 0)
+		emit(text, ".QS\n\"");
+	else
+		emit(text, ".QP\n");
 }
 
 struct {
 	char	*tag;
 	void	(*open)(Text *, Tag *);
 } ontag[] = {
-	"a",		ona,
+	"b",		onb,
+	"big",		onbig,
+	"blockquote",	onquote,
 	"br",		onbr,
-	"hr",		onbr,
-	"b",		onfont,
-	"i",		onfont,
-	"p",		onp,
+	"cite",		oni,
+	"code",		ontt,
+	"dfn",		oni,
+	"em",		oni,
 	"h1",		onh,
 	"h2",		onh,
 	"h3",		onh,
 	"h4",		onh,
 	"h5",		onh,
 	"h6",		onh,
-	"li",		onli,
-	"pre",		onpre,
 	"head",		ongarbage,
-	"style",	ongarbage,
+	"hr",		onbr,
+	"i",		oni,
+	"kbd",		ontt,
+	"li",		onli,
+	"p",		onp,
+	"pre",		onpre,
+	"q",		onquote,
+	"samp",		ontt,
 	"script",	ongarbage,
+	"small",	onsmall,
+	"strong",	onb,
+	"style",	ongarbage,
+	"tt",		ontt,
+	"var",		oni,
 };
 
 void
@@ -444,34 +516,25 @@ parsetext(Text *text, Tag *tag)
 			case '\r':
 			case ' ':
 			case '\t':
-				text->space = 1;
-				if(text->pre == 0)
-					continue;
+				if(text->pre == 0){
+					text->space = 1;
+					break;
+				}
 			default:
-				if(r == '\n' || r == '\r')
-					text->pos = 0;
 				if(text->space){
 					text->space = 0;
-					if(text->underline){
-						emit(text, ".UL ");
-						text->pos = 1;
-					} else if(text->pos >= 70){
-						text->pos = 0;
-						Bputc(&out, '\n');
-					} else if(text->pos > 0){
-						text->pos++;
-						Bputc(&out, ' ');
-					}
+					if(text->pos >= 70)
+						emitrune(text, '\n');
+					else if(text->pos > 0)
+						emitrune(text, ' ');
 				}
-				if(text->pos == 0 && r == '.')
-					text->pos += Bprint(&out, "\\&");
-				else if(r == '\\')
-					text->pos += Bprint(&out, "\\&\\");
-				else if(r == 0xA0){
+				if((text->pos == 0 && r == '.') || r == '\\')
+					emit(text, "\\&");
+				if(r == '\\' || r == 0xA0)
+					emitrune(text, '\\');
+				if(r == 0xA0)
 					r = ' ';
-					text->pos += Bprint(&out, "\\");
-				}
-				text->pos += Bprint(&out, "%C", r);
+				emitrune(text, r);
 			}
 		}
 	}
@@ -491,7 +554,8 @@ main(void)
 
 	memset(&text, 0, sizeof(text));
 
-	text.font = "R";
+	text.fontstyle = "R";
+	text.fontsize = "NL";
 	text.output = 1;
 
 	parsetext(&text, nil);
