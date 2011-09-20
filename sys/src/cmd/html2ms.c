@@ -28,11 +28,12 @@ struct Tag {
 };
 
 struct Text {
-	char	font;
+	char*	font;
 	int	pre;
 	int	pos;
 	int	space;
 	int	output;
+	int	underline;
 };
 
 void eatwhite(void);
@@ -122,28 +123,35 @@ onbr(Text *text, Tag *tag)
 void
 restorefont(Text *text, Tag *tag)
 {
-	text->font = tag->restore;
-	text->pos += Bprint(&out, "\\f%c", text->font);
+	text->font = tag->aux;
+	text->pos += Bprint(&out, "\\f%s", text->font);
 }
 
 void
 onfont(Text *text, Tag *tag)
 {
 	if(text->font == 0)
-		text->font = 'R';
-	tag->restore = text->font;
+		text->font = "R";
+	tag->aux = text->font;
 	tag->close = restorefont;
 	if(cistrcmp(tag->tag, "i") == 0)
-		text->font = 'I';
+		text->font = "I";
 	else if(cistrcmp(tag->tag, "b") == 0)
-		text->font = 'B';
-	text->pos += Bprint(&out, "\\f%c", text->font);
+		text->font = "B";
+	text->pos += Bprint(&out, "\\f%s", text->font);
+}
+
+void
+ona(Text *text, Tag *)
+{
+	text->underline = 1;
 }
 
 struct {
 	char	*tag;
 	void	(*open)(Text *, Tag *);
 } ontag[] = {
+	"a",		ona,
 	"br",		onbr,
 	"hr",		onbr,
 	"b",		onfont,
@@ -154,6 +162,7 @@ struct {
 	"h3",		onh,
 	"h4",		onh,
 	"h5",		onh,
+	"h6",		onh,
 	"li",		onli,
 	"pre",		onpre,
 	"head",		ongarbage,
@@ -300,7 +309,7 @@ Rune
 parserune(int c)
 {
 	char buf[10];
-	int i, n;
+	int n;
 	Rune r;
 
 	n = 0;
@@ -425,7 +434,10 @@ parsetext(Text *text, Tag *tag)
 					text->pos = 0;
 				if(text->space){
 					text->space = 0;
-					if(text->pos >= 70){
+					if(text->underline){
+						emit(text, "");
+						text->pos = Bprint(&out, ".UL ");
+					} else if(text->pos >= 70){
 						text->pos = 0;
 						Bputc(&out, '\n');
 					} else if(text->pos > 0){
