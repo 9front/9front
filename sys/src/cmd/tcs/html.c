@@ -86,7 +86,7 @@ static Hchar byname[] =
 	{"agrave", 224},
 	{"alefsym", 8501},
 	{"alpha", 945},
-	{"amp", 38},
+	/*	{"amp", 38},	*/
 	{"and", 8743},
 	{"ang", 8736},
 	{"aring", 229},
@@ -141,7 +141,7 @@ static Hchar byname[] =
 	{"frasl", 8260},
 	{"gamma", 947},
 	{"ge", 8805},
-	{"gt", 62},
+	/*	{"gt", 62},	*/
 	{"hArr", 8660},
 	{"harr", 8596},
 	{"hearts", 9829},
@@ -173,7 +173,7 @@ static Hchar byname[] =
 	{"lrm", 8206},
 	{"lsaquo", 8249},
 	{"lsquo", 8216},
-	{"lt", 60},
+	/*	{"lt", 60},	*/
 	{"macr", 175},
 	{"mdash", 8212},
 	{"micro", 181},
@@ -219,7 +219,7 @@ static Hchar byname[] =
 	{"prop", 8733},
 	{"psi", 968},
 	{"quad", 8193},
-	{"quot", 34},
+	/*	{"quot", 34},	*/
 	{"rArr", 8658},
 	{"radic", 8730},
 	{"rang", 9002},
@@ -385,7 +385,7 @@ html_in(int fd, long *x, struct convert *out)
 	Biobuf b;
 	Rune rbuf[N];
 	Rune *r, *er;
-	int c, i;
+	int c, s, i;
 	
 	USED(x);
 	
@@ -399,6 +399,7 @@ html_in(int fd, long *x, struct convert *out)
 			r = rbuf;
 		}
 		if(c == '&'){
+			s = 0;
 			buf[0] = c;
 			for(i=1; i<nelem(buf)-1;){
 				c = Bgetc(&b);
@@ -407,6 +408,8 @@ html_in(int fd, long *x, struct convert *out)
 				if(strchr(";&</> \t\r\n", c)){
 					if(c != ';')
 						Bungetc(&b);
+					else
+						s = 1;
 					break;
 				}
 				buf[i++] = c;
@@ -429,6 +432,8 @@ html_in(int fd, long *x, struct convert *out)
 				}
 			}
 		bad:
+			if(s)
+				buf[i++] = ';';
 			for(p=buf; p<buf+i; ){
 				p += chartorune(r++, p);
 				if(r >= er){
