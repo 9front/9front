@@ -58,11 +58,10 @@ from the local system.
 .SH EXAMPLES
 .LP
 Create the package
-.B links-variable-2011.05.23
+.B irc7-2011.09.21
 .sp 1
 .EX
-% cd /sys/src
-% pkg/create links-variable-2011.05.23
+% pkg/create /sys/src/cmd/irc7-2011.09.21
 .EE
 
 .LP
