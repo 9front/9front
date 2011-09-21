@@ -41,13 +41,15 @@ struct Text {
 };
 
 void eatwhite(void);
-Tag *parsetext(Text *, Tag *);
+void parsetext(Text *, Tag *);
 int parsetag(Tag *);
 int parseattr(Attr *);
 void flushtext(Text *);
 char* getattr(Tag *, char *);
 int gotattr(Tag *, char *, char *);
 int gotstyle(Tag *, char *, char *);
+void reparent(Text *, Tag *, Tag *);
+void debugtag(Tag *, char *);
 
 Biobuf in;
 
@@ -111,6 +113,12 @@ ongarbage(Text *text, Tag *tag)
 		return;
 	tag->close = restoreoutput;
 	text->output = 0;
+}
+
+void
+onmeta(Text *, Tag *tag)
+{
+	tag->closing = 1;
 }
 
 void
@@ -278,6 +286,23 @@ tabletag(Tag *tag)
 }
 
 void
+reparent(Text *text, Tag *tag, Tag *up)
+{
+	Tag *old;
+
+	old = tag->up;
+	while(old != up){
+		if(old->close){
+			debugtag(old, "reparent close");
+			old->close(text, old);
+			old->close = nil;
+		}
+		old = old->up;
+	}
+	tag->up = up;
+}
+
+void
 dumprows(Text *text, Table *s, Table *e)
 {
 	
@@ -436,10 +461,19 @@ endcell(Text *text, Tag *tag)
 void
 oncell(Text *text, Tag *tag)
 {
-	if(tabletag(tag) == nil)
+	Tag *tt;
+
+	if((tt = tabletag(tag)) == nil)
 		return;
 	if(cistrcmp(tag->tag, "tr")){
 		Table *t;
+
+		tt = tag->up;
+		while(tt && cistrcmp(tt->tag, "tr"))
+			tt = tt->up;
+		if(tt == nil)
+			return;
+		reparent(text, tag, tt);
 
 		t = mallocz(sizeof(*t), 1);
 		t->save = *text;
@@ -450,7 +484,8 @@ oncell(Text *text, Tag *tag)
 		text->nb = 0;
 		text->pos = 0;
 		text->space = 0;
-	}
+	} else
+		reparent(text, tag, tt);
 	tag->close = endcell;
 }
 
@@ -477,6 +512,8 @@ struct {
 	"i",		oni,
 	"kbd",		ontt,
 	"li",		onli,
+	"link",		onmeta,
+	"meta",		onmeta,
 	"p",		onp,
 	"pre",		onpre,
 	"q",		onquote,
@@ -485,12 +522,12 @@ struct {
 	"small",	onsmall,
 	"strong",	onb,
 	"style",	ongarbage,
-	"tt",		ontt,
-	"var",		oni,
 	"table",	ontable,
-	"tr",		oncell,
 	"td",		oncell,
 	"th",		oncell,
+	"tr",		oncell,
+	"tt",		ontt,
+	"var",		oni,
 };
 
 void
@@ -745,43 +782,41 @@ gotstyle(Tag *tag, char *style, char *val)
 	return 1;
 }
 
-Tag*
+void
 parsetext(Text *text, Tag *tag)
 {
 	int hidden, c;
-	Tag *rtag;
+	Tag t, *p;
 	Rune r;
 
-	rtag = tag;
-	debugtag(tag, "open");
-	hidden = tag ? (getattr(tag, "hidden") || gotstyle(tag, "display", "none")) : 0;
+	if(tag){
+		debugtag(tag, "open");
+		for(c = 0; c < nelem(ontag); c++){
+			if(cistrcmp(tag->tag, ontag[c].tag) == 0){
+				ontag[c].open(text, tag);
+				break;
+			}
+		}
+		hidden = getattr(tag, "hidden") || gotstyle(tag, "display", "none");
+	} else
+		hidden = 0;
 	if(tag == nil || tag->closing == 0){
 		while((c = Bgetc(&in)) > 0){
 			if(c == '<'){
-				Tag t;
-
 				memset(&t, 0, sizeof(t));
 				if(parsetag(&t)){
 					text->aftertag = 1;
 					if(t.opening){
 						t.up = tag;
-						for(c = 0; c < nelem(ontag); c++){
-							if(cistrcmp(t.tag, ontag[c].tag) == 0){
-								ontag[c].open(text, &t);
-								break;
-							}
-						}
-						rtag = parsetext(text, &t);
-						if(rtag == &t)
-							rtag = tag;
-						else
+						parsetext(text, &t);
+						if(t.up != tag)
 							break;
 					} else if(t.closing){
-						while(rtag && cistrcmp(rtag->tag, t.tag))
-							rtag = rtag->up;
-						if(rtag == nil)
-							rtag = tag;
-						break;
+						p = tag;
+						while(p && cistrcmp(p->tag, t.tag))
+							p = p->up;
+						if(p)
+							break;
 					}
 				}
 				continue;
@@ -819,10 +854,11 @@ parsetext(Text *text, Tag *tag)
 			}
 		}
 	}
-	debugtag(tag, "close");
-	if(tag && tag->close)
-		tag->close(text, tag);
-	return rtag;
+	if(tag){
+		debugtag(tag, "close");
+		if(tag->close)
+			tag->close(text, tag);
+	}
 }
 
 void
