@@ -286,23 +286,6 @@ tabletag(Tag *tag)
 }
 
 void
-reparent(Text *text, Tag *tag, Tag *up)
-{
-	Tag *old;
-
-	old = tag->up;
-	while(old != up){
-		if(old->close){
-			debugtag(old, "reparent close");
-			old->close(text, old);
-			old->close = nil;
-		}
-		old = old->up;
-	}
-	tag->up = up;
-}
-
-void
 dumprows(Text *text, Table *s, Table *e)
 {
 	
@@ -510,6 +493,7 @@ struct {
 	"head",		ongarbage,
 	"hr",		onbr,
 	"i",		oni,
+	"img",		onmeta,
 	"kbd",		ontt,
 	"li",		onli,
 	"link",		onmeta,
@@ -783,13 +767,32 @@ gotstyle(Tag *tag, char *style, char *val)
 }
 
 void
+reparent(Text *text, Tag *tag, Tag *up)
+{
+	Tag *old;
+
+	old = tag->up;
+	while(old != up){
+		debugtag(old, "reparent");
+		if(old->close){
+			old->close(text, old);
+			old->close = nil;
+		}
+		old = old->up;
+	}
+	tag->up = up;
+}
+
+
+void
 parsetext(Text *text, Tag *tag)
 {
 	int hidden, c;
-	Tag t, *p;
+	Tag t, *up;
 	Rune r;
 
 	if(tag){
+		up = tag->up;
 		debugtag(tag, "open");
 		for(c = 0; c < nelem(ontag); c++){
 			if(cistrcmp(tag->tag, ontag[c].tag) == 0){
@@ -798,8 +801,10 @@ parsetext(Text *text, Tag *tag)
 			}
 		}
 		hidden = getattr(tag, "hidden") || gotstyle(tag, "display", "none");
-	} else
+	} else {
+		up = nil;
 		hidden = 0;
+	}
 	if(tag == nil || tag->closing == 0){
 		while((c = Bgetc(&in)) > 0){
 			if(c == '<'){
@@ -809,14 +814,20 @@ parsetext(Text *text, Tag *tag)
 					if(t.opening){
 						t.up = tag;
 						parsetext(text, &t);
-						if(t.up != tag)
+						if(t.up != tag){
+							debugtag(tag, "skip");
+							up = t.up;
 							break;
+						}
+						debugtag(tag, "back");
 					} else if(t.closing){
-						p = tag;
-						while(p && cistrcmp(p->tag, t.tag))
-							p = p->up;
-						if(p)
+						up = tag;
+						while(up && cistrcmp(up->tag, t.tag))
+							up = up->up;
+						if(up){
+							up = up->up;
 							break;
+						}
 					}
 				}
 				continue;
@@ -856,8 +867,12 @@ parsetext(Text *text, Tag *tag)
 	}
 	if(tag){
 		debugtag(tag, "close");
-		if(tag->close)
+		if(tag->close){
 			tag->close(text, tag);
+			tag->close = nil;
+		}
+		if(up)
+			tag->up = up;
 	}
 }
 
