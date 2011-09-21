@@ -33,23 +33,53 @@ struct Text {
 	int	pos;
 	int	space;
 	int	output;
+	int	aftertag;
+
+	char	*bp;
+	char	*wp;
+	int	nb;
 };
 
 void eatwhite(void);
 Tag *parsetext(Text *, Tag *);
 int parsetag(Tag *);
 int parseattr(Attr *);
+void flushtext(Text *);
+char* getattr(Tag *, char *);
+int gotattr(Tag *, char *, char *);
+int gotstyle(Tag *, char *, char *);
 
-Biobuf in, out;
+Biobuf in;
+
+void
+emitbuf(Text *text, char *buf, int nbuf)
+{
+	int nw;
+
+	nw = text->wp - text->bp;
+	if((text->nb - nw) < nbuf){
+		if(nbuf < 4096)
+			text->nb = nw + 4096;
+		else
+			text->nb = nw + nbuf;
+		text->bp = realloc(text->bp, text->nb);
+		text->wp = text->bp + nw;
+	}
+	memmove(text->wp, buf, nbuf);
+	text->wp += nbuf;
+}
 
 void
 emitrune(Text *text, Rune r)
 {
-	if(r == '\r' || r =='\n')
+	char buf[UTFmax+1];
+
+	if(r == '\r' || r =='\n'){
 		text->pos = 0;
-	else
+		text->space = 0;
+	}else
 		text->pos++;
-	Bputrune(&out, r);
+	emitbuf(text, buf, runetochar(buf, &r));
 }
 
 void
@@ -59,10 +89,8 @@ emit(Text *text, char *fmt, ...)
 	va_list a;
 	int i;
 
-	if(fmt[0] == '.' && text->pos){
+	if(fmt[0] == '.' && text->pos)
 		emitrune(text, '\n');
-		text->space = 0;
-	}
 	va_start(a, fmt);
 	runevsnprint(buf, nelem(buf), fmt, a);
 	va_end(a);
@@ -184,9 +212,9 @@ onb(Text *text, Tag *tag)
 void
 ontt(Text *text, Tag *tag)
 {
-	tag->aux = text->fontsize;
-	tag->close = restorefontsize;
-	fontsize(text, "CW");
+	tag->aux = text->fontstyle;
+	tag->close = restorefontstyle;
+	fontstyle(text, "C");
 }
 
 void
@@ -223,6 +251,209 @@ onquote(Text *text, Tag *tag)
 		emit(text, ".QP\n");
 }
 
+typedef struct Table Table;
+struct Table
+{
+	char	*fmt;
+
+	char	*bp;
+	int	nb;
+
+	Table	*next;
+	Table	*prev;
+	int	enclose;
+	int	brk;
+
+	Text	save;
+};
+
+Tag*
+tabletag(Tag *tag)
+{
+	if(tag == nil)
+		return nil;
+	if(cistrcmp(tag->tag, "table") == 0)
+		return tag;
+	return tabletag(tag->up);
+}
+
+void
+dumprows(Text *text, Table *s, Table *e)
+{
+	
+	for(; s != e; s = s->next){
+		if(s->enclose)
+			emit(text, "T{\n");
+		if(s->nb <= 0)
+			emit(text, "\\ ");
+		else
+			emitbuf(text, s->bp, s->nb);
+		if(s->enclose)
+			emit(text, "\nT}");
+		emitrune(text, s->brk ? '\n' : '\t');
+	}
+}
+
+void
+endtable(Text *text, Tag *tag)
+{
+	int i, cols, rows;
+	Table *t, *h, *s;
+	Tag *tt;
+
+	/* reverse list */
+	h = nil;
+	t = tag->aux;
+ 	for(; t; t = t->prev){
+		t->next = h;
+		h = t;
+	}
+
+	/*
+	 * nested table case, add our cells to the next table up.
+	 * this is the best we can do, tbl doesnt support nesting
+	 */
+	if(tt = tabletag(tag->up)){
+		while(t = h){
+			h = h->next;
+			t->next = nil;
+			t->prev = tt->aux;
+			tt->aux = t;
+		}
+		return;
+	}
+
+	cols = 0;
+	rows = 0;
+	for(i = 0, t = h; t; t = t->next){
+		i++;
+		if(t->brk){
+			rows++;
+			if(i > cols)
+				cols = i;
+			i = 0;
+		}
+	}
+
+	i = 0;
+ 	for(t = h; t; t = t->next){
+		i++;
+		if(t->brk){
+			while(i < cols){
+				s = mallocz(sizeof(Table), 1);
+				s->fmt = "L";
+				s->brk = t->brk;
+				t->brk = 0;
+				s->next = t->next;
+				t->next = s;
+				i++;
+			}
+			break;
+		}
+	}
+
+	s = h;
+	while(s){
+		emit(text, ".TS\n");
+		if(gotattr(tag, "align", "center"))
+			emit(text, "center ;\n");
+		i = 0;
+		for(t = s; t; t = t->next){
+			emit(text, "%s", t->fmt);
+			if(t->brk){
+				emitrune(text, '\n');
+				if(++i > 30){
+					t = t->next;
+					break;
+				}
+			}else
+				emitrune(text, ' ');
+		}
+		emit(text, ".\n");
+		dumprows(text, s, t);
+		emit(text, ".TE\n");
+		s = t;
+	}
+
+	while(t = h){
+		h = t->next;
+		free(t->bp);
+		free(t);
+	}
+}
+
+void
+ontable(Text *, Tag *tag)
+{
+	tag->aux = nil;
+	tag->close = endtable;
+}
+
+void
+endcell(Text *text, Tag *tag)
+{
+	Table *t;
+	Tag *tt;
+	int i;
+
+	if((tt = tabletag(tag)) == nil)
+		return;
+	if(cistrcmp(tag->tag, "tr") == 0){
+		if(t = tt->aux)
+			t->brk = 1;
+	} else {
+		t = tag->aux;
+		t->bp = text->bp;
+		t->nb = text->wp - text->bp;
+
+		for(i=0; i<t->nb; i++)
+			if(strchr(" \t\r\n", t->bp[i]) == nil)
+				break;
+		if(i > 0){
+			memmove(t->bp, t->bp+i, t->nb - i);
+			t->nb -= i;
+		}
+		while(t->nb > 0 && strchr(" \t\r\n", t->bp[t->nb-1]))
+			t->nb--;
+		if(t->nb < 32){
+			for(i=0; i<t->nb; i++)
+				if(strchr("\t\r\n", t->bp[i]))
+					break;
+			t->enclose = i < t->nb;
+		} else {
+			t->enclose = 1;
+		}
+		if(gotstyle(tag, "text-align", "center") || gotstyle(tt, "text-align", "center"))
+			t->fmt = "c";
+		else
+			t->fmt = "L";
+		t->prev = tt->aux;
+		tt->aux = t;
+		*text = t->save;
+	}
+}
+
+void
+oncell(Text *text, Tag *tag)
+{
+	if(tabletag(tag) == nil)
+		return;
+	if(cistrcmp(tag->tag, "tr")){
+		Table *t;
+
+		t = mallocz(sizeof(*t), 1);
+		t->save = *text;
+		tag->aux = t;
+
+		text->bp = nil;
+		text->wp = nil;
+		text->nb = 0;
+		text->pos = 0;
+		text->space = 0;
+	}
+	tag->close = endcell;
+}
+
 struct {
 	char	*tag;
 	void	(*open)(Text *, Tag *);
@@ -256,6 +487,10 @@ struct {
 	"style",	ongarbage,
 	"tt",		ontt,
 	"var",		oni,
+	"table",	ontable,
+	"tr",		oncell,
+	"td",		oncell,
+	"th",		oncell,
 };
 
 void
@@ -467,16 +702,59 @@ debugtag(Tag *tag, char *dbg)
 	fprint(2, "%s %s%s", tag->tag, dbg ? dbg : " > ", dbg ? "\n" : "");
 }
 
+char*
+getattr(Tag *tag, char *attr)
+{
+	int i;
+
+	for(i=0; i<tag->nattr; i++)
+		if(cistrcmp(tag->attr[i].attr, attr) == 0)
+			return tag->attr[i].val;
+	return nil;
+}
+
+int
+gotattr(Tag *tag, char *attr, char *val)
+{
+	char *v;
+
+	if((v = getattr(tag, attr)) == nil)
+		return 0;
+	return cistrstr(v, val) != 0;
+}
+
+int
+gotstyle(Tag *tag, char *style, char *val)
+{
+	char *v;
+
+	if((v = getattr(tag, "style")) == nil)
+		return 0;
+	if((v = cistrstr(v, style)) == nil)
+		return 0;
+	v += strlen(style);
+	while(*v && *v != ':')
+		v++;
+	if(*v != ':')
+		return 0;
+	v++;
+	while(*v && strchr("\t ", *v))
+		v++;
+	if(cistrncmp(v, val, strlen(val)))
+		return 0;
+	return 1;
+}
 
 Tag*
 parsetext(Text *text, Tag *tag)
 {
+	int hidden, c;
 	Tag *rtag;
 	Rune r;
-	int c;
 
 	rtag = tag;
 	debugtag(tag, "open");
+	hidden = tag ? (getattr(tag, "hidden") || gotstyle(tag, "display", "none")) : 0;
 	if(tag == nil || tag->closing == 0){
 		while((c = Bgetc(&in)) > 0){
 			if(c == '<'){
@@ -484,6 +762,7 @@ parsetext(Text *text, Tag *tag)
 
 				memset(&t, 0, sizeof(t));
 				if(parsetag(&t)){
+					text->aftertag = 1;
 					if(t.opening){
 						t.up = tag;
 						for(c = 0; c < nelem(ontag); c++){
@@ -502,18 +781,19 @@ parsetext(Text *text, Tag *tag)
 							rtag = rtag->up;
 						if(rtag == nil)
 							rtag = tag;
-						else
-							break;
+						break;
 					}
 				}
 				continue;
 			}
-			if(!text->output)
+			if(hidden || !text->output)
 				continue;
 			r = substrune(parserune(c));
 			switch(r){
 			case '\n':
 			case '\r':
+				if(text->pre == 0 && text->aftertag)
+					break;
 			case ' ':
 			case '\t':
 				if(text->pre == 0){
@@ -522,7 +802,6 @@ parsetext(Text *text, Tag *tag)
 				}
 			default:
 				if(text->space){
-					text->space = 0;
 					if(text->pos >= 70)
 						emitrune(text, '\n');
 					else if(text->pos > 0)
@@ -535,6 +814,8 @@ parsetext(Text *text, Tag *tag)
 				if(r == 0xA0)
 					r = ' ';
 				emitrune(text, r);
+				text->aftertag = 0;
+				text->space = 0;
 			}
 		}
 	}
@@ -545,19 +826,21 @@ parsetext(Text *text, Tag *tag)
 }
 
 void
+inittext(Text *text)
+{
+	memset(text, 0, sizeof(Text));
+	text->fontstyle = "R";
+	text->fontsize = "NL";
+	text->output = 1;
+}
+
+void
 main(void)
 {
 	Text text;
-
 	Binit(&in, 0, OREAD);
-	Binit(&out, 1, OWRITE);
-
-	memset(&text, 0, sizeof(text));
-
-	text.fontstyle = "R";
-	text.fontsize = "NL";
-	text.output = 1;
-
+	inittext(&text);
 	parsetext(&text, nil);
 	emit(&text, "\n");
+	write(1, text.bp, text.wp - text.bp);
 }

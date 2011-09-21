@@ -104,10 +104,7 @@ main(int argc, char *argv[])
 
 		arg[0] = "rc";
 		arg[1] = "-c";
-		if(strcmp(cset, "utf"))
-			arg[2] = smprint("tcs -f %s -t utf | tcs -f html -t utf", cset);
-		else
-			arg[2] = "tcs -f html -t utf";
+		arg[2] = smprint("{tcs -f %s | tcs -f html} || cat", cset);
 		arg[3] = nil;
 		exec("/bin/rc", arg);
 	}
