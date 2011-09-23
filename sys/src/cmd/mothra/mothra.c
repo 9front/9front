@@ -541,7 +541,7 @@ void docmd(Panel *p, char *s){
 		break;
 	case 'j':
 		s=arg(s);
-		if(*s)
+		if(atoi(s) <= nwww())
 			geturl(www(atoi(s)-1)->url->fullname, GET, 0, 0, 0);
 		else
 			message("no url selected");
