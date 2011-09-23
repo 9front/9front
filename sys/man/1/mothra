@@ -71,18 +71,22 @@ by underlined text or a boxed image) in the
 current file.  Button 2 shows the URL of a file,
 but does not retrieve or display it.
 Button 3 pops up a menu of commands:
-.TF save\ back
+.TF alt\ display
 .TP
-.B save back
-Place a link to the current file in a `back list'
-for future reference.
+.B alt display
+Collapse or expand the navigation boxes at the top of the browser window.
 .TP
-.B get back
-Retrieve and display the back list.
+.B snarf url
+Copy the current URL to the snarf buffer.
 .TP
-.B fix cmap
-Adjust the display's color map so that images will
-have correct colors.
+.B paste
+Paste the current snarf buffer at the current cursor position.
+.TP
+.B save hit
+Save the current URL to the hit list.
+.TP
+.B hit list
+Retrieve and display the hit list.
 .TP
 .B exit
 Ask for confirmation and quit.
@@ -94,17 +98,23 @@ The typed commands are:
 .BI g " url
 Get the page with the given URL.
 .TP
+.B r
+Reload the current page.
+.TP
 .BI s " file
-Save the current file in the given
+Save the current page in the given
+.I file.
+.TP
+.BI W " file
+Capture a screenshot of the entire browser window in the given
+.I file.
+.TP
+.BI w " file
+Capture a screenshot of the content area in the given
 .I file.
 .TP
 .B q
 Quit.
-.TP
-.B ?
-.TP
-.B h
-Get help.
 .PD
 .PP
 When
@@ -117,8 +127,8 @@ image), it will start up an appropriate viewer, for example
 .IR 9v (9.1))
 for image files.
 .SH FILES
-.B $home/lib/mothra/back.html 
-the back list
+.B $home/lib/mothra/hit.html 
+the hit list
 .br
 .B $home/lib/mothra/mothra.url
 log of visited URLs

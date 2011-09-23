@@ -38,7 +38,7 @@ then packs it into a
 compressed
 .IR tar (1)
 archive suitable for upload to a package
-repository.
+repository. The source directory should be provided as a full path.
 .TP
 .I Pkg/install 
 Install the package
@@ -58,17 +58,16 @@ from the local system.
 .SH EXAMPLES
 .LP
 Create the package
-.B links-variable-2011.05.23
+.B irc7-2011.09.21:
 .sp 1
 .EX
-% cd /sys/src
-% pkg/create links-variable-2011.05.23
+% pkg/create /sys/src/cmd/irc7-2011.09.21
 .EE
 
 .LP
 Install the
 .B Go
-programming language.
+programming language:
 .sp 1
 .EX
 % pkg/install go-2011.05.10
