@@ -524,6 +524,11 @@ void docmd(Panel *p, char *s){
 	default:
 		message("Unknown command %s, type h for help", s);
 		break;
+	case 'a':
+		s=arg(s);
+		if(*s == '\0' && selection)
+			hit3(3, 0);
+		break;
 	case 'g':
 		s=arg(s);
 		if(*s=='\0'){

@@ -93,7 +93,10 @@ Ask for confirmation and quit.
 .PD
 .PP
 The typed commands are:
-.TF save\ back
+.TF typed\ commands
+.TP
+.B a
+Collapse or expand the navigation boxes at the top of the browser window.
 .TP
 .BI g " url
 Get the page with the given URL.
