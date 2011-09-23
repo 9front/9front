@@ -14,6 +14,7 @@ Tag tag[]={
 [Tag_blockquot]	"blockquote",	END,
 [Tag_body]	"body",		END,	/* OPTEND */
 [Tag_br]	"br",		NOEND,
+[Tag_button]	"button",	END,
 [Tag_center]	"center",	END,
 [Tag_cite]	"cite",		END,
 [Tag_code]	"code",		END,

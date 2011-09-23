@@ -118,6 +118,7 @@ void rdform(Hglob *g){
 
 		break;
 	case Tag_input:
+	case Tag_button:
 		if(g->form==0){
 		BadTag:
 			htmlerror(g->name, g->lineno, "<%s> not in form, ignored\n",
@@ -148,7 +149,9 @@ void rdform(Hglob *g){
 			f->maxlength=atoi(s);
 		s=pl_getattr(g->attr, "type");
 		/* bug -- password treated as text */
-		if(s==0 || cistrcmp(s, "text")==0 || cistrcmp(s, "password")==0 || cistrcmp(s, "int")==0){
+		if(s==0 || cistrcmp(s, "text")==0 || 
+		   cistrcmp(s, "password")==0 || cistrcmp(s, "int")==0 ||
+		   cistrcmp(s, "email")==0){
 			s=pl_getattr(g->attr, "name");
 			if(s!=0 && strcmp(s, "isindex")==0)
 				f->type=INDEX;

@@ -127,6 +127,7 @@ enum{
 	Tag_blockquot,
 	Tag_body,
 	Tag_br,
+	Tag_button,
 	Tag_center,
 	Tag_cite,
 	Tag_code,

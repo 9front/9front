@@ -886,6 +886,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			break;
 		case Tag_form:
 		case Tag_input:
+		case Tag_button:
 		case Tag_select:
 		case Tag_option:
 		case Tag_textarea:
