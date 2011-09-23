@@ -1031,7 +1031,6 @@ struct Aux
 };
 enum
 {
-	AuxBuf = 4096,
 	MaxCtext = 16*1024*1024,
 };
 
@@ -1162,12 +1161,12 @@ httpsetcookie(char *hdr, char *dom, char *path)
 char*
 httpcookies(char *dom, char *path, int issecure)
 {
-	char buf[1024];
+	char *s;
 	Jar *j;
 
 	syncjar(jar);
 	j = cookiesearch(jar, dom, path, issecure);
-	snprint(buf, sizeof buf, "%J", j);
+	s = smprint("%J", j);
 	closejar(j);
-	return estrdup(buf);
+	return s;
 }
