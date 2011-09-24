@@ -540,11 +540,11 @@ void docmd(Panel *p, char *s){
 		else geturl(s, GET, 0, 1, 0);
 		break;
 	case 'j':
-		s=arg(s);
-		if(atoi(s) <= nwww())
-			geturl(www(atoi(s)-1)->url->fullname, GET, 0, 0, 0);
+		s = arg(s);
+		if(*s)
+			doprev(nil, 1, wwwtop-atoi(s));
 		else
-			message("no url selected");
+			message("Usgae: j index");
 		break;
 	case 'r':
 		s = arg(s);
@@ -601,7 +601,7 @@ void hiturl(int buttons, char *url, int map){
 void doprev(Panel *p, int buttons, int index){
 	int i;
 	USED(p);
-	if(index >= nwww())
+	if(index < 0 || index >= nwww())
 		return;
 	i = wwwtop-index-1;
 	switch(buttons){
