@@ -272,6 +272,8 @@ void pl_rmentities(Hglob *g, char *s){
 				*t++='>';
 			else if(strcmp(u, "quot") == 0)
 				*t++='"';
+			else if(strcmp(u, "apos") == 0)
+				*t++='\'';
 			else if(strcmp(u, "amp") == 0)
 				*t++='&';
 			else {

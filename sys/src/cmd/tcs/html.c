@@ -11,8 +11,6 @@ struct Hchar
 	Rune r;
 };
 
-/* &lt;, &gt;, &quot;, &amp; intentionally omitted */
-
 /*
  * Names beginning with _ are names we recognize
  * (without the underscore) but will not generate,
@@ -86,7 +84,7 @@ static Hchar byname[] =
 	{"agrave", 224},
 	{"alefsym", 8501},
 	{"alpha", 945},
-	/*	{"amp", 38},	*/
+	{"amp", 38},
 	{"and", 8743},
 	{"ang", 8736},
 	{"aring", 229},
@@ -141,7 +139,7 @@ static Hchar byname[] =
 	{"frasl", 8260},
 	{"gamma", 947},
 	{"ge", 8805},
-	/*	{"gt", 62},	*/
+	{"gt", 62},
 	{"hArr", 8660},
 	{"harr", 8596},
 	{"hearts", 9829},
@@ -173,7 +171,7 @@ static Hchar byname[] =
 	{"lrm", 8206},
 	{"lsaquo", 8249},
 	{"lsquo", 8216},
-	/*	{"lt", 60},	*/
+	{"lt", 60},
 	{"macr", 175},
 	{"mdash", 8212},
 	{"micro", 181},
@@ -219,7 +217,7 @@ static Hchar byname[] =
 	{"prop", 8733},
 	{"psi", 968},
 	{"quad", 8193},
-	/*	{"quot", 34},	*/
+	{"quot", 34},
 	{"rArr", 8658},
 	{"radic", 8730},
 	{"rang", 9002},
@@ -416,10 +414,8 @@ html_in(int fd, long *x, struct convert *out)
 			}
 			buf[i] = 0;
 			if(i > 1){
-				if((c = findbyname(buf+1)) != Runeerror){
-					*r++ = c;
-					continue;
-				}
+				if((c = findbyname(buf+1)) != Runeerror)
+					goto out;
 				if(i > 2 && buf[1] == '#'){
 					if(i > 3 && strchr("xX", buf[2]))
 						c = strtol(buf+3, &p, 16);
@@ -427,8 +423,7 @@ html_in(int fd, long *x, struct convert *out)
 						c = strtol(buf+2, &p, 10);
 					if(*p || c >= NRUNE || c < 0)
 						goto bad;
-					*r++ = c;
-					continue;
+					goto out;
 				}
 			}
 		bad:
@@ -442,6 +437,12 @@ html_in(int fd, long *x, struct convert *out)
 				}
 			}
 			continue;
+		out:
+			if(strchr("<>&\"'", c)){
+				s = ';';
+				i = sprint(buf, "&%s", findbyrune(c));
+				goto bad;
+			}
 		}
 		*r++ = c;
 	}

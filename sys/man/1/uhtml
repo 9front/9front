@@ -1,0 +1,46 @@
+.TH UHTML 1
+.SH NAME
+uhtml \- convert foreign character set HTML file to unicode
+.SH SYNOPSIS
+.B uhtml
+[
+.B -p
+] [
+.B -c
+.I charset
+] [
+.I file
+]
+.SH DESCRIPTION
+HTML comes in various character set encodings
+and has special forms to encode characters. To
+make it easier to process html, uthml is used
+to normalize it to a unicode only form.
+.LP
+Uhtml detects the character set of the html input
+.I file
+and calls
+.IR tcs (1)
+to convert it to utf replacing html-entity forms
+by ther unicode character representations except for 
+.B lt
+.B gt
+.B amp
+.B quot
+and
+.B apos .
+The converted html is written to
+standard output. If no
+.I file
+was given, it is read from standard input. If the
+.B -p
+option is given, the detected character set is printed and
+the program exits without conversion.
+In case character set detection fails, the default (utf)
+is assumed. This default can be changed with the
+.B -c
+option.
+.SH SOURCE
+.B /sys/src/cmd/uhtml.c
+.SH SEE ALSO
+.IR tcs (1)

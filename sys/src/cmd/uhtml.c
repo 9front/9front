@@ -41,7 +41,7 @@ void
 main(int argc, char *argv[])
 {
 	int pfd[2], pflag = 0;
-	char *arg[4], *s;
+	char *arg[4], *s, *p;
 
 	ARGBEGIN {
 	case 'h':
@@ -59,42 +59,54 @@ main(int argc, char *argv[])
 		if(open(*argv, OREAD) != 1)
 			sysfatal("open: %r");
 	}
-	if((nbuf = read(0, buf, sizeof(buf)-1)) < 0)
+	if((nbuf = readn(0, buf, sizeof(buf)-1)) < 0)
 		sysfatal("read: %r");
 	buf[nbuf] = 0;
-
-	/* useless BOM marker */
-	if(memcmp(buf, "\xEF\xBB\xBF", 3)==0)
-		memmove(buf, buf+3, nbuf-3);
-
-	for(;;){
-		if(s = cistrstr(buf, "encoding="))
+	p = buf;
+	while(nbuf > 0){
+		if(memcmp(p, "\xEF\xBB\xBF", 3)==0){
+			p += 3;
+			cset = "utf";
+			break;
+		}
+		if(memcmp(p, "\xFE\xFF", 2) == 0){
+			p += 2;
+			cset = "unicode-be";
+			break;
+		}
+		if(memcmp(p, "\xFF\xFE", 2) == 0){
+			p += 2;
+			cset = "unicode-le";
+			break;
+		}
+		if(s = cistrstr(p, "encoding="))
 			if(s = strval(s+9)){
 				cset = s;
 				break;
 			}
-		if(s = cistrstr(buf, "charset="))
+		if(s = cistrstr(p, "charset="))
 			if(s = strval(s+8)){
 				cset = s;
 				break;
 			}
 		break;
 	}
+	nbuf -= p - buf;
 
 	if(pflag){
 		print("%s\n", cset);
 		exits(0);
 	}
 
-	if(pipe(pfd) < 0)
-		sysfatal("pipe: %r");
-
 	if(nbuf == 0){
-		write(1, buf, 0);
+		write(1, p, 0);
 		exits(0);
 	}
 
-	switch(rfork(RFFDG|RFREND|RFPROC|RFNOWAIT)){
+	if(pipe(pfd) < 0)
+		sysfatal("pipe: %r");
+
+	switch(rfork(RFFDG|RFREND|RFPROC)){
 	case -1:
 		sysfatal("fork: %r");
 	case 0:
@@ -114,10 +126,13 @@ main(int argc, char *argv[])
 	close(pfd[1]);
 
 	while(nbuf > 0){
-		if(write(1, buf, nbuf) != nbuf)
+		if(write(1, p, nbuf) != nbuf)
 			sysfatal("write: %r");
-		if((nbuf = read(0, buf, sizeof(buf))) < 0)
+		p = buf;
+		if((nbuf = read(0, p, sizeof(buf))) < 0)
 			sysfatal("read: %r");
 	}
+	close(1);
+	waitpid();
 	exits(0);
 }

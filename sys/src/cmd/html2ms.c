@@ -680,6 +680,8 @@ parserune(int c)
 			return '>';
 		if(strcmp(buf, "quot") == 0)
 			return '"';
+		if(strcmp(buf, "apos") == 0)
+			return '\'';
 		if(strcmp(buf, "amp") == 0)
 			return '&';
 		/* use tcs -f html to handle the rest. */
