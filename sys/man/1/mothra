@@ -1,6 +1,6 @@
 .TH MOTHRA 1
 .SH NAME
-mothra \- retrieve World-Wide Web files
+mothra \- retrieve and display World-Wide Web files
 .SH SYNOPSIS
 .B mothra
 [
@@ -49,6 +49,15 @@ starts with the
 given on the command line, defaulting to
 the environment variable
 .BR $url .
+.PP
+There are a number of options:
+.TP
+.B  -d
+Debug mode.
+.TP
+.B -v
+Verbose mode. Causes HTML errors to appear in
+.B $home/lib/mothra/mothra.err
 .PP
 Mothra uses
 .IR webfs (4)
@@ -100,6 +109,11 @@ Collapse or expand the navigation boxes at the top of the browser window.
 .TP
 .BI g " url
 Get the page with the given URL.
+.TP
+.BI j " n
+Jump to page
+.I n
+from the list of previously viewed pages.
 .TP
 .B r
 Reload the current page.

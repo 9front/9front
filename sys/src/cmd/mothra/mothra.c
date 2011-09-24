@@ -3,6 +3,7 @@
  */
 #include <u.h>
 #include <libc.h>
+#include <ctype.h>
 #include <draw.h>
 #include <event.h>
 #include <keyboard.h>
@@ -538,6 +539,13 @@ void docmd(Panel *p, char *s){
 				message("no url selected");
 		}
 		else geturl(s, GET, 0, 1, 0);
+		break;
+	case 'j':
+		s=arg(s);
+		if(isdigit(s))
+			geturl(www(atoi(s)-1)->url->fullname, GET, 0, 0, 0);
+		else
+			message("no url selected");
 		break;
 	case 'r':
 		s = arg(s);
