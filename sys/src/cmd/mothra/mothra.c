@@ -525,12 +525,12 @@ void docmd(Panel *p, char *s){
 		message("Unknown command %s, type h for help", s);
 		break;
 	case 'a':
-		s=arg(s);
-		if(*s == '\0' && selection)
+		s = arg(s);
+		if(*s=='\0' && selection)
 			hit3(3, 0);
 		break;
 	case 'g':
-		s=arg(s);
+		s = arg(s);
 		if(*s=='\0'){
 			if(selection)
 				geturl(selection->fullname, GET, 0, 1, 0);
@@ -544,15 +544,15 @@ void docmd(Panel *p, char *s){
 		if(*s)
 			doprev(nil, 1, wwwtop-atoi(s));
 		else
-			message("Usgae: j index");
+			message("Usage: j index");
 		break;
 	case 'r':
 		s = arg(s);
-		if(*s == '\0' && selection)
+		if(*s=='\0' && selection)
 			geturl(selection->fullname, GET, 0, 0, 0);
 		break;
 	case 'W':
-		s=arg(s);
+		s = arg(s);
 		if(s=='\0'){
 			message("Usage: W file");
 			break;
@@ -560,7 +560,7 @@ void docmd(Panel *p, char *s){
 		screendump(s, 1);
 		break;
 	case 'w':
-		s=arg(s);
+		s = arg(s);
 		if(s=='\0'){
 			message("Usage: w file");
 			break;
@@ -568,7 +568,7 @@ void docmd(Panel *p, char *s){
 		screendump(s, 0);
 		break;
 	case 's':
-		s=arg(s);
+		s = arg(s);
 		if(*s=='\0'){
 			if(selection){
 				s=strrchr(selection->fullname, '/');
