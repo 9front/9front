@@ -329,13 +329,13 @@ void main(int argc, char *argv[]){
 				scrolltext(-text->size.y/4);
 				break;
 			case Kpgup:
-				scrolltext(-text->size.y/3);
+				scrolltext(-text->size.y/2);
 				break;
 			case Kdown:
 				scrolltext(text->size.y/4);
 				break;
 			case Kpgdown:
-				scrolltext(text->size.y/3);
+				scrolltext(text->size.y/2);
 				break;
 			case Kend:
 				scrolltext(text->size.y*1000);
