@@ -87,6 +87,7 @@ static Hchar byname[] =
 	{"amp", 38},
 	{"and", 8743},
 	{"ang", 8736},
+	{"apos", 39},
 	{"aring", 229},
 	{"asymp", 8776},
 	{"atilde", 227},
