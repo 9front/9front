@@ -322,11 +322,23 @@ void main(int argc, char *argv[]){
 				adjkb();
 				plkeyboard(e.kbdc);
 				break;
+			case Khome:
+				scrolltext(-text->size.y*1000);
+				break;
 			case Kup:
 				scrolltext(-text->size.y/4);
 				break;
+			case Kpgup:
+				scrolltext(-text->size.y/3);
+				break;
 			case Kdown:
 				scrolltext(text->size.y/4);
+				break;
+			case Kpgdown:
+				scrolltext(text->size.y/3);
+				break;
+			case Kend:
+				scrolltext(text->size.y*1000);
 				break;
 			}
 			break;
