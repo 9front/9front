@@ -136,12 +136,22 @@ void adjkb(void){
 	plgrabkb(cmd);
 }
 
-void scrolltext(int dy)
+void scrolltext(int dy, int whence)
 {
 	Scroll s;
 
 	s = plgetscroll(text);
-	s.pos.y += dy;
+	switch(whence){
+	case 0:
+		s.pos.y = dy;
+		break;
+	case 1:
+		s.pos.y += dy;
+		break;
+	case 2:
+		s.pos.y = s.size.y+dy;
+		break;
+	}
 	if(s.pos.y < 0)
 		s.pos.y = 0;
 	if(s.pos.y > s.size.y)
@@ -323,22 +333,22 @@ void main(int argc, char *argv[]){
 				plkeyboard(e.kbdc);
 				break;
 			case Khome:
-				scrolltext(-text->size.y*1000);
+				scrolltext(0, 0);
 				break;
 			case Kup:
-				scrolltext(-text->size.y/4);
+				scrolltext(-text->size.y/4, 1);
 				break;
 			case Kpgup:
-				scrolltext(-text->size.y/2);
+				scrolltext(-text->size.y/2, 1);
 				break;
 			case Kdown:
-				scrolltext(text->size.y/4);
+				scrolltext(text->size.y/4, 1);
 				break;
 			case Kpgdown:
-				scrolltext(text->size.y/2);
+				scrolltext(text->size.y/2, 1);
 				break;
 			case Kend:
-				scrolltext(text->size.y*1000);
+				scrolltext(-text->size.y, 2);
 				break;
 			}
 			break;
