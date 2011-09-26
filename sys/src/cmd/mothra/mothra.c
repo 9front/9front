@@ -932,14 +932,14 @@ void geturl(char *urlname, int method, char *body, int cache, int map){
 			fd=pipeline("/bin/uncompress", fd);
 		else if(selection->type&GUNZIP)
 			fd=pipeline("/bin/gunzip", fd);
-		snprint(cmd, sizeof(cmd), selection->charset[0] ?
-			"/bin/uhtml -c %s" : "/bin/uhtml", selection->charset);
-		fd = pipeline(cmd, fd);
 		switch(selection->type&~COMPRESSION){
 		default:
 			message("Bad type %x in geturl", selection->type);
 			break;
 		case HTML:
+			snprint(cmd, sizeof(cmd), selection->charset[0] ?
+				"/bin/uhtml -c %s" : "/bin/uhtml", selection->charset);
+			fd = pipeline(cmd, fd);
 		case PLAIN:
 			w = www(i = wwwtop++);
 			if(i >= NWWW){
