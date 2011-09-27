@@ -21,8 +21,9 @@ confirmflush(Req *r)
 			*l = r->aux;
 			if(r->aux == nil)
 				cuselast = l;
-			closereq(r);
-			break;
+			r->aux = nil;
+			respond(r, "interrupted");
+			return;
 		}
 	}
 	logbufflush(&confbuf, r);
@@ -81,6 +82,7 @@ confirmwrite(char *s)
 			*l = r->aux;
 			if(r->aux == nil)
 				cuselast = l;
+			r->aux = nil;
 			break;
 		}
 	}
@@ -143,8 +145,9 @@ needkeyflush(Req *r)
 			*l = r->aux;
 			if(r->aux == nil)
 				needlast = l;
-			closereq(r);
-			break;
+			r->aux = nil;
+			respond(r, "interrupted");
+			return;
 		}
 	}
 	logbufflush(&needkeybuf, r);
@@ -175,6 +178,7 @@ needkeywrite(char *s)
 			*l = r->aux;
 			if(r->aux == nil)
 				needlast = l;
+			r->aux = nil;
 			break;
 		}
 	}

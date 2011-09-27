@@ -59,9 +59,9 @@ logbufflush(Logbuf *lb, Req *r)
 	for(l=&lb->wait; *l; l=&(*l)->aux){
 		if(*l == r){
 			*l = r->aux;
-			r->aux = nil;
 			if(*l == nil)
 				lb->waitlast = l;
+			r->aux = nil;
 			respond(r, "interrupted");
 			break;
 		}
