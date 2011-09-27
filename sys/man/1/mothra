@@ -91,6 +91,10 @@ Copy the current URL to the snarf buffer.
 .B paste
 Paste the current snarf buffer at the current cursor position.
 .TP
+.B save url
+Save the currently selected URL as a file. Directory indexes are saved in a file named
+.I index.
+.TP
 .B save hit
 Save the current URL to the hit list.
 .TP

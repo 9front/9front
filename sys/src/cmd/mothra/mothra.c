@@ -92,6 +92,7 @@ char *buttons[]={
 	"alt display",
 	"snarf url",
 	"paste",
+	"save url",
 	"save hit",
 	"hit list",
 	"exit",
@@ -1048,6 +1049,7 @@ void paste(Panel *p){
 }
 void hit3(int button, int item){
 	char name[NNAME];
+	char file[128];
 	Panel *swap;
 	int fd;
 	USED(button);
@@ -1073,6 +1075,16 @@ void hit3(int button, int item){
 		paste(cmd);
 		break;
 	case 3:
+		if(strrchr(selection->reltext, '/')){
+			snprint(file, sizeof(file), "%s", strrchr(selection->reltext, '/')+1);
+			if(file[0]==0)
+				strcpy(file, "index");
+		} else
+			snprint(file, sizeof(file), "%s", selection->reltext);
+		save(selection, file);
+		message("saved %s", file);
+		break;
+	case 4:
 		snprint(name, sizeof(name), "%s/hit.html", home);
 		fd=open(name, OWRITE);
 		if(fd==-1){
@@ -1089,11 +1101,11 @@ void hit3(int button, int item){
 			selection->fullname, selection->fullname);
 		close(fd);
 		break;
-	case 4:
+	case 5:
 		snprint(name, sizeof(name), "file:%s/hit.html", home);
 		geturl(name, GET, 0, 1, 0);
 		break;
-	case 5:
+	case 6:
 		if(confirm(3)){
 			draw(screen, screen->r, display->white, 0, ZP);
 			exits(0);
