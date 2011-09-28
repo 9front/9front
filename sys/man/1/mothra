@@ -61,7 +61,7 @@ Verbose mode. Causes HTML errors to appear in
 .PP
 Mothra uses
 .IR webfs (4)
-to retrive the url data. The mountpoint, default is
+to retrive the URL data. The mountpoint, default is
 .B /mnt/web,
 can be changed with the
 .BR -b
@@ -143,10 +143,10 @@ When
 retrieves a file that is not an
 HTML document (for example a GIF or JPEG
 image), it will start up an appropriate viewer, for example
-.B fb/9v
+.B page
 (see
-.IR 9v (9.1))
-for image files.
+.IR page (1))
+for most image files.
 .SH FILES
 .B $home/lib/mothra/hit.html 
 the hit list
