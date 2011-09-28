@@ -186,7 +186,11 @@ needkeywrite(char *s)
 		werrstr("tag not found");
 		return -1;
 	}
-	rpcread(r);
+	if(s = _strfindattr(a, "error")){
+		werrstr("%s", s);
+		retrpc(r, RpcErrstr, (Fsstate*)r->fid->aux);
+	}else
+		rpcread(r);
 	return 0;
 }
 

@@ -177,6 +177,7 @@ void rpcrdwrlog(Fsstate*, char*, uint, int, int);
 void rpcstartlog(Attr*, Fsstate*, int);
 void rpcread(Req*);
 void rpcwrite(Req*);
+void retrpc(Req*, int, Fsstate*);
 
 /* secstore.c */
 int havesecstore(void);

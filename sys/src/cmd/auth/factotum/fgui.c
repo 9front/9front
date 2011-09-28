@@ -503,6 +503,7 @@ addmem(Attr *a, Attr *val)
 /* controls for needkey */
 Control *msg;
 Control *b_done;
+Control *b_cancel;
 enum {
 	Pprivate=	1<<0,
 	Pneed=		1<<1,
@@ -607,13 +608,21 @@ setupneedkey(Request *r)
 	b_done = createtextbutton(cs, "b_done");
 	chanprint(cs->ctl, "b_done border 1");
 	chanprint(cs->ctl, "b_done align center");
-	chanprint(cs->ctl, "b_done text DONE");
+	chanprint(cs->ctl, "b_done text Done");
 	chanprint(cs->ctl, "b_done image green");
 	chanprint(cs->ctl, "b_done light green");
+
+	b_cancel = createtextbutton(cs, "b_cancel");
+	chanprint(cs->ctl, "b_cancel border 1");
+	chanprint(cs->ctl, "b_cancel align center");
+	chanprint(cs->ctl, "b_cancel text Cancel");
+	chanprint(cs->ctl, "b_cancel image i_white");
+	chanprint(cs->ctl, "b_cancel light i_black");
 
 	/* wire controls for input */
 	c = chancreate(sizeof(char*), 0);
 	controlwire(b_done, "event", c);
+	controlwire(b_cancel, "event", c);
 	for(i = 0; i < entries; i++)
 		if(entry[i].a->type == AttrQuery)
 			controlwire(entry[i].val, "event", c);
@@ -621,6 +630,7 @@ setupneedkey(Request *r)
 	/* make the controls interactive */
 	activate(msg);
 	activate(b_done);
+	activate(b_cancel);
 	for(i = 0; i < entries; i++){
 		if(entry[i].a->type != AttrQuery)
 			continue;
@@ -689,13 +699,21 @@ resizeneedkey(Controlset *cs)
 		lasty = r.max.y;
 	}
 
-	/* done button */
 	mr.min.x -= 2*font->height;
-	r.min.x = mr.min.x + mid - 3*font->height;
+
+	/* done button */
+	r.min.x = mr.min.x + mid - 9*font->height;
 	r.min.y = lasty+10;
 	r.max.x = r.min.x + 6*font->height;
 	r.max.y = r.min.y + font->height + 2;
 	chanprint(cs->ctl, "b_done rect %R\nb_done show", r);
+
+	/* cancel button */
+	r.min.x = mr.min.x + mid + 3*font->height;
+	r.min.y = lasty+10;
+	r.max.x = r.min.x + 6*font->height;
+	r.max.y = r.min.y + font->height + 2;
+	chanprint(cs->ctl, "b_cancel rect %R\nb_cancel show", r);
 }
 
 /*
@@ -735,12 +753,17 @@ needkey(Request *r)
 	for(;;){
 		val = recvp(c);
 		n = tokenize(val, args, nelem(args));
-		if(n==3 && strcmp(args[1], "value")==0){	/* user hit 'enter' */
-			free(val);
+		if(n==3 && strcmp(args[1], "value")==0)	/* user hit 'enter' */
 			break;
-		}
 		free(val);
 	}
+	if(strcmp(args[0], "b_cancel:") == 0){
+		free(val);
+		teardownneedkey(r);
+		fprint(r->rt->fd, "%A error='canceled by user'", r->tag);
+		return;
+	}
+	free(val);
 
 	/* get entry values */
 	for(i = 0; i < entries; i++){

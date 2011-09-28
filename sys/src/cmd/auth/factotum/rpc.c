@@ -112,7 +112,7 @@ retstring(Req *r, Fsstate *fss, char *s)
 	return;
 }
 
-static void
+void
 retrpc(Req *r, int ret, Fsstate *fss)
 {
 	switch(ret){
