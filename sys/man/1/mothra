@@ -94,7 +94,9 @@ Collapse or expand the navigation boxes at the top of the browser window.
 .B moth mode
 Enter moth mode and switch to the moth cursor. Clicking an image or link
 with mouse button 1 saves a copy of the file in the current directory.
-Clicking any other mouse button exits moth mode.
+Clicking the
+.B moth mode
+menu option again exits moth mode.
 .TP
 .B snarf url
 Copy the current URL to the snarf buffer.
