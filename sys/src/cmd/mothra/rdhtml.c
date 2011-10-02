@@ -639,8 +639,11 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_meta:
 			break;
 		case Tag_img:
-			if(str=pl_getattr(g.attr, "src"))
+			if(str=pl_getattr(g.attr, "src")){
 				strncpy(g.state->image, str, sizeof(g.state->image));
+				if(g.state->link[0]==0)
+					strncpy(g.state->link, str, sizeof(g.state->link));
+			}
 			g.state->ismap=pl_hasattr(g.attr, "ismap");
 			if(str=pl_getattr(g.attr, "width"))
 				g.state->width = strtolength(&g, HORIZ, str);

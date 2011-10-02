@@ -4,6 +4,9 @@ mothra \- retrieve and display World-Wide Web files
 .SH SYNOPSIS
 .B mothra
 [
+.B -dv
+]
+[
 .B -m
 .I mtpt
 ] [
@@ -11,7 +14,9 @@ mothra \- retrieve and display World-Wide Web files
 ]
 .SH DESCRIPTION
 .I Mothra
-retrieves and displays files from the World-Wide Web,
+uses
+.IR webfs (4)
+to retrieve and display files from the World-Wide Web,
 by name or through hypertext links.
 Web names, called URLs, have a peculiar syntax:
 .IP
@@ -55,17 +60,18 @@ There are a number of options:
 .B  -d
 Debug mode.
 .TP
+.B -m
+Specify the
+.IR webfs (4)
+mountpoint with
+.BR -m
+.I mtpt.
+The default is
+.B /mnt/web.
+.TP
 .B -v
 Verbose mode. Causes HTML errors to appear in
 .B $home/lib/mothra/mothra.err
-.PP
-Mothra uses
-.IR webfs (4)
-to retrive the URL data. The mountpoint, default is
-.B /mnt/web,
-can be changed with the
-.BR -b
-.I mtpt .
 .PP
 The display contains the last message from
 .I mothra,
@@ -85,15 +91,16 @@ Button 3 pops up a menu of commands:
 .B alt display
 Collapse or expand the navigation boxes at the top of the browser window.
 .TP
+.B moth mode
+Enter moth mode and switch to the moth cursor. Clicking an image or link
+with mouse button 1 saves a copy of the file in the current directory.
+Clicking any other mouse button exits moth mode.
+.TP
 .B snarf url
 Copy the current URL to the snarf buffer.
 .TP
 .B paste
 Paste the current snarf buffer at the current cursor position.
-.TP
-.B save url
-Save the currently selected URL as a file. Directory indexes are saved in a file named
-.I index.
 .TP
 .B save hit
 Save the current URL to the hit list.
@@ -164,7 +171,12 @@ log of error messages, including HTML syntax errors
 Files are saved in the form received,
 not in the form suggested by the name in an
 .B s
-command.
-.br
+command. A directory index saved from moth mode may be written in
+the local directory as a file named
+.B index.
+Sanitizing remote file names for the local file system is imperfect.
+.PP
 .I Mothra
-is distributed in a preliminary state; it has more than its share of bugs.
+is distributed in a preliminary state; it has more than its share of bugs. Note that
+.I mothra,
+like the other Guardian Monsters, has no particular concern for humanity.

@@ -76,10 +76,22 @@ Cursor readingcurs={
 	0x0E, 0x60, 0x1C, 0x00, 0x38, 0x00, 0x71, 0xB6,
 	0x61, 0xB6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 };
+Cursor mothcurs={
+	{-7, -7},
+	{0x00, 0x00, 0x60, 0x06, 0xf8, 0x1f, 0xfc, 0x3f, 
+	 0xfe, 0x7f, 0xff, 0xff, 0x7f, 0xfe, 0x7f, 0xfe, 
+	 0x7f, 0xfe, 0x3f, 0xfc, 0x3f, 0xfc, 0x1f, 0xf8, 
+	 0x1f, 0xf8, 0x0e, 0x70, 0x0c, 0x30, 0x00, 0x00, },
+	{0x00, 0x00, 0x00, 0x00, 0x60, 0x06, 0x58, 0x1a, 
+	 0x5c, 0x3a, 0x64, 0x26, 0x27, 0xe4, 0x37, 0xec, 
+	 0x37, 0xec, 0x17, 0xe8, 0x1b, 0xd8, 0x0e, 0x70, 
+	 0x0c, 0x30, 0x04, 0x20, 0x00, 0x00, 0x00, 0x00, }
+};
 char *mtpt="/mnt/web";
 Www *current=0;
 Url *selection=0;
 int logfile;
+int mothmode;
 void docmd(Panel *, char *);
 void doprev(Panel *, int, int);
 void selurl(char *);
@@ -90,9 +102,9 @@ void dolink(Panel *, int, Rtext *);
 void hit3(int, int);
 char *buttons[]={
 	"alt display",
+	"moth mode",
 	"snarf url",
 	"paste",
-	"save url",
 	"save hit",
 	"hit list",
 	"exit",
@@ -231,6 +243,7 @@ void main(int argc, char *argv[]){
 	enum { Eplumb = 128 };
 	Plumbmsg *pm;
 	Www *new;
+	Action *a;
 	char *url;
 	int errfile;
 	int i;
@@ -314,7 +327,8 @@ void main(int argc, char *argv[]){
 				current->changed=0;
 				current->alldone=1;
 				message(mothra);
-				esetcursor(0);
+				if(mothmode==0)
+					esetcursor(0);
 			}
 			else if(current->changed){
 				updtext(current);
@@ -355,6 +369,11 @@ void main(int argc, char *argv[]){
 			break;
 		case Emouse:
 			mouse=e.mouse;
+			if(mouse.buttons > 1){
+				mothmode = 0;
+				esetcursor(current && current->alldone?0:&readingcurs);
+				message(mothra);
+			}
 			plmouse(root, e.mouse);
 			break;
 		case Eplumb:
@@ -439,8 +458,12 @@ char *genwww(Panel *, int index){
 }
 
 void donecurs(void){
-	esetcursor(current && current->alldone?0:&readingcurs);
+	if(mothmode)
+		esetcursor(current && current->alldone?0:&mothcurs);
+	else
+		esetcursor(current && current->alldone?0:&readingcurs);
 }
+
 /*
  * selected text should be a url.
  * get the document, scroll to the given tag
@@ -635,23 +658,47 @@ void doprev(Panel *p, int buttons, int index){
 }
 
 /*
+ * convert a url into a local file name.
+ */
+char *urltofile(char *url){
+	static char file[128];
+	if(strrchr(url, '/')){
+		snprint(file, sizeof(file), "%s", strrchr(url, '/')+1);
+		if(file[0]==0)
+			strcpy(file, "index");
+	}else
+		snprint(file, sizeof(file), "%s", url);
+	return file;
+}
+/*
  * Follow an html link
  */
 void dolink(Panel *p, int buttons, Rtext *word){
-	char mapurl[NNAME];
+	char file[128], mapurl[NNAME];
 	Action *a;
+	Url u;
 	Point coord;
-	int yoffs;
+	int fd, yoffs;
 	USED(p);
 	a=word->user;
-	if(a && a->link){
+	if(mothmode && a){
+		if(a->image){
+			seturl(&u, a->image, current->url->fullname);
+			snprint(file, sizeof(file), "%s", urltofile(a->image));
+		}else{
+			seturl(&u, a->link, current->url->fullname);
+			snprint(file, sizeof(file), "%s", urltofile(a->link));
+		}
+		save(&u, file);
+		message("saved %s", file);
+		esetcursor(&mothcurs);
+	}else if(a && a->link){
 		if(a->ismap){
 			yoffs=plgetpostextview(p);
 			coord=subpt(subpt(mouse.xy, word->r.min), p->r.min);
 			snprint(mapurl, sizeof(mapurl), "%s?%d,%d", a->link, coord.x, coord.y+yoffs);
 			hiturl(buttons, mapurl, 1);
-		}
-		else
+		}else
 			hiturl(buttons, a->link, 0);
 	}
 }
@@ -1069,20 +1116,15 @@ void hit3(int button, int item){
 		pldraw(root, screen);
 		break;
 	case 1:
-		snarf(cmd);
+		mothmode = 1;
+		message("moth mode");
+		esetcursor(&mothcurs);
 		break;
 	case 2:
-		paste(cmd);
+		snarf(cmd);
 		break;
 	case 3:
-		if(strrchr(selection->reltext, '/')){
-			snprint(file, sizeof(file), "%s", strrchr(selection->reltext, '/')+1);
-			if(file[0]==0)
-				strcpy(file, "index");
-		} else
-			snprint(file, sizeof(file), "%s", selection->reltext);
-		save(selection, file);
-		message("saved %s", file);
+		paste(cmd);
 		break;
 	case 4:
 		snprint(name, sizeof(name), "%s/hit.html", home);

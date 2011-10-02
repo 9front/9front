@@ -43,8 +43,6 @@ void getimage(Rtext *t, Www *w){
 	for(p=w->pix;p!=nil; p=p->next)
 		if(strcmp(ap->image, p->name)==0 && ap->width==p->width && ap->height==p->height){
 			storebitmap(t, p->b);
-			free(ap->image);
-			ap->image=0;
 			w->changed=1;
 			return;
 		}
@@ -54,8 +52,6 @@ void getimage(Rtext *t, Www *w){
 		snprint(err, sizeof(err), "[%s: %r]", url.fullname);
 		free(t->text);
 		t->text=strdup(err);
-		free(ap->image);
-		ap->image=0;
 		w->changed=1;
 		close(fd);
 		return;
@@ -99,8 +95,6 @@ void getimage(Rtext *t, Www *w){
 	p->next=w->pix;
 	w->pix=p;
 	storebitmap(t, b);
-	free(ap->image);
-	ap->image=0;
 	w->changed=1;
 }
 
