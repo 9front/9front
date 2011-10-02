@@ -17,17 +17,10 @@ closemouse(Mousectl *mc)
 {
 	if(mc == nil)
 		return;
-
-	postnote(PNPROC, mc->pid, "kill");
-
-	do; while(nbrecv(mc->c, &mc->Mouse) > 0);
-
 	close(mc->mfd);
 	close(mc->cfd);
-	free(mc->file);
-	free(mc->c);
-	free(mc->resizec);
-	free(mc);
+	mc->mfd = mc->cfd = -1;
+	threadint(mc->pid);
 }
 
 int
@@ -46,7 +39,7 @@ static
 void
 _ioproc(void *arg)
 {
-	int n, nerr, one;
+	int n, one;
 	char buf[1+5*12];
 	Mouse m;
 	Mousectl *mc;
@@ -55,28 +48,23 @@ _ioproc(void *arg)
 	threadsetname("mouseproc");
 	one = 1;
 	memset(&m, 0, sizeof m);
-	mc->pid = getpid();
-	nerr = 0;
-	for(;;){
+loop:
+	while(mc->mfd >= 0){
 		n = read(mc->mfd, buf, sizeof buf);
-		if(n != 1+4*12){
-			yield();	/* if error is due to exiting, we'll exit here */
-			fprint(2, "mouse: bad count %d not 49: %r\n", n);
-			if(n<0 || ++nerr>10)
-				threadexits("read error");
-			continue;
-		}
-		nerr = 0;
+		if(n != 1+4*12)
+			goto loop;
 		switch(buf[0]){
 		case 'r':
-			send(mc->resizec, &one);
+			if(send(mc->resizec, &one) < 0)
+				goto loop;
 			/* fall through */
 		case 'm':
 			m.xy.x = atoi(buf+1+0*12);
 			m.xy.y = atoi(buf+1+1*12);
 			m.buttons = atoi(buf+1+2*12);
 			m.msec = atoi(buf+1+3*12);
-			send(mc->c, &m);
+			if(send(mc->c, &m) < 0)
+				goto loop;
 			/*
 			 * mc->Mouse is updated after send so it doesn't have wrong value if we block during send.
 			 * This means that programs should receive into mc->Mouse (see readmouse() above) if
@@ -86,6 +74,10 @@ _ioproc(void *arg)
 			break;
 		}
 	}
+	free(mc->file);
+	chanfree(mc->c);
+	chanfree(mc->resizec);
+	free(mc);
 }
 
 Mousectl*
@@ -124,7 +116,7 @@ initmouse(char *file, Image *i)
 	mc->image = i;
 	mc->c = chancreate(sizeof(Mouse), 0);
 	mc->resizec = chancreate(sizeof(int), 2);
-	proccreate(_ioproc, mc, 4096);
+	mc->pid = proccreate(_ioproc, mc, 4096);
 	return mc;
 }
 

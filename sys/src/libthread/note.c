@@ -52,6 +52,7 @@ delayednotes(Proc *p, void *v)
 {
 	int i;
 	Note *n;
+	char s[ERRMAX];
 	int (*fn)(void*, char*);
 
 	if(!p->pending)
@@ -60,10 +61,14 @@ delayednotes(Proc *p, void *v)
 	p->pending = 0;
 	for(n=notes; n<enotes; n++){
 		if(n->proc == p){
+			strcpy(s, n->s);
+			n->proc = nil;
+			unlock(&n->inuse);
+
 			for(i=0; i<NFN; i++){
 				if(onnotepid[i]!=p->pid || (fn = onnote[i])==nil)
 					continue;
-				if((*fn)(v, n->s))
+				if((*fn)(v, s))
 					break;
 			}
 			if(i==NFN){
@@ -74,8 +79,6 @@ delayednotes(Proc *p, void *v)
 					abort();
 				threadexitsall(n->s);
 			}
-			n->proc = nil;
-			unlock(&n->inuse);
 		}
 	}
 }

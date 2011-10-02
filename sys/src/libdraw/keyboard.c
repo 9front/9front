@@ -4,26 +4,15 @@
 #include <thread.h>
 #include <keyboard.h>
 
-
 void
 closekeyboard(Keyboardctl *kc)
 {
 	if(kc == nil)
 		return;
-
-	postnote(PNPROC, kc->pid, "kill");
-
-#ifdef BUG
-	/* Drain the channel */
-	while(?kc->c)
-		<-kc->c;
-#endif
-
 	close(kc->ctlfd);
 	close(kc->consfd);
-	free(kc->file);
-	free(kc->c);
-	free(kc);
+	kc->consfd = kc->ctlfd = -1;
+	threadint(kc->pid);
 }
 
 static
@@ -37,23 +26,23 @@ _ioproc(void *arg)
 
 	kc = arg;
 	threadsetname("kbdproc");
-	kc->pid = getpid();
 	n = 0;
-	for(;;){
+loop:
+	while(kc->consfd >= 0){
 		while(n>0 && fullrune(buf, n)){
 			m = chartorune(&r, buf);
 			n -= m;
 			memmove(buf, buf+m, n);
-			send(kc->c, &r);
+			if(send(kc->c, &r) < 0)
+				goto loop;
 		}
-		m = read(kc->consfd, buf+n, sizeof buf-n);
-		if(m <= 0){
-			yield();	/* if error is due to exiting, we'll exit here */
-			fprint(2, "keyboard read error: %r\n");
-			threadexits("error");
-		}
+		if((m = read(kc->consfd, buf+n, sizeof buf-n)) <= 0)
+			goto loop;
 		n += m;
 	}
+	chanfree(kc->c);
+	free(kc->file);
+	free(kc);
 }
 
 Keyboardctl*
@@ -91,7 +80,7 @@ Error2:
 	}
 	free(t);
 	kc->c = chancreate(sizeof(Rune), 20);
-	proccreate(_ioproc, kc, 4096);
+	kc->pid = proccreate(_ioproc, kc, 4096);
 	return kc;
 }
 
