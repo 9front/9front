@@ -922,7 +922,7 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
 		return;
 	for(y=r.min.y; y<r.max.y; y++){
 		draw(t, Rect(r.min.x, y, r.min.x+w, y+1), s, nil, sp);
-		if(++a.y == zoom){
+		if(++a.y == f){
 			a.y = 0;
 			sp.y++;
 		}
