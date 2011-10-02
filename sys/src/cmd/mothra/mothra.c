@@ -238,6 +238,16 @@ int mkmfile(char *stem, int mode){
 		f=create(stem, OWRITE, mode);
 	return f;
 }
+
+void donecurs(void){
+	if(current == nil)
+		return;
+	if(mothmode)
+		esetcursor(&mothcurs);
+	else
+		esetcursor(current->alldone ? 0 : &readingcurs);
+}
+
 void main(int argc, char *argv[]){
 	Event e;
 	enum { Eplumb = 128 };
@@ -327,8 +337,7 @@ void main(int argc, char *argv[]){
 				current->changed=0;
 				current->alldone=1;
 				message(mothra);
-				if(mothmode==0)
-					esetcursor(0);
+				donecurs();
 			}
 			else if(current->changed){
 				updtext(current);
@@ -369,11 +378,6 @@ void main(int argc, char *argv[]){
 			break;
 		case Emouse:
 			mouse=e.mouse;
-			if(mouse.buttons > 1){
-				mothmode = 0;
-				esetcursor(current && current->alldone?0:&readingcurs);
-				message(mothra);
-			}
 			plmouse(root, e.mouse);
 			break;
 		case Eplumb:
@@ -455,13 +459,6 @@ char *genwww(Panel *, int index){
 	i = wwwtop-index-1;
 	snprint(buf, sizeof(buf), "%2d %s", i+1, www(i)->title);
 	return buf;
-}
-
-void donecurs(void){
-	if(mothmode)
-		esetcursor(current && current->alldone?0:&mothcurs);
-	else
-		esetcursor(current && current->alldone?0:&readingcurs);
 }
 
 /*
@@ -661,47 +658,42 @@ void doprev(Panel *p, int buttons, int index){
  * convert a url into a local file name.
  */
 char *urltofile(char *url){
-	static char file[128];
-	if(strrchr(url, '/')){
-		snprint(file, sizeof(file), "%s", strrchr(url, '/')+1);
-		if(file[0]==0)
-			strcpy(file, "index");
-	}else
-		snprint(file, sizeof(file), "%s", url);
-	return file;
+	char *slash;
+	if(slash = strrchr(url, '/'))
+		url = slash+1;
+	if(url[0] == 0)
+		return "index";
+	return url;
 }
+
 /*
  * Follow an html link
  */
 void dolink(Panel *p, int buttons, Rtext *word){
-	char file[128], mapurl[NNAME];
+	char *file, mapurl[NNAME];
+	Point coord;
+	int yoffs;
 	Action *a;
 	Url u;
-	Point coord;
-	int fd, yoffs;
-	USED(p);
+
 	a=word->user;
-	if(mothmode && a){
-		if(a->image){
-			seturl(&u, a->image, current->url->fullname);
-			snprint(file, sizeof(file), "%s", urltofile(a->image));
-		}else{
-			seturl(&u, a->link, current->url->fullname);
-			snprint(file, sizeof(file), "%s", urltofile(a->link));
-		}
-		save(&u, file);
+	if(a == nil || a->image == nil && a->link == nil)
+		return;
+	if(mothmode){
+		seturl(&u, a->image ? a->image : a->link, current->url->fullname);
+		save(&u, file=urltofile(u.reltext));
 		message("saved %s", file);
-		esetcursor(&mothcurs);
-	}else if(a && a->link){
-		if(a->ismap){
-			yoffs=plgetpostextview(p);
-			coord=subpt(subpt(mouse.xy, word->r.min), p->r.min);
-			snprint(mapurl, sizeof(mapurl), "%s?%d,%d", a->link, coord.x, coord.y+yoffs);
-			hiturl(buttons, mapurl, 1);
-		}else
-			hiturl(buttons, a->link, 0);
+		return;
 	}
+	if(a->ismap){
+		yoffs=plgetpostextview(p);
+		coord=subpt(subpt(mouse.xy, word->r.min), p->r.min);
+		snprint(mapurl, sizeof(mapurl), "%s?%d,%d", a->link, coord.x, coord.y+yoffs);
+		hiturl(buttons, mapurl, 1);
+	}else
+		hiturl(buttons, a->link ? a->link : a->image, 0);
 }
+
 void filter(char *cmd, int fd){
 	flushimage(display, 1);
 	switch(rfork(RFFDG|RFPROC|RFNOWAIT)){
@@ -1116,9 +1108,11 @@ void hit3(int button, int item){
 		pldraw(root, screen);
 		break;
 	case 1:
-		mothmode = 1;
-		message("moth mode");
-		esetcursor(&mothcurs);
+		if(mothmode = !mothmode)
+			message("moth mode!");
+		else
+			message(mothra);
+		donecurs();
 		break;
 	case 2:
 		snarf(cmd);
