@@ -169,6 +169,8 @@ void rdform(Hglob *g){
 					f->name=strdup("no-name");
 			}
 		}
+		else if(cistrcmp(s, "search")==0)
+			f->type=TYPEIN;
 		else if(cistrcmp(s, "checkbox")==0)
 			f->type=CHECK;
 		else if(cistrcmp(s, "radio")==0)
