@@ -864,7 +864,8 @@ void plrdhtml(char *name, int fd, Www *dst){
 			}
 			break;
 		case Tag_p:
-			g.para=1;
+			pl_linespace(&g);
+			g.linebrk=1;
 			g.spacc=0;
 			break;
 		case Tag_listing:
