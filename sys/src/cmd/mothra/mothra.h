@@ -27,9 +27,7 @@ struct Url{
 	char basename[NNAME];
 	char reltext[NNAME];
 	char tag[NNAME];
-	char charset[NNAME];
-	int type;
-	int map;			/* is this an image map? */
+	int map;		/* is this an image map? */
 };
 struct Www{
 	Url *url;
@@ -43,29 +41,15 @@ struct Www{
 	int alldone;		/* page will not change further -- used to adjust cursor */
 };
 
-/*
- * url reference types -- COMPRESS and GUNZIP are flags that can modify any other type
- * Changing these in a non-downward compatible way spoils cache entries
- */
 enum{
-	GIF=1,
-	HTML,
-	JPEG,
-	PIC,
-	TIFF,
-	AUDIO,
 	PLAIN,
-	XBM,
-	POSTSCRIPT,
-	FORWARD,
-	PDF,
-	SUFFIX,
-	ZIP,
+	HTML,
+	GIF,
+	JPEG,
 	PNG,
-
-	COMPRESS=16,
-	GUNZIP=32,
-	COMPRESSION=16+32,
+	BMP,
+	GUNZIP,
+	PAGE,
 };
 
 /*
@@ -102,9 +86,7 @@ void *emalloc(int);
 void *emallocz(int, int);
 void setbitmap(Rtext *);
 void message(char *, ...);
-int suffix2type(char *);
-int content2type(char *, char *);
-int encoding2type(char *);
+int snooptype(int fd);
 void mkfieldpanel(Rtext *);
 void geturl(char *, int, char *, int, int);
 char version[];

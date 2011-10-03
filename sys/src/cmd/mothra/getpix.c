@@ -18,9 +18,7 @@ char *pixcmd[]={
 [GIF]	"gif -9t",
 [JPEG]	"jpg -9t",
 [PNG]	"png -9t",
-[PIC]	"fb/3to1 /lib/fb/cmap/rgbv",
-[TIFF]	"/sys/lib/mothra/tiffcvt",
-[XBM]	"fb/xbm2pic",
+[BMP]	"bmp -9t",
 };
 
 void storebitmap(Rtext *t, Image *b){
@@ -34,7 +32,7 @@ void getimage(Rtext *t, Www *w){
 	Action *ap;
 	Url url;
 	Image *b;
-	int fd;
+	int fd, typ;
 	char err[512];
 	Pix *p;
 
@@ -56,17 +54,12 @@ void getimage(Rtext *t, Www *w){
 		close(fd);
 		return;
 	}
-	if(url.type!=GIF
-	&& url.type!=JPEG
-	&& url.type!=PNG
-	&& url.type!=PIC
-	&& url.type!=TIFF
-	&& url.type!=XBM){
+	typ = snooptype(fd);
+	if(typ < 0 || typ >= nelem(pixcmd) || pixcmd[typ] == nil){
 		werrstr("unknown image type");
 		goto Err;
 	}
-
-	if((fd = pipeline(pixcmd[url.type], fd)) < 0)
+	if((fd = pipeline(pixcmd[typ], fd)) < 0)
 		goto Err;
 	if(ap->width>0 || ap->height>0){
 		char buf[80];

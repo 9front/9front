@@ -30,7 +30,6 @@ Url defurl={
 	"http://cat-v.org/",
 	"",
 	"",
-	HTML,
 };
 Url badurl={
 	"",
@@ -38,7 +37,6 @@ Url badurl={
 	"No file loaded",
 	"",
 	"",
-	HTML,
 };
 Cursor patientcurs={
 	0, 0,
@@ -816,7 +814,6 @@ int fileurlopen(Url *url){
 	memset(url->fullname, 0, sizeof(url->fullname));
 	strcpy(url->fullname, "file:");
 	fd2path(fd, url->fullname+5, sizeof(url->fullname)-6);
-	url->type = content2type("application/octet-stream", url->fullname);
 	return fd;
 }
 
@@ -870,20 +867,6 @@ int urlopen(Url *url, int method, char *body){
 	snprint(buf, sizeof buf, "%s/%d/parsed", mtpt, conn);
 	readstr(url->fullname, sizeof(url->fullname), buf, "url");
 	readstr(url->tag, sizeof(url->tag), buf, "fragment");
-
-	snprint(buf, sizeof buf, "%s/%d", mtpt, conn);
-	readstr(buf, sizeof buf, buf, "contenttype");
-	url->charset[0] = 0;
-	if(p = cistrstr(buf, "charset=")){
-		p += 8;
-		strncpy(url->charset, p, sizeof(url->charset));
-		if(p = strchr(url->charset, ';'))
-			*p = 0;
-	}
-	if(p = strchr(buf, ';'))
-		*p = 0;
-	url->type = content2type(buf, url->fullname);
-
 	close(ctlfd);
 	return fd;
 }
@@ -931,9 +914,7 @@ void seturl(Url *url, char *urlname, char *base){
 	strncpy(url->reltext, urlname, sizeof(url->reltext));
 	strncpy(url->basename, base, sizeof(url->basename));
 	url->fullname[0] = 0;
-	url->charset[0] = 0;
 	url->tag[0] = 0;
-	url->type = 0;
 	url->map = 0;
 }
 Url *copyurl(Url *u){
@@ -951,7 +932,7 @@ void freeurl(Url *u){
  * get the file at the given url
  */
 void geturl(char *urlname, int method, char *body, int cache, int map){
-	int i, fd;
+	int i, fd, typ;
 	char cmd[NNAME];
 	int pfd[2];
 	Www *w;
@@ -968,18 +949,17 @@ void geturl(char *urlname, int method, char *body, int cache, int map){
 			break;
 		}
 		message("getting %s", selection->fullname);
-		if(selection->type&COMPRESS)
-			fd=pipeline("/bin/uncompress", fd);
-		else if(selection->type&GUNZIP)
+		typ = snooptype(fd);
+		if(typ == GUNZIP){
 			fd=pipeline("/bin/gunzip", fd);
-		switch(selection->type&~COMPRESSION){
+			typ = snooptype(fd);
+		}
+		switch(typ){
 		default:
-			message("Bad type %x in geturl", selection->type);
+			message("Bad type %x in geturl", typ);
 			break;
 		case HTML:
-			snprint(cmd, sizeof(cmd), selection->charset[0] ?
-				"/bin/uhtml -c %s" : "/bin/uhtml", selection->charset);
-			fd = pipeline(cmd, fd);
+			fd = pipeline("/bin/uhtml", fd);
 		case PLAIN:
 			w = www(i = wwwtop++);
 			if(i >= NWWW){
@@ -1005,23 +985,17 @@ void geturl(char *urlname, int method, char *body, int cache, int map){
 				w->url=copyurl(selection);
 			w->finished = 0;
 			w->alldone = 0;
-			gettext(w, fd, selection->type&~COMPRESSION);
+			gettext(w, fd, typ);
 			plinitlist(list, PACKN|FILLX, genwww, 8, doprev);
 			if(defdisplay) pldraw(list, screen);
 			setcurrent(i, selection->tag);
 			break;
-		case POSTSCRIPT:
 		case GIF:
 		case JPEG:
 		case PNG:
-		case PDF:
+		case BMP:
+		case PAGE:
 			filter("page -w", fd);
-			break;
-		case TIFF:
-			filter("/sys/lib/mothra/tiffview", fd);
-			break;
-		case XBM:
-			filter("fb/xbm2pic|fb/9v", fd);
 			break;
 		}
 		break;

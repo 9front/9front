@@ -3,7 +3,7 @@
 TARG=mothra
 LIB=libpanel/libpanel.$O.a 
 CFILES= \
-	filetype.c \
+	snoop.c \
 	forms.c \
 	getpix.c \
 	html.syntax.c \

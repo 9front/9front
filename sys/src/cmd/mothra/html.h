@@ -70,7 +70,6 @@ struct Hglob{
 	char *etext;		/* end of text buffer */
 	Form *form;		/* data for form under construction */
 	Www *dst;		/* where the text goes */
-	char charset[NNAME];
 };
 
 /*

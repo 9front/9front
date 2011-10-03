@@ -609,8 +609,6 @@ void plrdhtml(char *name, int fd, Www *dst){
 	dst->title[0]='\0';
 	g.spacc=0;
 	g.form=0;
-	g.charset[0] = '\0';
-	strncpy(g.charset, dst->url->charset, sizeof(g.charset));
 
 	for(;;) switch(pl_gettoken(&g)){
 	case TAG:
