@@ -169,8 +169,6 @@ void rdform(Hglob *g){
 					f->name=strdup("no-name");
 			}
 		}
-		else if(cistrcmp(s, "search")==0)
-			f->type=TYPEIN;
 		else if(cistrcmp(s, "checkbox")==0)
 			f->type=CHECK;
 		else if(cistrcmp(s, "radio")==0)
@@ -188,10 +186,8 @@ void rdform(Hglob *g){
 			f->type=RESET;
 		else if(cistrcmp(s, "hidden")==0)
 			f->type=HIDDEN;
-		else{
-			htmlerror(g->name, g->lineno, "bad field type %s, ignored", s);
-			break;
-		}
+		else
+			f->type=TYPEIN;
 		if((f->type==CHECK || f->type==RADIO) && !pl_hasattr(g->attr, "value")){
 			free(f->value);
 			f->value=strdup("on");
