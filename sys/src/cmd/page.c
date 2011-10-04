@@ -144,11 +144,11 @@ resizewin(Point size)
 }
 
 int
-createtmp(ulong id, char *pfx)
+createtmp(char *pfx)
 {
+	static ulong id = 1;
 	char nam[64];
-
-	snprint(nam, sizeof nam, "%s%s%.12d%.8lux", pagespool, pfx, getpid(), id);
+	snprint(nam, sizeof nam, "%s%s%.12d%.8lux", pagespool, pfx, getpid(), id++);
 	return create(nam, OEXCL|ORCLOSE|ORDWR, 0600);
 }
 
@@ -219,7 +219,7 @@ int
 popenfile(Page*);
 
 int
-popenconv(Page *p)
+popenimg(Page *p)
 {
 	char nam[NPATH];
 	int fd;
@@ -247,6 +247,18 @@ popenconv(Page *p)
 	}
 
 	return fd;
+}
+
+int
+popenfilter(Page *p)
+{
+	seek(p->fd, 0, 0);
+	if(p->data){
+		pipeline(p->fd, "%s", (char*)p->data);
+		p->data = nil;
+	}
+	p->open = popenfile;
+	return p->open(p);
 }
 
 int
@@ -529,14 +541,14 @@ popengs(Page *p)
 		while((n = read(pdat[0], buf, sizeof(buf))) >= 0){
 			if(ofd >= 0 && (n <= 0 || infernobithdr(buf, n))){
 				snprint(nam, sizeof nam, "%d", i);
-				addpage(p, nam, popenconv, nil, ofd);
+				addpage(p, nam, popenimg, nil, ofd);
 				ofd = -1;
 			}
 			if(n <= 0)
 				break;
 			if(ofd < 0){
 				snprint(nam, sizeof nam, "%.4d", ++i);
-				if((ofd = createtmp((ulong)p, nam)) < 0)
+				if((ofd = createtmp(nam)) < 0)
 					ofd = dup(nullfd, -1);
 			}
 			if(write(ofd, buf, n) != n)
@@ -553,6 +565,51 @@ Out:
 }
 
 int
+filetype(char *buf, int nbuf, char *typ, int ntyp)
+{
+	int n, ifd[2], ofd[2];
+	char *argv[3];
+
+	typ[0] = 0;
+	if(pipe(ifd) < 0)
+		return -1;
+	if(pipe(ofd) < 0){
+		close(ifd[0]);
+		close(ifd[1]);
+		return -1;
+	}
+	if(rfork(RFFDG|RFPROC|RFNOWAIT) == 0){
+		dup(ifd[1], 0);
+		dup(ofd[1], 1);
+
+		close(ifd[1]);
+		close(ifd[0]);
+		close(ofd[1]);
+		close(ofd[0]);
+
+		argv[0] = "file";
+		argv[1] = "-m";
+		argv[2] = 0;
+		exec("/bin/file", argv);
+	}
+	close(ifd[1]);
+	close(ofd[1]);
+	if(rfork(RFFDG|RFPROC|RFNOWAIT) == 0){
+		close(ofd[0]);
+		write(ifd[0], buf, nbuf);
+		exits(nil);
+	}
+	close(ifd[0]);
+	if((n = readn(ofd[0], typ, ntyp-1)) < 0)
+		n = 0;
+	close(ofd[0]);
+	while(n > 0 && typ[n-1] == '\n')
+		n--;
+	typ[n] = 0;
+	return 0;
+}
+
+int
 dircmp(void *p1, void *p2)
 {
 	Dir *d1, *d2;
@@ -566,7 +623,33 @@ dircmp(void *p1, void *p2)
 int
 popenfile(Page *p)
 {
-	char buf[NBUF], *file;
+	static struct {
+		char	*typ;
+		void	*popen;
+		void	*data;
+	} tab[] = {
+	"application/pdf",		popengs,	nil,
+	"application/postscript",	popengs,	nil,
+	"application/troff",		popengs,	"lp -dstdout",
+	"text/plain",			popengs,	"lp -dstdout",
+	"text/html",			popengs,	"uhtml | html2ms | tbl | troff -ms | lp -dstdout",
+	"application/dvi",		popengs,	"dvips -Pps -r0 -q1 -f1",
+	"application/doc",		popengs,	"doc2ps",
+	"application/zip",		popentape,	"fs/zipfs",
+	"application/x-tar",		popentape,	"fs/tarfs",
+	"application/x-ustar",		popentape,	"fs/tarfs",
+	"application/x-compress",	popenfilter,	"uncompress",
+	"application/x-gzip",		popenfilter,	"gunzip",
+	"application/x-bzip2",		popenfilter,	"bunzip2",
+	"image/gif",			popenimg,	"gif -t9",
+	"image/jpeg",			popenimg,	"jpg -t9",
+	"image/png",			popenimg,	"png -t9",
+	"image/ppm",			popenimg,	"ppm -t9",
+	"image/bmp",			popenimg,	"bmp -t9",
+	"image/p9bit",			popenimg,	nil,
+	};
+
+	char buf[NBUF], typ[128], *file;
 	int i, n, fd, tfd;
 	Dir *d;
 
@@ -610,69 +693,23 @@ popenfile(Page *p)
 	}
 	free(d);
 
-	memset(buf, 0, 32+1);
-	if((n = read(fd, buf, 32)) <= 0)
+	memset(buf, 0, NBUF/2);
+	if((n = readn(fd, buf, NBUF/2)) <= 0)
 		goto Err1;
-
+	if(infernobithdr(buf, n))
+		strcpy(typ, "image/p9bit");
+	else
+		filetype(buf, n, typ, sizeof(typ));
+	for(i=0; i<nelem(tab); i++)
+		if(strncmp(typ, tab[i].typ, strlen(tab[i].typ)) == 0)
+			break;
+	if(i == nelem(tab)){
+		werrstr("unknown image format: %s", typ);
+		goto Err1;
+	}
 	p->fd = fd;
-	p->data = nil;
-	p->open = popenconv;
-	if(memcmp(buf, "%PDF-", 5) == 0 || strstr(buf, "%!"))
-		p->open = popengs;
-	else if(memcmp(buf, "x T ", 4) == 0){
-		p->data = "lp -dstdout";
-		p->open = popengs;
-	}
-	else if(cistrstr(buf, "<?xml") ||
-		cistrstr(buf, "<!DOCTYPE") ||
-		cistrstr(buf, "<HTML")){
-		p->data = "uhtml | html2ms | tbl | troff -ms | lp -dstdout";
-		p->open = popengs;
-	}
-	else if(memcmp(buf, "\xF7\x02\x01\x83\x92\xC0\x1C;", 8) == 0){
-		p->data = "dvips -Pps -r0 -q1 -f1";
-		p->open = popengs;
-	}
-	else if(memcmp(buf, "\x1F\x8B", 2) == 0){
-		p->data = "gunzip";
-		p->open = popengs;
-	}
-	else if(memcmp(buf, "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1", 8) == 0){
-		p->data = "doc2ps";
-		p->open = popengs;
-	}
-	else if(memcmp(buf, "PK\x03\x04", 4) == 0){
-		p->data = "fs/zipfs";
-		p->open = popentape;
-	}else if(memcmp(buf, "GIF", 3) == 0)
-		p->data = "gif -t9";
-	else if(memcmp(buf, "\111\111\052\000", 4) == 0) 
-		p->data = "fb/tiff2pic | fb/3to1 rgbv | fb/pcp -tplan9";
-	else if(memcmp(buf, "\115\115\000\052", 4) == 0)
-		p->data = "fb/tiff2pic | fb/3to1 rgbv | fb/pcp -tplan9";
-	else if(memcmp(buf, "\377\330\377", 3) == 0)
-		p->data = "jpg -t9";
-	else if(memcmp(buf, "\211PNG\r\n\032\n", 3) == 0)
-		p->data = "png -t9";
-	else if(memcmp(buf, "\0PC Research, Inc", 17) == 0)
-		p->data = "aux/g3p9bit -g";
-	else if(memcmp(buf, "TYPE=ccitt-g31", 14) == 0)
-		p->data = "aux/g3p9bit -g";
-	else if(memcmp(buf, "II*", 3) == 0)
-		p->data = "aux/g3p9bit -g";
-	else if(memcmp(buf, "TYPE=", 5) == 0)
-		p->data = "fb/3to1 rgbv |fb/pcp -tplan9";
-	else if(buf[0] == 'P' && '0' <= buf[1] && buf[1] <= '9')
-		p->data = "ppm -t9";
-	else if(memcmp(buf, "BM", 2) == 0)
-		p->data = "bmp -t9";
-	else if(infernobithdr(buf, n))
-		p->data = nil;
-	else {
-		werrstr("unknown image format");
-		goto Err1;
-	}
-
+	p->data = tab[i].data;
+	p->open = tab[i].popen;
 	if(seek(fd, 0, 0) < 0)
 		goto Noseek;
 	if((i = read(fd, buf+n, n)) < 0)
@@ -680,7 +717,7 @@ popenfile(Page *p)
 	if(i != n || memcmp(buf, buf+n, i)){
 		n += i;
 	Noseek:
-		if((tfd = createtmp((ulong)p, "file")) < 0)
+		if((tfd = createtmp("file")) < 0)
 			goto Err1;
 		while(n > 0){
 			if(write(tfd, buf, n) != n)
@@ -1365,9 +1402,7 @@ main(int argc, char *argv[])
 				if(s && strcmp(s, "quit")==0)
 					exits(0);
 				if(s && strcmp(s, "showdata")==0){
-					static ulong plumbid;
-
-					if((fd = createtmp(plumbid++, "plumb")) < 0){
+					if((fd = createtmp("plumb")) < 0){
 						fprint(2, "plumb: createtmp: %r\n");
 						goto Plumbfree;
 					}

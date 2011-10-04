@@ -44,11 +44,14 @@ struct Www{
 enum{
 	PLAIN,
 	HTML,
+
 	GIF,
 	JPEG,
 	PNG,
 	BMP,
+
 	GUNZIP,
+	COMPRESS,
 	PAGE,
 };
 

@@ -589,7 +589,7 @@ Filemagic long0tab[] = {
 	0x43614c66,	0xFFFFFFFF,	"FLAC audio file\n",	OCTET,
 	0x30800CC0,	0xFFFFFFFF,	"inferno .dis executable\n", OCTET,
 	0x04034B50,	0xFFFFFFFF,	"zip archive\n", "application/zip",
-	070707,		0xFFFF,		"cpio archive\n", OCTET,
+	070707,		0xFFFF,		"cpio archive\n", "application/x-cpio",
 	0x2F7,		0xFFFF,		"tex dvi\n", "application/dvi",
 	0xfaff,		0xfeff,		"mp3 audio\n",	"audio/mpeg",
 	0xfeff0000,	0xffffffff,	"utf-32be\n",	"text/plain charset=utf-32be",
@@ -752,8 +752,7 @@ istar(void)
 	chksum = strtol(hdr->chksum, 0, 8);
 	if (hdr->name[0] != '\0' && checksum(hp) == chksum) {
 		if (strcmp(hdr->magic, "ustar") == 0)
-			print(mime? "application/x-ustar\n":
-				"posix tar archive\n");
+			print(mime? "application/x-ustar\n": "posix tar archive\n");
 		else
 			print(mime? "application/x-tar\n": "tar archive\n");
 		return 1;
@@ -772,6 +771,9 @@ struct	FILE_STRING
 	char	*mime;
 } file_string[] =
 {
+	"\x1f\x9d",		"compressed",			2,	"application/x-compress",
+	"\x1f\x8b",		"gzip compressed",		2,	"application/x-gzip",
+	"BZh",			"bzip2 compressed",		3,	"application/x-bzip2",
 	"!<arch>\n__.SYMDEF",	"archive random library",	16,	"application/octet-stream",
 	"!<arch>\n",		"archive",			8,	"application/octet-stream",
 	"070707",		"cpio archive - ascii header",	6,	"application/octet-stream",
@@ -787,15 +789,19 @@ struct	FILE_STRING
 	"GIF",			"GIF image", 			3,	"image/gif",
 	"\0PC Research, Inc\0",	"ghostscript fax file",		18,	"application/ghostscript",
 	"%PDF",			"PDF",				4,	"application/pdf",
-	"<html>\n",		"HTML file",			7,	"text/html",
-	"<HTML>\n",		"HTML file",			7,	"text/html",
+	"<!DOCTYPE",		"HTML file",			9,	"text/html",
+	"<!doctype",		"HTML file",			9,	"text/html",
+	"<!--",			"HTML file",			4,	"text/html",
+	"<html>",		"HTML file",			6,	"text/html",
+	"<HTML>",		"HTML file",			6,	"text/html",
+	"<?xml",		"HTML file",			5,	"text/html",
 	"\111\111\052\000",	"tiff",				4,	"image/tiff",
 	"\115\115\000\052",	"tiff",				4,	"image/tiff",
 	"\377\330\377\340",	"jpeg",				4,	"image/jpeg",
 	"\377\330\377\341",	"jpeg",				4,	"image/jpeg",
 	"\377\330\377\333",	"jpeg",				4,	"image/jpeg",
-	"BM",			"bmp",				2,	"image/bmp",
-	"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1",	"microsoft office document",	8,	"application/octet-stream",
+	"BM",			"bmp",				2,	"image/bmp", 
+	"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1",	"microsoft office document",	8,	"application/doc",
 	"<MakerFile ",		"FrameMaker file",		11,	"application/framemaker",
 	"\033E\033",	"HP PCL printer data",		3,	OCTET,
 	"\033%-12345X",	"HPJCL file",		9,	"application/hpjcl",
@@ -916,21 +922,41 @@ iff(void)
 
 char*	html_string[] =
 {
-	"title",
-	"body",
+	"?xml",
+	"!doctype",
+	"html",
 	"head",
+	"title",
+	"link",
+	"meta",
+	"body",
+	"script",
 	"strong",
+	"input",
+	"table",
+	"form",
+	"font",
+	"div",
 	"h1",
 	"h2",
 	"h3",
 	"h4",
 	"h5",
 	"h6",
+	"ol",
 	"ul",
 	"li",
 	"dl",
 	"br",
+	"hr",
 	"em",
+	"th",
+	"tr",
+	"td",
+	"p",
+	"b",
+	"i",
+	"a",
 	0,
 };
 
@@ -952,13 +978,13 @@ ishtml(void)
 		if(*p == '/')
 			p++;
 		q = p;
-		while(p < buf+nbuf && *p != '>')
+		while(p < buf+nbuf && isalpha(*p))
 			p++;
 		if (p >= buf+nbuf)
 			break;
 		for(i = 0; html_string[i]; i++) {
 			if(cistrncmp(html_string[i], (char*)q, p-q) == 0) {
-				if(count++ > 4) {
+				if(++count > 2) {
 					print(mime ? "text/html\n" : "HTML file\n");
 					return 1;
 				}
@@ -1145,13 +1171,13 @@ ismung(void)
 	cs /= 8.;
 	if(cs <= 24.322) {
 		if(buf[0]==0x1f && buf[1]==0x9d)
-			print(mime ? OCTET : "compressed\n");
+			print(mime ? "application/x-compress" : "compressed\n");
 		else
 		if(buf[0]==0x1f && buf[1]==0x8b)
-			print(mime ? OCTET : "gzip compressed\n");
+			print(mime ? "application/x-gzip" : "gzip compressed\n");
 		else
 		if(buf[0]=='B' && buf[1]=='Z' && buf[2]=='h')
-			print(mime ? OCTET : "bzip2 compressed\n");
+			print(mime ? "application/x-bzip2" : "bzip2 compressed\n");
 		else
 			print(mime ? OCTET : "encrypted\n");
 		return 1;
