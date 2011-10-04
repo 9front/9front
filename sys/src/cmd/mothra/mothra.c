@@ -1103,7 +1103,7 @@ void hit3(int button, int item){
 				message("can't open %s", name);
 				return;
 			}
-			fprint(fd, "<head><title>Hit List</title></head>\n");
+			fprint(fd, "<html><head><title>Hit List</title></head>\n");
 			fprint(fd, "<body><h1>Hit list</h1>\n");
 		}
 		seek(fd, 0, 2);

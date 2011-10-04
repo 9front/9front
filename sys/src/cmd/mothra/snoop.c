@@ -18,7 +18,8 @@ snooptype(int fd)
 	buf[n] = 0;
 	if(cistrstr(buf, "<?xml") ||
 		cistrstr(buf, "<!DOCTYPE") ||
-		cistrstr(buf, "<HTML"))
+		cistrstr(buf, "<HTML") ||
+		cistrstr(buf, "<head"))
 		typ = HTML;
 	else if(memcmp(buf, "\x1F\x8B", 2) == 0)
 		typ = GUNZIP;
