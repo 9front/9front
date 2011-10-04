@@ -29,3 +29,5 @@ Maybe I do what I do because if I built anything more complicated, I couldn't un
 What is or is not implemented in the kernel represents both a great responsibility and a great power.  It is a soap-box platform on 'the way things should be done.' Even so, if 'the way' is too radical, no one will follow it.  Every important decision was weighed carefully.  Throughout, simplicity has been substituted for efficiency.  Complex algorithms are used only if their complexity can be localized.
 I view Linux as something that's not Microsoft -- a backlash against Microsoft, no more and no less. I don't think it will be very successful in the long run. I've looked at the source and there are pieces that are good and pieces that are not. A whole bunch of random people have contributed to this source, and the quality varies drastically. My experience and some of my friends' experience is that Linux is quite unreliable. Microsoft is really unreliable but Linux is worse.
 I'd spell creat with an e.
+who cares.
+lgtm
