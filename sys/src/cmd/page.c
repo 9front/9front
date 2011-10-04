@@ -625,7 +625,7 @@ popenfile(Page *p)
 {
 	static struct {
 		char	*typ;
-		void	*popen;
+		void	*open;
 		void	*data;
 	} tab[] = {
 	"application/pdf",		popengs,	nil,
@@ -709,7 +709,7 @@ popenfile(Page *p)
 	}
 	p->fd = fd;
 	p->data = tab[i].data;
-	p->open = tab[i].popen;
+	p->open = tab[i].open;
 	if(seek(fd, 0, 0) < 0)
 		goto Noseek;
 	if((i = read(fd, buf+n, n)) < 0)

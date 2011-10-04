@@ -954,6 +954,10 @@ void geturl(char *urlname, int method, char *body, int cache, int map){
 			fd=pipeline("/bin/gunzip", fd);
 			typ = snooptype(fd);
 		}
+		if(typ == COMPRESS){
+			fd=pipeline("/bin/uncompress", fd);
+			typ = snooptype(fd);
+		}
 		switch(typ){
 		default:
 			message("Bad type %x in geturl", typ);
@@ -991,6 +995,17 @@ void geturl(char *urlname, int method, char *body, int cache, int map){
 			setcurrent(i, selection->tag);
 			break;
 		case GIF:
+			if(rfork(RFFDG|RFPROC|RFNAMEG|RFNOWAIT) == 0){
+				snprint(cmd, sizeof(cmd), "-pid %d", getpid());
+				if(newwindow(cmd) != -1){
+					close(1); open("/dev/cons", OWRITE);
+					print("reading gif...\n");
+					filter("gif", fd);
+				}
+				exits(nil);
+			}
+			close(fd);
+			break;
 		case JPEG:
 		case PNG:
 		case BMP:
