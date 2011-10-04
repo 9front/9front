@@ -439,7 +439,7 @@ html_in(int fd, long *x, struct convert *out)
 			}
 			continue;
 		out:
-			if(strchr("<>&\"'", c)){
+			if((c & 0x7f) == c && strchr("<>&\"'", c)){
 				s = ';';
 				i = sprint(buf, "&%s", findbyrune(c));
 				goto bad;
