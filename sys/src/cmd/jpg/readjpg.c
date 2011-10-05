@@ -448,7 +448,7 @@ readsegment(Header *h, int *markerp)
 	case 0:
 		jpgerror(h, "ReadJPG: expecting marker; saw %.2x at offset %lld", m, Boffset(h->fd));
 	}
-	if(Bread(h->fd, tmp, 2) != 2)
+	if(Breadn(h->fd, tmp, 2) != 2)
     Readerr:
 		jpgerror(h, readerr);
 	n = int2(tmp, 0);
@@ -462,7 +462,7 @@ readsegment(Header *h, int *markerp)
 		h->nbuf = n;
 	}
 	/* accept short reads to cope with some real-world jpegs */
-	if(Bread(h->fd, h->buf, n) < 0)
+	if(Breadn(h->fd, h->buf, n) < 0)
 		goto Readerr;
 	*markerp = m;
 	return n;

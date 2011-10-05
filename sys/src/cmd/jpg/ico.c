@@ -58,7 +58,7 @@ Bgetheader(Biobuf *b, Header *h)
 	uchar buf[40];
 
 	memset(h, 0, sizeof(*h));
-	if(Bread(b, buf, 6) != 6)
+	if(Breadn(b, buf, 6) != 6)
 		goto eof;
 	if(gets(&buf[0]) != 0)
 		goto header;
@@ -70,7 +70,7 @@ Bgetheader(Biobuf *b, Header *h)
 		icon = mallocz(sizeof(*icon), 1);
 		if(icon == nil)
 			sysfatal("malloc: %r");
-		if(Bread(b, buf, 16) != 16)
+		if(Breadn(b, buf, 16) != 16)
 			goto eof;
 		icon->w = buf[0];
 		icon->h = buf[1];
@@ -195,7 +195,7 @@ Bgeticon(Biobuf *b, Icon *icon)
 	buf = malloc(icon->len);
 	if(buf == nil)
 		return -1;
-	if(Bread(b, buf, icon->len) != icon->len){
+	if(Breadn(b, buf, icon->len) != icon->len){
 		werrstr("unexpected EOF");
 		return -1;
 	}

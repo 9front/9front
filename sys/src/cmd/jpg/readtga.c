@@ -113,7 +113,7 @@ rdhdr(Biobuf *bp)
 		free(h);
 		return nil;
 	}
-	if(Bread(bp, h->cmap, n) != n){
+	if(Breadn(bp, h->cmap, n) != n){
 		free(h);
 		free(h->cmap);
 		return nil;
@@ -124,7 +124,7 @@ rdhdr(Biobuf *bp)
 static int
 luma(Biobuf *bp, uchar *l, int num)
 {
-	return Bread(bp, l, num);
+	return Breadn(bp, l, num);
 }
 
 static int
@@ -164,7 +164,7 @@ rgba(Biobuf *bp, int bpp, uchar *r, uchar *g, uchar *b, int num)
 	switch(bpp){
 	case 16:
 		for(i = 0; i < num; i++){
-			if(Bread(bp, buf, 2) != 2)
+			if(Breadn(bp, buf, 2) != 2)
 				break;
 			x = buf[0];
 			y = buf[1];
@@ -175,7 +175,7 @@ rgba(Biobuf *bp, int bpp, uchar *r, uchar *g, uchar *b, int num)
 		break;
 	case 24:
 		for(i = 0; i < num; i++){
-			if(Bread(bp, buf, 3) != 3)
+			if(Breadn(bp, buf, 3) != 3)
 				break;
 			*b++ = buf[0];
 			*g++ = buf[1];
@@ -184,7 +184,7 @@ rgba(Biobuf *bp, int bpp, uchar *r, uchar *g, uchar *b, int num)
 		break;
 	case 32:
 		for(i = 0; i < num; i++){
-			if(Bread(bp, buf, 4) != 4)
+			if(Breadn(bp, buf, 4) != 4)
 				break;
 			*b++ = buf[0];
 			*g++ = buf[1];

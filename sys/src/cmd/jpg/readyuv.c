@@ -126,7 +126,7 @@ Breadyuv(Biobuf *bp, int colourspace)
 		goto Error;
 
 	for (l = 0; l < lines; l++) {
-		if (Bread(bp, buf, pixels *2) == -1)
+		if (Breadn(bp, buf, pixels *2) == -1)
 			goto Error;
 
 		base = l*pixels*2;
@@ -137,7 +137,7 @@ Breadyuv(Biobuf *bp, int colourspace)
 
 	if (bits == 10)
 		for (l = 0; l < lines; l++) {
-			if (Bread(bp, buf, pixels / 2) == -1)
+			if (Breadn(bp, buf, pixels / 2) == -1)
 				goto Error;
 
 

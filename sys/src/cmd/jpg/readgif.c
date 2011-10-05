@@ -12,7 +12,6 @@ struct Entry{
 	int		exten;
 };
 
-
 struct Header{
 	Biobuf	*fd;
 	char		err[256];
@@ -46,7 +45,7 @@ static void			readheader(Header*);
 static void			skipextension(Header*);
 static uchar*		readcmap(Header*, int);
 static uchar*		decode(Header*, Rawimage*, Entry*);
-static void			interlace(Header*, Rawimage*);
+static void		interlace(Header*, Rawimage*);
 
 static
 void
@@ -222,7 +221,7 @@ static
 void
 readheader(Header *h)
 {
-	if(Bread(h->fd, h->buf, 13) != 13)
+	if(Breadn(h->fd, h->buf, 13) != 13)
 		giferror(h, "ReadGIF: can't read header: %r");
 	memmove(h->vers, h->buf, 6);
 	if(strcmp(h->vers, "GIF87a")!=0 &&  strcmp(h->vers, "GIF89a")!=0)
@@ -247,7 +246,7 @@ readcmap(Header *h, int size)
 	if(size > 8)
 		giferror(h, "ReadGIF: can't handles %d bits per pixel", size);
 	size = 3*(1<<size);
-	if(Bread(h->fd, h->buf, size) != size)
+	if(Breadn(h->fd, h->buf, size) != size)
 		giferror(h, "ReadGIF: short read on color map");
 	map = malloc(size);
 	if(map == nil)
@@ -263,7 +262,7 @@ readone(Header *h)
 	Rawimage *i;
 	int left, top, width, height;
 
-	if(Bread(h->fd, h->buf, 9) != 9)
+	if(Breadn(h->fd, h->buf, 9) != 9)
 		giferror(h, "ReadGIF: can't read image descriptor: %r");
 	i = malloc(sizeof(Rawimage));
 	if(i == nil)
@@ -295,7 +294,7 @@ readdata(Header *h, uchar *data)
 		giferror(h, "ReadGIF: can't read data: %r");
 	if(nbytes == 0)
 		return 0;
-	n = Bread(h->fd, data, nbytes);
+	n = Breadn(h->fd, data, nbytes);
 	if(n < 0)
 		giferror(h, "ReadGIF: can't read data: %r");
 	if(n != nbytes)
@@ -307,7 +306,7 @@ static
 void
 graphiccontrol(Header *h)
 {
-	if(Bread(h->fd, h->buf, 5+1) != 5+1)
+	if(Breadn(h->fd, h->buf, 5+1) != 5+1)
 		giferror(h, readerr);
 	h->flags = h->buf[1];
 	h->delay = h->buf[2]+(h->buf[3]<<8);
@@ -348,7 +347,7 @@ skipextension(Header *h)
 	default:
 		giferror(h, "ReadGIF: unknown extension");
 	}
-	if(hsize>0 && Bread(h->fd, h->buf, hsize) != hsize)
+	if(hsize>0 && Breadn(h->fd, h->buf, hsize) != hsize)
 		giferror(h, extreaderr);
 	if(!hasdata){
 		/*
