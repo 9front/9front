@@ -3,8 +3,8 @@
 #include <ctype.h>
 
 int nbuf;
-char buf[4096+1];
-char *cset = "utf";
+char buf[64*1024+1];
+char *cset = nil;
 
 void
 usage(void)
@@ -40,8 +40,9 @@ strval(char *s)
 void
 main(int argc, char *argv[])
 {
-	int pfd[2], pflag = 0;
+	int n, pfd[2], pflag = 0;
 	char *arg[4], *s, *p;
+	Rune r;
 
 	ARGBEGIN {
 	case 'h':
@@ -59,25 +60,29 @@ main(int argc, char *argv[])
 		if(open(*argv, OREAD) != 1)
 			sysfatal("open: %r");
 	}
-	if((nbuf = readn(0, buf, sizeof(buf)-1)) < 0)
-		sysfatal("read: %r");
-	buf[nbuf] = 0;
+	nbuf = 0;
 	p = buf;
-	while(nbuf > 0){
-		if(memcmp(p, "\xEF\xBB\xBF", 3)==0){
-			p += 3;
-			cset = "utf";
+	while(nbuf < sizeof(buf)-1){
+		if((n = read(0, buf + nbuf, sizeof(buf)-1-nbuf)) <= 0)
 			break;
-		}
-		if(memcmp(p, "\xFE\xFF", 2) == 0){
-			p += 2;
-			cset = "unicode-be";
-			break;
-		}
-		if(memcmp(p, "\xFF\xFE", 2) == 0){
-			p += 2;
-			cset = "unicode-le";
-			break;
+		nbuf += n;
+		buf[nbuf] = 0;
+		if(nbuf == n){
+			if(memcmp(p, "\xEF\xBB\xBF", 3)==0){
+				p += 3;
+				cset = "utf";
+				break;
+			}
+			if(memcmp(p, "\xFE\xFF", 2) == 0){
+				p += 2;
+				cset = "unicode-be";
+				break;
+			}
+			if(memcmp(p, "\xFF\xFE", 2) == 0){
+				p += 2;
+				cset = "unicode-le";
+				break;
+			}
 		}
 		if(s = cistrstr(p, "encoding="))
 			if(s = strval(s+9)){
@@ -89,9 +94,20 @@ main(int argc, char *argv[])
 				cset = s;
 				break;
 			}
-		break;
 	}
 	nbuf -= p - buf;
+
+	if(cset == nil){
+		cset = "utf";
+		s = p;
+		while(s+UTFmax < p+nbuf){
+			s += chartorune(&r, s);
+			if(r == Runeerror){
+				cset = "latin1";
+				break;
+			}
+		}
+	}
 
 	if(pflag){
 		print("%s\n", cset);
