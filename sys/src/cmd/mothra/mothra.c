@@ -137,12 +137,14 @@ void adjkb(void){
 	Rtext *t;
 	int yoffs;
 	extern Panel *pl_kbfocus;	/* this is a secret panel library name */
-	yoffs=text->r.min.y-plgetpostextview(text);
-	for(t=current->text;t;t=t->next) if(!eqrect(t->r, Rect(0,0,0,0))){
-		if(t->r.max.y+yoffs>text->r.max.y) break;
-		if(t->r.min.y+yoffs>=text->r.min.y
-		&& t->b==0
-		&& subpanel(t->p, pl_kbfocus)) return;
+	if(current){
+		yoffs=text->r.min.y-plgetpostextview(text);
+		for(t=current->text;t;t=t->next) if(!eqrect(t->r, Rect(0,0,0,0))){
+			if(t->r.max.y+yoffs>text->r.max.y) break;
+			if(t->r.min.y+yoffs>=text->r.min.y
+			&& t->b==0
+			&& subpanel(t->p, pl_kbfocus)) return;
+		}
 	}
 	plgrabkb(cmd);
 }
