@@ -936,7 +936,7 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
 	Point a;
 
 	if(f <= 1){
-		gendrawdiff(d, r, top, s, sp, nil, ZP, S);
+		gendrawdiff(d, r, top, s, sp, nil, ZP, SoverD);
 		return;
 	}
 	a = ZP;
@@ -966,7 +966,7 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
 	}
 	sp = r.min;
 	for(x=r.min.x; x<r.max.x; x++){
-		gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, t, sp, nil, ZP, S);
+		gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, t, sp, nil, ZP, SoverD);
 		if(++a.x == f){
 			a.x = 0;
 			sp.x++;
@@ -1002,7 +1002,7 @@ drawpage(Page *p)
 		r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
 		zoomdraw(screen, r, ZR, i, i->r.min, zoom);
 	}
-	gendrawdiff(screen, screen->r, r, background, ZP, nil, ZP, S);
+	gendrawdiff(screen, screen->r, r, background, ZP, nil, ZP, SoverD);
 	border(screen, r, -Borderwidth, display->black, ZP);
 	flushimage(display, 1);
 }
@@ -1023,7 +1023,7 @@ translate(Page *p, Point d)
 	rectclip(&or, screen->r);
 	draw(screen, rectaddpt(or, d), screen, nil, or.min);
 	zoomdraw(screen, nr, rectaddpt(or, d), i, i->r.min, zoom);
-	gendrawdiff(screen, screen->r, nr, background, ZP, nil, ZP, S);
+	gendrawdiff(screen, screen->r, nr, background, ZP, nil, ZP, SoverD);
 	border(screen, nr, -Borderwidth, display->black, ZP);
 	flushimage(display, 1);
 }
