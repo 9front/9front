@@ -1,6 +1,6 @@
 .TH RESAMPLE 1
 .SH NAME
-resample \- resample a picture
+resample, resize - resample a picture
 .SH SYNOPSIS
 .B resample
 [
@@ -12,11 +12,27 @@ resample \- resample a picture
 ] [
 .I file
 ]
+.br
+.B resize
+[
+.B -x
+.I size
+] [
+.B -y
+.I size
+] [
+.I file
+]
 .SH DESCRIPTION
 .I Resample
+and
+.I Resize
 resamples its input image (default standard input) to a new size.
-The image is decimated or interpolated using
-a Kaiser window.
+.I Resample
+uses a Kaiser window which produces high quality results and
+.I resize
+uses bilinear interpolation which is faster but produces more
+fuzzy images.
 .PP
 The size of the resampled image can be specified
 with the
@@ -24,7 +40,8 @@ with the
 and
 .B -y
 options.
-An unadorned value sets the number of pixels of that dimension; a suffixed percent sign specifies a percentage.
+An unadorned value sets the number of pixels of that dimension; a
+suffixed percent sign specifies a percentage.
 If only one of
 .B -x
 or
@@ -51,8 +68,8 @@ To uncompress the image or change the pixel format, use
 .PP
 .SH SOURCE
 .B /sys/src/cmd/resample.c
+.br
+.B /sys/src/cmd/resize.c
 .SH "SEE ALSO
 .IR crop (1),
 .IR image (6)
-.SH BUGS
-Faster algorithms exist, but this implementation produces correct pictures.

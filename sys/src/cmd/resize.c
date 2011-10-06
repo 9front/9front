@@ -70,10 +70,25 @@ resample(Memimage *dst, Rectangle r, Memimage *src, Rectangle sr)
 	}
 }
 
+enum {
+	PERCENT = 0x80000000,
+};
+
+static int
+getsize(char *s)
+{
+	int v;
+
+	v = strtol(s, &s, 10) & ~PERCENT;
+	if(*s == '%')
+		v |= PERCENT;
+	return v;
+}
+
 void
 usage(void)
 {
-	sysfatal("Usage: %s [ -x width ] [ -y height ] [image]\n", argv0);
+	sysfatal("Usage: %s [ -x width ] [ -y height ] [ file ]\n", argv0);
 }
 
 void
@@ -86,11 +101,14 @@ main(int argc, char **argv)
 
 	xsize = ysize = 0;
 	ARGBEGIN{
+	case 'a':
+		xsize = ysize = getsize(EARGF(usage()));
+		break;
 	case 'x':
-		xsize = atoi(EARGF(usage()));
+		xsize = getsize(EARGF(usage()));
 		break;
 	case 'y':
-		ysize = atoi(EARGF(usage()));
+		ysize = getsize(EARGF(usage()));
 		break;
 	default:
 		usage();
@@ -104,6 +122,10 @@ main(int argc, char **argv)
 	memimageinit();
 	if((im = readmemimage(fd)) == nil)
 		sysfatal("readmemimage: %r");
+	if(xsize & PERCENT)
+		xsize = ((xsize & ~PERCENT) * Dx(im->r)) / 100;
+	if(ysize & PERCENT)
+		ysize = ((ysize & ~PERCENT) * Dy(im->r)) / 100;
 	if(xsize || ysize){
 		if(ysize == 0)
 			ysize = (xsize * Dy(im->r)) / Dx(im->r);

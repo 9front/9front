@@ -1,0 +1,36 @@
+.TH ROTATE 1
+.SH NAME
+rotate - rotate or mirror a picture
+.SH SYNOPSIS
+.B rotate
+[
+.B -r
+.I degree
+] [
+.B -u |
+.B -l
+] [
+.I file
+]
+.SH DESCRIPTION
+.I Rotate
+reads its input image (default from standard input), applies the rotation
+or mirroring and outputs the transformed image in compressed
+plan9 bitmap format.
+.PP
+The option
+.B -r
+rotates the image clockwise in 90 degree steps by the
+.I degree
+argument.
+The options
+.B -u
+and
+.B -l
+mirror the image upside/down or left/right.
+.SH SOURCE
+.B /sys/src/cmd/rotate.c
+.SH "SEE ALSO
+.IR crop (1),
+.IR resample (1),
+.IR image (6)
