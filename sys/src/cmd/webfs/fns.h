@@ -49,8 +49,8 @@ void		freeurl(Url*);
 void		rewriteurl(Url*);
 int		seturlquery(Url*, char*);
 Url*		copyurl(Url*);
-char*	escapeurl(char*, int(*)(int));
-char*	unescapeurl(char*);
+char*	escapeurl(char*, char *);
+char*	unescapeurl(char*, char *);
 void		initurl(void);
 
 /* util.c */
