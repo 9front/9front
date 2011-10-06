@@ -112,18 +112,12 @@ ischeme(char *s)
 
 /* RE character-class components -- these go in brackets */
 #define PUNCT			"\\-_.!~*'()"
-#define RES			";/?:@&=+$,"
 #define ALNUM		"a-zA-Z0-9"
 #define HEX			"0-9a-fA-F"
 #define UNRES			ALNUM PUNCT
 
 /* RE components; _N => has N parenthesized subexpressions when expanded */
-#define ESCAPED_1			"(%[" HEX "][" HEX "])"
-#define URIC_2			"([" RES UNRES "]|" ESCAPED_1 ")"
-#define URICNOSLASH_2		"([" UNRES ";?:@&=+$,]|" ESCAPED_1 ")"
-#define USERINFO_2		"([" UNRES ";:&=+$,]|" ESCAPED_1 ")"
-#define PCHAR_2			"([" UNRES ":@&=+$,]|" ESCAPED_1 ")"
-#define PSEGCHAR_3		"([/;]|" PCHAR_2 ")"
+#define USERINFO_2		"([" UNRES ";:&=+$,]|(%[" HEX "][" HEX "]))"
 
 typedef struct Retab Retab;
 struct Retab
@@ -138,16 +132,10 @@ enum
 {
 	REsplit = 0,
 	REscheme,
-	REunknowndata,
 	REauthority,
 	REhost,
 	REuserinfo,
-	REabspath,
-	REquery,
-	REfragment,
-	REhttppath,
 	REftppath,
-	REfilepath,
 
 	MaxResub=	20,
 };
@@ -161,10 +149,6 @@ Retab retab[] =	/* view in constant width Font */
 
 [REscheme]
 	"^[a-z][a-z0-9+-.]*$", nil, 0,
-	{ 0, },
-
-[REunknowndata]
-	"^" URICNOSLASH_2 URIC_2 "*$", nil, 0,
 	{ 0, },
 
 [REauthority]
@@ -182,30 +166,10 @@ Retab retab[] =	/* view in constant width Font */
 	/* |user-|  |pass-| */
 	{  2,       4, },
 
-[REabspath]
-	"^/" PSEGCHAR_3 "*$", nil, 0,
-	{ 0, },
-
-[REquery]
-	"^" URIC_2 "*$", nil, 0,
-	{ 0, },
-
-[REfragment]
-	"^" URIC_2 "*$", nil, 0,
-	{ 0, },
-
-[REhttppath]
-	"^.*$", nil, 0,
-	{ 0, },
-
 [REftppath]
 	"^(.+)(;[tT][yY][pP][eE]=([aAiIdD]))?$", nil, 0,
 	/*|--|-path              |ftptype-| */
 	{ 1,                     3, }, 
-
-[REfilepath]
-	"^.*$", nil, 0,
-	{ 0, },
 };
 
 static int
@@ -532,20 +496,6 @@ spliturl(char *url, SplitUrl *su)
 		return -1;
 	}
 
-	/*
-	 * Because we use NUL-terminated strings, as do many client and server
-	 * implementations, an escaped NUL ("%00") will quite likely cause problems
-	 * when unescaped.  We can check for such a sequence once before examining
- 	 * the components because, per RFC2396 sec. 2.4.1 - 2.4.2, '%' is reserved
-	 * in URIs to _always_ indicate escape sequences.  Something like "%2500"
-	 * will still get by, but that's legitimate, and if it ends up causing
-	 * a NUL then someone is unescaping too many times.
-	 */
-	if(strstr(url, "%00")){
-		werrstr("escaped NUL in URI");
-		return -1;
-	}
-
 	m[0].sp = m[0].ep = nil;
 	t = &retab[REsplit];
 	if(!regx(t->prog, url, m, t->size)){
@@ -614,8 +564,6 @@ parse_unknown_part(SplitUrl *su, Url *u)
 		e = s+strlen(s);
 
 	u->schemedata = estredup(s, e);
-	if(!ismatch(REunknowndata, u->schemedata, "unknown scheme data"))
-		return -1;
 	return 0;
 }
 
@@ -705,39 +653,47 @@ parse_authority(SplitUrl *su, Url *u)
 static int
 parse_abspath(SplitUrl *su, Url *u)
 {
+	char *s;
+
 	if(su->path.s == nil)
 		return 0;
-	u->path = estredup(su->path.s, su->path.e);
-	if(!ismatch(REabspath, u->path, "absolute path"))
-		return -1;
+	s = estredup(su->path.s, su->path.e);
+	u->path = unescapeurl(s, "/");
+	free(s);
 	return 0;
 }
 
 static int
 parse_query(SplitUrl *su, Url *u)
 {
+	char *s;
+
 	if(su->query.s == nil)
 		return 0;
-	u->query = estredup(su->query.s, su->query.e);
-	if(!ismatch(REquery, u->query, "query"))
-		return -1;
+	s = estredup(su->query.s, su->query.e);
+	u->query = unescapeurl(s, "&=");
+	free(s);
 	return 0;
 }
 
 static int
 parse_fragment(SplitUrl *su, Url *u)
 {
+	char *s;
+
 	if(su->fragment.s == nil)
 		return 0;
-	u->fragment = estredup(su->fragment.s, su->fragment.e);
-	if(!ismatch(REfragment, u->fragment, "fragment"))
-		return -1;
+	s = estredup(su->fragment.s, su->fragment.e);
+	u->fragment = unescapeurl(s, "");
+	free(s);
 	return 0;
 }
 
 static int
 postparse_http(Url *u)
 {
+	char *p, *q;
+
 	u->open = httpopen;
 	u->read = httpread;
 	u->close = httpclose;
@@ -755,17 +711,17 @@ postparse_http(Url *u)
 		u->http.page_spec = estrdup("/");
 		return 0;
 	}
-
-	if(!ismatch(REhttppath, u->path, "http path"))
-		return -1;
+	p = escapeurl(u->path, " \"<>#%\\");
 	if(u->query){
-		u->http.page_spec = emalloc(strlen(u->path)+1+strlen(u->query)+1);
-		strcpy(u->http.page_spec, u->path);
+		q = escapeurl(u->query, " \"<>#%\\");
+		u->http.page_spec = emalloc(strlen(p)+1+strlen(q)+1);
+		strcpy(u->http.page_spec, p);
 		strcat(u->http.page_spec, "?");
-		strcat(u->http.page_spec, u->query);
+		strcat(u->http.page_spec, q);
+		free(q);
+		free(p);
 	}else
-		u->http.page_spec = estrdup(u->path);
-
+		u->http.page_spec = p;
 	return 0;
 }
 
@@ -840,9 +796,6 @@ postparse_file(Url *u)
 		return -1;
 	}
 
-	if(!ismatch(REfilepath, u->path, "file path"))
-		return -1;
-
 	/* "localhost" is equivalent to no host spec, we'll chose the latter */
 	if(u->host && cistrcmp(u->host, "localhost") == 0){
 		free(u->host);
@@ -886,7 +839,7 @@ parseurl(char *url, Url *base)
 			/* 'u.url' refers to current document; set fragment and return */
 			if(parse_fragment(&su, u) < 0)
 				goto Fail;
-			return u;
+			goto Done;
 		}
 	}
 
@@ -897,7 +850,7 @@ parseurl(char *url, Url *base)
 	if(u->ischeme == USunknown){
 		if(parse_unknown_part(&su, u) < 0)
 			goto Fail;
-		return u;
+		goto Done;
 	}
 
 	if(parse_query(&su, u) < 0
@@ -909,7 +862,9 @@ parseurl(char *url, Url *base)
 		if((*postparse[u->ischeme])(u) < 0)
 			goto Fail;
 
+Done:
 	setmalloctag(u, getcallerpc(&url));
+	rewriteurl(u);
 	return u;
 }
 
@@ -970,12 +925,8 @@ seturlquery(Url *u, char *query)
 		u->query = nil;
 		return 0;
 	}
-
-	if(!ismatch(REquery, query, "query"))
-		return -1;
-
 	free(u->query);
-	u->query = estrdup(query);
+	u->query = unescapeurl(query, "&=");
 	return 0;
 }
 
@@ -1030,61 +981,47 @@ dhex(char c)
 }
 
 char*
-escapeurl(char *s, int (*needesc)(int))
+escapeurl(char *s, char *special)
 {
 	int n;
 	char *t, *u;
-	Rune r;
 	static char *hex = "0123456789abcdef";
 
 	n = 0;
 	for(t=s; *t; t++)
-		if((*needesc)(*t))
+		if(*t <= 0x1F || *t >= 0x7F || strchr(special, *t))
 			n++;
-
 	u = emalloc(strlen(s)+2*n+1);
 	t = u;
 	for(; *s; s++){
-		s += chartorune(&r, s);
-		if(r >= 0xFF){
-			werrstr("URLs cannot contain Runes > 0xFF");
-			free(t);
-			return nil;
-		}
-		if((*needesc)(r)){
+		if(s[0] == '%' && isxdigit(s[1]) && isxdigit(s[2]))
+			*u++ = *s;
+		else if(*s <= 0x1F || *s >= 0x7F || strchr(special, *s)){
 			*u++ = '%';
-			*u++ = hex[(r>>4)&0xF];
-			*u++ = hex[r&0xF];
+			*u++ = hex[(*s>>4)&0xF];
+			*u++ = hex[*s&0xF];
 		}else
-			*u++ = r;
+			*u++ = *s;
 	}
 	*u = '\0';
 	return t;
 }
 
 char*
-unescapeurl(char *s)
+unescapeurl(char *s, char *special)
 {
-	char *r, *w;
-	Rune rune;
+	char *r, *w, x;
 
 	s = estrdup(s);
-	for(r=w=s; *r; r++){
-		if(*r=='%'){
-			r++;
-			if(!isxdigit(r[0]) || !isxdigit(r[1])){
-				werrstr("bad escape sequence '%.3s' in URL", r);
-				return nil;
-			}
-			if(r[0]=='0' && r[2]=='0'){
-				werrstr("escaped NUL in URL");
-				return nil;
-			}
-			rune = (dhex(r[0])<<4)|dhex(r[1]);	/* latin1 */
-			w += runetochar(w, &rune);
-			r += 2;
-		}else
-			*w++ = *r;
+	for(r=w=s; x = *r; r++){
+		if(x=='%' && isxdigit(r[1]) && isxdigit(r[2])){
+			x = (dhex(r[1])<<4)|dhex(r[2]);
+			if(x == 0 || (x > 0x1F && x < 0x7F && strchr(special, x)))
+				x = *r;
+			else
+				r += 2;
+		}
+		*w++ = x;
 	}
 	*w = '\0';
 	return s;
