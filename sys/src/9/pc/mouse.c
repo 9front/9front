@@ -104,12 +104,13 @@ ps2mouseputc(int c, int shift)
 	/* 
 	 *  check byte 0 for consistency
 	 */
-	if(nb==0 && (c&0xc8)!=0x08)
+	if(nb==0 && (c&0xc8)!=0x08){
 		if(intellimouse && (c==0x00 || c==0x01 || c==0xFF)){
 			/* last byte of 4-byte packet */
 			packetsize = 4;
-			return;
 		}
+		return;
+	}
 
 	msg[nb] = c;
 	if(++nb == packetsize){
@@ -170,7 +171,7 @@ ps2mouse(void)
 
 	mousetype = MousePS2;
 	packetsize = 3;
-	mousehwaccel = 1;
+	mousehwaccel = 0;
 }
 
 /*
