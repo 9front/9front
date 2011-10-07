@@ -17,31 +17,32 @@ mntgen -s slashn && chmod 666 /srv/slashn
 # name translation, cs sets /dev/sysname
 ndb/cs
 sysname=`{cat /dev/sysname}
-
-# parallelism for mk
-NPROC = `{wc -l </dev/sysstat}
-
 if (~ $#sysname 0 || ~ $sysname ''){
 	sysname=cirno			# default
 	echo -n $sysname >/dev/sysname
 }
 prompt=($sysname^'# ' '	')
 
+# parallelism for mk
+NPROC=`{wc -l </dev/sysstat}
+
 # cpu-specific startup
 if(test -e /cfg/$sysname/cpurc)
 	. /cfg/$sysname/cpurc
 
 # automatic ip address setup
-if(! grep u /net/ipselftab | grep -sv 127.0.0.1){
-	ether=`{ndb/query sys $sysname ether}
-	if(~ $#ether 1){
-		# try /lib/ndb first, then do dhcp
-		ip/ipconfig -N >[2]/dev/null || ip/ipconfig
+if(test -r /net/ipselftab){
+	if(! grep u /net/ipselftab | grep -sv 127.0.0.1){
+		ether=`{ndb/query sys $sysname ether}
+		if(~ $#ether 1){
+			# try /lib/ndb first, then do dhcp
+			ip/ipconfig -N >[2]/dev/null || ip/ipconfig
+		}
+		rm -f /env/ether
 	}
-	rm -f /env/ether
 }
 
-if(! test -e /srv/dns)
+if(! test -e /net/dns)
 	ndb/dns -r
 
 if(! ps|grep -s timesync){
