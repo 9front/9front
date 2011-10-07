@@ -43,6 +43,7 @@ enum{
 	RADIO,
 	SUBMIT,
 	RESET,
+	BUTTON,
 	SELECT,
 	TEXTWIN,
 	HIDDEN,
@@ -58,6 +59,7 @@ struct Option{
 void h_checkinput(Panel *, int, int);
 void h_radioinput(Panel *, int, int);
 void h_submitinput(Panel *, int);
+void h_buttoninput(Panel *, int);
 void h_submittype(Panel *, char *);
 void h_submitindex(Panel *, char *);
 void h_resetinput(Panel *, int);
@@ -148,7 +150,8 @@ void rdform(Hglob *g){
 		else
 			f->maxlength=atoi(s);
 		s=pl_getattr(g->attr, "type");
-		/* bug -- password treated as text */
+		if(g->tag == Tag_button && (s==0 || cistrcmp(s, "reset") || cistrcmp(s, "button")))
+			s = "submit";
 		if(s==0 || cistrcmp(s, "text")==0 || 
 		   cistrcmp(s, "password")==0 || cistrcmp(s, "int")==0 ||
 		   cistrcmp(s, "email")==0){
@@ -175,6 +178,8 @@ void rdform(Hglob *g){
 			f->type=RADIO;
 		else if(cistrcmp(s, "submit")==0)
 			f->type=SUBMIT;
+		else if(cistrcmp(s, "button")==0)
+			f->type=BUTTON;
 		else if(cistrcmp(s, "image")==0){
 			/* presotto's egregious hack to make image submits do something */
 			if(f->name){
@@ -348,6 +353,9 @@ void mkfieldpanel(Rtext *t){
 	case RESET:
 		f->p=plbutton(0, 0, f->value[0]?f->value:"reset", h_resetinput);
 		break;
+	case BUTTON:
+		f->p=plbutton(0, 0, f->value[0]?f->value:"button", h_buttoninput);
+		break;
 	case SELECT:
 		f->pulldown=plgroup(0,0);
 		scrl=plscrollbar(f->pulldown, PACKW|FILLY);
@@ -435,6 +443,8 @@ void h_resetinput(Panel *p, int){
 		break;
 	}
 	pldraw(text, screen);
+}
+void h_buttoninput(Panel *p, int){
 }
 void h_edit(Panel *p){
 	plgrabkb(p);
