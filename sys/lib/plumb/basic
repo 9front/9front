@@ -7,16 +7,11 @@ include fileaddr
 plumb to seemail
 plumb to showmail
 
-# cheap http/gif,jpeg,ps,pdf renderer
+# open urls with web browser
 type is text
-data matches '(https?|ftp|file|gopher|mailto|news|nntp|telnet|wais|prospero)://[a-zA-Z0-9_@\-]+([.:][a-zA-Z0-9_@\-]+)*/?[a-zA-Z0-9_?.,%#~&/\-+=]+([:.][a-zA-Z0-9_?,%#~&/\-+=]+)*\.(jpe?g|JPE?G|gif|GIF|ps|PS|pdf|PDF|png|PNG)'
-plumb start rc -c 'hget '''$0''' | page -w'
-
-## open urls with abaco web browser
-#type is text
-#data matches 'https?://[a-zA-Z0-9_@\-]+([.:][a-zA-Z0-9_@\-]+)*/?[a-zA-Z0-9_?,%#~&/\-+=]+([:.][a-zA-Z0-9_?,''%#~&/\-+=;]+)*'
-#plumb to web
-#plumb client window abaco
+data matches 'https?://[^ ]+'
+plumb to web
+plumb client window $browser
 
 # rtf files go to wdoc2txt
 type is text
@@ -50,7 +45,7 @@ plumb client page -wi
 # the port is here for reference but is unused
 type is text
 data matches '[a-zA-Z¡-￿0-9_\-./]+'
-data matches '([a-zA-Z¡-￿0-9_\-./]+)\.(ps|PS|eps|EPS|pdf|PDF|dvi|DVI|doc|DOC)'
+data matches '([a-zA-Z¡-￿0-9_\-./]+)\.(ps|PS|eps|EPS|pdf|PDF|dvi|DVI|doc|DOC|x?html?|X?HTML?|epub|EPUB|cb[tz]|CB[TZ])'
 arg isfile	$0
 plumb to postscript
 plumb start page -w $file

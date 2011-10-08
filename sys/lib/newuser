@@ -61,7 +61,8 @@ case con
 cat > lib/plumbing <<!
 # to update: cp /usr/$user/lib/plumbing /mnt/plumb/rules
 
-editor = acme
+editor = sam
+browser = mothra
 
 include basic
 
