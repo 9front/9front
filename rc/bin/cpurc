@@ -60,9 +60,10 @@ if(~ $#auth 0){
 }
 switch($auth){
 case `{	echo $sysname; ndb/query sys $sysname dom
+	if(test -r /net/ipselftab){
 	for(i in `{awk '/u\ *$/{print $1}' /net/ipselftab}){
 		echo $i; ndb/ipquery ip $i dom; ndb/ipquery ip $i sys
-	} | sed 's,[^ ]+=,,g'}
+	} | sed 's,[^ ]+=,,g'}}
 	# cpu+auth server
 	auth/keyfs -wp -m /mnt/keys /adm/keys
 	aux/listen -q -t /rc/bin/service.auth -d /rc/bin/service tcp
