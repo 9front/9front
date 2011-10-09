@@ -681,8 +681,11 @@ void dolink(Panel *p, int buttons, Rtext *word){
 		return;
 	if(mothmode){
 		seturl(&u, a->image ? a->image : a->link, current->url->fullname);
-		save(&u, file=urltofile(u.reltext));
-		message("saved %s", file);
+		if(buttons == 1){
+			save(&u, file=urltofile(u.reltext));
+			message("saved %s", file);
+		} else if(buttons == 2)
+			hiturl(buttons, u.reltext, 0);
 		return;
 	}
 	if(a->ismap){
@@ -1035,6 +1038,46 @@ void updtext(Www *w){
 	plsetpostextview(text, w->yoffs);
 	pldraw(root, screen);
 }
+
+void
+mothon(Www *w, int on)
+{
+	Rtext *t, *x;
+	Action *a, *ap;
+
+	if(current == nil || mothmode == on)
+		return;
+	if(mothmode = on)
+		message("moth mode!");
+	else
+		message(mothra);
+	/*
+	 * insert or remove artificial links to the href for 
+	 * images that are also links
+	 */
+	for(t=w->text;t;t=t->next){
+		a=t->user;
+		if(a == nil || a->image == nil || a->link == nil)
+			continue;
+		x = t->next;
+		if(on){
+			t->next = nil;
+			ap=mallocz(sizeof(Action), 1);
+			ap->link = strdup(a->link);
+			t->space += 4;
+			plrtstr(&t->next, 0, 0, t->font, strdup("->"), 1, ap);
+			t->next->next = x;
+		} else {
+			t->space -= 4;
+			t->next = x->next;
+			x->next = nil;
+			freetext(x);
+		}
+	}
+	updtext(w);
+	donecurs();
+}
+
 Cursor confirmcursor={
 	0, 0,
 	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -1099,11 +1142,7 @@ void hit3(int button, int item){
 		pldraw(root, screen);
 		break;
 	case 1:
-		if(mothmode = !mothmode)
-			message("moth mode!");
-		else
-			message(mothra);
-		donecurs();
+		mothon(current, !mothmode);
 		break;
 	case 2:
 		snarf(cmd);
