@@ -225,7 +225,7 @@ void rdform(Hglob *g){
 		break;
 	case Tag_option:
 		if(g->form==0) goto BadTag;
-		f=g->form->efields;
+		if((f=g->form->efields)==0) goto BadTag;
 		o=emallocz(sizeof(Option), 1);
 		for(op=&f->options;*op;op=&(*op)->next);
 		*op=o;
@@ -288,6 +288,8 @@ void rdform(Hglob *g){
  * Called by rdhtml on seeing a forms-related end tag
  */
 void endform(Hglob *g){
+	Field *f;
+
 	switch(g->tag){
 	case Tag_form:
 		g->form=0;
@@ -295,8 +297,10 @@ void endform(Hglob *g){
 	case Tag_select:
 		if(g->form==0)
 			htmlerror(g->name, g->lineno, "</select> not in form, ignored\n");
+		else if((f=g->form->efields)==0)
+			htmlerror(g->name, g->lineno, "spurious </select>\n");
 		else
-			pl_htmloutput(g, g->nsp, g->form->efields->name,g->form->efields);
+			pl_htmloutput(g, g->nsp, f->name, f);
 		break;
 	case Tag_textarea:
 		break;

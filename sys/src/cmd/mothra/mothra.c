@@ -1064,11 +1064,9 @@ mothon(Www *w, int on)
 			t->next = nil;
 			ap=mallocz(sizeof(Action), 1);
 			ap->link = strdup(a->link);
-			t->space += 4;
 			plrtstr(&t->next, 0, 0, t->font, strdup("->"), 1, ap);
 			t->next->next = x;
 		} else {
-			t->space -= 4;
 			t->next = x->next;
 			x->next = nil;
 			freetext(x);

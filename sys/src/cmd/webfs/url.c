@@ -901,6 +901,8 @@ rewriteurl(Url *u)
 {
 	char *s;
 
+	if(u->scheme == nil)
+		return;
 	if(u->schemedata)
 		s = estrmanydup(u->scheme, ":", u->schemedata, nil);
 	else
@@ -909,7 +911,7 @@ rewriteurl(Url *u)
 			u->passwd ? ":" : "", u->passwd ? u->passwd : "",
 			u->user ? "@" : "", u->host ? u->host : "", 
 			u->port ? ":" : "", u->port ? u->port : "",
-			u->path,
+			u->path ? u->path : "",
 			u->query ? "?" : "", u->query ? u->query : "",
 			u->fragment ? "#" : "", u->fragment ? u->fragment : "",
 			nil);

@@ -210,7 +210,7 @@ int pl_nextc(Hglob *g){
 	int c;
 	int n;
 	Rune r;
-	char crune[4];
+	char crune[UTFmax+1];
 	if(g->heof) return EOF;
 	if(g->npeekc!=0) return g->peekc[--g->npeekc];
 	c=pl_readc(g);
@@ -229,9 +229,8 @@ int pl_nextc(Hglob *g){
 	}
 	if(c=='>') return ETAG;
 	if(c==EOF) return c;
-	n=0;
-	for (;;){
-		crune[n++]=c;
+	for (n=1; n<=sizeof(crune); n++){
+		crune[n-1]=c;
 		if(fullrune(crune, n)){
 			chartorune(&r, crune);
 			return r;
@@ -437,7 +436,7 @@ int pl_gettag(Hglob *g){
 		return pl_getcomment(g);
 	pl_putback(g, c);
 	while((c=pl_nextc(g))!=ETAG && c!=EOF)
-		if(tokp!=&g->token[NTOKEN-3]) tokp += lrunetochar(tokp, c);
+		if(tokp < &g->token[NTOKEN-UTFmax-1]) tokp += lrunetochar(tokp, c);
 	*tokp='\0';
 	if(c==EOF) htmlerror(g->name, g->lineno, "EOF in tag");
 	pl_tagparse(g, g->token);
@@ -464,12 +463,12 @@ int pl_gettoken(Hglob *g){
 	default:
 		tokp=g->token;
 		while(c=='\t'){
-			if(tokp!=&g->token[NTOKEN-3]) tokp += lrunetochar(tokp, c);
+			if(tokp < &g->token[NTOKEN-UTFmax-1]) tokp += lrunetochar(tokp, c);
 			c=pl_nextc(g);
 		}
 		while(c!='\t' && c!='\n' && c!=STAG && c!=EOF){
 			if(c==ETAG) c='>';
-			if(tokp!=&g->token[NTOKEN-3]) tokp += lrunetochar(tokp, c);
+			if(tokp < &g->token[NTOKEN-UTFmax-1]) tokp += lrunetochar(tokp, c);
 			c=pl_nextc(g);
 		}
 		*tokp='\0';
@@ -489,7 +488,7 @@ int pl_gettoken(Hglob *g){
 		tokp=g->token;
 		do{
 			if(c==ETAG) c='>';
-			if(tokp!=&g->token[NTOKEN-3]) tokp += lrunetochar(tokp, c);
+			if(tokp < &g->token[NTOKEN-UTFmax-1]) tokp += lrunetochar(tokp, c);
 			c=pl_nextc(g);
 		}while(c!=' ' && c!='\t' && c!='\n' && c!=STAG && c!=EOF);
 		*tokp='\0';
@@ -518,19 +517,19 @@ void plaintext(Hglob *g){
 	int c;
 	g->state->font=CWIDTH;
 	g->state->size=NORMAL;
-	elp=&line[NLINE+1];
+	elp=&line[NLINE-UTFmax-1];
 	lp=line;
 	for(;;){
 		c=pl_readc(g);
 		if(c==EOF) break;
-		if(c=='\n' || lp==elp){
+		if(c=='\n' || lp>=elp){
 			*lp='\0';
 			g->linebrk=1;
 			pl_htmloutput(g, 0, line, 0);
 			lp=line;
 		}
 		if(c=='\t'){
-			do *lp++=' '; while(lp!=elp && utfnlen(line, lp-line)%8!=0);
+			do *lp++=' '; while(lp<elp && utfnlen(line, lp-line)%8!=0);
 		}
 		else if(c!='\n')
 			lp += lrunetochar(lp, c);
@@ -580,6 +579,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 	Hglob g;
 	int t;
 	int tagerr;
+
 	g.state=g.stack;
 	g.state->tag=Tag_html;
 	g.state->font=ROMAN;
