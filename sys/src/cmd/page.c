@@ -14,7 +14,6 @@ struct Page {
 	void	*data;
 	int	(*open)(Page *);
 
-	char	*text;
 	Image	*image;
 	int	fd;
 	int	gen;
@@ -104,7 +103,6 @@ addpage(Page *up, char *label, int (*popen)(Page *), void *pdata, int fd)
 	p = mallocz(sizeof(*p), 1);
 	p->label = strdup(label);
 	p->gen = pagegen;
-	p->text = nil;
 	p->image = nil;
 	p->data = pdata;
 	p->open = popen;
@@ -335,7 +333,6 @@ popenepub(Page *p)
 		addpage(p, shortname(buf), popenfile, strdup(buf), -1);
 	}
 	close(fd);
-	p->text = strdup(p->label);
 	return -1;
 }
 
@@ -420,7 +417,6 @@ popengs(Page *p)
 	seek(ifd, 0, 0);
 	if(memcmp(buf, "%PDF-", 5) == 0)
 		pdf = 1;
-	p->text = strdup(p->label);
 	if(pipe(pin) < 0){
 	Err0:
 		close(ifd);
@@ -570,6 +566,11 @@ filetype(char *buf, int nbuf, char *typ, int ntyp)
 	int n, ifd[2], ofd[2];
 	char *argv[3];
 
+	if(infernobithdr(buf, nbuf)){
+		strncpy(typ, "image/p9bit", ntyp);
+		return 0;
+	}
+
 	typ[0] = 0;
 	if(pipe(ifd) < 0)
 		return -1;
@@ -656,10 +657,10 @@ popenfile(Page *p)
 	fd = p->fd;
 	p->fd = -1;
 	file = p->data;
+	p->data = nil;
 	if(fd < 0){
 		if((fd = open(file, OREAD)) < 0){
 		Err0:
-			p->data = nil;
 			free(file);
 			return -1;
 		}
@@ -678,6 +679,7 @@ popenfile(Page *p)
 		if((tfd = open(buf, OREAD)) >= 0){
 			close(fd);
 			p->fd = tfd;
+			p->data = file;
 			p->open = popenepub;
 			return p->open(p);
 		}
@@ -688,7 +690,6 @@ popenfile(Page *p)
 		for(i = 0; i<n; i++)
 			addpage(p, d[i].name, popenfile, smprint("%s/%s", file, d[i].name), -1);
 		free(d);
-		p->text = strdup(p->label);
 		goto Err1;
 	}
 	free(d);
@@ -696,10 +697,7 @@ popenfile(Page *p)
 	memset(buf, 0, NBUF/2);
 	if((n = readn(fd, buf, NBUF/2)) <= 0)
 		goto Err1;
-	if(infernobithdr(buf, n))
-		strcpy(typ, "image/p9bit");
-	else
-		filetype(buf, n, typ, sizeof(typ));
+	filetype(buf, n, typ, sizeof(typ));
 	for(i=0; i<nelem(tab); i++)
 		if(strncmp(typ, tab[i].typ, strlen(tab[i].typ)) == 0)
 			break;
@@ -787,14 +785,14 @@ loadpage(Page *p)
 {
 	int fd;
 
-	if(p->open && p->image == nil && p->text == nil){
+	if(p->open && p->image == nil){
 		if((fd = openpage(p)) >= 0){
 			pagegen++;
 			p->image = readimage(display, fd, 1);
 			close(fd);
 		}
-		if(p->image == nil && p->text == nil)
-			p->text = smprint("%s: %r", p->label);
+		if(p->image == nil)
+			p->open = nil;
 	}
 	p->gen = pagegen;
 }
@@ -802,17 +800,12 @@ loadpage(Page *p)
 void
 unloadpage(Page *p)
 {
-	if(p->open){
-		if(p->text)
-			free(p->text);
-		p->text = nil;
-		if(p->image){
-			lockdisplay(display);
-			freeimage(p->image);
-			unlockdisplay(display);
-		}
-		p->image = nil;
-	}
+	if(p->open == nil || p->image == nil)
+		return;
+	lockdisplay(display);
+	freeimage(p->image);
+	unlockdisplay(display);
+	p->image = nil;
 }
 
 void
@@ -964,14 +957,16 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
 			sp.y++;
 		}
 	}
-	sp = r.min;
-	for(x=r.min.x; x<r.max.x; x++){
+
+	x=r.min.x;
+	for(sp=r.min; x<r.max.x; sp.x++){
 		gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, t, sp, nil, ZP, SoverD);
-		if(++a.x == f){
-			a.x = 0;
-			sp.x++;
-		}
+		for(x++; ++a.x<f && x<r.max.x; x++)
+			gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, d, 
+				Pt(x-1, r.min.y), nil, ZP, SoverD);
+		a.x = 0;
 	}
+
 	freeimage(t);
 }
 
@@ -988,16 +983,12 @@ drawpage(Page *p)
 	Image *i;
 
 	if((i = p->image) == nil){
-		char *s;
-
-		if((s = p->text) == nil)
-			s = "...";
 		r.min = ZP;
-		r.max = stringsize(font, p->text);
+		r.max = stringsize(font, p->label);
 		r = rectaddpt(r, addpt(subpt(divpt(subpt(screen->r.max, screen->r.min), 2), divpt(r.max, 2)),
 			screen->r.min));
 		draw(screen, r, display->white, nil, ZP);
-		string(screen, r.min, display->black, ZP, font, s);
+		string(screen, r.min, display->black, ZP, font, p->label);
 	} else {
 		r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
 		zoomdraw(screen, r, ZR, i, i->r.min, zoom);
@@ -1099,6 +1090,28 @@ showpage(Page *p)
 		loadpages(p, NAHEAD, oviewgen);
 		exits(nil);
 	}
+}
+
+void
+shownext(void)
+{
+	Page *p;
+
+	for(p = nextpage(current); p; p = nextpage(p))
+		if(p->image || p->open)
+			break;
+	showpage(p);
+}
+
+void
+showprev(void)
+{
+	Page *p;
+
+	for(p = prevpage(current); p; p = prevpage(p))
+		if(p->image || p->open)
+			break;
+	showpage(p);
 }
 
 void
@@ -1252,6 +1265,7 @@ main(int argc, char *argv[])
 				goto Unlock;
 			}
 			if(m.buttons & 2){
+				o = m.xy;
 				i = emenuhit(2, &m, &menu);
 				if(i < 0 || i >= nelem(menuitems) || menuitems[i]==nil)
 					goto Unlock;
@@ -1294,7 +1308,7 @@ main(int argc, char *argv[])
 				}
 				if(strncmp(s, "zoom", 4)==0){
 					if(current && canqlock(current)){
-						o = subpt(m.xy, screen->r.min);
+						o = subpt(o, screen->r.min);
 						if(strstr(s, "in")){
 							if(zoom < 0x40000000){
 								zoom *= 2;
@@ -1312,9 +1326,9 @@ main(int argc, char *argv[])
 				}
 				unlockdisplay(display);
 				if(strcmp(s, "next")==0)
-					showpage(nextpage(current));
+					shownext();
 				if(strcmp(s, "prev")==0)
-					showpage(prevpage(current));
+					showprev();
 				if(strcmp(s, "zerox")==0)
 					zerox(current);
 				if(strcmp(s, "quit")==0)
@@ -1357,7 +1371,7 @@ main(int argc, char *argv[])
 			case '-':
 			case Kbs:
 			case Kleft:
-				showpage(prevpage(current));
+				showprev();
 				break;
 			case Kdown:
 				if(current == nil || !canqlock(current))
@@ -1382,7 +1396,7 @@ main(int argc, char *argv[])
 				}
 			case ' ':
 			case Kright:
-				showpage(nextpage(current));
+				shownext();
 				break;
 			default:
 				i = strlen(jump);
