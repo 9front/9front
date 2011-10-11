@@ -164,6 +164,32 @@ catchnote(void *, char *msg)
 }
 
 void
+dupfds(int fd, ...)
+{
+	int mfd, n, i;
+	va_list arg;
+	Dir *dir;
+
+	va_start(arg, fd);
+	for(mfd = 0; fd >= 0; fd = va_arg(arg, int), mfd++)
+		if(fd != mfd)
+			if(dup(fd, mfd) < 0)
+				sysfatal("dup: %r");
+	va_end(arg);
+	if((fd = open("/fd", OREAD)) < 0)
+		sysfatal("open: %r");
+	n = dirreadall(fd, &dir);
+	for(i=0; i<n; i++){
+		if(strstr(dir[i].name, "ctl"))
+			continue;
+		fd = atoi(dir[i].name);
+		if(fd >= mfd)
+			close(fd);
+	}
+	free(dir);
+}
+
+void
 pipeline(int fd, char *fmt, ...)
 {
 	char buf[NPATH], *argv[4];
@@ -181,17 +207,10 @@ pipeline(int fd, char *fmt, ...)
 		close(pfd[1]);
 		goto Err;
 	case 0:
-		if(dup(fd, 0)<0)
-			exits("dup");
-		if(dup(pfd[1], 1)<0)
-			exits("dup");
-		close(fd);
-		close(pfd[1]);
-		close(pfd[0]);
+		dupfds(fd, pfd[1], 2, -1);
 		va_start(arg, fmt);
 		vsnprint(buf, sizeof buf, fmt, arg);
 		va_end(arg);
-
 		argv[0] = "rc";
 		argv[1] = "-c";
 		argv[2] = buf;
@@ -267,14 +286,13 @@ popentape(Page *p)
 
 	seek(p->fd, 0, 0);
 	snprint(mnt, sizeof(mnt), "/n/tapefs.%.12d%.8lux", getpid(), (ulong)p);
-	switch(rfork(RFREND|RFPROC|RFFDG)){
+	switch(rfork(RFPROC|RFFDG|RFREND)){
 	case -1:
 		close(p->fd);
 		p->fd = -1;
 		return -1;
 	case 0:
-		dup(p->fd, 0);
-		close(p->fd);
+		dupfds(p->fd, 1, 2, -1);
 		argv[0] = "rc";
 		argv[1] = "-c";
 		snprint(cmd, sizeof(cmd), "%s -m %s /fd/0", p->data, mnt);
@@ -356,29 +374,24 @@ popenpdf(Page *p)
 
 	if(pipe(pfd) < 0)
 		return -1;
-	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT)){
+	switch(rfork(RFPROC|RFFDG|RFMEM|RFNOWAIT)){
 	case -1:
 		close(pfd[0]);
 		close(pfd[1]);
 		return -1;
 	case 0:
-		close(pfd[0]);
 		gs = p->data;
 		qlock(gs);
-		fprint(gs->pin, "%s DoPDFPage\n"
+		dupfds(gs->pdat, gs->pin, pfd[1], -1);
+		fprint(1, "%s DoPDFPage\n"
 			"(/fd/3) (w) file "
 			"dup flushfile "
 			"dup (THIS IS NOT AN INFERNO BITMAP\\n) writestring "
 			"flushfile\n", p->label);
-		while((n = read(gs->pdat, buf, sizeof buf)) > 0){
+		while((n = read(0, buf, sizeof buf)) > 0){
 			if(memcmp(buf, "THIS IS NOT AN INFERNO BITMAP\n", 30) == 0)
 				break;
-			if(pfd[1] < 0)
-				continue;
-			if(write(pfd[1], buf, n) != n){
-				close(pfd[1]);
-				pfd[1]=-1;
-			}
+			write(2, buf, n);
 		}
 		qunlock(gs);
 		exits(nil);
@@ -436,39 +449,16 @@ popengs(Page *p)
 		goto Err1;
 	}
 
-	switch(rfork(RFREND|RFPROC|RFFDG|RFNOWAIT)){
+	switch(rfork(RFPROC|RFFDG|RFREND|RFNOWAIT)){
 	case -1:
 		goto Err2;
 	case 0:
-		if(pdf){
-			if(dup(pin[1], 0)<0)
-				exits("dup");
-			if(dup(pout[1], 1)<0)
-				exits("dup");
-		} else {
-			if(dup(nullfd, 0)<0)
-				exits("dup");
-			if(dup(nullfd, 1)<0)
-				exits("dup");
-		}
-		if(dup(nullfd, 2)<0)
-			exits("dup");
-		if(dup(pdat[1], 3)<0)
-			exits("dup");
-		if(dup(ifd, 4)<0)
-			exits("dup");
-
-		close(pin[0]);
-		close(pin[1]);
-		close(pout[0]);
-		close(pout[1]);
-		close(pdat[0]);
-		close(pdat[1]);
-		close(ifd);
-
+		if(pdf)
+			dupfds(pin[1], pout[1], nullfd, pdat[1], ifd, -1);
+		else
+			dupfds(nullfd, nullfd, nullfd, pdat[1], ifd, -1);
 		if(p->data)
 			pipeline(4, "%s", (char*)p->data);
-
 		argv[0] = "gs";
 		argv[1] = "-q";
 		argv[2] = "-sDEVICE=plan9";
@@ -580,15 +570,8 @@ filetype(char *buf, int nbuf, char *typ, int ntyp)
 		close(ifd[1]);
 		return -1;
 	}
-	if(rfork(RFFDG|RFPROC|RFNOWAIT) == 0){
-		dup(ifd[1], 0);
-		dup(ofd[1], 1);
-
-		close(ifd[1]);
-		close(ifd[0]);
-		close(ofd[1]);
-		close(ofd[0]);
-
+	if(rfork(RFPROC|RFFDG|RFREND|RFNOWAIT) == 0){
+		dupfds(ifd[1], ofd[1], 2, -1);
 		argv[0] = "file";
 		argv[1] = "-m";
 		argv[2] = 0;
@@ -596,9 +579,9 @@ filetype(char *buf, int nbuf, char *typ, int ntyp)
 	}
 	close(ifd[1]);
 	close(ofd[1]);
-	if(rfork(RFFDG|RFPROC|RFNOWAIT) == 0){
-		close(ofd[0]);
-		write(ifd[0], buf, nbuf);
+	if(rfork(RFPROC|RFFDG|RFNOWAIT) == 0){
+		dupfds(ifd[0], -1);
+		write(0, buf, nbuf);
 		exits(nil);
 	}
 	close(ifd[0]);
@@ -1129,10 +1112,8 @@ zerox(Page *p)
 	qlock(p);
 	if((fd = openpage(p)) < 0)
 		goto Out;
-	if(rfork(RFREND|RFFDG|RFPROC|RFENVG|RFNOTEG|RFNOWAIT) == 0){
-		dup(fd, 0);
-		close(fd);
-
+	if(rfork(RFPROC|RFFDG|RFREND|RFENVG|RFNOTEG|RFNOWAIT) == 0){
+		dupfds(fd, 1, 2, -1);
 		snprint(nam, sizeof nam, "/bin/%s", argv0);
 		argv[0] = argv0;
 		argv[1] = "-w";
