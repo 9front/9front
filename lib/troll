@@ -52,3 +52,6 @@ Why should I boot Plan 9, when I know I can't run a browser, and I already have 
 The (9P) protocol has also other glaring mis-features -- it lacks the ability of moving files -- if you want to move a big file on a remote machine from one directory to another, you'll have to copy it back and forth, all the way. This is incredibly dumb.
 I doubt plan9 will ever get into a usable system. Everything inside is like high-brow silliness, second-system syndrome and stupid vulnerabilities you only meet with in historic code from 30 years ago.
 As to the ideas inspired by plan9 in modern unix systems, they quickly became just encumbering legacy crap -- e.g. the /proc system in linux.
+I've installed linux and a full LAMP server remotely. I've compiled and installed dozens of open source libraries from Ogg Vorbis to Freetype.
+That's a reason why one of my favorite languages is php. It just works.
+Petition to have Obama address occupy wallstreet movement
