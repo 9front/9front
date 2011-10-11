@@ -35,7 +35,8 @@ Point resize, pos;
 Page *root, *current;
 QLock pagelock;
 int nullfd;
-Image *background;
+
+Image *frame, *paper, *ground;
 
 char pagespool[] = "/tmp/pagespool.";
 
@@ -929,6 +930,7 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
 	Point a;
 
 	if(f <= 1){
+		gendrawdiff(d, r, top, paper, sp, nil, ZP, SoverD);
 		gendrawdiff(d, r, top, s, sp, nil, ZP, SoverD);
 		return;
 	}
@@ -947,7 +949,7 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
 	w = s->r.max.x - sp.x;
 	if(w > Dx(r))
 		w = Dx(r);
-	t = allocimage(display, Rect(r.min.x, r.min.y, r.min.x+w, r.max.y), s->chan, 0, DNofill);
+	t = allocimage(display, Rect(r.min.x, r.min.y, r.min.x+w, r.max.y), s->chan, 0, 0);
 	if(t == nil)
 		return;
 	for(y=r.min.y; y<r.max.y; y++){
@@ -957,16 +959,15 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
 			sp.y++;
 		}
 	}
-
 	x=r.min.x;
 	for(sp=r.min; x<r.max.x; sp.x++){
+		gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, paper, sp, nil, ZP, SoverD);
 		gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, t, sp, nil, ZP, SoverD);
 		for(x++; ++a.x<f && x<r.max.x; x++)
 			gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, d, 
 				Pt(x-1, r.min.y), nil, ZP, SoverD);
 		a.x = 0;
 	}
-
 	freeimage(t);
 }
 
@@ -977,46 +978,48 @@ pagesize(Page *p)
 }
 
 void
+drawframe(Rectangle r)
+{
+	border(screen, r, -Borderwidth, frame, ZP);
+	gendrawdiff(screen, screen->r, insetrect(r, -Borderwidth), ground, ZP, nil, ZP, SoverD);
+	flushimage(display, 1);
+}
+
+void
 drawpage(Page *p)
 {
 	Rectangle r;
 	Image *i;
 
-	if((i = p->image) == nil){
-		r.min = ZP;
-		r.max = stringsize(font, p->label);
-		r = rectaddpt(r, addpt(subpt(divpt(subpt(screen->r.max, screen->r.min), 2), divpt(r.max, 2)),
-			screen->r.min));
-		draw(screen, r, display->white, nil, ZP);
-		string(screen, r.min, display->black, ZP, font, p->label);
-	} else {
+	if(i = p->image){
 		r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
 		zoomdraw(screen, r, ZR, i, i->r.min, zoom);
+	} else {
+		r = Rpt(ZP, stringsize(font, p->label));
+		r = rectaddpt(r, addpt(subpt(divpt(subpt(screen->r.max, screen->r.min), 2),
+			divpt(r.max, 2)), screen->r.min));
+		draw(screen, r, paper, nil, ZP);
+		string(screen, r.min, display->black, ZP, font, p->label);
 	}
-	gendrawdiff(screen, screen->r, r, background, ZP, nil, ZP, SoverD);
-	border(screen, r, -Borderwidth, display->black, ZP);
-	flushimage(display, 1);
+	drawframe(r);
 }
 
 void
 translate(Page *p, Point d)
 {
-	Rectangle r, or, nr;
+	Rectangle r, nr;
 	Image *i;
 
 	i = p->image;
-	if((i==0) || (d.x==0 && d.y==0))
+	if(i==0 || d.x==0 && d.y==0)
 		return;
 	r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
 	pos = addpt(pos, d);
 	nr = rectaddpt(r, d);
-	or = r;
-	rectclip(&or, screen->r);
-	draw(screen, rectaddpt(or, d), screen, nil, or.min);
-	zoomdraw(screen, nr, rectaddpt(or, d), i, i->r.min, zoom);
-	gendrawdiff(screen, screen->r, nr, background, ZP, nil, ZP, SoverD);
-	border(screen, nr, -Borderwidth, display->black, ZP);
-	flushimage(display, 1);
+	rectclip(&r, screen->r);
+	draw(screen, rectaddpt(r, d), screen, nil, r.min);
+	zoomdraw(screen, nr, rectaddpt(r, d), i, i->r.min, zoom);
+	drawframe(nr);
 }
 
 Page*
@@ -1229,14 +1232,15 @@ main(int argc, char *argv[])
 		free(s);
 	}
 	initdraw(drawerr, nil, argv0);
-	background = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x777777FF);
-	draw(screen, screen->r, background, nil, ZP);
-	flushimage(display, 1);
+	paper = display->white;
+	frame = display->black;
+	ground = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x777777FF);
 	display->locking = 1;
 	unlockdisplay(display);
 	einit(Ekeyboard|Emouse);
 	eplumb(Eplumb, "image");
-	nullfd = open("/dev/null", ORDWR);
+	if((nullfd = open("/dev/null", ORDWR)) < 0)
+		sysfatal("open: %r");
 	current = root = addpage(nil, "root", nil, nil, -1);
 
 	if(*argv == nil && !imode)
