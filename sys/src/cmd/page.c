@@ -772,7 +772,8 @@ loadpage(Page *p)
 	if(p->open && p->image == nil){
 		if((fd = openpage(p)) >= 0){
 			pagegen++;
-			p->image = readimage(display, fd, 1);
+			if((p->image = readimage(display, fd, 1)) == nil)
+				fprint(2, "readimage: %r\n");
 			close(fd);
 		}
 		if(p->image == nil)
