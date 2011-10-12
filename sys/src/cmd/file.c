@@ -923,7 +923,9 @@ iff(void)
 char*	html_string[] =
 {
 	"?xml",
-	"!doctype",
+	"!--",
+	"![CDATA[",
+	"!DOCTYPE",
 	"html",
 	"head",
 	"title",
@@ -963,35 +965,34 @@ char*	html_string[] =
 int
 ishtml(void)
 {
-	uchar *p, *q;
-	int i, count;
+	int i, n, count;
+	uchar *p;
 
-		/* compare strings between '<' and '>' to html table */
 	count = 0;
 	p = buf;
 	for(;;) {
-		while (p < buf+nbuf && *p != '<')
+		while(p < buf+nbuf && *p != '<')
 			p++;
 		p++;
 		if (p >= buf+nbuf)
 			break;
 		if(*p == '/')
 			p++;
-		q = p;
-		while(p < buf+nbuf && isalpha(*p))
-			p++;
-		if (p >= buf+nbuf)
+		if(p >= buf+nbuf)
 			break;
-		for(i = 0; html_string[i]; i++) {
-			if(cistrncmp(html_string[i], (char*)q, p-q) == 0) {
+		for(i = 0; html_string[i]; i++){
+			n = strlen(html_string[i]);
+			if(p + n > buf+nbuf)
+				continue;
+			if(cistrncmp(html_string[i], (char*)p, n) == 0) {
 				if(++count > 2) {
 					print(mime ? "text/html\n" : "HTML file\n");
 					return 1;
 				}
+				p += n;
 				break;
 			}
 		}
-		p++;
 	}
 	return 0;
 }
@@ -1348,7 +1349,7 @@ isp9bit(void)
 	 * for subfont, the subfont header should follow immediately.
 	 */
 	if (cmpr) {
-		print(mime ? OCTET : "Compressed %splan 9 image or subfont, depth %d\n",
+		print(mime ? "image/p9bit\n" : "Compressed %splan 9 image or subfont, depth %d\n",
 			newlabel, dep);
 		return 1;
 	}
@@ -1358,11 +1359,11 @@ isp9bit(void)
 	 */
 	if (len != 0 && (mbuf->length == 0 || mbuf->length == len ||
 	    mbuf->length > len && mbuf->length < len+P9BITLEN)) {
-		print(mime ? OCTET : "%splan 9 image, depth %d\n", newlabel, dep);
+		print(mime ? "image/p9bit\n" : "%splan 9 image, depth %d\n", newlabel, dep);
 		return 1;
 	}
 	if (p9subfont(buf+len)) {
-		print(mime ? OCTET : "%ssubfont file, depth %d\n", newlabel, dep);
+		print(mime ? "image/p9bit\n" : "%ssubfont file, depth %d\n", newlabel, dep);
 		return 1;
 	}
 	return 0;
