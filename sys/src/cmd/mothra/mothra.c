@@ -248,6 +248,8 @@ void donecurs(void){
 		esetcursor(current->alldone ? 0 : &readingcurs);
 }
 
+void scrollto(char *tag);
+
 void main(int argc, char *argv[]){
 	Event e;
 	enum { Eplumb = 128 };
@@ -333,6 +335,8 @@ void main(int argc, char *argv[]){
 		if(mouse.buttons==0 && current){
 			if(current->finished){
 				updtext(current);
+				if(current->url->tag[0])
+					scrollto(current->url->tag);
 				current->finished=0;
 				current->changed=0;
 				current->alldone=1;
@@ -766,10 +770,6 @@ void gettext(Www *w, int fd, int type){
 	switch(rfork(RFFDG|RFPROC|RFNOWAIT|RFMEM)){
 	case -1:
 		message("Can't fork, please wait");
-		if(type==HTML)
-			plrdhtml(w->url->fullname, fd, w);
-		else
-			plrdplain(w->url->fullname, fd, w);
 		break;
 	case 0:
 		if(type==HTML)
@@ -799,27 +799,6 @@ void freetext(Rtext *t){
 		}
 	}
 	plrtfree(tt);
-}
-
-int readstr(char *buf, int nbuf, char *base, char *name)
-{
-	char path[128];
-	int n, fd;
-
-	snprint(path, sizeof path, "%s/%s", base, name);
-	if((fd = open(path, OREAD)) < 0){
-	ErrOut:
-		memset(buf, 0, nbuf);
-		return 0;
-	}
-	n = read(fd, buf, nbuf-1);
-	close(fd);
-	if(n <= 0){
-		close(fd);
-		goto ErrOut;
-	}
-	buf[n] = 0;
-	return n;
 }
 
 int fileurlopen(Url *url){
@@ -856,6 +835,21 @@ int fileurlopen(Url *url){
 	return fd;
 }
 
+int readstr(char *buf, int nbuf, char *base, char *name){
+	char path[128];
+	int n, fd;
+
+	n = 0;
+	snprint(path, sizeof path, "%s/%s", base, name);
+	if((fd = open(path, OREAD)) >= 0){
+		if((n = read(fd, buf, nbuf-1)) < 0)
+			n = 0;
+		close(fd);
+	}
+	buf[n] = 0;
+	return n;
+}
+
 int urlopen(Url *url, int method, char *body){
 	int conn, ctlfd, fd, n;
 	char buf[1024+1], *p;
@@ -865,7 +859,6 @@ int urlopen(Url *url, int method, char *body){
 	if(method == GET)
 		if((fd = fileurlopen(url)) >= 0)
 			return fd;
-
 	snprint(buf, sizeof buf, "%s/clone", mtpt);
 	if((ctlfd = open(buf, ORDWR)) < 0)
 		return -1;
@@ -875,7 +868,6 @@ int urlopen(Url *url, int method, char *body){
 	}
 	buf[n] = 0;
 	conn = atoi(buf);
-
 	if(url->basename[0]){
 		n = snprint(buf, sizeof buf, "baseurl %s", url->basename);
 		write(ctlfd, buf, n);
@@ -886,7 +878,6 @@ int urlopen(Url *url, int method, char *body){
 		close(ctlfd);
 		return -1;
 	}
-
 	if(method == POST && body){
 		snprint(buf, sizeof buf, "%s/%d/postbody", mtpt, conn);
 		if((fd = open(buf, OWRITE)) < 0)
@@ -898,11 +889,9 @@ int urlopen(Url *url, int method, char *body){
 		}
 		close(fd);
 	}
-
 	snprint(buf, sizeof buf, "%s/%d/body", mtpt, conn);
 	if((fd = open(buf, OREAD)) < 0)
 		goto ErrOut;
-
 	snprint(buf, sizeof buf, "%s/%d/parsed", mtpt, conn);
 	readstr(url->fullname, sizeof(url->fullname), buf, "url");
 	readstr(url->tag, sizeof(url->tag), buf, "fragment");
