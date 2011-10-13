@@ -699,12 +699,7 @@ void docmd(Panel *p, char *s){
 }
 void hiturl(int buttons, char *url, int map){
 	switch(buttons){
-	case 1:
-		if(*url == '#')
-			scrollto(url+1);
-		else
-			geturl(url, GET, 0, 0, map);
-		break;
+	case 1: geturl(url, GET, 0, 0, map); break;
 	case 2: selurl(url); break;
 	case 4: message("Button 3 hit on url can't happen!"); break;
 	}
@@ -980,6 +975,11 @@ void geturl(char *urlname, int method, char *body, int plumb, int map){
 	char *file, cmd[NNAME];
 	int pfd[2];
 	Www *w;
+
+	if(*urlname == '#'){
+		scrollto(urlname+1);
+		return;
+	}
 
 	selurl(urlname);
 	selection->map=map;
