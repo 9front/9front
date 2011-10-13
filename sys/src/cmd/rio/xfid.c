@@ -161,6 +161,7 @@ xfidattach(Xfid *x)
 	err = Eunkid;
 	newlymade = FALSE;
 	hideit = 0;
+	scrollit = scrolling;
 
 	if(x->aname[0] == 'N'){	/* N 100,100, 200, 200 - old syntax */
 		n = x->aname+1;
@@ -189,7 +190,7 @@ xfidattach(Xfid *x)
 				border(i, r, Selborder, display->black, ZP);
 				if(pid == 0)
 					pid = -1;	/* make sure we don't pop a shell! - UGH */
-				w = new(i, hideit, scrolling, pid, nil, nil, nil);
+				w = new(i, hideit, scrollit, pid, nil, nil, nil);
 				flushimage(display, 1);
 				newlymade = TRUE;
 			}else
