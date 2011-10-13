@@ -109,10 +109,6 @@ snooptype(int fd)
 	"application/ghostscript",	PAGE,
 	"application/troff",		PAGE,
 
-	"application/zip",		PAGE,
-	"application/x-tar",		PAGE,
-	"application/x-ustar",		PAGE,
-
 	"image/",			PAGE,
 	"text/",			PLAIN,
 	};

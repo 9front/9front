@@ -389,6 +389,26 @@ void main(int argc, char *argv[]){
 		}
 	}
 }
+Cursor confirmcursor={
+	0, 0,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+
+	0x00, 0x0E, 0x07, 0x1F, 0x03, 0x17, 0x73, 0x6F,
+	0xFB, 0xCE, 0xDB, 0x8C, 0xDB, 0xC0, 0xFB, 0x6C,
+	0x77, 0xFC, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03,
+	0x94, 0xA6, 0x63, 0x3C, 0x63, 0x18, 0x94, 0x90,
+};
+int confirm(int b){
+	Mouse down, up;
+	esetcursor(&confirmcursor);
+	do down=emouse(); while(!down.buttons);
+	do up=emouse(); while(up.buttons);
+	donecurs();
+	return down.buttons==(1<<(b-1));
+}
 void message(char *s, ...){
 	static char buf[1024];
 	char *out;
@@ -497,37 +517,60 @@ char *arg(char *s){
 	do ++s; while(*s==' ' || *s=='\t');
 	return s;
 }
-void save(Url *url, char *name){
-	int ofd, ifd, n;
+void save(int ifd, char *name){
 	char buf[4096];
-	ofd=create(name, OWRITE, 0666);
-	if(ofd==-1){
+	int ofd;
+	if(ifd < 0){
 		message("save: %s: %r", name);
 		return;
 	}
-	esetcursor(&patientcurs);
-	ifd=urlopen(url, GET, 0);
-	donecurs();
-	if(ifd==-1){
-		message("save: %s: %r", selection->fullname);
-		close(ofd);
+	ofd=create(name, OEXCL|OWRITE, 0666);
+	if(ofd < 0){
+		message("save: %s: %r", name);
+		return;
 	}
-	switch(rfork(RFNOTEG|RFFDG|RFPROC|RFNOWAIT)){
+	switch(rfork(RFNOTEG|RFNAMEG|RFFDG|RFPROC|RFNOWAIT)){
 	case -1:
-		message("Can't fork -- please wait");
-		esetcursor(&patientcurs);
-		while((n=read(ifd, buf, 4096))>0)
-			write(ofd, buf, n);
-		donecurs();
+		message("Can't fork: %r");
 		break;
 	case 0:
-		while((n=read(ifd, buf, 4096))>0)
-			write(ofd, buf, n);
-		if(n==-1) fprint(2, "save: %s: %r\n", url->fullname);
-		_exits(0);
+		snprint(buf, sizeof(buf), "-pid %d", getpid());
+		if(newwindow(buf) != -1){
+			int blk, cfd, n;
+			vlong off;
+
+			close(1); open("/dev/cons", OWRITE);
+			if((cfd = open("/dev/label", OWRITE)) >= 0){
+				fprint(cfd, "save %s", name);
+				close(cfd);
+			}
+			if((cfd = open("/dev/wctl", OWRITE)) >= 0){
+				fprint(cfd, "scroll\n");
+				close(cfd);
+			}
+			off = 0;
+			blk = 0;
+			werrstr("");
+			for(;;){
+				if((blk++ % 4) == 0){
+					if(off > 0)
+						print("\n");
+					print("%s: ", name);
+				}
+				if((n=read(ifd, buf, sizeof(buf))) <= 0)
+					break;
+				if(write(ofd, buf, n) != n)
+					break;
+				off += n;
+				print("%lldK... ", off/1024);
+			}
+			print("%r\n");
+		}
+		exits(0);
 	}
 	close(ifd);
 	close(ofd);
+	donecurs();
 }
 void screendump(char *name, int full){
 	Image *b;
@@ -553,6 +596,26 @@ void screendump(char *name, int full){
 }
 
 /*
+ * convert a url into a local file name.
+ */
+char *urltofile(Url *url){
+	char *name, *slash;
+	if(url == nil)
+		return nil;
+	if(url->fullname[0])
+		name = url->fullname;
+	else if(url->reltext[0])
+		name = url->reltext;
+	else
+		name = "/";
+	if(slash = strrchr(name, '/'))
+		name = slash+1;
+	if(name[0] == 0)
+		name = "index";
+	return name;
+}
+
+/*
  * user typed a command.
  */
 void docmd(Panel *p, char *s){
@@ -562,7 +625,7 @@ void docmd(Panel *p, char *s){
 	 * Non-command does a get on the url
 	 */
 	if(s[0]!='\0' && s[1]!='\0' && s[1]!=' ')
-		geturl(s, GET, 0, 1, 0);
+		geturl(s, GET, 0, 0, 0);
 	else switch(s[0]){
 	default:
 		message("Unknown command %s, type h for help", s);
@@ -576,11 +639,11 @@ void docmd(Panel *p, char *s){
 		s = arg(s);
 		if(*s=='\0'){
 			if(selection)
-				geturl(selection->fullname, GET, 0, 1, 0);
+				geturl(selection->fullname, GET, 0, 0, 0);
 			else
 				message("no url selected");
 		}
-		else geturl(s, GET, 0, 1, 0);
+		else geturl(s, GET, 0, 0, 0);
 		break;
 	case 'j':
 		s = arg(s);
@@ -612,17 +675,15 @@ void docmd(Panel *p, char *s){
 		break;
 	case 's':
 		s = arg(s);
-		if(*s=='\0'){
-			if(selection){
-				s=strrchr(selection->fullname, '/');
-				if(s) s++;
-			}
+		if(selection){
+			if(s==0 || *s=='\0')
+				s = urltofile(selection);
 			if(s==0 || *s=='\0'){
 				message("Usage: s file");
 				break;
 			}
+			save(urlopen(selection, GET, 0), s);
 		}
-		save(selection, s);
 		break;
 	case 'q':
 		draw(screen, screen->r, display->white, 0, ZP);
@@ -633,7 +694,7 @@ void docmd(Panel *p, char *s){
 }
 void hiturl(int buttons, char *url, int map){
 	switch(buttons){
-	case 1: geturl(url, GET, 0, 1, map); break;
+	case 1: geturl(url, GET, 0, 0, map); break;
 	case 2: selurl(url); break;
 	case 4: message("Button 3 hit on url can't happen!"); break;
 	}
@@ -655,18 +716,6 @@ void doprev(Panel *p, int buttons, int index){
 }
 
 /*
- * convert a url into a local file name.
- */
-char *urltofile(char *url){
-	char *slash;
-	if(slash = strrchr(url, '/'))
-		url = slash+1;
-	if(url[0] == 0)
-		return "index";
-	return url;
-}
-
-/*
  * Follow an html link
  */
 void dolink(Panel *p, int buttons, Rtext *word){
@@ -679,21 +728,14 @@ void dolink(Panel *p, int buttons, Rtext *word){
 	a=word->user;
 	if(a == nil || a->image == nil && a->link == nil)
 		return;
-	if(mothmode){
-		seturl(&u, a->image ? a->image : a->link, current->url->fullname);
-		if(buttons == 1){
-			save(&u, file=urltofile(u.reltext));
-			message("saved %s", file);
-		} else if(buttons == 2)
-			hiturl(buttons, u.reltext, 0);
-		return;
-	}
-	if(a->ismap){
+	if(mothmode)
+		hiturl(buttons, a->image ? a->image : a->link, 0);
+	else if(a->ismap){
 		yoffs=plgetpostextview(p);
 		coord=subpt(subpt(mouse.xy, word->r.min), p->r.min);
 		snprint(mapurl, sizeof(mapurl), "%s?%d,%d", a->link, coord.x, coord.y+yoffs);
 		hiturl(buttons, mapurl, 1);
-	}else
+	} else
 		hiturl(buttons, a->link ? a->link : a->image, 0);
 }
 
@@ -753,18 +795,6 @@ void freetext(Rtext *t){
 		}
 	}
 	plrtfree(tt);
-}
-
-void popwin(char *cmd){
-	flushimage(display, 1);
-	switch(rfork(RFFDG|RFPROC|RFNOWAIT)){
-	case -1:
-		message("sorry, can't fork to %s", cmd);
-		break;
-	case 0:
-		execl("/bin/window", "window", "100 100 800 800", "rc", "-c", cmd, 0);
-		_exits(0);
-	}
 }
 
 int readstr(char *buf, int nbuf, char *base, char *name)
@@ -936,9 +966,9 @@ void freeurl(Url *u){
 /*
  * get the file at the given url
  */
-void geturl(char *urlname, int method, char *body, int cache, int map){
+void geturl(char *urlname, int method, char *body, int plumb, int map){
 	int i, fd, typ;
-	char cmd[NNAME];
+	char *file, cmd[NNAME];
 	int pfd[2];
 	Www *w;
 
@@ -954,18 +984,36 @@ void geturl(char *urlname, int method, char *body, int cache, int map){
 			break;
 		}
 		message("getting %s", selection->fullname);
-		typ = snooptype(fd);
-		if(typ == GUNZIP){
-			fd=pipeline("/bin/gunzip", fd);
+		if(mothmode && !plumb)
+			typ = -1;
+		else {
 			typ = snooptype(fd);
-		}
-		if(typ == COMPRESS){
-			fd=pipeline("/bin/uncompress", fd);
-			typ = snooptype(fd);
+			if(typ == GUNZIP){
+				fd=pipeline("/bin/gunzip", fd);
+				typ = snooptype(fd);
+			}
+			if(typ == COMPRESS){
+				fd=pipeline("/bin/uncompress", fd);
+				typ = snooptype(fd);
+			}
 		}
 		switch(typ){
 		default:
-			message("Bad type %x in geturl", typ);
+			if(plumb){
+				message("unknown file type");
+				close(fd);
+				break;
+			}
+			file = urltofile(selection);
+			if(!mothmode){
+				message("save to '%s' ?", file);
+				if(!confirm(1)){
+					message(mothra);
+					close(fd);
+					break;
+				}
+			}
+			save(fd, file);
 			break;
 		case HTML:
 			fd = pipeline("/bin/uhtml", fd);
@@ -1000,14 +1048,14 @@ void geturl(char *urlname, int method, char *body, int cache, int map){
 			setcurrent(i, selection->tag);
 			break;
 		case GIF:
-			if(rfork(RFFDG|RFPROC|RFNAMEG|RFNOWAIT) == 0){
+			if(rfork(RFFDG|RFNOTEG|RFPROC|RFNAMEG|RFNOWAIT) == 0){
 				snprint(cmd, sizeof(cmd), "-pid %d", getpid());
 				if(newwindow(cmd) != -1){
 					close(1); open("/dev/cons", OWRITE);
 					print("reading gif...\n");
 					filter("gif", fd);
 				}
-				exits(nil);
+				exits(0);
 			}
 			close(fd);
 			break;
@@ -1076,26 +1124,6 @@ mothon(Www *w, int on)
 	donecurs();
 }
 
-Cursor confirmcursor={
-	0, 0,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-
-	0x00, 0x0E, 0x07, 0x1F, 0x03, 0x17, 0x73, 0x6F,
-	0xFB, 0xCE, 0xDB, 0x8C, 0xDB, 0xC0, 0xFB, 0x6C,
-	0x77, 0xFC, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03,
-	0x94, 0xA6, 0x63, 0x3C, 0x63, 0x18, 0x94, 0x90,
-};
-int confirm(int b){
-	Mouse down, up;
-	esetcursor(&confirmcursor);
-	do down=emouse(); while(!down.buttons);
-	do up=emouse(); while(up.buttons);
-	donecurs();
-	return down.buttons==(1<<(b-1));
-}
 void snarf(Panel *p){
 	int fd;
 	fd=create("/dev/snarf", OWRITE, 0666);
