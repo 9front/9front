@@ -628,6 +628,14 @@ void plrdhtml(char *name, int fd, Www *dst){
 			pl_pushstate(&g, g.tag);
 			break;
 		}
+		if(str=pl_getattr(g.attr, "id")){
+			char swap[NNAME];
+
+			strncpy(swap, g.state->name, sizeof(swap));
+			strncpy(g.state->name, str, sizeof(g.state->name));
+			pl_htmloutput(&g, 0, "", 0);
+			strncpy(g.state->name, swap, sizeof(g.state->name));
+		}
 		switch(g.tag){
 		default:
 			htmlerror(g.name, g.lineno,

@@ -481,14 +481,29 @@ char *genwww(Panel *, int index){
 	return buf;
 }
 
+void scrollto(char *tag){
+	Rtext *tp;
+	Action *ap;
+	if(current == nil || text == nil)
+		return;
+	if(tag && tag[0]){
+		for(tp=current->text;tp;tp=tp->next){
+			ap=tp->user;
+			if(ap && ap->name && strcmp(ap->name, tag)==0){
+				current->yoffs=tp->topy;
+				break;
+			}
+		}
+	}
+	plsetpostextview(text, current->yoffs);
+	flushimage(display, 1);
+}
+
 /*
  * selected text should be a url.
- * get the document, scroll to the given tag
  */
 void setcurrent(int index, char *tag){
 	Www *new;
-	Rtext *tp;
-	Action *ap;
 	int i;
 	new=www(index);
 	if(new==current && (tag==0 || tag[0]==0)) return;
@@ -500,18 +515,8 @@ void setcurrent(int index, char *tag){
 	plinitlabel(cururl, PACKE|EXPAND, current->url->fullname);
 	if(defdisplay) pldraw(cururl, screen);
 	plinittextview(text, PACKE|EXPAND, Pt(0, 0), current->text, dolink);
-	if(tag && tag[0]){
-		for(tp=current->text;tp;tp=tp->next){
-			ap=tp->user;
-			if(ap && ap->name && strcmp(ap->name, tag)==0){
-				current->yoffs=tp->topy;
-				break;
-			}
-		}
-	}
-	plsetpostextview(text, current->yoffs);
+	scrollto(tag);
 	donecurs();
-	flushimage(display, 1);
 }
 char *arg(char *s){
 	do ++s; while(*s==' ' || *s=='\t');
@@ -694,7 +699,12 @@ void docmd(Panel *p, char *s){
 }
 void hiturl(int buttons, char *url, int map){
 	switch(buttons){
-	case 1: geturl(url, GET, 0, 0, map); break;
+	case 1:
+		if(*url == '#')
+			scrollto(url+1);
+		else
+			geturl(url, GET, 0, 0, map);
+		break;
 	case 2: selurl(url); break;
 	case 4: message("Button 3 hit on url can't happen!"); break;
 	}
