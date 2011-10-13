@@ -723,7 +723,6 @@ void dolink(Panel *p, int buttons, Rtext *word){
 	Point coord;
 	int yoffs;
 	Action *a;
-	Url u;
 
 	a=word->user;
 	if(a == nil || a->image == nil && a->link == nil)
