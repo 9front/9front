@@ -73,7 +73,7 @@ clonectl(Ctl *c)
 void
 clientbodyopen(Client *c, Req *r)
 {
-	char e[ERRMAX], *next;
+	char e[ERRMAX], *next, *frag;
 	int i, nauth;
 	Url *u;
 
@@ -116,6 +116,11 @@ clientbodyopen(Client *c, Req *r)
 		}
 		if((u = parseurl(next, c->url)) == nil)
 			goto Error;
+		/* if there was a redirect, carry over the fragment */
+		if((frag = c->url->fragment) && u->fragment == nil){
+			u->fragment = estrdup(frag);
+			rewriteurl(u);
+		}
 		if(urldebug)
 			fprint(2, "parseurl %s got scheme %d\n", next, u->ischeme);
 		if(u->ischeme == USunknown){

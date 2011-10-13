@@ -434,7 +434,7 @@ resolve_relative(SplitUrl *su, Url *base, Url *u)
 
 	if(su->fragment.s){
 		*purl++ = '#';
-		memmove(purl, su->query.s, su->query.e - su->query.s);
+		memmove(purl, su->fragment.s, su->fragment.e - su->fragment.s);
 		purl += su->fragment.e - su->fragment.s;
 	}else if(currentdoc && base->fragment){
 		*purl++ = '#';
