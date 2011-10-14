@@ -92,8 +92,11 @@ Button 3 pops up a menu of commands:
 Collapse or expand the navigation boxes at the top of the browser window.
 .TP
 .B moth mode
-Enter moth mode and switch to the moth cursor. Clicking an image or link
-with mouse button 1 saves a copy of the file in the current directory.
+Enter moth mode and switch to the moth cursor. If the HREF of an image
+link is different from the URL of the image itself, a link to the HREF will be
+printed on the right side of the image. Clicking an image or link with mouse
+button 1 saves a copy of the file in the current directory. Clicking mouse
+button 2 sets the target as the current URL.
 Clicking the
 .B moth mode
 menu option again exits moth mode.
