@@ -10,12 +10,11 @@
 int
 Hfmt(Fmt *f)
 {
-	uchar *p;
-
-	p = va_arg(f->args, uchar*);
-	return fmtprint(f, 
-		"%.2x%.2x%.2x%.2x%.2x%.2x",
-		p[0], p[1], p[2], p[3], p[4], p[5]);
+	uchar *p, *e;
+	for(p = va_arg(f->args, uchar*), e = p + HASHSZ; p != e; p++)
+		if(fmtprint(f, "%.2x", *p) < 0)
+			return -1;
+	return 0;
 }
 
 int
