@@ -1180,6 +1180,9 @@ ismung(void)
 		if(buf[0]=='B' && buf[1]=='Z' && buf[2]=='h')
 			print(mime ? "application/x-bzip2" : "bzip2 compressed\n");
 		else
+		if(buf[0]==0x78 && buf[1]==0x9c)
+			print(mime ? "application/x-deflate" : "zlib compressed\n");
+		else
 			print(mime ? OCTET : "encrypted\n");
 		return 1;
 	}
