@@ -13,6 +13,7 @@
 enum {
 	Qroot,
 		Qrev,
+			Qrev0,
 			Qrev1,
 			Qrev2,
 			Qlog,
@@ -27,6 +28,7 @@ enum {
 static char *nametab[] = {
 	"/",
 		nil,
+			"rev",
 			"rev1",
 			"rev2",
 			"log",
@@ -182,6 +184,7 @@ fsmkqid(Qid *q, int level, void *aux)
 	case Qchanges:
 		q->type = QTDIR;
 		if(0){
+	case Qrev0:
 	case Qrev1:
 	case Qrev2:
 	case Qlog:
@@ -237,6 +240,7 @@ fsmkdir(Dir *d, int level, void *aux)
 	case Qroot:
 		goto Namegen;
 	case Qrev:
+	case Qrev0:
 	case Qrev1:
 	case Qrev2:
 		ri = aux;
@@ -638,6 +642,7 @@ fsread(Req *r)
 		dirread9p(r, revgen, rf->info);
 		respond(r, nil);
 		return;
+	case Qrev0:
 	case Qrev1:
 	case Qrev2:
 		s = nil;
@@ -646,7 +651,7 @@ fsread(Req *r)
 		i = hashrev(&changelog, rf->info->chash);
 		if(rf->level == Qrev1)
 			i = changelog.map[i].p1rev;
-		else
+		else if(rf->level == Qrev2)
 			i = changelog.map[i].p2rev;
 	Revgen:
 		s = fsmkrevname(buf, sizeof(buf), i);
