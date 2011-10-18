@@ -721,13 +721,12 @@ popenfile(Page *p)
 Page*
 nextpage(Page *p)
 {
-	if(p){
-		if(p->down)
-			return p->down;
+	if(p && p->down)
+		return p->down;
+	while(p){
 		if(p->next)
 			return p->next;
-		if(p->up)
-			return p->up->next;
+		p = p->up;
 	}
 	return nil;
 }
@@ -1336,13 +1335,16 @@ main(int argc, char *argv[])
 				continue;
 			}
 			if(m.buttons & 4){
+				Page *x;
+
 				if(root->down == nil)
 					goto Unlock;
+				qlock(&pagelock);
 				pagemenu.lasthit = pageindex(current);
-				i = emenuhit(3, &m, &pagemenu);
+				x = pageat(emenuhit(3, &m, &pagemenu));
+				qunlock(&pagelock);
 				unlockdisplay(display);
-				if(i != -1)
-					showpage(pageat(i));
+				showpage(x);
 				continue;
 			}
 		Unlock:
