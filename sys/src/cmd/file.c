@@ -920,45 +920,20 @@ iff(void)
 	return 0;
 }
 
-char*	html_string[] =
-{
-	"?xml",
-	"!--",
-	"![CDATA[",
-	"!DOCTYPE",
-	"html",
-	"head",
-	"title",
-	"link",
-	"meta",
-	"body",
-	"script",
-	"strong",
-	"input",
-	"table",
-	"form",
-	"font",
-	"div",
-	"h1",
-	"h2",
-	"h3",
-	"h4",
-	"h5",
-	"h6",
-	"ol",
-	"ul",
-	"li",
-	"dl",
-	"br",
-	"hr",
-	"em",
-	"th",
-	"tr",
-	"td",
-	"p",
-	"b",
-	"i",
-	"a",
+char*	html_string[] = {
+	"blockquote",
+	"!DOCTYPE", "![CDATA[", "basefont", "frameset", "noframes", "textarea",
+	"caption",
+	"button", "center", "iframe", "object", "option", "script",
+	"select", "strong",
+	"blink", "embed", "frame", "input", "label", "param", "small",
+	"style", "table", "tbody", "tfoot", "thead", "title",
+	"?xml", "body", "code", "font", "form", "head", "html",
+	"link", "menu", "meta", "span",
+	"!--", "big", "dir", "div", "img", "pre", "sub", "sup",
+	"br", "dd", "dl", "dt", "em", "h1", "h2", "h3", "h4", "h5",
+	"h6", "hr", "li", "ol", "td", "th", "tr", "tt", "ul",
+	"a", "b", "i", "p", "q", "u",
 	0,
 };
 
@@ -985,11 +960,13 @@ ishtml(void)
 			if(p + n > buf+nbuf)
 				continue;
 			if(cistrncmp(html_string[i], (char*)p, n) == 0) {
-				if(++count > 2) {
-					print(mime ? "text/html\n" : "HTML file\n");
-					return 1;
-				}
 				p += n;
+				if(p < buf+nbuf && strchr("\t\r\n />", *p)){
+					if(++count > 2) {
+						print(mime ? "text/html\n" : "HTML file\n");
+						return 1;
+					}
+				}
 				break;
 			}
 		}
