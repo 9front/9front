@@ -856,8 +856,6 @@ gendrawdiff(Image *dst, Rectangle bot, Rectangle top,
 	Point origin;
 	Point delta;
 
-	USED(op);
-
 	if(Dx(bot)*Dy(bot) == 0)
 		return;
 
@@ -906,18 +904,23 @@ gendrawdiff(Image *dst, Rectangle bot, Rectangle top,
 	}
 }
 
-void
-zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
+int
+alphachan(ulong chan)
 {
-	int w, x, y;
+	for(; chan; chan >>= 8)
+		if(TYPE(chan) == CAlpha)
+			return 1;
+	return 0;
+}
+
+void
+zoomdraw(Image *d, Rectangle r, Rectangle top, Image *b, Image *s, Point sp, int f)
+{
+	Rectangle dr;
 	Image *t;
 	Point a;
+	int w;
 
-	if(f <= 1){
-		gendrawdiff(d, r, top, paper, sp, nil, ZP, SoverD);
-		gendrawdiff(d, r, top, s, sp, nil, ZP, SoverD);
-		return;
-	}
 	a = ZP;
 	if(r.min.x < d->r.min.x){
 		sp.x += (d->r.min.x - r.min.x)/f;
@@ -933,23 +936,34 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *s, Point sp, int f)
 	w = s->r.max.x - sp.x;
 	if(w > Dx(r))
 		w = Dx(r);
-	t = allocimage(display, Rect(r.min.x, r.min.y, r.min.x+w, r.max.y), s->chan, 0, 0);
-	if(t == nil)
+	dr = r;
+	dr.max.x = dr.min.x+w;
+	if(!alphachan(s->chan))
+		b = nil;
+	if(f <= 1){
+		if(b) gendrawdiff(d, dr, top, b, sp, nil, ZP, SoverD);
+		gendrawdiff(d, dr, top, s, sp, nil, ZP, SoverD);
 		return;
-	for(y=r.min.y; y<r.max.y; y++){
-		draw(t, Rect(r.min.x, y, r.min.x+w, y+1), s, nil, sp);
+	}
+	if((t = allocimage(display, dr, s->chan, 0, 0)) == nil)
+		return;
+	for(; dr.min.y < r.max.y; dr.min.y++){
+		dr.max.y = dr.min.y+1;
+		draw(t, dr, s, nil, sp);
 		if(++a.y == f){
 			a.y = 0;
 			sp.y++;
 		}
 	}
-	x=r.min.x;
-	for(sp=r.min; x<r.max.x; sp.x++){
-		gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, paper, sp, nil, ZP, SoverD);
-		gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, t, sp, nil, ZP, SoverD);
-		for(x++; ++a.x<f && x<r.max.x; x++)
-			gendrawdiff(d, Rect(x, r.min.y, x+1, r.max.y), top, d, 
-				Pt(x-1, r.min.y), nil, ZP, SoverD);
+	dr = r;
+	for(sp=dr.min; dr.min.x < r.max.x; sp.x++){
+		dr.max.x = dr.min.x+1;
+		if(b) gendrawdiff(d, dr, top, b, sp, nil, ZP, SoverD);
+		gendrawdiff(d, dr, top, t, sp, nil, ZP, SoverD);
+		for(dr.min.x++; ++a.x < f && dr.min.x < r.max.x; dr.min.x++){
+			dr.max.x = dr.min.x+1;
+			gendrawdiff(d, dr, top, d, Pt(dr.min.x-1, dr.min.y), nil, ZP, SoverD);
+		}
 		a.x = 0;
 	}
 	freeimage(t);
@@ -977,7 +991,7 @@ drawpage(Page *p)
 
 	if(i = p->image){
 		r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
-		zoomdraw(screen, r, ZR, i, i->r.min, zoom);
+		zoomdraw(screen, r, ZR, paper, i, i->r.min, zoom);
 	} else {
 		r = Rpt(ZP, stringsize(font, p->label));
 		r = rectaddpt(r, addpt(subpt(divpt(subpt(screen->r.max, screen->r.min), 2),
@@ -1002,7 +1016,7 @@ translate(Page *p, Point d)
 	nr = rectaddpt(r, d);
 	rectclip(&r, screen->r);
 	draw(screen, rectaddpt(r, d), screen, nil, r.min);
-	zoomdraw(screen, nr, rectaddpt(r, d), i, i->r.min, zoom);
+	zoomdraw(screen, nr, rectaddpt(r, d), paper, i, i->r.min, zoom);
 	drawframe(nr);
 }
 
