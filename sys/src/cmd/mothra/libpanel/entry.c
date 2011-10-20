@@ -4,6 +4,8 @@
 #include <event.h>
 #include <panel.h>
 #include "pldefs.h"
+#include <keyboard.h>
+
 typedef struct Entry Entry;
 struct Entry{
 	char *entry;
@@ -47,15 +49,15 @@ void pl_typeentry(Panel *p, Rune c){
 		*ep->entp='\0';
 		if(ep->hit) ep->hit(p, ep->entry);
 		return;
-	case 025:	/* ctrl-u */
+	case Knack:	/* ^U: erase line */
 		ep->entp=ep->entry;
 		*ep->entp='\0';
 		break;
-	case '\b':
+	case Kbs:	/* ^H: erase character */
 		while(ep->entp!=ep->entry && !pl_rune1st(ep->entp[-1])) *--ep->entp='\0';
 		if(ep->entp!=ep->entry) *--ep->entp='\0';
 		break;
-	case 027:	/* ctrl-w */
+	case Ketb:	/* ^W: erase word */
 		while(ep->entp!=ep->entry && !pl_idchar(ep->entp[-1]))
 			--ep->entp;
 		while(ep->entp!=ep->entry && pl_idchar(ep->entp[-1]))
@@ -63,6 +65,8 @@ void pl_typeentry(Panel *p, Rune c){
 		*ep->entp='\0';
 		break;
 	default:
+		if(c < 0x20 || c == Kesc || c == Kdel || (c & 0xFF00) == KF || (c & 0xFF00) == Spec)
+			break;
 		ep->entp+=runetochar(ep->entp, &c);
 		if(ep->entp>ep->eent){
 			n=ep->entp-ep->entry;
@@ -77,8 +81,6 @@ void pl_typeentry(Panel *p, Rune c){
 		break;
 	}
 	memset(ep->entp, 0, SLACK);
-
-	/* strcpy(ep->entp, "◀"); */
 	pldraw(p, p->b);
 }
 Point pl_getsizeentry(Panel *p, Point children){

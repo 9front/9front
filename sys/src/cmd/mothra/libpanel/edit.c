@@ -19,6 +19,8 @@
 #include <event.h>
 #include <panel.h>
 #include "pldefs.h"
+#include <keyboard.h>
+
 typedef struct Edit Edit;
 struct Edit{
 	Point minsize;
@@ -122,15 +124,15 @@ void pl_typeedit(Panel *p, Rune c){
 	t->b=p->b;
 	twhilite(t, ep->sel0, ep->sel1, 0);
 	switch(c){
-	case '\b':
+	case Kbs:	/* ^H: erase character */
 		if(ep->sel0!=0) --ep->sel0;
 		twreplace(t, ep->sel0, ep->sel1, 0, 0);
 		break;
-	case '\025':	/* ctrl-u */
+	case Knack:	/* ^U: erase line */
 		while(ep->sel0!=0 && t->text[ep->sel0-1]!='\n') --ep->sel0;
 		twreplace(t, ep->sel0, ep->sel1, 0, 0);
 		break;
-	case '\027':	/* ctrl-w */
+	case Ketb:	/* ^W: erase word */
 		while(ep->sel0!=0 && !pl_idchar(t->text[ep->sel0-1])) --ep->sel0;
 		while(ep->sel0!=0 && pl_idchar(t->text[ep->sel0-1])) --ep->sel0;
 		twreplace(t, ep->sel0, ep->sel1, 0, 0);

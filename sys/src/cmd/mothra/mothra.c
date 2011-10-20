@@ -92,6 +92,7 @@ int logfile;
 int mothmode;
 void docmd(Panel *, char *);
 void doprev(Panel *, int, int);
+char *urlstr(Url *);
 void selurl(char *);
 void setcurrent(int, char *);
 char *genwww(Panel *, int);
@@ -449,6 +450,7 @@ void eresized(int new){
 	plinitlabel(curttl, PACKE|EXPAND, "---");
 	plinitlabel(cururl, PACKE|EXPAND, "---");
 	plpack(root, r);
+	plpack(alt, r);
 	if(current){
 		plinitlabel(curttl, PACKE|EXPAND, current->title);
 		plinitlabel(cururl, PACKE|EXPAND, current->url->fullname);
@@ -611,10 +613,8 @@ char *urltofile(Url *url){
 	char *name, *slash;
 	if(url == nil)
 		return nil;
-	if(url->fullname[0])
-		name = url->fullname;
-	else if(url->reltext[0])
-		name = url->reltext;
+	if(url->fullname[0] || url->reltext[0])
+		name = urlstr(url);
 	else
 		name = "/";
 	if(slash = strrchr(name, '/'))
@@ -647,12 +647,13 @@ void docmd(Panel *p, char *s){
 	case 'g':
 		s = arg(s);
 		if(*s=='\0'){
+	case 'r':
 			if(selection)
-				geturl(selection->fullname, GET, 0, 0, 0);
+				s = urlstr(selection);
 			else
 				message("no url selected");
 		}
-		else geturl(s, GET, 0, 0, 0);
+		geturl(s, GET, 0, 0, 0);
 		break;
 	case 'j':
 		s = arg(s);
@@ -660,11 +661,6 @@ void docmd(Panel *p, char *s){
 			doprev(nil, 1, wwwtop-atoi(s));
 		else
 			message("Usage: j index");
-		break;
-	case 'r':
-		s = arg(s);
-		if(*s=='\0' && selection)
-			geturl(selection->fullname, GET, 0, 0, 0);
 		break;
 	case 'W':
 		s = arg(s);
@@ -684,15 +680,17 @@ void docmd(Panel *p, char *s){
 		break;
 	case 's':
 		s = arg(s);
-		if(selection){
-			if(s==0 || *s=='\0')
-				s = urltofile(selection);
-			if(s==0 || *s=='\0'){
-				message("Usage: s file");
-				break;
-			}
-			save(urlopen(selection, GET, 0), s);
+		if(!selection){
+			message("no url selected");
+			break;
 		}
+		if(s==0 || *s=='\0')
+			s = urltofile(selection);
+		if(s==0 || *s=='\0'){
+			message("Usage: s file");
+			break;
+		}
+		save(urlopen(selection, GET, 0), s);
 		break;
 	case 'q':
 		draw(screen, screen->r, display->white, 0, ZP);
@@ -927,16 +925,21 @@ Err:
 	return pfd[1];
 }
 
-/*
- * select the file at the given url
- */
+char*
+urlstr(Url *url){
+	if(url->fullname[0])
+		return url->fullname;
+	if(url->reltext[0])
+		return url->reltext;
+	return nil;
+}
 void selurl(char *urlname){
 	static Url url;
 	seturl(&url, urlname, current?
 		current->url->fullname :
 		defurl.fullname);
 	selection=&url;
-	message("selected: %s", selection->fullname[0] ? selection->fullname : selection->reltext);
+	message("selected: %s", urlstr(selection));
 }
 void seturl(Url *url, char *urlname, char *base){
 	strncpy(url->reltext, urlname, sizeof(url->reltext));
@@ -1126,7 +1129,7 @@ void snarf(Panel *p){
 	int fd;
 	fd=create("/dev/snarf", OWRITE, 0666);
 	if(fd>=0){
-		fprint(fd, "%s", selection->fullname[0] ? selection->fullname : selection->reltext);
+		fprint(fd, "%s", urlstr(selection));
 		close(fd);
 	}
 }
@@ -1187,8 +1190,7 @@ void hit3(int button, int item){
 			fprint(fd, "<body><h1>Hit list</h1>\n");
 		}
 		seek(fd, 0, 2);
-		fprint(fd, "<p><a href=\"%s\">%s</a>\n",
-			selection->fullname, selection->fullname);
+		fprint(fd, "<p><a href=\"%s\">%s</a>\n", urlstr(selection), urlstr(selection));
 		close(fd);
 		break;
 	case 5:
