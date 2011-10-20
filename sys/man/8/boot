@@ -22,17 +22,21 @@ mounts
 .B bootfs.paq,
 a compressed filesystem contained in
 .IR root (3),
-setups the rc enviroment and execs
-.I bootrc
+sets up the
+.IR rc (1)
+environment and executes
+.I /boot/bootrc
 passing on its arguments.
-.I Bootrc connects to the file server that will serve the
-root, performs any authentication needed to
-connect to that server, and
-.IR exec (2)'s
-the
+.I Bootrc
+connects to the file server that will serve the root, performs any 
+authentication needed to connect to that server, and executes the
 .IR init (8)
-program.
-It is started by the kernel, never run directly by the user.  See
+program. Both 
+.I boot
+and
+.I bootrc
+are started by the kernel, never run directly by the user. 
+See
 .IR booting (8)
 for information about the process of loading the kernel (and
 .IR boot )
@@ -61,8 +65,8 @@ Machines that boot directly from ROM (that is, most machines other than PCs)
 pass the boot line given to the ROM directly to
 .IR boot .
 .PP
-On the PC, each line in the DOS file
-.B plan9.ini
+On the PC, each line in the file
+.IR plan9.ini (8)
 of the form
 .IB name = value
 is passed to the boot program as an environment
@@ -115,9 +119,9 @@ The other interactions depend on whether the system
 is a
 terminal or a CPU server.
 .SS Terminal
-The terminal must have a
+A terminal must have a
 .I username
-to set.
+set.
 If none is specified with the
 .B -u
 option,
@@ -148,7 +152,7 @@ for subsequent processes to
 (see
 .IR bind (2)).
 .I Boot
-completes by
+completes by 
 .IR exec (2)'ing
 .B /$objtype/init
 .BR -t .
@@ -160,7 +164,9 @@ If the environment variable
 .B init
 is set (via
 .IR plan9.ini (8)),
-it is used as a command line to exec instead.
+it is used as an argument to 
+.IR exec (2)
+instead.
 .PP
 If the
 .I bootfs.paq
@@ -180,14 +186,14 @@ that caches all remote accesses on the local partition.
 The
 .B -f
 flag commands
-.B cfs
+.IR cfs (4)
 to reformat the cache partition.
 .SS CPU Servers
 The user owning devices and console processes on CPU servers
 and that user's domain and encryption key are
-read from NVRAM on all machines except PC's.
-PC's keep the information in the disk partition
-.BI /dev/sd XX /nvram\f1.
+read from NVRAM on all machines except PCs.
+PCs keep the information in the disk partition
+.BI /dev/sd XX /nvram.
 If a
 .B -k
 option is given or if no stored information is found
@@ -226,7 +232,7 @@ The
 variables
 .B fs
 and
-.B auth
+.BR auth
 override the file server and authentication server IP addresses
 obtained (if any) from DHCP during
 .IR ipconfig (8).
