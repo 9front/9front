@@ -20,6 +20,7 @@ TARG = 	6in4\
 	tftpd\
 	tftpfs\
 	traceroute\
+	torrent\
 	udpecho\
 	wol\
 
