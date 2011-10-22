@@ -1,0 +1,75 @@
+.TH TORRENT 1
+.SH NAME
+torrent \- bittorrent client
+.SH SYNOPSIS
+.B torrent
+[
+.B -d
+]
+[
+.B -v
+]
+[
+.B -p
+]
+[
+.B -m
+.I mtpt
+]
+[
+.B -s
+]
+[
+.I file
+]
+.SH DESCRIPTION
+.I Torrent
+downloads the files that are specified in the torrent
+.I file
+in the current working directory. If no
+.I file
+is given, standard-input is used.
+.PP
+Normally,
+.I torrent
+exits after all files have been downloaded. 
+The
+.B -s
+option causes 
+.I torrent
+to keep seeding.
+.PP
+An alternative mountpoint of the
+.IR webfs (4)
+filesystem can be given with the
+.B -m
+option (defaults to
+.BR /mnt/web ).
+.SH DIAGNOSTICS
+The
+.B -d
+option enables debug output to standard-error.
+.PP
+The
+.B -v
+option causes
+.I torrent
+to list the files contained in the content
+before downloading.
+.PP
+To monitor the download progress, the
+.B -p
+option can be given to cause
+.I torrent
+to print the current and the total number of pieces
+to download every second.
+.SH EXAMPLE
+.EX
+cd /tmp
+hget http://r-36.net/9front/9front.iso.bz2.torrent | ip/torrent -pv | aux/statusbar 'download...'
+.EE
+.SH SOURCE
+.B /sys/src/cmd/ip/torrent.c
+.SH "SEE ALSO
+.IR hget (1),
+.IR webfs (4)
