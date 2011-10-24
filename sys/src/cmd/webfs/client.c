@@ -53,6 +53,8 @@ closeclient(Client *c)
 		c->postbody = nil;
 		freeurl(c->url);
 		c->url = nil;
+		freeurl(c->baseurl);
+		c->baseurl = nil;
 		free(c->redirect);
 		c->redirect = nil;
 		free(c->authenticate);
