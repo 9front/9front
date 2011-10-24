@@ -549,6 +549,8 @@ void h_submitinput(Panel *p, int){
 	for(f=form->fields;f;f=f->next) switch(f->type){
 	case TYPEIN:
 	case PASSWD:
+		if(f->name==0)
+			continue;
 		size+=ulen(f->name)+1+ulen(plentryval(f->p))+1;
 		break;
 	case INDEX:
@@ -558,14 +560,20 @@ void h_submitinput(Panel *p, int){
 	case RADIO:
 		if(!f->state) break;
 	case HIDDEN:
+		if(f->name==0 || f->value==0)
+			continue;
 		size+=ulen(f->name)+1+ulen(f->value)+1;
 		break;
 	case SELECT:
+		if(f->name==0)
+			continue;
 		for(o=f->options;o;o=o->next)
-			if(o->selected)
+			if(o->selected && o->value)
 				size+=ulen(f->name)+1+ulen(o->value)+1;
 		break;
 	case TEXTWIN:
+		if(f->name==0)
+			continue;
 		size+=ulen(f->name)+1+plelen(f->textwin)*3+1;
 		break;
 	}
@@ -583,6 +591,8 @@ void h_submitinput(Panel *p, int){
 	for(f=form->fields;f;f=f->next) switch(f->type){
 	case TYPEIN:
 	case PASSWD:
+		if(f->name==0)
+			continue;
 		if(sep) *bufp++=sep;
 		sep='&';
 		bufp=ucpy(bufp, f->name);
@@ -598,6 +608,8 @@ void h_submitinput(Panel *p, int){
 	case RADIO:
 		if(!f->state) break;
 	case HIDDEN:
+		if(f->name==0 || f->value==0)
+			continue;
 		if(sep) *bufp++=sep;
 		sep='&';
 		bufp=ucpy(bufp, f->name);
@@ -605,8 +617,10 @@ void h_submitinput(Panel *p, int){
 		bufp=ucpy(bufp, f->value);
 		break;
 	case SELECT:
+		if(f->name==0)
+			continue;
 		for(o=f->options;o;o=o->next)
-			if(o->selected){
+			if(o->selected && o->value){
 				if(sep) *bufp++=sep;
 				sep='&';
 				bufp=ucpy(bufp, f->name);
@@ -615,6 +629,8 @@ void h_submitinput(Panel *p, int){
 			}
 		break;
 	case TEXTWIN:
+		if(f->name==0)
+			continue;
 		if(sep) *bufp++=sep;
 		sep='&';
 		bufp=ucpy(bufp, f->name);
