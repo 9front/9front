@@ -711,9 +711,9 @@ postparse_http(Url *u)
 		u->http.page_spec = estrdup("/");
 		return 0;
 	}
-	p = escapeurl(u->path, " \"<>#%\\");
+	p = escapeurl(u->path, "/");
 	if(u->query){
-		q = escapeurl(u->query, " \"<>#%\\");
+		q = escapeurl(u->query, "&=");
 		u->http.page_spec = emalloc(strlen(p)+1+strlen(q)+1);
 		strcpy(u->http.page_spec, p);
 		strcat(u->http.page_spec, "?");
@@ -985,25 +985,22 @@ dhex(char c)
 char*
 escapeurl(char *s, char *special)
 {
-	int n;
-	char *t, *u;
 	static char *hex = "0123456789abcdef";
+	char *t, *u;
 
-	n = 0;
-	for(t=s; *t; t++)
-		if(*t <= 0x1F || *t >= 0x7F || strchr(special, *t))
-			n++;
-	u = emalloc(strlen(s)+2*n+1);
-	t = u;
+	t = u = emalloc(strlen(s)*3+1);
 	for(; *s; s++){
-		if(s[0] == '%' && isxdigit(s[1]) && isxdigit(s[2]))
+		if((s[0] == '%' && isxdigit(s[1]) && isxdigit(s[2])) ||
+			(*s >= '0' && *s <= '9') || 
+			(*s >= 'a' && *s <= 'z') ||
+			(*s >= 'A' && *s <= 'Z') || 
+			strchr(".-_~", *s) || strchr(special, *s))
 			*u++ = *s;
-		else if(*s <= 0x1F || *s >= 0x7F || strchr(special, *s)){
+		else {
 			*u++ = '%';
 			*u++ = hex[(*s>>4)&0xF];
 			*u++ = hex[*s&0xF];
-		}else
-			*u++ = *s;
+		}
 	}
 	*u = '\0';
 	return t;
@@ -1012,7 +1009,8 @@ escapeurl(char *s, char *special)
 char*
 unescapeurl(char *s, char *special)
 {
-	char *r, *w, x;
+	char *r, *w;
+	Rune x;
 
 	s = estrdup(s);
 	for(r=w=s; x = *r; r++){
