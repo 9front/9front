@@ -651,9 +651,9 @@ tracker(char *url)
 	static Dict *trackers;
 	static QLock trackerslk;
 
+	char *event, *p;
 	Dict *d, *l;
 	int n, fd;
-	char *p;
 
 	if(url == nil)
 		return;
@@ -679,6 +679,7 @@ tracker(char *url)
 	if(rfork(RFPROC|RFMEM))
 		return;
 
+	event = "event=started";
 	for(;;){
 		vlong up, down, left;
 
@@ -690,17 +691,15 @@ tracker(char *url)
 
 		d = nil;
 		if((fd = hopen("%s?info_hash=%.*H&peer_id=%.*H&port=%d&"
-			"uploaded=%lld&downloaded=%lld&left=%lld&"
-			"compact=1",
+			"uploaded=%lld&downloaded=%lld&left=%lld&compact=1&no_peer_id=1&%s",
 			url, sizeof(infohash), infohash, sizeof(peerid), peerid, port,
-			up, down, left)) >= 0){
+			up, down, left, event)) >= 0){
+			event = "";
 			n = readall(fd, &p);
 			close(fd);
 			bparse(p, p+n, &d);
 			free(p);
-		} else {
-			if(debug) fprint(2, "tracker %s: %r\n", url);
-		}
+		} else if(debug) fprint(2, "tracker %s: %r\n", url);
 		if(l = dlook(d, "peers")){
 			if(l->typ == 's'){
 				uchar *b, *e;
@@ -743,6 +742,52 @@ Hfmt(Fmt *f)
 			strchr(".-_~", *s)) ? "%c" : "%%%.2x", *s) < 0)
 			return -1;
 	return 0;
+}
+
+int
+mkdirs(char *s)
+{
+	char *p;
+	int f;
+
+	if(access(s, AEXIST) == 0)
+		return 0;
+	for(p=strchr(s+1, '/'); p; p=strchr(p+1, '/')){
+		*p = 0;
+		if(access(s, AEXIST)){
+			if((f = create(s, OREAD, DMDIR | 0777)) < 0){
+				*p = '/';
+				return -1;
+			}
+			close(f);
+		}
+		*p = '/';
+	}
+	return 0;
+}
+
+char*
+fixnamedup(char *s)
+{
+	int n, l;
+	char *d;
+	Rune r;
+
+	n = 0;
+	d = strdup(s);
+	l = strlen(d);
+	while(*s){
+		s += chartorune(&r, s);
+		if(r == ' ')
+			r = 0xa0;
+		if((n + runelen(r)) >= l){
+			l += 64;
+			d = realloc(d, l);
+		}
+		n += runetochar(d + n, &r);
+	}
+	d[n] = 0;
+	return cleanname(d);
 }
 
 int
@@ -830,10 +875,14 @@ main(int argc, char *argv[])
 	for(f = files; f; f = f->next){
 		if(f->name == nil || f->len <= 0)
 			sysfatal("bogus file entry in meta info");
+		f->name = fixnamedup(f->name);
 		if(vflag) fprint(pflag ? 2 : 1, "%s\n", f->name);
-		if((f->fd = open(f->name, ORDWR)) < 0)
+		if((f->fd = open(f->name, ORDWR)) < 0){
+			if(mkdirs(f->name) < 0)
+				sysfatal("mkdirs: %r");
 			if((f->fd = create(f->name, ORDWR, 0666)) < 0)
 				sysfatal("create: %r");
+		}
 		f->off = len;
 		len += f->len;
 	}
