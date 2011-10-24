@@ -201,16 +201,16 @@ pipeline(int fd, char *fmt, ...)
 		dup(nullfd, fd);
 		return;
 	}
-	switch(rfork(RFPROC|RFFDG|RFREND|RFNOWAIT)){
+	va_start(arg, fmt);
+	vsnprint(buf, sizeof buf, fmt, arg);
+	va_end(arg);
+	switch(rfork(RFPROC|RFMEM|RFFDG|RFREND|RFNOWAIT)){
 	case -1:
 		close(pfd[0]);
 		close(pfd[1]);
 		goto Err;
 	case 0:
 		dupfds(fd, pfd[1], 2, -1);
-		va_start(arg, fmt);
-		vsnprint(buf, sizeof buf, fmt, arg);
-		va_end(arg);
 		argv[0] = "rc";
 		argv[1] = "-c";
 		argv[2] = buf;
@@ -286,7 +286,8 @@ popentape(Page *p)
 
 	seek(p->fd, 0, 0);
 	snprint(mnt, sizeof(mnt), "/n/tapefs.%.12d%.8lux", getpid(), (ulong)p);
-	switch(rfork(RFPROC|RFFDG|RFREND)){
+	snprint(cmd, sizeof(cmd), "%s -m %s /fd/0", p->data, mnt);
+	switch(rfork(RFPROC|RFMEM|RFFDG|RFREND)){
 	case -1:
 		close(p->fd);
 		p->fd = -1;
@@ -295,7 +296,6 @@ popentape(Page *p)
 		dupfds(p->fd, 1, 2, -1);
 		argv[0] = "rc";
 		argv[1] = "-c";
-		snprint(cmd, sizeof(cmd), "%s -m %s /fd/0", p->data, mnt);
 		argv[2] = cmd;
 		argv[3] = nil;
 		exec("/bin/rc", argv);
@@ -374,7 +374,7 @@ popenpdf(Page *p)
 
 	if(pipe(pfd) < 0)
 		return -1;
-	switch(rfork(RFPROC|RFFDG|RFMEM|RFNOWAIT)){
+	switch(rfork(RFPROC|RFMEM|RFFDG|RFNOWAIT)){
 	case -1:
 		close(pfd[0]);
 		close(pfd[1]);
@@ -449,7 +449,8 @@ popengs(Page *p)
 		goto Err1;
 	}
 
-	switch(rfork(RFPROC|RFFDG|RFREND|RFNOWAIT)){
+	argv[0] = p->data;
+	switch(rfork(RFPROC|RFMEM|RFFDG|RFREND|RFNOWAIT)){
 	case -1:
 		goto Err2;
 	case 0:
@@ -457,8 +458,8 @@ popengs(Page *p)
 			dupfds(pin[1], pout[1], nullfd, pdat[1], ifd, -1);
 		else
 			dupfds(nullfd, nullfd, nullfd, pdat[1], ifd, -1);
-		if(p->data)
-			pipeline(4, "%s", (char*)p->data);
+		if(argv[0])
+			pipeline(4, "%s", argv[0]);
 		argv[0] = "gs";
 		argv[1] = "-q";
 		argv[2] = "-sDEVICE=plan9";
@@ -570,7 +571,7 @@ filetype(char *buf, int nbuf, char *typ, int ntyp)
 		close(ifd[1]);
 		return -1;
 	}
-	if(rfork(RFPROC|RFFDG|RFREND|RFNOWAIT) == 0){
+	if(rfork(RFPROC|RFMEM|RFFDG|RFREND|RFNOWAIT) == 0){
 		dupfds(ifd[1], ofd[1], 2, -1);
 		argv[0] = "file";
 		argv[1] = "-m";
@@ -579,7 +580,7 @@ filetype(char *buf, int nbuf, char *typ, int ntyp)
 	}
 	close(ifd[1]);
 	close(ofd[1]);
-	if(rfork(RFPROC|RFFDG|RFNOWAIT) == 0){
+	if(rfork(RFPROC|RFMEM|RFFDG|RFNOWAIT) == 0){
 		dupfds(ifd[0], -1);
 		write(0, buf, nbuf);
 		exits(nil);
@@ -1126,7 +1127,7 @@ zerox(Page *p)
 	qlock(p);
 	if((fd = openpage(p)) < 0)
 		goto Out;
-	if(rfork(RFPROC|RFFDG|RFREND|RFENVG|RFNOTEG|RFNOWAIT) == 0){
+	if(rfork(RFPROC|RFMEM|RFFDG|RFENVG|RFNOTEG|RFNOWAIT) == 0){
 		dupfds(fd, 1, 2, -1);
 		snprint(nam, sizeof nam, "/bin/%s", argv0);
 		argv[0] = argv0;

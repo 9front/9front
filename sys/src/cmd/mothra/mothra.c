@@ -747,7 +747,7 @@ void dolink(Panel *p, int buttons, Rtext *word){
 
 void filter(char *cmd, int fd){
 	flushimage(display, 1);
-	switch(rfork(RFFDG|RFPROC|RFNOWAIT)){
+	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT)){
 	case -1:
 		message("Can't fork!");
 		break;
@@ -756,16 +756,13 @@ void filter(char *cmd, int fd){
 		dup(fd, 0);
 		close(fd);
 		execl("/bin/rc", "rc", "-c", cmd, 0);
-		message("Can't exec /bin/rc!");
 		_exits(0);
-	default:
-		break;
 	}
 	close(fd);
 }
 void gettext(Www *w, int fd, int type){
 	flushimage(display, 1);
-	switch(rfork(RFFDG|RFPROC|RFNOWAIT|RFMEM)){
+	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT)){
 	case -1:
 		message("Can't fork, please wait");
 		break;
