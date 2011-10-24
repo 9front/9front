@@ -355,9 +355,9 @@ peer(int fd, int incoming, char *addr)
 				return 1;
 			if(memcmp(buf, "\x13BitTorrent protocol", 20))
 				return 0;
-			if(debug) fprint(2, "peer %s: <- handshake\n", addr);
 			if(memcmp(infohash, buf + 20 + 8, sizeof(infohash)))
 				return 0;
+			if(debug) fprint(2, "peer %s: <- handshake\n", addr);
 		}
 	}
 	if(readn(fd, buf, sizeof(peerid)) != sizeof(peerid))
@@ -376,7 +376,7 @@ peer(int fd, int incoming, char *addr)
 
 	if(debug) fprint(2, "peer %s: -> bitfield %d\n", addr, nhavemap);
 	memmove(told, havemap, nhavemap);
-	n = pack(buf, sizeof(buf), "lb*", nhavemap+1, 0x05, nhavemap, havemap);
+	n = pack(buf, sizeof(buf), "lb*", nhavemap+1, 0x05, nhavemap, told);
 	if(write(fd, buf, n) != n)
 		goto Out;
 
@@ -679,7 +679,7 @@ tracker(char *url)
 	if(rfork(RFPROC|RFMEM))
 		return;
 
-	event = "event=started";
+	event = "&event=started";
 	for(;;){
 		vlong up, down, left;
 
@@ -691,7 +691,7 @@ tracker(char *url)
 
 		d = nil;
 		if((fd = hopen("%s?info_hash=%.*H&peer_id=%.*H&port=%d&"
-			"uploaded=%lld&downloaded=%lld&left=%lld&compact=1&no_peer_id=1&%s",
+			"uploaded=%lld&downloaded=%lld&left=%lld&compact=1&no_peer_id=1%s",
 			url, sizeof(infohash), infohash, sizeof(peerid), peerid, port,
 			up, down, left, event)) >= 0){
 			event = "";
