@@ -284,11 +284,16 @@ void
 procsetup(Proc *p)
 {
 	p->fpstate = FPinit;
+
+	cycles(&p->kentry);
+	p->pcycles = -p->kentry;
 }
 
 void
-procfork(Proc *)
+procfork(Proc *p)
 {
+	p->kentry = up->kentry;
+	p->pcycles = -p->kentry;
 }
 
 void
@@ -300,6 +305,7 @@ procrestore(Proc *p)
 		return;
 	cycles(&t);
 	p->pcycles -= t;
+	p->kentry += t;
 }
 
 /*
@@ -312,6 +318,7 @@ procsave(Proc *p)
 
 	cycles(&t);
 	p->pcycles += t;
+	p->kentry -= t;
 	if(p->fpstate == FPactive){
 		if(p->state != Moribund)
 			fpsave(&up->fpsave);

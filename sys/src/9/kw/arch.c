@@ -50,7 +50,7 @@ kexit(Ureg*)
 	tos = (Tos*)(USTKTOP-sizeof(Tos));
 	t = fastticks(nil);
 	tos->kcycles += t - up->kentry;
-	tos->pcycles = up->pcycles;
+	tos->pcycles = t + up->pcycles;
 	tos->cyclefreq = Frequency;
 	tos->pid = up->pid;
 
@@ -124,11 +124,16 @@ void
 procsetup(Proc* p)
 {
 	fpusysprocsetup(p);
+
+	cycles(&p->kentry);
+	p->pcycles = -p->kentry;
 }
 
 void
-procfork(Proc *)
+procfork(Proc* p)
 {
+	p->kentry = up->kentry;
+	p->pcycles = -p->kentry;
 }
 
 /*
@@ -141,6 +146,7 @@ procsave(Proc* p)
 
 	cycles(&t);
 	p->pcycles += t;
+	p->kentry -= t;
 
 	fpuprocsave(p);
 }
@@ -152,8 +158,10 @@ procrestore(Proc* p)
 
 	if(p->kp)
 		return;
-	t = lcycles();
+
+	cycles(&t);
 	p->pcycles -= t;
+	p->kentry += t;
 
 	fpuprocrestore(p);
 }

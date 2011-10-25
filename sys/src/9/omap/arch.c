@@ -50,7 +50,7 @@ kexit(Ureg*)
 	tos = (Tos*)(USTKTOP-sizeof(Tos));
 	cycles(&t);
 	tos->kcycles += t - up->kentry;
-	tos->pcycles = up->pcycles;
+	tos->pcycles = t + up->pcycles;
 	tos->cyclefreq = m->cpuhz;
 	tos->pid = up->pid;
 
@@ -124,11 +124,16 @@ void
 procsetup(Proc* p)
 {
 	fpusysprocsetup(p);
+
+	cycles(&p->kentry);
+	p->pcycles = -p->kentry;
 }
 
 void
-procfork(Proc*)
+procfork(Proc* p)
 {
+	p->kentry = up->kentry;
+	p->pcycles = -p->kentry;
 }
 
 /*
@@ -141,6 +146,7 @@ procsave(Proc* p)
 
 	cycles(&t);
 	p->pcycles += t;
+	p->kentry -= t;
 
 // TODO: save and restore VFPv3 FP state once 5[cal] know the new registers.
 	fpuprocsave(p);
@@ -155,6 +161,7 @@ procrestore(Proc* p)
 		return;
 	cycles(&t);
 	p->pcycles -= t;
+	p->kentry += t;
 
 	fpuprocrestore(p);
 }

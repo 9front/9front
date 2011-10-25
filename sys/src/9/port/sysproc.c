@@ -356,10 +356,10 @@ sysexec(ulong *arg)
 	 */
 	tos = (Tos*)(TSTKTOP - sizeof(Tos));
 	tos->cyclefreq = m->cyclefreq;
-	cycles((uvlong*)&tos->pcycles);
-	tos->pcycles = -tos->pcycles;
-	tos->kcycles = tos->pcycles;
+	tos->kcycles = 0;
+	tos->pcycles = 0;
 	tos->clock = 0;
+
 	argv = (char**)(TSTKTOP - ssize);
 	charp = (char*)(TSTKTOP - nbytes);
 	args = charp;

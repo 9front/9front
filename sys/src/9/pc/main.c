@@ -580,10 +580,13 @@ mathinit(void)
  *  set up floating point for a new process
  */
 void
-procsetup(Proc*p)
+procsetup(Proc *p)
 {
 	p->fpstate = FPinit;
 	fpoff();
+
+	cycles(&p->kentry);
+	p->pcycles = -p->kentry;
 
 	memset(p->gdt, 0, sizeof(p->gdt));
 	p->ldt = nil;
@@ -593,6 +596,9 @@ procsetup(Proc*p)
 void
 procfork(Proc *p)
 {
+	p->kentry = up->kentry;
+	p->pcycles = -p->kentry;
+
 	/* inherit user descriptors */
 	memmove(p->gdt, up->gdt, sizeof(p->gdt));
 
@@ -611,7 +617,9 @@ procrestore(Proc *p)
 
 	if(p->kp)
 		return;
+
 	cycles(&t);
+	p->kentry += t;
 	p->pcycles -= t;
 }
 
@@ -624,7 +632,9 @@ procsave(Proc *p)
 	uvlong t;
 
 	cycles(&t);
+	p->kentry -= t;
 	p->pcycles += t;
+
 	if(p->fpstate == FPactive){
 		if(p->state == Moribund)
 			fpclear();

@@ -150,7 +150,7 @@ kexit(Ureg*)
 	tos = (Tos*)(USTKTOP-sizeof(Tos));
 	cycles(&t);
 	tos->kcycles += t - up->kentry;
-	tos->pcycles = up->pcycles;
+	tos->pcycles = t + up->pcycles;
 	tos->pid = up->pid;
 }
 
