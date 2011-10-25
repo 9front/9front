@@ -2,7 +2,7 @@
 .SH NAME
 torrent \- bittorrent client
 .SH SYNOPSIS
-.B torrent
+.B ip/torrent
 [
 .B -d
 ]
@@ -23,53 +23,67 @@ torrent \- bittorrent client
 .I file
 ]
 .SH DESCRIPTION
-.I Torrent
-downloads the files that are specified in the torrent
-.I file
-in the current working directory. If no
-.I file
-is given, standard-input is used.
+BitTorrent is a protocol for efficient file distribution
+over the internet. Files are split into small pieces
+that are then downloaded by clients in random order.
+As soon as a client completes a piece, it makes the piece 
+available for others to download.
 .PP
-Normally,
-.I torrent
-exits after all files have been downloaded. 
+To find find other clients (peers), a tracker-server is
+contacted.
+.PP
+Before files can be transmitted, a torrent-file needs
+to be created describing the pieces of the files and
+other meta-data like network addresses of the trackers.
+.PP
+.I Torrent
+downloads the files that are described in the torrent-file
+given by the
+.I file
+argument to the current working directory. If no
+.I file
+is given, the torrent is read from standard-input.
+.PP
+Normally, the program exits immediately after all pieces
+have been completed.
 The
 .B -s
-option causes 
-.I torrent
-to keep seeding.
+option causes it to keep running and serve the remaining
+clients (also known as seeding).
 .PP
-An alternative mountpoint of the
+Trackers use a subset of the HTTP protocol, so an
+alternative 
 .IR webfs (4)
-filesystem can be given with the
+mountpoint can be given with the
 .B -m
 option (defaults to
 .BR /mnt/web ).
-.SH DIAGNOSTICS
-The
-.B -d
-option enables debug output to standard-error.
 .PP
 The
 .B -v
 option causes
 .I torrent
-to list the files contained in the content
-before downloading.
+to list the files in the torrent-file before downloading.
+.PP
+The
+.B -d
+option produces verbose debug output to standard-error.
 .PP
 To monitor the download progress, the
 .B -p
-option can be given to cause
-.I torrent
-to print the current and the total number of pieces
-to download every second.
+option can be given to cause the completed and total number of
+pieces written as a line of text to standard-output in one
+second intervals.
 .SH EXAMPLE
+Download the latest iso file of the distribution 
 .EX
 cd /tmp
-hget http://r-36.net/9front/9front.iso.bz2.torrent | ip/torrent -pv | aux/statusbar 'download...'
+hget http://r-36.net/9front/9front.iso.bz2.torrent | \\
+	ip/torrent -pv | \\
+	aux/statusbar 'download...'
 .EE
 .SH SOURCE
 .B /sys/src/cmd/ip/torrent.c
-.SH "SEE ALSO
+.SH "SEE ALSO"
 .IR hget (1),
 .IR webfs (4)

@@ -16,7 +16,8 @@ simulates the execution of an ARM binary in a Plan 9 environment.
 Unlike its predecessor
 .IR vi (1)
 it supports, among others, the syscalls
-.IR rfork (2)
+rfork (see
+.IR fork (2))
 and
 .IR exec (2),
 which allows for the execution of threaded programs (e.g.,

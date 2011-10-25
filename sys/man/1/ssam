@@ -60,7 +60,7 @@ by
 .B ssam 'y/[a-zA-Z]+/ c/\en/' | grep . | sort | uniq -c
 Count frequency of words read from standard input.
 .SH SOURCE
-.B \*9/bin/ssam
+.B /rc/bin/ssam
 .SH SEE ALSO
 .IR sed (1), 
 .IR sam (1),
