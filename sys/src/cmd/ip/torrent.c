@@ -46,9 +46,10 @@ enum {
 	MAXIO = 16*1024,
 };
 
-int debug, sflag, pflag, vflag;
+int debug;
 int killgroup = -1;
 int port = 6881;
+char *deftrack = "http://exodus.desync.com/announce";
 char *mntweb = "/mnt/web";
 uchar infohash[20];
 uchar peerid[20];
@@ -736,11 +737,60 @@ Hfmt(Fmt *f)
 	else
 		e = s + strlen((char*)s);
 	for(; s < e; s++)
-		if(fmtprint(f, ((*s >= '0' && *s <= '9') || 
+		if(fmtprint(f, *s && ((*s >= '0' && *s <= '9') || 
 			(*s >= 'a' && *s <= 'z') ||
 			(*s >= 'A' && *s <= 'Z') || 
 			strchr(".-_~", *s)) ? "%c" : "%%%.2x", *s) < 0)
 			return -1;
+	return 0;
+}
+
+int
+mktorrent(int fd, char *url)
+{
+	uchar *b, h[20];
+	Dir *d;
+	int n;
+
+	if((d = dirfstat(fd)) == nil)
+		return -1;
+	if(d->qid.type == QTDIR){
+		free(d);
+		werrstr("file is a directory");
+		return -1;
+	}
+	if(d->length == 0){
+		free(d);
+		werrstr("empty file");
+		return -1;
+	}
+	blocksize = 1024*1024;
+	npieces = (d->length + blocksize-1) / blocksize;
+	print("d");
+	print("8:announce%ld:%s", strlen(url), url);
+	print("4:info");
+	print("d");
+	print("4:name%ld:%s", strlen(d->name), d->name);
+	print("6:lengthi%llde", d->length);
+	print("12:piece lengthi%de", blocksize);
+	print("6:pieces%d:", npieces*sizeof(h));
+	free(d);
+	b = malloc(blocksize);
+	while((n = readn(fd, b, blocksize)) > 0){
+		sha1(b, n, h, nil);
+		if(write(1, h, sizeof(h)) != sizeof(h)){
+			free(b);
+			return -1;
+		}
+		npieces--;
+	}
+	free(b);
+	if(npieces){
+		werrstr("read failed: %r");
+		return -1;
+	}
+	print("e");
+	print("e");
 	return 0;
 }
 
@@ -800,24 +850,28 @@ killnote(void *, char *)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [ -vsdp ] [ -m mtpt ] [ torrentfile ]\n", argv0);
+	fprint(2, "usage: %s [ -vsdpc ] [ -m mtpt ] [ -t url ] [ file ]\n", argv0);
 	exits("usage");
 }
 
 void
 main(int argc, char *argv[])
 {
+	int sflag, pflag, vflag, cflag, fd, i, n;
 	Dict *info, *torrent, *d;
+	char *p, *s, *e, *url;
 	File **fp, *f;
-	char *p, *s, *e;
-	int fd, i, n;
 	vlong len;
 
 	fmtinstall('H', Hfmt);
-
+	url = nil;
+	sflag = pflag = vflag = cflag = 0;
 	ARGBEGIN {
 	case 'm':
 		mntweb = EARGF(usage());
+		break;
+	case 't':
+		url = EARGF(usage());
 		break;
 	case 's':
 		sflag = 1;
@@ -827,6 +881,9 @@ main(int argc, char *argv[])
 		break;
 	case 'v':
 		vflag = 1;
+		break;
+	case 'c':
+		cflag = 1;
 		break;
 	case 'd':
 		debug++;
@@ -838,7 +895,14 @@ main(int argc, char *argv[])
 	fd = 0;
 	if(*argv)
 		if((fd = open(*argv, OREAD)) < 0)
-			sysfatal("open torrent: %r");
+			sysfatal("open: %r");
+	if(cflag){
+		if(url == nil)
+			url = deftrack;
+		if(mktorrent(fd, url) < 0)
+			sysfatal("%r");
+		exits(0);
+	}
 	if((n = readall(fd, &p)) <= 0)
 		sysfatal("read torrent: %r");
 	bparse(p, p+n, &torrent);
@@ -925,6 +989,7 @@ main(int argc, char *argv[])
 		for(i=8; i<sizeof(peerid); i++)
 			peerid[i] = nrand(10)+'0';
 		server();
+		tracker(url);
 		tracker(dstr(dlook(torrent, "announce")));
 		for(d = dlook(torrent, "announce-list"); d && d->typ == 'l'; d = d->next)
 			if(d->val && d->val->typ == 'l')

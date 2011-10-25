@@ -5,21 +5,21 @@ torrent \- bittorrent client
 .B ip/torrent
 [
 .B -d
-]
-[
+] [
 .B -v
-]
-[
+] [
 .B -p
-]
-[
+] [
 .B -m
 .I mtpt
-]
-[
+] [
+.B -t
+.I url
+] [
 .B -s
-]
-[
+] [
+.B -c
+] [
 .I file
 ]
 .SH DESCRIPTION
@@ -36,7 +36,24 @@ Before files can be transmitted, a torrent-file needs
 to be created describing the pieces of the files and
 other meta-data like network addresses of the trackers.
 .PP
-.I Torrent
+This is done with the
+.B -c
+option. If provided,
+.I torrent
+reads the file given at the final
+.I file
+argument (or standard-input when omited) and writes
+a torrent file to standard-output and exits.
+A tracker
+.I url
+should be given with the
+.B -t
+option in that case.
+.PP
+Without the
+.B -c
+option,
+.I torrent
 downloads the files that are described in the torrent-file
 given by the
 .I file
@@ -74,7 +91,13 @@ To monitor the download progress, the
 option can be given to cause the completed and total number of
 pieces written as a line of text to standard-output in one
 second intervals.
-.SH EXAMPLE
+.SH EXAMPLES
+Create new torrent file
+.EX
+ip/torrent -t http://exodus.desync.com/announce \\
+	-c 9atom.iso >9atom.torrent
+.EE
+.LP
 Download the latest iso file of the distribution 
 .EX
 cd /tmp
