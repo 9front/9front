@@ -764,8 +764,12 @@ mktorrent(int fd, char *url)
 		werrstr("empty file");
 		return -1;
 	}
-	blocksize = 1024*1024;
-	npieces = (d->length + blocksize-1) / blocksize;
+	npieces = 1;
+	for(blocksize = 256*1024;;blocksize<<=1){
+		npieces = (d->length + blocksize-1) / blocksize;
+		if(npieces <= 8*1024 || blocksize >= 2*1024*1024)
+			break;
+	}
 	print("d");
 	print("8:announce%ld:%s", strlen(url), url);
 	print("4:info");
