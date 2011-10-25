@@ -48,7 +48,8 @@ A tracker
 .I url
 should be given with the
 .B -t
-option in that case.
+option in that case. A list of trackers can be obtained
+on the web, see the examples below.
 .PP
 Without the
 .B -c
@@ -105,6 +106,12 @@ hget http://r-36.net/9front/9front.iso.bz2.torrent | \\
 	ip/torrent -pv | \\
 	aux/statusbar 'download...'
 .EE
+.LP
+Get list of public alive trackers to choose from
+.EX
+hget http://www.trackon.org/api/live
+.EE
+.LP
 .SH SOURCE
 .B /sys/src/cmd/ip/torrent.c
 .SH "SEE ALSO"
