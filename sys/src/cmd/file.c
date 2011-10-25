@@ -831,6 +831,7 @@ struct	FILE_STRING
 				"pem x.509 certificate", -1,	"text/plain",
 	"subject=/C=",		"pem certificate with header", -1, "text/plain",
 	"process snapshot ",	"process snapshot",	-1,	"application/snapfs",
+	"d8:announce",		"torrent file",		11,	"application/x-bittorrent",
 	0,0,0,0
 };
 
