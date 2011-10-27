@@ -45,15 +45,19 @@ static Revlog manifest;
 static Revlog *revlogs;
 
 static char dothg[MAXPATH];
+static int mangle = 0;
 
 static Revlog*
 getrevlog(Revnode *nd)
 {
 	char buf[MAXPATH];
 	Revlog *rl;
+	int mang;
 
+	mang = mangle;
+Again:
 	nodepath(seprint(buf, buf+sizeof(buf), "%s/store/data", dothg),
-		buf+sizeof(buf), nd, 1);
+		buf+sizeof(buf), nd, mang);
 	for(rl = revlogs; rl; rl = rl->next)
 		if(strcmp(buf, rl->path) == 0)
 			break;
@@ -62,10 +66,14 @@ getrevlog(Revnode *nd)
 		memset(rl, 0, sizeof(*rl));
 		if(revlogopen(rl, buf, OREAD) < 0){
 			free(rl);
+			if(mang++ == 0)
+				goto Again;
 			return nil;
 		}
 		rl->next = revlogs;
 		revlogs = rl;
+		if(mang)
+			mangle = 1;
 	} else
 		revlogupdate(rl);
 	incref(rl);
