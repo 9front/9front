@@ -26,7 +26,7 @@ nodepath(char *s, char *e, Revnode *nd, int mangle)
 	for(i=0; i<nelem(frogs); i++){
 		l = strlen(frogs[i]);
 		if((strncmp(frogs[i], p, l) == 0) && (p[l] == 0 || p[l] == '.'))
-			return seprint(s, e, "%.2s~%.2x%s", p, p[2], p+3);
+			return seprint(s, e, "%.2s~%.2x%s", p, (uchar)p[2], p+3);
 	}
 	for(; s+4 < e && *p; p++){
 		if(*p == '_'){
@@ -35,9 +35,9 @@ nodepath(char *s, char *e, Revnode *nd, int mangle)
 		} else if(*p >= 'A' && *p <= 'Z'){
 			*s++ = '_';
 			*s++ = 'a' + (*p - 'A');
-		} else if(*p >= 126 || strchr("\\:*?\"<>|", *p)){
+		} else if((uchar)*p >= 126 || strchr("\\:*?\"<>|", *p)){
 			*s++ = '~';
-			s = seprint(s, e, "%.2x", *p);
+			s = seprint(s, e, "%.2x", (uchar)*p);
 		} else
 			*s++ = *p;
 	}
