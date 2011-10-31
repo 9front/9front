@@ -535,7 +535,7 @@ void save(int ifd, char *name){
 		message("save: %s: %r", name);
 		return;
 	}
-	ofd=create(name, OEXCL|OWRITE, 0666);
+	ofd=create(name, OWRITE, 0666);
 	if(ofd < 0){
 		message("save: %s: %r", name);
 		return;
@@ -684,11 +684,13 @@ void docmd(Panel *p, char *s){
 			message("no url selected");
 			break;
 		}
-		if(s==0 || *s=='\0')
-			s = urltofile(selection);
 		if(s==0 || *s=='\0'){
-			message("Usage: s file");
-			break;
+			static char buf[NNAME];
+
+			snprint(buf, sizeof(buf), "%s", urltofile(selection));
+			if(eenter("Save to", buf, sizeof(buf), &mouse) <= 0)
+				break;
+			s = buf;
 		}
 		save(urlopen(selection, GET, 0), s);
 		break;
@@ -961,7 +963,7 @@ void freeurl(Url *u){
  */
 void geturl(char *urlname, int method, char *body, int plumb, int map){
 	int i, fd, typ;
-	char *file, cmd[NNAME];
+	char cmd[NNAME];
 	int pfd[2];
 	Www *w;
 
@@ -1002,16 +1004,12 @@ void geturl(char *urlname, int method, char *body, int plumb, int map){
 				close(fd);
 				break;
 			}
-			file = urltofile(selection);
-			if(!mothmode){
-				message("save to '%s' ?", file);
-				if(!confirm(1)){
-					message(mothra);
-					close(fd);
-					break;
-				}
+			snprint(cmd, sizeof(cmd), "%s", urltofile(selection));
+			if(eenter("Save to", cmd, sizeof(cmd), &mouse) <= 0){
+				close(fd);
+				break;
 			}
-			save(fd, file);
+			save(fd, cmd);
 			break;
 		case HTML:
 			fd = pipeline("/bin/uhtml", fd);
