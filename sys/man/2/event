@@ -1,6 +1,6 @@
 .TH EVENT 2
 .SH NAME
-event, einit, estart, estartfn, etimer, eread, emouse, ekbd, ecanread, ecanmouse, ecankbd, ereadmouse, eatomouse, eresized, egetrect, edrawgetrect, emenuhit, emoveto, esetcursor, Event, Mouse, Menu \- graphics events
+event, einit, estart, estartfn, etimer, eread, emouse, ekbd, ecanread, ecanmouse, ecankbd, ereadmouse, eatomouse, eresized, egetrect, edrawgetrect, emenuhit, eenter, emoveto, esetcursor, Event, Mouse, Menu \- graphics events
 .SH SYNOPSIS
 .nf
 .PP
@@ -69,13 +69,14 @@ void	edrawgetrect(Rectangle r, int up)
 .B
 int	emenuhit(int but, Mouse *m, Menu *menu)
 .PP
-.PP
 .B
 int	emoveto(Point p)
 .PP
-.PP
 .B
 int	esetcursor(Cursor *c)
+.PP
+.B
+int	eenter(char *ask, char *buf, int len, Mouse *m)
 .PP
 .B
 extern Mouse    *mouse
@@ -374,6 +375,35 @@ changes the cursor image to that described by the
 If
 .B c
 is nil, it restores the image to the default arrow.
+.PP
+.I Eenter
+provides a simple way of text input in graphical programs. It displays
+a box at the current position of the mouse cursor (passed in the
+.B Mouse *m
+argument) in wich text can be
+typed and edited.
+If the string argument
+.B ask
+is not
+.B nil,
+it is displayed as a static label before the input string.
+The
+.B buf
+parameter contains the null-terminated input string to be edited. The
+.B len
+argument specified the length of
+.B buf
+in bytes including the terminating null byte.
+If
+.B buf
+or
+.B len
+is zero, no text can be entered.
+On success,
+.I eenter
+returns the number of bytes in the edited string
+.B buf
+or -1 on error.
 .SH SOURCE
 .B /sys/src/libdraw
 .SH "SEE ALSO"

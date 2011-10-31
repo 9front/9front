@@ -1,6 +1,6 @@
 .TH MOUSE 2
 .SH NAME
-initmouse, readmouse, closemouse, moveto, getrect, drawgetrect, menuhit, setcursor \- mouse control
+initmouse, readmouse, closemouse, moveto, getrect, drawgetrect, menuhit, setcursor, enter \- mouse control
 .SH SYNOPSIS
 .nf
 .B
@@ -42,6 +42,11 @@ void		drawgetrect(Rectangle r, int up)
 .PP
 .B
 int		menuhit(int but, Mousectl *mc, Menu *menu, Screen *scr)
+.PP
+.B
+int		enter(char *ask, char *buf, int len,
+.B
+			Mousectl *mc, Keyboardctl *kc, Screen *scr)
 .fi
 .SH DESCRIPTION
 These functions access and control a mouse in a multi-threaded environment.
@@ -238,6 +243,20 @@ behaves like
 .IR emenuhit ,
 creating backing store for the menu, writing the menu directly on the display, and
 restoring the display when the menu is removed.
+.PP
+.I Enter
+is a multithreded version of the
+.I eenter
+function described in
+.IR event(2).
+Like
+.I menuhit,
+it has a optional
+.B scr
+argument to create a window. Keyboard input is read from the channel in the
+.B Keyboardctl *kc
+argument (see
+.IR keyboard (2)).
 .PP
 .SH SOURCE
 .B /sys/src/libdraw

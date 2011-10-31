@@ -4,6 +4,7 @@ typedef struct	Channel Channel;
 typedef struct	Cursor Cursor;
 typedef struct	Menu Menu;
 typedef struct 	Mousectl Mousectl;
+typedef struct	Keyboardctl Keyboardctl;
 
 struct	Mouse
 {
@@ -44,3 +45,4 @@ extern void		setcursor(Mousectl*, Cursor*);
 extern void		drawgetrect(Rectangle, int);
 extern Rectangle	getrect(int, Mousectl*);
 extern int	 		menuhit(int, Mousectl*, Menu*, Screen*);
+extern int		enter(char *, char *, int, Mousectl*, Keyboardctl*, Screen*);

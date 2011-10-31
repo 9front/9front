@@ -18,9 +18,11 @@ OFILES=\
 	defont.$O\
 	draw.$O\
 	drawrepl.$O\
+	eenter.$O\
 	egetrect.$O\
 	ellipse.$O\
 	emenuhit.$O\
+	enter.$O\
 	event.$O\
 	fmt.$O\
 	font.$O\
