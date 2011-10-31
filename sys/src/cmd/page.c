@@ -63,6 +63,7 @@ char *menuitems[] = {
 	"next",
 	"prev",
 	"zerox",
+	"write",
 	"",
 	"quit",
 	nil
@@ -455,9 +456,9 @@ popengs(Page *p)
 		goto Err2;
 	case 0:
 		if(pdf)
-			dupfds(pin[1], pout[1], nullfd, pdat[1], ifd, -1);
+			dupfds(pin[1], pout[1], 2, pdat[1], ifd, -1);
 		else
-			dupfds(nullfd, nullfd, nullfd, pdat[1], ifd, -1);
+			dupfds(nullfd, nullfd, 2, pdat[1], ifd, -1);
 		if(argv[0])
 			pipeline(4, "%s", argv[0]);
 		argv[0] = "gs";
@@ -1184,7 +1185,7 @@ void
 main(int argc, char *argv[])
 {
 	enum { Eplumb = 4 };
-	char jump[32];
+	char buf[NPATH];
 	Plumbmsg *pm;
 	Point o;
 	Mouse m;
@@ -1235,16 +1236,16 @@ main(int argc, char *argv[])
 	unlockdisplay(display);
 	einit(Ekeyboard|Emouse);
 	eplumb(Eplumb, "image");
+	memset(&m, 0, sizeof(m));
 	if((nullfd = open("/dev/null", ORDWR)) < 0)
 		sysfatal("open: %r");
-	current = root = addpage(nil, "root", nil, nil, -1);
+	current = root = addpage(nil, "", nil, nil, -1);
 
 	if(*argv == nil && !imode)
 		addpage(root, "stdin", popenfile, strdup("/fd/0"), -1);
 	for(; *argv; argv++)
 		addpage(root, shortname(*argv), popenfile, strdup(*argv), -1);
 
-	jump[0] = 0;
 	for(;;){
 		i=event(&e);
 		switch(i){
@@ -1270,6 +1271,7 @@ main(int argc, char *argv[])
 				if(i < 0 || i >= nelem(menuitems) || menuitems[i]==nil)
 					goto Unlock;
 				s = menuitems[i];
+			PageMenu:
 				if(strcmp(s, "orig size")==0){
 					pos = ZP;
 					zoom = 1;
@@ -1323,6 +1325,35 @@ main(int argc, char *argv[])
 						drawpage(current);
 						qunlock(current);
 					}
+					goto Unlock;
+				}
+				if(strcmp(s, "write")==0){
+					if(current && canqlock(current)){
+						if(current->image){
+							s = nil;
+							if(current->up && current->up != root)
+								s = current->up->label;
+							snprint(buf, sizeof(buf), "%s%s%s.bit",
+								s ? s : "",
+								s ? "." : "",
+								current->label);
+							if(eenter("Write", buf, sizeof(buf), &m) > 0){
+								int fd;
+
+								if((fd = create(buf, OWRITE, 0666)) < 0){
+									errstr(buf, sizeof(buf));
+									eenter(buf, 0, 0, &m);
+								} else {
+									esetcursor(&reading);
+									writeimage(fd, current->image, 0);
+									close(fd);
+									esetcursor(nil);
+								}
+							}
+						}
+						qunlock(current);
+					}
+					goto Unlock;
 				}
 				unlockdisplay(display);
 				if(strcmp(s, "next")==0)
@@ -1357,6 +1388,26 @@ main(int argc, char *argv[])
 			case Kdel:
 			case Keof:
 				exits(0);
+				break;
+			case 'w':
+				s = "write";
+				goto DoMenu;
+			case 'u':
+				s = "upside down";
+				goto DoMenu;
+			case '+':
+				s = "zoom in";
+				goto DoMenu;
+			case '-':
+				s = "zoom out";
+				goto DoMenu;
+			case Kesc:
+				s = "orig size";
+			DoMenu:
+				lockdisplay(display);
+				o = m.xy;
+				goto PageMenu;
+
 			case Kup:
 				if(current == nil || !canqlock(current))
 					break;
@@ -1371,7 +1422,6 @@ main(int argc, char *argv[])
 				qunlock(current);
 				if(prevpage(current))
 					pos.y = 0;
-			case '-':
 			case Kbs:
 			case Kleft:
 				showprev();
@@ -1392,21 +1442,21 @@ main(int argc, char *argv[])
 				if(nextpage(current))
 					pos.y = 0;
 			case '\n':
-				if(jump[0]){
-					showpage(findpage(jump));
-					jump[0] = 0;
-					break;
-				}
 			case ' ':
 			case Kright:
 				shownext();
 				break;
 			default:
-				i = strlen(jump);
-				if(i+1 < sizeof(jump)){
-					jump[i] = e.kbdc;
-					jump[i+1] = 0;
-				}
+				if((e.kbdc < 0x20) || 
+				   (e.kbdc & 0xFF00) == KF || 
+				   (e.kbdc & 0xFF00) == Spec)
+					break;
+				snprint(buf, sizeof(buf), "%C", (Rune)e.kbdc);
+				lockdisplay(display);
+				i = eenter("Go to", buf, sizeof(buf), &m);
+				unlockdisplay(display);
+				if(i > 0)
+					showpage(findpage(buf));
 			}
 			break;
 		case Eplumb:
