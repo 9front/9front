@@ -48,6 +48,7 @@ software ^
 open-source ^
 module
 proxy
+hosting
 wrapper
 storage
 social ^
@@ -61,13 +62,16 @@ abstract ^
 stateless ^
 optimized ^
 virtualized ^
+scale-out ^
 session |
 high-performance |
 general-purpose |
+out-scaling |
 generic ^
 property |
 secure ^
 overflow-preventing ^
+non-blocking ^
 self-healing ^
 ISO-certified ^
 encrypted ^
@@ -115,3 +119,4 @@ locator $
 -oriented %
 -based %
 -aware %
+-scale %
