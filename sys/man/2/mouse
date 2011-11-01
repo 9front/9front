@@ -248,7 +248,7 @@ restoring the display when the menu is removed.
 is a multithreded version of the
 .I eenter
 function described in
-.IR event(2).
+.IR event(2) .
 Like
 .I menuhit,
 it has a optional
