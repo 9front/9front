@@ -6,6 +6,8 @@ audio \- audio device
 .B bind -a #A /dev
 .sp 0.3v
 .B /dev/audio
+.B /dev/audioctl
+.B /dev/audiostat
 .B /dev/volume
 .fi
 .SH DESCRIPTION
@@ -21,39 +23,56 @@ The length of the
 .B audio
 file as returned by
 .IR stat (2)
-represents the number of bytes buffered for input or output.
+represents the number of bytes buffered for output.
+.PP
+.B Audioctl
+is driver specific control file and left undocumented here.
+.PP
+.B Audiostat
+is a read only status file. The first line has a length of 32 bytes
+including the newline and starts with the string
+.B bufsize
+followed by the prefered write unit (in bytes) and the string
+.B buffered
+followed by the number of bytes currently queued for output. The
+numbers are decimal and right-padded with spaces to fit.
+After this fixed header, the contents of the file is driver specific.
 .PP
 .B Volume
-is the control file associated with the audio port.
-Each input and output source has an associated stereo volume control,
-ranging from 0 (quiet) to 100 (loud).
-In addition, there are controls for the sampling rate of the D/A and A/D converters
+is the control file associated with the audio port.  Each source has
+an associated stereo volume control,
+ranging from 0 (quiet) to 100 (loud). 
+In addition, there are controls for the sampling rate,
 latency control and for any tone controls.
 Reads
 return lines of the form
 .IP
 .I source
-.B in left
-.I value 
-.B right
-.I value
-.B out left
-.I value
-.B right
+.I left
+.I right
+.PP
+or
+.IP
+.I source
 .I value
 .PP
-possibly abbreviated if the values are shared or non-existent.
-For example, if all of the values are shared, the form degenerates to
-.RI ` source
-.IR value '.
 Valid sources depend on the particular audio device,
 though all devices have an
 .B audio
-stereo source, which controls the output volume from the D/A converter
-connected to
-.BR audio .
+stereo source, which controls the output volume from the D/A converter.
+Values for
+.B speed
+set the sampling frequency of the audio device and
+.B delay
+limits the audio data output buffering to a number of samples.
 .PP
-Writes accept the same format with same abbreviations.
+Writes accept the same format except that for stereo sources 
+.I left
+and
+.I right
+can be abbreviated to a single
+.I value
+if both should be set the same.
 .SH SOURCE
 .B /sys/src/9/port/devaudio.c
 .SH SEE ALSO
