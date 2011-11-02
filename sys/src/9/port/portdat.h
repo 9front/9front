@@ -736,7 +736,6 @@ struct Proc
 
 	ulong	qpc;		/* pc calling last blocking qlock */
 	QLock	*eql;		/* interruptable eqlock */
-	Lock	eqlock;
 
 	int	setargs;
 

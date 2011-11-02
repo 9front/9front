@@ -42,28 +42,22 @@ eqlock(QLock *q)
 		error(Eintr);
 	}
 	rwstats.qlockq++;
-
 	p = q->tail;
 	if(p == 0)
 		q->head = up;
 	else
 		p->qnext = up;
 	q->tail = up;
-
+	up->eql = q;
 	up->qnext = 0;
 	up->qpc = getcallerpc(&q);
 	up->state = Queueing;
-
-	lock(&up->eqlock);
-	up->eql = q;
-	unlock(&up->eqlock);
-
 	unlock(&q->use);
-
 	sched();
-
 	if(up->notepending){
 		up->notepending = 0;
+		if(up->eql == q)
+			qunlock(q);
 		error(Eintr);
 	}
 }
@@ -96,6 +90,7 @@ qlock(QLock *q)
 	else
 		p->qnext = up;
 	q->tail = up;
+	up->eql = 0;
 	up->qnext = 0;
 	up->state = Queueing;
 	up->qpc = getcallerpc(&q);
@@ -128,12 +123,6 @@ qunlock(QLock *q)
 			getcallerpc(&q));
 	p = q->head;
 	if(p){
-		if(p->eql){
-			lock(&p->eqlock);
-			if(p->eql == q)
-				p->eql = 0;
-			unlock(&p->eqlock);
-		}
 		q->head = p->qnext;
 		if(q->head == 0)
 			q->tail = 0;

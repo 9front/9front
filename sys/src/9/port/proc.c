@@ -948,38 +948,35 @@ postnote(Proc *p, int dolock, char *n, int flag)
 	unlock(&p->rlock);
 	splx(s);
 
-Pullout:
 	switch(p->state){
 	case Queueing:
 		/* Try and pull out of a eqlock */
-		lock(&p->eqlock);
-		if(p->state == Queueing && p->eql && p->notepending){
-			Proc *d, *l;
+		if(p->notepending){
 			QLock *q;
 
-			q = p->eql;
-			if(!canlock(&q->use)){
-				unlock(&p->eqlock);
-				sched();
-				goto Pullout;
-			}
+			if((q = p->eql) == nil)
+				break;
+			lock(&q->use);
+			if(p->state == Queueing && p->eql == q && p->notepending){
+				Proc *d, *l;
 
-			for(l = nil, d = q->head; d; l = d, d = d->qnext)
-				if(d == p){
-					if(l)
-						l->qnext = p->qnext;
-					else
-						q->head = p->qnext;
-					if(p->qnext == 0)
-						q->tail = l;
-					p->qnext = 0;
-					p->eql = 0;
-					ready(p);
-					break;
+				for(l = nil, d = q->head; d; l = d, d = d->qnext){
+					if(d == p){
+						if(l)
+							l->qnext = p->qnext;
+						else
+							q->head = p->qnext;
+						if(p->qnext == 0)
+							q->tail = l;
+						p->qnext = 0;
+						p->eql = 0;	/* not taken */
+						ready(p);
+						break;
+					}
 				}
+			}
 			unlock(&q->use);
 		}
-		unlock(&p->eqlock);
 		break;
 	case Rendezvous:
 		/* Try and pull out of a rendezvous */
