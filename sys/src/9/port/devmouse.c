@@ -44,7 +44,6 @@ struct Mouseinfo
 	Ref;
 	QLock;
 	int	open;
-	int	inopen;
 	int	acceleration;
 	int	maxacc;
 	Mousestate	queue[16];	/* circular buffer of click events */
@@ -191,13 +190,6 @@ mouseopen(Chan *c, int omode)
 	case Qmousein:
 		if(!iseve())
 			error(Eperm);
-		lock(&mouse);
-		if(mouse.inopen){
-			unlock(&mouse);
-			error(Einuse);
-		}
-		mouse.inopen = 1;
-		unlock(&mouse);
 		break;
 	default:
 		incref(&mouse);
@@ -225,7 +217,6 @@ mouseclose(Chan *c)
 		if(c->qid.path == Qmouse)
 			mouse.open = 0;
 		else if(c->qid.path == Qmousein){
-			mouse.inopen = 0;
 			unlock(&mouse);
 			return;
 		}
