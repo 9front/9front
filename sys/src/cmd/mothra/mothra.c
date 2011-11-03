@@ -171,7 +171,6 @@ void scrolltext(int dy, int whence)
 	if(s.pos.y > s.size.y)
 		s.pos.y = s.size.y;
 	plsetscroll(text, s);
-	pldraw(root, screen);
 }
 
 void mkpanels(void){

@@ -153,6 +153,7 @@ void pl_scrolltextview(Panel *p, int dir, int buttons, int num, int den){
 	Textview *tp;
 	Rectangle r;
 	if(dir!=VERT) return;
+
 	tp=p->data;
 	ul=p->r.min;
 	size=subpt(p->r.max, p->r.min);
@@ -162,14 +163,14 @@ void pl_scrolltextview(Panel *p, int dir, int buttons, int num, int den){
 		SET(yoffs);
 		break;
 	case 1:		/* left -- top moves to pointer */
-		yoffs=tp->yoffs-num*size.y/den;
+		yoffs=(vlong)tp->yoffs-num*size.y/den;
 		if(yoffs<0) yoffs=0;
 		break;
 	case 2:		/* middle -- absolute index of file */
-		yoffs=tp->thgt*num/den;
+		yoffs=(vlong)tp->thgt*num/den;
 		break;
 	case 4:		/* right -- line pointed at moves to top */
-		yoffs=tp->yoffs+num*size.y/den;
+		yoffs=tp->yoffs+(vlong)num*size.y/den;
 		if(yoffs>tp->thgt) yoffs=tp->thgt;
 		break;
 	}
@@ -177,7 +178,7 @@ void pl_scrolltextview(Panel *p, int dir, int buttons, int num, int den){
 		pl_hiliteword(p, tp->hitword, 0);
 		r=pl_outline(p->b, p->r, p->state);
 		pl_rtredraw(p->b, r, tp->text, yoffs, tp->yoffs);
-		tp->yoffs=yoffs;
+		p->scr.pos.y=tp->yoffs=yoffs;
 		pl_fixtextview(p, tp, r);
 	}
 }
