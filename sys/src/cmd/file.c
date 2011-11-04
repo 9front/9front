@@ -155,6 +155,7 @@ int	isp9bit(void);
 int	isp9font(void);
 int	isrtf(void);
 int	ismsdos(void);
+int	isicocur(void);
 int	iself(void);
 int	istring(void);
 int	isoffstr(void);
@@ -192,6 +193,7 @@ int	(*call[])(void) =
 	isp9bit,	/* plan 9 image (as from /dev/window) */
 	isrtf,		/* rich text format */
 	ismsdos,	/* msdos exe (virus file attachement) */
+	isicocur,		/* windows icon or cursor file */
 	isface,		/* ascii face file */
 
 	/* last resorts */
@@ -871,7 +873,7 @@ struct offstr
 	ulong	off;
 	struct FILE_STRING;
 } offstrs[] = {
-	32*1024, "\001CD001\001",	"ISO9660 CD image",	7,	OCTET,
+	32*1024, "\001CD001\001",	"ISO9660 CD image",	7,	"application/x-iso9660-image",
 	0, 0, 0, 0, 0
 };
 
@@ -1451,6 +1453,24 @@ ismsdos(void)
 {
 	if (buf[0] == 0x4d && buf[1] == 0x5a){
 		print(mime ? "application/x-msdownload\n" : "MSDOS executable\n");
+		return 1;
+	}
+	return 0;
+}
+
+int
+isicocur(void)
+{
+	if(buf[0] || buf[1] || buf[3] || buf[9])
+		return 0;
+	if(buf[4] == 0x00 && buf[5] == 0x00)
+		return 0;
+	switch(buf[2]){
+	case 1:
+		print(mime ? "image/x-icon\n" : "Microsoft icon file\n");
+		return 1;
+	case 2:
+		print(mime ? "image/x-icon\n" : "Microsoft cursor file\n");
 		return 1;
 	}
 	return 0;
