@@ -2099,6 +2099,7 @@ atapnp(void)
 			 */
 			break;
 		case (0x7441<<16)|0x1022:	/* AMD 768 */
+		case (0x7800<<16)|0x1022:
 			/*
 			 * Set:
 			 *	0x41	prefetch, postwrite;
