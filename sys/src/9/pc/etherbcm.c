@@ -425,7 +425,7 @@ bcminterrupt(Ureg*, void *arg)
 	iunlock(&ctlr->imlock);
 }
 
-static void
+static int
 bcminit(Ether *edev)
 {
 	ulong i, j;
@@ -436,7 +436,12 @@ bcminit(Ether *edev)
 	/* initialization procedure according to the datasheet */
 	csr32(ctlr, MiscHostCtl) |= MaskPCIInt | ClearIntA;
 	csr32(ctlr, SwArbitration) |= SwArbitSet1;
-	while((csr32(ctlr, SwArbitration) & SwArbitWon1) == 0);
+	for(i = 0; i < 10000 && (csr32(ctlr, SwArbitration) & SwArbitWon1) == 0; i++)
+		microdelay(100);
+	if(i == 10000){
+		iprint("bcm: arbiter failed to respond\n");
+		return -1;
+	}
 	csr32(ctlr, MemArbiterMode) |= Enable;
 	csr32(ctlr, MiscHostCtl) |= IndirectAccessEnable | EnablePCIStateRegister | EnableClockControlRegister;
 	csr32(ctlr, MemoryWindow) = 0;
@@ -452,7 +457,12 @@ bcminit(Ether *edev)
 	csr32(ctlr, ModeControl) |= ByteWordSwap;
 	csr32(ctlr, MACMode) = (csr32(ctlr, MACMode) & MACPortMask) | MACPortGMII;
 	microdelay(40000);
-	while(mem32(ctlr, 0xB50) != 0xB49A89AB);
+	for(i = 0; i < 100000 && mem32(ctlr, 0xB50) != 0xB49A89AB; i++)
+		microdelay(100);
+	if(i == 100000){
+		iprint("bcm: chip failed to reset\n");
+		return -1;
+	}
 	csr32(ctlr, TLPControl) |= (1<<25) | (1<<29);
 	memset(ctlr->status, 0, 20);
 	csr32(ctlr, DMARWControl) = (csr32(ctlr, DMARWControl) & DMAWatermarkMask) | DMAWatermarkValue;
@@ -462,10 +472,20 @@ bcminit(Ether *edev)
 	csr32(ctlr, MBUFHighWatermark) = 0x60;
 	csr32(ctlr, LowWatermarkMaximum) = (csr32(ctlr, LowWatermarkMaximum) & LowWatermarkMaxMask) | LowWatermarkMaxValue;
 	csr32(ctlr, BufferManMode) |= Enable | Attn;
-	while((csr32(ctlr, BufferManMode) & Enable) == 0);
+	for(i = 0; i < 100 && (csr32(ctlr, BufferManMode) & Enable) == 0; i++)
+		microdelay(100);
+	if(i == 100){
+		iprint("bcm: buffer manager failed to start\n");
+		return -1;
+	}
 	csr32(ctlr, FTQReset) = -1;
 	csr32(ctlr, FTQReset) = 0;
-	while(csr32(ctlr, FTQReset));
+	for(i = 0; i < 1000 && csr32(ctlr, FTQReset) != 0; i++)
+		microdelay(100);
+	if(i == 1000){
+		iprint("bcm: ftq failed to reset\n");
+		return -1;
+	}
 	csr32(ctlr, ReceiveBDHostAddr) = 0;
 	csr32(ctlr, ReceiveBDHostAddr + 4) = PADDR(ctlr->recvprod);
 	csr32(ctlr, ReceiveBDFlags) = RecvProdRingLen << 16;
@@ -503,7 +523,12 @@ bcminit(Ether *edev)
 	csr32(ctlr, SendInitiatorMask) = 0xFFFFFF;
 	csr32(ctlr, SendInitiatorConfiguration) |= SendStats;
 	csr32(ctlr, HostCoalescingMode) = 0;
-	while(csr32(ctlr, HostCoalescingMode) != 0);
+	for(i = 0; i < 200 && csr32(ctlr, HostCoalescingMode) != 0; i++)
+		microdelay(100);
+	if(i == 200){
+		iprint("bcm: host coalescing engine failed to stop\n");
+		return -1;
+	}
 	csr32(ctlr, HostCoalescingRecvTicks) = 150;
 	csr32(ctlr, HostCoalescingSendTicks) = 150;
 	csr32(ctlr, RecvMaxCoalescedFrames) = 10;
@@ -539,7 +564,12 @@ bcminit(Ether *edev)
 	csr32(ctlr, MIMode) = 0xC0000;
 	microdelay(40);
 	miiw(ctlr, PhyControl, 1<<15);
-	while(miir(ctlr, PhyControl) & (1<<15));
+	for(i = 0; i < 1000 && miir(ctlr, PhyControl) & (1<<15); i++)
+		microdelay(100);
+	if(i == 1000){
+		iprint("bcm: PHY failed to reset\n");
+		return -1;
+	}
 	miiw(ctlr, PhyAuxControl, 2);
 	miir(ctlr, PhyIntStatus);
 	miir(ctlr, PhyIntStatus);
@@ -554,6 +584,7 @@ bcminit(Ether *edev)
 	csr32(ctlr, ReceiveRulesConfiguration) = 1 << 3;
 	csr32(ctlr, MSIMode) |= Enable;
 	csr32(ctlr, MiscHostCtl) &= ~(MaskPCIInt | ClearIntA);
+	return 0;
 }
 
 static void
@@ -637,6 +668,7 @@ bcmpnp(Ether* edev)
 {
 	Ctlr *ctlr;
 	
+again:
 	if(bcmhead == nil)
 		bcmpci();
 	
@@ -664,7 +696,10 @@ bcmpnp(Ether* edev)
 	edev->arg = edev;
 	edev->mbps = 1000;
 	
-	bcminit(edev);
+	if(bcminit(edev) < 0){
+		edev->ctlr = nil;
+		goto again;
+	}
 	return 0;
 }
 
