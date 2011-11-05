@@ -20,6 +20,8 @@ enum {
 	Cdisable = 0,
 	Cenable,
 	Cblank,
+
+	RealModeBuf = 0x9000,
 };
 
 static void *hardscreen;
@@ -37,26 +39,19 @@ static int vesactl;
 static uchar*
 vbesetup(Ureg *u, int ax)
 {
-	ulong pa;
-
-	pa = PADDR(RMBUF);
 	memset(modebuf, 0, sizeof modebuf);
 	memset(u, 0, sizeof *u);
 	u->ax = ax;
-	u->es = (pa>>4)&0xF000;
-	u->di = pa&0xFFFF;
+	u->es = (RealModeBuf>>4)&0xF000;
+	u->di = RealModeBuf&0xFFFF;
 	return modebuf;
 }
 
 static void
 vbecall(Ureg *u)
 {
-	ulong pa;
-
-	pa = PADDR(RMBUF);
-	if(devtab[cmem->type]->write(cmem, modebuf, sizeof(modebuf), pa) != sizeof(modebuf))
+	if(devtab[cmem->type]->write(cmem, modebuf, sizeof(modebuf), RealModeBuf) != sizeof(modebuf))
 		error("write modebuf");
-
 	u->trap = 0x10;
 	if(devtab[creg->type]->write(creg, u, sizeof(*u), 0) != sizeof(*u))
 		error("write ureg");
@@ -64,8 +59,7 @@ vbecall(Ureg *u)
 		error("read ureg");
 	if((u->ax&0xFFFF) != 0x004F)
 		error("vesa bios error");
-
-	if(devtab[cmem->type]->read(cmem, modebuf, sizeof(modebuf), pa) != sizeof(modebuf))
+	if(devtab[cmem->type]->read(cmem, modebuf, sizeof(modebuf), RealModeBuf) != sizeof(modebuf))
 		error("read modebuf");
 }
 

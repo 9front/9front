@@ -1,5 +1,4 @@
 #include "mem.h"
-#include "/sys/src/boot/pc/x16.h"
 #undef DELAY
 
 #define PADDR(a)	((a) & ~KZERO)
