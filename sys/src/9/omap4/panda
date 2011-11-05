@@ -22,35 +22,34 @@ dev
 #	flash
 
 #	ether		netif
-#	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum inferno
+	ip		arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum inferno
 
 #	draw		screen
 #	dss
 #	mouse
 
 	uart
-#	usb
+	usb
 
 link
 #	archoma
-#	ethermedium
+	ethermedium
 #	flashigep
 #	loopbackmedium
-#	netdevmedium
+	netdevmedium
 
-## avoid tickling errata 3.1.1.183
-##	usbohci
-#	usbehci		usbehciomap
+#	usbohci
+	usbehci		usbehciomap
 
 ip
-#	tcp
-#	udp
-#	ipifc
-#	icmp
-#	icmp6
-#	ipmux
-#	gre
-#	esp
+	tcp
+	udp
+	ipifc
+	icmp
+	icmp6
+	ipmux
+	gre
+	esp
 
 misc
 #	rdb
