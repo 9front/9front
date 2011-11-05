@@ -77,6 +77,11 @@ asmb(void)
 	curtext = P;
 	switch(HEADTYPE) {
 	case 0:
+		if(debug['P']){
+			OFFSET = rnd(textsize, INITRND);
+			seek(cout, OFFSET, 0);
+			break;
+		}
 	case 1:
 	case 2:
 	case 5:

@@ -147,12 +147,15 @@ userinit(void)
 void
 main()
 {
+	extern int ehcidebug;
+
 	wave('f');
 	memset(edata, 0, end - edata);
 	wave('r');
 	machinit();
 	wave('o');
 	mmuinit();
+	gpioinit();
 	wave('m');
 	trapinit();
 	uartinit();
@@ -166,8 +169,9 @@ main()
 	swapinit();
 	initseg();
 	quotefmtinstall();
-	chandevreset();
+	ehcidebug = 1;
 	links();
+	chandevreset();
 	userinit();
 	schedinit();
 }

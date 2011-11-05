@@ -65,7 +65,7 @@ perfticks(void)
 }
 
 void
-clocktick(Ureg* ureg)
+clocktick(Ureg* ureg, void *)
 {
 	timerintr(ureg, 0);
 }
@@ -74,7 +74,7 @@ void
 localclockinit(void)
 {
 	local[2] = 0xFF06;
-	intenable(29, clocktick);
+	intenable(29, clocktick, nil);
 	timerset(0);
 }
 

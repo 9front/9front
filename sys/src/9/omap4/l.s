@@ -51,7 +51,7 @@ uartloop:
 	EWAVE('n')
 
 	MRC	CpSC, 0, R1, C(CpCONTROL), C(0), CpMainctl
-	ORR	$(CpCmmu|CpChv|CpCsw), R1
+	ORR	$(CpCmmu|CpChv|CpCsw|CpCicache), R1
 	MCR	CpSC, 0, R1, C(CpCONTROL), C(0), CpMainctl
 
 	EWAVE(' ')
@@ -59,7 +59,7 @@ uartloop:
 	BL	_jumphi(SB)
 	
 	EWAVE('9')
-	
+
 	MOVW	$setR12(SB), R12
 	MOVW	$KTZERO, R13
 	
