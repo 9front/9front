@@ -989,6 +989,39 @@ archctlwrite(Chan*, void *a, long n, vlong)
 	return n;
 }
 
+static long
+rmemrw(int isr, void *a, long n, vlong off)
+{
+	if(off < 0 || n < 0)
+		error("bad offset/count");
+	if(isr){
+		if(off >= MB)
+			return 0;
+		if(off+n >= MB)
+			n = MB - off;
+		memmove(a, KADDR((ulong)off), n);
+	}else{
+		/* allow vga framebuf's access */
+		if(off >= MB || off+n > MB ||
+		    (off < 0xA0000 || off+n > 0xB0000+0x10000))
+			error("bad offset/count in write");
+		memmove(KADDR((ulong)off), a, n);
+	}
+	return n;
+}
+
+static long
+rmemread(Chan*, void *a, long n, vlong off)
+{
+	return rmemrw(1, a, n, off);
+}
+
+static long
+rmemwrite(Chan*, void *a, long n, vlong off)
+{
+	return rmemrw(0, a, n, off);
+}
+
 void
 archinit(void)
 {
@@ -1037,6 +1070,7 @@ archinit(void)
 
 	addarchfile("cputype", 0444, cputyperead, nil);
 	addarchfile("archctl", 0664, archctlread, archctlwrite);
+	addarchfile("realmodemem", 0660, rmemread, rmemwrite);
 }
 
 /*

@@ -60,8 +60,6 @@
 #define	CONFADDR	(KZERO+0x1200)		/* info passed from boot loader */
 #define	TMPADDR		(KZERO+0x2000)		/* used for temporary mappings */
 #define	APBOOTSTRAP	(KZERO+0x3000)		/* AP bootstrap code */
-#define	RMUADDR		(KZERO+0x7C00)		/* real mode Ureg */
-#define	RMCODE		(KZERO+0x8000)		/* copy of first page of KTEXT */
 #define	RMBUF		(KZERO+0x9000)		/* buffer for user space - known to vga */
 #define	IDTADDR		(KZERO+0x10800)		/* idt */
 #define	REBOOTADDR	(0x11000)		/* reboot code - physical address */

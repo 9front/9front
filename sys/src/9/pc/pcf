@@ -39,7 +39,6 @@ dev
 
 link
 	segdesc
-	realmode
 	devpccard
 	devi82365
 	apm		apmjump

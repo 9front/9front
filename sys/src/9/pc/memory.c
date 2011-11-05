@@ -526,19 +526,9 @@ struct Emap
 {
 	uvlong base;
 	uvlong len;
-	ulong type;
 };
 static Emap emap[16];
 int nemap;
-
-static char *etypes[] =
-{
-	"type=0",
-	"memory",
-	"reserved",
-	"acpi reclaim",
-	"acpi nvs",
-};
 
 static int
 emapcmp(const void *va, const void *vb)
@@ -551,11 +541,7 @@ emapcmp(const void *va, const void *vb)
 		return -1;
 	if(a->base > b->base)
 		return 1;
-	if(a->len < b->len)
-		return -1;
-	if(a->len > b->len)
-		return 1;
-	return a->type - b->type;
+	return a->len - b->len;
 }
 
 static void
@@ -668,66 +654,29 @@ map(ulong base, ulong len, int type)
 static int
 e820scan(void)
 {
-	int i;
-	Ureg u;
-	ulong cont, base, len;
+	ulong base, len;
 	uvlong last;
 	Emap *e;
 	char *s;
+	int i;
 
-	if((s = getconf("e820")) != nil){
-		for(nemap = 0; nemap < nelem(emap); nemap++){
-			if(*s == 0)
-				break;
-			e = emap + nemap;
-			e->base = strtoull(s, &s, 16);
-			if(*s != ' ')
-				break;
-			e->len = strtoull(s, &s, 16) - e->base;
-			if(*s != ' ' && *s != 0 || e->len >= 1ull<<32 || e->len == 0)
-				break;
-			e->type = Ememory;
-		}
-	}else{
-		if(getconf("*norealmode") || getconf("*noe820scan"))
-			return -1;
-		cont = 0;
-		for(i=0; i<nelem(emap); i++){
-			memset(&u, 0, sizeof u);
-			u.ax = 0xE820;
-			u.bx = cont;
-			u.cx = 20;
-			u.dx = SMAP;
-			u.es = (PADDR(RMBUF)>>4)&0xF000;
-			u.di = PADDR(RMBUF)&0xFFFF;
-			u.trap = 0x15;
-			realmode(&u);
-			cont = u.bx;
-			if((u.flags&Carry) || u.ax != SMAP || u.cx != 20)
-				break;
-			e = &emap[nemap++];
-			*e = *(Emap*)RMBUF;
-			if(u.bx == 0)
-				break;
-		}
+	/* passed by bootloader */
+	if((s = getconf("e820")) == nil)
+		return -1;
+	for(nemap = 0; nemap < nelem(emap); nemap++){
+		if(*s == 0)
+			break;
+		e = emap + nemap;
+		e->base = strtoull(s, &s, 16);
+		if(*s != ' ')
+			break;
+		e->len = strtoull(s, &s, 16) - e->base;
+		if(*s != ' ' && *s != 0 || e->len >= 1ull<<32 || e->len == 0)
+			break;
 	}
-
 	if(nemap == 0)
 		return -1;
-	
 	qsort(emap, nemap, sizeof emap[0], emapcmp);
-
-	if(s == nil && getconf("*noe820print") == nil){
-		for(i=0; i<nemap; i++){
-			e = &emap[i];
-			print("E820: %.8llux %.8llux ", e->base, e->base+e->len);
-			if(e->type < nelem(etypes))
-				print("%s\n", etypes[e->type]);
-			else
-				print("type=%lud\n", e->type);
-		}
-	}
-
 	last = 0;
 	for(i=0; i<nemap; i++){	
 		e = &emap[i];
@@ -747,10 +696,7 @@ e820scan(void)
 		if(last < e->base)
 			map(last, e->base-last, MemUPA);
 		last = base+len;
-		if(e->type == Ememory)
-			map(base, len, MemRAM);
-		else
-			map(base, len, MemReserved);
+		map(base, len, MemRAM);
 	}
 	if(last < (1LL<<32))
 		map(last, (u32int)-last, MemUPA);
