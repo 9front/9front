@@ -510,17 +510,6 @@ ramscan(ulong maxmem)
 	*k0 = kzero;
 }
 
-/*
- * BIOS Int 0x15 E820 memory map.
- */
-enum
-{
-	SMAP = ('S'<<24)|('M'<<16)|('A'<<8)|'P',
-	Ememory = 1,
-	Ereserved = 2,
-	Carry = 1,
-};
-
 typedef struct Emap Emap;
 struct Emap
 {
