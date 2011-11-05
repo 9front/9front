@@ -17,8 +17,6 @@
 #include "screen.h"
 
 enum {
-	Usesoftscreen = 1,
-
 	Cdisable = 0,
 	Cenable,
 	Cblank,
@@ -112,9 +110,9 @@ static void
 vesalinear(VGAscr *scr, int, int)
 {
 	int i, mode, size, havesize;
-	uchar *p;
 	ulong paddr;
 	Pcidev *pci;
+	uchar *p;
 
 	if(hardscreen) {
 		scr->vaddr = hardscreen;
@@ -170,8 +168,7 @@ vesalinear(VGAscr *scr, int, int)
 	vgalinearaddr(scr, paddr, size);
 	if(scr->apsize)
 		addvgaseg("vesascreen", scr->paddr, scr->apsize);
-
-	if(Usesoftscreen){
+	if(getconf("*vesashadow")){
 		hardscreen = scr->vaddr;
 		scr->paddr = scr->apsize = 0;
 	}
