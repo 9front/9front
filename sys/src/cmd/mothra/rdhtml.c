@@ -241,6 +241,24 @@ int pl_nextc(Hglob *g){
 	}
 	return c;
 }
+char *unquot(char *dst, char *src, int len){
+	char *e;
+
+	e=0;
+	while(strchr("\n\r\t ", *src))
+		src++;
+	if(*src=='\'' || *src=='"'){
+		e=strrchr(src+1, *src);
+		src++;
+	}
+	if(e==0) e=strchr(src, 0);
+	len--;
+	if((e - src) < len)
+		len=e-src;
+	if(len>0) memmove(dst, src, len);
+	dst[len]=0;
+	return dst;
+}
 int entchar(int c){
 	return c=='#' || 'a'<=c && c<='z' || 'A'<=c && c<='Z' || '0'<=c && c<='9';
 }
@@ -643,8 +661,6 @@ void plrdhtml(char *name, int fd, Www *dst){
 			break;
 		case Tag_end:	/* unrecognized start tag */
 			break;
-		case Tag_meta:
-			break;
 		case Tag_img:
 			if(str=pl_getattr(g.attr, "src"))
 				strncpy(g.state->image, str, sizeof(g.state->image));
@@ -696,19 +712,38 @@ void plrdhtml(char *name, int fd, Www *dst){
 				pl_htmloutput(&g, 0, "", 0);
 			}
 			break;
+		case Tag_meta:
+			if((str=pl_getattr(g.attr, "http-equiv"))==0)
+				break;
+			if(cistrcmp(str, "refresh"))
+				break;
+			if((str=pl_getattr(g.attr, "content"))==0)
+				break;
+			if((str=strchr(str, '='))==0)
+				break;
+			str++;
+			str=unquot(g.state->link, str, sizeof(g.state->link));
+			pl_htmloutput(&g, 0, "refresh: ", 0);
+			pl_htmloutput(&g, 0, str, 0);
+			g.state->link[0]=0;
+			g.linebrk=1;
+			g.spacc=0;
+			break;
+		case Tag_video:
 		case Tag_frame:
-			pl_htmloutput(&g, 0, "FRAME: ", 0);
 			if(str=pl_getattr(g.attr, "src"))
 				strncpy(g.state->link, str, sizeof(g.state->link));
 			if(str=pl_getattr(g.attr, "name"))
 				strncpy(g.state->name, str, sizeof(g.state->name));
 			else
 				str = g.state->link;
+			pl_htmloutput(&g, 0, tag[g.tag].name, 0);
+			pl_htmloutput(&g, 0, ": ", 0);
 			pl_htmloutput(&g, 0, str, 0);
 			g.state->link[0]=0;
-			g.state->name[0] =0;
-			g.spacc=0;
+			g.state->name[0]=0;
 			g.linebrk=1;
+			g.spacc=0;
 			break;
 		case Tag_address:
 			g.spacc=0;
@@ -904,6 +939,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			rdform(&g);
 			break;
 		case Tag_script:
+		case Tag_object:
 		case Tag_style:
 			/*
 			 * ignore the content of these tags, eat tokens until we

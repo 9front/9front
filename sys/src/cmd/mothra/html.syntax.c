@@ -53,6 +53,8 @@ Tag tag[]={
 [Tag_plaintext]	"plaintext",	NOEND,
 [Tag_pre]	"pre",		END,
 [Tag_samp]	"samp",		END,
+[Tag_video]	"video",	NOEND,
+[Tag_object]	"object",	END,
 [Tag_script]	"script",	END,
 [Tag_style]	"style",	END,
 [Tag_select]	"select",	END,

@@ -18,12 +18,23 @@ struct Entry{
 void pl_drawentry(Panel *p){
 	Rectangle r;
 	Entry *ep;
+	char *s;
+
 	ep=p->data;
 	r=pl_box(p->b, p->r, p->state);
-	if(stringwidth(font, ep->entry)<=r.max.x-r.min.x)
-		pl_drawicon(p->b, r, PLACEW, 0, ep->entry);
+	s=ep->entry;
+	if(p->flags & 1){
+		char *p;
+		s=strdup(s);
+		for(p=s; *p; p++)
+			*p='*';
+	}
+	if(stringwidth(font, s)<=r.max.x-r.min.x)
+		pl_drawicon(p->b, r, PLACEW, 0, s);
 	else
-		pl_drawicon(p->b, r, PLACEE, 0, ep->entry);
+		pl_drawicon(p->b, r, PLACEE, 0, s);
+	if(s != ep->entry)
+		free(s);
 }
 int pl_hitentry(Panel *p, Mouse *m){
 	int oldstate;

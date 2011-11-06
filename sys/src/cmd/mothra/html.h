@@ -178,6 +178,8 @@ enum{
 	Tag_table,	/* rm 3.8.00 */
 	Tag_td,
 	Tag_tr,
+	Tag_video,
+	Tag_object,
 	Tag_script,
 	Tag_style,
 	Tag_end,	/* also used to indicate unrecognized start tag */

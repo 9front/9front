@@ -150,29 +150,12 @@ void rdform(Hglob *g){
 		else
 			f->maxlength=atoi(s);
 		s=pl_getattr(g->attr, "type");
-		if(g->tag == Tag_button && (s==0 || cistrcmp(s, "reset") || cistrcmp(s, "button")))
-			s = "submit";
-		if(s==0 || cistrcmp(s, "text")==0 || 
-		   cistrcmp(s, "password")==0 || cistrcmp(s, "int")==0 ||
-		   cistrcmp(s, "email")==0){
-			s=pl_getattr(g->attr, "name");
-			if(s!=0 && strcmp(s, "isindex")==0)
-				f->type=INDEX;
-			else
-				f->type=TYPEIN;
-			/*
-			 * If there's exactly one attribute, use its value as the name,
-			 * regardless of the attribute name.  This makes
-			 * http://linus.att.com/ias/puborder.html work.
-			 */
-			if(s==0){
-				if(g->attr[0].name && g->attr[1].name==0)
-					f->name=strdup(g->attr[0].value);
-				else
-					f->name=strdup("no-name");
-			}
-		}
-		else if(cistrcmp(s, "checkbox")==0)
+		if((g->tag == Tag_button) && 
+		   (s==0 || cistrcmp(s, "reset") || cistrcmp(s, "button")))
+			s="submit";
+		else if(s==0)
+			s="text";
+		if(cistrcmp(s, "checkbox")==0)
 			f->type=CHECK;
 		else if(cistrcmp(s, "radio")==0)
 			f->type=RADIO;
@@ -191,8 +174,25 @@ void rdform(Hglob *g){
 			f->type=RESET;
 		else if(cistrcmp(s, "hidden")==0)
 			f->type=HIDDEN;
-		else
+		else{
 			f->type=TYPEIN;
+			if(cistrcmp(s, "password")==0)
+				f->type=PASSWD;
+			/*
+			 * If there's exactly one attribute, use its value as the name,
+			 * regardless of the attribute name.  This makes
+			 * http://linus.att.com/ias/puborder.html work.
+			 */
+			s=f->name;
+			if(s && cistrcmp(s, "isindex")==0)
+				f->type=INDEX;
+			if(s==0){
+				if(g->attr[0].name && g->attr[1].name==0)
+					f->name=strdup(g->attr[0].value);
+				else
+					f->name=strdup("no-name");
+			}
+		}
 		if((f->type==CHECK || f->type==RADIO) && !pl_hasattr(g->attr, "value")){
 			free(f->value);
 			f->value=strdup("on");
@@ -341,6 +341,9 @@ void mkfieldpanel(Rtext *t){
 	case TYPEIN:
 		f->p=plentry(0, 0, f->size*chrwidth, f->value, h_submittype);
 		break;
+	case PASSWD:
+		f->p=plentry(0, 1, f->size*chrwidth, f->value, h_submittype);
+		break;
 	case CHECK:
 		f->p=plcheckbutton(0, 0, "", h_checkinput);
 		f->state=f->checked;
@@ -433,8 +436,10 @@ void h_resetinput(Panel *p, int){
 	Option *o;
 	for(f=((Field *)p->userp)->form->fields;f;f=f->next) switch(f->type){
 	case TYPEIN:
-	case PASSWD:
 		plinitentry(f->p, 0, f->size*chrwidth, f->value, 0);
+		break;
+	case PASSWD:
+		plinitentry(f->p, 1, f->size*chrwidth, f->value, 0);
 		break;
 	case CHECK:
 	case RADIO:
@@ -530,7 +535,9 @@ void h_submittype(Panel *p, char *){
 	int ntype;
 	Field *f;
 	ntype=0;
-	for(f=((Field *)p->userp)->form->fields;f;f=f->next) if(f->type==TYPEIN) ntype++;
+	for(f=((Field *)p->userp)->form->fields;f;f=f->next)
+		if(f->type==TYPEIN || f->type==PASSWD)
+			ntype++;
 	if(ntype==1) h_submitinput(p, 0);
 }
 void h_submitindex(Panel *p, char *){
