@@ -162,10 +162,10 @@ vesalinear(VGAscr *scr, int, int)
 	vgalinearaddr(scr, paddr, size);
 	if(scr->apsize)
 		addvgaseg("vesascreen", scr->paddr, scr->apsize);
-	if(getconf("*vesashadow")){
-		hardscreen = scr->vaddr;
-		scr->paddr = scr->apsize = 0;
-	}
+	if(getconf("*novesashadow"))
+		return;
+	hardscreen = scr->vaddr;
+	scr->paddr = scr->apsize = 0;
 }
 
 static void

@@ -8,6 +8,7 @@ typedef struct PMMU PMMU;
 typedef struct Confmem Confmem;
 typedef struct Conf Conf;
 typedef struct Proc Proc;
+typedef struct ISAConf ISAConf;
 typedef uvlong Tval;
 typedef void KMap;
 #define	VA(k)		((uintptr)(k))
@@ -142,3 +143,9 @@ extern uintptr kseg0;
 
 #define AOUT_MAGIC (E_MAGIC)
 #define NCOLOR 1
+
+struct ISAConf
+{
+	char *type;
+	ulong port, irq;
+};

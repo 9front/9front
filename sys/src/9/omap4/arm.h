@@ -21,6 +21,8 @@
 #define PsrDfiq		0x00000040		/* disable FIQ interrupts */
 #define PsrDirq		0x00000080		/* disable IRQ interrupts */
 
+#define PsrOK		0xF80F0000	/* user processes may touch these */
+
 #define PsrV		0x10000000		/* overflow */
 #define PsrC		0x20000000		/* carry/borrow/extend */
 #define PsrZ		0x40000000		/* zero */

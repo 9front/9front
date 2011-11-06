@@ -37,6 +37,7 @@
 #define	MAXSYSARG	7
 #define MAXMACH		2
 
+#define BI2BY		8
 #define BY2WD		4
 #define BY2V		8
 #define BY2PG		4096
