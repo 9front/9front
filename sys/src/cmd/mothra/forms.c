@@ -344,7 +344,7 @@ void mkfieldpanel(Rtext *t){
 		f->p=plentry(0, 0, f->size*chrwidth, f->value, h_submittype);
 		break;
 	case PASSWD:
-		f->p=plentry(0, 1, f->size*chrwidth, f->value, h_submittype);
+		f->p=plentry(0, USERFL, f->size*chrwidth, f->value, h_submittype);
 		break;
 	case CHECK:
 		f->p=plcheckbutton(0, 0, "", h_checkinput);
@@ -441,7 +441,7 @@ void h_resetinput(Panel *p, int){
 		plinitentry(f->p, 0, f->size*chrwidth, f->value, 0);
 		break;
 	case PASSWD:
-		plinitentry(f->p, 1, f->size*chrwidth, f->value, 0);
+		plinitentry(f->p, USERFL, f->size*chrwidth, f->value, 0);
 		break;
 	case CHECK:
 	case RADIO:

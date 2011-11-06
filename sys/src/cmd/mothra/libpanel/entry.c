@@ -23,7 +23,7 @@ void pl_drawentry(Panel *p){
 	ep=p->data;
 	r=pl_box(p->b, p->r, p->state);
 	s=ep->entry;
-	if(p->flags & 1){
+	if(p->flags & USERFL){
 		char *p;
 		s=strdup(s);
 		for(p=s; *p; p++)
