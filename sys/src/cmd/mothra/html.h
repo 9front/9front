@@ -119,8 +119,13 @@ enum{
  */
 enum{
 	Tag_comment,
+
 	Tag_a,
+	Tag_abbr,
+	Tag_acronym,
 	Tag_address,
+	Tag_applet,
+	Tag_audio,
 	Tag_b,
 	Tag_base,
 	Tag_blockquot,
@@ -136,8 +141,10 @@ enum{
 	Tag_dl,
 	Tag_dt,
 	Tag_em,
+	Tag_embed,
 	Tag_font,
 	Tag_form,
+	Tag_frame,	/* rm 5.8.97 */
 	Tag_h1,
 	Tag_h2,
 	Tag_h3,
@@ -148,6 +155,7 @@ enum{
 	Tag_hr,
 	Tag_html,
 	Tag_i,
+	Tag_iframe,
 	Tag_img,
 	Tag_input,
 	Tag_isindex,
@@ -159,31 +167,31 @@ enum{
 	Tag_menu,
 	Tag_meta,
 	Tag_nextid,
+	Tag_object,
 	Tag_ol,
 	Tag_option,
 	Tag_p,
 	Tag_plaintext,
 	Tag_pre,
 	Tag_samp,
+	Tag_script,
 	Tag_select,
 	Tag_strong,
+	Tag_style,
+	Tag_source,
+	Tag_table,	/* rm 3.8.00 */
+	Tag_td,
 	Tag_textarea,
 	Tag_title,
+	Tag_tr,
 	Tag_tt,
 	Tag_u,
 	Tag_ul,
 	Tag_var,
-	Tag_xmp,
-	Tag_frame,	/* rm 5.8.97 */
-	Tag_table,	/* rm 3.8.00 */
-	Tag_td,
-	Tag_tr,
 	Tag_video,
-	Tag_object,
-	Tag_script,
-	Tag_style,
-	Tag_end,	/* also used to indicate unrecognized start tag */
+	Tag_xmp,
 
+	Tag_end,	/* also used to indicate unrecognized start tag */
 	Tag_text,
 };
 enum{

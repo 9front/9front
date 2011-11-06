@@ -729,8 +729,12 @@ void plrdhtml(char *name, int fd, Www *dst){
 			g.linebrk=1;
 			g.spacc=0;
 			break;
+		case Tag_source:
 		case Tag_video:
+		case Tag_audio:
+		case Tag_embed:
 		case Tag_frame:
+		case Tag_iframe:
 			if(str=pl_getattr(g.attr, "src"))
 				strncpy(g.state->link, str, sizeof(g.state->link));
 			if(str=pl_getattr(g.attr, "name"))
@@ -780,6 +784,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			/* more to come */
 			break;
 		case Tag_cite:
+		case Tag_acronym:
 			g.state->font=ITALIC;
 			g.state->size=NORMAL;
 			break;
@@ -795,6 +800,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			break;
 		case Tag_dfn:
 			htmlerror(g.name, g.lineno, "<dfn> deprecated");
+		case Tag_abbr:
 			g.state->font=BOLD;
 			g.state->size=NORMAL;
 			break;
@@ -940,6 +946,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			break;
 		case Tag_script:
 		case Tag_object:
+		case Tag_applet:
 		case Tag_style:
 			/*
 			 * ignore the content of these tags, eat tokens until we

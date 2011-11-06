@@ -178,14 +178,16 @@ void rdform(Hglob *g){
 			f->type=TYPEIN;
 			if(cistrcmp(s, "password")==0)
 				f->type=PASSWD;
+
+			s=f->name;
+			if(s && cistrcmp(s, "isindex")==0)
+				f->type=INDEX;
+
 			/*
 			 * If there's exactly one attribute, use its value as the name,
 			 * regardless of the attribute name.  This makes
 			 * http://linus.att.com/ias/puborder.html work.
 			 */
-			s=f->name;
-			if(s && cistrcmp(s, "isindex")==0)
-				f->type=INDEX;
 			if(s==0){
 				if(g->attr[0].name && g->attr[1].name==0)
 					f->name=strdup(g->attr[0].value);
