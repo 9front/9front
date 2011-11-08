@@ -21,6 +21,7 @@ int pl_hitpopup(Panel *g, Mouse *m){
 	Panel *p;
 	Point d;
 	Popup *pp;
+
 	pp=g->data;
 	if(g->state==UP){
 		switch(m->buttons&7){
@@ -66,6 +67,7 @@ int pl_hitpopup(Panel *g, Mouse *m){
 					draw(g->b, p->r, pp->save, 0, p->r.min);
 					flushimage(display, 1);
 					freeimage(pp->save);
+					pp->save=0;
 				}
 				pl_invis(p, 1);
 			}

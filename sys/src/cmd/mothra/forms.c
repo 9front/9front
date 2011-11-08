@@ -64,10 +64,6 @@ void h_submittype(Panel *, char *);
 void h_submitindex(Panel *, char *);
 void h_resetinput(Panel *, int);
 void h_select(Panel *, int, int);
-void h_cut(Panel *, int);
-void h_paste(Panel *, int);
-void h_snarf(Panel *, int);
-void h_edit(Panel *);
 char *selgen(Panel *, int);
 char *nullgen(Panel *, int);
 Field *newfield(Form *form){
@@ -377,20 +373,12 @@ void mkfieldpanel(Rtext *t){
 		f->p->fixedsize.x=f->pulldown->r.max.x-f->pulldown->r.min.x;
 		break;
 	case TEXTWIN:
-		menu=plgroup(0,0);
 		f->p=plframe(0,0);
 		pllabel(f->p, PACKN|FILLX, f->name);
 		scrl=plscrollbar(f->p, PACKW|FILLY);
-		pop=plpopup(f->p, PACKN|FILLX, 0, menu, 0);
-		f->textwin=pledit(pop, EXPAND, Pt(f->cols*chrwidth, f->rows*font->height),
-			0, 0, h_edit);
+		f->textwin=pledit(f->p, EXPAND, Pt(f->cols*chrwidth, f->rows*font->height),
+			0, 0, 0);
 		f->textwin->userp=f;
-		button=plbutton(menu, PACKN|FILLX, "cut", h_cut);
-		button->userp=f->textwin;
-		button=plbutton(menu, PACKN|FILLX, "paste", h_paste);
-		button->userp=f->textwin;
-		button=plbutton(menu, PACKN|FILLX, "snarf", h_snarf);
-		button->userp=f->textwin;
 		plscroll(f->textwin, 0, scrl);
 		break;
 	case INDEX:
@@ -456,34 +444,6 @@ void h_resetinput(Panel *p, int){
 	pldraw(text, screen);
 }
 void h_buttoninput(Panel *p, int){
-}
-void h_edit(Panel *p){
-	plgrabkb(p);
-}
-Rune *snarfbuf=0;
-int nsnarfbuf=0;
-void h_snarf(Panel *p, int){
-	int s0, s1;
-	Rune *text;
-	p=p->userp;
-	plegetsel(p, &s0, &s1);
-	if(s0==s1) return;
-	text=pleget(p);
-	if(snarfbuf) free(snarfbuf);
-	nsnarfbuf=s1-s0;
-	snarfbuf=malloc(nsnarfbuf*sizeof(Rune));
-	if(snarfbuf==0){
-		fprint(2, "No mem\n");
-		exits("no mem");
-	}
-	memmove(snarfbuf, text+s0, nsnarfbuf*sizeof(Rune));
-}
-void h_cut(Panel *p, int b){
-	h_snarf(p, b);
-	plepaste(p->userp, 0, 0);
-}
-void h_paste(Panel *p, int){
-	plepaste(p->userp, snarfbuf, nsnarfbuf);
 }
 int ulen(char *s){
 	int len;

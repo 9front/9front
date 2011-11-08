@@ -24,9 +24,9 @@
 typedef struct Edit Edit;
 struct Edit{
 	Point minsize;
+	void (*hit)(Panel *);
 	int sel0, sel1;
 	Textwin *t;
-	void (*hit)(Panel *);
 	Rune *text;
 	int ntext;
 };
@@ -47,6 +47,39 @@ void pl_drawedit(Panel *p){
 	sb=p->yscroller;
 	if(sb && sb->setscrollbar)
 		sb->setscrollbar(sb, ep->t->top, ep->t->bot, ep->t->etext-ep->t->text);
+}
+void pl_snarfedit(Panel *p, int cut){
+	int fd, n, s0, s1;
+	char *s;
+	Rune *t;
+
+	if((fd=open("/dev/snarf", cut ? OWRITE|OTRUNC : OREAD))<0)
+		return;
+	if(cut){
+		t=pleget(p);
+		plegetsel(p, &s0, &s1);
+		if(t==0 || s0>=s1){
+			close(fd);
+			return;
+		}
+		s = smprint("%.*S", s1-s0, t+s0);
+		if((n = strlen(s))>0)
+			write(fd, s, n);
+		free(s);
+		plepaste(p, 0, 0);
+	}else{
+		if((s=malloc(4096))==0){
+			close(fd);
+			return;
+		}
+		if((n=readn(fd, s, 4096))<0)
+			n=0;
+		t=runesmprint("%.*s", n, s);
+		plepaste(p, t, runestrlen(t));
+		free(s);
+		free(t);
+	}
+	close(fd);
 }
 /*
  * Should do double-clicks:
@@ -73,7 +106,13 @@ int pl_hitedit(Panel *p, Mouse *m){
 		twselect(ep->t, m);
 		ep->sel0=ep->t->sel0;
 		ep->sel1=ep->t->sel1;
-		if(ep->hit) ep->hit(p);
+		plgrabkb(p);
+		if((m->buttons&7)==3)
+			pl_snarfedit(p, 1);
+		else if((m->buttons&7)==5)
+			pl_snarfedit(p, 0);
+		else if(ep->hit)
+			(*ep->hit)(p);
 	}
 	return 0;
 }
@@ -124,6 +163,9 @@ void pl_typeedit(Panel *p, Rune c){
 	t->b=p->b;
 	twhilite(t, ep->sel0, ep->sel1, 0);
 	switch(c){
+	case Kesc:
+		pl_snarfedit(p, 1);
+		break;
 	case Kbs:	/* ^H: erase character */
 		if(ep->sel0!=0) --ep->sel0;
 		twreplace(t, ep->sel0, ep->sel1, 0, 0);

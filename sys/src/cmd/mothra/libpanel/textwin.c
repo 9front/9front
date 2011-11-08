@@ -26,6 +26,9 @@
 #include <event.h>
 #include <panel.h>
 #include "pldefs.h"
+
+#define SLACK 100
+
 /*
  * Is text at point a before or after that at point b?
  */
@@ -61,8 +64,8 @@ Point tw_rune2pt(Textwin *t, int i){
  */
 void tw_storeloc(Textwin *t, int l, Point p){
 	int nloc;
-	if(l>t->eloc-t->loc){
-		nloc=l+100;
+	if(l>=t->eloc-t->loc){
+		nloc=l+SLACK;
 		t->loc=realloc(t->loc, nloc*sizeof(Point));
 		if(t->loc==0){
 			fprint(2, "No mem in tw_storeloc\n");
@@ -226,7 +229,7 @@ void twselect(Textwin *t, Mouse *m){
 	twhilite(t, sel0, sel1, 1);
 	for(;;){
 		*m=emouse();
-		if(m->buttons==0) break;
+		if((m->buttons&7)!=1) break;
 		newsel=twpt2rune(t, m->xy);
 		newp=tw_rune2pt(t, newsel);
 		if(eqpt(newp, p0)) newp=addpt(newp, Pt(1, 0));
@@ -389,17 +392,16 @@ void twreplace(Textwin *t, int r0, int r1, Rune *ins, int nins){
 	int olen, nlen, tlen, dtop;
 	Rune *ntext;
 	olen=t->etext-t->text;
-	nlen=olen+r0-r1+nins;
+	nlen=olen+nins-(r1-r0);
 	tlen=t->eslack-t->text;
 	if(nlen>tlen){
-		tlen=nlen+100;
-		ntext=malloc(tlen*sizeof(Rune));
-		memmove(ntext, t->text, r0*sizeof(Rune));
-		memmove(ntext+r0+nins, t->text+r1, (olen-r1)*sizeof(Rune));
+		tlen=nlen+SLACK;
+		if((ntext=realloc(t->text, tlen*sizeof(Rune)))==0)
+			return;
 		t->text=ntext;
 		t->eslack=ntext+tlen;
 	}
-	else if(olen!=nlen)
+	if(olen!=nlen)
 		memmove(t->text+r0+nins, t->text+r1, (olen-r1)*sizeof(Rune));
 	if(nins!=0)	/* ins can be 0 if nins==0 */
 		memmove(t->text+r0, ins, nins*sizeof(Rune));
@@ -444,20 +446,20 @@ Textwin *twnew(Image *b, Font *f, Rune *text, int ntext){
 	Textwin *t;
 	t=malloc(sizeof(Textwin));
 	if(t==0) return 0;
-	t->text=malloc((ntext+100)*sizeof(Rune));
+	t->text=malloc((ntext+SLACK)*sizeof(Rune));
 	if(t->text==0){
 		free(t);
 		return 0;
 	}
-	t->loc=malloc(100*sizeof(Point));
+	t->loc=malloc(SLACK*sizeof(Point));
 	if(t->loc==0){
 		free(t->text);
 		free(t);
 		return 0;
 	}
-	t->eloc=t->loc+100;
+	t->eloc=t->loc+SLACK;
 	t->etext=t->text+ntext;
-	t->eslack=t->etext+100;
+	t->eslack=t->etext+SLACK;
 	if(ntext) memmove(t->text, text, ntext*sizeof(Rune));
 	t->top=0;
 	t->bot=0;

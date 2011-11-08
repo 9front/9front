@@ -85,7 +85,7 @@ struct Panel{
 #define	MAXX	0x1000		/* make x size as big as biggest sibling's */
 #define	MAXY	0x2000		/* make y size as big as biggest sibling's */
 #define	BITMAP	0x4000		/* text argument is a bitmap, not a string */
-#define USERFL	0x100000	/* user flag */
+#define USERFL	0x100000	/* start of user flag */
 
 /*
  * An extra bit in Mouse.buttons

@@ -15,6 +15,35 @@ struct Entry{
 	Point minsize;
 };
 #define	SLACK	7	/* enough for one extra rune and ◀ and a nul */
+void pl_snarfentry(Panel *p, int cut){
+	Entry *ep;
+	int fd, n;
+	char *s;
+
+	ep=p->data;
+	if((fd=open("/dev/snarf", cut ? OWRITE|OTRUNC : OREAD))<0)
+		return;
+	if(cut){
+		if((n=ep->entp-ep->entry)>0)
+			write(fd, ep->entry, n);
+		ep->entp=ep->entry;
+	}else{
+		if((s=malloc(1024+SLACK))==0){
+			close(fd);
+			return;
+		}
+		if((n=readn(fd, s, 1024))<0)
+			n=0;
+		free(ep->entry);
+		s=realloc(s, n+SLACK);
+		ep->entry=s;
+		ep->eent=s+n+SLACK;
+		ep->entp=s+n;
+	}
+	close(fd);
+	*ep->entp='\0';
+	pldraw(p, p->b);
+}
 void pl_drawentry(Panel *p){
 	Rectangle r;
 	Entry *ep;
@@ -37,17 +66,25 @@ void pl_drawentry(Panel *p){
 		free(s);
 }
 int pl_hitentry(Panel *p, Mouse *m){
-	int oldstate;
-	oldstate=p->state;
-	if(m->buttons&OUT)
-		p->state=UP;
-	else if(m->buttons&7)
+	if((m->buttons&OUT)==0 && (m->buttons&7)){
+		plgrabkb(p);
+
 		p->state=DOWN;
-	else{	/* mouse inside, but no buttons down */
-		if(p->state==DOWN) plgrabkb(p);
+		pldraw(p, p->b);
+		while(m->buttons&7){
+			int old;
+			old=m->buttons;
+			*m=emouse();
+			if((old&7)==1){
+				if((m->buttons&7)==3)
+					pl_snarfentry(p, 1);
+				if((m->buttons&7)==5)
+					pl_snarfentry(p, 0);
+			}
+		}
 		p->state=UP;
+		pldraw(p, p->b);
 	}
-	if(p->state!=oldstate) pldraw(p, p->b);
 	return 0;
 }
 void pl_typeentry(Panel *p, Rune c){
@@ -59,6 +96,9 @@ void pl_typeentry(Panel *p, Rune c){
 	case '\r':
 		*ep->entp='\0';
 		if(ep->hit) ep->hit(p, ep->entry);
+		return;
+	case Kesc:
+		pl_snarfentry(p, 1);
 		return;
 	case Knack:	/* ^U: erase line */
 		ep->entp=ep->entry;
@@ -76,7 +116,7 @@ void pl_typeentry(Panel *p, Rune c){
 		*ep->entp='\0';
 		break;
 	default:
-		if(c < 0x20 || c == Kesc || c == Kdel || (c & 0xFF00) == KF || (c & 0xFF00) == Spec)
+		if(c < 0x20 || c == Kdel || (c & 0xFF00) == KF || (c & 0xFF00) == Spec)
 			break;
 		ep->entp+=runetochar(ep->entp, &c);
 		if(ep->entp>ep->eent){

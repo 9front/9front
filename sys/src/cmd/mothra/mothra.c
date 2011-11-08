@@ -1121,8 +1121,7 @@ mothon(Www *w, int on)
 
 void snarf(Panel *p){
 	int fd;
-	fd=create("/dev/snarf", OWRITE, 0666);
-	if(fd>=0){
+	if((fd=open("/dev/snarf", OWRITE|OTRUNC))>=0){
 		fprint(fd, "%s", urlstr(selection));
 		close(fd);
 	}
@@ -1130,7 +1129,8 @@ void snarf(Panel *p){
 void paste(Panel *p){
 	char buf[1024];
 	int n, len, fd;
-	fd=open("/dev/snarf", OREAD);
+	if((fd=open("/dev/snarf", OREAD))<0)
+		return;
 	strncpy(buf, plentryval(p), sizeof(buf));
 	len=strlen(buf);
 	n=read(fd, buf+len, sizeof(buf)-len-1);

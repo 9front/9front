@@ -113,6 +113,7 @@ int pl_hittextview(Panel *p, Mouse *m){
 	tp=p->data;
 	oldhitword=tp->hitword;
 	hitme=0;
+
 	pl_passon(oldhitword, m);
 	if(m->buttons&OUT)
 		p->state=UP;
