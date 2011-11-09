@@ -136,6 +136,7 @@ enum{
 	Tag_cite,
 	Tag_code,
 	Tag_dd,
+	Tag_div,
 	Tag_dfn,
 	Tag_dir,
 	Tag_dl,

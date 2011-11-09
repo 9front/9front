@@ -25,6 +25,7 @@ Tag tag[]={
 [Tag_dd]	"dd",		NOEND,	/* OPTEND */
 [Tag_dfn]	"dfn",		END,
 [Tag_dir]	"dir",		END,
+[Tag_div]	"div",	NOEND,	/* OPTEND */
 [Tag_dl]	"dl",		END,
 [Tag_dt]	"dt",		NOEND,	/* OPTEND */
 [Tag_em]	"em",		END,
