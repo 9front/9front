@@ -36,6 +36,12 @@ is specified, the first parameter that matches the prefix
 is removed. If the
 .IR prefix
 argument is omitted, the whole configuration will be reset.
+If the word
+.B wait
+appears in the configuration then
+.IR 9boot
+will return to the console prompt after processing the file.
+
 The word
 .B boot
 will end the console and resume booting the kernel.

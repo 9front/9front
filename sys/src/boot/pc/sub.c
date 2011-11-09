@@ -189,10 +189,11 @@ char*
 configure(void *f, char *path)
 {
 	char line[64], *kern, *s, *p;
-	int inblock, n;
+	int inblock, nowait, n;
 
 Clear:
 	kern = 0;
+	nowait = 1;
 	inblock = 0;
 
 	memset(BOOTLINE, 0, BOOTLINELEN);
@@ -209,8 +210,14 @@ Loop:
 			inblock = memcmp("[common]", line, 8);
 			continue;
 		}
-		if(!memcmp("boot", line, 5))
+		if(!memcmp("boot", line, 5)){
+			nowait=1;
 			break;
+		}
+		if(!memcmp("wait", line, 5)){
+			nowait=0;
+			continue;
+		}
 		if(!memcmp("clear", line, 5)){
 			if(line[5] == 0){
 				print("ok");
@@ -249,7 +256,7 @@ Loop:
 		close(f);
 		f = 0;
 
-		if(kern && timeout(1000))
+		if(kern && (nowait==0 || timeout(1000)))
 			goto Loop;
 	}
 

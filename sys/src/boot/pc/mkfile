@@ -55,10 +55,11 @@ test.iso: 9bootiso
 	rm -fr tmp $target
 	mkdir tmp
 	mkdir tmp/386
+	mkdir tmp/cfg
 	cp 9bootiso tmp/386
 	cp /386/9pcf tmp/386
-	mkdir tmp/cfg
-	echo 'bootfile=/386/9pcf' >tmp/cfg/plan9.ini
+	cp /sys/lib/dist/cfg/plan9.ini tmp/cfg/plan9.ini
+	echo wait >>tmp/cfg/plan9.ini
 	disk/mk9660 -B 386/9bootiso -p /sys/lib/sysconfig/proto/allproto -s tmp $target
 	rm -fr tmp
 
