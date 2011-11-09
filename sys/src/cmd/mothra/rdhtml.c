@@ -910,6 +910,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 				break;
 			}
 			break;
+		case Tag_div:
 		case Tag_p:
 			pl_linespace(&g);
 			g.linebrk=1;
