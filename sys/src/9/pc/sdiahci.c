@@ -2010,6 +2010,8 @@ didtype(Pcidev *p)
 			return Tesb;
 		if((p->did & 0xfffb) == 0x27c1)
 			return Tich;		/* 82801g[bh]m */
+		if((p->did & 0xffff) == 0x2822)
+			return Tich;		/* 82801 SATA RAID */
 		if((p->did & 0xffff) == 0x2821)
 			return Tich;		/* 82801h[roh] */
 		if((p->did & 0xfffe) == 0x2824)

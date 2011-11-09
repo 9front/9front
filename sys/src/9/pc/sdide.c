@@ -1215,17 +1215,15 @@ atapktio0(Drive *drive, SDreq *r)
 	ctlr->command = Cpkt;		/* debugging */
 	outb(cmdport+Command, Cpkt);
 
-	if((drive->info[Iconfig] & Mdrq) != 0x0020){
-		microdelay(1);
-		as = ataready(cmdport, ctlport, 0, Bsy, Drq|Chk, 4*1000);
-		if(as < 0 || (as & (Bsy|Chk))){
-			drive->status = as<0 ? 0 : as;
-			ctlr->curdrive = nil;
-			ctlr->done = 1;
-			rv = SDtimeout;
-		}else
-			atapktinterrupt(drive);
-	}
+	microdelay(1);
+	as = ataready(cmdport, ctlport, 0, Bsy, Drq|Chk, 4*1000);
+	if(as < 0 || (as & (Bsy|Chk))){
+		drive->status = as<0 ? 0 : as;
+		ctlr->curdrive = nil;
+		ctlr->done = 1;
+		rv = SDtimeout;
+	}else
+		atapktinterrupt(drive);
 	if(drive->pktdma)
 		atadmastart(ctlr, drive->write);
 	iunlock(ctlr);
@@ -1243,8 +1241,17 @@ atapktio0(Drive *drive, SDreq *r)
 	}
 	iunlock(ctlr);
 
-	if(drive->status & Chk)
-		rv = SDcheck;
+	if(drive->status & Chk){
+		if(DEBUG & DbgDEBUG)
+			print("atapktio: dev=%X status=%X error=%X pktcmd[0]=%.2X\n",
+				drive->dev, drive->status, drive->error, cmd[0]);
+		if(drive->pktdma){
+			print("atapktio: disabling dma\n");
+			drive->dmactl=0;
+			rv = SDretry;
+		} else
+			rv = SDcheck;
+	}
 	return rv;
 }
 
@@ -2151,6 +2158,15 @@ atapnp(void)
 		case (0x438c<<16)|0x1002:	/* ATI SB600 PATA */
 		case (0x439c<<16)|0x1002:	/* SB7xx pata */
 			break;
+
+		case (0x6101<<16)|0x11ab:	/* Marvell PATA */
+		case (0x6121<<16)|0x11ab:	/* Marvell PATA */
+		case (0x6123<<16)|0x11ab:	/* Marvell PATA */
+		case (0x6145<<16)|0x11ab:	/* Marvell PATA */
+		case (0x1b4b<<16)|0x91a0:	/* Marvell PATA */
+		case (0x1b4b<<16)|0x91a4:	/* Marvell PATA */
+			break;
+
 		case (0x0211<<16)|0x1166:	/* ServerWorks IB6566 */
 			{
 				Pcidev *sb;
@@ -2514,7 +2530,7 @@ SDifc sdideifc = {
 	"ide",				/* name */
 
 	atapnp,				/* pnp */
-	nil,			/* legacy */
+	nil,				/* legacy */
 	ataenable,			/* enable */
 	atadisable,			/* disable */
 
