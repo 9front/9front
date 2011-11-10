@@ -1242,9 +1242,6 @@ atapktio0(Drive *drive, SDreq *r)
 	iunlock(ctlr);
 
 	if(drive->status & Chk){
-		if(DEBUG & DbgDEBUG)
-			print("atapktio: dev=%X status=%X error=%X pktcmd[0]=%.2X\n",
-				drive->dev, drive->status, drive->error, cmd[0]);
 		if(drive->pktdma){
 			print("atapktio: disabling dma\n");
 			drive->dmactl=0;
