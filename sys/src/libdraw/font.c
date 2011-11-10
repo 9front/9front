@@ -365,7 +365,6 @@ fontresize(Font *f, int wid, int ncache, int depth)
 	new = allocimage(d, Rect(0, 0, ncache*wid, f->height), CHAN1(CGrey, depth), 0, 0);
 	if(new == nil){
 		fprint(2, "font cache resize failed: %r\n");
-		abort();
 		goto Return;
 	}
 	flushimage(d, 0);	/* flush any pending errors */
