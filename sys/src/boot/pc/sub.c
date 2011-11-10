@@ -340,27 +340,35 @@ e820conf(void)
 	ulong bx;
 	char *s;
 
-	memset(&e, 0, sizeof(e));
-	if((bx = e820(0, &e)) == 0)
-		return;
-
+	bx=0;
 	s = confend;
-	memmove(confend, "e820=", 5);
-	confend += 5;
 
 	do{
-		if(e.typ == 1 && (e.ext & 1) == 0 && e.len){
+		e.base = 0;
+		e.len = 0;
+		e.typ = 0;
+		e.ext = 1;
+		bx = e820(bx, &e);
+		if(e.typ == 1 && e.len != 0 && (e.ext & 3) == 1){
+			if(confend == s){
+				/* single entry <= 1MB is useless */
+				if(bx == 0 && e.len <= 0x100000)
+					break;
+				memmove(confend, "e820=", 5);
+				confend += 5;
+			}
 			v = e.base;
 			addconfx("", 8, v>>32);
 			addconfx("", 8, v&0xffffffff);
-			v = e.base + e.len;
+			v += e.len;
 			addconfx(" ", 8, v>>32);
 			addconfx("", 8, v&0xffffffff);
 			*confend++ = ' ';
 		}
+	} while(bx);
 
-		memset(&e, 0, sizeof(e));
-	} while(bx = e820(bx, &e));
+	if(confend == s)
+		return;
 
 	*confend = 0;
 	print(s); print(crnl);
