@@ -76,7 +76,7 @@ identify(void)
 	uchar *p, sum;
 	ulong length;
 
-	if((cp = getconf("*nomp")) != nil && strtol(cp, 0, 0) != 0)
+	if((cp = getconf("*nomp")) != nil && strcmp(cp, "0") != 0)
 		return 1;
 
 	/*
