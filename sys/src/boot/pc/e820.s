@@ -14,6 +14,7 @@ TEXT e820(SB), $0
 	CMPB CL, $24
 	JZ _ret
 	MOVL $1, AX
+	MOVL p+8(SP), DI
 	MOVL AX, 20(DI)
 _ret:
 	MOVL BX, AX
@@ -21,6 +22,7 @@ _ret:
 _bad:
 	CALL16(pmode32(SB))
 	XORL AX, AX
+	MOVL p+8(SP), DI
 	MOVL AX, 0(DI)
 	MOVL AX, 4(DI)
 	MOVL AX, 8(DI)

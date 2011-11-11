@@ -344,10 +344,6 @@ e820conf(void)
 	s = confend;
 
 	do{
-		e.base = 0;
-		e.len = 0;
-		e.typ = 0;
-		e.ext = 1;
 		bx = e820(bx, &e);
 		if(e.typ == 1 && e.len != 0 && (e.ext & 3) == 1){
 			if(confend == s){
