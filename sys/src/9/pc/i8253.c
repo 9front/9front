@@ -236,11 +236,6 @@ i8253enable(void)
 	intrenable(IrqCLOCK, i8253clock, 0, BUSUNKNOWN, "clock");
 }
 
-void
-i8253link(void)
-{
-}
-
 /*
  *  return the total ticks of counter 2.  We shift by
  *  8 to give timesync more wriggle room for interpretation

@@ -119,7 +119,6 @@ main(void)
 	conf.monitor = 1;
 	chandevreset();
 	pageinit();
-	i8253link();
 	swapinit();
 	userinit();
 	active.thunderbirdsarego = 1;
