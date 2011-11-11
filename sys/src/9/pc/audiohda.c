@@ -572,7 +572,7 @@ findpath(Widget *src)
 			break;
 		for(i=0; i<w->nlist; i++){
 			v = w->list[i];
-			if(v->from)
+			if(v == nil || v->from)
 				continue;
 			v->from = w;
 			q[r++] = v;
