@@ -1228,7 +1228,7 @@ atapktio0(Drive *drive, SDreq *r)
 		atadmastart(ctlr, drive->write);
 	iunlock(ctlr);
 
-	if(iowait(drive, 20*1000, 1) <= 0){
+	if(iowait(drive, 30*1000, 0) <= 0){
 		ilock(ctlr);
 		ataabort(drive, 0);
 	} else
@@ -1244,7 +1244,7 @@ atapktio0(Drive *drive, SDreq *r)
 	if(drive->status & Chk){
 		if(drive->pktdma){
 			print("atapktio: disabling dma\n");
-			drive->dmactl=0;
+			drive->dmactl = 0;
 			rv = SDretry;
 		} else
 			rv = SDcheck;
@@ -1446,7 +1446,7 @@ atagenio(Drive* drive, SDreq *r)
 			qunlock(ctlr);
 			return atagenioretry(drive, r, lba, count);
 		}
-		iowait(drive, 60*1000, 0);
+		iowait(drive, 30*1000, 0);
 		if(!ctlr->done){
 			/*
 			 * What should the above timeout be? In
@@ -2400,11 +2400,13 @@ atadisable(SDev *sdev)
 static int
 ataonline(SDunit *unit)
 {
-	Ctlr *ctlr;
 	Drive *drive;
+	Ctlr *ctlr;
+	int ret;
 
 	if((ctlr = unit->dev->ctlr) == nil || ctlr->drive[unit->subno] == nil)
 		return 0;
+	ret = 1;
 	drive = ctlr->drive[unit->subno];
 	if((drive->flags & Online) == 0){
 		drive->flags |= Online;
@@ -2412,9 +2414,15 @@ ataonline(SDunit *unit)
 	}
 	unit->sectors = drive->sectors;
 	unit->secsize = drive->secsize;
-	if(drive->feat & Datapi)
-		return scsionline(unit);
-	return 1;
+	if(drive->feat & Datapi){
+		ulong dma;
+
+		dma = drive->dmactl;
+		drive->dmactl = 0;
+		ret = scsionline(unit);
+		drive->dmactl = dma;
+	}
+	return ret;
 }
 
 static int
