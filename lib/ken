@@ -7,19 +7,15 @@ I wanted to have virtual memory, at least as it's coupled with file systems.
 I wanted to separate data from programs, because data and instructions are very different.
 If you want to go somewhere, goto is the best way to get there.
 In college, before video games, we would amuse ourselves by posing programming exercises.
-In fact, we started off with two or three different shells and the shell had life of its own.
-It is only the inadequacy of the criminal code that saves the hackers from very serious prosecution.
 It's always good to take an orthogonal view of something. It develops ideas.
 No amount of source-level verification or scrutiny will protect you from using untrusted code.
-On the one hand, the press, television, and movies make heroes of vandals by calling them whiz kids.
 One of my most productive days was throwing away 1000 lines of code.
 That brings me to Dennis Ritchie. Our collaboration has been a thing of beauty.
 The X server has to be the biggest program I've ever seen that doesn't do anything for you.
 There are no projects per se in the Computing Sciences Research Center.
 There's a lot of power in executing data - generating data and executing data.
-Unauthorized access to computer systems is already a serious crime in a few states and is currently being addressed in many more state legislatures as well as Congress.
 We have persistant objects, they're called files.
-We tried to avoid, you know, records. We were told over and over that was probably the most serious mistake and the reason was the system would never catch on, because we didn't have records.
+We tried to avoid, you know, records.
 When in doubt, use brute force.
 You can't trust code that you did not totally create yourself.
 If you give me the right kind of Tinker Toys, I can imagine the building.
@@ -27,7 +23,8 @@ When I see a top-down description of a system or language that has infinite libr
 I can't understand something presented to me that's very complex.
 Maybe I do what I do because if I built anything more complicated, I couldn't understand it.
 What is or is not implemented in the kernel represents both a great responsibility and a great power.  It is a soap-box platform on 'the way things should be done.' Even so, if 'the way' is too radical, no one will follow it.  Every important decision was weighed carefully.  Throughout, simplicity has been substituted for efficiency.  Complex algorithms are used only if their complexity can be localized.
-I view Linux as something that's not Microsoft -- a backlash against Microsoft, no more and no less. I don't think it will be very successful in the long run. I've looked at the source and there are pieces that are good and pieces that are not. A whole bunch of random people have contributed to this source, and the quality varies drastically. My experience and some of my friends' experience is that Linux is quite unreliable. Microsoft is really unreliable but Linux is worse.
+My experience and some of my friends' experience is that Linux is quite unreliable.
+Microsoft is really unreliable but Linux is worse.
 I'd spell creat with an e.
 who cares.
 lgtm
