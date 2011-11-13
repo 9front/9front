@@ -688,6 +688,7 @@ static Bridge southbridges[] = {
 	{ 0x1002, 0x4377, nil, nil },		/* ATI Radeon Xpress 200M */
 	{ 0x1002, 0x4372, nil, nil },		/* ATI SB400 */
 	{ 0x1002, 0x9601, nil, nil },		/* AMD SB710 */
+	{ 0x1002, 0x438D, nil, nil },		/* AMD SB600 */
 };
 
 typedef struct Slot Slot;
