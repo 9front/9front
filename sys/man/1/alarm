@@ -1,0 +1,25 @@
+.TH ALARM 1
+.SH NAME
+alarm \- ask for delayed note
+.SH SYNOPSIS
+.B alarm
+[
+.I time
+.I path
+.I arg
+]
+.SH DESCRIPTION
+.I Alarm
+causes an
+.B alarm
+note (see
+.IR notify (2))
+to be sent to the process indicated by the argument
+.I path
+after the number of seconds
+given by the argument
+.I time.
+.SH SOURCE
+.B /sys/src/cmd/alarm.c
+.SH SEE ALSO
+.IR sleep (2)
