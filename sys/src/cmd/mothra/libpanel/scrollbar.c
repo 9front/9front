@@ -46,25 +46,23 @@ int pl_hitscrollbar(Panel *g, Mouse *m){
 	else if(pos>len) pos=len;
 	if(m->buttons&7){
 		g->state=DOWN;
-		if(g->r.min.x<=m->xy.x && m->xy.x<g->r.max.x){
-			sp->buttons=m->buttons;
-			switch(m->buttons){
-			case 1:
-				dy=pos*(sp->hi-sp->lo)/len;
-				pl_sliderupd(g->b, sp->interior, sp->dir, sp->lo-dy,
-					sp->hi-dy);
-				break;
-			case 2:
-				if(g->scrollee && g->scrollee->scroll)
-					g->scrollee->scroll(g->scrollee, sp->dir,
-						m->buttons, pos, len);
-				break;
-			case 4:
-				dy=pos*(sp->hi-sp->lo)/len;
-				pl_sliderupd(g->b, sp->interior, sp->dir, sp->lo+dy,
-					sp->hi+dy);
-				break;
-			}
+		sp->buttons=m->buttons;
+		switch(m->buttons){
+		case 1:
+			dy=pos*(sp->hi-sp->lo)/len;
+			pl_sliderupd(g->b, sp->interior, sp->dir, sp->lo-dy,
+				sp->hi-dy);
+			break;
+		case 2:
+			if(g->scrollee && g->scrollee->scroll)
+				g->scrollee->scroll(g->scrollee, sp->dir,
+					m->buttons, pos, len);
+			break;
+		case 4:
+			dy=pos*(sp->hi-sp->lo)/len;
+			pl_sliderupd(g->b, sp->interior, sp->dir, sp->lo+dy,
+				sp->hi+dy);
+			break;
 		}
 	}
 	else{
