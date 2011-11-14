@@ -961,9 +961,10 @@ void freeurl(Url *u){
  * get the file at the given url
  */
 void geturl(char *urlname, int method, char *body, int plumb, int map){
-	int i, fd, typ;
+	int i, fd, typ, pfd[2];
 	char cmd[NNAME];
-	int pfd[2];
+	Rtext *t;
+	ulong n;
 	Www *w;
 
 	if(*urlname == '#'){
@@ -1013,18 +1014,28 @@ void geturl(char *urlname, int method, char *body, int plumb, int map){
 		case HTML:
 			fd = pipeline("/bin/uhtml", fd);
 		case PLAIN:
+			n=0; 
+			for(i=wwwtop-1; i>=0 && i!=(wwwtop-NWWW-1); i--){
+				w = www(i);
+				n += countpix(w->pix);
+				if(n < NPIXMB*1024*1024)
+					continue;
+				if(!w->finished && !w->alldone)
+					continue;
+				for(t=w->text; t; t=t->next)
+					if(t->b && t->user)
+						t->b=0;
+				freepix(w->pix);
+				w->pix=0;
+			}
 			w = www(i = wwwtop++);
 			if(i >= NWWW){
-				extern void freeform(void *p);
-				extern void freepix(void *p);
-
 				/* wait for the reader to finish the document */
 				while(!w->finished && !w->alldone){
 					unlockdisplay(display);
 					sleep(10);
 					lockdisplay(display);
 				}
-
 				freetext(w->text);
 				freeform(w->form);
 				freepix(w->pix);

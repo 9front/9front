@@ -21,12 +21,6 @@ char *pixcmd[]={
 [BMP]	"bmp -9t",
 };
 
-void storebitmap(Rtext *t, Image *b){
-	t->b=b;
-	free(t->text);
-	t->text=0;
-}
-
 void getimage(Rtext *t, Www *w){
 	int pfd[2];
 	Action *ap;
@@ -40,7 +34,7 @@ void getimage(Rtext *t, Www *w){
 	seturl(&url, ap->image, w->url->fullname);
 	for(p=w->pix;p!=nil; p=p->next)
 		if(strcmp(ap->image, p->name)==0 && ap->width==p->width && ap->height==p->height){
-			storebitmap(t, p->b);
+			t->b = p->b;
 			w->changed=1;
 			return;
 		}
@@ -87,7 +81,7 @@ void getimage(Rtext *t, Www *w){
 	p->height=ap->height;
 	p->next=w->pix;
 	w->pix=p;
-	storebitmap(t, b);
+	t->b=b;
 	w->changed=1;
 }
 
@@ -144,8 +138,15 @@ void getpix(Rtext *t, Www *w){
 	}
 }
 
-void freepix(void *p)
-{
+ulong countpix(void *p){
+	ulong n=0;
+	Pix *x;
+	for(x = p; x; x = x->next)
+		n += Dy(x->b->r)*bytesperline(x->b->r, x->b->depth);
+	return n;
+}
+
+void freepix(void *p){
 	Pix *x, *xx;
 	xx = p;
 	while(x = xx){

@@ -1,6 +1,7 @@
 enum{
 	NWWW=64,	/* # of pages we hold in the log */
 	NXPROC=5,	/* # of parallel procs loading the pix */
+	NPIXMB=8,	/* megabytes of image data to keep arround */
 	NNAME=512,
 	NLINE=256,
 	NAUTH=128,
@@ -82,12 +83,14 @@ void plrdplain(char *, int, Www *);
 void htmlerror(char *, int, char *, ...);	/* user-supplied routine */
 void seturl(Url *, char *, char *);
 void getpix(Rtext *, Www *);
+ulong countpix(void *p);
+void freepix(void *p);
 int pipeline(char *, int);
 int urlopen(Url *, int, char *);
 void getfonts(void);
 void *emalloc(int);
 void *emallocz(int, int);
-void setbitmap(Rtext *);
+void freeform(void *p);
 void message(char *, ...);
 int snooptype(int fd);
 void mkfieldpanel(Rtext *);
