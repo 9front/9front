@@ -4,6 +4,7 @@ engine
 metadata
 replication
 factory
+configuration
 interface
 singleton
 framework
@@ -14,7 +15,6 @@ self-signing |
 scripting |
 template
 API
-depenency
 service
 event
 polling
@@ -24,6 +24,7 @@ firewall
 standard
 GPU
 shader
+advanced ^
 leveraged ^
 extended ^
 basic ^
@@ -35,7 +36,7 @@ rich-client
 DOM
 CSS
 CMS
-/map/reduce
+map/reduce
 reduce/map
 descriptor
 hypervisor
@@ -109,14 +110,20 @@ WEB2.0 *
 SSL *
 HTTP *
 TOR *
+layer $
+element $
 manager $
+frontend $
 backend $
 control $
 controller $
 framework $
+database $
 generator $
 optimizer $
+interface $
 solution $
+depenency $
 locator $
 -oriented %
 -based %
