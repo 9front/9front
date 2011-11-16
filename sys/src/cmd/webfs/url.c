@@ -886,6 +886,7 @@ freeurl(Url *u)
 	free(u->fragment);
 	switch(u->ischeme){
 	case UShttp:
+	case UShttps:
 		free(u->http.page_spec);
 		break;
 	case USftp:
@@ -960,6 +961,7 @@ copyurl(Url *u)
 
 	switch(v->ischeme){
 	case UShttp:
+	case UShttps:
 		dupp(&v->http.page_spec);
 		break;
 	case USftp:

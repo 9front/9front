@@ -209,7 +209,7 @@ copycookie(Cookie *c)
 	for(i=0; i<nelem(stab); i++){
 		ps = (char**)((uintptr)c+stab[i].offset);
 		if(*ps)
-			*ps = estrdup9p(*ps);
+			*ps = estrdup(*ps);
 	}
 }
 
@@ -323,7 +323,7 @@ newjar(void)
 {
 	Jar *jar;
 
-	jar = emalloc9p(sizeof(Jar));
+	jar = emalloc(sizeof(Jar));
 	return jar;
 }
 
@@ -466,7 +466,7 @@ readjar(char *file)
 	Jar *jar;
 
 	jar = newjar();
-	lock = emalloc9p(strlen(file)+10);
+	lock = emalloc(strlen(file)+10);
 	strcpy(lock, file);
 	if((p = strrchr(lock, '/')) != nil)
 		p++;
@@ -496,6 +496,7 @@ closejar(Jar *jar)
 	if(jar == nil)
 		return;
 	expirejar(jar, 0);
+
 	if(syncjar(jar) < 0)
 		fprint(2, "warning: cannot rewrite cookie jar: %r\n");
 
@@ -503,6 +504,7 @@ closejar(Jar *jar)
 		freecookie(&jar->c[i]);
 
 	free(jar->file);
+	free(jar->c);
 	free(jar);	
 }
 
@@ -580,14 +582,14 @@ cookiesearch(Jar *jar, char *dom, char *path, int issecure)
 	now = time(0);
 	j = newjar();
 	for(i=0; i<jar->nc; i++){
-		if(cookiedebug)
-			fprint(2, "\ttry %s %s %d %s\n", jar->c[i].dom,
-				jar->c[i].path, jar->c[i].secure,
-				jar->c[i].name);
 		if((issecure || !jar->c[i].secure) &&
 		    iscookiematch(&jar->c[i], dom, path, now)){
-			if(cookiedebug)
+			if(cookiedebug){
+				fprint(2, "\t%s %s %d %s\n", jar->c[i].dom,
+					jar->c[i].path, jar->c[i].secure,
+					jar->c[i].name);
 				fprint(2, "\tmatched\n");
+			}
 			addcookie(j, &jar->c[i]);
 		}
 	}
@@ -810,7 +812,7 @@ isnetscape(char *hdr)
 
 /*
  * Parse HTTP response headers, adding cookies to jar.
- * Overwrites the headers.  May overwrite path.
+ * Overwrites the headers.
  */
 static char* parsecookie(Cookie*, char*, char**, int, char*, char*);
 static int
@@ -843,13 +845,14 @@ parsehttp(Jar *jar, char *hdr, char *dom, char *path)
 			}
 			if((e = isbadcookie(&c, dom, path)) != nil){
 				if(cookiedebug)
-					fprint(2, "reject cookie; %s\n", e);
+					fprint(2, "reject cookie: %s\n", e);
 				continue;
 			}
 			addcookie(jar, &c);
 			n++;
 		}
 	}
+
 	return n;
 }
 
@@ -997,6 +1000,7 @@ parsecookie(Cookie *c, char *p, char **e, int isns, char *dom, char *path)
 		if(cistrcmp(attr, "secure") == 0)
 			c->secure = 1;
 	}
+	*e = p;
 
 	if(c->dom)
 		c->explicitdom = 1;
@@ -1004,15 +1008,9 @@ parsecookie(Cookie *c, char *p, char **e, int isns, char *dom, char *path)
 		c->dom = dom;
 	if(c->path)
 		c->explicitpath = 1;
-	else{
+	else
 		c->path = path;
-		if((t = strchr(c->path, '?')) != 0)
-			*t = '\0';
-		if((t = strrchr(c->path, '/')) != 0)
-			*t = '\0';
-	}	
 	c->netscapestyle = isns;
-	*e = p;
 
 	return nil;
 }
@@ -1042,14 +1040,14 @@ cookieopen(Req *r)
 	Aux *a;
 
 	syncjar(jar);
-	a = emalloc9p(sizeof(Aux));
+	a = emalloc(sizeof(Aux));
 	r->fid->aux = a;
 	if(r->ifcall.mode&OTRUNC){
-		a->ctext = emalloc9p(1);
+		a->ctext = emalloc(1);
 		a->ctext[0] = '\0';
 	}else{
 		sz = 256*jar->nc+1024;	/* BUG should do better */
-		a->ctext = emalloc9p(sz);
+		a->ctext = emalloc(sz);
 		a->ctext[0] = '\0';
 		s = a->ctext;
 		es = s+sz;
@@ -1139,9 +1137,10 @@ initcookies(char *file)
 		home = getenv("home");
 		if(home == nil)
 			sysfatal("no cookie file specified and no $home");
-		file = emalloc9p(strlen(home)+30);
+		file = emalloc(strlen(home)+30);
 		strcpy(file, home);
 		strcat(file, "/lib/webcookies");
+		free(home);
 	}
 	jar = readjar(file);
 	if(jar == nil)
@@ -1151,11 +1150,17 @@ initcookies(char *file)
 void
 httpsetcookie(char *hdr, char *dom, char *path)
 {
-	if(path == nil)
-		path = "/";
+	char *t;
 
+	path = estrdup(path && path[0] ? path : "/");
+	if((t = strchr(path, '?')) != 0)
+		*t = '\0';
+	t = strrchr(path, '/');
+	if(t && t != path)
+		*t = '\0';
 	parsehttp(jar, hdr, dom, path);
 	syncjar(jar);
+	free(path);
 }
 
 char*

@@ -73,6 +73,8 @@ _iotlsdial(va_list *arg)
 		/* BUG: check cert here? */
 		if(conn.cert)
 			free(conn.cert);
+		if(conn.sessionID)
+			free(conn.sessionID);
 	}
 	return tfd;
 }
