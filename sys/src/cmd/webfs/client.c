@@ -133,6 +133,8 @@ clientbodyopen(Client *c, Req *r)
 			werrstr("redirect to URL relative to current document");
 			goto Error;
 		}
+		if(c->url->close)
+			(*c->url->close)(c);
 		freeurl(c->url);
 		c->url = u;
 	}
