@@ -244,7 +244,7 @@ addcookie(Jar *j, Cookie *c)
 				fprint(2, "cookie %K matches %K\n", &j->c[i], c);
 			if(exactcookiecmp(&j->c[i], c) == 0){
 				if(cookiedebug)
-					fprint(2, "\texactly\n");
+					fprint(2, "exactly!\n");
 				j->c[i].mark = 0;
 				return;
 			}
@@ -337,6 +337,8 @@ expirejar(Jar *jar, int exiting)
 	n = 0;
 	for(i=0; i<jar->nc; i++){
 		if(jar->c[i].expire < now || (exiting && jar->c[i].expire==~0)){
+			if(cookiedebug)
+				fprint(2, "cookie %K expired\n", &jar->c[i]);
 			delcookie(jar, &jar->c[i]);
 			n++;
 		}
