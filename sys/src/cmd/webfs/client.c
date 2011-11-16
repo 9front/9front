@@ -112,8 +112,6 @@ clientbodyopen(Client *c, Req *r)
 		if(c->authenticate && nauth++ < 1){
 			if(c->url->close)
 				(*c->url->close)(c);
-			free(next);
-			next = nil;
 			continue;
 		}
 		if(next == nil)
