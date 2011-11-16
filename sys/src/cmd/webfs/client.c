@@ -94,10 +94,10 @@ clientbodyopen(Client *c, Req *r)
 			fprint(2, "try %s\n", c->url->url);
 		if(c->url->open(c, c->url) < 0){
 		Error:
+			rerrstr(e, sizeof e);
 			if(next)
 				fprint(2, "next %s (but for error)\n", next);
 			free(next);
-			rerrstr(e, sizeof e);
 			c->iobusy = 0;
 			if(r != nil)
 				r->fid->omode = -1;
@@ -106,12 +106,18 @@ clientbodyopen(Client *c, Req *r)
 				respond(r, e);
 			return;
 		}
-		if (c->authenticate && nauth++ < 1)
-				continue;
-		if(!c->redirect)
-			break;
+		free(next);
 		next = c->redirect;
 		c->redirect = nil;
+		if(c->authenticate && nauth++ < 1){
+			if(c->url->close)
+				(*c->url->close)(c);
+			free(next);
+			next = nil;
+			continue;
+		}
+		if(next == nil)
+			break;
 		if(i==c->ctl.redirectlimit){
 			werrstr("redirect limit reached");
 			goto Error;
