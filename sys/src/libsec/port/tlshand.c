@@ -2195,6 +2195,7 @@ emalloc(int n)
 		exits("out of memory");
 	}
 	memset(p, 0, n);
+	setmalloctag(p, getcallerpc(&n));
 	return p;
 }
 
@@ -2208,6 +2209,7 @@ erealloc(void *ReallocP, int ReallocN)
 	else if(!(ReallocP = realloc(ReallocP, ReallocN))){
 		exits("out of memory");
 	}
+	setrealloctag(ReallocP, getcallerpc(&ReallocP));
 	return(ReallocP);
 }
 
