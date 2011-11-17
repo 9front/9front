@@ -435,7 +435,7 @@ syncjar(Jar *jar)
 
 	purgejar(jar);
 
-	b = Bopen(jar->file, OWRITE);
+	b = Bopen(jar->file, OTRUNC|OWRITE);
 	if(b == nil){
 		if(cookiedebug)
 			fprint(2, "Bopen write %s: %r", jar->file);
