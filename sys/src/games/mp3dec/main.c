@@ -9,6 +9,7 @@
 char *name;
 vlong offset;
 int rate = 44100;
+int debug = 0;
 
 char *outfile;
 int vfd; /* /dev/volume */
@@ -149,12 +150,17 @@ output(void *data, struct mad_header const* header, struct mad_pcm *pcm)
 static enum mad_flow
 error(void *data, struct mad_stream *stream, struct mad_frame *frame)
 {
-	if(stream->error == MAD_ERROR_LOSTSYNC)
-		return MAD_FLOW_CONTINUE;
-	sysfatal("%s:#%lld: %s",
-		name, offset-(stream->bufend-stream->next_frame),
-		mad_stream_errorstr(stream));
-	return 0;
+	if(stream->error == MAD_ERROR_LOSTSYNC){
+		if(memcmp(stream->this_frame, "TAG", 3)==0){
+			mad_stream_skip(stream, 128);
+			return MAD_FLOW_CONTINUE;
+		}
+	}
+	if(debug)
+		fprint(2, "%s:#%lld: %s\n",
+			name, offset-(stream->bufend-stream->next_frame),
+			mad_stream_errorstr(stream));
+	return MAD_FLOW_CONTINUE;
 }
 
 void
@@ -171,7 +177,7 @@ play(int fd, char *nam)
 void
 usage(void)
 {
-	fprint(2, "usage: mp3dec [-o outfile] [file...]\n");
+	fprint(2, "usage: mp3dec [ -d ] [ -o outfile ] [ file ... ]\n");
 	exits("usage");
 }
 
@@ -184,6 +190,9 @@ main(int argc, char **argv)
 	ARGBEGIN{
 	case 'o':
 		outfile = EARGF(usage());
+		break;
+	case 'd':
+		debug++;
 		break;
 	default:
 		usage();
