@@ -927,8 +927,8 @@ parsecookie(Cookie *c, char *p, char **e, int isns, char *dom, char *path)
 	int i, done;
 	char *t, *u, *attr, *val;
 
-	c->expire = ~0;
 	memset(c, 0, sizeof *c);
+	c->expire = ~0;
 
 	/* NAME=VALUE */
 	t = skiptoken(p);
