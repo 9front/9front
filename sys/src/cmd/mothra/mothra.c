@@ -572,7 +572,7 @@ void save(int ifd, char *name){
 void screendump(char *name, int full){
 	Image *b;
 	int fd;
-	fd=create(name, OWRITE|OTRUNC, 0666);
+	fd=create(name, OWRITE, 0666);
 	if(fd==-1){
 		message("can't create %s", name);
 		return;
@@ -614,6 +614,9 @@ char *urltofile(Url *url){
  * user typed a command.
  */
 void docmd(Panel *p, char *s){
+	char buf[NNAME];
+	int c;
+
 	USED(p);
 	while(*s==' ' || *s=='\t') s++;
 	/*
@@ -621,7 +624,7 @@ void docmd(Panel *p, char *s){
 	 */
 	if(s[0]!='\0' && s[1]!='\0' && s[1]!=' ')
 		geturl(s, GET, 0, 0, 0);
-	else switch(s[0]){
+	else switch(c = s[0]){
 	default:
 		message("Unknown command %s, type h for help", s);
 		break;
@@ -648,21 +651,16 @@ void docmd(Panel *p, char *s){
 		else
 			message("Usage: j index");
 		break;
+	case 'w':
 	case 'W':
 		s = arg(s);
-		if(s=='\0'){
-			message("Usage: W file");
-			break;
+		if(s==0 || *s=='\0'){
+			snprint(buf, sizeof(buf), "dump.bit");
+			if(eenter("Screendump to", buf, sizeof(buf), &mouse) <= 0)
+				break;
+			s = buf;
 		}
-		screendump(s, 1);
-		break;
-	case 'w':
-		s = arg(s);
-		if(s=='\0'){
-			message("Usage: w file");
-			break;
-		}
-		screendump(s, 0);
+		screendump(s, c == 'W');
 		break;
 	case 's':
 		s = arg(s);
@@ -671,8 +669,6 @@ void docmd(Panel *p, char *s){
 			break;
 		}
 		if(s==0 || *s=='\0'){
-			static char buf[NNAME];
-
 			snprint(buf, sizeof(buf), "%s", urltofile(selection));
 			if(eenter("Save to", buf, sizeof(buf), &mouse) <= 0)
 				break;
