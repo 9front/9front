@@ -671,7 +671,7 @@ parse_query(SplitUrl *su, Url *u)
 	if(su->query.s == nil)
 		return 0;
 	s = estredup(su->query.s, su->query.e);
-	u->query = unescapeurl(s, "&=");
+	u->query = unescapeurl(s, "&;=/");
 	free(s);
 	return 0;
 }
@@ -713,7 +713,7 @@ postparse_http(Url *u)
 	}
 	p = escapeurl(u->path, "/");
 	if(u->query){
-		q = escapeurl(u->query, "&=");
+		q = escapeurl(u->query, "&;=/");
 		u->http.page_spec = emalloc(strlen(p)+1+strlen(q)+1);
 		strcpy(u->http.page_spec, p);
 		strcat(u->http.page_spec, "?");
@@ -929,7 +929,7 @@ seturlquery(Url *u, char *query)
 		return 0;
 	}
 	free(u->query);
-	u->query = unescapeurl(query, "&=");
+	u->query = unescapeurl(query, "&;=/");
 	return 0;
 }
 
@@ -998,6 +998,8 @@ escapeurl(char *s, char *special)
 			(*s >= 'A' && *s <= 'Z') || 
 			strchr(".-_~", *s) || strchr(special, *s))
 			*u++ = *s;
+		else if(s[0] == ' ')
+			*u++ = '+';
 		else {
 			*u++ = '%';
 			*u++ = hex[(*s>>4)&0xF];
@@ -1022,7 +1024,8 @@ unescapeurl(char *s, char *special)
 				x = *r;
 			else
 				r += 2;
-		}
+		} else if(x=='+')
+			x = ' ';
 		*w++ = x;
 	}
 	*w = '\0';
