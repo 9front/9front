@@ -13,6 +13,9 @@ rio, label, window, wloc \- window system
 .B -s
 ]
 [
+.B -b
+]
+[
 .B -f
 .I font
 ]
@@ -91,6 +94,10 @@ The
 .B -s
 option initializes windows so that text scrolls;
 the default is not to scroll.
+The
+.B -b
+option reverses the normal color sheme for windows, painting white
+text on a black background.
 The
 .I font
 argument names a font used to display text, both in
