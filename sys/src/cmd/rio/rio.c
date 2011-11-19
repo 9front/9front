@@ -46,6 +46,7 @@ Channel* initkbd(void);
 
 char		*fontname;
 int		mainpid;
+int		reverse;
 
 enum
 {
@@ -134,6 +135,9 @@ threadmain(int argc, char *argv[])
 	kbdin = nil;
 	maxtab = 0;
 	ARGBEGIN{
+	case 'b':
+		reverse = ~0xFF;
+		break;
 	case 'f':
 		fontname = ARGF();
 		if(fontname == nil)

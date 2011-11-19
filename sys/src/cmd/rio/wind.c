@@ -21,9 +21,10 @@ enum
 	MinWater	= 20000,	/* room to leave available when reallocating */
 };
 
+extern	int		reverse;	/* there are no pastel paints in the dungeons and dragons world -- rob pike */
+
 static	int		topped;
 static	int		id;
-static	int		reverse;
 
 static	Image	*cols[NCOL];
 static	Image	*grey;
@@ -43,13 +44,6 @@ wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
 	Rectangle r;
 
 	if(cols[0] == nil){
-		/* there are no pastel paints in the dungeons and dragons world
-		 * - rob pike
-		 */
-		reverse = 0;
-		if(getenv("reverse") != nil)
-			reverse = ~0xFF;
-
 		/* greys are multiples of 0x11111100+0xFF, 14* being palest */
 		grey = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0xEEEEEEFF^reverse);
 		darkgrey = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x666666FF^reverse);
