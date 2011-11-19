@@ -528,8 +528,8 @@ char *arg(char *s){
 	return s;
 }
 void save(int ifd, char *name){
-	char buf[4096];
-	int ofd;
+	char buf[NNAME];
+	int cfd, ofd;
 	if(ifd < 0){
 		message("save: %s: %r", name);
 		return;
@@ -539,17 +539,18 @@ void save(int ifd, char *name){
 		message("save: %s: %r", name);
 		return;
 	}
-	switch(rfork(RFNOTEG|RFNAMEG|RFFDG|RFPROC|RFNOWAIT)){
+	switch(rfork(RFNOTEG|RFNAMEG|RFFDG|RFMEM|RFPROC|RFNOWAIT)){
 	case -1:
 		message("Can't fork: %r");
 		break;
 	case 0:
+		dup(ifd, 0);
+		close(ifd);
+		dup(ofd, 1);
+		close(ofd);
 		snprint(buf, sizeof(buf), "-pid %d", getpid());
 		if(newwindow(buf) != -1){
-			int blk, cfd, n;
-			vlong off;
-
-			close(1); open("/dev/cons", OWRITE);
+			close(2); open("/dev/cons", OWRITE);
 			if((cfd = open("/dev/label", OWRITE)) >= 0){
 				fprint(cfd, "save %s", name);
 				close(cfd);
@@ -558,24 +559,10 @@ void save(int ifd, char *name){
 				fprint(cfd, "scroll\n");
 				close(cfd);
 			}
-			off = 0;
-			blk = 0;
-			werrstr("");
-			for(;;){
-				if((blk++ % 4) == 0){
-					if(off > 0)
-						print("\n");
-					print("%s: ", name);
-				}
-				if((n=read(ifd, buf, sizeof(buf))) <= 0)
-					break;
-				if(write(ofd, buf, n) != n)
-					break;
-				off += n;
-				print("%lldK... ", off/1024);
-			}
-			print("%r\n");
+			fprint(2, "save %s...\n", name);
+			execl("/bin/tput", "tput", "-p", nil);
 		}
+		execl("/bin/cat", "cat", nil);
 		exits(0);
 	}
 	close(ifd);
