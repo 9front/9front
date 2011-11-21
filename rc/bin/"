@@ -1,0 +1,25 @@
+#!/bin/rc
+
+rfork en
+
+if(test -r /mnt/acme/acme/body)
+	bind /mnt/acme/acme/body /dev/text
+
+PROMPT='[^ 	]*%[ 	]+'
+
+fn cmds {
+	grep '^'$PROMPT'[^"]' /dev/text | sed 's/^/	/'
+}
+
+switch($#*) {
+case 0
+	cmds | tail -1
+case *
+	cmds | grep '^	'$PROMPT^$"* | {echo; cat} |
+		pr -t -n | sort -nr | sort -u +1 | sort -n |
+		sed 's/^ *[0-9]+	//' | grep .
+}
+
+# the silly {echo; cat} gets around pr printing "empty file" when
+# presented with no input.
+

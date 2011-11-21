@@ -1,0 +1,23 @@
+#!/bin/rc 
+
+flags=() 
+while(! ~ $#* 1 && ~ $1 -* && ! ~ $1 --){ 
+         flags=($flags $1); 
+         shift 
+} 
+if(~ $1 --) 
+         shift 
+
+switch($#*){ 
+case 0 
+         echo 'usage: g [flags] pattern [files]' >[1=2] 
+         exit usage 
+case 1 
+         pattern=$1 
+         files=(`{ls *.[bcChm] *.cc *.py *.tex *.ms *.java >[2]/dev/null}) 
+case * 
+         pattern=$1 
+         shift 
+         files=($*) 
+} 
+grep -n $flags -- $pattern $files /dev/null 
