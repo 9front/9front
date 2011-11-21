@@ -1,0 +1,36 @@
+.TH PAINT 1
+.CT 1 graphics
+.SH NAME
+paint \- create image files by drawing with a mouse or other pointing device
+.SH SYNOPSIS
+.B paint
+.SH DESCRIPTION
+.I Paint
+provides a window upon which can be drawn lines by moving the cursor while
+holding down mouse button 1 or its equivalent.
+.PP
+A number of keyboard commands are recognized:
+.TP
+.B c
+Clear the screen. Any unsaved work will be lost.
+.TP
+.B s
+Save the current screen as a bitmap image. A pop-up window appears
+suggesting a default filename of
+.I out.bit.
+Hit enter to accept the default, or backspace over the suggested name and
+enter an alternative path and filename. If the path is omitted, the file will be
+created in the current directory.
+.TP
+.B q
+Quit.
+.SH SOURCE
+.B /sys/src/cmd/paint.c
+.SH "SEE ALSO"
+.IR graphics (2),
+.IR image (6)
+.SH BUGS
+.I Paint
+offers the bare minimum of drawing functionality.
+.B Undo
+has not been implemented.
