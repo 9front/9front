@@ -8,7 +8,14 @@ rio \- window system files
 .BI ' cmd '
 ]
 [
+.B -k
+.BI ' kbdcmd '
+]
+[
 .B -s
+]
+[
+.B -b
 ]
 [
 .B -f
