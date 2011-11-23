@@ -1,0 +1,13 @@
+#!/bin/rc
+
+PROMPT='[^ 	]*%+[ 	]+'
+
+_x = `{" $* | tail -1}
+if(~ $#_x 0) {
+	echo no such command found
+	exit notfound
+}
+
+echo '	' $_x
+_x=`{ echo -n 'eval '; echo $_x | sed 's/^'$PROMPT'//'}
+rc -c $"_x
