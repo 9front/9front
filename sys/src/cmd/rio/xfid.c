@@ -817,7 +817,7 @@ xfidread(Xfid *x)
 	caseImage:
 		if(off < 5*12){
 			n = sprint(buf, "%11s %11d %11d %11d %11d ",
-				chantostr(cbuf, screen->chan),
+				chantostr(cbuf, i->chan),
 				i->r.min.x, i->r.min.y, i->r.max.x, i->r.max.y);
 			t = estrdup(buf);
 			goto Text;
