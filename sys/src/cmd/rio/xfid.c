@@ -570,7 +570,7 @@ readwindow(Image *i, char *t, Rectangle r, int offset, int n)
 	int ww, y;
 
 	offset -= 5*12;
-	ww = bytesperline(r, screen->depth);
+	ww = bytesperline(r, i->depth);
 	r.min.y += offset/ww;
 	if(r.min.y >= r.max.y)
 		return 0;
