@@ -130,7 +130,6 @@ vesalinear(VGAscr *scr, int, int)
 
 	paddr = LONG(p+40);
 	size = WORD(p+20)*WORD(p+16);
-	size = PGROUND(size);
 
 	/*
 	 * figure out max size of memory so that we have
@@ -141,23 +140,25 @@ vesalinear(VGAscr *scr, int, int)
 	while(!havesize && (pci = pcimatch(pci, 0, 0)) != nil){
 		if(pci->ccrb != Pcibcdisp)
 			continue;
-		for(i=0; i<nelem(pci->mem); i++)
-			if(paddr == (pci->mem[i].bar&~0x0F)){
-				if(pci->mem[i].size > size)
-					size = pci->mem[i].size;
+		for(i=0; i<nelem(pci->mem); i++){
+			ulong a, e;
+
+			a = pci->mem[i].bar & ~0xF;
+			e = a + pci->mem[i].size;
+			if(paddr >= a && (paddr+size) <= e){
+				size = e - paddr;
 				havesize = 1;
 				break;
 			}
+		}
 	}
 
 	/* no pci - heuristic guess */
-	if (!havesize)
+	if(!havesize)
 		if(size < 4*1024*1024)
 			size = 4*1024*1024;
 		else
 			size = ROUND(size, 1024*1024);
-	if(size > 16*1024*1024)		/* arbitrary */
-		size = 16*1024*1024;
 
 	vgalinearaddr(scr, paddr, size);
 	if(scr->apsize)
