@@ -51,13 +51,15 @@ ulong	nfastrand(ulong val)
 returns a uniform pseudo-random
 number
 .IR x ,
-.RI 0≤ x <2\u\s715\s10\d.
+.if t 0≤ \fIx\fR <2\u\s715\s10\d.
+.if n 0≤ x <2^15.
 .PP
 .I Lrand
 returns a uniform
 .B long
 .IR x ,
-.RI 0≤ x <2\u\s731\s10\d.
+.if t 0≤ \fIx\fR <2\u\s731\s10\d.
+.if n 0≤ x <2^31.
 .PP
 .I Frand
 returns a uniform
@@ -115,7 +117,8 @@ second.
 .I Ntruerand
 returns a uniform random integer
 .IR x ,
-.RI 0≤ x < val ≤ 2\u\s732\s10\d-1.
+.if t 0≤ \fIx\fR < \fIval\fR ≤ 2\u\s732\s10\d-1.
+.if n 0≤ x < val ≤ 2^32-1.
 .PP
 .I Genrandom
 fills a buffer with bytes from the X9.17 pseudo-random
@@ -146,7 +149,8 @@ uses
 to return a uniform
 .B "unsigned long
 .IR x ,
-.RI 0≤ x < 2\u\s732\s10\d-1.
+.if t 0≤ \fIx\fR <2\u\s732\s10\d-1.
+.if n 0≤ x <2^32-1.
 .PP
 .I Nfastrand
 uses
@@ -154,7 +158,8 @@ uses
 to return a uniform
 .B "unsigned long
 .IR x ,
-.RI 0≤ x < val ≤ 2\u\s732\s10\d-1.
+.if t 0≤ \fIx\fR < \fIval\fR ≤ 2\u\s732\s10\d-1.
+.if n 0≤ x < val ≤ 2^32-1.
 .SH SOURCE
 .B /sys/src/libc/port/*rand.c
 .br
