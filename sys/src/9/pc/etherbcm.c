@@ -50,9 +50,11 @@ enum {
 	MiscHostCtl = 0x68,
 	ClearIntA = 1<<0,
 	MaskPCIInt = 1<<1,
-	IndirectAccessEnable = 1<<7,
+	ByteSwap = 1<<2,
+	WordSwap = 1<<3,
 	EnablePCIStateRegister = 1<<4,
 	EnableClockControlRegister = 1<<5,
+	IndirectAccessEnable = 1<<7,
 	TaggedStatus = 1<<9,
 	
 	DMARWControl = 0x6C,
@@ -300,6 +302,7 @@ replenish(Ctlr *ctlr)
 	next[1] = PADDR(bp->rp);
 	next[2] = Rbsz;
 	next[7] = (ulong) bp;
+	coherence();
 	csr32(ctlr, RecvProdBDRingIndex) = ctlr->recvprodi = incr;
 	return 0;
 }
@@ -369,6 +372,7 @@ bcmtransmit(Ether *edev)
 		if(ctlr->sends[ctlr->sendri] != 0)
 			freeb(ctlr->sends[ctlr->sendri]);
 		ctlr->sends[ctlr->sendri] = bp;
+		coherence();
 		csr32(ctlr, SendBDRingHostIndex) = ctlr->sendri = incr;
 	}
 	iunlock(&ctlr->txlock);
@@ -444,15 +448,18 @@ bcminit(Ether *edev)
 	}
 	csr32(ctlr, MemArbiterMode) |= Enable;
 	csr32(ctlr, MiscHostCtl) |= IndirectAccessEnable | EnablePCIStateRegister | EnableClockControlRegister;
+	csr32(ctlr, MiscHostCtl) = (csr32(ctlr, MiscHostCtl) & ~(ByteSwap|WordSwap)) | WordSwap;
+	csr32(ctlr, ModeControl) |= ByteWordSwap;
 	csr32(ctlr, MemoryWindow) = 0;
 	mem32(ctlr, 0xB50) = 0x4B657654; /* magic number bullshit */
 	csr32(ctlr, MiscConfiguration) |= GPHYPowerDownOverride | DisableGRCResetOnPCIE;
 	csr32(ctlr, MiscConfiguration) |= CoreClockBlocksReset;
 	microdelay(100000);
-	ctlr->pdev->pcr |= 1<<1;
+	ctlr->pdev->pcr |= 1<<1; /* pci memory access enable */
 	pcisetbme(ctlr->pdev);
 	csr32(ctlr, MiscHostCtl) |= MaskPCIInt;
 	csr32(ctlr, MemArbiterMode) |= Enable;
+	csr32(ctlr, MiscHostCtl) = (csr32(ctlr, MiscHostCtl) & ~(ByteSwap|WordSwap)) | WordSwap;
 	csr32(ctlr, MiscHostCtl) |= IndirectAccessEnable | EnablePCIStateRegister | EnableClockControlRegister | TaggedStatus;
 	csr32(ctlr, ModeControl) |= ByteWordSwap;
 	csr32(ctlr, MACMode) = (csr32(ctlr, MACMode) & MACPortMask) | MACPortGMII;
