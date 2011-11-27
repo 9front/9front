@@ -42,7 +42,7 @@ was specified with
 .B -m
 ,
 then hgfs will mount itself on
-.B /n/hg
+.B /mnt/hg
 (default). When a
 .I service
 name is given with the

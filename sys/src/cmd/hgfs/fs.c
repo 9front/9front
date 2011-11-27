@@ -746,7 +746,7 @@ main(int argc, char *argv[])
 	fmtinstall('H', Hfmt);
 
 	srv = nil;
-	mtpt = "/n/hg";
+	mtpt = "/mnt/hg";
 
 	ARGBEGIN {
 	case 'D':
