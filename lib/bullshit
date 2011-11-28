@@ -4,6 +4,7 @@ engine
 metadata
 replication
 factory
+strategy
 configuration
 interface
 singleton
@@ -26,6 +27,7 @@ firewall
 standard
 GPU
 shader
+agile ^
 advanced ^
 leveraged ^
 extended ^
