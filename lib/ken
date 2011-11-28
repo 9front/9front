@@ -22,7 +22,9 @@ If you give me the right kind of Tinker Toys, I can imagine the building.
 When I see a top-down description of a system or language that has infinite libraries described by layers and layers, all I just see is a morass.
 I can't understand something presented to me that's very complex.
 Maybe I do what I do because if I built anything more complicated, I couldn't understand it.
-What is or is not implemented in the kernel represents both a great responsibility and a great power.  It is a soap-box platform on 'the way things should be done.' Even so, if 'the way' is too radical, no one will follow it.  Every important decision was weighed carefully.  Throughout, simplicity has been substituted for efficiency.  Complex algorithms are used only if their complexity can be localized.
+What is or is not implemented in the kernel represents both a great responsibility and a great power
+Throughout, simplicity has been substituted for efficiency.
+Complex algorithms are used only if their complexity can be localized.
 My experience and some of my friends' experience is that Linux is quite unreliable.
 Microsoft is really unreliable but Linux is worse.
 I'd spell creat with an e.
