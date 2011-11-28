@@ -46,7 +46,7 @@ start_host(void)
 		_exits("rc_fork");
 	}
 
-	return open("/mnt/cons/cons/data", ORDWR);
+	return open("/mnt/cons/data", ORDWR);
 }
 
 void

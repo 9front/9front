@@ -43,7 +43,7 @@ consctl(void)
 	for(tries = 0; tries < 100; tries++){
 		x->raw = 0;
 		x->hold = 0;
-		fd = open("/mnt/cons/consctl/data", OREAD);
+		fd = open("/mnt/consctl/data", OREAD);
 		if(fd < 0)
 			break;
 		tries = 0;
