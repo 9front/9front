@@ -696,7 +696,7 @@ popenfile(Page *p)
 	p->open = tab[i].open;
 	if(seek(fd, 0, 0) < 0)
 		goto Noseek;
-	if((i = read(fd, buf+n, n)) < 0)
+	if((i = readn(fd, buf+n, n)) < 0)
 		goto Err1;
 	if(i != n || memcmp(buf, buf+n, i)){
 		n += i;
