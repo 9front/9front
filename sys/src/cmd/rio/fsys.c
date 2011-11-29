@@ -430,9 +430,13 @@ filsyswalk(Filsys *fs, Xfid *x, Fid *f)
 				dir = dirtab;
 				goto Accept;
 			}
-		
+
+			/* don't serve these if it's provided in the environment */
 			if(snarffd>=0 && strcmp(x->wname[i], "snarf")==0)
-				break;	/* don't serve /dev/snarf if it's provided in the environment */
+				break;	
+			if(strcmp(x->wname[i], "screen")==0 && access("/dev/screen", AEXIST)==0)
+				break;
+
 			id = WIN(f->qid);
 			d = dirtab;
 			d++;	/* skip '.' */

@@ -567,19 +567,29 @@ xfidwrite(Xfid *x)
 int
 readwindow(Image *i, char *t, Rectangle r, int offset, int n)
 {
-	int ww, y;
+	int ww, oo, y, m;
+	uchar *tt;
 
-	offset -= 5*12;
 	ww = bytesperline(r, i->depth);
 	r.min.y += offset/ww;
 	if(r.min.y >= r.max.y)
 		return 0;
-	y = r.min.y + n/ww;
+	y = r.min.y + (n + ww-1)/ww;
 	if(y < r.max.y)
 		r.max.y = y;
-	if(r.max.y <= r.min.y)
-		return 0;
-	return unloadimage(i, r, (uchar*)t, n);
+	m = ww * Dy(r);
+	oo = offset % ww;
+	if(oo == 0 && n >= m)
+		return unloadimage(i, r, (uchar*)t, n);
+	if((tt = malloc(m)) == nil)
+		return -1;
+	m = unloadimage(i, r, tt, m) - oo;
+	if(m > 0){
+		if(n < m) m = n;
+		memmove(t, tt + oo, m);
+	}
+	free(tt);
+	return m;
 }
 
 void
@@ -798,30 +808,26 @@ xfidread(Xfid *x)
 
 	case Qwindow:
 		i = w->i;
-		if(i == nil || Dx(w->screenr)<=0){
+		r = w->screenr;
+		if(i == nil || Dx(r)<=0){
 			filsysrespond(x->fs, x, &fc, Enowindow);
 			return;
 		}
-		r = w->screenr;
 		goto caseImage;
 
 	case Qscreen:
-		i = display->image;
-		if(i == nil){
-			filsysrespond(x->fs, x, &fc, "no top-level screen");
-			break;
-		}
-		r = i->r;
-		/* fall through */
+		i = screen;
+		r = screen->r;
 
 	caseImage:
 		if(off < 5*12){
 			n = sprint(buf, "%11s %11d %11d %11d %11d ",
 				chantostr(cbuf, i->chan),
-				i->r.min.x, i->r.min.y, i->r.max.x, i->r.max.y);
+				r.min.x, r.min.y, r.max.x, r.max.y);
 			t = estrdup(buf);
 			goto Text;
 		}
+		off -= 5*12;
 		t = malloc(cnt);
 		fc.data = t;
 		n = readwindow(i, t, r, off, cnt);	/* careful; fc.count is unsigned */
