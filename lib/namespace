@@ -1,7 +1,6 @@
 # root
 mount -aC #s/boot /root $rootspec
 bind -a $rootdir /
-bind -c $rootdir/mnt /mnt
 
 # kernel devices
 bind #c /dev
@@ -12,13 +11,13 @@ bind -c #s /srv
 bind -q #σ /shr
 bind -a #¤ /dev
 
+# authentication
+mount -a /srv/factotum /mnt
+
 # mount points
 mount -a /srv/slashn /n
 mount -a /srv/slashmnt /mnt
 mount -a /srv/mntexport /mnt/exportfs
-
-# authentication
-mount -a /srv/factotum /mnt
 
 # standard bin
 bind /$cputype/bin /bin

@@ -384,10 +384,6 @@ which holds connections to file servers.
 .B /srv/boot
 The communication channel to the main file server for the machine.
 .TP
-.B /mnt/factotum
-Mount point for
-.IR factotum (4).
-.TP
 .B /mnt/wsys
 Mount point for the window system.
 .TP
