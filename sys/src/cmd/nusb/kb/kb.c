@@ -264,10 +264,12 @@ ptrwork(void* a)
 			y = buf[2];
 		}
 		b = maptab[buf[0] & 0x7];
-		if(c > 3 && buf[3] == 1)	/* up */
+		if(c > 3 && buf[3] > 0){	/* up */
 			b |= 0x08;
-		if(c > 3 && buf[3] == -1)	/* down */
+		}
+		if(c > 3 && buf[3] < 0){	/* down */
 			b |= 0x10;
+		}
 		if(kbdebug > 1)
 			fprint(2, "%s: m%11d %11d %11d\n", argv0, x, y, b);
 		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", x, y,b);
