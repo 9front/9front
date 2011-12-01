@@ -67,6 +67,7 @@ case `{	echo $sysname; ndb/query sys $sysname dom
 		echo $i; ndb/ipquery ip $i dom; ndb/ipquery ip $i sys
 	} | sed 's,[^ ]+=,,g'}}
 	# cpu+auth server
+	aux/stub -d /mnt/keys
 	auth/keyfs -wp -m /mnt/keys /adm/keys
 	aux/listen -q -t /rc/bin/service.auth -d /rc/bin/service tcp
 case *
