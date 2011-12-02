@@ -41,7 +41,8 @@ rot90(Memimage *m)
 
 	dx = Dx(m->r);
 	dy = Dy(m->r);
-	if((w = allocmemimage(Rect(m->r.min.x, m->r.min.y, dy, dx), m->chan)) == nil)
+	if((w = allocmemimage(Rect(m->r.min.x, m->r.min.y, 
+		m->r.min.x+dy, m->r.min.y+dx), m->chan)) == nil)
 		sysfatal("allocmemimage: %r");
 	line = w->width*sizeof(ulong);
 	for(y=0; y<dy; y++){
