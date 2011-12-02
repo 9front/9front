@@ -2,16 +2,23 @@
 # terminal startup
 TIMESYNCARGS=(-rLa1000000)
 
-mntgen -s slashn && chmod 666 /srv/slashn
-mntgen -s slashmnt /mnt && chmod 666 /srv/slashmnt
-mntgen -s mntexport /mnt/exportfs && chmod 666 /srv/mntexport
-
 # bind all likely devices
 for(i in S f k t m i v L P u U A '$' Σ κ)
 	bind -a '#'^$i /dev >/dev/null >[2=1]
 rm -f /env/i
 
 mount -qb /srv/cons /dev
+
+# mount points 
+mntgen -s slashn && chmod 666 /srv/slashn
+mntgen -s slashmnt /mnt && chmod 666 /srv/slashmnt
+mntgen -s mntexport /mnt/exportfs && chmod 666 /srv/mntexport
+
+# move factotum from /mnt to /mnt/factotum
+mount /srv/factotum /mnt/temp
+unmount /srv/factotum /mnt
+bind /mnt/temp/factotum /mnt/factotum
+unmount /mnt/temp
 
 # usb listener
 nusbrc

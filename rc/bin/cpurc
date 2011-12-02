@@ -8,13 +8,19 @@ for(i in m i P S t u '$')
 
 mount -qb /srv/cons /dev
 
-# usb listener
-nusbrc
-
 # mount points
 mntgen -s slashn && chmod 666 /srv/slashn
 mntgen -s slashmnt /mnt && chmod 666 /srv/slashmnt
 mntgen -s mntexport /mnt/exportfs && chmod 666 /srv/mntexport
+
+# move factotum from /mnt to /mnt/factotum
+mount /srv/factotum /mnt/temp
+unmount /srv/factotum /mnt
+bind /mnt/temp/factotum /mnt/factotum
+unmount /mnt/temp
+
+# usb listener
+nusbrc
 
 # name translation, cs sets /dev/sysname
 ndb/cs
@@ -68,11 +74,6 @@ case `{	echo $sysname; ndb/query sys $sysname dom
 	} | sed 's,[^ ]+=,,g'}}
 
 	# cpu+auth server
-
-	# prevent factotum deadlock
-	aux/stub -d /mnt/keys
-	aux/stub -d /mnt/netkeys
-
 	auth/keyfs -wp -m /mnt/keys /adm/keys
 	aux/listen -q -t /rc/bin/service.auth -d /rc/bin/service tcp
 case *
