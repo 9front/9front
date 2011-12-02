@@ -66,8 +66,13 @@ case `{	echo $sysname; ndb/query sys $sysname dom
 	for(i in `{awk '/u\ *$/{print $1}' /net/ipselftab}){
 		echo $i; ndb/ipquery ip $i dom; ndb/ipquery ip $i sys
 	} | sed 's,[^ ]+=,,g'}}
+
 	# cpu+auth server
+
+	# prevent factotum deadlock
 	aux/stub -d /mnt/keys
+	aux/stub -d /mnt/netkeys
+
 	auth/keyfs -wp -m /mnt/keys /adm/keys
 	aux/listen -q -t /rc/bin/service.auth -d /rc/bin/service tcp
 case *

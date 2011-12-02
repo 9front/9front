@@ -12,7 +12,7 @@ bind -q #σ /shr
 bind -a #¤ /dev
 
 # authentication
-mount -a /srv/factotum /mnt
+mount -b /srv/factotum /mnt
 
 # mount points
 mount -a /srv/slashn /n
