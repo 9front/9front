@@ -3,6 +3,8 @@
 TIMESYNCARGS=(-rLa1000000)
 
 mntgen -s slashn && chmod 666 /srv/slashn
+mntgen -s slashmnt /mnt && chmod 666 /srv/slashmnt
+mntgen -s mntexport /mnt/exportfs && chmod 666 /srv/mntexport
 
 # bind all likely devices
 for(i in S f k t m i v L P u U A '$' Σ κ)

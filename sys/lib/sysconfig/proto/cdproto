@@ -55,32 +55,6 @@ mips	d775
 acme	d775
 	+
 mnt	d775
-	acme	d555
-	apeselect	d555
-	apm	d555
-	cd	d555
-	cons	d555
-		cons	d555
-		consctl	d555
-	consoles	d555
-	doc	d555
-	exportfs	d555
-		*
-	keys	d555
-	lp	d555
-	netkeys	d555
-	news	d555
-	plumb	d555
-	rdb	d555
-	temp	d555
-	term	d555
-	ums	d555
-	vmware	d555
-	web	d555
-	webcookies	d555
-	wiki	d555
-	wrap	d555
-	wsys	d555
 n	d775
 sys	d775
 	games	d775

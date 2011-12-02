@@ -20,13 +20,13 @@ consctl(void)
 		sysfatal("segattach: %r");
 
 	/* a pipe to simulate consctl */
-	if(bind("#|", "/mnt/cons/consctl", MBEFORE) < 0
-	|| bind("/mnt/cons/consctl/data1", "/dev/consctl", MREPL) < 0)
+	if(bind("#|", "/mnt/consctl", MBEFORE) < 0
+	|| bind("/mnt/consctl/data1", "/dev/consctl", MREPL) < 0)
 		sysfatal("bind consctl: %r");
 
 	/* a pipe to simulate the /dev/cons */
-	if(bind("#|", "/mnt/cons/cons", MREPL) < 0
-	|| bind("/mnt/cons/cons/data1", "/dev/cons", MREPL) < 0)
+	if(bind("#|", "/mnt/cons", MREPL) < 0
+	|| bind("/mnt/cons/data1", "/dev/cons", MREPL) < 0)
 		sysfatal("bind cons: %r");
 
 	switch(fork()){
