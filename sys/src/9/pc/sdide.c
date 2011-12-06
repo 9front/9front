@@ -1188,7 +1188,7 @@ atapktio0(Drive *drive, SDreq *r)
 	cmdport = ctlr->cmdport;
 	ctlport = ctlr->ctlport;
 
-	as = ataready(cmdport, ctlport, drive->dev, Bsy|Drq, Drdy, 107*1000);
+	as = ataready(cmdport, ctlport, drive->dev, Bsy|Drq, 0, 107*1000);
 	/* used to test as&Chk as failure too, but some CD readers use that for media change */
 	if(as < 0)
 		return SDnostatus;
@@ -1242,12 +1242,12 @@ atapktio0(Drive *drive, SDreq *r)
 	iunlock(ctlr);
 
 	if(drive->status & Chk){
+		rv = SDcheck;
 		if(drive->pktdma){
 			print("atapktio: disabling dma\n");
 			drive->dmactl = 0;
 			rv = SDretry;
-		} else
-			rv = SDcheck;
+		}
 	}
 	return rv;
 }
@@ -1545,7 +1545,7 @@ atagenatastart(Drive* d, SDreq *r)
 	ctlr = d->ctlr;
 	cmdport = ctlr->cmdport;
 	ctlport = ctlr->ctlport;
-	if(ataready(cmdport, ctlport, d->dev, Bsy|Drq, d->pkt? 0: Drdy, 101*1000) < 0)
+	if(ataready(cmdport, ctlport, d->dev, Bsy|Drq, d->pkt ? 0 : Drdy, 101*1000) < 0)
 		return -1;
 
 	ilock(ctlr);
@@ -1902,7 +1902,6 @@ atainterrupt(Ureg*, void* arg)
 			print("Inil%2.2uX+", ctlr->command);
 		return;
 	}
-
 	if(status & Err)
 		drive->error = inb(cmdport+Error);
 	else switch(drive->command){
@@ -1999,8 +1998,8 @@ badccru(Pcidev *p)
 	switch(p->did<<16 | p->did){
 	case 0x439c<<16 | 0x1002:
 	case 0x438c<<16 | 0x1002:
-print("hi, anothy\n");
-print("%T: allowing bad ccru %.2ux for suspected ide controller\n", p->tbdf, p->ccru);
+		print("%T: allowing bad ccru %.2ux for suspected ide controller\n",
+			p->tbdf, p->ccru);
 		return 1;
 	default:
 		return 0;
@@ -2411,9 +2410,8 @@ ataonline(SDunit *unit)
 	if((drive->flags & Online) == 0){
 		drive->flags |= Online;
 		atadrive(unit, drive, ctlr->cmdport, ctlr->ctlport, drive->dev);
+		ret = 2;
 	}
-	unit->sectors = drive->sectors;
-	unit->secsize = drive->secsize;
 	if(drive->feat & Datapi){
 		ulong dma;
 
@@ -2421,6 +2419,9 @@ ataonline(SDunit *unit)
 		drive->dmactl = 0;
 		ret = scsionline(unit);
 		drive->dmactl = dma;
+	} else {
+		unit->sectors = drive->sectors;
+		unit->secsize = drive->secsize;
 	}
 	return ret;
 }

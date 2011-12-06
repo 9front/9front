@@ -214,7 +214,6 @@ capreply(SDreq *r, ulong *secsize)
 	ulong ss;
 	uvlong s;
 
-	*secsize = 0;
 	u = r->data;
 	if(r->clen == 16){
 		s = (uvlong)belong(u)<<32 | belong(u + 4);
@@ -223,24 +222,8 @@ capreply(SDreq *r, ulong *secsize)
 		s = belong(u);
 		ss = belong(u + 4);
 	}
-	/*
-	 * Some ATAPI CD readers lie about the block size.
-	 * Since we don't read audio via this interface
-	 * it's okay to always fudge this.
-	 */
-	if(ss == 2352)
-		ss = 2048;
-	/*
-	 * Devices with removable media may return 0 sectors
-	 * when they have empty media (e.g. sata dvd writers);
-	 * if so, keep the count zero.
-	 *
-	 * Read-capacity returns the LBA of the last sector,
-	 * therefore the number of sectors must be incremented.
-	 */
-	if(s != 0)
-		s++;
-	*secsize = ss;
+	if(secsize)
+		*secsize = ss;
 	return s;
 }
 
@@ -249,6 +232,8 @@ scsionline(SDunit* unit)
 {
 	SDreq *r;
 	uchar *p;
+	ulong ss;
+	uvlong s;
 	int ok, retries;
 	void (*cap)(SDreq*);
 
@@ -276,20 +261,51 @@ scsionline(SDunit* unit)
 		memset(r->cmd, 0, sizeof r->cmd);
 		cap(r);
 
-		r->status = ~0;
 		switch(scsirio(r)){
 		default:
+			/*
+			 * ATAPI returns error and no sense information
+			 * on media change / no media present.
+			 * count as retries.
+			 */
+			if(retries < 4)
+				continue;
 			break;
 		case 0:
-			unit->sectors = capreply(r, &unit->secsize);
-			if(unit->sectors == 0xffffffff && cap == cap10){
+			s = capreply(r, &ss);
+			if(s == 0xffffffff && cap == cap10){
 				cap = cap16;
 				continue;
 			}
-			ok = 1;
+			if(s == 0xffffffffffffffffLL)
+				s = 0;
+
+			/*
+			 * Some ATAPI CD readers lie about the block size.
+			 * Since we don't read audio via this interface
+			 * it's okay to always fudge this.
+			 */
+			if(ss == 2352)
+				ss = 2048;
+
+			/*
+			 * Devices with removable media may return 0 sectors
+			 * when they have empty media (e.g. sata dvd writers);
+			 * if so, keep the count zero.
+			 *	
+			 * Read-capacity returns the LBA of the last sector,
+			 * therefore the number of sectors must be incremented.
+			 */
+			if(s != 0)
+				s++;
+
+			ok = (unit->sectors != s) ? 2 : 1;
+			unit->sectors = s;
+			unit->secsize = ss;
 			break;
 		case 1:
-			ok = 1;
+			ok = (unit->sectors != 0) ? 2 : 1;
+			unit->sectors = 0;
 			break;
 		case 2:
 			continue;
@@ -298,6 +314,11 @@ scsionline(SDunit* unit)
 	}
 	free(p);
 	free(r);
+
+	/*
+	print("scsionline: %s: ok=%d retries=%d sectors=%llud secsize=%lud\n",
+		unit->name, ok, retries, unit->sectors, unit->secsize);
+	*/
 
 	if(ok)
 		return ok+retries;

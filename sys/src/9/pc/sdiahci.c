@@ -1473,24 +1473,22 @@ iaonline(SDunit *unit)
 
 	c = unit->dev->ctlr;
 	d = c->drive[unit->subno];
-	r = 0;
-
-	if(d->portm.feat & Datapi && d->drivechange){
-		r = scsionline(unit);
-		if(r > 0)
-			d->drivechange = 0;
-		return r;
-	}
-
 	ilock(d);
-	if(d->drivechange){
-		r = 2;
+	if(d->portm.feat & Datapi){
 		d->drivechange = 0;
-		/* devsd resets this after online is called; why? */
-		unit->sectors = d->sectors;
-		unit->secsize = d->secsize;
+		iunlock(d);
+		return scsionline(unit);
+	}
+	r = 0;
+	if(d->drivechange){
+		d->drivechange = 0;
+		r = 2;
 	}else if(d->state == Dready)
 		r = 1;
+	if(r){
+		unit->sectors = d->sectors;
+		unit->secsize = d->secsize;
+	}
 	iunlock(d);
 	return r;
 }
@@ -1707,7 +1705,6 @@ iariopkt(SDreq *r, Drive *d)
 		case SDretry:
 			continue;
 		}
-//		print("%.2ux :: %.2ux :: %.4ux\n", r->cmd[0], r->status, d->port->task);
 		r->rlen = d->portm.list->len;
 		return SDok;
 	}
