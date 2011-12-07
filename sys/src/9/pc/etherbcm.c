@@ -195,6 +195,89 @@ enum {
 	FrameError = 1<<10,
 };
 
+enum {
+	BCM5752 = 0x1600, 
+	BCM5752M = 0x1601, 
+	BCM5709 = 0x1639, 
+	BCM5709S = 0x163a, 
+	BCM5716 = 0x163b, 
+	BCM5716S = 0x163c, 
+	BCM5700 = 0x1644, 
+	BCM5701 = 0x1645, 
+	BCM5702 = 0x1646, 
+	BCM5703 = 0x1647, 
+	BCM5704 = 0x1648, 
+	BCM5704S_2 = 0x1649, 
+	BCM5706 = 0x164a, 
+	BCM5708 = 0x164c, 
+	BCM5702FE = 0x164d, 
+	BCM57710 = 0x164e, 
+	BCM57711 = 0x164f, 
+	BCM57711E = 0x1650, 
+	BCM5705 = 0x1653, 
+	BCM5705_2 = 0x1654, 
+	BCM5717 = 0x1655, 
+	BCM5718 = 0x1656, 
+	BCM5720 = 0x1658, 
+	BCM5721 = 0x1659, 
+	BCM5722 = 0x165a, 
+	BCM5723 = 0x165b, 
+	BCM5724 = 0x165c, 
+	BCM5705M = 0x165d, 
+	BCM5705M_2 = 0x165e, 
+	BCM5714 = 0x1668, 
+	BCM5780 = 0x166a, 
+	BCM5780S = 0x166b, 
+	BCM5754M = 0x1672, 
+	BCM5755M = 0x1673, 
+	BCM5756ME = 0x1674, 
+	BCM5750 = 0x1676, 
+	BCM5751 = 0x1677, 
+	BCM5715 = 0x1678, 
+	BCM5715S = 0x1679, 
+	BCM5754 = 0x167a, 
+	BCM5755 = 0x167b, 
+	BCM5750M = 0x167c, 
+	BCM5751M = 0x167d, 
+	BCM5751F = 0x167e, 
+	BCM5787F = 0x167f, 
+	BCM5761e = 0x1680, 
+	BCM5761 = 0x1681, 
+	BCM5764M = 0x1684, 
+	BCM57760 = 0x1690, 
+	BCM57788 = 0x1691, 
+	BCM57780 = 0x1692, 
+	BCM5787M = 0x1693, 
+	BCM57790 = 0x1694, 
+	BCM5782 = 0x1696, 
+	BCM5784M = 0x1698, 
+	BCM5785 = 0x1699, 
+	BCM5786 = 0x169a, 
+	BCM5787 = 0x169b, 
+	BCM5788 = 0x169c, 
+	BCM5789 = 0x169d, 
+	BCM5785 = 0x16a0, 
+	BCM5702X = 0x16a6, 
+	BCM5703X = 0x16a7, 
+	BCM5704S = 0x16a8, 
+	BCM5706S = 0x16aa, 
+	BCM5708S = 0x16ac, 
+	BCM57761 = 0x16b0, 
+	BCM57781 = 0x16b1, 
+	BCM57791 = 0x16b2, 
+	BCM57765 = 0x16b4, 
+	BCM57785 = 0x16b5, 
+	BCM57795 = 0x16b6, 
+	BCM5702A3 = 0x16c6, 
+	BCM5703 = 0x16c7, 
+	BCM5781 = 0x16dd, 
+	BCM5753 = 0x16f7, 
+	BCM5753M = 0x16fd, 
+	BCM5753F = 0x16fe, 
+	BCM5906 = 0x1712,
+	BCM5906M = 0x1713,
+};
+
 #define csr32(c, r)	((c)->nic[(r)/4])
 #define mem32(c, r) csr32(c, (r)+0x8000)
 
@@ -470,7 +553,13 @@ bcminit(Ether *edev)
 		iprint("bcm: chip failed to reset\n");
 		return -1;
 	}
-	csr32(ctlr, TLPControl) |= (1<<25) | (1<<29);
+	switch(ctlr->pdev->did){
+	case BCM5721:
+	case BCM5751:
+	case BCM5752:
+		csr32(ctlr, TLPControl) |= (1<<25) | (1<<29);
+		break;
+	}
 	memset(ctlr->status, 0, 20);
 	csr32(ctlr, DMARWControl) = (csr32(ctlr, DMARWControl) & DMAWatermarkMask) | DMAWatermarkValue;
 	csr32(ctlr, ModeControl) |= HostSendBDs | HostStackUp | InterruptOnMAC;
@@ -606,24 +695,95 @@ bcmpci(void)
 		
 		if(pdev->ccrb != 2 || pdev->ccru != 0)
 			continue;
-		
-		switch((pdev->vid<<16) | pdev->did){
-		default: continue;
-		case 0x14e4165a:
-		case 0x14e4167d:
-		case 0x14e41670:
-		case 0x14e41672:
-		case 0x14e41673:
-		case 0x14e41674:
-		case 0x14e41677:
-		case 0x14e4167A:
-		case 0x14e4167b:
-		case 0x14e41693:
-		case 0x14e4169B:
-		case 0x14e41712:
-		case 0x14e41713:
+		if(pdev->vid != 0x14e4)
+			continue;
+		switch(pdev->did){
+		default:
+			continue;
+		case BCM5752:
+		case BCM5752M:
+		case BCM5709:
+		case BCM5709S:
+		case BCM5716:
+		case BCM5716S:
+		case BCM5700:
+		case BCM5701:
+		case BCM5702:
+		case BCM5703:
+		case BCM5704:
+		case BCM5704S_2:
+		case BCM5706:
+		case BCM5708:
+		case BCM5702FE:
+		case BCM57710:
+		case BCM57711:
+		case BCM57711E:
+		case BCM5705:
+		case BCM5705_2:
+		case BCM5717:
+		case BCM5718:
+		case BCM5720:
+		case BCM5721:
+		case BCM5722:
+		case BCM5723:
+		case BCM5724:
+		case BCM5705M:
+		case BCM5705M_2:
+		case BCM5714:
+		case BCM5780:
+		case BCM5780S:
+		case BCM5754M:
+		case BCM5755M:
+		case BCM5756ME:
+		case BCM5750:
+		case BCM5751:
+		case BCM5715:
+		case BCM5715S:
+		case BCM5754:
+		case BCM5755:
+		case BCM5750M:
+		case BCM5751M:
+		case BCM5751F:
+		case BCM5787F:
+		case BCM5761e:
+		case BCM5761:
+		case BCM5764M:
+		case BCM57760:
+		case BCM57788:
+		case BCM57780:
+		case BCM5787M:
+		case BCM57790:
+		case BCM5782:
+		case BCM5784M:
+		case BCM5785:
+		case BCM5786:
+		case BCM5787:
+		case BCM5788:
+		case BCM5789:
+		case BCM5785:
+		case BCM5702X:
+		case BCM5703X:
+		case BCM5704S:
+		case BCM5706S:
+		case BCM5708S:
+		case BCM57761:
+		case BCM57781:
+		case BCM57791:
+		case BCM57765:
+		case BCM57785:
+		case BCM57795:
+		case BCM5702A3:
+		case BCM5703:
+		case BCM5781:
+		case BCM5753:
+		case BCM5753M:
+		case BCM5753F:
+		case BCM5906:	/* ??? */
+		case BCM5906M:	/* ??? */
+		case 0x1670: 	/* ??? */
 			break;
 		}
+
 		pcisetbme(pdev);
 		pcisetpms(pdev, 0);
 		ctlr = malloc(sizeof(Ctlr));
@@ -713,5 +873,5 @@ again:
 void
 etherbcmlink(void)
 {
-	addethercard("BCM5755", bcmpnp);
+	addethercard("bcm", bcmpnp);
 }
