@@ -256,7 +256,7 @@ enum {
 	BCM5787 = 0x169b, 
 	BCM5788 = 0x169c, 
 	BCM5789 = 0x169d, 
-	BCM5785 = 0x16a0, 
+	BCM5785_2 = 0x16a0, 
 	BCM5702X = 0x16a6, 
 	BCM5703X = 0x16a7, 
 	BCM5704S = 0x16a8, 
@@ -269,7 +269,7 @@ enum {
 	BCM57785 = 0x16b5, 
 	BCM57795 = 0x16b6, 
 	BCM5702A3 = 0x16c6, 
-	BCM5703 = 0x16c7, 
+	BCM5703_2 = 0x16c7, 
 	BCM5781 = 0x16dd, 
 	BCM5753 = 0x16f7, 
 	BCM5753M = 0x16fd, 
@@ -760,7 +760,7 @@ bcmpci(void)
 		case BCM5787:
 		case BCM5788:
 		case BCM5789:
-		case BCM5785:
+		case BCM5785_2:
 		case BCM5702X:
 		case BCM5703X:
 		case BCM5704S:
@@ -773,7 +773,7 @@ bcmpci(void)
 		case BCM57785:
 		case BCM57795:
 		case BCM5702A3:
-		case BCM5703:
+		case BCM5703_2:
 		case BCM5781:
 		case BCM5753:
 		case BCM5753M:
