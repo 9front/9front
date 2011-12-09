@@ -192,7 +192,6 @@ void	(*newvaluefn[Nmenu2])(Machine*, uvlong*, uvlong*, int init) = {
 Image	*cols[Ncolor][3];
 Graph	*graph;
 Machine	*mach;
-Font	*mediumfont;
 char	*mysysname;
 char	argchars[] = "8bceEfiImlnpstwz";
 int	pids[NPROC];
@@ -265,10 +264,6 @@ mkcol(int i, int c0, int c1, int c2)
 void
 colinit(void)
 {
-	mediumfont = openfont(display, "/lib/font/bit/pelm/latin1.8.font");
-	if(mediumfont == nil)
-		mediumfont = font;
-
 	/* Peach */
 	mkcol(0, 0xFFAAAAFF, 0xFFAAAAFF, 0xBB5D5DFF);
 	/* Aqua */
@@ -318,15 +313,15 @@ label(Point p, int dy, char *text)
 	maxw = 0;
 	r[1] = '\0';
 	for(s=text; *s; ){
-		if(p.y+mediumfont->height-Ysqueeze > maxy)
+		if(p.y+font->height-Ysqueeze > maxy)
 			break;
 		w = chartorune(r, s);
 		s += w;
-		w = runestringwidth(mediumfont, r);
+		w = runestringwidth(font, r);
 		if(w > maxw)
 			maxw = w;
-		runestring(screen, p, display->black, ZP, mediumfont, r);
-		p.y += mediumfont->height-Ysqueeze;
+		runestring(screen, p, display->black, ZP, font, r);
+		p.y += font->height-Ysqueeze;
 	}
 }
 
@@ -421,7 +416,7 @@ update1(Graph *g, uvlong v, uvlong vmax)
 		g->overflow = 1;
 		draw(g->overtmp, g->overtmp->r, screen, nil, g->overtmp->r.min);
 		sprint(buf, "%llud", v);
-		string(screen, g->overtmp->r.min, display->black, ZP, mediumfont, buf);
+		string(screen, g->overtmp->r.min, display->black, ZP, font, buf);
 	}
 }
 
@@ -1111,7 +1106,7 @@ labelwidth(void)
 		/* choose value for rightmost graph */
 		labelstrs(&graph[ngraph*(nmach-1)+i], strs, &n);
 		for(j=0; j<n; j++){
-			w = stringwidth(mediumfont, strs[j]);
+			w = stringwidth(font, strs[j]);
 			if(w > maxw)
 				maxw = w;
 		}
@@ -1132,9 +1127,9 @@ resize(void)
 
 	/* label left edge */
 	x = screen->r.min.x;
-	y = screen->r.min.y + Labspace+mediumfont->height+Labspace;
+	y = screen->r.min.y + Labspace+font->height+Labspace;
 	dy = (screen->r.max.y - y)/ngraph;
-	dx = Labspace+stringwidth(mediumfont, "0")+Labspace;
+	dx = Labspace+stringwidth(font, "0")+Labspace;
 	startx = x+dx+1;
 	starty = y;
 	for(i=0; i<ngraph; i++,y+=dy){
@@ -1148,7 +1143,7 @@ resize(void)
 	dx = (screen->r.max.x - startx)/nmach;
 	for(x=startx, i=0; i<nmach; i++,x+=dx){
 		draw(screen, Rect(x-1, starty-1, x, screen->r.max.y), display->black, nil, ZP);
-		j = dx/stringwidth(mediumfont, "0");
+		j = dx/stringwidth(font, "0");
 		n = mach[i].nproc;
 		if(n>1 && j>=1+3+mach[i].lgproc){	/* first char of name + (n) */
 			j -= 3+mach[i].lgproc;
@@ -1157,13 +1152,13 @@ resize(void)
 			snprint(buf, sizeof buf, "%.*s(%d)", j, mach[i].shortname, n);
 		}else
 			snprint(buf, sizeof buf, "%.*s", j, mach[i].shortname);
-		string(screen, Pt(x+Labspace, screen->r.min.y + Labspace), display->black, ZP, mediumfont, buf);
+		string(screen, Pt(x+Labspace, screen->r.min.y + Labspace), display->black, ZP, font, buf);
 	}
 
 	maxx = screen->r.max.x;
 
 	/* label right, if requested */
-	if(ylabels && dy>Nlab*(mediumfont->height+1)){
+	if(ylabels && dy>Nlab*(font->height+1)){
 		wid = labelwidth();
 		if(wid < (maxx-startx)-30){
 			/* else there's not enough room */
@@ -1181,8 +1176,8 @@ resize(void)
 				for(k=0; k<nlab; k++){
 					ly = y + (dy*(nlab-k)/(nlab+1));
 					draw(screen, Rect(maxx+1, ly, maxx+1+Lx, ly+1), display->black, nil, ZP);
-					ly -= mediumfont->height/2;
-					string(screen, Pt(maxx+1+Lx, ly), display->black, ZP, mediumfont, labs[k]);
+					ly -= font->height/2;
+					string(screen, Pt(maxx+1+Lx, ly), display->black, ZP, font, labs[k]);
 				}
 			}
 		}
@@ -1211,8 +1206,8 @@ resize(void)
 			draw(screen, g->r, cols[g->colindex][0], nil, paritypt(g->r.min.x));
 			g->overflow = 0;
 			r = g->r;
-			r.max.y = r.min.y+mediumfont->height;
-			r.max.x = r.min.x+stringwidth(mediumfont, "999999999999");
+			r.max.y = r.min.y+font->height;
+			r.max.x = r.min.x+stringwidth(font, "999999999999");
 			freeimage(g->overtmp);
 			g->overtmp = nil;
 			if(r.max.x <= g->r.max.x)
