@@ -167,20 +167,21 @@ threadmain(int argc, char *argv[])
 		startdir = estrdup(buf);
 	if(fontname == nil)
 		fontname = getenv("font");
-	if(fontname == nil)
-		fontname = "/lib/font/bit/lucm/unicode.9.font";
 	s = getenv("tabstop");
 	if(s != nil)
 		maxtab = strtol(s, nil, 0);
 	if(maxtab == 0)
 		maxtab = 4;
 	free(s);
-	/* check font before barging ahead */
-	if(access(fontname, 0) < 0){
-		fprint(2, "rio: can't access %s: %r\n", fontname);
-		exits("font open");
+
+	if(fontname){
+		/* check font before barging ahead */
+		if(access(fontname, 0) < 0){
+			fprint(2, "rio: can't access %s: %r\n", fontname);
+			exits("font open");
+		}
+		putenv("font", fontname);
 	}
-	putenv("font", fontname);
 
 	snarffd = open("/dev/snarf", OREAD|OCEXEC);
 
