@@ -20,7 +20,6 @@ int nwin;
 int mwin;
 int onwin;
 int rows, cols;
-Font *font;
 Image *lightblue;
 
 enum {
@@ -243,11 +242,10 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char *fontname;
+	char *fontname = nil;
 	int Etimer;
 	Event e;
 
-	fontname = "/lib/font/bit/lucidasans/unicode.8.font";
 	ARGBEGIN{
 	case 'f':
 		fontname = EARGF(usage());
@@ -268,8 +266,10 @@ main(int argc, char **argv)
 	lightblue = allocimagemix(display, DPalebluegreen, DWhite);
 	if(lightblue == nil)
 		sysfatal("allocimagemix: %r");
-	if((font = openfont(display, fontname)) == nil)
-		sysfatal("font '%s' not found", fontname);
+
+	if(fontname)
+		if((font = openfont(display, fontname)) == nil)
+			sysfatal("font '%s' not found", fontname);
 
 	refreshwin();
 	redraw(screen, 1);
