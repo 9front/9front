@@ -115,7 +115,6 @@ void		(*newvaluefn[Nmenu2])(Machine*, long*, long*, long*) = {
 Image		*cols[Ncolor][3];
 Graph		*graph;
 Machine		mach[NMACH];
-Font		*mediumfont;
 int		pids[NPROC];
 int		npid;
 int 		parity;	/* toggled to avoid patterns in textured background */
@@ -190,10 +189,6 @@ mkcol(int i, int c0, int c1, int c2)
 void
 colinit(void)
 {
-	mediumfont = openfont(display, "/lib/font/bit/pelm/latin1.8.font");
-	if(mediumfont == nil)
-		mediumfont = font;
-
 	/* Peach */
 	mkcol(0, 0xFFAAAAFF, 0xFFAAAAFF, 0xBB5D5DFF);
 	/* Aqua */
@@ -242,15 +237,15 @@ label(Point p, int dy, char *text)
 	maxw = 0;
 	r[1] = '\0';
 	for(s=text; *s; ){
-		if(p.y+mediumfont->height-Ysqueeze > maxy)
+		if(p.y+font->height-Ysqueeze > maxy)
 			break;
 		w = chartorune(r, s);
 		s += w;
-		w = runestringwidth(mediumfont, r);
+		w = runestringwidth(font, r);
 		if(w > maxw)
 			maxw = w;
-		runestring(screen, p, display->black, ZP, mediumfont, r);
-		p.y += mediumfont->height-Ysqueeze;
+		runestring(screen, p, display->black, ZP, font, r);
+		p.y += font->height-Ysqueeze;
 	}
 }
 
@@ -263,9 +258,9 @@ hashmark(Point p, int dy, long v, long vmax, char *label)
 	x = p.x + Labspace;
 	y = p.y + (dy*(vmax-v))/vmax;
 	draw(screen, Rect(p.x, y-1, p.x+Labspace, y+1), display->black, nil, ZP);
-	if(dy > 5*mediumfont->height)
-		string(screen, Pt(x, y-mediumfont->height/2),
-			display->black, ZP, mediumfont, label);
+	if(dy > 5*font->height)
+		string(screen, Pt(x, y-font->height/2),
+			display->black, ZP, font, label);
 }
 
 void
@@ -368,7 +363,7 @@ drawmsg(Graph *g, char *msg)
 	/* draw message */
 	if(strlen(msg) > g->overtmplen)
 		msg[g->overtmplen] = 0;
-	string(screen, g->overtmp->r.min, display->black, ZP, mediumfont, msg);
+	string(screen, g->overtmp->r.min, display->black, ZP, font, msg);
 }
 
 void
@@ -773,9 +768,9 @@ resize(void)
 
 	/* label left edge */
 	x = screen->r.min.x;
-	y = screen->r.min.y + Labspace+mediumfont->height+Labspace;
+	y = screen->r.min.y + Labspace+font->height+Labspace;
 	dy = (screen->r.max.y - y)/ngraph;
-	dx = Labspace+stringwidth(mediumfont, "0")+Labspace;
+	dx = Labspace+stringwidth(font, "0")+Labspace;
 	startx = x+dx+1;
 	starty = y;
 	for(i=0; i<ngraph; i++,y+=dy){
@@ -786,10 +781,10 @@ resize(void)
 	}
 
 	/* label right edge */
-	dx = Labspace+stringwidth(mediumfont, "0.001")+Labspace;
+	dx = Labspace+stringwidth(font, "0.001")+Labspace;
 	hashdx = dx;
 	x = screen->r.max.x - dx;
-	y = screen->r.min.y + Labspace+mediumfont->height+Labspace;
+	y = screen->r.min.y + Labspace+font->height+Labspace;
 	for(i=0; i<ngraph; i++,y+=dy){
 		draw(screen, Rect(x, y-1, screen->r.max.x, y), display->black, nil, ZP);
 		draw(screen, Rect(x, y, x+dx, screen->r.max.y), cols[graph[i].colindex][0], nil, paritypt(x));
@@ -801,7 +796,7 @@ resize(void)
 	dx = (screen->r.max.x - dx - startx)/nmach;
 	for(x=startx, i=0; i<nmach; i++,x+=dx){
 		draw(screen, Rect(x-1, starty-1, x, screen->r.max.y), display->black, nil, ZP);
-		j = dx/stringwidth(mediumfont, "0");
+		j = dx/stringwidth(font, "0");
 		n = mach[i].nproc;
 		if(n>1 && j>=1+3+(n>10)+(n>100)){	/* first char of name + (n) */
 			j -= 3+(n>10)+(n>100);
@@ -811,7 +806,7 @@ resize(void)
 		}else
 			snprint(buf, sizeof buf, "%.*s", j, mach[i].name);
 		string(screen, Pt(x+Labspace, screen->r.min.y + Labspace), display->black, ZP,
-			mediumfont, buf);
+			font, buf);
 	}
 	/* draw last vertical line */
 	draw(screen,
@@ -847,12 +842,12 @@ resize(void)
 			g->overtmp = nil;
 			g->overtmplen = 0;
 			r = g->r;
-			r.max.y = r.min.y+mediumfont->height;
-			n = (g->r.max.x - r.min.x)/stringwidth(mediumfont, "9");
+			r.max.y = r.min.y+font->height;
+			n = (g->r.max.x - r.min.x)/stringwidth(font, "9");
 			if(n > 4){
 				if(n > Gmsglen)
 					n = Gmsglen;
-				r.max.x = r.min.x+stringwidth(mediumfont, "9")*n;
+				r.max.x = r.min.x+stringwidth(font, "9")*n;
 				g->overtmplen = n;
 				g->overtmp = allocimage(display, r, screen->chan, 0, -1);
 			}
