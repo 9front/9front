@@ -113,9 +113,9 @@ init(void)
 	tinyfont = openfont(display, "/lib/font/bit/misc/ascii.5x7.font");
 	if(tinyfont == nil)
 		tinyfont = font;
-	mediumfont = openfont(display, "/lib/font/bit/pelm/latin1.8.font");
-	if(mediumfont == nil)
-		mediumfont = font;
+ 	mediumfont = openfont(display, "/lib/font/bit/dejavusans/dejavusans.12.font");
+ 	if(mediumfont == nil)
+ 		mediumfont = font;
 	datefont = font;
 
 	facep.y += datefont->height;
