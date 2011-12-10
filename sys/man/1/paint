@@ -12,11 +12,13 @@ holding down mouse button 1 or its equivalent.
 A number of keyboard commands are recognized:
 .TP
 .B b
-Set the brush size to an ellipse of
+Set the brush size to an ellipse with a horizontal semiaxis of
 .I n
-x
+and a vertical semiaxis of
 .I n
-pixels. Type a number,
+(see
+.IR graphics (2)).
+Type a number,
 .I n,
 in the pop-up box and hit enter.
 .TP
