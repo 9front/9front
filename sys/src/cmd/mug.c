@@ -1041,7 +1041,7 @@ main(int argc, char **argv)
 		fd = 0;
 
 	if (initdraw(0, 0, "mug") < 0)
-		sysfatal("initdraw failed");
+		sysfatal("initdraw failed: %r");
 
 	if((orig = readimage(display, fd, 0)) == nil)
 		sysfatal("readimage: %r");

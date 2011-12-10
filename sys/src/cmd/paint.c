@@ -43,7 +43,11 @@ main()
 	char file[128];
 	
 	haslast = 0;
-	initdraw(0, 0, 0);
+	if(initdraw(0, 0, "paint") < 0){
+		fprint(2, "paint: initdraw failed: %r\n");
+		exits("initdraw");
+	}
+		
 	einit(Emouse | Ekeyboard);
 	draw(screen, screen->r, display->white, 0, ZP);
 	flushimage(display, 1);

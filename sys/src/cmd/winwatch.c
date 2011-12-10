@@ -262,14 +262,11 @@ main(int argc, char **argv)
 	if(argc)
 		usage();
 
-	initdraw(0, 0, "winwatch");
+	if(initdraw(0, fontname, "winwatch") < 0)
+		sysfatal("initdraw: %r");
 	lightblue = allocimagemix(display, DPalebluegreen, DWhite);
 	if(lightblue == nil)
 		sysfatal("allocimagemix: %r");
-
-	if(fontname)
-		if((font = openfont(display, fontname)) == nil)
-			sysfatal("font '%s' not found", fontname);
 
 	refreshwin();
 	redraw(screen, 1);

@@ -292,8 +292,8 @@ void main(int argc, char *argv[]){
 		close(errfile);
 	}
 	logfile=mkmfile("mothra.log", 0666|DMAPPEND);
-	
-	initdraw(err,0,"mothra");
+	if(initdraw(err, 0, "mothra") < 0)
+		sysfatal("initdraw: %r");
 	display->locking = 1;
 	chrwidth=stringwidth(font, "0");
 	pltabsize(chrwidth, 8*chrwidth);

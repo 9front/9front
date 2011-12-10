@@ -273,7 +273,10 @@ void main(int argc, char * argv[])
 	Rectangle r3 = Rect(200, 100, 500, 300);
 	Region reg;
 
-	initdraw(0, 0, "vncviewer");
+	if(initdraw(0, 0, "vncviewer") < 0){
+		fprint(2, "%s: initdraw failed: %r\n", argv[0]);
+		exits("initdraw");
+	}
 	region_init(&reg);
 	region_union(&reg, r1, r1);
 	region_union(&reg, r2, r2);

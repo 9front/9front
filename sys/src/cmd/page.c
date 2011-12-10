@@ -1228,7 +1228,8 @@ main(int argc, char *argv[])
 			sysfatal("newwindow: %r");
 		free(s);
 	}
-	initdraw(drawerr, nil, argv0);
+	if(initdraw(drawerr, nil, argv0) < 0)
+		sysfatal("initdraw: %r");
 	paper = display->white;
 	frame = display->black;
 	ground = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x777777FF);

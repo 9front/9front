@@ -132,7 +132,8 @@ main(int argc, char **argv)
 	if(vncstart(vnc, shared) < 0)
 		sysfatal("init failure: %r");
 
-	initdraw(0, 0, "vncv");
+	if(initdraw(0, 0, "vncv") < 0)
+		sysfatal("initdraw: %r");
 	display->locking = 1;
 	unlockdisplay(display);
 

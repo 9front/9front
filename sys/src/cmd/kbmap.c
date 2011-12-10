@@ -229,7 +229,10 @@ main(int argc, char **argv)
 	} else 
 		init();
 
-	initdraw(0, 0, "kbmap");
+	if(initdraw(0, 0, "kbmap") < 0){
+		fprint(2, "kbmap: initdraw failed: %r\n");
+		exits("initdraw");
+	}
 	lightblue = allocimagemix(display, DPalebluegreen, DWhite);
 	if(lightblue == nil)
 		sysfatal("allocimagemix: %r");
