@@ -11,15 +11,26 @@ holding down mouse button 1 or its equivalent.
 .PP
 A number of keyboard commands are recognized:
 .TP
+.B b
+Set the brush size to an ellipse with a horizontal semiaxis of
+.I n
+and a vertical semiaxis of
+.I n
+(see
+.IR graphics (2)).
+Type a number,
+.I n,
+in the pop-up box and hit enter.
+.TP
 .B c
 Clear the screen. Any unsaved work will be lost.
 .TP
 .B s
-Save the current screen as a bitmap image. A pop-up window appears
+Save the current screen as a bitmap image. A pop-up box appears
 suggesting a default filename of
 .I out.bit.
 Hit enter to accept the default, or backspace over the suggested name and
-enter an alternative path and filename. If the path is omitted, the file will be
+type an alternative path and filename. If the path is omitted, a file will be
 created in the current directory.
 .TP
 .B q
@@ -31,6 +42,6 @@ Quit.
 .IR image (6)
 .SH BUGS
 .I Paint
-offers the bare minimum of drawing functionality.
-.B Undo
-has not been implemented.
+offers a bare minimum of drawing functionality. Popular features such as
+.B undo
+have not yet been implemented.

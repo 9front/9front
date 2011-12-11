@@ -40,6 +40,8 @@ main()
 	Event e;
 	Point last;
 	int haslast;
+	int brushsize = 1;
+	char brush[128];
 	char file[128];
 	
 	haslast = 0;
@@ -47,7 +49,6 @@ main()
 		fprint(2, "paint: initdraw failed: %r\n");
 		exits("initdraw");
 	}
-		
 	einit(Emouse | Ekeyboard);
 	draw(screen, screen->r, display->white, 0, ZP);
 	flushimage(display, 1);
@@ -56,9 +57,9 @@ main()
 		case Emouse:
 			if(e.mouse.buttons & 1){
 				if(haslast)
-					line(screen, last, e.mouse.xy, Enddisc, Enddisc, 5, display->black, ZP);
+					line(screen, last, e.mouse.xy, Enddisc, Enddisc, brushsize, display->black, ZP);
 				else
-					fillellipse(screen, e.mouse.xy, 5, 5, display->black, ZP);
+					fillellipse(screen, e.mouse.xy, brushsize, brushsize, display->black, ZP);
 				
 				last = e.mouse.xy;
 				haslast = 1;
@@ -66,15 +67,20 @@ main()
 			} else
 				haslast = 0;
 			if(e.mouse.buttons & 4){
-				fillellipse(screen, e.mouse.xy, 5, 5, display->white, ZP);
+				fillellipse(screen, e.mouse.xy, brushsize, brushsize, display->white, ZP);
 				flushimage(display, 1);
 			}
 			break;
 		case Ekeyboard:
-			if(e.kbdc == 'q')
-				exits(nil);
+			if(e.kbdc == 'b'){
+				if(eenter("Brush", brush, sizeof(brush), &e.mouse) <= 0)
+					break;
+				brushsize = atoi(brush);
+			}
 			if(e.kbdc == 'c')
 				draw(screen, screen->r, display->white, 0, ZP);
+			if(e.kbdc == 'q')
+				exits(nil);
 			if(e.kbdc == 's'){
 				snprint(file, sizeof(file), "out.bit");
 				if(eenter("Save to", file, sizeof(file), &e.mouse) <= 0)
