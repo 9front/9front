@@ -10,6 +10,8 @@ listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp22, tcp23, tcp25, tcp53, tcp110, t
 .IR trustsrvdir ]
 .RB [ -n
 .IR namespace ]
+.RB [ -p
+.IR maxprocs ]
 .RI [ net ]
 .PP
 .B aux/listen1
@@ -56,6 +58,18 @@ but
 .B -n
 selects an alternate
 .IR namespace .
+The
+.B -p
+option limits the number of processes that
+.I listen
+spawns to service the connections. If the
+.I maxprocs
+limit is reached,
+.I listen
+will log the event and delay servicing until the number
+of connection processes drops below the limit again. A
+.I maxprocs
+smaller or equal zero means no limit (default).
 Option
 .B -q
 suppresses affirmative log information.
