@@ -2,13 +2,14 @@
 #include <libc.h>
 #include <auth.h>
 
+int maxprocs;
 int verbose;
 int trusted;
 
 void
 usage(void)
 {
-	fprint(2, "usage: listen1 [-tv] address cmd args...\n");
+	fprint(2, "usage: listen1 [-tv] [-p maxprocs] address cmd args...\n");
 	exits("usage");
 }
 
@@ -51,8 +52,10 @@ remoteaddr(char *dir)
 void
 main(int argc, char **argv)
 {
-	char data[60], dir[40], ndir[40];
+	char data[60], dir[40], ndir[40], wbuf[64];
 	int ctl, nctl, fd;
+	int wfd, nowait, procs;
+	Dir *d;
 
 	ARGBEGIN{
 	default:
@@ -62,6 +65,9 @@ main(int argc, char **argv)
 		break;
 	case 'v':
 		verbose = 1;
+		break;
+	case 'p':
+		maxprocs = atoi(EARGF(usage()));
 		break;
 	}ARGEND
 
@@ -85,12 +91,34 @@ main(int argc, char **argv)
 	if(ctl < 0)
 		sysfatal("announce %s: %r", argv[0]);
 
+	wfd = -1;
+	nowait = RFNOWAIT;
+	if(maxprocs > 0){
+		snprint(wbuf, sizeof(wbuf), "/proc/%d/wait", getpid());
+		if((wfd = open(wbuf, OREAD)) >= 0)
+			nowait = 0;
+	}
+	procs = 0;
 	for(;;){
+		if(nowait == 0 && (procs >= maxprocs || (procs % 8) == 0))
+			while(procs > 0){
+				if(procs < maxprocs){
+					d = dirfstat(wfd);
+					if(d == nil || d->length == 0){
+						free(d);
+						break;
+					}
+					free(d);
+				}
+				if(read(wfd, wbuf, sizeof(wbuf)) > 0)
+					procs--;
+			}
+
 		nctl = listen(dir, ndir);
 		if(nctl < 0)
 			sysfatal("listen %s: %r", argv[0]);
 
-		switch(rfork(RFFDG|RFPROC|RFNOWAIT|RFENVG|RFNAMEG|RFNOTEG)){
+		switch(rfork(RFFDG|RFPROC|RFMEM|RFENVG|RFNAMEG|RFNOTEG|nowait)){
 		case -1:
 			reject(nctl, ndir, "host overloaded");
 			close(nctl);
@@ -107,6 +135,8 @@ main(int argc, char **argv)
 			fprint(nctl, "keepalive");
 			close(ctl);
 			close(nctl);
+			if(wfd >= 0)
+				close(wfd);
 			putenv("net", ndir);
 			snprint(data, sizeof data, "%s/data", ndir);
 			bind(data, "/dev/cons", MREPL);
@@ -121,6 +151,7 @@ main(int argc, char **argv)
 			exits(nil);
 		default:
 			close(nctl);
+			procs++;
 			break;
 		}
 	}

@@ -18,6 +18,8 @@ listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp22, tcp23, tcp25, tcp53, tcp110, t
 [
 .B -tv
 ]
+.RB [ -p
+.IR maxprocs ]
 .I addr
 .I cmd
 [
