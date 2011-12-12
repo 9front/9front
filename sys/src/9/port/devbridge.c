@@ -780,21 +780,15 @@ cachedump(Bridge *b)
 	Centry *ce;
 	char c;
 
-	buf = smalloc(n);
 	qlock(b);
-	if(waserror()) {
-		qunlock(b);
-		free(buf);
-		nexterror();
-	}
 	sec = TK2SEC(m->ticks);
 	n = 0;
 	for(i=0; i<CacheSize; i++)
 		if(b->cache[i].expire != 0)
 			n++;
-	
 	n *= 51;	// change if print format is changed
 	n += 10;	// some slop at the end
+	buf = smalloc(n);
 	p = buf;
 	ep = buf + n;
 	ce = b->cache;
@@ -807,7 +801,6 @@ cachedump(Bridge *b)
 			ce->port, ce->src, ce->dst, ce->expire+off, c);
 	}
 	*p = 0;
-	poperror();
 	qunlock(b);
 	return buf;
 }
