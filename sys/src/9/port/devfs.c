@@ -1023,7 +1023,7 @@ cryptio(Fsdev *mp, int isread, uchar *a, long l, vlong off)
 		Maxbuf = 32*Sectsz,
 	};
 
-	if(off < 0 || len <= 0 || ((off|len) & (Sectsz-1)))
+	if(off < 0 || l <= 0 || ((off|l) & (Sectsz-1)))
 		error(Ebadarg);
 
 	k = mp->extra;
