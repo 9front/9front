@@ -111,29 +111,6 @@ mkdir9p2(Dir* dir, Dentry* dentry, void* strs)
 }
 
 static int
-checkname9p2(char* name)
-{
-	char *p;
-
-	/*
-	 * Return error or 0 if OK.
-	 */
-	if(name == nil || *name == 0)
-		return Ename;
-
-	for(p = name; *p != 0; p++){
-		if(p-name >= NAMELEN-1)
-			return Etoolong;
-		if((*p & 0xFF) <= 040)
-			return Ename;
-	}
-	if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
-		return Edot;
-
-	return 0;
-}
-
-static int
 version(Chan* chan, Fcall* f, Fcall* r)
 {
 	if(chan->protocol != nil)
@@ -825,7 +802,7 @@ fs_create(Chan* chan, Fcall* f, Fcall* r)
 	 * Check the name is valid (and will fit in an old
 	 * directory entry for the moment).
 	 */
-	if(error = checkname9p2(f->name))
+	if(error = checkname(f->name))
 		goto out;
 
 	addr1 = 0;
@@ -1547,7 +1524,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 	 * Check .name is valid and different to the current.
 	 */
 	if(dir.name != nil && *dir.name != '\0'){
-		if(error = checkname9p2(dir.name))
+		if(error = checkname(dir.name))
 			goto out;
 		if(strncmp(dir.name, d->name, NAMELEN))
 			op = 1;

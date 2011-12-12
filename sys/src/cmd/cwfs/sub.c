@@ -534,19 +534,18 @@ checkname(char *n)
 {
 	int i, c;
 
-	for(i=0; i<NAMELEN; i++) {
-		c = *n & 0xff;
-		if(c == 0) {
-			if(i == 0)
-				return 1;
-			memset(n, 0, NAMELEN-i);
+	if(n == 0 || *n == 0)
+		return Ename;
+	if(*n == '.' && (n[1] == 0 || (n[1] == '.' && n[2] == 0)))
+		return Edot;
+	for(i=1; i<NAMELEN; i++) {
+		c = n[i] & 0xff;
+		if(c == 0)
 			return 0;
-		}
-		if(c <= 040)
-			return 1;
-		n++;
+		if(c < 040)
+			return Ename;
 	}
-	return 1;	/* too long */
+	return Etoolong;
 }
 
 void

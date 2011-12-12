@@ -659,15 +659,8 @@ f_create(Chan *cp, Fcall *in, Fcall *ou)
 		goto out;
 	}
 	accessdir(p, d, FREAD, f->uid);
-	if(!strncmp(in->name, ".", sizeof(in->name)) ||
-	   !strncmp(in->name, "..", sizeof(in->name))) {
-		ou->err = Edot;
+	if(ou->err = checkname(in->name))
 		goto out;
-	}
-	if(checkname(in->name)) {
-		ou->err = Ename;
-		goto out;
-	}
 	addr1 = 0;
 	slot1 = 0;	/* set */
 	for(addr=0;; addr++) {
@@ -1393,8 +1386,11 @@ f_wstat(Chan *cp, Fcall *in, Fcall *ou)
 	 * must have write permission in parent
 	 */
 	if (strncmp(d->name, xd.name, sizeof(d->name)) != 0) {
-		if (checkname(xd.name) || !d1 ||
-		    strcmp(xd.name, ".") == 0 || strcmp(xd.name, "..") == 0) {
+		if(ou->err = checkname(xd.name))
+			goto out;
+
+		/* rename root? */
+		if(!d1){
 			ou->err = Ename;
 			goto out;
 		}
