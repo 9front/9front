@@ -763,6 +763,10 @@ axpalloc(int ctlrno, Pcidev* pcidev)
 	int i, n, timeo;
 
 	ctlr = malloc(sizeof(Ctlr));
+	if(ctlr == nil){
+		print("uartaxp: can't allocate memory\n");
+		return nil;
+	}
 	seprint(name, name+sizeof(name), "uartaxp%d", ctlrno);
 	kstrdup(&ctlr->name, name);
 	ctlr->pcidev = pcidev;

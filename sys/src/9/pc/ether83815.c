@@ -1068,6 +1068,10 @@ scanpci83815(void)
 		 * bar[1] is the memory-mapped register address.
 		 */
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("ns83815: can't allocate memory\n");
+			continue;
+		}
 		ctlr->port = p->mem[0].bar & ~0x01;
 		ctlr->pcidev = p;
 		ctlr->id = id;

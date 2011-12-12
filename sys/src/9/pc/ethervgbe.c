@@ -759,16 +759,21 @@ vgbeattach(Ether* edev)
 		return;
 	}
 
-//	print("vgbe: attach\n");
-
-	/* Allocate Rx ring.  (TODO: Alignment ?) */
+	/* Allocate Rx/Tx ring.  (TODO: Alignment ?) */
 	rxdesc = mallocalign(RxCount* sizeof(RxDesc), 256, 0, 0);
-	if(rxdesc == nil){
+	if(rxdesc == nil)
 		print("vgbe: unable to alloc Rx ring\n");
+	txdesc = mallocalign(TxCount* sizeof(TxDesc), 256, 0, 0);
+	if(txdesc == nil)
+		print("vgbe: unable to alloc Tx ring\n");
+	if(rxdesc == nil || txdesc == nil){
+		free(rxdesc);
+		free(txdesc);
 		unlock(&ctlr->init_lock);
-		return;
+		error(Enomem);
 	}
 	ctlr->rx_ring = rxdesc;
+	ctlr->tx_ring = txdesc;
 
 	/* Allocate Rx blocks, initialize Rx ring. */
 	for(i = 0; i < RxCount; i++)
@@ -784,15 +789,6 @@ vgbeattach(Ether* edev)
 	wiow(ctlr, RxNum, RxCount - 1);
 	wiow(ctlr, RxDscIdx, 0);
 	wiow(ctlr, RxResCnt, RxCount);
-
-	/* Allocate Tx ring. */
-	txdesc = mallocalign(TxCount* sizeof(TxDesc), 256, 0, 0);
-	if(txdesc == nil){
-		print("vgbe: unable to alloc Tx ring\n");
-		unlock(&ctlr->init_lock);
-		return;
-	}
-	ctlr->tx_ring = txdesc;
 
 	/* Init DMAs */
 	wiob(ctlr, DmaCfg0, 4);

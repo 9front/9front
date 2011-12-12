@@ -389,6 +389,10 @@ ac97reset(Audio *adev)
 		p = nil;
 		while(p = ac97match(p)){
 			ctlr = xspanalloc(sizeof(Ctlr), 8, 0);
+			if(ctlr == nil){
+				print("ac97: can't allocate memory\n");
+				break;
+			}
 			memset(ctlr, 0, sizeof(Ctlr));
 			ctlr->pcidev = p;
 			ctlr->next = cards;

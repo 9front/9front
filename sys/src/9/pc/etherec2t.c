@@ -84,13 +84,13 @@ reset(Ether* ether)
 				ec2t->iochecksum = 1;
 		}
 	}
-	if(slot < 0){
+	ctlr = malloc(sizeof(Dp8390));
+	if(ctlr == nil || slot < 0){
 		iofree(port);
+		free(ctlr);
 		return -1;
 	}
-
-	ether->ctlr = malloc(sizeof(Dp8390));
-	ctlr = ether->ctlr;
+	ether->ctlr = ctlr;
 	ctlr->width = 2;
 	ctlr->ram = 0;
 

@@ -1463,8 +1463,11 @@ srom(Ctlr* ctlr)
 	 * Do a dummy read first to get the size and allocate ctlr->srom.
 	 */
 	sromr(ctlr, 0);
-	if(ctlr->srom == nil)
+	if(ctlr->srom == nil){
 		ctlr->srom = malloc((1<<ctlr->sromsz)*sizeof(ushort));
+		if(ctlr->srom == nil)
+			panic("dec2114x: can't allocate srom");
+	}
 	for(i = 0; i < (1<<ctlr->sromsz); i++){
 		x = sromr(ctlr, i);
 		ctlr->srom[2*i] = x;
@@ -1665,6 +1668,10 @@ dec2114xpci(void)
 		 * bar[1] is the memory-mapped register address.
 		 */
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("dec2114x: can't allocate memory\n");
+			continue;
+		}
 		ctlr->port = p->mem[0].bar & ~0x01;
 		ctlr->pcidev = p;
 		ctlr->id = (p->did<<16)|p->vid;

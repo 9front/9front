@@ -439,9 +439,8 @@ vt6105Mifstat(Ether* edev, void* a, long n, ulong offset)
 	char *alloc, *e, *p;
 
 	ctlr = edev->ctlr;
-
-	alloc = malloc(READSTR);
-	p = alloc;
+	
+	p = alloc = smalloc(READSTR);
 	e = p + READSTR;
 	for(i = 0; i < Nrxstats; i++){
 		p = seprint(p, e, "%s: %ud\n", rxstats[i], ctlr->rxstats[i]);
@@ -635,7 +634,7 @@ vt6105Mattach(Ether* edev)
 	alloc = mallocalign((ctlr->nrd+ctlr->ntd)*dsz, dsz, 0, 0);
 	if(alloc == nil){
 		qunlock(&ctlr->alock);
-		return;
+		error(Enomem);
 	}
 	ctlr->alloc = alloc;
 
@@ -1132,6 +1131,11 @@ vt6105Mpci(void)
 			continue;
 		}
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("vt6105M: can't allocate memory\n");
+			iofree(port);
+			continue;
+		}
 		ctlr->port = port;
 		ctlr->pcidev = p;
 		ctlr->id = (p->did<<16)|p->vid;

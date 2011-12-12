@@ -1165,6 +1165,10 @@ dp83820pci(void)
 		}
 
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("DP83820: can't allocate memory\n");
+			continue;
+		}
 		ctlr->port = p->mem[1].bar & ~0x0F;
 		ctlr->pcidev = p;
 		ctlr->id = (p->did<<16)|p->vid;

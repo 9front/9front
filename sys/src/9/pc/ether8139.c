@@ -454,6 +454,10 @@ rtl8139attach(Ether* edev)
 	if(ctlr->alloc == nil){
 		ctlr->rblen = 1<<((Rblen>>RblenSHIFT)+13);
 		ctlr->alloc = mallocz(ctlr->rblen+16 + Ntd*Tdbsz + 32, 0);
+		if(ctlr->alloc == nil){
+			qunlock(&ctlr->alock);
+			error(Enomem);
+		}
 		rtl8139init(edev);
 	}
 	qunlock(&ctlr->alock);
@@ -752,6 +756,10 @@ rtl8139pnp(Ether* edev)
 			if(p->ccrb != 0x02 || p->ccru != 0)
 				continue;
 			ctlr = malloc(sizeof(Ctlr));
+			if(ctlr == nil){
+				print("rtl8139: can't allocate memory\n");
+				continue;
+			}
 			ctlr->pcidev = p;
 			ctlr->id = (p->did<<16)|p->vid;
 

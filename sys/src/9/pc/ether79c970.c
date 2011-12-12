@@ -470,6 +470,11 @@ amd79c970pci(void)
 			continue;
 		}
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("amd79c970: can't allocate memory\n");
+			iofree(port);
+			continue;
+		}
 		ctlr->port = p->mem[0].bar & ~0x01;
 		ctlr->pcidev = p;
 

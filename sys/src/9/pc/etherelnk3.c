@@ -446,6 +446,8 @@ init905(Ctlr* ctlr)
 	 *	make sure each entry is 8-byte aligned.
 	 */
 	ctlr->upbase = malloc((ctlr->nup+1)*sizeof(Pd));
+	if(ctlr->upbase == nil)
+		panic("etherlnk3: can't allocate upr");
 	ctlr->upr = (Pd*)ROUNDUP((ulong)ctlr->upbase, 8);
 
 	prev = ctlr->upr;
@@ -454,7 +456,7 @@ init905(Ctlr* ctlr)
 		pd->control = 0;
 		bp = iallocb(sizeof(Etherpkt));
 		if(bp == nil)
-			panic("can't allocate ethernet receive ring");
+			panic("etherlnk3: iallocb: out of memory");
 		pd->addr = PADDR(bp->rp);
 		pd->len = updnLastFrag|sizeof(Etherpkt);
 
@@ -465,6 +467,8 @@ init905(Ctlr* ctlr)
 	ctlr->uphead = ctlr->upr;
 
 	ctlr->dnbase = malloc((ctlr->ndn+1)*sizeof(Pd));
+	if(ctlr->dnbase == nil)
+		panic("etherlnk3: can't allocate dnr");
 	ctlr->dnr = (Pd*)ROUNDUP((ulong)ctlr->dnbase, 8);
 
 	prev = ctlr->dnr;
@@ -1243,6 +1247,10 @@ tcmadapter(int port, int irq, Pcidev* pcidev)
 	Ctlr *ctlr;
 
 	ctlr = malloc(sizeof(Ctlr));
+	if(ctlr == nil){
+		print("etherelnk3: can't allocate memory\n");
+		return nil;
+	}
 	ctlr->port = port;
 	ctlr->irq = irq;
 	ctlr->pcidev = pcidev;
@@ -1480,6 +1488,8 @@ tcm59Xpci(void)
 		COMMAND(port, AcknowledgeInterrupt, 0xFF);
 
 		ctlr = tcmadapter(port, irq, p);
+		if(ctlr == nil)
+			continue;
 		switch(p->did){
 		default:
 			break;
@@ -1517,8 +1527,8 @@ tcm5XXpcmcia(Ether* ether)
 	for(i = 0; tcmpcmcia[i] != nil; i++){
 		if(cistrcmp(ether->type, tcmpcmcia[i]))
 			continue;
-		ctlr = tcmadapter(ether->port, ether->irq, nil);
-		ctlr->active = 1;
+		if(ctlr = tcmadapter(ether->port, ether->irq, nil))
+			ctlr->active = 1;
 		return ctlr;
 	}
 
@@ -2087,14 +2097,14 @@ etherelnk3reset(Ether* ether)
 		else {
 			ctlr->rbp = rbpalloc(iallocb);
 			if(ctlr->rbp == nil)
-				panic("can't reset ethernet: out of memory");
+				panic("etherlnk3: iallocb: out of memory");
 		}
 		outl(port+TxFreeThresh, HOWMANY(ETHERMAXTU, 256));
 		break;
 	default:
 		ctlr->rbp = rbpalloc(iallocb);
 		if(ctlr->rbp == nil)
-			panic("can't reset ethernet: out of memory");
+			panic("etherlnk3: iallocb: out of memory");
 		break;
 	}
 

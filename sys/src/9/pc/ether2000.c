@@ -98,8 +98,11 @@ ne2000pnp(Ether* edev)
 			if(p->ccrb != 0x02 || p->ccru != 0)
 				continue;
 			ctlr = malloc(sizeof(Ctlr));
+			if(ctlr == nil){
+				print("ne2000pnp: can't allocate memory\n");
+				continue;
+			}
 			ctlr->pcidev = p;
-
 			if(ctlrhead != nil)
 				ctlrtail->next = ctlr;
 			else
@@ -161,6 +164,11 @@ ne2000reset(Ether* edev)
 		return -1;
 
 	edev->ctlr = malloc(sizeof(Dp8390));
+	if(edev->ctlr == nil){
+		print("ne2000: can't allocate memory\n");
+		iofree(port);
+		return -1;
+	}
 	dp8390 = edev->ctlr;
 	dp8390->width = 2;
 	dp8390->ram = 0;
@@ -228,5 +236,5 @@ ne2000reset(Ether* edev)
 void
 ether2000link(void)
 {
-	addethercard("NE2000", ne2000reset);
+	addethercard("ne2000", ne2000reset);
 }

@@ -708,13 +708,14 @@ reset(Ether* ether)
 		return -1;
 	}
 
-	ether->ctlr = malloc(sizeof(Smc91xx));
-	ctlr = ether->ctlr;
+	ctlr = malloc(sizeof(Smc91xx));
 	if (ctlr == 0) {
+		print("smc: can't allocate memory\n");
 		iofree(ether->port);
 		pcmspecialclose(slot);
 		return -1;
 	}
+	ether->ctlr = ctlr;
 
 	ilock(ctlr);
 	ctlr->rev = 0;

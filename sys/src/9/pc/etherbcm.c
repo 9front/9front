@@ -791,6 +791,12 @@ bcmpci(void)
 			print("bcm: unable to alloc Ctlr\n");
 			continue;
 		}
+		ctlr->sends = malloc(sizeof(ctlr->sends[0]) * SendRingLen);
+		if(ctlr->sends == nil){
+			print("bcm: unable to alloc ctlr->sends\n");
+			free(ctlr);
+			continue;
+		}
 		mem = vmap(pdev->mem[0].bar & ~0x0F, pdev->mem[0].size);
 		if(mem == nil) {
 			print("bcm: can't map %8.8luX\n", pdev->mem[0].bar);
@@ -804,7 +810,6 @@ bcmpci(void)
 		ctlr->recvprod = xspanalloc(32 * RecvProdRingLen, 16, 0);
 		ctlr->recvret = xspanalloc(32 * RecvRetRingLen, 16, 0);
 		ctlr->sendr = xspanalloc(16 * SendRingLen, 16, 0);
-		ctlr->sends = malloc(sizeof(Block) * SendRingLen);
 		if(bcmhead != nil)
 			bcmtail->link = ctlr;
 		else

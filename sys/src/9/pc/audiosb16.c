@@ -682,8 +682,11 @@ audioprobe(Audio *adev)
 	/* make a list of audio isa cards if not already done */
 	if(cards == nil){
 		for(i=0; i<nelem(irq); i++){
-			ctlr = malloc(sizeof(Ctlr));
-			memset(ctlr, 0, sizeof(Ctlr));
+			ctlr = mallocz(sizeof(Ctlr), 1);
+			if(ctlr == nil){
+				print("sb16: can't allocate memory\n");
+				break;
+			}
 			ctlr->conf.port = 0x220 + i*0x10;
 			ctlr->conf.irq = irq[i];
 			ctlr->conf.dma = 0;

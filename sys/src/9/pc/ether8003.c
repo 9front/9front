@@ -228,8 +228,13 @@ reset(Ether* ether)
 		return -1;
 	}
 
-	ether->ctlr = malloc(sizeof(Dp8390));
-	ctlr = ether->ctlr;
+	ctlr = malloc(sizeof(Dp8390));
+	if(ctlr == nil){
+		print("ether8003: can't allocate memory\n");
+		iofree(ether->port);
+		return -1;
+	}
+	ether->ctlr = ctlr;
 	ctlr->ram = 1;
 
 	if((id & 0xFE) == 0x2A)

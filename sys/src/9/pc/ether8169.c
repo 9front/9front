@@ -741,15 +741,30 @@ rtl8169attach(Ether* edev)
 
 	ctlr = edev->ctlr;
 	qlock(&ctlr->alock);
-	if(ctlr->init++ == 0){
-		ctlr->td = mallocalign(sizeof(D)*Ntd, 256, 0, 0);
-		ctlr->tb = malloc(Ntd*sizeof(Block*));
+	if(!ctlr->init){
 		ctlr->ntd = Ntd;
-		ctlr->rd = mallocalign(sizeof(D)*Nrd, 256, 0, 0);
-		ctlr->rb = malloc(Nrd*sizeof(Block*));
 		ctlr->nrd = Nrd;
+		ctlr->tb = malloc(ctlr->ntd*sizeof(Block*));
+		ctlr->rb = malloc(ctlr->nrd*sizeof(Block*));
+		ctlr->td = mallocalign(sizeof(D)*ctlr->ntd, 256, 0, 0);
+		ctlr->rd = mallocalign(sizeof(D)*ctlr->nrd, 256, 0, 0);
 		ctlr->dtcc = mallocalign(sizeof(Dtcc), 64, 0, 0);
-
+		if(ctlr->rb == nil || ctlr->rb == nil || 
+		   ctlr->rd == nil || ctlr->rd == nil || ctlr->dtcc == nil){
+			free(ctlr->tb);
+			ctlr->tb = nil;
+			free(ctlr->rb);
+			ctlr->rb = nil;
+			free(ctlr->td);
+			ctlr->td = nil;
+			free(ctlr->rd);
+			ctlr->rd = nil;
+			free(ctlr->dtcc);
+			ctlr->dtcc = nil;
+			qlock(&ctlr->alock);
+			error(Enomem);
+		}
+		ctlr->init = 1;
 		kproc("rtl8169", rtl8169reseter, edev);
 		qlock(&ctlr->alock);
 	}
@@ -1034,6 +1049,11 @@ rtl8169pci(void)
 			continue;
 		}
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("rtl8169: can't allocate memory\n");
+			iofree(port);
+			continue;
+		}
 		ctlr->port = port;
 		ctlr->pcidev = p;
 		ctlr->pciv = i;

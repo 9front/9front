@@ -238,6 +238,10 @@ ac97mixreset(Audio *adev, void (*wr)(Audio*,int,ushort), ushort (*rr)(Audio*,int
 	int i;
 
 	m = malloc(sizeof(Mixer));
+	if(m == nil){
+		print("ac97mix: no memory for Mixer\n");
+		return;
+	}
 	m->wr = wr;
 	m->rr = rr;
 	m->wr(adev, Reset, 0);

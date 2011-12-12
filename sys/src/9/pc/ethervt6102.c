@@ -491,7 +491,7 @@ vt6102attach(Ether* edev)
 	alloc = malloc((ctlr->nrd+ctlr->ntd)*ctlr->cls + ctlr->ntd*Txcopy + ctlr->cls-1);
 	if(alloc == nil){
 		qunlock(&ctlr->alock);
-		return;
+		error(Enomem);
 	}
 	ctlr->alloc = alloc;
 	alloc = (uchar*)ROUNDUP((ulong)alloc, ctlr->cls);
@@ -967,6 +967,11 @@ vt6102pci(void)
 			continue;
 		}
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("vt6102: can't allocate memory\n");
+			iofree(port);
+			continue;
+		}
 		ctlr->port = port;
 		ctlr->pcidev = p;
 		ctlr->id = (p->did<<16)|p->vid;

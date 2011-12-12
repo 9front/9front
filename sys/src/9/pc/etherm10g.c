@@ -1564,8 +1564,10 @@ m10gpci(void)
 			continue;
 		}
 		c = malloc(sizeof *c);
-		if(c == nil)
+		if(c == nil){
+			print("etherm10g: can't allocate memory\n");
 			continue;
+		}
 		c->pcidev = p;
 		c->id = p->did<<16 | p->vid;
 		c->boot = pcicap(p, PciCapVND);

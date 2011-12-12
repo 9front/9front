@@ -393,7 +393,7 @@ atadumpstate(Drive* drive, SDreq *r, uvlong lba, int count)
 		prd = ctlr->prdt;
 		print("bmicx %2.2uX bmisx %2.2uX prdt %8.8p\n",
 			inb(bmiba+Bmicx), inb(bmiba+Bmisx), prd);
-		for(;;){
+		while(prd){
 			print("pa 0x%8.8luX count %8.8uX\n",
 				prd->pa, prd->count);
 			if(prd->count & PrdEOT)
@@ -2392,6 +2392,7 @@ atadisable(SDev *sdev)
 		if (ctlr->pcidev)
 			pciclrbme(ctlr->pcidev);
 		free(ctlr->prdt);
+		ctlr->prdt = nil;
 	}
 	return 0;
 }

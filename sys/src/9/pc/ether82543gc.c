@@ -1265,9 +1265,15 @@ gc82543pci(void)
 			break;
 		}
 
+		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("82543gc: can't allocate memory\n");
+			continue;
+		}
 		mem = vmap(p->mem[0].bar & ~0x0F, p->mem[0].size);
 		if(mem == 0){
-			print("gc82543: can't map %8.8luX\n", p->mem[0].bar);
+			print("82543gc: can't map %8.8luX\n", p->mem[0].bar);
+			free(ctlr);
 			continue;
 		}
 		cls = pcicfgr8(p, PciCLS);
@@ -1275,6 +1281,7 @@ gc82543pci(void)
 			case 0x00:
 			case 0xFF:
 				print("82543gc: unusable cache line size\n");
+				free(ctlr);
 				continue;
 			case 0x08:
 				break;
@@ -1282,7 +1289,6 @@ gc82543pci(void)
 				print("82543gc: cache line size %d, expected 32\n",
 					cls*4);
 		}
-		ctlr = malloc(sizeof(Ctlr));
 		ctlr->port = p->mem[0].bar & ~0x0F;
 		ctlr->pcidev = p;
 		ctlr->id = (p->did<<16)|p->vid;

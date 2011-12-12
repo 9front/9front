@@ -1458,15 +1458,20 @@ i82563attach(Ether *edev)
 	ctlr->nrd = Nrd;
 	ctlr->ntd = Ntd;
 	ctlr->alloc = malloc(ctlr->nrd*sizeof(Rd)+ctlr->ntd*sizeof(Td) + 255);
-	if(ctlr->alloc == nil){
+	ctlr->rb = malloc(ctlr->nrd * sizeof(Block*));
+	ctlr->tb = malloc(ctlr->ntd * sizeof(Block*));
+	if(ctlr->alloc == nil || ctlr->rb == nil || ctlr->tb == nil){
+		free(ctlr->rb);
+		ctlr->rb = nil;
+		free(ctlr->tb);
+		ctlr->tb = nil;
+		free(ctlr->alloc);
+		ctlr->alloc = nil;
 		qunlock(&ctlr->alock);
 		error(Enomem);
 	}
 	ctlr->rdba = (Rd*)ROUNDUP((uintptr)ctlr->alloc, 256);
 	ctlr->tdba = (Td*)(ctlr->rdba + ctlr->nrd);
-
-	ctlr->rb = malloc(ctlr->nrd * sizeof(Block*));
-	ctlr->tb = malloc(ctlr->ntd * sizeof(Block*));
 
 	if(waserror()){
 		while(bp = i82563rballoc(rbtab + ctlr->pool)){
@@ -1943,6 +1948,10 @@ i82563pci(void)
 		if((type = didtype(p->did)) == -1)
 			continue;
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("%s: can't allocate memory\n", cttab[type].name);
+			continue;
+		}
 		ctlr->type = type;
 		ctlr->pcidev = p;
 		ctlr->rbsz = cttab[type].mtu;

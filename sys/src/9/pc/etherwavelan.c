@@ -117,6 +117,10 @@ wavelanpciscan(void)
 		}
 
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("wavelanpci: can't allocate memory\n");
+			continue;
+		}
 		ctlr->pcidev = p;
 		mem = vmap(p->mem[0].bar&~0xF, p->mem[0].size);
 		if(mem == nil){

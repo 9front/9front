@@ -909,10 +909,16 @@ scan(void)
 			print("i82598: too many controllers\n");
 			return;
 		}
+		c = malloc(sizeof *c);
+		if(c == nil){
+			print("i82598: can't allocate memory\n");
+			continue;
+		}
 		io = p->mem[0].bar & ~0xf;
 		mem = vmap(io, p->mem[0].size);
 		if(mem == nil){
 			print("i82598: can't map %#p\n", p->mem[0].bar);
+			free(c);
 			continue;
 		}
 		io3 = p->mem[3].bar & ~0xf;
@@ -920,9 +926,9 @@ scan(void)
 		if(mem3 == nil){
 			print("i82598: can't map %#p\n", p->mem[3].bar);
 			vunmap(mem, p->mem[0].size);
+			free(c);
 			continue;
 		}
-		c = malloc(sizeof *c);
 		c->p = p;
 		c->reg = (u32int*)mem;
 		c->reg3 = (u32int*)mem3;

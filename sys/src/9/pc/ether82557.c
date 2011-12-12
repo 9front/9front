@@ -795,6 +795,8 @@ ctlrinit(Ctlr* ctlr)
 	 */
 	ilock(&ctlr->cblock);
 	ctlr->cbr = malloc(ctlr->ncb*sizeof(Cb));
+	if(ctlr->cbr == nil)
+		panic("i82557: can't allocate cbr");
 	for(i = 0; i < ctlr->ncb; i++){
 		ctlr->cbr[i].status = CbC|CbOK;
 		ctlr->cbr[i].command = CbS|CbNOP;
@@ -911,6 +913,8 @@ reread:
 	if(ctlr->eepromsz == 0){
 		ctlr->eepromsz = 8-size;
 		ctlr->eeprom = malloc((1<<ctlr->eepromsz)*sizeof(ushort));
+		if(ctlr->eeprom == nil)
+			panic("i82557: can't allocate eeprom");
 		goto reread;
 	}
 
@@ -971,6 +975,11 @@ i82557pci(void)
 		}
 
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("i82557: can't allocate memory\n");
+			iofree(port);
+			continue;
+		}
 		ctlr->port = port;
 		ctlr->pcidev = p;
 		ctlr->nop = nop;
