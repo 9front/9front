@@ -1226,8 +1226,7 @@ sdread(Chan *c, void *a, long n, vlong off)
 		error(Eperm);
 	case Qtopctl:
 		m = 64*1024;	/* room for register dumps */
-		p = buf = malloc(m);
-		assert(p);
+		p = buf = smalloc(m);
 		e = p + m;
 		qlock(&devslock);
 		for(i = 0; i < nelem(devs); i++){
@@ -1253,7 +1252,7 @@ sdread(Chan *c, void *a, long n, vlong off)
 
 		unit = sdev->unit[UNIT(c->qid)];
 		m = 16*1024;	/* room for register dumps */
-		p = malloc(m);
+		p = smalloc(m);
 		l = snprint(p, m, "inquiry %.48s\n",
 			(char*)unit->inquiry+8);
 		qlock(&unit->ctl);
@@ -1790,6 +1789,8 @@ getnewport(DevConf* dc)
 	Devport *p;
 
 	p = malloc((dc->nports + 1) * sizeof(Devport));
+	if(p == nil)
+		panic("sd: no memory for Devport");
 	if(dc->nports > 0){
 		memmove(p, dc->ports, dc->nports * sizeof(Devport));
 		free(dc->ports);

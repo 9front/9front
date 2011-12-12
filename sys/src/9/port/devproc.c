@@ -430,7 +430,7 @@ procopen(Chan *c, int omode)
 	case Qns:
 		if(omode != OREAD)
 			error(Eperm);
-		c->aux = malloc(sizeof(Mntwalk));
+		c->aux = smalloc(sizeof(Mntwalk));
 		break;
 
 	case Qnotepg:

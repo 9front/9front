@@ -78,6 +78,10 @@ audioreset(void)
 		probe = &audioprobes[i];
 
 		for(;;){
+			if(*pp == nil){
+				print("audio: no memory\n");
+				break;
+			}
 			memset(*pp, 0, sizeof(Audio));
 			(*pp)->ctlrno = ctlrno;
 			(*pp)->name = probe->name;

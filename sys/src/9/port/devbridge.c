@@ -780,9 +780,11 @@ cachedump(Bridge *b)
 	Centry *ce;
 	char c;
 
+	buf = smalloc(n);
 	qlock(b);
 	if(waserror()) {
 		qunlock(b);
+		free(buf);
 		nexterror();
 	}
 	sec = TK2SEC(m->ticks);
@@ -793,7 +795,6 @@ cachedump(Bridge *b)
 	
 	n *= 51;	// change if print format is changed
 	n += 10;	// some slop at the end
-	buf = malloc(n);
 	p = buf;
 	ep = buf + n;
 	ce = b->cache;
@@ -808,7 +809,6 @@ cachedump(Bridge *b)
 	*p = 0;
 	poperror();
 	qunlock(b);
-
 	return buf;
 }
 

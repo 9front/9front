@@ -45,13 +45,15 @@ initseg(void)
 	Image *i, *ie;
 
 	imagealloc.free = xalloc(conf.nimage*sizeof(Image));
-	if (imagealloc.free == nil)
-		panic("initseg: no memory");
+	if(imagealloc.free == nil)
+		panic("initseg: no memory for Image");
 	ie = &imagealloc.free[conf.nimage-1];
 	for(i = imagealloc.free; i < ie; i++)
 		i->next = i+1;
 	i->next = 0;
 	imagealloc.freechan = malloc(NFREECHAN * sizeof(Chan*));
+	if(imagealloc.freechan == nil)
+		panic("initseg: no memory for Chan");
 	imagealloc.szfreechan = NFREECHAN;
 }
 

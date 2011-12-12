@@ -248,7 +248,7 @@ srballoc(ulong sz)
 {
 	Srb *srb;
 
-	srb = malloc(sizeof *srb+sz);
+	srb = smalloc(sizeof *srb+sz);
 	srb->state = Alloc;
 	srb->dp = srb->data = srb+1;
 	srb->ticksent = Ticks;
@@ -260,7 +260,7 @@ srbkalloc(void *db, ulong)
 {
 	Srb *srb;
 
-	srb = malloc(sizeof *srb);
+	srb = smalloc(sizeof *srb);
 	srb->state = Alloc;
 	srb->dp = srb->data = db;
 	srb->ticksent = Ticks;
@@ -1454,7 +1454,7 @@ configwrite(Aoedev *d, void *db, long len)
 	if(len > sizeof d->config)
 		error(Etoobig);
 	srb = srballoc(len);
-	s = malloc(len);
+	s = smalloc(len);
 	memmove(s, db, len);
 	if(waserror()){
 		srbfree(srb);

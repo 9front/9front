@@ -193,7 +193,9 @@ findcsn(int csn, int create, int dolock)
 		l = &c->next;
 	}
 	if(create) {
-		*l = nc = malloc(sizeof(Card));
+		if((nc = malloc(sizeof(Card))) == nil)
+			panic("pnp: no memory for Card");
+		*l = nc;
 		nc->next = c;
 		nc->csn = csn;
 		c = nc;

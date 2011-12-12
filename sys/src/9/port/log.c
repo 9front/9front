@@ -21,7 +21,7 @@ logopen(Log *alog)
 		if(alog->minread == 0)
 			alog->minread = 1;
 		if(alog->buf == nil)
-			alog->buf = malloc(alog->nlog);
+			alog->buf = smalloc(alog->nlog);
 		alog->rptr = alog->buf;
 		alog->end = alog->buf + alog->nlog;
 		alog->len = 0;

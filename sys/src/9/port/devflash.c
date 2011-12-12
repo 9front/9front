@@ -240,7 +240,7 @@ flashread(Chan *c, void *buf, long n, vlong offset)
 			error(Eio);
 		return n;
 	case Qctl:
-		s = malloc(READSTR);
+		s = smalloc(READSTR);
 		if(waserror()){
 			free(s);
 			nexterror();
@@ -475,7 +475,11 @@ addflashcard(char *name, int (*reset)(Flash*))
 {
 	Flashtype *f, **l;
 
-	f = (Flashtype*)malloc(sizeof(*f));
+	f = malloc(sizeof(*f));
+	if(f == nil){
+		print("addflashcard: no memory for Flashtype\n");
+		return;
+	}
 	f->name = name;
 	f->reset = reset;
 	f->next = nil;

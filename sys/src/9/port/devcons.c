@@ -629,9 +629,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 		return randomread(buf, n);
 
 	case Qdrivers:
-		b = malloc(READSTR);
-		if(b == nil)
-			error(Enomem);
+		b = smalloc(READSTR);
 		k = 0;
 		for(i = 0; devtab[i] != nil; i++)
 			k += snprint(b+k, READSTR-k, "#%C %s\n",
@@ -641,8 +639,8 @@ consread(Chan *c, void *buf, long n, vlong off)
 			nexterror();
 		}
 		n = readstr((ulong)offset, buf, n, b);
-		free(b);
 		poperror();
+		free(b);
 		return n;
 
 	case Qzero:
