@@ -494,10 +494,11 @@ rtl8169ifstat(Ether* edev, void* a, long n, ulong offset)
 	Dtcc *dtcc;
 	int i, l, r, timeo;
 
+	p = smalloc(READSTR);
+
 	ctlr = edev->ctlr;
 	qlock(&ctlr->slock);
 
-	p = nil;
 	if(waserror()){
 		qunlock(&ctlr->slock);
 		free(p);
@@ -524,11 +525,9 @@ rtl8169ifstat(Ether* edev, void* a, long n, ulong offset)
 	if(n == 0){
 		qunlock(&ctlr->slock);
 		poperror();
+		free(p);
 		return 0;
 	}
-
-	if((p = malloc(READSTR)) == nil)
-		error(Enomem);
 
 	l = snprint(p, READSTR, "TxOk: %llud\n", dtcc->txok);
 	l += snprint(p+l, READSTR-l, "RxOk: %llud\n", dtcc->rxok);

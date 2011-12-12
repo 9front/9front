@@ -1292,7 +1292,7 @@ pccardread(Chan *c, void *a, long n, vlong offset)
 		return devdirread(c, a, n, 0, 0, pccardgen);
 
 	case Qctl:
-		buf = p = malloc(READSTR);
+		buf = p = smalloc(READSTR);
 		buf[0] = 0;
 		e = p + READSTR;
 

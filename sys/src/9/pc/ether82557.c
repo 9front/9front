@@ -434,7 +434,7 @@ ifstat(Ether* ether, void* a, long n, ulong offset)
 	memmove(dump, ctlr->dump, sizeof(dump));
 	unlock(&ctlr->dlock);
 
-	p = malloc(READSTR);
+	p = smalloc(READSTR);
 	len = snprint(p, READSTR, "transmit good frames: %lud\n", dump[0]);
 	len += snprint(p+len, READSTR-len, "transmit maximum collisions errors: %lud\n", dump[1]);
 	len += snprint(p+len, READSTR-len, "transmit late collisions errors: %lud\n", dump[2]);

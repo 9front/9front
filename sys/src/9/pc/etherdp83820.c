@@ -920,7 +920,7 @@ dp83820ifstat(Ether* edev, void* a, long n, ulong offset)
 	if(n == 0)
 		return 0;
 
-	p = malloc(READSTR);
+	p = smalloc(READSTR);
 	l = 0;
 	for(i = 0; i < Nmibd; i++){
 		r = csr32r(ctlr, Mibd+(i*sizeof(int)));

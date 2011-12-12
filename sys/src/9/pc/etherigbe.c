@@ -599,10 +599,10 @@ igbeifstat(Ether* edev, void* a, long n, ulong offset)
 	int i, l, r;
 	uvlong tuvl, ruvl;
 
+	p = smalloc(READSTR);
+	l = 0;
 	ctlr = edev->ctlr;
 	qlock(&ctlr->slock);
-	p = malloc(READSTR);
-	l = 0;
 	for(i = 0; i < Nstatistics; i++){
 		r = csr32r(ctlr, Statistics+i*4);
 		if((s = statistics[i]) == nil)
@@ -1965,6 +1965,10 @@ igbepci(void)
 				break;
 		}
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("igbe: can't allocate memory\n");
+			continue;
+		}
 		ctlr->port = p->mem[0].bar & ~0x0F;
 		ctlr->pcidev = p;
 		ctlr->id = (p->did<<16)|p->vid;

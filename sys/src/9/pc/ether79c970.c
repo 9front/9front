@@ -204,7 +204,7 @@ ifstat(Ether* ether, void* a, long n, ulong offset)
 	if(n == 0)
 		return 0;
 
-	p = malloc(READSTR);
+	p = smalloc(READSTR);
 	len = snprint(p, READSTR, "Rxbuff: %ld\n", ctlr->rxbuff);
 	len += snprint(p+len, READSTR-len, "Crc: %ld\n", ctlr->crc);
 	len += snprint(p+len, READSTR-len, "Oflo: %ld\n", ctlr->oflo);

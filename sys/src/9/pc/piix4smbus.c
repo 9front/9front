@@ -181,7 +181,9 @@ piix4smbus(void)
 	if(p == nil)
 		return nil;
 
-	s = smalloc(sizeof(*s));
+	s = malloc(sizeof(*s));
+	if(s == nil)
+		panic("piix4smbus: no memory for SMBus");
 	memmove(s, &smbusproto, sizeof(*s));
 	s->arg = p;
 

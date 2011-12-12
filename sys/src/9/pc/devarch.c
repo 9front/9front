@@ -871,7 +871,7 @@ archctlread(Chan*, void *a, long nn, vlong offset)
 	int n;
 	char *buf, *p, *ep;
 
-	p = buf = malloc(READSTR);
+	p = buf = smalloc(READSTR);
 	ep = p + READSTR;
 	p = seprint(p, ep, "cpu %s %lud%s\n",
 		cputype->name, (ulong)(m->cpuhz+999999)/1000000,

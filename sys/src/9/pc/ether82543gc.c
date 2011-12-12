@@ -504,9 +504,10 @@ gc82543ifstat(Ether* edev, void* a, long n, ulong offset)
 	int i, l, r;
 	uvlong tuvl, ruvl;
 
+	p = smalloc(READSTR);
+
 	ctlr = edev->ctlr;
 	lock(&ctlr->slock);
-	p = malloc(READSTR);
 	l = 0;
 	for(i = 0; i < Nstatistics; i++){
 		r = csr32r(ctlr, Statistics+i*4);

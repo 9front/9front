@@ -322,7 +322,7 @@ ifstat(Ether* ether, void* a, long n, ulong offset)
 	if(n == 0)
 		return 0;
 
-	p = malloc(READSTR);
+	p = smalloc(READSTR);
 	l = snprint(p, READSTR, "Overflow: %lud\n", ctlr->of);
 	l += snprint(p+l, READSTR-l, "Ru: %lud\n", ctlr->ru);
 	l += snprint(p+l, READSTR-l, "Rps: %lud\n", ctlr->rps);

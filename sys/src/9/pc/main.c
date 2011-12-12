@@ -603,7 +603,7 @@ procfork(Proc *p)
 
 	/* copy local descriptor table */
 	if(up->ldt != nil && up->nldt > 0){
-		p->ldt = malloc(sizeof(Segdesc) * up->nldt);
+		p->ldt = smalloc(sizeof(Segdesc) * up->nldt);
 		memmove(p->ldt, up->ldt, sizeof(Segdesc) * up->nldt);
 		p->nldt = up->nldt;
 	}

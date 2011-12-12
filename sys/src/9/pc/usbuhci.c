@@ -2139,7 +2139,12 @@ scanpci(void)
 		dprint("uhci: %#x %#x: port %#ux size %#x irq %d\n",
 			p->vid, p->did, io, p->mem[4].size, p->intl);
 
-		ctlr = smalloc(sizeof(Ctlr));
+		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			iofree(io);
+			print("usbuhci: no memory\n");
+			continue;
+		}
 		ctlr->pcidev = p;
 		ctlr->port = io;
 		for(i = 0; i < Nhcis; i++)
@@ -2148,7 +2153,7 @@ scanpci(void)
 				break;
 			}
 		if(i == Nhcis)
-			print("uhci: bug: no more controllers\n");
+			print("usbuhci: bug: no more controllers\n");
 	}
 }
 

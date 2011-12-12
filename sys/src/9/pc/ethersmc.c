@@ -644,7 +644,6 @@ ifstat(Ether* ether, void* a, long n, ulong offset)
 		return 0;
 
 	ctlr = ether->ctlr;
-	p = malloc(READSTR);
 
 	s = 0;
 	if (ctlr->rev > 0) {
@@ -660,6 +659,7 @@ ifstat(Ether* ether, void* a, long n, ulong offset)
 		}
 	}
 
+	p = smalloc(READSTR);
 	len = snprint(p, READSTR, "rev: 91c%s\n", (s) ? s : "???");
 	len += snprint(p + len, READSTR - len, "rxovrn: %uld\n", ctlr->rovrn);
 	len += snprint(p + len, READSTR - len, "lcar: %uld\n", ctlr->lcar);

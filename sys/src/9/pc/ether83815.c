@@ -360,7 +360,7 @@ ifstat(Ether* ether, void* a, long n, ulong offset)
 	if(n == 0)
 		return 0;
 
-	p = malloc(READSTR);
+	p = smalloc(READSTR);
 	l = snprint(p, READSTR, "Rxa: %lud\n", ctlr->rxa);
 	l += snprint(p+l, READSTR-l, "Rxo: %lud\n", ctlr->rxo);
 	l += snprint(p+l, READSTR-l, "Rlong: %lud\n", ctlr->rlong);

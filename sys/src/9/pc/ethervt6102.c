@@ -346,7 +346,7 @@ vt6102ifstat(Ether* edev, void* a, long n, ulong offset)
 
 	ctlr = edev->ctlr;
 
-	p = malloc(READSTR);
+	p = smalloc(READSTR);
 	l = 0;
 	for(i = 0; i < Nrxstats; i++){
 		l += snprint(p+l, READSTR-l, "%s: %ud\n",

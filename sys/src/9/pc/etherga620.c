@@ -343,7 +343,7 @@ ga620ifstat(Ether* edev, void* a, long n, ulong offset)
 
 	if(n == 0)
 		return 0;
-	p = malloc(READSTR);
+	p = smalloc(READSTR);
 	l = 0;
 	for(i = 0; i < 256; i++){
 		if((r = ctlr->gib->statistics[i]) == 0)
@@ -1173,6 +1173,10 @@ ga620pci(void)
 		}
 
 		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("ga620: can't allocate memory\n");
+			continue;
+		}
 		ctlr->port = p->mem[0].bar & ~0x0F;
 		ctlr->pcidev = p;
 		ctlr->id = p->did<<16 | p->vid;

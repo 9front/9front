@@ -180,7 +180,11 @@ scanpci(void)
 		dprint("usbehci: %#x %#x: port %#lux size %#x irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 
-		ctlr = smalloc(sizeof(Ctlr));
+		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("usbehci: no memory\n");
+			continue;
+		}
 		ctlr->pcidev = p;
 		capio = ctlr->capio = vmap(io, p->mem[0].size);
 		ctlr->opio = (Eopio*)((uintptr)capio + (capio->cap & 0xff));

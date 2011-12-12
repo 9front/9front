@@ -2551,7 +2551,11 @@ map(Pcidev *p, int bar)
 static void
 initmem(Ctlr *c)
 {
-	c->fis = smalloc(0x800 + 0x100*16);	/* §6.1.9.3 */
+	c->fis = malloc(0x800 + 0x100*16);	/* §6.1.9.3 */
+	c->cl = malloc(nelem(c->cq)*sizeof *c->cl);
+	c->cmdtab = malloc(Nctlrdrv*sizeof *c->cmdtab);
+	if(c->fis == nil || c->cl == nil || c->cmdtab == nil)
+		panic("sdodin: no memory");
 	c->reg[Fisbase + 0] = PCIWADDR(c->fis);
 	c->reg[Fisbase + 1] = Pciwaddrh(c->fis);
 	c->reg[Cqbase + 0] = PCIWADDR(c->cq);
@@ -2560,10 +2564,8 @@ initmem(Ctlr *c)
 	c->reg[Dqbase + 0] = PCIWADDR(c->dq);
 	c->reg[Dqbase + 1] = Pciwaddrh(c->dq);
 	c->reg[Dqcfg] = Dqen | nelem(c->dq);
-	c->cl = smalloc(nelem(c->cq)*sizeof *c->cl);
 	c->reg[Clbase + 0] = PCIWADDR(c->cl);
 	c->reg[Clbase + 1] = Pciwaddrh(c->cl);
-	c->cmdtab = smalloc(Nctlrdrv*sizeof *c->cmdtab);
 }
 
 /* §5.1.2 */

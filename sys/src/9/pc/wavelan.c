@@ -169,7 +169,7 @@ w_seek(Ctlr* ctlr, ushort id, ushort offset, int chan)
 	static ushort off[] = { WR_Off0, WR_Off1 };
 
 	if(chan != 0 && chan != 1)
-		panic("wavelan: bad chan\n");
+		panic("wavelan: bad chan");
 	csr_outs(ctlr, sel[chan], id);
 	csr_outs(ctlr, off[chan], offset);
 	for (i=0; i<WTmOut; i++){
@@ -846,7 +846,7 @@ w_ifstat(Ether* ether, void* a, long n, ulong offset)
 	if(n == 0 || offset != 0)
 		return 0;
 
-	p = malloc(READSTR);
+	p = smalloc(READSTR);
 	l = 0;
 
 	PRINTSTAT("Signal: %d\n", ctlr->signal-149);

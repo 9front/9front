@@ -336,10 +336,10 @@ ifstat(Ether *e, void *a, long n, ulong offset)
 	char *s, *p, *q;
 	Ctlr *c;
 
-	c = e->ctlr;
-	p = s = malloc(READSTR);
+	p = s = smalloc(READSTR);
 	q = p + READSTR;
 
+	c = e->ctlr;
 	readstats(c);
 	for(i = 0; i < nelem(stattab); i++)
 		if(c->stats[i] > 0)

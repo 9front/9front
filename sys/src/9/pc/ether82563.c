@@ -647,10 +647,11 @@ i82563ifstat(Ether *edev, void *a, long n, ulong offset)
 	Ctlr *ctlr;
 	Rbpool *b;
 
+	p = s = smalloc(READSTR);
+	e = p + READSTR;
+
 	ctlr = edev->ctlr;
 	qlock(&ctlr->slock);
-	p = s = malloc(READSTR);
-	e = p + READSTR;
 
 	for(i = 0; i < Nstatistics; i++){
 		r = csr32r(ctlr, Statistics + i*4);

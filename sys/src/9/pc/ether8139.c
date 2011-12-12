@@ -310,7 +310,7 @@ rtl8139ifstat(Ether* edev, void* a, long n, ulong offset)
 	Ctlr *ctlr;
 
 	ctlr = edev->ctlr;
-	p = malloc(READSTR);
+	p = smalloc(READSTR);
 	l = snprint(p, READSTR, "rcr %#8.8ux\n", ctlr->rcr);
 	l += snprint(p+l, READSTR-l, "multicast %ud\n", ctlr->mcast);
 	l += snprint(p+l, READSTR-l, "ierrs %d\n", ctlr->ierrs);

@@ -2383,15 +2383,19 @@ scanpci(void)
 		dprint("ohci: %x/%x port 0x%lux size 0x%x irq %d\n",
 			p->vid, p->did, mem, p->mem[0].size, p->intl);
 		if(mem == 0){
-			print("ohci: failed to map registers\n");
+			print("usbohci: failed to map registers\n");
 			continue;
 		}
 		if(p->intl == 0xFF || p->intl == 0) {
-			print("ohci: no irq assigned for port %#lux\n", mem);
+			print("usbohci: no irq assigned for port %#lux\n", mem);
 			continue;
 		}
 
-		ctlr = smalloc(sizeof(Ctlr));
+		ctlr = malloc(sizeof(Ctlr));
+		if(ctlr == nil){
+			print("usbohci: no memory\n");
+			continue;
+		}
 		ctlr->pcidev = p;
 		ctlr->ohci = vmap(mem, p->mem[0].size);
 		dprint("scanpci: ctlr %#p, ohci %#p\n", ctlr, ctlr->ohci);
@@ -2403,7 +2407,7 @@ scanpci(void)
 				break;
 			}
 		if(i == Nhcis)
-			print("ohci: bug: no more controllers\n");
+			print("usbohci: bug: no more controllers\n");
 	}
 }
 

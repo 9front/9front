@@ -509,7 +509,7 @@ uartwrite(Chan *c, void *buf, long n, vlong)
 		poperror();
 		break;
 	case Nctlqid:
-		cmd = malloc(n+1);
+		cmd = smalloc(n+1);
 		memmove(cmd, buf, n);
 		cmd[n] = 0;
 		qlock(p);
