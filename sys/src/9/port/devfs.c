@@ -1013,57 +1013,59 @@ io(Fsdev *mp, Inner *in, int isread, void *a, long l, vlong off)
 static long
 cryptio(Fsdev *mp, int isread, uchar *a, long l, vlong off)
 {
-	long wl, ws, wo;
+	long wl, ws, wo, wb;
 	uchar *buf;
-	Chan	*mc;
+	Chan *mc;
 	Inner *in;
 	Key *k;
+	enum {
+		Sectsz = 512,
+		Maxbuf = 32*Sectsz,
+	};
 
+	if(off < 0 || len <= 0 || ((off|len) & (Sectsz-1)))
+		error(Ebadarg);
+
+	k = mp->extra;
 	in = mp->inner[0];
-	// Header
-	off += 64*1024;
-
 	mc = in->idev;
 	if(mc == nil)
 		error(Egone);
-	if (waserror()) {
+	off += 64*1024;	// Header
+	wb = l;
+	if(wb > Maxbuf)
+		wb = Maxbuf;
+	buf = smalloc(wb);
+	if(waserror()) {
+		free(buf);
 		print("#k: %s: byte %,lld count %ld (of #k/%s): %s error: %s\n",
 			in->iname, off, l, mp->name, (isread? "read": "write"),
 			(up && up->errstr? up->errstr: ""));
 		nexterror();
 	}
-	
-	if(off % 512 != 0 || l%512 !=0)
-		error(Eio);
-	
-	wo = (l > 16384) ? 16384 : l;
-	buf = mallocz(wo, 1);
-	if(!buf)
-		error(Enomem);
-	k = (Key*)(mp->extra);
-
-	for(ws = 0; ws < l; ws+=wo) {
+	for(ws = 0; ws < l; ws += wo){
+		wo = l - ws;
+		if(wo > wb)
+			wo = wb;
 		if (isread) {
-			wl = devtab[mc->type]->read(mc, buf, wo, off);
-			if(wl!=wo)
-				error(Eio);
-			for(wl=0; wl<wo; wl+=512) {
-				aes_xts_decrypt(k->tweak.ekey, k->ecb.dkey, off, buf+wl, a+ws+wl, 512);
-				off += 512;
-			}
+			wo = devtab[mc->type]->read(mc, buf, wo, off);
+			if(wo < Sectsz)
+				break;
+			wo &= ~(Sectsz-1);
+			for(wl=0; wl<wo; wl+=Sectsz)
+				aes_xts_decrypt(k->tweak.ekey, k->ecb.dkey, off+wl, buf+wl, a+wl, Sectsz);
 		} else {
-			for(wl=0; wl<wo; wl+=512) {
-				aes_xts_encrypt(k->tweak.ekey, k->ecb.ekey, off, a+ws+wl, buf+wl, 512);
-				off += 512;
-			}
-
-			wl = devtab[mc->type]->write(mc, buf, wo, off-wo);
-			if(wl!=wo)
+			for(wl=0; wl<wo; wl+=Sectsz)
+				aes_xts_encrypt(k->tweak.ekey, k->ecb.ekey, off+wl, a+wl, buf+wl, Sectsz);
+			if(devtab[mc->type]->write(mc, buf, wo, off) != wo)
 				error(Eio);
 		}
+		off += wo;
+		a += wo;
 	}
-	free(buf);
 	poperror();
+	free(buf);
+
 	return ws;
 }
 
