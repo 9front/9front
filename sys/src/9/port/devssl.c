@@ -760,7 +760,7 @@ sslput(Dstate *s, Block * volatile b)
 
 	if(waserror()){
 		if(b != nil)
-			free(b);
+			freeb(b);
 		nexterror();
 	}
 
@@ -892,7 +892,7 @@ initDESkey_40(OneWay *w)
 		key[6] &= 0x0f;
 	}
 
-	w->state = malloc(sizeof(DESstate));
+	w->state = smalloc(sizeof(DESstate));
 	if(w->slen >= 16)
 		setupDESstate(w->state, key, w->secret+8);
 	else if(w->slen >= 8)
@@ -928,7 +928,7 @@ initRC4key_40(OneWay *w)
 	if(w->slen > 5)
 		w->slen = 5;
 
-	w->state = malloc(sizeof(RC4state));
+	w->state = smalloc(sizeof(RC4state));
 	setupRC4state(w->state, w->secret, w->slen);
 }
 
@@ -947,7 +947,7 @@ initRC4key_128(OneWay *w)
 	if(w->slen > 16)
 		w->slen = 16;
 
-	w->state = malloc(sizeof(RC4state));
+	w->state = smalloc(sizeof(RC4state));
 	setupRC4state(w->state, w->secret, w->slen);
 }
 
