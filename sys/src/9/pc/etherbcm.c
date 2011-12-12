@@ -800,6 +800,7 @@ bcmpci(void)
 		mem = vmap(pdev->mem[0].bar & ~0x0F, pdev->mem[0].size);
 		if(mem == nil) {
 			print("bcm: can't map %8.8luX\n", pdev->mem[0].bar);
+			free(ctlr->sends);
 			free(ctlr);
 			continue;
 		}
