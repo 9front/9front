@@ -87,7 +87,8 @@ mkbus(PCMPbus* p)
 	if(buses[i] == 0)
 		return 0;
 
-	bus = xalloc(sizeof(Bus));
+	if((bus = xalloc(sizeof(Bus))) == nil)
+		panic("mkbus: no memory for Bus");
 	if(mpbus)
 		mpbuslast->next = bus;
 	else
@@ -210,7 +211,8 @@ mkiointr(PCMPintr* p)
 	if((bus = mpgetbus(p->busno)) == 0)
 		return 0;
 
-	aintr = xalloc(sizeof(Aintr));
+	if((aintr = xalloc(sizeof(Aintr))) == nil)
+		panic("iointr: no memory for Aintr");
 	aintr->intr = p;
 
 	if(0)
@@ -224,8 +226,7 @@ mkiointr(PCMPintr* p)
 	 */
 	if(memcmp(mppcmp->product, "INTEL   X38MLST     ", 20) == 0){
 		if(p->busno == 1 && p->intin == 16 && p->irq == 1){
-			pcmpintr = malloc(sizeof(PCMPintr));
-			if(pcmpintr == nil)
+			if((pcmpintr = xalloc(sizeof(PCMPintr))) == nil)
 				panic("iointr: no memory for PCMPintr");
 			memmove(pcmpintr, p, sizeof(PCMPintr));
 			print("mkiointr: %20.20s bus %d intin %d irq %d\n",
@@ -538,7 +539,7 @@ mpoverride(uchar** newp, uchar** e)
 	
 	size = atoi(getconf("*mp"));
 	if(size == 0) panic("mpoverride: invalid size in *mp");
-	*newp = p = malloc(size);
+	*newp = p = xalloc(size);
 	if(p == nil) panic("mpoverride: can't allocate memory");
 	*e = p + size;
 	for(i = 0; ; i++){

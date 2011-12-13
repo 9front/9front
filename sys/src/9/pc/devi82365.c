@@ -484,6 +484,10 @@ i82365probe(int x, int d, int dev)
 		return 0;		/* no revision number, not possible */
 
 	cp = xalloc(sizeof(I82365));
+	if(cp == nil){
+		print("i82365probe: out of memory\n");
+		return 0;
+	}
 	cp->xreg = x;
 	cp->dreg = d;
 	cp->dev = dev;
@@ -611,12 +615,17 @@ devi82365link(void)
 	if(ncontroller == 0)
 		return;
 
-	_pcmspecial = pcmcia_pcmspecial;
-	_pcmspecialclose = pcmcia_pcmspecialclose;
-
 	for(i = 0; i < ncontroller; i++)
 		nslot += controller[i]->nslot;
 	slot = xalloc(nslot * sizeof(PCMslot));
+	if(slot == nil){
+		print("i82365link: out of memory\n");
+		nslot = 0;
+		return;
+	}
+
+	_pcmspecial = pcmcia_pcmspecial;
+	_pcmspecialclose = pcmcia_pcmspecialclose;
 
 	lastslot = slot;
 	for(i = 0; i < ncontroller; i++){

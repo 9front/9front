@@ -181,17 +181,25 @@ floppyreset(void)
 	}
 
 	/*
-	 * Should check if this fails. Can do so
-	 * if there is no space <= 16MB for the DMA
+	 * Can fail if there is no space <= 16MB for the DMA
 	 * bounce buffer.
 	 */
-	dmainit(DMAchan, maxtsize);
+	if(dmainit(DMAchan, maxtsize)){
+		print("floppy: dmainit failed\n");
+		fl.ndrive = 0;
+		return;
+	}
 
 	/*
 	 *  allocate the drive storage
 	 */
 	fl.d = xalloc(fl.ndrive*sizeof(FDrive));
 	fl.selected = fl.d;
+	if(fl.d == nil){
+		print("floppy: can't allocate memory\n");
+		fl.ndrive = 0;
+		return;
+	}
 
 	/*
 	 *  stop the motors

@@ -40,7 +40,8 @@ intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 		return;
 	}
 
-	v = xalloc(sizeof(Vctl));
+	if((v = xalloc(sizeof(Vctl))) == nil)
+		panic("intrenable: out of memory");
 	v->isintr = 1;
 	v->irq = irq;
 	v->tbdf = tbdf;
@@ -147,7 +148,8 @@ trapenable(int vno, void (*f)(Ureg*, void*), void* a, char *name)
 
 	if(vno < 0 || vno >= VectorPIC)
 		panic("trapenable: vno %d", vno);
-	v = xalloc(sizeof(Vctl));
+	if((v = xalloc(sizeof(Vctl))) == nil)
+		panic("trapenable: out of memory");
 	v->tbdf = BUSUNKNOWN;
 	v->f = f;
 	v->a = a;
