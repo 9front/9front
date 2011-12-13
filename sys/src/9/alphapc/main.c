@@ -541,7 +541,7 @@ confinit(void)
 		+ conf.nproc*sizeof(Proc)
 		+ conf.nimage*sizeof(Image)
 		+ conf.nswap
-		+ conf.nswppo*sizeof(Page);
+		+ conf.nswppo*sizeof(Page*);
 	mainmem->maxsize = kpages;
 	if(!cpuserver){
 		/*
