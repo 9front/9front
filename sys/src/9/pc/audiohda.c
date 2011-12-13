@@ -616,7 +616,7 @@ connectpath(Widget *src, Widget *dst, uint stream)
 static void
 enumconns(Widget *w)
 {
-	uint r, i, mask, bits, nlist;
+	uint r, i, j, mask, bits, nlist;
 	Widget **ws, **list;
 	
 	ws = w->fg->codec->widgets;
@@ -624,11 +624,17 @@ enumconns(Widget *w)
 	bits = (r & 0x80) == 0 ? 8 : 16;
 	nlist = r & 0x7f;
 	mask = (1 << bits) - 1;
-	list = malloc(sizeof *list * nlist);
+	list = mallocz(sizeof *list * nlist, 1);
+	if(list == nil){
+		print("hda: no memory for Widget list\n");
+		nlist = 0;
+	}
 	for(i=0; i<nlist; i++){
 		if(i * bits % 32 == 0)
-			r = cmd(w->id, Getconnlist, i);		
-		list[i] = ws[(r >> (i * bits % 32)) & mask];
+			r = cmd(w->id, Getconnlist, i);
+		j = (r >> (i * bits % 32)) & mask;
+		if(j < Maxwidgets)
+			list[i] = ws[j];
 	}
 	w->nlist = nlist;
 	w->list = list;
@@ -662,6 +668,11 @@ enumfungroup(Codec *codec, Id id)
 		return nil;
 
 	fg = mallocz(sizeof *fg, 1);
+	if(fg == nil){
+Nomem:
+		print("hda: enumfungroup: out of memory\n");
+		return nil;
+	}
 	fg->codec = codec;
 	fg->id = id;
 	fg->type = r;
@@ -670,11 +681,22 @@ enumfungroup(Codec *codec, Id id)
 	n = r & 0xff;
 	base = (r >> 8) & 0xff;
 	
-	if(base + n > Maxwidgets)
+	if(base + n > Maxwidgets){
+		free(fg);
 		return nil;
+	}
 	
 	for(i=n, next=nil; i--; next=w){
 		w = mallocz(sizeof(Widget), 1);
+		if(w == nil){
+			while(w = next){
+				next = w->next;
+				codec->widgets[w->id.nid] = nil;
+				free(w);
+			}
+			free(fg);
+			goto Nomem;
+		}
 		w->id = newnid(id, base + i);
 		w->fg = fg;
 		w->next = next;
@@ -887,7 +909,7 @@ ringupdate(Ring *r, uint np)
 	return 0;
 }
 
-static int
+static void
 streamalloc(Ctlr *ctlr)
 {
 	uchar *p;
@@ -899,8 +921,6 @@ streamalloc(Ctlr *ctlr)
 	r->size = Bufsize;
 	r->blocksize = Blocksize;
 	r->buf = xspanalloc(r->size, 128, 0);
-	if(r->buf == nil)
-		return -1;
 	ringreset(r);
 	
 	ctlr->active = 0;
@@ -909,8 +929,6 @@ streamalloc(Ctlr *ctlr)
 		Fmtmul1 | Fmtbase441;
 	
 	ctlr->blds = xspanalloc(Nblocks * sizeof(Bld), 128, 0);
-	if(ctlr->blds == nil)
-		return -1;
 	b = ctlr->blds;
 	p = r->buf;
 	for(i=0; i<Nblocks; i++){
@@ -921,7 +939,6 @@ streamalloc(Ctlr *ctlr)
 		p += Blocksize;
 		b++;
 	}
-	return 0;
 }
 
 static void
@@ -1402,10 +1419,7 @@ Found:
 		print("#A%d: unable to start hda\n", ctlr->no);
 		return -1;
 	}
-	if(streamalloc(ctlr) < 0){
-		print("#A%d: unable to allocate stream buffer\n", ctlr->no);
-		return -1;
-	}
+	streamalloc(ctlr);
 	if(enumdev(ctlr) < 0){
 		print("#A%d: no audio codecs found\n", ctlr->no);
 		return -1;
