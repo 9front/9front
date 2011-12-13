@@ -240,7 +240,7 @@ iprint(char *fmt, ...)
 void
 panic(char *fmt, ...)
 {
-	int n, s;
+	int s;
 	va_list arg;
 	char buf[PRINTSIZE];
 
@@ -253,17 +253,16 @@ panic(char *fmt, ...)
 	s = splhi();
 	strcpy(buf, "panic: ");
 	va_start(arg, fmt);
-	n = vseprint(buf+strlen(buf), buf+sizeof(buf), fmt, arg) - buf;
+	vseprint(buf+strlen(buf), buf+sizeof(buf), fmt, arg);
 	va_end(arg);
 	iprint("%s\n", buf);
 	if(consdebug)
 		(*consdebug)();
 	splx(s);
 	prflush();
-	buf[n] = '\n';
-	putstrn(buf, n+1);
 	dumpstack();
-
+	if(!cpuserver)
+		for(;;);
 	exit(1);
 }
 
