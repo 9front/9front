@@ -1514,7 +1514,8 @@ killbig(char *why)
 			max = l;
 		}
 	}
-
+	if(kp == 0)
+		return;
 	print("%lud: %s killed: %s\n", kp->pid, kp->text, why);
 	for(p = procalloc.arena; p < ep; p++) {
 		if(p->state == Dead || p->kp)
