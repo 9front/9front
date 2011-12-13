@@ -404,7 +404,7 @@ confinit(void)
 	} else {
 		if(userpcnt < 10) {
 			if(conf.npage*BY2PG < 16*MB)
-				userpcnt = 40;
+				userpcnt = 50;
 			else
 				userpcnt = 60;
 		}
