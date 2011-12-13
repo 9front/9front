@@ -250,7 +250,7 @@ treealloc(char *name)
 		return nil;
 	t = trees[i] = mallocz(sizeof(Tree), 1);
 	if(t == nil)
-		return nil;
+		error(Enomem);
 	if(i == ntrees)
 		ntrees++;
 	kstrdup(&t->name, name);
@@ -675,10 +675,11 @@ Fail:
 	t = lookuptree(tname);
 	if(t != nil)
 		validdevname(t, dname);
-	else
+	else{
 		t = treealloc(tname);
-	if(t == nil)
-		error("no more trees");
+		if(t == nil)
+			error("no more trees");
+	}
 	mp = devalloc(t, dname);
 	if(mp == nil){
 		if(t->ndevs == 0)	/* it was created for us */
