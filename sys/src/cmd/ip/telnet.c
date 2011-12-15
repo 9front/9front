@@ -11,15 +11,10 @@ int netpid;
 int interrupted;
 int localecho;
 int notkbd;
+int returns;
+int stopped;
 
 static char *srv;
-
-typedef struct Comm Comm;
-struct Comm {
-	int returns;
-	int stopped;
-};
-Comm *comm;
 
 int	dodial(char*);
 void	fromkbd(int);
@@ -33,7 +28,6 @@ char*	system(int, char*);
 int	echochange(Biobuf*, int);
 int	termsub(Biobuf*, uchar*, int);
 int	xlocsub(Biobuf*, uchar*, int);
-void*	share(ulong);
 
 static int islikeatty(int);
 
@@ -46,8 +40,6 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	int returns;
-
 	returns = 1;
 	ARGBEGIN{
 	case 'C':
@@ -77,9 +69,6 @@ main(int argc, char *argv[])
 	opt[Term].sub = termsub;
 	opt[Xloc].sub = xlocsub;
 
-	comm = share(sizeof(comm));
-	comm->returns = returns;
-
 	telnet(dodial(argv[0]));
 }
 
@@ -97,7 +86,12 @@ dodial(char *dest)
 	data = dial(name, 0, devdir, 0);
 	if(data < 0)
 		fatal("%s: %r", name, 0);
-	fprint(2, "connected to %s on %s\n", name, devdir);
+	if(srv != nil){
+		if(rfork(RFPROC | RFNOWAIT | RFNOTEG) != 0)
+			exits("");
+	}
+	else
+		fprint(2, "connected to %s on %s\n", name, devdir);
 	return data;
 }
 
@@ -159,8 +153,8 @@ telnet(int net)
 		netpid = pid;
 		notify(notifyf);
 		fromkbd(net);
-		if(notkbd)
-			for(;;)
+		if (notkbd)
+			while(waitpid() != pid)
 				sleep(0);
 		if (svc)
 			remove(svc);
@@ -272,7 +266,7 @@ fromnet(int net)
 		eofs = 0;
 		switch(c){
 		case '\n':	/* skip nl after string of cr's */
-			if(!opt[Binary].local && !comm->returns){
+			if(!opt[Binary].local && !returns){
 				++crnls;
 				if(freenl == 0)
 					break;
@@ -281,7 +275,7 @@ fromnet(int net)
 			}
 			break;
 		case '\r':	/* first cr becomes nl, remainder dropped */
-			if(!opt[Binary].local && !comm->returns){
+			if(!opt[Binary].local && !returns){
 				if(crnls++ == 0){
 					freenl = 1;
 					c = '\n';
@@ -317,21 +311,29 @@ fromnet(int net)
 	}
 }
 
-/*
- *  turn keyboard raw mode on
- */
 void
-rawon(void)
+consctlcmd(char *s)
 {
+	if(srv != nil)
+		return;
 	if(debug)
-		fprint(2, "rawon\n");
+		fprint(2, "consctl: %s\n", s);
 	if(consctl < 0)
 		consctl = open("/dev/consctl", OWRITE);
 	if(consctl < 0){
 		fprint(2, "can't open consctl: %r\n");
 		return;
 	}
-	write(consctl, "rawon", 5);
+	write(consctl, s, strlen(s));
+}
+
+/*
+ *  turn keyboard raw mode on
+ */
+void
+rawon(void)
+{
+	consctlcmd("rawon");
 }
 
 /*
@@ -340,15 +342,7 @@ rawon(void)
 void
 rawoff(void)
 {
-	if(debug)
-		fprint(2, "rawoff\n");
-	if(consctl < 0)
-		consctl = open("/dev/consctl", OWRITE);
-	if(consctl < 0){
-		fprint(2, "can't open consctl: %r\n");
-		return;
-	}
-	write(consctl, "rawoff", 6);
+	consctlcmd("rawoff");
 }
 
 /*
@@ -362,14 +356,14 @@ menu(Biobuf *bp, int net)
 	char *cp;
 	int done;
 
-	comm->stopped = 1;
+	stopped = 1;
 
 	rawoff();
 	fprint(2, ">>> ");
 	for(done = 0; !done; ){
 		cp = Brdline(bp, '\n');
 		if(cp == 0){
-			comm->stopped = 0;
+			stopped = 0;
 			return -1;
 		}
 		cp[Blinelen(bp)-1] = 0;
@@ -382,7 +376,7 @@ menu(Biobuf *bp, int net)
 			done = 1;
 			break;
 		case 'q':
-			comm->stopped = 0;
+			stopped = 0;
 			return -1;
 		case 'o':
 			switch(*(cp+1)){
@@ -395,7 +389,7 @@ menu(Biobuf *bp, int net)
 			}
 			break;
 		case 'r':
-			comm->returns = !comm->returns;
+			returns = !returns;
 			done = 1;
 			break;
 		case 'i':
@@ -413,7 +407,7 @@ menu(Biobuf *bp, int net)
 	}
 
 	rawon();
-	comm->stopped = 0;
+	stopped = 0;
 	return 0;
 }
 
@@ -553,24 +547,4 @@ islikeatty(int fd)
 
 	/* might be /mnt/term/dev/cons */
 	return strlen(buf) >= 9 && strcmp(buf+strlen(buf)-9, "/dev/cons") == 0;
-}
-
-/*
- *  create a shared segment.  Make is start 2 meg higher than the current
- *  end of process memory.
- */
-void*
-share(ulong len)
-{
-	uchar *vastart;
-
-	vastart = sbrk(0);
-	if(vastart == (void*)-1)
-		return 0;
-	vastart += 2*1024*1024;
-
-	if(segattach(0, "shared", vastart, len) == (void*)-1)
-		return 0;
-
-	return vastart;
 }
