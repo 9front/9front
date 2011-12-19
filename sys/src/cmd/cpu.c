@@ -16,7 +16,7 @@
 #define MaxStr 128
 
 void	remoteside(int);
-void	fatal(int, char*, ...);
+void	fatal(char*, ...);
 void	lclnoteproc(int);
 void	rmtnoteproc(void);
 void	catcher(void*, char*);
@@ -153,12 +153,12 @@ main(int argc, char **argv)
 
 	user = getuser();
 	if(user == nil)
-		fatal(1, "can't read user name");
+		fatal("can't read user name: %r");
 	ARGBEGIN{
 	case 'a':
 		p = EARGF(usage());
 		if(setam(p) < 0)
-			fatal(0, "unknown auth method %s", p);
+			fatal("unknown auth method %s", p);
 		break;
 	case 'e':
 		ealgs = EARGF(usage());
@@ -211,12 +211,12 @@ main(int argc, char **argv)
 	if(system == nil) {
 		p = getenv("cpu");
 		if(p == 0)
-			fatal(0, "set $cpu");
+			fatal("set $cpu");
 		system = p;
 	}
 
 	if(err = rexcall(&data, system, srvname))
-		fatal(1, "%s: %s", err, system);
+		fatal("%s: %s: %r", err, system);
 
 	procsetname("%s", origargs);
 	/* Tell the remote side the command to execute and where our working directory is */
@@ -235,7 +235,7 @@ main(int argc, char **argv)
 	 *  of /mnt/term
 	 */
 	if(readstr(data, buf, sizeof(buf)) < 0)
-		fatal(1, "waiting for FS: %r");
+		fatal("waiting for FS: %r");
 	if(strncmp("FS", buf, 2) != 0) {
 		print("remote cpu: %s", buf);
 		exits(buf);
@@ -259,33 +259,24 @@ main(int argc, char **argv)
 	}
 	av[ac] = nil;
 	exec(exportfs, av);
-	fatal(1, "starting exportfs");
+	fatal("starting exportfs: %r");
 }
 
 void
-fatal(int syserr, char *fmt, ...)
+fatal(char *fmt, ...)
 {
-	Fmt f;
-	char *str;
+	char buf[1024];
 	va_list arg;
 
-	fmtstrinit(&f);
-	fmtprint(&f, "cpu: ");
 	va_start(arg, fmt);
-	fmtvprint(&f, fmt, arg);
+	vsnprint(buf, sizeof(buf), fmt, arg);
 	va_end(arg);
-	if(syserr)
-		fmtprint(&f, ": %r");
-	str = fmtstrflush(&f);
-
-	fprint(2, "%s\n", str);
-	syslog(0, "cpu", str);
-	exits(str);
+	fprint(2, "cpu: %s\n", buf);
+	syslog(0, "cpu", "%s", buf);
+	exits(buf);
 }
 
 char *negstr = "negotiating authentication method";
-
-char bug[256];
 
 int
 old9p(int fd)
@@ -293,11 +284,11 @@ old9p(int fd)
 	int p[2];
 
 	if(pipe(p) < 0)
-		fatal(1, "pipe");
+		fatal("pipe: %r");
 
 	switch(rfork(RFPROC|RFFDG|RFNAMEG)) {
 	case -1:
-		fatal(1, "rfork srvold9p");
+		fatal("rfork srvold9p: %r");
 	case 0:
 		if(fd != 1){
 			dup(fd, 1);
@@ -317,7 +308,7 @@ old9p(int fd)
 			execl("/bin/srvold9p", "srvold9p", "-ds", nil);
 		} else
 			execl("/bin/srvold9p", "srvold9p", "-s", nil);
-		fatal(1, "exec srvold9p");
+		fatal("exec srvold9p: %r");
 	default:
 		close(fd);
 		close(p[0]);
@@ -339,16 +330,16 @@ remoteside(int old)
 	/* negotiate authentication mechanism */
 	n = readstr(fd, cmd, sizeof(cmd));
 	if(n < 0)
-		fatal(1, "authenticating");
+		fatal("authenticating: %r");
 	if(setamalg(cmd) < 0){
 		writestr(fd, "unsupported auth method", nil, 0);
-		fatal(1, "bad auth method %s", cmd);
+		fatal("bad auth method %s: %r", cmd);
 	} else
 		writestr(fd, "", "", 1);
 
 	fd = (*am->sf)(fd, user);
 	if(fd < 0)
-		fatal(1, "srvauth");
+		fatal("srvauth: %r");
 
 	/* Set environment values for the user */
 	putenv("user", user);
@@ -358,12 +349,12 @@ remoteside(int old)
 	/* Now collect invoking cpu's current directory or possibly a command */
 	gotcmd = 0;
 	if(readstr(fd, xdir, sizeof(xdir)) < 0)
-		fatal(1, "dir/cmd");
+		fatal("dir/cmd: %r");
 	if(xdir[0] == '!') {
 		strcpy(cmd, &xdir[1]);
 		gotcmd = 1;
 		if(readstr(fd, xdir, sizeof(xdir)) < 0)
-			fatal(1, "dir");
+			fatal("dir: %r");
 	}
 
 	/* Establish the new process at the current working directory of the
@@ -415,7 +406,7 @@ remoteside(int old)
 		execl("/bin/rc", "rc", "-lc", cmd, nil);
 	else
 		execl("/bin/rc", "rc", "-li", nil);
-	fatal(1, "exec shell");
+	fatal("exec shell: %r");
 }
 
 char*
@@ -464,7 +455,7 @@ writestr(int fd, char *str, char *thing, int ignore)
 	l = strlen(str);
 	n = write(fd, str, l+1);
 	if(!ignore && n < 0)
-		fatal(1, "writing network: %s", thing);
+		fatal("writing network: %s: %r", thing);
 }
 
 int
@@ -562,7 +553,7 @@ netkeysrvauth(int fd, char *user)
 		return -1;
 	writestr(fd, "", "challenge", 1);
 	if(auth_chuid(ai, 0) < 0)
-		fatal(1, "newns");
+		fatal("newns: %r");
 	auth_freeAI(ai);
 	return fd;
 }
@@ -644,7 +635,7 @@ loghex(uchar *p, int n)
 
 	for(i = 0; i < n; i++)
 		sprint(buf+2*i, "%2.2ux", p[i]);
-	syslog(0, "cpu", buf);
+	syslog(0, "cpu", "%s", buf);
 }
 
 static int
