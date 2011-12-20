@@ -78,7 +78,7 @@ sysrfork(ulong *arg)
 			closeegrp(oeg);
 		}
 		if(flag & RFNOTEG)
-			up->noteid = incref(&noteidalloc);
+			up->noteid = pidalloc(0);
 		return 0;
 	}
 

@@ -768,7 +768,6 @@ extern	char*	eve;
 extern	char	hostdomain[];
 extern	uchar	initcode[];
 extern	Queue*	kprintoq;
-extern 	Ref	noteidalloc;
 extern	int	nsyscall;
 extern	Palloc	palloc;
 extern	Queue*	serialoq;

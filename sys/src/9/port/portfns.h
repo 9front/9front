@@ -214,6 +214,7 @@ ulong		perfticks(void);
 void		pexit(char*, int);
 void		pgrpcpy(Pgrp*, Pgrp*);
 void		pgrpnote(ulong, char*, long, int);
+int		pidalloc(Proc*);
 void		pio(Segment *, ulong, ulong, Page **);
 #define		poperror()		up->nerrlab--
 void		portcountpagerefs(ulong*, int);

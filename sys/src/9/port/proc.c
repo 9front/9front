@@ -9,7 +9,6 @@
 
 int	schedgain = 30;	/* units in seconds */
 int	nrdy;
-Ref	noteidalloc;
 
 void updatecpu(Proc*);
 int reprioritize(Proc*);
@@ -18,8 +17,6 @@ ulong	delayedscheds;	/* statistics */
 long skipscheds;
 long preempts;
 ulong load;
-
-static Ref	pidalloc;
 
 static struct Procalloc
 {
@@ -56,8 +53,7 @@ char *statename[] =
 	"Waitrelease",
 };
 
-static void pidhash(Proc*);
-static void pidunhash(Proc*);
+static void pidfree(Proc*);
 static void rebalance(void);
 
 /*
@@ -637,11 +633,7 @@ newproc(void)
 	p->nargs = 0;
 	p->setargs = 0;
 	memset(p->seg, 0, sizeof p->seg);
-	p->pid = incref(&pidalloc);
-	pidhash(p);
-	p->noteid = incref(&noteidalloc);
-	if(p->pid==0 || p->noteid==0)
-		panic("pidalloc");
+	p->noteid = pidalloc(p);
 	if(p->kstack == 0)
 		p->kstack = smalloc(KSTACK);
 
@@ -1182,7 +1174,7 @@ pexit(char *exitstr, int freemem)
 	qunlock(&up->seglock);
 
 	lock(&up->exl);		/* Prevent my children from leaving waits */
-	pidunhash(up);
+	pidfree(up);
 	up->pid = 0;
 	wakeup(&up->waitr);
 	unlock(&up->exl);
@@ -1597,20 +1589,33 @@ accounttime(void)
 	m->load = (m->load*(HZ-1)+n)/HZ;
 }
 
-static void
-pidhash(Proc *p)
+int
+pidalloc(Proc *p)
 {
-	int h;
+	static Ref ref;
+	int pid, h;
+	Proc *x;
 
-	h = p->pid % nelem(procalloc.ht);
 	lock(&procalloc);
-	p->pidhash = procalloc.ht[h];
-	procalloc.ht[h] = p;
+Retry:
+	pid = incref(&ref) & 0x7FFFFFFF;
+	if(pid == 0)
+		goto Retry;
+	h = pid % nelem(procalloc.ht);
+	for(x = procalloc.ht[h]; x != nil; x = x->pidhash)
+		if(x->pid == pid)
+			goto Retry;
+	if(p){
+		p->pid = pid;
+		p->pidhash = procalloc.ht[h];
+		procalloc.ht[h] = p;
+	}
 	unlock(&procalloc);
+	return pid;
 }
 
 static void
-pidunhash(Proc *p)
+pidfree(Proc *p)
 {
 	int h;
 	Proc **l;
