@@ -47,27 +47,47 @@ enum {
 	NPATH = 1024,
 };
 
-char *pagemenugen(int i);
-
-char *menuitems[] = {
-	"orig size",
-	"rotate 90",
-	"upside down",
-	"",
-	"fit width",
-	"fit height",
-	"",
-	"zoom in",
-	"zoom out",
-	"",
-	"next",
-	"prev",
-	"zerox",
-	"write",
-	"",
-	"quit",
-	nil
+enum {
+	Corigsize,
+	Czoomin,
+	Czoomout,
+	Cfitwidth,
+	Cfitheight,
+	Crotate90,
+	Cupsidedown,
+	Cdummy1,
+	Cnext,
+	Cprev,
+	Czerox,
+	Cwrite,
+	Cdummy2,
+	Cquit,
 };
+
+struct {
+	char	*m;
+	Rune	k1;
+	Rune	k2;
+	Rune	k3;
+} cmds[] = {
+	[Corigsize]	"orig size",	'o', Kesc, 0,
+	[Czoomin]	"zoom in",	'+', 0, 0,
+	[Czoomout]	"zoom out",	'-', 0, 0,
+	[Cfitwidth]	"fit width",	'f', 0, 0,
+	[Cfitheight]	"fit height",	'h', 0, 0,
+	[Crotate90]	"rotate 90",	'r', 0, 0,
+	[Cupsidedown]	"upside down",	'u', 0, 0,
+	[Cdummy1]	"",		0, 0, 0,
+	[Cnext]		"next",		Kright, ' ', '\n', 
+	[Cprev]		"prev",		Kleft, Kbs, 0,
+	[Czerox]	"zerox",	'z', 0, 0,
+	[Cwrite]	"write",	'w', 0, 0,
+	[Cdummy2]	"",		0, 0, 0,
+	[Cquit]		"quit",		'q', Kdel, Keof,
+};
+
+char *pagemenugen(int i);
+char *cmdmenugen(int i);
 
 Menu pagemenu = {
 	nil,
@@ -75,9 +95,9 @@ Menu pagemenu = {
 	-1,
 };
 
-Menu menu = {
-	menuitems,
+Menu cmdmenu = {
 	nil,
+	cmdmenugen,
 	-1,
 };
 
@@ -1071,6 +1091,14 @@ pagemenugen(int i)
 	return nil;
 }
 
+char*
+cmdmenugen(int i)
+{
+	if(i < 0 || i >= nelem(cmds))
+		return nil;
+	return cmds[i].m;
+}
+
 void
 showpage(Page *p)
 {
@@ -1182,6 +1210,106 @@ usage(void)
 	exits("usage");
 }
 
+int
+docmd(int i, Mouse *m)
+{
+	char buf[NPATH], *s;
+	Point o;
+	int fd;
+
+	switch(i){
+	case Corigsize:
+		pos = ZP;
+		zoom = 1;
+		resize = ZP;
+		rotate = 0;
+	Unload:
+		viewgen++;
+		unlockdisplay(display);
+		esetcursor(&reading);
+		unloadpages(0);
+		showpage(current);
+		return 0;
+	case Cupsidedown:
+		rotate += 90;
+	case Crotate90:
+		rotate += 90;
+		rotate %= 360;
+		goto Unload;
+	case Cfitwidth:
+		pos = ZP;
+		zoom = 1;
+		resize = subpt(screen->r.max, screen->r.min);
+		resize.y = 0;
+		goto Unload;
+	case Cfitheight:
+		pos = ZP;
+		zoom = 1;
+		resize = subpt(screen->r.max, screen->r.min);
+		resize.x = 0;
+		goto Unload;
+	case Czoomin:
+	case Czoomout:
+		if(current == nil || !canqlock(current))
+			return 1;
+		o = subpt(m->xy, screen->r.min);
+		if(i == Czoomin){
+			if(zoom < 0x40000000){
+				zoom *= 2;
+				pos =  addpt(mulpt(subpt(pos, o), 2), o);
+			}
+		}else{
+			if(zoom > 1){
+				zoom /= 2;
+				pos =  addpt(divpt(subpt(pos, o), 2), o);
+			}
+		}
+		drawpage(current);
+		qunlock(current);
+		return 1;
+	case Cwrite:
+		if(current == nil || !canqlock(current))
+			return 1;
+		if(current->image){
+			s = nil;
+			if(current->up && current->up != root)
+				s = current->up->label;
+			snprint(buf, sizeof(buf), "%s%s%s.bit",
+				s ? s : "",
+				s ? "." : "",
+				current->label);
+			if(eenter("Write", buf, sizeof(buf), m) > 0){
+				if((fd = create(buf, OWRITE, 0666)) < 0){
+					errstr(buf, sizeof(buf));
+					eenter(buf, 0, 0, m);
+				} else {
+					esetcursor(&reading);
+					writeimage(fd, current->image, 0);
+					close(fd);
+					esetcursor(nil);
+				}
+			}
+		}
+		qunlock(current);
+		return 1;
+	case Cnext:
+		unlockdisplay(display);
+		shownext();
+		return 0;
+	case Cprev:
+		unlockdisplay(display);
+		showprev();
+		return 0;
+	case Czerox:
+		unlockdisplay(display);
+		zerox(current);
+		return 0;
+	case Cquit:
+		exits(0);
+	}
+	return 1;
+}
+
 void
 main(int argc, char *argv[])
 {
@@ -1261,211 +1389,93 @@ main(int argc, char *argv[])
 			lockdisplay(display);
 			m = e.mouse;
 			if(m.buttons & 1){
-				if(current == nil || !canqlock(current))
-					goto Unlock;
-				for(;;) {
-					o = m.xy;
-					m = emouse();
-					if((m.buttons & 1) == 0)
-						break;
-					translate(current, subpt(m.xy, o));
+				if(current &&  canqlock(current)){
+					for(;;) {
+						o = m.xy;
+						m = emouse();
+						if((m.buttons & 1) == 0)
+							break;
+						translate(current, subpt(m.xy, o));
+					}
+					qunlock(current);
 				}
-				qunlock(current);
-				goto Unlock;
-			}
-			if(m.buttons & 2){
+			} else if(m.buttons & 2){
 				o = m.xy;
-				i = emenuhit(2, &m, &menu);
-				if(i < 0 || i >= nelem(menuitems) || menuitems[i]==nil)
-					goto Unlock;
-				s = menuitems[i];
-			PageMenu:
-				if(strcmp(s, "orig size")==0){
-					pos = ZP;
-					zoom = 1;
-					resize = ZP;
-					rotate = 0;
-				Unload:
-					viewgen++;
+				i = emenuhit(2, &m, &cmdmenu);
+				m.xy = o;
+				if(!docmd(i, &m))
+					continue;
+			} else if(m.buttons & 4){
+				if(root->down){
+					Page *x;
+
+					qlock(&pagelock);
+					pagemenu.lasthit = pageindex(current);
+					x = pageat(emenuhit(3, &m, &pagemenu));
+					qunlock(&pagelock);
 					unlockdisplay(display);
-					esetcursor(&reading);
-					unloadpages(0);
-					showpage(current);
+					showpage(x);
 					continue;
 				}
-				if(strncmp(s, "rotate ", 7)==0){
-					rotate += atoi(s+7);
-					rotate %= 360;
-					goto Unload;
-				}
-				if(strcmp(s, "upside down")==0){
-					rotate += 180;
-					goto Unload;
-				}
-				if(strcmp(s, "fit width")==0){
-					pos = ZP;
-					zoom = 1;
-					resize = subpt(screen->r.max, screen->r.min);
-					resize.y = 0;
-					goto Unload;
-				}
-				if(strcmp(s, "fit height")==0){
-					pos = ZP;
-					zoom = 1;
-					resize = subpt(screen->r.max, screen->r.min);
-					resize.x = 0;
-					goto Unload;
-				}
-				if(strncmp(s, "zoom", 4)==0){
-					if(current && canqlock(current)){
-						o = subpt(o, screen->r.min);
-						if(strstr(s, "in")){
-							if(zoom < 0x40000000){
-								zoom *= 2;
-								pos =  addpt(mulpt(subpt(pos, o), 2), o);
-							}
-						}else{
-							if(zoom > 1){
-								zoom /= 2;
-								pos =  addpt(divpt(subpt(pos, o), 2), o);
-							}
-						}
-						drawpage(current);
-						qunlock(current);
-					}
-					goto Unlock;
-				}
-				if(strcmp(s, "write")==0){
-					if(current && canqlock(current)){
-						if(current->image){
-							s = nil;
-							if(current->up && current->up != root)
-								s = current->up->label;
-							snprint(buf, sizeof(buf), "%s%s%s.bit",
-								s ? s : "",
-								s ? "." : "",
-								current->label);
-							if(eenter("Write", buf, sizeof(buf), &m) > 0){
-								int fd;
-
-								if((fd = create(buf, OWRITE, 0666)) < 0){
-									errstr(buf, sizeof(buf));
-									eenter(buf, 0, 0, &m);
-								} else {
-									esetcursor(&reading);
-									writeimage(fd, current->image, 0);
-									close(fd);
-									esetcursor(nil);
-								}
-							}
-						}
-						qunlock(current);
-					}
-					goto Unlock;
-				}
-				unlockdisplay(display);
-				if(strcmp(s, "next")==0)
-					shownext();
-				if(strcmp(s, "prev")==0)
-					showprev();
-				if(strcmp(s, "zerox")==0)
-					zerox(current);
-				if(strcmp(s, "quit")==0)
-					exits(0);
-				continue;
 			}
-			if(m.buttons & 4){
-				Page *x;
-
-				if(root->down == nil)
-					goto Unlock;
-				qlock(&pagelock);
-				pagemenu.lasthit = pageindex(current);
-				x = pageat(emenuhit(3, &m, &pagemenu));
-				qunlock(&pagelock);
-				unlockdisplay(display);
-				showpage(x);
-				continue;
-			}
-		Unlock:
 			unlockdisplay(display);
 			break;
 		case Ekeyboard:
+			lockdisplay(display);
 			switch(e.kbdc){
-			case 'q':
-			case Kdel:
-			case Keof:
-				exits(0);
-				break;
-			case 'w':
-				s = "write";
-				goto DoMenu;
-			case 'u':
-				s = "upside down";
-				goto DoMenu;
-			case '+':
-				s = "zoom in";
-				goto DoMenu;
-			case '-':
-				s = "zoom out";
-				goto DoMenu;
-			case Kesc:
-				s = "orig size";
-			DoMenu:
-				lockdisplay(display);
-				o = m.xy;
-				goto PageMenu;
-
 			case Kup:
 				if(current == nil || !canqlock(current))
 					break;
-				lockdisplay(display);
 				if(pos.y < 0){
 					translate(current, Pt(0, Dy(screen->r)/2));
-					unlockdisplay(display);
 					qunlock(current);
-					continue;
+					break;
 				}
-				unlockdisplay(display);
-				qunlock(current);
 				if(prevpage(current))
 					pos.y = 0;
-			case Kbs:
-			case Kleft:
-				showprev();
+				qunlock(current);
+				if(!docmd(Cprev, &m))
+					continue;
 				break;
 			case Kdown:
 				if(current == nil || !canqlock(current))
 					break;
 				o = addpt(pos, pagesize(current));
-				lockdisplay(display);
 				if(o.y > Dy(screen->r)){
 					translate(current, Pt(0, -Dy(screen->r)/2));
-					unlockdisplay(display);
 					qunlock(current);
-					continue;
+					break;
 				}
-				unlockdisplay(display);
-				qunlock(current);
 				if(nextpage(current))
 					pos.y = 0;
-			case '\n':
-			case ' ':
-			case Kright:
-				shownext();
+				qunlock(current);
+				if(!docmd(Cnext, &m))
+					continue;
 				break;
 			default:
+				for(i = 0; i<nelem(cmds); i++)
+					if((cmds[i].k1 == e.kbdc) ||
+					   (cmds[i].k2 == e.kbdc) ||
+					   (cmds[i].k3 == e.kbdc))
+						break;
+				if(i < nelem(cmds)){
+					if(!docmd(i, &m))
+						continue;
+					break;
+				}
 				if((e.kbdc < 0x20) || 
 				   (e.kbdc & 0xFF00) == KF || 
 				   (e.kbdc & 0xFF00) == Spec)
 					break;
 				snprint(buf, sizeof(buf), "%C", (Rune)e.kbdc);
-				lockdisplay(display);
 				i = eenter("Go to", buf, sizeof(buf), &m);
-				unlockdisplay(display);
-				if(i > 0)
+				if(i > 0){
+					unlockdisplay(display);
 					showpage(findpage(buf));
+					continue;
+				}
 			}
+			unlockdisplay(display);
 			break;
 		case Eplumb:
 			pm = e.v;
