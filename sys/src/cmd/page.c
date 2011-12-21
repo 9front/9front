@@ -1160,11 +1160,12 @@ eresized(int new)
 	unlockdisplay(display);
 }
 
+int cohort = -1;
 void killcohort(void)
 {
 	int i;
 	for(i=0;i!=3;i++){	/* It's a long way to the kitchen */
-		postnote(PNGROUP, getpid(), "kill");
+		postnote(PNGROUP, cohort, "kill");
 		sleep(1);
 	}
 }
@@ -1219,9 +1220,15 @@ main(int argc, char *argv[])
 	 * so that we can stop all subprocesses with a note,
 	 * and to isolate rendezvous from other processes
 	 */
-	rfork(RFNOTEG|RFNAMEG|RFREND);
-	atexit(killcohort);
 	atnotify(catchnote, 1);
+	if(cohort = rfork(RFPROC|RFNOTEG|RFNAMEG|RFREND)){
+		atexit(killcohort);
+		waitpid();
+		exits(0);
+	}
+	cohort = getpid();
+	atexit(killcohort);
+
 	if(newwin > 0){
 		s = smprint("-pid %d", getpid());
 		if(newwindow(s) < 0)

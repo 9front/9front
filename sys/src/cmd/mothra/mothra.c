@@ -204,12 +204,16 @@ void mkpanels(void){
 		alttext=pltextview(alt, PACKE|EXPAND, Pt(0, 0), 0, dolink);
 		plscroll(alttext, 0, bar);
 }
+int cohort = -1;
 void killcohort(void){
 	int i;
 	for(i=0;i!=3;i++){	/* It's a long way to the kitchen */
-		postnote(PNGROUP, getpid(), "kill\n");
+		postnote(PNGROUP, cohort, "kill\n");
 		sleep(1);
 	}
+}
+void catch(void*, char*){
+	noted(NCONT);
 }
 void dienow(void*, char*){
 	noted(NDFLT);
@@ -272,8 +276,15 @@ void main(int argc, char *argv[]){
 	 * so that we can stop all subprocesses with a note,
 	 * and to isolate rendezvous from other processes
 	 */
-	rfork(RFNOTEG|RFNAMEG|RFREND);
+	if(cohort = rfork(RFPROC|RFNOTEG|RFNAMEG|RFREND)){
+		atexit(killcohort);
+		notify(catch);
+		waitpid();
+		exits(0);
+	}
+	cohort = getpid();
 	atexit(killcohort);
+
 	switch(argc){
 	default:
 	Usage:
@@ -677,7 +688,6 @@ void docmd(Panel *p, char *s){
 		save(urlopen(selection, GET, 0), s);
 		break;
 	case 'q':
-		draw(screen, screen->r, display->white, 0, ZP);
 		exits(0);
 	}
 	plinitentry(cmd, EXPAND, 0, "", docmd);
