@@ -1592,19 +1592,22 @@ accounttime(void)
 int
 pidalloc(Proc *p)
 {
-	static Ref ref;
+	static int gen, wrapped;
 	int pid, h;
 	Proc *x;
 
 	lock(&procalloc);
 Retry:
-	pid = incref(&ref) & 0x7FFFFFFF;
-	if(pid == 0)
+	pid = ++gen & 0x7FFFFFFF;
+	if(pid == 0){
+		wrapped = 1;
 		goto Retry;
+	}
 	h = pid % nelem(procalloc.ht);
-	for(x = procalloc.ht[h]; x != nil; x = x->pidhash)
-		if(x->pid == pid)
-			goto Retry;
+	if(wrapped)
+		for(x = procalloc.ht[h]; x != nil; x = x->pidhash)
+			if(x->pid == pid)
+				goto Retry;
 	if(p){
 		p->pid = pid;
 		p->pidhash = procalloc.ht[h];
