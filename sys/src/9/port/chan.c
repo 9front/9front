@@ -1488,9 +1488,6 @@ if(c->umh != nil){
 			/* save registers else error() in open has wrong value of c saved */
 			saveregisters();
 
-			if(omode == OEXEC)
-				c->flag &= ~CCACHE;
-
 			c = devtab[c->type]->open(c, omode&~OCEXEC);
 
 			if(omode & OCEXEC)

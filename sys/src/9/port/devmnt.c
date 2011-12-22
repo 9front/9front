@@ -409,6 +409,7 @@ mntwalk(Chan *c, Chan *nc, char **name, int nname)
 		 * Therefore set type to 0 for now; rootclose is known to be safe.
 		 */
 		nc->type = 0;
+		nc->flag |= (c->flag & CCACHE);
 		alloc = 1;
 	}
 	wq->clone = nc;

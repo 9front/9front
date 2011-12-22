@@ -113,10 +113,8 @@ cinit(void)
 		panic("cinit: no memory");
 
 	/* a better algorithm would be nice */
-//	if(conf.npage*BY2PG > 200*MB)
-//		maxcache = 10*MAXCACHE;
-//	if(conf.npage*BY2PG > 400*MB)
-//		maxcache = 50*MAXCACHE;
+	if(conf.npage*BY2PG > 200*MB)
+		maxcache = 10*MAXCACHE;
 
 	for(i = 0; i < NFILE-1; i++) {
 		m->next = m+1;
@@ -171,17 +169,16 @@ cpage(Extent *e)
 void
 cnodata(Mntcache *m)
 {
-	Extent *e, *n;
+	Extent *e;
 
 	/*
 	 * Invalidate all extent data
 	 * Image lru will waste the pages
 	 */
-	for(e = m->list; e; e = n) {
-		n = e->next;
+	while(e = m->list){
+		m->list = e->next;
 		extentfree(e);
 	}
-	m->list = 0;
 }
 
 void
@@ -215,36 +212,35 @@ void
 copen(Chan *c)
 {
 	int h;
-	Extent *e, *next;
 	Mntcache *m, *f, **l;
 
 	/* directories aren't cacheable and append-only files confuse us */
 	if(c->qid.type&(QTDIR|QTAPPEND))
 		return;
-
 	h = c->qid.path%NHASH;
 	lock(&cache);
 	for(m = cache.hash[h]; m; m = m->hash) {
 		if(m->qid.path == c->qid.path)
 		if(m->qid.type == c->qid.type)
 		if(m->dev == c->dev && m->type == c->type) {
-			c->mcp = m;
-			ctail(m);
-			unlock(&cache);
-
 			/* File was updated, invalidate cache */
-			if(m->qid.vers != c->qid.vers) {
+			if(m->qid.vers != c->qid.vers){
+				if(!canqlock(m))
+					goto Busy;
 				m->qid.vers = c->qid.vers;
-				qlock(m);
-				cnodata(m);
-				qunlock(m);
+				goto Update;
 			}
+			ctail(m);
+			c->mcp = m;
+			unlock(&cache);
 			return;
 		}
 	}
 
 	/* LRU the cache headers */
 	m = cache.head;
+	if(!canqlock(m))
+		goto Busy;
 	l = &cache.hash[m->qid.path%NHASH];
 	for(f = *l; f; f = f->hash) {
 		if(f == m) {
@@ -261,20 +257,16 @@ copen(Chan *c)
 	l = &cache.hash[h];
 	m->hash = *l;
 	*l = m;
+Update:
 	ctail(m);
-
-	qlock(m);
 	c->mcp = m;
-	e = m->list;
-	m->list = 0;
 	unlock(&cache);
-
-	while(e) {
-		next = e->next;
-		extentfree(e);
-		e = next;
-	}
+	cnodata(m);
 	qunlock(m);
+	return;
+Busy:
+	unlock(&cache);
+	c->mcp = 0;
 }
 
 static int
@@ -313,6 +305,7 @@ cread(Chan *c, uchar *buf, int len, vlong off)
 	qlock(m);
 	if(cdev(m, c) == 0) {
 		qunlock(m);
+		c->mcp = 0;
 		return 0;
 	}
 
@@ -483,6 +476,7 @@ cupdate(Chan *c, uchar *buf, int len, vlong off)
 	qlock(m);
 	if(cdev(m, c) == 0) {
 		qunlock(m);
+		c->mcp = 0;
 		return;
 	}
 
@@ -541,7 +535,9 @@ cupdate(Chan *c, uchar *buf, int len, vlong off)
 			len -= o;
 			offset += o;
 			if(len <= 0) {
-if(f && p->start + p->len > f->start) print("CACHE: p->start=%uld p->len=%d f->start=%uld\n", p->start, p->len, f->start);
+				if(f && p->start + p->len > f->start)
+					print("CACHE: p->start=%uld p->len=%d f->start=%uld\n",
+						p->start, p->len, f->start);
 				qunlock(m);
 				return;
 			}
@@ -575,6 +571,7 @@ cwrite(Chan* c, uchar *buf, int len, vlong off)
 	qlock(m);
 	if(cdev(m, c) == 0) {
 		qunlock(m);
+		c->mcp = 0;
 		return;
 	}
 
