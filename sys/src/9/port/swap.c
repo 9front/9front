@@ -432,7 +432,7 @@ setswapchan(Chan *c)
 			swapalloc.free = conf.nswap;
 		}
 	}
-
+	c->flag &= ~CCACHE;
 	swapimage.c = c;
 }
 
