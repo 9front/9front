@@ -360,6 +360,7 @@ void main(int argc, char *argv[]){
 			}
 		}
 
+		flushimage(display, 1);
 		unlockdisplay(display);
 		i=event(&e);
 		lockdisplay(display);
@@ -740,7 +741,6 @@ void dolink(Panel *p, int buttons, Rtext *word){
 }
 
 void filter(char *cmd, int fd){
-	flushimage(display, 1);
 	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT)){
 	case -1:
 		message("Can't fork!");
@@ -755,7 +755,6 @@ void filter(char *cmd, int fd){
 	close(fd);
 }
 void gettext(Www *w, int fd, int type){
-	flushimage(display, 1);
 	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT)){
 	case -1:
 		message("Can't fork, please wait");
