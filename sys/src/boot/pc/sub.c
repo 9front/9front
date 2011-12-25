@@ -66,17 +66,6 @@ strchr(char *s, int c)
 	return 0;
 }
 
-char*
-strrchr(char *s, int c)
-{
-	char *r = 0;
-
-	while(s = strchr(s, c))
-		r = s++;
-
-	return r;
-}
-
 void
 print(char *s)
 {
@@ -264,7 +253,7 @@ Loop:
 		print("no bootfile\r\n");
 		goto Loop;
 	}
-	if(p = strrchr(kern, '!'))
+	while(p = strchr(kern, '!'))
 		kern = p+1;
 
 	return kern;
