@@ -407,7 +407,7 @@ syncjar(Jar *jar)
 
 	purgejar(jar);
 
-	b = Bopen(jar->file, OWRITE);
+	b = Bopen(jar->file, OTRUNC|OWRITE);
 	if(b == nil){
 		if(debug)
 			fprint(2, "Bopen write %s: %r", jar->file);
@@ -467,6 +467,8 @@ closejar(Jar *jar)
 {
 	int i;
 
+	if(jar == nil)
+		return;
 	expirejar(jar, 0);
 	if(syncjar(jar) < 0)
 		fprint(2, "warning: cannot rewrite cookie jar: %r\n");
@@ -475,6 +477,7 @@ closejar(Jar *jar)
 		freecookie(&jar->c[i]);
 
 	free(jar->file);
+	free(jar->c);
 	free(jar);	
 }
 
@@ -948,6 +951,7 @@ parsecookie(Cookie *c, char *p, char **e, int isns, char *dom, char *path)
 		if(cistrcmp(attr, "secure") == 0)
 			c->secure = 1;
 	}
+	*e = p;
 
 	if(c->dom)
 		c->explicitdom = 1;
@@ -957,13 +961,14 @@ parsecookie(Cookie *c, char *p, char **e, int isns, char *dom, char *path)
 		c->explicitpath = 1;
 	else{
 		c->path = path;
+		if((t = strchr(c->path, '#')) != 0)
+			*t = '\0';
 		if((t = strchr(c->path, '?')) != 0)
 			*t = '\0';
 		if((t = strrchr(c->path, '/')) != 0)
 			*t = '\0';
 	}
 	c->netscapestyle = isns;
-	*e = p;
 
 	return nil;
 }
