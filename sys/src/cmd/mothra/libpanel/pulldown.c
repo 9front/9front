@@ -96,7 +96,7 @@ int pl_hitpulldown(Panel *g, Mouse *m){
 		}
 	}
 	if(g->state!=oldstate) pldraw(g, g->b);
-	if(hitme) plmouse(hitme, *m);
+	if(hitme) plmouse(hitme, m);
 	return g->state==DOWN;
 }
 void pl_typepulldown(Panel *p, Rune c){

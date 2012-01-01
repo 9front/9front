@@ -100,7 +100,7 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 			if(g->tp!=g->text && g->tp!=g->etext && g->tp[-1]!=' ')
 				*g->tp++=' ';
 			while(g->tp!=g->etext && *s) *g->tp++=*s++;
-			if(g->state->tag==Tag_title) g->dst->changed=1;
+			if(g->state->tag==Tag_title) update(g->dst);
 			*g->tp='\0';
 		}
 		return;
@@ -151,7 +151,7 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 		g->state->link[0] || g->state->image[0], ap);
 	g->para=0;
 	g->linebrk=0;
-	g->dst->changed=1;
+	update(g->dst);
 }
 
 /*
@@ -588,7 +588,7 @@ void plrdplain(char *name, int fd, Www *dst){
 	g.form=0;
 	strncpy(g.text, name, NTITLE);
 	plaintext(&g);
-	dst->finished=1;
+	finish(dst);
 }
 void plrdhtml(char *name, int fd, Www *dst){
 	Stack *sp;
@@ -1049,9 +1049,9 @@ void plrdhtml(char *name, int fd, Www *dst){
 				htmlerror(g.name, g.lineno,
 					"missing </%s> at EOF", tag[g.state->tag].name);
 		*g.tp='\0';
-		dst->changed=1;
+		update(dst);
 		getpix(dst->text, dst);
-		dst->finished=1;
+		finish(dst);
 		return;
 	}
 }

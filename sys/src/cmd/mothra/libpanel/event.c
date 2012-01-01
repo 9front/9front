@@ -26,21 +26,21 @@ Panel *pl_ptinpanel(Point p, Panel *g){
 	}
 	return 0;
 }
-void plmouse(Panel *g, Mouse mouse){
+void plmouse(Panel *g, Mouse *m){
 	Panel *hit, *last;
 	if(g->flags&REMOUSE)
 		hit=g->lastmouse;
 	else{
-		hit=pl_ptinpanel(mouse.xy, g);
+		hit=pl_ptinpanel(m->xy, g);
 		last=g->lastmouse;
 		if(last && last!=hit){
-			mouse.buttons|=OUT;
-			last->hit(last, &mouse);
-			mouse.buttons&=~OUT;
+			m->buttons|=OUT;
+			last->hit(last, m);
+			m->buttons&=~OUT;
 		}
 	}
 	if(hit){
-		if(hit->hit(hit, &mouse))
+		if(hit->hit(hit, m))
 			g->flags|=REMOUSE;
 		else
 			g->flags&=~REMOUSE;

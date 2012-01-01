@@ -90,6 +90,8 @@ Www *current=0;
 Url *selection=0;
 int logfile;
 int mothmode;
+int kickpipe[2];
+
 void docmd(Panel *, char *);
 void doprev(Panel *, int, int);
 char *urlstr(Url *);
@@ -310,7 +312,9 @@ void main(int argc, char *argv[]){
 	pltabsize(chrwidth, 8*chrwidth);
 	einit(Emouse|Ekeyboard);
 	eplumb(Eplumb, "web");
-	etimer(0, 1000);
+	if(pipe(kickpipe) < 0)
+		sysfatal("pipe: %r");
+	estart(0, kickpipe[0], 256);
 	plinit(screen->depth);
 	if(debug) notify(dienow);
 	getfonts();
@@ -394,7 +398,7 @@ void main(int argc, char *argv[]){
 			break;
 		case Emouse:
 			mouse=e.mouse;
-			plmouse(root, e.mouse);
+			plmouse(root, &mouse);
 			break;
 		case Eplumb:
 			pm=e.v;
@@ -1083,6 +1087,14 @@ void updtext(Www *w){
 	plinittextview(text, PACKE|EXPAND, Pt(0, 0), w->text, dolink);
 	plsetpostextview(text, w->yoffs);
 	pldraw(root, screen);
+}
+void update(Www *w){
+	w->changed = 1;
+	write(kickpipe[1], "C", 1);
+}
+void finish(Www *w){
+	w->finished = 1;
+	write(kickpipe[1], "F", 1);
 }
 
 void

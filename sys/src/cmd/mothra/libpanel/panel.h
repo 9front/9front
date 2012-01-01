@@ -104,7 +104,7 @@ void pldraw(Panel *, Image *);		/* display the panel on the bitmap */
 void plfree(Panel *);			/* give back space */
 void plgrabkb(Panel *);			/* this Panel should receive keyboard events */
 void plkeyboard(Rune);			/* send a keyboard event to the appropriate Panel */
-void plmouse(Panel *, Mouse);		/* send a Mouse event to a Panel tree */
+void plmouse(Panel *, Mouse *);		/* send a Mouse event to a Panel tree */
 void plscroll(Panel *, Panel *, Panel *); /* link up scroll bars */
 char *plentryval(Panel *);		/* entry delivers its value */
 void plsetbutton(Panel *, int);		/* set or clear the mark on a button */

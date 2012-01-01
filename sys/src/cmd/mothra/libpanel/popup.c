@@ -74,7 +74,7 @@ int pl_hitpopup(Panel *g, Mouse *m){
 			g->state=UP;
 		}
 	}
-	plmouse(p, *m);
+	plmouse(p, m);
 	return (m->buttons&7)!=0;
 }
 void pl_typepopup(Panel *g, Rune c){

@@ -103,7 +103,7 @@ void pl_drawtextview(Panel *p){
  * If t is a panel word, pass the mouse event on to it
  */
 void pl_passon(Rtext *t, Mouse *m){
-	if(t && t->b==0 && t->p!=0) plmouse(t->p, *m);
+	if(t && t->b==0 && t->p!=0) plmouse(t->p, m);
 }
 int pl_hittextview(Panel *p, Mouse *m){
 	Rtext *oldhitword;

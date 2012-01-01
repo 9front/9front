@@ -78,6 +78,8 @@ enum{
 	POST,
 };
 
+void update(Www *w);
+void finish(Www *w);
 void plrdhtml(char *, int, Www *);
 void plrdplain(char *, int, Www *);
 void htmlerror(char *, int, char *, ...);	/* user-supplied routine */
