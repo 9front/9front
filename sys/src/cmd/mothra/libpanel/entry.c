@@ -28,16 +28,17 @@ void pl_snarfentry(Panel *p, int cut){
 			write(fd, ep->entry, n);
 		ep->entp=ep->entry;
 	}else{
-		if((s=malloc(1024+SLACK))==0){
+		n = 1024;
+		if((s=malloc(n+SLACK))==0){
 			close(fd);
 			return;
 		}
-		if((n=readn(fd, s, 1024))<0)
+		if((n=readn(fd, s, n))<0)
 			n=0;
 		free(ep->entry);
 		s=realloc(s, n+SLACK);
 		ep->entry=s;
-		ep->eent=s+n+SLACK;
+		ep->eent=s+n;
 		ep->entp=s+n;
 	}
 	close(fd);
@@ -129,9 +130,9 @@ void pl_typeentry(Panel *p, Rune c){
 			ep->entp=ep->entry+n;
 			ep->eent=ep->entp+100;
 		}
+		*ep->entp='\0';
 		break;
 	}
-	memset(ep->entp, 0, SLACK);
 	pldraw(p, p->b);
 }
 Point pl_getsizeentry(Panel *p, Point children){
