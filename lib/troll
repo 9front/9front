@@ -57,3 +57,5 @@ That's a reason why one of my favorite languages is php. It just works.
 Petition to have Obama address occupy wallstreet movement
 When Remington first started marketing typewriters, the company assumed the machine would not be used for composing but for transcribing dictation, and that the person typing would be a woman. Flowers were printed on the casing of early models to make the machine seem more comfortable for women to use.
 Bigelow & Holmes, Inc. created the screen fonts in the luc, lucm, lucsans, and pelm directories and granted permission to redistribute them with plan9port.
+I tested DNS Bench from grc.com against Plan 9 running in VirtualBox and fossil died.
+venti can store data, but not delete it, fossil can delete data, but not store it, they complement each other perfectly!
