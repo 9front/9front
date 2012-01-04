@@ -14,5 +14,6 @@ if(test -s /sys/lib/pkg/$1) {
 			echo M $fs($i) NOT DELETING
 		}
 	}
+	rm -rf /sys/src/pkg/$1
 	rm /sys/lib/pkg/$1
 }

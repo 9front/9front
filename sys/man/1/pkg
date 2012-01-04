@@ -43,7 +43,12 @@ repository. The source directory should be provided as a full path.
 .I Pkg/install 
 Install the package
 .I name
-from the current repository.
+from the current repository, unpacking the executables in
+.B /$cputype/bin/
+or
+.B /rc/bin/
+and the source in
+.B /sys/src/pkg/.
 .TP
 .I Pkg/list
 List packages available from the current repository.
