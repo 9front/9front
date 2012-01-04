@@ -78,10 +78,13 @@ programming language:
 % pkg/install go-2011.05.10
 .EE
 .SH FILES
-.TF /sys/lib/pkg/*
+.TF
 .TP
 .B /sys/lib/pkg/*
 hash files of packages installed locally.
+.TP
+.B /sys/src/pkg/*
+source files of packages installed locally.
 .SH SOURCE
 .B /sys/src/cmd/pkg/create
 .br
