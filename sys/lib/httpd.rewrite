@@ -1,11 +1,20 @@
-# httpd(8) describes the syntax.  to kick-start,
-# for(i in `{seq 50}) hget http://www.your-domain.com/ >/dev/null
+#
 
-# An example of a local redirect
-#/netlib/c++/idioms/index.html.Z /netlib/c++/idioms/index.html
+# 	syntax: prefix replacement
+# 	parsed by splitting into fields separated by spaces and tabs.
+# 	Anything following a # is ignored.
+#
+#	Pegasus extension for virtual host
+#	`*' prefixed items will be bound to web root
+#
+
+
+# Home page for IP based virtual host. Don't foreget the IP of plan9
+#http://car		*/usr/carol/www
+#http://202.250.160.122	*/usr/carol/www
 
 # Redirection to another site
-#/netlib/lapack/lawns http://netlib.org/lapack/lawns
+#/~emili	http://plan9.bell-labs.com
 
-# Home page for virtual host
-#http://www.ampl.com/		/cm/cs/what/ampl/index.html
+# Httpd root of real host is "/usr/bob/www"
+/	*/usr/re9714

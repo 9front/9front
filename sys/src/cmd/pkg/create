@@ -11,7 +11,8 @@ C=`{pwd}
 	cd $d
 	mk
 	divergefs -p /tmp/$i /
-	mk install clean
+	mk install
+	mk clean
 	unmount /
 }
 cd /tmp/$i/files

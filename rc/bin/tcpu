@@ -1,0 +1,6 @@
+#!/bin/rc
+rfork ne
+auth/keyfs -p
+aux/listen1 -t tcp!*!ticket /bin/auth/authsrv &
+service=cpu aux/listen1 tcp!*!cpu /bin/cpu -O &
+service=cpu aux/listen1 tcp!*!ncpu /bin/cpu -R &
