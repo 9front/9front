@@ -97,5 +97,9 @@ source files of packages installed locally.
 .B /sys/src/cmd/pkg/remove
 .br
 .B /sys/src/cmd/pkg/unpkg.c
+.SH REPOSITORIES
+.B http://pkg.violetti.org/386
+.br
+.B http://plan9.stanleylieber.com/pkg/386
 .SH SEE ALSO
 .IR contrib (1)
