@@ -1,39 +1,39 @@
-# 	At this stage, namespace is alredy configured using /lib/namespace
-# 	We can add something to it.
+# we start with the namespace of the console...
 
-#
-#	Here /usr/web is our webbase
-#	and `alice' stands for any user
-#
+# man2html expects man pages under /sys/man
+mount #s/boot /n/emelieother other
+bind /n/emelieother/plan9/sys/man /usr/web/sys/man
+#bind /n/emelieother/plan9/sys/doc /usr/web/sys/doc
+#bind /sys/man /usr/web/sys/man
+bind /sys/doc /usr/web/sys/doc
 
-# 	In case that `/~alice' is requested,
-#		bind /usr/alice/web /usr/web/mnt
-# 	is internally executed at the beginning.
+# just so people will find something under plan9
+bind /usr/web/plan9dist /usr/web/plan9
 
-#
-#	configure our basic namespace
-#
+# users
+bind /usr/mike/www /usr/web/incoming/mike
 
-bind -a /usr/web/bin/$cputype /bin
-bind -a /usr/web/bin/rc /bin
+# netlib
+bind /netlib/pub /usr/web/netlib
+mount -b #s/netlib.depend.pub /usr/web/netlib.depend
+# don't need to bind to /usr/web/math etc. because of /sys/lib/http-rewrite
 
-bind /sys/lib /usr/web/sys/lib
-bind /lib /usr/web/lib
-bind /bin /usr/web/bin
-bind /rc/lib /usr/web/rc/lib
-bind -c #e /usr/web/env
-bind #c /usr/web/dev
+# who what why when where
+mount /srv/alice /n/alice
+bind -b /n/alice/cm /usr/web/cm
+bind /usr/web/cm/who /usr/web/who
+bind -b /usr/web/cm/physics/who /usr/web/who
+bind -b /usr/web/cm/blrsv/who /usr/web/who
+bind -b /usr/web/cm/ss/who /usr/web/who
+bind -b /usr/web/cm/ms/who /usr/web/who
+bind -b /usr/web/cm/china/who /usr/web/who
+bind -b /usr/web/cm/cs/who /usr/web/who
+bind /usr/web/cm/ms/what/wavelet /usr/web/wavelet
 
-bind /proc /usr/web/proc
-bind -a #d  /usr/web/fd
+# formerly ftp.research.bell-labs.com
+bind -b /n/alice/usr/ftp /usr/web/dist
 
-#	In case of  `~' , 
-#		bind /usr/web/mnt /usr/web/doc
-#	is internally executed
+# wiki (questions to rsc)
+mount -b #s/wiki.plan9 /usr/web/wiki/plan9
 
-#	Let /usr/web be our webroot then
-#	httpd internally execute the followings:
-#		bind /usr/web /
-#		cd /
-#	to cut off everything not mounted below /usr/web
-#
+# httpd will bind /usr/web onto /
