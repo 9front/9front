@@ -59,16 +59,15 @@ getattr(int conn, char *s)
 	char buf[BUFSIZE];
 	int fd, n;
 
+	n = 0;
 	snprint(buf, sizeof(buf), "%s/%d/%s", webmountpt, conn, s);
 	fd = open(buf, OREAD);
-	if(fd < 0)
-		error("can't open attr file");
-
-	n = read(fd, buf, sizeof(buf)-1);
-	if(n < 0)
-		error("can't read");
-
-	close(fd);
+	if(fd >= 0){
+		n = read(fd, buf, sizeof(buf)-1);
+		if(n < 0)
+			n = 0;
+		close(fd);
+	}
 	buf[n] = '\0';
 	return (Runestr){runesmprint("%s", buf), n};
 }
