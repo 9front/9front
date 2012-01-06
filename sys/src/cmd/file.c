@@ -834,6 +834,8 @@ struct	FILE_STRING
 	"subject=/C=",		"pem certificate with header", -1, "text/plain",
 	"process snapshot ",	"process snapshot",	-1,	"application/snapfs",
 	"d8:announce",		"torrent file",		11,	"application/x-bittorrent",
+	"[playlist]",		"playlist",		10,	"application/x-scpls",
+	"#EXTM3U",		"playlist",		7,	"audio/x-mpegurl",
 	0,0,0,0
 };
 
