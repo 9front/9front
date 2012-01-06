@@ -5,14 +5,14 @@ d=$1
 echo Creating $i
 C=`{pwd}
 @{
-rfork en
-mkdir -p /tmp/$i/files/sys/src/cmd/$i
-dircp $d /tmp/$i/files/sys/src/cmd/$i
-cd $d
-mk
-divergefs -p /tmp/$i /
-mk install clean
-unmount /
+	rfork en
+	mkdir -p /tmp/$i/files/sys/src/pkg/$i
+	dircp $d /tmp/$i/files/sys/src/pkg/$i
+	cd $d
+	mk
+	divergefs -p /tmp/$i /
+	mk install clean
+	unmount /
 }
 cd /tmp/$i/files
 rm -r env

@@ -43,7 +43,12 @@ repository. The source directory should be provided as a full path.
 .I Pkg/install 
 Install the package
 .I name
-from the current repository.
+from the current repository, unpacking the executables in
+.B /$cputype/bin/
+or
+.B /rc/bin/
+and the source in
+.B /sys/src/pkg/.
 .TP
 .I Pkg/list
 List packages available from the current repository.
@@ -73,10 +78,13 @@ programming language:
 % pkg/install go-2011.05.10
 .EE
 .SH FILES
-.TF /sys/lib/pkg/*
+.TF
 .TP
 .B /sys/lib/pkg/*
 hash files of packages installed locally.
+.TP
+.B /sys/src/pkg/*
+source files of packages installed locally.
 .SH SOURCE
 .B /sys/src/cmd/pkg/create
 .br
@@ -89,5 +97,9 @@ hash files of packages installed locally.
 .B /sys/src/cmd/pkg/remove
 .br
 .B /sys/src/cmd/pkg/unpkg.c
+.SH REPOSITORIES
+.B http://pkg.violetti.org/386
+.br
+.B http://plan9.stanleylieber.com/pkg/386
 .SH SEE ALSO
 .IR contrib (1)

@@ -1,7 +1,7 @@
 #!/bin/rc
 
 if(~ $#pkgpath 0)
-	pkgpath=http://pkg.violetti.org/$cputype
+	pkgpath=http://plan9.stanleylieber.com/pkg/$cputype
 
 if(~ $pkgpath ftp* http*)
 	hget $pkgpath | htmlfmt | grep '\.tbz' | sed -e 's/\.tbz$//'
