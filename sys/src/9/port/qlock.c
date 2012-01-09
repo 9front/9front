@@ -54,10 +54,9 @@ eqlock(QLock *q)
 	up->state = Queueing;
 	unlock(&q->use);
 	sched();
-	if(up->notepending){
-		up->notepending = 0;
-		if(up->eql == q)
-			qunlock(q);
+	if(up->eql == 0){
+		if(up->notepending)
+			up->notepending = 0;
 		error(Eintr);
 	}
 }

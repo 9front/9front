@@ -892,6 +892,7 @@ int
 postnote(Proc *p, int dolock, char *n, int flag)
 {
 	int s, ret;
+	QLock *q;
 
 	if(dolock)
 		qlock(&p->debug);
@@ -943,13 +944,9 @@ postnote(Proc *p, int dolock, char *n, int flag)
 	switch(p->state){
 	case Queueing:
 		/* Try and pull out of a eqlock */
-		if(p->notepending){
-			QLock *q;
-
-			if((q = p->eql) == nil)
-				break;
+		if(q = p->eql){
 			lock(&q->use);
-			if(p->state == Queueing && p->eql == q && p->notepending){
+			if(p->state == Queueing && p->eql == q){
 				Proc *d, *l;
 
 				for(l = nil, d = q->head; d; l = d, d = d->qnext){
