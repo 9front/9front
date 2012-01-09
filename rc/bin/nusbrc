@@ -5,6 +5,8 @@ if(! test -e '#σ/usb/usbevent')
 if(! bind -a '#u' /dev)
 	exit
 
+mkdir -p -m 700 '#σc/usbnet'
+
 @{
 	rfork ne
 	fn attach {
@@ -14,6 +16,7 @@ if(! bind -a '#u' /dev)
 		case *02
 			# serial and ethernet
 			nusb/serial $1
+			nusb/ether $1
 		case *03
 			# handled /sys/src/9/boot/nusbrc
 			# nusb/kb $1
@@ -25,9 +28,13 @@ if(! bind -a '#u' /dev)
 		}
 	}
 	fn detach {
-		# handled /sys/src/9/boot/nusbrc
+		switch($4){
+		case *02
+			rm -f '#σ/usbnet/'^$1.*
+		}
 	}
 	rc < '#σ/usb/usbevent' &
 }
 
 bind -a '#σ/usb' /dev
+bind -a '#σ/usbnet' /net
