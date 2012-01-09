@@ -186,9 +186,10 @@ dupseg(Segment **seg, int segno, int share)
 
 	case SG_DATA:		/* Copy on write plus demand load info */
 		if(segno == TSEG){
+			n = data2txt(s);
 			poperror();
 			qunlock(&s->lk);
-			return data2txt(s);
+			return n;
 		}
 
 		if(share)
