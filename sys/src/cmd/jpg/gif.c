@@ -350,8 +350,7 @@ show(int fd, char *name)
 				goto Return;
 			}
 			switch((images[k]->gifflags>>2)&7){
-			case 0:
-			case 1:
+			default:
 				draw(tmp, img->r, img, msk, img->r.min);
 				draw(dst, tmp->r, tmp, nil, tmp->r.min);
 				break;
