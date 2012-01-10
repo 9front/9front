@@ -8,7 +8,6 @@ OFILES=\
 	chanprint.$O\
 	create.$O\
 	debug.$O\
-	dial.$O\
 	exec.$O\
 	exit.$O\
 	id.$O\
