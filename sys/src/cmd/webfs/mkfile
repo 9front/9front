@@ -1,35 +1,8 @@
 </$objtype/mkfile
 BIN=/$objtype/bin
-
 TARG=webfs
 
-SCHEMEOFILES=\
-	file.$O\
-	ftp.$O\
-	http.$O\
-
-OFILES=\
-	buf.$O\
-	client.$O\
-	cookies.$O\
-	fs.$O\
-	http.$O\
-	io.$O\
-	main.$O\
-	plumb.$O\
-	url.$O\
-	util.$O\
-#	$SCHEMEOFILES
-
-HFILES=\
-	dat.h\
-	fns.h\
-
-UPDATE=\
-	mkfile\
-	$HFILES\
-	${OFILES:%.$O=%.c}\
-	${TARG:%=/386/bin/%}\
+HFILES=fns.h dat.h
+OFILES=sub.$O url.$O buq.$O http.$O fs.$O
 
 </sys/src/cmd/mkone
-

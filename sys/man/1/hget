@@ -4,19 +4,20 @@ hget \- retrieve a web page corresponding to a url
 .SH SYNOPSIS
 .B hget
 [
-.B -dhv
-] [
 .B -o
-.I ofile
+.I file
 ] [
 .B -p
 .I body
 ] [
-.B -x
-.I netmntpt
-] [
 .B -r
 .I header
+] [
+.B -m
+.I method
+] [
+.B -b
+.I baseurl
 ]
 .I url
 .SH DESCRIPTION
@@ -26,7 +27,16 @@ retrieves the web page specified by the URL
 and writes it, absent the
 .B -o
 option, to standard output.
-The known URL types are: http and ftp.
+.PP
+The
+.I url
+can be a relative path like
+.B ../index.html
+if a absolute
+.I baseurl
+was specified with the
+.B -b
+option.
 .PP
 If
 .I url
@@ -47,40 +57,22 @@ but incomplete,
 will fetch the missing bytes.
 .PP
 Option
-.B -h
-causes HTTP headers to be printed to standard output
-in addition to the transferred web page.
-.PP
-Option
 .B -r
 sends an arbitrary HTTP
 .IR header .
 .PP
 Option
-.B -d
-turns on debugging written to standard error.
-.PP
-Normally,
-.I hget
-uses the IP stack mounted under
-.BR /net .
-The
-.B -x
-option can be used to specify the mount point of
-a different IP stack to use.
-.PP
-Option
-.B -v
-writes progress lines to standard error once a second.
-Each line contains two numbers, the bytes transferred so
-far and the total length to be transferred.
-.PP
-If the environment variable
-.B httpproxy
-is set, it is used as a URL denoting an HTTP proxy server.
-All HTTP accesses use this server to get the page instead of
-calling the destination server.
+.B -m
+overrides the HTTP method used for the request.
 .SH SOURCE
-.B /sys/src/cmd/hget.c
+.B /rc/bin/hget
 .SH "SEE ALSO"
+.IR webfs (4),
 .IR ftpfs (4)
+.SH DIAGNOSTICS
+.I Hget
+requires 
+.IR webfs (4)
+service mounted on
+.B /mnt/web
+to work.

@@ -10,10 +10,11 @@ cd $home
 x='$'
 mkdir bin bin/rc bin/mips bin/386 bin/power bin/arm
 mkdir lib tmp
+touch lib/webcookies
+chmod 600 lib/webcookies
 chmod +t tmp
 bind -qc /n/other/usr/$user/tmp $home/tmp
 bind -c $home/tmp /tmp
-
 mail -c
 auth/cron -c
 
@@ -26,6 +27,8 @@ bind -c $x^home/tmp /tmp
 font = /lib/font/bit/pelm/euro.9.font
 switch($x^service){
 case terminal
+	webcookies
+	webfs
 	plumber
 	startupasfs
 	echo -n accelerated > '#m/mousectl'

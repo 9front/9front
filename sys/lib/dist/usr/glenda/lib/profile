@@ -9,9 +9,15 @@ font = /lib/font/bit/pelm/euro.9.font
 fn cd { builtin cd $* && awd }  # for acme
 switch($service){
 case terminal
+	if(! test -w $home/lib/webcookies){
+		touch /tmp/webcookies
+		webcookies -f /tmp/webcookies
+	}
+	if not {
+		webcookies
+	}
+	webfs
 	plumber
-	touch /tmp/webcookies
-	webfs -c /tmp/webcookies
 	echo -n accelerated > '#m/mousectl'
 	echo -n 'res 3' > '#m/mousectl'
 	prompt=('term% ' '	')

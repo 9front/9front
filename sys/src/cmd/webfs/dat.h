@@ -1,104 +1,67 @@
-typedef struct Client Client;
-typedef struct Ctl Ctl;
-typedef struct Ibuf Ibuf;
 typedef struct Url Url;
+typedef struct Buq Buq;
+typedef struct Buf Buf;
+typedef struct Key Key;
 
-/* simple buffered i/o for network connections; shared by http, ftp */
-struct Ibuf
-{
-	int fd;
-	Ioproc *io;
-	char buf[4096];
-	char *rp, *wp;
-};
+typedef struct {
+	char	*s1;
+	char	*s2;
+} Str2;
 
-struct Ctl
-{
-	int	acceptcookies;
-	int	sendcookies;
-	int	redirectlimit;
-	char	*useragent;
-};
-
-struct Client
-{
-	Url	*url;
-	Url	*baseurl;
-
-	Ctl ctl;
-	Channel *creq;	/* chan(Req*) */
-	int num;
-	int plumbed;
-	char *contenttype;
-	char *postbody;
-	char *redirect;
-	char *authenticate;
-	char *ext;
-	int npostbody;
-	int havepostbody;
-	int iobusy;
-	int bodyopened;
-	Ioproc *io;
-	int ref;
-	void *aux;
-};
-
-/*
- * If ischeme is USunknown, then the given URL is a relative
- * URL which references the "current document" in the context of the base.
- * If this is the case, only the "fragment" and "url" members will have
- * meaning, and the given URL structure may not be used as a base URL itself.
- */
-enum
-{
-	USunknown,
-	UShttp,
-	UShttps,
-	USftp,
-	USfile,
-	UScurrent,
-};
+/* 9p */
+typedef struct Req Req;
 
 struct Url
 {
-	int		ischeme;
-	char*	url;
-	char*	scheme;
-	int		(*open)(Client*, Url*);
-	int		(*read)(Client*, Req*);
-	void		(*close)(Client*);
-	char*	schemedata;
-	char*	authority;
-	char*	user;
-	char*	passwd;
-	char*	host;
-	char*	port;
-	char*	path;
-	char*	query;
-	char*	fragment;
-	union {
-		struct {
-			char *page_spec;
-		} http;
-		struct {
-			char *path_spec;
-			char *type;
-		} ftp;
-	};
+	char	*scheme;
+	char	*user;
+	char	*pass;
+	char	*host;
+	char	*port;
+	char	*path;
+	char	*query;
+	char	*fragment;
 };
 
-enum
+struct Buf
 {
-	STACK = 32*1024,  /* was 16*1024; there are big arrays on the stack */
+	Buf	*next;
+	uchar	*rp;
+	uchar	*ep;
+	Req	*wreq;
+	uchar	end[];
 };
 
-extern	Client**	client;
-extern	int		cookiedebug;
-extern	Srv		fs;
-extern	int		fsdebug;
-extern	Ctl		globalctl;
-extern	int		nclient;
-extern	int		urldebug;
-extern	int		httpdebug;
-extern	char*	status[];
+struct Key
+{
+	Key	*next;
+	char	*val;
+	char	key[];
+};
 
+struct Buq
+{
+	Ref;
+	QLock;
+
+	Url	*url;
+	Key	*hdr;
+	char	*error;
+
+	int	closed;
+	int	limit;
+	int	size;
+
+	/* write buffers */
+	Buf	*bh;
+	Buf	**bt;
+
+	/* read requests */
+	Req	*rh;
+	Req	**rt;
+
+	Rendez	rz;
+};
+
+int	debug;
+Url	*proxy;

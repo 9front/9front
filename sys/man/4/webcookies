@@ -147,20 +147,8 @@ If
 .B cookiefs
 decides not to accept the cookie (as outlined in
 RFC2109, section 4.3.4), no indication is given.
-.PP
-.IR Hget (1)
-uses
-.BR /mnt/webcookies/http ,
-when it exists, to manage cookie state.
-.I Webfs
-does not (yet).
 .SH SOURCE
 .B /sys/src/cmd/webcookies.c
 .SH SEE ALSO
+.IR webfs (4),
 .IR hget (1)
-.SH BUGS
-It's not clear what the relationship between
-.I cookiefs
-and something like
-.I webfs
-should be.
