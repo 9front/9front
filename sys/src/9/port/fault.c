@@ -200,7 +200,7 @@ pio(Segment *s, ulong addr, ulong soff, Page **p)
 	Page *new;
 	KMap *k;
 	Chan *c;
-	int n, ask, cache;
+	int n, ask;
 	char *kaddr;
 	ulong daddr;
 	Page *loadrec;
@@ -238,18 +238,14 @@ retry:
 	k = kmap(new);
 	kaddr = (char*)VA(k);
 
-	cache = c->flag & CCACHE;
 	while(waserror()) {
-		c->flag |= cache;
 		if(strcmp(up->errstr, Eintr) == 0)
 			continue;
 		kunmap(k);
 		putpage(new);
 		faulterror(Eioload, c, 0);
 	}
-	c->flag &= ~CCACHE;
 	n = devtab[c->type]->read(c, kaddr, ask, daddr);
-	c->flag |= cache;
 	if(n != ask)
 		faulterror(Eioload, c, 0);
 	if(ask < BY2PG)
