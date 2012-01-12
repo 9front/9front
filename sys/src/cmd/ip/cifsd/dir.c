@@ -160,7 +160,7 @@ xdirread0(char **path, int (*namecmp)(char *, char *), Dir **d)
 	n = -1;
 	if(fd < 0 || t == nil)
 		goto out;
-	if(t->qid.type != QTDIR){
+	if((t->qid.type & QTDIR) == 0){
 		werrstr("not a directory");
 		goto out;
 	}

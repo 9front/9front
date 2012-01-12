@@ -211,7 +211,7 @@ fsmkdir(Dir *d, int level, void *aux)
 	d->uid = estrdup(user);
 	d->gid = estrdup(user);
 	d->muid = estrdup(user);
-	if(d->qid.type == QTDIR)
+	if(d->qid.type & QTDIR)
 		d->mode |= DMDIR | 0111;
 	switch(level){
 	case Qheader:

@@ -754,7 +754,7 @@ mktorrent(int fd, char *url)
 
 	if((d = dirfstat(fd)) == nil)
 		return -1;
-	if(d->qid.type == QTDIR){
+	if(d->qid.type & QTDIR){
 		free(d);
 		werrstr("file is a directory");
 		return -1;

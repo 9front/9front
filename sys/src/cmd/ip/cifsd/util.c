@@ -144,7 +144,9 @@ extfileattr(Dir *d)
 {
 	int a;
 
-	a = (d->qid.type == QTDIR) ? ATTR_DIRECTORY : ATTR_NORMAL;
+	a = (d->qid.type & QTDIR) ? ATTR_DIRECTORY : ATTR_NORMAL;
+	if((d->qid.type & QTTMP) == 0)
+		a |= ATTR_ARCHIVE;
 	if((d->mode & 0222) == 0)
 		a |= ATTR_READONLY;
 	if(d->name[0] == '.' && d->name[1] && d->name[1] != '.')

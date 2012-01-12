@@ -383,7 +383,7 @@ errout:
 		xcmd, 0, nfid, act, tofiletime(d->mtime), tofiletime(d->atime),
 		tofiletime(d->mtime), tofiletime(d->mtime), extfileattr(d),
 		allocsize(d->length, t->share->blocksize), 
-		d->length, f->rtype, d->qid.type == QTDIR, &r->rp)){
+		d->length, f->rtype, (d->qid.type & QTDIR) != 0, &r->rp)){
 		delfid(t, nfid);
 		r->respond(r, STATUS_INVALID_SMB);
 	} else
@@ -911,7 +911,7 @@ smbcheckdirectory(Req *r, uchar *h, uchar *p, uchar *e)
 		r->respond(r, smbmkerror());
 		goto out;
 	}
-	if(d->qid.type != QTDIR){
+	if((d->qid.type & QTDIR) == 0){
 		r->respond(r, STATUS_OBJECT_PATH_NOT_FOUND);
 		goto out;
 	}
@@ -1057,7 +1057,7 @@ qpackdir(Req *, Dir *d, Tree *t, File *f, int level, uchar *b, uchar *p, uchar *
 	alen = allocsize(dlen, share->blocksize);
 	atime = tofiletime(d->atime);
 	mtime = tofiletime(d->mtime);
-	isdir = d->qid.type == QTDIR;
+	isdir = (d->qid.type & QTDIR) != 0;
 	delete = f && deletedfile(f);
 	link = !delete;
 
@@ -1205,7 +1205,7 @@ setfilepathinformation(Req *r, Dir *d, File *f, char *path, int level, uchar *b,
 	case 0x0104:	/* SMB_SET_FILE_END_OF_FILE_INFO */
 		if(f == nil || !unpack(b, p, e, "v", &len))
 			goto unsup;
-		if(d->qid.type == QTDIR)
+		if(d->qid.type & QTDIR)
 			return STATUS_OS2_INVALID_ACCESS;
 		if(len != -1LL)
 			nd.length = len;

@@ -122,7 +122,7 @@ noaccess:
 			goto out;
 		}
 
-		isdir = d->qid.type == QTDIR;
+		isdir = (d->qid.type & QTDIR) != 0;
 		switch(cdisp){
 		case FILE_SUPERSEDE:
 			act = FILE_SUPERSEDED;

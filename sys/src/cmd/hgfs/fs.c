@@ -240,7 +240,7 @@ fsmkdir(Dir *d, int level, void *aux)
 	fsmkqid(&d->qid, level, aux);
 
 	d->mode = 0444;
-	if(d->qid.type == QTDIR)
+	if(d->qid.type & QTDIR)
 		d->mode |= DMDIR | 0111;
 
 	ri = nil;
@@ -405,7 +405,7 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 	Revfile *rf;
 	int i, level;
 
-	if(!(fid->qid.type&QTDIR))
+	if((fid->qid.type & QTDIR) == 0)
 		return "walk in non-directory";
 
 	rf = fid->aux;
