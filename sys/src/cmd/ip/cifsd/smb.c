@@ -427,11 +427,14 @@ badsmb:
 		r->respond(r, STATUS_INVALID_SMB);
 		goto out;
 	}
-	re = rb + maxcount;
+	re = rb + mincount;
 	if(re > r->re)
-		re = r->re;
-	if((rb + mincount) > re)
 		goto badsmb;
+	if(maxcount > mincount){
+		re = rb + maxcount;
+		if(re > r->re)
+			re = r->re;
+	}
 	n = 0;
 	rp = rb;
 	while(rp < re){
@@ -868,13 +871,20 @@ smbsetinformation(Req *r, uchar *h, uchar *p, uchar *e)
 	nulldir(&nd);
 	if(mtime)
 		nd.mtime = mtime-tzoff;
+	nd.mode = d->mode;
 	if(attr & ATTR_READONLY){
-		if(d->mode & 0222)
-			nd.mode = d->mode & ~0222;
-	} else {
-		if((d->mode & 0222) == 0)
-			nd.mode = d->mode | 0222;
+		if(nd.mode & 0222)
+			nd.mode &= ~0222;
+	}else{
+		if((nd.mode & 0222) == 0)
+			nd.mode |= 0222;
 	}
+	if(attr & ATTR_ARCHIVE)
+		nd.mode &= ~DMTMP;
+	else
+		nd.mode |= DMTMP;
+	if(nd.mode == d->mode)
+		nd.mode = ~0;
 	if(dirwstat(path, &nd) < 0){
 		r->respond(r, smbmkerror());
 		goto out;
