@@ -55,8 +55,7 @@ eqlock(QLock *q)
 	unlock(&q->use);
 	sched();
 	if(up->eql == 0){
-		if(up->notepending)
-			up->notepending = 0;
+		up->notepending = 0;
 		error(Eintr);
 	}
 }
