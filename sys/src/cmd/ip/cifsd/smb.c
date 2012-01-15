@@ -17,7 +17,7 @@ static int negotiated;
 void
 smbnegotiate(Req *r, uchar *h, uchar *p, uchar *e)
 {
-	uchar *d, *de, *c, *ce;
+	uchar *d, *de, *c, *ce, dom[256];
 	int i, x, mode;
 	char *s;
 
@@ -53,11 +53,19 @@ err:
 		} else
 			logit("auth_challenge: %r");
 	}
-	if(!pack(r->rh, r->rp, r->re, "#0b{*2wbwwllllvw#2b}#1w{[]f}.",
+
+	/*
+	 * <89> Section 2.2.4.52.2:  Windows NT servers always send the DomainName
+	 *	field in Unicode characters and never add a padding byte for alignment.
+	 *	Windows clients ignore the DomainName field in the server response.
+	 */
+	d = dom;
+	de = dom + smbstrpack16(d, d, d + sizeof(dom), domain);
+	if(!pack(r->rh, r->rp, r->re, "#0b{*2wbwwllllvw#2b}#1w{[][]}.",
 		x, mode, 50, 1, BUFFERSIZE, 0x10000, sessionkey,
 		CAP_UNICODE | CAP_LARGEFILES | 
 		CAP_NT_FIND | CAP_NT_SMBS | CAP_NT_STATUS,
-		tofiletime(time(0)), -tzoff/60, c, ce, r->o->strpack, domain, &r->rp))
+		tofiletime(time(0)), -tzoff/60, c, ce, d, de, &r->rp))
 		goto err;
 	negotiated = 1;
 	r->respond(r, 0);
