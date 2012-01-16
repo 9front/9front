@@ -1,0 +1,35 @@
+
+more complete (server crossing) DFS support,
+	This requires major changes. cifs should support multiple sessions
+	via attach specifiers. Much of the existing code should be library-ised
+	and a new app which sits above cifs used to resolve DFS referrals and
+	launch new cifs sessions as required.
+
+fix MAC signing
+	should work but doesn't
+
+also put modified mschap interface into factotum 
+	This should give support for ntlmv2 auth  and mac signing
+
+Support for FindNotify() callbacks rather than 1 second timer for directory caching
+
+multithread the cifs
+	most of the work is done, but some global state
+	sitll exists and will need to be locked.
+
+sort out why can I not make multiple connections from the same server?
+	I already use a random number for the MUID already
+
+RPC protocol support
+	this will give file owner/group and ACLs/permissioms.
+
+DFS lookups should occur on every use not just on walks,
+	this should allow timeout and refresh of DFS referals.
+
+ping RTT measurment cache timeout
+
+seperate the virtual filesystems presented by attach specifier
+	print - print queue
+	state - status files, like Users and Sessions.
+	main - normal filesystem
+

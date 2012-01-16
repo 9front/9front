@@ -1,0 +1,11 @@
+Connection fails to Windows Vista or Windows 2008 server using NTLMv2 auth
+
+This is due to a bug in Windows, either use an alternative
+authentication strategy, or apply the Microsoft HotFix, which
+is just a matter of creating a new registry entry, see: 
+	
+	http://support.microsoft.com/kb/957441
+
+-Steve
+
+Tue Sep 21 17:05:48 BST 2010

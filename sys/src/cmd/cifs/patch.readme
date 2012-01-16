@@ -1,0 +1,29 @@
+workarounds of unicode setup during protocol negoiation,
+seems to be a bug in windows.
+
+revalidated against fairly current samba, WinXP, Win7 and cinap's
+cifsd server for plan9.
+
+bug in virtual filesystem which could cause the filesystem to
+disappear if you looked in the Shares virtual file
+
+tweeks to Auth code (mainly tidying) and trying to get auth to work to
+vista.  turns out you need to apply a hotfix (regedit)
+http://support.microsoft.com/kb/957441 and cifs is happy with vista.
+
+major overhall of DFS code.  works much better but still does not
+cross servers and doesn't give any helpful messages when it fails :-(
+
+case significance is enforced by cifs, though you still cannot create
+Makefile and makefile as seperate entities.  This is enabled by
+default but can be disabled by a command line option.
+
+also fixed a bug in UNICODE handling, I got away with this on windows
+but cinap's cifsd drew blood.
+
+execute requests are always denied on cifs files.  Perhaps this too
+should be a command line option, but having plan9 executables on a
+windows server is a rarity IMHO.
+
+in CIFStreeconnect() removed ths strupr() call - trees are not neccessarly
+upper case, some servers are case significant on volume/share names.
