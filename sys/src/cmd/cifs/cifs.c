@@ -40,7 +40,11 @@ cifsdial(char *host, char *called, char *sysname)
 	s->seqrun = 0;
 	s->secmode = SECMODE_SIGN_ENABLED;	/* hope for the best */
 	s->flags2 = FL2_KNOWS_LONG_NAMES | FL2_HAS_LONG_NAMES | FL2_PAGEING_IO;
+
 	s->macidx = -1;
+
+	if(s->mtu > MTU)
+		s->mtu = MTU;
 
 	return s;
 }
@@ -76,6 +80,7 @@ cifshdr(Session *s, Share *sp, int cmd)
 
 	p->buf = (uchar *)p + sizeof(Pkt);
 	p->s = s;
+	p->request = cmd;				/* for debug */
 
 	qlock(&s->seqlock);
 	if(s->seqrun){
@@ -137,10 +142,11 @@ dmp(int seq, uchar *buf)
 int
 cifsrpc(Pkt *p)
 {
-	int flags2, got, err;
+	int reply, got, err;
 	uint tid, uid, seq;
 	uchar *pos;
 	char m[nelem(magic)];
+
 
 	pos = p->pos;
 	if(p->bytebase){
@@ -155,20 +161,23 @@ cifsrpc(Pkt *p)
 	qlock(&p->s->rpclock);
 	got = nbtrpc(p);
 	qunlock(&p->s->rpclock);
-	if(got == -1)
+
+	if(got < 32+NBHDRLEN){
+		werrstr("cifs packet too small (%d < %d)\n", got, 32+NBHDRLEN);
 		return -1;
+	}
 
 	gmem(p, m, nelem(magic));
 	if(memcmp(m, magic, nelem(magic)) != 0){
-		werrstr("cifsrpc: bad magic number in packet %20ux%02ux%02ux%02ux",
+		werrstr("cifsrpc: bad magic number in packet 0x%02ux%02ux%02ux%02ux",
 			m[0], m[1], m[2], m[3]);
 		return -1;
 	}
 
-	g8(p);				/* cmd */
+	reply = g8(p);			/* cmd */
 	err = gl32(p);			/* errcode */
 	g8(p);				/* flags */
-	flags2 = gl16(p);		/* flags2 */
+	p->flags2 = gl16(p);		/* flags2 */
 	gl16(p);			/* PID MS bits */
 	seq = gl32(p);			/* reserved */
 	gl32(p);			/* MAC (if in use) */
@@ -178,6 +187,12 @@ cifsrpc(Pkt *p)
 	uid = gl16(p);			/* UID */
 	gl16(p);			/* mid */
 	g8(p);				/* word count */
+
+	if(reply != p->request){
+		fprint(2, "unexpected reply (cmd=%x/%x seq=%d/%d)\n",
+			reply, p->request, seq, p->seq);
+		return -1;
+	}
 
 	if(p->s->secmode & SECMODE_SIGN_ENABLED){
 		if(macsign(p, p->seq+1) != 0 && p->s->seqrun){
@@ -196,7 +211,7 @@ print("MAC signature bad\n");
 		 * catch that too.
 		 */
 		if(p->s->seqrun && seq != p->seq && seq != 0){
-			print("%ux != %ux bad sequence number\n", seq, p->seq);
+			werrstr("bad sequence number (%d != %d)\n", p->seq, seq);
 			return -1;
 		}
 	}
@@ -205,7 +220,7 @@ print("MAC signature bad\n");
 	if(p->s->uid == NO_UID)
 		p->s->uid = uid;
 
-	if(flags2 & FL2_NT_ERRCODES){
+	if(p->flags2 & FL2_NT_ERRCODES){
 		/* is it a real error rather than info/warning/chatter? */
 		if((err & 0xF0000000) == 0xC0000000){
 			werrstr("%s", nterrstr(err));
@@ -243,11 +258,26 @@ CIFSnegotiate(Session *s, long *svrtime, char *domain, int domlen, char *cname,
 	};
 	Pkt *p;
 
+	/*
+	 * This should not be necessary, however the XP seems to use
+	 * Unicode strings in its Negoiate response, but not set the
+	 * Flags2 UNICODE flag.
+	 *
+	 * It does however echo back the FL_UNICODE flag we set in the
+	 * flags2 negoiate request.
+	 *
+	 * The bodge is to force FL_UNICODE for this single request, 
+	 * clearing it after. Later we set FL2_UNICODE if the server 
+	 * agrees to CAP_UNICODE as it "should" be done.
+	 */
+	s->flags2 |= FL2_UNICODE;
 	p = cifshdr(s, nil, SMB_COM_NEGOTIATE);
+	s->flags2 &= ~FL2_UNICODE;
+
 	pbytes(p);
 	for(i = 0; i < nelem(dialects); i++){
 		p8(p, STR_DIALECT);
-		pstr(p, dialects[i]);
+		pascii(p, dialects[i]);
 	}
 
 	if(cifsrpc(p) == -1){
@@ -277,7 +307,7 @@ CIFSnegotiate(Session *s, long *svrtime, char *domain, int domlen, char *cname,
 	gl32(p);				/* Session key */
 	s->caps = gl32(p);			/* Server capabilities */
 	*svrtime = gvtime(p);			/* fileserver time */
-	s->tz = (short)gl16(p) * 60; /* TZ in mins, is signed (SNIA doc is wrong) */
+	s->tz = (short)gl16(p) * 60; 		/* TZ in mins, is signed (SNIA doc is wrong) */
 	s->challen = g8(p);			/* Encryption key length */
 	gl16(p);
 	gmem(p, s->chal, s->challen);		/* Get the challenge */
@@ -368,7 +398,7 @@ CIFSsession(Session *s)
 	gl16(p);
 	gl16(p);
 	/* no security blob here - we don't understand extended security anyway */
-	gstr(p, os, sizeof(os));
+	gstr(p, os, sizeof os);
 	s->remos = estrdup9p(os);
 
 	free(p);
@@ -386,9 +416,9 @@ CIFStreeconnect(Session *s, char *cname, char *tree, Share *sp)
 	resp = Sess->auth->resp[0];
 	len  = Sess->auth->len[0];
 	if((s->secmode & SECMODE_USER) != SECMODE_USER){
-		memset(zeros, 0, sizeof(zeros));
+		memset(zeros, 0, sizeof zeros);
 		resp = zeros;
-		len = sizeof(zeros);
+		len = sizeof zeros;
 	}
 
 	p = cifshdr(s, nil, SMB_COM_TREE_CONNECT_ANDX);
@@ -408,11 +438,11 @@ CIFStreeconnect(Session *s, char *cname, char *tree, Share *sp)
 	}
 
 	path = smprint("//%s/%s", cname, tree);
-	strupr(path);
+
 	ppath(p, path);			/* path */
 	free(path);
 
-	pascii(p, "?????");	/* service type any (so we can do RAP calls) */
+	pascii(p, "?????");		/* service type any (so we can do RAP calls) */
 
 	if(cifsrpc(p) == -1){
 		free(p);

@@ -198,7 +198,9 @@ dirgen(int slot, Dir *d, void *aux)
 	Aux *a = aux;
 	char *npath;
 	int numinf = numinfo();
-	int slots = min(Sess->mtu, MTU) / sizeof(FInfo);
+	int slots;
+
+	slots = 128;		/* number of dir entries to fetch at one time */
 
 	if(strcmp(a->path, "/") == 0){
 		if(slot < numinf){
@@ -1103,6 +1105,7 @@ keepalive(void)
 		sleep(6000);
 		if(Active-- != 0)
 			continue;
+
 		for(i = 0; i < Nshares; i++){
 			if((rc = T2fssizeinfo(Sess, &Shares[slot], &tot, &fre)) == 0)
 				break;
@@ -1253,6 +1256,8 @@ connected:
 			memcpy(Shares+Nshares, sip+i, sizeof(Share));
 			if(CIFStreeconnect(Sess, Sess->cname,
 			    Shares[Nshares].name, Shares+Nshares) == -1){
+				fprint(2, "%s: %s %q - can't connect to share"
+					", %r\n", argv0, Host, Shares[Nshares].name);
 				free(Shares[Nshares].name);
 				continue;
 			}
@@ -1263,7 +1268,7 @@ connected:
 		for(i = 1; i < argc; i++){
 			if(CIFStreeconnect(Sess, Sess->cname, argv[i],
 			    Shares+Nshares) == -1){
-				fprint(2, "%s: %s  %q - can't connect to share"
+				fprint(2, "%s: %s %q - can't connect to share"
 					", %r\n", argv0, Host, argv[i]);
 				continue;
 			}

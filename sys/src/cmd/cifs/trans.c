@@ -16,7 +16,7 @@ thdr(Session *s, Share *sp)
 	p->tbase = pl16(p, 0);	/* 0  Total parameter bytes to be sent, filled later */
 	pl16(p, 0);		/* 2  Total data bytes to be sent, filled later */
 	pl16(p, 64);			/* 4  Max parameter to return */
-	pl16(p, MTU - T2HDRLEN - 128);	/* 6  Max data to return */
+	pl16(p, s->mtu - T2HDRLEN - 128);	/* 6  Max data to return */
 	pl16(p, 1);			/* 8  Max setup count to return */
 	pl16(p, 0);			/* 10 Flags */
 	pl32(p, 1000);			/* 12 Timeout (ms) */
@@ -126,7 +126,7 @@ RAPshareenum(Session *s, Share *sp, Share **ent)
 	pascii(p, REMSmb_NetShareEnum_P);	/* request descriptor */
 	pascii(p, REMSmb_share_info_0);		/* reply descriptor */
 	pl16(p, 0);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 	ptdata(p);
 
 	if(trpc(p) == -1){
@@ -183,7 +183,7 @@ RAPshareinfo(Session *s, Share *sp, char *share, Shareinfo2 *si2p)
 	pascii(p, REMSmb_share_info_2);		/* reply descriptor */
 	pascii(p, share);
 	pl16(p, 1);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 
 	ptdata(p);
 
@@ -252,7 +252,7 @@ RAPsessionenum(Session *s, Share *sp, Sessinfo **sip)
 	pascii(p, REMSmb_NetSessionEnum_P);	/* request descriptor */
 	pascii(p, REMSmb_session_info_10);	/* reply descriptor */
 	pl16(p, 10);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 	ptdata(p);
 
 	if(trpc(p) == -1){
@@ -312,7 +312,7 @@ RAPgroupenum(Session *s, Share *sp, Namelist **nlp)
 	pascii(p, REMSmb_NetGroupEnum_P);	/* request descriptor */
 	pascii(p, REMSmb_group_info_0);		/* reply descriptor */
 	pl16(p, 0);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 	ptdata(p);
 
 	if(trpc(p) == -1){
@@ -368,7 +368,7 @@ RAPgroupusers(Session *s, Share *sp, char *group, Namelist **nlp)
 	pascii(p, REMSmb_user_info_0);		/* reply descriptor */
 	pascii(p, group);			/* group name for list */
 	pl16(p, 0);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 	ptdata(p);
 
 	if(trpc(p) == -1){
@@ -422,7 +422,7 @@ RAPuserenum(Session *s, Share *sp, Namelist **nlp)
 	pascii(p, REMSmb_NetUserEnum_P);	/* request descriptor */
 	pascii(p, REMSmb_user_info_0);		/* reply descriptor */
 	pl16(p, 0);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 	ptdata(p);
 
 	if(trpc(p) == -1){
@@ -478,7 +478,7 @@ more:
 	pascii(p, REMSmb_NetUserEnum2_P);	/* request descriptor */
 	pascii(p, REMSmb_user_info_0);		/* reply descriptor */
 	pl16(p, 0);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 	pl32(p, resume);			/* resume key to allow multiple fetches */
 	ptdata(p);
 
@@ -536,7 +536,7 @@ RAPuserinfo(Session *s, Share *sp, char *user, Userinfo *uip)
 	pascii(p, REMSmb_user_info_10);		/* reply descriptor */
 	pascii(p, user);			/* username */
 	pl16(p, 10);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 	ptdata(p);
 
 	if(trpc(p) == -1){
@@ -592,7 +592,7 @@ RAPServerenum2(Session *s, Share *sp, char *workgroup, int type, int *more,
 	pascii(p, REMSmb_NetServerEnum2_P);	/* request descriptor */
 	pascii(p, REMSmb_server_info_1);	/* reply descriptor */
 	pl16(p, 1);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 	pl32(p, type);
 	pascii(p, workgroup);
 
@@ -655,7 +655,7 @@ more:
 	pascii(p, REMSmb_NetServerEnum3_P);	/* request descriptor */
 	pascii(p, REMSmb_server_info_1);	/* reply descriptor */
 	pl16(p, 1);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 	pl32(p, type);
 	pascii(p, workgroup);
 	pascii(p, first);
@@ -731,7 +731,7 @@ more:
 	pascii(p, path);
 	pascii(p, user);
 	pl16(p, 1);				/* detail level */
-	pl16(p, MTU - 200);			/* receive buffer length */
+	pl16(p, s->mtu - 1024);			/* receive buffer length */
 	pl32(p, resume);			/* resume key */
 /* FIXME: maybe the padding and resume key are the wrong way around? */
 	pl32(p, 0);				/* padding ? */

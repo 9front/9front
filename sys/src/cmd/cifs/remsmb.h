@@ -48,11 +48,11 @@ Revision History:
 
 #ifndef _REMDEF_
 #define _REMDEF_
-/*
- * ====================================================================
- * SMB XACT message descriptors.
- * ====================================================================
- */
+//====================================================================
+//
+/* SMB XACT message descriptors. */
+//
+//====================================================================
 
 #define	REMSmb_share_info_0		"B13"
 #define	REMSmb_share_info_1		"B13BWz"
@@ -402,11 +402,11 @@ Revision History:
 
 #define	REMSmb_LocalOnlyCall		""
 
-/*
- * The following definitions exist for DOS LANMAN--Windows 3.0.
- * Normally, there is a  const char far * servername
- * as the first parameter, but this will be ignored (sort of).
- */
+//
+/* The following definitions exist for DOS LANMAN--Windows 3.0 */
+/* Normally, there is a const char far * servername */
+/* as the first parameter, but this will be ignored (sort of) */
+//
 #define	REMSmb_DosPrintJobGetId_P	"WrL"
 #define	REMSmb_GetPrintId		"WB16B13B"
 #define	REMSmb_NetRemoteCopy_P		"zzzzWWrL"
@@ -458,9 +458,9 @@ Revision History:
 #define	REMSmb_NetAccountConfirmUpd_P	"b12g12D"
 #define	REMSmb_update_info_0	"K"
 
-/*
- * SamrOemChangePasswordUser2 api support
- */
-#define	REMSmb_SamOEMChgPasswordUser2	"B516B16"  /* data that is passed */
+//
+/* SamrOemChangePasswordUser2 api support */
+//
+#define	REMSmb_SamOEMChgPasswordUser2	"B516B16"	/* data that is passed */
 
 #endif	/* ndef	_REMDEF_ */

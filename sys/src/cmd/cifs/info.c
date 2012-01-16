@@ -8,22 +8,22 @@
 
 
 struct {
-	char	*name;
-	int	(*func)(Fmt *f);
-	char	*buf;
-	int	len;
+	char *name;
+	int (*func)(Fmt *f);
+	char *buf;
+	int len;
 } Infdir[] = {
-	{ "Users",	userinfo },	
-	{ "Groups",	groupinfo },	
-	{ "Shares",	shareinfo },	
-	{ "Connection",	conninfo },	
-	{ "Sessions",	sessioninfo },	
-	{ "Dfsroot",	dfsrootinfo },	
-	{ "Dfscache",	dfscacheinfo },	
-	{ "Domains",	domaininfo },	
-	{ "Openfiles",	openfileinfo },	
-	{ "Workstations", workstationinfo },	
-	{ "Filetable",	filetableinfo },	
+	{ "Users" , userinfo },
+	{ "Groups" , groupinfo },
+	{ "Shares" , shareinfo },
+	{ "Connection" , conninfo },
+	{ "Sessions" , sessioninfo },
+	{ "Dfsroot" , dfsrootinfo },
+	{ "Dfscache" , dfscacheinfo },
+	{ "Domains" , domaininfo },
+	{ "Openfiles" , openfileinfo },
+	{ "Workstations" , workstationinfo },
+	{ "Filetable" , filetableinfo },
 };
 
 int
@@ -63,6 +63,7 @@ dirgeninfo(int slot, Dir *d)
 	d->qid.vers = 1;
 	d->qid.path = slot;
 	d->qid.type = 0;
+
 	return 0;
 }
 
@@ -76,10 +77,12 @@ makeinfo(int path)
 	if(Infdir[path].buf != nil)
 		return 0;
 	fmtstrinit(&f);
-	if((*Infdir[path].func)(&f) == -1l)
+	if((*Infdir[path].func)(&f) == -1)
 		return -1;
-	Infdir[path].buf = fmtstrflush(&f);
-	Infdir[path].len = strlen(Infdir[path].buf);
+	if((Infdir[path].buf = fmtstrflush(&f)) == nil)
+		return -1;
+	if((Infdir[path].len = strlen(Infdir[path].buf)) <= 0)
+		return -1;
 	return 0;
 }
 
@@ -104,3 +107,4 @@ freeinfo(int path)
 	free(Infdir[path].buf);
 	Infdir[path].buf = nil;
 }
+

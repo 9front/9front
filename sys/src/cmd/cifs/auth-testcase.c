@@ -137,30 +137,28 @@ hmac_t64(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest,
 static int
 ntv2_blob(uchar *blob, int len, char *windom)
 {
-	int n;
-	uvlong nttime;
-	Rune r;
-	char *d;
+	uvlong t;
 	uchar *p;
 	enum {			/* name types */
 		Beof,		/* end of name list */
-		Bnetbios,	/* Netbios machine name */
+		Bhost,		/* Netbios host name */
 		Bdomain,	/* Windows Domain name (NT) */
-		Bdnsfqdn,	/* DNS Fully Qualified Domain Name */
-		Bdnsname,	/* DNS machine name (win2k) */
+		Bdnshost,	/* DNS host name */
+		Bdnsdomain,	/* DNS domain name */
 	};
 
 	p = blob;
-	*p++ = 1;		/* response type */
-	*p++ = 1;		/* max response type understood by client */
+	*p++ = 1;		/* 8bit: response type */
+	*p++ = 1;		/* 8bit: max response type understood by client */
 
+	*p++ = 0;		/* 16bit: reserved */
 	*p++ = 0;
-	*p++ = 0;		/* 2 bytes reserved */
 
+	*p++ = 0;		/* 32bit: unknown */
 	*p++ = 0;
 	*p++ = 0;
 	*p++ = 0;
-	*p++ = 0;		/* 4 bytes unknown */
+
 
 #ifdef NTLMV2_TEST
 	*p++ = 0xf0;
@@ -172,18 +170,19 @@ ntv2_blob(uchar *blob, int len, char *windom)
 	*p++ = 0xbe;
 	*p++ = 0x01;
 #else
-	nttime = time(nil);	/* nt time now */
-	nttime = nttime + 11644473600LL;
-	nttime = nttime * 10000000LL;
-	*p++ = nttime & 0xff;
-	*p++ = (nttime >> 8) & 0xff;
-	*p++ = (nttime >> 16) & 0xff;
-	*p++ = (nttime >> 24) & 0xff;
-	*p++ = (nttime >> 32) & 0xff;
-	*p++ = (nttime >> 40) & 0xff;
-	*p++ = (nttime >> 48) & 0xff;
-	*p++ = (nttime >> 56) & 0xff;
+	t = time(nil);	/* 64bit: time in NT format */
+	t += 11644473600LL;
+	t *= 10000000LL;
+	*p++ = t;
+	*p++ = t >> 8;
+	*p++ = t >> 16;
+	*p++ = t >> 24;
+	*p++ = t >> 32;
+	*p++ = t >> 40;
+	*p++ = t >> 48;
+	*p++ = t >> 56;
 #endif
+
 #ifdef NTLMV2_TEST
 	*p++ = 0x05;
 	*p++ = 0x83;
@@ -195,38 +194,17 @@ ntv2_blob(uchar *blob, int len, char *windom)
 	*p++ = 0x6d;
 #else
 	genrandom(p, 8);
-	p += 8;			/* client nonce */
+	p += 8;			/* 64bit: client nonce */
 #endif
-	*p++ = 0x6f;
-	*p++ = 0;
-	*p++ = 0x6e;
-	*p++ = 0;		/* unknown data */
 
-	*p++ = Bdomain;
-	*p++ = 0;		/* name type */
-
-	n = utflen(windom) * 2;
-	*p++ = n;
-	*p++ = n >> 8;		/* name length */
-
-	d = windom;
-	while(*d && p - blob < len - 8){
-		d += chartorune(&r, d);
-		r = toupperrune(r);
-		*p++ = r;
-		*p++ = r >> 8;
-	}
-
-	*p++ = 0;
-	*p++ = Beof;		/* name type */
-
-	*p++ = 0;
-	*p++ = 0;		/* name length */
-
-	*p++ = 0x65;
+	*p++ = 0;		/* 32bit: unknown data */
 	*p++ = 0;
 	*p++ = 0;
-	*p++ = 0;		/* unknown data */
+	*p++ = 0;
+
+	p += putname(p, len - (p-blob), windom, Bdomain);
+	p += putname(p, len - (p-blob), "", Beof);
+
 	return p - blob;
 }
 

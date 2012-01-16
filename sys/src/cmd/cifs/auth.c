@@ -135,77 +135,80 @@ hmac_t64(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest,
 
 
 static int
-ntv2_blob(uchar *blob, int len, char *windom)
+putname(uchar *buf, int len, char *name, int type)
 {
 	int n;
-	uvlong nttime;
 	Rune r;
 	char *d;
-	uchar *p;
-	enum {			/* name types */
-		Beof,		/* end of name list */
-		Bnetbios,	/* Netbios machine name */
-		Bdomain,	/* Windows Domain name (NT) */
-		Bdnsfqdn,	/* DNS Fully Qualified Domain Name */
-		Bdnsname,	/* DNS machine name (win2k) */
-	};
+	uchar *p = buf;
 
-	p = blob;
-	*p++ = 1;		/* response type */
-	*p++ = 1;		/* max response type understood by client */
+	*p++ = type;
+	*p++ = 0;		/* 16bit: name type */
 
-	*p++ = 0;
-	*p++ = 0;		/* 2 bytes reserved */
-
-	*p++ = 0;
-	*p++ = 0;
-	*p++ = 0;
-	*p++ = 0;		/* 4 bytes unknown */
-
-	nttime = time(nil);	/* nt time now */
-	nttime += 11644473600LL;
-	nttime *= 10000000LL;
-	*p++ = nttime;
-	*p++ = nttime >> 8;
-	*p++ = nttime >> 16;
-	*p++ = nttime >> 24;
-	*p++ = nttime >> 32;
-	*p++ = nttime >> 40;
-	*p++ = nttime >> 48;
-	*p++ = nttime >> 56;
-
-	genrandom(p, 8);
-	p += 8;			/* client nonce */
-	*p++ = 0x6f;
-	*p++ = 0;
-	*p++ = 0x6e;
-	*p++ = 0;		/* unknown data */
-
-	*p++ = Bdomain;
-	*p++ = 0;		/* name type */
-
-	n = utflen(windom) * 2;
+	n = utflen(name) * 2;
 	*p++ = n;
-	*p++ = n >> 8;		/* name length */
+	*p++ = n >> 8;		/* 16bit: name length */
 
-	d = windom;
-	while(*d && p-blob < (len-8)){
+	d = name;
+	while(*d != 0 && p-buf < len-8){
 		d += chartorune(&r, d);
 		r = toupperrune(r);
 		*p++ = r;
-		*p++ = r >> 8;
-	}
+			*p++ = r >> 8;
+	}			/* var: actual name */
 
-	*p++ = 0;
-	*p++ = Beof;		/* name type */
+	return p - buf;
+}
 
-	*p++ = 0;
-	*p++ = 0;		/* name length */
+static int
+ntv2_blob(uchar *blob, int len, char *windom)
+{
+	uvlong t;
+	uchar *p;
+	enum {			/* name types */
+		Beof,		/* end of name list */
+		Bhost,		/* Netbios host name */
+		Bdomain,	/* Windows Domain name (NT) */
+		Bdnshost,	/* DNS host name */
+		Bdnsdomain,	/* DNS domain name */
+	};
 
-	*p++ = 0x65;
+	p = blob;
+	*p++ = 1;		/* 8bit: response type */
+	*p++ = 1;		/* 8bit: max response type understood by client */
+
+	*p++ = 0;		/* 16bit: reserved */
+	*p++ = 0;
+
+	*p++ = 0;		/* 32bit: unknown */
 	*p++ = 0;
 	*p++ = 0;
-	*p++ = 0;		/* unknown data */
+	*p++ = 0;
+
+	t = time(nil);
+	t += 11644473600LL;
+	t *= 10000000LL;
+
+	*p++ = t;		/* 64bit: time in NT format */
+	*p++ = t >> 8;
+	*p++ = t >> 16;
+	*p++ = t >> 24;
+	*p++ = t >> 32;
+	*p++ = t >> 40;
+	*p++ = t >> 48;
+	*p++ = t >> 56;
+
+	genrandom(p, 8);
+	p += 8;			/* 64bit: client nonce */
+
+	*p++ = 0;		/* 32bit: unknown data */
+	*p++ = 0;
+	*p++ = 0;
+	*p++ = 0;
+
+	p += putname(p, len - (p-blob), windom, Bdomain);
+	p += putname(p, len - (p-blob), "", Beof);
+
 	return p - blob;
 }
 
@@ -293,7 +296,7 @@ auth_ntlmv2(char *windom, char *keyp, uchar *chal, int len)
 	memcpy(ap->mackey[0]+MD5dlen, ap->resp[0], MACkeylen-MD5dlen);
 
 	/* NTLM v2 */
-	n = ntv2_blob(blob, sizeof(blob), windom);
+	n = ntv2_blob(blob, sizeof blob, windom);
         ds = hmac_t64(chal, len, v2hash, MD5dlen, nil, nil);
 	hmac_t64(blob, n, v2hash, MD5dlen, nt_hmac, ds);
 	ap->len[1] = MD5dlen+n;

@@ -15,7 +15,7 @@ t2hdr(Session *s, Share *sp, int cmd)
 	p->tbase = pl16(p, 0);	/* 0  Total parameter bytes to be sent, filled later */
 	pl16(p, 0);		/* 2  Total data bytes to be sent, filled later */
 	pl16(p, 64);			/* 4  Max parameter to return */
-	pl16(p, (MTU - T2HDRLEN)-64);	/* 6  Max data to return */
+	pl16(p, (s->mtu - T2HDRLEN)-64); /* 6  Max data to return */
 	p8(p, 0);			/* 8  Max setup count to return */
 	p8(p, 0);			/* 9  Reserved */
 	pl16(p, 0);			/* 10 Flags */

@@ -350,10 +350,10 @@ typedef struct {
 	int	uid;		/* user (authentication) ID  */
 	int	seq;		/* sequence number */
 	int	seqrun;		/* sequence numbering active */
-	int	caps;		/* server capabilities */
+	int	caps;		/* server's capabilities */
 	int	support;	/* support bits */
-	int	flags;		/* SMB flags  */
-	int	flags2;		/* SMB flags 2  */
+	int	flags;		/* SMB flags that we will send in the next packet   */
+	int	flags2;		/* SMB flags 2 that we will send in the next packet */
 	int	nocache;	/* disable write behind caching in server */
 	int	pid;		/* process ID  */
 	int	mid;		/* multiplex ID */
@@ -378,6 +378,8 @@ typedef struct {
 
 	int tid;		/* tree ID received from server */
 	int seq;		/* sequence number expected in reply */
+	int request;		/* request cmd no (for debug) */
+	int flags2;		/* flags2 received with this packet */
 
 	uchar *seqbase; 	/* cifs: pos of sequence number in packet */
 	uchar *wordbase; 	/* cifs: base of words section of data  */
@@ -483,156 +485,150 @@ extern Share Ipc;
 extern Share Shares[MAX_SHARES];
 extern int Nshares;
 
-/* main.c */
-Qid	mkqid(char *, int, long, int, long);
-
 /* auth.c */
-Auth	*getauth(char *, char *, char *, int, uchar *, int);
-void	autherr(void);
-int	macsign(Pkt *, int);
+extern void autherr(void);
+extern Auth *getauth(char *name, char *windom, char *keyp, int secmode, uchar *chal, int len);
+extern int macsign(Pkt *p, int seq);
 
 /* cifs.c */
-Session	*cifsdial(char *, char *, char *);
-void	cifsclose(Session *);
-Pkt	*cifshdr(Session *, Share *, int);
-void	pbytes(Pkt *);
-int	cifsrpc(Pkt *);
-int	CIFSnegotiate(Session *, long *, char *, int, char *, int);
-int	CIFSsession(Session *);
-int	CIFStreeconnect(Session *, char *, char *, Share *);
-int	CIFSlogoff(Session *);
-int	CIFStreedisconnect(Session *, Share *);
-int	CIFSdeletefile(Session *, Share *, char *);
-int	CIFSdeletedirectory(Session *, Share *, char *);
-int	CIFScreatedirectory(Session *, Share *, char *);
-int	CIFSrename(Session *, Share *, char *, char *);
-int	CIFS_NT_opencreate(Session *, Share *, char *, int, int, int, int, int, int, int *, FInfo *);
-int	CIFS_SMB_opencreate(Session *, Share *, char *, int, int, int, int *);
-vlong	CIFSwrite(Session *, Share *, int, uvlong, void *, vlong);
-vlong	CIFSread(Session *, Share *, int, uvlong, void *, vlong, vlong);
-int	CIFSflush(Session *, Share *, int);
-int	CIFSclose(Session *, Share *, int);
-int	CIFSfindclose2(Session *, Share *, int);
-int	CIFSecho(Session *);
-int	CIFSsetinfo(Session *, Share *, char *, FInfo *);
-void	goff(Pkt *, uchar *, char *, int);
+extern Session *cifsdial(char *host, char *called, char *sysname);
+extern void cifsclose(Session *s);
+extern Pkt *cifshdr(Session *s, Share *sp, int cmd);
+extern void pbytes(Pkt *p);
+extern int cifsrpc(Pkt *p);
+extern int CIFSnegotiate(Session *s, long *svrtime, char *domain, int domlen, char *cname, int cnamlen);
+extern int CIFSsession(Session *s);
+extern int CIFStreeconnect(Session *s, char *cname, char *tree, Share *sp);
+extern int CIFSlogoff(Session *s);
+extern int CIFStreedisconnect(Session *s, Share *sp);
+extern int CIFSdeletefile(Session *s, Share *sp, char *name);
+extern int CIFSdeletedirectory(Session *s, Share *sp, char *name);
+extern int CIFScreatedirectory(Session *s, Share *sp, char *name);
+extern int CIFSrename(Session *s, Share *sp, char *old, char *new);
+extern int CIFS_NT_opencreate(Session *s, Share *sp, char *name, int flags, int options, int attrs, int access, int share, int action, int *result, FInfo *fi);
+extern int CIFS_SMB_opencreate(Session *s, Share *sp, char *name, int access, int attrs, int action, int *result);
+extern vlong CIFSwrite(Session *s, Share *sp, int fh, uvlong off, void *buf, vlong n);
+extern vlong CIFSread(Session *s, Share *sp, int fh, uvlong off, void *buf, vlong n, vlong minlen);
+extern int CIFSflush(Session *s, Share *sp, int fh);
+extern int CIFSclose(Session *s, Share *sp, int fh);
+extern int CIFSfindclose2(Session *s, Share *sp, int sh);
+extern int CIFSecho(Session *s);
+extern int CIFSsetinfo(Session *s, Share *sp, char *path, FInfo *fip);
 
 /* dfs.c */
-char	*mapfile(char *);
-int	mapshare(char *, Share **);
-int	redirect(Session *, Share *s, char *);
-int	dfscacheinfo(Fmt *);
-char	*trimshare(char *);
+extern int dfscacheinfo(Fmt *f);
+extern char *trimshare(char *s);
+extern char *mapfile(char *opath);
+extern int mapshare(char *path, Share **osp);
+extern int redirect(Session *s, Share *sp, char *path);
 
 /* doserrstr.c */
-char	*doserrstr(uint);
+extern char *doserrstr(uint err);
 
 /* fs.c */
-int	shareinfo(Fmt *);
-int	conninfo(Fmt *);
-int	sessioninfo(Fmt *);
-int	userinfo(Fmt *);
-int	groupinfo(Fmt *);
-int	domaininfo(Fmt *);
-int	workstationinfo(Fmt *);
-int	dfsrootinfo(Fmt *);
-int	openfileinfo(Fmt *);
-int	dfsrootinfo(Fmt *);
-int	filetableinfo(Fmt *); 	/* is in main.c due to C scope */
+extern int shareinfo(Fmt *f);
+extern int openfileinfo(Fmt *f);
+extern int conninfo(Fmt *f);
+extern int sessioninfo(Fmt *f);
+extern int dfsrootinfo(Fmt *f);
+extern int userinfo(Fmt *f);
+extern int groupinfo(Fmt *f);
+extern int domaininfo(Fmt *f);
+extern int workstationinfo(Fmt *f);
 
 /* info.c */
-int	walkinfo(char *);
-int	numinfo(void);
-int	dirgeninfo(int, Dir *);
-int	makeinfo(int);
-int	readinfo(int, char *, int, int);
-void	freeinfo(int);
+extern int walkinfo(char *name);
+extern int numinfo(void);
+extern int dirgeninfo(int slot, Dir *d);
+extern int makeinfo(int path);
+extern int readinfo(int path, char *buf, int len, int off);
+extern void freeinfo(int path);
 
 /* main.c */
-void	usage(void);
-void	dmpkey(char *, void *, int);
-void	main(int, char **);
+extern void setup(void);
+extern int filetableinfo(Fmt *f);
+extern Qid mkqid(char *s, int is_dir, long vers, int subtype, long path);
+extern int rdonly(Session *s, Share *sp, char *path, int rdonly);
+extern void usage(void);
+extern void dmpkey(char *s, void *v, int n);
+extern void main(int argc, char **argv);
 
 /* misc.c */
-char	*strupr(char *);
-char	*strlwr(char *);
+extern char *strupr(char *s);
+extern char *strlwr(char *s);
 
 /* netbios.c */
-void	Gmem(uchar **, void *, int);
-int	calledname(char *, char *);
-int	nbtdial(char *, char *, char *);
-void	nbthdr(Pkt *);
-int	nbtrpc(Pkt *);
-void	xd(char *, void *, int);
+extern void Gmem(uchar **p, void *v, int n);
+extern int calledname(char *host, char *name);
+extern int nbtdial(char *addr, char *called, char *sysname);
+extern void nbthdr(Pkt *p);
+extern int nbtrpc(Pkt *p);
+extern void xd(char *str, void *buf, int n);
 
 /* nterrstr.c */
-char	*nterrstr(uint);
+extern char *nterrstr(uint err);
 
 /* pack.c */
-void	*pmem(Pkt *, void *, int);
-void	*ppath(Pkt *, char *);
-void	*pstr(Pkt *, char *);
-void	*pascii(Pkt *, char *);
-void	*pl64(Pkt *, uvlong);
-void	*pb32(Pkt *, uint);
-void	*pl32(Pkt *, uint);
-void	*pb16(Pkt *, uint);
-void	*pl16(Pkt *, uint);
-void	*p8(Pkt *, uint);
-void	*pname(Pkt *, char *, char);
-void	*pvtime(Pkt *, uvlong);
-void	*pdatetime(Pkt *, long);
-void	gmem(Pkt *, void *, int);
-void	gstr(Pkt *, char *, int);
-void	gascii(Pkt *, char *, int);
-uvlong	gl64(Pkt *);
-uvlong	gb48(Pkt *);
-uint	gb32(Pkt *);
-uint	gl32(Pkt *);
-uint	gb16(Pkt *);
-uint	gl16(Pkt *);
-uint	g8(Pkt *);
-long	gdatetime(Pkt *);
-long	gvtime(Pkt *);
-void	gconv(Pkt *, int, char *, int);
-
-/* raperrstr.c */
-char	*raperrstr(uint);
-
-/* sid2name.c */
-void	upd_names(Session *, Share *, char *, Dir *);
-
-/* trans.c */
-int	RAPshareenum(Session *, Share *, Share **);
-int	RAPshareinfo(Session *, Share *, char *, Shareinfo2 *);
-
-int	RAPsessionenum(Session *, Share *, Sessinfo **);
-
-int	RAPgroupenum(Session *, Share *, Namelist **);
-int	RAPgroupusers(Session *, Share *, char *, Namelist **);
-
-int	RAPuserenum(Session *, Share *, Namelist **);
-int	RAPuserenum2(Session *, Share *, Namelist **);
-int	RAPuserinfo(Session *, Share *, char *, Userinfo *);
-
-int	RAPServerenum2(Session *, Share *, char *, int, int *, Serverinfo **);
-int	RAPServerenum3(Session *, Share *, char *, int, int, Serverinfo *);
-
-int	RAPFileenum2(Session *, Share *, char *, char *, Fileinfo **);
-
-/* trans2.c */
-int	T2findfirst(Session *, Share *, int, char *, int *, long *, FInfo *);
-int	T2findnext(Session *, Share *, int, char *, int *, long *, FInfo *, int);
-int	T2queryall(Session *, Share *, char *, FInfo *);
-int	T2querystandard(Session *, Share *, char *, FInfo *);
-int	T2setpathinfo(Session *, Share *, char *, FInfo *);
-int	T2setfilelength(Session *, Share *, int, FInfo *);
-int	T2fsvolumeinfo(Session *, Share *, long *, long *, char *, int);
-int	T2fssizeinfo(Session *, Share *, uvlong *, uvlong *);
-int	T2getdfsreferral(Session *, Share *, char *, int *, int *, Refer *, int);
-
-/* transnt.c */
-int	TNTquerysecurity(Session *, Share *, int, char **, char **);
+extern void *pmem(Pkt *p, void *v, int len);
+extern void *ppath(Pkt *p, char *str);
+extern void *pstr(Pkt *p, char *str);
+extern void *pascii(Pkt *p, char *str);
+extern void *pl64(Pkt *p, uvlong n);
+extern void *pb32(Pkt *p, uint n);
+extern void *pl32(Pkt *p, uint n);
+extern void *pb16(Pkt *p, uint n);
+extern void *pl16(Pkt *p, uint n);
+extern void *p8(Pkt *p, uint n);
+extern void *pname(Pkt *p, char *name, char pad);
+extern void *pvtime(Pkt *p, uvlong n);
+extern void *pdatetime(Pkt *p, long utc);
+extern void gmem(Pkt *p, void *v, int n);
+extern void gstr(Pkt *p, char *str, int n);
+extern void gascii(Pkt *p, char *str, int n);
+extern uvlong gl64(Pkt *p);
+extern uvlong gb48(Pkt *p);
+extern uint gb32(Pkt *p);
+extern uint gl32(Pkt *p);
+extern uint gb16(Pkt *p);
+extern uint gl16(Pkt *p);
+extern uint g8(Pkt *p);
+extern long gdatetime(Pkt *p);
+extern long gvtime(Pkt *p);
+extern void gconv(Pkt *p, int conv, char *str, int n);
+extern void goff(Pkt *p, uchar *base, char *str, int n);
 
 /* ping.c */
-int	ping(char *, int);
+extern int ping(char *host, int timeout);
+
+/* raperrstr.c */
+extern char *raperrstr(uint err);
+
+/* sid2name.c */
+extern void upd_names(Session *s, Share *sp, char *path, Dir *d);
+
+/* trans.c */
+extern int RAPshareenum(Session *s, Share *sp, Share **ent);
+extern int RAPshareinfo(Session *s, Share *sp, char *share, Shareinfo2 *si2p);
+extern int RAPsessionenum(Session *s, Share *sp, Sessinfo **sip);
+extern int RAPgroupenum(Session *s, Share *sp, Namelist **nlp);
+extern int RAPgroupusers(Session *s, Share *sp, char *group, Namelist **nlp);
+extern int RAPuserenum(Session *s, Share *sp, Namelist **nlp);
+extern int RAPuserenum2(Session *s, Share *sp, Namelist **nlp);
+extern int RAPuserinfo(Session *s, Share *sp, char *user, Userinfo *uip);
+extern int RAPServerenum2(Session *s, Share *sp, char *workgroup, int type, int *more, Serverinfo **si);
+extern int RAPServerenum3(Session *s, Share *sp, char *workgroup, int type, int last, Serverinfo *si);
+extern int RAPFileenum2(Session *s, Share *sp, char *user, char *path, Fileinfo **fip);
+
+/* trans2.c */
+extern int T2findfirst(Session *s, Share *sp, int slots, char *path, int *got, long *resume, FInfo *fip);
+extern int T2findnext(Session *s, Share *sp, int slots, char *path, int *got, long *resume, FInfo *fip, int sh);
+extern int T2queryall(Session *s, Share *sp, char *path, FInfo *fip);
+extern int T2querystandard(Session *s, Share *sp, char *path, FInfo *fip);
+extern int T2setpathinfo(Session *s, Share *sp, char *path, FInfo *fip);
+extern int T2setfilelength(Session *s, Share *sp, int fh, FInfo *fip);
+extern int T2fsvolumeinfo(Session *s, Share *sp, long *created, long *serialno, char *label, int labellen);
+extern int T2fssizeinfo(Session *s, Share *sp, uvlong *total, uvlong *unused);
+extern int T2getdfsreferral(Session *s, Share *sp, char *path, int *gflags, int *used, Refer *re, int nent);
+
+/* transnt.c */
+extern int TNTquerysecurity(Session *s, Share *sp, int fh, char **usid, char **gsid);

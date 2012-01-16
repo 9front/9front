@@ -27,7 +27,7 @@ ppath(Pkt *p, char *str)
 	if(!str)
 		return s;
 
-	if(p->s->caps & CAP_UNICODE){
+	if(p->s->flags2 & FL2_UNICODE){
 		if(((p->pos - p->buf) % 2) != 0)	/* pad to even offset */
 			p8(p, 0);
 		while(*str){
@@ -57,7 +57,7 @@ pstr(Pkt *p, char *str)
 	if(!str)
 		return s;
 
-	if(p->s->caps & CAP_UNICODE){
+	if(p->s->flags2 & FL2_UNICODE){
 		if(((p->pos - p->buf) % 2) != 0)
 			p8(p, 0);		/* pad to even offset */
 		while(*str){
@@ -238,7 +238,10 @@ gstr(Pkt *p, char *str, int n)
 	if(!n || !str)
 		return;
 
-	if(p->s->caps & CAP_UNICODE){
+	if(p->flags2 & FL2_UNICODE){
+		if(((p->pos - p->buf) % 2) != 0)
+			g8(p);		/* strip padding to even offset */
+
 		i = 0;
 		while(*p->pos && n && p->pos < p->eop){
 			r = gl16(p);

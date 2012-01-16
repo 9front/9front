@@ -3,14 +3,14 @@
 
 /*
  * some lines commented 4APE have been changed to
- * make them the same as plan9 error messages.  This is not
+ * make them the same as plan9 error messages. This is not
  * a problem for native programs but those built on APE
  * will give unhelpful errors if this is not done
- */
+*/
 
 static struct {
-	char	*msg;
-	int	err;
+	char *msg;
+	int err;
 } NTerrs[] = {
 	{ "success",					0x0 },
 	{ "wait 1",					0x1 },
@@ -261,8 +261,8 @@ static struct {
 	{ "password restriction",			0xc000006c },
 	{ "logon failure",				0xc000006d },
 	{ "account restriction",			0xc000006e },
-	{ "invalid logon hours",			0xc000006f },
-	{ "invalid workstation",			0xc0000070 },
+	{ "login disallowed at this time",		0xc000006f },
+	{ "login disallowed from this workstation",	0xc0000070 },
 	{ "password expired",				0xc0000071 },
 	{ "account disabled",				0xc0000072 },
 	{ "none mapped",				0xc0000073 },
@@ -959,7 +959,7 @@ static struct {
 	{ "SXS multiple deactivation",			0xc0150011 },
 	{ "SXS system default activation context empty",0xc0150012 },
 	{ "SXS process termination requested",		0xc0150013 },
-};
+ };
 
 char *
 nterrstr(uint err)
@@ -1006,14 +1006,13 @@ nterrstr(uint err)
 			match = i;
 
 	why = "";
-	if(!(err & 0x80000000))
+	if(! (err & 0x80000000))
 		why = "warning, ";
 
 	if(match != -1)
-		snprint(buf, sizeof buf, "%s%s%s", why, facility,
-			NTerrs[match].msg);
+		snprint(buf, sizeof(buf), "%s%s%s", why, facility, NTerrs[match].msg);
 	else
-		snprint(buf, sizeof buf, "%s%s%d/0x%ux - unknown NT error",
-			why, facility, err, err);
+		snprint(buf, sizeof(buf), "%s%s%d/0x%ux - unknown NT error", why, facility, err, err);
 	return buf;
 }
+

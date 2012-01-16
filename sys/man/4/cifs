@@ -20,6 +20,9 @@ cifs - Microsoft™ Windows network filesystem client
 ] [
 .B -m
 .I mntpnt
+] [
+.B -t
+.I dfs-timeout
 ]
 .I host
 [
@@ -32,8 +35,7 @@ translates between Microsoft's file-sharing protocol
 (shares or trees in MS terminology) published by such servers.
 .PP
 The root of the mounted directory contains one subdirectory per share,
-always named in lower case, and a few virtual files of mixed case which
-give additional server, session, share, and user information.
+and a few virtual files give additional information.
 The arguments are:
 .TF "-a\fI auth-method"
 .PD
@@ -70,6 +72,14 @@ CIFS packet debug.
 .TP
 .B -D
 9P request debug.
+.TP
+.B -i 
+By default 
+.I cifs(4)
+attempts to enforce case significance file and directory names, though objects
+which differ only in their case still cannot co-exist in the same directory. The
+.B -i
+option disables this behaveiour.
 .TP
 .BI -k " keyparam"
 lists extra parameters which will be passed to
@@ -112,6 +122,11 @@ and finally it will try the name
 post the service as
 .BI /srv/ srvname.
 .TP
+.BI -t " dfs-timeout"
+sets the timeout in for DFS redirections - it defaults to 100ms.
+This is a reasonable minimum, it should have a value just greater than
+the RTT to the most distant server being accessed.
+.TP
 .I host
 The address of the remote server to connect to.
 .TP
@@ -126,7 +141,7 @@ Several synthetic files appear in the root of the mounted filesystem:
 .TP
 .B Shares
 Contains a list of the currently attached shares,
-with fields giving the share name,  disk free space / capacity, the share type,
+with fields giving the share name, the share type, disk free space / capacity, 
 and a descriptive comment from the server.
 .TP
 .B Connection
@@ -161,27 +176,48 @@ the version number of the OS it is running, and comma-separated list of flags
 giving the features of that OS.
 .TP
 .B Dfsroot
-Top level DFS routing giving the DFS link type, time to live of the data,
-proximity of the server, the Netbios or DNS name and
-a physical path or a machine that this maps to.
-.IP
-DNS paths are usually assigned dynamicially as a form of load balancing.
+Lists the top level DFS domains and the servers that
+provision them.
+.TP
+.B Dfscache
+Contents of the DFS referal cache, giving the path prefix,
+the expiry time (or -1 for never), the measured RTT to the server
+in milliseconds, the server proximity (0 is local), the server name,
+and the share name on that server.
+.SH COMPATIBILITY
+.I Cifs
+has been tested against
+.IR aquarela (8),
+Windows 95, NT4.0sp6,
+Windows server 2003, Windows server 2003, WinXP pro, 
+Samba 2.0 (Pluto VideoSpace), and Samba 3.0.
+.LP
+Windows Vista require a hotfix (registry change)
+to support NTLMv2 without GSSAPI, see http://support.microsoft.com/kb/957441.
+Alternatively the
+.B -a
+option can be used to force
+.I cifs
+to use one of the less secure authentication mechnisms.
+.LP
+Windows 7 has dropped support for RAP, which is used to generate
+the synthetic files offered by
+.IR cifs .
+RAP is also used to enumerate the shares offered by the remote host so
+remote share names must always be specified on the command line.
+.LP
+The NetApp Filer was supported by earlier releases, however recent
+attempts to mount one have failed. Should a server be available it is
+likely that this could be easily fixed.
+.PP
 .SH SOURCE
 .B /sys/src/cmd/cifs
 .SH SEE ALSO
 .IR factotum (4),
-.IR cifsd (8)
+.IR aquarela (8)
 .SH BUGS
-NetApp Filer compatibility has not yet been tested; there may not be any.
+DFS support is unfinished, it will not follow referals that span servers.
 .PP
-DFS support is unfinished.
-.PP
-Kerberos authentication is unfinished.
+Kerberos authentication is not supported.
 .PP
 NetBios name resolution is not supported, though it is now rarely used.
-.PP
-.I Cifs
-has only been tested against
-aquarela, Windows 95, NT4.0sp6,
-Windows server 2003, WinXP pro, Samba 3.0, and Samba 2.0 (Pluto VideoSpace).
-No support is attempted for servers predating NT 4.0.
