@@ -41,6 +41,11 @@ static struct {
 	{KF|10,	0xffc7},
 	{KF|11,	0xffc8},
 	{KF|12,	0xffc9},
+
+	{Kshift, Xshift},
+	{Kalt, Xalt},
+	{Kaltgr, Xmeta},
+	{Kctl, Xctl},
 };
 
 static char shiftkey[128] = {
@@ -85,8 +90,8 @@ keyevent(Vnc *v, ulong ksym, int down)
 	vncunlock(v);
 }
 
-void
-readkbd(Vnc *v)
+static void
+readcons(Vnc *v)
 {
 	char buf[256], k[10];
 	ulong ks;
@@ -173,6 +178,66 @@ readkbd(Vnc *v)
 			}
 			break;
 		}
+	}
+}
+
+ulong
+runetovnc(Rune r)
+{
+	ulong k;
+
+	k = runetoksym(r);
+	if((k & 0xff00) && k < nelem(utf2ksym) && utf2ksym[k] != 0)
+		k = utf2ksym[k];
+	return k;
+}
+
+void
+readkbd(Vnc *v)
+{
+	char buf[128], buf2[128], *s;
+	int fd, n;
+	Rune r;
+
+	if((fd = open("/dev/kbd", OREAD)) < 0){
+		readcons(v);
+		return;
+	}
+	buf2[0] = 0;
+	buf2[1] = 0;
+	while((n = read(fd, buf, sizeof(buf))) > 0){
+		buf[n-1] = 0;
+		switch(buf[0]){
+		case 'k':
+			s = buf+1;
+			while(*s){
+				s += chartorune(&r, s);
+				if(utfrune(buf2+1, r) == nil)
+					if((r == Kshift) ||
+					   utfrune(buf+1, Kctl) || 
+					   utfrune(buf+1, Kalt) ||
+					   utfrune(buf+1, Kaltgr))
+						keyevent(v, runetovnc(r), 1);
+			}
+			break;
+		case 'K':
+			s = buf2+1;
+			while(*s){
+				s += chartorune(&r, s);
+				if(utfrune(buf+1, r) == nil)
+					keyevent(v, runetovnc(r), 0);
+			}
+			break;
+		case 'c':
+			chartorune(&r, buf+1);
+			if(utfrune(buf2+1, Kctl) || utfrune(buf2+1, Kalt) || utfrune(buf2+1, Kaltgr))
+				continue;
+			if(utfrune(buf2+1, r))
+				keyevent(v, runetovnc(r), 1);
+		default:
+			continue;
+		}
+		strcpy(buf2, buf);
 	}
 }
 
