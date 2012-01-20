@@ -283,8 +283,6 @@ addconfx(char *s, int w, ulong v)
 	*confend = 0;
 }
 
-void apm(int id);
-
 static void
 apmconf(int id)
 {
@@ -313,8 +311,6 @@ apmconf(int id)
 	*confend++ = '\n';
 	*confend = 0;
 }
-
-ulong e820(ulong bx, void *p);
 
 static void
 e820conf(void)
@@ -380,8 +376,6 @@ beswal(ulong l)
 	return (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
 }
 
-void a20(void);
-
 char*
 bootkern(void *f)
 {
@@ -389,7 +383,8 @@ bootkern(void *f)
 	ulong n;
 	Exec ex;
 
-	a20();
+	while(a20() < 0)
+		print("a20 enable failed\r\n");
 
 	if(readn(f, &ex, sizeof(ex)) != sizeof(ex))
 		return "bad header";

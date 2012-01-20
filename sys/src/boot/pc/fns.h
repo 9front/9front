@@ -29,3 +29,11 @@ void print(char *s);
 char *configure(void *f, char *path);
 char *bootkern(void *f);
 
+/* a20.s */
+int a20(void);
+
+/* e820.s */
+ulong e820(ulong bx, void *p);
+
+/* apm.s */
+void apm(int id);
