@@ -2210,6 +2210,7 @@ atapnp(void)
 		case (0x25A2<<16)|0x8086:	/* 6300ESB pata */
 		case (0x25A3<<16)|0x8086:	/* 6300ESB (E7210) */
 		case (0x266F<<16)|0x8086:	/* 82801FB (ICH6) */
+		case (0x2651<<16)|0x8086:	/* 82801FB (ICH6) */
 		case (0x2653<<16)|0x8086:	/* 82801FBM (ICH6, Mobile) */
 		case (0x269e<<16)|0x8086:	/* 63xxESB (intel 5000) */
 		case (0x27DF<<16)|0x8086:	/* 82801G PATA (ICH7) */
