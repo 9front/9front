@@ -1,0 +1,23 @@
+.TH OGGDEC 1
+.SH NAME
+oggdec \- decode ogg vorbis audio files
+.SH SYNOPSIS
+.B audio/oggdec
+.SH DESCRIPTION
+.I oggdec
+reads encoded data from standard input, and writes
+44100Hz 16 bit LSB stereo data to standard output.
+So
+.IP
+.L
+audio/oggdec < file > /dev/audio
+.LP
+plays file, provided that you have a working /dev/audio.
+.SH SOURCE
+.B /sys/src/cmd/audio/oggdec
+.SH SEE ALSO
+.IR oggenc (1)
+.SH DIAGNOSTICS
+None.
+.SH BUGS
+Other output modes are not supported.
