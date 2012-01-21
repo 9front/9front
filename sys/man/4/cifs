@@ -75,7 +75,7 @@ CIFS packet debug.
 .TP
 .B -i 
 By default 
-.I cifs(4)
+.I cifs
 attempts to enforce case significance file and directory names, though objects
 which differ only in their case still cannot co-exist in the same directory. The
 .B -i
