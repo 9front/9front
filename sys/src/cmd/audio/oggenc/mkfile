@@ -1,0 +1,21 @@
+</$objtype/mkfile
+<../config
+
+TARGET=oggenc
+
+CC=pcc
+CFLAGS=-I../libvorbis -I../libogg
+
+%.$O: %.c
+	$CC $CFLAGS -c $stem.c
+
+$O.%: %.$O
+	$CC -o $target $prereq
+
+all:V: $O.$TARGET
+
+clean:V:
+	rm -f *.[$OS] [$OS].$TARGET
+
+install:V: $O.$TARGET
+	cp $O.$TARGET $BIN/$TARGET

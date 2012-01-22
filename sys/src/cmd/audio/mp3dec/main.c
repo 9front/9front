@@ -6,24 +6,19 @@
 #include "mad.h"
 
 /* Current input file */
-char *name;
 vlong offset;
 int rate = 44100;
 int debug = 0;
 
-char *outfile;
-int vfd; /* /dev/volume */
-
 static enum mad_flow
-input(void *data, struct mad_stream *stream)
+input(void *, struct mad_stream *stream)
 {
 	int fd, n, m;
 	static uchar buf[32768];
 
-	fd = (int)data;
 	n = stream->bufend - stream->next_frame;
 	memmove(buf, stream->next_frame, n);
-	m = read(fd, buf+n, sizeof buf-n);
+	m = read(0, buf+n, sizeof buf-n);
 	offset += m;
 	if(m < 0)
 		sysfatal("reading input: %r");
@@ -100,7 +95,7 @@ audiodither(mad_fixed_t v, Dither *d)
 }
 
 static enum mad_flow
-output(void *data, struct mad_header const* header, struct mad_pcm *pcm)
+output(void *, struct mad_header const* header, struct mad_pcm *pcm)
 {
 	int i, n, v;
 	mad_fixed_t const *left, *right;
@@ -109,10 +104,7 @@ output(void *data, struct mad_header const* header, struct mad_pcm *pcm)
 
 	if(pcm->samplerate != rate){
 		rate = pcm->samplerate;
-		if(vfd < 0)
-			fprint(2, "warning: audio sample rate is %d Hz\n", rate);
-		else
-			fprint(vfd, "speed %d", rate);
+		fprint(2, "warning: audio sample rate is %d Hz\n", rate);
 	}
 	p = buf;
 	memset(&d, 0, sizeof d);
@@ -148,7 +140,7 @@ output(void *data, struct mad_header const* header, struct mad_pcm *pcm)
 }
 
 static enum mad_flow
-error(void *data, struct mad_stream *stream, struct mad_frame *frame)
+error(void *, struct mad_stream *stream, struct mad_frame *frame)
 {
 	if(stream->error == MAD_ERROR_LOSTSYNC){
 		if(memcmp(stream->this_frame, "TAG", 3)==0){
@@ -157,69 +149,34 @@ error(void *data, struct mad_stream *stream, struct mad_frame *frame)
 		}
 	}
 	if(debug)
-		fprint(2, "%s:#%lld: %s\n",
-			name, offset-(stream->bufend-stream->next_frame),
+		fprint(2, "#%lld: %s\n",
+			offset-(stream->bufend-stream->next_frame),
 			mad_stream_errorstr(stream));
 	return MAD_FLOW_CONTINUE;
 }
 
 void
-play(int fd, char *nam)
-{
-	struct mad_decoder decoder;
-	
-	name = nam;
-	mad_decoder_init(&decoder, (void*)fd, input, nil, nil, output, error, nil);
-	mad_decoder_run(&decoder, MAD_DECODER_MODE_SYNC);
-	mad_decoder_finish(&decoder);
-}
-
-void
 usage(void)
 {
-	fprint(2, "usage: mp3dec [ -d ] [ -o outfile ] [ file ... ]\n");
+	fprint(2, "usage: %s [ -d ]\n", argv0);
 	exits("usage");
 }
 
 void
 main(int argc, char **argv)
 {
-	int i, fd;
-	char *p;
+	struct mad_decoder decoder;
 
 	ARGBEGIN{
-	case 'o':
-		outfile = EARGF(usage());
-		break;
 	case 'd':
 		debug++;
 		break;
 	default:
 		usage();
 	}ARGEND
-	
-	if(outfile){
-		if((fd = create(outfile, OWRITE, 0666)) < 0)
-			sysfatal("create %s: %r", outfile);
-	}else{
-		if((fd = open("/dev/audio", OWRITE)) < 0)
-			sysfatal("open /dev/audio: %r");
-		vfd = open("/dev/volume", OWRITE);
-	}
-	if(fd != 1){
-		dup(fd, 1);
-		close(fd);
-	}
 
-	if(argc == 0){
-		play(0, "standard input");
-	}else{
-		for(i=0; i<argc; i++){
-			if((fd = open(argv[i], OREAD)) < 0)
-				sysfatal("open %s: %r", argv[i]);
-			play(fd, argv[i]);
-			close(fd);
-		}
-	}
+	mad_decoder_init(&decoder, nil, input, nil, nil, output, error, nil);
+	mad_decoder_run(&decoder, MAD_DECODER_MODE_SYNC);
+	mad_decoder_finish(&decoder);
 	exits(0);
 }

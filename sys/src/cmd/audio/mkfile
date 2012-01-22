@@ -1,0 +1,62 @@
+</$objtype/mkfile
+
+LIBS=libogg libvorbis
+PROGS=oggdec oggenc mp3dec mp3enc 
+#libs must be made first
+DIRS=$LIBS $PROGS
+
+UPDATE=\
+	mkfile\
+
+all:V:
+	for (i in $DIRS) @{
+		cd $i
+		mk all
+	}
+
+clean:V:
+	for (i in $DIRS) @{
+		cd $i
+		mk clean
+	}
+
+nuke:V:
+	for (i in $LIBS) @{
+		cd $i
+		mk nuke
+	}
+	for (i in $PROGS) @{
+		cd $i
+		mk clean
+	}
+
+install:V:
+	mkdir -p $BIN
+	for (i in $DIRS) @{
+		cd $i
+		mk install
+	}
+
+installall:V:
+	for (i in $DIRS) @{
+		cd $i
+		mk installall
+	}
+	for (i in $DIRS) @{
+		cd $i
+		mk clean
+	}
+
+safeinstallall:V:
+	for (i in $LIBS) @{
+		cd $i
+		mk installall
+	}
+	for (i in $PROGS) @{
+		cd $i
+		mk safeinstallall
+	}
+	for (i in $DIRS) @{
+		cd $i
+		mk clean
+	}

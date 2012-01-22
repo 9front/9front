@@ -24,8 +24,6 @@ DIRS=\
 	doom\
 	mahjongg\
 	mines\
-	mp3dec\
-	mp3enc\
 	music\
 	sokoban\
 	sudoku\

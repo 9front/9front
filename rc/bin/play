@@ -1,0 +1,80 @@
+#!/bin/rc
+
+out=/dev/audio
+typ=()
+tmp=()
+argv0=$0
+
+fn cleanup {
+	if(! ~ $#tmp 0)
+		rm -f $tmp
+	tmp=()
+}
+
+fn sigint {
+	cleanup
+	exit
+}
+
+fn sigexit {
+	cleanup
+}
+
+fn play1 {
+	if(~ $#* 0){
+		tmp=/tmp/play.$pid.tmp
+		dd -bs 64 -count 1 >$tmp >[2]/dev/null
+		cat $tmp /fd/0 | play1 `{file -m $tmp} xxx
+		cleanup
+	}
+	if not {
+		switch($1){
+		case *plain*
+			sed 's///g' | while(j=`{read}){
+				if(~ $"j http:* https:* HTTP:* HTTPS:*){
+					if(~ $#typ 0) typ=mp3
+					echo $"j >[1=2]
+					hget -r 'Icy-MetaData: 0' $j | play1 $typ
+				}
+				if not {
+					if(test -r $"j){
+						echo $"j >[1=2]
+						play1 <$"j
+					}
+				}
+			}
+		case *ogg* *vorbis*
+			audio/oggdec
+		case *mp3* *mpeg*
+			audio/mp3dec
+		case *pls*
+			awk 'BEGIN {FS="="} /^File/{print $2}' | play1 plain
+		case *
+			echo $argv0: unknown format: $1 >[1=2]
+		}
+	}
+}
+
+fn usage {
+	echo usage: $argv0 [ -t type ] [-o file ] [ file ... ] >[1=2]
+	exit usage
+}
+
+while(~ $1 -*){
+	switch($1){
+	case -t
+		typ=$2
+		shift
+	case -o
+		out=$2
+		shift
+	case *
+		usage
+	}
+	shift
+}
+
+>$out {
+	if(~ $#* 0){play1 $typ; exit}
+	for(i){echo $i} | play1 plain 
+} 

@@ -2,41 +2,21 @@
 .SH NAME
 mp3dec \- decode audio MPEG files (layers 1, 2 and 3)
 .SH SYNOPSIS
-.B mp3dec
+.B audio/mp3dec
 [
-.B -o
-.I outfile
-]
-[
-.I file
-\&...
+.B -d
 ]
 .SH DESCRIPTION
 .I Mp3dec
-decodes one or more MPEG audio files, writing
-16-bit stereo linear PCM sample data to
-.I outfile
-(default
-.BR /dev/audio ).
-If no files are named,
-.I mp3dec
-reads standard input.
+decodes MPEG audio from stdanrd input,
+writing 16-bit stereo linear PCM sample data to
+standard output.
 .PP
-In the absence of the
-.B -o
-option,
-.I mp3dec
-also opens
-.BR /dev/volume
-and sets the sample rate for playback to
-match the audio stream.
-When writing to
-.IR outfile ,
-.I mp3dec
-prints a warning to standard error
-if the stream rate is not 44100 Hz.
+The
+.B -d
+option enabled debug prints to standard error.
 .SH SOURCE
-.B /sys/src/games/mp3dec
+.B /sys/src/cmd/audio/mp3dec
 .SH "SEE ALSO"
 .IR mp3enc (1),
 .IR juke (7),

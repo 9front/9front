@@ -4,7 +4,7 @@ mp3enc \- create mp3 audio files
 .SH SYNOPSIS
 .in +0.5i
 .ti -0.5i
-.B games/mp3enc
+.B audio/mp3enc
 [
 .B -hprv
 ] [
@@ -190,7 +190,7 @@ Streaming from stereo 44.1KHz raw PCM data, encoding mono at 16KHz
 dd -conv swab | games/mp3enc -a -r -m m --resample 16 -b 24
 .EE
 .SH SOURCE
-.B /sys/src/games/mp3enc
+.B /sys/src/cmd/audio/mp3enc
 .SH SEE ALSO
 .IR dd (1),
 .IR mp3dec (1),
