@@ -86,13 +86,15 @@ schedinit(void)		/* never returns */
 			 *	palloc
 			 */
 			mmurelease(up);
+			unlock(&palloc);
 
 			up->qnext = procalloc.free;
 			procalloc.free = up;
 
-			unlock(&palloc);
+			/* proc is free now, make sure unlock() wont touch it */
+			up = procalloc.p = nil;
 			unlock(&procalloc);
-			break;
+			sched();
 		}
 		up->mach = nil;
 		updatecpu(up);
