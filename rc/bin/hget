@@ -1,7 +1,7 @@
 #!/bin/rc
 argv0=$0
 fn usage {
-	echo usage: $argv0 [ -o file ] [ -p body ] [ -r header ] [ -m method ] [ -b baseurl ] url >[2=1]
+	echo usage: $argv0 [ -o file ] [ -p body ] [ -r header ] [ -m method ] [ -b baseurl ] url >[1=2]
 	exit usage
 }
 s=0
