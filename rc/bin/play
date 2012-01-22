@@ -31,15 +31,16 @@ fn play1 {
 		switch($1){
 		case *plain*
 			sed 's///g' | while(j=`{read}){
+				echo $"j >[1=2]
 				if(~ $"j http:* https:* HTTP:* HTTPS:*){
 					if(~ $#typ 0) typ=mp3
-					echo $"j >[1=2]
 					hget -r 'Icy-MetaData: 0' $j | play1 $typ
 				}
 				if not {
-					if(test -r $"j){
-						echo $"j >[1=2]
+					if(test -r $"j)
 						play1 <$"j
+					if not {
+						echo $argv0: 'can''t open file:' $"j >[1=2]
 					}
 				}
 			}

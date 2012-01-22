@@ -1,0 +1,59 @@
+.TH PLAY 1
+.SH NAME
+play \- simple audio player
+.SH SYNOPSIS
+.B play
+[
+.B -o
+.I file
+] [
+.B -t
+.I type
+] [ 
+.I file 
+\&| 
+.I url 
+\&... ]
+.SH DESCRIPTION
+.I Play
+is a simple audio player that understand a number of
+audio and playlist formats.
+.PP
+If no
+.I file
+or
+.I url
+arguments are given, standard input is used.
+Wihout the
+.B -t
+option, the file type is determined using
+.IR file (1)
+command and the appropriate decoder is invoked.
+.PP
+Supported
+.I type
+values are:
+.TP
+.B plain
+Plain text with one file or url per line.
+.TP
+.B pls
+Winamp playlist file.
+.TP
+.B mp3
+Mpeg audio.
+.TP
+.B ogg
+Ogg vorbis.
+.PP
+By default, raw audio data is written to
+.B /dev/audio
+unless changed with the
+.B -o
+option.
+.SH SOURCE
+.B /rc/bin/play
+.SH "SEE ALSO"
+.IR mp3dec (1),
+.IR oggdec (1),
+.IR hget (1)
