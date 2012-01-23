@@ -379,6 +379,8 @@ sysexec(ulong *arg)
 		charp += n;
 	}
 	free(file0);
+	file0 = nil;	/* so waserror() won't free file0 */
+	USED(file0);
 
 	free(up->text);
 	up->text = elem;
@@ -458,13 +460,13 @@ sysexec(ulong *arg)
 	 */
 	s = up->seg[ESEG];
 	up->seg[ESEG] = 0;
+	s->base = USTKTOP-USTKSIZE;
+	s->top = USTKTOP;
+	relocateseg(s, USTKTOP-TSTKTOP);
 	up->seg[SSEG] = s;
 	qunlock(&up->seglock);
 	poperror();	/* seglock */
 	poperror();	/* elem */
-	s->base = USTKTOP-USTKSIZE;
-	s->top = USTKTOP;
-	relocateseg(s, USTKTOP-TSTKTOP);
 
 	/*
 	 *  '/' processes are higher priority (hack to make /ip more responsive).
