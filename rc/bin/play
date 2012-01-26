@@ -32,13 +32,16 @@ fn play1 {
 		case *plain*
 			sed 's///g' | while(j=`{read}){
 				echo $"j >[1=2]
+				t=$typ
 				if(~ $"j http:* https:* HTTP:* HTTPS:*){
-					if(~ $#typ 0) typ=mp3
-					hget -r 'Icy-MetaData: 0' $j | play1 $typ
+					if(~ $#t 0) t=mp3
+					hget -r 'Icy-MetaData: 0' $j | play1 $t
 				}
 				if not {
-					if(test -r $"j)
-						play1 <$"j
+					if(test -r $"j){
+						if(~ $#t 0 && ~ $"j *mp3*) t=mp3
+						play1 $t <$"j
+					}
 					if not {
 						echo $argv0: 'can''t open file:' $"j >[1=2]
 					}

@@ -29,16 +29,12 @@ input(void *, struct mad_stream *stream)
 	return MAD_FLOW_CONTINUE;
 }
 
-/*
- * Dither 28-bit down to 16-bit.  From mpg321. 
- * I'm skeptical, but it's supposed to make the
- * samples sound better than just truncation.
- */
-typedef struct Dither Dither;
-struct Dither
+typedef struct Chan Chan;
+struct Chan
 {
-	mad_fixed_t error[3];
-	mad_fixed_t random;
+	ulong		phase;
+	mad_fixed_t	last;
+	mad_fixed_t	rand;
 };
 
 #define PRNG(x) (((x)*0x19660dL + 0x3c6ef35fL) & 0xffffffffL)
@@ -47,94 +43,84 @@ enum
 {
 	FracBits = MAD_F_FRACBITS,
 	OutBits = 16,
-	Round = 1 << (FracBits+1-OutBits-1),	// sic
 	ScaleBits = FracBits + 1 - OutBits,
 	LowMask  = (1<<ScaleBits) - 1,
 	Min = -MAD_F_ONE,
 	Max = MAD_F_ONE - 1,
 };
 
-int
-audiodither(mad_fixed_t v, Dither *d)
+static uchar*
+resample(Chan *c, mad_fixed_t *src, uchar *dst, int mono, ulong delta, ulong count)
 {
-	int out;
-	mad_fixed_t random;
+	mad_fixed_t last, val, out, rand;
+	ulong phase, pos;
+	vlong v;
 
-	/* noise shape */
-	v += d->error[0] - d->error[1] + d->error[2];
-	d->error[2] = d->error[1];
-	d->error[1] = d->error[0] / 2;
-	
-	/* bias */
-	out = v + Round;
-	
-	/* dither */
-	random = PRNG(d->random);
-	out += (random & LowMask) - (d->random & LowMask);
-	d->random = random;
-	
-	/* clip */
-	if(out > Max){
-		out = Max;
-		if(v > Max)
-			v = Max;
-	}else if(out < Min){
-		out = Min;
-		if(v < Min)
-			v = Min;
+	rand = c->rand;
+	last = c->last;
+	phase = c->phase;
+	pos = phase >> 16;
+	while(pos < count){
+		val = src[pos];
+		if(pos)
+			last = src[pos-1];
+
+		/* interpolate */
+		v = val;
+		v -= last;
+		v *= (phase & 0xFFFF);
+		out = last + (v >> 16);
+
+		/* dithering */
+		out += (rand & LowMask) - LowMask/2;
+		rand = PRNG(rand);
+
+		/* cliping */
+		if(out > Max)
+			out = Max;
+		else if(out < Min)
+			out = Min;
+
+		out >>= ScaleBits;
+
+		*dst++ = out;
+		*dst++ = out >> 8;
+		if(mono){
+			*dst++ = out;
+			*dst++ = out >> 8;
+		} else
+			dst += 2;
+		phase += delta;
+		pos = phase >> 16;
 	}
-	
-	/* quantize */
-	out &= ~LowMask;
-	
-	/* error feedback */
-	d->error[0] = v - out;
-	
-	/* scale */
-	return out >> ScaleBits;
+	c->rand = rand;
+	c->last = val;
+	if(delta < 0x10000)
+		c->phase = phase & 0xFFFF;
+	else
+		c->phase = phase - (count << 16);
+
+	return dst;
 }
 
 static enum mad_flow
 output(void *, struct mad_header const* header, struct mad_pcm *pcm)
 {
-	int i, n, v;
-	mad_fixed_t const *left, *right;
-	static Dither d;
-	static uchar buf[16384], *p;
+	static uchar *buf;
+	static int nbuf;
+	static Chan c1, c0;
+	ulong n, delta;
+	uchar *p;
 
-	if(pcm->samplerate != rate){
-		rate = pcm->samplerate;
-		fprint(2, "warning: audio sample rate is %d Hz\n", rate);
+	delta = (pcm->samplerate << 16) / rate;
+	n = 4 * (pcm->samplerate + pcm->length * rate) / pcm->samplerate;
+	if(n > nbuf){
+		nbuf = n;
+		buf = realloc(buf, nbuf);
 	}
-	p = buf;
-	memset(&d, 0, sizeof d);
-	n = pcm->length;
-	switch(pcm->channels){
-	case 1:
-		left = pcm->samples[0];
-		for(i=0; i<n; i++){
-			v = audiodither(*left++, &d);
-			/* stereoize */
-			*p++ = v;
-			*p++ = v>>8;
-			*p++ = v;
-			*p++ = v>>8;
-		}
-		break;
-	case 2:
-		left = pcm->samples[0];
-		right = pcm->samples[1];
-		for(i=0; i<n; i++){
-			v = audiodither(*left++, &d);
-			*p++ = v;
-			*p++ = v>>8;
-			v = audiodither(*right++, &d);
-			*p++ = v;
-			*p++ = v>>8;
-		}
-		break;
-	}
-	assert(p<=buf+sizeof buf);
+	if(pcm->channels == 2)
+		resample(&c1, pcm->samples[1], buf+2, 0, delta, pcm->length);
+	p = resample(&c0, pcm->samples[0], buf, pcm->channels == 1, delta, pcm->length);
 	write(1, buf, p-buf);
 	return MAD_FLOW_CONTINUE;
 }
