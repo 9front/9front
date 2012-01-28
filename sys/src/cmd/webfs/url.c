@@ -41,8 +41,6 @@ unescape(char *s, char *spec)
 			r += 2;
 			continue;
 		}
-		if(x == '+')
-			x = ' ';
 		*w++ = x;
 	}
 	*w = 0;
@@ -94,11 +92,11 @@ Ufmt(Fmt *f)
 			fmtprint(f, ":%s", u->port);
 	}
 	if(s = Upath(u))
-		fmtprint(f, "%E", (Str2){s, "/:@"});
+		fmtprint(f, "%E", (Str2){s, "/:@+"});
 	if(u->query)
 		fmtprint(f, "?%E", (Str2){u->query, "/:@"});
 	if(u->fragment)
-		fmtprint(f, "#%E", (Str2){u->fragment, "/:@?"});
+		fmtprint(f, "#%E", (Str2){u->fragment, "/:@?+"});
 	return 0;
 }
 
@@ -296,6 +294,11 @@ Out:
 	pstrdup(&u->fragment);
 	free(s);
 	free(t);
+
+	/* the + character encodes space only in query part */
+	if(s = u->query)
+		while(s = strchr(s, '+'))
+			*s++ = ' ';
 
 	unescape(u->user, "");
 	unescape(u->pass, "");
