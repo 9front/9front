@@ -1190,8 +1190,10 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 	}
 	wsetpid(w, pid, 1);
 	wsetname(w);
-	if(dir)
+	if(dir){
+		free(w->dir);
 		w->dir = estrdup(dir);
+	}
 	chanfree(cpid);
 	return w;
 }

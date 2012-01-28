@@ -81,6 +81,7 @@ estrdup(char *s)
 	p = malloc(strlen(s)+1);
 	if(p == nil)
 		error("strdup failed");
+	setmalloctag(p, getcallerpc(&s));
 	strcpy(p, s);
 	return p;
 }
