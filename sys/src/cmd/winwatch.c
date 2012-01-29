@@ -4,15 +4,19 @@
 #include <event.h>
 #include <regexp.h>
 
+enum {
+	VISIBLE = 1,
+	CURRENT = 2,
+};
+
 typedef struct Win Win;
 struct Win {
 	int n;
 	int dirty;
+	int state;
 	char *label;
 	Rectangle r;
 };
-
-
 
 Reprog  *exclude  = nil;
 Win *win;
@@ -21,6 +25,7 @@ int mwin;
 int onwin;
 int rows, cols;
 Image *lightblue;
+Image *statecol[4];
 
 enum {
 	PAD = 3,
@@ -63,13 +68,42 @@ estrdup(char *s)
 	return t;
 }
 
+int
+readfile(char *buf, int nbuf, char *file, ...)
+{
+	va_list arg;
+	int n, fd;
+
+	va_start(arg, file);
+	vsnprint(buf, nbuf, file, arg);
+	va_end(arg);
+
+	if((fd = open(buf, OREAD)) < 0){
+		buf[0] = 0;
+		return -1;
+	}
+	n = read(fd, buf, nbuf-1);
+	close(fd);
+	if(n < 0){
+		buf[0] = 0;
+		return -1;
+	}
+	buf[n] = 0;
+	return n;
+}
 
 void
 refreshwin(void)
 {
-	char label[128];
-	int i, fd, lfd, n, nr, nw, m;
+	char label[128], wctl[128], *tok[8];
+	int i, fd, n, nr, nw, state;
+	static int mywinid = -1;
 	Dir *pd;
+
+	if(mywinid < 0){
+		if(readfile(wctl, sizeof(wctl), "/dev/winid") > 0)
+			mywinid = atoi(wctl);
+	}
 
 	if((fd = open("/dev/wsys", OREAD)) < 0)
 		return;
@@ -79,18 +113,23 @@ refreshwin(void)
 	while((nr=dirread(fd, &pd)) > 0){
 		for(i=0; i<nr; i++){
 			n = atoi(pd[i].name);
-			sprint(label, "/dev/wsys/%d/label", n);
-			if((lfd = open(label, OREAD)) < 0)
+			if(n == mywinid)
 				continue;
-			m = read(lfd, label, sizeof(label)-1);
-			close(lfd);
-			if(m < 0)
+			if(readfile(label, sizeof(label), "/dev/wsys/%d/label", n) <= 0)
 				continue;
-			label[m] = '\0';
 			if(exclude != nil && regexec(exclude,label,nil,0))
 				continue;
-
-			if(nw < nwin && win[nw].n == n && strcmp(win[nw].label, label)==0){
+			if(readfile(wctl, sizeof(wctl), "/dev/wsys/%d/wctl", n) <= 0)
+				continue;
+			if(tokenize(wctl, tok, nelem(tok)) != 6)
+				continue;
+			state = 0;
+			if(strcmp(tok[4], "current") == 0)
+				state |= CURRENT;
+			if(strcmp(tok[5], "visible") == 0)
+				state |= VISIBLE;
+			if(nw < nwin && win[nw].n == n && win[nw].state == state && 
+			   strcmp(win[nw].label, label)==0){
 				nw++;
 				continue;
 			}
@@ -106,6 +145,7 @@ refreshwin(void)
 			}
 			win[nw].n = n;
 			win[nw].label = estrdup(label);
+			win[nw].state = state;
 			win[nw].dirty = 1;
 			win[nw].r = Rect(0,0,0,0);
 			nw++;
@@ -132,7 +172,7 @@ drawnowin(int i)
 void
 drawwin(int i)
 {
-	draw(screen, win[i].r, lightblue, nil, ZP);
+	draw(screen, win[i].r, statecol[win[i].state], nil, ZP);
 	_string(screen, addpt(win[i].r.min, Pt(2,0)), display->black, ZP,
 		font, win[i].label, nil, strlen(win[i].label), 
 		win[i].r, nil, ZP, SoverD);
@@ -191,45 +231,37 @@ eresized(int new)
 	redraw(screen, 1);
 }
 
-void
+int
 click(Mouse m)
 {
-	int fd, i, j;	
 	char buf[128];
+	int fd, i;	
 
-	if(m.buttons == 0 || (m.buttons & ~4))
-		return;
-
+	if((m.buttons & 7) != 4)
+		return 0;
 	for(i=0; i<nwin; i++)
 		if(ptinrect(m.xy, win[i].r))
 			break;
 	if(i == nwin)
-		return;
-
+		return 0;
 	do
 		m = emouse();
-	while(m.buttons == 4);
-
-	if(m.buttons != 0){
-		do
-			m = emouse();
-		while(m.buttons);
-		return;
-	}
-
-	for(j=0; j<nwin; j++)
-		if(ptinrect(m.xy, win[j].r))
-			break;
-	if(j != i)
-		return;
+	while((m.buttons & 7) == 4);
+	if((m.buttons & 7) || !ptinrect(m.xy, win[i].r))
+		return 0;
 
 	sprint(buf, "/dev/wsys/%d/wctl", win[i].n);
 	if((fd = open(buf, OWRITE)) < 0)
-		return;
-	write(fd, "unhide\n", 7);
-	write(fd, "top\n", 4);
-	write(fd, "current\n", 8);
+		return 0;
+	if(win[i].state == (CURRENT|VISIBLE))
+		write(fd, "hide\n", 5);
+	else {
+		write(fd, "unhide\n", 7);
+		write(fd, "top\n", 4);
+		write(fd, "current\n", 8);
+	}
 	close(fd);
+	return 1;
 }
 
 void
@@ -245,6 +277,7 @@ main(int argc, char **argv)
 	char *fontname = nil;
 	int Etimer;
 	Event e;
+	int i;
 
 	ARGBEGIN{
 	case 'f':
@@ -265,8 +298,15 @@ main(int argc, char **argv)
 	if(initdraw(0, fontname, "winwatch") < 0)
 		sysfatal("initdraw: %r");
 	lightblue = allocimagemix(display, DPalebluegreen, DWhite);
-	if(lightblue == nil)
-		sysfatal("allocimagemix: %r");
+
+	statecol[0] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xCCCCCCFF);
+	statecol[1] = lightblue;
+	statecol[2] = lightblue;
+	statecol[3] = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DPalegreygreen);
+
+	for(i=0; i<nelem(statecol); i++)
+		if(statecol[i] == nil)
+			sysfatal("allocimage: %r");
 
 	refreshwin();
 	redraw(screen, 1);
@@ -280,8 +320,8 @@ main(int argc, char **argv)
 				exits(0);
 			break;
 		case Emouse:
-			if(e.mouse.buttons)
-				click(e.mouse);
+			if(click(e.mouse) == 0)
+				continue;
 			/* fall through  */
 		default:	/* Etimer */
 			refreshwin();
