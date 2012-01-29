@@ -41,6 +41,7 @@ writef(File *f)
 		f->qidpath = qid;
 		f->mtime = mtime;
 		warn_S(Wdate, &genstr);
+		free(name);
 		return;
 	}
 	if(genc)
@@ -49,8 +50,10 @@ writef(File *f)
 	if((io=create(genc, 1, 0666L)) < 0)
 		error_r(Ecreate, genc);
 	dprint("%s: ", genc);
-	if(statfd(io, 0, 0, 0, &length, &appendonly) > 0 && appendonly && length>0)
+	if(statfd(io, 0, 0, 0, &length, &appendonly) > 0 && appendonly && length>0){
+		free(name);
 		error(Eappend);
+	}
 	n = writeio(f);
 	if(f->name.s[0]==0 || samename){
 		if(addr.r.p1==0 && addr.r.p2==f->nc)
@@ -70,6 +73,7 @@ writef(File *f)
 			checkqid(f);
 		}
 	}
+	free(name);
 }
 
 Posn
