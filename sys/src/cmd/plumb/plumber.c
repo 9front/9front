@@ -122,6 +122,7 @@ emalloc(long n)
 	p = malloc(n);
 	if(p == nil)
 		error("malloc failed: %r");
+	setmalloctag(p, getcallerpc(&n));
 	memset(p, 0, n);
 	return p;
 }
@@ -132,6 +133,7 @@ erealloc(void *p, long n)
 	p = realloc(p, n);
 	if(p == nil)
 		error("realloc failed: %r");
+	setrealloctag(p, getcallerpc(&p));
 	return p;
 }
 
@@ -143,5 +145,6 @@ estrdup(char *s)
 	t = strdup(s);
 	if(t == nil)
 		error("estrdup failed: %r");
+	setmalloctag(t, getcallerpc(&s));
 	return t;
 }
