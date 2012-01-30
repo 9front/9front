@@ -59,3 +59,5 @@ When Remington first started marketing typewriters, the company assumed the mach
 Bigelow & Holmes, Inc. created the screen fonts in the luc, lucm, lucsans, and pelm directories and granted permission to redistribute them with plan9port.
 I tested DNS Bench from grc.com against Plan 9 running in VirtualBox and fossil died.
 venti can store data, but not delete it, fossil can delete data, but not store it, they complement each other perfectly!
+THIS IS UNPUBLISHED PROPRIETARY SOURCE CODE OF AT&T
+[9fans] fossil (again)
