@@ -95,7 +95,7 @@ schedinit(void)		/* never returns */
 			procalloc.free = up;
 
 			/* proc is free now, make sure unlock() wont touch it */
-			up = procalloc.p = nil;
+			up = procalloc.Lock.p = nil;
 			unlock(&procalloc);
 			sched();
 		}
@@ -418,7 +418,7 @@ ready(Proc *p)
 		print("double ready %s %lud pc %p\n", p->text, p->pid, getcallerpc(&p));
 		return;
 	}
-		
+
 	s = splhi();
 	if(edfready(p)){
 		splx(s);
@@ -984,16 +984,16 @@ postnote(Proc *p, int dolock, char *n, int flag)
 		if(p->state == Rendezvous) {
 			Proc *d, **l;
 
-			p->rendval = ~0;
 			l = &REND(p->rgrp, p->rendtag);
 			for(d = *l; d; d = d->rendhash) {
 				if(d == p) {
 					*l = p->rendhash;
+					p->rendval = ~0;
+					ready(p);
 					break;
 				}
 				l = &d->rendhash;
 			}
-			ready(p);
 		}
 		unlock(p->rgrp);
 		break;

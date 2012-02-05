@@ -811,7 +811,6 @@ sysrendezvous(ulong *arg)
 
 	tag = arg[0];
 	l = &REND(up->rgrp, tag);
-	up->rendval = ~(uintptr)0;
 
 	lock(up->rgrp);
 	for(p = *l; p; p = p->rendhash) {
@@ -819,11 +818,10 @@ sysrendezvous(ulong *arg)
 			*l = p->rendhash;
 			val = p->rendval;
 			p->rendval = arg[1];
-
+			unlock(up->rgrp);
 			while(p->mach != 0)
 				;
 			ready(p);
-			unlock(up->rgrp);
 			return val;
 		}
 		l = &p->rendhash;
