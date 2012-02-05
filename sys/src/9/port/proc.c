@@ -88,6 +88,9 @@ schedinit(void)		/* never returns */
 			mmurelease(up);
 			unlock(&palloc);
 
+			up->mach = nil;
+			updatecpu(up);
+
 			up->qnext = procalloc.free;
 			procalloc.free = up;
 
@@ -411,6 +414,11 @@ ready(Proc *p)
 	Schedq *rq;
 	void (*pt)(Proc*, int, vlong);
 
+	if(p->state == Ready){
+		print("double ready %s %lud pc %p\n", p->text, p->pid, getcallerpc(&p));
+		return;
+	}
+		
 	s = splhi();
 	if(edfready(p)){
 		splx(s);
@@ -601,6 +609,7 @@ newproc(void)
 	p->state = Scheding;
 	p->psstate = "New";
 	p->mach = 0;
+	p->eql = 0;
 	p->qnext = 0;
 	p->nchild = 0;
 	p->nwait = 0;

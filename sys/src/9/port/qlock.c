@@ -24,7 +24,8 @@ eqlock(QLock *q)
 		print("eqlock: %#p: ilockdepth %d\n", getcallerpc(&q), m->ilockdepth);
 	if(up != nil && up->nlocks.ref)
 		print("eqlock: %#p: nlocks %lud\n", getcallerpc(&q), up->nlocks.ref);
-
+	if(up != nil && up->eql)
+		print("eqlock: %#p: eql %p\n", getcallerpc(&q), up->eql);
 	if(q->use.key == 0x55555555)
 		panic("eqlock: q %#p, key 5*\n", q);
 
@@ -58,6 +59,7 @@ eqlock(QLock *q)
 		up->notepending = 0;
 		error(Eintr);
 	}
+	up->eql = 0;
 }
 
 void
@@ -69,7 +71,8 @@ qlock(QLock *q)
 		print("qlock: %#p: ilockdepth %d\n", getcallerpc(&q), m->ilockdepth);
 	if(up != nil && up->nlocks.ref)
 		print("qlock: %#p: nlocks %lud\n", getcallerpc(&q), up->nlocks.ref);
-
+	if(up != nil && up->eql)
+		print("qlock: %#p: eql %p\n", getcallerpc(&q), up->eql);
 	if(q->use.key == 0x55555555)
 		panic("qlock: q %#p, key 5*\n", q);
 	lock(&q->use);
