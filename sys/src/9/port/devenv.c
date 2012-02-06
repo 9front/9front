@@ -283,7 +283,11 @@ envwrite(Chan *c, void *a, long n, vlong off)
 
 	len = offset+n;
 	if(len > e->len) {
-		s = smalloc(len);
+		s = malloc(len);
+		if(s == nil){
+			wunlock(eg);
+			error(Enomem);
+		}
 		if(e->value){
 			memmove(s, e->value, e->len);
 			free(e->value);

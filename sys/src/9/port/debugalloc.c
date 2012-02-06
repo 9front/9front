@@ -440,7 +440,10 @@ smalloc(ulong size)
 remember(getcallerpc(&size), v);
 		if(v != nil)
 			break;
-		tsleep(&up->sleep, return0, 0, 100);
+		if(!waserror()){
+			tsleep(&up->sleep, return0, 0, 100);
+			poperror();
+		}
 	}
 	memset(v, 0, size);
 	return v;

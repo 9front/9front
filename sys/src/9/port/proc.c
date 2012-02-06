@@ -1123,12 +1123,7 @@ pexit(char *exitstr, int freemem)
 			panic("boot process died: %s", exitstr);
 		}
 
-		while(waserror())
-			;
-
 		wq = smalloc(sizeof(Waitq));
-		poperror();
-
 		wq->w.pid = up->pid;
 		utime = up->time[TUser] + up->time[TCUser];
 		stime = up->time[TSys] + up->time[TCSys];

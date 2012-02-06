@@ -174,7 +174,10 @@ smalloc(ulong size)
 		v = poolalloc(mainmem, size+Npadlong*sizeof(ulong));
 		if(v != nil)
 			break;
-		tsleep(&up->sleep, return0, 0, 100);
+		if(!waserror()){
+			tsleep(&up->sleep, return0, 0, 100);
+			poperror();
+		}
 	}
 	if(Npadlong){
 		v = (ulong*)v+Npadlong;
