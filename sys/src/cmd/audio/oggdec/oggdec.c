@@ -26,11 +26,82 @@
 #include <math.h>
 #include <vorbis/codec.h>
 
+int rate = 44100;
 
-ogg_int16_t convbuffer[4096]; /* take 8k out of the data segment, not the stack */
-int convsize=4096;
+enum {
+	Max = 32767,
+	Min = -32768,
+};
 
-extern void _VDBG_dump(void);
+typedef unsigned long ulong;
+typedef unsigned char uchar;
+typedef struct Chan Chan;
+
+struct Chan
+{
+	unsigned long	phase;
+	float		last;
+};
+
+static uchar*
+resample(Chan *c, float *src, uchar *dst, int mono, ulong delta, ulong count)
+{
+	float f, last, val;
+	ulong phase, pos;
+	int out;
+	
+	last = c->last;
+	phase = c->phase;
+	pos = phase >> 16;
+	while(pos < count){
+		val = src[pos];
+		if(pos)
+			last = src[pos-1];
+		f = (float)(phase&0xFFFF)/0x10000;
+		out = (last + (val - last) * f) * 32767.f;
+		/* cliping */
+		if(out > Max)
+			out = Max;
+		else if(out < Min)
+			out = Min;
+		*dst++ = out;
+		*dst++ = out >> 8;
+		if(mono){
+			*dst++ = out;
+			*dst++ = out >> 8;
+		} else
+			dst += 2;
+		phase += delta;
+		pos = phase >> 16;
+	}
+	c->last = val;
+	if(delta < 0x10000)
+		c->phase = phase & 0xFFFF;
+	else
+		c->phase = phase - (count << 16);
+	return dst;
+}
+
+static void
+output(float **pcm, int samples, vorbis_info *vi)
+{
+	static uchar *buf;
+	static int nbuf;
+	static Chan c1, c0;
+	ulong n, delta;
+	uchar *p;
+
+	delta = ((ulong)vi->rate << 16) / rate;
+	n = 4 * ((ulong)vi->rate + samples * rate) / (ulong)vi->rate;
+	if(n > nbuf){
+		nbuf = n;
+		buf = realloc(buf, nbuf);
+	}
+	if(vi->channels == 2)
+		resample(&c1, pcm[1], buf+2, 0, delta, samples);
+	p = resample(&c0, pcm[0], buf, vi->channels == 1, delta, samples);
+	fwrite(buf, p-buf, 1, stdout);
+}
 
 int main(){
   ogg_sync_state   oy; /* sync and verify incoming physical bitstream */
@@ -167,8 +238,6 @@ int main(){
       fprintf(stderr,"Encoded by: %s\n\n",vc.vendor);
     }
     
-    convsize=4096/vi.channels;
-
     /* OK, got and parsed all three headers. Initialize the Vorbis
        packet->PCM decoder. */
     vorbis_synthesis_init(&vd,&vi); /* central decode state */
@@ -196,56 +265,13 @@ int main(){
 	    if(result<0){ /* missing or corrupt data at this page position */
 	      /* no reason to complain; already complained above */
 	    }else{
-	      /* we have a packet.  Decode it */
 	      float **pcm;
 	      int samples;
-	      
 	      if(vorbis_synthesis(&vb,&op)==0) /* test for success! */
 		vorbis_synthesis_blockin(&vd,&vb);
-	      /* 
-		 
-	      **pcm is a multichannel float vector.  In stereo, for
-	      example, pcm[0] is left, and pcm[1] is right.  samples is
-	      the size of each channel.  Convert the float values
-	      (-1.<=range<=1.) to whatever PCM format and write it out */
-	      
 	      while((samples=vorbis_synthesis_pcmout(&vd,&pcm))>0){
-		int j;
-		int clipflag=0;
-		int bout=(samples<convsize?samples:convsize);
-		
-		/* convert floats to 16 bit signed ints (host order) and
-		   interleave */
-		for(i=0;i<vi.channels;i++){
-		  ogg_int16_t *ptr=convbuffer+i;
-		  float  *mono=pcm[i];
-		  for(j=0;j<bout;j++){
-#if 1
-		    int val=mono[j]*32767.f;
-#else /* optional dither */
-		    int val=mono[j]*32767.f+drand48()-0.5f;
-#endif
-		    /* might as well guard against clipping */
-		    if(val>32767){
-		      val=32767;
-		      clipflag=1;
-		    }
-		    if(val<-32768){
-		      val=-32768;
-		      clipflag=1;
-		    }
-		    *ptr=val;
-		    ptr+=vi.channels;
-		  }
-		}
-		
-		if(clipflag)
-		  fprintf(stderr,"Clipping in frame %ld\n",(long)(vd.sequence));
-		
-		
-		fwrite(convbuffer,2*vi.channels,bout,stdout);
-		
-		vorbis_synthesis_read(&vd,bout); /* tell libvorbis how
+		output(pcm, samples, &vi);
+		vorbis_synthesis_read(&vd,samples); /* tell libvorbis how
 						   many samples we
 						   actually consumed */
 	      }	    
