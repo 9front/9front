@@ -126,7 +126,7 @@ contains one regular expression per line,
 to be matched against path names
 relative to the current working directory
 and starting with
-.BR ./ .
+.BR / .
 For a file to be exported, all lines with a prefix
 .B +
 must match and all those with prefix
@@ -204,7 +204,7 @@ To export the archive of one user for one month, except for secrets,
 .IP
 .EX
 cd /n/dump
-echo '+ ^\e.(/2003(/10..(/usr(/glenda/?)?)?)?)?' > /tmp/pattern
+echo '+ ^/(2003(/10..(/usr(/glenda/?)?)?)?)?' > /tmp/pattern
 echo '- \e.(aes|pgp)$' >> /tmp/pattern
 exportfs -P /tmp/pattern
 .EE

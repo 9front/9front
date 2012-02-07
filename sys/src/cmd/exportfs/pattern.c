@@ -80,16 +80,16 @@ excludefile(char *path)
 	else
 		p = path+1;
 
-	DEBUG(DFD, "checking %s\n", path);
+	DEBUG(DFD, "checking %s\n", p);
 	for(re = include; *re != nil; re++){
 		if(regexec(*re, p, nil, 0) != 1){
-			DEBUG(DFD, "excluded+ %s\n", path);
+			DEBUG(DFD, "excluded+ %s\n", p);
 			return -1;
 		}
 	}
 	for(re = exclude; *re != nil; re++){
 		if(regexec(*re, p, nil, 0) == 1){
-			DEBUG(DFD, "excluded- %s\n", path);
+			DEBUG(DFD, "excluded- %s\n", p);
 			return -1;
 		}
 	}
