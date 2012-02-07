@@ -21,8 +21,18 @@ static QLock	srvlk;
 static Srv	*srv;
 static int	qidpath;
 
+static Srv*
+srvlookup(char *name, ulong qidpath)
+{
+	Srv *sp;
+	for(sp = srv; sp; sp = sp->link)
+		if(sp->path == qidpath || (name && strcmp(sp->name, name) == 0))
+			return sp;
+	return nil;
+}
+
 static int
-srvgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
+srvgen(Chan *c, char *name, Dirtab*, int, int s, Dir *dp)
 {
 	Srv *sp;
 	Qid q;
@@ -33,14 +43,16 @@ srvgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 	}
 
 	qlock(&srvlk);
-	for(sp = srv; sp && s; sp = sp->link)
-		s--;
-
-	if(sp == 0) {
+	if(name)
+		sp = srvlookup(name, -1);
+	else {
+		for(sp = srv; sp && s; sp = sp->link)
+			s--;
+	}
+	if(sp == 0 || (strlen(sp->name) >= sizeof(up->genbuf))) {
 		qunlock(&srvlk);
 		return -1;
 	}
-
 	mkqid(&q, sp->path, 0, QTFILE);
 	/* make sure name string continues to exist after we release lock */
 	kstrcpy(up->genbuf, sp->name, sizeof up->genbuf);
@@ -65,16 +77,6 @@ static Walkqid*
 srvwalk(Chan *c, Chan *nc, char **name, int nname)
 {
 	return devwalk(c, nc, name, nname, 0, 0, srvgen);
-}
-
-static Srv*
-srvlookup(char *name, ulong qidpath)
-{
-	Srv *sp;
-	for(sp = srv; sp; sp = sp->link)
-		if(sp->path == qidpath || (name && strcmp(sp->name, name) == 0))
-			return sp;
-	return nil;
 }
 
 static int
@@ -144,6 +146,9 @@ srvcreate(Chan *c, char *name, int omode, ulong perm)
 
 	if(openmode(omode) != OWRITE)
 		error(Eperm);
+
+	if(strlen(name) >= sizeof(up->genbuf))
+		error(Egreg);
 
 	sp = smalloc(sizeof *sp);
 	sname = smalloc(strlen(name)+1);
@@ -260,6 +265,8 @@ srvwstat(Chan *c, uchar *dp, int n)
 	if(d.name && *d.name && strcmp(sp->name, d.name) != 0) {
 		if(strchr(d.name, '/') != nil)
 			error(Ebadchar);
+		if(strlen(d.name) >= sizeof(up->genbuf))
+			error(Egreg);
 		kstrdup(&sp->name, d.name);
 	}
 	qunlock(&srvlk);

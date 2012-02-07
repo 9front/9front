@@ -298,13 +298,13 @@ shrgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 	sch = tosch(c);
 	switch(sch->level){
 	default:
-		error(Egreg);
+		return -1;
 	case Qroot:
 	case Qcroot:
 		qlock(&shrslk);
 		for(shr = shrs; shr && s; shr = shr->next)
 			s--;
-		if(shr == nil){
+		if(shr == nil || (strlen(shr->name) >= sizeof(up->genbuf))){
 			qunlock(&shrslk);
 			return -1;
 		}
@@ -323,11 +323,11 @@ shrgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 		rlock(&h->lock);
 		for(m = h->mount; m && s; m = m->next)
 			s--;
-		if(m == nil){
+		mpt = tompt(m);
+		if(m == nil || (strlen(mpt->name) >= sizeof(up->genbuf))){
 			runlock(&h->lock);
 			return -1;
 		}
-		mpt = tompt(m);
 		kstrcpy(up->genbuf, mpt->name, sizeof up->genbuf);
 		devdir(c, shrqid(Qcmpt, mpt->id), up->genbuf, 0, mpt->owner, mpt->perm, dp);
 		runlock(&h->lock);
@@ -460,7 +460,8 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 	case Qcroot:
 		if((perm & DMDIR) == 0 || openmode(omode) != OREAD)
 			error(Eperm);
-
+		if(strlen(name) >= sizeof(up->genbuf))
+			error(Egreg);
 		qlock(&shrslk);
 		if(waserror()){
 			qunlock(&shrslk);
@@ -496,6 +497,9 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 		if(strcmp(shr->owner, eve) == 0 && !iseve())
 			error(Eperm);
 		devpermcheck(shr->owner, shr->perm, ORDWR);
+
+		if(strlen(name) >= sizeof(up->genbuf))
+			error(Egreg);
 
 		h = &shr->umh;
 		wlock(&h->lock);
@@ -652,14 +656,14 @@ shrwstat(Chan *c, uchar *dp, int n)
 	if(d.name && *d.name && strcmp(ent->name, d.name) != 0) {
 		if(strchr(d.name, '/') != nil)
 			error(Ebadchar);
+		if(strlen(d.name) >= sizeof(up->genbuf))
+			error(Egreg);
 		kstrdup(&ent->name, d.name);
 	}
 	poperror();
 	free(strs);
 
 	switch(sch->level){
-	default:
-		error(Egreg);
 	case Qcshr:
 		poperror();
 		qunlock(&shrslk);
