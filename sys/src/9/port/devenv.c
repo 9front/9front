@@ -48,7 +48,7 @@ envgen(Chan *c, char *name, Dirtab*, int, int s, Dir *dp)
 	else if(s < eg->nent)
 		e = eg->ent[s];
 
-	if(e == 0 || (strlen(e->name) >= sizeof(up->genbuf))) {
+	if(e == 0 || name && (strlen(e->name) >= sizeof(up->genbuf))) {
 		runlock(eg);
 		return -1;
 	}
@@ -148,7 +148,7 @@ envcreate(Chan *c, char *name, int omode, ulong)
 		error(Eperm);
 
 	if(strlen(name) >= sizeof(up->genbuf))
-		error(Egreg);
+		error(Etoolong);
 
 	omode = openmode(omode);
 	eg = envgrp(c);

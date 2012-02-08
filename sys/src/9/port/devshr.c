@@ -304,7 +304,7 @@ shrgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 		qlock(&shrslk);
 		for(shr = shrs; shr && s; shr = shr->next)
 			s--;
-		if(shr == nil || (strlen(shr->name) >= sizeof(up->genbuf))){
+		if(shr == nil){
 			qunlock(&shrslk);
 			return -1;
 		}
@@ -323,11 +323,11 @@ shrgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 		rlock(&h->lock);
 		for(m = h->mount; m && s; m = m->next)
 			s--;
-		mpt = tompt(m);
-		if(m == nil || (strlen(mpt->name) >= sizeof(up->genbuf))){
+		if(m == nil){
 			runlock(&h->lock);
 			return -1;
 		}
+		mpt = tompt(m);
 		kstrcpy(up->genbuf, mpt->name, sizeof up->genbuf);
 		devdir(c, shrqid(Qcmpt, mpt->id), up->genbuf, 0, mpt->owner, mpt->perm, dp);
 		runlock(&h->lock);
@@ -461,7 +461,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 		if((perm & DMDIR) == 0 || openmode(omode) != OREAD)
 			error(Eperm);
 		if(strlen(name) >= sizeof(up->genbuf))
-			error(Egreg);
+			error(Etoolong);
 		qlock(&shrslk);
 		if(waserror()){
 			qunlock(&shrslk);
@@ -499,7 +499,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 		devpermcheck(shr->owner, shr->perm, ORDWR);
 
 		if(strlen(name) >= sizeof(up->genbuf))
-			error(Egreg);
+			error(Etoolong);
 
 		h = &shr->umh;
 		wlock(&h->lock);
@@ -657,7 +657,7 @@ shrwstat(Chan *c, uchar *dp, int n)
 		if(strchr(d.name, '/') != nil)
 			error(Ebadchar);
 		if(strlen(d.name) >= sizeof(up->genbuf))
-			error(Egreg);
+			error(Etoolong);
 		kstrdup(&ent->name, d.name);
 	}
 	poperror();

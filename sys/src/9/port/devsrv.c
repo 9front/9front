@@ -49,7 +49,7 @@ srvgen(Chan *c, char *name, Dirtab*, int, int s, Dir *dp)
 		for(sp = srv; sp && s; sp = sp->link)
 			s--;
 	}
-	if(sp == 0 || (strlen(sp->name) >= sizeof(up->genbuf))) {
+	if(sp == 0 || name && (strlen(sp->name) >= sizeof(up->genbuf))) {
 		qunlock(&srvlk);
 		return -1;
 	}
@@ -148,7 +148,7 @@ srvcreate(Chan *c, char *name, int omode, ulong perm)
 		error(Eperm);
 
 	if(strlen(name) >= sizeof(up->genbuf))
-		error(Egreg);
+		error(Etoolong);
 
 	sp = smalloc(sizeof *sp);
 	sname = smalloc(strlen(name)+1);
@@ -266,7 +266,7 @@ srvwstat(Chan *c, uchar *dp, int n)
 		if(strchr(d.name, '/') != nil)
 			error(Ebadchar);
 		if(strlen(d.name) >= sizeof(up->genbuf))
-			error(Egreg);
+			error(Etoolong);
 		kstrdup(&sp->name, d.name);
 	}
 	qunlock(&srvlk);
@@ -307,7 +307,7 @@ srvwrite(Chan *c, void *va, long n, vlong)
 	char buf[32];
 
 	if(n >= sizeof buf)
-		error(Egreg);
+		error(Etoobig);
 	memmove(buf, va, n);	/* so we can NUL-terminate */
 	buf[n] = 0;
 	fd = strtoul(buf, 0, 0);

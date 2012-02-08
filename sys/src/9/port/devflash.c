@@ -403,7 +403,8 @@ flashnewpart(Flash *f, char *name, ulong start, ulong end)
 	}
 	if((fp = empty) == nil)
 		return "partition table full";
-//	fp->name = nil;
+	if(strlen(name)+3 >= sizeof(up->genbuf))
+		return Etoolong;
 	kstrdup(&fp->name, name);
 	if(fp->name == nil)
 		return Enomem;
