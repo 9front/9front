@@ -108,8 +108,7 @@ Xbackq(void)
 		*s='\0';
 		v=newword(wd, v);
 	}
-	if(wd)
-		efree(wd);
+	free(wd);
 	closeio(f);
 	Waitfor(pid, 1);
 	/* v points to reversed arglist -- reverse it onto argv */
