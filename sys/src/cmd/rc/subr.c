@@ -7,10 +7,18 @@ void *
 emalloc(long n)
 {
 	void *p = Malloc(n);
-
 	if(p==0)
 		panic("Can't malloc %d bytes", n);
 /*	if(err){ pfmt(err, "malloc %d->%p\n", n, p); flush(err); } /**/
+	return p;
+}
+
+void*
+erealloc(void *p, long n)
+{
+	p = Realloc(p, n);		/* botch, should be Realloc */
+	if(p==0)
+		panic("Can't realloc %d bytes\n", n);
 	return p;
 }
 

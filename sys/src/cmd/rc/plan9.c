@@ -10,7 +10,7 @@
 #include "getflags.h"
 
 enum {
-	Maxenvname = 256,	/* undocumented limit */
+	Maxenvname = 128,	/* undocumented limit */
 };
 
 char *Signame[] = {
@@ -622,15 +622,19 @@ Malloc(ulong n)
 	return malloc(n);
 }
 
+void*
+Realloc(void *p, ulong n)
+{
+	return realloc(p, n);
+}
+
 int *waitpids;
 int nwaitpids;
 
 void
 addwaitpid(int pid)
 {
-	waitpids = realloc(waitpids, (nwaitpids+1)*sizeof waitpids[0]);
-	if(waitpids == 0)
-		panic("Can't realloc %d waitpids", nwaitpids+1);
+	waitpids = erealloc(waitpids, (nwaitpids+1)*sizeof waitpids[0]);
 	waitpids[nwaitpids++] = pid;
 }
 

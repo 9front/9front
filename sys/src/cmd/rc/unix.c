@@ -467,3 +467,9 @@ Malloc(n)
 {
 	return (void *)malloc(n);
 }
+
+void*
+Realloc(void *p, ulong n)
+{
+	return realloc(p, n);
+}

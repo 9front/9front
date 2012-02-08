@@ -51,15 +51,6 @@ Xasync(void)
 	setvar("apid", newword(buf, (word *)0));
 }
 
-char*
-erealloc(char *p, long n)
-{
-	p = realloc(p, n);		/* botch, should be Realloc */
-	if(p==0)
-		panic("Can't realloc %d bytes\n", n);
-	return p;
-}
-
 enum { Stralloc = 100, };
 
 void

@@ -558,3 +558,9 @@ Malloc(ulong n)
 {
 	return malloc(n);
 }
+
+void*
+Realloc(void *p, ulong n)
+{
+	return realloc(p, n);
+}

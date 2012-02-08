@@ -178,9 +178,7 @@ flush(io *f)
 
 	if(f->strp){
 		n = f->ebuf - f->strp;
-		f->strp = realloc(f->strp, n+Stralloc+1);
-		if(f->strp==0)
-			panic("Can't realloc %d bytes in flush!", n+Stralloc+1);
+		f->strp = erealloc(f->strp, n+Stralloc+1);
 		f->bufp = f->strp + n;
 		f->ebuf = f->bufp + Stralloc;
 		memset(f->bufp, '\0', Stralloc+1);

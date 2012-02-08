@@ -22,10 +22,7 @@ int
 morecode(void)
 {
 	ncode+=100;
-	codebuf = (code *)realloc((char *)codebuf, ncode*sizeof codebuf[0]);
-	if(codebuf==0)
-		panic("Can't realloc %d bytes in morecode!",
-				ncode*sizeof codebuf[0]);
+	codebuf = (code *)erealloc((char *)codebuf, ncode*sizeof codebuf[0]);
 	return 0;
 }
 

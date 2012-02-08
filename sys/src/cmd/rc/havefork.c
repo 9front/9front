@@ -71,15 +71,6 @@ Xpipe(void)
 	}
 }
 
-char*
-erealloc(char *p, long n)
-{
-	p = realloc(p, n);		/* botch, should be Realloc */
-	if(p==0)
-		panic("Can't realloc %d bytes\n", n);
-	return p;
-}
-
 /*
  * Who should wait for the exit from the fork?
  */
