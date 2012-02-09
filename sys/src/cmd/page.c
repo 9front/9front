@@ -159,6 +159,12 @@ resizewin(Point size)
 		return;
 	/* add rio border */
 	size = addpt(size, Pt(Borderwidth*2, Borderwidth*2));
+	if(display->image){
+		if(size.x > Dx(display->image->r))
+			size.x = Dx(display->image->r);
+		if(size.y > Dy(display->image->r))
+			size.y = Dy(display->image->r);
+	}
 	fprint(wctl, "resize -dx %d -dy %d\n", size.x, size.y);
 	close(wctl);
 }
