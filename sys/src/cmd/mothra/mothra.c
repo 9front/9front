@@ -398,6 +398,13 @@ void main(int argc, char *argv[]){
 			break;
 		case Emouse:
 			mouse=e.mouse;
+			if(mouse.buttons & (8|16)){
+				if(mouse.buttons & 8)
+					scrolltext(-text->size.y/24, 1);
+				else
+					scrolltext(text->size.y/24, 1);
+				break;
+			}
 			plmouse(root, &mouse);
 			break;
 		case Eplumb:
