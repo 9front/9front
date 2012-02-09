@@ -160,10 +160,14 @@ resizewin(Point size)
 	/* add rio border */
 	size = addpt(size, Pt(Borderwidth*2, Borderwidth*2));
 	if(display->image){
-		if(size.x > Dx(display->image->r))
-			size.x = Dx(display->image->r);
-		if(size.y > Dy(display->image->r))
-			size.y = Dy(display->image->r);
+		Point dsize = subpt(display->image->r.max, display->image->r.min);
+		if(size.x > dsize.x)
+			size.x = dsize.x;
+		if(size.y > dsize.y)
+			size.y = dsize.y;
+		/* can't just conver whole display */
+		if(eqpt(size, dsize))
+			size.y--;
 	}
 	fprint(wctl, "resize -dx %d -dy %d\n", size.x, size.y);
 	close(wctl);
