@@ -906,15 +906,9 @@ msiintrenable(Vctl *v)
 		print("msiintrenable: could not find Pcidev for tbdf %.8x\n", tbdf);
 		return -1;
 	}
-	cap = 0;
-	for(;;) {
-		cap = pcinextcap(pci, cap);
-		if(cap == 0)
-			return -1;
-		if(pcicfgr8(pci, cap) == 0x05) /* MSI block */
-			break;
-	}
-	
+	cap = pcicap(pci, PciCapMSI);
+	if(cap < 0)
+		return -1;
 	vno = allocvector();
 	cpu = mpintrcpu();
 	ok64 = (pcicfgr16(pci, cap + MSICtrl) & (1<<7)) != 0;

@@ -128,7 +128,7 @@ void	pcihinv(Pcidev*);
 uchar	pciipin(Pcidev*, uchar);
 Pcidev* pcimatch(Pcidev*, int, int);
 Pcidev* pcimatchtbdf(int);
-int	pcinextcap(Pcidev*, int);
+int	pcicap(Pcidev*, int);
 void	pcireset(void);
 int	pciscan(int, Pcidev**);
 void	pcisetbme(Pcidev*);
