@@ -28,7 +28,7 @@ int	autoindent;
 void
 threadmain(int argc, char *argv[])
 {
-	int i, got, scr;
+	int i, got, scr, chord;
 	Text *t;
 	Rectangle r;
 	Flayer *nwhich;
@@ -51,6 +51,7 @@ threadmain(int argc, char *argv[])
 	startnewfile(Tstartcmdfile, &cmd);
 
 	got = 0;
+	chord = 0;
 	for(;;got = waitforio()){
 		if(hasunlocked && RESIZED())
 			resize();
@@ -77,7 +78,23 @@ threadmain(int argc, char *argv[])
 			scr = which && ptinrect(mousep->xy, which->scroll);
 			if(mousep->buttons)
 				flushtyping(1);
-			if(mousep->buttons&1){
+			if((mousep->buttons&1) == 0)
+				chord = 0;
+			if(chord && which && which==nwhich){
+				chord |= mousep->buttons;
+				t = (Text *)which->user1;
+				if(!t->lock){
+					int w = which-t->l;
+					if(chord&2){
+						cut(t, w, 1, 1);
+						chord &= ~2;
+					}
+					if(chord&4){
+						paste(t, w);
+						chord &= ~4;
+					}
+				}
+			} else if(mousep->buttons&1){
 				if(nwhich){
 					if(nwhich!=which)
 						current(nwhich);
@@ -90,6 +107,8 @@ threadmain(int argc, char *argv[])
 							t->lock++;
 						}else if(t!=&cmd)
 							outcmd();
+						if(mousep->buttons&1)
+							chord = mousep->buttons;
 					}
 				}
 			}else if((mousep->buttons&2) && which){
