@@ -78,7 +78,7 @@ threadmain(int argc, char *argv[])
 			scr = which && ptinrect(mousep->xy, which->scroll);
 			if(mousep->buttons)
 				flushtyping(1);
-			if((mousep->buttons&1) == 0)
+			if((mousep->buttons&1)==0)
 				chord = 0;
 			if(chord && which && which==nwhich){
 				chord |= mousep->buttons;
