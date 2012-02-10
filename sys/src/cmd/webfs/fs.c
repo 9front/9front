@@ -399,7 +399,7 @@ fsopen(Req *r)
 			if(!lookkey(cl->hdr, "Connection"))
 				cl->hdr = addkey(cl->hdr, "Connection", "keep-alive");
 			if(!lookkey(cl->hdr, "User-Agent"))
-				cl->hdr = addkey(cl->hdr, "User-Agent", "webfs/0.1 (Plan 9 Front)");
+				cl->hdr = addkey(cl->hdr, "User-Agent", "hjdicks");
 			http(m, cl->url, cl->hdr, cl->qbody, f->buq);
 			cl->request[0] = 0;
 			cl->url = nil;
