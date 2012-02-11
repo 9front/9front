@@ -1,7 +1,22 @@
-.TH MP3ENC 1
+.TH FLACDEC 1
 .SH NAME
-mp3enc \- create mp3 audio files
+flacdec \- decode FLAC audio files
+.br
+mp3dec \- decode MPEG layer 3 audio files
+.br
+mp3enc \- encode MPEG layer 3 audio files
+.br
+oggdec \- decode Ogg Vorbis audio files
+.br
+oggenc \- encode Ogg Vorbis audio files
 .SH SYNOPSIS
+.B audio/flacdec
+.br
+.B audio/mp3dec
+[
+.B -d
+]
+.br
 .in +0.5i
 .ti -0.5i
 .B audio/mp3enc
@@ -28,7 +43,17 @@ q ] [
 .I "long or silly options"
 ]
 .in -0.5i
+.B audio/oggdec
+.br
+.B audio/oggenc
 .SH DESCRIPTION
+.I Flacdec, mp3dec and oggdec
+decode audio from standard input,
+writing 16-bit stereo linear PCM sample data to
+standard output. The
+.B -d
+option enables debug prints to standard error.
+.PP
 .I Mp3enc
 compresses audio on standard input,
 normally PCM-encoded,
@@ -40,6 +65,15 @@ encoding, but that can be changed via
 or
 .BR -v
 (variable bitrate, VBR).
+.PP
+.I Oggenc
+reads 44100Hz 16 bit LSB stereo data from standard input, and writes
+encoded 
+.I 128 kbit/s
+variable bit rate
+.I ogg vorbis
+stream to standard output.
+.SH MP3ENC OPTIONS
 .SS Options
 .TF "\fB-b \fP"
 .TP
@@ -166,43 +200,83 @@ disable VBR histogram display
 experimental voice mode
 .
 .SH EXAMPLES
-Encode a
-.L .wav
-file as highest-quality MP3.
+Play a
+.L .flac
+file:
 .IP
 .EX
-games/mp3enc -q 0 -b 320
+audio/flacdec < foo.flac >/dev/audio
+.EE
+.LP
+Play an
+.L .mp3
+file:
+.IP
+.EX
+games/mp3dec < foo.mp3 >/dev/audio
+.EE
+.LP
+Encode a
+.L .wav
+file as highest-quality MP3:
+.IP
+.EX
+games/mp3enc -q 0 -b 320 <foo.wav >foo.mp3
 .EE
 .LP
 Create a fixed 128Kb/s MP3 file from a
 .L .wav
-file.
+file:
 .IP
 .EX
 games/mp3enc -h <foo.wav >foo.mp3
 .EE
 .LP
-Streaming from stereo 44.1KHz raw PCM data, encoding mono at 16KHz
+Stream from stereo 44.1KHz raw PCM data, encoding mono at 16KHz
 (you may not need
 .IR dd ):
 .IP
 .EX
-dd -conv swab | games/mp3enc -a -r -m m --resample 16 -b 24
+dd -conv swab | games/mp3enc -a -r -m m --resample 16 -b 24 >foo.mp3
+.EE
+.LP
+Play an
+.L .ogg
+file:
+.IP
+.EX
+audio/oggdec < foo.ogg > /dev/audio
+.EE
+.LP
+Encode a
+.L .wav
+file as an
+.L .ogg
+file:
+.IP
+.EX
+audio/oggenc < foo.wav > foo.ogg
 .EE
 .SH SOURCE
+.B /sys/src/cmd/audio/mp3dec
+.br
 .B /sys/src/cmd/audio/mp3enc
-.SH SEE ALSO
+.br
+.B /sys/src/cmd/audio/oggdec
+.br
+.B /sys/src/cmd/audio/oggenc
+.SH "SEE ALSO"
 .IR dd (1),
-.IR mp3dec (1),
 .IR audio (3),
 .IR cdfs (4),
 .IR juke (7),
 .IR playlistfs (7)
 .br
+.B http://www.underbit.com/products/mad/
+.br
 .B http://www.sulaco.org/mp3
 .SH BUGS
-Quality is much better than encoders based on the ISO routines,
-but still not as good as the FhG encoder.
+GNU behemoths, lightly tamed. Quality is much better than encoders
+based on the ISO routines, but still not as good as the FhG encoder.
 .PP
-It's a GNU behemoth, lightly rehabilitated.
 There are zillions of undocumented options.
