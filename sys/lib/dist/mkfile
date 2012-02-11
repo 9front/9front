@@ -6,10 +6,11 @@ cd:V:	$iso
 
 %.iso:  $proto
 	@{rfork n
-	bind usr /n/src9/usr
 	bind cfg /n/src9/cfg
+	bind mail/lib /n/src/9/mail/lib
 	bind ndb /n/src9/lib/ndb
 	bind -a adm/timezone /n/src9/adm/timezone
+	bind usr /n/src9/usr
 	bind /n/src9 /n/src9/dist/plan9front
 	disk/mk9660 -c9j -B 386/9bootiso -p $proto -s /n/src9 -v 'Plan 9 Front' $target
 	}
