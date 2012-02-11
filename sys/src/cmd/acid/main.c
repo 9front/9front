@@ -162,7 +162,7 @@ attachfiles(char *aout, int pid)
 			text = open(aout, OREAD);
 
 		if(text < 0)
-			error("%s: can't open %s: %r\n", argv0, aout);
+			error("%s: can't open %s: %r", argv0, aout);
 		readtext(aout);
 	}
 	if(pid)					/* pid given */
@@ -273,7 +273,7 @@ readtext(char *s)
 		print("%s: (error) loadmap: cannot make symbol map\n", argv0);
 
 	if(syminit(text, &fhdr) < 0) {
-		print("%s: (error) syminit: %r\n", argv0);
+		print("%s: (error) syminit: %r", argv0);
 		return;
 	}
 	print("%s:%s\n", s, fhdr.name);

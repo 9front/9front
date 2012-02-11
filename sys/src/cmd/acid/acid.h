@@ -243,6 +243,10 @@ void	yyerror(char*, ...);
 int	yylex(void);
 int	yyparse(void);
 
+#pragma	varargck	argpos	error		1
+#pragma	varargck	argpos	fatal		1
+#pragma	varargck	argpos	yyerror		1
+
 enum
 {
 	ONAME,
