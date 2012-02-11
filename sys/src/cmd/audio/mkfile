@@ -1,7 +1,7 @@
 </$objtype/mkfile
 
-LIBS=libogg libvorbis
-PROGS=oggdec oggenc mp3dec mp3enc 
+LIBS=libogg libvorbis libFLAC
+PROGS=oggdec oggenc mp3dec mp3enc flacdec
 #libs must be made first
 DIRS=$LIBS $PROGS
 

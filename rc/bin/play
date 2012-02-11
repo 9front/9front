@@ -51,6 +51,8 @@ fn play1 {
 			audio/oggdec
 		case *mp3* *mpeg*
 			audio/mp3dec
+		case *flac*
+			audio/flacdec
 		case *pls*
 			awk 'BEGIN {FS="="} /^File/{print $2}' | play1 plain
 		case *

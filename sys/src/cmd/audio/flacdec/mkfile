@@ -1,0 +1,21 @@
+</$objtype/mkfile
+<../config
+
+TARGET=flacdec
+
+CC=pcc
+CFLAGS=-I. -I../libFLAC -I../libFLAC/FLAC -D_POSIX_SOURCE -D_BSD_EXTENSION -DPlan9 -c
+
+%.$O: %.c
+	$CC $CFLAGS -c $stem.c
+
+$O.%: %.$O ../libFLAC/libFLAC.a$O
+	$CC -o $target $prereq
+
+all:V: $O.$TARGET
+
+clean:V:
+	rm -f *.[$OS] [$OS].$TARGET
+
+install:V: $O.$TARGET
+	cp $O.$TARGET $BIN/$TARGET

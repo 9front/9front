@@ -1,0 +1,28 @@
+</$objtype/mkfile
+
+LIB=libFLAC.a$O
+
+OFILES=\
+	bitbuffer.$O\
+	bitmath.$O\
+	cpu.$O\
+	crc.$O\
+	fixed.$O\
+	format.$O\
+	lpc.$O\
+	md5.$O\
+	memory.$O\
+	metadata_iterators.$O\
+	metadata_object.$O\
+	file_encoder.$O\
+	file_decoder.$O\
+	seekable_stream_encoder.$O\
+	seekable_stream_decoder.$O\
+	stream_encoder.$O\
+	stream_decoder.$O\
+	stream_encoder_framing.$O\
+
+CC=pcc
+CFLAGS=-I. -DVERSION="1.1.1" -DPlan9 -DFLAC__NO_NASM -DFLAC__ALIGN_MALLOC_DATA -D_BSD_EXTENSION -D_POSIX_SOURCE -c
+
+</sys/src/cmd/mklib
