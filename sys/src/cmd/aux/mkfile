@@ -33,6 +33,7 @@ TARG=\
 	searchfs\
 	seek\
 	statusbar\
+	statusmsg\
 	stub\
 	tablet\
 	timesync\

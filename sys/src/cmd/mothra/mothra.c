@@ -265,6 +265,8 @@ void main(int argc, char *argv[]){
 	char *url;
 	int errfile;
 	int i;
+
+	quotefmtinstall();
 	ARGBEGIN{
 	case 'd': debug++; break;
 	case 'v': verbose=1; break;
@@ -551,7 +553,7 @@ char *arg(char *s){
 	return s;
 }
 void save(int ifd, char *name){
-	char buf[NNAME];
+	char buf[NNAME+64];
 	int cfd, ofd;
 	if(ifd < 0){
 		message("save: %s: %r", name);
@@ -571,22 +573,11 @@ void save(int ifd, char *name){
 		close(ifd);
 		dup(ofd, 1);
 		close(ofd);
-		snprint(buf, sizeof(buf), "-pid %d", getpid());
-		if(newwindow(buf) != -1){
-			close(2); open("/dev/cons", OWRITE);
-			if((cfd = open("/dev/label", OWRITE)) >= 0){
-				fprint(cfd, "save %s", name);
-				close(cfd);
-			}
-			if((cfd = open("/dev/wctl", OWRITE)) >= 0){
-				fprint(cfd, "scroll\n");
-				close(cfd);
-			}
-			fprint(2, "save %s...\n", name);
-			execl("/bin/tput", "tput", "-p", nil);
-		}
-		execl("/bin/cat", "cat", nil);
-		exits(0);
+
+		snprint(buf, sizeof(buf),
+			"{tput -p || cat} |[2] {aux/statusmsg -k %q >/dev/null || cat >/dev/null}", name);
+		execl("/bin/rc", "rc", "-c", buf, nil);
+		exits("exec");
 	}
 	close(ifd);
 	close(ofd);
