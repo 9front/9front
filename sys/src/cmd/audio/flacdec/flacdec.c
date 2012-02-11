@@ -140,38 +140,14 @@ int main(int argc, char *argv[])
 {
 	FLAC__bool ok = true;
 	FLAC__StreamDecoder *dec = 0;
-	char *dbg;
 
-	dbg = "FLAC__stream_decoder_new";
-	if((dec = FLAC__stream_decoder_new()) == NULL)
-		goto Err;
-
-	dbg = "FLAC__stream_decoder_set_read_callback";
-	if(!FLAC__stream_decoder_set_read_callback(dec, decinput))
-		goto Err;
-
-	dbg = "FLAC__stream_decoder_set_write_callback";
-	if(!FLAC__stream_decoder_set_write_callback(dec, decoutput))
-		goto Err;
-
-	dbg = "FLAC__stream_decoder_set_error_callback";
-	if(!FLAC__stream_decoder_set_error_callback(dec, decerror))
-		goto Err;
-
-	dbg = "FLAC__stream_decoder_set_metadata_callback";
-	if(!FLAC__stream_decoder_set_metadata_callback(dec, decmeta))
-		goto Err;
-
-	dbg = "FLAC__stream_decoder_set_metadata_ignore_all";
-	if(!FLAC__stream_decoder_set_metadata_ignore_all(dec))
-		goto Err;
-
+	dec = FLAC__stream_decoder_new();
+	FLAC__stream_decoder_set_read_callback(dec, decinput);
+	FLAC__stream_decoder_set_write_callback(dec, decoutput);
+	FLAC__stream_decoder_set_error_callback(dec, decerror);
+	FLAC__stream_decoder_set_metadata_callback(dec, decmeta);
 	FLAC__stream_decoder_init(dec);
 	FLAC__stream_decoder_process_until_end_of_stream(dec);
 	FLAC__stream_decoder_finish(dec);
 	return 0;
-
-Err:
-	fprintf(stderr,"%s\n", dbg);
-	return 1;
 }
