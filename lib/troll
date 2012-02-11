@@ -45,8 +45,6 @@ Epistemology is the most important science.
 The problem with all the economists is that they base their theories on empiric observations.
 Why would you program in C if you know Lisp anyway?
 Dead Island dev apologises for "feminist whore" code.
-fossil deadlock
-I can easily get fossil to deadlock. It would be great if anyone with fossil internals expertise could comment.
 Why should I boot Plan 9, when I know I can't run a browser, and I already have p9p?
 9p (the network filesystem plan9 and inferno are using) is horribly slow. It only works on fast no-latency LANs. Don't even think about using it on any link with more than 20ms latency.
 The (9P) protocol has also other glaring mis-features -- it lacks the ability of moving files -- if you want to move a big file on a remote machine from one directory to another, you'll have to copy it back and forth, all the way. This is incredibly dumb.
@@ -61,3 +59,14 @@ I tested DNS Bench from grc.com against Plan 9 running in VirtualBox and fossil 
 venti can store data, but not delete it, fossil can delete data, but not store it, they complement each other perfectly!
 THIS IS UNPUBLISHED PROPRIETARY SOURCE CODE OF AT&T
 [9fans] fossil (again)
+[9fans] fossil deadlock
+I can easily get fossil to deadlock. It would be great if anyone with fossil internals expertise could comment.
+today there were problems with the Fossil FS on my Plan9 test installation.
+I can't remember ever having lost data with fossil+venti
+I ran dozens of file servers with only Fossil or both Fossil and Venti since 2004, and I never lost any byte of data.
+I experienced only few problems with Fossil.
+So far, I only succeeded to reproduce data-lost problems on Fossil when running heavy stress testing.
+NIX 64-bit kernel is available
+Out of curiosity: 9front makes high claims about device drivers, are these compatible with Plan 9 (and NIX)?  If so, is there a list?
+nix has been dealing with problems due to osx : mangling.
+For those using 9vx on OSX: it's really easy to set up your local drive to support a case sensitive file system.  Just don't make it the root partition or where /Users resides in case you run any applications out of ~/Applications that come from certain large corporations (aka any that really pushed the Carbon APIs, or applications that originated in Carbon but were only slowly migrated to Cocoa).  You can create a case-sensitive disk image, though that has some drawbacks.  Partition your drive and then add an entry into /etc/fstab so that it always mounts at a logical place, and not some /Volumes with a potentially variable name.
