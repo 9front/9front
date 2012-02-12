@@ -45,6 +45,9 @@ Mpeg audio.
 .TP
 .B ogg
 Ogg vorbis.
+.TP
+.B flac
+FLAC lossless audio.
 .PP
 By default, raw audio data is written to
 .B /dev/audio
@@ -54,6 +57,5 @@ option.
 .SH SOURCE
 .B /rc/bin/play
 .SH "SEE ALSO"
-.IR mp3dec (1),
-.IR oggdec (1),
+.IR audio (1),
 .IR hget (1)

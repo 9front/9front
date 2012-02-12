@@ -1,24 +1,18 @@
-.TH FLACDEC 1
+.TH AUDIO 1
 .SH NAME
-flacdec \- decode FLAC audio files
-.br
-mp3dec \- decode MPEG layer 3 audio files
-.br
-mp3enc \- encode MPEG layer 3 audio files
-.br
-oggdec \- decode Ogg Vorbis audio files
-.br
-oggenc \- encode Ogg Vorbis audio files
+mp3dec, mp3enc, oggdec, oggenc, flacdec \- decode and encode audio files
 .SH SYNOPSIS
-.B audio/flacdec
-.br
 .B audio/mp3dec
 [
 .B -d
 ]
 .br
-.in +0.5i
-.ti -0.5i
+.B audio/oggdec
+.br
+.B audio/flacdec
+.PP
+.B audio/oggenc
+.br
 .B audio/mp3enc
 [
 .B -hprv
@@ -42,38 +36,38 @@ q ] [
 ] [
 .I "long or silly options"
 ]
-.in -0.5i
-.B audio/oggdec
-.br
-.B audio/oggenc
-.SH DESCRIPTION
-.I Flacdec, mp3dec and oggdec
-decode audio from standard input,
-writing 16-bit stereo linear PCM sample data to
-standard output. The
-.B -d
-option enables debug prints to standard error.
 .PP
-.I Mp3enc
-compresses audio on standard input,
-normally PCM-encoded,
-and produces MP3-encoded audio on standard output.
-By default, the MP3 file will use `constant bit-rate' (CBR)
-encoding, but that can be changed via
+.SH DESCRIPTION
+These programs decode and encode various audio formats from and to
+16-bit stereo PCM (little endian). The decoders read the compressed
+audio data from standard input and produce PCM on standard output at
+a sampling frequency of 44.1KHz.
+.PP
+.I Mp3dec
+decodes MPEG audio (layer 1, 2 and 3). The
+.B -d
+option enables debug output to standard error.
+.I Oggdec
+and
+.I flacdec
+are like
+.I mp3dec
+but decode OGG Vorbis and FLAC lossless audio.
+.PP
+The encoders read PCM on standard input and produce compressed audio
+on standard output.
+.I Oggenc
+and
+.I mp3enc
+produce OGG Vorbis and MP3 audio. For
+.I mp3enc,
+the MP3 file will use `constant bit-rate' (CBR) encoding by default, 
+but that can be changed via
 .B --abr
 (average bitrate desired, ABR)
 or
 .BR -v
 (variable bitrate, VBR).
-.PP
-.I Oggenc
-reads 44100Hz 16 bit LSB stereo data from standard input, and writes
-encoded 
-.I 128 kbit/s
-variable bit rate
-.I ogg vorbis
-stream to standard output.
-.SH MP3ENC OPTIONS
 .SS Options
 .TF "\fB-b \fP"
 .TP
@@ -199,84 +193,48 @@ disable VBR histogram display
 .BI --voice
 experimental voice mode
 .
-.SH EXAMPLES
-Play a
-.L .flac
-file:
-.IP
-.EX
-audio/flacdec < foo.flac >/dev/audio
-.EE
-.LP
-Play an
+.SH EXAMPLE
+Plays back a
 .L .mp3
-file:
 .IP
 .EX
-games/mp3dec < foo.mp3 >/dev/audio
+audio/mp3dec <foo.mp3 >/dev/audio
 .EE
 .LP
 Encode a
 .L .wav
-file as highest-quality MP3:
+file as highest-quality MP3.
 .IP
 .EX
-games/mp3enc -q 0 -b 320 <foo.wav >foo.mp3
+audio/mp3enc -q 0 -b 320
 .EE
 .LP
 Create a fixed 128Kb/s MP3 file from a
 .L .wav
-file:
+file.
 .IP
 .EX
-games/mp3enc -h <foo.wav >foo.mp3
+audio/mp3enc -h <foo.wav >foo.mp3
 .EE
 .LP
-Stream from stereo 44.1KHz raw PCM data, encoding mono at 16KHz
+Streaming from stereo 44.1KHz raw PCM data, encoding mono at 16KHz
 (you may not need
 .IR dd ):
 .IP
 .EX
-dd -conv swab | games/mp3enc -a -r -m m --resample 16 -b 24 >foo.mp3
-.EE
-.LP
-Play an
-.L .ogg
-file:
-.IP
-.EX
-audio/oggdec < foo.ogg > /dev/audio
-.EE
-.LP
-Encode a
-.L .wav
-file as an
-.L .ogg
-file:
-.IP
-.EX
-audio/oggenc < foo.wav > foo.ogg
+dd -conv swab | audio/mp3enc -a -r -m m --resample 16 -b 24
 .EE
 .SH SOURCE
-.B /sys/src/cmd/audio/mp3dec
-.br
-.B /sys/src/cmd/audio/mp3enc
-.br
-.B /sys/src/cmd/audio/oggdec
-.br
-.B /sys/src/cmd/audio/oggenc
+.B /sys/src/cmd/audio
 .SH "SEE ALSO"
-.IR dd (1),
-.IR audio (3),
-.IR cdfs (4),
+.IR play (1),
 .IR juke (7),
 .IR playlistfs (7)
 .br
 .B http://www.underbit.com/products/mad/
 .br
-.B http://www.sulaco.org/mp3
+.B http://xiph.org/doc/
+.br
+.B http://flac.sourceforge.net/documentation.html
 .SH BUGS
-GNU behemoths, lightly tamed. Quality is much better than encoders
-based on the ISO routines, but still not as good as the FhG encoder.
-.PP
-There are zillions of undocumented options.
+It's another GNU behemoth, lightly tamed.
