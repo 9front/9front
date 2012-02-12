@@ -1275,7 +1275,7 @@ static uchar cmd48[256] = {
 };
 
 enum{
-	Last28	= (1<<28) - 1 - 1,
+	Last28	= (1<<28) - 1,
 };
 
 static int
@@ -1286,7 +1286,7 @@ atageniostart(Drive* drive, uvlong lba)
 	int as, c, cmdport, ctlport, h, len, s, use48;
 
 	use48 = 0;
-	if((drive->flags&Lba48always) || lba > Last28 || drive->count > 256){
+	if((drive->flags&Lba48always) || (lba+drive->count) > Last28 || drive->count > 256){
 		if((drive->feat & Dllba) == 0)
 			return -1;
 		use48 = 1;
