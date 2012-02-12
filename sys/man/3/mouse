@@ -150,6 +150,10 @@ unlike
 .B reset
 clears the mouse
 to its default state.
+.TP
+.B twitch
+unblanks the screen and resets the idle timeout as if the
+mouse was twitched.
 .PD
 .PP
 Not all mice interpret all messages; with some devices,
