@@ -200,6 +200,7 @@ netlogctl(Fs *f, char* s, int n)
 		else
 			f->alog->iponlyset = 1;
 		free(cb);
+		poperror();
 		return;
 
 	default:
