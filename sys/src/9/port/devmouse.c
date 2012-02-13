@@ -57,6 +57,7 @@ enum
 	CMbuttonmap,
 	CMscrollswap,
 	CMswap,
+	CMtwitch,
 	CMwildcard,
 };
 
@@ -65,6 +66,7 @@ static Cmdtab mousectlmsg[] =
 	CMbuttonmap,	"buttonmap",	0,
 	CMscrollswap,	"scrollswap",	0,
 	CMswap,		"swap",		1,
+	CMtwitch,	"twitch",	0,
 	CMwildcard,	"*",		0,
 };
 
@@ -417,6 +419,10 @@ mousewrite(Chan *c, void *va, long n, vlong)
 				setbuttonmap("123");
 			else
 				setbuttonmap(cb->f[1]);
+			break;
+
+		case CMtwitch:
+			drawactive(1);
 			break;
 
 		case CMwildcard:
