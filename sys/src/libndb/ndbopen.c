@@ -108,6 +108,10 @@ ndbreopen(Ndb *db)
 		return -1;
 	}
 
+	/* no hashfile for /net/ndb (avoids deadlock in cs) */
+	if(d->type == 'I')
+		db->nohash = 1;
+
 	db->qid = d->qid;
 	db->mtime = d->mtime;
 	db->length = d->length;
