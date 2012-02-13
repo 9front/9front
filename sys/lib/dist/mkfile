@@ -7,7 +7,7 @@ cd:V:	$iso
 %.iso:  $proto
 	@{rfork n
 	bind cfg /n/src9/cfg
-	bind mail/lib /n/src/9/mail/lib
+	bind mail/lib /n/src9/mail/lib
 	bind ndb /n/src9/lib/ndb
 	bind -a adm/timezone /n/src9/adm/timezone
 	bind usr /n/src9/usr
