@@ -394,15 +394,17 @@ keyproc(void *)
 			rb[0] = 'k';
 		}
 		if(rb[0]){
-			if(key.r == Kshift && mctlfd >= 0){
-				if(key.down){
-					fprint(mctlfd, "buttonmap 132");
-				} else {
-					fprint(mctlfd, "swap");
-					fprint(mctlfd, "swap");
+			if(mctlfd >= 0){
+				if(key.r == Kshift){
+					if(key.down){
+						fprint(mctlfd, "buttonmap 132");
+					} else {
+						fprint(mctlfd, "swap");
+						fprint(mctlfd, "swap");
+					}
 				}
+				fprint(mctlfd, "twitch");
 			}
-
 			if(kbdopen){
 				s = utfconv(rb, nb+1);
 				if(nbsendp(kbdchan, s) <= 0)
