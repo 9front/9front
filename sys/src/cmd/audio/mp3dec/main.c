@@ -129,9 +129,20 @@ static enum mad_flow
 error(void *, struct mad_stream *stream, struct mad_frame *frame)
 {
 	if(stream->error == MAD_ERROR_LOSTSYNC){
-		if(memcmp(stream->this_frame, "TAG", 3)==0){
+		uchar *p;
+		ulong n;
+
+		p = stream->this_frame;
+		if(memcmp(p, "TAG", 3)==0){
 			mad_stream_skip(stream, 128);
 			return MAD_FLOW_CONTINUE;
+		}
+		if(memcmp(p, "ID3", 3)==0){
+			if(((p[6] | p[7] | p[8] | p[9]) & 0x80) == 0){
+				n = p[9] | p[8]<<7 | p[7]<<14 | p[6]<<21;
+				mad_stream_skip(stream, n+10);
+				return MAD_FLOW_CONTINUE;
+			}
 		}
 	}
 	if(debug)
