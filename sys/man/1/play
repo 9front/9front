@@ -13,7 +13,7 @@ play \- simple audio player
 \&... ]
 .SH DESCRIPTION
 .I Play
-is a simple audio player that understand a number of
+is a simple audio player that understands a number of
 audio and playlist formats.
 .PP
 If no
@@ -21,7 +21,7 @@ If no
 or
 .I url
 arguments are given, standard input is used.
-The file type is determined using
+The file type is determined using the
 .IR file (1)
 command and a matching
 .IR audio (1)
