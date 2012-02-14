@@ -24,20 +24,6 @@ Panel *msg;	/* message display */
 Panel *menu3;	/* button 3 menu */
 Mouse mouse;	/* current mouse data */
 char mothra[] = "mothra!";
-Url defurl={
-	"http://cat-v.org/",
-	"",
-	"http://cat-v.org/",
-	"",
-	"",
-};
-Url badurl={
-	"",
-	"",
-	"No file loaded",
-	"",
-	"",
-};
 Cursor patientcurs={
 	0, 0,
 	0x01, 0x80, 0x03, 0xC0, 0x07, 0xE0, 0x07, 0xe0,
@@ -114,17 +100,13 @@ char *buttons[]={
 
 int wwwtop=0;
 Www *www(int index){
-	static Www a[1+NWWW];
-	return &a[1+(index % NWWW)];
+	static Www a[NWWW];
+	return &a[index % NWWW];
 }
 int nwww(void){
 	return wwwtop<NWWW ? wwwtop : NWWW;
 }
 
-void err(Display *, char *msg){
-	fprint(2, "err: %s (%r)\n", msg);
-	abort();
-}
 int subpanel(Panel *obj, Panel *subj){
 	if(obj==0) return 0;
 	if(obj==subj) return 1;
@@ -296,8 +278,6 @@ void main(int argc, char *argv[]){
 		exits("usage");
 	case 0:
 		url=getenv("url");
-		if(url==0 || url[0]=='\0')
-			url=defurl.fullname;
 		break;
 	case 1: url=argv[0]; break;
 	}
@@ -307,7 +287,7 @@ void main(int argc, char *argv[]){
 		close(errfile);
 	}
 	logfile=mkmfile("mothra.log", 0666|DMAPPEND);
-	if(initdraw(err, 0, "mothra") < 0)
+	if(initdraw(0, 0, mothra) < 0)
 		sysfatal("initdraw: %r");
 	display->locking = 1;
 	chrwidth=stringwidth(font, "0");
@@ -321,30 +301,22 @@ void main(int argc, char *argv[]){
 	if(debug) notify(dienow);
 	getfonts();
 	hrule=allocimage(display, Rect(0, 0, 2048, 5), screen->chan, 0, DWhite);
-	if(hrule==0){
-		fprint(2, "%s: can't allocimage!\n", argv[0]);
-		exits("no mem");
-	}
+	if(hrule==0)
+		sysfatal("can't allocimage!");
 	draw(hrule, Rect(0,1,1280,3), display->black, 0, ZP);
 	linespace=allocimage(display, Rect(0, 0, 2048, 5), screen->chan, 0, DWhite);
-	if(linespace==0){
-		fprint(2, "%s: can't allocimage!\n", argv[0]);
-		exits("no mem");
-	}
+	if(linespace==0)
+		sysfatal("can't allocimage!");
 	bullet=allocimage(display, Rect(0,0,25, 8), screen->chan, 0, DWhite);
 	fillellipse(bullet, Pt(4,4), 3, 3, display->black, ZP);
-	new = www(-1);
-	new->url=&badurl;
-	strcpy(new->title, "See error message above");
-	plrtstr(&new->text, 0, 0, font, "See error message above", 0, 0);
-	new->alldone=1;
 	mkpanels();
 
 	unlockdisplay(display);
 	eresized(0);
 	lockdisplay(display);
 
-	geturl(url, GET, 0, 1, 0);
+	if(url && url[0])
+		geturl(url, GET, 0, 1, 0);
 
 	if(logfile==-1) message("Can't open log file");
 	mouse.buttons=0;
@@ -486,10 +458,9 @@ void eresized(int new){
 void *emalloc(int n){
 	void *v;
 	v=malloc(n);
-	if(v==0){
-		fprint(2, "out of space\n");
-		exits("no mem");
-	}
+	if(v==0)
+		sysfatal("out of memory");
+	setmalloctag(v, getcallerpc(&n));
 	return v;
 }
 void *emallocz(int n, int z){
@@ -497,6 +468,7 @@ void *emallocz(int n, int z){
 	v = emalloc(n);
 	if(z)
 		memset(v, 0, n);
+	setmalloctag(v, getcallerpc(&n));
 	return v;
 }
 
@@ -546,6 +518,10 @@ void setcurrent(int index, char *tag){
 	if(defdisplay) pldraw(cururl, screen);
 	plinittextview(text, PACKE|EXPAND, Pt(0, 0), current->text, dolink);
 	scrollto(tag);
+	if((i = open("/dev/label", OWRITE)) >= 0){
+		fprint(i, "%s %s", mothra, current->url->fullname);
+		close(i);
+	}
 	donecurs();
 }
 char *arg(char *s){
@@ -927,9 +903,7 @@ urlstr(Url *url){
 }
 void selurl(char *urlname){
 	static Url url;
-	seturl(&url, urlname, current?
-		current->url->fullname :
-		defurl.fullname);
+	seturl(&url, urlname, current ? current->url->fullname : "");
 	selection=&url;
 	message("selected: %s", urlstr(selection));
 }
@@ -947,8 +921,7 @@ Url *copyurl(Url *u){
 	return v;
 }
 void freeurl(Url *u){
-	if(u!=&defurl && u!=&badurl)
-		free(u);
+	free(u);
 }
 
 /*
@@ -974,7 +947,6 @@ void geturl(char *urlname, int method, char *body, int plumb, int map){
 	for(;;){
 		if((fd=urlopen(selection, method, body)) < 0){
 			message("%r");
-			setcurrent(-1, 0);
 			break;
 		}
 		message("getting %s", selection->fullname);
@@ -1205,10 +1177,8 @@ void hit3(int button, int item){
 		geturl(name, GET, 0, 1, 0);
 		break;
 	case 6:
-		if(confirm(3)){
-			draw(screen, screen->r, display->white, 0, ZP);
+		if(confirm(3))
 			exits(0);
-		}
 		break;
 	}
 }
