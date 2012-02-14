@@ -150,6 +150,7 @@ int	ishtml(void);
 int	isrfc822(void);
 int	ismbox(void);
 int	islimbo(void);
+int	ismp3(void);
 int	ismung(void);
 int	isp9bit(void);
 int	isp9font(void);
@@ -195,6 +196,7 @@ int	(*call[])(void) =
 	ismsdos,	/* msdos exe (virus file attachement) */
 	isicocur,		/* windows icon or cursor file */
 	isface,		/* ascii face file */
+	ismp3,
 
 	/* last resorts */
 	ismung,		/* entropy compressed/encrypted */
@@ -1133,6 +1135,23 @@ isas(void)
 		return 0;
 	print(mime ? PLAIN : "as program\n");
 	return 1;
+}
+
+int
+ismp3(void)
+{
+	uchar *p, *e;
+
+	p = buf;
+	e = p + nbuf-1;
+	while((p < e) && (p = memchr(p, 0xFF, e - p))){
+		if((p[1] & 0xFE) == 0xFA){
+			print(mime ? "audio/mpeg\n" : "mp3 audio\n");
+			return 1;
+		}
+		p++;
+	}
+	return 0;
 }
 
 /*

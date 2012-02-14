@@ -22,9 +22,9 @@ fn sigexit {
 
 fn play1 {
 	if(~ $#* 0){
-		tmp=/tmp/play.$pid.tmp
-		dd -bs 64 -count 1 >$tmp >[2]/dev/null
-		cat $tmp /fd/0 | play1 `{file -m $tmp} xxx
+		tmp=(/tmp/play.$pid.$#tmp.tmp $tmp)
+		dd -bs 1024 -count 1 >$tmp(1) >[2]/dev/null
+		cat $tmp(1) /fd/0 | play1 `{file -m $tmp(1)} xxx
 		cleanup
 	}
 	if not {
@@ -32,16 +32,12 @@ fn play1 {
 		case *plain*
 			sed 's///g' | while(j=`{read}){
 				echo $"j >[1=2]
-				t=$typ
 				if(~ $"j http:* https:* HTTP:* HTTPS:*){
-					if(~ $#t 0) t=mp3
-					hget -r 'Icy-MetaData: 0' $j | play1 $t
+					hget -r 'Icy-MetaData: 0' $j | play1
 				}
 				if not {
-					if(test -r $"j){
-						if(~ $#t 0 && ~ $"j *mp3*) t=mp3
-						play1 $t <$"j
-					}
+					if(test -r $"j)
+						play1 <$"j
 					if not {
 						echo $argv0: 'can''t open file:' $"j >[1=2]
 					}
@@ -62,15 +58,12 @@ fn play1 {
 }
 
 fn usage {
-	echo usage: $argv0 [ -t type ] [-o file ] [ file ... ] >[1=2]
+	echo usage: $argv0 [ -o file ] [ file ... ] >[1=2]
 	exit usage
 }
 
 while(~ $1 -*){
 	switch($1){
-	case -t
-		typ=$2
-		shift
 	case -o
 		out=$2
 		shift
@@ -81,6 +74,6 @@ while(~ $1 -*){
 }
 
 >$out {
-	if(~ $#* 0){play1 $typ; exit}
+	if(~ $#* 0){play1; exit}
 	for(i){echo $i} | play1 plain 
 } 

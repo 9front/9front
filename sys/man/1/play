@@ -6,9 +6,6 @@ play \- simple audio player
 [
 .B -o
 .I file
-] [
-.B -t
-.I type
 ] [ 
 .I file 
 \&| 
@@ -24,30 +21,11 @@ If no
 or
 .I url
 arguments are given, standard input is used.
-Wihout the
-.B -t
-option, the file type is determined using
+The file type is determined using
 .IR file (1)
-command and the appropriate decoder is invoked.
-.PP
-Supported
-.I type
-values are:
-.TP
-.B plain
-Plain text with one file or url per line.
-.TP
-.B pls
-Winamp playlist file.
-.TP
-.B mp3
-Mpeg audio.
-.TP
-.B ogg
-Ogg vorbis.
-.TP
-.B flac
-FLAC lossless audio.
+command and a matching
+.IR audio (1)
+decoder is applied.
 .PP
 By default, raw audio data is written to
 .B /dev/audio
