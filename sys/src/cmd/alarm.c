@@ -29,7 +29,7 @@ int cpid;
 void
 usage(void)
 {
-	fprint(2,"usage: alarm time path arg ...\n");
+	fprint(2,"usage: %s time command [ arg ... ]\n", argv0);
 	exits("usage");
 }
 
@@ -47,6 +47,7 @@ main(int argc, char *argv[])
 	Waitmsg *w;
 	long n, t;
 
+	argv0 = argv[0];
 	if(argc < 3)
 		usage();
 	n = strtol(argv[1], &p, 10);
