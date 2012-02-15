@@ -33,27 +33,23 @@ usage(void)
 	exits("usage");
 }
 
-static int
-notefun(void *, char *msg)
+static void
+catch(void *, char *msg)
 {
  	postnote(PNGROUP, cpid, msg);
-	return 1;
+	noted(NDFLT);
 }
 
 void
 main(int argc, char *argv[])
 {
-	char *path, *p, *q;
+	char buf[1024], *p, *q;
 	Waitmsg *w;
 	long n, t;
 
-	ARGBEGIN{
-	default: usage();
-	}ARGEND
-
-	if(argc < 2)
+	if(argc < 3)
 		usage();
-	n = strtol(*argv++, &p, 10);
+	n = strtol(argv[1], &p, 10);
 	if(n < 0)
 		usage();
 	t = n * 1000;
@@ -74,18 +70,19 @@ main(int argc, char *argv[])
 		}
 		t += n;
 	}
-	path = *argv;
-	if(p = strrchr(path, '/'))
-		if(p[1])
-			*argv = p+1;
-	atnotify(notefun,1);
 	switch((cpid = rfork(RFFDG|RFREND|RFPROC|RFMEM|RFNOTEG))){
 	case -1:
 		sysfatal("%r");
 	case 0: /* child */
-		exec(path, argv);
-		sysfatal("%s: %r", *argv);
+		exec(argv[2], &argv[2]);
+		if(argv[2][0] != '/' && strncmp(argv[2], "./", 2) &&
+		   strncmp(argv[2], "../", 3)){
+			snprint(buf, sizeof(buf), "/bin/%s", argv[2]);
+			exec(argv[2] = buf, &argv[2]);
+		}
+		sysfatal("%s: %r", argv[2]);
 	}
+	notify(catch);
 	alarm(t);
 	if(w = wait())
 		exits(w->msg);
