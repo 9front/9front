@@ -34,48 +34,60 @@ usage(void)
 }
 
 static int
-notefun(void *a, char *msg)
+notefun(void *, char *msg)
 {
-	USED(a);
  	postnote(PNGROUP, cpid, msg);
-	if(strcmp(msg, "alarm") == 0){
-		return 1;
-	}
-	return 0;
+	return 1;
 }
 
 void
 main(int argc, char *argv[])
 {
-	char *cmd;
-	int t;
+	char *path, *p, *q;
+	Waitmsg *w;
+	long n, t;
+
 	ARGBEGIN{
 	default: usage();
 	}ARGEND
 
-	if(*argv == nil)
+	if(argc < 2)
 		usage();
-
-	t = atoi(argv[0]);
-	argv++;
-	if(*argv ==nil)
+	n = strtol(*argv++, &p, 10);
+	if(n < 0)
 		usage();
-	cmd = argv[0];
-	/* cmd must be a path, absolute or relative */
-	if(*cmd != '/' && strcmp(cmd, "./") != 0 && strcmp(cmd, "../") != 0)
-		usage();
-	argv[0] = strrchr(cmd,'/');
+	t = n * 1000;
+	if(*p++ == '.' && (n = strtol(p, &q, 10)) > 0){
+		switch(q - p){
+		case 0:
+			break;
+		case 1:
+			n *= 100;
+			break;
+		case 2:
+			n *= 10;
+			break;
+		default:
+			p[3] = 0;
+			n = strtol(p, 0, 10);
+			break;
+		}
+		t += n;
+	}
+	path = *argv;
+	if(p = strrchr(path, '/'))
+		if(p[1])
+			*argv = p+1;
 	atnotify(notefun,1);
-	alarm(t*1000);
-
 	switch((cpid = rfork(RFFDG|RFREND|RFPROC|RFMEM|RFNOTEG))){
 	case -1:
-		sysfatal("rfork: %r");
+		sysfatal("%r");
 	case 0: /* child */
-		exec(cmd,argv);
-	default: /* parent */
-		break;
+		exec(path, argv);
+		sysfatal("%s: %r", *argv);
 	}
-	waitpid();
+	alarm(t);
+	if(w = wait())
+		exits(w->msg);
+	exits("alarm");
 }
-
