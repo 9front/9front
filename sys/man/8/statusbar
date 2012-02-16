@@ -57,4 +57,5 @@ set the coordinates of the window created
 .PD
 .SH SOURCE
 .B /sys/src/cmd/aux/statusbar.c
+.br
 .B /sys/src/cmd/aux/statusmsg.c
