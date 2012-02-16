@@ -275,6 +275,17 @@ duppage(Page *p)				/* Always call with p locked */
 
 	retries = 0;
 retry:
+	/* don't dup shared page */
+	if(p->ref != 1){
+		print("duppage: p->ref %d != 1\n", p->ref);
+		return 0;
+	}
+
+	/* don't dup pages with no image */
+	if(p->image == nil || p->image->notext){
+		print("duppage: noimage\n");
+		return 0;
+	}
 
 	if(retries++ > dupretries){
 		print("duppage %d, up %p\n", retries, up);
@@ -284,11 +295,6 @@ retry:
 		uncachepage(p);
 		return 1;
 	}
-		
-
-	/* don't dup pages with no image */
-	if(p->ref == 0 || p->image == nil || p->image->notext)
-		return 0;
 
 	/*
 	 *  normal lock ordering is to call
@@ -337,6 +343,8 @@ retry:
 * once they finally lock(np).
 */
 	lock(np);
+	if(np->ref != 0)	/* should never happen */
+		panic("duppage: np->ref %d != 0\n", np->ref);
 	unlock(&palloc);
 
 	/* Cache the new version */
