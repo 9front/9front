@@ -140,8 +140,8 @@ fixfault(Segment *s, ulong addr, int read, int doputmmu)
 
 		lkp = *pg;
 		lock(lkp);
-		if(lkp->ref <= 0)
-			panic("fault: lkp->ref %d <= 0", lkp->ref);
+		if(lkp->ref < 1)
+			panic("fault: lkp->ref %d < 1", lkp->ref);
 		if(lkp->image == &swapimage)
 			ref = lkp->ref + swapcount(lkp->daddr);
 		else
@@ -149,7 +149,6 @@ fixfault(Segment *s, ulong addr, int read, int doputmmu)
 		if(ref == 1 && lkp->image){
 			/* save a copy of the original for the image cache */
 			duppage(lkp);
-
 			ref = lkp->ref;
 		}
 		unlock(lkp);
@@ -246,7 +245,7 @@ retry:
 	}
 	n = devtab[c->type]->read(c, kaddr, ask, daddr);
 	if(n != ask)
-		faulterror(Eioload, c, 0);
+		error(Eioload);
 	if(ask < BY2PG)
 		memset(kaddr+ask, 0, BY2PG-ask);
 

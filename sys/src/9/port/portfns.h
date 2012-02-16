@@ -82,7 +82,7 @@ void		dumpaproc(Proc*);
 void		dumpregs(Ureg*);
 void		dumpstack(void);
 Fgrp*		dupfgrp(Fgrp*);
-int		duppage(Page*);
+void		duppage(Page*);
 void		dupswap(Page*);
 void		edfinit(Proc*);
 char*		edfadmit(Proc*);

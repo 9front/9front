@@ -266,7 +266,7 @@ auxpage(void)
 
 static int dupretries = 15000;
 
-int
+void
 duppage(Page *p)				/* Always call with p locked */
 {
 	Page *np;
@@ -275,32 +275,27 @@ duppage(Page *p)				/* Always call with p locked */
 
 	retries = 0;
 retry:
-	/* don't dup shared page */
-	if(p->ref != 1){
-		print("duppage: p->ref %d != 1\n", p->ref);
-		return 0;
-	}
-
-	/* don't dup pages with no image */
-	if(p->image == nil || p->image->notext){
-		print("duppage: noimage\n");
-		return 0;
-	}
+	/* don't dup pages that are shared or have no image */
+	if(p->ref != 1 || p->image == nil || p->image->notext)
+		return;
 
 	if(retries++ > dupretries){
 		print("duppage %d, up %p\n", retries, up);
 		dupretries += 100;
 		if(dupretries > 100000)
-			panic("duppage\n");
+			panic("duppage");
 		uncachepage(p);
-		return 1;
+		return;
 	}
 
 	/*
 	 *  normal lock ordering is to call
 	 *  lock(&palloc) before lock(p).
 	 *  To avoid deadlock, we have to drop
-	 *  our locks and try again.
+	 *  our locks and try again. as the page
+	 *  is from the image cache, this might
+	 *  let someone else come in and grab it
+	 *  so we check page ref above.
 	 */
 	if(!canlock(&palloc)){
 		unlock(p);
@@ -314,7 +309,7 @@ retry:
 	if(palloc.freecount < swapalloc.highwater) {
 		unlock(&palloc);
 		uncachepage(p);
-		return 1;
+		return;
 	}
 
 	color = getpgcolor(p->va);
@@ -326,7 +321,7 @@ retry:
 	if(np == 0) {
 		unlock(&palloc);
 		uncachepage(p);
-		return 1;
+		return;
 	}
 
 	pageunchain(np);
@@ -344,7 +339,7 @@ retry:
 */
 	lock(np);
 	if(np->ref != 0)	/* should never happen */
-		panic("duppage: np->ref %d != 0\n", np->ref);
+		panic("duppage: np->ref %d != 0", np->ref);
 	unlock(&palloc);
 
 	/* Cache the new version */
@@ -355,8 +350,6 @@ retry:
 	cachepage(np, p->image);
 	unlock(np);
 	uncachepage(p);
-
-	return 0;
 }
 
 void
