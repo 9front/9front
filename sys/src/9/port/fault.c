@@ -140,27 +140,26 @@ fixfault(Segment *s, ulong addr, int read, int doputmmu)
 
 		lkp = *pg;
 		lock(lkp);
-
+		if(lkp->ref <= 0)
+			panic("fault: lkp->ref %d <= 0", lkp->ref);
 		if(lkp->image == &swapimage)
 			ref = lkp->ref + swapcount(lkp->daddr);
 		else
 			ref = lkp->ref;
-		if(ref > 1) {
-			unlock(lkp);
+		if(ref == 1 && lkp->image){
+			/* save a copy of the original for the image cache */
+			duppage(lkp);
 
+			ref = lkp->ref;
+		}
+		unlock(lkp);
+		if(ref > 1){
 			new = newpage(0, &s, addr);
 			if(s == 0)
 				return -1;
 			*pg = new;
 			copypage(lkp, *pg);
 			putpage(lkp);
-		}
-		else {
-			/* save a copy of the original for the image cache */
-			if(lkp->image)
-				duppage(lkp);
-
-			unlock(lkp);
 		}
 		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEVALID;
 		(*pg)->modref = PG_MOD|PG_REF;
