@@ -1,0 +1,4 @@
+#!/bin/rc
+
+bind -ac /dist/plan9front /
+hg pull && hg update
