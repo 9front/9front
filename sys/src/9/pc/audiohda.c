@@ -32,7 +32,6 @@ enum {
 	Intsts = 0x24,
 		Gis = 1<<31,
 		Cis = 1<<30,
-		Sismask = 0xff,
 	Walclk = 0x30,
 	Corblbase = 0x40,
 	Corbubase = 0x44,
@@ -63,35 +62,25 @@ enum {
 	Immstat = 0x68,
 	Dplbase = 0x70,
 	Dpubase = 0x74,
-	/* stream register base */
-	Sdinput0 = 0x80,
-	Sdinput1 = 0xa0,
-	Sdinput2 = 0xc0,
-	Sdinput3 = 0xe0,
-	Sdoutput0 = 0x100,
-	Sdoutput1 = 0x120,
-	Sdoutput2 = 0x140,
-	Sdoutput3 = 0x160,
 	/* Warning: Sdctl is 24bit register */
-	Sdctl = Sdoutput0 + 0x00,
+	Sdctl0 = 0x80,
 		Srst = 1<<0,
 		Srun = 1<<1,
 		Scie = 1<<2,
 		Seie = 1<<3,
 		Sdie = 1<<4,
 		Stagbit = 20,
-		Stagmask = 0xf00000,
-	Sdsts = Sdoutput0 + 0x03,
+	Sdsts = 0x03,
 		Scompl = 1<<2,
 		Sfifoerr = 1<<3,
 		Sdescerr = 1<<4,
 		Sfifordy = 1<<5,
-	Sdlpib = Sdoutput0 + 0x04,
-	Sdcbl = Sdoutput0 + 0x08,
-	Sdlvi = Sdoutput0 + 0x0c,
-	Sdfifow = Sdoutput0 + 0x0e,
-	Sdfifos = Sdoutput0 + 0x10,
-	Sdfmt = Sdoutput0 + 0x12,
+	Sdlpib = 0x04,
+	Sdcbl =  0x08,
+	Sdlvi =  0x0c,
+	Sdfifow = 0x0e,
+	Sdfifos = 0x10,
+	Sdfmt = 0x12,
 		Fmtmono = 0,
 		Fmtstereo = 1,
 		Fmtsampw = 1<<4,
@@ -100,16 +89,16 @@ enum {
 		Fmtmul1 = 0<<11,
 		Fmtbase441 = 1<<14,
 		Fmtbase48 = 0<<14,
-	Sdbdplo = Sdoutput0 + 0x18,
-	Sdbdphi = Sdoutput0 + 0x1c,
+	Sdbdplo = 0x18,
+	Sdbdphi = 0x1c,
 };
 
 enum {
 	Bufsize = 64 * 1024 * 4,
 	Nblocks = 256,
 	Blocksize = Bufsize / Nblocks,
-	Streamtag = 1,
-	Streamno = 4,
+	BytesPerSample = 4,
+
 	Maxrirbwait = 1000, /* microseconds */
 	Maxwaitup = 500, /* microseconds */
 	Codecdelay = 1000, /* microseconds */
@@ -220,14 +209,13 @@ enum {
 };
 
 struct Ring {
-	uint rp, wp, cp;
-	uint size, blocksize;
-	uchar *buf;
-};
+	Rendez r;
 
-struct Bld {
-	uint addrlo, addrhi;
-	uint len, flags;
+	uchar	*buf;
+	ulong	nbuf;
+
+	ulong	ri;
+	ulong	wi;
 };
 
 struct Id {
@@ -270,13 +258,21 @@ struct Codec {
 	Fungroup *fgroup;
 };
 
+/* hardware structures */
+
+struct Bld {
+	ulong addrlo;
+	ulong addrhi;
+	ulong len;
+	ulong flags;
+};
+
 struct Ctlr {
 	Ctlr *next;
 	uint no;
 
 	Lock;			/* interrupt lock */
 	QLock;			/* command lock */
-	Rendez outr;
 
 	Audio *adev;
 	Pcidev *pcidev;
@@ -290,12 +286,22 @@ struct Ctlr {
 	ulong *rirb;
 	ulong rirbsize;
 	
+	uint sdctl;
+	uint sdintr;
+	uint sdnum;
+
 	Bld *blds;
+
 	Ring ring;
-	
-	Codec codec;
+
+	uint iss, oss, bss;
+
+	uint codecmask;	
+	Codec *codec[Maxcodecs];
+
 	Widget *amp, *src;
 	uint pin;
+	uint cad;
 
 	int active;
 	uint afmt, atag;
@@ -614,30 +620,52 @@ connectpath(Widget *src, Widget *dst, uint stream)
 }
 
 static void
+addconn(Widget *w, uint nid)
+{
+	Widget *src;
+
+	if(nid >= Maxwidgets)
+		return;
+	if((src = w->fg->codec->widgets[nid]) == nil)
+		return;
+	for(nid=0; nid<w->nlist; nid++)
+		if(w->list[nid] == src)
+			return;
+	if((w->nlist % 16) == 0){
+		void *p;
+
+		if((p = realloc(w->list, sizeof(Widget*) * (w->nlist+16))) == nil){
+			print("hda: no memory for Widgetlist\n");
+			return;
+		}
+		w->list = p;
+	}
+	w->list[w->nlist++] = src;
+}
+
+static void
 enumconns(Widget *w)
 {
-	uint r, i, j, mask, bits, nlist;
-	Widget **ws, **list;
-	
-	ws = w->fg->codec->widgets;
+	uint r, f, b, m, i, n, x, y;
+
 	r = cmd(w->id, Getparm, Connlistlen);
-	bits = (r & 0x80) == 0 ? 8 : 16;
-	nlist = r & 0x7f;
-	mask = (1 << bits) - 1;
-	list = mallocz(sizeof *list * nlist, 1);
-	if(list == nil){
-		print("hda: no memory for Widget list\n");
-		nlist = 0;
-	}
-	for(i=0; i<nlist; i++){
-		if(i * bits % 32 == 0)
+	n = r & 0x7f;
+	b = (r & 0x80) ? 16 : 8;
+	m = (1<<b)-1;
+	f = (32/b)-1;
+	x = 0;
+	for(i=0; i<n; i++){
+		if(i & f)
+			r >>= b;
+		else
 			r = cmd(w->id, Getconnlist, i);
-		j = (r >> (i * bits % 32)) & mask;
-		if(j < Maxwidgets)
-			list[i] = ws[j];
+		y = r & (m>>1);
+		if(i && ((r & m) != y))
+			while(++x < y)
+				addconn(w, x);
+		addconn(w, y);
+		x = y;
 	}
-	w->nlist = nlist;
-	w->list = list;
 }
 
 static void
@@ -645,14 +673,14 @@ enumwidget(Widget *w)
 {
 	w->cap = cmd(w->id, Getparm, Widgetcap);
 	w->type = (w->cap >> 20) & 0x7;
-	
+
 	enumconns(w);
 	
 	switch(w->type){
-		case Wpin:
-			w->pin = cmd(w->id, Getdefault, 0);
-			w->pincap = cmd(w->id, Getparm, Pincap);
-			break;
+	case Wpin:
+		w->pin = cmd(w->id, Getdefault, 0);
+		w->pincap = cmd(w->id, Getparm, Pincap);
+		break;
 	}
 }
 
@@ -660,7 +688,7 @@ static Fungroup *
 enumfungroup(Codec *codec, Id id)
 {
 	Fungroup *fg;
-	Widget *w, *next;
+	Widget *w, **tail;
 	uint i, r, n, base;
 
 	r = cmd(id, Getparm, Fungrtype) & 0x7f;
@@ -679,18 +707,19 @@ Nomem:
 
 	r = cmd(id, Getparm, Subnodecnt);
 	n = r & 0xff;
-	base = (r >> 8) & 0xff;
+	base = (r >> 16) & 0xff;
 	
 	if(base + n > Maxwidgets){
 		free(fg);
 		return nil;
 	}
-	
-	for(i=n, next=nil; i--; next=w){
+
+	tail = &fg->first;
+	for(i=0; i<n; i++){
 		w = mallocz(sizeof(Widget), 1);
 		if(w == nil){
-			while(w = next){
-				next = w->next;
+			while(w = fg->first){
+				fg->first = w->next;
 				codec->widgets[w->id.nid] = nil;
 				free(w);
 			}
@@ -699,10 +728,10 @@ Nomem:
 		}
 		w->id = newnid(id, base + i);
 		w->fg = fg;
-		w->next = next;
 		codec->widgets[base + i] = w;
+		*tail = w;
+		tail = &w->next;
 	}
-	fg->first = next;
 
 	for(i=0; i<n; i++)
 		enumwidget(codec->widgets[base + i]);
@@ -718,7 +747,6 @@ enumcodec(Codec *codec, Id id)
 	uint i, r, n, base;
 	uint vid, rid;
 	
-	
 	if(cmderr(id, Getparm, Vendorid, &vid) < 0)
 		return -1;
 	if(cmderr(id, Getparm, Revid, &rid) < 0)
@@ -728,10 +756,13 @@ enumcodec(Codec *codec, Id id)
 	codec->vid = vid;
 	codec->rid = rid;
 
+	print("#A%d: codec #%d, vendor %08x, rev %08x\n",
+		id.ctlr->no, codec->id.codec, codec->vid, codec->rid);
+
 	r = cmd(id, Getparm, Subnodecnt);
 	n = r & 0xff;
 	base = (r >> 16) & 0xff;
-	
+
 	for(i=0; i<n; i++){
 		fg = enumfungroup(codec, newnid(id, base + i));
 		if(fg == nil)
@@ -747,25 +778,42 @@ enumcodec(Codec *codec, Id id)
 static int
 enumdev(Ctlr *ctlr)
 {
+	Codec *codec;
+	int ret;
 	Id id;
 	int i;
-	
+
+	ret = -1;
 	id.ctlr = ctlr;
 	id.nid = 0;
 	for(i=0; i<Maxcodecs; i++){
+		if(((1<<i) & ctlr->codecmask) == 0)
+			continue;
+		codec = mallocz(sizeof(Codec), 1);
+		if(codec == nil){
+			print("hda: no memory for Codec\n");
+			break;
+		}
 		id.codec = i;
-		if(enumcodec(&ctlr->codec, id) == 0)
-			return 0;
+		ctlr->codec[i] = codec;
+		if(enumcodec(codec, id) < 0){
+			ctlr->codec[i] = nil;
+			free(codec);
+			continue;
+		}
+		ret++;
 	}
-	return -1;
+	return ret;
 }
 
 static int
-connectpin(Ctlr *ctlr, uint pin)
+connectpin(Ctlr *ctlr, uint pin, uint cad)
 {
 	Widget *src, *dst;
-	
-	src = ctlr->codec.widgets[pin];
+
+	if(cad >= Maxcodecs || pin >= Maxwidgets || ctlr->codec[cad] == nil)
+		return -1;
+	src = ctlr->codec[cad]->widgets[pin];
 	if(src == nil)
 		return -1;
 	if(src->type != Wpin)
@@ -775,283 +823,194 @@ connectpin(Ctlr *ctlr, uint pin)
 	dst = findpath(src);
 	if(!dst)
 		return -1;
-		
-	connectpath(src, dst, Streamtag);
+	connectpath(src, dst, ctlr->atag);
 	ctlr->amp = dst;
 	ctlr->src = src;
 	ctlr->pin = pin;
+	ctlr->cad = cad;
 	return 0;
 }
 
 static int
-bestpin(Ctlr *ctlr)
+bestpin(Ctlr *ctlr, int *pcad)
 {
 	Fungroup *fg;
 	Widget *w;
 	int best, pin, score;
 	uint r;
-	
+	int i;
+
 	pin = -1;
 	best = -1;
-	for(fg=ctlr->codec.fgroup; fg; fg=fg->next){
-		for(w=fg->first; w; w=w->next){
-			if(w->type != Wpin)
-				continue;
-			if((w->pincap & Pout) == 0)
-				continue;
-			score = 0;
-			r = w->pin;
-			if(((r >> 12) & 0xf) == 4)	/* green */
-				score |= 32;
-			if(((r >> 24) & 0xf) == 1)	/* rear */
-				score |= 16;
-			if(((r >> 28) & 0x3) == 0) /* ext */
-				score |= 8;
-			if(((r >> 20) & 0xf) == 2) /* hpout */
-				score |= 4;
-			if(((r >> 20) & 0xf) == 0) /* lineout */
-				score |= 4;
-			if(score >= best){
-				best = score;
-				pin = w->id.nid;
+	for(i=0; i<Maxcodecs; i++){
+		if(ctlr->codec[i] == nil)
+			continue;
+		for(fg=ctlr->codec[i]->fgroup; fg; fg=fg->next){
+			for(w=fg->first; w; w=w->next){
+				if(w->type != Wpin)
+					continue;
+				if((w->pincap & Pout) == 0)
+					continue;
+				score = 0;
+				r = w->pin;
+				if(((r >> 12) & 0xf) == 4) /* green */
+					score |= 32;
+				if(((r >> 24) & 0xf) == 1) /* rear */
+					score |= 16;
+				if(((r >> 28) & 0x3) == 0) /* ext */
+					score |= 8;
+				if(((r >> 20) & 0xf) == 2) /* hpout */
+					score |= 4;
+				if(((r >> 20) & 0xf) == 0) /* lineout */
+					score |= 4;
+				if(score >= best){
+					best = score;
+					pin = w->id.nid;
+					*pcad = i;
+				}
 			}
 		}
 	}
 	return pin;
 }
 
-static void
-ringreset(Ring *r)
+static long
+buffered(Ring *r)
 {
-	memset(r->buf, 0, r->size);
-	r->rp = 0;
-	r->wp = 0;
-	r->cp = 0;
+	ulong ri, wi;
+
+	ri = r->ri;
+	wi = r->wi;
+	if(wi >= ri)
+		return wi - ri;
+	else
+		return r->nbuf - (ri - wi);
 }
 
-static uint
-ringused(Ring *r)
+static long
+available(Ring *r)
 {
-	return (r->wp - r->rp) % r->size;
+	long m;
+
+	m = (r->nbuf - BytesPerSample) - buffered(r);
+	if(m < 0)
+		m = 0;
+	return m;
 }
 
-static uint
-ringavail(Ring *r)
+static long
+writering(Ring *r, uchar *p, long n)
 {
-	return r->size - r->blocksize - ringused(r);
-}
+	long n0, m;
 
-static uint
-ringdirty(Ring *r)
-{
-	return (r->rp - r->cp) % r->size;
-}
-
-static void
-ringalign(Ring *r)
-{
-	r->wp += r->blocksize - 1;
-	r->wp -= r->wp % r->blocksize;
-	r->wp %= r->size;
-}
-
-static uint
-ringwrite(Ring *r, uchar *ap, uint n)
-{
-	uchar *p;
-	uint a, c;
-
-	p = ap;
-	a = ringavail(r);
-	if(n > a)
-		n = a;
-		
-	c = ringdirty(r);
-	while(c > 0){
-		a = r->size - r->cp;
-		if(a > c)
-			a = c;
-		memset(r->buf + r->cp, 0, a);
-		r->cp = (r->cp + a) % r->size;
-		c -= a;
-	}
-	
+	n0 = n;
 	while(n > 0){
-		a = r->size - r->wp;
-		if(a > n)
-			a = n;
-		memmove(r->buf + r->wp, p, a);
-		r->wp = (r->wp + a) % r->size;
-		p += a;
-		n -= a;
+		if((m = available(r)) <= 0)
+			break;
+		if(m > n)
+			m = n;
+		if(p){
+			if(r->wi + m > r->nbuf)
+				m = r->nbuf - r->wi;
+			memmove(r->buf + r->wi, p, m);
+			p += m;
+		}
+		r->wi = (r->wi + m) % r->nbuf;
+		n -= m;
 	}
-	return p - ap;
+	return n0 - n;
 }
-
 
 static int
-ringupdate(Ring *r, uint np)
-{
-	uint rp, wp, bs, s;
-	
-	rp = r->rp;
-	bs = r->blocksize;
-	s = r->size;
-	
-	np += bs / 2;
-	np %= s;
-	np -= np % bs;
-	wp = r->wp;
-	wp -= wp % bs;
-	r->rp = np;
-	if((np - rp) % s >= (wp - rp) % s)
-		return 1;
-	return 0;
-}
-
-static void
 streamalloc(Ctlr *ctlr)
 {
-	uchar *p;
-	Bld *b;
-	uint i;
 	Ring *r;
-	
+	int i;
+
 	r = &ctlr->ring;
-	r->size = Bufsize;
-	r->blocksize = Blocksize;
-	r->buf = xspanalloc(r->size, 128, 0);
-	ringreset(r);
-	
-	ctlr->active = 0;
-	ctlr->atag = Streamtag;
-	ctlr->afmt = Fmtstereo | Fmtsampw | Fmtdiv1 |
-		Fmtmul1 | Fmtbase441;
-	
+	memset(r, 0, sizeof(*r));
+	r->buf = xspanalloc(r->nbuf = Bufsize, 128, 0);
 	ctlr->blds = xspanalloc(Nblocks * sizeof(Bld), 128, 0);
-	b = ctlr->blds;
-	p = r->buf;
-	for(i=0; i<Nblocks; i++){
-		b->addrlo = PADDR(p);
-		b->addrhi = 0;
-		b->flags = ~0;
-		b->len = Blocksize;
-		p += Blocksize;
-		b++;
+	if(r->buf == nil || ctlr->blds == nil){
+		print("hda: no memory for stream\n");
+		return -1;
 	}
+	for(i=0; i<Nblocks; i++){
+		ctlr->blds[i].addrlo = PADDR(r->buf) + i*Blocksize;
+		ctlr->blds[i].addrhi = 0;
+		ctlr->blds[i].len = Blocksize;
+		ctlr->blds[i].flags = 0x01;	/* interrupt on completion */
+	}
+
+	/* output dma engine starts after inputs */
+	ctlr->sdnum = ctlr->iss;
+	ctlr->sdctl = Sdctl0 + ctlr->sdnum*0x20;
+	ctlr->sdintr = 1<<ctlr->sdnum;
+	ctlr->atag = ctlr->sdnum+1;
+	ctlr->afmt = Fmtstereo | Fmtsampw | Fmtdiv1 | Fmtmul1 | Fmtbase441;
+	ctlr->active = 0;
+
+	/* perform reset */
+	csr8(ctlr, ctlr->sdctl) &= ~(Srst | Srun | Scie | Seie | Sdie);
+	csr8(ctlr, ctlr->sdctl) |= Srst;
+	microdelay(Codecdelay);
+	waitup8(ctlr, ctlr->sdctl, Srst, Srst);
+	csr8(ctlr, ctlr->sdctl) &= ~Srst;
+	microdelay(Codecdelay);
+	waitup8(ctlr, ctlr->sdctl, Srst, 0);
+
+	/* set stream number */
+	csr32(ctlr, ctlr->sdctl) = (ctlr->atag << Stagbit) |
+		(csr32(ctlr, ctlr->sdctl) & ~(0xF << Stagbit));
+
+	/* set stream format */
+	csr16(ctlr, Sdfmt+ctlr->sdctl) = ctlr->afmt;
+
+	/* program stream DMA & parms */
+	csr32(ctlr, Sdbdplo+ctlr->sdctl) = PADDR(ctlr->blds);
+	csr32(ctlr, Sdbdphi+ctlr->sdctl) = 0;
+	csr32(ctlr, Sdcbl+ctlr->sdctl) = r->nbuf;
+	csr16(ctlr, Sdlvi+ctlr->sdctl) = (Nblocks - 1) & 0xff;
+
+	/* mask out ints */
+	csr8(ctlr, Sdsts+ctlr->sdctl) = Scompl | Sfifoerr | Sdescerr;
+
+	/* enable global intrs for this stream */
+	csr32(ctlr, Intctl) |= ctlr->sdintr;
+	csr8(ctlr, ctlr->sdctl) |= Scie | Seie | Sdie;
+
+	return 0;
 }
 
 static void
 streamstart(Ctlr *ctlr)
 {
-	Ring *r = &ctlr->ring;
-		
-	/* perform reset */
-	csr8(ctlr, Sdctl) = Srst;
-	waitup8(ctlr, Sdctl, Srst, Srst);
-	csr8(ctlr, Sdctl) = 0;
-	waitup8(ctlr, Sdctl, Srst, 0);
-	
-	/* program stream DMA & parms */
-	csr32(ctlr, Sdcbl) = r->size;
-	csr16(ctlr, Sdlvi) = (r->size / r->blocksize - 1) & 0xff;
-	csr32(ctlr, Sdfmt) = ctlr->afmt;
-	csr32(ctlr, Sdbdplo) = PADDR(ctlr->blds);
-	csr32(ctlr, Sdbdphi) = 0;
-	
-	/* enable global intrs for this stream */
-	csr32(ctlr, Intctl) |= (1 << Streamno);
-	
-	/* enable stream intrs */
-	csr32(ctlr, Sdctl) = (ctlr->atag << Stagbit) | Srun | Scie | Seie | Sdie;
-	waitup32(ctlr, Sdctl, Srun, Srun);
-	
-	/* mark as running */
 	ctlr->active = 1;
+	
+	csr8(ctlr, ctlr->sdctl) |= Srun;
+	waitup8(ctlr, ctlr->sdctl, Srun, Srun);
 }
 
 static void
 streamstop(Ctlr *ctlr)
 {
-	/* disble stream intrs */
-	csr32(ctlr, Sdctl) = 0;
-	
-	/* disable global intrs for this stream */
-	csr32(ctlr, Intctl) &= ~(1 << Streamno);
-	
-	/* mark as stopped */
+	csr8(ctlr, ctlr->sdctl) &= ~Srun;
+	waitup8(ctlr, ctlr->sdctl, Srun, 0);
+
 	ctlr->active = 0;
 }
 
-
-static void
-streamupdate(Ctlr *ctlr)
-{
-	uint pos;
-	Ring *r;
-	
-	r = &ctlr->ring;
-	
-	/* ack interrupt and wake writer */
-	csr8(ctlr, Sdsts) |= 0x4;
-	wakeup(&ctlr->outr);
-	pos = csr32(ctlr, Sdlpib);
-	
-	/* underrun? */
-	if(ringupdate(r, pos) == 1)
-		streamstop(ctlr);
-}
-
-static int
-outavail(void *arg)
-{
-	return ringavail(arg) > 0;
-}
-
-static int
-outrate(void *arg)
-{
-	Ctlr *ctlr = arg;
-	int delay = ctlr->adev->delay*4;
-	return (delay <= 0) || (ringused(&ctlr->ring) <= delay) || (ctlr->active == 0);
-}
-
-static int
-checkptr(Ctlr *ctlr)
+static uint
+streampos(Ctlr *ctlr)
 {
 	Ring *r;
-	
+	uint p;
+
 	r = &ctlr->ring;
-	if(ctlr->active == 1)
-		return 1;
-	if(r->rp == 0)
-		return 1;
-	ringreset(r);
-	return 0;
-}
-
-static void
-hdakick(Ctlr *ctlr)
-{
-	Ring *r = &ctlr->ring;
-	
-	ilock(ctlr);
-	if(ctlr->active == 0){
-		if(ringused(r) >= r->blocksize){
-			iunlock(ctlr);
-			streamstart(ctlr);
-			return;
-		}
-	}
-	iunlock(ctlr);
-}
-
-static long
-hdabuffered(Audio *adev)
-{
-	Ctlr *ctlr;
-	ctlr = adev->ctlr;
-	return ringused(&ctlr->ring);
+	p = csr32(ctlr, Sdlpib+ctlr->sdctl);
+	if(p >= r->nbuf)
+		p = 0;
+	return p;
 }
 
 static long
@@ -1060,6 +1019,7 @@ hdactl(Audio *adev, void *va, long n, vlong)
 	char *p, *e, *x, *tok[4];
 	int ntok;
 	Ctlr *ctlr;
+	uint pin, cad;
 	
 	ctlr = adev->ctlr;
 	p = va;
@@ -1073,52 +1033,88 @@ hdactl(Audio *adev, void *va, long n, vlong)
 		ntok = tokenize(p, tok, 4);
 		if(ntok <= 0)
 			continue;
-		if(cistrcmp(tok[0], "pin") == 0 && ntok == 2){
-			connectpin(ctlr, strtoul(tok[1], 0, 0));
+		if(cistrcmp(tok[0], "pin") == 0 && ntok >= 2){
+			cad = ctlr->cad;
+			pin = strtoul(tok[1], 0, 0);
+			if(ntok > 2)
+				cad = strtoul(tok[2], 0, 0);
+			connectpin(ctlr, pin, cad);
 		}else
 			error(Ebadctl);
 	}
 	return n;
 }
 
-static long
-hdawrite(Audio *adev, void *vp, long vn, vlong)
+static int
+outavail(void *arg)
 {
-	uchar *p;
-	uint n, k;
-	Ring *r;
+	Ctlr *ctlr = arg;
+	return available(&ctlr->ring) > 0;
+}
+
+static int
+outrate(void *arg)
+{
+	Ctlr *ctlr = arg;
+	int delay = ctlr->adev->delay*BytesPerSample;
+	return (delay <= 0) || (buffered(&ctlr->ring) <= delay) || (ctlr->active == 0);
+}
+
+static long
+hdabuffered(Audio *adev)
+{
 	Ctlr *ctlr;
-	
-	p = vp;
-	n = vn;
 	ctlr = adev->ctlr;
-	r = &ctlr->ring;
-	
-	checkptr(ctlr);
-	while(n > 0){
-		k = ringwrite(r, p, n);
-		if(checkptr(ctlr) == 0)
-			continue;
-		if(k == 0){
+	return buffered(&ctlr->ring);
+}
+
+static void
+hdakick(Ctlr *ctlr)
+{
+	if(ctlr->active)
+		return;
+	if(buffered(&ctlr->ring) > Blocksize)
+		streamstart(ctlr);
+}
+
+static long
+hdawrite(Audio *adev, void *vp, long n, vlong)
+{
+	uchar *p, *e;
+	Ctlr *ctlr;
+	Ring *ring;
+
+	p = vp;
+	e = p + n;
+	ctlr = adev->ctlr;
+	ring = &ctlr->ring;
+	while(p < e) {
+		if((n = writering(ring, p, e - p)) <= 0){
 			hdakick(ctlr);
-			sleep(&ctlr->outr, outavail, r);
-		}else{
-			p += k;
-			n -= k;
+			sleep(&ring->r, outavail, ctlr);
+			continue;
 		}
+		p += n;
 	}
 	hdakick(ctlr);
-	sleep(&ctlr->outr, outrate, ctlr);
-	return vn;
+	sleep(&ring->r, outrate, ctlr);
+	return p - (uchar*)vp;
 }
 
 static void
 hdaclose(Audio *adev)
 {
 	Ctlr *ctlr;
+	uchar z[1];
+	Ring *r;
+
 	ctlr = adev->ctlr;
-	ringalign(&ctlr->ring);
-	hdakick(ctlr);
+	if(!ctlr->active)
+		return;
+	z[0] = 0;
+	r = &ctlr->ring;
+	while(r->wi % Blocksize)
+		hdawrite(adev, z, sizeof(z), 0);
 }
 
 enum {
@@ -1205,14 +1201,24 @@ hdainterrupt(Ureg *, void *arg)
 	Ctlr *ctlr;
 	Audio *adev;
 	uint sts;
-	
+	Ring *r;
+
 	adev = arg;
 	ctlr = adev->ctlr;
 	
 	ilock(ctlr);
 	sts = csr32(ctlr, Intsts);
-	if(sts & Sismask)
-		streamupdate(ctlr);
+	if(sts & ctlr->sdintr){
+		/* ack interrupt */
+		csr8(ctlr, Sdsts+ctlr->sdctl) |= Scompl;
+		r = &ctlr->ring;
+		r->ri = streampos(ctlr);
+		if(ctlr->active && buffered(r) < Blocksize){
+			streamstop(ctlr);
+			r->ri = r->wi = streampos(ctlr);
+		}
+		wakeup(&r->r);
+	}
 	iunlock(ctlr);
 }
 
@@ -1220,32 +1226,35 @@ static long
 hdastatus(Audio *adev, void *a, long n, vlong)
 {
 	Ctlr *ctlr = adev->ctlr;
+	Codec *codec;
 	Fungroup *fg;
 	Widget *w;
 	uint r;
-	int k;
+	int k, i;
 	char *s;
 	
 	s = a;
-	k = snprint(s, n, "bufsize %6d buffered %6ud\ncodec %2d pin %3d\n",
-		ctlr->ring.blocksize, ringused(&ctlr->ring),
-		ctlr->codec.id.codec, ctlr->pin);
-	
-	for(fg=ctlr->codec.fgroup; fg; fg=fg->next){
-		for(w=fg->first; w; w=w->next){
-			if(w->type != Wpin)
-				continue;
-			r = w->pin;
-			k += snprint(s+k, n-k, "pin %3d %s %s %s %s %s %s\n",
-				w->id.nid,
-				(w->pincap & Pout) != 0 ? "out" : "in",
-				pinport[(r >> 30) & 0x3],
-				pinloc2[(r >> 28) & 0x3],
-				pinloc[(r >> 24) & 0xf],
-				pinfunc[(r >> 20) & 0xf],
-				pincol[(r >> 12) & 0xf]
-			);
-			
+	k = snprint(s, n, "bufsize %6d buffered %6ld\n", Blocksize, buffered(&ctlr->ring));
+	for(i=0; i<Maxcodecs; i++){
+		if((codec = ctlr->codec[i]) == nil)
+			continue;
+		k += snprint(s+k, n-k, "codec %2d pin %3d\n",
+			codec->id.codec, ctlr->pin);
+		for(fg=codec->fgroup; fg; fg=fg->next){
+			for(w=fg->first; w; w=w->next){
+				if(w->type != Wpin)
+					continue;
+				r = w->pin;
+				k += snprint(s+k, n-k, "pin %3d %s %s %s %s %s %s\n",
+					w->id.nid,
+					(w->pincap & Pout) != 0 ? "out" : "in",
+					pinport[(r >> 30) & 0x3],
+					pinloc2[(r >> 28) & 0x3],
+					pinloc[(r >> 24) & 0xf],
+					pinfunc[(r >> 20) & 0xf],
+					pincol[(r >> 12) & 0xf]
+				);
+			}
 		}
 	}
 	return k;
@@ -1257,7 +1266,37 @@ hdastart(Ctlr *ctlr)
 {
 	static int cmdbufsize[] = { 2, 16, 256, 2048 };
 	int n, size;
+	uint cap;
 	
+	/* reset controller */
+	csr32(ctlr, Gctl) &= ~Rst;
+	waitup32(ctlr, Gctl, Rst, 0);
+	microdelay(Codecdelay);
+	csr32(ctlr, Gctl) |= Rst;
+	if(waitup32(ctlr, Gctl, Rst, Rst) && 
+	    waitup32(ctlr, Gctl, Rst, Rst)){
+		print("#A%d: hda failed to reset\n", ctlr->no);
+		return -1;
+	}
+	microdelay(Codecdelay);
+
+	ctlr->codecmask = csr16(ctlr, Statests);
+	if(ctlr->codecmask == 0){
+		print("#A%d: hda no codecs\n", ctlr->no);
+		return -1;
+	}
+
+	cap = csr16(ctlr, Gcap);
+	ctlr->bss = (cap>>3) & 0x1F;
+	ctlr->iss = (cap>>8) & 0xF;
+	ctlr->oss = (cap>>12) & 0xF;
+
+	csr8(ctlr, Corbctl) = 0;
+	waitup8(ctlr, Corbctl, Corbdma, 0);
+
+	csr8(ctlr, Rirbctl) = 0;
+	waitup8(ctlr, Rirbctl, Rirbdma, 0);
+
 	/* alloc command buffers */
 	size = csr8(ctlr, Corbsz);
 	n = cmdbufsize[size & 3];
@@ -1270,22 +1309,7 @@ hdastart(Ctlr *ctlr)
 	ctlr->rirb = xspanalloc(n * 8, 128, 0);
 	memset(ctlr->rirb, 0, n * 8);
 	ctlr->rirbsize = n;
-	
-	/* stop command buffers */
-	csr16(ctlr, Wakeen) = 0;
-	csr32(ctlr, Intctl) = 0;
-	csr8(ctlr, Corbctl) = 0;
-	csr8(ctlr, Rirbctl) = 0;
-	waitup8(ctlr, Corbctl, Corbdma, 0);
-	waitup8(ctlr, Rirbctl, Rirbdma, 0);
-	
-	/* reset controller */
-	csr32(ctlr, Gctl) = 0;
-	waitup32(ctlr, Gctl, Rst, 0);
-	microdelay(Codecdelay);
-	csr32(ctlr, Gctl) = Rst;
-	waitup32(ctlr, Gctl, Rst, Rst);
-	
+
 	/* setup controller  */
 	csr32(ctlr, Dplbase) = 0;
 	csr32(ctlr, Dpubase) = 0;
@@ -1311,7 +1335,7 @@ hdastart(Ctlr *ctlr)
 	waitup8(ctlr, Rirbctl, Rirbdma, Rirbdma);
 	
 	/* enable interrupts */
-	csr32(ctlr, Intctl) = Gie | Cie;
+	csr32(ctlr, Intctl) |= Gie | Cie;
 	
 	return 0;
 }
@@ -1322,6 +1346,8 @@ hdamatch(Pcidev *p)
 	while(p = pcimatch(p, 0, 0))
 		switch((p->vid << 16) | p->did){
 		case (0x8086 << 16) | 0x27d8:
+		case (0x1002 << 16) | 0x4383:	/* ATI */
+		case (0x1002 << 16) | 0x7919:	/* ATI HDMI */
 			return p;
 		}
 	return nil;
@@ -1370,11 +1396,11 @@ static int
 hdareset(Audio *adev)
 {
 	static Ctlr *cards = nil;
-	Pcidev *p;
-	int irq, tbdf, best;
+	int irq, tbdf, best, cad;
 	Ctlr *ctlr;
+	Pcidev *p;
 
-	/* make a list of all ac97 cards if not already done */
+	/* make a list of all cards if not already done */
 	if(cards == nil){
 		p = nil;
 		while(p = hdamatch(p)){
@@ -1402,9 +1428,13 @@ Found:
 	irq = p->intl;
 	tbdf = p->tbdf;
 
+	/* magic for ATI */
+	if(p->vid == 0x1002)
+		pcicfgw8(p, 0x42, pcicfgr8(p, 0x42) | 2);
+
 	pcisetbme(p);
 	pcisetpms(p, 0);
-	
+
 	ctlr->no = adev->ctlrno;
 	ctlr->size = p->mem[0].size;
 	ctlr->q = qopen(256, 0, 0, 0);
@@ -1419,20 +1449,20 @@ Found:
 		print("#A%d: unable to start hda\n", ctlr->no);
 		return -1;
 	}
-	streamalloc(ctlr);
+	if(streamalloc(ctlr) < 0){
+		print("#A%d: streamalloc failed\n", ctlr->no);
+		return -1;
+	}
 	if(enumdev(ctlr) < 0){
 		print("#A%d: no audio codecs found\n", ctlr->no);
 		return -1;
 	}
-	print("#A%d: using codec #%d, vendor %08x\n",
-		ctlr->no, ctlr->codec.id.codec, ctlr->codec.vid);
-	
-	best = bestpin(ctlr);
+	best = bestpin(ctlr, &cad);
 	if(best < 0){
 		print("#A%d: no output pins found!\n", ctlr->no);
 		return -1;
 	}
-	if(connectpin(ctlr, best) < 0){
+	if(connectpin(ctlr, best, cad) < 0){
 		print("#A%d: error connecting pin\n", ctlr->no);
 		return -1;
 	}
