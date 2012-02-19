@@ -23,7 +23,7 @@ fn sigexit {
 fn play1 {
 	if(~ $#* 0){
 		tmp=(/tmp/play.$pid.$#tmp.tmp $tmp)
-		dd -bs 1024 -count 1 >$tmp(1) >[2]/dev/null
+		dd -bs 8192 -count 1 >$tmp(1) >[2]/dev/null
 		cat $tmp(1) /fd/0 | play1 `{file -m $tmp(1)} xxx
 		cleanup
 	}
