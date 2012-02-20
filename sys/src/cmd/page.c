@@ -258,9 +258,14 @@ char*
 shortname(char *s)
 {
 	char *x;
-	if(x = strrchr(s, '/'))
-		if(x[1] != 0)
-			return x+1;
+
+	while(strlen(s) > 20){
+		if((x = strchr(s, '/')) == nil)
+			break;
+		if(x[1] == 0)
+			break;
+		s = x+1;
+	}
 	return s;
 }
 
