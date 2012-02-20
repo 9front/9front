@@ -1346,6 +1346,7 @@ hdamatch(Pcidev *p)
 	while(p = pcimatch(p, 0, 0))
 		switch((p->vid << 16) | p->did){
 		case (0x8086 << 16) | 0x27d8:
+		case (0x8086 << 16) | 0x284b:	/* Intel ICH8 */
 		case (0x1002 << 16) | 0x4383:	/* ATI */
 		case (0x1002 << 16) | 0x7919:	/* ATI HDMI */
 			return p;
@@ -1428,9 +1429,13 @@ Found:
 	irq = p->intl;
 	tbdf = p->tbdf;
 
-	/* magic for ATI */
-	if(p->vid == 0x1002)
+	if(p->vid == 0x1002){
+		/* magic for ATI */
 		pcicfgw8(p, 0x42, pcicfgr8(p, 0x42) | 2);
+	} else {
+		/* TCSEL */
+		pcicfgw8(p, 0x44, pcicfgr8(p, 0x44) & 0xf8);
+	}
 
 	pcisetbme(p);
 	pcisetpms(p, 0);
