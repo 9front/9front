@@ -48,7 +48,7 @@ void
 main(int argc, char *argv[])
 {
 	int n, pfd[2], pflag = 0;
-	char *arg[4], *s, *e, *p, *g, t;
+	char *arg[4], *s, *e, *p, *g, *a, t;
 	Rune r;
 
 	ARGBEGIN {
@@ -101,7 +101,8 @@ main(int argc, char *argv[])
 				e = buf+nbuf;
 			t = *e;
 			*e = 0;
-			if((cset = attr(s, "encoding")) || (cset = attr(s, "charset"))){
+			if((a = attr(s, "encoding")) || (a = attr(s, "charset"))){
+				cset = a;
 				*e = t;
 				break;
 			}
