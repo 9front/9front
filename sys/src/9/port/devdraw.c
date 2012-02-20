@@ -73,6 +73,7 @@ struct Client
 	CScreen*	cscreen;
 	Refresh*	refresh;
 	Rendez		refrend;
+	QLock		refq;
 	uchar*		readdata;
 	int		nreaddata;
 	int		busy;
@@ -1227,10 +1228,17 @@ drawread(Chan *c, void *a, long n, vlong off)
 				break;
 			dunlock();
 			if(waserror()){
-				dlock();	/* restore lock for waserror() above */
+				dlock();
+				nexterror();
+			}
+			eqlock(&cl->refq);
+			if(waserror()){
+				qunlock(&cl->refq);
 				nexterror();
 			}
 			sleep(&cl->refrend, drawrefactive, cl);
+			poperror();
+			qunlock(&cl->refq);
 			poperror();
 			dlock();
 		}
