@@ -9,16 +9,23 @@ char *cset = nil;
 void
 usage(void)
 {
-	fprint(2, "%s [ -h ] [ -c charset ] [ file ]\n", argv0);
+	fprint(2, "%s [ -p ] [ -c charset ] [ file ]\n", argv0);
 	exits("usage");
 }
 
 char*
-strval(char *s)
+attr(char *s, char *a)
 {
 	char *e, q;
 
-	while(strchr("\t ", *s))
+	if((s = cistrstr(s, a)) == nil)
+		return nil;
+	s += strlen(a);
+	while(strchr("\r\n\t ", *s))
+		s++;
+	if(*s++ != '=')
+		return nil;
+	while(strchr("\r\n\t ", *s))
 		s++;
 	q = 0;
 	if(*s == '"' || *s == '\'')
@@ -41,18 +48,18 @@ void
 main(int argc, char *argv[])
 {
 	int n, pfd[2], pflag = 0;
-	char *arg[4], *s, *p;
+	char *arg[4], *s, *e, *p, *g, t;
 	Rune r;
 
 	ARGBEGIN {
-	case 'h':
-		usage();
 	case 'c':
 		cset = EARGF(usage());
 		break;
 	case 'p':
 		pflag = 1;
 		break;
+	default:
+		usage();
 	} ARGEND;
 
 	if(*argv){
@@ -62,6 +69,7 @@ main(int argc, char *argv[])
 	}
 	nbuf = 0;
 	p = buf;
+	g = buf;
 	while(nbuf < sizeof(buf)-1){
 		if((n = read(0, buf + nbuf, sizeof(buf)-1-nbuf)) <= 0)
 			break;
@@ -84,16 +92,22 @@ main(int argc, char *argv[])
 				break;
 			}
 		}
-		if(s = cistrstr(p, "encoding="))
-			if(s = strval(s+9)){
-				cset = s;
+		s = g;
+		do {
+			if((s = strchr(s, '<')) == nil)
+				break;
+			g = s;
+			if((e = strchr(++s, '>')) == nil)
+				e = buf+nbuf;
+			t = *e;
+			*e = 0;
+			if((cset = attr(s, "encoding")) || (cset = attr(s, "charset"))){
+				*e = t;
 				break;
 			}
-		if(s = cistrstr(p, "charset="))
-			if(s = strval(s+8)){
-				cset = s;
-				break;
-			}
+			*e = t;
+			s = ++e;
+		} while(t);
 	}
 	nbuf -= p - buf;
 
@@ -132,7 +146,7 @@ main(int argc, char *argv[])
 
 		arg[0] = "rc";
 		arg[1] = "-c";
-		arg[2] = smprint("{tcs -f %s | tcs -f html} || cat", cset);
+		arg[2] = smprint("{tcs -f %s || cat} | tcs -f html", cset);
 		arg[3] = nil;
 		exec("/bin/rc", arg);
 	}
