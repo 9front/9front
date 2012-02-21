@@ -259,9 +259,37 @@ char *unquot(char *dst, char *src, int len){
 	dst[len]=0;
 	return dst;
 }
-int entchar(int c){
-	return c=='#' || 'a'<=c && c<='z' || 'A'<=c && c<='Z' || '0'<=c && c<='9';
+int alnumchar(int c){
+	return 'a'<=c && c<='z' || 'A'<=c && c<='Z' || '0'<=c && c<='9';
 }
+int entchar(int c){
+	return c=='#' || alnumchar(c);
+}
+
+/* return url if text token looks like a hyperlink */
+char *linkify(char *s){
+	if(!cistrncmp(s, "http://", 7))
+		return strdup(s);
+	if(!cistrncmp(s, "https://", 8))
+		return strdup(s);
+	if(!cistrncmp(s, "www.", 4)){
+		int d, i;
+
+		d = 1;
+		for(i=4; s[i]; i++){
+			if(s[i] == '.'){
+				if(s[i-1] == '.')
+					return 0;
+				d++;
+			} else if(!alnumchar(s[i]))
+				break;
+		}
+		if(d >= 2)
+			return smprint("http://%s", s);
+	}
+	return 0;
+}
+
 /*
  * remove entity references, in place.
  * Potential bug:
@@ -1041,7 +1069,13 @@ void plrdhtml(char *name, int fd, Www *dst){
 		}
 		break;
 	case TEXT:
-		pl_htmloutput(&g, g.nsp, g.token, 0);
+		if(g.state->link[0]==0 && (str = linkify(g.token))){
+			strncpy(g.state->link, str, sizeof(g.state->link));
+			pl_htmloutput(&g, g.nsp, g.token, 0);
+			g.state->link[0] = 0;
+			free(str);
+		} else
+			pl_htmloutput(&g, g.nsp, g.token, 0);
 		break;
 	case EOF:
 		for(;g.state!=g.stack;--g.state)
