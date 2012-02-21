@@ -1345,10 +1345,27 @@ hdamatch(Pcidev *p)
 {
 	while(p = pcimatch(p, 0, 0))
 		switch((p->vid << 16) | p->did){
-		case (0x8086 << 16) | 0x27d8:
+		case (0x8086 << 16) | 0x2668:	/* Intel ICH6 (untested) */
+		case (0x8086 << 16) | 0x27d8:	/* Intel ICH7 */
+		case (0x8086 << 16) | 0x269a:	/* Intel ESB2 (untested) */
 		case (0x8086 << 16) | 0x284b:	/* Intel ICH8 */
-		case (0x1002 << 16) | 0x4383:	/* ATI */
+		case (0x8086 << 16) | 0x293f:	/* Intel ICH9 (untested) */
+		case (0x8086 << 16) | 0x293e:	/* Intel P35 (untested) */
+
+		case (0x10de << 16) | 0x026c:	/* NVidia MCP51 (untested) */
+		case (0x10de << 16) | 0x0371:	/* NVidia MCP55 (untested) */
+		case (0x10de << 16) | 0x03e4:	/* NVidia MCP61 (untested) */
+		case (0x10de << 16) | 0x03f0:	/* NVidia MCP61A (untested) */
+		case (0x10de << 16) | 0x044a:	/* NVidia MCP65 (untested) */
+		case (0x10de << 16) | 0x055c:	/* NVidia MCP67 (untested) */
+
+		case (0x1002 << 16) | 0x437b:	/* ATI SB450 (untested) */
+		case (0x1002 << 16) | 0x4383:	/* ATI SB600 */
 		case (0x1002 << 16) | 0x7919:	/* ATI HDMI */
+
+		case (0x1106 << 16) | 0x3288:	/* VIA (untested) */
+		case (0x1039 << 16) | 0x7502:	/* SIS (untested) */
+		case (0x10b9 << 16) | 0x5461:	/* ULI (untested) */
 			return p;
 		}
 	return nil;
@@ -1429,9 +1446,18 @@ Found:
 	irq = p->intl;
 	tbdf = p->tbdf;
 
+	if(p->vid == 0x10de){
+		/* magic for NVidia */
+		pcicfgw8(p, 0x4e, (pcicfgr8(p, 0x4e) & 0xf0) | 0x0f);
+  	}
+	if(p->vid == 0x10b9){
+		/* magic for ULI */
+		pcicfgw16(p, 0x40, pcicfgr16(p, 0x40) | 0x10);
+		pcicfgw32(p, PciBAR1, 0);
+	}
 	if(p->vid == 0x1002){
 		/* magic for ATI */
-		pcicfgw8(p, 0x42, pcicfgr8(p, 0x42) | 2);
+		pcicfgw8(p, 0x42, pcicfgr8(p, 0x42) | 0x02);
 	} else {
 		/* TCSEL */
 		pcicfgw8(p, 0x44, pcicfgr8(p, 0x44) & 0xf8);
