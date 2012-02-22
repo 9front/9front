@@ -109,41 +109,49 @@ if(~ $#fils 0) {
 		exit 'no man'
 	}
 }
-for(i in $fils) {
-	if(! /bin/test -f $i)
-		echo need $i >[1=2]
-	if not {
-		switch($cmd) {
-		case w
-			echo $i
+switch($cmd) {
+case p; out=proof
+case P; out=page
+case *; out=cat
+}
+{
+	for(i in $fils) {
+		if(! /bin/test -f $i)
+			echo need $i >[1=2]
+		if not {
+			switch($cmd) {
+			case w
+				echo $i
 
-		case t
-			roff t $i
+			case t
+				roff t $i
 
-		case p
-			roff t $i | grep -v '^x X html' | proof
+			case p
+				roff t $i | grep -v '^x X html'
 
-		case P
-			roff t $i | page
+			case P
+				roff t $i
 
-		case n
-			roff n $i | sed '
-				${
-        			       /^$/p
-				}
-				//N
-				/^\n$/D'
+			case n
+				roff n $i | sed '
+					${
+        				       /^$/p
+					}
+					//N
+					/^\n$/D'
 
-		case b
-			x=`{echo $i | sed 's;/sys/man/(.*)/(.*);\1 \2;'}
-			if(~ $x(2) 0intro) x=($x(1) intro)
-			roff n $i | sed '
-				${
-        			       /^$/p
-				}
-				//N
-				/^\n$/D' |
-			plumb -i -d edit -a 'action=showdata filename=/man/'$x(2)^'('$x(1)^')'
+			case b
+				x=`{echo $i | sed 's;/sys/man/(.*)/(.*);\1 \2;'}
+				if(~ $x(2) 0intro) x=($x(1) intro)
+				roff n $i | sed '
+					${
+        				       /^$/p
+					}
+					//N
+					/^\n$/D' |
+				plumb -i -d edit -a 'action=showdata filename=/man/'$x(2)^'('$x(1)^')'
+			}
 		}
 	}
-}
+} | $out
+
