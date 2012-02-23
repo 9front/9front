@@ -3,7 +3,7 @@
 		Geoff Collyer
 		July—October 2004
 
-note: 2⁶⁳=9,223,372,036,854,775,808 or 8EB (9.2×10ⁱ⁸)
+note: 2⁶³=9,223,372,036,854,775,808 or 8EB (9.2×10¹⁸)
 
 • identified longs that refer to offsets, sizes and block numbers, and
 changed them to type Off (vlong); fixed all print formats to match.
@@ -39,12 +39,12 @@ handle 64-bit offsets and sizes.
 • booted xtc (terminal) from fs64 (used fs64 as main file system)
 
 note: current file server with triple-indirect blocks at 4k block size
-	has a maximum file size of ~505GB (5.42×10ⁱⁱ).
+	has a maximum file size of ~505GB (5.42×10¹¹).
 	with quadruple-indirect blocks, max would be ~275TB @ 4k block size.
 
 • got igbe fs driver working (a couple small changes)
 • eliminated some gotos (started with 580, down to 454)
-• added quadruple indirect blocks: lets us reach 2⁶⁳ with a 32kB block size
+• added quadruple indirect blocks: lets us reach 2⁶³ with a 32kB block size
 • got igbe boot driver & pxe booting working
 • on-disk qid paths are now Offs, but 9p1 qids on the wire are still ulongs
 • generalised & parameterised indirect block implementation

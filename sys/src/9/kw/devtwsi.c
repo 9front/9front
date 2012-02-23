@@ -1,6 +1,6 @@
 /*
  * kirkwood two-wire serial interface (TWSI) and
- * inter-integrated circuit (I⁲C) driver
+ * inter-integrated circuit (I²C) driver
  */
 #include "u.h"
 #include "../port/lib.h"
@@ -222,7 +222,7 @@ twsishutdown(void)
 static Chan*
 twsiattach(char *param)
 {
-	return devattach(L'⁲', param);
+	return devattach(L'²', param);
 }
 
 static Walkqid*
@@ -284,7 +284,7 @@ twsiwrite(Chan *c, void *v, long n, vlong off)
 }
 
 Dev twsidevtab = {
-	L'⁲',
+	L'²',
 	"twsi",
 
 	devreset,

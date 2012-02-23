@@ -447,10 +447,10 @@ etherprobe(int cardno, int ctlrno)
 		mb /= 10;
 	if (lg > 0)
 		lg--;
-	if (lg > 14)			/* 2^(14+17) = 2⁳ⁱ */
+	if (lg > 14)			/* 2^(14+17) = 2³¹ */
 		lg = 14;
 	/* allocate larger output queues for higher-speed interfaces */
-	bsz = 1UL << (lg + 17);		/* 2ⁱ⁷ = 128K, bsz = 2ⁿ × 128K */
+	bsz = 1UL << (lg + 17);		/* 2¹⁷ = 128K, bsz = 2ⁿ × 128K */
 	while (bsz > mainmem->maxsize / 8 && bsz > 128*1024)
 		bsz /= 2;
 

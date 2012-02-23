@@ -390,7 +390,7 @@ irq(Ureg* ureg)
 		switch (irqno) {
 		case 56:
 		case 57:
-			iprint(" (I⁲C)");
+			iprint(" (I²C)");
 			break;
 		case 83:
 		case 86:

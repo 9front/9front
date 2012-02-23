@@ -239,16 +239,31 @@ loop:
 	case L'÷':
 		return '/';
 	case L'¹':
-	case L'ⁱ':
 		yylval.numb = 1;
 		return SUP;
 	case L'²':
-	case L'⁲':
 		yylval.numb = 2;
 		return SUP;
 	case L'³':
-	case L'⁳':
 		yylval.numb = 3;
+		return SUP;
+	case L'⁴':
+		yylval.numb = 4;
+		return SUP;
+	case L'⁵':
+		yylval.numb = 5;
+		return SUP;
+	case L'⁶':
+		yylval.numb = 6;
+		return SUP;
+	case L'⁷':
+		yylval.numb = 7;
+		return SUP;
+	case L'⁸':
+		yylval.numb = 8;
+		return SUP;
+	case L'⁹':
+		yylval.numb = 9;
 		return SUP;
 	}
 	return c;
@@ -376,11 +391,14 @@ ralpha(int c)
 	case '|':
 	case '#':
 	case L'¹':
-	case L'ⁱ':
 	case L'²':
-	case L'⁲':
 	case L'³':
-	case L'⁳':
+	case L'⁴':
+	case L'⁵':
+	case L'⁶':
+	case L'⁷':
+	case L'⁸':
+	case L'⁹':
 	case L'×':
 	case L'÷':
 		return 0;
@@ -550,6 +568,24 @@ printdim(char *str, int d, int n)
 			break;
 		case 3:
 			strcat(str, "³");
+			break;
+		case 4:
+			strcat(str, "⁴");
+			break;
+		case 5:
+			strcat(str, "⁵");
+			break;
+		case 6:
+			strcat(str, "⁶");
+			break;
+		case 7:
+			strcat(str, "⁷");
+			break;
+		case 8:
+			strcat(str, "⁸");
+			break;
+		case 9:
+			strcat(str, "⁹");
 			break;
 		default:
 			sprint(strchr(str, 0), "^%d", n);

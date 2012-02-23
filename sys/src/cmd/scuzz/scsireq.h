@@ -144,7 +144,7 @@ enum {
 	Cmd1sili	= 2,		/* don't set Sd2ili */
 
 	/* limit of block #s in 24-bit ccbs */
-	Max24off	= (1<<21) - 1,	/* 2⁲ⁱ - 1 */
+	Max24off	= (1<<21) - 1,	/* 2²¹ - 1 */
 
 	/* mode pages */
 	Allmodepages = 0x3F,

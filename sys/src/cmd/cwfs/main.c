@@ -200,7 +200,7 @@ postservice(void)
 }
 
 /*
- * compute BUFSIZE*(NDBLOCK+INDPERBUF+INDPERBUF⁲+INDPERBUF⁳+INDPERBUF⁴)
+ * compute BUFSIZE*(NDBLOCK+INDPERBUF+INDPERBUF²+INDPERBUF³+INDPERBUF⁴)
  * while watching for overflow; in that case, return 0.
  */
 
@@ -242,8 +242,8 @@ maxsize(void)
 }
 
 enum {
-	INDPERBUF⁲ = ((uvlong)INDPERBUF *INDPERBUF),
-	INDPERBUF⁴ = ((uvlong)INDPERBUF⁲*INDPERBUF⁲),
+	INDPERBUF² = ((uvlong)INDPERBUF*INDPERBUF),
+	INDPERBUF⁴ = ((uvlong)INDPERBUF²*INDPERBUF²),
 };
 
 static void
@@ -261,9 +261,9 @@ printsizes(void)
 			max = offlim - 1;
 		print("max file size = %,llud\n", (Wideoff)max);
 	}
-	if (INDPERBUF⁲/INDPERBUF != INDPERBUF)
-		print("overflow computing INDPERBUF⁲\n");
-	if (INDPERBUF⁴/INDPERBUF⁲ != INDPERBUF⁲)
+	if (INDPERBUF²/INDPERBUF != INDPERBUF)
+		print("overflow computing INDPERBUF²\n");
+	if (INDPERBUF⁴/INDPERBUF² != INDPERBUF²)
 		print("overflow computing INDPERBUF⁴\n");
 	print("\tINDPERBUF = %d, INDPERBUF^4 = %,lld, ", INDPERBUF,
 		(Wideoff)INDPERBUF⁴);
