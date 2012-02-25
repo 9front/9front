@@ -20,6 +20,7 @@ kbdfs \- keyboard and console filesystem
 .B /dev/cons
 .B /dev/consctl
 .B /dev/kbd
+.B /dev/kbdin
 .B /dev/kbin
 .B /dev/kbmap
 .fi
@@ -34,6 +35,8 @@ translates raw keyboard scancodes from
 .IR kbd (3))
 and its
 .BR kbin
+and
+.BR kbdin
 file and optionaly reads console input from
 .I consfile
 to provide initial keyboard and console input.
@@ -42,6 +45,7 @@ It serves a one-level directory containing the files
 .BR cons,
 .BR consctl,
 .BR kbd,
+.BR kbdin,
 .BR kbin
 and
 .BR kbmap.
@@ -171,17 +175,9 @@ message is send when a key is pressed down
 and
 .B K
 when a key is released. The following string contains all the keycodes
-of the keys that are currently pressed down in decomposed form. 
+of the keys that are currently pressed down in unshifted form. 
 This includes all keys that have a keyboard mapping and modifier keys.
-Some keys may produce multiple characters like
-.B Shift
-and
-.B a
-will produce
-.B Shift,
-.B a,
-.B A
-in the string. The string following the
+The string following the
 .B c
 message contains the single character that would have been returned
 on the
@@ -197,6 +193,25 @@ available. Opening the
 file disables input processing on the
 .BR cons
 file until it is closed again.
+.PP
+.B K,
+.B k
+and
+.B c
+messages can be written to
+.BR kbdin
+and will forwarded to the reader of
+.BR cons
+or
+.BR kbd.
+Writing a
+.B r
+or
+.B R
+message followed by a
+.SM UTF
+encoded rune will simulate the press or
+release of that particular rune.
 .PP
 Raw scancodes can be written to the
 .BR kbin
@@ -241,6 +256,6 @@ to represent a control character.
 .IR utf (6),
 .IR kbd (3)
 .SH FILES
-.B /dev/lib/kbmap/*
+.B /sys/lib/kbmap/*
 .SH SOURCE
 .B /sys/src/cmd/aux/kbdfs

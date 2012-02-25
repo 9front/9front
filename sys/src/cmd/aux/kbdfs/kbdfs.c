@@ -11,6 +11,7 @@ enum {
 
 	Qroot=	0,
 	Qkbd,
+	Qkbdin,
 	Qkbin,
 	Qkbmap,
 	Qcons,
@@ -56,6 +57,10 @@ struct Qtab {
 
 	"kbd",
 		0600,
+		0,
+
+	"kbdin",
+		0200,
 		0,
 
 	"kbin",
@@ -353,8 +358,7 @@ utfconv(Rune *r, int n)
 
 /*
  * Read key events from keychan and produce characters to
- * rawchan and keystate in kbdchan. this way here is only
- * one global keystate even if multiple keyboards are used.
+ * rawchan and keystate in kbdchan.
  */
 void
 keyproc(void *)
@@ -369,9 +373,6 @@ keyproc(void *)
 
 	nb = 0;
 	while(recv(keychan, &key) > 0){
-		if(key.down && key.r)
-			send(rawchan, &key.r);
-
 		rb[0] = 0;
 		for(i=0; i<nb && cb[i] != key.c; i++)
 			;
@@ -386,14 +387,14 @@ keyproc(void *)
 			cb[nb] = key.c;
 			rb[nb+1] = key.b;
 			nb++;
-			if(nb < nelem(cb) && key.r && key.b != key.r){
-				cb[nb] = key.c;
-				rb[nb+1] = key.r;
-				nb++;
-			}
 			rb[0] = 'k';
 		}
 		if(rb[0]){
+			if(kbdopen){
+				s = utfconv(rb, nb+1);
+				if(nbsendp(kbdchan, s) <= 0)
+					free(s);
+			}
 			if(mctlfd >= 0){
 				if(key.r == Kshift){
 					if(key.down){
@@ -405,12 +406,9 @@ keyproc(void *)
 				}
 				fprint(mctlfd, "twitch");
 			}
-			if(kbdopen){
-				s = utfconv(rb, nb+1);
-				if(nbsendp(kbdchan, s) <= 0)
-					free(s);
-			}
 		}
+		if(key.down && key.r)
+			send(rawchan, &key.r);
 	}
 }
 
@@ -1084,8 +1082,10 @@ static void
 fswrite(Req *r)
 {
 	Fid *f;
-	char *p;
+	Scan *a;
+	char *p, *s;
 	int n, i;
+	Key k;
 
 	f = r->fid;
 	switch((ulong)f->qid.path){
@@ -1114,6 +1114,80 @@ fswrite(Req *r)
 			return;
 		}
 		r->ofcall.count = n;
+		break;
+
+	case Qkbdin:
+		p = r->ifcall.data;
+		n = r->ifcall.count;
+		if(n <= 0)
+			n = 0;
+		r->ofcall.count = n;
+		if(p[n-1] != 0){
+			/*
+			 * old format as used by bitsy keyboard:
+			 * just a string of characters, no keyup
+			 * information.
+			 */
+			s = emalloc9p(n+1);
+			memmove(s, p, n);
+			s[n] = 0;
+			p = s;
+			while(*p){
+				p += chartorune(&k.r, p);
+				if(k.r)
+					send(rawchan, &k.r);
+			}
+			free(s);
+			break;
+		}
+		switch(p[0]){
+		case 'R':
+		case 'r':
+			/* rune up/down */
+			chartorune(&k.r, p+1);
+			if(k.r == 0)
+				break;
+			k.b = k.r;
+			k.c = 0x100 + k.r;	/* fake */
+			k.down = (p[0] == 'r');
+			if(f->aux == nil){
+				f->aux = emalloc9p(sizeof(Scan));
+				memset(f->aux, 0, sizeof(Scan));
+			}
+			a = f->aux;
+			/*
+			 * handle ^X forms according to keymap,
+			 * assign base and scancode if any
+			 */
+			for(i=0; i<Nscan; i++){
+				if((a->shift && kbtabshift[i] == k.r) || (kbtab[i] == k.r)){
+					k.c = i;
+					k.b = kbtab[i];
+					if(a->shift)
+						k.r = kbtabshift[i];
+					else if(a->altgr)
+						k.r = kbtabaltgr[i];
+					else if(a->ctl)
+						k.r = kbtabctl[i];
+					break;
+				}
+			}
+			send(keychan, &k);
+			if(k.r == Kshift)
+				a->shift = k.down;
+			else if(k.r == Kaltgr)
+				a->altgr = k.down;
+			else if(k.r == Kctl)
+				a->ctl = k.down;
+			break;
+		default:
+			if(!kbdopen)
+				break;
+			s = emalloc9p(n);
+			memmove(s, p, n);
+			if(nbsendp(kbdchan, s) <= 0)
+				free(s);
+		}
 		break;
 
 	case Qkbin:
@@ -1155,6 +1229,7 @@ fsdestroyfid(Fid *f)
 
 	if(f->omode != -1)
 		switch((ulong)f->qid.path){
+		case Qkbdin:
 		case Qkbin:
 		case Qkbmap:
 			if(p = f->aux){

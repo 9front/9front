@@ -55,6 +55,8 @@ struct {
 int	shared;
 int	sleeptime = 5;
 int	verbose = 0;
+int	kbdin = -1;
+
 char *cert;
 char *pixchan = "r5g6b5";
 static int	cmdpid;
@@ -88,6 +90,7 @@ main(int argc, char **argv)
 	int altnet, baseport, cfd, display, exnum, fd, h, killing, w;
 	char adir[NETPATHLEN], ldir[NETPATHLEN];
 	char net[NETPATHLEN], *p;
+	char *kbdfs[] = { "/bin/aux/kbdfs", "-dq", nil };
 	char *rc[] = { "/bin/rc", "-i", nil };
 	Vncs *v;
 
@@ -190,7 +193,7 @@ main(int argc, char **argv)
 	bind("#c", "/dev", MREPL);
 
 	/* run the command */
-	switch(cmdpid = rfork(RFPROC|RFFDG|RFNOTEG|RFNAMEG|RFREND)){
+	switch(cmdpid = rfork(RFPROC|RFFDG|RFNOTEG)){
 	case -1:
 		sysfatal("rfork: %r");
 		break;
@@ -198,12 +201,20 @@ main(int argc, char **argv)
 		if(mounter("/dev", MBEFORE, fd, exnum) < 0)
 			sysfatal("mounter: %r");
 		close(exportfd);
-		close(0);
 		close(1);
 		close(2);
+		open("/dev/cons", OWRITE);
+		open("/dev/cons", OWRITE);
+		if(rfork(RFPROC|RFMEM|RFFDG) == 0){
+			exec(kbdfs[0], kbdfs);
+			_exits("kbdfs");
+		}
+		waitpid();
+		rfork(RFNAMEG);
+		rendezvous(&cmdpid, 0);
+		rfork(RFREND);
+		close(0);
 		open("/dev/cons", OREAD);
-		open("/dev/cons", OWRITE);
-		open("/dev/cons", OWRITE);
 		exec(argv[0], argv);
 		fprint(2, "exec %s: %r\n", argv[0]);
 		_exits(nil);
@@ -211,6 +222,11 @@ main(int argc, char **argv)
 		close(fd);
 		break;
 	}
+
+	rendezvous(&cmdpid, 0);
+	kbdin = open("/dev/kbdin", OWRITE);
+	unmount(nil, "/dev");
+	bind("#c", "/dev", MREPL);
 
 	/* run the service */
 	srvfd = vncannounce(net, display, adir, baseport);
@@ -385,6 +401,8 @@ killall(void)
 	srvfd = -1;
 	close(exportfd);
 	exportfd = -1;
+	close(kbdin);
+	kbdin = -1;
 	postnote(PNGROUP, getpid(), killkin);
 }
 

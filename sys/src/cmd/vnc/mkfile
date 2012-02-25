@@ -18,7 +18,6 @@ SOFILES=\
 	compat.$O\
 	exportfs.$O\
 	kbds.$O\
-	latin1.$O\
 	rre.$O\
 	rlist.$O\
 
@@ -34,7 +33,6 @@ HFILES=\
 	compat.h\
 	errstr.h\
 	kbd.h\
-	latin1.h\
 	vncv.h\
 	vncs.h\
 

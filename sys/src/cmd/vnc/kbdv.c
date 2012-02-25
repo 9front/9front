@@ -229,11 +229,12 @@ readkbd(Vnc *v)
 			}
 			break;
 		case 'c':
-			chartorune(&r, buf+1);
 			if(utfrune(buf2+1, Kctl) || utfrune(buf2+1, Kalt) || utfrune(buf2+1, Kaltgr))
 				continue;
-			if(utfrune(buf2+1, r))
-				keyevent(v, runetovnc(r), 1);
+			chartorune(&r, buf+1);
+			keyevent(v, runetovnc(r), 1);
+			if(utfrune(buf2+1, r) == nil)
+				keyevent(v, runetovnc(r), 0);
 		default:
 			continue;
 		}
