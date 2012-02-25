@@ -29,9 +29,8 @@ typedef struct Scan Scan;
 
 struct Key {
 	int	down;
-	int	c;
-	Rune	r;
-	Rune	b;
+	Rune	b;	/* button, unshifted key */
+	Rune	r;	/* rune, shifted key */
 };
 
 struct Scan {
@@ -241,21 +240,21 @@ kbdputsc(Scan *scan, int c)
 	}
 
 	key.down = (c & 0x80) == 0;
-	key.c = c & 0x7f;
+	c &= 0x7f;
 
-	if(key.c >= Nscan)
+	if(c >= Nscan)
 		return;
 
 	if(scan->esc1)
-		key.r = kbtabesc1[key.c];
+		key.r = kbtabesc1[c];
 	else if(scan->shift)
-		key.r = kbtabshift[key.c];
+		key.r = kbtabshift[c];
 	else if(scan->altgr)
-		key.r = kbtabaltgr[key.c];
+		key.r = kbtabaltgr[c];
 	else if(scan->ctl)
-		key.r = kbtabctl[key.c];
+		key.r = kbtabctl[c];
 	else
-		key.r = kbtab[key.c];
+		key.r = kbtab[c];
 
 	switch(key.r){
 	case Spec|0x60:
@@ -272,7 +271,7 @@ kbdputsc(Scan *scan, int c)
 	if(scan->esc1)
 		key.b = key.r;
 	else
-		key.b = kbtab[key.c];
+		key.b = kbtab[c];
 
 	if(scan->caps && key.r<='z' && key.r>='a')
 		key.r += 'A' - 'a';
@@ -363,8 +362,7 @@ utfconv(Rune *r, int n)
 void
 keyproc(void *)
 {
-	Rune rb[Nscan*2+1];
-	int cb[Nscan];
+	Rune rb[Nscan+1];
 	Key key;
 	int i, nb;
 	char *s;
@@ -374,19 +372,16 @@ keyproc(void *)
 	nb = 0;
 	while(recv(keychan, &key) > 0){
 		rb[0] = 0;
-		for(i=0; i<nb && cb[i] != key.c; i++)
+		for(i=0; i<nb && rb[i+1] != key.b; i++)
 			;
 		if(!key.down){
-			while(i < nb && cb[i] == key.c){
-				memmove(cb+i, cb+i+1, (nb-i+1) * sizeof(cb[0]));
+			while(i < nb && rb[i+1] == key.b){
 				memmove(rb+i+1, rb+i+2, (nb-i+1) * sizeof(rb[0]));
 				nb--;
 				rb[0] = 'K';
 			}
-		} else if(i == nb && nb < nelem(cb) && key.b){
-			cb[nb] = key.c;
-			rb[nb+1] = key.b;
-			nb++;
+		} else if(i == nb && nb < nelem(rb)-1 && key.b){
+			rb[++nb] = key.b;
 			rb[0] = 'k';
 		}
 		if(rb[0]){
@@ -1148,7 +1143,6 @@ fswrite(Req *r)
 			if(k.r == 0)
 				break;
 			k.b = k.r;
-			k.c = 0x100 + k.r;	/* fake */
 			k.down = (p[0] == 'r');
 			if(f->aux == nil){
 				f->aux = emalloc9p(sizeof(Scan));
@@ -1156,12 +1150,11 @@ fswrite(Req *r)
 			}
 			a = f->aux;
 			/*
-			 * handle ^X forms according to keymap,
-			 * assign base and scancode if any
+			 * handle ^X forms according to keymap and
+			 * assign button.
 			 */
 			for(i=0; i<Nscan; i++){
 				if((a->shift && kbtabshift[i] == k.r) || (kbtab[i] == k.r)){
-					k.c = i;
 					k.b = kbtab[i];
 					if(a->shift)
 						k.r = kbtabshift[i];
