@@ -127,7 +127,7 @@ Rune kbtab[Nscan] =
 [0x28]	'\'',	'`',	Kshift,	'\\',	'z',	'x',	'c',	'v',
 [0x30]	'b',	'n',	'm',	',',	'.',	'/',	Kshift,	'*',
 [0x38]	Kalt,	' ',	Kctl,	KF|1,	KF|2,	KF|3,	KF|4,	KF|5,
-[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,	'7',
+[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,'7',
 [0x48]	'8',	'9',	'-',	'4',	'5',	'6',	'+',	'1',
 [0x50]	'2',	'3',	'0',	'.',	0,	0,	0,	KF|11,
 [0x58]	KF|12,	0,	0,	0,	0,	0,	0,	0,
@@ -147,7 +147,7 @@ Rune kbtabshift[Nscan] =
 [0x28]	'"',	'~',	Kshift,	'|',	'Z',	'X',	'C',	'V',
 [0x30]	'B',	'N',	'M',	'<',	'>',	'?',	Kshift,	'*',
 [0x38]	Kalt,	' ',	Kctl,	KF|1,	KF|2,	KF|3,	KF|4,	KF|5,
-[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,	'7',
+[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,'7',
 [0x48]	'8',	'9',	'-',	'4',	'5',	'6',	'+',	'1',
 [0x50]	'2',	'3',	'0',	'.',	0,	0,	0,	KF|11,
 [0x58]	KF|12,	0,	0,	0,	0,	0,	0,	0,
@@ -164,12 +164,12 @@ Rune kbtabesc1[Nscan] =
 [0x10]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x18]	0,	0,	0,	0,	'\n',	Kctl,	0,	0,
 [0x20]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x28]	0,	0,	Kshift,	0,	0,	0,	0,	0,
+[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x30]	0,	0,	0,	0,	0,	'/',	0,	Kprint,
 [0x38]	Kaltgr,	0,	0,	0,	0,	0,	0,	0,
 [0x40]	0,	0,	0,	0,	0,	0,	Kbreak,	Khome,
 [0x48]	Kup,	Kpgup,	0,	Kleft,	0,	Kright,	0,	Kend,
-[0x50]	Kdown,	Kpgdown,	Kins,	Kdel,	0,	0,	0,	0,
+[0x50]	Kdown,	Kpgdown,Kins,	Kdel,	0,	0,	0,	0,
 [0x58]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x60]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x68]	0,	0,	0,	0,	0,	0,	0,	0,
@@ -189,7 +189,7 @@ Rune kbtabaltgr[Nscan] =
 [0x38]	Kaltgr,	0,	0,	0,	0,	0,	0,	0,
 [0x40]	0,	0,	0,	0,	0,	0,	Kbreak,	Khome,
 [0x48]	Kup,	Kpgup,	0,	Kleft,	0,	Kright,	0,	Kend,
-[0x50]	Kdown,	Kpgdown,	Kins,	Kdel,	0,	0,	0,	0,
+[0x50]	Kdown,	Kpgdown,Kins,	Kdel,	0,	0,	0,	0,
 [0x58]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x60]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x68]	0,	0,	0,	0,	0,	0,	0,	0,
@@ -228,14 +228,17 @@ kbdputsc(Scan *scan, int c)
 	Key key;
 
 	/*
-	 *  e0's is the first of a 2 character sequence, e1 the first
+	 *  e0's is the first of a 2 character sequence, e1 and e2 the first
 	 *  of a 3 character sequence (on the safari)
 	 */
-	if(c == 0xe0){
-		scan->esc1 = 1;
+	if(scan->esc2){
+		scan->esc2--;
 		return;
-	} else if(c == 0xe1){
+	} else if(c == 0xe1 || c == 0xe2){
 		scan->esc2 = 2;
+		return;
+	} else if(c == 0xe0){
+		scan->esc1 = 1;
 		return;
 	}
 
@@ -268,7 +271,7 @@ kbdputsc(Scan *scan, int c)
 		break;
 	}
 
-	if(scan->esc1)
+	if(scan->esc1 || kbtab[c] == 0)
 		key.b = key.r;
 	else
 		key.b = kbtab[c];
@@ -279,12 +282,8 @@ kbdputsc(Scan *scan, int c)
 	if(scan->ctl && scan->alt && key.r == Kdel)
 		reboot();
 
-	send(keychan, &key);
-
-	if(scan->esc1)
-		scan->esc1 = 0;
-	else if(scan->esc2)
-		scan->esc2--;
+	if(key.b)
+		send(keychan, &key);
 
 	switch(key.r){
 	case Kshift:
@@ -306,6 +305,7 @@ kbdputsc(Scan *scan, int c)
 		scan->caps ^= key.down;
 		break;
 	}
+	scan->esc1 = 0;
 }
 
 void
@@ -1155,7 +1155,8 @@ fswrite(Req *r)
 			 */
 			for(i=0; i<Nscan; i++){
 				if((a->shift && kbtabshift[i] == k.r) || (kbtab[i] == k.r)){
-					k.b = kbtab[i];
+					if(kbtab[i])
+						k.b = kbtab[i];
 					if(a->shift)
 						k.r = kbtabshift[i];
 					else if(a->altgr)
@@ -1165,7 +1166,8 @@ fswrite(Req *r)
 					break;
 				}
 			}
-			send(keychan, &k);
+			if(k.b)
+				send(keychan, &k);
 			if(k.r == Kshift)
 				a->shift = k.down;
 			else if(k.r == Kaltgr)
