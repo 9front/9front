@@ -1114,9 +1114,9 @@ fswrite(Req *r)
 	case Qkbdin:
 		p = r->ifcall.data;
 		n = r->ifcall.count;
-		if(n <= 0)
-			n = 0;
 		r->ofcall.count = n;
+		if(n == 0)
+			break;
 		if(p[n-1] != 0){
 			/*
 			 * old format as used by bitsy keyboard:
