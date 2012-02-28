@@ -29,9 +29,8 @@ typedef struct Scan Scan;
 
 struct Key {
 	int	down;
-	int	c;
-	Rune	r;
-	Rune	b;
+	Rune	b;	/* button, unshifted key */
+	Rune	r;	/* rune, shifted key */
 };
 
 struct Scan {
@@ -128,7 +127,7 @@ Rune kbtab[Nscan] =
 [0x28]	'\'',	'`',	Kshift,	'\\',	'z',	'x',	'c',	'v',
 [0x30]	'b',	'n',	'm',	',',	'.',	'/',	Kshift,	'*',
 [0x38]	Kalt,	' ',	Kctl,	KF|1,	KF|2,	KF|3,	KF|4,	KF|5,
-[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,	'7',
+[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,'7',
 [0x48]	'8',	'9',	'-',	'4',	'5',	'6',	'+',	'1',
 [0x50]	'2',	'3',	'0',	'.',	0,	0,	0,	KF|11,
 [0x58]	KF|12,	0,	0,	0,	0,	0,	0,	0,
@@ -148,7 +147,7 @@ Rune kbtabshift[Nscan] =
 [0x28]	'"',	'~',	Kshift,	'|',	'Z',	'X',	'C',	'V',
 [0x30]	'B',	'N',	'M',	'<',	'>',	'?',	Kshift,	'*',
 [0x38]	Kalt,	' ',	Kctl,	KF|1,	KF|2,	KF|3,	KF|4,	KF|5,
-[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,	'7',
+[0x40]	KF|6,	KF|7,	KF|8,	KF|9,	KF|10,	Knum,	Kscroll,'7',
 [0x48]	'8',	'9',	'-',	'4',	'5',	'6',	'+',	'1',
 [0x50]	'2',	'3',	'0',	'.',	0,	0,	0,	KF|11,
 [0x58]	KF|12,	0,	0,	0,	0,	0,	0,	0,
@@ -165,12 +164,12 @@ Rune kbtabesc1[Nscan] =
 [0x10]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x18]	0,	0,	0,	0,	'\n',	Kctl,	0,	0,
 [0x20]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x28]	0,	0,	Kshift,	0,	0,	0,	0,	0,
+[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x30]	0,	0,	0,	0,	0,	'/',	0,	Kprint,
 [0x38]	Kaltgr,	0,	0,	0,	0,	0,	0,	0,
 [0x40]	0,	0,	0,	0,	0,	0,	Kbreak,	Khome,
 [0x48]	Kup,	Kpgup,	0,	Kleft,	0,	Kright,	0,	Kend,
-[0x50]	Kdown,	Kpgdown,	Kins,	Kdel,	0,	0,	0,	0,
+[0x50]	Kdown,	Kpgdown,Kins,	Kdel,	0,	0,	0,	0,
 [0x58]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x60]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x68]	0,	0,	0,	0,	0,	0,	0,	0,
@@ -190,7 +189,7 @@ Rune kbtabaltgr[Nscan] =
 [0x38]	Kaltgr,	0,	0,	0,	0,	0,	0,	0,
 [0x40]	0,	0,	0,	0,	0,	0,	Kbreak,	Khome,
 [0x48]	Kup,	Kpgup,	0,	Kleft,	0,	Kright,	0,	Kend,
-[0x50]	Kdown,	Kpgdown,	Kins,	Kdel,	0,	0,	0,	0,
+[0x50]	Kdown,	Kpgdown,Kins,	Kdel,	0,	0,	0,	0,
 [0x58]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x60]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x68]	0,	0,	0,	0,	0,	0,	0,	0,
@@ -229,33 +228,36 @@ kbdputsc(Scan *scan, int c)
 	Key key;
 
 	/*
-	 *  e0's is the first of a 2 character sequence, e1 the first
+	 *  e0's is the first of a 2 character sequence, e1 and e2 the first
 	 *  of a 3 character sequence (on the safari)
 	 */
-	if(c == 0xe0){
-		scan->esc1 = 1;
+	if(scan->esc2){
+		scan->esc2--;
 		return;
-	} else if(c == 0xe1){
+	} else if(c == 0xe1 || c == 0xe2){
 		scan->esc2 = 2;
+		return;
+	} else if(c == 0xe0){
+		scan->esc1 = 1;
 		return;
 	}
 
 	key.down = (c & 0x80) == 0;
-	key.c = c & 0x7f;
+	c &= 0x7f;
 
-	if(key.c >= Nscan)
+	if(c >= Nscan)
 		return;
 
 	if(scan->esc1)
-		key.r = kbtabesc1[key.c];
+		key.r = kbtabesc1[c];
 	else if(scan->shift)
-		key.r = kbtabshift[key.c];
+		key.r = kbtabshift[c];
 	else if(scan->altgr)
-		key.r = kbtabaltgr[key.c];
+		key.r = kbtabaltgr[c];
 	else if(scan->ctl)
-		key.r = kbtabctl[key.c];
+		key.r = kbtabctl[c];
 	else
-		key.r = kbtab[key.c];
+		key.r = kbtab[c];
 
 	switch(key.r){
 	case Spec|0x60:
@@ -269,10 +271,10 @@ kbdputsc(Scan *scan, int c)
 		break;
 	}
 
-	if(scan->esc1)
+	if(scan->esc1 || kbtab[c] == 0)
 		key.b = key.r;
 	else
-		key.b = kbtab[key.c];
+		key.b = kbtab[c];
 
 	if(scan->caps && key.r<='z' && key.r>='a')
 		key.r += 'A' - 'a';
@@ -280,12 +282,8 @@ kbdputsc(Scan *scan, int c)
 	if(scan->ctl && scan->alt && key.r == Kdel)
 		reboot();
 
-	send(keychan, &key);
-
-	if(scan->esc1)
-		scan->esc1 = 0;
-	else if(scan->esc2)
-		scan->esc2--;
+	if(key.b)
+		send(keychan, &key);
 
 	switch(key.r){
 	case Kshift:
@@ -307,6 +305,7 @@ kbdputsc(Scan *scan, int c)
 		scan->caps ^= key.down;
 		break;
 	}
+	scan->esc1 = 0;
 }
 
 void
@@ -363,8 +362,7 @@ utfconv(Rune *r, int n)
 void
 keyproc(void *)
 {
-	Rune rb[Nscan*2+1];
-	int cb[Nscan];
+	Rune rb[Nscan+1];
 	Key key;
 	int i, nb;
 	char *s;
@@ -374,19 +372,16 @@ keyproc(void *)
 	nb = 0;
 	while(recv(keychan, &key) > 0){
 		rb[0] = 0;
-		for(i=0; i<nb && cb[i] != key.c; i++)
+		for(i=0; i<nb && rb[i+1] != key.b; i++)
 			;
 		if(!key.down){
-			while(i < nb && cb[i] == key.c){
-				memmove(cb+i, cb+i+1, (nb-i+1) * sizeof(cb[0]));
+			while(i < nb && rb[i+1] == key.b){
 				memmove(rb+i+1, rb+i+2, (nb-i+1) * sizeof(rb[0]));
 				nb--;
 				rb[0] = 'K';
 			}
-		} else if(i == nb && nb < nelem(cb) && key.b){
-			cb[nb] = key.c;
-			rb[nb+1] = key.b;
-			nb++;
+		} else if(i == nb && nb < nelem(rb)-1 && key.b){
+			rb[++nb] = key.b;
 			rb[0] = 'k';
 		}
 		if(rb[0]){
@@ -1119,9 +1114,9 @@ fswrite(Req *r)
 	case Qkbdin:
 		p = r->ifcall.data;
 		n = r->ifcall.count;
-		if(n <= 0)
-			n = 0;
 		r->ofcall.count = n;
+		if(n == 0)
+			break;
 		if(p[n-1] != 0){
 			/*
 			 * old format as used by bitsy keyboard:
@@ -1148,7 +1143,6 @@ fswrite(Req *r)
 			if(k.r == 0)
 				break;
 			k.b = k.r;
-			k.c = 0x100 + k.r;	/* fake */
 			k.down = (p[0] == 'r');
 			if(f->aux == nil){
 				f->aux = emalloc9p(sizeof(Scan));
@@ -1156,13 +1150,13 @@ fswrite(Req *r)
 			}
 			a = f->aux;
 			/*
-			 * handle ^X forms according to keymap,
-			 * assign base and scancode if any
+			 * handle ^X forms according to keymap and
+			 * assign button.
 			 */
 			for(i=0; i<Nscan; i++){
 				if((a->shift && kbtabshift[i] == k.r) || (kbtab[i] == k.r)){
-					k.c = i;
-					k.b = kbtab[i];
+					if(kbtab[i])
+						k.b = kbtab[i];
 					if(a->shift)
 						k.r = kbtabshift[i];
 					else if(a->altgr)
@@ -1172,7 +1166,8 @@ fswrite(Req *r)
 					break;
 				}
 			}
-			send(keychan, &k);
+			if(k.b)
+				send(keychan, &k);
 			if(k.r == Kshift)
 				a->shift = k.down;
 			else if(k.r == Kaltgr)

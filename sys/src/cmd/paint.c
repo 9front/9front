@@ -10,6 +10,22 @@ eresized(int)
 		sysfatal("resize failed");
 }
 
+void
+loadimg(char *name)
+{
+	Image *b;
+	int fd;
+
+	fd=open(name, OREAD);
+	if(fd==-1)
+		sysfatal("can't open file");
+	if((b=readimage(display, fd, 0)) == nil)
+		sysfatal("can't read image");
+	draw(screen, screen->r, b, 0, b->r.min);
+	flushimage(display, 1);
+	close(fd);
+}
+
 /* stolen from mothra */
 void
 screendump(char *name, int full)
@@ -35,7 +51,7 @@ screendump(char *name, int full)
 }
 
 void
-main()
+main(int argc, char *argv[])
 {
 	Event e;
 	Point last;
@@ -52,6 +68,23 @@ main()
 	einit(Emouse | Ekeyboard);
 	draw(screen, screen->r, display->white, 0, ZP);
 	flushimage(display, 1);
+
+	ARGBEGIN{
+	default:
+		goto Usage;
+	}ARGEND
+	switch(argc){
+	default:
+	Usage:
+		fprint(2, "Usage: [file]\n");
+		exits("usage");
+	case 0:
+		break;
+	case 1:
+		loadimg(argv[0]);
+		break;
+	}
+
 	while(1){
 		switch(event(&e)){
 		case Emouse:
@@ -79,6 +112,11 @@ main()
 			}
 			if(e.kbdc == 'c')
 				draw(screen, screen->r, display->white, 0, ZP);
+			if(e.kbdc == 'o'){
+				if(eenter("Open file", file, sizeof(file), &e.mouse) <= 0)
+					break;
+				loadimg(file);
+			}
 			if(e.kbdc == 'q')
 				exits(nil);
 			if(e.kbdc == 's'){
