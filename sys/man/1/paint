@@ -3,7 +3,7 @@
 .SH NAME
 paint \- create image files by drawing with a mouse or other pointing device
 .SH SYNOPSIS
-.B paint
+.B paint [file]
 .SH DESCRIPTION
 .I Paint
 provides a window upon which can be drawn lines by moving the cursor while
@@ -24,6 +24,9 @@ in the pop-up box and hit enter.
 .TP
 .B c
 Clear the screen. Any unsaved work will be lost.
+.TP
+.B o
+Open a bitmap image file for editing.
 .TP
 .B s
 Save the current screen as a bitmap image. A pop-up box appears
