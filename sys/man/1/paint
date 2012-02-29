@@ -26,15 +26,14 @@ in the pop-up box and hit enter.
 Clear the screen. Any unsaved work will be lost.
 .TP
 .B o
-Open a bitmap image file for editing.
+Open a bitmap image file for editing. Type a path and filename into the
+pop-up box and hit enter. If the path is omitted, the filename will be opened
+from the current directory.
 .TP
 .B s
-Save the current screen as a bitmap image. A pop-up box appears
-suggesting a default filename of
-.I out.bit.
-Hit enter to accept the default, or backspace over the suggested name and
-type an alternative path and filename. If the path is omitted, a file will be
-created in the current directory.
+Save the current screen as a bitmap image. Type a path and filename into
+the pop-up box and hit enter. If the path is omitted, the filename will be
+saved in the current directory.
 .TP
 .B q
 Quit.
