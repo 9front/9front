@@ -10,43 +10,35 @@ eresized(int)
 		sysfatal("resize failed");
 }
 
-void
+int
 loadimg(char *name)
 {
 	Image *b;
 	int fd;
 
-	fd=open(name, OREAD);
-	if(fd==-1)
-		sysfatal("can't open file");
-	if((b=readimage(display, fd, 0)) == nil)
-		sysfatal("can't read image");
-	draw(screen, screen->r, b, 0, b->r.min);
-	flushimage(display, 1);
-	close(fd);
+	if((fd = open(name, OREAD)) < 0)
+		return -1;
+	else {
+		if((b = readimage(display, fd, 0)) == nil){
+			close(fd);
+			return -1;
+		} else {
+			draw(screen, screen->r, b, 0, b->r.min);
+			flushimage(display, 1);
+			freeimage(b);
+		}
+		close(fd);
+	}
 }
 
-/* stolen from mothra */
-void
-screendump(char *name, int full)
+int
+saveimg(char *name)
 {
-	Image *b;
 	int fd;
 
-	fd=create(name, OWRITE|OTRUNC, 0666);
-	if(fd==-1)
-		sysfatal("can't create file");
-	if(full){
-		writeimage(fd, screen, 0);
-	} else {
-		if((b=allocimage(display, screen->r, screen->chan, 0, DNofill)) == nil){
-			close(fd);
-			sysfatal("can't allocate image");
-		}
-		draw(b, b->r, screen, 0, b->r.min);
-		writeimage(fd, b, 0);
-		freeimage(b);
-	}
+	if((fd = create(name, OWRITE|OTRUNC, 0666)) < 0)
+		return -1;
+	writeimage(fd, screen, 0);
 	close(fd);
 }
 
@@ -81,7 +73,8 @@ main(int argc, char *argv[])
 	case 0:
 		break;
 	case 1:
-		loadimg(argv[0]);
+		if(loadimg(argv[0]) < 0)
+			sysfatal("%r");
 		break;
 	}
 
@@ -115,15 +108,20 @@ main(int argc, char *argv[])
 			if(e.kbdc == 'o'){
 				if(eenter("Open file", file, sizeof(file), &e.mouse) <= 0)
 					break;
-				loadimg(file);
+				if(loadimg(file) < 0){
+					rerrstr(file, sizeof(file));
+					eenter(file, 0, 0, &e.mouse);
+				}
 			}
 			if(e.kbdc == 'q')
 				exits(nil);
 			if(e.kbdc == 's'){
-				snprint(file, sizeof(file), "out.bit");
 				if(eenter("Save to", file, sizeof(file), &e.mouse) <= 0)
 					break;
-				screendump(file, 0);
+				if(saveimg(file) < 0){
+					rerrstr(file, sizeof(file));
+					eenter(file, 0, 0, &e.mouse);
+				}
 			}
 			break;
 		}
