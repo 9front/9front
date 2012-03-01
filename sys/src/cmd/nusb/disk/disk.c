@@ -999,6 +999,9 @@ main(int argc, char **argv)
 	char buf[20];
 
 	ARGBEGIN{
+	case 'D':
+		chatty9p++;
+		break;
 	case 'd':
 		scsidebug(diskdebug);
 		diskdebug++;

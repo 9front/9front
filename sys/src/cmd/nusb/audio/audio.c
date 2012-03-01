@@ -165,6 +165,12 @@ main(int argc, char *argv[])
 	int i;
 
 	ARGBEGIN {
+	case 'D':
+		chatty9p++;
+		break;
+	case 'd':
+		usbdebug++;
+		break;
 	} ARGEND;
 
 	if(argc == 0)

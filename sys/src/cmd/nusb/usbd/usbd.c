@@ -348,6 +348,12 @@ main(int argc, char **argv)
 	Dir *d;
 
 	ARGBEGIN {
+	case 'D':
+		chatty9p++;
+		break;
+	case 'd':
+		usbdebug++;
+		break;
 	} ARGEND;
 
 	initevent();
