@@ -22,6 +22,7 @@ TARG = 	6in4\
 	traceroute\
 	torrent\
 	udpecho\
+	socksd\
 	wol\
 
 DIRS=ftpfs cifsd dhcpd httpd ipconfig ppp imap4d snoopy
