@@ -1,5 +1,4 @@
 #!/bin/rc
-
 if(! bind -a '#u' /dev)
 	exit
 mkdir -m 0700 '#σc/usb'
@@ -36,7 +35,4 @@ if(! nusb/usbd)
 }
 
 bind -a '#σ/usb' /dev
-
-if(! ~ $#usbdelay 0)
-	sleep $usbdelay
 
