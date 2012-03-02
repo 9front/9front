@@ -129,7 +129,7 @@ generator $
 optimizer $
 interface $
 solution $
-depenency $
+dependency $
 locator $
 -oriented %
 -based %
