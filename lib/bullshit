@@ -1,11 +1,13 @@
 cloud
 grid
+base
 engine
 metadata
 replication
 factory
 strategy
 configuration
+information
 interface
 singleton
 framework
