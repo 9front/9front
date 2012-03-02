@@ -761,7 +761,8 @@ dnforceage(void)
 	unlock(&dblock);
 }
 
-extern uchar	ipaddr[IPaddrlen];	/* my ip address */
+extern char	mntpt[Maxpath];		/* net mountpoint */
+static uchar	ipaddr[IPaddrlen];	/* my ip address */
 
 /*
  *  get all my xxx
@@ -773,6 +774,10 @@ lookupinfo(char *attr)
 	char buf[64];
 	char *a[2];
 	Ndbtuple *t;
+
+	if(ipcmp(ipaddr, IPnoaddr) == 0)
+		if(myipaddr(ipaddr, mntpt) < 0)
+			return nil;
 
 	snprint(buf, sizeof buf, "%I", ipaddr);
 	a[0] = attr;
@@ -842,6 +847,9 @@ myaddr(char *addr)
 	char *name, *line, *sp;
 	char buf[64];
 	Biobuf *bp;
+
+	if(ipcmp(ipaddr, IPnoaddr) == 0)
+		return -1;
 
 	snprint(buf, sizeof buf, "%I", ipaddr);
 	if (strcmp(addr, buf) == 0) {

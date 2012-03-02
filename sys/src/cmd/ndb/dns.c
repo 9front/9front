@@ -65,7 +65,6 @@ struct {
 
 Cfg	cfg;
 int	debug;
-uchar	ipaddr[IPaddrlen];	/* my ip address */
 int	maxage = Defmaxage;
 int	mfd[2];
 int	needrefresh;
@@ -191,15 +190,12 @@ main(int argc, char *argv[])
 	/* start syslog before we fork */
 	fmtinstall('F', fcallfmt);
 	dninit();
-	/* this really shouldn't be fatal */
-	if(myipaddr(ipaddr, mntpt) < 0)
-		sysfatal("can't read my ip address");
-	dnslog("starting %s%sdns %s%s%son %I's %s",
+	dnslog("starting %s%sdns %s%s%son %s",
 		(cfg.straddle? "straddling ": ""),
 		(cfg.cachedb? "caching ": ""),
 		(cfg.serve?   "udp server ": ""),
 		(cfg.justforw? "forwarding-only ": ""),
-		(cfg.resolver? "resolver ": ""), ipaddr, mntpt);
+		(cfg.resolver? "resolver ": ""), mntpt);
 
 	opendatabase();
 	now = time(nil);		/* open time files before we fork */
