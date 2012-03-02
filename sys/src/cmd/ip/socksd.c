@@ -2,6 +2,8 @@
 #include <libc.h>
 #include <ip.h>
 
+int socksver;
+
 int
 str2addr(char *s, uchar *a)
 {
@@ -16,18 +18,28 @@ str2addr(char *s, uchar *a)
 		return 0;
 	if(parseip(ip, s) == -1)
 		return 0;
+
 	a0 = a;
-	if(isv4(ip)){
-		*a++ = 0x01;
+	if(socksver == 4){
+		a += 2;
+		hnputs(a, atoi(p));
+		a += 2;
 		v6tov4(a, ip);
 		a += 4;
 	} else {
-		*a++ = 0x04;
-		memmove(a, ip, 16);
-		a += 16;
+		a += 3;
+		if(isv4(ip)){
+			*a++ = 0x01;
+			v6tov4(a, ip);
+			a += 4;
+		} else {
+			*a++ = 0x04;
+			memmove(a, ip, 16);
+			a += 16;
+		}
+		hnputs(a, atoi(p));
+		a += 2;
 	}
-	hnputs(a, atoi(p));
-	a += 2;
 	return a - a0;
 }
 
@@ -37,96 +49,148 @@ addr2str(char *proto, uchar *a){
 	uchar ip[16];
 	int n, port;
 
-	switch(*a++){
-	default:
-		abort();
-		return 0;
-	case 0x01:
+	if(socksver == 4){
+		a += 2;
+		port = nhgets(a);
+		a += 2;
+		if((a[0] | a[1] | a[2]) == 0 && a[3]){
+			a += 4;
+			a += strlen((char*)a)+1;
+			snprint(s, sizeof(s), "%s!%s!%d", proto, (char*)a, port);
+			return s;
+		}
 		v4tov6(ip, a);
-		port = nhgets(a+4);
-		break;
-	case 0x04:
-		memmove(ip, a, 16);
-		port = nhgets(a+16);
-		break;
-	case 0x03:
-		n = *a++;
-		port = nhgets(a+n);
-		snprint(s, sizeof(s), "%s!%.*s!%d", proto, n, (char*)a, port);
-		return s;
+	} else {
+		a += 3;
+		switch(*a++){
+		default:
+			return nil;
+		case 0x01:
+			v4tov6(ip, a);
+			port = nhgets(a+4);
+			break;
+		case 0x04:
+			memmove(ip, a, 16);
+			port = nhgets(a+16);
+			break;
+		case 0x03:
+			n = *a++;
+			port = nhgets(a+n);
+			snprint(s, sizeof(s), "%s!%.*s!%d", proto, n, (char*)a, port);
+			return s;
+		}
 	}
 	snprint(s, sizeof(s), "%s!%I!%d", proto, ip, port);
 	return s;
 }
 
 int
-sockerr(void)
+sockerr(int err)
 {
-	return 1;	/* general error */
+	/* general error */
+	if(socksver == 4)
+		return err ? 0x5b : 0x5a;
+	else
+		return err != 0;
 }
 
 void
 main(int argc, char *argv[])
 {
-	uchar buf[8*1024];
+	uchar buf[8*1024], *p;
+	char dir[40], *s;
 	NetConnInfo *nc;
-	int fd, cfd, v, n;
+	int fd, cfd, n;
 
 	fmtinstall('I', eipfmt);
 
 	ARGBEGIN {
 	} ARGEND;
 
-	nc = nil;
-	fd = cfd = -1;
-
-	/* negotiation */
+	/* ver+cmd or ver+nmethod */
 	if(readn(0, buf, 2) != 2)
 		return;
-	v = buf[0];
-	n = buf[1];
-	if(n > 0)
-		if(readn(0, buf, n) != n)
-			return;
-	if(v > 5)
-		v = 5;
-	buf[0] = v;
-	buf[1] = 0x00;	/* no authentication required */
-	if(write(1, buf, 2) != 2)
+	socksver = buf[0];
+	if(socksver < 4)
 		return;
-Loop:
-	/* request */
-	if(readn(0, buf, 4) != 4)
-		return;
-	switch(buf[3]){
-	default:
-		return;
-	case 0x01:	/* ipv4 */
-		if(readn(0, buf+4, 4+2) != 4+2)
+	if(socksver > 5)
+		socksver = 5;
+
+	if(socksver == 4){
+		/* port+ip4 */
+		if(readn(0, buf+2, 2+4) != 2+4)
 			return;
-		break;
-	case 0x03:	/* domain name */
-		if(readn(0, buf+4, 1) != 1)
+		/* +user\0 */
+		for(p = buf+2+2+4;; p++){
+			if(p >= buf+sizeof(buf))
+				return;
+			if(read(0, p, 1) != 1)
+				return;
+			if(*p == 0)
+				break;
+		}
+		/* socks 4a dom hack */
+		if((buf[4] | buf[5] | buf[6]) == 0 && buf[7]){
+			/* +dom\0 */
+			for(++p;; p++){
+				if(p >= buf+sizeof(buf))
+					return;
+				if(read(0, p, 1) != 1)
+					return;
+				if(*p == 0)
+					break;
+			}
+		}
+	} else {
+		/* nmethod */
+		if((n = buf[1]) > 0)
+			if(readn(0, buf+2, n) != n)
+				return;
+
+		/* ver+method */
+		buf[0] = socksver;
+		buf[1] = 0x00;	/* no authentication required */
+		if(write(1, buf, 2) != 2)
 			return;
-		if((n = buf[4]) == 0)
+
+		/* ver+cmd+res+atyp */
+		if(readn(0, buf, 4) != 4)
 			return;
-		if(readn(0, buf+5, n+2) != n+2)
+		switch(buf[3]){
+		default:
 			return;
-		break;
-	case 0x04:	/* ipv6 */
-		if(readn(0, buf+4, 16+2) != 16+2)
+		case 0x01:	/* +ipv4 */
+			if(readn(0, buf+4, 4+2) != 4+2)
+				return;
+			break;
+		case 0x03:	/* +len+dom[len] */
+			if(readn(0, buf+4, 1) != 1)
+				return;
+			if((n = buf[4]) == 0)
+				return;
+			if(readn(0, buf+5, n+2) != n+2)
+				return;
+			break;
+		case 0x04:	/* +ipv6 */
+			if(readn(0, buf+4, 16+2) != 16+2)
+				return;
+			break;
+		}
+	}
+
+	nc = nil;
+	dir[0] = 0;
+	fd = cfd = -1;
+	switch(buf[1]){
+	case 0x01:	/* CONNECT */
+		if((s = addr2str("tcp", buf)) == nil)
 			return;
+		fd = dial(s, 0, dir, &cfd);
 		break;
 	}
 
-	/* cmd */
-	switch(buf[1]){
-	case 0x01:	/* CONNECT */
-		fd = dial(addr2str("tcp", buf+3), 0, 0, &cfd);
-		break;
-	}
 	if(fd >= 0){
-		if((nc = getnetconninfo(nil, fd)) == nil){
+		if((nc = getnetconninfo(dir, -1)) == nil){
 			if(cfd >= 0)
 				close(cfd);
 			close(fd);
@@ -134,23 +198,31 @@ Loop:
 		}
 	}
 
-	/* response */
-	buf[0] = v;
-	buf[1] = (fd < 0) ? sockerr() : 0;
-	buf[2] = 0x00;				/* res */
-	if(fd < 0){
-		buf[3] = 0x01;			/* atype */
-		memset(buf+4, 0, 4+2);
-		if(write(1, buf, 4+4+2) != 4+4+2)
+	/* reply */
+	buf[1] = sockerr(fd < 0);			/* status */
+	if(socksver == 4){
+		buf[0] = 0x00;				/* vc */
+		if(fd < 0){
+			memset(buf+2, 0, 2+4);
+			write(1, buf, 2+2+4);
 			return;
-		goto Loop;
+		}
+	} else {
+		buf[0] = socksver;			/* ver */
+		buf[2] = 0x00;				/* res */
+		if(fd < 0){
+			buf[3] = 0x01;			/* atyp */
+			memset(buf+4, 0, 4+2);
+			write(1, buf, 4+4+2);
+			return;
+		}
 	}
-	if((n = str2addr(nc->laddr, buf+3)) <= 2)
+	if((n = str2addr(nc->laddr, buf)) <= 0)
 		return;
-	if(write(1, buf, 3+n) != 3+n)
+	if(write(1, buf, n) != n)
 		return;
 
-	/* rely data */
+	/* reley data */
 	switch(rfork(RFMEM|RFPROC|RFFDG|RFNOWAIT)){
 	case -1:
 		return;
