@@ -100,7 +100,7 @@ main(int argc, char *argv[])
 	uchar buf[8*1024], *p;
 	char dir[40], *s;
 	NetConnInfo *nc;
-	int fd, cfd, n;
+	int fd, n;
 
 	fmtinstall('I', eipfmt);
 
@@ -180,21 +180,19 @@ main(int argc, char *argv[])
 
 	nc = nil;
 	dir[0] = 0;
-	fd = cfd = -1;
+	fd = -1;
 	switch(buf[1]){
 	case 0x01:	/* CONNECT */
 		if((s = addr2str("tcp", buf)) == nil)
 			return;
-		fd = dial(s, 0, dir, &cfd);
+		fd = dial(s, 0, dir, 0);
 		break;
 	}
 
 	if(fd >= 0){
 		if((nc = getnetconninfo(dir, -1)) == nil){
-			if(cfd >= 0)
-				close(cfd);
 			close(fd);
-			fd = cfd = -1;
+			fd = -1;
 		}
 	}
 
@@ -222,7 +220,7 @@ main(int argc, char *argv[])
 	if(write(1, buf, n) != n)
 		return;
 
-	/* reley data */
+	/* relay data */
 	switch(rfork(RFMEM|RFPROC|RFFDG|RFNOWAIT)){
 	case -1:
 		return;
@@ -232,12 +230,10 @@ main(int argc, char *argv[])
 	default:
 		dup(fd, 1);
 	}
-	close(fd);
 	while((n = read(0, buf, sizeof(buf))) > 0)
 		if(write(1, buf, n) != n)
 			break;
-	if(cfd >= 0)
-		hangup(cfd);
+	postnote(PNGROUP, getpid(), "kill");
 	exits(0);
 }
 
