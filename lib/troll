@@ -70,3 +70,5 @@ NIX 64-bit kernel is available
 Out of curiosity: 9front makes high claims about device drivers, are these compatible with Plan 9 (and NIX)?  If so, is there a list?
 nix has been dealing with problems due to osx : mangling.
 For those using 9vx on OSX: it's really easy to set up your local drive to support a case sensitive file system.  Just don't make it the root partition or where /Users resides in case you run any applications out of ~/Applications that come from certain large corporations (aka any that really pushed the Carbon APIs, or applications that originated in Carbon but were only slowly migrated to Cocoa).  You can create a case-sensitive disk image, though that has some drawbacks.  Partition your drive and then add an entry into /etc/fstab so that it always mounts at a logical place, and not some /Volumes with a potentially variable name.
+I bet you're a ranting Friedmanite like the rest of the 9front faggots.
+I'm going to port Haskell to 9front.
