@@ -30,7 +30,9 @@ where
 Type the corresponding number into the pop-up box and hit enter.
 .TP
 .B f
-Fill the screen with the current color. Any unsaved work will be lost.
+Fill the screen with a color,
+.I n.
+Any unsaved work will be lost.
 .TP
 .B o
 Open a bitmap image file for editing. Type a path and filename into the
