@@ -27,7 +27,6 @@ Change the drawing color to
 .I n,
 where
 0 = black, 1 = white, 2 = red, 3 = green, 4 = blue and 5 = yellow.
-Type the corresponding number into the pop-up box and hit enter.
 .TP
 .B f
 Fill the screen with a color,
@@ -40,8 +39,7 @@ pop-up box and hit enter. If the path is omitted, the filename will be opened
 from the current directory.
 .TP
 .B s
-Save the current screen as a bitmap image. Type a path and filename into
-the pop-up box and hit enter. If the path is omitted, the filename will be
+Save the current screen as a bitmap image. If the path is omitted, the filename will be
 saved in the current directory.
 .TP
 .B q
