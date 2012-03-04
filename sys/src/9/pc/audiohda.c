@@ -627,7 +627,7 @@ connectpath(Widget *src, Widget *dst)
 			}
 	}
 	setoutamp(src, 0, nil);
-	cmd(src, Setpinctl, Pinctlout);
+	cmd(src->id, Setpinctl, Pinctlout);
 }
 
 static void
