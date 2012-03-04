@@ -146,6 +146,7 @@ enum {
 			Pin = 1<<5,
 			Pbalanced = 1<<6,
 			Phdmi = 1<<7,
+			Peapd = 1<<16,
 		Inampcap = 0x0d,
 		Outampcap = 0x12,
 		Connlistlen = 0x0e,
@@ -158,12 +159,15 @@ enum {
 	Getconnlist = 0xf02,
 	Getstate = 0xf03,
 	Setstate = 0x703,
+	Setpower = 0x705,
+	Getpower = 0xf05,
 	Getstream = 0xf06,
 	Setstream = 0x706,
 	Getpinctl = 0xf07,
 	Setpinctl = 0x707,
 		Pinctlin = 1<<5,
 		Pinctlout = 1<<6,
+		Pinctlhphn = 1<<7,
 	Getunsolresp = 0xf08,
 	Setunsolresp = 0x708,
 	Getpinsense = 0xf09,
@@ -172,6 +176,10 @@ enum {
 	Setgpi = 0x710,
 	Getbeep = 0xf0a,
 	Setbeep = 0x70a,
+	Seteapd = 0x70c,
+		Btlenable = 1,
+		Eapdenable = 2,
+		LRswap = 4,
 	Getknob = 0xf0f,
 	Setknob = 0x70f,
 	Getdefault = 0xf1c,
@@ -310,6 +318,17 @@ struct Ctlr {
 #define csr32(c, r)	(*(ulong *)&(c)->mem[r])
 #define csr16(c, r)	(*(ushort *)&(c)->mem[r])
 #define csr8(c, r)	(*(uchar *)&(c)->mem[r])
+
+static char *widtype[] = {
+	"aout",
+	"ain",
+	"amix",
+	"asel",
+	"pin",
+	"power",
+	"knob",
+	"beep",
+};
 
 static char *pinport[] = {
 	"jack",
@@ -590,33 +609,25 @@ findpath(Widget *src)
 }
 
 static void
-connectpath(Widget *src, Widget *dst, uint stream)
+connectpath(Widget *src, Widget *dst)
 {
 	Widget *w, *v;
 	uint i;
 
-	for(w=src->fg->first; w != nil; w=w->next){
-		setoutamp(w, 1, nil);
-		setinamp(w, nil, 1, nil);
-		cmd(w->id, Setstream, 0);
-	}
 	for(w=dst; w != src; w=v){
 		v = w->from;
 		setoutamp(w, 0, nil);
 		setinamp(v, w, 0, nil);
-		if(v->type == Waout || v->type == Wamix)
-			continue;
 		if(v->nlist == 1)
 			continue;
-		for(i=0; i < v->nlist && v->list[i] != w; i++)
-			;
-		cmd(v->id, Setconn, i);
+		for(i=0; i < v->nlist; i++)
+			if(v->list[i] == w){
+				cmd(v->id, Setconn, i);	
+				break;
+			}
 	}
 	setoutamp(src, 0, nil);
-	cmd(src->id, Setpinctl, Pinctlout);
-	cmd(dst->id, Setstream, (stream << 4) | 0);
-	cmd(dst->id, Setconvfmt, (1 << 14) | (1 << 4) | 1);
-	cmd(dst->id, Setchancnt, 1);
+	cmd(src, Setpinctl, Pinctlout);
 }
 
 static void
@@ -624,13 +635,14 @@ addconn(Widget *w, uint nid)
 {
 	Widget *src;
 
-	if(nid >= Maxwidgets)
-		return;
-	if((src = w->fg->codec->widgets[nid]) == nil)
-		return;
-	for(nid=0; nid<w->nlist; nid++)
-		if(w->list[nid] == src)
-			return;
+	src = nil;
+	if(nid < Maxwidgets)
+		src = w->fg->codec->widgets[nid];
+	if(src == nil || (src->fg != w->fg)){
+		print("hda: invalid connection %d:%s[%d] -> %d\n",
+			w->id.nid, widtype[w->type & 7], w->nlist, nid);
+		src = nil;
+	}
 	if((w->nlist % 16) == 0){
 		void *p;
 
@@ -641,12 +653,16 @@ addconn(Widget *w, uint nid)
 		w->list = p;
 	}
 	w->list[w->nlist++] = src;
+	return;
 }
 
 static void
 enumconns(Widget *w)
 {
 	uint r, f, b, m, i, n, x, y;
+
+	if((w->cap & Wconncap) == 0)
+		return;
 
 	r = cmd(w->id, Getparm, Connlistlen);
 	n = r & 0x7f;
@@ -660,7 +676,7 @@ enumconns(Widget *w)
 		else
 			r = cmd(w->id, Getconnlist, i);
 		y = r & (m>>1);
-		if(i && ((r & m) != y))
+		if(i && (r & m) != y)
 			while(++x < y)
 				addconn(w, x);
 		addconn(w, y);
@@ -673,6 +689,8 @@ enumwidget(Widget *w)
 {
 	w->cap = cmd(w->id, Getparm, Widgetcap);
 	w->type = (w->cap >> 20) & 0x7;
+	if(w->cap & Wpwrcap)
+		cmd(w->id, Setpower, 0);
 
 	enumconns(w);
 	
@@ -680,6 +698,8 @@ enumwidget(Widget *w)
 	case Wpin:
 		w->pin = cmd(w->id, Getdefault, 0);
 		w->pincap = cmd(w->id, Getparm, Pincap);
+		if(w->pincap & Peapd)
+			cmd(w->id, Seteapd, Eapdenable);
 		break;
 	}
 }
@@ -692,8 +712,14 @@ enumfungroup(Codec *codec, Id id)
 	uint i, r, n, base;
 
 	r = cmd(id, Getparm, Fungrtype) & 0x7f;
-	if(r != Graudio)
+	if(r != Graudio){
+		cmd(id, Setpower, 3);	/* turn off */
 		return nil;
+	}
+
+	/* open eyes */
+	cmd(id, Setpower, 0);
+	microdelay(100);
 
 	fg = mallocz(sizeof *fg, 1);
 	if(fg == nil){
@@ -728,9 +754,9 @@ Nomem:
 		}
 		w->id = newnid(id, base + i);
 		w->fg = fg;
-		codec->widgets[base + i] = w;
 		*tail = w;
 		tail = &w->next;
+		codec->widgets[w->id.nid] = w;
 	}
 
 	for(i=0; i<n; i++)
@@ -756,9 +782,6 @@ enumcodec(Codec *codec, Id id)
 	codec->vid = vid;
 	codec->rid = rid;
 
-	print("#A%d: codec #%d, vendor %08x, rev %08x\n",
-		id.ctlr->no, codec->id.codec, codec->vid, codec->rid);
-
 	r = cmd(id, Getparm, Subnodecnt);
 	n = r & 0xff;
 	base = (r >> 16) & 0xff;
@@ -772,6 +795,10 @@ enumcodec(Codec *codec, Id id)
 	}
 	if(codec->fgroup == nil)
 		return -1;
+
+	print("#A%d: codec #%d, vendor %08x, rev %08x\n",
+		id.ctlr->no, codec->id.codec, codec->vid, codec->rid);
+
 	return 0;
 }
 
@@ -809,7 +836,7 @@ enumdev(Ctlr *ctlr)
 static int
 connectpin(Ctlr *ctlr, uint pin, uint cad)
 {
-	Widget *src, *dst;
+	Widget *w, *src, *dst;
 
 	if(cad >= Maxcodecs || pin >= Maxwidgets || ctlr->codec[cad] == nil)
 		return -1;
@@ -820,10 +847,24 @@ connectpin(Ctlr *ctlr, uint pin, uint cad)
 		return -1;
 	if((src->pincap & Pout) == 0)
 		return -1;
+
 	dst = findpath(src);
 	if(!dst)
 		return -1;
-	connectpath(src, dst, ctlr->atag);
+
+	/* mute all widgets, clear stream */
+	for(w=src->fg->first; w != nil; w=w->next){
+		setoutamp(w, 1, nil);
+		setinamp(w, nil, 1, nil);
+		cmd(w->id, Setstream, 0);
+	}
+
+	connectpath(src, dst);
+
+	cmd(dst->id, Setconvfmt, ctlr->afmt);
+	cmd(dst->id, Setstream, (ctlr->atag << 4) | 0);
+	cmd(dst->id, Setchancnt, 1);
+
 	ctlr->amp = dst;
 	ctlr->src = src;
 	ctlr->pin = pin;
@@ -1245,14 +1286,16 @@ hdastatus(Audio *adev, void *a, long n, vlong)
 				if(w->type != Wpin)
 					continue;
 				r = w->pin;
-				k += snprint(s+k, n-k, "pin %3d %s %s %s %s %s %s\n",
+				k += snprint(s+k, n-k, "pin %3d %s %s %s %s %s %s%s%s\n",
 					w->id.nid,
 					(w->pincap & Pout) != 0 ? "out" : "in",
 					pinport[(r >> 30) & 0x3],
 					pinloc2[(r >> 28) & 0x3],
 					pinloc[(r >> 24) & 0xf],
 					pinfunc[(r >> 20) & 0xf],
-					pincol[(r >> 12) & 0xf]
+					pincol[(r >> 12) & 0xf],
+					(w->pincap & Phdmi) ? " hdmi" : "",
+					(w->pincap & Peapd) ? " eapd" : ""
 				);
 			}
 		}
