@@ -24,8 +24,6 @@
 #include <u.h>
 #include <libc.h>
 
-int cpid;
-
 void
 usage(void)
 {
@@ -36,7 +34,7 @@ usage(void)
 static void
 catch(void *, char *msg)
 {
- 	postnote(PNGROUP, cpid, msg);
+	postnote(PNGROUP, getpid(), msg);
 	noted(NDFLT);
 }
 
@@ -71,7 +69,8 @@ main(int argc, char *argv[])
 		}
 		t += n;
 	}
-	switch((cpid = rfork(RFFDG|RFREND|RFPROC|RFMEM|RFNOTEG))){
+	rfork(RFNOTEG);
+	switch(rfork(RFFDG|RFREND|RFPROC|RFMEM)){
 	case -1:
 		sysfatal("%r");
 	case 0: /* child */
