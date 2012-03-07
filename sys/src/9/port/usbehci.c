@@ -514,7 +514,10 @@ static Qh*
 qhlinkqh(Qh *qh, Qh *next)
 {
 	qh->next = next;
-	qh->link = PADDR(next)|Lqh;
+	if(next == nil)
+		qh->link = Lterm;
+	else
+		qh->link = PADDR(next)|Lqh;
 	coherence();
 	return qh;
 }
@@ -1662,7 +1665,7 @@ portlend(Ctlr *ctlr, int port, char *ss)
 static int
 portreset(Hci *hp, int port, int on)
 {
-	ulong s;
+	ulong *portscp;
 	Eopio *opio;
 	Ctlr *ctlr;
 	int i;
@@ -1678,31 +1681,35 @@ portreset(Hci *hp, int port, int on)
 		qunlock(&ctlr->portlck);
 		nexterror();
 	}
-	s = opio->portsc[port-1];
-	dprint("ehci %#p port %d reset; sts %#lux\n", ctlr->capio, port, s);
+	portscp = &opio->portsc[port-1];
+	dprint("ehci %#p port %d reset; sts %#lux\n", ctlr->capio, port, *portscp);
 	ilock(ctlr);
-	s &= ~(Psenable|Psreset);
-	opio->portsc[port-1] = s | Psreset;	/* initiate reset */
+	/* Shalted must be zero, else Psreset will stay set */
+	if (opio->sts & Shalted)
+		iprint("ehci %#p: halted yet trying to reset port\n",
+			ctlr->capio);
+	*portscp = (*portscp & ~Psenable) | Psreset;	/* initiate reset */
 	coherence();
 
-	for(i = 0; i < 50; i++){		/* was 10 */
+	/*
+	 * usb 2 spec: reset must finish within 20 ms.
+	 * linux says spec says it can take 50 ms. for hubs.
+	 */
+	for(i = 0; *portscp & Psreset && i < 10; i++)
 		delay(10);
-		if((opio->portsc[port-1] & Psreset) == 0)
-			break;
-	}
-	if (opio->portsc[port-1] & Psreset)
-		iprint("ehci %#p: port %d didn't reset after %d ms; sts %#lux\n",
-			ctlr->capio, port, i * 10, opio->portsc[port-1]);
-	opio->portsc[port-1] &= ~Psreset;  /* force appearance of reset done */
+	if (*portscp & Psreset)
+		iprint("ehci %#p: port %d didn't reset within %d ms; sts %#lux\n",
+			ctlr->capio, port, i * 10, *portscp);
+	*portscp &= ~Psreset;		/* force appearance of reset done */
 	coherence();
+	delay(10);			/* ehci spec: enable within 2 ms. */
 
-	delay(10);
-	if((opio->portsc[port-1] & Psenable) == 0)
+	if((*portscp & Psenable) == 0)
 		portlend(ctlr, port, "full");
 
 	iunlock(ctlr);
 	dprint("ehci %#p after port %d reset; sts %#lux\n",
-		ctlr->capio, port, opio->portsc[port-1]);
+		ctlr->capio, port, *portscp);
 	qunlock(&ctlr->portlck);
 	poperror();
 	return 0;
@@ -2407,15 +2414,18 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 		ntds++;
 		/*
 		 * Use td tok, not io tok, because of setup packets.
-		 * Also, if the Td was stalled or active (previous Td
-		 * was a short packet), we must save the toggle as it is.
+		 * Also, we must save the next toggle value from the
+		 * last completed Td (in case of a short packet, or
+		 * fewer than the requested number of packets in the
+		 * Td being transferred).
 		 */
-		if(td->csw & (Tdhalt|Tdactive)){
-			if(saved++ == 0) {
+		if(td->csw & (Tdhalt|Tdactive))
+			saved++;
+		else{
+			if(!saved){
 				io->toggle = td->csw & Tddata1;
 				coherence();
 			}
-		}else{
 			tot += td->ndata;
 			if(c != nil && (td->csw & Tdtok) == Tdtokin && td->ndata > 0){
 				memmove(c, td->data, td->ndata);
@@ -3199,6 +3209,7 @@ init(Hci *hp)
 {
 	Ctlr *ctlr;
 	Eopio *opio;
+	static int ctlrno;
 	int i;
 
 	hp->highspeed = 1;
@@ -3218,7 +3229,12 @@ init(Hci *hp)
 	opio->cmd |= Case;
 	coherence();
 	ehcirun(ctlr, 1);
-	opio->config = Callmine;	/* reclaim all ports */
+	/*
+	 * route all ports by default to only one ehci (the first).
+	 * it's not obvious how multiple ehcis could work and on some
+	 * machines, setting Callmine on all ehcis makes the machine seize up.
+	 */
+	opio->config = (ctlrno == 0 ? Callmine : 0);
 	coherence();
 
 	for (i = 0; i < hp->nports; i++)
@@ -3226,6 +3242,7 @@ init(Hci *hp)
 	iunlock(ctlr);
 	if(ehcidebug > 1)
 		dump(hp);
+	ctlrno++;
 }
 
 void
