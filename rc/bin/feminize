@@ -1,0 +1,3 @@
+#!/bin/rc
+
+exec sed 's/ [a-z][aeiou]n/ man/; s/ .*em/ fem/; s/ .[ei][a-z]e/ she/; s/ [aeiou][nm]/ fem/;'
