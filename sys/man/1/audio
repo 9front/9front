@@ -1,6 +1,6 @@
 .TH AUDIO 1
 .SH NAME
-mp3dec, mp3enc, oggdec, oggenc, flacdec \- decode and encode audio files
+mp3dec, mp3enc, oggdec, oggenc, flacdec, wavdec \- decode and encode audio files
 .SH SYNOPSIS
 .B audio/mp3dec
 [
@@ -10,6 +10,8 @@ mp3dec, mp3enc, oggdec, oggenc, flacdec \- decode and encode audio files
 .B audio/oggdec
 .br
 .B audio/flacdec
+.br
+.B audio/wavdec
 .PP
 .B audio/oggenc
 .br
@@ -47,12 +49,13 @@ a sampling frequency of 44.1KHz.
 decodes MPEG audio (layer 1, 2 and 3). The
 .B -d
 option enables debug output to standard error.
-.I Oggdec
-and
+.I Oggdec,
 .I flacdec
+and
+.I wavdec
 are like
 .I mp3dec
-but decode OGG Vorbis and FLAC lossless audio.
+but decode OGG Vorbis, FLAC lossless audio and PCM Wave.
 .PP
 The encoders read PCM on standard input and produce compressed audio
 on standard output.

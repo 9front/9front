@@ -47,6 +47,8 @@ fn play1 {
 			audio/oggdec
 		case *mp3* *mpeg*
 			audio/mp3dec
+		case *wave*
+			audio/wavdec
 		case *flac*
 			audio/flacdec
 		case *pls*
