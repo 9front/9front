@@ -14,9 +14,10 @@ fn otherqid {
 
 fn traceqid {
 	while(! ~ $#* 0){
-		echo '['$2']' $1
+		echo '['$2']' $3 $1
 		tracepid `{grep -n `{otherqid $1} /proc/*/fd | sed 's!^/proc/([^/]+)/.*!\1!g'} \
 			| sed 's/^/	/g'
+		shift
 		shift
 		shift
 	}
@@ -30,7 +31,7 @@ fn tracepid {
 			echo '	...'
 		case *
 			v=($1 $v)
-			traceqid `{awk '/\#\|\/data1?$/{q=substr($5,2);print q" "$1}' /proc/$1/fd} \
+			traceqid `{awk '/\|/{q=substr($5,2);print q" "$1" "$10}' /proc/$1/fd} \
 				| sed 's/^/	/g'
 		}
 		shift
