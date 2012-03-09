@@ -358,18 +358,21 @@ main(int argc, char **argv)
 
 	initevent();
 	rfork(RFNOTEG);
-	switch(rfork(RFPROC|RFMEM)){
+	switch(rfork(RFPROC|RFMEM|RFNOWAIT)){
 	case -1: sysfatal("rfork: %r");
 	case 0: work(); exits(nil);
 	}
 	if(argc == 0){
-		fd = open("/dev/usb", OREAD);
-		if(fd < 0)
+		if((fd = open("/dev/usb", OREAD)) < 0){
+			rendezvous(work, nil);
 			sysfatal("/dev/usb: %r");
+		}
 		nd = dirreadall(fd, &d);
 		close(fd);
-		if(nd < 2)
+		if(nd < 2){
+			rendezvous(work, nil);
 			sysfatal("/dev/usb: no hubs");
+		}
 		for(i = 0; i < nd; i++)
 			if(strcmp(d[i].name, "ctl") != 0)
 				rendezvous(work, smprint("/dev/usb/%s", d[i].name));

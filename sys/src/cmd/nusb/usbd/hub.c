@@ -668,6 +668,10 @@ work(void)
 			fprint(2, "%s: %s: newhub failed: %r\n", argv0, fn);
 		free(fn);
 	}
+
+	if(hubs == nil)
+		return;
+
 	/*
 	 * Enumerate (and acknowledge after first enumeration).
 	 * Do NOT perform enumeration concurrently for the same
