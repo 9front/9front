@@ -228,12 +228,12 @@ int mkmfile(char *stem, int mode){
 }
 
 void donecurs(void){
-	if(current == nil)
-		return;
-	if(mothmode)
+	if(current && current->alldone==0)
+		esetcursor(&readingcurs);
+	else if(mothmode)
 		esetcursor(&mothcurs);
 	else
-		esetcursor(current->alldone ? 0 : &readingcurs);
+		esetcursor(0);
 }
 
 void scrollto(char *tag);
@@ -262,7 +262,7 @@ void main(int argc, char *argv[]){
 	 * so that we can stop all subprocesses with a note,
 	 * and to isolate rendezvous from other processes
 	 */
-	if(cohort = rfork(RFPROC|RFNOTEG|RFNAMEG|RFREND)){
+	if(cohort=rfork(RFPROC|RFNOTEG|RFNAMEG|RFREND)){
 		atexit(killcohort);
 		notify(catch);
 		waitpid();
