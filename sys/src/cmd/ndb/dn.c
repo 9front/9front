@@ -14,11 +14,14 @@
  * figure it out.
  */
 enum {
-	Deftarget = 8000,
-};
-enum {
-	Minage		= 10*60,
-	Defagefreq	= 30*60,	/* age names this often (seconds) */
+	Deftarget	= 1<<30,	/* effectively disable aging */
+	Minage		= 1<<30,
+	Defagefreq	= 1<<30,	/* age names this often (seconds) */
+
+	/* these settings will trigger frequent aging */
+//	Deftarget	= 4000,
+//	Minage		=  5*60,
+//	Defagefreq	= 15*60,	/* age names this often (seconds) */
 };
 
 /*
@@ -339,13 +342,20 @@ dnpurge(void)
 }
 
 /*
- *  delete rp from *l, free rp.
+ *  delete head of *l and free the old head.
  *  call with dnlock held.
  */
 static void
-rrdelete(RR **l, RR *rp)
+rrdelhead(RR **l)
 {
-	*l = rp->next;
+	RR *rp;
+
+	if (canlock(&dnlock))
+		abort();	/* rrdelhead called with dnlock not held */
+	rp = *l;
+	if(rp == nil)
+		return;
+	*l = rp->next;		/* unlink head */
 	rp->cached = 0;		/* avoid blowing an assertion in rrfree */
 	rrfree(rp);
 }
@@ -361,6 +371,8 @@ dnage(DN *dp)
 	RR *rp, *next;
 	ulong diff;
 
+	if (canlock(&dnlock))
+		abort();	/* dnage called with dnlock not held */
 	diff = now - dp->referenced;
 	if(diff < Reserved || dp->keep)
 		return;
@@ -370,7 +382,7 @@ dnage(DN *dp)
 		assert(rp->magic == RRmagic && rp->cached);
 		next = rp->next;
 		if(!rp->db && (rp->expire < now || diff > dnvars.oldest))
-			rrdelete(l, rp);
+			rrdelhead(l); /* rp == *l before; *l == rp->next after */
 		else
 			l = &rp->next;
 	}
@@ -783,8 +795,9 @@ rrattach1(RR *new, int auth)
 		if(rp->db == new->db && rp->auth == new->auth){
 			/* negative drives out positive and vice versa */
 			if(rp->negative != new->negative) {
-				rrdelete(l, rp);
-				continue;		/* *l == rp->next */
+				/* rp == *l before; *l == rp->next after */
+				rrdelhead(l);
+				continue;	
 			}
 			/* all things equal, pick the newer one */
 			else if(rp->arg0 == new->arg0 && rp->arg1 == new->arg1){
@@ -794,8 +807,9 @@ rrattach1(RR *new, int auth)
 					rrfree(new);
 					return;
 				}
-				rrdelete(l, rp);
-				continue;		/* *l == rp->next */
+				/* rp == *l before; *l == rp->next after */
+				rrdelhead(l);
+				continue;
 			}
 			/*
 			 *  Hack for pointer records.  This makes sure
@@ -833,7 +847,7 @@ rrattach1(RR *new, int auth)
 void
 rrattach(RR *rp, int auth)
 {
-	RR *next;
+	RR *next, *tp;
 	DN *dp;
 
 	lock(&dnlock);
@@ -842,17 +856,20 @@ rrattach(RR *rp, int auth)
 		rp->next = nil;
 		dp = rp->owner;
 
-		/* avoid any outside spoofing */
 //		dnslog("rrattach: %s", rp->owner->name);
-		if(cfg.cachedb && !rp->db && inmyarea(rp->owner->name))
+		/* avoid any outside spoofing; leave keepers alone */
+		if(cfg.cachedb && !rp->db && inmyarea(rp->owner->name)
+//		    || dp->keep			/* TODO: make this work */
+		    )
 			rrfree(rp);
 		else {
-			/* ameliorate the memory leak */
+			/* ameliorate the memory leak (someday delete this) */
 			if (0 && rrlistlen(dp->rr) > 50 && !dp->keep) {
 				dnslog("rrattach(%s): rr list too long; "
 					"freeing it", dp->name);
-				rrfreelist(dp->rr);
+				tp = dp->rr;
 				dp->rr = nil;
+				rrfreelist(tp);
 			} else
 				USED(dp);
 			rrattach1(rp, auth);
@@ -873,6 +890,8 @@ rrcopy(RR *rp, RR **last)
 	Sig *sig;
 	Txt *t, *nt, **l;
 
+	if (canlock(&dnlock))
+		abort();	/* rrcopy called with dnlock not held */
 	nrp = rralloc(rp->type);
 	setmalloctag(nrp, getcallerpc(&rp));
 	switch(rp->type){
@@ -1024,8 +1043,8 @@ rrlookup(DN *dp, int type, int flag)
 		}
 
 out:
-	unlock(&dnlock);
 	unique(first);
+	unlock(&dnlock);
 //	dnslog("rrlookup(%s) -> %#p\t# in-core only", dp->name, first);
 //	if (first)
 //		setmalloctag(first, getcallerpc(&dp));
@@ -1084,6 +1103,8 @@ rrcat(RR **start, RR *rp)
 	RR *olp, *nlp;
 	RR **last;
 
+	if (canlock(&dnlock))
+		abort();	/* rrcat called with dnlock not held */
 	/* check for duplicates */
 	for (olp = *start; 0 && olp; olp = olp->next)
 		for (nlp = rp; nlp; nlp = nlp->next)
@@ -1108,6 +1129,8 @@ rrremneg(RR **l)
 	RR **nl, *rp;
 	RR *first;
 
+	if (canlock(&dnlock))
+		abort();	/* rrremneg called with dnlock not held */
 	first = nil;
 	nl = &first;
 	while(*l != nil){
@@ -1573,6 +1596,7 @@ rrequiv(RR *r1, RR *r2)
 		&& r1->arg1 == r2->arg1;
 }
 
+/* called with dnlock held */
 void
 unique(RR *rp)
 {

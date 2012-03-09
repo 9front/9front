@@ -100,27 +100,24 @@ dblookup(char *name, int class, int type, int auth, int ttl)
 	char buf[256];
 	RR *rp, *tp;
 	DN *dp, *ndp;
-	static int parallel;
-	static int parfd[2];
-	static char token[1];
 
 	/* so far only internet lookups are implemented */
 	if(class != Cin)
 		return 0;
 
 	err = Rname;
+	rp = nil;
 
 	if(type == Tall){
-		lock(&dnlock);
-		rp = nil;
 		for (type = Ta; type < Tall; type++)
-			if(implemented[type])
-				rrcat(&rp, dblookup(name, class, type, auth, ttl));
-		unlock(&dnlock);
+			if(implemented[type]) {
+				tp = dblookup(name, class, type, auth, ttl);
+				lock(&dnlock);
+				rrcat(&rp, tp);
+				unlock(&dnlock);
+			}
 		return rp;
 	}
-
-	rp = nil;
 
 	lock(&dblock);
 	dp = dnlookup(name, class, 1);
@@ -1199,13 +1196,15 @@ insideaddr(char *dom)
 
 	if (!cfg.inside || !cfg.straddle || !cfg.serve)
 		return 1;
+	if (dom[0] == '\0' || strcmp(dom, ".") == 0)	/* dns root? */
+		return 1;			/* hack for initialisation */
 
 	lock(&dblock);
 	if (indoms == nil)
 		loaddomsrvs();
 	if (indoms == nil) {
 		unlock(&dblock);
-		return 1;	/* no "inside" sys, try inside nameservers */
+		return 1;  /* no "inside-dom" sys, try inside nameservers */
 	}
 
 	rv = 0;

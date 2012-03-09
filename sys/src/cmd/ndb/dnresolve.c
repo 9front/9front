@@ -16,13 +16,27 @@ enum
 {
 	Udp, Tcp,
 
+	Answerr=	-1,
+	Answnone,
+
 	Maxdest=	24,	/* maximum destinations for a request message */
-	Maxtrans=	3,	/* maximum transmissions to a server */
-	Maxretries=	3, /* cname+actual resends: was 32; have pity on user */
-	Maxwaitms=	1000,	/* wait no longer for a remote dns query */
-	Minwaitms=	100,	/* willing to wait for a remote dns query */
-	Remntretry=	15,	/* min. sec.s between /net.alt remount tries */
 	Maxoutstanding=	15,	/* max. outstanding queries per domain name */
+	Remntretry=	15,	/* min. sec.s between /net.alt remount tries */
+
+	/*
+	 * these are the old values; we're trying longer timeouts now
+	 * primarily for the benefit of remote nameservers querying us
+	 * during times of bad connectivity.
+	 */
+//	Maxtrans=	3,	/* maximum transmissions to a server */
+//	Maxretries=	3, /* cname+actual resends: was 32; have pity on user */
+//	Maxwaitms=	1000,	/* wait no longer for a remote dns query */
+//	Minwaitms=	100,	/* willing to wait for a remote dns query */
+
+	Maxtrans=	5,	/* maximum transmissions to a server */
+	Maxretries=	5, /* cname+actual resends: was 32; have pity on user */
+	Maxwaitms=	5000,	/* wait no longer for a remote dns query */
+	Minwaitms=	500,	/* willing to wait for a remote dns query */
 
 	Destmagic=	0xcafebabe,
 	Querymagic=	0xdeadbeef,
@@ -58,8 +72,8 @@ struct Query {
 
 	/* dest must not be on the stack due to forking in slave() */
 	Dest	*dest;		/* array of destinations */
-	Dest	*curdest;	/* pointer to one of them */
-	int	ndest;
+	Dest	*curdest;	/* pointer to next to fill */
+	int	ndest;		/* transmit to this many on this round */
 
 	int	udpfd;
 
@@ -114,6 +128,18 @@ procgetname(void)
 		return strdup("");
 	*rp = '\0';
 	return strdup(lp+1);
+}
+
+void
+rrfreelistptr(RR **rpp)
+{
+	RR *rp;
+
+	if (rpp == nil || *rpp == nil)
+		return;
+	rp = *rpp;
+	*rpp = nil;	/* update pointer in memory before freeing list */
+	rrfreelist(rp);
 }
 
 /*
@@ -264,12 +290,6 @@ destck(Dest *p)
 	assert(p->magic == Destmagic);
 }
 
-static void
-destdestroy(Dest *p)
-{
-	USED(p);
-}
-
 /*
  * if the response to a query hasn't arrived within 100 ms.,
  * it's unlikely to arrive at all.  after 1 s., it's really unlikely.
@@ -308,6 +328,20 @@ noteinmem(void)
 	qunlock(&stats);
 }
 
+/* netquery with given name servers, free ns rrs when done */
+static int
+netqueryns(Query *qp, int depth, RR *nsrp)
+{
+	int rv;
+
+	qp->nsrp = nsrp;
+	rv = netquery(qp, depth);
+	lock(&dnlock);
+	rrfreelist(nsrp);
+	unlock(&dnlock);
+	return rv;
+}
+
 static RR*
 issuequery(Query *qp, char *name, int class, int depth, int recurse)
 {
@@ -321,14 +355,9 @@ issuequery(Query *qp, char *name, int class, int depth, int recurse)
 	 */
 	if(cfg.resolver){
 		nsrp = randomize(getdnsservers(class));
-		if(nsrp != nil) {
-			qp->nsrp = nsrp;
-			if(netquery(qp, depth+1)){
-				rrfreelist(nsrp);
+		if(nsrp != nil)
+			if(netqueryns(qp, depth+1, nsrp) > Answnone)
 				return rrlookup(qp->dp, qp->type, OKneg);
-			}
-			rrfreelist(nsrp);
-		}
 	}
 
 	/*
@@ -343,7 +372,9 @@ issuequery(Query *qp, char *name, int class, int depth, int recurse)
 		dbnsrp = randomize(dblookup(cp, class, Tns, 0, 0));
 		if(dbnsrp && dbnsrp->local){
 			rp = dblookup(name, class, qp->type, 1, dbnsrp->ttl);
+			lock(&dnlock);
 			rrfreelist(dbnsrp);
+			unlock(&dnlock);
 			return rp;
 		}
 
@@ -352,8 +383,11 @@ issuequery(Query *qp, char *name, int class, int depth, int recurse)
 		 *  entries
 		 */
 		if(recurse == Dontrecurse){
-			if(dbnsrp)
+			if(dbnsrp) {
+				lock(&dnlock);
 				rrfreelist(dbnsrp);
+				unlock(&dnlock);
+			}
 			continue;
 		}
 
@@ -365,34 +399,23 @@ issuequery(Query *qp, char *name, int class, int depth, int recurse)
 
 		/* if the entry timed out, ignore it */
 		if(nsrp && nsrp->ttl < now){
-			rrfreelist(nsrp);
-			nsrp = nil;
+			lock(&dnlock);
+			rrfreelistptr(&nsrp);
+			unlock(&dnlock);
 		}
 
 		if(nsrp){
-			rrfreelist(dbnsrp);
+			lock(&dnlock);
+			rrfreelistptr(&dbnsrp);
+			unlock(&dnlock);
 
 			/* query the name servers found in cache */
-			qp->nsrp = nsrp;
-			if(netquery(qp, depth+1)){
-				rrfreelist(nsrp);
+			if(netqueryns(qp, depth+1, nsrp) > Answnone)
 				return rrlookup(qp->dp, qp->type, OKneg);
-			}
-			rrfreelist(nsrp);
-			continue;
-		}
-
-		/* use ns from db */
-		if(dbnsrp){
+		} else if(dbnsrp)
 			/* try the name servers found in db */
-			qp->nsrp = dbnsrp;
-			if(netquery(qp, depth+1)){
-				/* we got an answer */
-				rrfreelist(dbnsrp);
+			if(netqueryns(qp, depth+1, dbnsrp) > Answnone)
 				return rrlookup(qp->dp, qp->type, NOneg);
-			}
-			rrfreelist(dbnsrp);
-		}
 	}
 	return nil;
 }
@@ -440,7 +463,9 @@ dnresolve1(char *name, int class, int type, Request *req, int depth,
 							getpid(), name, type, class);
 					return rp;
 				}
+	lock(&dnlock);
 	rrfreelist(rp);
+	unlock(&dnlock);
 	rp = nil;		/* accident prevention */
 	USED(rp);
 
@@ -451,7 +476,9 @@ dnresolve1(char *name, int class, int type, Request *req, int depth,
 	 */
 	if(type != Tcname){
 		rp = rrlookup(dp, Tcname, NOneg);
+		lock(&dnlock);
 		rrfreelist(rp);
+		unlock(&dnlock);
 		if(rp){
 			if(debug)
 				dnslog("[%d] dnresolve1 %s %d %d: rr from rrlookup for non-cname",
@@ -569,6 +596,8 @@ initdnsmsg(DNSmsg *mp, RR *rp, int flags, ushort reqno)
 	mp->flags = flags;
 	mp->id = reqno;
 	mp->qd = rp;
+	if(rp != nil)
+		mp->qdcount = 1;
 }
 
 DNSmsg *
@@ -600,7 +629,7 @@ mkreq(DN *dp, int type, uchar *buf, int flags, ushort reqno)
 	rp->owner = dp;
 	initdnsmsg(&m, rp, flags, reqno);
 	len = convDNS2M(&m, &buf[Udphdrsize], Maxudp);
-	rrfree(m.qd);
+	rrfreelistptr(&m.qd);
 	memset(&m, 0, sizeof m);		/* cause trouble */
 	return len;
 }
@@ -608,14 +637,16 @@ mkreq(DN *dp, int type, uchar *buf, int flags, ushort reqno)
 void
 freeanswers(DNSmsg *mp)
 {
-	rrfreelist(mp->qd);
-	rrfreelist(mp->an);
-	rrfreelist(mp->ns);
-	rrfreelist(mp->ar);
-	mp->qd = mp->an = mp->ns = mp->ar = nil;
+	lock(&dnlock);
+	rrfreelistptr(&mp->qd);
+	rrfreelistptr(&mp->an);
+	rrfreelistptr(&mp->ns);
+	rrfreelistptr(&mp->ar);
+	unlock(&dnlock);
+	mp->qdcount = mp->ancount = mp->nscount = mp->arcount = 0;
 }
 
-/* timed read of reply.  sets srcip */
+/* timed read of reply.  sets srcip.  ibuf must be 64K to handle tcp answers. */
 static int
 readnet(Query *qp, int medium, uchar *ibuf, uvlong endms, uchar **replyp,
 	uchar *srcip)
@@ -656,7 +687,7 @@ readnet(Query *qp, int medium, uchar *ibuf, uvlong endms, uchar **replyp,
 			dnslog("readnet: %s: tcp fd unset for dest %I",
 				qp->dp->name, qp->tcpip);
 		else if (readn(fd, lenbuf, 2) != 2) {
-			dnslog("readnet: short read of tcp size from %I",
+			dnslog("readnet: short read of 2-byte tcp msg size from %I",
 				qp->tcpip);
 			/* probably a time-out */
 			notestats(startns, 1, qp->type);
@@ -792,7 +823,7 @@ ipisbm(uchar *ip)
 }
 
 /*
- *  Get next server address
+ *  Get next server address(es) into qp->dest[nd] and beyond
  */
 static int
 serveraddrs(Query *qp, int nd, int depth)
@@ -800,8 +831,8 @@ serveraddrs(Query *qp, int nd, int depth)
 	RR *rp, *arp, *trp;
 	Dest *cur;
 
-	if(nd >= Maxdest)
-		return 0;
+	if(nd >= Maxdest)		/* dest array is full? */
+		return Maxdest - 1;
 
 	/*
 	 *  look for a server whose address we already know.
@@ -875,7 +906,9 @@ serveraddrs(Query *qp, int nd, int depth)
 		cur->code = Rtimeout;
 		nd++;
 	}
+	lock(&dnlock);
 	rrfreelist(arp);
+	unlock(&dnlock);
 	return nd;
 }
 
@@ -893,10 +926,10 @@ cacheneg(DN *dp, int type, int rcode, RR *soarr)
 
 	/* no cache time specified, don't make anything up */
 	if(soarr != nil){
-		if(soarr->next != nil){
-			rrfreelist(soarr->next);
-			soarr->next = nil;
-		}
+		lock(&dnlock);
+		if(soarr->next != nil)
+			rrfreelistptr(&soarr->next);
+		unlock(&dnlock);
 		soaowner = soarr->owner;
 	} else
 		soaowner = nil;
@@ -945,7 +978,7 @@ mydnsquery(Query *qp, int medium, uchar *udppkt, int len)
 {
 	int rv = -1, nfd;
 	char *domain;
-	char conndir[40];
+	char conndir[40], net[40];
 	uchar belen[2];
 	NetConnInfo *nci;
 
@@ -984,8 +1017,10 @@ mydnsquery(Query *qp, int medium, uchar *udppkt, int len)
 		break;
 	case Tcp:
 		/* send via TCP & keep fd around for reply */
+		snprint(net, sizeof net, "%s/tcp",
+			(mntpt[0] != '\0'? mntpt: "/net"));
 		alarm(10*1000);
-		qp->tcpfd = rv = dial(netmkaddr(domain, "tcp", "dns"), nil,
+		qp->tcpfd = rv = dial(netmkaddr(domain, net, "dns"), nil,
 			conndir, &qp->tcpctlfd);
 		alarm(0);
 		if (qp->tcpfd < 0) {
@@ -1035,8 +1070,14 @@ xmitquery(Query *qp, int medium, int depth, uchar *obuf, int inns, int len)
 	 */
 	p = qp->dest;
 	destck(p);
-	if (qp->ndest < 0 || qp->ndest > Maxdest)
+	if (qp->ndest < 0 || qp->ndest > Maxdest) {
 		dnslog("qp->ndest %d out of range", qp->ndest);
+		abort();
+	}
+	/*
+	 * we're to transmit to more destinations than we currently have,
+	 * so get another.
+	 */
 	if (qp->ndest > qp->curdest - p) {
 		j = serveraddrs(qp, qp->curdest - p, depth);
 		if (j < 0 || j >= Maxdest) {
@@ -1051,15 +1092,16 @@ xmitquery(Query *qp, int medium, int depth, uchar *obuf, int inns, int len)
 	if (qp->ndest == 0)
 		if (cfg.straddle && cfg.inside) {
 			/* get ips of "outside-ns-ips" */
-			p = qp->curdest = qp->dest;
+			qp->curdest = qp->dest;
 			for(n = 0; n < Maxdest; n++, qp->curdest++)
 				if (setdestoutns(qp->curdest, n) < 0)
 					break;
-		} else {
+			if(n == 0)
+				dnslog("xmitquery: %s: no outside-ns nameservers",
+					qp->dp->name);
+		} else
 			/* it's probably just a bogus domain, don't log it */
-			// dnslog("xmitquery: %s: no nameservers", qp->dp->name);
 			return -1;
-		}
 
 	/* send to first 'qp->ndest' destinations */
 	j = 0;
@@ -1085,6 +1127,9 @@ xmitquery(Query *qp, int medium, int depth, uchar *obuf, int inns, int len)
 			if((1<<p->nx) > qp->ndest)
 				continue;
 
+			if(memcmp(p->a, IPnoaddr, sizeof IPnoaddr) == 0)
+				continue;		/* mistake */
+
 			procsetname("udp %sside query to %I/%s %s %s",
 				(inns? "in": "out"), p->a, p->s->name,
 				qp->dp->name, rrname(qp->type, buf, sizeof buf));
@@ -1098,7 +1143,6 @@ xmitquery(Query *qp, int medium, int depth, uchar *obuf, int inns, int len)
 			p->nx++;
 		}
 	if(j == 0) {
-		// dnslog("xmitquery: %s: no destinations left", qp->dp->name);
 		return -1;
 	}
 	return 0;
@@ -1135,6 +1179,7 @@ isnegrname(DNSmsg *mp)
 	return mp->an == nil && (mp->flags & Rmask) == Rname;
 }
 
+/* returns Answerr (-1) on errors, else number of answers, which can be zero. */
 static int
 procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 {
@@ -1154,7 +1199,7 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 		freeanswers(mp);
 		if(p != qp->curdest)
 			p->code = Rserver;
-		return -1;
+		return Answerr;
 	}
 
 	/* ignore any bad delegations */
@@ -1165,10 +1210,14 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 			freeanswers(mp);
 			if(p != qp->curdest)
 				p->code = Rserver;
-			return -1;
+			dnslog(" and no answers");
+			return Answerr;
 		}
-		rrfreelist(mp->ns);
-		mp->ns = nil;
+		dnslog(" but has answers; ignoring ns");
+		lock(&dnlock);
+		rrfreelistptr(&mp->ns);
+		unlock(&dnlock);
+		mp->nscount = 0;
 	}
 
 	/* remove any soa's from the authority section */
@@ -1180,6 +1229,7 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 	unique(mp->ns);
 	unique(mp->ar);
 	unlock(&dnlock);
+
 	if(mp->an)
 		rrattach(mp->an, (mp->flags & Fauth) != 0);
 	if(mp->ar)
@@ -1189,14 +1239,18 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 		rrattach(mp->ns, Notauthoritative);
 	} else {
 		ndp = nil;
-		rrfreelist(mp->ns);
-		mp->ns = nil;
+		lock(&dnlock);
+		rrfreelistptr(&mp->ns);
+		unlock(&dnlock);
+		mp->nscount = 0;
 	}
 
 	/* free the question */
 	if(mp->qd) {
-		rrfreelist(mp->qd);
-		mp->qd = nil;
+		lock(&dnlock);
+		rrfreelistptr(&mp->qd);
+		unlock(&dnlock);
+		mp->qdcount = 0;
 	}
 
 	/*
@@ -1217,8 +1271,11 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 		 */
 		if( /* (mp->flags & Fauth) && */ mp->an == nil)
 			cacheneg(qp->dp, qp->type, (mp->flags & Rmask), soarr);
-		else
+		else {
+			lock(&dnlock);
 			rrfreelist(soarr);
+			unlock(&dnlock);
+		}
 		return 1;
 	} else if (isnegrname(mp)) {
 		qp->dp->respcode = Rname;
@@ -1231,7 +1288,9 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 		return 1;
 	}
 	stats.negnorname++;
+	lock(&dnlock);
 	rrfreelist(soarr);
+	unlock(&dnlock);
 
 	/*
 	 *  if we've been given better name servers, recurse.
@@ -1239,11 +1298,13 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 	 *  to forward to a fixed set of named servers.
 	 */
 	if(!mp->ns || cfg.resolver && cfg.justforw)
-		return 0;
+		return Answnone;
 	tp = rrlookup(ndp, Tns, NOneg);
 	if(contains(qp->nsrp, tp)){
+		lock(&dnlock);
 		rrfreelist(tp);
-		return 0;
+		unlock(&dnlock);
+		return Answnone;
 	}
 	procsetname("recursive query for %s %s", qp->dp->name,
 		rrname(qp->type, buf, sizeof buf));
@@ -1252,7 +1313,7 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 	 *  netquery, which current holds qp->dp->querylck,
 	 *  so release it now and acquire it upon return.
 	 */
-//	lcktype = qtype2lck(qp->type);
+//	lcktype = qtype2lck(qp->type);		/* someday try this again */
 //	qunlock(&qp->dp->querylck[lcktype]);
 
 	nqp = emalloc(sizeof *nqp);
@@ -1303,7 +1364,8 @@ tcpquery(Query *qp, DNSmsg *mp, int depth, uchar *ibuf, uchar *obuf, int len,
 }
 
 /*
- *  query name servers.  If the name server returns a pointer to another
+ *  query name servers.  fill in obuf with on-the-wire representation of a
+ *  DNSmsg derived from qp.  if the name server returns a pointer to another
  *  name server, recurse.
  */
 static int
@@ -1383,7 +1445,7 @@ queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 
 			/* free or incorporate RRs in m */
 			rv = procansw(qp, &m, srcip, depth, p);
-			if (rv > 0) {
+			if (rv > Answnone) {
 				free(qp->dest);
 				qp->dest = qp->curdest = nil; /* prevent accidents */
 				return rv;
@@ -1405,7 +1467,7 @@ queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 
 	free(qp->dest);
 	qp->dest = qp->curdest = nil;		/* prevent accidents */
-	return 0;
+	return Answnone;
 }
 
 /*
@@ -1465,7 +1527,6 @@ udpquery(Query *qp, char *mntpt, int depth, int patient, int inns)
 	static ulong lastmount;
 
 	/* use alloced buffers rather than ones from the stack */
-	// ibuf = emalloc(Maxudpin+Udphdrsize);
 	ibuf = emalloc(64*1024);		/* max. tcp reply size */
 	obuf = emalloc(Maxudp+Udphdrsize);
 
@@ -1537,9 +1598,9 @@ netquery(Query *qp, int depth)
 	Querylck *qlp;
 	static int whined;
 
-	rv = 0;				/* pessimism */
+	rv = Answnone;			/* pessimism */
 	if(depth > 12)			/* in a recursive loop? */
-		return 0;
+		return Answnone;
 
 	slave(qp->req);
 	/*
@@ -1604,7 +1665,7 @@ netquery(Query *qp, int depth)
 	 * if we're still looking, are inside, and have an outside domain,
 	 * try it on our outside interface, if any.
 	 */
-	if (rv == 0 && cfg.inside && !inname) {
+	if (rv == Answnone && cfg.inside && !inname) {
 		if (triedin)
 			dnslog(
 	   "[%d] netquery: internal nameservers failed for %s; trying external",
@@ -1616,7 +1677,7 @@ netquery(Query *qp, int depth)
 
 		rv = udpquery(qp, "/net.alt", depth, Patient, Outns);
 	}
-//	if (rv == 0)		/* could ask /net.alt/dns directly */
+//	if (rv == Answnone)		/* could ask /net.alt/dns directly */
 //		askoutdns(dp, qp->type);
 
 	if(lock && qlp) {
@@ -1634,17 +1695,21 @@ seerootns(void)
 	int rv;
 	char root[] = "";
 	Request req;
+	RR *rr;
 	Query *qp;
 
 	memset(&req, 0, sizeof req);
 	req.isslave = 1;
 	req.aborttime = timems() + Maxreqtm;
 	req.from = "internal";
+
 	qp = emalloc(sizeof *qp);
 	queryinit(qp, dnlookup(root, Cin, 1), Tns, &req);
-
 	qp->nsrp = dblookup(root, Cin, Tns, 0, 0);
-	rv = netquery(qp, 0);
+	for (rr = qp->nsrp; rr != nil; rr = rr->next)	/* DEBUG */
+		dnslog("seerootns query nsrp: %R", rr);
+
+	rv = netquery(qp, 0);		/* lookup ". ns" using qp->nsrp */
 
 	rrfreelist(qp->nsrp);
 	querydestroy(qp);

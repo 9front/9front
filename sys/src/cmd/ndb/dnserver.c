@@ -20,7 +20,7 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 	char tname[32];
 	DN *nsdp, *dp;
 	Area *myarea;
-	RR *tp, *neg;
+	RR *tp, *neg, *rp;
 
 	dncheck(nil, 1);
 
@@ -109,8 +109,11 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 			if(repp->ns){
 				/* don't pass on anything we know is wrong */
 				if(repp->ns->negative){
-					rrfreelist(repp->ns);
+					lock(&dnlock);
+					rp = repp->ns;
 					repp->ns = nil;
+					rrfreelist(rp);
+					unlock(&dnlock);
 				}
 				break;
 			}
@@ -216,8 +219,9 @@ hint(RR **last, RR *rp)
 			hp = dblookup(rp->host->name, Cin, Taaaa, 0, 0);
 		if (hp && strncmp(hp->owner->name, "local#", 6) == 0)
 			dnslog("returning %s as hint", hp->owner->name);
+		lock(&dnlock);
 		rrcat(last, hp);
+		unlock(&dnlock);
 		break;
 	}
 }
- 
