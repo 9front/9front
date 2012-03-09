@@ -1,0 +1,45 @@
+#!/bin/rc
+
+v=()
+
+fn otherqid {
+	x=`{echo $1 | sed 's/[12]$//'}
+	switch($1){
+	case $x^1
+		echo $x^2
+	case $x^2
+		echo $x^1
+	}
+}
+
+fn traceqid {
+	while(! ~ $#* 0){
+		echo '['$2']' $1
+		tracepid `{grep -n `{otherqid $1} /proc/*/fd | sed 's!^/proc/([^/]+)/.*!\1!g'} \
+			| sed 's/^/	/g'
+		shift
+		shift
+	}
+}
+
+fn tracepid {
+	while(! ~ $#* 0){
+		echo $1 `{cat /proc/$1/args >[2]/dev/null}
+		switch($1){
+		case $v
+			echo '	...'
+		case *
+			v=($1 $v)
+			traceqid `{awk '/\#\|\/data1?$/{q=substr($5,2);print q" "$1}' /proc/$1/fd} \
+				| sed 's/^/	/g'
+		}
+		shift
+	}
+}
+
+if(~ $#* 0){
+	echo 'Usage: ' $0 '[ pid ... ]' >[1=2]
+	exit usage
+}
+
+tracepid $*
