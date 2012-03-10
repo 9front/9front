@@ -24,7 +24,7 @@ bind -a $x^home/bin/$x^cputype /bin
 mount -qC /srv/cwfs /n/other other
 bind -qc /n/other/usr/$x^user/tmp $x^home/tmp
 bind -c $x^home/tmp /tmp
-font = /lib/font/bit/pelm/euro.9.font
+font=/lib/font/bit/vga/vga.font
 switch($x^service){
 case terminal
 	webcookies
