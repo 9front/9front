@@ -129,6 +129,16 @@ Displays the previous page.
 .B Zerox
 Displays the current image in a new page window. 
 Useful for selecting important pages from large documents.
+.TP
+.B Write
+Asks for a filename and writes the current image as
+Plan 9 bitmap.
+.TP
+.B Ext
+Shows the current image using external
+.IR jpg (1)
+program in a separate window. This is mostly usefull for
+animated gifs. 
 .PD
 .PP
 Button 3 raises a menu of the

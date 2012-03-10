@@ -1020,17 +1020,6 @@ void geturl(char *urlname, int method, char *body, int plumb, int map){
 			setcurrent(i, selection->tag);
 			break;
 		case GIF:
-			if(rfork(RFFDG|RFNOTEG|RFPROC|RFNAMEG|RFNOWAIT) == 0){
-				snprint(cmd, sizeof(cmd), "-pid %d", getpid());
-				if(newwindow(cmd) != -1){
-					close(1); open("/dev/cons", OWRITE);
-					print("reading gif...\n");
-					filter("gif", fd);
-				}
-				exits(0);
-			}
-			close(fd);
-			break;
 		case JPEG:
 		case PNG:
 		case BMP:

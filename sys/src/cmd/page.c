@@ -11,6 +11,7 @@ struct Page {
 	char	*label;
 
 	QLock;
+	char	*ext;
 	void	*data;
 	int	(*open)(Page *);
 
@@ -60,6 +61,7 @@ enum {
 	Cprev,
 	Czerox,
 	Cwrite,
+	Cext,
 	Cdummy2,
 	Cquit,
 };
@@ -82,6 +84,7 @@ struct {
 	[Cprev]		"prev",		Kleft, Kbs, 0,
 	[Czerox]	"zerox",	'z', 0, 0,
 	[Cwrite]	"write",	'w', 0, 0,
+	[Cext]		"ext",		'x', 0, 0,
 	[Cdummy2]	"",		0, 0, 0,
 	[Cquit]		"quit",		'q', Kdel, Keof,
 };
@@ -285,8 +288,11 @@ popenimg(Page *p)
 	}
 
 	seek(fd, 0, 0);
-	if(p->data)
-		pipeline(fd, "%s", (char*)p->data);
+	if(p->data){
+		p->ext = p->data;
+		snprint(nam, sizeof(nam), "%s -t9", p->ext);
+		pipeline(fd, "%s", nam);
+	}
 
 	/*
 	 * dont keep the file descriptor arround if it can simply
@@ -322,7 +328,7 @@ popentape(Page *p)
 
 	seek(p->fd, 0, 0);
 	snprint(mnt, sizeof(mnt), "/n/tapefs.%.12d%.8lux", getpid(), (ulong)p);
-	snprint(cmd, sizeof(cmd), "%s -m %s /fd/0", p->data, mnt);
+	snprint(cmd, sizeof(cmd), "%s -m %s /fd/0", (char*)p->data, mnt);
 	switch(rfork(RFPROC|RFMEM|RFFDG|RFREND)){
 	case -1:
 		close(p->fd);
@@ -485,7 +491,7 @@ popengs(Page *p)
 		goto Err1;
 	}
 
-	argv[0] = p->data;
+	argv[0] = (char*)p->data;
 	switch(rfork(RFPROC|RFMEM|RFFDG|RFREND|RFNOWAIT)){
 	case -1:
 		goto Err2;
@@ -663,11 +669,11 @@ popenfile(Page *p)
 	"application/x-compress",	popenfilter,	"uncompress",
 	"application/x-gzip",		popenfilter,	"gunzip",
 	"application/x-bzip2",		popenfilter,	"bunzip2",
-	"image/gif",			popenimg,	"gif -t9",
-	"image/jpeg",			popenimg,	"jpg -t9",
-	"image/png",			popenimg,	"png -t9",
-	"image/ppm",			popenimg,	"ppm -t9",
-	"image/bmp",			popenimg,	"bmp -t9",
+	"image/gif",			popenimg,	"gif",
+	"image/jpeg",			popenimg,	"jpg",
+	"image/png",			popenimg,	"png",
+	"image/ppm",			popenimg,	"ppm",
+	"image/bmp",			popenimg,	"bmp",
 	"image/p9bit",			popenimg,	nil,
 	};
 
@@ -677,6 +683,7 @@ popenfile(Page *p)
 
 	fd = p->fd;
 	p->fd = -1;
+	p->ext = nil;
 	file = p->data;
 	p->data = nil;
 	if(fd < 0){
@@ -1187,6 +1194,49 @@ Out:
 }
 
 void
+showext(Page *p)
+{
+	char buf[128], label[64], *argv[4];
+	Point ps;
+	int fd;
+
+	if(p->ext == nil)
+		return;
+	snprint(label, sizeof(label), "%s %s", p->ext, p->label);
+	if(p->image){
+		ps = subpt(p->image->r.max, p->image->r.min);
+		ps.x += 24;
+		ps.y += 24;
+	} else
+		ps = subpt(screen->r.max, screen->r.min);
+	if((fd = p->fd) < 0){
+		if(p->open != popenfile)
+			return;
+		fd = open((char*)p->data, OREAD);
+	} else {
+		fd = dup(fd, -1);
+		seek(fd, 0, 0);
+	}
+	if(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG|RFNAMEG|RFNOWAIT) == 0){
+		snprint(buf, sizeof(buf), "-pid %d -dx %d -dy %d", getpid(), ps.x, ps.y);
+		if(newwindow(buf) != -1){
+			dupfds(fd, 1, 2, -1);
+			if((fd = open("/dev/label", OWRITE)) >= 0){
+				write(fd, label, strlen(label));
+				close(fd);
+			}
+			argv[0] = "rc";
+			argv[1] = "-c";
+			argv[2] = p->ext;
+			argv[3] = nil;
+			exec("/bin/rc", argv);
+		}
+		exits(0);
+	}
+	close(fd);
+}
+
+void
 eresized(int new)
 {
 	Page *p;
@@ -1305,6 +1355,12 @@ docmd(int i, Mouse *m)
 				}
 			}
 		}
+		qunlock(current);
+		return 1;
+	case Cext:
+		if(current == nil || !canqlock(current))
+			return 1;
+		showext(current);
 		qunlock(current);
 		return 1;
 	case Cnext:
