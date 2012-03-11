@@ -3,6 +3,8 @@
 #include <ip.h>
 
 int socksver;
+char *inside = "/net";
+char *outside = "/net";
 
 int
 str2addr(char *s, uchar *a)
@@ -85,6 +87,100 @@ addr2str(char *proto, uchar *a){
 }
 
 int
+udprelay(int fd, char *dir)
+{
+	struct {
+		Udphdr;
+		uchar data[8*1024];
+	} msg;
+	char addr[128], ldir[40];
+	int r, n, rfd, cfd;
+	uchar *p;
+
+	snprint(addr, sizeof(addr), "%s/udp!*!0", outside);
+	if((cfd = announce(addr, ldir)) < 0)
+		return -1;
+	if(write(cfd, "headers", 7) != 7)
+		return -1;
+	strcat(ldir, "/data");
+	if((rfd = open(ldir, ORDWR)) < 0)
+		return -1;
+	close(cfd);
+	
+	if((r = rfork(RFMEM|RFPROC|RFNOWAIT)) <= 0)
+		return r;
+
+	if((cfd = listen(dir, ldir)) < 0)
+		return -1;
+	if((fd = accept(cfd, ldir)) < 0)
+		return -1;
+
+	switch(rfork(RFMEM|RFPROC|RFNOWAIT)){
+	case -1:
+		return -1;
+	case 0:
+		while((r = read(fd, msg.data, sizeof(msg.data))) > 0){
+			if(r < 4)
+				continue;
+			p = msg.data + 3;
+			switch(*p++){
+			default:
+				continue;
+			case 0x01:
+				r -= 2+1+1+4+2;
+				if(r < 0)
+					continue;
+				v4tov6(msg.raddr, p);
+				p += 4;
+				break;
+			case 0x04:
+				r -= 2+1+1+16+2;
+				if(r < 0)
+					continue;
+				memmove(msg.raddr, p, 16);
+				p += 16;
+				break;
+			}
+			memmove(msg.rport, p, 2);
+			p += 2;
+			memmove(msg.data, p, r);
+			write(rfd, &msg, sizeof(Udphdr)+r);
+		}
+		break;
+	default:
+		while((r = read(rfd, &msg, sizeof(msg))) > 0){
+			r -= sizeof(Udphdr);
+			if(r < 0)
+				continue;
+			p = msg.data;
+			if(isv4(msg.raddr))
+				n = 2+1+1+4+2;
+			else
+				n = 2+1+1+16+2;
+			if(r+n > sizeof(msg.data))
+				r = sizeof(msg.data)-n;
+			memmove(p+n, p, r);
+			*p++ = 0;
+			*p++ = 0;
+			*p++ = 0;
+			if(isv4(msg.raddr)){
+				*p++ = 0x01;
+				v6tov4(p, msg.raddr);
+				p += 4;
+			} else {
+				*p++ = 0x04;
+				memmove(p, msg.raddr, 16);
+				p += 16;
+			}
+			memmove(p, msg.rport, 2);
+			r += n;
+			write(fd, msg.data, r);
+		}
+	}
+	return -1;
+}
+
+int
 sockerr(int err)
 {
 	/* general error */
@@ -98,13 +194,16 @@ void
 main(int argc, char *argv[])
 {
 	uchar buf[8*1024], *p;
-	char dir[40], ldir[40], *s;
+	char addr[128], dir[40], ldir[40], *s;
 	int cmd, fd, cfd, n;
 	NetConnInfo *nc;
 
 	fmtinstall('I', eipfmt);
 
 	ARGBEGIN {
+	case 'x':
+		outside = ARGF();
+		break;
 	} ARGEND;
 
 	/* ver+cmd or ver+nmethod */
@@ -183,12 +282,24 @@ main(int argc, char *argv[])
 	cmd = buf[1];
 	switch(cmd){
 	case 0x01:	/* CONNECT */
-		if((s = addr2str("tcp", buf)) == nil)
-			return;
+		snprint(addr, sizeof(addr), "%s/tcp", outside);
+		if((s = addr2str(addr, buf)) == nil)
+			break;
+		alarm(30000);
 		fd = dial(s, 0, dir, &cfd);
+		alarm(0);
 		break;
 	case 0x02:	/* BIND */
-		fd = announce("tcp!*!0", dir);
+		if(myipaddr(buf, outside) < 0)
+			break;
+		snprint(addr, sizeof(addr), "%s/tcp!%I!0", outside, buf);
+		fd = announce(addr, dir);
+		break;
+	case 0x03:	/* UDP */
+		if(myipaddr(buf, inside) < 0)
+			break;
+		snprint(addr, sizeof(addr), "%s/udp!%I!0", inside, buf);
+		fd = announce(addr, dir);
 		break;
 	}
 
@@ -235,7 +346,12 @@ Reply:
 		cmd |= 0x100;
 		goto Reply;
 	case 0x102:
-		break;
+		break;		
+	case 0x03:	/* UDP */
+		if(udprelay(fd, dir) == 0)
+			while(read(0, buf, sizeof(buf)) > 0)
+				;
+		goto Hangup;
 	}
 	
 	/* relay data */
@@ -251,7 +367,9 @@ Reply:
 	while((n = read(0, buf, sizeof(buf))) > 0)
 		if(write(1, buf, n) != n)
 			break;
-	hangup(cfd);
+Hangup:
+	if(cfd >= 0)
+		hangup(cfd);
 	postnote(PNGROUP, getpid(), "kill");
 }
 
