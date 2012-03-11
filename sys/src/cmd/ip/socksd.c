@@ -98,9 +98,9 @@ void
 main(int argc, char *argv[])
 {
 	uchar buf[8*1024], *p;
-	char dir[40], *s;
+	char dir[40], ldir[40], *s;
+	int cmd, fd, cfd, n;
 	NetConnInfo *nc;
-	int fd, n;
 
 	fmtinstall('I', eipfmt);
 
@@ -178,24 +178,21 @@ main(int argc, char *argv[])
 		}
 	}
 
-	nc = nil;
 	dir[0] = 0;
-	fd = -1;
-	switch(buf[1]){
+	fd = cfd = -1;
+	cmd = buf[1];
+	switch(cmd){
 	case 0x01:	/* CONNECT */
 		if((s = addr2str("tcp", buf)) == nil)
 			return;
-		fd = dial(s, 0, dir, 0);
+		fd = dial(s, 0, dir, &cfd);
+		break;
+	case 0x02:	/* BIND */
+		fd = announce("tcp!*!0", dir);
 		break;
 	}
 
-	if(fd >= 0){
-		if((nc = getnetconninfo(dir, -1)) == nil){
-			close(fd);
-			fd = -1;
-		}
-	}
-
+Reply:
 	/* reply */
 	buf[1] = sockerr(fd < 0);			/* status */
 	if(socksver == 4){
@@ -215,11 +212,32 @@ main(int argc, char *argv[])
 			return;
 		}
 	}
-	if((n = str2addr(nc->laddr, buf)) <= 0)
+	if((nc = getnetconninfo(dir, cfd)) == nil)
+		return;
+	if((n = str2addr((cmd & 0x100) ? nc->raddr : nc->laddr, buf)) <= 0)
 		return;
 	if(write(1, buf, n) != n)
 		return;
 
+	switch(cmd){
+	default:
+		return;
+	case 0x01:	/* CONNECT */
+		break;
+	case 0x02:	/* BIND */
+		cfd = listen(dir, ldir);
+		close(fd);
+		fd = -1;
+		if(cfd >= 0){
+			strcpy(dir, ldir);
+			fd = accept(cfd, dir);
+		}
+		cmd |= 0x100;
+		goto Reply;
+	case 0x102:
+		break;
+	}
+	
 	/* relay data */
 	switch(rfork(RFMEM|RFPROC|RFFDG|RFNOWAIT)){
 	case -1:
@@ -233,7 +251,7 @@ main(int argc, char *argv[])
 	while((n = read(0, buf, sizeof(buf))) > 0)
 		if(write(1, buf, n) != n)
 			break;
+	hangup(cfd);
 	postnote(PNGROUP, getpid(), "kill");
-	exits(0);
 }
 
