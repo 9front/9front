@@ -123,13 +123,6 @@ catch(void *, char *msg)
 }
 
 static int
-newport(void)
-{
-	static int port;
-	return 5000+(port++)%64;
-}
-
-static int
 filereq(uchar *buf, char *path)
 {
 	uchar *p;
@@ -155,7 +148,7 @@ static void
 download(void *aux)
 {
 	int fd, cfd, last, block, n, ndata;
-	char *err, addr[40], adir[40];
+	char *err, adir[40];
 	uchar *data;
 	Channel *c;
 	Tfile *f;
@@ -180,12 +173,7 @@ download(void *aux)
 
 	threadsetname(f->path);
 
-	for(n=0; n<10; n++){
-		snprint(addr, sizeof(addr), "udp!*!%d", newport());
-		if((cfd = announce(addr, adir)) >= 0)
-			break;
-	}
-	if(cfd < 0){
+	if((cfd = announce("udp!*!0", adir)) < 0){
 		err = "announce: %r";
 		goto out;
 	}
@@ -440,7 +428,7 @@ void
 threadmain(int argc, char **argv)
 {
 	char *srvname = nil;
-	char *mtpt = nil;
+	char *mtpt = "/n/tftp";
 
 	time0 = time(0);
 	ipmove(ipaddr, IPnoaddr);
@@ -451,6 +439,7 @@ threadmain(int argc, char **argv)
 		break;
 	case 's':
 		srvname = EARGF(usage());
+		mtpt = nil;
 		break;
 	case 'm':
 		mtpt = EARGF(usage());
