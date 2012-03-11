@@ -122,7 +122,10 @@ udprelay(int fd, char *dir)
 		while((r = read(fd, msg.data, sizeof(msg.data))) > 0){
 			if(r < 4)
 				continue;
-			p = msg.data + 3;
+			p = msg.data;
+			if(p[0] | p[1] | p[2])
+				continue;
+			p += 3;
 			switch(*p++){
 			default:
 				continue;
