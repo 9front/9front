@@ -259,17 +259,7 @@ kbdputsc(Scan *scan, int c)
 	else
 		key.r = kbtab[c];
 
-	switch(key.r){
-	case Spec|0x60:
-		key.r = Kshift;
-		break;
-	case Spec|0x62:
-		key.r = Kctl;
-		break;
-	case Spec|0x63:
-		key.r = Kalt;
-		break;
-	}
+	key.r = key.r;
 
 	if(scan->esc1 || kbtab[c] == 0)
 		key.b = key.r;
@@ -825,6 +815,18 @@ kbmapread(Req *req)
 	respond(req, nil);
 }
 
+Rune
+kbcompat(Rune r)
+{
+	static Rune o = Spec|0x60, tab[] = {
+		Kshift, Kbreak, Kctl, Kalt,
+		Kcaps, Knum, Kmiddle, Kaltgr,
+	};
+	if(r >= o && r < o+nelem(tab))
+		return tab[r - o];
+	return r;
+}
+
 void
 kbmapwrite(Req *req)
 {
@@ -880,7 +882,7 @@ kbmapwrite(Req *req)
 				r = strtoul(lp, &lp, 0);
 			else
 				goto Badarg;
-			*rp = r;
+			*rp = kbcompat(r);
 			lp = line;
 		}
 	}
