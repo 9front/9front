@@ -259,8 +259,6 @@ kbdputsc(Scan *scan, int c)
 	else
 		key.r = kbtab[c];
 
-	key.r = key.r;
-
 	if(scan->esc1 || kbtab[c] == 0)
 		key.b = key.r;
 	else
