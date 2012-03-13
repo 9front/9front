@@ -77,3 +77,4 @@ OT: how do 9fans backup their Mac(book)?
 Adapt an existing Javascript implementation of Styx/9P to use HTML5 WebSockets -- or implement one from scratch -- and create a 9P file server that provides a simple draw device using keyboard, mouse event handling and either an SVG or a Canvas element for display.
 For some, rio represents a barrier to entry
 It would be nice to have an alternative window manager for those people who don't like rio, perhaps something with more traditional title bars, minimize/maximize/close buttons, etc.
+Why not as a JS library?
