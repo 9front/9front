@@ -10,7 +10,7 @@ int debug;
 
 enum
 {
-	IDATSIZE = 1000000,
+	IDATSIZE = 8*1024*1024,
 
 	/* filtering algorithms */
 	FilterNone =	0,	/* new[x][y] = buf[x][y] */
