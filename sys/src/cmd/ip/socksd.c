@@ -3,8 +3,8 @@
 #include <ip.h>
 
 int socksver;
-char *inside = "/net";
-char *outside = "/net";
+char inside[128];
+char outside[128];
 
 int
 str2addr(char *s, uchar *a)
@@ -203,9 +203,14 @@ main(int argc, char *argv[])
 
 	fmtinstall('I', eipfmt);
 
+	setnetmtpt(inside, sizeof(inside), 0);
+	setnetmtpt(outside, sizeof(outside), 0);
 	ARGBEGIN {
 	case 'x':
-		outside = ARGF();
+		setnetmtpt(inside, sizeof(inside), ARGF());
+		break;
+	case 'o':
+		setnetmtpt(outside, sizeof(outside), ARGF());
 		break;
 	} ARGEND;
 
