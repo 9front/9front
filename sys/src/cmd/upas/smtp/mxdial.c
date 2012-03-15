@@ -32,7 +32,6 @@ mxdial(char *addr, char *ddomain, char *gdomain)
 {
 	int fd;
 	DS ds;
-	char err[Errlen];
 
 	addr = netmkaddr(addr, 0, "smtp");
 	dial_string_parse(addr, &ds);
@@ -41,8 +40,7 @@ mxdial(char *addr, char *ddomain, char *gdomain)
 	fd = callmx(&ds, addr, ddomain);
 
 	/* try our mail gateway */
-	rerrstr(err, sizeof(err));
-	if(fd < 0 && gdomain && strstr(err, "can't translate") != 0)
+	if(fd < 0 && gdomain)
 		fd = dial(netmkaddr(gdomain, 0, "smtp"), 0, 0, 0);
 
 	return fd;
@@ -157,7 +155,7 @@ mxlookup(DS *ds, char *domain)
 	else {
 		ds->netdir = "/net";
 		n = mxlookup1(ds, domain);
-		if(n == 0) {
+		if(n <= 0) {
 			ds->netdir = "/net.alt";
 			n = mxlookup1(ds, domain);
 		}
