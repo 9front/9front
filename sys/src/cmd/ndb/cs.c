@@ -336,6 +336,10 @@ ndbinit(void)
 	if(db == nil)
 		error("can't open network database");
 
+	for(netdb = db; netdb; netdb = netdb->next)
+		if(strcmp(netdb->file, netndb) == 0)
+			return;
+
 	netdb = ndbopen(netndb);
 	if(netdb != nil){
 		netdb->nohash = 1;

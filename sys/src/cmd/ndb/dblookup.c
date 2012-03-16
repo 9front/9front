@@ -72,6 +72,12 @@ opendatabase(void)
 	xdb = ndbopen(dbfile);		/* /lib/ndb */
 
 	snprint(netdbnm, sizeof netdbnm, "%s/ndb", mntpt);
+	for(netdb = xdb; netdb; netdb = netdb->next)
+		if(strcmp(netdb->file, netdbnm) == 0){
+			db = xdb;
+			return 0;
+		}
+
 	netdb = ndbopen(netdbnm);	/* /net/ndb */
 	if(netdb)
 		netdb->nohash = 1;
