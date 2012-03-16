@@ -11,17 +11,14 @@ class Webconn:
 			self.dir = mnt+'/'+ctl.readline().rstrip('\n')
 			ctl.seek(0)
 			ctl.write('url '+self.url)
-			m = ''
+			m = 'User-Agent: mercurial/proto-1.0\r\n';
 			for h in req.headers:
 				m += h+': '+req.headers[h]+'\r\n'
-			if len(m) > 0:
-				m = 'headers '+m
-				print m
-				ctl.seek(0)
-				ctl.write(m)
+			ctl.seek(0)
+			ctl.write('headers '+m)
 			if req.has_data():
 				data = req.get_data()
-				post = open(self.dir+'/postdata', 'w', 0);
+				post = open(self.dir+'/postbody', 'w', 0);
 				try:
 					while True:
 						buf = data.read(4096)
