@@ -6,7 +6,7 @@ syntax: regexp
 ^sys/lib/python/.*\.(pyo|pyc|exe)$
 ^sys/log/
 ^sys/man/(searchindex|[1-8]/INDEX.*)$
-^(dev|fd|net|srv|shr|env|root|boot|mnt|n|bin|usr|cfg|cron|mail|tmp)/
+^(dev|fd|net.*|srv|shr|env|root|boot|mnt|n|bin|usr|cfg|cron|mail|tmp)/
 ^(386|68000|68020|alpha|amd64|arm|power|power64|sparc|sparc64)/(bin|lib)/
 ^386/(9(pc|boot).*|pbs|mbr|init)
 ^acme/bin/(386|68000|68020|alpha|amd64|arm|power|power64|sparc|sparc64)/
