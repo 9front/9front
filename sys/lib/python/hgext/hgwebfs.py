@@ -12,8 +12,8 @@ class Webconn:
 			ctl.seek(0)
 			ctl.write('url '+self.url)
 			m = ''
-			for h,v in req.headers:
-				m += h+': '+v+'\r\n'
+			for h in req.headers:
+				m += h+': '+req.headers[h]+'\r\n'
 			if len(m) > 0:
 				m = 'headers '+m
 				print m
