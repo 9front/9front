@@ -415,7 +415,7 @@ confinit(void)
 		 * 4MB on the first Image chunk allocation.
 		 */
 		if(conf.npage*BY2PG < 16*MB)
-			imagmem->minarena = 4*1024*1024;
+			imagmem->minarena = 4*MB;
 	}
 
 	/*
@@ -440,13 +440,16 @@ confinit(void)
 		+ conf.nswap
 		+ conf.nswppo*sizeof(Page*);
 	mainmem->maxsize = kpages;
-	if(!cpuserver){
-		/*
-		 * give terminals lots of image memory, too; the dynamic
-		 * allocation will balance the load properly, hopefully.
-		 * be careful with 32-bit overflow.
-		 */
-		imagmem->maxsize = kpages;
+
+	/*
+	 * the dynamic allocation will balance the load properly,
+	 * hopefully. be careful with 32-bit overflow.
+	 */
+	imagmem->maxsize = mainmem->maxsize;
+	if(p = getconf("*imagemaxmb")){
+		imagmem->maxsize = strtol(p, nil, 0)*MB;
+		if(imagmem->maxsize > mainmem->maxsize)
+			imagmem->maxsize = mainmem->maxsize;
 	}
 }
 
