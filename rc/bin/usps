@@ -9,12 +9,13 @@ if(! ~ $#* 1) {
 
 rfork e
 
-hget -p 'origTrackNum='^$1 http://trkcnfrm1.smi.usps.com/PTSInternetWeb/InterLabelInquiry.do |
-	htmlfmt > /tmp/usps.$pid
+hget -p 'qtc_tLabels1='^$1 https://tools.usps.com/go/TrackConfirmAction |
+	uhtml | htmlfmt > /tmp/usps.$pid
 
 sam -d /tmp/usps.$pid >[2] /dev/null <<'!'
-0,/Label/-1d
-/^Enter Label/,$d
+,/Your Label Number/-1d
+/Check on Another Item/,$d
+/id=\"error-tLabels\"/,$d
 ,p
 !
 rm /tmp/usps.$pid
