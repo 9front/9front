@@ -599,7 +599,6 @@ void plrdplain(char *name, int fd, Www *dst){
 	g.state->margin=0;
 	g.state->indent=20;
 	g.state->ismap=0;
-	g.state->table=0;
 	g.dst=dst;
 	g.hfd=fd;
 	g.name=name;
@@ -639,7 +638,6 @@ void plrdhtml(char *name, int fd, Www *dst){
 	g.state->ismap=0;
 	g.state->width=0;
 	g.state->height=0;
-	g.state->table=0;
 	g.dst=dst;
 	g.hfd=fd;
 	g.name=name;
@@ -718,16 +716,11 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_html:
 		case Tag_link:
 		case Tag_nextid:
-			break;
 		case Tag_table:
-			g.state->table++;
 			break;
 		case Tag_tr:
-			if(g.state->table==1){
-				g.spacc=0;
-				g.linebrk=1;
-			} else
-				g.spacc++;
+			g.spacc=0;
+			g.linebrk=1;
 			break;
 		case Tag_td:
 			g.spacc++;
@@ -1057,11 +1050,8 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_title:
 		case Tag_ul:
 		case Tag_xmp:
-			g.linebrk=1;
-			break;
 		case Tag_table:
-			if(g.state->table==0)
-				g.linebrk=1;
+			g.linebrk=1;
 			break;
 		case Tag_pre:
 			pl_linespace(&g);

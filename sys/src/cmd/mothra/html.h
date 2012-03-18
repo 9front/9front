@@ -35,7 +35,6 @@ struct Stack{
 	int ismap;		/* flag of <img> */
 	int width;		/* size of image */
 	int height;
-	int	table;		/* depth of table nesting */
 	char image[NNAME];	/* arg of <img> */
 	char link[NNAME];	/* arg of <a href=...> */
 	char name[NNAME];	/* arg of <a name=...> */
