@@ -78,3 +78,5 @@ Adapt an existing Javascript implementation of Styx/9P to use HTML5 WebSockets -
 For some, rio represents a barrier to entry
 It would be nice to have an alternative window manager for those people who don't like rio, perhaps something with more traditional title bars, minimize/maximize/close buttons, etc.
 Why not as a JS library?
+colorize procs, they were monochrome.
+ANGRY ABOUT THAT MEGA-SHIT????
