@@ -5,7 +5,7 @@ bind -qc /n/other/usr/$user/tmp $home/tmp
 bind -c $home/tmp /tmp
 if(! syscall create /tmp/xxx 1 0666 >[2]/dev/null)
 	ramfs	# in case we're running off a cd
-font=/lib/font/bit/vga/vga.font
+font=/lib/font/bit/vga/unicode.font
 fn cd { builtin cd $* && awd }  # for acme
 switch($service){
 case terminal

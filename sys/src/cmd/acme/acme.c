@@ -104,7 +104,7 @@ threadmain(int argc, char *argv[])
 	if(fontnames[0] == nil)
 		fontnames[0] = getenv("font");
 	if(fontnames[0] == nil)
-		fontnames[0] = "/lib/font/bit/vga/vga.font";
+		fontnames[0] = "/lib/font/bit/vga/unicode.font";
 	if(access(fontnames[0], 0) < 0){
 		fprint(2, "acme: can't access %s: %r\n", fontnames[0]);
 		exits("font open");
