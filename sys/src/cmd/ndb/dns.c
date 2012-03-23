@@ -33,7 +33,6 @@ static volatile int stop;
 struct Mfile
 {
 	Mfile		*next;		/* next free mfile */
-	int		ref;
 
 	char		*user;
 	Qid		qid;
@@ -339,8 +338,7 @@ freefid(Mfile *mf)
 	for(l = &mfalloc.inuse; *l != nil; l = &(*l)->next)
 		if(*l == mf){
 			*l = mf->next;
-			if(mf->user)
-				free(mf->user);
+			free(mf->user);
 			memset(mf, 0, sizeof *mf);	/* cause trouble */
 			free(mf);
 			unlock(&mfalloc);

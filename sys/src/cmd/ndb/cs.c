@@ -32,7 +32,8 @@ int vers;		/* incremented each clone/attach */
 
 struct Mfile
 {
-	int		busy;
+	int		busy;	/* fid in use */
+	int		ref;	/* cleanup when drops to zero */
 
 	char		*user;
 	Qid		qid;
@@ -72,7 +73,7 @@ struct Job
 	Fcall	request;
 	Fcall	reply;
 };
-Lock	joblock;
+QLock	joblock;
 Job	*joblist;
 
 Mlist	*mlist;
@@ -121,8 +122,8 @@ void	cleanmf(Mfile*);
 
 extern void	paralloc(void);
 
-Lock	dblock;		/* mutex on database operations */
-Lock	netlock;	/* mutex for netinit() */
+QLock	dblock;		/* mutex on database operations */
+QLock	netlock;	/* mutex for netinit() */
 
 char	*logfile = "cs";
 char	*paranoiafile = "cs.paranoia";
@@ -167,7 +168,7 @@ Network network[] = {
 	{ 0 },
 };
 
-Lock ipifclock;
+QLock ipifclock;
 Ipifc *ipifcs;
 
 char	eaddr[16];		/* ascii ethernet address */
@@ -357,7 +358,7 @@ newfid(int fid)
 	for(f = mlist; f; f = f->next)
 		if(f->mf.busy && f->mf.fid == fid)
 			return &f->mf;
-		else if(!ff && !f->mf.busy)
+		else if(!ff && !f->mf.busy && !f->mf.ref)
 			ff = f;
 	if(ff == 0){
 		ff = emalloc(sizeof *f);
@@ -376,11 +377,11 @@ newjob(void)
 	Job *job;
 
 	job = mallocz(sizeof(Job), 1);
-	lock(&joblock);
+	qlock(&joblock);
 	job->next = joblist;
 	joblist = job;
 	job->request.tag = -1;
-	unlock(&joblock);
+	qunlock(&joblock);
 	return job;
 }
 
@@ -389,15 +390,15 @@ freejob(Job *job)
 {
 	Job **l;
 
-	lock(&joblock);
+	qlock(&joblock);
 	for(l = &joblist; *l; l = &(*l)->next){
 		if((*l) == job){
 			*l = job->next;
-			free(job);
 			break;
 		}
 	}
-	unlock(&joblock);
+	qunlock(&joblock);
+	free(job);
 }
 
 void
@@ -405,14 +406,14 @@ flushjob(int tag)
 {
 	Job *job;
 
-	lock(&joblock);
+	qlock(&joblock);
 	for(job = joblist; job; job = job->next){
 		if(job->request.tag == tag && job->request.type != Tflush){
 			job->flushed = 1;
 			break;
 		}
 	}
-	unlock(&joblock);
+	qunlock(&joblock);
 }
 
 void
@@ -448,7 +449,7 @@ io(void)
 			freejob(job);
 			continue;
 		}
-		lock(&dblock);
+		qlock(&dblock);
 		mf = newfid(job->request.fid);
 		if(debug)
 			syslog(0, logfile, "%F", &job->request);
@@ -498,7 +499,7 @@ io(void)
 			rwstat(job, mf);
 			break;
 		}
-		unlock(&dblock);
+		qunlock(&dblock);
 
 		freejob(job);
 
@@ -668,6 +669,8 @@ rread(Job *job, Mfile *mf)
 	err = 0;
 	off = job->request.offset;
 	cnt = job->request.count;
+	mf->ref++;
+
 	if(mf->qid.type & QTDIR){
 		clock = time(0);
 		if(off == 0){
@@ -686,38 +689,44 @@ rread(Job *job, Mfile *mf)
 			n = convD2M(&dir, buf, sizeof buf);
 		}
 		job->reply.data = (char*)buf;
-	} else {
-		for(;;){
-			/* look for an answer at the right offset */
-			toff = 0;
-			for(i = 0; mf->reply[i] && i < mf->nreply; i++){
-				n = mf->replylen[i];
-				if(off < toff + n)
-					break;
-				toff += n;
-			}
-			if(i < mf->nreply)
-				break;		/* got something to return */
-
-			/* try looking up more answers */
-			if(lookup(mf) == 0){
-				/* no more */
-				n = 0;
-				goto send;
-			}
-		}
-
-		/* give back a single reply (or part of one) */
-		job->reply.data = mf->reply[i] + (off - toff);
-		if(cnt > toff - off + n)
-			n = toff - off + n;
-		else
-			n = cnt;
+		goto send;
 	}
+
+	for(;;){
+		/* look for an answer at the right offset */
+		toff = 0;
+		for(i = 0; mf->reply[i] && i < mf->nreply; i++){
+			n = mf->replylen[i];
+			if(off < toff + n)
+				break;
+			toff += n;
+		}
+		if(i < mf->nreply)
+			break;		/* got something to return */
+
+		/* try looking up more answers */
+		if(lookup(mf) == 0 || job->flushed){
+			/* no more */
+			n = 0;
+			goto send;
+		}
+	}
+
+	/* give back a single reply (or part of one) */
+	job->reply.data = mf->reply[i] + (off - toff);
+	if(cnt > toff - off + n)
+		n = toff - off + n;
+	else
+		n = cnt;
+
 send:
 	job->reply.count = n;
 	sendmsg(job, err);
+
+	if(--mf->ref == 0 && mf->busy == 0)
+		cleanmf(mf);
 }
+
 void
 cleanmf(Mfile *mf)
 {
@@ -814,6 +823,12 @@ rwrite(Job *job, Mfile *mf)
 		goto send;
 	}
 
+	if(mf->ref){
+		err = "query already in progress";
+		goto send;
+	}
+	mf->ref++;
+
 	/* start transaction with a clean slate */
 	cleanmf(mf);
 
@@ -822,14 +837,13 @@ rwrite(Job *job, Mfile *mf)
 	 */
 	if(*job->request.data == '!'){
 		err = genquery(mf, job->request.data+1);
-		goto send;
+		goto done;
 	}
 
 	if(debug)
 		syslog(0, logfile, "write %s", job->request.data);
 	if(paranoia)
 		syslog(0, paranoiafile, "write %s by %s", job->request.data, mf->user);
-
 	/*
 	 *  break up name
 	 */
@@ -858,6 +872,11 @@ rwrite(Job *job, Mfile *mf)
 		rerrstr(curerr, sizeof curerr);
 		err = curerr;
 	}
+
+done:
+	if(--mf->ref == 0 && mf->busy == 0)
+		cleanmf(mf);
+
 send:
 	job->reply.count = cnt;
 	sendmsg(job, err);
@@ -866,11 +885,12 @@ send:
 void
 rclunk(Job *job, Mfile *mf)
 {
-	cleanmf(mf);
+	if(mf->ref == 0)
+		cleanmf(mf);
 	free(mf->user);
 	mf->user = 0;
-	mf->busy = 0;
 	mf->fid = 0;
+	mf->busy = 0;
 	sendmsg(job, 0);
 }
 
@@ -933,11 +953,11 @@ sendmsg(Job *job, char *err)
 		syslog(1, logfile, "sendmsg convS2M of %F returns 0", &job->reply);
 		abort();
 	}
-	lock(&joblock);
+	qlock(&joblock);
 	if(job->flushed == 0)
 		if(write(mfd[1], mdata, n)!=n)
 			error("mount write");
-	unlock(&joblock);
+	qunlock(&joblock);
 	if(debug)
 		syslog(0, logfile, "%F %d", &job->reply, n);
 }
@@ -1082,7 +1102,7 @@ netinit(int background)
 		default:
 			return;
 		}
-		lock(&netlock);
+		qlock(&netlock);
 	}
 
 	/* add the mounted networks to the default list */
@@ -1112,7 +1132,7 @@ netinit(int background)
 			mysysname?mysysname:"???", eaddr, ipaddr, ipa);
 
 	if(background){
-		unlock(&netlock);
+		qunlock(&netlock);
 		_exits(0);
 	}
 }
@@ -1276,7 +1296,7 @@ ipserv(Network *np, char *name, char *buf, int blen)
 
 	/* '*' means any service */
 	if(strcmp(name, "*")==0){
-		strcpy(buf, name);
+		nstrcpy(buf, name, blen);
 		return buf;
 	}
 
@@ -1384,6 +1404,7 @@ iplookup(Network *np, char *host, char *serv, int nolookup)
 	if(strcmp("::", host) == 0)
 		return ndbnew("ip", "*");
 
+
 	/*
 	 *  '$' means the rest of the name is an attribute that we
 	 *  need to search for
@@ -1396,9 +1417,15 @@ iplookup(Network *np, char *host, char *serv, int nolookup)
 	/*
 	 *  turn '[ip address]' into just 'ip address'
 	 */
-	if(*host == '[' && host[strlen(host)-1] == ']'){
-		host++;
-		host[strlen(host)-1] = 0;
+	if(*host == '['){
+		char *x;
+
+		if(host != dollar){
+			nstrcpy(dollar, host, sizeof dollar);
+			host = dollar;
+		}
+		if(x = strchr(++host, ']'))
+			*x = 0;
 	}
 
 	/*
@@ -1439,7 +1466,7 @@ iplookup(Network *np, char *host, char *serv, int nolookup)
 	/*
 	 * reorder according to our interfaces
 	 */
-	lock(&ipifclock);
+	qlock(&ipifclock);
 	for(ifc = ipifcs; ifc != nil; ifc = ifc->next){
 		for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next){
 			maskip(lifc->ip, lifc->mask, net);
@@ -1450,13 +1477,13 @@ iplookup(Network *np, char *host, char *serv, int nolookup)
 				maskip(ip, lifc->mask, tnet);
 				if(memcmp(net, tnet, IPaddrlen) == 0){
 					t = reorder(t, nt);
-					unlock(&ipifclock);
+					qunlock(&ipifclock);
 					return t;
 				}
 			}
 		}
 	}
-	unlock(&ipifclock);
+	qunlock(&ipifclock);
 
 	return t;
 }
@@ -1602,7 +1629,7 @@ dnsip6lookup(char *mntpt, char *buf, Ndbtuple *t)
 	/* convert ipv6 attr to ip */
 	for (tt = t6; tt != nil; tt = tt->entry)
 		if (strcmp(tt->attr, "ipv6") == 0)
-			strncpy(tt->attr, "ip", sizeof tt->attr - 1);
+			strcpy(tt->attr, "ip");
 
 	if (t == nil)
 		return t6;
@@ -1623,20 +1650,16 @@ dnsiplookup(char *host, Ndbs *s)
 	char buf[Maxreply];
 	Ndbtuple *t;
 
-	unlock(&dblock);
-
-	/* save the name before starting a slave */
-	snprint(buf, sizeof(buf), "%s", host);
-
+	qunlock(&dblock);
 	slave(host);
 
-	if(strcmp(ipattr(buf), "ip") == 0)
-		t = dnsquery(mntpt, buf, "ptr");
+	if(strcmp(ipattr(host), "ip") == 0)
+		t = dnsquery(mntpt, host, "ptr");
 	else {
-		t = dnsquery(mntpt, buf, "ip");
+		t = dnsquery(mntpt, host, "ip");
 		/* special case: query ipv6 (AAAA dns RR) too */
 		if (ipv6lookups)
-			t = dnsip6lookup(mntpt, buf, t);
+			t = dnsip6lookup(mntpt, host, t);
 	}
 	s->t = t;
 
@@ -1648,7 +1671,7 @@ dnsiplookup(char *host, Ndbs *s)
 			werrstr("temporary problem: %s", buf);
 	}
 
-	lock(&dblock);
+	qlock(&dblock);
 	return t;
 }
 
@@ -1787,7 +1810,7 @@ ipresolve(char *attr, char *host)
 			ndbfree(nt);
 			continue;
 		}
-		strcpy(nt->attr, attr);
+		nstrcpy(nt->attr, attr, sizeof(nt->attr));
 		l = &nt->entry;
 	}
 	return t;

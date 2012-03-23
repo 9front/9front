@@ -81,12 +81,17 @@ mkptrname(char *ip, char *rip, int rlen)
 	char *p, *np;
 	int len;
 
-	if(strstr(ip, "in-addr.arpa") || strstr(ip, "IN-ADDR.ARPA")){
+	if(cistrstr(ip, "in-addr.arpa")){
 		nstrcpy(rip, ip, rlen);
 		return;
 	}
-
 	nstrcpy(buf, ip, sizeof buf);
+
+	/* truncate if result wont fit in rip[rlen] */
+	assert(rlen > 14);
+	if((rlen-14) < sizeof(buf))
+		buf[rlen-14] = 0;
+
 	for(p = buf; *p; p++)
 		;
 	*p = '.';

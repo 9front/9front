@@ -31,7 +31,7 @@ struct Ndb
 
 	ulong		mtime;		/* mtime of db file */
 	Qid		qid;		/* qid of db file */
-	char		file[128];/* path name of db file */
+	char		file[128];	/* path name of db file */
 	ulong		length;		/* length of db file */
 
 	int		nohash;		/* don't look for hash files */
