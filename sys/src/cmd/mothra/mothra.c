@@ -627,6 +627,14 @@ void docmd(Panel *p, char *s){
 	case 'g':
 		s = arg(s);
 		if(*s=='\0'){
+	case 'r':
+			if(selection)
+				s = urlstr(selection);
+			else
+				message("no url selected");
+		}
+		geturl(s, GET, 0, 0, 0);
+		break;
 	case 'j':
 		s = arg(s);
 		if(*s)
@@ -636,14 +644,6 @@ void docmd(Panel *p, char *s){
 		break;
 	case 'm':
 		mothon(current, !mothmode);
-		break;
-	case 'r':
-			if(selection)
-				s = urlstr(selection);
-			else
-				message("no url selected");
-		}
-		geturl(s, GET, 0, 0, 0);
 		break;
 	case 'w':
 	case 'W':
@@ -1130,14 +1130,17 @@ void hit3(int button, int item){
 		swap=root;
 		root=alt;
 		alt=swap;
-		current->yoffs=plgetpostextview(text);
+		if(current)
+			current->yoffs=plgetpostextview(text);
 		swap=text;
 		text=alttext;
 		alttext=swap;
 		defdisplay=!defdisplay;
 		plpack(root, screen->r);
-		plinittextview(text, PACKE|EXPAND, Pt(0, 0), current->text, dolink);
-		plsetpostextview(text, current->yoffs);
+		if(current){
+			plinittextview(text, PACKE|EXPAND, Pt(0, 0), current->text, dolink);
+			plsetpostextview(text, current->yoffs);
+		}
 		pldraw(root, screen);
 		break;
 	case 1:
