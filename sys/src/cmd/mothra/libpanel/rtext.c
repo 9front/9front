@@ -153,8 +153,13 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 	Point offs;
 	Rectangle dr;
 	Rectangle cr;
+	Rectangle xr;
+
+	xr=r;
 	cr=b->clipr;
-	replclipr(b, b->repl, r);
+	if(!rectclip(&xr, cr))
+		return;
+	replclipr(b, b->repl, xr);
 	pl_clr(b, r);
 	offs=subpt(r.min, Pt(0, yoffs));
 	for(;t;t=t->next) if(!eqrect(t->r, Rect(0,0,0,0))){
@@ -162,7 +167,6 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 		if(dr.max.y>r.min.y
 		&& dr.min.y<r.max.y){
 			if(t->b){
-//				bitblt(b, dr.min, t->b, t->b->r, S|D);
 				draw(b, Rpt(dr.min, addpt(dr.min, subpt(t->b->r.max, t->b->r.min))), t->b, 0, t->b->r.min);
 				if(t->hot) border(b, insetrect(dr, -2), 1, display->black, ZP);
 			}

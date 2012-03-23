@@ -152,8 +152,6 @@ void pl_interior(int state, Point *ul, Point *size){
 void pl_drawicon(Image *b, Rectangle r, int stick, int flags, Icon *s){
 	Rectangle save;
 	Point ul, offs;
-	save=b->clipr;
-	replclipr(b, b->repl, r);
 	ul=r.min;
 	offs=subpt(subpt(r.max, r.min), pl_iconsize(flags, s));
 	switch(stick){
@@ -167,6 +165,10 @@ void pl_drawicon(Image *b, Rectangle r, int stick, int flags, Icon *s){
 	case PLACES:	ul.x+=offs.x/2; ul.y+=offs.y;   break;
 	case PLACESE:	ul.x+=offs.x;   ul.y+=offs.y;   break;
 	}
+	save=b->clipr;
+	if(!rectclip(&r, save))
+		return;
+	replclipr(b, b->repl, r);
 	if(flags&BITMAP) draw(b, Rpt(ul, addpt(ul, pl_iconsize(flags, s))), s, 0, ZP);
 	else string(b, ul, pl_black, ZP, font, s);
 	replclipr(b, b->repl, save);
