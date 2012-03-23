@@ -88,6 +88,7 @@ void updtext(Www *);
 void dolink(Panel *, int, Rtext *);
 void hit3(int, int);
 void mothon(Www *, int);
+void killpix(Www *w);
 char *buttons[]={
 	"alt display",
 	"moth mode",
@@ -645,6 +646,9 @@ void docmd(Panel *p, char *s){
 	case 'm':
 		mothon(current, !mothmode);
 		break;
+	case 'k':
+		killpix(current);
+		break;
 	case 'w':
 	case 'W':
 		s = arg(s);
@@ -934,7 +938,6 @@ void freeurl(Url *u){
 void geturl(char *urlname, int method, char *body, int plumb, int map){
 	int i, fd, typ, pfd[2];
 	char cmd[NNAME];
-	Rtext *t;
 	ulong n;
 	Www *w;
 
@@ -988,15 +991,8 @@ void geturl(char *urlname, int method, char *body, int plumb, int map){
 			for(i=wwwtop-1; i>=0 && i!=(wwwtop-NWWW-1); i--){
 				w = www(i);
 				n += countpix(w->pix);
-				if(n < NPIXMB*1024*1024)
-					continue;
-				if(!w->finished && !w->alldone)
-					continue;
-				for(t=w->text; t; t=t->next)
-					if(t->b && t->user)
-						t->b=0;
-				freepix(w->pix);
-				w->pix=0;
+				if(n >= NPIXMB*1024*1024)
+					killpix(w);
 			}
 			w = www(i = wwwtop++);
 			if(i >= NWWW){
@@ -1046,6 +1042,8 @@ void updtext(Www *w){
 			a->field=0;
 		}
 	}
+	if(w != current)
+		return;
 	w->yoffs=plgetpostextview(text);
 	plinittextview(text, PACKE|EXPAND, Pt(0, 0), w->text, dolink);
 	plsetpostextview(text, w->yoffs);
@@ -1066,7 +1064,7 @@ mothon(Www *w, int on)
 	Rtext *t, *x;
 	Action *a, *ap;
 
-	if(current == nil || mothmode == on)
+	if(w==0 || mothmode==on)
 		return;
 	if(mothmode = on)
 		message("moth mode!");
@@ -1095,6 +1093,19 @@ mothon(Www *w, int on)
 	}
 	updtext(w);
 	donecurs();
+}
+
+void killpix(Www *w){
+	Rtext *t;
+
+	if(w==0 || !w->finished && !w->alldone)
+		return;
+	for(t=w->text; t; t=t->next)
+		if(t->b && t->user)
+			t->b=0;
+	freepix(w->pix);
+	w->pix=0;
+	updtext(w);
 }
 
 void snarf(Panel *p){
