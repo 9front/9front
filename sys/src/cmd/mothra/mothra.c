@@ -87,6 +87,7 @@ char *genwww(Panel *, int);
 void updtext(Www *);
 void dolink(Panel *, int, Rtext *);
 void hit3(int, int);
+void mothon(Www *, int);
 char *buttons[]={
 	"alt display",
 	"moth mode",
@@ -626,6 +627,16 @@ void docmd(Panel *p, char *s){
 	case 'g':
 		s = arg(s);
 		if(*s=='\0'){
+	case 'j':
+		s = arg(s);
+		if(*s)
+			doprev(nil, 1, wwwtop-atoi(s));
+		else
+			message("Usage: j index");
+		break;
+	case 'm':
+		mothon(current, !mothmode);
+		break;
 	case 'r':
 			if(selection)
 				s = urlstr(selection);
@@ -633,13 +644,6 @@ void docmd(Panel *p, char *s){
 				message("no url selected");
 		}
 		geturl(s, GET, 0, 0, 0);
-		break;
-	case 'j':
-		s = arg(s);
-		if(*s)
-			doprev(nil, 1, wwwtop-atoi(s));
-		else
-			message("Usage: j index");
 		break;
 	case 'w':
 	case 'W':
