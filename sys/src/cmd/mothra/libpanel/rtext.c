@@ -167,7 +167,7 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 		if(dr.max.y>r.min.y
 		&& dr.min.y<r.max.y){
 			if(t->b){
-				draw(b, Rpt(dr.min, addpt(dr.min, subpt(t->b->r.max, t->b->r.min))), t->b, 0, t->b->r.min);
+				draw(b, dr, t->b, 0, t->b->r.min);
 				if(t->hot) border(b, insetrect(dr, -2), 1, display->black, ZP);
 			}
 			else if(t->p){
