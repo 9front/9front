@@ -78,6 +78,7 @@ static char *nametab[] = {
 
 static long time0;
 static char *user;
+static char *agent;
 static Client client[64];
 static int nclient;
 
@@ -398,8 +399,8 @@ fsopen(Req *r)
 				m = cl->request;
 			if(!lookkey(cl->hdr, "Connection"))
 				cl->hdr = addkey(cl->hdr, "Connection", "keep-alive");
-			if(!lookkey(cl->hdr, "User-Agent"))
-				cl->hdr = addkey(cl->hdr, "User-Agent", "hjdicks");
+			if(agent && !lookkey(cl->hdr, "User-Agent"))
+				cl->hdr = addkey(cl->hdr, "User-Agent", agent);
 			http(m, cl->url, cl->hdr, cl->qbody, f->buq);
 			cl->request[0] = 0;
 			cl->url = nil;
@@ -521,6 +522,15 @@ rootctl(char *ctl, char *arg)
 	if(debug)
 		fprint(2, "rootctl: %q %q\n", ctl, arg);
 
+	if(!strcmp(ctl, "useragent")){
+		free(agent);
+		if(arg && *arg)
+			agent = estrdup(arg);
+		else
+			agent = nil;
+		return nil;
+	}
+
 	if(!strcmp(ctl, "flushauth")){
 		u = nil;
 		if(arg && *arg)
@@ -529,6 +539,7 @@ rootctl(char *ctl, char *arg)
 		freeurl(u);
 		return nil;
 	}
+
 	return "bad ctl message";
 }
 
@@ -719,6 +730,7 @@ main(int argc, char *argv[])
 
 	rfork(RFNOTEG);
 
+	agent = estrdup("hjdicks");
 	if(s = getenv("httpproxy")){
 		proxy = saneurl(url(s, 0));
 		free(s);
