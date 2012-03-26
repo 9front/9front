@@ -120,12 +120,11 @@ remdot(char *s)
 
 	dir = 1;
 	b = d = s;
-	while(*s == '/')
+	if(*s == '/')
 		s++;
 	for(; s; s = p){
 		if(p = strchr(s, '/'))
-			while(*p == '/')
-				*p++ = 0;
+			*p++ = 0;
 		if(*s == '.' && ((s[1] == 0) || (s[1] == '.' && s[2] == 0))){
 			if(s[1] == '.')
 				while(d > b)
@@ -135,10 +134,10 @@ remdot(char *s)
 			continue;
 		} else
 			dir = (p != nil);
-		n = strlen(s);
-		memmove(d+1, s, n);
-		*d = '/';
-		d += n+1;
+		if((n = strlen(s)) > 0)
+			memmove(d+1, s, n);
+		*d++ = '/';
+		d += n;
 	}
 	if(dir)
 		*d++ = '/';
@@ -156,7 +155,7 @@ abspath(char *s, char *b)
 			return estrdup(b);
 		if(*s != '/' && (x = strrchr(b, '/'))){
 			a = emalloc((x - b) + strlen(s) + 4);
-			sprint(a, "/%.*s/%s", (int)(x - b), b, s);
+			sprint(a, "%.*s/%s", (int)(x - b), b, s);
 			return remdot(a);
 		}
 	}
@@ -164,7 +163,7 @@ abspath(char *s, char *b)
 		if(*s != '/')
 			return estrdup(s);
 		a = emalloc(strlen(s) + 4);
-		sprint(a, "/%s", s);
+		sprint(a, "%s", s);
 		return remdot(a);
 	}
 	return nil;
