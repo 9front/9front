@@ -918,7 +918,7 @@ i82563im(Ctlr *ctlr, int im)
 static void
 i82563txinit(Ctlr *ctlr)
 {
-	int i, r;
+	uint i, r;
 	Block *b;
 
 	if(cttab[ctlr->type].flag & F75)
@@ -926,14 +926,6 @@ i82563txinit(Ctlr *ctlr)
 	else
 		csr32w(ctlr, Tctl, 0x0F<<CtSHIFT | Psp | 66<<ColdSHIFT | Mulr);
 	csr32w(ctlr, Tipg, 6<<20 | 8<<10 | 8);		/* yb sez: 0x702008 */
-	csr32w(ctlr, Tdbal, PCIWADDR(ctlr->tdba));
-//	csr32w(ctlr, Tdbah, Pciwaddrh(ctlr->tdba));
-	csr32w(ctlr, Tdbah, 0);
-	csr32w(ctlr, Tdlen, ctlr->ntd * sizeof(Td));
-	ctlr->tdh = PREV(0, ctlr->ntd);
-	csr32w(ctlr, Tdh, 0);
-	ctlr->tdt = 0;
-	csr32w(ctlr, Tdt, 0);
 	for(i = 0; i < ctlr->ntd; i++){
 		if((b = ctlr->tb[i]) != nil){
 			ctlr->tb[i] = nil;
@@ -941,6 +933,13 @@ i82563txinit(Ctlr *ctlr)
 		}
 		memset(&ctlr->tdba[i], 0, sizeof(Td));
 	}
+	csr32w(ctlr, Tdbal, PCIWADDR(ctlr->tdba));
+	csr32w(ctlr, Tdbah, 0);
+	csr32w(ctlr, Tdlen, ctlr->ntd * sizeof(Td));
+	ctlr->tdh = PREV(0, ctlr->ntd);
+	csr32w(ctlr, Tdh, 0);
+	ctlr->tdt = 0;
+	csr32w(ctlr, Tdt, 0);
 	csr32w(ctlr, Tidv, 128);
 	csr32w(ctlr, Tadv, 64);
 	csr32w(ctlr, Tctl, csr32r(ctlr, Tctl) | Ten);
@@ -951,17 +950,14 @@ i82563txinit(Ctlr *ctlr)
 	csr32w(ctlr, Txdctl, r);
 }
 
-#define Next(x, m)	(((x)+1) & (m))
-
-static int
+static uint
 i82563cleanup(Ctlr *c)
 {
 	Block *b;
-	int tdh, m, n;
+	uint tdh, n;
 
 	tdh = c->tdh;
-	m = c->ntd-1;
-	while(c->tdba[n = Next(tdh, m)].status & Tdd){
+	while(c->tdba[n = NEXT(tdh, c->ntd)].status & Tdd){
 		tdh = n;
 		if((b = c->tb[tdh]) != nil){
 			c->tb[tdh] = nil;
@@ -990,30 +986,29 @@ i82563tproc(void *v)
 	Block *bp;
 	Ether *edev;
 	Ctlr *ctlr;
-	int tdh, tdt, m;
+	uint tdt, n;
 
 	edev = v;
 	ctlr = edev->ctlr;
-	tdt = ctlr->tdt;
-	m = ctlr->ntd-1;
-
 	i82563txinit(ctlr);
 
+	tdt = ctlr->tdt;
 	for(;;){
-		tdh = i82563cleanup(ctlr);
-
-		if(Next(tdt, m) == tdh){
+		n = NEXT(tdt, ctlr->ntd);
+		if(n == i82563cleanup(ctlr)){
 			ctlr->txdw++;
 			i82563im(ctlr, Txdw);
 			sleep(&ctlr->trendez, notrim, ctlr);
+			continue;
 		}
 		bp = qbread(edev->oq, 100000);
 		td = &ctlr->tdba[tdt];
 		td->addr[0] = PCIWADDR(bp->rp);
-//		td->addr[1] = Pciwaddrh(bp->rp);
+		td->addr[1] = 0;
 		td->control = Ide|Rs|Ifcs|Teop|BLEN(bp);
+		coherence();
 		ctlr->tb[tdt] = bp;
-		tdt = Next(tdt, m);
+		ctlr->tdt = tdt = n;
 		csr32w(ctlr, Tdt, tdt);
 	}
 }
@@ -1021,16 +1016,15 @@ i82563tproc(void *v)
 static int
 i82563replenish(Ctlr *ctlr, int maysleep)
 {
-	uint rdt, m, i;
+	uint rdt, i;
 	Block *bp;
 	Rbpool *p;
 	Rd *rd;
 
 	rdt = ctlr->rdt;
-	m = ctlr->nrd-1;
 	p = rbtab + ctlr->pool;
 	i = 0;
-	for(; Next(rdt, m) != ctlr->rdh; rdt = Next(rdt, m)){
+	for(; NEXT(rdt, ctlr->nrd) != ctlr->rdh; rdt = NEXT(rdt, ctlr->nrd)){
 		rd = &ctlr->rdba[rdt];
 		if(ctlr->rb[rdt] != nil){
 			iprint("82563: tx overrun\n");
@@ -1053,11 +1047,12 @@ i82563replenish(Ctlr *ctlr, int maysleep)
 		i++;
 		ctlr->rb[rdt] = bp;
 		rd->addr[0] = PCIWADDR(bp->rp);
-	//	rd->addr[1] = Pciwaddrh(bp->rp);
+		rd->addr[1] = 0;
 		rd->status = 0;
 		ctlr->rdfree++;
 	}
 	if(i != 0){
+		coherence();
 		ctlr->rdt = rdt;
 		csr32w(ctlr, Rdt, rdt);
 	}
@@ -1094,7 +1089,6 @@ i82563rxinit(Ctlr *ctlr)
 		csr32w(ctlr, Pbs, 16);
 
 	csr32w(ctlr, Rdbal, PCIWADDR(ctlr->rdba));
-//	csr32w(ctlr, Rdbah, Pciwaddrh(ctlr->rdba));
 	csr32w(ctlr, Rdbah, 0);
 	csr32w(ctlr, Rdlen, ctlr->nrd * sizeof(Rd));
 	ctlr->rdh = 0;
@@ -1131,7 +1125,7 @@ i82563rim(void *v)
 static void
 i82563rproc(void *arg)
 {
-	uint m, rdh, rim, im;
+	uint rdh, rim, im;
 	Block *bp;
 	Ctlr *ctlr;
 	Ether *edev;
@@ -1147,7 +1141,6 @@ i82563rproc(void *arg)
 		im = Rxt0|Rxo|Rxdmt0|Rxseq|Ack;
 	}else
 		im = Rxt0|Rxo|Rxdmt0|Rxseq|Ack;
-	m = ctlr->nrd-1;
 
 	for(;;){
 		i82563im(ctlr, im);
@@ -1201,7 +1194,7 @@ i82563rproc(void *arg)
 			ctlr->rb[rdh] = nil;
 			rd->status = 0;
 			ctlr->rdfree--;
-			ctlr->rdh = rdh = Next(rdh, m);
+			ctlr->rdh = rdh = NEXT(rdh, ctlr->nrd);
 			if(ctlr->nrd-ctlr->rdfree >= 32 || (rim & Rxdmt0))
 				if(i82563replenish(ctlr, 0) == -1)
 					break;
