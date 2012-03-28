@@ -583,7 +583,7 @@ havendb(char *net)
 void
 doadd(int retry)
 {
-	int tries, ppp;
+	int ppp;
 
 	ppp = strcmp(conf.type, "ppp") == 0;
 
@@ -603,12 +603,10 @@ doadd(int retry)
 		if (ip6cfg(ipv6auto) < 0)
 			sysfatal("can't automatically start IPv6 on %s",
 				conf.dev);
-//		return;
 	} else if (validip(conf.laddr) && !isv4(conf.laddr)) {
 		if (ip6cfg(0) < 0)
 			sysfatal("can't start IPv6 on %s, address %I",
 				conf.dev, conf.laddr);
-//		return;
 	}
 
 	if(!validip(conf.laddr) && !ppp)
@@ -620,12 +618,7 @@ doadd(int retry)
 	/* run dhcp if we need something */
 	if(dodhcp){
 		mkclientid();
-		for(tries = 0; tries < 30; tries++){
-			dhcpquery(!noconfig, Sselecting);
-			if(conf.state == Sbound)
-				break;
-			sleep(1000);
-		}
+		dhcpquery(!noconfig, Sselecting);
 	}
 
 	if(!validip(conf.laddr))
@@ -897,7 +890,6 @@ dhcpquery(int needconfig, int startstate)
 	}
 	notify(ding);
 
-	/* try dhcp for 10 seconds */
 	conf.xid = lrand();
 	conf.starttime = time(0);
 	conf.state = startstate;
@@ -918,8 +910,6 @@ dhcpquery(int needconfig, int startstate)
 	while(conf.state != Sbound){
 		dhcprecv();
 		if(dhcptimer() < 0)
-			break;
-		if(time(0) - conf.starttime > 10)
 			break;
 	}
 	close(conf.fd);
