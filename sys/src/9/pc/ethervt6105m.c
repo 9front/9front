@@ -949,7 +949,7 @@ vt6105Minterrupt(Ureg*, void* arg)
 			ctlr->tintr++;
 		}
 		if(isr)
-			panic("vt6105M: isr %4.4uX\n", isr);
+			panic("vt6105M: isr %4.4uX", isr);
 	}
 	ctlr->imr = imr;
 	csr16w(ctlr, Imr, ctlr->imr);

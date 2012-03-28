@@ -240,7 +240,7 @@ ringinit(Ctlr* ctlr)
 		for(dre = ctlr->rdr; dre < &ctlr->rdr[Nrdre]; dre++){
 			dre->bp = iallocb(Rbsize);
 			if(dre->bp == nil)
-				panic("can't allocate ethernet receive ring\n");
+				panic("can't allocate ethernet receive ring");
 			dre->addr = PADDR(dre->bp->rp);
 			dre->md2 = 0;
 			dre->md1 = Own|(-Rbsize & 0xFFFF);

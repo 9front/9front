@@ -789,7 +789,7 @@ vt6102interrupt(Ureg*, void* arg)
 			ctlr->tintr++;
 		}
 		if(isr)
-			panic("vt6102: isr %4.4uX\n", isr);
+			panic("vt6102: isr %4.4uX", isr);
 	}
 	ctlr->imr = imr;
 	csr16w(ctlr, Imr, ctlr->imr);

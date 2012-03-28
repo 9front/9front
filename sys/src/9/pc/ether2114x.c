@@ -562,7 +562,7 @@ interrupt(Ureg*, void* arg)
 		 * Anything left not catered for?
 		 */
 		if(status)
-			panic("#l%d: status %8.8uX\n", ether->ctlrno, status);
+			panic("#l%d: status %8.8uX", ether->ctlrno, status);
 	}
 }
 
@@ -588,7 +588,7 @@ ctlrinit(Ether* ether)
 	for(des = ctlr->rdr; des < &ctlr->rdr[ctlr->nrdr]; des++){
 		des->bp = iallocb(Rbsz);
 		if(des->bp == nil)
-			panic("can't allocate ethernet receive ring\n");
+			panic("can't allocate ethernet receive ring");
 		des->status = Own;
 		des->control = Rbsz;
 		des->addr = PCIWADDR(des->bp->rp);
@@ -621,7 +621,7 @@ ctlrinit(Ether* ether)
 	}
 	bp = iallocb(Eaddrlen*2*16);
 	if(bp == nil)
-		panic("can't allocate ethernet setup buffer\n");
+		panic("can't allocate ethernet setup buffer");
 	memset(bp->rp, 0xFF, sizeof(bi));
 	for(i = sizeof(bi); i < sizeof(bi)*16; i += sizeof(bi))
 		memmove(bp->rp+i, bi, sizeof(bi));

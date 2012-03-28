@@ -759,7 +759,7 @@ pdbunmap(ulong *pdb, ulong va, int size)
 			panic("vunmap: not mapped");
 		if(*table & PTESIZE){
 			if(va & 4*MB-1)
-				panic("vunmap: misaligned: %#p\n", va);
+				panic("vunmap: misaligned: %#p", va);
 			*table = 0;
 			va += 4*MB;
 			continue;

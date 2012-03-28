@@ -608,7 +608,7 @@ tvinit(void)
 		}
 		else if (i2cread(tv, i2c_stbee, &v)) {
 			USED(t);
-			panic("#V: Cannot deal with STB cards\n");
+			panic("#V: Cannot deal with STB cards");
 		}
 		else if (i2cread(tv, i2c_miroproee, &v)) {
 			tv->board = Bt848_miropro;
@@ -1449,7 +1449,7 @@ vstart(Tv *tv, int nframes, int w, int h, int stride)
 				&frames[i].fjmp);
 			break;
 		default:
-			panic("vstart: Unsupport colorformat\n");
+			panic("vstart: Unsupport colorformat");
 		}
 	}
 

@@ -27,7 +27,7 @@ eqlock(QLock *q)
 	if(up != nil && up->eql)
 		print("eqlock: %#p: eql %p\n", getcallerpc(&q), up->eql);
 	if(q->use.key == 0x55555555)
-		panic("eqlock: q %#p, key 5*\n", q);
+		panic("eqlock: q %#p, key 5*", q);
 
 	lock(&q->use);
 	rwstats.qlock++;
@@ -74,7 +74,7 @@ qlock(QLock *q)
 	if(up != nil && up->eql)
 		print("qlock: %#p: eql %p\n", getcallerpc(&q), up->eql);
 	if(q->use.key == 0x55555555)
-		panic("qlock: q %#p, key 5*\n", q);
+		panic("qlock: q %#p, key 5*", q);
 	lock(&q->use);
 	rwstats.qlock++;
 	if(!q->locked) {

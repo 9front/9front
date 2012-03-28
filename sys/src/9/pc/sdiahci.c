@@ -1272,7 +1272,7 @@ blink(Drive *d, ulong t)
 		microdelay(1);
 	switch(c->enctype){
 	default:
-		panic("%s: bad led type %d\n", dnam(d), c->enctype);
+		panic("%s: bad led type %d", dnam(d), c->enctype);
 	case Elmt:
 		memset(&msg, 0, sizeof msg);
 		msg.type = Mled;

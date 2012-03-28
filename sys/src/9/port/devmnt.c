@@ -1134,7 +1134,7 @@ mntchk(Chan *c)
 	/* This routine is mostly vestiges of prior lives; now it's just sanity checking */
 
 	if(c->mchan == nil)
-		panic("mntchk 1: nil mchan c %s\n", chanpath(c));
+		panic("mntchk 1: nil mchan c %s", chanpath(c));
 
 	m = c->mchan->mux;
 

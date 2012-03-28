@@ -925,7 +925,7 @@ replenish(Rx *rx)
 		e -= 8;
 	}
 	if(e && p->n > 7+1)
-		print("m10g: should panic? pool->n = %d\n", p->n);
+		print("m10g: should panic? pool->n = %d", p->n);
 }
 
 /*

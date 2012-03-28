@@ -754,7 +754,7 @@ interrupt(Ureg*, void* arg)
 		}
 
 		if(status & (StatCX|StatFR|StatCNA|StatRNR|StatMDI|StatSWI))
-			panic("#l%d: status %#ux\n", ether->ctlrno, status);
+			panic("#l%d: status %#ux", ether->ctlrno, status);
 	}
 }
 

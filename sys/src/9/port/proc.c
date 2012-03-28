@@ -718,7 +718,7 @@ procinit0(void)		/* bad planning - clashes with devproc.c */
 	procalloc.free = xalloc(conf.nproc*sizeof(Proc));
 	if(procalloc.free == nil){
 		xsummary();
-		panic("cannot allocate %lud procs (%ludMB)\n", conf.nproc, conf.nproc*sizeof(Proc)/(1024*1024));
+		panic("cannot allocate %lud procs (%ludMB)", conf.nproc, conf.nproc*sizeof(Proc)/(1024*1024));
 	}
 	procalloc.arena = procalloc.free;
 

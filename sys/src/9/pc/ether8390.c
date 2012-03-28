@@ -309,7 +309,7 @@ top:
 				crda = regr(ctlr, Crda0);
 				crda |= regr(ctlr, Crda1)<<8;
 				if(crda != to)
-					panic("crda write %lud to %lud\n", crda, to);
+					panic("crda write %lud to %lud", crda, to);
 	
 				break;
 			}

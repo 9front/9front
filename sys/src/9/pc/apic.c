@@ -152,7 +152,7 @@ lapictimerinit(void)
 
 		if(lapictimer.hz > hz-(hz/10)){
 			if(lapictimer.hz > hz+(hz/10))
-				panic("lapic clock %lld > cpu clock > %lld\n",
+				panic("lapic clock %lld > cpu clock > %lld",
 					lapictimer.hz, hz);
 			lapictimer.hz = hz;
 		}
