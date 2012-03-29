@@ -53,7 +53,7 @@ if(test -r /net/ipselftab){
 		ether=`{ndb/query sys $sysname ether}
 		if(~ $#ether 1){
 			# try /lib/ndb first, then do dhcp
-			ip/ipconfig -N >[2]/dev/null || ip/ipconfig
+			ip/ipconfig -N >[2]/dev/null || ip/ipconfig -h $sysname
 		}
 		rm -f /env/ether
 	}

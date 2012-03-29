@@ -19,7 +19,7 @@ case go
 	case manual
 		ip/ipconfig -g $gwaddr ether /net/ether0 $ipaddr $ipmask >>[2]/srv/log
 	case dhcp
-		ip/ipconfig $dhcphost >>[2]/srv/log
+		ip/ipconfig >>[2]/srv/log
 	}
 
 case checkdone

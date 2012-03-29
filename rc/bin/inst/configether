@@ -16,28 +16,12 @@ case go
 	gwaddr=xxx
 	ipaddr=xxx
 	ipmask=xxx
-	switch($ethermethod){
-	case dhcp
-		echo
-		echo 'Some ISPs, notably @HOME, require a host name passed with DHCP'
-		echo 'requests.  An example for @HOME would be "cc1018221-a".  If your'
-		echo 'ISP supplied you such a name, enter it.'
-		echo
-		prompt -d none 'dhcp host name'; dhcphost=$rd
-		switch($dhcphost){
-		case none
-			dhcphost=();
-		case *
-			dhcphost=(-h $dhcphost)
-		}
-		export dhcphost
-	case manual
+	if(~ $ethermethod manual){
 		prompt 'ip address'; ipaddr=$rd
 		prompt 'network mask'; ipmask=$rd
 		prompt 'gateway address'; gwaddr=$rd
 		export ipaddr ipmask gwaddr
 	}
-	
 	export ethermethod gwaddr ipaddr ipmask dhcphost
 	exec startether go
 
