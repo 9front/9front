@@ -19,6 +19,7 @@ typedef struct Hauth Hauth;
 struct Hconn
 {
 	Hconn	*next;
+	long	time;
 
 	int	fd;
 	int	keep;
@@ -34,7 +35,9 @@ struct Hpool
 
 	Hconn	*head;
 	int	active;
+
 	int	limit;
+	int	idle;
 };
 
 struct Hauth
@@ -46,10 +49,13 @@ struct Hauth
 
 static Hpool hpool = {
 	.limit	= 16,
+	.idle	= 5,	/* seconds */
 };
 
 static QLock authlk;
 static Hauth *hauth;
+
+static void hclose(Hconn *h);
 
 static Hconn*
 hdial(Url *u)
@@ -95,6 +101,7 @@ hdial(Url *u)
 
 	h = emalloc(sizeof(*h));
 	h->next = nil;
+	h->time = 0;
 	h->cancel = 0;
 	h->keep = 1;
 	h->len = 0;
@@ -102,6 +109,19 @@ hdial(Url *u)
 	strncpy(h->addr, addr, sizeof(h->addr));
 
 	return h;
+}
+
+static void
+hcloseall(Hconn *x)
+{
+	Hconn *h;
+
+	while(h = x){
+		x = h->next;
+		h->next = nil;
+		h->keep = 0;
+		hclose(h);
+	}
 }
 
 static void
@@ -123,6 +143,7 @@ hclose(Hconn *h)
 		}
 		if(x == nil){
 			/* return connection to pool */
+			h->time = time(0);
 			h->next = hpool.head;
 			hpool.head = h;
 
@@ -131,14 +152,49 @@ hclose(Hconn *h)
 				x = t->next;
 				t->next = nil;
 			}
+
+			i = h->next != nil;
 			qunlock(&hpool);
 
 			/* free the tail */
-			while(h = x){
-				x = h->next;
-				h->next = nil;
-				h->keep = 0;
-				hclose(h);
+			hcloseall(x);
+
+			/*
+			 * if h is first one in pool, spawn proc to close
+			 * idle connections.
+			 */
+			if(i == 0)
+			if(rfork(RFMEM|RFPROC|RFNOWAIT) == 0){
+				do {
+					Hconn **xx;
+					long now;
+
+					sleep(1000);
+
+					qlock(&hpool);
+					now = time(0);
+
+					x = nil;
+					xx = &hpool.head;
+					while(h = *xx){
+						if((now - h->time) > hpool.idle){
+							*xx = h->next;
+
+							/* link to tail */
+							h->next = x;
+							x = h;
+							continue;
+						}
+						xx = &h->next;
+					}
+
+					i = hpool.head != nil;
+					qunlock(&hpool);
+
+					/* free the tail */
+					hcloseall(x);
+				} while(i);
+				exits(0);
 			}
 			return;
 		}
