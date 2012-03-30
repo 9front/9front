@@ -52,6 +52,7 @@ typedef struct Srv {
 
 	void		(*destroyfid)(Fid *fid);
 	void		(*destroyreq)(Req *r);
+	void		(*start)(Srv *s);
 	void		(*end)(Srv *s);
 	void*	aux;
 
@@ -721,6 +722,7 @@ has been sent.
 .PP
 .IR Destroyfid ,
 .IR destroyreq ,
+.IR start ,
 and
 .I end
 are auxiliary functions, not called in direct response to 9P requests.
@@ -750,6 +752,10 @@ and other outstanding pointers to it have been closed),
 is called to allow the program to dispose of the
 .IB r -> aux
 pointer.
+.TP
+.I Start
+This gets called (from the forked service process) 
+prior entering the 9P service loop.
 .TP
 .I End
 Once the 9P service loop has finished

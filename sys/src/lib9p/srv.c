@@ -765,6 +765,9 @@ srv(Srv *srv)
 	srv->fpool->srv = srv;
 	srv->rpool->srv = srv;
 
+	if(srv->start)
+		srv->start(srv);
+
 	srvwork(srv);
 }
 
