@@ -1938,7 +1938,10 @@ void A_BrainSpit (void *_mo, void*)
     easy ^= 1;
     if (gameskill <= sk_easy && (!easy))
 	return;
-		
+
+    if (numbraintargets <= 0)
+        return;
+
     // shoot a cube at current target
     targ = braintargets[braintargeton];
     braintargeton = (braintargeton+1)%numbraintargets;
@@ -1977,6 +1980,8 @@ void A_SpawnFly (void *_mo, void*)
 	return;	// still flying
 	
     targ = mo->target;
+    if (targ == 0)
+        return;
 
     // First spawn teleport fog.
     fog = P_SpawnMobj (targ->x, targ->y, targ->z, MT_SPAWNFIRE);

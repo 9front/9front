@@ -23,9 +23,20 @@ static uchar cmap[3*256];
 static int kbdpid = -1;
 static int mousepid = -1;
 
+static void
+catch(void *, char *msg)
+{
+	/* in case we crash, disable mouse grab */
+	if(strncmp(msg, "sys:", 4) == 0)
+		mouseactive = 0;
+	noted(NDFLT);
+}
+
 void I_InitGraphics(void)
 {
 	int pid;
+
+	notify(catch);
 
 	if(initdraw(nil, nil, "doom") < 0)
 		I_Error("I_InitGraphics failed");
