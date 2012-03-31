@@ -289,48 +289,50 @@ static int
 authenticate(Url *u, Url *ru, char *method, char *s)
 {
 	char *user, *pass, *realm, *nonce, *opaque, *x;
-	UserPasswd *up;
 	Hauth *a;
 	Fmt fmt;
 	int n;
 
-	up = nil;
 	user = u->user;
 	pass = u->pass;
 	realm = nonce = opaque = nil;
 	fmtstrinit(&fmt);
 	if(!cistrncmp(s, "Basic ", 6)){
-		char cred[64];
+		char cred[128], plain[128];
+		UserPasswd *up;
 
 		s += 6;
 		if(x = cistrstr(s, "realm="))
 			realm = unquote(x+6, &s);
 		if(realm == nil)
 			return -1;
+		up = nil;
 		if(user == nil || pass == nil){
 			fmtprint(&fmt, " realm=%q", realm);
 			if(user)
 				fmtprint(&fmt, " user=%q", user);
 			if((s = fmtstrflush(&fmt)) == nil)
 				return -1;
-			if((up = auth_getuserpasswd(nil, "proto=pass service=http server=%q%s",
-				u->host, s)) == nil)
+			up = auth_getuserpasswd(nil, "proto=pass service=http server=%q%s", u->host, s);
+			free(s);
+			if(up == nil)
 				return -1;
 			user = up->user;
 			pass = up->passwd;
 		}
-		fmtstrinit(&fmt);
-		fmtprint(&fmt, "%s:%s", user ? user : "", pass ? pass : "");
-		free(up);
-		if((s = fmtstrflush(&fmt)) == nil)
-			return -1;
-		n = enc64(cred, sizeof(cred), (uchar*)s, strlen(s));
-		memset(s, 0, strlen(s));
-		free(s);
+		n = snprint(plain, sizeof(plain), "%s:%s", user ? user : "", pass ? pass : "");
+		if(up){
+			memset(up->user, 0, strlen(up->user));
+			memset(up->passwd, 0, strlen(up->passwd));
+			free(up);
+		}
+		n = enc64(cred, sizeof(cred), (uchar*)plain, n);
+		memset(plain, 0, sizeof(plain));
 		if(n == -1)
 			return -1;
 		fmtstrinit(&fmt);
 		fmtprint(&fmt, "Basic %s", cred);
+		memset(cred, 0, sizeof(cred));
 		u = saneurl(url(".", u));	/* all uris below the requested one */
 	}else
 	if(!cistrncmp(s, "Digest ", 7)){
@@ -346,14 +348,17 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 			opaque = unquote(x+7, &s);
 		if(realm == nil || nonce == nil)
 			return -1;
-		nchal = snprint(chal, sizeof(chal), "%s %s %U", nonce, method, ru);
 		fmtprint(&fmt, " realm=%q", realm);
 		if(user)
 			fmtprint(&fmt, " user=%q", user);
 		if((s = fmtstrflush(&fmt)) == nil)
 			return -1;
-		if(auth_respond(chal, nchal, ouser, sizeof ouser, resp, sizeof resp, nil,
-			"proto=httpdigest role=client server=%q%s", u->host, s) < 0)
+		nchal = snprint(chal, sizeof(chal), "%s %s %U", nonce, method, ru);
+		n = auth_respond(chal, nchal, ouser, sizeof ouser, resp, sizeof resp, nil,
+			"proto=httpdigest role=client server=%q%s", u->host, s);
+		memset(chal, 0, sizeof(chal));
+		free(s);
+		if(n < 0)
 			return -1;
 		fmtstrinit(&fmt);
 		fmtprint(&fmt, "Digest ");
