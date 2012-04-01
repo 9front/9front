@@ -100,6 +100,7 @@ snooptype(int fd)
 	"image/gif",			GIF,
 	"image/png",			PNG,
 	"image/bmp",			BMP,
+	"image/x-icon",			ICO,
 
 	"application/x-gzip",		GUNZIP,
 	"application/x-compress",	COMPRESS,

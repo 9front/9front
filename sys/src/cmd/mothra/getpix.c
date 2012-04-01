@@ -19,6 +19,7 @@ char *pixcmd[]={
 [JPEG]	"jpg -9t",
 [PNG]	"png -9t",
 [BMP]	"bmp -9t",
+[ICO]	"ico -c",
 };
 
 void getimage(Rtext *t, Www *w){

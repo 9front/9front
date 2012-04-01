@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <bio.h>
 #include <draw.h>
+#include <memdraw.h>
 #include <event.h>
 #include <cursor.h>
 
@@ -18,8 +19,8 @@ struct Icon
 	ulong	len;		/* length of data */
 	ulong	offset;		/* file offset to data */
 
-	Image	*img;
-	Image	*mask;
+	Memimage	*img;
+	Memimage	*mask;
 
 	Rectangle r;		/* relative */
 	Rectangle sr;		/* abs */
@@ -34,6 +35,7 @@ struct Header
 };
 
 int debug;
+int cflag;
 Mouse mouse;
 Header h;
 Image *background;
@@ -53,9 +55,9 @@ getl(uchar *p)
 int
 Bgetheader(Biobuf *b, Header *h)
 {
+	uchar buf[40];
 	Icon *icon;
 	int i;
-	uchar buf[40];
 
 	memset(h, 0, sizeof(*h));
 	if(Breadn(b, buf, 6) != 6)
@@ -65,7 +67,6 @@ Bgetheader(Biobuf *b, Header *h)
 	if(gets(&buf[2]) != 1)
 		goto header;
 	h->n = gets(&buf[4]);
-
 	for(i = 0; i < h->n; i++){
 		icon = mallocz(sizeof(*icon), 1);
 		if(icon == nil)
@@ -81,7 +82,6 @@ Bgetheader(Biobuf *b, Header *h)
 		icon->bits = gets(&buf[6]);
 		icon->len = getl(&buf[8]);
 		icon->offset = getl(&buf[12]);
-
 		if(i == 0)
 			h->first = icon;
 		else
@@ -112,11 +112,11 @@ transcmap(Icon *icon, uchar *map)
 	return m;
 }
 
-Image*
+Memimage*
 xor2img(Icon *icon, uchar *xor, uchar *map)
 {
 	uchar *data;
-	Image *img;
+	Memimage *img;
 	int inxlen;
 	uchar *from, *to;
 	int s, byte, mask;
@@ -142,18 +142,18 @@ xor2img(Icon *icon, uchar *xor, uchar *map)
 	}
 
 	/* stick in an image */
-	img = allocimage(display, Rect(0,0,icon->w,icon->h), CMAP8, 0, DNofill);
-	loadimage(img, Rect(0,0,icon->w,icon->h), data, icon->h*icon->w);
+	img = allocmemimage(Rect(0,0,icon->w,icon->h), CMAP8);
+	loadmemimage(img, Rect(0,0,icon->w,icon->h), data, icon->h*icon->w);
 
 	free(data);
 	return img;
 }
 
-Image*
+Memimage*
 and2img(Icon *icon, uchar *and)
 {
 	uchar *data;
-	Image *img;
+	Memimage *img;
 	int inxlen;
 	int outxlen;
 	uchar *from, *to;
@@ -172,8 +172,8 @@ and2img(Icon *icon, uchar *and)
 	}
 
 	/* stick in an image */
-	img = allocimage(display, Rect(0,0,icon->w,icon->h), GREY1, 0, DNofill);
-	loadimage(img, Rect(0,0,icon->w,icon->h), data, icon->h*outxlen);
+	img = allocmemimage(Rect(0,0,icon->w,icon->h), GREY1);
+	loadmemimage(img, Rect(0,0,icon->w,icon->h), data, icon->h*outxlen);
 
 	free(data);
 	return img;
@@ -183,14 +183,18 @@ int
 Bgeticon(Biobuf *b, Icon *icon)
 {
 	ulong l;
-	ushort s;
+	uchar *end;
 	uchar *xor;
 	uchar *and;
 	uchar *cm;
 	uchar *buf;
 	uchar *map2map;
-	Image *img;
+	Memimage *img;
 
+	if(icon->len < 40){
+		werrstr("bad icon header length");
+		return -1;
+	}
 	Bseek(b, icon->offset, 0);
 	buf = malloc(icon->len);
 	if(buf == nil)
@@ -199,24 +203,16 @@ Bgeticon(Biobuf *b, Icon *icon)
 		werrstr("unexpected EOF");
 		return -1;
 	}
-
 	/* this header's info takes precedence over previous one */
 	if(getl(buf) != 40){
 		werrstr("bad icon header");
 		return -1;
 	}
-	l = getl(buf+4);
-	if(l != icon->w)
-		icon->w = l;
+	icon->w = getl(buf+4);
 	l = getl(buf+8);
-	if(l>>1 != icon->h)
-		icon->h = l>>1;
-	s = gets(buf+12);
-	if(s != icon->nplane)
-		icon->nplane = s;
-	s = gets(buf+14);
-	if(s != icon->bits)
-		icon->bits = s;
+	icon->h = l>>1;
+	icon->nplane = gets(buf+12);
+	icon->bits = gets(buf+14);
 
 	/* limit what we handle */
 	switch(icon->bits){
@@ -237,6 +233,11 @@ Bgeticon(Biobuf *b, Icon *icon)
 	cm = buf + 40;
 	xor = cm + 4*icon->ncolor;
 	and = xor + icon->h*4*((icon->bits*icon->w+31)/32);
+	end = and + icon->h*4*((icon->w+31)/32);
+	if(end < buf || end > buf+icon->len){
+		werrstr("bad icon length %lux != %lux", end - buf, icon->len);
+		return -1;
+	}
 
 	/* translate the color map to a plan 9 one */
 	map2map = transcmap(icon, cm);
@@ -246,9 +247,12 @@ Bgeticon(Biobuf *b, Icon *icon)
 	icon->mask = and2img(icon, and);
 
 	/* so that we save an image with a white background */
-	img = allocimage(display, icon->img->r, CMAP8, 0, DWhite);
-	draw(img, icon->img->r, icon->img, icon->mask, ZP);
-	icon->img = img;
+	if(img = allocmemimage(icon->img->r, icon->img->chan)){
+		memfillcolor(img, DWhite);
+		memimagedraw(img, icon->img->r, icon->img, ZP, icon->mask, ZP, SoverD);
+		freememimage(icon->img);
+		icon->img = img;
+	}
 
 	free(buf);
 	free(map2map);
@@ -258,7 +262,7 @@ Bgeticon(Biobuf *b, Icon *icon)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [file]\n", argv0);
+	fprint(2, "usage: %s [ -c ] [ file ]\n", argv0);
 	exits("usage");
 }
 
@@ -328,7 +332,7 @@ doimage(Icon *icon)
 	snprint(file, sizeof(file), "%dx%d.img", icon->w, icon->h);
 	fd = create(file, OWRITE, 0664);
 	if(fd >= 0){
-		rv = writeimage(fd, icon->img, 0);
+		rv = writememimage(fd, icon->img);
 		close(fd);
 	}
 	if(rv < 0)
@@ -348,7 +352,7 @@ domask(Icon *icon)
 	snprint(file, sizeof(file), "%dx%d.mask", icon->w, icon->h);
 	fd = create(file, OWRITE, 0664);
 	if(fd >= 0){
-		rv = writeimage(fd, icon->mask, 0);
+		rv = writememimage(fd, icon->mask);
 		close(fd);
 	}
 	if(rv < 0)
@@ -412,10 +416,28 @@ enum
 	BORDER= 1,
 };
 
+Image*
+screenimage(Memimage *m)
+{
+	Rectangle r;
+	Image *i;
+
+	if(i = allocimage(display, m->r, m->chan, 0, DNofill)){
+		r = m->r;
+		while(r.min.y < m->r.max.y){
+			r.max.y = r.min.y+1;
+			loadimage(i, r, byteaddr(m, r.min), Dx(r));
+			r.min.y++;
+		}
+	}
+	return i;
+}
+
 void
 eresized(int new)
 {
 	Icon *icon;
+	Image *i;
 	Rectangle r;
 
 	if(new && getwindow(display, Refnone) < 0)
@@ -427,7 +449,10 @@ eresized(int new)
 		r.min.x = r.max.x + BORDER;
 		r.max.x = r.min.x + Dx(icon->img->r);
 		r.max.y = r.min.y + Dy(icon->img->r);
-		draw(screen, r, icon->img, nil, ZP);
+		if(i = screenimage(icon->img)){
+			draw(screen, r, i, nil, ZP);
+			freeimage(i);
+		}
 		border(screen, r, -BORDER, display->black, ZP);
 		icon->sr = r;
 	}
@@ -447,6 +472,11 @@ main(int argc, char **argv)
 	case 'd':
 		debug = 1;
 		break;
+	case 'c':
+		cflag = 1;
+		break;
+	default:
+		usage();
 	}ARGEND;
 
 	fd = -1;
@@ -464,15 +494,11 @@ main(int argc, char **argv)
 		break;
 	}
 
+	memimageinit();
 	Binit(&in, fd, OREAD);
 
 	if(Bgetheader(&in, &h) < 0)
 		sysfatal("reading header: %r");
-
-	initdraw(nil, nil, "ico");
-	background = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, (128<<24)|(128<<16)|(128<<8)|0xFF);
-
-	einit(Emouse|Ekeyboard);
 
 	num = 0;
 	r.min = Pt(4, 4);
@@ -486,14 +512,21 @@ main(int argc, char **argv)
 			   icon->w, icon->h, icon->ncolor, icon->bits, icon->len, icon->offset);
 		r.max = addpt(r.min, Pt(icon->w, icon->h));
 		icon->r = r;
+		if(cflag){
+			writememimage(1, icon->img);
+			exits(0);
+		}
 		r.min.x += r.max.x;
 		num++;
 	}
 
-	if(num == 0)
-		exits("no images");
-	eresized(0);
+	if(num == 0 || cflag)
+		sysfatal("no images");
 
+	initdraw(nil, nil, "ico");
+	background = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0x808080FF);
+	eresized(0);
+	einit(Emouse|Ekeyboard);
 	for(;;)
 		switch(event(&e)){
 		case Ekeyboard:

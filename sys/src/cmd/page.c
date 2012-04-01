@@ -290,7 +290,10 @@ popenimg(Page *p)
 	seek(fd, 0, 0);
 	if(p->data){
 		p->ext = p->data;
-		snprint(nam, sizeof(nam), "%s -t9", p->ext);
+		if(strcmp(p->ext, "ico") == 0)
+			snprint(nam, sizeof(nam), "%s -c", p->ext);
+		else
+			snprint(nam, sizeof(nam), "%s -t9", p->ext);
 		pipeline(fd, "%s", nam);
 	}
 
@@ -674,6 +677,7 @@ popenfile(Page *p)
 	"image/png",			popenimg,	"png",
 	"image/ppm",			popenimg,	"ppm",
 	"image/bmp",			popenimg,	"bmp",
+	"image/x-icon",			popenimg,	"ico",
 	"image/p9bit",			popenimg,	nil,
 	};
 

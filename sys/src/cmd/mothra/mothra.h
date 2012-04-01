@@ -50,6 +50,7 @@ enum{
 	JPEG,
 	PNG,
 	BMP,
+	ICO,
 
 	GUNZIP,
 	COMPRESS,
