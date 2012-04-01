@@ -37,6 +37,7 @@ struct Hpool
 	int	active;
 
 	int	limit;
+	int	peer;
 	int	idle;
 };
 
@@ -49,6 +50,7 @@ struct Hauth
 
 static Hpool hpool = {
 	.limit	= 16,
+	.peer	= 4,
 	.idle	= 5,	/* seconds */
 };
 
@@ -128,16 +130,17 @@ static void
 hclose(Hconn *h)
 {
 	Hconn *x, *t;
-	int i;
+	int i, n;
 
 	if(h == nil)
 		return;
 
 	qlock(&hpool);
 	if(h->keep && h->fd >= 0){
-		for(i = 0, t = nil, x = hpool.head; x; x = x->next){
+		for(n = 0, i = 0, t = nil, x = hpool.head; x; x = x->next){
 			if(strcmp(x->addr, h->addr) == 0)
-				break;
+				if(++n > hpool.peer)
+					break;
 			if(++i < hpool.limit)
 				t = x;
 		}
