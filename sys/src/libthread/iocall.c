@@ -15,6 +15,8 @@ iocall(Ioproc *io, long (*op)(va_list*), ...)
 		return -1;
 	}
 	while(recv(io->creply, nil) < 0){
+		if(io->ctl < 0)
+			continue;
 		if(canqlock(io)){
 			if(++io->intr == 1)
 				write(io->ctl, "interrupt", 9);

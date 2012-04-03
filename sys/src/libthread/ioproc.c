@@ -11,6 +11,8 @@ enum
 void
 iointerrupt(Ioproc *io)
 {
+	if(io->ctl < 0)
+		return;
 	qlock(io);
 	if(++io->intr == 1)
 		write(io->ctl, "interrupt", 9);
@@ -28,18 +30,20 @@ xioproc(void *a)
 	if(io = mallocz(sizeof(*io), 1)){
 		char buf[128];
 
+		/*
+		 * open might fail, ignore it for programs like factotum
+		 * that don't use iointerrupt() anyway.
+		 */
 		snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
-		if((io->ctl = open(buf, OWRITE)) < 0){
+		io->ctl = open(buf, OWRITE);
+
+		if((io->creply = chancreate(sizeof(void*), 0)) == nil){
+			if(io->ctl >= 0)
+				close(io->ctl);
 			free(io);
 			io = nil;
-		} else {
-			if((io->creply = chancreate(sizeof(void*), 0)) == nil){
-				close(io->ctl);
-				free(io);
-				io = nil;
-			} else
-				io->c = c;
-		}
+		} else
+			io->c = c;
 	}
 	while(send(c, &io) < 0)
 		;
@@ -59,14 +63,16 @@ xioproc(void *a)
 		qlock(io);
 		if(io->intr){
 			io->intr = 0;
-			write(io->ctl, "nointerrupt", 11);
+			if(io->ctl >= 0)
+				write(io->ctl, "nointerrupt", 11);
 		}
 		while(send(io->creply, &r) < 0)
 			;
 		qunlock(io);
 	}
 
-	close(io->ctl);
+	if(io->ctl >= 0)
+		close(io->ctl);
 	chanfree(io->c);
 	chanfree(io->creply);
 	free(io);
