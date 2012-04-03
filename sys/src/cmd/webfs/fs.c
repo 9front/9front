@@ -397,10 +397,31 @@ fsopen(Req *r)
 				m = "GET";
 			if(cl->request[0])
 				m = cl->request;
+
+			if(!lookkey(cl->hdr, "Referer")){
+				char *r;
+				Url *u;
+
+				/*
+				 * Referer header is often required on broken
+				 * websites even if the spec makes them optional,
+				 * so we make one up.
+				 */
+				if(u = url("/", cl->url)){
+					if(r = smprint("%U", u)){
+						cl->hdr = addkey(cl->hdr, "Referer", r);
+						free(r);
+					}
+					freeurl(u);
+				}
+			}
+
 			if(!lookkey(cl->hdr, "Connection"))
 				cl->hdr = addkey(cl->hdr, "Connection", "keep-alive");
+
 			if(agent && !lookkey(cl->hdr, "User-Agent"))
 				cl->hdr = addkey(cl->hdr, "User-Agent", agent);
+
 			http(m, cl->url, cl->hdr, cl->qbody, f->buq);
 			cl->request[0] = 0;
 			cl->url = nil;
