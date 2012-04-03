@@ -76,7 +76,7 @@ void getimage(Rtext *t, Www *w){
 	}
 	close(fd);
 	p = emallocz(sizeof(Pix), 1);
-	strncpy(p->name, ap->image, sizeof(p->name));
+	nstrcpy(p->name, ap->image, sizeof(p->name));
 	p->b=b;
 	p->width=ap->width;
 	p->height=ap->height;

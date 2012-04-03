@@ -93,6 +93,7 @@ int urlopen(Url *, int, char *);
 void getfonts(void);
 void *emalloc(int);
 void *emallocz(int, int);
+void nstrcpy(char *to, char *from, int len);
 void freeform(void *p);
 void message(char *, ...);
 int snooptype(int fd);

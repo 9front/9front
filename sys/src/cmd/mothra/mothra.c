@@ -473,6 +473,10 @@ void *emallocz(int n, int z){
 	setmalloctag(v, getcallerpc(&n));
 	return v;
 }
+void nstrcpy(char *to, char *from, int len){
+	strncpy(to, from, len);
+	to[len-1] = 0;
+}
 
 char *genwww(Panel *, int index){
 	static char buf[1024];
@@ -798,7 +802,7 @@ int fileurlopen(Url *url){
 	url->tag[0] = 0;
 	if(x = strrchr(url->fullname, '#')){
 		*x++ = 0;
-		strncpy(url->tag, x, sizeof(url->tag));
+		nstrcpy(url->tag, x, sizeof(url->tag));
 	}
 	fd = open(cleanname(url->fullname), OREAD);
 	if(fd < 0)
@@ -905,9 +909,7 @@ char*
 urlstr(Url *url){
 	if(url->fullname[0])
 		return url->fullname;
-	if(url->reltext[0])
-		return url->reltext;
-	return nil;
+	return url->reltext;
 }
 void selurl(char *urlname){
 	static Url url;
@@ -916,8 +918,8 @@ void selurl(char *urlname){
 	message("selected: %s", urlstr(selection));
 }
 void seturl(Url *url, char *urlname, char *base){
-	strncpy(url->reltext, urlname, sizeof(url->reltext));
-	strncpy(url->basename, base, sizeof(url->basename));
+	nstrcpy(url->reltext, urlname, sizeof(url->reltext));
+	nstrcpy(url->basename, base, sizeof(url->basename));
 	url->fullname[0] = 0;
 	url->tag[0] = 0;
 	url->map = 0;
@@ -1120,7 +1122,7 @@ void paste(Panel *p){
 	int n, len, fd;
 	if((fd=open("/dev/snarf", OREAD))<0)
 		return;
-	strncpy(buf, plentryval(p), sizeof(buf));
+	nstrcpy(buf, plentryval(p), sizeof(buf));
 	len=strlen(buf);
 	n=read(fd, buf+len, sizeof(buf)-len-1);
 	if(n>0){

@@ -613,7 +613,7 @@ void plrdplain(char *name, int fd, Www *dst){
 	g.etext=g.text+NTITLE-1;
 	g.spacc=0;
 	g.form=0;
-	strncpy(g.text, name, NTITLE);
+	nstrcpy(g.text, name, NTITLE);
 	plaintext(&g);
 	finish(dst);
 }
@@ -675,10 +675,10 @@ void plrdhtml(char *name, int fd, Www *dst){
 		if(str=pl_getattr(g.attr, "id")){
 			char swap[NNAME];
 
-			strncpy(swap, g.state->name, sizeof(swap));
-			strncpy(g.state->name, str, sizeof(g.state->name));
+			nstrcpy(swap, g.state->name, sizeof(swap));
+			nstrcpy(g.state->name, str, sizeof(g.state->name));
 			pl_htmloutput(&g, 0, "", 0);
-			strncpy(g.state->name, swap, sizeof(g.state->name));
+			nstrcpy(g.state->name, swap, sizeof(g.state->name));
 		}
 		switch(g.tag){
 		default:
@@ -689,7 +689,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			break;
 		case Tag_img:
 			if(str=pl_getattr(g.attr, "src"))
-				strncpy(g.state->image, str, sizeof(g.state->image));
+				nstrcpy(g.state->image, str, sizeof(g.state->image));
 			g.state->ismap=pl_hasattr(g.attr, "ismap");
 			if(str=pl_getattr(g.attr, "width"))
 				g.state->width = strtolength(&g, HORIZ, str);
@@ -725,11 +725,15 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_td:
 			g.spacc++;
 			break;
+		case Tag_base:
+			if(str=pl_getattr(g.attr, "href"))
+				nstrcpy(g.dst->url->fullname, str, sizeof(g.dst->url->fullname));
+			break;
 		case Tag_a:
 			if(str=pl_getattr(g.attr, "href"))
-				strncpy(g.state->link, str, sizeof(g.state->link));
+				nstrcpy(g.state->link, str, sizeof(g.state->link));
 			if(str=pl_getattr(g.attr, "name")){
-				strncpy(g.state->name, str, sizeof(g.state->name));
+				nstrcpy(g.state->name, str, sizeof(g.state->name));
 				pl_htmloutput(&g, 0, "", 0);
 			}
 			break;
@@ -757,9 +761,9 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_frame:
 		case Tag_iframe:
 			if(str=pl_getattr(g.attr, "src"))
-				strncpy(g.state->link, str, sizeof(g.state->link));
+				nstrcpy(g.state->link, str, sizeof(g.state->link));
 			if(str=pl_getattr(g.attr, "name"))
-				strncpy(g.state->name, str, sizeof(g.state->name));
+				nstrcpy(g.state->name, str, sizeof(g.state->name));
 			else
 				str = g.state->link;
 			pl_htmloutput(&g, 0, tag[g.tag].name, 0);
@@ -1060,7 +1064,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 		break;
 	case TEXT:
 		if(g.state->link[0]==0 && (str = linkify(g.token))){
-			strncpy(g.state->link, str, sizeof(g.state->link));
+			nstrcpy(g.state->link, str, sizeof(g.state->link));
 			pl_htmloutput(&g, g.nsp, g.token, 0);
 			g.state->link[0] = 0;
 			free(str);
