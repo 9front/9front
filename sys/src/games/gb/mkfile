@@ -1,0 +1,15 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/games
+TARG=gb
+OFILES=\
+	gb.$O\
+	cpu.$O\
+	mem.$O\
+	disasm.$O\
+	ppu.$O\
+	daa.$O\
+
+HFILES=dat.h fns.h
+
+</sys/src/cmd/mkone
