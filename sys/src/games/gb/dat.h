@@ -1,7 +1,7 @@
 extern u16int pc, curpc, sp;
 extern u8int R[8], Fl;
 extern int halt, IME, keys;
-extern int clock, ppuclock, divclock, timerclock, syncclock, timerfreq, timer;
+extern int clock, ppuclock, divclock, timerclock, timerfreq, timer;
 extern int rombank, rambank, ramen, battery, ramrom;
 
 extern uchar mem[], *ram;
@@ -72,4 +72,7 @@ enum {
 	IF	= 0xFF0F,
 	IE	= 0xFFFF,
 	CPUFREQ = 4194304,
+	
+	MILLION = 1000000,
+	BILLION = 1000000000,
 };

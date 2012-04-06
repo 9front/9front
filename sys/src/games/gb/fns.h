@@ -8,3 +8,4 @@ void message(char *, ...);
 void flushram(void);
 void savestate(char *);
 void loadstate(char *);
+void initaudio(void);

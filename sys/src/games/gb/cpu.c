@@ -793,14 +793,14 @@ step(void)
 		memwrite(lohi(R[rC], 0xFF), R[rA]);
 		return 8;
 	case 0xE8:
-		val = (schar)fetch8();
-		val32 = (int)sp + val;
+		val = (short)(schar)fetch8();
+		val32 = (uint)sp + (uint)val;
 		Fl = 0;
-		if(val32 > 0xFFFF || val32 < 0)
+		if(((sp & 0xFF) + (val & 0xFF)) > 0xFF)
 			Fl |= FLAGC;
-		if(((sp & 0xFFF) + (val & 0xFFF)) > 0xFFF)
+		if(((sp & 0xF) + (val & 0xF)) > 0xF)
 			Fl |= FLAGH;
-		sp = val;
+		sp = val32;
 		return 16;
 	case 0xE9:
 		pc = lohi(R[rL], R[rH]);
@@ -823,12 +823,15 @@ step(void)
 		IME= 0;
 		return 4;
 	case 0xF8:
-		val32 = sp + (schar)fetch8();
+		val = (short)(schar)fetch8();
+		val32 = (uint)sp + (uint)val;
+		Fl = 0;
+		if(((sp & 0xFF) + (val & 0xFF)) > 0xFF)
+			Fl |= FLAGC;
+		if(((sp & 0xF) + (val & 0xF)) > 0xF)
+			Fl |= FLAGH;
 		R[rL] = val32;
 		R[rH] = val32 >> 8;
-		Fl = 0;
-		if(val32 < 0 || val32 > 0xFFFF)
-			Fl = FLAGC;
 		return 12;
 	case 0xF9:
 		sp = lohi(R[rL], R[rH]);

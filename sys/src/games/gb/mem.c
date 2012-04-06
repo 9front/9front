@@ -117,6 +117,26 @@ memwrite(u16int p, u8int v)
 				return;
 			}
 			return;
+		case 5:
+			switch(p >> 13){
+			case 0:
+				if((v & 0x0F) == 0x0A)
+					ramswitch(1, rambank);
+				else
+					ramswitch(0, rambank);
+				return;
+			case 1:
+				romswitch((rombank & 0x100) | v);
+				return;
+			case 2:
+				romswitch((((int)v & 1) << 8) | (rombank & 0xFF));
+				return;
+			case 3:
+				ramswitch(ramen, v & 15);
+				return;
+			
+			}
+			return;
 		default:
 			sysfatal("mbc %d unimplemented", mbc);
 		}

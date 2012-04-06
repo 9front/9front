@@ -79,24 +79,33 @@ drawbg(void)
 static void
 drawsprites(void)
 {
-	u8int x, y, tnl1, tnl2, dx, ddx, val, pal;
+	u8int y, t, tnl1, tnl2, dx, ddx, val, pal;
 	schar dy;
 	u16int tnli;
-	int i;
+	int i, x, big;
 	struct { u8int y, x, t, f; } *s;
 	
 	y = mem[LY];
+	big = mem[LCDC] & SPRITE16;
 	s = (void*)(mem + 0xFE00);
 	for(i = 0; i < 40; i++, s++){
-		if(s->y == 0 && s->x == 0)
+		if(s->y == 0 || s->x == 0)
 			continue;
 		dy = y - s->y + 16;
-		if(dy < 0 || dy >= 8)
+		if(dy < 0 || dy >= (big ? 16 : 8))
 			continue;
 		pal = (s->f & (1<<4)) ? mem[OBP1] : mem[OBP0];
 		if(s->f & (1<<6))
-			dy = 7 - dy;
-		tnli = 0x8000 + 2 * (u16int)dy + 16 * (u16int) s->t;
+			dy = (big ? 15 : 7) - dy;
+		t = s->t;
+		if(big){
+			if(dy >= 8){
+				t |= 1;
+				dy -= 8;
+			}else
+				t &= ~1;
+		}
+		tnli = 0x8000 + 2 * (u16int)dy + 16 * (u16int) t;
 		tnl1 = mem[tnli];
 		tnl2 = mem[tnli + 1];
 		x = s->x - 9;
@@ -105,14 +114,14 @@ drawsprites(void)
 			if((s->f & (1<<5)) == 0)
 				ddx = 7 - dx;
 			val = ((tnl1 >> ddx) & 1) | (((tnl2 >> ddx) & 1) << 1);
-			if(val == 0)
+			if(x < 0 || val == 0)
 				continue;
 			val = (pal >> (2 * val)) & 3;
 			if(x >= 160)
 				break;
-			if(s->f & (1<<7)){
+			if(s->f & (1<<7))
 				pixelbelow(x, y, val);
-			}else
+			else
 				pixel(x, y, val, 0);
 		}
 	}
@@ -167,8 +176,9 @@ ppustep(void)
 			interrupt(INTLCDC);
 	}else
 		mem[STAT] &= ~4;
-	if(mem[LY] < 144 && (mem[LCDC] & LCDOP)){
+	if(mem[LY] < 144)
 		mem[STAT] &= ~3;
+	if(mem[LY] < 144 && (mem[LCDC] & LCDOP)){
 		if(mem[LCDC] & BGDISP)
 			drawbg();
 		if(mem[LCDC] & WINDOWDISP)

@@ -81,7 +81,6 @@ loadstate(char *file)
 	clock = get32();
 	ppuclock = get32();
 	divclock = get32();
-	syncclock = get32();
 	timerfreq = get32();
 	timer = get32();
 	rombank = get32();
@@ -114,7 +113,6 @@ savestate(char *file)
 	put32(ppuclock);
 	put32(divclock);
 	put32(timerclock);
-	put32(syncclock);
 	put32(timerfreq);
 	put32(timer);
 	put32(rombank);

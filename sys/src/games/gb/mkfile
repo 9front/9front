@@ -10,6 +10,7 @@ OFILES=\
 	ppu.$O\
 	daa.$O\
 	state.$O\
+	audio.$O\
 
 HFILES=dat.h fns.h
 

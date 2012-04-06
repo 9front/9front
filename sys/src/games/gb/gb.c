@@ -9,7 +9,7 @@
 #include "fns.h"
 
 uchar *cart, *ram;
-int mbc, rombanks, rambanks, clock, ppuclock, divclock, timerclock, syncclock, msgclock, timerfreq, timer, keys, savefd, savereq, loadreq;
+int mbc, rombanks, rambanks, clock, ppuclock, divclock, timerclock, syncclock, syncfreq, sleeps, checkclock, msgclock, timerfreq, timer, keys, savefd, savereq, loadreq;
 Rectangle picr;
 Image *bg, *tmp;
 Mousectl *mc;
@@ -86,6 +86,11 @@ loadrom(char *file)
 		battery = 1;
 	case 0x11: case 0x12:
 		mbc = 3;
+		break;
+	case 0x1B: case 0x1E:
+		battery = 1;
+	case 0x19: case 0x1A: case 0x1C: case 0x1D:
+		mbc = 5;
 		break;
 	default:
 		sysfatal("%s: unknown cartridge type %.2x", file, cart[0x147]);
@@ -226,6 +231,9 @@ threadmain(int argc, char** argv)
 	Point p;
 
 	ARGBEGIN{
+	case 'a':
+		initaudio();
+		break;
 	default:
 		sysfatal("unknown flag -%c", ARGC());
 	}ARGEND;
@@ -244,6 +252,7 @@ threadmain(int argc, char** argv)
 	if(mc == nil)
 		sysfatal("init mouse: %r");
 	proccreate(keyproc, nil, 8192);
+	syncfreq = CPUFREQ / 50;
 	old = nsec();
 	for(;;){
 		if(savereq){
@@ -260,6 +269,7 @@ threadmain(int argc, char** argv)
 		divclock += t;
 		timerclock += t;
 		syncclock += t;
+		checkclock += t;
 		if(ppuclock >= 456){
 			ppustep();
 			ppuclock -= 456;
@@ -285,15 +295,22 @@ threadmain(int argc, char** argv)
 			}
 			timerclock = 0;
 		}
-		if(syncclock >= CPUFREQ / 100){
-			new = nsec();
-			diff = new - old;
-			diff = 10000000 - diff;
-			diff /= 1000000;
-			if(diff > 0)
-				sleep(diff);
-			old = new;
+		if(syncclock >= syncfreq){
+			sleep(10);
+			sleeps++;
 			syncclock = 0;
+		}
+		if(checkclock >= CPUFREQ){
+			new = nsec();
+			diff = new - old - sleeps * 10 * MILLION;
+			diff = BILLION - diff;
+			if(diff <= 0)
+				syncfreq = CPUFREQ;
+			else
+				syncfreq = ((vlong)CPUFREQ) * 10 * MILLION / diff;
+			old = new;
+			checkclock = 0;
+			sleeps = 0;
 		}
 		if(msgclock > 0){
 			msgclock -= t;
