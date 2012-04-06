@@ -1,15 +1,31 @@
 #include <u.h>
 #include <libc.h>
-#include <thread.h>
-#include <keyboard.h>
 #include <draw.h>
+#include <thread.h>
+#include <mouse.h>
+#include <cursor.h>
+#include <keyboard.h>
 #include "dat.h"
 #include "fns.h"
 
-uchar *cart;
-int mbc, rombanks, clock, ppuclock, divclock, timerclock, syncclock, timerfreq, timer, keys;
+uchar *cart, *ram;
+int mbc, rombanks, rambanks, clock, ppuclock, divclock, timerclock, syncclock, msgclock, timerfreq, timer, keys, savefd, savereq, loadreq;
 Rectangle picr;
-Image *bg;
+Image *bg, *tmp;
+Mousectl *mc;
+
+void
+message(char *fmt, ...)
+{
+	va_list va;
+	char buf[512];
+	
+	va_start(va, fmt);
+	vsnprint(buf, sizeof buf, fmt, va);
+	string(screen, Pt(10, 10), display->black, ZP, display->defaultfont, buf);
+	msgclock = CPUFREQ;
+	va_end(va);
+}
 
 void
 loadrom(char *file)
@@ -17,8 +33,11 @@ loadrom(char *file)
 	int fd, i;
 	vlong len;
 	u8int ck;
+	char buf[512];
 	char title[17];
 	Point p;
+	char *s;
+	extern int battery, ramen;
 	
 	fd = open(file, OREAD);
 	if(fd < 0)
@@ -44,19 +63,34 @@ loadrom(char *file)
 	memcpy(mem, cart, 32768);
 	memset(title, 0, sizeof(title));
 	memcpy(title, cart+0x134, 16);
+	battery = 0;
 	switch(cart[0x147]){
+	case 0x09:
+		battery = 1;
+	case 0x08:
+		ramen = 1;
 	case 0x00:
 		mbc = 0;
 		break;
-	case 0x01:
+	case 0x03:
+		battery = 1;
+	case 0x01: case 0x02:
 		mbc = 1;
 		break;
-	case 0x13:
+	case 0x06:
+		battery = 1;
+	case 0x05:
+		mbc = 2;
+		break;
+	case 0x0F: case 0x10: case 0x13:
+		battery = 1;
+	case 0x11: case 0x12:
 		mbc = 3;
 		break;
 	default:
 		sysfatal("%s: unknown cartridge type %.2x", file, cart[0x147]);
 	}
+
 	switch(cart[0x148]){
 	case 0: case 1: case 2:
 	case 3: case 4: case 5:
@@ -72,17 +106,56 @@ loadrom(char *file)
 	case 54:
 		rombanks = 96;
 		break;
+	default:
+		sysfatal("header field 0x148 (%.2x) invalid", cart[0x148]);
+	}
+	switch(cart[0x149]){
+	case 0:
+		if(mbc != 2){
+			rambanks = 0;
+			break;
+		}
+		/*fallthrough*/
+	case 1: case 2:
+		rambanks = 1;
+		break;
+	case 3:
+		rambanks = 4;
+		break;
+	default:
+		sysfatal("header field 0x149 (%.2x) invalid", cart[0x149]);
+	}
+	if(rambanks > 0){
+		ram = mallocz(rambanks * 8192, 1);
+		if(ram == nil)
+			sysfatal("malloc: %r");
 	}
 	if(len < rombanks * 0x4000)
 		sysfatal("cartridge image is too small, %.4x < %.4x", (int)len, rombanks * 0x4000);
-
 	initdraw(nil, nil, title);
-	open("/dev/mouse", OREAD);
 	originwindow(screen, Pt(0, 0), screen->r.min);
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = (Rectangle){subpt(p, Pt(80, 72)), addpt(p, Pt(80, 72))};
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
+	if(screen->chan != XRGB32 || screen->chan != XBGR32)
+		tmp = allocimage(display, Rect(0, 0, 160, 144), XRGB32, 0, 0);
 	draw(screen, screen->r, bg, nil, ZP);
+	
+	if(ram && battery){
+		strncpy(buf, file, sizeof buf - 4);
+		s = buf + strlen(buf) - 3;
+		if(s < buf || strcmp(s, ".gb") != 0)
+			s += 3;
+		strcpy(s, ".gbs");
+		savefd = create(buf, ORDWR|OEXCL, 0666);
+		if(savefd < 0)
+			savefd = open(buf, ORDWR);
+		if(savefd < 0)
+			message("open: %r");
+		else
+			readn(savefd, ram, rambanks * 8192);
+		atexit(flushram);
+	}
 }
 
 void
@@ -98,8 +171,14 @@ keyproc(void *)
 	for(;;){
 		if(read(fd, buf, 256) <= 0)
 			sysfatal("read /dev/kbd: %r");
-		if(buf[0] == 'c' && strchr(buf, 'q'))
-			threadexitsall(nil);
+		if(buf[0] == 'c'){
+			if(strchr(buf, Kesc))
+				threadexitsall(nil);
+			if(utfrune(buf, KF|5))
+				savereq = 1;
+			if(utfrune(buf, KF|6))
+				loadreq = 1;
+		}
 		if(buf[0] != 'k' && buf[0] != 'K')
 			continue;
 		s = buf + 1;
@@ -107,7 +186,7 @@ keyproc(void *)
 		while(*s != 0){
 			s += chartorune(&r, s);
 			switch(r){
-			case 'q':
+			case Kesc:
 				threadexitsall(nil);
 			case Kdown:
 				keys |= 1<<3;
@@ -141,8 +220,10 @@ keyproc(void *)
 void
 threadmain(int argc, char** argv)
 {
-	int t, count;
+	int t;
 	vlong old, new, diff;
+	Mouse m;
+	Point p;
 
 	ARGBEGIN{
 	default:
@@ -159,12 +240,20 @@ threadmain(int argc, char** argv)
 	R[rH] = 0x01;
 	Fl = 0xB0;
 	loadrom(argv[0]);
+	mc = initmouse(nil, screen);
+	if(mc == nil)
+		sysfatal("init mouse: %r");
 	proccreate(keyproc, nil, 8192);
-	count = 0;
 	old = nsec();
 	for(;;){
-		if(pc == 0x231 && count++)
-			break;
+		if(savereq){
+			savestate("gb.save");
+			savereq = 0;
+		}
+		if(loadreq){
+			loadstate("gb.save");
+			loadreq = 0;
+		}
 		t = step();
 		clock += t;
 		ppuclock += t;
@@ -174,6 +263,15 @@ threadmain(int argc, char** argv)
 		if(ppuclock >= 456){
 			ppustep();
 			ppuclock -= 456;
+			while(nbrecv(mc->c, &m) > 0)
+				;
+			if(nbrecvul(mc->resizec) > 0){
+				if(getwindow(display, Refnone) < 0)
+					sysfatal("resize failed: %r");
+				p = divpt(addpt(screen->r.min, screen->r.max), 2);
+				picr = (Rectangle){subpt(p, Pt(80, 72)), addpt(p, Pt(80, 72))};
+				bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
+			}
 		}
 		if(divclock >= 256){
 			mem[DIV]++;
@@ -196,6 +294,13 @@ threadmain(int argc, char** argv)
 				sleep(diff);
 			old = new;
 			syncclock = 0;
+		}
+		if(msgclock > 0){
+			msgclock -= t;
+			if(msgclock <= 0){
+				draw(screen, screen->r, bg, nil, ZP);
+				msgclock = 0;
+			}
 		}
 	}
 }

@@ -4,3 +4,7 @@ int step(void);
 void ppustep(void);
 void disasm(u16int);
 void interrupt(u8int);
+void message(char *, ...);
+void flushram(void);
+void savestate(char *);
+void loadstate(char *);

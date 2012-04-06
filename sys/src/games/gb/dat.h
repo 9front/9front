@@ -1,8 +1,10 @@
 extern u16int pc, curpc, sp;
 extern u8int R[8], Fl;
-extern int halt, IME, bank, keys;
+extern int halt, IME, keys;
 extern int clock, ppuclock, divclock, timerclock, syncclock, timerfreq, timer;
-extern uchar mem[];
+extern int rombank, rambank, ramen, battery, ramrom;
+
+extern uchar mem[], *ram;
 
 extern uchar *cart;
 extern int mbc, rombanks, rambanks;

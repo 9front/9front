@@ -6,7 +6,8 @@
 #include "fns.h"
 
 uchar mem[65536];
-int bank;
+int rombank, rambank, ramen, battery, ramrom;
+extern int savefd;
 
 u8int
 memread(u16int p)
@@ -22,7 +23,45 @@ memread(u16int p)
 				return (mem[0xFF00] & 0xF0) | ~(keys & 0x0F);
 			return (mem[0xFF00] & 0xF0) | 0x0F;
 		}
+	if(!ramen && ((p & 0xE000) == 0xA000))
+		return 0xFF;
 	return mem[p];
+}
+
+static void
+ramswitch(int state, int bank)
+{
+	if(ramen){
+		memcpy(ram + 8192 * rambank, mem + 0xA000, 8192);
+		if(battery && savefd > 0){
+			seek(savefd, rambank * 8192, 0);
+			write(savefd, ram + 8192 * rambank, 8192);
+		}
+		ramen = 0;
+	}
+	rambank = bank;
+	if(state){
+		if(bank >= rambanks)
+			sysfatal("invalid RAM bank %d selected (pc = %.4x)", bank, curpc);
+		memcpy(mem + 0xA000, ram + 8192 * rambank, 8192);
+		ramen = 1;
+	}
+}
+
+void
+flushram(void)
+{
+	if(ramen)
+		ramswitch(ramen, rambank);
+}
+
+static void
+romswitch(int bank)
+{
+	if(bank >= rombanks)
+		sysfatal("invalid ROM bank %d selected (pc = %.4x)", bank, curpc);
+	rombank = bank;
+	memcpy(mem + 0x4000, cart + 0x4000 * bank, 0x4000);
 }
 
 void
@@ -33,25 +72,48 @@ memwrite(u16int p, u8int v)
 		case 0:
 			return;
 		case 1:
+		case 2:
 			switch(p >> 13){
+			case 0:
+				if((v & 0x0F) == 0x0A)
+					ramswitch(1, rambank);
+				else
+					ramswitch(0, rambank);
+				return;
 			case 1:
+				v &= 0x1F;
 				if(v == 0)
 					v++;
-				bank = v;
-				if(bank >= rombanks)
-					sysfatal("invalid ROM bank %d selected (pc = %.4x)", bank, curpc);
-				memcpy(mem + 0x4000, cart + 0x4000 * bank, 0x4000);
+				romswitch((rombank & 0xE0) | v);
 				return;
-			
+			case 2:
+				if(ramrom)
+					ramswitch(ramen, v & 3);
+				else
+					romswitch(((v & 3) << 5) | (rombank & 0x1F));
+				return;
+			case 3:
+				ramrom = v;
+				return;
 			}
 			return;
 		case 3:
 			switch(p >> 13){
+			case 0:
+				if((v & 0x0F) == 0x0A)
+					ramswitch(1, rambank);
+				else
+					ramswitch(0, rambank);
+				return;
 			case 1:
-				bank = v;
-				if(bank >= rombanks)
-					sysfatal("invalid ROM bank %d selected (pc = %.4x)", bank, curpc);
-				memcpy(mem + 0x4000, cart + 0x4000 * bank, 0x4000);
+				v &= 0x7F;
+				if(v == 0)
+					v++;
+				romswitch(v);
+				return;
+			case 2:
+				if(v < 4)
+					ramswitch(ramen, v);
 				return;
 			}
 			return;

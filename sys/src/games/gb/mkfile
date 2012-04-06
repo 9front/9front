@@ -9,6 +9,7 @@ OFILES=\
 	disasm.$O\
 	ppu.$O\
 	daa.$O\
+	state.$O\
 
 HFILES=dat.h fns.h
 

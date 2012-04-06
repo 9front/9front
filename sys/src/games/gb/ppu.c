@@ -47,15 +47,6 @@ pixelbelow(int x, int y, int val)
 }
 
 static void
-zeropic(void)
-{
-	int i;
-	
-	for(i = 0; i < sizeof pic; i++)
-		pic[i] = ((i & 3) == 3) ? 0 : 0xFF;
-}
-
-static void
 drawbg(void)
 {
 	u8int Y, x, y, ty, toy, tx, tox, tnl1, tnl2, pal, val,h;
@@ -163,6 +154,7 @@ void
 ppustep(void)
 {
 	extern Rectangle picr;
+	extern Image *tmp;
 
 	if(mem[LY] == 144){
 		mem[STAT] &= ~3;
@@ -188,9 +180,13 @@ ppustep(void)
 	if(mem[LY] > 160){
 		mem[LY] = 0;
 		if(mem[LCDC] & LCDOP){
-			loadimage(screen, picr, pic, sizeof(pic));
+			if(tmp){
+				loadimage(tmp, tmp->r, pic, sizeof(pic));
+				draw(screen, picr, tmp, nil, ZP);
+			}else
+				loadimage(screen, picr, pic, sizeof(pic));
 			flushimage(display, 1);
-			zeropic();
+			memset(pic, sizeof pic, 0);
 		}
 	}
 }

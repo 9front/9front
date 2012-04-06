@@ -9,7 +9,7 @@
 
 u8int R[8], Fl;
 u16int pc, sp, curpc;
-int halt, IME, nobios;
+int halt, IME;
 
 static void
 invalid(void)
