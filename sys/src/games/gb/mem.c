@@ -118,20 +118,20 @@ memwrite(u16int p, u8int v)
 			}
 			return;
 		case 5:
-			switch(p >> 13){
-			case 0:
+			switch(p >> 12){
+			case 0: case 1:
 				if((v & 0x0F) == 0x0A)
 					ramswitch(1, rambank);
 				else
 					ramswitch(0, rambank);
 				return;
-			case 1:
+			case 2:
 				romswitch((rombank & 0x100) | v);
 				return;
-			case 2:
+			case 3:
 				romswitch((((int)v & 1) << 8) | (rombank & 0xFF));
 				return;
-			case 3:
+			case 4:
 				ramswitch(ramen, v & 15);
 				return;
 			
@@ -162,6 +162,8 @@ memwrite(u16int p, u8int v)
 				timerfreq = 256;
 			}
 			break;
+		case 0xFF26:
+			v = (v & 0xF0) | (mem[p] & 0x0F);
 		case 0xFF41:
 			v &= ~7;
 			v |= mem[p] & 7;

@@ -9,6 +9,8 @@ extern uchar mem[], *ram;
 extern uchar *cart;
 extern int mbc, rombanks, rambanks;
 
+extern int scale;
+
 enum {
 	rB,
 	rC,

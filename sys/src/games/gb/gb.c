@@ -9,7 +9,7 @@
 #include "fns.h"
 
 uchar *cart, *ram;
-int mbc, rombanks, rambanks, clock, ppuclock, divclock, timerclock, syncclock, syncfreq, sleeps, checkclock, msgclock, timerfreq, timer, keys, savefd, savereq, loadreq;
+int mbc, rombanks, rambanks, clock, ppuclock, divclock, timerclock, syncclock, syncfreq, sleeps, checkclock, msgclock, timerfreq, timer, keys, savefd, savereq, loadreq, scale;
 Rectangle picr;
 Image *bg, *tmp;
 Mousectl *mc;
@@ -140,10 +140,10 @@ loadrom(char *file)
 	initdraw(nil, nil, title);
 	originwindow(screen, Pt(0, 0), screen->r.min);
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
-	picr = (Rectangle){subpt(p, Pt(80, 72)), addpt(p, Pt(80, 72))};
+	picr = (Rectangle){subpt(p, Pt(scale * 80, scale * 72)), addpt(p, Pt(scale * 80, scale * 72))};
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	if(screen->chan != XRGB32 || screen->chan != XBGR32)
-		tmp = allocimage(display, Rect(0, 0, 160, 144), XRGB32, 0, 0);
+		tmp = allocimage(display, Rect(0, 0, scale * 160, scale * 144), XRGB32, 0, 0);
 	draw(screen, screen->r, bg, nil, ZP);
 	
 	if(ram && battery){
@@ -230,9 +230,16 @@ threadmain(int argc, char** argv)
 	Mouse m;
 	Point p;
 
+	scale = 1;
 	ARGBEGIN{
 	case 'a':
 		initaudio();
+		break;
+	case '2':
+		scale = 2;
+		break;
+	case '3':
+		scale = 3;
 		break;
 	default:
 		sysfatal("unknown flag -%c", ARGC());
@@ -279,7 +286,7 @@ threadmain(int argc, char** argv)
 				if(getwindow(display, Refnone) < 0)
 					sysfatal("resize failed: %r");
 				p = divpt(addpt(screen->r.min, screen->r.max), 2);
-				picr = (Rectangle){subpt(p, Pt(80, 72)), addpt(p, Pt(80, 72))};
+				picr = (Rectangle){subpt(p, Pt(scale * 80, scale * 72)), addpt(p, Pt(scale * 80, scale * 72))};
 				bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 			}
 		}

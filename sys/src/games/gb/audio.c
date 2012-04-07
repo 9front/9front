@@ -6,7 +6,7 @@
 #include "fns.h"
 
 static int fd;
-int ch1c, ch2c, ch3c, ch4c, ch4sr = 1;
+static int sc, ch1c, ch2c, ch3c, ch4c, ch4sr = 1, ch1vec, ch2vec, ch4vec, ch1v, ch2v, ch4v;
 
 enum { SAMPLE = 44100 };
 
@@ -33,13 +33,74 @@ freq(int lower)
 }
 
 static void
+soundlen(int len, int ctrl, int n)
+{
+	if(mem[ctrl] & 128){
+		mem[0xFF26] |= (1<<n);
+		mem[ctrl] &= ~128;
+		switch(n){
+		case 0:
+			ch1v = mem[0xFF12];
+			break;
+		case 1:
+			ch2v = mem[0xFF17];
+			break;
+		case 3:
+			ch4v = mem[0xFF21];
+			break;
+		}
+	}
+	if((mem[ctrl] & 64) == 0){
+		mem[0xFF26] |= (1<<n);
+		return;
+	}
+	if((mem[0xFF26] & (1<<n)) == 0)
+		return;
+	if(mem[len] == ((n == 2) ? 255 : 63)){
+		mem[0xFF26] &= ~(1<<n);
+		return;
+	}
+	mem[len]++;
+}
+
+static void
+envelope(int *v, int *c)
+{
+	int f;
+	
+	f = (*v & 7) * SAMPLE / 64;
+	if(f == 0)
+		return;
+	if(*c >= f){
+		if(*v & 8){
+			if((*v >> 4) < 0xF)
+				*v += 0x10;
+		}else
+			if((*v >> 4) > 0)
+				*v -= 0x10;
+		*c = 0;
+	}
+	(*c)++;
+}
+
+static void
 dosample(short *smp)
 {
 	int ch1s, ch2s, ch3s, ch4s, ch1f, ch2f, ch3f, ch4f, k, r, s;
 	u8int f;
-
-	ch4s = 0;
 	
+	if(sc >= SAMPLE/256){
+		soundlen(0xFF11, 0xFF14, 0);
+		soundlen(0xFF16, 0xFF19, 1);
+		soundlen(0xFF1B, 0xFF1E, 2);
+		soundlen(0xFF20, 0xFF23, 3);
+		sc = 0;
+	}
+	sc++;
+	envelope(&ch1v, &ch1vec);
+	envelope(&ch2v, &ch2vec);
+	envelope(&ch4v, &ch4vec);
+
 	ch1f = freq(0xFF13);
 	if(ch1c >= ch1f)
 		ch1c = 0;
@@ -47,8 +108,8 @@ dosample(short *smp)
 		ch1s = 1;
 	else
 		ch1s = -1;
-	ch1s *= mem[0xFF12] >> 4;
-	ch1s *= 10000 / 0xF;
+	ch1s *= ch1v >> 4;
+	ch1s *= 8000 / 0xF;
 	ch1c++;
 
 	ch2f = freq(0xFF18);
@@ -58,8 +119,8 @@ dosample(short *smp)
 		ch2s = 1;
 	else
 		ch2s = -1;
-	ch2s *= mem[0xFF17] >> 4;
-	ch2s *= 10000 / 0xF;
+	ch2s *= ch2v >> 4;
+	ch2s *= 8000 / 0xF;
 	ch2c++;
 	
 	ch3f = freq(0xFF1D) * 100 / 32;
@@ -86,7 +147,7 @@ dosample(short *smp)
 			ch3s >>= 2;
 			break;
 		}
-		ch3s *= 10000 / 0xF;
+		ch3s *= 8000 / 0xF;
 		ch3c++;	
 	}
 	
@@ -113,12 +174,15 @@ dosample(short *smp)
 		ch4s = -1;
 	else
 		ch4s = 1;
-	ch4s *= mem[0xFF21] >> 4;
-	ch4s *= 10000 / 0xF;
+	ch4s *= ch4v >> 4;
+	ch4s *= 8000 / 0xF;
 	
 	smp[0] = 0;
 	smp[1] = 0;
 	f = mem[0xFF25];
+	r = mem[0xFF26] & 15;
+	r = r | (r << 4);
+	f &= r;
 	if(f & 0x01) smp[0] += ch1s;
 	if(f & 0x02) smp[0] += ch2s;
 	if(f & 0x04) smp[0] += ch3s;
@@ -145,6 +209,10 @@ audioproc(void *)
 void
 initaudio(void)
 {
+	mem[0xFF26] = 0xF;
+	ch1v = 0xF0;
+	ch2v = 0xF0;
+	ch4v = 0xF0;
 	fd = open("/dev/audio", OWRITE);
 	if(fd < 0)
 		return;

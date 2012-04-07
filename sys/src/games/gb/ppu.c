@@ -5,7 +5,7 @@
 #include "dat.h"
 #include "fns.h"
 
-uchar pic[160*144*4];
+uchar pic[160*144*4*9];
 
 static void
 resolvetile(u8int tx, u8int ty, u8int toy, int window, u8int* tnl1, u8int *tnl2)
@@ -32,17 +32,32 @@ resolvetile(u8int tx, u8int ty, u8int toy, int window, u8int* tnl1, u8int *tnl2)
 static void
 pixel(int x, int y, int val, int back)
 {
+	int X, Y;
+	uchar *p;
+
 	val = (3 - val) * 0x55;
-	pic[y*160*4 + x*4] = val;
-	pic[y*160*4 + x*4 + 1] = val;
-	pic[y*160*4 + x*4 + 2] = val;
-	pic[y*160*4 + x*4 + 3] = back ? 0 : 0xFF;
+	if(scale > 1){
+		for(X = scale * x; X < scale * (x+1); X++)
+			for(Y = scale * y; Y < scale * (y+1); Y++){
+				p = pic + Y * scale * 160 * 4 + X * 4;
+				p[0] = val;
+				p[1] = val;
+				p[2] = val;
+				p[3] = back ? 0 : 0xFF;
+			}
+	}else{
+		p = pic + y*160*4 + x*4;
+		p[0] = val;
+		p[1] = val;
+		p[2] = val;
+		p[3] = back ? 0 : 0xFF;
+	}
 }
 
 static void
 pixelbelow(int x, int y, int val)
 {
-	if(pic[y*160*4 + x*4 + 3] == 0)
+	if(pic[y*scale*scale*160*4 + x*scale*4 + 3] == 0)
 		pixel(x, y, val, 0);
 }
 
@@ -191,10 +206,10 @@ ppustep(void)
 		mem[LY] = 0;
 		if(mem[LCDC] & LCDOP){
 			if(tmp){
-				loadimage(tmp, tmp->r, pic, sizeof(pic));
+				loadimage(tmp, tmp->r, pic, 160*144*4*scale*scale);
 				draw(screen, picr, tmp, nil, ZP);
 			}else
-				loadimage(screen, picr, pic, sizeof(pic));
+				loadimage(screen, picr, pic, 160*144*4*scale*scale);
 			flushimage(display, 1);
 			memset(pic, sizeof pic, 0);
 		}
