@@ -98,7 +98,7 @@ source files of packages installed locally.
 .br
 .B /sys/src/cmd/pkg/unpkg.c
 .SH REPOSITORIES
-.B http://pkg.violetti.org/386
+.B http://r-36.net/pkg/386
 .br
 .B http://plan9.stanleylieber.com/pkg/386
 .SH SEE ALSO
