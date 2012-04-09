@@ -35,7 +35,7 @@ case cpu
 	prompt=('cpu% ' '	')
 	fn cpu%{ $* }
 	if (! test -e /mnt/term/mnt/wsys) {	# cpu call from drawterm
-		font=/lib/font/bit/pelm/latin1.8.font
+		font=/lib/font/bit/vga/unicode.font
 		exec rio
 	}
 case con
