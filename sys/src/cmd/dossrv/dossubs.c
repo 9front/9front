@@ -1116,7 +1116,7 @@ getname(char *p, Dosdir *d)
 			break;
 		if(i == 0 && c == 0x05)
 			c = 0xe5;
-		*p++ = c;
+		*p++ = tolower(c);
 	}
 	for(i=0; i<3; i++){
 		c = d->ext[i];
@@ -1124,7 +1124,7 @@ getname(char *p, Dosdir *d)
 			break;
 		if(i == 0)
 			*p++ = '.';
-		*p++ = c;
+		*p++ = tolower(c);
 	}
 	*p = 0;
 }
