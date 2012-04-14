@@ -12,6 +12,7 @@ TARG=4s\
 	glendy\
 	packet\
 	mandel\
+	midi\
 
 OFILES=
 HFILES=
