@@ -174,7 +174,7 @@ void mkpanels(void){
 			plscroll(list, 0, bar);
 		p=plgroup(root, PACKN|FILLX);
 			pllabel(p, PACKW, "Title:");
-			curttl=pllabel(p, PACKE|EXPAND, "Initializing");
+			curttl=pllabel(p, PACKE|EXPAND, "---");
 			plplacelabel(curttl, PLACEW);
 		p=plgroup(root, PACKN|FILLX);
 			pllabel(p, PACKW, "Url:");
@@ -445,14 +445,8 @@ void eresized(int new){
 		exits("getwindow");
 	}
 	r=screen->r;
-	plinitlabel(curttl, PACKE|EXPAND, "---");
-	plinitlabel(cururl, PACKE|EXPAND, "---");
 	plpack(root, r);
 	plpack(alt, r);
-	if(current){
-		plinitlabel(curttl, PACKE|EXPAND, current->title);
-		plinitlabel(cururl, PACKE|EXPAND, current->url->fullname);
-	}
 	draw(screen, r, display->white, 0, ZP);
 	pldraw(root, screen);
 	unlockdisplay(display);

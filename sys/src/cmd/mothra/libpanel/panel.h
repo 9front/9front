@@ -98,7 +98,7 @@ struct Panel{
 #define	PRI_POPUP	1		/* popup menus */
 #define	PRI_SCROLLBAR	2		/* scroll bars */
 int plinit(int);			/* initialization */
-int plpack(Panel *, Rectangle);		/* figure out where to put the Panel & children */
+void plpack(Panel *, Rectangle);	/* figure out where to put the Panel & children */
 void plmove(Panel *, Point);		/* move an already-packed panel to a new location */
 void pldraw(Panel *, Image *);		/* display the panel on the bitmap */
 void plfree(Panel *);			/* give back space */

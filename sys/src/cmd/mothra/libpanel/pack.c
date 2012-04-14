@@ -66,24 +66,18 @@ Point pl_getshare(Panel *p){
 }
 /*
  * Set the sizes and rectangles of p and its descendants, given their requested sizes.
- * Returns 1 if everything fit, 0 otherwise.
- * For now we punt in the case that the children don't all fit.
- * Possibly we should shrink all the children's sizereqs to fit,
- * by the same means used to do EXPAND, except clamping at some minimum size,
- * but that smacks of AI.
  */
-Panel *pl_toosmall;
-int pl_setrect(Panel *p, Point ul, Point avail){
+void pl_setrect(Panel *p, Point ul, Point avail){
 	Point space, newul, newspace, slack, share;
 	int l;
 	Panel *c;
 	p->size=subpt(p->sizereq, p->pad);
 	ul=addpt(ul, divpt(p->pad, 2));
 	avail=subpt(avail, p->pad);
-	if(p->size.x>avail.x || p->size.y>avail.y){
-		pl_toosmall=p;
-		return 0;	/* not enough space! */
-	}
+	if(p->size.x>avail.x)
+		p->size.x = avail.x;
+	if(p->size.y>avail.y)
+		p->size.y = avail.y;
 	if(p->flags&(FILLX|EXPAND)) p->size.x=avail.x;
 	if(p->flags&(FILLY|EXPAND)) p->size.y=avail.y;
 	switch(p->flags&PLACE){
@@ -127,34 +121,33 @@ int pl_setrect(Panel *p, Point ul, Point avail){
 		case PACKN:
 			newul=Pt(ul.x, ul.y+c->sizereq.y);
 			newspace=Pt(space.x, space.y-c->sizereq.y);
-			if(!pl_setrect(c, ul, Pt(space.x, c->sizereq.y))) return 0;
+			pl_setrect(c, ul, Pt(space.x, c->sizereq.y));
 			break;
 		case PACKW:
 			newul=Pt(ul.x+c->sizereq.x, ul.y);
 			newspace=Pt(space.x-c->sizereq.x, space.y);
-			if(!pl_setrect(c, ul, Pt(c->sizereq.x, space.y))) return 0;
+			pl_setrect(c, ul, Pt(c->sizereq.x, space.y));
 			break;
 		case PACKS:
 			newul=ul;
 			newspace=Pt(space.x, space.y-c->sizereq.y);
-			if(!pl_setrect(c, Pt(ul.x, ul.y+space.y-c->sizereq.y),
-				Pt(space.x, c->sizereq.y))) return 0;
+			pl_setrect(c, Pt(ul.x, ul.y+space.y-c->sizereq.y),
+				Pt(space.x, c->sizereq.y));
 			break;
 		case PACKE:
 			newul=ul;
 			newspace=Pt(space.x-c->sizereq.x, space.y);
-			if(!pl_setrect(c, Pt(ul.x+space.x-c->sizereq.x, ul.y),
-				Pt(c->sizereq.x, space.y))) return 0;
+			pl_setrect(c, Pt(ul.x+space.x-c->sizereq.x, ul.y),
+				Pt(c->sizereq.x, space.y));
 			break;
 		}
 		ul=newul;
 		space=newspace;
 	}
-	return 1;
 }
-int plpack(Panel *p, Rectangle where){
+void plpack(Panel *p, Rectangle where){
 	pl_sizereq(p);
-	return pl_setrect(p, where.min, subpt(where.max, where.min));
+	pl_setrect(p, where.min, subpt(where.max, where.min));
 }
 /*
  * move an already-packed panel so that p->r=raddp(p->r, d)
