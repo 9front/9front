@@ -81,6 +81,7 @@ loadstate(char *file)
 	clock = get32();
 	ppuclock = get32();
 	divclock = get32();
+	timerclock = get32();
 	timerfreq = get32();
 	timer = get32();
 	rombank = get32();
