@@ -1132,6 +1132,10 @@ cwream(Device *dev)
 
 	for(m=0; m<3; m++)
 		cwio(dev, baddr+m, 0, Odump);
+
+	/* write superblock to worm */
+	while(dumpblock(dev))
+		;
 }
 
 Off
