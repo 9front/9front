@@ -133,6 +133,7 @@ main(int argc, char *argv[])
 					append(&srcs, s);
 					append(&objs, changeext(s, ot->o));
 				} else if(strcmp(suf, ot->o) == 0 ||
+					  strcmp(suf, "o") == 0 ||
 					  strcmp(suf, "a") == 0 ||
 					  (suf[0] == 'a' && strcmp(suf+1, ot->o) == 0)) {
 					append(&objs, s);
