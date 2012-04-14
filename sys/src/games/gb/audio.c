@@ -170,6 +170,7 @@ dosample(short *smp)
 		ch4sr |= k;
 		ch4c = 0;
 	}
+	ch4c++;
 	if(ch4sr & 1)
 		ch4s = -1;
 	else
