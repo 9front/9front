@@ -10,11 +10,11 @@ typedef struct Stats Stats;
 
 struct Dict
 {
-	char	typ;	// i, d, s, l
 	Dict	*val;
 	Dict	*next;
 	char	*start, *end;
 	int	len;
+	char	typ;	// i, d, s, l
 	char	str[];
 };
 
@@ -746,7 +746,7 @@ Hfmt(Fmt *f)
 }
 
 int
-mktorrent(int fd, char *url)
+mktorrent(int fd, Dict *alist)
 {
 	uchar *b, h[20];
 	Dir *d;
@@ -771,7 +771,14 @@ mktorrent(int fd, char *url)
 			break;
 	}
 	print("d");
-	print("8:announce%ld:%s", strlen(url), url);
+	print("8:announce%ld:%s", strlen(alist->str), alist->str);
+	if(alist->next){
+		print("13:announce-listl");
+		print("l%ld:%se", strlen(alist->str), alist->str);
+		for(alist = alist->next; alist; alist = alist->next)
+			print("l%ld:%se", strlen(alist->str), alist->str);
+		print("e");
+	}
 	print("4:info");
 	print("d");
 	print("4:name%ld:%s", strlen(d->name), d->name);
@@ -858,24 +865,40 @@ usage(void)
 	exits("usage");
 }
 
+Dict*
+scons(char *s, Dict *t)
+{
+	Dict *l;
+
+	if(s == nil)
+		return t;
+	for(l = t; l; l = l->next)
+		if(cistrcmp(l->str, s) == 0)
+			return t;
+	l = mallocz(sizeof(*l) + strlen(s)+1, 1);
+	l->next = t;
+	strcpy(l->str, s);
+	return l;
+}
+
 void
 main(int argc, char *argv[])
 {
 	int sflag, pflag, vflag, cflag, fd, i, n;
-	Dict *info, *torrent, *d;
-	char *p, *s, *e, *url;
+	Dict *alist, *info, *torrent, *d, *l;
+	char *p, *s, *e;
 	File **fp, *f;
 	vlong len;
 
 	fmtinstall('H', Hfmt);
-	url = nil;
+	alist = nil;
 	sflag = pflag = vflag = cflag = 0;
 	ARGBEGIN {
 	case 'm':
 		mntweb = EARGF(usage());
 		break;
 	case 't':
-		url = EARGF(usage());
+		alist = scons(EARGF(usage()), alist);
 		break;
 	case 's':
 		sflag = 1;
@@ -901,15 +924,21 @@ main(int argc, char *argv[])
 		if((fd = open(*argv, OREAD)) < 0)
 			sysfatal("open: %r");
 	if(cflag){
-		if(url == nil)
-			url = deftrack;
-		if(mktorrent(fd, url) < 0)
+		if(alist == nil)
+			alist = scons(deftrack, alist);
+		if(mktorrent(fd, alist) < 0)
 			sysfatal("%r");
 		exits(0);
 	}
 	if((n = readall(fd, &p)) <= 0)
 		sysfatal("read torrent: %r");
 	bparse(p, p+n, &torrent);
+	alist = scons(dstr(dlook(torrent, "announce")), alist);
+	for(d = dlook(torrent, "announce-list"); d && d->typ == 'l'; d = d->next)
+		for(l = d->val; l && l->typ == 'l'; l = l->next)
+			alist = scons(dstr(l->val), alist);
+	if(alist == nil)
+		sysfatal("no trackers in torrent");
 	if((d = info = dlook(torrent, "info")) == nil)
 		sysfatal("no meta info in torrent");
 	for(s = e = d->start; d && d->typ == 'd'; d = d->next)
@@ -993,11 +1022,8 @@ main(int argc, char *argv[])
 		for(i=8; i<sizeof(peerid); i++)
 			peerid[i] = nrand(10)+'0';
 		server();
-		tracker(url);
-		tracker(dstr(dlook(torrent, "announce")));
-		for(d = dlook(torrent, "announce-list"); d && d->typ == 'l'; d = d->next)
-			if(d->val && d->val->typ == 'l')
-				tracker(dstr(d->val->val));
+		for(; alist; alist = alist->next)
+			tracker(alist->str);
 		while(waitpid() != -1)
 			;
 		break;
