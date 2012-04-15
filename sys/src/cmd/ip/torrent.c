@@ -65,6 +65,12 @@ int nhavepieces;
 File *files;
 Stats stats;
 
+int
+finished(void)
+{
+	return nhavepieces >= npieces;
+}
+
 void
 freedict(Dict *d)
 {
@@ -647,6 +653,78 @@ hopen(char *url, ...)
 }
 
 void
+webseed(Dict *w, File *f)
+{
+	vlong off, woff;
+	int fd, n, m, r, p, x, y, err;
+	uchar buf[MAXIO];
+	Dict *w0;
+	char *s;
+
+	if(w == nil || f == nil || finished())
+		return;
+	if(rfork(RFPROC|RFMEM))
+		return;
+	w0 = w;
+Retry:
+	if(debug) fprint(2, "webseed %s %s\n", w->str, f->name);
+	s = strrchr(w->str, '/');
+	if(s && s[1] == 0)
+		fd = hopen("%s%s", w->str, f->name);
+	else
+		fd = hopen("%s", w->str);
+	if(fd < 0){
+		if(finished())
+			exits(0);
+		if((w = w->next) == w0)
+			exits(0);
+		goto Retry;
+	}
+	off = 0;
+	err = 0;
+	while(off < f->len){
+		if(finished())
+			break;
+		n = MAXIO;
+		if((f->len - off) < n)
+			n = (f->len - off);
+		if((n = read(fd, buf, n)) <= 0)
+			break;
+		woff = f->off + off;
+		x = woff / blocksize;
+		off += n;
+		y = (f->off + off) / blocksize;
+		p = woff - x*blocksize;
+		m = 0;
+		while(m < n){
+			r = pieces[x].len - p;
+			if(r > (n-m))
+				r = n-m;
+			if((havemap[x>>3] & (0x80>>(x&7))) == 0)
+				if(rwpiece(1, x, buf+m, r, p) != r)
+					goto Err;
+			if(x == y)
+				break;
+			m += r;
+			p = 0;
+			if(!havepiece(x++)){
+				if(++err > 10){
+					fprint(2, "webseed corrupt %s / %s\n",
+						w->str, f->name);
+					goto Err;
+				}
+			}
+		}
+	}
+
+	havepiece(f->off / blocksize);
+	havepiece((f->off+f->len) / blocksize);
+Err:
+	close(fd);
+	exits(0);
+}
+
+void
 tracker(char *url)
 {
 	static Dict *trackers;
@@ -746,7 +824,7 @@ Hfmt(Fmt *f)
 }
 
 int
-mktorrent(int fd, Dict *alist)
+mktorrent(int fd, Dict *alist, Dict *wlist)
 {
 	uchar *b, h[20];
 	Dir *d;
@@ -778,6 +856,15 @@ mktorrent(int fd, Dict *alist)
 		for(alist = alist->next; alist; alist = alist->next)
 			print("l%ld:%se", strlen(alist->str), alist->str);
 		print("e");
+	}
+	if(wlist){
+		if(wlist->next){
+			print("8:url-listl");
+			for(; wlist; wlist = wlist->next)
+				print("%ld:%s", strlen(wlist->str), wlist->str);
+			print("e");
+		} else
+			print("8:url-list%ld:%s", strlen(wlist->str), wlist->str);
 	}
 	print("4:info");
 	print("d");
@@ -885,13 +972,13 @@ void
 main(int argc, char *argv[])
 {
 	int sflag, pflag, vflag, cflag, fd, i, n;
-	Dict *alist, *info, *torrent, *d, *l;
+	Dict *alist, *wlist, *info, *torrent, *d, *l;
 	char *p, *s, *e;
 	File **fp, *f;
 	vlong len;
 
 	fmtinstall('H', Hfmt);
-	alist = nil;
+	alist = wlist = nil;
 	sflag = pflag = vflag = cflag = 0;
 	ARGBEGIN {
 	case 'm':
@@ -899,6 +986,9 @@ main(int argc, char *argv[])
 		break;
 	case 't':
 		alist = scons(EARGF(usage()), alist);
+		break;
+	case 'w':
+		wlist = scons(EARGF(usage()), wlist);
 		break;
 	case 's':
 		sflag = 1;
@@ -926,7 +1016,7 @@ main(int argc, char *argv[])
 	if(cflag){
 		if(alist == nil)
 			alist = scons(deftrack, alist);
-		if(mktorrent(fd, alist) < 0)
+		if(mktorrent(fd, alist, wlist) < 0)
 			sysfatal("%r");
 		exits(0);
 	}
@@ -937,8 +1027,18 @@ main(int argc, char *argv[])
 	for(d = dlook(torrent, "announce-list"); d && d->typ == 'l'; d = d->next)
 		for(l = d->val; l && l->typ == 'l'; l = l->next)
 			alist = scons(dstr(l->val), alist);
-	if(alist == nil)
-		sysfatal("no trackers in torrent");
+	if(d = dlook(torrent, "url-list")){
+		if(d->typ == 's')
+			wlist = scons(dstr(d->val), wlist);
+		else for(; d && d->typ == 'l'; d = d->next)
+			wlist = scons(dstr(d->val), wlist);
+		/* make wlist into a ring */
+		for(l = wlist; l && l->next; l = l->next)
+			;
+		if(l) l->next = wlist;
+	}
+	if(alist == nil && wlist == nil)
+		sysfatal("no trackers or webseeds in torrent");
 	if((d = info = dlook(torrent, "info")) == nil)
 		sysfatal("no meta info in torrent");
 	for(s = e = d->start; d && d->typ == 'd'; d = d->next)
@@ -972,12 +1072,12 @@ main(int argc, char *argv[])
 	for(f = files; f; f = f->next){
 		if(f->name == nil || f->len <= 0)
 			sysfatal("bogus file entry in meta info");
-		f->name = fixnamedup(f->name);
-		if(vflag) fprint(pflag ? 2 : 1, "%s\n", f->name);
-		if((f->fd = open(f->name, ORDWR)) < 0){
-			if(mkdirs(f->name) < 0)
+		s = fixnamedup(f->name);
+		if(vflag) fprint(pflag ? 2 : 1, "%s\n", s);
+		if((f->fd = open(s, ORDWR)) < 0){
+			if(mkdirs(s) < 0)
 				sysfatal("mkdirs: %r");
-			if((f->fd = create(f->name, ORDWR, 0666)) < 0)
+			if((f->fd = create(s, ORDWR, 0666)) < 0)
 				sysfatal("create: %r");
 		}
 		f->off = len;
@@ -1024,16 +1124,18 @@ main(int argc, char *argv[])
 		server();
 		for(; alist; alist = alist->next)
 			tracker(alist->str);
+		for(f = files, l = wlist; f && l; f = f->next, l = l->next)
+			webseed(l, f);
 		while(waitpid() != -1)
 			;
 		break;
 	default:
 		killgroup = i;
-		while((nhavepieces < npieces) || sflag){
+		do {
+			sleep(1000);
 			if(pflag)
 				print("%d %d\n", nhavepieces, npieces);
-			sleep(1000);
-		}
+		} while(!finished() || sflag);
 	}
 	postnote(PNGROUP, killgroup, "kill");
 	exits(0);

@@ -14,7 +14,10 @@ torrent \- bittorrent client
 .I mtpt
 ] [
 .B -t
-.I url
+.I tracker-url
+] [
+.B -w
+.I webseed-url
 ] [
 .B -s
 ] [
@@ -44,12 +47,21 @@ reads the file given at the final
 .I file
 argument (or standard-input when omited) and writes
 a torrent file to standard-output and exits.
-A tracker
-.I url
+A
+.I tracker-url
 should be given with the
 .B -t
 option in that case. A list of trackers can be obtained
 on the web, see the examples below.
+.PP
+If the files in the torrent are also available from a url, a
+.I webseed-url
+can be passed with the
+.B -w
+option. If
+.I webseed-url
+ends with a slash, the filename, from the torrent, concatinated
+with the url forms the target url.
 .PP
 Without the
 .B -c
