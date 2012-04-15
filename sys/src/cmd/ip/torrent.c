@@ -674,12 +674,14 @@ Retry:
 	else
 		fd = hopen("%s", w->str);
 	if(fd < 0){
+		if(debug) fprint(2, "webseed %s %s: %r\n", w->str, f->name);
 		if(finished())
 			exits(0);
 		if((w = w->next) == w0)
 			exits(0);
 		goto Retry;
 	}
+
 	off = 0;
 	err = 0;
 	while(off < f->len){
@@ -707,12 +709,11 @@ Retry:
 				break;
 			m += r;
 			p = 0;
-			if(!havepiece(x++)){
-				if(++err > 10){
-					fprint(2, "webseed corrupt %s / %s\n",
-						w->str, f->name);
-					goto Err;
-				}
+			if(havepiece(x++))
+				continue;
+			if(++err > 10){
+				fprint(2, "webseed %s %s: corrupt\n", w->str, f->name);
+				goto Err;
 			}
 		}
 	}
@@ -948,7 +949,8 @@ killnote(void *, char *)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [ -vsdpc ] [ -m mtpt ] [ -t url ] [ file ]\n", argv0);
+	fprint(2, "usage: %s [ -vsdpc ] [ -m mtpt ] [ -t tracker-url ] "
+		  "[ -w webseed-url ] [ file ]\n", argv0);
 	exits("usage");
 }
 
@@ -960,7 +962,7 @@ scons(char *s, Dict *t)
 	if(s == nil)
 		return t;
 	for(l = t; l; l = l->next)
-		if(cistrcmp(l->str, s) == 0)
+		if(strcmp(l->str, s) == 0)
 			return t;
 	l = mallocz(sizeof(*l) + strlen(s)+1, 1);
 	l->next = t;
@@ -1023,22 +1025,26 @@ main(int argc, char *argv[])
 	if((n = readall(fd, &p)) <= 0)
 		sysfatal("read torrent: %r");
 	bparse(p, p+n, &torrent);
+
 	alist = scons(dstr(dlook(torrent, "announce")), alist);
 	for(d = dlook(torrent, "announce-list"); d && d->typ == 'l'; d = d->next)
 		for(l = d->val; l && l->typ == 'l'; l = l->next)
 			alist = scons(dstr(l->val), alist);
+
 	if(d = dlook(torrent, "url-list")){
 		if(d->typ == 's')
 			wlist = scons(dstr(d->val), wlist);
-		else for(; d && d->typ == 'l'; d = d->next)
-			wlist = scons(dstr(d->val), wlist);
+		else for(l = d; l && l->typ == 'l'; l = l->next)
+			wlist = scons(dstr(l->val), wlist);
 		/* make wlist into a ring */
 		for(l = wlist; l && l->next; l = l->next)
 			;
 		if(l) l->next = wlist;
 	}
+
 	if(alist == nil && wlist == nil)
 		sysfatal("no trackers or webseeds in torrent");
+
 	if((d = info = dlook(torrent, "info")) == nil)
 		sysfatal("no meta info in torrent");
 	for(s = e = d->start; d && d->typ == 'd'; d = d->next)
