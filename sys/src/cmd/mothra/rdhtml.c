@@ -72,19 +72,17 @@ enum{
 	HORIZ,
 	VERT,
 };
-int strtolength(Hglob *g, int dir, char *str)
-{
+
+int strtolength(Hglob *g, int dir, char *str){
 	double f;
+	Point p;
 
 	f = atof(str);
-	if(cistrstr(str, "px"))
-		return floor(f);
 	if(cistrstr(str, "%"))
-		return floor(f*((dir==HORIZ) ? Dx(g->dst->text->r) : Dy(g->dst->text->r))/100);
+		return 0;
 	if(cistrstr(str, "em")){
-		Point z;
-		z = stringsize(g->dst->text->font, "M");
-		return floor(f*((dir==HORIZ) ? z.x : z.y));
+		p=stringsize(pl_whichfont(g->state->font, g->state->size)->font, "M");
+		return floor(f*((dir==HORIZ) ? p.x : p.y));
 	}
 	return floor(f);
 }
@@ -692,9 +690,9 @@ void plrdhtml(char *name, int fd, Www *dst){
 				nstrcpy(g.state->image, str, sizeof(g.state->image));
 			g.state->ismap=pl_hasattr(g.attr, "ismap");
 			if(str=pl_getattr(g.attr, "width"))
-				g.state->width = strtolength(&g, HORIZ, str);
+				g.state->width=strtolength(&g, HORIZ, str);
 			if(str=pl_getattr(g.attr, "height"))
-				g.state->height = strtolength(&g, VERT, str);
+				g.state->height=strtolength(&g, VERT, str);
 			str=pl_getattr(g.attr, "alt");
 			if(str==0){
 				if(g.state->image[0])
