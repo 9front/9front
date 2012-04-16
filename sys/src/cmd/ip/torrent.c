@@ -655,9 +655,9 @@ hopen(char *url, ...)
 void
 webseed(Dict *w, File *f)
 {
-	vlong off, woff;
-	int fd, n, m, r, p, x, y, err;
+	int fd, err, n, m, o, p, x, y;
 	uchar buf[MAXIO];
+	vlong off, len;
 	Dict *w0;
 	char *s;
 
@@ -674,6 +674,7 @@ Retry:
 	else
 		fd = hopen("%s", w->str);
 	if(fd < 0){
+Error:
 		if(debug) fprint(2, "webseed %s %s: %r\n", w->str, f->name);
 		if(finished())
 			exits(0);
@@ -682,45 +683,45 @@ Retry:
 		goto Retry;
 	}
 
-	off = 0;
 	err = 0;
-	while(off < f->len){
-		if(finished())
+	off = f->off;
+	len = f->len;
+	while(len > 0 && !finished()){
+		m = sizeof(buf);
+		if(len < m)
+			m = len;
+		if((n = read(fd, buf, m)) <= 0)
 			break;
-		n = MAXIO;
-		if((f->len - off) < n)
-			n = (f->len - off);
-		if((n = read(fd, buf, n)) <= 0)
-			break;
-		woff = f->off + off;
-		x = woff / blocksize;
+
+		x = off / blocksize;
+		p = off - (vlong)x*blocksize;
 		off += n;
-		y = (f->off + off) / blocksize;
-		p = woff - x*blocksize;
-		m = 0;
-		while(m < n){
-			r = pieces[x].len - p;
-			if(r > (n-m))
-				r = n-m;
+		len -= n;
+		y = off / blocksize;
+
+		o = 0;
+		while(n > 0){
+			m = pieces[x].len - p;
+			if(m > n)
+				m = n;
 			if((havemap[x>>3] & (0x80>>(x&7))) == 0)
-				if(rwpiece(1, x, buf+m, r, p) != r)
-					goto Err;
+				rwpiece(1, x, buf+o, m, p);
 			if(x == y)
 				break;
-			m += r;
+			o += m;
+			n -= m;
 			p = 0;
 			if(havepiece(x++))
 				continue;
 			if(++err > 10){
-				fprint(2, "webseed %s %s: corrupt\n", w->str, f->name);
-				goto Err;
+				close(fd);
+				werrstr("file corrupted");
+				goto Error;
 			}
 		}
 	}
-
+	havepiece(off / blocksize);
 	havepiece(f->off / blocksize);
-	havepiece((f->off+f->len) / blocksize);
-Err:
 	close(fd);
 	exits(0);
 }
