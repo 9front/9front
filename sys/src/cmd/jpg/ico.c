@@ -73,11 +73,9 @@ Bgetheader(Biobuf *b, Header *h)
 			sysfatal("malloc: %r");
 		if(Breadn(b, buf, 16) != 16)
 			goto eof;
-		icon->w = buf[0];
-		icon->h = buf[1];
+		icon->w = buf[0] == 0 ? 256 : buf[0];
+		icon->h = buf[1] == 0 ? 256 : buf[1];
 		icon->ncolor = buf[2] == 0 ? 256 : buf[2];
-		if(buf[3] != 0)
-			goto header;
 		icon->nplane = gets(&buf[4]);
 		icon->bits = gets(&buf[6]);
 		icon->len = getl(&buf[8]);
@@ -99,13 +97,13 @@ header:
 }
 
 uchar*
-transcmap(Icon *icon, uchar *map)
+transcmap(Icon *icon, int ncolor, uchar *map)
 {
 	uchar *m, *p;
 	int i;
 
-	p = m = malloc(sizeof(int)*(1<<icon->bits));
-	for(i = 0; i < icon->ncolor; i++){
+	p = m = mallocz(sizeof(int)*(1<<icon->bits), 1);
+	for(i = 0; i < ncolor; i++){
 		*p++ = rgb2cmap(map[2], map[1], map[0]);
 		map += 4;
 	}
@@ -113,7 +111,7 @@ transcmap(Icon *icon, uchar *map)
 }
 
 Memimage*
-xor2img(Icon *icon, uchar *xor, uchar *map)
+xor2img(Icon *icon, long chan, uchar *xor, uchar *map)
 {
 	uchar *data;
 	Memimage *img;
@@ -123,8 +121,18 @@ xor2img(Icon *icon, uchar *xor, uchar *map)
 	int x, y;
 
 	inxlen = 4*((icon->bits*icon->w+31)/32);
-	to = data = malloc(icon->w*icon->h);
+	img = allocmemimage(Rect(0,0,icon->w,icon->h), chan);
 
+	if(chan != CMAP8){
+		from = xor + icon->h*inxlen;
+		for(y = 0; y < icon->h; y++){
+			from -= inxlen;
+			loadmemimage(img, Rect(0,y,icon->w,y+1), from, inxlen);
+		}
+		return img;
+	}
+
+	to = data = malloc(icon->w*icon->h);
 	/* rotate around the y axis, go to 8 bits, and convert color */
 	mask = (1<<icon->bits)-1;
 	for(y = 0; y < icon->h; y++){
@@ -140,11 +148,8 @@ xor2img(Icon *icon, uchar *xor, uchar *map)
 			s -= icon->bits;
 		}
 	}
-
 	/* stick in an image */
-	img = allocmemimage(Rect(0,0,icon->w,icon->h), CMAP8);
 	loadmemimage(img, Rect(0,0,icon->w,icon->h), data, icon->h*icon->w);
-
 	free(data);
 	return img;
 }
@@ -182,7 +187,6 @@ and2img(Icon *icon, uchar *and)
 int
 Bgeticon(Biobuf *b, Icon *icon)
 {
-	ulong l;
 	uchar *end;
 	uchar *xor;
 	uchar *and;
@@ -190,6 +194,8 @@ Bgeticon(Biobuf *b, Icon *icon)
 	uchar *buf;
 	uchar *map2map;
 	Memimage *img;
+	int ncolor;
+	long chan;
 
 	if(icon->len < 40){
 		werrstr("bad icon header length");
@@ -208,9 +214,10 @@ Bgeticon(Biobuf *b, Icon *icon)
 		werrstr("bad icon header");
 		return -1;
 	}
+
+	ncolor = 0;
 	icon->w = getl(buf+4);
-	l = getl(buf+8);
-	icon->h = l>>1;
+	icon->h = getl(buf+8)>>1;
 	icon->nplane = gets(buf+12);
 	icon->bits = gets(buf+14);
 
@@ -220,6 +227,20 @@ Bgeticon(Biobuf *b, Icon *icon)
 	case 2:
 	case 4:
 	case 8:
+		ncolor = icon->ncolor;
+		if(ncolor > (1<<icon->bits))
+			ncolor = 1<<icon->bits;
+		chan = CMAP8;
+		break;
+	case 15:
+	case 16:
+		chan = RGB16;
+		break;
+	case 24:
+		chan = RGB24;
+		break;
+	case 32:
+		chan = ARGB32;
 		break;
 	default:
 		werrstr("don't support %d bit pixels", icon->bits);
@@ -230,21 +251,29 @@ Bgeticon(Biobuf *b, Icon *icon)
 		return -1;
 	}
 
-	cm = buf + 40;
-	xor = cm + 4*icon->ncolor;
-	and = xor + icon->h*4*((icon->bits*icon->w+31)/32);
-	end = and + icon->h*4*((icon->w+31)/32);
+	xor = cm = buf + 40;
+	if(chan == CMAP8)
+		xor += 4*ncolor;
+	end = xor + icon->h*4*((icon->bits*icon->w+31)/32);
 	if(end < buf || end > buf+icon->len){
 		werrstr("bad icon length %lux != %lux", end - buf, icon->len);
 		return -1;
 	}
 
 	/* translate the color map to a plan 9 one */
-	map2map = transcmap(icon, cm);
+	map2map = nil;
+	if(chan == CMAP8)
+		map2map = transcmap(icon, ncolor, cm);
 
 	/* convert the images */
-	icon->img = xor2img(icon, xor, map2map);
-	icon->mask = and2img(icon, and);
+	icon->img = xor2img(icon, chan, xor, map2map);
+	icon->mask = nil;
+
+	/* check for and mask */
+	and = end;
+	end += icon->h*4*((icon->w+31)/32);
+	if(end <= buf+icon->len)
+		icon->mask = and2img(icon, and);
 
 	/* so that we save an image with a white background */
 	if(img = allocmemimage(icon->img->r, icon->img->chan)){
@@ -426,7 +455,7 @@ screenimage(Memimage *m)
 		r = m->r;
 		while(r.min.y < m->r.max.y){
 			r.max.y = r.min.y+1;
-			loadimage(i, r, byteaddr(m, r.min), Dx(r));
+			loadimage(i, r, byteaddr(m, r.min), bytesperline(r, m->depth));
 			r.min.y++;
 		}
 	}
