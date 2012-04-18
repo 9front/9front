@@ -574,7 +574,8 @@ ataidentify(Ctlr*, int cmdport, int ctlport, int dev, int pkt, void* info)
 
 	memset(info, 0, 512);
 	inss(cmdport+Data, info, 256);
-	ataready(cmdport, ctlport, dev, Bsy|Drq, Drdy, 3*1000);
+
+	ataready(cmdport, ctlport, dev, Bsy|Drq, drdy, 3*1000);
 	inb(cmdport+Status);
 
 	return 0;
@@ -621,7 +622,7 @@ retry:
 
 	memmove(drive->info, buf, sizeof(drive->info));
 
-	setfissig(drive, pkt? 0xeb140000: 0x0101);
+	setfissig(drive, pkt ? 0xeb140000 : 0x0101);
 	drive->sectors = idfeat(drive, drive->info);
 	drive->secsize = idss(drive, drive->info);
 
@@ -686,24 +687,12 @@ atasrst(int ctlport)
 	microdelay(2*1000);
 }
 
-static int
-seldev(int dev, int map)
-{
-	if((dev & Devs) == Dev0 && map&1)
-		return dev;
-	if((dev & Devs) == Dev1 && map&2)
-		return dev;
-	return -1;
-}
-
 static SDev*
 ataprobe(int cmdport, int ctlport, int irq, int map)
 {
+	static int nonlegacy = 'C';
 	Ctlr* ctlr;
 	SDev *sdev;
-	Drive *drive;
-	int dev, error, rhi, rlo;
-	static int nonlegacy = 'C';
 
 	if(ioalloc(cmdport, 8, 0, "atacmd") < 0) {
 		print("ataprobe: Cannot allocate %X\n", cmdport);
@@ -715,142 +704,32 @@ ataprobe(int cmdport, int ctlport, int irq, int map)
 		return nil;
 	}
 
-	/*
-	 * Try to detect a floating bus.
-	 * Bsy should be cleared. If not, see if the cylinder registers
-	 * are read/write capable.
-	 * If the master fails, try the slave to catch slave-only
-	 * configurations.
-	 * There's no need to restore the tested registers as they will
-	 * be reset on any detected drives by the Cedd command.
-	 * All this indicates is that there is at least one drive on the
-	 * controller; when the non-existent drive is selected in a
-	 * single-drive configuration the registers of the existing drive
-	 * are often seen, only command execution fails.
-	 */
-	if((dev = seldev(Dev0, map)) == -1)
-	if((dev = seldev(Dev1, map)) == -1)
+	if((ctlr = malloc(sizeof(Ctlr))) == nil)
 		goto release;
-	if(inb(ctlport+As) & Bsy){
-		outb(cmdport+Dh, dev);
-		microdelay(1);
-trydev1:
-		atadebug(cmdport, ctlport, "ataprobe bsy");
-		outb(cmdport+Cyllo, 0xAA);
-		outb(cmdport+Cylhi, 0x55);
-		outb(cmdport+Sector, 0xFF);
-		rlo = inb(cmdport+Cyllo);
-		rhi = inb(cmdport+Cylhi);
-		if(rlo != 0xAA && (rlo == 0xFF || rhi != 0x55)){
-			if(dev == Dev1 || (dev = seldev(Dev1, map)) == -1){
-release:
-				outb(cmdport+Dc, Nien);
-				inb(cmdport+Status);
-				/* further measures to prevent irqs? */
-				iofree(cmdport);
-				iofree(ctlport+As);
-				return nil;
-			}
-			if(ataready(cmdport, ctlport, dev, Bsy, 0, 20*1000) < 0)
-				goto trydev1;
-		}
-	}
-
-	/*
-	 * Disable interrupts on any detected controllers.
-	 */
-	outb(ctlport+Dc, Nien);
-tryedd1:
-	if(ataready(cmdport, ctlport, dev, Bsy|Drq, 0, 105*1000) < 0){
-		/*
-		 * There's something there, but it didn't come up clean,
-		 * so try hitting it with a big stick. The timing here is
-		 * wrong but this is a last-ditch effort and it sometimes
-		 * gets some marginal hardware back online.
-		 */
-		atasrst(ctlport);
-		if(ataready(cmdport, ctlport, dev, Bsy|Drq, 0, 106*1000) < 0)
-			goto release;
-	}
-
-	/*
-	 * Can only get here if controller is not busy.
-	 * If there are drives Bsy will be set within 400nS,
-	 * must wait 2mS before testing Status.
-	 * Wait for the command to complete (6 seconds max).
-	 */
-	outb(cmdport+Command, Cedd);
-	delay(2);
-	if(ataready(cmdport, ctlport, dev, Bsy|Drq, 0, 6*1000*1000) < 0)
-		goto release;
-
-	/*
-	 * If bit 0 of the error register is set then the selected drive
-	 * exists. This is enough to detect single-drive configurations.
-	 * However, if the master exists there is no way short of executing
-	 * a command to determine if a slave is present.
-	 * It appears possible to get here testing Dev0 although it doesn't
-	 * exist and the EDD won't take, so try again with Dev1.
-	 */
-	error = inb(cmdport+Error);
-	atadebug(cmdport, ctlport, "ataprobe: dev %uX", dev);
-	if((error & ~0x80) != 0x01){
-		if(dev == Dev1)
-			goto release;
-		if((dev = seldev(Dev1, map)) == -1)
-			goto release;
-		goto tryedd1;
-	}
-
-	/*
-	 * At least one drive is known to exist, try to
-	 * identify it. If that fails, don't bother checking
-	 * any further.
-	 * If the one drive found is Dev0 and the EDD command
-	 * didn't indicate Dev1 doesn't exist, check for it.
-	 */
-	if((drive = atadrive(0, 0, cmdport, ctlport, dev)) == nil)
-		goto release;
-	if((ctlr = malloc(sizeof(Ctlr))) == nil){
-		free(drive);
-		goto release;
-	}
 	if((sdev = malloc(sizeof(SDev))) == nil){
 		free(ctlr);
-		free(drive);
 		goto release;
 	}
-	drive->ctlr = ctlr;
-	if(dev == Dev0){
-		ctlr->drive[0] = drive;
-		if(!(error & 0x80)){
-			/*
-			 * Always leave Dh pointing to a valid drive,
-			 * otherwise a subsequent call to ataready on
-			 * this controller may try to test a bogus Status.
-			 * Ataprobe is the only place possibly invalid
-			 * drives should be selected.
-			 */
-			drive = atadrive(0, 0, cmdport, ctlport, Dev1);
-			if(drive != nil){
-				drive->ctlr = ctlr;
-				ctlr->drive[1] = drive;
-			}
-			else{
-				outb(cmdport+Dh, Dev0);
-				microdelay(1);
-			}
-		}
+
+	if((map & 1) && (ctlr->drive[0] = atadrive(0, 0, cmdport, ctlport, Dev0)))
+		ctlr->drive[0]->ctlr = ctlr;
+	if((map & 2) && (ctlr->drive[1] = atadrive(0, 0, cmdport, ctlport, Dev1)))
+		ctlr->drive[1]->ctlr = ctlr;
+
+	if(ctlr->drive[0] == nil && ctlr->drive[1] == nil){
+		free(ctlr->drive[0]);
+		free(ctlr->drive[1]);
+		free(ctlr);
+		free(sdev);
+		goto release;
 	}
-	else
-		ctlr->drive[1] = drive;
 
 	ctlr->cmdport = cmdport;
 	ctlr->ctlport = ctlport;
 	ctlr->irq = irq;
 	ctlr->tbdf = BUSUNKNOWN;
-	ctlr->command = Cedd;		/* debugging */
-	
+	ctlr->command = Cnop;		/* debugging */
+
 	switch(cmdport){
 	default:
 		sdev->idno = nonlegacy;
@@ -870,6 +749,12 @@ tryedd1:
 	ctlr->sdev = sdev;
 
 	return sdev;
+
+release:
+	iofree(cmdport);
+	iofree(ctlport+As);
+
+	return nil;
 }
 
 static void
@@ -1898,8 +1783,6 @@ atainterrupt(Ureg*, void* arg)
 		if(ctlr->irqack != nil)
 			ctlr->irqack(ctlr);
 		iunlock(ctlr);
-		if((DEBUG & DbgINL) && ctlr->command != Cedd)
-			print("Inil%2.2uX+", ctlr->command);
 		return;
 	}
 	if(status & Err)
