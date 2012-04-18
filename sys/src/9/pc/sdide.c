@@ -549,7 +549,7 @@ atadmamode(SDunit *unit, Drive* drive)
 static int
 ataidentify(Ctlr*, int cmdport, int ctlport, int dev, int pkt, void* info)
 {
-	int as, command, drdy;
+	int as, command, drdy, rlo, rhi;
 
 	if(pkt){
 		command = Cidpkt;
@@ -561,8 +561,21 @@ ataidentify(Ctlr*, int cmdport, int ctlport, int dev, int pkt, void* info)
 	}
 	dev &= ~Lba;
 	as = ataready(cmdport, ctlport, dev, Bsy|Drq, drdy, 103*1000);
-	if(as < 0)
-		return as;
+	if(as < 0){
+		/* try to detect floating bus */
+		outb(cmdport+Cyllo, 0xAA);
+		outb(cmdport+Cylhi, 0x55);
+		outb(cmdport+Sector, 0xFF);
+		rlo = inb(cmdport+Cyllo);
+		rhi = inb(cmdport+Cylhi);
+		if(rlo != 0xAA && (rlo == 0xFF || rhi != 0x55))
+			return as;
+
+		/* theres a device, try waiting some more */
+		as = ataready(cmdport, ctlport, dev, Bsy|Drq, drdy, 6*1000*1000);
+		if(as < 0)
+			return as;
+	}
 	outb(cmdport+Command, command);
 	microdelay(1);
 
