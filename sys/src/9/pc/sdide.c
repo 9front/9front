@@ -1108,7 +1108,7 @@ atapktio0(Drive *drive, SDreq *r)
 	outb(cmdport+Command, Cpkt);
 
 	microdelay(1);
-	as = ataready(cmdport, ctlport, 0, Bsy, Drq|Chk, 4*1000);
+	as = ataready(cmdport, ctlport, 0, Bsy, Drq|Chk, 400*1000);
 	if(as < 0 || (as & (Bsy|Chk))){
 		drive->status = as<0 ? 0 : as;
 		ctlr->curdrive = nil;
@@ -1256,8 +1256,7 @@ atageniostart(Drive* drive, uvlong lba)
 	case Cws:
 	case Cwsm:
 		microdelay(1);
-		/* 10*1000 for flash ide drives - maybe detect them? */
-		as = ataready(cmdport, ctlport, 0, Bsy, Drq|Err, 10*1000);
+		as = ataready(cmdport, ctlport, 0, Bsy, Drq|Err, 400*1000);
 		if(as < 0 || (as & Err)){
 			iunlock(ctlr);
 			return -1;
@@ -1479,8 +1478,7 @@ atagenatastart(Drive* d, SDreq *r)
 		USED(d);
 	else if(!isdma){
 		microdelay(1);
-		/* 10*1000 for flash ide drives - maybe detect them? */
-		as = ataready(cmdport, ctlport, 0, Bsy, Drq|Err, 10*1000);
+		as = ataready(cmdport, ctlport, 0, Bsy, Drq|Err, 400*1000);
 		if(as < 0 || (as & Err)){
 			iunlock(ctlr);
 			return -1;
