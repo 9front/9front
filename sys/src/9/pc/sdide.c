@@ -549,7 +549,7 @@ atadmamode(SDunit *unit, Drive* drive)
 static int
 ataidentify(Ctlr*, int cmdport, int ctlport, int dev, int pkt, void* info)
 {
-	int as, command, drdy, rlo, rhi;
+	int as, command, drdy;
 
 	if(pkt){
 		command = Cidpkt;
@@ -561,51 +561,32 @@ ataidentify(Ctlr*, int cmdport, int ctlport, int dev, int pkt, void* info)
 	}
 	dev &= ~Lba;
 	as = ataready(cmdport, ctlport, dev, Bsy|Drq, drdy, 103*1000);
-	if(as < 0){
-		/* try to detect floating bus */
-		outb(cmdport+Cyllo, 0xAA);
-		outb(cmdport+Cylhi, 0x55);
-		outb(cmdport+Sector, 0xFF);
-		rlo = inb(cmdport+Cyllo);
-		rhi = inb(cmdport+Cylhi);
-		if(rlo != 0xAA && (rlo == 0xFF || rhi != 0x55))
-			return as;
-
-		/* theres a device, try waiting some more */
-		as = ataready(cmdport, ctlport, dev, Bsy|Drq, drdy, 6*1000*1000);
-		if(as < 0)
-			return as;
-	}
+	if(as < 0)
+		return -1;
 	outb(cmdport+Command, command);
 	microdelay(1);
 
 	as = ataready(cmdport, ctlport, 0, Bsy, Drq|Err, 400*1000);
-	if(as < 0)
-		return -1;
-	if(as & Err)
+	if(as < 0 || (as & Err))
 		return as;
-
 	memset(info, 0, 512);
 	inss(cmdport+Data, info, 256);
-
-	ataready(cmdport, ctlport, dev, Bsy|Drq, drdy, 3*1000);
 	inb(cmdport+Status);
-
 	return 0;
 }
 
 static Drive*
 atadrive(SDunit *unit, Drive *drive, int cmdport, int ctlport, int dev)
 {
-	int as, pkt;
+	int as, pkt, rlo, rhi;
 	uchar buf[512], oserial[21];
 	uvlong osectors;
 	Ctlr *ctlr;
 
 	if(DEBUG & DbgIDENTIFY)
 		print("identify: port %ux dev %.2ux\n", cmdport, dev & ~Lba);
+
 	atadebug(0, 0, "identify: port 0x%uX dev 0x%2.2uX\n", cmdport, dev);
-	pkt = 1;
 	if(drive != nil){
 		osectors = drive->sectors;
 		memmove(oserial, drive->serial, sizeof drive->serial);
@@ -614,7 +595,20 @@ atadrive(SDunit *unit, Drive *drive, int cmdport, int ctlport, int dev)
 		osectors = 0;
 		memset(oserial, 0, sizeof drive->serial);
 		ctlr = nil;
+
+		/* detect if theres a drive present */
+		outb(cmdport+Dh, dev & ~Lba);
+		microdelay(1);
+		outb(cmdport+Cyllo, 0xAA);
+		outb(cmdport+Cylhi, 0x55);
+		outb(cmdport+Sector, 0xFF);
+		rlo = inb(cmdport+Cyllo);
+		rhi = inb(cmdport+Cylhi);
+		if(rlo != 0xAA && (rlo == 0xFF || rhi != 0x55))
+			return nil;
 	}
+
+	pkt = 1;
 retry:
 	as = ataidentify(ctlr, cmdport, ctlport, dev, pkt, buf);
 	if(as < 0)
@@ -724,10 +718,10 @@ ataprobe(int cmdport, int ctlport, int irq, int map)
 		goto release;
 	}
 
-	if((map & 1) && (ctlr->drive[0] = atadrive(0, 0, cmdport, ctlport, Dev0)))
-		ctlr->drive[0]->ctlr = ctlr;
 	if((map & 2) && (ctlr->drive[1] = atadrive(0, 0, cmdport, ctlport, Dev1)))
 		ctlr->drive[1]->ctlr = ctlr;
+	if((map & 1) && (ctlr->drive[0] = atadrive(0, 0, cmdport, ctlport, Dev0)))
+		ctlr->drive[0]->ctlr = ctlr;
 
 	if(ctlr->drive[0] == nil && ctlr->drive[1] == nil){
 		free(ctlr->drive[0]);
