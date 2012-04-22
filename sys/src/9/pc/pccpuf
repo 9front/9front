@@ -89,6 +89,7 @@ misc
 	sdmylex		pci sdscsi
 	sdiahci		pci sdscsi led
 	sdodin		pci sdscsi led
+	sdvirtio	pci sdscsi
 	sdloop
 
 	vga3dfx		+cur

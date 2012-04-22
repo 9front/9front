@@ -9,8 +9,7 @@
 
 #include "../port/sd.h"
 
-typedef struct Vioreqhdr Vioreqhdr;
-typedef struct Vringhdr Vringhdr;
+typedef struct Vring Vring;
 typedef struct Vdesc Vdesc;
 typedef struct Vused Vused;
 typedef struct Vqueue Vqueue;
@@ -42,14 +41,7 @@ enum {
 	Indirect = 4,
 };	
 
-struct Vioreqhdr
-{
-	u32int	typ;
-	u32int	prio;
-	u64int	lba;
-};
-
-struct Vringhdr
+struct Vring
 {
 	u16int	flags;
 	u16int	idx;
@@ -71,22 +63,22 @@ struct Vused
 
 struct Vqueue
 {
-	int		size;
+	int	size;
 
-	int		free;
-	int		nfree;
+	int	free;
+	int	nfree;
 
-	Vdesc		*desc;
+	Vdesc	*desc;
 
-	Vringhdr	*avail;
-	u16int		*availent;
-	u16int		*availevent;
+	Vring	*avail;
+	u16int	*availent;
+	u16int	*availevent;
 
-	Vringhdr	*used;
-	Vused		*usedent;
-	u16int		*usedevent;
+	Vring	*used;
+	Vused	*usedent;
+	u16int	*usedevent;
 
-	u16int		lastused;
+	u16int	lastused;
 
 	Rendez;
 	QLock;
@@ -118,10 +110,10 @@ mkvqueue(int size)
 	q = malloc(sizeof(*q));
 	p = mallocalign(
 		PGROUND(sizeof(Vdesc)*size + 
-			sizeof(Vringhdr) + 
+			sizeof(Vring) + 
 			sizeof(u16int)*size + 
 			sizeof(u16int)) +
-		PGROUND(sizeof(Vringhdr) + 
+		PGROUND(sizeof(Vring) + 
 			sizeof(Vused)*size + 
 			sizeof(u16int)), 
 		BY2PG, 0, 0);
@@ -135,7 +127,7 @@ mkvqueue(int size)
 	q->desc = (void*)p;
 	p += sizeof(Vdesc)*size;
 	q->avail = (void*)p;
-	p += sizeof(Vringhdr);
+	p += sizeof(Vring);
 	q->availent = (void*)p;
 	p += sizeof(u16int)*size;
 	q->availevent = (void*)p;
@@ -143,7 +135,7 @@ mkvqueue(int size)
 
 	p = (uchar*)PGROUND((ulong)p);
 	q->used = (void*)p;
-	p += sizeof(Vringhdr);
+	p += sizeof(Vring);
 	q->usedent = (void*)p;
 	p += sizeof(Vused)*size;
 	q->usedevent = (void*)p;
@@ -216,12 +208,10 @@ static void
 viointerrupt(Ureg *, void *arg)
 {
 	Vdev *vd;
-	int i;
 
 	vd = arg;
 	if(inb(vd->port+Isr) & 1)
-		for(i=0; i<vd->nqueue; i++)
-			wakeup(vd->queue[i]);
+		wakeup(vd->queue[0]);
 }
 
 static int
@@ -261,44 +251,49 @@ viowait(Vqueue *q, int id)
 	} while(!r.done);
 }
 
-static long
-viobio(SDunit *u, int, int write, void *a, long count, uvlong lba)
+static int
+vioreq(Vdev *vd, int typ, uchar *a, long count, long secsize, uvlong lba)
 {
 	int i, free, head;
-	u8int status;
-	Vioreqhdr h;
 	Vqueue *q;
-	Vdev *vd;
 	Vdesc *d;
-	uchar *p;
 
-	vd = u->dev->ctlr;
-	q = vd->queue[0];
-
-	lock(q);
-	if(q->nfree < (2+count)){
-		unlock(q);
-		error("out of virtio descriptors");
-	}
-	head = free = q->free;
+	u8int status;
+	struct Vioreqhdr {
+		u32int	typ;
+		u32int	prio;
+		u64int	lba;
+	} req;
 
 	status = 0;
-	h.typ = write != 0;
-	h.lba = lba;
-	h.prio = 0;
+	req.typ = typ;
+	req.prio = 0;
+	req.lba = lba;
+
+	q = vd->queue[0];
+	for(;;){
+		lock(q);
+		if(q->nfree >= count+2)
+			break;
+		unlock(q);
+		if(!waserror())
+			tsleep(&up->sleep, return0, 0, 500);
+		poperror();
+	}
+
+	head = free = q->free;
 
 	d = &q->desc[free]; free = d->next;
-	d->addr = PADDR(&h);
-	d->len = sizeof(h);
+	d->addr = PADDR(&req);
+	d->len = sizeof(req);
 	d->flags = Next;
 
-	p = a;
 	for(i = 0; i<count; i++){
 		d = &q->desc[free]; free = d->next;
-		d->addr = PADDR(p);
-		d->len = u->secsize;
-		d->flags = write ? Next : (Write|Next);
-		p += d->len;
+		d->addr = PADDR(a);
+		d->len = secsize;
+		d->flags = typ ? Next : (Write|Next);
+		a += secsize;
 	}
 
 	d = &q->desc[free]; free = d->next;
@@ -325,10 +320,33 @@ viobio(SDunit *u, int, int write, void *a, long count, uvlong lba)
 	q->nfree += 2+count;
 	unlock(q);
 
-	if(status != 0)
-		error(Eio);
+	return status;
+}
 
-	return count*u->secsize;
+static long
+viobio(SDunit *u, int, int write, void *a, long count, uvlong lba)
+{
+	long ss, cc, max, ret;
+	Vqueue *q;
+	Vdev *vd;
+
+	ss = u->secsize;
+	vd = u->dev->ctlr;
+	q = vd->queue[0];
+	max = q->size-2;
+
+	ret = 0;
+	while(count > 0){
+		if((cc = count) > max)
+			cc = max;
+		if(vioreq(vd, write != 0, (uchar*)a + ret, cc, ss, lba) != 0)
+			error(Eio);
+		ret += cc*ss;
+		count -= cc;
+		lba += cc;
+	}
+
+	return ret;
 }
 
 static int
@@ -340,14 +358,12 @@ viorio(SDreq *r)
 
 	u = r->unit;
 	if(r->cmd[0] == 0x35 || r->cmd[0] == 0x91){
-		/* flush */
-		// return sdsetsense(r, SDok, 0, 0, 0);
-		return sdsetsense(r, SDcheck, 3, 0xc, 2);
+		if(vioreq(u->dev->ctlr, 4, nil, 0, 0, 0) != 0)
+			return sdsetsense(r, SDcheck, 3, 0xc, 2);
+		return sdsetsense(r, SDok, 0, 0, 0);
 	}
-	if((i = sdfakescsi(r)) != SDnostatus){
-		r->status = i;
-		return i;
-	}
+	if((i = sdfakescsi(r)) != SDnostatus)
+		return r->status = i;
 	if((i = sdfakescsirw(r, &lba, &count, &rw)) != SDnostatus)
 		return i;
 	r->rlen = viobio(u, r->lun, rw == SDwrite, r->data, count, lba);
