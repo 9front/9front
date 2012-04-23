@@ -63,6 +63,7 @@ struct Vused
 
 struct Vqueue
 {
+	Lock;
 	int	size;
 
 	int	free;
@@ -77,12 +78,9 @@ struct Vqueue
 	Vring	*used;
 	Vused	*usedent;
 	u16int	*usedevent;
-
 	u16int	lastused;
 
-	Rendez;
-	QLock;
-	Lock;
+	void	*rock[];
 };
 
 struct Vdev
@@ -92,7 +90,7 @@ struct Vdev
 	Pcidev	*pci;
 
 	ulong	port;
-	ulong	features;
+	ulong	feat;
 
 	int	nqueue;
 	Vqueue	*queue[16];
@@ -107,7 +105,7 @@ mkvqueue(int size)
 	uchar *p;
 	int i;
 
-	q = malloc(sizeof(*q));
+	q = malloc(sizeof(*q) + sizeof(void*)*size);
 	p = mallocalign(
 		PGROUND(sizeof(Vdesc)*size + 
 			sizeof(Vring) + 
@@ -175,8 +173,12 @@ viopnpdevs(int typ)
 		vd->port = p->mem[0].bar & ~0x1;
 		vd->typ = typ;
 		vd->pci = p;
-		vd->features = inl(vd->port+Devfeat);
-		outb(vd->port+Status, inb(vd->port+Status)|Acknowledge|Driver);
+
+		/* reset */
+		outb(vd->port+Status, 0);
+
+		vd->feat = inl(vd->port+Devfeat);
+		outb(vd->port+Status, Acknowledge|Driver);
 		for(i=0; i<nelem(vd->queue); i++){
 			outs(vd->port+Qselect, i);
 			if((n = ins(vd->port+Qsize)) == 0)
@@ -199,62 +201,54 @@ viopnpdevs(int typ)
 }
 
 struct Rock {
-	Vqueue *q;
-	int id;
 	int done;
+	Rendez *sleep;
 };
 
 static void
 viointerrupt(Ureg *, void *arg)
 {
+	int id, free, m;
+	struct Rock *r;
+	Vqueue *q;
 	Vdev *vd;
 
 	vd = arg;
-	if(inb(vd->port+Isr) & 1)
-		wakeup(vd->queue[0]);
+	if(inb(vd->port+Isr) & 1){
+		q = vd->queue[0];
+		m = q->size-1;
+
+		ilock(q);
+		while((q->lastused ^ q->used->idx) & m){
+			id = q->usedent[q->lastused++ & m].id;
+			if(r = q->rock[id]){
+				q->rock[id] = nil;
+				r->done = 1;
+				wakeup(r->sleep);
+			}
+			do {
+				free = id;
+				id = q->desc[free].next;
+				q->desc[free].next = q->free;
+				q->free = free;
+				q->nfree++;
+			} while(q->desc[free].flags & Next);
+		}
+		iunlock(q);
+	}
 }
 
 static int
 viodone(void *arg)
 {
-	struct Rock *r;
-	Vqueue *q;
-	u16int i;
-
-	r = arg;
-	q = r->q;
-	for(i = q->lastused; i != q->used->idx; i++)
-		if(q->usedent[i % q->size].id == r->id){
-			if(i == q->lastused)
-				q->lastused++;
-			r->done = 1;
-			break;
-		}
-	return r->done;
-}
-
-static void
-viowait(Vqueue *q, int id)
-{
-	struct Rock r;
-
-	r.q = q;
-	r.id = id;
-	r.done = 0;
-	do {
-		qlock(q);
-		while(waserror())
-			;
-		sleep(q, viodone, &r);
-		poperror();
-		qunlock(q);
-	} while(!r.done);
+	return ((struct Rock*)arg)->done;
 }
 
 static int
-vioreq(Vdev *vd, int typ, uchar *a, long count, long secsize, uvlong lba)
+vioreq(Vdev *vd, int typ, void *a, long count, long secsize, uvlong lba)
 {
-	int i, free, head;
+	struct Rock rock;
+	int free, head;
 	Vqueue *q;
 	Vdesc *d;
 
@@ -270,15 +264,19 @@ vioreq(Vdev *vd, int typ, uchar *a, long count, long secsize, uvlong lba)
 	req.prio = 0;
 	req.lba = lba;
 
+	rock.done = 0;
+	rock.sleep = &up->sleep;
+
 	q = vd->queue[0];
-	for(;;){
-		lock(q);
-		if(q->nfree >= count+2)
-			break;
-		unlock(q);
+	ilock(q);
+	while(q->nfree < 3){
+		iunlock(q);
+
 		if(!waserror())
 			tsleep(&up->sleep, return0, 0, 500);
 		poperror();
+
+		ilock(q);
 	}
 
 	head = free = q->free;
@@ -288,37 +286,36 @@ vioreq(Vdev *vd, int typ, uchar *a, long count, long secsize, uvlong lba)
 	d->len = sizeof(req);
 	d->flags = Next;
 
-	for(i = 0; i<count; i++){
-		d = &q->desc[free]; free = d->next;
-		d->addr = PADDR(a);
-		d->len = secsize;
-		d->flags = typ ? Next : (Write|Next);
-		a += secsize;
-	}
+	d = &q->desc[free]; free = d->next;
+	d->addr = PADDR(a);
+	d->len = secsize*count;
+	d->flags = typ ? Next : (Write|Next);
 
 	d = &q->desc[free]; free = d->next;
 	d->addr = PADDR(&status);
 	d->len = sizeof(status);
 	d->flags = Write;
-	d->next = -1;
 
 	q->free = free;
-	q->nfree -= 2+count;
+	q->nfree -= 3;
+
+	q->rock[head] = &rock;
 
 	coherence();
-	q->availent[q->avail->idx++ % q->size] = head;
-	unlock(q);
-
+	q->availent[q->avail->idx++ & (q->size-1)] = head;
 	coherence();
 	outs(vd->port+Qnotify, 0);
+	iunlock(q);
 
-	viowait(q, head);
+	while(!rock.done){
+		while(waserror())
+			;
+		tsleep(rock.sleep, viodone, &rock, 1000);
+		poperror();
 
-	lock(q);
-	d->next = q->free;
-	q->free = head;
-	q->nfree += 2+count;
-	unlock(q);
+		if(!rock.done)
+			viointerrupt(nil, vd);
+	}
 
 	return status;
 }
@@ -327,13 +324,11 @@ static long
 viobio(SDunit *u, int, int write, void *a, long count, uvlong lba)
 {
 	long ss, cc, max, ret;
-	Vqueue *q;
 	Vdev *vd;
 
+	max = 32;
 	ss = u->secsize;
 	vd = u->dev->ctlr;
-	q = vd->queue[0];
-	max = q->size-2;
 
 	ret = 0;
 	while(count > 0){
