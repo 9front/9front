@@ -102,7 +102,7 @@ Method and address are prompted for first.
 The prompt lists all valid methods, with the default in brackets, for example:
 .IP
 .EX
-bootargs is (tcp, local!device)[/dev/sdC0/fscache]:
+bootargs is (tcp, local!device) [local!/dev/sdC0/fscache]
 .EE
 .PP
 A newline picks the default. Entering
