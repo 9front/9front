@@ -850,8 +850,11 @@ mktorrent(int fd, Dict *alist, Dict *wlist)
 		if(npieces <= 8*1024 || blocksize >= 2*1024*1024)
 			break;
 	}
-	print("d");
-	print("8:announce%ld:%s", strlen(alist->str), alist->str);
+
+	/*
+	 * keys in dictionaries have to be ordered alphabetically
+	 */
+	print("d8:announce%ld:%s", strlen(alist->str), alist->str);
 	if(alist->next){
 		print("13:announce-listl");
 		print("l%ld:%se", strlen(alist->str), alist->str);
@@ -859,19 +862,10 @@ mktorrent(int fd, Dict *alist, Dict *wlist)
 			print("l%ld:%se", strlen(alist->str), alist->str);
 		print("e");
 	}
-	if(wlist){
-		if(wlist->next){
-			print("8:url-listl");
-			for(; wlist; wlist = wlist->next)
-				print("%ld:%s", strlen(wlist->str), wlist->str);
-			print("e");
-		} else
-			print("8:url-list%ld:%s", strlen(wlist->str), wlist->str);
-	}
-	print("4:info");
-	print("d");
-	print("4:name%ld:%s", strlen(d->name), d->name);
+
+	print("4:infod");
 	print("6:lengthi%llde", d->length);
+	print("4:name%ld:%s", strlen(d->name), d->name);
 	print("12:piece lengthi%de", blocksize);
 	print("6:pieces%d:", npieces*sizeof(h));
 	free(d);
@@ -884,13 +878,24 @@ mktorrent(int fd, Dict *alist, Dict *wlist)
 		}
 		npieces--;
 	}
-	free(b);
 	if(npieces){
 		werrstr("read failed: %r");
 		return -1;
 	}
+	free(b);
 	print("e");
+
+	if(wlist){
+		if(wlist->next){
+			print("8:url-listl");
+			for(; wlist; wlist = wlist->next)
+				print("%ld:%s", strlen(wlist->str), wlist->str);
+			print("e");
+		} else
+			print("8:url-list%ld:%s", strlen(wlist->str), wlist->str);
+	}
 	print("e");
+
 	return 0;
 }
 
