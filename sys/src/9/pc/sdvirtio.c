@@ -15,13 +15,15 @@ typedef struct Vused Vused;
 typedef struct Vqueue Vqueue;
 typedef struct Vdev Vdev;
 
+/* status flags */
 enum {
-	Acknowledge	= 1,
-	Driver		= 2,
-	DriverOk	= 4,
-	Failed		= 128,
+	Acknowledge = 1,
+	Driver = 2,
+	DriverOk = 4,
+	Failed = 0x80,
 };
 
+/* virtio ports */
 enum {
 	Devfeat = 0,
 	Drvfeat = 4,
@@ -35,6 +37,7 @@ enum {
 	Devspec = 20,
 };
 
+/* descriptor flags */
 enum {
 	Next = 1,
 	Write = 2,
@@ -151,12 +154,11 @@ mkvqueue(int size)
 static Vdev*
 viopnpdevs(int typ)
 {
-	Vdev *vd, *head, *tail;
+	Vdev *vd, *h, *t;
 	Pcidev *p;
-	u32int a;
 	int n, i;
 
-	head = tail = nil;
+	h = t = nil;
 	for(p = nil; p = pcimatch(p, 0, 0);){
 		if(p->vid != 0x1AF4)
 			continue;
@@ -171,6 +173,11 @@ viopnpdevs(int typ)
 			break;
 		}
 		vd->port = p->mem[0].bar & ~0x1;
+		if(ioalloc(vd->port, p->mem[0].size, 0, "virtio") < 0){
+			print("viopnpdevs: port %lux in use\n", vd->port);
+			free(vd);
+			continue;
+		}
 		vd->typ = typ;
 		vd->pci = p;
 
@@ -186,18 +193,18 @@ viopnpdevs(int typ)
 			if((vd->queue[i] = mkvqueue(n)) == nil)
 				break;
 			coherence();
-			a = PADDR(vd->queue[i]->desc)/BY2PG;
-			outl(vd->port+Qaddr, a);
+			outl(vd->port+Qaddr, PADDR(vd->queue[i]->desc)/BY2PG);
 		}
 		vd->nqueue = i;
 	
-		if(head == nil)
-			head = vd;
+		if(h == nil)
+			h = vd;
 		else
-			tail->next = vd;
-		tail = vd;
+			t->next = vd;
+		t = vd;
 	}
-	return head;
+
+	return h;
 }
 
 struct Rock {
@@ -404,11 +411,10 @@ viopnp(void)
 		if(vd->nqueue != 1)
 			continue;
 
-		intrenable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, "sdvirtio");
+		intrenable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, "virtio");
 		outb(vd->port+Status, inb(vd->port+Status) | DriverOk);
 
-		s = malloc(sizeof(*s));
-		if(s == nil)
+		if((s = malloc(sizeof(*s))) == nil)
 			break;
 		s->ctlr = vd;
 		s->idno = id++;
