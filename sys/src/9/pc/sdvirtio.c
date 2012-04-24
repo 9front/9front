@@ -119,7 +119,7 @@ mkvqueue(int size)
 			sizeof(u16int)), 
 		BY2PG, 0, 0);
 	if(p == nil || q == nil){
-		print("mkvqueue: no memory for Vqueue\n");
+		print("virtio: no memory for Vqueue\n");
 		free(p);
 		free(q);
 		return nil;
@@ -169,12 +169,12 @@ viopnpdevs(int typ)
 		if(pcicfgr16(p, 0x2E) != typ)
 			continue;
 		if((vd = malloc(sizeof(*vd))) == nil){
-			print("viopnpdevs: cannot allocate memory for Vdev\n");
+			print("virtio: no memory for Vdev\n");
 			break;
 		}
 		vd->port = p->mem[0].bar & ~0x1;
 		if(ioalloc(vd->port, p->mem[0].size, 0, "virtio") < 0){
-			print("viopnpdevs: port %lux in use\n", vd->port);
+			print("virtio: port %lux in use\n", vd->port);
 			free(vd);
 			continue;
 		}
@@ -188,7 +188,8 @@ viopnpdevs(int typ)
 		outb(vd->port+Status, Acknowledge|Driver);
 		for(i=0; i<nelem(vd->queue); i++){
 			outs(vd->port+Qselect, i);
-			if((n = ins(vd->port+Qsize)) == 0)
+			n = ins(vd->port+Qsize);
+			if(n == 0 || (n & (n-1)) != 0)
 				break;
 			if((vd->queue[i] = mkvqueue(n)) == nil)
 				break;
