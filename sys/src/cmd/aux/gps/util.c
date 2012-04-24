@@ -142,15 +142,15 @@ strtopos(char *p, char **ep)
 	return pl;
 }
 
-static void
-rtcset(long t)		/* We may use this some day */
+void
+rtcset(long t)
 {
-	static int fd;
+	static int fd = -1;
 	long r;
 	int n;
 	char buf[32];
 
-	if(fd <= 0 && (fd = open("#r/rtc", ORDWR)) < 0){
+	if(fd < 0 && (fd = open("#r/rtc", ORDWR)) < 0){
 		fprint(2, "Can't open #r/rtc: %r\n");
 		return;
 	}

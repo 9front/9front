@@ -126,6 +126,7 @@ void	setline(void);
 int	getonechar(vlong*);
 void	getline(char*, int, vlong*);
 void	putline(char*);
+void	rtcset(long t);
 int	gettime(Fix*);
 int	getzulu(char *, Fix*);
 int	getalt(char*, char*, Fix*);
@@ -568,37 +569,6 @@ readraw(Req *r)
 		rawout += n;
 	}
 	return nil;
-}
-
-void
-rtcset(long t)
-{
-	static int fd;
-	long r;
-	int n;
-	char buf[32];
-
-	if(fd <= 0 && (fd = open("#r/rtc", ORDWR)) < 0){
-		fprint(2, "Can't open #r/rtc: %r\n");
-		return;
-	}
-	n = read(fd, buf, sizeof buf - 1);
-	if(n <= 0){
-		fprint(2, "Can't read #r/rtc: %r\n");
-		return;
-	}
-	buf[n] = '\0';
-	r = strtol(buf, nil, 0);
-	if(r <= 0){
-		fprint(2, "ridiculous #r/rtc: %ld\n", r);
-		return;
-	}
-	if(r - t > 1 || t - r > 0){
-		seek(fd, 0, 0);
-		fprint(fd, "%ld", t);
-		fprint(2, "correcting #r/rtc: %ld → %ld\n", r, t);
-	}
-	seek(fd, 0, 0);
 }
 
 int

@@ -265,9 +265,9 @@ querydestroy(Query *qp)
 {
 	queryck(qp);
 	/* leave udpfd open */
-	if (qp->tcpfd > 0)
+	if (qp->tcpfd >= 0)
 		close(qp->tcpfd);
-	if (qp->tcpctlfd > 0) {
+	if (qp->tcpctlfd >= 0) {
 		hangup(qp->tcpctlfd);
 		close(qp->tcpctlfd);
 	}
@@ -666,7 +666,7 @@ readnet(Query *qp, int medium, uchar *ibuf, uvlong endms, uchar **replyp,
 	memset(srcip, 0, IPaddrlen);
 	alarm(ms);
 	if (medium == Udp)
-		if (qp->udpfd <= 0)
+		if (qp->udpfd < 0)
 			dnslog("readnet: qp->udpfd closed");
 		else {
 			len = read(qp->udpfd, ibuf, Udphdrsize+Maxudpin);
@@ -683,7 +683,7 @@ readnet(Query *qp, int medium, uchar *ibuf, uvlong endms, uchar **replyp,
 		if (!qp->tcpset)
 			dnslog("readnet: tcp params not set");
 		fd = qp->tcpfd;
-		if (fd <= 0)
+		if (fd < 0)
 			dnslog("readnet: %s: tcp fd unset for dest %I",
 				qp->dp->name, qp->tcpip);
 		else if (readn(fd, lenbuf, 2) != 2) {
@@ -1003,7 +1003,7 @@ mydnsquery(Query *qp, int medium, uchar *udppkt, int len)
 		}
 		close(nfd);
 
-		if (qp->udpfd <= 0)
+		if (qp->udpfd < 0)
 			dnslog("mydnsquery: qp->udpfd %d closed", qp->udpfd);
 		else {
 			if (write(qp->udpfd, udppkt, len+Udphdrsize) !=
@@ -1353,7 +1353,7 @@ tcpquery(Query *qp, DNSmsg *mp, int depth, uchar *ibuf, uchar *obuf, int len,
 	if (xmitquery(qp, Tcp, depth, obuf, inns, len) < 0 ||
 	    readreply(qp, Tcp, req, ibuf, mp, endms) < 0)
 		rv = -1;
-	if (qp->tcpfd > 0) {
+	if (qp->tcpfd >= 0) {
 		hangup(qp->tcpctlfd);
 		close(qp->tcpctlfd);
 		close(qp->tcpfd);

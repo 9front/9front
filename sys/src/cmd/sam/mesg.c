@@ -86,11 +86,12 @@ char *tname[] = {
 void
 journal(int out, char *s)
 {
-	static int fd = 0;
+	static int fd = -1;
 
-	if(fd <= 0)
+	if(fd < 0)
 		fd = create("/tmp/sam.out", 1, 0666L);
-	fprint(fd, "%s%s\n", out? "out: " : "in:  ", s);
+	if(fd >= 0)
+		fprint(fd, "%s%s\n", out? "out: " : "in:  ", s);
 }
 
 void
