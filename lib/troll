@@ -86,3 +86,7 @@ its much better to run a real plan9 in a virtual machine
 I already found the plan9port is good to work with
 [9fans] vim and utf-8
 Please do not think I am commenting either way on the existence of the fork or the issues involved.
+The project has forked.
+what i can understand only is that 9front is better than plan9
+The majority of the work up until this point has been decoupling the Nix kernel from plan9 dependencies and separating adding bourne shell equivalents of rc only mkfile code.
+geoff has essentually forked ssh.

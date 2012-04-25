@@ -4680,3 +4680,7 @@ Sometimes I think that Mosaic may be the VisiCalc of the '90s.
 To Andreessen, who says he majored in computer science because electrical engineering was too much work, the lack of an easy-to-use graphical interface for the Web was a glaring omission.
 "In the beginning was the act" -- Goethe, FAUST
 Paoli helped create XML, cementing his reputation among developers
+I am willing to speak this way because after two years of discussion with plan9 people, it has become clear to me that this compiler will never be free enough for us to use.  If that changes as a result of this mail, good.  If not, fine -- I have given up hope. -- Theo de Raadt
+A grizzled NASA veteran once told me that the Apollo moon landings were communism’s greatest achievement.
+Now that the code is released, I'm going to change things up a bit.
+The first portion of the project was writing a parser to dynamically convert code written in the Processing language, to JavaScript.
