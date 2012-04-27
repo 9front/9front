@@ -764,6 +764,20 @@ Error:
 }
 
 void
+clients4(uchar *p, int len)
+{
+	char ip[16], port[6];
+
+	while(len >= 6){
+		len -= 6;
+		snprint(ip, sizeof(ip), "%d.%d.%d.%d", p[0], p[1], p[2], p[3]);
+		snprint(port, sizeof(port), "%d", p[4]<<8 | p[5]);
+		p += 6;
+		client(ip, port);
+	}
+}
+
+void
 webtracker(char *url)
 {
 	char *event, *p;
@@ -796,19 +810,9 @@ webtracker(char *url)
 			free(p);
 		} else if(debug) fprint(2, "tracker %s: %r\n", url);
 		if(l = dlook(d, "peers")){
-			if(l->typ == 's'){
-				uchar *b, *e;
-
-				b = (uchar*)l->str;
-				e = b + l->len;
-				for(; b+6 <= e; b += 6){
-					char ip[16], port[6];
-
-					snprint(ip, sizeof(ip), "%d.%d.%d.%d", b[0], b[1], b[2], b[3]);
-					snprint(port, sizeof(port), "%d", b[4]<<8 | b[5]);
-					client(ip, port);
-				}
-			} else for(; l && l->typ == 'l'; l = l->next)
+			if(l->typ == 's')
+				clients4((uchar*)l->str, l->len);
+			else for(; l && l->typ == 'l'; l = l->next)
 				client(dstr(dlook(l->val, "ip")), dstr(dlook(l->val, "port")));
 		}
 		n = 0;
@@ -846,10 +850,10 @@ udpaddr(char addr[64], int naddr, char *url)
 void
 udptracker(char *url)
 {
-	uchar buf[MAXIO], *p, *e;
-	int fd, event, n, a, i;
+	int fd, event, n, m, a, i;
 	int transid, interval;
 	vlong connid;
+	uchar buf[MAXIO];
 	char addr[64];
 
 	if(udpaddr(addr, sizeof(addr), url) < 0)
@@ -901,18 +905,10 @@ udptracker(char *url)
 		for(;;){
 			if((n = read(fd, buf, sizeof(buf))) <= 0)
 				goto Sleep;
-			e = buf+n;
-			if((n = unpack(buf, n, "lll________", &a, &i, &interval)) < 0)
+			if((m = unpack(buf, n, "lll________", &a, &i, &interval)) < 0)
 				continue;
 			if(a == 1 && i == transid){
-				for(p = buf+n; p+6 <= e; p += 6){
-					char ip[16], port[6];
-
-					snprint(ip, sizeof(ip), "%d.%d.%d.%d",
-						p[0], p[1], p[2], p[3]);
-					snprint(port, sizeof(port), "%d", p[4]<<8 | p[5]);
-					client(ip, port);
-				}
+				clients4(buf+m, n - m);
 				break;
 			}
 		}
