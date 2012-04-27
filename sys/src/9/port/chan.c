@@ -500,17 +500,16 @@ closeproc(void*)
 				poperror();
 			}
 		}
+		qunlock(&clunkq.q);
 		lock(&clunkq.l);
 		c = clunkq.head;
 		if(c == nil){
 			unlock(&clunkq.l);
-			qunlock(&clunkq.q);
 			pexit("no work", 1);
 		}
 		clunkq.head = c->next;
 		clunkq.nclosed++;
 		unlock(&clunkq.l);
-		qunlock(&clunkq.q);
 		if(!waserror()){
 			devtab[c->type]->close(c);
 			poperror();
