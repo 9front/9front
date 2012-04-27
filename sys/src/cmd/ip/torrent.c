@@ -275,10 +275,28 @@ unpack(uchar *s, int n, char *fmt, ...)
 			if(s+1 > e) goto Err;
 			*va_arg(arg, int*) = *s++;
 			break;
+		case 'w':
+			if(s+2 > e) goto Err;
+			*va_arg(arg, int*) = s[0]<<8 | s[1];
+			s += 2;
+			break;
 		case 'l':
 			if(s+4 > e) goto Err;
 			*va_arg(arg, int*) = s[0]<<24 | s[1]<<16 | s[2]<<8 | s[3];
 			s += 4;
+			break;
+		case 'v':
+			if(s+4 > e) goto Err;
+			*va_arg(arg, vlong*) = 
+				(vlong)s[0]<<56 | 
+				(vlong)s[1]<<48 | 
+				(vlong)s[2]<<40 |
+				(vlong)s[3]<<32 |
+				(vlong)s[4]<<24 |
+				(vlong)s[5]<<16 | 
+				(vlong)s[6]<<8 | 
+				(vlong)s[7];
+			s += 8;
 			break;
 		}
 	}
@@ -294,6 +312,7 @@ pack(uchar *s, int n, char *fmt, ...)
 {
 	va_list arg;
 	uchar *b, *e;
+	vlong v;
 	int i;
 
 	b = s;
@@ -310,6 +329,12 @@ pack(uchar *s, int n, char *fmt, ...)
 			if(s+1 > e) goto Err;
 			*s++ = i & 0xFF;
 			break;
+		case 'w':
+			i = va_arg(arg, int);
+			if(s+2 > e) goto Err;
+			*s++ = (i>>8) & 0xFF;
+			*s++ = i & 0xFF;
+			break;
 		case 'l':
 			i = va_arg(arg, int);
 			if(s+4 > e) goto Err;
@@ -318,10 +343,22 @@ pack(uchar *s, int n, char *fmt, ...)
 			*s++ = (i>>8) & 0xFF;
 			*s++ = i & 0xFF;
 			break;
+		case 'v':
+			v = va_arg(arg, vlong);
+			if(s+8 > e) goto Err;
+			*s++ = (v>>56) & 0xFF;
+			*s++ = (v>>48) & 0xFF;
+			*s++ = (v>>40) & 0xFF;
+			*s++ = (v>>32) & 0xFF;
+			*s++ = (v>>24) & 0xFF;
+			*s++ = (v>>16) & 0xFF;
+			*s++ = (v>>8) & 0xFF;
+			*s++ = v & 0xFF;
+			break;
 		case '*':
 			i = va_arg(arg, int);
 			if(s+i > e) goto Err;
-			memmove(s, va_arg(arg, uchar*), i);
+			memmove(s, va_arg(arg, void*), i);
 			s += i;
 			break;
 		}
@@ -727,38 +764,15 @@ Error:
 }
 
 void
-tracker(char *url)
+webtracker(char *url)
 {
-	static Dict *trackers;
-	static QLock trackerslk;
-
 	char *event, *p;
 	Dict *d, *l;
 	int n, fd;
 
-	if(url == nil)
-		return;
-
-	qlock(&trackerslk);
-	if(dlook(trackers, url)){
-		qunlock(&trackerslk);
-		return;
-	}
-	n = strlen(url);
-	d = mallocz(sizeof(*d) + n+1, 1);
-	strcpy(d->str, url);
-	d->len = n;
-	d->typ = 'd';
-	d->val = d;
-	d->next = trackers;
-	trackers = d;
-	url = d->str;
-	qunlock(&trackerslk);
-
-	if(debug) fprint(2, "tracker %s\n", url);
-
 	if(rfork(RFPROC|RFMEM))
 		return;
+	if(debug) fprint(2, "webtracker %s\n", url);
 
 	event = "&event=started";
 	for(;;){
@@ -805,6 +819,143 @@ tracker(char *url)
 		freedict(d);
 		sleep(n * 1000 + nrand(5000));
 	}
+}
+
+int
+udpaddr(char addr[64], int naddr, char *url)
+{
+	int port;
+	char *x;
+
+	if((url = strchr(url, ':')) == nil)
+		return -1;
+	url++;
+	while(*url == '/')
+		url++;
+	if(x = strchr(url, ':')){
+		port = atoi(x+1);
+	} else {
+		port = 80;
+		if((x = strchr(url, '/')) == nil)
+			x = strchr(url, 0);
+	}
+	snprint(addr, naddr, "udp!%.*s!%d", (int)(x-url), url, port);
+	return 0;
+}
+
+void
+udptracker(char *url)
+{
+	uchar buf[MAXIO], *p, *e;
+	int fd, event, n, a, i;
+	int transid, interval;
+	vlong connid;
+	char addr[64];
+
+	if(udpaddr(addr, sizeof(addr), url) < 0)
+		return;
+	if(rfork(RFPROC|RFMEM))
+		return;
+	if(debug) fprint(2, "udptracker %s\n", addr);
+
+	event = 1;
+	for(;;){
+		alarm(30000);
+		if((fd = dial(addr, 0, 0, 0)) < 0)
+			goto Sleep;
+
+		/* connect */
+		transid = rand();
+		n = pack(buf, sizeof(buf), "vll", 0x41727101980LL, 0, transid);
+		if(write(fd, buf, n) != n)
+			goto Sleep;
+		for(;;){
+			if((n = read(fd, buf, sizeof(buf))) <= 0)
+				goto Sleep;
+			if(unpack(buf, n, "llv", &a, &i, &connid) < 0)
+				continue;
+			if(a == 0 && i == transid)
+				break;
+		}
+		alarm(0);
+
+		/* announce */
+		transid = rand();
+		lock(&stats);
+		n = pack(buf, sizeof(buf), "vll**vvvl____llw",
+			connid, 1, transid,
+			sizeof(infohash), infohash,
+			sizeof(peerid), peerid,
+			stats.down,
+			stats.left,
+			stats.up,
+			event,
+			0, -1,
+			port);
+		unlock(&stats);
+
+		interval = 0;
+		alarm(30000);
+		if(write(fd, buf, n) != n)
+			goto Sleep;
+		for(;;){
+			if((n = read(fd, buf, sizeof(buf))) <= 0)
+				goto Sleep;
+			e = buf+n;
+			if((n = unpack(buf, n, "lll________", &a, &i, &interval)) < 0)
+				continue;
+			if(a == 1 && i == transid){
+				for(p = buf+n; p+6 <= e; p += 6){
+					char ip[16], port[6];
+
+					snprint(ip, sizeof(ip), "%d.%d.%d.%d",
+						p[0], p[1], p[2], p[3]);
+					snprint(port, sizeof(port), "%d", p[4]<<8 | p[5]);
+					client(ip, port);
+				}
+				break;
+			}
+		}
+		event = 0;
+Sleep:
+		alarm(0);
+		if(fd >= 0)
+			close(fd);
+		if(interval < 10 | interval > 60*60)
+			interval = 2*60;
+		sleep(interval * 1000 + nrand(5000));
+	}
+}
+
+void
+tracker(char *url)
+{
+	static Dict *trackers;
+	static QLock trackerslk;
+	Dict *d;
+	int n;
+
+	if(url == nil)
+		return;
+	qlock(&trackerslk);
+	if(dlook(trackers, url)){
+		qunlock(&trackerslk);
+		return;
+	}
+	n = strlen(url);
+	d = mallocz(sizeof(*d) + n+1, 1);
+	strcpy(d->str, url);
+	d->len = n;
+	d->typ = 'd';
+	d->val = d;
+	d->next = trackers;
+	trackers = d;
+	url = d->str;
+	qunlock(&trackerslk);
+	if(!cistrncmp(url, "udp:", 4))
+		udptracker(url);
+	else
+		webtracker(url);
 }
 
 int
@@ -946,8 +1097,10 @@ fixnamedup(char *s)
 }
 
 int
-killnote(void *, char *)
+catch(void *, char *msg)
 {
+	if(strstr(msg, "alarm"))
+		return 1;
 	postnote(PNGROUP, killgroup, "kill");
 	return 0;
 }
@@ -1125,7 +1278,7 @@ main(int argc, char *argv[])
 		havepiece(i);
 
 	srand(time(0));
-	atnotify(killnote, 1);
+	atnotify(catch, 1);
 	switch(i = rfork(RFPROC|RFMEM|RFNOTEG)){
 	case -1:
 		sysfatal("fork: %r");
