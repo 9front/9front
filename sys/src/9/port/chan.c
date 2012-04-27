@@ -469,23 +469,6 @@ chanfree(Chan *c)
 	unlock(&chanalloc);
 }
 
-void
-cclose(Chan *c)
-{
-	if(c == nil || c->ref < 1 || c->flag&CFREE)
-		panic("cclose %#p", getcallerpc(&c));
-
-	DBG("cclose %p name=%s ref=%ld\n", c, chanpath(c), c->ref);
-	if(decref(c))
-		return;
-
-	if(!waserror()){
-		devtab[c->type]->close(c);
-		poperror();
-	}
-	chanfree(c);
-}
-
 /*
  * Queue a chan to be closed by one of the clunk procs.
  */
@@ -498,32 +481,6 @@ struct {
 	QLock q;
 	Rendez r;
 } clunkq;
-void closeproc(void*);
-
-void
-ccloseq(Chan *c)
-{
-	if(c == nil || c->ref < 1 || c->flag&CFREE)
-		panic("ccloseq %#p", getcallerpc(&c));
-
-	DBG("ccloseq %p name=%s ref=%ld\n", c, chanpath(c), c->ref);
-
-	if(decref(c))
-		return;
-
-	lock(&clunkq.l);
-	clunkq.nqueued++;
-	c->next = nil;
-	if(clunkq.head)
-		clunkq.tail->next = c;
-	else
-		clunkq.head = c;
-	clunkq.tail = c;
-	unlock(&clunkq.l);
-
-	if(!wakeup(&clunkq.r))
-		kproc("closeproc", closeproc, nil);	
-}
 
 static int
 clunkwork(void*)
@@ -531,25 +488,25 @@ clunkwork(void*)
 	return clunkq.head != nil;
 }
 
-void
+static void
 closeproc(void*)
 {
 	Chan *c;
 
 	for(;;){
-		qlock(&clunkq.q);
 		if(clunkq.head == nil){
 			if(!waserror()){
 				tsleep(&clunkq.r, clunkwork, nil, 5000);
 				poperror();
 			}
-			if(clunkq.head == nil){
-				qunlock(&clunkq.q);
-				pexit("no work", 1);
-			}
 		}
 		lock(&clunkq.l);
 		c = clunkq.head;
+		if(c == nil){
+			unlock(&clunkq.l);
+			qunlock(&clunkq.q);
+			pexit("no work", 1);
+		}
 		clunkq.head = c->next;
 		clunkq.nclosed++;
 		unlock(&clunkq.l);
@@ -559,7 +516,59 @@ closeproc(void*)
 			poperror();
 		}
 		chanfree(c);
+		qlock(&clunkq.q);
 	}
+}
+
+static void
+closechan(Chan *c, int sync)
+{
+	if(c == nil || c->ref < 1 || c->flag&CFREE)
+		panic("closechan %#p", getcallerpc(&c));
+
+	DBG("closechan %p name=%s ref=%ld\n", c, chanpath(c), c->ref);
+
+	if(decref(c))
+		return;
+
+	if((c->flag&(CRCLOSE|CCACHE)) == CCACHE)
+	if((c->qid.type&(QTEXCL|QTMOUNT|QTAUTH)) == 0)
+		sync = 0;
+
+	if(sync){
+		if(!waserror()){
+			devtab[c->type]->close(c);
+			poperror();
+		}
+		chanfree(c);
+	} else {
+		lock(&clunkq.l);
+		clunkq.nqueued++;
+		c->next = nil;
+		if(clunkq.head)
+			clunkq.tail->next = c;
+		else
+			clunkq.head = c;
+		clunkq.tail = c;
+		unlock(&clunkq.l);
+
+		if(canqlock(&clunkq.q))
+			kproc("closeproc", closeproc, nil);
+		else
+			wakeup(&clunkq.r);
+	}
+}
+
+void
+cclose(Chan *c)
+{
+	closechan(c, 1);
+}
+
+void
+ccloseq(Chan *c)
+{
+	closechan(c, 0);
 }
 
 /*

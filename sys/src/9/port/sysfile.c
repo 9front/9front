@@ -806,7 +806,7 @@ sseek(ulong *arg)
 		cclose(c);
 		nexterror();
 	}
-	if(devtab[c->type]->dc == '|')
+	if(devtab[c->type]->dc == L'|')
 		error(Eisstream);
 
 	off = 0;
