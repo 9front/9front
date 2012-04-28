@@ -520,54 +520,64 @@ closeproc(void*)
 }
 
 static void
-closechan(Chan *c, int sync)
+closechanq(Chan *c)
 {
-	if(c == nil || c->ref < 1 || c->flag&CFREE)
-		panic("closechan %#p", getcallerpc(&c));
+	lock(&clunkq.l);
+	clunkq.nqueued++;
+	c->next = nil;
+	if(clunkq.head)
+		clunkq.tail->next = c;
+	else
+		clunkq.head = c;
+	clunkq.tail = c;
+	unlock(&clunkq.l);
 
-	DBG("closechan %p name=%s ref=%ld\n", c, chanpath(c), c->ref);
-
-	if(decref(c))
-		return;
-
-	if((c->flag&(CRCLOSE|CCACHE)) == CCACHE)
-	if((c->qid.type&(QTEXCL|QTMOUNT|QTAUTH)) == 0)
-		sync = 0;
-
-	if(sync){
-		if(!waserror()){
-			devtab[c->type]->close(c);
-			poperror();
-		}
-		chanfree(c);
-	} else {
-		lock(&clunkq.l);
-		clunkq.nqueued++;
-		c->next = nil;
-		if(clunkq.head)
-			clunkq.tail->next = c;
-		else
-			clunkq.head = c;
-		clunkq.tail = c;
-		unlock(&clunkq.l);
-
-		if(canqlock(&clunkq.q))
-			kproc("closeproc", closeproc, nil);
-		else
-			wakeup(&clunkq.r);
-	}
+	if(canqlock(&clunkq.q)){
+		c = up->dot;
+		up->dot = nil;
+		kproc("closeproc", closeproc, nil);
+		up->dot = c;
+	}else
+		wakeup(&clunkq.r);
 }
 
 void
 cclose(Chan *c)
 {
-	closechan(c, 1);
+	if(c == nil || c->ref < 1 || c->flag&CFREE)
+		panic("cclose %#p", getcallerpc(&c));
+
+	DBG("cclose %p name=%s ref=%ld\n", c, chanpath(c), c->ref);
+
+	if(decref(c))
+		return;
+
+	if(devtab[c->type]->dc == L'M')
+	if((c->flag&(CRCLOSE|CCACHE)) == CCACHE)
+	if((c->qid.type&(QTEXCL|QTMOUNT|QTAUTH)) == 0){
+		closechanq(c);
+		return;
+	}
+
+	if(!waserror()){
+		devtab[c->type]->close(c);
+		poperror();
+	}
+	chanfree(c);
 }
 
 void
 ccloseq(Chan *c)
 {
-	closechan(c, 0);
+	if(c == nil || c->ref < 1 || c->flag&CFREE)
+		panic("ccloseq %#p", getcallerpc(&c));
+
+	DBG("ccloseq %p name=%s ref=%ld\n", c, chanpath(c), c->ref);
+
+	if(decref(c))
+		return;
+
+	closechanq(c);
 }
 
 /*
