@@ -113,7 +113,7 @@ partitiongeometry(Disk *disk)
 		}
 	}
 
-	if(h == -1)
+	if(h < 0 || s <= 0)
 		return -1;
 
 	disk->h = h+1;	/* heads count from 0 */
