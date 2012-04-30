@@ -209,6 +209,12 @@ Point pl_getsizeedit(Panel *p, Point children){
 void pl_childspaceedit(Panel *g, Point *ul, Point *size){
 	USED(g, ul, size);
 }
+void pl_freeedit(Panel *p){
+	Edit *ep;
+	ep=p->data;
+	if(ep->t!=nil) twfree(ep->t);
+	ep->t=0;
+}
 void plinitedit(Panel *v, int flags, Point minsize, Rune *text, int ntext, void (*hit)(Panel *)){
 	Edit *ep;
 	ep=v->data;
@@ -219,6 +225,7 @@ void plinitedit(Panel *v, int flags, Point minsize, Rune *text, int ntext, void 
 	v->type=pl_typeedit;
 	v->getsize=pl_getsizeedit;
 	v->childspace=pl_childspaceedit;
+	v->free=pl_freeedit;
 	v->kind="edit";
 	ep->hit=hit;
 	ep->minsize=minsize;
