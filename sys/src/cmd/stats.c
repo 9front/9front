@@ -557,6 +557,7 @@ connectexportfs(char *addr)
 	ai = auth_proxy(fd, auth_getkey, "proto=p9any role=client");
 	if(ai == nil)
 		return -1;
+	auth_freeAI(ai);
 
 	n = write(fd, tree, strlen(tree));
 	if(n < 0){
@@ -1294,7 +1295,6 @@ main(int argc, char *argv[])
 		fprint(2, "stats: can't find $sysname: %r\n");
 		exits("sysname");
 	}
-	mysysname = estrdup(mysysname);
 
 	nargs = 0;
 	ARGBEGIN{
