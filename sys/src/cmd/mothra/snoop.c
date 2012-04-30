@@ -102,9 +102,6 @@ snooptype(int fd)
 	"image/bmp",			BMP,
 	"image/x-icon",			ICO,
 
-	"application/x-gzip",		GUNZIP,
-	"application/x-compress",	COMPRESS,
-
 	"application/pdf",		PAGE,
 	"application/postscript",	PAGE,
 	"application/ghostscript",	PAGE,

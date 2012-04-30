@@ -825,6 +825,7 @@ int readstr(char *buf, int nbuf, char *base, char *name){
 int urlopen(Url *url, int method, char *body){
 	int conn, ctlfd, fd, n;
 	char buf[1024+1], *p;
+	char encoding[64];
 
 	if(debug) fprint(2, "urlopen %s (%s)\n", url->reltext, url->basename); 
 
@@ -863,11 +864,19 @@ int urlopen(Url *url, int method, char *body){
 	}
 	snprint(buf, sizeof buf, "%s/%d/body", mtpt, conn);
 	if((fd = open(buf, OREAD)) < 0)
-		goto ErrOut;
+		goto ErrOut;	
 	snprint(buf, sizeof buf, "%s/%d/parsed", mtpt, conn);
 	readstr(url->fullname, sizeof(url->fullname), buf, "url");
 	readstr(url->tag, sizeof(url->tag), buf, "fragment");
+	snprint(buf, sizeof buf, "%s/%d", mtpt, conn);
+	readstr(encoding, sizeof(encoding), buf, "contentencoding");
 	close(ctlfd);
+	if(!cistrcmp(encoding, "compress"))
+		fd = pipeline("/bin/uncompress", fd);
+	else if(!cistrcmp(encoding, "gzip"))
+		fd = pipeline("/bin/gunzip", fd);
+	else if(!cistrcmp(encoding, "bzip2"))
+		fd = pipeline("/bin/bunzip2", fd);
 	return fd;
 }
 
@@ -955,17 +964,8 @@ void geturl(char *urlname, int method, char *body, int plumb, int map){
 		message("getting %s", selection->fullname);
 		if(mothmode && !plumb)
 			typ = -1;
-		else {
+		else
 			typ = snooptype(fd);
-			if(typ == GUNZIP){
-				fd=pipeline("/bin/gunzip", fd);
-				typ = snooptype(fd);
-			}
-			if(typ == COMPRESS){
-				fd=pipeline("/bin/uncompress", fd);
-				typ = snooptype(fd);
-			}
-		}
 		switch(typ){
 		default:
 			if(plumb){

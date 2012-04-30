@@ -52,8 +52,6 @@ enum{
 	BMP,
 	ICO,
 
-	GUNZIP,
-	COMPRESS,
 	PAGE,
 };
 
