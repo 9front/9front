@@ -270,8 +270,10 @@ tryfindfiledir(char *dom, char *user, char *dir)
 	 * Ignore 512x512 directories.
 	 * Save 48x48 directories for later.
 	 */
-	if((fd = open(dir, OREAD)) < 0)
+	if((fd = open(dir, OREAD)) < 0){
+		free(dom);
 		return nil;
+	}
 	while((n = dirread(fd, &d)) > 0){
 		for(i=0; i<n; i++){
 			if((d[i].mode&DMDIR)
@@ -288,6 +290,7 @@ tryfindfiledir(char *dom, char *user, char *dir)
 					free(dom);
 					return x;
 				}
+				free(ndir);
 			}
 		}
 		free(d);
@@ -340,8 +343,12 @@ findfile(Face *f, char *dom, char *user)
 	}
 	if(dom == nil)
 		dom = facedom;
-	if(homeface == nil)
-		homeface = smprint("%s/lib/face", getenv("home"));
+	if(homeface == nil){
+		if((p = getenv("home")) != nil){
+			homeface = smprint("%s/lib/face", p);
+			free(p);
+		}
+	}
 
 	f->unknown = 0;
 	if((p = tryfindfile(dom, user)) != nil)
@@ -575,4 +582,5 @@ findbit(Face *f)
 		replclipr(f->bit, 1, Rect(0, 0, Facesize, Facesize));
 		f->mask = nil;
 	}
+	free(fn);
 }

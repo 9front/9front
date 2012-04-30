@@ -14,6 +14,7 @@ emalloc(ulong sz)
 		exits("mem");
 	}
 	memset(v, 0, sz);
+	setmalloctag(v, getcallerpc(&sz));
 	return v;
 }
 
@@ -25,6 +26,7 @@ erealloc(void *v, ulong sz)
 		fprint(2, "out of memory allocating %ld\n", sz);
 		exits("mem");
 	}
+	setrealloctag(v, getcallerpc(&sz));
 	return v;
 }
 
@@ -36,6 +38,7 @@ estrdup(char *s)
 		fprint(2, "out of memory in strdup(%.10s)\n", s);
 		exits("mem");
 	}
+	setmalloctag(t, getcallerpc(&s));
 	return t;
 }
 
