@@ -238,7 +238,7 @@ ioalloc(int port, int size, int align, char *tag)
 			m = *l;
 			if(m->end <= port)
 				continue;
-			if(m->reserved && m->start == port && m->end == port + size) {
+			if(m->reserved && m->start == port && m->end >= port + size) {
 				m->reserved = 0;
 				unlock(&iomap);
 				return m->start;
