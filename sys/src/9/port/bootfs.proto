@@ -40,7 +40,7 @@ rc
 	lib
 		rcmain
 		local.rc 555 sys sys ../boot/local.rc
-		tcp.rc 555 sys sys ../boot/tcp.rc
+		net.rc 555 sys sys ../boot/net.rc
 	bin
 		fstype
 		diskparts

@@ -126,6 +126,7 @@ ip
 	ipmux
 	esp
 	rudp
+	il
 
 port
 	int cpuserver = 1;

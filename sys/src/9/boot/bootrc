@@ -54,7 +54,7 @@ fn ask {
 }
 
 mt=()
-. /rc/lib/tcp.rc
+. /rc/lib/net.rc
 . /rc/lib/local.rc
 
 fn main{
@@ -63,7 +63,7 @@ fn main{
 		if(~ $#nobootprompt 0){
 			echo
 			showlocaldevs
-			ask bootargs ' is (tcp, local!device)' $"bootargs
+			ask bootargs ' is (tcp, il, local!device)' $"bootargs
 		}
 		if not bootargs=$nobootprompt
 		nobootprompt=()
@@ -92,8 +92,8 @@ fn main{
 	}
 	if not
 		x=($x -u)
-	if(! ~ $#authaddr 0)
-		x=($x -a $authaddr)
+	if(! ~ $#auth 0)
+		x=($x -a $auth)
 	if(! ~ $#debugfactotum 0)
 		x=($x -p)
 	must $x

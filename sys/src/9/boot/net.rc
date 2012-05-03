@@ -1,8 +1,7 @@
 #!/bin/rc
 
-fn configtcp{
+fn confignet{
 	must ip/ipconfig -p $*
-	
 	if(~ $#fs 0)
 		fs=`{awk -F'=' '/fs=/{print $2; exit}' /net/ndb}
 	if(~ $#auth 0)
@@ -11,14 +10,16 @@ fn configtcp{
 		ask fs ' ip is?' $auth
 	if(~ $#auth 0)
 		ask auth ' ip is?' $fs
-	
-	fsaddr=tcp!$fs!564
-	authaddr=tcp!$auth!567
 }
 
 fn connecttcp{
-	srv -q $"fsaddr boot 
+	srv -q tcp!$fs!564 boot 
 }
 
-mtcp=(configtcp connecttcp)
-mt=(mtcp $mt)
+fn connectil{
+	srv -q il!$fs!17008 boot 
+}
+
+mtcp=(confignet connecttcp)
+mil=(confignet connectil)
+mt=(mtcp mil $mt)

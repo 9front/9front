@@ -285,9 +285,34 @@ tcp=wiki port=17035
 tcp=vica port=17036
 tcp=aan port=17037
 
-
 # testing
 tcp=9fsa port=18008
+
+il=echo port=7
+il=discard port=9
+il=chargen port=19
+il=whoami port=565
+il=ticket port=566
+il=challbox port=567
+il=ocpu port=17005
+il=ocpunote port=17006
+il=exportfs port=17007
+il=9fs port=17008
+il=rexexec port=17009
+il=ncpu port=17010
+il=ncpunote port=17011
+il=tcpu port=17012
+il=cpu port=17013
+il=fsauth port=17020
+il=rexauth port=17021
+il=changekey port=17022
+il=chal port=17023
+il=check port=17024
+il=juke port=17026
+il=video port=17028
+il=vgen port=17029
+il=alefnslook port=17030
+il=ramfs port=17031
 
 udp=echo port=7
 udp=tacacs port=49

@@ -129,6 +129,7 @@ ip
 	gre
 	ipmux
 	esp
+	il
 
 port
 	int cpuserver = 0;

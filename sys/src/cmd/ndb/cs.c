@@ -150,22 +150,23 @@ struct Network
 	Network		*next;
 };
 
-enum
-{
-	Ntcp = 0,
+enum {
+	Ntcp = 1,
 };
 
 /*
  *  net doesn't apply to (r)udp, icmp(v6), or telco (for speed).
  */
 Network network[] = {
-[Ntcp]	{ "tcp",	iplookup,	iptrans,	0 },
-	{ "udp",	iplookup,	iptrans,	1 },
-	{ "icmp",	iplookup,	iptrans,	1 },
-	{ "icmpv6",	iplookup,	iptrans,	1 },
-	{ "rudp",	iplookup,	iptrans,	1 },
-	{ "ssh",	iplookup,	iptrans,	1 },
-	{ "telco",	telcolookup,	telcotrans,	1 },
+	{ "il",		iplookup,	iptrans,	0, 1, },
+	{ "tcp",	iplookup,	iptrans,	0, 0, },
+	{ "il",		iplookup,	iptrans,	0, 0, },
+	{ "udp",	iplookup,	iptrans,	1, 0, },
+	{ "icmp",	iplookup,	iptrans,	1, 0, },
+	{ "icmpv6",	iplookup,	iptrans,	1, 0, },
+	{ "rudp",	iplookup,	iptrans,	1, 0, },
+	{ "ssh",	iplookup,	iptrans,	1, 0, },
+	{ "telco",	telcolookup,	telcotrans,	1, 0, },
 	{ 0 },
 };
 
