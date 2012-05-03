@@ -22,7 +22,9 @@ int audiores = 16;
 char user[] = "audio";
 
 Dev *audiodev = nil;
-Ep *audioep = nil;
+
+Ep *audioepin = nil;
+Ep *audioepout = nil;
 
 void
 parsedescr(Desc *dd)
@@ -96,7 +98,10 @@ Foundaltc:
 	devctl(d, "samplesz %d", audiochan*audiores/8);
 	devctl(d, "sampledelay %d", audiodelay);
 	devctl(d, "hz %d", speed);
-	devctl(d, "name audio");
+	if(e->dir == Ein)
+		devctl(d, "name audioin");
+	else
+		devctl(d, "name audio");
 	return d;
 }
 
@@ -128,12 +133,15 @@ fswrite(Req *r)
 
 		speed = atoi(f[1]);
 Setup:
-		if((d = setupep(audiodev, audioep, speed)) == nil){
+		if((d = setupep(audiodev, audioepout, speed)) == nil){
 			responderror(r);
 			return;
 		}
 		closedev(d);
-
+		if(audioepin != nil && audioepin != audioepout){
+			if(d = setupep(audiodev, audioepin, speed))
+				closedev(d);
+		}
 		audiofreq = speed;
 	} else if(strcmp(f[0], "delay") == 0){
 		audiodelay = atoi(f[1]);
@@ -160,7 +168,7 @@ void
 main(int argc, char *argv[])
 {
 	char buf[32];
-	Dev *d;
+	Dev *d, *ed;
 	Ep *e;
 	int i;
 
@@ -187,17 +195,34 @@ main(int argc, char *argv[])
 		parsedescr(d->usb->ddesc[i]);
 	for(i = 0; i < nelem(d->usb->ep); i++){
 		e = d->usb->ep[i];
-		if(e && e->iface && e->iface->csp == CSP(Claudio, 2, 0) && e->dir == Eout)
-			goto Foundendp;
+		if(e && e->iface && e->iface->csp == CSP(Claudio, 2, 0)){
+			switch(e->dir){
+			case Ein:
+				if(audioepin != nil)
+					continue;
+				audioepin = e;
+				break;
+			case Eout:
+				if(audioepout != nil)
+					continue;
+				audioepout = e;
+				break;
+			case Eboth:
+				if(audioepin != nil && audioepout != nil)
+					continue;
+				if(audioepin == nil)
+					audioepin = e;
+				if(audioepout == nil)
+					audioepout = e;
+				break;
+			}
+			if((ed = setupep(audiodev, e, audiofreq)) == nil)
+				sysfatal("setupep: %r");
+			closedev(ed);
+		}
 	}
-	sysfatal("no endpoints found");
-	return;
-
-Foundendp:
-	audioep = e;
-	if((d = setupep(audiodev, audioep, audiofreq)) == nil)
-		sysfatal("setupep: %r");
-	closedev(d);
+	if(audioepout == nil)
+		sysfatal("no endpoints found");
 
 	fs.tree = alloctree(user, "usb", DMDIR|0555, nil);
 	createfile(fs.tree->root, "volume", user, 0666, nil);
