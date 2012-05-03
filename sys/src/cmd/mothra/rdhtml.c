@@ -28,7 +28,7 @@ struct Fontdata{
 	"dejavusansbd/unicode.14", 0, 0,
 	"dejavusansbd/unicode.16", 0, 0,
 
-	"vga/unicode", 0, 0,
+	"terminus/unicode.12", 0, 0,
 	"terminus/unicode.14", 0, 0,
 	"terminus/unicode.16", 0, 0,
 	"terminus/unicode.18", 0, 0,
