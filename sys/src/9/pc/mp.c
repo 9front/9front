@@ -833,7 +833,7 @@ mpintrenablex(Vctl* v, int tbdf)
 			n |= ApicPHYSICAL;		/* no-op */
 			lo &= ~(ApicRemoteIRR|ApicDELIVS);
 			if(n != lo || !(n & ApicLEVEL)){
-				print("mpintrenable: multiple botch irq%d, tbdf %uX, lo %8.8uX, n %8.8uX\n",
+				print("mpintrenable: multiple botch irq %d, tbdf %uX, lo %8.8uX, n %8.8uX\n",
 					v->irq, tbdf, lo, n);
 				return -1;
 			}
