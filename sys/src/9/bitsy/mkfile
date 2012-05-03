@@ -34,6 +34,7 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
+	random.$O\
 
 OBJ=\
 	l.$O\
@@ -45,7 +46,6 @@ OBJ=\
 	main.$O\
 	mmu.$O\
 	power.$O\
-	random.$O\
 	sa1110dma.$O\
 	screen.$O\
 	trap.$O\

@@ -41,6 +41,7 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
+	random.$O\
 
 OBJ=\
 	l.$O\
@@ -51,7 +52,6 @@ OBJ=\
 	main.$O\
 	memory.$O\
 	mmu.$O\
-	random.$O\
 	syscallfmt.$O\
 	trap.$O\
 	$CONF.root.$O\

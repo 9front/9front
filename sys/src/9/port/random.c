@@ -5,7 +5,6 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
-
 struct Rb
 {
 	QLock;
@@ -84,7 +83,8 @@ randomclock(void)
 void
 randominit(void)
 {
-	addclock0link(randomclock, 1000/HZ);
+	/* Frequency close but not equal to HZ */
+	addclock0link(randomclock, MS2HZ+3);
 	rb.ep = rb.buf + sizeof(rb.buf);
 	rb.rp = rb.wp = rb.buf;
 	kproc("genrandom", genrandom, 0);
@@ -118,7 +118,7 @@ randomread(void *xp, ulong n)
 
 		/*
 		 *  beating clocks will be predictable if
-		 *  they are synchronized.  Use a cheap pseudo
+		 *  they are synchronized.  Use a cheap pseudo-
 		 *  random number generator to obscure any cycles.
 		 */
 		x = rb.randn*1103515245 ^ *rb.rp;

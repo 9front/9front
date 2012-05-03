@@ -37,12 +37,12 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
+	random.$O\
 
 OBJ=\
 	l.$O\
 	main.$O\
 	mmu.$O\
-	random.$O\
 	clock.$O\
 	arch.$O\
 	trap.$O\
