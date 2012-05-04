@@ -218,6 +218,7 @@ struct Mach
 	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
 	uvlong	cpuhz;
 	int	cpuidax;
+	int	cpuidcx;
 	int	cpuiddx;
 	char	cpuidid[16];
 	char*	cpuidtype;
@@ -277,6 +278,9 @@ struct PCArch
 
 /* cpuid instruction result register bits */
 enum {
+	/* cx */
+	Monitor	= 1<<3,
+
 	/* dx */
 	Fpuonchip = 1<<0,
 //	Pse	= 1<<3,		/* page size extensions */

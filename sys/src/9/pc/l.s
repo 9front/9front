@@ -855,6 +855,21 @@ _nothingready:
 	HLT
 	RET
 
+TEXT mwait(SB), $0
+	MOVL	addr+0(FP), AX
+	MOVL	(AX), CX
+	ORL	CX, CX
+	JNZ	_mwaitdone
+	XORL	DX, DX
+	BYTE $0x0f; BYTE $0x01; BYTE $0xc8	/* MONITOR */
+	MOVL	(AX), CX
+	ORL	CX, CX
+	JNZ	_mwaitdone
+	XORL	AX, AX
+	BYTE $0x0f; BYTE $0x01; BYTE $0xc9	/* MWAIT */
+_mwaitdone:
+	RET
+
 /*
  * Interrupt/exception handling.
  * Each entry in the vector table calls either _strayintr or _strayintrx depending

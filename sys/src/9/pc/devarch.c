@@ -732,8 +732,8 @@ cpuidprint(void)
 	if(m->cpuidid[0])
 		i += sprint(buf+i, "%12.12s ", m->cpuidid);
 	seprint(buf+i, buf + sizeof buf - 1,
-		"%s (cpuid: AX 0x%4.4uX DX 0x%4.4uX)\n",
-		m->cpuidtype, m->cpuidax, m->cpuiddx);
+		"%s (cpuid: AX 0x%4.4uX CX 0x%4.4uX DX 0x%4.4uX)\n",
+		m->cpuidtype, m->cpuidax, m->cpuidcx, m->cpuiddx);
 	print(buf);
 }
 
@@ -766,6 +766,7 @@ cpuidentify(void)
 
 	cpuid(Procsig, regs);
 	m->cpuidax = regs[0];
+	m->cpuidcx = regs[2];
 	m->cpuiddx = regs[3];
 
 	if(strncmp(m->cpuidid, "AuthenticAMD", 12) == 0 ||

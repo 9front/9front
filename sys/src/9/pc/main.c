@@ -868,6 +868,10 @@ cistrncmp(char *a, char *b, int n)
 void
 idlehands(void)
 {
+	extern int nrdy;
+
 	if(conf.nmach == 1)
 		halt();
+	else if(m->cpuidcx & Monitor)
+		mwait(&nrdy);
 }
