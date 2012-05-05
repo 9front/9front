@@ -294,6 +294,7 @@ enum {
 	Pge	= 1<<13,	/* page global extension */
 //	Pse2	= 1<<17,	/* more page size extensions */
 	Clflush = 1<<19,
+	Acpif	= 1<<22,	/* therm control msr */
 	Mmx	= 1<<23,
 	Sse	= 1<<25,	/* thus sfence instr. */
 	Sse2	= 1<<26,	/* thus mfence & lfence instr.s */
