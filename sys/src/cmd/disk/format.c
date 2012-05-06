@@ -364,6 +364,23 @@ writen(int fd, void *buf, long n)
 	return tot;
 }
 
+int
+defcluster(vlong n)
+{
+	int i;
+
+	i = n / 32768;
+	if(i <= 1)
+		return 1;
+	if(i >= 128)
+		return 128;
+	i--;
+	i |= i >> 1;
+	i |= i >> 2;
+	i |= i >> 4;
+	return i+1;
+}
+
 void
 dosfs(int dofat, int dopbs, Disk *disk, char *label, int argc, char *argv[], int commit)
 {
@@ -388,6 +405,7 @@ dosfs(int dofat, int dopbs, Disk *disk, char *label, int argc, char *argv[], int
 		t->sectors = disk->s;
 		t->heads = disk->h;
 		t->tracks = disk->c;
+		t->cluster = defcluster(disk->secs);
 	}
 
 	if(t->sectors == 0 && dofat)
@@ -490,6 +508,8 @@ dosfs(int dofat, int dopbs, Disk *disk, char *label, int argc, char *argv[], int
 
 		if(clustersize == 0)
 			clustersize = t->cluster;
+if(chatty) print("clustersize %d\n", clustersize);
+
 		/*
 		 * the number of fat bits depends on how much disk is left
 		 * over after you subtract out the space taken up by the fat tables. 
@@ -519,7 +539,8 @@ Tryagain:
 				break;
 			clusters = newclusters;
 			if(i > 10)
-				fatal("can't decide how many clusters to use (%d? %d?)", clusters, newclusters);
+				fatal("can't decide how many clusters to use (%d? %d?)",
+					clusters, newclusters);
 if(chatty) print("clusters %d\n", clusters);
 		}
 				
@@ -786,7 +807,7 @@ addrname(uchar *entry, Dir *dir, char *name, ulong start)
 
 	d = (Dosdir*)entry;
 	putname(s, d);
-	if(strcmp(s, "9load") == 0)
+	if(cistrcmp(s, "9load") == 0 || cistrncmp(s, "9boot", 5) == 0)
 		d->attr = DSYSTEM;
 	else
 		d->attr = 0;
