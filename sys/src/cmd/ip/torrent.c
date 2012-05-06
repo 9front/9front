@@ -618,9 +618,10 @@ server(void)
 		}
 		ni = getnetconninfo(ldir, dfd);
 		peer(dfd, 1, ni ? ni->raddr : "???");
-		if(ni) freenetconninfo(ni);	
-		exits(0);
+		if(ni) freenetconninfo(ni);
+		break;	
 	}
+	exits(0);
 }
 
 void
