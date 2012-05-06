@@ -627,7 +627,7 @@ server(void)
 void
 client(char *ip, char *port)
 {
-	static Dict *peers, *peerqh, *peerqt;
+	static Dict *peerqh, *peerqt;
 	static QLock peerslk;
 	static int nprocs;
 	char *addr;
@@ -640,7 +640,7 @@ client(char *ip, char *port)
 	d = mallocz(sizeof(*d) + 64, 1);
 	snprint(addr = d->str, 64, "tcp!%s!%s", ip, port);
 	qlock(&peerslk);
-	if(dlook(peers, addr) || dlook(peerqh, addr)){
+	if(dlook(peerqh, addr)){
 		qunlock(&peerslk);
 		free(d);
 		return;
@@ -661,31 +661,18 @@ client(char *ip, char *port)
 	if(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT))
 		return;
 
-	d = nil;
 	for(;;){
 		qlock(&peerslk);
-		if(d){
-			Dict **dd;
-			/* remove from peers list */
-			for(dd = &peers; *dd; dd = &((*dd)->next))
-				if(*dd == d){
-					*dd = d->next;
-					break;
-				}
-			/* enqueue to back */
-			d->next = nil;
-			if(peerqt == nil)
-				peerqh = d;
-			else
-				peerqt->next = d;
-			peerqt = d;
-		}
-		/* dequeue and put in peer list */
+		/* dequeue and put to tail */
 		if(d = peerqh){
 			if((peerqh = d->next) == nil)
 				peerqt = nil;
-			d->next = peers;
-			peers = d;
+			d->next = nil;
+			if(peerqt)
+				peerqt->next = d;
+			else
+				peerqh = d;
+			peerqt = d;
 		} else
 			nprocs--;
 		qunlock(&peerslk);
@@ -694,11 +681,10 @@ client(char *ip, char *port)
 		addr = d->str;
 		if(debug) fprint(2, "client %s\n", addr);
 		if((fd = dial(addr, nil, nil, nil)) >= 0){
-			if(!peer(fd, 0, addr))
-				d = nil;
+			peer(fd, 0, addr);
 			close(fd);
 		}
-		if(d) sleep(1000+nrand(5000));
+		sleep(1000+nrand(5000));
 	}
 }
 
