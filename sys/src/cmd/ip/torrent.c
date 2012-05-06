@@ -44,6 +44,8 @@ struct Stats
 
 enum {
 	MAXIO = 16*1024,
+	SRVPROCS = 16,
+	CLIPROCS = 16,
 };
 
 int debug;
@@ -579,10 +581,11 @@ void
 server(void)
 {
 	char addr[64], adir[40], ldir[40];
-	int afd, lfd, dfd;
+	int afd, lfd, dfd, pid, nprocs;
 	NetConnInfo *ni;
 
 	afd = -1;
+	nprocs = 0;
 	for(port=6881; port<6890; port++){
 		snprint(addr, sizeof(addr), "tcp!*!%d", port);
 		if((afd = announce(addr, adir)) >= 0)
@@ -599,7 +602,13 @@ server(void)
 			fprint(2, "listen: %r");
 			break;
 		}
-		if(rfork(RFFDG|RFPROC|RFMEM)){
+		while(nprocs >= SRVPROCS)
+			if(waitpid() > 0)
+				nprocs--;
+		nprocs++;
+		if(pid = rfork(RFFDG|RFPROC|RFMEM)){
+			if(pid < 0)
+				nprocs--;
 			close(lfd);
 			continue;
 		}
@@ -610,16 +619,16 @@ server(void)
 		ni = getnetconninfo(ldir, dfd);
 		peer(dfd, 1, ni ? ni->raddr : "???");
 		if(ni) freenetconninfo(ni);	
-		break;
+		exits(0);
 	}
-	exits(0);
 }
 
 void
 client(char *ip, char *port)
 {
-	static Dict *peers;
+	static Dict *peers, *peerqh, *peerqt;
 	static QLock peerslk;
+	static int nprocs;
 	int try, fd;
 	char *addr;
 	Dict *d;
@@ -630,7 +639,7 @@ client(char *ip, char *port)
 	d = mallocz(sizeof(*d) + 64, 1);
 	snprint(addr = d->str, 64, "tcp!%s!%s", ip, port);
 	qlock(&peerslk);
-	if(dlook(peers, addr)){
+	if(dlook(peers, addr) || dlook(peerqh, addr)){
 		qunlock(&peerslk);
 		free(d);
 		return;
@@ -638,23 +647,44 @@ client(char *ip, char *port)
 	d->len = strlen(addr);
 	d->typ = 'd';
 	d->val = d;
-	d->next = peers;
-	peers = d;
+	d->next = nil;
+	if(peerqt == nil)
+		peerqh = d;
+	else
+		peerqt->next = d;
+	peerqt = d;
+	if(nprocs >= CLIPROCS){
+		qunlock(&peerslk);
+		return;
+	}
+	nprocs++;
 	qunlock(&peerslk);
 
-	if(debug) fprint(2, "client %s\n", addr);
-
-	if(rfork(RFFDG|RFPROC|RFMEM))
+	if(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT))
 		return;
-	for(try = 0; try < 10; try++){
-		if((fd = dial(addr, nil, nil, nil)) >= 0){
-			if(!peer(fd, 0, addr))
-				break;
-			close(fd);
+	for(;;){
+		qlock(&peerslk);
+		if(d = peerqh){
+			if((peerqh = d->next) == nil)
+				peerqt = nil;
+			d->next = peers;
+			peers = d;
+		} else
+			nprocs--;
+		qunlock(&peerslk);
+		if(d == nil)
+			exits(0);
+		addr = d->str;
+		if(debug) fprint(2, "client %s\n", addr);
+		for(try = 0; try < 5; try++){
+			if((fd = dial(addr, nil, nil, nil)) >= 0){
+				if(!peer(fd, 0, addr))
+					break;
+				close(fd);
+			}
+			sleep((1000<<try)+nrand(5000));
 		}
-		sleep((1000<<try)+nrand(5000));
 	}
-	exits(0);
 }
 
 int
