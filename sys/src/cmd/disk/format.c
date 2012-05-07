@@ -45,13 +45,33 @@ struct Dosboot{
 	uchar	nheads[2];
 	uchar	nhidden[4];
 	uchar	bigvolsize[4];
-	uchar	driveno;
-	uchar	reserved0;
-	uchar	bootsig;
-	uchar	volid[4];
-	uchar	label[11];
-	uchar	type[8];
+	union {
+		struct {
+			uchar	driveno;
+			uchar	reserved0;
+			uchar	bootsig;
+			uchar	volid[4];
+			uchar	label[11];
+			uchar	type[8];
+		};
+		struct {
+			uchar	fatsize[4];
+			uchar	flags[2];
+			uchar	ver[2];
+			uchar	rootclust[4];
+			uchar	fsinfo[2];
+			uchar	bootbak[2];
+			uchar	reserved0[12];
+			uchar	driveno;
+			uchar	reserved1;
+			uchar	bootsig;
+			uchar	volid[4];
+			uchar	label[11];
+			uchar	type[8];
+		} fat32;
+	};
 };
+
 #define	PUTSHORT(p, v) { (p)[1] = (v)>>8; (p)[0] = (v); }
 #define	PUTLONG(p, v) { PUTSHORT((p), (v)); PUTSHORT((p)+2, (v)>>16); }
 #define	GETSHORT(p)	(((p)[1]<<8)|(p)[0])
@@ -533,6 +553,12 @@ Tryagain:
 				rootfiles = 512;
 				rootsecs = rootfiles/(secsize/sizeof(Dosdir));
 			}
+			if(fatbits == 32){
+				rootsecs -= (rootsecs % clustersize);
+				if(rootsecs <= 0)
+					rootsecs = clustersize;
+				rootfiles = rootsecs * (secsize/sizeof(Dosdir));
+			}
 			data = nresrv + 2*fatsecs + (rootfiles*sizeof(Dosdir) + secsize-1)/secsize;
 			newclusters = 2 + (volsecs - data)/clustersize;
 			if(newclusters == clusters)
@@ -547,43 +573,49 @@ if(chatty) print("clusters %d\n", clusters);
 if(chatty) print("try %d fatbits => %d clusters of %d\n", fatbits, clusters, clustersize);
 		switch(fatbits){
 		case 12:
-			if(clusters >= 4087){
+			if(clusters >= 0xff7){
 				fatbits = 16;
 				goto Tryagain;
 			}
 			break;
 		case 16:
-			if(clusters >= 65527)
-				fatal("disk too big; implement fat32");
+			if(clusters >= 0xfff7){
+				fatbits = 32;
+				goto Tryagain;
+			}
+			break;
+		case 32:
+			if(clusters >= 0xffffff7)
+				fatal("filesystem too big");
 			break;
 		}
 		PUTSHORT(b->sectsize, secsize);
 		b->clustsize = clustersize;
 		PUTSHORT(b->nresrv, nresrv);
 		b->nfats = 2;
-		PUTSHORT(b->rootsize, rootfiles);
-		if(volsecs < (1<<16))
-			PUTSHORT(b->volsize, volsecs);
+		PUTSHORT(b->rootsize, fatbits == 32 ? 0 : rootfiles);
+		PUTSHORT(b->volsize, volsecs >= (1<<16) ? 0 : volsecs);
 		b->mediadesc = t->media;
-		PUTSHORT(b->fatsize, fatsecs);
+		PUTSHORT(b->fatsize, fatbits == 32 ? 0 : fatsecs);
 		PUTSHORT(b->trksize, t->sectors);
 		PUTSHORT(b->nheads, t->heads);
 		PUTLONG(b->nhidden, disk->offset);
 		PUTLONG(b->bigvolsize, volsecs);
 	
-		/*
-		 * Extended BIOS Parameter Block.
-		 */
-		if(t->media == 0xF8)
-			b->driveno = getdriveno(disk);
-		else
-			b->driveno = 0;
-if(chatty) print("driveno = %ux\n", b->driveno);
-	
-		b->bootsig = 0x29;
-		memmove(b->label, label, sizeof(b->label));
 		sprint(r, "FAT%d    ", fatbits);
-		memmove(b->type, r, sizeof(b->type));
+		if(fatbits == 32){
+			PUTLONG(b->fat32.fatsize, fatsecs);
+			PUTLONG(b->fat32.rootclust, 2);
+			b->fat32.bootsig = 0x29;
+			b->fat32.driveno = (t->media == 0xF8) ? getdriveno(disk) : 0;
+			memmove(b->fat32.label, label, sizeof(b->fat32.label));
+			memmove(b->fat32.type, r, sizeof(b->fat32.type));
+		} else {
+			b->bootsig = 0x29;
+			b->driveno = (t->media == 0xF8) ? getdriveno(disk) : 0;
+			memmove(b->label, label, sizeof(b->label));
+			memmove(b->type, r, sizeof(b->type));
+		}
 	}
 
 	buf[secsize-2] = 0x55;
@@ -617,12 +649,32 @@ if(chatty) print("fat @%lluX\n", seek(disk->wfd, 0, 1));
 	fat[0] = t->media;
 	fat[1] = 0xff;
 	fat[2] = 0xff;
-	if(fatbits == 16)
+	if(fatbits >= 16)
 		fat[3] = 0xff;
+	if(fatbits == 32){
+		fat[4] = 0xff;
+		fat[5] = 0xff;
+		fat[6] = 0xff;
+		fat[7] = 0xff;
+	}
 	fatlast = 1;
 	if(seek(disk->wfd, 2*fatsecs*secsize, 1) < 0)	/* 2 fats */
 		fatal("seek to root: %r");
 if(chatty) print("root @%lluX\n", seek(disk->wfd, 0LL, 1));
+
+	if(fatbits == 32){
+		/*
+		 * allocate clusters for root directory
+		 */
+		if(rootsecs % clustersize)
+			abort();
+		length = rootsecs / clustersize;
+		if(clustalloc(Sof) != 2)
+			abort();
+		for(n = 0; n < length-1; n++)
+			clustalloc(0);
+		clustalloc(Eof);
+	}
 
 	/*
 	 *  allocate an in memory root
@@ -730,7 +782,7 @@ clustalloc(int flag)
 	ulong o, x;
 
 	if(flag != Sof){
-		x = (flag == Eof) ? 0xffff : (fatlast+1);
+		x = (flag == Eof) ? ~0 : (fatlast+1);
 		if(fatbits == 12){
 			x &= 0xfff;
 			o = (3*fatlast)/2;
@@ -741,10 +793,20 @@ clustalloc(int flag)
 				fat[o] = x;
 				fat[o+1] = (fat[o+1]&0xf0) | ((x>>8) & 0x0F);
 			}
-		} else {
+		}
+		else if(fatbits == 16){
+			x &= 0xffff;
 			o = 2*fatlast;
 			fat[o] = x;
 			fat[o+1] = x>>8;
+		}
+		else if(fatbits == 32){
+			x &= 0xfffffff;
+			o = 4*fatlast;
+			fat[o] = x;
+			fat[o+1] = x>>8;
+			fat[o+2] = x>>16;
+			fat[o+3] = x>>24;
 		}
 	}
 		
