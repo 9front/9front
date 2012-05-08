@@ -75,6 +75,9 @@ while(~ $1 -*){
 	shift
 }
 
+# boost priority
+@{echo pri 13 >/proc/$pid/ctl} >/dev/null >[2=1] 
+
 >$out {
 	if(~ $#* 0){play1; exit}
 	for(i){echo $i} | play1 plain 
