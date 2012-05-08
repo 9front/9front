@@ -322,6 +322,7 @@ Window	**window;
 Window	*wkeyboard;	/* window of simulated keyboard */
 int		nwindow;
 int		snarffd;
+int		gotscreen;
 Window	*input;
 QLock	all;			/* BUG */
 Filsys	*filsys;

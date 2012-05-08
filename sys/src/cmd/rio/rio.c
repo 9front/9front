@@ -184,6 +184,7 @@ threadmain(int argc, char *argv[])
 	}
 
 	snarffd = open("/dev/snarf", OREAD|OCEXEC);
+	gotscreen = access("/dev/screen", AEXIST)==0;
 
 	if(geninitdraw(nil, derror, nil, "rio", nil, Refnone) < 0){
 		fprint(2, "rio: can't open display: %r\n");
