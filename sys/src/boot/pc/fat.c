@@ -16,6 +16,7 @@ enum {
 typedef struct File File;
 typedef struct Dir Dir;
 typedef struct Pbs Pbs;
+typedef struct Pbs32 Pbs32;
 typedef struct Fat Fat;
 
 struct Fat
@@ -75,34 +76,30 @@ struct Pbs
 	uchar nheads[2];
 	uchar nhidden[4];
 	uchar bigvolsize[4];
-	union
-	{
-		struct
-		{
-			uchar driveno;
-			uchar reserved0;
-			uchar bootsig;
-			uchar volid[4];
-			uchar label[11];
-			uchar type[8];
-		};
-		struct
-		{
-			uchar fatsize[4];
-			uchar flags[2];
-			uchar ver[2];
-			uchar rootclust[4];
-			uchar fsinfo[2];
-			uchar bootbak[2];
-			uchar reserved0[12];
-			uchar driveno;
-			uchar reserved1;
-			uchar bootsig;
-			uchar volid[4];
-			uchar label[11];
-			uchar type[8];
-		} fat32;
-	};
+	uchar driveno;
+	uchar reserved0;
+	uchar bootsig;
+	uchar volid[4];
+	uchar label[11];
+	uchar type[8];
+};
+
+struct Pbs32
+{
+	uchar common[36];
+	uchar fatsize[4];
+	uchar flags[2];
+	uchar ver[2];
+	uchar rootclust[4];
+	uchar fsinfo[2];
+	uchar bootbak[2];
+	uchar reserved0[12];
+	uchar driveno;
+	uchar reserved1;
+	uchar bootsig;
+	uchar volid[4];
+	uchar label[11];
+	uchar type[8];
 };
 
 int readsect(ulong drive, ulong lba, void *buf);
@@ -278,14 +275,14 @@ conffat(Fat *fat, void *buf)
 
 	if(GETSHORT(p->sectsize) != Sectsz)
 		return -1;
-	if(memcmp(p->type, "FAT", 3) && memcmp(p->fat32.type, "FAT", 3))
+	if(memcmp(p->type, "FAT", 3) && memcmp(((Pbs32*)buf)->type, "FAT", 3))
 		return -1;
 	
 	/* load values from fat */
 	ver = 0;
 	fatsize = GETSHORT(p->fatsize);
 	if(fatsize == 0){
-		fatsize = GETLONG(p->fat32.fatsize);
+		fatsize = GETLONG(((Pbs32*)buf)->fatsize);
 		ver = Fat32;
 	}
 	volsize = GETSHORT(p->volsize);
@@ -310,7 +307,7 @@ conffat(Fat *fat, void *buf)
 	fat->dirstart  = fat->fatlba + fatsize * p->nfats;
 	if(ver == Fat32){
 		fat->datalba = fat->dirstart;
-		fat->dirstart  = GETLONG(p->fat32.rootclust);
+		fat->dirstart  = GETLONG(((Pbs32*)buf)->rootclust);
 		fat->eofmark = 0xffffff7;
 	}else{
 		fat->datalba = fat->dirstart + dirsize;

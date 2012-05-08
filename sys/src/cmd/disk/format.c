@@ -45,31 +45,31 @@ struct Dosboot{
 	uchar	nheads[2];
 	uchar	nhidden[4];
 	uchar	bigvolsize[4];
-	union {
-		struct {
-			uchar	driveno;
-			uchar	reserved0;
-			uchar	bootsig;
-			uchar	volid[4];
-			uchar	label[11];
-			uchar	type[8];
-		};
-		struct {
-			uchar	fatsize[4];
-			uchar	flags[2];
-			uchar	ver[2];
-			uchar	rootclust[4];
-			uchar	fsinfo[2];
-			uchar	bootbak[2];
-			uchar	reserved0[12];
-			uchar	driveno;
-			uchar	reserved1;
-			uchar	bootsig;
-			uchar	volid[4];
-			uchar	label[11];
-			uchar	type[8];
-		} fat32;
-	};
+	uchar	driveno;
+	uchar	reserved0;
+	uchar	bootsig;
+	uchar	volid[4];
+	uchar	label[11];
+	uchar	type[8];
+};
+
+typedef struct Dosboot32 Dosboot32;
+struct Dosboot32
+{
+	uchar	common[36];
+	uchar	fatsize[4];
+	uchar	flags[2];
+	uchar	ver[2];
+	uchar	rootclust[4];
+	uchar	fsinfo[2];
+	uchar	bootbak[2];
+	uchar	reserved0[12];
+	uchar	driveno;
+	uchar	reserved1;
+	uchar	bootsig;
+	uchar	volid[4];
+	uchar	label[11];
+	uchar	type[8];
 };
 
 #define	PUTSHORT(p, v) { (p)[1] = (v)>>8; (p)[0] = (v); }
@@ -604,12 +604,15 @@ if(chatty) print("try %d fatbits => %d clusters of %d\n", fatbits, clusters, clu
 	
 		sprint(r, "FAT%d    ", fatbits);
 		if(fatbits == 32){
-			PUTLONG(b->fat32.fatsize, fatsecs);
-			PUTLONG(b->fat32.rootclust, 2);
-			b->fat32.bootsig = 0x29;
-			b->fat32.driveno = (t->media == 0xF8) ? getdriveno(disk) : 0;
-			memmove(b->fat32.label, label, sizeof(b->fat32.label));
-			memmove(b->fat32.type, r, sizeof(b->fat32.type));
+			Dosboot32 *bb;
+
+			bb = (Dosboot32*)buf;
+			PUTLONG(bb->fatsize, fatsecs);
+			PUTLONG(bb->rootclust, 2);
+			bb->bootsig = 0x29;
+			bb->driveno = (t->media == 0xF8) ? getdriveno(disk) : 0;
+			memmove(bb->label, label, sizeof(bb->label));
+			memmove(bb->type, r, sizeof(bb->type));
 		} else {
 			b->bootsig = 0x29;
 			b->driveno = (t->media == 0xF8) ? getdriveno(disk) : 0;
