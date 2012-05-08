@@ -85,7 +85,7 @@ struct Pbs
 			uchar volid[4];
 			uchar label[11];
 			uchar type[8];
-		} fat16;
+		};
 		struct
 		{
 			uchar fatsize[4];
@@ -116,20 +116,33 @@ static ulong
 readnext(File *fp, ulong clust)
 {
 	Fat *fat = fp->fat;
-	uint b = fat->ver;
-	ulong sect, off;
-	
-	sect = clust * b / Sectsz;
-	off = clust * b % Sectsz;
-	if(readsect(fat->drive, fat->fatlba + sect, fp->buf))
-		memset(fp->buf, 0xff, 4);
-	switch(fat->ver){
-	case Fat16:
-		return GETSHORT(&fp->buf[off]);
-	case Fat32:
-		return GETLONG(&fp->buf[off])& 0x0fffffff;
+	uchar tmp[2], *p;
+	ulong idx, lba;
+
+	if(fat->ver == Fat12)
+		idx = (3*clust)/2;
+	else
+		idx = clust*fat->ver;
+	lba = fat->fatlba + (idx / Sectsz);
+	if(readsect(fat->drive, lba, fp->buf))
+		memset(fp->buf, 0xff, Sectsz);
+	p = &fp->buf[idx % Sectsz];
+	if(p == &fp->buf[Sectsz-1]){
+		tmp[0] = *p;
+		if(readsect(fat->drive, ++lba, fp->buf))
+			memset(fp->buf, 0xff, Sectsz);
+		tmp[1] = fp->buf[0];
+		p = tmp;
 	}
-	return 0;
+	if(fat->ver == Fat32)
+		return GETLONG(p) & 0xfffffff;
+	idx = GETSHORT(p);
+	if(fat->ver == Fat12){
+		if(clust & 1)
+			idx >>= 4;
+		idx &= 0xfff;
+	}
+	return idx;
 }
 
 int
@@ -141,7 +154,7 @@ read(void *f, void *data, int len)
 	if(fp->len > 0 && fp->rp >= fp->ep){
 		if(fp->clust != ~0U){
 			if(fp->lbaoff % fat->clustsize == 0){
-				if((fp->clust >> 4) == fat->eofmark)
+				if(fp->clust < 2 || fp->clust >= fat->eofmark)
 					return -1;
 				fp->lbaoff = (fp->clust - 2) * fat->clustsize;
 				fp->clust = readnext(fp, fp->clust);
@@ -242,7 +255,7 @@ fatwalk(File *fp, Fat *fat, char *path)
 		if(i == j && memcmp(name, path, j) == 0){
 			fileinit(fp, fat, 0);
 			fp->clust = dirclust(&d);
-			fp->len = *((ulong*)d.len);
+			fp->len = GETLONG(d.len);
 			if(*end == 0)
 				return 0;
 			else if(d.attr & 0x10){
@@ -262,17 +275,19 @@ conffat(Fat *fat, void *buf)
 	Pbs *p = buf;
 	uint fatsize, volsize, datasize, reserved;
 	uint ver, dirsize, dirents, clusters;
-	
-	/* sanity check */
-	if(GETSHORT(p->sectsize) != Sectsz){
-		print("sectsize != 512\r\n");
-		halt();
-	}
+
+	if(GETSHORT(p->sectsize) != Sectsz)
+		return -1;
+	if(memcmp(p->type, "FAT", 3) && memcmp(p->fat32.type, "FAT", 3))
+		return -1;
 	
 	/* load values from fat */
+	ver = 0;
 	fatsize = GETSHORT(p->fatsize);
-	if(fatsize == 0)
+	if(fatsize == 0){
 		fatsize = GETLONG(p->fat32.fatsize);
+		ver = Fat32;
+	}
 	volsize = GETSHORT(p->volsize);
 	if(volsize == 0)
 		volsize = GETLONG(p->bigvolsize);
@@ -281,20 +296,11 @@ conffat(Fat *fat, void *buf)
 	dirsize = (dirents * Dirsz + Sectsz - 1) / Sectsz;
 	datasize = volsize - (reserved + fatsize * p->nfats + dirsize);
 	clusters = datasize / p->clustsize;
-	
-	/* determine fat type */
-	if(clusters < 4085)
-		ver = Fat12;
-	else if(clusters < 65525)
-		ver = Fat16;
-	else
-		ver = Fat32;
-	
-	/* another check */
-	if(ver == Fat12){
-		print("TODO: implement FAT12\r\n");
-		halt();
-	}
+	if(ver != Fat32)
+		if(clusters < 0xff7)
+			ver = Fat12;
+		else
+			ver = Fat16;
 	
 	/* fill FAT descriptor */
 	fat->ver = ver;
@@ -305,11 +311,14 @@ conffat(Fat *fat, void *buf)
 	if(ver == Fat32){
 		fat->datalba = fat->dirstart;
 		fat->dirstart  = GETLONG(p->fat32.rootclust);
-		fat->eofmark = 0xffffff;
+		fat->eofmark = 0xffffff7;
 	}else{
 		fat->datalba = fat->dirstart + dirsize;
-		fat->eofmark = 0xfff;
-	}	
+		if(ver == Fat16)
+			fat->eofmark = 0xfff7;
+		else
+			fat->eofmark = 0xff7;
+	}
 	return 0;
 }
 
@@ -333,6 +342,12 @@ findfat(Fat *fat, int drive, ulong xbase, ulong lba)
 		return -1;
 	if(buf[0x1fe] != 0x55 || buf[0x1ff] != 0xAA)
 		return -1;
+	if(lba == 0){
+		fat->drive = drive;
+		fat->partlba = 0;
+		if(!conffat(fat, buf))
+			return 0;
+	}
 	p = (void*)&buf[0x1be];
 	for(i=0; i<4; i++){
 		switch(p[i].typ){
@@ -352,9 +367,8 @@ findfat(Fat *fat, int drive, ulong xbase, ulong lba)
 			fat->partlba = lba + GETLONG(p[i].lba);
 			if(readsect(drive, fat->partlba, buf))
 				continue;
-			if(conffat(fat, buf))
-				continue;
-			return 0;
+			if(!conffat(fat, buf))
+				return 0;
 		}
 	}
 	return -1;
