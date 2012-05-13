@@ -411,7 +411,7 @@ plumbunpack(char *buf, int n)
 Plumbmsg*
 plumbrecv(int fd)
 {
-	char *buf;
+	char *buf, *old;
 	Plumbmsg *m;
 	int n, more;
 
@@ -424,9 +424,11 @@ plumbrecv(int fd)
 		m = plumbunpackpartial(buf, n, &more);
 		if(m==nil && more>0){
 			/* we now know how many more bytes to read for complete message */
-			buf = realloc(buf, n+more);
-			if(buf == nil)
+			buf = realloc(old = buf, n+more);
+			if(buf == nil){
+				free(old);
 				return nil;
+			}
 			if(readn(fd, buf+n, more) == more)
 				m = plumbunpackpartial(buf, n+more, nil);
 		}
