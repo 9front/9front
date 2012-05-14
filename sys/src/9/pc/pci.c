@@ -655,9 +655,15 @@ static Bridge southbridges[] = {
 	{ 0x8086, 0x25a1, pIIxget, pIIxset },	/* Intel 6300ESB */
 	{ 0x8086, 0x2640, pIIxget, pIIxset },	/* Intel 82801FB */
 	{ 0x8086, 0x2641, pIIxget, pIIxset },	/* Intel 82801FBM */
-	{ 0x8086, 0x2670, pIIxget, pIIxset },	/* Intel 632xesb */	
+	{ 0x8086, 0x2670, pIIxget, pIIxset },	/* Intel 632xesb */
 	{ 0x8086, 0x27b8, pIIxget, pIIxset },	/* Intel 82801GB */
 	{ 0x8086, 0x27b9, pIIxget, pIIxset },	/* Intel 82801GBM */
+	{ 0x8086, 0x27bd, pIIxget, pIIxset },	/* Intel 82801GB/GR */
+	{ 0x8086, 0x3a16, pIIxget, pIIxset },	/* Intel 82801JIR */
+	{ 0x8086, 0x3a40, pIIxget, pIIxset },	/* Intel 82801JI */
+	{ 0x8086, 0x3a42, pIIxget, pIIxset },	/* Intel 82801JI */
+	{ 0x8086, 0x3a48, pIIxget, pIIxset },	/* Intel 82801JI */
+	{ 0x8086, 0x2916, pIIxget, pIIxset },	/* Intel 82801? */
 	{ 0x8086, 0x2810, pIIxget, pIIxset },	/* Intel 82801HB/HR (ich8/r) */
 	{ 0x8086, 0x2812, pIIxget, pIIxset },	/* Intel 82801HH (ich8dh) */
 	{ 0x8086, 0x2912, pIIxget, pIIxset },	/* Intel 82801ih ich9dh */
@@ -672,6 +678,7 @@ static Bridge southbridges[] = {
 	{ 0x8086, 0x3a48, pIIxget, pIIxset },	/* Intel 82801ji */
 	{ 0x8086, 0x3b06, pIIxget, pIIxset },	/* Intel 82801? ibex peak */
 	{ 0x8086, 0x3b14, pIIxget, pIIxset },	/* Intel 82801? 3420 */
+	{ 0x8086, 0x1c52, pIIxget, pIIxset },	/* Intel 82q65 cougar point pch */
 	{ 0x8086, 0x1c54, pIIxget, pIIxset },	/* Intel 82q67 cougar point pch */
 	{ 0x1106, 0x0586, viaget, viaset },	/* Viatech 82C586 */
 	{ 0x1106, 0x0596, viaget, viaset },	/* Viatech 82C596 */
@@ -684,15 +691,16 @@ static Bridge southbridges[] = {
 	{ 0x1039, 0x0496, pIIxget, pIIxset },	/* SI 496 */
 	{ 0x1078, 0x0100, cyrixget, cyrixset },	/* Cyrix 5530 Legacy */
 
-	{ 0x1022, 0x746B, nil, nil },		/* AMD 8111 */
-	{ 0x10DE, 0x00D1, nil, nil },		/* NVIDIA nForce 3 */
-	{ 0x10DE, 0x00E0, nil, nil },		/* NVIDIA nForce 3 250 Series */
-	{ 0x10DE, 0x00E1, nil, nil },		/* NVIDIA nForce 3 250 Series */
+	{ 0x1022, 0x746b, nil, nil },		/* AMD 8111 */
+	{ 0x10de, 0x00d1, nil, nil },		/* NVIDIA nForce 3 */
+	{ 0x10de, 0x00e0, nil, nil },		/* NVIDIA nForce 3 250 Series */
+	{ 0x10de, 0x00e1, nil, nil },		/* NVIDIA nForce 3 250 Series */
 	{ 0x1166, 0x0200, nil, nil },		/* ServerWorks ServerSet III LE */
 	{ 0x1002, 0x4377, nil, nil },		/* ATI Radeon Xpress 200M */
 	{ 0x1002, 0x4372, nil, nil },		/* ATI SB400 */
 	{ 0x1002, 0x9601, nil, nil },		/* AMD SB710 */
-	{ 0x1002, 0x438D, nil, nil },		/* AMD SB600 */
+	{ 0x1002, 0x438d, nil, nil },		/* AMD SB600 */
+	{ 0x1002, 0x439d, nil, nil },		/* AMD SB810 */
 };
 
 typedef struct Slot Slot;
@@ -986,7 +994,7 @@ pcicfginit(void)
 	fmtinstall('T', tbdffmt);
 
 	if(p = getconf("*pcimaxbno"))
-		pcimaxbno = strtoul(p, 0, 0) & 0xff;
+		pcimaxbno = strtoul(p, 0, 0);
 	if(p = getconf("*pcimaxdno")){
 		n = strtoul(p, 0, 0);
 		if(n < pcimaxdno)

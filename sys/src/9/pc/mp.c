@@ -259,7 +259,6 @@ mpintrinit(Bus* bus, PCMPintr* intr, int vno, int /*irq*/)
 	el = intr->flags & PcmpELMASK;
 
 	switch(intr->intr){
-
 	default:				/* PcmpINT */
 		v |= ApicFIXED;			/* no-op */
 		break;
@@ -598,7 +597,6 @@ mpinit(void)
 	if(getconf("*mp") != nil)
 		mpoverride(&p, &e);
 	while(p < e) switch(*p){
-
 	default:
 		print("mpinit: unknown PCMP type 0x%uX (e-p 0x%luX)\n",
 			*p, e-p);
@@ -738,20 +736,32 @@ mpintrcpu(void)
 	return mpapic[i].apicno;
 }
 
-/* hardcoded VectorAPIC and stuff. bad. */
+/*
+ * With the APIC a unique vector can be assigned to each
+ * request to enable an interrupt. There are two reasons this
+ * is a good idea:
+ * 1) to prevent lost interrupts, no more than 2 interrupts
+ *    should be assigned per block of 16 vectors (there is an
+ *    in-service entry and a holding entry for each priority
+ *    level and there is one priority level per block of 16
+ *    interrupts).
+ * 2) each input pin on the IOAPIC will receive a different
+ *    vector regardless of whether the devices on that pin use
+ *    the same IRQ as devices on another pin.
+ */
 static int
 allocvector(void)
 {
-	static int round = 0, num = 1;
+	static int round = 0, num = 0;
 	static Lock l;
 	int vno;
 	
 	lock(&l);
-	if(num >= 24) {
-		if(++round >= 8) round = 0;
-		num = 1;
-	}
-	vno = 64 + num++ * 8 + round;
+	vno = VectorAPIC + num;
+	if(vno < MaxVectorAPIC-7)
+		num += 8;
+	else
+		num = ++round % 8;
 	unlock(&l);
 	return vno;
 }
@@ -780,7 +790,7 @@ mpintrenablex(Vctl* v, int tbdf)
 			break;
 	}
 	if(bus == nil){
-		print("ioapicirq: can't find bus type %d, number %d\n", type, bno);
+		print("mpintrenable: can't find bus type %d, number %d\n", type, bno);
 		return -1;
 	}
 
@@ -796,7 +806,6 @@ mpintrenablex(Vctl* v, int tbdf)
 			irq = (dno<<2)|(n-1);
 		else
 			irq = -1;
-		//print("pcidev %uX: irq %uX v->irq %uX\n", tbdf, irq, v->irq);
 	}
 	else
 		irq = v->irq;
@@ -808,9 +817,8 @@ mpintrenablex(Vctl* v, int tbdf)
 	for(aintr = bus->aintr; aintr; aintr = aintr->next){
 		if(aintr->intr->irq != irq)
 			continue;
-		if (0) {
+		if(0){
 			PCMPintr* p = aintr->intr;
-
 	   	 	print("mpintrenablex: bus %d intin %d irq %d\n",
 				p->busno, p->intin, p->irq);
 		}
@@ -828,55 +836,34 @@ mpintrenablex(Vctl* v, int tbdf)
 		ioapicrdtr(apic, aintr->intr->intin, 0, &lo);
 		if(!(lo & ApicIMASK)){
 			vno = lo & 0xFF;
-//print("%s vector %d (!imask)\n", v->name, vno);
+			if(0) print("%s vector %d (!imask)\n", v->name, vno);
 			n = mpintrinit(bus, aintr->intr, vno, v->irq);
 			n |= ApicPHYSICAL;		/* no-op */
 			lo &= ~(ApicRemoteIRR|ApicDELIVS);
-			if(n != lo || !(n & ApicLEVEL)){
+			if(n != lo){
 				print("mpintrenable: multiple botch irq %d, tbdf %uX, lo %8.8uX, n %8.8uX\n",
 					v->irq, tbdf, lo, n);
 				return -1;
 			}
-
 			v->isr = lapicisr;
 			v->eoi = lapiceoi;
-
 			return vno;
 		}
 
-		/*
-		 * With the APIC a unique vector can be assigned to each
-		 * request to enable an interrupt. There are two reasons this
-		 * is a good idea:
-		 * 1) to prevent lost interrupts, no more than 2 interrupts
-		 *    should be assigned per block of 16 vectors (there is an
-		 *    in-service entry and a holding entry for each priority
-		 *    level and there is one priority level per block of 16
-		 *    interrupts).
-		 * 2) each input pin on the IOAPIC will receive a different
-		 *    vector regardless of whether the devices on that pin use
-		 *    the same IRQ as devices on another pin.
-		 */
 		vno = allocvector();
 		hi = mpintrcpu()<<24;
 		lo = mpintrinit(bus, aintr->intr, vno, v->irq);
-		//print("lo 0x%uX: busno %d intr %d vno %d irq %d elcr 0x%uX\n",
-		//	lo, bus->busno, aintr->intr->irq, vno,
-		//	v->irq, i8259elcr);
-		if(lo & ApicIMASK)
-			return -1;
-
 		lo |= ApicPHYSICAL;			/* no-op */
-
+		if(lo & ApicIMASK){
+			print("mpintrenable: disabled irq %d, tbdf %uX, lo %8.8uX, hi %8.8uX\n",
+				v->irq, tbdf, lo, hi);
+			return -1;
+		}
 		if((apic->flags & PcmpEN) && apic->type == PcmpIOAPIC)
  			ioapicrdtw(apic, aintr->intr->intin, hi, lo);
-		//else
-		//	print("lo not enabled 0x%uX %d\n",
-		//		apic->flags, apic->type);
 
 		v->isr = lapicisr;
 		v->eoi = lapiceoi;
-
 		return vno;
 	}
 
@@ -903,7 +890,7 @@ msiintrenable(Vctl *v)
 		return -1;
 	pci = pcimatchtbdf(tbdf);
 	if(pci == nil) {
-		print("msiintrenable: could not find Pcidev for tbdf %.8x\n", tbdf);
+		print("msiintrenable: could not find Pcidev for tbdf %uX\n", tbdf);
 		return -1;
 	}
 	cap = pcicap(pci, PciCapMSI);
@@ -916,7 +903,6 @@ msiintrenable(Vctl *v)
 	if(ok64) pcicfgw32(pci, cap + MSIAddr + 4, 0);
 	pcicfgw16(pci, cap + (ok64 ? MSIData64 : MSIData32), vno | (1<<14));
 	pcicfgw16(pci, cap + MSICtrl, 1);
-	print("msiintrenable: success with tbdf %.8x, vector %d, cpu %d\n", tbdf, vno, cpu);
 	v->isr = lapicisr;
 	v->eoi = lapiceoi;
 	return vno;
@@ -973,7 +959,7 @@ mpintrenable(Vctl* v)
 		if(vno != -1)
 			return vno;
 	}
-	print("mpintrenable: out of choices eisa %d isa %d tbdf %#ux irq %d\n",
+	print("mpintrenable: out of choices eisa %d isa %d tbdf %uX irq %d\n",
 		mpeisabus, mpisabus, v->tbdf, v->irq);
 	return -1;
 }
