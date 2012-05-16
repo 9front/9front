@@ -1037,6 +1037,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_h4:
 			pl_linespace(&g);
 			break;
+		case Tag_div:
 		case Tag_address:
 		case Tag_blockquot:
 		case Tag_body:
