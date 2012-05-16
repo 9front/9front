@@ -4,6 +4,12 @@ webfs \- world wide web file system
 .SH SYNOPSIS
 .B webfs
 [
+.B -A
+.I useragent
+] [
+.B -T
+.I timeout
+] [
 .B -m
 .I mtpt
 ]
@@ -131,7 +137,7 @@ The resulting data may be read from
 as it arrives.
 .PP
 The following is a list of attributes that can be
-set to to a connection prior initiating the request:
+set to do a connection prior initiating the request:
 .TP
 .B url,baseurl
 See above.

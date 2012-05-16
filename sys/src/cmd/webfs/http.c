@@ -542,9 +542,8 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			qunlock(qpost);
 		}
 
-		/* give 10 seconds to dial */
 		if(h == nil){
-			alarm(10000);
+			alarm(timeout);
 			if((h = hdial(proxy ? proxy : u)) == nil)
 				break;
 		}
@@ -619,10 +618,8 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			}
 			/* no timeout when posting */
 			alarm(0);
-		} else {
-			/* wait 20 seconds for the response */
-			alarm(20000);
-		}
+		} else
+			alarm(timeout);
 
 		Cont:
 		rhdr = 0;

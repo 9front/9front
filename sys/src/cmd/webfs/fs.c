@@ -506,7 +506,7 @@ fsread(Req *r)
 		respond(r, nil);
 		return;
 	case Qrctl:
-		buf[0] = 0;
+		snprint(buf, sizeof(buf), "useragent %s\ntimeout %d\n", agent, timeout);
 	String:
 		readstr(r, buf);
 		respond(r, nil);
@@ -558,6 +558,16 @@ rootctl(char *ctl, char *arg)
 			u = saneurl(url(arg, 0));
 		flushauth(u, 0);
 		freeurl(u);
+		return nil;
+	}
+
+	if(!strcmp(ctl, "timeout")){
+		if(arg && *arg)
+			timeout = atoi(arg);
+		else
+			timeout = 0;
+		if(timeout < 0)
+			timeout = 0;
 		return nil;
 	}
 
@@ -714,7 +724,7 @@ Srv fs =
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-D] [-m mtpt] [-s srv]\n", argv0);
+	fprint(2, "usage: %s [-D] [-A useragent] [-T timeout] [-m mtpt] [-s srv]\n", argv0);
 	exits("usage");
 }
 
@@ -731,10 +741,20 @@ main(int argc, char *argv[])
 	mtpt = "/mnt/web";
 	user = getuser();
 	time0 = time(0);
+	timeout = 10000;
+	agent = nil;
 
 	ARGBEGIN {
 	case 'D':
 		chatty9p++;
+		break;
+	case 'A':
+		agent = EARGF(usage());
+		break;
+	case 'T':
+		timeout = atoi(EARGF(usage()));
+		if(timeout < 0)
+			timeout = 0;
 		break;
 	case 'm':
 		mtpt = EARGF(usage());
@@ -751,7 +771,10 @@ main(int argc, char *argv[])
 
 	rfork(RFNOTEG);
 
-	agent = estrdup("hjdicks");
+	if(agent == nil)
+		agent = "hjdicks";
+	agent = estrdup(agent);
+
 	if(s = getenv("httpproxy")){
 		proxy = saneurl(url(s, 0));
 		free(s);
