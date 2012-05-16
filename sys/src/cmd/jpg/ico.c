@@ -103,6 +103,8 @@ transcmap(Icon *icon, int ncolor, uchar *map)
 	int i;
 
 	p = m = mallocz(sizeof(int)*(1<<icon->bits), 1);
+	if(m == nil)
+		sysfatal("malloc: %r");
 	for(i = 0; i < ncolor; i++){
 		*p++ = rgb2cmap(map[2], map[1], map[0]);
 		map += 4;
@@ -122,6 +124,8 @@ xor2img(Icon *icon, long chan, uchar *xor, uchar *map)
 
 	inxlen = 4*((icon->bits*icon->w+31)/32);
 	img = allocmemimage(Rect(0,0,icon->w,icon->h), chan);
+	if(img == nil)
+		return nil;
 
 	if(chan != CMAP8){
 		from = xor + icon->h*inxlen;
@@ -133,6 +137,11 @@ xor2img(Icon *icon, long chan, uchar *xor, uchar *map)
 	}
 
 	to = data = malloc(icon->w*icon->h);
+	if(data == nil){
+		freememimage(img);
+		return nil;
+	}
+
 	/* rotate around the y axis, go to 8 bits, and convert color */
 	mask = (1<<icon->bits)-1;
 	for(y = 0; y < icon->h; y++){
@@ -166,19 +175,20 @@ and2img(Icon *icon, uchar *and)
 
 	inxlen = 4*((icon->w+31)/32);
 	to = data = malloc(inxlen*icon->h);
+	if(data == nil)
+		return nil;
 
 	/* rotate around the y axis and invert bits */
 	outxlen = (icon->w+7)/8;
 	for(y = 0; y < icon->h; y++){
 		from = and + (icon->h - 1 - y)*inxlen;
-		for(x = 0; x < outxlen; x++){
+		for(x = 0; x < outxlen; x++)
 			*to++ = ~(*from++);
-		}
 	}
 
 	/* stick in an image */
-	img = allocmemimage(Rect(0,0,icon->w,icon->h), GREY1);
-	loadmemimage(img, Rect(0,0,icon->w,icon->h), data, icon->h*outxlen);
+	if(img = allocmemimage(Rect(0,0,icon->w,icon->h), GREY1))
+		loadmemimage(img, Rect(0,0,icon->w,icon->h), data, icon->h*outxlen);
 
 	free(data);
 	return img;
@@ -267,6 +277,10 @@ Bgeticon(Biobuf *b, Icon *icon)
 
 	/* convert the images */
 	icon->img = xor2img(icon, chan, xor, map2map);
+	if(icon->img == nil){
+		werrstr("xor2img: %r");
+		return -1;
+	}
 	icon->mask = nil;
 
 	/* check for and mask */

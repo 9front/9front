@@ -156,7 +156,6 @@ readarray(Header *h)
 
 	if(h->fields & 0x80)
 		h->globalcmap = readcmap(h, (h->fields&7)+1);
-
 	array = malloc(sizeof(Rawimage**));
 	if(array == nil)
 		giferror(h, memerr);
@@ -180,8 +179,12 @@ readarray(Header *h)
 				new->cmaplen = 3*(1<<((new->fields&7)+1));
 				new->cmap = readcmap(h, (new->fields&7)+1);
 			}else{
+				if(h->globalcmap == nil)
+					giferror(h, "ReadGIF: globalcmap missing");
 				new->cmaplen = 3*(1<<((h->fields&7)+1));
 				new->cmap = malloc(new->cmaplen);
+				if(new->cmap == nil)
+					giferror(h, memerr);
 				memmove(new->cmap, h->globalcmap, new->cmaplen);
 			}
 			h->new = new;

@@ -169,7 +169,7 @@ vidmerge(Rawimage **aa1, Rawimage **aa2)
 		aao[i+1] = nil;
 		ao = aao[i] = malloc(sizeof(Rawimage));
 		if (ao == nil){
-			fprint(2, "jpg: vidmerge: realloc\n");
+			fprint(2, "jpg: vidmerge: malloc\n");
 			return nil;
 		}
 		memcpy(ao, a1, sizeof(Rawimage));
@@ -201,6 +201,10 @@ vidmerge(Rawimage **aa1, Rawimage **aa2)
 			uchar *po, *p1, *p2;
 
 			ao->chans[c] = malloc(ao->chanlen);
+			if (ao->chans[c] == nil){
+				fprint(2, "jpg: vidmerge: malloc chan\n");
+				return nil;
+			}
 			po = ao->chans[c];
 			p1 = a1->chans[c];
 			p2 = a2->chans[c];
