@@ -41,6 +41,7 @@ link
 	devpccard
 	devi82365
 	cputemp
+	acpi
 	apm		apmjump
 	ether2000	ether8390
 	ether2114x	pci
