@@ -26,6 +26,13 @@ estrdup(char *s)
 	return s;
 }
 
+void
+nstrcpy(char *to, char *from, int n)
+{
+	strncpy(to, from, n);
+	to[n-1] = 0;
+}
+
 Key*
 addkey(Key *h, char *key, char *val)
 {

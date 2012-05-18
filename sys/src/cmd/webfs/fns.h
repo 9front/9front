@@ -2,6 +2,8 @@
 void*	emalloc(int n);
 char*	estrdup(char *s);
 
+void	nstrcpy(char *to, char *from, int n);
+
 Key*	addkey(Key *h, char *key, char *val);
 Key*	delkey(Key *h, char *key);
 char*	lookkey(Key *k, char *key);

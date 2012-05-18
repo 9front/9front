@@ -310,7 +310,7 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 				Key *k;
 
 				for(k = f->client->qbody->hdr; k; k = k->next){
-					strncpy(buf, k->key, sizeof(buf));
+					nstrcpy(buf, k->key, sizeof(buf));
 					if(!strcmp(name, fshdrname(buf)))
 						break;
 				}
@@ -598,7 +598,7 @@ clientctl(Client *cl, char *ctl, char *arg)
 	}
 	else if(!strcmp(ctl, "request")){
 		p = cl->request;
-		strncpy(p, arg, sizeof(cl->request));
+		nstrcpy(p, arg, sizeof(cl->request));
 		for(; *p && isalpha(*p); p++)
 			*p = toupper(*p);
 		*p = 0;
@@ -624,7 +624,7 @@ clientctl(Client *cl, char *ctl, char *arg)
 			nil,
 		};
 		for(t = tab; *t; t++){
-			strncpy(buf, *t, sizeof(buf));
+			nstrcpy(buf, *t, sizeof(buf));
 			if(!strcmp(ctl, fshdrname(buf))){
 				cl->hdr = delkey(cl->hdr, *t);
 				if(arg && *arg)

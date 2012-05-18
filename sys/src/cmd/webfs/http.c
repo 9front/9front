@@ -108,7 +108,7 @@ hdial(Url *u)
 	h->keep = 1;
 	h->len = 0;
 	h->fd = fd;
-	strncpy(h->addr, addr, sizeof(h->addr));
+	nstrcpy(h->addr, addr, sizeof(h->addr));
 
 	return h;
 }
@@ -441,7 +441,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 
 	incref(qbody);
 	if(qpost) incref(qpost);
-	strncpy(method, m, sizeof(method));
+	nstrcpy(method, m, sizeof(method));
 	switch(rfork(RFPROC|RFMEM|RFNOWAIT)){
 	default:
 		return;
@@ -640,7 +640,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 					if(cistrcmp(s, "ICY"))
 						break;
 				}
-				strncpy(status, x, sizeof(status));
+				nstrcpy(status, x, sizeof(status));
 				continue;
 			}
 			if((k = parsehdr(s)) == nil)
@@ -730,7 +730,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				qpost = nil;
 			}
 			if(cistrcmp(method, "HEAD"))
-				strncpy(method, "GET", sizeof(method));
+				nstrcpy(method, "GET", sizeof(method));
 		case 301:	/* Moved Permanently */
 		case 307:	/* Temporary Redirect */
 		case 308:	/* Resume Incomplete */
