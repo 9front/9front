@@ -303,6 +303,15 @@ number and byte order; if either is wrong, it will issue a warning.
 If the label cannot be read,
 .I cwfs
 will attempt to write a new label.
+.PP
+The original file server reserved the rest of the machines RAM for
+io buffers. Where
+.I cwfs
+running under the Plan 9 kernel reserves a settable percentage
+of the remaining user pages. The percentage is read from the
+enviroment variable
+.B fsmempercent
+which when not set is assumed to be 25% (default).
 .SH EXAMPLES
 Place the root of the
 .B dump

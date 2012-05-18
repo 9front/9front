@@ -4,34 +4,40 @@
 static ulong
 memsize(void)
 {
-	int nf, pgsize = 0;
-	ulong userpgs = 0, userused = 0;
-	char *ln, *sl;
-	char *fields[2];
+	ulong pgsize, userpgs, userused;
+	char *s, *f[2];
+	int n, mpcnt;
 	Biobuf *bp;
 
-	bp = Bopen("#c/swap", OREAD);
-	if (bp != nil) {
-		while ((ln = Brdline(bp, '\n')) != nil) {
-			ln[Blinelen(bp)-1] = '\0';
-			nf = tokenize(ln, fields, nelem(fields));
-			if (nf != 2)
+	mpcnt = 25;
+	pgsize = userpgs = userused = 0;
+	if(bp = Bopen("#c/swap", OREAD)) {
+		while(s = Brdline(bp, '\n')) {
+			if((n = Blinelen(bp)) < 1)
 				continue;
-			if (strcmp(fields[1], "pagesize") == 0)
-				pgsize = atoi(fields[0]);
-			else if (strcmp(fields[1], "user") == 0) {
-				sl = strchr(fields[0], '/');
-				if (sl == nil)
-					continue;
-				userpgs = atol(sl+1);
-				userused = atol(fields[0]);
+			s[n-1] = '\0';
+			if(tokenize(s, f, nelem(f)) != 2)
+				continue;
+			if(strcmp(f[1], "pagesize") == 0)
+				pgsize = strtoul(f[0], 0, 0);
+			else if(strcmp(f[1], "user") == 0) {
+				userused =  strtoul(f[0], &s, 0);
+				if(*s == '/')
+					userpgs = strtoul(s+1, 0, 0);
 			}
 		}
 		Bterm(bp);
-		if (pgsize > 0 && userused < userpgs)
-			return (userpgs - userused)*pgsize;
 	}
-	return 64*MB;
+	if(pgsize && userused < userpgs){
+		if(s = getenv("fsmempercent")){
+			mpcnt = atoi(s);
+			free(s);
+		}
+		if(mpcnt < 1)
+			mpcnt = 1;
+		return ((userpgs-userused)*mpcnt/100)*pgsize;
+	}
+	return 16*MB;
 }
 
 
@@ -65,7 +71,6 @@ enum { HWIDTH = 8 };		/* buffers per hash */
 void
 iobufinit(void)
 {
-	long m;
 	int i;
 	char *xiop;
 	Iobuf *p, *q;
@@ -74,8 +79,7 @@ iobufinit(void)
 	wlock(&mainlock);	/* init */
 	wunlock(&mainlock);
 
-	m = memsize() / 4;
-	niob = m / (sizeof(Iobuf) + RBUFSIZE + sizeof(Hiob)/HWIDTH);
+	niob = memsize() / (sizeof(Iobuf) + RBUFSIZE + sizeof(Hiob)/HWIDTH);
 	nhiob = niob / HWIDTH;
 	while(!prime(nhiob))
 		nhiob++;
