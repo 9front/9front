@@ -355,7 +355,7 @@ walkname(File* file, char* wname, Qid* wqid)
 	Wpath *w;
 	Iobuf *p, *p1;
 	Dentry *d, *d1;
-	int error, slot;
+	int error, slot, mask;
 	Off addr, qpath;
 
 	p = p1 = nil;
@@ -446,9 +446,12 @@ setdot:
 			error = Eentry;
 			goto out;
 		}
+		mask = DALLOC;
+		if(file->fs->dev->type == Devro)
+			mask |= DTMP;
 		for(slot = 0; slot < DIRPERBUF; slot++){
 			d1 = getdir(p1, slot);
-			if (!(d1->mode & DALLOC) ||
+			if ((d1->mode & mask) != DALLOC ||
 			    strncmp(wname, d1->name, NAMELEN) != 0)
 				continue;
 			/*
@@ -957,7 +960,7 @@ fs_read(Chan* chan, Fcall* f, Fcall* r, uchar* data)
 	Tlock *t;
 	Off addr, offset, start;
 	Timet tim;
-	int error, iounit, nread, count, n, o, slot;
+	int error, iounit, nread, count, mask, n, o, slot;
 	Msgbuf *dmb;
 	Dir dir;
 
@@ -1096,9 +1099,12 @@ dread:
 			goto out1;
 		}
 
+		mask = DALLOC;
+		if(file->fs->dev->type == Devro)
+			mask |= DTMP;
 		for(; slot < DIRPERBUF; slot++){
 			d1 = getdir(p1, slot);
-			if(!(d1->mode & DALLOC))
+			if((d1->mode & mask) != DALLOC)
 				continue;
 			mkdir9p2(&dir, d1, dmb->data);
 			n = convD2M(&dir, data+nread, iounit - nread);

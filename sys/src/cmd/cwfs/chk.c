@@ -393,7 +393,7 @@ fsck(Dentry *d)
 		lowstack = (uchar *)&edent;
 
 	/* check that entry is allocated */
-	if(!(d->mode & DALLOC))
+	if(!(d->mode & DALLOC) || (ronly && (d->mode & DTMP)))
 		return 0;
 	nfiles++;
 

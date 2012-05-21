@@ -339,7 +339,7 @@ f_walk(Chan *cp, Fcall *in, Fcall *ou)
 	Dentry *d, *d1;
 	File *f;
 	Wpath *w;
-	int slot;
+	int slot, mask;
 	Off addr, qpath;
 
 	if(CHAT(cp)) {
@@ -414,9 +414,12 @@ f_walk(Chan *cp, Fcall *in, Fcall *ou)
 			ou->err = Eentry;
 			goto out;
 		}
+		mask = DALLOC;
+		if(f->fs->dev->type == Devro)
+			mask |= DTMP;
 		for(slot=0; slot<DIRPERBUF; slot++) {
 			d1 = getdir(p1, slot);
-			if(!(d1->mode & DALLOC))
+			if((d1->mode & mask) != DALLOC)
 				continue;
 			if(strncmp(in->name, d1->name, sizeof(in->name)) != 0)
 				continue;
@@ -812,7 +815,7 @@ f_read(Chan *cp, Fcall *in, Fcall *ou)
 	Tlock *t;
 	Off addr, offset;
 	Timet tim;
-	int nread, count, n, o, slot;
+	int nread, count, mask, n, o, slot;
 
 	if(CHAT(cp)) {
 		print("c_read %d\n", cp->chan);
@@ -964,9 +967,12 @@ dread:
 			goto out;
 		}
 		n = DIRREC;
+		mask = DALLOC;
+		if(f->fs->dev->type == Devro)
+			mask |= DTMP;
 		for(slot=0; slot<DIRPERBUF; slot++) {
 			d1 = getdir(p1, slot);
-			if(!(d1->mode & DALLOC))
+			if((d1->mode & mask) != DALLOC)
 				continue;
 			if(offset >= n) {
 				offset -= n;

@@ -1297,7 +1297,7 @@ isdirty(Cw *cw, Iobuf *p, Off addr, int tag)
 Off
 cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 {
-	Iobuf *p, *b;
+	Iobuf *p;
 	Dentry *d;
 	long qp1;
 	int i, j, shouldstop;
@@ -1328,7 +1328,6 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 	}
 	cw->depth++;
 
-	b = nil;
 	switch(tag) {
 	default:
 		fprint(2, "cwrecur: unknown tag %d %s\n", tag, cw->name);
@@ -1360,9 +1359,7 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 
 		for(i=0; i<DIRPERBUF; i++) {
 			d = getdir(p, i);
-			if(!(d->mode & DALLOC))
-				continue;
-			if(d->mode & DTMP)
+			if((d->mode & (DALLOC|DTMP)) != DALLOC)
 				continue;
 			qp1 = d->qid.path & ~QPDIR;
 			if(tag == Tdir)
@@ -1391,20 +1388,6 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 						p->flags |= Bmod;
 					}
 				}
-			}
-		}
-
-		for(i=0; i<DIRPERBUF; i++){
-			d = getdir(p, i);
-			if(!(d->mode & DALLOC))
-				continue;
-			if(d->mode & DTMP){
-				if(!b){
-					b = getbuf(devnone, Cwtmp, 0);
-					memmove(b->iobuf, p->iobuf, RBUFSIZE);
-				}
-				memset(d, 0, sizeof(Dentry));
-				p->flags |= Bmod;
 			}
 		}
 		break;
@@ -1449,20 +1432,6 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 	na = split(cw, p, addr);
 
 	cw->depth--;
-
-	if(b){
-		p = getbuf(cw->dev, na ? na : addr, Brd);
-		if(!p || checktag(p, tag, qp)){
-			fprint(2, "cwrecur: b/p null\n");
-			na = 0;
-		} else {
-			memmove(p->iobuf, b->iobuf, RBUFSIZE);
-			p->flags |= Bmod|Bimm;
-		}
-		if(p)
-			putbuf(p);
-		putbuf(b);
-	}
 
 	if(na){
 		if(shouldstop){
