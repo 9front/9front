@@ -132,7 +132,7 @@ call(char *clone, char *dest, DS *ds)
 	char cname[Maxpath], name[Maxpath], data[Maxpath], *p;
 
 	/* because cs is in a different name space, replace the mount point */
-	if(*clone == '/'){
+	if(*clone == '/' || *clone == '#'){
 		p = strchr(clone+1, '/');
 		if(p == nil)
 			p = clone;
@@ -202,7 +202,13 @@ _dial_string_parse(char *str, DS *ds)
 		ds->proto = "net";
 		ds->rem = ds->buf;
 	} else {
-		if(*ds->buf != '/' && *ds->buf != '#'){
+		p2 = ds->buf;
+		if(*p2 == '#'){
+			p2 = strchr(p2, '/');
+			if(p2 == nil || p2 > p)
+				p2 = ds->buf;
+		}
+		if(*p2 != '/'){
 			ds->netdir = 0;
 			ds->proto = ds->buf;
 		} else {
