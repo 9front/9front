@@ -468,7 +468,7 @@ enable:
 static void
 vt6102attach(Ether* edev)
 {
-	int i;
+	int dsz, i;
 	Ctlr *ctlr;
 	Ds *ds, *prev;
 	uchar *alloc, *bounce;
@@ -488,13 +488,13 @@ vt6102attach(Ether* edev)
 	 */
 	ctlr->nrd = Nrd;
 	ctlr->ntd = Ntd;
-	alloc = malloc((ctlr->nrd+ctlr->ntd)*ctlr->cls + ctlr->ntd*Txcopy + ctlr->cls-1);
+	dsz = ROUNDUP(sizeof(Ds), ctlr->cls);
+	alloc = mallocalign((ctlr->nrd+ctlr->ntd)*dsz + ctlr->ntd*Txcopy, dsz, 0, 0);
 	if(alloc == nil){
 		qunlock(&ctlr->alock);
 		error(Enomem);
 	}
 	ctlr->alloc = alloc;
-	alloc = (uchar*)ROUNDUP((ulong)alloc, ctlr->cls);
 
 	ctlr->rd = (Ds*)alloc;
 
@@ -517,7 +517,7 @@ vt6102attach(Ether* edev)
 	prev = ctlr->rd + ctlr->nrd-1;
 	for(i = 0; i < ctlr->nrd; i++){
 		ds = (Ds*)alloc;
-		alloc += ctlr->cls;
+		alloc += dsz;
 
 		ds->control = Rdbsz;
 		ds->branch = PCIWADDR(alloc);
@@ -541,10 +541,10 @@ vt6102attach(Ether* edev)
 
 	ctlr->td = (Ds*)alloc;
 	prev = ctlr->td + ctlr->ntd-1;
-	bounce = alloc + ctlr->ntd*ctlr->cls;
+	bounce = alloc + ctlr->ntd*dsz;
 	for(i = 0; i < ctlr->ntd; i++){
 		ds = (Ds*)alloc;
-		alloc += ctlr->cls;
+		alloc += dsz;
 
 		ds->bounce = bounce;
 		bounce += Txcopy;
@@ -978,12 +978,6 @@ vt6102pci(void)
 		if((cls = pcicfgr8(p, PciCLS)) == 0 || cls == 0xFF)
 			cls = 0x10;
 		ctlr->cls = cls*4;
-		if(ctlr->cls < sizeof(Ds)){
-			print("vt6102: cls %d < sizeof(Ds)\n", ctlr->cls);
-			iofree(port);
-			free(ctlr);
-			continue;
-		}
 		ctlr->tft = Ctft64;
 
 		if(vt6102reset(ctlr)){

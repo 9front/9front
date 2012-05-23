@@ -610,7 +610,6 @@ static void
 vt6105Mattach(Ether* edev)
 {
 	Ctlr *ctlr;
-//	MiiPhy *phy;
 	uchar *alloc;
 	Ds *ds, *prev;
 	int dsz, i, timeo;
@@ -1142,12 +1141,6 @@ vt6105Mpci(void)
 		if((cls = pcicfgr8(p, PciCLS)) == 0 || cls == 0xFF)
 			cls = 0x10;
 		ctlr->cls = cls*4;
-		if(ctlr->cls < sizeof(Ds)){
-			print("vt6105M: cls %d < sizeof(Ds)\n", ctlr->cls);
-			iofree(port);
-			free(ctlr);
-			continue;
-		}
 		ctlr->tft = CtftSAF;
 
 		if(vt6105Mreset(ctlr)){
