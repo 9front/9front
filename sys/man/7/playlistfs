@@ -119,22 +119,12 @@ The
 flag can be used to specify a mount point other than
 .BR /mnt .
 .PP
-The files to be played are recognized by one of four extensions, and an appropriate
-player is then selected to play them.  Files without a recognized extension are played by the
-.I pac
-player:
-.TP
-\&.mp3
-/bin/games/mp3dec
-.TP
-\&.pac
-/bin/games/pac4dec
-.TP
-\&.pcm
-/bin/cp
-.TP
-\&.ogg
-/bin/games/vorbisdec
+.B Playlistfs
+uses the
+.IR audio (1)
+decoders by running
+.IR play (1)
+for format detection and conversion to pcm.
 .SH FILES
 .BR /srv/playlistfs.\f2user\fP :
 default
@@ -152,4 +142,6 @@ Volume control file
 .SH SOURCE
 .B /sys/src/games/music/playlistfs
 .SH SEE ALSO
+.IR play (1),
+.IR audio (1),
 .IR juke (7).
