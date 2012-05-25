@@ -27,8 +27,6 @@ bind -a $LPLIB/bin /bin			# lp specific rc scripts
 bind -a $LPBIN /bin				# lp specific compiled binaries
 path=(/bin)
 
-if (! test -w /tmp) bind -bc $LPLIB/tmp /tmp
-
 USAGE='usage:	lp [-d printer] [-p process] [options] [files]
 		lp [-d printer] -q
 		lp [-d printer] -k jobnos
