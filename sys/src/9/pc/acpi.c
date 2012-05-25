@@ -146,7 +146,7 @@ maptable(uvlong xpa)
 
 	tbltab[ntbltab++] = t = a;
 
-	if(0) print("acpi: %llux %.4s %d\n", xpa, t->sig, l);
+	if(0) print("acpi: %llux %.4s %d\n", xpa, (char*)t->sig, l);
 
 	p = (uchar*)t;
 	e = p + l;
