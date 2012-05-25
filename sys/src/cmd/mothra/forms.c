@@ -612,11 +612,15 @@ void h_submitinput(Panel *p, int){
 	}
 	if(form->method==GET){
 		if(debug)fprint(2, "GET %s\n", buf);
-		geturl(buf, GET, 0, 0, 0);
+		geturl(buf, -1, 0, 0);
 	}
 	else{
+		int post;
+
 		if(debug)fprint(2, "POST %s: %s\n", form->action, buf);
-		geturl(form->action, POST, buf, 0, 0);
+		if((post = urlpost(selurl(form->action), nil)) >= 0)
+			write(post, buf, strlen(buf));
+		geturl(form->action, post, 0, 0);
 	}
 	free(buf);
 }

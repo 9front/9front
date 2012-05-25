@@ -71,7 +71,7 @@ Cursor mothcurs={
 	 0x37, 0xec, 0x17, 0xe8, 0x1b, 0xd8, 0x0e, 0x70, 
 	 0x0c, 0x30, 0x04, 0x20, 0x00, 0x00, 0x00, 0x00, }
 };
-char *mtpt="/mnt/web";
+
 Www *current=0;
 Url *selection=0;
 int logfile;
@@ -81,7 +81,6 @@ int kickpipe[2];
 void docmd(Panel *, char *);
 void doprev(Panel *, int, int);
 char *urlstr(Url *);
-void selurl(char *);
 void setcurrent(int, char *);
 char *genwww(Panel *, int);
 void updtext(Www *);
@@ -239,6 +238,7 @@ void donecurs(void){
 }
 
 void scrollto(char *tag);
+extern char *mtpt; /* url */
 
 void main(int argc, char *argv[]){
 	Event e;
@@ -318,7 +318,7 @@ void main(int argc, char *argv[]){
 	lockdisplay(display);
 
 	if(url && url[0])
-		geturl(url, GET, 0, 1, 0);
+		geturl(url, -1, 1, 0);
 
 	if(logfile==-1) message("Can't open log file");
 	mouse.buttons=0;
@@ -386,7 +386,7 @@ void main(int argc, char *argv[]){
 		case Eplumb:
 			pm=e.v;
 			if(pm->ndata > 0)
-				geturl(pm->data, GET, 0, 1, 0);
+				geturl(pm->data, -1, 1, 0);
 			plumbfree(pm);
 			break;
 		}
@@ -613,7 +613,7 @@ void docmd(Panel *p, char *s){
 	 * Non-command does a get on the url
 	 */
 	if(s[0]!='\0' && s[1]!='\0' && s[1]!=' ')
-		geturl(s, GET, 0, 0, 0);
+		geturl(s, -1, 0, 0);
 	else switch(c = s[0]){
 	default:
 		message("Unknown command %s, type h for help", s);
@@ -632,7 +632,7 @@ void docmd(Panel *p, char *s){
 			else
 				message("no url selected");
 		}
-		geturl(s, GET, 0, 0, 0);
+		geturl(s, -1, 0, 0);
 		break;
 	case 'j':
 		s = arg(s);
@@ -670,7 +670,7 @@ void docmd(Panel *p, char *s){
 				break;
 			s = buf;
 		}
-		save(urlopen(selection, GET, 0), s);
+		save(urlget(selection, -1), s);
 		break;
 	case 'q':
 		exits(0);
@@ -678,13 +678,15 @@ void docmd(Panel *p, char *s){
 	plinitentry(cmd, EXPAND, 0, "", docmd);
 	if(defdisplay) pldraw(cmd, screen);
 }
+
 void hiturl(int buttons, char *url, int map){
 	switch(buttons){
-	case 1: geturl(url, GET, 0, 0, map); break;
+	case 1: geturl(url, -1, 0, map); break;
 	case 2: selurl(url); break;
 	case 4: message("Button 3 hit on url can't happen!"); break;
 	}
 }
+
 /*
  * user selected from the list of available pages
  */
@@ -773,113 +775,6 @@ void freetext(Rtext *t){
 	plrtfree(tt);
 }
 
-int fileurlopen(Url *url){
-	char *rel, *base, *x;
-	int fd;
-
-	rel = base = nil;
-	if(cistrncmp(url->basename, "file:", 5) == 0)
-		base = url->basename+5;
-	if(cistrncmp(url->reltext, "file:", 5) == 0)
-		rel = url->reltext+5;
-	if(rel == nil && base == nil)
-		return -1;
-	if(rel == nil)
-		rel = url->reltext;
-	if(base && base[0] == '/' && rel[0] != '/'){
-		if(x = strrchr(base, '/'))
-			*x = 0;
-		snprint(url->fullname, sizeof(url->fullname), "%s/%s", base, rel);
-		if(x)	*x = '/';
-	}else
-		snprint(url->fullname, sizeof(url->fullname), "%s", rel);
-	url->tag[0] = 0;
-	if(x = strrchr(url->fullname, '#')){
-		*x++ = 0;
-		nstrcpy(url->tag, x, sizeof(url->tag));
-	}
-	fd = open(cleanname(url->fullname), OREAD);
-	if(fd < 0)
-		return -1;
-	memset(url->fullname, 0, sizeof(url->fullname));
-	strcpy(url->fullname, "file:");
-	fd2path(fd, url->fullname+5, sizeof(url->fullname)-6);
-	return fd;
-}
-
-int readstr(char *buf, int nbuf, char *base, char *name){
-	char path[128];
-	int n, fd;
-
-	n = 0;
-	snprint(path, sizeof path, "%s/%s", base, name);
-	if((fd = open(path, OREAD)) >= 0){
-		if((n = read(fd, buf, nbuf-1)) < 0)
-			n = 0;
-		close(fd);
-	}
-	buf[n] = 0;
-	return n;
-}
-
-int urlopen(Url *url, int method, char *body){
-	int conn, ctlfd, fd, n;
-	char buf[1024+1], *p;
-	char encoding[64];
-
-	if(debug) fprint(2, "urlopen %s (%s)\n", url->reltext, url->basename); 
-
-	if(method == GET)
-		if((fd = fileurlopen(url)) >= 0)
-			return fd;
-	snprint(buf, sizeof buf, "%s/clone", mtpt);
-	if((ctlfd = open(buf, ORDWR)) < 0)
-		return -1;
-	if((n = read(ctlfd, buf, sizeof buf-1)) <= 0){
-		close(ctlfd);
-		return -1;
-	}
-	buf[n] = 0;
-	conn = atoi(buf);
-	if(url->basename[0]){
-		n = snprint(buf, sizeof buf, "baseurl %s", url->basename);
-		write(ctlfd, buf, n);
-	}
-	n = snprint(buf, sizeof buf, "url %s", url->reltext);
-	if(write(ctlfd, buf, n) != n){
-	ErrOut:
-		close(ctlfd);
-		return -1;
-	}
-	if(method == POST && body){
-		snprint(buf, sizeof buf, "%s/%d/postbody", mtpt, conn);
-		if((fd = open(buf, OWRITE)) < 0)
-			goto ErrOut;
-		n = strlen(body);
-		if(write(fd, body, n) != n){
-			close(fd);
-			goto ErrOut;
-		}
-		close(fd);
-	}
-	snprint(buf, sizeof buf, "%s/%d/body", mtpt, conn);
-	if((fd = open(buf, OREAD)) < 0)
-		goto ErrOut;	
-	snprint(buf, sizeof buf, "%s/%d/parsed", mtpt, conn);
-	readstr(url->fullname, sizeof(url->fullname), buf, "url");
-	readstr(url->tag, sizeof(url->tag), buf, "fragment");
-	snprint(buf, sizeof buf, "%s/%d", mtpt, conn);
-	readstr(encoding, sizeof(encoding), buf, "contentencoding");
-	close(ctlfd);
-	if(!cistrcmp(encoding, "compress"))
-		fd = pipeline("/bin/uncompress", fd);
-	else if(!cistrcmp(encoding, "gzip"))
-		fd = pipeline("/bin/gunzip", fd);
-	else if(!cistrcmp(encoding, "bzip2"))
-		fd = pipeline("/bin/bunzip2", fd);
-	return fd;
-}
-
 int pipeline(char *cmd, int fd)
 {
 	int pfd[2];
@@ -914,11 +809,12 @@ urlstr(Url *url){
 		return url->fullname;
 	return url->reltext;
 }
-void selurl(char *urlname){
+Url* selurl(char *urlname){
 	static Url url;
 	seturl(&url, urlname, current ? current->url->fullname : "");
 	selection=&url;
 	message("selected: %s", urlstr(selection));
+	return selection;
 }
 void seturl(Url *url, char *urlname, char *base){
 	nstrcpy(url->reltext, urlname, sizeof(url->reltext));
@@ -940,13 +836,13 @@ void freeurl(Url *u){
 /*
  * get the file at the given url
  */
-void geturl(char *urlname, int method, char *body, int plumb, int map){
+void geturl(char *urlname, int post, int plumb, int map){
 	int i, fd, typ, pfd[2];
 	char cmd[NNAME];
 	ulong n;
 	Www *w;
 
-	if(*urlname == '#'){
+	if(*urlname == '#' && post < 0){
 		scrollto(urlname+1);
 		return;
 	}
@@ -957,7 +853,7 @@ void geturl(char *urlname, int method, char *body, int plumb, int map){
 	message("getting %s", selection->reltext);
 	esetcursor(&patientcurs);
 	for(;;){
-		if((fd=urlopen(selection, method, body)) < 0){
+		if((fd=urlget(selection, post)) < 0){
 			message("%r");
 			break;
 		}
@@ -1177,7 +1073,7 @@ void hit3(int button, int item){
 		break;
 	case 5:
 		snprint(name, sizeof(name), "file:%s/hit.html", home);
-		geturl(name, GET, 0, 1, 0);
+		geturl(name, -1, 1, 0);
 		break;
 	case 6:
 		if(confirm(3))

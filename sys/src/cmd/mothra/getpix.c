@@ -39,7 +39,7 @@ void getimage(Rtext *t, Www *w){
 			update(w);
 			return;
 		}
-	fd=urlopen(&url, GET, 0);
+	fd=urlget(&url, -1);
 	if(fd==-1){
 	Err:
 		snprint(err, sizeof(err), "[%s: %r]", url.fullname);

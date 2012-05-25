@@ -9,6 +9,7 @@ CFILES= \
 	html.syntax.c \
 	mothra.c \
 	rdhtml.c \
+	url.c \
 
 OFILES=${CFILES:%.c=%.$O} version.$O
 HFILES=mothra.h html.h libpanel/panel.h libpanel/rtext.h
