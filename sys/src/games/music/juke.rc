@@ -6,12 +6,10 @@ debug=0
 tflag=''
 wflag=''
 host=''
-kb=4096
 flags=()
 sname=$user
 if (! ~ $wide 1) {
 	flags=($flags -t)
-	kb=1024
 }
 while(! ~ $#* 0) {
 	switch ($1) {
@@ -34,7 +32,7 @@ while(! ~ $#* 0) {
 	}
 	shift
 }
-if (! test -e /mnt/playlist){
+if (! test -f /mnt/playlist) {
 	if (! ~ $debug '0') echo mounting playlistfs
 	if (! test -e /srv/playlist.$sname && ! ~ $host ''){
 		import -a $host /srv /srv
@@ -45,7 +43,7 @@ if (! test -e /mnt/playlist){
 		games/playlistfs -s $sname -d $debug
 	}
 }
-if (! test -w /mnt/juke) {
+if (~ `{ls /mnt/juke >[2]/dev/null | sed '1q'} '') {
 	if (! test -e /srv/jukefs.$sname && ! ~ $host ''){
 		import -a $host /srv /srv
 	}

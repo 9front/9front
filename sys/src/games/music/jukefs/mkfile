@@ -1,7 +1,7 @@
 </$objtype/mkfile
 <../mkinc
 
-CFLAGS = -DDEFAULTMAP="$DEFAULTMAP"
+CFLAGS = -DDEFAULTMAP="/sys/lib/music/map"
 TARG = jukefs
 BIN = /$objtype/bin/games
 
