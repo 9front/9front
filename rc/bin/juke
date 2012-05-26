@@ -1,7 +1,6 @@
 #!/bin/rc
-
+rfork e
 wide=`{echo $vgasize | sed 's/(.*)x.*x.*/\1 > 240/' | hoc}
-
 debug=0
 tflag=''
 wflag=''

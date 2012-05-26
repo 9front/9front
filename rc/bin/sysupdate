@@ -1,24 +1,16 @@
 #!/bin/rc
-
-rfork n
-cd /
-
-incoming=1
-
-switch($1){
-case -h
-	echo usage: sysupdate [-i] >[1=2]
-	exit usage
-case -i
-	incoming=0
-}
-
 rfork n
 cd /
 if(! test -d .hg)
 	bind -ac /dist/plan9front /
-
-if(~ $incoming 1)
-	hg incoming
+while(! ~ $#* 0){
+	switch($1){
+	case -i
+		hg incoming
+	case *
+		echo usage: sysupdate [-i] >[1=2]
+		exit usage
+	}
+	shift
+}
 hg -v pull -u
-
