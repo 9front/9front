@@ -1,4 +1,5 @@
 #!/bin/rc
+rfork e
 argv0=$0
 fn usage {
 	echo usage: $argv0 [ -o file ] [ -p body ] [ -r header ] [ -m method ] [ -b baseurl ] url >[1=2]

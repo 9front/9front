@@ -1,4 +1,5 @@
 #!/bin/rc
+rfork e
 
 out=/dev/audio
 typ=()

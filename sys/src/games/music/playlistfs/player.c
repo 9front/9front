@@ -69,7 +69,7 @@ startplay(ushort n)
 	pfd->filename = file;	/* mallocated already */
 	pfd->fd = fd[1];
 	pfd->cfd = fd[0];
-	procrfork(decexec, pfd, 4096, RFFDG);
+	procrfork(decexec, pfd, 4096, RFFDG|RFENVG);
 	close(fd[1]);	/* write fd, for pac4dec */
 	return fd[0];	/* read fd */
 }
