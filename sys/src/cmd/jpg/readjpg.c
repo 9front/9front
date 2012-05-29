@@ -488,8 +488,10 @@ huffmantable(Header *h, uchar *b)
 
 	/* flow chart C-2 */
 	nsize = 0;
-	for(i=0; i<16; i++)
-		nsize += b[1+i];
+	for(i=1; i<=16; i++)
+		nsize += b[i];
+	if(nsize == 0)
+		return 0;
 	t->size = jpgmalloc(h, (nsize+1)*sizeof(int), 1);
 	k = 0;
 	for(i=1; i<=16; i++){
