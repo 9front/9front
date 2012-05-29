@@ -1,0 +1,49 @@
+.TH SYSINFO 1
+.SH NAME
+sysinfo, sysupdate \- report information about, update the system
+.SH SYNOPSIS
+.B sysinfo
+[
+.B -m
+]
+.br
+.B sysupdate
+[
+.B -i
+]
+.SH DESCRIPTION
+.I Sysinfo
+executes a number of commands that report information
+about the hardware and software configuration of
+the running system, concatenating the output to
+stdout.
+.PP
+The
+.B -m
+flag causes the output to be piped to a mail command,
+whose recipient is
+.B hardware@9front.org.
+This flag is useful for reporting new installs to the
+development team.
+.PP
+.I Sysupdate
+updates the local mercurial repository by executing
+the following commands:
+.PP
+.B bind -ac /dist/plan9front /
+.br
+.B hg -v pull -u
+.PP
+If the
+.B -i
+flag is included, the command
+.B hg incoming
+is prepended.
+.SH SOURCE
+.B /rc/bin/sysinfo
+.br
+.B /rc/bin/sysupdate
+.SH SEE ALSO
+.IR intro (3),
+.IR plan9.ini(8),
+.IR hg (1)
