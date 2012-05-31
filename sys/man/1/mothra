@@ -24,7 +24,6 @@ Web names, called URLs, have a peculiar syntax:
 http://netlib.att.com/netlib/1127/www/1127.html
 http://akebono.stanford.edu:80/yahoo/
 http://www.teleport.com/~crowell/
-ftp://ftp.gmd.de/music/scores/harrington/Harrington.readme
 .EE
 .PP
 The part up to the first colon gives the protocol for
@@ -32,10 +31,6 @@ retrieving the file.
 .BR http: ,
 Hyper-Text Transfer
 Protocol, is the usual way of accessing web files.
-.B ftp:
-and
-.B gopher:
-are standard Internet services.
 .PD
 .PP
 .B //
@@ -58,7 +53,8 @@ the environment variable
 There are a number of options:
 .TP
 .B  -d
-Debug mode.
+Debug mode. Causes debug messages to appear in
+.B $home/lib/mothra/mothra.err.
 .TP
 .B -m
 Specify the
@@ -71,7 +67,7 @@ The default is
 .TP
 .B -v
 Verbose mode. Causes HTML errors to appear in
-.B $home/lib/mothra/mothra.err
+.B $home/lib/mothra/mothra.err.
 .PP
 The display contains the last message from
 .I mothra,
@@ -95,8 +91,8 @@ Collapse or expand the navigation boxes at the top of the browser window.
 Enter moth mode and switch to the moth cursor. If the HREF of an image
 link is different from the URL of the image itself, a link to the HREF will be
 printed on the right side of the image. Clicking an image or link with mouse
-button 1 saves a copy of the file in the current directory. Clicking mouse
-button 2 sets the target as the current URL.
+button 1 prompts the user to save a copy of the file in the current directory.
+Clicking mouse button 2 sets the target as the current URL.
 Clicking the
 .B moth mode
 menu option again exits moth mode.
@@ -121,10 +117,10 @@ The typed commands are:
 .TF typed\ commands
 .TP
 .B a
-Collapse or expand the navigation boxes at the top of the browser window.
+Toggle alt display.
 .TP
 .BI g " url
-Get the page with the given URL.
+Go to the page with the given URL.
 .TP
 .BI j " n
 Jump to page
@@ -155,7 +151,7 @@ Quit.
 .PP
 When
 .I mothra
-retrieves a file that is not an
+retrieves a direct link to a file that is not an
 HTML document (for example a GIF or JPEG
 image), it will start up an appropriate viewer, for example
 .B page
@@ -166,11 +162,8 @@ for most image files.
 .B $home/lib/mothra/hit.html 
 the hit list
 .br
-.B $home/lib/mothra/mothra.url
-log of visited URLs
-.br
 .B $home/lib/mothra/mothra.err
-log of error messages, including HTML syntax errors
+log of debug and/or error messages, including HTML syntax errors
 .SH SOURCE
 .B /sys/src/cmd/mothra
 .SH "SEE ALSO"
