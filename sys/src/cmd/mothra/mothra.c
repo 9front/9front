@@ -11,7 +11,8 @@
 #include <panel.h>
 #include "mothra.h"
 #include "rtext.h"
-int verbose=0;		/* -v flag causes html errors to appear in error log */
+int debug=0;		/* -d flag causes debug messages to appear in mothra.err */
+int verbose=0;		/* -v flag causes html errors to appear in mothra.err */
 int defdisplay=1;	/* is the default (initial) display visible? */
 Panel *root;	/* the whole display */
 Panel *alt;	/* the alternate display */
@@ -74,7 +75,6 @@ Cursor mothcurs={
 
 Www *current=0;
 Url *selection=0;
-int logfile;
 int mothmode;
 int kickpipe[2];
 
@@ -252,7 +252,7 @@ void main(int argc, char *argv[]){
 
 	quotefmtinstall();
 	ARGBEGIN{
-	case 'd': debug++; break;
+	case 'd': debug=1; break;
 	case 'v': verbose=1; break;
 	case 'm':
 		if(mtpt = ARGF())
@@ -288,7 +288,6 @@ void main(int argc, char *argv[]){
 		dup(errfile, 2);
 		close(errfile);
 	}
-	logfile=mkmfile("mothra.log", 0666|DMAPPEND);
 	if(initdraw(0, 0, mothra) < 0)
 		sysfatal("initdraw: %r");
 	display->locking = 1;
@@ -320,7 +319,6 @@ void main(int argc, char *argv[]){
 	if(url && url[0])
 		geturl(url, -1, 1, 0);
 
-	if(logfile==-1) message("Can't open log file");
 	mouse.buttons=0;
 	for(;;){
 		if(mouse.buttons==0 && current){
