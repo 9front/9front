@@ -217,7 +217,7 @@ Raw scancodes can be written to the
 .BR kbin
 file for external keyboard input (used for USB keyboards).
 .SS "Keyboard map"
-Scancodes are maped to Unicode characters with a number of
+Scancodes are mapped to Unicode characters with a number of
 translation tables. These tables can be accessed with the
 .BR kbmap
 file.
