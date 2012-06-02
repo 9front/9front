@@ -25,7 +25,7 @@ device without any translation. It is usualy
 task to interpret the scancodes and provide device independent
 keyboard input to programs. The
 .BR scancode
-file can be only opend once by the hostowner.
+file can be only opened once by the hostowner.
 .PP
 Writing a number to the write-only 
 .BR leds
