@@ -100,6 +100,6 @@ source files of packages installed locally.
 .SH REPOSITORIES
 .B http://r-36.net/pkg/386
 .br
-.B http://plan9.stanleylieber.com/pkg/386
+.B http://ph.inri.net/9front/pkg/386
 .SH SEE ALSO
 .IR contrib (1)
