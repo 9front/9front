@@ -4,6 +4,6 @@ if(~ $#pkgpath 0)
 	pkgpath=http://r-36.net/9front/pkg/$cputype
 
 if(~ $pkgpath ftp* http*)
-	hget $pkgpath | htmlfmt | grep '\.tbz' | sed -e 's/\.tbz$//'
+	hget $pkgpath | htmlfmt | grep '\.tbz' | sed -e 's/\.tbz.*$//g'
 if not
-	ls -p $pkgpath/*.tbz | sed 's/\.tbz//g'
+	ls -p $pkgpath/*.tbz | sed 's/\.tbz.*$//g'
