@@ -114,7 +114,7 @@ derror(Display*, char *errorstr)
 void
 usage(void)
 {
-	fprint(2, "usage: rio [-f font] [-i initcmd] [-k kbdcmd] [-s]\n");
+	fprint(2, "usage: rio [-b] [-f font] [-i initcmd] [-k kbdcmd] [-s]\n");
 	exits("usage");
 }
 
