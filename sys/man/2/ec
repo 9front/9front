@@ -1,0 +1,108 @@
+.TH EC 2
+.SH NAME
+ecassign,
+ecadd,
+ecmul,
+strtoec,
+ecgen,
+ecverify,
+ecpubverify,
+ecdsasign,
+ecdsaverify \- Elliptic Curve Cryptography
+.SH SYNOPSIS
+.B #include <u.h>
+.br
+.B #include <libc.h>
+.br
+.B #include <mp.h>
+.br
+.B #include <libsec.h>
+.PP
+.B
+void	ecassign(ECdomain *dom, ECpoint *old, ECpoint *new);
+.PP
+.B
+void	ecadd(ECdomain *dom, ECpoint *a, ECpoint *b, ECpoint *s);
+.PP
+.B
+void	ecmul(ECdomain *dom, ECpoint *a, mpint *k, ECpoint *s);
+.PP
+.B
+ECpoint*	strtoec(ECdomain *dom, char *s, char **rptr, ECpoint *p);
+.PP
+.B
+ECpriv*	ecgen(ECdomain *dom, ECpriv *p);
+.PP
+.B
+int	ecverify(ECdomain *dom, ECpoint *p);
+.PP
+.B
+int	ecpubverify(ECdomain *dom, ECpub *p);
+.PP
+.B
+void	ecdsasign(ECdomain *dom, ECpriv *priv, uchar *dig, int dlen, mpint *r, mpint *s);
+.PP
+.B
+int	ecdsaverify(ECdomain *dom, ECpub *pub, uchar *dig, int dlen, mpint *r, mpint *s);
+.DT
+.SH DESCRIPTION
+These function implement elliptic curve cryptography.
+An elliptic curve together with cryptographic parameters are specified using a 
+.B ECdomain
+struct.
+Points on the curve are represented by 
+.B ECpoint
+structs.
+.PP
+.BR ecassign ", " ecadd " and " ecmul
+work analogous to their counterparts in
+.IR mp (2).
+.PP
+.B strtoec
+converts a hex string representing an octet string as specified in SEC 1 to a
+.B ECpoint
+struct. Both uncompressed and compressed formats are supported.
+If 
+.B rptr
+is not
+.BR nil ,
+it is used to return the position in the string where the parser stopped.
+If
+.BR p " is " nil
+space is allocated automatically, else the given struct is used.
+.PP
+.B ecverify
+and
+.B ecpubverify
+verify that the given point or public key, resp., is valid.
+.PP
+.B ecgen
+generates a keypair and returns a pointer to it.
+If
+.BR p " is " nil
+space is allocated automatically, else the given struct is used.
+.PP
+.B ecdsasign
+and
+.B ecdsaverify
+create or verify, resp., a signature using the ECDSA scheme specified in SEC 1.
+It is absolutely vital that
+.B dig
+is a cryptographic hash to the message.
+.B ecdsasign
+writes the signature to
+.BR r " and " s
+which are assumed to be allocated properly.
+.SH RETURN VALUE
+.B *verify
+functions return
+.B 1
+for a positive result.
+Functions returning pointers may return
+.B nil
+in case of error (e.g. failing
+.IR malloc (2)).
+.SH SOURCE
+.B /sys/src/libsec/ec.c
+.SH SEE ALSO
+Standards for Efficient Cryptography (SEC) 1: Elliptic Curve Cryptography, Certicom Research, 2009

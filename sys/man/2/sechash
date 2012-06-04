@@ -2,6 +2,7 @@
 .SH NAME
 md4, md5,
 sha1, sha2_224, sha2_256, sha2_384, sha2_512,
+ripemd160,
 aes, hmac_x, hmac_md5,
 hmac_sha1, hmac_sha2_224, hmac_sha2_256, hmac_sha2_384, hmac_sha2_512,
 hmac_aes, md5pickle, md5unpickle,
@@ -55,6 +56,8 @@ DS*	sha2_384(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
 DS*	sha2_512(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
+DS*	ripemd160(uchar *data, ulong dlen, uchar *digest, DS *state)
+.Ti
 DS*	aes(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
 DS*	hmac_x(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DS *s, DS*(*x)(uchar*, ulong, uchar*, DS*), int xlen)
@@ -92,6 +95,7 @@ The routines
 .IR sha2_256 ,
 .IR sha2_384 ,
 .IR sha2_512 ,
+.IR ripemd160 ,
 .IR aes ,
 .IR hmac_md5 ,
 .IR hmac_sha1 ,
