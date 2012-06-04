@@ -404,3 +404,36 @@ PEMChain*readcertchain(char *filename);
 /* aes_xts.c */
 int aes_xts_encrypt(ulong tweak[], ulong ecb[],  vlong sectorNumber, uchar *input, uchar *output, ulong len) ;
 int aes_xts_decrypt(ulong tweak[], ulong ecb[], vlong sectorNumber, uchar *input, uchar *output, ulong len);
+
+typedef struct ECpoint{
+	int inf;
+	mpint *x;
+	mpint *y;
+} ECpoint;
+
+typedef ECpoint ECpub;
+typedef struct ECpriv{
+	ECpoint;
+	mpint *d;
+} ECpriv;
+
+typedef struct ECdomain{
+	mpint *p;
+	mpint *a;
+	mpint *b;
+	ECpoint *G;
+	mpint *n;
+	mpint *h;
+} ECdomain;
+
+void	ecassign(ECdomain *, ECpoint *old, ECpoint *new);
+void	ecadd(ECdomain *, ECpoint *a, ECpoint *b, ECpoint *s);
+void	ecmul(ECdomain *, ECpoint *a, mpint *k, ECpoint *s);
+ECpoint*	strtoec(ECdomain *, char *, char **, ECpoint *);
+ECpriv*	ecgen(ECdomain *, ECpriv*);
+int	ecverify(ECdomain *, ECpoint *);
+int	ecpubverify(ECdomain *, ECpub *);
+void	ecdsasign(ECdomain *, ECpriv *, uchar *, int, mpint *, mpint *);
+int	ecdsaverify(ECdomain *, ECpub *, uchar *, int, mpint *, mpint *);
+
+DigestState*	ripemd160(uchar *, ulong, uchar *, DigestState *);
