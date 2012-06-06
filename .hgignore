@@ -2,6 +2,7 @@ syntax: regexp
 ^(acme|sys/src)/.*\.[ao]?[12578vqki]?$
 ^(acme|sys/src)/(.*/)?[12578vqki]\..*$
 ^sys/src/.*\.(bits|debug|output|tab\.[hc])$
+^sys/src/pkg/
 ^sys/lib/(pkg/|lp/log/|man/lookman/index)
 ^sys/lib/python/.*\.(pyo|pyc|exe)$
 ^sys/log/
