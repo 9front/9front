@@ -8,7 +8,7 @@ ecgen,
 ecverify,
 ecpubverify,
 ecdsasign,
-ecdsaverify \- Elliptic Curve Cryptography
+ecdsaverify \- elliptic curve cryptography
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -46,8 +46,8 @@ void	ecdsasign(ECdomain *dom, ECpriv *priv, uchar *dig, int dlen, mpint *r, mpin
 int	ecdsaverify(ECdomain *dom, ECpub *pub, uchar *dig, int dlen, mpint *r, mpint *s);
 .DT
 .SH DESCRIPTION
-These function implement elliptic curve cryptography.
-An elliptic curve together with cryptographic parameters are specified using a 
+These functions implement elliptic curve cryptography.
+An elliptic curve together with cryptographic parameters are specified using an
 .B ECdomain
 struct.
 Points on the curve are represented by 
@@ -55,11 +55,13 @@ Points on the curve are represented by
 structs.
 .PP
 .BR ecassign ", " ecadd " and " ecmul
-work analogous to their counterparts in
+are analogous to their counterparts in
 .IR mp (2).
 .PP
 .B strtoec
-converts a hex string representing an octet string as specified in SEC 1 to a
+converts a hex string representing an octet string as specified in
+.I Standards for Efficient Cryptography (SEC) 1
+to an
 .B ECpoint
 struct. Both uncompressed and compressed formats are supported.
 If 
@@ -74,7 +76,7 @@ space is allocated automatically, else the given struct is used.
 .B ecverify
 and
 .B ecpubverify
-verify that the given point or public key, resp., is valid.
+verify that the given point or public key, respectively, is valid.
 .PP
 .B ecgen
 generates a keypair and returns a pointer to it.
@@ -85,7 +87,8 @@ space is allocated automatically, else the given struct is used.
 .B ecdsasign
 and
 .B ecdsaverify
-create or verify, resp., a signature using the ECDSA scheme specified in SEC 1.
+create or verify, respectively, a signature using the ECDSA scheme specified in
+.I SEC 1.
 It is absolutely vital that
 .B dig
 is a cryptographic hash to the message.
@@ -100,9 +103,13 @@ functions return
 for a positive result.
 Functions returning pointers may return
 .B nil
-in case of error (e.g. failing
+in case of error
+.I (e.g.
+failing
 .IR malloc (2)).
 .SH SOURCE
 .B /sys/src/libsec/ec.c
 .SH SEE ALSO
-Standards for Efficient Cryptography (SEC) 1: Elliptic Curve Cryptography, Certicom Research, 2009
+.I
+Standards for Efficient Cryptography (SEC) 1: Elliptic Curve Cryptography
+- Certicom Research, 2009
