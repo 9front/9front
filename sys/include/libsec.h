@@ -435,5 +435,7 @@ int	ecverify(ECdomain *, ECpoint *);
 int	ecpubverify(ECdomain *, ECpub *);
 void	ecdsasign(ECdomain *, ECpriv *, uchar *, int, mpint *, mpint *);
 int	ecdsaverify(ECdomain *, ECpub *, uchar *, int, mpint *, mpint *);
+void	base58enc(uchar *, char *, int);
+int	base58dec(char *, uchar *, int);
 
 DigestState*	ripemd160(uchar *, ulong, uchar *, DigestState *);

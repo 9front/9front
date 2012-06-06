@@ -482,3 +482,58 @@ ecdsaverify(ECdomain *dom, ECpub *pub, uchar *dig, int len, mpint *r, mpint *s)
 	mpfree(S.y);
 	return ret;
 }
+
+static char *code = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+void
+base58enc(uchar *src, char *dst, int len)
+{
+	mpint *n, *r, *b;
+	char *sdst, t;
+	
+	sdst = dst;
+	n = betomp(src, len, nil);
+	b = uitomp(58, nil);
+	r = mpnew(0);
+	while(mpcmp(n, mpzero) != 0){
+		mpdiv(n, b, n, r);
+		*dst++ = code[mptoui(r)];
+	}
+	for(; *src == 0; src++)
+		*dst++ = code[0];
+	dst--;
+	while(dst > sdst){
+		t = *sdst;
+		*sdst++ = *dst;
+		*dst-- = t;
+	}
+}
+
+int
+base58dec(char *src, uchar *dst, int len)
+{
+	mpint *n, *b, *r;
+	char *t;
+	
+	n = mpnew(0);
+	r = mpnew(0);
+	b = uitomp(58, nil);
+	for(; *src; src++){
+		t = strchr(code, *src);
+		if(t == nil){
+			mpfree(n);
+			mpfree(r);
+			mpfree(b);
+			werrstr("invalid base58 char");
+			return -1;
+		}
+		uitomp(t - code, r);
+		mpmul(n, b, n);
+		mpadd(n, r, n);
+	}
+	mptobe(n, dst, len, nil);
+	mpfree(n);
+	mpfree(r);
+	mpfree(b);
+	return 0;
+}
