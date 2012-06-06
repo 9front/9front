@@ -127,6 +127,9 @@ Jump to page
 .I n
 from the list of previously viewed pages.
 .TP
+.BI k
+Kill images on the current page.
+.TP
 .BI m
 Enter or exit moth mode.
 .TP
