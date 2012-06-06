@@ -98,7 +98,7 @@ source files of packages installed locally.
 .br
 .B /sys/src/cmd/pkg/unpkg.c
 .SH REPOSITORIES
-.B http://r-36.net/pkg/386
+.B http://r-36.net/9front/pkg/386
 .br
 .B http://ph.inri.net/9front/pkg/386
 .SH SEE ALSO
