@@ -133,7 +133,9 @@ btcopen(Req *req)
 	d = entr + (int)req->fid->qid.path;
 	switch(req->ifcall.mode & 3){
 	case OREAD:
-		if(d->str == nil && (req->fid->qid.type & QTDIR) == 0)
+		if((req->fid->qid.type & QTDIR) != 0)
+			break;
+		if(d->str == nil)
 			goto noperm;
 		reqqueuepush(queue, req, btcopenread);
 		return;
