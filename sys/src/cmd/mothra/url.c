@@ -45,7 +45,7 @@ char *mtpt="/mnt/web";
 static int
 webclone(Url *url, char *buf, int nbuf)
 {
-	int n, fd;
+	int n, conn, fd;
 
 	snprint(buf, nbuf, "%s/clone", mtpt);
 	if((fd = open(buf, ORDWR)) < 0)
@@ -55,16 +55,19 @@ webclone(Url *url, char *buf, int nbuf)
 		return -1;
 	}
 	buf[n] = 0;
-	n = atoi(buf);
-	snprint(buf, nbuf, "%s/%d", mtpt, n);
+	conn = atoi(buf);
 	if(url && url->reltext[0]){
-		if(url->basename[0])
-			fprint(fd, "baseurl %s", url->basename);
-		if(fprint(fd, "url %s", url->reltext) < 0){
+		if(url->basename[0]){
+			n = snprint(buf, nbuf, "baseurl %s", url->basename);
+			write(fd, buf, n);
+		}
+		n = snprint(buf, nbuf, "url %s", url->reltext);
+		if(write(fd, buf, n) < 0){
 			close(fd);
 			return -1;
 		}
 	}
+	snprint(buf, nbuf, "%s/%d", mtpt, conn);
 	return fd;
 }
 
