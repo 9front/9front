@@ -12,6 +12,11 @@ HFILES=\
 
 default:V: all
 
+$BIN:
+	mkdir $BIN
+
+install: $BIN
+
 </sys/src/cmd/mkmany
 
 $O.httpfs: fs.$O
