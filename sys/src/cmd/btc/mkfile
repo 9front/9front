@@ -1,0 +1,17 @@
+</$objtype/mkfile
+
+TARG=httpfs sign
+
+BIN=/$objtype/bin/btc
+
+OFILES=\
+	json.$O\
+
+HFILES=\
+	dat.h\
+
+default:V: all
+
+</sys/src/cmd/mkmany
+
+$O.httpfs: fs.$O

@@ -1,0 +1,326 @@
+#include <u.h>
+#include <libc.h>
+#include <ctype.h>
+#include "json.h"
+
+typedef struct Lex Lex;
+
+enum {
+	TEOF,
+	TSTRING = (1<<(8*sizeof(Rune)))+1,
+	TNUM,
+	TNULL,
+	TFALSE,
+	TTRUE,
+};
+
+struct Lex
+{
+	char *s;
+	int t;
+	double n;
+	char buf[4096];
+	Rune peeked;
+	jmp_buf jmp;
+	int canjmp;
+};
+
+static Rune
+getch(Lex *l)
+{
+	Rune r;
+
+	if(l->peeked){
+		r = l->peeked;
+		l->peeked = 0;
+		return r;
+	}
+	l->s += chartorune(&r, l->s);
+	return r;
+}
+
+static Rune
+peekch(Lex *l)
+{
+	if(!l->peeked)
+		l->peeked = getch(l);
+	return l->peeked;
+}
+
+static int
+lex(Lex *l)
+{
+	Rune r;
+	char *t;
+
+	for(;;){
+		r = peekch(l);
+		if(r != 0x20 && r != 0x09 && r != 0x0A && r != 0x0D)
+			break;
+		getch(l);
+	}
+	r = getch(l);
+	if(r == ']' && l->canjmp)
+		longjmp(l->jmp, 1);
+	l->canjmp = 0;
+	if(r == 0 || r == '{' || r == '[' || r == ']' || r == '}' || r == ':' || r == ','){
+		l->t = r;
+		return 0;
+	}
+	if(r >= 0x80 || isalpha(r)){
+		t = l->buf;
+		for(;;){
+			t += runetochar(t, &r);
+			if(t >= l->buf + sizeof(l->buf)){
+				werrstr("json: literal too long");
+				return -1;
+			}
+			r = peekch(l);
+			if(r < 0x80 && !isalpha(r))
+				break;
+			getch(l);
+		}
+		*t = 0;
+		if(strcmp(l->buf, "true") == 0)
+			l->t = TTRUE;
+		else if(strcmp(l->buf, "false") == 0)
+			l->t = TFALSE;
+		else if(strcmp(l->buf, "null") == 0)
+			l->t = TNULL;
+		else{
+			werrstr("json: invalid literal");
+			return -1;
+		}
+		return 0;
+	}
+	if(isdigit(r) || r == '-'){
+		l->n = strtod(l->s-1, &l->s);
+		l->t = TNUM;
+		return 0;
+	}
+	if(r == '"'){
+		t = l->buf;
+		for(;;){
+			r = getch(l);
+			if(r == '"')
+				break;
+			if(r < ' '){
+				werrstr("json: invalid char in string %x", r);
+				return -1;
+			}
+			if(r == '\\'){
+				r = getch(l);
+				switch(r){
+				case 'n':
+					r = '\n';
+					break;
+				case 'r':
+					r = '\r';
+					break;
+				case 't':
+					r = '\t';
+					break;
+				case 'f':
+					r = '\f';
+					break;
+				case 'b':
+					r = '\b';
+					break;
+				case '"': case '/': case '\\':
+					break;
+				default:
+					werrstr("json: invalid escape sequence \\%C", r);
+					return -1;
+				}
+			}
+			t += runetochar(t, &r);
+			if(t >= l->buf + sizeof(l->buf)){
+				werrstr("json: string too long");
+				return -1;
+			}
+		}
+		*t = 0;
+		l->t = TSTRING;
+		return 0;
+	}
+	werrstr("json: invalid char %C", peekch(l));
+	return -1;
+}
+
+static JSON*
+jsonobj(Lex *l)
+{
+	JSON *j;
+	JSONEl *e;
+	JSONEl **ln;
+	int obj;
+	
+	j = mallocz(sizeof(*j), 1);
+	if(j == nil)
+		return nil;
+	if(lex(l) < 0){
+error:
+		free(j);
+		return nil;
+	}
+	switch(l->t){
+	case TEOF:
+		werrstr("json: unexpected eof");
+		goto error;
+	case TNULL:
+		j->t = JSONNull;
+		break;
+	case TTRUE:
+		j->t = JSONBool;
+		j->n = 1;
+		break;
+	case TFALSE:
+		j->t = JSONBool;
+		j->n = 0;
+		break;
+	case TSTRING:
+		j->t = JSONString;
+		j->s = strdup(l->buf);
+		if(j->s == nil)
+			goto error;
+		break;
+	case TNUM:
+		j->t = JSONNumber;
+		j->n = l->n;
+		break;
+	case '{':
+	case '[':
+		obj = l->t == '{';
+		ln = &j->first;
+		e = nil;
+		if(obj){
+			j->t = JSONObject;
+			if(lex(l) < 0)
+				goto abort;
+			if(l->t == '}')
+				return j;
+			goto firstobj;
+		}else{
+			j->t = JSONArray;
+			l->canjmp = 1;
+			if(setjmp(l->jmp) > 0){
+				free(e);
+				return j;
+			}
+		}
+		for(;;){
+			if(obj){
+				if(lex(l) < 0)
+					goto abort;
+			firstobj:
+				if(l->t != TSTRING){
+					werrstr("json: syntax error, not string");
+					goto abort;
+				}
+				e = mallocz(sizeof(*e), 1);
+				if(e == nil)
+					goto abort;
+				e->name = strdup(l->buf);
+				if(e->name == nil || lex(l) < 0){
+					free(e);
+					goto abort;
+				}
+				if(l->t != ':'){
+					werrstr("json: syntax error, not colon");
+					free(e);
+					goto abort;
+				}
+			}else{
+				e = mallocz(sizeof(*e), 1);
+				if(e == nil)
+					goto abort;
+			}
+			e->val = jsonobj(l);
+			if(e->val == nil){
+				free(e);
+				goto abort;
+			}
+			*ln = e;
+			ln = &e->next;
+			if(lex(l) < 0)
+				goto abort;
+			if(l->t == (obj ? '}' : ']'))
+				break;
+			if(l->t != ','){
+				werrstr("json: syntax error, neither comma nor ending paren");
+				goto abort;
+			}
+		}
+		break;
+	abort:
+		jsonfree(j);
+		return nil;
+	case ']': case '}': case ',': case ':':
+		werrstr("json: unexpected %C", l->t);
+		goto error;
+	default:
+		werrstr("json: the front fell off");
+		goto error;
+	}
+	return j;
+}
+
+JSON*
+jsonparse(char *s)
+{
+	Lex l;
+
+	memset(&l, 0, sizeof(l));
+	l.s = s;
+	return jsonobj(&l);
+}
+
+void
+jsonfree(JSON *j)
+{
+	JSONEl *e, *f;
+
+	switch(j->t){
+	case JSONString:
+		if(j->s)
+			free(j->s);
+		break;
+	case JSONArray: case JSONObject:
+		for(e = j->first; e != nil; e = f){
+			if(e->name)
+				free(e->name);
+			jsonfree(e->val);
+			f = e->next;
+			free(e);
+		}
+	}
+	free(j);
+}
+
+JSON *
+jsonbyname(JSON *j, char *n)
+{
+	JSONEl *e;
+	
+	if(j->t != JSONObject){
+		werrstr("not an object");
+		return nil;
+	}
+	for(e = j->first; e != nil; e = e->next)
+		if(strcmp(e->name, n) == 0)
+			return e->val;
+	werrstr("key '%s' not found", n);
+	return nil;
+}
+
+char *
+jsonstr(JSON *j)
+{
+	if(j == nil)
+		return nil;
+	if(j->t != JSONString){
+		werrstr("not a string");
+		return nil;
+	}
+	return j->s;
+}

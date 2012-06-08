@@ -15,7 +15,8 @@ static char *phasenames[] = {
 
 struct State {
 	ECpriv p;
-	char *sign;
+	uchar buf[100];
+	int n;
 };
 
 static int
@@ -36,11 +37,11 @@ decryptkey(Fsstate *fss, char *key, char *password)
 	memset(buf, 0, sizeof buf);
 	base58enc(keyenc, buf, 37);
 	if(keyenc[0] != 0x80)
-		return failure(fss, "invalid key '%s'", buf);
+		return RpcNeedkey;
 	sha2_256(keyenc, 33, hash, nil);
 	sha2_256(hash, 32, hash, nil);
 	if(memcmp(keyenc + 33, hash, 4) != 0)
-		return failure(fss, "checksum error");
+		return RpcNeedkey;
 	st = fss->ps;
 	st->p.d = betomp(keyenc + 1, 32, nil);
 	st->p.x = mpnew(0);
@@ -67,6 +68,7 @@ ecdsainit(Proto *, Fsstate *fss)
 		dom.h = uitomp(1, nil);
 		dom.G = strtoec(&dom, "0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798", nil, nil);
 	}
+	fss->ps = nil;
 	if((iscli = isclient(_strfindattr(fss->attr, "role"))) < 0)
 		return failure(fss, nil);
 	if(iscli==0)
@@ -91,7 +93,7 @@ ecdsainit(Proto *, Fsstate *fss)
 	}
 	if(key == nil || password == nil)
 		return RpcNeedkey;
-	fss->ps = malloc(sizeof(State));
+	fss->ps = emalloc(sizeof(State));
 	ret = decryptkey(fss, key, password);
 	if(ret != RpcOk)
 		return ret;
@@ -103,12 +105,11 @@ ecdsainit(Proto *, Fsstate *fss)
 	return RpcOk;
 }
 
-static char *
-derencode(mpint *r, mpint *s)
+static void
+derencode(mpint *r, mpint *s, uchar *buf, int *n)
 {
-	uchar buf[100], rk[33], sk[33];
-	char *str;
-	int rl, sl, i;
+	uchar rk[33], sk[33];
+	int rl, sl;
 	
 	mptobe(r, rk, 32, nil);
 	mptobe(s, sk, 32, nil);
@@ -132,17 +133,13 @@ derencode(mpint *r, mpint *s)
 	buf[4 + rl] = 0x02;
 	buf[5 + rl] = sl;
 	memmove(buf + 6 + rl, sk, sl);
-	str = malloc(1024);
-	for(i = 0; i < 6 + rl + sl; i++)
-		sprint(str + 2 * i, "%.2x", buf[i]);
-	return str;
+	*n = 6 + rl + sl;
 }
 
 static int
 ecdsawrite(Fsstate *fss, void *va, uint n)
 {
 	State *st;
-	uchar hash[32];
 	mpint *r, *s;
 	
 	st = fss->ps;
@@ -150,12 +147,10 @@ ecdsawrite(Fsstate *fss, void *va, uint n)
 	default:
 		return phaseerror(fss, "write");
 	case CHaveKey:
-		sha2_256(va, n, hash, nil);
-		sha2_256(hash, 32, hash, nil);
 		r = mpnew(0);
 		s = mpnew(0);
-		ecdsasign(&dom, &st->p, hash, 32, r, s);
-		st->sign = derencode(r, s);
+		ecdsasign(&dom, &st->p, va, n, r, s);
+		derencode(r, s, st->buf, &st->n);
 		mpfree(r);
 		mpfree(s);
 		fss->phase = CHaveText;
@@ -166,11 +161,16 @@ ecdsawrite(Fsstate *fss, void *va, uint n)
 static int
 ecdsaread(Fsstate *fss, void *va, uint *n)
 {
+	State *st;
+	
+	st = fss->ps;
 	switch(fss->phase){
 	default:
 		return phaseerror(fss, "read");
 	case CHaveText:
-		*n = snprint(va, *n, ((State *)fss->ps)->sign);
+		if(*n > st->n)
+			*n = st->n;
+		memcpy(va, st->buf, *n);
 		fss->phase = Established;
 		return RpcOk;
 	}
@@ -182,13 +182,13 @@ ecdsaclose(Fsstate *fss)
 	State *st;
 	
 	st = fss->ps;
+	if(st == nil)
+		return;
 	if(st->p.x != nil){
 		mpfree(st->p.x);
 		mpfree(st->p.y);
 		mpfree(st->p.d);
 	}
-	if(st->sign != nil)
-		free(st->sign);
 	free(st);
 	fss->ps = nil;
 }
