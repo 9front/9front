@@ -22,20 +22,16 @@ struct State {
 static int
 decryptkey(Fsstate *fss, char *key, char *password)
 {
-	uchar keyenc[53], hash[32], ivec[AESbsize];
+	uchar keyenc[53], hash[32];
 	AESstate s;
 	State *st;
-	char buf[100];
 
 	if(base58dec(key, keyenc, 53) < 0)
 		return failure(fss, "invalid base58");
 	sha2_256((uchar *)password, strlen(password), hash, nil);
 	sha2_256(hash, 32, hash, nil);
-	genrandom(ivec, sizeof ivec);
 	setupAESstate(&s, hash, 32, keyenc+37);
 	aesCBCdecrypt(keyenc, 37, &s);
-	memset(buf, 0, sizeof buf);
-	base58enc(keyenc, buf, 37);
 	if(keyenc[0] != 0x80)
 		return RpcNeedkey;
 	sha2_256(keyenc, 33, hash, nil);

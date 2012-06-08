@@ -39,7 +39,7 @@ struct TxOut {
 	uchar sc[10000];
 };
 
-Biobuf *bp;
+Biobuf *bp, *bpout;
 
 int nin, nout;
 TxIn *in[0xFD];
@@ -272,6 +272,8 @@ main()
 
 	bp = malloc(sizeof(*bp));
 	Binit(bp, 0, OREAD);
+	bpout = malloc(sizeof(*bpout));
+	Binit(bpout, 1, OWRITE);
 	linenum = 0;
 	for(;;){
 		line = Brdstr(bp, '\n', 1);
@@ -337,14 +339,15 @@ main()
 	}
 	n = serialize(buf, -1);
 	for(i = 0; i < n; i++){
-		print("%.2x", buf[i]);
+		Bprint(bpout, "%.2x", buf[i]);
 		if((i%4)==3)
-			print(" ");
+			Bputc(bpout, ' ');
 		if((i%32)==31)
-			print("\n");
+			Bputc(bpout, '\n');
 	}
 	if((i%32)!=0)
-		print("\n");
+		Bputc(bpout, '\n');
+	Bterm(bpout);
 }
 
 Word words[] = {

@@ -1,6 +1,6 @@
 </$objtype/mkfile
 
-TARG=httpfs sign
+TARG=httpfs sign genkey
 
 BIN=/$objtype/bin/btc
 
