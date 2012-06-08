@@ -153,6 +153,14 @@ doscript(char **args, int n, uchar *script, int *len, TxIn *ti)
 			free(b);
 			continue;
 		}
+		if(args[i][0] == '['){
+			k = strtol(args[i] + 1, &s, 0);
+			b = mallocz(k, 1);
+			hexdec(s+1, b, k);
+			pushdat(&scr, b, k);
+			free(b);
+			continue;
+		}
 		sysfatal("invalid word %s", args[i]);
 next:	;
 	}
@@ -183,6 +191,7 @@ serialize(uchar *buf, int sig)
 			s += ti->sclen;
 		}
 		if(sig == i){
+			varenc(ti->scoldlen, &s);
 			memcpy(s, ti->scold, ti->scoldlen);
 			s += ti->scoldlen;
 		}
@@ -211,7 +220,7 @@ serialize(uchar *buf, int sig)
 	*s++ = 0;
 	*s++ = 0;
 	if(sig != -1){
-		*s++ = 0;
+		*s++ = 1;
 		*s++ = 0;
 		*s++ = 0;
 		*s++ = 0;
@@ -254,7 +263,7 @@ main()
 	TxIn *ti;
 	Sig *si;
 	uchar hash[32];
-	uchar sig[100];
+	uchar sig[100], c;
 
 	afd = open("/mnt/factotum/rpc", ORDWR);
 	if(afd < 0)
@@ -276,6 +285,11 @@ main()
 		if(tokenize(line, args, nelem(args)) != 2)
 			sysfatal("line %d: invalid data", linenum);
 		hexdec(args[0], ti->prev, 32);
+		for(n = 0; n < 16; n++){
+			c = ti->prev[n];
+			ti->prev[n] = ti->prev[31-n];
+			ti->prev[31-n] = c;
+		}
 		i = atoi(args[1]);
 		ti->prev[32] = i;
 		ti->prev[33] = i >> 8;
@@ -314,8 +328,8 @@ main()
 		sha2_256(hash, 32, hash, nil);
 		for(si = ti->sig; si != nil; si = si->n){
 			sign(hash, ti->sig->priv, sig + 1, &n);
-			print("%d\n", n);
-			sig[0] = n++;
+			sig[0] = ++n;
+			sig[n++] = 1;
 			memmove(ti->sc + si->loc + n, ti->sc + si->loc, ti->sclen - si->loc);
 			memmove(ti->sc + si->loc, sig, n);
 			ti->sclen += n;
@@ -329,7 +343,7 @@ main()
 		if((i%32)==31)
 			print("\n");
 	}
-	if((i%16)!=0)
+	if((i%32)!=0)
 		print("\n");
 }
 
