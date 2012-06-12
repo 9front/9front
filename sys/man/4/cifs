@@ -186,8 +186,8 @@ in milliseconds, the server proximity (0 is local), the server name,
 and the share name on that server.
 .SH COMPATIBILITY
 .I Cifs
-has been tested against
-.IR aquarela (8),
+has been tested against aquarela,
+.IR cifsd (8),
 Windows 95, NT4.0sp6,
 Windows server 2003, Windows server 2003, WinXP pro, 
 Samba 2.0 (Pluto VideoSpace), and Samba 3.0.
@@ -214,7 +214,7 @@ likely that this could be easily fixed.
 .B /sys/src/cmd/cifs
 .SH SEE ALSO
 .IR factotum (4),
-.IR aquarela (8)
+.IR cifsd (8)
 .SH BUGS
 DFS support is unfinished, it will not follow referals that span servers.
 .PP
