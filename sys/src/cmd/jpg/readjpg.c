@@ -397,12 +397,15 @@ marker(Header *h)
 {
 	int c;
 
+Again:
 	while((c=readbyte(h)) == 0)
-		fprint(2, "ReadJPG: skipping zero byte at offset %lld\n", Boffset(h->fd));
+		;
 	if(c != 0xFF)
-		jpgerror(h, "ReadJPG: expecting marker; found 0x%x at offset %lld\n", c, Boffset(h->fd));
+		goto Again;
 	while(c == 0xFF)
 		c = readbyte(h);
+	if(c == 0)
+		goto Again;
 	return c;
 }
 
@@ -440,13 +443,9 @@ readsegment(Header *h, int *markerp)
 	int m, n;
 	uchar tmp[2];
 
-	m = marker(h);
-	switch(m){
-	case EOI:
+	if((m = marker(h)) == EOI){
 		*markerp = m;
 		return 0;
-	case 0:
-		jpgerror(h, "ReadJPG: expecting marker; saw %.2x at offset %lld", m, Boffset(h->fd));
 	}
 	if(Breadn(h->fd, tmp, 2) != 2)
     Readerr:
@@ -473,7 +472,7 @@ int
 huffmantable(Header *h, uchar *b)
 {
 	Huffman *t;
-	int Tc, th, n, nsize, i, j, k, v, cnt, code, si, sr, m;
+	int Tc, th, n, nsize, i, j, k, v, cnt, code, si, sr;
 	int *maxcode;
 
 	nibbles(b[0], &Tc, &th);
@@ -547,24 +546,21 @@ outF25:
 	maxcode = t->maxcode;
 	/* stupid startup algorithm: just run machine for each byte value */
 	for(v=0; v<256; ){
-		cnt = 7;
-		m = 1<<7;
 		code = 0;
+		cnt = 8;
 		sr = v;
-		i = 1;
-		for(;;i++){
-			if(sr & m)
+		for(i=1;;i++){
+			cnt--;
+			if(sr & (1<<cnt))
 				code |= 1;
 			if(code <= maxcode[i])
 				break;
 			code <<= 1;
-			m >>= 1;
-			if(m == 0){
+			if(cnt == 0){
 				t->shift[v] = 0;
 				t->value[v] = -1;
 				goto continueBytes;
 			}
-			cnt--;
 		}
 		t->shift[v] = 8-cnt;
 		t->value[v] = t->val[t->valptr[i]+(code-t->mincode[i])];
@@ -707,22 +703,22 @@ baselinescan(Header *h, int colorspace)
 				memset(zz, 0, 8*8*sizeof(int));
 				zz[0] = qt[0]*DC[comp];
 				k = 1;
-
-				for(;;){
+				do{
 					t = decode(h, acht);
+					assert(t >= 0);
 					if((t&0x0F) == 0){
 						if((t&0xF0) != 0xF0)
 							break;
 						k += 16;
 					}else{
-						k += t>>4;
 						z = receive(h, t&0xF);
-						zz[zig[k]] = z*qt[k];
-						if(k == 63)
+						k += t>>4;
+						if(k >= 64)
 							break;
+						zz[zig[k]] = z*qt[k];
 						k++;
 					}
-				}
+				} while(k < 64);
 
 				idct(zz);
 			}
@@ -1006,7 +1002,7 @@ progressiveac(Header *h, int comp, int Al)
 			blockno = tmcu*H*V + H*(y%V) + x%H;
 			acc = h->accoeff[comp][blockno];
 			k = Ss;
-			for(;;){
+			do {
 				rs = decode(h, acht);
 				/* XXX remove rrrr ssss as in baselinescan */
 				nibbles(rs, &rrrr, &ssss);
@@ -1019,14 +1015,14 @@ progressiveac(Header *h, int comp, int Al)
 					}
 					k += 16;
 				}else{
-					k += rrrr;
 					z = receive(h, ssss);
-					acc[k] = z*qt[k]<<Al;
-					if(k == Se)
+					k += rrrr;
+					if(k > Se)
 						break;
+					acc[k] = z*qt[k]<<Al;
 					k++;
 				}
-			}
+			} while(k <= Se);
 		}
 
 		/* process restart marker, if present */
@@ -1358,9 +1354,8 @@ static
 int
 decode(Header *h, Huffman *t)
 {
-	int code, v, cnt, m, sr, i;
+	int code, v, cnt, sr, i;
 	int *maxcode;
-	static int badcode;
 
 	maxcode = t->maxcode;
 	if(h->cnt < 8)
@@ -1376,30 +1371,24 @@ decode(Header *h, Huffman *t)
 	h->cnt -= 8;
 	if(h->cnt == 0)
 		nextbyte(h, 0);
-	h->cnt--;
 	cnt = h->cnt;
-	m = 1<<cnt;
 	sr = h->sr;
 	code <<= 1;
-	i = 9;
-	for(;;i++){
-		if(sr & m)
+	for(i = 9; i<17; i++){
+		cnt--;
+		if(sr & (1<<cnt))
 			code |= 1;
 		if(code <= maxcode[i])
 			break;
 		code <<= 1;
-		m >>= 1;
-		if(m == 0){
+		if(cnt == 0){
 			sr = nextbyte(h, 0);
-			m = 0x80;
 			cnt = 8;
 		}
-		cnt--;
 	}
 	if(i >= 17){
-		if(badcode == 0)
-			fprint(2, "badly encoded %dx%d JPEG file; ignoring bad value\n", h->X, h->Y);
-		badcode = 1;
+		/* bad code */
+		code = 0;
 		i = 0;
 	}
 	h->cnt = cnt;
