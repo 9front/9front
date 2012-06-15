@@ -15,9 +15,8 @@ static Bus* mpbuslast;
 static int mpisabus = -1;
 static int mpeisabus = -1;
 extern int i8259elcr;			/* mask of level-triggered interrupts */
-static Apic mpapic[MaxAPICNO+1];
-static int machno2apicno[MaxAPICNO+1];	/* inverse map: machno -> APIC ID */
-static int mpapicremap[MaxAPICNO+1];
+static Apic *mpioapic[MaxAPICNO+1];
+static Apic *mpapic[MaxAPICNO+1];
 static int mpmachno = 1;
 static Lock mpphysidlock;
 static int mpphysid;
@@ -51,25 +50,21 @@ mkprocessor(PCMPprocessor* p)
 	Apic *apic;
 
 	apicno = p->apicno;
-	if(!(p->flags & PcmpEN) || apicno > MaxAPICNO)
+	if(!(p->flags & PcmpEN) || apicno >= nelem(mpapic) || mpapic[apicno] != nil)
 		return 0;
 
-	apic = &mpapic[apicno];
+	if((apic = xalloc(sizeof(Apic))) == nil)
+		panic("mkprocessor: no memory for Apic");
 	apic->type = PcmpPROCESSOR;
 	apic->apicno = apicno;
 	apic->flags = p->flags;
 	apic->lintr[0] = ApicIMASK;
 	apic->lintr[1] = ApicIMASK;
-
-	if(p->flags & PcmpBP){
-		machno2apicno[0] = apicno;
+	if(p->flags & PcmpBP)
 		apic->machno = 0;
-	}
-	else{
-		machno2apicno[mpmachno] = apicno;
-		apic->machno = mpmachno;
-		mpmachno++;
-	}
+	else
+		apic->machno = mpmachno++;
+	mpapic[apicno] = apic;
 
 	return apic;
 }
@@ -137,52 +132,29 @@ mpgetbus(int busno)
 	return 0;
 }
 
-static int
-freeapicid(void)
-{
-	int i;
-	
-	for(i = 0; i < MaxAPICNO+1; i++)
-		if(mpapic[i].flags == 0)
-			return i;
-	return -1;
-}
-
 static Apic*
 mkioapic(PCMPioapic* p)
 {
 	void *va;
-	int apicno, new;
+	int apicno;
 	Apic *apic;
 
 	apicno = p->apicno;
-	if(!(p->flags & PcmpEN) || apicno > MaxAPICNO)
+	if(!(p->flags & PcmpEN) || apicno >= nelem(mpioapic) || mpioapic[apicno] != nil)
 		return 0;
-
 	/*
 	 * Map the I/O APIC.
 	 */
 	if((va = vmap(p->addr, 1024)) == nil)
 		return 0;
-
-	apic = &mpapic[apicno];
-	if(apic->flags != 0) {
-		new = freeapicid();
-		if(new < 0)
-			print("mkioapic: out of APIC IDs\n");
-		else {
-			mpapicremap[p->apicno] = new;
-			print("mkioapic: APIC ID conflict at %d, remapping to %d\n", p->apicno, new);
-			p->apicno = apicno = new;
-			apic = &mpapic[apicno];
-		}
-	} else
-		mpapicremap[p->apicno] = p->apicno;
+	if((apic = xalloc(sizeof(Apic))) == nil)
+		panic("mkioapic: no memory for Apic");
 	apic->type = PcmpIOAPIC;
 	apic->apicno = apicno;
 	apic->addr = va;
 	apic->paddr = p->addr;
 	apic->flags = p->flags;
+	mpioapic[apicno] = apic;
 
 	return apic;
 }
@@ -200,14 +172,9 @@ mkiointr(PCMPintr* p)
 	 * It's unclear how that can possibly be correct so treat it as
 	 * an error for now.
 	 */
-	if(p->apicno > MaxAPICNO)
+	if(p->apicno >= nelem(mpioapic) || mpioapic[p->apicno] == nil)
 		return 0;
 	
-	if(mpapicremap[p->apicno] < 0) {
-		print("iointr: non-existing IOAPIC %d\n", p->apicno);
-		return 0;
-	}
-	p->apicno = mpapicremap[p->apicno];
 	if((bus = mpgetbus(p->busno)) == 0)
 		return 0;
 
@@ -237,7 +204,7 @@ mkiointr(PCMPintr* p)
 			aintr->intr = pcmpintr;
 		}
 	}
-	aintr->apic = &mpapic[p->apicno];
+	aintr->apic = mpioapic[p->apicno];
 	aintr->next = bus->aintr;
 	bus->aintr = aintr;
 
@@ -322,7 +289,7 @@ mklintr(PCMPintr* p)
 {
 	Apic *apic;
 	Bus *bus;
-	int intin, v;
+	int i, intin, v;
 
 	/*
 	 * The offsets of vectors for LINT[01] are known to be
@@ -342,16 +309,17 @@ mklintr(PCMPintr* p)
 		v = mpintrinit(bus, p, VectorLAPIC+intin, p->irq);
 
 	if(p->apicno == 0xFF){
-		for(apic = mpapic; apic <= &mpapic[MaxAPICNO]; apic++){
-			if((apic->flags & PcmpEN)
-			&& apic->type == PcmpPROCESSOR)
+		for(i=0; i<nelem(mpapic); i++){
+			if((apic = mpapic[i]) == nil)
+				continue;
+			if(apic->flags & PcmpEN)
 				apic->lintr[intin] = v;
 		}
 	}
 	else{
-		apic = &mpapic[p->apicno];
-		if((apic->flags & PcmpEN) && apic->type == PcmpPROCESSOR)
-			apic->lintr[intin] = v;
+		if(apic = mpapic[p->apicno])
+			if(apic->flags & PcmpEN)
+				apic->lintr[intin] = v;
 	}
 
 	return v;
@@ -581,9 +549,6 @@ mpinit(void)
 	print("LAPIC: %.8lux %.8lux\n", pcmp->lapicbase, (ulong)va);
 
 	bpapic = nil;
-	
-	for(i = 0; i <= MaxAPICNO; i++)
-		mpapicremap[i] = -1;
 
 	/*
 	 * Run through the table saving information needed for starting
@@ -679,11 +644,12 @@ mpinit(void)
 	else
 		ncpu = MAXMACH;
 	memmove((void*)APBOOTSTRAP, apbootstrap, sizeof(apbootstrap));
-	for(apic = mpapic; apic <= &mpapic[MaxAPICNO]; apic++){
+	for(i=0; i<nelem(mpapic); i++){
+		if((apic = mpapic[i]) == nil)
+			continue;
 		if(ncpu <= 1)
 			break;
-		if((apic->flags & (PcmpBP|PcmpEN)) == PcmpEN
-		&& apic->type == PcmpPROCESSOR){
+		if((apic->flags & (PcmpBP|PcmpEN)) == PcmpEN){
 			mpstartap(apic);
 			conf.nmach++;
 			ncpu--;
@@ -726,14 +692,16 @@ mpintrcpu(void)
 	lock(&mpphysidlock);
 	for(;;){
 		i = mpphysid++;
-		if(mpphysid >= MaxAPICNO+1)
+		if(mpphysid >= nelem(mpapic))
 			mpphysid = 0;
-		if(mpapic[i].online)
+		if(mpapic[i] == nil)
+			continue;
+		if(mpapic[i]->online)
 			break;
 	}
 	unlock(&mpphysidlock);
 
-	return mpapic[i].apicno;
+	return mpapic[i]->apicno;
 }
 
 /*
