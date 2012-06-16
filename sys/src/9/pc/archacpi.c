@@ -213,7 +213,7 @@ findapic(int gsi, int *pintin)
 			continue;
 		if((a->flags & PcmpEN) == 0)
 			continue;
-		if(gsi >= a->gsibase && gsi < a->gsibase+a->mre){
+		if(gsi >= a->gsibase && gsi <= a->gsibase+a->mre){
 			if(pintin)
 				*pintin = gsi - a->gsibase;
 			return a;
