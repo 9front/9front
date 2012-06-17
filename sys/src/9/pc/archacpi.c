@@ -375,7 +375,7 @@ acpiinit(void)
 	amleval(amlwalk(amlroot, "_PIC"), "i", 1, nil);
 
 	if((t = findtable("APIC")) == nil)
-		panic("acpiinit: no APIC table found");
+		panic("acpiinit: no MADT table");
 
 	p = t->data;
 	e = p + tbldlen(t);
@@ -407,8 +407,8 @@ acpiinit(void)
 				a->machno = machno++;
 
 				/*
-				 * how do we know if this is the
-				 * bootstrap processors apic?
+				 * platform firmware should list the boot processor
+				 * as the first processor entry in the MADT
 				 */
 				if(a->machno == 0)
 					a->flags |= PcmpBP;
