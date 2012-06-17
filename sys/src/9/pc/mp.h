@@ -162,6 +162,7 @@ typedef struct Apic {
 
 	Lock;				/* I/O APIC: register access */
 	int	mre;			/* I/O APIC: maximum redirection entry */
+	int	gsibase;		/* I/O APIC: global system interrupt base (acpi) */
 
 	int	lintr[2];		/* Local APIC */
 	int	machno;
@@ -228,8 +229,14 @@ extern void lapicspurious(Ureg*, void*);
 extern void lapicstartap(Apic*, int);
 extern void lapictimerset(uvlong);
 
+extern int mpintrinit(Bus*, PCMPintr*, int, int);
 extern void mpinit(void);
 extern int mpintrenable(Vctl*);
 extern void mpshutdown(void);
 
-extern _MP_ *_mp_;
+extern Bus* mpbus;
+extern Bus* mpbuslast;
+extern int mpisabus;
+extern int mpeisabus;
+extern Apic *mpioapic[];
+extern Apic *mpapic[];

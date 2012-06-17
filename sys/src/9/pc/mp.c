@@ -9,209 +9,15 @@
 #include "mp.h"
 #include "apbootstrap.h"
 
-static PCMP* mppcmp;
-static Bus* mpbus;
-static Bus* mpbuslast;
-static int mpisabus = -1;
-static int mpeisabus = -1;
-extern int i8259elcr;			/* mask of level-triggered interrupts */
-static Apic *mpioapic[MaxAPICNO+1];
-static Apic *mpapic[MaxAPICNO+1];
-static int mpmachno = 1;
-static Lock mpphysidlock;
-static int mpphysid;
+/* filled in by pcmpinit or acpiinit */
+Bus* mpbus;
+Bus* mpbuslast;
+int mpisabus = -1;
+int mpeisabus = -1;
+Apic *mpioapic[MaxAPICNO+1];
+Apic *mpapic[MaxAPICNO+1];
 
-static char* buses[] = {
-	"CBUSI ",
-	"CBUSII",
-	"EISA  ",
-	"FUTURE",
-	"INTERN",
-	"ISA   ",
-	"MBI   ",
-	"MBII  ",
-	"MCA   ",
-	"MPI   ",
-	"MPSA  ",
-	"NUBUS ",
-	"PCI   ",
-	"PCMCIA",
-	"TC    ",
-	"VL    ",
-	"VME   ",
-	"XPRESS",
-	0,
-};
-
-static Apic*
-mkprocessor(PCMPprocessor* p)
-{
-	int apicno;
-	Apic *apic;
-
-	apicno = p->apicno;
-	if(!(p->flags & PcmpEN) || apicno >= nelem(mpapic) || mpapic[apicno] != nil)
-		return 0;
-
-	if((apic = xalloc(sizeof(Apic))) == nil)
-		panic("mkprocessor: no memory for Apic");
-	apic->type = PcmpPROCESSOR;
-	apic->apicno = apicno;
-	apic->flags = p->flags;
-	apic->lintr[0] = ApicIMASK;
-	apic->lintr[1] = ApicIMASK;
-	if(p->flags & PcmpBP)
-		apic->machno = 0;
-	else
-		apic->machno = mpmachno++;
-	mpapic[apicno] = apic;
-
-	return apic;
-}
-
-static Bus*
-mkbus(PCMPbus* p)
-{
-	Bus *bus;
-	int i;
-
-	for(i = 0; buses[i]; i++){
-		if(strncmp(buses[i], p->string, sizeof(p->string)) == 0)
-			break;
-	}
-	if(buses[i] == 0)
-		return 0;
-
-	if((bus = xalloc(sizeof(Bus))) == nil)
-		panic("mkbus: no memory for Bus");
-	if(mpbus)
-		mpbuslast->next = bus;
-	else
-		mpbus = bus;
-	mpbuslast = bus;
-
-	bus->type = i;
-	bus->busno = p->busno;
-	if(bus->type == BusEISA){
-		bus->po = PcmpLOW;
-		bus->el = PcmpLEVEL;
-		if(mpeisabus != -1)
-			print("mkbus: more than one EISA bus\n");
-		mpeisabus = bus->busno;
-	}
-	else if(bus->type == BusPCI){
-		bus->po = PcmpLOW;
-		bus->el = PcmpLEVEL;
-	}
-	else if(bus->type == BusISA){
-		bus->po = PcmpHIGH;
-		bus->el = PcmpEDGE;
-		if(mpisabus != -1)
-			print("mkbus: more than one ISA bus\n");
-		mpisabus = bus->busno;
-	}
-	else{
-		bus->po = PcmpHIGH;
-		bus->el = PcmpEDGE;
-	}
-
-	return bus;
-}
-
-static Bus*
-mpgetbus(int busno)
-{
-	Bus *bus;
-
-	for(bus = mpbus; bus; bus = bus->next){
-		if(bus->busno == busno)
-			return bus;
-	}
-	print("mpgetbus: can't find bus %d\n", busno);
-
-	return 0;
-}
-
-static Apic*
-mkioapic(PCMPioapic* p)
-{
-	void *va;
-	int apicno;
-	Apic *apic;
-
-	apicno = p->apicno;
-	if(!(p->flags & PcmpEN) || apicno >= nelem(mpioapic) || mpioapic[apicno] != nil)
-		return 0;
-	/*
-	 * Map the I/O APIC.
-	 */
-	if((va = vmap(p->addr, 1024)) == nil)
-		return 0;
-	if((apic = xalloc(sizeof(Apic))) == nil)
-		panic("mkioapic: no memory for Apic");
-	apic->type = PcmpIOAPIC;
-	apic->apicno = apicno;
-	apic->addr = va;
-	apic->paddr = p->addr;
-	apic->flags = p->flags;
-	mpioapic[apicno] = apic;
-
-	return apic;
-}
-
-static Aintr*
-mkiointr(PCMPintr* p)
-{
-	Bus *bus;
-	Aintr *aintr;
-	PCMPintr* pcmpintr;
-
-	/*
-	 * According to the MultiProcessor Specification, a destination
-	 * I/O APIC of 0xFF means the signal is routed to all I/O APICs.
-	 * It's unclear how that can possibly be correct so treat it as
-	 * an error for now.
-	 */
-	if(p->apicno >= nelem(mpioapic) || mpioapic[p->apicno] == nil)
-		return 0;
-	
-	if((bus = mpgetbus(p->busno)) == 0)
-		return 0;
-
-	if((aintr = xalloc(sizeof(Aintr))) == nil)
-		panic("iointr: no memory for Aintr");
-	aintr->intr = p;
-
-	if(0)
-		print("iointr: type %d intr type %d flags %#o "
-			"bus %d irq %d apicno %d intin %d\n",
-			p->type, p->intr, p->flags,
-			p->busno, p->irq, p->apicno, p->intin);
-	/*
-	 * Hack for Intel SR1520ML motherboard, which BIOS describes
-	 * the i82575 dual ethernet controllers incorrectly.
-	 */
-	if(memcmp(mppcmp->product, "INTEL   X38MLST     ", 20) == 0){
-		if(p->busno == 1 && p->intin == 16 && p->irq == 1){
-			if((pcmpintr = xalloc(sizeof(PCMPintr))) == nil)
-				panic("iointr: no memory for PCMPintr");
-			memmove(pcmpintr, p, sizeof(PCMPintr));
-			print("mkiointr: %20.20s bus %d intin %d irq %d\n",
-				(char*)mppcmp->product,
-				pcmpintr->busno, pcmpintr->intin,
-				pcmpintr->irq);
-			pcmpintr->intin = 17;
-			aintr->intr = pcmpintr;
-		}
-	}
-	aintr->apic = mpioapic[p->apicno];
-	aintr->next = bus->aintr;
-	bus->aintr = aintr;
-
-	return aintr;
-}
-
-static int
+int
 mpintrinit(Bus* bus, PCMPintr* intr, int vno, int /*irq*/)
 {
 	int el, po, v;
@@ -284,47 +90,6 @@ mpintrinit(Bus* bus, PCMPintr* intr, int vno, int /*irq*/)
 	return v;
 }
 
-static int
-mklintr(PCMPintr* p)
-{
-	Apic *apic;
-	Bus *bus;
-	int i, intin, v;
-
-	/*
-	 * The offsets of vectors for LINT[01] are known to be
-	 * 0 and 1 from the local APIC vector space at VectorLAPIC.
-	 */
-	if((bus = mpgetbus(p->busno)) == 0)
-		return 0;
-	intin = p->intin;
-
-	/*
-	 * Pentium Pros have problems if LINT[01] are set to ExtINT
-	 * so just bag it, SMP mode shouldn't need ExtINT anyway.
-	 */
-	if(p->intr == PcmpExtINT || p->intr == PcmpNMI)
-		v = ApicIMASK;
-	else
-		v = mpintrinit(bus, p, VectorLAPIC+intin, p->irq);
-
-	if(p->apicno == 0xFF){
-		for(i=0; i<nelem(mpapic); i++){
-			if((apic = mpapic[i]) == nil)
-				continue;
-			if(apic->flags & PcmpEN)
-				apic->lintr[intin] = v;
-		}
-	}
-	else{
-		if(apic = mpapic[p->apicno])
-			if(apic->flags & PcmpEN)
-				apic->lintr[intin] = v;
-	}
-
-	return v;
-}
-
 static void
 checkmtrr(void)
 {
@@ -374,6 +139,36 @@ checkmtrr(void)
 		if(mach0->mtrrvar[i] != m->mtrrvar[i])
 			print("mtrrvar%d: i%d: %lluX %lluX\n",
 				m->machno, i, mach0->mtrrvar[i], m->mtrrvar[i]);
+	}
+}
+
+uvlong
+tscticks(uvlong *hz)
+{
+	if(hz != nil)
+		*hz = m->cpuhz;
+
+	cycles(&m->tscticks);	/* Uses the rdtsc instruction */
+	return m->tscticks;
+}
+
+void
+syncclock(void)
+{
+	uvlong x;
+
+	if(arch->fastclock != tscticks)
+		return;
+
+	if(m->machno == 0){
+		wrmsr(0x10, 0);
+		m->tscticks = 0;
+	} else {
+		x = MACHP(0)->tscticks;
+		while(x == MACHP(0)->tscticks)
+			;
+		wrmsr(0x10, MACHP(0)->tscticks);
+		cycles(&m->tscticks);
 	}
 }
 
@@ -483,141 +278,56 @@ mpstartap(Apic* apic)
 	nvramwrite(0x0F, 0x00);
 }
 
-static void
-dumpmp(uchar *p, uchar *e)
-{
-	int i;
-
-	for(i = 0; p < e; p++) {
-		if((i % 16) == 0) print("*mp%d=", i/16);
-		print("%.2x ", *p);
-		if((++i % 16) == 0) print("\n");
-	}
-	if((i % 16) != 0) print("\n");
-}
-
-static void
-mpoverride(uchar** newp, uchar** e)
-{
-	int size, i, j;
-	char buf[20];
-	uchar* p;
-	char* s;
-	
-	size = atoi(getconf("*mp"));
-	if(size == 0) panic("mpoverride: invalid size in *mp");
-	*newp = p = xalloc(size);
-	if(p == nil) panic("mpoverride: can't allocate memory");
-	*e = p + size;
-	for(i = 0; ; i++){
-		snprint(buf, sizeof buf, "*mp%d", i);
-		s = getconf(buf);
-		if(s == nil) break;
-		while(*s){
-			j = strtol(s, &s, 16);
-			if(*s && *s != ' ' || j < 0 || j > 0xff) panic("mpoverride: invalid entry in %s", buf);
-			if(p >= *e) panic("mpoverride: overflow in %s", buf);
-			*p++ = j;
-		}
-	}
-	if(p != *e) panic("mpoverride: size doesn't match");
-}
-
 void
 mpinit(void)
 {
 	int ncpu, i;
+	Apic *apic;
 	char *cp;
-	PCMP *pcmp;
-	uchar *e, *p;
-	Apic *apic, *bpapic;
-	void *va;
 
 	i8259init();
 	syncclock();
 
-	if(_mp_ == 0)
-		return;
-	pcmp = KADDR(_mp_->physaddr);
+	if(getconf("*apicdebug")){
+		Bus *b;
+		Aintr *ai;
+		PCMPintr *pi;
 
-	/*
-	 * Map the local APIC.
-	 */
-	if((va = vmap(pcmp->lapicbase, 1024)) == nil)
-		return;
-	mppcmp = pcmp;
-	print("LAPIC: %.8lux %.8lux\n", pcmp->lapicbase, (ulong)va);
-
-	bpapic = nil;
-
-	/*
-	 * Run through the table saving information needed for starting
-	 * application processors and initialising any I/O APICs. The table
-	 * is guaranteed to be in order such that only one pass is necessary.
-	 */
-	p = ((uchar*)pcmp)+sizeof(PCMP);
-	e = ((uchar*)pcmp)+pcmp->length;
-	if(getconf("*dumpmp") != nil)
-		dumpmp(p, e);
-	if(getconf("*mp") != nil)
-		mpoverride(&p, &e);
-	while(p < e) switch(*p){
-	default:
-		print("mpinit: unknown PCMP type 0x%uX (e-p 0x%luX)\n",
-			*p, e-p);
-		while(p < e){
-			print("%uX ", *p);
-			p++;
+		for(i=0; i<=MaxAPICNO; i++){
+			if(apic = mpapic[i])
+				print("LAPIC%d: pa=%lux va=%lux flags=%x\n",
+					i, apic->paddr, (ulong)apic->addr, apic->flags);
+			if(apic = mpioapic[i])
+				print("IOAPIC%d: pa=%lux va=%lux flags=%x gsibase=%d mre=%d\n",
+					i, apic->paddr, (ulong)apic->addr, apic->flags, apic->gsibase, apic->mre);
 		}
-		break;
-
-	case PcmpPROCESSOR:
-		if(apic = mkprocessor((PCMPprocessor*)p)){
-			/*
-			 * Must take a note of bootstrap processor APIC
-			 * now as it will be needed in order to start the
-			 * application processors later and there's no
-			 * guarantee that the bootstrap processor appears
-			 * first in the table before the others.
-			 */
-			apic->addr = va;
-			apic->paddr = pcmp->lapicbase;
-			if(apic->flags & PcmpBP)
-				bpapic = apic;
+		for(b = mpbus; b; b = b->next){
+			print("BUS%d type=%d flags=%x\n", b->busno, b->type, b->po|b->el);
+			for(ai = b->aintr; ai; ai = ai->next){
+				if(pi = ai->intr)
+					print("\ttype=%d irq=%d (%d [%c]) apic=%d intin=%d flags=%x\n",
+						pi->type, pi->irq, pi->irq>>2, "ABCD"[pi->irq&3],
+						pi->apicno, pi->intin, pi->flags);
+			}
 		}
-		p += sizeof(PCMPprocessor);
-		continue;
-
-	case PcmpBUS:
-		mkbus((PCMPbus*)p);
-		p += sizeof(PCMPbus);
-		continue;
-
-	case PcmpIOAPIC:
-		if(apic = mkioapic((PCMPioapic*)p))
-			ioapicinit(apic, ((PCMPioapic*)p)->apicno);
-		p += sizeof(PCMPioapic);
-		continue;
-
-	case PcmpIOINTR:
-		mkiointr((PCMPintr*)p);
-		p += sizeof(PCMPintr);
-		continue;
-
-	case PcmpLINTR:
-		mklintr((PCMPintr*)p);
-		p += sizeof(PCMPintr);
-		continue;
 	}
 
-	/*
-	 * No bootstrap processor, no need to go further.
-	 */
-	if(bpapic == 0)
-		return;
-	bpapic->online = 1;
+	apic = nil;
+	for(i=0; i<=MaxAPICNO; i++){
+		if(mpapic[i] == nil)
+			continue;
+		if(mpapic[i]->flags & PcmpBP){
+			apic = mpapic[i];
+			break;
+		}
+	}
 
-	lapicinit(bpapic);
+	if(apic == nil){
+		panic("mpinit: no bootstrap processor");
+		return;
+	}
+	apic->online = 1;
+	lapicinit(apic);
 
 	/*
 	 * These interrupts are local to the processor
@@ -670,6 +380,8 @@ mpinit(void)
 static int
 mpintrcpu(void)
 {
+	static Lock physidlock;
+	static int physid;
 	int i;
 
 	/*
@@ -689,17 +401,17 @@ mpintrcpu(void)
 	 * to more than one thread in a core, or to use a "noise" core.
 	 * But, as usual, Intel make that an onerous task. 
 	 */
-	lock(&mpphysidlock);
+	lock(&physidlock);
 	for(;;){
-		i = mpphysid++;
-		if(mpphysid >= nelem(mpapic))
-			mpphysid = 0;
+		i = physid++;
+		if(physid >= nelem(mpapic))
+			physid = 0;
 		if(mpapic[i] == nil)
 			continue;
 		if(mpapic[i]->online)
 			break;
 	}
-	unlock(&mpphysidlock);
+	unlock(&physidlock);
 
 	return mpapic[i]->apicno;
 }
@@ -741,23 +453,41 @@ mpintrenablex(Vctl* v, int tbdf)
 	Aintr *aintr;
 	Apic *apic;
 	Pcidev *pcidev;
-	int bno, dno, hi, irq, lo, n, type, vno;
+	int bno, dno, pin, hi, irq, lo, n, type, vno;
 
-	/*
-	 * Find the bus.
-	 */
 	type = BUSTYPE(tbdf);
 	bno = BUSBNO(tbdf);
 	dno = BUSDNO(tbdf);
-	if(type == BusISA)
+
+	pin = 0;
+	pcidev = nil;
+	if(type == BusPCI){
+		if(pcidev = pcimatchtbdf(tbdf))
+			pin = pcicfgr8(pcidev, PciINTP);
+	} else if(type == BusISA)
 		bno = mpisabus;
+
+Findbus:
 	for(bus = mpbus; bus != nil; bus = bus->next){
 		if(bus->type != type)
 			continue;
 		if(bus->busno == bno)
 			break;
 	}
+
 	if(bus == nil){
+		/*
+		 * if the PCI device is behind a PCI-PCI bridge thats not described
+		 * by the MP or ACPI tables then walk up the bus translating interrupt
+		 * pin to parent bus.
+		 */
+		if(pcidev && pcidev->parent && pin > 0){
+			pin = ((dno+(pin-1))%4)+1;
+			pcidev = pcidev->parent;
+			bno = BUSBNO(pcidev->tbdf);
+			dno = BUSDNO(pcidev->tbdf);
+			goto Findbus;
+		}
 		print("mpintrenable: can't find bus type %d, number %d\n", type, bno);
 		return -1;
 	}
@@ -765,13 +495,11 @@ mpintrenablex(Vctl* v, int tbdf)
 	/*
 	 * For PCI devices the interrupt pin (INT[ABCD]) and device
 	 * number are encoded into the entry irq field, so create something
-	 * to match on. The interrupt pin used by the device has to be
-	 * obtained from the PCI config space.
+	 * to match on.
 	 */
 	if(bus->type == BusPCI){
-		pcidev = pcimatchtbdf(tbdf);
-		if(pcidev != nil && (n = pcicfgr8(pcidev, PciINTP)) != 0)
-			irq = (dno<<2)|(n-1);
+		if(pin > 0)
+			irq = (dno<<2)|(pin-1);
 		else
 			irq = -1;
 	}
@@ -932,15 +660,16 @@ mpintrenable(Vctl* v)
 	return -1;
 }
 
-static Lock mpshutdownlock;
 
 void
 mpshutdown(void)
 {
+	static Lock shutdownlock;
+
 	/*
 	 * To be done...
 	 */
-	if(!canlock(&mpshutdownlock)){
+	if(!canlock(&shutdownlock)){
 		/*
 		 * If this processor received the CTRL-ALT-DEL from
 		 * the keyboard, acknowledge it. Send an INIT to self.

@@ -367,7 +367,7 @@ pcibusmap(Pcidev *root, ulong *pmema, ulong *pioa, int wrreg)
 }
 
 static int
-pcilscan(int bno, Pcidev** list)
+pcilscan(int bno, Pcidev** list, Pcidev *parent)
 {
 	Pcidev *p, *head, *tail;
 	int dno, fno, i, hdt, l, maxfno, maxubn, rno, sbn, tbdf, ubn;
@@ -453,6 +453,7 @@ pcilscan(int bno, Pcidev** list)
 				break;
 			}
 
+			p->parent = parent;
 			if(head != nil)
 				tail->link = p;
 			else
@@ -494,7 +495,7 @@ pcilscan(int bno, Pcidev** list)
 			l = (MaxUBN<<16)|(sbn<<8)|bno;
 			pcicfgw32(p, PciPBN, l);
 			pcicfgw16(p, PciSPSR, 0xFFFF);
-			maxubn = pcilscan(sbn, &p->bridge);
+			maxubn = pcilscan(sbn, &p->bridge, p);
 			l = (maxubn<<16)|(sbn<<8)|bno;
 
 			pcicfgw32(p, PciPBN, l);
@@ -502,7 +503,7 @@ pcilscan(int bno, Pcidev** list)
 		else {
 			if(ubn > maxubn)
 				maxubn = ubn;
-			pcilscan(sbn, &p->bridge);
+			pcilscan(sbn, &p->bridge, p);
 		}
 	}
 
@@ -515,7 +516,7 @@ pciscan(int bno, Pcidev **list)
 	int ubn;
 
 	lock(&pcicfginitlock);
-	ubn = pcilscan(bno, list);
+	ubn = pcilscan(bno, list, nil);
 	unlock(&pcicfginitlock);
 	return ubn;
 }
@@ -1004,7 +1005,7 @@ pcicfginit(void)
 	list = &pciroot;
 	for(bno = 0; bno <= pcimaxbno; bno++) {
 		int sbno = bno;
-		bno = pcilscan(bno, list);
+		bno = pcilscan(bno, list, nil);
 
 		while(*list)
 			list = &(*list)->link;

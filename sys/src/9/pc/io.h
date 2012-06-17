@@ -271,6 +271,7 @@ struct Pcidev
 	Pcidev*	list;
 	Pcidev*	link;			/* next device on this bno */
 
+	Pcidev*	parent;			/* up a bus */
 	Pcidev*	bridge;			/* down a bus */
 	struct {
 		ulong	bar;

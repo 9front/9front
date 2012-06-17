@@ -68,6 +68,7 @@ LIB=\
 	/$objtype/lib/libsec.a\
 	/$objtype/lib/libmp.a\
 	/$objtype/lib/libfis.a\
+	/$objtype/lib/libaml.a\
 
 ETHER=`{echo devether.c ether*.c | sed 's/\.c/.'$O'/g'}
 VGA=`{echo devvga.c screen.c vga*.c | sed 's/\.c/.'$O'/g'}
