@@ -45,5 +45,5 @@ is prepended.
 .B /rc/bin/sysupdate
 .SH SEE ALSO
 .IR intro (3),
-.IR plan9.ini(8),
+.IR plan9.ini (8),
 .IR hg (1)
