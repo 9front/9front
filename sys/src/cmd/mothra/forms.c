@@ -445,50 +445,7 @@ void h_resetinput(Panel *p, int){
 }
 void h_buttoninput(Panel *p, int){
 }
-int ulen(char *s){
-	int len;
-	len=0;
-	for(;*s;s++){
-		if(strchr("/$-_@.!*'(), ", *s)
-		|| 'a'<=*s && *s<='z'
-		|| 'A'<=*s && *s<='Z'
-		|| '0'<=*s && *s<='9')
-			len++;
-		else
-			len+=3;
-	}
-	return len;
-}
-int hexdigit(int v){
-	return 0<=v && v<=9?'0'+v:'A'+v-10;
-}
-char *ucpy(char *buf, char *s){
-	for(;*s;s++){
-		if(strchr("/$-_@.!*'(),", *s)
-		|| 'a'<=*s && *s<='z'
-		|| 'A'<=*s && *s<='Z'
-		|| '0'<=*s && *s<='9')
-			*buf++=*s;
-		else if(*s==' ')
-			*buf++='+';
-		else{
-			*buf++='%';
-			*buf++=hexdigit((*s>>4)&15);
-			*buf++=hexdigit(*s&15);
-		}
-	}
-	*buf='\0';
-	return buf;
-}
-char *runetou(char *buf, Rune r){
-	char rbuf[2];
-	if(r<=255){
-		rbuf[0]=r;
-		rbuf[1]='\0';
-		buf=ucpy(buf, rbuf);
-	}
-	return buf;
-}
+
 /*
  * If there's exactly one button with type=text, then
  * a CR in the button is supposed to submit the form.
@@ -505,25 +462,25 @@ void h_submittype(Panel *p, char *){
 void h_submitindex(Panel *p, char *){
 	h_submitinput(p, 0);
 }
-void h_submitinput(Panel *p, int){
-	Form *form;
-	int size, nrune;
-	char *buf, *bufp, sep;
-	Rune *rp;
-	Field *f;
+
+void
+uencodeform(Form *form, int fd){
+	char *b, *p, *sep;
 	Option *o;
-	form=((Field *)p->userp)->form;
-	if(form->method==GET) size=ulen(form->action)+1;
-	else size=1;
+	Field *f;
+	Rune *rp;
+	int n;
+
+	sep = "";
 	for(f=form->fields;f;f=f->next) switch(f->type){
 	case TYPEIN:
 	case PASSWD:
-		if(f->name==0)
-			continue;
-		size+=ulen(f->name)+1+ulen(plentryval(f->p))+1;
+		fprint(fd, "%s%U=%U", sep, f->name, plentryval(f->p));
+		sep = "&";
 		break;
 	case INDEX:
-		size+=ulen(plentryval(f->p))+1;
+		fprint(fd, "%s%U", sep, plentryval(f->p));
+		sep = "&";
 		break;
 	case CHECK:
 	case RADIO:
@@ -531,98 +488,75 @@ void h_submitinput(Panel *p, int){
 	case HIDDEN:
 		if(f->name==0 || f->value==0)
 			continue;
-		size+=ulen(f->name)+1+ulen(f->value)+1;
-		break;
-	case SELECT:
-		if(f->name==0)
-			continue;
-		for(o=f->options;o;o=o->next)
-			if(o->selected && o->value)
-				size+=ulen(f->name)+1+ulen(o->value)+1;
-		break;
-	case TEXTWIN:
-		if(f->name==0)
-			continue;
-		size+=ulen(f->name)+1+plelen(f->textwin)*3+1;
-		break;
-	}
-	buf=emalloc(size);
-	if(form->method==GET){
-		strcpy(buf, form->action);
-		sep='?';
-	}
-	else{
-		buf[0]='\0';
-		sep=0;
-	}
-	bufp=buf+strlen(buf);
-	if(form->method==GET && bufp!=buf && bufp[-1]=='?') *--bufp='\0'; /* spurious ? */
-	for(f=form->fields;f;f=f->next) switch(f->type){
-	case TYPEIN:
-	case PASSWD:
-		if(f->name==0)
-			continue;
-		if(sep) *bufp++=sep;
-		sep='&';
-		bufp=ucpy(bufp, f->name);
-		*bufp++='=';
-		bufp=ucpy(bufp, plentryval(f->p));
-		break;
-	case INDEX:
-		if(sep) *bufp++=sep;
-		sep='&';
-		bufp=ucpy(bufp, plentryval(f->p));
-		break;
-	case CHECK:
-	case RADIO:
-		if(!f->state) break;
-	case HIDDEN:
-		if(f->name==0 || f->value==0)
-			continue;
-		if(sep) *bufp++=sep;
-		sep='&';
-		bufp=ucpy(bufp, f->name);
-		*bufp++='=';
-		bufp=ucpy(bufp, f->value);
+		fprint(fd, "%s%U=%U", sep, f->name, f->value);
+		sep = "&";
 		break;
 	case SELECT:
 		if(f->name==0)
 			continue;
 		for(o=f->options;o;o=o->next)
 			if(o->selected && o->value){
-				if(sep) *bufp++=sep;
-				sep='&';
-				bufp=ucpy(bufp, f->name);
-				*bufp++='=';
-				bufp=ucpy(bufp, o->value);
+				fprint(fd, "%s%U=%U", sep, f->name, o->value);
+				sep = "&";
 			}
 		break;
 	case TEXTWIN:
 		if(f->name==0)
 			continue;
-		if(sep) *bufp++=sep;
-		sep='&';
-		bufp=ucpy(bufp, f->name);
-		*bufp++='=';
+		n=plelen(f->textwin);
 		rp=pleget(f->textwin);
-		for(nrune=plelen(f->textwin);nrune!=0;--nrune)
-			bufp=runetou(bufp, *rp++);
-		*bufp='\0';
+		p=b=malloc(UTFmax*n+1);
+		if(b == nil)
+			continue;
+		while(n > 0){
+			p += runetochar(p, rp);
+			rp++;
+			n--;
+		}
+		*p = 0;
+		fprint(fd, "%s%U=%U", sep, f->name, b);
+		sep = "&";
+		free(b);
 		break;
 	}
+}
+
+void h_submitinput(Panel *p, int){
+	char buf[NNAME];
+	Form *form;
+	int n, fd;
+
+	form=((Field *)p->userp)->form;
 	if(form->method==GET){
+		strcpy(buf, "/tmp/mfXXXXXXXXXXX");
+		fd = create(mktemp(buf), ORDWR|ORCLOSE, 0600);
+		if(fd >= 0)
+			fprint(fd, "%s?", form->action);
+	} else
+		fd = urlpost(selurl(form->action), nil);
+	if(fd < 0){
+		message("submit form: %r");
+		return;
+	}
+
+	uencodeform(form, fd);
+
+	if(form->method==GET){
+		seek(fd, 0, 0);
+		n = readn(fd, buf, sizeof(buf));
+		close(fd);
+		if(n < 0 || n >= sizeof(buf)){
+			message("submit form: post data too large");
+			return;
+		}
+		buf[n] = 0;
 		if(debug)fprint(2, "GET %s\n", buf);
 		geturl(buf, -1, 0, 0);
 	}
 	else{
-		int post;
-
-		if(debug)fprint(2, "POST %s: %s\n", form->action, buf);
-		if((post = urlpost(selurl(form->action), nil)) >= 0)
-			write(post, buf, strlen(buf));
-		geturl(form->action, post, 0, 0);
+		if(debug)fprint(2, "POST %s\n", form->action);
+		geturl(form->action, fd, 0, 0);
 	}
-	free(buf);
 }
 
 void freeform(void *p)
@@ -654,4 +588,21 @@ void freeform(void *p)
 		}
 		free(form);
 	}
+}
+
+int
+Ufmt(Fmt *f){
+	char *s = va_arg(f->args, char*);
+	for(; *s; s++){
+		if(strchr("/$-_@.!*'(),", *s)
+		|| 'a'<=*s && *s<='z'
+		|| 'A'<=*s && *s<='Z'
+		|| '0'<=*s && *s<='9')
+			fmtprint(f, "%c", *s);
+		else if(*s==' ')
+			fmtprint(f, "+");
+		else
+			fmtprint(f, "%%%.2X", (unsigned int)*s);
+	}
+	return 0;
 }

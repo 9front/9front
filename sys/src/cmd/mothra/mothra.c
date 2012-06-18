@@ -251,6 +251,8 @@ void main(int argc, char *argv[]){
 	int i;
 
 	quotefmtinstall();
+	fmtinstall('U', Ufmt);
+
 	ARGBEGIN{
 	case 'd': debug=1; break;
 	case 'v': verbose=1; break;

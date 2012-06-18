@@ -93,6 +93,8 @@ void *emalloc(int);
 void *emallocz(int, int);
 void nstrcpy(char *to, char *from, int len);
 void freeform(void *p);
+int Ufmt(Fmt *f);
+#pragma	varargck type "U" char*
 void message(char *, ...);
 int snooptype(int fd);
 void mkfieldpanel(Rtext *);
@@ -100,3 +102,4 @@ void geturl(char *, int, int, int);
 int urlpost(Url*, char*);
 int urlget(Url*, int);
 char version[];
+
