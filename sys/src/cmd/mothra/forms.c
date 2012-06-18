@@ -8,10 +8,12 @@
 #include <panel.h>
 #include "mothra.h"
 #include "html.h"
+
 typedef struct Field Field;
 typedef struct Option Option;
 struct Form{
 	int method;
+	char *ctype;
 	char *action;
 	Field *fields, *efields;
 	Form *next;
@@ -56,6 +58,9 @@ struct Option{
 	char *value;
 	Option *next;
 };
+
+#define BOUNDARY "hjdicksHjDiCkSHJDICKS"
+
 void h_checkinput(Panel *, int, int);
 void h_radioinput(Panel *, int, int);
 void h_submitinput(Panel *, int);
@@ -109,6 +114,9 @@ void rdform(Hglob *g){
 					"unknown form method %s\n", s);
 			g->form->method=GET;
 		}
+		s=pl_getattr(g->attr, "enctype");
+		if(s && cistrcmp(s, "multipart/form-data")==0)
+			g->form->ctype = "multipart/form-data; boundary=" BOUNDARY;
 		g->form->fields=0;
 
 		g->form->next = g->dst->form;
@@ -463,8 +471,68 @@ void h_submitindex(Panel *p, char *){
 	h_submitinput(p, 0);
 }
 
-void
-uencodeform(Form *form, int fd){
+void mencodeform(Form *form, int fd){
+	char *b, *p, *sep;
+	Option *o;
+	Field *f;
+	Rune *rp;
+	int n;
+
+#define SEPS	"-----------------------------" BOUNDARY
+#define NEXT	"\r\n" SEPS
+
+	sep = SEPS;
+	for(f=form->fields;f;f=f->next){
+		switch(f->type){
+		case TYPEIN:
+		case PASSWD:
+			fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
+				sep, f->name, plentryval(f->p));
+			sep = NEXT;
+			break;
+		case CHECK:
+		case RADIO:
+			if(!f->state) break;
+		case HIDDEN:
+			fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
+				sep, f->name, f->value);
+			sep = NEXT;
+			break;
+		case SELECT:
+			if(f->name==0)
+				continue;
+			for(o=f->options;o;o=o->next)
+				if(o->selected && o->value){
+					fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
+						sep, f->name, o->value);
+					sep = NEXT;
+				}
+			break;
+		case TEXTWIN:
+			if(f->name==0)
+				continue;
+			n=plelen(f->textwin);
+			rp=pleget(f->textwin);
+			p=b=malloc(UTFmax*n+1);
+			if(b == nil)
+				continue;
+			while(n > 0){
+				p += runetochar(p, rp);
+				rp++;
+				n--;
+			}
+			*p = 0;
+			fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
+				sep, f->name, b);
+			sep = NEXT;
+			free(b);
+			break;
+		}
+	}
+	fprint(fd, "%s--\r\n", sep);
+}
+
+void uencodeform(Form *form, int fd){
 	char *b, *p, *sep;
 	Option *o;
 	Field *f;
@@ -530,30 +598,31 @@ void h_submitinput(Panel *p, int){
 	if(form->method==GET){
 		strcpy(buf, "/tmp/mfXXXXXXXXXXX");
 		fd = create(mktemp(buf), ORDWR|ORCLOSE, 0600);
-		if(fd >= 0)
-			fprint(fd, "%s?", form->action);
 	} else
-		fd = urlpost(selurl(form->action), nil);
+		fd = urlpost(selurl(form->action), form->ctype);
 	if(fd < 0){
-		message("submit form: %r");
+		message("submit: %r");
 		return;
 	}
-
-	uencodeform(form, fd);
-
 	if(form->method==GET){
+		fprint(fd, "%s?", form->action);
+		uencodeform(form, fd);
 		seek(fd, 0, 0);
 		n = readn(fd, buf, sizeof(buf));
 		close(fd);
 		if(n < 0 || n >= sizeof(buf)){
-			message("submit form: post data too large");
+			message("submit: too large");
 			return;
 		}
 		buf[n] = 0;
 		if(debug)fprint(2, "GET %s\n", buf);
 		geturl(buf, -1, 0, 0);
-	}
-	else{
+	} else {
+		/* only set for multipart/form-data */
+		if(form->ctype)
+			mencodeform(form, fd);
+		else
+			uencodeform(form, fd);
 		if(debug)fprint(2, "POST %s\n", form->action);
 		geturl(form->action, fd, 0, 0);
 	}
@@ -590,8 +659,7 @@ void freeform(void *p)
 	}
 }
 
-int
-Ufmt(Fmt *f){
+int Ufmt(Fmt *f){
 	char *s = va_arg(f->args, char*);
 	for(; *s; s++){
 		if(strchr("/$-_@.!*'(),", *s)
