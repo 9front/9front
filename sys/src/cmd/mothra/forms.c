@@ -50,6 +50,7 @@ enum{
 	TEXTWIN,
 	HIDDEN,
 	INDEX,
+	FILE,
 };
 struct Option{
 	int selected;
@@ -59,12 +60,13 @@ struct Option{
 	Option *next;
 };
 
-#define BOUNDARY "hjdicksHjDiCkSHJDICKS"
+#define BOUNDARY "nAboJ9uN6ZXsqoVGzLAdjKq97TWDTGjo"
 
 void h_checkinput(Panel *, int, int);
 void h_radioinput(Panel *, int, int);
 void h_submitinput(Panel *, int);
 void h_buttoninput(Panel *, int);
+void h_fileinput(Panel *, int);
 void h_submittype(Panel *, char *);
 void h_submitindex(Panel *, char *);
 void h_resetinput(Panel *, int);
@@ -167,14 +169,11 @@ void rdform(Hglob *g){
 			f->type=SUBMIT;
 		else if(cistrcmp(s, "button")==0)
 			f->type=BUTTON;
-		else if(cistrcmp(s, "image")==0){
-			/* presotto's egregious hack to make image submits do something */
-			if(f->name){
-				free(f->name);
-				f->name=0;
-			}
-			f->type=SUBMIT;
-		} else if(cistrcmp(s, "reset")==0)
+		else if(cistrcmp(s, "image")==0)
+			f->type=FILE;
+		else if(cistrcmp(s, "file")==0)
+			f->type=FILE;
+		else if(cistrcmp(s, "reset")==0)
 			f->type=RESET;
 		else if(cistrcmp(s, "hidden")==0)
 			f->type=HIDDEN;
@@ -243,6 +242,8 @@ void rdform(Hglob *g){
 		*g->tp++=' ';
 		o->def=pl_hasattr(g->attr, "selected");
 		o->selected=o->def;
+		if(pl_hasattr(g->attr, "disabled"))
+			o->selected=0;
 		s=pl_getattr(g->attr, "value");
 		if(s==0)
 			o->value=o->label+1;
@@ -369,6 +370,9 @@ void mkfieldpanel(Rtext *t){
 	case BUTTON:
 		f->p=plbutton(0, 0, f->value[0]?f->value:"button", h_buttoninput);
 		break;
+	case FILE:
+		f->p=plbutton(0, 0, f->value[0]?f->value:"file", h_fileinput);
+		break;
 	case SELECT:
 		f->pulldown=plgroup(0,0);
 		scrl=plscrollbar(f->pulldown, PACKW|FILLY);
@@ -453,6 +457,25 @@ void h_resetinput(Panel *p, int){
 }
 void h_buttoninput(Panel *p, int){
 }
+void h_fileinput(Panel *p, int){
+	char name[NNAME];
+	Field *f;
+
+	f = p->userp;
+	nstrcpy(name, f->value, sizeof(name));
+	free(f->value);
+	f->state=0;
+	for(;;){
+		if(eenter("Upload file", name, sizeof(name), &mouse) <= 0)
+			break;
+		if(access(name, AREAD) == 0){
+			f->state=1;
+			break;
+		}
+	}
+	f->value = strdup(name);
+	pldraw(f->p, screen);
+}
 
 /*
  * If there's exactly one button with type=text, then
@@ -478,56 +501,75 @@ void mencodeform(Form *form, int fd){
 	Rune *rp;
 	int n;
 
-#define SEPS	"-----------------------------" BOUNDARY
-#define NEXT	"\r\n" SEPS
-
-	sep = SEPS;
-	for(f=form->fields;f;f=f->next){
-		switch(f->type){
-		case TYPEIN:
-		case PASSWD:
-			fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
-				sep, f->name, plentryval(f->p));
-			sep = NEXT;
-			break;
-		case CHECK:
-		case RADIO:
-			if(!f->state) break;
-		case HIDDEN:
-			fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
-				sep, f->name, f->value);
-			sep = NEXT;
-			break;
-		case SELECT:
-			if(f->name==0)
-				continue;
-			for(o=f->options;o;o=o->next)
-				if(o->selected && o->value){
-					fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
-						sep, f->name, o->value);
-					sep = NEXT;
-				}
-			break;
-		case TEXTWIN:
-			if(f->name==0)
-				continue;
-			n=plelen(f->textwin);
-			rp=pleget(f->textwin);
-			p=b=malloc(UTFmax*n+1);
-			if(b == nil)
-				continue;
-			while(n > 0){
-				p += runetochar(p, rp);
-				rp++;
-				n--;
+	sep = "--" BOUNDARY;
+	for(f=form->fields;f;f=f->next)switch(f->type){
+	case TYPEIN:
+	case PASSWD:
+		fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
+			sep, f->name, plentryval(f->p));
+		sep = "\r\n--" BOUNDARY;
+		break;
+	case CHECK:
+	case RADIO:
+		if(!f->state) break;
+	case SUBMIT:
+	case HIDDEN:
+		if(f->name==0 || f->value==0)
+			continue;
+		fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
+			sep, f->name, f->value);
+		sep = "\r\n--" BOUNDARY;
+		break;
+	case SELECT:
+		if(f->name==0)
+			continue;
+		for(o=f->options;o;o=o->next)
+			if(o->selected && o->value){
+				fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
+					sep, f->name, o->value);
+				sep = "\r\n--" BOUNDARY;
 			}
-			*p = 0;
-			fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
-				sep, f->name, b);
-			sep = NEXT;
-			free(b);
-			break;
+		break;
+	case TEXTWIN:
+		if(f->name==0)
+			continue;
+		n=plelen(f->textwin);
+		rp=pleget(f->textwin);
+		p=b=malloc(UTFmax*n+1);
+		if(b == nil)
+			continue;
+		while(n > 0){
+			p += runetochar(p, rp);
+			rp++;
+			n--;
 		}
+		*p = 0;
+		fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
+			sep, f->name, b);
+		sep = "\r\n--" BOUNDARY;
+		free(b);
+		break;
+	}
+	for(f=form->fields;f;f=f->next)if(f->type == FILE){
+		char buf[1024];
+		int ifd;
+
+		if(f->name==0 || f->value[0]==0)
+			continue;
+		if(p = strrchr(f->value, '/'))
+			p++;
+		if(p == 0 || *p == 0)
+			p = f->value;
+		if((ifd = open(f->value, OREAD)) < 0)
+			continue;
+		if(filetype(ifd, buf, sizeof(buf)) < 0)
+			strcpy(buf, "application/octet-stream");
+		fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\""
+			"\r\nContent-Type: %s\r\n\r\n", sep, f->name, p, buf);
+		while((n = read(ifd, buf, sizeof(buf))) > 0)
+			write(fd, buf, n);
+		close(ifd);
+		sep = "\r\n--" BOUNDARY;
 	}
 	fprint(fd, "%s--\r\n", sep);
 }
@@ -553,6 +595,7 @@ void uencodeform(Form *form, int fd){
 	case CHECK:
 	case RADIO:
 		if(!f->state) break;
+	case SUBMIT:
 	case HIDDEN:
 		if(f->name==0 || f->value==0)
 			continue;

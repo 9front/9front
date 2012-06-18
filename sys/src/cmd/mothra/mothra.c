@@ -23,7 +23,6 @@ Panel *cururl;	/* label giving the url of the visible text */
 Panel *list;	/* list of previously acquired www pages */
 Panel *msg;	/* message display */
 Panel *menu3;	/* button 3 menu */
-Mouse mouse;	/* current mouse data */
 char mothra[] = "mothra!";
 Cursor patientcurs={
 	0, 0,

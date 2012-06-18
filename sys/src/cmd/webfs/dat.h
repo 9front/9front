@@ -51,6 +51,7 @@ struct Buq
 	int	closed;
 	int	limit;
 	int	size;
+	int	nwq;
 
 	/* write buffers */
 	Buf	*bh;

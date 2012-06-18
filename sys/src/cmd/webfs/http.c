@@ -22,6 +22,7 @@ struct Hconn
 	long	time;
 
 	int	fd;
+	int	ctl;
 	int	keep;
 	int	cancel;
 	int	len;
@@ -64,7 +65,7 @@ hdial(Url *u)
 {
 	char addr[128];
 	Hconn *h, *p;
-	int fd, ofd;
+	int fd, ctl, ofd;
 
 	snprint(addr, sizeof(addr), "tcp!%s!%s", u->host, u->port ? u->port : u->scheme);
 
@@ -85,7 +86,7 @@ hdial(Url *u)
 	if(debug)
 		fprint(2, "hdial [%d] %s\n", hpool.active, addr);
 
-	if((fd = dial(addr, 0, 0, 0)) < 0)
+	if((fd = dial(addr, 0, 0, &ctl)) < 0)
 		return nil;
 	if(strcmp(u->scheme, "https") == 0){
 		TLSconn *tc;
@@ -97,8 +98,10 @@ hdial(Url *u)
 		free(tc->cert);
 		free(tc->sessionID);
 		free(tc);
-		if(fd < 0)
+		if(fd < 0){
+			close(ctl);
 			return nil;
+		}
 	}
 
 	h = emalloc(sizeof(*h));
@@ -108,6 +111,7 @@ hdial(Url *u)
 	h->keep = 1;
 	h->len = 0;
 	h->fd = fd;
+	h->ctl = ctl;
 	nstrcpy(h->addr, addr, sizeof(h->addr));
 
 	return h;
@@ -208,9 +212,21 @@ hclose(Hconn *h)
 	if(debug)
 		fprint(2, "hclose [%d] %s\n", hpool.active, h->addr);
 
+	if(h->ctl >= 0)
+		close(h->ctl);
 	if(h->fd >= 0)
 		close(h->fd);
 	free(h);
+}
+
+static void
+hhangup(Hconn *h)
+{
+	if(debug)
+		fprint(2, "hangup pc=%p: %r\n", getcallerpc(&h));
+	h->keep = 0;
+	if(h->ctl >= 0)
+		hangup(h->ctl);
 }
 
 static int
@@ -225,8 +241,10 @@ hread(Hconn *h, void *data, int len)
 			memmove(h->buf, h->buf + len, h->len);
 		return len;
 	}
-	if((len = read(h->fd, data, len)) <= 0)
+	if((len = read(h->fd, data, len)) == 0)
 		h->keep = 0;
+	if(len < 0)
+		hhangup(h);
 	return len;
 }
 
@@ -234,7 +252,7 @@ static int
 hwrite(Hconn *h, void *data, int len)
 {
 	if(write(h->fd, data, len) != len){
-		h->keep = 0;
+		hhangup(h);
 		return -1;
 	}
 	return len;
@@ -281,7 +299,7 @@ hline(Hconn *h, char *data, int len, int cont)
 		if(h->len >= sizeof(h->buf))
 			return 0;
 		if((n = read(h->fd, h->buf + h->len, sizeof(h->buf) - h->len)) <= 0){
-			h->keep = 0;
+			hhangup(h);
 			return -1;
 		}
 		h->len += n;
@@ -431,7 +449,7 @@ catch(void *, char *msg)
 void
 http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 {
-	int i, l, n, try, pid, fd, cfd, chunked, retry, nobody;
+	int i, l, n, try, pid, fd, cfd, needlength, chunked, retry, nobody;
 	char *s, *x, buf[8192+2], status[256], method[16];
 	vlong length, offset;
 	Url ru, tu, *nu;
@@ -470,10 +488,11 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 
 	h = nil;
 	pid = 0;
-	werrstr("too many errors");
+	needlength = 0;
 	for(try = 0; try < 6; try++){
+		strcpy(status, "0 No status");
 		if(u == nil || (strcmp(u->scheme, "http") && strcmp(u->scheme, "https"))){
-			werrstr("bad url");
+			werrstr("bad url scheme");
 			break;
 		}
 
@@ -496,6 +515,41 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				}
 		qunlock(&authlk);
 
+		length = 0;
+		chunked = 0;
+		if(qpost){
+			/* have to read it to temp file to figure out the length */
+			if(fd >= 0 && needlength && lookkey(shdr, "Content-Length") == nil){
+				seek(fd, 0, 2);
+				while((n = buread(qpost, buf, sizeof(buf))) > 0)
+					write(fd, buf, n);
+				shdr = delkey(shdr, "Transfer-Encoding");
+			}
+
+			qlock(qpost);
+			/* wait until buffer is full, most posts are small */
+			while(!qpost->closed && qpost->size < qpost->limit && qpost->nwq == 0)
+				rsleep(&qpost->rz);
+
+			if(lookkey(shdr, "Content-Length"))
+				chunked = 0;
+			else if(x = lookkey(shdr, "Transfer-Encoding"))
+				chunked = cistrstr(x, "chunked") != nil;
+			else if(chunked = !qpost->closed)
+				shdr = addkey(shdr, "Transfer-Encoding", "chunked");
+			else if(qpost->closed){
+				if(fd >= 0){
+					length = seek(fd, 0, 2);
+					if(length < 0)
+						length = 0;
+				}
+				length += qpost->size;
+				snprint(buf, sizeof(buf), "%lld", length);
+				shdr = addkey(shdr, "Content-Length", buf);
+			}
+			qunlock(qpost);
+		}
+
 		if(proxy){
 			ru = *u;
 			ru.fragment = nil;
@@ -506,42 +560,10 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		}
 		n = snprint(buf, sizeof(buf), "%s %U HTTP/1.1\r\nHost: %s%s%s\r\n",
 			method, &ru, u->host, u->port ? ":" : "", u->port ? u->port : "");
-
-		for(k = shdr; k; k = k->next)
-			n += snprint(buf+n, sizeof(buf)-2 - n, "%s: %s\r\n", k->key, k->val);
-
 		if(n >= sizeof(buf)-64){
 			werrstr("request too large");
 			break;
 		}
-
-		nobody = !cistrcmp(method, "HEAD");
-		length = 0;
-		chunked = 0;
-		if(qpost){
-			qlock(qpost);
-			/* wait until buffer is full, most posts are small */
-			while(!qpost->closed && qpost->size < qpost->limit)
-				rsleep(&qpost->rz);
-
-			if(lookkey(shdr, "Content-Length"))
-				chunked = 0;
-			else if(x = lookkey(shdr, "Transfer-Encoding"))
-				chunked = cistrstr(x, "chunked") != nil;
-			else if(chunked = !qpost->closed)
-				n += snprint(buf+n, sizeof(buf)-n, "Transfer-Encoding: chunked\r\n");
-			else if(qpost->closed){
-				if(fd >= 0){
-					length = seek(fd, 0, 2);
-					if(length < 0)
-						length = 0;
-				}
-				length += qpost->size;
-				n += snprint(buf+n, sizeof(buf)-n, "Content-Length: %lld\r\n", length);
-			}
-			qunlock(qpost);
-		}
-
 		if(h == nil){
 			alarm(timeout);
 			if((h = hdial(proxy ? proxy : u)) == nil)
@@ -574,6 +596,8 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			}
 		}
 
+		for(k = shdr; k; k = k->next)
+			n += snprint(buf+n, sizeof(buf)-2 - n, "%s: %s\r\n", k->key, k->val);
 		n += snprint(buf+n, sizeof(buf)-n, "\r\n");
 		if(debug)
 			fprint(2, "-> %.*s", n, buf);
@@ -588,10 +612,10 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			if((pid = rfork(RFMEM|RFPROC)) <= 0){
 				int ifd;
 
-				alarm(0);
 				if((ifd = fd) >= 0)
 					seek(ifd, 0, 0);
 				while(!h->cancel){
+					alarm(0);
 					if((ifd < 0) || ((n = read(ifd, buf, sizeof(buf)-2)) <= 0)){
 						ifd = -1;
 						if((n = buread(qpost, buf, sizeof(buf)-2)) <= 0)
@@ -600,18 +624,21 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 							if(write(fd, buf, n) != n)
 								break;
 					}
+					alarm(timeout);
 					if(chunked){
 						char tmp[32];
-						hwrite(h, tmp, snprint(tmp, sizeof(tmp), "%x\r\n", n));
+						if(hwrite(h, tmp, snprint(tmp, sizeof(tmp), "%x\r\n", n)) < 0)
+							break;
 						buf[n++] = '\r';
 						buf[n++] = '\n';
 					}
 					if(hwrite(h, buf, n) != n)
 						break;
 				}
-				if(chunked)
+				if(chunked){
+					alarm(timeout);
 					hwrite(h, "0\r\n\r\n", 5);
-				else
+				}else
 					h->keep = 0;
 				if(pid == 0)
 					exits(0);
@@ -625,7 +652,6 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		rhdr = 0;
 		retry = 0;
 		chunked = 0;
-		status[0] = 0;
 		offset = 0;
 		length = NOLENGTH;
 		for(l = 0; hline(h, s = buf, sizeof(buf)-1, 1) > 0; l++){
@@ -640,7 +666,8 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 					if(cistrcmp(s, "ICY"))
 						break;
 				}
-				nstrcpy(status, x, sizeof(status));
+				if(x[0])
+					nstrcpy(status, x, sizeof(status));
 				continue;
 			}
 			if((k = parsehdr(s)) == nil)
@@ -671,6 +698,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			cfd = -1;
 		}
 
+		nobody = !cistrcmp(method, "HEAD");
 		if((i = atoi(status)) < 0)
 			i = 0;
 		Status:
@@ -699,7 +727,14 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		case 408:	/* Request Timeout */
 		case 409:	/* Conflict */
 		case 410:	/* Gone */
+			goto Error;
 		case 411:	/* Length Required */
+			if(qpost){
+				needlength = 1;
+				h->cancel = 1;
+				retry = 1;
+				break;
+			}
 		case 412:	/* Precondition Failed */
 		case 413:	/* Request Entity Too Large */
 		case 414:	/* Request URI Too Large */
@@ -861,8 +896,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		h = nil;
 	}
 	alarm(0);
-
-	rerrstr(buf, sizeof(buf));
+	snprint(buf, sizeof(buf), "%s %r", status);
 	buclose(qbody, buf);
 	bufree(qbody);
 

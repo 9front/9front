@@ -258,6 +258,7 @@ void plegetsel(Panel *p, int *sel0, int *sel1){
 int plelen(Panel *p){
 	Textwin *t;
 	t=((Edit *)p->data)->t;
+	if(t==0) return 0;
 	return t->etext-t->text;
 }
 Rune *pleget(Panel *p){

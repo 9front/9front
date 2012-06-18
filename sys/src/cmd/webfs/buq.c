@@ -9,6 +9,32 @@
 #include "fns.h"
 
 static void
+kickwqr(Buq *q, Req *r)
+{
+	Buf **bb, *b;
+	int l;
+
+	for(bb = &q->bh; q->nwq > 0; bb = &b->next){
+		if((b = *bb) == nil)
+			break;
+		if(b->wreq == nil || (b->wreq != r && r != nil))
+			continue;
+		l = b->ep - b->rp;
+		b = realloc(b, sizeof(*b) + l);
+		*bb = b;
+		if(b->next == nil)
+			q->bt = &b->next;
+		memmove(b->end, b->rp, l);
+		b->rp = b->end;
+		b->ep = b->rp + l;
+		b->wreq->ofcall.count = b->wreq->ifcall.count;
+		respond(b->wreq, q->error);
+		b->wreq = nil;
+		q->nwq--;
+	}
+}
+
+static void
 matchreq(Buq *q)
 {
 	Req *r;
@@ -47,10 +73,13 @@ matchreq(Buq *q)
 			if(r = b->wreq){
 				r->ofcall.count = r->ifcall.count;
 				respond(r, nil);
+				q->nwq--;
 			}
 			free(b);
 		}
 	}
+	if(q->closed && q->nwq > 0)
+		kickwqr(q, nil);
 	rwakeupall(&q->rz);
 }
 
@@ -136,8 +165,8 @@ buclose(Buq *q, char *error)
 		if(error)
 			q->error = estrdup9p(error);
 		q->closed = 1;
-		matchreq(q);
 	}
+	matchreq(q);
 	qunlock(q);
 }
 
@@ -188,7 +217,7 @@ bureq(Buq *q, Req *r)
 		return;
 	case Twrite:
 		l = r->ifcall.count;
-		if((q->size + l) < q->limit){
+		if(!q->closed && (q->size + l) < q->limit){
 			r->ofcall.count = buwrite(q, r->ifcall.data, r->ifcall.count);
 			respond(r, nil);
 			return;
@@ -202,6 +231,7 @@ bureq(Buq *q, Req *r)
 		*q->bt = b;
 		q->bt = &b->next;
 		q->size += l;
+		q->nwq++;
 		break;
 	case Tread:
 	case Topen:
@@ -218,9 +248,7 @@ bureq(Buq *q, Req *r)
 void
 buflushreq(Buq *q, Req *r)
 {
-	Buf **bb, *b;
 	Req **rr;
-	int l;
 
 	switch(r->ifcall.type){
 	default:
@@ -228,23 +256,7 @@ buflushreq(Buq *q, Req *r)
 		return;
 	case Twrite:
 		qlock(q);
-		for(bb = &q->bh; b = *bb; bb = &b->next){
-			if(b->wreq != r)
-				continue;
-			/* fake successfull write */
-			l = b->ep - b->rp;
-			b = realloc(b, sizeof(*b) + l);
-			memmove(b->end, b->rp, l);
-			b->rp = b->end;
-			b->ep = b->rp + l;
-			b->wreq = nil;
-			*bb = b;
-			if(b->next == nil)
-				q->bt = &b->next;
-			r->ofcall.count = r->ifcall.count;
-			respond(r, nil);
-			break;
-		}
+		kickwqr(q, r);
 		break;
 	case Topen:
 	case Tread:
