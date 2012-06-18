@@ -35,7 +35,7 @@ case go
 			bootfile=9pccpuf
 		if not
 			bootfile=9pcf
-		{
+		@{
 			echo 'bootfile='^$bootfile
 			echo 'bootargs=local!'^$fs
 			if(~ $#nvram 1)
@@ -43,8 +43,12 @@ case go
 			echo 'mouseport='^$mouseport
 			echo 'monitor='^$monitor
 			echo 'vgasize='^$vgasize
-			if(test -f '#ec/*nomp')
-				echo '*nomp=1'
+			cd '#ec'
+			for(i in *){
+				echo -n $"i'='
+				cat $i
+				echo
+			} | grep -v '(apm0|e820|bootfile|bootargs|nvram|mouseport|monitor|vgasize)'
 		} >/tmp/plan9.ini
 	}
 
