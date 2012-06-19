@@ -1,6 +1,3 @@
-/*
- * type=image is treated like submit
- */
 #include <u.h>
 #include <libc.h>
 #include <draw.h>
@@ -463,17 +460,18 @@ void h_fileinput(Panel *p, int){
 
 	f = p->userp;
 	nstrcpy(name, f->value, sizeof(name));
-	free(f->value);
-	f->state=0;
 	for(;;){
-		if(eenter("Upload file", name, sizeof(name), &mouse) <= 0)
+		if(eenter("Upload file", name, sizeof(name), &mouse) <= 0){
+			p->state = 0;
 			break;
+		}
 		if(access(name, AREAD) == 0){
-			f->state=1;
+			free(f->value);
+			f->value = strdup(name);
+			p->state = 1;
 			break;
 		}
 	}
-	f->value = strdup(name);
 	pldraw(f->p, screen);
 }
 

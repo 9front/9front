@@ -57,8 +57,7 @@ struct Panel{
 	void (*free)(Panel *);				/* free fields of data when done */
 };
 /*
- * Panel flags -- there are more private flags in panelprivate.h
- * that need to be kept synchronized with these!
+ * Panel flags
  */
 #define	PACK	0x0007		/* which side of the parent is the Panel attached to? */
 #define		PACKN	0x0000
