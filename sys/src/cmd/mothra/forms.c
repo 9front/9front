@@ -507,7 +507,6 @@ void mencodeform(Form *form, int fd){
 	case CHECK:
 	case RADIO:
 		if(!f->state) break;
-	case SUBMIT:
 	case HIDDEN:
 		if(f->name==0 || f->value==0)
 			continue;
@@ -591,7 +590,6 @@ void uencodeform(Form *form, int fd){
 	case CHECK:
 	case RADIO:
 		if(!f->state) break;
-	case SUBMIT:
 	case HIDDEN:
 		if(f->name==0 || f->value==0)
 			continue;
