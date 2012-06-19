@@ -461,17 +461,14 @@ void h_fileinput(Panel *p, int){
 	f = p->userp;
 	nstrcpy(name, f->value, sizeof(name));
 	for(;;){
-		if(eenter("Upload file", name, sizeof(name), &mouse) <= 0){
-			p->state = 0;
+		if(eenter("Upload file", name, sizeof(name), &mouse) <= 0)
 			break;
-		}
-		if(access(name, AREAD) == 0){
-			free(f->value);
-			f->value = strdup(name);
-			p->state = 1;
+		if(access(name, AREAD) == 0)
 			break;
-		}
 	}
+	free(f->value);
+	f->value = strdup(name);
+	p->state = name[0] != 0;
 	pldraw(f->p, screen);
 }
 
