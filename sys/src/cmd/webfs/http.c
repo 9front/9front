@@ -764,6 +764,9 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				bufree(qpost);
 				qpost = nil;
 			}
+			shdr = delkey(shdr, "Content-Length");
+			shdr = delkey(shdr, "Content-Type");
+			shdr = delkey(shdr, "Transfer-Encoding");
 			if(cistrcmp(method, "HEAD"))
 				nstrcpy(method, "GET", sizeof(method));
 		case 301:	/* Moved Permanently */
