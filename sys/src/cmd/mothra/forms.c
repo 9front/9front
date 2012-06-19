@@ -496,10 +496,10 @@ void h_submitindex(Panel *p, char *){
 
 void mencodeform(Form *form, int fd){
 	char *b, *p, *sep;
+	int ifd, n, nb;
 	Option *o;
 	Field *f;
 	Rune *rp;
-	int n;
 
 	sep = "--" BOUNDARY;
 	for(f=form->fields;f;f=f->next)switch(f->type){
@@ -549,27 +549,28 @@ void mencodeform(Form *form, int fd){
 		sep = "\r\n--" BOUNDARY;
 		free(b);
 		break;
-	}
-	for(f=form->fields;f;f=f->next)if(f->type == FILE){
-		char buf[1024];
-		int ifd;
-
+	case FILE:
 		if(f->name==0 || f->value[0]==0)
 			continue;
 		if(p = strrchr(f->value, '/'))
 			p++;
 		if(p == 0 || *p == 0)
 			p = f->value;
-		if((ifd = open(f->value, OREAD)) < 0)
+		if((b = malloc(nb = 8192)) == nil)
 			continue;
-		if(filetype(ifd, buf, sizeof(buf)) < 0)
-			strcpy(buf, "application/octet-stream");
-		fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\""
-			"\r\nContent-Type: %s\r\n\r\n", sep, f->name, p, buf);
-		while((n = read(ifd, buf, sizeof(buf))) > 0)
-			write(fd, buf, n);
-		close(ifd);
-		sep = "\r\n--" BOUNDARY;
+		if((ifd = open(f->value, OREAD)) >= 0){
+			if(filetype(ifd, b, nb) < 0)
+				strcpy(b, "application/octet-stream");
+			fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\""
+				"\r\nContent-Type: %s\r\n\r\n", sep, f->name, p, b);
+			sep = "\r\n--" BOUNDARY;
+			while((n = read(ifd, b, nb)) > 0)
+				if(write(fd, b, n) != n)
+					break;
+			close(ifd);
+		}
+		free(b);
+		break;
 	}
 	fprint(fd, "%s--\r\n", sep);
 }
