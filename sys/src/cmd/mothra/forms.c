@@ -178,7 +178,6 @@ void rdform(Hglob *g){
 			f->type=TYPEIN;
 			if(cistrcmp(s, "password")==0)
 				f->type=PASSWD;
-
 			s=f->name;
 			if(s && cistrcmp(s, "isindex")==0)
 				f->type=INDEX;
@@ -440,6 +439,13 @@ void h_resetinput(Panel *p, int){
 	case PASSWD:
 		plinitentry(f->p, USERFL, f->size*chrwidth, f->value, 0);
 		break;
+	case FILE:
+		free(f->value);
+		f->value=strdup("");
+		if(f->p==nil) break;
+		f->p->state=0;
+		pldraw(f->p, screen);
+		break;
 	case CHECK:
 	case RADIO:
 		f->state=f->checked;
@@ -506,17 +512,17 @@ void mencodeform(Form *form, int fd){
 		break;
 	case CHECK:
 	case RADIO:
+	case SUBMIT:
 		if(!f->state) break;
 	case HIDDEN:
 		if(f->name==0 || f->value==0)
-			continue;
+			break;
 		fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
 			sep, f->name, f->value);
 		sep = "\r\n--" BOUNDARY;
 		break;
 	case SELECT:
-		if(f->name==0)
-			continue;
+		if(f->name==0) break;
 		for(o=f->options;o;o=o->next)
 			if(o->selected && o->value){
 				fprint(fd, "%s\r\nContent-Disposition: form-data; name=\"%s\"\r\n\r\n%s",
@@ -525,13 +531,12 @@ void mencodeform(Form *form, int fd){
 			}
 		break;
 	case TEXTWIN:
-		if(f->name==0)
-			continue;
+		if(f->name==0) break;
 		n=plelen(f->textwin);
 		rp=pleget(f->textwin);
 		p=b=malloc(UTFmax*n+1);
 		if(b == nil)
-			continue;
+			break;
 		while(n > 0){
 			p += runetochar(p, rp);
 			rp++;
@@ -545,13 +550,13 @@ void mencodeform(Form *form, int fd){
 		break;
 	case FILE:
 		if(f->name==0 || f->value[0]==0)
-			continue;
+			break;
 		if(p = strrchr(f->value, '/'))
 			p++;
 		if(p == 0 || *p == 0)
 			p = f->value;
 		if((b = malloc(nb = 8192)) == nil)
-			continue;
+			break;
 		if((ifd = open(f->value, OREAD)) >= 0){
 			if(filetype(ifd, b, nb) < 0)
 				strcpy(b, "application/octet-stream");
@@ -589,16 +594,16 @@ void uencodeform(Form *form, int fd){
 		break;
 	case CHECK:
 	case RADIO:
+	case SUBMIT:
 		if(!f->state) break;
 	case HIDDEN:
 		if(f->name==0 || f->value==0)
-			continue;
+			break;
 		fprint(fd, "%s%U=%U", sep, f->name, f->value);
 		sep = "&";
 		break;
 	case SELECT:
-		if(f->name==0)
-			continue;
+		if(f->name==0) break;
 		for(o=f->options;o;o=o->next)
 			if(o->selected && o->value){
 				fprint(fd, "%s%U=%U", sep, f->name, o->value);
@@ -606,13 +611,12 @@ void uencodeform(Form *form, int fd){
 			}
 		break;
 	case TEXTWIN:
-		if(f->name==0)
-			continue;
+		if(f->name==0) break;
 		n=plelen(f->textwin);
 		rp=pleget(f->textwin);
 		p=b=malloc(UTFmax*n+1);
 		if(b == nil)
-			continue;
+			break;
 		while(n > 0){
 			p += runetochar(p, rp);
 			rp++;
@@ -629,9 +633,14 @@ void uencodeform(Form *form, int fd){
 void h_submitinput(Panel *p, int){
 	char buf[NNAME];
 	Form *form;
+	Field *f;
 	int n, fd;
 
-	form=((Field *)p->userp)->form;
+	f = p->userp;
+	form=f->form;
+	for(f=form->fields;f;f=f->next)
+		if(f->type==SUBMIT)
+			f->state = (f->p == p);
 	if(form->method==GET){
 		strcpy(buf, "/tmp/mfXXXXXXXXXXX");
 		fd = create(mktemp(buf), ORDWR|ORCLOSE, 0600);
