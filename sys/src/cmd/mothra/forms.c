@@ -714,7 +714,7 @@ int Ufmt(Fmt *f){
 		else if(*s==' ')
 			fmtprint(f, "+");
 		else
-			fmtprint(f, "%%%.2X", (unsigned int)*s);
+			fmtprint(f, "%%%.2X", *s & 0xFF);
 	}
 	return 0;
 }
