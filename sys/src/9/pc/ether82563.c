@@ -1,5 +1,5 @@
 /*
- * Intel 8256[367], 8257[1-9], 8258[03]
+ * Intel 8256[367], 8257[1-9], 8258[03], i350
  *	Gigabit Ethernet PCI-Express Controllers
  * Coraid EtherDrive® hba
  */
@@ -34,6 +34,7 @@ enum {
 	Fcah		= 0x002C,	/* Flow Control Address High */
 	Fct		= 0x0030,	/* Flow Control Type */
 	Kumctrlsta	= 0x0034,	/* Kumeran Control and Status Register */
+	Connsw		= 0x0034,	/* copper / fiber switch control; 82575/82576 */
 	Vet		= 0x0038,	/* VLAN EtherType */
 	Fcttv		= 0x0170,	/* Flow Control Transmit Timer Value */
 	Txcw		= 0x0178,	/* Transmit Configuration Word */
@@ -124,6 +125,12 @@ enum {					/* Status */
 	GIOme		= 1<<19,	/* GIO Master Enable Status */
 };
 
+enum {					/* Eec */
+	Nvpres		= 1<<8,
+	Autord		= 1<<9,
+	Sec1val		= 1<<22,
+};
+
 enum {					/* Eerd */
 	EEstart		= 1<<0,		/* Start Read */
 	EEdone		= 1<<1,		/* Read done */
@@ -131,8 +138,15 @@ enum {					/* Eerd */
 
 enum {					/* Ctrlext */
 	Eerst		= 1<<13,	/* EEPROM Reset */
-	Linkmode	= 3<<23,	/* linkmode */
-	Serdes		= 3<<23,	/* " serdes */
+	Linkmode	= 3<<22,	/* linkmode */
+	Internalphy	= 0<<22,	/* " internal phy (copper) */
+	Sgmii		= 2<<22,	/* " sgmii */
+	Serdes		= 3<<22,	/* " serdes */
+};
+
+enum {
+	/* Connsw */
+	Enrgirq		= 1<<2,	/* interrupt on power detect (enrgsrc) */
 };
 
 enum {					/* EEPROM content offsets */
@@ -226,6 +240,7 @@ enum {					/* Icr, Ics, Ims, Imc */
 	Mdac		= 0x00000200,	/* MDIO Access Completed */
 	Rxcfgset		= 0x00000400,	/* Receiving /C/ ordered sets */
 	Ack		= 0x00020000,	/* Receive ACK frame */
+	Omed		= 1<<20,	/* media change; pcs interface */
 };
 
 enum {					/* Txcw */
@@ -308,12 +323,12 @@ enum {					/* Rxcsum */
 };
 
 typedef struct Rd {			/* Receive Descriptor */
-	uint	addr[2];
-	ushort	length;
-	ushort	checksum;
+	u32int	addr[2];
+	u16int	length;
+	u16int	checksum;
 	uchar	status;
 	uchar	errors;
-	ushort	special;
+	u16int	special;
 } Rd;
 
 enum {					/* Rd status */
@@ -337,9 +352,9 @@ enum {					/* Rd errors */
 };
 
 typedef struct {			/* Transmit Descriptor */
-	uint	addr[2];		/* Data */
-	uint	control;
-	uint	status;
+	u32int	addr[2];		/* Data */
+	u32int	control;
+	u32int	status;
 } Td;
 
 enum {					/* Tdesc control */
@@ -369,9 +384,10 @@ enum {					/* Tdesc status */
 };
 
 typedef struct {
-	ushort	*reg;
-	ulong	*reg32;
-	int	sz;
+	u16int	*reg;
+	u32int	*reg32;
+	uint	base;
+	uint	lim;
 } Flash;
 
 enum {
@@ -425,6 +441,7 @@ enum {
 	i82579,
 	i82580,
 	i82583,
+	i350,
 	Nctlrtype,
 };
 
@@ -433,7 +450,8 @@ enum {
 	Fert	= 1<<1,
 	F75	= 1<<2,
 	Fpba	= 1<<3,
-	Fflashea	= 1<<4,
+	Fflashea= 1<<4,
+	F79phy	= 1<<5,
 };
 
 typedef struct Ctlrtype Ctlrtype;
@@ -459,9 +477,10 @@ static Ctlrtype cttab[Nctlrtype] = {
 	i82577m,		1514,	Fload|Fert,	"i82577",
 	i82578,		4096,	Fload|Fert,	"i82578",
 	i82578m,		1514,	Fload|Fert,	"i82578",
-	i82579,		9018,	Fload|Fert,	"i82579",
-	i82580,		9728,	F75,		"i82580",
+	i82579,		9018,	Fload|Fert|F79phy,	"i82579",
+	i82580,		9728,	F75|F79phy,	"i82580",
 	i82583,		1514,	0,		"i82583",
+	i350,		9728,	F75|F79phy,	"i350",
 };
 
 typedef void (*Freefn)(Block*);
@@ -474,7 +493,7 @@ struct Ctlr {
 	int	active;
 	int	type;
 	int	pool;
-	ushort	eeprom[0x40];
+	u16int	eeprom[0x40];
 
 	QLock	alock;			/* attach */
 	void	*alloc;			/* receive/transmit descriptors */
@@ -482,7 +501,7 @@ struct Ctlr {
 	int	ntd;
 	uint	rbsz;
 
-	int	*nic;
+	u32int	*nic;
 	Lock	imlock;
 	int	im;			/* interrupt mask */
 
@@ -490,7 +509,7 @@ struct Ctlr {
 	int	lim;
 
 	QLock	slock;
-	uint	statistics[Nstatistics];
+	u32int	statistics[Nstatistics];
 	uint	lsleep;
 	uint	lintr;
 	uint	rsleep;
@@ -504,7 +523,7 @@ struct Ctlr {
 	uint	phyerrata;
 
 	uchar	ra[Eaddrlen];		/* receive address */
-	ulong	mta[128];		/* multicast table array */
+	u32int	mta[128];		/* multicast table array */
 
 	Rendez	rrendez;
 	int	rim;
@@ -527,7 +546,7 @@ struct Ctlr {
 	int	fcrtl;
 	int	fcrth;
 
-	uint	pba;			/* packet buffer allocation */
+	u32int	pba;			/* packet buffer allocation */
 };
 
 typedef struct Rbpool Rbpool;
@@ -918,8 +937,9 @@ i82563im(Ctlr *ctlr, int im)
 static void
 i82563txinit(Ctlr *ctlr)
 {
-	uint i, r;
+	u32int r;
 	Block *b;
+	int i;
 
 	if(cttab[ctlr->type].flag & F75)
 		csr32w(ctlr, Tctl, 0x0F<<CtSHIFT | Psp);
@@ -1305,20 +1325,23 @@ phyl79proc(void *v)
 
 	for(;;){
 		phy = phyread(c, phyno, Phystat);
-		if(phy == ~0)
+		if(phy == ~0){
+			phy = 0;
+			i = 3;
 			goto next;
+		}
 		i = (phy>>8) & 3;
 		a = phy & Ans;
 		if(a){
 			r = phyread(c, phyno, Phyctl);
 			phywrite(c, phyno, Phyctl, r | Ran | Ean);
 		}
-		e->link = (phy & Link) != 0;
+next:
+		e->link = i != 3 && (phy & Link) != 0;
 		if(e->link == 0)
 			i = 3;
 		c->speeds[i]++;
 		e->mbps = speedtab[i];
-next:
 		c->lim = 0;
 		i82563im(c, Lsc);
 		c->lsleep++;
@@ -1340,8 +1363,11 @@ phylproc(void *v)
 		phywrite(c, 1, Phyier, phy | Lscie | Ancie | Spdie | Panie);
 	for(;;){
 		phy = phyread(c, 1, Physsr);
-		if(phy == ~0)
+		if(phy == ~0){
+			phy = 0;
+			i = 3;
 			goto next;
+		}
 		i = (phy>>14) & 3;
 		switch(c->type){
 		default:
@@ -1363,6 +1389,7 @@ phylproc(void *v)
 		}
 		if(a)
 			phywrite(c, 1, Phyctl, phyread(c, 1, Phyctl) | Ran | Ean);
+next:
 		e->link = (phy & Rtlink) != 0;
 		if(e->link == 0)
 			i = 3;
@@ -1370,7 +1397,6 @@ phylproc(void *v)
 		e->mbps = speedtab[i];
 		if(c->type == i82563)
 			phyerrata(e, c);
-next:
 		c->lim = 0;
 		i82563im(c, Lsc);
 		c->lsleep++;
@@ -1388,6 +1414,8 @@ pcslproc(void *v)
 	e = v;
 	c = e->ctlr;
 
+	if(c->type == i82575 || c->type == i82576)
+		csr32w(c, Connsw, Enrgirq);
 	for(;;){
 		phy = csr32r(c, Pcsstat);
 		e->link = phy & Linkok;
@@ -1399,7 +1427,7 @@ pcslproc(void *v)
 		c->speeds[i]++;
 		e->mbps = speedtab[i];
 		c->lim = 0;
-		i82563im(c, Lsc);
+		i82563im(c, Lsc | Omed);
 		c->lsleep++;
 		sleep(&c->lrendez, i82563lim, c);
 	}
@@ -1488,11 +1516,11 @@ i82563attach(Ether *edev)
 	}
 
 	snprint(name, sizeof name, "#l%dl", edev->ctlrno);
-	if((csr32r(ctlr, Ctrlext) & Linkmode) == Serdes)
-		kproc(name, pcslproc, edev);		/* phy based serdes */
-	else if(csr32r(ctlr, Status) & Tbimode)
+	if(csr32r(ctlr, Status) & Tbimode)
 		kproc(name, serdeslproc, edev);		/* mac based serdes */
-	else if(ctlr->type == i82579 || ctlr->type == i82580)
+	else if((csr32r(ctlr, Ctrlext) & Linkmode) == Serdes)
+		kproc(name, pcslproc, edev);		/* phy based serdes */
+	else if(cttab[ctlr->type].flag & F79phy)
 		kproc(name, phyl79proc, edev);
 	else
 		kproc(name, phylproc, edev);
@@ -1522,9 +1550,9 @@ i82563interrupt(Ureg*, void *arg)
 	im = ctlr->im;
 
 	while(icr = csr32r(ctlr, Icr) & ctlr->im){
-		if(icr & Lsc){
-			im &= ~Lsc;
-			ctlr->lim = icr & Lsc;
+		if(icr & (Lsc | Omed)){
+			im &= ~(Lsc | Omed);
+			ctlr->lim = icr & (Lsc | Omed);
 			wakeup(&ctlr->lrendez);
 			ctlr->lintr++;
 		}
@@ -1619,7 +1647,7 @@ i82563shutdown(Ether *edev)
 	i82563detach(edev->ctlr);
 }
 
-static ushort
+static int
 eeread(Ctlr *ctlr, int adr)
 {
 	csr32w(ctlr, Eerd, EEstart | adr << 2);
@@ -1631,7 +1659,7 @@ eeread(Ctlr *ctlr, int adr)
 static int
 eeload(Ctlr *ctlr)
 {
-	ushort sum;
+	u16int sum;
 	int data, adr;
 
 	sum = 0;
@@ -1646,7 +1674,8 @@ eeload(Ctlr *ctlr)
 static int
 fcycle(Ctlr *, Flash *f)
 {
-	ushort s, i;
+	u16int s;
+	int i;
 
 	s = f->reg[Fsts];
 	if((s&Fvalid) == 0)
@@ -1664,7 +1693,7 @@ fcycle(Ctlr *, Flash *f)
 static int
 fread(Ctlr *c, Flash *f, int ladr)
 {
-	ushort s;
+	u16int s;
 
 	delay(1);
 	if(fcycle(c, f) == -1)
@@ -1686,23 +1715,21 @@ fread(Ctlr *c, Flash *f, int ladr)
 static int
 fload(Ctlr *c)
 {
-	ulong data, io, r, adr;
-	ushort sum;
+	int data, r, adr;
+	u16int sum;
+	void *va;
 	Flash f;
 
-	io = c->pcidev->mem[1].bar & ~0x0f;
-	f.reg = vmap(io, c->pcidev->mem[1].size);
-	if(f.reg == nil)
+	va = vmap(c->pcidev->mem[1].bar & ~0x0f, c->pcidev->mem[1].size);
+	if(va == nil)
 		return -1;
-	f.reg32 = (ulong*)f.reg;
-	f.sz = f.reg32[Bfpr];
-	if(csr32r(c, Eec) & 1<<22){
-		if(c->type == i82579)
-			f.sz  += 16;		/* sector size: 64k */
-		else
-			f.sz  += 1;		/* sector size: 4k */
-	}
-	r = (f.sz & 0x1fff) << 12;
+	f.reg = va;
+	f.reg32 = va;
+	f.base = f.reg32[Bfpr] & 0x1fff;
+	f.lim = f.reg32[Bfpr]>>16 & 0x1fff;
+	if(csr32r(c, Eec) & Sec1val)
+		f.base += f.lim+1 - f.base >> 1;
+	r = f.base << 12;
 	sum = 0;
 	for(adr = 0; adr < 0x40; adr++) {
 		data = fread(c, &f, r + adr*2);
@@ -1711,7 +1738,7 @@ fload(Ctlr *c)
 		c->eeprom[adr] = data;
 		sum += data;
 	}
-	vunmap(f.reg, c->pcidev->mem[1].size);
+	vunmap(va, c->pcidev->mem[1].size);
 	return sum;
 }
 
@@ -1830,7 +1857,7 @@ i82563ctl(Ether *edev, void *buf, long n)
 		csr32w(ctlr, Radv, v);
 		break;
 	case CMpause:
-		csr32w(ctlr, Ctrl, csr32r(ctlr, Ctrl) ^ (1<<27 | 1<<28));
+		csr32w(ctlr, Ctrl, csr32r(ctlr, Ctrl) ^ (Rfce | Tfce));
 		break;
 	case CMan:
 		csr32w(ctlr, Ctrl, csr32r(ctlr, Ctrl) | Lrst | Phyrst);
@@ -1848,8 +1875,8 @@ didtype(int d)
 	switch(d){
 	case 0x1096:
 	case 0x10ba:		/* “gilgal” */
-	// case 0x1098:		/* serdes; not seen */
-	// case 0x10bb:		/* serdes */
+	case 0x1098:		/* serdes; not seen */
+	case 0x10bb:		/* serdes */
 		return i82563;
 	case 0x1049:		/* mm */
 	case 0x104a:		/* dm */
@@ -1895,6 +1922,7 @@ didtype(int d)
 	case 0x10c9:		/* copper */
 	case 0x10e6:		/* fiber */
 	case 0x10e7:		/* serdes; “kawela” */
+	case 0x150d:		/* backplane */
 		return i82576;
 	case 0x10ea:		/* lc “calpella”; aka pch lan */
 		return i82577;
@@ -1903,7 +1931,7 @@ didtype(int d)
 	case 0x10ef:		/* dc “piketon” */
 		return i82578;
 	case 0x1502:		/* lm */
-	case 0x1503:		/* v */
+	case 0x1503:		/* v “lewisville” */
 		return i82579;
 	case 0x10f0:		/* dm “king's creek” */
 		return i82578m;
@@ -1915,6 +1943,12 @@ didtype(int d)
 		return i82580;
 	case 0x1506:		/* v */
 		return i82583;
+	case 0x151f:		/* “powerville” eeprom-less */
+	case 0x1521:		/* copper */
+	case 0x1522:		/* fiber */
+	case 0x1523:		/* serdes */
+	case 0x1524:		/* sgmii */
+		return i350;
 	}
 	return -1;
 }
@@ -2125,6 +2159,12 @@ i82583pnp(Ether *e)
 	return pnp(e, i82583);
 }
 
+static int
+i350pnp(Ether *e)
+{
+	return pnp(e, i350);
+}
+
 void
 ether82563link(void)
 {
@@ -2148,5 +2188,6 @@ ether82563link(void)
 	addethercard("i82579", i82579pnp);
 	addethercard("i82580", i82580pnp);
 	addethercard("i82583", i82583pnp);
+	addethercard("i350", i350pnp);
 	addethercard("igbepcie", anypnp);
 }
