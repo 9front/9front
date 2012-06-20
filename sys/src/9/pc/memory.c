@@ -650,8 +650,9 @@ e820scan(void)
 	int i;
 
 	/* passed by bootloader */
-	if((s = getconf("e820")) == nil)
-		return -1;
+	if((s = getconf("*e820")) == nil)
+		if((s = getconf("e820")) == nil)
+			return -1;
 	for(nemap = 0; nemap < nelem(emap); nemap++){
 		if(*s == 0)
 			break;
