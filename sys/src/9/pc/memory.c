@@ -513,10 +513,11 @@ ramscan(ulong maxmem)
 typedef struct Emap Emap;
 struct Emap
 {
+	int type;
 	uvlong base;
 	uvlong len;
 };
-static Emap emap[16];
+static Emap emap[128];
 int nemap;
 
 static int
@@ -654,15 +655,23 @@ e820scan(void)
 		if((s = getconf("e820")) == nil)
 			return -1;
 	for(nemap = 0; nemap < nelem(emap); nemap++){
+		while(*s == ' ')
+			s++;
 		if(*s == 0)
 			break;
 		e = emap + nemap;
+		e->type = 1;
+		if(s[1] == ' '){	/* new format */
+			e->type = s[0] - '0';
+			s += 2;
+		}
 		e->base = strtoull(s, &s, 16);
 		if(*s != ' ')
 			break;
-		e->len = strtoull(s, &s, 16) - e->base;
-		if(*s != ' ' && *s != 0 || e->len >= 1ull<<32 || e->len == 0)
+		e->len = strtoull(s, &s, 16);
+		if(*s != ' ' && *s != 0 || e->len <= e->base)
 			break;
+		e->len -= e->base;
 	}
 	if(nemap == 0)
 		return -1;
@@ -686,7 +695,7 @@ e820scan(void)
 		if(last < e->base)
 			map(last, e->base-last, MemUPA);
 		last = base+len;
-		map(base, len, MemRAM);
+		map(base, len, (e->type == 1) ? MemRAM : MemReserved);
 	}
 	if(last < (1LL<<32))
 		map(last, (u32int)-last, MemUPA);
