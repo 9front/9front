@@ -122,7 +122,10 @@ terminal or a CPU server.
 A terminal must have a
 .I username
 set.
-If none is specified with the
+If not specified with the
+.B user=
+.IR plan9.ini (8)
+parameter or the
 .B -u
 option,
 .I boot
