@@ -330,19 +330,20 @@ e820conf(void)
 
 	do{
 		bx = e820(bx, &e);
-		if(e.typ == 1 && e.len != 0 && (e.ext & 3) == 1){
+		if(e.len != 0 && (e.ext & 3) == 1){
 			if(confend == s){
 				/* single entry <= 1MB is useless */
-				if(bx == 0 && e.len <= 0x100000)
+				if(bx == 0 && e.typ == 1 && e.len <= 0x100000)
 					break;
-				memmove(confend, "e820=", 5);
-				confend += 5;
+				memmove(confend, "*e820=", 6);
+				confend += 6;
 			}
+			addconfx("", 1, e.typ);
 			v = e.base;
-			addconfx("", 8, v>>32);
+			addconfx(" 0x", 8, v>>32);
 			addconfx("", 8, v&0xffffffff);
 			v += e.len;
-			addconfx(" ", 8, v>>32);
+			addconfx(" 0x", 8, v>>32);
 			addconfx("", 8, v&0xffffffff);
 			*confend++ = ' ';
 		}
@@ -358,21 +359,10 @@ e820conf(void)
 	*confend = 0;
 }
 
-static ushort
-beswab(ushort s)
-{
-	uchar *p;
-
-	p = (uchar*)&s;
-	return (p[0]<<8) | p[1];
-}
-
 static ulong
 beswal(ulong l)
 {
-	uchar *p;
-
-	p = (uchar*)&l;
+	uchar *p = (uchar*)&l;
 	return (p[0]<<24) | (p[1]<<16) | (p[2]<<8) | p[3];
 }
 
@@ -388,20 +378,33 @@ bootkern(void *f)
 
 	if(readn(f, &ex, sizeof(ex)) != sizeof(ex))
 		return "bad header";
-	if(beswal(ex.magic) != I_MAGIC)
-		return "bad magic";
 
 	e = (uchar*)(beswal(ex.entry) & ~0xF0000000UL);
+	switch(beswal(ex.magic)){
+	case S_MAGIC:
+		if(readn(f, e, 8) != 8)
+			goto Error;
+	case I_MAGIC:
+		break;
+	default:
+		return "bad magic";
+	}
+
 	t = e;
 	n = beswal(ex.text);
-
 	if(readn(f, t, n) != n)
 		goto Error;
-	d = (uchar*)PGROUND((ulong)t + n);
+	t += n;
+	d = (uchar*)PGROUND((ulong)t);
+	memset(t, 0, d - t);
 	n = beswal(ex.data);
-
 	if(readn(f, d, n) != n)
 		goto Error;
+	d += n;
+	t = (uchar*)PGROUND((ulong)d);
+	t += PGROUND(beswal(ex.bss));
+	memset(d, 0, t - d);
+
 	close(f);
 	unload();
 
