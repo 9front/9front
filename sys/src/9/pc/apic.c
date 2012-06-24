@@ -76,15 +76,15 @@ enum {					/* LapicTIMER */
 	LapicDIVIDER	= 0x00080000,	/* use output of the divider */
 };
 
-enum {					/* LapicTDCR */
-	LapicX2		= 0x00000000,	/* divide by 2 */
-	LapicX4		= 0x00000001,	/* divide by 4 */
-	LapicX8		= 0x00000002,	/* divide by 8 */
-	LapicX16	= 0x00000003,	/* divide by 16 */
-	LapicX32	= 0x00000008,	/* divide by 32 */
-	LapicX64	= 0x00000009,	/* divide by 64 */
-	LapicX128	= 0x0000000A,	/* divide by 128 */
-	LapicX1		= 0x0000000B,	/* divide by 1 */
+static uchar lapictdxtab[] = {		/* LapicTDCR */
+	0x0B,	/* divide by 1 */
+	0x00,	/* divide by 2 */
+	0x01,	/* divide by 4 */
+	0x02,	/* divide by 8 */
+	0x03,	/* divide by 16 */
+	0x08,	/* divide by 32 */
+	0x09,	/* divide by 64 */
+	0x0A,	/* divide by 128 */
 };
 
 static ulong* lapicbase;
@@ -95,6 +95,7 @@ struct
 	ulong	max;
 	ulong	min;
 	ulong	div;
+	int	tdx;
 } lapictimer;
 
 static ulong
@@ -132,13 +133,13 @@ lapiconline(void)
 static void
 lapictimerinit(void)
 {
-	uvlong x, v, hz;
-
-	v = m->cpuhz/1000;
-	lapicw(LapicTDCR, LapicX1);
+Retry:
+	lapicw(LapicTDCR, lapictdxtab[lapictimer.tdx]);
 	lapicw(LapicTIMER, ApicIMASK|LapicCLKIN|LapicONESHOT|(VectorPIC+IrqTIMER));
 
 	if(lapictimer.hz == 0ULL){
+		uvlong x, v, hz;
+
 		x = fastticks(&hz);
 		x += hz/10;
 		lapicw(LapicTICR, 0xffffffff);
@@ -146,17 +147,20 @@ lapictimerinit(void)
 			v = fastticks(nil);
 		}while(v < x);
 
-		lapictimer.hz = (0xffffffffUL-lapicr(LapicTCCR))*10;
+		v = (0xffffffffUL-lapicr(LapicTCCR))*10;
+		if(v > hz-(hz/10)){
+			if(v > hz+(hz/10) && lapictimer.tdx < nelem(lapictdxtab)-1){
+				lapictimer.tdx++;
+				goto Retry;
+			}
+			v = hz;
+		}
+		assert(v != 0);
+
+		lapictimer.hz = v;
+		lapictimer.div = hz/lapictimer.hz;
 		lapictimer.max = lapictimer.hz/HZ;
 		lapictimer.min = lapictimer.hz/(100*HZ);
-
-		if(lapictimer.hz > hz-(hz/10)){
-			if(lapictimer.hz > hz+(hz/10))
-				panic("lapic clock %lld > cpu clock > %lld",
-					lapictimer.hz, hz);
-			lapictimer.hz = hz;
-		}
-		lapictimer.div = hz/lapictimer.hz;
 	}
 }
 
