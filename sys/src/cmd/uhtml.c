@@ -47,7 +47,7 @@ attr(char *s, char *a)
 void
 main(int argc, char *argv[])
 {
-	int n, pfd[2], pflag = 0;
+	int n, q, pfd[2], pflag = 0;
 	char *arg[4], *s, *e, *p, *g, *a, t;
 	Rune r;
 
@@ -96,12 +96,24 @@ main(int argc, char *argv[])
 		do {
 			if((s = strchr(s, '<')) == nil)
 				break;
-			g = s;
-			if((e = strchr(++s, '>')) == nil)
-				e = buf+nbuf;
+			q = 0;
+			g = ++s;
+			e = buf+nbuf;
+			while(s < e){
+				if(*s == '\'' || *s == '"'){
+					if(q == 0)
+						q = *s;
+					else if(q == *s)
+						q = 0;
+				} else if(*s == '>' && q == 0){
+					e = s;
+					break;
+				}
+				s++;
+			}
 			t = *e;
 			*e = 0;
-			if((a = attr(s, "encoding")) || (a = attr(s, "charset"))){
+			if((a = attr(g, "encoding")) || (a = attr(g, "charset"))){
 				cset = a;
 				*e = t;
 				break;

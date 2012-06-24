@@ -474,13 +474,23 @@ int lrunetochar(char *p, int v)
  */
 int pl_gettag(Hglob *g){
 	char *tokp;
-	int c;
+	int c, q;
 	tokp=g->token;
 	if((c=pl_nextc(g))=='!' || c=='?')
 		return pl_getcomment(g);
 	pl_putback(g, c);
-	while((c=pl_nextc(g))!=ETAG && c!=EOF)
-		if(tokp < &g->token[NTOKEN-UTFmax-1]) tokp += lrunetochar(tokp, c);
+	q = 0;
+	while((c=pl_nextc(g))!=EOF){
+		if(c == '\'' || c == '"'){
+			if(q == 0)
+				q = c;
+			else if(q == c)
+				q = 0;
+		} else if(c == ETAG && q == 0)
+			break;
+		if(tokp < &g->token[NTOKEN-UTFmax-1])
+			tokp += lrunetochar(tokp, c);
+	}
 	*tokp='\0';
 	if(c==EOF) htmlerror(g->name, g->lineno, "EOF in tag");
 	pl_tagparse(g, g->token);
