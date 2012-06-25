@@ -136,7 +136,7 @@ procsetname(char *fmt, ...)
 void
 main(int argc, char **argv)
 {
-	char dat[MaxStr], buf[MaxStr], cmd[MaxStr], *p, *err;
+	char dat[MaxStr], buf[MaxStr], cmd[MaxStr], *p, *s, *err;
 	int ac, fd, ms, data;
 	char *av[10];
 
@@ -183,12 +183,11 @@ main(int argc, char **argv)
 		break;
 	case 'c':
 		cflag++;
-		cmd[0] = '!';
-		cmd[1] = '\0';
-		while(p = ARGF()) {
-			strcat(cmd, " ");
-			strcat(cmd, p);
-		}
+		s = cmd;
+		*s++ = '!';
+		*s = 0;
+		while(p = ARGF())
+			s = seprint(s, cmd+sizeof(cmd), " %q", p);
 		break;
 	case 'k':
 		keyspec = smprint("%s %s", keyspec, EARGF(usage()));
@@ -343,7 +342,7 @@ remoteside(int old)
 
 	/* Set environment values for the user */
 	putenv("user", user);
-	sprint(home, "/usr/%s", user);
+	snprint(home, sizeof(home), "/usr/%s", user);
 	putenv("home", home);
 
 	/* Now collect invoking cpu's current directory or possibly a command */
@@ -532,7 +531,7 @@ netkeysrvauth(int fd, char *user)
 	int tries;
 	AuthInfo *ai;
 
-	if(readstr(fd, user, 32) < 0)
+	if(readstr(fd, user, MaxStr) < 0)
 		return -1;
 
 	ai = nil;
@@ -571,21 +570,24 @@ mksecret(char *t, uchar *f)
 static int
 p9auth(int fd)
 {
-	uchar key[16];
-	uchar digest[SHA1dlen];
+	uchar key[16], digest[SHA1dlen];
 	char fromclientsecret[21];
 	char fromserversecret[21];
-	int i;
 	AuthInfo *ai;
+	int i;
 
 	procsetname("%s: auth_proxy proto=%q role=client %s",
 		origargs, p9authproto, keyspec);
 	ai = auth_proxy(fd, auth_getkey, "proto=%q role=client %s", p9authproto, keyspec);
 	if(ai == nil)
 		return -1;
-	memmove(key+4, ai->secret, ai->nsecret);
-	if(ealgs == nil)
+	if(ealgs == nil){
+		auth_freeAI(ai);
 		return fd;
+	}
+	assert(ai->nsecret <= sizeof(key)-4);
+	memmove(key+4, ai->secret, ai->nsecret);
+	auth_freeAI(ai);
 
 	/* exchange random numbers */
 	srand(truerand());
@@ -641,23 +643,25 @@ loghex(uchar *p, int n)
 static int
 srvp9auth(int fd, char *user)
 {
-	uchar key[16];
-	uchar digest[SHA1dlen];
+	uchar key[16], digest[SHA1dlen];
 	char fromclientsecret[21];
 	char fromserversecret[21];
-	int i;
 	AuthInfo *ai;
+	int i;
 
-	ai = auth_proxy(0, nil, "proto=%q role=server %s", p9authproto, keyspec);
+	ai = auth_proxy(fd, nil, "proto=%q role=server %s", p9authproto, keyspec);
 	if(ai == nil)
 		return -1;
 	if(auth_chuid(ai, nil) < 0)
-		return -1;
-	strecpy(user, user+MaxStr, ai->cuid);
-	memmove(key+4, ai->secret, ai->nsecret);
-
-	if(ealgs == nil)
+		fatal("newns: %r");
+	snprint(user, MaxStr, "%s", ai->cuid);
+	if(ealgs == nil){
+		auth_freeAI(ai);
 		return fd;
+	}
+	assert(ai->nsecret <= sizeof(key)-4);
+	memmove(key+4, ai->secret, ai->nsecret);
+	auth_freeAI(ai);
 
 	/* exchange random numbers */
 	srand(truerand());
