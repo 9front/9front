@@ -196,7 +196,7 @@ main(int argc, char **argv)
 		*s++ = '!';
 		*s = 0;
 		while(p = ARGF())
-			s = seprint(s, cmd+sizeof(cmd), " %q", p);
+			s = seprint(s, cmd+sizeof(cmd), " %s", p);
 		break;
 	case 'k':
 		keyspec = smprint("%s %s", keyspec, EARGF(usage()));
