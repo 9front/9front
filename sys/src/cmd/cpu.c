@@ -69,10 +69,16 @@ char *p9authproto = "p9any";
 
 int setam(char*);
 
+char	*aan = "/bin/aan";
+char	*anstring = "tcp!*!0";
+char	*filterp = nil;
+
+int	filter(int fd, char *host);
+
 void
 usage(void)
 {
-	fprint(2, "usage: cpu [-h system] [-u user] [-a authmethod] "
+	fprint(2, "usage: cpu [-p] [-h system] [-u user] [-a authmethod] "
 		"[-e 'crypt hash'] [-k keypattern] [-P patternfile] "
 		"[-c cmd arg ...]\n");
 	exits("usage");
@@ -171,6 +177,9 @@ main(int argc, char **argv)
 	case 'f':
 		/* ignored but accepted for compatibility */
 		break;
+	case 'A':
+		anstring = EARGF(usage());
+		break;
 	case 'O':
 		p9authproto = "p9sk2";
 		remoteside(1);				/* From listen */
@@ -198,6 +207,9 @@ main(int argc, char **argv)
 	case 'u':
 		user = EARGF(usage());
 		keyspec = smprint("%s user=%s", keyspec, user);
+		break;
+	case 'p':
+		filterp = aan;
 		break;
 	default:
 		usage();
@@ -285,7 +297,7 @@ old9p(int fd)
 	if(pipe(p) < 0)
 		fatal("pipe: %r");
 
-	switch(rfork(RFPROC|RFFDG|RFNAMEG)) {
+	switch(rfork(RFPROC|RFMEM|RFFDG|RFNAMEG)) {
 	case -1:
 		fatal("rfork srvold9p: %r");
 	case 0:
@@ -330,6 +342,14 @@ remoteside(int old)
 	n = readstr(fd, cmd, sizeof(cmd));
 	if(n < 0)
 		fatal("authenticating: %r");
+	filterp = nil;
+	if(!old && strcmp(cmd, "aan") == 0){
+		filterp = aan;
+		writestr(fd, "", nil, 1);
+		n = readstr(fd, cmd, sizeof(cmd));
+		if(n < 0)
+			fatal("authenticating: %r");
+	}
 	if(setamalg(cmd) < 0){
 		writestr(fd, "unsupported auth method", nil, 0);
 		fatal("bad auth method %s: %r", cmd);
@@ -421,6 +441,18 @@ rexcall(int *fd, char *host, char *service)
 	procsetname("dialing %s", na);
 	if((*fd = dial(na, 0, dir, 0)) < 0)
 		return "can't dial";
+
+	/* negotiate aan filter extension */
+	if(filterp == aan){
+		writestr(*fd, "aan", "negotiating aan", 0);
+		n = readstr(*fd, err, sizeof err);
+		if(n < 0)
+			return "negotiating aan";
+		if(*err){
+			werrstr(err);
+			return negstr;
+		}
+	}
 
 	/* negotiate authentication mechanism */
 	if(ealgs != nil)
@@ -514,7 +546,7 @@ netkeyauth(int fd)
 		if(readstr(fd, chall, sizeof chall) < 0)
 			break;
 		if(*chall == 0)
-			return fd;
+			return filter(fd, system);
 		print("challenge: %s\nresponse: ", chall);
 		if(readln(resp, sizeof(resp)) < 0)
 			break;
@@ -554,7 +586,7 @@ netkeysrvauth(int fd, char *user)
 	if(auth_chuid(ai, 0) < 0)
 		fatal("newns: %r");
 	auth_freeAI(ai);
-	return fd;
+	return filter(fd, nil);
 }
 
 static void
@@ -605,12 +637,15 @@ p9auth(int fd)
 	mksecret(fromclientsecret, digest);
 	mksecret(fromserversecret, digest+10);
 
+	if((fd = filter(fd, system)) < 0)
+		return -1;
+
 	/* set up encryption */
 	procsetname("pushssl");
-	i = pushssl(fd, ealgs, fromclientsecret, fromserversecret, nil);
-	if(i < 0)
+	fd = pushssl(fd, ealgs, fromclientsecret, fromserversecret, nil);
+	if(fd < 0)
 		werrstr("can't establish ssl connection: %r");
-	return i;
+	return fd;
 }
 
 static int
@@ -677,11 +712,14 @@ srvp9auth(int fd, char *user)
 	mksecret(fromclientsecret, digest);
 	mksecret(fromserversecret, digest+10);
 
+	if((fd = filter(fd, nil)) < 0)
+		return -1;
+
 	/* set up encryption */
-	i = pushssl(fd, ealgs, fromserversecret, fromclientsecret, nil);
-	if(i < 0)
+	fd = pushssl(fd, ealgs, fromserversecret, fromclientsecret, nil);
+	if(fd < 0)
 		werrstr("can't establish ssl connection: %r");
-	return i;
+	return fd;
 }
 
 /*
@@ -707,6 +745,75 @@ setamalg(char *s)
 	if(ealgs != nil)
 		*ealgs++ = 0;
 	return setam(s);
+}
+
+int
+filter(int fd, char *host)
+{
+	char addr[128], buf[256], *s, *file, *argv[16];
+	int p[2], lfd, flags, len, argc;
+
+	if(filterp == nil)
+		return fd;
+	procsetname("filter %s", filterp);
+	flags = RFNOWAIT|RFPROC|RFMEM|RFFDG;
+	if(host == nil){
+		/* remote side */
+		if(announce(anstring, addr) < 0)
+			fatal("filter: Cannot announce %s: %r", anstring);
+		snprint(buf, sizeof(buf), "%s/local", addr);
+		if((lfd = open(buf, OREAD)) < 0)
+			fatal("filter: Cannot open %s: %r", buf);
+		if((len = read(lfd, buf, sizeof buf - 1)) < 0)
+			fatal("filter: Cannot read %s: %r", buf);
+		close(lfd);
+		buf[len] = 0;
+		if(s = strchr(buf, '\n'))
+			len = s - buf;
+		if(write(fd, buf, len) != len) 
+			fatal("filter: cannot write port; %r");
+	} else {
+		/* client side */
+		flags |= RFNOTEG;
+		if((len = read(fd, buf, sizeof buf - 1)) < 0)
+			fatal("filter: cannot read port; %r");
+		buf[len] = '\0';
+		if((s = strrchr(buf, '!')) == nil)
+			fatal("filter: malformed remote port: %s", buf);
+		snprint(addr, sizeof(addr), "%s", netmkaddr(host, "tcp", s+1));
+	}
+
+	snprint(buf, sizeof(buf), "%s", filterp);
+	if((argc = tokenize(buf, argv, nelem(argv)-3)) <= 0)
+		fatal("filter: empty command");
+	if(host)
+		argv[argc++] = "-c";
+	argv[argc++] = addr;
+	argv[argc] = nil;
+	file = argv[0];
+	if(s = strrchr(argv[0], '/'))
+		argv[0] = s+1;
+
+	if(pipe(p) < 0)
+		fatal("filter: pipe; %r");
+
+	switch(rfork(flags)) {
+	case -1:
+		fatal("filter: rfork; %r\n");
+	case 0:
+		if (dup(p[0], 1) < 0)
+			fatal("filter: Cannot dup to 1; %r");
+		if (dup(p[0], 0) < 0)
+			fatal("filter: Cannot dup to 0; %r");
+		close(p[0]);
+		close(p[1]);
+		exec(file, argv);
+		fatal("filter: exec; %r");
+	default:
+		close(fd);
+		close(p[0]);
+	}
+	return p[1];	
 }
 
 char *rmtnotefile = "/mnt/term/dev/cpunote";

@@ -4,6 +4,8 @@ cpu \- connection to CPU server
 .SH SYNOPSIS
 .B cpu
 [
+.B -p
+] [
 .B -h
 .I server
 ] [
@@ -31,6 +33,9 @@ cpu \- connection to CPU server
 .B -R
 |
 .B -O
+] [
+.B -A
+.I address
 ]
 .SH DESCRIPTION
 .I Cpu
@@ -176,6 +181,21 @@ flag is similar but simulates the pre-9P2000 version
 of the 
 .I cpu
 protocol.
+.PP
+The
+.B -p
+flag pushes the
+.IR aan (8)
+filter onto the connection to protect against temporary
+network outages.
+.PP
+The
+.B -A
+flag sets the announce-string
+.I address
+to use for
+.IR aan (8)
+connections, if requested by the initial protocol.
 .SH FILES
 The name space of the terminal side of the
 .I cpu
@@ -191,7 +211,8 @@ are bound to their standard locations from there.
 .SH SEE ALSO
 .IR rc (1) ,
 .IR rio (1) ,
-.IR exportfs (4)
+.IR exportfs (4) ,
+.IR aan (8)
 .SH BUGS
 Binds and mounts done after the terminal
 .B lib/profile
