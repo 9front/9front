@@ -70,7 +70,7 @@ post(char *name, char *envname, int srvfd)
 	fd = create(name, OWRITE, 0600);
 	if(fd < 0)
 		return;
-	sprint(buf, "%d",srvfd);
+	snprint(buf, sizeof(buf), "%d", srvfd);
 	if(write(fd, buf, strlen(buf)) != strlen(buf))
 		sysfatal("srv write: %r");
 	close(fd);
@@ -187,12 +187,12 @@ main(int argc, char **argv)
 			encprotos[encproto]);
 
 	if (encproto != Encnone && ealgs && ai) {
-		uchar key[16];
-		uchar digest[SHA1dlen];
+		uchar key[16], digest[SHA1dlen];
 		char fromclientsecret[21];
 		char fromserversecret[21];
 		int i;
 
+		assert(ai->nsecret <= sizeof(key)-4);
 		memmove(key+4, ai->secret, ai->nsecret);
 
 		/* exchange random numbers */
@@ -221,8 +221,11 @@ main(int argc, char **argv)
 	else if (filterp)
 		fd = filter(fd, filterp, argv[0]);
 
+	if(ai)
+		auth_freeAI(ai);
+
 	if(srvpost){
-		sprint(srvfile, "/srv/%s", srvpost);
+		snprint(srvfile, sizeof(srvfile), "/srv/%s", srvpost);
 		remove(srvfile);
 		post(srvfile, srvpost, fd);
 	}
@@ -256,7 +259,7 @@ old9p(int fd)
 	if(pipe(p) < 0)
 		sysfatal("pipe: %r");
 
-	switch(rfork(RFPROC|RFFDG|RFNAMEG)) {
+	switch(rfork(RFPROC|RFMEM|RFFDG|RFNAMEG)) {
 	case -1:
 		sysfatal("rfork srvold9p: %r");
 	case 0:
@@ -371,29 +374,26 @@ usage(void)
 int
 filter(int fd, char *cmd, char *host)
 {
+	char addr[128], buf[256], *s, *file, *argv[16];
 	int p[2], len, argc;
-	char newport[256], buf[256], *s;
-	char *argv[16], *file, *pbuf;
 
-	if ((len = read(fd, newport, sizeof newport - 1)) < 0)
+	if ((len = read(fd, buf, sizeof buf - 1)) < 0)
 		sysfatal("filter: cannot write port; %r");
-	newport[len] = '\0';
+	buf[len] = '\0';
 
-	if ((s = strchr(newport, '!')) == nil)
-		sysfatal("filter: illegally formatted port %s", newport);
-
-	strecpy(buf, buf+sizeof buf, netmkaddr(host, "tcp", "0"));
-	pbuf = strrchr(buf, '!');
-	strecpy(pbuf, buf+sizeof buf, s);
+	if ((s = strrchr(buf, '!')) == nil)
+		sysfatal("filter: illegally formatted port %s", buf);
+	snprint(addr, sizeof(addr), "%s", netmkaddr(host, "tcp", s+1));
 
 	if(debug)
-		fprint(2, "filter: remote port %s\n", newport);
+		fprint(2, "filter: remote %s\n", addr);
 
-	argc = tokenize(cmd, argv, nelem(argv)-2);
+	snprint(buf, sizeof(buf), "%s", cmd);
+	argc = tokenize(buf, argv, nelem(argv)-2);
 	if (argc == 0)
 		sysfatal("filter: empty command");
 	argv[argc++] = "-c";
-	argv[argc++] = buf;
+	argv[argc++] = addr;
 	argv[argc] = nil;
 	file = argv[0];
 	if (s = strrchr(argv[0], '/'))
@@ -402,16 +402,16 @@ filter(int fd, char *cmd, char *host)
 	if(pipe(p) < 0)
 		sysfatal("pipe: %r");
 
-	switch(rfork(RFNOWAIT|RFPROC|RFFDG)) {
+	switch(rfork(RFNOWAIT|RFPROC|RFMEM|RFFDG)) {
 	case -1:
-		sysfatal("rfork record module: %r");
+		sysfatal("filter: rfork; %r");
 	case 0:
 		dup(p[0], 1);
 		dup(p[0], 0);
 		close(p[0]);
 		close(p[1]);
 		exec(file, argv);
-		sysfatal("exec record module: %r");
+		sysfatal("filter: exec; %r");
 	default:
 		close(fd);
 		close(p[0]);

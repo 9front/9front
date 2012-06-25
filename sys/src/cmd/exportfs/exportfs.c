@@ -481,7 +481,7 @@ freefid(int nr)
 	for(f = *l; f; f = f->next) {
 		if(f->nr == nr) {
 			if(f->mid) {
-				sprint(buf, "/mnt/exportfs/%d", f->mid);
+				snprint(buf, sizeof(buf), "/mnt/exportfs/%d", f->mid);
 				unmount(0, buf);
 				psmap[f->mid] = 0;
 			}
@@ -888,8 +888,7 @@ filter(int fd, char *cmd)
 	close(lfd);
 	buf[len] = '\0';
 	if ((s = strchr(buf, '\n')) != nil)
-		*s = '\0';
-	len = strlen(buf);
+		len = s - buf;
 	if (write(fd, buf, len) != len) 
 		fatal("filter: cannot write port; %r");
 
