@@ -51,8 +51,8 @@ char	*aanfilter = "/bin/aan";
 int	encproto = Encnone;
 int	readonly;
 
-static void	mksecret(char *, uchar *);
-static int localread9pmsg(int, void *, uint, ulong *);
+static void mksecret(char *, uchar *);
+static int localread9pmsg(int, void *, uint, void *);
 static char *anstring  = "tcp!*!0";
 
 char *netdir = "", *local = "", *remote = "";
@@ -85,12 +85,11 @@ noteconn(int fd)
 void
 main(int argc, char **argv)
 {
-	char buf[ERRMAX], ebuf[ERRMAX], *srvfdfile;
-	Fsrpc *r;
-	int doauth, n, fd;
+	char buf[ERRMAX], ebuf[ERRMAX], initial[4], *ini, *srvfdfile;
 	char *dbfile, *srv, *na, *nsfile, *keyspec;
+	int doauth, n, fd;
 	AuthInfo *ai;
-	ulong initial;
+	Fsrpc *r;
 
 	dbfile = "/tmp/exportdb";
 	srv = nil;
@@ -195,21 +194,21 @@ main(int argc, char **argv)
 
 	if(srvfdfile){
 		if((srvfd = open(srvfdfile, ORDWR)) < 0)
-			sysfatal("open '%s': %r", srvfdfile);
+			fatal("open %s: %r", srvfdfile);
 	}
 
 	if(na){
 		if(srv == nil)
-			sysfatal("-B requires -s");
+			fatal("-B requires -s");
 
 		local = "me";
 		remote = na;
 		if((fd = dial(netmkaddr(na, 0, "importfs"), 0, 0, 0)) < 0)
-			sysfatal("can't dial %s: %r", na);
+			fatal("can't dial %s: %r", na);
 	
 		ai = auth_proxy(fd, auth_getkey, "proto=p9any role=client %s", keyspec);
 		if(ai == nil)
-			sysfatal("%r: %s", na);
+			fatal("%r: %s", na);
 
 		dup(fd, 0);
 		dup(fd, 1);
@@ -240,8 +239,6 @@ main(int argc, char **argv)
 	}
 
 	Workq = emallocz(sizeof(Fsrpc)*Nr_workbufs);
-//	for(i=0; i<Nr_workbufs; i++)
-//		Workq[i].buf = emallocz(messagesize);
 	fhash = emallocz(sizeof(Fid*)*FHASHSIZE);
 
 	fmtinstall('F', fcallfmt);
@@ -285,55 +282,54 @@ main(int argc, char **argv)
 	if(srv == nil && srvfd == -1 && write(0, "OK", 2) != 2)
 		fatal("open ack write");
 
-	if (readn(netfd, &initial, sizeof(ulong)) < sizeof(ulong))
-		fatal("can't read initial string: %r\n");
+	ini = initial;
+	if (readn(netfd, initial, sizeof(initial)) < sizeof(initial))
+		fatal("can't read initial string: %r");
 
-	if (strncmp((char *)&initial, "impo", sizeof(ulong)) == 0) {
+	if (memcmp(ini, "impo", 4) == 0) {
 		char buf[128], *p, *args[3];
 
-		/* New import.  Read import's parameters... */
-		initial = 0;
-
+		ini = nil;
 		p = buf;
-		while (p - buf < sizeof buf) {
+		for(;;){
 			if ((n = read(netfd, p, 1)) < 0)
-				fatal("can't read impo arguments: %r\n");
-
+				fatal("can't read impo arguments: %r");
 			if (n == 0)
-				fatal("connection closed while reading arguments\n");
-
+				fatal("connection closed while reading arguments");
 			if (*p == '\n') 
 				*p = '\0';
 			if (*p++ == '\0')
 				break;
+			if(p >= buf + sizeof(buf))
+				fatal("import parameters too long");
 		}
 		
 		if (tokenize(buf, args, nelem(args)) != 2)
-			fatal("impo arguments invalid: impo%s...\n", buf);
+			fatal("impo arguments invalid: impo%s...", buf);
 
 		if (strcmp(args[0], "aan") == 0)
 			filterp = aanfilter;
 		else if (strcmp(args[0], "nofilter") != 0)
-			fatal("import filter argument unsupported: %s\n", args[0]);
+			fatal("import filter argument unsupported: %s", args[0]);
 
 		if (strcmp(args[1], "ssl") == 0)
 			encproto = Encssl;
 		else if (strcmp(args[1], "tls") == 0)
 			encproto = Enctls;
 		else if (strcmp(args[1], "clear") != 0)
-			fatal("import encryption proto unsupported: %s\n", args[1]);
+			fatal("import encryption proto unsupported: %s", args[1]);
 
 		if (encproto == Enctls)
-			sysfatal("%s: tls has not yet been implemented", argv[0]);
+			fatal("%s: tls has not yet been implemented", argv[0]);
 	}
 
 	if (encproto != Encnone && ealgs && ai) {
-		uchar key[16];
-		uchar digest[SHA1dlen];
+		uchar key[16], digest[SHA1dlen];
 		char fromclientsecret[21];
 		char fromserversecret[21];
 		int i;
 
+		assert(ai->nsecret <= sizeof(key)-4);
 		memmove(key+4, ai->secret, ai->nsecret);
 
 		/* exchange random numbers */
@@ -341,13 +337,13 @@ main(int argc, char **argv)
 		for(i = 0; i < 4; i++)
 			key[i+12] = rand();
 
-		if (initial) 
-			fatal("Protocol botch: old import\n");
+		if (ini) 
+			fatal("Protocol botch: old import");
 		if(readn(netfd, key, 4) != 4)
-			fatal("can't read key part; %r\n");
+			fatal("can't read key part; %r");
 
 		if(write(netfd, key+12, 4) != 4)
-			fatal("can't write key part; %r\n");
+			fatal("can't write key part; %r");
 
 		/* scramble into two secrets */
 		sha1(key, sizeof(key), digest, nil);
@@ -364,17 +360,20 @@ main(int argc, char **argv)
 			break;
 		case Enctls:
 		default:
-			fatal("Unsupported encryption protocol\n");
+			fatal("Unsupported encryption protocol");
 		}
 
 		if(netfd < 0)
 			fatal("can't establish ssl connection: %r");
 	}
 	else if (filterp) {
-		if (initial) 
-			fatal("Protocol botch: don't know how to deal with this\n");
+		if (ini)
+			fatal("Protocol botch: don't know how to deal with this");
 		netfd = filter(netfd, filterp);
 	}
+
+	if(ai)
+		auth_freeAI(ai);
 
 	/*
 	 * Start serving file requests from the network
@@ -384,15 +383,15 @@ main(int argc, char **argv)
 		if(r == 0)
 			fatal("Out of service buffers");
 			
-		n = localread9pmsg(netfd, r->buf, messagesize, &initial);
+		n = localread9pmsg(netfd, r->buf, messagesize, ini);
 		if(n <= 0)
 			fatal(nil);
-
 		if(convM2S(r->buf, n, &r->work) == 0)
 			fatal("convM2S format error");
 
 		DEBUG(DFD, "%F\n", &r->work);
 		(fcalls[r->work.type])(r);
+		ini = nil;
 	}
 }
 
@@ -402,7 +401,7 @@ main(int argc, char **argv)
  * cpu relies on this (which needs to be fixed!) -- pb.
  */
 static int
-localread9pmsg(int fd, void *abuf, uint n, ulong *initial)
+localread9pmsg(int fd, void *abuf, uint n, void *ini)
 {
 	int m, len;
 	uchar *buf;
@@ -410,11 +409,8 @@ localread9pmsg(int fd, void *abuf, uint n, ulong *initial)
 	buf = abuf;
 
 	/* read count */
-	assert(BIT32SZ == sizeof(ulong));
-	if (*initial) {
-		memcpy(buf, initial, BIT32SZ);
-		*initial = 0;
-	}
+	if (ini)
+		memcpy(buf, ini, BIT32SZ);
 	else {
 		m = readn(fd, buf, BIT32SZ);
 		if(m != BIT32SZ){
@@ -456,10 +452,10 @@ reply(Fcall *r, Fcall *t, char *err)
 	if(data == nil)
 		fatal(Enomem);
 	n = convS2M(t, data, messagesize);
-	if(write(netfd, data, n)!=n)
-{syslog(0, "exportfs", "short write: %r");
+	if(write(netfd, data, n)!=n){
+		syslog(0, "exportfs", "short write: %r");
 		fatal("mount write");
-}
+	}
 	free(data);
 }
 
@@ -857,6 +853,7 @@ emallocz(uint n)
 	p = mallocz(n, 1);
 	if(p == nil)
 		fatal(Enomem);
+	setmalloctag(p, getcallerpc(&n));
 	return p;
 }
 
@@ -868,6 +865,7 @@ estrdup(char *s)
 	t = strdup(s);
 	if(t == nil)
 		fatal(Enomem);
+	setmalloctag(t, getcallerpc(&s));
 	return t;
 }
 
@@ -875,53 +873,51 @@ estrdup(char *s)
 int
 filter(int fd, char *cmd)
 {
-	int p[2], lfd, len, nb, argc;
-	char newport[128], buf[128], devdir[40], *s, *file, *argv[16];
+	char buf[128], devdir[40], *s, *file, *argv[16];
+	int p[2], lfd, len, argc;
 
 	/* Get a free port and post it to the client. */
 	if (announce(anstring, devdir) < 0)
-		sysfatal("filter: Cannot announce %s: %r", anstring);
+		fatal("filter: Cannot announce %s: %r", anstring);
 
 	snprint(buf, sizeof(buf), "%s/local", devdir);
-	buf[sizeof buf - 1] = '\0';
 	if ((lfd = open(buf, OREAD)) < 0)
-		sysfatal("filter: Cannot open %s: %r", buf);
-	if ((len = read(lfd, newport, sizeof newport - 1)) < 0)
-		sysfatal("filter: Cannot read %s: %r", buf);
+		fatal("filter: Cannot open %s: %r", buf);
+	if ((len = read(lfd, buf, sizeof buf - 1)) < 0)
+		fatal("filter: Cannot read %s: %r", buf);
 	close(lfd);
-	newport[len] = '\0';
-
-	if ((s = strchr(newport, '\n')) != nil)
+	buf[len] = '\0';
+	if ((s = strchr(buf, '\n')) != nil)
 		*s = '\0';
+	len = strlen(buf);
+	if (write(fd, buf, len) != len) 
+		fatal("filter: cannot write port; %r");
 
-	if ((nb = write(fd, newport, len)) < 0) 
-		sysfatal("getport; cannot write port; %r");
-	assert(nb == len);
-
-	argc = tokenize(cmd, argv, nelem(argv)-2);
+	snprint(buf, sizeof(buf), "%s", cmd);
+	argc = tokenize(buf, argv, nelem(argv)-2);
 	if (argc == 0)
-		sysfatal("filter: empty command");
-	argv[argc++] = buf;
+		fatal("filter: empty command");
+	argv[argc++] = devdir;
 	argv[argc] = nil;
 	file = argv[0];
 	if (s = strrchr(argv[0], '/'))
 		argv[0] = s+1;
 
 	if(pipe(p) < 0)
-		fatal("pipe");
+		fatal("filter: pipe; %r");
 
-	switch(rfork(RFNOWAIT|RFPROC|RFFDG)) {
+	switch(rfork(RFNOWAIT|RFPROC|RFMEM|RFFDG)) {
 	case -1:
-		fatal("rfork record module");
+		fatal("filter: rfork; %r\n");
 	case 0:
 		if (dup(p[0], 1) < 0)
-			fatal("filter: Cannot dup to 1; %r\n");
+			fatal("filter: Cannot dup to 1; %r");
 		if (dup(p[0], 0) < 0)
-			fatal("filter: Cannot dup to 0; %r\n");
+			fatal("filter: Cannot dup to 0; %r");
 		close(p[0]);
 		close(p[1]);
 		exec(file, argv);
-		fatal("exec record module");
+		fatal("filter: exec; %r");
 	default:
 		close(fd);
 		close(p[0]);
