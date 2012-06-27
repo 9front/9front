@@ -66,11 +66,8 @@ static void		synchronize(void);
 static int 		sendcommand(ulong, ulong);
 static void		showmsg(int, char *, Buf *);
 static int		writen(int, uchar *, int);
-static int		getport(char *);
 static void		dmessage(int, char *, ...);
 static void		timerproc(void *);
-static Endpoints*	getendpoints(char *);
-static void		freeendpoints(Endpoints *);
 
 static void
 usage(void)
@@ -100,18 +97,6 @@ emalloc(int n)
 	if(v == nil)
 		sysfatal("Cannot allocate memory; pc=%lux", pc);
 	setmalloctag(v, pc);
-	return v;
-}
-
-static char*
-estrdup(char *s)
-{
-	char *v;
-	int n;
-
-	n = strlen(s)+1;
-	v = emalloc(n);
-	memmove(v, s, n);
 	return v;
 }
 
@@ -259,6 +244,8 @@ fromclient(void*)
 	int n;
 	Buf *b;
 
+	threadsetname("fromclient");
+
 	do {
 		b = recvp(empty);
 		n = read(0, b->buf, Bufsize);
@@ -283,6 +270,8 @@ fromnet(void*)
 	static int lastacked;
 	int n, m, len, acked;
 	Buf *b;
+
+	threadsetname("fromnet");
 
 	b = emalloc(sizeof(Buf));
 	while (!done) {
@@ -366,13 +355,14 @@ fromnet(void*)
 static void
 reconnect(int secs)
 {
+	NetConnInfo *nci;
 	char ldir[40];
 	int lcfd, fd;
 
 	if (dialstring) {
 		syslog(0, Logname, "dialing %s", dialstring);
 		alarm(secs*1000);
-  		while ((fd = dial(dialstring, nil, nil, nil)) < 0) {
+  		while ((fd = dial(dialstring, nil, ldir, nil)) < 0) {
 			char err[32];
 
 			err[0] = '\0';
@@ -388,8 +378,6 @@ reconnect(int secs)
 		syslog(0, Logname, "reconnected to %s", dialstring);
 	} 
 	else {
-		Endpoints *ep;
-
 		syslog(0, Logname, "waiting for connection on %s", devdir);
 		alarm(secs*1000);
  		if ((lcfd = listen(devdir, ldir)) < 0) 
@@ -398,12 +386,14 @@ reconnect(int secs)
 			sysfatal("reconnect; cannot accept; %r");
 		alarm(0);
 		close(lcfd);
-		
-		ep = getendpoints(ldir);
-		dmessage(1, "rsys '%s'\n", ep->rsys);
-		syslog(0, Logname, "connected from %s", ep->rsys);
-		freeendpoints(ep);
 	}
+
+	if(nci = getnetconninfo(ldir, fd)){
+		syslog(0, Logname, "connected from %s", nci->rsys);
+		threadsetname(client? "client %s %s" : "server %s %s", ldir, nci->rsys);
+		freenetconninfo(nci);
+	} else
+		syslog(0, Logname, "connected");
 	
 	// Wakes up the netreader.
 	netfd = fd;
@@ -474,6 +464,9 @@ static void
 timerproc(void *x)
 {
 	Channel *timer = x;
+
+	threadsetname("timer");
+
 	while (!done) {
 		sleep((Synctime / MS(1)) >> 1);
 		sendp(timer, "timer");
@@ -491,57 +484,4 @@ dmessage(int level, char *fmt, ...)
 	va_start(arg, fmt);
 	vfprint(2, fmt, arg);
 	va_end(arg);
-}
-
-static void
-getendpoint(char *dir, char *file, char **sysp, char **servp)
-{
-	int fd, n;
-	char buf[128];
-	char *sys, *serv;
-
-	sys = serv = 0;
-
-	snprint(buf, sizeof buf, "%s/%s", dir, file);
-	fd = open(buf, OREAD);
-	if(fd >= 0){
-		n = read(fd, buf, sizeof(buf)-1);
-		if(n>0){
-			buf[n-1] = 0;
-			serv = strchr(buf, '!');
-			if(serv){
-				*serv++ = 0;
-				serv = estrdup(serv);
-			}
-			sys = estrdup(buf);
-		}
-		close(fd);
-	}
-	if(serv == 0)
-		serv = estrdup("unknown");
-	if(sys == 0)
-		sys = estrdup("unknown");
-	*servp = serv;
-	*sysp = sys;
-}
-
-static Endpoints *
-getendpoints(char *dir)
-{
-	Endpoints *ep;
-
-	ep = emalloc(sizeof(*ep));
-	getendpoint(dir, "local", &ep->lsys, &ep->lserv);
-	getendpoint(dir, "remote", &ep->rsys, &ep->rserv);
-	return ep;
-}
-
-static void
-freeendpoints(Endpoints *ep)
-{
-	free(ep->lsys);
-	free(ep->rsys);
-	free(ep->lserv);
-	free(ep->rserv);
-	free(ep);
 }
