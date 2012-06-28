@@ -398,6 +398,13 @@ fsopen(Req *r)
 			if(cl->request[0])
 				m = cl->request;
 
+			/*
+			 * some sites give a 403 Forbidden if we dont include
+			 * a meaningless Accept: */* header in the request.
+			 */
+			if(!lookkey(cl->hdr, "Accept"))
+				cl->hdr = addkey(cl->hdr, "Accept", "*/*");
+
 			if(!lookkey(cl->hdr, "Referer")){
 				char *r;
 				Url *u;
