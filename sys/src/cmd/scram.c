@@ -3,8 +3,9 @@
 #include <libc.h>
 #include <aml.h>
 
+int fd, iofd;
 struct Ureg u;
-int fd, iofd, PM1A_CNT_BLK, PM1B_CNT_BLK, SLP_TYPa, SLP_TYPb;
+ulong PM1A_CNT_BLK, PM1B_CNT_BLK, SLP_TYPa, SLP_TYPb;
 
 typedef struct Tbl Tbl;
 struct Tbl {
@@ -30,7 +31,7 @@ amlfree(void *p){
 	free(p);
 }
 
-static uint
+static ulong
 get32(uchar *p){
 	return p[3]<<24 | p[2]<<16 | p[1]<<8 | p[0];
 }
@@ -63,7 +64,7 @@ loadacpi(void)
 			break;
 		if(n != sizeof(*t))
 			return -1;
-		l = *(ulong*)(t->len);
+		l = get32(t->len);
 		if(l < sizeof(*t))
 			return -1;
 		t = realloc(t, l);
@@ -96,7 +97,7 @@ loadacpi(void)
 void
 outw(long addr, short val)
 {
-	char buf[2];
+	uchar buf[2];
 	
 	buf[0] = val;
 	buf[1] = val >> 8;
