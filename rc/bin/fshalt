@@ -38,9 +38,12 @@ for (i in $k){
 
 # for scram, don't scram other systems
 bind -b '#P' /dev
-if (test -e '#P'/apm)
-	if (! ~ $reboot yes)
+if(! ~ $reboot yes){
+	if (test -e '#P'/apm)
 		scram=yes
+	if (test -e '#P'/acpitbls -a -e '#P'/iow)
+		scram=yes
+}
 
 # halting (binaries we run can't be on the fs we're halting)
 ramfs
@@ -85,8 +88,10 @@ fn x {
 		echo rebooting...
 		echo reboot >'#c/reboot'
 	}
-	if (~ $scram yes)
+	if (~ $scram yes){
 		scram
+		echo 'It''s now safe to turn off your computer'
+	}
 }
 
 x
