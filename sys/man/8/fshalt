@@ -58,4 +58,4 @@ after invoking bare
 .IR fshalt .
 
 .I Scram
-is limited to the PC and requires APM.
+is limited to the PC and requires APM or ACPI.
