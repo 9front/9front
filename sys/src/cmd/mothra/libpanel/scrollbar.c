@@ -28,11 +28,10 @@ int pl_hitscrollbar(Panel *g, Mouse *m){
 	size=subpt(g->r.max, g->r.min);
 	pl_interior(g->state, &ul, &size);
 	oldstate=g->state;
-	if(m->buttons&OUT && m->buttons&7){
-		if(m->xy.y<g->r.min.y) m->xy.y=g->r.min.y;
-		if(m->xy.y>=g->r.max.y) m->xy.y=g->r.max.y-1;
-		if(ptinrect(m->xy, g->r))
-			m->buttons&=~OUT;
+	if(!(g->flags & USERFL) && (m->buttons&OUT || !ptinrect(m->xy, g->r))){
+		m->buttons&=~OUT;
+		g->state=UP;
+		goto out;
 	}
 	if(sp->dir==HORIZ){
 		pos=m->xy.x-ul.x;
@@ -71,6 +70,7 @@ int pl_hitscrollbar(Panel *g, Mouse *m){
 				pos, len);
 		g->state=UP;
 	}
+out:
 	if(oldstate!=g->state) pldraw(g, g->b);
 	return g->state==DOWN;
 }

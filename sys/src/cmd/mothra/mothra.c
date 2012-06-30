@@ -179,7 +179,7 @@ void mkpanels(void){
 			cururl=pllabel(p, PACKE|EXPAND, "---");
 			plplacelabel(cururl, PLACEW);
 		p=plgroup(root, PACKN|EXPAND);
-			bar=plscrollbar(p, PACKW);
+			bar=plscrollbar(p, PACKW|USERFL);
 			text=pltextview(p, PACKE|EXPAND, Pt(0, 0), 0, dolink);
 			plscroll(text, 0, bar);
 	plgrabkb(cmd);
