@@ -87,8 +87,6 @@ loadacpi(void)
 	if(amltag(r) != 'p' || amllen(r) < 2)
 		return -1;
 	rr = amlval(r);
-	if(amltag(rr[1]) != 'i')
-		return -1;
 	SLP_TYPa = (amlint(rr[1]) & 0xFF) << 10;
 	SLP_TYPb = ((amlint(rr[1]) >> 8) & 0xFF) << 10;
 	return 0;
