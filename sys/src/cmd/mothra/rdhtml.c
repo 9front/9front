@@ -626,12 +626,11 @@ void plrdplain(char *name, int fd, Www *dst){
 	finish(dst);
 }
 void plrdhtml(char *name, int fd, Www *dst){
+	int t, tagerr;
 	Stack *sp;
 	char buf[20];
 	char *str;
 	Hglob g;
-	int t;
-	int tagerr;
 
 	g.state=g.stack;
 	g.state->tag=Tag_html;
@@ -738,12 +737,11 @@ void plrdhtml(char *name, int fd, Www *dst){
 				nstrcpy(g.dst->url->fullname, str, sizeof(g.dst->url->fullname));
 			break;
 		case Tag_a:
+			if(str=pl_getattr(g.attr, "name"))
+				nstrcpy(g.state->name, str, sizeof(g.state->name));
+			pl_htmloutput(&g, 0, "", 0);
 			if(str=pl_getattr(g.attr, "href"))
 				nstrcpy(g.state->link, str, sizeof(g.state->link));
-			if(str=pl_getattr(g.attr, "name")){
-				nstrcpy(g.state->name, str, sizeof(g.state->name));
-				pl_htmloutput(&g, 0, "", 0);
-			}
 			break;
 		case Tag_meta:
 			if((str=pl_getattr(g.attr, "http-equiv"))==0)
