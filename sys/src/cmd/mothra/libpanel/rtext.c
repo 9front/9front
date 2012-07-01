@@ -150,7 +150,7 @@ int pl_rtfmt(Rtext *t, int wid){
 	return p.y;
 }
 void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
-	Point offs;
+	Point offs, lp;
 	Rectangle dr;
 	Rectangle cr;
 	Rectangle xr;
@@ -161,6 +161,7 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 		return;
 	replclipr(b, b->repl, xr);
 	pl_clr(b, r);
+	lp=ZP;
 	offs=subpt(r.min, Pt(0, yoffs));
 	for(;t;t=t->next) if(!eqrect(t->r, Rect(0,0,0,0))){
 		dr=rectaddpt(t->r, offs);
@@ -176,12 +177,17 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 			}
 			else{
 				string(b, dr.min, display->black, ZP, t->font, t->text);
-				if(t->hot)
-					line(b, Pt(dr.min.x, dr.max.y-1),
-						Pt(dr.max.x, dr.max.y-1),
+				if(t->hot){
+					if(lp.y+1 != dr.max.y)
+						lp = Pt(dr.min.x, dr.max.y-1);
+					line(b, lp, Pt(dr.max.x, dr.max.y-1),
 						Endsquare, Endsquare, 0,
 						display->black, ZP);
+					lp = Pt(dr.max.x, dr.max.y-1);
+					continue;
+				}
 			}
+			lp=ZP;
 		}
 	}
 	replclipr(b, b->repl, cr);
@@ -222,13 +228,23 @@ void pl_rtredraw(Image *b, Rectangle r, Rtext *t, int yoffs, int oldoffs){
 	}
 }
 Rtext *pl_rthit(Rtext *t, int yoffs, Point p, Point ul){
+	Rectangle r;
+	Point lp;
 	if(t==0) return 0;
 	p.x-=ul.x;
 	p.y+=yoffs-ul.y;
 	while(t->nextline && t->nextline->topy<=p.y) t=t->nextline;
+	lp=ZP;
 	for(;t!=0;t=t->next){
 		if(t->topy>p.y) return 0;
-		if(ptinrect(p, t->r)) return t;
+		r = t->r;
+		if(t->hot && t->b == nil && t->p == nil){
+			if(lp.y == r.max.y && lp.x < r.min.x)
+				r.min.x=lp.x;
+			lp=r.max;
+		} else
+			lp=ZP;
+		if(ptinrect(p, r)) return t;
 	}
 	return 0;
 }
