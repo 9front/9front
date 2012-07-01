@@ -5,7 +5,11 @@
 
 int fd, iofd;
 struct Ureg u;
-ulong PM1A_CNT_BLK, PM1B_CNT_BLK, SLP_TYPa, SLP_TYPb;
+ulong PM1a_CNT_BLK, PM1b_CNT_BLK, SLP_TYPa, SLP_TYPb;
+enum {
+	SLP_EN = 0x2000,
+	SLP_TM = 0x1c00,
+};
 
 typedef struct Tbl Tbl;
 struct Tbl {
@@ -53,9 +57,9 @@ int
 loadacpi(void)
 {
 	void *r, **rr;
+	ulong l;
 	Tbl *t;
 	int n;
-	ulong l;
 
 	amlinit();
 	for(;;){
@@ -76,35 +80,53 @@ loadacpi(void)
 		else if(memcmp("SSDT", t->sig, 4) == 0)
 			amlload(t->data, l);
 		else if(memcmp("FACP", t->sig, 4) == 0){
-			PM1A_CNT_BLK = get32(((uchar*)t) + 64);
-			PM1B_CNT_BLK = get32(((uchar*)t) + 68);
+			PM1a_CNT_BLK = get32(((uchar*)t) + 64);
+			PM1b_CNT_BLK = get32(((uchar*)t) + 68);
 		}
 	}
-	if(PM1A_CNT_BLK == 0)
-		return -1;
 	if(amleval(amlwalk(amlroot, "_S5"), "", &r) < 0)
 		return -1;
 	if(amltag(r) != 'p' || amllen(r) < 2)
 		return -1;
 	rr = amlval(r);
-	SLP_TYPa = (amlint(rr[1]) & 0xFF) << 10;
-	SLP_TYPb = ((amlint(rr[1]) >> 8) & 0xFF) << 10;
+	SLP_TYPa = amlint(rr[0]);
+	SLP_TYPb = amlint(rr[1]);
 	return 0;
 }
 
 void
-outw(long addr, short val)
+outw(long addr, ushort val)
 {
 	uchar buf[2];
-	
+
+	if(addr == 0)
+		return;
 	buf[0] = val;
 	buf[1] = val >> 8;
 	pwrite(iofd, buf, 2, addr);
 }
 
 void
+wirecpu0(void)
+{
+	char buf[128];
+	int ctl;
+
+	snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
+	if((ctl = open(buf, OWRITE)) < 0){
+		snprint(buf, sizeof(buf), "#p/%d/ctl", getpid());
+		if((ctl = open(buf, OWRITE)) < 0)
+			return;
+	}
+	write(ctl, "wired 0", 7);
+	close(ctl);
+}
+
+void
 main()
 {
+	wirecpu0();
+
 	if((fd = open("/dev/apm", ORDWR)) < 0)
 		if((fd = open("#P/apm", ORDWR)) < 0)
 			goto tryacpi;
@@ -127,9 +149,25 @@ tryacpi:
 			goto fail;
 	if(loadacpi() < 0)
 		goto fail;
-	outw(PM1A_CNT_BLK, SLP_TYPa | 0x2000);
-	if(PM1B_CNT_BLK != 0)
-		outw(PM1B_CNT_BLK, SLP_TYPb | 0x2000);
+
+	outw(PM1a_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
+	outw(PM1b_CNT_BLK, ((SLP_TYPb << 10) & SLP_TM) | SLP_EN);
+	sleep(100);
+
+	/*
+	 * The SetSystemSleeping() example from the ACPI spec 
+	 * writes the same value in both registers. But Linux/BSD
+	 * write distinct values from the _Sx package (like the
+	 * code above). The _S5 package on a HP DC5700 is
+	 * Package(0x2){0x0, 0x7} and writing SLP_TYPa of 0 to
+	 * PM1a_CNT_BLK seems to have no effect but 0x7 seems
+	 * to work fine. So trying the following as a last effort.
+	 */
+	SLP_TYPa |= SLP_TYPb;
+	outw(PM1a_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
+	outw(PM1b_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
+	sleep(100);
+
 fail:
-	;
+	exits("scram");
 }
