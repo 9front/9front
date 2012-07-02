@@ -3,6 +3,7 @@
 
 int	multi;
 int	nlines;
+vlong	nchars;
 char	*status = nil;
 
 int
@@ -53,29 +54,60 @@ lines(int fd, char *file)
 }
 
 void
+chars(int fd, char *file)
+{
+	char buf[8*1024];
+	vlong m;
+	int n;
+
+	for(m = 0; m < nchars; m += n){
+		n = sizeof(buf);
+		if(n > (nchars - m))
+			n = nchars - m;
+		if((n = read(fd, buf, n)) < 0){
+			fprint(2, "read: error reading %s: %r\n", file);
+			exits("read error");
+		}
+		if(n == 0){
+			if(m == 0)
+				status = "eof";
+			break;
+		}
+		write(1, buf, n);
+	}
+}
+
+void
+usage(void)
+{
+	fprint(2, "usage: read [-m] [-n nlines] [-c nbytes] [files...]\n");
+	exits("usage");
+}
+
+void
 main(int argc, char *argv[])
 {
+	void (*proc)(int, char*);
 	int i, fd;
-	char *s;
 
+	proc = lines;
 	ARGBEGIN{
+	case 'c':
+		nchars = atoll(EARGF(usage()));
+		proc = chars;
+		break;
+	case 'n':
+		nlines = atoi(EARGF(usage()));
+		break;
 	case 'm':
 		multi = 1;
 		break;
-	case 'n':
-		s = ARGF();
-		if(s){
-			nlines = atoi(s);
-			break;
-		}
-		/* fall through */
 	default:
-		fprint(2, "usage: read [-m] [-n nlines] [files...]\n");
-		exits("usage");
+		usage();
 	}ARGEND
 
 	if(argc == 0)
-		lines(0, "<stdin>");
+		(*proc)(0, "<stdin>");
 	else
 		for(i=0; i<argc; i++){
 			fd = open(argv[i], OREAD);
@@ -83,7 +115,7 @@ main(int argc, char *argv[])
 				fprint(2, "read: can't open %s: %r\n", argv[i]);
 				exits("open");
 			}
-			lines(fd, argv[i]);
+			(*proc)(fd, argv[i]);
 			close(fd);
 		}
 

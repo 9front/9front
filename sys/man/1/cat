@@ -12,7 +12,10 @@ cat, read \- catenate files
 .B -m
 ] [
 .B -n
-.I nline
+.I nlines
+] [
+.B -c
+.I nbytes
 ] [
 .I file ...
 ]
@@ -54,8 +57,20 @@ The
 flag causes it to continue reading and writing multiple lines until end of file;
 .B -n
 causes it to read no more than
-.I nline
+.I nlines
 lines.
+.PP
+With the
+.B -c
+flag,
+.I read
+copies exactly
+.I nbytes
+of characters instead of lines. It is mutually exclusive with
+.B -n
+and
+.B -m
+flag.
 .PP
 .I Read
 always executes a single
