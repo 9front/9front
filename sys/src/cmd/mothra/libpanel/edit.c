@@ -49,8 +49,8 @@ void pl_drawedit(Panel *p){
 		sb->setscrollbar(sb, ep->t->top, ep->t->bot, ep->t->etext-ep->t->text);
 }
 void pl_snarfedit(Panel *p, int cut){
-	int fd, n, s0, s1;
-	char *s;
+	int fd, n, r, s0, s1;
+	char *s, *x;
 	Rune *t;
 
 	if((fd=open("/dev/snarf", cut ? OWRITE|OTRUNC : OREAD))<0)
@@ -68,12 +68,19 @@ void pl_snarfedit(Panel *p, int cut){
 		free(s);
 		plepaste(p, 0, 0);
 	}else{
-		if((s=malloc(4096))==0){
-			close(fd);
-			return;
+		n=0;
+		s=nil;
+		for(;;){
+			if((x=realloc(s, n+1024)) == nil){
+				free(s);
+				close(fd);
+				return;
+			}
+			s=x;
+			if((r = read(fd, s+n, 1024)) <= 0)
+				break;
+			n += r;
 		}
-		if((n=readn(fd, s, 4096))<0)
-			n=0;
 		t=runesmprint("%.*s", n, s);
 		plepaste(p, t, runestrlen(t));
 		free(s);
