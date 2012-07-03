@@ -48,7 +48,7 @@ case go
 				echo -n $"i'='
 				cat $i
 				echo
-			} | grep -v '(apm0|e820|bootfile|bootargs|nvram|mouseport|monitor|vgasize)'
+			} | grep -v '(apm0|e820|bootfile|bootargs|nvram|mouseport|monitor|vgasize|cdboot)'
 		} >/tmp/plan9.ini
 	}
 
