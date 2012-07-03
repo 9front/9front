@@ -184,7 +184,7 @@ void mkpanels(void){
 			plscroll(text, 0, bar);
 	plgrabkb(cmd);
 	alt=plpopup(0, PACKE|EXPAND, 0, 0, menu3);
-		bar=plscrollbar(alt, PACKW);
+		bar=plscrollbar(alt, PACKW|USERFL);
 		alttext=pltextview(alt, PACKE|EXPAND, Pt(0, 0), 0, dolink);
 		plscroll(alttext, 0, bar);
 }
