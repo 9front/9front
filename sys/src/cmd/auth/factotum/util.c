@@ -682,7 +682,7 @@ promptforhostowner(void)
 	}
 	free(p);
 
-	strcpy(owner, "none");
+	strcpy(owner, "glenda");
 	do{
 		outin("user", owner, sizeof(owner));
 	} while(*owner == 0);
