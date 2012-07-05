@@ -1,0 +1,43 @@
+.TH BZFS 4
+.SH NAME
+bzfs \- compressed read-write ram filesystem
+.SH SYNOPSIS
+.B bzfs
+[
+.B -m
+.I mtpt
+] [
+.B -s
+] [
+.B -f
+.I file
+]
+.SH DESCRIPTION
+.I Bzfs
+reads a bzip2 (see
+.IR gzip (1))
+compressed filesystem archive as produced by
+.IR mkfs (8)
+and serves it as a writable ram filesystem. The
+compressed archive file has to be provided with the
+.B -f
+.I file
+option.
+The
+.B -m
+option sets the mountpoint
+.I mptp
+(default /root).
+If the
+.B -s
+flag is specified then the 9p channel
+.B /srv/ramfs
+is created to be used later for mounting the
+filesystem.
+.SH SOURCE
+.B /sys/src/cmd/bzfs
+.SH SEE ALSO
+.IR mkfs (8),
+.IR gzip (1),
+.IR ramfs (4),
+.IR paqfs (4).
