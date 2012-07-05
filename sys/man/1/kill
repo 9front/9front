@@ -67,8 +67,11 @@ the broken processes.
 flags processes matching the program name
 .I regexp
 as not to be killed in the event of memory
-exhaustion. This is usualy run from termrc
-and cpurc (see
+exhaustion. This is usually run from
+.B termrc
+and
+.B cpurc
+(see
 .IR cpurc (8))
 to protect important system processes from
 getting killed.

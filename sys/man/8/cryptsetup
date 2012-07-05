@@ -21,12 +21,10 @@ device.
 .PP
 The
 .B -f
-flag formats the partitions
+flag formats the partition
 .I files,
-generating a new encryption key. The encryption key is
-protected by a password that
-.I cryptsetup
-will prompt for confirmation.
+generating a new encryption key. The user will be prompted
+for a password that will be used to protect the encryption key.
 .PP
 The flags
 .B -i
