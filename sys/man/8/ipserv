@@ -1,6 +1,6 @@
 .TH IPSERV 8
 .SH NAME
-telnetd, rlogind, rexexec, ftpd \- Internet remote access daemons
+telnetd, rlogind, rexexec, ftpd, socksd \- Internet remote access daemons
 .SH SYNOPSIS
 .B ip/telnetd
 .RB [ -adnptN ]
@@ -16,6 +16,14 @@ telnetd, rlogind, rexexec, ftpd \- Internet remote access daemons
 .RB [ -n
 .IR namepace-file ]
 .PP
+.B ip/socksd
+[
+.B -x
+.I inside
+] [
+.B -o
+.I outside
+]
 .SH DESCRIPTION
 These programs support remote access across the Internet.  All expect the
 network connection to be standard input, output, and error.  They are normally
@@ -174,6 +182,24 @@ is locked by
 see
 .IR httpd (8).
 .PP
+.I Socksd
+is a SOCKS4 and SOCKS5
+proxy server allowing non Plan9 machines to access the
+outside network.
+The net to use for outgoing calls can be specified
+with the
+.B -o
+.I outside
+and the internal network is specified with
+.B -x
+.I inside
+(for UDP relay).
+If not specified,
+.I inside
+and
+.I outside
+will default to
+.BR /net .
 .SH FILES
 .B /lib/namepace
 .br
@@ -190,6 +216,8 @@ see
 .B /sys/src/cmd/ip/rexexec.c
 .br
 .B /sys/src/cmd/ip/ftpd.c
+.br
+.B /sys/src/cmd/ip/socksd.c
 .SH "SEE ALSO"
 .IR ftpfs (4),
 .IR pop3 (8)
