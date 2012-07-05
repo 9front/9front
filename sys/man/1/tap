@@ -1,0 +1,22 @@
+.TH TAP 1
+.SH NAME
+tap \- follow the pipes of a process
+.SH SYNOPSIS
+.B tap
+[
+.I pid ...
+]
+.SH DESCRIPTION
+.I Tap
+walks the file descriptors of a process looking for pipes (see
+.IR pipe (3))
+and then finds the processes on the other end of these pipes
+repeating the process recursively. The result is a tree of
+alternating process and filedescriptor nodes that make up the
+process pipeline.
+.SH SOURCE
+.B /rc/bin/tap
+.SH SEE ALSO
+.IR ps (1),
+.IR pipe (3),
+.IR proc (3).
