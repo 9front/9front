@@ -1,0 +1,39 @@
+.TH TPUT 1
+.SH NAME
+tput \- measure read throughput
+.SH SYNOPSIS
+.B tput
+[
+.B -b
+.I buflen
+] [
+.B -p
+]
+.SH DESCRIPTION
+.I Tput
+continuously reads standard input writing throughput statistics
+to standard error. The throughput value is calculated and written
+once per second and automatically scaled to kilo-, mega- or gigabytes.
+.PP
+When the
+.B -p
+flag is specified,
+.I tput
+will write the data read to standard output (the default is to
+discard the data).
+.PP
+A read blocksize (default is 8192) in bytes can be given with the
+.B -b
+.I buflen
+option.
+.SH EXAMPLE
+.EX
+tput </dev/zero
+.EE
+.SH SOURCE
+.B /sys/src/cmd/tput.c
+.SH SEE ALSO
+.IR iostats (4)
+.SH DIAGNOSTICS
+.I Tput
+sets error status on read error.

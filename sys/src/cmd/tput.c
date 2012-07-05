@@ -1,23 +1,41 @@
 #include <u.h>
 #include <libc.h>
 
-enum {buflen = 4096};
+int dopipe;
+int buflen = 8192;
+uvlong bc, sec;
+
+void
+usage(void)
+{
+	fprint(2, "usage: %s [-b buflen] [-p]\n", argv0);
+	exits("usage");
+}
 
 void
 main(int argc, char **argv)
 {
-	int rc, cpid, fd, dopipe;
-	static char buf[buflen];
-	static uvlong bc, sec;
 	double speed;
+	int rc, cpid;
+	char *buf;
 	
-	dopipe = 0;
 	ARGBEGIN {
-	case 'p': dopipe = 1;
+	case 'b':
+		buflen = atoi(EARGF(usage()));
+		break;
+	case 'p':
+		dopipe = 1;
+		break;
+	default:
+		usage();
 	} ARGEND
+
+	if(argc != 0)
+		usage();
 	
 	bc = 0;
 	sec = 0;
+	buf = sbrk(buflen);
 	cpid = rfork(RFPROC | RFMEM);
 	if(cpid == 0) {
 		while(1) {
@@ -35,8 +53,7 @@ main(int argc, char **argv)
 		if(dopipe) write(1, buf, rc);
 		bc += rc;
 	}
-	sprint(buf, "/proc/%d/note", cpid);
-	fd = open(buf, OWRITE);
-	write(fd, "kill", 4);
+	postnote(PNPROC, cpid, "kill");
 	if(rc < 0) sysfatal("%r");
+	exits(0);
 }
