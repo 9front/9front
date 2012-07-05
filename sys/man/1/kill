@@ -1,6 +1,6 @@
 .TH KILL 1
 .SH NAME
-kill, slay, broke \- print commands to kill processes
+kill, slay, broke, dontkill \- print commands to kill processes
 .SH SYNOPSIS
 .B kill
 .I name ...
@@ -12,6 +12,9 @@ kill, slay, broke \- print commands to kill processes
 [
 .I user
 ]
+.PP
+.B dontkill
+.I regexp
 .SH DESCRIPTION
 .I Kill
 prints commands that will cause all processes called
@@ -59,10 +62,22 @@ Executing the commands printed by
 .I broke
 lets the system reclaim the resources used by
 the broken processes.
+.PP
+.I Dontkill
+flags processes matching the program name
+.I regexp
+as not to be killed in the event of memory
+exhaustion. This is usualy run from termrc
+and cpurc (see
+.IR cpurc (8))
+to protect important system processes from
+getting killed.
 .SH SOURCE
 .B /rc/bin/kill
 .br
 .B /rc/bin/broke
+.br
+.B /rc/bin/dontkill
 .SH "SEE ALSO"
 .IR ps (1),
 .IR stop (1),
