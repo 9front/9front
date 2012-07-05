@@ -1,6 +1,6 @@
 .TH PS 1
 .SH NAME
-ps, psu \- process status
+ps, psu, pstree \- process status
 .SH SYNOPSIS
 .B ps
 [
@@ -14,6 +14,8 @@ ps, psu \- process status
 [
 .I user
 ]
+.PP
+.B pstree
 .SH DESCRIPTION
 .I Ps
 prints information about processes.
@@ -99,12 +101,17 @@ The
 flag causes
 .I ps
 to print the arguments for the process.  Newlines in arguments will be translated to spaces for display.
+.PP
+.I Pstree
+shows the processes as a tree.
 .SH FILES
 .B /proc/*/status
 .SH SOURCE
 .B /sys/src/cmd/ps.c
 .br
 .B /rc/bin/psu
+.br
+.B /sys/src/cmd/pstree.c
 .SH "SEE ALSO"
 .IR acid (1),
 .IR db (1),
