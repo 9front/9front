@@ -1,0 +1,53 @@
+.TH CRYPTSETUP 8
+.SH NAME
+cryptsetup \- setup encrypted partition
+.SH SYNOPSIS
+.B cryptsetup
+.B -f
+.I files ...
+.br
+.B cryptsetup
+.B -o
+.I files ...
+.br
+.B cryptsetup
+.B -i
+.I files ...
+.SH DESCRIPTION
+.I Cryptsetup
+prepares a AES-encrypted partition to be used with the
+.IR fs (3)
+device.
+.PP
+The
+.B -f
+flag formats the partitions
+.I files,
+generating a new encryption key. The encryption key is
+protected by a password that
+.I cryptsetup
+will prompt for confirmation.
+.PP
+The flags
+.B -i
+and
+.B -o
+activate a previously formated encrypted partition. The
+.B -o
+flag outputs the
+.IR fs (3)
+ctl activation commands to standard output where
+.B -i
+directly writes them to the
+.B '/dev/fs/ctl'
+file.
+.PP
+Once activated, the new partition appears under
+.BI /dev/fs/ name
+where
+.I name
+is the last path element of the
+.I files
+argument.
+.SH SEE ALSO
+.IR fs (3)

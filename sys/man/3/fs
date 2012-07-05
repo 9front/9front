@@ -157,6 +157,15 @@ specifies the default unit (sector) size in bytes and the default source
 for further partition devices.
 Default values are restored when the control file is closed.
 .TP
+.BI crypt " new file key"
+The device
+.I new
+corresponds to a AES-encrypted partition
+.I file
+encrypted with
+.I key (see
+.IR cryptsetup (8)).
+.TP
 .B clear
 Discard all
 .I fs
