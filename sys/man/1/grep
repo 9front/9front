@@ -1,6 +1,6 @@
 .TH GREP 1
 .SH NAME
-grep \- search a file for a pattern
+grep, g \- search a file for a pattern
 .SH SYNOPSIS
 .B grep
 [
@@ -13,6 +13,15 @@ grep \- search a file for a pattern
 |
 .B -f
 .I patternfile
+[
+.I file ...
+]
+.br
+.B g
+[
+.B flags
+]
+.I pattern
 [
 .I file ...
 ]
@@ -96,8 +105,22 @@ in single quotes
 An expression starting with '*'
 will treat the rest of the expression
 as literal characters.
+.PP
+.I G\^
+invokes
+.I grep
+with
+.B -n
+(plus aditional flags, if provided)
+and forces tagging of output lines by file name. If no files
+are listed, it searches all files matching
+.B *.asm *.cc *.cs *.lx *.cgi *.pl
+.B *.py *.tex *.ms *.java *.xy *.go
+.B *.goc
 .SH SOURCE
 .B /sys/src/cmd/grep
+.br
+.B /rc/bin/g
 .SH SEE ALSO
 .IR ed (1),
 .IR awk (1),
