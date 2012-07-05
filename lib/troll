@@ -94,3 +94,5 @@ I am coming back to Plan 9 after a couple of years away from the project -- shou
 What's the most sane way of downloading it to 9vx.OSX?
 Subject: [nix]  current nix doesn't boot
 Who is big troll/trouble maker really?
+[nix]  on the subject of abaco
+i notice that there is now conflict b/w nix and plan 9 syscall numbering.

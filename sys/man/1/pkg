@@ -1,6 +1,6 @@
 .TH PKG 1
 .SH NAME
-create, install, list, local, remove \- trivial package management
+create, install, list, local, remove, unpkg \- trivial package management
 .SH SYNOPSIS
 .B pkg/create
 .I name
@@ -14,6 +14,8 @@ create, install, list, local, remove \- trivial package management
 .br
 .B pkg/remove
 .I name
+.br
+.B pkg/unpkg
 .SH DESCRIPTION
 .I Pkg 
 is a simple package management system primarily written in
@@ -60,22 +62,29 @@ List locally installed packages.
 Remove the package
 .I name
 from the local system.
+.TP
+.I Pkg/unpkg
+A modified
+.IR tar (1)
+used by
+.B pkg/install
+to generate checksums for every unpacked file.
 .SH EXAMPLES
 .LP
 Create the package
-.B irc7-2011.09.21:
+.B irc7-2012.06.22:
 .sp 1
 .EX
-% pkg/create /sys/src/cmd/irc7-2011.09.21
+% pkg/create /sys/src/pkg/irc7-2012.06.22
 .EE
 
 .LP
 Install the
-.B Go
-programming language:
+.B gopherd
+server:
 .sp 1
 .EX
-% pkg/install go-2011.05.10
+% pkg/install gopherd-2012.04.15
 .EE
 .SH FILES
 .TF
@@ -102,4 +111,6 @@ source files of packages installed locally.
 .br
 .B http://ph.inri.net/9front/pkg/386
 .SH SEE ALSO
-.IR contrib (1)
+.IR contrib (1) ,
+.IR gzip (1) ,
+.IR tar (1)
