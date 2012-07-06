@@ -1,6 +1,6 @@
 .TH IPSERV 8
 .SH NAME
-telnetd, rlogind, rexexec, ftpd, socksd \- Internet remote access daemons
+telnetd, rlogind, rexexec, ftpd, socksd, hproxy \- Internet remote access daemons
 .SH SYNOPSIS
 .B ip/telnetd
 .RB [ -adnptN ]
@@ -24,6 +24,8 @@ telnetd, rlogind, rexexec, ftpd, socksd \- Internet remote access daemons
 .B -o
 .I outside
 ]
+.PP
+.B ip/hproxy
 .SH DESCRIPTION
 These programs support remote access across the Internet.  All expect the
 network connection to be standard input, output, and error.  They are normally
@@ -200,6 +202,9 @@ and
 .I outside
 will default to
 .BR /net .
+.PP
+.I Hproxy
+is a simple HTTP proxy server.
 .SH FILES
 .B /lib/namepace
 .br
@@ -218,6 +223,8 @@ will default to
 .B /sys/src/cmd/ip/ftpd.c
 .br
 .B /sys/src/cmd/ip/socksd.c
+.br
+.B /sys/src/cmd/ip/hproxy.c
 .SH "SEE ALSO"
 .IR ftpfs (4),
 .IR pop3 (8)
