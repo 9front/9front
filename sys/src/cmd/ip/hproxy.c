@@ -85,7 +85,7 @@ main(void)
 	default:
 		dup(fd, 1);
 		if(!con)
-			print("%s /%s %s\r\n%s", f[0], path, f[2], e);
+			print("%s /%s %s\r\nConnection: close\r\n%s", f[0], path, f[2], e);
 	}
 
 	while((r = read(0, buf, sizeof(buf))) > 0)
