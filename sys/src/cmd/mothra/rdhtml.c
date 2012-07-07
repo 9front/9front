@@ -344,7 +344,8 @@ char *pl_white(char *s){
 char *pl_word(char *s){
 	if ('a'<=*s && *s<='z' || 'A'<=*s && *s<='Z') {
 		s++;
-		while('a'<=*s && *s<='z' || 'A'<=*s && *s<='Z' || '0'<=*s && *s<='9' || *s=='-' || *s=='.') s++;
+		while('a'<=*s && *s<='z' || 'A'<=*s && *s<='Z' || '0'<=*s && *s<='9' || 
+			*s=='-' || *s=='.' || *s==':') s++;
 	}
 	return s;
 }
@@ -376,7 +377,7 @@ void pl_tagparse(Hglob *g, char *str){
 	if(str[0]=='/') str++;
 	name=str;
 	s=pl_word(str);
-	if(*s!=' ' && *s!='\n' && *s!='\t' && *s!='\0'){
+	if(*s!='/' && *s!=' ' && *s!='\n' && *s!='\t' && *s!='\0'){
 		htmlerror(g->name, g->lineno, "bad tag name in %s", str);
 		ap->name=0;
 		return;
