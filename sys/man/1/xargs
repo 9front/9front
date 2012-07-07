@@ -1,0 +1,33 @@
+.TH XARGS 1
+.SH NAME
+xargs \- construct argument list and execute
+.SH SYNOPSIS
+.B xargs
+[
+.B -n
+.I number
+] [
+.B -p
+.I maxprocs
+]
+.I args
+.SH DESCRIPTION
+The
+.I xargs
+utility reads space, tab, newline, and end-of-file delimited strings from the standard input and executes the specified utility with the strings as arguments.
+.PP
+Any arguments specified on the command line are given to the utility upon each invocation, followed by some number of the arguments read from standard input.  The utility is repeatedly executed one or more times until standard input is exhausted.
+.PP
+Options are as follows:
+.TP
+.B  -n
+Set
+.I number
+as the maximum number of arguments taken from standard input for each invocation.
+.TP
+.B  -p
+Parallel mode: run
+.I maxprocs
+invocations at once.
+.SH SOURCE
+.B /sys/src/cmd/xargs.c
