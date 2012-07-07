@@ -48,5 +48,8 @@ where
 is the last path element of the
 .I files
 argument.
+.SH SOURCE
+.B /sys/src/cmd/cryptsetup
 .SH SEE ALSO
+.IR aes (2) ,
 .IR fs (3)
