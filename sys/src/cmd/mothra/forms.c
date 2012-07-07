@@ -120,7 +120,6 @@ void rdform(Hglob *g){
 
 		g->form->next = g->dst->form;
 		g->dst->form = g->form;
-
 		break;
 	case Tag_input:
 	case Tag_button:
@@ -211,14 +210,9 @@ void rdform(Hglob *g){
 		}
 		else
 			f->name=strdup(s);
-		s=pl_getattr(g->attr, "size");
-		if(s==0) f->size=4;
-		else{
-			f->size=atoi(s);
-			if(f->size<=0) f->size=1;
-		}
 		f->multiple=pl_hasattr(g->attr, "multiple");
 		f->type=SELECT;
+		f->size=0;
 		f->options=0;
 		g->text=g->token;
 		g->tp=g->text;
@@ -227,6 +221,8 @@ void rdform(Hglob *g){
 	case Tag_option:
 		if(g->form==0) goto BadTag;
 		if((f=g->form->efields)==0) goto BadTag;
+		if(f->size<8)
+			f->size++;
 		o=emallocz(sizeof(Option), 1);
 		for(op=&f->options;*op;op=&(*op)->next);
 		*op=o;
@@ -370,6 +366,8 @@ void mkfieldpanel(Rtext *t){
 		f->p=plbutton(0, 0, f->value[0]?f->value:"file", h_fileinput);
 		break;
 	case SELECT:
+		if(f->size <= 0)
+			f->size=1;
 		f->pulldown=plgroup(0,0);
 		scrl=plscrollbar(f->pulldown, PACKW|FILLY);
 		win=pllist(f->pulldown, PACKN, nullgen, f->size, h_select);
@@ -384,8 +382,7 @@ void mkfieldpanel(Rtext *t){
 		f->p=plframe(0,0);
 		pllabel(f->p, PACKN|FILLX, f->name);
 		scrl=plscrollbar(f->p, PACKW|FILLY);
-		f->textwin=pledit(f->p, EXPAND, Pt(f->cols*chrwidth, f->rows*font->height),
-			0, 0, 0);
+		f->textwin=pledit(f->p, EXPAND, Pt(f->cols*chrwidth, f->rows*font->height), 0, 0, 0);
 		f->textwin->userp=f;
 		plscroll(f->textwin, 0, scrl);
 		break;
