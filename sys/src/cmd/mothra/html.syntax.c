@@ -25,7 +25,7 @@ Tag tag[]={
 [Tag_dd]	"dd",		NOEND,	/* OPTEND */
 [Tag_dfn]	"dfn",		END,
 [Tag_dir]	"dir",		END,
-[Tag_div]	"div",	NOEND,	/* OPTEND */
+[Tag_div]	"div",		END,	/* OPTEND */
 [Tag_dl]	"dl",		END,
 [Tag_dt]	"dt",		NOEND,	/* OPTEND */
 [Tag_em]	"em",		END,
@@ -65,6 +65,7 @@ Tag tag[]={
 [Tag_samp]	"samp",		END,
 [Tag_script]	"script",	END,
 [Tag_select]	"select",	END,
+[Tag_span]	"span",		END,
 [Tag_strong]	"strong",	END,
 [Tag_style]	"style",	END,
 [Tag_source]	"source",	NOEND,

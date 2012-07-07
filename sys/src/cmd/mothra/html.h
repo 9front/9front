@@ -176,6 +176,7 @@ enum{
 	Tag_samp,
 	Tag_script,
 	Tag_select,
+	Tag_span,
 	Tag_strong,
 	Tag_style,
 	Tag_source,

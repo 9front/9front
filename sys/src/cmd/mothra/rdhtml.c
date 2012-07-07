@@ -813,6 +813,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			g.spacc=0;
 			g.linebrk=1;
 			break;
+		case Tag_span:
 		case Tag_center:
 			/* more to come */
 			break;
