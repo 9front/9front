@@ -106,7 +106,7 @@ void pl_snarfedit(Panel *p, int cut){
  */
 int pl_hitedit(Panel *p, Mouse *m){
 	Edit *ep;
-	if(m->buttons&7){
+	if((m->buttons&7)==1){
 		ep=p->data;
 		ep->t->b=p->b;
 		twhilite(ep->t, ep->sel0, ep->sel1, 0);

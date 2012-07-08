@@ -228,6 +228,7 @@ void twselect(Textwin *t, Mouse *m){
 	p1=addpt(p0, Pt(1, 0));
 	twhilite(t, sel0, sel1, 1);
 	for(;;){
+		flushimage(display, 1);
 		*m=emouse();
 		if((m->buttons&7)!=1) break;
 		newsel=twpt2rune(t, m->xy);
