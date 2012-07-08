@@ -1193,7 +1193,7 @@ qbwrite(Queue *q, Block *b)
 			poperror();
 			return n;
 		}
-		if(q->len >= q->limit*2){
+		if(q->len >= q->limit*10){
 			iunlock(q);
 			error(Egreg);
 		}
@@ -1241,7 +1241,7 @@ qbwrite(Queue *q, Block *b)
 	 *
 	 *  Note - this is moderately dangerous since a process
 	 *  that keeps getting interrupted and rewriting will
-	 *  queue infinite crud.
+	 *  queue up to 10 times the queue limit before failing.
 	 */
 	for(;;){
 		if(q->noblock || qnotfull(q))
