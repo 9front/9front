@@ -197,7 +197,7 @@ disable VBR histogram display
 experimental voice mode
 .
 .SH EXAMPLE
-Plays back a
+Play back an
 .L .mp3
 .IP
 .EX
