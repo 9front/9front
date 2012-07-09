@@ -10,20 +10,23 @@ xargs \- construct argument list and execute
 .B -p
 .I maxprocs
 ]
-.I args
+.B cmd
+[
+.I arg ...
+]
 .SH DESCRIPTION
-The
-.I xargs
-utility reads space, tab, newline, and end-of-file delimited strings from the standard input and executes the specified utility with the strings as arguments.
-.PP
-Any arguments specified on the command line are given to the utility upon each invocation, followed by some number of the arguments read from standard input.  The utility is repeatedly executed one or more times until standard input is exhausted.
+.I Xargs
+reads
+.B number
+(default 10) lines from
+standard input and runs the given commands with those lines as arguments. The utility is repeatedly executed one or more times until standard input is exhausted.
 .PP
 Options are as follows:
 .TP
 .B  -n
 Set
 .I number
-as the maximum number of arguments taken from standard input for each invocation.
+as the maximum number of lines taken from standard input for each invocation.
 .TP
 .B  -p
 Parallel mode: run
