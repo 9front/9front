@@ -19,7 +19,9 @@ xargs \- construct argument list and execute
 reads
 .B number
 (default 10) lines from
-standard input and runs the given commands with those lines as arguments. The utility is repeatedly executed one or more times until standard input is exhausted.
+standard input and runs the given
+.B cmd
+with those lines as arguments. This is repeated until standard input is exhausted.
 .PP
 Options are as follows:
 .TP
@@ -32,5 +34,11 @@ as the maximum number of lines taken from standard input for each invocation.
 Parallel mode: run
 .I maxprocs
 invocations at once.
+.SH EXAMPLE
+.IP
+.EX
+seq 1 9 | xargs -n 3 echo
+.EE
+.LP
 .SH SOURCE
 .B /sys/src/cmd/xargs.c
