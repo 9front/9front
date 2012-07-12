@@ -109,6 +109,7 @@ snooptype(int fd)
 
 	"image/",			PAGE,
 	"text/",			PLAIN,
+	"message/rfc822",		PLAIN,
 	};
 	char buf[128];
 	int i;
