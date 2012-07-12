@@ -86,7 +86,7 @@ main(int argc, char *argv[])
 	case 0:
 		break;
 	case 1:
-		strncpy(file, argv[0], sizeof(file)-1);
+		snprint(file, sizeof(file), "%s", argv[0]);
 		if(loadimg(file) < 0)
 			sysfatal("%r");
 		break;
