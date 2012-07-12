@@ -32,7 +32,7 @@ dev2fs(Device *dev)
  * of type 'type' and return pointer to base
  */
 Chan*
-fs_chaninit(int type, int count, int data)
+fs_chaninit(int count, int data)
 {
 	uchar *p;
 	Chan *cp, *icp;
@@ -44,7 +44,6 @@ fs_chaninit(int type, int count, int data)
 		cp = (Chan*)p;
 		cp->next = chans;
 		chans = cp;
-		cp->type = type;
 		cp->chan = cons.chano;
 		cons.chano++;
 		strncpy(cp->whoname, "<none>", sizeof cp->whoname);

@@ -246,7 +246,6 @@ struct	Hiob
 /* a 9P connection */
 struct	Chan
 {
-	char	type;			/* major driver type i.e. Dev* */
 	int	(*protocol)(Msgbuf*);	/* version */
 	int	msize;			/* version */
 	char	whochan[50];
@@ -683,7 +682,6 @@ enum
 enum
 {
 	Devnone	= 0,
-	Devcon,			/* console */
 	Devwren,		/* disk drive */
 	Devworm,		/* scsi optical drive */
 	Devlworm,		/* scsi optical drive (labeled) */
@@ -698,7 +696,6 @@ enum
 	Devfloppy,		/* floppy drive */
 	Devswab,		/* swab data between mem and device */
 	Devmirr,		/* mirror devices */
-	Devsrv,		/* pipes and network connections */
 	MAXDEV
 };
 

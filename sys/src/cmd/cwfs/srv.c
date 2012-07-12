@@ -5,43 +5,47 @@
 
 enum {
 	Maxfdata	= 8192,
-	Nqueue	= 200,		/* queue size (tunable) */
-	Nsrvo	= 8,			/* number of write workers */
+	Nqueue		= 200,		/* queue size (tunable) */
+	Nsrvo		= 8,		/* number of write workers */
 };
 
 typedef struct Srv Srv;
 struct Srv
 {
 	Ref;
-	char		*name;
 	Chan	*chan;
-	int		fd;
-	char		buf[64];
+	int	fd;
 };
 
 static struct {
 	Lock;
-	Chan *hd;
+	Chan	*hd;
 } freechans;
 
 static Queue *srvoq;
 
 void
-chanhangup(Chan *chan, char *msg, int dolock)
+chanhangup(Chan *chan, char *msg)
 {
+	char buf[128], *p;
 	Srv *srv;
-
-	USED(dolock);
-	USED(msg);
+	int cfd;
 
 	fileinit(chan);
-	if(chan->type != Devsrv)
-		return;
 	srv = chan->pdata;
-	if(srv == nil || srv->chan != chan)
+	if(chan == cons.chan || srv == nil || srv->chan != chan)
 		return;
-	close(srv->fd);
-	srv->fd = -1;
+	if(msg[0] && chatty)
+		print("hangup %s: %s\n", chan->whochan, msg);
+	if(fd2path(srv->fd, buf, sizeof(buf)) == 0){
+		if(p = strrchr(buf, '/')){
+			strecpy(p, buf+sizeof(buf), "/ctl");
+			if((cfd = open(buf, OWRITE)) >= 0){
+				write(cfd, "hangup", 6);
+				close(cfd);
+			}
+		}
+	}
 }
 
 static void
@@ -52,12 +56,12 @@ srvput(Srv *srv)
 	if(decref(srv))
 		return;
 
-	if(chatty)
-		print("%s closed\n", srv->name);
-
-	chanhangup(srv->chan, "", 0);
-	memset(srv->buf, 0, sizeof(srv->buf));
+	close(srv->fd);
+	srv->fd = -1;
 	chan = srv->chan;
+	fileinit(chan);
+	if(chatty)
+		print("%s closed\n", chan->whochan);
 	lock(&freechans);
 	srv->chan = freechans.hd;
 	freechans.hd = chan;
@@ -81,14 +85,11 @@ srvo(void *)
 			continue;
 		}
 		srv = (Srv*)mb->param;
-		while((srv->fd >= 0) && (write(srv->fd, mb->data, mb->count) != mb->count)){
+		while(write(srv->fd, mb->data, mb->count) != mb->count){
 			rerrstr(buf, sizeof(buf));
 			if(strstr(buf, "interrupt"))
 				continue;
-
-			if(buf[0] && chatty)
-				print("srvo %s: %s\n", srv->name, buf);
-			chanhangup(srv->chan, buf, 0);
+			chanhangup(srv->chan, buf);
 			break;
 		}
 		mbfree(mb);
@@ -106,13 +107,13 @@ srvi(void *aux)
 	char buf[ERRMAX];
 
 	if((mb = mballoc(IOHDRSZ+Maxfdata, srv->chan, Mbeth1)) == nil)
-		panic("srvi %s: mballoc failed", srv->name);
+		panic("srvi: mballoc failed");
 	b = mb->data;
 	p = b;
 	e = b + mb->count;
 
 Read:
-	while((srv->fd >= 0) && ((n = read(srv->fd, p, e - p)) >= 0)){
+	while((n = read(srv->fd, p, e - p)) >= 0){
 		p += n;
 		while((p - b) >= BIT32SZ){
 			m = GBIT32(b);
@@ -126,12 +127,12 @@ Read:
 			}
 			if(m <= SMALLBUF){
 				if((ms = mballoc(m, srv->chan, Mbeth1)) == nil)
-					panic("srvi %s: mballoc failed", srv->name);
+					panic("srvi: mballoc failed");
 				memmove(ms->data, b, m);
 			} else {
 				ms = mb;
 				if((mb = mballoc(mb->count, srv->chan, Mbeth1)) == nil)
-					panic("srvi %s: mballoc failed", srv->name);
+					panic("srvi: mballoc failed");
 				ms->count = m;
 			}
 			if(n > 0)
@@ -151,9 +152,7 @@ Error:
 	if(strstr(buf, "interrupt"))
 		goto Read;
 
-	if(buf[0] && chatty)
-		print("srvi %s: %s\n", srv->name, buf);
-	chanhangup(srv->chan, buf, 0);
+	chanhangup(srv->chan, buf);
 	srvput(srv);
 
 	mbfree(mb);
@@ -162,6 +161,7 @@ Error:
 Chan*
 srvchan(int fd, char *name)
 {
+	char buf[64];
 	Chan *chan;
 	Srv *srv;
 
@@ -172,7 +172,7 @@ srvchan(int fd, char *name)
 		unlock(&freechans);
 	} else {
 		unlock(&freechans);
-		chan = fs_chaninit(Devsrv, 1, sizeof(*srv));
+		chan = fs_chaninit(1, sizeof(*srv));
 		srv = chan->pdata;
 	}
 	chan->reply = srvoq;
@@ -181,13 +181,13 @@ srvchan(int fd, char *name)
 	chan->protocol = nil;
 	chan->msize = 0;
 	chan->whotime = 0;
+	snprint(chan->whochan, sizeof(chan->whochan), "%s", name);
 
 	incref(srv);
 	srv->chan = chan;
 	srv->fd = fd;
-	snprint(srv->buf, sizeof(srv->buf), "srvi %s", name);
-	srv->name = strchr(srv->buf, ' ')+1;
-	newproc(srvi, srv, srv->buf);
+	snprint(buf, sizeof(buf), "srvi %s", name);
+	newproc(srvi, srv, buf);
 
 	return chan;
 }

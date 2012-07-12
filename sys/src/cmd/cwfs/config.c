@@ -539,7 +539,7 @@ sysinit(void)
 	Fspar *fsp;
 	Iobuf *p;
 
-	cons.chan = fs_chaninit(Devcon, 1, 0);
+	cons.chan = fs_chaninit(1, 0);
 
 start:
 	/*

@@ -342,11 +342,8 @@ cmd_hangup(int argc, char *argv[])
 				print("that chan is hung up\n");
 			continue;
 		}
-		if(cp->chan == n) {
-			/* need more than just fileinit with tcp */
-			chanhangup(cp, "console command", 1);
-			fileinit(cp);
-		}
+		if(cp->chan == n)
+			chanhangup(cp, "console command");
 	}
 }
 
