@@ -52,6 +52,10 @@ TEXT _multibootheader(SB), $0
 	LONG	$0				/* height */
 	LONG	$0				/* depth */
 
+/* 
+ * the kernel expects the data segment to be page-aligned
+ * multiboot bootloaders put the data segment right behind text
+ */
 TEXT _multibootentry(SB), $0
 	MOVL	$etext-KZERO(SB), SI
 	MOVL	SI, DI
@@ -64,9 +68,15 @@ TEXT _multibootentry(SB), $0
 	STD
 	REP; MOVSB
 	CLD
+	ADDL	$KZERO, BX
+	MOVL	BX, multiboot-KZERO(SB)
 	MOVL	$_startPADDR(SB), AX
 	ANDL	$~KZERO, AX
 	JMP*	AX
+
+/* multiboot structure pointer */
+TEXT multiboot(SB), $0
+	LONG	$0
 
 /*
  * In protected mode with paging turned off and segment registers setup

@@ -37,6 +37,22 @@ options(void)
 {
 	long i, n;
 	char *cp, *line[MAXCONF], *p, *q;
+	ulong *m, l;
+	extern ulong *multiboot;
+
+	if(multiboot != nil){
+		cp = BOOTARGS;
+		*cp = 0;
+		if((*multiboot & 8) != 0 && multiboot[5] > 0){
+			m = KADDR(multiboot[6]);
+			l = m[1] - m[0];
+			m = KADDR(m[0]);
+			if(l >= BOOTARGSLEN)
+				l = BOOTARGSLEN - 1;
+			memmove(cp, m, l);
+			cp[l] = 0;
+		}
+	}
 
 	/*
 	 *  parse configuration args from dos file plan9.ini
