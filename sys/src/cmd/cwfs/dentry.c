@@ -56,7 +56,7 @@ rel2abs(Iobuf *p, Dentry *d, Off a, int tag, int putb, int uid)
 	Device *dev;
 
 	if(a < 0) {
-		print("rel2abs: neg offset\n");
+		fprint(2, "rel2abs: neg offset\n");
 		if(putb)
 			putbuf(p);
 		return 0;
@@ -111,7 +111,7 @@ rel2abs(Iobuf *p, Dentry *d, Off a, int tag, int putb, int uid)
 		putbuf(p);
 
 	/* quintuple-indirect blocks not implemented. */
-	print("rel2abs: no %d-deep indirect\n", NIBLOCK+1);
+	fprint(2, "rel2abs: no %d-deep indirect\n", NIBLOCK+1);
 	return 0;
 }
 
@@ -186,10 +186,10 @@ indfetch(Device* d, Off qpath, Off addr, Off a, int itag, int tag, int uid)
 	bp = getbuf(d, addr, Brd);
 	if(!bp || checktag(bp, itag, qpath)) {
 		if(!bp) {
-			print("ind fetch bp = 0\n");
+			fprint(2, "ind fetch bp = 0\n");
 			return 0;
 		}
-		print("ind fetch tag\n");
+		fprint(2, "ind fetch tag\n");
 		putbuf(bp);
 		return 0;
 	}

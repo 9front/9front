@@ -54,8 +54,6 @@ neti(void *v)
 	Network *net;
 
 	net = v;
-	if(chatty)
-		print("net%di\n", net->ctlrno);
 	for(;;) {
 		if((lisfd = listen(net->anndir, net->lisdir)) < 0){
 			fprint(2, "listen %s failed: %r\n", net->anndir);

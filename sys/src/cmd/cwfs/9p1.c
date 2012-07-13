@@ -15,14 +15,14 @@ static void
 f_nop(Chan *cp, Fcall*, Fcall*)
 {
 	if(CHAT(cp))
-		print("c_nop %d\n", cp->chan);
+		fprint(2, "c_nop %d\n", cp->chan);
 }
 
 static void
 f_flush(Chan *cp, Fcall*, Fcall*)
 {
 	if(CHAT(cp))
-		print("c_flush %d\n", cp->chan);
+		fprint(2, "c_flush %d\n", cp->chan);
 	runlock(&cp->reflock);
 	wlock(&cp->reflock);
 	wunlock(&cp->reflock);
@@ -53,7 +53,7 @@ f_session(Chan *cp, Fcall *in, Fcall *ou)
 	aip = (Authinfo*)cp->authinfo;
 
 	if(CHAT(cp))
-		print("c_session %d\n", cp->chan);
+		fprint(2, "c_session %d\n", cp->chan);
 	memmove(aip->rchal, in->chal, sizeof(aip->rchal));
 	mkchallenge(aip);
 	memmove(ou->chal, aip->chal, sizeof(ou->chal));
@@ -90,21 +90,21 @@ authorize(Chan *cp, Fcall *in, Fcall *ou)
 	/* decrypt and unpack ticket */
 	convM2T9p1(in->ticket, &t, nvr.machkey);
 	if(t.num != AuthTs){
-		print("9p1: bad AuthTs num\n");
+		fprint(2, "9p1: bad AuthTs num\n");
 		return 0;
 	}
 
 	/* decrypt and unpack authenticator */
 	convM2A9p1(in->auth, &a, t.key);
 	if(a.num != AuthAc){
-		print("9p1: bad AuthAc num\n");
+		fprint(2, "9p1: bad AuthAc num\n");
 		return 0;
 	}
 
 	/* challenges must match */
 	aip = (Authinfo*)cp->authinfo;
 	if(memcmp(a.chal, aip->chal, sizeof(a.chal)) != 0){
-		print("9p1: bad challenge\n");
+		fprint(2, "9p1: bad challenge\n");
 		return 0;
 	}
 
@@ -118,7 +118,7 @@ authorize(Chan *cp, Fcall *in, Fcall *ou)
 	bit = 1<<x;
 	if(x < 0 || x > 31 || (bit&aip->idvec)){
 		unlock(&aip->idlock);
-		print("9p1: id out of range: idoff %ld idvec %lux id %ld\n",
+		fprint(2, "9p1: id out of range: idoff %ld idvec %lux id %ld\n",
 		   aip->idoffset, aip->idvec, a.id);
 		return 0;
 	}
@@ -133,7 +133,7 @@ authorize(Chan *cp, Fcall *in, Fcall *ou)
 
 	/* ticket name and attach name must match */
 	if(memcmp(in->uname, t.cuid, sizeof(in->uname)) != 0){
-		print("9p1: names don't match\n");
+		fprint(2, "9p1: names don't match\n");
 		return 0;
 	}
 
@@ -196,10 +196,10 @@ f_attach(Chan *cp, Fcall *in, Fcall *ou)
 	Off raddr;
 
 	if(CHAT(cp)) {
-		print("c_attach %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
-		print("\tuid = %s\n", in->uname);
-		print("\targ = %s\n", in->aname);
+		fprint(2, "c_attach %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
+		fprint(2, "\tuid = %s\n", in->uname);
+		fprint(2, "\targ = %s\n", in->aname);
 	}
 
 	ou->qid = QID9P1(0,0);
@@ -283,9 +283,9 @@ f_clone(Chan *cp, Fcall *in, Fcall *ou)
 	int fid, fid1;
 
 	if(CHAT(cp)) {
-		print("c_clone %d\n", cp->chan);
-		print("\told fid = %d\n", in->fid);
-		print("\tnew fid = %d\n", in->newfid);
+		fprint(2, "c_clone %d\n", cp->chan);
+		fprint(2, "\told fid = %d\n", in->fid);
+		fprint(2, "\tnew fid = %d\n", in->newfid);
 	}
 
 	fid = in->fid;
@@ -343,9 +343,9 @@ f_walk(Chan *cp, Fcall *in, Fcall *ou)
 	Off addr, qpath;
 
 	if(CHAT(cp)) {
-		print("c_walk %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
-		print("\tname = %s\n", in->name);
+		fprint(2, "c_walk %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
+		fprint(2, "\tname = %s\n", in->name);
 	}
 
 	ou->fid = in->fid;
@@ -470,9 +470,9 @@ f_open(Chan *cp, Fcall *in, Fcall *ou)
 	int ro, fmod, wok;
 
 	if(CHAT(cp)) {
-		print("c_open %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
-		print("\tmode = %o\n", in->mode);
+		fprint(2, "c_open %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
+		fprint(2, "\tmode = %o\n", in->mode);
 	}
 
 	wok = 0;
@@ -622,12 +622,12 @@ f_create(Chan *cp, Fcall *in, Fcall *ou)
 	Wpath *w;
 
 	if(CHAT(cp)) {
-		print("c_create %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
-		print("\tname = %s\n", in->name);
-		print("\tperm = %lx+%lo\n", (in->perm>>28)&0xf,
+		fprint(2, "c_create %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
+		fprint(2, "\tname = %s\n", in->name);
+		fprint(2, "\tperm = %lx+%lo\n", (in->perm>>28)&0xf,
 				in->perm&0777);
-		print("\tmode = %o\n", in->mode);
+		fprint(2, "\tmode = %o\n", in->mode);
 	}
 
 	wok = 0;
@@ -818,10 +818,10 @@ f_read(Chan *cp, Fcall *in, Fcall *ou)
 	int nread, count, mask, n, o, slot;
 
 	if(CHAT(cp)) {
-		print("c_read %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
-		print("\toffset = %lld\n", (Wideoff)in->offset);
-		print("\tcount = %ld\n", in->count);
+		fprint(2, "c_read %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
+		fprint(2, "\toffset = %lld\n", (Wideoff)in->offset);
+		fprint(2, "\tcount = %ld\n", in->count);
 	}
 
 	p = 0;
@@ -983,7 +983,7 @@ dread:
 				goto out;
 			}
 			if(convD2M9p1(d1, ou->data+nread) != n)
-				print("9p1: dirread convD2M1990\n");
+				fprint(2, "9p1: dirread convD2M1990\n");
 			nread += n;
 			count -= n;
 		}
@@ -1001,7 +1001,7 @@ out:
 	ou->fid = in->fid;
 	ou->count = nread;
 	if(CHAT(cp))
-		print("\tnread = %d\n", nread);
+		fprint(2, "\tnread = %d\n", nread);
 }
 
 static void
@@ -1016,10 +1016,10 @@ f_write(Chan *cp, Fcall *in, Fcall *ou)
 	int count, nwrite, o, n;
 
 	if(CHAT(cp)) {
-		print("c_write %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
-		print("\toffset = %lld\n", (Wideoff)in->offset);
-		print("\tcount = %ld\n", in->count);
+		fprint(2, "c_write %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
+		fprint(2, "\toffset = %lld\n", (Wideoff)in->offset);
+		fprint(2, "\tcount = %ld\n", in->count);
 	}
 
 	offset = in->offset;
@@ -1103,7 +1103,7 @@ f_write(Chan *cp, Fcall *in, Fcall *ou)
 		offset += n;
 	}
 	if(CHAT(cp))
-		print("\tnwrite = %d\n", nwrite);
+		fprint(2, "\tnwrite = %d\n", nwrite);
 
 out:
 	if(p)
@@ -1225,8 +1225,8 @@ f_clunk(Chan *cp, Fcall *in, Fcall *ou)
 	File *f;
 
 	if(CHAT(cp)) {
-		print("c_clunk %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
+		fprint(2, "c_clunk %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
 	}
 
 	f = filep(cp, in->fid, 0);
@@ -1245,8 +1245,8 @@ f_remove(Chan *cp, Fcall *in, Fcall *ou)
 	File *f;
 
 	if(CHAT(cp)) {
-		print("c_remove %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
+		fprint(2, "c_remove %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
 	}
 
 	f = filep(cp, in->fid, 0);
@@ -1267,8 +1267,8 @@ f_stat(Chan *cp, Fcall *in, Fcall *ou)
 	File *f;
 
 	if(CHAT(cp)) {
-		print("c_stat %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
+		fprint(2, "c_stat %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
 	}
 
 	p = 0;
@@ -1289,7 +1289,7 @@ f_stat(Chan *cp, Fcall *in, Fcall *ou)
 	if(d->qid.path == QPROOT)	/* stat of root gives time */
 		d->atime = time(nil);
 	if(convD2M9p1(d, ou->stat) != DIRREC)
-		print("9p1: stat convD2M\n");
+		fprint(2, "9p1: stat convD2M\n");
 
 out:
 	if(p)
@@ -1309,8 +1309,8 @@ f_wstat(Chan *cp, Fcall *in, Fcall *ou)
 	Off addr;
 
 	if(CHAT(cp)) {
-		print("c_wstat %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
+		fprint(2, "c_wstat %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
 	}
 
 	p = 0;
@@ -1349,10 +1349,10 @@ f_wstat(Chan *cp, Fcall *in, Fcall *ou)
 
 	convM2D9p1(in->stat, &xd);
 	if(CHAT(cp)) {
-		print("\td.name = %s\n", xd.name);
-		print("\td.uid  = %d\n", xd.uid);
-		print("\td.gid  = %d\n", xd.gid);
-		print("\td.mode = %o\n", xd.mode);
+		fprint(2, "\td.name = %s\n", xd.name);
+		fprint(2, "\td.uid  = %d\n", xd.uid);
+		fprint(2, "\td.gid  = %d\n", xd.gid);
+		fprint(2, "\td.mode = %o\n", xd.mode);
 	}
 
 	/*
@@ -1481,7 +1481,7 @@ f_clwalk(Chan *cp, Fcall *in, Fcall *ou)
 	int er, fid;
 
 	if(CHAT(cp))
-		print("c_clwalk macro\n");
+		fprint(2, "c_clwalk macro\n");
 
 	f_clone(cp, in, ou);		/* sets tag, fid */
 	if(ou->err)
@@ -1500,7 +1500,7 @@ f_clwalk(Chan *cp, Fcall *in, Fcall *ou)
 		ou->err = 0;
 		ou->fid = fid;
 		if(CHAT(cp))
-			print("\terror: %s\n", errstr9p[er]);
+			fprint(2, "\terror: %s\n", errstr9p[er]);
 	} else if(er) {
 		/*
 		 * if any other error
@@ -1542,16 +1542,8 @@ error9p1(Chan* cp, Msgbuf* mb)
 {
 	Msgbuf *mb1;
 
-	print("type=%d count=%d\n", mb->data[0], mb->count);
-	print(" %.2x %.2x %.2x %.2x\n",
-		mb->data[1]&0xff, mb->data[2]&0xff,
-		mb->data[3]&0xff, mb->data[4]&0xff);
-	print(" %.2x %.2x %.2x %.2x\n",
-		mb->data[5]&0xff, mb->data[6]&0xff,
-		mb->data[7]&0xff, mb->data[8]&0xff);
-	print(" %.2x %.2x %.2x %.2x\n",
-		mb->data[9]&0xff, mb->data[10]&0xff,
-		mb->data[11]&0xff, mb->data[12]&0xff);
+	fprint(2, "type=%d count=%d\n", mb->data[0], mb->count);
+	hexdump(mb->data, 12);
 
 	mb1 = mballoc(3, cp, Mbreply4);
 	mb1->data[0] = Rnop;	/* your nop was ok */
@@ -1579,13 +1571,13 @@ serve9p1(Msgbuf* mb)
 		assert(cp != nil);
 		if(cp->protocol == nil)
 			return 0;
-		print("9p1: bad M2S conversion\n");
+		fprint(2, "9p1: bad M2S conversion\n");
 		return error9p1(cp, mb);
 	}
 
 	t = fi.type;
 	if(t < 0 || t >= MAXSYSCALL || (t&1) || !call9p1[t]) {
-		print("9p1: bad message type\n");
+		fprint(2, "9p1: bad message type\n");
 		return error9p1(cp, mb);
 	}
 
@@ -1611,16 +1603,16 @@ serve9p1(Msgbuf* mb)
 
 	if(fo.err) {
 		if(cons.flags&errorflag)
-			print("\ttype %d: error: %s\n", t, errstr9p[fo.err]);
+			fprint(2, "\ttype %d: error: %s\n", t, errstr9p[fo.err]);
 		if(CHAT(cp))
-			print("\terror: %s\n", errstr9p[fo.err]);
+			fprint(2, "\terror: %s\n", errstr9p[fo.err]);
 		fo.type = Rerror;
 		strncpy(fo.ename, errstr9p[fo.err], sizeof(fo.ename));
 	}
 
 	n = convS2M9p1(&fo, mb1->data);
 	if(n == 0) {
-		print("9p1: bad S2M conversion\n");
+		fprint(2, "9p1: bad S2M conversion\n");
 		mbfree(mb1);
 		return error9p1(cp, mb);
 	}

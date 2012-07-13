@@ -279,14 +279,14 @@ scsireqsense(Target* tp, char lun, int* nbytes, int quiet)
 buggery:
 	if(quiet == 0){
 		s = key[sense[2]&0x0F];
-		print("%s: reqsense: '%s' code #%2.2ux #%2.2ux\n",
+		fprint(2, "%s: reqsense: '%s' code #%2.2ux #%2.2ux\n",
 			tp->id, s, sense[12], sense[13]);
-		print("%s: byte 2: #%2.2ux, bytes 15-17: #%2.2ux #%2.2ux #%2.2ux\n",
+		fprint(2, "%s: byte 2: #%2.2ux, bytes 15-17: #%2.2ux #%2.2ux #%2.2ux\n",
 			tp->id, sense[2], sense[15], sense[16], sense[17]);
-		print("lastcmd (%d): ", lastcmdsz);
+		fprint(2, "lastcmd (%d): ", lastcmdsz);
 		for(n = 0; n < lastcmdsz; n++)
-			print(" #%2.2ux", lastcmd[n]);
-		print("\n");
+			fprint(2, " #%2.2ux", lastcmd[n]);
+		fprint(2, "\n");
 	}
 
 	return STcheck;
@@ -321,7 +321,7 @@ scsiprobe(Device* d)
 again:
 	s = scsitest(tp, d->wren.lun);
 	if(s < STok){
-		print("%s: test, status %d\n", tp->id, s);
+		fprint(2, "%s: test, status %d\n", tp->id, s);
 		return;
 	}
 
@@ -350,7 +350,7 @@ again:
 			if(sense[12] == 0x3A)
 				break;
 			if(sense[12] == 0x04 && sense[13] == 0x02){
-				print("%s: starting...\n", tp->id);
+				fprint(2, "%s: starting...\n", tp->id);
 				if(scsistart(tp, d->wren.lun, 1) == STok)
 					break;
 				s = scsireqsense(tp, d->wren.lun, &nbytes, 0);
@@ -358,7 +358,7 @@ again:
 		}
 		/*FALLTHROUGH*/
 	default:
-		print("%s: unavailable, status %d\n", tp->id, s);
+		fprint(2, "%s: unavailable, status %d\n", tp->id, s);
 		return;
 	}
 
@@ -368,10 +368,10 @@ again:
 	 */
 	s = scsiinquiry(tp, d->wren.lun, &nbytes);
 	if(s != STok) {
-		print("%s: inquiry failed, status %d\n", tp->id, s);
+		fprint(2, "%s: inquiry failed, status %d\n", tp->id, s);
 		return;
 	}
-	print("%s: %s\n", tp->id, (char*)tp->inquiry+8);
+	fprint(2, "%s: %s\n", tp->id, (char*)tp->inquiry+8);
 	tp->ok = 1;
 }
 
@@ -408,7 +408,7 @@ scsiio(Device* d, int rw, uchar* cmd, int cbytes, void* data, int dbytes)
 			break;
 	}
 	if(e)
-		print("%s: retry %d cmd #%x\n", tp->id, e, cmd[0]);
+		fprint(2, "%s: retry %d cmd #%x\n", tp->id, e, cmd[0]);
 	return s;
 }
 

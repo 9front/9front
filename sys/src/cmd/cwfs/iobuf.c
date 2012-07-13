@@ -12,7 +12,7 @@ getbuf(Device *d, Off addr, int flag)
 	Off h;
 
 	if(chatty > 1)
-		print("getbuf %Z(%lld) f=%x\n", d, (Wideoff)addr, flag);
+		fprint(2, "getbuf %Z(%lld) f=%x\n", d, (Wideoff)addr, flag);
 	h = addr + (Off)(uintptr)d*1009;
 	if(h < 0)
 		h = ~h;
@@ -174,7 +174,7 @@ sync(char *reason)
 	long i;
 
 	if(chatty)
-		print("sync: %s\n", reason);
+		fprint(2, "sync: %s\n", reason);
 	for(i=10*nhiob; i>0; i--)
 		if(!syncblock())
 			return;

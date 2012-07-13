@@ -293,7 +293,7 @@ dumpblock(Device *dev)
 	}
 	if(cw->ncopy){
 		if(chatty)
-			print("%lld blocks copied to worm\n", (Wideoff)cw->ncopy);
+			fprint(2, "%lld blocks copied to worm\n", (Wideoff)cw->ncopy);
 		cw->ncopy = 0;
 	}
 	cw->nodump = 1;
@@ -370,7 +370,7 @@ stop1:
 stop:
 	putbuf(p1);
 	putbuf(p);
-	print("stopping dump!!\n");
+	fprint(2, "stopping dump!!\n");
 	cw->nodump = 1;
 	return 0;
 }
@@ -425,7 +425,7 @@ cwinit(Device *dev)
 	m = h->wsize;
 	if(l != m) {
 		if(chatty)
-			print("wdev changed size %lld to %lld\n",
+			fprint(2, "wdev changed size %lld to %lld\n",
 				(Wideoff)m, (Wideoff)l);
 		h->wsize = l;
 		cb->flags |= Bmod;
@@ -521,13 +521,13 @@ roread(Device *dev, Off b, void *c)
 		s = cwio(d, b, c, Oread);
 		if(s == Cdump || s == Cdump1 || s == Cread) {
 			if(cons.flags & roflag)
-				print("roread: %Z %lld -> %Z(hit)\n",
+				fprint(2, "roread: %Z %lld -> %Z(hit)\n",
 					dev, (Wideoff)b, d);
 			return 0;
 		}
 	}
 	if(cons.flags & roflag)
-		print("roread: %Z %lld -> %Z(miss)\n",
+		fprint(2, "roread: %Z %lld -> %Z(miss)\n",
 			dev, (Wideoff)b, WDEV(d));
 	return devread(WDEV(d), b, c);
 }
@@ -726,7 +726,7 @@ cwio(Device *dev, Off addr, void *buf, int opcode)
 		break;
 	}
 	if(chatty > 1)
-		print("cwio: %Z %lld s=%s o=%s ns=%s\n",
+		fprint(2, "cwio: %Z %lld s=%s o=%s ns=%s\n",
 			dev, (Wideoff)addr, cwnames[state],
 			cwnames[opcode],
 			cwnames[c->state]);
@@ -1163,7 +1163,7 @@ rewalk1(Cw *cw, Off addr, int slot, Wpath *up)
 		return addr;
 	}
 	if(chatty > 1)
-		print("rewalk1 %lld to %lld \"%s\"\n",
+		fprint(2, "rewalk1 %lld to %lld \"%s\"\n",
 			(Wideoff)addr, (Wideoff)p1->addr, d->name);
 	addr = p1->addr;
 	p1->flags |= Bmod;
@@ -1197,7 +1197,7 @@ rewalk2(Cw *cw, Off addr, int slot, Wpath *up)
 		return addr;
 	}
 	if(chatty > 1)
-		print("rewalk2 %lld to %lld \"%s\"\n",
+		fprint(2, "rewalk2 %lld to %lld \"%s\"\n",
 			(Wideoff)addr, (Wideoff)p1->addr, d->name);
 	addr = p1->addr;
 	putbuf(p1);
@@ -1309,7 +1309,7 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 	if(!isdirty(cw, p, addr, tag)) {
 		if(!cw->all) {
 			if(chatty > 1)
-				print("cwrecur: %lld t=%s not dirty %s\n",
+				fprint(2, "cwrecur: %lld t=%s not dirty %s\n",
 					(Wideoff)addr, tagnames[tag], cw->name);
 			if(p)
 				putbuf(p);
@@ -1318,7 +1318,7 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 		shouldstop = 1;
 	}
 	if(chatty > 1)
-		print("cwrecur: %lld t=%s %s\n",
+		fprint(2, "cwrecur: %lld t=%s %s\n",
 			(Wideoff)addr, tagnames[tag], cw->name);
 	if(cw->depth >= 100) {
 		fprint(2, "dump depth too great %s\n", cw->name);
@@ -1489,14 +1489,14 @@ cfsdump(Filsys *fs)
 	cw->fsize = cwsize(cw->dev);
 	orba = cwraddr(cw->dev);
 	if(chatty)
-		print("cwroot %lld", (Wideoff)orba);
+		fprint(2, "cwroot %lld", (Wideoff)orba);
 	cons.noage = 1;
 	cw->all = cw->allflag;
 	rba = cwrecur(cw, orba, Tsuper, 0, QPROOT);
 	if(rba == 0)
 		rba = orba;
 	if(chatty)
-		print("->%lld\n", (Wideoff)rba);
+		fprint(2, "->%lld\n", (Wideoff)rba);
 	sync("after cw");
 
 	/*
@@ -1606,7 +1606,7 @@ found:
 	cw->fsize = cwsize(cw->dev);
 	oroa = cwraddr(cw->rodev);		/* probably redundant */
 	if(chatty)
-		print("roroot %lld", (Wideoff)oroa);
+		fprint(2, "roroot %lld", (Wideoff)oroa);
 
 	cons.noage = 0;
 	cw->all = 0;
@@ -1614,7 +1614,7 @@ found:
 	if(roa == 0)
 		roa = oroa;
 	if(chatty)
-		print("->%lld /%.4s/%s\n", (Wideoff)roa, tstr, tstr+4);
+		fprint(2, "->%lld /%.4s/%s\n", (Wideoff)roa, tstr, tstr+4);
 	sync("after ro");
 
 	/*
@@ -1622,7 +1622,7 @@ found:
 	 */
 	a = cwsaddr(cw->dev);
 	if(chatty)
-		print("sblock %lld", (Wideoff)a);
+		fprint(2, "sblock %lld", (Wideoff)a);
 	p = getbuf(cw->dev, a, Brd|Bmod|Bimm);
 	s = (Superb*)p->iobuf;
 	s->last = a;
@@ -1636,7 +1636,7 @@ found:
 	cwio(cw->dev, sba, p->iobuf, Owrite);
 	cwio(cw->dev, sba, 0, Odump);
 	if(chatty)
-		print("->%lld (->%lld)\n", (Wideoff)sba, (Wideoff)s->next);
+		fprint(2, "->%lld (->%lld)\n", (Wideoff)sba, (Wideoff)s->next);
 
 	putbuf(p);
 
@@ -1654,8 +1654,8 @@ found:
 	sync("all done");
 
 	if(chatty){
-		print("%lld blocks queued for worm\n", (Wideoff)cw->ndump);
-		print("%lld falsehits\n", (Wideoff)cw->falsehits);
+		fprint(2, "%lld blocks queued for worm\n", (Wideoff)cw->ndump);
+		fprint(2, "%lld falsehits\n", (Wideoff)cw->falsehits);
 	}
 	cw->nodump = 0;
 

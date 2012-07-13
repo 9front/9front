@@ -423,11 +423,9 @@ fsck(Dentry *d)
 		}
 		if(flags & Cpdir) {
 			print("%s\n", name);
-			prflush();
 		}
 	} else if(flags & Cpfile) {
 		print("%s\n", name);
-		prflush();
 	}
 
 	/* check qid */

@@ -161,7 +161,7 @@ wormlabel(Device *d, Side *v)
 		panic("wrong ordinal in label");
 	}
 	if(chatty)
-		print("label %Z ordinal %d\n", d, v->ord);
+		fprint(2, "label %Z ordinal %d\n", d, v->ord);
 	qunlock(v);
 	/*
 	 * wormunit should return without calling us again,
@@ -212,7 +212,7 @@ wormunit(Device *d)			/* d is l0 or r2 (e.g.) */
 			delay(100);
 		}
 		if(chatty)
-			print("\tload   r%ld drive %Z\n", v-w->side, w->drive[drive]);
+			fprint(2, "\tload   r%ld drive %Z\n", v-w->side, w->drive[drive]);
 		if(mmove(w, w->mt0, v->elem, w->dt0+drive, v->rot)) {
 			qunlock(w);
 			goto sbad;
@@ -265,7 +265,7 @@ wormunit(Device *d)			/* d is l0 or r2 (e.g.) */
 	v->block = inqsize(dr->wren.sddata);
 	if(v->block <= 0) {
 		if(chatty)
-			print("\twormunit %Z block size %ld, setting to %d\n",
+			fprint(2, "\twormunit %Z block size %ld, setting to %d\n",
 				d, v->block, Sectorsz);
 		v->block = Sectorsz;
 	}
@@ -278,11 +278,11 @@ wormunit(Device *d)			/* d is l0 or r2 (e.g.) */
 	v->max = (v->nblock + 1) / v->mult;
 
 	if(chatty){
-		print("\tworm %Z: drive %Z (juke drive %d)\n",
+		fprint(2, "\tworm %Z: drive %Z (juke drive %d)\n",
 			d, w->drive[v->drive], v->drive);
-		print("\t\t%,ld %ld-byte sectors, ", v->nblock, v->block);
-		print("%,ld %d-byte blocks\n", v->max, RBUFSIZE);
-		print("\t\t%ld multiplier\n", v->mult);
+		fprint(2, "\t\t%,ld %ld-byte sectors, ", v->nblock, v->block);
+		fprint(2, "%,ld %d-byte blocks\n", v->max, RBUFSIZE);
+		fprint(2, "\t\t%ld multiplier\n", v->mult);
 	}
 	if(d->type == Devlworm)
 		return wormlabel(d, v);
@@ -325,7 +325,7 @@ waitready(Juke *w, Device *d)
 	rv = 0;
 	for(e=0; e < 100; e++) {
 		if(e == 10 && chatty)
-			print("waitready: waiting for %s to exist\n", datanm);
+			fprint(2, "waitready: waiting for %s to exist\n", datanm);
 		if(access(datanm, AEXIST) >= 0){
 			rv = 1;
 			break;
@@ -398,7 +398,7 @@ loop:
 				goto loop;
 			}
 			if(chatty)
-				print("\tunload r%ld drive %Z\n",
+				fprint(2, "\tunload r%ld drive %Z\n",
 					v-w->side, w->drive[drive]);
 			if(mmove(w, w->mt0, w->dt0+drive, v->elem, v->rot)) {
 				qunlock(v);
@@ -472,7 +472,7 @@ devtojuke(Device *d, Device *top)
 			 * but we're not supposed to get here.
 			 */
 			if(chatty)
-				print("devtojuke: (l)worm %Z of %Z encountered\n", d, top);
+				fprint(2, "devtojuke: (l)worm %Z of %Z encountered\n", d, top);
 			/* FALL THROUGH */
 		case Devwren:
 			return nil;
@@ -731,17 +731,17 @@ mmove(Juke *w, int trans, int from, int to, int rot)
 		cmd[10] = 1;
 	s = scsiio(w->juke, SCSInone, cmd, sizeof cmd, buf, 0);	/* mmove */
 	if(s) {
-		print("scsio status #%x\n", s);
-		print("move medium t=%d fr=%d to=%d rot=%d\n",
+		fprint(2, "scsio status #%x\n", s);
+		fprint(2, "move medium t=%d fr=%d to=%d rot=%d\n",
 			trans, from, to, rot);
 //		panic("mmove");
 		if(recur == 0) {
 			recur = 1;
-			print("element from=%d\n", from);
+			fprint(2, "element from=%d\n", from);
 			element(w, from);
-			print("element to=%d\n", to);
+			fprint(2, "element to=%d\n", to);
 			element(w, to);
-			print("element trans=%d\n", trans);
+			fprint(2, "element trans=%d\n", trans);
 			element(w, trans);
 			recur = 0;
 		}
@@ -787,12 +787,11 @@ geometry(Juke *w)
 
 	w->rot = buf[4+2] & 1;
 
-	print("\tmt %d %d\n", w->mt0, w->nmt);
-	print("\tse %d %d\n", w->se0, w->nse);
-	print("\tie %d %d\n", w->ie0, w->nie);
-	print("\tdt %d %d\n", w->dt0, w->ndt);
-	print("\trot %d\n", w->rot);
-	prflush();
+	fprint(2, "\tmt %d %d\n", w->mt0, w->nmt);
+	fprint(2, "\tse %d %d\n", w->se0, w->nse);
+	fprint(2, "\tie %d %d\n", w->ie0, w->nie);
+	fprint(2, "\tdt %d %d\n", w->dt0, w->ndt);
+	fprint(2, "\trot %d\n", w->rot);
 }
 
 /*
@@ -862,7 +861,7 @@ element(Juke *w, int e)
 		if(s < 0 || s >= w->nie)
 			goto bad;
 		if(chatty)
-			print("import/export %d #%.2x %d.%d\n", s,
+			fprint(2, "import/export %d #%.2x %d.%d\n", s,
 				buf[8+8+2],
 				(buf[8+8+10]<<8) | buf[8+8+11],
 				(buf[8+8+9]>>6) & 1);
@@ -872,7 +871,7 @@ element(Juke *w, int e)
 		if(s < 0 || s >= w->ndt)
 			goto bad;
 		if(chatty)
-			print("data transfer %d #%.2x %d.%d\n", s,
+			fprint(2, "data transfer %d #%.2x %d.%d\n", s,
 				buf[8+8+2],
 				(buf[8+8+10]<<8) | buf[8+8+11],
 				(buf[8+8+9]>>6) & 1);
@@ -893,7 +892,7 @@ element(Juke *w, int e)
 				goto bad;
 			}
 			if(chatty)
-				print("r%d in drive %d\n", t, s);
+				fprint(2, "r%d in drive %d\n", t, s);
 			if(mmove(w, w->mt0, w->dt0+s, w->se0+t,(buf[8+8+9]>>6) & 1)){
 				fprint(2, "mmove initial unload\n");
 				goto bad;
@@ -1174,7 +1173,7 @@ querychanger(Device *xdev)
 	jukelist = w;
 
 	if(chatty)
-		print("alloc juke %Z\n", xdev);
+		fprint(2, "alloc juke %Z\n", xdev);
 
 	qlock(w);
 	qunlock(w);
@@ -1208,7 +1207,7 @@ querychanger(Device *xdev)
 	w->ndrive = w->ndt;
 	if(w->ndrive > MAXDRIVE) {
 		if(chatty)
-			print("ndrives truncated to %d\n", MAXDRIVE);
+			fprint(2, "ndrives truncated to %d\n", MAXDRIVE);
 		w->ndrive = MAXDRIVE;
 	}
 
@@ -1320,7 +1319,7 @@ wormprobe(void)
 			if(v->status == Sstart && t > v->time) {
 				drive = v->drive;
 				if(chatty)
-					print("\ttime   r%ld drive %Z\n",
+					fprint(2, "\ttime   r%ld drive %Z\n",
 						v-w->side, w->drive[drive]);
 				mmove(w, w->mt0, w->dt0+drive, v->elem, v->rot);
 				v->status = Sunload;

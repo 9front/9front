@@ -204,7 +204,7 @@ authorize(Chan* chan, Fcall* f)
 	if(strcmp(f->uname, "none") == 0){
 		uid = strtouid(f->uname);
 		if(db)
-			print("permission granted to none: uid %s = %d\n",
+			fprint(2, "permission granted to none: uid %s = %d\n",
 				f->uname, uid);
 		return uid;
 	}
@@ -212,7 +212,7 @@ authorize(Chan* chan, Fcall* f)
 	if(noauth || wstatallow){
 		uid = strtouid(f->uname);
 		if(db)
-			print("permission granted by noauth uid %s = %d\n",
+			fprint(2, "permission granted by noauth uid %s = %d\n",
 				f->uname, uid);
 		return uid;
 	}
@@ -220,7 +220,7 @@ authorize(Chan* chan, Fcall* f)
 	af = filep(chan, f->afid, 0);
 	if(af == nil){
 		if(db)
-			print("authorize: af == nil\n");
+			fprint(2, "authorize: af == nil\n");
 		return -1;
 	}
 
@@ -228,7 +228,7 @@ authorize(Chan* chan, Fcall* f)
 	authread(af, nil, 0);
 	uid = af->uid;
 	if(db)
-		print("authorize: uid is %d\n", uid);
+		fprint(2, "authorize: uid is %d\n", uid);
 	qunlock(af);
 	return uid;
 }
@@ -1707,18 +1707,17 @@ serve9p2(Msgbuf* mb)
 	 * 1 return means i dealt with it, including error
 	 * replies.
 	 */
-	if(convM2S(mb->data, mb->count, &f) != mb->count)
-{
-print("didn't like %d byte message\n", mb->count);
+	if(convM2S(mb->data, mb->count, &f) != mb->count){
+		fprint(2, "didn't like %d byte message\n", mb->count);
 		return 0;
-}
+	}
 	type = f.type;
 	if(type < Tversion || type >= Tmax || (type & 1) || type == Terror)
 		return 0;
 
 	chan = mb->chan;
 	if(CHAT(chan))
-		print("9p2: f %F\n", &f);
+		fprint(2, "9p2: f %F\n", &f);
 	r.type = type+1;
 	r.tag = f.tag;
 	error = 0;
@@ -1786,7 +1785,7 @@ print("didn't like %d byte message\n", mb->count);
 			r.ename = errstr9p[error];
 	}
 	if(CHAT(chan))
-		print("9p2: r %F\n", &r);
+		fprint(2, "9p2: r %F\n", &r);
 
 	rmb = mballoc(chan->msize, chan, Mbreply2);
 	n = convS2M(&r, rmb->data, chan->msize);
@@ -1812,7 +1811,7 @@ print("didn't like %d byte message\n", mb->count);
 			r.ename = ename;
 			n = convS2M(&r, rmb->data, chan->msize);
 		}
-		print("%s\n", r.ename);
+		fprint(2, "%s\n", r.ename);
 		if(n == 0){
 			/*
 			 * What to do here, the failure notification failed?

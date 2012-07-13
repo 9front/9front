@@ -836,7 +836,7 @@ mbfree(Msgbuf *mb)
 	if (mb->magic != Mbmagic)
 		panic("mbfree: bad magic 0x%lux", mb->magic);
 	if(mb->flags & BTRACE)
-		print("mbfree: BTRACE cat=%d flags=%ux, caller %#p\n",
+		fprint(2, "mbfree: BTRACE cat=%d flags=%ux, caller %#p\n",
 			mb->category, mb->flags, getcallerpc(&mb));
 
 	if(mb->flags & FREE)
@@ -909,12 +909,12 @@ hexdump(void *a, int n)
 		sprint(s2, " %.2ux", p[i]);
 		strcat(s1, s2);
 		if((i&7) == 7) {
-			print("%s\n", s1);
+			fprint(2, "%s\n", s1);
 			s1[0] = 0;
 		}
 	}
 	if(s1[0])
-		print("%s\n", s1);
+		fprint(2, "%s\n", s1);
 }
 
 void*

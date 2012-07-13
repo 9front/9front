@@ -26,6 +26,9 @@ consserve(void)
 			break;
 		}
 
+	/* switch console output to the cmd pipe */
+	dup(0, 1);
+
 	newproc(consserve1, 0, "con");
 }
 
@@ -35,14 +38,9 @@ consserve1(void *)
 {
 	char *conline;
 
-	for (;;) {
-		do {
-			if ((conline = Brdline(&bin, '\n')) != nil) {
-				conline[Blinelen(&bin)-1] = '\0';
-				print("%s: %s\n", service, conline);
-				cmd_exec(conline);
-			}
-		} while (conline != nil);
+	while(conline = Brdline(&bin, '\n')){
+		conline[Blinelen(&bin)-1] = '\0';
+		cmd_exec(conline);
 	}
 }
 
@@ -112,7 +110,6 @@ cmd_exec(char *arg)
 	for(i=0; s=command[i].arg0; i++)
 		if(strcmp(argv[0], s) == 0) {
 			(*command[i].func)(argc, argv);
-			prflush();
 			return;
 		}
 	print("cmd_exec: unknown command: %s\n", argv[0]);
@@ -319,7 +316,6 @@ cmd_who(int argc, char *argv[])
 		if(cp->whoprint)
 			cp->whoprint(cp);
 		print("\n");
-		prflush();
 	}
 	if(c > 0)
 		print("%d chans not listed\n", c);
@@ -353,7 +349,6 @@ cmd_sync(int, char *[])
 	wlock(&mainlock);	/* sync */
 	sync("command");
 	wunlock(&mainlock);
-	print("\n");
 }
 
 static void
@@ -371,7 +366,6 @@ cmd_help(int argc, char *argv[])
 		}
 	found:
 		print("\t%s %s\n", arg, command[i].help);
-		prflush();
 	}
 }
 
@@ -696,16 +690,14 @@ void
 cmd_noauth(int, char *[])
 {
 	noauth = !noauth;
-	if(noauth)
-		print("authentication is DISABLED\n");
+	print("authentication %s\n", noauth ? "disabled" : "enabled");
 }
 
 void
 cmd_noattach(int, char *[])
 {
 	noattach = !noattach;
-	if(noattach)
-		print("attaches are DISABLED\n");
+	print("attach %s\n", noattach ? "disabled" : "enabled");
 }
 
 void
@@ -731,7 +723,6 @@ cmd_files(int, char *[])
 	for(cp = chans; cp; cp = cp->next)
 		if(cp->nfile) {
 			print("%3d: %5d\n", cp->chan, cp->nfile);
-			prflush();
 			n += cp->nfile;
 		}
 	print("%ld out of %ld files used\n", n, conf.nfile);

@@ -15,38 +15,6 @@ machinit(void)
 	active.exiting = 0;
 }
 
-/*
- * Put a string on the console.
- */
-void
-puts(char *s, int n)
-{
-	print("%.*s", n, s);
-}
-
-void
-prflush(void)
-{
-}
-
-/*
- * Print a string on the console.
- */
-void
-putstrn(char *str, int n)
-{
-	puts(str, n);
-}
-
-/*
- * get a character from the console
- */
-int
-getc(void)
-{
-	return Bgetrune(&bin);
-}
-
 void
 panic(char *fmt, ...)
 {
@@ -191,7 +159,7 @@ postservice(void)
 	if(pipe(p) < 0)
 		panic("can't make a pipe");
 	snprint(buf, sizeof(buf), "#s/%s.cmd", service);
-	srvfd(buf, 0220, p[0]);
+	srvfd(buf, 0660, p[0]);
 	close(p[0]);
 
 	/* use it as stdin */
@@ -508,7 +476,7 @@ serve(void *)
 					break;
 				}
 			if(cp->protocol == nil && (chatty > 1)){
-				print("no protocol for message\n");
+				fprint(2, "no protocol for message\n");
 				hexdump(mb->data, 12);
 			}
 		} else
@@ -528,7 +496,7 @@ exit(void)
 	active.exiting = 1;
 	unlock(&active);
 
-	print("halted at %T.\n", time(nil));
+	fprint(2, "halted at %T.\n", time(nil));
 	postnote(PNGROUP, getpid(), "die");
 	exits(nil);
 }
@@ -548,7 +516,7 @@ nextdump(Timet t)
 	Timet nddate = nextime(t+MINUTE(100), DUMPTIME, WEEKMASK);
 
 	if(!conf.nodump && chatty)
-		print("next dump at %T\n", nddate);
+		fprint(2, "next dump at %T\n", nddate);
 	return nddate;
 }
 
@@ -583,7 +551,7 @@ wormcopy(void *)
 			ntoytime = time(nil) + HOUR(1);
 		else if(t > nddate) {
 			if(!conf.nodump) {
-				print("automatic dump %T\n", t);
+				fprint(2, "automatic dump %T\n", t);
 				for(fs=filsys; fs->name; fs++)
 					if(fs->dev->type == Devcw)
 						cfsdump(fs);

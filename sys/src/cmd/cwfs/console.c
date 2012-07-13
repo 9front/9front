@@ -9,7 +9,7 @@ fcall9p1(Chan *cp, Fcall *in, Fcall *ou)
 	rlock(&mainlock);
 	t = in->type;
 	if(t < 0 || t >= MAXSYSCALL || (t&1) || !call9p1[t]) {
-		print("bad message type %d\n", t);
+		fprint(2, "bad message type %d\n", t);
 		panic("");
 	}
 	ou->type = t+1;
@@ -20,7 +20,7 @@ fcall9p1(Chan *cp, Fcall *in, Fcall *ou)
 	runlock(&cp->reflock);
 
 	if(ou->err && CHAT(cp))
-		print("\terror: %s\n", errstr9p[ou->err]);
+		fprint(2, "\terror: %s\n", errstr9p[ou->err]);
 	runlock(&mainlock);
 }
 
@@ -205,8 +205,8 @@ f_fstat(Chan *cp, Fcall *in, Fcall *ou)
 	int i;
 
 	if(CHAT(cp)) {
-		print("c_fstat %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
+		fprint(2, "c_fstat %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
 	}
 
 	p = 0;
@@ -246,8 +246,8 @@ f_clri(Chan *cp, Fcall *in, Fcall *ou)
 	File *f;
 
 	if(CHAT(cp)) {
-		print("c_clri %d\n", cp->chan);
-		print("\tfid = %d\n", in->fid);
+		fprint(2, "c_clri %d\n", cp->chan);
+		fprint(2, "\tfid = %d\n", in->fid);
 	}
 
 	f = filep(cp, in->fid, 0);

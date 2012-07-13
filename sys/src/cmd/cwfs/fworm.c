@@ -54,7 +54,7 @@ fwormread(Device *d, Off b, void *c)
 	Devsize l;
 
 	if(chatty > 1)
-		print("fworm read  %lld\n", (Wideoff)b);
+		fprint(2, "fworm read  %lld\n", (Wideoff)b);
 	fdev = FDEV(d);
 	l = devsize(fdev);
 	l -= l/(BUFSIZE*8) + 1;
@@ -83,7 +83,7 @@ fwormwrite(Device *d, Off b, void *c)
 	Devsize l;
 
 	if(chatty > 1)
-		print("fworm write %lld\n", (Wideoff)b);
+		fprint(2, "fworm write %lld\n", (Wideoff)b);
 	fdev = FDEV(d);
 	l = devsize(fdev);
 	l -= l/(BUFSIZE*8) + 1;

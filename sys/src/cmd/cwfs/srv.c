@@ -36,7 +36,7 @@ chanhangup(Chan *chan, char *msg)
 	if(chan == cons.chan || srv == nil || srv->chan != chan)
 		return;
 	if(msg[0] && chatty)
-		print("hangup %s: %s\n", chan->whochan, msg);
+		fprint(2, "hangup %s: %s\n", chan->whochan, msg);
 	if(fd2path(srv->fd, buf, sizeof(buf)) == 0){
 		if(p = strrchr(buf, '/')){
 			strecpy(p, buf+sizeof(buf), "/ctl");
@@ -61,7 +61,7 @@ srvput(Srv *srv)
 	chan = srv->chan;
 	fileinit(chan);
 	if(chatty)
-		print("%s closed\n", chan->whochan);
+		fprint(2, "%s closed\n", chan->whochan);
 	lock(&freechans);
 	srv->chan = freechans.hd;
 	freechans.hd = chan;

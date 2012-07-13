@@ -31,7 +31,7 @@ convS2M9p1(Fcall *f, uchar *ap)
 	SHORT(tag);
 	switch(t) {
 	default:
-		print("convS2M9p1: bad type: %d\n", t);
+		fprint(2, "convS2M9p1: bad type: %d\n", t);
 		return 0;
 
 	case Tnop:
@@ -298,7 +298,7 @@ convM2S9p1(uchar *ap, Fcall *f, int n)
 		 * only whine if it couldn't be a 9P2000 Tversion.
 		 */
 		if(t != 19 || ap[4] != 100)
-			print("convM2S9p1: bad type: %d\n", f->type);
+			fprint(2, "convM2S9p1: bad type: %d\n", f->type);
 		return 0;
 
 	case Tnop:
