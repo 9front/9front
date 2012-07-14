@@ -1227,6 +1227,8 @@ reader(void)
 				break;
 			}
 
+			if(mb->d == nil || mb->d->name == nil)
+				continue;
 			d = dirstat(mb->path);
 			if(d == nil)
 				continue;
