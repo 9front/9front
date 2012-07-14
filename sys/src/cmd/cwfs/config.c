@@ -22,6 +22,7 @@ static int copyworm = 0, copydev = 0;
 static char *src, *dest;
 
 static int noauthset = 0;
+static int noatimeset = 0;
 static int readonlyset = 0;
 static int resetparams;
 
@@ -432,6 +433,8 @@ mergeconf(Iobuf *p)
 
 	if(!noauthset)
 		noauth = 0;
+	if(!noatimeset)
+		noatime = 0;
 	if(!readonlyset)
 		readonly = 0;
 	for (cp = p->iobuf; *cp != '\0'; cp++) {
@@ -448,6 +451,9 @@ mergeconf(Iobuf *p)
 		} else if(strcmp(word, "noauth") == 0){
 			if(!noauthset)
 				noauth = 1;
+		} else if(strcmp(word, "noatime") == 0){
+			if(!noatimeset)
+				noatime = 1;
 		} else if(strcmp(word, "readonly") == 0){
 			if(!readonlyset)
 				readonly = 1;
@@ -595,6 +601,8 @@ start:
 					fs->conf);
 		if(noauth)
 			cp = seprint(cp, ep, "noauth\n");
+		if(noatime)
+			cp = seprint(cp, ep, "noatime\n");
 		if(readonly)
 			cp = seprint(cp, ep, "readonly\n");
 		if(conf.newcache)
@@ -605,7 +613,7 @@ start:
 
 		putbuf(p);
 		f.modconf = f.newconf = 0;
-		noauthset = readonlyset = 0;
+		noauthset = noatimeset = readonlyset = 0;
 		goto start;
 	}
 	putbuf(p);
@@ -993,19 +1001,26 @@ arginit(void)
 		}
 		if(strcmp(word, "noattach") == 0) {
 			noattach = !noattach;
-			print("attach is now %s\n", noattach ? "disallowed" : "allowed");
+			print("attach %s\n", noattach ? "disallowed" : "allowed");
 			continue;
 		}
 		if(strcmp(word, "noauth") == 0) {
 			noauth = !noauth;
-			print("auth is now %s\n", noauth ? "disabled" : "enabled");
+			print("auth %s\n", noauth ? "disabled" : "enabled");
 			noauthset++;
+			f.modconf = 1;
+			continue;
+		}
+		if(strcmp(word, "noatime") == 0) {
+			noatime = !noatime;
+			print("atime %s\n", noatime ? "disabled" : "enabled");
+			noatimeset++;
 			f.modconf = 1;
 			continue;
 		}
 		if(strcmp(word, "readonly") == 0) {
 			readonly = !readonly;
-			print("filesystem is now %s\n", readonly ? "readonly" : "writable");
+			print("filesystem %s\n", readonly ? "readonly" : "writable");
 			readonlyset++;
 			f.modconf = 1;
 			continue;

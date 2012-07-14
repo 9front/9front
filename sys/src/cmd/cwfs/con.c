@@ -690,7 +690,14 @@ void
 cmd_noauth(int, char *[])
 {
 	noauth = !noauth;
-	print("authentication %s\n", noauth ? "disabled" : "enabled");
+	print("auth %s\n", noauth ? "disabled" : "enabled");
+}
+
+void
+cmd_noatime(int, char *[])
+{
+	noatime = !noatime;
+	print("atime %s\n", noatime ? "disabled" : "enabled");
 }
 
 void
@@ -767,6 +774,7 @@ installcmds(void)
 	cmd_install("hangup", "chan -- clunk files", cmd_hangup);
 	cmd_install("printconf", "-- print configuration", cmd_printconf);
 	cmd_install("noauth", "toggle noauth flag", cmd_noauth);
+	cmd_install("noatime", "toggle noatime flag", cmd_noatime);
 	cmd_install("noattach", "toggle noattach flag", cmd_noattach);
 	cmd_install("files", "report on files structure", cmd_files);
 

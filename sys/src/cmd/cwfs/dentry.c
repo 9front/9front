@@ -13,16 +13,18 @@ accessdir(Iobuf *p, Dentry *d, int f, int uid)
 {
 	Timet t;
 
-	if(p && p->dev->type != Devro) {
-		p->flags |= Bmod;
-		t = time(nil);
-		if(f & (FREAD|FWRITE))
-			d->atime = t;
-		if(f & FWRITE) {
-			d->mtime = t;
-			d->muid = uid;
-			d->qid.version++;
-		}
+	if(p == nil || p->dev->type == Devro)
+		return;
+	f &= FREAD|FWRITE;
+	if(f != FWRITE && noatime)
+		return;
+	p->flags |= Bmod;
+	t = time(nil);
+	d->atime = t;
+	if(f & FWRITE){
+		d->mtime = t;
+		d->muid = uid;
+		d->qid.version++;
 	}
 }
 
