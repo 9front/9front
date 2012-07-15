@@ -692,6 +692,15 @@ dell2007fp=1600x1200					# 60Hz, 75KHz
 	shs=1648
 	vrs=1202 vre=1208 vt=1240
 
+# Dell ST2210 at 1920x1080
+dellst2210
+	videobw=200
+	alias=multisync					# 60Hz
+dellst2210=1920x1080
+	defaultclock=148.5
+	shb=2008 ehb=2052 ht=2200
+	vrs=1084 vre=1089 vt=1125
+
 #
 # EIZO (Nanao) FlexScan 6600 (greyscale)
 #
