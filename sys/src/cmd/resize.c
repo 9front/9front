@@ -160,7 +160,9 @@ main(int argc, char **argv)
 			freememimage(im);
 			im = nim;
 		}
-		if((nim = allocmemimage(Rect(im->r.min.x, im->r.min.y, xsize, ysize), tchan)) == nil)
+		if((nim = allocmemimage(
+			Rect(im->r.min.x, im->r.min.y, im->r.min.x+xsize, im->r.min.y+ysize), 
+			tchan)) == nil)
 			sysfatal("addocmemimage: %r");
 		resample(nim, nim->r, im, im->r);
 		freememimage(im);
