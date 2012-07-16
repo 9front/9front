@@ -39,8 +39,8 @@ attr(char *s, char *a)
 			continue;
 		break;
 	}
-	if(e - s > 1)
-		return smprint("%.*s", (int)(e-s), s);
+	if((e - s) > 1)
+		return smprint("%.*s", (int)(e - s), s);
 	return nil;
 }
 
@@ -78,18 +78,21 @@ main(int argc, char *argv[])
 		if(nbuf == n){
 			if(memcmp(p, "\xEF\xBB\xBF", 3)==0){
 				p += 3;
+				nbuf -= 3;
 				cset = "utf";
-				break;
+				goto Found;
 			}
 			if(memcmp(p, "\xFE\xFF", 2) == 0){
 				p += 2;
+				nbuf -= 2;
 				cset = "unicode-be";
-				break;
+				goto Found;
 			}
 			if(memcmp(p, "\xFF\xFE", 2) == 0){
 				p += 2;
+				nbuf -= 2;
 				cset = "unicode-le";
-				break;
+				goto Found;
 			}
 		}
 		s = g;
@@ -114,28 +117,24 @@ main(int argc, char *argv[])
 			t = *e;
 			*e = 0;
 			if((a = attr(g, "encoding")) || (a = attr(g, "charset"))){
-				cset = a;
 				*e = t;
-				break;
+				cset = a;
+				goto Found;
 			}
 			*e = t;
 			s = ++e;
 		} while(t);
 	}
-	nbuf -= p - buf;
-
-	if(cset == nil){
-		cset = "utf";
-		s = p;
-		while(s+UTFmax < p+nbuf){
-			s += chartorune(&r, s);
-			if(r == Runeerror){
-				cset = "latin1";
-				break;
-			}
+	s = p;
+	while(s+UTFmax < p+nbuf){
+		s += chartorune(&r, s);
+		if(r == Runeerror){
+			cset = "latin1";
+			goto Found;
 		}
 	}
-
+	cset = "utf";
+Found:
 	if(pflag){
 		print("%s\n", cset);
 		exits(0);
