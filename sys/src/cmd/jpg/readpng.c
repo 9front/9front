@@ -175,6 +175,8 @@ unfilter(int alg, uchar *buf, uchar *up, int len, int bypp)
 	int i;
 
 	switch(alg){
+	default:
+		fprint(2, "unknown filtering scheme %d\n", alg);
 	case FilterNone:
 		break;
 
@@ -201,9 +203,6 @@ unfilter(int alg, uchar *buf, uchar *up, int len, int bypp)
 		for(; i < len; ++i)
 			buf[i] += paeth(buf[i-bypp], up[i], up[i-bypp]);
 		break;
-
-	default:
-		sysfatal("unknown filtering scheme %d\n", alg);
 	}
 }
 
@@ -312,7 +311,7 @@ scanbytes(ZlibW *z)
 	else
 		n = (dx+adx-1)/adx;
 	if(n != 1 + (z->dx - (adam7[z->pass].x+1)) / adam7[z->pass].dx){
-		print("%d/%d != 1+(%d-1)/%d = %d\n",
+		fprint(2, "%d/%d != 1+(%d-1)/%d = %d\n",
 			z->dx - adam7[z->pass].x - 1 + adx, adx,
 			z->dx - (adam7[z->pass].x+1), adam7[z->pass].dx,
 			1 + (z->dx - (adam7[z->pass].x+1)) / adam7[z->pass].dx);
