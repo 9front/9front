@@ -151,3 +151,20 @@ urlget(Url *url, int body)
 
 	return fd;
 }
+
+int
+urlresolve(Url *url)
+{
+	char buf[1024];
+	int n, fd;
+
+	if((fd = webclone(url, buf, sizeof(buf))) < 0)
+		return -1;
+	n = strlen(buf);
+	snprint(buf+n, sizeof(buf)-n, "/parsed/url");
+	readstr(buf, url->fullname, sizeof(url->fullname));
+	snprint(buf+n, sizeof(buf)-n, "/parsed/fragment");
+	readstr(buf, url->tag, sizeof(url->tag));
+	close(fd);
+	return 0;
+}

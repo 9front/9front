@@ -734,8 +734,12 @@ void plrdhtml(char *name, int fd, Www *dst){
 			g.spacc++;
 			break;
 		case Tag_base:
-			if(str=pl_getattr(g.attr, "href"))
+			if(str=pl_getattr(g.attr, "href")){
+				seturl(g.dst->url, str, g.dst->url->fullname);
 				nstrcpy(g.dst->url->fullname, str, sizeof(g.dst->url->fullname));
+				/* base should be a full url, but it often isnt so have to resolve */
+				urlresolve(g.dst->url);
+			}
 			break;
 		case Tag_a:
 			if(str=pl_getattr(g.attr, "name"))
