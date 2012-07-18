@@ -176,7 +176,7 @@ flushmemscreen(Rectangle r)
 {
 	VGAscr *scr;
 	uchar *sp, *disp, *sdisp, *edisp;
-	int y, len, incs, off, xoff, page;
+	int y, len, incs, off, page;
 
 	scr = &vgascreen[0];
 	if(scr->gscreen == nil || scr->useflush == 0)
@@ -188,45 +188,32 @@ flushmemscreen(Rectangle r)
 	if(rectclip(&r, scr->gscreen->r) == 0)
 		return;
 	disp = scr->vaddr;
-	incs = scr->gscreen->width * BY2WD;
-	xoff = (r.min.x*scr->gscreen->depth) / 8;
-	off = r.min.y*incs + xoff;
+	incs = scr->gscreen->width*BY2WD;
+	off = (r.min.x*scr->gscreen->depth) / 8;
+	len = (r.max.x*scr->gscreen->depth + 7) / 8;
+	len -= off;
+	off += r.min.y*incs;
 	sp = scr->gscreendata->bdata + scr->gscreen->zero + off;
 
 	/*
-	 * Linear framebuffer but with softscreen.
+	 * Linear framebuffer with softscreen.
 	 */
 	if(scr->paddr){
-		len = (r.max.x*scr->gscreen->depth + 7) / 8;
-		len -= xoff;
-		sdisp = disp + off;
-		edisp = sdisp + Dy(r)*incs;
-		while(sdisp < edisp){
+		sdisp = disp+off;
+		for(y = r.min.y; y < r.max.y; y++) {
 			memmove(sdisp, sp, len);
-			sdisp += incs;
 			sp += incs;
+			sdisp += incs;
 		}
 		return;
 	}
 
-
 	/*
-	 * Paged access thru 64K window.
-	 * It would be fair to say that this doesn't work for >8-bit screens.
+	 * Paged framebuffer window.
 	 */
 	if(scr->dev == nil || scr->dev->page == nil)
 		return;
 
-	switch(scr->gscreen->depth){
-	default:
-		len = 0;
-		break;
-	case 8:
-		len = Dx(r);
-		break;
-	}
-	if(len < 1)
-		return;
 	page = off/scr->apsize;
 	off %= scr->apsize;
 	sdisp = disp+off;
