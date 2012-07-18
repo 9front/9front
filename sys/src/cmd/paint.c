@@ -2,149 +2,643 @@
 #include <libc.h>
 #include <draw.h>
 #include <event.h>
+#include <keyboard.h>
 
-#define NCOLORS 6
+char *filename;
+int zoom = 1;
+int thick = 1;
+Point spos;		/* position on screen */
+Point cpos;		/* position on canvas */
+Image *canvas;
+Image *ink;
+Image *back;
+Image *pal[16];		/* palette */
+Rectangle palr;		/* palette rect on screen */
+Rectangle penr;		/* pen size rect on screen */
 
-Image	*colors[NCOLORS];
+int nundo = 0;
+Image *undo[1024];
+
+int c64[] = {		/* c64 color palette */
+	0x000000,
+	0xFFFFFF,
+	0x68372B,
+	0x70A4B2,
+	0x6F3D86,
+	0x588D43,
+	0x352879,
+	0xB8C76F,
+	0x6F4F25,
+	0x433900,
+	0x9A6759,
+	0x444444,
+	0x6C6C6C,
+	0x9AD284,
+	0x6C5EB5,
+	0x959595,
+};
+
+/*
+ * A draw operation that touches only the area contained in bot but not in top.
+ * mp and sp get aligned with bot.min.
+ */
+static void
+gendrawdiff(Image *dst, Rectangle bot, Rectangle top, 
+	Image *src, Point sp, Image *mask, Point mp, int op)
+{
+	Rectangle r;
+	Point origin;
+	Point delta;
+
+	if(Dx(bot)*Dy(bot) == 0)
+		return;
+
+	/* no points in bot - top */
+	if(rectinrect(bot, top))
+		return;
+
+	/* bot - top ≡ bot */
+	if(Dx(top)*Dy(top)==0 || rectXrect(bot, top)==0){
+		gendrawop(dst, bot, src, sp, mask, mp, op);
+		return;
+	}
+
+	origin = bot.min;
+	/* split bot into rectangles that don't intersect top */
+	/* left side */
+	if(bot.min.x < top.min.x){
+		r = Rect(bot.min.x, bot.min.y, top.min.x, bot.max.y);
+		delta = subpt(r.min, origin);
+		gendrawop(dst, r, src, addpt(sp, delta), mask, addpt(mp, delta), op);
+		bot.min.x = top.min.x;
+	}
+
+	/* right side */
+	if(bot.max.x > top.max.x){
+		r = Rect(top.max.x, bot.min.y, bot.max.x, bot.max.y);
+		delta = subpt(r.min, origin);
+		gendrawop(dst, r, src, addpt(sp, delta), mask, addpt(mp, delta), op);
+		bot.max.x = top.max.x;
+	}
+
+	/* top */
+	if(bot.min.y < top.min.y){
+		r = Rect(bot.min.x, bot.min.y, bot.max.x, top.min.y);
+		delta = subpt(r.min, origin);
+		gendrawop(dst, r, src, addpt(sp, delta), mask, addpt(mp, delta), op);
+		bot.min.y = top.min.y;
+	}
+
+	/* bottom */
+	if(bot.max.y > top.max.y){
+		r = Rect(bot.min.x, top.max.y, bot.max.x, bot.max.y);
+		delta = subpt(r.min, origin);
+		gendrawop(dst, r, src, addpt(sp, delta), mask, addpt(mp, delta), op);
+		bot.max.y = top.max.y;
+	}
+}
+
+int
+alphachan(ulong chan)
+{
+	for(; chan; chan >>= 8)
+		if(TYPE(chan) == CAlpha)
+			return 1;
+	return 0;
+}
+
+void
+zoomdraw(Image *d, Rectangle r, Rectangle top, Image *b, Image *s, Point sp, int f)
+{
+	Rectangle dr;
+	Image *t;
+	Point a;
+	int w;
+
+	a = ZP;
+	if(r.min.x < d->r.min.x){
+		sp.x += (d->r.min.x - r.min.x)/f;
+		a.x = (d->r.min.x - r.min.x)%f;
+		r.min.x = d->r.min.x;
+	}
+	if(r.min.y < d->r.min.y){
+		sp.y += (d->r.min.y - r.min.y)/f;
+		a.y = (d->r.min.y - r.min.y)%f;
+		r.min.y = d->r.min.y;
+	}
+	rectclip(&r, d->r);
+	w = s->r.max.x - sp.x;
+	if(w > Dx(r))
+		w = Dx(r);
+	dr = r;
+	dr.max.x = dr.min.x+w;
+	if(!alphachan(s->chan))
+		b = nil;
+	if(f <= 1){
+		if(b) gendrawdiff(d, dr, top, b, sp, nil, ZP, SoverD);
+		gendrawdiff(d, dr, top, s, sp, nil, ZP, SoverD);
+		return;
+	}
+	if((t = allocimage(display, dr, s->chan, 0, 0)) == nil)
+		return;
+	for(; dr.min.y < r.max.y; dr.min.y++){
+		dr.max.y = dr.min.y+1;
+		draw(t, dr, s, nil, sp);
+		if(++a.y == f){
+			a.y = 0;
+			sp.y++;
+		}
+	}
+	dr = r;
+	for(sp=dr.min; dr.min.x < r.max.x; sp.x++){
+		dr.max.x = dr.min.x+1;
+		if(b) gendrawdiff(d, dr, top, b, sp, nil, ZP, SoverD);
+		gendrawdiff(d, dr, top, t, sp, nil, ZP, SoverD);
+		for(dr.min.x++; ++a.x < f && dr.min.x < r.max.x; dr.min.x++){
+			dr.max.x = dr.min.x+1;
+			gendrawdiff(d, dr, top, d, Pt(dr.min.x-1, dr.min.y), nil, ZP, SoverD);
+		}
+		a.x = 0;
+	}
+	freeimage(t);
+}
+
+Point
+s2c(Point p){
+	p = subpt(p, spos);
+	if(p.x < 0) p.x -= zoom-1;
+	if(p.y < 0) p.y -= zoom-1;
+	return addpt(divpt(p, zoom), cpos);
+}
+
+Point
+c2s(Point p){
+	return addpt(mulpt(subpt(p, cpos), zoom), spos);
+}
+
+Rectangle
+c2sr(Rectangle r){
+	return Rpt(c2s(r.min), c2s(r.max));
+}
+
+void
+update(Rectangle *rp){
+	if(canvas==nil)
+		draw(screen, screen->r, back, nil, ZP);
+	else {
+		if(rp == nil)
+			rp = &canvas->r;
+		gendrawdiff(screen, screen->r, c2sr(canvas->r), back, ZP, nil, ZP, SoverD);
+		zoomdraw(screen, c2sr(*rp), ZR, back, canvas, rp->min, zoom);
+	}
+	flushimage(display, 1);
+}
+
+void
+expand(Rectangle r)
+{
+	Rectangle nr;
+	Image *tmp;
+
+	if(canvas==nil){
+		if((canvas = allocimage(display, r, screen->chan, 0, DNofill)) == nil)
+			sysfatal("allocimage: %r");
+		draw(canvas, canvas->r, back, nil, ZP);
+		return;
+	}
+	nr = canvas->r;
+	combinerect(&nr, r);
+	if(eqrect(nr, canvas->r))
+		return;
+	if((tmp = allocimage(display, nr, canvas->chan, 0, DNofill)) == nil)
+		return;
+	draw(tmp, canvas->r, canvas, nil, canvas->r.min);
+	gendrawdiff(tmp, tmp->r, canvas->r, back, ZP, nil, ZP, SoverD);
+	freeimage(canvas);
+	canvas = tmp;
+}
+
+void
+save(Rectangle r, int mark)
+{
+	Image *tmp;
+	int x;
+
+	if(mark){
+		x = nundo++ % nelem(undo);
+		if(undo[x])
+			freeimage(undo[x]);
+		undo[x] = nil;
+	}
+	if(canvas==nil || nundo<0)
+		return;
+	if(!rectclip(&r, canvas->r))
+		return;
+	if((tmp = allocimage(display, r, canvas->chan, 0, DNofill)) == nil)
+		return;
+	draw(tmp, r, canvas, nil, r.min);
+	x = nundo++ % nelem(undo);
+	if(undo[x])
+		freeimage(undo[x]);
+	undo[x] = tmp;
+}
+
+void
+restore(int n)
+{
+	Image *tmp;
+	int x;
+
+	while(nundo > 0){
+		if(n-- == 0)
+			return;
+		x = --nundo % nelem(undo);
+		if((tmp = undo[x]) == nil)
+			return;
+		undo[x] = nil;
+		expand(tmp->r);
+		draw(canvas, tmp->r, tmp, nil, tmp->r.min);
+		update(&tmp->r);
+		freeimage(tmp);
+	}
+}
+
+void
+translate(Point d)
+{
+	Rectangle r, nr;
+
+	if(canvas==nil || d.x==0 && d.y==0)
+		return;
+	r = c2sr(canvas->r);
+	nr = rectaddpt(r, d);
+	rectclip(&r, screen->clipr);
+	draw(screen, rectaddpt(r, d), screen, nil, r.min);
+	zoomdraw(screen, nr, rectaddpt(r, d), back, canvas, canvas->r.min, zoom);
+	gendrawdiff(screen, screen->r, nr, back, ZP, nil, ZP, SoverD);
+	spos = addpt(spos, d);
+	flushimage(display, 1);
+}
+
+void
+setzoom(Point o, int z)
+{
+	if(z < 1)
+		return;
+	cpos = s2c(o);
+	spos = o;
+	zoom = z;
+	update(nil);
+}
+
+void
+center(void)
+{
+	cpos = ZP;
+	if(canvas)
+		cpos = addpt(canvas->r.min, 
+			divpt(subpt(canvas->r.max, canvas->r.min), 2));
+	spos = addpt(screen->r.min,
+		divpt(subpt(screen->r.max, screen->r.min), 2));
+	update(nil);
+}
+
+void
+drawpal(void)
+{
+	Rectangle r, rr;
+	int i;
+
+	r = screen->r;
+	r.min.y = r.max.y - 20;
+	replclipr(screen, 0, r);
+
+	penr = r;
+	penr.min.x = r.max.x - 10*Dy(r);
+
+	palr = r;
+	palr.max.x = penr.min.x;
+
+	r = penr;
+	draw(screen, r, back, nil, ZP);
+	for(i=0; i<10; i++){
+		r.max.x = penr.min.x + (i+1)*Dx(penr) / 10;
+		rr = r;
+		if(i == thick)
+			rr.min.y += Dy(r)/3;
+		fillellipse(screen, addpt(rr.min, divpt(subpt(rr.max, rr.min), 2)), i, i, ink, ZP);
+		r.min.x = r.max.x;
+	}
+
+	r = palr;
+	for(i=1; i<=nelem(pal); i++){
+		r.max.x = palr.min.x + i*Dx(palr) / nelem(pal);
+		rr = r;
+		if(ink == pal[i-1])
+			rr.min.y += Dy(r)/3;
+		draw(screen, rr, pal[i-1], nil, ZP);
+		gendrawdiff(screen, r, rr, back, ZP, nil, ZP, SoverD);
+		r.min.x = r.max.x;
+	}
+
+	r = screen->r;
+	r.max.y -= Dy(palr);
+	replclipr(screen, 0, r);
+}
+
+int
+hitpal(Mouse m)
+{
+	if(ptinrect(m.xy, penr)){
+		if(m.buttons & 7){
+			thick = ((m.xy.x - penr.min.x) * 10) / Dx(penr);
+			drawpal();
+		}
+		return 1;
+	}
+	if(ptinrect(m.xy, palr)){
+		Image *col;
+
+		col = pal[(m.xy.x - palr.min.x) * nelem(pal) / Dx(palr)];
+		switch(m.buttons & 7){
+		case 1:
+			ink = col;
+			drawpal();
+			break;
+		case 2:
+			back = col;
+			drawpal();
+			update(nil);
+			break;
+		}
+		return 1;
+	}
+	return 0;
+}
+
+void
+catch(void *, char *msg)
+{
+	if(strstr(msg, "closed pipe"))
+		noted(NCONT);
+	noted(NDFLT);
+}
+
+int
+pipeline(char *fmt, ...)
+{
+	char buf[1024];
+	va_list a;
+	int p[2];
+
+	va_start(a, fmt);
+	vsnprint(buf, sizeof(buf), fmt, a);
+	va_end(a);
+	if(pipe(p) < 0)
+		return -1;
+	switch(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG)){
+	case -1:
+		close(p[0]);
+		close(p[1]);
+		return -1;
+	case 0:
+		close(p[1]);
+		dup(p[0], 0);
+		dup(p[0], 1);
+		close(p[0]);
+		execl("/bin/rc", "rc", "-c", buf, nil);
+		exits("exec");
+	}
+	close(p[0]);
+	return p[1];
+}
+
+void
+usage(void)
+{
+	fprint(2, "usage: %s [ file ]\n", argv0);
+	exits("usage");
+}
+
+void
+main(int argc, char *argv[])
+{
+	char *s, buf[1024];
+	Rectangle r;
+	Image *img;
+	int i, fd;
+	Event e;
+	Mouse m;
+	Point p, d;
+
+	ARGBEGIN {
+	default:
+		usage();
+	} ARGEND;
+
+	if(argc == 1)
+		filename = strdup(argv[0]);
+	else if(argc != 0)
+		usage();	
+
+	if(initdraw(0, 0, "paint") < 0)
+		sysfatal("initdraw: %r");
+
+	if(filename){
+		if((fd = open(filename, OREAD)) < 0)
+			sysfatal("open: %r");
+		if((canvas = readimage(display, fd, 0)) == nil)
+			sysfatal("readimage: %r");
+		close(fd);
+	}
+
+	/* palette initialization */
+	for(i=0; i<nelem(pal); i++){
+		pal[i] = allocimage(display, Rect(0, 0, 1, 1), RGB24, 1,
+			c64[i % nelem(c64)]<<8 | 0xFF);
+		if(pal[i] == nil)
+			sysfatal("allocimage: %r");
+	}
+	ink = pal[0];
+	back = pal[1];
+	drawpal();
+	center();
+
+	einit(Emouse | Ekeyboard);
+
+	notify(catch);
+	for(;;) {
+		switch(event(&e)){
+		case Emouse:
+			if(hitpal(e.mouse))
+				continue;
+
+			img = ink;
+			switch(e.mouse.buttons & 7){
+			case 2:
+				img = back;
+				/* no break */
+			case 1:
+				p = s2c(e.mouse.xy);
+				r = Rect(p.x-thick, p.y-thick, p.x+thick+1, p.y+thick+1);
+				expand(r);
+				save(r, 1);
+				fillellipse(canvas, p, thick, thick, img, ZP);
+				update(&r);
+				for(;;){
+					m = e.mouse;
+					if(event(&e) != Emouse)
+						break;
+					if((e.mouse.buttons ^ m.buttons) & 7)
+						break;
+					d = s2c(e.mouse.xy);
+					if(eqpt(d, p))
+						continue;
+					r = canonrect(Rpt(p, d));
+					r.min.x -= thick;
+					r.min.y -= thick;
+					r.max.x += thick+1;
+					r.max.y += thick+1;
+					expand(r);
+					save(r, 0);
+					line(canvas, p, d, Enddisc, Enddisc, thick, img, ZP);
+					update(&r);
+					p = d;
+				}
+				break;
+			case 4:
+				for(;;){
+					m = e.mouse;
+					if(event(&e) != Emouse)
+						break;
+					if((e.mouse.buttons & 7) != 4)
+						break;
+					translate(subpt(e.mouse.xy, m.xy));
+				}
+				break;
+			}
+			break;
+		case Ekeyboard:
+			switch(e.kbdc){
+			case Kesc:
+				zoom = 1;
+				center();
+				break;
+			case '+':
+				setzoom(e.mouse.xy, zoom*2);
+				break;
+			case '-':
+				setzoom(e.mouse.xy, zoom/2);
+				break;
+			case 'f':
+				if(canvas == nil)
+					break;
+				save(canvas->r, 1);
+				freeimage(canvas);
+				canvas = nil;
+				update(nil);
+				break;
+			case 'u':
+				restore(16);
+				break;
+			case '0': case '1': case '2': case '3': case '4':
+			case '5': case '6': case '7': case '8': case '9':
+				thick = e.kbdc - '0';
+				drawpal();
+				break;
+			default:
+				if(e.kbdc == Kdel)
+					e.kbdc = 'q';
+				buf[0] = 0;
+				if(filename && (e.kbdc == 'r' || e.kbdc == 'w'))
+					snprint(buf, sizeof(buf), "%C %s", e.kbdc, filename);
+				else if(e.kbdc > 0x20 && e.kbdc < 0x7f)
+					snprint(buf, sizeof(buf), "%C", e.kbdc);
+				if(eenter("Cmd", buf, sizeof(buf), &e.mouse) <= 0)
+					break;
+				if(strcmp(buf, "q") == 0)
+					exits(nil);
+				s = buf+1;
+				while(*s == ' ' || *s == '\t')
+					s++;
+				if(*s == 0)
+					break;
+				switch(buf[0]){
+				case 'r':
+					if((fd = open(s, OREAD)) < 0){
+					Error:
+						snprint(buf, sizeof(buf), "%r");
+						eenter(buf, nil, 0, &e.mouse);
+						break;
+					}
+					free(filename);
+					filename = strdup(s);
+				Readimage:
+					unlockdisplay(display);
+					img = readimage(display, fd, 1);
+					close(fd);
+					lockdisplay(display);
+					if(img == nil){
+						werrstr("readimage: %r");
+						goto Error;
+					}
+					if(canvas){
+						save(canvas->r, 1);
+						freeimage(canvas);
+					}
+					canvas = img;
+					center();
+					break;
+				case 'w':
+					if((fd = create(s, OWRITE, 0660)) < 0)
+						goto Error;
+					free(filename);
+					filename = strdup(s);
+				Writeimage:
+					if(canvas)
+					if(writeimage(fd, canvas, 0) < 0){
+						close(fd);
+						werrstr("writeimage: %r");
+						goto Error;
+					}
+					close(fd);
+					break;
+				case '<':
+					if((fd = pipeline("%s", s)) < 0)
+						goto Error;
+					goto Readimage;
+				case '>':
+					if((fd = pipeline("%s", s)) < 0)
+						goto Error;
+					goto Writeimage;
+				case '|':
+					if(canvas == nil)
+						break;
+					if((fd = pipeline("%s", s)) < 0)
+						goto Error;
+					switch(rfork(RFMEM|RFPROC|RFFDG)){
+					case -1:
+						close(fd);
+						werrstr("rfork: %r");
+						goto Error;
+					case 0:
+						writeimage(fd, canvas, 1);
+						exits(nil);
+					}
+					goto Readimage;
+				}
+				break;
+			}
+			break;
+		}
+	}
+}
 
 void
 eresized(int)
 {
 	if(getwindow(display, Refnone) < 0)
 		sysfatal("resize failed");
-}
-
-int
-loadimg(char *name)
-{
-	Image *b;
-	int fd;
-
-	if((fd = open(name, OREAD)) < 0)
-		return -1;
-	if((b = readimage(display, fd, 0)) == nil){
-		close(fd);
-		return -1;
-	}
-	draw(screen, screen->r, b, 0, b->r.min);
-	flushimage(display, 1);
-	freeimage(b);
-	close(fd);
-	return 0;
-}
-
-int
-saveimg(char *name)
-{
-	int fd;
-
-	if((fd = create(name, OWRITE|OTRUNC, 0666)) < 0)
-		return -1;
-	writeimage(fd, screen, 0);
-	close(fd);
-	return 0;
-}
-
-void
-main(int argc, char *argv[])
-{
-	Event e;
-	Point last;
-	int b = 1;
-	int c = 0;
-	int cn, f;
-	int haslast = 0;
-	char brush[128];
-	char color[NCOLORS];
-	char file[128];
-	char fill[NCOLORS];
-	
-	if(initdraw(0, 0, "paint") < 0){
-		fprint(2, "paint: initdraw failed: %r\n");
-		exits("initdraw");
-	}
-	einit(Emouse | Ekeyboard);
-	draw(screen, screen->r, display->white, 0, ZP);
-	flushimage(display, 1);
-
-	colors[0] = display->black;
-	colors[1] = display->white;
-	colors[2] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DRed);
-	colors[3] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DGreen);
-	colors[4] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DBlue);
-	colors[5] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DYellow);
-
-	ARGBEGIN{
-	default:
-		goto Usage;
-	}ARGEND
-	switch(argc){
-	default:
-	Usage:
-		fprint(2, "Usage: [file]\n");
-		exits("usage");
-	case 0:
-		break;
-	case 1:
-		snprint(file, sizeof(file), "%s", argv[0]);
-		if(loadimg(file) < 0)
-			sysfatal("%r");
-		break;
-	}
-
-	while(1){
-		switch(event(&e)){
-		case Emouse:
-			if(e.mouse.buttons & 1){
-				if(haslast)
-					line(screen, last, e.mouse.xy, Enddisc, Enddisc, b, colors[c], ZP);
-				else
-					fillellipse(screen, e.mouse.xy, b, b, colors[c], ZP);
-				last = e.mouse.xy;
-				haslast = 1;
-				flushimage(display, 1);
-			} else
-				haslast = 0;
-			break;
-		case Ekeyboard:
-			if(e.kbdc == 'b'){
-				if(eenter("Brush", brush, sizeof(brush), &e.mouse) <= 0)
-					break;
-				b = atoi(brush);
-			}
-			if(e.kbdc == 'c'){
-				if(eenter("Color", color, sizeof(color), &e.mouse) <= 0)
-					break;
-				cn = atoi(color);
-				if(cn >= 0 && cn < NCOLORS)
-					c = cn;
-			}
-			if(e.kbdc == 'f'){
-				if(eenter("Fill", fill, sizeof(fill), &e.mouse) <= 0)
-					break;
-				f = atoi(fill);
-				if(f >= 0 && f < NCOLORS)
-					draw(screen, screen->r, colors[f], 0, ZP);
-			}
-			if(e.kbdc == 'o'){
-				if(eenter("Open file", file, sizeof(file), &e.mouse) <= 0)
-					break;
-				if(loadimg(file) < 0){
-					rerrstr(file, sizeof(file));
-					eenter(file, 0, 0, &e.mouse);
-				}
-			}
-			if(e.kbdc == 'q')
-				exits(nil);
-			if(e.kbdc == 's'){
-				if(eenter("Save to", file, sizeof(file), &e.mouse) <= 0)
-					break;
-				if(saveimg(file) < 0){
-					rerrstr(file, sizeof(file));
-					eenter(file, 0, 0, &e.mouse);
-				}
-			}
-			break;
-		}
-	}
+	drawpal();
+	update(nil);
 }

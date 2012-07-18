@@ -3,54 +3,78 @@
 .SH NAME
 paint \- create image files by drawing with a mouse or other pointing device
 .SH SYNOPSIS
-.B paint [file]
+.B paint
+[
+.I file
+]
 .SH DESCRIPTION
 .I Paint
-provides a window upon which can be drawn lines by moving the cursor while
-holding down mouse button 1 or its equivalent.
+shows a canvas upon which can be drawn lines using the mouse holding
+down buttons 1 or 2 for foreground or background color.  The canvas
+can be moved with button 3.  Colors and brush sizes can be selected by
+clicking on the palette at the bottom of the screen with buttons 1 or 2.
 .PP
-A number of keyboard commands are recognized:
+If the optional
+.I file
+argument is specified, then it is read and used as the canvas.
+.I Paint
+only recognizes Plan 9 bitmap format (see
+.IR image (6)).
+.PP
+A number of immidiate keyboard commands are recognized:
 .TP
-.B b
-Set the brush size to an ellipse with a horizontal semiaxis of
-.I n
-and a vertical semiaxis of
-.I n
-(see
-.IR graphics (2)).
-Type a number,
-.I n,
-in the pop-up box and hit enter.
-.TP
-.B c
-Change the drawing color to
-.I n,
-where
-0 = black, 1 = white, 2 = red, 3 = green, 4 = blue and 5 = yellow.
+.B u
+Undos the previous action.
 .TP
 .B f
-Fill the screen with a color,
-.I n.
-Any unsaved work will be lost.
+Fills the canvas with the background color.
 .TP
-.B o
-Open a bitmap image file for editing. Type a path and filename into the
-pop-up box and hit enter. If the path is omitted, the filename will be opened
-from the current directory.
+.B 1-9
+Select brush size.
 .TP
-.B s
-Save the current screen as a bitmap image. If the path is omitted, the filename will be
-saved in the current directory.
+.B +
+Doubles magnification.
+.TP
+.B -
+Halves magnification.
+.TP
+.B esc
+Centers the canvas and resets magnification.
+.PP
+Hitting any other key on the keyboard shows a command prompt
+where the following commands can be entered:
+.TP
+.BI r file
+Reads the canvas from
+.I file.
+.TP
+.BI w file
+Writes the canvas to
+.I file.
+.TP
+.BI < command
+Executes
+.I command
+and read the canvas from its standard output.
+.TP
+.BI > command
+Executes
+.I command
+and write the canvas to its standard input.
+.TP
+.BI | command
+Transforms the canvas by running it thru
+.I command.
 .TP
 .B q
-Quit.
+Quits the program.
 .SH SOURCE
 .B /sys/src/cmd/paint.c
 .SH "SEE ALSO"
-.IR graphics (2),
+.IR resize (1),
+.IR resample (1),
+.IR rotate (1),
+.IR crop (1),
+.IR jpg (1),
+.IR page (1),
 .IR image (6)
-.SH BUGS
-.I Paint
-offers a bare minimum of drawing functionality. Popular features such as
-.B undo
-have not yet been implemented.
