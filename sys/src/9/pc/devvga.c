@@ -66,7 +66,7 @@ static Cmdtab vgactlmsg[] = {
 	CMtype,		"type",		2,
 	CMunblank,	"unblank",	1,
 	CMsoftscreen,	"softscreen",	2,
-	CMmainscreen,	"mainscreen",	2,
+	CMmainscreen,	"mainscreen",	3,
 };
 
 static void
