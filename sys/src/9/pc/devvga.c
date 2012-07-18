@@ -47,6 +47,7 @@ enum {
 	CMtype,
 	CMunblank,
 	CMsoftscreen,
+	CMmainscreen,
 };
 
 static Cmdtab vgactlmsg[] = {
@@ -65,6 +66,7 @@ static Cmdtab vgactlmsg[] = {
 	CMtype,		"type",		2,
 	CMunblank,	"unblank",	1,
 	CMsoftscreen,	"softscreen",	2,
+	CMmainscreen,	"mainscreen",	2,
 };
 
 static void
@@ -433,6 +435,13 @@ vgactl(Cmdbuf *cb)
 		else
 			break;
 		return;
+
+	case CMmainscreen:
+		if(strcmp(cb->f[1], "turn") == 0 && strcmp(cb->f[2], "on") == 0){
+			cmderror(cb, "it's you!");
+			return;
+		}
+		break;
 	
 	case CMhwblank:
 		if(strcmp(cb->f[1], "on") == 0)
