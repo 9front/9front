@@ -67,17 +67,21 @@ screensize(int x, int y, int, ulong chan)
 	}
 
 	if(scr->paddr == 0){
-		gscreen = allocmemimage(Rect(0,0,x,y), chan);
 		if(scr->dev && scr->dev->page){
 			scr->vaddr = KADDR(VGAMEM());
 			scr->apsize = 1<<16;
 		}
+		scr->softscreen = 1;
+	}
+	if(scr->softscreen){
+		gscreen = allocmemimage(Rect(0,0,x,y), chan);
 		scr->useflush = 1;
 	}else{
 		static Memdata md;
 
 		md.ref = 1;
-		md.bdata = scr->vaddr;
+		if((md.bdata = scr->vaddr) == 0)
+			error("framebuffer not maped");
 		gscreen = allocmemimaged(Rect(0,0,x,y), chan, &md);
 		scr->useflush = scr->dev && scr->dev->flush;
 	}
@@ -167,15 +171,12 @@ attachscreen(Rectangle* r, ulong* chan, int* d, int* width, int *softscreen)
 	return scr->gscreendata->bdata;
 }
 
-/*
- * It would be fair to say that this doesn't work for >8-bit screens.
- */
 void
 flushmemscreen(Rectangle r)
 {
 	VGAscr *scr;
 	uchar *sp, *disp, *sdisp, *edisp;
-	int y, len, incs, off, page;
+	int y, len, incs, off, xoff, page;
 
 	scr = &vgascreen[0];
 	if(scr->gscreen == nil || scr->useflush == 0)
@@ -184,13 +185,37 @@ flushmemscreen(Rectangle r)
 		scr->dev->flush(scr, r);
 		return;
 	}
-	if(scr->dev == nil || scr->dev->page == nil)
-		return;
-
 	if(rectclip(&r, scr->gscreen->r) == 0)
 		return;
-
+	disp = scr->vaddr;
 	incs = scr->gscreen->width * BY2WD;
+	xoff = (r.min.x*scr->gscreen->depth) / 8;
+	off = r.min.y*incs + xoff;
+	sp = scr->gscreendata->bdata + scr->gscreen->zero + off;
+
+	/*
+	 * Linear framebuffer but with softscreen.
+	 */
+	if(scr->paddr){
+		len = (r.max.x*scr->gscreen->depth + 7) / 8;
+		len -= xoff;
+		sdisp = disp + off;
+		edisp = sdisp + Dy(r)*incs;
+		while(sdisp < edisp){
+			memmove(sdisp, sp, len);
+			sdisp += incs;
+			sp += incs;
+		}
+		return;
+	}
+
+
+	/*
+	 * Paged access thru 64K window.
+	 * It would be fair to say that this doesn't work for >8-bit screens.
+	 */
+	if(scr->dev == nil || scr->dev->page == nil)
+		return;
 
 	switch(scr->gscreen->depth){
 	default:
@@ -202,17 +227,10 @@ flushmemscreen(Rectangle r)
 	}
 	if(len < 1)
 		return;
-
-	off = r.min.y*scr->gscreen->width*BY2WD+(r.min.x*scr->gscreen->depth)/8;
 	page = off/scr->apsize;
 	off %= scr->apsize;
-	disp = scr->vaddr;
 	sdisp = disp+off;
 	edisp = disp+scr->apsize;
-
-	off = r.min.y*scr->gscreen->width*BY2WD+(r.min.x*scr->gscreen->depth)/8;
-
-	sp = scr->gscreendata->bdata + off;
 
 	scr->dev->page(scr, page);
 	for(y = r.min.y; y < r.max.y; y++) {
@@ -740,4 +758,3 @@ VGAcur swcursor =
 	swload,
 	swmove,
 };
-

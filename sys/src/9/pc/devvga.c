@@ -46,6 +46,7 @@ enum {
 	CMtextmode,
 	CMtype,
 	CMunblank,
+	CMsoftscreen,
 };
 
 static Cmdtab vgactlmsg[] = {
@@ -63,6 +64,7 @@ static Cmdtab vgactlmsg[] = {
 	CMtextmode,	"textmode",	1,
 	CMtype,		"type",		2,
 	CMunblank,	"unblank",	1,
+	CMsoftscreen,	"softscreen",	2,
 };
 
 static void
@@ -200,6 +202,7 @@ vgaread(Chan* c, void* a, long n, vlong off)
 		len += snprint(p+len, READSTR-len, "hwblank %s\n", hwblank ? "on" : "off");
 		len += snprint(p+len, READSTR-len, "panning %s\n", panning ? "on" : "off");
 		len += snprint(p+len, READSTR-len, "addr p 0x%lux v 0x%p size 0x%ux\n", scr->paddr, scr->vaddr, scr->apsize);
+		len += snprint(p+len, READSTR-len, "softscreen %s\n", scr->softscreen ? "on" : "off");
 		USED(len);
 
 		n = readstr(offset, a, n, p);
@@ -352,18 +355,36 @@ vgactl(Cmdbuf *cb)
 		scr->palettedepth = x;
 		return;
 
+	case CMsoftscreen:
+		if(strcmp(cb->f[1], "on") == 0)
+			scr->softscreen = 1;
+		else if(strcmp(cb->f[1], "off") == 0)
+			scr->softscreen = 0;
+		else
+			break;
+		if(scr->gscreen == nil)
+			return;
+		x = scr->gscreen->r.max.x;
+		y = scr->gscreen->r.max.y;
+		z = scr->gscreen->depth;
+		chan = scr->gscreen->chan;
+		cursoroff(1);
+		deletescreenimage();
+		if(screensize(x, y, z, chan))
+			error(Egreg);
+		/* no break */
 	case CMdrawinit:
 		if(scr->gscreen == nil)
 			error("drawinit: no gscreen");
 		if(scr->dev && scr->dev->drawinit)
 			scr->dev->drawinit(scr);
 		hwblank = scr->blank != nil;
-		hwaccel = scr->scroll || scr->fill;
+		hwaccel = !scr->softscreen && (scr->scroll || scr->fill);
 		vgascreenwin(scr);
 		resetscreenimage();
 		cursoron(1);
 		return;
-	
+
 	case CMlinear:
 		if(cb->nf!=2 && cb->nf!=3)
 			error(Ebadarg);

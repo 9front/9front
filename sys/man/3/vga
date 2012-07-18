@@ -170,6 +170,22 @@ used by the graphics engine.
 The default setting is
 .BR on .
 .TP
+.BI softscreen " mode"
+Depending on whether
+.I mode
+is 
+.B on
+or
+.BR off ,
+enable or disable shadow framebuffer to reduce
+slow bus reads. Enabling
+.BI softscreen
+disables hardware acceleration. The default setting is
+.BR off
+except for the
+.BR vesa
+driver. 
+.TP
 .BI hwblank " mode"
 Depending on whether
 .I mode

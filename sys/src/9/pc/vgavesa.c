@@ -24,7 +24,6 @@ enum {
 	RealModeBuf = 0x9000,
 };
 
-static void *hardscreen;
 static uchar modebuf[0x1000];
 static Chan *creg, *cmem;
 static QLock vesaq;
@@ -108,12 +107,6 @@ vesalinear(VGAscr *scr, int, int)
 	Pcidev *pci;
 	uchar *p;
 
-	if(hardscreen) {
-		scr->vaddr = hardscreen;
-		scr->paddr = scr->apsize = 0;
-		return;
-	}
-
 	vbecheck();
 	mode = vbegetmode();
 	/*
@@ -163,38 +156,8 @@ vesalinear(VGAscr *scr, int, int)
 	vgalinearaddr(scr, paddr, size);
 	if(scr->apsize)
 		addvgaseg("vesascreen", scr->paddr, scr->apsize);
-	if(getconf("*novesashadow"))
-		return;
-	hardscreen = scr->vaddr;
-	scr->paddr = scr->apsize = 0;
-}
 
-static void
-vesaflush(VGAscr *scr, Rectangle r)
-{
-	int t, w, wid, off;
-	ulong *hp, *sp, *esp;
-
-	if(hardscreen == nil)
-		return;
-	if(rectclip(&r, scr->gscreen->r) == 0)
-		return;
-	sp = (ulong*)(scr->gscreendata->bdata + scr->gscreen->zero);
-	t = (r.max.x * scr->gscreen->depth + 2*BI2WD-1) / BI2WD;
-	w = (r.min.x * scr->gscreen->depth) / BI2WD;
-	w = (t - w) * BY2WD;
-	wid = scr->gscreen->width;
-	off = r.min.y * wid + (r.min.x * scr->gscreen->depth) / BI2WD;
-
-	hp = hardscreen;
-	hp += off;
-	sp += off;
-	esp = sp + Dy(r) * wid;
-	while(sp < esp){
-		memmove(hp, sp, w);
-		hp += wid;
-		sp += wid;
-	}
+	scr->softscreen = 1;
 }
 
 static int
@@ -285,8 +248,4 @@ VGAdev vgavesadev = {
 	0,
 	vesalinear,
 	vesadrawinit,
-	0,
-	0,
-	0,
-	vesaflush,
 };

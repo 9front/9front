@@ -69,12 +69,12 @@ enum {
 
 #define SKIPS 8
 
-struct {
+static struct {
 	ulong	*dmabase;
-	int		dmacurrent;
-	int		dmaput;
-	int		dmafree;
-	int		dmamax;
+	int	dmacurrent;
+	int	dmaput;
+	int	dmafree;
+	int	dmamax;
 } nv;
 
 static Pcidev*
@@ -88,11 +88,6 @@ nvidiapci(void)
 			return p;
 	}
 	return nil;
-}
-
-static void
-nvidialinear(VGAscr*, int, int)
-{
 }
 
 static void
@@ -114,11 +109,9 @@ nvidiaenable(VGAscr* scr)
 	if(scr->mmio == nil)
 		return;
 	addvgaseg("nvidiammio", p->mem[0].bar&~0x0F, p->mem[0].size);
-
 	vgalinearpci(scr);
 	if(scr->apsize)
 		addvgaseg("nvidiascreen", scr->paddr, scr->apsize);
-
 	/* find video memory size */
 	switch (scr->id & 0x0ff0) {
 	case 0x0020:
@@ -153,6 +146,11 @@ nvidiaenable(VGAscr* scr)
 		scr->storage = tmp*1024*1024;
 		break;
 	}
+}
+
+static void
+nvidialinear(VGAscr *, int, int)
+{
 }
 
 static void
@@ -223,8 +221,6 @@ nvidiacurload(VGAscr* scr, Cursor* curs)
 
 	scr->offset = curs->offset;
 	vgaxo(Crtx, 0x31, vgaxi(Crtx, 0x31) | 0x01);
-
-	return;
 }
 
 static int
@@ -355,11 +351,14 @@ waitforidle(VGAscr *scr)
 		iprint("idle stat %lud scrio %#p scr %#p pc %#p\n", *pgraph, scr->mmio, scr, getcallerpc(&scr));
 }
 
-static void
+static int
 nvresetgraphics(VGAscr *scr)
 {
 	ulong	surfaceFormat, patternFormat, rectFormat, lineFormat;
-	int		pitch, i;
+	int	pitch, i;
+
+	if(scr->paddr == 0)
+		return -1;
 
 	pitch = scr->gscreen->width*BY2WD;
 
@@ -373,10 +372,8 @@ nvresetgraphics(VGAscr *scr)
 		else{
 			nv.dmabase = (void*)vmap(scr->paddr + scr->storage - 128*1024, 128*1024);
 			if(nv.dmabase == 0){
-				hwaccel = 0;
-				hwblank = 0;
 				print("vmap nvidia dma failed\n");
-				return;
+				return -1;
 			}
 		}
 	}
@@ -455,6 +452,8 @@ nvresetgraphics(VGAscr *scr)
 
 	nvdmakickoff(scr);
 	waitforidle(scr);
+
+	return 0;
 }
 
 
@@ -513,9 +512,9 @@ nvidiablank(VGAscr*, int blank)
 static void
 nvidiadrawinit(VGAscr *scr)
 {
-	nvresetgraphics(scr);
 	scr->blank = nvidiablank;
-	hwblank = 1;
+	if(nvresetgraphics(scr) < 0)
+		return;
 	scr->fill = nvidiahwfill;
 	scr->scroll = nvidiahwscroll;
 }
