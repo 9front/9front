@@ -9,9 +9,9 @@ paint \- create image files by drawing with a mouse or other pointing device
 ]
 .SH DESCRIPTION
 .I Paint
-shows a canvas upon which can be drawn lines using the mouse holding
+displays a canvas upon which can be drawn lines using the mouse holding
 down buttons 1 or 2 for foreground or background color.  The canvas
-can be moved with button 3.  Colors and brush sizes can be selected by
+may be moved with button 3.  Colors and brush sizes may be selected by
 clicking on the palette at the bottom of the screen with buttons 1 or 2.
 .PP
 If the optional
@@ -21,7 +21,7 @@ argument is specified, then it is read and used as the canvas.
 only recognizes Plan 9 bitmap format (see
 .IR image (6)).
 .PP
-A number of immidiate keyboard commands are recognized:
+A number of immediate keyboard commands are recognized:
 .TP
 .B u
 Undos the previous action.
@@ -42,7 +42,7 @@ Halves magnification.
 Centers the canvas and resets magnification.
 .PP
 Hitting any other key on the keyboard shows a command prompt
-where the following commands can be entered:
+where the following commands may be entered:
 .TP
 .BI r file
 Reads the canvas from
@@ -55,15 +55,15 @@ Writes the canvas to
 .BI < command
 Executes
 .I command
-and read the canvas from its standard output.
+and reads the canvas from its standard output.
 .TP
 .BI > command
 Executes
 .I command
-and write the canvas to its standard input.
+and writes the canvas to its standard input.
 .TP
 .BI | command
-Transforms the canvas by running it thru
+Transforms the canvas by piping it thru
 .I command.
 .TP
 .B q
