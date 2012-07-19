@@ -274,9 +274,9 @@ hline(Hconn *h, char *data, int len, int cont)
 				if(n > 0 && cont){
 					e = h->buf + h->len;
 					for(y = x+1; y < e; y++)
-						if(!strchr("\t ", *y))
+						if(*y != ' ' && *y != '\t')
 							break;
-					if(y >= e || strchr("\t ", *y))
+					if(y >= e || *y == 0)
 						break;
 					if(y > x+1){
 						if(x > h->buf && x[-1] == '\r')

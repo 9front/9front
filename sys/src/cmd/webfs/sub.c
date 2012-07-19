@@ -8,6 +8,8 @@
 #include "dat.h"
 #include "fns.h"
 
+char *whitespace = " \t\r\n";
+
 void*
 emalloc(int n)
 {
@@ -85,12 +87,14 @@ parsehdr(char *s)
 {
 	char *v;
 
+	if(*s == 0)
+		return nil;
 	v = strchr(s, 0)-1;
-	while(v >= s && strchr("\n\r\t ", *v))
+	while(v >= s && strchr(whitespace, *v))
 		*v-- = 0;
 	if(v = strchr(s, ':')){
 		*v++ = 0;
-		while(strchr("\t ", *v))
+		while(*v == ' ' || *v == '\t')
 			v++;
 		if(*s && *v)
 			return addkey(0, s, v);

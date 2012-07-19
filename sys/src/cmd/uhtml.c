@@ -5,6 +5,7 @@
 int nbuf;
 char buf[64*1024+1];
 char *cset = nil;
+char *whitespace = " \t\r\n";
 
 void
 usage(void)
@@ -21,11 +22,11 @@ attr(char *s, char *a)
 	if((s = cistrstr(s, a)) == nil)
 		return nil;
 	s += strlen(a);
-	while(strchr("\r\n\t ", *s))
+	while(*s && strchr(whitespace, *s))
 		s++;
 	if(*s++ != '=')
 		return nil;
-	while(strchr("\r\n\t ", *s))
+	while(*s && strchr(whitespace, *s))
 		s++;
 	q = 0;
 	if(*s == '"' || *s == '\'')

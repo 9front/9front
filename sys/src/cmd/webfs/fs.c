@@ -613,7 +613,7 @@ clientctl(Client *cl, char *ctl, char *arg)
 	else if(!strcmp(ctl, "headers")){
 		while(arg && *arg){
 			ctl = arg;
-			while(*ctl && strchr("\r\n\t ", *ctl))
+			while(*ctl && strchr(whitespace, *ctl))
 				ctl++;
 			if(arg = strchr(ctl, '\n'))
 				*arg++ = 0;
@@ -663,9 +663,9 @@ fswrite(Req *r)
 			n--;
 		s[n] = 0;
 		t = s;
-		while(*t && strchr("\r\n\t ", *t)==0)
+		while(*t && strchr(whitespace, *t)==0)
 			t++;
-		while(*t && strchr("\r\n\t ", *t))
+		while(*t && strchr(whitespace, *t))
 			*t++ = 0;
 		if(f->level == Qctl)
 			t = clientctl(f->client, s, t);

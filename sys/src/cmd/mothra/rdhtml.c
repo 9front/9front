@@ -243,7 +243,7 @@ char *unquot(char *dst, char *src, int len){
 	char *e;
 
 	e=0;
-	while(strchr("\n\r\t ", *src))
+	while(*src && strchr(" \t\r\n", *src))
 		src++;
 	if(*src=='\'' || *src=='"'){
 		e=strrchr(src+1, *src);
