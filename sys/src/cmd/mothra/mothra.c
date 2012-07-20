@@ -241,7 +241,7 @@ extern char *mtpt; /* url */
 
 void main(int argc, char *argv[]){
 	Event e;
-	enum { Eplumb = 128 };
+	enum { Eplumb = 128, Ekick = 256 };
 	Plumbmsg *pm;
 	Www *new;
 	Action *a;
@@ -298,7 +298,7 @@ void main(int argc, char *argv[]){
 	eplumb(Eplumb, "web");
 	if(pipe(kickpipe) < 0)
 		sysfatal("pipe: %r");
-	estart(0, kickpipe[0], 256);
+	estart(Ekick, kickpipe[0], 256);
 	plinit(screen->depth);
 	if(debug) notify(dienow);
 	getfonts();
@@ -333,10 +333,6 @@ void main(int argc, char *argv[]){
 				message(mothra);
 				donecurs();
 			}
-			else if(current->changed){
-				updtext(current);
-				current->changed=0;
-			}
 		}
 
 		flushimage(display, 1);
@@ -345,6 +341,13 @@ void main(int argc, char *argv[]){
 		lockdisplay(display);
 
 		switch(i){
+		case Ekick:
+			if(mouse.buttons==0 && current && current->changed){
+				if(!current->finished)
+					updtext(current);
+				current->changed=0;
+			}
+			break;
 		case Ekeyboard:
 			switch(e.kbdc){
 			default:
@@ -906,6 +909,16 @@ void geturl(char *urlname, int post, int plumb, int map){
 			w->finished = 0;
 			w->alldone = 0;
 			gettext(w, fd, typ);
+			if(rfork(RFPROC|RFMEM|RFNOWAIT) == 0){
+				for(;;){
+					sleep(1000);
+					if(w->finished || w->alldone)
+						break;
+					if(w->changed)
+						write(kickpipe[1], "C", 1);
+				}
+				_exits(0);
+			}
 			plinitlist(list, PACKN|FILLX, genwww, 8, doprev);
 			if(defdisplay) pldraw(list, screen);
 			setcurrent(i, selection->tag);
@@ -940,10 +953,7 @@ void updtext(Www *w){
 	plsetpostextview(text, w->yoffs);
 	pldraw(root, screen);
 }
-void update(Www *w){
-	w->changed = 1;
-	write(kickpipe[1], "C", 1);
-}
+
 void finish(Www *w){
 	w->finished = 1;
 	write(kickpipe[1], "F", 1);

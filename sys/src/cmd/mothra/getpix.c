@@ -36,16 +36,16 @@ void getimage(Rtext *t, Www *w){
 	for(p=w->pix;p!=nil; p=p->next)
 		if(strcmp(ap->image, p->name)==0 && ap->width==p->width && ap->height==p->height){
 			t->b = p->b;
-			update(w);
+			w->changed=1;
 			return;
 		}
 	fd=urlget(&url, -1);
 	if(fd==-1){
 	Err:
-		snprint(err, sizeof(err), "[%s: %r]", url.fullname);
+		snprint(err, sizeof(err), "[img: %s: %r]", url.reltext);
 		free(t->text);
 		t->text=strdup(err);
-		update(w);
+		w->changed=1;
 		close(fd);
 		return;
 	}
@@ -83,7 +83,7 @@ void getimage(Rtext *t, Www *w){
 	p->next=w->pix;
 	w->pix=p;
 	t->b=b;
-	update(w);
+	w->changed=1;
 }
 
 void getpix(Rtext *t, Www *w){

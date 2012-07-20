@@ -98,7 +98,7 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 			if(g->tp!=g->text && g->tp!=g->etext && g->tp[-1]!=' ')
 				*g->tp++=' ';
 			while(g->tp!=g->etext && *s) *g->tp++=*s++;
-			if(g->state->tag==Tag_title) update(g->dst);
+			if(g->state->tag==Tag_title) g->dst->changed=1;
 			*g->tp='\0';
 		}
 		return;
@@ -149,7 +149,7 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 		g->state->link[0] || g->state->image[0], ap);
 	g->para=0;
 	g->linebrk=0;
-	update(g->dst);
+	g->dst->changed=1;
 }
 
 /*
@@ -760,10 +760,11 @@ void plrdhtml(char *name, int fd, Www *dst){
 			if((str=strchr(str, '='))==0)
 				break;
 			str++;
+			pl_htmloutput(&g, 0, "[refresh: ", 0);
 			str=unquot(g.state->link, str, sizeof(g.state->link));
-			pl_htmloutput(&g, 0, "refresh: ", 0);
 			pl_htmloutput(&g, 0, str, 0);
 			g.state->link[0]=0;
+			pl_htmloutput(&g, 0, "]", 0);
 			g.linebrk=1;
 			g.spacc=0;
 			break;
@@ -773,17 +774,18 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_embed:
 		case Tag_frame:
 		case Tag_iframe:
+			snprint(buf, sizeof(buf), "[%s: ", tag[g.tag].name);
+			pl_htmloutput(&g, 0, buf, 0);
 			if(str=pl_getattr(g.attr, "src"))
 				nstrcpy(g.state->link, str, sizeof(g.state->link));
 			if(str=pl_getattr(g.attr, "name"))
 				nstrcpy(g.state->name, str, sizeof(g.state->name));
 			else
 				str = g.state->link;
-			pl_htmloutput(&g, 0, tag[g.tag].name, 0);
-			pl_htmloutput(&g, 0, ": ", 0);
 			pl_htmloutput(&g, 0, str, 0);
 			g.state->link[0]=0;
 			g.state->name[0]=0;
+			pl_htmloutput(&g, 0, "]", 0);
 			g.linebrk=1;
 			g.spacc=0;
 			break;
@@ -1092,7 +1094,6 @@ void plrdhtml(char *name, int fd, Www *dst){
 				htmlerror(g.name, g.lineno,
 					"missing </%s> at EOF", tag[g.state->tag].name);
 		*g.tp='\0';
-		update(dst);
 		getpix(dst->text, dst);
 		finish(dst);
 		return;
