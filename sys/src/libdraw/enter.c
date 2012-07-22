@@ -11,7 +11,7 @@ enter(char *ask, char *buf, int len, Mousectl *mc, Keyboardctl *kc, Screen *scr)
 	int done, down, tick, n, h, w, l, i;
 	Image *b, *save, *backcol, *bordcol;
 	Point p, o, t;
-	Rectangle r;
+	Rectangle r, sc;
 	Alt a[3];
 	Mouse m;
 	Rune k;
@@ -21,6 +21,9 @@ enter(char *ask, char *buf, int len, Mousectl *mc, Keyboardctl *kc, Screen *scr)
 	bordcol = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DPurpleblue);
 	if(backcol == nil || bordcol == nil)
 		return -1;
+
+	sc = screen->clipr;
+	replclipr(screen, 0, screen->r);
 
 	n = 0;
 	if(kc){
@@ -210,6 +213,8 @@ enter(char *ask, char *buf, int len, Mousectl *mc, Keyboardctl *kc, Screen *scr)
 			save = nil;
 		}
 	}
+
+	replclipr(screen, 0, sc);
 
 	freeimage(backcol);
 	freeimage(bordcol);

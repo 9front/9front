@@ -10,7 +10,7 @@ eenter(char *ask, char *buf, int len, Mouse *m)
 	int done, down, tick, n, h, w, l, i;
 	Image *b, *save, *backcol, *bordcol;
 	Point p, o, t;
-	Rectangle r;
+	Rectangle r, sc;
 	Event ev;
 	Rune k;
 
@@ -22,6 +22,9 @@ eenter(char *ask, char *buf, int len, Mouse *m)
 
 	while(ecankbd())
 		ekbd();
+
+	sc = screen->clipr;
+	replclipr(screen, 0, screen->r);
 
 	if(m) o = m->xy;
 
@@ -185,6 +188,8 @@ eenter(char *ask, char *buf, int len, Mouse *m)
 		freeimage(save);
 		save = nil;
 	}
+
+	replclipr(screen, 0, sc);
 
 	freeimage(backcol);
 	freeimage(bordcol);
