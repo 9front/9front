@@ -609,6 +609,9 @@ main(int argc, char *argv[])
 					save(canvas->r, 1);
 					floodfill(p, img);
 					update(nil);
+					/* wait for mouse release */
+					while(event(&e) == Emouse && (e.mouse.buttons & 7) != 0)
+						;
 					break;
 				}
 				r = Rect(p.x-brush, p.y-brush, p.x+brush+1, p.y+brush+1);
