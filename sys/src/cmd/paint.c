@@ -6,7 +6,7 @@
 
 char *filename;
 int zoom = 1;
-int thick = 1;
+int brush = 1;
 Point spos;		/* position on screen */
 Point cpos;		/* position on canvas */
 Image *canvas;
@@ -15,6 +15,9 @@ Image *back;
 Image *pal[16];		/* palette */
 Rectangle palr;		/* palette rect on screen */
 Rectangle penr;		/* pen size rect on screen */
+enum {
+	NBRUSH = 10+1,
+};
 
 int nundo = 0;
 Image *undo[1024];
@@ -263,6 +266,116 @@ restore(int n)
 	}
 }
 
+typedef struct {
+	Rectangle	r;
+	Rectangle	r0;
+	Image		*iscan;
+	uchar		*bscan;
+	uchar		*bmask;
+	int		wmask;
+	int		wscan;
+	int		yscan;
+	uchar		color[4];
+} Floodfill;
+
+void
+floodscan(Floodfill *f, Point p0)
+{
+	uchar *b;
+	int x, y;
+
+	x = p0.x;
+	y = p0.y;
+	b = f->bmask + y*f->wmask;
+	if(b[x/8] & 0x80>>(x%8))
+		return;
+
+	if(f->yscan != y){
+		f->yscan = y;
+		draw(f->iscan, f->iscan->r, canvas, nil, Pt(f->r.min.x, f->r.min.y+y));
+		unloadimage(f->iscan, f->iscan->r, f->bscan, f->wscan);
+	}
+
+	for(x = p0.x; x >= 0; x--){
+		if(memcmp(f->bscan + x*3, f->color, 3))
+			break;
+		b[x/8] |= 0x80>>(x%8);
+	}
+	for(x = p0.x+1; x < f->r0.max.x; x++){
+		if(memcmp(f->bscan + x*3, f->color, 3))
+			break;
+		b[x/8] |= 0x80>>(x%8);
+	}
+
+	y = p0.y-1;
+	if(y >= 0){
+		for(x = p0.x; x >= 0; x--){
+			if((b[x/8] & 0x80>>(x%8)) == 0)
+				break;
+			floodscan(f, Pt(x, y));
+		}
+		for(x = p0.x+1; x < f->r0.max.x; x++){
+			if((b[x/8] & 0x80>>(x%8)) == 0)
+				break;
+			floodscan(f, Pt(x, y));
+		}
+	}
+
+	y = p0.y+1;
+	if(y < f->r0.max.y){
+		for(x = p0.x; x >= 0; x--){
+			if((b[x/8] & 0x80>>(x%8)) == 0)
+				break;
+			floodscan(f, Pt(x, y));
+		}
+		for(x = p0.x+1; x < f->r0.max.x; x++){
+			if((b[x/8] & 0x80>>(x%8)) == 0)
+				break;
+			floodscan(f, Pt(x, y));
+		}
+	}
+}
+
+void
+floodfill(Point p, Image *fill)
+{
+	Floodfill f;
+	Image *imask;
+	int nmask;
+
+	f.r = canvas->r;
+	f.r0 = rectsubpt(f.r, f.r.min);
+	f.wmask = bytesperline(f.r0, 1);
+	nmask = f.wmask*f.r0.max.y;
+	if((f.bmask = mallocz(nmask, 1)) == nil)
+		return;
+	if((f.iscan = allocimage(display, Rect(0, 0, f.r0.max.x, 1), RGB24, 0, DNofill)) == nil){
+		free(f.bmask);
+		return;
+	}
+	f.yscan = -1;
+	f.wscan = bytesperline(f.iscan->r, 24);
+	if((f.bscan = mallocz(f.wscan, 1)) == nil){
+		freeimage(f.iscan);
+		free(f.bmask);
+		return;
+	}
+	memset(f.color, 0, sizeof(f.color));
+	draw(f.iscan, Rect(0,0,1,1), canvas, nil, p);
+	unloadimage(f.iscan, Rect(0,0,1,1), f.color, sizeof(f.color));
+	floodscan(&f, subpt(p, f.r.min));
+	freeimage(f.iscan);
+	free(f.bscan);
+	if((imask = allocimage(display, f.r0, GREY1, 0, DNofill)) == nil){
+		free(f.bmask);
+		return;
+	}
+	loadimage(imask, imask->r, f.bmask, nmask);
+	free(f.bmask);
+	draw(canvas, canvas->r, fill, imask, imask->r.min);
+	freeimage(imask);
+}
+
 void
 translate(Point d)
 {
@@ -314,7 +427,7 @@ drawpal(void)
 	replclipr(screen, 0, r);
 
 	penr = r;
-	penr.min.x = r.max.x - 10*Dy(r);
+	penr.min.x = r.max.x - NBRUSH*Dy(r);
 
 	palr = r;
 	palr.max.x = penr.min.x;
@@ -322,13 +435,18 @@ drawpal(void)
 	r = penr;
 	draw(screen, r, back, nil, ZP);
 	for(i=0; i<10; i++){
-		r.max.x = penr.min.x + (i+1)*Dx(penr) / 10;
+		r.max.x = penr.min.x + (i+1)*Dx(penr) / NBRUSH;
 		rr = r;
-		if(i == thick)
+		if(i == brush)
 			rr.min.y += Dy(r)/3;
 		fillellipse(screen, addpt(rr.min, divpt(subpt(rr.max, rr.min), 2)), i, i, ink, ZP);
 		r.min.x = r.max.x;
 	}
+	r.max.x = penr.min.x + (i+1)*Dx(penr) / NBRUSH;
+	rr = r;
+	if(i == brush)
+		rr.min.y += Dy(r)/3;
+	draw(screen, rr, ink, nil, ZP);
 
 	r = palr;
 	for(i=1; i<=nelem(pal); i++){
@@ -351,7 +469,7 @@ hitpal(Mouse m)
 {
 	if(ptinrect(m.xy, penr)){
 		if(m.buttons & 7){
-			thick = ((m.xy.x - penr.min.x) * 10) / Dx(penr);
+			brush = ((m.xy.x - penr.min.x) * NBRUSH) / Dx(penr);
 			drawpal();
 		}
 		return 1;
@@ -480,10 +598,23 @@ main(int argc, char *argv[])
 				/* no break */
 			case 1:
 				p = s2c(e.mouse.xy);
-				r = Rect(p.x-thick, p.y-thick, p.x+thick+1, p.y+thick+1);
+				if(brush >= 10){
+					/* flood fill brush */
+					if(canvas == nil || !ptinrect(p, canvas->r)){
+						back = img;
+						drawpal();
+						update(nil);
+						break;
+					}
+					save(canvas->r, 1);
+					floodfill(p, img);
+					update(nil);
+					break;
+				}
+				r = Rect(p.x-brush, p.y-brush, p.x+brush+1, p.y+brush+1);
 				expand(r);
 				save(r, 1);
-				fillellipse(canvas, p, thick, thick, img, ZP);
+				fillellipse(canvas, p, brush, brush, img, ZP);
 				update(&r);
 				for(;;){
 					m = e.mouse;
@@ -495,13 +626,13 @@ main(int argc, char *argv[])
 					if(eqpt(d, p))
 						continue;
 					r = canonrect(Rpt(p, d));
-					r.min.x -= thick;
-					r.min.y -= thick;
-					r.max.x += thick+1;
-					r.max.y += thick+1;
+					r.min.x -= brush;
+					r.min.y -= brush;
+					r.max.x += brush+1;
+					r.max.y += brush+1;
 					expand(r);
 					save(r, 0);
-					line(canvas, p, d, Enddisc, Enddisc, thick, img, ZP);
+					line(canvas, p, d, Enddisc, Enddisc, brush, img, ZP);
 					update(&r);
 					p = d;
 				}
@@ -530,7 +661,7 @@ main(int argc, char *argv[])
 			case '-':
 				setzoom(e.mouse.xy, zoom/2);
 				break;
-			case 'f':
+			case 'c':
 				if(canvas == nil)
 					break;
 				save(canvas->r, 1);
@@ -541,9 +672,13 @@ main(int argc, char *argv[])
 			case 'u':
 				restore(16);
 				break;
+			case 'f':
+				brush = 10;
+				drawpal();
+				break;
 			case '0': case '1': case '2': case '3': case '4':
 			case '5': case '6': case '7': case '8': case '9':
-				thick = e.kbdc - '0';
+				brush = e.kbdc - '0';
 				drawpal();
 				break;
 			default:

@@ -26,11 +26,14 @@ A number of immediate keyboard commands are recognized:
 .B u
 Undos the previous action.
 .TP
-.B f
-Fills the canvas with the background color.
+.B c
+Clears the canvas with the background color.
 .TP
 .B 1-9
 Select brush size.
+.TP
+.B f
+Select flood fill brush.
 .TP
 .B +
 Doubles magnification.
