@@ -1435,7 +1435,7 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 
 	if(na){
 		if(shouldstop){
-			if(cw->falsehits < 10)
+			if(cw->allflag && cw->falsehits < 10)
 				fprint(2, "shouldstop %lld %lld t=%s %s\n",
 					(Wideoff)addr, (Wideoff)na,
 					tagnames[tag], cw->name);
@@ -1491,7 +1491,7 @@ cfsdump(Filsys *fs)
 	if(chatty)
 		fprint(2, "cwroot %lld", (Wideoff)orba);
 	cons.noage = 1;
-	cw->all = cw->allflag;
+	cw->all = cw->allflag | noatime;
 	rba = cwrecur(cw, orba, Tsuper, 0, QPROOT);
 	if(rba == 0)
 		rba = orba;
@@ -1563,6 +1563,7 @@ found1:
 	 */
 found2:
 	accessdir(p1, d1, FREAD, 0);
+	p1->flags |= Bmod;	/* noatime */
 	putbuf(pr);
 	pr = p1;
 	dr = d1;
