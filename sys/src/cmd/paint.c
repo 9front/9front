@@ -269,20 +269,27 @@ restore(int n)
 typedef struct {
 	Rectangle	r;
 	Rectangle	r0;
-	Image		*iscan;
-	uchar		*bscan;
-	uchar		*bmask;
-	int		wmask;
-	int		wscan;
-	int		yscan;
-	uchar		color[4];
-} Floodfill;
+	Image*		dst;
+
+	int		yscan;	/* current scanline */
+	int		wscan;	/* bscan width in bytes */
+	Image*		iscan;	/* scanline image */
+	uchar*		bscan;	/* scanline buffer */
+
+	int		nmask;	/* size of bmask in bytes */
+	int		wmask;	/* width of bmask in bytes */
+	Image*		imask;	/* mask image */
+	uchar*		bmask;	/* mask buffer */
+
+	int		ncmp;
+	uchar		bcmp[4];
+} Filldata;
 
 void
-floodscan(Floodfill *f, Point p0)
+fillscan(Filldata *f, Point p0)
 {
-	uchar *b;
 	int x, y;
+	uchar *b;
 
 	x = p0.x;
 	y = p0.y;
@@ -291,18 +298,19 @@ floodscan(Floodfill *f, Point p0)
 		return;
 
 	if(f->yscan != y){
+		draw(f->iscan, f->iscan->r, f->dst, nil, Pt(f->r.min.x, f->r.min.y+y));
+		if(unloadimage(f->iscan, f->iscan->r, f->bscan, f->wscan) < 0)
+			return;
 		f->yscan = y;
-		draw(f->iscan, f->iscan->r, canvas, nil, Pt(f->r.min.x, f->r.min.y+y));
-		unloadimage(f->iscan, f->iscan->r, f->bscan, f->wscan);
 	}
 
 	for(x = p0.x; x >= 0; x--){
-		if(memcmp(f->bscan + x*3, f->color, 3))
+		if(memcmp(f->bscan + x*f->ncmp, f->bcmp, f->ncmp))
 			break;
 		b[x/8] |= 0x80>>(x%8);
 	}
 	for(x = p0.x+1; x < f->r0.max.x; x++){
-		if(memcmp(f->bscan + x*3, f->color, 3))
+		if(memcmp(f->bscan + x*f->ncmp, f->bcmp, f->ncmp))
 			break;
 		b[x/8] |= 0x80>>(x%8);
 	}
@@ -312,12 +320,12 @@ floodscan(Floodfill *f, Point p0)
 		for(x = p0.x; x >= 0; x--){
 			if((b[x/8] & 0x80>>(x%8)) == 0)
 				break;
-			floodscan(f, Pt(x, y));
+			fillscan(f, Pt(x, y));
 		}
 		for(x = p0.x+1; x < f->r0.max.x; x++){
 			if((b[x/8] & 0x80>>(x%8)) == 0)
 				break;
-			floodscan(f, Pt(x, y));
+			fillscan(f, Pt(x, y));
 		}
 	}
 
@@ -326,54 +334,62 @@ floodscan(Floodfill *f, Point p0)
 		for(x = p0.x; x >= 0; x--){
 			if((b[x/8] & 0x80>>(x%8)) == 0)
 				break;
-			floodscan(f, Pt(x, y));
+			fillscan(f, Pt(x, y));
 		}
 		for(x = p0.x+1; x < f->r0.max.x; x++){
 			if((b[x/8] & 0x80>>(x%8)) == 0)
 				break;
-			floodscan(f, Pt(x, y));
+			fillscan(f, Pt(x, y));
 		}
 	}
 }
 
 void
-floodfill(Point p, Image *fill)
+floodfill(Image *dst, Rectangle r, Point p, Image *src)
 {
-	Floodfill f;
-	Image *imask;
-	int nmask;
+	Filldata f;
 
-	f.r = canvas->r;
-	f.r0 = rectsubpt(f.r, f.r.min);
+	if(!rectclip(&r, dst->r))
+		return;
+	if(!ptinrect(p, r))
+		return;
+	memset(&f, 0, sizeof(f));
+	f.dst = dst;
+	f.r = r;
+	f.r0 = rectsubpt(r, r.min);
 	f.wmask = bytesperline(f.r0, 1);
-	nmask = f.wmask*f.r0.max.y;
-	if((f.bmask = mallocz(nmask, 1)) == nil)
-		return;
-	if((f.iscan = allocimage(display, Rect(0, 0, f.r0.max.x, 1), RGB24, 0, DNofill)) == nil){
-		free(f.bmask);
-		return;
-	}
+	f.nmask = f.wmask*f.r0.max.y;
+	if((f.bmask = mallocz(f.nmask, 1)) == nil)
+		goto out;
+	if((f.imask = allocimage(display, f.r0, GREY1, 0, DNofill)) == nil)
+		goto out;
+
+	r = f.r0;
+	r.max.y = 1;
+	if((f.iscan = allocimage(display, r, RGB24, 0, DNofill)) == nil)
+		goto out;
 	f.yscan = -1;
-	f.wscan = bytesperline(f.iscan->r, 24);
-	if((f.bscan = mallocz(f.wscan, 1)) == nil){
-		freeimage(f.iscan);
-		free(f.bmask);
-		return;
-	}
-	memset(f.color, 0, sizeof(f.color));
-	draw(f.iscan, Rect(0,0,1,1), canvas, nil, p);
-	unloadimage(f.iscan, Rect(0,0,1,1), f.color, sizeof(f.color));
-	floodscan(&f, subpt(p, f.r.min));
-	freeimage(f.iscan);
-	free(f.bscan);
-	if((imask = allocimage(display, f.r0, GREY1, 0, DNofill)) == nil){
-		free(f.bmask);
-		return;
-	}
-	loadimage(imask, imask->r, f.bmask, nmask);
+	f.wscan = bytesperline(f.iscan->r, f.iscan->depth);
+	if((f.bscan = mallocz(f.wscan, 0)) == nil)
+		goto out;
+
+	r = Rect(0,0,1,1);
+	f.ncmp = (f.iscan->depth+7) / 8;
+	draw(f.iscan, r, dst, nil, p);
+	if(unloadimage(f.iscan, r, f.bcmp, sizeof(f.bcmp)) < 0)
+		goto out;
+
+	fillscan(&f, subpt(p, f.r.min));
+
+	loadimage(f.imask, f.imask->r, f.bmask, f.nmask);
+	draw(f.dst, f.r, src, f.imask, f.imask->r.min);
+out:
 	free(f.bmask);
-	draw(canvas, canvas->r, fill, imask, imask->r.min);
-	freeimage(imask);
+	free(f.bscan);
+	if(f.iscan)
+		freeimage(f.iscan);
+	if(f.imask)
+		freeimage(f.imask);
 }
 
 void
@@ -606,9 +622,11 @@ main(int argc, char *argv[])
 						update(nil);
 						break;
 					}
-					save(canvas->r, 1);
-					floodfill(p, img);
-					update(nil);
+					r = canvas->r;
+					save(r, 1);
+					floodfill(canvas, r, p, img);
+					update(&r);
+
 					/* wait for mouse release */
 					while(event(&e) == Emouse && (e.mouse.buttons & 7) != 0)
 						;
