@@ -1491,7 +1491,8 @@ cfsdump(Filsys *fs)
 	if(chatty)
 		fprint(2, "cwroot %lld", (Wideoff)orba);
 	cons.noage = 1;
-	cw->all = cw->allflag | noatime;
+	cw->all = cw->allflag | noatime | noatimeset;
+	noatimeset = 0;
 	rba = cwrecur(cw, orba, Tsuper, 0, QPROOT);
 	if(rba == 0)
 		rba = orba;

@@ -21,9 +21,8 @@ static Device* confdev;
 static int copyworm = 0, copydev = 0;
 static char *src, *dest;
 
-static int noauthset = 0;
-static int noatimeset = 0;
-static int readonlyset = 0;
+static int noauthset;
+static int readonlyset;
 static int resetparams;
 
 Fspar fspar[] = {
@@ -613,7 +612,6 @@ start:
 
 		putbuf(p);
 		f.modconf = f.newconf = 0;
-		noauthset = noatimeset = readonlyset = 0;
 		goto start;
 	}
 	putbuf(p);

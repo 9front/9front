@@ -697,6 +697,7 @@ void
 cmd_noatime(int, char *[])
 {
 	noatime = !noatime;
+	noatimeset++;
 	print("atime %s\n", noatime ? "disabled" : "enabled");
 }
 
