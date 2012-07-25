@@ -579,7 +579,7 @@ msiintrenable(Vctl *v)
 	int tbdf, vno, cap, cpu, ok64;
 	Pcidev *pci;
 
-	if(getconf("*msi") == nil)
+	if(getconf("*nomsi") != nil)
 		return -1;
 	tbdf = v->tbdf;
 	if(tbdf == BUSUNKNOWN || BUSTYPE(tbdf) != BusPCI)
