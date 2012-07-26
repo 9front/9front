@@ -153,13 +153,13 @@ newrect(void)
 void
 shift(int *minp, int *maxp, int min, int max)
 {
-	if(*minp < min){
-		*maxp += min-*minp;
-		*minp = min;
-	}
 	if(*maxp > max){
 		*minp += max-*maxp;
 		*maxp = max;
+	}
+	if(*minp < min){
+		*maxp += min-*minp;
+		*minp = min;
 	}
 }
 
