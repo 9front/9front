@@ -917,13 +917,11 @@ void D_DoomMain (void)
     p = M_CheckParm ("-warp");
     if (p && p < myargc-1)
     {
-	if (gamemode == commercial)
-	    startmap = atoi (myargv[p+1]);
-	else
-	{
-	    startepisode = myargv[p+1][0]-'0';
-	    startmap = myargv[p+2][0]-'0';
-	}
+	startmap = atoi (myargv[p+1]);
+	if (gamemode != commercial){
+            startepisode = startmap / 10;
+            startmap %= 10;
+        }
 	autostart = true;
     }
     
