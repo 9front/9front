@@ -123,10 +123,6 @@ static musicinfo_t*	mus_playing=0;
 // number of channels available
 int			numChannels;	
 
-static int		nextcleanup;
-
-
-
 //
 // Internals.
 //
@@ -180,10 +176,6 @@ void S_Init
   
   // no sounds are playing, and they are not mus_paused
   mus_paused = 0;
-
-  // Note that sounds have not been cached (yet).
-  for (i=1 ; i<NUMSFX ; i++)
-    S_sfx[i].lumpnum = S_sfx[i].usefulness = -1;
 }
 
 
@@ -238,8 +230,6 @@ void S_Start(void)
   //      mnum -= mus_e3m9;
   
   S_ChangeMusic(mnum, true);
-  
-  nextcleanup = 15;
 }	
 
 
@@ -262,11 +252,6 @@ S_StartSoundAtVolume
   
   mobj_t*	origin = (mobj_t *) origin_p;
   
-  
-  // Debug.
-  /*fprintf( stderr,
-  	   "S_StartSoundAtVolume: playing sound %d (%s)\n",
-  	   sfx_id, S_sfx[sfx_id].name );*/
   
   // check for bogus sound #
   if (sfx_id < 1 || sfx_id > NUMSFX)
@@ -307,7 +292,7 @@ S_StartSoundAtVolume
     if ( origin->x == players[consoleplayer].mo->x
 	 && origin->y == players[consoleplayer].mo->y)
     {	
-      sep 	= NORM_SEP;
+      sep = NORM_SEP;
     }
     
     if (!rc)
@@ -349,42 +334,9 @@ S_StartSoundAtVolume
   if (cnum<0)
     return;
 
-  //
-  // This is supposed to handle the loading/caching.
-  // For some odd reason, the caching is done nearly
-  //  each time the sound is needed?
-  //
-  
-  // get lumpnum if necessary
-  if (sfx->lumpnum < 0)
-    sfx->lumpnum = I_GetSfxLumpNum(sfx);
-
-#ifndef SNDSRV
-  // cache data if necessary
-  if (!sfx->data)
-  {
-/* PORTME 9DOOM uncomment this back in later
-    fprintf( stderr,
-	     "S_StartSoundAtVolume: 16bit and not pre-cached - wtf?\n");
-*/
-
-    // DOS remains, 8bit handling
-    //sfx->data = (void *) W_CacheLumpNum(sfx->lumpnum, PU_MUSIC);
-    // fprintf( stderr,
-    //	     "S_StartSoundAtVolume: loading %d (lump %d) : 0x%x\n",
-    //       sfx_id, sfx->lumpnum, (int)sfx->data );
-    
-  }
-#endif
-  
-  // increase the usefulness
-  if (sfx->usefulness++ < 0)
-    sfx->usefulness = 1;
-  
   // Assigns the handle to one of the channels in the
   //  mix/output buffer.
   channels[cnum].handle = I_StartSound(sfx_id,
-				       /*sfx->data,*/
 				       volume,
 				       sep,
 				       pitch,
@@ -524,28 +476,6 @@ void S_UpdateSounds(void* listener_p)
     channel_t*	c;
     
     mobj_t*	listener = (mobj_t*)listener_p;
-
-
-    
-    // Clean up unused data.
-    // This is currently not done for 16bit (sounds cached static).
-    // DOS 8bit remains. 
-    /*if (gametic > nextcleanup)
-    {
-	for (i=1 ; i<NUMSFX ; i++)
-	{
-	    if (S_sfx[i].usefulness < 1
-		&& S_sfx[i].usefulness > -1)
-	    {
-		if (--S_sfx[i].usefulness == -1)
-		{
-		    Z_ChangeTag(S_sfx[i].data, PU_CACHE);
-		    S_sfx[i].data = 0;
-		}
-	    }
-	}
-	nextcleanup = gametic + 15;
-    }*/
     
     for (cnum=0 ; cnum<numChannels ; cnum++)
     {
@@ -731,9 +661,6 @@ void S_StopChannel(int cnum)
 		break;
 	    }
 	}
-	
-	// degrade usefulness of sound data
-	c->sfxinfo->usefulness--;
 
 	c->sfxinfo = 0;
     }

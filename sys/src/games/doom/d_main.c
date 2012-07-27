@@ -398,11 +398,8 @@ void D_DoomLoop (void)
 	// Sound mixing for the buffer is snychronous.
 	I_UpdateSound();
 
-	// Synchronous sound output is explicitly called.
-#ifndef SNDINTR
 	// Update sound output.
 	I_SubmitSound();
-#endif
     }
 }
 
@@ -725,8 +722,8 @@ void FindResponseFile (void)
 //
 void D_DoomMain (void)
 {
-    int             p;
-    char                    file[256];
+    int		p;
+    char	file[256];
 
     FindResponseFile ();
 	
@@ -803,16 +800,6 @@ void D_DoomMain (void)
 
     if (devparm)
 	printf(D_DEVSTR);
-    
-    if (M_CheckParm("-cdrom"))
-    {
-	I_Error("PORTME d_main.c M_CheckParm -cdrom");
-/*
-	printf(D_CDROM);
-	mkdir("c:\\doomdata",0);
-	strcpy (basedefault,"c:/doomdata/default.cfg");
-*/
-    }	
     
     // turbo option
     if ( (p=M_CheckParm ("-turbo")) )
@@ -1083,10 +1070,7 @@ void D_DoomMain (void)
     p = M_CheckParm ("-loadgame");
     if (p && p < myargc-1)
     {
-	if (M_CheckParm("-cdrom"))
-	    sprintf(file, "c:\\doomdata\\"SAVEGAMENAME"%c.dsg",myargv[p+1][0]);
-	else
-	    sprintf(file, SAVEGAMENAME"%c.dsg",myargv[p+1][0]);
+	sprintf(file, SAVEGAMENAME"%c.dsg",myargv[p+1][0]);
 	G_LoadGame (file);
     }
 	

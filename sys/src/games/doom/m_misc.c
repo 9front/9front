@@ -97,10 +97,6 @@ M_DrawText
 //
 // M_WriteFile
 //
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
-
 boolean
 M_WriteFile
 ( char const*	name,
@@ -109,7 +105,7 @@ M_WriteFile
 {
 	int fd, n;
 
-	if((fd = create(name, OWRITE | OTRUNC, 0666)) < 0)
+	if((fd = create(name, OWRITE, 0644)) < 0)
 		return false;
 	n = write(fd, source, length);
 	close(fd);
@@ -188,29 +184,14 @@ extern int	showMessages;
 // machine-independent sound params
 extern	int	numChannels;
 
-
-// UNIX hack, to be removed.
-#ifdef SNDSERV
-extern char*	sndserver_filename;
-extern int	mb_used;
-#endif
-
-#ifdef LINUX
-char*		mousetype;
-char*		mousedev;
-#endif
-
 extern char*	chat_macros[];
-
-
 
 typedef struct
 {
     char*	name;
-    int*	location;
+    void*	location;
     int		defaultvalue;
-    int		scantranslate;		// PC scan code hack
-    int		untranslated;		// lousy hack
+    char*	defaultstring;
 } default_t;
 
 default_t	defaults[] =
@@ -233,17 +214,6 @@ default_t	defaults[] =
     {"key_strafe",&key_strafe, KEY_RALT},
     {"key_speed",&key_speed, KEY_RSHIFT},
 
-// UNIX hack, to be removed. 
-#ifdef SNDSERV
-    {"sndserver", (int *) &sndserver_filename, (int) "sndserver"},
-    {"mb_used", &mb_used, 2},
-#endif
-
-#ifdef LINUX
-    {"mousedev", (int*)&mousedev, (int)"/dev/ttyS0"},
-    {"mousetype", (int*)&mousetype, (int)"microsoft"},
-#endif
-
     {"use_mouse",&usemouse, 1},
     {"mouseb_fire",&mousebfire,0},
     {"mouseb_strafe",&mousebstrafe,1},
@@ -260,26 +230,23 @@ default_t	defaults[] =
 
     {"snd_channels",&numChannels, 3},
 
-
-
     {"usegamma",&usegamma, 0},
 
-    {"chatmacro0", (int *) &chat_macros[0], (int) HUSTR_CHATMACRO0 },
-    {"chatmacro1", (int *) &chat_macros[1], (int) HUSTR_CHATMACRO1 },
-    {"chatmacro2", (int *) &chat_macros[2], (int) HUSTR_CHATMACRO2 },
-    {"chatmacro3", (int *) &chat_macros[3], (int) HUSTR_CHATMACRO3 },
-    {"chatmacro4", (int *) &chat_macros[4], (int) HUSTR_CHATMACRO4 },
-    {"chatmacro5", (int *) &chat_macros[5], (int) HUSTR_CHATMACRO5 },
-    {"chatmacro6", (int *) &chat_macros[6], (int) HUSTR_CHATMACRO6 },
-    {"chatmacro7", (int *) &chat_macros[7], (int) HUSTR_CHATMACRO7 },
-    {"chatmacro8", (int *) &chat_macros[8], (int) HUSTR_CHATMACRO8 },
-    {"chatmacro9", (int *) &chat_macros[9], (int) HUSTR_CHATMACRO9 }
+    {"chatmacro0",&chat_macros[0], 0, HUSTR_CHATMACRO0 },
+    {"chatmacro1",&chat_macros[1], 0, HUSTR_CHATMACRO1 },
+    {"chatmacro2",&chat_macros[2], 0, HUSTR_CHATMACRO2 },
+    {"chatmacro3",&chat_macros[3], 0, HUSTR_CHATMACRO3 },
+    {"chatmacro4",&chat_macros[4], 0, HUSTR_CHATMACRO4 },
+    {"chatmacro5",&chat_macros[5], 0, HUSTR_CHATMACRO5 },
+    {"chatmacro6",&chat_macros[6], 0, HUSTR_CHATMACRO6 },
+    {"chatmacro7",&chat_macros[7], 0, HUSTR_CHATMACRO7 },
+    {"chatmacro8",&chat_macros[8], 0, HUSTR_CHATMACRO8 },
+    {"chatmacro9",&chat_macros[9], 0, HUSTR_CHATMACRO9 }
 
 };
 
 int	numdefaults;
 char*	defaultfile;
-
 
 //
 // M_SaveDefaults
@@ -287,7 +254,6 @@ char*	defaultfile;
 void M_SaveDefaults (void)
 {
     int		i;
-    int		v;
     FILE*	f;
 	
     f = fopen (defaultfile, "w");
@@ -296,14 +262,13 @@ void M_SaveDefaults (void)
 		
     for (i=0 ; i<numdefaults ; i++)
     {
-	if (defaults[i].defaultvalue > -0xfff
-	    && defaults[i].defaultvalue < 0xfff)
+	if (defaults[i].defaultstring == 0)
 	{
-	    v = *defaults[i].location;
-	    fprintf (f,"%s\t\t%i\n",defaults[i].name,v);
+	    fprintf (f,"%s\t\t%i\n",defaults[i].name,
+                *((int*)defaults[i].location));
 	} else {
 	    fprintf (f,"%s\t\t\"%s\"\n",defaults[i].name,
-		     * (char **) (defaults[i].location));
+                *((char**)defaults[i].location));
 	}
     }
 	
@@ -314,8 +279,6 @@ void M_SaveDefaults (void)
 //
 // M_LoadDefaults
 //
-extern byte	scantokey[128];
-
 void M_LoadDefaults (void)
 {
     int		i;
@@ -323,14 +286,16 @@ void M_LoadDefaults (void)
     FILE*	f;
     char	def[80];
     char	strparm[100];
-    char*	newstring = (char *)0;
+    char*	newstring;
     int		parm;
-    boolean	isstring;
     
     // set everything to base values
     numdefaults = sizeof(defaults)/sizeof(defaults[0]);
     for (i=0 ; i<numdefaults ; i++)
-	*defaults[i].location = defaults[i].defaultvalue;
+        if(defaults[i].defaultstring == 0)
+            *((int*)defaults[i].location) = defaults[i].defaultvalue;
+        else
+            *((char**)defaults[i].location) = defaults[i].defaultstring;
     
     // check for a custom default file
     i = M_CheckParm ("-config");
@@ -348,13 +313,13 @@ void M_LoadDefaults (void)
     {
 	while (!feof(f))
 	{
-	    isstring = false;
 	    if (fscanf (f, "%79s %[^\n]\n", def, strparm) == 2)
 	    {
+                parm = 0;
+                newstring = 0;
 		if (strparm[0] == '"')
 		{
 		    // get a string default
-		    isstring = true;
 		    len = strlen(strparm);
 		    newstring = (char *) malloc(len);
 		    strparm[len-1] = 0;
@@ -367,11 +332,10 @@ void M_LoadDefaults (void)
 		for (i=0 ; i<numdefaults ; i++)
 		    if (!strcmp(def, defaults[i].name))
 		    {
-			if (!isstring)
-			    *defaults[i].location = parm;
-			else
-			    *defaults[i].location =
-				(int) newstring;
+			if (defaults[i].defaultstring == 0)
+			    *((int*)defaults[i].location) = parm;
+			else if(newstring)
+			    *((char**)defaults[i].location) = newstring;
 			break;
 		    }
 	    }
@@ -496,8 +460,8 @@ void M_ScreenShot (void)
     {
 	lbmname[4] = i/10 + '0';
 	lbmname[5] = i%10 + '0';
-	if (access(lbmname,0) == -1)
-	    break;	// file doesn't exist
+	if (!I_FileExists (lbmname))
+	    break;
     }
     if (i==100)
 	I_Error ("M_ScreenShot: Couldn't create a PCX");

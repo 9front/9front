@@ -153,7 +153,7 @@ typedef struct menu_s
     short		numitems;	// # of menu items
     struct menu_s*	prevMenu;	// previous menu
     menuitem_t*		menuitems;	// menu items
-    void		(*routine)();	// draw routine
+    void		(*routine)(void);	// draw routine
     short		x;
     short		y;		// x,y of menu
     short		lastOn;		// last item user was on in menu
@@ -509,10 +509,7 @@ void M_ReadSaveStrings(void)
 	
     for (i = 0;i < load_end;i++)
     {
-	if (M_CheckParm("-cdrom"))
-	    sprintf(name,"c:\\doomdata\\"SAVEGAMENAME"%d.dsg",i);
-	else
-	    sprintf(name,SAVEGAMENAME"%d.dsg",i);
+        sprintf(name,SAVEGAMENAME"%d.dsg",i);
 
 	handle = I_Open (name);
 	if (handle == -1)
@@ -572,10 +569,7 @@ void M_LoadSelect(int choice)
 {
     char    name[256];
 	
-    if (M_CheckParm("-cdrom"))
-	sprintf(name,"c:\\doomdata\\"SAVEGAMENAME"%d.dsg",choice);
-    else
-	sprintf(name,SAVEGAMENAME"%d.dsg",choice);
+    sprintf(name,SAVEGAMENAME"%d.dsg",choice);
     G_LoadGame (name);
     M_ClearMenus ();
 }

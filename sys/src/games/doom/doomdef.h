@@ -75,22 +75,10 @@ typedef enum
 // most parameter validation debugging code will not be compiled
 #define RANGECHECK
 
-// Do or do not use external soundserver.
-// The sndserver binary to be run separately
-//  has been introduced by Dave Taylor.
-// The integrated sound support is experimental,
-//  and unfinished. Default is synchronous.
-// Experimental asynchronous timer based is
-//  handled by SNDINTR. 
-//#define SNDSERV  1
-//#define SNDINTR  1
-
-
 // This one switches between MIT SHM (no proper mouse)
 // and XFree86 DGA (mickey sampling). The original
 // linuxdoom used SHM, which is default.
 //#define X11_DGA		1
-
 
 //
 // For resize of screen, at start of game.

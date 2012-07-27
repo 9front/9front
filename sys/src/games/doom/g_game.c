@@ -1252,16 +1252,13 @@ G_SaveGame
  
 void G_DoSaveGame (void) 
 { 
-    char	name[100]; 
+    char	name[256]; 
     char	name2[VERSIONSIZE]; 
     char*	description; 
     int		length; 
     int		i; 
 	
-    if (M_CheckParm("-cdrom"))
-	sprintf(name,"c:\\doomdata\\"SAVEGAMENAME"%d.dsg",savegameslot);
-    else
-	sprintf (name,SAVEGAMENAME"%d.dsg",savegameslot); 
+    sprintf (name,SAVEGAMENAME"%d.dsg",savegameslot); 
     description = savedescription; 
 	 
     save_p = savebuffer = screens[1]+0x4000; 

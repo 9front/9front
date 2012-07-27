@@ -113,7 +113,7 @@ void I_Error (char *error, ...)
 
 int I_FileExists (char *filepath)
 {
-	return (0 == access(filepath, AREAD));
+	return access(filepath, AEXIST) == 0;
 }
 
 int I_Open (char *filepath)
@@ -138,17 +138,26 @@ int I_Read (int handle, void *buf, int n)
 
 char* I_IdentifyWAD(char *wadname)
 {
-	char path[1024];
+	static char path[1024];
+	char *home;
+
+	snprint(path, sizeof path, wadname);
+	if (I_FileExists (path))
+		return path;
+
+	if(home = getenv("home")){
+		snprintf(path, sizeof path, "%s/lib/doom/%s", home, wadname);
+		free(home);
+
+		if (I_FileExists (path))
+			return path;
+	}
 
 	snprintf(path, sizeof path, "/sys/lib/doom/%s", wadname);
 	if (I_FileExists (path))
 		return path;
 
 	snprintf(path, sizeof path, "/sys/games/lib/doom/%s", wadname);
-	if (I_FileExists (path))
-		return path;
-
-	snprintf(path, sizeof path, "%s/lib/doom/%s", getenv("home"), wadname);
 	if (I_FileExists (path))
 		return path;
 
