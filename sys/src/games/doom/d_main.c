@@ -130,6 +130,7 @@ void D_DoAdvanceDemo (void);
 event_t         events[MAXEVENTS];
 int             eventhead;
 int 		eventtail;
+QLock		eventlock;
 
 
 //
@@ -138,8 +139,21 @@ int 		eventtail;
 //
 void D_PostEvent (event_t* ev)
 {
+    int next;
+
+retry:
+    qlock(&eventlock);
+    next = (eventhead+1)&(MAXEVENTS-1);
+    if(next == eventtail){
+        qunlock(&eventlock);
+        if(ev->type != ev_keydown && ev->type != ev_keyup)
+            return;
+        sleep(1);
+        goto retry;
+    }
     events[eventhead] = *ev;
-    eventhead = (++eventhead)&(MAXEVENTS-1);
+    eventhead = next;
+    qunlock(&eventlock);
 }
 
 
@@ -156,7 +170,7 @@ void D_ProcessEvents (void)
 	 && (W_CheckNumForName("map01")<0) )
       return;
 	
-    for ( ; eventtail != eventhead ; eventtail = (++eventtail)&(MAXEVENTS-1) )
+    for ( ; eventtail != eventhead ; eventtail = (eventtail+1)&(MAXEVENTS-1))
     {
 	ev = &events[eventtail];
 	if (M_Responder (ev))
