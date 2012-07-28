@@ -665,6 +665,10 @@ wkeyctl(Window *w, Rune r)
 		case Kend:
 			wshow(w, w->nr);
 			return;
+		case Kscroll:
+			w->scrolling ^= 1;
+			wshow(w, w->nr);
+			return;
 		case Ksoh:	/* ^A: beginning of line */
 			if(w->q0==0 || w->q0==w->qh || w->r[w->q0-1]=='\n')
 				return;
