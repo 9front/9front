@@ -1603,11 +1603,15 @@ netquery(Query *qp, int depth)
 		return Answnone;
 
 	slave(qp->req);
+
 	/*
 	 * slave might have forked.  if so, the parent process longjmped to
 	 * req->mret; we're usually the child slave, but if there are too
-	 * many children already, we're still the same process.
+	 * many children already, we're still the same process. under no
+	 * circumstances block the 9p loop.
 	 */
+	if(!qp->req->isslave && strcmp(qp->req->from, "9p") == 0)
+		return Answnone;
 
 	/*
 	 * don't lock before call to slave so only children can block.
@@ -1636,7 +1640,7 @@ netquery(Query *qp, int depth)
 					" dropping this one; no further logging"
 					" of drops", dp->name);
 			}
-			return 0;
+			return Answnone;
 		}
 		++qlp->Ref.ref;
 		qunlock(qlp);

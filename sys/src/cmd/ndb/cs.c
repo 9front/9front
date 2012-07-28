@@ -1654,6 +1654,10 @@ dnsiplookup(char *host, Ndbs *s)
 
 	qunlock(&dblock);
 	slave(host);
+	if(*isslave == 0){
+		qlock(&dblock);
+		return nil;
+	}
 
 	if(strcmp(ipattr(host), "ip") == 0)
 		t = dnsquery(mntpt, host, "ptr");
