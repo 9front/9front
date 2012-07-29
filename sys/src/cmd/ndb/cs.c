@@ -17,6 +17,7 @@ enum
 	Maxfdata=		8192,
 	Maxhost=		64,		/* maximum host name size */
 	Maxservice=		64,		/* maximum service name size */
+	Maxactive=		200,		/* maximum number of active slave procs */
 
 	Qdir=			0,
 	Qcs=			1,
@@ -83,6 +84,7 @@ int	paranoia;
 int	ipv6lookups = 1;
 jmp_buf	masterjmp;	/* return through here after a slave process has been created */
 int	*isslave;	/* *isslave non-zero means this is a slave process */
+long	active;		/* number of active slaves */
 char	*dbfile;
 Ndb	*db, *netdb;
 
@@ -119,8 +121,6 @@ Job*	newjob(void);
 void	freejob(Job*);
 void	setext(char*, int, char*);
 void	cleanmf(Mfile*);
-
-extern void	paralloc(void);
 
 QLock	dblock;		/* mutex on database operations */
 QLock	netlock;	/* mutex for netinit() */
@@ -378,7 +378,7 @@ newjob(void)
 {
 	Job *job;
 
-	job = mallocz(sizeof(Job), 1);
+	job = emalloc(sizeof *job);
 	qlock(&joblock);
 	job->next = joblist;
 	joblist = job;
@@ -456,7 +456,6 @@ io(void)
 		if(debug)
 			syslog(0, logfile, "%F", &job->request);
 
-
 		switch(job->request.type){
 		default:
 			syslog(1, logfile, "unknown request type %d", job->request.type);
@@ -511,6 +510,7 @@ io(void)
 		if(*isslave){
 			if(debug)
 				syslog(0, logfile, "slave death %d", getpid());
+			adec(&active);
 			_exits(0);
 		}
 	}
@@ -852,18 +852,18 @@ rwrite(Job *job, Mfile *mf)
 	n = getfields(job->request.data, field, 4, 1, "!");
 	switch(n){
 	case 1:
-		mf->net = strdup("net");
-		mf->host = strdup(field[0]);
+		mf->net = estrdup("net");
+		mf->host = estrdup(field[0]);
 		break;
 	case 4:
-		mf->rem = strdup(field[3]);
+		mf->rem = estrdup(field[3]);
 		/* fall through */
 	case 3:
-		mf->serv = strdup(field[2]);
+		mf->serv = estrdup(field[2]);
 		/* fall through */
 	case 2:
-		mf->host = strdup(field[1]);
-		mf->net = strdup(field[0]);
+		mf->host = estrdup(field[1]);
+		mf->net = estrdup(field[0]);
 		break;
 	}
 
@@ -1026,7 +1026,7 @@ ipid(void)
 		if(p && *p){
 			attr = ipattr(p);
 			if(strcmp(attr, "ip") != 0)
-				mysysname = strdup(p);
+				mysysname = estrdup(p);
 		}
 
 		/*
@@ -1038,7 +1038,7 @@ ipid(void)
 			ndbreopen(netdb);
 			for(tt = t = ndbparse(netdb); t != nil; t = t->entry){
 				if(strcmp(t->attr, "sys") == 0){
-					mysysname = strdup(t->val);
+					mysysname = estrdup(t->val);
 					break;
 				}
 			}
@@ -1063,7 +1063,7 @@ ipid(void)
 			}
 			for(tt = t; tt != nil; tt = tt->entry){
 				if(strcmp(tt->attr, "sys") == 0){
-					mysysname = strdup(tt->val);
+					mysysname = estrdup(tt->val);
 					break;
 				}
 			}
@@ -1072,7 +1072,7 @@ ipid(void)
 
 		/* nothing else worked, use the ip address */
 		if(mysysname == 0 && isvalidip(ipa))
-			mysysname = strdup(ipaddr);
+			mysysname = estrdup(ipaddr);
 
 
 		/* set /dev/sysname if we now know it */
@@ -1273,7 +1273,7 @@ lookup(Mfile *mf)
 		else
 			snprint(reply, sizeof(reply), "%s/%s/clone %s",
 				mntpt, mf->net, mf->host);
-		mf->reply[0] = strdup(reply);
+		mf->reply[0] = estrdup(reply);
 		mf->replylen[0] = strlen(reply);
 		mf->nreply = 1;
 		return 1;
@@ -1325,7 +1325,7 @@ ipserv(Network *np, char *name, char *buf, int blen)
 		if(atoi(name) < 1024 && strcmp(np->net, "tcp") == 0)
 			p = ndbgetvalue(db, &s, "port", name, "port", &t);
 		if(p == nil)
-			p = strdup(name);
+			p = estrdup(name);
 	}
 
 	if(t){
@@ -1519,7 +1519,7 @@ iptrans(Ndbtuple *t, Network *np, char *serv, char *rem, int hack)
 		snprint(reply, sizeof(reply), "%s/%s/clone %s!%s%s%s",
 			mntpt, np->net, t->val, ts, x, hack? "!fasttimeout": "");
 
-	return strdup(reply);
+	return estrdup(reply);
 }
 
 /*
@@ -1563,7 +1563,7 @@ telcotrans(Ndbtuple *t, Network *np, char *serv, char *rem, int)
 	else
 		snprint(reply, sizeof(reply), "%s/%s/clone %s%s", mntpt, np->net,
 			t->val, x);
-	return strdup(reply);
+	return estrdup(reply);
 }
 
 /*
@@ -1603,15 +1603,19 @@ slave(char *host)
 {
 	if(*isslave)
 		return;		/* we're already a slave process */
-
+	if(ainc(&active) >= Maxactive){
+		adec(&active);
+		return;
+	}
 	switch(rfork(RFPROC|RFNOTEG|RFMEM|RFNOWAIT)){
 	case -1:
+		adec(&active);
 		break;
 	case 0:
+		*isslave = 1;
 		if(debug)
 			syslog(0, logfile, "slave %d", getpid());
 		procsetname("%s", host);
-		*isslave = 1;
 		break;
 	default:
 		longjmp(masterjmp, 1);
@@ -1656,6 +1660,7 @@ dnsiplookup(char *host, Ndbs *s)
 	slave(host);
 	if(*isslave == 0){
 		qlock(&dblock);
+		werrstr("too mutch activity");
 		return nil;
 	}
 
@@ -1716,7 +1721,7 @@ qreply(Mfile *mf, Ndbtuple *t)
 
 		if(nt->line != nt->entry){
 			mf->replylen[mf->nreply] = s_len(s);
-			mf->reply[mf->nreply++] = strdup(s_to_c(s));
+			mf->reply[mf->nreply++] = estrdup(s_to_c(s));
 			s_restart(s);
 		} else
 			s_append(s, " ");
@@ -1917,7 +1922,7 @@ emalloc(int size)
 
 	x = malloc(size);
 	if(x == nil)
-		abort();
+		error("out of memory");
 	memset(x, 0, size);
 	return x;
 }
@@ -1931,7 +1936,7 @@ estrdup(char *s)
 	size = strlen(s)+1;
 	p = malloc(size);
 	if(p == nil)
-		abort();
+		error("out of memory");
 	memmove(p, s, size);
 	return p;
 }
