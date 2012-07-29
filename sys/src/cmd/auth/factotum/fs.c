@@ -220,7 +220,7 @@ private(void)
 static void
 notifyf(void*, char *s)
 {
-	if(strncmp(s, "interrupt", 9) == 0)
+	if(strncmp(s, "interrupt", 9) == 0 || strncmp(s, "alarm", 5) == 0)
 		noted(NCONT);
 	noted(NDFLT);
 }
