@@ -532,7 +532,6 @@ static void
 findmbr(Edit *edit)
 {
 	Table table;
-	Tentry *tp;
 
 	diskread(edit->disk, &table, sizeof(Table), 0, Toffset);
 	if(table.magic[0] != Magic0 || table.magic[1] != Magic1)

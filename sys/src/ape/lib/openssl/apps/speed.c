@@ -461,6 +461,7 @@ static double Time_F(int s)
 		}
 # endif
 #endif
+		return 0;
 	}
 #endif /* if defined(OPENSSL_SYS_NETWARE) */
 

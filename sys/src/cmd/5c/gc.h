@@ -3,7 +3,7 @@
 
 /*
  * 5c/arm
- * Arm 7500
+ * Arm
  */
 #define	SZ_CHAR		1
 #define	SZ_SHORT	2
@@ -59,7 +59,7 @@ struct	Prog
 struct	Case
 {
 	Case*	link;
-	long	val;
+	vlong	val;
 	long	label;
 	char	def;
 	char isv;
@@ -68,7 +68,7 @@ struct	Case
 
 struct	C1
 {
-	long	val;
+	vlong	val;
 	long	label;
 };
 

@@ -22,6 +22,8 @@ ginit(void)
 	lastp = P;
 	tfield = types[TLONG];
 
+	typeswitch = typechlv;
+
 	zprog.link = P;
 	zprog.as = AGOK;
 	zprog.from.type = D_NONE;
@@ -158,7 +160,8 @@ gargs(Node *n, Node *tn1, Node *tn2)
 	cursafe = regs;
 }
 
-int nareg(void)
+int
+nareg(int notbp)
 {
 	int i, n;
 
@@ -166,6 +169,8 @@ int nareg(void)
 	for(i=D_AX; i<=D_DI; i++)
 		if(reg[i] == 0)
 			n++;
+	if(notbp && reg[D_BP] == 0)
+		n--;
 	return n;
 }
 
@@ -306,13 +311,34 @@ regalloc(Node *n, Node *tn, Node *o)
 			if(reg[i] == 0)
 				goto out;
 		diag(tn, "out of fixed registers");
+abort();
 		goto err;
 
 	case TFLOAT:
 	case TDOUBLE:
-	case TVLONG:
 		i = D_F0;
 		goto out;
+
+	case TVLONG:
+	case TUVLONG:
+		n->op = OREGPAIR;
+		n->complex = 0; /* already in registers */
+		n->addable = 11;
+		n->type = tn->type;
+		n->lineno = nearln;
+		n->left = alloc(sizeof(Node));
+		n->right = alloc(sizeof(Node));
+		if(o != Z && o->op == OREGPAIR) {
+			regalloc(n->left, &regnode, o->left);
+			regalloc(n->right, &regnode, o->right);
+		} else {
+			regalloc(n->left, &regnode, Z);
+			regalloc(n->right, &regnode, Z);
+		}
+		n->right->type = types[TULONG];
+		if(tn->type->etype == TUVLONG)
+			n->left->type = types[TULONG];
+		return;
 	}
 	diag(tn, "unknown type in regalloc: %T", tn->type);
 err:
@@ -338,6 +364,12 @@ void
 regfree(Node *n)
 {
 	int i;
+
+	if(n->op == OREGPAIR) {
+		regfree(n->left);
+		regfree(n->right);
+		return;
+	}
 
 	i = 0;
 	if(n->op != OREGISTER && n->op != OINDREG)
@@ -430,6 +462,11 @@ naddr(Node *n, Adr *a)
 		a->sym = S;
 		break;
 
+	case OEXREG:
+		a->type = D_INDIR + D_GS;
+		a->offset = n->reg - 1;
+		a->etype = n->etype;
+		break;
 
 	case OIND:
 		naddr(n->left, a);
@@ -609,9 +646,6 @@ gmove(Node *f, Node *t)
 	case TDOUBLE:
 		gins(AFMOVD, f, t);
 		return;
-	case TVLONG:
-		gins(AFMOVV, f, t);
-		return;
 	}
 
 /*
@@ -649,9 +683,6 @@ gmove(Node *f, Node *t)
 		return;
 	case TDOUBLE:
 		gins(AFMOVDP, f, t);
-		return;
-	case TVLONG:
-		gins(AFMOVVP, f, t);
 		return;
 	}
 
@@ -980,7 +1011,7 @@ fgopcode(int o, Node *f, Node *t, int pop, int rev)
 		if(et == TFLOAT)
 			a = AFADDF;
 		else
-		if(et == TDOUBLE || et == TVLONG) {
+		if(et == TDOUBLE) {
 			a = AFADDD;
 			if(pop)
 				a = AFADDDP;
@@ -994,7 +1025,7 @@ fgopcode(int o, Node *f, Node *t, int pop, int rev)
 			if(rev)
 				a = AFSUBRF;
 		} else
-		if(et == TDOUBLE || et == TVLONG) {
+		if(et == TDOUBLE) {
 			a = AFSUBD;
 			if(pop)
 				a = AFSUBDP;
@@ -1011,7 +1042,7 @@ fgopcode(int o, Node *f, Node *t, int pop, int rev)
 		if(et == TFLOAT)
 			a = AFMULF;
 		else
-		if(et == TDOUBLE || et == TVLONG) {
+		if(et == TDOUBLE) {
 			a = AFMULD;
 			if(pop)
 				a = AFMULDP;
@@ -1027,7 +1058,7 @@ fgopcode(int o, Node *f, Node *t, int pop, int rev)
 			if(rev)
 				a = AFDIVRF;
 		} else
-		if(et == TDOUBLE || et == TVLONG) {
+		if(et == TDOUBLE) {
 			a = AFDIVD;
 			if(pop)
 				a = AFDIVDP;
@@ -1054,7 +1085,7 @@ fgopcode(int o, Node *f, Node *t, int pop, int rev)
 					a = AGOK;
 			}
 		} else
-		if(et == TDOUBLE || et == TVLONG) {
+		if(et == TDOUBLE) {
 			a = AFCOMF;
 			if(pop) {
 				a = AFCOMDP;
@@ -1355,7 +1386,15 @@ long
 exreg(Type *t)
 {
 
-	USED(t);
+	int o;
+
+	if(typechlp[t->etype]){
+		if(exregoffset >= 32)
+			return 0;
+		o = exregoffset;
+		exregoffset += 4;
+		return o+1;	/* +1 to avoid 0 == failure; naddr case OEXREG will -1. */
+	}
 	return 0;
 }
 

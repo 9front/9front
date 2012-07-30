@@ -289,5 +289,5 @@ main(int argc, char **argv)
 		fclose(outf);
 	}
 	close_infile();
-	exit(0);
+	return 0;
 }

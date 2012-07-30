@@ -362,7 +362,8 @@ end:
 		bio_err=NULL;
 		}
 	OPENSSL_EXIT(ret);
-	}
+	return ret;
+}
 
 #define LIST_STANDARD_COMMANDS "list-standard-commands"
 #define LIST_MESSAGE_DIGEST_COMMANDS "list-message-digest-commands"

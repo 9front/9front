@@ -1,3 +1,4 @@
+void
 nap(int n)
 {
 	register i;

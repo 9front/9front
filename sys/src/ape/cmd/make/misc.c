@@ -189,7 +189,7 @@ if( p = (int *) calloc(1,n) )
 	return p;
 
 fatal("out of memory");
-/* NOTREACHED */
+return 0;/* NOTREACHED */
 }
 
 /* copy string a into b, substituting for arguments */

@@ -1262,9 +1262,7 @@ loop:
 	if(i->f < 0)
 		goto pop;
 	fi.c = read(i->f, i->b, BUFSIZ) - 1;
-	if(fi.c < -1)
-		sysfatal("read error: %r");
-	if(fi.c == -1) {
+	if(fi.c < 0) {
 		close(i->f);
 		linehist(0, 0);
 		goto pop;

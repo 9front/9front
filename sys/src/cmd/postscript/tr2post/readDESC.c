@@ -54,7 +54,7 @@ readDESC(void) {
 	sprint(descfilename, descnameformat, FONTDIR, devname);
 	if ((bfd = Bopen(descfilename, OREAD)) == 0) {
 		error(WARNING, "cannot open file %s\n", descfilename);
-		return(0);
+		return(FALSE);
 	}
 	Bfd = &(bfd->Biobufhdr);
 
@@ -136,4 +136,5 @@ readDESC(void) {
 		}
 	}
 	Bterm(Bfd);
+	return(TRUE);
 }
