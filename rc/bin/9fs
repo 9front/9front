@@ -7,7 +7,10 @@ case ''
 	echo usage: 9fs service '[mountpoint]' >[1=2]
 	exit usage
 case 9fat
-	part=`{ls /dev/fs/9fat /dev/sd*/9fat >[2]/dev/null}
+	if(~ $#2 1)
+		part=`{ls $2 >[2]/dev/null}
+	if not
+		part=`{ls /dev/fs/9fat /dev/sd*/9fat >[2]/dev/null}
 	if(~ $#part 0) {
 		echo 'no 9fat partition found' >[1=2]
 		exit no.9fat
