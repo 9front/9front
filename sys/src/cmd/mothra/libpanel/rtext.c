@@ -12,8 +12,7 @@
 #define	LEAD	4		/* extra space between lines */
 Rtext *pl_rtnew(Rtext **t, int space, int indent, Image *b, Panel *p, Font *f, char *s, int hot, void *user){
 	Rtext *new;
-	new=malloc(sizeof(Rtext));
-	if(new==0) return 0;
+	new=pl_emalloc(sizeof(Rtext));
 	new->hot=hot;
 	new->user=user;
 	new->space=space;
@@ -23,6 +22,7 @@ Rtext *pl_rtnew(Rtext **t, int space, int indent, Image *b, Panel *p, Font *f, c
 	new->font=f;
 	new->text=s;
 	new->next=0;
+	new->nextline=0;
 	new->r=Rect(0,0,0,0);
 	if(*t)
 		(*t)->last->next=new;

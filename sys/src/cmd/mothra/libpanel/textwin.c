@@ -370,8 +370,7 @@ void tw_relocate(Textwin *t, int first, int last, Point dst){
 	int nbyte;
 	if(first<t->top || last<first || t->bot<last) return;
 	nbyte=(last-first+1)*sizeof(Point);
-	srcloc=malloc(nbyte);
-	if(srcloc==0) return;
+	srcloc=pl_emalloc(nbyte);
 	memmove(srcloc, &t->loc[first-t->top], nbyte);
 	tw_setloc(t, first, last, dst);
 	if(tw_before(t, dst, srcloc[0]))
@@ -445,19 +444,9 @@ void twreshape(Textwin *t, Rectangle r){
 }
 Textwin *twnew(Image *b, Font *f, Rune *text, int ntext){
 	Textwin *t;
-	t=malloc(sizeof(Textwin));
-	if(t==0) return 0;
-	t->text=malloc((ntext+SLACK)*sizeof(Rune));
-	if(t->text==0){
-		free(t);
-		return 0;
-	}
-	t->loc=malloc(SLACK*sizeof(Point));
-	if(t->loc==0){
-		free(t->text);
-		free(t);
-		return 0;
-	}
+	t=pl_emalloc(sizeof(Textwin));
+	t->text=pl_emalloc((ntext+SLACK)*sizeof(Rune));
+	t->loc=pl_emalloc(SLACK*sizeof(Point));
 	t->eloc=t->loc+SLACK;
 	t->etext=t->text+ntext;
 	t->eslack=t->etext+SLACK;

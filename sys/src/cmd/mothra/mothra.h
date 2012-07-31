@@ -89,7 +89,6 @@ void freepix(void *p);
 int pipeline(char *, int);
 void getfonts(void);
 void *emalloc(int);
-void *emallocz(int, int);
 void nstrcpy(char *to, char *from, int len);
 void freeform(void *p);
 int Ufmt(Fmt *f);

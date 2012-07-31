@@ -28,8 +28,9 @@ void pl_snarfentry(Panel *p, int cut){
 			write(fd, ep->entry, n);
 		ep->entp=ep->entry;
 	}else{
-		n = 1024;
-		if((s=malloc(n+SLACK))==0){
+		n=1024;
+		s=malloc(n+SLACK);
+		if(s==0){
 			close(fd);
 			return;
 		}

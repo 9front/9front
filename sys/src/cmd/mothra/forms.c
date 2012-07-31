@@ -72,7 +72,7 @@ char *selgen(Panel *, int);
 char *nullgen(Panel *, int);
 Field *newfield(Form *form){
 	Field *f;
-	f=emallocz(sizeof(Field), 1);
+	f=emalloc(sizeof(Field));
 	if(form->efields==0)
 		form->fields=f;
 	else
@@ -99,7 +99,7 @@ void rdform(Hglob *g){
 			htmlerror(g->name, g->lineno, "nested forms illegal\n");
 			break;
 		}
-		g->form=emallocz(sizeof(Form), 1);
+		g->form=emalloc(sizeof(Form));
 		s=pl_getattr(g->attr, "action");
 		g->form->action=strdup((s && s[0]) ? s : g->dst->url->fullname);
 		s=pl_getattr(g->attr, "method");
@@ -223,7 +223,7 @@ void rdform(Hglob *g){
 		if((f=g->form->efields)==0) goto BadTag;
 		if(f->size<8)
 			f->size++;
-		o=emallocz(sizeof(Option), 1);
+		o=emalloc(sizeof(Option));
 		for(op=&f->options;*op;op=&(*op)->next);
 		*op=o;
 		o->next=0;

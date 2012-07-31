@@ -458,14 +458,7 @@ void *emalloc(int n){
 	v=malloc(n);
 	if(v==0)
 		sysfatal("out of memory");
-	setmalloctag(v, getcallerpc(&n));
-	return v;
-}
-void *emallocz(int n, int z){
-	void *v;
-	v = emalloc(n);
-	if(z)
-		memset(v, 0, n);
+	memset(v, 0, n);
 	setmalloctag(v, getcallerpc(&n));
 	return v;
 }
@@ -982,7 +975,7 @@ mothon(Www *w, int on)
 		x = t->next;
 		if(on){
 			t->next = nil;
-			ap=mallocz(sizeof(Action), 1);
+			ap=emalloc(sizeof(Action));
 			ap->link = strdup(a->link);
 			plrtstr(&t->next, 0, 0, t->font, strdup("->"), 1, ap);
 			t->next->next = x;

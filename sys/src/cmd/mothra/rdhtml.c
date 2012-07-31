@@ -117,19 +117,17 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 	if(g->state->image[0]==0 && g->state->link[0]==0 && g->state->name[0]==0 && field==0)
 		ap=0;
 	else{
-		ap=mallocz(sizeof(Action), 1);
-		if(ap!=0){
-			if(g->state->image[0])
-				ap->image = strdup(g->state->image);
-			if(g->state->link[0])
-				ap->link = strdup(g->state->link);
-			if(g->state->name[0])
-				ap->name = strdup(g->state->name);
-			ap->ismap=g->state->ismap;
-			ap->width=g->state->width;
-			ap->height=g->state->height;
-			ap->field=field;
-		}
+		ap=emalloc(sizeof(Action));
+		if(g->state->image[0])
+			ap->image = strdup(g->state->image);
+		if(g->state->link[0])
+			ap->link = strdup(g->state->link);
+		if(g->state->name[0])
+			ap->name = strdup(g->state->name);
+		ap->ismap=g->state->ismap;
+		ap->width=g->state->width;
+		ap->height=g->state->height;
+		ap->field=field;
 	}
 	if(space<0) space=0;
 	if(indent<0) indent=0;
