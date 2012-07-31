@@ -1017,7 +1017,9 @@ fs_read(Chan* chan, Fcall* f, Fcall* r, uchar* data)
 	accessdir(p, d, FREAD, file->uid);
 	if(d->mode & DDIR)
 		goto dread;
-	if(offset+count > d->size)
+	if(offset >= d->size)
+		count = 0;
+	else if(offset+count > d->size)
 		count = d->size - offset;
 	while(count > 0){
 		if(p == nil){

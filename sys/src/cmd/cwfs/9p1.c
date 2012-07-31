@@ -911,8 +911,9 @@ f_read(Chan *cp, Fcall *in, Fcall *ou)
 		}
 		goto out;
 	}
-
-	if(offset+count > d->size)
+	if(offset >= d->size)
+		count = 0;
+	else if(offset+count > d->size)
 		count = d->size - offset;
 	while(count > 0) {
 		if(p == 0) {
