@@ -807,7 +807,9 @@ f_read(Chan *cp, Oldfcall *in, Oldfcall *ou)
 		addr = 0;
 		goto dread;
 	}
-	if(offset+count > d->size)
+	if(offset >= d->size)
+		count = 0;
+	else if(offset+count > d->size)
 		count = d->size - offset;
 	while(count > 0) {
 		addr = offset / BUFSIZE;
