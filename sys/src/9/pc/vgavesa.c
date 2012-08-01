@@ -180,10 +180,19 @@ vesaproc(void*)
 				u.bx = 0x0101;
 			else	
 				u.bx = 0x0001;
+
+			/*
+			 * dont wait forever here. some BIOS get stuck
+			 * in i/o poll loop after blank/unblank for some
+			 * reason. (Thinkpad A22p)
+			 */
+			procalarm(10000);
 			vbecall(&u);
 
 			poperror();
 		}
+		procalarm(0);
+		up->notepending = 0;
 	}
 	cclose(cmem);
 	cclose(creg);
