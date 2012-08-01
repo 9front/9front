@@ -3,8 +3,8 @@
 #include <bio.h>
 #include <ndb.h>
 #include <ndbhf.h>
+#include <ip.h>
 
-static void nstrcpy(char*, char*, int);
 static void mkptrname(char*, char*, int);
 static Ndbtuple *doquery(int, char *dn, char *type);
 
@@ -77,45 +77,24 @@ dnsquery(char *net, char *val, char *type)
 static void
 mkptrname(char *ip, char *rip, int rlen)
 {
-	char buf[128];
-	char *p, *np;
-	int len;
+	uchar a[IPaddrlen];
+	char *p, *e;
+	int i;
 
-	if(cistrstr(ip, "in-addr.arpa") || cistrstr(ip, "ip6.arpa")){
-		nstrcpy(rip, ip, rlen);
-		return;
-	}
-	nstrcpy(buf, ip, sizeof buf);
-
-	/* truncate if result wont fit in rip[rlen] */
-	assert(rlen > 14);
-	if((rlen-14) < sizeof(buf))
-		buf[rlen-14] = 0;
-
-	for(p = buf; *p; p++)
-		;
-	*p = '.';
-	np = rip;
-	len = 0;
-	while(p >= buf){
-		len++;
-		p--;
-		if(*p == '.'){
-			memmove(np, p+1, len);
-			np += len;
-			len = 0;
+	if(cistrstr(ip, "in-addr.arpa") || cistrstr(ip, "ip6.arpa") || parseip(a, ip) == -1)
+		snprint(rip, rlen, "%s", ip);
+	else if(isv4(a))
+		snprint(rip, rlen, "%ud.%ud.%ud.%ud.in-addr.arpa",
+			a[15], a[14], a[13], a[12]);
+	else{
+		p = rip;
+		e = rip + rlen;
+		for(i = 15; i >= 0; i--){
+			p = seprint(p, e, "%ux.", a[i]&0xf);
+			p = seprint(p, e, "%ux.", a[i]>>4);
 		}
+		seprint(p, e, "ip6.arpa");
 	}
-	memmove(np, p+1, len);
-	np += len;
-	strcpy(np, "in-addr.arpa");
-}
-
-static void
-nstrcpy(char *to, char *from, int len)
-{
-	strncpy(to, from, len);
-	to[len-1] = 0;
 }
 
 static Ndbtuple*
