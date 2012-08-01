@@ -209,6 +209,7 @@ static int
 dochal(State *s)
 {
 	char *dom, *user, trbuf[TICKREQLEN];
+	int n;
 
 	s->asfd = -1;
 
@@ -232,9 +233,14 @@ dochal(State *s)
 	safecpy(s->tr.hostid, user, sizeof(s->tr.hostid));
 	convTR2M(&s->tr, trbuf);
 
-	if(write(s->asfd, trbuf, TICKREQLEN) != TICKREQLEN)
+	alarm(30*1000);
+	if(write(s->asfd, trbuf, TICKREQLEN) != TICKREQLEN){
+		alarm(0);
 		goto err;
-	if(_asrdresp(s->asfd, s->chal, sizeof s->chal) <= 5)
+	}
+	n = _asrdresp(s->asfd, s->chal, sizeof s->chal);
+	alarm(0);
+	if(n <= 5)
 		goto err;
 	return 0;
 
@@ -253,25 +259,31 @@ doreply(State *s, char *user, char *response)
 	int n;
 	Authenticator a;
 
-	memrandom(s->tr.chal, CHALLEN);
-	safecpy(s->tr.uid, user, sizeof(s->tr.uid));
-	convTR2M(&s->tr, trbuf);
-	if((n=write(s->asfd, trbuf, TICKREQLEN)) != TICKREQLEN){
-		if(n >= 0)
-			werrstr("short write to auth server");
-		goto err;
-	}
 	/* send response to auth server */
 	if(strlen(response) != MD5dlen*2){
 		werrstr("response not MD5 digest");
 		goto err;
 	}
-	if((n=write(s->asfd, response, MD5dlen*2)) != MD5dlen*2){
+
+	memrandom(s->tr.chal, CHALLEN);
+	safecpy(s->tr.uid, user, sizeof(s->tr.uid));
+	convTR2M(&s->tr, trbuf);
+	alarm(30*1000);
+	if((n=write(s->asfd, trbuf, TICKREQLEN)) != TICKREQLEN){
+		alarm(0);
 		if(n >= 0)
 			werrstr("short write to auth server");
 		goto err;
 	}
-	if(_asrdresp(s->asfd, ticket, TICKETLEN+AUTHENTLEN) < 0){
+	if((n=write(s->asfd, response, MD5dlen*2)) != MD5dlen*2){
+		alarm(0);
+		if(n >= 0)
+			werrstr("short write to auth server");
+		goto err;
+	}
+	n = _asrdresp(s->asfd, ticket, TICKETLEN+AUTHENTLEN);
+	alarm(0);
+	if(n < 0){
 		/* leave connection open so we can try again */
 		return -1;
 	}

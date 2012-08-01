@@ -424,7 +424,9 @@ getastickets(State *s, char *trbuf, char *tbuf)
 	asfd = _authdial(nil, dom);
 	if(asfd < 0)
 		return -1;
+	alarm(30*1000);
 	rv = _asgetticket(asfd, trbuf, tbuf);
+	alarm(0);
 	close(asfd);
 	return rv;
 }

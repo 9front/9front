@@ -8,7 +8,6 @@ int
 _asgetticket(int fd, char *trbuf, char *tbuf)
 {
 	if(write(fd, trbuf, TICKREQLEN) < 0){
-		close(fd);
 		werrstr(pbmsg);
 		return -1;
 	}

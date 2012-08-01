@@ -259,6 +259,7 @@ dochal(State *s)
 {
 	char *dom, *user;
 	char trbuf[TICKREQLEN];
+	int ret;
 
 	s->asfd = -1;
 
@@ -278,12 +279,17 @@ dochal(State *s)
 	safecpy(s->tr.hostid, user, sizeof(s->tr.hostid));
 	convTR2M(&s->tr, trbuf);
 
-	if(write(s->asfd, trbuf, TICKREQLEN) != TICKREQLEN)
+	alarm(30*1000);
+	if(write(s->asfd, trbuf, TICKREQLEN) != TICKREQLEN){
+		alarm(0);
+		goto err;
+	}
+	/* readn, not _asrdresp.  needs to match auth.srv.c. */
+	ret = readn(s->asfd, s->chal, sizeof s->chal);
+	alarm(0);
+	if(ret != sizeof s->chal)
 		goto err;
 
-	/* readn, not _asrdresp.  needs to match auth.srv.c. */
-	if(readn(s->asfd, s->chal, sizeof s->chal) != sizeof s->chal)
-		goto err;
 	return 0;
 
 err:
@@ -300,17 +306,20 @@ doreply(State *s, void *reply, int nreply)
 	int n;
 	Authenticator a;
 
+	alarm(30*1000);
 	if((n=write(s->asfd, reply, nreply)) != nreply){
+		alarm(0);
 		if(n >= 0)
 			werrstr("short write to auth server");
 		goto err;
 	}
-
 	if(_asrdresp(s->asfd, ticket, TICKETLEN+AUTHENTLEN) < 0){
+		alarm(0);
 		/* leave connection open so we can try again */
 		return -1;
 	}
 	s->nsecret = readn(s->asfd, s->secret, sizeof s->secret);
+	alarm(0);
 	if(s->nsecret < 0)
 		s->nsecret = 0;
 	close(s->asfd);

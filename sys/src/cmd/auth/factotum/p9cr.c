@@ -281,11 +281,17 @@ p9crwrite(Fsstate *fss, void *va, uint n)
 			return failure(fss, Ebadarg);
 		memset(resp, 0, sizeof resp);
 		memmove(resp, data, n);
-		if(write(s->asfd, resp, s->challen) != s->challen)
-			return failure(fss, Easproto);
 
+		alarm(30*1000);
+		if(write(s->asfd, resp, s->challen) != s->challen){
+			alarm(0);
+			return failure(fss, Easproto);
+		}
 		/* get ticket plus authenticator from auth server */
-		if(_asrdresp(s->asfd, tbuf, TICKETLEN+AUTHENTLEN) < 0)
+		ret = _asrdresp(s->asfd, tbuf, TICKETLEN+AUTHENTLEN);
+		alarm(0);
+
+		if(ret < 0)
 			return failure(fss, nil);
 
 		/* check ticket */
@@ -328,9 +334,13 @@ getchal(State *s, Fsstate *fss)
 	s->asfd = _authdial(nil, _strfindattr(s->key->attr, "dom"));
 	if(s->asfd < 0)
 		return failure(fss, Easproto);
-	if(write(s->asfd, trbuf, TICKREQLEN) != TICKREQLEN)
+	alarm(30*1000);
+	if(write(s->asfd, trbuf, TICKREQLEN) != TICKREQLEN){
+		alarm(0);
 		return failure(fss, Easproto);
+	}
 	n = _asrdresp(s->asfd, s->chal, s->challen);
+	alarm(0);
 	if(n <= 0){
 		if(n == 0)
 			werrstr("_asrdresp short read");
