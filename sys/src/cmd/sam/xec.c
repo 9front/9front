@@ -277,6 +277,7 @@ u_cmd(File *f, Cmd *cp)
 	else
 		while(n++ && undo(FALSE))
 			;
+	moveto(f, f->dot.r);
 	return TRUE;
 }
 
