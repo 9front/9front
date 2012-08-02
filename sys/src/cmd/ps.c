@@ -93,6 +93,7 @@ ps(char *s)
 	stime = strtoul(argv[4], 0, 0)/1000;
 	rtime = strtoul(argv[5], 0, 0)/1000;
 	size  = strtoul(argv[9], 0, 0);
+
 	if(nflag){
 		snprint(nbuf, sizeof nbuf, " %8s", "?");
 		sprint(buf, "%s/noteid", s);
