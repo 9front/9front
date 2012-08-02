@@ -208,7 +208,6 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
 		eh->cksum[0] = 0;
 		eh->cksum[1] = 0;
 		hnputs(eh->cksum, ipcsum(&eh->vihl));
-		assert(bp->next == nil);
 		ifc->m->bwrite(ifc, bp, V4, gate);
 		runlock(ifc);
 		poperror();

@@ -734,7 +734,7 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 
 	switch(p->type) {
 	case EchoRequestV6:
-		r = mkechoreply6(bp, ipifc);
+		r = mkechoreply6(concatblock(bp), ipifc);
 		if(r == nil)
 			goto raise;
 		ipriv->out[EchoReply]++;
