@@ -174,7 +174,7 @@ main(int argc, char *argv[])
 
 	switch(fork()){
 	case -1:
-		fatal("can't fork");
+		fatal("can't fork: %r");
 	case 0:
 		break;
 	default:
@@ -248,18 +248,18 @@ createuser(void)
 	int fd;
 
 	user = getuser();
-	sprint(file, "/cron/%s", user);
+	snprint(file, sizeof file, "/cron/%s", user);
 	fd = create(file, OREAD, 0755|DMDIR);
 	if(fd < 0)
-		sysfatal("couldn't create %s: %r", file);
+		fatal("couldn't create %s: %r", file);
 	nulldir(&d);
 	d.gid = user;
 	dirfwstat(fd, &d);
 	close(fd);
-	sprint(file, "/cron/%s/cron", user);
+	snprint(file, sizeof file, "/cron/%s/cron", user);
 	fd = create(file, OREAD, 0644);
 	if(fd < 0)
-		sysfatal("couldn't create %s: %r", file);
+		fatal("couldn't create %s: %r", file);
 	nulldir(&d);
 	d.gid = user;
 	dirfwstat(fd, &d);
@@ -276,7 +276,7 @@ readalljobs(void)
 
 	fd = open("/cron", OREAD);
 	if(fd < 0)
-		fatal("can't open /cron\n");
+		fatal("can't open /cron: %r");
 	while((n = dirread(fd, &d)) > 0){
 		for(i = 0; i < n; i++){
 			if(strcmp(d[i].name, "log") == 0 ||
@@ -288,7 +288,7 @@ readalljobs(void)
 				continue;
 			}
 			u = newuser(d[i].name);
-			sprint(file, "/cron/%s/cron", d[i].name);
+			snprint(file, sizeof file, "/cron/%s/cron", d[i].name);
 			du = dirstat(file);
 			if(du == nil || qidcmp(u->lastqid, du->qid) != 0){
 				freejobs(u->jobs);
@@ -686,7 +686,7 @@ mkcap(char *from, char *to)
 	uchar rand[20];
 	char *cap;
 	char *key;
-	int nfrom, nto;
+	int nfrom, nto, ncap;
 	uchar hash[SHA1dlen];
 
 	if(caphashfd < 0)
@@ -695,8 +695,9 @@ mkcap(char *from, char *to)
 	/* create the capability */
 	nto = strlen(to);
 	nfrom = strlen(from);
-	cap = emalloc(nfrom+1+nto+1+sizeof(rand)*3+1);
-	sprint(cap, "%s@%s", from, to);
+	ncap = nfrom + 1 + nto + 1 + sizeof(rand)*3 + 1;
+	cap = emalloc(ncap);
+	snprint(cap, ncap, "%s@%s", from, to);
 	memrandom(rand, sizeof(rand));
 	key = cap+nfrom+1+nto+1;
 	enc64(key, sizeof(rand)*3, rand, sizeof(rand));
