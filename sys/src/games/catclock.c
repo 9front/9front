@@ -103,7 +103,8 @@ void main(int argc, char *argv[]){
 		fprint(2, "Usage: %s [-c]\n", argv0);
 		exits("usage");
 	}ARGEND
-	initdraw(0, 0, "cat clock");
+	if(initdraw(0, 0, "cat clock") < 0)
+		sysfatal("initdraw: %r");
 	einit(Emouse);
 	redraw(screen);
 	for(i=0; i<nelem(catback_bits); i++)
