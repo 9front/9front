@@ -574,14 +574,14 @@ conssim(void)
 	char *field[10];
 
 	/* a pipe to simulate the /dev/cons */
-	if(bind("#|", "/mnt/cons/cons", MREPL) < 0)
+	if(bind("#|", "/mnt/cons", MREPL) < 0)
 		fatal("/dev/cons1", 0, 0);
-	if(bind("/mnt/cons/cons/data1", "/dev/cons", MREPL) < 0)
+	if(bind("/mnt/cons/data1", "/dev/cons", MREPL) < 0)
 		fatal("/dev/cons2", 0, 0);
 
 	/* a pipe to simulate consctl */
-	if(bind("#|", "/mnt/cons/consctl", MBEFORE) < 0
-	|| bind("/mnt/cons/consctl/data1", "/dev/consctl", MREPL) < 0)
+	if(bind("#|", "/mnt/consctl", MBEFORE) < 0
+	|| bind("/mnt/consctl/data1", "/dev/consctl", MREPL) < 0)
 		fatal("/dev/consctl", 0, 0);
 
 	/* a process to read /dev/consctl and set the state in cons */
@@ -591,13 +591,13 @@ conssim(void)
 	case 0:
 		break;
 	default:
-		return open("/mnt/cons/cons/data", ORDWR);
+		return open("/mnt/cons/data", ORDWR);
 	}
 
 	for(tries = 0; tries < 100; tries++){
 		cons->raw = 0;
 		cons->hold = 0;
-		fd = open("/mnt/cons/consctl/data", OREAD);
+		fd = open("/mnt/consctl/data", OREAD);
 		if(fd < 0)
 			continue;
 		tries = 0;
