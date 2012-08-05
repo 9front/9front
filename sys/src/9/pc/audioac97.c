@@ -408,25 +408,33 @@ ac97reset(Audio *adev)
 Found:
 	adev->ctlr = ctlr;
 	ctlr->adev = adev;
-	if(p->vid == 0x1039 && p->did == 0x7012)
-		ctlr->sis7012 = 1;
 
-	if(p->mem[0].size == 64){
-		ctlr->port = p->mem[0].bar & ~3;
-		ctlr->mixport = p->mem[1].bar & ~3;
-	} else if(p->mem[1].size == 64){
-		ctlr->port = p->mem[1].bar & ~3;
-		ctlr->mixport = p->mem[0].bar & ~3;
-	} else if(p->mem[0].size == 256){			/* sis7012 */
-		ctlr->port = p->mem[1].bar & ~3;
-		ctlr->mixport = p->mem[0].bar & ~3;
-	} else if(p->mem[1].size == 256){
-		ctlr->port = p->mem[0].bar & ~3;
-		ctlr->mixport = p->mem[1].bar & ~3;
+	i = 1;
+	if(p->mem[0].size == 64)
+		i = 0;
+	else if(p->mem[1].size == 64)
+		i = 1;
+	else if(p->mem[0].size == 256)		/* sis7012 */
+		i = 1;
+	else if(p->mem[1].size == 256)
+		i = 0;
+	ctlr->port = p->mem[i].bar & ~3;
+	if(ioalloc(ctlr->port, p->mem[i].size, 0, "ac97") < 0){
+		print("ac97: ioalloc failed for port 0x%04lux\n", ctlr->port);
+		return -1;
+	}
+	i = (i+1) & 1;
+	ctlr->mixport = p->mem[i].bar & ~3;
+	if(ioalloc(ctlr->mixport, p->mem[i].size, 0, "ac97mix") < 0){
+		print("ac97: ioalloc failed for mixport 0x%04lux\n", ctlr->mixport);
+		iofree(ctlr->port);
+		return -1;
 	}
 
 	irq = p->intl;
 	tbdf = p->tbdf;
+	if(p->vid == 0x1039 && p->did == 0x7012)
+		ctlr->sis7012 = 1;
 
 	print("#A%d: ac97 port 0x%04lux mixport 0x%04lux irq %d\n",
 		adev->ctlrno, ctlr->port, ctlr->mixport, irq);
