@@ -4,12 +4,12 @@ ps, psu, pstree \- process status
 .SH SYNOPSIS
 .B ps
 [
-.B -apr
+.B -apnr
 ]
 .PP
 .B psu
 [
-.B -apr
+.B -apnr
 ]
 [
 .I user
@@ -83,6 +83,12 @@ performing the named system call.
 waiting for more of a critical
 .IR resource .
 .PD
+.PP
+The
+.B -n
+flag causes
+.I ps
+to print, after the process id, the note group to which the process belongs.
 .PP
 The
 .B -r
