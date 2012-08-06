@@ -53,13 +53,6 @@ static RMap rmapupa = {
 	&mapupa[nelem(mapupa)-1],
 };
 
-static Map xmapupa[16];
-static RMap xrmapupa = {
-	"unbacked physical memory",
-	xmapupa,
-	&xmapupa[nelem(xmapupa)-1],
-};
-
 static Map mapram[16];
 static RMap rmapram = {
 	"physical memory",
@@ -811,9 +804,9 @@ umbrwfree(ulong addr, int size)
 
 /*
  * Give out otherwise-unused physical address space
- * for use in configuring devices.  Note that unlike upamalloc
- * before it, upaalloc does not map the physical address
- * into virtual memory.  Call vmap to do that.
+ * for use in configuring devices.  Note that upaalloc
+ * does not map the physical address into virtual memory.
+ * Call vmap to do that.
  */
 ulong
 upaalloc(int size, int align)
