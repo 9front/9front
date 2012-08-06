@@ -1050,11 +1050,10 @@ pcicfginit(void)
 		pcibusmap(pciroot, &mema, &ioa, 1);
 		DBG("Sizes2: mem=%lux io=%lux\n", mema, ioa);
 
-		unlock(&pcicfginitlock);
-		return;
+		goto out;
 	}
 
-	if (!nopcirouting)
+	if(!nopcirouting)
 		pcirouting();
 
 out:
