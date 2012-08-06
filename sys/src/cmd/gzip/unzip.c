@@ -529,7 +529,7 @@ static int
 findCDir(Biobuf *bin, char *file)
 {
 	vlong ecoff;
-	long off, size, m;
+	long off, size;
 	int entries, zclen, dn, ds, de;
 
 	ecoff = Bseek(bin, -ZECHeadSize, 2);
@@ -540,11 +540,16 @@ findCDir(Biobuf *bin, char *file)
 	}
 	if(setjmp(zjmp))
 		return -1;
-
-	if((m=get4(bin)) != ZECHeader){
-		fprint(2, "unzip: bad magic number for table of contents of %s: %#.8lx\n", file, m);
-		longjmp(seekjmp, 1);
-		return -1;
+	off = 0;
+	while(get4(bin) != ZECHeader){
+		if(ecoff <= 0 || off >= 1024){
+			fprint(2, "unzip: cannot find end of table of contents in %s\n", file);
+			longjmp(seekjmp, 1);
+			return -1;
+		}
+		off++;
+		ecoff--;
+		Bseek(bin, ecoff, 0);
 	}
 	dn = get2(bin);
 	ds = get2(bin);

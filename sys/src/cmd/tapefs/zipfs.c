@@ -189,10 +189,14 @@ findCDir(Biobuf *bin)
 	ecoff = Bseek(bin, -ZECHeadSize, 2);
 	if(ecoff < 0)
 		sysfatal("can't seek to header");
-
-	if(get4(bin) != ZECHeader)
-		sysfatal("bad magic number on directory");
-
+	off = 0;
+	while(get4(bin) != ZECHeader){
+		if(ecoff <= 0 || off >= 1024)
+			sysfatal("bad magic number");
+		off++;
+		ecoff--;
+		Bseek(bin, ecoff, 0);
+	}
 	get2(bin);
 	get2(bin);
 	get2(bin);
