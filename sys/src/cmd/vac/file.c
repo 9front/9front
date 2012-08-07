@@ -1592,6 +1592,11 @@ vacfilesetdir(VacFile *f, VacDir *dir)
 		f->dir.gid = vtstrdup(dir->gid);
 	}
 
+	if(strcmp(f->dir.mid, dir->mid) != 0){
+		vtfree(f->dir.mid);
+		f->dir.mid = vtstrdup(dir->mid);
+	}
+
 	f->dir.mtime = dir->mtime;
 	f->dir.atime = dir->atime;
 
@@ -1774,7 +1779,7 @@ vacfsopen(VtConn *z, char *file, int mode, int ncache)
 	char *prefix;
 	
 	if(vtparsescore(file, &prefix, score) >= 0){
-		if(strcmp(prefix, "vac") != 0){
+		if(prefix == nil || strcmp(prefix, "vac") != 0){
 			werrstr("not a vac file");
 			return nil;
 		}
