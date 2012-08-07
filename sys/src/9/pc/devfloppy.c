@@ -134,6 +134,8 @@ static Cmdtab floppyctlmsg[] =
 	CMreset,	"reset",	1,
 };
 
+static	char	Echange[]	= "media or partition has changed";
+
 static void
 fldump(void)
 {
@@ -149,12 +151,14 @@ floppysetdef(FDrive *dp)
 {
 	FType *t;
 
+	dp->t = floppytype;
 	for(t = floppytype; t < &floppytype[nelem(floppytype)]; t++)
 		if(dp->dt == t->dt){
 			dp->t = t;
-			floppydir[1+NFDIR*dp->dev].length = dp->t->cap;
 			break;
 		}
+	floppydir[1+NFDIR*dp->dev].length = dp->t->cap;
+	dp->dt = dp->t->dt;
 }
 
 static void
@@ -323,21 +327,21 @@ changed(Chan *c, FDrive *dp)
 				nexterror();
 
 			while(++dp->t){
-				if(dp->t == &floppytype[nelem(floppytype)])
+				if(dp->t >= &floppytype[nelem(floppytype)])
 					dp->t = floppytype;
-				if(dp->dt == dp->t->dt)
+				if(dp->t == start || dp->dt == dp->t->dt)
 					break;
 			}
 			floppydir[1+NFDIR*dp->dev].length = dp->t->cap;
 
 			/* floppyon will fail if there's a controller but no drive */
 			if(floppyon(dp) < 0)
-				error(Eio);
+				nexterror();
+			if(dp->t == start)
+				nexterror();
 
 			DPRINT("changed: trying %s\n", dp->t->name);
 			fldump();
-			if(dp->t == start)
-				nexterror();
 		}
 
 		/* if the read succeeds, we've got the density right */
@@ -349,7 +353,7 @@ changed(Chan *c, FDrive *dp)
 	old = c->qid.vers;
 	c->qid.vers = dp->vers;
 	if(old && old != dp->vers)
-		error(Eio);
+		error(Echange);
 }
 
 static int
