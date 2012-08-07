@@ -78,7 +78,7 @@ threadmain(int argc, char **argv)
 	doream = 0;
 	stdio = 0;
 	flags = FSNOAUTH;
-	service = "fs";
+	service = "hjfs";
 	file = nil;
 	nbuf = 10;
 	ARGBEGIN {

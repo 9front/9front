@@ -24,6 +24,7 @@ sleep 1
 
 k=`{ls /srv/kfs*cmd >[2]/dev/null|sort -r}
 c=`{ls /srv/cwfs*cmd >[2]/dev/null}
+h=`{ls /srv/hjfs*cmd >[2]/dev/null}
 
 for (i in $k){
 	echo -n $i... 
@@ -78,6 +79,11 @@ fn x {
 	}
 	for (i in $c){
 		echo -n $i...
+		echo halt >>$i
+		sleep 2
+	}
+	for(i in $h){
+		echo -n $i
 		echo halt >>$i
 		sleep 2
 	}
