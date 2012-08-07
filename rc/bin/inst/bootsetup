@@ -37,7 +37,7 @@ case go
 			bootfile=9pcf
 		@{
 			echo 'bootfile='^$bootfile
-			echo 'bootargs=local!'^$fs
+			echo 'bootargs=local!'^$fs^$fsflags
 			if(~ $#nvram 1)
 				echo 'nvram='^$nvram
 			echo 'mouseport='^$mouseport

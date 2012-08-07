@@ -24,6 +24,7 @@ $objtype
 		mntgen
 		mount
 		mv
+		hjfs
 		rc
 		rm
 		sed

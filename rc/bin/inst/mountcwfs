@@ -22,6 +22,8 @@ case go
 	prompt $default 'Cwfs cache partition' $files
 	fs=$rd
 	export fs
+	fsflags=
+	export fsflags
 
 	files=(`{ls /dev/sd*/fsworm* /dev/fs/fsworm* >[2]/dev/null})
 	if(! ~ $#files 0)
