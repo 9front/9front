@@ -21,8 +21,7 @@ static int
 walkpath(Chan *ch, char *path, char **cr)
 {
 	char buf[NAMELEN], *p, *fp;
-	
-	buf[NAMELEN - 1] = 0;
+
 	fp = path;
 	if(*path != '/'){
 	noent:
@@ -51,6 +50,7 @@ walkpath(Chan *ch, char *path, char **cr)
 			break;
 		if(p - path >= NAMELEN)
 			goto noent;
+		memset(buf, 0, sizeof buf);
 		memcpy(buf, path, p - path);
 		if(chanwalk(ch, buf) <= 0){
 			werrstr("%s: %r", fp);

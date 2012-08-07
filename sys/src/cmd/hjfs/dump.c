@@ -115,6 +115,8 @@ again:
 		runlock(fs);
 		wlock(fs);
 	}
+	if(l->next != nil && willmodify(fs, l->next, 1) < 0)
+		goto err;
 	rc = chref(fs, l->blk, 0);
 	if(rc < 0)
 		goto err;
@@ -125,8 +127,7 @@ again:
 	}
 	if(rc == 1)
 		goto done;
-	if(willmodify(fs, l->next, 1) < 0)
-		goto err;
+
 	p = getbuf(fs->d, l->next->blk, TDENTRY, 0);
 	if(p == nil)
 		goto err;

@@ -387,7 +387,10 @@ putloc(Fs *fs, Loc *l, int loop)
 	Buf *b;
 
 	qlock(&fs->loctree);
+	if(!loop && --l->ref <= 0)
+		goto freeit;
 	while(loop && l != nil && l->ref <= 1){
+freeit:
 		if((l->flags & LGONE) != 0){
 			b = getbuf(fs->d, l->blk, TDENTRY, 0);
 			if(b != nil){
@@ -558,12 +561,14 @@ getblk(Fs *fs, FLoc *L, Buf *bd, uvlong blk, uvlong *r, int mode)
 				return -1;
 			memset(b->offs, 0, sizeof(b->offs));
 		}else{
-			if(mode != GBREAD && chref(fs, *loc, 0) > 1)
+			if(mode != GBREAD && chref(fs, *loc, 0) > 1){
 				if(dumpblk(fs, L, loc) < 0){
 					if(b != bd)
 						putbuf(b);
 					return -1;
 				}
+				b->op |= BDELWRI;
+			}
 			k = *loc;
 			if(b != bd)
 				putbuf(b);
