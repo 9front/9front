@@ -15,8 +15,7 @@
 extern Dev sddevtab;
 extern SDifc* sdifc[];
 
-static	char	Echange[]	= "media or partition has changed";
-static	char	Enoata[]		= "raw ata commands not supported";
+static	char	Enoata[]	= "raw ata commands not supported";
 static	char	Enoscsi[]	= "raw scsi commands not supported";
 
 static char devletters[] = "0123456789"

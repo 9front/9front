@@ -241,7 +241,6 @@ static	int	debug;
 static	int	autodiscover	= 1;
 static	int	rediscover;
 extern	char 	Enotup[] 	= "aoe device is down";
-extern	char	Echange[]	= "media or partition has changed";
 
 static Srb*
 srballoc(ulong sz)

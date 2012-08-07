@@ -134,8 +134,6 @@ static Cmdtab floppyctlmsg[] =
 	CMreset,	"reset",	1,
 };
 
-static	char	Echange[]	= "media or partition has changed";
-
 static void
 fldump(void)
 {
