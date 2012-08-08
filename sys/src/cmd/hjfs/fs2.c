@@ -111,7 +111,7 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 		chend(ch);
 		return -1;
 	}
-	if(!namevalid || ch->open != 0){
+	if(!namevalid(name) || ch->open != 0){
 		werrstr(Einval);
 		chend(ch);
 		return -1;
@@ -520,6 +520,7 @@ chandirread(Chan *ch, void *buf, ulong n, uvlong off)
 		free(di.uid);
 		free(di.gid);
 		free(di.muid);
+		free(di.name);
 		if(rc <= BIT16SZ)
 			break;
 		wr += rc;

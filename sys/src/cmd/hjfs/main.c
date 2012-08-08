@@ -13,6 +13,8 @@ char Eperm[] = "permission denied";
 char Eexists[] = "file exists";
 char Elocked[] = "file locked";
 
+int mainstacksize = 65536;
+
 void*
 emalloc(int c)
 {

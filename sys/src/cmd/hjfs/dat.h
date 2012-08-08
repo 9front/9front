@@ -185,6 +185,9 @@ enum {
 	CHFDUMP = 1,
 	CHFNOLOCK = 2,
 	CHFRO = 4,
+	
+	CHWBUSY = 1,
+	CHWCLUNK = 2,
 };
 
 
@@ -203,6 +206,7 @@ struct Chan {
 	/* workers */
 	void *freq, *lreq;
 	Chan *qnext, *qprev;
+	int wflags;
 };
 
 extern QLock chanqu;

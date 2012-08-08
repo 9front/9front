@@ -76,15 +76,15 @@ tqueue(Req *req)
 	if(ch->lreq != nil)
 		((Req *) ch->lreq)->aux = req;
 	ch->lreq = req;
-	if(ch->qnext == nil){
+	if(ch->qnext == nil && (ch->wflags & CHWBUSY) == 0){
 		ch->qnext = &readych;
 		ch->qprev = ch->qnext->qprev;
 		ch->qnext->qprev = ch;
 		ch->qprev->qnext = ch;
+		rwakeup(&chanre);
 	}
 	if(req->ifcall.type == Tremove)
 		req->fid->aux = nil;
-	rwakeup(&chanre);
 	qunlock(&chanqu);
 }
 
@@ -100,9 +100,17 @@ tdestroyfid(Fid *fid)
 	qlock(&chanqu);
 	ch = fid->aux;
 	fid->aux = nil;
+	if(ch != nil){
+		ch->wflags |= CHWCLUNK;
+		if(ch->qnext == nil && (ch->wflags & CHWBUSY) == 0){
+			ch->qnext = &readych;
+			ch->qprev = ch->qnext->qprev;
+			ch->qnext->qprev = ch;
+			ch->qprev->qnext = ch;
+			rwakeup(&chanre);
+		}
+	}
 	qunlock(&chanqu);
-	if(ch != nil)
-		chanclunk(ch);
 }
 
 static void
@@ -137,31 +145,29 @@ start9p(char *service, int stdio)
 		threadpostmountsrv(&mysrv, service, nil, 0);
 }
 
-static char *
-tclone(Fid *old, Fid *new, void *)
+static int
+twalk(Chan *ch, Fid *fid, Fid *nfid, int n, char **name, Qid *qid)
 {
-	Chan *ch;
-	
-	ch = old->aux;
-	if(ch->open != 0)
-		return "trying to clone an open fid";
-	new->aux = chanclone(ch);
-	return nil;
-}
+	int i;
 
-static char *
-twalk(Fid *fid, char *name, void *)
-{
-	Chan *ch;
-	char buf[ERRMAX];
-	
-	ch = fid->aux;
-	if(chanwalk(ch, name) < 0){
-		rerrstr(buf, ERRMAX);
-		return strdup(buf);
+	if(nfid != fid){
+		if(ch->open != 0){
+			werrstr("trying to clone an open fid");
+			return -1;
+		}
+		ch = chanclone(ch);
+		if(ch == nil)
+			return -1;
+		nfid->aux = ch;
+		nfid->qid = ch->loc->Qid;
 	}
-	fid->qid = ch->loc->Qid;
-	return nil;
+	for(i = 0; i < n; i++){
+		if(chanwalk(ch, name[i]) <= 0)
+			return i > 0 ? i : -1;
+		qid[i] = ch->loc->Qid;
+		nfid->qid = ch->loc->Qid;
+	}
+	return n;
 }
 
 static void
@@ -181,6 +187,8 @@ workerproc(void *)
 		ch->qprev->qnext = ch->qnext;
 		ch->qprev = nil;
 		ch->qnext = nil;
+		assert((ch->wflags & CHWBUSY) == 0);
+		ch->wflags |= CHWBUSY;
 		while(ch != nil && ch->freq != nil){
 			req = ch->freq;
 			ch->freq = req->aux;
@@ -188,12 +196,15 @@ workerproc(void *)
 				ch->lreq = nil;
 			req->aux = nil;
 			qunlock(&chanqu);
+			assert(req->responded == 0);
 			i = &req->ifcall;
 			o = &req->ofcall;
 			switch(req->ifcall.type){
 			case Twalk:
-				walkandclone(req, twalk, tclone, nil);
-				goto noret;
+				rc = twalk(ch, req->fid, req->newfid, i->nwname, i->wname, o->wqid);
+				if(rc >= 0)
+					o->nwqid = rc;
+				break;
 			case Topen:
 				rc = chanopen(ch, i->mode);
 				break;
@@ -228,8 +239,12 @@ workerproc(void *)
 				responderror(req);
 			else
 				respond(req, nil);
-		noret:
 			qlock(&chanqu);
+		}
+		if(ch != nil){
+			ch->wflags &= ~CHWBUSY;
+			if((ch->wflags & CHWCLUNK) != 0)
+				chanclunk(ch);
 		}
 	}
 }

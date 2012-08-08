@@ -191,7 +191,7 @@ userssave(Fs *fs, Chan *ch)
 {
 	User *u, *v;
 	int nu, i;
-	char buf[512], *p, *e;
+	char buf[512], *p, *e, *s;
 	uvlong off;
 	
 	rlock(&fs->udatal);
@@ -206,8 +206,11 @@ userssave(Fs *fs, Chan *ch)
 		p = buf;
 		e = buf + sizeof(buf);
 		p = seprint(p, e, "%d:%s:", v->uid, v->name);
-		if(v->lead != NOUID)
-			p = strecpy(p, e, uid2name(fs, v->lead));
+		if(v->lead != NOUID){
+			s = uid2name(fs, v->lead);
+			p = strecpy(p, e, s);
+			free(s);
+		}
 		if(p < e)
 			*p++ = ':';
 		for(i = 0; i < v->nmemb; i++){
@@ -215,7 +218,9 @@ userssave(Fs *fs, Chan *ch)
 				continue;
 			if(p < e && i > 0)
 				*p++ = ',';
-			p = strecpy(p, e, uid2name(fs, v->memb[i]));
+			s = uid2name(fs, v->memb[i]);
+			p = strecpy(p, e, s);
+			free(s);
 		}
 		*p++ = '\n';
 		if(ch == nil)
