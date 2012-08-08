@@ -1,10 +1,10 @@
 none:VQ:
 	echo usage: mk all, install, installall, cmd, cmd.install, lib, lib.install
 
-all:V:
-	mk lib.all
-	mk cmd.all
-	mk 9src.all
+all clean nuke install installall:V:
+	mk lib.$target
+	mk cmd.$target
+	mk 9src.$target
 
 lib.%:V:
 	cd lib
@@ -27,8 +27,3 @@ cmd.%:V:
 9src.%:V:
 	cd 9src
 	mk $stem
-
-&:V:
-	mk lib.$stem
-	mk cmd.$stem
-	mk 9src.$stem
