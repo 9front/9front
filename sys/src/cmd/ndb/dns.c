@@ -274,7 +274,17 @@ mountinit(char *service, char *mntpt)
 	char buf[32];
 
 	if(pipe(p) < 0)
-		abort(); /* "pipe failed" */;
+		sysfatal("pipe failed: %r");
+
+	/*
+	 *  make a /srv/dns
+	 */
+	if((f = create(service, OWRITE|ORCLOSE, 0666)) < 0)
+		sysfatal("create %s failed: %r", service);
+	snprint(buf, sizeof buf, "%d", p[1]);
+	if(write(f, buf, strlen(buf)) != strlen(buf))
+		sysfatal("write %s failed: %r", service);
+
 	/* copy namespace to avoid a deadlock */
 	switch(rfork(RFFDG|RFPROC|RFNAMEG)){
 	case 0:			/* child: hang around and (re)start main proc */
@@ -282,20 +292,9 @@ mountinit(char *service, char *mntpt)
 		procsetname("%s restarter", mntpt);
 		break;
 	case -1:
-		abort(); /* "fork failed\n" */;
+		sysfatal("fork failed: %r");
 	default:		/* parent: make /srv/dns, mount it, exit */
 		close(p[0]);
-
-		/*
-		 *  make a /srv/dns
-		 */
-		f = create(service, 1, 0666);
-		if(f < 0)
-			abort(); /* service */;
-		snprint(buf, sizeof buf, "%d", p[1]);
-		if(write(f, buf, strlen(buf)) != strlen(buf))
-			abort(); /* "write %s", service */;
-		close(f);
 
 		/*
 		 *  put ourselves into the file system

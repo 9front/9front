@@ -288,8 +288,12 @@ udpannounce(char *mntpt)
 	}
 
 	/* turn on header style interface */
-	if(write(ctl, hmsg, strlen(hmsg)) != strlen(hmsg))
-		abort();			/* hmsg */
+	if(write(ctl, hmsg, strlen(hmsg)) != strlen(hmsg)){
+		close(ctl);
+		if(!whined++)
+			warning("can't enable headers on %s", datafile);
+		return -1;
+	}
 
 	snprint(datafile, sizeof(datafile), "%s/data", dir);
 	data = open(datafile, ORDWR);
