@@ -270,6 +270,7 @@ initfs(Dev *d, int doream, int flags)
 	if(doream)
 		writeusers(fs);
 	readusers(fs);
+	dprint("hjfs: fs is %s\n", d->name);
 	return fs;
 
 error:
@@ -418,22 +419,7 @@ freeit:
 }
 
 static int
-isopen(Fs *fs, FLoc *p, uvlong blk, int deind)
-{
-	Loc *l;
-
-	qlock(&fs->loctree);
-	for(l = fs->rootloc->gnext; l != fs->rootloc; l = l->gnext)
-		if(l->blk == blk && l->deind == deind && l->next->blk == p->blk && l->next->deind == p->deind){
-			qunlock(&fs->loctree);
-			return 1;
-		}
-	qunlock(&fs->loctree);
-	return 0;
-}
-
-static int
-dumpblk(Fs *fs, FLoc *p, uvlong *l)
+dumpblk(Fs *fs, FLoc *, uvlong *l)
 {
 	uvlong n;
 	int i;
@@ -466,8 +452,6 @@ dumpblk(Fs *fs, FLoc *p, uvlong *l)
 	case TDENTRY:
 		memcpy(c->de, b->de, sizeof(b->de));
 		for(d = b->de; d < &b->de[DEPERBLK]; d++){
-			if((d->mode & DGONE) != 0 && !isopen(fs, p, *l, d - b->de))
-				memset(d, 0, sizeof(Dentry));
 			if((d->mode & DALLOC) == 0)
 				continue;
 			if((d->type & QTTMP) != 0)

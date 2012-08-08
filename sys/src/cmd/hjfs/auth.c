@@ -7,11 +7,9 @@
 typedef struct User User;
 typedef struct PUser PUser;
 
-enum { USERMAX = 64 };
-
 struct User {
 	short uid;
-	char name[USERMAX];
+	char name[USERLEN];
 	short lead;
 	int nmemb;
 	short *memb;
@@ -19,10 +17,10 @@ struct User {
 
 struct PUser {
 	short uid;
-	char name[USERMAX];
-	char lead[USERMAX];
+	char name[USERLEN];
+	char lead[USERLEN];
 	int nmemb;
-	char (*memb)[USERMAX];
+	char (*memb)[USERLEN];
 };
 
 User udef[] = {
@@ -47,7 +45,7 @@ validuser(char *n)
 	for(p = n; *p != 0; p++)
 		if((uchar) *p < ' ' || strchr("?=+-/:", *p) != nil)
 			return 0;
-	return n - p < USERMAX;
+	return n - p < USERLEN;
 }
 
 static void
@@ -80,7 +78,7 @@ usersparseline(char *l, PUser **u, int *nu)
 			free(v.memb);
 			return;
 		}
-		v.memb = realloc(v.memb, (v.nmemb + 1) * USERMAX);
+		v.memb = realloc(v.memb, (v.nmemb + 1) * USERLEN);
 		strcpy(v.memb[v.nmemb++], r);
 		if(s == nil)
 			r = nil;
@@ -191,7 +189,7 @@ userssave(Fs *fs, Chan *ch)
 {
 	User *u, *v;
 	int nu, i;
-	char buf[512], *p, *e, *s;
+	char buf[512], ubuf[USERLEN], *p, *e;
 	uvlong off;
 	
 	rlock(&fs->udatal);
@@ -206,11 +204,8 @@ userssave(Fs *fs, Chan *ch)
 		p = buf;
 		e = buf + sizeof(buf);
 		p = seprint(p, e, "%d:%s:", v->uid, v->name);
-		if(v->lead != NOUID){
-			s = uid2name(fs, v->lead);
-			p = strecpy(p, e, s);
-			free(s);
-		}
+		if(v->lead != NOUID)
+			p = strecpy(p, e, uid2name(fs, v->lead, ubuf));
 		if(p < e)
 			*p++ = ':';
 		for(i = 0; i < v->nmemb; i++){
@@ -218,9 +213,7 @@ userssave(Fs *fs, Chan *ch)
 				continue;
 			if(p < e && i > 0)
 				*p++ = ',';
-			s = uid2name(fs, v->memb[i]);
-			p = strecpy(p, e, s);
-			free(s);
+			p = strecpy(p, e, uid2name(fs, v->memb[i], ubuf));
 		}
 		*p++ = '\n';
 		if(ch == nil)
@@ -326,19 +319,20 @@ permcheck(Fs *fs, Dentry *d, short uid, int mode)
 }
 
 char *
-uid2name(Fs *fs, short uid)
+uid2name(Fs *fs, short uid, char *buf)
 {
 	User *u;
-	char *s;
 	
 	rlock(&fs->udatal);
 	u = lookupuid(fs, uid);
+	if(buf == nil)
+		buf = emalloc(USERLEN);
 	if(u == nil)
-		s = smprint("%d", uid);
+		snprint(buf, USERLEN, "%d", uid);
 	else
-		s = strdup(u->name);
+		snprint(buf, USERLEN, "%s", u->name);
 	runlock(&fs->udatal);
-	return s;
+	return buf;
 }
 
 int
@@ -405,7 +399,7 @@ createuserdir(Fs *fs, char *name, short uid)
 		goto direrr2;
 	d = &c->de[f.deind];
 	memset(d, 0, sizeof(Dentry));
-	strcpy(d->name, name);
+	strncpy(d->name, name, NAMELEN - 1);
 	d->uid = uid;
 	d->muid = uid;
 	d->gid = uid;
@@ -508,6 +502,6 @@ found:
 	wunlock(&fs->udatal);
 	writeusers(fs);
 	if(createdir)
-		createuserdir(fs, argv[2], uid);
+		createuserdir(fs, argv[1], uid);
 	return 1;
 }

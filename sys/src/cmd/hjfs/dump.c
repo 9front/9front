@@ -50,6 +50,15 @@ copydentry(Fs *fs, FLoc *a, Loc *b, char *nname)
 	return 0;
 }
 
+static void
+resetldumped(Fs *fs)
+{
+	Loc *l;
+	
+	for(l = fs->rootloc->gnext; l != fs->rootloc; l = l->gnext)
+		l->flags &= ~LDUMPED;
+}
+
 int
 fsdump(Fs *fs)
 {
@@ -94,6 +103,7 @@ fsdump(Fs *fs)
 	putbuf(b);
 	rc = copydentry(fs, fs->rootloc, ch->loc, buf);
 	chanclunk(ch);
+	resetldumped(fs);
 	wunlock(fs);
 	return rc;
 err:
@@ -110,6 +120,8 @@ willmodify(Fs *fs, Loc *l, int nolock)
 	Dentry *d;
 	int rc;
 
+	if((l->flags & LDUMPED) != 0)
+		return 1;
 	if(!nolock){
 again:
 		runlock(fs);
@@ -154,6 +166,7 @@ found:
 	putbuf(p);
 	l->blk = r;
 done:
+	l->flags |= LDUMPED;
 	if(!nolock){
 		wunlock(fs);
 		rlock(fs);

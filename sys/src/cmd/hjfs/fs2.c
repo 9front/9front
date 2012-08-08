@@ -429,7 +429,7 @@ error:
 }
 
 static void
-statbuf(Fs *fs, Dentry *d, Dir *di)
+statbuf(Fs *fs, Dentry *d, Dir *di, char *buf)
 {
 	di->qid = d->Qid;
 	di->mode = (d->mode & 0777) | (d->Qid.type << 24);
@@ -438,10 +438,19 @@ statbuf(Fs *fs, Dentry *d, Dir *di)
 	di->length = d->size;
 	if(d->type & QTDIR)
 		di->length = 0;
-	di->name = strdup(d->name);
-	di->uid = uid2name(fs, d->uid);
-	di->gid = uid2name(fs, d->gid);
-	di->muid = uid2name(fs, d->muid);
+	if(buf == nil){
+		di->name = strdup(d->name);
+		di->uid = uid2name(fs, d->uid, nil);
+		di->gid = uid2name(fs, d->gid, nil);
+		di->muid = uid2name(fs, d->muid, nil);
+	}else{
+		memset(buf, 0, NAMELEN + 3 * USERLEN);
+		strncpy(buf, d->name, NAMELEN - 1);
+		di->name = buf;
+		di->uid = uid2name(fs, d->uid, buf + NAMELEN);
+		di->gid = uid2name(fs, d->gid, buf + NAMELEN + USERLEN);
+		di->muid = uid2name(fs, d->muid, buf + NAMELEN + 2 * USERLEN);
+	}
 }
 
 int
@@ -455,7 +464,7 @@ chanstat(Chan *ch, Dir *di)
 		chend(ch);
 		return -1;
 	}
-	statbuf(ch->fs, &b->de[ch->loc->deind], di);
+	statbuf(ch->fs, &b->de[ch->loc->deind], di, nil);
 	putbuf(b);
 	chend(ch);
 	return 0;
@@ -471,6 +480,7 @@ chandirread(Chan *ch, void *buf, ulong n, uvlong off)
 	int rc;
 	ulong wr;
 	Dir di;
+	char cbuf[NAMELEN + 3 * USERLEN];
 
 	if(off == 0){
 		ch->dwloff = 0;
@@ -515,12 +525,8 @@ chandirread(Chan *ch, void *buf, ulong n, uvlong off)
 			goto next;
 		if((ch->flags & CHFDUMP) != 0 && (c->de[j].type & QTTMP) != 0)
 			goto next;
-		statbuf(ch->fs, &c->de[j], &di);
+		statbuf(ch->fs, &c->de[j], &di, cbuf);
 		rc = convD2M(&di, (uchar *) buf + wr, n - wr);
-		free(di.uid);
-		free(di.gid);
-		free(di.muid);
-		free(di.name);
 		if(rc <= BIT16SZ)
 			break;
 		wr += rc;

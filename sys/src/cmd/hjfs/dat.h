@@ -21,6 +21,7 @@ enum {
 	EXCLDUR = 300,
 
 	NOUID = (short)0x8000,
+	USERLEN = 64,
 };
 
 typedef struct Fs Fs;
@@ -143,6 +144,7 @@ struct FLoc {
 
 enum {
 	LGONE = 1,
+	LDUMPED = 2,
 };
 
 struct Loc {

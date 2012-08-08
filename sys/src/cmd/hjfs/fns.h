@@ -20,7 +20,7 @@ int	chanread(Chan *, void *, ulong, uvlong);
 int	chanstat(Chan *, Dir *);
 int	chanwstat(Chan *, Dir *);
 int	permcheck(Fs *, Dentry *, short, int);
-char *	uid2name(Fs *, short);
+char *	uid2name(Fs *, short, char *);
 int	name2uid(Fs *, char *, short *);
 void	start9p(char *, int);
 int	chanclunk(Chan *);

@@ -107,7 +107,7 @@ int
 cmdnoauth(int, char **)
 {
 	fsmain->flags ^= FSNOAUTH;
-	if((fsmain->flags & FSNOAUTH) != 0)
+	if((fsmain->flags & FSNOAUTH) == 0)
 		dprint("hjfs: auth enabled\n");
 	else
 		dprint("hjfs: auth disabled\n");
