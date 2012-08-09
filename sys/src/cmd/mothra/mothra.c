@@ -236,6 +236,17 @@ void donecurs(void){
 		esetcursor(0);
 }
 
+void drawlock(int dolock){
+	static int ref = 0;
+	if(dolock){
+		if(ref++ == 0)
+			lockdisplay(display);
+	} else {
+		if(--ref == 0)
+			unlockdisplay(display);
+	}
+}
+
 void scrollto(char *tag);
 extern char *mtpt; /* url */
 
@@ -315,7 +326,7 @@ void main(int argc, char *argv[]){
 
 	unlockdisplay(display);
 	eresized(0);
-	lockdisplay(display);
+	drawlock(1);
 
 	if(url && url[0])
 		geturl(url, -1, 1, 0);
@@ -336,9 +347,9 @@ void main(int argc, char *argv[]){
 		}
 
 		flushimage(display, 1);
-		unlockdisplay(display);
+		drawlock(0);
 		i=event(&e);
-		lockdisplay(display);
+		drawlock(1);
 
 		switch(i){
 		case Ekick:
@@ -441,7 +452,7 @@ void htmlerror(char *name, int line, char *m, ...){
 void eresized(int new){
 	Rectangle r;
 
-	lockdisplay(display);
+	drawlock(1);
 	if(new && getwindow(display, Refnone) == -1) {
 		fprint(2, "getwindow: %r\n");
 		exits("getwindow");
@@ -451,7 +462,8 @@ void eresized(int new){
 	plpack(alt, r);
 	draw(screen, r, display->white, 0, ZP);
 	pldraw(root, screen);
-	unlockdisplay(display);
+	flushimage(display, 1);
+	drawlock(0);
 }
 void *emalloc(int n){
 	void *v;
@@ -611,7 +623,7 @@ void docmd(Panel *p, char *s){
 		geturl(s, -1, 0, 0);
 	else switch(c = s[0]){
 	default:
-		message("Unknown command %s, type h for help", s);
+		message("Unknown command %s", s);
 		break;
 	case 'a':
 		s = arg(s);
@@ -885,9 +897,9 @@ void geturl(char *urlname, int post, int plumb, int map){
 			if(i >= NWWW){
 				/* wait for the reader to finish the document */
 				while(!w->finished && !w->alldone){
-					unlockdisplay(display);
+					drawlock(0);
 					sleep(10);
-					lockdisplay(display);
+					drawlock(1);
 				}
 				freetext(w->text);
 				freeform(w->form);
