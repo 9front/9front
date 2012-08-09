@@ -116,6 +116,7 @@ Cursor reading = {
 	 0x00, 0x00, 0x01, 0xb6, 0x01, 0xb6, 0x00, 0x00, }
 };
 
+void showpage1(Page *);
 void showpage(Page *);
 void drawpage(Page *);
 Point pagesize(Page *);
@@ -149,7 +150,7 @@ addpage(Page *up, char *label, int (*popen)(Page *), void *pdata, int fd)
 	qunlock(&pagelock);
 
 	if(up && current == up)
-		showpage(p);
+		showpage1(p);
 	return p;
 }
 
@@ -817,7 +818,8 @@ loadpage(Page *p)
 	int fd;
 
 	if(p->open && p->image == nil){
-		if((fd = openpage(p)) >= 0){
+		fd = openpage(p);
+		if(fd >= 0){
 			pagegen++;
 			if((p->image = readimage(display, fd, 1)) == nil)
 				fprint(2, "readimage: %r\n");
@@ -881,10 +883,11 @@ loadpages(Page *p, int ahead, int oviewgen)
 				if(size.x && size.y && newwin){
 					newwin = 0;
 					resizewin(size);
+				} else {
+					lockdisplay(display);
+					drawpage(p);
+					unlockdisplay(display);
 				}
-				lockdisplay(display);
-				drawpage(p);
-				unlockdisplay(display);
 			}
 			qunlock(p);
 		}
@@ -1125,8 +1128,13 @@ cmdmenugen(int i)
 	return cmds[i].m;
 }
 
+/*
+ * spawn new proc to load a run of pages starting with p
+ * the display should *not* be locked as it gets called
+ * from recursive page load.
+ */
 void
-showpage(Page *p)
+showpage1(Page *p)
 {
 	static int nproc;
 	int oviewgen;
@@ -1146,6 +1154,28 @@ showpage(Page *p)
 		loadpages(p, NAHEAD, oviewgen);
 		exits(nil);
 	}
+}
+
+/* recursive display lock, called from main proc only */
+void
+drawlock(int dolock){
+	static int ref = 0;
+	if(dolock){
+		if(ref++ == 0)
+			lockdisplay(display);
+	} else {
+		if(--ref == 0)
+			unlockdisplay(display);
+	}
+}
+
+
+void
+showpage(Page *p)
+{
+	drawlock(0);
+	showpage1(p);
+	drawlock(1);
 }
 
 void
@@ -1178,7 +1208,7 @@ zerox(Page *p)
 
 	if(p == nil)
 		return;
-	esetcursor(&reading);
+	drawlock(0);
 	qlock(p);
 	if((fd = openpage(p)) < 0)
 		goto Out;
@@ -1194,7 +1224,7 @@ zerox(Page *p)
 	close(fd);
 Out:
 	qunlock(p);
-	esetcursor(nil);
+	drawlock(1);
 }
 
 void
@@ -1213,6 +1243,7 @@ showext(Page *p)
 		ps.y += 24;
 	} else
 		ps = subpt(screen->r.max, screen->r.min);
+	drawlock(0);
 	if((fd = p->fd) < 0){
 		if(p->open != popenfile)
 			return;
@@ -1238,14 +1269,16 @@ showext(Page *p)
 		exits(0);
 	}
 	close(fd);
+	drawlock(1);
 }
+
 
 void
 eresized(int new)
 {
 	Page *p;
 
-	lockdisplay(display);
+	drawlock(1);
 	if(new && getwindow(display, Refnone) == -1)
 		sysfatal("getwindow: %r");
 	if(p = current){
@@ -1254,7 +1287,7 @@ eresized(int new)
 			qunlock(p);
 		}
 	}
-	unlockdisplay(display);
+	drawlock(0);
 }
 
 int cohort = -1;
@@ -1279,7 +1312,7 @@ usage(void)
 	exits("usage");
 }
 
-int
+void
 docmd(int i, Mouse *m)
 {
 	char buf[NPATH], *s;
@@ -1294,11 +1327,11 @@ docmd(int i, Mouse *m)
 		rotate = 0;
 	Unload:
 		viewgen++;
-		unlockdisplay(display);
-		esetcursor(&reading);
+		drawlock(0);
 		unloadpages(0);
-		showpage(current);
-		return 0;
+		showpage1(current);
+		drawlock(1);
+		break;
 	case Cupsidedown:
 		rotate += 90;
 	case Crotate90:
@@ -1320,7 +1353,7 @@ docmd(int i, Mouse *m)
 	case Czoomin:
 	case Czoomout:
 		if(current == nil || !canqlock(current))
-			return 1;
+			break;
 		o = subpt(m->xy, screen->r.min);
 		if(i == Czoomin){
 			if(zoom < 0x40000000){
@@ -1335,10 +1368,10 @@ docmd(int i, Mouse *m)
 		}
 		drawpage(current);
 		qunlock(current);
-		return 1;
+		break;
 	case Cwrite:
 		if(current == nil || !canqlock(current))
-			return 1;
+			break;
 		if(current->image){
 			s = nil;
 			if(current->up && current->up != root)
@@ -1360,29 +1393,25 @@ docmd(int i, Mouse *m)
 			}
 		}
 		qunlock(current);
-		return 1;
+		break;
 	case Cext:
 		if(current == nil || !canqlock(current))
-			return 1;
+			break;
 		showext(current);
 		qunlock(current);
-		return 1;
+		break;
 	case Cnext:
-		unlockdisplay(display);
 		shownext();
-		return 0;
+		break;
 	case Cprev:
-		unlockdisplay(display);
 		showprev();
-		return 0;
+		break;
 	case Czerox:
-		unlockdisplay(display);
 		zerox(current);
-		return 0;
+		break;
 	case Cquit:
 		exits(0);
 	}
-	return 1;
 }
 
 void
@@ -1445,23 +1474,26 @@ main(int argc, char *argv[])
 	ground = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x777777FF);
 	display->locking = 1;
 	unlockdisplay(display);
+	drawlock(1);
+
 	einit(Ekeyboard|Emouse);
 	eplumb(Eplumb, "image");
 	memset(&m, 0, sizeof(m));
 	if((nullfd = open("/dev/null", ORDWR)) < 0)
 		sysfatal("open: %r");
 	current = root = addpage(nil, "", nil, nil, -1);
-
 	if(*argv == nil && !imode)
 		addpage(root, "stdin", popenfile, strdup("/fd/0"), -1);
 	for(; *argv; argv++)
 		addpage(root, shortname(*argv), popenfile, strdup(*argv), -1);
 
 	for(;;){
+		drawlock(0);
 		i=event(&e);
+		drawlock(1);
+
 		switch(i){
 		case Emouse:
-			lockdisplay(display);
 			m = e.mouse;
 			if(m.buttons & 1){
 				if(current &&  canqlock(current)){
@@ -1478,8 +1510,7 @@ main(int argc, char *argv[])
 				o = m.xy;
 				i = emenuhit(2, &m, &cmdmenu);
 				m.xy = o;
-				if(!docmd(i, &m))
-					continue;
+				docmd(i, &m);
 			} else if(m.buttons & 4){
 				if(root->down){
 					Page *x;
@@ -1488,15 +1519,11 @@ main(int argc, char *argv[])
 					pagemenu.lasthit = pageindex(current);
 					x = pageat(emenuhit(3, &m, &pagemenu));
 					qunlock(&pagelock);
-					unlockdisplay(display);
 					showpage(x);
-					continue;
 				}
 			}
-			unlockdisplay(display);
 			break;
 		case Ekeyboard:
-			lockdisplay(display);
 			switch(e.kbdc){
 			case Kup:
 				if(current == nil || !canqlock(current))
@@ -1509,8 +1536,7 @@ main(int argc, char *argv[])
 				if(prevpage(current))
 					pos.y = 0;
 				qunlock(current);
-				if(!docmd(Cprev, &m))
-					continue;
+				docmd(Cprev, &m);
 				break;
 			case Kdown:
 				if(current == nil || !canqlock(current))
@@ -1524,8 +1550,7 @@ main(int argc, char *argv[])
 				if(nextpage(current))
 					pos.y = 0;
 				qunlock(current);
-				if(!docmd(Cnext, &m))
-					continue;
+				docmd(Cnext, &m);
 				break;
 			default:
 				for(i = 0; i<nelem(cmds); i++)
@@ -1534,8 +1559,7 @@ main(int argc, char *argv[])
 					   (cmds[i].k3 == e.kbdc))
 						break;
 				if(i < nelem(cmds)){
-					if(!docmd(i, &m))
-						continue;
+					docmd(i, &m);
 					break;
 				}
 				if((e.kbdc < 0x20) || 
@@ -1543,14 +1567,9 @@ main(int argc, char *argv[])
 				   (e.kbdc & 0xFF00) == Spec)
 					break;
 				snprint(buf, sizeof(buf), "%C", (Rune)e.kbdc);
-				i = eenter("Go to", buf, sizeof(buf), &m);
-				if(i > 0){
-					unlockdisplay(display);
+				if(eenter("Go to", buf, sizeof(buf), &m) > 0)
 					showpage(findpage(buf));
-					continue;
-				}
 			}
-			unlockdisplay(display);
 			break;
 		case Eplumb:
 			pm = e.v;
