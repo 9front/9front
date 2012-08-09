@@ -23,9 +23,6 @@ eenter(char *ask, char *buf, int len, Mouse *m)
 	while(ecankbd())
 		ekbd();
 
-	sc = screen->clipr;
-	replclipr(screen, 0, screen->r);
-
 	if(m) o = m->xy;
 
 	if(buf && len > 0)
@@ -37,7 +34,6 @@ eenter(char *ask, char *buf, int len, Mouse *m)
 	}
 
 	k = -1;
-	b = screen;
 	tick = n;
 	save = nil;
 	done = down = 0;
@@ -45,6 +41,10 @@ eenter(char *ask, char *buf, int len, Mouse *m)
 	p = stringsize(font, " ");
 	h = p.y;
 	w = p.x;
+
+	b = screen;
+	sc = b->clipr;
+	replclipr(b, 0, b->r);
 
 	while(!done){
 		p = stringsize(font, buf ? buf : "");
@@ -98,7 +98,20 @@ eenter(char *ask, char *buf, int len, Mouse *m)
 		i = Ekeyboard;
 		if(m != nil)
 			i |= Emouse;
-		switch(eread(i, &ev)){
+
+		replclipr(b, 0, sc);
+		i = eread(i, &ev);
+
+		/* screen might have been resized */
+		if(b != screen || !eqrect(screen->clipr, sc)){
+			freeimage(save);
+			save = nil;
+		}
+		b = screen;
+		sc = b->clipr;
+		replclipr(b, 0, b->r);
+
+		switch(i){
 		default:
 			done = 1;
 			n = -1;
@@ -183,13 +196,14 @@ eenter(char *ask, char *buf, int len, Mouse *m)
 			done = down;
 			break;
 		}
-
-		draw(b, save->r, save, nil, save->r.min);
-		freeimage(save);
-		save = nil;
+		if(save){
+			draw(b, save->r, save, nil, save->r.min);
+			freeimage(save);
+			save = nil;
+		}
 	}
 
-	replclipr(screen, 0, sc);
+	replclipr(b, 0, sc);
 
 	freeimage(backcol);
 	freeimage(bordcol);
