@@ -754,7 +754,7 @@ err:
 		expr(av[1], &res);
 		if(res.type != TSTRING)
 			error("itoa(number [, fmt]): fmt type");
-		if(acidfmt(res.string->string, fmt, sizeof(buf)))
+		if(acidfmt(res.string->string, fmt, sizeof(fmt)))
 			error("itoa(number [, fmt]): malformed fmt");
 	}
 
