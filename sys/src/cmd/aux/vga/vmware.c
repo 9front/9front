@@ -6,6 +6,11 @@
 #include "vga.h"
 
 enum {
+	VMWARE1		= 0x0710,	/* PCI DID */
+	VMWARE2		= 0x0405,
+};
+
+enum {
 	Rid = 0,
 	Renable,
 	Rwidth,
@@ -37,25 +42,11 @@ enum {
 	Rhostbpp,
 	Nreg,
 
-	Crectfill = 1<<0,
-	Crectcopy = 1<<1,
-	Crectpatfill = 1<<2,
-	Coffscreen = 1<<3,
-	Crasterop = 1<<4,
-	Ccursor = 1<<5,
-	Ccursorbypass = 1<<6,
-	Ccursorbypass2 = 1<<7,
-	C8bitemulation = 1<<8,
-	Calphacursor = 1<<9,
-
 	Rpalette = 1024,
 };	
 
 typedef struct Vmware	Vmware;
 struct Vmware {
-	ulong	mmio;
-	ulong	fb;
-
 	ulong	ra;
 	ulong	rd;
 
@@ -63,6 +54,7 @@ struct Vmware {
 
 	char	chan[32];
 	int	depth;
+	int	ver;
 };
 
 static char*
@@ -135,14 +127,15 @@ snarf(Vga* vga, Ctlr* ctlr)
 		error("%s: vga->pci not set\n", ctlr->name);
 
 	vm = alloc(sizeof(Vmware));
-
 	switch(p->did){
-	case 0x710:	/* VMware video chipset #1 */
+	case VMWARE1:	/* VMware video chipset #1 */
+		vm->ver = 1;
 		vm->ra = 0x4560;
 		vm->rd = 0x4560+4;
 		break;
 
-	case 0x405:	/* VMware video chipset #2, untested */
+	case VMWARE2:	/* VMware video chipset #2 */
+		vm->ver = 2;
 		vm->ra = p->mem[0].bar&~3;
 		vm->rd = vm->ra+1;
 		break;
@@ -177,7 +170,9 @@ snarf(Vga* vga, Ctlr* ctlr)
 		sprint(vm->chan, "unknown");
 
 	/* Record the frame buffer start, size */
-	vga->vmb = vm->r[Rfbstart];
+	// vga->vmb = vm->r[Rfstart];
+	vga->vmb = p->mem[1].bar & ~0xF;
+	vga->vmb += vm->r[Rfboffset];
 	vga->apz = vm->r[Rfbmaxsize];
 
 	vga->private = vm;

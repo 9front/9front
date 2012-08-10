@@ -35,13 +35,13 @@ enum {
 	Rgmask,
 	Rbmask,
 	Rbpl,
-	Rfbstart,
+	Rfbstart,	/* deprecated */
 	Rfboffset,
 
 	Rfbmaxsize,
 	Rfbsize,
 	Rcap,
-	Rmemstart,
+	Rmemstart,	/* deprecated */
 	Rmemsize,
 
 	Rconfigdone,
@@ -54,17 +54,6 @@ enum {
 	Rcursory,
 	Rcursoron,
 	Nreg,
-
-	Crectfill = 1<<0,
-	Crectcopy = 1<<1,
-	Crectpatfill = 1<<2,
-	Coffscreen = 1<<3,
-	Crasterop = 1<<4,
-	Ccursor = 1<<5,
-	Ccursorbypass = 1<<6,
-	Ccursorbypass2 = 1<<7,
-	C8bitemulation = 1<<8,
-	Calphacursor = 1<<9,
 
 	FifoMin = 0,
 	FifoMax = 1,
@@ -117,6 +106,7 @@ struct Vmware {
 
 	char	chan[32];
 	int	depth;
+	int	ver;
 };
 
 Vmware xvm;
@@ -160,13 +150,13 @@ vmwarelinear(VGAscr* scr, int, int)
 			snprint(err, sizeof err, "unknown vmware pci did %.4ux",
 				p->did);
 			continue;
-			
 		case VMWARE1:
+			vm->ver = 1;
 			vm->ra = 0x4560;
 			vm->rd = 0x4560 + 4;
 			break;
-	
 		case VMWARE2:
+			vm->ver = 2;
 			vm->ra = p->mem[0].bar & ~3;
 			vm->rd = vm->ra + 1;
 			break;
@@ -175,10 +165,33 @@ vmwarelinear(VGAscr* scr, int, int)
 	}
 	if(p == nil)
 		error(err[0]? err: "no vmware vga card found");
-
-	vgalinearaddr(scr, vmrd(vm, Rfbstart), vmrd(vm, Rfbsize));
+	// vm->fb = vmrd(vm, Rfbstart);
+	vm->fb = p->mem[1].bar & ~0xF;
+	vm->fb += vmrd(vm, Rfboffset);
+	vgalinearaddr(scr, vm->fb, vmrd(vm, Rfbmaxsize));
 	if(scr->apsize)
 		addvgaseg("vmwarescreen", scr->paddr, scr->apsize);
+
+	if(scr->mmio==nil){
+		ulong mmiobase, mmiosize;
+
+		// mmiobase = vmrd(vm, Rmemstart);
+		mmiobase = p->mem[2].bar & ~0xF;
+		if(mmiobase == 0)
+			return;
+		mmiosize = vmrd(vm, Rmemsize);
+		scr->mmio = vmap(mmiobase, mmiosize);
+		if(scr->mmio == nil)
+			return;
+		vm->mmio = scr->mmio;
+		vm->mmiosize = mmiosize;
+		addvgaseg("vmwaremmio", mmiobase, mmiosize);
+	}
+	scr->mmio[FifoMin] = 4*sizeof(ulong);
+	scr->mmio[FifoMax] = vm->mmiosize;
+	scr->mmio[FifoNextCmd] = 4*sizeof(ulong);
+	scr->mmio[FifoStop] = 4*sizeof(ulong);
+	vmwr(vm, Rconfigdone, 1);
 }
 
 static void
@@ -187,11 +200,6 @@ vmfifowr(Vmware *vm, ulong v)
 	ulong *mm;
 
 	mm = vm->mmio;
-	if(mm == nil){
-		iprint("!");
-		return;
-	}
-
 	if(mm[FifoNextCmd]+sizeof(ulong) == mm[FifoStop]
 	|| (mm[FifoNextCmd]+sizeof(ulong) == mm[FifoMax]
 	    && mm[FifoStop] == mm[FifoMin]))
@@ -230,6 +238,7 @@ vmwareload(VGAscr*, Cursor *c)
 
 	if(vm->mmio == nil)
 		return;
+
 	vmfifowr(vm, Xdefinecursor);
 	vmfifowr(vm, 1);	/* cursor id */
 	vmfifowr(vm, -c->offset.x);
@@ -257,6 +266,8 @@ vmwareload(VGAscr*, Cursor *c)
 static int
 vmwaremove(VGAscr*, Point p)
 {
+	if(vm->mmio == nil)
+		return 1;
 	vmwr(vm, Rcursorid, 1);
 	vmwr(vm, Rcursorx, p.x);
 	vmwr(vm, Rcursory, p.y);
@@ -267,6 +278,8 @@ vmwaremove(VGAscr*, Point p)
 static void
 vmwaredisable(VGAscr*)
 {
+	if(vm->mmio == nil)
+		return;
 	vmwr(vm, Rcursorid, 1);
 	vmwr(vm, Rcursoron, CursorOnHide);
 }
@@ -274,13 +287,10 @@ vmwaredisable(VGAscr*)
 static void
 vmwareenable(VGAscr*)
 {
+	if(vm->mmio == nil)
+		return;
 	vmwr(vm, Rcursorid, 1);
 	vmwr(vm, Rcursoron, CursorOnShow);
-}
-
-static void
-vmwareblank(int)
-{
 }
 
 static int
@@ -317,38 +327,13 @@ vmwarefill(VGAscr*, Rectangle r, ulong sval)
 static void
 vmwaredrawinit(VGAscr *scr)
 {
-	ulong offset;
-	ulong mmiobase, mmiosize;
-
-	if(scr->mmio==nil){
-		mmiobase = vmrd(vm, Rmemstart);
-		if(mmiobase == 0)
-			return;
-		mmiosize = vmrd(vm, Rmemsize);
-		scr->mmio = vmap(mmiobase, mmiosize);
-		if(scr->mmio == nil)
-			return;
-		vm->mmio = scr->mmio;
-		vm->mmiosize = mmiosize;
-		addvgaseg("vmwaremmio", mmiobase, mmiosize);
-	}
-
-	scr->mmio[FifoMin] = 4*sizeof(ulong);
-	scr->mmio[FifoMax] = vm->mmiosize;
-	scr->mmio[FifoNextCmd] = 4*sizeof(ulong);
-	scr->mmio[FifoStop] = 4*sizeof(ulong);
-	vmwr(vm, Rconfigdone, 1);
-
 	scr->scroll = vmwarescroll;
-	scr->fill = vmwarefill;
-
-	offset = vmrd(vm, Rfboffset);
-	scr->gscreendata->bdata += offset;
+	if(vm->ver == 1)
+		scr->fill = vmwarefill;
 }
 
 VGAdev vgavmwaredev = {
 	"vmware",
-
 	0,
 	0,
 	0,
