@@ -225,9 +225,6 @@ init(Vga* vga, Ctlr* ctlr)
 		error("%s: pclk %lud too high (> %lud)\n",
 			ctlr->name, vga->f[0], gd542x->vclk);
 
-	if(mode->z > 8)
-		error("%s: depth %d not supported\n", ctlr->name, mode->z);
-
 	/*
 	 * VCLK3
 	 */
@@ -236,9 +233,27 @@ init(Vga* vga, Ctlr* ctlr)
 	vga->sequencer[0x0E] = vga->n[0];
 	vga->sequencer[0x1E] = (vga->d[0]<<1)|vga->p[0];
 
-	vga->sequencer[0x07] = 0x00;
-	if(mode->z == 8)
-		vga->sequencer[0x07] |= 0x01;
+	switch(mode->z){
+	case 32:
+		vga->sequencer[0x07] = 0x09;
+		vga->crt[0x28] = 0xc5;
+		break;
+	case 24:
+		vga->sequencer[0x07] = 0x05;
+		vga->crt[0x28] = 0xc5;
+		break;
+	case 16:
+		vga->sequencer[0x07] = 0x07;
+		vga->crt[0x28] = 0xc1;
+		break;
+	case 8:
+		vga->sequencer[0x07] = 0x01;
+		vga->crt[0x28] = 0x00;
+		break;
+	default:
+		vga->sequencer[0x07] = 0x00;
+		vga->crt[0x28] = 0x00;
+	}
 
 	if(vga->f[0] >= 42000000)
 		vga->sequencer[0x0F] |= 0x20;
@@ -277,6 +292,8 @@ init(Vga* vga, Ctlr* ctlr)
 static void
 load(Vga* vga, Ctlr* ctlr)
 {
+	int i;
+
 	vgaxo(Seqx, 0x0E, vga->sequencer[0x0E]);
 	vgaxo(Seqx, 0x1E, vga->sequencer[0x1E]);
 	if(ctlr->flag & Ulinear)
@@ -284,6 +301,14 @@ load(Vga* vga, Ctlr* ctlr)
 	vgaxo(Seqx, 0x07, vga->sequencer[0x07]);
 	vgaxo(Seqx, 0x0F, vga->sequencer[0x0F]);
 	vgaxo(Seqx, 0x16, vga->sequencer[0x16]);
+
+	/*
+	 * Hack for Hidden DAC Register. Do 4 dummy reads
+	 * of Pixmask first.
+	 */
+	for(i = 0; i < 4; i++)
+		vgai(Pixmask);
+	vgao(Pixmask, vga->crt[0x28]);
 
 	if(vga->mode->interlace == 'v')
 		vgaxo(Crtx, 0x19, vga->crt[0x19]);
