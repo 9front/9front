@@ -28,12 +28,23 @@ case go
 	fsflags=(-m $rd)
 	export fsflags
 
+	ream=no
+	if(! ~ $fstype `{fstype $fs})
+		ream=yes
+	prompt -d $ream 'Ream the filesystem?' yes no
+	ream=$rd
+
 	log Starting $fstype file server for $fs
 	unmount /n/newfs >[2]/dev/null
 	echo halt >>/srv/$service.cmd >[2]/dev/null
 	rm -f /srv/$service /srv/$service.cmd
 
-	hjfs -n $service $fsflags -Srf $fs
+	if(~ $ream yes){
+		hjfs -n $service $fsflags -Srf $fs
+	}
+	if not {
+		hjfs -n $service $fsflags -Sf $fs
+	}
 
 	log Configuring $fstype file server for $fs
 	{
