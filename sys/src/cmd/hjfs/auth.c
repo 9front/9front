@@ -313,7 +313,7 @@ permcheck(Fs *fs, Dentry *d, short uid, int mode)
 	case OEXEC:
 		return (perm & 1) != 0;
 	case ORDWR:
-		return (perm & 5) == 5;
+		return (perm & 6) == 6;
 	}
 	return 0;
 }
