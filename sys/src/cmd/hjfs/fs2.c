@@ -43,6 +43,11 @@ chanwalk(Chan *ch, char *name)
 	if(name == nil || name[0] == 0 || name[0] == '.' && name[1] == 0)
 		return 1;
 	chbegin(ch);
+  if(ch->open != 0){
+    werrstr(Einval);
+    chend(ch);
+    return -1;
+  }
 	b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
 	if(b == nil){
 		chend(ch);
