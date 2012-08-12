@@ -883,11 +883,10 @@ loadpages(Page *p, int ahead, int oviewgen)
 				if(size.x && size.y && newwin){
 					newwin = 0;
 					resizewin(size);
-				} else {
-					lockdisplay(display);
-					drawpage(p);
-					unlockdisplay(display);
 				}
+				lockdisplay(display);
+				drawpage(p);
+				unlockdisplay(display);
 			}
 			qunlock(p);
 		}
