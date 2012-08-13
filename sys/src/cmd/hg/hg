@@ -17,13 +17,21 @@ except ImportError:
     sys.stderr.write("(check your install and PYTHONPATH)\n")
     sys.exit(-1)
 
-# PLAN9 hack to keep hgrc in $home/lib
-import os
-os.environ['HGRCPATH']=os.environ['home']+'/lib/hgrc'
-
 import sys
 import mercurial.util
 import mercurial.dispatch
+
+if sys.platform == 'plan9':
+    def p9sys_rcpath():
+        return ['/sys/lib/hgrc']
+
+    def p9usr_rcpath():
+        import os
+        return [os.environ['home']+'/lib/hgrc']
+
+    import mercurial.posix
+    mercurial.posix.system_rcpath = p9sys_rcpath
+    mercurial.posix.user_rcpath = p9usr_rcpath
 
 for fp in (sys.stdin, sys.stdout, sys.stderr):
     mercurial.util.set_binary(fp)
