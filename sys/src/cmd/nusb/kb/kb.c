@@ -227,7 +227,7 @@ ptrwork(void* a)
 	static char maptab[] = {0x0, 0x1, 0x4, 0x5, 0x2, 0x3, 0x6, 0x7};
 	int x, y, b, c, ptrfd;
 	int	mfd, nerrs;
-	char	buf[32];
+	char	buf[64];
 	char	mbuf[80];
 	KDev*	f = a;
 	int	hipri;
