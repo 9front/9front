@@ -7,7 +7,7 @@
 enum {
 	/* Constants, all preceded by byte 0xFF */
 	SOF	=0xC0,	/* Start of Frame */
-	SOF2=0xC2,	/* Start of Frame; progressive Huffman */
+	SOF2	=0xC2,	/* Start of Frame; progressive Huffman */
 	JPG	=0xC8,	/* Reserved for JPEG extensions */
 	DHT	=0xC4,	/* Define Huffman Tables */
 	DAC	=0xCC,	/* Arithmetic coding conditioning */
@@ -322,12 +322,15 @@ readslave(Header *header, int colorspace)
 		case SOF2:
 			header->Y = int2(b, 1);
 			header->X = int2(b, 3);
-			header->Nf =b[5];
+			header->Nf = b[5];
 			for(i=0; i<header->Nf; i++){
 				header->comp[i].C = b[6+3*i+0];
 				nibbles(b[6+3*i+1], &H, &V);
 				if(H<=0 || V<=0)
 					jpgerror(header, "non-positive sampling factor (Hsamp or Vsamp)");
+				/* hack: colormap1() doesnt handle resampling */
+				if(header->Nf == 1)
+					H = V = 1;
 				header->comp[i].H = H;
 				header->comp[i].V = V;
 				header->comp[i].Tq = b[6+3*i+2];
