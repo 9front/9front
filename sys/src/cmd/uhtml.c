@@ -104,15 +104,20 @@ main(int argc, char *argv[])
 			g = ++s;
 			e = buf+nbuf;
 			while(s < e){
-				if(*s == '\'' || *s == '"'){
-					if(q == 0)
+				if(*s == '=' && q == 0)
+					q = '=';
+				else if(*s == '\'' || *s == '"'){
+					if(q == '=')
 						q = *s;
 					else if(q == *s)
 						q = 0;
-				} else if(*s == '>' && q == 0){
+				}
+				else if(*s == '>' && q != '\'' && q != '"'){
 					e = s;
 					break;
 				}
+				else if(q == '=' && strchr(whitespace, *s) == nil)
+					q = 0;
 				s++;
 			}
 			t = *e;

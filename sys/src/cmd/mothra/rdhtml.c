@@ -487,8 +487,11 @@ int pl_gettag(Hglob *g){
 				q = c;
 			else if(q == c)
 				q = 0;
-		} else if(c == ETAG && q != '\'' && q != '"')
+		}
+		else if(c == ETAG && q != '\'' && q != '"')
 			break;
+		else if(q == '=' && c != ' ' && c != '\t' && c != '\n')
+			q = 0;
 		if(tokp < &g->token[NTOKEN-UTFmax-1])
 			tokp += lrunetochar(tokp, c);
 	}
