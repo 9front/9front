@@ -695,7 +695,7 @@ button3menu(void)
 		for(j=0; j<n; j++)
 			if(window[i] == hidden[j])
 				break;
-		if(i < n || window[i]->deleted)
+		if(j < n || window[i]->deleted)
 			continue;
 		if(wcovered(window[i], window[i]->screenr, 0)){
 			hidden[n++] = window[i];
