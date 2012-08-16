@@ -656,28 +656,29 @@ resized(void)
 }
 
 static int
-wcovered(Window *w, Rectangle r)
+wcovered(Window *w, Rectangle r, int i)
 {
 	Window *t;
-	int i;
 
-	for(i=0; i<nwindow; i++){
+	if(Dx(r) < font->height || Dy(r) < font->height)
+		return 1;
+	for(; i<nwindow; i++){
 		t = window[i];
 		if(t == w || t->topped <= w->topped || t->deleted)
 			continue;
 		if(Dx(t->screenr) == 0 || Dy(t->screenr) == 0 || rectXrect(r, t->screenr) == 0)
 			continue;
 		if(r.min.y < t->screenr.min.y)
-			if(!wcovered(w, Rect(r.min.x, r.min.y, r.max.x, t->screenr.min.y)))
+			if(!wcovered(w, Rect(r.min.x, r.min.y, r.max.x, t->screenr.min.y), i))
 				return 0;
 		if(r.min.x < t->screenr.min.x)
-			if(!wcovered(w, Rect(r.min.x, r.min.y, t->screenr.min.x, r.max.y)))
+			if(!wcovered(w, Rect(r.min.x, r.min.y, t->screenr.min.x, r.max.y), i))
 				return 0;
 		if(r.max.y > t->screenr.max.y)
-			if(!wcovered(w, Rect(r.min.x, t->screenr.max.y, r.max.x, r.max.y)))
+			if(!wcovered(w, Rect(r.min.x, t->screenr.max.y, r.max.x, r.max.y), i))
 				return 0;
 		if(r.max.x > t->screenr.max.x)
-			if(!wcovered(w, Rect(t->screenr.max.x, r.min.y, r.max.x, r.max.y)))
+			if(!wcovered(w, Rect(t->screenr.max.x, r.min.y, r.max.x, r.max.y), i))
 				return 0;
 		return 1;
 	}
@@ -696,7 +697,7 @@ button3menu(void)
 				break;
 		if(i < n || window[i]->deleted)
 			continue;
-		if(wcovered(window[i], window[i]->screenr)){
+		if(wcovered(window[i], window[i]->screenr, 0)){
 			hidden[n++] = window[i];
 			if(n >= nelem(hidden))
 				break;
