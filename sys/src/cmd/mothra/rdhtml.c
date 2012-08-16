@@ -264,6 +264,8 @@ int entchar(int c){
 
 /* return url if text token looks like a hyperlink */
 char *linkify(char *s){
+	if(s == 0 && s[0] == 0)
+		return 0;
 	if(!cistrncmp(s, "http://", 7))
 		return strdup(s);
 	if(!cistrncmp(s, "https://", 8))
@@ -701,6 +703,24 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_img:
 			if(str=pl_getattr(g.attr, "src"))
 				nstrcpy(g.state->image, str, sizeof(g.state->image));
+			else {
+				Pair *a;
+
+				/*
+				 * hack to emulate javascript that rewrites some attribute
+				 * into src= after page got loaded. just look for some
+				 * attribute that looks like a url.
+				 */
+				for(a = g.attr; a->name; a++){
+					if(strcmp(a->name, "longdesc") == 0)
+						continue;
+					if(str = linkify(a->value)){
+						nstrcpy(g.state->image, str, sizeof(g.state->image));
+						free(str);
+						break;
+					}
+				}
+			}
 			g.state->ismap=pl_hasattr(g.attr, "ismap");
 			if(str=pl_getattr(g.attr, "width"))
 				g.state->width=strtolength(&g, HORIZ, str);
