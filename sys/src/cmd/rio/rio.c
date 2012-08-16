@@ -655,12 +655,56 @@ resized(void)
 	flushimage(display, 1);
 }
 
+static int
+wcovered(Window *w, Rectangle r)
+{
+	Window *t;
+	int i;
+
+	for(i=0; i<nwindow; i++){
+		t = window[i];
+		if(t == w || t->topped <= w->topped || t->deleted)
+			continue;
+		if(Dx(t->screenr) == 0 || Dy(t->screenr) == 0 || rectXrect(r, t->screenr) == 0)
+			continue;
+		if(r.min.y < t->screenr.min.y)
+			if(!wcovered(w, Rect(r.min.x, r.min.y, r.max.x, t->screenr.min.y)))
+				return 0;
+		if(r.min.x < t->screenr.min.x)
+			if(!wcovered(w, Rect(r.min.x, r.min.y, t->screenr.min.x, r.max.y)))
+				return 0;
+		if(r.max.y > t->screenr.max.y)
+			if(!wcovered(w, Rect(r.min.x, t->screenr.max.y, r.max.x, r.max.y)))
+				return 0;
+		if(r.max.x > t->screenr.max.x)
+			if(!wcovered(w, Rect(t->screenr.max.x, r.min.y, r.max.x, r.max.y)))
+				return 0;
+		return 1;
+	}
+	return 0;
+}
+
 void
 button3menu(void)
 {
-	int i;
+	int i, j, n;
 
-	for(i=0; i<nhidden; i++)
+	n = nhidden;
+	for(i=0; i<nwindow; i++){
+		for(j=0; j<n; j++)
+			if(window[i] == hidden[j])
+				break;
+		if(i < n || window[i]->deleted)
+			continue;
+		if(wcovered(window[i], window[i]->screenr)){
+			hidden[n++] = window[i];
+			if(n >= nelem(hidden))
+				break;
+		}
+	}
+	if(n >= nelem(menu3str)-Hidden)
+		n = nelem(menu3str)-Hidden-1;
+	for(i=0; i<n; i++)
 		menu3str[i+Hidden] = hidden[i]->label;
 	menu3str[i+Hidden] = nil;
 
@@ -1090,6 +1134,8 @@ whide(Window *w)
 	for(j=0; j<nhidden; j++)
 		if(hidden[j] == w)	/* already hidden */
 			return -1;
+	if(nhidden >= nelem(hidden))
+		return 0;
 	i = allocimage(display, w->screenr, w->i->chan, 0, DWhite);
 	if(i){
 		hidden[nhidden++] = w;
@@ -1106,6 +1152,14 @@ wunhide(int h)
 	Window *w;
 
 	w = hidden[h];
+	if(w == nil)
+		return 0;
+	if(h >= nhidden){
+		wtopme(w);
+		wcurrent(w);
+		flushimage(display, 1);
+		return 1;
+	}
 	i = allocwindow(wscreen, w->i->r, Refbackup, DWhite);
 	if(i){
 		--nhidden;
@@ -1130,13 +1184,8 @@ hide(void)
 void
 unhide(int h)
 {
-	Window *w;
-
-	h -= Hidden;
-	w = hidden[h];
-	if(w == nil)
-		return;
-	wunhide(h);
+	if(h >= Hidden)
+		wunhide(h - Hidden);
 }
 
 Window*
@@ -1163,6 +1212,8 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 	free(mc);	/* wmk copies *mc */
 	window = erealloc(window, ++nwindow*sizeof(Window*));
 	window[nwindow-1] = w;
+	if(nhidden >= nelem(hidden))
+		hideit = 0;
 	if(hideit){
 		hidden[nhidden++] = w;
 		w->screenr = ZR;

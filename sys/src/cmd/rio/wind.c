@@ -1313,7 +1313,7 @@ wtopme(Window *w)
 	if(w!=nil && w->i!=nil && !w->deleted && w->topped!=topped){
 		topwindow(w->i);
 		flushimage(display, 1);
-		w->topped = ++ topped;
+		w->topped = ++topped;
 	}
 }
 
