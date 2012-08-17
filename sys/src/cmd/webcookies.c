@@ -1216,6 +1216,7 @@ void
 main(int argc, char **argv)
 {
 	char *file, *mtpt, *home, *srv;
+	int fd;
 
 	file = nil;
 	srv = nil;
@@ -1255,9 +1256,12 @@ main(int argc, char **argv)
 		strcpy(file, home);
 		strcat(file, "/lib/webcookies");
 	}
-	if(access(file, AEXIST) < 0)
-		close(create(file, OWRITE, 0666));
-
+	if(access(file, AEXIST) < 0){
+		if((fd = create(file, OWRITE, 0600)) < 0)
+			sysfatal("create %s: %r", file);
+		close(fd);
+	}
+			
 	jar = readjar(file);
 	if(jar == nil)
 		sysfatal("readjar: %r");
