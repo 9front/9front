@@ -10,8 +10,6 @@ cd $home
 x='$'
 mkdir bin bin/rc bin/mips bin/386 bin/power bin/arm
 mkdir lib tmp
-touch lib/webcookies
-chmod 600 lib/webcookies
 chmod +t tmp
 bind -qc /n/other/usr/$user/tmp $home/tmp
 bind -c $home/tmp /tmp
@@ -30,35 +28,32 @@ case terminal
 	webcookies
 	webfs
 	plumber
-	startupasfs
 	echo -n accelerated > '#m/mousectl'
 	echo -n 'res 3' > '#m/mousectl'
 	prompt=('term% ' '	')
 	fn term%{ $x^* }
-	exec rio
+	rio
 case cpu
-	if (test -e /mnt/term/mnt/wsys) {
-		# rio already running
-		wsys = /mnt/term^`{cat /mnt/term/env/wsys}
-		bind -a /mnt/term/mnt/wsys /dev
-		echo -n $x^sysname > /dev/label
-	}
 	bind /mnt/term/dev/cons /dev/cons
-	bind /mnt/term/dev/consctl /dev/consctl
+	bind -q /mnt/term/dev/consctl /dev/consctl
+	>[2] /dev/null {
+		cp /dev/sysname /mnt/term/dev/label
+		if(wsys=`{cat /mnt/term/env/wsys})
+			wsys=/mnt/term^$x^wsys
+	} 
 	bind -a /mnt/term/dev /dev
 	prompt=('cpu% ' '	')
 	fn cpu%{ $x^* }
-	startupasfs
-	if (! test -e /mnt/term/mnt/wsys) {
-		# cpu call from drawterm
-		font=/lib/font/bit/vga/unicode.font
-		plumber
+	if(! test -e /mnt/term/dev/wsys){
+		# call from drawterm
 		auth/factotum
-		exec rio
+		webcookies
+		webfs
+		plumber
+		rio
 	}
 case con
 	prompt=('cpu% ' '	')
-	startupasfs
 }
 !
 cat > lib/plumbing <<!

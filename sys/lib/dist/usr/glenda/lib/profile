@@ -6,38 +6,28 @@ bind -c $home/tmp /tmp
 if(! syscall create /tmp/xxx 1 0666 >[2]/dev/null)
 	ramfs	# in case we're running off a cd
 font=/lib/font/bit/vga/unicode.font
-fn cd { builtin cd $* && awd }  # for acme
 switch($service){
 case terminal
-	if(! test -w $home/lib/webcookies){
-		touch /tmp/webcookies
+	if(! webcookies >[2]/dev/null)
 		webcookies -f /tmp/webcookies
-	}
-	if not {
-		webcookies
-	}
 	webfs
 	plumber
 	echo -n accelerated > '#m/mousectl'
 	echo -n 'res 3' > '#m/mousectl'
 	prompt=('term% ' '	')
 	fn term%{ $* }
-	exec rio -i riostart
+	rio -i riostart
 case cpu
-	if (test -e /mnt/term/mnt/wsys) { # rio already running
-		bind -a /mnt/term/mnt/wsys /dev
-		if(test -w /dev/label)
-			echo -n $sysname > /dev/label
-	}
 	bind /mnt/term/dev/cons /dev/cons
-	bind /mnt/term/dev/consctl /dev/consctl
+	bind -q /mnt/term/dev/consctl /dev/consctl
+	>[2] /dev/null {
+		cp /dev/sysname /mnt/term/dev/label
+		if(wsys=`{cat /mnt/term/env/wsys})
+			wsys=/mnt/term^$wsys
+	} 
 	bind -a /mnt/term/dev /dev
 	prompt=('cpu% ' '	')
 	fn cpu%{ $* }
-	if (! test -e /mnt/term/mnt/wsys) {	# cpu call from drawterm
-		font=/lib/font/bit/vga/unicode.font
-		exec rio
-	}
 case con
 	prompt=('cpu% ' '	')
 }
