@@ -473,9 +473,9 @@ ramscan(ulong maxmem)
 			table = &m->pdb[PDX(KADDR(pa - 4*MB))];
 			if(nvalid[MemUPA] == (4*MB)/BY2PG)
 				*table = 0;
-			else if(nvalid[MemRAM] == (4*MB)/BY2PG && (m->cpuiddx & 0x08))
+			else if(nvalid[MemRAM] == (4*MB)/BY2PG && (m->cpuiddx & Pse))
 				*table = (pa - 4*MB)|PTESIZE|PTEWRITE|PTEVALID;
-			else if(nvalid[MemUMB] == (4*MB)/BY2PG && (m->cpuiddx & 0x08))
+			else if(nvalid[MemUMB] == (4*MB)/BY2PG && (m->cpuiddx & Pse))
 				*table = (pa - 4*MB)|PTESIZE|PTEWRITE|PTEUNCACHED|PTEVALID;
 			else{
 				*table = map|PTEWRITE|PTEVALID;

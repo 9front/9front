@@ -523,7 +523,7 @@ matherror(Ureg *ur, void*)
 	 *  a write cycle to port 0xF0 clears the interrupt latch attached
 	 *  to the error# line from the 387
 	 */
-	if(!(m->cpuiddx & 0x01))
+	if(!(m->cpuiddx & Fpuonchip))
 		outb(0xF0, 0xFF);
 
 	/*
