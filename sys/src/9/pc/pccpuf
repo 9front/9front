@@ -104,12 +104,13 @@ misc
 	vgaet4000	+cur
 	vgageode	+cur
 	vgahiqvideo	+cur
-	vgai81x	+cur
+	vgai81x		+cur
 	vgamach64xx	+cur
 	vgamga2164w	+cur
 	vgamga4xx	+cur
 	vganeomagic	+cur
 	vganvidia	+cur
+	vgaradeon	+cur
 	vgargb524	=cur
 	vgas3		+cur vgasavage
 	vgat2r4		+cur
