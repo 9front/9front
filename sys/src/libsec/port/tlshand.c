@@ -343,9 +343,8 @@ tlsServer(int fd, TLSconn *conn)
 	close(fd);
 	close(hand);
 	close(ctl);
-	if(data < 0){
+	if(data < 0)
 		return -1;
-	}
 	if(tls == nil){
 		close(data);
 		return -1;
@@ -393,13 +392,16 @@ tlsClient(int fd, TLSconn *conn)
 	}
 	sprint(dname, "#a/tls/%s/data", buf);
 	data = open(dname, ORDWR);
-	if(data < 0)
+	if(data < 0){
+		close(hand);
+		close(ctl);
 		return -1;
+	}
 	fprint(ctl, "fd %d 0x%x", fd, ProtocolVersion);
 	tls = tlsClient2(ctl, hand, conn->sessionID, conn->sessionIDlen, conn->trace);
-	close(fd);
 	close(hand);
 	close(ctl);
+	close(fd);
 	if(tls == nil){
 		close(data);
 		return -1;
@@ -702,7 +704,7 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, int (*trace)(char*fmt, ...
 	if(tlsSecSecretc(c->sec, c->sid->data, c->sid->len, c->srandom,
 			c->cert->data, c->cert->len, c->version, &epm, &nepm,
 			kd, c->nsecret) < 0){
-		tlsError(c, EBadCertificate, "invalid x509/rsa certificate");
+		tlsError(c, EBadCertificate, "bad certificate: %r");
 		goto Err;
 	}
 	secrets = (char*)emalloc(2*c->nsecret);
