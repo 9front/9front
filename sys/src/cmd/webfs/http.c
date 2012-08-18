@@ -89,10 +89,13 @@ hdial(Url *u)
 	if((fd = dial(addr, 0, 0, &ctl)) < 0)
 		return nil;
 	if(strcmp(u->scheme, "https") == 0){
+		char err[ERRMAX];
 		TLSconn *tc;
 
 		tc = emalloc(sizeof(*tc));
-		fd = tlsClient(ofd = fd, tc);
+		strcpy(err, "tls error");
+		if((fd = tlsClient(ofd = fd, tc)) < 0)
+			errstr(err, sizeof(err));
 		close(ofd);
 		/* BUG: should validate but how? */
 		free(tc->cert);
@@ -100,6 +103,8 @@ hdial(Url *u)
 		free(tc);
 		if(fd < 0){
 			close(ctl);
+			if(debug) fprint(2, "tlsClient: %s\n", err);
+			errstr(err, sizeof(err));
 			return nil;
 		}
 	}
