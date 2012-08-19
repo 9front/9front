@@ -2,12 +2,14 @@
 #include <string.h>
 
 void *
-calloc(size_t nmemb, size_t size)
+calloc(size_t n, size_t s)
 {
-	void *mp;
+	void *v;
 
-	nmemb = nmemb*size;
-	if(mp = malloc(nmemb))
-		memset(mp, 0, nmemb);
-	return(mp);
+	if(n > 1 && ((size_t)-1)/n < s)
+		return 0;
+	n *= s;
+	if(v = malloc(n))
+		memset(v, 0, n);
+	return v;
 }

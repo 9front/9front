@@ -280,10 +280,13 @@ msize(void *v)
 }
 
 void*
-calloc(ulong n, ulong szelem)
+calloc(ulong n, ulong s)
 {
 	void *v;
-	if(v = mallocz(n*szelem, 1))
+
+	if(n > 1 && ((ulong)-1)/n < s)
+		return nil;
+	if(v = mallocz(n*s, 1))
 		setmalloctag(v, getcallerpc(&n));
 	return v;
 }
