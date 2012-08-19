@@ -192,39 +192,49 @@ main(int argc, char **argv)
 	unmount(nil, "/dev");
 	bind("#c", "/dev", MREPL);
 
-	/* run the command */
-	switch(cmdpid = rfork(RFPROC|RFFDG|RFNOTEG)){
+	/* mount exporter */
+	if(mounter("/dev", MBEFORE, fd, exnum) < 0)
+		sysfatal("mounter: %r");
+	close(fd);
+
+	/* start and mount kbdfs */
+	switch(cmdpid = rfork(RFPROC|RFMEM|RFFDG|RFREND)){
 	case -1:
 		sysfatal("rfork: %r");
 		break;
 	case 0:
-		if(mounter("/dev", MBEFORE, fd, exnum) < 0)
-			sysfatal("mounter: %r");
 		close(exportfd);
 		close(1);
+		open("/dev/cons", OWRITE);
 		close(2);
 		open("/dev/cons", OWRITE);
-		open("/dev/cons", OWRITE);
-		if(rfork(RFPROC|RFMEM|RFFDG) == 0){
-			exec(kbdfs[0], kbdfs);
-			_exits("kbdfs");
-		}
-		waitpid();
-		rfork(RFNAMEG);
-		rendezvous(&cmdpid, 0);
-		rfork(RFREND);
+		exec(kbdfs[0], kbdfs);
+		_exits("kbdfs");
+	}
+	if(waitpid() != cmdpid)
+		sysfatal("%s: %r", kbdfs[0]);
+	if((kbdin = open("/dev/kbdin", OWRITE)) < 0)
+		sysfatal("open /dev/kbdin: %r");
+
+	/* run the command */
+	switch(cmdpid = rfork(RFPROC|RFMEM|RFFDG|RFNAMEG|RFREND|RFNOTEG)){
+	case -1:
+		sysfatal("rfork: %r");
+		break;
+	case 0:
+		close(exportfd);
+		close(kbdin);
 		close(0);
 		open("/dev/cons", OREAD);
+		close(1);
+		open("/dev/cons", OWRITE);
+		close(2);
+		open("/dev/cons", OWRITE);
 		exec(argv[0], argv);
 		fprint(2, "exec %s: %r\n", argv[0]);
 		_exits(nil);
-	default:
-		close(fd);
-		break;
 	}
 
-	rendezvous(&cmdpid, 0);
-	kbdin = open("/dev/kbdin", OWRITE);
 	unmount(nil, "/dev");
 	bind("#c", "/dev", MREPL);
 
