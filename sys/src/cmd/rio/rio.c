@@ -662,6 +662,8 @@ wcovered(Window *w, Rectangle r, int i)
 
 	if(Dx(r) < font->height || Dy(r) < font->height)
 		return 1;
+	if(!rectclip(&r, screen->r))
+		return 1;
 	for(; i<nwindow; i++){
 		t = window[i];
 		if(t == w || t->topped <= w->topped || t->deleted)
