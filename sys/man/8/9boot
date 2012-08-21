@@ -83,10 +83,12 @@ for details). Once started,
 .IR 9bootpxe
 will read the file
 .B /cfg/pxe/$ether
+or, if this file is not present,
+.B /cfg/pxe/default
 from the tftp server, where
 .B $ether
 is the MAC address of the client's network card
-in lower case hex, and use this as its
+in lower case hex, and uses this as its
 .IR plan9.ini (8)
 file.
 .SH FILES

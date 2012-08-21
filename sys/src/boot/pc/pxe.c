@@ -340,10 +340,11 @@ start(void *)
 	}
 	memmove(path, "/cfg/pxe/", 9);
 	memmove(path+9, mac, 13);
-	if(tftpopen(f = &t, path, yip, sip, gip)){
-		print("no config\r\n");
-		f = 0;
-	}
+	if(tftpopen(f = &t, path, yip, sip, gip))
+		if(tftpopen(f, "/cfg/pxe/default", yip, sip, gip)){
+			print("no config\r\n");
+			f = 0;
+		}
 	for(;;){
 		kern = configure(f, path); f = 0;
 		if(tftpopen(&t, kern, yip, sip, gip)){
