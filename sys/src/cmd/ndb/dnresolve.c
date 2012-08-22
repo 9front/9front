@@ -832,7 +832,7 @@ serveraddrs(Query *qp, int nd, int depth)
 	Dest *cur;
 
 	if(nd >= Maxdest)		/* dest array is full? */
-		return Maxdest - 1;
+		return Maxdest;
 
 	/*
 	 *  look for a server whose address we already know.
@@ -1080,13 +1080,12 @@ xmitquery(Query *qp, int medium, int depth, uchar *obuf, int inns, int len)
 	 */
 	if (qp->ndest > qp->curdest - p) {
 		j = serveraddrs(qp, qp->curdest - p, depth);
-		if (j < 0 || j >= Maxdest) {
+		if (j < 0 || j > Maxdest) {
 			dnslog("serveraddrs() result %d out of range", j);
 			abort();
 		}
 		qp->curdest = &qp->dest[j];
 	}
-	destck(qp->curdest);
 
 	/* no servers, punt */
 	if (qp->ndest == 0)
@@ -1439,9 +1438,10 @@ queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 					break;
 
 			/* remove all addrs of responding server from list */
-			for(np = qp->dest; np < qp->curdest; np++)
-				if(np->s == p->s)
-					p->nx = Maxtrans;
+			if(p != qp->curdest)
+				for(np = qp->dest; np < qp->curdest; np++)
+					if(np->s == p->s)
+						np->nx = Maxtrans;
 
 			/* free or incorporate RRs in m */
 			rv = procansw(qp, &m, srcip, depth, p);
