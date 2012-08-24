@@ -25,15 +25,15 @@ struct Mntrpc
 	Fcall	request;	/* Outgoing file system protocol message */
 	Fcall 	reply;		/* Incoming reply */
 	Mnt*	m;		/* Mount device during rpc */
-	Rendez	r;		/* Place to hang out */
+	Rendez*	z;		/* Place to hang out */
 	uchar*	rpc;		/* I/O Data buffer */
 	uint	rpclen;		/* len of buffer */
-	Block	*b;		/* reply blocks */
-	char	done;		/* Rpc completed */
+	Block*	b;		/* reply blocks */
 	uvlong	stime;		/* start time for mnt statistics */
 	ulong	reqlen;		/* request length for mnt statistics */
 	ulong	replen;		/* reply length for mnt statistics */
 	Mntrpc*	flushed;	/* message this one flushes */
+	char	done;		/* Rpc completed */
 };
 
 enum
@@ -75,8 +75,8 @@ Chan*	mntchan(void);
 char	Esbadstat[] = "invalid directory entry received from server";
 char	Enoversion[] = "version not established for mount channel";
 
+void	(*mntstats)(int, Chan*, uvlong, ulong);
 
-void (*mntstats)(int, Chan*, uvlong, ulong);
 
 static void
 mntreset(void)
@@ -784,6 +784,7 @@ mountio(Mnt *m, Mntrpc *r)
 	}
 
 	lock(m);
+	r->z = &up->sleep;
 	r->m = m;
 	r->list = m->queue;
 	m->queue = r;
@@ -806,7 +807,7 @@ mountio(Mnt *m, Mntrpc *r)
 		if(m->rip == 0)
 			break;
 		unlock(m);
-		sleep(&r->r, rpcattn, r);
+		sleep(r->z, rpcattn, r);
 		if(r->done){
 			poperror();
 			mntflushfree(m, r);
@@ -924,7 +925,7 @@ mntgate(Mnt *m)
 	m->rip = 0;
 	for(q = m->queue; q; q = q->list) {
 		if(q->done == 0)
-		if(wakeup(&q->r))
+		if(wakeup(q->z))
 			break;
 	}
 	unlock(m);
@@ -934,6 +935,7 @@ void
 mountmux(Mnt *m, Mntrpc *r)
 {
 	Mntrpc **l, *q;
+	Rendez *z;
 
 	lock(m);
 	l = &m->queue;
@@ -941,6 +943,10 @@ mountmux(Mnt *m, Mntrpc *r)
 		/* look for a reply to a message */
 		if(q->request.tag == r->reply.tag) {
 			*l = q->list;
+			if(mntstats != nil)
+				(*mntstats)(q->request.type,
+					m->c, q->stime,
+					q->reqlen + r->replen);
 			if(q != r) {
 				/*
 				 * Completed someone else.
@@ -949,15 +955,13 @@ mountmux(Mnt *m, Mntrpc *r)
 				q->reply = r->reply;
 				q->b = r->b;
 				r->b = nil;
-			}
-			q->done = 1;
+				z = q->z;
+			} else
+				z = nil;
+			q->done = 1;	/* hands off */
+			if(z != nil)
+				wakeup(z);
 			unlock(m);
-			if(mntstats != nil)
-				(*mntstats)(q->request.type,
-					m->c, q->stime,
-					q->reqlen + r->replen);
-			if(q != r)
-				wakeup(&q->r);
 			return;
 		}
 		l = &q->list;
