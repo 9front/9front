@@ -739,18 +739,16 @@ pcirouting(void)
 	Pcidev *sbpci, *pci;
 	uchar *p, pin, irq, link, *map;
 
-	/* Search for PCI interrupt routing table in BIOS */
-	for(p = (uchar *)KADDR(0xf0000); p < (uchar *)KADDR(0xfffff); p += 16)
-		if(p[0] == '$' && p[1] == 'P' && p[2] == 'I' && p[3] == 'R')
-			break;
-
-	if(p >= (uchar *)KADDR(0xfffff))
+	if((p = sigsearch("$PIR")) == 0)
 		return;
 
-	r = (Router *)p;
+	r = (Router*)p;
+	size = (r->size[1] << 8)|r->size[0];
+	if(size < sizeof(Router) || checksum(r, size))
+		return;
 
-	// print("PCI interrupt routing table version %d.%d at %.6uX\n",
-	//	r->version[0], r->version[1], (ulong)r & 0xfffff);
+	if(0) print("PCI interrupt routing table version %d.%d at %p\n",
+		r->version[0], r->version[1], r);
 
 	tbdf = (BusPCI << 24)|(r->bus << 16)|(r->devfn << 8);
 	sbpci = pcimatchtbdf(tbdf);
@@ -772,8 +770,6 @@ pcirouting(void)
 		return;
 
 	pciirqs = (r->pciirqs[1] << 8)|r->pciirqs[0];
-
-	size = (r->size[1] << 8)|r->size[0];
 	for(e = (Slot *)&r[1]; (uchar *)e < p + size; e++) {
 		if (0) {
 			print("%.2uX/%.2uX %.2uX: ", e->bus, e->dev, e->slot);

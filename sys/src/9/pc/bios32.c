@@ -7,7 +7,6 @@
 
 #define VFLAG(...)	if(vflag) print(__VA_ARGS__)
 
-#define BIOSSEG(a)	KADDR(((uint)(a))<<4)
 #define UPTR2INT(p)	((uintptr)(p))
 
 #define l16get(p)	(((p)[1]<<8)|(p)[0])
@@ -48,37 +47,6 @@ bios32ci(BIOS32si* si, BIOS32ci* ci)
 	return r;
 }
 
-static void*
-rsdchecksum(void* addr, int length)
-{
-	u8int *p, sum;
-
-	sum = 0;
-	for(p = addr; length-- > 0; p++)
-		sum += *p;
-	if(sum == 0)
-		return addr;
-
-	return nil;
-}
-
-static void*
-rsdscan(u8int* addr, int len, char* signature)
-{
-	int sl;
-	u8int *e, *p;
-
-	e = addr+len;
-	sl = strlen(signature);
-	for(p = addr; p+sl < e; p += 16){
-		if(memcmp(p, signature, sl))
-			continue;
-		return p;
-	}
-
-	return nil;
-}
-
 static int
 bios32locate(void)
 {
@@ -86,9 +54,9 @@ bios32locate(void)
 	BIOS32sdh *sdh;
 
 	VFLAG("bios32link\n");
-	if((sdh = rsdscan(BIOSSEG(0xE000), 0x20000, "_32_")) == nil)
+	if((sdh = sigsearch("_32_")) == nil)
 		return -1;
-	if(rsdchecksum(sdh, sizeof(BIOS32sdh)) == nil)
+	if(checksum(sdh, sizeof(BIOS32sdh)))
 		return -1;
 	VFLAG("sdh @ %#p, entry %#ux\n", sdh, l32get(sdh->physaddr));
 

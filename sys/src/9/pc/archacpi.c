@@ -79,54 +79,6 @@ tbldlen(Tbl *t){
 	return get32(t->len) - sizeof(Tbl);
 }
 
-static int
-checksum(void *v, int n)
-{
-	uchar *p, s;
-
-	s = 0;
-	p = v;
-	while(n-- > 0)
-		s += *p++;
-	return s;
-}
-
-static void*
-rsdscan(uchar* addr, int len, char* sig)
-{
-	int sl;
-	uchar *e, *p;
-
-	e = addr+len;
-	sl = strlen(sig);
-	for(p = addr; p+sl < e; p += 16){
-		if(memcmp(p, sig, sl))
-			continue;
-		return p;
-	}
-	return nil;
-}
-
-static void*
-rsdsearch(char* sig)
-{
-	uintptr p;
-	uchar *bda;
-	Rsd *rsd;
-
-	/*
-	 * Search for the data structure signature:
-	 * 1. in the first KB of the EBDA;
-	 * 2. in the BIOS ROM between 0xE0000 and 0xFFFFF.
-	 */
-	if(strncmp((char*)KADDR(0xFFFD9), "EISA", 4) == 0){
-		bda = KADDR(0x400);
-		if((p = (bda[0x0F]<<8)|bda[0x0E]))
-			if(rsd = rsdscan(KADDR(p), 1024, sig))
-				return rsd;
-	}
-	return rsdscan(KADDR(0xE0000), 0x20000, sig);
-}
 
 static Tbl*
 findtable(void *sig){
@@ -538,7 +490,9 @@ identify(void)
 
 	if((cp = getconf("*acpi")) == nil)
 		return 1;
-	if((rsd = rsdsearch("RSD PTR ")) == nil)
+	if((rsd = sigsearch("RSD PTR ")) == nil)
+		return 1;
+	if(checksum(rsd, 20) && checksum(rsd, 36))
 		return 1;
 	addarchfile("acpitbls", 0444, readtbls, nil);
 	if(strcmp(cp, "0") == 0)
