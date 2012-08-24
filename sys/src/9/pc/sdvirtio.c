@@ -218,6 +218,7 @@ viointerrupt(Ureg *, void *arg)
 {
 	int id, free, m;
 	struct Rock *r;
+	Rendez *z;
 	Vqueue *q;
 	Vdev *vd;
 
@@ -231,8 +232,10 @@ viointerrupt(Ureg *, void *arg)
 			id = q->usedent[q->lastused++ & m].id;
 			if(r = q->rock[id]){
 				q->rock[id] = nil;
-				r->done = 1;
-				wakeup(r->sleep);
+				z = r->sleep;
+				r->done = 1;	/* hands off */
+				if(z != nil)
+					wakeup(z);
 			}
 			do {
 				free = id;
