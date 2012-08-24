@@ -58,3 +58,6 @@ You think Windows runs in polynomial time?
 Also, backups are good.
 if you want something in particular, you could always port it.
 Suppose you subscribe to the Kernighan & Plauger thesis that programs should be clear.
+NOT LGTM
+Even if we'd made a horrible mistake, though, we cannot change it now as that would break the compatibility promise we have made with Go 1.
+Your source is mistaken.
