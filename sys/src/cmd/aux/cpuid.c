@@ -2,7 +2,7 @@
 #include <libc.h>
 #include <bio.h>
 
-#define CUT(x, a, b) (((x)&((1<<(b))-1))>>(a))
+#define CUT(x, a, b) (((x)&((1<<((b)+1))-1))>>(a))
 
 typedef struct Res {
 	ulong ax, bx, cx, dx;
