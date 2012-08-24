@@ -908,12 +908,12 @@ procread(Chan *c, void *va, long n, vlong off)
 		}
 
 		lock(&p->exl);
-		if(up == p && p->nchild == 0 && p->waitq == 0) {
-			unlock(&p->exl);
-			error(Enochild);
-		}
 		pid = p->pid;
 		while(p->waitq == 0) {
+			if(up == p && p->nchild == 0) {
+				unlock(&p->exl);
+				error(Enochild);
+			}
 			unlock(&p->exl);
 			sleep(&p->waitr, haswaitq, p);
 			if(p->pid != pid)

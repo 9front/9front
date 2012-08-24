@@ -1229,15 +1229,15 @@ pwait(Waitmsg *w)
 	}
 
 	lock(&up->exl);
-	if(up->nchild == 0 && up->waitq == 0) {
+	while(up->waitq == 0) {
+		if(up->nchild == 0) {
+			unlock(&up->exl);
+			error(Enochild);
+		}
 		unlock(&up->exl);
-		error(Enochild);
+		sleep(&up->waitr, haswaitq, up);
+		lock(&up->exl);
 	}
-	unlock(&up->exl);
-
-	sleep(&up->waitr, haswaitq, up);
-
-	lock(&up->exl);
 	wq = up->waitq;
 	up->waitq = wq->next;
 	up->nwait--;
