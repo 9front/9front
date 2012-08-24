@@ -11,6 +11,7 @@ TARG=\
 	cddb\
 	cdsh\
 	clog\
+	cpuid\
 	consolefs\
 	data2s\
 	depend\
