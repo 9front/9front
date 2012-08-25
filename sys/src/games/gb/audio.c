@@ -7,6 +7,7 @@
 
 static int fd;
 static int sc, ch1c, ch2c, ch3c, ch4c, ch4sr = 1, ch1vec, ch2vec, ch4vec, ch1v, ch2v, ch4v;
+extern int paused;
 
 enum { SAMPLE = 44100 };
 
@@ -201,8 +202,11 @@ audioproc(void *)
 	int i;
 
 	for(;;){
-		for(i = 0; i < sizeof samples/4; i++)
-			dosample(samples + 2 * i);
+		if(paused)
+			memset(samples, 0, sizeof samples);
+		else
+			for(i = 0; i < sizeof samples/4; i++)
+				dosample(samples + 2 * i);
 		write(fd, samples, sizeof samples);
 	}
 }

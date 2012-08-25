@@ -9,10 +9,11 @@
 #include "fns.h"
 
 uchar *cart, *ram;
-int mbc, rombanks, rambanks, clock, ppuclock, divclock, timerclock, syncclock, syncfreq, sleeps, checkclock, msgclock, timerfreq, timer, keys, savefd, savereq, loadreq, scale;
+int mbc, rombanks, rambanks, clock, ppuclock, divclock, timerclock, syncclock, syncfreq, sleeps, checkclock, msgclock, timerfreq, timer, keys, savefd, savereq, loadreq, scale, paused;
 Rectangle picr;
 Image *bg, *tmp;
 Mousectl *mc;
+QLock pauselock;
 
 void
 message(char *fmt, ...)
@@ -177,7 +178,7 @@ keyproc(void *)
 		if(read(fd, buf, 256) <= 0)
 			sysfatal("read /dev/kbd: %r");
 		if(buf[0] == 'c'){
-			if(strchr(buf, Kesc))
+			if(utfrune(buf, KF|12) || utfrune(buf, 'o'))
 				threadexitsall(nil);
 			if(utfrune(buf, KF|5))
 				savereq = 1;
@@ -192,6 +193,13 @@ keyproc(void *)
 			s += chartorune(&r, s);
 			switch(r){
 			case Kesc:
+				if(paused)
+					qunlock(&pauselock);
+				else
+					qlock(&pauselock);
+				paused = !paused;
+				break;
+			case KF|12:
 				threadexitsall(nil);
 			case Kdown:
 				keys |= 1<<3;
@@ -269,6 +277,10 @@ threadmain(int argc, char** argv)
 		if(loadreq){
 			loadstate("gb.save");
 			loadreq = 0;
+		}
+		if(paused){
+			qlock(&pauselock);
+			qunlock(&pauselock);
 		}
 		t = step();
 		clock += t;
