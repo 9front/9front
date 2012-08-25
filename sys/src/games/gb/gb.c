@@ -178,7 +178,7 @@ keyproc(void *)
 		if(read(fd, buf, 256) <= 0)
 			sysfatal("read /dev/kbd: %r");
 		if(buf[0] == 'c'){
-			if(utfrune(buf, KF|12) || utfrune(buf, 'o'))
+			if(utfrune(buf, Kdel))
 				threadexitsall(nil);
 			if(utfrune(buf, KF|5))
 				savereq = 1;
@@ -199,7 +199,7 @@ keyproc(void *)
 					qlock(&pauselock);
 				paused = !paused;
 				break;
-			case KF|12:
+			case Kdel:
 				threadexitsall(nil);
 			case Kdown:
 				keys |= 1<<3;
