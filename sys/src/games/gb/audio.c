@@ -196,10 +196,25 @@ dosample(short *smp)
 }
 
 void
+setpri(int pri)
+{
+	char buf[64];
+	int fd;
+
+	snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
+	if((fd = open(buf, OWRITE)) >= 0){
+		fprint(fd, "pri %d\n", pri);
+		close(fd);
+	}
+}
+
+void
 audioproc(void *)
 {
 	short samples[10 * 2];
 	int i;
+
+	setpri(13);
 
 	for(;;){
 		if(paused)
