@@ -384,11 +384,12 @@ identify(void)
 	 * if correct, check the version.
 	 * To do: check extended table checksum.
 	 */
-	if((_mp_ = sigsearch("_MP_")) == 0 || _mp_->physaddr == 0)
+	if((_mp_ = sigsearch("_MP_")) == 0 || checksum(_mp_, sizeof(_MP_)) || 
+	   (_mp_->physaddr == 0))
 		return 1;
 
 	pcmp = KADDR(_mp_->physaddr);
-	if(memcmp(pcmp, "PCMP", 4) || checksum(pcmp, pcmp->length) || 
+	if(memcmp(pcmp, "PCMP", 4) || checksum(pcmp, pcmp->length) ||
 	   (pcmp->version != 1 && pcmp->version != 4)) {
 		pcmp = nil;
 		return 1;
