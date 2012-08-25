@@ -990,10 +990,8 @@ rrlookup(DN *dp, int type, int flag)
 		assert(rp->magic == RRmagic && rp->cached);
 		if(rp->db)
 		if(rp->auth)
-		if(tsame(type, rp->type)) {
+		if(tsame(type, rp->type))
 			last = rrcopy(rp, last);
-			// setmalloctag(*last, getcallerpc(&dp));
-		}
 	}
 	if(first)
 		goto out;
@@ -1045,9 +1043,6 @@ rrlookup(DN *dp, int type, int flag)
 out:
 	unique(first);
 	unlock(&dnlock);
-//	dnslog("rrlookup(%s) -> %#p\t# in-core only", dp->name, first);
-//	if (first)
-//		setmalloctag(first, getcallerpc(&dp));
 	return first;
 }
 
@@ -1787,11 +1782,12 @@ estrdup(char *s)
 	int size;
 	char *p;
 
-	size = strlen(s)+1;
-	p = mallocz(size, 0);
+	size = strlen(s);
+	p = mallocz(size+1, 0);
 	if(p == nil)
 		abort();
 	memmove(p, s, size);
+	p[size] = 0;
 	setmalloctag(p, getcallerpc(&s));
 	return p;
 }
@@ -1877,14 +1873,17 @@ void
 addserver(Server **l, char *name)
 {
 	Server *s;
+	int n;
 
 	while(*l)
 		l = &(*l)->next;
-	s = malloc(sizeof(Server)+strlen(name)+1);
+	n = strlen(name);
+	s = malloc(sizeof(Server)+n+1);
 	if(s == nil)
 		return;
 	s->name = (char*)(s+1);
-	strcpy(s->name, name);
+	memmove(s->name, name, n);
+	s->name[n] = 0;
 	s->next = nil;
 	*l = s;
 }
@@ -1941,6 +1940,7 @@ freeserverlist(Server *s)
 
 	for(; s != nil; s = next){
 		next = s->next;
+		memset(s, 0, sizeof *s);	/* cause trouble */
 		free(s);
 	}
 }

@@ -152,7 +152,8 @@ pname(uchar *p, uchar *ep, char *np, Dict *dp)
 				/* add to dp->buf */
 				i = strlen(np);
 				if(dp->ep + i + 1 < &dp->buf[sizeof dp->buf]){
-					strcpy(dp->ep, np);
+					memmove(dp->ep, np, i);
+					dp->ep[i] = 0;
 					dp->x[dp->n].name = dp->ep;
 					last = dp->ep;
 					dp->x[dp->n].offset = p - dp->start;

@@ -9,7 +9,6 @@
 #include "dns.h"
 
 typedef struct Dest Dest;
-typedef struct Ipaddr Ipaddr;
 typedef struct Query Query;
 
 enum
@@ -43,11 +42,6 @@ enum
 };
 enum { Hurry, Patient, };
 enum { Outns, Inns, };
-
-struct Ipaddr {
-	Ipaddr *next;
-	uchar	ip[IPaddrlen];
-};
 
 struct Dest
 {
@@ -185,8 +179,11 @@ dnresolve(char *name, int class, int type, Request *req, RR **cn, int depth,
 			rrfreelist(rrremneg(&rp));
 			unlock(&dnlock);
 		}
-		if(drp != nil)
+		if(drp != nil){
+			lock(&dnlock);
 			rrfreelist(drp);
+			unlock(&dnlock);
+		}
 		procsetname(procname);
 		free(procname);
 		return rp;
@@ -210,15 +207,16 @@ dnresolve(char *name, int class, int type, Request *req, RR **cn, int depth,
 				if(rp == nil)
 					break;
 
+				lock(&dnlock);
 				/* rp->host == nil shouldn't happen, but does */
 				if(rp->negative || rp->host == nil){
 					rrfreelist(rp);
+					unlock(&dnlock);
 					rp = nil;
 					break;
 				}
 
 				name = rp->host->name;
-				lock(&dnlock);
 				if(cn)
 					rrcat(cn, rp);
 				else
@@ -336,6 +334,7 @@ netqueryns(Query *qp, int depth, RR *nsrp)
 
 	qp->nsrp = nsrp;
 	rv = netquery(qp, depth);
+	qp->nsrp = nil;		/* prevent accidents */
 	lock(&dnlock);
 	rrfreelist(nsrp);
 	unlock(&dnlock);
@@ -492,13 +491,8 @@ dnresolve1(char *name, int class, int type, Request *req, int depth,
 	 * we should have found its data in memory by now.
 	 */
 	area = inmyarea(dp->name);
-	if (area || strncmp(dp->name, "local#", 6) == 0) {
-//		char buf[32];
-
-//		dnslog("%s %s: no data in area %s", dp->name,
-//			rrname(type, buf, sizeof buf), area->soarr->owner->name);
+	if (area || strncmp(dp->name, "local#", 6) == 0)
 		return nil;
-	}
 
 	qp = emalloc(sizeof *qp);
 	queryinit(qp, dp, type, req);
@@ -567,7 +561,7 @@ udpport(char *mtpt)
 	char ds[64], adir[64];
 
 	/* get a udp port */
-	snprint(ds, sizeof ds, "%s/udp!*!0", (mtpt? mtpt: "/net"));
+	snprint(ds, sizeof ds, "%s/udp!*!0", (mtpt && *mtpt) ? mtpt : "/net");
 	ctl = announce(ds, adir);
 	if(ctl < 0){
 		/* warning("can't get udp port"); */
@@ -624,13 +618,12 @@ mkreq(DN *dp, int type, uchar *buf, int flags, ushort reqno)
 	hnputs(uh->rport, 53);
 
 	/* make request and convert it to output format */
-	memset(&m, 0, sizeof m);
 	rp = rralloc(type);
 	rp->owner = dp;
+	memset(&m, 0, sizeof m);
 	initdnsmsg(&m, rp, flags, reqno);
 	len = convDNS2M(&m, &buf[Udphdrsize], Maxudp);
-	rrfreelistptr(&m.qd);
-	memset(&m, 0, sizeof m);		/* cause trouble */
+	rrfreelist(rp);
 	return len;
 }
 
@@ -658,12 +651,13 @@ readnet(Query *qp, int medium, uchar *ibuf, uvlong endms, uchar **replyp,
 	uchar lenbuf[2];
 
 	len = -1;			/* pessimism */
+	*replyp = nil;
+	memset(srcip, 0, IPaddrlen);
 	ms = endms - NS2MS(startns);
 	if (ms <= 0)
 		return -1;		/* taking too long */
 
 	reply = ibuf;
-	memset(srcip, 0, IPaddrlen);
 	alarm(ms);
 	if (medium == Udp)
 		if (qp->udpfd < 0)
@@ -725,10 +719,6 @@ readreply(Query *qp, int medium, ushort req, uchar *ibuf, DNSmsg *mp,
 	RR *rp;
 
 	queryck(qp);
-	memset(mp, 0, sizeof *mp);
-	memset(srcip, 0, sizeof srcip);
-	if (0)
-		len = -1;
 	for (; timems() < endms &&
 	    (len = readnet(qp, medium, ibuf, endms, &reply, srcip)) >= 0;
 	    freeanswers(mp)){
@@ -782,6 +772,7 @@ readreply(Query *qp, int medium, ushort req, uchar *ibuf, DNSmsg *mp,
 						"ns %s", qp->dp->name,
 						rp->host->name);
 	}
+	memset(mp, 0, sizeof *mp);
 	return -1;
 }
 
@@ -922,7 +913,9 @@ cacheneg(DN *dp, int type, int rcode, RR *soarr)
 	DN *soaowner;
 	ulong ttl;
 
+	qlock(&stats);
 	stats.negcached++;
+	qunlock(&stats);
 
 	/* no cache time specified, don't make anything up */
 	if(soarr != nil){
@@ -976,30 +969,33 @@ setdestoutns(Dest *p, int n)
 static int
 mydnsquery(Query *qp, int medium, uchar *udppkt, int len)
 {
-	int rv = -1, nfd;
+	int rv, nfd;
 	char *domain;
-	char conndir[40], net[40];
+	char conndir[40], addr[128];
 	uchar belen[2];
 	NetConnInfo *nci;
 
+	rv = -1;
 	queryck(qp);
 	domain = smprint("%I", udppkt);
+	if (domain == nil) {
+		warning("mydnsquery: no memory for domain");
+		return rv;
+	}
 	if (myaddr(domain)) {
 		dnslog("mydnsquery: trying to send to myself (%s); bzzzt",
 			domain);
 		free(domain);
 		return rv;
 	}
-
 	switch (medium) {
 	case Udp:
-		free(domain);
 		nfd = dup(qp->udpfd, -1);
 		if (nfd < 0) {
 			warning("mydnsquery: qp->udpfd %d: %r", qp->udpfd);
 			close(qp->udpfd);	/* ensure it's closed */
 			qp->udpfd = -1;		/* poison it */
-			return rv;
+			break;
 		}
 		close(nfd);
 
@@ -1010,25 +1006,26 @@ mydnsquery(Query *qp, int medium, uchar *udppkt, int len)
 			    len+Udphdrsize)
 				warning("sending udp msg: %r");
 			else {
+				qlock(&stats);
 				stats.qsent++;
+				qunlock(&stats);
 				rv = 0;
 			}
 		}
 		break;
 	case Tcp:
 		/* send via TCP & keep fd around for reply */
-		snprint(net, sizeof net, "%s/tcp",
-			(mntpt[0] != '\0'? mntpt: "/net"));
+		parseip(qp->tcpip, domain);
+		snprint(addr, sizeof addr, "%s/tcp!%s!dns",
+				(mntpt && *mntpt) ? mntpt : "/net",
+				domain);
 		alarm(10*1000);
-		qp->tcpfd = rv = dial(netmkaddr(domain, net, "dns"), nil,
-			conndir, &qp->tcpctlfd);
+		qp->tcpfd = dial(addr, nil, conndir, &qp->tcpctlfd);
 		alarm(0);
 		if (qp->tcpfd < 0) {
-			dnslog("can't dial tcp!%s!dns: %r", domain);
-			free(domain);
+			dnslog("can't dial %s: %r", addr);
 			break;
 		}
-		free(domain);
 		nci = getnetconninfo(conndir, qp->tcpfd);
 		if (nci) {
 			parseip(qp->tcpip, nci->rsys);
@@ -1042,10 +1039,11 @@ mydnsquery(Query *qp, int medium, uchar *udppkt, int len)
 		if (write(qp->tcpfd, belen, 2) != 2 ||
 		    write(qp->tcpfd, udppkt + Udphdrsize, len) != len)
 			warning("sending tcp msg: %r");
+		else
+			rv = 0;
 		break;
-	default:
-		sysfatal("mydnsquery: bad medium");
 	}
+	free(domain);
 	return rv;
 }
 
@@ -1183,7 +1181,6 @@ static int
 procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 {
 	int rv;
-//	int lcktype;
 	char buf[32];
 	DN *ndp;
 	Query *nqp;
@@ -1307,21 +1304,10 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 	}
 	procsetname("recursive query for %s %s", qp->dp->name,
 		rrname(qp->type, buf, sizeof buf));
-	/*
-	 *  we're called from udpquery, called from
-	 *  netquery, which current holds qp->dp->querylck,
-	 *  so release it now and acquire it upon return.
-	 */
-//	lcktype = qtype2lck(qp->type);		/* someday try this again */
-//	qunlock(&qp->dp->querylck[lcktype]);
 
 	nqp = emalloc(sizeof *nqp);
 	queryinit(nqp, qp->dp, qp->type, qp->req);
-	nqp->nsrp = tp;
-	rv = netquery(nqp, depth+1);
-
-//	qlock(&qp->dp->querylck[lcktype]);
-	rrfreelist(nqp->nsrp);
+	rv = netqueryns(nqp, depth+1, tp);
 	querydestroy(nqp);
 	free(nqp);
 	return rv;
@@ -1348,7 +1334,7 @@ tcpquery(Query *qp, DNSmsg *mp, int depth, uchar *ibuf, uchar *obuf, int len,
 
 	qlock(&qp->tcplock);
 	memmove(obuf, ibuf, IPaddrlen);		/* send back to respondent */
-	/* sets qp->tcpip from obuf's udp header */
+	memset(mp, 0, sizeof *mp);
 	if (xmitquery(qp, Tcp, depth, obuf, inns, len) < 0 ||
 	    readreply(qp, Tcp, req, ibuf, mp, endms) < 0)
 		rv = -1;
@@ -1526,6 +1512,8 @@ udpquery(Query *qp, char *mntpt, int depth, int patient, int inns)
 	static QLock mntlck;
 	static ulong lastmount;
 
+	rv = -1;
+
 	/* use alloced buffers rather than ones from the stack */
 	ibuf = emalloc(64*1024);		/* max. tcp reply size */
 	obuf = emalloc(Maxudp+Udphdrsize);
@@ -1557,7 +1545,7 @@ udpquery(Query *qp, char *mntpt, int depth, int patient, int inns)
 	if (fd < 0) {
 		dnslog("can't get udpport for %s query of name %s: %r",
 			mntpt, qp->dp->name);
-		sysfatal("out of udp conversations");	/* we're buggered */
+		goto Out;
 	}
 
 	/*
@@ -1576,9 +1564,10 @@ udpquery(Query *qp, char *mntpt, int depth, int patient, int inns)
 
 	qp->udpfd = fd;
 	rv = queryns(qp, depth, ibuf, obuf, wait, inns);
-	close(fd);
 	qp->udpfd = -1;
+	close(fd);
 
+Out:
 	free(obuf);
 	free(ibuf);
 	return rv;
@@ -1681,8 +1670,6 @@ netquery(Query *qp, int depth)
 
 		rv = udpquery(qp, "/net.alt", depth, Patient, Outns);
 	}
-//	if (rv == Answnone)		/* could ask /net.alt/dns directly */
-//		askoutdns(dp, qp->type);
 
 	if(lock && qlp) {
 		qlock(qlp);
@@ -1699,23 +1686,19 @@ seerootns(void)
 	int rv;
 	char root[] = "";
 	Request req;
-	RR *rr;
+	RR *rr, *nsrp;
 	Query *qp;
 
 	memset(&req, 0, sizeof req);
 	req.isslave = 1;
 	req.aborttime = timems() + Maxreqtm;
 	req.from = "internal";
-
 	qp = emalloc(sizeof *qp);
 	queryinit(qp, dnlookup(root, Cin, 1), Tns, &req);
-	qp->nsrp = dblookup(root, Cin, Tns, 0, 0);
-	for (rr = qp->nsrp; rr != nil; rr = rr->next)	/* DEBUG */
+	nsrp = dblookup(root, Cin, Tns, 0, 0);
+	for (rr = nsrp; rr != nil; rr = rr->next)	/* DEBUG */
 		dnslog("seerootns query nsrp: %R", rr);
-
-	rv = netquery(qp, 0);		/* lookup ". ns" using qp->nsrp */
-
-	rrfreelist(qp->nsrp);
+	rv = netqueryns(qp, 0, nsrp);		/* lookup ". ns" using nsrp */
 	querydestroy(qp);
 	free(qp);
 	return rv;

@@ -1933,10 +1933,11 @@ estrdup(char *s)
 	int size;
 	char *p;
 
-	size = strlen(s)+1;
-	p = malloc(size);
+	size = strlen(s);
+	p = malloc(size+1);
 	if(p == nil)
 		error("out of memory");
 	memmove(p, s, size);
+	p[size] = 0;
 	return p;
 }
