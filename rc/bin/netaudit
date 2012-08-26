@@ -7,7 +7,7 @@ fn checkhost {
 	}
 	dom=`{ndb/ipquery sys $sysname dom | sed 's/^dom=//'}
 	echo 'checking this host''s tuple:'
-	if(~ dom '')
+	if(~ $dom '')
 		echo '	no dom= entry'
 	if not if(! ~ $dom *.*)
 		echo '	dom='$dom 'does not have a dot'
