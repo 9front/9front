@@ -1394,6 +1394,8 @@ hdamatch(Pcidev *p)
 		case (0x8086 << 16) | 0x284b:	/* Intel ICH8 */
 		case (0x8086 << 16) | 0x293f:	/* Intel ICH9 (untested) */
 		case (0x8086 << 16) | 0x293e:	/* Intel P35 (untested) */
+		case (0x8086 << 16) | 0x811b:	/* Intel SCH (Pouslbo) */
+		case (0x8086 << 16) | 0x080a:	/* Intel SCH (Oaktrail) */
 
 		case (0x10de << 16) | 0x026c:	/* NVidia MCP51 (untested) */
 		case (0x10de << 16) | 0x0371:	/* NVidia MCP55 (untested) */
@@ -1497,6 +1499,14 @@ Found:
 		/* magic for ULI */
 		pcicfgw16(p, 0x40, pcicfgr16(p, 0x40) | 0x10);
 		pcicfgw32(p, PciBAR1, 0);
+	}
+	if(p->vid == 0x8086){
+		/* magic for Intel */
+		switch(p->did){
+		case 0x811b:	/* SCH */
+		case 0x080a:
+			pcicfgw16(p, 0x78, pcicfgr16(p, 0x78) & ~0x800);
+		}
 	}
 	if(p->vid == 0x1002){
 		/* magic for ATI */
