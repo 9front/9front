@@ -101,8 +101,7 @@ void	rwstat(Job*, Mfile*);
 void	sendmsg(Job*, char*);
 void	setext(char*, int, char*);
 
-static char *lookupqueryold(Job*, Mfile*, Request*, char*, char*, int, int);
-static char *lookupquerynew(Job*, Mfile*, Request*, char*, char*, int, int);
+static char *lookupquery(Job*, Mfile*, Request*, char*, char*, int, int);
 static char *respond(Job*, Mfile*, RR*, char*, int, int);
 
 void
@@ -731,6 +730,8 @@ rwrite(Job *job, Mfile *mf, Request *req)
 		dndump("/lib/ndb/dnsdump2");
 	} else if(strcmp(job->request.data, "debug")==0)
 		debug ^= 1;
+	else if(strcmp(job->request.data, "testing")==0)
+		testing ^= 1;
 	else if(strcmp(job->request.data, "dump")==0)
 		dndump("/lib/ndb/dnsdump");
 	else if(strcmp(job->request.data, "poolcheck")==0)
@@ -803,7 +804,7 @@ rwrite(Job *job, Mfile *mf, Request *req)
 	} else
 		wantsav = 0;
 
-	err = lookupqueryold(job, mf, req, errbuf, p, wantsav, rooted);
+	err = lookupquery(job, mf, req, errbuf, p, wantsav, rooted);
 send:
 	dncheck(0, 1);
 	job->reply.count = cnt;
@@ -821,7 +822,7 @@ send:
  * but here we just call dnresolve directly.
  */
 static char *
-lookupqueryold(Job *job, Mfile *mf, Request *req, char *errbuf, char *p,
+lookupquery(Job *job, Mfile *mf, Request *req, char *errbuf, char *p,
 	int wantsav, int rooted)
 {
 	int status;
@@ -878,35 +879,12 @@ respond(Job *job, Mfile *mf, RR *rp, char *errbuf, int status, int wantsav)
 		mf->rr[mf->nrr] = n;
 	}
 	unlock(&joblock);
+
+	lock(&dnlock);
 	rrfreelist(rp);
+	unlock(&dnlock);
+
 	return nil;
-}
-
-/* simulate what dnsudpserver does */
-static char *
-lookupquerynew(Job *job, Mfile *mf, Request *req, char *errbuf, char *p,
-	int wantsav, int)
-{
-	char *err;
-	uchar buf[Udphdrsize + Maxudp + 1024];
-	DNSmsg *mp;
-	DNSmsg repmsg;
-	RR *rp;
-
-	dncheck(0, 1);
-
-	memset(&repmsg, 0, sizeof repmsg);
-	rp = rralloc(mf->type);
-	rp->owner = dnlookup(p, Cin, 1);
-	mp = newdnsmsg(rp, Frecurse|Oquery, (ushort)rand());
-
-	dnserver(mp, &repmsg, req, buf, Rok);
-
-	freeanswers(mp);
-	err = respond(job, mf, repmsg.an, errbuf, Rok, wantsav);
-	repmsg.an = nil;		/* freed above */
-	freeanswers(&repmsg);
-	return err;
 }
 
 void

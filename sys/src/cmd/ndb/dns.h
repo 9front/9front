@@ -301,12 +301,12 @@ struct RR
 	};
 	union {			/* discriminated by type */
 		SOA	*soa;	/* soa timers - soa */
+		Srv	*srv;
 		Key	*key;
 		Cert	*cert;
 		Sig	*sig;
 		Null	*null;
 		Txt	*txt;
-		Srv	*srv;
 	};
 };
 
@@ -533,7 +533,6 @@ int	udpport(char *);
 int	mkreq(DN *dp, int type, uchar *buf, int flags, ushort reqno);
 int	seerootns(void);
 void	initdnsmsg(DNSmsg *mp, RR *rp, int flags, ushort reqno);
-DNSmsg*	newdnsmsg(RR *rp, int flags, ushort reqno);
 
 /* dnserver.c */
 void	dnserver(DNSmsg*, DNSmsg*, Request*, uchar *, int);

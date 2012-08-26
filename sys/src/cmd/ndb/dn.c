@@ -14,14 +14,14 @@
  * figure it out.
  */
 enum {
-	Deftarget	= 1<<30,	/* effectively disable aging */
-	Minage		= 1<<30,
-	Defagefreq	= 1<<30,	/* age names this often (seconds) */
+//	Deftarget	= 1<<30,	/* effectively disable aging */
+//	Minage		= 1<<30,
+//	Defagefreq	= 1<<30,	/* age names this often (seconds) */
 
 	/* these settings will trigger frequent aging */
-//	Deftarget	= 4000,
-//	Minage		=  5*60,
-//	Defagefreq	= 15*60,	/* age names this often (seconds) */
+	Deftarget	= 4000,
+	Minage		=  5*60,
+	Defagefreq	= 15*60,	/* age names this often (seconds) */
 };
 
 /*
@@ -217,7 +217,6 @@ dnlookup(char *name, int class, int enter)
 	dp = emalloc(sizeof(*dp));
 	dp->magic = DNmagic;
 	dp->name = estrdup(name);
-	assert(dp->name != nil);
 	dp->class = class;
 	dp->rr = 0;
 	dp->referenced = now;
@@ -446,6 +445,9 @@ dnagenever(DN *dp, int dolock)
 			MARK(rp->host);
 			MARK(rp->rmb);
 			break;
+		case Tsig:
+			MARK(rp->sig->signer);
+			break;
 		}
 	}
 
@@ -564,6 +566,9 @@ dnageall(int doit)
 					REF(rp->host);
 					REF(rp->rmb);
 					break;
+				case Tsig:
+					REF(rp->sig->signer);
+					break;
 				}
 			}
 
@@ -571,7 +576,7 @@ dnageall(int doit)
 	for(i = 0; i < HTLEN; i++){
 		l = &ht[i];
 		for(dp = *l; dp; dp = *l){
-			if(dp->rr == 0 && dp->refs == 0 && !dp->keep){
+			if(dp->rr == 0 && dp->refs == 0 && dp->keep == 0){
 				assert(dp->magic == DNmagic);
 				*l = dp->next;
 
@@ -714,9 +719,12 @@ putactivity(int recursive)
 	}
 	unlock(&dnvars);
 
+	dncheck(0, 1);
+
 	db2cache(needrefresh);
 	dnageall(0);
 
+	dncheck(0, 1);
 	/* let others back in */
 	lastclean = now;
 	needrefresh = 0;
@@ -751,8 +759,6 @@ rrattach1(RR *new, int auth)
 	DN *dp;
 
 	assert(new->magic == RRmagic && !new->cached);
-
-//	dnslog("rrattach1: %s", new->owner->name);
 	if(!new->db) {
 		/*
 		 * try not to let responses expire before we
@@ -763,7 +769,7 @@ rrattach1(RR *new, int auth)
 	} else
 		new->expire = now + Year;
 	dp = new->owner;
-	assert(dp->magic == DNmagic);
+	assert(dp != nil && dp->magic == DNmagic);
 	new->auth |= auth;
 	new->next = 0;
 
@@ -847,7 +853,7 @@ rrattach1(RR *new, int auth)
 void
 rrattach(RR *rp, int auth)
 {
-	RR *next, *tp;
+	RR *next;
 	DN *dp;
 
 	lock(&dnlock);
@@ -855,25 +861,13 @@ rrattach(RR *rp, int auth)
 		next = rp->next;
 		rp->next = nil;
 		dp = rp->owner;
-
-//		dnslog("rrattach: %s", rp->owner->name);
 		/* avoid any outside spoofing; leave keepers alone */
-		if(cfg.cachedb && !rp->db && inmyarea(rp->owner->name)
+		if(cfg.cachedb && !rp->db && inmyarea(dp->name)
 //		    || dp->keep			/* TODO: make this work */
 		    )
 			rrfree(rp);
-		else {
-			/* ameliorate the memory leak (someday delete this) */
-			if (0 && rrlistlen(dp->rr) > 50 && !dp->keep) {
-				dnslog("rrattach(%s): rr list too long; "
-					"freeing it", dp->name);
-				tp = dp->rr;
-				dp->rr = nil;
-				rrfreelist(tp);
-			} else
-				USED(dp);
+		else
 			rrattach1(rp, auth);
-		}
 	}
 	unlock(&dnlock);
 }
@@ -882,19 +876,65 @@ rrattach(RR *rp, int auth)
 RR**
 rrcopy(RR *rp, RR **last)
 {
-	Cert *cert;
-	Key *key;
-	Null *null;
 	RR *nrp;
 	SOA *soa;
+	Srv *srv;
+	Key *key;
+	Cert *cert;
 	Sig *sig;
+	Null *null;
 	Txt *t, *nt, **l;
 
+	assert(rp->magic == RRmagic);
 	if (canlock(&dnlock))
 		abort();	/* rrcopy called with dnlock not held */
 	nrp = rralloc(rp->type);
-	setmalloctag(nrp, getcallerpc(&rp));
 	switch(rp->type){
+	case Tsoa:
+		soa = nrp->soa;
+		*nrp = *rp;
+		nrp->soa = soa;
+		*soa = *rp->soa;
+		soa->slaves = copyserverlist(rp->soa->slaves);
+		break;
+	case Tsrv:
+		srv = nrp->srv;
+		*nrp = *rp;
+		nrp->srv = srv;
+		*srv = *rp->srv;
+		break;
+	case Tkey:
+		key = nrp->key;
+		*nrp = *rp;
+		nrp->key = key;
+		*key = *rp->key;
+		key->data = emalloc(key->dlen);
+		memmove(key->data, rp->key->data, rp->key->dlen);
+		break;
+	case Tcert:
+		cert = nrp->cert;
+		*nrp = *rp;
+		nrp->cert = cert;
+		*cert = *rp->cert;
+		cert->data = emalloc(cert->dlen);
+		memmove(cert->data, rp->cert->data, rp->cert->dlen);
+		break;
+	case Tsig:
+		sig = nrp->sig;
+		*nrp = *rp;
+		nrp->sig = sig;
+		*sig = *rp->sig;
+		sig->data = emalloc(sig->dlen);
+		memmove(sig->data, rp->sig->data, rp->sig->dlen);
+		break;
+	case Tnull:
+		null = nrp->null;
+		*nrp = *rp;
+		nrp->null = null;
+		*null = *rp->null;
+		null->data = emalloc(null->dlen);
+		memmove(null->data, rp->null->data, rp->null->dlen);
+		break;
 	case Ttxt:
 		*nrp = *rp;
 		l = &nrp->txt;
@@ -907,54 +947,12 @@ rrcopy(RR *rp, RR **last)
 			l = &nt->next;
 		}
 		break;
-	case Tsoa:
-		soa = nrp->soa;
-		*nrp = *rp;
-		nrp->soa = soa;
-		*nrp->soa = *rp->soa;
-		nrp->soa->slaves = copyserverlist(rp->soa->slaves);
-		break;
-	case Tsrv:
-		*nrp = *rp;
-		nrp->srv = emalloc(sizeof *nrp->srv);
-		*nrp->srv = *rp->srv;
-		break;
-	case Tkey:
-		key = nrp->key;
-		*nrp = *rp;
-		nrp->key = key;
-		*key = *rp->key;
-		key->data = emalloc(key->dlen);
-		memmove(key->data, rp->key->data, rp->key->dlen);
-		break;
-	case Tsig:
-		sig = nrp->sig;
-		*nrp = *rp;
-		nrp->sig = sig;
-		*sig = *rp->sig;
-		sig->data = emalloc(sig->dlen);
-		memmove(sig->data, rp->sig->data, rp->sig->dlen);
-		break;
-	case Tcert:
-		cert = nrp->cert;
-		*nrp = *rp;
-		nrp->cert = cert;
-		*cert = *rp->cert;
-		cert->data = emalloc(cert->dlen);
-		memmove(cert->data, rp->cert->data, rp->cert->dlen);
-		break;
-	case Tnull:
-		null = nrp->null;
-		*nrp = *rp;
-		nrp->null = null;
-		*null = *rp->null;
-		null->data = emalloc(null->dlen);
-		memmove(null->data, rp->null->data, rp->null->dlen);
-		break;
 	default:
 		*nrp = *rp;
 		break;
 	}
+	nrp->pc = getcallerpc(&rp);
+	setmalloctag(nrp, nrp->pc);
 	nrp->cached = 0;
 	nrp->next = 0;
 	*last = nrp;
@@ -1231,8 +1229,6 @@ rrfmt(Fmt *f)
 		fmtprint(&fstr, "\t%s", dnname(rp->ip));
 		break;
 	case Tptr:
-//		fmtprint(&fstr, "\t%s(%lud)", dnname(rp->ptr),
-//			rp->ptr? rp->ptr->ordinal: "<null>");
 		fmtprint(&fstr, "\t%s", dnname(rp->ptr));
 		break;
 	case Tsoa:
@@ -1506,7 +1502,7 @@ slave(Request *req)
 
 	/* limit parallelism */
 	procs = getactivity(req, 1);
-	if (procs > stats.slavehiwat)
+	if(procs > stats.slavehiwat)
 		stats.slavehiwat = procs;
 	if(procs > Maxactive){
 		if(traceactivity)
@@ -2003,8 +1999,7 @@ rrfree(RR *rp)
 	RR *nrp;
 	Txt *t;
 
-	assert(rp->magic == RRmagic);
-	assert(!rp->cached);
+	assert(rp->magic == RRmagic && !rp->cached);
 
 	dp = rp->owner;
 	if(dp){
@@ -2044,8 +2039,7 @@ rrfree(RR *rp)
 		free(rp->null);
 		break;
 	case Ttxt:
-		while(rp->txt != nil){
-			t = rp->txt;
+		while(t = rp->txt){
 			rp->txt = t->next;
 			free(t->p);
 			memset(t, 0, sizeof *t);	/* cause trouble */

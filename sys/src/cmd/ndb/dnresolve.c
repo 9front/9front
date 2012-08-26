@@ -587,21 +587,12 @@ udpport(char *mtpt)
 void
 initdnsmsg(DNSmsg *mp, RR *rp, int flags, ushort reqno)
 {
+	memset(mp, 0, sizeof *mp);
 	mp->flags = flags;
 	mp->id = reqno;
 	mp->qd = rp;
 	if(rp != nil)
 		mp->qdcount = 1;
-}
-
-DNSmsg *
-newdnsmsg(RR *rp, int flags, ushort reqno)
-{
-	DNSmsg *mp;
-
-	mp = emalloc(sizeof *mp);
-	initdnsmsg(mp, rp, flags, reqno);
-	return mp;
 }
 
 /* generate a DNS UDP query packet */
@@ -620,7 +611,6 @@ mkreq(DN *dp, int type, uchar *buf, int flags, ushort reqno)
 	/* make request and convert it to output format */
 	rp = rralloc(type);
 	rp->owner = dp;
-	memset(&m, 0, sizeof m);
 	initdnsmsg(&m, rp, flags, reqno);
 	len = convDNS2M(&m, &buf[Udphdrsize], Maxudp);
 	rrfreelist(rp);
