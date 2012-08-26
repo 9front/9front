@@ -5,7 +5,7 @@ fn checkhost {
 		echo 'sysname= env var is not set'
 		exit 'fail'
 	}
-	dom=`{ndb/ipquery sys $sysname dom | sed 's/^dom=//'}
+	dom=`{ndb/query sys $sysname dom}
 	echo 'checking this host''s tuple:'
 	if(~ $dom '')
 		echo '	no dom= entry'
@@ -15,7 +15,7 @@ fn checkhost {
 		echo '	dom='$dom 'does not start with' $sysname^'; it''s supposed to be the FQDN, not the domain name!'
 	if not
 		echo '	dom='$dom 'looks ok'
-	ether=`{ndb/ipquery sys $sysname ether | sed 's/^ether=//'}
+	ether=`{ndb/query sys $sysname ether}
 	if(~ $ether '')
 		echo '	no ether entry'
 	if not if(! ~ $ether [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
@@ -34,14 +34,14 @@ fn checknet {
 	}
 	if not
 		echo '	we are in ipnet='^$ipnet
-	dns=`{ndb/query ipnet $ipnet dns | sed 's/^dns=//'}
+	dns=`{ndb/query ipnet $ipnet dns}
 	if(~ $dns '')
 		echo '	no dns= entry'
 	if not if(! ip/ping -n 1 $dns >/dev/null >[2=1])
 		echo '	dns='$dns 'does not reply to ping'
 	if not
 		echo '	dns='$dns 'looks ok'
-	auth=`{ndb/query ipnet $ipnet auth | sed 's/^auth=//'}
+	auth=`{ndb/query ipnet $ipnet auth}
 	if(~ $auth '')
 		echo '	no auth= entry'
 	if not if(! ip/ping -n 1 $auth >/dev/null >[2=1])
@@ -50,7 +50,7 @@ fn checknet {
 		authok=1
 		echo '	auth='$auth 'looks ok'
 	}
-	authdom=`{ndb/query ipnet $ipnet authdom | sed 's/^authdom=//'}
+	authdom=`{ndb/query ipnet $ipnet authdom}
 	if(~ $authdom '')
 		echo '	no authdom= entry'
 	if not
@@ -58,7 +58,7 @@ fn checknet {
 }
 fn checkauth {
 	echo 'checking auth server configuration:'
-	auth=`{ndb/ipquery ipnet $ipnet auth | sed 's/^auth=//' }
+	auth=`{ndb/query ipnet $ipnet auth}
 	if(~ $auth ''){
 		echo '	no auth server'
 		exit fail
@@ -94,7 +94,7 @@ fn checkauth {
 fn checksec {
 	echo 'checking basic security:'
 	if(@{rfork n; mount -n /srv/boot /root >/dev/null >[2=1]})
-		echo '	file server does not require auth'
+		echo '	file server does not require auth for user '^`{cat '#c'/user}
 	if not
 		echo '	file server seems to require auth'
 }
