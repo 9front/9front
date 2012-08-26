@@ -1,0 +1,104 @@
+#!/bin/rc
+rfork e
+fn checkhost {
+	if(~ $sysname ''){
+		echo 'sysname= env var is not set'
+		exit 'fail'
+	}
+	dom=`{ndb/ipquery sys $sysname dom | sed 's/^dom=//'}
+	echo 'checking this host''s tuple:'
+	if(~ dom '')
+		echo '	no dom= entry'
+	if not if(! ~ $dom *.*)
+		echo '	dom='$dom 'does not have a dot'
+	if not if(! ~ $dom $sysname^.*)
+		echo '	dom='$dom 'does not start with' $sysname^'; it''s supposed to be the FQDN, not the domain name!'
+	if not
+		echo '	dom='$dom 'looks ok'
+	ether=`{ndb/ipquery sys $sysname ether | sed 's/^ether=//'}
+	if(~ $ether '')
+		echo '	no ether entry'
+	if not if(! ~ $ether [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+		echo '	ether='$ether 'has wrong format'
+	if not if(! grep -s $ether /net/ether*/addr)
+		echo '	ether='$ether 'does not belong to any network interface'
+	if not
+		echo '	ether='$ether 'looks ok'
+}
+fn checknet {
+	echo 'checking the network tuple:'
+	ipnet=`{ndb/ipquery sys $sysname ipnet | sed 's/^ipnet=//'}
+	if(~ $ipnet ''){
+		echo '	we are not in an ipnet, check your ipnet= entry'
+		exit fail
+	}
+	if not
+		echo '	we are in ipnet='^$ipnet
+	dns=`{ndb/query ipnet $ipnet dns | sed 's/^dns=//'}
+	if(~ $dns '')
+		echo '	no dns= entry'
+	if not if(! ip/ping -n 1 $dns >/dev/null >[2=1])
+		echo '	dns='$dns 'does not reply to ping'
+	if not
+		echo '	dns='$dns 'looks ok'
+	auth=`{ndb/query ipnet $ipnet auth | sed 's/^auth=//'}
+	if(~ $auth '')
+		echo '	no auth= entry'
+	if not if(! ip/ping -n 1 $auth >/dev/null >[2=1])
+		echo '	auth='$auth 'does not reply to ping'
+	if not {
+		authok=1
+		echo '	auth='$auth 'looks ok'
+	}
+	authdom=`{ndb/query ipnet $ipnet authdom | sed 's/^authdom=//'}
+	if(~ $authdom '')
+		echo '	no authdom= entry'
+	if not
+		echo '	authdom='$authdom 'looks ok'
+}
+fn checkauth {
+	echo 'checking auth server configuration:'
+	auth=`{ndb/ipquery ipnet $ipnet auth | sed 's/^auth=//' }
+	if(~ $auth ''){
+		echo '	no auth server'
+		exit fail
+	}
+	if not if(~ $auth $sysname){
+		echo '	we are the auth server'
+		authisus=1
+	}
+	if not if(~ $auth $dom){
+		echo '	we are the auth server'
+		authisus=1
+	}
+	if not {
+		echo '	we are not the auth server '^$auth
+		echo '	if this is a mistake, set auth='$sysname' or auth='$dom
+		if(~ $authok 1)
+			echo '	run auth/debug to test the auth server'
+	}
+	if(~ $authisus 1){
+		if(! grep -s keyfs <{ps})
+			echo '	auth/keyfs is not running, try reboot'
+		if not
+			echo '	auth/keyfs is running'
+		if(! grep -s 'Listen *567' <{netstat -n})
+			echo '	no one listening on port 567, try reboot'
+		if not {
+			echo '	someone is listening on port 567'
+			echo '	run auth/debug to test the auth server'
+		}
+	}
+
+}
+fn checksec {
+	echo 'checking basic security:'
+	if(@{rfork n; mount -n /srv/boot /root >/dev/null >[2=1]})
+		echo '	file server does not require auth'
+	if not
+		echo '	file server seems to require auth'
+}
+checkhost
+checknet
+checkauth
+checksec
