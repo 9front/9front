@@ -341,11 +341,10 @@ preloadserveraddrs(void)
 {
 	RR *rp, **l, *first;
 
+	first = nil;
 	l = &first;
 	for(rp = serveraddrs; rp != nil; rp = rp->next){
-		lock(&dnlock);
 		rrcopy(rp, l);
-		unlock(&dnlock);
 		rrattach(first, Authoritative);
 	}
 }

@@ -1,5 +1,3 @@
-#include <thread.h>		/* for Ref */
-
 #define NS2MS(ns) ((ns) / 1000000L)
 #define S2MS(s)   ((s)  * 1000LL)
 
@@ -186,14 +184,6 @@ struct Request
 	char	*from;		/* who asked us? */
 };
 
-typedef struct Querylck Querylck;
-struct Querylck
-{
-	QLock;
-//	Rendez;
-	Ref;
-};
-
 /*
  *  a domain name
  */
@@ -211,9 +201,6 @@ struct DN
 	ushort	class;		/* RR class */
 	uchar	keep;		/* flag: never age this name */
 	uchar	respcode;	/* response code */
-/* was:	char	nonexistent; /* true if we get an authoritative nx for this domain */
-	/* permit only 1 query per (domain name, type) at a time */
-	Querylck querylck[Maxlcks];
 };
 
 /*
@@ -461,10 +448,9 @@ void	db2cache(int);
 void	dnage(DN*);
 void	dnageall(int);
 void	dnagedb(void);
-void	dnageallnever(void);
 void	dnagenever(DN *, int);
 void	dnauthdb(void);
-void	dncheck(void*, int);
+void	dncheck(void);
 void	dndump(char*);
 void	dnget(void);
 void	dninit(void);
@@ -511,14 +497,13 @@ void	addarea(DN *dp, RR *rp, Ndbtuple *t);
 int	baddelegation(RR*, RR*, uchar*);
 RR*	dbinaddr(DN*, int);
 RR*	dblookup(char*, int, int, int, int);
-void	dnforceage(void);
 RR*	dnsservers(int);
 RR*	domainlist(int);
 int	insideaddr(char *dom);
 int	insidens(uchar *ip);
 int	myaddr(char *addr);
 int	opendatabase(void);
-uchar*	outsidens(int);
+int	outsidensip(int, uchar *ip);
 
 /* dns.c */
 char*	walkup(char*);

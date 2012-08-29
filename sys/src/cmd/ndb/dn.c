@@ -218,7 +218,7 @@ dnlookup(char *name, int class, int enter)
 	dp->magic = DNmagic;
 	dp->name = estrdup(name);
 	dp->class = class;
-	dp->rr = 0;
+	dp->rr = nil;
 	dp->referenced = now;
 	/* add new DN to tail of the hash list.  *l points to last next ptr. */
 	dp->next = nil;
@@ -366,8 +366,7 @@ rrdelhead(RR **l)
 void
 dnage(DN *dp)
 {
-	RR **l;
-	RR *rp, *next;
+	RR **l, *rp;
 	ulong diff;
 
 	if (canlock(&dnlock))
@@ -377,9 +376,8 @@ dnage(DN *dp)
 		return;
 
 	l = &dp->rr;
-	for(rp = dp->rr; rp; rp = next){
+	while ((rp = *l) != nil){
 		assert(rp->magic == RRmagic && rp->cached);
-		next = rp->next;
 		if(!rp->db && (rp->expire < now || diff > dnvars.oldest))
 			rrdelhead(l); /* rp == *l before; *l == rp->next after */
 		else
@@ -453,28 +451,6 @@ dnagenever(DN *dp, int dolock)
 
 	if (dolock)
 		unlock(&dnlock);
-}
-
-/* mark all current domain names as never to be aged */
-void
-dnageallnever(void)
-{
-	int i;
-	DN *dp;
-
-	lock(&dnlock);
-
-	/* mark all referenced domain names */
-	for(i = 0; i < HTLEN; i++)
-		for(dp = ht[i]; dp; dp = dp->next)
-			dnagenever(dp, 0);
-
-	unlock(&dnlock);
-
-	dnslog("%ld initial domain names; target is %ld", dnvars.names, target);
-	if(dnvars.names >= target)
-		dnslog("more initial domain names (%ld) than target (%ld)",
-			dnvars.names, target);
 }
 
 #define REF(dp)	{ if (dp) (dp)->refs++; }
@@ -576,17 +552,16 @@ dnageall(int doit)
 	for(i = 0; i < HTLEN; i++){
 		l = &ht[i];
 		for(dp = *l; dp; dp = *l){
-			if(dp->rr == 0 && dp->refs == 0 && dp->keep == 0){
+			if(dp->rr == nil && dp->refs == 0 && dp->keep == 0){
 				assert(dp->magic == DNmagic);
 				*l = dp->next;
 
-				if(dp->name)
-					free(dp->name);
-				dp->magic = ~dp->magic;
-				dnvars.names--;
+				free(dp->name);
 				memset(dp, 0, sizeof *dp); /* cause trouble */
+				dp->magic = ~DNmagic;
 				free(dp);
 
+				dnvars.names--;
 				continue;
 			}
 			l = &dp->next;
@@ -719,12 +694,15 @@ putactivity(int recursive)
 	}
 	unlock(&dnvars);
 
-	dncheck(0, 1);
+	dncheck();
 
 	db2cache(needrefresh);
+	dncheck();
+
 	dnageall(0);
 
-	dncheck(0, 1);
+	dncheck();
+
 	/* let others back in */
 	lastclean = now;
 	needrefresh = 0;
@@ -862,9 +840,7 @@ rrattach(RR *rp, int auth)
 		rp->next = nil;
 		dp = rp->owner;
 		/* avoid any outside spoofing; leave keepers alone */
-		if(cfg.cachedb && !rp->db && inmyarea(dp->name)
-//		    || dp->keep			/* TODO: make this work */
-		    )
+		if((cfg.cachedb && !rp->db && inmyarea(dp->name)) || dp->keep)
 			rrfree(rp);
 		else
 			rrattach1(rp, auth);
@@ -872,7 +848,6 @@ rrattach(RR *rp, int auth)
 	unlock(&dnlock);
 }
 
-/* should be called with dnlock held */
 RR**
 rrcopy(RR *rp, RR **last)
 {
@@ -886,8 +861,6 @@ rrcopy(RR *rp, RR **last)
 	Txt *t, *nt, **l;
 
 	assert(rp->magic == RRmagic);
-	if (canlock(&dnlock))
-		abort();	/* rrcopy called with dnlock not held */
 	nrp = rralloc(rp->type);
 	switch(rp->type){
 	case Tsoa:
@@ -954,7 +927,7 @@ rrcopy(RR *rp, RR **last)
 	nrp->pc = getcallerpc(&rp);
 	setmalloctag(nrp, nrp->pc);
 	nrp->cached = 0;
-	nrp->next = 0;
+	nrp->next = nil;
 	*last = nrp;
 	return &nrp->next;
 }
@@ -979,7 +952,7 @@ rrlookup(DN *dp, int type, int flag)
 
 	assert(dp->magic == DNmagic);
 
-	first = 0;
+	first = nil;
 	last = &first;
 	lock(&dnlock);
 
@@ -1039,8 +1012,8 @@ rrlookup(DN *dp, int type, int flag)
 		}
 
 out:
-	unique(first);
 	unlock(&dnlock);
+	unique(first);
 	return first;
 }
 
@@ -1086,9 +1059,7 @@ tsame(int t1, int t2)
 }
 
 /*
- *  Add resource records to a list, duplicate them if they are cached
- *  RR's since these are shared.  should be called with dnlock held
- *  to avoid racing down the start chain.
+ *  Add resource records to a list.
  */
 RR*
 rrcat(RR **start, RR *rp)
@@ -1096,8 +1067,6 @@ rrcat(RR **start, RR *rp)
 	RR *olp, *nlp;
 	RR **last;
 
-	if (canlock(&dnlock))
-		abort();	/* rrcat called with dnlock not held */
 	/* check for duplicates */
 	for (olp = *start; 0 && olp; olp = olp->next)
 		for (nlp = rp; nlp; nlp = nlp->next)
@@ -1122,8 +1091,6 @@ rrremneg(RR **l)
 	RR **nl, *rp;
 	RR *first;
 
-	if (canlock(&dnlock))
-		abort();	/* rrremneg called with dnlock not held */
 	first = nil;
 	nl = &first;
 	while(*l != nil){
@@ -1541,41 +1508,33 @@ slave(Request *req)
  *  chasing down double free's
  */
 void
-dncheck(void *p, int dolock)
+dncheck(void)
 {
 	int i;
 	DN *dp;
 	RR *rp;
 
-	if(p != nil){
-		dp = p;
-		assert(dp->magic == DNmagic);
-	}
-
 	if(!testing)
 		return;
 
-	if(dolock)
-		lock(&dnlock);
+	lock(&dnlock);
 	poolcheck(mainmem);
 	for(i = 0; i < HTLEN; i++)
 		for(dp = ht[i]; dp; dp = dp->next){
-			assert(dp != p);
 			assert(dp->magic == DNmagic);
 			for(rp = dp->rr; rp; rp = rp->next){
 				assert(rp->magic == RRmagic);
 				assert(rp->cached);
 				assert(rp->owner == dp);
 				/* also check for duplicate rrs */
-				if (dolock && rronlist(rp, rp->next)) {
+				if (rronlist(rp, rp->next)) {
 					dnslog("%R duplicates its next chain "
 						"(%R); aborting", rp, rp->next);
 					abort();
 				}
 			}
 		}
-	if(dolock)
-		unlock(&dnlock);
+	unlock(&dnlock);
 }
 
 static int
@@ -1587,7 +1546,6 @@ rrequiv(RR *r1, RR *r2)
 		&& r1->arg1 == r2->arg1;
 }
 
-/* called with dnlock held */
 void
 unique(RR *rp)
 {
@@ -1995,18 +1953,9 @@ rralloc(int type)
 void
 rrfree(RR *rp)
 {
-	DN *dp;
-	RR *nrp;
 	Txt *t;
 
 	assert(rp->magic == RRmagic && !rp->cached);
-
-	dp = rp->owner;
-	if(dp){
-		assert(dp->magic == DNmagic);
-		for(nrp = dp->rr; nrp; nrp = nrp->next)
-			assert(nrp != rp);	/* "rrfree of live rr" */
-	}
 
 	switch(rp->type){
 	case Tsoa:
@@ -2048,7 +1997,7 @@ rrfree(RR *rp)
 		break;
 	}
 
-	rp->magic = ~rp->magic;
 	memset(rp, 0, sizeof *rp);		/* cause trouble */
+	rp->magic = ~RRmagic;
 	free(rp);
 }

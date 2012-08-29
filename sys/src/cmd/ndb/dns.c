@@ -212,7 +212,6 @@ main(int argc, char *argv[])
 
 	srand(now*getpid());
 	db2cache(1);
-//	dnageallnever();
 
 	if (cfg.straddle && !seerootns())
 		dnslog("straddle server misconfigured; can't see root name servers");
@@ -723,12 +722,7 @@ rwrite(Job *job, Mfile *mf, Request *req)
 	 */
 //	dnslog("rwrite got: %s", job->request.data);
 	send = 1;
-	if(strcmp(job->request.data, "age")==0){
-		dnslog("dump, age & dump forced");
-		dndump("/lib/ndb/dnsdump1");
-		dnforceage();
-		dndump("/lib/ndb/dnsdump2");
-	} else if(strcmp(job->request.data, "debug")==0)
+	if(strcmp(job->request.data, "debug")==0)
 		debug ^= 1;
 	else if(strcmp(job->request.data, "testing")==0)
 		testing ^= 1;
@@ -806,7 +800,6 @@ rwrite(Job *job, Mfile *mf, Request *req)
 
 	err = lookupquery(job, mf, req, errbuf, p, wantsav, rooted);
 send:
-	dncheck(0, 1);
 	job->reply.count = cnt;
 	sendmsg(job, err);
 }
@@ -828,18 +821,14 @@ lookupquery(Job *job, Mfile *mf, Request *req, char *errbuf, char *p,
 	int status;
 	RR *rp, *neg;
 
-	dncheck(0, 1);
 	status = Rok;
 	rp = dnresolve(p, Cin, mf->type, req, 0, 0, Recurse, rooted, &status);
 
-	dncheck(0, 1);
-	lock(&dnlock);
 	neg = rrremneg(&rp);
 	if(neg){
 		status = neg->negrcode;
 		rrfreelist(neg);
 	}
-	unlock(&dnlock);
 
 	return respond(job, mf, rp, errbuf, status, wantsav);
 }
@@ -880,9 +869,7 @@ respond(Job *job, Mfile *mf, RR *rp, char *errbuf, int status, int wantsav)
 	}
 	unlock(&joblock);
 
-	lock(&dnlock);
 	rrfreelist(rp);
-	unlock(&dnlock);
 
 	return nil;
 }

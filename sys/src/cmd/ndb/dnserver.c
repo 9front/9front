@@ -22,8 +22,6 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 	Area *myarea;
 	RR *tp, *neg, *rp;
 
-	dncheck(nil, 1);
-
 	recursionflag = norecursion? 0: Fcanrec;
 	memset(repp, 0, sizeof(*repp));
 	repp->id = reqp->id;
@@ -109,11 +107,9 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 			if(repp->ns){
 				/* don't pass on anything we know is wrong */
 				if(repp->ns->negative){
-					lock(&dnlock);
 					rp = repp->ns;
 					repp->ns = nil;
 					rrfreelist(rp);
-					unlock(&dnlock);
 				}
 				break;
 			}
@@ -135,24 +131,18 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 			hint(&repp->ar, tp);
 	}
 
-	/* hint calls rrlookup which holds dnlock, so don't lock before this. */
-
 	/*
 	 *  add an soa to the authority section to help client
 	 *  with negative caching
 	 */
 	if(repp->an == nil)
 		if(myarea != nil){
-			lock(&dnlock);
 			rrcopy(myarea->soarr, &tp);
 			rrcat(&repp->ns, tp);
-			unlock(&dnlock);
 		} else if(neg != nil) {
 			if(neg->negsoaowner != nil) {
 				tp = rrlookup(neg->negsoaowner, Tsoa, NOneg);
-				lock(&dnlock);
 				rrcat(&repp->ns, tp);
-				unlock(&dnlock);
 			}
 			repp->flags |= neg->negrcode;
 		}
@@ -160,15 +150,11 @@ dnserver(DNSmsg *reqp, DNSmsg *repp, Request *req, uchar *srcip, int rcode)
 	/*
 	 *  get rid of duplicates
 	 */
-	lock(&dnlock);
 	unique(repp->an);
 	unique(repp->ns);
 	unique(repp->ar);
 
 	rrfreelist(neg);
-	unlock(&dnlock);
-
-	dncheck(nil, 1);
 }
 
 /*
@@ -185,7 +171,6 @@ doextquery(DNSmsg *mp, Request *req, int recurse)
 	type = mp->qd->type;
 	rp = dnresolve(name, Cin, type, req, &mp->an, 0, recurse, 1, 0);
 
-	lock(&dnlock);
 	/* don't return soa hints as answers, it's wrong */
 	if(rp && rp->db && !rp->auth && rp->type == Tsoa) {
 		rrfreelist(rp);
@@ -195,7 +180,7 @@ doextquery(DNSmsg *mp, Request *req, int recurse)
 	/* don't let negative cached entries escape */
 	neg = rrremneg(&rp);
 	rrcat(&mp->an, rp);
-	unlock(&dnlock);
+
 	return neg;
 }
 
@@ -219,9 +204,7 @@ hint(RR **last, RR *rp)
 			hp = dblookup(rp->host->name, Cin, Taaaa, 0, 0);
 		if (hp && strncmp(hp->owner->name, "local#", 6) == 0)
 			dnslog("returning %s as hint", hp->owner->name);
-		lock(&dnlock);
 		rrcat(last, hp);
-		unlock(&dnlock);
 		break;
 	}
 }

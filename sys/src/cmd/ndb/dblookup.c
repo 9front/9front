@@ -116,12 +116,9 @@ dblookup(char *name, int class, int type, int auth, int ttl)
 
 	if(type == Tall){
 		for (type = Ta; type < Tall; type++)
-			if(implemented[type]) {
-				tp = dblookup(name, class, type, auth, ttl);
-				lock(&dnlock);
-				rrcat(&rp, tp);
-				unlock(&dnlock);
-			}
+			if(implemented[type])
+				rrcat(&rp, dblookup(name, class, type, auth, ttl));
+
 		return rp;
 	}
 
@@ -756,14 +753,6 @@ db2cache(int doit)
 	unlock(&dblock);
 }
 
-void
-dnforceage(void)
-{
-	lock(&dblock);
-	dnageall(1);
-	unlock(&dblock);
-}
-
 extern char	mntpt[Maxpath];		/* net mountpoint */
 static uchar	ipaddr[IPaddrlen];	/* my ip address */
 
@@ -810,8 +799,6 @@ baddelegation(RR *rp, RR *nsrp, uchar *addr)
 
 	if(t == nil)
 		t = lookupinfo("dom");
-	if(t == nil)
-		return 0;
 
 	for(; rp; rp = rp->next){
 		if(rp->type != Tns)
@@ -826,6 +813,9 @@ baddelegation(RR *rp, RR *nsrp, uchar *addr)
 				nsrp, rp, addr);
 			return 1;
 		}
+
+		if(t == nil)
+			continue;
 
 		/* see if delegating to us what we don't own */
 		for(nt = t; nt != nil; nt = nt->entry)
@@ -847,12 +837,13 @@ baddelegation(RR *rp, RR *nsrp, uchar *addr)
 int
 myaddr(char *addr)
 {
-	char *name, *line, *sp;
+	char *line, *sp;
 	char buf[64];
 	Biobuf *bp;
 
 	if(ipcmp(ipaddr, IPnoaddr) == 0)
-		return -1;
+		if(myipaddr(ipaddr, mntpt) < 0)
+			return -1;
 
 	snprint(buf, sizeof buf, "%I", ipaddr);
 	if (strcmp(addr, buf) == 0) {
@@ -860,9 +851,8 @@ myaddr(char *addr)
 		return 1;
 	}
 
-	name = smprint("%s/ipselftab", mntpt);
-	bp = Bopen(name, OREAD);
-	free(name);
+	snprint(buf, sizeof buf, "%s/ipselftab", mntpt);
+	bp = Bopen(buf, OREAD);
 	if (bp != nil) {
 		while ((line = Brdline(bp, '\n')) != nil) {
 			line[Blinelen(bp) - 1] = '\0';
@@ -1246,18 +1236,17 @@ insidens(uchar *ip)
 	return 0;
 }
 
-uchar *
-outsidens(int n)
+int
+outsidensip(int n, uchar *ip)
 {
 	int i;
 	Ndbtuple *t;
-	static uchar ipa[IPaddrlen];
 
 	i = 0;
 	for (t = outnmsrvs; t != nil; t = t->entry)
 		if (strcmp(t->attr, "ip") == 0 && i++ == n) {
-			parseip(ipa, t->val);
-			return ipa;
+			parseip(ip, t->val);
+			return 0;
 		}
-	return nil;
+	return -1;
 }
