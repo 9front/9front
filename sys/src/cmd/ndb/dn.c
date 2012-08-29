@@ -840,7 +840,7 @@ rrattach(RR *rp, int auth)
 		rp->next = nil;
 		dp = rp->owner;
 		/* avoid any outside spoofing; leave keepers alone */
-		if((cfg.cachedb && !rp->db && inmyarea(dp->name)) || dp->keep)
+		if(cfg.cachedb && !rp->db && (dp->keep || inmyarea(dp->name)))
 			rrfree(rp);
 		else
 			rrattach1(rp, auth);
