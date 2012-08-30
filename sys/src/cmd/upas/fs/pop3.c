@@ -83,13 +83,13 @@ pop3resp(Pop *pop)
 	char *p;
 
 	alarm(60*1000);
-	if((s = Brdstr(&pop->bin, '\n', 0)) == nil){
+	s = Brdstr(&pop->bin, '\n', 0);
+	alarm(0);
+	if(s == nil){
 		close(pop->fd);
 		pop->fd = -1;
-		alarm(0);
 		return "unexpected eof";
 	}
-	alarm(0);
 
 	p = s+strlen(s)-1;
 	while(p >= s && (*p == '\r' || *p == '\n'))

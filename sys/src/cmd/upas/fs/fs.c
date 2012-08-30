@@ -145,10 +145,9 @@ usage(void)
 }
 
 void
-notifyf(void *a, char *s)
+notifyf(void *, char *s)
 {
-	USED(a);
-	if(strncmp(s, "interrupt", 9) == 0)
+	if(strstr(s, "alarm") || strstr(s, "interrupt"))
 		noted(NCONT);
 	noted(NDFLT);
 }
