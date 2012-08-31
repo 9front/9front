@@ -29,7 +29,7 @@ cputemprd0(Chan*, void *a, long n, vlong offset)
 
 	cpuid(6, regs);
 	if((regs[0] & 1) == 0)
-		return readstr(offset, a, n, "-1±-1 unsupported\n");
+		goto unsup;
 	if(tj == 0){
 		/*
 		 * magic undocumented msr.  tj(max) is 100 or 85.
@@ -38,13 +38,15 @@ cputemprd0(Chan*, void *a, long n, vlong offset)
 		d = X86MODEL(m->cpuidax);
 		d |= (m->cpuidax>>12) & 0xf0;
 		if((d == 0xf && (m->cpuidax & 0xf)>1) || d == 0xe){
-			rdmsr(0xee, &emsr);
-			msr = emsr;
-			if(msr & 1<<30)
-				tj = 85;
+			if(rdmsr(0xee, &emsr) == 0){
+				msr = emsr;
+				if(msr & 1<<30)
+					tj = 85;
+			}
 		}
 	}
-	rdmsr(0x19c, &emsr);
+	if(rdmsr(0x19c, &emsr) < 0)
+		goto unsup;
 	msr = emsr;
 	t = -1;
 	if(msr & 1<<31){
@@ -57,6 +59,8 @@ cputemprd0(Chan*, void *a, long n, vlong offset)
 		s = " alarm";
 	snprint(buf, sizeof buf, "%ld±%uld%s\n", t, res, s);
 	return readstr(offset, a, n, buf);
+unsup:
+	return readstr(offset, a, n, "-1±-1 unsupported\n");
 }
 
 static long

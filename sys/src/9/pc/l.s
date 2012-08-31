@@ -538,39 +538,24 @@ TEXT lcycles(SB),1,$0
 	RET
 
 TEXT rdmsr(SB), $0				/* model-specific register */
-	MOVL	index+0(FP), CX
-	RDMSR
-	MOVL	vlong+4(FP), CX			/* &vlong */
-	MOVL	AX, 0(CX)			/* lo */
-	MOVL	DX, 4(CX)			/* hi */
-	RET
-
-TEXT tryrdmsr(SB), $0				/* model-specific register */
 	MOVL	$0, BP
 	MOVL	index+0(FP), CX
-TEXT _tryrdmsrinst(SB), $0
+TEXT _rdmsrinst(SB), $0
 	RDMSR
 	MOVL	vlong+4(FP), CX			/* &vlong */
 	MOVL	AX, 0(CX)			/* lo */
 	MOVL	DX, 4(CX)			/* hi */
-	MOVL	BP, AX
+	MOVL	BP, AX				/* BP set to -1 if traped */
 	RET
 	
 TEXT wrmsr(SB), $0
-	MOVL	index+0(FP), CX
-	MOVL	lo+4(FP), AX
-	MOVL	hi+8(FP), DX
-	WRMSR
-	RET
-
-TEXT trywrmsr(SB), $0
 	MOVL	$0, BP
 	MOVL	index+0(FP), CX
 	MOVL	lo+4(FP), AX
 	MOVL	hi+8(FP), DX
-TEXT _trywrmsrinst(SB), $0
+TEXT _wrmsrinst(SB), $0
 	WRMSR
-	MOVL	BP, AX
+	MOVL	BP, AX				/* BP set to -1 if traped */
 	RET
 
 /*

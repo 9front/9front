@@ -154,7 +154,7 @@ void	putcr0(ulong);
 void	putcr3(ulong);
 void	putcr4(ulong);
 void*	rampage(void);
-void	rdmsr(int, vlong*);
+int	rdmsr(int, vlong*);
 void	realmode(Ureg*);
 void	screeninit(void);
 void	(*screenputs)(char*, int);
@@ -169,8 +169,6 @@ void	trapenable(int, void (*)(Ureg*, void*), void*, char*);
 void	trapinit(void);
 void	trapinit0(void);
 int	tas(void*);
-int	tryrdmsr(int, vlong*);
-int	trywrmsr(int, vlong);
 uvlong	tscticks(uvlong*);
 ulong	umbmalloc(ulong, int, int);
 void	umbfree(ulong, int);
@@ -184,7 +182,7 @@ void*	vmap(ulong, int);
 int	vmapsync(ulong);
 void	vunmap(void*, int);
 void	wbinvd(void);
-void	wrmsr(int, vlong);
+int	wrmsr(int, vlong);
 int	xchgw(ushort*, int);
 
 #define	userureg(ur)	(((ur)->cs & 3) == 3)

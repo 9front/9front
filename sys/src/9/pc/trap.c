@@ -436,8 +436,8 @@ trap(Ureg* ureg)
 			extern void _forkretpopes(void);
 			extern void _forkretpopds(void);
 			extern void _forkretiret(void);
-			extern void _tryrdmsrinst(void);
-			extern void _trywrmsrinst(void);
+			extern void _rdmsrinst(void);
+			extern void _wrmsrinst(void);
 
 			extern void load_fs(ulong);
 			extern void load_gs(ulong);
@@ -460,7 +460,7 @@ trap(Ureg* ureg)
 					sp[4] = UDSEL;	/* SS */
 					return;
 				}
-			} else if(pc == _tryrdmsrinst || pc == _trywrmsrinst){
+			} else if(pc == _rdmsrinst || pc == _wrmsrinst){
 				if(vno == VectorGPF){
 					ureg->bp = -1;
 					ureg->pc += 2;

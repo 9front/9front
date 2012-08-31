@@ -397,7 +397,7 @@ archread(Chan *c, void *a, long n, vlong offset)
 			error(Ebadarg);
 		vp = a;
 		for(port = offset; port < offset+n; port += 8)
-			if(tryrdmsr(port, vp++) < 0)
+			if(rdmsr(port, vp++) < 0)
 				error(Ebadarg);
 		return n;
 
@@ -476,7 +476,7 @@ archwrite(Chan *c, void *a, long n, vlong offset)
 			error(Ebadarg);
 		vp = a;
 		for(port = offset; port < offset+n; port += 8)
-			if(trywrmsr(port, *vp++) < 0)
+			if(wrmsr(port, *vp++) < 0)
 				error(Ebadarg);
 		return n;
 
