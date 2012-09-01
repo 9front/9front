@@ -3,20 +3,12 @@
 
 int uflg, nflg, iflg, tflg;
 
-static
-void
-numstr(char *cp, int n)
-{
-	cp[0] = (n/10)%10 + '0';
-	cp[1] = n%10 + '0';
-}
-
 char*
 isodate(Tm *t)
 {
 	static char c[25]; /* leave room to append isotime */
 	snprint(c, 11, "%04d-%02d-%02d", 
-		t->year +1900, t->mon + 1, t->mday);
+		t->year + 1900, t->mon + 1, t->mday);
 	return c;
 }
 
@@ -66,17 +58,15 @@ main(int argc, char *argv[])
 
 	if(nflg)
 		print("%ld\n", now);
-	else if(iflg) {
+	else {
 		tm = uflg ? gmtime(now) : localtime(now);
-		if(tflg)
-			print("%s\n", isotime(tm));
-		else
-			print("%s\n", isodate(tm));
-	} else {
-		if(uflg)
-			print("%s", asctime(gmtime(now)));
-		else
-			print("%s", ctime(now));
+		if(iflg) {
+			if(tflg)
+				print("%s\n", isotime(tm));
+			else
+				print("%s\n", isodate(tm));
+		} else
+			print("%s", asctime(tm));
 	}
 	exits(0);
 }
