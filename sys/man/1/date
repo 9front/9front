@@ -24,12 +24,6 @@ Report Greenwich Mean Time (GMT) rather than local time.
 .B -n
 Report the date as the number of seconds since the
 epoch, 00:00:00 GMT, January 1, 1970.
-.TP
-.B -i
-Report the date as ISO-8601 without time and timezone suffix.
-.TP
-.B -t
-Report the date as ISO-8601 with time and timezone suffix.
 .PP
 The conversion from Greenwich Mean Time to local time depends on the
 .B $timezone
