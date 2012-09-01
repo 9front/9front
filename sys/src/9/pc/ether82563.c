@@ -1889,11 +1889,11 @@ didtype(int d)
 	case 0x10df:		/* lf ich10 */
 	case 0x10e5:		/* lm ich9 */
 	case 0x10f5:		/* lm ich9m; “boazman” */
+	case 0x10ce:		/* v ich10 */
 		return i82567;
 	case 0x10bf:		/* lf ich9m */
 	case 0x10cb:		/* v ich9m */
 	case 0x10cd:		/* lf ich10 */
-	case 0x10ce:		/* v ich10 */
 	case 0x10cc:		/* lm ich10 */
 		return i82567m;
 	case 0x105e:		/* eb */
