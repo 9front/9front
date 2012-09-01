@@ -428,6 +428,7 @@ enum {
 	i82566,
 	i82567,
 	i82567m,
+	i82567v,
 	i82571,
 	i82572,
 	i82573,
@@ -467,6 +468,7 @@ static Ctlrtype cttab[Nctlrtype] = {
 	i82566,		1514,	Fload,		"i82566",
 	i82567,		9234,	Fload,		"i82567",
 	i82567m,		1514,	0,		"i82567m",
+	i82567v,	1514,	Fload,		"i82567v",
 	i82571,		9234,	Fpba,		"i82571",
 	i82572,		9234,	Fpba,		"i82572",
 	i82573,		8192,	Fert,		"i82573",		/* terrible perf above 8k */
@@ -1889,13 +1891,14 @@ didtype(int d)
 	case 0x10df:		/* lf ich10 */
 	case 0x10e5:		/* lm ich9 */
 	case 0x10f5:		/* lm ich9m; “boazman” */
-	case 0x10ce:		/* v ich10 */
 		return i82567;
 	case 0x10bf:		/* lf ich9m */
 	case 0x10cb:		/* v ich9m */
 	case 0x10cd:		/* lf ich10 */
 	case 0x10cc:		/* lm ich10 */
 		return i82567m;
+	case 0x10ce:		/* v ich10 */
+		return i82567v;
 	case 0x105e:		/* eb */
 	case 0x105f:		/* eb */
 	case 0x1060:		/* eb */
@@ -2090,7 +2093,7 @@ i82566pnp(Ether *e)
 static int
 i82567pnp(Ether *e)
 {
-	return pnp(e, i82567m) & pnp(e, i82567);
+	return pnp(e, i82567v) & pnp(e, i82567m) & pnp(e, i82567);
 }
 
 static int
