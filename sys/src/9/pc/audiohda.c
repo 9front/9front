@@ -796,7 +796,7 @@ enumcodec(Codec *codec, Id id)
 	if(codec->fgroup == nil)
 		return -1;
 
-	print("#A%d: codec #%d, vendor %08x, rev %08x\n",
+	print("#A%d: codec #%d, vendor %08ux, rev %08ux\n",
 		id.ctlr->no, codec->id.codec, codec->vid, codec->rid);
 
 	return 0;
