@@ -1657,7 +1657,7 @@ eeread(Ctlr *ctlr, int adr)
 	while ((csr32r(ctlr, Eerd) & EEdone) == 0 && timeout--)
 		microdelay(5);
 	if (timeout < 0) {
-		print("%s: eeread timeout.\n", cname(ctlr));
+		print("%s: eeread timeout\n", cname(ctlr));
 		return -1;
 	}
 	return (csr32r(ctlr, Eerd) >> 16) & 0xffff;
@@ -1717,7 +1717,7 @@ fread(Ctlr *c, Flash *f, int ladr)
 	while((f->reg[Fsts] & Fdone) == 0 && timeout--)
 		microdelay(5);
 	if(timeout < 0){
-		print("%s: fread timeout.\n");
+		print("%s: fread timeout\n", cname(c));
 		return -1;
 	}
 	if(f->reg[Fsts] & (Fcerr|Ael))
