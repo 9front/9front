@@ -1996,33 +1996,44 @@ episoread(Ep *ep, Isoio *iso, void *a, long count)
  * it is activated and tdu advanced.
  */
 static long
-putsamples(Isoio *iso, uchar *b, long count)
+putsamples(Ctlr *ctlr, Isoio *iso, uchar *b, long count)
 {
-	long tot, n;
+	long left, tot, n;
+	Sitd *stdu;
+	Itd *tdu;
 
 	for(tot = 0; isocanwrite(iso) && tot < count; tot += n){
 		n = count-tot;
+		left = iso->nleft;
 		if(iso->hs != 0){
-			if(n > iso->tdu->mdata - iso->nleft)
-				n = iso->tdu->mdata - iso->nleft;
-			memmove(iso->tdu->data + iso->nleft, b + tot, n);
-			coherence();
+			tdu = iso->tdu;
+			if(n > tdu->mdata - left)
+				n = tdu->mdata - left;
+			iunlock(ctlr);		/* We could page fault here */
+			memmove(tdu->data + left, b + tot, n);
+			ilock(ctlr);
+			if(iso->tdu != tdu)
+				continue;
 			iso->nleft += n;
-			if(iso->nleft == iso->tdu->mdata){
-				itdinit(iso, iso->tdu);
+			if(iso->nleft == tdu->mdata){
+				itdinit(iso, tdu);
+				iso->tdu = tdu->next;
 				iso->nleft = 0;
-				iso->tdu = iso->tdu->next;
 			}
 		}else{
-			if(n > iso->stdu->mdata - iso->nleft)
-				n = iso->stdu->mdata - iso->nleft;
-			memmove(iso->stdu->data + iso->nleft, b + tot, n);
-			coherence();
+			stdu = iso->stdu;
+			if(n > stdu->mdata - left)
+				n = stdu->mdata - left;
+			iunlock(ctlr);		/* We could page fault here */
+			memmove(stdu->data + left, b + tot, n);
+			ilock(ctlr);
+			if(iso->stdu != stdu)
+				continue;
 			iso->nleft += n;
-			if(iso->nleft == iso->stdu->mdata){
-				sitdinit(iso, iso->stdu);
+			if(iso->nleft == stdu->mdata){
+				sitdinit(iso, stdu);
+				iso->stdu = stdu->next;
 				iso->nleft = 0;
-				iso->stdu = iso->stdu->next;
 			}
 		}
 	}
@@ -2081,9 +2092,7 @@ episowrite(Ep *ep, Isoio *iso, void *a, long count)
 		}
 		if(iso->state != Qrun)
 			panic("episowrite: iso not running");
-		iunlock(ctlr);		/* We could page fault here */
-		nw = putsamples(iso, b+tot, count-tot);
-		ilock(ctlr);
+		nw = putsamples(ctlr, iso, b+tot, count-tot);
 	}
 	while(isodelay(iso) == 0){
 		iunlock(ctlr);

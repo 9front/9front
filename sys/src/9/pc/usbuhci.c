@@ -993,21 +993,27 @@ interrupt(Ureg*, void *a)
  * it is activated and tdu advanced.
  */
 static long
-putsamples(Isoio *iso, uchar *b, long count)
+putsamples(Ctlr *ctlr, Isoio *iso, uchar *b, long count)
 {
-	long tot;
-	long n;
+	long n, tot, left;
+	Td *tdu;
 
 	for(tot = 0; isocanwrite(iso) && tot < count; tot += n){
 		n = count-tot;
-		if(n > maxtdlen(iso->tdu) - iso->nleft)
-			n = maxtdlen(iso->tdu) - iso->nleft;
-		memmove(iso->tdu->data+iso->nleft, b+tot, n);
+		tdu = iso->tdu;
+		left = iso->nleft;
+		if(n > maxtdlen(tdu) - left)
+			n = maxtdlen(tdu) - left;
+		iunlock(ctlr);	/* can pagefault here */
+		memmove(tdu->data+left, b+tot, n);
+		ilock(ctlr);
+		if(tdu != iso->tdu)
+			continue;
 		iso->nleft += n;
-		if(iso->nleft == maxtdlen(iso->tdu)){
-			tdisoinit(iso, iso->tdu, iso->nleft);
+		if(iso->nleft == maxtdlen(tdu)){
+			tdisoinit(iso, tdu, iso->nleft);
+			iso->tdu = tdu->next;
 			iso->nleft = 0;
-			iso->tdu = iso->tdu->next;
 		}
 	}
 	return tot;
@@ -1065,9 +1071,7 @@ episowrite(Ep *ep, Isoio *iso, void *a, long count)
 		}
 		if(iso->state != Qrun)
 			panic("episowrite: iso not running");
-		iunlock(ctlr);		/* We could page fault here */
-		nw = putsamples(iso, b+tot, count-tot);
-		ilock(ctlr);
+		nw = putsamples(ctlr, iso, b+tot, count-tot);
 	}
 	while(isodelay(iso) == 0){
 		iunlock(ctlr);

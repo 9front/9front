@@ -1762,25 +1762,23 @@ epctlio(Ep *ep, Ctlio *cio, void *a, long count)
 
 /*
  * Put new samples in the dummy Td.
- * BUG: This does only a transfer per Td. We could do up to 8.
  */
 static long
-putsamples(Ctlr *ctlr, Ep *ep, Isoio *iso, uchar *b, long count)
+putsamples(Ctlr *ctlr, Ep *ep, Isoio *iso, uchar *b, long n)
 {
 	Td *td;
-	ulong n;
 
 	td = pa2ptr(iso->ed->tail);
-	n = count;
 	if(n > td->nbytes - BLEN(td->bp))
 		n = td->nbytes - BLEN(td->bp);
 	assert(td->bp->wp + n <= td->bp->lim);
+	iunlock(ctlr);		/* We could page fault here */
 	memmove(td->bp->wp, b, n);
-	td->bp->wp += n;
-	if(BLEN(td->bp) == td->nbytes){	/* full Td: activate it */
-		ilock(ctlr);
-		isoadvance(ep, iso, td);
-		iunlock(ctlr);
+	ilock(ctlr);
+	if(td == pa2ptr(iso->ed->tail)){
+		td->bp->wp += n;
+		if(BLEN(td->bp) == td->nbytes)	/* full Td: activate it */
+			isoadvance(ep, iso, td);
 	}
 	return n;
 }
@@ -1834,9 +1832,7 @@ episowrite(Ep *ep, void *a, long count)
 		}
 		if(iso->state != Qrun)
 			panic("episowrite: iso not running");
-		iunlock(ctlr);		/* We could page fault here */
 		nw = putsamples(ctlr, ep, iso, b+tot, count-tot);
-		ilock(ctlr);
 	}
 	while(isodelay(iso) == 0){
 		iunlock(ctlr);
