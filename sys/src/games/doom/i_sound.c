@@ -14,9 +14,6 @@
 /* Needed for calling the actual sound output. */
 #define	SAMPLECOUNT	(512<<2)
 #define	NUM_CHANNELS	8
-/* It is 2 for 16bit, and 2 for two channels */
-#define	BUFMUL		4
-#define MIXBUFFERSIZE	(SAMPLECOUNT*BUFMUL)
 
 /* The actual lengths of all sound effects. */
 int	lengths[NUMSFX];
@@ -29,7 +26,7 @@ static int audio_fd;
 **  are modified and added, and stored in the buffer
 **  that is submitted to the audio device.
 */
-signed short	mixbuffer[MIXBUFFERSIZE];
+signed short	mixbuffer[SAMPLECOUNT*2];
 
 /* The channel step amount... */
 uint	channelstep[NUM_CHANNELS];
@@ -153,7 +150,7 @@ void I_InitSound(void)
 	}
 
 	/* Now initialize mixbuffer with zero. */
-	memset(mixbuffer, 0, sizeof(mixbuffer));
+	memset(mixbuffer, 0, sizeof mixbuffer);
 }
 
 /* This function loops all active (internal) sound
@@ -275,7 +272,7 @@ void I_UpdateSound(void)
 void I_SubmitSound(void)
 {
 	if(audio_fd >= 0)
-		write(audio_fd, mixbuffer, MIXBUFFERSIZE);
+		write(audio_fd, mixbuffer, sizeof mixbuffer);
 }
 
 void I_ShutdownSound(void)
