@@ -1650,10 +1650,17 @@ i82563shutdown(Ether *edev)
 static int
 eeread(Ctlr *ctlr, int adr)
 {
+	int timeout;
+
 	csr32w(ctlr, Eerd, EEstart | adr << 2);
-	while ((csr32r(ctlr, Eerd) & EEdone) == 0)
-		;
-	return csr32r(ctlr, Eerd) >> 16;
+	timeout = 1000;
+	while ((csr32r(ctlr, Eerd) & EEdone) == 0 && timeout--)
+		microdelay(5);
+	if (timeout < 0) {
+		print("%s: eeread timeout.\n", cname(ctlr));
+		return -1;
+	}
+	return (csr32r(ctlr, Eerd) >> 16) & 0xffff;
 }
 
 static int
@@ -1665,6 +1672,7 @@ eeload(Ctlr *ctlr)
 	sum = 0;
 	for (adr = 0; adr < 0x40; adr++) {
 		data = eeread(ctlr, adr);
+		if(data == -1) return -1;
 		ctlr->eeprom[adr] = data;
 		sum += data;
 	}
@@ -1694,6 +1702,7 @@ static int
 fread(Ctlr *c, Flash *f, int ladr)
 {
 	u16int s;
+	int timeout;
 
 	delay(1);
 	if(fcycle(c, f) == -1)
@@ -1704,9 +1713,13 @@ fread(Ctlr *c, Flash *f, int ladr)
 	/* setup flash control register */
 	s = f->reg[Fctl] & ~0x3ff;
 	f->reg[Fctl] = s | 1<<8 | Fgo;	/* 2 byte read */
-
-	while((f->reg[Fsts] & Fdone) == 0)
-		;
+	timeout = 1000;
+	while((f->reg[Fsts] & Fdone) == 0 && timeout--)
+		microdelay(5);
+	if(timeout < 0){
+		print("%s: fread timeout.\n");
+		return -1;
+	}
 	if(f->reg[Fsts] & (Fcerr|Ael))
 		return -1;
 	return f->reg32[Fdata] & 0xffff;
