@@ -1881,6 +1881,8 @@ episohscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
 			iunlock(ctlr);		/* We could page fault here */
 			memmove(b+tot, tdu->data, nr);
 			ilock(ctlr);
+			if(iso->tdu != tdu)
+				continue;
 			if(nr < tdu->ndata)
 				memmove(tdu->data, tdu->data+nr, tdu->ndata - nr);
 			tdu->ndata -= nr;
@@ -1917,6 +1919,8 @@ episofscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
 			iunlock(ctlr);		/* We could page fault here */
 			memmove(b+tot, stdu->data, nr);
 			ilock(ctlr);
+			if(iso->stdu != stdu)
+				continue;
 			if(nr < stdu->ndata)
 				memmove(stdu->data, stdu->data+nr,
 					stdu->ndata - nr);

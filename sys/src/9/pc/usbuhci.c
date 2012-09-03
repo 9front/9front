@@ -1156,6 +1156,8 @@ episoread(Ep *ep, Isoio *iso, void *a, int count)
 			iunlock(ctlr);		/* We could page fault here */
 			memmove(b+tot, tdu->data, nr);
 			ilock(ctlr);
+			if(iso->tdu != tdu)
+				continue;
 			if(nr < tdu->ndata)
 				memmove(tdu->data, tdu->data+nr, tdu->ndata - nr);
 			tdu->ndata -= nr;

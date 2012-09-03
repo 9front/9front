@@ -1660,7 +1660,7 @@ epread(Ep *ep, void *a, long count)
 			clrhalt(ep);
 		return epio(ep, &io[OREAD], a, count, 1);
 	case Tiso:
-		panic("ohci: iso read not implemented");
+		error("iso read not implemented");
 		break;
 	default:
 		panic("epread: bad ep ttype %d", ep->ttype);
