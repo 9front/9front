@@ -481,6 +481,8 @@ portdetach(Hub *h, int p)
 		putdevnb(pp->devmaskp, pp->devnb);
 	pp->devmaskp = nil;
 	if(pp->dev != nil){
+		detachdev(pp);
+
 		devctl(pp->dev, "detach");
 		closedev(pp->dev);
 		pp->dev = nil;
@@ -562,8 +564,10 @@ portreset(Hub *h, int p)
 		if(usbcmd(nd, Rh2d|Rstd|Rdev, Rsetconf, 1, 0, nil, 0) < 0)
 			goto Fail;
 	}
-	if(nd->dfd >= 0)
+	if(nd->dfd >= 0){
 		close(nd->dfd);
+		nd->dfd = -1;
+	}
 	return;
 Fail:
 	pp->state = Pdisabled;
@@ -623,8 +627,6 @@ enumhub(Hub *h, int p)
 			if(attachdev(pp) < 0)
 				portdetach(h, p);
 	}else if(portgone(pp, sts)){
-		if(pp->dev)
-			detachdev(pp);
 		portdetach(h, p);
 	}else if(portresetwanted(h, p))
 		portreset(h, p);

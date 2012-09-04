@@ -338,6 +338,8 @@ attachdev(Port *p)
 void
 detachdev(Port *p)
 {
+	if(p->dev->usb->class == Clhub)
+		return;
 	pushevent(formatdev(p->dev, 1));
 }
 
