@@ -458,6 +458,8 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 		cclose(c);
 		return nc;	
 	case Qcroot:
+		if(up->pgrp->noattach)
+			error(Enoattach);
 		if((perm & DMDIR) == 0 || openmode(omode) != OREAD)
 			error(Eperm);
 		if(strlen(name) >= sizeof(up->genbuf))
@@ -490,6 +492,8 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 		sch->shr = shr;
 		break;
 	case Qcshr:
+		if(up->pgrp->noattach)
+			error(Enoattach);
 		if((perm & DMDIR) || openmode(omode) != OWRITE)
 			error(Eperm);
 
@@ -720,6 +724,8 @@ shrwrite(Chan *c, void *va, long n, vlong)
 		int	flags;
 	}bogus;
 
+	if(up->pgrp->noattach)
+		error(Enoattach);
 	sch = tosch(c);
 	if(sch->level != Qcmpt)
 		error(Egreg);
