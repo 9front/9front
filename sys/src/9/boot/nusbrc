@@ -10,11 +10,11 @@ if(! nusb/usbd)
 	fn attach {
 		switch($4){
 		case *03
-			nusb/kb $1
+			nusb/kb $1 &
 		case *08
-			nusb/disk $1
 			@{
 				rfork ne
+				nusb/disk $1
 				cd '#σ/usb'
 				for(dev in sdU^$1.*) if(test -d $dev) {
 					diskparts $dev
