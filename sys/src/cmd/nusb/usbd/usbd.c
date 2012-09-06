@@ -358,6 +358,7 @@ main(int argc, char **argv)
 		break;
 	} ARGEND;
 
+	quotefmtinstall();
 	initevent();
 	rfork(RFNOTEG);
 	switch(rfork(RFPROC|RFMEM|RFNOWAIT)){
