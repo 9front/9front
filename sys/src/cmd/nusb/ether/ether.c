@@ -853,8 +853,6 @@ threadmain(int argc, char **argv)
 		usage();
 
 	d = getdev(atoi(*argv));
-	if(configdev(d) < 0)
-		sysfatal("configdev: %r");
 	if(findendpoints(d, &ei, &eo)  < 0)
 		sysfatal("no endpoints found");
 	if(getmac(d) < 0)

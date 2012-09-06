@@ -71,6 +71,8 @@ parseiface(Usbdev *d, Conf *c, uchar *b, int n, Iface **ipp, Altc **app)
 	subclass = dip->bInterfaceSubClass;
 	proto = dip->bInterfaceProtocol;
 	ip->csp = CSP(class, subclass, proto);
+	if(ip->csp == 0)
+		ip->csp = d->csp;
 	if(d->csp == 0)				/* use csp from 1st iface */
 		d->csp = ip->csp;		/* if device has none */
 	if(d->class == 0)

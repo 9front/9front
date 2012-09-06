@@ -1017,8 +1017,6 @@ threadmain(int argc, char **argv)
 		usage();
 	if((d = getdev(atoi(*argv))) == nil)
 		sysfatal("opendev: %r");
-	if(configdev(d) < 0)
-		sysfatal("configdev: %r");
 	if(findendpoints(d, &epin, &epout, &epint)  < 0)
 		sysfatal("findendpoints: %r");
 

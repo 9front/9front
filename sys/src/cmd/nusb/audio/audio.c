@@ -186,8 +186,6 @@ main(int argc, char *argv[])
 
 	if((d = getdev(atoi(*argv))) == nil)
 		sysfatal("getdev: %r");
-	if(configdev(d) < 0)
-		sysfatal("configdev: %r");
 	audiodev = d;
 
 	/* parse descriptors, mark valid altc */
