@@ -44,14 +44,8 @@ using
 Kernels can be remotely debugged  only when they are
 suspended and serving
 a textual debugging protocol over their serial lines.
-Typing 
-.RB `` ^t^td ''
-.RB (control- t ", control-" t ", d)"
-at the console will cause the kernel to enter
-this mode when it `panics'.
-Typing 
-.RB `` ^t^tD '' 
-causes the kernel to enter this mode immediately.
+(see
+.IR cons (3))
 .PP
 Because the debugging protocol is textual, a console
 provided by
@@ -64,4 +58,5 @@ may be substituted for the serial device.
 .SH "SEE ALSO"
 .IR acid (1),
 .IR db (1),
+.IR cons (3),
 .IR consolefs (4)
