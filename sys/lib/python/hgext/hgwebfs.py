@@ -5,9 +5,16 @@ import re
 
 class Webconn:
 	def __init__(self, mnt, req):
+		if type(req) == str:
+			self.url = req
+		else:
+			self.url = req.get_full_url()
+		if self.url[0:5] == 'file:':
+			self.dir = '/dev/null'
+			self.body = open(self.url[5:], 'r', 0)
+			return
 		ctl = open(mnt+'/clone', 'r+', 0)
 		try:
-			self.url = req.get_full_url()
 			self.dir = mnt+'/'+ctl.readline().rstrip('\n')
 			ctl.seek(0)
 			ctl.write('url '+self.url)
