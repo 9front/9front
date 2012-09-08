@@ -155,9 +155,9 @@ static Frame	stack[32];
 static Heap *hp;
 
 enum {
-	Obad, Onop,
+	Obad, Onop, Odebug,
 	Ostr, Obyte, Oword, Odword, Oqword, Oconst,
-	Onamec, Oname, Oscope,
+	Onamec, Oname, Oscope, Oalias,
 	Oreg, Ofld, Oxfld, Opkg, Ovpkg, Oenv, Obuf, Omet, 
 	Odev, Ocpu, Othz, Oprc,
 	Oadd, Osub, Omod, Omul, Odiv, Oshl, Oshr, Oand, Onand, Oor,
@@ -1068,6 +1068,15 @@ evalscope(void){
 }
 
 static void*
+evalalias(void){
+	Name *n;
+
+	if(n = FP->arg[1])
+		n->v = FP->arg[0];
+	return nil;
+}
+
+static void*
 evalmet(void){
 	Name *n;
 	if(n = FP->arg[0]){
@@ -1527,6 +1536,7 @@ evalarith(void){
 static Op optab[] = {
 	[Obad]		"",			"",		evalbad,
 	[Onop]		"Noop",			"",		evalnop,
+	[Odebug]	"Debug",		"",		evalnop,
 
 	[Ostr]		".str",			"s",		evaliarg0,
 	[Obyte]		".byte",		"1",		evaliarg0,
@@ -1539,6 +1549,7 @@ static Op optab[] = {
 
 	[Oname]		"Name",			"N*",		evalname,
 	[Oscope]	"Scope",		"{n}",		evalscope,
+	[Oalias]	"Alias",		"nN",		evalalias,
 
 	[Odev]		"Device",		"{N}",		evalscope,
 	[Ocpu]		"Processor",		"{N141}",	evalscope,
@@ -1608,7 +1619,7 @@ static Op optab[] = {
 };
 
 static uchar octab1[] = {
-/* 00 */	Oconst,	Oconst,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
+/* 00 */	Oconst,	Oconst,	Obad,	Obad,	Obad,	Obad,	Oalias,	Obad,
 /* 08 */	Oname,	Obad,	Obyte,	Oword,	Odword,	Ostr,	Oqword,	Obad,
 /* 10 */	Oscope,	Obuf,	Opkg,	Ovpkg,	Omet,	Obad,	Obad,	Obad,
 /* 18 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
@@ -1649,7 +1660,7 @@ static uchar octab2[] = {
 /* 18 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 20 */	Obad,	Obad,	Obad,	Oacq,	Obad,	Obad,	Obad,	Orel,
 /* 28 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
-/* 30 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
+/* 30 */	Obad,	Odebug,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 38 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 40 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 48 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
