@@ -1072,7 +1072,7 @@ evalalias(void){
 	Name *n;
 
 	if(n = FP->arg[1])
-		n->v = FP->arg[0];
+		n->v = deref(FP->arg[0]);
 	return nil;
 }
 
