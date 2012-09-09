@@ -354,7 +354,8 @@ static void
 autoxpart(Edit *edit)
 {
 	int i, totw, futz;
-	vlong secs, secsize, s;
+	vlong secs, secsize, psecsize, s, e, pa;
+	long stride;
 	char *err;
 
 	if(edit->npart > 0) {
@@ -362,9 +363,12 @@ autoxpart(Edit *edit)
 			fprint(2, "partitions already exist; not repartitioning\n");
 		return;
 	}
-
 	secs = edit->disk->secs;
 	secsize = edit->disk->secsize;
+	psecsize = edit->disk->psecsize;
+	stride = psecsize / secsize;
+	pa = (edit->disk->offset - edit->disk->physalign + stride) % stride;
+	secs -= (secs + pa) % stride;
 	for(;;){
 		/* compute total weights */
 		totw = 0;
@@ -431,12 +435,16 @@ autoxpart(Edit *edit)
 			print("%s %llud\n", autox[i].name, autox[i].size);
 
 	s = 0;
+	secs = edit->disk->secs;
 	for(i=0; i<nelem(autox); i++){
 		if(autox[i].alloc == 0)
 			continue;
-		if(err = addpart(edit, mkpart(autox[i].name, s, s+autox[i].size, 1)))
+		e = (s + autox[i].size);
+		if((e + pa) % stride) e += stride - (e + pa) % stride;
+		if(e>secs) e = secs - stride + (secs + pa) % stride;
+		if(err = addpart(edit, mkpart(autox[i].name, s, e, 1)))
 			fprint(2, "addpart %s: %s\n", autox[i].name, err);
-		s += autox[i].size;
+		s = e;
 	}
 }
 

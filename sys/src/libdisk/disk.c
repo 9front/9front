@@ -247,13 +247,17 @@ opensd(Disk *disk)
 				disk->s = strtol(f[5], 0, 0);
 			}
 		}
+		if(nf >= 3 && strcmp(f[0], "alignment") == 0) {
+			disk->psecsize = strtol(f[1], 0, 0);
+			disk->physalign = strtol(f[2], 0, 0);
+		}
 		if(nf >= 4 && strcmp(f[0], "part") == 0 && strcmp(f[1], disk->part) == 0) {
 			disk->offset = strtoll(f[2], 0, 0);
 			disk->secs = strtoll(f[3], 0, 0) - disk->offset;
 		}
 	}
 
-	
+	if (!disk->psecsize) disk->psecsize = disk->secsize;	
 	disk->size = disk->secs * disk->secsize;
 	if(disk->size <= 0) {
 		strcpy(disk->part, "");

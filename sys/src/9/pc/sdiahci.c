@@ -2226,6 +2226,8 @@ iarctl(SDunit *u, char *p, int l)
 	p = seprint(p, e, "\n");
 	p = seprint(p, e, "mode\t%s %s\n", modes[d->mode], modes[maxmode(c)]);
 	p = seprint(p, e, "geometry %llud %lud\n", d->sectors, u->secsize);
+	p = seprint(p, e, "alignment %d %d\n", 
+		d->secsize<<d->portm.physshift, d->portm.physalign);
 	return p - op;
 }
 

@@ -307,20 +307,24 @@ idfeat(Sfis *f, ushort *id)
 int
 idss(Sfis *f, ushort *id)
 {
-	uint sw, i;
+	uint sw, i, pa;
 
 	if(f->sig>>16 == 0xeb14)
 		return 0;
 	f->lsectsz = 512;
 	f->physshift = 0;
+	f->physalign = 0;
 	i = gbit16(id + 106);
 	if(i >> 14 != 1)
 		return f->lsectsz;
-	if((sw = gbit32(id + 117)) >= 256)
+	if((i & (1<<12)) && (sw = gbit32(id + 117)) >= 256)
 		f->lsectsz = sw * 2;
-	if(i & 1<<13)
+	if(i & 1<<13){
 		f->physshift = i & 7;
-	return f->lsectsz * (1<<f->physshift);
+		if((pa = gbit16(id + 209)) & 0x4000)
+			f->physalign = pa & 0x3fff;
+	}
+	return f->lsectsz;
 }
 
 uvlong

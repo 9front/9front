@@ -102,6 +102,7 @@ struct Sfis {
 	uint	sig;
 	uint	lsectsz;
 	uint	physshift;	/* log2(log/phys) */
+	uint	physalign; /* location of lba0 within phys0 */
 	uint	c;		/* disgusting, no? */
 	uint	h;
 	uint	s;

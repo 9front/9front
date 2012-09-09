@@ -2349,6 +2349,8 @@ atarctl(SDunit* unit, char* p, int l)
 		if(drive->pkt == 0 && (drive->feat & Dlba) == 0)
 			p = seprint(p, e, " %d %d %d", drive->c, drive->h, drive->s);
 		p = seprint(p, e, "\n");
+		p = seprint(p, e, "alignment %d %d\n",
+			drive->secsize<<drive->physshift, drive->physalign);
 	}
 	p = seprint(p, e, "missirq	%ud\n", drive->missirq);
 	p = seprint(p, e, "sloop	%ud\n", drive->spurloop);

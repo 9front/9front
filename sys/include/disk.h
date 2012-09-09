@@ -42,6 +42,8 @@ struct Disk {
 	vlong size;
 	vlong offset;	/* within larger disk, perhaps */
 	int width;	/* of disk size in bytes as decimal string */
+	int psecsize;
+	int physalign;
 	int c;
 	int h;
 	int s;
