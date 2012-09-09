@@ -430,10 +430,6 @@ autoxpart(Edit *edit)
 		}
 	}
 
-	for(i=0; i<nelem(autox); i++)
-		if(autox[i].alloc)
-			print("%s %llud\n", autox[i].name, autox[i].size);
-
 	s = 0;
 	secs = edit->disk->secs;
 	for(i=0; i<nelem(autox); i++){
@@ -442,6 +438,7 @@ autoxpart(Edit *edit)
 		e = (s + autox[i].size);
 		if((e + pa) % stride) e += stride - (e + pa) % stride;
 		if(e>secs) e = secs - stride + (secs + pa) % stride;
+		print("%s %llud\n", autox[i].name, e - s);
 		if(err = addpart(edit, mkpart(autox[i].name, s, e, 1)))
 			fprint(2, "addpart %s: %s\n", autox[i].name, err);
 		s = e;
