@@ -208,7 +208,7 @@ case English short extended alef limbo [Aa]scii assembler c latin rc sh \
 		echo Unrecognized class of line printer for $LPDEST >[1=2]
 	}
 case HTML
-	uhtml <$temp | html2ms | troff -ms | $proc/generic
+	uhtml <$temp | html2ms | tbl | troff -ms | $proc/generic
 case *
 	echo $type(2) file is improper for $LPDEST >[1=2]
 }

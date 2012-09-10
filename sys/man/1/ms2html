@@ -78,5 +78,3 @@ should be used to normalize the HTML.
 Ms2html doesn't understand a number of troff
 commands.  It does handle macros and defined
 strings.
-.PP
-Html2ms doesn't understand HTML tables. 
