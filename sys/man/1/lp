@@ -67,7 +67,7 @@ for the given destination.
 The given processor is invoked.
 The default processor is
 .LR generic ,
-which tries to do the right thing for regular text, 
+which tries to do the right thing for regular text, HTML,
 .IR troff (1)
 output, or 
 .IR tex (1)

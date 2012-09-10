@@ -61,18 +61,22 @@ sets the HTML title to
 reads HTML from standard input and converts it
 to
 .IR ms (6)
-source on standard output.
+source on standard output. The document
+is expected to be UTF encoded so a preprocessor like
+.IR uhtml (1)
+should be used to normalize the HTML.
 .SH SOURCE
 .B /sys/src/cmd/ms2html.c
 .br
 .B /sys/src/cmd/html2ms.c
 .SH SEE ALSO
 .IR htmlroff (1),
-.IR ms (6)
+.IR ms (6),
+.IR uhtml (1)
 .SH BUGS
 .PP
 Ms2html doesn't understand a number of troff
 commands.  It does handle macros and defined
 strings.
 .PP
-Html2ms doesn't understand html tables.
+Html2ms doesn't understand HTML tables. 
