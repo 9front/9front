@@ -10,8 +10,11 @@ class Webconn:
 		else:
 			self.url = req.get_full_url()
 		if self.url[0:5] == 'file:':
+			path = self.url[5:]
+			while path[0:2] == '//':
+				path = path[1:]
 			self.dir = '/dev/null'
-			self.body = open(self.url[5:], 'r', 0)
+			self.body = open(path, 'r', 0)
 			return
 		ctl = open(mnt+'/clone', 'r+', 0)
 		try:
