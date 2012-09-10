@@ -1007,28 +1007,6 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_isindex:
 			rdform(&g);
 			break;
-		case Tag_script:
-		case Tag_object:
-		case Tag_applet:
-		case Tag_style:
-			/*
-			 * ignore the content of these tags, eat tokens until we
-			 * reach a matching endtag.
-			 */
-			t = g.tag;
-			for(;;){
-				switch(pl_gettoken(&g)){
-				default:
-					continue;
-				case ENDTAG:
-					if(g.tag != t)
-						continue;
-				case EOF:
-					break;
-				}
-				break;
-			}
-			break;
 		}
 		break;
 
@@ -1101,6 +1079,13 @@ void plrdhtml(char *name, int fd, Www *dst){
 		}
 		break;
 	case TEXT:
+		switch(g.state->tag){
+		case Tag_script:
+		case Tag_object:
+		case Tag_applet:
+		case Tag_style:
+			continue;
+		}
 		if(g.state->link[0]==0 && (str = linkify(g.token))){
 			nstrcpy(g.state->link, str, sizeof(g.state->link));
 			pl_htmloutput(&g, g.nsp, g.token, 0);
