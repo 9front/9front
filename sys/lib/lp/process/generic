@@ -1,7 +1,7 @@
 #!/bin/rc
 # Tries to determine what type of file you are printing and do the correct
 # thing with it.
-# It currently knows about images, troff intermediate, and ascii files.
+# It currently knows about images, troff intermediate, HTML and ascii files.
 rfork e
 temp=/tmp/lp$pid
 fn sigexit { rm -f $temp }
@@ -194,7 +194,7 @@ case empty
 case cannot
 	echo cannot open file >[1=2]
 case English short extended alef limbo [Aa]scii assembler c latin rc sh \
-    as mail email message/rfc822 manual HTML
+    as mail email message/rfc822 manual
 	switch ($LPCLASS) {
 	case *post*
 		$proc/ppost <$temp
@@ -207,6 +207,8 @@ case English short extended alef limbo [Aa]scii assembler c latin rc sh \
 	case *
 		echo Unrecognized class of line printer for $LPDEST >[1=2]
 	}
+case HTML
+	uhtml <$temp | html2ms | troff -ms | $proc/generic
 case *
 	echo $type(2) file is improper for $LPDEST >[1=2]
 }
