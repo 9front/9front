@@ -462,6 +462,7 @@ int pl_getcomment(Hglob *g){
 	g->token[0]='\0';
 	return TAG;
 }
+
 int lrunetochar(char *p, int v)
 {
 	Rune r;
@@ -470,17 +471,47 @@ int lrunetochar(char *p, int v)
 	return runetochar(p, &r);
 }
 
+int pl_getscript(Hglob *g){
+	char *tokp, *t;
+	int c;
+	tokp = g->token;
+	*tokp++ = '<';
+	while((c=pl_nextc(g)) != EOF){
+		if(c==STAG || c==' ' || c=='\t' || c=='\n'){
+			pl_putback(g, c);
+			break;
+		}
+		if(c==ETAG) c='>';
+		tokp += lrunetochar(tokp, c);
+		if(c==0 || c=='>' || tokp >= &g->token[NTOKEN-UTFmax-1])
+			break;
+	}
+	*tokp = '\0';
+	t = tag[g->state->tag].name;
+	if(g->token[1] == '/' && cistrncmp(g->token+2, t, strlen(t)) == 0){
+		g->tag=g->state->tag;
+		g->attr->name=0;
+		return ENDTAG;
+	}
+	pl_rmentities(g, g->token);
+	g->nsp=g->spacc;
+	g->spacc=0;
+	return TEXT;
+}
+
 /*
  * Read a start or end tag -- the caller has read the initial <
  */
 int pl_gettag(Hglob *g){
 	char *tokp;
 	int c, q;
-	tokp=g->token;
+	if(g->state->isscript)
+		return pl_getscript(g);
 	if((c=pl_nextc(g))=='!' || c=='?')
 		return pl_getcomment(g);
 	pl_putback(g, c);
 	q = 0;
+	tokp=g->token;
 	while((c=pl_nextc(g))!=EOF){
 		if(c == '=' && q == 0)
 			q = '=';
@@ -649,6 +680,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 	g.state->margin=0;
 	g.state->indent=25;
 	g.state->ismap=0;
+	g.state->isscript=0;
 	g.state->width=0;
 	g.state->height=0;
 	g.dst=dst;
@@ -1007,6 +1039,10 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_isindex:
 			rdform(&g);
 			break;
+		case Tag_script:
+		case Tag_style:
+			g.state->isscript=1;
+			break;
 		}
 		break;
 
@@ -1079,13 +1115,8 @@ void plrdhtml(char *name, int fd, Www *dst){
 		}
 		break;
 	case TEXT:
-		switch(g.state->tag){
-		case Tag_script:
-		case Tag_object:
-		case Tag_applet:
-		case Tag_style:
+		if(g.state->isscript)
 			continue;
-		}
 		if(g.state->link[0]==0 && (str = linkify(g.token))){
 			nstrcpy(g.state->link, str, sizeof(g.state->link));
 			pl_htmloutput(&g, g.nsp, g.token, 0);

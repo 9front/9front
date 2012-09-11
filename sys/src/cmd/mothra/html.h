@@ -33,6 +33,7 @@ struct Stack{
 	int indent;		/* extra indent at paragraph start */
 	int number;		/* paragraph number */
 	int ismap;		/* flag of <img> */
+	int isscript;		/* inside <script> */
 	int width;		/* size of image */
 	int height;
 	char image[NNAME];	/* arg of <img> */
