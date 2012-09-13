@@ -9,7 +9,10 @@
 #include <panel.h>
 #include "pldefs.h"
 #include "rtext.h"
-#define	LEAD	4		/* extra space between lines */
+
+#define LEAD	4	/* extra space between lines */
+#define BORD	2	/* extra border for images */
+
 Rtext *pl_rtnew(Rtext **t, int space, int indent, Image *b, Panel *p, Font *f, char *s, int hot, void *user){
 	Rtext *new;
 	new=pl_emalloc(sizeof(Rtext));
@@ -80,9 +83,9 @@ int pl_rtfmt(Rtext *t, int wid){
 		tp=t;
 		for(;;){
 			if(tp->b){
-				a=tp->b->r.max.y-tp->b->r.min.y+2;
-				d=0;
-				w=tp->b->r.max.x-tp->b->r.min.x+4;
+				a=tp->b->r.max.y-tp->b->r.min.y+BORD;
+				d=BORD;
+				w=tp->b->r.max.x-tp->b->r.min.x+BORD*2;
 			}
 			else if(tp->p){
 				/* what if plpack fails? */
@@ -110,11 +113,11 @@ int pl_rtfmt(Rtext *t, int wid){
 			if(space) eline=tp;
 		}
 		if(eline==t){	/* No progress!  Force fit the first block! */
-			if(a>ascent) ascent=a;
-			if(d>descent) descent=d;
-			if(tp==t)
+			if(tp==t){
+				if(a>ascent) ascent=a;
+				if(d>descent) descent=d;
 				eline=tp->next;
-			else
+			}else
 				eline=tp;
 		}
 		topy=p.y;
@@ -124,10 +127,9 @@ int pl_rtfmt(Rtext *t, int wid){
 			t->topy=topy;
 			t->r.min.x=p.x;
 			if(t->b){
-				t->r.max.y=p.y;
-				t->r.min.y=p.y-(t->b->r.max.y-t->b->r.min.y);
-				p.x+=t->b->r.max.x-t->b->r.min.x+2;
-				t->r=rectaddpt(t->r, Pt(2, 2));
+				t->r.max.y=p.y+BORD;
+				t->r.min.y=p.y-(t->b->r.max.y-t->b->r.min.y)-BORD;
+				p.x+=(t->b->r.max.x-t->b->r.min.x)+BORD*2;
 			}
 			else if(t->p){
 				t->r.max.y=p.y;
@@ -168,8 +170,8 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 		if(dr.max.y>r.min.y
 		&& dr.min.y<r.max.y){
 			if(t->b){
-				draw(b, dr, t->b, 0, t->b->r.min);
-				if(t->hot) border(b, insetrect(dr, -2), 1, display->black, ZP);
+				draw(b, insetrect(dr, BORD), t->b, 0, t->b->r.min);
+				if(t->hot) border(b, dr, 1, display->black, ZP);
 			}
 			else if(t->p){
 				plmove(t->p, subpt(dr.min, t->p->r.min));
