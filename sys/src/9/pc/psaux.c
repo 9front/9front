@@ -48,7 +48,7 @@ psauxwrite(Chan*, void *a, long n, vlong)
 void
 psauxlink(void)
 {
-	psauxq = qopen(1024, 0, 0, 0);
+	psauxq = qopen(1024, Qcoalesce, 0, 0);
 	if(psauxq == nil)
 		panic("psauxlink");
 	qnoblock(psauxq, 1);

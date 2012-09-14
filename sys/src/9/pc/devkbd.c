@@ -432,7 +432,7 @@ outbyte(int port, int c)
 void
 kbdenable(void)
 {
-	kbd.q = qopen(4*1024, 0, 0, 0);
+	kbd.q = qopen(1024, Qcoalesce, 0, 0);
 	if(kbd.q == nil)
 		panic("kbdenable");
 	qnoblock(kbd.q, 1);

@@ -1097,29 +1097,25 @@ again:
 	if(q->state & Qcoalesce){
 		/* when coalescing, 0 length blocks just go away */
 		b = q->bfirst;
-		if(BLEN(b) <= 0){
+		m = BLEN(b);
+		if(m <= 0){
 			freeb(qremove(q));
 			goto again;
 		}
 
 		/*  grab the first block plus as many
-		 *  following blocks as will completely
+		 *  following blocks as will partially
 		 *  fit in the read.
 		 */
 		n = 0;
 		l = &first;
-		m = BLEN(b);
 		for(;;) {
 			*l = qremove(q);
 			l = &b->next;
 			n += m;
-
-			b = q->bfirst;
-			if(b == nil)
+			if(n >= len || (b = q->bfirst) == nil)
 				break;
 			m = BLEN(b);
-			if(n+m > len)
-				break;
 		}
 	} else {
 		first = qremove(q);

@@ -47,7 +47,7 @@ uartenable(Uart *p)
 //		return nil;
 
 	if(p->iq == nil){
-		if((p->iq = qopen(8*1024, 0, uartflow, p)) == nil)
+		if((p->iq = qopen(8*1024, Qcoalesce, uartflow, p)) == nil)
 			return nil;
 	}
 	else
