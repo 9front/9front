@@ -53,7 +53,7 @@ if(! ~ $s 0)
 	if(~ $#m 1)
 		echo -n request $m >[1=0]
 	if(! ~ $#p 0)
-		echo $"p >$d/postbody
+		echo -n $"p >$d/postbody
 	<$d/body {
 		if(~ $#o 1){
 			l=`{cat $d/contentlength >[2]/dev/null}
