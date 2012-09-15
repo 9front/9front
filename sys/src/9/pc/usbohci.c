@@ -2382,10 +2382,6 @@ scanpci(void)
 			print("usbohci: failed to map registers\n");
 			continue;
 		}
-		if(p->intl == 0xFF || p->intl == 0) {
-			print("usbohci: no irq assigned for port %#lux\n", mem);
-			continue;
-		}
 
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil){

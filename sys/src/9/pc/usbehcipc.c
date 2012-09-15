@@ -172,10 +172,6 @@ scanpci(void)
 				p->vid, p->did);
 			continue;
 		}
-		if(p->intl == 0xff || p->intl == 0) {
-			print("usbehci: no irq assigned for port %#lux\n", io);
-			continue;
-		}
 		dprint("usbehci: %#x %#x: port %#lux size %#x irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 

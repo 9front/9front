@@ -40,6 +40,12 @@ intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 		return;
 	}
 
+	if(tbdf != BUSUNKNOWN && (irq == 0xff || irq == 0)){
+		print("intrenable: got unassigned irq %d, tbdf 0x%uX for %s\n",
+			irq, tbdf, name);
+		irq = -1;
+	}
+
 	if((v = xalloc(sizeof(Vctl))) == nil)
 		panic("intrenable: out of memory");
 	v->isintr = 1;

@@ -2137,10 +2137,6 @@ scanpci(void)
 			print("usbuhci: port %#ux in use\n", io);
 			continue;
 		}
-		if(p->intl == 0xFF || p->intl == 0){
-			print("usbuhci: no irq assigned for port %#ux\n", io);
-			continue;
-		}
 
 		dprint("uhci: %#x %#x: port %#ux size %#x irq %d\n",
 			p->vid, p->did, io, p->mem[4].size, p->intl);
