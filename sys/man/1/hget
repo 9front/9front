@@ -9,6 +9,8 @@ hget \- retrieve a web page corresponding to a url
 ] [
 .B -p
 .I body
+|
+.B -P
 ] [
 .B -r
 .I header
@@ -42,10 +44,16 @@ If
 .I url
 is of type HTTP and the
 .B -p
-option is specified, then an HTTP POST is performed
-with
+or
+.B -P
+options are specified, then a HTTP POST is performed.
+With
+.B -p
+the data to be posted is provided by the
 .I body
-as the data to be posted.
+argument as a string or alternatively with
+.B -P
+read from standard input.
 .PP
 The
 .B -o

@@ -2,12 +2,13 @@
 rfork e
 argv0=$0
 fn usage {
-	echo usage: $argv0 [ -o file ] [ -p body ] [ -r header ] [ -m method ] [ -b baseurl ] url >[1=2]
+	echo 'usage: $argv0 [ -o file ] [ -p body | -P ] [ -r header ] [ -m method ] [ -b baseurl ] url' >[1=2]
 	exit usage
 }
 s=0
 o=()
 p=()
+P=()
 r=()
 m=()
 b=()
@@ -19,6 +20,8 @@ while(~ $1 -*){
 	case -p
 		p=$2
 		shift
+	case -P
+		P=1
 	case -r
 		r=($r $2)
 		shift
@@ -43,7 +46,7 @@ if(! ~ $#o 0){
 }
 if(! ~ $s 0)
 	r=($r 'Range: bytes='^$s^'-')
-<>/mnt/web/clone {
+<[3=0] <>/mnt/web/clone {
 	d=/mnt/web/^`{sed 1q}
 	if(~ $#b 1)
 		echo -n baseurl $b >[1=0]
@@ -52,8 +55,14 @@ if(! ~ $s 0)
 		echo -n headers $i >[1=0]
 	if(~ $#m 1)
 		echo -n request $m >[1=0]
-	if(! ~ $#p 0)
-		echo -n $"p >$d/postbody
+	if(! ~ $#p 0 || ! ~ $#P 0){
+		 >$d/postbody {
+			if(! ~ $#p 0)
+				echo -n $"p
+			if(! ~ $#P 0)
+				cat <[0=3]
+		}
+	}
 	<$d/body {
 		if(~ $#o 1){
 			l=`{cat $d/contentlength >[2]/dev/null}
