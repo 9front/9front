@@ -2160,7 +2160,7 @@ atapnp(void)
 			ctlr->maxdma = maxdma;
 			ctlr->span = span;
 			ctlr->irqack = irqack;
-			if(pi & 0x80)
+			if((pi & 0x80) && (p->mem[4].bar & 0x01))
 				ctlr->bmiba = (p->mem[4].bar & ~0x01) + channel*8;
 			if(head != nil)
 				tail->next = sdev;
