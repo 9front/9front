@@ -618,7 +618,7 @@ wkeyctl(Window *w, Rune r)
 	if(!w->mouseopen)
 		switch(r){
 		case Kdown:
-			n = w->maxlines/3;
+			n = shiftdown ? 1 : w->maxlines/3;
 			goto case_Down;
 		case Kscrollonedown:
 			n = mousescrollsize(w->maxlines);
@@ -632,7 +632,7 @@ wkeyctl(Window *w, Rune r)
 			wsetorigin(w, q0, TRUE);
 			return;
 		case Kup:
-			n = w->maxlines/3;
+			n = shiftdown ? 1 : w->maxlines/3;
 			goto case_Up;
 		case Kscrolloneup:
 			n = mousescrollsize(w->maxlines);

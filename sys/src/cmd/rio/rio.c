@@ -345,6 +345,8 @@ keyboardthread(void*)
 	threadsetname("keyboardthread");
 
 	while(s = recvp(kbdchan)){
+		if(*s == 'k' || *s == 'K')
+			shiftdown = utfrune(s+1, Kshift) != nil;
 		if(input == nil || sendp(input->ck, s) <= 0)
 			free(s);
 	}
