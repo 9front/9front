@@ -97,7 +97,7 @@ case go
 		}
 	}
 
-	log Configuering $fstype file server for $fs
+	log Configuring $fstype file server for $fs
 	{
 		echo noattach
 		echo allow
