@@ -342,9 +342,6 @@ options(int fd, char *buf, int bufsz, char *file, ushort oper, char *p, int dlen
 
 	if (bp + 3 >= ep)
 		return -1;
-	*bp++ = '\0';
-	*bp++ = '\0';			/* overkill */
-	*bp++ = '\0';
 
 	if (write(fd, buf, bp - buf) < bp - buf) {
 		syslog(dbg, flog, "tftpd network write error on oack to %s: %r",
