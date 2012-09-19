@@ -1394,7 +1394,7 @@ hdamatch(Pcidev *p)
 		case (0x8086 << 16) | 0x284b:	/* Intel ICH8 */
 		case (0x8086 << 16) | 0x293f:	/* Intel ICH9 (untested) */
 		case (0x8086 << 16) | 0x293e:	/* Intel P35 (untested) */
-		case (0x8086 << 16) | 0x811b:	/* Intel SCH (Pouslbo) */
+		case (0x8086 << 16) | 0x811b:	/* Intel SCH (Poulsbo) */
 		case (0x8086 << 16) | 0x080a:	/* Intel SCH (Oaktrail) */
 
 		case (0x10de << 16) | 0x026c:	/* NVidia MCP51 (untested) */
