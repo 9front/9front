@@ -2129,6 +2129,10 @@ atapnp(void)
 				map |= 2;
 			irqack = ichirqack;
 			break;
+		case (0x811a<<16)|0x8086:	/* Intel SCH (Poulsbo) */
+			map = 1;
+			irqack = ichirqack;
+			break;
 		}
 		for(channel = 0; channel < 2; channel++){
 			if((map & 1<<channel) == 0)
@@ -2255,7 +2259,8 @@ ataenable(SDev* sdev)
 		atadmaclr(ctlr);
 		if(ctlr->pcidev != nil)
 			pcisetbme(ctlr->pcidev);
-		ctlr->prdt = mallocalign(Nprd*sizeof(Prd), 4, 0, 64*1024);
+		/* Intel SCH requires 8 byte alignment, though datasheet says 4 m( */
+		ctlr->prdt = mallocalign(Nprd*sizeof(Prd), 8, 0, 64*1024);
 	}
 	snprint(name, sizeof(name), "%s (%s)", sdev->name, sdev->ifc->name);
 	intrenable(ctlr->irq, atainterrupt, ctlr, ctlr->tbdf, name);
