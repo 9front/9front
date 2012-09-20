@@ -249,16 +249,21 @@ read(void *f, void *data, int len)
 		switch(nhgets(t->pkt)){
 		case Tftp_DATA:
 			seq = nhgets(t->pkt+2);
-			if(seq <= t->seq){
-				putc('@');
+			if(seq > t->seq){
+				putc('?');
 				continue;
 			}
 			hnputs(t->pkt, Tftp_ACK);
 			while(udpwrite(t->dip, t->gip, t->sport, t->dport, 4, t->pkt))
 				putc('!');
-			t->seq = seq;
+			if(seq < t->seq){
+				putc('@');
+				continue;
+			}
+			t->seq = seq+1;
+			n -= 4;
 			t->rp = t->pkt + 4;
-			t->ep = t->pkt + n;
+			t->ep = t->rp + n;
 			t->eof = n < Segsize;
 			break;
 		case Tftp_ERROR:
@@ -300,7 +305,7 @@ tftpopen(Tftp *t, char *path, IP4 sip, IP4 dip, IP4 gip)
 	t->sport = xport++;
 	t->dport = 0;
 	t->rp = t->ep = 0;
-	t->seq = -1;
+	t->seq = 1;
 	t->eof = 0;
 	t->nul = 0;
 	if(r = udpopen(t->sip))

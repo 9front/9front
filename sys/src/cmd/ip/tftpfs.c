@@ -147,7 +147,7 @@ filereq(uchar *buf, char *path)
 static void
 download(void *aux)
 {
-	int fd, cfd, last, block, n, ndata;
+	int fd, cfd, last, block, seq, n, ndata;
 	char *err, adir[40];
 	uchar *data;
 	Channel *c;
@@ -197,6 +197,7 @@ download(void *aux)
 
 	notify(catch);
 
+	seq = 1;
 	last = 0;
 	while(!last){
 		alarm(5000);
@@ -218,33 +219,36 @@ download(void *aux)
 			if(n < 4)
 				continue;
 			block = nhgets(msg.buf+2);
-			if((n -= 4) > 0){
-				data = erealloc9p(data, ndata + n);
-				memcpy(data + ndata, msg.buf+4, n);
-				ndata += n;
-
-rloop:			/* hanlde read request while downloading */
-				if((r != nil) && (r->ifcall.type == Tread) && (r->ifcall.offset < ndata)){
-					readbuf(r, data, ndata);
-					respond(r, nil);
-					r = nil;
-				}
-				if((r == nil) && (nbrecv(c, &r) == 1)){
-					if(r == nil){
-						chanfree(c);
-						c = nil;
-						goto out;
-					}
-					goto rloop;
-				}
-			}
-			if(n < Segsize)
-				last = 1;
+			if(block > seq)
+				continue;
 			hnputs(msg.buf, Tftp_ACK);
-			hnputs(msg.buf+2, block);
 			if(write(fd, &msg, sizeof(Udphdr) + 4) < 0){
 				err = "send acknowledge: %r";
 				goto out;
+			}
+			if(block < seq)
+				continue;
+			seq = block+1;
+			n -= 4;
+			if(n < Segsize)
+				last = 1;
+			data = erealloc9p(data, ndata + n);
+			memcpy(data + ndata, msg.buf+4, n);
+			ndata += n;
+
+		rloop:	/* hanlde read request while downloading */
+			if((r != nil) && (r->ifcall.type == Tread) && (r->ifcall.offset < ndata)){
+				readbuf(r, data, ndata);
+				respond(r, nil);
+				r = nil;
+			}
+			if((r == nil) && (nbrecv(c, &r) == 1)){
+				if(r == nil){
+					chanfree(c);
+					c = nil;
+					goto out;
+				}
+				goto rloop;
 			}
 			break;
 		}
