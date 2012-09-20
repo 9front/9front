@@ -1,0 +1,25 @@
+read log ext page 17
+	- phy error log
+read log ext sctstat
+	- current temperature
+
+sct read data table hda temperature history
+	- temperature history
+sct feature control
+	set state [preserve]
+		write cache
+		write cache reordering
+			enable
+			disable
+			set features
+		temperature logging interval
+			minutes
+	return state
+	return feature option flags
+		write cache
+		write cache reordering
+		temperature logging interval
+az> sct error recovery time set read timer = 5
+az> sct error recovery time return read timer
+
+sct cmd: Invalid Function code in SCT Feature Control command

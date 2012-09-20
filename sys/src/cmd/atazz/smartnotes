@@ -1,0 +1,22 @@
+this currently needs some more work
+
+az> smart lba0 1 execute off-line immediate	# short data collection
+az> smart read data
+col status: 06 aborted by device with fatal error
+exe status: 89 failed: shipping damage, 90% left
+time left: 11924s
+shrt poll: 200m
+ext poll: 21m
+
+options are:
+lba0
+0x00	normal
+0x01	short self-test
+0x02	extended self-test
+0x03	conveyance self-test
+0x04	selective self-test
+0x7f	abort off-line mode self-test routine
+0x81	short self-test in captive mode
+0x82	extended "
+0x83	conveyance "
+0x85	selective "
