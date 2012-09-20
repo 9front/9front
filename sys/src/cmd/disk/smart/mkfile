@@ -1,0 +1,15 @@
+</$objtype/mkfile
+
+TARG =	disk/smart
+
+HFILES = smart.h
+OFILES = ata.$O scsi.$O smart.$O
+
+BIN=/$objtype/bin
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+	${TARG:%=/386/bin/%}\
+
+</sys/src/cmd/mkone
