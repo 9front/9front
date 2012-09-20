@@ -1,0 +1,45 @@
+.TH SMART 8
+.SH NAME
+disk/smart \- SMART error monitoring
+.SH SYNOPSIS
+.B disk/smart
+[
+.B -aptv
+]
+.IR drive ...
+.SH DESCRIPTION
+The
+.B disk/smart
+command uses the
+.IR sd (3)
+raw interface for continuous disk health logging to
+.B /sys/log/smart
+and, with the
+.B -v
+flag, the console for ATA and SCSI disks supporting
+SMART-style reporting.  The
+.B -t flag causes
+.B disk/smart
+to exit after a single probe and implies
+.BR -v .
+With the
+.B -p
+flag or no arguments,
+.B disk/smart
+probes for all SMART-capable drives.  With
+.B -a
+SMART-capable drives are announced.  Logging
+behaves as if level triggered.  If a smart
+condition is set it will be logged every 6 hours.
+Condition reset also resets the log timer.
+.SH FILES
+.BR /lib/scsicodes ,
+.BR /dev/sdXX/raw
+.SH "SEE ALSO"
+.IR atazz (8),
+.IR scuzz (8),
+.IR sd (3).
+.SH SOURCE
+/sys/src/cmd/disk/smart
+.SH BUGS
+Past failures are no indication of future performance.

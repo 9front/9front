@@ -1,0 +1,175 @@
+.TH ATAZZ 8
+.SH NAME
+atazz \- ATA target control
+.SH SYNOPSIS
+.B atazz
+[
+.B -r
+]
+[
+.IR sddev
+]
+.br
+.B atazz
+.B -c
+.I cmd
+.SH DESCRIPTION
+.I Atazz
+is an interactive program for exercising
+raw ATA devices.
+Its intended purpose is to support odd and
+administrative commands without requiring this
+functionality be implemented by each device driver.
+It reads commands from standard input and applies
+them to an ATA target.  Communication is in SATA
+FIS format.  Non-ATA devices accessed
+through the
+.IR sd (3)
+interface will not work; ATAPI devices will respond
+to the commands in the ACS-2 packet feature set.
+If the
+.B -c
+option is given, the name of the given numeric ATA
+command is printed.
+.I sddev
+is given on the command line, an
+.B open
+(see below)
+is immediately applied to the target.
+On completion of a command, any errors are
+printed followed by the prompt
+.LR "az> " .
+The response FIS may be printed with the
+command
+.BR rfis .
+Some commands like
+.B "identify device"
+print processed output by default.  Redirecting the
+output to a file will give the raw output as will the
+.B -r
+flag.
+In addition the following commands are implemented
+internally
+.TF "< > <> file"
+.PD
+.TP
+.BI "< > <> " file
+Redirect output, input or both to or from a file.
+If
+.I file
+is missing, then the redirection is closed.
+.TP
+.B close
+Close the currently open device.
+.TP
+.B dev
+Print device path and basic information.
+.TP
+.BR issuetr " [ \fIcommand\fP ... ]"
+Toggle command issue tracing.  With no arguments,
+issuetr toggles tracing for all commands.  Commands
+may be specified by number.
+.TP
+.BI open " dev
+Open the named device.
+.B probe
+Print a list of available device paths, size, sector size
+and WWNs.  The first column is a suitable argument
+for
+.BR open .
+.TP
+.B rfis
+Print the returned FIS, if any.
+.PP
+For all commands, it is possible to manipulate
+the sata registers directly by specifying the register
+name and an 8-bit value.  The registers are
+.TF "features"
+.PD
+.TP
+.B type
+FIS type
+.TP
+.B flags
+FIS flags
+.TP
+.B cmd
+command register
+.TP
+.B feat
+or 
+.B features
+.TP
+.B lba0
+or
+.BR sector
+.TP
+.B lba8
+or
+.B cyl0
+.TP
+.B lba16
+or
+.B cyl8
+.TP
+.B lba24
+or
+.B dh
+or
+.B byte8
+.TP
+.B lba32
+.TP
+.B lba40
+.TP
+.B feat8
+.TP
+.B sc
+sector count
+.TP
+.B sc8
+.TP
+.B r
+reserved FIS register
+.PP
+In addition, commands that take an LBA and a number of
+sectors may be given those arguments directly, for example
+to read 1 sector starting at lba 100,
+.EX
+.IP
+az> read dma ext 100 1
+.EE
+.PP
+Subcommands are spelled out as in ACS-2.
+For example, to set the transfer mode to UDMA 6, enable
+the write cache and to enable and report smart status, one would
+.EX
+.IP
+az> set features set transfer mode udma 6
+az> set features enable write cache
+az> smart enable operations
+az> smart return status
+normal
+.EE
+.PP
+SCT pseudo-protocol commands are also supported.
+.EX
+.IP
+az> sct error recovery time set read timer = 5
+az> sct error recovery time return read timer
+500ms
+.EE
+.PP
+.SH FILES
+.BR /dev/sd\fIXX\fP/raw
+.SH SOURCE
+/sys/src/cmd/atazz
+.SH "SEE ALSO"
+.IR scuzz (8),
+.IR sd (3),
+.IR smart (8),
+.br
+T13/2015 ACS-2 published online at http://www.t13.org.
+.SH BUGS
+Subcommand help doesn't work.  ACS-2 commands are
+tortuously verbose.
