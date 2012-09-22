@@ -17,21 +17,11 @@ static int plldepth;
 static Image *pl_white, *pl_light, *pl_dark, *pl_black, *pl_hilit;
 int pl_drawinit(int ldepth){
 	plldepth=ldepth;
-/*
-	pl_white=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFFFFFFF);
-	pl_light=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xAAAAAAFF);
-	pl_dark =allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x555555FF);
-	pl_black=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x000000FF);
-	pl_hilit=allocimage(display, Rect(0,0,1,1), CHAN1(CAlpha,8), 1, 0x80);
-*/
-
 	pl_white=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xFFFFFFFF);
 	pl_light=allocimagemix(display, DPalebluegreen, DWhite);
 	pl_dark =allocimage(display, Rect(0,0,1,1), screen->chan, 1, DPurpleblue);
 	pl_black=allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x000000FF);
 	pl_hilit=allocimage(display, Rect(0,0,1,1), CHAN1(CAlpha,8), 1, 0x80);
-
-
 	if(pl_white==0 || pl_light==0 || pl_black==0 || pl_dark==0) return 0;
 	return 1;
 }

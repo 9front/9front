@@ -90,7 +90,7 @@ void killpix(Www *w);
 char *buttons[]={
 	"alt display",
 	"moth mode",
-	"snarf url",
+	"snarf",
 	"paste",
 	"save hit",
 	"hit list",
@@ -1015,9 +1015,14 @@ void killpix(Www *w){
 }
 
 void snarf(Panel *p){
+	char *s;
 	int fd;
+
 	if((fd=open("/dev/snarf", OWRITE|OTRUNC))>=0){
-		fprint(fd, "%s", urlstr(selection));
+		s = plsnarftext(text);
+		if(s==0)
+			s = urlstr(selection);
+		fprint(fd, "%s", s);
 		close(fd);
 	}
 }

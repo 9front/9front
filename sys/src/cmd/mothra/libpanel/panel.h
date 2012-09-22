@@ -166,6 +166,8 @@ Rtext *plrtpanel(Rtext **, int, int, Panel *, void *);
 void plrtfree(Rtext *);
 int plgetpostextview(Panel *);
 void plsetpostextview(Panel *, int);
+char *plsnarftext(Panel *);
+
 /*
  * Idols
  */
