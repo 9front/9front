@@ -9,7 +9,7 @@ struct Scroll{
 	Point pos, size;
 };
 struct Rtext{
-	int hot;		/* responds to hits? */
+	int flags;		/* responds to hits? text selection? */
 	void *user;		/* user data */
 	int space;		/* how much space before, if no break */
 	int indent;		/* how much space before, after a break */
@@ -96,6 +96,11 @@ struct Panel{
 #define	PRI_NORMAL	0		/* ordinary panels */
 #define	PRI_POPUP	1		/* popup menus */
 #define	PRI_SCROLLBAR	2		/* scroll bars */
+
+/* Rtext.flags */
+#define PL_HOT		1
+#define PL_SEL		2
+
 int plinit(int);			/* initialization */
 void plpack(Panel *, Rectangle);	/* figure out where to put the Panel & children */
 void plmove(Panel *, Point);		/* move an already-packed panel to a new location */
@@ -164,6 +169,9 @@ Rtext *plrtstr(Rtext **, int, int, Font *, char *, int, void *);
 Rtext *plrtbitmap(Rtext **, int, int, Image *, int, void *);
 Rtext *plrtpanel(Rtext **, int, int, Panel *, void *);
 void plrtfree(Rtext *);
+void plrtseltext(Rtext *, Rtext *, Rtext *);
+char *plrtsnarftext(Rtext *);
+
 int plgetpostextview(Panel *);
 void plsetpostextview(Panel *, int);
 char *plsnarftext(Panel *);

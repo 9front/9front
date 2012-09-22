@@ -395,7 +395,7 @@ void mkfieldpanel(Rtext *t){
 		free(t->text);
 		t->text=0;
 		t->p=f->p;
-		t->hot=1;
+		t->flags|=PL_HOT;
 	}
 }
 void h_checkinput(Panel *p, int, int v){

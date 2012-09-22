@@ -989,7 +989,7 @@ mothon(Www *w, int on)
 			t->next = nil;
 			ap=emalloc(sizeof(Action));
 			ap->link = strdup(a->link);
-			plrtstr(&t->next, 0, 0, t->font, strdup("->"), 1, ap);
+			plrtstr(&t->next, 0, 0, t->font, strdup("->"), PL_HOT, ap);
 			t->next->next = x;
 		} else {
 			t->next = x->next;
