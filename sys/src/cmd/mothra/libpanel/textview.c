@@ -39,10 +39,7 @@ void pl_drawnon(Rtext *rp, Image *b){
 		if(rp->b==0 && rp->p!=0)
 			pl_stuffbitmap(rp->p, b);
 }
-/*
- * Mark the hilite and update the scroll bar
- */
-void pl_fixtextview(Panel *p, Textview *tp, Rectangle r){
+void pl_setscrpos(Panel *p, Textview *tp, Rectangle r){
 	Panel *sb;
 	int lo, hi;
 	lo=tp->yoffs;
@@ -72,7 +69,7 @@ void pl_drawtextview(Panel *p){
 		freeimage(b);
 		pl_drawnon(tp->text, p->b);
 	}
-	pl_fixtextview(p, tp, r);
+	pl_setscrpos(p, tp, r);
 }
 /*
  * If t is a panel word, pass the mouse event on to it
@@ -161,7 +158,7 @@ void pl_scrolltextview(Panel *p, int dir, int buttons, int num, int den){
 		r=pl_outline(p->b, p->r, p->state);
 		pl_rtredraw(p->b, r, tp->text, yoffs, tp->yoffs);
 		p->scr.pos.y=tp->yoffs=yoffs;
-		pl_fixtextview(p, tp, r);
+		pl_setscrpos(p, tp, r);
 	}
 }
 void pl_typetextview(Panel *g, Rune c){
