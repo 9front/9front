@@ -18,7 +18,6 @@ Panel *root;	/* the whole display */
 Panel *alt;	/* the alternate display */
 Panel *alttext;	/* the alternate text window */
 Panel *cmd;	/* command entry */
-Panel *curttl;	/* label giving the title of the visible text */
 Panel *cururl;	/* label giving the url of the visible text */
 Panel *list;	/* list of previously acquired www pages */
 Panel *msg;	/* message display */
@@ -171,10 +170,6 @@ void mkpanels(void){
 			bar=plscrollbar(p, PACKW);
 			list=pllist(p, PACKN|FILLX, genwww, 8, doprev);
 			plscroll(list, 0, bar);
-		p=plgroup(root, PACKN|FILLX);
-			pllabel(p, PACKW, "Title:");
-			curttl=pllabel(p, PACKE|EXPAND, "---");
-			plplacelabel(curttl, PLACEW);
 		p=plgroup(root, PACKN|FILLX);
 			pllabel(p, PACKW, "Url:");
 			cururl=pllabel(p, PACKE|EXPAND, "---");
@@ -482,12 +477,16 @@ void nstrcpy(char *to, char *from, int len){
 
 char *genwww(Panel *, int index){
 	static char buf[1024];
+	Www *w;
 	int i;
 
 	if(index >= nwww())
 		return 0;
 	i = wwwtop-index-1;
-	snprint(buf, sizeof(buf), "%2d %s", i+1, www(i)->title);
+	w = www(i);
+	if(w->title[0]!='\0')
+		w->gottitle=1;
+	snprint(buf, sizeof(buf), "%2d %s", i+1, w->title);
 	return buf;
 }
 
@@ -520,8 +519,6 @@ void setcurrent(int index, char *tag){
 	if(current)
 		current->yoffs=plgetpostextview(text);
 	current=new;
-	plinitlabel(curttl, PACKE|EXPAND, current->title);
-	if(defdisplay) pldraw(curttl, screen);
 	plinitlabel(cururl, PACKE|EXPAND, current->url->fullname);
 	if(defdisplay) pldraw(cururl, screen);
 	plinittextview(text, PACKE|EXPAND, Pt(0, 0), current->text, dolink);
@@ -944,6 +941,8 @@ void geturl(char *urlname, int post, int plumb, int map){
 void updtext(Www *w){
 	Rtext *t;
 	Action *a;
+	if(defdisplay && w->gottitle==0 && w->title[0]!='\0')
+		pldraw(list, screen);
 	for(t=w->text;t;t=t->next){
 		a=t->user;
 		if(a){
@@ -957,7 +956,7 @@ void updtext(Www *w){
 	w->yoffs=plgetpostextview(text);
 	plinittextview(text, PACKE|EXPAND, Pt(0, 0), w->text, dolink);
 	plsetpostextview(text, w->yoffs);
-	pldraw(root, screen);
+	pldraw(text, screen);
 }
 
 void finish(Www *w){

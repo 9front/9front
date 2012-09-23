@@ -19,6 +19,8 @@ char *pl_snarfentry(Panel *p){
 	Entry *ep;
 	int n;
 
+	if(p->flags&USERFL)	/* no snarfing from password entry */
+		return nil;
 	ep=p->data;
 	n=ep->entp-ep->entry;
 	if(n<=0) return nil;

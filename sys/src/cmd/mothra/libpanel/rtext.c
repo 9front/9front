@@ -170,7 +170,7 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 	Image *bb;
 
 	bb = b;
-	if(backup==0 || rectinrect(r, backup->r)==0){
+	if(backup==0 || backup->chan!=b->chan || rectinrect(r, backup->r)==0){
 		freeimage(backup);
 		backup=allocimage(display, bb->r, bb->chan, 0, DNofill);
 	}

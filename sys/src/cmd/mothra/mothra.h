@@ -37,6 +37,7 @@ struct Www{
 	char title[NTITLE];
 	Rtext *text;
 	int yoffs;
+	int gottitle;		/* title got drawn */
 	int changed;		/* reader sets this every time it updates page */
 	int finished;		/* reader sets this when done */
 	int alldone;		/* page will not change further -- used to adjust cursor */
