@@ -151,17 +151,27 @@ int pl_rtfmt(Rtext *t, int wid){
 	}
 	return p.y;
 }
+
+/*
+ * If we draw the text in a backup bitmap and copy it onto the screen,
+ * the bitmap pointers in all the subpanels point to the wrong bitmap.
+ * This code fixes them.
+ */
+void pl_stuffbitmap(Panel *p, Image *b){
+	p->b=b;
+	for(p=p->child;p;p=p->next)
+		pl_stuffbitmap(p, b);
+}
+
 void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 	Point offs, lp;
 	Rectangle dr;
-	Rectangle cr;
-	Rectangle xr;
+	Image *bb;
 
-	xr=r;
-	cr=b->clipr;
-	if(!rectclip(&xr, cr))
-		return;
-	replclipr(b, b->repl, xr);
+	bb = b;
+	if((b = allocimage(display, r, bb->chan, 0, DNofill)) == nil)
+		b = bb;
+
 	pl_clr(b, r);
 	lp=ZP;
 	offs=subpt(r.min, Pt(0, yoffs));
@@ -176,6 +186,9 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 			else if(t->p){
 				plmove(t->p, subpt(dr.min, t->p->r.min));
 				pldraw(t->p, b);
+
+				if(b != bb)
+					pl_stuffbitmap(t->p, bb);
 			}
 			else{
 				string(b, dr.min, display->black, ZP, t->font, t->text);
@@ -195,7 +208,11 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 				pl_highlight(b, dr);
 		}
 	}
-	replclipr(b, b->repl, cr);
+
+	if(b != bb){
+		draw(bb, r, b, 0, b->r.min);
+		freeimage(b);
+	}
 }
 /*
  * Reposition text already drawn in the window.

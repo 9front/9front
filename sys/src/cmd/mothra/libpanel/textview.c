@@ -24,21 +24,6 @@ struct Textview{
 	int buttons;
 };
 
-void pl_stuffbitmap(Panel *p, Image *b){
-	p->b=b;
-	for(p=p->child;p;p=p->next)
-		pl_stuffbitmap(p, b);
-}
-/*
- * If we draw the text in a backup bitmap and copy it onto the screen,
- * the bitmap pointers in all the subpanels point to the wrong bitmap.
- * This code fixes them.
- */
-void pl_drawnon(Rtext *rp, Image *b){
-	for(;rp!=0;rp=rp->next)
-		if(rp->b==0 && rp->p!=0)
-			pl_stuffbitmap(rp->p, b);
-}
 void pl_setscrpos(Panel *p, Textview *tp, Rectangle r){
 	Panel *sb;
 	int lo, hi;
@@ -51,11 +36,8 @@ void pl_drawtextview(Panel *p){
 	int twid;
 	Rectangle r;
 	Textview *tp;
-	Image *b;
 	tp=p->data;
-	b=allocimage(display, p->r, screen->chan, 0, DNofill);
-	if(b==0) b=p->b;
-	r=pl_outline(b, p->r, UP);
+	r=pl_outline(p->b, p->r, UP);
 	twid=r.max.x-r.min.x;
 	if(twid!=tp->twid){
 		tp->twid=twid;
@@ -63,12 +45,7 @@ void pl_drawtextview(Panel *p){
 		p->scr.size.y=tp->thgt;
 	}
 	p->scr.pos.y=tp->yoffs;
-	pl_rtdraw(b, r, tp->text, tp->yoffs);
-	if(b!=p->b){
-		draw(p->b, p->r, b, 0, b->r.min);
-		freeimage(b);
-		pl_drawnon(tp->text, p->b);
-	}
+	pl_rtdraw(p->b, r, tp->text, tp->yoffs);
 	pl_setscrpos(p, tp, r);
 }
 /*
