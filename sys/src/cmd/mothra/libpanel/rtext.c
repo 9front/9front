@@ -182,16 +182,19 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 			if(t->b){
 				draw(b, insetrect(dr, BORD), t->b, 0, t->b->r.min);
 				if(t->flags&PL_HOT) border(b, dr, 1, display->black, ZP);
+				if(t->flags&PL_SEL)
+					pl_highlight(b, dr);
 			}
 			else if(t->p){
 				plmove(t->p, subpt(dr.min, t->p->r.min));
 				pldraw(t->p, b);
-
 				if(b != bb)
 					pl_stuffbitmap(t->p, bb);
 			}
 			else{
 				string(b, dr.min, display->black, ZP, t->font, t->text);
+				if(t->flags&PL_SEL)
+					pl_highlight(b, dr);
 				if(t->flags&PL_HOT){
 					if(lp.y+1 != dr.max.y)
 						lp = Pt(dr.min.x, dr.max.y-1);
@@ -199,13 +202,10 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 						Endsquare, Endsquare, 0,
 						display->black, ZP);
 					lp = Pt(dr.max.x, dr.max.y-1);
-					goto Cont;
+					continue;
 				}
 			}
 			lp=ZP;
-		Cont:
-			if(t->flags&PL_SEL)
-				pl_highlight(b, dr);
 		}
 	}
 
