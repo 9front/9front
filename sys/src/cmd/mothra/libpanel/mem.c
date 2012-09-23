@@ -89,6 +89,8 @@ Panel *pl_newpanel(Panel *parent, int ndata){
 	v->scroll=pl_scrollerror;
 	v->setscrollbar=pl_setscrollbarerror;
 	v->free=0;
+	v->snarf=0;
+	v->paste=0;
 	if(ndata)
 		v->data=pl_emalloc(ndata);
 	else
@@ -99,6 +101,8 @@ void plfree(Panel *p){
 	Panel *cp, *ncp;
 	if(p==0)
 		return;
+	if(p==plkbfocus)
+		plkbfocus=0;
 	for(cp=p->child;cp;cp=ncp){
 		ncp=cp->next;
 		plfree(cp);

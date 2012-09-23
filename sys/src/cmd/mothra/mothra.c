@@ -118,20 +118,21 @@ int subpanel(Panel *obj, Panel *subj){
  * Make sure that the keyboard focus is on-screen, by adjusting it to
  * be the cmd entry if necessary.
  */
-void adjkb(void){
+int adjkb(void){
 	Rtext *t;
 	int yoffs;
-	extern Panel *pl_kbfocus;	/* this is a secret panel library name */
 	if(current){
 		yoffs=text->r.min.y-plgetpostextview(text);
 		for(t=current->text;t;t=t->next) if(!eqrect(t->r, Rect(0,0,0,0))){
-			if(t->r.max.y+yoffs>text->r.max.y) break;
-			if(t->r.min.y+yoffs>=text->r.min.y
+			if(t->r.max.y+yoffs>=text->r.min.y
+			&& t->r.min.y+yoffs<text->r.max.y
 			&& t->b==0
-			&& subpanel(t->p, pl_kbfocus)) return;
+			&& subpanel(t->p, plkbfocus))
+				return 1;
 		}
 	}
 	plgrabkb(cmd);
+	return 0;
 }
 
 void scrolltext(int dy, int whence)
@@ -1013,33 +1014,16 @@ void killpix(Www *w){
 	w->pix=0;
 	updtext(w);
 }
-
 void snarf(Panel *p){
-	char *s;
-	int fd;
-
-	if((fd=open("/dev/snarf", OWRITE|OTRUNC))>=0){
-		s = plsnarftext(text);
-		if(s==0)
-			s = urlstr(selection);
-		fprint(fd, "%s", s);
-		close(fd);
-	}
+	if(p==0) p=cmd;
+	plputsnarf(urlstr(selection));
+	/* non-ops if nothing selected */
+	plsnarf(p);
+	plsnarf(text);
 }
 void paste(Panel *p){
-	char buf[1024];
-	int n, len, fd;
-	if((fd=open("/dev/snarf", OREAD))<0)
-		return;
-	nstrcpy(buf, plentryval(p), sizeof(buf));
-	len=strlen(buf);
-	n=read(fd, buf+len, sizeof(buf)-len-1);
-	if(n>0){
-		buf[len+n]='\0';
-		plinitentry(cmd, PACKE|EXPAND, 0, buf, docmd);
-		pldraw(cmd, screen);
-	}
-	close(fd);
+	if(p==0) p=cmd;
+	plpaste(p);
 }
 void hit3(int button, int item){
 	char name[NNAME];
@@ -1069,10 +1053,10 @@ void hit3(int button, int item){
 		mothon(current, !mothmode);
 		break;
 	case 2:
-		snarf(cmd);
+		snarf(plkbfocus);
 		break;
 	case 3:
-		paste(cmd);
+		paste(plkbfocus);
 		break;
 	case 4:
 		snprint(name, sizeof(name), "%s/hit.html", home);

@@ -52,7 +52,8 @@ void pl_drawtextview(Panel *p){
  * If t is a panel word, pass the mouse event on to it
  */
 void pl_passon(Rtext *t, Mouse *m){
-	if(t && t->b==0 && t->p!=0) plmouse(t->p, m);
+	if(t && t->b==0 && t->p!=0)
+		plmouse(t->p, m);
 }
 int pl_hittextview(Panel *p, Mouse *m){
 	Rtext *oldhitword, *oldhitfirst;
@@ -166,6 +167,11 @@ int pl_pritextview(Panel *p, Point xy){
 	}
 	return PRI_NORMAL;
 }
+
+char* pl_snarftextview(Panel *p){
+	return plrtsnarftext(((Textview *)p->data)->text);
+}
+
 void plinittextview(Panel *v, int flags, Point minsize, Rtext *t, void (*hit)(Panel *, int, Rtext *)){
 	Textview *tp;
 	tp=v->data;
@@ -185,6 +191,7 @@ void plinittextview(Panel *v, int flags, Point minsize, Rtext *t, void (*hit)(Pa
 	tp->hitfirst=0;
 	tp->hitword=0;
 	v->scroll=pl_scrolltextview;
+	v->snarf=pl_snarftextview;
 	tp->twid=-1;
 	v->scr.pos=Pt(0,0);
 	v->scr.size=Pt(0,1);
@@ -201,10 +208,4 @@ int plgetpostextview(Panel *p){
 void plsetpostextview(Panel *p, int yoffs){
 	((Textview *)p->data)->yoffs=yoffs;
 	pldraw(p, p->b);
-}
-char* plsnarftext(Panel *p){
-	static char *b = nil;
-	free(b);
-	b = plrtsnarftext(((Textview *)p->data)->text);
-	return b;
 }

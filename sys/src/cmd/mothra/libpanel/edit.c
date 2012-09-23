@@ -48,46 +48,25 @@ void pl_drawedit(Panel *p){
 	if(sb && sb->setscrollbar)
 		sb->setscrollbar(sb, ep->t->top, ep->t->bot, ep->t->etext-ep->t->text);
 }
-void pl_snarfedit(Panel *p, int cut){
-	int fd, n, r, s0, s1;
-	char *s, *x;
+
+char *pl_snarfedit(Panel *p){
+	int s0, s1;
 	Rune *t;
 
-	if((fd=open("/dev/snarf", cut ? OWRITE|OTRUNC : OREAD))<0)
-		return;
-	if(cut){
-		t=pleget(p);
-		plegetsel(p, &s0, &s1);
-		if(t==0 || s0>=s1){
-			close(fd);
-			return;
-		}
-		s = smprint("%.*S", s1-s0, t+s0);
-		if((n = strlen(s))>0)
-			write(fd, s, n);
-		free(s);
-		plepaste(p, 0, 0);
-	}else{
-		n=0;
-		s=nil;
-		for(;;){
-			if((x=realloc(s, n+1024)) == nil){
-				free(s);
-				close(fd);
-				return;
-			}
-			s=x;
-			if((r = read(fd, s+n, 1024)) <= 0)
-				break;
-			n += r;
-		}
-		t=runesmprint("%.*s", n, s);
+	t=pleget(p);
+	plegetsel(p, &s0, &s1);
+	if(t==0 || s0>=s1)
+		return nil;
+	return smprint("%.*S", s1-s0, t+s0);
+}
+void pl_pasteedit(Panel *p, char *s){
+	Rune *t;
+	if(t=runesmprint("%s", s)){
 		plepaste(p, t, runestrlen(t));
-		free(s);
 		free(t);
 	}
-	close(fd);
 }
+
 /*
  * Should do double-clicks:
  *	If ep->sel0==ep->sel1 on entry and the
@@ -106,18 +85,20 @@ void pl_snarfedit(Panel *p, int cut){
  */
 int pl_hitedit(Panel *p, Mouse *m){
 	Edit *ep;
-	if((m->buttons&7)==1){
+	if(m->buttons&1){
+		plgrabkb(p);
 		ep=p->data;
 		ep->t->b=p->b;
 		twhilite(ep->t, ep->sel0, ep->sel1, 0);
 		twselect(ep->t, m);
 		ep->sel0=ep->t->sel0;
 		ep->sel1=ep->t->sel1;
-		plgrabkb(p);
-		if((m->buttons&7)==3)
-			pl_snarfedit(p, 1);
+		if((m->buttons&7)==3){
+			plsnarf(p);
+			plepaste(p, 0, 0);	/* cut */
+		}
 		else if((m->buttons&7)==5)
-			pl_snarfedit(p, 0);
+			plpaste(p);
 		else if(ep->hit)
 			(*ep->hit)(p);
 	}
@@ -171,7 +152,13 @@ void pl_typeedit(Panel *p, Rune c){
 	twhilite(t, ep->sel0, ep->sel1, 0);
 	switch(c){
 	case Kesc:
-		pl_snarfedit(p, 1);
+		plsnarf(p);
+		plepaste(p, 0, 0);	/* cut */
+		break;
+	case Kdel:	/* clear */
+		ep->sel0=0;
+		ep->sel1=plelen(p);
+		plepaste(p, 0, 0);	/* cut */
 		break;
 	case Kbs:	/* ^H: erase character */
 		if(ep->sel0!=0) --ep->sel0;
@@ -187,6 +174,8 @@ void pl_typeedit(Panel *p, Rune c){
 		twreplace(t, ep->sel0, ep->sel1, 0, 0);
 		break;
 	default:
+		if((c & 0xFF00) == KF || (c & 0xFF00) == Spec)
+			break;
 		twreplace(t, ep->sel0, ep->sel1, &c, 1);
 		++ep->sel0;
 		break;
@@ -233,6 +222,8 @@ void plinitedit(Panel *v, int flags, Point minsize, Rune *text, int ntext, void 
 	v->getsize=pl_getsizeedit;
 	v->childspace=pl_childspaceedit;
 	v->free=pl_freeedit;
+	v->snarf=pl_snarfedit;
+	v->paste=pl_pasteedit;
 	v->kind="edit";
 	ep->hit=hit;
 	ep->minsize=minsize;

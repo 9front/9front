@@ -15,35 +15,31 @@ struct Entry{
 	Point minsize;
 };
 #define	SLACK	7	/* enough for one extra rune and ◀ and a nul */
-void pl_snarfentry(Panel *p, int cut){
+char *pl_snarfentry(Panel *p){
 	Entry *ep;
-	int fd, n;
-	char *s;
+	int n;
 
 	ep=p->data;
-	if((fd=open("/dev/snarf", cut ? OWRITE|OTRUNC : OREAD))<0)
+	n=ep->entp-ep->entry;
+	if(n<=0) return nil;
+	return smprint("%.*s", n, ep->entry);
+}
+void pl_pasteentry(Panel *p, char *s){
+	Entry *ep;
+	char *e;
+	int n, m;
+
+	ep=p->data;
+	n=ep->entp-ep->entry;
+	m=strlen(s);
+	if((e=realloc(ep->entry,n+m+SLACK))==0)
 		return;
-	if(cut){
-		if((n=ep->entp-ep->entry)>0)
-			write(fd, ep->entry, n);
-		ep->entp=ep->entry;
-	}else{
-		n=1024;
-		s=malloc(n+SLACK);
-		if(s==0){
-			close(fd);
-			return;
-		}
-		if((n=readn(fd, s, n))<0)
-			n=0;
-		free(ep->entry);
-		s=realloc(s, n+SLACK);
-		ep->entry=s;
-		ep->eent=s+n;
-		ep->entp=s+n;
-	}
-	close(fd);
-	*ep->entp='\0';
+	ep->entry=e;
+	e+=n;
+	strncpy(e, s, m);
+	e+=m;
+	*e='\0';
+	ep->entp=ep->eent=e;
 	pldraw(p, p->b);
 }
 void pl_drawentry(Panel *p){
@@ -68,20 +64,29 @@ void pl_drawentry(Panel *p){
 		free(s);
 }
 int pl_hitentry(Panel *p, Mouse *m){
-	if((m->buttons&OUT)==0 && (m->buttons&7)){
+	if((m->buttons&7)==1){
 		plgrabkb(p);
 
 		p->state=DOWN;
 		pldraw(p, p->b);
-		while(m->buttons&7){
+		while(m->buttons&1){
 			int old;
 			old=m->buttons;
 			*m=emouse();
 			if((old&7)==1){
-				if((m->buttons&7)==3)
-					pl_snarfentry(p, 1);
+				if((m->buttons&7)==3){
+					Entry *ep;
+
+					plsnarf(p);
+
+					/* cut */
+					ep=p->data;
+					ep->entp=ep->entry;
+					*ep->entp='\0';
+					pldraw(p, p->b);
+				}
 				if((m->buttons&7)==5)
-					pl_snarfentry(p, 0);
+					plpaste(p);
 			}
 		}
 		p->state=UP;
@@ -100,8 +105,9 @@ void pl_typeentry(Panel *p, Rune c){
 		if(ep->hit) ep->hit(p, ep->entry);
 		return;
 	case Kesc:
-		pl_snarfentry(p, 1);
-		return;
+		plsnarf(p);
+		/* no break */
+	case Kdel:	/* clear */
 	case Knack:	/* ^U: erase line */
 		ep->entp=ep->entry;
 		*ep->entp='\0';
@@ -118,7 +124,7 @@ void pl_typeentry(Panel *p, Rune c){
 		*ep->entp='\0';
 		break;
 	default:
-		if(c < 0x20 || c == Kdel || (c & 0xFF00) == KF || (c & 0xFF00) == Spec)
+		if(c < 0x20 || (c & 0xFF00) == KF || (c & 0xFF00) == Spec)
 			break;
 		ep->entp+=runetochar(ep->entp, &c);
 		if(ep->entp>ep->eent){
@@ -162,6 +168,8 @@ void plinitentry(Panel *v, int flags, int wid, char *str, void (*hit)(Panel *, c
 	v->childspace=pl_childspaceentry;
 	ep->minsize=Pt(wid, font->height);
 	v->free=pl_freeentry;
+	v->snarf=pl_snarfentry;
+	v->paste=pl_pasteentry;
 	elen=100;
 	if(str) elen+=strlen(str);
 	if(ep->entry==nil)

@@ -4,16 +4,17 @@
 #include <event.h>
 #include <panel.h>
 #include "pldefs.h"
-Panel *pl_kbfocus;
+
 void plgrabkb(Panel *g){
-	pl_kbfocus=g;
+	plkbfocus=g;
 }
 void plkeyboard(Rune c){
-	if(pl_kbfocus){
-		pl_kbfocus->type(pl_kbfocus, c);
+	if(plkbfocus){
+		plkbfocus->type(plkbfocus, c);
 		flushimage(display, 1);
 	}
 }
+
 /*
  * Return the most leafward, highest priority panel containing p
  */

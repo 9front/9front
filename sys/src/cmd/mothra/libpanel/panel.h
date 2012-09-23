@@ -55,6 +55,8 @@ struct Panel{
 	void (*scroll)(Panel *, int, int, int, int);	/* scroll bar to scrollee */
 	void (*setscrollbar)(Panel *, int, int, int);	/* scrollee to scroll bar */
 	void (*free)(Panel *);				/* free fields of data when done */
+	char* (*snarf)(Panel *);			/* snarf text from panel */
+	void (*paste)(Panel *, char *);			/* paste text into panel */
 };
 /*
  * Panel flags
@@ -101,6 +103,8 @@ struct Panel{
 #define PL_HOT		1
 #define PL_SEL		2
 
+Panel *plkbfocus;			/* the panel in keyboard focus */
+
 int plinit(int);			/* initialization */
 void plpack(Panel *, Rectangle);	/* figure out where to put the Panel & children */
 void plmove(Panel *, Point);		/* move an already-packed panel to a new location */
@@ -122,6 +126,7 @@ void plescroll(Panel *, int);		/* scroll an edit window */
 Scroll plgetscroll(Panel *);		/* get scrolling information from panel */
 void plsetscroll(Panel *, Scroll);	/* set scrolling information */
 void plplacelabel(Panel *, int);	/* label placement */
+
 /*
  * Panel creation & reinitialization functions
  */
@@ -174,7 +179,6 @@ char *plrtsnarftext(Rtext *);
 
 int plgetpostextview(Panel *);
 void plsetpostextview(Panel *, int);
-char *plsnarftext(Panel *);
 
 /*
  * Idols
@@ -183,3 +187,11 @@ Idol *plmkidol(Idol**, Image*, Image*, char*, void*);
 void plfreeidol(Idol*);
 Point plidolsize(Idol*, Font*, int);
 void *plidollistgetsel(Panel*);
+
+/*
+ * Snarf
+ */
+void plputsnarf(char *);
+char *plgetsnarf(void);
+void plsnarf(Panel *);			/* snarf a panel */
+void plpaste(Panel *);			/* paste a panel */

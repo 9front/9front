@@ -139,6 +139,7 @@ void pl_interior(int state, Point *ul, Point *size){
 		*size=subpt(*size, Pt(4*FWID+2*SPACE, 4*FWID+2*SPACE));
 	}
 }
+
 void pl_drawicon(Image *b, Rectangle r, int stick, int flags, Icon *s){
 	Rectangle save;
 	Point ul, offs;

@@ -291,26 +291,30 @@ void plrtseltext(Rtext *t, Rtext *s, Rtext *e){
 }
 
 char *plrtsnarftext(Rtext *w){
-	char *b, *p, *e;
+	char *b, *p, *e, *t;
 	int n;
 
-	p = e = 0;
+	b=p=e=0;
 	for(; w; w = w->next){
-		if((w->flags&PL_SEL)==0 || w->b!=0 || w->p!=0 || w->text==0)
+		if((w->flags&PL_SEL)==0 || w->text==0)
 			continue;
-		n = strlen(w->text)+4;
-		if((b = realloc(p, (e+n) - p)) == nil)
-			break;
-		e = (e - p) + b;
-		p = b;
+		n = strlen(w->text)+64;
+		if(p+n >= e){
+			n = (p+n+64)-b;
+			if((t = realloc(b, n))==0)
+				break;
+			p = t+(p-b);
+			e = t+n;
+			b = t;
+		}
 		if(w->space == 0)
-			e += sprint(e, "%s", w->text);
+			p += sprint(p, "%s", w->text);
 		else if(w->space > 0)
-			e += sprint(e, " %s", w->text);
+			p += sprint(p, " %s", w->text);
 		else if(PL_OP(w->space) == PL_TAB)
-			e += sprint(e, "\t%s", w->text);
+			p += sprint(p, "\t%s", w->text);
 		if(w->nextline == w->next)
-			e += sprint(e, "\n");
+			p += sprint(p, "\n");
 	}
-	return p;
+	return b;
 }

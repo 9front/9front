@@ -97,11 +97,12 @@ Clicking the
 .B moth mode
 menu option again exits moth mode.
 .TP
-.B snarf url
-Copy the current URL to the snarf buffer.
+.B snarf
+Copy the current entry text or selected page text to snarf buffer.
+If nothing is selected, the current URL is copied.
 .TP
 .B paste
-Paste the current snarf buffer at the current cursor position.
+Paste the snarf buffer to the current text entry.
 .TP
 .B save hit
 Save the current URL to the hit list.

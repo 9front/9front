@@ -26,7 +26,8 @@ OFILES=\
 	slider.$O\
 	textview.$O\
 	textwin.$O\
-	utf.$O
+	utf.$O\
+	snarf.$O
 
 HFILES=panel.h pldefs.h rtext.h
 
