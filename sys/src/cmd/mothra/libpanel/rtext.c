@@ -164,14 +164,18 @@ void pl_stuffbitmap(Panel *p, Image *b){
 }
 
 void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
+	static Image *backup;
 	Point offs, lp;
 	Rectangle dr;
 	Image *bb;
 
 	bb = b;
-	if((b = allocimage(display, r, bb->chan, 0, DNofill)) == nil)
-		b = bb;
-
+	if(backup==0 || rectinrect(r, backup->r)==0){
+		freeimage(backup);
+		backup=allocimage(display, bb->r, bb->chan, 0, DNofill);
+	}
+	if(backup)
+		b=backup;
 	pl_clr(b, r);
 	lp=ZP;
 	offs=subpt(r.min, Pt(0, yoffs));
@@ -188,7 +192,7 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 			else if(t->p){
 				plmove(t->p, subpt(dr.min, t->p->r.min));
 				pldraw(t->p, b);
-				if(b != bb)
+				if(b!=bb)
 					pl_stuffbitmap(t->p, bb);
 			}
 			else{
@@ -208,11 +212,8 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 			lp=ZP;
 		}
 	}
-
-	if(b != bb){
-		draw(bb, r, b, 0, b->r.min);
-		freeimage(b);
-	}
+	if(b!=bb)
+		draw(bb, r, b, 0, r.min);
 }
 /*
  * Reposition text already drawn in the window.
