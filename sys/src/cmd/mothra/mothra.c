@@ -718,17 +718,19 @@ void dolink(Panel *p, int buttons, Rtext *word){
 	Action *a;
 
 	a=word->user;
-	if(a == nil || a->image == nil && a->link == nil)
+	if(a == nil || (a->link == nil && a->image == nil))
 		return;
 	if(mothmode)
 		hiturl(buttons, a->image ? a->image : a->link, 0);
-	else if(a->ismap){
-		yoffs=plgetpostextview(p);
-		coord=subpt(subpt(mouse.xy, word->r.min), p->r.min);
-		snprint(mapurl, sizeof(mapurl), "%s?%d,%d", a->link, coord.x, coord.y+yoffs);
-		hiturl(buttons, mapurl, 1);
-	} else
-		hiturl(buttons, a->link ? a->link : a->image, 0);
+	else if(a->link){
+		if(a->ismap){
+			yoffs=plgetpostextview(p);
+			coord=subpt(subpt(mouse.xy, word->r.min), p->r.min);
+			snprint(mapurl, sizeof(mapurl), "%s?%d,%d", a->link, coord.x, coord.y+yoffs);
+			hiturl(buttons, mapurl, 1);
+		} else
+			hiturl(buttons, a->link, 0);
+	}
 }
 
 void filter(char *cmd, int fd){
@@ -982,8 +984,15 @@ mothon(Www *w, int on)
 	 */
 	for(t=w->text;t;t=t->next){
 		a=t->user;
-		if(a == nil || a->image == nil || a->link == nil)
+		if(a == nil || a->image == nil)
 			continue;
+		if(a->link == nil){
+			if(on)
+				t->flags |= PL_HOT;
+			else
+				t->flags &= ~PL_HOT;
+			continue;
+		}
 		x = t->next;
 		if(on){
 			t->next = nil;

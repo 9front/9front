@@ -144,7 +144,7 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 		}
 	}
 	plrtstr(&g->dst->text, space, indent, f->font, strdup(s),
-		(g->state->link[0] || g->state->image[0]) ? PL_HOT : 0, ap);
+		g->state->link[0] ? PL_HOT : 0, ap);
 	g->para=0;
 	g->linebrk=0;
 	g->dst->changed=1;
