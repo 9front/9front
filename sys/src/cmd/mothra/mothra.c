@@ -1023,11 +1023,11 @@ void killpix(Www *w){
 	updtext(w);
 }
 void snarf(Panel *p){
-	if(p==0) p=cmd;
-	plputsnarf(urlstr(selection));
-	/* non-ops if nothing selected */
-	plsnarf(p);
-	plsnarf(text);
+	if(p==0 || p==cmd){
+		plputsnarf(urlstr(selection));
+		plsnarf(text);
+	}else
+		plsnarf(p);
 }
 void paste(Panel *p){
 	if(p==0) p=cmd;
