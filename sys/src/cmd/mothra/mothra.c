@@ -484,9 +484,11 @@ char *genwww(Panel *, int index){
 		return 0;
 	i = wwwtop-index-1;
 	w = www(i);
-	if(w->title[0]!='\0')
+	if(w->title[0]!='\0'){
 		w->gottitle=1;
-	snprint(buf, sizeof(buf), "%2d %s", i+1, w->title);
+		snprint(buf, sizeof(buf), "%2d %s", i+1, w->title);
+	} else
+		snprint(buf, sizeof(buf), "%2d %s", i+1, urlstr(w->url));
 	return buf;
 }
 
