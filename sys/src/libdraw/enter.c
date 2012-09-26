@@ -158,6 +158,15 @@ enter(char *ask, char *buf, int len, Mousectl *mc, Keyboardctl *kc, Screen *scr)
 				}
 				continue;
 			}
+			if(k == Ketb){
+				while(tick > 0){
+					buf[--tick] = 0;
+					if(tick == 0 || strchr("\t ", buf[tick-1]))
+						break;
+				}
+				n = tick;
+				break;
+			}
 			if(k == Kbs){
 				if(tick <= 0)
 					continue;
