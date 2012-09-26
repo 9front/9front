@@ -160,10 +160,12 @@ enter(char *ask, char *buf, int len, Mousectl *mc, Keyboardctl *kc, Screen *scr)
 			}
 			if(k == Ketb){
 				while(tick > 0){
-					buf[--tick] = 0;
+					tick--;
 					if(tick == 0 || strchr("\t ", buf[tick-1]))
 						break;
 				}
+				if(n > tick)
+					memset(buf+tick, 0, n-tick);
 				n = tick;
 				break;
 			}
