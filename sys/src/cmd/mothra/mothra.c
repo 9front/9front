@@ -823,6 +823,7 @@ Url* selurl(char *urlname){
 	seturl(&url, urlname, current ? current->url->fullname : "");
 	selection=&url;
 	message("selected: %s", urlstr(selection));
+	plgrabkb(cmd);		/* for snarf */
 	return selection;
 }
 void seturl(Url *url, char *urlname, char *base){
