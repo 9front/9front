@@ -74,17 +74,19 @@ int pl_hittextview(Panel *p, Mouse *m){
 	else if(m->buttons&7){
 		p->state=DOWN;
 		tp->buttons=m->buttons;
-		ul=p->r.min;
-		size=subpt(p->r.max, p->r.min);
-		pl_interior(p->state, &ul, &size);
-		tp->hitword=pl_rthit(tp->text, tp->yoffs, m->xy, ul);
-		if(tp->hitword==0)
-			if(oldhitword!=0 && oldstate==DOWN)
-				tp->hitword=oldhitword;
-			else
-				tp->hitfirst=0;
-		if(tp->hitword!=0 && oldstate!=DOWN)
-			tp->hitfirst=tp->hitword;
+		if(oldhitword==0 || oldhitword->p==0 || (oldhitword->p->flags&REMOUSE)==0){
+			ul=p->r.min;
+			size=subpt(p->r.max, p->r.min);
+			pl_interior(p->state, &ul, &size);
+			tp->hitword=pl_rthit(tp->text, tp->yoffs, m->xy, ul);
+			if(tp->hitword==0)
+				if(oldhitword!=0 && oldstate==DOWN)
+					tp->hitword=oldhitword;
+				else
+					tp->hitfirst=0;
+			if(tp->hitword!=0 && oldstate!=DOWN)
+				tp->hitfirst=tp->hitword;
+		}
 	}
 	else{
 		if(p->state==DOWN) hitme=1;
