@@ -166,6 +166,36 @@ cmdecho(int, char **argv)
 	return 1;
 }
 
+int
+cmdstatw(int, char **)
+{
+	uvlong n;
+	uvlong i;
+	int j;
+	Buf *b, *sb;
+
+	wlock(fsmain);
+	sb = getbuf(fsmain->d, SUPERBLK, TSUPERBLOCK, 0);
+	if(sb == nil){
+		wunlock(fsmain);
+		return -1;
+	}
+	n = 0;
+	for(i = sb->sb.fstart; i < sb->sb.fend; i++){
+		b = getbuf(fsmain->d, i, TREF, 0);
+		if(b == nil)
+			continue;
+		for(j = 0; j < REFPERBLK; j++)
+			if(b->refs[j] == 0)
+				n++;
+		putbuf(b);
+	}
+	dprint("hjfs: free %uld, used %uld, total %uld\n", n, sb->sb.size, sb->sb.size - n);
+	putbuf(sb);
+	wunlock(fsmain);
+	return 1;
+}
+
 extern int cmdnewuser(int, char **);
 
 Cmd cmds[] = {
@@ -178,6 +208,7 @@ Cmd cmds[] = {
 	{"halt", 1, cmdhalt},
 	{"newuser", 0, cmdnewuser},
 	{"echo", 2, cmdecho},
+	{"statw", 1, cmdstatw},
 };
 
 
