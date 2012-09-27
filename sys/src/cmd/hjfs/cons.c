@@ -208,7 +208,7 @@ Cmd cmds[] = {
 	{"halt", 1, cmdhalt},
 	{"newuser", 0, cmdnewuser},
 	{"echo", 2, cmdecho},
-	{"df", 1, cmdstatw},
+	{"df", 1, cmddf},
 };
 
 
