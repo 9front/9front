@@ -190,7 +190,7 @@ cmddf(int, char **)
 				n++;
 		putbuf(b);
 	}
-	dprint("hjfs: free %uld, used %uld, total %uld\n", n, sb->sb.size - n, sb->sb.size);
+	dprint("hjfs: free %ulld, used %ulld, total %ulld\n", n, sb->sb.size - n, sb->sb.size);
 	putbuf(sb);
 	wunlock(fsmain);
 	return 1;
