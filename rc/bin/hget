@@ -2,7 +2,7 @@
 rfork e
 argv0=$0
 fn usage {
-	echo 'usage: $argv0 [ -o file ] [ -p body | -P ] [ -r header ] [ -m method ] [ -b baseurl ] url' >[1=2]
+	echo 'usage: '$"argv0' [ -o file ] [ -p body | -P ] [ -r header ] [ -m method ] [ -b baseurl ] url' >[1=2]
 	exit usage
 }
 s=0
