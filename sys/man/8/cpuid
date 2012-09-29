@@ -34,7 +34,7 @@ and
 The
 .B -a
 option prints enumerated items in raw format if no
-keyword is known instead of omiting it (default).
+keyword is known instead of omitting it (default).
 .PP
 The keywords supported so far are:
 .TP
