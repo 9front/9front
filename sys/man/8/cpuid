@@ -1,0 +1,67 @@
+.TH CPUID 8
+.SH NAME
+cpuid \- print processor identification information
+.SH SYNOPSIS
+.B aux/cpuid
+[
+.B -ar
+]
+.SH DESCRIPTION
+Intel compatible processors since the
+.SM Pentium™
+(or late 486), provide the
+.SM CPUID
+instruction that returns feature extension information about
+the chip. The
+.I cpuid
+program enumerates and prints this information in a simple
+textual format. The output consists of multiple lines prefixed
+with a keyword describing the information that follows.
+.PP
+With the
+.B -r
+option, the format changes to raw hexadecimal output with the
+keyword being the
+.BR AX
+input register to the
+.SM CPUID
+instruction followed by 4 colums with the output registers
+.BR AX ,
+.BR BX ,
+.BR CX ,
+and
+.BR DX .
+.PP
+The
+.B -a
+option prints enumerated items in raw format if no
+keyword is known instead of omiting it (default).
+.PP
+The keywords supported so far are:
+.TP
+.B vendor
+Processor vendor string
+.TP
+.B procmodel, extmodel
+Processor model, hexadecimal model / family id
+.TP
+.B features, extfeatures
+Feature bits, a variable list of feature acronyms
+.TP
+.B procname
+Processor name string
+.TP
+.B physbits, virtbits, guestbits
+Address lines, decimal in bits
+.SH EXAMPLE
+.EX
+term% aux/cpuid
+vendor GenuineIntel
+procmodel 000006b4 / 00000006
+features fpu vme de pse tsc msr pae mce cx8 sep mtrr pge mca cmov pat pse36 
+features mmx fxsr sse 
+extmodel 00000000 / 00000000
+procname Mobile Intel(R) Pentium(R) III CPU - M  1133MHz
+.EE
+.SH SOURCE
+.B /sys/src/cmd/aux/cpuid.c
