@@ -1494,7 +1494,7 @@ killbig(char *why)
 	kp = 0;
 	ep = procalloc.arena+conf.nproc;
 	for(p = procalloc.arena; p < ep; p++) {
-		if(p->state == Dead || p->kp)
+		if(p->state == Dead || p->kp || !canqlock(&p->seglock))
 			continue;
 		l = 0;
 		for(i=1; i<NSEG; i++) {
@@ -1504,12 +1504,13 @@ killbig(char *why)
 			l += (ulong)mcountseg(s);
 			qunlock(&s->lk);
 		}
+		qunlock(&p->seglock);
 		if(l > max && ((p->procmode&0222) || strcmp(eve, p->user)!=0)) {
 			kp = p;
 			max = l;
 		}
 	}
-	if(kp == 0)
+	if(kp == 0 || !canqlock(&kp->seglock))
 		return;
 	print("%lud: %s killed: %s\n", kp->pid, kp->text, why);
 	for(p = procalloc.arena; p < ep; p++) {
@@ -1526,6 +1527,7 @@ killbig(char *why)
 			qunlock(&s->lk);
 		}
 	}
+	qunlock(&kp->seglock);
 }
 
 /*

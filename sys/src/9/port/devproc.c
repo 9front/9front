@@ -863,7 +863,13 @@ procread(Chan *c, void *va, long n, vlong off)
 			l = TK2MS(l);
 			readnum(0, statbuf+j+NUMSIZE*i, NUMSIZE, l, NUMSIZE);
 		}
+
 		l = 0;
+		eqlock(&p->seglock);
+		if(waserror()){
+			qunlock(&p->seglock);
+			nexterror();
+		}
 		for(i=0; i<NSEG; i++){
 			if(s = p->seg[i]){
 				eqlock(&s->lk);
@@ -871,6 +877,9 @@ procread(Chan *c, void *va, long n, vlong off)
 				qunlock(&s->lk);
 			}
 		}
+		poperror();
+		qunlock(&p->seglock);
+
 		readnum(0, statbuf+j+NUMSIZE*6, NUMSIZE, l*BY2PG/1024, NUMSIZE);
 		readnum(0, statbuf+j+NUMSIZE*7, NUMSIZE, p->basepri, NUMSIZE);
 		readnum(0, statbuf+j+NUMSIZE*8, NUMSIZE, p->priority, NUMSIZE);
