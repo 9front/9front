@@ -409,6 +409,10 @@ ifstat(Ether* ether, void* a, long n, ulong offset)
 
 	ctlr = ether->ctlr;
 	lock(&ctlr->dlock);
+	if(waserror()){
+		unlock(&ctlr->dlock);
+		nexterror();
+	}
 
 	/*
 	 * Start the command then
@@ -417,22 +421,24 @@ ifstat(Ether* ether, void* a, long n, ulong offset)
 	 */
 	ctlr->dump[16] = 0;
 	command(ctlr, DumpSC, 0);
-	while(ctlr->dump[16] == 0)
-		;
-
-	ether->oerrs = ctlr->dump[1]+ctlr->dump[2]+ctlr->dump[3];
-	ether->crcs = ctlr->dump[10];
-	ether->frames = ctlr->dump[11];
-	ether->buffs = ctlr->dump[12]+ctlr->dump[15];
-	ether->overflows = ctlr->dump[13];
-
-	if(n == 0){
-		unlock(&ctlr->dlock);
-		return 0;
-	}
+	for(i = 0; i < 1000 && ctlr->dump[16] == 0; i++)
+		microdelay(100);
+	if(i == 1000)
+		error("command timeout");
 
 	memmove(dump, ctlr->dump, sizeof(dump));
+
+	ether->oerrs = dump[1]+dump[2]+dump[3];
+	ether->crcs = dump[10];
+	ether->frames = dump[11];
+	ether->buffs = dump[12]+dump[15];
+	ether->overflows = dump[13];
+
+	poperror();
 	unlock(&ctlr->dlock);
+
+	if(n == 0)
+		return 0;
 
 	p = smalloc(READSTR);
 	len = snprint(p, READSTR, "transmit good frames: %lud\n", dump[0]);
