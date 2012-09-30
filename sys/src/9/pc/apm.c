@@ -83,13 +83,22 @@ apmread(Chan*, void *a, long n, vlong off)
 static long
 apmwrite(Chan*, void *a, long n, vlong off)
 {
-	int s;
+	int s, needreset;
 	if(off || n != sizeof apmu)
 		error("write a Ureg");
 
 	memmove(&apmu, a, sizeof apmu);
+	needreset = apmu.ax==0x5307;	/* set power state */
 	s = splhi();
 	apmfarcall(APMCSEL, ebx, &apmu);
+	if(needreset){
+		/*
+		 * some BIOS disable the timers. have to
+		 * reset them after suspend.
+		 */
+		splhi();
+		i8253reset();
+	}
 	splx(s);
 	return n;
 }

@@ -62,24 +62,22 @@ struct I8253
 {
 	Lock;
 	ulong	period;		/* current clock period */
-	int	enabled;
-	uvlong	hz;
 
 	ushort	last;		/* last value of clock 1 */
 	uvlong	ticks;		/* cumulative ticks of counter 1 */
 
 	ulong	periodset;
 };
-I8253 i8253;
+static I8253 i8253;
 
 void
-i8253init(void)
+i8253reset(void)
 {
 	int loops, x;
 
-	ioalloc(T0cntr, 4, 0, "i8253");
-	ioalloc(T2ctl, 1, 0, "i8253.cntr2ctl");
+	ilock(&i8253);
 
+	i8253.last = 0;
 	i8253.period = Freq/HZ;
 
 	/*
@@ -113,19 +111,27 @@ i8253init(void)
 		x = inb(T0cntr);
 		x |= inb(T0cntr)<<8;
 	}
+
+	iunlock(&i8253);
+}
+
+void
+i8253init(void)
+{
+	ioalloc(T0cntr, 4, 0, "i8253");
+	ioalloc(T2ctl, 1, 0, "i8253.cntr2ctl");
+
+	i8253reset();
 }
 
 void
 guesscpuhz(int aalcycles)
 {
-	int loops, incr, x, y;
+	int loops, x, y;
 	uvlong a, b, cpufreq;
 
-	/* find biggest loop that doesn't wrap */
-	incr = 16000000/(aalcycles*HZ*2);
-	x = 2000;
-	for(loops = incr; loops < 64*1024; loops += incr) {
-	
+	ilock(&i8253);
+	for(loops = 1000;;loops += 1000) {
 		/*
 		 *  measure time for the loop
 		 *
@@ -138,57 +144,52 @@ guesscpuhz(int aalcycles)
 		 *  prefetch buffer.
 		 *
 		 */
-		outb(Tmode, Latch0);
+		outb(Tmode, Latch2);
 		cycles(&a);
-		x = inb(T0cntr);
-		x |= inb(T0cntr)<<8;
+		x = inb(T2cntr);
+		x |= inb(T2cntr)<<8;
 		aamloop(loops);
-		outb(Tmode, Latch0);
+		outb(Tmode, Latch2);
 		cycles(&b);
-		y = inb(T0cntr);
-		y |= inb(T0cntr)<<8;
-		x -= y;
-	
-		if(x < 0)
-			x += Freq/HZ;
+		y = inb(T2cntr);
+		y |= inb(T2cntr)<<8;
 
-		if(x > Freq/(3*HZ))
+		x -= y;
+		if(x < 0)
+			x += 0x10000;
+
+		if(x >= MaxPeriod || loops >= 1000000)
 			break;
 	}
+	iunlock(&i8253);
+
+	/* avoid division by zero on vmware 7 */
+	if(x == 0)
+		x = 1;
 
 	/*
  	 *  figure out clock frequency and a loop multiplier for delay().
 	 *  n.b. counter goes up by 2*Freq
 	 */
-	if(x == 0)
-		x = 1;			/* avoid division by zero on vmware 7 */
 	cpufreq = (vlong)loops*((aalcycles*2*Freq)/x);
 	m->loopconst = (cpufreq/1000)/aalcycles;	/* AAM+LOOP's for 1 ms */
 
-	if(m->havetsc && a != b){  /* a == b means virtualbox has confused us */
-		/* counter goes up by 2*Freq */
-		b = (b-a)<<1;
-		b *= Freq;
+	/* a == b means virtualbox has confused us */
+	if(m->havetsc && b > a){
+		b -= a;
+		b *= 2*Freq;
 		b /= x;
-
-		/*
-		 *  round to the nearest megahz
-		 */
-		m->cpumhz = (b+500000)/1000000L;
-		m->cpuhz = b;
 		m->cyclefreq = b;
-	} else {
-		/*
-		 *  add in possible 0.5% error and convert to MHz
-		 */
-		m->cpumhz = (cpufreq + cpufreq/200)/1000000;
-		m->cpuhz = cpufreq;
+		cpufreq = b;
 	}
+	m->cpuhz = cpufreq;
 
-	/* don't divide by zero in trap.c */
+	/*
+	 *  round to the nearest megahz
+	 */
+	m->cpumhz = (cpufreq+500000)/1000000L;
 	if(m->cpumhz == 0)
-		panic("guesscpuhz: zero m->cpumhz");
-	i8253.hz = Freq<<Tickshift;
+		m->cpumhz = 1;
 }
 
 void
@@ -216,7 +217,7 @@ i8253timerset(uvlong next)
 		/* load new value */
 		outb(Tmode, Load0|Square);
 		outb(T0cntr, period);		/* low byte */
-		outb(T0cntr, period >> 8);		/* high byte */
+		outb(T0cntr, period >> 8);	/* high byte */
 
 		/* remember period */
 		i8253.period = period;
@@ -234,8 +235,6 @@ i8253clock(Ureg* ureg, void*)
 void
 i8253enable(void)
 {
-	i8253.enabled = 1;
-	i8253.period = Freq/HZ;
 	intrenable(IrqCLOCK, i8253clock, 0, BUSUNKNOWN, "clock");
 }
 
@@ -251,7 +250,7 @@ i8253read(uvlong *hz)
 	uvlong ticks;
 
 	if(hz)
-		*hz = i8253.hz;
+		*hz = Freq<<Tickshift;
 
 	ilock(&i8253);
 	outb(Tmode, Latch2);

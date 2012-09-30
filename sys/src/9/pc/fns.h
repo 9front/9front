@@ -54,6 +54,7 @@ void	i8250mouse(char*, int (*)(Queue*, int), int);
 void	i8250setmouseputc(char*, int (*)(Queue*, int));
 void	i8253enable(void);
 void	i8253init(void);
+void	i8253reset(void);
 uvlong	i8253read(uvlong*);
 void	i8253timerset(uvlong);
 int	i8259disable(int);
