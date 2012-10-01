@@ -321,6 +321,7 @@ mousectl(Cmdbuf *cb)
 
 		mousetype = Mouseserial;
 		strncpy(mouseport, cb->f[1], sizeof(mouseport)-1);
+		mouseport[sizeof(mouseport)-1] = 0;
 		packetsize = 3;
 		break;
 	case CMhwaccel:

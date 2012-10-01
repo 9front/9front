@@ -159,7 +159,7 @@ trapenable(int vno, void (*f)(Ureg*, void*), void* a, char *name)
 	v->tbdf = BUSUNKNOWN;
 	v->f = f;
 	v->a = a;
-	strncpy(v->name, name, KNAMELEN);
+	strncpy(v->name, name, KNAMELEN-1);
 	v->name[KNAMELEN-1] = 0;
 
 	ilock(&vctllock);

@@ -148,7 +148,7 @@ hostdomainwrite(char *a, int n)
 
 	if(!iseve())
 		error(Eperm);
-	if(n >= DOMLEN)
+	if(n <= 0 || n >= DOMLEN)
 		error(Ebadarg);
 	memset(buf, 0, DOMLEN);
 	strncpy(buf, a, n);

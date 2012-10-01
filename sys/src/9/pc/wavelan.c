@@ -1019,16 +1019,16 @@ w_option(Ctlr* ctlr, char* buf, long n)
 			p = cb->f[1];
 		if(ctlr->ptype == WPTypeAdHoc){
 			memset(ctlr->netname, 0, sizeof(ctlr->netname));
-			strncpy(ctlr->netname, p, WNameLen);
+			strncpy(ctlr->netname, p, WNameLen-1);
 		}
 		else{
 			memset(ctlr->wantname, 0, sizeof(ctlr->wantname));
-			strncpy(ctlr->wantname, p, WNameLen);
+			strncpy(ctlr->wantname, p, WNameLen-1);
 		}
 	}
 	else if(cistrcmp(cb->f[0], "station") == 0){
 		memset(ctlr->nodename, 0, sizeof(ctlr->nodename));
-		strncpy(ctlr->nodename, cb->f[1], WNameLen);
+		strncpy(ctlr->nodename, cb->f[1], WNameLen-1);
 	}
 	else if(cistrcmp(cb->f[0], "channel") == 0){
 		if((i = atoi(cb->f[1])) >= 1 && i <= 16)

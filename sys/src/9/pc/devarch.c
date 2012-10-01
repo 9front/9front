@@ -188,7 +188,7 @@ ioreserve(int, int size, int align, char *tag)
 	m->start = port;
 	m->end = port + size;
 	m->reserved = 1;
-	strncpy(m->tag, tag, sizeof(m->tag));
+	strncpy(m->tag, tag, sizeof(m->tag)-1);
 	m->tag[sizeof(m->tag)-1] = 0;
 	*l = m;
 
@@ -259,7 +259,7 @@ ioalloc(int port, int size, int align, char *tag)
 	m->next = *l;
 	m->start = port;
 	m->end = port + size;
-	strncpy(m->tag, tag, sizeof(m->tag));
+	strncpy(m->tag, tag, sizeof(m->tag)-1);
 	m->tag[sizeof(m->tag)-1] = 0;
 	*l = m;
 

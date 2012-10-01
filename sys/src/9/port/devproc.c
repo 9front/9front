@@ -796,7 +796,7 @@ procread(Chan *c, void *va, long n, vlong off)
 			m = strlen(p->note[0].msg) + 1;
 			if(m > n)
 				m = n;
-			memmove(va, p->note[0].msg, m);
+			memmove(va, p->note[0].msg, m-1);
 			((char*)va)[m-1] = '\0';
 			p->nnote--;
 			memmove(p->note, p->note+1, p->nnote*sizeof(Note));
@@ -850,12 +850,13 @@ procread(Chan *c, void *va, long n, vlong off)
 		sps = p->psstate;
 		if(sps == 0)
 			sps = statename[p->state];
-		memset(statbuf, ' ', sizeof statbuf);
-		memmove(statbuf+0*KNAMELEN, p->text, strlen(p->text));
-		memmove(statbuf+1*KNAMELEN, p->user, strlen(p->user));
-		memmove(statbuf+2*KNAMELEN, sps, strlen(sps));
-		j = 2*KNAMELEN + 12;
 
+		memset(statbuf, ' ', sizeof statbuf);
+		readstr(0, statbuf+0*KNAMELEN, KNAMELEN-1, p->text);
+		readstr(0, statbuf+1*KNAMELEN, KNAMELEN-1, p->user);
+		readstr(0, statbuf+2*KNAMELEN, 11, sps);
+
+		j = 2*KNAMELEN + 12;
 		for(i = 0; i < 6; i++) {
 			l = p->time[i];
 			if(i == TReal)

@@ -604,7 +604,7 @@ sys_wait(ulong *arg)
 		readnum(0, ow->time+TUser*NUMSIZE, NUMSIZE, w.time[TUser], NUMSIZE);
 		readnum(0, ow->time+TSys*NUMSIZE, NUMSIZE, w.time[TSys], NUMSIZE);
 		readnum(0, ow->time+TReal*NUMSIZE, NUMSIZE, w.time[TReal], NUMSIZE);
-		strncpy(ow->msg, w.msg, sizeof(ow->msg));
+		strncpy(ow->msg, w.msg, sizeof(ow->msg)-1);
 		ow->msg[sizeof(ow->msg)-1] = '\0';
 	}
 	return pid;

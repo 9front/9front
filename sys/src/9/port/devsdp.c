@@ -811,7 +811,8 @@ sdpclone(Sdp *sdp)
 	c->ref = 2;
 	c->state = CInit;
 	c->in.window = ~0;
-	strncpy(c->owner, up->user, sizeof(c->owner));
+	strncpy(c->owner, up->user, sizeof(c->owner)-1);
+	c->owner[sizeof(c->owner)-1] = 0;
 	c->perm = 0660;
 	qunlock(c);
 

@@ -720,7 +720,8 @@ aoecfg(void)
 
 	if((p = getconf("aoeif")) == nil)
 		return;
-	strncpy(ifbuf, p, sizeof buf);
+	strncpy(ifbuf, p, sizeof(ifbuf)-1);
+	ifbuf[sizeof(ifbuf)-1] = 0;
 	if((n = tokenize(ifbuf, f, nelem(f))) < 1)
 		return;
 	/* goo! */
@@ -1702,8 +1703,9 @@ addnet(char *path, Chan *cc, Chan *dc, Chan *mtu, uchar *ea)
 	nl->cc = cc;
 	nl->dc = dc;
 	nl->mtu = mtu;
-	strncpy(nl->path, path, sizeof nl->path);
-	memmove(nl->ea, ea, sizeof nl->ea);
+	strncpy(nl->path, path, sizeof(nl->path)-1);
+	nl->path[sizeof(nl->path)-1] = 0;
+	memmove(nl->ea, ea, sizeof(nl->ea));
 	poperror();
 	nl->flag |= Dup;
 	unlock(&netlinks);

@@ -533,7 +533,8 @@ segmentkproc(void *arg)
 	for(done = 0; !done;){
 		sleep(&g->cmdwait, cmdready, g);
 		if(waserror()){
-			strncpy(g->err, up->errstr, sizeof(g->err));
+			strncpy(g->err, up->errstr, sizeof(g->err)-1);
+			g->err[sizeof(g->err)-1] = 0;
 		} else {
 			switch(g->cmd){
 			case Cstart:

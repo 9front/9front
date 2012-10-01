@@ -1419,8 +1419,10 @@ qhangup(Queue *q, char *msg)
 	q->state |= Qclosed;
 	if(msg == 0 || *msg == 0)
 		strcpy(q->err, Ehungup);
-	else
+	else {
 		strncpy(q->err, msg, ERRMAX-1);
+		q->err[ERRMAX-1] = 0;
+	}
 	iunlock(q);
 
 	/* wake up readers/writers */

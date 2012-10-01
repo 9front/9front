@@ -524,14 +524,14 @@ portbind(Bridge *b, int argc, char *argv[])
 		if(argc != 4)
 			error(usage);
 		type = Tether;
-		strncpy(name, argv[1], KNAMELEN);
+		strncpy(name, argv[1], KNAMELEN-1);
 		name[KNAMELEN-1] = 0;
 //		parseaddr(addr, argv[1], Eaddrlen);
 	} else if(strcmp(argv[0], "tunnel") == 0) {
 		if(argc != 5)
 			error(usage);
 		type = Ttun;
-		strncpy(name, argv[1], KNAMELEN);
+		strncpy(name, argv[1], KNAMELEN-1);
 		name[KNAMELEN-1] = 0;
 //		parseip(addr, argv[1]);
 		dev2 = argv[4];
@@ -632,12 +632,12 @@ portunbind(Bridge *b, int argc, char *argv[])
 		error(usage);
 	if(strcmp(argv[0], "ether") == 0) {
 		type = Tether;
-		strncpy(name, argv[1], KNAMELEN);
+		strncpy(name, argv[1], KNAMELEN-1);
 		name[KNAMELEN-1] = 0;
 //		parseaddr(addr, argv[1], Eaddrlen);
 	} else if(strcmp(argv[0], "tunnel") == 0) {
 		type = Ttun;
-		strncpy(name, argv[1], KNAMELEN);
+		strncpy(name, argv[1], KNAMELEN-1);
 		name[KNAMELEN-1] = 0;
 //		parseip(addr, argv[1]);
 	} else
