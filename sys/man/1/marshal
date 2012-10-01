@@ -10,7 +10,9 @@ marshal \- formatting and sending mail
 .B -C
 .I copyaddr
 ] [
-.B -nrx#
+.B -Fr#xn
+] [
+.B -p[es]
 ] [
 .B -R
 .I reply-msg
@@ -21,6 +23,8 @@ marshal \- formatting and sending mail
 .B -t
 .I mime-type
 ] [
+.B -8
+|
 .I mailaddr ...
 ]
 .SH DESCRIPTION
@@ -90,6 +94,9 @@ and also adds
 .I copyaddr
 as a recipient.
 .TP
+.BI -F
+file the message
+.TP
 .BI -n
 intentionally no standard input
 .TP
@@ -131,6 +138,19 @@ all subsequent
 and
 .B -A
 options.
+.TP
+.B -ps
+pgp sign the message
+.TP
+.B -pe
+pgp encrypt the message
+.TP
+.B -8
+reads recipients (
+.B To:
+and
+.B Cc:
+) from RFC 822 header of the message
 .PD
 .PP
 .I Marshal

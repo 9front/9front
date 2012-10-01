@@ -151,7 +151,7 @@ enum
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-Fr#xn] [-s subject] [-c ccrecipient] [-t type]"
+	fprint(2, "usage: %s [-Fr#xn] [-s subject] [-C ccrecipient] [-t type]"
 	    " [-aA attachment] [-p[es]] [-R replymsg] -8 | recipient-list\n",
 		argv0);
 	exits("usage");
