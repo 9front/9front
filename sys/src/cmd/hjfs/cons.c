@@ -239,11 +239,11 @@ cmddebuggetblk(int argc, char **argv)
 	int rc;
 	uvlong r, start, end, i;
 
-	if(argc != 3 || argc != 4)
+	if(argc != 3 && argc != 4)
 		return -9001;
-	start = atoll(argv[3]);
+	start = atoll(argv[2]);
 	if(argc == 4)
-		end = atoll(argv[4]);
+		end = atoll(argv[3]);
 	else
 		end = start;
 	ch = chanattach(fsmain, 0);
