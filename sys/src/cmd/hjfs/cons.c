@@ -196,6 +196,86 @@ cmddf(int, char **)
 	return 1;
 }
 
+int
+cmddebugdeind(int, char **argv)
+{
+	Chan *ch;
+	Buf *b;
+	Dentry *d;
+
+	ch = chanattach(fsmain, 0);
+	if(ch == nil)
+		return -1;
+	ch->uid = -1;
+	if(walkpath(ch, argv[1], nil) < 0)
+		goto error;
+	rlock(fsmain);
+	dprint("hjfs: loc %ulld / %uld, offset %ulld\n", ch->loc->blk, ch->loc->deind, BLOCK * ch->loc->blk + (RBLOCK - BLOCK) + DENTRYSIZ * ch->loc->deind);
+	b = getbuf(fsmain->d, ch->loc->blk, TDENTRY, 0);
+	if(b == nil){
+		runlock(fsmain);
+		goto error;
+	}
+	d = &b->de[ch->loc->deind];
+	dprint("hjfs: name %s\n", d->name);
+	dprint("hjfs: uid %d, muid %d, gid %d\n", d->uid, d->muid, d->gid);
+	dprint("hjfs: mode %#o, qid %ulld, type %#x, version %d\n", d->mode, d->path, d->type, d->vers);
+	dprint("hjfs: size %d\n", d->size);
+	dprint("hjfs: atime %ulld, mtime %ulld\n", d->atime, d->mtime);
+	putbuf(b);
+	runlock(fsmain);
+	chanclunk(ch);
+	return 0;
+error:
+	chanclunk(ch);
+	return -1;
+}
+
+int
+cmddebuggetblk(int argc, char **argv)
+{
+	Chan *ch;
+	Buf *b;
+	int rc;
+	uvlong r, start, end, i;
+
+	if(argc != 3 || argc != 4)
+		return -9001;
+	start = atoll(argv[3]);
+	if(argc == 4)
+		end = atoll(argv[4]);
+	else
+		end = start;
+	ch = chanattach(fsmain, 0);
+	if(ch == nil)
+		return -1;
+	ch->uid = -1;
+	if(walkpath(ch, argv[1], nil) < 0)
+		goto error;
+	rlock(fsmain);
+	b = getbuf(fsmain->d, ch->loc->blk, TDENTRY, 0);
+	if(b == nil){
+		runlock(fsmain);
+		goto error;
+	}
+	for(i = start; i <= end; i++){
+		rc = getblk(fsmain, ch->loc, b, i, &r, GBREAD);
+		if(rc > 0)
+			dprint("hjfs: getblk %ulld = %ulld\n", i, r);
+		if(rc == 0)
+			dprint("hjfs: getblk %ulld not found\n", i);
+		if(rc < 0)
+			dprint("hjfs: getblk %ulld: %r\n", i);
+	}
+	putbuf(b);
+	runlock(fsmain);
+	chanclunk(ch);
+	return 0;
+error:
+	chanclunk(ch);
+	return -1;
+}
+
 extern int cmdnewuser(int, char **);
 
 Cmd cmds[] = {
@@ -209,6 +289,8 @@ Cmd cmds[] = {
 	{"newuser", 0, cmdnewuser},
 	{"echo", 2, cmdecho},
 	{"df", 1, cmddf},
+	{"debug-deind", 2, cmddebugdeind},
+	{"debug-getblk", 0, cmddebuggetblk},
 };
 
 
