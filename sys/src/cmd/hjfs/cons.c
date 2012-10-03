@@ -64,6 +64,14 @@ walkpath(Chan *ch, char *path, char **cr)
 }
 
 int
+cmdsync(int, char **)
+{
+	sync(1);
+	dprint("hjfs: sync\n");
+	return 0;
+}
+
+int
 cmdhalt(int, char **)
 {
 	shutdown();
@@ -232,6 +240,43 @@ error:
 }
 
 int
+cmddebugchdeind(int, char **argv)
+{
+	Chan *ch;
+	uchar *c;
+	Buf *b;
+	int loc, new;
+
+	loc = strtol(argv[2], nil, 0);
+	new = strtol(argv[3], nil, 0);
+	if(loc >= DENTRYSIZ)
+		return -9001;
+	ch = chanattach(fsmain, 0);
+	if(ch == nil)
+		return -1;
+	ch->uid = -1;
+	if(walkpath(ch, argv[1], nil) < 0)
+		goto error;
+	rlock(fsmain);
+	b = getbuf(fsmain->d, ch->loc->blk, TDENTRY, 0);
+	if(b == nil){
+		runlock(fsmain);
+		goto error;
+	}
+	c = (uchar *) &b->de[ch->loc->deind];
+	dprint("hjfs: loc %d, old value %#.2x, new value %#.2x\n", loc, c[loc], new);
+	c[loc] = new;
+	b->op |= BDELWRI;
+	putbuf(b);
+	runlock(fsmain);
+	chanclunk(ch);
+	return 0;
+error:
+	chanclunk(ch);
+	return -1;
+}
+
+int
 cmddebuggetblk(int argc, char **argv)
 {
 	Chan *ch;
@@ -285,12 +330,14 @@ Cmd cmds[] = {
 	{"create", 0, cmdcreate},
 	{"disallow", 1, cmddisallow},
 	{"dump", 1, cmddump},
+	{"sync", 1, cmdsync},
 	{"halt", 1, cmdhalt},
 	{"newuser", 0, cmdnewuser},
 	{"echo", 2, cmdecho},
 	{"df", 1, cmddf},
 	{"debug-deind", 2, cmddebugdeind},
 	{"debug-getblk", 0, cmddebuggetblk},
+	{"debug-chdeind", 4, cmddebugchdeind},
 };
 
 
