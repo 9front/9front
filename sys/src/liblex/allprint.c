@@ -11,9 +11,8 @@ printable(int c)
 }
 
 void
-allprint(char c)
+allprint(int c)
 {
-
 	switch(c) {
 	case '\n':
 		fprintf(yyout,"\\n");
