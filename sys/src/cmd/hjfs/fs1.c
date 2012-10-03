@@ -229,6 +229,12 @@ ream(Fs *fs)
 			for(; j < je; j++)
 				c->refs[j] = 1;
 		}
+		if(i == b->sb.fend - 1){
+			j = b->sb.size % REFPERBLK;
+			if(j != 0)
+				for(; j < REFPERBLK; j++)
+					c->refs[j] = -1;
+		}
 		c->op |= BWRIM;
 		putbuf(c);
 	}

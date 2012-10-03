@@ -198,7 +198,8 @@ cmddf(int, char **)
 				n++;
 		putbuf(b);
 	}
-	dprint("hjfs: free %ulld, used %ulld, total %ulld\n", n, sb->sb.size - n, sb->sb.size);
+	dprint("hjfs: (blocks) free %ulld, used %ulld, total %ulld\n", n, sb->sb.size - n, sb->sb.size);
+	dprint("hjfs: (MB) free %ulld, used %ulld, total %ulld\n", n * BLOCK / 1048576, (sb->sb.size - n) * BLOCK / 1048576, sb->sb.size * BLOCK / 1048576);
 	putbuf(sb);
 	wunlock(fsmain);
 	return 1;
