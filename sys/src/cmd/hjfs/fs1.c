@@ -482,7 +482,7 @@ dumpblk(Fs *fs, FLoc *, uvlong *l)
 /*
  * getblk returns the address of a block in a file
  * given its relative address blk
- * the address and generation are returned in *r and *gen
+ * the address are returned in *r
  * mode has to be one of:
  * - GBREAD: this block will only be read
  * - GBWRITE: this block will be written, but don't create it
@@ -493,7 +493,6 @@ dumpblk(Fs *fs, FLoc *, uvlong *l)
  * return value is 1 if the block existed, -1 on error
  * a return value of 0 means the block did not exist
  * this is only an error in case of GBREAD and GBWRITE
- * gen == nil allowed
  */
 
 int
@@ -897,8 +896,10 @@ newentry(Fs *fs, Loc *l, Buf *b, char *name, FLoc *res)
 			continue;
 		if(rc == 0){
 			memset(c->de, 0, sizeof(c->de));
-			if(i == d->size)
+			if(i == d->size){
 				d->size++;
+				b->op |= BDELWRI;
+			}
 		}
 		for(j = 0; j < DEPERBLK; j++){
 			if(si == -1 && (c->de[j].mode & DALLOC) == 0){
