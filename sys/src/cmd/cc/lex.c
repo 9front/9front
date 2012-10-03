@@ -242,12 +242,10 @@ compile(char *file, char **defs, int ndef)
 			close(fd[1]);
 			av[0] = CPP;
 			i = 1;
+			sprint(opt, "-+");
+			av[i++] = strdup(opt);
 			if(debug['.']){
 				sprint(opt, "-.");
-				av[i++] = strdup(opt);
-			}
-			if(debug['+']) {
-				sprint(opt, "-+");
 				av[i++] = strdup(opt);
 			}
 			for(c = 0; c < ndef; c++) {
