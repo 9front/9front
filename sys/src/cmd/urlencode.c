@@ -14,7 +14,7 @@ hexdigit(int c)
 {
 	char *p;
 
-	if(c >= 0){
+	if(c > 0){
 		if((p = strchr(Hex, c)) != 0)
 			return p - Hex;
 		if((p = strchr(hex, c)) != 0)
