@@ -42,6 +42,7 @@ main(int argc, char *argv[])
 	default:
 		usage();
 	} ARGEND;
+
 	if(argc == 1){
 		close(0);
 		if(open(*argv, OREAD) < 0)
@@ -73,7 +74,8 @@ main(int argc, char *argv[])
 					continue;
 				}
 				c = x1<<4 | x2;
-			}
+			} else if(c == '+')
+				c = ' ';
 			Bputc(&bout, c);
 		}
 	} else {
