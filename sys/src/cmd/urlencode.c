@@ -80,7 +80,7 @@ main(int argc, char *argv[])
 		}
 	} else {
 		while((c = Bgetc(&bin)) >= 0){
-			if(strchr("/$-_@.!*'(),", c)
+			if(c>0 && strchr("/$-_@.!*'(),", c)
 			|| 'a'<=c && c<='z'
 			|| 'A'<=c && c<='Z'
 			|| '0'<=c && c<='9')
