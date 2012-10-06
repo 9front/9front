@@ -1,0 +1,70 @@
+.TH HJFS 4
+.SH NAME
+hjfs \- file server
+.SH SYNOPSIS
+.B hjfs
+[
+.B -A
+] [
+.B -f
+.I file
+] [
+.B -m
+.I mem
+] [
+.B -n
+.I name
+] [
+-r
+] [
+.B -S
+] [
+.B -s
+]
+.SH DESCRIPTION
+.I Hjfs
+is an experimental file server with support for a cache and an archival dump on a single partition.
+.PP
+The options are:
+.TF "n name"
+.TP
+.BI A
+Require auth.
+.TP
+.BI "f " file
+Use
+.I file
+as the disk.
+.TP
+.BI "m " mem
+Allocate
+.I mem
+megabytes to use for cache.
+.TP
+.BI "n " name
+Use
+.I name
+as the name of the service.
+.TP
+.B r
+Ream the file system, erasing all of the old data.
+.TP
+.B S
+Ignore permissions.
+.TP
+.B s
+Read and write protocol messages on file descriptor zero.
+.PD
+.SH SOURCE
+.B /sys/src/cmd/hjfs
+.SH "SEE ALSO"
+.IR history (1),
+.IR yesterday (1),
+.IR cwfs (4),
+.IR hjfs (8),
+.IR prep (8),
+.IR sd (3)
+.SH BUGS
+.LP
+.I Hjfs
+is a work in progress. It does not yet listen for network connections.
