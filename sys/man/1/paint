@@ -74,7 +74,6 @@ Quits the program.
 .SH SOURCE
 .B /sys/src/cmd/paint.c
 .SH "SEE ALSO"
-.IR resize (1),
 .IR resample (1),
 .IR rotate (1),
 .IR crop (1),
