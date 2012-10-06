@@ -24,10 +24,10 @@ is mostly used by bootloaders to download kernel images for
 network bootstrap (see
 .IR dhcp (8)).
 As the protocol has no way of distinguishing files from
-directories the final path segment needs to conain a dot
+directories, the final path segment needs to conain a dot
 (.) character to be recognized as a file. To access files that
 have no dot in the filename, a trailing dot has to be added
-and will be striped before it is passed to the server.
+and will be stripped before it is passed to the server.
 .PP
 The
 .B -D
@@ -55,12 +55,13 @@ option specifies an alternate network directory
 .BR /net.alt ).
 .PP
 The ip address of the server can be passed in
-.I ipaddr
-as the last program argument or in the mount spec (see
+as the last program argument,
+.I ipaddr,
+ or in the mount spec (see
 .IR bind (1))
 on a per mount basis.
 .SH EXAMPLE
-Boot a kernel from a tftp server. (note the final
+Boot a kernel from a tftp server (note the final
 dot in the kernel path).
 .IP
 .EX
