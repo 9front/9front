@@ -461,7 +461,7 @@ confinit(void)
 	 * the dynamic allocation will balance the load properly,
 	 * hopefully. be careful with 32-bit overflow.
 	 */
-	imagmem->maxsize = mainmem->maxsize;
+	imagmem->maxsize = kpages - (kpages/10);
 	if(p = getconf("*imagemaxmb")){
 		imagmem->maxsize = strtol(p, nil, 0)*MB;
 		if(imagmem->maxsize > mainmem->maxsize)
