@@ -65,7 +65,7 @@ Boot a kernel from a tftp server (note the final
 dot in the kernel path).
 .IP
 .EX
-ip/tftpd 10.192.254.53
+ip/tftpfs 10.192.254.53
 echo reboot /n/tftp/386/9pcf. >/dev/reboot
 .EE
 .SH SOURCE
