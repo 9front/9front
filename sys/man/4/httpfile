@@ -81,6 +81,6 @@ mount /srv/9660 /n/iso plan9.iso
 .EE
 .SH SOURCE
 .B /sys/src/cmd/ip/httpfile.c
-.SH "SEE ALSO
+.SH "SEE ALSO"
 .IR hget (1),
 .IR webfs (4)
