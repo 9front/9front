@@ -28,31 +28,31 @@ is an experimental file server with support for a cache and an archival dump on 
 The options are:
 .TF "n name"
 .TP
-.BI A
+.BI -A
 Require auth.
 .TP
-.BI "f " file
+.BI "-f " file
 Use
 .I file
 as the disk.
 .TP
-.BI "m " mem
+.BI "-m " mem
 Allocate
 .I mem
 megabytes to use for cache.
 .TP
-.BI "n " name
+.BI "-n " name
 Use
 .I name
 as the name of the service.
 .TP
-.B r
+.B -r
 Ream the file system, erasing all of the old data.
 .TP
-.B S
+.B -S
 Ignore permissions.
 .TP
-.B s
+.B -s
 Read and write protocol messages on file descriptor zero.
 .PD
 .SH SOURCE
