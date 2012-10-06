@@ -16,7 +16,7 @@ enum {
 	Tftp_ERROR	= 5,
 	Tftp_OACK	= 6,
 
-	TftpPort		= 69,
+	TftpPort	= 69,
 
 	Segsize		= 512,
 	Maxpath		= 2+2+Segsize-8,
@@ -25,18 +25,18 @@ enum {
 typedef struct Tfile Tfile;
 struct Tfile
 {
-	int		id;
+	int	id;
 	uchar	addr[IPaddrlen];
-	char		path[Maxpath];
+	char	path[Maxpath];
 	Channel	*c;
-	Tfile		*next;
+	Tfile	*next;
 	Ref;
 };
 
+char net[Maxpath];
 uchar ipaddr[IPaddrlen];
 static ulong time0;
 Tfile *files;
-
 
 static Tfile*
 tfileget(uchar *addr, char *path)
@@ -148,7 +148,7 @@ static void
 download(void *aux)
 {
 	int fd, cfd, last, block, seq, n, ndata;
-	char *err, adir[40];
+	char *err, adir[40], buf[256];
 	uchar *data;
 	Channel *c;
 	Tfile *f;
@@ -173,7 +173,8 @@ download(void *aux)
 
 	threadsetname(f->path);
 
-	if((cfd = announce("udp!*!0", adir)) < 0){
+	snprint(buf, sizeof(buf), "%s/udp!*!0", net);
+	if((cfd = announce(buf, adir)) < 0){
 		err = "announce: %r";
 		goto out;
 	}
@@ -264,8 +265,6 @@ out:
 	if(c){
 		while((r != nil) || (r = recvp(c))){
 			if(err){
-				char buf[ERRMAX];
-
 				snprint(buf, sizeof(buf), err);
 				respond(r, buf);
 			} else {
@@ -412,7 +411,7 @@ fsstat(Req *r)
 
 Srv fs = 
 {
-.attach=		fsattach,
+.attach=	fsattach,
 .destroyfid=	fsdestroyfid,
 .walk1=		fswalk1,
 .clone=		fsclone,
@@ -424,7 +423,7 @@ Srv fs =
 void
 usage(void)
 {
-	fprint(2, "usage: tftpfs [-D] [-s srvname] [-m mtpt] [ipaddr]\n");
+	fprint(2, "usage: tftpfs [-D] [-s srvname] [-m mtpt] [-x net] [ipaddr]\n");
 	threadexitsall("usage");
 }
 
@@ -435,6 +434,7 @@ threadmain(int argc, char **argv)
 	char *mtpt = "/n/tftp";
 
 	time0 = time(0);
+	strcpy(net, "/net");
 	ipmove(ipaddr, IPnoaddr);
 
 	ARGBEGIN{
@@ -447,6 +447,9 @@ threadmain(int argc, char **argv)
 		break;
 	case 'm':
 		mtpt = EARGF(usage());
+		break;
+	case 'x':
+		setnetmtpt(net, sizeof net, EARGF(usage()));
 		break;
 	default:
 		usage();
