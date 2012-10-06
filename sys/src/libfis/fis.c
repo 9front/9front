@@ -414,9 +414,6 @@ rwfis(Sfis *f, uchar *c, int rw, int nsect, uvlong lba)
 		Pout|Pdma|P28,	Pout|Pdma|P48,
 	};
 
-	nsect >>= f->physshift;
-	lba >>= f->physshift;
-
 	udma = f->udma != 0xff;
 	llba = (f->feat & Dllba) != 0;
 	acmd = tab[udma][rw][llba];
@@ -448,7 +445,7 @@ rwfis(Sfis *f, uchar *c, int rw, int nsect, uvlong lba)
 }
 
 uvlong
-fisrw(Sfis *f, uchar *c, int *n)
+fisrw(Sfis *, uchar *c, int *n)
 {
 	uvlong lba;
 
@@ -460,9 +457,6 @@ fisrw(Sfis *f, uchar *c, int *n)
 
 	*n = c[Fsc];
 	*n |= c[Fsc8] << 8;
-
-	*n >>= f->physshift;
-	lba >>= f->physshift;
 
 	return lba;
 }
