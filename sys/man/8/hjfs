@@ -1,0 +1,202 @@
+.TH HJFS 8
+.SH NAME
+hjfs \- file server maintenance
+.SH SYNOPSIS
+.PD 0
+.PP
+.B allow
+.PP
+.B chatty
+.PP
+.B create
+.I path uid gid perm
+.RB [ lad ]
+.PP
+.B df
+.PP
+.B disallow
+.PP
+.B dump
+.PP
+.B echo
+.RB [on | off]
+.PP
+.B halt
+.PP
+.B newuser
+.I name
+.RI [ options ]
+.PP
+.B sync
+.PP
+.B debug-chdeind
+.I file
+.RB [offset
+.RB value]
+.PP
+.B debug-deind
+.I file
+.PP
+.B debug-getblk
+.I file
+.RB [blk | start
+.RB end]
+.SH DESCRIPTION
+The following commands should be written to the console of an
+.IR hjfs (4)
+file server.
+.PP
+.I Allow
+disables permission checking and allows
+.BR chown .
+This may help in initializing a file system.
+Use this with caution.
+.PP
+.I Chatty
+enables chatty 9p.
+.PP
+.I Create
+creates a file on the current file system.
+.I Uid
+and
+.I gid
+are names or numbers from
+.BR /adm/users .
+.I Perm
+is the low 9 bits of the permission mode of the file, in octal.
+An optional final
+.BR l ,
+.BR a ,
+or
+.BR d
+creates a locked file, append-only file, or directory.
+.PP
+.I Df
+prints the number of free, used and total blocks/megabytes.
+It scans the block table and can be slow on large hard disks.
+.PP
+.I Disallow
+restores permission checking back to normal after a file system
+has been initialized.
+.PP
+.I Dump
+immediately starts a dump.
+.PP
+.I Echo
+expects an argument
+.I on
+or
+.I off.
+.I  On
+causes all executed commands to be printed on the system console.
+.I Off
+reverses the effects of
+.I on.
+.PP
+.I Halt
+exits the program.
+.PP
+.I Newuser
+requires a
+.I name
+argument.
+With no options it adds user
+.IR name ,
+with group leader
+.IR name ,
+to
+.B /adm/users
+and makes the directory
+.BI /usr/ name
+owned by user and group
+.IR name .
+The options are
+.TF =leaderxx
+.TP
+.B ?
+Print the entry for
+.IR name .
+.TP
+.B :
+Add a group: add the name to
+.B /adm/users
+but don't create the directory.
+By convention, groups are numbered starting from 10000, users from 0.
+.TP
+.I newname
+Rename existing user
+.I name
+to
+.IR newname .
+.TP
+.BI = leader
+Change the leader of
+.I name
+to
+.IR leader .
+If
+.I leader
+is missing, remove the existing leader.
+.TP
+.BI + member
+Add
+.I member
+to the member list of
+.IR name .
+.TP
+.BI - member
+Remove existing
+.I member
+from the member list of
+.IR name .
+.PD
+.PP
+After a successful
+.I newuser
+command the file server overwrites
+.B /adm/users
+to reflect the internal state of the user table.
+.PP
+.I Sync
+writes dirty blocks in memory to the magnetic disk cache.
+.PP
+Note: Debug commands operate on internal data
+structures; they are inherently dangerous and can cause
+file system damage.
+.PP
+.I Debug-chdeind
+changes the value of the byte at the specified
+.I offset
+in the in-memory directory entry and prints
+the old
+.I value.
+Dangerous if used carelessly.
+.PP
+.I Debug-deind
+requiers a
+.I file
+argument. It prints the directory entry of
+.I file.
+.PP
+.I Debug-getblk
+prints the physical blocks of
+.I file
+corresponding to the logical block
+.I blk
+or the logical blocks between
+.I start
+and
+.I end. 
+.SH EXAMPLES
+Check disk usage (output appears on the system console).
+.IP
+.EX
+% echo df >>/srv/hjfs.cmd
+.EE
+.SH SEE ALSO
+.IR hjfs (4)
+.SH SOURCE
+.B /sys/src/hjfs
+.SH BUGS
+.B Debug-chdeind
+should perhaps be less crazy and have a portable interface.
