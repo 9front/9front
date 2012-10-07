@@ -83,7 +83,7 @@ has been initialized.
 immediately starts a dump.
 .PP
 .I Echo
-expects an argument
+expects the argument
 .I on
 or
 .I off.
