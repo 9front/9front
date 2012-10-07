@@ -6,8 +6,8 @@ metadata
 replication
 factory
 strategy
-configuration
-information
+configuration |
+information |
 interface
 singleton
 framework
@@ -17,43 +17,42 @@ persistence |
 self-signing |
 scripting |
 template
-realtime
-realtime-java
+realtime |
+realtime-java |
 API
 service
 event
-polling
-injection
-pipelining
+polling |
+injection |
+pipelining |
 firewall
 standard
-GPU
+GPU |
 shader
 agile ^
 advanced ^
 leveraged ^
 extended ^
 basic ^
-core
+core |
 hardware
 software
 database
-rich-client
-DOM
-CSS
-CMS
-map/reduce
-reduce/map
+rich-client |
+DOM |
+CSS |
+CMS |
+map/reduce |
+reduce/map |
 descriptor
 hypervisor
-callback
+callback |
 method
 table
 package
 plugin
 browser
 extension
-software ^
 open-source ^
 module
 proxy
@@ -64,7 +63,7 @@ social ^
 private ^
 component
 markup
-lifecycle
+lifecycle |
 flexible ^
 patented ^
 abstract ^
@@ -117,7 +116,7 @@ SSL *
 HTTP *
 TOR *
 layer $
-element $
+element |
 manager $
 frontend $
 backend $
@@ -129,7 +128,7 @@ generator $
 optimizer $
 interface $
 solution $
-dependency $
+dependency |
 locator $
 -oriented %
 -based %
