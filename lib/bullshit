@@ -19,9 +19,11 @@ scripting |
 template
 realtime |
 realtime-java |
+just-in-time |
 API
 service
 event
+rails
 polling |
 injection |
 pipelining |
@@ -42,6 +44,7 @@ rich-client |
 DOM |
 CSS |
 CMS |
+STM |
 map/reduce |
 reduce/map |
 descriptor
@@ -70,12 +73,15 @@ abstract ^
 stateless ^
 optimized ^
 virtualized ^
+extensible ^
+compliant ^
 scale-out ^
 session |
 high-performance |
 general-purpose |
 out-scaling |
 generic ^
+mobile ^
 property |
 secure ^
 overflow-preventing ^
