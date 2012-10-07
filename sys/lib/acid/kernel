@@ -340,22 +340,17 @@ defn up() {
 }
 
 defn intrcount() {
-	local p, pp, t, i, j;
+	local p, t, i, j;
 
 	p = intrtimes;
-	i=0;
-	loop 1,256 do {
-		pp = p[i];
-		i=i+1;
-		if pp != 0 then {
-			j=0;
-			t=0;
-			loop 1,1000 do {
-				t = t+pp[j];
-				j=j+1;
-			}
-			print(itoa(i, "%5d"), " ", itoa(t, "%11d"), "\n");
+	i=0; loop 1,256 do {
+		t=0;
+		j=0; loop 1,20 do {
+			t = t+*p++;
+			j=j+1;
 		}
+		print(itoa(i, "%5d"), " ", itoa(t, "%11d"), "\n");
+		i=i+1;
 	}
 }
 
