@@ -5,8 +5,13 @@ fn checkhost {
 		echo 'sysname= env var is not set'
 		exit 'fail'
 	}
-	dom=`{ndb/query sys $sysname dom}
 	echo 'checking this host''s tuple:'
+	ip=`{ndb/query sys $sysname ip}
+	if(~ $ip '')
+		echo '	no ip= entry'
+	if not
+		echo '	ip='$ip 'looks ok'
+	dom=`{ndb/query sys $sysname dom}
 	if(~ $dom '')
 		echo '	no dom= entry'
 	if not if(! ~ $dom *.*)
@@ -29,19 +34,18 @@ fn checknet {
 	echo 'checking the network tuple:'
 	ipnet=`{ndb/ipquery sys $sysname ipnet | sed 's/^ipnet=//'}
 	if(~ $ipnet ''){
-		echo '	we are not in an ipnet, check your ipnet= entry'
-		exit fail
+		echo '	we are not in an ipnet, so looking for entries in host tuple only'
 	}
 	if not
 		echo '	we are in ipnet='^$ipnet
-	dns=`{ndb/query ipnet $ipnet dns}
+	dns=`{ndb/ipquery sys $sysname dns | sed 's/^dns=//'}
 	if(~ $dns '')
 		echo '	no dns= entry'
 	if not if(! ip/ping -n 1 $dns >/dev/null >[2=1])
 		echo '	dns='$dns 'does not reply to ping'
 	if not
 		echo '	dns='$dns 'looks ok'
-	auth=`{ndb/query ipnet $ipnet auth}
+	auth=`{ndb/ipquery sys $sysname auth | sed 's/^auth=//'}
 	if(~ $auth '')
 		echo '	no auth= entry'
 	if not if(! ip/ping -n 1 $auth >/dev/null >[2=1])
@@ -50,15 +54,9 @@ fn checknet {
 		authok=1
 		echo '	auth='$auth 'looks ok'
 	}
-	authdom=`{ndb/query ipnet $ipnet authdom}
-	if(~ $authdom '')
-		echo '	no authdom= entry'
-	if not
-		echo '	authdom='$authdom 'looks ok'
 }
 fn checkauth {
 	echo 'checking auth server configuration:'
-	auth=`{ndb/query ipnet $ipnet auth}
 	if(~ $auth ''){
 		echo '	no auth server'
 		exit fail
@@ -68,6 +66,10 @@ fn checkauth {
 		authisus=1
 	}
 	if not if(~ $auth $dom){
+		echo '	we are the auth server'
+		authisus=1
+	}
+	if not if(~ $auth $ip){
 		echo '	we are the auth server'
 		authisus=1
 	}

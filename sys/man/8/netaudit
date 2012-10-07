@@ -1,0 +1,39 @@
+.TH NETAUDIT 8
+.SH NAME
+netaudit - network configuration checker
+.SH SYNOPSIS
+netaudit
+.SH DESCRIPTION
+.I Netaudit
+checks the effective network configuration on the
+local system and reports any inconsistencies found.
+.PP
+It starts its search my querying common ndb entries for
+.B $sysname
+checking and validating the
+.BR ip= ,
+.B ether=
+and
+.B dom=
+entries.
+.PP
+The presence of an
+.B ipnet=
+entry and the reachability of dns and auth servers is checked.
+.PP
+If the machine is an auth server,
+.I netaudit
+checks if
+.IR keyfs (4)
+is running and the local tcp port 567 is open and listening.
+.PP
+The root filesystem
+.B /srv/boot
+is tested if it requires authentication on mount.
+.SH SOURCE
+.B /rc/bin/netaudit
+.SH "SEE ALSO"
+.IR keyfs (4),
+.IR auth (8),
+.IR ndb (8),
+.IR ndb (6).
