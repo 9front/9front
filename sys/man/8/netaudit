@@ -8,8 +8,8 @@ netaudit
 checks the effective network configuration on the
 local system and reports any inconsistencies found.
 .PP
-It starts its search my querying common ndb entries for
-.B $sysname
+It starts its search by querying common ndb entries for
+.B $sysname,
 checking and validating the
 .BR ip= ,
 .B ether=
