@@ -178,7 +178,7 @@ tcs(int fd0, int fd1)
 		goto Dup;
 	if(pipe(pfd) < 0)
 		goto Dup;
-	switch(rfork(RFPROC|RFFDG|RFMEM)){
+	switch(rfork(RFPROC|RFFDG|RFMEM|RFNOWAIT)){
 	case -1:
 		close(pfd[0]);
 		close(pfd[1]);
