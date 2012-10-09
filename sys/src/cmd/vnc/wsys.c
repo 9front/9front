@@ -178,7 +178,7 @@ tcs(int fd0, int fd1)
 		goto Dup;
 	if(pipe(pfd) < 0)
 		goto Dup;
-	switch(rfork(RFPROC|RFFDG|RFMEM|RFNOWAIT)){
+	switch(rfork(RFPROC|RFFDG|RFMEM)){
 	case -1:
 		close(pfd[0]);
 		close(pfd[1]);
@@ -208,6 +208,22 @@ Dup:
 static int snarffd = -1;
 static ulong snarfvers;
 
+static int
+gotsnarf(void)
+{
+	Dir *dir;
+	int ret;
+
+	if(snarffd < 0 || (dir = dirfstat(snarffd)) == nil)
+		return 0;
+
+	ret = dir->qid.vers != snarfvers;
+	snarfvers = dir->qid.vers;
+	free(dir);
+
+	return ret;
+}
+
 void 
 writesnarf(Vnc *v, long n)
 {
@@ -216,27 +232,26 @@ writesnarf(Vnc *v, long n)
 	long m;
 
 	vnclock(v);
-	if((sfd = create("/dev/snarf", OWRITE, 0666)) < 0)
-		fd = -1;
-	else {
+	fd = -1;
+	if((sfd = create("/dev/snarf", OWRITE, 0666)) >= 0){
 		fd = tcs(-1, sfd);
 		close(sfd);
 	}
-	if(fd < 0){
-		vncunlock(v);
+	if(fd < 0)
 		vncgobble(v, n);
-		return;
+	else {
+		while(n > 0){
+			m = n;
+			if(m > sizeof(buf))
+				m = sizeof(buf);
+			vncrdbytes(v, buf, m);
+			n -= m;
+			write(fd, buf, m);
+		}
+		close(fd);
+		waitpid();
 	}
-	while(n > 0){
-		m = n;
-		if(m > sizeof(buf))
-			m = sizeof(buf);
-		vncrdbytes(v, buf, m);
-		n -= m;
-		write(fd, buf, m);
-	}
-	close(fd);
-	snarfvers++;
+	gotsnarf();
 	vncunlock(v);
 }
 
@@ -262,6 +277,7 @@ getsnarf(int *sz)
 			}
 		}
 		close(fd);
+		waitpid();
 	}
 	return snarf;
 }
@@ -269,7 +285,6 @@ getsnarf(int *sz)
 void
 checksnarf(Vnc *v)
 {
-	Dir *dir;
 	char *snarf;
 	int len;
 
@@ -283,10 +298,7 @@ checksnarf(Vnc *v)
 		sleep(1000);
 
 		vnclock(v);
-		dir = dirfstat(snarffd);
-		if(dir != nil && dir->qid.vers != snarfvers){
-			snarfvers = dir->qid.vers;
-
+		if(gotsnarf()){
 			snarf = getsnarf(&len);
 
 			vncwrchar(v, MCCut);
@@ -297,7 +309,6 @@ checksnarf(Vnc *v)
 
 			free(snarf);
 		}
-		free(dir);
 		vncunlock(v);
 	}
 }
