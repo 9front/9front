@@ -2,13 +2,15 @@
 #include "vncv.h"
 #include <libsec.h>
 
-char*	encodings = "copyrect hextile corre rre raw mousewarp";
+char*		charset = "utf-8";
+char*		encodings = "copyrect hextile corre rre raw mousewarp";
 int		bpp12;
 int		shared;
 int		verbose;
 Vnc*		vnc;
 int		mousefd;
 int		tls;
+
 
 static int	vncstart(Vnc*, int);
 
@@ -36,7 +38,7 @@ shutdown(void)
 
 	pid = getpid();
 	for(i = 0; i < NProcs; i++)
-		if(pids[i] != pid)
+		if(pids[i] != 0 && pids[i] != pid)
 			postnote(PNPROC, pids[i], killkin);
 }
 
@@ -72,15 +74,15 @@ vnchungup(Vnc*)
 void
 usage(void)
 {
-	fprint(2, "usage: vncv [-e encodings] [-k keypattern] [-csv] host[:n]\n");
+	fprint(2, "usage: vncv [-e encodings] [-k keypattern] [-l charset] [-csv] host[:n]\n");
 	exits("usage");
 }
 
 void
 main(int argc, char **argv)
 {
-	int p, fd, dfd, cfd, shared;
-	char *keypattern, *addr;
+	int p, dfd, cfd, shared;
+	char *keypattern, *addr, *label;
 	Point d;
 	TLSconn conn;
 
@@ -104,6 +106,9 @@ main(int argc, char **argv)
 		break;
 	case 'k':
 		keypattern = EARGF(usage());
+		break;
+	case 'l':
+		charset = EARGF(usage());
 		break;
 	default:
 		usage();
@@ -132,7 +137,8 @@ main(int argc, char **argv)
 	if(vncstart(vnc, shared) < 0)
 		sysfatal("init failure: %r");
 
-	if(initdraw(0, 0, "vncv") < 0)
+	label = smprint("vnc %s", serveraddr);
+	if(initdraw(0, 0, label) < 0)
 		sysfatal("initdraw: %r");
 	display->locking = 1;
 	unlockdisplay(display);
@@ -173,22 +179,15 @@ main(int argc, char **argv)
 	}
 	pids[2] = p;
 
-	fd = open("/dev/label", OWRITE);
-	if(fd >= 0){
-		fprint(fd, "vnc %s", serveraddr);
-		close(fd);
-	}
-	if(access("/dev/snarf", AEXIST) >= 0){
-		switch(p = rfork(RFPROC|RFMEM)){
-		case -1:
-			sysfatal("rfork: %r");
-		default:
-			break;
-		case 0:
-			atexit(shutdown);
-			readkbd(vnc);
-			exits(nil);
-		}
+	switch(p = rfork(RFPROC|RFMEM)){
+	case -1:
+		sysfatal("rfork: %r");
+	default:
+		break;
+	case 0:
+		atexit(shutdown);
+		readkbd(vnc);
+		exits(nil);
 	}
 	pids[3] = p;
 

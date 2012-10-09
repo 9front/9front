@@ -51,6 +51,10 @@ vncs, vncv \- remote frame buffer server and viewer for Virtual Network Computin
 .I encodings
 ]
 [
+.B -l
+.I charset
+]
+[
 .B -k
 .I keypattern
 ]
@@ -166,6 +170,12 @@ The default (and full) set is
 .BR raw .
 The encodings should be given as a single space-separated argument
 (quoted when using the shell).
+.TP
+.B -l \fIcharset
+sets the character set (see
+.IR tcs (1))
+used by the server to encode clipboard text. The default is
+.B utf-8.
 .TP
 .B -k \fIkeypattern
 add 

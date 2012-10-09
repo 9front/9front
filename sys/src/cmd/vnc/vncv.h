@@ -11,6 +11,7 @@ extern	void		readfromserver(Vnc*);
 extern	uchar	zero[];
 
 /* vncv.c */
+extern	char		*charset;
 extern	char		*encodings;
 extern	int		bpp12;
 extern	Vnc*		vnc;

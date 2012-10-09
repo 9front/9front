@@ -169,6 +169,42 @@ readmouse(Vnc *v)
 	}
 }
 
+static int
+tcs(int fd0, int fd1)
+{
+	int pfd[2];
+
+	if(strcmp(charset, "utf-8") == 0)
+		goto Dup;
+	if(pipe(pfd) < 0)
+		goto Dup;
+	switch(rfork(RFPROC|RFFDG|RFMEM)){
+	case -1:
+		close(pfd[0]);
+		close(pfd[1]);
+		goto Dup;
+	case 0:
+		if(fd0 < 0){
+			dup(pfd[0], 0);
+			dup(fd1, 1);
+			close(fd1);	
+		} else {
+			dup(pfd[0], 1);
+			dup(fd0, 0);
+			close(fd0);	
+		}
+		close(pfd[0]);
+		close(pfd[1]);
+		execl("/bin/tcs", "tcs", fd0 < 0 ? "-f" : "-t", charset, 0);
+		execl("/bin/cat", "cat", 0);
+		_exits(0);
+	}
+	close(pfd[0]);
+	return pfd[1];
+Dup:
+	return dup(fd0 < 0 ? fd1 : fd0, -1);
+}
+
 static int snarffd = -1;
 static ulong snarfvers;
 
@@ -176,46 +212,56 @@ void
 writesnarf(Vnc *v, long n)
 {
 	uchar buf[8192];
+	int fd, sfd;
 	long m;
-	Biobuf *b;
 
-	if((b = Bopen("/dev/snarf", OWRITE)) == nil){
+	vnclock(v);
+	if((sfd = create("/dev/snarf", OWRITE, 0666)) < 0)
+		fd = -1;
+	else {
+		fd = tcs(-1, sfd);
+		close(sfd);
+	}
+	if(fd < 0){
+		vncunlock(v);
 		vncgobble(v, n);
 		return;
 	}
-
 	while(n > 0){
 		m = n;
 		if(m > sizeof(buf))
 			m = sizeof(buf);
 		vncrdbytes(v, buf, m);
 		n -= m;
-
-		Bwrite(b, buf, m);
+		write(fd, buf, m);
 	}
-	Bterm(b);
+	close(fd);
 	snarfvers++;
+	vncunlock(v);
 }
 
 char *
 getsnarf(int *sz)
 {
 	char *snarf, *p;
-	int n, c;
+	int fd, n, c;
 
 	*sz =0;
 	n = 8192;
 	p = snarf = malloc(n);
 
 	seek(snarffd, 0, 0);
-	while ((c = read(snarffd, p, n)) > 0){
-		p += c;
-		n -= c;
-		*sz += c;
-		if (n == 0){
-			snarf = realloc(snarf, *sz + 8192);
-			n = 8192;
+	if((fd = tcs(snarffd, -1)) >= 0){
+		while((c = read(fd, p, n)) > 0){
+			p += c;
+			n -= c;
+			*sz += c;
+			if (n == 0){
+				snarf = realloc(snarf, *sz + 8192);
+				n = 8192;
+			}
 		}
+		close(fd);
 	}
 	return snarf;
 }
@@ -236,24 +282,22 @@ checksnarf(Vnc *v)
 	for(;;){
 		sleep(1000);
 
-		dir = dirstat("/dev/snarf");
-		if(dir == nil)	/* this happens under old drawterm */
-			continue;
-		if(dir->qid.vers > snarfvers){
+		vnclock(v);
+		dir = dirfstat(snarffd);
+		if(dir != nil && dir->qid.vers != snarfvers){
+			snarfvers = dir->qid.vers;
+
 			snarf = getsnarf(&len);
 
-			vnclock(v);
 			vncwrchar(v, MCCut);
 			vncwrbytes(v, "pad", 3);
 			vncwrlong(v, len);
 			vncwrbytes(v, snarf, len);
 			vncflush(v);
-			vncunlock(v);
 
 			free(snarf);
-
-			snarfvers = dir->qid.vers;
 		}
 		free(dir);
+		vncunlock(v);
 	}
 }
