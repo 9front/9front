@@ -14,7 +14,7 @@ enum
 	PATHMSLOP	= 20,
 };
 
-struct
+static struct Chanalloc
 {
 	Lock;
 	int	fid;
@@ -223,8 +223,10 @@ newchan(void)
 
 	lock(&chanalloc);
 	c = chanalloc.free;
-	if(c != 0)
+	if(c != 0){
 		chanalloc.free = c->next;
+		c->next = 0;
+	}
 	unlock(&chanalloc);
 
 	if(c == nil){
@@ -532,7 +534,7 @@ closechanq(Chan *c)
 	clunkq.tail = c;
 	unlock(&clunkq.l);
 
-	if(canqlock(&clunkq.q)){
+	if(up != 0 && palloc.Lock.p != up && canqlock(&clunkq.q)){
 		c = up->dot;
 		up->dot = nil;
 		kproc("closeproc", closeproc, nil);
