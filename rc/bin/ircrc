@@ -34,6 +34,10 @@ fn work {
 	echo NICK $nick > $netdir/data
 	if (~ $#pass 1)
 		echo PRIVMSG 'nickserv :'identify $"pass > $netdir/data
+	if(~ $#target 1){
+		title
+		echo JOIN $target > $netdir/data
+	}
 	while (cmd=`{read}) {
 	msg=()
 	out=()
@@ -148,7 +152,7 @@ fn privmsg {
 }
 
 fn pretty {
-	while (~ `{cat $netdir/status} Established*) {
+	while (~ `{cat $netdir/status} *Established*) {
 		line=`{read}
 		switch ($line) {
 		case *JOIN* *QUIT* *PART* *NICK*
@@ -231,6 +235,6 @@ if(~ $#userpass 2 && ~ $nick $user) {
 	netdir=`{basename -d $clonefile} ^ / ^  `{cat /fd/4}
 	echo connect $ip!$port >$netdir/ctl || exit 'cannot connect'
 	echo connected to tcp!$ip!$port on $netdir
-	cat $netdir/data | tr -d '' | pretty & 
+	cat $netdir/data | tr -d '' | pretty & 
 	work
 }
