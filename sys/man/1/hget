@@ -1,6 +1,6 @@
 .TH HGET 1
 .SH NAME
-hget \- retrieve a web page corresponding to a url
+hget, formpost \- retrieve, post to a web page corresponding to a url
 .SH SYNOPSIS
 .B hget
 [
@@ -22,6 +22,30 @@ hget \- retrieve a web page corresponding to a url
 .I baseurl
 ]
 .I url
+.PP
+.B formpost
+[
+.B -d
+] [
+.B -M
+] [
+.B -u
+.I url
+] [
+.B -g
+.I action
+] [
+.B -p
+.I action
+] [
+.B -m
+.I action
+] [
+.I name:value
+|
+.I name:@value
+]
+.I ...
 .SH DESCRIPTION
 .I Hget
 retrieves the web page specified by the URL
@@ -72,10 +96,84 @@ sends an arbitrary HTTP
 Option
 .B -m
 overrides the HTTP method used for the request.
+.PP
+.I Formpost
+retrieves the web page specified by the URL
+.I url,
+parses its HTML for form data, then prints
+.I hget
+commands to submit forms to the
+.I url.
+If the
+.B -M, -g, -p
+or
+.B -m
+flags are set, the
+.I hget
+commands are assembled without first retrieving and interpreting the
+target HTML.
+.PP
+If the
+.B -d
+flag is specified, debugging information is written
+to the file
+.B formpost.log
+in the current directory.
+.PP
+The
+.B -M
+flag applies multipart/form-data encoding to the
+remaining arguments and prints the result on
+the standard output.
+.PP
+The
+.B -u
+flag sets the target URL to
+.I url.
+.PP
+The
+.B -g
+and
+.B -p
+flags set the the form method to GET and POST, respectively. The
+.B -m
+flag sets the form method to POST and its enctype to multipart/form-data.
+In all cases, the form action is set to
+.I action.
+.PP
+The remaining arguments of the form
+.B name:value
+are interpreted as form field names and values to be submitted along
+with the form. An argument of the form
+.B name:@value
+is interpreted as a file upload, with the information following the
+.B @
+symbol treated as the full path to the location of the file.
+.SH EXAMPLES
+Retrieve the
+.I hget
+command needed to submit a form, which may then be
+edited and sent.
+.IP
+.EX
+% formpost -u http://p.intma.in
+hget -p 'text=' http://p.intma.in/paste.cgi
+.EE
+.PP
+Manually specify options to be sent to a given
+.I url.
+Note: The target HTML is not fetched and interpreted.
+.IP
+.EX
+% formpost -u http://p.intma.in -p paste.cgi 'text:test post'
+hget -p 'text=test+post' http://p.intma.in/paste.cgi
+.EE
 .SH SOURCE
 .B /rc/bin/hget
+.br
+.B /rc/bin/formpost
 .SH "SEE ALSO"
-.IR webfs (4),
+.IR webfs (4) ,
 .IR ftpfs (4)
 .SH DIAGNOSTICS
 .I Hget
@@ -84,3 +182,8 @@ requires
 service mounted on
 .B /mnt/web
 to work.
+.SH BUGS
+.I Formpost
+does not attempt to insert default values for
+.B <select>
+tags.
