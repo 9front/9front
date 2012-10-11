@@ -221,7 +221,8 @@ enum {
 void
 smblockingandx(Req *r, uchar *h, uchar *p, uchar *e)
 {
-	int i, err, xcmd, fid, tol, timeout, nunlock, nlock, pid, loff, hoff, llen, hlen;
+	int i, err, xcmd, fid, tol, timeout, nunlock, nlock, pid;
+	unsigned int loff, hoff, llen, hlen;
 	uchar *d, *de, *xp;
 	vlong off, len;
 	File *f;
@@ -406,7 +407,8 @@ out:
 void
 smbreadandx(Req *r, uchar *h, uchar *p, uchar *e)
 {
-	int n, xcmd, fid, mincount, maxcount, loff, hoff;
+	int n, xcmd, fid, mincount, maxcount;
+	unsigned int loff, hoff;
 	uchar *rb, *rp, *re, *xp;
 	vlong off;
 	File *f;
@@ -420,7 +422,6 @@ smbreadandx(Req *r, uchar *h, uchar *p, uchar *e)
 		r->respond(r, STATUS_NOT_SUPPORTED);
 		goto out;
 	}
-	off = (vlong)hoff<<32 | loff;
 	if((f = getfile(r->tid, fid, nil, &n)) == nil){
 		r->respond(r, n);
 		goto out;
@@ -445,6 +446,7 @@ badsmb:
 	}
 	n = 0;
 	rp = rb;
+	off = (vlong)hoff<<32 | loff;
 	while(rp < re){
 		if((n = pread(f->fd, rp, re - rp, off)) <= 0)
 			break;
@@ -466,9 +468,9 @@ out:
 void
 smbwriteandx(Req *r, uchar *h, uchar *p, uchar *e)
 {
-	int n, xcmd, fid, loff, hoff, bufoff, buflen;
+	int n, xcmd, fid, bufoff, buflen;
+	unsigned int loff, hoff;
 	uchar *d, *de, *xp;
-	vlong off;
 	File *f;
 
 	f = nil;
@@ -476,7 +478,7 @@ smbwriteandx(Req *r, uchar *h, uchar *p, uchar *e)
 	if((unpack(h, p, e, "#0b{*2b_@2wwl__________wwl}#1w{}{?.}",
 		&xcmd, &fid, &loff, &buflen, &bufoff, &hoff, &xp) == 0) &&
 	   (unpack(h, p, e, "#0b{*2b_@2wwl__________ww}#1w{}{?.}",
-		&xcmd, &fid, &loff,  &buflen, &bufoff, &xp) == 0)){
+		&xcmd, &fid, &loff, &buflen, &bufoff, &xp) == 0)){
 		r->respond(r, STATUS_NOT_SUPPORTED);
 		goto out;
 	}
@@ -487,7 +489,6 @@ badsmb:
 		r->respond(r, STATUS_INVALID_SMB);
 		goto out;
 	}
-	off = (vlong)hoff<<32 | loff;
 	if((f = getfile(r->tid, fid, nil, &n)) == nil){
 		r->respond(r, n);
 		goto out;
@@ -496,7 +497,7 @@ badsmb:
 		r->respond(r, STATUS_ACCESS_DENIED);
 		goto out;
 	}
-	if((n = pwrite(f->fd, d, de - d, off)) < 0){
+	if((n = pwrite(f->fd, d, de - d, (vlong)hoff<<32 | loff)) < 0){
 		r->respond(r, smbmkerror());
 		goto out;
 	}
@@ -510,7 +511,8 @@ out:
 void
 smbwrite(Req *r, uchar *h, uchar *p, uchar *e)
 {
-	int n, fid, count, bf, off;
+	int n, fid, count, bf;
+	unsigned int off;
 	uchar *d, *de;
 	File *f;
 
