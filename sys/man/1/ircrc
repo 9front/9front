@@ -158,5 +158,3 @@ does not output messages received from the server when
 .B /net/tcp/[0-9]/status
 does not match the regular expression
 .BR /^Established.*/ .
-This occurs when using
-.I ircrc.
