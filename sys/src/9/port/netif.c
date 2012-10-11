@@ -18,8 +18,9 @@ static int parseaddr(uchar*, char*, int);
 void
 netifinit(Netif *nif, char *name, int nfile, ulong limit)
 {
-	strncpy(nif->name, name, KNAMELEN-1);
-	nif->name[KNAMELEN-1] = 0;
+	if(strlen(name) >= sizeof nif->name)
+		panic("netifinit: name too long: %s", name);
+	strcpy(nif->name, name);
 	nif->nfile = nfile;
 	nif->f = xalloc(nfile*sizeof(Netfile*));
 	if (nif->f == nil)

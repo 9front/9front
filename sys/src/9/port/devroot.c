@@ -63,6 +63,8 @@ addlist(Dirlist *l, char *name, uchar *contents, ulong len, int perm)
 		panic("too many root files");
 	l->data[l->ndir] = contents;
 	d = &l->dir[l->ndir];
+	if(strlen(name) >= sizeof d->name)
+		panic("root file name too long: %s", name);
 	strcpy(d->name, name);
 	d->length = len;
 	d->perm = perm;

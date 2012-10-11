@@ -913,7 +913,7 @@ postnote(Proc *p, int dolock, char *n, int flag)
 
 	ret = 0;
 	if(p->nnote < NNOTE && n != nil) {
-		strcpy(p->note[p->nnote].msg, n);
+		kstrcpy(p->note[p->nnote].msg, n, ERRMAX);
 		p->note[p->nnote++].flag = flag;
 		ret = 1;
 	}

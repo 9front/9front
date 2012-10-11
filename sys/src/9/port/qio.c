@@ -1391,7 +1391,7 @@ qclose(Queue *q)
 	ilock(q);
 	q->state |= Qclosed;
 	q->state &= ~(Qflow|Qstarve);
-	strcpy(q->err, Ehungup);
+	kstrcpy(q->err, Ehungup, ERRMAX);
 	bfirst = q->bfirst;
 	q->bfirst = 0;
 	q->len = 0;
@@ -1417,12 +1417,9 @@ qhangup(Queue *q, char *msg)
 	/* mark it */
 	ilock(q);
 	q->state |= Qclosed;
-	if(msg == 0 || *msg == 0)
-		strcpy(q->err, Ehungup);
-	else {
-		strncpy(q->err, msg, ERRMAX-1);
-		q->err[ERRMAX-1] = 0;
-	}
+	if(msg == 0 || *msg == '\0')
+		msg = Ehungup;
+	kstrcpy(q->err, msg, ERRMAX);
 	iunlock(q);
 
 	/* wake up readers/writers */

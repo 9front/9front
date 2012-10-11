@@ -114,7 +114,6 @@ decref(Ref *r)
 	unlock(r);
 	if(x < 0)
 		panic("decref pc=%#p", getcallerpc(&r));
-
 	return x;
 }
 
@@ -130,20 +129,19 @@ kstrcpy(char *s, char *t, int ns)
 	int nt;
 
 	nt = strlen(t);
-	if(nt+1 <= ns){
-		memmove(s, t, nt+1);
+	if(nt < ns){
+		memmove(s, t, nt);
+		s[nt] = '\0';
 		return;
 	}
-	/* too long */
-	if(ns < 4){
-		/* but very short! */
-		strncpy(s, t, ns);
-		return;
-	}
-	/* truncate with ... at character boundary (very rare case) */
-	memmove(s, t, ns-4);
+	/* too long, truncate */
+	nt = ns-1;
+	memmove(s, t, nt);
+	s[nt] = '\0';
+	/* append ... if there is space */
 	ns -= 4;
-	s[ns] = '\0';
+	if(ns < 0)
+		return;
 	/* look for first byte of UTF-8 sequence by skipping continuation bytes */
 	while(ns>0 && (s[--ns]&0xC0)==0x80)
 		;
@@ -169,17 +167,18 @@ kstrdup(char **p, char *s)
 	int n;
 	char *t, *prev;
 
-	n = strlen(s)+1;
+	n = strlen(s);
 	/* if it's a user, we can wait for memory; if not, something's very wrong */
-	if(up){
-		t = smalloc(n);
-		setmalloctag(t, getcallerpc(&p));
-	}else{
-		t = malloc(n);
+	if(up != nil)
+		t = smalloc(n+1);
+	else{
+		t = malloc(n+1);
 		if(t == nil)
 			panic("kstrdup: no memory");
 	}
+	setmalloctag(t, getcallerpc(&p));
 	memmove(t, s, n);
+	t[n] = '\0';
 	prev = *p;
 	*p = t;
 	free(prev);
@@ -1002,7 +1001,7 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 				*nerror = nhave;
 			pathclose(path);
 			cclose(c);
-			strcpy(up->errstr, Enotdir);
+			kstrcpy(up->errstr, Enotdir, ERRMAX);
 			if(mh != nil)
 				putmhead(mh);
 			return -1;
@@ -1083,11 +1082,11 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 					if(wq->nqid==0 || (wq->qid[wq->nqid-1].type&QTDIR)){
 						if(nerror)
 							*nerror = nhave+wq->nqid+1;
-						strcpy(up->errstr, Edoesnotexist);
+						kstrcpy(up->errstr, Edoesnotexist, ERRMAX);
 					}else{
 						if(nerror)
 							*nerror = nhave+wq->nqid;
-						strcpy(up->errstr, Enotdir);
+						kstrcpy(up->errstr, Enotdir, ERRMAX);
 					}
 					free(wq);
 					if(mh != nil)

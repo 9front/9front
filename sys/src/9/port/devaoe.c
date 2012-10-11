@@ -2168,7 +2168,7 @@ static void
 netrdaoeproc(void *v)
 {
 	int idx;
-	char name[Maxpath+1], *s;
+	char name[Maxpath], *s;
 	Aoehdr *h;
 	Block *b;
 	Netlink *nl;
