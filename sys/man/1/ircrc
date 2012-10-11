@@ -1,0 +1,162 @@
+.TH IRCRC 1
+.SH NAME
+ircrc \- internet relay chat client
+.SH SYNOPSIS
+.B ircrc
+[
+.B -p
+.I port
+]
+[
+.B -r
+.I realname
+]
+[
+.B -t
+.I target
+]
+[
+.B -n
+.I nick
+]
+[
+.I server
+]
+.SH DESCRIPTION
+.I Ircrc
+is an IRC client.
+Messages are sent from stdin and received from stdout.
+The default server is
+.BR irc.freenode.net .
+The options are:
+.TP
+.BI -p " port
+Change the default port
+.RB ( 6667 ).
+.TP
+.BI -r " realname
+Change the default name
+.RB ( <nil> ).
+.TP
+.BI -t " target
+Set the target channel.
+.TP
+.BI -n " nick
+Change the default nickname
+.RB ( $user ).
+.SS Commands
+.I Ircrc
+understands the following commands:
+.TP
+.BI /! " cmd
+Send the output of the shell command
+.I cmd
+to the current target.
+.TP
+.B /M
+.B MODE
+command.
+.TP
+.B /N
+.B NOTICE
+command.
+.TP
+.B /T
+.B TOPIC
+command.
+.TP
+.B /W
+.B WHOIS
+command.
+.TP
+.B /a
+.B AWAY
+command.
+.TP
+.B /j
+.B JOIN
+command.
+.TP
+.B /l
+.B LIST
+command.
+.TP
+.B /m
+.B PRIVMSG
+command.
+.TP
+.B /n
+.B NICK
+command.
+.TP
+.B /p
+.B PART
+command.
+.TP
+.BI /q " cmd
+Send the raw IRC command
+.I cmd
+to the server.
+.TP
+.BI /t " target
+Set the current target.
+Messages are sent to
+.I target
+unless they are commands.
+.TP
+.B /u
+.B USERS
+command.
+.TP
+.B /w
+.B WHO
+command.
+.TP
+.B /x
+.B QUIT
+command.
+.PP
+Anything else is sent as a message to the current target.
+See RFC 1459 and RFC 2812 for detailed information about
+IRC commands.
+.SH EXAMPLES
+Default usage:
+.IP
+.EX
+% ircrc
+.EE
+.PP
+Join
+.B irc.oftc.net
+as a different user:
+.IP
+.EX
+% ircrc -r glenda -n glenda irc.oftc.net
+.EE
+.SH SOURCE
+.B /rc/bin/ircrc
+.SH SEE ALSO
+.B http://tools.ietf.org/html/rfc1459
+.br
+.B http://tools.ietf.org/html/rfc2812
+.SH BUGS
+.I Ircrc
+cannot join channels upon login (the
+.B -t
+flag only sets the target, it doesn't join the channel).
+.PP
+.I Ircrc
+does not filter out the
+.B ^B
+character that is sent by nickserv when asking for
+identification.
+.PP
+Some fonts do not support the nickname delimiters.
+.PP
+.I Ircrc
+does not output messages received from the server when
+.B /net/tcp/[0-9]/status
+does not match the regular expression
+.BR /^Established.*/ .
+This occurs when using
+.I ircrc.
