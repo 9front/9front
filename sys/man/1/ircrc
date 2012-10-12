@@ -28,6 +28,16 @@ is an IRC client.
 Messages are sent from stdin and received from stdout.
 The default server is
 .BR irc.freenode.net .
+.I Ircrc
+expands
+.B bitlbee
+and
+.B oftc
+to
+.B im.bitlbee.org
+and
+.BR irc.oftc.net ,
+respectively.
 The options are:
 .TP
 .BI -p " port
@@ -39,7 +49,8 @@ Change the default name
 .RB ( <nil> ).
 .TP
 .BI -t " target
-Set the target channel.
+Set and join the target channel
+(multiple channels may be separated by commas).
 .TP
 .BI -n " nick
 Change the default nickname
@@ -103,6 +114,8 @@ Set the current target.
 Messages are sent to
 .I target
 unless they are commands.
+If the current target is more than one channel,
+any messages are sent to all of them.
 .TP
 .B /u
 .B USERS
@@ -133,6 +146,14 @@ as a different user:
 .EX
 % ircrc -r glenda -n glenda irc.oftc.net
 .EE
+.PP
+Join two channels on login
+(remember to set the target to a single channel,
+otherwise messages are sent to both):
+.IP
+.EX
+% ircrc -t '#cat-v,#plan9'
+.EE
 .SH SOURCE
 .B /rc/bin/ircrc
 .SH SEE ALSO
@@ -140,21 +161,13 @@ as a different user:
 .br
 .B http://tools.ietf.org/html/rfc2812
 .SH BUGS
-.I Ircrc
-cannot join channels upon login (the
-.B -t
-flag only sets the target, it doesn't join the channel).
 .PP
 .I Ircrc
-does not filter out the
-.B ^B
-character that is sent by nickserv when asking for
-identification.
+calls the inexistent
+.IR auth/userpasswd .
+.PP
+Some of
+.BR irc.freenode.net 's
+welcome messages contain control characters.
 .PP
 Some fonts do not support the nickname delimiters.
-.PP
-.I Ircrc
-does not output messages received from the server when
-.B /net/tcp/[0-9]/status
-does not match the regular expression
-.BR /^Established.*/ .
