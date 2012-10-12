@@ -34,7 +34,7 @@ fn work {
 	echo NICK $nick > $netdir/data
 	if (~ $#pass 1)
 		echo PRIVMSG 'nickserv :'identify $"pass > $netdir/data
-	if(~ $#target 1){
+	if(! ~ $target ''){
 		title
 		echo JOIN $target > $netdir/data
 	}
