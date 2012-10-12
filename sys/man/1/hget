@@ -135,7 +135,7 @@ The
 .B -g
 and
 .B -p
-flags set the the form method to GET and POST, respectively. The
+flags set the form method to GET and POST, respectively. The
 .B -m
 flag sets the form method to POST and its enctype to multipart/form-data.
 In all cases, the form action is set to
@@ -143,8 +143,8 @@ In all cases, the form action is set to
 .PP
 The remaining arguments of the form
 .B name:value
-are interpreted as form field names and values to be submitted along
-with the form. An argument of the form
+are interpreted as form field names and values to be submitted. An
+argument of the form
 .B name:@value
 is interpreted as a file upload, with the information following the
 .B @
@@ -162,11 +162,19 @@ hget -p 'text=' http://p.intma.in/paste.cgi
 .PP
 Manually specify options to be sent to a given
 .I url.
-Note: The target HTML is not fetched and interpreted.
 .IP
 .EX
 % formpost -u http://p.intma.in -p paste.cgi 'text:test post'
 hget -p 'text=test+post' http://p.intma.in/paste.cgi
+.EE
+.PP
+Upload a file.
+.IP
+.EX
+% formpost -M file:@/tmp/screen.png | \\
+hget -P \\
+-r 'Content-Type: multipart/form-data, boundary=HJBOUNDARY' \\
+http://i.intma.in/up.cgi
 .EE
 .SH SOURCE
 .B /rc/bin/hget
