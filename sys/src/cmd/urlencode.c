@@ -44,9 +44,12 @@ main(int argc, char *argv[])
 	} ARGEND;
 
 	if(argc == 1){
-		close(0);
-		if(open(*argv, OREAD) < 0)
+		int fd;
+
+		fd = open(*argv, OREAD);
+		if(fd < 0)
 			sysfatal("%r");
+		if(fd != 0) dup(fd, 0);
 	} else if(argc > 1)
 		usage();
 
