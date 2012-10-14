@@ -8,20 +8,19 @@ fshalt, scram, reboot \- halt any local file systems and optionally shut down or
 ]
 .br
 .B reboot
+[
+.I kernelpath
+]
 .br
 .B scram
 .SH DESCRIPTION
 .I Fshalt
-syncs all local
+syncs and halts all local
 .IR cwfs (4),
+.IR hjfs (4),
 .IR venti (8),
 and
 .IR kfs (4)
-servers,
-then halts all local
-.IR cwfs
-and
-.IR kfs
 servers.
 If given
 .BR -r ,
@@ -39,7 +38,11 @@ so this will work even on standalone machines with their roots on
 local file systems.
 .PP
 .I Reboot
-restarts the machine it is invoked on.
+restarts the machine it is invoked on. If an optional
+.I kernelpath
+is specified then the machine will load and start that
+kernel directly instead of returning to the system rom. (see
+.IR cons (3)).
 .PP
 .I Scram
 shuts down the machine it is invoked on.
