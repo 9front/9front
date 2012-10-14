@@ -1,6 +1,6 @@
 .TH HGET 1
 .SH NAME
-hget, formpost \- retrieve, post to a web page corresponding to a url
+hget, hpost \- retrieve, post to a web page corresponding to a url
 .SH SYNOPSIS
 .B hget
 [
@@ -23,15 +23,12 @@ hget, formpost \- retrieve, post to a web page corresponding to a url
 ]
 .I url
 .PP
-.B formpost
+.B hpost
 [
-.B -d
-] [
-.B -M
-] [
 .B -u
+]
 .I url
-] [
+[
 .B -g
 .I action
 ] [
@@ -43,7 +40,7 @@ hget, formpost \- retrieve, post to a web page corresponding to a url
 ] [
 .I name:value
 |
-.I name:@value
+.I name@file
 ]
 .I ...
 .SH DESCRIPTION
@@ -97,39 +94,33 @@ Option
 .B -m
 overrides the HTTP method used for the request.
 .PP
-.I Formpost
+.I Hpost
 retrieves the web page specified by the URL
 .I url,
 parses its HTML for form data, then prints
-.I hget
-commands to submit forms to the
-.I url.
-If the
-.B -M, -g, -p
+.IR rc (1)
+commands to submit the forms with default field
+values.
+If an
+.I action
+URL is provided with the
+.B -g, -p
 or
 .B -m
-flags are set, the
+flags, then
 .I hget
-commands are assembled without first retrieving and interpreting the
-target HTML.
-.PP
-If the
-.B -d
-flag is specified, debugging information is written
-to the file
-.B formpost.log
-in the current directory.
-.PP
-The
-.B -M
-flag applies multipart/form-data encoding to the
-remaining arguments and prints the result on
-the standard output.
+is invoked to execute the transaction submitting the form data.
 .PP
 The
 .B -u
 flag sets the target URL to
 .I url.
+As the
+.I url
+parameter is always required, it can be optionally specified
+in the first argument without the
+.B -u
+flag.
 .PP
 The
 .B -g
@@ -137,49 +128,50 @@ and
 .B -p
 flags set the form method to GET and POST, respectively. The
 .B -m
-flag sets the form method to POST and its enctype to multipart/form-data.
-In all cases, the form action is set to
+flag sets the form method to POST and its enctype to
+.B multipart/form-data.
+In all cases, the form action URL is set to
 .I action.
 .PP
 The remaining arguments of the form
 .B name:value
-are interpreted as form field names and values to be submitted. An
+are interpreted as text form field names and values to be submitted. An
 argument of the form
-.B name:@value
+.B name@file
 is interpreted as a file upload, with the information following the
 .B @
 symbol treated as the full path to the location of the file.
 .SH EXAMPLES
-Retrieve the
-.I hget
-command needed to submit a form, which may then be
+Download a file from the web.
+.IP
+.EX
+% hget http://9front.org/img/nix-on.jpg >/tmp/nix-on.jpg
+.EE
+.PP
+Retrieve the commands needed to submit a form, which may then be
 edited and sent.
 .IP
 .EX
-% formpost -u http://p.intma.in
-hget -p 'text=' http://p.intma.in/paste.cgi
+% hpost http://p.intma.in
+/bin/hpost -u http://p.intma.in -p paste.cgi text:
 .EE
 .PP
-Manually specify options to be sent to a given
+Manually specify fields to be sent to a given
 .I url.
 .IP
 .EX
-% formpost -u http://p.intma.in -p paste.cgi 'text:test post'
-hget -p 'text=test+post' http://p.intma.in/paste.cgi
+% hpost -u http://p.intma.in -p paste.cgi text:'test post'
 .EE
 .PP
 Upload a file.
 .IP
 .EX
-% formpost -M file:@/tmp/screen.png | \\
-hget -P \\
--r 'Content-Type: multipart/form-data, boundary=HJBOUNDARY' \\
-http://i.intma.in/up.cgi
+% hpost http://i.intma.in file@/tmp/screen.png | rc >/dev/null
 .EE
 .SH SOURCE
 .B /rc/bin/hget
 .br
-.B /rc/bin/formpost
+.B /rc/bin/hpost
 .SH "SEE ALSO"
 .IR webfs (4) ,
 .IR ftpfs (4)
@@ -190,8 +182,3 @@ requires
 service mounted on
 .B /mnt/web
 to work.
-.SH BUGS
-.I Formpost
-does not attempt to insert default values for
-.B <select>
-tags.
