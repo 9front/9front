@@ -228,7 +228,7 @@ sysexec(ulong *arg)
 	char *a, *charp, *args, *file, *file0;
 	char *progarg[sizeof(Exec)/2+1], *elem, progelem[64];
 	ulong ssize, spage, nargs, nbytes, n, bssend;
-	int indir;
+	int indir, commit;
 	Exec exec;
 	char line[sizeof(Exec)];
 	Fgrp *f;
@@ -236,6 +236,7 @@ sysexec(ulong *arg)
 	ulong magic, text, entry, data, bss;
 	Tos *tos;
 
+	commit = 0;
 	indir = 0;
 	elem = nil;
 	validaddr(arg[0], 1, 0);
@@ -243,6 +244,9 @@ sysexec(ulong *arg)
 	if(waserror()){
 		free(file0);
 		free(elem);
+		/* Disaster after commit */
+		if(commit)
+			pexit(up->errstr, 1);
 		nexterror();
 	}
 	file = file0;
@@ -407,6 +411,9 @@ sysexec(ulong *arg)
 	}
 	up->nargs = n;
 
+	commit = 1;
+	USED(commit);
+
 	/*
 	 * Committed.
 	 * Free old memory.
@@ -466,7 +473,6 @@ sysexec(ulong *arg)
 	up->seg[SSEG] = s;
 	qunlock(&up->seglock);
 	poperror();	/* seglock */
-	poperror();	/* elem */
 
 	/*
 	 *  '/' processes are higher priority (hack to make /ip more responsive).
@@ -474,8 +480,9 @@ sysexec(ulong *arg)
 	if(devtab[tc->type]->dc == L'/')
 		up->basepri = PriRoot;
 	up->priority = up->basepri;
-	poperror();
 	cclose(tc);
+	poperror();	/* tc */
+	poperror();	/* elem */
 
 	qlock(&up->debug);
 	up->nnote = 0;

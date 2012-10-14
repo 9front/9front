@@ -285,14 +285,14 @@ found:
 	unlock(&imagealloc);
 
 	if(i->s == 0) {
-		/* Disaster after commit in exec */
+		i->ref++;
 		if(waserror()) {
 			unlock(i);
-			pexit(Enovmem, 1);
+			putimage(i);
+			nexterror();
 		}
 		i->s = newseg(type, base, len);
 		i->s->image = i;
-		i->ref++;
 		poperror();
 	}
 	else
