@@ -338,6 +338,7 @@ struct Swapalloc
 	Rendez	r;			/* Pager kproc idle sleep */
 	ulong	highwater;		/* Pager start threshold */
 	ulong	headroom;		/* Space pager frees under highwater */
+	ulong	xref;			/* Ref count for all map refs >= 255 */
 }swapalloc;
 
 struct Image

@@ -40,6 +40,8 @@ swapinit(void)
 	swapalloc.alloc = swapalloc.swmap;
 	swapalloc.last = swapalloc.swmap;
 	swapalloc.free = conf.nswap;
+	swapalloc.xref = 0;
+
 	iolist = xalloc(conf.nswppo*sizeof(Page*));
 	if(swapalloc.swmap == 0 || iolist == 0)
 		panic("swapinit: not enough memory");
@@ -53,8 +55,7 @@ newswap(void)
 	uchar *look;
 
 	lock(&swapalloc);
-
-	if(swapalloc.free == 0){
+	if(swapalloc.free == 0) {
 		unlock(&swapalloc);
 		return ~0;
 	}
@@ -77,22 +78,46 @@ putswap(Page *p)
 
 	lock(&swapalloc);
 	idx = &swapalloc.swmap[((ulong)p)/BY2PG];
-	if(--(*idx) == 0) {
-		swapalloc.free++;
-		if(idx < swapalloc.last)
-			swapalloc.last = idx;
+	if(*idx == 0)
+		panic("putswap %#p ref == 0", p);
+
+	if(*idx == 255) {
+		if(swapalloc.xref == 0)
+			panic("putswap %#p xref == 0", p);
+
+		if(--swapalloc.xref == 0) {
+			for(idx = swapalloc.swmap; idx < swapalloc.top; idx++) {
+				if(*idx == 255) {
+					*idx = 0;
+					swapalloc.free++;
+					if(idx < swapalloc.last)
+						swapalloc.last = idx;
+				}
+			}
+		}
+	} else {
+		if(--(*idx) == 0) {
+			swapalloc.free++;
+			if(idx < swapalloc.last)
+				swapalloc.last = idx;
+		}
 	}
-	if(*idx >= 254)
-		panic("putswap %#p == %ud", p, *idx);
 	unlock(&swapalloc);
 }
 
 void
 dupswap(Page *p)
 {
+	uchar *idx;
+
 	lock(&swapalloc);
-	if(++swapalloc.swmap[((ulong)p)/BY2PG] == 0)
-		panic("dupswap");
+	idx = &swapalloc.swmap[((ulong)p)/BY2PG];
+	if(*idx == 255)
+		swapalloc.xref++;
+	else {
+		if(++(*idx) == 255)
+			swapalloc.xref += 255;
+	}
 	unlock(&swapalloc);
 }
 
@@ -413,6 +438,7 @@ setswapchan(Chan *c)
 			error(Einuse);
 		}
 		cclose(swapimage.c);
+		swapimage.c = nil;
 	}
 
 	/*
