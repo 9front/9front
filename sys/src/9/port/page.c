@@ -335,7 +335,10 @@ retry:
 * from the freelist, but still in the cache because of
 * cachepage below.  if someone else looks in the cache
 * before they remove it, the page will have a nonzero ref
-* once they finally lock(np).
+* once they finally lock(np). This does not happen because
+* newpage, auxpage, duppage and lookpage all lock(&palloc)
+* so while they hold it nobody is going to grab anything
+* from the cache.
 */
 	lock(np);
 	if(np->ref != 0)	/* should never happen */
@@ -412,23 +415,24 @@ cachepage(Page *p, Image *i)
 void
 cachedel(Image *i, ulong daddr)
 {
-	Page *f, **l;
+	Page *f;
 
+retry:
 	lock(&palloc.hashlock);
-	l = &pghash(daddr);
-	for(f = *l; f; f = f->hash) {
+	for(f = pghash(daddr); f; f = f->hash) {
 		if(f->image == i && f->daddr == daddr) {
+			unlock(&palloc.hashlock);
+
 			lock(f);
-			if(f->image == i && f->daddr == daddr){
-				*l = f->hash;
-				putimage(f->image);
-				f->image = 0;
-				f->daddr = 0;
+			if(f->image != i || f->daddr != daddr) {
+				unlock(f);
+				goto retry;
 			}
+			uncachepage(f);
 			unlock(f);
-			break;
+
+			return;
 		}
-		l = &f->hash;
 	}
 	unlock(&palloc.hashlock);
 }
@@ -438,6 +442,7 @@ lookpage(Image *i, ulong daddr)
 {
 	Page *f;
 
+retry:
 	lock(&palloc.hashlock);
 	for(f = pghash(daddr); f; f = f->hash) {
 		if(f->image == i && f->daddr == daddr) {
@@ -448,7 +453,7 @@ lookpage(Image *i, ulong daddr)
 			if(f->image != i || f->daddr != daddr) {
 				unlock(f);
 				unlock(&palloc);
-				return 0;
+				goto retry;
 			}
 			if(++f->ref == 1)
 				pageunchain(f);

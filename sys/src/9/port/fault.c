@@ -140,15 +140,20 @@ fixfault(Segment *s, ulong addr, int read, int doputmmu)
 
 		lkp = *pg;
 		lock(lkp);
-		if(lkp->ref < 1)
-			panic("fault: lkp->ref %d < 1", lkp->ref);
+		ref = lkp->ref;
+		if(ref == 0)
+			panic("fault %#p ref == 0", lkp);
 		if(lkp->image == &swapimage)
-			ref = lkp->ref + swapcount(lkp->daddr);
-		else
-			ref = lkp->ref;
-		if(ref == 1 && lkp->image){
-			/* save a copy of the original for the image cache */
+			ref += swapcount(lkp->daddr);
+		if(ref == 1 && lkp->image) {
+			/*
+			 * save a copy of the original for the image cache
+			 * and uncache the page. page might temporarily be
+			 * unlocked while trying to acquire palloc lock so
+			 * recheck ref in case it got grabbed.
+			 */
 			duppage(lkp);
+
 			ref = lkp->ref;
 		}
 		unlock(lkp);
