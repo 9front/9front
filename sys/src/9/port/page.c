@@ -264,29 +264,11 @@ auxpage(void)
 	return p;
 }
 
-static int dupretries = 15000;
-
 void
 duppage(Page *p)				/* Always call with p locked */
 {
 	Page *np;
 	int color;
-	int retries;
-
-	retries = 0;
-retry:
-	/* don't dup pages that are shared or have no image */
-	if(p->ref != 1 || p->image == nil || p->image->notext)
-		return;
-
-	if(retries++ > dupretries){
-		print("duppage %d, up %p\n", retries, up);
-		dupretries += 100;
-		if(dupretries > 100000)
-			panic("duppage");
-		uncachepage(p);
-		return;
-	}
 
 	/*
 	 *  normal lock ordering is to call
@@ -295,14 +277,18 @@ retry:
 	 *  our locks and try again. as the page
 	 *  is from the image cache, this might
 	 *  let someone else come in and grab it
-	 *  so we check page ref above.
+	 *  so we check page ref below.
 	 */
 	if(!canlock(&palloc)){
 		unlock(p);
-		if(up)
-			sched();
+		lock(&palloc);
 		lock(p);
-		goto retry;
+	}
+
+	/* don't dup pages that are shared or have no image */
+	if(p->ref != 1 || p->image == nil || p->image->notext){
+		unlock(&palloc);
+		return;
 	}
 
 	/* No freelist cache when memory is very low */
