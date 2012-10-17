@@ -208,39 +208,42 @@ ctail(Mntcache *m)
 	}
 }
 
+/* called with cache locked */
+static Mntcache*
+clookup(Chan *c, int skipvers)
+{
+	Mntcache *m;
+
+	for(m = cache.hash[c->qid.path%NHASH]; m; m = m->hash)
+		if(eqchantdqid(c, m->type, m->dev, m->qid, skipvers) && c->qid.type == m->qid.type)
+			return m;
+
+	return 0;
+}
+
 void
 copen(Chan *c)
 {
-	int h;
 	Mntcache *m, *f, **l;
 
 	/* directories aren't cacheable and append-only files confuse us */
-	if(c->qid.type&(QTDIR|QTAPPEND))
+	if(c->qid.type&(QTDIR|QTAPPEND)){
+		c->mcp = 0;
 		return;
-	h = c->qid.path%NHASH;
-	lock(&cache);
-	for(m = cache.hash[h]; m; m = m->hash) {
-		if(m->qid.path == c->qid.path)
-		if(m->qid.type == c->qid.type)
-		if(m->dev == c->dev && m->type == c->type) {
-			/* File was updated, invalidate cache */
-			if(m->qid.vers != c->qid.vers){
-				if(!canqlock(m))
-					goto Busy;
-				m->qid.vers = c->qid.vers;
-				goto Update;
-			}
-			ctail(m);
-			c->mcp = m;
-			unlock(&cache);
-			return;
-		}
 	}
 
-	/* LRU the cache headers */
-	m = cache.head;
-	if(!canqlock(m))
-		goto Busy;
+	lock(&cache);
+	m = clookup(c, 1);
+	if(m == 0)
+		m = cache.head;
+	else if(m->qid.vers == c->qid.vers) {
+		ctail(m);
+		unlock(&cache);
+		c->mcp = m;
+		return;
+	}
+	ctail(m);
+
 	l = &cache.hash[m->qid.path%NHASH];
 	for(f = *l; f; f = f->hash) {
 		if(f == m) {
@@ -250,39 +253,53 @@ copen(Chan *c)
 		l = &f->hash;
 	}
 
+	if(!canqlock(m)){
+		unlock(&cache);
+		qlock(m);
+		lock(&cache);
+		f = clookup(c, 0);
+		if(f != 0) {
+			/*
+			 * someone got there first while cache lock
+			 * was released and added a updated Mntcache
+			 * for us. update LRU and use it.
+			 */
+			ctail(f);
+			unlock(&cache);
+			qunlock(m);
+			c->mcp = f;
+			return;
+		}
+	}
+
 	m->qid = c->qid;
 	m->dev = c->dev;
 	m->type = c->type;
 
-	l = &cache.hash[h];
+	l = &cache.hash[c->qid.path%NHASH];
 	m->hash = *l;
 	*l = m;
-Update:
-	ctail(m);
-	c->mcp = m;
 	unlock(&cache);
 	cnodata(m);
 	qunlock(m);
-	return;
-Busy:
-	unlock(&cache);
-	c->mcp = 0;
+	c->mcp = m;
 }
 
-static int
-cdev(Mntcache *m, Chan *c)
+/* return locked Mntcache if still valid else reset mcp */
+static Mntcache*
+ccache(Chan *c)
 {
-	if(m->qid.path != c->qid.path)
-		return 0;
-	if(m->qid.type != c->qid.type)
-		return 0;
-	if(m->dev != c->dev)
-		return 0;
-	if(m->type != c->type)
-		return 0;
-	if(m->qid.vers != c->qid.vers)
-		return 0;
-	return 1;
+	Mntcache *m;
+
+	m = c->mcp;
+	if(m) {
+		qlock(m);
+		if(eqchantdqid(c, m->type, m->dev, m->qid, 0) && c->qid.type == m->qid.type)
+			return m;
+		c->mcp = 0;
+		qunlock(m);
+	}
+	return 0;
 }
 
 int
@@ -298,16 +315,9 @@ cread(Chan *c, uchar *buf, int len, vlong off)
 	if(off+len > maxcache)
 		return 0;
 
-	m = c->mcp;
+	m = ccache(c);
 	if(m == 0)
 		return 0;
-
-	qlock(m);
-	if(cdev(m, c) == 0) {
-		qunlock(m);
-		c->mcp = 0;
-		return 0;
-	}
 
 	offset = off;
 	t = &m->list;
@@ -470,15 +480,9 @@ cupdate(Chan *c, uchar *buf, int len, vlong off)
 	if(off > maxcache || len == 0)
 		return;
 
-	m = c->mcp;
+	m = ccache(c);
 	if(m == 0)
 		return;
-	qlock(m);
-	if(cdev(m, c) == 0) {
-		qunlock(m);
-		c->mcp = 0;
-		return;
-	}
 
 	/*
 	 * Find the insertion point
@@ -564,16 +568,9 @@ cwrite(Chan* c, uchar *buf, int len, vlong off)
 	if(off > maxcache || len == 0)
 		return;
 
-	m = c->mcp;
+	m = ccache(c);
 	if(m == 0)
 		return;
-
-	qlock(m);
-	if(cdev(m, c) == 0) {
-		qunlock(m);
-		c->mcp = 0;
-		return;
-	}
 
 	offset = off;
 	m->qid.vers++;

@@ -74,6 +74,20 @@ defn chans() {
 	}
 }
 
+defn findchan(dev,type,path) {
+	local c;
+
+	c = (Chan)chanalloc.list;
+	while c != 0 do {
+		if c.ref != 0 then {
+			if c.dev == dev && c.type == type && c.qid.path == path then
+				return c;
+		}
+		c=(Chan)c.link;
+	}
+	return 0;
+}
+
 defn nchans() {
 	local c, n;
 	
@@ -156,6 +170,27 @@ defn badchans() {
 				print("chan(", c\X, "):", bad, "\n");
 		}
 		c = (Chan)c.link;
+	}
+}
+
+NHASH=128;
+defn mntcache() {
+	local i, m, c;
+
+	i=0; loop 1,NHASH do {
+		m = cache.hash[i];
+		while m != 0 do {
+			complex Mntcache m;
+			print(m\X, " dev ", m.dev\D, " type ", m.type, " qid (", 
+				m.qid.path, " ", m.qid.vers\D, ")\n");
+			c = findchan(m.dev, m.type, m.qid.path);
+			if c != 0 then {
+				print("	");
+				chan(c);
+			}
+			m = m.hash;
+		}
+		i = i+1;
 	}
 }
 
@@ -379,5 +414,6 @@ if (map()[2]) != {} then {	// map has more than two elements -> active proc
 	needacid("proc");
 	needacid("chan");
 	needacid("segment");
+	needacid("cache");
 }
 }
