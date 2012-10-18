@@ -709,10 +709,14 @@ button3menu(void)
 	}
 	if(n >= nelem(menu3str)-Hidden)
 		n = nelem(menu3str)-Hidden-1;
-	for(i=0; i<n; i++)
-		menu3str[i+Hidden] = hidden[i]->label;
-	menu3str[i+Hidden] = nil;
-
+	for(i=0; i<n; i++){
+		free(menu3str[i+Hidden]);
+		menu3str[i+Hidden] = estrdup(hidden[i]->label);
+	}
+	for(i+=Hidden; menu3str[i]; i++){
+		free(menu3str[i]);
+		menu3str[i] = nil;
+	}
 	sweeping = 1;
 	switch(i = menuhit(3, mousectl, &menu3, wscreen)){
 	case -1:
