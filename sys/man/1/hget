@@ -1,6 +1,6 @@
 .TH HGET 1
 .SH NAME
-hget, hpost \- retrieve, post to a web page corresponding to a url
+hget, hpost, urlencode \- retrieve, post to a web page corresponding to a url
 .SH SYNOPSIS
 .B hget
 [
@@ -47,6 +47,13 @@ hget, hpost \- retrieve, post to a web page corresponding to a url
 .I name@file
 ]
 .I ...
+.PP
+.B urlencode
+[
+.B -d
+] [
+.I file
+]
 .SH DESCRIPTION
 .I Hget
 retrieves the web page specified by the URL
@@ -160,6 +167,14 @@ argument of the form
 is interpreted as a file upload, with the information following the
 .B @
 symbol treated as the full path to the location of the file.
+.PP
+.I Urlencode
+is a helper program to URL encode and decode files. The
+.B -d
+flag insead of encoding, decodes URL encoded file. If no
+.I file
+is given, standard input is read. The resulting data
+is written to standard output.
 .SH EXAMPLES
 Download a file from the web.
 .IP
@@ -191,6 +206,8 @@ Upload a file, print the resulting URL
 .B /rc/bin/hget
 .br
 .B /rc/bin/hpost
+.br
+.B /sys/src/cmd/urlencode.c
 .SH "SEE ALSO"
 .IR webfs (4) ,
 .IR ftpfs (4)
