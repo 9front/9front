@@ -10,27 +10,13 @@ rot90(Memimage *m)
 	ulong chan;
 	uchar *s, *d;
 	Memimage *w;
-	char buf[12];
 
-	bpp = m->depth/8;
+	bpp = (m->depth+7)/8;
 	chan = m->chan;
 	switch(chan){
-	default:
-		sysfatal("can't handle channel type %s", chantostr(buf, chan));
-	case RGB15:
-		bpp = 2;
-	case CMAP8:
-	case GREY8:
-	case RGB16:
-	case RGB24:
-	case RGBA32:
-	case ARGB32:
-	case XRGB32:
-		break;
 	case GREY1:
 	case GREY2:
 	case GREY4:
-		bpp = 1;
 		if((w = allocmemimage(m->r, GREY8)) == nil)
 			sysfatal("allocmemimage: %r");
 		memimagedraw(w, w->r, m, m->r.min, nil, ZP, S);

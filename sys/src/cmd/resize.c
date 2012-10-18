@@ -97,7 +97,6 @@ main(int argc, char **argv)
 	int fd, xsize, ysize;
 	Memimage *im, *nim;
 	ulong ochan, tchan;
-	char buf[12];
 
 	xsize = ysize = 0;
 	ARGBEGIN{
@@ -134,18 +133,20 @@ main(int argc, char **argv)
 		ochan = im->chan;
 		switch(ochan){
 		default:
-			sysfatal("can't handle channel type %s", chantostr(buf, ochan));
+			for(tchan = ochan; tchan; tchan >>= 8)
+				if(TYPE(tchan) == CAlpha){
+					tchan = RGBA32;
+					break;
+				}
+			if(tchan == 0)
+				tchan = RGB24;
+			break;
 		case GREY8:
 		case RGB24:
 		case RGBA32:
 		case ARGB32:
 		case XRGB32:
 			tchan = ochan;
-			break;
-		case CMAP8:
-		case RGB16:
-		case RGB15:
-			tchan = RGB24;
 			break;
 		case GREY1:
 		case GREY2:

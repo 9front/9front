@@ -203,7 +203,6 @@ main(int argc, char *argv[])
 	Memimage *m, *new, *t1, *t2;
 	char *file;
 	ulong tchan;
-	char tmp[100];
 	double v;
 
 	for(i=-K2; i<=K2; i++){
@@ -278,8 +277,15 @@ main(int argc, char *argv[])
 	if(xsize == 0)
 		xsize = (ysize * Dx(m->r)) / Dy(m->r);
 
-	new = nil;
 	switch(m->chan){
+	default:
+		for(tchan = m->chan; tchan; tchan >>= 8)
+			if(TYPE(tchan) == CAlpha){
+				tchan = RGBA32;
+				goto Convert;
+			}
+		tchan = RGB24;
+		goto Convert;
 
 	case GREY8:
 	case RGB24:
@@ -288,12 +294,6 @@ main(int argc, char *argv[])
 	case XRGB32:
 		new = resample(xsize, ysize, m);
 		break;
-
-	case CMAP8:
-	case RGB15:
-	case RGB16:
-		tchan = RGB24;
-		goto Convert;
 
 	case GREY1:
 	case GREY2:
@@ -314,9 +314,6 @@ main(int argc, char *argv[])
 		memimagedraw(new, new->r, t2, t2->r.min, nil, ZP, S);
 		freememimage(t2);
 		break;
-
-	default:
-		sysfatal("can't handle channel type %s", chantostr(tmp, m->chan));
 	}
 
 	assert(new);
