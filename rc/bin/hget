@@ -2,7 +2,7 @@
 rfork e
 argv0=$0
 fn usage {
-	echo 'usage: '$"argv0' [ -o file ] [ -p body | -P ] [ -r header ] [ -m method ] [ -b baseurl ] url' >[1=2]
+	echo usage: $argv0 '[ -l | -o file] [ -p body | -P ] [ -r header ] [ -m method ] [ -b baseurl ] url' >[1=2]
 	exit usage
 }
 s=0
@@ -12,6 +12,7 @@ P=()
 r=()
 m=()
 b=()
+l=()
 while(~ $1 -*){
 	switch($1){
 	case -o
@@ -25,6 +26,8 @@ while(~ $1 -*){
 	case -r
 		r=($r $2)
 		shift
+	case -l
+		l=1
 	case -m
 		m=$2
 		shift
@@ -64,6 +67,10 @@ if(! ~ $s 0)
 		}
 	}
 	<$d/body {
+		if(~ $#l 1){
+			echo `{cat $d/parsed/url}
+			exit
+		}
 		if(~ $#o 1){
 			l=`{cat $d/contentlength >[2]/dev/null}
 			x=`{awk 'BEGIN{FS=" |-"}/^bytes ([0-9]+)\-/{print $2}' \

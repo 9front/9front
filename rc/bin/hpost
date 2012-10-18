@@ -4,10 +4,23 @@ argv0=$0
 url=()
 at=()	# text fields
 af=()	# file fields
+l=()
 
 fn usage {
-	echo $argv0 '[ -u ] url [ -[gpm] action ] [ field:value | field@file ... ]' >[1=2]
+	echo usage: $argv0 '[ -l ] [ -[gpm] action ] [ -u ] url [ field:value | field@file ... ]' >[1=2]
 	exit usage
+}
+
+while(~ $1 -*){
+	switch($1){
+	case -l;	l=($l $1)
+	case -u;	shift; url=$1
+	case -g;	shift; action=$1; method=mget
+	case -p;	shift; action=$1; method=mpost
+	case -m;	shift; action=$1; method=multi
+	case *;		usage
+	}
+	shift
 }
 
 # tired of typing -u
@@ -16,12 +29,11 @@ if(~ $1 http://* https://*){
 	shift
 }
 
+if(~ $#url 0)
+	usage
+
 while(! ~ $#* 0){
 	switch($1){
-	case -u;	shift; url=$1
-	case -g;	shift; action=$1; method=mget
-	case -p;	shift; action=$1; method=mpost
-	case -m;	shift; action=$1; method=multi
 	case *:*@*;	at=($1 $at)
 	case *@*;	af=($1 $af)
 	case *:*;	at=($1 $at)
@@ -30,8 +42,7 @@ while(! ~ $#* 0){
 	shift
 }
 
-if(~ $#url 0)
-	usage
+hpost=($argv0 $l)
 
 fn uenc {
 	f=$1
@@ -74,17 +85,18 @@ fn menc {
 fn mget {
 	a=`{uenc '?'}
 	action=$"action$"a
-	hget -b $url $action
+	$hget -b $url $action
 }
 fn mpost {
-	uenc | hget -b $url -P $action
+	uenc | $hget -b $url -P $action
 }
 fn multi {
 	f='HJBOUNDARY'
-	menc $"f | hget -r 'Content-Type: multipart/form-data, boundary='$"f -b $url -P $action
+	menc $"f | $hget -r 'Content-Type: multipart/form-data, boundary='$"f -b $url -P $action
 }
 
 if(! ~ $action ''){
+	hget=(hget $l)
 	$method
 	exit
 }
@@ -97,14 +109,13 @@ for(i in $at $af){
 	n=(1 $n)
 }
 a$#n=''
-
 hget $url | uhtml | sed '
 s!^(TAG|ATT)! \1!g;		# escape our inline signaling
 s!<[ 	]*!\nTAG !g;		# find starttags, mark with TAG name ...
 s!>[^>"'']*$!!g;		# remove garbage after the tag
 # find attributes, mark with ATT name value
 s!([a-zA-Z][a-zA-Z0-9:_]*)=("[^"]*"?|''[^'']*''?|[ 	]*[^> 	]+)!\nATT \1 \2!g;
-' | awk -v 'argv0='$"argv0 -v 'url='$"url '
+' | awk -v 'hpost='$"hpost -v 'url='$"url '
 BEGIN{
 	for(i=0; ENVIRON["a"i]!=""; i++){
 		s=ENVIRON["a"i]
@@ -133,7 +144,7 @@ function uq(s){
 }
 function emitform(){
 	if(action!=""){
-		printf argv0
+		printf hpost
 		if(url!="") printf " -u %s", qw(url)
 		if(method=="post"){
 			if(enctype=="multipart/form-data")
