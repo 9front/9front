@@ -23,13 +23,12 @@ while(~ $1 -*){
 	shift
 }
 
-# tired of typing -u
-if(~ $1 http://* https://*){
+if(~ $#url 0){
 	url=$1
 	shift
 }
 
-if(~ $#url 0)
+if(~ $url '')
 	usage
 
 while(! ~ $#* 0){
