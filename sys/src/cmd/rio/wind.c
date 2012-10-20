@@ -21,21 +21,9 @@ enum
 	MinWater	= 20000,	/* room to leave available when reallocating */
 };
 
-extern	int		reverse;	/* there are no pastel paints in the dungeons and dragons world -- rob pike */
-
-static	int		topped;
-static	int		id;
-
-static	Image	*cols[NCOL];
-static	Image	*grey;
-static	Image	*darkgrey;
+static	int	topped;
+static	int	id;
 static	Cursor	*lastcursor;
-static	Image	*titlecol;
-static	Image	*lighttitlecol;
-static	Image	*dholdcol;
-static	Image	*holdcol;
-static	Image	*lightholdcol;
-static	Image	*paleholdcol;
 
 Window*
 wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
@@ -43,31 +31,6 @@ wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
 	Window *w;
 	Rectangle r;
 
-	if(cols[0] == nil){
-		/* greys are multiples of 0x11111100+0xFF, 14* being palest */
-		grey = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0xEEEEEEFF^reverse);
-		darkgrey = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x666666FF^reverse);
-		cols[BACK] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0xFFFFFFFF^reverse);
-		cols[HIGH] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0xCCCCCCFF^reverse);
-		cols[BORD] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x999999FF);
-		cols[TEXT] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x000000FF^reverse);
-		cols[HTEXT] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x000000FF^reverse);
-		if(reverse == 0) {
-			titlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DGreygreen);
-			lighttitlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DPalegreygreen);
-		} else {
-			titlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DPurpleblue);
-			lighttitlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x666666FF^reverse);
-		}
-		dholdcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DMedblue);
-		lightholdcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DGreyblue);
-		paleholdcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DPalegreyblue);
-
-		if(reverse == 0)
-			holdcol = dholdcol;
-		else
-			holdcol = paleholdcol;
-	}
 	w = emalloc(sizeof(Window));
 	w->screenr = i->r;
 	r = insetrect(i->r, Selborder+1);
@@ -162,16 +125,15 @@ wresize(Window *w, Image *i, int move)
 }
 
 void
-wrefresh(Window *w, Rectangle)
+wrefresh(Window *w, Rectangle r)
 {
 	/* BUG: rectangle is ignored */
 	if(w == input)
 		wborder(w, Selborder);
 	else
 		wborder(w, Unselborder);
-	if(w->mouseopen)
-		return;
-	draw(w->i, insetrect(w->i->r, Borderwidth), w->cols[BACK], nil, w->i->r.min);
+	r = insetrect(w->i->r, Selborder);
+	draw(w->i, r, w->cols[BACK], nil, w->entire.min);
 	w->ticked = 0;
 	if(w->p0 > 0)
 		frdrawsel(w, frptofchar(w, 0), 0, w->p0, 0);
@@ -760,7 +722,7 @@ wsetcols(Window *w)
 		if(w == input)
 			w->cols[TEXT] = w->cols[HTEXT] = cols[TEXT];
 		else
-			w->cols[TEXT] = w->cols[HTEXT] = darkgrey;
+			w->cols[TEXT] = w->cols[HTEXT] = paletextcol;
 }
 
 void

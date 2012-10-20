@@ -317,9 +317,19 @@ Cursor	sightcursor;
 Cursor	whitearrow;
 Cursor	query;
 Cursor	*corners[9];
+
 Image	*background;
-Image	*lightgrey;
-Image	*red;
+Image	*cols[NCOL];
+Image	*titlecol;
+Image	*lighttitlecol;
+Image	*dholdcol;
+Image	*holdcol;
+Image	*lightholdcol;
+Image	*paleholdcol;
+Image	*paletextcol;
+Image	*sizecol;
+int	reverse;	/* there are no pastel paints in the dungeons and dragons world -- rob pike */
+
 Window	**window;
 Window	*wkeyboard;	/* window of simulated keyboard */
 int		nwindow;

@@ -330,14 +330,13 @@ wctlnew(Rectangle rect, char *arg, int pid, int hideit, int scrollit, char *dir,
 		argv[3] = nil;
 	}
 	if(hideit)
-		i = allocimage(display, rect, screen->chan, 0, DWhite);
+		i = allocimage(display, rect, screen->chan, 0, DNofill);
 	else
-		i = allocwindow(wscreen, rect, Refbackup, DWhite);
+		i = allocwindow(wscreen, rect, Refbackup, DNofill);
 	if(i == nil){
 		strcpy(err, Ewalloc);
 		return -1;
 	}
-	border(i, rect, Selborder, red, ZP);
 
 	new(i, hideit, scrollit, pid, dir, "/bin/rc", argv);
 
@@ -366,12 +365,11 @@ wctlcmd(Window *w, Rectangle r, int cmd, char *err)
 		}
 		if(eqrect(r, w->screenr))
 			return 1;
-		i = allocwindow(wscreen, r, Refbackup, DWhite);
+		i = allocwindow(wscreen, r, Refbackup, DNofill);
 		if(i == nil){
 			strcpy(err, Ewalloc);
 			return -1;
 		}
-		border(i, r, Selborder, red, ZP);
 		wsendctlmesg(w, Reshaped, i->r, i);
 		return 1;
 	case Scroll:

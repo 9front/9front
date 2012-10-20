@@ -21,7 +21,7 @@ scrtemps(void)
 	if(scrtmp)
 		return;
 	h = BIG*Dy(screen->r);
-	scrtmp = allocimage(display, Rect(0, 0, 32, h), screen->chan, 0, DWhite);
+	scrtmp = allocimage(display, Rect(0, 0, 32, h), screen->chan, 0, DNofill);
 	if(scrtmp == nil)
 		error("scrtemps");
 }
@@ -70,7 +70,7 @@ wscrdraw(Window *w)
 
 	scrtemps();
 	if(w->i == nil)
-		error("scrdraw");
+		return;
 	r = w->scrollr;
 	b = scrtmp;
 	r1 = r;

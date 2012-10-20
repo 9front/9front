@@ -46,7 +46,6 @@ Channel* initkbd(void);
 
 char		*fontname;
 int		mainpid;
-int		reverse;
 
 enum
 {
@@ -228,7 +227,7 @@ threadmain(int argc, char *argv[])
 			r = screen->r;
 			r.max.x = r.min.x+300;
 			r.max.y = r.min.y+80;
-			i = allocwindow(wscreen, r, Refbackup, DWhite);
+			i = allocwindow(wscreen, r, Refbackup, DNofill);
 			wkeyboard = new(i, FALSE, scrolling, 0, nil, "/bin/rc", kbdargv);
 			if(wkeyboard == nil)
 				error("can't create keyboard window");
@@ -653,10 +652,10 @@ resized(void)
 				break;
 		incref(w);
 		if(j < nhidden){
-			im = allocimage(display, r, screen->chan, 0, DWhite);
+			im = allocimage(display, r, screen->chan, 0, DNofill);
 			r = ZR;
 		} else
-			im = allocwindow(wscreen, r, Refbackup, DWhite);
+			im = allocwindow(wscreen, r, Refbackup, DNofill);
 		if(im)
 			wsendctlmesg(w, Reshaped, r, im);
 		wclose(w);
@@ -846,12 +845,13 @@ sweep(void)
 			p = onscreen(mouse->xy);
 			r = canonrect(Rpt(p0, p));
 			if(Dx(r)>5 && Dy(r)>5){
-				i = allocwindow(wscreen, r, Refnone, 0xEEEEEEFF); /* grey */
+				i = allocwindow(wscreen, r, Refnone, DNofill);
 				freeimage(oi);
 				if(i == nil)
 					goto Rescue;
 				oi = i;
-				border(i, r, Selborder, red, ZP);
+				border(i, r, Selborder, sizecol, ZP);
+				draw(i, insetrect(r, Selborder), cols[BACK], nil, ZP);
 				flushimage(display, 1);
 			}
 		}
@@ -861,11 +861,10 @@ sweep(void)
 	if(i==nil || Dx(i->r)<100 || Dy(i->r)<3*font->height)
 		goto Rescue;
 	oi = i;
-	i = allocwindow(wscreen, oi->r, Refbackup, DWhite);
+	i = allocwindow(wscreen, oi->r, Refbackup, DNofill);
 	freeimage(oi);
 	if(i == nil)
 		goto Rescue;
-	border(i, r, Selborder, red, ZP);
 	cornercursor(input, mouse->xy, 1);
 	goto Return;
 
@@ -890,7 +889,9 @@ drawedge(Image **bp, Rectangle r)
 		originwindow(b, r.min, r.min);
 	else{
 		freeimage(b);
-		*bp = allocwindow(wscreen, r, Refbackup, DRed);
+		b = allocwindow(wscreen, r, Refbackup, DNofill);
+		if(b != nil) draw(b, r, sizecol, nil, ZP);
+		*bp = b;
 	}
 }
 
@@ -944,7 +945,7 @@ drag(Window *w, Rectangle *rp)
 	moveto(mousectl, mouse->xy);	/* force cursor update; ugly */
 	menuing = FALSE;
 	flushimage(display, 1);
-	if(mouse->buttons!=0 || (ni=allocwindow(wscreen, r, Refbackup, DWhite))==nil){
+	if(mouse->buttons!=0 || (ni=allocwindow(wscreen, r, Refbackup, DNofill))==nil){
 		moveto(mousectl, om);
 		while(mouse->buttons)
 			readmouse(mousectl);
@@ -1023,7 +1024,6 @@ whichrect(Rectangle r, Point p, int which)
 Image*
 bandsize(Window *w)
 {
-	Image *i;
 	Rectangle r, or;
 	Point p, startp;
 	int which, but;
@@ -1060,11 +1060,7 @@ bandsize(Window *w)
 	}
 	if(abs(p.x-startp.x)+abs(p.y-startp.y) <= 1)
 		return nil;
-	i = allocwindow(wscreen, or, Refbackup, DWhite);
-	if(i == nil)
-		return nil;
-	border(i, r, Selborder, red, ZP);
-	return i;
+	return allocwindow(wscreen, or, Refbackup, DNofill);
 }
 
 Window*
@@ -1157,7 +1153,7 @@ whide(Window *w)
 	if(nhidden >= nelem(hidden))
 		return 0;
 	incref(w);
-	i = allocimage(display, w->screenr, w->i->chan, 0, DWhite);
+	i = allocimage(display, w->screenr, w->i->chan, 0, DNofill);
 	if(i){
 		if(w == input)
 			input = nil;
@@ -1180,7 +1176,7 @@ wunhide(Window *w)
 	if(j == nhidden)
 		return -1;	/* not hidden */
 	incref(w);
-	i = allocwindow(wscreen, w->i->r, Refbackup, DWhite);
+	i = allocwindow(wscreen, w->i->r, Refbackup, DNofill);
 	if(i){
 		--nhidden;
 		memmove(hidden+j, hidden+j+1, (nhidden-j)*sizeof(Window*));
