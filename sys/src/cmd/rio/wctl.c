@@ -346,68 +346,32 @@ wctlnew(Rectangle rect, char *arg, int pid, int hideit, int scrollit, char *dir,
 }
 
 int
-writewctl(Xfid *x, char *err)
+wctlcmd(Window *w, Rectangle r, int cmd, char *err)
 {
-	int cnt, cmd, j, id, hideit, scrollit, pid;
 	Image *i;
-	char *arg, *dir;
-	Rectangle rect;
-	Window *w;
-
-	w = x->f->w;
-	cnt = x->count;
-	x->data[cnt] = '\0';
-	id = 0;
-
-	rect = rectsubpt(w->screenr, screen->r.min);
-	cmd = parsewctl(&arg, rect, &rect, &pid, &id, &hideit, &scrollit, &dir, x->data, err);
-	if(cmd < 0)
-		return -1;
-
-	if(mouse->buttons!=0 && cmd>=Top){
-		strcpy(err, "action disallowed when mouse active");
-		return -1;
-	}
-
-	if(id != 0){
-		for(j=0; j<nwindow; j++)
-			if(window[j]->id == id)
-				break;
-		if(j == nwindow){
-			strcpy(err, "no such window id");
-			return -1;
-		}
-		w = window[j];
-		if(w->deleted || w->i==nil){
-			strcpy(err, "window deleted");
-			return -1;
-		}
-	}
 
 	switch(cmd){
-	case New:
-		return wctlnew(rect, arg, pid, hideit, scrollit, dir, err);
-	case Set:
-		if(pid > 0)
-			wsetpid(w, pid, 0);
-		return 1;
 	case Move:
-		rect = Rect(rect.min.x, rect.min.y, rect.min.x+Dx(w->screenr), rect.min.y+Dy(w->screenr));
-		rect = rectonscreen(rect);
+		r = Rect(r.min.x, r.min.y, r.min.x+Dx(w->screenr), r.min.y+Dy(w->screenr));
+		r = rectonscreen(r);
 		/* fall through */
 	case Resize:
-		if(!goodrect(rect)){
+		if(!goodrect(r)){
 			strcpy(err, Ebadwr);
 			return -1;
 		}
-		if(eqrect(rect, w->screenr))
+		if(w != input){
+			strcpy(err, "window not current");
+			return -1;
+		}
+		if(eqrect(r, w->screenr))
 			return 1;
-		i = allocwindow(wscreen, rect, Refbackup, DWhite);
+		i = allocwindow(wscreen, r, Refbackup, DWhite);
 		if(i == nil){
 			strcpy(err, Ewalloc);
 			return -1;
 		}
-		border(i, rect, Selborder, red, ZP);
+		border(i, r, Selborder, red, ZP);
 		wsendctlmesg(w, Reshaped, i->r, i);
 		return 1;
 	case Scroll:
@@ -441,24 +405,66 @@ writewctl(Xfid *x, char *err)
 		}
 		return 1;
 	case Unhide:
-		for(j=0; j<nhidden; j++)
-			if(hidden[j] == w)
-				break;
-		if(j == nhidden){
+		switch(wunhide(w)){
+		case -1:
 			strcpy(err, "window not hidden");
 			return -1;
-		}
-		if(wunhide(j) == 0){
+		case 0:
 			strcpy(err, "hide failed");
 			return -1;
+		default:
+			break;
 		}
 		return 1;
 	case Delete:
 		wsendctlmesg(w, Deleted, ZR, nil);
 		return 1;
 	}
+
 	strcpy(err, "invalid wctl message");
 	return -1;
+}
+
+int
+writewctl(Xfid *x, char *err)
+{
+	int cnt, cmd, id, hideit, scrollit, pid;
+	char *arg, *dir;
+	Rectangle r;
+	Window *w;
+
+	w = x->f->w;
+	cnt = x->count;
+	x->data[cnt] = '\0';
+	id = 0;
+
+	r = rectsubpt(w->screenr, screen->r.min);
+	cmd = parsewctl(&arg, r, &r, &pid, &id, &hideit, &scrollit, &dir, x->data, err);
+	if(cmd < 0)
+		return -1;
+
+	if(id != 0){
+		w = wlookid(id);
+		if(w == 0){
+			strcpy(err, "no such window id");
+			return -1;
+		}
+	}
+
+	switch(cmd){
+	case New:
+		return wctlnew(r, arg, pid, hideit, scrollit, dir, err);
+	case Set:
+		if(pid > 0)
+			wsetpid(w, pid, 0);
+		return 1;
+	}
+
+	incref(w);
+	id = wctlcmd(w, r, cmd, err);
+	wclose(w);
+
+	return id;
 }
 
 void

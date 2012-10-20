@@ -1,6 +1,6 @@
 void	keyboardsend(char*, int);
 int	whide(Window*);
-int	wunhide(int);
+int	wunhide(Window*);
 void	freescrtemps(void);
 int	parsewctl(char**, Rectangle, Rectangle*, int*, int*, int*, int*, char**, char*, char*);
 int	writewctl(Xfid*, char*);

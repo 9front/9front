@@ -131,7 +131,6 @@ wresize(Window *w, Image *i, int move)
 		draw(i, i->r, w->i, nil, w->i->r.min);
 	freeimage(w->i);
 	w->i = i;
-	wsetname(w);
 	w->mc.image = i;
 	r = insetrect(i->r, Selborder+1);
 	w->scrollr = r;
@@ -151,10 +150,15 @@ wresize(Window *w, Image *i, int move)
 		wsetselect(w, w->q0, w->q1);
 		wscrdraw(w);
 	}
-	wborder(w, Selborder);
+	if(w == input)
+		wborder(w, Selborder);
+	else
+		wborder(w, Unselborder);
+	wsetname(w);
 	w->topped = ++topped;
 	w->resized = TRUE;
 	w->mouse.counter++;
+	w->wctlready = 1;
 }
 
 void
@@ -189,7 +193,7 @@ wclose(Window *w)
 	if(i < 0)
 		error("negative ref count");
 	if(!w->deleted)
-		wclosewin(w);
+		wclunk(w);
 	wsendctlmesg(w, Exited, ZR, nil);
 	return 1;
 }
@@ -1121,24 +1125,16 @@ wctlmesg(Window *w, int m, Rectangle r, Image *i)
 		w->screenr = r;
 		strcpy(buf, w->name);
 		wresize(w, i, m==Moved);
-		w->wctlready = 1;
 		proccreate(deletetimeoutproc, estrdup(buf), 4096);
-		if(Dx(r) > 0){
-			if(w != input)
-				wcurrent(w);
-		}else if(w == input)
-			wcurrent(nil);
-		flushimage(display, 1);
 		break;
 	case Refresh:
-		if(w->deleted || Dx(w->screenr)<=0 || !rectclip(&r, w->i->r))
+		if(w->deleted || Dx(w->screenr)<=0 || !rectclip(&r, w->i->r) || w->mouseopen)
 			break;
-		if(!w->mouseopen)
-			wrefresh(w, r);
+		wrefresh(w, r);
 		flushimage(display, 1);
 		break;
 	case Movemouse:
-		if(sweeping || !ptinrect(r.min, w->i->r))
+		if(w->deleted || Dx(w->screenr)<=0 || !ptinrect(r.min, w->i->r))
 			break;
 		wmovemouse(w, r.min);
 	case Rawon:
@@ -1154,6 +1150,7 @@ wctlmesg(Window *w, int m, Rectangle r, Image *i)
 		break;
 	case Holdon:
 	case Holdoff:
+	case Repaint:
 		if(w->deleted)
 			break;
 		wrepaint(w);
@@ -1162,11 +1159,13 @@ wctlmesg(Window *w, int m, Rectangle r, Image *i)
 	case Deleted:
 		if(w->deleted)
 			break;
+		wclunk(w);
 		write(w->notefd, "hangup", 6);
 		proccreate(deletetimeoutproc, estrdup(w->name), 4096);
 		wclosewin(w);
 		break;
 	case Exited:
+		wclosewin(w);
 		frclear(w, TRUE);
 		close(w->notefd);
 		chanfree(w->mc.c);
@@ -1193,6 +1192,8 @@ wctlmesg(Window *w, int m, Rectangle r, Image *i)
 void
 wmovemouse(Window *w, Point p)
 {
+	if(w != input || menuing || sweeping)
+		return;
 	p.x += w->screenr.min.x-w->i->r.min.x;
 	p.y += w->screenr.min.y-w->i->r.min.y;
 	moveto(mousectl, p);
@@ -1216,7 +1217,6 @@ wborder(Window *w, int type)
 		else
 			col = lighttitlecol;
 	}
-
 	border(w->i, w->i->r, Selborder, col, ZP);
 }
 
@@ -1230,7 +1230,6 @@ wpointto(Point pt)
 	for(i=0; i<nwindow; i++){
 		v = window[i];
 		if(ptinrect(pt, v->screenr))
-		if(!v->deleted)
 		if(w==nil || v->topped>w->topped)
 			w = v;
 	}
@@ -1246,20 +1245,14 @@ wcurrent(Window *w)
 		return;
 	oi = input;
 	input = w;
-	if(oi!=w && oi!=nil)
-		wrepaint(oi);
-	if(w !=nil){
-		wrepaint(w);
-		wsetcursor(w, 0);
-	}
 	if(w != oi){
 		if(oi){
 			oi->wctlready = 1;
-			wsendctlmesg(oi, Wakeup, ZR, nil);
+			wsendctlmesg(oi, Repaint, ZR, nil);
 		}
 		if(w){
 			w->wctlready = 1;
-			wsendctlmesg(w, Wakeup, ZR, nil);
+			wsendctlmesg(w, Repaint, ZR, nil);
 		}
 	}
 }
@@ -1269,7 +1262,7 @@ wsetcursor(Window *w, int force)
 {
 	Cursor *p;
 
-	if(w==nil || /*w!=input || */ w->i==nil || Dx(w->screenr)<=0)
+	if(w==nil || w->deleted || w->i==nil || Dx(w->screenr)<=0)
 		p = nil;
 	else if(wpointto(mouse->xy) == w){
 		p = w->cursorp;
@@ -1290,6 +1283,27 @@ riosetcursor(Cursor *p, int force)
 	lastcursor = p;
 }
 
+
+void
+wtopme(Window *w)
+{
+	if(w!=nil && w->i!=nil && !w->deleted && w->topped!=topped){
+		w->topped = ++topped;
+		topwindow(w->i);
+		flushimage(display, 1);
+	}
+}
+
+void
+wbottomme(Window *w)
+{
+	if(w!=nil && w->i!=nil && !w->deleted){
+		w->topped = - ++topped;
+		bottomwindow(w->i);
+		flushimage(display, 1);
+	}
+}
+
 Window*
 wtop(Point pt)
 {
@@ -1299,32 +1313,12 @@ wtop(Point pt)
 	if(w){
 		if(w->topped == topped)
 			return nil;
-		topwindow(w->i);
+		incref(w);
 		wcurrent(w);
-		flushimage(display, 1);
-		w->topped = ++topped;
+		wtopme(w);
+		wclose(w);
 	}
 	return w;
-}
-
-void
-wtopme(Window *w)
-{
-	if(w!=nil && w->i!=nil && !w->deleted && w->topped!=topped){
-		topwindow(w->i);
-		flushimage(display, 1);
-		w->topped = ++topped;
-	}
-}
-
-void
-wbottomme(Window *w)
-{
-	if(w!=nil && w->i!=nil && !w->deleted){
-		bottomwindow(w->i);
-		flushimage(display, 1);
-		w->topped = - ++topped;
-	}
 }
 
 Window*
@@ -1339,12 +1333,10 @@ wlookid(int id)
 }
 
 void
-wclosewin(Window *w)
+wclunk(Window *w)
 {
-	Rectangle r;
 	int i;
 
-	w->deleted = TRUE;
 	if(w == input){
 		input = nil;
 		wsetcursor(w, 0);
@@ -1360,16 +1352,24 @@ wclosewin(Window *w)
 	for(i=0; i<nwindow; i++)
 		if(window[i] == w){
 			--nwindow;
-			memmove(window+i, window+i+1, (nwindow-i)*sizeof(Window*));
-			w->deleted = TRUE;
-			r = w->i->r;
-			/* move it off-screen to hide it, in case client is slow in letting it go */
-			MOVEIT originwindow(w->i, r.min, view->r.max);
-			freeimage(w->i);
-			w->i = nil;
-			return;
+			memmove(window+i, window+i+1, (nwindow-i)*sizeof(window[0]));
+			break;
 		}
-	error("unknown window in closewin");
+	w->deleted = TRUE;
+}
+
+void
+wclosewin(Window *w)
+{
+	Image *i;
+
+	i = w->i;
+	if(i){
+		w->i = nil;
+		/* move it off-screen to hide it, in case client is slow in letting it go */
+		MOVEIT originwindow(i, i->r.min, view->r.max);
+		freeimage(i);
+	}
 }
 
 void

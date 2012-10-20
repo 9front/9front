@@ -67,6 +67,7 @@ enum	/* control messages */
 	Rawoff,
 	Holdon,
 	Holdoff,
+	Repaint,
 	Deleted,
 	Exited,
 };
@@ -194,6 +195,7 @@ uint		wbacknl(Window*, uint, uint);
 uint		winsert(Window*, Rune*, int, uint);
 void		waddraw(Window*, Rune*, int);
 void		wborder(Window*, int);
+void		wclunk(Window*);
 void		wclosewin(Window*);
 void		wcurrent(Window*);
 void		wcut(Window*);
