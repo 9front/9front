@@ -1311,11 +1311,9 @@ wtop(Point pt)
 
 	w = wpointto(pt);
 	if(w){
-		if(w->topped == topped)
-			return nil;
 		incref(w);
-		wcurrent(w);
 		wtopme(w);
+		wcurrent(w);
 		wclose(w);
 	}
 	return w;

@@ -1220,8 +1220,8 @@ unhide(int j)
 	for(j=0; j<nwindow; j++)
 		if(window[j] == w){
 			incref(w);
-			wcurrent(w);
 			wtopme(w);
+			wcurrent(w);
 			wclose(w);
 			return;
 		}
