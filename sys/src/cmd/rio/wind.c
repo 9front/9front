@@ -660,6 +660,7 @@ wkeyctl(Window *w, Rune r)
 			--w->holding;
 		else
 			w->holding++;
+		wsetcursor(w, 0);
 		wrepaint(w);
 		if(r == Kesc)
 			return;
@@ -732,10 +733,9 @@ wrepaint(Window *w)
 	wsetcols(w);
 	if(!w->mouseopen)
 		frredraw(w);
-	if(w == input){
+	if(w == input)
 		wborder(w, Selborder);
-		wsetcursor(w, 0);
-	}else
+	else
 		wborder(w, Unselborder);
 }
 
@@ -1114,6 +1114,9 @@ wctlmesg(Window *w, int m, Rectangle r, Image *i)
 		break;
 	case Holdon:
 	case Holdoff:
+		if(w == input)
+			wsetcursor(w, 0);
+		/* no break */
 	case Repaint:
 		if(w->deleted)
 			break;

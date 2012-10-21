@@ -442,13 +442,13 @@ xfidwrite(Xfid *x)
 			break;
 		}
 		if(strncmp(x->data, "holdoff", 7)==0 && w->holding){
-			if(--w->holding == FALSE)
+			if(--w->holding == 0)
 				wsendctlmesg(w, Holdoff, ZR, nil);
 			break;
 		}
 		if(strncmp(x->data, "rawon", 5)==0){
 			if(w->holding){
-				w->holding = FALSE;
+				w->holding = 0;
 				wsendctlmesg(w, Holdoff, ZR, nil);
 			}
 			if(w->rawing++ == 0)
