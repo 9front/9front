@@ -96,7 +96,7 @@ post(char *name, char *envname, int srvfd)
 	fd = create(name, OWRITE|ORCLOSE|OCEXEC, 0600);
 	if(fd < 0)
 		error(name);
-	sprint(buf, "%d",srvfd);
+	snprint(buf, sizeof(buf), "%d", srvfd);
 	if(write(fd, buf, strlen(buf)) != strlen(buf))
 		error("srv write");
 	putenv(envname, name);
@@ -150,7 +150,7 @@ filsysinit(Channel *cxfidalloc)
 	 */
 	if(cexecpipe(&p0, &wctlfd) < 0)
 		goto Rescue;
-	sprint(srvwctl, "/srv/riowctl.%s.%d", fs->user, pid);
+	snprint(srvwctl, sizeof(srvwctl), "/srv/riowctl.%s.%d", fs->user, pid);
 	post(srvwctl, "wctl", p0);
 	close(p0);
 
@@ -167,7 +167,7 @@ filsysinit(Channel *cxfidalloc)
 	/*
 	 * Post srv pipe
 	 */
-	sprint(srvpipe, "/srv/rio.%s.%d", fs->user, pid);
+	snprint(srvpipe, sizeof(srvpipe), "/srv/rio.%s.%d", fs->user, pid);
 	post(srvpipe, "wsys", fs->cfd);
 
 	return fs;
@@ -537,7 +537,7 @@ filsysread(Filsys *fs, Xfid *x, Fid *f)
 	int i, n, o, e, len, j, k, *ids;
 	Dirtab *d, dt;
 	uint clock;
-	char buf[16];
+	char buf[32];
 
 	if((f->qid.type & QTDIR) == 0){
 		sendp(x->c, xfidread);

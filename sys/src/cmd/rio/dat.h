@@ -172,7 +172,6 @@ struct Window
 	uchar		mouseopen;
 	uchar		kbdopen;
 	char			*label;
-	int			pid;
 	char			*dir;
 };
 

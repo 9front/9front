@@ -70,7 +70,7 @@ wsetname(Window *w)
 	int i, n;
 	char err[ERRMAX];
 	
-	n = sprint(w->name, "window.%d.%d", w->id, w->namecount++);
+	n = snprint(w->name, sizeof(w->name)-2, "window.%d.%d", w->id, w->namecount++);
 	for(i='A'; i<='Z'; i++){
 		if(nameimage(w->i, w->name, 1) > 0)
 			return;
@@ -446,6 +446,7 @@ interruptproc(void *v)
 
 	notefd = v;
 	write(*notefd, "interrupt", 9);
+	close(*notefd);
 	free(notefd);
 }
 
@@ -672,7 +673,7 @@ wkeyctl(Window *w, Rune r)
 		w->qh = w->nr;
 		wshow(w, w->qh);
 		notefd = emalloc(sizeof(int));
-		*notefd = w->notefd;
+		*notefd = dup(w->notefd, -1);
 		proccreate(interruptproc, notefd, 4096);
 		return;
 	case Kack:	/* ^F: file name completion */
@@ -838,7 +839,7 @@ wplumb(Window *w)
 			p0--;
 		while(p1<w->nr && w->r[p1]!=' ' && w->r[p1]!='\t' && w->r[p1]!='\n')
 			p1++;
-		sprint(buf, "click=%d", w->q0-p0);
+		snprint(buf, sizeof(buf), "click=%d", w->q0-p0);
 		m->attr = plumbunpackattr(buf);
 	}
 	if(p1-p0 > messagesize-1024){
@@ -1088,6 +1089,7 @@ wctlmesg(Window *w, int m, Rectangle r, Image *i)
 		strcpy(buf, w->name);
 		wresize(w, i, m==Moved);
 		proccreate(deletetimeoutproc, estrdup(buf), 4096);
+		flushimage(display, 1);
 		break;
 	case Refresh:
 		if(w->deleted || Dx(w->screenr)<=0 || !rectclip(&r, w->i->r) || w->mouseopen)
@@ -1335,20 +1337,23 @@ wclosewin(Window *w)
 void
 wsetpid(Window *w, int pid, int dolabel)
 {
-	char buf[128];
-	int fd;
+	char buf[64];
+	int ofd;
 
-	w->pid = pid;
-	if(dolabel){
-		sprint(buf, "rc %d", pid);
-		free(w->label);
-		w->label = estrdup(buf);
+	ofd = w->notefd;
+	if(pid <= 0)
+		w->notefd = -1;
+	else {
+		if(dolabel){
+			snprint(buf, sizeof(buf), "rc %d", pid);
+			free(w->label);
+			w->label = estrdup(buf);
+		}
+		snprint(buf, sizeof(buf), "/proc/%d/notepg", pid);
+		w->notefd = open(buf, OWRITE|OCEXEC);
 	}
-	sprint(buf, "/proc/%d/notepg", pid);
-	fd = open(buf, OWRITE|OCEXEC);
-	if(w->notefd > 0)
-		close(w->notefd);
-	w->notefd = fd;
+	if(ofd >= 0)
+		close(ofd);
 }
 
 void

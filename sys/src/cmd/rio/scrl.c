@@ -13,24 +13,25 @@
 static Image *scrtmp;
 
 static
-void
+Image*
 scrtemps(void)
 {
 	int h;
 
-	if(scrtmp)
-		return;
-	h = BIG*Dy(screen->r);
-	scrtmp = allocimage(display, Rect(0, 0, 32, h), screen->chan, 0, DNofill);
-	if(scrtmp == nil)
-		error("scrtemps");
+	if(scrtmp == nil){
+		h = BIG*Dy(screen->r);
+		scrtmp = allocimage(display, Rect(0, 0, 32, h), screen->chan, 0, DNofill);
+	}
+	return scrtmp;
 }
 
 void
 freescrtemps(void)
 {
-	freeimage(scrtmp);
-	scrtmp = nil;
+	if(scrtmp){
+		freeimage(scrtmp);
+		scrtmp = nil;
+	}
 }
 
 static
@@ -68,11 +69,10 @@ wscrdraw(Window *w)
 	Rectangle r, r1, r2;
 	Image *b;
 
-	scrtemps();
-	if(w->i == nil)
+	b = scrtemps();
+	if(b == nil || w->i == nil)
 		return;
 	r = w->scrollr;
-	b = scrtmp;
 	r1 = r;
 	r1.min.x = 0;
 	r1.max.x = Dx(r);

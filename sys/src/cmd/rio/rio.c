@@ -45,7 +45,6 @@ void	initcmd(void*);
 Channel* initkbd(void);
 
 char		*fontname;
-int		mainpid;
 
 enum
 {
@@ -159,7 +158,6 @@ threadmain(int argc, char *argv[])
 		break;
 	}ARGEND
 
-	mainpid = getpid();
 	if(getwd(buf, sizeof buf) == nil)
 		startdir = estrdup(".");
 	else
@@ -333,7 +331,8 @@ killprocs(void)
 	int i;
 
 	for(i=0; i<nwindow; i++)
-		postnote(PNGROUP, window[i]->pid, "hangup");
+		if(window[i]->notefd >= 0)
+			write(window[i]->notefd, "hangup", 6); 
 }
 
 void

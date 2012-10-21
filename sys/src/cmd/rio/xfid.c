@@ -554,8 +554,8 @@ xfidwrite(Xfid *x)
 		break;
 
 	default:
-		fprint(2, buf, "unknown qid %d in write\n", qid);
-		sprint(buf, "unknown qid in write");
+		fprint(2, "unknown qid %d in write\n", qid);
+		snprint(buf, sizeof(buf), "unknown qid in write");
 		filsysrespond(x->fs, x, &fc, buf);
 		return;
 	}
@@ -892,7 +892,7 @@ xfidread(Xfid *x)
 
 	default:
 		fprint(2, "unknown qid %d in read\n", qid);
-		sprint(buf, "unknown qid in read");
+		snprint(buf, sizeof(buf), "unknown qid in read");
 		filsysrespond(x->fs, x, &fc, buf);
 		break;
 	}
