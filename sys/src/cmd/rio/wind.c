@@ -113,10 +113,7 @@ wresize(Window *w, Image *i, int move)
 		wsetselect(w, w->q0, w->q1);
 		wscrdraw(w);
 	}
-	if(w == input)
-		wborder(w, Selborder);
-	else
-		wborder(w, Unselborder);
+	wborder(w, Selborder);
 	wsetname(w);
 	w->topped = ++topped;
 	w->resized = TRUE;
@@ -312,7 +309,7 @@ winctl(void *arg)
 			send(mrm.cm, &m.Mouse);
 			continue;
 		case WCtl:
-			if(wctlmesg(w, wcm.type, wcm.r, wcm.image) == Exited){
+			if(wctlmesg(w, wcm.type, wcm.r, wcm.p) == Exited){
 				for(i=0; i<nelem(kbdq); i++)
 					free(kbdq[i]);
 				chanfree(crm.c1);
@@ -1058,26 +1055,29 @@ wselect(Window *w)
 }
 
 void
-wsendctlmesg(Window *w, int type, Rectangle r, Image *image)
+wsendctlmesg(Window *w, int type, Rectangle r, void *p)
 {
 	Wctlmesg wcm;
 
 	wcm.type = type;
 	wcm.r = r;
-	wcm.image = image;
+	wcm.p = p;
 	send(w->cctl, &wcm);
 }
 
 int
-wctlmesg(Window *w, int m, Rectangle r, Image *i)
+wctlmesg(Window *w, int m, Rectangle r, void *p)
 {
 	char buf[64];
+	Image *i = p;
 
 	switch(m){
 	default:
 		error("unknown control message");
 		break;
 	case Wakeup:
+		if(p!=nil)
+			sendp((Channel*)p, w);
 		break;
 	case Moved:
 	case Reshaped:
@@ -1089,6 +1089,55 @@ wctlmesg(Window *w, int m, Rectangle r, Image *i)
 		strcpy(buf, w->name);
 		wresize(w, i, m==Moved);
 		proccreate(deletetimeoutproc, estrdup(buf), 4096);
+		flushimage(display, 1);
+		if(Dx(r)<=0){	/* window got hidden, if we had the input, drop it */
+			if(w==input)
+				input = nil;
+			break;
+		}
+		/* fall through to get input if needed */
+	case Topped:
+		if(w->deleted || w==input)
+			break;
+		if(input!=nil){
+			Window *oi;
+			Channel *c;
+	
+			oi = input;
+			incref(oi);
+
+			/*
+			 * have to wait until old input responds before
+			 * changing input to us because the window might
+			 * currently be mouse tracking and it is not
+			 * prepared for getting its input revoked.
+			 */
+			c = chancreate(sizeof(void*), 0);
+			wsendctlmesg(oi, Wakeup, ZR, c);
+			recv(c, nil);
+			chanfree(c);
+
+			/*
+			 * if we are still top window and nobody else has taken
+			 * input from original window, take the input.
+			 */
+			if(!w->deleted && w->topped==topped && oi==input){
+				input = w;
+
+				oi->wctlready = 1;
+				wsendctlmesg(oi, Repaint, ZR, nil);
+			}
+			wclose(oi);
+		} else
+			input = w;
+		w->wctlready = 1;
+		if(m!=Topped && w==input)
+			break;
+		/* fall thrugh for redraw after input change */
+	case Repaint:
+		if(w->deleted || Dx(w->screenr)<=0)
+			break;
+		wrepaint(w);
 		flushimage(display, 1);
 		break;
 	case Refresh:
@@ -1114,12 +1163,10 @@ wctlmesg(Window *w, int m, Rectangle r, Image *i)
 		break;
 	case Holdon:
 	case Holdoff:
-		if(w == input)
-			wsetcursor(w, 0);
-		/* no break */
-	case Repaint:
 		if(w->deleted)
 			break;
+		if(w==input)
+			wsetcursor(w, 0);
 		wrepaint(w);
 		flushimage(display, 1);
 		break;
@@ -1206,22 +1253,8 @@ wpointto(Point pt)
 void
 wcurrent(Window *w)
 {
-	Window *oi;
-
-	if(wkeyboard!=nil && w==wkeyboard)
-		return;
-	oi = input;
-	input = w;
-	if(w != oi){
-		if(oi){
-			oi->wctlready = 1;
-			wsendctlmesg(oi, Repaint, ZR, nil);
-		}
-		if(w){
-			w->wctlready = 1;
-			wsendctlmesg(w, Repaint, ZR, nil);
-		}
-	}
+	if(w!=nil && w!=input)
+		wsendctlmesg(w, Topped, ZR, nil);
 }
 
 void

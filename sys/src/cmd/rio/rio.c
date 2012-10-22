@@ -345,7 +345,7 @@ keyboardthread(void*)
 	while(s = recvp(kbdchan)){
 		if(*s == 'k' || *s == 'K')
 			shiftdown = utfrune(s+1, Kshift) != nil;
-		if(input == nil || input->deleted || sendp(input->ck, s) <= 0)
+		if(input == nil || sendp(input->ck, s) <= 0)
 			free(s);
 	}
 }
@@ -1113,10 +1113,8 @@ resize(void)
 		return;
 	incref(w);
 	i = sweep();
-	if(i){
+	if(i)
 		wsendctlmesg(w, Reshaped, i->r, i);
-		wcurrent(w);
-	}
 	wclose(w);
 }
 
@@ -1132,10 +1130,8 @@ move(void)
 		return;
 	incref(w);
 	i = drag(w, &r);
-	if(i){
+	if(i)
 		wsendctlmesg(w, Moved, r, i);
-		wcurrent(w);
-	}
 	cornercursor(w, mouse->xy, 1);
 	wclose(w);
 }
@@ -1154,8 +1150,6 @@ whide(Window *w)
 	incref(w);
 	i = allocimage(display, w->screenr, w->i->chan, 0, DNofill);
 	if(i){
-		if(w == input)
-			input = nil;
 		hidden[nhidden++] = w;
 		wsendctlmesg(w, Reshaped, ZR, i);
 	}
@@ -1180,7 +1174,6 @@ wunhide(Window *w)
 		--nhidden;
 		memmove(hidden+j, hidden+j+1, (nhidden-j)*sizeof(Window*));
 		wsendctlmesg(w, Reshaped, w->i->r, i);
-		wcurrent(w);
 	}
 	wclose(w);
 	return i!=0;
@@ -1257,7 +1250,6 @@ new(Image *i, int hideit, int scrollit, int pid, char *dir, char *cmd, char **ar
 	threadcreate(winctl, w, 8192);
 	if(!hideit)
 		wcurrent(w);
-	flushimage(display, 1);
 	if(pid == 0){
 		arg = emalloc(5*sizeof(void*));
 		arg[0] = w;

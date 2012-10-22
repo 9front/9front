@@ -388,6 +388,7 @@ wctlcmd(Window *w, Rectangle r, int cmd, char *err)
 		wbottomme(w);
 		return 1;
 	case Current:
+		wtopme(w);
 		wcurrent(w);
 		return 1;
 	case Hide:
