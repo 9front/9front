@@ -1208,6 +1208,7 @@ proctext(Chan *c, Proc *p)
 
 	unlock(i);
 	poperror();
+	cclose(c);
 
 	return tc;
 }
