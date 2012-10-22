@@ -190,7 +190,6 @@ xfidattach(Xfid *x)
 				if(pid == 0)
 					pid = -1;	/* make sure we don't pop a shell! - UGH */
 				w = new(i, hideit, scrollit, pid, nil, nil, nil);
-				flushimage(display, 1);
 				newlymade = TRUE;
 			}else
 				err = Ewindow;
@@ -550,7 +549,6 @@ xfidwrite(Xfid *x)
 			filsysrespond(x->fs, x, &fc, buf);
 			return;
 		}
-		flushimage(display, 1);
 		break;
 
 	default:

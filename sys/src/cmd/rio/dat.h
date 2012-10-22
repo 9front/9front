@@ -61,13 +61,14 @@ enum	/* control messages */
 	Wakeup,
 	Reshaped,
 	Moved,
+	Topped,
+	Repaint,
 	Refresh,
 	Movemouse,
 	Rawon,
 	Rawoff,
 	Holdon,
 	Holdoff,
-	Repaint,
 	Deleted,
 	Exited,
 };
@@ -76,7 +77,7 @@ struct Wctlmesg
 {
 	int		type;
 	Rectangle	r;
-	Image	*image;
+	void		*p;
 };
 
 struct Conswritemesg
@@ -132,7 +133,7 @@ struct Window
 	Mousectl		mc;
 	Mouseinfo	mouse;
 	Channel		*ck;			/* chan(char*) */
-	Channel		*cctl;		/* chan(Wctlmesg)[20] */
+	Channel		*cctl;		/* chan(Wctlmesg)[4] */
 	Channel		*conswrite;	/* chan(Conswritemesg) */
 	Channel		*consread;	/* chan(Consreadmesg) */
 	Channel		*mouseread;	/* chan(Mousereadmesg) */
@@ -188,8 +189,7 @@ char*	wcontents(Window*, int*);
 int		wbswidth(Window*, Rune);
 int		wclickmatch(Window*, int, int, int, uint*);
 int		wclose(Window*);
-int		wctlmesg(Window*, int, Rectangle, Image*);
-int		wctlmesg(Window*, int, Rectangle, Image*);
+int		wctlmesg(Window*, int, Rectangle, void*);
 uint		wbacknl(Window*, uint, uint);
 uint		winsert(Window*, Rune*, int, uint);
 void		waddraw(Window*, Rune*, int);
@@ -213,7 +213,7 @@ void		wresize(Window*, Image*, int);
 void		wscrdraw(Window*);
 void		wscroll(Window*, int);
 void		wselect(Window*);
-void		wsendctlmesg(Window*, int, Rectangle, Image*);
+void		wsendctlmesg(Window*, int, Rectangle, void*);
 void		wsetcursor(Window*, int);
 void		wsetname(Window*);
 void		wsetorigin(Window*, uint, int);
