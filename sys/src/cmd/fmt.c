@@ -12,14 +12,19 @@ int indent = 0;			/* current value of indent, before extra indent */
 int length = 70;		/* how many columns per output line */
 int join = 1;			/* can lines be joined? */
 int maxtab = 8;
+
 Biobuf bin;
 Biobuf bout;
 
 typedef struct Word Word;
-struct Word{
-	int	bol;
+struct Word
+{
+	Word	*next;
+
 	int	indent;
-	char	text[1];
+	int	length;
+	char	bol;
+	char	text[];
 };
 
 void	fmt(void);
@@ -84,17 +89,14 @@ main(int argc, char **argv)
 }
 
 int
-indentof(char **linep)
+indentof(char *s)
 {
-	int i, ind;
-	char *line;
+	int ind;
 
 	ind = 0;
-	line = *linep;
-	for(i=0; line[i]; i++)
-		switch(line[i]){
+	for(; *s != '\0'; s++)
+		switch(*s){
 		default:
-			*linep = line;
 			return ind;
 		case ' ':
 			ind++;
@@ -104,53 +106,65 @@ indentof(char **linep)
 			ind -= ind%maxtab;
 			break;
 		}
-			
+
 	/* plain white space doesn't change the indent */
-	*linep = "";
 	return indent;
 }
 
-Word**
-addword(Word **words, int *nwordp, char *s, int l, int indent, int bol)
+Word*
+newword(char *s, int n, int ind, int bol)
 {
 	Word *w;
 
-	w = malloc(sizeof(Word)+l+1);
-	memmove(w->text, s, l);
-	w->text[l] = '\0';
-	w->indent = indent;
+	w = malloc(sizeof(Word) + n+1);
+	w->next = nil;
+	w->indent = ind;
 	w->bol = bol;
-	words = realloc(words, (*nwordp+1)*sizeof(Word*));
-	words[(*nwordp)++] = w;
-	return words;
+	memmove(w->text, s, n);
+	w->text[n] = 0;
+	w->length = utflen(w->text);
+	return w;
 }
 
-Word**
-parseline(char *line, Word **words, int *nwordp)
+Word*
+getword(void)
 {
-	int ind, l, bol;
-
-	ind = indentof(&line);
-	indent = ind;
-	bol = 1;
+	static Word *head, *tail;
+	char *line, *s;
+	Word *w;
+	
+	w = head;
+	if(w != nil){
+		head = w->next;
+		return w;
+	}
+	line = Brdstr(&bin, '\n', 1);
+	if(line == nil)
+		return nil;
+	tail = nil;
+	indent = indentof(line);
 	for(;;){
-		/* find next word */
-		while(*line==' ' || *line=='\t')
+		while(*line == ' ' || *line == '\t')
 			line++;
 		if(*line == '\0'){
-			if(bol)
-				return addword(words, nwordp, "", 0, -1, bol);
+			if(head == nil)
+				return newword("", 0, -1, 1);
 			break;
 		}
 		/* how long is this word? */
-		for(l=0; line[l]; l++)
-			if(line[l]==' ' || line[l]=='\t')
+		for(s=line++; *line != '\0'; line++)
+			if(*line==' ' || *line=='\t')
 				break;
-		words = addword(words, nwordp, line, l, indent, bol);
-		bol = 0;
-		line += l;
+		w = newword(s, line-s, indent, head==nil);
+		if(head == nil)
+			head = w;
+		else
+			tail->next = w;
+		tail = w;
 	}
-	return words;
+	w = head;
+	head = w->next;
+	return w;
 }
 
 void
@@ -181,61 +195,46 @@ nspaceafter(char *s)
 		return 2;
 	return 1;
 }
-	
-
-void
-printwords(Word **w, int nw)
-{
-	int i, j, n, col, nsp;
-
-	/* one output line per loop */
-	for(i=0; i<nw; ){
-		/* if it's a blank line, print it */
-		if(w[i]->indent == -1){
-			Bputc(&bout, '\n');
-			if(++i == nw)	/* out of words */
-				break;
-		}
-		/* emit leading indent */
-		col = extraindent+w[i]->indent;
-		printindent(col);
-		/* emit words until overflow; always emit at least one word */
-		for(n=0;; n++){
-			Bprint(&bout, "%s", w[i]->text);
-			col += utflen(w[i]->text);
-			if(++i == nw)
-				break;	/* out of words */
-			if(w[i]->indent != w[i-1]->indent)
-				break;	/* indent change */
-			nsp = nspaceafter(w[i-1]->text);
-			if(col+nsp+utflen(w[i]->text) > extraindent+length)
-				break;	/* fold line */
-			if(!join && w[i]->bol)
-				break;
-			for(j=0; j<nsp; j++)
-				Bputc(&bout, ' ');	/* emit space; another word will follow */
-			col += nsp;
-		}
-		/* emit newline */
-		Bputc(&bout, '\n');
-	}
-}
 
 void
 fmt(void)
 {
-	char *s;
-	int i, nw;
-	Word **w;
+	Word *w, *o;
+	int col, nsp;
 
-	nw = 0;
-	w = nil;
-	while((s = Brdstr(&bin, '\n', 1)) != nil){
-		w = parseline(s, w, &nw);
-		free(s);
+	w = getword();
+	while(w != nil){
+		if(w->indent == -1){
+			Bputc(&bout, '\n');
+			free(w);
+			w = getword();
+			if(w == nil)
+				break;
+		}
+		col = w->indent;
+		printindent(extraindent+col);
+		/* emit words until overflow; always emit at least one word */
+		for(;;){
+			Bprint(&bout, "%s", w->text);
+			col += w->length;
+			o = w;
+			w = getword();
+			if(w == nil)
+				break;
+			if(w->indent != o->indent)
+				break;	/* indent change */
+			nsp = nspaceafter(o->text);
+			if(col+nsp+w->length > length)
+				break;	/* fold line */
+			if(!join && w->bol)
+				break;
+			while(--nsp >= 0){
+				Bputc(&bout, ' ');	/* emit space; another word will follow */
+				col++;
+			}
+			free(o);
+		}
+		free(o);
+		Bputc(&bout, '\n');
 	}
-	printwords(w, nw);
-	for(i=0; i<nw; i++)
-		free(w[i]);
-	free(w);
 }
