@@ -11,8 +11,11 @@ wrbio(char *file, Acctbio *a)
 	int i, fd, n;
 
 	fd = open(file, OWRITE);
-	if(fd < 0)
-		error("can't open %s", file);
+	if(fd < 0){
+		fd = create(file, OWRITE, 0660);
+		if(fd < 0)
+			error("can't create %s", file);
+	}
 	if(seek(fd, 0, 2) < 0)
 		error("can't seek %s", file);
 
