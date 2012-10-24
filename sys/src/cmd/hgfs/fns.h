@@ -31,3 +31,5 @@ Revtree *loadfilestree(Revlog *changelog, Revlog *manifest, Revinfo *ri);
 Revtree *loadchangestree(Revlog *changelog, Revlog *manifest, Revinfo *ri);
 void closerevtree(Revtree *t);
 
+/* util */
+int getdothg(char *dothg, char *path);

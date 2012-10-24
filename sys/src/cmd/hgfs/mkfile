@@ -6,6 +6,10 @@ CFLAGS=-FTVw
 
 HFILES=dat.h fns.h
 
-OFILES=zip.$O patch.$O hash.$O revlog.$O tree.$O info.$O fs.$O
+OFILES=fs.$O zip.$O patch.$O hash.$O revlog.$O tree.$O info.$O util.$O
 
 </sys/src/cmd/mkone
+
+# debug stuff
+$O.hgdb: hgdb.$O util.$O
+	$LD $LDFLAGS -o $target $prereq

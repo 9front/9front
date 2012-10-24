@@ -762,23 +762,8 @@ main(int argc, char *argv[])
 		usage();
 	} ARGEND;
 
-	if(*argv){
-		snprint(dothg, sizeof(dothg), "%s/.hg", *argv);
-	}else{
-		if(getwd(buf, sizeof(buf)) == nil)
-			sysfatal("can't get working dir: %r");
-		for(;;){
-			char *s;
-
-			snprint(dothg, sizeof(dothg), "%s/.hg", buf);
-			if(access(dothg, AEXIST) == 0)
-				break;
-			if((s = strrchr(buf, '/')) == nil)
-				break;
-			*s = 0;
-		}
-	}
-	cleanname(dothg);
+	if(getdothg(dothg, *argv) < 0)
+		sysfatal("can't find .hg: %r");
 
 	snprint(buf, sizeof(buf), "%s/store/00changelog", dothg);
 	if(revlogopen(&changelog, buf, OREAD) < 0)
@@ -788,4 +773,7 @@ main(int argc, char *argv[])
 		sysfatal("can't open menifest: %r\n");
 
 	postmountsrv(&fs, srv, mtpt, MREPL);
+
+	exits(0);
 }
+
