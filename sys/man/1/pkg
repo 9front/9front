@@ -111,7 +111,7 @@ source files of packages installed locally.
 .br
 .B http://ph.inri.net/9front/pkg/386
 .br
-.B http://gl.inri.net/9front/pkg/386
+.B http://bell-labs.co/9front/pkg/386
 .SH SEE ALSO
 .IR contrib (1) ,
 .IR gzip (1) ,
