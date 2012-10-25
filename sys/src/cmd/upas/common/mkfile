@@ -18,7 +18,3 @@ UPDATE=\
 	$HFILES\
 
 </sys/src/cmd/mklib
-
-nuke:V:
-	mk clean
-	rm -f libcommon.a[$OS]
