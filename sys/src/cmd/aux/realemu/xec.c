@@ -1067,7 +1067,7 @@ repcond(ulong *f, int rep)
 {
 	if(rep == OREPNE)
 		return (*f & ZF) == 0;
-	return !rep || (*f & ZF) != 0;
+	return (*f & ZF) != 0;
 }
 
 static void
@@ -1098,7 +1098,7 @@ opscas(Cpu *cpu, Inst *i)
 		d->off += n;
 		d->off &= m;
 		c--;
-		if(repcond(f, i->rep))
+		if(!repcond(f, i->rep))
 			break;
 	}
 	aw(areg(cpu, i->alen, RDI), d->off);
@@ -1135,7 +1135,7 @@ opcmps(Cpu *cpu, Inst *i)
 		d->off += n;
 		d->off &= m;
 		c--;
-		if(repcond(f, i->rep))
+		if(!repcond(f, i->rep))
 			break;
 	}
 	aw(areg(cpu, i->alen, RDI), d->off);
