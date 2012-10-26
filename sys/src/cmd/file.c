@@ -615,6 +615,7 @@ Filemagic long0tab[] = {
 	 * thus the numbers appear reversed in this table.
 	 */
 	0xad4e5cd1,	0xFFFFFFFF,	"venti arena\n", OCTET,
+	0x2bb19a52,	0xFFFFFFFF,	"paq archive\n", OCTET,
 };
 
 int
@@ -790,6 +791,7 @@ struct	FILE_STRING
 	"x T utf",		"troff output for UTF",		7,	"application/troff",
 	"x T 202",		"troff output for 202",		7,	"application/troff",
 	"x T aps",		"troff output for aps",		7,	"application/troff",
+	"x T ",			"troff output",			4,	"application/troff",
 	"GIF",			"GIF image", 			3,	"image/gif",
 	"\0PC Research, Inc\0",	"ghostscript fax file",		18,	"application/ghostscript",
 	"%PDF",			"PDF",				4,	"application/pdf",
@@ -809,7 +811,9 @@ struct	FILE_STRING
 	"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1",	"microsoft office document",	8,	"application/doc",
 	"<MakerFile ",		"FrameMaker file",		11,	"application/framemaker",
 	"\033E\033",	"HP PCL printer data",		3,	OCTET,
+	"\033&",	"HP PCL printer data",		2,	OCTET,
 	"\033%-12345X",	"HPJCL file",		9,	"application/hpjcl",
+	"\033Lua",		"Lua bytecode",		4,	OCTET,
 	"ID3",			"mp3 audio with id3",	3,	"audio/mpeg",
 	"OggS",			"ogg audio",		4,	"audio/ogg",
 	"\211PNG",		"PNG image",		4,	"image/png",
@@ -840,6 +844,8 @@ struct	FILE_STRING
 	"d8:announce",		"torrent file",		11,	"application/x-bittorrent",
 	"[playlist]",		"playlist",		10,	"application/x-scpls",
 	"#EXTM3U",		"playlist",		7,	"audio/x-mpegurl",
+	"BEGIN:VCARD\r\n",	"vCard",		13,	"text/directory;profile=vcard",
+	"BEGIN:VCARD\n",	"vCard",		12,	"text/directory;profile=vcard",
 	0,0,0,0
 };
 
