@@ -245,19 +245,17 @@ drawgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 	 * Top level directory contains the name of the device.
 	 */
 	t = QID(c->qid);
-	if(t == Qtopdir){
-		switch(s){
-		case 0:
+	if(t == Qtopdir || t == Qwinname){
+		if(s == 1 || t == Qwinname){
+			mkqid(&q, Qwinname, 0, QTFILE);
+			devdir(c, q, "winname", 0, eve, 0444, dp);
+		}
+		else if(s == 0){
 			mkqid(&q, Q2nd, 0, QTDIR);
 			devdir(c, q, "draw", 0, eve, 0555, dp);
-			break;
-		case 1:
-			mkqid(&q, Qwinname, 0, 0);
-			devdir(c, q, "winname", 0, eve, 0444, dp);
-			break;
-		default:
-			return -1;
 		}
+		else
+			return -1;
 		return 1;
 	}
 
