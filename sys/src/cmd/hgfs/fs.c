@@ -44,7 +44,7 @@ static Revlog changelog;
 static Revlog manifest;
 static Revlog *revlogs;
 
-static char dothg[MAXPATH];
+static char workdir[MAXPATH];
 static int mangle = 0;
 
 static Revlog*
@@ -56,7 +56,7 @@ getrevlog(Revnode *nd)
 
 	mang = mangle;
 Again:
-	nodepath(seprint(buf, buf+sizeof(buf), "%s/store/data", dothg),
+	nodepath(seprint(buf, buf+sizeof(buf), "%s/.hg/store/data", workdir),
 		buf+sizeof(buf), nd, mang);
 	for(rl = revlogs; rl; rl = rl->next)
 		if(strcmp(buf, rl->path) == 0)
@@ -762,13 +762,13 @@ main(int argc, char *argv[])
 		usage();
 	} ARGEND;
 
-	if(getdothg(dothg, *argv) < 0)
-		sysfatal("can't find .hg: %r");
+	if(getworkdir(workdir, *argv) < 0)
+		sysfatal("can't find workdir: %r");
 
-	snprint(buf, sizeof(buf), "%s/store/00changelog", dothg);
+	snprint(buf, sizeof(buf), "%s/.hg/store/00changelog", workdir);
 	if(revlogopen(&changelog, buf, OREAD) < 0)
 		sysfatal("can't open changelog: %r\n");
-	snprint(buf, sizeof(buf), "%s/store/00manifest", dothg);
+	snprint(buf, sizeof(buf), "%s/.hg/store/00manifest", workdir);
 	if(revlogopen(&manifest, buf, OREAD) < 0)
 		sysfatal("can't open menifest: %r\n");
 
@@ -776,4 +776,3 @@ main(int argc, char *argv[])
 
 	exits(0);
 }
-

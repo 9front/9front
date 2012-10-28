@@ -94,3 +94,5 @@ struct Revfile
 	char	*buf;
 	int	fd;
 };
+
+uchar nullid[HASHSZ];

@@ -111,22 +111,6 @@ struct Hashstr
 	char	str[];
 };
 
-static ulong
-hashstr(char *s)
-{
-	ulong h, t;
-	char c;
-
-	h = 0;
-	while(c = *s++){
-		t = h & 0xf8000000;
-		h <<= 5;
-		h ^= t>>27;
-		h ^= (ulong)c;
-	}
-	return h;
-}
-
 static int
 loadmanifest(Revnode *root, int fd, Hashstr **ht, int nh)
 {

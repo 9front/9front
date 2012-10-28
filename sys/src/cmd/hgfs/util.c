@@ -4,23 +4,39 @@
 #include "dat.h"
 #include "fns.h"
 
+ulong
+hashstr(char *s)
+{
+	ulong h, t;
+	char c;
+
+	h = 0;
+	while(c = *s++){
+		t = h & 0xf8000000;
+		h <<= 5;
+		h ^= t>>27;
+		h ^= (ulong)c;
+	}
+	return h;
+}
+
 int
-getdothg(char *dothg, char *path)
+getworkdir(char *work, char *path)
 {
 	char buf[MAXPATH], *s;
 
 	if(path != nil){
-		snprint(buf, sizeof(buf), "%s", path);
-		cleanname(buf);
-	} else if(getwd(buf, sizeof(buf)) == nil)
+		snprint(work, MAXPATH, "%s", path);
+		cleanname(work);
+	} else if(getwd(work, MAXPATH) == nil)
 		return -1;
 	for(;;){
-		snprint(dothg, MAXPATH, "%s/.hg", buf);
-		if(access(dothg, AEXIST) == 0)
+		snprint(buf, sizeof(buf), "%s/.hg", work);
+		if(access(buf, AEXIST) == 0)
 			return 0;
 		if(path != nil)
 			break;
-		if((s = strrchr(buf, '/')) == nil)
+		if((s = strrchr(work, '/')) == nil)
 			break;
 		*s = 0;
 	}

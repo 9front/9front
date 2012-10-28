@@ -104,7 +104,6 @@ revlogclose(Revlog *r)
 uchar*
 revhash(Revlog *r, int rev)
 {
-	static uchar nullid[HASHSZ];
 	if(rev < 0 || rev >= r->nmap)
 		return nullid;
 	return r->map[rev].hash;
