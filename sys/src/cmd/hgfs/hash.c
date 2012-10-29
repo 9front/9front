@@ -78,3 +78,21 @@ hash2qid(uchar *h)
 		v |= (uvlong)h[i]<<(56-8*i);
 	return v;
 }
+
+int
+readhash(char *path, char *name, uchar hash[])
+{
+	char buf[MAXPATH], *p;
+	int n;
+
+	snprint(buf, sizeof(buf), "%s/%s", path, name);
+	readfile(buf, buf, sizeof(buf));
+	if(p = strchr(buf, '.'))
+		p++;
+	else
+		p = buf;
+	n = hex2hash(p, hash);
+	if(n != HASHSZ)
+		return -1;
+	return 0;
+}

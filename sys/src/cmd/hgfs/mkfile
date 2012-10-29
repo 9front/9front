@@ -11,5 +11,5 @@ OFILES=fs.$O zip.$O patch.$O hash.$O revlog.$O tree.$O info.$O util.$O
 </sys/src/cmd/mkone
 
 # debug stuff
-$O.hgdb: hgdb.$O hash.$O util.$O
+$O.hgdb: hgdb.$O hash.$O util.$O ancestor.$O
 	$LD $LDFLAGS -o $target $prereq

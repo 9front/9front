@@ -42,3 +42,18 @@ getworkdir(char *work, char *path)
 	}
 	return -1;
 }
+
+int
+readfile(char *path, char *buf, int nbuf)
+{
+	int fd, n;
+
+	n = 0;
+	if((fd = open(path, OREAD)) >= 0){
+		if((n = read(fd, buf, nbuf-1)) < 0)
+			n = 0;
+		close(fd);
+	}
+	buf[n] = '\0';
+	return n;
+}

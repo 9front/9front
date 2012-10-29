@@ -1,4 +1,4 @@
-/* hg debug stuff, just dumps dirstate database right now */
+/* hg debug stuff, will become update/merge program */
 
 #include <u.h>
 #include <libc.h>
@@ -119,9 +119,9 @@ Error:
 }
 
 void
-changes(char *ppath, char *rpath)
+changes(char *lpath, char *rpath, char *apath)
 {
-	print("diff -r %s %s\n", ppath, rpath);
+	print("local=%s\nremote=%s\nancestor=%s\n", lpath, rpath, apath);
 }
 
 void
@@ -134,7 +134,8 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	char ppath[MAXPATH], rpath[MAXPATH];
+	char lpath[MAXPATH], rpath[MAXPATH], apath[MAXPATH];
+	uchar rhash[HASHSZ], ahash[HASHSZ];
 	char *mtpt, *rev;
 	Workdir wd;
 
@@ -156,15 +157,30 @@ main(int argc, char *argv[])
 	if(loadworkdir(&wd, *argv) < 0)
 		sysfatal("loadworkdir: %r");
 
-	print("%s\n%H\n%H\n", wd.path, wd.p1hash, wd.p2hash);
-
 	if(memcmp(wd.p2hash, nullid, HASHSZ))
 		sysfatal("outstanding merge");
 
-	snprint(ppath, sizeof(ppath), "%s/%H/files", mtpt, wd.p1hash);
-	snprint(rpath, sizeof(rpath), "%s/%s/files", mtpt, rev);
+	snprint(rpath, sizeof(rpath), "%s/%s", mtpt, rev);
+	if(readhash(rpath, "rev", rhash) != 0)
+		sysfatal("unable to get hash for %s", rev);
 
-	changes(ppath, rpath);
+	if(memcmp(rhash, wd.p1hash, HASHSZ) == 0){
+		fprint(2, "up to date\n");
+		exits(0);
+	}
+
+	ancestor(mtpt, wd.p1hash, rhash, ahash);
+	if(memcmp(ahash, nullid, HASHSZ) == 0)
+		sysfatal("no common ancestor between %H and %H", wd.p1hash, rhash);
+
+	if(memcmp(ahash, rhash, HASHSZ) == 0)
+		memmove(ahash, wd.p1hash, HASHSZ);
+
+	snprint(lpath, sizeof(lpath), "%s/%H/files", mtpt, wd.p1hash);
+	snprint(rpath, sizeof(rpath), "%s/%H/files", mtpt, rhash);
+	snprint(apath, sizeof(apath), "%s/%H/files", mtpt, ahash);
+	
+	changes(lpath, rpath, apath);
 	
 	exits(0);
 }

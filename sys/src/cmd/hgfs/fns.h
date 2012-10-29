@@ -3,6 +3,7 @@ int Hfmt(Fmt *f);
 int hex2hash(char *s, uchar *h);
 uvlong hash2qid(uchar *h);
 int fhash(int fd, uchar p1[], uchar p2[], uchar h[]);
+int readhash(char *path, char *name, uchar hash[]);
 
 /* patch */
 int fpatchmark(int pfd, char *mark);
@@ -34,3 +35,7 @@ void closerevtree(Revtree *t);
 /* util */
 ulong hashstr(char *s);
 int getworkdir(char *work, char *path);
+int readfile(char *path, char *buf, int nbuf);
+
+/* ancestor */
+void ancestor(char *mtpt, uchar xhash[], uchar yhash[], uchar ahash[]);
