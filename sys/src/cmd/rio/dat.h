@@ -222,7 +222,7 @@ void		wsetselect(Window*, uint, uint);
 void		wshow(Window*, uint);
 void		wsnarf(Window*);
 void 		wscrsleep(Window*, uint);
-void		wsetcols(Window*);
+void		wsetcols(Window*, int);
 
 struct Dirtab
 {

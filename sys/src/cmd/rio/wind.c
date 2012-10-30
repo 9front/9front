@@ -105,7 +105,7 @@ wresize(Window *w, Image *i, int move)
 	else{
 		frclear(w, FALSE);
 		frinit(w, r, w->font, w->i, cols);
-		wsetcols(w);
+		wsetcols(w, 1);
 		w->maxtab = maxtab*stringwidth(w->font, "0");
 		r = insetrect(w->i->r, Selborder);
 		draw(w->i, r, cols[BACK], nil, w->entire.min);
@@ -710,15 +710,15 @@ wkeyctl(Window *w, Rune r)
 }
 
 void
-wsetcols(Window *w)
+wsetcols(Window *w, int topped)
 {
 	if(w->holding)
-		if(w == input)
+		if(topped)
 			w->cols[TEXT] = w->cols[HTEXT] = holdcol;
 		else
 			w->cols[TEXT] = w->cols[HTEXT] = lightholdcol;
 	else
-		if(w == input)
+		if(topped)
 			w->cols[TEXT] = w->cols[HTEXT] = cols[TEXT];
 		else
 			w->cols[TEXT] = w->cols[HTEXT] = paletextcol;
@@ -727,7 +727,7 @@ wsetcols(Window *w)
 void
 wrepaint(Window *w)
 {
-	wsetcols(w);
+	wsetcols(w, w == input);
 	if(!w->mouseopen)
 		frredraw(w);
 	if(w == input)
