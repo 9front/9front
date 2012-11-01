@@ -140,7 +140,7 @@ writeusers(Fs *fs)
 	if(ch == nil)
 		goto error;
 	ch->uid = -1;
-	chancreat(ch, "adm", DMDIR | 0755, OREAD);
+	chancreat(ch, "adm", DMDIR | 0775, OREAD);
 	chanclunk(ch);
 	ch = chanattach(fs, 0);
 	if(ch == nil)
@@ -151,7 +151,7 @@ writeusers(Fs *fs)
 	if(chanwalk(ch, "users") > 0){
 		if(chanopen(ch, OWRITE|OTRUNC) <= 0)
 			goto error;
-	}else if(chancreat(ch, "users", 0644, OWRITE) <= 0)
+	}else if(chancreat(ch, "users", 0664, OWRITE) <= 0)
 			goto error;
 	if(userssave(fs, ch) < 0){
 		chanremove(ch);
