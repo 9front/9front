@@ -298,8 +298,15 @@ fsmkdir(Dir *d, int level, void *aux)
 			if((rl = getrevlog(nd)) == nil)
 				break;
 			if((rev = hashrev(rl, nd->hash)) >= 0){
-				if(level == Qtree)
+				if(level == Qtree){
+					/*
+					 * BUG: this is not correct. mercurial might
+					 * prefix the data log with random \1\n escaped
+					 * metadata strings (see fmetaheader()) and the flen
+					 * *includes* the metadata part. m(
+					 */
 					d->length = rl->map[rev].flen;
+				}
 				ri = getrevinfo(rl->map[rev].linkrev);
 			}
 			closerevlog(rl);
@@ -490,7 +497,13 @@ fswalk1(Fid *fid, char *name, Qid *qid)
 							sname += 3;
 						}
 						snprint(buf, sizeof(buf), "%.*s", i, name);
-						i = atoi(sname);
+						if(*sname == 0)
+							i = 0;
+						else {
+							i = strtol(sname, &sname, 10);
+							if(i < 0 || *sname != '\0')
+								goto Notfound;
+						}
 						sname = buf;
 						goto Searchtree;
 					}
@@ -680,6 +693,7 @@ fsread(Req *r)
 			responderror(r);
 			return;
 		}
+		rf->doff = fmetaheader(rf->fd);
 		goto Fdgen;
 	case Qwho:
 		s = rf->info->who;
@@ -706,8 +720,9 @@ fsread(Req *r)
 			responderror(r);
 			return;
 		}
+		rf->doff = fmetaheader(rf->fd);
 	Fdgen:
-		if((n = pread(rf->fd, r->ofcall.data, len, off)) < 0){
+		if((n = pread(rf->fd, r->ofcall.data, len, off + rf->doff)) < 0){
 			responderror(r);
 			return;
 		}

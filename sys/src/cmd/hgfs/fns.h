@@ -21,6 +21,7 @@ int revlogextract(Revlog *r, int rev, int ofd);
 uchar *revhash(Revlog *r, int rev);
 int hashrev(Revlog *r, uchar hash[]);
 int revlogopentemp(Revlog *r, int rev);
+int fmetaheader(int fd);
 
 /* info */
 Revinfo *loadrevinfo(Revlog *changelog, int rev);

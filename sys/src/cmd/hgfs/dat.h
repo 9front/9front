@@ -93,6 +93,7 @@ struct Revfile
 
 	char	*buf;
 	int	fd;
+	int	doff;	/* length of metadata to skip */
 };
 
 uchar nullid[HASHSZ];

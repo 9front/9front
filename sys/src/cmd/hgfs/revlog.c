@@ -281,3 +281,31 @@ revlogopentemp(Revlog *r, int rev)
 	}
 	return fd;
 }
+
+int
+fmetaheader(int fd)
+{
+	static char magic[2] = { 0x01, 0x0A, };
+	char buf[4096], *s, *p;
+	int o, n;
+
+	o = 0;
+	while(o < sizeof(buf)){
+		if((n = pread(fd, buf+o, sizeof(buf)-o, o)) <= 0)
+			break;
+		o += n;
+		if(o < sizeof(magic))
+			continue;
+		if(memcmp(buf, magic, sizeof(magic)) != 0)
+			break;
+		s = buf + sizeof(magic);
+		while((s - buf) <= (o - sizeof(magic))){
+			if((p = memchr(s, magic[0], o - (s - buf))) == nil)
+				break;
+			if(memcmp(p, magic, sizeof(magic)) == 0)
+				return (p - buf) + sizeof(magic);
+			s = p+1;
+		}
+	}
+	return 0;
+}
