@@ -78,14 +78,14 @@ Errors are printed to standard error unless
 option is specified. The program is terminated
 when errors are encountered unless the
 .B -c
-option is given. This can be usefull if files
+option is given. This can be useful if files
 are not accessible due to file permission or
 media corruption.
 .PP
 The
 .B -u
 option will consider changes of file owner and group.
-When omited, file ownership is ignored.
+When omitted, file ownership is ignored.
 .PP
 The
 .B -p
@@ -98,11 +98,11 @@ When modification times are comparable then the
 .B -t
 option can be used to quickly find changes. If specified,
 files are considered unchanged if the name, file size and
-the modification time matches. This is usefull when
+the modification time matches. This is useful when
 comparing /n/dump archives on the same fileserver.
 .PP
 Files are considered the same if they are from the
-same mount and ther
+same mount and their
 .B qid
 (see
 .IR stat (5))
@@ -129,4 +129,4 @@ option.
 .IR hgfs (4)
 .SH DIAGNOSTICS
 The exit status is set to 'errors' when
-errors where encountered.
+errors were encountered.
