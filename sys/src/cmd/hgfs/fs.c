@@ -303,7 +303,9 @@ fsmkdir(Dir *d, int level, void *aux)
 					 * BUG: this is not correct. mercurial might
 					 * prefix the data log with random \1\n escaped
 					 * metadata strings (see fmetaheader()) and the flen
-					 * *includes* the metadata part. m(
+					 * *includes* the metadata part. we try to compensate
+					 * for this once the revision got extracted and
+					 * subtract the metadata header in fsstat().
 					 */
 					d->length = rl->map[rev].flen;
 				}
@@ -353,6 +355,7 @@ fsattach(Req *r)
 	rf->rlog = nil;
 
 	rf->fd = -1;
+	rf->doff = 0;
 	rf->buf = nil;
 
 	r->fid->aux = rf;
@@ -368,8 +371,11 @@ fsstat(Req *r)
 	rf = r->fid->aux;
 	if(rf->level < Qtree)
 		fsmkdir(&r->d, rf->level,  rf->info);
-	else
+	else {
 		fsmkdir(&r->d, rf->level,  rf->node);
+		if(rf->level == Qtree)
+			r->d.length -= rf->doff;
+	}
 	respond(r, nil);
 }
 
@@ -686,14 +692,13 @@ fsread(Req *r)
 			len = 0;
 		else if((off + len) >= rf->info->loglen)
 			len = rf->info->loglen - off;
-		off += rf->info->logoff;
 		if(rf->fd >= 0)
 			goto Fdgen;
 		if((rf->fd = revlogopentemp(&changelog, hashrev(&changelog, rf->info->chash))) < 0){
 			responderror(r);
 			return;
 		}
-		rf->doff = fmetaheader(rf->fd);
+		rf->doff = rf->info->logoff;
 		goto Fdgen;
 	case Qwho:
 		s = rf->info->who;

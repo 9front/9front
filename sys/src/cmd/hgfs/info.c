@@ -17,14 +17,15 @@ loadrevinfo(Revlog *changelog, int rev)
 
 	seek(fd, 0, 2);
 	write(fd, "\n", 1);
-	seek(fd, 0, 0);
+
+	off = fmetaheader(fd);
+	seek(fd, off, 0);
 
 	ri = malloc(sizeof(*ri));
 	memset(ri, 0, sizeof(*ri));
 
 	memmove(ri->chash, changelog->map[rev].hash, HASHSZ);
 
-	off = 0;
 	line = 0;
 	inmsg = 0;
 	p = buf;
