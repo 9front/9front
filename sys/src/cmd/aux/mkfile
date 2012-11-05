@@ -43,6 +43,7 @@ TARG=\
 	usage\
 	write\
 	wacom\
+	wikifmt\
 	zerotrunc\
 
 BIN=/$objtype/bin/aux
