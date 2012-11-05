@@ -1,0 +1,57 @@
+.TH FPLOT 1
+.SH NAME
+fplot \- plot elementary function
+.SH SYNOPSYS
+.B fplot
+[
+.B -c
+[
+.B -s
+.I size
+]] [
+.B -r
+.I range
+]
+.I functions ...
+.SH DESCRIPTION
+.I Fplot
+plots elementary
+.I functions
+separated by spaces. The default output is the screen, but if the
+.B -c
+option is specified, the plot is written to the standard output as an r8g8b8
+.IR image (6).
+The latter image size is either 640x480 or the one specified by the
+.B -s
+option's argument (in the WIDTHxHEIGHT format). The
+.B -r
+option accepts as argument the x and y ranges, in the format
+.LR "xmin:xmax ymin:ymax".
+.PP
+Each function to be plotted may be a combination of the independent variable x, 
+the elementary operations (+, -, *, and /), and the functions described in
+.IR sin (2)
+and
+.IR exp (2).
+The exception being that x^n raises x to the nth power, log is the base 10 logarithm, 
+and ln is the natural logarithm.
+.SH EXAMPLES
+Plot the absolute value and x^3 functions to a 400x400 image(6) on standard output and view with
+.IR page (1).
+.IP
+.EX
+fplot -c -s 400x400 'sqrt(x*x)' 'x^3' | page
+.EE
+.SH SOURCE
+.B /sys/src/cmd/fplot.c
+.SH SEE ALSO
+.IR exp (2),
+.IR sin (2),
+.IR image (6),
+.IR plot (1).
+
+.SH DIAGNOSTICS
+.I Fplot
+either exits with
+.LR "syntax error"
+or an empty status.
