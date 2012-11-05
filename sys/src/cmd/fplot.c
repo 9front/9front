@@ -57,7 +57,7 @@ void oasin(void) { *sp = asin(*sp); }
 void oacos(void) { *sp = acos(*sp); }
 void oatan(void) { *sp = atan(*sp); }
 void osqrt(void) { *sp = sqrt(*sp); }
-void oexp(void) { *sp = sqrt(*sp); }
+void oexp(void) { *sp = exp(*sp); }
 void olog(void) { *sp = log10(*sp); }
 void oln(void) { *sp = log(*sp); }
 
