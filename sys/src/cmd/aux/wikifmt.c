@@ -185,7 +185,8 @@ heading(void)
 	output("0123456"+n, 1);
 	string("><a name=\"");
 	o = pos;
-	while(pos < e){
+	s = trimback(e);
+	while(pos < s){
 		if((*pos >= 'a' && *pos <= 'z')
 		|| (*pos >= 'A' && *pos <= 'Z')
 		|| (*pos >= '0' && *pos <= '9')
