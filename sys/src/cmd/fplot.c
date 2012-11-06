@@ -57,6 +57,7 @@ void oasin(void) { *sp = asin(*sp); }
 void oacos(void) { *sp = acos(*sp); }
 void oatan(void) { *sp = atan(*sp); }
 void osqrt(void) { *sp = sqrt(*sp); }
+void oexp(void) { *sp = exp(*sp); }
 void olog(void) { *sp = log10(*sp); }
 void oln(void) { *sp = log(*sp); }
 
@@ -79,6 +80,7 @@ struct Operator {
 	"acos",	OUNARY,		0,	50,	oacos,
 	"atan",	OUNARY,		0,	50,	oatan,
 	"sqrt",	OUNARY,		0,	50,	osqrt,
+	"exp",	OUNARY,		0,	50,	oexp,
 	"log",	OUNARY,		0,	50,	olog,
 	"ln",	OUNARY,		0,	50,	oln,
 };
