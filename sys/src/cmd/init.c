@@ -7,6 +7,7 @@ char*	readenv(char*);
 void	setenv(char*, char*);
 void	cpenv(char*, char*);
 void	closefds(void);
+int	procopen(int, char*, int);
 void	fexec(void(*)(void));
 void	rcexec(void);
 void	cpustart(void);
@@ -24,7 +25,6 @@ main(int argc, char *argv[])
 {
 	char *user;
 	int fd;
-	char ctl[128];
 
 	closefds();
 
@@ -43,14 +43,12 @@ main(int argc, char *argv[])
 	}ARGEND
 	cmd = *argv;
 
-	snprint(ctl, sizeof(ctl), "#p/%d/ctl", getpid());
-	fd = open(ctl, OWRITE);
-	if(fd < 0)
-		print("init: warning: can't open %s: %r\n", ctl);
-	else
+	fd = procopen(getpid(), "ctl", OWRITE);
+	if(fd >= 0){
 		if(write(fd, "pri 10", 6) != 6)
 			print("init: warning: can't set priority: %r\n");
-	close(fd);
+		close(fd);
+	}
 
 	cpu = readenv("#e/cputype");
 	setenv("#e/objtype", cpu);
@@ -113,12 +111,16 @@ pass(int fd)
 }
 
 static int gotnote;
+static int interrupted;
 
 void
 pinhead(void*, char *msg)
 {
 	gotnote = 1;
-	fprint(2, "init got note '%s'\n", msg);
+	if(strcmp(msg, "interrupt") == 0)
+		interrupted = 1;
+	else
+		fprint(2, "init got note '%s'\n", msg);
 	noted(NCONT);
 }
 
@@ -126,7 +128,7 @@ void
 fexec(void (*execfn)(void))
 {
 	Waitmsg *w;
-	int pid;
+	int fd, pid;
 
 	switch(pid=fork()){
 	case 0:
@@ -138,11 +140,15 @@ fexec(void (*execfn)(void))
 		print("init: fork error: %r\n");
 		exits("fork");
 	default:
+		fd = procopen(pid, "notepg", OWRITE);
 	casedefault:
 		notify(pinhead);
+		interrupted = 0;
 		gotnote = 0;
 		w = wait();
 		if(w == nil){
+			if(interrupted && fd >= 0)
+				write(fd, "interrupt", 9);
 			if(gotnote)
 				goto casedefault;
 			print("init: wait error: %r\n");
@@ -164,6 +170,8 @@ fexec(void (*execfn)(void))
 		free(w);
 		break;
 	}
+	if(fd >= 0)
+		close(fd);
 }
 
 void
@@ -266,4 +274,17 @@ closefds(void)
 
 	for(i = 3; i < 30; i++)
 		close(i);
+}
+
+int
+procopen(int pid, char *name, int mode)
+{
+	char buf[128];
+	int fd;
+
+	snprint(buf, sizeof(buf), "#p/%d/%s", pid, name);
+	fd = open(buf, mode);
+	if(fd < 0)
+		print("init: warning: can't open %s: %r\n", name);
+	return fd;
 }

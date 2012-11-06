@@ -93,6 +93,7 @@ int scanfd;
 int ledsfd;
 int consfd;
 int mctlfd;
+int notefd;
 
 int kbdopen;
 int consctlopen;
@@ -565,6 +566,10 @@ lineproc(void *aux)
 			switch(r){
 			case '\0':	/* flush */
 				nr = 0;
+				continue;
+			case Kdel:
+				if(notefd >= 0)
+					write(notefd, "interrupt", 9);
 				continue;
 			case Kbs:	/* ^H: erase character */
 			case Knack:	/* ^U: erase line */
@@ -1285,18 +1290,25 @@ reboot(void)
 	close(fd);
 }
 
+int
+procopen(int pid, char *name, int mode)
+{
+	char buf[128];
+
+	snprint(buf, sizeof(buf), "/proc/%d/%s", pid, name);
+	return eopen(buf, mode);
+}
+
 void
 elevate(void)
 {
-	char buf[128];
 	Dir *d, nd;
 	int fd;
 
 	if(debug)
 		return;
 
-	snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
-	if((fd = eopen(buf, OWRITE)) < 0)
+	if((fd = procopen(getpid(), "ctl", OWRITE)) < 0)
 		return;
 
 	/* get higher than normal priority */
@@ -1350,6 +1362,8 @@ threadmain(int argc, char** argv)
 	default:
 		usage();
 	}ARGEND
+
+	notefd = procopen(getpid(), "notepg", OWRITE);
 
 	scanfd = eopen("/dev/scancode", OREAD);
 	ledsfd = eopen("/dev/leds", OWRITE);

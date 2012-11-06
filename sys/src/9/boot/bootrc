@@ -154,6 +154,12 @@ fn main{
 
 # keyboard and serial console
 if(test -x /bin/aux/kbdfs){
+	# make new pgrp different from 1 so kbdfs can open notepg
+	rfork ns
+
+	# ignore interrupts
+	fn sigint {status=interrupted}
+
 	a=$console(1)
 	if(! ~ $#a 0)
 		a=/dev/eia^$a
@@ -209,8 +215,10 @@ if(! ~ $#aa 0 && ~ $#bootargs 0 && ~ $#nobootprompt 0){
 while(){
 	@{main}
 
+	# subshell doesnt wait on interrupts
+	while(~ $status interrupted){wait}
+
 	# cleanup so it can be restarted
 	nobootprompt=()
-	user=()
 	rm -f /srv/^(cfs boot slashn cs dns)
 } </dev/cons

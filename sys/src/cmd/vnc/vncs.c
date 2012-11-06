@@ -197,46 +197,54 @@ main(int argc, char **argv)
 		sysfatal("mounter: %r");
 	close(fd);
 
-	/* start and mount kbdfs */
-	switch(cmdpid = rfork(RFPROC|RFMEM|RFFDG|RFREND)){
+	cmdpid = rfork(RFPROC|RFMEM|RFFDG|RFNOTEG);
+	switch(cmdpid){
 	case -1:
 		sysfatal("rfork: %r");
 		break;
 	case 0:
 		close(exportfd);
+
 		close(1);
 		open("/dev/cons", OWRITE);
 		close(2);
 		open("/dev/cons", OWRITE);
-		exec(kbdfs[0], kbdfs);
-		_exits("kbdfs");
-	}
-	if(waitpid() != cmdpid)
-		sysfatal("%s: %r", kbdfs[0]);
-	if((kbdin = open("/dev/kbdin", OWRITE)) < 0)
-		sysfatal("open /dev/kbdin: %r");
 
-	/* run the command */
-	switch(cmdpid = rfork(RFPROC|RFMEM|RFFDG|RFNAMEG|RFREND|RFNOTEG)){
-	case -1:
-		sysfatal("rfork: %r");
-		break;
-	case 0:
-		close(exportfd);
-		close(kbdin);
+		/* start and mount kbdfs */
+		cmdpid = rfork(RFPROC|RFMEM|RFFDG|RFREND);
+		switch(cmdpid){
+		case -1:
+			sysfatal("rfork: %r");
+			break;
+		case 0:
+			exec(kbdfs[0], kbdfs);
+			fprint(2, "exec %s: %r\n", kbdfs[0]);
+			_exits("kbdfs");
+		}
+		if(waitpid() != cmdpid){
+			rendezvous(&kbdin, nil);
+			sysfatal("%s: %r", kbdfs[0]);
+		}
+		rendezvous(&kbdin, nil);
+
+		rfork(RFNAMEG|RFREND);
+
 		close(0);
 		open("/dev/cons", OREAD);
 		close(1);
 		open("/dev/cons", OWRITE);
 		close(2);
 		open("/dev/cons", OWRITE);
+
 		exec(argv[0], argv);
 		fprint(2, "exec %s: %r\n", argv[0]);
 		_exits(nil);
 	}
 
-	unmount(nil, "/dev");
-	bind("#c", "/dev", MREPL);
+	/* wait for kbdfs to get mounted */
+	rendezvous(&kbdin, nil);
+	if((kbdin = open("/dev/kbdin", OWRITE)) < 0)
+		sysfatal("open /dev/kbdin: %r");
 
 	/* run the service */
 	srvfd = vncannounce(net, display, adir, baseport);
