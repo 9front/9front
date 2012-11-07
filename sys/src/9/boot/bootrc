@@ -25,6 +25,10 @@ for(i in `{ls -Qp '#ec'}){
 	}
 }
 
+fn sigint {
+	status=interrupted
+}
+
 fn fatal {
 	echo $*
 	exit $"*
@@ -154,12 +158,6 @@ fn main{
 
 # keyboard and serial console
 if(test -x /bin/aux/kbdfs){
-	# make new pgrp different from 1 so kbdfs can open notepg
-	rfork ns
-
-	# ignore interrupts
-	fn sigint {status=interrupted}
-
 	a=$console(1)
 	if(! ~ $#a 0)
 		a=/dev/eia^$a

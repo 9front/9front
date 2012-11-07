@@ -439,7 +439,7 @@ procopen(Chan *c, int omode)
 		pg = p->pgrp;
 		if(pg == nil)
 			error(Eprocdied);
-		if(omode!=OWRITE || pg->pgrpid == 1)
+		if(omode!=OWRITE)
 			error(Eperm);
 		c->pgrpid.path = pg->pgrpid+1;
 		c->pgrpid.vers = p->noteid;
