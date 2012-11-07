@@ -1,30 +1,24 @@
 #include <u.h>
 #include <libc.h>
 
-enum { NBUCKETS = 1024 };
-
 typedef struct Proc Proc;
-typedef struct Bucket Bucket;
-
 struct Proc {
 	int pid;
-	Proc *first, *last, *parent, *next;
-	Proc *bnext;
+	Proc *first, *parent, *next;
+	Proc *hash;
 };
 
-struct Bucket {
-	Proc *first, *last;
-} buck[NBUCKETS];
+Proc *hash[1024];
+Rune buf[512];
 
 Proc *
 getproc(int pid)
 {
 	Proc *p;
-	
-	for(p = buck[pid % NBUCKETS].first; p; p = p->bnext)
+
+	for(p = hash[pid % nelem(hash)]; p; p = p->hash)
 		if(p->pid == pid)
 			return p;
-
 	return nil;
 }
 
@@ -32,57 +26,51 @@ void
 addproc(int pid)
 {
 	Proc *p;
-	Bucket *b;
 	
 	p = mallocz(sizeof(*p), 1);
 	if(p == nil)
 		sysfatal("malloc: %r");
 	p->pid = pid;
-	b = buck + pid % NBUCKETS;
-	if(b->first != nil)
-		b->last->bnext = p;
-	else
-		b->first = p;
-	b->last = p;
+	p->hash = hash[pid % nelem(hash)];
+	hash[pid % nelem(hash)] = p;
 }
 
 int
 theppid(int pid)
 {
-	char *file;
-	int fd;
-	char buf[12];
-	int ppid;
+	char b[128];
+	int fd, ppid;
 	
-	file = smprint("/proc/%d/ppid", pid);
-	fd = open(file, OREAD);
-	free(file);
-	if(fd < 0)
-		return 0;
 	ppid = 0;
-	if(read(fd, buf, sizeof buf) >= 0)
-		ppid = atoi(buf);
-	close(fd);
+	snprint(b, sizeof(b), "/proc/%d/ppid", pid);
+	fd = open(b, OREAD);
+	if(fd >= 0){
+		memset(b, 0, sizeof b);
+		if(read(fd, b, sizeof b-1) >= 0){
+			ppid = atoi(b);
+			if(ppid < 0)
+				ppid = 0;
+		}
+		close(fd);
+	}
 	return ppid;
 }
 
 void
 addppid(int pid)
 {
-	int ppid;
-	Proc *p, *par;
+	Proc *p, *par, **l;
 	
 	p = getproc(pid);
-	ppid = theppid(pid);
-	par = getproc(ppid);
+	par = getproc(theppid(pid));
 	if(par == nil)
 		par = getproc(0);
 	p->parent = par;
-	if(par->first != nil)
-		par->last->next = p;
-	else
-		par->first = p;
-	par->last = p;
+	for(l = &par->first; *l; l = &((*l)->next))
+		if((*l)->pid > pid)
+			break;
+	p->next = *l;
+	*l = p;
 }
 
 void
@@ -107,20 +95,20 @@ addprocs(void)
 	free(d);
 }
 
-Rune buf[512];
-
 int
 readout(char *file)
 {
-	int fd, rc, n;
+	int fd, rc, i, n;
 	char b[512];
 
 	fd = open(file, OREAD);
-	free(file);
 	if(fd < 0)
 		return -1;
 	n = 0;
-	while(rc = read(fd, b, 512), rc > 0) {
+	while((rc = read(fd, b, sizeof b)) > 0){
+		for(i=0; i<rc; i++)
+			if(b[i] == '\n')
+				b[i] = ' ';
 		write(1, b, rc);
 		n += rc;
 	}
@@ -131,24 +119,25 @@ readout(char *file)
 void
 printargs(int pid)
 {
-	char *file;
-	char b[28], *p;
+	char b[128], *p;
 	int fd;
 
 	if(pid == 0)
 		return;
-	if(readout(smprint("/proc/%d/args", pid)) > 0)
+	snprint(b, sizeof(b), "/proc/%d/args", pid);
+	if(readout(b) > 0)
 		return;
-	file = smprint("/proc/%d/status", pid);
-	fd = open(file, OREAD);
-	free(file);
+	snprint(b, sizeof(b), "/proc/%d/status", pid);
+	fd = open(b, OREAD);
 	if(fd < 0)
 		return;
 	memset(b, 0, sizeof b);
-	if(read(fd, b, 27) <= 0)
+	if(read(fd, b, 27) <= 0){
+		close(fd);
 		return;
-	p = b + strlen(b) - 1;
-	while(*p == ' ')
+	}
+	p = b + strlen(b)-1;
+	while(p > b && *p == ' ')
 		*p-- = 0;
 	print("%s", b);
 	close(fd);
@@ -162,9 +151,11 @@ descend(Proc *p, Rune *r)
 	
 	last = *--r;
 	*r = last == L' ' ? L'└' : L'├';
-	print("%S", buf);
-	printargs(p->pid);
-	print(" [%d]\n", p->pid);
+	if(p->pid != 0){
+		print("%S", buf);
+		printargs(p->pid);
+		print(" [%d]\n", p->pid);
+	}
 	*r = last;
 	*++r = L'│';
 	for(q = p->first; q; q = q->next) {
