@@ -109,7 +109,10 @@ flag causes
 to print the arguments for the process.  Newlines in arguments will be translated to spaces for display.
 .PP
 .I Pstree
-shows the processes as a tree.
+prints the processes as a tree in a two colum layout where
+the first colum being the process id and second column
+the program name and arguments indented and prefixed with
+line drawing runes to reflect the nesting in the hierarchy.
 .SH FILES
 .B /proc/*/status
 .SH SOURCE

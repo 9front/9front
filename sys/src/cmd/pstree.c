@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <bio.h>
 
 typedef struct Proc Proc;
 struct Proc {
@@ -8,8 +9,9 @@ struct Proc {
 	Proc *hash;
 };
 
-Proc *hash[1024];
-Rune buf[512];
+Proc	*hash[1024];
+Rune	buf[512];
+Biobuf	bout;
 
 Proc *
 getproc(int pid)
@@ -42,7 +44,7 @@ theppid(int pid)
 	int fd, ppid;
 	
 	ppid = 0;
-	snprint(b, sizeof(b), "/proc/%d/ppid", pid);
+	snprint(b, sizeof(b), "%d/ppid", pid);
 	fd = open(b, OREAD);
 	if(fd >= 0){
 		memset(b, 0, sizeof b);
@@ -79,7 +81,7 @@ addprocs(void)
 	int fd, rc, i;
 	Dir *d;
 	
-	fd = open("/proc", OREAD);
+	fd = open(".", OREAD);
 	if(fd < 0)
 		sysfatal("open: %r");
 	rc = dirreadall(fd, &d);
@@ -109,8 +111,7 @@ readout(char *file)
 		for(i=0; i<rc; i++)
 			if(b[i] == '\n')
 				b[i] = ' ';
-		write(1, b, rc);
-		n += rc;
+		n += Bwrite(&bout, b, rc);
 	}
 	close(fd);
 	return n;
@@ -122,25 +123,21 @@ printargs(int pid)
 	char b[128], *p;
 	int fd;
 
-	if(pid == 0)
-		return;
-	snprint(b, sizeof(b), "/proc/%d/args", pid);
+	snprint(b, sizeof(b), "%d/args", pid);
 	if(readout(b) > 0)
 		return;
-	snprint(b, sizeof(b), "/proc/%d/status", pid);
+	snprint(b, sizeof(b), "%d/status", pid);
 	fd = open(b, OREAD);
-	if(fd < 0)
-		return;
-	memset(b, 0, sizeof b);
-	if(read(fd, b, 27) <= 0){
+	if(fd >= 0){
+		memset(b, 0, sizeof b);
+		if(read(fd, b, 27) > 0){
+			p = b + strlen(b);
+			while(p > b && p[-1] == ' ')
+				*--p = 0;
+			Bprint(&bout, "%s", b);
+		}
 		close(fd);
-		return;
 	}
-	p = b + strlen(b)-1;
-	while(p > b && *p == ' ')
-		*p-- = 0;
-	print("%s", b);
-	close(fd);
 }
 
 void
@@ -152,9 +149,9 @@ descend(Proc *p, Rune *r)
 	last = *--r;
 	*r = last == L' ' ? L'└' : L'├';
 	if(p->pid != 0){
-		print("%S", buf);
+		Bprint(&bout, "%-11d %S", p->pid, buf);
 		printargs(p->pid);
-		print(" [%d]\n", p->pid);
+		Bprint(&bout, "\n");
 	}
 	*r = last;
 	*++r = L'│';
@@ -175,7 +172,13 @@ printprocs(void)
 void
 main()
 {
+	Binit(&bout, 1, OWRITE);
+	if(chdir("/proc")==-1)
+		sysfatal("chdir: %r");
+
 	addproc(0);
 	addprocs();
 	printprocs();
+
+	exits(0);
 }
