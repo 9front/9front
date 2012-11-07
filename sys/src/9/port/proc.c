@@ -644,6 +644,7 @@ newproc(void)
 	p->nargs = 0;
 	p->setargs = 0;
 	memset(p->seg, 0, sizeof p->seg);
+	p->parentpid = 0;
 	p->noteid = pidalloc(p);
 	if(p->kstack == 0)
 		p->kstack = smalloc(KSTACK);

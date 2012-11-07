@@ -169,10 +169,8 @@ sysrfork(ulong *arg)
 	forkchild(p, up->dbgreg);
 
 	p->parent = up;
-	p->parentpid = up->pid;
-	if(flag&RFNOWAIT)
-		p->parentpid = 0;
-	else {
+	if((flag&RFNOWAIT) == 0){
+		p->parentpid = up->pid;
 		lock(&up->exl);
 		up->nchild++;
 		unlock(&up->exl);
