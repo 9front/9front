@@ -476,8 +476,8 @@ chanfree(Chan *c)
 struct {
 	Chan *head;
 	Chan *tail;
-	int nqueued;
-	int nclosed;
+	ulong nqueued;
+	ulong nclosed;
 	Lock l;
 	QLock q;
 	Rendez r;
@@ -555,7 +555,8 @@ cclose(Chan *c)
 
 	if(devtab[c->type]->dc == L'M')
 	if((c->flag&(CRCLOSE|CCACHE)) == CCACHE)
-	if((c->qid.type&(QTEXCL|QTMOUNT|QTAUTH)) == 0){
+	if((c->qid.type&(QTEXCL|QTMOUNT|QTAUTH)) == 0)
+	if((clunkq.nqueued - clunkq.nclosed) < 64){
 		closechanq(c);
 		return;
 	}
