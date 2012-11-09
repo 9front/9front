@@ -113,6 +113,7 @@ Channel *runechan;	/* chan(Rune) */
 
 Channel *conschan;	/* chan(char*) */
 Channel *kbdchan;	/* chan(char*) */
+Channel *intchan;	/* chan(int) */
 
 /*
  * The codes at 0x79 and 0x7b are produced by the PFU Happy Hacking keyboard.
@@ -544,6 +545,21 @@ Forward:
 }
 
 /*
+ * Need to do this in a separate proc because if process we're interrupting
+ * is dying and trying to print tombstone, kernel is blocked holding p->debug lock.
+ */
+void
+intrproc(void *)
+{
+	threadsetname("intrproc");
+
+	for(;;){
+		if(recv(intchan, nil) > 0)
+			write(notefd, "interrupt", 9);
+	}
+}
+
+/*
  * Cook lines for cons
  */
 void
@@ -565,9 +581,8 @@ lineproc(void *aux)
 			recv(cook, &r);
 			switch(r){
 			case Kdel:
-				if(notefd < 0)
+				if(nbsend(intchan, &notefd) <= 0)
 					continue;
-				write(notefd, "interrupt", 9);
 				/* no break */
 			case '\0':	/* flush */
 				nr = 0;
@@ -711,6 +726,8 @@ ctlproc(void *)
 		proccreate(scanproc, nil, STACK);	/* scanfd -> keychan */
 	if(consfd >= 0)
 		proccreate(consproc, nil, STACK);	/* consfd -> runechan */
+	if(notefd >= 0)
+		proccreate(intrproc, nil, STACK);	/* intchan -> notefd */
 
 	threadcreate(keyproc, nil, STACK);		/* keychan -> rawchan, kbdchan */
 	threadcreate(runeproc, nil, STACK);		/* rawchan -> runechan */
@@ -1382,6 +1399,7 @@ threadmain(int argc, char** argv)
 	runechan = chancreate(sizeof(Rune), 32);
 	conschan = chancreate(sizeof(char*), 16);
 	kbdchan = chancreate(sizeof(char*), 16);
+	intchan = chancreate(sizeof(int), 0);
 
 	elevate();
 	procrfork(ctlproc, nil, STACK, RFNAMEG|RFNOTEG);
