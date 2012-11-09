@@ -564,12 +564,13 @@ lineproc(void *aux)
 		do {
 			recv(cook, &r);
 			switch(r){
+			case Kdel:
+				if(notefd < 0)
+					continue;
+				write(notefd, "interrupt", 9);
+				/* no break */
 			case '\0':	/* flush */
 				nr = 0;
-				continue;
-			case Kdel:
-				if(notefd >= 0)
-					write(notefd, "interrupt", 9);
 				continue;
 			case Kbs:	/* ^H: erase character */
 			case Knack:	/* ^U: erase line */
