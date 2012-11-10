@@ -579,6 +579,8 @@ resize(void)
 	olines = 0;
 	exportsize();
 	clear(screen->r);
+	if(resize_flag > 1)
+		backup(backc);
 	resize_flag = 0;
 	werrstr("");		/* clear spurious error messages */
 }
@@ -684,7 +686,13 @@ backup(int count)
 	register char *cp;
 
 	eresized(0);
-	n = 3*(count+1)*ymax/4;
+	if(count == 0 && !pagemode) {
+		n = ymax;
+		nbacklines = HISTSIZ;	/* make sure we scroll to the very end */
+	} else{
+		n = 3*(count+1)*ymax/4;
+		nbacklines = ymax-1;
+	}
 	cp = histp;
 	atend = 0;
 	while (n >= 0) {
@@ -702,7 +710,6 @@ backup(int count)
 	if(cp >= &hist[HISTSIZ])
 		cp = hist;
 	backp = cp;
-	nbacklines = ymax-2;
 }
 
 Point
