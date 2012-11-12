@@ -1,7 +1,12 @@
 #!/bin/rc
 rfork e
 
-v=()
+if(~ $#* 0){
+	echo 'Usage: ' $0 '[ pid ... ]' >[1=2]
+	exit usage
+}
+
+f=/proc/*/fd
 
 fn otherqid {
 	x=`{echo $1 | sed 's/[12]$//'}
@@ -15,9 +20,10 @@ fn otherqid {
 
 fn traceqid {
 	while(! ~ $#* 0){
-		echo '['$2']' $3 $1
-		tracepid `{grep -n `{otherqid $1} /proc/*/fd | sed 's!^/proc/([^/]+)/.*!\1!g'} \
-			| sed 's/^/	/g'
+		echo $t '['$2']' $3 $1
+		t=('	' $t)
+		tracepid `{grep -n `{otherqid $1} $f >[2]/dev/null | sed 's!^/proc/([^/]+)/.*!\1!g'}
+		t=$t(2-)
 		shift
 		shift
 		shift
@@ -26,22 +32,25 @@ fn traceqid {
 
 fn tracepid {
 	while(! ~ $#* 0){
-		echo $1 `{cat /proc/$1/args >[2]/dev/null}
-		switch($1){
-		case $v
-			echo '	...'
-		case *
-			v=($1 $v)
-			traceqid `{awk '/\|/{q=substr($5,2);print q" "$1" "$10}' /proc/$1/fd} \
-				| sed 's/^/	/g'
+		a=ap$1
+		v=av$1
+		if(~ $$v $1){
+			echo $t $1 $$a '	...'
+		}
+		if not {
+			$v=$1
+			$a=`{cat /proc/$1/args >[2]/dev/null}
+			if(~ $$a ''){
+				s=`{cat /proc/$1/status >[2]/dev/null}
+				$a=$s(1)
+			}
+			echo $t $1 $$a
+			t=('	' $t)
+			traceqid `{awk '/\|/{q=substr($5,2);print q" "$1" "$10}' /proc/$1/fd >[2]/dev/null}
+			t=$t(2-)
 		}
 		shift
 	}
-}
-
-if(~ $#* 0){
-	echo 'Usage: ' $0 '[ pid ... ]' >[1=2]
-	exit usage
 }
 
 tracepid $*
