@@ -3,6 +3,7 @@
 
 flagfmt='n,e script,f sfile'
 args='[ file ... ]'
+fn usage { echo $0 '[ -n ] [ -e script ] [ -f sfile ] [ file ... ]' >[1=2] }
 if(! ifs=() eval `{aux/getflags $*}){
 	usage
 	exit usage
