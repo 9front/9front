@@ -2036,25 +2036,31 @@ asn1mpint(Elem *e)
 	return nil;
 }
 
-static mpint*
-pkcs1pad(Bytes *b, mpint *modulus)
+mpint*
+pkcs1padbuf(uchar *buf, int len, mpint *modulus)
 {
 	int n = (mpsignif(modulus)+7)/8;
 	int pm1, i;
 	uchar *p;
 	mpint *mp;
 
-	pm1 = n - 1 - b->len;
+	pm1 = n - 1 - len;
 	p = (uchar*)emalloc(n);
 	p[0] = 0;
 	p[1] = 1;
 	for(i = 2; i < pm1; i++)
 		p[i] = 0xFF;
 	p[pm1] = 0;
-	memcpy(&p[pm1+1], b->data, b->len);
+	memcpy(&p[pm1+1], buf, len);
 	mp = betomp(p, n, nil);
 	free(p);
 	return mp;
+}
+
+static mpint*
+pkcs1pad(Bytes *b, mpint *modulus)
+{
+	return pkcs1padbuf(b->data, b->len, modulus);
 }
 
 RSApriv*
