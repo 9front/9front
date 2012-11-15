@@ -112,9 +112,9 @@ typedef struct Msg{
 		struct {
 			Bytes *key;
 		} clientKeyExchange;
- 		struct {
- 			Bytes *signature;
- 		} certificateVerify;		
+		struct {
+			Bytes *signature;
+		} certificateVerify;		
 		Finished finished;
 	} u;
 } Msg;
@@ -726,9 +726,9 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 	}
 
 	if(creq) {
- 		m.u.certificate.ncert = 1;
- 		m.u.certificate.certs = emalloc(m.u.certificate.ncert * sizeof(Bytes));
- 		m.u.certificate.certs[0] = makebytes(cert, certlen);		
+		m.u.certificate.ncert = 1;
+		m.u.certificate.certs = emalloc(m.u.certificate.ncert * sizeof(Bytes));
+		m.u.certificate.certs[0] = makebytes(cert, certlen);		
 		m.tag = HCertificate;
 		if(!msgSend(c, &m, AFlush))
 			goto Err;
@@ -749,13 +749,13 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 		goto Err;
 	msgClear(&m);
 
- 	/* CertificateVerify */
- 	/*XXX I should only send this when it is not DH right? 
- 		Also we need to know which TLS key 
+	/* CertificateVerify */
+	/*XXX I should only send this when it is not DH right? 
+		Also we need to know which TLS key 
 		we have to use in case there are more than one*/
- 	if(cert) {
- 		m.tag = HCertificateVerify;
- 		uchar hshashes[MD5dlen+SHA1dlen]; /* content of signature */
+	if(cert){
+		m.tag = HCertificateVerify;
+		uchar hshashes[MD5dlen+SHA1dlen]; /* content of signature */
 		MD5state	hsmd5_save;
 		SHAstate	hssha1_save;
 	
@@ -763,22 +763,22 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 
 		hsmd5_save = c->hsmd5;
 		hssha1_save = c->hssha1;
- 		md5(nil, 0, hshashes, &c->hsmd5);
+		md5(nil, 0, hshashes, &c->hsmd5);
 		sha1(nil, 0, hshashes+MD5dlen, &c->hssha1);
 	
 		c->hsmd5 = hsmd5_save;
 		c->hssha1 = hssha1_save;
 
- 		c->sec->rpc = factotum_rsa_open(cert, certlen);
- 		if(c->sec->rpc == nil){
- 			tlsError(c, EHandshakeFailure, "factotum_rsa_open: %r");
- 			goto Err;
- 		}
+		c->sec->rpc = factotum_rsa_open(cert, certlen);
+		if(c->sec->rpc == nil){
+			tlsError(c, EHandshakeFailure, "factotum_rsa_open: %r");
+			goto Err;
+		}
 		c->sec->rsapub = X509toRSApub(cert, certlen, nil, 0);
 		
 		paddedHashes = pkcs1padbuf(hshashes, 36, c->sec->rsapub->n);
 		signedMP = factotum_rsa_decrypt(c->sec->rpc, paddedHashes);
- 		m.u.certificateVerify.signature = mptobytes(signedMP);
+		m.u.certificateVerify.signature = mptobytes(signedMP);
 		free(signedMP);
 
 		if(m.u.certificateVerify.signature == nil){
@@ -787,11 +787,11 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 		}
 
 		if(!msgSend(c, &m, AFlush)){
- 			msgClear(&m);
- 			goto Err;
- 		}
- 		msgClear(&m);
- 	} 
+			msgClear(&m);
+			goto Err;
+		}
+		msgClear(&m);
+	} 
 
 	/* change cipher spec */
 	if(fprint(c->ctl, "changecipher") < 0){
@@ -946,12 +946,12 @@ msgSend(TlsConnection *c, Msg *m, int act)
 			p += m->u.certificate.certs[i]->len;
 		}
 		break;
- 	case HCertificateVerify:
+	case HCertificateVerify:
 		put16(p, m->u.certificateVerify.signature->len);
 		p += 2;
- 		memmove(p, m->u.certificateVerify.signature->data, m->u.certificateVerify.signature->len);
- 		p += m->u.certificateVerify.signature->len;
- 		break;	
+		memmove(p, m->u.certificateVerify.signature->data, m->u.certificateVerify.signature->len);
+		p += m->u.certificateVerify.signature->len;
+		break;	
 	case HClientKeyExchange:
 		n = m->u.clientKeyExchange.key->len;
 		if(c->version != SSL3Version){
@@ -1310,9 +1310,9 @@ msgClear(Msg *m)
 			freebytes(m->u.certificateRequest.cas[i]);
 		free(m->u.certificateRequest.cas);
 		break;
- 	case HCertificateVerify:
- 		freebytes(m->u.certificateVerify.signature);
- 		break;
+	case HCertificateVerify:
+		freebytes(m->u.certificateVerify.signature);
+		break;
 	case HServerHelloDone:
 		break;
 	case HClientKeyExchange:
@@ -1406,10 +1406,10 @@ msgPrint(char *buf, int n, Msg *m)
 		for(i=0; i<m->u.certificateRequest.nca; i++)
 			bs = bytesPrint(bs, be, "\t\t", m->u.certificateRequest.cas[i], "\n");
 		break;
- 	case HCertificateVerify:
- 		bs = seprint(bs, be, "HCertificateVerify\n");
- 		bs = bytesPrint(bs, be, "\tsignature: ", m->u.certificateVerify.signature,"\n");
- 		break;	
+	case HCertificateVerify:
+		bs = seprint(bs, be, "HCertificateVerify\n");
+		bs = bytesPrint(bs, be, "\tsignature: ", m->u.certificateVerify.signature,"\n");
+		break;	
 	case HServerHelloDone:
 		bs = seprint(bs, be, "ServerHelloDone\n");
 		break;
