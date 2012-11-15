@@ -906,6 +906,7 @@ newentry(Fs *fs, Loc *l, Buf *b, char *name, FLoc *res)
 				d->size++;
 				b->op |= BDELWRI;
 			}
+			c->op |= BDELWRI;
 		}
 		for(j = 0; j < DEPERBLK; j++){
 			if(si == -1 && (c->de[j].mode & DALLOC) == 0){
