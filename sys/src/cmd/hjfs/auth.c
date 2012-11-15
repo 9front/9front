@@ -397,22 +397,22 @@ createuserdir(Fs *fs, char *name, short uid)
 	c = getbuf(ch->fs->d, f.blk, TDENTRY, 0);
 	if(c == nil)
 		goto direrr2;
+	c->op |= BDELWRI;
 	d = &c->de[f.deind];
-	memset(d, 0, sizeof(Dentry));
-	strncpy(d->name, name, NAMELEN - 1);
-	d->uid = uid;
-	d->muid = uid;
-	d->gid = uid;
-	d->mode = DALLOC | 0775;
+	memset(d, 0, sizeof(*d));
 	if(newqid(fs, &d->path) < 0){
 	direrr3:
 		putbuf(c);
 		goto direrr2;
 	}
+	strncpy(d->name, name, NAMELEN - 1);
+	d->uid = uid;
+	d->muid = uid;
+	d->gid = uid;
+	d->mode = DALLOC | 0775;
 	d->type = QTDIR;
 	d->atime = time(0);
 	d->mtime = d->atime;
-	c->op |= BDELWRI;
 	goto direrr3;
 }
 

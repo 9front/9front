@@ -146,15 +146,19 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 	c = getbuf(ch->fs->d, f.blk, TDENTRY, 0);
 	if(c == nil)
 		goto error;
+	c->op |= BDELWRI;
+	b->op |= BDELWRI;
 	modified(ch, d);
 	if(isdir)
 		perm &= ~0777 | d->mode & 0777;
 	else
 		perm &= ~0666 | d->mode & 0666;
 	d = &c->de[f.deind];
-	memset(d, 0, sizeof(Dentry));
-	if(newqid(ch->fs, &d->path) < 0)
+	memset(d, 0, sizeof(*d));
+	if(newqid(ch->fs, &d->path) < 0){
+		putbuf(c);
 		goto error;
+	}
 	d->type = perm >> 24;
 	strcpy(d->name, name);
 	d->mtime = time(0);
@@ -169,8 +173,6 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 		ch->loc->lwrite = d->atime;
 		qunlock(&ch->loc->ex);
 	}
-	c->op |= BDELWRI;
-	b->op |= BDELWRI;
 	putbuf(c);
 	putbuf(b);
 	switch(mode & OEXEC){
@@ -259,6 +261,7 @@ chanopen(Chan *ch, int mode)
 	if((mode & OTRUNC) != 0){
 		trunc(ch->fs, ch->loc, b, 0);
 		modified(ch, d);
+		b->op |= BDELWRI;
 	}
 	if((mode & ORCLOSE) != 0)
 		ch->open |= CHRCLOSE;
@@ -568,6 +571,7 @@ chanclunk(Chan *ch)
 
 	chbegin(ch);
 	rc = 1;
+	b = p = nil;
 	if(ch->open & CHRCLOSE){
 		if((ch->flags & CHFRO) != 0)
 			goto inval;
@@ -584,27 +588,17 @@ chanclunk(Chan *ch)
 		if(p == nil)
 			goto err;
 		b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
-		if(b == nil){
-			putbuf(p);
+		if(b == nil)
 			goto err;
-		}
 		if(!permcheck(ch->fs, &p->de[ch->loc->next->deind], ch->uid, OWRITE)){
 			werrstr(Eperm);
-			putbuf(b);
-			putbuf(p);
 			goto err;
 		}
 		d = &b->de[ch->loc->deind];
-		if((d->type & QTDIR) != 0 && findentry(ch->fs, ch->loc, b, nil, nil, ch->flags & CHFDUMP) != 0){
-			putbuf(b);
-			putbuf(p);
+		if((d->type & QTDIR) != 0 && findentry(ch->fs, ch->loc, b, nil, nil, ch->flags & CHFDUMP) != 0)
 			goto inval;
-		}
-		if((d->mode & DGONE) != 0){
-			putbuf(b);
-			putbuf(p);
+		if((d->mode & DGONE) != 0)
 			goto done;
-		}
 		qlock(&ch->fs->loctree);
 		if(ch->loc->ref > 1){
 			d->mode &= ~DALLOC;
@@ -617,10 +611,12 @@ chanclunk(Chan *ch)
 			rc = delete(ch->fs, ch->loc, b);
 		}
 		b->op |= BDELWRI;
-		putbuf(b);
-		putbuf(p);
 	}
 done:
+	if(b != nil)
+		putbuf(b);
+	if(p != nil)
+		putbuf(p);
 	if((ch->loc->type & QTEXCL) != 0){
 		qlock(&ch->loc->ex);
 		if(ch->loc->exlock == ch)
@@ -650,38 +646,24 @@ chanwstat(Chan *ch, Dir *di)
 		chend(ch);
 		return -1;
 	}
-	pb = nil;
+	b = pb = nil;
 	if(*di->name){
-		if(!namevalid(di->name) || ch->loc->next == nil){
-			werrstr(Einval);
-			chend(ch);
-			return -1;
-		}
+		if(!namevalid(di->name) || ch->loc->next == nil)
+			goto inval;
 		pb = getbuf(ch->fs->d, ch->loc->next->blk, TDENTRY, 0);
-		if(pb == nil){
-			chend(ch);
-			return -1;
-		}
-		if(!permcheck(ch->fs, &pb->de[ch->loc->next->deind], ch->uid, OWRITE)){
-			werrstr(Eperm);
-			putbuf(pb);
-			chend(ch);
-			return -1;
-		}
+		if(pb == nil)
+			goto error;
+		if(!permcheck(ch->fs, &pb->de[ch->loc->next->deind], ch->uid, OWRITE))
+			goto perm;
 		rc = findentry(ch->fs, ch->loc->next, pb, di->name, nil, ch->flags & CHFDUMP);
 		if(rc > 0)
 			werrstr(Eexists);
-		if(rc != 0){
-			putbuf(pb);
-			chend(ch);
-			return -1;
-		}
+		if(rc != 0)
+			goto error;
 	}
 	b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
-	if(b == nil){
-		chend(ch);
-		return -1;
-	}
+	if(b == nil)
+		goto error;
 	d = &b->de[ch->loc->deind];
 	isdir = (d->type & QTDIR) != 0;
 	owner = ch->uid == d->uid || ingroup(ch->fs, ch->uid, d->gid, 1) || (ch->fs->flags & FSNOPERM) != 0;
@@ -741,7 +723,8 @@ perm:
 error:
 	if(pb != nil)
 		putbuf(pb);
-	putbuf(b);
+	if(b != nil)
+		putbuf(b);
 	chend(ch);
 	return -1;
 }

@@ -549,6 +549,7 @@ getblk(Fs *fs, FLoc *L, Buf *bd, uvlong blk, uvlong *r, int mode)
 			if(b == nil)
 				return -1;
 			memset(b->offs, 0, sizeof(b->offs));
+			b->op |= BDELWRI;
 		}else{
 			if(mode != GBREAD && chref(fs, *loc, 0) > 1){
 				if(dumpblk(fs, L, loc) < 0){
@@ -632,9 +633,10 @@ delindir(Fs *fs, uvlong *l, int n)
 		b = getbuf(fs->d, *l, TINDIR, 0);
 		if(b != nil){
 			for(k = 0; k < OFFPERBLK; k++)
-				if(b->offs[k] != 0)
+				if(b->offs[k] != 0){
 					delindir(fs, &b->offs[k], n-1);
-			b->op |= BDELWRI;
+					b->op |= BDELWRI;
+				}
 			putbuf(b);
 		}
 	}
@@ -702,6 +704,7 @@ trunc(Fs *fs, FLoc *ll, Buf *bd, uvlong size)
 		if(d->db[blk] != 0){
 			putfree(fs, d->db[blk]);
 			d->db[blk] = 0;
+			bd->op |= BDELWRI;
 		}
 		blk++;
 	}
@@ -856,6 +859,7 @@ delete(Fs *fs, FLoc *l, Buf *b)
 	if((d->type & QTDIR) == 0){
 		trunc(fs, l, b, 0);
 		memset(d, 0, sizeof(*d));
+		b->op |= BDELWRI;
 		return 0;
 	}
 	first = last = emalloc(sizeof(Del));
