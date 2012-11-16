@@ -428,11 +428,17 @@ putloc(Fs *fs, Loc *l, int loop)
 	while(loop && l != nil && l->ref <= 1){
 freeit:
 		if((l->flags & LGONE) != 0){
+			/*
+			 * safe to unlock here, the file is gone and
+			 * we'r the last reference.
+			 */
+			qunlock(&fs->loctree);
 			b = getbuf(fs->d, l->blk, TDENTRY, 0);
 			if(b != nil){
 				delete(fs, l, b);
 				putbuf(b);
 			}
+			qlock(&fs->loctree);
 		}
 		l->cnext->cprev = l->cprev;
 		l->cprev->cnext = l->cnext;
