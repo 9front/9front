@@ -143,8 +143,8 @@ again:
 	p = getbuf(fs->d, l->next->blk, TDENTRY, 0);
 	if(p == nil)
 		goto err;
-	d = &p->de[l->next->deind];
-	for(i = 0; i < d->size; i++){
+	d = getdent(l->next, p);
+	if(d != nil) for(i = 0; i < d->size; i++){
 		rc = getblk(fs, l->next, p, i, &r, GBREAD);
 		if(rc <= 0)
 			continue;

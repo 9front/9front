@@ -29,6 +29,35 @@ chref(Fs *fs, uvlong r, int stat)
 	return rc;
 }
 
+static int
+qidcmp(Qid *a, Qid *b)
+{
+	if(a->type != b->type)
+		return 1;
+	if(a->path != b->path)
+		return 1;
+	return 0;
+}
+
+Dentry*
+getdent(FLoc *l, Buf *b)
+{
+	Dentry *d;
+
+	d = &b->de[l->deind];
+	if((d->mode & (DGONE | DALLOC)) == 0){
+		dprint("hjfs: getdent: file gone, callerpc %#p\n", getcallerpc(&l));
+		werrstr("phase error -- getdent");
+		return nil;
+	}
+	if(qidcmp(d, l) != 0){
+		dprint("hjfs: getdent: wrong qid, callerpc %#p\n", getcallerpc(&l));
+		werrstr("phase error -- getdent");
+		return nil;
+	}
+	return d;
+}
+
 int
 getfree(Fs *fs, uvlong *r)
 {
@@ -364,13 +393,13 @@ haveloc(Fs *fs, uvlong blk, int deind, Loc *next)
 
 	qlock(&fs->loctree);
 	l = next->child;
-	do{
+	if(l != nil) do{
 		if(l->blk == blk && l->deind == deind){
 			qunlock(&fs->loctree);
 			return 1;
 		}
 		l = l->cnext;
-	}while(l != next->child);
+	} while(l != next->child);
 	qunlock(&fs->loctree);
 	return 0;
 }
@@ -511,7 +540,11 @@ getblk(Fs *fs, FLoc *L, Buf *bd, uvlong blk, uvlong *r, int mode)
 	Dentry *d;
 
 	b = bd;
-	d = &bd->de[L->deind];
+	d = getdent(L, b);
+	if(d == nil){
+		dprint("hjfs: getblk: dirent gone\n");
+		return -1;
+	}
 	if(blk < NDIRECT){
 		loc = &d->db[blk];
 		goto found;
@@ -696,7 +729,9 @@ trunc(Fs *fs, FLoc *ll, Buf *bd, uvlong size)
 	uvlong l;
 	int i, j;
 
-	d = &bd->de[ll->deind];
+	d = getdent(ll, bd);
+	if(d == nil)
+		return -1;
 	if(size >= d->size)
 		goto done;
 	blk = HOWMANY(size, RBLOCK);
@@ -758,7 +793,9 @@ findentry(Fs *fs, FLoc *l, Buf *b, char *name, FLoc *rl, int dump)
 	uvlong r;
 	Buf *c;
 	
-	d = &b->de[l->deind];
+	d = getdent(l, b);
+	if(d == nil)
+		return -1;
 	for(i = 0; i < d->size; i++){
 		if(getblk(fs, l, b, i, &r, GBREAD) <= 0)
 			continue;
@@ -816,7 +853,10 @@ deltraverse(Fs *fs, Del *p, Buf *b, Del **last)
 		if(b == nil)
 			return -1;
 	}
-	s = b->de[p->deind].size;
+	d = getdent(p, b);
+	if(d == nil)
+		return -1;
+	s = d->size;
 	for(i = 0; i < s; i++){
 		rc = getblk(fs, p, b, i, &r, GBREAD);
 		if(rc <= 0)
@@ -835,6 +875,7 @@ deltraverse(Fs *fs, Del *p, Buf *b, Del **last)
 					dd = emalloc(sizeof(Del));
 					dd->blk = i;
 					dd->deind = j;
+					dd->Qid = d->Qid;
 					dd->prev = *last;
 					(*last)->next = dd;
 					*last = dd;
@@ -854,8 +895,10 @@ delete(Fs *fs, FLoc *l, Buf *b)
 	Dentry *d;
 	Buf *c;
 	Del *first, *last, *p, *q;
-	
-	d = &b->de[l->deind];
+
+	d = getdent(l, b);
+	if(d == nil)
+		return -1;
 	if((d->type & QTDIR) == 0){
 		trunc(fs, l, b, 0);
 		memset(d, 0, sizeof(*d));
@@ -873,9 +916,12 @@ delete(Fs *fs, FLoc *l, Buf *b)
 			c = getbuf(fs->d, p->blk, TDENTRY, 0);
 		if(c == nil)
 			continue;
-		trunc(fs, p, c, 0);
-		memset(&c->de[p->deind], 0, sizeof(Dentry));
-		c->op |= BDELWRI;
+		d = getdent(p, c);
+		if(d != nil){
+			trunc(fs, p, c, 0);
+			memset(d, 0, sizeof(*d));
+			c->op |= BDELWRI;
+		}
 		if(p != first)
 			putbuf(c);
 	}
@@ -885,16 +931,16 @@ delete(Fs *fs, FLoc *l, Buf *b)
 int
 newentry(Fs *fs, Loc *l, Buf *b, char *name, FLoc *res)
 {
-	Dentry *d;
+	Dentry *d, *dd;
 	uvlong i, si, r;
 	int j, sj, rc;
 	Buf *c;
 	FLoc f;
 
 	si = sj = -1;
-	d = &b->de[l->deind];
-	for(i = 0; i <= d->size; i++){
-		if(i == d->size && si != -1)
+	d = getdent(l, b);
+	if(d != nil) for(i = 0; i <= d->size; i++){
+		if(i >= d->size && si != -1)
 			break;
 		rc = getblk(fs, l, b, i, &r, si == -1 ? GBCREATE : GBREAD);
 		if(rc < 0)
@@ -906,32 +952,34 @@ newentry(Fs *fs, Loc *l, Buf *b, char *name, FLoc *res)
 			continue;
 		if(rc == 0){
 			memset(c->de, 0, sizeof(c->de));
-			if(i == d->size){
-				d->size++;
+			if(i >= d->size){
+				d->size = i+1;
 				b->op |= BDELWRI;
 			}
 			c->op |= BDELWRI;
 		}
 		for(j = 0; j < DEPERBLK; j++){
-			if(si == -1 && (c->de[j].mode & DALLOC) == 0){
-				si = i;
-				sj = j;
+			dd = &c->de[j];
+			if((dd->mode & DALLOC) != 0){
+				if(strcmp(dd->name, name) == 0){
+					werrstr(Eexists);
+					putbuf(c);
+					return 0;
+				}
+				continue;
 			}
-			if(si == -1 && (c->de[j].mode & DGONE) != 0 && !haveloc(fs, r, j, l)){
+			if(si != -1 || haveloc(fs, r, j, l))
+				continue;
+			if((dd->mode & DGONE) != 0){
 				memset(&f, 0, sizeof(f));
 				f.blk = r;
 				f.deind = j;
-				if(delete(fs, &f, c) >= 0){
-					si = i;
-					sj = j;
-				}
+				f.Qid = dd->Qid;
+				if(delete(fs, &f, c) < 0)
+					continue;
 			}
-			if((c->de[j].mode & DALLOC) != 0 &&
-			   strcmp(c->de[j].name, name) == 0){
-				werrstr(Eexists);
-				putbuf(c);
-				return 0;
-			}
+			si = i;
+			sj = j;
 		}
 		putbuf(c);
 	}
@@ -942,5 +990,6 @@ newentry(Fs *fs, Loc *l, Buf *b, char *name, FLoc *res)
 	if(getblk(fs, l, b, si, &res->blk, GBWRITE) <= 0)
 		return -1;
 	res->deind = sj;
+	res->Qid = (Qid){0, 0, 0};
 	return 1;
 }

@@ -8,6 +8,7 @@ void	unpack(Buf *, uchar *);
 Dev*	newdev(char *);
 ThrData*	getthrdata(void);
 Fs*	initfs(Dev *, int, int);
+Dentry*	getdent(FLoc *, Buf *);
 int	getfree(Fs *, uvlong *);
 int	putfree(Fs *, uvlong);
 Chan*	chanattach(Fs *, int);
