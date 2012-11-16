@@ -62,44 +62,57 @@ int
 getfree(Fs *fs, uvlong *r)
 {
 	Dev *d;
-	Buf *b, *c;
-	uvlong i, l;
+	Buf *b;
+	uvlong i, l, e;
 	int j, have;
 
 	d = fs->d;
+	while(nbrecv(fs->freelist, &l) > 0){
+		i = fs->fstart + l / REFPERBLK;
+		j = l % REFPERBLK;
+		b = getbuf(d, i, TREF, 0);
+		if(b != nil){
+			if(b->refs[j] == 0){
+				b->refs[j] = 1;
+				*r = l;
+				goto found;
+			}
+			putbuf(b);
+		}
+	}
+
 	b = getbuf(d, SUPERBLK, TSUPERBLOCK, 0);
 	if(b == nil)
 		return -1;
-	if(nbrecv(fs->freelist, r) > 0)
-		goto found;
+	e = b->sb.fend;
+	putbuf(b);
+
 	have = 0;
-	for(i = b->sb.fstart, l = 0; i < b->sb.fend; i++){
-		c = getbuf(d, i, TREF, 0);
-		if(c == nil){
-			putbuf(b);
-			return -1;
+	for(l = 0, i = fs->fstart; i < e; i++){
+		b = getbuf(d, i, TREF, 0);
+		if(b == nil){
+			l += REFPERBLK;
+			continue;
 		}
 		for(j = 0; j < REFPERBLK; j++, l++)
-			if(c->refs[j] == 0){
+			if(b->refs[j] == 0){
 				if(!have){
-					have = 1;
+					b->refs[j] = 1;
 					*r = l;
-				}else if(nbsend(fs->freelist, &l) <= 0){
-					putbuf(c);
-					goto done;
+					have = 1;
 				}
+				else if(nbsend(fs->freelist, &l) <= 0)
+					goto found;
 			}
-		putbuf(c);
+		if(have)
+			goto found;
+		putbuf(b);
 	}
-done:
-	if(!have){
-		werrstr("disk full");
-		return -1;
-	}
+	werrstr("disk full");
+	return -1;
 found:
+	b->op |= BDELWRI;
 	putbuf(b);
-	if(chref(fs, *r, 1) < 0)
-		return -1;
 	return 1;
 }
 
@@ -854,14 +867,17 @@ deltraverse(Fs *fs, Del *p, Buf *b, Del **last)
 	Del *dd;
 	
 	frb = b == nil;
-	if(b == nil){
+	if(frb){
 		b = getbuf(fs->d, p->blk, TDENTRY, 0);
 		if(b == nil)
 			return -1;
 	}
 	d = getdent(p, b);
-	if(d == nil)
+	if(d == nil){
+		if(frb)
+			putbuf(b);
 		return -1;
+	}
 	s = d->size;
 	for(i = 0; i < s; i++){
 		rc = getblk(fs, p, b, i, &r, GBREAD);
