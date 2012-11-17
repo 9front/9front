@@ -185,8 +185,10 @@ enum {
 	CHWRITE = 2,
 	CHRCLOSE = 4,
 	CHFDUMP = 1,
+
 	CHFNOLOCK = 2,
 	CHFRO = 4,
+	CHFNOPERM = 8,
 	
 	CHWBUSY = 1,
 	CHWCLUNK = 2,

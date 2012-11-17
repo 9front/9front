@@ -104,11 +104,12 @@ namevalid(char *name)
 int
 chancreat(Chan *ch, char *name, int perm, int mode)
 {
-	Buf *b, *c;
+	Buf *b;
 	Dentry *d;
 	int isdir;
+	Loc *l;
 	FLoc f;
-	
+
 	if((ch->flags & CHFRO) != 0){
 		werrstr(Einval);
 		return -1;
@@ -134,6 +135,7 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 		chend(ch);
 		return -1;
 	}
+	l = nil;
 	d = getdent(ch->loc, b);
 	if(d == nil)
 		goto error;
@@ -141,44 +143,49 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 		werrstr(Enotadir);
 		goto error;
 	}
-	if(!permcheck(ch->fs, d, ch->uid, OWRITE)){
-		werrstr(Eperm);
+	if((ch->flags & CHFNOPERM) == 0)	/* for console */
+		if(!permcheck(ch->fs, d, ch->uid, OWRITE)){
+			werrstr(Eperm);
+			goto error;
+		}
+	if(newentry(ch->fs, ch->loc, b, name, &f, 0) <= 0)
 		goto error;
-	}
-	if(newentry(ch->fs, ch->loc, b, name, &f) <= 0)
-		goto error;
-	c = getbuf(ch->fs->d, f.blk, TDENTRY, 0);
-	if(c == nil)
-		goto error;
-	modified(ch, d);
-	b->op |= BDELWRI;
-	c->op |= BDELWRI;
 	if(isdir)
 		perm &= ~0777 | d->mode & 0777;
 	else
 		perm &= ~0666 | d->mode & 0666;
-	d = &c->de[f.deind];
-	memset(d, 0, sizeof(*d));
-	if(newqid(ch->fs, &d->path) < 0){
-		putbuf(c);
+	f.type = perm >> 24;
+	if(newqid(ch->fs, &f.path) < 0)
 		goto error;
-	}
-	d->type = perm >> 24;
+	l = getloc(ch->fs, f, ch->loc);
+	modified(ch, d);
+	b->op |= BDELWRI;
+	putbuf(b);
+	b = nil;
+
+	if(willmodify(ch->fs, l, ch->flags & CHFNOLOCK) < 0)
+		goto error;
+	b = getbuf(ch->fs->d, l->blk, TDENTRY, 0);
+	if(b == nil)
+		goto error;
+	ch->loc = l;
+	d = &b->de[l->deind];
+	memset(d, 0, sizeof(*d));
+	d->Qid = l->Qid;
 	strcpy(d->name, name);
 	d->mtime = time(0);
 	d->atime = d->mtime;
 	d->gid = d->uid = d->muid = ch->uid;
 	d->mode = DALLOC | perm & 0777;
-	f.Qid = d->Qid;
-	ch->loc = getloc(ch->fs, f, ch->loc);
 	if((d->type & QTEXCL) != 0){
 		qlock(&ch->loc->ex);
 		ch->loc->exlock = ch;
 		ch->loc->lwrite = d->atime;
 		qunlock(&ch->loc->ex);
 	}
-	putbuf(c);
+	b->op |= BDELWRI;
 	putbuf(b);
+
 	switch(mode & OEXEC){
 	case ORDWR:
 		ch->open |= CHREAD;
@@ -194,7 +201,10 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 	return 1;
 
 error:
-	putbuf(b);
+	if(l != nil)
+		putloc(ch->fs, l, 0);
+	if(b != nil)
+		putbuf(b);
 	chend(ch);
 	return -1;
 }
@@ -212,6 +222,11 @@ chanopen(Chan *ch, int mode)
 		chend(ch);
 		return -1;
 	}
+	if((mode & OTRUNC) != 0)
+		if(willmodify(ch->fs, ch->loc, ch->flags & CHFNOLOCK) < 0){
+			chend(ch);
+			return -1;
+		}
 	b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
 	if(b == nil){
 		chend(ch);

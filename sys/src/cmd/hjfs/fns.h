@@ -44,7 +44,7 @@ int	trunc(Fs *, FLoc *, Buf *, uvlong);
 int	dprint(char *fmt, ...);
 int	delete(Fs *, FLoc *, Buf *);
 int	chref(Fs *, uvlong, int);
-int	newentry(Fs *, Loc *, Buf *, char *, FLoc *);
+int	newentry(Fs *, Loc *, Buf *, char *, FLoc *, int);
 int	namevalid(char *);
 int	usersload(Fs *, Chan *);
 int	userssave(Fs *, Chan *);

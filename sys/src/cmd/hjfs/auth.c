@@ -366,54 +366,14 @@ static void
 createuserdir(Fs *fs, char *name, short uid)
 {
 	Chan *ch;
-	Buf *b, *c;
-	Dentry *d;
-	FLoc f;
 
-	ch = chanattach(fs, 0);
+	ch = chanattach(fs, CHFNOPERM);
 	if(ch == nil)
 		return;
-	ch->uid = -1;
-	if(chanwalk(ch, "usr") <= 0 || (ch->loc->type & QTDIR) == 0){
-	direrr:
-		chanclunk(ch);
-		return;
-	}
-	chbegin(ch);
-	if(willmodify(ch->fs, ch->loc, 0) < 0){
-	direrr1:
-		chend(ch);
-		goto direrr;
-	}
-	b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
-	if(b == nil)
-		goto direrr1;
-	if(newentry(ch->fs, ch->loc, b, name, &f) <= 0){
-	direrr2:
-		putbuf(b);
-		goto direrr1;
-	}
-	modified(ch, &b->de[ch->loc->deind]);
-	c = getbuf(ch->fs->d, f.blk, TDENTRY, 0);
-	if(c == nil)
-		goto direrr2;
-	c->op |= BDELWRI;
-	d = &c->de[f.deind];
-	memset(d, 0, sizeof(*d));
-	if(newqid(fs, &d->path) < 0){
-	direrr3:
-		putbuf(c);
-		goto direrr2;
-	}
-	strncpy(d->name, name, NAMELEN - 1);
-	d->uid = uid;
-	d->muid = uid;
-	d->gid = uid;
-	d->mode = DALLOC | 0775;
-	d->type = QTDIR;
-	d->atime = time(0);
-	d->mtime = d->atime;
-	goto direrr3;
+	ch->uid = uid;
+	if(chanwalk(ch, "usr") > 0)
+		chancreat(ch, name, DMDIR | 0775, OREAD);
+	chanclunk(ch);
 }
 
 int
