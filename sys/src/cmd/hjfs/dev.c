@@ -30,20 +30,27 @@ devwork(void *v)
 			b->error = Einval;
 			goto reply;
 		}
-		seek(d->fd, b->off * BLOCK, 0);
 		b->error = nil;
 		if(b->op & BWRITE){
 			memset(buf, 0, sizeof(buf));
 			pack(b, buf);
-			if(write(d->fd, buf, BLOCK) < BLOCK){
+			if(pwrite(d->fd, buf, BLOCK, b->off*BLOCK) < BLOCK){
 				dprint("hjfs: write: %r\n");
 				b->error = Eio;
 			}
 		}else{
-			if(readn(d->fd, buf, BLOCK) < 0){
-				dprint("hjfs: read: %r\n");
+			int n, m;
+
+			for(n = 0; n < BLOCK; n += m){
+				m = pread(d->fd, buf+n, BLOCK-n, b->off*BLOCK+n);
+				if(m < 0)
+					dprint("hjfs: read: %r\n");
+				if(m <= 0)
+					break;
+			}
+			if(n < BLOCK)
 				b->error = Eio;
-			}else
+			else
 				unpack(b, buf);
 		}
 	reply:
