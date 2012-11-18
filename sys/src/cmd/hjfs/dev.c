@@ -80,7 +80,7 @@ newdev(char *file)
 		werrstr("device file too short");
 		goto error;
 	}
-	d->name = strdup(file);
+	d->name = estrdup(file);
 	for(b = d->buf; b < d->buf + BUFHASH + 1; b++)
 		b->dnext = b->dprev = b;
 	d->workr.l = &d->workl;

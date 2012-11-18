@@ -110,32 +110,21 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 	Loc *l;
 	FLoc f;
 
-	if((ch->flags & CHFRO) != 0){
-		werrstr(Einval);
-		return -1;
-	}
-	chbegin(ch);
-	if(willmodify(ch->fs, ch->loc, ch->flags & CHFNOLOCK) < 0){
-		chend(ch);
-		return -1;
-	}
-	if(!namevalid(name) || ch->open != 0){
-		werrstr(Einval);
-		chend(ch);
-		return -1;
-	}
-	if(isdir = ((perm & DMDIR) != 0))
-		if((mode & (OWRITE | OEXEC | ORCLOSE | OTRUNC)) != 0){
-			werrstr(Einval);
-			chend(ch);
-			return -1;
-		}
-	b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
-	if(b == nil){
-		chend(ch);
-		return -1;
-	}
+	b = nil;
 	l = nil;
+	chbegin(ch);
+	if(!namevalid(name) || ch->open != 0)
+		goto inval;
+	if((ch->flags & CHFRO) != 0)
+		goto inval;
+	if(willmodify(ch->fs, ch->loc, ch->flags & CHFNOLOCK) < 0)
+		goto error;
+	if(isdir = ((perm & DMDIR) != 0))
+		if((mode & (OWRITE | OEXEC | ORCLOSE | OTRUNC)) != 0)
+			goto inval;
+	b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
+	if(b == nil)
+		goto error;
 	d = getdent(ch->loc, b);
 	if(d == nil)
 		goto error;
@@ -143,7 +132,7 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 		werrstr(Enotadir);
 		goto error;
 	}
-	if((ch->flags & CHFNOPERM) == 0)	/* for console */
+	if((ch->flags & CHFNOPERM) == 0)
 		if(!permcheck(ch->fs, d, ch->uid, OWRITE)){
 			werrstr(Eperm);
 			goto error;
@@ -162,7 +151,6 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 	b->op |= BDELWRI;
 	putbuf(b);
 	b = nil;
-
 	if(willmodify(ch->fs, l, ch->flags & CHFNOLOCK) < 0)
 		goto error;
 	b = getbuf(ch->fs->d, l->blk, TDENTRY, 0);
@@ -185,7 +173,6 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 	}
 	b->op |= BDELWRI;
 	putbuf(b);
-
 	switch(mode & OEXEC){
 	case ORDWR:
 		ch->open |= CHREAD;
@@ -199,7 +186,8 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 	}
 	chend(ch);
 	return 1;
-
+inval:
+	werrstr(Einval);
 error:
 	if(l != nil)
 		putloc(ch->fs, l, 0);
@@ -214,47 +202,45 @@ chanopen(Chan *ch, int mode)
 {
 	Buf *b;
 	Dentry *d;
-	int isdir;
 
+	b = nil;
 	chbegin(ch);
-	if(ch->open != 0){
-		werrstr(Einval);
-		chend(ch);
-		return -1;
-	}
+	if(ch->open != 0)
+		goto inval;
+	if((ch->flags & CHFRO) != 0 && (mode & (ORCLOSE | OTRUNC | OWRITE | ORDWR)) != 0)
+		goto inval;
 	if((mode & OTRUNC) != 0)
-		if(willmodify(ch->fs, ch->loc, ch->flags & CHFNOLOCK) < 0){
-			chend(ch);
-			return -1;
-		}
-	b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
-	if(b == nil){
-		chend(ch);
-		return -1;
+		if(willmodify(ch->fs, ch->loc, ch->flags & CHFNOLOCK) < 0)
+			goto error;
+	if((mode & ORCLOSE) != 0){
+		if(ch->loc->next == nil)
+			goto inval;
+		b = getbuf(ch->fs->d, ch->loc->next->blk, TDENTRY, 0);
+		if(b == nil)
+			goto error;
+		d = getdent(ch->loc->next, b);
+		if(d == nil)
+			goto error;
+		if((ch->flags & CHFNOPERM) == 0)
+			if(!permcheck(ch->fs, d, ch->uid, OWRITE))
+				goto perm;
+		putbuf(b);
 	}
+	b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
+	if(b == nil)
+		goto error;
 	d = getdent(ch->loc, b);
 	if(d == nil)
-		goto err;
-	if(!permcheck(ch->fs, d, ch->uid, mode & OEXEC)){
-	permerr:
-		werrstr(Eperm);
-	err:
-		putbuf(b);
-		chend(ch);
-		return -1;
-	}
+		goto error;
 	if((d->type & QTAPPEND) != 0)
 		mode &= ~OTRUNC;
-	isdir = (d->type & QTDIR) != 0;
-	if(isdir && (mode & (ORCLOSE | OTRUNC | OWRITE | ORDWR)) != 0){
-		werrstr(Einval);
-		goto err;
-	}
-	if((mode & OTRUNC) != 0 && !permcheck(ch->fs, d, ch->uid, OWRITE))
-		goto permerr;
-	if((ch->flags & CHFRO) != 0 && (mode & (ORCLOSE | OTRUNC | OWRITE | ORDWR)) != 0){
-		werrstr(Einval);
-		goto err;
+	if((d->type & QTDIR) != 0 && (mode & (ORCLOSE | OTRUNC | OWRITE | ORDWR)) != 0)
+		goto inval;
+	if((ch->flags & CHFNOPERM) == 0){
+		if(!permcheck(ch->fs, d, ch->uid, mode & OEXEC))
+			goto perm;
+		if((mode & OTRUNC) != 0 && !permcheck(ch->fs, d, ch->uid, OWRITE))
+			goto perm;
 	}
 	if((ch->loc->type & QTEXCL) != 0){
 		qlock(&ch->loc->ex);
@@ -265,7 +251,7 @@ chanopen(Chan *ch, int mode)
 		}else{
 			qunlock(&ch->loc->ex);
 			werrstr(Elocked);
-			goto err;
+			goto error;
 		}
 	}
 	switch(mode & OEXEC){
@@ -289,6 +275,16 @@ chanopen(Chan *ch, int mode)
 	putbuf(b);
 	chend(ch);
 	return 1;
+inval:
+	werrstr(Einval);
+	goto error;
+perm:
+	werrstr(Eperm);
+error:
+	if(b != nil)
+		putbuf(b);
+	chend(ch);
+	return -1;
 }
 
 static int
@@ -401,13 +397,12 @@ chanread(Chan *ch, void *buf, ulong n, uvlong off)
 	Buf *b, *c;
 	Dentry *d;
 
-	chbegin(ch);
-	if((ch->loc->type & QTEXCL) != 0 && checklock(ch) < 0){
-		chend(ch);
-		return -1;
-	}
 	if((ch->open & CHREAD) == 0){
 		werrstr(Einval);
+		return -1;
+	}
+	chbegin(ch);
+	if((ch->loc->type & QTEXCL) != 0 && checklock(ch) < 0){
 		chend(ch);
 		return -1;
 	}
@@ -419,11 +414,8 @@ chanread(Chan *ch, void *buf, ulong n, uvlong off)
 		return -1;
 	}
 	d = getdent(ch->loc, b);
-	if(d == nil){
-		putbuf(b);
-		chend(ch);
-		return -1;
-	}
+	if(d == nil)
+		goto error;
 	if(off >= d->size)
 		n = 0;
 	else if(off + n > d->size)
@@ -460,7 +452,6 @@ chanread(Chan *ch, void *buf, ulong n, uvlong off)
 	putbuf(b);
 	chend(ch);
 	return n;
-	
 error:
 	putbuf(b);
 	chend(ch);
@@ -478,7 +469,7 @@ statbuf(Fs *fs, Dentry *d, Dir *di, char *buf)
 	if(d->type & QTDIR)
 		di->length = 0;
 	if(buf == nil){
-		di->name = strdup(d->name);
+		di->name = estrdup(d->name);
 		di->uid = uid2name(fs, d->uid, nil);
 		di->gid = uid2name(fs, d->gid, nil);
 		di->muid = uid2name(fs, d->muid, nil);
@@ -612,37 +603,33 @@ chanclunk(Chan *ch)
 	int rc;
 	Dentry *d;
 
-	chbegin(ch);
 	rc = 1;
 	b = p = nil;
+	chbegin(ch);
 	if(ch->open & CHRCLOSE){
 		if((ch->flags & CHFRO) != 0)
 			goto inval;
 		if(willmodify(ch->fs, ch->loc, ch->flags & CHFNOLOCK) < 0)
-			goto err;
-		if(ch->loc->next == nil){
-		inval:
-			werrstr(Einval);
-		err:
-			rc = -1;
-			goto done;
-		}
+			goto error;
+		if(ch->loc->next == nil)
+			goto inval;
 		p = getbuf(ch->fs->d, ch->loc->next->blk, TDENTRY, 0);
 		if(p == nil)
-			goto err;
+			goto error;
 		b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
 		if(b == nil)
-			goto err;
+			goto error;
 		d = getdent(ch->loc->next, p);
 		if(d == nil)
-			goto err;
-		if(!permcheck(ch->fs, d, ch->uid, OWRITE)){
-			werrstr(Eperm);
-			goto err;
-		}
+			goto error;
+		if((ch->flags & CHFNOPERM) == 0)
+			if(!permcheck(ch->fs, d, ch->uid, OWRITE)){
+				werrstr(Eperm);
+				goto error;
+			}
 		d = getdent(ch->loc, b);
 		if(d == nil)
-			goto err;
+			goto error;
 		if((d->type & QTDIR) != 0 && findentry(ch->fs, ch->loc, b, nil, nil, ch->flags & CHFDUMP) != 0)
 			goto inval;
 		if((d->mode & DGONE) != 0)
@@ -675,6 +662,11 @@ done:
 	chend(ch);
 	free(ch);
 	return rc;
+inval:
+	werrstr(Einval);
+error:
+	rc = -1;
+	goto done;
 }
 
 int
@@ -685,16 +677,12 @@ chanwstat(Chan *ch, Dir *di)
 	int isdir, owner, rc;
 	short nuid, ngid;
 
-	if((ch->flags & CHFRO) != 0){
-		werrstr(Einval);
-		return -1;
-	}
-	chbegin(ch);
-	if(willmodify(ch->fs, ch->loc, ch->flags & CHFNOLOCK) < 0){
-		chend(ch);
-		return -1;
-	}
 	b = pb = nil;
+	chbegin(ch);
+	if((ch->flags & CHFRO) != 0)
+		goto inval;
+	if(willmodify(ch->fs, ch->loc, ch->flags & CHFNOLOCK) < 0)
+		goto error;
 	if(*di->name){
 		if(!namevalid(di->name) || ch->loc->next == nil)
 			goto inval;
@@ -704,8 +692,9 @@ chanwstat(Chan *ch, Dir *di)
 		d = getdent(ch->loc->next, pb);
 		if(d == nil)
 			goto error;
-		if(!permcheck(ch->fs, d, ch->uid, OWRITE))
-			goto perm;
+		if((ch->flags & CHFNOPERM) == 0)
+			if(!permcheck(ch->fs, d, ch->uid, OWRITE))
+				goto perm;
 		rc = findentry(ch->fs, ch->loc->next, pb, di->name, nil, ch->flags & CHFDUMP);
 		if(rc > 0)
 			werrstr(Eexists);
@@ -719,12 +708,16 @@ chanwstat(Chan *ch, Dir *di)
 	if(d == nil)
 		goto error;
 	isdir = (d->type & QTDIR) != 0;
-	owner = ch->uid == d->uid || ingroup(ch->fs, ch->uid, d->gid, 1) || (ch->fs->flags & FSNOPERM) != 0;
+	owner = ch->uid == d->uid ||
+		ingroup(ch->fs, ch->uid, d->gid, 1) ||
+		(ch->fs->flags & FSNOPERM) != 0 ||
+		(ch->flags & CHFNOPERM) != 0;
 	if((uvlong)~di->length){
 		if(isdir && di->length != 0)
 			goto inval;
-		if(di->length != d->size && !permcheck(ch->fs, d, ch->uid, OWRITE))
-			goto perm;
+		if((ch->flags & CHFNOPERM) == 0)
+			if(di->length != d->size && !permcheck(ch->fs, d, ch->uid, OWRITE))
+				goto perm;
 	}
 	if((ulong)~di->atime)
 		goto inval;
@@ -742,7 +735,6 @@ chanwstat(Chan *ch, Dir *di)
 		goto inval;
 	if((nuid != NOUID || ngid != NOUID) && !owner)
 		goto perm;
-
 	if((uvlong)~di->length && !isdir){
 		trunc(ch->fs, ch->loc, b, di->length);
 		modified(ch, d);
@@ -767,7 +759,6 @@ chanwstat(Chan *ch, Dir *di)
 	putbuf(b);
 	chend(ch);
 	return 1;
-
 inval:
 	werrstr(Einval);
 	goto error;

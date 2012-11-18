@@ -1,4 +1,6 @@
 void*	emalloc(int);
+void*	erealloc(void*,int);
+char*	estrdup(char*);
 void	bufinit(int);
 Buf*	getbuf(Dev *, uvlong, int, int);
 void	putbuf(Buf *);

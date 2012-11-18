@@ -27,6 +27,26 @@ emalloc(int c)
 	return v;
 }
 
+void*
+erealloc(void *v, int c)
+{
+	v = realloc(v, c);
+	if(v == 0)
+		sysfatal("realloc: %r");
+	setrealloctag(v, getcallerpc(&c));
+	return v;
+}
+
+char*
+estrdup(char *s)
+{
+	s = strdup(s);
+	if(s == 0)
+		sysfatal("strdup: %r");
+	setmalloctag(s, getcallerpc(&s));
+	return s;
+}
+
 ThrData *
 getthrdata(void)
 {
@@ -88,8 +108,8 @@ threadmain(int argc, char **argv)
 	case 'r': doream++; break;
 	case 'S': flags |= FSNOPERM | FSCHOWN; break;
 	case 's': stdio++; break;
-	case 'f': file = strdup(EARGF(usage())); break;
-	case 'n': service = strdup(EARGF(usage())); break;
+	case 'f': file = estrdup(EARGF(usage())); break;
+	case 'n': service = estrdup(EARGF(usage())); break;
 	case 'm':
 		nbuf = muldiv(atoi(EARGF(usage())), 1048576, sizeof(Buf));
 		if(nbuf < 10)

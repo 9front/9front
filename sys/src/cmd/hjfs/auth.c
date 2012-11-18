@@ -78,14 +78,14 @@ usersparseline(char *l, PUser **u, int *nu)
 			free(v.memb);
 			return;
 		}
-		v.memb = realloc(v.memb, (v.nmemb + 1) * USERLEN);
+		v.memb = erealloc(v.memb, (v.nmemb + 1) * USERLEN);
 		strcpy(v.memb[v.nmemb++], r);
 		if(s == nil)
 			r = nil;
 		else
 			r = s + 1;
 	}
-	*u = realloc(*u, (*nu + 1) * sizeof(PUser));
+	*u = erealloc(*u, (*nu + 1) * sizeof(PUser));
 	memcpy(&(*u)[(*nu)++], &v, sizeof(PUser));
 }
 
@@ -137,7 +137,7 @@ usersload(Fs *fs, Chan *ch)
 	nu = 0;
 	for(;;){
 		if((bufl & 1023) == 0)
-			buf = realloc(buf, bufl + 1024);
+			buf = erealloc(buf, bufl + 1024);
 		rc = chanread(ch, buf + bufl, 1024, bufl);
 		if(rc < 0)
 			goto err;
@@ -411,7 +411,7 @@ cmdnewuser(int argc, char **argv)
 			gid++;
 	}
 	resort = 1;
-	fs->udata = realloc(fs->udata, sizeof(User) * (fs->nudata + 1));
+	fs->udata = erealloc(fs->udata, sizeof(User) * (fs->nudata + 1));
 	u = fs->udata + fs->nudata++;
 	strcpy(u->name, argv[1]);
 	u->nmemb = 0;
@@ -447,9 +447,9 @@ found:
 			if(u->memb[j] != v->uid)
 				goto erropt;
 			memmove(&u->memb[j], &u->memb[j + 1], sizeof(short) * (u->nmemb - j - 1));
-			u->memb = realloc(u->memb, sizeof(short) * --u->nmemb);
+			u->memb = erealloc(u->memb, sizeof(short) * --u->nmemb);
 		}else{
-			u->memb = realloc(u->memb, sizeof(short) * ++u->nmemb);
+			u->memb = erealloc(u->memb, sizeof(short) * ++u->nmemb);
 			memmove(&u->memb[j + 1], &u->memb[j], sizeof(short) * (u->nmemb - j - 1));
 			u->memb[j] = v->uid;
 		}
