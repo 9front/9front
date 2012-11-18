@@ -3,6 +3,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <bio.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -119,9 +120,73 @@ Error:
 }
 
 void
-changes(char *lpath, char *rpath, char *apath)
+apply1(char *state, char *name, char *lpath, char *rpath, Workdir *wd)
 {
-	print("local=%s\nremote=%s\nancestor=%s\n", lpath, rpath, apath);
+	char buf[MAXPATH];
+	Dir *d;
+	Dstate *ds;
+
+	ds = *dslookup(wd, name);
+	if(ds != nil){
+		snprint(buf, sizeof(buf), "%s/%s", wd->path, name);
+		d = dirstat(buf);
+	}
+	if(strcmp(state, "na") == 0){
+		snprint(buf, sizeof(buf), "%s/%s", rpath, name);
+		d = dirstat(buf);
+		if(d != nil){
+			if(d->qid.type & QTDIR)
+				print("mkdir %s/%s\n", wd->path, name);
+			else
+				print("cp %s %s/%s\n", buf, wd->path, name);
+			free(d);
+		}
+	}
+	else if(strcmp(state, "nm") == 0)
+		print("cp %s/%s %s/%s\n", rpath, name, wd->path, name);
+	else if(strcmp(state, "nd") == 0)
+		print("rm %s/%s\n", wd->path, name);
+}
+
+void
+applychanges(int fd, char *lpath, char *rpath, Workdir *wd)
+{
+	char *state, *name;
+	Biobuf bin;
+
+	Binit(&bin, fd, OREAD);
+	while((state = Brdstr(&bin, '\n', 1)) != nil){
+		if((name = strchr(state, '\t')) == nil)
+			continue;
+		while(*name == '\t' || *name == ' ')
+			*name++ = '\0';
+		if(name[0] == '.' && name[1] == '/')
+			name += 2;
+		apply1(state, name, lpath, rpath, wd);
+	}
+	Bterm(&bin);
+}
+
+void
+changes(char *lpath, char *rpath, char *apath, Workdir *wd)
+{
+	int pfd[2];
+
+	if(pipe(pfd) < 0)
+		sysfatal("pipe: %r");
+	switch(rfork(RFPROC|RFMEM|RFFDG)){
+	case -1:
+		sysfatal("rfork: %r");
+	case 0:
+		close(pfd[0]);
+		dup(pfd[1], 1);
+		close(pfd[1]);
+		execl("/bin/derp", "derp", "-L", "-p", "0111", lpath, apath, rpath, nil);
+		sysfatal("execl: %r");
+	}
+	close(pfd[1]);
+	applychanges(pfd[0], lpath, rpath, wd);
+	close(pfd[0]);
 }
 
 void
@@ -180,7 +245,7 @@ main(int argc, char *argv[])
 	snprint(rpath, sizeof(rpath), "%s/%H/files", mtpt, rhash);
 	snprint(apath, sizeof(apath), "%s/%H/files", mtpt, ahash);
 	
-	changes(lpath, rpath, apath);
-	
+	changes(lpath, rpath, apath, &wd);
+
 	exits(0);
 }
