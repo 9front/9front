@@ -53,7 +53,7 @@ unpack(Buf *b, uchar *p)
 		GET64(b->sb.qidpath);
 		break;
 	case TDENTRY:
-		for(d = b->de; d < b->de + nelem(b->de); d++){
+		for(d = b->de; d < &b->de[DEPERBLK]; d++){
 			GETS(d->name, NAMELEN);
 			GET16(d->uid);
 			GET16(d->muid);

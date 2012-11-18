@@ -24,7 +24,7 @@ copydentry(Fs *fs, FLoc *a, Loc *b, char *nname)
 		putbuf(ba);
 		return -1;
 	}
-	rc = newentry(fs, b, bb, nname, &c);
+	rc = newentry(fs, b, bb, nname, &c, 1);
 	if(rc < 0){
 	err1:
 		putbuf(bb);
@@ -35,7 +35,7 @@ copydentry(Fs *fs, FLoc *a, Loc *b, char *nname)
 	if(bc == nil)
 		goto err1;
 	d = &bc->de[c.deind];
-	memcpy(d, &ba->de[a->deind], sizeof(Dentry));
+	memcpy(d, &ba->de[a->deind], sizeof(*d));
 	strcpy(d->name, nname);
 	for(i = 0; i < NDIRECT; i++)
 		if(d->db[i] != 0)
@@ -116,6 +116,7 @@ int
 willmodify(Fs *fs, Loc *l, int nolock)
 {
 	Buf *p;
+	Loc *m;
 	uvlong i, r;
 	Dentry *d;
 	int rc;
@@ -150,7 +151,7 @@ again:
 			continue;
 		if(r == l->blk)
 			goto found;
-	}
+	}	
 phase:
 	werrstr("willmodify -- phase error");
 	putbuf(p);
@@ -164,7 +165,19 @@ found:
 	if(rc == 0)
 		goto phase;
 	putbuf(p);
-	l->blk = r;
+
+	if(r != l->blk){
+		/*
+		 * block got dumped, update the loctree so locs
+		 * point to the new block.
+		 */
+		qlock(&fs->loctree);
+		for(m = l->cnext; m != l; m = m->cnext)
+			if(m->blk == l->blk)
+				m->blk = r;
+		l->blk = r;
+		qunlock(&fs->loctree);
+	}
 done:
 	l->flags |= LDUMPED;
 	if(!nolock){

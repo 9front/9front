@@ -34,8 +34,12 @@ qidcmp(Qid *a, Qid *b)
 {
 	if(a->type != b->type)
 		return 1;
-	if(a->path != b->path)
+	if(a->path != b->path){
+		/* special case for dump, this is ok */
+		if(a->path==ROOTQID && b->path==DUMPROOTQID)
+			return 0;
 		return 1;
+	}
 	return 0;
 }
 
@@ -46,12 +50,14 @@ getdent(FLoc *l, Buf *b)
 
 	d = &b->de[l->deind];
 	if((d->mode & (DGONE | DALLOC)) == 0){
-		dprint("hjfs: getdent: file gone, callerpc %#p\n", getcallerpc(&l));
+		dprint("hjfs: getdent: file gone, d=%llux, l=%llud/%d %llux, callerpc %#p\n",
+			d->path, l->blk, l->deind, l->path, getcallerpc(&l));
 		werrstr("phase error -- getdent");
 		return nil;
 	}
 	if(qidcmp(d, l) != 0){
-		dprint("hjfs: getdent: wrong qid, callerpc %#p\n", getcallerpc(&l));
+		dprint("hjfs: getdent: wrong qid d=%llux != l=%llud/%d %llux, callerpc %#p\n",
+			d->path, l->blk, l->deind, l->path, getcallerpc(&l));
 		werrstr("phase error -- getdent");
 		return nil;
 	}
@@ -950,66 +956,70 @@ delete(Fs *fs, FLoc *l, Buf *b)
 	return 0;
 }
 
+/*
+ * newentry() looks for a free slot in the directory
+ * and returns FLoc pointing to the slot. if no free
+ * slot is available a new block is allocated. if
+ * dump == 0, then the resulting blk from the FLoc
+ * *is not* dumped, so to finally allocate the Dentry,
+ * one has to call willmodify() on res before modyfing it.
+ */
 int
-newentry(Fs *fs, Loc *l, Buf *b, char *name, FLoc *res)
+newentry(Fs *fs, Loc *l, Buf *b, char *name, FLoc *res, int dump)
 {
 	Dentry *d, *dd;
 	uvlong i, si, r;
-	int j, sj, rc;
+	int j, sj;
 	Buf *c;
-	FLoc f;
 
 	si = sj = -1;
 	d = getdent(l, b);
-	if(d != nil) for(i = 0; i <= d->size; i++){
-		if(i >= d->size && si != -1)
-			break;
-		rc = getblk(fs, l, b, i, &r, si == -1 ? GBCREATE : GBREAD);
-		if(rc < 0)
-			continue;
-		if(rc == 0 && si != -1)
-			continue;
-		c = getbuf(fs->d, r, TDENTRY, rc == 0);
-		if(c == nil)
-			continue;
-		if(rc == 0){
-			memset(c->de, 0, sizeof(c->de));
-			if(i >= d->size){
-				d->size = i+1;
-				b->op |= BDELWRI;
-			}
-			c->op |= BDELWRI;
-		}
-		for(j = 0; j < DEPERBLK; j++){
-			dd = &c->de[j];
-			if((dd->mode & DALLOC) != 0){
-				if(strcmp(dd->name, name) == 0){
-					werrstr(Eexists);
-					putbuf(c);
-					return 0;
-				}
+	if(d != nil){
+		for(i = 0; i < d->size; i++){
+			if(getblk(fs, l, b, i, &r, GBREAD) <= 0)
 				continue;
-			}
-			if(si != -1 || haveloc(fs, r, j, l))
+			c = getbuf(fs->d, r, TDENTRY, 0);
+			if(c == nil)
 				continue;
-			if((dd->mode & DGONE) != 0){
-				memset(&f, 0, sizeof(f));
-				f.blk = r;
-				f.deind = j;
-				f.Qid = dd->Qid;
-				if(delete(fs, &f, c) < 0)
+			for(j = 0; j < DEPERBLK; j++){
+				dd = &c->de[j];
+				if((dd->mode & DGONE) != 0)
 					continue;
+				if((dd->mode & DALLOC) != 0){
+					if(strcmp(dd->name, name) == 0){
+						werrstr(Eexists);
+						putbuf(c);
+						return 0;
+					}
+					continue;
+				}
+				if(si != -1 || haveloc(fs, r, j, l))
+					continue;
+				si = i;
+				sj = j;
 			}
-			si = i;
-			sj = j;
+			putbuf(c);
 		}
-		putbuf(c);
+		if(si == -1 && i == d->size){
+			if(getblk(fs, l, b, i, &r, GBCREATE) >= 0){
+				c = getbuf(fs->d, r, TDENTRY, 1);
+				if(c != nil){
+					si = i;
+					sj = 0;
+					d->size = i+1;
+					b->op |= BDELWRI;
+					memset(c->de, 0, sizeof(c->de));
+					c->op |= BDELWRI;
+					putbuf(c);
+				}
+			}
+		}
 	}
 	if(si == -1 || sj == -1){
 		werrstr("phase error -- create");
 		return -1;
 	}
-	if(getblk(fs, l, b, si, &res->blk, GBWRITE) <= 0)
+	if(getblk(fs, l, b, si, &res->blk, dump != 0 ? GBWRITE : GBREAD) <= 0)
 		return -1;
 	res->deind = sj;
 	res->Qid = (Qid){0, 0, 0};
