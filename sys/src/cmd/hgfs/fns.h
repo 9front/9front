@@ -6,6 +6,7 @@ int fhash(int fd, uchar p1[], uchar p2[], uchar h[]);
 int readhash(char *path, char *name, uchar hash[]);
 
 /* patch */
+int fcopy(int dfd, int sfd, vlong off, vlong len);
 int fpatchmark(int pfd, char *mark);
 int fpatch(int ofd, int bfd, int pfd);
 

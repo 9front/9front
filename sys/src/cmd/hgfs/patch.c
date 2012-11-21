@@ -5,19 +5,25 @@
 #include "fns.h"
 
 int
-fcopy(int dfd, int sfd, vlong len)
+fcopy(int dfd, int sfd, vlong off, vlong len)
 {
 	uchar buf[BUFSZ];
 	int n;
 
-	while(len > 0){
-		if((n = BUFSZ) > len)
+	while(len != 0){
+		n = BUFSZ;
+		if(len > 0 && n > len)
 			n = len;
-		if((n = read(sfd, buf, n)) < 0)
+		if((n = pread(sfd, buf, n, off)) < 0)
 			return -1;
+		if(n == 0)
+			return len > 0 ? -1 : 0;
 		if(write(dfd, buf, n) != n)
 			return -1;
-		len -= n;
+		if(off >= 0)
+			off += n;
+		if(len > 0)
+			len -= n;
 	}
 	return 0;
 }
@@ -58,6 +64,8 @@ fpatch(int ofd, int bfd, int pfd)
 
 	if(bfd >= 0){
 		h = malloc(sizeof(Frag));
+		if(h == nil)
+			goto errout;
 		h->next = nil;
 		h->off = 0;
 		h->fd = bfd;
@@ -101,6 +109,8 @@ fpatch(int ofd, int bfd, int pfd)
 			back = end < fend;
 			if(front && back){
 				p = malloc(sizeof(Frag));
+				if(p == nil)
+					goto errout;
 				*p = *f;
 				f->next = p;
 				f->len = start - fstart;
@@ -123,6 +133,8 @@ fpatch(int ofd, int bfd, int pfd)
 			fstart += f->len;
 
 		f = malloc(sizeof(Frag));
+		if(f == nil)
+			goto errout;
 		f->fd = pfd;
 		f->len = len;
 		f->off = seek(f->fd, 0, 1);
@@ -141,12 +153,9 @@ fpatch(int ofd, int bfd, int pfd)
 			goto errout;
 	}
 
-	for(f = h; f; f = f->next){
-		if(seek(f->fd, f->off, 0) < 0)
+	for(f = h; f; f = f->next)
+		if(fcopy(ofd, f->fd, f->off, f->len) < 0)
 			goto errout;
-		if(fcopy(ofd, f->fd, f->len) < 0)
-			goto errout;
-	}
 	err = 0;
 
 errout:

@@ -7,10 +7,10 @@
 int
 fmktemp(void)
 {
-	char temp[MAXPATH];
-
-	snprint(temp, sizeof(temp), "/tmp/hgXXXXXXXXXXX");
-	return create(mktemp(temp), OTRUNC|ORCLOSE|ORDWR, 0666);
+	static ulong id = 1;
+	char path[MAXPATH];
+	snprint(path, sizeof(path), "/tmp/hg%.12d%.8lux", getpid(), id++);
+	return create(path, OEXCL|OTRUNC|ORDWR|ORCLOSE, 0600);
 }
 
 void
@@ -65,6 +65,8 @@ revlogopen(Revlog *r, char *path, int mode)
 {
 	r->ifd = -1;
 	r->dfd = -1;
+	r->tfd = -1;
+	r->tid = -1;
 	path = smprint("%s.i", path);
 	if((r->ifd = open(path, mode)) < 0){
 		free(path);
@@ -94,6 +96,11 @@ revlogclose(Revlog *r)
 		close(r->dfd);
 		r->dfd = -1;
 	}
+	if(r->tfd >= 0){
+		close(r->tfd);
+		r->tfd = -1;
+	}
+	r->tid = -1;
 	free(r->map);
 	r->map = nil;
 	r->nmap = 0;
@@ -269,12 +276,19 @@ revlogopentemp(Revlog *r, int rev)
 {
 	int fd;
 
-	if((fd = fmktemp()) < 0)
-		return -1;
-	if(revlogextract(r, rev, fd) < 0){
-		close(fd);
-		return -1;
+	if(r->tfd < 0 || rev != r->tid){
+		if((fd = fmktemp()) < 0)
+			return -1;
+		if(revlogextract(r, rev, fd) < 0){
+			close(fd);
+			return -1;
+		}
+		if(r->tfd >= 0)
+			close(r->tfd);
+		r->tfd = fd;
+		r->tid = rev;
 	}
+	fd = dup(r->tfd, -1);
 	if(seek(fd, 0, 0) < 0){
 		close(fd);
 		return -1;

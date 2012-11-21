@@ -43,6 +43,7 @@ static char *nametab[] = {
 static Revlog changelog;
 static Revlog manifest;
 static Revlog *revlogs;
+static int nfreerevlogs = 0;
 
 static char workdir[MAXPATH];
 static int mangle = 0;
@@ -51,16 +52,28 @@ static Revlog*
 getrevlog(Revnode *nd)
 {
 	char buf[MAXPATH];
-	Revlog *rl;
+	Revlog *rl, **link;
 	int mang;
 
 	mang = mangle;
 Again:
 	nodepath(seprint(buf, buf+sizeof(buf), "%s/.hg/store/data", workdir),
 		buf+sizeof(buf), nd, mang);
-	for(rl = revlogs; rl; rl = rl->next)
-		if(strcmp(buf, rl->path) == 0)
+	link = &revlogs;
+	while(rl = *link){
+		if(strcmp(buf, rl->path) == 0){
+			if(rl->ref == 0) nfreerevlogs--;
 			break;
+		}
+		if(nfreerevlogs > 8 && rl->ref == 0){
+			*link = rl->next;
+			nfreerevlogs--;
+			revlogclose(rl);
+			free(rl);
+			continue;
+		}
+		link = &rl->next;
+	}
 	if(rl == nil){
 		rl = emalloc9p(sizeof(*rl));
 		memset(rl, 0, sizeof(*rl));
@@ -83,18 +96,8 @@ Again:
 static void
 closerevlog(Revlog *rl)
 {
-	Revlog **pp;
-
-	if(rl == nil || decref(rl))
-		return;
-	for(pp = &revlogs; *pp; pp = &((*pp)->next)){
-		if(*pp == rl){
-			*pp = rl->next;
-			break;
-		}
-	}
-	revlogclose(rl);
-	free(rl);
+	if(rl != nil && decref(rl) == 0)
+		nfreerevlogs++;
 }
 
 static Revinfo*

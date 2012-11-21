@@ -46,6 +46,9 @@ struct Revlog
 
 	int	nmap;
 	Revmap	*map;
+
+	int	tfd;
+	int	tid;
 };
 
 struct Revnode

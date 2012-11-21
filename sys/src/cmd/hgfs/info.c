@@ -8,15 +8,12 @@ Revinfo*
 loadrevinfo(Revlog *changelog, int rev)
 {
 	char buf[BUFSZ], *p, *e;
-	int fd, line, inmsg, n;
+	int fd, line, eof, inmsg, n;
 	Revinfo *ri;
 	vlong off;
 
 	if((fd = revlogopentemp(changelog, rev)) < 0)
 		return nil;
-
-	seek(fd, 0, 2);
-	write(fd, "\n", 1);
 
 	off = fmetaheader(fd);
 	seek(fd, off, 0);
@@ -26,11 +23,19 @@ loadrevinfo(Revlog *changelog, int rev)
 
 	memmove(ri->chash, changelog->map[rev].hash, HASHSZ);
 
+	eof = 0;
 	line = 0;
 	inmsg = 0;
 	p = buf;
 	e = buf + BUFSZ;
-	while((n = read(fd, p, e - p)) > 0){
+	while(eof == 0){
+		if((n = read(fd, p, e - p)) < 0)
+			break;
+		if(n == 0){
+			eof = 1;
+			*p = '\n';
+			n++;
+		}
 		p += n;
 		while((p > buf) && (e = memchr(buf, '\n', p - buf))){
 			*e++ = 0;
