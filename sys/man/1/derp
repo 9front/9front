@@ -22,8 +22,10 @@ using a third common backup directory
 .I oldfile
 as reference. The changes found are printed
 to standard output, one per line, with the file
-status describing either side followed by tabulator
-and the relative file path.
+status describing either sides actions followed
+by tabulator and the relative file path which might
+be empty in case when the changed files refers to the
+ones given at program arguments.
 .LP
 The possible status codes:
 .TP

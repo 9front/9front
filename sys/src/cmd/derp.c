@@ -31,6 +31,18 @@ error(char *fmt, ...)
 
 #pragma	varargck	argpos	error	1
 
+void*
+emalloc(int n)
+{
+	void *v;
+
+	if((v = malloc(n)) == nil){
+		noerror = 0;
+		error("out of memory");
+	}
+	return v;
+}
+
 enum {
 	BUFSIZE = 8*1024,
 };
@@ -146,16 +158,33 @@ statdir(char *path)
 	d = dirstat(path);
 	if(d == nil)
 		error("can't stat %s: %r", path);
-	else
-		d->name = strdup(path);
+	else {
+		d->name = emalloc(strlen(path)+1);
+		strcpy(d->name, path);
+	}
 	return d;
+}
+
+char*
+pjoin(char *path, char *name)
+{
+	char *s;
+	int n;
+
+	n = strlen(path);
+	s = emalloc(n+strlen(name)+2);
+	strcpy(s, path);
+	if(path[0] != '\0' && path[n-1] != '/')
+		s[n++] = '/';
+	strcpy(s+n, name);
+	return s;
 }
 
 Dir*
 absdir(Dir *d, char *path)
 {
 	if(d != nil)
-		d->name = smprint("%s/%s", path, d->name);
+		d->name = pjoin(path, d->name);
 	return d;
 }
 
@@ -252,7 +281,7 @@ diffdir(Dir *ld, Dir *rd, Dir *ad, char *path)
 
 		od = nil;
 		if(t < 0){
-			sp = smprint("%s/%s", path, ld[i].name);
+			sp = pjoin(path, ld[i].name);
 			if(ap == lp)
 				od = &ld[i];
 			else while(k < o){
@@ -270,7 +299,7 @@ diffdir(Dir *ld, Dir *rd, Dir *ad, char *path)
 				od = nil;
 			i++;
 		} else {
-			sp = smprint("%s/%s", path, rd[j].name);
+			sp = pjoin(path, rd[j].name);
 			if(ap == rp)
 				od = &rd[j];
 			else while(k < o){
@@ -310,22 +339,23 @@ diffdir(Dir *ld, Dir *rd, Dir *ad, char *path)
 void
 diffgen(Dir *ld, Dir *rd, Dir *ad, char *path)
 {
-	char *p;
-
 	if(dcmp(ld, rd) == 0)
 		return;
 
-	p = nil;
 	if(ld == nil || rd == nil){
 		/* one side doesnt exit anymore */
 		if(ad != nil){
 			/* existed before, is deletion */
 			if(ld != nil && (ad->qid.type & QTDIR) && (ld->qid.type & QTDIR)){
 				/* remote deleted direcotry, remote newer */
-				p = smprint("nd\t%s\n", path);
+				diffdir(ld, nil, ad, path);
+				print("nd\t%s\n", path);
+				return;
 			} else if(rd != nil && (ad->qid.type & QTDIR) && (rd->qid.type & QTDIR)){
 				/* local deleted direcotry, local newer */
-				p = smprint("dn\t%s\n", path);
+				diffdir(nil, rd, ad, path);
+				print("dn\t%s\n", path);
+				return;
 			} else if(dcmp(rd, ad) == 0){
 				/* local deleted file, local newer */
 				print("dn\t%s\n", path);
@@ -333,11 +363,23 @@ diffgen(Dir *ld, Dir *rd, Dir *ad, char *path)
 				/* remote deleted file, remote newer */
 				print("nd\t%s\n", path);
 			} else if(ld != nil){
+				if((ld->qid.type ^ ad->qid.type) & QTDIR){
+					/* local file type change, remote deleted, no conflict */
+					diffgen(ld, nil, nil, path);
+					return;
+				}
 				/* local modified, remote deleted, conflict */
 				print("md!\t%s\n", path);
+				return;
 			} else {
+				if((rd->qid.type ^ ad->qid.type) & QTDIR){
+					/* remote file type change, local deleted, no conflict */
+					diffgen(nil, rd, nil, path);
+					return;
+				}
 				/* remote modified, local deleted, conflict */
 				print("dm!\t%s\n", path);
+				return;
 			}
 		} else {
 			/* didnt exist before, is addition */
@@ -355,70 +397,80 @@ diffgen(Dir *ld, Dir *rd, Dir *ad, char *path)
 			if((ad->qid.type & QTDIR) && (ld->qid.type & QTDIR) && (rd->qid.type & QTDIR)){
 				/* all still directories, no problem */
 			} else if(dcmp(rd, ad) == 0){
+				if((ld->qid.type ^ ad->qid.type) & QTDIR){
+					/* local file type change */
+					diffgen(nil, ad, ad, path);
+					diffgen(ld, nil, nil, path);
+					return;
+				}
 				/* local modified file, local newer */
 				print("mn\t%s\n", path);
 			} else if(dcmp(ld, ad) == 0){
+				if((rd->qid.type ^ ad->qid.type) & QTDIR){
+					/* remote file type change */
+					diffgen(ad, nil, ad, path);
+					diffgen(nil, rd, nil, path);
+					return;
+				}
 				/* remote modified file, remote newer */
 				print("nm\t%s\n", path);
 			} else {
-				/* local and remote modified, conflict */
-				print("mm!\t%s\n", path);
+				if((ld->qid.type & QTDIR) != (ad->qid.type & QTDIR) &&
+				   (rd->qid.type & QTDIR) != (ad->qid.type & QTDIR) &&
+				   (ld->qid.type & QTDIR) == (rd->qid.type & QTDIR)){
+					if((ad->qid.type & QTDIR) == 0){
+						/* local and remote became directories, was file before */
+						diffdir(ld, rd, nil, path);
+					} else {
+						/* local and remote became diverging files, conflict */
+						print("aa!\t%s\n", path);
+					}
+				} else {
+					/* local and remote modified, conflict */
+					print("mm!\t%s\n", path);
+				}
+				return;
 			}
 		} else {
 			/* didnt exist before, is addition from both */
 			if((ld->qid.type & QTDIR) && (rd->qid.type & QTDIR)){
 				/* local and remote added directories, no problem */
 			} else {
-				/* local and remote added files, conflict */
+				/* local and remote added diverging files, conflict */
 				print("aa!\t%s\n", path);
+				return;
 			}
 		}
 	}
 
 	diffdir(ld, rd, ad, path);
-
-	if(p != nil){
-		print("%s", p);
-		free(p);
-	}
 }
 
 void
 diff3(char *lp, char *ap, char *rp)
 {
 	Dir *ld, *rd, *ad;
-	char *name;
 
-	rd = ad = nil;
-	if((ld = statdir(lp)) == nil)
+	ad = nil;
+	ld = statdir(lp);
+	rd = statdir(rp);
+	if(ld == nil && rd == nil)
 		goto Out;
-	if((rd = statdir(rp)) == nil)
-		goto Out;
-
-	if(strcmp(ap, lp) == 0)
+	else if(strcmp(ap, lp) == 0)
 		ad = ld;
 	else if(strcmp(ap, rp) == 0)
 		ad = rd;
-	else if((ad = statdir(ap)) == nil)
-		goto Out;
-	else if(samefile(ad, ld)){
-		freedir(ad);
-		ad = ld;
+	else if((ad = statdir(ap)) != nil){
+		if(ld != nil && samefile(ad, ld)){
+			freedir(ad);
+			ad = ld;
+		}
+		else if(rd != nil && samefile(ad, rd)){
+			freedir(ad);
+			ad = rd;
+		}
 	}
-	else if(samefile(ad, rd)){
-		freedir(ad);
-		ad = rd;
-	}
-
-	if(ld->qid.type & QTDIR)
-		name = ".";
-	else {
-		if(name = strrchr(lp, '/'))
-			name++;
-		else
-			name = lp;
-	}
-	diffgen(ld, rd, ad, name);
+	diffgen(ld, rd, ad, "");
 Out:
 	freedir(ld);
 	freedir(rd);
