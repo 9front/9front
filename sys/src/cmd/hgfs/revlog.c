@@ -10,7 +10,7 @@ fmktemp(void)
 	static ulong id = 1;
 	char path[MAXPATH];
 	snprint(path, sizeof(path), "/tmp/hg%.12d%.8lux", getpid(), id++);
-	return create(path, OEXCL|OTRUNC|ORDWR|ORCLOSE, 0600);
+	return create(path, OEXCL|ORDWR|ORCLOSE, 0600);
 }
 
 void
