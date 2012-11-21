@@ -28,6 +28,8 @@ struct Workdir
 	Dstate	*ht[256];
 };
 
+int clean = 0;
+
 static Dstate**
 dslookup(Workdir *wd, char *path)
 {
@@ -119,37 +121,21 @@ Error:
 	return -1;
 }
 
-void
-apply1(char *state, char *name, char *lpath, char *rpath, Workdir *wd)
+char*
+pjoin(char *path, char *name)
 {
-	char buf[MAXPATH];
-	Dir *d;
-	Dstate *ds;
-
-	ds = *dslookup(wd, name);
-	if(ds != nil){
-		snprint(buf, sizeof(buf), "%s/%s", wd->path, name);
-		d = dirstat(buf);
-	}
-	if(strcmp(state, "na") == 0){
-		snprint(buf, sizeof(buf), "%s/%s", rpath, name);
-		d = dirstat(buf);
-		if(d != nil){
-			if(d->qid.type & QTDIR)
-				print("mkdir %s/%s\n", wd->path, name);
-			else
-				print("cp %s %s/%s\n", buf, wd->path, name);
-			free(d);
-		}
-	}
-	else if(strcmp(state, "nm") == 0)
-		print("cp %s/%s %s/%s\n", rpath, name, wd->path, name);
-	else if(strcmp(state, "nd") == 0)
-		print("rm %s/%s\n", wd->path, name);
+	if(path[0] == '\0')
+		path = "/";
+	if(name[0] == '\0')
+		return strdup(path);
+	if(path[strlen(path)-1] == '/' || name[0] == '/')
+		return smprint("%s%s", path, name);
+	return smprint("%s/%s", path, name);
 }
 
 void
-applychanges(int fd, char *lpath, char *rpath, Workdir *wd)
+changes1(int fd, char *lpath, char *rpath, char *apath,
+	void (*apply)(char *, char *, char *, char *, char *, void *), void *aux)
 {
 	char *state, *name;
 	Biobuf bin;
@@ -162,31 +148,144 @@ applychanges(int fd, char *lpath, char *rpath, Workdir *wd)
 			*name++ = '\0';
 		if(name[0] == '.' && name[1] == '/')
 			name += 2;
-		apply1(state, name, lpath, rpath, wd);
+		apply(state, name, lpath, rpath, apath, aux);
 	}
 	Bterm(&bin);
 }
 
-void
-changes(char *lpath, char *rpath, char *apath, Workdir *wd)
+int
+changes(char *opt, char *lp, char *rp, char *ap,
+	void (*apply)(char *, char *, char *, char *, char *, void *), void *aux)
 {
-	int pfd[2];
+	int pfd[2], pid;
+	Waitmsg *w;
 
 	if(pipe(pfd) < 0)
-		sysfatal("pipe: %r");
-	switch(rfork(RFPROC|RFMEM|RFFDG)){
+		return -1;
+	pid = rfork(RFPROC|RFMEM|RFFDG);
+	switch(pid){
 	case -1:
-		sysfatal("rfork: %r");
+		close(pfd[0]);
+		close(pfd[1]);
+		return -1;
 	case 0:
 		close(pfd[0]);
 		dup(pfd[1], 1);
 		close(pfd[1]);
-		execl("/bin/derp", "derp", "-L", "-p", "0111", lpath, apath, rpath, nil);
-		sysfatal("execl: %r");
+		execl("/bin/derp", "derp", opt, "-p", "0111", lp, ap, rp, nil);
+		exits("exec");
 	}
 	close(pfd[1]);
-	applychanges(pfd[0], lpath, rpath, wd);
+	changes1(pfd[0], lp, rp, ap, apply, aux);
 	close(pfd[0]);
+	while(w = wait()){
+		if(w->pid == pid){
+			if(w->msg[0] != '\0'){
+				werrstr("%s", w->msg);
+				free(w);
+				return 1;
+			}
+			free(w);
+			return 0;
+		}
+		free(w);
+	}
+	return -1;
+}
+
+void
+apply(char *state, char *name, char *lp, char *rp, char *ap, Workdir *)
+{
+	Dir *rd, *ld;
+
+	ld = rd = nil;
+	// fprint(2, "### %s %s ->\t", state, name);
+	if(strcmp(state, "na") == 0){
+		rd = dirstat(rp);
+		if(rd != nil){
+			if(rd->qid.type & QTDIR)
+				print("mkdir %s\n", lp);
+			else
+				print("cp %s %s\n", rp, lp);
+		}
+	}
+	else if(strcmp(state, "an") == 0){
+	}
+	else if(strcmp(state, "nm") == 0){
+		print("cp %s %s\n", rp, lp);
+	}
+	else if(strcmp(state, "mn") == 0){
+	}
+	else if(strcmp(state, "nd") == 0){
+		print("rm %s\n", lp);
+	}
+	else if(strcmp(state, "dn") == 0){
+	}
+	else if(strcmp(state, "aa!") == 0 || strcmp(state, "mm!") == 0){
+		ld = dirstat(lp);
+		rd = dirstat(rp);
+		if(ld != nil && rd != nil){
+			if(rd->qid.type & QTDIR)
+				print("# conflict # mkdir %s\n", lp);
+			else if(ld->qid.type & QTDIR)
+				print("# conflict # rm -r %s\n", lp);
+			else
+				print("# conflict # ape/diff3 %s %s %s >%s\n", lp, ap, rp, lp);
+		}
+	}
+	else if(strcmp(state, "md!") == 0){
+		print("# delete conflict # rm %s\n", lp);
+	}
+	else if(strcmp(state, "dm!") == 0){
+		print("# delete conflict # cp %s %s\n", rp, lp);
+	}
+	else {
+		print("# unknown status %s %s\n", state, name);
+	}
+	free(rd);
+	free(ld);
+}
+
+void
+apply1(char *state, char *name, char *lp, char *rp, char *ap, void *aux)
+{
+	Workdir *wd = aux;
+
+	lp = pjoin(lp, name);
+	rp = pjoin(rp, name);
+	ap = pjoin(ap, name);
+	apply(state, lp + strlen(wd->path)+1, lp, rp, ap, wd);
+	free(ap);
+	free(rp);
+	free(lp);
+}
+
+void
+apply0(char *state, char *name, char *lp, char *rp, char *ap, void *aux)
+{
+	Workdir *wd = aux;
+	Dir *ld;
+
+	if(clean){
+		/* working dir clean */
+		apply1(state, name, wd->path, rp, ap, wd);
+		return;
+	}
+	lp = pjoin(wd->path, name);
+	ld = dirstat(lp);
+	if(clean == 0 && ld != nil && (ld->qid.type & QTDIR) == 0){
+		/* check for changes in working directory */
+		rp = pjoin(rp, name);
+		ap = pjoin(ap, name);
+		changes("-Lcq", lp, rp, ap, apply1, wd);
+		free(ap);
+		free(rp);
+	} else {
+		/* working dir clean */
+		apply1(state, name, wd->path, rp, ap, wd);
+	}
+	free(lp);
+	free(ld);
 }
 
 void
@@ -199,8 +298,8 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	char lpath[MAXPATH], rpath[MAXPATH], apath[MAXPATH];
-	uchar rhash[HASHSZ], ahash[HASHSZ];
+	char lp[MAXPATH], rp[MAXPATH], ap[MAXPATH];
+	uchar rh[HASHSZ], ah[HASHSZ];
 	char *mtpt, *rev;
 	Workdir wd;
 
@@ -216,6 +315,9 @@ main(int argc, char *argv[])
 	case 'r':
 		rev = EARGF(usage());
 		break;
+	case 'c':
+		clean = 1;
+		break;
 	} ARGEND;
 
 	memset(&wd, 0, sizeof(wd));
@@ -225,27 +327,27 @@ main(int argc, char *argv[])
 	if(memcmp(wd.p2hash, nullid, HASHSZ))
 		sysfatal("outstanding merge");
 
-	snprint(rpath, sizeof(rpath), "%s/%s", mtpt, rev);
-	if(readhash(rpath, "rev", rhash) != 0)
+	snprint(rp, sizeof(rp), "%s/%s", mtpt, rev);
+	if(readhash(rp, "rev", rh) != 0)
 		sysfatal("unable to get hash for %s", rev);
 
-	if(memcmp(rhash, wd.p1hash, HASHSZ) == 0){
+	if(memcmp(rh, wd.p1hash, HASHSZ) == 0){
 		fprint(2, "up to date\n");
 		exits(0);
 	}
 
-	ancestor(mtpt, wd.p1hash, rhash, ahash);
-	if(memcmp(ahash, nullid, HASHSZ) == 0)
-		sysfatal("no common ancestor between %H and %H", wd.p1hash, rhash);
+	ancestor(mtpt, wd.p1hash, rh, ah);
+	if(memcmp(ah, nullid, HASHSZ) == 0)
+		sysfatal("no common ancestor between %H and %H", wd.p1hash, rh);
 
-	if(memcmp(ahash, rhash, HASHSZ) == 0)
-		memmove(ahash, wd.p1hash, HASHSZ);
+	if(memcmp(ah, rh, HASHSZ) == 0)
+		memmove(ah, wd.p1hash, HASHSZ);
 
-	snprint(lpath, sizeof(lpath), "%s/%H/files", mtpt, wd.p1hash);
-	snprint(rpath, sizeof(rpath), "%s/%H/files", mtpt, rhash);
-	snprint(apath, sizeof(apath), "%s/%H/files", mtpt, ahash);
+	snprint(lp, sizeof(lp), "%s/%H/files", mtpt, wd.p1hash);
+	snprint(rp, sizeof(rp), "%s/%H/files", mtpt, rh);
+	snprint(ap, sizeof(ap), "%s/%H/files", mtpt, ah);
 	
-	changes(lpath, rpath, apath, &wd);
+	changes("-L", lp, rp, ap, apply0, &wd);
 
 	exits(0);
 }
