@@ -737,9 +737,12 @@ procread(Chan *c, void *va, long n, vlong off)
 		memmove(a, &up->genbuf[offset], n);
 		return n;
 	case Qsyscall:
-		if(!p->syscalltrace)
-			return 0;
-		n = readstr(offset, a, n, p->syscalltrace);
+		eqlock(&p->debug);
+		if(p->syscalltrace)
+			n = readstr(offset, a, n, p->syscalltrace);
+		else
+			n = 0;
+		qunlock(&p->debug);
 		return n;
 
 	case Qmem:

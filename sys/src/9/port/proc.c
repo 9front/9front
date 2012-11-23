@@ -622,10 +622,7 @@ newproc(void)
 	p->pdbg = 0;
 	p->fpstate = FPinit;
 	p->kp = 0;
-	if(up && up->procctl == Proc_tracesyscall)
-		p->procctl = Proc_tracesyscall;
-	else
-		p->procctl = 0;
+	p->procctl = 0;
 	p->syscalltrace = 0;	
 	p->notepending = 0;
 	p->ureg = 0;
@@ -1078,8 +1075,6 @@ pexit(char *exitstr, int freemem)
 	Chan *dot;
 	void (*pt)(Proc*, int, vlong);
 
-	if(up->syscalltrace)
-		free(up->syscalltrace);
 	up->alarm = 0;
 	if (up->tt)
 		timerdel(up);
@@ -1193,6 +1188,10 @@ pexit(char *exitstr, int freemem)
 	if(up->pdbg) {
 		wakeup(&up->pdbg->sleep);
 		up->pdbg = 0;
+	}
+	if(up->syscalltrace) {
+		free(up->syscalltrace);
+		up->syscalltrace = 0;
 	}
 	qunlock(&up->debug);
 

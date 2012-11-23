@@ -162,6 +162,8 @@ sysrfork(ulong *arg)
 	}
 	p->hang = up->hang;
 	p->procmode = up->procmode;
+	if(up->procctl == Proc_tracesyscall)
+		p->procctl = Proc_tracesyscall;
 
 	/* Craft a return frame which will cause the child to pop out of
 	 * the scheduler in user mode with the return register zero

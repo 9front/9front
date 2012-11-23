@@ -22,6 +22,7 @@ fmtrwdata(Fmt* f, char* a, int n, char* suffix)
 	}
 	validaddr((ulong)a, n, 0);
 	t = smalloc(n+1);
+	t[n] = 0;
 	for(i = 0; i < n; i++)
 		if(a[i] > 0x20 && a[i] < 0x7f)	/* printable ascii? */
 			t[i] = a[i];
@@ -52,7 +53,7 @@ fmtuserstring(Fmt* f, char* a, char* suffix)
 }
 
 void
-syscallfmt(int syscallno, ulong pc, va_list list)
+syscallfmt(ulong syscallno, ulong pc, va_list list)
 {
 	long l;
 	Fmt fmt;
@@ -65,16 +66,13 @@ syscallfmt(int syscallno, ulong pc, va_list list)
 	fmtstrinit(&fmt);
 	fmtprint(&fmt, "%uld %s ", up->pid, up->text);
 
-	if(syscallno > nsyscall)
-		fmtprint(&fmt, " %d ", syscallno);
+	if(syscallno >= nsyscall)
+		fmtprint(&fmt, " %uld ", syscallno);
 	else
 		fmtprint(&fmt, "%s ", sysctab[syscallno]?
 			sysctab[syscallno]: "huh?");
 
 	fmtprint(&fmt, "%ulx ", pc);
-	if(up->syscalltrace != nil)
-		free(up->syscalltrace);
-
 	switch(syscallno){
 	case SYSR1:
 		p = va_arg(list, uintptr);
@@ -301,11 +299,15 @@ syscallfmt(int syscallno, ulong pc, va_list list)
 		break;
 	}
 
-	up->syscalltrace = fmtstrflush(&fmt);
+	a = fmtstrflush(&fmt);
+	qlock(&up->debug);
+	free(up->syscalltrace);
+	up->syscalltrace = a;
+	qunlock(&up->debug);
 }
 
 void
-sysretfmt(int syscallno, va_list list, long ret, uvlong start, uvlong stop)
+sysretfmt(ulong syscallno, va_list list, long ret, uvlong start, uvlong stop)
 {
 	long l;
 	void* v;
@@ -315,9 +317,6 @@ sysretfmt(int syscallno, va_list list, long ret, uvlong start, uvlong stop)
 	char *a, *errstr;
 
 	fmtstrinit(&fmt);
-
-	if(up->syscalltrace)
-		free(up->syscalltrace);
 
 	errstr = "\"\"";
 	switch(syscallno){
@@ -402,5 +401,10 @@ sysretfmt(int syscallno, va_list list, long ret, uvlong start, uvlong stop)
 		break;
 	}
 	fmtprint(&fmt, " %s %#llud %#llud\n", errstr, start, stop);
-	up->syscalltrace = fmtstrflush(&fmt);
+
+	a = fmtstrflush(&fmt);
+	qlock(&up->debug);
+	free(up->syscalltrace);
+	up->syscalltrace = a;
+	qunlock(&up->debug);
 }

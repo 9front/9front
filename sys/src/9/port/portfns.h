@@ -326,6 +326,8 @@ void		shrrenameuser(char*, char*);
 int		swapcount(ulong);
 int		swapfull(void);
 void		swapinit(void);
+void		syscallfmt(ulong syscallno, ulong pc, va_list list);
+void		sysretfmt(ulong syscallno, va_list list, long ret, uvlong start, uvlong stop);
 void		timeradd(Timer*);
 void		timerdel(Timer*);
 void		timersinit(void);
