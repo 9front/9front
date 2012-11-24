@@ -6,7 +6,8 @@
  *
  * Mouse events are converted to the format of mouse(3)'s
  * mousein file.
- * Keyboard keycodes are translated to scan codes and sent to kbin(3).
+ * Keyboard keycodes are translated to scan codes and sent to kbdfs(8)
+ * on kbin file.
  *
  */
 
@@ -225,35 +226,34 @@ static void
 ptrwork(void* a)
 {
 	static char maptab[] = {0x0, 0x1, 0x4, 0x5, 0x2, 0x3, 0x6, 0x7};
-	int x, y, b, c, ptrfd;
-	int	mfd, nerrs;
-	char	buf[64];
+	int x, y, b, c, nerrs;
+	char	err[ERRMAX], buf[64];
 	char	mbuf[80];
 	KDev*	f = a;
-	int	hipri;
 
-	hipri = nerrs = 0;
-	ptrfd = f->ep->dfd;
-	mfd = f->in->fd;
-
-	if(f->ep->maxpkt < 3 || f->ep->maxpkt > sizeof buf)
-		kbfatal(f, "weird mouse maxpkt");
+	sethipri();
+	nerrs = 0;
 	for(;;){
-		memset(buf, 0, sizeof buf);
 		if(f->ep == nil)
 			kbfatal(f, nil);
-		c = read(ptrfd, buf, f->ep->maxpkt);
-		assert(f->dev != nil);
-		assert(f->ep != nil);
-		if(c < 0){
-			dprint(2, "kb: mouse: %s: read: %r\n", f->ep->dir);
+		if(f->ep->maxpkt < 3 || f->ep->maxpkt > sizeof buf)
+			kbfatal(f, "mouse: weird mouse maxpkt");
+		memset(buf, 0, sizeof buf);
+		c = read(f->ep->dfd, buf, f->ep->maxpkt);
+		if(c <= 0){
+			if(c < 0)
+				rerrstr(err, sizeof(err));
+			else
+				strcpy(err, "zero read");
 			if(++nerrs < 3){
-				recoverkb(f);
+				fprint(2, "%s: mouse: %s: read: %s\n", argv0, f->ep->dir, err);
+				if(strstr(err, "babble") != 0)
+					recoverkb(f);
 				continue;
 			}
+			kbfatal(f, err);
 		}
-		if(c <= 0)
-			kbfatal(f, nil);
+		nerrs = 0;
 		if(c < 3)
 			continue;
 		if(f->accel){
@@ -273,12 +273,8 @@ ptrwork(void* a)
 		if(kbdebug > 1)
 			fprint(2, "%s: m%11d %11d %11d\n", argv0, x, y, b);
 		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", x, y,b);
-		if(write(mfd, mbuf, strlen(mbuf)) < 0)
+		if(write(f->in->fd, mbuf, strlen(mbuf)) < 0)
 			kbfatal(f, "mousein i/o");
-		if(hipri == 0){
-			sethipri();
-			hipri = 1;
-		}
 	}
 }
 
@@ -305,16 +301,6 @@ putscan(int kbinfd, uchar esc, uchar sc)
 {
 	uchar s[2] = {SCesc1, 0};
 
-	if(sc == 0x41){
-		kbdebug += 2;
-		return;
-	}
-	if(sc == 0x42){
-		kbdebug = 0;
-		return;
-	}
-	if(kbdebug)
-		fprint(2, "sc: %x %x\n", (esc? SCesc1: 0), sc);
 	s[1] = sc;
 	if(esc && sc != 0)
 		write(kbinfd, s, 2);
@@ -370,11 +356,21 @@ Abort:
 static void
 putmod(int fd, uchar mods, uchar omods, uchar mask, uchar esc, uchar sc)
 {
-	/* BUG: Should be a single write */
-	if((mods&mask) && !(omods&mask))
-		putscan(fd, esc, sc);
-	if(!(mods&mask) && (omods&mask))
-		putscan(fd, esc, Keyup|sc);
+	uchar s[4], *p;
+
+	p = s;
+	if((mods&mask) && !(omods&mask)){
+		if(esc)
+			*p++ = SCesc1;
+		*p++ = sc;
+	}
+	if(!(mods&mask) && (omods&mask)){
+		if(esc)
+			*p++ = SCesc1;
+		*p++ = Keyup|sc;
+	}
+	if(p > s)
+		write(fd, s, p - s);
 }
 
 /*
@@ -443,41 +439,42 @@ kbdbusy(uchar* buf, int n)
 static void
 kbdwork(void *a)
 {
-	int c, i, kbdfd, nerrs;
 	uchar dk, buf[64], lbuf[64];
+	int c, i, nerrs;
 	char err[128];
 	KDev *f = a;
-
-	kbdfd = f->ep->dfd;
-
-	if(f->ep->maxpkt < 3 || f->ep->maxpkt > sizeof buf)
-		kbfatal(f, "weird maxpkt");
-
-	if(setleds(f, f->ep->id, 0) < 0)
-		kbfatal(f, "setleds failed");
 
 	f->repeatc = chancreate(sizeof(ulong), 0);
 	if(f->repeatc == nil)
 		kbfatal(f, "chancreate failed");
-
 	proccreate(repeatproc, f, Stack);
+
+	sethipri();
+	setleds(f, f->ep->id, 0);
+
 	memset(lbuf, 0, sizeof lbuf);
 	dk = nerrs = 0;
 	for(;;){
+		if(f->ep == nil)
+			kbfatal(f, nil);
+		if(f->ep->maxpkt < 3 || f->ep->maxpkt > sizeof buf)
+			kbfatal(f, "kbd: weird maxpkt");
 		memset(buf, 0, sizeof buf);
-		c = read(kbdfd, buf, f->ep->maxpkt);
-		assert(f->dev != nil);
-		assert(f->ep != nil);
-		if(c < 0){
-			rerrstr(err, sizeof(err));
-			fprint(2, "%s: %s: read: %s\n", argv0, f->ep->dir, err);
-			if(strstr(err, "babble") != 0 && ++nerrs < 3){
-				recoverkb(f);
+		c = read(f->ep->dfd, buf, f->ep->maxpkt);
+		if(c <= 0){
+			if(c < 0)
+				rerrstr(err, sizeof(err));
+			else
+				strcpy(err, "zero read");
+			if(++nerrs < 3){
+				fprint(2, "%s: kbd: %s: read: %s\n", argv0, f->ep->dir, err);
+				if(strstr(err, "babble") != 0)
+					recoverkb(f);
 				continue;
 			}
+			kbfatal(f, err);
 		}
-		if(c <= 0)
-			kbfatal(f, nil);
+		nerrs = 0;
 		if(c < 3)
 			continue;
 		if(kbdbusy(buf + 2, c - 2))
@@ -490,7 +487,6 @@ kbdwork(void *a)
 		}
 		dk = putkeys(f, buf, lbuf, f->ep->maxpkt, dk);
 		memmove(lbuf, buf, c);
-		nerrs = 0;
 	}
 }
 
