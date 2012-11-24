@@ -108,6 +108,7 @@ enum
 	Cie		= 0x08,		/* iso. list enable */
 	Ccle		= 0x10,		/* ctl list enable */
 	Cble		= 0x20,		/* bulk list enable */
+	Cir		= 0x100,	/* interrupt routing (smm active) */
 	Cfsmask		= 3 << 6,	/* functional state... */
 	Cfsreset	= 0 << 6,
 	Cfsresume	= 1 << 6,
@@ -115,6 +116,7 @@ enum
 	Cfssuspend	= 3 << 6,
 
 	/* command status */
+	Socr =	1 << 3,			/* ownership change request */
 	Sblf =	1 << 2,			/* bulk list (load) flag */
 	Sclf =	1 << 1,			/* control list (load) flag */
 	Shcr =	1 << 0,			/* host controller reset */
@@ -588,7 +590,7 @@ tdalloc(void)
 		ddprint("ohci: tdalloc %d Tds\n", Incr);
 		pool = xspanalloc(Incr*sizeof(Td), Align, 0);
 		if(pool == nil)
-			panic("tdalloc");
+			panic("ohci: tdalloc");
 		for(i=Incr; --i>=0;){
 			pool[i].next = tdpool.free;
 			tdpool.free = &pool[i];
@@ -636,7 +638,7 @@ edalloc(void)
 		ddprint("ohci: edalloc %d Eds\n", Incr);
 		pool = xspanalloc(Incr*sizeof(Ed), Align, 0);
 		if(pool == nil)
-			panic("edalloc");
+			panic("ohci: edalloc");
 		for(i=Incr; --i>=0;){
 			pool[i].next = edpool.free;
 			edpool.free = &pool[i];
@@ -1145,6 +1147,7 @@ qhinterrupt(Ctlr *, Ep *ep, Qio *io, Td *td, int)
 
 	switch(err){
 	case Tddataovr:			/* Overrun is not an error */
+		break;
 	case Tdok:
 		/* virtualbox doesn't always report underflow on short packets */
 		if(td->cbp == 0)
@@ -1263,57 +1266,66 @@ isointerrupt(Ctlr *ctlr, Ep *ep, Qio *io, Td *td, int)
 static void
 interrupt(Ureg *, void *arg)
 {
-	Td *td, *ntd, *td0;
+	Td *td, *ntd;
 	Hci *hp;
 	Ctlr *ctlr;
-	ulong status, curred;
+	ulong status, curred, done;
 	int i, frno;
 
 	hp = arg;
 	ctlr = hp->aux;
 	ilock(ctlr);
+	done = ctlr->hcca->donehead;
 	status = ctlr->ohci->intrsts;
+	if(status == ~0){
+		iunlock(ctlr);
+		return;
+	}
+	if(done & ~0xF){
+		ctlr->hcca->donehead = 0;
+		status |= Wdh;
+	}
+	else if(status & Wdh){
+		done = ctlr->hcca->donehead;
+		ctlr->hcca->donehead = 0;
+	}
+	status &= ~Mie;
+	if(status == 0){
+		iunlock(ctlr);
+		return;
+	}
+	ctlr->ohci->intrsts = status;
 	status &= ctlr->ohci->intrenable;
 	status &= Oc|Rhsc|Fno|Ue|Rd|Sf|Wdh|So;
-	frno = TRUNC(ctlr->ohci->fmnumber, Ntdframes);
-	if((status & Wdh) != 0){
-		/* lsb of donehead has bit to flag other intrs.  */
-		td = pa2ptr(ctlr->hcca->donehead & ~0xF);
-	}else
-		td = nil;
-	td0 = td;
-
-	for(i = 0; td != nil && i < 1024; i++){
-		if(0)ddprint("ohci tdinterrupt: td %#p\n", td);
-		ntd = pa2ptr(td->nexttd & ~0xF);
-		td->nexttd = 0;
-		if(td->ep == nil || td->io == nil)
-			panic("ohci: interrupt: ep %#p io %#p", td->ep, td->io);
-		ohciinterrupts[td->ep->ttype]++;
-		if(td->ep->ttype == Tiso)
-			isointerrupt(ctlr, td->ep, td->io, td, frno);
-		else
-			qhinterrupt(ctlr, td->ep, td->io, td, frno);
-		td = ntd;
+	if(status & Wdh){
+  		frno = TRUNC(ctlr->ohci->fmnumber, Ntdframes);
+		td = pa2ptr(done & ~0xF);
+		for(i = 0; td != nil && i < 1024; i++){
+			if(0)ddprint("ohci tdinterrupt: td %#p\n", td);
+			ntd = pa2ptr(td->nexttd & ~0xF);
+			td->nexttd = 0;
+			if(td->ep == nil || td->io == nil)
+				panic("ohci: interrupt: ep %#p io %#p", td->ep, td->io);
+			ohciinterrupts[td->ep->ttype]++;
+			if(td->ep->ttype == Tiso)
+				isointerrupt(ctlr, td->ep, td->io, td, frno);
+			else
+				qhinterrupt(ctlr, td->ep, td->io, td, frno);
+			td = ntd;
+		}
+		if(i == 1024)
+			iprint("ohci: bug: more than 1024 done Tds?\n");
+		status &= ~Wdh;
 	}
-	if(i == 1024)
-		print("ohci: bug: more than 1024 done Tds?\n");
-
-	if(pa2ptr(ctlr->hcca->donehead & ~0xF) != td0)
-		print("ohci: bug: donehead changed before ack\n");
-	ctlr->hcca->donehead = 0;
-
-	ctlr->ohci->intrsts = status;
-	status &= ~Wdh;
 	status &= ~Sf;
 	if(status & So){
-		print("ohci: sched overrun: too much load\n");
+		iprint("ohci: sched overrun: too much load\n");
 		ctlr->overrun++;
 		status &= ~So;
 	}
-	if((status & Ue) != 0){
+	if(status & Ue){
 		curred = ctlr->ohci->periodcurred;
-		print("ohci: unrecoverable error frame 0x%.8lux ed 0x%.8lux, "
+		iprint("ohci: unrecoverable error frame 0x%.8lux ed 0x%.8lux, "
 			"ints %d %d %d %d\n",
 			ctlr->ohci->fmnumber, curred,
 			ohciinterrupts[Tctl], ohciinterrupts[Tintr],
@@ -1322,8 +1334,10 @@ interrupt(Ureg *, void *arg)
 			dumped(pa2ptr(curred));
 		status &= ~Ue;
 	}
-	if(status != 0)
-		print("ohci interrupt: unhandled sts 0x%.8lux\n", status);
+	if(status != 0){
+		iprint("ohci interrupt: unhandled sts 0x%.8lux\n", status);
+		ctlr->ohci->intrdisable = status;
+	}
 	iunlock(ctlr);
 }
 
@@ -2301,11 +2315,16 @@ init(Hci *hp)
 	dprint("ohci %#p init\n", ctlr->ohci);
 	ohci = ctlr->ohci;
 
-	fmi =  ctlr->ohci->fminterval;
-	ctlr->ohci->cmdsts = Shcr;         /* reset the block */
-	while(ctlr->ohci->cmdsts & Shcr)
-		delay(1);  /* wait till reset complete, Ohci says 10us max. */
-	ctlr->ohci->fminterval = fmi;
+	fmi = ohci->fminterval;
+	ohci->cmdsts = Shcr;	/* reset the block */
+	for(i = 0; i<100; i++){
+		if((ohci->cmdsts & Shcr) == 0)
+			break;
+		delay(1);	/* wait till reset complete, Ohci says 10us max. */
+	}
+	if(i == 100)
+		print("ohci: reset timed out\n");
+	ohci->fminterval = fmi;
 
 	/*
 	 * now that soft reset is done we are in suspend state.
@@ -2379,13 +2398,13 @@ scanpci(void)
 		dprint("ohci: %x/%x port 0x%lux size 0x%x irq %d\n",
 			p->vid, p->did, mem, p->mem[0].size, p->intl);
 		if(mem == 0){
-			print("usbohci: failed to map registers\n");
+			print("ohci: failed to map registers\n");
 			continue;
 		}
 
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil){
-			print("usbohci: no memory\n");
+			print("ohci: no memory\n");
 			continue;
 		}
 		ctlr->pcidev = p;
@@ -2399,7 +2418,7 @@ scanpci(void)
 				break;
 			}
 		if(i == Nhcis)
-			print("usbohci: bug: no more controllers\n");
+			print("ohci: bug: no more controllers\n");
 	}
 }
 
@@ -2424,16 +2443,16 @@ mkqhtree(Ctlr *ctlr)
 	n = (1 << (depth+1)) - 1;
 	qt = mallocz(sizeof(*qt), 1);
 	if(qt == nil)
-		panic("usb: can't allocate scheduling tree");
+		panic("ohci: can't allocate scheduling tree");
 	qt->nel = n;
 	qt->depth = depth;
 	qt->bw = mallocz(n * sizeof(qt->bw), 1);
 	qt->root = tree = mallocz(n * sizeof(Ed *), 1);
 	if(qt->bw == nil || qt->root == nil)
-		panic("usb: can't allocate scheduling tree");
+		panic("ohci: can't allocate scheduling tree");
 	for(i = 0; i < n; i++){
 		if((tree[i] = edalloc()) == nil)
-			panic("mkqhtree");
+			panic("ohci: mkqhtree");
 		tree[i]->ctrl = (8 << Edmpsshift);	/* not needed */
 		tree[i]->ctrl |= Edskip;
 
@@ -2473,7 +2492,7 @@ ohcimeminit(Ctlr *ctlr)
 
 	hcca = xspanalloc(sizeof(Hcca), 256, 0);
 	if(hcca == nil)
-		panic("usbhreset: no memory for Hcca");
+		panic("ohci: no memory for Hcca");
 	memset(hcca, 0, sizeof(*hcca));
 	ctlr->hcca = hcca;
 
@@ -2483,8 +2502,22 @@ ohcimeminit(Ctlr *ctlr)
 static void
 ohcireset(Ctlr *ctlr)
 {
+	int i;
+
 	ilock(ctlr);
 	dprint("ohci %#p reset\n", ctlr->ohci);
+
+	if(ctlr->ohci->control & Cir){
+		dprint("ohci: smm active, taking over\n");
+		ctlr->ohci->cmdsts |= Socr;         /* take ownership */
+		for(i = 0; i<100; i++){
+			if((ctlr->ohci->control & Cir) == 0)
+				break;
+			delay(1);
+		}
+		if(i == 100)
+			print("ohci: smm takeover timed out\n");
+	}
 
 	/*
 	 * usually enter here in reset, wait till its through,
@@ -2509,6 +2542,7 @@ shutdown(Hci *hp)
 	ctlr = hp->aux;
 
 	ilock(ctlr);
+	ctlr->ohci->intrdisable = Mie;
 	ctlr->ohci->intrenable = 0;
 	ctlr->ohci->control = 0;
 	delay(100);
