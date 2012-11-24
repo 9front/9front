@@ -1147,7 +1147,6 @@ qhinterrupt(Ctlr *, Ep *ep, Qio *io, Td *td, int)
 
 	switch(err){
 	case Tddataovr:			/* Overrun is not an error */
-		break;
 	case Tdok:
 		/* virtualbox doesn't always report underflow on short packets */
 		if(td->cbp == 0)
