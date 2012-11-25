@@ -17,35 +17,42 @@
 static Ctlr* ctlrs[Nhcis];
 static int maxehci = Nhcis;
 
-/* Isn't this cap list search in a helper function? */
+static int
+ehciecap(Ctlr *ctlr, int cap)
+{
+	int i, off;
+
+	off = (ctlr->capio->capparms >> Ceecpshift) & Ceecpmask;
+	for(i=0; i<48; i++){
+		if(off < 0x40 || (off & 3) != 0)
+			break;
+		if(pcicfgr8(ctlr->pcidev, off) == cap)
+			return off;
+		off = pcicfgr8(ctlr->pcidev, off+1);
+	}
+	return -1;
+}
+
 static void
 getehci(Ctlr* ctlr)
 {
-	int i, ptr, cap, sem;
+	int i, off;
 
-	ptr = (ctlr->capio->capparms >> Ceecpshift) & Ceecpmask;
-	for(; ptr != 0; ptr = pcicfgr8(ctlr->pcidev, ptr+1)){
-		if(ptr < 0x40 || (ptr & ~0xFC))
-			break;
-		cap = pcicfgr8(ctlr->pcidev, ptr);
-		if(cap != Clegacy)
-			continue;
-		sem = pcicfgr8(ctlr->pcidev, ptr+CLbiossem);
-		if(sem == 0)
-			continue;
-		pcicfgw8(ctlr->pcidev, ptr+CLossem, 1);
+	off = ehciecap(ctlr, Clegacy);
+	if(off == -1)
+		return;
+	if(pcicfgr8(ctlr->pcidev, off+CLbiossem) != 0){
+		dprint("ehci %#p: bios active, taking over...\n", ctlr->capio);
+		pcicfgw8(ctlr->pcidev, off+CLossem, 1);
 		for(i = 0; i < 100; i++){
-			if(pcicfgr8(ctlr->pcidev, ptr+CLbiossem) == 0)
+			if(pcicfgr8(ctlr->pcidev, off+CLbiossem) == 0)
 				break;
 			delay(10);
 		}
 		if(i == 100)
-			dprint("ehci %#p: bios timed out\n", ctlr->capio);
-		pcicfgw32(ctlr->pcidev, ptr+CLcontrol, 0);	/* no SMIs */
-		ctlr->opio->config = 0;
-		coherence();
-		return;
+			print("ehci %#p: bios timed out\n", ctlr->capio);
 	}
+	pcicfgw32(ctlr->pcidev, off+CLcontrol, 0);	/* no SMIs */
 }
 
 static void
@@ -59,16 +66,17 @@ ehcireset(Ctlr *ctlr)
 	opio = ctlr->opio;
 
 	/*
-	 * Turn off legacy mode. Some controllers won't
-	 * interrupt us as expected otherwise.
-	 */
-	ehcirun(ctlr, 0);
-	pcicfgw16(ctlr->pcidev, 0xc0, 0x2000);
-
-	/*
 	 * reclaim from bios
 	 */
 	getehci(ctlr);
+
+	/*
+	 * halt and route ports to companion controllers
+	 * until we are setup
+	 */
+	ehcirun(ctlr, 0);
+	opio->config = 0;
+	coherence();
 
 	/* clear high 32 bits of address signals if it's 64 bits capable.
 	 * This is probably not needed but it does not hurt and others do it.
