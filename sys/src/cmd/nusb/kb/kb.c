@@ -226,12 +226,13 @@ static void
 ptrwork(void* a)
 {
 	static char maptab[] = {0x0, 0x1, 0x4, 0x5, 0x2, 0x3, 0x6, 0x7};
-	int x, y, b, c, nerrs;
+	int x, y, b, c, nerrs, skiplead;
 	char	err[ERRMAX], buf[64];
 	char	mbuf[80];
 	KDev*	f = a;
 
 	sethipri();
+	skiplead = -1;
 	nerrs = 0;
 	for(;;){
 		if(f->ep == nil)
@@ -256,6 +257,21 @@ ptrwork(void* a)
 		nerrs = 0;
 		if(c < 3)
 			continue;
+
+		if(c > 4){
+			/*
+			 * horrible horrible hack. some mouse send a
+			 * constant 0x01 lead byte. stop the hack as
+			 * soon as buf[0] changes.
+			 */
+			if(skiplead == -1)
+				skiplead = buf[0] & 0xFF;
+			if(skiplead == 0x01 && skiplead == buf[0])
+				memmove(buf, buf+1, --c);
+			else
+				skiplead = 0;
+		}
+
 		if(f->accel){
 			x = scale(f, buf[1]);
 			y = scale(f, buf[2]);
