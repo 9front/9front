@@ -45,7 +45,7 @@ fn work{
 switch($1){ 
 case -m 
         {echo Subject: `{cat '#P/cputype'}; work} >[2=1] | 
-                upas/smtp 9front.org $user hardware@9front.org 
+                user=/dev/null upas/smtp 9front.org $user hardware@9front.org 
 case * 
         work
 }
