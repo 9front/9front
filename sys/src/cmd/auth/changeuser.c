@@ -66,7 +66,7 @@ main(int argc, char *argv[])
 		t = getexpiration(f->keys, u);
 		install(f->keys, u, key, t, newkey);
 		if(dosecret && setsecret(KEYDB, u, p9pass) == 0)
-			error("error writing Inferno/POP secret");
+			error("error writing Inferno/pop secret");
 		newbio = querybio(f->who, u, &a);
 		if(newbio)
 			wrbio(f->who, &a);

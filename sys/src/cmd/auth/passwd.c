@@ -105,10 +105,10 @@ main(int argc, char **argv)
 				continue;
 			}
 		}
-		readln("Change general-purpose password?\n(for Inferno, POP, VNC, Telnet and others) (y/n) ", buf, sizeof buf, 0);
+		readln("change Inferno/POP password? (y/n) ", buf, sizeof buf, 0);
 		if(*buf == 'y' || *buf == 'Y'){
 			pr.changesecret = 1;
-			readln("Make it the same as your plan 9 password? (y/n) ",
+			readln("make it the same as your plan 9 password? (y/n) ",
 				buf, sizeof buf, 0);
 			if(*buf == 'y' || *buf == 'Y'){
 				if(*pr.new == 0)
