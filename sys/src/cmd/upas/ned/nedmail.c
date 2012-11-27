@@ -1819,6 +1819,7 @@ rcmd(Cmd *c, Message *m)
 		return nil;
 	}
 
+	av[ai++] = "-8";
 	for(nm = m; nm != &top; nm = nm->parent){
 		if(*nm->subject){
 			av[ai++] = "-s";
@@ -1862,8 +1863,8 @@ rcmd(Cmd *c, Message *m)
 Message*
 mcmd(Cmd *c, Message *m)
 {
-	char **av;
-	int i, ai;
+	char *av[128];
+	int i, ai = 1;
 	String *path;
 
 	if(m == &top){
@@ -1876,8 +1877,7 @@ mcmd(Cmd *c, Message *m)
 		return nil;
 	}
 
-	ai = 1;
-	av = malloc(sizeof(char*)*(c->an + 8));
+	av[ai++] = "-8";
 
 	av[ai++] = "-t";
 	if(m->parent == &top)
@@ -1892,7 +1892,7 @@ mcmd(Cmd *c, Message *m)
 	if(strchr(c->av[0], 'M') == nil)
 		av[ai++] = "-n";
 
-	for(i = 1; i < c->an; i++)
+	for(i = 1; i < c->an && ai < nelem(av)-1; i++)
 		av[ai++] = c->av[i];
 	av[ai] = 0;
 
@@ -1900,7 +1900,6 @@ mcmd(Cmd *c, Message *m)
 		m = nil;
 	if(path != nil)
 		s_free(path);
-	free(av);
 	return m;
 }
 
@@ -1916,6 +1915,8 @@ acmd(Cmd *c, Message *m)
 		Bprint(&out, "!address\n");
 		return nil;
 	}
+
+	av[ai++] = "-8";
 
 	if(*m->subject){
 		av[ai++] = "-s";

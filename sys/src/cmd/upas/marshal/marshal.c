@@ -122,10 +122,10 @@ int	printinreplyto(Biobuf*, char*);
 int	printsubject(Biobuf*, char*);
 int	printto(Biobuf*, Addr*);
 Alias*	readaliases(void);
-int	readheaders(Biobuf*, int*, String**, Addr**, int);
+int	readheaders(Biobuf*, int*, String**, Addr**, Addr**, Addr**, int);
 void	readmimetypes(void);
 int	rfc2047fmt(Fmt*);
-int	sendmail(Addr*, Addr*, int*, char*);
+int	sendmail(Addr*, Addr*, Addr*, int*, char*);
 char*	waitforsubprocs(void);
 
 int rflag, lbflag, xflag, holding, nflag, Fflag, eightflag, dflag;
@@ -188,10 +188,10 @@ bwritesfree(Biobuf *bp, String **str)
 void
 main(int argc, char **argv)
 {
-	int ccargc, flags, fd, noinput, headersrv;
+	int ccargc, bccargc, flags, fd, noinput, headersrv;
 	char *subject, *type, *boundary;
-	char *ccargv[32];
-	Addr *cc, *to;
+	char *ccargv[32], *bccargv[32];
+	Addr *to, *cc, *bcc;
 	Attach *first, **l, *a;
 	Biobuf in, out, *b;
 	String *file, *hdrstring;
@@ -202,7 +202,7 @@ main(int argc, char **argv)
 	l = &first;
 	type = nil;
 	hdrstring = nil;
-	ccargc = 0;
+	ccargc = bccargc = 0;
 
 	quotefmtinstall();
 	fmtinstall('Z', doublequote);
@@ -226,6 +226,11 @@ main(int argc, char **argv)
 		if(ccargc >= nelem(ccargv)-1)
 			sysfatal("too many cc's");
 		ccargv[ccargc++] = EARGF(usage());
+		break;
+	case 'B':
+		if(bccargc >= nelem(bccargv)-1)
+			sysfatal("too many bcc's");
+		bccargv[bccargc++] = EARGF(usage());
 		break;
 	case 'd':
 		dflag = 1;		/* for sendmail */
@@ -278,28 +283,28 @@ main(int argc, char **argv)
 
 	if(nflag && eightflag)
 		sysfatal("can't use both -n and -8");
-	if(eightflag && argc >= 1)
-		usage();
-	else if(!eightflag && argc < 1)
+	if(!eightflag && argc < 1)
 		usage();
 
 	aliases = readaliases();
-	if(!eightflag){
+	to = cc = bcc = nil;
+	if(argc > 0)
 		to = expand(argc, argv);
+	if(ccargc > 0)
 		cc = expand(ccargc, ccargv);
-	} else
-		to = cc = nil;
+	if(bccargc > 0)
+		bcc = expand(bccargc, bccargv);
 
 	flags = 0;
 	headersrv = Nomessage;
-	if(!nflag && !xflag && !lbflag &&!dflag) {
+	if(!nflag && !xflag && !lbflag && !dflag) {
 		/*
 		 * pass through headers, keeping track of which we've seen,
 		 * perhaps building to list.
 		 */
 		holding = holdon();
 		headersrv = readheaders(&in, &flags, &hdrstring,
-			eightflag? &to: nil, 1);
+			eightflag? &to: nil, eightflag? &cc: nil, eightflag? &bcc: nil, 1);
 		if(rfc822syntaxerror){
 			Bdrain(&in);
 			fatal("rfc822 syntax error, message not sent");
@@ -321,7 +326,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	fd = sendmail(to, cc, &pid, Fflag ? argv[0] : nil);
+	fd = sendmail(to, cc, bcc, &pid, Fflag ? argv[0] : nil);
 	if(fd < 0)
 		sysfatal("execing sendmail: %r\n:");
 	if(xflag || lbflag || dflag){
@@ -340,7 +345,7 @@ main(int argc, char **argv)
 	mboxpath("headers", user, file, 0);
 	b = Bopen(s_to_c(file), OREAD);
 	if(b != nil){
-		if (readheaders(b, &flags, &hdrstring, nil, 0) == Error)
+		if (readheaders(b, &flags, &hdrstring, nil, nil, nil, 0) == Error)
 			fatal("reading");
 		Bterm(b);
 		bwritesfree(&out, &hdrstring);
@@ -440,16 +445,16 @@ pgpopts(char *s)
  * remove Bcc: line.
  */
 int
-readheaders(Biobuf *in, int *fp, String **sp, Addr **top, int strict)
+readheaders(Biobuf *in, int *fp, String **sp, Addr **top, Addr **ccp, Addr **bccp, int strict)
 {
 	int i, seen, hdrtype;
 	char *p;
-	Addr *to;
+	Addr *to, *cc, *bcc;
 	String *s, *sline;
 
 	s = s_new();
+	to = cc = bcc = nil;
 	sline = nil;
-	to = nil;
 	hdrtype = -1;
 	seen = 0;
 	for(;;) {
@@ -468,22 +473,28 @@ readheaders(Biobuf *in, int *fp, String **sp, Addr **top, int strict)
 
 		/* process the current header, it's all been read */
 		if(sline) {
-			assert(hdrtype != -1);
-			if(top){
-				switch(hdrtype){
-				case Hto:
-				case Hcc:
-				case Hbcc:
-					to = expandline(&sline, to);
-					break;
-				}
-			}
-			if(hdrtype == Hsubject){
-				s_append(s, mksubject(s_to_c(sline)));
-				s_append(s, "\n");
-			}else if(top==nil || hdrtype!=Hbcc){
+			switch(hdrtype){
+			default:
+			Addhdr:
 				s_append(s, s_to_c(sline));
 				s_append(s, "\n");
+				break;
+			case Hto:
+				if(top)
+					to = expandline(&sline, to);
+				goto Addhdr;
+			case Hcc:
+				if(ccp)
+					cc = expandline(&sline, cc);
+				goto Addhdr;
+			case Hbcc:
+				if(bccp)
+					bcc = expandline(&sline, bcc);
+				break;
+			case Hsubject:
+				s_append(s, mksubject(s_to_c(sline)));
+				s_append(s, "\n");
+				break;
 			}
 			s_free(sline);
 			sline = nil;
@@ -530,8 +541,24 @@ readheaders(Biobuf *in, int *fp, String **sp, Addr **top, int strict)
 	}
 
 	*sp = s;
-	if(top)
+
+	if(to){
+		freeaddrs(*top);
 		*top = to;
+	}else
+		freeaddrs(to);
+
+	if(cc){
+		freeaddrs(*ccp);
+		*ccp = cc;
+	}else
+		freeaddrs(cc);
+
+	if(bcc){
+		freeaddrs(*bccp);
+		*bccp = bcc;
+	}else
+		freeaddrs(bcc);
 
 	if(seen == 0){
 		if(Blinelen(in) == 0)
@@ -760,11 +787,13 @@ printfrom(Biobuf *b)
 }
 
 int
-printto(Biobuf *b, Addr *a)
+printaddr(Biobuf *b, char *s, Addr *a)
 {
 	int i;
 
-	if(Bprint(b, "To: %s", a->v) < 0)
+	if(a == nil)
+		return 0;
+	if(Bprint(b, "%s %s", s, a->v) < 0)
 		return -1;
 	i = 0;
 	for(a = a->next; a != nil; a = a->next)
@@ -776,21 +805,15 @@ printto(Biobuf *b, Addr *a)
 }
 
 int
+printto(Biobuf *b, Addr *a)
+{
+	return printaddr(b, "To:", a);
+}
+
+int
 printcc(Biobuf *b, Addr *a)
 {
-	int i;
-
-	if(a == nil)
-		return 0;
-	if(Bprint(b, "CC: %s", a->v) < 0)
-		return -1;
-	i = 0;
-	for(a = a->next; a != nil; a = a->next)
-		if(Bprint(b, "%s%s", ((i++ & 7) == 7)?",\n\t":", ", a->v) < 0)
-			return -1;
-	if(Bprint(b, "\n") < 0)
-		return -1;
-	return 0;
+	return printaddr(b, "Cc:", a);
 }
 
 int
@@ -1032,7 +1055,7 @@ openfolder(char *rcvr)
 
 /* start up sendmail and return an fd to talk to it with */
 int
-sendmail(Addr *to, Addr *cc, int *pid, char *rcvr)
+sendmail(Addr *to, Addr *cc, Addr *bcc, int *pid, char *rcvr)
 {
 	int ac, fd;
 	int pfd[2];
@@ -1049,6 +1072,8 @@ sendmail(Addr *to, Addr *cc, int *pid, char *rcvr)
 		ac++;
 	for(a = cc; a != nil; a = a->next)
 		ac++;
+	for(a = bcc; a != nil; a = a->next)
+		ac++;
 	v = av = emalloc(sizeof(char*)*(ac+20));
 	ac = 0;
 	v[ac++] = "sendmail";
@@ -1063,6 +1088,8 @@ sendmail(Addr *to, Addr *cc, int *pid, char *rcvr)
 	for(a = to; a != nil; a = a->next)
 		v[ac++] = a->v;
 	for(a = cc; a != nil; a = a->next)
+		v[ac++] = a->v;
+	for(a = bcc; a != nil; a = a->next)
 		v[ac++] = a->v;
 	v[ac] = 0;
 

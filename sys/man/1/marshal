@@ -10,6 +10,9 @@ marshal \- formatting and sending mail
 .B -C
 .I copyaddr
 ] [
+.B -B
+.I copyaddr
+] [
 .B -Fr#xn
 ] [
 .B -p[es]
@@ -86,8 +89,12 @@ directing any mail reader to display the attachment
 (if it can) when the mail message is read.
 .TP
 .BI -C copyaddr
+or
+.BI -B copyaddr
 adds a
 .B Cc:
+or
+.B Bcc:
 header with
 .I copyaddr
 and also adds
