@@ -399,7 +399,6 @@ starttls(Imap *imap, TLSconn *connp)
 	int sfd;
 	uchar digest[SHA1dlen];
 
-	fmtinstall('H', encodefmt);
 	memset(connp, 0, sizeof *connp);
 	sfd = tlsClient(imap->fd, connp);
 	if(sfd < 0) {
@@ -414,6 +413,7 @@ starttls(Imap *imap, TLSconn *connp)
 	sha1(connp->cert, connp->certlen, digest, nil);
 	if(!imap->thumb || !okThumbprint(digest, imap->thumb)){
 		close(sfd);
+		fmtinstall('H', encodefmt);
 		werrstr("server certificate %.*H not recognized",
 			SHA1dlen, digest);
 		return -1;
@@ -451,10 +451,10 @@ imap4dial(Imap *imap)
 
 	if(imap->mustssl){
 		sfd = starttls(imap, &conn);
-		if (sfd < 0) {
-			free(conn.cert);
+		free(conn.cert);
+		free(conn.sessionID);
+		if(sfd < 0)
 			return imaperrstr(imap->host, port);
-		}
 		if(imap->debug){
 			char fn[128];
 			int fd;
@@ -463,9 +463,11 @@ imap4dial(Imap *imap)
 			fd = open(fn, ORDWR);
 			if(fd < 0)
 				fprint(2, "opening ctl: %r\n");
-			if(fprint(fd, "debug") < 0)
-				fprint(2, "writing ctl: %r\n");
-			close(fd);
+			else {
+				if(fprint(fd, "debug") < 0)
+					fprint(2, "writing ctl: %r\n");
+				close(fd);
+			}
 		}
 	}
 	Binit(&imap->bin, imap->fd, OREAD);

@@ -119,31 +119,39 @@ pop3pushtls(Pop *pop)
 	int fd;
 	uchar digest[SHA1dlen];
 	TLSconn conn;
+	char *err;
 
+	err = nil;
 	memset(&conn, 0, sizeof conn);
 	// conn.trace = pop3log;
 	fd = tlsClient(pop->fd, &conn);
-	if(fd < 0)
-		return "tls error";
+	if(fd < 0){
+		err = "tls error";
+		goto out;
+	}
 	if(conn.cert==nil || conn.certlen <= 0){
-		close(fd);
-		return "server did not provide TLS certificate";
+		err = "server did not provide TLS certificate";
+		goto out;
 	}
 	sha1(conn.cert, conn.certlen, digest, nil);
 	if(!pop->thumb || !okThumbprint(digest, pop->thumb)){
 		fmtinstall('H', encodefmt);
-		close(fd);
-		free(conn.cert);
 		fprint(2, "upas/fs pop3: server certificate %.*H not recognized\n", SHA1dlen, digest);
-		return "bad server certificate";
+		err = "bad server certificate";
+		goto out;
 	}
-	free(conn.cert);
 	close(pop->fd);
 	pop->fd = fd;
 	pop->encrypted = 1;
 	Binit(&pop->bin, pop->fd, OREAD);
 	Binit(&pop->bout, pop->fd, OWRITE);
-	return nil;
+	fd = -1;
+out:
+	free(conn.sessionID);
+	free(conn.cert);
+	if(fd >= 0)
+		close(fd);
+	return err;
 }
 
 //
