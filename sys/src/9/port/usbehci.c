@@ -3242,12 +3242,9 @@ init(Hci *hp)
 	opio->cmd |= Case;
 	coherence();
 	ehcirun(ctlr, 1);
-	/*
-	 * route all ports by default to only one ehci (the first).
-	 * it's not obvious how multiple ehcis could work and on some
-	 * machines, setting Callmine on all ehcis makes the machine seize up.
-	 */
-	opio->config = (ctlrno == 0 ? Callmine : 0);
+
+	/* route all ports to us */
+	opio->config = Callmine;
 	coherence();
 
 	for (i = 0; i < hp->nports; i++)
