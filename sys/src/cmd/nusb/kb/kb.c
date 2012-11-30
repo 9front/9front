@@ -222,11 +222,18 @@ sethipri(void)
 	close(fd);
 }
 
+static short
+s16(void *p)
+{
+	uchar *b = p;
+	return b[0] | b[1]<<8;
+}
+
 static void
 ptrwork(void* a)
 {
 	static char maptab[] = {0x0, 0x1, 0x4, 0x5, 0x2, 0x3, 0x6, 0x7};
-	int x, y, b, c, nerrs, skiplead;
+	int x, y, z, b, c, nerrs, skiplead;
 	char	err[ERRMAX], buf[64];
 	char	mbuf[80];
 	KDev*	f = a;
@@ -272,20 +279,27 @@ ptrwork(void* a)
 				skiplead = 0;
 		}
 
-		if(f->accel){
-			x = scale(f, buf[1]);
-			y = scale(f, buf[2]);
-		}else{
+		z = 0;
+		if(c == 6 && f->dev->usb->vid == 0x1a7c){
+			/* Evoluent vertical mouse */
+			x = s16(&buf[1]);
+			y = s16(&buf[3]);
+			z = buf[5];
+		} else {
 			x = buf[1];
 			y = buf[2];
+			if(c > 3)
+				z = buf[3];
+		}
+		if(f->accel){
+			x = scale(f, x);
+			y = scale(f, y);
 		}
 		b = maptab[buf[0] & 0x7];
-		if(c > 3 && buf[3] > 0){	/* up */
+		if(z > 0)	/* up */
 			b |= 0x08;
-		}
-		if(c > 3 && buf[3] < 0){	/* down */
+		if(z < 0)	/* down */
 			b |= 0x10;
-		}
 		if(kbdebug > 1)
 			fprint(2, "%s: m%11d %11d %11d\n", argv0, x, y, b);
 		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", x, y,b);
