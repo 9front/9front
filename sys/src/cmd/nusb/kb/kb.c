@@ -4,8 +4,8 @@
  * If there's no usb keyboard, it tries to setup the mouse, if any.
  * It should be started at boot time.
  *
- * Mouse events are converted to the format of mouse(3)'s
- * mousein file.
+ * Mouse events are converted to the format of mouse(3)
+ * on mousein file.
  * Keyboard keycodes are translated to scan codes and sent to kbdfs(8)
  * on kbin file.
  *
@@ -23,26 +23,19 @@ enum
 	Diemsg = 0xbeefbeef,
 };
 
-typedef struct KDev KDev;
-typedef struct Kin Kin;
+enum
+{
+	Kbdelay = 500,
+	Kbrepeat = 100,
+};
 
+typedef struct KDev KDev;
 struct KDev
 {
 	Dev*	dev;		/* usb device*/
 	Dev*	ep;		/* endpoint to get events */
-	Kin*	in;		/* used to send events to kernel */
+	int	infd;		/* used to send events to kernel */
 	Channel*repeatc;	/* only for keyboard */
-	int	accel;		/* only for mouse */
-};
-
-/*
- * Kbdin and mousein files must be shared among all instances.
- */
-struct Kin
-{
-	int	ref;
-	int	fd;
-	char*	name;
 };
 
 /*
@@ -99,21 +92,8 @@ static char sctab[256] =
 [0xf8]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
 };
 
-static QLock inlck;
-static Kin kbdin =
-{
-	.ref = 0,
-	.name = "/dev/kbin",
-	.fd = -1,
-};
-static Kin ptrin =
-{
-	.ref = 0,
-	.name = "#m/mousein",
-	.fd = -1,
-};
-
 static int kbdebug;
+static int accel;
 
 static int
 setbootproto(KDev* f, int eid)
@@ -153,31 +133,54 @@ recoverkb(KDev *f)
 }
 
 static void
+kbfree(KDev *kd)
+{
+	if(kd->infd >= 0)
+		close(kd->infd);
+	if(kd->ep != nil)
+		closedev(kd->ep);
+	if(kd->dev != nil)
+		closedev(kd->dev);
+	free(kd);
+}
+
+static void
 kbfatal(KDev *kd, char *sts)
 {
-	Dev *dev;
-
 	if(sts != nil)
 		fprint(2, "%s: fatal: %s\n", argv0, sts);
 	else
 		fprint(2, "%s: exiting\n", argv0);
 	if(kd->repeatc != nil)
-		nbsendul(kd->repeatc, Diemsg);
-	dev = kd->dev;
-	kd->dev = nil;
-	if(kd->ep != nil)
-		closedev(kd->ep);
-	kd->ep = nil;
-	devctl(dev, "detach");
-	closedev(dev);
-	/*
-	 * free(kd); done by closedev.
-	 */
+		sendul(kd->repeatc, Diemsg);
+	kbfree(kd);
 	threadexits(sts);
 }
 
+static void
+kbprocname(KDev *kd, char *name)
+{
+	char buf[128];
+	snprint(buf, sizeof(buf), "%s %s", name, kd->ep->dir);
+	threadsetname(buf);
+}
+
+static void
+sethipri(void)
+{
+	char fn[64];
+	int fd;
+
+	snprint(fn, sizeof(fn), "/proc/%d/ctl", getpid());
+	fd = open(fn, OWRITE);
+	if(fd < 0)
+		return;
+	fprint(fd, "pri 13");
+	close(fd);
+}
+
 static int
-scale(KDev *f, int x)
+scale(int x)
 {
 	int sign = 1;
 
@@ -192,34 +195,16 @@ scale(KDev *f, int x)
 	case 3:
 		break;
 	case 4:
-		x = 6 + (f->accel>>2);
+		x = 6 + (accel>>2);
 		break;
 	case 5:
-		x = 9 + (f->accel>>1);
+		x = 9 + (accel>>1);
 		break;
 	default:
 		x *= MaxAcc;
 		break;
 	}
 	return sign*x;
-}
-
-/*
- * ps2 mouse is processed mostly at interrupt time.
- * for usb we do what we can.
- */
-static void
-sethipri(void)
-{
-	char fn[30];
-	int fd;
-
-	snprint(fn, sizeof(fn), "/proc/%d/ctl", getpid());
-	fd = open(fn, OWRITE);
-	if(fd < 0)
-		return;
-	fprint(fd, "pri 13");
-	close(fd);
 }
 
 static short
@@ -238,7 +223,9 @@ ptrwork(void* a)
 	char	mbuf[80];
 	KDev*	f = a;
 
+	kbprocname(f, "ptrwork");
 	sethipri();
+
 	skiplead = -1;
 	nerrs = 0;
 	for(;;){
@@ -291,9 +278,9 @@ ptrwork(void* a)
 			if(c > 3)
 				z = buf[3];
 		}
-		if(f->accel){
-			x = scale(f, x);
-			y = scale(f, y);
+		if(accel){
+			x = scale(x);
+			y = scale(y);
 		}
 		b = maptab[buf[0] & 0x7];
 		if(z > 0)	/* up */
@@ -303,85 +290,22 @@ ptrwork(void* a)
 		if(kbdebug > 1)
 			fprint(2, "%s: m%11d %11d %11d\n", argv0, x, y, b);
 		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", x, y,b);
-		if(write(f->in->fd, mbuf, strlen(mbuf)) < 0)
+		if(write(f->infd, mbuf, strlen(mbuf)) < 0)
 			kbfatal(f, "mousein i/o");
 	}
 }
 
 static void
-stoprepeat(KDev *f)
-{
-	sendul(f->repeatc, Awakemsg);
-}
-
-static void
-startrepeat(KDev *f, uchar esc1, uchar sc)
-{
-	ulong c;
-
-	if(esc1)
-		c = SCesc1 << 8 | (sc & 0xff);
-	else
-		c = sc;
-	sendul(f->repeatc, c);
-}
-
-static void
-putscan(int kbinfd, uchar esc, uchar sc)
+putscan(int fd, uchar esc, uchar sc)
 {
 	uchar s[2] = {SCesc1, 0};
 
 	s[1] = sc;
 	if(esc && sc != 0)
-		write(kbinfd, s, 2);
+		write(fd, s, 2);
 	else if(sc != 0)
-		write(kbinfd, s+1, 1);
+		write(fd, s+1, 1);
 }
-
-static void
-repeatproc(void* a)
-{
-	KDev *f;
-	Channel *repeatc;
-	int kbdinfd;
-	ulong l, t, i;
-	uchar esc1, sc;
-
-	/*
-	 * too many jumps here.
-	 * Rewrite instead of debug, if needed.
-	 */
-	f = a;
-	repeatc = f->repeatc;
-	kbdinfd = f->in->fd;
-	l = Awakemsg;
-Repeat:
-	if(l == Diemsg)
-		goto Abort;
-	while(l == Awakemsg)
-		l = recvul(repeatc);
-	if(l == Diemsg)
-		goto Abort;
-	esc1 = l >> 8;
-	sc = l;
-	t = 160;
-	for(;;){
-		for(i = 0; i < t; i += 5){
-			if(l = nbrecvul(repeatc))
-				goto Repeat;
-			sleep(5);
-		}
-		putscan(kbdinfd, esc1, sc);
-		t = 30;
-	}
-Abort:
-	chanfree(repeatc);
-	threadexits("aborted");
-
-}
-
-
-#define hasesc1(sc)	(((sc) > 0x47) || ((sc) == 0x38))
 
 static void
 putmod(int fd, uchar mods, uchar omods, uchar mask, uchar esc, uchar sc)
@@ -403,6 +327,87 @@ putmod(int fd, uchar mods, uchar omods, uchar mask, uchar esc, uchar sc)
 		write(fd, s, p - s);
 }
 
+static void
+sleepproc(void* a)
+{
+	Channel *c = a;
+	int ms;
+
+	threadsetname("sleepproc");
+	while((ms = recvul(c)) > 0)
+		sleep(ms);
+	chanfree(c);
+}
+
+static void
+repeatproc(void* arg)
+{
+	KDev *f = arg;
+	Channel *repeatc, *sleepc;
+	int kbdinfd;
+	ulong l, t;
+	uchar esc1, sc;
+	Alt a[3];
+
+	repeatc = f->repeatc;
+	kbdinfd = f->infd;
+	threadsetname("repeatproc");
+	
+	sleepc = chancreate(sizeof(ulong), 0);
+	if(sleepc != nil)
+		proccreate(sleepproc, sleepc, Stack);
+
+	a[0].c = repeatc;
+	a[0].v = &l;
+	a[0].op = CHANRCV;
+	a[1].c = sleepc;
+	a[1].v = &t;
+	a[1].op = sleepc!=nil ? CHANSND : CHANNOP;
+	a[2].c = nil;
+	a[2].v = nil;
+	a[2].op = CHANEND;
+
+	l = Awakemsg;
+	while(l != Diemsg){
+		if(l == Awakemsg){
+			l = recvul(repeatc);
+			continue;
+		}
+		esc1 = l >> 8;
+		sc = l;
+		t = Kbdelay;
+		if(alt(a) == 1){
+			t = Kbrepeat;
+			while(alt(a) == 1)
+				putscan(kbdinfd, esc1, sc);
+		}
+	}
+	if(sleepc != nil)
+		sendul(sleepc, 0);
+	chanfree(repeatc);
+	threadexits(nil);
+}
+
+static void
+stoprepeat(KDev *f)
+{
+	sendul(f->repeatc, Awakemsg);
+}
+
+static void
+startrepeat(KDev *f, uchar esc1, uchar sc)
+{
+	ulong c;
+
+	if(esc1)
+		c = SCesc1 << 8 | (sc & 0xff);
+	else
+		c = sc;
+	sendul(f->repeatc, c);
+}
+
+#define hasesc1(sc)	(((sc) > 0x47) || ((sc) == 0x38))
+
 /*
  * This routine diffs the state with the last known state
  * and invents the scan codes that would have been sent
@@ -418,7 +423,7 @@ putkeys(KDev *f, uchar buf[], uchar obuf[], int n, uchar dk)
 	uchar uk;
 	int fd;
 
-	fd = f->in->fd;
+	fd = f->infd;
 	putmod(fd, buf[0], obuf[0], Mctrl, 0, SCctrl);
 	putmod(fd, buf[0], obuf[0], (1<<Mlshift), 0, SClshift);
 	putmod(fd, buf[0], obuf[0], (1<<Mrshift), 0, SCrshift);
@@ -474,13 +479,15 @@ kbdwork(void *a)
 	char err[128];
 	KDev *f = a;
 
+	kbprocname(f, "kbdwork");
+
 	f->repeatc = chancreate(sizeof(ulong), 0);
 	if(f->repeatc == nil)
 		kbfatal(f, "chancreate failed");
 	proccreate(repeatproc, f, Stack);
 
-	sethipri();
 	setleds(f, f->ep->id, 0);
+	sethipri();
 
 	memset(lbuf, 0, sizeof lbuf);
 	dk = nerrs = 0;
@@ -521,60 +528,35 @@ kbdwork(void *a)
 }
 
 static void
-freekdev(void *a)
+kbstart(Dev *d, Ep *ep, char *infile, void (*f)(void*))
 {
 	KDev *kd;
 
-	kd = a;
-	if(kd->in != nil){
-		qlock(&inlck);
-		if(--kd->in->ref == 0){
-			close(kd->in->fd);
-			kd->in->fd = -1;
-		}
-		qunlock(&inlck);
+	kd = emallocz(sizeof(KDev), 1);
+	kd->infd = open(infile, OWRITE);
+	if(kd->infd < 0){
+		fprint(2, "%s: %s: open: %r\n", argv0, d->dir);
+		goto Err;
 	}
-	free(kd);
-}
-
-static void
-kbstart(Dev *d, Ep *ep, Kin *in, void (*f)(void*), int accel)
-{
-	KDev *kd;
-
-	qlock(&inlck);
-	if(in->fd < 0){
-		in->fd = open(in->name, OWRITE);
-		if(in->fd < 0){
-			fprint(2, "%s: %s: %r\n", argv0, in->name);
-			qunlock(&inlck);
-			return;
-		}
-	}
-	in->ref++;	/* for kd->in = in */
-	qunlock(&inlck);
-	kd = d->aux = emallocz(sizeof(KDev), 1);
-	d->free = freekdev;
-	kd->in = in;
+	incref(d);
 	kd->dev = d;
 	if(setbootproto(kd, ep->id) < 0){
 		fprint(2, "%s: %s: bootproto: %r\n", argv0, d->dir);
-		return;
+		goto Err;
 	}
-	kd->accel = accel;
-	kd->ep = openep(d, ep->id);
+	kd->ep = openep(kd->dev, ep->id);
 	if(kd->ep == nil){
 		fprint(2, "%s: %s: openep %d: %r\n", argv0, d->dir, ep->id);
-		return;
+		goto Err;
 	}
 	if(opendevdata(kd->ep, OREAD) < 0){
 		fprint(2, "%s: %s: opendevdata: %r\n", argv0, kd->ep->dir);
-		closedev(kd->ep);
-		kd->ep = nil;
-		return;
+		goto Err;
 	}
-	incref(d);
-	proccreate(f, kd, Stack);
+	procrfork(f, kd, Stack, RFNOTEG);
+	return;
+Err:
+	kbfree(kd);
 }
 
 static void
@@ -587,12 +569,11 @@ usage(void)
 void
 threadmain(int argc, char* argv[])
 {
-	int accel, i;
+	int i;
 	Dev *d;
 	Ep *ep;
 	Usbdev *ud;
 
-	accel = 0;
 	ARGBEGIN{
 	case 'a':
 		accel = strtol(EARGF(usage()), nil, 0);
@@ -613,9 +594,9 @@ threadmain(int argc, char* argv[])
 		if((ep = ud->ep[i]) == nil)
 			break;
 		if(ep->type == Eintr && ep->dir == Ein && ep->iface->csp == KbdCSP)
-			kbstart(d, ep, &kbdin, kbdwork, accel);
+			kbstart(d, ep, "/dev/kbin", kbdwork);
 		if(ep->type == Eintr && ep->dir == Ein && ep->iface->csp == PtrCSP)
-			kbstart(d, ep, &ptrin, ptrwork, accel);
+			kbstart(d, ep, "/dev/mousein", ptrwork);
 	}
 	threadexits(nil);
 }
