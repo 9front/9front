@@ -1877,8 +1877,6 @@ mcmd(Cmd *c, Message *m)
 		return nil;
 	}
 
-	av[ai++] = "-8";
-
 	av[ai++] = "-t";
 	if(m->parent == &top)
 		av[ai++] = "message/rfc822";
@@ -1891,6 +1889,8 @@ mcmd(Cmd *c, Message *m)
 
 	if(strchr(c->av[0], 'M') == nil)
 		av[ai++] = "-n";
+	else
+		av[ai++] = "-8";
 
 	for(i = 1; i < c->an && ai < nelem(av)-1; i++)
 		av[ai++] = c->av[i];
