@@ -612,16 +612,15 @@ ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 	dprint("ahci: configdrive cmd=%lux sstatus=%lux\n", p->cmd, p->sstatus);
 	p->cmd |= Afre;
 
-	if((p->sstatus & Sbist) == 0 && (p->cmd & Apwr) != Apwr){
+	if((p->cmd & Apwr) != Apwr)
 		p->cmd |= Apwr;
-		dprint("ahci: power up ... [%.3lux]\n", p->sstatus);
-	}
-	if((p->sstatus & Sphylink) == 0){
-		if(h->cap & Hss)
-			p->cmd |= Asud;
+
+	if((h->cap & Hss) != 0){
 		dprint("ahci: spin up ... [%.3lux]\n", p->sstatus);
 		for(int i = 0; i < 1400; i += 50){
-			if(p->sstatus & (Sphylink | Sbist))
+			if((p->sstatus & Sbist) != 0)
+				break;
+			if((p->sstatus & Sphylink) == Sphylink)
 				break;
 			asleep(50);
 		}
@@ -633,8 +632,7 @@ ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 
 	/* disable power managment sequence from book. */
 	p->sctl = 3*Aipm | mode*Aspd | 0*Adet;
-	if(h->cap & Halp)
-		p->cmd &= ~Aalpe;
+	p->cmd &= ~Aalpe;
 
 	p->cmd |= Ast;
 	p->ie = IEM;
