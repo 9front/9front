@@ -59,6 +59,8 @@ _envsetup(void)
 	for(j=0; j<nd; j++){
 		d9 = &d9a[j];
 		n = strlen(d9->name);
+		if(n >= sizeof(name)-4)
+			continue;
 		m = d9->length;
 		i = p - ps;
 		if(i+n+1+m+1 > psize) {
