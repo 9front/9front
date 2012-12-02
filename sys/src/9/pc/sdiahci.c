@@ -16,7 +16,7 @@
 #include "../port/led.h"
 
 #pragma	varargck	type	"T"	int
-#define	dprint(...)	if(debug)	iprint(__VA_ARGS__); else USED(debug)
+#define	dprint(...)	if(debug)	print(__VA_ARGS__); else USED(debug)
 #define	idprint(...)	if(prid)		print(__VA_ARGS__); else USED(prid)
 #define	aprint(...)	if(datapi)	print(__VA_ARGS__); else USED(datapi)
 #define	ledprint(...)	if(dled)		print(__VA_ARGS__); else USED(dled)
@@ -609,27 +609,32 @@ ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 	p->fis = PCIWADDR(m->fis.base);
 	p->fishi = Pciwaddrh(m->fis.base);
 
+	dprint("ahci: configdrive cmd=%lux sstatus=%lux\n", p->cmd, p->sstatus);
 	p->cmd |= Afre;
 
-	if((p->sstatus & Sbist) == 0 && (p->cmd & Apwr) != Apwr)
-	if((p->sstatus & Sphylink) == 0 && h->cap & Hss){
-		/* staggered spin-up? */
-		dprint("ahci:  spin up ... [%.3lux]\n", p->sstatus);
+	if((p->sstatus & Sbist) == 0 && (p->cmd & Apwr) != Apwr){
 		p->cmd |= Apwr;
+		dprint("ahci: power up ... [%.3lux]\n", p->sstatus);
+	}
+	if((p->sstatus & Sphylink) == 0){
+		if(h->cap & Hss)
+			p->cmd |= Asud;
+		dprint("ahci: spin up ... [%.3lux]\n", p->sstatus);
 		for(int i = 0; i < 1400; i += 50){
 			if(p->sstatus & (Sphylink | Sbist))
 				break;
 			asleep(50);
 		}
 	}
-
 	p->serror = SerrAll;
 
 	if((p->sstatus & SSmask) == (Isleepy | Spresent))
 		ahciwakeup(c, mode);
+
 	/* disable power managment sequence from book. */
 	p->sctl = 3*Aipm | mode*Aspd | 0*Adet;
-	p->cmd &= ~Aalpe;
+	if(h->cap & Halp)
+		p->cmd &= ~Aalpe;
 
 	p->cmd |= Ast;
 	p->ie = IEM;
@@ -1418,6 +1423,7 @@ iaverify(SDunit *u)
 	iunlock(d);
 	iunlock(c);
 	checkdrive(d, d->driveno);		/* c->d0 + d->driveno */
+	scsiverify(u);
 	return 1;
 }
 
@@ -1465,19 +1471,19 @@ iadisable(SDev *s)
 }
 
 static int
-iaonline(SDunit *unit)
+iaonline(SDunit *u)
 {
 	int r;
 	Ctlr *c;
 	Drive *d;
 
-	c = unit->dev->ctlr;
-	d = c->drive[unit->subno];
+	c = u->dev->ctlr;
+	d = c->drive[u->subno];
 	ilock(d);
 	if(d->portm.feat & Datapi){
 		d->drivechange = 0;
 		iunlock(d);
-		return scsionline(unit);
+		return scsionline(u);
 	}
 	r = 0;
 	if(d->drivechange){
@@ -1486,8 +1492,8 @@ iaonline(SDunit *unit)
 	}else if(d->state == Dready)
 		r = 1;
 	if(r){
-		unit->sectors = d->sectors;
-		unit->secsize = d->secsize;
+		u->sectors = d->sectors;
+		u->secsize = d->secsize;
 	}
 	iunlock(d);
 	return r;
@@ -1767,11 +1773,11 @@ iario(SDreq *r)
 	uvlong lba;
 	Ctlr *c;
 	Drive *d;
-	SDunit *unit;
+	SDunit *u;
 
-	unit = r->unit;
-	c = unit->dev->ctlr;
-	d = c->drive[unit->subno];
+	u = r->unit;
+	c = u->dev->ctlr;
+	d = c->drive[u->subno];
 	if(d->portm.feat & Datapi)
 		return iariopkt(r, d);
 	cmd = r->cmd;
@@ -1789,7 +1795,7 @@ iario(SDreq *r)
 
 	if((i = sdfakescsirw(r, &lba, &count, &rw)) != SDnostatus)
 		return i;
-	n = ahcibio(unit, r->lun, r->write, r->data, count, lba);
+	n = ahcibio(u, r->lun, r->write, r->data, count, lba);
 	if(n == -1)
 		return SDeio;
 	r->rlen = n;
@@ -2074,6 +2080,12 @@ iapnp(void)
 	if(done)
 		return nil;
 	done = 1;
+
+	if(getconf("*ahcidebug") != nil){
+		debug = 1;
+		datapi = 1;
+	}
+
 	memset(olds, 0xff, sizeof olds);
 	p = nil;
 loop:
