@@ -105,7 +105,7 @@ readline(void *f, char buf[64])
 	do{
 		if(!f)
 			putc('>');
-		while(p < buf + 64-1){
+		for(;;){
 			if(!f){
 				putc(*p = getc());
 				if(*p == '\r')
@@ -116,10 +116,18 @@ readline(void *f, char buf[64])
 				}
 			}else if(read(f, p, 1) <= 0)
 				return 0;
-			if(p == buf && strchr(white, *p))
-				continue;
 			if(strchr(crnl, *p))
 				break;
+			if(p == buf && strchr(white, *p))
+				continue;	/* whitespace on start of line */
+			if(p >= buf + 64-1){
+				if(!f){
+					putc('\b');
+					putc(' ');
+					putc('\b');
+				}
+				continue;	/* line full do not advance */
+			}
 			p++;
 		}
 		while(p > buf && strchr(white, p[-1]))
