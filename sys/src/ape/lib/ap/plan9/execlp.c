@@ -16,9 +16,11 @@ execlp(const char *name, const char *arg0, ...)
 	char buf[PATH_MAX];
 
 	if((n=execve(name, &arg0, environ)) < 0){
+		if(strchr("/.", name[0]) != 0 || strlen(name) >= sizeof(buf)-5)
+			return n;
 		strcpy(buf, "/bin/");
 		strcpy(buf+5, name);
-		n = execve(buf, &name+1, environ);
+		n = execve(buf, &arg0, environ);
 	}
 	return n;
 }

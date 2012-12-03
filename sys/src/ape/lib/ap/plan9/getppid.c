@@ -9,15 +9,14 @@
 pid_t
 getppid(void)
 {
-	int n, f;
-	char ppidbuf[15];
+	char b[20];
+	int f;
 
-	f = open("#c/ppid", 0);
-	n = read(f, ppidbuf, sizeof ppidbuf);
-	if(n < 0)
-		errno = EINVAL;
-	else
-		n = atoi(ppidbuf);
-	close(f);
-	return n;
+	memset(b, 0, sizeof(b));
+	f = open("/dev/ppid", 0);
+	if(f >= 0) {
+		read(f, b, sizeof(b));
+		close(f);
+	}
+	return atol(b);
 }

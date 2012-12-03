@@ -2,6 +2,7 @@
 #include "lib.h"
 #include <sys/stat.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "sys9.h"
 #include <string.h>
 
@@ -33,21 +34,12 @@ readprocfdinit(void)
 	/* construct info from /proc/$pid/fd */
 	char buf[8192];
 	Fdinfo *fi;
-	int fd, pfd, pid, n, tot, m;
+	int fd, pfd, n, tot, m;
 	char *s, *nexts;
 
 	memset(buf, 0, sizeof buf);
-	pfd = _OPEN("#c/pid", 0);
-	if(pfd < 0)
-		return -1;
-	if(_PREAD(pfd, buf, 100, 0) < 0){
-		_CLOSE(pfd);
-		return -1;
-	}
-	_CLOSE(pfd);
-	pid = strtoul(buf, 0, 10);
-	strcpy(buf, "#p/");
-	_ultoa(buf+3, pid);
+	strcpy(buf, "/proc/");
+	_ultoa(buf+6, getpid());
 	strcat(buf, "/fd");
 	pfd = _OPEN(buf, 0);
 	if(pfd < 0)
@@ -77,9 +69,7 @@ readprocfdinit(void)
 		fd = strtoul(s, &s, 10);
 		if(errno != 0)
 			return -1;
-		if(fd >= OPEN_MAX)
-			continue;
-		if(fd == pfd)
+		if(fd < 0 || fd == pfd || fd >= OPEN_MAX)
 			continue;
 		fi = &_fdinfo[fd];
 		fi->flags = FD_ISOPEN;
@@ -149,8 +139,6 @@ _fdinit(char *s, char *se)
 	usedproc = 0;
 	if(readprocfdinit() == 0)
 		usedproc = 1;
-else
-_WRITE(2, "FAILED\n", 7);
 	if(s)
 		sfdinit(usedproc, s, se);
 	if(!s && !usedproc)

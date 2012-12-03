@@ -21,7 +21,6 @@
 char **environ;
 int errno;
 unsigned long _clock;
-static char name[NAME_MAX+5] = "#e";
 static void fdsetup(char *, char *);
 static void sigsetup(char *, char *);
 
@@ -45,33 +44,32 @@ _envsetup(void)
 	nohandle = 0;
 	fdinited = 0;
 	cnt = 0;
-	dfd = _OPEN(name, 0);
+	dfd = _OPEN("/env", 0);
 	if(dfd < 0) {
 		static char **emptyenvp = 0;
 		environ = emptyenvp;
 		return;
 	}
-	name[2] = '/';
-	ps = p = malloc(Envhunk);
 	psize = Envhunk;
+	ps = p = malloc(psize);
 	nd = _dirreadall(dfd, &d9a);
 	_CLOSE(dfd);
 	for(j=0; j<nd; j++){
 		d9 = &d9a[j];
 		n = strlen(d9->name);
-		if(n >= sizeof(name)-4)
-			continue;
 		m = d9->length;
 		i = p - ps;
-		if(i+n+1+m+1 > psize) {
-			psize += (n+m+2 < Envhunk)? Envhunk : n+m+2;
+		if(i+n+5+m+1 > psize) {
+			psize += (n+m+6 < Envhunk)? Envhunk : n+m+6;
 			ps = realloc(ps, psize);
 			p = ps + i;
 		}
+		strcpy(p, "/env/");
+		memcpy(p+5, d9->name, n+1);
+		f = _OPEN(p, 0);
+		memset(p, 0, n+6);
 		memcpy(p, d9->name, n);
 		p[n] = '=';
-		strcpy(name+3, d9->name);
-		f = _OPEN(name, O_RDONLY);
 		if(f < 0 || _READ(f, p+n+1, m) != m)
 			m = 0;
 		_CLOSE(f);
