@@ -17,6 +17,7 @@ ALLOFILES=\
 	difftime.$O\
 	div.$O\
 	getenv.$O\
+	putenv.$O\
 	isalnum.$O\
 	itoa.$O\
 	itol.$O\

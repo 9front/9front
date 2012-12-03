@@ -45,11 +45,8 @@ _envsetup(void)
 	fdinited = 0;
 	cnt = 0;
 	dfd = _OPEN("/env", 0);
-	if(dfd < 0) {
-		static char **emptyenvp = 0;
-		environ = emptyenvp;
-		return;
-	}
+	if(dfd < 0)
+		goto done;
 	psize = Envhunk;
 	ps = p = malloc(psize);
 	nd = _dirreadall(dfd, &d9a);
@@ -92,6 +89,7 @@ _envsetup(void)
 	free(d9a);
 	if(!fdinited)
 		_fdinit(0, 0);
+done:
 	environ = pp = malloc((1+cnt)*sizeof(char *));
 	p = ps;
 	for(i = 0; i < cnt; i++) {

@@ -29,7 +29,6 @@ OFILES=\
 	ntohl.$O\
 	nptohl.$O\
 	popen.$O\
-	putenv.$O\
 	rcmd.$O\
 	readv.$O\
 	rresvport.$O\

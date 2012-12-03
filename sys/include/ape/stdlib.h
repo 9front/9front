@@ -35,6 +35,7 @@ extern void abort(void);
 extern int atexit(void (*func)(void));
 extern void exit(int);
 extern char *getenv(const char *);
+extern int putenv(char *);
 extern int system(const char *);
 extern void *bsearch(const void *, const void *, size_t, size_t, int (*)(const void *, const void *));
 extern void qsort(void *, size_t, size_t, int (*)(const void *, const void *));
