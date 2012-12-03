@@ -5,18 +5,13 @@
 #include <errno.h>
 #include "sys9.h"
 
+typedef long long vlong;
+typedef unsigned long ulong;
+typedef unsigned long long uvlong;
+#include	"/sys/include/tos.h"
+
 pid_t
 getpid(void)
 {
-	int n, f;
-	char pidbuf[15];
-
-	f = _OPEN("#c/pid", 0);
-	n = _READ(f, pidbuf, sizeof pidbuf);
-	if(n < 0)
-		_syserrno();
-	else
-		n = atoi(pidbuf);
-	_CLOSE(f);
-	return n;
+	return _tos->pid;
 }
