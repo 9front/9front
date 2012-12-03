@@ -3,7 +3,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
+#include <string.h>
 #include "sys9.h"
 
 pid_t
@@ -13,10 +13,10 @@ getppid(void)
 	int f;
 
 	memset(b, 0, sizeof(b));
-	f = open("/dev/ppid", 0);
+	f = _OPEN("/dev/ppid", OREAD);
 	if(f >= 0) {
-		read(f, b, sizeof(b));
-		close(f);
+		_PREAD(f, b, sizeof(b), 0);
+		_CLOSE(f);
 	}
 	return atol(b);
 }

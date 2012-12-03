@@ -49,13 +49,13 @@ rename(const char *from, const char *to)
 		int ffd, tfd;
 		char buf[8192];
 
-		if((ffd = _OPEN(from, 0)) < 0 ||
-		   (tfd = _CREATE(to, 1, d->mode)) < 0){
+		if((ffd = _OPEN(from, OREAD)) < 0 ||
+		   (tfd = _CREATE(to, OWRITE, d->mode)) < 0){
 			_CLOSE(ffd);
 			_syserrno();
 			n = -1;
 		}
-		while(n>=0 && (n = _READ(ffd, buf, 8192)) > 0)
+		while(n>=0 && (n = _READ(ffd, buf, sizeof(buf))) > 0)
 			if(_WRITE(tfd, buf, n) != n){
 				_syserrno();
 				n = -1;

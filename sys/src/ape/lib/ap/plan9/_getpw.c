@@ -153,20 +153,19 @@ _grpmems(char *list)
 	char **v;
 	char *p;
 	static char *holdvec[200];
-	static char holdlist[1000];
+	static char holdlist[1024];
 
-	p = list;
 	v = holdvec;
-	if(p) {
-		strncpy(holdlist, list, sizeof(holdlist));
+	if(list != 0){
+		memset(holdlist, 0, sizeof(holdlist));
+		strncpy(holdlist, list, sizeof(holdlist)-1);
+		p = holdlist;
 		while(v< &holdvec[sizeof(holdvec)]-1 && *p){
 			*v++ = p;
 			p = strchr(p, ',');
-			if(p){
-				p++;
-				*p = 0;
-			}else
+			if(p == 0)
 				break;
+			*p++ = 0;
 		}
 	}
 	*v = 0;

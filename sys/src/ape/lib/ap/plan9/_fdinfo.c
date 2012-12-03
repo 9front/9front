@@ -41,7 +41,7 @@ readprocfdinit(void)
 	strcpy(buf, "/proc/");
 	_ultoa(buf+6, getpid());
 	strcat(buf, "/fd");
-	pfd = _OPEN(buf, 0);
+	pfd = _OPEN(buf, OREAD);
 	if(pfd < 0)
 		return -1;
 	memset(buf, 0, sizeof buf);

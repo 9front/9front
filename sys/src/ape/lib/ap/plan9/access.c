@@ -24,8 +24,6 @@ access(const char *name, int mode)
 		2,
 		2
 	};
-	char tname[1024];
-
 	if(mode == 0){
 		db = _dirstat(name);
 		if(db == nil){
@@ -48,13 +46,23 @@ access(const char *name, int mode)
 			close(fd);
 		}
 		if(mode & W_OK){
-			strncpy(tname, name, sizeof(tname)-9);
-			strcat(tname, "/_AcChAcK");
-			fd = creat(tname, 0666);
-			if(fd < 0)
+			char *tname;
+			int nname;
+			nname = strlen(name);
+			tname = malloc(nname+32);
+			if(tname == 0)
 				return -1;
-			close(fd);
-			_REMOVE(tname);
+			memset(tname, 0, nname+32);
+			memcpy(tname, name, n);
+			memcpy(tname+nname, "/_AcChAcK", 9);
+			_ultoa(tname+nname+9, getpid());
+			fd = _CREATE(tname, ORCLOSE, 0666);
+			if(fd < 0){
+				free(tname);
+				return -1;
+			}
+			_CLOSE(fd);
+			free(tname);
 		}
 		return 0;
 	}

@@ -44,7 +44,7 @@ _envsetup(void)
 	nohandle = 0;
 	fdinited = 0;
 	cnt = 0;
-	dfd = _OPEN("/env", 0);
+	dfd = _OPEN("/env", OREAD);
 	if(dfd < 0)
 		goto done;
 	psize = Envhunk;
@@ -63,7 +63,7 @@ _envsetup(void)
 		}
 		strcpy(p, "/env/");
 		memcpy(p+5, d9->name, n+1);
-		f = _OPEN(p, 0);
+		f = _OPEN(p, OREAD);
 		memset(p, 0, n+6);
 		memcpy(p, d9->name, n);
 		p[n] = '=';
