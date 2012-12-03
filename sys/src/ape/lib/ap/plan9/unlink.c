@@ -19,7 +19,7 @@ unlink(const char *path)
 	long long nn;
 	Dir *db1, *db2, nd;
 	Fdinfo *f;
- 	char *p, newname[PATH_MAX], newelem[32];
+ 	char *p, *newname, newelem[32];
 
 	/* if the file is already open, make it close-on-exec (and rename to qid) */
 	if((db1 = _dirstat(path)) == nil) {
@@ -33,7 +33,10 @@ unlink(const char *path)
 			   db1->qid.vers == db2->qid.vers &&
 			   db1->type == db2->type &&
 			   db1->dev == db2->dev) {
-				sprintf(newelem, "%8.8lx%8.8lx", (ulong)(db2->qid.path>>32), (ulong)db2->qid.path);
+				newname = 0;
+				sprintf(newelem, "%8.8lx%8.8lx",
+					(ulong)(db2->qid.path>>32),
+					(ulong)db2->qid.path);
 				_nulldir(&nd);
 				nd.name = newelem;
 				if(_dirfwstat(i, &nd) < 0)
@@ -43,15 +46,23 @@ unlink(const char *path)
 					if(p == 0)
 						p = newelem; 
 					else {
-						memmove(newname, path, p-path);
-						newname[p-path] = '/';
-						strcpy(newname+(p-path)+1, newelem);
+						n = p-path;
+						newname = malloc(n+1+sizeof(newelem));
+						if(newname == 0){
+							free(db2);
+							free(db1);
+							return -1;
+						}
+						memmove(newname, path, n);
+						newname[n] = '/';
+						strcpy(newname+n+1, newelem);
 						p = newname;
 					}
 				}
 				/* reopen remove on close */
-				fd = _OPEN(p, 64|(f->oflags)); 
+				fd = _OPEN(p, ORCLOSE|(f->oflags));
 				if(fd < 0){
+					free(newname);
 					free(db2);
 					continue;
 				}
@@ -61,6 +72,8 @@ unlink(const char *path)
 				_SEEK(fd, nn, 0);
 				_DUP(fd, i);
 				_CLOSE(fd);
+				free(newname);
+				free(db2);
 				free(db1);
 				return 0;
 			}
