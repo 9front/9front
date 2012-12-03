@@ -58,6 +58,7 @@ access(const char *name, int mode)
 			_ultoa(tname+nname+9, getpid());
 			fd = _CREATE(tname, ORCLOSE, 0666);
 			if(fd < 0){
+				_syserrno();
 				free(tname);
 				return -1;
 			}
