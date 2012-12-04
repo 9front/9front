@@ -1186,12 +1186,20 @@ sslwrite(Chan *c, void *a, long n, vlong)
 		m = (strlen(p)*3)/2;
 		x = smalloc(m);
 		t = dec64(x, m, p, strlen(p));
+		if(t <= 0){
+			free(x);
+			error(Ebadarg);
+		}
 		setsecret(&s->in, x, t);
 		free(x);
 	} else if(strcmp(buf, "secretout") == 0 && p != 0) {
 		m = (strlen(p)*3)/2 + 1;
 		x = smalloc(m);
 		t = dec64(x, m, p, strlen(p));
+		if(t <= 0){
+			free(x);
+			error(Ebadarg);
+		}
 		setsecret(&s->out, x, t);
 		free(x);
 	} else
