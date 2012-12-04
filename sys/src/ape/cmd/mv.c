@@ -85,7 +85,13 @@ mv1(char *from, Dir *dirb, char *todir, char *toelem)
 	char *fromdir, *fromelem;
 	Dir *dirt, null;
 
-	strncpy(fromname, from, sizeof fromname);
+	i = strlen(from);
+	if(i >= sizeof(fromname)){
+		fprint(2, "mv: path too big (max %d): %s\n",
+			sizeof(fromname), from);
+		return -1;
+	}
+	memmove(fromname, from, i+1);
 	split(from, &fromdir, &fromelem);
 	if(toelem == 0)
 		toelem = fromelem;
