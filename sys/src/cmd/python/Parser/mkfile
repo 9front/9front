@@ -22,6 +22,12 @@ CLEANFILES=$O.pgen
 
 CFLAGS=-c -I.. -I../Include -DT$objtype -DPy_BUILD_CORE -DNDEBUG
 
+obmalloc.$O:	../Objects/obmalloc.c
+	$CC $CFLAGS $prereq
+
+mysnprintf.$O:	../Python/mysnprintf.c
+	$CC $CFLAGS $prereq
+
 PGENOFILES=\
 	acceler.$O\
 	bitset.$O\
@@ -37,8 +43,9 @@ PGENOFILES=\
 	pgenmain.$O\
 	printgrammar.$O\
 	tokenizer_pgen.$O\
-	../Objects/obmalloc.$O\
-	../Python/mysnprintf.$O\
+	obmalloc.$O\
+	mysnprintf.$O\
 
 $O.pgen:	$PGENOFILES
 	$LD -o $target $prereq
+
