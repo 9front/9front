@@ -317,16 +317,13 @@ syscall(Ureg *ureg)
 	int scall, ret;
 	ulong s, sp;
 	char *e;
+	vlong startns, stopns;
 
 	m->syscall++;
 	up->insyscall = 1;
 	up->pc = ureg->pc;
 	up->dbgreg = ureg;
 	cycles(&up->kentry);
-	if(up->procctl == Proc_tracesyscall){
-		up->procctl = Proc_stopme;
-		procctl(up);
-	}
 	scall = ureg->r0;
 	up->scallnr = scall;
 	spllo();
@@ -335,12 +332,20 @@ syscall(Ureg *ureg)
 	up->nerrlab = 0;
 	ret = -1;
 	if(!waserror()){
+		validaddr(sp, sizeof(Sargs) + BY2WD, 0);
+		up->s = *((Sargs*)(sp + BY2WD));
+		if(up->procctl == Proc_tracesyscall){
+			syscallfmt(scall, ureg->pc, (va_list)up->s.args);
+			s = splhi();
+			up->procctl = Proc_stopme;
+			procctl(up);
+			splx(s);
+			startns = todget(nil);
+		}
 		if(scall >= nsyscall){
 			postnote(up, 1, "sys: bad syscall", NDebug);
 			error(Ebadarg);
 		}
-		validaddr(sp, sizeof(Sargs) + BY2WD, 0);
-		up->s = *((Sargs*)(sp + BY2WD));
 		up->psstate = sysctab[scall];
 		ret = systab[scall](up->s.args);
 		poperror();
@@ -354,8 +359,10 @@ syscall(Ureg *ureg)
 	ureg->r0 = ret;
 
 	if(up->procctl == Proc_tracesyscall){
-		up->procctl = Proc_stopme;
+		stopns = todget(nil);
+		sysretfmt(scall, (va_list)up->s.args, ret, startns, stopns);
 		s = splhi();
+		up->procctl = Proc_stopme;
 		procctl(up);
 		splx(s);
 	}
@@ -364,7 +371,7 @@ syscall(Ureg *ureg)
 	up->psstate = nil;
 
 	if(scall == NOTED)
-		noted(ureg, *(ulong *)(sp + BY2WD));
+		noted(ureg, up->s.args[0]);
 	if(scall != RFORK && (up->procctl || up->nnote)){
 		splhi();
 		notify(ureg);

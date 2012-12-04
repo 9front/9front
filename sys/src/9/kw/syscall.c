@@ -206,40 +206,26 @@ syscall(Ureg* ureg)
 	spllo();
 	sp = ureg->sp;
 
-	if(up->procctl == Proc_tracesyscall){
-		/*
-		 * Redundant validaddr.  Do we care?
-		 * Tracing syscalls is not exactly a fast path...
-		 * Beware, validaddr currently does a pexit rather
-		 * than an error if there's a problem; that might
-		 * change in the future.
-		 */
-		if(sp < (USTKTOP-BY2PG) || sp > (USTKTOP-sizeof(Sargs)-BY2WD))
-			validaddr(sp, sizeof(Sargs)+BY2WD, 0);
-
-		syscallfmt(scallnr, ureg->pc, (va_list)(sp+BY2WD));
-		up->procctl = Proc_stopme;
-		procctl(up);
-		if (up->syscalltrace) 
-			free(up->syscalltrace);
-		up->syscalltrace = nil;
-	}
-
 	up->nerrlab = 0;
 	ret = -1;
-	startns = todget(nil);
 	if(!waserror()){
+		if(sp < (USTKTOP-BY2PG) || sp > (USTKTOP-sizeof(Sargs)-BY2WD))
+			validaddr(sp, sizeof(Sargs)+BY2WD, 0);
+		up->s = *((Sargs*)(sp+BY2WD));
+		if(up->procctl == Proc_tracesyscall){
+			syscallfmt(scallnr, ureg->pc, (va_list)up->s.args);
+			s = splhi();
+			up->procctl = Proc_stopme;
+			procctl(up);
+			splx(s);
+			startns = todget(nil);
+		}
 		if(scallnr >= nsyscall){
 			pprint("bad sys call number %d pc %#lux\n",
 				scallnr, ureg->pc);
 			postnote(up, 1, "sys: bad sys call", NDebug);
 			error(Ebadarg);
 		}
-
-		if(sp < (USTKTOP-BY2PG) || sp > (USTKTOP-sizeof(Sargs)-BY2WD))
-			validaddr(sp, sizeof(Sargs)+BY2WD, 0);
-
-		up->s = *((Sargs*)(sp+BY2WD));
 		up->psstate = sysctab[scallnr];
 
 	/*	iprint("%s: syscall %s\n", up->text, sysctab[scallnr]?sysctab[scallnr]:"huh?"); */
@@ -270,21 +256,18 @@ syscall(Ureg* ureg)
 
 	if(up->procctl == Proc_tracesyscall){
 		stopns = todget(nil);
-		up->procctl = Proc_stopme;
-		sysretfmt(scallnr, (va_list)(sp+BY2WD), ret, startns, stopns);
+		sysretfmt(scallnr, (va_list)up->s.args, ret, startns, stopns);
 		s = splhi();
+		up->procctl = Proc_stopme;
 		procctl(up);
 		splx(s);
-		if(up->syscalltrace)
-			free(up->syscalltrace);
-		up->syscalltrace = nil;
 	}
 
 	up->insyscall = 0;
 	up->psstate = 0;
 
 	if(scallnr == NOTED)
-		noted(ureg, *(ulong*)(sp+BY2WD));
+		noted(ureg, up->s.args[0]);
 
 	splhi();
 	if(scallnr != RFORK && (up->procctl || up->nnote))
