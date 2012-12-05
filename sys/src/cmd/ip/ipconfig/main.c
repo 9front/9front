@@ -357,6 +357,30 @@ parse6ra(int argc, char **argv)
 			conf.maxraint, conf.minraint);
 }
 
+static char*
+finddev(char *dir, char *name, char *dev)
+{
+	int fd, i, nd;
+	Dir *d;
+
+	fd = open(dir, OREAD);
+	if(fd >= 0){
+		d = nil;
+		nd = dirreadall(fd, &d);
+		close(fd);
+		for(i=0; i<nd; i++){
+			if(strncmp(d[i].name, name, strlen(name)))
+				continue;
+			if(strstr(d[i].name, "ctl") != nil)
+				continue;	/* ignore ctl files */
+			dev = smprint("%s/%s", dir, d[i].name);
+			break;
+		}
+		free(d);
+	}
+	return dev;
+}
+
 static void
 init(void)
 {
@@ -397,7 +421,7 @@ parseargs(int argc, char **argv)
 
 	/* defaults */
 	conf.type = "ether";
-	conf.dev = "/net/ether0";
+	conf.dev = nil;
 	action = Vadd;
 
 	/* get optional medium and device */
@@ -417,10 +441,12 @@ parseargs(int argc, char **argv)
 				conf.dev = *argv++;
 				argc--;
 			} else if(verb == Vppp)
-				conf.dev = "/dev/eia0";
+				conf.dev = finddev("/dev", "eia", "/dev/eia0");
 			break;
 		}
 	}
+	if(conf.dev == nil)
+		conf.dev = finddev(conf.mpoint, "ether", "/net/ether0");
 
 	/* get optional verb */
 	if (argc > 0){
