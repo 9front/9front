@@ -1,7 +1,10 @@
 #!/bin/rc
 if(! bind -a '#u' /dev)
 	exit
-mkdir -m 0700 '#σc/usb'
+
+mkdir -p -m 700 '#σc/usb'
+mkdir -p -m 700 '#σc/usbnet'
+
 if(! nusb/usbd)
 	exit
 
@@ -11,6 +14,8 @@ if(! nusb/usbd)
 		switch($4){
 		case *03
 			nusb/kb $1 &
+		case *02
+			nusb/ether $1 &
 		case *08
 			@{
 				rfork ne
@@ -26,13 +31,18 @@ if(! nusb/usbd)
 					}
 				}
 			} &
+		case *
+			if(~ $2 0424 && ~ $3 ec00){
+				# raspberry pi ethernet
+				nusb/ether $1 &
+			}
 		}
 	}
 	fn detach {
-		rm -rf '#σc/usb/'^$1.* '#σc/sdU'^$1.*
+		rm -rf '#σc/usb/'^$1.* '#σc/sdU'^$1.* '#σc/usbnet/'^$1.*
 	}
 	rc < '#σ/usb/usbevent' &
 }
 
 bind -a '#σ/usb' /dev
-
+bind -a '#σ/usbnet' /net

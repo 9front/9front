@@ -49,22 +49,27 @@ fn bootfs{
 }
 
 fn connectlocal{
-	if(test -f $1)
-		t=`{fstype $1}
-	if not {
-		t=$1; shift
+	if(~ $#* 0){
+		echo local method needs an argument
 	}
-	switch($t){
-	case ''
-		fatal unknown fstype $1
-	case 9660
-		bootfs 9660srv $*
-	case dos
-		bootfs dossrv $*
-	case kfs
-		bootfs disk/kfs $*
-	case *
-		bootfs $t $*
+	if not {
+		if(test -f $1)
+			t=`{fstype $1}
+		if not {
+			t=$1; shift
+		}
+		switch($t){
+		case ''
+			fatal unknown fstype $1
+		case 9660
+			bootfs 9660srv $*
+		case dos
+			bootfs dossrv $*
+		case kfs
+			bootfs disk/kfs $*
+		case *
+			bootfs $t $*
+		}
 	}
 }
 
