@@ -225,7 +225,6 @@ smscread(Dev *ep, uchar *p, int plen)
 	n = hd >> 16;
 	m = (n + 4 + 3) & ~3;
 	if(n < 6 || m > nbin){
-		werrstr("frame length");
 		nbin = 0;
 		return 0;
 	}

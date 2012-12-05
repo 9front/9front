@@ -274,11 +274,9 @@ a88178init(Dev *d)
 	int gpio;
 	int ee17;
 
-	fprint(2, "%s: setting up A88178\n", argv0);
 	gpio = getgpio(d);
 	if(gpio < 0)
 		return -1;
-	fprint(2, "%s: gpio sts %#x\n", argv0, gpio);
 	asixset(d, Cwena, 0);
 	ee17 = eepromread(d, 0x0017);
 	asixset(d, Cwdis, 0);

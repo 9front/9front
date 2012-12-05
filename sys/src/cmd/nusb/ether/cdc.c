@@ -61,7 +61,6 @@ cdcinit(Dev *d)
 
 					epread = cdcread;
 					epwrite = cdcwrite;
-
 					return 0;
 				}
 			}
