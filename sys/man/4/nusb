@@ -20,6 +20,12 @@ usbd - Universal Serial Bus drivers
 .B nusb/ether
 [
 .B -dD
+] [
+.B -t
+.I ethertype
+] [
+.B -a
+.I addr
 ]
 .I devid
 .PP
@@ -157,6 +163,24 @@ by
 .IR nusbrc (8)
 so the device will appear as
 .BI /net/etherU N .
+Without specifying the
+.B -t
+option, the device is assumed to be a CDC compliant ethernet
+communication device. Other devices might require setting an
+explicit
+.IR ethertype
+such as
+.BR smsc ,
+.B a88772
+or
+.B a88178
+see
+.IR nusbrc (8).
+On devices that support it, the mac address can be set using
+the
+.B -a
+.IR addr
+option.
 .SS Serial and JTAG ports
 .I Serial
 provides a file system (usually seen under
