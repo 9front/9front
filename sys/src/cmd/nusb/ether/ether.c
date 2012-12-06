@@ -5,11 +5,10 @@
 #include <auth.h>
 #include <fcall.h>
 #include <9p.h>
+#include <ip.h>
 
 #include "usb.h"
 #include "dat.h"
-
-#include <ip.h>
 
 typedef struct Tab Tab;
 typedef struct Qbuf Qbuf;

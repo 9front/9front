@@ -9,38 +9,10 @@
 #include <auth.h>
 #include <fcall.h>
 #include <9p.h>
+#include <ip.h>
 
 #include "usb.h"
 #include "dat.h"
-
-static int
-str2mac(uchar *m, char *s)
-{
-	int i;
-
-	if(strlen(s) != 12)
-		return -1;
-
-	for(i=0; i<12; i++){
-		uchar v;
-
-		if(s[i] >= 'A' && s[i] <= 'F'){
-			v = 10 + s[i] - 'A';
-		} else if(s[i] >= 'a' && s[i] <= 'f'){
-			v = 10 + s[i] - 'a';
-		} else if(s[i] >= '0' && s[i] <= '9'){
-			v = s[i] - '0';
-		} else {
-			v = 0;
-		}
-		if(i&1){
-			m[i/2] |= v;
-		} else {
-			m[i/2] = v<<4;
-		}
-	}
-	return 0;
-}
 
 static int
 cdcread(Dev *ep, uchar *p, int n)
@@ -84,7 +56,7 @@ cdcinit(Dev *d)
 					mac = nil;
 				}
 				if(mac != nil){
-					str2mac(macaddr, mac);
+					parseether(macaddr, mac);
 					free(mac);
 
 					epread = cdcread;

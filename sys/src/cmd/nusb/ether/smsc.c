@@ -9,6 +9,7 @@
 #include <auth.h>
 #include <fcall.h>
 #include <9p.h>
+#include <ip.h>
 
 #include "usb.h"
 #include "dat.h"
@@ -257,8 +258,6 @@ smscwrite(Dev *ep, uchar *p, int n)
 int
 smscinit(Dev *d)
 {
-	if(d->usb->vid != 0x0424)
-		return -1;
 	if(!doreset(d, Hwcfg, Lrst) || !doreset(d, Pmctrl, Phyrst))
 		return -1;
 	if(!setmac)
