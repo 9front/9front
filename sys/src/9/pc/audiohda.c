@@ -1468,8 +1468,11 @@ hdareset(Audio *adev)
 	if(cards == nil){
 		p = nil;
 		while(p = hdamatch(p)){
-			ctlr = xspanalloc(sizeof(Ctlr), 8, 0);
-			memset(ctlr, 0, sizeof(Ctlr));
+			ctlr = mallocz(sizeof(Ctlr), 1);
+			if(ctlr == nil){
+				print("hda: can't allocate memory\n");
+				return -1;
+			}
 			ctlr->pcidev = p;
 			ctlr->next = cards;
 			cards = ctlr;
