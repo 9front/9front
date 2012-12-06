@@ -664,7 +664,6 @@ hciprobe(int cardno, int ctlrno)
 {
 	Hci *hp;
 	char *type;
-	char name[64];
 	static int epnb = 1;	/* guess the endpoint nb. for the controller */
 
 	ddprint("hciprobe %d %d\n", cardno, ctlrno);
@@ -697,16 +696,6 @@ hciprobe(int cardno, int ctlrno)
 		free(hp);
 		return nil;
 	}
-
-	/*
-	 * IRQ2 doesn't really exist, it's used to gang the interrupt
-	 * controllers together. A device set to IRQ2 will appear on
-	 * the second interrupt controller as IRQ9.
-	 */
-	if(hp->irq == 2)
-		hp->irq = 9;
-	snprint(name, sizeof(name), "usb%s", hcitypes[cardno].type);
-	intrenable(hp->irq, hp->interrupt, hp, hp->tbdf, name);
 
 	/*
 	 * modern machines have too many usb controllers to list on

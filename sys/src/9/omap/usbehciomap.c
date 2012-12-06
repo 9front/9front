@@ -214,6 +214,9 @@ reset(Hci *hp)
 	intrenable(78, hp->interrupt, hp, UNKNOWN, "usbtll");
 	intrenable(92, hp->interrupt, hp, UNKNOWN, "usb otg");
 	intrenable(93, hp->interrupt, hp, UNKNOWN, "usb otg dma");
+
+	intrenable(hp->irq, hp->interrupt, hp, UNKNOWN, hp->type);
+
 	return 0;
 }
 

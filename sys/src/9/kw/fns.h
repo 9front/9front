@@ -131,6 +131,7 @@ extern void spldone(void);
 extern int splfhi(void);
 extern int splflo(void);
 extern void sysprocsetup(Proc*);
+extern int isaconfig(char*, int, ISAConf*);	/* only devusb.c */
 
 /*
  * PCI

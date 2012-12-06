@@ -340,6 +340,9 @@ reset(Hci *hp)
 	ehcilinkage(hp);
 	hp->shutdown = shutdown;
 	hp->debug = setdebug;
+
+	intrenable(Irqlo, hp->irq, hp->interrupt, hp, hp->type);
+
 	return 0;
 }
 

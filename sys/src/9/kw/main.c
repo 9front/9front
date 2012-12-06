@@ -237,6 +237,13 @@ spiprobe(void)
 
 void	archconsole(void);
 
+/* dummy for usb */
+int
+isaconfig(char *, int, ISAConf *)
+{
+	return 0;
+}
+
 /*
  * entered from l.s with mmu enabled.
  *

@@ -273,6 +273,18 @@ reset(Hci *hp)
 	ehcilinkage(hp);
 	hp->shutdown = shutdown;
 	hp->debug = setdebug;
+	if(hp->interrupt == nil)
+		return 0;
+
+	/*
+	 * IRQ2 doesn't really exist, it's used to gang the interrupt
+	 * controllers together. A device set to IRQ2 will appear on
+	 * the second interrupt controller as IRQ9.
+	 */
+	if(hp->irq == 2)
+		hp->irq = 9;
+	intrenable(hp->irq, hp->interrupt, hp, hp->tbdf, hp->type);
+
 	return 0;
 }
 
