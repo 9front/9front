@@ -66,9 +66,7 @@ and configures the interface with a local address and optionally
 a mask, a remote address, a file server and an authentication server address.
 If no device is specified, the first
 .B ether
-device on the
-.I netmtpt
-is used.
+device on the mounted IP stack is used.
 The addresses can be specified in the command line or obtained via DHCP.
 If DHCP is requested, it will also obtain the addresses of DNS
 servers, NTP servers, gateways, a Plan 9 file server,
