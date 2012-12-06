@@ -534,8 +534,10 @@ setoutamp(Widget *w, int mute, int *vol)
 
 	if((w->cap & Woutampcap) == 0)
 		return;
-
-	r = cmd(w->id, Getparm, Outampcap);
+	if((w->cap & Wampovrcap) == 0)
+		r = cmd(w->fg->id, Getparm, Outampcap);
+	else
+		r = cmd(w->id, Getparm, Outampcap);
 	zerodb = r & 0x7f;
 	
 	for(i=0; i<2; i++){
@@ -559,8 +561,10 @@ setinamp(Widget *w, Widget *in, int mute, int *vol)
 
 	if((w->cap & Winampcap) == 0)
 		return;
-
-	r = cmd(w->id, Getparm, Inampcap);
+	if((w->cap & Wampovrcap) == 0)
+		r = cmd(w->fg->id, Getparm, Inampcap);
+	else
+		r = cmd(w->id, Getparm, Inampcap);
 	zerodb = r & 0x7f;
 	
 	for(i=0; i<2; i++){
@@ -849,7 +853,7 @@ connectpin(Ctlr *ctlr, uint pin, uint cad)
 		return -1;
 
 	dst = findpath(src);
-	if(!dst)
+	if(dst == nil)
 		return -1;
 
 	/* mute all widgets, clear stream */
@@ -1300,6 +1304,17 @@ hdastatus(Audio *adev, void *a, long n, vlong)
 			}
 		}
 	}
+
+	k += snprint(s+k, n-k, "path ");
+	for(w=ctlr->amp; w != nil; w = w->from){
+		k += snprint(s+k, n-k, "%3d %s %lux %lux %lux", w->id.nid, widtype[w->type&7], 
+			(ulong)w->cap, (ulong)w->pin, (ulong)w->pincap);
+		if(w == ctlr->src)
+			break;
+		k += snprint(s+k, n-k, " -> ");
+	}
+	k += snprint(s+k, n-k, "\n");
+
 	return k;
 }
 
