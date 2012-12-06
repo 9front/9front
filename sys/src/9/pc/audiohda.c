@@ -511,7 +511,13 @@ static uint
 getoutamprange(Widget *w)
 {
 	uint r;
-	r = cmd(w->id, Getparm, Outampcap);
+
+	if((w->cap & Woutampcap) == 0)
+		return 0;
+	if((w->cap & Wampovrcap) == 0)
+		r = cmd(w->fg->id, Getparm, Outampcap);
+	else
+		r = cmd(w->id, Getparm, Outampcap);
 	return (r >> 8) & 0x7f;
 }
 
