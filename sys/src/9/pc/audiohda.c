@@ -1281,22 +1281,23 @@ hdastatus(Audio *adev, void *a, long n, vlong)
 	Fungroup *fg;
 	Widget *w;
 	uint r;
-	int k, i;
-	char *s;
+	int i;
+	char *s, *e;
 	
 	s = a;
-	k = snprint(s, n, "bufsize %6d buffered %6ld\n", Blocksize, buffered(&ctlr->ring));
+	e = s + n;
+	s = seprint(s, e, "bufsize %6d buffered %6ld\n", Blocksize, buffered(&ctlr->ring));
 	for(i=0; i<Maxcodecs; i++){
 		if((codec = ctlr->codec[i]) == nil)
 			continue;
-		k += snprint(s+k, n-k, "codec %2d pin %3d\n",
+		s = seprint(s, e, "codec %2d pin %3d\n",
 			codec->id.codec, ctlr->pin);
 		for(fg=codec->fgroup; fg; fg=fg->next){
 			for(w=fg->first; w; w=w->next){
 				if(w->type != Wpin)
 					continue;
 				r = w->pin;
-				k += snprint(s+k, n-k, "pin %3d %s %s %s %s %s %s%s%s\n",
+				s = seprint(s, e, "pin %3d %s %s %s %s %s %s%s%s\n",
 					w->id.nid,
 					(w->pincap & Pout) != 0 ? "out" : "in",
 					pinport[(r >> 30) & 0x3],
@@ -1311,17 +1312,17 @@ hdastatus(Audio *adev, void *a, long n, vlong)
 		}
 	}
 
-	k += snprint(s+k, n-k, "path ");
+	s = seprint(s, e, "path ");
 	for(w=ctlr->amp; w != nil; w = w->from){
-		k += snprint(s+k, n-k, "%3d %s %lux %lux %lux", w->id.nid, widtype[w->type&7], 
+		s = seprint(s, e, "%s %3d %lux %lux %lux", widtype[w->type&7], w->id.nid,
 			(ulong)w->cap, (ulong)w->pin, (ulong)w->pincap);
 		if(w == ctlr->src)
 			break;
-		k += snprint(s+k, n-k, " -> ");
+		s = seprint(s, e, " → ");
 	}
-	k += snprint(s+k, n-k, "\n");
+	s = seprint(s, e, "\n");
 
-	return k;
+	return s - (char*)a;
 }
 
 
