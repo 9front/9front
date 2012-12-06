@@ -16,9 +16,9 @@ for(i in I l^(0 1 2 3))
 cat '#r/rtc' >/dev/time >[2]/dev/null
 
 # reparse variables
-for(i in `{ls -Qp '#ec'}){
+for(i in `{ls -Qp /env}){
 	switch($i){
-	case '*'* 
+	case '*'* ?
 		# ignore these
 	case *
 		$i=`{echo $$i}
