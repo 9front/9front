@@ -5,7 +5,7 @@ LIB=../lib/usb.a$O
 
 TARG=ether
 HFILES=
-OFILES=ether.$O
+OFILES=ether.$O cdc.$O smsc.$O asix.$O
 
 </sys/src/cmd/mkone
 

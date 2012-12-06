@@ -7,6 +7,9 @@
 #include <9p.h>
 
 #include "usb.h"
+#include "dat.h"
+
+#include <ip.h>
 
 typedef struct Tab Tab;
 typedef struct Qbuf Qbuf;
@@ -14,13 +17,6 @@ typedef struct Dq Dq;
 typedef struct Conn Conn;
 typedef struct Ehdr Ehdr;
 typedef struct Stats Stats;
-
-enum
-{
-	Cdcunion = 6,
-	Scether = 6,
-	Fnether = 15,
-};
 
 enum
 {
@@ -96,20 +92,15 @@ struct Stats
 	int		out;
 };
 
+Stats stats;
 Conn conn[32];
 int nconn = 0;
 
-int debug;
-ulong time0;
 Dev *epin;
 Dev *epout;
 
-Stats stats;
-
-uchar macaddr[6];
-int maxpacket = 64;
-
-char *uname;
+ulong time0;
+static char *uname;
 
 #define PATH(type, n)		((type)|((n)<<8))
 #define TYPE(path)			(((uint)(path) & 0x000000FF)>>0)
@@ -303,25 +294,11 @@ writeconndata(Req *r)
 	d = r->fid->aux;
 	p = r->ifcall.data;
 	n = r->ifcall.count;
-
 	if((n == 11) && memcmp(p, "nonblocking", n)==0){
 		d->nb = 1;
 		goto out;
 	}
-
-	if(write(epout->dfd, p, n) < 0){
-		fprint(2, "write: %r\n");
-	} else {
-		/*
-		 * this may not work with all CDC devices. the
-		 * linux driver sends one more random byte
-		 * instead of a zero byte transaction. maybe we
-		 * should do the same?
-		 */
-		if(n % epout->maxpkt == 0)
-			write(epout->dfd, "", 0);
-	}
-
+	epwrite(epout, p, n);
 	if(receivepacket(p, n) == 0)
 		stats.out++;
 out:
@@ -341,35 +318,6 @@ mac2str(uchar *m)
 		buf[i*2+1] = t[m[i]&0xF];
 	}
 	return buf;
-}
-
-static int
-str2mac(uchar *m, char *s)
-{
-	int i;
-
-	if(strlen(s) != 12)
-		return -1;
-
-	for(i=0; i<12; i++){
-		uchar v;
-
-		if(s[i] >= 'A' && s[i] <= 'F'){
-			v = 10 + s[i] - 'A';
-		} else if(s[i] >= 'a' && s[i] <= 'f'){
-			v = 10 + s[i] - 'a';
-		} else if(s[i] >= '0' && s[i] <= '9'){
-			v = s[i] - '0';
-		} else {
-			v = 0;
-		}
-		if(i&1){
-			m[i/2] |= v;
-		} else {
-			m[i/2] = v<<4;
-		}
-	}
-	return 0;
 }
 
 static void
@@ -402,14 +350,15 @@ fsread(Req *r)
 			"in: %d\n"
 			"out: %d\n"
 			"mbps: %d\n"
-			"addr: %s\n",
-			stats.in, stats.out, 10, mac2str(macaddr));
+			"addr: %E\n",
+			stats.in, stats.out, 10, macaddr);
 		readstr(r, buf);
 		respond(r, nil);
 		break;
 
 	case Qaddr:
-		readstr(r, mac2str(macaddr));
+		snprint(buf, sizeof(buf), "%E", macaddr);
+		readstr(r, buf);
 		respond(r, nil);
 		break;
 
@@ -695,36 +644,6 @@ findendpoints(Dev *d, int *ei, int *eo)
 }
 
 static int
-getmac(Dev *d)
-{
-	int i;
-	Usbdev *ud;
-	uchar *b;
-	Desc *dd;
-	char *mac;
-
-	ud = d->usb;
-
-	for(i = 0; i < nelem(ud->ddesc); i++)
-		if((dd = ud->ddesc[i]) != nil){
-			b = (uchar*)&dd->data;
-			if(b[1] == Dfunction && b[2] == Fnether){
-				mac = loaddevstr(d, b[3]);
-				if(mac != nil && strlen(mac) != 12){
-					free(mac);
-					mac = nil;
-				}
-				if(mac != nil){
-					str2mac(macaddr, mac);
-					free(mac);
-					return 0;
-				}
-			}
-		}
-	return -1;
-}
-
-static int
 inote(void *, char *msg)
 {
 	if(strstr(msg, "interrupt"))
@@ -758,7 +677,7 @@ receivepacket(void *buf, int len)
 			if(c->type != t)
 				goto next;
 		if(!c->prom && !(h->d[0]&1))
-			if(memcmp(h->d, macaddr, 6))
+			if(memcmp(h->d, macaddr, sizeof(macaddr)))
 				goto next;
 		for(d=c->dq; d; d=d->next){
 			int n;
@@ -790,21 +709,25 @@ usbreadproc(void *)
 {
 	char err[ERRMAX];
 	uchar buf[4*1024];
+	int n, nerr;
+
 	atnotify(inote, 1);
 
 	threadsetname("usbreadproc");
 
+	nerr = 0;
 	for(;;){
-		int n;
-
-		n = read(epin->dfd, buf, sizeof(buf));
+		n = epread(epin, buf, sizeof(buf));
 		if(n < 0){
 			rerrstr(err, sizeof(err));
 			if(strstr(err, "interrupted") || strstr(err, "timed out"))
 				continue;
 			fprint(2, "usbreadproc: %s\n", err);
+			if(++nerr < 3)
+				continue;
 			threadexitsall(err);
 		}
+		nerr = 0;
 		if(n == 0)
 			continue;
 		if(receivepacket(buf, n) == 0)
@@ -827,23 +750,59 @@ Srv fs =
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-dD] devid\n", argv0);
+	fprint(2, "usage: %s [-dD] [-t type] [-a addr] devid\n", argv0);
 	exits("usage");
 }
+
+
+extern int a88178init(Dev *);
+extern int a88772init(Dev *);
+extern int smscinit(Dev *);
+extern int cdcinit(Dev *);
+
+static struct {
+	char *name;
+	int (*init)(Dev*);
+} ethertype[] = {
+	"cdc",		cdcinit,
+	"smsc",		smscinit,
+	"a88178",	a88178init,
+	"a88772",	a88772init,
+};
 
 void
 threadmain(int argc, char **argv)
 {
-	char s[64];
-	int ei, eo;
+	char s[64], *t;
+	int et, ei, eo;
 	Dev *d;
 
+	fmtinstall('E', eipfmt);
+
+	et = 0;	/* CDC */
 	ARGBEGIN {
 	case 'd':
 		debug = 1;
 		break;
 	case 'D':
 		chatty9p++;
+		break;
+	case 'a':
+		setmac = 1;
+		parseether(macaddr, EARGF(usage()));
+		break;
+	case 't':
+		t = EARGF(usage());
+		for(et=0; et<nelem(ethertype); et++)
+			if(strcmp(t, ethertype[et].name) == 0)
+				break;
+		if(et == nelem(ethertype)){
+			fprint(2, "unsupported ethertype -t %s, supported types are: ", t);
+			for(et=0; et<nelem(ethertype); et++)
+				fprint(2, "%s ", ethertype[et].name);
+			fprint(2, "\n");
+			exits("usage");
+		}
 		break;
 	default:
 		usage();
@@ -855,8 +814,13 @@ threadmain(int argc, char **argv)
 	d = getdev(atoi(*argv));
 	if(findendpoints(d, &ei, &eo)  < 0)
 		sysfatal("no endpoints found");
-	if(getmac(d) < 0)
-		sysfatal("can't get mac address");
+
+	werrstr("");
+	if((*ethertype[et].init)(d) < 0)
+		sysfatal("%s init failed: %r", ethertype[et].name);
+	if(epread == nil || epwrite == nil)
+		sysfatal("bug in init");
+
 	if((epin = openep(d, ei)) == nil)
 		sysfatal("openep: %r");
 	if(ei == eo){
