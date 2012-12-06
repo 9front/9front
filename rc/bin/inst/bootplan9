@@ -7,6 +7,7 @@ if(! ~ $#p9offset 1) {
 	exit bad
 }
 
+echo
 echo 'If you use the Windows NT/2000/XP master boot record'
 echo 'or a master boot record from a Unix clone (e.g., LILO or'
 echo 'FreeBSD bootmgr), it is probably safe to continue using'
