@@ -81,27 +81,9 @@ case go
 	logprog cp /n/newfs/386/9pcf /n/9fat/9pcf
 	logprog cp /n/newfs/386/9pccpuf /n/9fat/9pccpuf
 
-	echo
-	echo 'There are myriad ways to boot a Plan 9 system.'
-	echo 'You can use any of the following.'
-	echo
-	echo '  plan9  - make the plan 9 disk partition the default for booting'
-	echo '  winnt  - add a plan 9 option to windows nt/2000/xp boot manager'
-	echo
-	echo 'If you are upgrading an extant third edition installation and booting'
-	echo 'from something other than a floppy, you needn''t run anything here.'
-	echo 'Just type ctl-d.'
-
-	oldbootsetup=$didbootsetup
-	didbootsetup=1
-	export didbootsetup
-
-	prompt 'Enable boot method' plan9 winnt
-
 	disk=`{basename `{basename -d $9fat}}
-
-	if(! boot$rd){
-		didbootsetup=$oldbootsetup
+	if(bootplan9){
+		didbootsetup=1
 		export didbootsetup
 	}
 }
