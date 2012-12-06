@@ -18,7 +18,7 @@ cat '#r/rtc' >/dev/time >[2]/dev/null
 # reparse variables
 for(i in `{ls -Qp /env}){
 	switch($i){
-	case '*'* ?
+	case '*'* 'fn#'* e820 apm0 apid ifs path pid prompt status ?
 		# ignore these
 	case *
 		$i=`{echo $$i}
