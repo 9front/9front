@@ -182,6 +182,7 @@ srvchan(int fd, char *name)
 	chan->msize = 0;
 	chan->whotime = 0;
 	snprint(chan->whochan, sizeof(chan->whochan), "%s", name);
+	chan->authok = 0;
 
 	incref(srv);
 	srv->chan = chan;

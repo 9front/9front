@@ -82,7 +82,7 @@ authorize(Chan *cp, Fcall *in, Fcall *ou)
 		return 1;
 
 	if(strcmp(in->uname, "none") == 0)
-		return !nonone;
+		return !nonone || cp->authok;
 
 	if(in->type == Toattach)
 		return 0;
@@ -144,6 +144,8 @@ authorize(Chan *cp, Fcall *in, Fcall *ou)
 	a.num = AuthAs;
 	memmove(a.chal, aip->rchal, CHALLEN);
 	convA2M9p1(&a, ou->rauth, t.key);
+
+	cp->authok = 1;
 
 	return 1;
 }

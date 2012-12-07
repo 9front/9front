@@ -263,6 +263,7 @@ struct	Chan
 	Queue*	send;
 	Queue*	reply;
 
+	int	authok;
 	uchar	authinfo[64];
 
 	void*	pdata;			/* sometimes is a Netconn* */

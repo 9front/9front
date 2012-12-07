@@ -209,7 +209,7 @@ authorize(Chan* chan, Fcall* f)
 		return uid;
 	}
 
-	if(f->afid == NOFID && !nonone){
+	if(f->afid == NOFID && (!nonone || chan->authok)){
 		uid = strtouid(f->uname);
 		if(db)
 			fprint(2, "permission granted to none: uid %s = %d\n",
@@ -230,6 +230,10 @@ authorize(Chan* chan, Fcall* f)
 	if(db)
 		fprint(2, "authorize: uid is %d\n", uid);
 	qunlock(af);
+
+	if(uid > 0)
+		chan->authok = 1;
+
 	return uid;
 }
 
