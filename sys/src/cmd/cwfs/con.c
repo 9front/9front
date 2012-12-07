@@ -694,6 +694,13 @@ cmd_noauth(int, char *[])
 }
 
 void
+cmd_nonone(int, char *[])
+{
+	nonone = !nonone;
+	print("none %s\n", nonone ? "disabled" : "enabled");
+}
+
+void
 cmd_noattach(int, char *[])
 {
 	noattach = !noattach;
@@ -767,6 +774,7 @@ installcmds(void)
 	cmd_install("hangup", "chan -- clunk files", cmd_hangup);
 	cmd_install("printconf", "-- print configuration", cmd_printconf);
 	cmd_install("noauth", "toggle noauth flag", cmd_noauth);
+	cmd_install("nonone", "toggle nonone flag", cmd_nonone);
 	cmd_install("noattach", "toggle noattach flag", cmd_noattach);
 	cmd_install("files", "report on files structure", cmd_files);
 

@@ -21,6 +21,7 @@ static Device* confdev;
 static int copyworm = 0, copydev = 0;
 static char *src, *dest;
 
+static int nononeset;
 static int noauthset;
 static int readonlyset;
 static int resetparams;
@@ -432,6 +433,8 @@ mergeconf(Iobuf *p)
 
 	if(!noauthset)
 		noauth = 0;
+	if(!nononeset)
+		nonone = 0;
 	if(!noatimeset)
 		noatime = 0;
 	if(!readonlyset)
@@ -450,6 +453,9 @@ mergeconf(Iobuf *p)
 		} else if(strcmp(word, "noauth") == 0){
 			if(!noauthset)
 				noauth = 1;
+		} else if(strcmp(word, "nonone") == 0){
+			if(!nononeset)
+				nonone = 1;
 		} else if(strcmp(word, "noatime") == 0){
 			if(!noatimeset)
 				noatime = 1;
@@ -600,6 +606,8 @@ start:
 					fs->conf);
 		if(noauth)
 			cp = seprint(cp, ep, "noauth\n");
+		if(nonone)
+			cp = seprint(cp, ep, "nonone\n");
 		if(noatime)
 			cp = seprint(cp, ep, "noatime\n");
 		if(readonly)
@@ -1006,6 +1014,13 @@ arginit(void)
 			noauth = !noauth;
 			print("auth %s\n", noauth ? "disabled" : "enabled");
 			noauthset++;
+			f.modconf = 1;
+			continue;
+		}
+		if(strcmp(word, "nonone") == 0) {
+			nonone = !nonone;
+			print("none %s\n", nonone ? "disabled" : "enabled");
+			nononeset++;
 			f.modconf = 1;
 			continue;
 		}

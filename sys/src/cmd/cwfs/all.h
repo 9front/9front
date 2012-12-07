@@ -84,6 +84,7 @@ ulong	chatflag;
 ulong	authdebugflag;
 int	noattach;		/* attach is disabled */
 int	noauth;			/* auth is disable */
+int	nonone;			/* attach as none disabled */
 int	noatime;		/* atime is disabled */
 int	noatimeset;		/* noatime was changed (reset after dump) */
 int	wstatallow;		/* set to circumvent wstat permissions */

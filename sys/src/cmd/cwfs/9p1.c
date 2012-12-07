@@ -82,7 +82,7 @@ authorize(Chan *cp, Fcall *in, Fcall *ou)
 		return 1;
 
 	if(strcmp(in->uname, "none") == 0)
-		return 1;
+		return !nonone;
 
 	if(in->type == Toattach)
 		return 0;

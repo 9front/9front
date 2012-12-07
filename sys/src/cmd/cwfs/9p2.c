@@ -201,20 +201,20 @@ authorize(Chan* chan, Fcall* f)
 
 	db = cons.flags & authdebugflag;
 
-	if(strcmp(f->uname, "none") == 0){
-		uid = strtouid(f->uname);
-		if(db)
-			fprint(2, "permission granted to none: uid %s = %d\n",
-				f->uname, uid);
-		return uid;
-	}
-
 	if(noauth || wstatallow){
 		uid = strtouid(f->uname);
 		if(db)
 			fprint(2, "permission granted by noauth uid %s = %d\n",
 				f->uname, uid);
 		return uid;
+	}
+
+	if(f->afid == NOFID && !nonone){
+		uid = strtouid(f->uname);
+		if(db)
+			fprint(2, "permission granted to none: uid %s = %d\n",
+				f->uname, uid);
+		return 0; /* none */
 	}
 
 	af = filep(chan, f->afid, 0);
