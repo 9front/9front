@@ -1,6 +1,6 @@
 .TH AUDIO 1
 .SH NAME
-mp3dec, mp3enc, oggdec, oggenc, flacdec, wavdec, pcmconv \- decode and encode audio files
+mp3dec, mp3enc, oggdec, oggenc, flacdec, µlawdec, wavdec, pcmconv \- decode and encode audio files
 .SH SYNOPSIS
 .B audio/mp3dec
 [
