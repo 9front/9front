@@ -249,7 +249,7 @@ main(int argc, char *argv[])
 	Chan ch[8];
 	Desc i, o;
 	ulong delta;
-	int k, r, n, m, p;
+	int k, r, n, m;
 	vlong l;
 
 	void (*oconv)(int *, uchar *, int, int, int) = nil;

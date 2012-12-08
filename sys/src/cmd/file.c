@@ -816,6 +816,7 @@ struct	FILE_STRING
 	"\033Lua",		"Lua bytecode",		4,	OCTET,
 	"ID3",			"mp3 audio with id3",	3,	"audio/mpeg",
 	"OggS",			"ogg audio",		4,	"audio/ogg",
+	".snd",			"µlaw audio",		4,	"audio/basic",
 	"\211PNG",		"PNG image",		4,	"image/png",
 	"P3\n",			"ppm",				3,	"image/ppm",
 	"P6\n",			"ppm",				3,	"image/ppm",

@@ -12,6 +12,8 @@ mp3dec, mp3enc, oggdec, oggenc, flacdec, wavdec, pcmconv \- decode and encode au
 .B audio/flacdec
 .br
 .B audio/wavdec
+.br
+.B audio/µlawdec
 .PP
 .B audio/oggenc
 .br
@@ -62,12 +64,13 @@ decodes MPEG audio (layer 1, 2 and 3). The
 .B -d
 option enables debug output to standard error.
 .I Oggdec,
-.I flacdec
+.I flacdec,
+.I µlawdec
 and
 .I wavdec
 are like
 .I mp3dec
-but decode OGG Vorbis, FLAC lossless audio and PCM Wave.
+but decode OGG Vorbis, FLAC lossless audio, Sun µlaw audio and PCM Wave.
 .PP
 The encoders read PCM on standard input and produce compressed audio
 on standard output.
