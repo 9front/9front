@@ -7,14 +7,14 @@
 
 /* Current input file */
 vlong offset;
-int rate = 44100;
 int debug = 0;
+int ifd = -1;
 
 static enum mad_flow
 input(void *, struct mad_stream *stream)
 {
-	int fd, n, m;
 	static uchar buf[32768];
+	int fd, n, m;
 
 	n = stream->bufend - stream->next_frame;
 	memmove(buf, stream->next_frame, n);
@@ -29,99 +29,67 @@ input(void *, struct mad_stream *stream)
 	return MAD_FLOW_CONTINUE;
 }
 
-typedef struct Chan Chan;
-struct Chan
-{
-	ulong		phase;
-	mad_fixed_t	last;
-	mad_fixed_t	rand;
-};
-
-#define PRNG(x) (((x)*0x19660dL + 0x3c6ef35fL) & 0xffffffffL)
-
-enum
-{
-	FracBits = MAD_F_FRACBITS,
-	OutBits = 16,
-	ScaleBits = FracBits + 1 - OutBits,
-	LowMask  = (1<<ScaleBits) - 1,
-	Min = -MAD_F_ONE,
-	Max = MAD_F_ONE - 1,
-};
-
-static uchar*
-resample(Chan *c, mad_fixed_t *src, uchar *dst, int mono, ulong delta, ulong count)
-{
-	mad_fixed_t last, val, out, rand;
-	ulong phase, pos;
-	vlong v;
-
-	rand = c->rand;
-	last = c->last;
-	phase = c->phase;
-	pos = phase >> 16;
-	while(pos < count){
-		val = src[pos];
-		if(pos)
-			last = src[pos-1];
-
-		/* interpolate */
-		v = val;
-		v -= last;
-		v *= (phase & 0xFFFF);
-		out = last + (v >> 16);
-
-		/* dithering */
-		out += (rand & LowMask) - LowMask/2;
-		rand = PRNG(rand);
-
-		/* cliping */
-		if(out > Max)
-			out = Max;
-		else if(out < Min)
-			out = Min;
-
-		out >>= ScaleBits;
-
-		*dst++ = out;
-		*dst++ = out >> 8;
-		if(mono){
-			*dst++ = out;
-			*dst++ = out >> 8;
-		} else
-			dst += 2;
-		phase += delta;
-		pos = phase >> 16;
-	}
-	c->rand = rand;
-	c->last = val;
-	if(delta < 0x10000)
-		c->phase = phase & 0xFFFF;
-	else
-		c->phase = phase - (count << 16);
-
-	return dst;
-}
-
 static enum mad_flow
 output(void *, struct mad_header const* header, struct mad_pcm *pcm)
 {
+	static int rate, chans;
 	static uchar *buf;
 	static int nbuf;
-	static Chan c1, c0;
-	ulong n, delta;
+	mad_fixed_t v, *s;
+	int i, j, n;
 	uchar *p;
 
-	delta = (pcm->samplerate << 16) / rate;
-	n = 4 * (pcm->samplerate + pcm->length * rate) / pcm->samplerate;
+	/* start converter if format changed */
+	if(rate != pcm->samplerate || chans != pcm->channels){
+		int pid, pfd[2];
+		char fmt[32];
+
+		rate = pcm->samplerate;
+		chans = pcm->channels;
+		snprint(fmt, sizeof(fmt), "s32r%dc%d", rate, chans);
+
+		if(ifd >= 0){
+			close(ifd);
+			waitpid();
+		}
+		if(pipe(pfd) < 0)
+			sysfatal("pipe: %r");
+		pid = fork();
+		if(pid < 0)
+			sysfatal("fork: %r");
+		if(pid == 0){
+			dup(pfd[1], 0);
+			close(pfd[1]);
+			close(pfd[0]);
+			execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, 0);
+			sysfatal("exec: %r");
+		}
+		close(pfd[1]);
+		ifd = pfd[0];
+	}
+	n = 4 * chans * pcm->length;
 	if(n > nbuf){
 		nbuf = n;
 		buf = realloc(buf, nbuf);
+		if(buf == nil)
+			sysfatal("realloc: %r");
 	}
-	if(pcm->channels == 2)
-		resample(&c1, pcm->samples[1], buf+2, 0, delta, pcm->length);
-	p = resample(&c0, pcm->samples[0], buf, pcm->channels == 1, delta, pcm->length);
-	write(1, buf, p-buf);
+	p = buf;
+	for(j=0; j < chans; j++){
+		s = pcm->samples[j];
+		n = pcm->length;
+		p = buf + j*4;
+		for(i=0; i < n; i++){
+			v = *s++;
+			p[0] = v, v>>=8;
+			p[1] = v, v>>=8;
+			p[2] = v, v>>=8;
+			p[3] = v;
+			p += chans*4;
+		}
+	}
+	if(p > buf)
+		write(ifd, buf, p - buf);
 	return MAD_FLOW_CONTINUE;
 }
 
@@ -175,5 +143,11 @@ main(int argc, char **argv)
 	mad_decoder_init(&decoder, nil, input, nil, nil, output, error, nil);
 	mad_decoder_run(&decoder, MAD_DECODER_MODE_SYNC);
 	mad_decoder_finish(&decoder);
+
+	if(ifd >= 0){
+		close(ifd);
+		waitpid();
+	}
+
 	exits(0);
 }

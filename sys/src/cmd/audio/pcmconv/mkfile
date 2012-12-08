@@ -1,8 +1,8 @@
 </$objtype/mkfile
 <../config
 
-OFILES=wavdec.$O
+OFILES=pcmconv.$O
 
-TARG=wavdec
+TARG=pcmconv
 
 </sys/src/cmd/mkone

@@ -22,85 +22,72 @@
 /* Note that this is POSIX, not ANSI code */
 
 #include <stdio.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <math.h>
 #include <vorbis/codec.h>
 
-int rate = 44100;
-
-enum {
-	Max = 32767,
-	Min = -32768,
-};
-
-typedef unsigned long ulong;
-typedef unsigned char uchar;
-typedef struct Chan Chan;
-
-struct Chan
-{
-	unsigned long	phase;
-	float		last;
-};
-
-static uchar*
-resample(Chan *c, float *src, uchar *dst, int mono, ulong delta, ulong count)
-{
-	float f, last, val;
-	ulong phase, pos;
-	int out;
-	
-	last = c->last;
-	phase = c->phase;
-	pos = phase >> 16;
-	while(pos < count){
-		val = src[pos];
-		if(pos)
-			last = src[pos-1];
-		f = (float)(phase&0xFFFF)/0x10000;
-		out = (last + (val - last) * f) * 32767.f;
-		/* cliping */
-		if(out > Max)
-			out = Max;
-		else if(out < Min)
-			out = Min;
-		*dst++ = out;
-		*dst++ = out >> 8;
-		if(mono){
-			*dst++ = out;
-			*dst++ = out >> 8;
-		} else
-			dst += 2;
-		phase += delta;
-		pos = phase >> 16;
-	}
-	c->last = val;
-	if(delta < 0x10000)
-		c->phase = phase & 0xFFFF;
-	else
-		c->phase = phase - (count << 16);
-	return dst;
-}
-
 static void
 output(float **pcm, int samples, vorbis_info *vi)
 {
-	static uchar *buf;
-	static int nbuf;
-	static Chan c1, c0;
-	ulong n, delta;
-	uchar *p;
+	static int rate, chans;
+	static unsigned char *buf;
+	static int nbuf, ifd = -1;
+	unsigned char *p;
+	int i, j, n, v;
+	float *s;
 
-	delta = ((ulong)vi->rate << 16) / rate;
-	n = 4 * ((ulong)vi->rate + samples * rate) / (ulong)vi->rate;
+	/* start converter if format changed */
+	if(rate != vi->rate || chans != vi->channels){
+		int pid, pfd[2];
+		char fmt[32];
+
+		rate = vi->rate;
+		chans = vi->channels;
+		sprintf(fmt, "f%dr%dc%d", sizeof(float)*8, rate, chans);
+
+		if(ifd >= 0)
+			close(ifd);
+		if(pipe(pfd) < 0){
+			fprintf(stderr, "Error creating pipe\n");
+			exit(1);
+		}
+		pid = fork();
+		if(pid < 0){
+			fprintf(stderr, "Error forking\n");
+			exit(1);
+		}
+		if(pid == 0){
+			dup2(pfd[1], 0);
+			close(pfd[1]);
+			close(pfd[0]);
+			execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, 0);
+			fprintf(stderr, "Error executing converter\n");
+			exit(1);
+		}
+		close(pfd[1]);
+		ifd = pfd[0];
+	}
+	n = sizeof(float) * chans * samples;
 	if(n > nbuf){
 		nbuf = n;
 		buf = realloc(buf, nbuf);
+		if(buf == NULL){
+			fprintf(stderr, "Error allocating memory\n");
+			exit(1);
+		}
 	}
-	if(vi->channels == 2)
-		resample(&c1, pcm[1], buf+2, 0, delta, samples);
-	p = resample(&c0, pcm[0], buf, vi->channels == 1, delta, samples);
-	fwrite(buf, p-buf, 1, stdout);
+	p = buf;
+	for(j=0; j < chans; j++){
+		s = pcm[j];
+		p = buf + j*sizeof(float);
+		for(i=0; i < samples; i++){
+			*((float*)p) = *s++;
+			p += chans*sizeof(float);
+		}
+	}
+	if(p > buf)
+		write(ifd, buf, p - buf);
 }
 
 int main(){

@@ -1,91 +1,7 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include "FLAC/stream_decoder.h"
-
-int rate = 44100;
-
-typedef unsigned long ulong;
-typedef unsigned char uchar;
-typedef long long vlong;
-
-typedef struct Chan Chan;
-struct Chan
-{
-	ulong		phase;
-	FLAC__int32	last;
-	FLAC__int32	rand;
-};
-
-enum
-{
-	OutBits = 16,
-	Max = 32767,
-	Min = -32768,
-};
-
-#define PRNG(x) (((x)*0x19660dL + 0x3c6ef35fL) & 0xffffffffL)
-
-static uchar*
-resample(Chan *c, FLAC__int32 *src, uchar *dst, int mono, ulong delta, ulong count, ulong bps)
-{
-	FLAC__int32 last, val, out, rand;
-	ulong phase, pos, scale, lowmask, lowmask2;
-	vlong v;
-
-	scale = 0;
-	if(bps > OutBits){
-		scale = bps - OutBits;
-		lowmask = (1<<scale)-1;
-		lowmask2 = lowmask/2;
-	}
-
-	rand = c->rand;
-	last = c->last;
-	phase = c->phase;
-	pos = phase >> 16;
-	while(pos < count){
-		val = src[pos];
-		if(pos)
-			last = src[pos-1];
-
-		/* interpolate */
-		v = val;
-		v -= last;
-		v *= (phase & 0xFFFF);
-		out = last + (v >> 16);
-
-		/* scale / dithering */
-		if(scale){
-			out += (rand & lowmask) - lowmask2;
-			rand = PRNG(rand);
-			out >>= scale;
-		}
-
-		/* cliping */
-		if(out > Max)
-			out = Max;
-		else if(out < Min)
-			out = Min;
-
-		*dst++ = out;
-		*dst++ = out >> 8;
-		if(mono){
-			*dst++ = out;
-			*dst++ = out >> 8;
-		} else
-			dst += 2;
-		phase += delta;
-		pos = phase >> 16;
-	}
-	c->rand = rand;
-	c->last = val;
-	if(delta < 0x10000)
-		c->phase = phase & 0xFFFF;
-	else
-		c->phase = phase - (count << 16);
-
-	return dst;
-}
 
 static FLAC__StreamDecoderReadStatus
 decinput(FLAC__StreamDecoder *dec, FLAC__byte buffer[], unsigned *bytes, void *client_data)
@@ -105,24 +21,80 @@ decinput(FLAC__StreamDecoder *dec, FLAC__byte buffer[], unsigned *bytes, void *c
 static FLAC__StreamDecoderWriteStatus
 decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], void *client_data)
 {
-	static uchar *buf;
-	static int nbuf;
-	static Chan c1, c0;
-	ulong length, n, delta, bps;
-	uchar *p;
+	static int rate, chans, bits;
+	static unsigned char *buf;
+	static int nbuf, ifd = -1;
+	FLAC__int32 *s, v;
+	unsigned char *p;
+	int i, j, n, b, len;
 
-	bps = frame->header.bits_per_sample;
-	length = frame->header.blocksize;
-	delta = (frame->header.sample_rate << 16) / rate;
-	n = 4 * (frame->header.sample_rate + length * rate) / frame->header.sample_rate;
+	/* start converter if format changed */
+	if(rate != frame->header.sample_rate
+	|| chans != frame->header.channels
+	|| bits != frame->header.bits_per_sample){
+		int pid, pfd[2];
+		char fmt[32];
+
+		rate = frame->header.sample_rate;
+		chans = frame->header.channels;
+		bits = frame->header.bits_per_sample;
+		sprintf(fmt, "s%dr%dc%d", bits, rate, chans);
+
+		if(ifd >= 0)
+			close(ifd);
+		if(pipe(pfd) < 0){
+			fprintf(stderr, "Error creating pipe\n");
+			exit(1);
+		}
+		pid = fork();
+		if(pid < 0){
+			fprintf(stderr, "Error forking\n");
+			exit(1);
+		}
+		if(pid == 0){
+			dup2(pfd[1], 0);
+			close(pfd[1]);
+			close(pfd[0]);
+			execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, 0);
+			fprintf(stderr, "Error executing converter\n");
+			exit(1);
+		}
+		close(pfd[1]);
+		ifd = pfd[0];
+	}
+	len = frame->header.blocksize;
+	b = (bits+7)/8;
+	n = b * chans * len;
 	if(n > nbuf){
 		nbuf = n;
 		buf = realloc(buf, nbuf);
+		if(buf == NULL){
+			fprintf(stderr, "Error allocating memory\n");
+			exit(1);
+		}
 	}
-	if(frame->header.channels == 2)
-		resample(&c1, buffer[1], buf+2, 0, delta, length, bps);
-	p = resample(&c0, buffer[0], buf, frame->header.channels == 1, delta, length, bps);
-	fwrite(buf, p-buf, 1, stdout);
+	p = buf;
+	for(j=0; j < chans; j++){
+		s = buffer[j];
+		p = buf + j*b;
+		for(i=0; i < len; i++){
+			n = 0;
+			v = *s++;
+			switch(b){
+			case 4:
+				p[n++] = v, v>>=8;
+			case 3:
+				p[n++] = v, v>>=8;
+			case 2:
+				p[n++] = v, v>>=8;
+			case 1:
+				p[n] = v;
+			}
+			p += chans*b;
+		}
+	}
+	if(p > buf)
+		write(ifd, buf, p - buf);
 	return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 }
 

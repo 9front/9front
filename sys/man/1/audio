@@ -1,6 +1,6 @@
 .TH AUDIO 1
 .SH NAME
-mp3dec, mp3enc, oggdec, oggenc, flacdec, wavdec \- decode and encode audio files
+mp3dec, mp3enc, oggdec, oggenc, flacdec, wavdec, pcmconv \- decode and encode audio files
 .SH SYNOPSIS
 .B audio/mp3dec
 [
@@ -39,6 +39,18 @@ q ] [
 .I "long or silly options"
 ]
 .PP
+.B audio/pcmconv
+[
+.B -i
+.I fmt
+] [
+.B -o
+.I fmt
+] [
+.B -l
+.I length
+]
+.PP
 .SH DESCRIPTION
 These programs decode and encode various audio formats from and to
 16-bit stereo PCM (little endian). The decoders read the compressed
@@ -59,6 +71,7 @@ but decode OGG Vorbis, FLAC lossless audio and PCM Wave.
 .PP
 The encoders read PCM on standard input and produce compressed audio
 on standard output.
+.PP
 .I Oggenc
 and
 .I mp3enc
@@ -195,7 +208,48 @@ disable VBR histogram display
 .TP
 .BI --voice
 experimental voice mode
-.
+
+.PP
+.I Pcmconv
+is a helper program used to convert various PCM sample formats. The
+.B -i
+and
+.B -o
+options specify the input and output format
+.I fmt
+of the conversion.
+.I Fmt
+is a concatinated string of the following parts:
+
+.TP
+.BI s #
+sample format is little endian signed integer where
+.I #
+specifies the number of bits
+.TP
+.BI u #
+unsigned little endian integer format
+.TP
+.BI f #
+floating point format where
+.I #
+has to be 32 or 64 for single or double precisition
+.TP
+.BI c #
+specifies the number of channels
+.TP
+.BI r #
+gives the samplerate in Hz
+
+.PP
+The program reads samples from standard
+input converting the data and writes the result to standard output
+until it reached end of file or, if
+.B -l
+was given, a number of
+.I length
+bytes have been consumed from input.
+
 .SH EXAMPLE
 Play back an
 .L .mp3
