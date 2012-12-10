@@ -1213,7 +1213,9 @@ Cell *split(Node **a, int nnn)	/* split(a[0], a[1], a[2]); a[3] is type */
 		FATAL("illegal type of split");
 	sep = *fs;
 	ap = execute(a[1]);	/* array name */
+	y->tval |= DONTFREE;	/* split(a[x], a); */
 	freesymtab(ap);
+	y->tval &= ~DONTFREE;
 	   dprintf( ("split: s=|%s|, a=%s, sep=|%s|\n", s, ap->nval, fs) );
 	ap->tval &= ~STR;
 	ap->tval |= ARR;
