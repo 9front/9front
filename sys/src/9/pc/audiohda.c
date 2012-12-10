@@ -1418,6 +1418,7 @@ hdamatch(Pcidev *p)
 		case (0x8086 << 16) | 0x293e:	/* Intel P35 (untested) */
 		case (0x8086 << 16) | 0x811b:	/* Intel SCH (Poulsbo) */
 		case (0x8086 << 16) | 0x080a:	/* Intel SCH (Oaktrail) */
+		case (0x8086 << 16) | 0x1c20:	/* Intel PCH */
 		case (0x8086 << 16) | 0x1e20:	/* Intel (Thinkpad x230t) */
 
 		case (0x10de << 16) | 0x026c:	/* NVidia MCP51 (untested) */
@@ -1529,6 +1530,7 @@ Found:
 	if(p->vid == 0x8086){
 		/* magic for Intel */
 		switch(p->did){
+		case 0x1c20:	/* PCH */
 		case 0x811b:	/* SCH */
 		case 0x080a:
 			pcicfgw16(p, 0x78, pcicfgr16(p, 0x78) & ~0x800);
