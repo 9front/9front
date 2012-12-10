@@ -205,13 +205,26 @@ char*
 loaddevstr(Dev *d, int sid)
 {
 	uchar buf[128];
+	int langid;
 	int type;
 	int nr;
 
 	if(sid == 0)
 		return estrdup("none");
 	type = Rd2h|Rstd|Rdev;
-	nr=usbcmd(d, type, Rgetdesc, Dstr<<8|sid, 0, buf, sizeof(buf));
+
+	/*
+	 * there are devices which do not return a string if used
+	 * with invalid language id, so at least try to use the first
+	 * one and choose english if failed
+	 */
+	nr=usbcmd(d, type, Rgetdesc, Dstr<<8, 0, buf, sizeof(buf));
+	if(nr < 4)
+		langid = 0x0409;	// english
+	else
+		langid = buf[3]<<8|buf[2];
+
+	nr=usbcmd(d, type, Rgetdesc, Dstr<<8|sid, langid, buf, sizeof(buf));
 	return mkstr(buf, nr);
 }
 
