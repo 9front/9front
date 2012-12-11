@@ -214,12 +214,32 @@ uiconv(int *dst, uchar *src, int bits, int skip, int count)
 void
 ficonv(int *dst, uchar *src, int bits, int skip, int count)
 {
-	while(count--){
-		if(bits == 32)
-			*dst++ = *((float*)src) * 2147483647.f;
-		else
-			*dst++ = *((double*)src) * 2147483647.f;
-		src += skip;
+	if(bits == 32){
+		while(count--){
+			float f;
+
+			f = *((float*)src);
+			if(f > 1.0)
+				*dst++ = 0x7fffffff;
+			else if(f < -1.0)
+				*dst++ = -0x80000000;
+			else
+				*dst++ = f*2147483647.f;
+			src += skip;
+		}
+	} else {
+		while(count--){
+			float d;
+
+			d = *((float*)src);
+			if(d > 1.0)
+				*dst++ = 0x7fffffff;
+			else if(d < -1.0)
+				*dst++ = -0x80000000;
+			else
+				*dst++ = d*2147483647.f;
+			src += skip;
+		}
 	}
 }
 
@@ -275,12 +295,16 @@ uoconv(int *src, uchar *dst, int bits, int skip, int count)
 void
 foconv(int *src, uchar *dst, int bits, int skip, int count)
 {
-	while(count--){
-		if(bits == 32)
+	if(bits == 32){
+		while(count--){
 			*((float*)dst) = *src++ / 2147483647.f;
-		else
+			dst += skip;
+		}
+	} else {
+		while(count--){
 			*((double*)dst) = *src++ / 2147483647.f;
-		dst += skip;
+			dst += skip;
+		}
 	}
 }
 
@@ -408,6 +432,9 @@ main(int argc, char *argv[])
 	case 'u': oconv = uoconv; break;
 	case 'f': oconv = foconv; break;
 	}
+
+	if(i.fmt == 'f' || o.fmt == 'f')
+		setfcr(getfcr() & ~(FPINVAL|FPOVFL));
 
 	n = (sizeof(ibuf)-i.framesz)/i.framesz;
 	r = n*i.framesz;
