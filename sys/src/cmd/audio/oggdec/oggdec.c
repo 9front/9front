@@ -86,8 +86,8 @@ output(float **pcm, int samples, vorbis_info *vi)
 			p += chans*sizeof(float);
 		}
 	}
-	if(p > buf)
-		write(ifd, buf, p - buf);
+	if(n > 0)
+		write(ifd, buf, n);
 }
 
 int main(){

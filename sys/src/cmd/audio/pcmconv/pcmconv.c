@@ -327,6 +327,25 @@ Bad:
 	return d;
 }
 
+int
+cread(int fd, uchar *buf, int len, int mod)
+{
+	uchar *off = buf;
+
+	len -= (len % mod);
+Again:
+	len = read(fd, off, len);
+	if(len <= 0)
+		return len;
+	off += len;
+	len = off - buf;
+	if((len % mod) != 0){
+		len = mod - (len % mod);
+		goto Again;
+	}
+	return len;
+}
+
 void
 usage(void)
 {
@@ -404,13 +423,11 @@ main(int argc, char *argv[])
 	for(;;){
 		if(l >= 0 && l < r)
 			r = l;
-		n = read(0, ibuf, r);
-		if(n < 0)
+		n = cread(0, ibuf, r, i.framesz);
+		if(n < 0 || n > sizeof(ibuf))
 			sysfatal("read: %r");
 		if(l > 0)
 			l -= n;
-		if(n % i.framesz)
-			sysfatal("bad framesize %d %% %d", n, i.framesz);
 		n /= i.framesz;
 		(*iconv)(in, ibuf, i.bits, i.framesz, n);
 		m = resample(&ch[0], in, out, n) - out;

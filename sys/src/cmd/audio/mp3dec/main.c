@@ -67,19 +67,20 @@ output(void *, struct mad_header const* header, struct mad_pcm *pcm)
 		close(pfd[1]);
 		ifd = pfd[0];
 	}
+
 	n = 4 * chans * pcm->length;
 	if(n > nbuf){
 		nbuf = n;
 		buf = realloc(buf, nbuf);
 		if(buf == nil)
 			sysfatal("realloc: %r");
+		memset(buf, 0, nbuf);
 	}
 	p = buf;
 	for(j=0; j < chans; j++){
 		s = pcm->samples[j];
-		n = pcm->length;
 		p = buf + j*4;
-		for(i=0; i < n; i++){
+		for(i=0; i < pcm->length; i++){
 			v = *s++;
 			p[0] = v, v>>=8;
 			p[1] = v, v>>=8;
@@ -88,8 +89,9 @@ output(void *, struct mad_header const* header, struct mad_pcm *pcm)
 			p += chans*4;
 		}
 	}
-	if(p > buf)
-		write(ifd, buf, p - buf);
+	if(n > 0)
+		write(ifd, buf, n);
+
 	return MAD_FLOW_CONTINUE;
 }
 

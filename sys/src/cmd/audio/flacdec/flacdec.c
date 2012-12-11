@@ -93,8 +93,10 @@ decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], v
 			p += chans*b;
 		}
 	}
-	if(p > buf)
-		write(ifd, buf, p - buf);
+	n = b * chans * len;
+	if(n > 0)
+		write(ifd, buf, n);
+
 	return FLAC__STREAM_DECODER_WRITE_STATUS_CONTINUE;
 }
 
