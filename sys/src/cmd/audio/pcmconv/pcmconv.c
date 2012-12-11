@@ -421,6 +421,9 @@ main(int argc, char *argv[])
 		exits(0);
 	}
 
+	if(i.channels > nelem(ch))
+		sysfatal("too many input channels %d", i.channels);
+
 	switch(i.fmt){
 	case 's': iconv = siconv; break;
 	case 'u': iconv = uiconv; break;
@@ -444,14 +447,14 @@ main(int argc, char *argv[])
 	obuf = sbrk(o.framesz * m);
 
 	memset(ch, 0, sizeof(ch));
-	for(k=0; k < i.channels && k < nelem(ch); k++)
+	for(k=0; k < i.channels; k++)
 		chaninit(&ch[k], i.rate, o.rate, n);
 
 	for(;;){
 		if(l >= 0 && l < r)
 			r = l;
 		n = cread(0, ibuf, r, i.framesz);
-		if(n < 0 || n > sizeof(ibuf))
+		if(n < 0)
 			sysfatal("read: %r");
 		if(l > 0)
 			l -= n;
