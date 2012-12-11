@@ -15,56 +15,149 @@ struct Desc
 
 struct Chan
 {
-	ulong	phase;
-	int	last;
+	ulong	ρ;	/* factor */
+
+	ulong	t;	/* time */
+
+	ulong	tΔ;	/* output step */
+	ulong	lΔ;	/* filter step */
+
+	ulong	u;	/* unity scale */
+
+	int	wx;	/* extra samples */
+	int	ix;	/* buffer index */
+	int	nx;	/* buffer size */
+	int	*x;	/* the buffer */
 };
 
-int*
-resample(Chan *c, int *src, int *dst, ulong delta, ulong count)
+enum {
+	Nl	= 8,
+	Nη	= 8,	/* for coefficient interpolation, not implenented */
+	Np	= Nl+Nη,
+
+	L	= 1<<Np,
+	Nz	= 13,
+
+	One	= 1<<Np,
+};
+
+void
+chaninit(Chan *c, int irate, int orate, int count)
 {
-	int last, val;
-	ulong phase, pos;
+	c->ρ = ((uvlong)orate<<Np)/irate;
+	if(0 && c->ρ == One)
+		return;
+	c->u = 13128;	/* unity scale factor for fir */
+	c->tΔ = ((uvlong)irate<<Np)/orate;
+	c->lΔ = L;
+	if(c->ρ < One){
+		c->u *= c->ρ;
+		c->u >>= Np;
+		c->lΔ *= c->ρ;
+		c->lΔ >>= Np;
+	}
+	c->wx = 2*Nz*irate / orate;
+	c->ix = c->wx;
+	c->t = c->ix<<Np;
+	c->nx = c->wx*2 + count;
+	c->x = sbrk(sizeof(c->x[0]) * c->nx);
+}
+
+int
+filter(Chan *c)
+{
+	ulong l, n, p;
 	vlong v;
 
-	if(delta == 0x10000){
-		/* same frequency */
-		memmove(dst, src, count*sizeof(int));
-		return dst + count;
+	static int h[] = {
+#include "fir.h"
+	};
+
+	v = 0;
+
+	/* left side */
+	p = c->t & ((1<<Np)-1);
+	l = c->ρ < One ? (c->ρ * p)>>Np : p;
+	for(n = c->t>>Np; l < nelem(h)<<Nη; l += c->lΔ)
+		v += (vlong)c->x[--n] * h[l>>Nη];
+
+	/* right side */
+	p = (One - p) & ((1<<Np)-1);
+	l = c->ρ < One ? (c->ρ * p)>>Np : p;
+	n = c->t>>Np;
+	if(p == 0){
+		/* skip h[0] as it was already been summed above if p == 0 */
+		l += c->lΔ;
+		n++;
+	}
+	for(; l < nelem(h)<<Nη; l += c->lΔ)
+		v += (vlong)c->x[n++] * h[l>>Nη];
+
+	/* scale */
+	v >>= 2;
+	v *= c->u;
+	v >>= 27;
+
+	/* clipping */
+	if(v > 0x7fffffffLL)
+		return 0x7fffffff;
+	if(v < -0x80000000LL)
+		return -0x80000000;
+
+	return v;
+}
+
+int*
+resample(Chan *c, int *x, int *y, ulong count)
+{
+	ulong e;
+	int i, n;
+
+	if(c->ρ == One){
+		/* no rate conversion needed */
+		if(count > 0)
+			memmove(y, x, count*sizeof(int));
+		return y+count;
 	}
 
-	val = 0;
-	last = c->last;
-	phase = c->phase;
-	pos = phase >> 16;
-	while(pos < count){
-		val = src[pos];
-		if(pos)
-			last = src[pos-1];
-
-		/* interpolate */
-		v = val;
-		v -= last;
-		v *= (phase & 0xFFFF);
-		v >>= 16;
-		v += last;
-
-		/* clipping */
-		if(v > 0x7fffffffLL)
-			v = 0x7fffffff;
-		else if(v < -0x80000000LL)
-			v = -0x80000000;
-
-		*dst++ = v;
-
-		phase += delta;
-		pos = phase >> 16;
+	if(count == 0){
+		/* stuff zeros to drain last samples out */
+		while(c->ix < 2*c->wx)
+			c->x[c->ix++] = 0;
 	}
-	c->last = val;
-	if(delta < 0x10000)
-		c->phase = phase & 0xFFFF;
-	else
-		c->phase = phase - (count << 16);
-	return dst;
+
+	do {
+		/* fill buffer */
+		for(i = c->ix, n = c->nx; count > 0 && i < n; count--, i++)
+			c->x[i] = *x++;
+		c->ix = i;
+
+		/* need at least 2*wx samples in buffer for filter */
+		if(i < 2*c->wx)
+			break;
+
+		/* process buffer */
+		e = (i - c->wx)<<Np;
+		while(c->t < e){
+			*y++ = filter(c);
+			c->t += c->tΔ;
+		}
+
+		/* check if we'r at the end of buffer and wrap it */
+		e = c->t >> Np;
+		if(e >= (c->nx - c->wx)){
+			c->t -= e << Np;
+			c->t += c->wx << Np;
+			n = c->t >> Np;
+			n -= c->wx;
+			e -= c->wx;
+			while(e < i)
+				c->x[n++] = c->x[e++];
+			c->ix = n;
+		}
+	} while(count > 0);
+
+	return y;
 }
 
 void
@@ -248,7 +341,6 @@ main(int argc, char *argv[])
 	int *out, *in;
 	Chan ch[8];
 	Desc i, o;
-	ulong delta;
 	int k, r, n, m;
 	vlong l;
 
@@ -272,6 +364,20 @@ main(int argc, char *argv[])
 		usage();
 	} ARGEND;
 
+	/* check if same format */
+	if(i.rate == o.rate
+	&& i.channels == o.channels
+	&& i.framesz == o.framesz
+	&& i.fmt == o.fmt){
+		while((n = read(0, ibuf, sizeof(ibuf))) > 0){
+			if(write(1, ibuf, n) != n)
+				sysfatal("write: %r");
+		}
+		if(n < 0)
+			sysfatal("read: %r");
+		exits(0);
+	}
+
 	switch(i.fmt){
 	case 's': iconv = siconv; break;
 	case 'u': iconv = uiconv; break;
@@ -284,16 +390,16 @@ main(int argc, char *argv[])
 	case 'f': oconv = foconv; break;
 	}
 
-	delta = ((uvlong)i.rate << 16) / o.rate;
-	memset(ch, 0, sizeof(ch));
 	n = (sizeof(ibuf)-i.framesz)/i.framesz;
 	r = n*i.framesz;
-	m = (i.rate + n*o.rate)/i.rate;
+	m = 3+(n*o.rate)/i.rate;
 	in = sbrk(sizeof(int) * n);
 	out = sbrk(sizeof(int) * m);
 	obuf = sbrk(o.framesz * m);
-	if(in == nil || out == nil || obuf == nil)
-		sysfatal("out of memory");
+
+	memset(ch, 0, sizeof(ch));
+	for(k=0; k < i.channels && k < nelem(ch); k++)
+		chaninit(&ch[k], i.rate, o.rate, n);
 
 	for(;;){
 		if(l >= 0 && l < r)
@@ -301,28 +407,36 @@ main(int argc, char *argv[])
 		n = read(0, ibuf, r);
 		if(n < 0)
 			sysfatal("read: %r");
-		if(n == 0)
-			break;
 		if(l > 0)
 			l -= n;
+		if(n % i.framesz)
+			sysfatal("bad framesize %d %% %d", n, i.framesz);
 		n /= i.framesz;
 		(*iconv)(in, ibuf, i.bits, i.framesz, n);
-		m = resample(&ch[0], in, out, delta, n) - out;
-		if(m < 1)
-			continue;
-		(*oconv)(out, obuf, o.bits, o.framesz, m);
+		m = resample(&ch[0], in, out, n) - out;
+		if(m < 1){
+			if(n == 0)
+				break;
+		} else
+			(*oconv)(out, obuf, o.bits, o.framesz, m);
 		if(i.channels == o.channels){
 			for(k=1; k<i.channels; k++){
 				(*iconv)(in, ibuf + k*((i.bits+7)/8), i.bits, i.framesz, n);
-				resample(&ch[k], in, out, delta, n);
-				(*oconv)(out, obuf + k*((o.bits+7)/8), o.bits, o.framesz, m);
+				resample(&ch[k], in, out, n);
+				if(m > 0)
+					(*oconv)(out, obuf + k*((o.bits+7)/8), o.bits, o.framesz, m);
 			}
-		} else {
+		} else if(m > 0){
 			for(k=1; k<o.channels; k++)
 				(*oconv)(out, obuf + k*((o.bits+7)/8), o.bits, o.framesz, m);
 		}
-		m *= o.framesz;
-		write(1, obuf, m);
+		if(m > 0){
+			m *= o.framesz;
+			if(write(1, obuf, m) != m)
+				sysfatal("write: %r");
+		}
+		if(n == 0)
+			break;
 	}
 	exits(0);
 }
