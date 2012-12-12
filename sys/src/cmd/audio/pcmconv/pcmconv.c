@@ -229,9 +229,9 @@ ficonv(int *dst, uchar *src, int bits, int skip, int count)
 		}
 	} else {
 		while(count--){
-			float d;
+			double d;
 
-			d = *((float*)src);
+			d = *((double*)src);
 			if(d > 1.0)
 				*dst++ = 0x7fffffff;
 			else if(d < -1.0)
