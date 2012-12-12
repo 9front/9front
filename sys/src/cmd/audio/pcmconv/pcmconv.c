@@ -23,9 +23,9 @@ struct Chan
 	ulong	lΔ;	/* filter step */
 	ulong	le;	/* filter end */
 
+	int	u;	/* unity scale */
 	int	*h;	/* filter coefficients */
 	int	*hΔ;	/* coefficient deltas for interpolation */
-	int	u;	/* unity scale */
 
 	int	wx;	/* extra samples */
 	int	ix;	/* buffer index */
@@ -34,17 +34,13 @@ struct Chan
 };
 
 enum {
-	Nl	= 8,
-	Nη	= 8,
-	Np	= Nl+Nη,
-
-	L	= 1<<Np,
-	Nz	= 13,
-
+	Nl	= 8,		/* 2^Nl samples per zero crossing in fir */
+	Nη	= 8,		/* phase bits for filter interpolation */
+	Np	= Nl+Nη,	/* phase bits (fract of fixed point) */
 	One	= 1<<Np,
 };
 
-void
+int
 chaninit(Chan *c, int irate, int orate, int count)
 {
 	static int h[] = {
@@ -55,29 +51,35 @@ chaninit(Chan *c, int irate, int orate, int count)
 
 	c->ρ = ((uvlong)orate<<Np)/irate;
 	if(c->ρ == One)
-		return;
+		goto Done;
+
 	c->tΔ = ((uvlong)irate<<Np)/orate;
-	c->lΔ = L;
+	c->lΔ = 1<<(Nl+Nη);
+	c->le = nelem(h)<<Nη;
+	c->wx = 1 + (c->le / c->lΔ);
+	c->u = 13128;	/* unity scale factor for fir */
 	if(c->ρ < One){
 		c->u *= c->ρ;
 		c->u >>= Np;
 		c->lΔ *= c->ρ;
 		c->lΔ >>= Np;
+		c->wx *= c->tΔ;
+		c->wx >>= Np;
 	}
-	c->le = nelem(h)<<Nη;
-	c->h = h;
 	if(!init){
 		init = 1;
 		for(n=0; n<nelem(hΔ)-1; n++)
 			hΔ[n] = h[n+1] - h[n];
 	}
+	c->h = h;
 	c->hΔ = hΔ;
-	c->u = 13128;	/* unity scale factor for fir */
-	c->wx = 2*Nz*irate / orate;
 	c->ix = c->wx;
 	c->t = c->ix<<Np;
 	c->nx = c->wx*2 + count;
 	c->x = sbrk(sizeof(c->x[0]) * c->nx);
+	count += c->nx; /* account for buffer accumulation */
+Done:
+	return ((uvlong)count * c->ρ) >> Np;
 }
 
 int
@@ -418,7 +420,7 @@ main(int argc, char *argv[])
 	int *out, *in;
 	Chan ch[8];
 	Desc i, o;
-	int k, r, n, m;
+	int k, n, m, nin, nout;
 	vlong l;
 
 	void (*oconv)(int *, uchar *, int, int, int) = nil;
@@ -473,21 +475,22 @@ main(int argc, char *argv[])
 	if(i.fmt == 'f' || o.fmt == 'f')
 		setfcr(getfcr() & ~(FPINVAL|FPOVFL));
 
-	n = (sizeof(ibuf)-i.framesz)/i.framesz;
-	r = n*i.framesz;
-	m = 3+(n*o.rate)/i.rate;
-	in = sbrk(sizeof(int) * n);
-	out = sbrk(sizeof(int) * m);
-	obuf = sbrk(o.framesz * m);
+	nin = (sizeof(ibuf)-i.framesz)/i.framesz;
+	in = sbrk(sizeof(int) * nin);
 
+	nout = 0;
 	memset(ch, 0, sizeof(ch));
 	for(k=0; k < i.channels; k++)
-		chaninit(&ch[k], i.rate, o.rate, n);
+		nout = chaninit(&ch[k], i.rate, o.rate, nin);
+
+	out = sbrk(sizeof(int) * nout);
+	obuf = sbrk(o.framesz * nout);
 
 	for(;;){
-		if(l >= 0 && l < r)
-			r = l;
-		n = cread(0, ibuf, r, i.framesz);
+		n = nin * i.framesz;
+		if(l >= 0 && l < n)
+			n = l;
+		n = cread(0, ibuf, n, i.framesz);
 		if(n < 0)
 			sysfatal("read: %r");
 		if(l > 0)
