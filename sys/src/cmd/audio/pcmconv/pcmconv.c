@@ -21,8 +21,11 @@ struct Chan
 
 	ulong	tΔ;	/* output step */
 	ulong	lΔ;	/* filter step */
+	ulong	le;	/* filter end */
 
-	ulong	u;	/* unity scale */
+	int	*h;	/* filter coefficients */
+	int	*hΔ;	/* coefficient deltas for interpolation */
+	int	u;	/* unity scale */
 
 	int	wx;	/* extra samples */
 	int	ix;	/* buffer index */
@@ -32,7 +35,7 @@ struct Chan
 
 enum {
 	Nl	= 8,
-	Nη	= 8,	/* for coefficient interpolation, not implenented */
+	Nη	= 8,
 	Np	= Nl+Nη,
 
 	L	= 1<<Np,
@@ -44,10 +47,15 @@ enum {
 void
 chaninit(Chan *c, int irate, int orate, int count)
 {
+	static int h[] = {
+#include "fir.h"
+	};
+	static int hΔ[nelem(h)], init = 0;
+	int n;
+
 	c->ρ = ((uvlong)orate<<Np)/irate;
-	if(0 && c->ρ == One)
+	if(c->ρ == One)
 		return;
-	c->u = 13128;	/* unity scale factor for fir */
 	c->tΔ = ((uvlong)irate<<Np)/orate;
 	c->lΔ = L;
 	if(c->ρ < One){
@@ -56,6 +64,15 @@ chaninit(Chan *c, int irate, int orate, int count)
 		c->lΔ *= c->ρ;
 		c->lΔ >>= Np;
 	}
+	c->le = nelem(h)<<Nη;
+	c->h = h;
+	if(!init){
+		init = 1;
+		for(n=0; n<nelem(hΔ)-1; n++)
+			hΔ[n] = h[n+1] - h[n];
+	}
+	c->hΔ = hΔ;
+	c->u = 13128;	/* unity scale factor for fir */
 	c->wx = 2*Nz*irate / orate;
 	c->ix = c->wx;
 	c->t = c->ix<<Np;
@@ -66,32 +83,46 @@ chaninit(Chan *c, int irate, int orate, int count)
 int
 filter(Chan *c)
 {
-	ulong l, n, p;
+	ulong l, lΔ, le, p, i;
+	int *x, *h, *hΔ, a;
 	vlong v;
-
-	static int h[] = {
-#include "fir.h"
-	};
 
 	v = 0;
 
+	h = c->h;
+	hΔ = c->hΔ;
+	lΔ = c->lΔ;
+	le = c->le;
+
 	/* left side */
+	x = &c->x[c->t>>Np];
 	p = c->t & ((1<<Np)-1);
 	l = c->ρ < One ? (c->ρ * p)>>Np : p;
-	for(n = c->t>>Np; l < nelem(h)<<Nη; l += c->lΔ)
-		v += (vlong)c->x[--n] * h[l>>Nη];
+	while(l < le){
+		i = l >> Nη;
+		a = l & ((1<<Nη)-1);
+		l += lΔ;
+		a *= hΔ[i];
+		a >>= Nη;
+		a += h[i];
+		v += (vlong)*(--x) * a;
+	}
 
 	/* right side */
+	x = &c->x[c->t>>Np];
 	p = (One - p) & ((1<<Np)-1);
 	l = c->ρ < One ? (c->ρ * p)>>Np : p;
-	n = c->t>>Np;
-	if(p == 0){
-		/* skip h[0] as it was already been summed above if p == 0 */
+	if(p == 0) /* skip h[0] as it was already been summed above if p == 0 */
 		l += c->lΔ;
-		n++;
+	while(l < le){
+		i = l >> Nη;
+		a = l & ((1<<Nη)-1);
+		l += lΔ;
+		a *= hΔ[i];
+		a >>= Nη;
+		a += h[i];
+		v += (vlong)*x++ * a;
 	}
-	for(; l < nelem(h)<<Nη; l += c->lΔ)
-		v += (vlong)c->x[n++] * h[l>>Nη];
 
 	/* scale */
 	v >>= 2;
@@ -151,8 +182,11 @@ resample(Chan *c, int *x, int *y, ulong count)
 			n = c->t >> Np;
 			n -= c->wx;
 			e -= c->wx;
-			while(e < i)
-				c->x[n++] = c->x[e++];
+			i -= e;
+			if(i > 0){
+				memmove(c->x + n, c->x + e, i*sizeof(int));
+				n += i;
+			}
 			c->ix = n;
 		}
 	} while(count > 0);
