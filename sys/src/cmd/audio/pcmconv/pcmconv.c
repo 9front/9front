@@ -141,7 +141,7 @@ filter(Chan *c)
 }
 
 int*
-resample(Chan *c, int *x, int *y, ulong count)
+resample(Chan *c, int *x, int *y, int count)
 {
 	ulong e;
 	int i, n;
@@ -194,6 +194,20 @@ resample(Chan *c, int *x, int *y, ulong count)
 	} while(count > 0);
 
 	return y;
+}
+
+void
+dither(int *y, int ibits, int obits, int count)
+{
+	static ulong prnd;
+
+	if(ibits >= 32 || obits >= ibits)
+		return;
+
+	while(count--){
+		prnd = (prnd*0x19660dL + 0x3c6ef35fL) & 0xffffffffL;
+		*y++ += ((int)prnd) >> ibits;
+	}
 }
 
 void
@@ -497,6 +511,7 @@ main(int argc, char *argv[])
 			l -= n;
 		n /= i.framesz;
 		(*iconv)(in, ibuf, i.bits, i.framesz, n);
+		dither(in, i.bits, o.bits, n);
 		m = resample(&ch[0], in, out, n) - out;
 		if(m < 1){
 			if(n == 0)
@@ -506,6 +521,7 @@ main(int argc, char *argv[])
 		if(i.channels == o.channels){
 			for(k=1; k<i.channels; k++){
 				(*iconv)(in, ibuf + k*((i.bits+7)/8), i.bits, i.framesz, n);
+				dither(in, i.bits, o.bits, n);
 				resample(&ch[k], in, out, n);
 				if(m > 0)
 					(*oconv)(out, obuf + k*((o.bits+7)/8), o.bits, o.framesz, m);
