@@ -613,6 +613,7 @@ main(int argc, char *argv[])
 
 	/* check if same format */
 	if(i.rate == o.rate
+	&& i.bits == o.bits
 	&& i.channels == o.channels
 	&& i.framesz == o.framesz
 	&& i.fmt == o.fmt){
