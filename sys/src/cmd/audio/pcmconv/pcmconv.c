@@ -41,6 +41,19 @@ enum {
 	One	= 1<<Np,
 };
 
+#define MAXINT	((int)(~0UL>>1))
+#define MININT	(MAXINT+1)
+
+int
+clip(vlong v)
+{
+	if(v > MAXINT)
+		return MAXINT;
+	if(v < MININT)
+		return MININT;
+	return v;
+}
+
 int
 chaninit(Chan *c, int irate, int orate, int count)
 {
@@ -132,13 +145,7 @@ filter(Chan *c)
 	v *= c->u;
 	v >>= 27;
 
-	/* clipping */
-	if(v > 0x7fffffffLL)
-		return 0x7fffffff;
-	if(v < -0x80000000LL)
-		return -0x80000000;
-
-	return v;
+	return clip(v);
 }
 
 int*
@@ -208,6 +215,15 @@ dither(int *y, int ibits, int obits, int count)
 	while(count--){
 		prnd = (prnd*0x19660dL + 0x3c6ef35fL) & 0xffffffffL;
 		*y++ += ((int)prnd) >> ibits;
+	}
+}
+
+void
+mixin(int *y, int *x, int count)
+{
+	while(count--){
+		*y = clip((vlong)*y + *x++);
+		y++;
 	}
 }
 
@@ -322,11 +338,11 @@ ficonv(int *dst, uchar *src, int bits, int skip, int count)
 
 			f = *((float*)src), src += skip;
 			if(f > 1.0)
-				*dst++ = 0x7fffffff;
+				*dst++ = MAXINT;
 			else if(f < -1.0)
-				*dst++ = -0x80000000;
+				*dst++ = MININT;
 			else
-				*dst++ = f*2147483647.f;
+				*dst++ = f*((float)MAXINT);
 		}
 	} else {
 		while(count--){
@@ -334,11 +350,11 @@ ficonv(int *dst, uchar *src, int bits, int skip, int count)
 
 			d = *((double*)src), src += skip;
 			if(d > 1.0)
-				*dst++ = 0x7fffffff;
+				*dst++ = MAXINT;
 			else if(d < -1.0)
-				*dst++ = -0x80000000;
+				*dst++ = MININT;
 			else
-				*dst++ = d*2147483647.f;
+				*dst++ = d*((float)MAXINT);
 		}
 	}
 }
@@ -489,12 +505,12 @@ foconv(int *src, uchar *dst, int bits, int skip, int count)
 {
 	if(bits == 32){
 		while(count--){
-			*((float*)dst) = *src++ / 2147483647.f;
+			*((float*)dst) = *src++ / ((float)MAXINT);
 			dst += skip;
 		}
 	} else {
 		while(count--){
-			*((double*)dst) = *src++ / 2147483647.f;
+			*((double*)dst) = *src++ / ((double)MAXINT);
 			dst += skip;
 		}
 	}
@@ -662,7 +678,8 @@ main(int argc, char *argv[])
 	for(k=0; k < i.channels; k++)
 		nout = chaninit(&ch[k], i.rate, o.rate, nin);
 
-	out = sbrk(sizeof(int) * nout);
+	/* out is also used for mixing before resampling, so needs to be max(nin, nout) */
+	out = sbrk(sizeof(int) * (nout>nin? nout: nin));
 	obuf = sbrk(o.framesz * nout);
 
 	for(;;){
@@ -676,6 +693,12 @@ main(int argc, char *argv[])
 			l -= n;
 		n /= i.framesz;
 		(*iconv)(in, ibuf, i.bits, i.framesz, n);
+		if(i.channels > o.channels){
+			for(k=1; k<i.channels; k++){
+				(*iconv)(out, ibuf + k*((i.bits+7)/8), i.bits, i.framesz, n);
+				mixin(in, out, n);
+			}
+		}
 		dither(in, i.abits, o.abits, n);
 		m = resample(&ch[0], in, out, n) - out;
 		if(m < 1){
