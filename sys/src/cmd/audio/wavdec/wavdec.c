@@ -42,7 +42,7 @@ getcc(char tag[4])
 void
 main(int, char *argv[])
 {
-	char buf[8*1024], fmt[32];
+	char buf[1024], fmt[32];
 	ulong len, n;
 	Wave wav;
 
@@ -70,22 +70,32 @@ main(int, char *argv[])
 			len -= 2+2+4+4+2+2;
 		}
 		while(len > 0){
-			if(len < sizeof(buf))
+			n = sizeof(buf);
+			if(len < n)
 				n = len;
-			else
-				n = sizeof(buf);
-			if(readn(0, buf, n) != n)
+			n = read(0, buf, n);
+			if(n <= 0)
 				sysfatal("read: %r");
 			len -= n;
 		}
 	}
-
-	if(wav.fmt != 1)
-		sysfatal("compressed format (0x%x) not supported", wav.fmt);
-	snprint(fmt, sizeof(fmt), "%c%dr%dc%d",
-		wav.bits == 8 ? 'u' : 's', wav.bits,
-		wav.rate,
-		wav.channels);
+	switch(wav.fmt){
+	case 1:
+		snprint(fmt, sizeof(fmt), "%c%dr%dc%d", wav.bits == 8 ? 'u' : 's',
+			wav.bits, wav.rate, wav.channels);
+		break;
+	case 3:
+		snprint(fmt, sizeof(fmt), "f32r%dc%d", wav.rate, wav.channels);
+		break;
+	case 6:
+		snprint(fmt, sizeof(fmt), "a8r%dc%d", wav.rate, wav.channels);
+		break;
+	case 7:
+		snprint(fmt, sizeof(fmt), "µ8r%dc%d", wav.rate, wav.channels);
+		break;
+	default:
+		sysfatal("wave format (0x%lux) not supported", (ulong)wav.fmt);
+	}
 	snprint(buf, sizeof(buf), "%lud", len);
 	execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, "-l", buf, 0);
 }

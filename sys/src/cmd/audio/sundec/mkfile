@@ -1,8 +1,8 @@
 </$objtype/mkfile
 <../config
 
-OFILES=µlawdec.$O
+OFILES=sundec.$O
 
-TARG=µlawdec
+TARG=sundec
 
 </sys/src/cmd/mkone

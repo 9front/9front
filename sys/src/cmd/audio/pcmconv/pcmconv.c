@@ -9,8 +9,9 @@ struct Desc
 	int	rate;
 	int	channels;
 	int	framesz;
-	int	bits;
-	int	fmt;
+	int	abits;	/* bits after input conversion */
+	int	bits;	/* bits in input stream per sample */
+	Rune	fmt;
 };
 
 struct Chan
@@ -236,6 +237,31 @@ siconv(int *dst, uchar *src, int bits, int skip, int count)
 }
 
 void
+Siconv(int *dst, uchar *src, int bits, int skip, int count)
+{
+	int i, v, s, b;
+
+	b = (bits+7)/8;
+	s = sizeof(int)*8-bits;
+	while(count--){
+		v = 0;
+		i = 0;
+		switch(b){
+		case 4:
+			v = src[i++];
+		case 3:
+			v = (v<<8) | src[i++];
+		case 2:
+			v = (v<<8) | src[i++];
+		case 1:
+			v = (v<<8) | src[i];
+		}
+		*dst++ = v << s;
+		src += skip;
+	}
+}
+
+void
 uiconv(int *dst, uchar *src, int bits, int skip, int count)
 {
 	int i, s, b;
@@ -262,34 +288,101 @@ uiconv(int *dst, uchar *src, int bits, int skip, int count)
 }
 
 void
+Uiconv(int *dst, uchar *src, int bits, int skip, int count)
+{
+	int i, s, b;
+	uint v;
+
+	b = (bits+7)/8;
+	s = sizeof(uint)*8-bits;
+	while(count--){
+		v = 0;
+		i = 0;
+		switch(b){
+		case 4:
+			v = src[i++];
+		case 3:
+			v = (v<<8) | src[i++];
+		case 2:
+			v = (v<<8) | src[i++];
+		case 1:
+			v = (v<<8) | src[i];
+		}
+		*dst++ = (v << s) - (~0UL>>1);
+		src += skip;
+	}
+}
+
+void
 ficonv(int *dst, uchar *src, int bits, int skip, int count)
 {
 	if(bits == 32){
 		while(count--){
 			float f;
 
-			f = *((float*)src);
+			f = *((float*)src), src += skip;
 			if(f > 1.0)
 				*dst++ = 0x7fffffff;
 			else if(f < -1.0)
 				*dst++ = -0x80000000;
 			else
 				*dst++ = f*2147483647.f;
-			src += skip;
 		}
 	} else {
 		while(count--){
 			double d;
 
-			d = *((double*)src);
+			d = *((double*)src), src += skip;
 			if(d > 1.0)
 				*dst++ = 0x7fffffff;
 			else if(d < -1.0)
 				*dst++ = -0x80000000;
 			else
 				*dst++ = d*2147483647.f;
-			src += skip;
 		}
+	}
+}
+
+void
+aiconv(int *dst, uchar *src, int, int skip, int count)
+{
+	int t, seg;
+	uchar a;
+
+	while(count--){
+		a = *src, src += skip;
+		a ^= 0x55;
+		t = (a & 0xf) << 4;
+		seg = (a & 0x70) >> 4;
+		switch(seg){
+		case 0:
+			t += 8;
+			break;
+		case 1:
+			t += 0x108;
+			break;
+		default:
+			t += 0x108;
+			t <<= seg - 1;
+		}
+		t = (a & 0x80) ? t : -t;
+		*dst++ = t << (sizeof(int)*8 - 16);
+	}
+}
+
+void
+µiconv(int *dst, uchar *src, int, int skip, int count)
+{
+	int t;
+	uchar u;
+
+	while(count--){
+		u = *src, src += skip;
+		u = ~u;
+		t = ((u & 0xf) << 3) + 0x84;
+		t <<= (u & 0x70) >> 4;
+		t = u & 0x80 ? 0x84 - t: t - 0x84;
+		*dst++ = t << (sizeof(int)*8 - 16);
 	}
 }
 
@@ -312,6 +405,30 @@ soconv(int *src, uchar *dst, int bits, int skip, int count)
 			dst[i++] = v, v >>= 8;
 		case 1:
 			dst[i] = v;
+		}
+		dst += skip;
+	}
+}
+
+void
+Soconv(int *src, uchar *dst, int bits, int skip, int count)
+{
+	int i, v, s, b;
+
+	b = (bits+7)/8;
+	s = sizeof(int)*8-bits;
+	while(count--){
+		v = *src++ >> s;
+		i = b;
+		switch(b){
+		case 4:
+			dst[--i] = v, v >>= 8;
+		case 3:
+			dst[--i] = v, v >>= 8;
+		case 2:
+			dst[--i] = v, v >>= 8;
+		case 1:
+			dst[--i] = v;
 		}
 		dst += skip;
 	}
@@ -343,6 +460,31 @@ uoconv(int *src, uchar *dst, int bits, int skip, int count)
 }
 
 void
+Uoconv(int *src, uchar *dst, int bits, int skip, int count)
+{
+	int i, s, b;
+	uint v;
+
+	b = (bits+7)/8;
+	s = sizeof(uint)*8-bits;
+	while(count--){
+		v = ((~0UL>>1) + *src++) >> s;
+		i = b;
+		switch(b){
+		case 4:
+			dst[--i] = v, v >>= 8;
+		case 3:
+			dst[--i] = v, v >>= 8;
+		case 2:
+			dst[--i] = v, v >>= 8;
+		case 1:
+			dst[--i] = v;
+		}
+		dst += skip;
+	}
+}
+
+void
 foconv(int *src, uchar *dst, int bits, int skip, int count)
 {
 	if(bits == 32){
@@ -362,24 +504,31 @@ Desc
 mkdesc(char *f)
 {
 	Desc d;
-	int c;
+	Rune r;
 	char *p;
 
 	memset(&d, 0, sizeof(d));
 	p = f;
-	while(c = *p++){
-		switch(c){
-		case 'r':
+	while(*p != 0){
+		p += chartorune(&r, p);
+		switch(r){
+		case L'r':
 			d.rate = strtol(p, &p, 10);
 			break;
-		case 'c':
+		case L'c':
 			d.channels = strtol(p, &p, 10);
 			break;
-		case 's':
-		case 'u':
-		case 'f':
-			d.fmt = c;
-			d.bits = strtol(p, &p, 10);
+		case L'm':
+			r = L'µ';
+		case L's':
+		case L'S':
+		case L'u':
+		case L'U':
+		case L'f':
+		case L'a':
+		case L'µ':
+			d.fmt = r;
+			d.bits = d.abits = strtol(p, &p, 10);
 			break;
 		default:
 			goto Bad;
@@ -387,9 +536,14 @@ mkdesc(char *f)
 	}
 	if(d.rate <= 0)
 		goto Bad;
-	if(d.fmt == 'f'){
+	if(d.fmt == L'a' || d.fmt == L'µ'){
+		if(d.bits != 8)
+			goto Bad;
+		d.abits = sizeof(int)*8 - 16;
+	} else if(d.fmt == L'f'){
 		if(d.bits != 32 && d.bits != 64)
 			goto Bad;
+		d.abits = sizeof(int)*8;
 	} else if(d.bits <= 0 || d.bits > 32)
 		goto Bad;
 	d.framesz = ((d.bits+7)/8) * d.channels;
@@ -472,21 +626,31 @@ main(int argc, char *argv[])
 	}
 
 	if(i.channels > nelem(ch))
-		sysfatal("too many input channels %d", i.channels);
+		sysfatal("too many input channels: %d", i.channels);
 
 	switch(i.fmt){
-	case 's': iconv = siconv; break;
-	case 'u': iconv = uiconv; break;
-	case 'f': iconv = ficonv; break;
+	case L's': iconv = siconv; break;
+	case L'S': iconv = Siconv; break;
+	case L'u': iconv = uiconv; break;
+	case L'U': iconv = Uiconv; break;
+	case L'f': iconv = ficonv; break;
+	case L'a': iconv = aiconv; break;
+	case L'µ': iconv = µiconv; break;
+	default:
+		sysfatal("unsupported input format: %C", i.fmt);
 	}
 
 	switch(o.fmt){
-	case 's': oconv = soconv; break;
-	case 'u': oconv = uoconv; break;
-	case 'f': oconv = foconv; break;
+	case L's': oconv = soconv; break;
+	case L'S': oconv = Soconv; break;
+	case L'u': oconv = uoconv; break;
+	case L'U': oconv = Uoconv; break;
+	case L'f': oconv = foconv; break;
+	default:
+		sysfatal("unsupported output format: %C", o.fmt);
 	}
 
-	if(i.fmt == 'f' || o.fmt == 'f')
+	if(i.fmt == L'f' || o.fmt == L'f')
 		setfcr(getfcr() & ~(FPINVAL|FPOVFL));
 
 	nin = (sizeof(ibuf)-i.framesz)/i.framesz;
@@ -511,7 +675,7 @@ main(int argc, char *argv[])
 			l -= n;
 		n /= i.framesz;
 		(*iconv)(in, ibuf, i.bits, i.framesz, n);
-		dither(in, i.bits, o.bits, n);
+		dither(in, i.abits, o.abits, n);
 		m = resample(&ch[0], in, out, n) - out;
 		if(m < 1){
 			if(n == 0)
@@ -521,7 +685,7 @@ main(int argc, char *argv[])
 		if(i.channels == o.channels){
 			for(k=1; k<i.channels; k++){
 				(*iconv)(in, ibuf + k*((i.bits+7)/8), i.bits, i.framesz, n);
-				dither(in, i.bits, o.bits, n);
+				dither(in, i.abits, o.abits, n);
 				resample(&ch[k], in, out, n);
 				if(m > 0)
 					(*oconv)(out, obuf + k*((o.bits+7)/8), o.bits, o.framesz, m);

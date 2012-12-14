@@ -1,6 +1,6 @@
 .TH AUDIO 1
 .SH NAME
-mp3dec, mp3enc, oggdec, oggenc, flacdec, µlawdec, wavdec, pcmconv \- decode and encode audio files
+mp3dec, mp3enc, oggdec, oggenc, flacdec, sundec, wavdec, pcmconv \- decode and encode audio files
 .SH SYNOPSIS
 .B audio/mp3dec
 [
@@ -13,7 +13,7 @@ mp3dec, mp3enc, oggdec, oggenc, flacdec, µlawdec, wavdec, pcmconv \- decode and
 .br
 .B audio/wavdec
 .br
-.B audio/µlawdec
+.B audio/sundec
 .PP
 .B audio/oggenc
 .br
@@ -65,12 +65,12 @@ decodes MPEG audio (layer 1, 2 and 3). The
 option enables debug output to standard error.
 .I Oggdec,
 .I flacdec,
-.I µlawdec
+.I sunwdec
 and
 .I wavdec
 are like
 .I mp3dec
-but decode OGG Vorbis, FLAC lossless audio, Sun µlaw audio and PCM Wave.
+but decode OGG Vorbis, FLAC lossless audio, Sun audio and RIFF wave.
 .PP
 The encoders read PCM on standard input and produce compressed audio
 on standard output.
@@ -226,17 +226,29 @@ is a concatinated string of the following parts:
 
 .TP
 .BI s #
-sample format is little endian signed integer where
+sample format is little-endian signed integer where
 .I #
 specifies the number of bits
 .TP
 .BI u #
-unsigned little endian integer format
+unsigned little-endian integer format
+.TP
+.BI S #
+singed big-endian integer format
+.TP
+.BI U #
+unsigned big-endian integer format
 .TP
 .BI f #
 floating point format where
 .I #
-has to be 32 or 64 for single or double precisition
+has to be 32 or 64 for single- or double-precisition
+.TP
+.B a8
+8-bit a-law format
+.TP
+.B µ8
+8-bit µ-law format
 .TP
 .BI c #
 specifies the number of channels
