@@ -555,7 +555,7 @@ mkdesc(char *f)
 	if(d.fmt == L'a' || d.fmt == L'µ'){
 		if(d.bits != 8)
 			goto Bad;
-		d.abits = sizeof(int)*8 - 16;
+		d.abits = 16;
 	} else if(d.fmt == L'f'){
 		if(d.bits != 32 && d.bits != 64)
 			goto Bad;
