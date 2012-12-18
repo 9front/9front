@@ -686,6 +686,7 @@ static Bridge southbridges[] = {
 	{ 0x1106, 0x0586, viaget, viaset },	/* Viatech 82C586 */
 	{ 0x1106, 0x0596, viaget, viaset },	/* Viatech 82C596 */
 	{ 0x1106, 0x0686, viaget, viaset },	/* Viatech 82C686 */
+	{ 0x1106, 0x3177, viaget, viaset },	/* Viatech VT8235 */
 	{ 0x1106, 0x3227, viaget, viaset },	/* Viatech VT8237 */
 	{ 0x1106, 0x3287, viaget, viaset },	/* Viatech VT8251 */
 	{ 0x1106, 0x8410, viaget, viaset },	/* Viatech PV530 bridge */
