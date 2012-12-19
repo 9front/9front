@@ -35,7 +35,11 @@ struct KDev
 	Dev*	dev;		/* usb device*/
 	Dev*	ep;		/* endpoint to get events */
 	int	infd;		/* used to send events to kernel */
-	Channel*repeatc;	/* only for keyboard */
+	Channel	*repeatc;	/* only for keyboard */
+
+	/* report descriptor */
+	int	nrep;
+	uchar	rep[128];
 };
 
 /*
@@ -92,17 +96,199 @@ static char sctab[256] =
 [0xf8]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
 };
 
-static int kbdebug;
-static int accel;
+static uchar ptrbootrep[] = {
+0x05, 0x01, 0x09, 0x02, 0xa1, 0x01, 0x09, 0x01, 
+0xa1, 0x00, 0x05, 0x09, 0x19, 0x01, 0x29, 0x03, 
+0x15, 0x00, 0x25, 0x01, 0x95, 0x03, 0x75, 0x01, 
+0x81, 0x02, 0x95, 0x01, 0x75, 0x05, 0x81, 0x01, 
+0x05, 0x01, 0x09, 0x30, 0x09, 0x31, 0x09, 0x38, 
+0x15, 0x81, 0x25, 0x7f, 0x75, 0x08, 0x95, 0x03, 
+0x81, 0x06, 0xc0, 0x09, 0x3c, 0x15, 0x00, 0x25, 
+0x01, 0x75, 0x01, 0x95, 0x01, 0xb1, 0x22, 0x95, 
+0x07, 0xb1, 0x01, 0xc0, 
+};
+
+static int debug;
 
 static int
-setbootproto(KDev* f, int eid)
+signext(int v, int bits)
 {
-	int r, id;
+	int s;
 
-	r = Rh2d|Rclass|Riface;
+	s = sizeof(v)*8 - bits;
+	v <<= s;
+	v >>= s;
+	return v;
+}
+
+static int
+getbits(uchar *p, uchar *e, int bits, int off)
+{
+	int v, m;
+
+	p += off/8;
+	off %= 8;
+	v = 0;
+	m = 1;
+	if(p < e){
+		while(bits--){
+			if(*p & (1<<off))
+				v |= m;
+			if(++off == 8){
+				if(++p >= e)
+					break;
+				off = 0;
+			}
+			m <<= 1;
+		}
+	}
+	return v;
+}
+
+enum {
+	Ng	= RepCnt+1,
+	UsgCnt	= Delim+1,	/* fake */
+	Nl	= UsgCnt+1,
+	Nu	= 256,
+};
+
+static uchar*
+repparse1(uchar *d, uchar *e, int g[], int l[], int c,
+	void (*f)(int t, int v, int g[], int l[], int c, void *a), void *a)
+{
+	int z, k, t, v, i;
+
+	while(d < e){
+		v = 0;
+		t = *d++;
+		z = t & 3, t >>= 2;
+		k = t & 3, t >>= 2;
+		switch(z){
+		case 3:
+			d += 4;
+			if(d > e) continue;
+			v = d[-4] | d[-3]<<8 | d[-2]<<16 | d[-1]<<24;
+			break;
+		case 2:
+			d += 2;
+			if(d > e) continue;
+			v = d[-2] | d[-1]<<8;
+			break;
+		case 1:
+			d++;
+			if(d > e) continue;
+			v = d[-1];
+			break;
+		}
+		switch(k){
+		case 0:	/* main item*/
+			switch(t){
+			case Collection:
+				memset(l, 0, Nl*sizeof(l[0]));
+				d = repparse1(d, e, g, l, v, f, a);
+				continue;
+			case CollectionEnd:
+				return d;
+			case Input:
+			case Output:
+			case Feature:
+				if(l[UsgCnt] == 0 && l[UsagMin] != 0 && l[UsagMin] < l[UsagMax])
+					for(i=l[UsagMin]; i<=l[UsagMax] && l[UsgCnt] < Nu; i++)
+						l[Nl + l[UsgCnt]++] = i;
+				for(i=0; i<g[RepCnt]; i++){
+					if(i < l[UsgCnt])
+						l[Usage] = l[Nl + i];
+					(*f)(t, v, g, l, c, a);
+				}
+				break;
+			}
+			memset(l, 0, Nl*sizeof(l[0]));
+			continue;
+		case 1:	/* global item */
+			if(t == Push){
+				int w[Ng];
+				memmove(w, g, sizeof(w));
+				d = repparse1(d, e, w, l, c, f, a);
+			} else if(t == Pop){
+				return d;
+			} else if(t < Ng){
+				if(t == RepId)
+					v &= 0xFF;
+				else if(t == UsagPg)
+					v &= 0xFFFF;
+				else if(t != RepSize && t != RepCnt){
+					v = signext(v, (z == 3) ? 32 : 8*z);
+				}
+				g[t] = v;
+			}
+			continue;
+		case 2:	/* local item */
+			if(l[Delim] != 0)
+				continue;
+			if(t == Delim){
+				l[Delim] = 1;
+			} else if(t < Delim){
+				if(z != 3 && (t == Usage || t == UsagMin || t == UsagMax))
+					v = (v & 0xFFFF) | (g[UsagPg] << 16);
+				l[t] = v;
+				if(t == Usage && l[UsgCnt] < Nu)
+					l[Nl + l[UsgCnt]++] = v;
+			}
+			continue;
+		case 3:	/* long item */
+			if(t == 15)
+				d += v & 0xFF;
+			continue;
+		}
+	}
+	return d;
+}
+
+/*
+ * parse the report descriptor and call f for every (Input, Output
+ * and Feature) main item as often as it would appear in the report
+ * data packet.
+ */
+static void
+repparse(uchar *d, uchar *e,
+	void (*f)(int t, int v, int g[], int l[], int c, void *a), void *a)
+{
+	int l[Nl+Nu], g[Ng];
+
+	memset(l, 0, sizeof(l));
+	memset(g, 0, sizeof(g));
+	repparse1(d, e, g, l, 0, f, a);
+}
+
+static int
+setproto(KDev *f, int eid)
+{
+	int id, proto;
+
+	proto = Bootproto;
 	id = f->dev->usb->ep[eid]->iface->id;
-	return usbcmd(f->dev, r, Setproto, Bootproto, id, nil, 0);
+	if(f->dev->usb->ep[eid]->iface->csp == PtrCSP){
+		f->nrep = usbcmd(f->dev, Rd2h|Rstd|Riface, Rgetdesc, Dreport<<8, id, 
+			f->rep, sizeof(f->rep));
+		if(f->nrep > 0){
+			if(debug){
+				int i;
+
+				fprint(2, "report descriptor:");
+				for(i = 0; i < f->nrep; i++){
+					if(i%8 == 0)
+						fprint(2, "\n\t");
+					fprint(2, "%#2.2ux ", f->rep[i]);
+				}
+				fprint(2, "\n");
+			}
+			proto = Reportproto;
+		} else {
+			f->nrep = sizeof(ptrbootrep);
+			memmove(f->rep, ptrbootrep, f->nrep);
+		}
+	}
+	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setproto, proto, id, nil, 0);
 }
 
 static int
@@ -125,7 +311,7 @@ recoverkb(KDev *f)
 	for(i = 0; i < 10; i++){
 		sleep(500);
 		if(opendevdata(f->dev, ORDWR) >= 0){
-			setbootproto(f, f->ep->id);
+			setproto(f, f->ep->id);
 			break;
 		}
 		/* else usbd still working... */
@@ -179,69 +365,135 @@ sethipri(void)
 	close(fd);
 }
 
-static int
-scale(int x)
+typedef struct Ptr Ptr;
+struct Ptr
 {
-	int sign = 1;
+	int	x;
+	int	y;
+	int	z;
 
-	if(x < 0){
-		sign = -1;
-		x = -x;
-	}
-	switch(x){
-	case 0:
-	case 1:
-	case 2:
-	case 3:
-		break;
-	case 4:
-		x = 6 + (accel>>2);
-		break;
-	case 5:
-		x = 9 + (accel>>1);
-		break;
-	default:
-		x *= MaxAcc;
-		break;
-	}
-	return sign*x;
-}
+	int	b;
 
-static short
-s16(void *p)
+	int	absx;
+	int	absy;
+	int	absz;
+
+	int	o;
+	uchar	*e;
+	uchar	p[128];
+};
+
+static void
+ptrparse(int t, int f, int g[], int l[], int, void *a)
 {
-	uchar *b = p;
-	return b[0] | b[1]<<8;
+	int v, m;
+	Ptr *p = a;
+
+	if(t != Input)
+		return;
+	if(g[RepId] != 0){
+		if(p->p[0] != g[RepId]){
+			p->o = 0;
+			return;
+		}
+		if(p->o < 8)
+			p->o = 8;	/* skip report id byte */
+	}
+	v = getbits(p->p, p->e, g[RepSize], p->o);
+	if(g[LogiMin] < 0)
+		v = signext(v, g[RepSize]);
+	if((f & (Fvar|Farray)) == Fvar && v >= g[LogiMin] && v <= g[LogiMax]){
+		/*
+		 * we use logical units below, but need the
+		 * sign to be correct for mouse deltas.
+		 * so if physical unit is signed but logical
+		 * is unsigned, convert to signed but in logical
+		 * units.
+		 */
+		if((f & (Fabs|Frel)) == Frel
+		&& g[PhysMin] < 0 && g[PhysMax] > 0
+		&& g[LogiMin] >= 0 && g[LogiMin] < g[LogiMax])
+			v -= (g[PhysMax] * (g[LogiMax] - g[LogiMin])) / (g[PhysMax] - g[PhysMin]);
+
+		switch(l[Usage]){
+		case 0x090001:
+			m = 1;
+			goto Button;
+		case 0x090002:
+			m = 4;
+			goto Button;
+		case 0x090003:
+			m = 2;
+		Button:
+			p->b &= ~m;
+			if(v != 0)
+				p->b |= m;
+			break;
+		case 0x010030:
+			if((f & (Fabs|Frel)) == Fabs){
+				p->x = (v - p->absx);
+				p->absx = v;
+			} else {
+				p->x = v;
+				p->absx += v;
+			}
+			break;
+		case 0x010031:
+			if((f & (Fabs|Frel)) == Fabs){
+				p->y = (v - p->absy);
+				p->absy = v;
+			} else {
+				p->y = v;
+				p->absy += v;
+			}
+			break;
+		case 0x010038:
+			if((f & (Fabs|Frel)) == Fabs){
+				p->z = (v - p->absz);
+				p->absz = v;
+			} else {
+				p->z = v;
+				p->absz += v;
+			}
+			p->b &= ~(8|16);
+			if(p->z != 0)
+				p->b |= (p->z > 0) ? 8 : 16;
+			break;
+		}
+	}
+	p->o += g[RepSize];
 }
 
 static void
 ptrwork(void* a)
 {
-	static char maptab[] = {0x0, 0x1, 0x4, 0x5, 0x2, 0x3, 0x6, 0x7};
-	int x, y, z, b, c, nerrs, skiplead;
-	char	err[ERRMAX], buf[64];
+	char	err[ERRMAX];
 	char	mbuf[80];
+	int	c, nerrs;
 	KDev*	f = a;
+	Ptr	p;
 
-	kbprocname(f, "ptrwork");
+	kbprocname(f, "ptr");
 	sethipri();
 
-	skiplead = -1;
+	memset(&p, 0, sizeof(p));
+
 	nerrs = 0;
 	for(;;){
 		if(f->ep == nil)
 			kbfatal(f, nil);
-		if(f->ep->maxpkt < 3 || f->ep->maxpkt > sizeof buf)
-			kbfatal(f, "mouse: weird mouse maxpkt");
-		memset(buf, 0, sizeof buf);
-		c = read(f->ep->dfd, buf, f->ep->maxpkt);
+		if(f->ep->maxpkt < 1 || f->ep->maxpkt > sizeof(p.p))
+			kbfatal(f, "ptr: weird mouse maxpkt");
+
+		memset(p.p, 0, sizeof(p.p));
+		c = read(f->ep->dfd, p.p, f->ep->maxpkt);
 		if(c <= 0){
 			if(c < 0)
 				rerrstr(err, sizeof(err));
 			else
 				strcpy(err, "zero read");
 			if(++nerrs < 3){
-				fprint(2, "%s: mouse: %s: read: %s\n", argv0, f->ep->dir, err);
+				fprint(2, "%s: ptr: %s: read: %s\n", argv0, f->ep->dir, err);
 				if(strstr(err, "babble") != 0)
 					recoverkb(f);
 				continue;
@@ -249,47 +501,12 @@ ptrwork(void* a)
 			kbfatal(f, err);
 		}
 		nerrs = 0;
-		if(c < 3)
-			continue;
 
-		if(c > 4){
-			/*
-			 * horrible horrible hack. some mouse send a
-			 * constant 0x01 lead byte. stop the hack as
-			 * soon as buf[0] changes.
-			 */
-			if(skiplead == -1)
-				skiplead = buf[0] & 0xFF;
-			if(skiplead == 0x01 && skiplead == buf[0])
-				memmove(buf, buf+1, --c);
-			else
-				skiplead = 0;
-		}
+		p.o = 0;
+		p.e = p.p + c;
+		repparse(f->rep, f->rep+f->nrep, ptrparse, &p);
 
-		z = 0;
-		if(c == 6 && f->dev->usb->vid == 0x1a7c){
-			/* Evoluent vertical mouse */
-			x = s16(&buf[1]);
-			y = s16(&buf[3]);
-			z = buf[5];
-		} else {
-			x = buf[1];
-			y = buf[2];
-			if(c > 3)
-				z = buf[3];
-		}
-		if(accel){
-			x = scale(x);
-			y = scale(y);
-		}
-		b = maptab[buf[0] & 0x7];
-		if(z > 0)	/* up */
-			b |= 0x08;
-		if(z < 0)	/* down */
-			b |= 0x10;
-		if(kbdebug > 1)
-			fprint(2, "%s: m%11d %11d %11d\n", argv0, x, y, b);
-		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", x, y,b);
+		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", p.x, p.y, p.b);
 		if(write(f->infd, mbuf, strlen(mbuf)) < 0)
 			kbfatal(f, "mousein i/o");
 	}
@@ -479,7 +696,7 @@ kbdwork(void *a)
 	char err[128];
 	KDev *f = a;
 
-	kbprocname(f, "kbdwork");
+	kbprocname(f, "kbd");
 
 	f->repeatc = chancreate(sizeof(ulong), 0);
 	if(f->repeatc == nil)
@@ -516,7 +733,7 @@ kbdwork(void *a)
 			continue;
 		if(kbdbusy(buf + 2, c - 2))
 			continue;
-		if(usbdebug > 2 || kbdebug > 1){
+		if(usbdebug > 2 || debug > 1){
 			fprint(2, "kbd mod %x: ", buf[0]);
 			for(i = 2; i < c; i++)
 				fprint(2, "kc %x ", buf[i]);
@@ -540,8 +757,8 @@ kbstart(Dev *d, Ep *ep, char *infile, void (*f)(void*))
 	}
 	incref(d);
 	kd->dev = d;
-	if(setbootproto(kd, ep->id) < 0){
-		fprint(2, "%s: %s: bootproto: %r\n", argv0, d->dir);
+	if(setproto(kd, ep->id) < 0){
+		fprint(2, "%s: %s: setproto: %r\n", argv0, d->dir);
 		goto Err;
 	}
 	kd->ep = openep(kd->dev, ep->id);
@@ -576,10 +793,9 @@ threadmain(int argc, char* argv[])
 
 	ARGBEGIN{
 	case 'a':
-		accel = strtol(EARGF(usage()), nil, 0);
 		break;
 	case 'd':
-		kbdebug++;
+		debug++;
 		break;
 	default:
 		usage();
