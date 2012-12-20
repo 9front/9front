@@ -206,6 +206,25 @@ swab2(char *b, int n)
 	}
 }
 
+static int
+cread(int fd, void *buf, int len, int mod)
+{
+	char *off = buf;
+
+	len -= (len % mod);
+Again:
+	len = read(fd, off, len);
+	if(len <= 0)
+		return len;
+	off += len;
+	len = off - (char*)buf;
+	if((len % mod) != 0){
+		len = mod - (len % mod);
+		goto Again;
+	}
+	return len;
+}
+
 void
 unicode_in(int fd, long *notused, struct convert *out)
 {
@@ -214,7 +233,7 @@ unicode_in(int fd, long *notused, struct convert *out)
 	int swabme;
 
 	USED(notused);
-	if(read(fd, (char *)buf, 2) != 2)
+	if(cread(fd, (char *)buf, 2, 2) != 2)
 		return;
 	ninput += 2;
 	switch(buf[0])
@@ -228,19 +247,10 @@ unicode_in(int fd, long *notused, struct convert *out)
 		swabme = 1;
 		break;
 	}
-	while((n = read(fd, (char *)buf, 2*N)) > 0){
+	while((n = cread(fd, (char *)buf, 2*N, 2)) > 0){
 		ninput += n;
 		if(swabme)
 			swab2((char *)buf, n);
-		if(n&1){
-			if(squawk)
-				EPR "%s: odd byte count in %s\n", argv0, file);
-			nerrors++;
-			if(clean)
-				n--;
-			else
-				buf[n++/2] = Runeerror;
-		}
 		OUT(out, buf, n/2);
 	}
 	OUT(out, buf, 0);
@@ -254,24 +264,16 @@ unicode_in_be(int fd, long *notused, struct convert *out)
 	uchar *p;
 
 	USED(notused);
-	while((n = read(fd, (char *)buf, 2*N)) > 0){
+	while((n = cread(fd, (char *)buf, 2*N, 2)) > 0){
 		ninput += n;
+		n /= 2;
 		p = (uchar*)buf;
-		for(i=0; i<n/2; i++){
+		for(i=0; i<n; i++){
 			r = *p++<<8;
 			r |= *p++;
 			buf[i] = r;
 		}
-		if(n&1){
-			if(squawk)
-				EPR "%s: odd byte count in %s\n", argv0, file);
-			nerrors++;
-			if(clean)
-				n--;
-			else
-				buf[n++/2] = Runeerror;
-		}
-		OUT(out, buf, n/2);
+		OUT(out, buf, n);
 	}
 	OUT(out, buf, 0);
 }
@@ -284,24 +286,16 @@ unicode_in_le(int fd, long *notused, struct convert *out)
 	uchar *p;
 
 	USED(notused);
-	while((n = read(fd, (char *)buf, 2*N)) > 0){
+	while((n = cread(fd, (char *)buf, 2*N, 2)) > 0){
 		ninput += n;
+		n /= 2;
 		p = (uchar*)buf;
-		for(i=0; i<n/2; i++){
+		for(i=0; i<n; i++){
 			r = *p++;
 			r |= *p++<<8;
 			buf[i] = r;
 		}
-		if(n&1){
-			if(squawk)
-				EPR "%s: odd byte count in %s\n", argv0, file);
-			nerrors++;
-			if(clean)
-				n--;
-			else
-				buf[n++/2] = Runeerror;
-		}
-		OUT(out, buf, n/2);
+		OUT(out, buf, n);
 	}
 	OUT(out, buf, 0);
 }
