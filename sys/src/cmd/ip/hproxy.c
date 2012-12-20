@@ -51,14 +51,17 @@ main(void)
 		*p++ = 0;
 		path = p;
 	}
-	if(*host == '[')
+	if(*host == '['){
 		host++;
-	if(p = strrchr(host, ':')){
+		if(p = strrchr(host, ']')){
+			*p++ = 0;
+			if(p = strrchr(p, ':'))
+				port = ++p;
+		}
+	} else if(p = strrchr(host, ':')){
 		*p++ = 0;
 		port = p;
 	}
-	if(p = strrchr(host, ']'))
-		*p = 0;
 
 	snprint(addr, sizeof(addr), "tcp!%s!%s", host, port);
 
