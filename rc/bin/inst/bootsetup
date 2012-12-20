@@ -52,34 +52,56 @@ case go
 		} >/tmp/plan9.ini
 	}
 
-	need9fatformat=no
-	if(! ~ `{fstype $9fat} dos)
-		need9fatformat=yes
+	# clean state
+	rm -f /tmp/oldplan9.ini /tmp/pbs.bak
+	unmount /n/9fat >[2]/dev/null
+
 	if(! test -f /srv/dos)
 		dossrv
-	if(! mount -c /srv/dos /n/9fat $9fat >[2]/dev/null)
-		need9fatformat=yes
-	if not if(! test -f /n/9fat/plan9.ini)
-		need9fatformat=yes
+
+	need9fatformat=yes
+	if(~ `{fstype $9fat} dos){
+		if(mount /srv/dos /n/9fat $9fat >[2]/dev/null){
+			if(cp /n/9fat/plan9.ini /tmp/oldplan9.ini >[2]/dev/null)
+				need9fatformat=no
+			unmount /n/9fat >[2]/dev/null
+
+			# make sure dossrv is gone
+			sleep 1
+		}
+	}
+
+	# always make backup of old bootsector
+	logprog dd -bs 512 -count 1 -if $9fat -of /tmp/pbs.bak
 
 	if(~ $need9fatformat yes){
 		log Initializing Plan 9 FAT partition.
-		logprog disk/format -r 2 -d -b /386/pbs $9fat
-		logprog mount -c /srv/dos /n/9fat $9fat
+		logprog disk/format -r 2 -d -b /n/newfs/386/pbs $9fat
 	}
 	if not {
 		log Updating bootsector.
-		logprog dd -if $9fat -of /n/9fat/pbs.bak -bs 512 -count 1
-		logprog disk/format -b /386/pbs $9fat
+		logprog disk/format -b /n/newfs/386/pbs $9fat
 	}
 
+	logprog mount -c /srv/dos /n/9fat $9fat
+
 	logprog rm -f /n/9fat/^(9bootfat plan9.ini 9pcf 9pccpuf)
+
 	logprog cp /n/newfs/386/9bootfat /n/9fat/9bootfat
 	# make file continous on disk
 	logprog chmod +al /n/9fat/9bootfat
+
 	logprog cp /tmp/plan9.ini /n/9fat/plan9.ini
 	logprog cp /n/newfs/386/9pcf /n/9fat/9pcf
 	logprog cp /n/newfs/386/9pccpuf /n/9fat/9pccpuf
+
+	# copy in backups
+	if(test -f /tmp/oldplan9.ini)
+		logprog cp /tmp/oldplan9.ini /n/9fat
+	if(test -f /tmp/pbs.bak)
+		logprog cp /tmp/pbs.bak /n/9fat
+
+	logprog unmount /n/9fat
 
 	disk=`{basename `{basename -d $9fat}}
 	if(bootplan9){

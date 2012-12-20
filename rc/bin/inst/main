@@ -23,8 +23,8 @@ tasks=(\
 	copydist\
 	ndbsetup nvramsetup\
 	tzsetup\
-	bootsetup finish stop\
-	stopether stopppp\
+	bootsetup\
+	finish\
 )
 
 # these don't show up in the menu but still matter
