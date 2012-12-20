@@ -465,36 +465,29 @@ vgbedumpisr(ulong isr)
 	}
 }
 
-static void
-noop(Block *)
-{
-}
-
 static int
 vgbenewrx(Ctlr* ctlr, int i)
 {
 	Block* block;
 	RxDesc* desc;
 
-	/*
-	 * allocate a receive Block.  we're maintaining
-	 * a private pool of Blocks, so we don't want freeb
-	 * to actually free them, thus we set block->free.
-	 */
-	block = allocb(RxSize);
-	block->free = noop;
+	block = iallocb(RxSize);
+	if(block == nil)
+		return -1;
 
 	/* Remember that block. */
 	ctlr->rx_blocks[i] = block;
 
-	/* Initialize Rx descriptor. (TODO: 48/64 bits support ?) */
 	desc = &ctlr->rx_ring[i];
-	desc->status = htole32(RxDesc_Status_Own);
-	desc->control = htole32(0);
-
 	desc->addr_lo = htole32((ulong)PCIWADDR(block->rp));
 	desc->addr_hi = htole16(0);
 	desc->length = htole16(RxSize | 0x8000);
+
+	coherence();
+
+	/* Initialize Rx descriptor. (TODO: 48/64 bits support ?) */
+	desc->status = htole32(RxDesc_Status_Own);
+	desc->control = htole32(0);
 
 	return 0;
 }
@@ -522,6 +515,8 @@ vgberxeof(Ether* edev)
 		if(status & RxDesc_Status_Own)
 			continue;
 
+		ctlr->stats.rx++;
+
 		if(status & RxDesc_Status_Goodframe){
 			length = status >> RxDesc_Status_SizShift;
 			length &= RxDesc_Status_SizMask;
@@ -530,17 +525,21 @@ vgberxeof(Ether* edev)
 				print("vgbe: Rx-desc[%03d] status=%#08ulx ctl=%#08ulx len=%uld bytes\n",
 					i, status, desc->control, length);
 
+			/* remember the block */
 			block = ctlr->rx_blocks[i];
-			block->wp = block->rp + length;
 
-			ctlr->stats.rx++;
-			etheriq(edev, block, 1);
+			/* plant new block, might fail if out of memory */
+			if(vgbenewrx(ctlr, i) == 0){
+				block->wp = block->rp + length;
+				etheriq(edev, block, 1);
+				continue;
+			}
 		}
 		else
 			print("vgbe: Rx-desc[%#02x] *BAD FRAME* status=%#08ulx ctl=%#08ulx\n",
 				i, status, desc->control);
 
-		/* reset packet ... */
+		/* reset block */
 		desc->status = htole32(RxDesc_Status_Own);
 		desc->control = htole32(0);
 	}
