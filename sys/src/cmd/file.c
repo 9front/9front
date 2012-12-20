@@ -326,6 +326,68 @@ chartorune1(Rune1 *rune, char *str)
 }
 
 void
+utfconv(void)
+{
+	Rune r;
+	uchar *rb;
+	char *p, *e;
+	int i;
+
+	if(nbuf < 4)
+		return;
+
+	if(memcmp(buf, "\x00\x00\xFE\xFF", 4) == 0){
+		if(!mime)
+			print("utf-32be ");
+		return;
+	} else
+	if(memcmp(buf, "\xFE\xFF\x00\x00", 4) == 0){
+		if(!mime)
+			print("utf-32le ");
+		return;
+	} else
+	if(memcmp(buf, "\xEF\xBB\xBF", 3) == 0){
+		memmove(buf, buf+3, nbuf-3);
+		nbuf -= 3;
+		return;
+	} else
+	if(memcmp(buf, "\xFE\xFF", 2) == 0){
+		if(!mime)
+			print("utf-16be ");
+
+		nbuf -= 2;
+		rb = malloc(nbuf+1);
+		memmove(rb, buf+2, nbuf);
+		p = (char*)buf;
+		e = p+nbuf-4;
+		for(i=0; i<nbuf && p < e; i+=2){
+			r = rb[i+1] | rb[i]<<8;
+			p += runetochar(p, &r);
+		}
+		*p = 0;
+		free(rb);
+		nbuf = p - (char*)buf;
+	} else
+	if(memcmp(buf, "\xFF\xFE", 2) == 0){
+		if(!mime)
+			print("utf-16le ");
+
+		nbuf -= 2;
+		rb = malloc(nbuf+1);
+		memmove(rb, buf+2, nbuf);
+		p = (char*)buf;
+		e = p+nbuf-4;
+		for(i=0; i<nbuf && p < e; i+=2){
+			r = rb[i] | rb[i+1]<<8;
+			p += runetochar(p, &r);
+		}
+		*p = 0;
+		free(rb);
+		nbuf = p - (char*)buf;
+	}
+}
+
+void
 filetype(int fd)
 {
 	Rune1 r;
@@ -360,6 +422,8 @@ filetype(int fd)
 		return;
 	}
 	buf[nbuf] = 0;
+
+	utfconv();
 
 	/*
 	 * build histogram table
@@ -598,10 +662,6 @@ Filemagic long0tab[] = {
 	070707,		0xFFFF,		"cpio archive", "application/x-cpio",
 	0x2F7,		0xFFFF,		"tex dvi", "application/dvi",
 	0xfaff,		0xfeff,		"mp3 audio",	"audio/mpeg",
-	0xfeff0000,	0xffffffff,	"utf-32le",	"text/plain charset=utf-32le",
-	0x0000fffe,	0xffffffff,	"utf-32be",	"text/plain charset=utf-32be",
-	0xfeff,		0xffff,		"utf-16le",	"text/plain charset=utf-16le",
-	0xfffe,		0xffff,		"utf-16be",	"text/plain charset=utf-16be",
 	/* 0xfeedface: this could alternately be a Next Plan 9 boot image */
 	0xcefaedfe,	0xFFFFFFFF,	"32-bit power Mach-O executable", OCTET,
 	/* 0xfeedfacf */
