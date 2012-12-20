@@ -206,8 +206,8 @@ int	(*call[])(void) =
 
 int mime;
 
-char OCTET[] =	"application/octet-stream\n";
-char PLAIN[] =	"text/plain\n";
+char OCTET[] =	"application/octet-stream";
+char PLAIN[] =	"text/plain";
 
 void
 main(int argc, char *argv[])
@@ -339,12 +339,14 @@ filetype(int fd)
 		return;
 	}
 	if(mbuf->mode & DMDIR) {
-		print(mime ? OCTET : "directory\n");
+		print("%s\n", mime ? OCTET : "directory");
 		return;
 	}
 	if(mbuf->type != 'M' && mbuf->type != '|') {
-		print(mime ? OCTET : "special file #%C/%s\n",
-			mbuf->type, mbuf->name);
+		if(mime)
+			print("%s\n", OCTET);
+		else
+			print("special file #%C/%s\n", mbuf->type, mbuf->name);
 		return;
 	}
 	/* may be reading a pipe on standard input */
@@ -354,7 +356,7 @@ filetype(int fd)
 		return;
 	}
 	if(nbuf == 0) {
-		print(mime ? PLAIN : "empty file\n");
+		print("%s\n", mime ? PLAIN : "empty file");
 		return;
 	}
 	buf[nbuf] = 0;
@@ -424,14 +426,14 @@ filetype(int fd)
 	if (nbuf < 100 && !mime)
 		print(mime ? PLAIN : "short ");
 	if (guess == Fascii)
-		print(mime ? PLAIN : "Ascii\n");
+		print("%s\n", mime ? PLAIN : "Ascii");
 	else if (guess == Feascii)
-		print(mime ? PLAIN : "extended ascii\n");
+		print("%s\n", mime ? PLAIN : "extended ascii");
 	else if (guess == Flatin)
-		print(mime ? PLAIN : "latin ascii\n");
+		print("%s\n", mime ? PLAIN : "latin ascii");
 	else if (guess == Futf && utf_count() < 4)
 		print_utf();
-	else print(mime ? OCTET : "binary\n");
+	else print("%s\n", mime ? OCTET : "binary");
 }
 
 void
@@ -502,7 +504,7 @@ print_utf(void)
 	int i, printed, j;
 
 	if(mime){
-		print(PLAIN);
+		print("%s\n", PLAIN);
 		return;
 	}
 	if (chkascii()) {
@@ -584,38 +586,38 @@ struct Filemagic {
  * when read from a file.
  */
 Filemagic long0tab[] = {
-	0xF16DF16D,	0xFFFFFFFF,	"pac1 audio file\n",	OCTET,
+	0xF16DF16D,	0xFFFFFFFF,	"pac1 audio file",	OCTET,
 	/* "pac1" */
-	0x31636170,	0xFFFFFFFF,	"pac3 audio file\n",	OCTET,
+	0x31636170,	0xFFFFFFFF,	"pac3 audio file",	OCTET,
 	/* "pXc2 */
-	0x32630070,	0xFFFF00FF,	"pac4 audio file\n",	OCTET,
-	0xBA010000,	0xFFFFFFFF,	"mpeg system stream\n",	OCTET,
-	0x43614c66,	0xFFFFFFFF,	"FLAC audio file\n",	"audio/flac",
-	0x30800CC0,	0xFFFFFFFF,	"inferno .dis executable\n", OCTET,
-	0x04034B50,	0xFFFFFFFF,	"zip archive\n", "application/zip",
-	070707,		0xFFFF,		"cpio archive\n", "application/x-cpio",
-	0x2F7,		0xFFFF,		"tex dvi\n", "application/dvi",
-	0xfaff,		0xfeff,		"mp3 audio\n",	"audio/mpeg",
-	0xfeff0000,	0xffffffff,	"utf-32be\n",	"text/plain charset=utf-32be",
-	0xfffe,		0xffffffff,	"utf-32le\n",	"text/plain charset=utf-32le",
-	0xfeff,		0xffff,		"utf-16be\n",	"text/plain charset=utf-16be",
-	0xfffe,		0xffff,		"utf-16le\n",	"text/plain charset=utf-16le",
+	0x32630070,	0xFFFF00FF,	"pac4 audio file",	OCTET,
+	0xBA010000,	0xFFFFFFFF,	"mpeg system stream",	OCTET,
+	0x43614c66,	0xFFFFFFFF,	"FLAC audio file",	"audio/flac",
+	0x30800CC0,	0xFFFFFFFF,	"inferno .dis executable", OCTET,
+	0x04034B50,	0xFFFFFFFF,	"zip archive", "application/zip",
+	070707,		0xFFFF,		"cpio archive", "application/x-cpio",
+	0x2F7,		0xFFFF,		"tex dvi", "application/dvi",
+	0xfaff,		0xfeff,		"mp3 audio",	"audio/mpeg",
+	0xfeff0000,	0xffffffff,	"utf-32le",	"text/plain charset=utf-32le",
+	0x0000fffe,	0xffffffff,	"utf-32be",	"text/plain charset=utf-32be",
+	0xfeff,		0xffff,		"utf-16le",	"text/plain charset=utf-16le",
+	0xfffe,		0xffff,		"utf-16be",	"text/plain charset=utf-16be",
 	/* 0xfeedface: this could alternately be a Next Plan 9 boot image */
-	0xcefaedfe,	0xFFFFFFFF,	"32-bit power Mach-O executable\n", OCTET,
+	0xcefaedfe,	0xFFFFFFFF,	"32-bit power Mach-O executable", OCTET,
 	/* 0xfeedfacf */
-	0xcffaedfe,	0xFFFFFFFF,	"64-bit power Mach-O executable\n", OCTET,
+	0xcffaedfe,	0xFFFFFFFF,	"64-bit power Mach-O executable", OCTET,
 	/* 0xcefaedfe */
-	0xfeedface,	0xFFFFFFFF,	"386 Mach-O executable\n", OCTET,
+	0xfeedface,	0xFFFFFFFF,	"386 Mach-O executable", OCTET,
 	/* 0xcffaedfe */
-	0xfeedfacf,	0xFFFFFFFF,	"amd64 Mach-O executable\n", OCTET,
+	0xfeedfacf,	0xFFFFFFFF,	"amd64 Mach-O executable", OCTET,
 	/* 0xcafebabe */
-	0xbebafeca,	0xFFFFFFFF,	"Mach-O universal executable\n", OCTET,
+	0xbebafeca,	0xFFFFFFFF,	"Mach-O universal executable", OCTET,
 	/*
 	 * venti & fossil magic numbers are stored big-endian on disk,
 	 * thus the numbers appear reversed in this table.
 	 */
-	0xad4e5cd1,	0xFFFFFFFF,	"venti arena\n", OCTET,
-	0x2bb19a52,	0xFFFFFFFF,	"paq archive\n", OCTET,
+	0xad4e5cd1,	0xFFFFFFFF,	"venti arena", OCTET,
+	0x2bb19a52,	0xFFFFFFFF,	"paq archive", OCTET,
 };
 
 int
@@ -625,7 +627,7 @@ filemagic(Filemagic *tab, int ntab, ulong x)
 
 	for(i=0; i<ntab; i++)
 		if((x&tab[i].mask) == tab[i].x){
-			print(mime ? tab[i].mime : tab[i].desc);
+			print("%s\n", mime ? tab[i].mime : tab[i].desc);
 			return 1;
 		}
 	return 0;
@@ -652,10 +654,10 @@ Fileoffmag longofftab[] = {
 	 * venti & fossil magic numbers are stored big-endian on disk,
 	 * thus the numbers appear reversed in this table.
 	 */
-	256*1024, 0xe7a5e4a9, 0xFFFFFFFF, "venti arenas partition\n", OCTET,
-	256*1024, 0xc75e5cd1, 0xFFFFFFFF, "venti index section\n", OCTET,
-	128*1024, 0x89ae7637, 0xFFFFFFFF, "fossil write buffer\n", OCTET,
-	4,	  0x31647542, 0xFFFFFFFF, "OS X finder properties\n", OCTET,
+	256*1024, 0xe7a5e4a9, 0xFFFFFFFF, "venti arenas partition", OCTET,
+	256*1024, 0xc75e5cd1, 0xFFFFFFFF, "venti index section", OCTET,
+	128*1024, 0x89ae7637, 0xFFFFFFFF, "fossil write buffer", OCTET,
+	4,	  0x31647542, 0xFFFFFFFF, "OS X finder properties", OCTET,
 };
 
 int
@@ -673,7 +675,7 @@ fileoffmagic(Fileoffmag *tab, int ntab)
 			continue;
 		x = LENDIAN(buf);
 		if((x&tp->mask) == tp->x){
-			print(mime? tp->mime: tp->desc);
+			print("%s\n", mime ? tp->mime : tp->desc);
 			return 1;
 		}
 	}
@@ -693,7 +695,7 @@ isexec(void)
 
 	seek(fd, 0, 0);		/* reposition to start of file */
 	if(crackhdr(fd, &f)) {
-		print(mime ? OCTET : "%s\n", f.name);
+		print("%s\n", mime ? OCTET : f.name);
 		return 1;
 	}
 	return 0;
@@ -861,10 +863,7 @@ istring(void)
 		if(l == -1)
 			l = strlen(p->key);
 		if(nbuf >= l && memcmp(buf, p->key, l) == 0) {
-			if(mime)
-				print("%s\n", p->mime);
-			else
-				print("%s\n", p->filetype);
+			print("%s\n", mime ? p->mime : p->filetype);
 			return 1;
 		}
 	}
@@ -873,7 +872,7 @@ istring(void)
 			if(buf[i] == '\n')
 				break;
 		if(mime)
-			print(OCTET);
+			print("%s\n", OCTET);
 		else
 			print("%.*s picture\n", utfnlen((char*)buf+5, i-5), (char*)buf+5);
 		return 1;
@@ -905,10 +904,7 @@ isoffstr(void)
 		if (readn(fd, buf, n) != n)
 			continue;
 		if(memcmp(buf, p->key, n) == 0) {
-			if(mime)
-				print("%s\n", p->mime);
-			else
-				print("%s\n", p->filetype);
+			print("%s\n", mime ? p->mime : p->filetype);
 			return 1;
 		}
 	}
@@ -929,8 +925,7 @@ iff(void)
 		else if (strncmp((char*)buf+8, "AVI ", 4) == 0)
 			print("%s\n", mime? "video/avi": "avi video");
 		else
-			print("%s\n", mime? "application/octet-stream":
-				"riff file");
+			print("%s\n", mime? "application/octet-stream": "riff file");
 		return 1;
 	}
 	return 0;
@@ -979,7 +974,7 @@ ishtml(void)
 				p += n;
 				if(p < buf+nbuf && strchr("\t\r\n />", *p)){
 					if(++count > 2) {
-						print(mime ? "text/html\n" : "HTML file\n");
+						print("%s\n", mime ? "text/html" : "HTML file");
 						return 1;
 					}
 				}
@@ -1037,7 +1032,7 @@ isrfc822(void)
 		p = q+1;
 	}
 	if(count >= 3){
-		print(mime ? "message/rfc822\n" : "email file\n");
+		print("%s\n", mime ? "message/rfc822" : "email file");
 		return 1;
 	}
 	return 0;
@@ -1054,7 +1049,7 @@ ismbox(void)
 		return 0;
 	*q = 0;
 	if(strncmp(p, "From ", 5) == 0 && strstr(p, " remote from ") == nil){
-		print(mime ? "text/plain\n" : "mail box\n");
+		print("%s\n", mime ? "text/plain" : "mail box");
 		return 1;
 	}
 	*q = '\n';
@@ -1075,7 +1070,7 @@ iscint(void)
 	if(type < 0)
 		return 0;
 	if(mime)
-		print(OCTET);
+		print("%s\n", OCTET);
 	else
 		print("%s intermediate\n", name);
 	return 1;
@@ -1108,7 +1103,7 @@ isc(void)
 
 yes:
 	if(mime){
-		print(PLAIN);
+		print("%s\n", PLAIN);
 		return 1;
 	}
 	if(wfreq[Alword] > 0)
@@ -1121,26 +1116,24 @@ yes:
 int
 islimbo(void)
 {
-
 	/*
 	 * includes
 	 */
 	if(wfreq[Lword] < 4)
 		return 0;
-	print(mime ? PLAIN : "limbo program\n");
+	print("%s\n", mime ? PLAIN : "limbo program");
 	return 1;
 }
 
 int
 isas(void)
 {
-
 	/*
 	 * includes
 	 */
 	if(wfreq[Aword] < 2)
 		return 0;
-	print(mime ? PLAIN : "as program\n");
+	print("%s\n", mime ? PLAIN : "as program");
 	return 1;
 }
 
@@ -1153,7 +1146,7 @@ ismp3(void)
 	e = p + nbuf-1;
 	while((p < e) && (p = memchr(p, 0xFF, e - p))){
 		if((p[1] & 0xFE) == 0xFA){
-			print(mime ? "audio/mpeg\n" : "mp3 audio\n");
+			print("%s\n", mime ? "audio/mpeg" : "mp3 audio");
 			return 1;
 		}
 		p++;
@@ -1182,18 +1175,18 @@ ismung(void)
 	cs /= 8.;
 	if(cs <= 24.322) {
 		if(buf[0]==0x1f && buf[1]==0x9d)
-			print(mime ? "application/x-compress" : "compressed\n");
+			print("%s\n", mime ? "application/x-compress" : "compressed");
 		else
 		if(buf[0]==0x1f && buf[1]==0x8b)
-			print(mime ? "application/x-gzip" : "gzip compressed\n");
+			print("%s\n", mime ? "application/x-gzip" : "gzip compressed");
 		else
 		if(buf[0]=='B' && buf[1]=='Z' && buf[2]=='h')
-			print(mime ? "application/x-bzip2" : "bzip2 compressed\n");
+			print("%s\n", mime ? "application/x-bzip2" : "bzip2 compressed");
 		else
 		if(buf[0]==0x78 && buf[1]==0x9c)
-			print(mime ? "application/x-deflate" : "zlib compressed\n");
+			print("%s\n", mime ? "application/x-deflate" : "zlib compressed");
 		else
-			print(mime ? OCTET : "encrypted\n");
+			print("%s\n", mime ? OCTET : "encrypted");
 		return 1;
 	}
 	return 0;
@@ -1248,7 +1241,7 @@ isenglish(void)
 		rare += cfreq[tolower(*p)];
 	}
 	if(vow*5 >= nbuf-cfreq[' '] && comm >= 10*rare) {
-		print(mime ? PLAIN : "English text\n");
+		print("%s\n", mime ? PLAIN : "English text");
 		return 1;
 	}
 	return 0;
@@ -1565,7 +1558,7 @@ iself(void)
 			print("%s ELF %s\n", p, t);
 		}
 		else
-			print("application/x-elf-executable");
+			print("application/x-elf-executable\n");
 		return 1;
 	}
 
