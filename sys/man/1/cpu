@@ -30,12 +30,12 @@ cpu \- connection to CPU server
 .PP
 .B cpu
 [
+.B -A
+.I address
+] [
 .B -R
 |
 .B -O
-] [
-.B -A
-.I address
 ]
 .SH DESCRIPTION
 .I Cpu
