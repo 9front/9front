@@ -1,1 +1,3 @@
-#!/bin/cpu -R
+#!/bin/rc
+netdir=`{echo $3 | sed 's;/[0-9]+$;!*!0;'}
+exec /bin/cpu -A $netdir -R
