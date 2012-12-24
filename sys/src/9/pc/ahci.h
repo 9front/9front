@@ -57,6 +57,12 @@ enum {
 	Boh	= 1<<0,	/* bios/os handoff supported */
 };
 
+/* bios bits */
+enum {
+	Bos	= 1<<0,
+	Oos	= 1<<1,
+};
+
 /* emctl bits */
 enum {
 	Pm	= 1<<27,	/* port multiplier support */
@@ -108,7 +114,7 @@ enum {
 
 	IEM	= Acpds|Atfes|Ahbds|Ahbfs|Ahbds|Aifs|Ainfs|Aprcs|Apcs|Adps|
 			Aufs|Asdbs|Adss|Adhrs,
-	Ifatal	= Atfes|Ahbfs|Ahbds|Aifs,
+	Ifatal	= Ahbfs|Ahbds|Aifs,
 };
 
 /* serror bits */

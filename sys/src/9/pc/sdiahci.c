@@ -16,10 +16,10 @@
 #include "../port/led.h"
 
 #pragma	varargck	type	"T"	int
-#define	dprint(...)	if(debug)	print(__VA_ARGS__); else USED(debug)
-#define	idprint(...)	if(prid)		print(__VA_ARGS__); else USED(prid)
+#define	dprint(...)	if(debug)	iprint(__VA_ARGS__); else USED(debug)
+#define	idprint(...)	if(prid)	print(__VA_ARGS__); else USED(prid)
 #define	aprint(...)	if(datapi)	print(__VA_ARGS__); else USED(datapi)
-#define	ledprint(...)	if(dled)		print(__VA_ARGS__); else USED(dled)
+#define	ledprint(...)	if(dled)	print(__VA_ARGS__); else USED(dled)
 #define	Pciwaddrh(a)	0
 #define Tname(c)	tname[(c)->type]
 #define	Ticks		MACHP(0)->ticks
@@ -164,6 +164,8 @@ struct Ctlr {
 	Drive	rawdrive[NCtlrdrv];
 	Drive*	drive[NCtlrdrv];
 	int	ndrive;
+
+	uint	missirq;
 };
 
 static	Ctlr	iactlr[NCtlr];
@@ -343,7 +345,7 @@ settxmode(Aportc *pc, uchar f)
 static void
 asleep(int ms)
 {
-	if(up == nil)
+	if(up == nil || !islo())
 		delay(ms);
 	else
 		esleep(ms);
@@ -363,6 +365,8 @@ ahciportreset(Aportc *c, uint mode)
 			break;
 		asleep(25);
 	}
+	if((*cmd & Apwr) != Apwr)
+		*cmd |= Apwr;
 	p->sctl = 3*Aipm | 0*Aspd | Adet;
 	delay(1);
 	p->sctl = 3*Aipm | mode*Aspd;
@@ -379,7 +383,7 @@ ahciflushcache(Aportc *pc)
 	mkalist(pc->m, Lwrite, 0, 0);
 
 	if(ahciwait(pc, 60000) == -1 || pc->p->task & (1|32)){
-		dprint("ahciflushcache fail %lux\n", pc->p->task);
+		dprint("ahciflushcache fail [task %lux]\n", pc->p->task);
 //		preg(pc->m->fis.r, 20);
 		return -1;
 	}
@@ -456,7 +460,7 @@ stop:
 	return -1;
 stop1:
 	/* extra check */
-	dprint("ahci: clo clear %lux\n", a->task);
+	dprint("ahci: clo clear [task %lux]\n", a->task);
 	if(a->task & ASbsy)
 		return -1;
 	*p |= Afre | Ast;
@@ -577,16 +581,18 @@ static void
 ahciwakeup(Aportc *c, uint mode)
 {
 	ushort s;
+	Aport *p;
 
-	s = c->p->sstatus;
-	if((s & Isleepy) == 0)
+	p = c->p;
+	s = p->sstatus;
+	if((s & Isleepy) != 0)
 		return;
 	if((s & Smask) != Spresent){
-		print("ahci: slumbering drive missing %.3ux\n", s);
+		dprint("ahci: slumbering drive missing [ss %.3ux]\n", s);
 		return;
 	}
 	ahciportreset(c, mode);
-//	iprint("ahci: wake %.3ux -> %.3lux\n", s, c->p->sstatus);
+	dprint("ahci: wake %.3ux -> %.3lux\n", s, c->p->sstatus);
 }
 
 static int
@@ -594,6 +600,7 @@ ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 {
 	Aportm *m;
 	Aport *p;
+	int i;
 
 	p = c->p;
 	m = c->m;
@@ -604,12 +611,16 @@ ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 		m->ctab = malign(sizeof *m->ctab, 128);
 	}
 
+	if(ahciidle(p) == -1){
+		dprint("ahci: port not idle\n");
+		return -1;
+	}
+
 	p->list = PCIWADDR(m->list);
 	p->listhi = Pciwaddrh(m->list);
 	p->fis = PCIWADDR(m->fis.base);
 	p->fishi = Pciwaddrh(m->fis.base);
 
-	dprint("ahci: configdrive cmd=%lux sstatus=%lux\n", p->cmd, p->sstatus);
 	p->cmd |= Afre;
 
 	if((p->cmd & Apwr) != Apwr)
@@ -617,7 +628,7 @@ ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 
 	if((h->cap & Hss) != 0){
 		dprint("ahci: spin up ... [%.3lux]\n", p->sstatus);
-		for(int i = 0; i < 1400; i += 50){
+		for(i = 0; i < 1400; i += 50){
 			if((p->sstatus & Sbist) != 0)
 				break;
 			if((p->sstatus & Sphylink) == Sphylink)
@@ -625,17 +636,22 @@ ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 			asleep(50);
 		}
 	}
-	p->serror = SerrAll;
 
 	if((p->sstatus & SSmask) == (Isleepy | Spresent))
 		ahciwakeup(c, mode);
+
+	p->serror = SerrAll;
+	p->ie = IEM;
+
+	/* we will get called again once phylink has been established */
+	if((p->sstatus & Sphylink) != Sphylink)
+		return 0;
 
 	/* disable power managment sequence from book. */
 	p->sctl = 3*Aipm | mode*Aspd | 0*Adet;
 	p->cmd &= ~Aalpe;
 
-	p->cmd |= Ast;
-	p->ie = IEM;
+	p->cmd |= Afre | Ast;
 
 	return 0;
 }
@@ -678,12 +694,24 @@ ahciconf(Ctlr *c)
 	if((u & Ham) == 0)
 		h->ghc |= Hae;
 
-//	print("#S/sd%c: ahci %s port %#p: sss %d ncs %d coal %d "
-//		"mport %d led %d clo %d ems %d\n",
-//		c->sdev->idno, Tname(c), h,
-//		(u>>27) & 1, (u>>8) & 0x1f, (u>>7) & 1, u & 0x1f, (u>>25) & 1,
-//		(u>>24) & 1, (u>>6) & 1);
 	return countbits(h->pi);
+}
+
+static int
+ahcihandoff(Ahba *h)
+{
+	int wait;
+
+	if((h->cap2 & Boh) == 0)
+		return 0;
+	h->bios |= Oos;
+	for(wait = 0; wait < 2000; wait += 100){
+		if((h->bios & Bos) == 0)
+			return 0;
+		delay(100);
+	}
+	iprint("ahci: bios handoff timed out\n");
+	return -1;
 }
 
 static int
@@ -721,10 +749,8 @@ identify(Drive *d)
 
 	id = d->info;
 	s = ahciidentify(&d->portc, id, &d->secsize, dnam(d));
-	if(s == -1){
-		d->state = Derror;
+	if(s == -1)
 		return -1;
-	}
 	osectors = d->sectors;
 	memmove(oserial, d->serial, sizeof d->serial);
 
@@ -790,8 +816,13 @@ updatedrive(Drive *d)
 	if(p->ci == 0){
 		f |= Fdone;
 		pr = 0;
-	}else if(cause & Adps)
+	}else if(cause & Adps){
 		pr = 0;
+	}else if(cause & Atfes){
+		f |= Ferror;
+		ewake = 1;
+		pr = 0;
+	}
 	if(cause & Ifatal){
 		ewake = 1;
 		dprint("%s: fatal\n", dnam(d));
@@ -834,10 +865,10 @@ updatedrive(Drive *d)
 			d->state = Doffline;
 			break;
 		}
-		dprint("%s: %s → %s [Apcrs] %.3lux\n", dnam(d), diskstates[s0],
-			diskstates[d->state], p->sstatus);
+		dprint("%s: updatedrive: %s → %s [ss %.3lux]\n",
+			dnam(d), diskstates[s0], diskstates[d->state], p->sstatus);
 		if(s0 == Dready && d->state != Dready)
-			idprint("%s: pulled\n", dnam(d));
+			dprint("%s: pulled\n", dnam(d));
 		if(d->state != Dready)
 			f |= Ferror;
 		if(d->state != Dready || p->ci)
@@ -854,21 +885,31 @@ updatedrive(Drive *d)
 }
 
 static void
-pstatus(Drive *d, ulong s)
+dstatus(Drive *d, int s)
 {
-	/*
-	 * bogus code because the first interrupt is currently dropped.
-	 * likely my fault.  serror is maybe cleared at the wrong time.
-	 */
-	switch(s){
-	default:
-		print("%s: pstatus: bad status %.3lux\n", dnam(d), s);
+	ilock(d);
+	d->state = s;
+	iunlock(d);
+}
+
+static void
+configdrive(Drive *d)
+{
+	if(ahciconfigdrive(d->ctlr->hba, &d->portc, d->mode) == -1){
+		dstatus(d, Dportreset);
+		return;
+	}
+
+	ilock(d);
+	switch(d->port->sstatus & Smask){
 	case Smissing:
 		d->state = Dmissing;
 		break;
 	case Spresent:
 		break;
 	case Sphylink:
+		if(d->state == Dready)
+			break;
 		d->wait = 0;
 		d->state = Dnew;
 		break;
@@ -876,17 +917,7 @@ pstatus(Drive *d, ulong s)
 		d->state = Doffline;
 		break;
 	}
-}
-
-static int
-configdrive(Drive *d)
-{
-	if(ahciconfigdrive(d->ctlr->hba, &d->portc, d->mode) == -1)
-		return -1;
-	ilock(d);
-	pstatus(d, d->port->sstatus & Smask);
 	iunlock(d);
-	return 0;
 }
 
 static void
@@ -899,36 +930,27 @@ resetdisk(Drive *d)
 	det = p->sctl & 7;
 	stat = p->sstatus & Smask;
 	state = (p->cmd>>28) & 0xf;
-	dprint("%s: resetdisk: icc %ux  det %.3ux sdet %.3ux\n", dnam(d), state, det, stat);
+	dprint("%s: resetdisk [icc %ux; det %.3ux; sdet %.3ux]\n", dnam(d), state, det, stat);
 
 	ilock(d);
-	state = d->state;
-	if(d->state != Dready || d->state != Dnew)
+	if(d->state != Dready && d->state != Dnew)
 		d->portm.flag |= Ferror;
+	if(stat != Sphylink)
+		d->state = Dportreset;
+	else
+		d->state = Dreset;
 	clearci(p);			/* satisfy sleep condition. */
 	wakeup(&d->portm);
-	d->state = Derror;
 	iunlock(d);
 
-	if(stat != Sphylink){
-		ilock(d);
-		d->state = Dportreset;
-		iunlock(d);
+	if(stat != Sphylink)
 		return;
-	}
 
 	qlock(&d->portm);
-	if(p->cmd&Ast && ahciswreset(&d->portc) == -1){
-		ilock(d);
-		d->state = Dportreset;	/* get a bigger stick. */
-		iunlock(d);
-	}else{
-		ilock(d);
-		d->state = Dmissing;
-		iunlock(d);
+	if(p->cmd&Ast && ahciswreset(&d->portc) == -1)
+		dstatus(d, Dportreset);	/* get a bigger stick. */
+	else
 		configdrive(d);
-	}
-	dprint("%s: resetdisk: %s → %s\n", dnam(d), diskstates[state], diskstates[d->state]);
 	qunlock(&d->portm);
 }
 
@@ -953,15 +975,12 @@ newdrive(Drive *d)
 		goto lose;
 	}
 	if(m->feat & Dpower && setfeatures(c, 0x85, 3*1000) == -1){
+		dprint("%s: can't disable apm\n", dnam(d));
 		m->feat &= ~Dpower;
 		if(ahcirecover(c) == -1)
 			goto lose;
 	}
-
-	ilock(d);
-	d->state = Dready;
-	iunlock(d);
-
+	dstatus(d, Dready);
 	qunlock(c->m);
 
 	s = "";
@@ -974,9 +993,7 @@ newdrive(Drive *d)
 
 lose:
 	idprint("%s: can't be initialized\n", dnam(d));
-	ilock(d);
-	d->state = Dnull;
-	iunlock(d);
+	dstatus(d, Dnull);
 	qunlock(c->m);
 	return -1;
 }
@@ -993,29 +1010,23 @@ hangck(Drive *d)
 {
 	if((d->portm.feat & Datapi) == 0 && d->active &&
 	    d->totick != 0 && (long)(Ticks - d->totick) > 0){
-		dprint("%s: drive hung; resetting [%lux] ci %lux\n",
-			dnam(d), d->port->task, d->port->ci);
+		dprint("%s: drive hung [task %lux; ci %lux; serr %lux]\n",
+			dnam(d), d->port->task, d->port->ci, d->port->serror);
 		d->state = Dreset;
 	}
 }
 
 static ushort olds[NCtlr*NCtlrdrv];
 
-static int
+static void
 doportreset(Drive *d)
 {
-	int i;
-
-	i = -1;
 	qlock(&d->portm);
-	if(ahciportreset(&d->portc, d->mode) == -1)
-		dprint("ahci: ahciportreset fails\n");
-	else
-		i = 0;
+	ahciportreset(&d->portc, d->mode);
 	qunlock(&d->portm);
-	dprint("ahci: portreset → %s  [task %.4lux ss %.3lux]\n",
+
+	dprint("ahci: portreset: %s [task %lux; ss %.3lux]\n",
 		diskstates[d->state], d->port->task, d->port->sstatus);
-	return i;
 }
 
 /* drive must be locked */
@@ -1041,10 +1052,17 @@ maxmode(Ctlr *c)
 	return (c->hba->cap & 0xf*Hiss)/Hiss;
 }
 
+static void iainterrupt(Ureg*, void *);
+
 static void
 checkdrive(Drive *d, int i)
 {
 	ushort s, sig;
+
+	if(d->ctlr->enabled == 0)
+		return;
+	if(d->driveno == 0)
+		iainterrupt(0, d->ctlr);	/* check for missed irq's */
 
 	ilock(d);
 	s = d->port->sstatus;
@@ -1093,8 +1111,8 @@ reset:
 			if(d->unit == nil)
 				break;
 			if((++d->wait&Midwait) == 0){
-				dprint("%s: slow reset %.3ux task=%lux; %d\n",
-					dnam(d), s, d->port->task, d->wait);
+				dprint("%s: slow reset [task %lux; ss %.3ux; wait %d]\n",
+					dnam(d), d->port->task, s, d->wait);
 				goto reset;
 			}
 			s = (uchar)d->port->task;
@@ -1129,7 +1147,7 @@ portreset:
 		d->portm.flag |= Ferror;
 		clearci(d->port);
 		wakeup(&d->portm);
-		if((s & Smask) == 0){
+		if((s & Smask) == Smissing){
 			d->state = Dmissing;
 			break;
 		}
@@ -1155,7 +1173,7 @@ satakproc(void*)
 }
 
 static void
-iainterrupt(Ureg*, void *a)
+iainterrupt(Ureg *u, void *a)
 {
 	int i;
 	ulong cause, m;
@@ -1177,6 +1195,8 @@ iainterrupt(Ureg*, void *a)
 		c->hba->isr = m;
 		iunlock(d);
 	}
+	if(u == 0 && i > 0)
+		c->missirq++;
 	iunlock(c);
 }
 
@@ -1404,6 +1424,29 @@ ledkproc(void*)
 }
 
 static int
+waitready(Drive *d)
+{
+	ulong s, i, δ;
+
+	for(i = 0; i < 15000; i += 250){
+		if(d->state == Dreset || d->state == Dportreset || d->state == Dnew)
+			return 1;
+		δ = Ticks - d->lastseen;
+		if(d->state == Dnull || δ > 10*1000)
+			return -1;
+		s = d->port->sstatus;
+		if((s & Imask) == 0 && δ > 1500)
+			return -1;
+		if(d->state == Dready && (s & Smask) == Sphylink)
+			return 0;
+		esleep(250);
+	}
+	print("%s: not responding; offline\n", dnam(d));
+	dstatus(d, Doffline);
+	return -1;
+}
+
+static int
 iaverify(SDunit *u)
 {
 	Ctlr *c;
@@ -1420,9 +1463,50 @@ iaverify(SDunit *u)
 	}
 	iunlock(d);
 	iunlock(c);
+
 	checkdrive(d, d->driveno);		/* c->d0 + d->driveno */
-	scsiverify(u);
+
+	while(waitready(d) == 1)
+		esleep(1);
+
+	if(d->portm.feat & Datapi)
+		scsiverify(u);
+
 	return 1;
+}
+
+static int
+iaonline(SDunit *u)
+{
+	int r;
+	Ctlr *c;
+	Drive *d;
+
+	c = u->dev->ctlr;
+	d = c->drive[u->subno];
+
+	while(waitready(d) == 1)
+		esleep(1);
+
+	ilock(d);
+	if(d->portm.feat & Datapi){
+		d->drivechange = 0;
+		iunlock(d);
+		return scsionline(u);
+	}
+	r = 0;
+	if(d->drivechange){
+		d->drivechange = 0;
+		r = 2;
+	}else if(d->state == Dready)
+		r = 1;
+	if(r){
+		u->sectors = d->sectors;
+		u->secsize = d->secsize;
+	}
+	iunlock(d);
+
+	return r;
 }
 
 static int
@@ -1466,35 +1550,6 @@ iadisable(SDev *s)
 	c->enabled = 0;
 	iunlock(c);
 	return 1;
-}
-
-static int
-iaonline(SDunit *u)
-{
-	int r;
-	Ctlr *c;
-	Drive *d;
-
-	c = u->dev->ctlr;
-	d = c->drive[u->subno];
-	ilock(d);
-	if(d->portm.feat & Datapi){
-		d->drivechange = 0;
-		iunlock(d);
-		return scsionline(u);
-	}
-	r = 0;
-	if(d->drivechange){
-		d->drivechange = 0;
-		r = 2;
-	}else if(d->state == Dready)
-		r = 1;
-	if(r){
-		u->sectors = d->sectors;
-		u->secsize = d->secsize;
-	}
-	iunlock(d);
-	return r;
 }
 
 static Alist*
@@ -1559,34 +1614,6 @@ ahcibuildfis(Aportm *m, SDreq *r, void *data, uint n)
 }
 
 static int
-waitready(Drive *d)
-{
-	ulong s, i, δ;
-
-	for(i = 0; i < 15000; i += 250){
-		if(d->state == Dreset || d->state == Dportreset ||
-		    d->state == Dnew)
-			return 1;
-		δ = Ticks - d->lastseen;
-		if(d->state == Dnull || δ > 10*1000)
-			return -1;
-		ilock(d);
-		s = d->port->sstatus;
-		iunlock(d);
-		if((s & Imask) == 0 && δ > 1500)
-			return -1;
-		if(d->state == Dready && (s & Smask) == Sphylink)
-			return 0;
-		esleep(250);
-	}
-	print("%s: not responding; offline\n", dnam(d));
-	ilock(d);
-	d->state = Doffline;
-	iunlock(d);
-	return -1;
-}
-
-static int
 lockready(Drive *d)
 {
 	int i;
@@ -1643,13 +1670,11 @@ io(Drive *d, uint proto, int to, int interrupt)
 		if(interrupt){
 			d->active--;
 			d->port->ci = 0;
-			if(ahcicomreset(&d->portc) == -1){
-				ilock(d);
-				d->state = Dreset;
-				iunlock(d);
-			}
+			if(ahcicomreset(&d->portc) == -1)
+				dstatus(d, Dreset);
 			return SDtimeout;
 		}
+	
 	sleep(&d->portm, ahciclear, &as);
 	poperror();
 
@@ -1737,6 +1762,8 @@ ahcibio(SDunit *u, int lun, int write, void *a, long count, uvlong lba)
 	}
 	rw = write? SDwrite: SDread;
 	data = a;
+	dprint("%s: bio: %llud %c %lud (max %d) %p\n",
+		dnam(d), lba, "rw"[rw], count, max, data);
 	for(try = 0; try < 10;){
 		n = count;
 		if(n > max)
@@ -1803,8 +1830,7 @@ iario(SDreq *r)
 static uchar bogusrfis[16] = {
 [Ftype]		0x34,
 [Fioport]	0x40,
-[Fstatus]		0x50,
-
+[Fstatus]	0x50,
 [Fdev]		0xa0,
 };
 
@@ -1894,8 +1920,7 @@ iaataio(SDreq *r)
 		return sdr(r, d, r->status);
 	}
 	print("%s: bad disk\n", dnam(d));
-	r->status = SDeio;
-	return SDeio;
+	return r->status = SDeio;
 }
 
 /*
@@ -2116,6 +2141,7 @@ loop:
 		s->ctlr = c;
 		c->sdev = s;
 
+		ahcihandoff((Ahba*)c->mmio);
 		if(intel(c) && p->did != 0x2681)
 			iasetupahci(c);
 //		ahcihbareset((Ahba*)c->mmio);
@@ -2238,6 +2264,7 @@ iarctl(SDunit *u, char *p, int l)
 	p = seprint(p, e, "geometry %llud %lud\n", d->sectors, u->secsize);
 	p = seprint(p, e, "alignment %d %d\n", 
 		d->secsize<<d->portm.physshift, d->portm.physalign);
+	p = seprint(p, e, "missirq\t%ud\n", c->missirq);
 	return p - op;
 }
 
@@ -2266,10 +2293,7 @@ forcestate(Drive *d, char *state)
 			break;
 	if(i == nelem(diskstates))
 		error(Ebadctl);
-	ilock(d);
-	d->state = i;
-//	statechange(d);
-	iunlock(d);
+	dstatus(d, i);
 }
 
 static int
