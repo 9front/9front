@@ -16,7 +16,7 @@
 #include "../port/led.h"
 
 #pragma	varargck	type	"T"	int
-#define	dprint(...)	if(debug)	iprint(__VA_ARGS__); else USED(debug)
+#define	dprint(...)	if(debug)	print(__VA_ARGS__); else USED(debug)
 #define	idprint(...)	if(prid)	print(__VA_ARGS__); else USED(prid)
 #define	aprint(...)	if(datapi)	print(__VA_ARGS__); else USED(datapi)
 #define	ledprint(...)	if(dled)	print(__VA_ARGS__); else USED(dled)
@@ -887,6 +887,9 @@ updatedrive(Drive *d)
 static void
 dstatus(Drive *d, int s)
 {
+	dprint("%s: dstatus: %s → %s from pc=%p\n", dnam(d), 
+		diskstates[d->state], diskstates[s], getcallerpc(&d));
+
 	ilock(d);
 	d->state = s;
 	iunlock(d);
@@ -918,6 +921,8 @@ configdrive(Drive *d)
 		break;
 	}
 	iunlock(d);
+
+	dprint("%s: configdrive: %s\n", dnam(d), diskstates[d->state]);
 }
 
 static void
@@ -1008,8 +1013,7 @@ enum {
 static void
 hangck(Drive *d)
 {
-	if((d->portm.feat & Datapi) == 0 && d->active &&
-	    d->totick != 0 && (long)(Ticks - d->totick) > 0){
+	if(d->active && d->totick != 0 && (long)(Ticks - d->totick) > 0){
 		dprint("%s: drive hung [task %lux; ci %lux; serr %lux]\n",
 			dnam(d), d->port->task, d->port->ci, d->port->serror);
 		d->state = Dreset;
@@ -1469,6 +1473,7 @@ iaverify(SDunit *u)
 	while(waitready(d) == 1)
 		esleep(1);
 
+	dprint("%s: iaveirfy: %s\n", dnam(d), diskstates[d->state]);
 	if(d->portm.feat & Datapi)
 		scsiverify(u);
 
@@ -1488,6 +1493,7 @@ iaonline(SDunit *u)
 	while(waitready(d) == 1)
 		esleep(1);
 
+	dprint("%s: iaonline: %s\n", dnam(d), diskstates[d->state]);
 	ilock(d);
 	if(d->portm.feat & Datapi){
 		d->drivechange = 0;
@@ -1710,7 +1716,7 @@ io(Drive *d, uint proto, int to, int interrupt)
 static int
 iariopkt(SDreq *r, Drive *d)
 {
-	int n, count, try, max;
+	int n, count, try, max, to;
 	uchar *cmd;
 
 	cmd = r->cmd;
@@ -1720,13 +1726,27 @@ iariopkt(SDreq *r, Drive *d)
 	count = r->dlen;
 	max = 65536;
 
+	/*
+	 * prevent iaonline() and iaverify() to hang forever by timing
+	 * out inquiry and capacity commands after 5 seconds. problem
+	 * occurs with MASUSHITA DVD-RAM UJ-844 on thinkpad x301
+	 */
+	to = 0;
+	switch(cmd[0]){
+	case 0x9e: if(cmd[1] != 0x10) break;
+	case 0x25:
+	case 0x12:
+		to = 5*1000;
+		break;
+	}
+
 	for(try = 0; try < 10; try++){
 		n = count;
 		if(n > max)
 			n = max;
 		qlock(&d->portm);
 		ahcibuildpkt(&d->portm, r, r->data, n);
-		r->status = io(d, Ppkt, 5000, 0);
+		r->status = io(d, Ppkt, to, 0);
 		qunlock(&d->portm);
 		switch(r->status){
 		case SDeio:
