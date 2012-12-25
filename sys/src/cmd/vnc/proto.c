@@ -98,7 +98,7 @@ vncrdcorect(Vnc *v)
 void
 vncrdbytes(Vnc *v, void *a, int n)
 {
-	if(Breadn(&v->in, a, n) != n){
+	if(Bread(&v->in, a, n) != n){
 		if(verbose > 1)
 			fprint(2, "hungup while reading\n");
 		vnchungup(v);

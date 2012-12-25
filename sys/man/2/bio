@@ -1,6 +1,6 @@
 .TH BIO 2
 .SH NAME
-Bopen, Binit, Binits, Brdline, Brdstr, Bgetc, Bgetrune, Bgetd, Bungetc, Bungetrune, Bread, Breadn, Bseek, Boffset, Bfildes, Blinelen, Bputc, Bputrune, Bprint, Bvprint, Bwrite, Bflush, Bterm, Bbuffered, Blethal \- buffered input/output
+Bopen, Binit, Binits, Brdline, Brdstr, Bgetc, Bgetrune, Bgetd, Bungetc, Bungetrune, Bread, Bseek, Boffset, Bfildes, Blinelen, Bputc, Bputrune, Bprint, Bvprint, Bwrite, Bflush, Bterm, Bbuffered, Blethal \- buffered input/output
 .SH SYNOPSIS
 .ta \w'Biobuf* 'u
 .B #include <u.h>
@@ -68,9 +68,6 @@ int	Bputrune(Biobufhdr *bp, long c)
 .PP
 .B
 long	Bread(Biobufhdr *bp, void *addr, long nbytes)
-.PP
-.B
-long	Breadn(Biobufhdr *bp, void *addr, long nbytes)
 .PP
 .B
 long	Bwrite(Biobufhdr *bp, void *addr, long nbytes)
@@ -238,13 +235,6 @@ into memory starting at
 .IR addr .
 The number of bytes read is returned on success
 and a negative value is returned if a read error occurred.
-.PP
-.I Breadn
-is like
-.I Bread
-but continues reading until
-.I nbytes
-have been read into the buffer.
 .PP
 .I Bseek
 applies

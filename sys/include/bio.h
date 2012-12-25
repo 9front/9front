@@ -66,7 +66,6 @@ int	Bputrune(Biobufhdr*, long);
 void*	Brdline(Biobufhdr*, int);
 char*	Brdstr(Biobufhdr*, int, int);
 long	Bread(Biobufhdr*, void*, long);
-long	Breadn(Biobufhdr*, void*, long);
 vlong	Bseek(Biobufhdr*, vlong, int);
 int	Bterm(Biobufhdr*);
 int	Bungetc(Biobufhdr*);

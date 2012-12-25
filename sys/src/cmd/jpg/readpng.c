@@ -100,19 +100,19 @@ getchunk(Biobuf *b, char *type, uchar *d, int m)
 	ulong crc = 0, crc2;
 	int n, nr;
 
-	if(Breadn(b, buf, 8) != 8)
+	if(Bread(b, buf, 8) != 8)
 		return -1;
 	n = get4(buf);
 	memmove(type, buf+4, 4);
 	type[4] = 0;
 	if(n > m)
 		sysfatal("getchunk needed %d, had %d", n, m);
-	nr = Breadn(b, d, n);
+	nr = Bread(b, d, n);
 	if(nr != n)
 		sysfatal("getchunk read %d, expected %d", nr, n);
 	crc = blockcrc(crctab, crc, type, 4);
 	crc = blockcrc(crctab, crc, d, n);
-	if(Breadn(b, buf, 4) != 4)
+	if(Bread(b, buf, 4) != 4)
 		sysfatal("getchunk tlr failed");
 	crc2 = get4(buf);
 	if(crc != crc2)
@@ -388,7 +388,7 @@ readslave(Biobuf *b)
 	ZlibW zw;
 
 	buf = pngmalloc(IDATSIZE, 0);
-	Breadn(b, buf, sizeof PNGmagic);
+	Bread(b, buf, sizeof PNGmagic);
 	if(memcmp(PNGmagic, buf, sizeof PNGmagic) != 0)
 		sysfatal("bad PNGmagic");
 

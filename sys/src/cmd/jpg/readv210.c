@@ -120,7 +120,7 @@ BreadV210(Biobuf *bp, int colourspace)
 		goto Error;
 
 	for(l = 0; l < lines; l++){
-		if(Breadn(bp, buf, chunk) == -1)
+		if(Bread(bp, buf, chunk) == -1)
 			goto Error;
 
 		rd = 0;

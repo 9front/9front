@@ -320,7 +320,7 @@ load_16(Biobuf *b, long width, long height, Rgb* buf, Rgb* clut)
 		for(iy = height; iy; iy--, i += step_up)
 			for(ix = 0; ix < width; ix++, i++) {
 				unsigned val;
-				Breadn(b, c, sizeof(c));
+				Bread(b, c, sizeof(c));
 				val = (unsigned)c[0] + ((unsigned)c[1] << 8);
 
 				buf[i].alpha = 0;
@@ -340,7 +340,7 @@ load_16(Biobuf *b, long width, long height, Rgb* buf, Rgb* clut)
 	} else
 		for(iy = height; iy; iy--, i += step_up)
 			for(ix = 0; ix < width; ix++, i++) {
-				Breadn(b, c, sizeof(c));
+				Bread(b, c, sizeof(c));
 				buf[i].blue = (uchar)((c[0] << 3) & 0xf8);
 				buf[i].green = (uchar)(((((unsigned)c[1] << 6) +
 				                        (((unsigned)c[0]) >> 2))) & 0xf8);
@@ -406,7 +406,7 @@ load_32(Biobuf *b, long width, long height, Rgb* buf, Rgb* clut)
 		for(iy = height; iy; iy--, i += step_up)
 			for(ix = 0; ix < width; ix++, i++) {
 				ulong val;
-				Breadn(b, c, sizeof(c));
+				Bread(b, c, sizeof(c));
 				val =  (ulong)c[0] + ((ulong)c[1] << 8) +
 				      ((ulong)c[2] << 16) + ((ulong)c[1] << 24);
 
@@ -427,7 +427,7 @@ load_32(Biobuf *b, long width, long height, Rgb* buf, Rgb* clut)
 	} else
 		for(iy = height; iy; iy--, i += step_up)
 			for(ix = 0; ix < width; ix++, i++) {
-				Breadn(b, c, nelem(c));
+				Bread(b, c, nelem(c));
 				buf[i].blue = c[0];
 				buf[i].green = c[1];
 				buf[i].red = c[2];
