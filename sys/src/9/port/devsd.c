@@ -770,7 +770,7 @@ sdclose(Chan* c)
 static long
 sdbio(Chan* c, int write, char* a, long len, uvlong off)
 {
-	int nchange, hard, allocd;
+	int nchange, hard, allocd, locked;
 	long l;
 	uchar *b;
 	SDpart *pp;
@@ -832,7 +832,8 @@ sdbio(Chan* c, int write, char* a, long len, uvlong off)
 		poperror();
 		return 0;
 	}
-	if(!(unit->inquiry[1] & 0x80)){
+	locked = (unit->inquiry[1] & 0x80) != 0;
+	if(!locked){
 		qunlock(&unit->ctl);
 		poperror();
 	}
@@ -854,7 +855,7 @@ sdbio(Chan* c, int write, char* a, long len, uvlong off)
 	if(waserror()){
 		if(allocd)
 			sdfree(b);
-		if(!(unit->inquiry[1] & 0x80))
+		if(!locked)
 			decref(&sdev->r);		/* gadverdamme! */
 		nexterror();
 	}
@@ -896,7 +897,7 @@ sdbio(Chan* c, int write, char* a, long len, uvlong off)
 		sdfree(b);
 	poperror();
 
-	if(unit->inquiry[1] & 0x80){
+	if(locked){
 		qunlock(&unit->ctl);
 		poperror();
 	}
