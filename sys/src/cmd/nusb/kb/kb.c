@@ -779,7 +779,7 @@ Err:
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-d] [-a n] devid\n", argv0);
+	fprint(2, "usage: %s [-d] devid\n", argv0);
 	threadexits("usage");
 }
 
@@ -792,8 +792,6 @@ threadmain(int argc, char* argv[])
 	Usbdev *ud;
 
 	ARGBEGIN{
-	case 'a':
-		break;
 	case 'd':
 		debug++;
 		break;

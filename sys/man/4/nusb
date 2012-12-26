@@ -32,10 +32,7 @@ usbd - Universal Serial Bus drivers
 .B nusb/kb
 [
 .B -d
-] [
-.B -a
-.I n
-] 
+]
 .I devid
 .PP
 .B nusb/serial
@@ -117,12 +114,6 @@ process them.
 Mouse events are sent to
 .BR /dev/mousein
 in the same way.
-.PP
-The option
-.B \-a
-accelerates the mouse to level
-.I n
-(similar to the kernel's mouse driver acceleration).
 .SS Disks
 .I Disk
 configures and manages USB mass storage devices. It
