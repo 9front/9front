@@ -1066,7 +1066,7 @@ static int
 atapktio0(Drive *drive, SDreq *r)
 {
 	uchar *cmd;
-	int as, cmdport, ctlport, rv;
+	int as, len, cmdport, ctlport, rv;
 	Ctlr *ctlr;
 
 	rv = SDok;
@@ -1074,8 +1074,6 @@ atapktio0(Drive *drive, SDreq *r)
 	drive->command = Cpkt;
 	memmove(drive->pktcmd, cmd, r->clen);
 	memset(drive->pktcmd+r->clen, 0, drive->pkt-r->clen);
-	if(drive->dlen > 0x8000)
-		drive->dlen = 0x8000;
 	drive->limit = drive->data+drive->dlen;
 
 	ctlr = drive->ctlr;
@@ -1092,11 +1090,12 @@ atapktio0(Drive *drive, SDreq *r)
 		drive->pktdma = Dma;
 	else
 		drive->pktdma = 0;
+	len = drive->secsize > 0 ? 16*drive->secsize : 0x8000;
 	outb(cmdport+Features, drive->pktdma);
 	outb(cmdport+Count, 0);
 	outb(cmdport+Sector, 0);
-	outb(cmdport+Bytelo, drive->dlen);
-	outb(cmdport+Bytehi, drive->dlen>>8);
+	outb(cmdport+Bytelo, len);
+	outb(cmdport+Bytehi, len>>8);
 	outb(cmdport+Dh, drive->dev);
 	ctlr->done = 0;
 	ctlr->curdrive = drive;
