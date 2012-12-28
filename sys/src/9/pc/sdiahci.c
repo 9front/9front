@@ -120,6 +120,7 @@ typedef struct {
 	Ledport;
 
 	uchar	drivechange;
+	uchar	nodma;
 	uchar	state;
 
 	uvlong	sectors;
@@ -276,7 +277,7 @@ ahciwait(Aportc *c, int ms)
 	return -1;
 }
 
-static void
+static Alist*
 mkalist(Aportm *m, uint flags, uchar *data, int len)
 {
 	Actab *t;
@@ -284,18 +285,19 @@ mkalist(Aportm *m, uint flags, uchar *data, int len)
 	Aprdt *p;
 
 	t = m->ctab;
+	if(data && len > 0){
+		p = &t->prdt;
+		p->dba = PCIWADDR(data);
+		p->dbahi = Pciwaddrh(data);
+		p->count = 1<<31 | len - 2 | 1;
+		flags |= 1<<16;
+	}
 	l = m->list;
 	l->flags = flags | 0x5;
 	l->len = 0;
 	l->ctab = PCIWADDR(t);
 	l->ctabhi = Pciwaddrh(t);
-	if(data){
-		l->flags |= 1<<16;
-		p = &t->prdt;
-		p->dba = PCIWADDR(data);
-		p->dbahi = Pciwaddrh(data);
-		p->count = 1<<31 | len - 2 | 1;
-	}
+	return l;
 }
 
 static int
@@ -631,7 +633,7 @@ ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 		for(i = 0; i < 1400; i += 50){
 			if((p->sstatus & Sbist) != 0)
 				break;
-			if((p->sstatus & Sphylink) == Sphylink)
+			if((p->sstatus & Smask) == Sphylink)
 				break;
 			asleep(50);
 		}
@@ -644,7 +646,7 @@ ahciconfigdrive(Ahba *h, Aportc *c, int mode)
 	p->ie = IEM;
 
 	/* we will get called again once phylink has been established */
-	if((p->sstatus & Sphylink) != Sphylink)
+	if((p->sstatus & Smask) != Sphylink)
 		return 0;
 
 	/* disable power managment sequence from book. */
@@ -770,6 +772,7 @@ identify(Drive *d)
 
 	if(osectors != s || memcmp(oserial, d->serial, sizeof oserial)){
 		d->drivechange = 1;
+		d->nodma = 0;
 		u->sectors = 0;
 	}
 	return 0;
@@ -898,10 +901,8 @@ dstatus(Drive *d, int s)
 static void
 configdrive(Drive *d)
 {
-	if(ahciconfigdrive(d->ctlr->hba, &d->portc, d->mode) == -1){
+	if(ahciconfigdrive(d->ctlr->hba, &d->portc, d->mode) == -1)
 		dstatus(d, Dportreset);
-		return;
-	}
 
 	ilock(d);
 	switch(d->port->sstatus & Smask){
@@ -1014,8 +1015,10 @@ static void
 hangck(Drive *d)
 {
 	if(d->active && d->totick != 0 && (long)(Ticks - d->totick) > 0){
-		dprint("%s: drive hung [task %lux; ci %lux; serr %lux]\n",
-			dnam(d), d->port->task, d->port->ci, d->port->serror);
+		dprint("%s: drive hung [task %lux; ci %lux; serr %lux]%s\n",
+			dnam(d), d->port->task, d->port->ci, d->port->serror,
+			d->nodma == 0 ? "; disabling dma" : "");
+		d->nodma = 1;
 		d->state = Dreset;
 	}
 }
@@ -1432,21 +1435,30 @@ waitready(Drive *d)
 {
 	ulong s, i, δ;
 
-	for(i = 0; i < 15000; i += 250){
+	for(i = 0;; i += 250){
 		if(d->state == Dreset || d->state == Dportreset || d->state == Dnew)
 			return 1;
+		ilock(d);
+		s = d->port->sstatus;
+		if(d->state == Dready && (s & Smask) == Sphylink){
+			iunlock(d);
+			return 0;
+		}
 		δ = Ticks - d->lastseen;
 		if(d->state == Dnull || δ > 10*1000)
-			return -1;
-		s = d->port->sstatus;
+			break;
 		if((s & Imask) == 0 && δ > 1500)
+			break;
+		if(i >= 15*1000){
+			d->state = Doffline;
+			iunlock(d);
+			print("%s: not responding; offline\n", dnam(d));
 			return -1;
-		if(d->state == Dready && (s & Smask) == Sphylink)
-			return 0;
+		}
+		iunlock(d);
 		esleep(250);
 	}
-	print("%s: not responding; offline\n", dnam(d));
-	dstatus(d, Doffline);
+	iunlock(d);
 	return -1;
 }
 
@@ -1467,16 +1479,7 @@ iaverify(SDunit *u)
 	}
 	iunlock(d);
 	iunlock(c);
-
 	checkdrive(d, d->driveno);		/* c->d0 + d->driveno */
-
-	while(waitready(d) == 1)
-		esleep(1);
-
-	dprint("%s: iaveirfy: %s\n", dnam(d), diskstates[d->state]);
-	if(d->portm.feat & Datapi)
-		scsiverify(u);
-
 	return 1;
 }
 
@@ -1494,10 +1497,14 @@ iaonline(SDunit *u)
 		esleep(1);
 
 	dprint("%s: iaonline: %s\n", dnam(d), diskstates[d->state]);
+
 	ilock(d);
 	if(d->portm.feat & Datapi){
+		r = d->drivechange;
 		d->drivechange = 0;
 		iunlock(d);
+		if(r != 0)
+			scsiverify(u);
 		return scsionline(u);
 	}
 	r = 0;
@@ -1559,64 +1566,61 @@ iadisable(SDev *s)
 }
 
 static Alist*
-ahcibuild(Aportm *m, int rw, void *data, uint n, vlong lba)
+ahcibuild(Drive *d, int rw, void *data, uint n, vlong lba)
 {
 	uchar *c;
 	uint flags;
-	Alist *l;
+	Aportm *m;
 
-	l = m->list;
+	m = &d->portm;
 	c = m->ctab->cfis;
 	rwfis(m, c, rw, n, lba);
 	flags = Lpref;
 	if(rw == SDwrite)
 		flags |= Lwrite;
-	mkalist(m, flags, data, 512*n);
-	return l;
+	return mkalist(m, flags, data, 512*n);
 }
 
 static Alist*
-ahcibuildpkt(Aportm *m, SDreq *r, void *data, int n)
+ahcibuildpkt(Drive *d, SDreq *r, void *data, int n)
 {
 	uint flags;
+	Aportm *m;
 	uchar *c;
 	Actab *t;
-	Alist *l;
 
-	l = m->list;
+	m = &d->portm;
 	t = m->ctab;
 	c = t->cfis;
-	atapirwfis(m, c, r->cmd, r->clen, n);
-	flags = 1<<16 | Lpref | Latapi;
+
+	atapirwfis(m, c, r->cmd, r->clen, 0x2000);
+	if((n & 15) != 0 || d->nodma)
+		c[Ffeat] &= ~1;	/* use pio */
+	else if(c[Ffeat] & 1 && d->info[62] & (1<<15))	/* dma direction */
+		c[Ffeat] = (c[Ffeat] & ~(1<<2)) | ((r->write == 0) << 2);
+	flags = Lpref | Latapi;
 	if(r->write != 0 && data)
 		flags |= Lwrite;
-	mkalist(m, flags, data, n);
-	return l;
+	return mkalist(m, flags, data, n);
 }
 
 static Alist*
-ahcibuildfis(Aportm *m, SDreq *r, void *data, uint n)
+ahcibuildfis(Drive *d, SDreq *r, void *data, uint n)
 {
-	uchar *c;
 	uint flags;
-	Alist *l;
+	uchar *c;
+	Aportm *m;
 
-	l = m->list;
+	if((r->ataproto & Pprotom) == Ppkt)
+		return ahcibuildpkt(d, r, data, n);
+
+	m = &d->portm;
 	c = m->ctab->cfis;
-	if((r->ataproto & Pprotom) != Ppkt){
-		memmove(c, r->cmd, r->clen);
-		flags = Lpref;
-		if(r->write || n == 0)
-			flags |= Lwrite;
-		mkalist(m, flags, data, n);
-	}else{
-		atapirwfis(m, c, r->cmd, r->clen, n);
-		flags = 1<<16 | Lpref | Latapi;
-		if(r->write && data)
-			flags |= Lwrite;
-		mkalist(m, flags, data, n);
-	}
-	return l;
+	memmove(c, r->cmd, r->clen);
+	flags = Lpref;
+	if(r->write || n == 0)
+		flags |= Lwrite;
+	return mkalist(m, flags, data, n);
 }
 
 static int
@@ -1648,7 +1652,7 @@ flushcache(Drive *d)
 static int
 io(Drive *d, uint proto, int to, int interrupt)
 {
-	uint task, flag, rv;
+	uint task, flag, stat, rv;
 	Aport *p;
 	Asleep as;
 
@@ -1686,16 +1690,17 @@ io(Drive *d, uint proto, int to, int interrupt)
 
 	d->active--;
 	ilock(d);
+	stat = d->state;
 	flag = d->portm.flag;
 	task = d->port->task;
 	iunlock(d);
 
 	rv = SDok;
-	if(proto & Ppkt){
+	if(proto & Ppkt && stat == Dready){
 		rv = task >> 8 + 4 & 0xf;
 		flag &= ~Fahdrs;
 		flag |= Fdone;
-	}else if(task & (Efatal<<8) || task & (ASbsy|ASdrq) && d->state == Dready){
+	}else if(task & (Efatal<<8) || task & (ASbsy|ASdrq) && stat == Dready){
 		d->port->ci = 0;
 		ahcirecover(&d->portc);
 		task = d->port->task;
@@ -1716,22 +1721,21 @@ io(Drive *d, uint proto, int to, int interrupt)
 static int
 iariopkt(SDreq *r, Drive *d)
 {
-	int n, count, try, max, to;
+	int try, to;
 	uchar *cmd;
+	Alist *l;
 
 	cmd = r->cmd;
 	aprint("%s: %.2ux %.2ux %c %d %p\n", dnam(d), cmd[0], cmd[2],
 		"rw"[r->write], r->dlen, r->data);
+
 	r->rlen = 0;
-	count = r->dlen;
-	max = 65536;
 
 	/*
-	 * prevent iaonline() and iaverify() to hang forever by timing
-	 * out inquiry and capacity commands after 5 seconds. problem
-	 * occurs with MASUSHITA DVD-RAM UJ-844 on thinkpad x301
+	 * prevent iaonline() to hang forever by timing out
+	 * inquiry and capacity commands after 5 seconds.
 	 */
-	to = 0;
+	to = 30*1000;
 	switch(cmd[0]){
 	case 0x9e: if(cmd[1] != 0x10) break;
 	case 0x25:
@@ -1741,20 +1745,19 @@ iariopkt(SDreq *r, Drive *d)
 	}
 
 	for(try = 0; try < 10; try++){
-		n = count;
-		if(n > max)
-			n = max;
 		qlock(&d->portm);
-		ahcibuildpkt(&d->portm, r, r->data, n);
+		l = ahcibuildpkt(d, r, r->data, r->dlen);
 		r->status = io(d, Ppkt, to, 0);
-		qunlock(&d->portm);
 		switch(r->status){
 		case SDeio:
+			qunlock(&d->portm);
 			return SDeio;
 		case SDretry:
+			qunlock(&d->portm);
 			continue;
 		}
-		r->rlen = d->portm.list->len;
+		r->rlen = l->len;
+		qunlock(&d->portm);
 		return SDok;
 	}
 	print("%s: bad disk\n", dnam(d));
@@ -1782,14 +1785,15 @@ ahcibio(SDunit *u, int lun, int write, void *a, long count, uvlong lba)
 	}
 	rw = write? SDwrite: SDread;
 	data = a;
-	dprint("%s: bio: %llud %c %lud (max %d) %p\n",
-		dnam(d), lba, "rw"[rw], count, max, data);
+	dprint("%s: bio: %llud %c %lud %p\n",
+		dnam(d), lba, "rw"[rw], count, data);
+
 	for(try = 0; try < 10;){
 		n = count;
 		if(n > max)
 			n = max;
 		qlock(&d->portm);
-		ahcibuild(&d->portm, rw, data, n, lba);
+		ahcibuild(d, rw, data, n, lba);
 		status = io(d, Pdma, 5000, 0);
 		qunlock(&d->portm);
 		switch(status){
@@ -1912,6 +1916,7 @@ iaataio(SDreq *r)
 	Ctlr *c;
 	Drive *d;
 	SDunit *u;
+	Alist *l;
 
 	u = r->unit;
 	c = u->dev->ctlr;
@@ -1923,21 +1928,23 @@ iaataio(SDreq *r)
 	sdr0(d);
 	for(try = 0; try < 10; try++){
 		qlock(&d->portm);
-		ahcibuildfis(&d->portm, r, r->data, r->dlen);
+		l = ahcibuildfis(d, r, r->data, r->dlen);
 		r->status = io(d, r->ataproto & Pprotom, -1, 1);
-		qunlock(&d->portm);
 		switch(r->status){
 		case SDtimeout:
+			qunlock(&d->portm);
 			return sdsetsense(r, SDcheck, 11, 0, 6);
 		case SDeio:
+			qunlock(&d->portm);
 			return SDeio;
 		case SDretry:
+			qunlock(&d->portm);
 			continue;
 		}
-		r->rlen = r->dlen;
-		if((r->ataproto & Pprotom) == Ppkt)
-			r->rlen = d->portm.list->len;
-		return sdr(r, d, r->status);
+		r->rlen = (r->ataproto & Pprotom) == Ppkt ? l->len : r->dlen;
+		try = sdr(r, d, r->status);
+		qunlock(&d->portm);
+		return try;
 	}
 	print("%s: bad disk\n", dnam(d));
 	return r->status = SDeio;
@@ -2131,7 +2138,6 @@ iapnp(void)
 
 	memset(olds, 0xff, sizeof olds);
 	p = nil;
-loop:
 	while((p = pcimatch(p, 0, 0)) != nil){
 		if((type = didtype(p)) == -1)
 			continue;
@@ -2192,12 +2198,6 @@ loop:
 			c->drive[d->driveno] = d;
 			iadrive[niadrive + d->driveno] = d;
 		}
-		for(i = 0; i < n; i++)
-			if(ahciidle(c->drive[i]->port) == -1){
-				print("%s: port %d wedged; abort\n",
-					Tname(c), i);
-				goto loop;
-			}
 		for(i = 0; i < n; i++){
 			c->drive[i]->mode = DMautoneg;
 			configdrive(c->drive[i]);
