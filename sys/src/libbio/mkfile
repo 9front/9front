@@ -17,7 +17,6 @@ OFILES=\
 	brdline.$O\
 	brdstr.$O\
 	bread.$O\
-	breadn.$O\
 	bseek.$O\
 	bwrite.$O\
 	bvprint.$O\
