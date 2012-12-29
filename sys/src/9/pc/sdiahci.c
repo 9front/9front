@@ -901,8 +901,10 @@ dstatus(Drive *d, int s)
 static void
 configdrive(Drive *d)
 {
-	if(ahciconfigdrive(d->ctlr->hba, &d->portc, d->mode) == -1)
+	if(ahciconfigdrive(d->ctlr->hba, &d->portc, d->mode) == -1){
 		dstatus(d, Dportreset);
+		return;
+	}
 
 	ilock(d);
 	switch(d->port->sstatus & Smask){
