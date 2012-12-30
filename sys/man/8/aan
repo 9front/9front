@@ -61,7 +61,9 @@ already-announced network directory
 is usually run automatically through the
 .B -p
 option of
-.IR import (4).
+.IR import (4)
+and
+.IR cpu (1).
 .SH EXAMPLE
 Assume the server part of
 .I aan
@@ -96,4 +98,6 @@ Log file
 .B /sys/src/cmd/aan.c
 .SH SEE ALSO
 .IR import (4),
-.IR exportfs (4)
+.IR exportfs (4),
+.IR cpu (1)
+
