@@ -1299,13 +1299,13 @@ phywrite(Ctlr *c, uint phyno, uint reg, ushort v)
 static void
 phyerrata(Ether *e, Ctlr *c)
 {
-	if(e->mbps == 0)
+	if(e->mbps == 0){
 		if(c->phyerrata == 0){
 			c->phyerrata++;
 			phywrite(c, 1, Phyprst, Prst);	/* try a port reset */
 			print("%s: phy port reset\n", cname(c));
 		}
-	else
+	}else
 		c->phyerrata = 0;
 }
 
