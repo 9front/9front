@@ -85,9 +85,13 @@ nums(char *argv[])
 		q = *argv;
 		while(*q){
 			w = chartorune(&r, q);
-			if(r==0x80 && (q[0]&0xFF)!=0x80){
-				fprint(2, "unicode: invalid utf string %s\n", *argv);
-				return "bad utf";
+			if(r==Runeerror){
+				char b[UTFmax];
+
+				if(runetochar(b, &r) != w || memcmp(b, q, w) != 0){
+					fprint(2, "unicode: invalid utf string %s\n", *argv);
+					return "bad utf";
+				}
 			}
 			Bprint(&bout, "%.4x\n", r);
 			q += w;
