@@ -395,7 +395,7 @@ threadmain(int argc, char *argv[])
 			if(strcmp(args[0], "keyboard:")==0 || strcmp(args[0], "scribble:")==0)
 			if(strcmp(args[1], "value") == 0){
 				n = atoi(args[2]);
-				if(n <= 0xFFFF){
+				if(n <= Runemax){
 					r = n;
 					i = runetochar(str, &r);
 					write(kbdfd, str, i);

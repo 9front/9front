@@ -335,6 +335,8 @@ screenputc(char *buf)
 		addflush(r);
 		curpos.x = *xp;
 		break;
+	case '\0':
+		break;
 	default:
 		p = memsubfontwidth(memdefont, buf);
 		w = p.x;
@@ -354,23 +356,19 @@ screenputc(char *buf)
 void
 screenputs(char *s, int n)
 {
-	int i;
-	Rune r;
-	char buf[4];
+	static char rb[UTFmax+1];
+	static int nrb;
+	char *e;
 
 	drawlock();
-	while(n > 0){
-		i = chartorune(&r, s);
-		if(i == 0){
-			s++;
-			--n;
-			continue;
+	e = s + n;
+	while(s < e){
+		rb[nrb++] = *s++;
+		if(nrb >= UTFmax || fullrune(rb, nrb)){
+			rb[nrb] = 0;
+			screenputc(rb);
+			nrb = 0;
 		}
-		memmove(buf, s, i);
-		buf[i] = 0;
-		n -= i;
-		s += i;
-		screenputc(buf);
 	}
 	screenflush();
 	drawunlock();

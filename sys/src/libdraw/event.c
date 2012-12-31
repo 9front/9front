@@ -199,7 +199,7 @@ static void
 ekeyslave(int fd)
 {
 	Rune r;
-	char t[3], k[10];
+	char t[1+UTFmax], k[10];
 	int kr, kn, w;
 
 	if(eforkslave(Ekeyboard) < MAXSLAVE)
@@ -215,10 +215,9 @@ ekeyslave(int fd)
 		}
 		w = chartorune(&r, k);
 		kn -= w;
+		memmove(t+1, k, w);
 		memmove(k, &k[w], kn);
-		t[1] = r;
-		t[2] = r>>8;
-		if(write(epipe[1], t, 3) != 3)
+		if(write(epipe[1], t, sizeof(t)) != sizeof(t))
 			break;
 	}
 breakout:;
@@ -302,7 +301,7 @@ loop:
 		s->head = (Ebuf *)1;
 		return;
 	}
-	if(i == Skeyboard && n != 3)
+	if(i == Skeyboard && n != (1+UTFmax))
 		drawerror(display, "events: protocol error: keyboard");
 	if(i == Smouse){
 		if(n < 1+1+2*12)
@@ -418,14 +417,13 @@ int
 ekbd(void)
 {
 	Ebuf *eb;
-	int c;
+	Rune r;
 
 	if(Skeyboard < 0)
 		drawerror(display, "events: keyboard not initialzed");
 	eb = ebread(&eslave[Skeyboard]);
-	c = eb->buf[0] + (eb->buf[1]<<8);
-	free(eb);
-	return c;
+	chartorune(&r, (char*)eb->buf);
+	return r;
 }
 
 void

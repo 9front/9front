@@ -633,10 +633,11 @@ tcomo(Node *n, int f)
 		break;
 
 	case OLSTRING:
-		if(n->type->link != types[TUSHORT]) {
+		if(n->type->link != types[TRUNE]) {
 			o = outstring(0, 0);
 			while(o & 3) {
-				outlstring(L"", sizeof(ushort));
+				Rune str[1] = {0};
+				outlstring(str, sizeof(Rune));
 				o = outlstring(0, 0);
 			}
 		}

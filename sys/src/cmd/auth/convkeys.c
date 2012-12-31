@@ -121,7 +121,7 @@ badname(char *s)
 
 	for (; *s != '\0'; s += n) {
 		n = chartorune(&r, s);
-		if (n == 1 && r == Runeerror)
+		if (r == Runeerror)
 			return 1;
 	}
 	return 0;

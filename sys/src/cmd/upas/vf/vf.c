@@ -954,7 +954,7 @@ tokenconvert(String *t)
 {
 	String *s;
 	char decoded[1024];
-	char utfbuf[2*1024];
+	char utfbuf[UTFmax*1024];
 	int i, len;
 	char *e;
 	char *token;

@@ -119,9 +119,10 @@ vgascreenputc(VGAscr* scr, char* buf, Rectangle *flushr)
 static void
 vgascreenputs(char* s, int n)
 {
-	int i, gotdraw;
-	Rune r;
-	char buf[4];
+	static char rb[UTFmax+1];
+	static int nrb;
+	char *e;
+	int gotdraw;
 	VGAscr *scr;
 	Rectangle flushr;
 
@@ -146,13 +147,14 @@ vgascreenputs(char* s, int n)
 
 	flushr = Rect(10000, 10000, -10000, -10000);
 
-	while(n > 0){
-		i = chartorune(&r, s);
-		memmove(buf, s, i);
-		buf[i] = 0;
-		n -= i;
-		s += i;
-		vgascreenputc(scr, buf, &flushr);
+	e = s + n;
+	while(s < e){
+		rb[nrb++] = *s++;
+		if(nrb >= UTFmax || fullrune(rb, nrb)){
+			rb[nrb] = 0;
+			vgascreenputc(scr, rb, &flushr);
+			nrb = 0;
+		}
 	}
 	flushmemscreen(flushr);
 

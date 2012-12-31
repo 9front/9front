@@ -59,7 +59,7 @@ _urlunesc(char *s)
 	t = v;
 	while(*s){
 		/* in decoding error, assume latin1 */
-		if((n=chartorune(&r, s)) == 1 && r == 0x80)
+		if((n=chartorune(&r, s)) == 1 && r == Runeerror)
 			r = *s;
 		s += n;
 		t += runetochar(t, &r);

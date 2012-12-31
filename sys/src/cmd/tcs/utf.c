@@ -93,7 +93,7 @@ isoutf_in(int fd, long *notused, struct convert *out)
 			if(!fullisorune(buf+i, tot-i))
 				break;
 			c = isochartorune(&runes[j], buf+i);
-			if(runes[j] == Runeerror && c == 1){
+			if(runes[j] == Runeerror){
 				if(squawk)
 					EPR "%s: bad UTF sequence near byte %ld in input\n", argv0, ninput+i);
 				if(clean){

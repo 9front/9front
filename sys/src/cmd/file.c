@@ -359,7 +359,7 @@ utfconv(void)
 		rb = malloc(nbuf+1);
 		memmove(rb, buf+2, nbuf);
 		p = (char*)buf;
-		e = p+nbuf-4;
+		e = p+sizeof(buf)-UTFmax-1;
 		for(i=0; i<nbuf && p < e; i+=2){
 			r = rb[i+1] | rb[i]<<8;
 			p += runetochar(p, &r);
@@ -376,7 +376,7 @@ utfconv(void)
 		rb = malloc(nbuf+1);
 		memmove(rb, buf+2, nbuf);
 		p = (char*)buf;
-		e = p+nbuf-4;
+		e = p+sizeof(buf)-UTFmax-1;
 		for(i=0; i<nbuf && p < e; i+=2){
 			r = rb[i] | rb[i+1]<<8;
 			p += runetochar(p, &r);

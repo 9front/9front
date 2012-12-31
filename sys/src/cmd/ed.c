@@ -54,7 +54,7 @@ Reprog	*pattern;
 int	peekc;
 int	pflag;
 int	rescuing;
-Rune	rhsbuf[LBSIZE/2];
+Rune	rhsbuf[LBSIZE/sizeof(Rune)];
 char	savedfile[FNSIZE];
 jmp_buf	savej;
 int	subnewa;
@@ -990,11 +990,11 @@ getline(int tl)
 	lp = linebuf;
 	bp = getblock(tl, OREAD);
 	nl = nleft;
-	tl &= ~((BLKSIZE/2) - 1);
+	tl &= ~((BLKSIZE/sizeof(Rune)) - 1);
 	while(*lp++ = *bp++) {
 		nl -= sizeof(Rune);
 		if(nl == 0) {
-			bp = getblock(tl += BLKSIZE/2, OREAD);
+			bp = getblock(tl += BLKSIZE/sizeof(Rune), OREAD);
 			nl = nleft;
 		}
 	}
@@ -1012,7 +1012,7 @@ putline(void)
 	tl = tline;
 	bp = getblock(tl, OWRITE);
 	nl = nleft;
-	tl &= ~((BLKSIZE/2)-1);
+	tl &= ~((BLKSIZE/sizeof(Rune))-1);
 	while(*bp = *lp++) {
 		if(*bp++ == '\n') {
 			bp[-1] = 0;
@@ -1021,7 +1021,7 @@ putline(void)
 		}
 		nl -= sizeof(Rune);
 		if(nl == 0) {
-			tl += BLKSIZE/2;
+			tl += BLKSIZE/sizeof(Rune);
 			bp = getblock(tl, OWRITE);
 			nl = nleft;
 		}
@@ -1048,8 +1048,8 @@ getblock(int atl, int iof)
 	static uchar ibuff[BLKSIZE];
 	static uchar obuff[BLKSIZE];
 
-	bno = atl / (BLKSIZE/2);
-	off = (atl<<1) & (BLKSIZE-1) & ~03;
+	bno = atl / (BLKSIZE/sizeof(Rune));
+	off = (atl*sizeof(Rune)) & (BLKSIZE-1) & ~03;
 	if(bno >= NBLK) {
 		lastc = '\n';
 		error(T);
@@ -1240,7 +1240,7 @@ compsub(void)
 		if(c == '\\') {
 			c = getchr();
 			*p++ = ESCFLG;
-			if(p >= &rhsbuf[LBSIZE/2])
+			if(p >= &rhsbuf[nelem(rhsbuf)])
 				error(Q);
 		} else
 		if(c == '\n' && (!globp || !globp[0])) {
@@ -1251,7 +1251,7 @@ compsub(void)
 		if(c == seof)
 			break;
 		*p++ = c;
-		if(p >= &rhsbuf[LBSIZE/2])
+		if(p >= &rhsbuf[nelem(rhsbuf)])
 			error(Q);
 	}
 	*p = 0;

@@ -535,7 +535,7 @@ toStr(uchar* buf, int n, int chset)
 
 // Convert buf[0:n], Unicode characters,
 // into an emalloc'd null-terminated string in character set chset.
-// Use 0x80 for unconvertable characters.
+// Use Runeerror for unconvertable characters.
 uchar*
 fromStr(Rune* buf, int n, int chset)
 {
@@ -554,7 +554,7 @@ fromStr(Rune* buf, int n, int chset)
 		for(i = 0; i < n; i++) {
 			ch = buf[i];
 			if(ch > lim)
-				ch = 0x80;
+				ch = Runeerror;
 			ans[i] = ch;
 		}
 		ans[n] = 0;

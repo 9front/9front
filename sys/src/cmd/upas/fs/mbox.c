@@ -1223,12 +1223,12 @@ latin1toutf(char **out, char *in, char *e)
 		return 0;
 
 	n += e-in;
-	*out = p = malloc(n+1);
+	*out = p = malloc(UTFmax*n+1);
 	if(p == nil)
 		return 0;
 
 	for(; in < e; in++){
-		r = (uchar)*in;
+		r = (*in) & 0xff;
 		p += runetochar(p, &r);
 	}
 	*p = 0;

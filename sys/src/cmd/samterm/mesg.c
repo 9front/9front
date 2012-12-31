@@ -429,7 +429,7 @@ outTv(Tmesg type, vlong v1)
 void
 outTslS(Tmesg type, int s1, long l1, Rune *s)
 {
-	char buf[DATASIZE*3+1];
+	char buf[DATASIZE*UTFmax+1];
 	char *c;
 
 	outstart(type);

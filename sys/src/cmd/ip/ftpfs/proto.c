@@ -1525,7 +1525,7 @@ fromlatin1(char *from)
 	if(*p == 0)
 		return nil;
 
-	to = malloc(3*strlen(from)+2);
+	to = malloc(UTFmax*strlen(from)+2);
 	if(to == nil)
 		return nil;
 	for(p = to; *from; from++){

@@ -282,7 +282,7 @@ threadmain(int argc, char *argv[])
 			n = atoi(args[2]);
 			if(n == '\033')	/* Escape exits */
 				break;
-			if(n <= 0xFFFF){
+			if(n <= Runemax){
 				r = n;
 				send(kbdctl->c, &r);
 			}

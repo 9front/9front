@@ -803,13 +803,14 @@ attext(Thing *t, Point p, char *buf)
 }
 
 int
-type(char *buf, char *tag)
+type(char *buf, int nbuf, char *tag)
 {
 	Rune r;
-	char *p;
+	char *p, *e;
 
 	esetcursor(&busy);
 	p = buf;
+	e = buf + nbuf-UTFmax-1;
 	for(;;){
 		*p = 0;
 		mesg("%s: %s", tag, buf);
@@ -827,7 +828,8 @@ type(char *buf, char *tag)
 				--p;
 			break;
 		default:
-			p += runetochar(p, &r);
+			if(p < e)
+				p += runetochar(p, &r);
 		}
 	}
 }
@@ -846,7 +848,7 @@ textedit(Thing *t, char *tag)
 	Thing *nt;
 
 	buttons(Up);
-	if(type(buf, tag) == 0)
+	if(type(buf, sizeof(buf), tag) == 0)
 		return;
 	if(strcmp(tag, "file") == 0){
 		for(s=buf; *s; s++)
@@ -1174,7 +1176,7 @@ cntledit(char *tag)
 	long l;
 
 	buttons(Up);
-	if(type(buf, tag) == 0)
+	if(type(buf, sizeof(buf), tag) == 0)
 		return;
 	if(strcmp(tag, "mag") == 0){
 		if(buf[0]<'0' || '9'<buf[0] || (l=atoi(buf))<=0 || l>Maxmag){
@@ -1806,7 +1808,7 @@ tchar(Thing *t)
 			return;
 		}
 	}
-	if(type(buf, "char (hex or character or hex-hex)") == 0)
+	if(type(buf, sizeof(buf), "char (hex or character or hex-hex)") == 0)
 		return;
 	if(utflen(buf) == 1){
 		chartorune(&r, buf);
@@ -2000,7 +2002,7 @@ menu(void)
 	sel = emenuhit(3, &mouse, &menu3);
 	switch(sel){
 	case Mopen:
-		if(type(buf, "file")){
+		if(type(buf, sizeof(buf), "file")){
 			t = tget(buf);
 			if(t)
 				drawthing(t, 1);

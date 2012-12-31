@@ -45,8 +45,7 @@ isbadjoliet(char *s)
 
 	if(utflen(s) > 64)
 		return 1;
-	strtorune(r, s);
-	for(p=r; *p; p++)
+	for(p=strtorune(r, s); *p; p++)
 		if(isjolietfrog(*p))
 			return 1;
 	return 0;

@@ -1310,9 +1310,9 @@ getchar(TokenSource* ts)
 		break;
 	case UTF_8:
 		ok = fullrune((char*)(buf+ts->i), ts->edata-ts->i);
-		n = chartorune(&r, (char*)(buf+ts->i));
 		if(ok) {
-			if(warn && c == 0x80)
+			n = chartorune(&r, (char*)(buf+ts->i));
+			if(warn && c == Runeerror)
 				fprint(2, "warning: invalid utf-8 sequence (starts with %x)\n", ts->data[ts->i]);
 			ts->i += n;
 			c = r;

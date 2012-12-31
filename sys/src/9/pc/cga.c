@@ -99,7 +99,9 @@ cgascreenputc(Rune c)
 	int i;
 	uchar *p;
 
-	if(c == '\n'){
+	if(c == '\0')
+		return;
+	else if(c == '\n'){
 		cgapos = cgapos/Width;
 		cgapos = (cgapos+1)*Width;
 	}
@@ -138,8 +140,10 @@ cgascreenputc(Rune c)
 static void
 cgascreenputs(char* s, int n)
 {
+	static char rb[UTFmax];
+	static int nrb;
+	char *e;
 	Rune r;
-	int i;
 
 	if(!islo()){
 		/*
@@ -152,11 +156,14 @@ cgascreenputs(char* s, int n)
 	else
 		lock(&cgascreenlock);
 
-	while(n > 0){
-		i = chartorune(&r, s);
-		cgascreenputc(r);
-		s += i;
-		n -= i;
+	e = s + n;
+	while(s < e){
+		rb[nrb++] = *s++;
+		if(nrb >= UTFmax || fullrune(rb, nrb)){
+			chartorune(&r, rb);
+			cgascreenputc(r);
+			nrb = 0;
+		}
 	}
 
 	unlock(&cgascreenlock);

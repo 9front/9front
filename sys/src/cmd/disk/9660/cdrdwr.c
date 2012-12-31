@@ -503,7 +503,6 @@ Cputrscvt(Cdimg *cd, char *s, int size)
 {
 	Rune r[256];
 
-	strtorune(r, s);
 	Cputrs(cd, strtorune(r, s), size);
 }
 

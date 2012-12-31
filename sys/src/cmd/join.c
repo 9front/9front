@@ -286,7 +286,7 @@ output(int on1, int on2)	/* print items from olist */
 {
 	int i;
 	Rune *temp;
-	char buf[BUFSIZ];
+	char buf[BUFSIZ*UTFmax+1];
 
 	if (no <= 0) {	/* default case */
 		printf("%s", runetostr(buf, on1? ppi[F1][j1]: ppi[F2][j2]));

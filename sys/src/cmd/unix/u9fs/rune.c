@@ -1,6 +1,7 @@
 #include	<plan9.h>
 
 char *argv0;
+
 enum
 {
 	Bit1	= 7,
@@ -8,27 +9,30 @@ enum
 	Bit2	= 5,
 	Bit3	= 4,
 	Bit4	= 3,
+	Bit5	= 2,
 
 	T1	= ((1<<(Bit1+1))-1) ^ 0xFF,	/* 0000 0000 */
 	Tx	= ((1<<(Bitx+1))-1) ^ 0xFF,	/* 1000 0000 */
 	T2	= ((1<<(Bit2+1))-1) ^ 0xFF,	/* 1100 0000 */
 	T3	= ((1<<(Bit3+1))-1) ^ 0xFF,	/* 1110 0000 */
 	T4	= ((1<<(Bit4+1))-1) ^ 0xFF,	/* 1111 0000 */
+	T5	= ((1<<(Bit5+1))-1) ^ 0xFF,	/* 1111 1000 */
 
-	Rune1	= (1<<(Bit1+0*Bitx))-1,		/* 0000 0000 0111 1111 */
-	Rune2	= (1<<(Bit2+1*Bitx))-1,		/* 0000 0111 1111 1111 */
-	Rune3	= (1<<(Bit3+2*Bitx))-1,		/* 1111 1111 1111 1111 */
+	Rune1	= (1<<(Bit1+0*Bitx))-1,		/* 0000 0000 0000 0000 0111 1111 */
+	Rune2	= (1<<(Bit2+1*Bitx))-1,		/* 0000 0000 0000 0111 1111 1111 */
+	Rune3	= (1<<(Bit3+2*Bitx))-1,		/* 0000 0000 1111 1111 1111 1111 */
+	Rune4	= (1<<(Bit4+3*Bitx))-1,		/* 0011 1111 1111 1111 1111 1111 */
 
 	Maskx	= (1<<Bitx)-1,			/* 0011 1111 */
 	Testx	= Maskx ^ 0xFF,			/* 1100 0000 */
 
-	Bad	= Runeerror
+	Bad	= Runeerror,
 };
 
 int
 chartorune(Rune *rune, char *str)
 {
-	int c, c1, c2;
+	int c, c1, c2, c3;
 	long l;
 
 	/*
@@ -73,6 +77,25 @@ chartorune(Rune *rune, char *str)
 		return 3;
 	}
 
+ 	/*
+	 * four character sequence
+	 *	10000-10FFFF => T4 Tx Tx Tx
+	 */
+	if(UTFmax >= 4) {
+		c3 = *(uchar*)(str+3) ^ Tx;
+		if(c3 & Testx)
+			goto bad;
+		if(c < T5) {
+			l = ((((((c << Bitx) | c1) << Bitx) | c2) << Bitx) | c3) & Rune4;
+			if(l <= Rune3)
+				goto bad;
+			if(l > Runemax)
+				goto bad;
+			*rune = l;
+			return 4;
+		}
+	}
+
 	/*
 	 * bad decoding
 	 */
@@ -86,11 +109,14 @@ runetochar(char *str, Rune *rune)
 {
 	long c;
 
+	c = *rune;
+	if(c > Runemax)
+		c = Runeerror;
+
 	/*
 	 * one character sequence
 	 *	00000-0007F => 00-7F
 	 */
-	c = *rune;
 	if(c <= Rune1) {
 		str[0] = c;
 		return 1;
@@ -110,39 +136,70 @@ runetochar(char *str, Rune *rune)
 	 * three character sequence
 	 *	0800-FFFF => T3 Tx Tx
 	 */
-	str[0] = T3 |  (c >> 2*Bitx);
-	str[1] = Tx | ((c >> 1*Bitx) & Maskx);
-	str[2] = Tx |  (c & Maskx);
-	return 3;
+	if(c <= Rune3) {
+		str[0] = T3 |  (c >> 2*Bitx);
+		str[1] = Tx | ((c >> 1*Bitx) & Maskx);
+		str[2] = Tx |  (c & Maskx);
+		return 3;
+	}
+
+	/*
+	 * four character sequence
+	 *	10000-1FFFFF => T4 Tx Tx Tx
+	 */
+	str[0] = T4 |  (c >> 3*Bitx);
+	str[1] = Tx | ((c >> 2*Bitx) & Maskx);
+	str[2] = Tx | ((c >> 1*Bitx) & Maskx);
+	str[3] = Tx |  (c & Maskx);
+	return 4;
 }
 
 int
 runelen(long c)
 {
 	Rune rune;
-	char str[10];
+	char str[UTFmax];
 
 	rune = c;
 	return runetochar(str, &rune);
 }
 
 int
-utflen(char *s)
+runenlen(Rune *r, int nrune)
+{
+	int nb, c;
+
+	nb = 0;
+	while(nrune--) {
+		c = *r++;
+		if(c <= Rune1)
+			nb++;
+		else
+		if(c <= Rune2)
+			nb += 2;
+		else
+		if(c <= Rune3 || c > Runemax)
+			nb += 3;
+		else
+			nb += 4;
+	}
+	return nb;
+}
+
+int
+fullrune(char *str, int n)
 {
 	int c;
-	long n;
-	Rune rune;
 
-	n = 0;
-	for(;;) {
-		c = *(uchar*)s;
-		if(c < Runeself) {
-			if(c == 0)
-				return n;
-			s++;
-		} else
-			s += chartorune(&rune, s);
-		n++;
-	}
-	return 0;
+	if(n <= 0)
+		return 0;
+	c = *(uchar*)str;
+	if(c < Tx)
+		return 1;
+	if(c < T3)
+		return n >= 2;
+	if(UTFmax == 3 || c < T4)
+		return n >= 3;
+	return n >= 4;
 }
+

@@ -625,7 +625,7 @@ compsub(Rune *rhs, Rune *end)
 	while ((r = *cp++) != '\0') {
 		if(r == '\\') {
 			if (rhs < end)
-				*rhs++ = 0xFFFF;
+				*rhs++ = Runemax;
 			else
 				return 0;
 			r = *cp++;
@@ -1055,7 +1055,7 @@ dosub(Rune *rhsbuf)
 			sp = place(sp, loc1, loc2);
 			continue;
 		}
-		if (c == 0xFFFF && (c = *rp++) >= '1' && c < MAXSUB + '0') {
+		if (c == Runemax && (c = *rp++) >= '1' && c < MAXSUB + '0') {
 			n = c-'0';
 			if (subexp[n].rsp && subexp[n].rep) {
 				sp = place(sp, subexp[n].rsp, subexp[n].rep);
@@ -1336,7 +1336,7 @@ void
 arout(void)
 {
 	int	c;
-	char	*s;
+	char	*s, *e;
 	char	buf[128];
 	Rune	*p1;
 	Biobuf	*fi;
@@ -1347,7 +1347,7 @@ arout(void)
 				Bputrune(&fout, *p1);
 			Bputc(&fout, '\n');
 		} else {
-			for(s = buf, p1 = (*aptr)->text; *p1; p1++)
+			for(s = buf, e = buf+sizeof(buf)-UTFmax-1, p1 = (*aptr)->text; *p1 && s < e; p1++)
 				s += runetochar(s, p1);
 			*s = '\0';
 			if((fi = Bopen(buf, OREAD)) == 0)

@@ -528,12 +528,15 @@ __flagfmt(Fmt *f)
 int
 __badfmt(Fmt *f)
 {
-	char x[3];
+	char x[2+UTFmax];
+	Rune r;
+	int n;
 
+	r = f->r;
 	x[0] = '%';
-	x[1] = f->r;
-	x[2] = '%';
-	f->prec = 3;
-	__fmtcpy(f, (const void*)x, 3, 3);
+	n = 1+runetochar(x+1, &r);
+	x[n++] = '%';
+	f->prec = n;
+	_fmtcpy(f, x, n, n);
 	return 0;
 }
