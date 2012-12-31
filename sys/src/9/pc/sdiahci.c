@@ -2061,6 +2061,8 @@ didtype(Pcidev *p)
 	default:
 		return -1;
 	case 0x8086:
+		if((p->did & 0xffff) == 0x2653)
+			return Tich;		/* 82801fbm */
 		if((p->did & 0xfffc) == 0x2680)
 			return Tesb;
 		if((p->did & 0xfffb) == 0x27c1)
