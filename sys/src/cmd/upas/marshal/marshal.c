@@ -46,6 +46,8 @@ enum {
 	Hcontent,
 	Hx,
 	Hprecedence,
+	Hattach,
+	Hinline,
 	Nhdr,
 };
 
@@ -70,6 +72,8 @@ char *hdrs[Nhdr] = {
 [Hcontent]	"content-",
 [Hx]		"x-",
 [Hprecedence]	"precedence",
+[Hattach]		"attach",
+[Hinline]		"inline",
 };
 
 struct Ctype {
@@ -122,7 +126,7 @@ int	printinreplyto(Biobuf*, char*);
 int	printsubject(Biobuf*, char*);
 int	printto(Biobuf*, Addr*);
 Alias*	readaliases(void);
-int	readheaders(Biobuf*, int*, String**, Addr**, Addr**, Addr**, int);
+int	readheaders(Biobuf*, int*, String**, Addr**, Addr**, Addr**, Attach**, int);
 void	readmimetypes(void);
 int	rfc2047fmt(Fmt*);
 int	sendmail(Addr*, Addr*, Addr*, int*, char*);
@@ -304,7 +308,7 @@ main(int argc, char **argv)
 		 */
 		holding = holdon();
 		headersrv = readheaders(&in, &flags, &hdrstring,
-			eightflag? &to: nil, eightflag? &cc: nil, eightflag? &bcc: nil, 1);
+			eightflag? &to: nil, eightflag? &cc: nil, eightflag? &bcc: nil, l, 1);
 		if(rfc822syntaxerror){
 			Bdrain(&in);
 			fatal("rfc822 syntax error, message not sent");
@@ -345,7 +349,7 @@ main(int argc, char **argv)
 	mboxpath("headers", user, file, 0);
 	b = Bopen(s_to_c(file), OREAD);
 	if(b != nil){
-		if (readheaders(b, &flags, &hdrstring, nil, nil, nil, 0) == Error)
+		if (readheaders(b, &flags, &hdrstring, nil, nil, nil, l, 0) == Error)
 			fatal("reading");
 		Bterm(b);
 		bwritesfree(&out, &hdrstring);
@@ -445,15 +449,16 @@ pgpopts(char *s)
  * remove Bcc: line.
  */
 int
-readheaders(Biobuf *in, int *fp, String **sp, Addr **top, Addr **ccp, Addr **bccp, int strict)
+readheaders(Biobuf *in, int *fp, String **sp, Addr **top, Addr **ccp, Addr **bccp, Attach **l, int strict)
 {
-	int i, seen, hdrtype;
+	int i, seen, hdrtype, flags;
 	char *p;
-	Addr *to, *cc, *bcc;
+	Addr *to, *cc, *bcc, *attachment;
+	Attach *a;
 	String *s, *sline;
 
 	s = s_new();
-	to = cc = bcc = nil;
+	to = cc = bcc = attachment = nil;
 	sline = nil;
 	hdrtype = -1;
 	seen = 0;
@@ -494,6 +499,19 @@ readheaders(Biobuf *in, int *fp, String **sp, Addr **top, Addr **ccp, Addr **bcc
 			case Hsubject:
 				s_append(s, mksubject(s_to_c(sline)));
 				s_append(s, "\n");
+				break;
+			case Hattach:
+				flags = 0;
+				goto afile;
+			case Hinline:
+				flags = 1;
+			afile:
+				attachment = expandline(&sline, attachment);
+				a = mkattach(attachment->v, nil, flags);
+				if(a == nil)
+					exits("bad args");
+				*l = a;
+				l = &a->next;
 				break;
 			}
 			s_free(sline);
