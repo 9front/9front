@@ -157,6 +157,10 @@ reads recipients (
 .B To:
 and
 .B Cc:
+) and attachments (
+.B Attach:
+and
+.B Inline:
 ) from RFC 822 header of the message
 .PD
 .PP

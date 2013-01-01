@@ -116,6 +116,7 @@ void	freealias(Alias*);
 void	freealiases(Alias*);
 Attach*	mkattach(char*, char*, int);
 char*	mkboundary(void);
+char*	hdrval(char*);
 char*	mksubject(char*);
 int	pgpfilter(int*, int, int);
 int	pgpopts(char*);
@@ -308,7 +309,7 @@ main(int argc, char **argv)
 		 */
 		holding = holdon();
 		headersrv = readheaders(&in, &flags, &hdrstring,
-			eightflag? &to: nil, eightflag? &cc: nil, eightflag? &bcc: nil, l, 1);
+			eightflag? &to: nil, eightflag? &cc: nil, eightflag? &bcc: nil, eightflag? l: nil, 1);
 		if(rfc822syntaxerror){
 			Bdrain(&in);
 			fatal("rfc822 syntax error, message not sent");
@@ -349,7 +350,7 @@ main(int argc, char **argv)
 	mboxpath("headers", user, file, 0);
 	b = Bopen(s_to_c(file), OREAD);
 	if(b != nil){
-		if (readheaders(b, &flags, &hdrstring, nil, nil, nil, l, 0) == Error)
+		if (readheaders(b, &flags, &hdrstring, nil, nil, nil, nil, 0) == Error)
 			fatal("reading");
 		Bterm(b);
 		bwritesfree(&out, &hdrstring);
@@ -449,16 +450,15 @@ pgpopts(char *s)
  * remove Bcc: line.
  */
 int
-readheaders(Biobuf *in, int *fp, String **sp, Addr **top, Addr **ccp, Addr **bccp, Attach **l, int strict)
+readheaders(Biobuf *in, int *fp, String **sp, Addr **top, Addr **ccp, Addr **bccp, Attach **att, int strict)
 {
-	int i, seen, hdrtype, flags;
-	char *p;
-	Addr *to, *cc, *bcc, *attachment;
-	Attach *a;
+	int i, seen, hdrtype;
+	Addr *to, *cc, *bcc;
 	String *s, *sline;
+	char *p;
 
 	s = s_new();
-	to = cc = bcc = attachment = nil;
+	to = cc = bcc = nil;
 	sline = nil;
 	hdrtype = -1;
 	seen = 0;
@@ -501,17 +501,12 @@ readheaders(Biobuf *in, int *fp, String **sp, Addr **top, Addr **ccp, Addr **bcc
 				s_append(s, "\n");
 				break;
 			case Hattach:
-				flags = 0;
-				goto afile;
 			case Hinline:
-				flags = 1;
-			afile:
-				attachment = expandline(&sline, attachment);
-				a = mkattach(attachment->v, nil, flags);
-				if(a == nil)
-					exits("bad args");
-				*l = a;
-				l = &a->next;
+				if(att == nil)
+					goto Addhdr;
+				*att = mkattach(hdrval(s_to_c(sline)), nil, hdrtype == Hinline);
+				if(*att != nil)
+					att = &(*att)->next;
 				break;
 			}
 			s_free(sline);
@@ -876,7 +871,7 @@ mkattach(char *file, char *type, int ainline)
 		return nil;
 	}
 	a = emalloc(sizeof(*a));
-	a->path = file;
+	a->path = estrdup(file);
 	a->next = nil;
 	a->type = type;
 	a->ainline = ainline;
@@ -1938,14 +1933,21 @@ hard:
 }
 
 char*
+hdrval(char *p)
+{
+	p = strchr(p, ':') + 1;
+	while(*p == ' ' || *p == '\t')
+		p++;
+	return p;
+}
+
+char*
 mksubject(char *line)
 {
 	char *p, *q;
 	static char buf[1024];
 
-	p = strchr(line, ':') + 1;
-	while(*p == ' ')
-		p++;
+	p = hdrval(line);
 	for(q = p; *q; q++)
 		if((uchar)*q >= 0x80)
 			goto hard;
