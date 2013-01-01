@@ -47,7 +47,7 @@ enum {
 	Hx,
 	Hprecedence,
 	Hattach,
-	Hinline,
+	Hinclude,
 	Nhdr,
 };
 
@@ -72,8 +72,8 @@ char *hdrs[Nhdr] = {
 [Hcontent]	"content-",
 [Hx]		"x-",
 [Hprecedence]	"precedence",
-[Hattach]		"attach",
-[Hinline]		"inline",
+[Hattach]	"attach:",
+[Hinclude]	"include:",
 };
 
 struct Ctype {
@@ -309,7 +309,7 @@ main(int argc, char **argv)
 		 */
 		holding = holdon();
 		headersrv = readheaders(&in, &flags, &hdrstring,
-			eightflag? &to: nil, eightflag? &cc: nil, eightflag? &bcc: nil, eightflag? l: nil, 1);
+			eightflag? &to: nil, eightflag? &cc: nil, eightflag? &bcc: nil, l, 1);
 		if(rfc822syntaxerror){
 			Bdrain(&in);
 			fatal("rfc822 syntax error, message not sent");
@@ -501,10 +501,10 @@ readheaders(Biobuf *in, int *fp, String **sp, Addr **top, Addr **ccp, Addr **bcc
 				s_append(s, "\n");
 				break;
 			case Hattach:
-			case Hinline:
+			case Hinclude:
 				if(att == nil)
-					goto Addhdr;
-				*att = mkattach(hdrval(s_to_c(sline)), nil, hdrtype == Hinline);
+					break;
+				*att = mkattach(hdrval(s_to_c(sline)), nil, hdrtype == Hinclude);
 				if(*att != nil)
 					att = &(*att)->next;
 				break;

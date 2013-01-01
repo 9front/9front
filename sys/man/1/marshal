@@ -155,12 +155,9 @@ pgp encrypt the message
 .B -8
 reads recipients (
 .B To:
-and
 .B Cc:
-) and attachments (
-.B Attach:
 and
-.B Inline:
+.B Bcc:
 ) from RFC 822 header of the message
 .PD
 .PP
@@ -184,6 +181,17 @@ For example:
 .EX
 upasname=natasha@kremvax.com upas/mail boris@squirrel.com
 .EE
+.PP
+.I Marshal
+interprets file attachment headers
+.B Attach:
+and
+.B Include:
+as if the
+.B -A
+or
+.B -a
+options would have been given.
 .SH FILES
 .TP
 .B /mail/box/*/dead.letter
