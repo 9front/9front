@@ -1056,7 +1056,7 @@ gopcode(int o, Node *f1, Node *f2, Node *t)
 		nextpc();
 		p->as = a;
 		naddr(f1, &p->from);
-		if(a == ACMP && f1->op == OCONST && p->from.offset < 0) {
+		if(a == ACMP && f1->op == OCONST && p->from.offset < 0 && p->from.offset != -p->from.offset) {
 			p->as = ACMN;
 			p->from.offset = -p->from.offset;
 		}
