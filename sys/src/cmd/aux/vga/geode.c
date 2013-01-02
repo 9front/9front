@@ -66,8 +66,12 @@ snarf(Vga* vga, Ctlr* ctlr)
 
 	if(!vga->private) {
 		geode = alloc(sizeof(Geode));
-		geode->pci = pcimatch(0, 0x1022, 0x2081);
-		if(!geode->pci) error("%s: not found\n", ctlr->name);
+		geode->pci = vga->pci;
+		if(geode->pci == nil){
+			geode->pci = pcimatch(0, 0x1022, 0x2081);
+			if(!geode->pci) error("%s: not found\n", ctlr->name);
+		}
+		vgactlpci(geode->pci);
 		vgactlw("type", "geode");
 		geode->mmio = segattach(0, "geodemmio", 0, geode->pci->mem[2].size);
 		if(geode->mmio == (ulong*)-1) error("%s: can't attach mmio segment\n", ctlr->name);

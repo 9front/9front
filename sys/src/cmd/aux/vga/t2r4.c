@@ -91,27 +91,27 @@ static void
 snarf(Vga* vga, Ctlr* ctlr)
 {
 	ulong *mmio;
-	int f, i, x;
+	int i, x;
 	Pcidev *p;
 	T2r4 *t2r4;
 	ulong *rp;
 
 	if(vga->private == nil){
 		vga->private = alloc(sizeof(T2r4));
-		if((p = pcimatch(0, 0x105D, 0)) == nil)
-			error("%s: not found\n", ctlr->name);
-		switch(p->did){
-		case 0x5348:			/*  */
-			break;
-		default:
-			error("%s: not found\n", ctlr->name);
+		p = vga->pci;
+		if(p == nil){
+			if((p = pcimatch(0, 0x105D, 0)) == nil)
+				error("%s: not found\n", ctlr->name);
+			switch(p->did){
+			case 0x5348:			/*  */
+				break;
+			default:
+				error("%s: not found\n", ctlr->name);
+			}
 		}
 
-		if((f = open("#v/vgactl", OWRITE)) < 0)
-			error("%s: can't open vgactl\n", ctlr->name);
-		if(write(f, "type t2r4", 9) != 9)
-			error("%s: can't set type\n", ctlr->name);
-		close(f);
+		vgactlpci(p);
+		vgactlw("type", "t2r4");
 	
 		mmio = segattach(0, "t2r4mmio", 0, p->mem[4].size);
 		if(mmio == (void*)-1)

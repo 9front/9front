@@ -47,6 +47,7 @@ enum {
 	CMtype,
 	CMunblank,
 	CMsoftscreen,
+	CMpcidev,
 };
 
 static Cmdtab vgactlmsg[] = {
@@ -65,16 +66,31 @@ static Cmdtab vgactlmsg[] = {
 	CMtype,		"type",		2,
 	CMunblank,	"unblank",	1,
 	CMsoftscreen,	"softscreen",	2,
+	CMpcidev,	"pcidev",	2,
 };
 
 static void
 vgareset(void)
 {
+	Pcidev *pci;
+	VGAscr *scr;
+
 	/* reserve the 'standard' vga registers */
 	if(ioalloc(0x2b0, 0x2df-0x2b0+1, 0, "vga") < 0)
-		panic("vga ports already allocated"); 
+		panic("vga ports already allocated");
 	if(ioalloc(0x3c0, 0x3da-0x3c0+1, 0, "vga") < 0)
-		panic("vga ports already allocated"); 
+		panic("vga ports already allocated");
+
+	/* find graphics card pci device */
+	scr = &vgascreen[0];
+	scr->pci = pci = nil;
+	while((pci = pcimatch(pci, 0, 0)) != nil){
+		if(pci->ccrb == Pcibcdisp){
+			scr->pci = pci;
+			break;
+		}
+	}
+
 	conf.monitor = 1;
 }
 
@@ -275,6 +291,16 @@ vgactl(Cmdbuf *cb)
 			return;
 		}
 		break;
+
+	case CMpcidev:
+		if(cb->nf == 2){
+			Pcidev *p;
+
+			if((p = pcimatchtbdf(strtoul(cb->f[1], 0, 16))) != nil)
+				scr->pci = p;
+		} else
+			error(Ebadarg);
+		return;
 
 	case CMtype:
 		for(i = 0; vgadev[i]; i++){

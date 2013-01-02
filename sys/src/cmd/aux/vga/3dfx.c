@@ -51,8 +51,10 @@ snarf(Vga* vga, Ctlr* ctlr)
 
 	if(vga->private == nil){
 		tdfx = alloc(sizeof(Tdfx));
-		tdfx->pci = pcimatch(0, 0x121A, 0);
+		tdfx->pci = vga->pci;
 		if(tdfx->pci == nil)
+			tdfx->pci = pcimatch(0, 0x121A, 0);
+		if(tdfx->pci == nil || tdfx->pci->vid != 0x121A)
 			error("%s: not found\n", ctlr->name);
 		switch(tdfx->pci->did){
 		default:

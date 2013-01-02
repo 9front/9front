@@ -125,7 +125,6 @@ snarf(Vga* vga, Ctlr* ctlr)
 	p = vga->pci;
 	if(p == nil)
 		error("%s: vga->pci not set\n", ctlr->name);
-
 	vm = alloc(sizeof(Vmware));
 	switch(p->did){
 	case VMWARE1:	/* VMware video chipset #1 */
@@ -141,8 +140,9 @@ snarf(Vga* vga, Ctlr* ctlr)
 		break;
 
 	default:
-		error("%s: unrecognized chipset %.4ux\n", ctlr->name, p->did);
+		error("%s: unrecognized DID %.4ux\n", ctlr->name, p->did);
 	}
+	vgactlpci(p);
 
 	for(i=0; i<Nreg; i++)
 		vm->r[i] = vmrd(vm, i);

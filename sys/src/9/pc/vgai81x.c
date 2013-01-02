@@ -50,29 +50,6 @@ i81xblank(VGAscr *scr, int blank)
 	*dpms = mode;
 }
 
-static Pcidev *
-i81xpcimatch(void)
-{
-	Pcidev *p;
-
-	p = nil;
-	while((p = pcimatch(p, 0x8086, 0)) != nil){
-		switch(p->did){
-		default:
-			continue;
-		case 0x7121:
-		case 0x7123:
-		case 0x7125:
-		case 0x1102:
-		case 0x1112:
-		case 0x1132:
-		case 0x3577:	/* IBM R31 uses intel 830M chipset */
-			return p;
-		}
-	}
-	return nil;
-}
-
 static void
 i81xenable(VGAscr* scr)
 {
@@ -83,7 +60,7 @@ i81xenable(VGAscr* scr)
 	
 	if(scr->mmio)
 		return;
-	p = i81xpcimatch();
+	p = scr->pci;
 	if(p == nil)
 		return;
 	scr->mmio = vmap(p->mem[1].bar & ~0x0F, p->mem[1].size);

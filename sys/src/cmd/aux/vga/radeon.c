@@ -232,10 +232,14 @@ snarf(Vga *vga, Ctlr *ctlr)
 		vga->private = alloc(sizeof(Radeon));
 		radeon = vga->private;
 
+		isr300 = 0;
 		p = radeonpci(&isr300);
+		if (p == nil)
+			p = vga->pci;
 		if (p == nil)
 			error("%s: not found\n", ctlr->name);
 
+		vgactlpci(p);
 		vgactlw("type", ctlr->name);
 
 		mmio = (uintptr)segattach(0, "radeonmmio", (void *)0,

@@ -77,20 +77,6 @@ enum {
 	FILL_OPERAND	= 0x800c7804,
 };
 
-static Pcidev *
-mgapcimatch(void)
-{
-	Pcidev *p;
-	
-	p = pcimatch(nil, MATROX, MGA4xx);
-	if(p == nil)
-		p = pcimatch(nil, MATROX, MGA550);
-	if(p == nil)
-		p = pcimatch(nil, MATROX, MGA200);
-	return p;
-}
-
-
 static void
 mgawrite8(VGAscr *scr, int index, uchar val)
 {
@@ -129,7 +115,7 @@ mga4xxenable(VGAscr* scr)
 	if(scr->mmio)
 		return;
 
-	pci = mgapcimatch();
+	pci = scr->pci;
 	if(pci == nil)
 		return;
 

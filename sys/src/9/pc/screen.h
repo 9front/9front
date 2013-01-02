@@ -167,7 +167,6 @@ extern QLock	drawlock;
 /* vga.c */
 extern void	vgascreenwin(VGAscr*);
 extern void	vgaimageinit(ulong);
-extern void	vgalinearpciid(VGAscr*, int, int);
 extern void	vgalinearpci(VGAscr*);
 extern void	vgalinearaddr(VGAscr*, ulong, int);
 

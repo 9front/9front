@@ -95,12 +95,13 @@ s3linear(VGAscr* scr, int, int)
 	ulong mmiobase, mmiosize;
 	Pcidev *p;
 	
-	vgalinearpciid(scr, PCIS3, 0);
 	p = scr->pci;
-	if(scr->paddr == 0 || p == nil)
+	if(p == nil)
 		return;
-		
-	addvgaseg("s3screen", scr->paddr, scr->apsize);
+	vgalinearpci(scr);
+
+	if(scr->paddr)
+		addvgaseg("s3screen", scr->paddr, scr->apsize);
 	
 	id = (vgaxi(Crtx, 0x2D)<<8)|vgaxi(Crtx, 0x2E);
 	switch(id){			/* find mmio */

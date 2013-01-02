@@ -118,7 +118,6 @@ crtcexto(uchar index, uchar data)
 static void
 mapmga(Vga* vga, Ctlr* ctlr)
 {
-	int f;
 	uchar *m;
 	Mga *mga;
 
@@ -126,11 +125,8 @@ mapmga(Vga* vga, Ctlr* ctlr)
 		error("%s: tvp3026io: no *mga\n", ctlr->name);
 	mga = vga->private;
 
-	f = open("#v/vgactl", OWRITE);
-	if(f < 0)
-		error("%s: can't open vgactl\n", ctlr->name);
-	if(write(f, "type mga2164w", 13) != 13)
-		error("%s: can't set mga type\n", ctlr->name);
+	vgactlpci(vga->pci);
+	vgactlw("type", "mga2164w");
 	
 	m = segattach(0, "mga2164wmmio", 0, 16*1024);
 	if(m == (void*)-1)

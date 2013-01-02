@@ -44,7 +44,7 @@ clgd542xpage(VGAscr* scr, int page)
 static void
 clgd542xlinear(VGAscr* scr, int, int)
 {
-	vgalinearpciid(scr, 0x1013, 0);
+	vgalinearpci(scr);
 }
 
 static void

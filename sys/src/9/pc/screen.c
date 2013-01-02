@@ -443,26 +443,6 @@ blankscreen(int blank)
 }
 
 void
-vgalinearpciid(VGAscr *scr, int vid, int did)
-{
-	Pcidev *p;
-
-	p = nil;
-	while((p = pcimatch(p, vid, 0)) != nil){
-		if(p->ccrb != 3)	/* video card */
-			continue;
-		if(did != 0 && p->did != did)
-			continue;
-		break;
-	}
-	if(p == nil)
-		error("pci video card not found");
-
-	scr->pci = p;
-	vgalinearpci(scr);
-}
-
-void
 vgalinearpci(VGAscr *scr)
 {
 	ulong paddr;

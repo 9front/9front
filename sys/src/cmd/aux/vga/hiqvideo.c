@@ -52,7 +52,10 @@ snarf(Vga* vga, Ctlr* ctlr)
 	if(vga->private == nil){
 		vga->private = alloc(sizeof(HiQVideo));
 		hqv = vga->private;
-		if((p = pcimatch(nil, 0x102C, 0)) == nil)
+		p = vga->pci;
+		if(p == nil)
+			p = pcimatch(nil, 0x102C, 0);
+		if(p == nil || p->vid != 0x102C)
 			error("%s: not found\n", ctlr->name);
 		switch(p->did){
 		case 0x00C0:		/* 69000 HiQVideo */

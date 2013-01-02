@@ -25,19 +25,6 @@ enum {
 	Meg	= Kilo * Kilo,
 };
 
-static Pcidev*
-radeonpci(void)
-{
-	static Pcidev *p = nil;
-	struct pciids *ids;
-
-	while ((p = pcimatch(p, ATI_PCIVID, 0)) != nil)
-		for (ids = radeon_pciids; ids->did; ids++)
-			if (ids->did == p->did)
-				return p;
-	return nil;
-}
-
 /* mmio access */
 
 static void
@@ -96,11 +83,10 @@ radeonenable(VGAscr *scr)
 
 	if (scr->mmio)
 		return;
-	p = radeonpci();
+	p = scr->pci;
 	if (p == nil)
 		return;
 	scr->id = p->did;
-	scr->pci = p;
 
 	scr->mmio = vmap(p->mem[2].bar & ~0x0f, p->mem[2].size);
 	if(scr->mmio == 0)

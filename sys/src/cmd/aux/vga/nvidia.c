@@ -136,14 +136,17 @@ snarf(Vga* vga, Ctlr* ctlr)
 		vga->private = alloc(sizeof(Nvidia));
 		nv = vga->private;
 
-		p = nil;
-		while((p = pcimatch(p, 0x10DE, 0)) != nil){
-			if(p->ccrb == 3)
-				break;
+		p = vga->pci;
+		if(p == nil){
+			while((p = pcimatch(p, 0x10DE, 0)) != nil){
+				if(p->ccrb == 3)
+					break;
+			}
+			if(p == nil)
+				error("%s: not found\n", ctlr->name);
 		}
-		if(p == nil)
-			error("%s: not found\n", ctlr->name);
 
+		vgactlpci(p);
 		vgactlw("type", ctlr->name);
 
 		mmio = segattach(0, "nvidiammio", 0, p->mem[0].size);

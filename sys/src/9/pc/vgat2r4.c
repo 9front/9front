@@ -64,17 +64,9 @@ t2r4enable(VGAscr* scr)
 
 	if(scr->mmio)
 		return;
-	if(p = pcimatch(nil, 0x105D, 0)){
-		switch(p->did){
-		case 0x5348:
-			break;
-		default:
-			return;
-		}
-	}
-	else
+	p = scr->pci;
+	if(p == nil)
 		return;
-	scr->pci = p;
 	
 	mmio = vmap(p->mem[4].bar & ~0x0F, p->mem[4].size);
 	if(mmio == nil)

@@ -103,3 +103,5 @@ typedef struct Pcidev {
 	Pcidev*	list;
 	int rawfd;
 };
+
+extern void vgactlpci(Pcidev *);

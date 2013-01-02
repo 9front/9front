@@ -39,52 +39,50 @@ neomagicenable(VGAscr* scr)
 	 */
 	if(scr->mmio)
 		return;
-	if(p = pcimatch(nil, 0x10C8, 0)){
-		switch(p->did){
-		case 0x0003:		/* MagicGraph 128ZV */
-			curoff = 0x100;
-			vmsize = 1152*1024;
-			ioaddr = (p->mem[0].bar & ~0x0F) + 0x200000;
-			iosize = 0x200000;
-			break;
-		case 0x0083:		/* MagicGraph 128ZV+ */
-			curoff = 0x100;
-			vmsize = 1152*1024;
-			ioaddr = p->mem[1].bar & ~0x0F;
-			iosize = p->mem[1].size;
-			break;
-		case 0x0004:		/* MagicGraph 128XD */
-			curoff = 0x100;
-			vmsize = 2048*1024;
-			ioaddr = p->mem[1].bar & ~0x0F;
-			iosize = p->mem[1].size;
-			break;
-		case 0x0005:		/* MagicMedia 256AV */
-			curoff = 0x1000;
-			vmsize = 2560*1024;
-			ioaddr = p->mem[1].bar & ~0x0F;
-			iosize = p->mem[1].size;
-			break;
-		case 0x0006:		/* MagicMedia 256ZX */
-			curoff = 0x1000;
-			vmsize = 4096*1024;
-			ioaddr = p->mem[1].bar & ~0x0F;
-			iosize = p->mem[1].size;
-			break;
-		case 0x0016:		/* MagicMedia 256XL+ */
-			curoff = 0x1000;
-			/* Vaio VESA BIOS says 6080, but then hwgc doesn't work */
-			vmsize = 4096*1024;
-			ioaddr = p->mem[1].bar & ~0x0F;
-			iosize = p->mem[1].size;
-			break;
-		default:
-			return;
-		}
-	}
-	else
+	p = scr->pci;
+	if(p == nil || p->vid != 0x10C8)
 		return;
-	scr->pci = p;
+	switch(p->did){
+	case 0x0003:		/* MagicGraph 128ZV */
+		curoff = 0x100;
+		vmsize = 1152*1024;
+		ioaddr = (p->mem[0].bar & ~0x0F) + 0x200000;
+		iosize = 0x200000;
+		break;
+	case 0x0083:		/* MagicGraph 128ZV+ */
+		curoff = 0x100;
+		vmsize = 1152*1024;
+		ioaddr = p->mem[1].bar & ~0x0F;
+		iosize = p->mem[1].size;
+		break;
+	case 0x0004:		/* MagicGraph 128XD */
+		curoff = 0x100;
+		vmsize = 2048*1024;
+		ioaddr = p->mem[1].bar & ~0x0F;
+		iosize = p->mem[1].size;
+		break;
+	case 0x0005:		/* MagicMedia 256AV */
+		curoff = 0x1000;
+		vmsize = 2560*1024;
+		ioaddr = p->mem[1].bar & ~0x0F;
+		iosize = p->mem[1].size;
+		break;
+	case 0x0006:		/* MagicMedia 256ZX */
+		curoff = 0x1000;
+		vmsize = 4096*1024;
+		ioaddr = p->mem[1].bar & ~0x0F;
+		iosize = p->mem[1].size;
+		break;
+	case 0x0016:		/* MagicMedia 256XL+ */
+		curoff = 0x1000;
+		/* Vaio VESA BIOS says 6080, but then hwgc doesn't work */
+		vmsize = 4096*1024;
+		ioaddr = p->mem[1].bar & ~0x0F;
+		iosize = p->mem[1].size;
+		break;
+	default:
+		return;
+	}
 
 	scr->mmio = vmap(ioaddr, iosize);
 	if(scr->mmio == nil)

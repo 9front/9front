@@ -77,19 +77,6 @@ static struct {
 	int	dmamax;
 } nv;
 
-static Pcidev*
-nvidiapci(void)
-{
-	Pcidev *p;
-
-	p = nil;
-	while((p = pcimatch(p, 0x10DE, 0)) != nil){
-		if(p->did >= 0x20 && p->ccrb == 3)	/* video card */
-			return p;
-	}
-	return nil;
-}
-
 static void
 nvidiaenable(VGAscr* scr)
 {
@@ -99,11 +86,10 @@ nvidiaenable(VGAscr* scr)
 
 	if(scr->mmio)
 		return;
-	p = nvidiapci();
+	p = scr->pci;
 	if(p == nil)
 		return;
 	scr->id = p->did;
-	scr->pci = p;
 
 	scr->mmio = vmap(p->mem[0].bar & ~0x0F, p->mem[0].size);
 	if(scr->mmio == nil)

@@ -46,8 +46,11 @@ cyber938xlinear(VGAscr* scr, int, int)
 	if(scr->vaddr)
 		return;
 	
-	vgalinearpciid(scr, 0x1023, 0);
 	p = scr->pci;
+	if(p == nil)
+		return;
+
+	vgalinearpci(scr);
 
 	/*
 	 * Heuristic to detect the MMIO space.  We're flying blind

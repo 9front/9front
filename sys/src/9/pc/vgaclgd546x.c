@@ -39,18 +39,9 @@ clgd546xenable(VGAscr* scr)
 
 	if(scr->mmio)
 		return;
-	if((p = pcimatch(nil, 0x1013, 0)) == nil)
+	p = scr->pci;
+	if(p == nil)
 		return;
-	switch(p->did){
-	case 0xD0:
-	case 0xD4:
-	case 0xD6:
-		break;
-	default:
-		return;
-	}
-
-	scr->pci = p;
 	scr->mmio = vmap(p->mem[1].bar&~0x0F, p->mem[1].size);
 	if(scr->mmio == 0)
 		return;

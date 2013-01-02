@@ -50,37 +50,33 @@ hiqvideoenable(VGAscr* scr)
 	 */
 	if(scr->mmio)
 		return;
-	if(p = pcimatch(nil, 0x102C, 0)){
-		switch(p->did){
-		case 0x00C0:		/* 69000 HiQVideo */
+	p = scr->pci;
+	if(p == nil || p->vid != 0x102C)
+		return;
+	switch(p->did){
+	case 0x00C0:		/* 69000 HiQVideo */
+		vmsize = 2*1024*1024;
+		break;
+	case 0x00E0:		/* 65550 HiQV32 */
+	case 0x00E4:		/* 65554 HiQV32 */
+	case 0x00E5:		/* 65555 HiQV32 */
+		switch((hiqvideoxi(Xrx, 0x43)>>1) & 0x03){
+		default:
+		case 0:
+			vmsize = 1*1024*1024;
+			break;
+		case 1:
 			vmsize = 2*1024*1024;
 			break;
-		case 0x00E0:		/* 65550 HiQV32 */
-		case 0x00E4:		/* 65554 HiQV32 */
-		case 0x00E5:		/* 65555 HiQV32 */
-			switch((hiqvideoxi(Xrx, 0x43)>>1) & 0x03){
-			default:
-			case 0:
-				vmsize = 1*1024*1024;
-				break;
-			case 1:
-				vmsize = 2*1024*1024;
-				break;
-			}
-			break;
-		default:
-			return;
 		}
-	}
-	else
+		break;
+	default:
 		return;
-
-	scr->pci = p;
+	}
 	vgalinearpci(scr);
 	
-	if(scr->paddr) {
+	if(scr->paddr)
 		addvgaseg("hiqvideoscreen", scr->paddr, scr->apsize);
-	}
 
 	/*
 	 * Find a place for the cursor data in display memory.

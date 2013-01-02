@@ -73,7 +73,7 @@ mmio32w(Laguna* laguna, int offset, int data)
 static void
 snarf(Vga* vga, Ctlr* ctlr)
 {
-	int f, i;
+	int i;
 	uchar *mmio;
 	Pcidev *p;
 	Laguna *laguna;
@@ -93,7 +93,10 @@ snarf(Vga* vga, Ctlr* ctlr)
 
 	if(vga->private == nil){
 		vga->private = alloc(sizeof(Laguna));
-		if((p = pcimatch(0, 0x1013, 0)) == nil)
+		p = vga->pci;
+		if(p == nil)
+			p = pcimatch(0, 0x1013, 0);
+		if(p == nil || p->vid != 0x1013)
 			error("%s: not found\n", ctlr->name);
 		switch(p->did){
 		case 0xD0:			/* CL-GD5462 */
@@ -104,14 +107,12 @@ snarf(Vga* vga, Ctlr* ctlr)
 			vga->f[1] = 230000000;
 			break;
 		default:
-			error("%s: not found\n", ctlr->name);
+			error("%s: DID %4.4uX unsupported\n",
+				ctlr->name, p->did);
 		}
 
-		if((f = open("#v/vgactl", OWRITE)) < 0)
-			error("%s: can't open vgactl\n", ctlr->name);
-		if(write(f, "type clgd546x", 13) != 13)
-			error("%s: can't set type\n", ctlr->name);
-		close(f);
+		vgactlpci(p);
+		vgactlw("type", "clgd546x");
 	
 		mmio = segattach(0, "clgd546xmmio", 0, p->mem[1].size);
 		if(mmio == (void*)-1)

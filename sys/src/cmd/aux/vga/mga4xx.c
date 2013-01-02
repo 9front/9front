@@ -448,27 +448,18 @@ dump(Vga* vga, Ctlr* ctlr)
 static void
 setpalettedepth(int depth)
 {
-	int	fd;
-	char *cmd = strdup("palettedepth X");
+	char buf[12];
 
 	if ((depth != 8) && (depth != 6) && (depth != 16))
 		error("mga: invalid palette depth %d\n", depth);
 
-	fd = open("#v/vgactl", OWRITE);
-	if(fd < 0)
-		error("mga: can't open vgactl\n");
-
-	cmd[13] = '0' + depth;
-	if(write(fd, cmd, 14) != 14)
-		error("mga: can't set palette depth to %d\n", depth);
-
-	close(fd);
+	snprint(buf, sizeof(buf), "%d", depth);
+	vgactlw("palettedepth", buf);
 }
 
 static void
 mapmga4xx(Vga* vga, Ctlr* ctlr)
 {
-	int 	f;
 	uchar* 	m;
 	Mga *	mga;
 
@@ -476,12 +467,8 @@ mapmga4xx(Vga* vga, Ctlr* ctlr)
 		error("%s: g4xxio: no *mga4xx\n", ctlr->name);
 	mga = vga->private;
 
-	f = open("#v/vgactl", OWRITE);
-	if(f < 0)
-		error("%s: can't open vgactl\n", ctlr->name);
-
-	if(write(f, "type mga4xx", 11) != 11)
-		error("%s: can't set mga type\n", ctlr->name);
+	vgactlpci(vga->pci);
+	vgactlw("type", "mga4xx");
 	
 	m = segattach(0, "mga4xxmmio", 0, 16*Kilo);
 	if(m == (void*)-1)
@@ -500,8 +487,6 @@ mapmga4xx(Vga* vga, Ctlr* ctlr)
 	}
 	mga->mmfb = m;
 	trace("%s: frame buffer at %#p\n", ctlr->name, mga->mmfb);
-
-	close(f);
 }
 
 static void

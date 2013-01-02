@@ -146,34 +146,27 @@ static int hwfill(VGAscr*, Rectangle, ulong);
 static int hwscroll(VGAscr*, Rectangle, Rectangle);
 static void initengine(VGAscr*);
 
-static Pcidev*
-mach64xxpci(void)
-{
-	Pcidev *p;
-	int i;
-
-	if((p = pcimatch(nil, 0x1002, 0)) == nil)
-		return nil;
-
-	for (i = 0; i != nelem(mach64s); i++)
-		if (mach64s[i].m64_id == p->did) {
-			mach64type = &mach64s[i];
-			return p;
-		}
-	return nil;
-}
-
 static void
 mach64xxenable(VGAscr* scr)
 {
 	Pcidev *p;
+	int i;
 
 	if(scr->io)
 		return;
-	if(p = mach64xxpci()){
-		scr->id = p->did;
-		scr->pci = p;
+	p = scr->pci;
+	if(p == nil || p->vid != 0x1002)
+		return;
 
+	mach64type = nil;
+	for (i = 0; i != nelem(mach64s); i++)
+		if (mach64s[i].m64_id == p->did) {
+			scr->id = p->did;
+			mach64type = &mach64s[i];
+			break;			
+		}
+
+	if(mach64type != nil){
 		/*
 		 * The CT doesn't always have the I/O base address
 		 * in the PCI base registers. There is a way to find

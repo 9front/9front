@@ -25,7 +25,7 @@ typedef struct {
 static void
 snarf(Vga* vga, Ctlr* ctlr)
 {
-	int f, i;
+	int i;
 	uchar *mmio;
 	ulong *rp;
 	Pcidev *p;
@@ -33,31 +33,30 @@ snarf(Vga* vga, Ctlr* ctlr)
 
 	if(vga->private == nil){
 		vga->private = alloc(sizeof(I81x));
-		p = nil;
-		while((p = pcimatch(p, 0x8086, 0)) != nil) {
-			switch(p->did) {
-			default:
-				continue;
-			case 0x7121:	/* Vanilla 82810 */
-			case 0x7123:	/* 810-DC100, DELL OptiPlex GX100 */
-			case 0x7125:	/* 82810E */
-			case 0x1102:	/* 82815 FSB limited to 100MHz */
-			case 0x1112:	/* 82815 no AGP */
-			case 0x1132:	/* 82815 fully featured Solano */
-			case 0x3577:	/* IBM R31 uses intel 830M chipset */
-				vga->f[1] = 230000000;		/* MAX speed of internal DAC (Hz)*/
+		p = vga->pci;
+		if(p == nil){
+			while((p = pcimatch(p, 0x8086, 0)) != nil) {
+				switch(p->did) {
+				default:
+					continue;
+				case 0x7121:	/* Vanilla 82810 */
+				case 0x7123:	/* 810-DC100, DELL OptiPlex GX100 */
+				case 0x7125:	/* 82810E */
+				case 0x1102:	/* 82815 FSB limited to 100MHz */
+				case 0x1112:	/* 82815 no AGP */
+				case 0x1132:	/* 82815 fully featured Solano */
+				case 0x3577:	/* IBM R31 uses intel 830M chipset */
+					break;
+				}
 				break;
 			}
-			break;
+			if(p == nil)
+				error("%s: Intel 81x graphics function not found\n", ctlr->name);
 		}
-		if(p == nil)
-			error("%s: Intel 81x graphics function not found\n", ctlr->name);
+		vga->f[1] = 230000000;		/* MAX speed of internal DAC (Hz)*/
 
-		if((f = open("#v/vgactl", OWRITE)) < 0)
-			error("%s: can't open vgactl\n", ctlr->name);
-		if(write(f, "type i81x", 9) != 9)
-			error("%s: can't set type\n", ctlr->name);
-		close(f);
+		vgactlpci(p);
+		vgactlw("type", "i81x");
 
 		mmio = segattach(0, "i81xmmio", 0, p->mem[1].size);
 		if(mmio == (void*)-1)

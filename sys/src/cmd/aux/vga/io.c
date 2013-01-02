@@ -214,6 +214,24 @@ vgactlw(char* attr, char* val)
 }
 
 void
+vgactlpci(Pcidev *p)
+{
+	char buf[64];
+	int len;
+
+	if(p == nil)
+		return;
+	if(ctlfd == -1)
+		ctlfd = devopen("#v/vgactl", ORDWR);
+	len = snprint(buf, sizeof(buf), "pcidev %lux", (ulong)p->tbdf);
+	seek(ctlfd, 0, 0);
+	/* ignore error for old kernel */
+	write(ctlfd, buf, len);
+
+	ctlclean = 0;
+}
+
+void
 setpalette(int p, int r, int g, int b)
 {
 	vgao(PaddrW, p);

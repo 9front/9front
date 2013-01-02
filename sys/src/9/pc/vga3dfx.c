@@ -36,22 +36,12 @@ tdfxenable(VGAscr* scr)
 
 	if(scr->mmio)
 		return;
-	if(p = pcimatch(nil, 0x121A, 0)){
-		switch(p->did){
-		case 0x0003:		/* Banshee */
-		case 0x0005:		/* Avenger (a.k.a. Voodoo3) */
-			break;
-		default:
-			return;
-		}
-	}
-	else
+	p = scr->pci;
+	if(p == nil || p->vid != 0x121A)
 		return;
-	
 	scr->mmio = vmap(p->mem[0].bar&~0x0F, p->mem[0].size);
 	if(scr->mmio == nil)
 		return;
-	scr->pci = p;
 	
 	addvgaseg("3dfxmmio", p->mem[0].bar&~0x0F, p->mem[0].size);
 	vgalinearpci(scr);

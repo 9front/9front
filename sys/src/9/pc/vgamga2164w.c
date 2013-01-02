@@ -28,20 +28,6 @@ enum {
 	MGA2164AGP	= 0x051F
 };
 
-static Pcidev*
-mgapcimatch(void)
-{
-	Pcidev *p;
-
-	p = pcimatch(nil, MATROX, MGA2164AGP);
-	if(p == nil) {
-		p = pcimatch(nil, MATROX, MGA2164);
-		if(p == nil)
-			p = pcimatch(nil, MATROX, MGA2064);
-	}
-	return p;
-}
-
 static void
 mga2164wenable(VGAscr* scr)
 {
@@ -50,8 +36,8 @@ mga2164wenable(VGAscr* scr)
 	if(scr->mmio)
 		return;
 
-	p = mgapcimatch();
-	if(p == nil)
+	p = scr->pci;
+	if(p == nil || p->vid != MATROX)
 		return;
 
 	if(p->did == MGA2064){
