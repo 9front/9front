@@ -568,46 +568,11 @@ scale(int x)
 void
 mousetrack(int dx, int dy, int b, int msec)
 {
-	int x, y, lastb;
-
-	if(gscreen==nil)
-		return;
-
 	if(mouse.acceleration){
 		dx = scale(dx);
 		dy = scale(dy);
 	}
-	x = mouse.xy.x + dx;
-	if(x < gscreen->clipr.min.x)
-		x = gscreen->clipr.min.x;
-	if(x >= gscreen->clipr.max.x)
-		x = gscreen->clipr.max.x;
-	y = mouse.xy.y + dy;
-	if(y < gscreen->clipr.min.y)
-		y = gscreen->clipr.min.y;
-	if(y >= gscreen->clipr.max.y)
-		y = gscreen->clipr.max.y;
-
-	lastb = mouse.buttons;
-	mouse.xy = Pt(x, y);
-	mouse.buttons = b;
-	mouse.redraw = 1;
-	mouse.counter++;
-	mouse.msec = msec;
-
-	/*
-	 * if the queue fills, we discard the entire queue and don't
-	 * queue any more events until a reader polls the mouse.
-	 */
-	if(!mouse.qfull && lastb != b) {	/* add to ring */
-		mouse.queue[mouse.wi] = mouse.Mousestate;
-		if(++mouse.wi == nelem(mouse.queue))
-			mouse.wi = 0;
-		if(mouse.wi == mouse.ri)
-			mouse.qfull = 1;
-	}
-	wakeup(&mouse.r);
-	drawactive(1);
+	absmousetrack(mouse.xy.x + dx, mouse.xy.y + dy, b, msec);
 }
 
 void
