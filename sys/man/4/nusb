@@ -48,6 +48,9 @@ usbd - Universal Serial Bus drivers
 .I devid
 .PP
 .B nusb/usbd
+[
+.B -dD
+]
 .SH DESCRIPTION
 These programs drive USB devices of specific classes via
 .IR usb (3).
