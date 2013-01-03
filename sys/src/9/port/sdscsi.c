@@ -45,10 +45,10 @@ scsiverify(SDunit* unit)
 	r->write = 0;
 	r->cmd[0] = 0x12;
 	r->cmd[1] = r->lun<<5;
-	r->cmd[4] = sizeof(unit->inquiry)-1;
+	r->cmd[4] = 36;
 	r->clen = 6;
 	r->data = inquiry;
-	r->dlen = sizeof(unit->inquiry)-1;
+	r->dlen = 36;
 	r->flags = 0;
 
 	r->status = ~0;

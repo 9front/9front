@@ -341,7 +341,13 @@ umsinit(void)
 				i, lun->inquiry[0]);
 			continue;
 		}
-		SRstart(lun, 1);
+
+		if(SRready(lun) < 0 && SRready(lun) < 0 && SRready(lun) < 0)
+			dprint(2, "disk: lun %d not ready\n", i);
+
+		if((lun->inquiry[0] & 0x1F) == 0)
+			SRstart(lun, 1);
+
 		/*
 		 * we ignore the device type reported by inquiry.
 		 * Some devices return a wrong value but would still work.
