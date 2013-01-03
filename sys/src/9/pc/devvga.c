@@ -257,6 +257,9 @@ vgactl(Cmdbuf *cb)
 	ct = lookupcmd(cb, vgactlmsg, nelem(vgactlmsg));
 	switch(ct->index){
 	case CMhwgc:
+		if(scr->gscreen == nil)
+			error("hwgc: no gscreen");
+
 		if(strcmp(cb->f[1], "off") == 0){
 			lock(&cursor);
 			if(scr->cur){
