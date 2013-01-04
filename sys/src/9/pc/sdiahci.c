@@ -912,6 +912,8 @@ configdrive(Drive *d)
 		d->state = Dmissing;
 		break;
 	case Spresent:
+		if(d->state == Dnull)
+			d->state = Dportreset;
 		break;
 	case Sphylink:
 		if(d->state == Dready)
