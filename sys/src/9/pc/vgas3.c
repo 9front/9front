@@ -120,6 +120,7 @@ s3linear(VGAscr* scr, int, int)
 		 * much space they would need in the first design.
 		 */
 		for(j=0; j<nelem(p->mem); j++){
+			if((p->mem[j].bar&1) == 0)
 			if((p->mem[j].bar&~0x0F) != scr->paddr)
 			if(p->mem[j].size==512*1024 || p->mem[j].size==16*1024*1024){
 				mmiobase = p->mem[j].bar & ~0x0F;

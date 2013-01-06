@@ -136,6 +136,8 @@ vesalinear(VGAscr *scr, int, int)
 		for(i=0; i<nelem(pci->mem); i++){
 			ulong a, e;
 
+			if(pci->mem[i].bar&1)	/* not memory */
+				continue;
 			a = pci->mem[i].bar & ~0xF;
 			e = a + pci->mem[i].size;
 			if(paddr >= a && (paddr+size) <= e){
