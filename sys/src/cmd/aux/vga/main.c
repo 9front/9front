@@ -390,7 +390,6 @@ main(int argc, char** argv)
 			}
 			else
 				vtype = vga->ctlr->name;
-			vgactlw("type", vtype);
 
 			/*
 			 * VESA must be set up before linear.
@@ -401,7 +400,8 @@ main(int argc, char** argv)
 				if(vga->vesa->flag&Ferror)
 					error("vesa load error\n");
 				vgactlw("type", vesa.name);
-			}
+			} else
+				vgactlw("type", vtype);
 
 			/*
 			 * The new draw device needs linear mode set
@@ -413,7 +413,7 @@ main(int argc, char** argv)
 			 * Linear is over so switch to other driver for
 			 * acceleration.
 			 */
-			if(vga->vesa)
+			if(vga->vesa && strcmp(vesa.name, vtype))
 				vgactlw("type", vtype);
 
 			sprint(buf, "%ludx%ludx%d %s",
