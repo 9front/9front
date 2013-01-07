@@ -86,7 +86,7 @@ syncproc(void *)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-rsS] [-m mem] [-n service] -f dev\n", argv0);
+	fprint(2, "usage: %s [-rsS] [-m mem] [-n service] [-a announce-string]... -f dev\n", argv0);
 	exits("usage");
 }
 
@@ -94,9 +94,11 @@ void
 threadmain(int argc, char **argv)
 {
 	Dev *d;
+	static char *nets[8];
 	char *file, *service;
-	int doream, flags, stdio, nbuf;
+	int doream, flags, stdio, nbuf, netc;
 
+	netc = 0;
 	doream = 0;
 	stdio = 0;
 	flags = FSNOAUTH;
@@ -115,6 +117,13 @@ threadmain(int argc, char **argv)
 		if(nbuf < 10)
 			nbuf = 10;
 		break;
+	case 'a':
+		if(netc >= nelem(nets)-1){
+			fprint(2, "%s: too many networks to announce\n", argv0);
+			exits("too many nets");
+		}
+		nets[netc++] = estrdup(EARGF(usage()));
+		break;
 	default: usage();
 	} ARGEND;
 	rfork(RFNOTEG);
@@ -131,7 +140,7 @@ threadmain(int argc, char **argv)
 		sysfatal("fsinit: %r");
 	initcons(service);
 	proccreate(syncproc, nil, mainstacksize);
-	start9p(service, stdio);
+	start9p(service, nets, stdio);
 	threadexits(nil);
 }
 

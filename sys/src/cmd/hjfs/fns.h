@@ -25,7 +25,7 @@ int	chanwstat(Chan *, Dir *);
 int	permcheck(Fs *, Dentry *, short, int);
 char *	uid2name(Fs *, short, char *);
 int	name2uid(Fs *, char *, short *);
-void	start9p(char *, int);
+void	start9p(char *, char **, int);
 int	chanclunk(Chan *);
 int	chanremove(Chan *);
 int	getblk(Fs *, FLoc *, Buf *, uvlong, uvlong *, int);

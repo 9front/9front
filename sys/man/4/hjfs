@@ -15,6 +15,9 @@ hjfs \- file server
 .B -n
 .I name
 ] [
+.B -a
+.I announce-string
+] ... [
 -r
 ] [
 .B -S
@@ -45,6 +48,9 @@ megabytes to use for cache.
 Use
 .I name
 as the name of the service.
+.TP
+.BI "-a " announce-string
+will announce and listen on the specified network address.
 .TP
 .B -r
 Ream the file system, erasing all of the old data.
