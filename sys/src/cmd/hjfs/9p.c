@@ -137,8 +137,10 @@ static Srv mysrv = {
 void
 start9p(char *service, char **nets, int stdio)
 {
-	while(nets && *nets)
+	while(nets && *nets){
+		mysrv.end = nil;	/* disable shutdown */
 		threadlistensrv(&mysrv, *nets++);
+	}
 	if(stdio){
 		mysrv.infd = 1;
 		mysrv.outfd = 1;
