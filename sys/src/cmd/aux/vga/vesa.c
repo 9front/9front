@@ -25,7 +25,6 @@ struct Vbe
 	int	memfd;	/* /dev/realmem */
 	uchar	*mem;	/* copy of memory; 1MB */
 	uchar	*isvalid;	/* 1byte per 4kB in mem */
-	uchar	*buf;
 	uchar	*modebuf;
 };
 
@@ -105,14 +104,17 @@ int vbesnarf(Vbe*, Vga*);
 void vesaddc(void);
 int vbeddcedid(Vbe *vbe, Edid *e);
 void printedid(Edid*);
+void fixbios(Vbe*);
 
 int
 dbvesa(Vga* vga)
 {
-	vbe = mkvbe();
 	if(vbe == nil){
-		fprint(2, "mkvbe: %r\n");
-		return 0;
+		vbe = mkvbe();
+		if(vbe == nil){
+			fprint(2, "mkvbe: %r\n");
+			return 0;
+		}
 	}
 	if(vbecheck(vbe) < 0){
 		fprint(2, "dbvesa: %r\n");
@@ -230,9 +232,9 @@ havemode:
 static void
 snarf(Vga* vga, Ctlr* ctlr)
 {
-	if(!vbe)
+	if(vbe == nil)
 		vbe = mkvbe();
-	if(vbe)
+	if(vbe != nil)
 		vga->vesa = ctlr;
 	vbesnarf(vbe, vga);
 	vga->linear = 1;
@@ -414,19 +416,41 @@ mkvbe(void)
 		return nil;
 	vbe->mem = alloc(MemSize);
 	vbe->isvalid = alloc(MemSize/PageSize);
-	vbe->buf = alloc(PageSize);
 	vbe->modebuf = alloc(PageSize);
+	fixbios(vbe);
 	return vbe;
 }
 
 static void
-loadpage(Vbe *vbe, int p)
+loadpage(Vbe *vbe, int p, int wr)
 {
-	if(p >= MemSize/PageSize || vbe->isvalid[p])
+	if(p >= MemSize/PageSize)
 		return;
-	if(pread(vbe->memfd, vbe->mem+p*PageSize, PageSize, p*PageSize) != PageSize)
-		error("read /dev/realmodemem: %r\n");
+	if(vbe->isvalid[p] == 0)
+		if(pread(vbe->memfd, vbe->mem+p*PageSize, PageSize, p*PageSize) != PageSize)
+			error("read /dev/realmodemem: %r\n");
+	vbe->isvalid[p] = 1+wr;
+}
+
+static void
+flushpage(Vbe *vbe, int p)
+{
+	if(p >= MemSize/PageSize || vbe->isvalid[p]!=2)
+		return;
+	if(pwrite(vbe->memfd, vbe->mem+p*PageSize, PageSize, p*PageSize) != PageSize)
+		error("write /dev/realmodemem: %r\n");
 	vbe->isvalid[p] = 1;
+}
+
+static void*
+getmem(Vbe *vbe, int off, int wr)
+{
+	if(off == 0 || off >= MemSize)
+		return nil;
+	loadpage(vbe, off/PageSize, wr);
+	if(off % PageSize)
+		loadpage(vbe, (off/PageSize)+1, wr);
+	return vbe->mem+off;
 }
 
 static void*
@@ -436,44 +460,53 @@ unfarptr(Vbe *vbe, uchar *p)
 
 	seg = WORD(p+2);
 	off = WORD(p);
-	if(seg==0 && off==0)
-		return nil;
 	off += seg<<4;
-	if(off >= MemSize)
-		return nil;
-	loadpage(vbe, off/PageSize);
-	loadpage(vbe, off/PageSize+1);	/* just in case */
-	return vbe->mem+off;
+	return getmem(vbe, off, 0);
 }
 
 uchar*
 vbesetup(Vbe *vbe, Ureg *u, int ax)
 {
-	memset(vbe->buf, 0, PageSize);
+	uchar *p;
+
 	memset(u, 0, sizeof *u);
 	u->ax = ax;
 	u->es = (RealModeBuf>>4)&0xF000;
 	u->di = RealModeBuf&0xFFFF;
-	return vbe->buf;
+	p = getmem(vbe, RealModeBuf, 1);
+	memset(p, 0, PageSize);
+	return p;
+}
+
+void
+vbeflush(Vbe *vbe)
+{
+	int p;
+
+	for(p=0; p<MemSize/PageSize; p++)
+		flushpage(vbe, p);
+
+	memset(vbe->isvalid, 0, MemSize/PageSize);
 }
 
 int
 vbecall(Vbe *vbe, Ureg *u)
 {
 	u->trap = 0x10;
-	if(pwrite(vbe->memfd, vbe->buf, PageSize, RealModeBuf) != PageSize)
-		error("write /dev/realmodemem: %r\n");
+	
+	vbeflush(vbe);
+
 	if(pwrite(vbe->rmfd, u, sizeof *u, 0) != sizeof *u)
 		error("write /dev/realmode: %r\n");
 	if(pread(vbe->rmfd, u, sizeof *u, 0) != sizeof *u)
 		error("read /dev/realmode: %r\n");
-	if(pread(vbe->memfd, vbe->buf, PageSize, RealModeBuf) != PageSize)
-		error("read /dev/realmodemem: %r\n");
+
+	getmem(vbe, RealModeBuf, 0);
+
 	if((u->ax&0xFFFF) != 0x004F){
 		werrstr("VBE error %#.4lux", u->ax&0xFFFF);
 		return -1;
 	}
-	memset(vbe->isvalid, 0, MemSize/PageSize);
 	return 0;
 }
 
@@ -703,7 +736,7 @@ vesatextmode(void)
 {
 	if(vbe == nil){
 		vbe = mkvbe();
-		if(!vbe)
+		if(vbe == nil)
 			error("mkvbe: %r\n");
 	}
 	if(vbecheck(vbe) < 0)
@@ -1141,4 +1174,30 @@ fprint(2, "%.8H\n", p);
 
 	assert(p == (uchar*)v+8+10+2+5+10+3+16+72);
 	return 0;
+}
+
+void
+fixbios(Vbe *vbe)
+{
+	uchar *p;
+	int i;
+
+	/*
+	 * Intel(r) Cantiga Graphics Chip Accelerated VGA BIOS 1.0 has
+	 * a wrong entry in mode alias table at c000:7921 for mode 0x16b 
+	 * (1440x900x32) wrongly replacing it with mode 0x162 (768x480x32).
+	 */
+	p = getmem(vbe, 0xc7921, 0);
+	if(p != nil && p[0] == 0x01 && p[1] == 0xff && p[2] == 0xff){
+		for(i=1; i<64; i++){
+			p = getmem(vbe, 0xc7921 + 3*i, 0);
+			if(p == nil || p[0] == 0xff)
+				break;
+			if(p[0] == 0x6b && p[1] == 0x6b && p[2] == 0x62){
+				p = getmem(vbe, 0xc7921 + 3*i, 1);
+				p[2] = 0x6b;	/* fix */
+				break;
+			}
+		}
+	}
 }
