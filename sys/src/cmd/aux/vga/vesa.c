@@ -1130,9 +1130,7 @@ parseedid128(Edid *e, void *v)
 	/*
 	 * Detailed Timings
 	 */
-fprint(2, "dt\n");
 	for(i=0; i<4; i++, p+=18) {
-fprint(2, "%.8H\n", p);
 		if(p[0] || p[1]) {	/* detailed timing block: p[0] or p[1] != 0 */
 			if(decodedtb(&mode, p) == 0)
 				e->modelist = addmode(e->modelist, mode);
@@ -1147,7 +1145,6 @@ fprint(2, "%.8H\n", p);
 			case 0xFE:	/* ascii string (13-byte ascii, 0A terminated) */
 				break;
 			case 0xFD:	/* monitor range limits */
-				print("fd %.18H\n", p);
 				e->rrmin = p[5];
 				e->rrmax = p[6];
 				e->hrmin = p[7]*1000;
