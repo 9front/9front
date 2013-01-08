@@ -68,7 +68,6 @@ menurect(Rectangle r, int i)
 static int
 menusel(Rectangle r, Point p)
 {
-	r = insetrect(r, Margin);
 	if(!ptinrect(p, r))
 		return -1;
 	return (p.y-r.min.y)/(font->height+Vspacing);
