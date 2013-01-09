@@ -83,7 +83,7 @@ Specifying a certificate in pem(8) format with the
 .B -c
 flag, causes the client to submit this certificate upon
 server's request. A corresponding key has to be present in
-.IR factotum(4).
+.IR factotum (4).
 If the
 .B -t
 flag
