@@ -161,58 +161,56 @@ set sampling frequency of output file (in KHz) to
 .IR sfreq ,
 default is input sfreq.
 .TP
-.BI --mp3input
-.I input
+.BI --mp3input " input"
 is an MP3 file
 .
 .SS Silly options
 .TF --nohist
 .TP
-.BI -f
+.B -f
 same as
 .LR "-q 7" .
 Such a deal. 
 .TP
-.BI -o
+.B -o
 mark as non-original (i.e. do not set the original bit)
 .TP
-.BI -c
+.B -c
 mark as copyright
 .TP
-.BI -k
+.B -k
 disable sfb=21 cutoff
 .TP
 .BI -e " emp"
 de-emphasis n/5/c
 (default n)
 .TP
-.BI -d
+.B -d
 allow channels to have different blocktypes
 .TP
-.BI -t
+.B -t
 disable Xing VBR informational tag
 .TP
-.BI -a
+.B -a
 autoconvert from stereo to mono file for mono encoding
 .TP
-.BI -x
+.B -x
 force byte-swapping of input (see
 .IR dd (1)
 instead)
 .TP
-.BI -S
+.B -S
 don't print progress report, VBR histograms
 .TP
-.BI --athonly
+.B --athonly
 only use the ATH for masking
 .TP
-.BI --nohist
+.B --nohist
 disable VBR histogram display
 .TP
-.BI --voice
+.B --voice
 experimental voice mode
-
-.PP
+.SS
 .I Pcmconv
 is a helper program used to convert various PCM sample formats. The
 .B -i
@@ -223,7 +221,6 @@ options specify the input and output format
 of the conversion.
 .I Fmt
 is a concatinated string of the following parts:
-
 .TP
 .BI s #
 sample format is little-endian signed integer where
@@ -255,7 +252,6 @@ specifies the number of channels
 .TP
 .BI r #
 gives the samplerate in Hz
-
 .PP
 The program reads samples from standard
 input converting the data and writes the result to standard output
@@ -264,7 +260,6 @@ until it reached end of file or, if
 was given, a number of
 .I length
 bytes have been consumed from input.
-
 .SH EXAMPLE
 Play back an
 .L .mp3
