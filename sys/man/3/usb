@@ -517,9 +517,9 @@ root of the USB interface
 .SH SOURCE
 .B /sys/src/9/port/usb.h
 .br
-.B /sys/src/9/pc/devusb.c
+.B /sys/src/9/port/devusb.c
 .br
-.B /sys/src/9/pc/usb?hci.c
+.B /sys/src/9/*/usb*.c
 .SH "SEE ALSO"
 .IR nusb (2),
 .IR nusb (4),

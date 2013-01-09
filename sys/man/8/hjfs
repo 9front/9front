@@ -196,7 +196,7 @@ Check disk usage (output appears on the system console).
 .SH SEE ALSO
 .IR hjfs (4)
 .SH SOURCE
-.B /sys/src/hjfs
+.B /sys/src/cmd/hjfs
 .SH BUGS
 .B Debug-chdeind
 should perhaps be less crazy and have a portable interface.

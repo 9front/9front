@@ -108,7 +108,7 @@ in case of error
 failing
 .IR malloc (2)).
 .SH SOURCE
-.B /sys/src/libsec/ec.c
+.B /sys/src/libsec/port/ecc.c
 .SH SEE ALSO
 .I
 Standards for Efficient Cryptography (SEC) 1: Elliptic Curve Cryptography
