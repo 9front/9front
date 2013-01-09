@@ -264,7 +264,7 @@ typedef struct {
 	Pcidev	*p;
 	Ether	*edev;
 	u32int	*reg;
-	u32int	*reg3;
+	u32int	*regmsi;
 	uchar	flag;
 	int	nrd;
 	int	ntd;
@@ -888,8 +888,9 @@ interrupt(Ureg*, void *v)
 static void
 scan(void)
 {
-	ulong io, io3;
-	void *mem, *mem3;
+	ulong io, iomsi;
+	void *mem, *memmsi;
+	int pciregs, pcimsix;
 	Ctlr *c;
 	Pcidev *p;
 
@@ -901,10 +902,15 @@ scan(void)
 		case 0x10b6:		/* 82598 backplane */
 		case 0x10dd:		/* 82598 at cx4 */
 		case 0x10ec:		/* 82598 at cx4 dual port */
+			pcimsix = 3;
+			break;
+		case 0x10fb:		/* 82599 */
+			pcimsix = 4;
 			break;
 		default:
 			continue;
 		}
+		pciregs = 0;
 		if(nctlr == nelem(ctlrtab)){
 			print("i82598: too many controllers\n");
 			return;
@@ -914,30 +920,30 @@ scan(void)
 			print("i82598: can't allocate memory\n");
 			continue;
 		}
-		io = p->mem[0].bar & ~0xf;
-		mem = vmap(io, p->mem[0].size);
+		io = p->mem[pciregs].bar & ~0xf;
+		mem = vmap(io, p->mem[pciregs].size);
 		if(mem == nil){
-			print("i82598: can't map %#p\n", p->mem[0].bar);
+			print("i82598: can't map regs %#p\n", p->mem[pciregs].bar);
 			free(c);
 			continue;
 		}
-		io3 = p->mem[3].bar & ~0xf;
-		mem3 = vmap(io3, p->mem[3].size);
-		if(mem3 == nil){
-			print("i82598: can't map %#p\n", p->mem[3].bar);
-			vunmap(mem, p->mem[0].size);
+		iomsi = p->mem[pcimsix].bar & ~0xf;
+		memmsi = vmap(iomsi, p->mem[pcimsix].size);
+		if(memmsi == nil){
+			print("i82598: can't map msi-x regs %#p\n", p->mem[pcimsix].bar);
+			vunmap(mem, p->mem[pciregs].size);
 			free(c);
 			continue;
 		}
 		c->p = p;
 		c->reg = (u32int*)mem;
-		c->reg3 = (u32int*)mem3;
+		c->regmsi = (u32int*)memmsi;
 		c->rbsz = Rbsz;
 		if(reset(c)){
 			print("i82598: can't reset\n");
 			free(c);
-			vunmap(mem, p->mem[0].size);
-			vunmap(mem3, p->mem[3].size);
+			vunmap(mem, p->mem[pciregs].size);
+			vunmap(memmsi, p->mem[pcimsix].size);
 			continue;
 		}
 		pcisetbme(p);
