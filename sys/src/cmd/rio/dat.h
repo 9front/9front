@@ -38,6 +38,7 @@ typedef	struct	Mousestate	Mousestate;
 typedef	struct	Ref Ref;
 typedef	struct	Timer Timer;
 typedef	struct	Wctlmesg Wctlmesg;
+typedef struct	Wdelmesg Wdelmesg;
 typedef	struct	Window Window;
 typedef	struct	Xfid Xfid;
 
@@ -78,6 +79,12 @@ struct Wctlmesg
 	int		type;
 	Rectangle	r;
 	void		*p;
+};
+
+struct Wdelmesg
+{
+	char	*s;
+	Image	*i;
 };
 
 struct Conswritemesg
