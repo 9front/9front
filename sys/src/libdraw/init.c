@@ -129,10 +129,12 @@ int
 gengetwindow(Display *d, char *winname, Image **winp, Screen **scrp, int ref)
 {
 	int n, fd;
-	char buf[64+1];
+	char buf[64+1], obuf[64+1];
 	Image *image;
 	Rectangle r;
 
+	obuf[0] = 0;
+retry:
 	fd = open(winname, OREAD);
 	if(fd<0 || (n=read(fd, buf, sizeof buf-1))<=0){
 		if((image=d->image) == nil){
@@ -147,12 +149,22 @@ gengetwindow(Display *d, char *winname, Image **winp, Screen **scrp, int ref)
 		buf[n] = '\0';
 		if(*winp != nil){
 			_freeimage1(*winp);
+			*winp = nil;
 			freeimage((*scrp)->image);
 			freescreen(*scrp);
 			*scrp = nil;
 		}
 		image = namedimage(d, buf);
 		if(image == 0){
+			/*
+			 * theres a race where the winname can change after
+			 * we read it, so keep trying as long as the name
+			 * keeps changing.
+			 */
+			if(strcmp(buf, obuf) != 0){
+				strcpy(obuf, buf);
+				goto retry;
+			}
 			fprint(2, "namedimage %s failed: %r\n", buf);
 			*winp = nil;
 			d->screenimage = nil;
