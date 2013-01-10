@@ -88,35 +88,13 @@ void
 wresize(Window *w, Image *i, int move)
 {
 	Rectangle r, or;
-	Wdelmesg *m;
 
 	or = w->i->r;
 	if(move || (Dx(or)==Dx(i->r) && Dy(or)==Dy(i->r)))
 		draw(i, i->r, w->i, nil, w->i->r.min);
-
-	m = emalloc(sizeof(Wdelmesg));
-	m->s = estrdup(w->name);
-	m->i = w->i;
-
+	freeimage(w->i);
 	w->i = i;
 	w->mc.image = i;
-
-	if(w->mouseopen){
-		/*
-		 * do not freeimage() here because the client might be in
-		 * the process of attaching that image using winname.
-		 * move the old window offscreen unless its completely
-		 * hidden by the new window and let deletetimeoutproc
-		 * free the image after some delay.
-		 */
-		if(!rectinrect(or, w->screenr))
-			originwindow(m->i, or.min, view->r.max);
-	} else {
-		freeimage(m->i);
-		m->i = nil;
-	}
-	proccreate(deletetimeoutproc, m, 4096);
-
 	r = insetrect(i->r, Selborder+1);
 	w->scrollr = r;
 	w->scrollr.max.x = r.min.x+Scrollwid;
@@ -1092,6 +1070,7 @@ wsendctlmesg(Window *w, int type, Rectangle r, void *p)
 int
 wctlmesg(Window *w, int m, Rectangle r, void *p)
 {
+	char buf[64];
 	Image *i = p;
 
 	switch(m){
@@ -1109,7 +1088,9 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 			break;
 		}
 		w->screenr = r;
+		strcpy(buf, w->name);
 		wresize(w, i, m==Moved);
+		proccreate(deletetimeoutproc, estrdup(buf), 4096);
 		flushimage(display, 1);
 		if(Dx(r)<=0){	/* window got hidden, if we had the input, drop it */
 			if(w==input)
@@ -1196,6 +1177,7 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 			break;
 		wclunk(w);
 		write(w->notefd, "hangup", 6);
+		proccreate(deletetimeoutproc, estrdup(w->name), 4096);
 		wclosewin(w);
 		break;
 	case Exited:
@@ -1379,13 +1361,14 @@ wclunk(Window *w)
 void
 wclosewin(Window *w)
 {
-	Wdelmesg m;
+	Image *i;
 
-	m.i = w->i;
-	if(m.i){
+	i = w->i;
+	if(i){
 		w->i = nil;
-		m.s = estrdup(w->name);
-		send(deletechan, &m);
+		/* move it off-screen to hide it, in case client is slow in letting it go */
+		MOVEIT originwindow(i, i->r.min, view->r.max);
+		freeimage(i);
 	}
 }
 
