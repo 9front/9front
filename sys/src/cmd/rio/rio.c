@@ -205,7 +205,7 @@ threadmain(int argc, char *argv[])
 
 	exitchan = chancreate(sizeof(int), 0);
 	winclosechan = chancreate(sizeof(Window*), 0);
-	deletechan = chancreate(sizeof(Wdelmesg), 0);
+	deletechan = chancreate(sizeof(char*), 0);
 
 	timerinit();
 	threadcreate(keyboardthread, nil, STACK);
@@ -422,28 +422,30 @@ winclosethread(void*)
 void
 deletethread(void*)
 {
-	Wdelmesg m;
+	char *s;
+	Image *i;
 
 	threadsetname("deletethread");
 	for(;;){
-		recv(deletechan, &m);
-		freeimage(m.i);
-		m.i = namedimage(display, m.s);
-		if(m.i != nil){
+		s = recvp(deletechan);
+		i = namedimage(display, s);
+		if(i != nil){
 			/* move it off-screen to hide it, since client is slow in letting it go */
-			originwindow(m.i, m.i->r.min, view->r.max);
+			originwindow(i, i->r.min, view->r.max);
 		}
-		freeimage(m.i);
-		free(m.s);
+		freeimage(i);
+		free(s);
 	}
 }
 
 void
 deletetimeoutproc(void *v)
 {
+	char *s;
+
+	s = v;
 	sleep(750);	/* remove window from screen after 3/4 of a second */
-	send(deletechan, v);
-	free(v);
+	sendp(deletechan, s);
 }
 
 /*
