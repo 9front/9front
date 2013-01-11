@@ -147,13 +147,6 @@ retry:
 	}else{
 		close(fd);
 		buf[n] = '\0';
-		if(*winp != nil){
-			_freeimage1(*winp);
-			*winp = nil;
-			freeimage((*scrp)->image);
-			freescreen(*scrp);
-			*scrp = nil;
-		}
 		image = namedimage(d, buf);
 		if(image == 0){
 			/*
@@ -166,6 +159,14 @@ retry:
 				goto retry;
 			}
 			fprint(2, "namedimage %s failed: %r\n", buf);
+		}
+		if(*winp != nil){
+			_freeimage1(*winp);
+			freeimage((*scrp)->image);
+			freescreen(*scrp);
+			*scrp = nil;
+		}
+		if(image == 0){
 			*winp = nil;
 			d->screenimage = nil;
 			return -1;
@@ -176,9 +177,9 @@ retry:
 	d->screenimage = image;
 	*scrp = allocscreen(image, d->white, 0);
 	if(*scrp == nil){
-		freeimage(d->screenimage);
 		*winp = nil;
 		d->screenimage = nil;
+		freeimage(image);
 		return -1;
 	}
 
@@ -189,12 +190,12 @@ retry:
 	if(*winp == nil){
 		freescreen(*scrp);
 		*scrp = nil;
-		freeimage(image);
 		d->screenimage = nil;
+		freeimage(image);
 		return -1;
 	}
-	d->screenimage = *winp;
 	assert((*winp)->chan != 0);
+	d->screenimage = *winp;
 	return 1;
 }
 
