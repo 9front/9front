@@ -31,10 +31,10 @@ hget, hpost, urlencode \- retrieve, post to a web page corresponding to a url
 ] [
 .B -g
 .I action
-] [
+|
 .B -p
 .I action
-] [
+|
 .B -m
 .I action
 ] [
@@ -167,6 +167,13 @@ argument of the form
 is interpreted as a file upload, with the information following the
 .B @
 symbol treated as the full path to the location of the file.
+For
+.B multipart/form-data
+uploads (see
+.B -m
+flag), the file has to be seekable as
+.IR file (1)
+is invoked to determine its mime type.
 .PP
 .I Urlencode
 is a helper program to URL encode and decode files. The
@@ -186,15 +193,15 @@ Retrieve the commands needed to submit a form, which may then be
 edited and sent.
 .IP
 .EX
-% hpost -l http://p.intma.in
-/bin/hpost -l -u http://p.intma.in -p paste.cgi text:
+% hpost http://p.intma.in
+/bin/hpost -u http://p.intma.in -p paste.cgi text:
 .EE
 .PP
 Manually specify fields to be sent to a given
 .I url.
 .IP
 .EX
-% hpost -l -u http://p.intma.in -p paste.cgi text:'test post'
+% hpost -u http://p.intma.in -p paste.cgi text:'test post'
 .EE
 .PP
 Upload a file, print the resulting URL
@@ -209,11 +216,14 @@ Upload a file, print the resulting URL
 .br
 .B /sys/src/cmd/urlencode.c
 .SH "SEE ALSO"
-.IR webfs (4) ,
-.IR ftpfs (4)
+.IR webfs (4),
+.IR ftpfs (4),
+.IR file (1)
 .SH DIAGNOSTICS
 .I Hget
-requires 
+and
+.I hpost
+require
 .IR webfs (4)
 service mounted on
 .B /mnt/web
