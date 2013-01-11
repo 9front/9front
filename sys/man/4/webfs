@@ -59,6 +59,32 @@ file yields the current values of the parameters.
 Writing strings of the form
 .RB `` attr " " value ''
 sets a particular attribute.
+.PP
+The following global parameters can be set:
+.TP
+.B useragent
+Sets the HTTP user agent string.
+.TP
+.B timeout
+Sets the request timeout in seconds.
+.TP
+.BI flushauth " url"
+Flushes any associated authentication information for
+resources under
+.I url
+or all resources if no url was given.
+.TP
+.BI preauth " url realm"
+Preauthenticates all resources under
+.I url
+with the given
+.I realm
+using HTTP Basic authentication. This will cause
+.I webfs
+to preemtively send the resulting authorization information
+not waiting for the server to respond with an
+HTTP 401 Unauthorized status.
+.PP
 The top-level directory also contains
 numbered directories corresponding to connections, which
 may be used to fetch a single URL.

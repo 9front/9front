@@ -33,5 +33,6 @@ void	bureq(Buq *q, Req *r);
 void	buflushreq(Buq *q, Req *r);
 
 /* http */
+int authenticate(Url *u, Url *ru, char *method, char *s);
 void flushauth(Url *u, char *t);
 void http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost);

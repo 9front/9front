@@ -311,7 +311,7 @@ hline(Hconn *h, char *data, int len, int cont)
 	}
 }
 
-static int
+int
 authenticate(Url *u, Url *ru, char *method, char *s)
 {
 	char *user, *pass, *realm, *nonce, *opaque, *x;

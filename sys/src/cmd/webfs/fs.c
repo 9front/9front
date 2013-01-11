@@ -543,7 +543,7 @@ fsread(Req *r)
 }
 
 static char*
-rootctl(char *ctl, char *arg)
+rootctl(Srv *fs, char *ctl, char *arg)
 {
 	Url *u;
 
@@ -575,6 +575,28 @@ rootctl(char *ctl, char *arg)
 			timeout = 0;
 		if(timeout < 0)
 			timeout = 0;
+		return nil;
+	}
+
+	/* ppreemptive authentication only basic
+	 * auth supported, ctl message of the form:
+	 *    preauth url realm
+	 */
+	if(!strcmp(ctl, "preauth")){
+		char *a[3], buf[256];
+		int rc;
+
+		if(tokenize(arg, a, nelem(a)) != 2)
+			return "preauth - bad field count";
+		if((u = saneurl(url(a[0], 0))) == nil)
+			return "preauth - malformed url";
+		snprint(buf, sizeof(buf), "BASIC realm=\"%s\"", a[1]);
+		srvrelease(fs);
+		rc = authenticate(u, u, "GET", buf);
+		srvacquire(fs);
+		freeurl(u);
+		if(rc == -1)
+			return "preauth failed";
 		return nil;
 	}
 
@@ -670,7 +692,7 @@ fswrite(Req *r)
 		if(f->level == Qctl)
 			t = clientctl(f->client, s, t);
 		else
-			t = rootctl(s, t);
+			t = rootctl(r->srv, s, t);
 		free(s);
 		respond(r, t);
 		return;
