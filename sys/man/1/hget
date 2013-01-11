@@ -144,7 +144,7 @@ flags set the form method to GET and POST, respectively. The
 .B -m
 flag sets the form method to POST and its enctype to
 .B multipart/form-data.
-In all cases, the form action URL is set to
+In all cases, the target relative form action URL is set to
 .I action.
 .PP
 The
@@ -166,7 +166,7 @@ argument of the form
 .B name@file
 is interpreted as a file upload, with the information following the
 .B @
-symbol treated as the full path to the location of the file.
+symbol treated as the file name.
 For
 .B multipart/form-data
 uploads (see
@@ -178,7 +178,7 @@ is invoked to determine its mime type.
 .I Urlencode
 is a helper program to URL encode and decode files. The
 .B -d
-flag insead of encoding, decodes URL encoded file. If no
+flag, instead of encode, decodes URL encoded file. If no
 .I file
 is given, standard input is read. The resulting data
 is written to standard output.
