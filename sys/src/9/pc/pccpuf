@@ -84,6 +84,7 @@ misc
 	mtrr
 
 	uarti8250
+	uartisa
 	uartpci		pci
 
 	sdaoe

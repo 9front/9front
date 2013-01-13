@@ -240,7 +240,7 @@ setintellimouse(void)
 		i8042auxcmd(0x50);
 		break;
 	case Mouseserial:
-		i8250setmouseputc(mouseport, m5mouseputc);
+		uartsetmouseputc(mouseport, m5mouseputc);
 		break;
 	}
 }
@@ -311,13 +311,13 @@ mousectl(Cmdbuf *cb)
 
 		if(cb->nf > 2){
 			if(strcmp(cb->f[2], "M") == 0)
-				i8250mouse(cb->f[1], m3mouseputc, 0);
+				uartmouse(cb->f[1], m3mouseputc, 0);
 			else if(strcmp(cb->f[2], "MI") == 0)
-				i8250mouse(cb->f[1], m5mouseputc, 0);
+				uartmouse(cb->f[1], m5mouseputc, 0);
 			else
-				i8250mouse(cb->f[1], mouseputc, cb->nf == 1);
+				uartmouse(cb->f[1], mouseputc, cb->nf == 1);
 		} else
-			i8250mouse(cb->f[1], mouseputc, cb->nf == 1);
+			uartmouse(cb->f[1], mouseputc, cb->nf == 1);
 
 		mousetype = Mouseserial;
 		strncpy(mouseport, cb->f[1], sizeof(mouseport)-1);

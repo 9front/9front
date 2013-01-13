@@ -95,6 +95,7 @@ misc
 	sdloop
 
 	uarti8250
+	uartisa
 	uartpci		pci
 
 	vga3dfx		+cur

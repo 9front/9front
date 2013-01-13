@@ -14,8 +14,6 @@ enum {
 	Uart0IRQ	= 4,
 	Uart1		= 0x2F8,	/* COM2 */
 	Uart1IRQ	= 3,
-	Uart2		= 0x200, /* COM3 */
-	Uart2IRQ	= 5,
 
 	UartFREQ	= 1843200,
 };
@@ -123,7 +121,7 @@ typedef struct Ctlr {
 
 extern PhysUart i8250physuart;
 
-static Ctlr i8250ctlr[3] = {
+static Ctlr i8250ctlr[2] = {
 {	.io	= Uart0,
 	.irq	= Uart0IRQ,
 	.tbdf	= BUSUNKNOWN, },
@@ -131,13 +129,9 @@ static Ctlr i8250ctlr[3] = {
 {	.io	= Uart1,
 	.irq	= Uart1IRQ,
 	.tbdf	= BUSUNKNOWN, },
-
-{	.io	= Uart2,
-	.irq	= Uart2IRQ,
-	.tbdf	= BUSUNKNOWN, },
 };
 
-static Uart i8250uart[3] = {
+static Uart i8250uart[2] = {
 {	.regs	= &i8250ctlr[0],
 	.name	= "COM1",
 	.freq	= UartFREQ,
@@ -147,13 +141,6 @@ static Uart i8250uart[3] = {
 
 {	.regs	= &i8250ctlr[1],
 	.name	= "COM2",
-	.freq	= UartFREQ,
-	.phys	= &i8250physuart,
-	.special= 0,
-	.next	= &i8250uart[2], },
-
-{	.regs	= &i8250ctlr[2],
-	.name	= "COM3",
 	.freq	= UartFREQ,
 	.phys	= &i8250physuart,
 	.special= 0,
@@ -704,21 +691,9 @@ i8250console(void)
 	if((p = getconf("console")) == nil)
 		return;
 	n = strtoul(p, &cmd, 0);
-	if(p == cmd)
+	if(p == cmd || n < 0 || n >= nelem(i8250uart))
 		return;
-	switch(n){
-	default:
-		return;
-	case 0:
-		uart = &i8250uart[0];
-		break;
-	case 1:
-		uart = &i8250uart[1];
-		break;
-	case 2:
-		uart = &i8250uart[2];
-		break;
-	}
+	uart = &i8250uart[n];
 
 	(*uart->phys->enable)(uart, 0);
 	uartctl(uart, "b9600 l8 pn s1");
@@ -727,29 +702,4 @@ i8250console(void)
 
 	consuart = uart;
 	uart->console = 1;
-}
-
-void
-i8250mouse(char* which, int (*putc)(Queue*, int), int setb1200)
-{
-	char *p;
-	int port;
-
-	port = strtol(which, &p, 0);
-	if(p == which || port < 0 || port > 1)
-		error(Ebadarg);
-	uartmouse(&i8250uart[port], putc, setb1200);
-}
-
-void
-i8250setmouseputc(char* which, int (*putc)(Queue*, int))
-{
-	char *p;
-	int port;
-
-	port = strtol(which, &p, 0);
-	if(p == which || port < 0 || port > 1)
-		error(Ebadarg);
-	uartsetmouseputc(&i8250uart[port], putc);
-
 }

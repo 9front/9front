@@ -50,8 +50,6 @@ void	i8042auxenable(void (*)(int, int));
 void	i8042reset(void);
 void	i8250console(void);
 void*	i8250alloc(int, int, int);
-void	i8250mouse(char*, int (*)(Queue*, int), int);
-void	i8250setmouseputc(char*, int (*)(Queue*, int));
 void	i8253enable(void);
 void	i8253init(void);
 void	i8253reset(void);
