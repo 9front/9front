@@ -148,7 +148,7 @@ cmdcreate(int argc, char **argv)
 		return -1;
 	if(name2uid(fsmain, argv[3], &gid) < 0)
 		return -1;
-	ch = chanattach(fsmain, 0);
+	ch = chanattach(fsmain, CHFNOPERM);
 	if(ch == nil)
 		return -1;
 	ch->uid = uid;

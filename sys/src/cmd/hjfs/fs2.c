@@ -132,17 +132,19 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 		werrstr(Enotadir);
 		goto error;
 	}
-	if((ch->flags & CHFNOPERM) == 0)
+	if((ch->flags & CHFNOPERM) == 0){
 		if(!permcheck(ch->fs, d, ch->uid, OWRITE)){
 			werrstr(Eperm);
 			goto error;
 		}
+		if(isdir)
+			perm &= ~0777 | d->mode & 0777;
+		else
+			perm &= ~0666 | d->mode & 0666;
+	}
 	if(newentry(ch->fs, ch->loc, b, name, &f, 0) <= 0)
 		goto error;
-	if(isdir)
-		perm &= ~0777 | d->mode & 0777;
-	else
-		perm &= ~0666 | d->mode & 0666;
+
 	f.type = perm >> 24;
 	if(newqid(ch->fs, &f.path) < 0)
 		goto error;
