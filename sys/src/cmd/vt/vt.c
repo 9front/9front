@@ -583,6 +583,12 @@ print("resetterminal\n");
 						break;
 
 					/*
+					 * z - line spacing
+					 */
+					case 'z':
+						break;
+
+					/*
 					 * A - cursor up.
 					 */
 					case 'e':
