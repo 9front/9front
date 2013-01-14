@@ -9,6 +9,9 @@
 .B -x
 .I netmtpt
 ] [
+.B -o
+.I outnetmtpt
+] [
 .IB local6[ / mask]
 [
 .I remote4
@@ -78,7 +81,20 @@ use the tunnel as the default route for global IPv6 addresses
 use the network mounted at
 .I netmtpt
 instead of
-.LR /net .
+.LR /net
+for binding the tunnel interface and sending/receiving IPv4
+packets.
+.TP
+.B -o
+use
+.I outnetmtpt
+for the IPv4 packets but bind the IPv6 interface on
+.LR /net
+or
+.I netmtpt
+when specified by a previous
+.B -x
+option.
 .PD
 .SH EXAMPLES
 If your primary IPv4 address is public,

@@ -60,7 +60,8 @@ uchar myip[IPaddrlen];
 /* magic anycast address from rfc3068 */
 uchar anycast6to4[IPv4addrlen] = { 192, 88, 99, 1 };
 
-static char *net = "/net";
+static char *inside = "/net";
+static char *outside = "/net";
 
 static int	badipv4(uchar*);
 static int	badipv6(uchar*);
@@ -70,7 +71,7 @@ static void	tunnel2ip(int, int);
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-ag] [-x mtpt] [local6[/mask]] [remote4 [remote6]]\n",
+	fprint(2, "usage: %s [-ag] [-x mtpt] [-o mtpt] [local6[/mask]] [remote4 [remote6]]\n",
 		argv0);
 	exits("Usage");
 }
@@ -163,7 +164,7 @@ setup(int *v6net, int *tunp)
 	 * gain access to IPv6-in-IPv4 packets via ipmux
 	 */
 	p = seprint(buf, buf + sizeof buf, "%s/ipmux!proto=%2.2x|%2.2x;dst=%V",
-		net, IP_IPV6PROTO, IP_ICMPV6PROTO, myip + IPv4off);
+		outside, IP_IPV6PROTO, IP_ICMPV6PROTO, myip + IPv4off);
 	if (!anysender)
 		seprint(p, buf + sizeof buf, ";src=%V", remote4 + IPv4off);
 	*tunp = dial(buf, 0, 0, 0);
@@ -176,7 +177,7 @@ setup(int *v6net, int *tunp)
 	 * open local IPv6 interface (as a packet interface)
 	 */
 
-	cl = smprint("%s/ipifc/clone", net);
+	cl = smprint("%s/ipifc/clone", inside);
 	cfd = open(cl, ORDWR);			/* allocate a conversation */
 	n = 0;
 	if (cfd < 0 || (n = read(cfd, buf, sizeof buf - 1)) <= 0)
@@ -186,7 +187,7 @@ setup(int *v6net, int *tunp)
 	free(cl);
 	buf[n] = 0;
 
-	snprint(path, sizeof path, "%s/ipifc/%s/data", net, buf);
+	snprint(path, sizeof path, "%s/ipifc/%s/data", inside, buf);
 	*v6net = open(path, ORDWR);
 	if (*v6net < 0 || fprint(cfd, "bind pkt") < 0)
 		sysfatal("can't bind packet interface: %r");
@@ -199,7 +200,7 @@ setup(int *v6net, int *tunp)
 
 	if (gateway) {
 		/* route global addresses through the tunnel to remote6 */
-		ir = smprint("%s/iproute", net);
+		ir = smprint("%s/iproute", inside);
 		cfd = open(ir, OWRITE);
 		if (cfd >= 0 && debug)
 			fprint(2, "injected 2000::/3 %I into %s\n", remote6, ir);
@@ -255,14 +256,17 @@ main(int argc, char **argv)
 		gateway++;
 		break;
 	case 'x':
-		net = EARGF(usage());
+		outside = inside = EARGF(usage());
+		break;
+	case 'o':
+		outside = EARGF(usage());
 		break;
 	default:
 		usage();
 	} ARGEND
 
-	if (myipaddr(myip, net) < 0)
-		sysfatal("can't find my ipv4 address on %s", net);
+	if (myipaddr(myip, outside) < 0)
+		sysfatal("can't find my ipv4 address on %s", outside);
 	if (!isv4(myip))
 		sysfatal("my ip, %I, is not a v4 address", myip);
 
