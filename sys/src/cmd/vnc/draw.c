@@ -63,6 +63,7 @@ requestupdate(Vnc *v, int incremental)
 	int x, y;
 
 	lockdisplay(display);
+	flushimage(display, 1);
 	x = Dx(screen->r);
 	y = Dy(screen->r);
 	unlockdisplay(display);
@@ -236,8 +237,6 @@ dorectangle(Vnc *v)
 	Rectangle r, subr, maxr;
 
 	r = vncrdrect(v);
-	if(r.min.x == r.max.x || r.min.y == r.max.y)
-		return;
 	if(!rectinrect(r, Rpt(ZP, v->dim)))
 		sysfatal("bad rectangle from server: %R not in %R", r, Rpt(ZP, v->dim));
 	stride = Dx(r) * pixb;
@@ -364,7 +363,6 @@ readfromserver(Vnc *v)
 			n = vncrdshort(v);
 			while(n-- > 0)
 				dorectangle(v);
-			flushimage(display, 1);
 			requestupdate(v, 1);
 			break;
 
