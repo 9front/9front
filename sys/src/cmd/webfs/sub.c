@@ -71,14 +71,22 @@ delkey(Key *h, char *key)
 	return h;
 }
 
-char*
-lookkey(Key *k, char *key)
+Key*
+getkey(Key *k, char *key)
 {
 	while(k){
 		if(!cistrcmp(k->key, key))
-			return k->val;
+			break;
 		k = k->next;
 	}
+	return k;
+}
+
+char*
+lookkey(Key *k, char *key)
+{
+	if(k = getkey(k, key))
+		return k->val;
 	return nil;
 }
 

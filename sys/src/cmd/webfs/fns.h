@@ -6,6 +6,7 @@ void	nstrcpy(char *to, char *from, int n);
 
 Key*	addkey(Key *h, char *key, char *val);
 Key*	delkey(Key *h, char *key);
+Key*	getkey(Key *h, char *key);
 char*	lookkey(Key *k, char *key);
 Key*	parsehdr(char *s);
 char*	unquote(char *s, char **ps);

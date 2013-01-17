@@ -322,7 +322,6 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 	user = u->user;
 	pass = u->pass;
 	realm = nonce = opaque = nil;
-	fmtstrinit(&fmt);
 	if(!cistrncmp(s, "Basic ", 6)){
 		char cred[128], plain[128];
 		UserPasswd *up;
@@ -334,6 +333,7 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 			return -1;
 		up = nil;
 		if(user == nil || pass == nil){
+			fmtstrinit(&fmt);
 			fmtprint(&fmt, " realm=%q", realm);
 			if(user)
 				fmtprint(&fmt, " user=%q", user);
@@ -374,6 +374,7 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 			opaque = unquote(x+7, &s);
 		if(realm == nil || nonce == nil)
 			return -1;
+		fmtstrinit(&fmt);
 		fmtprint(&fmt, " realm=%q", realm);
 		if(user)
 			fmtprint(&fmt, " user=%q", user);
@@ -399,10 +400,12 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 		u = saneurl(url("/", u));	/* BUG: should be the ones in domain= only */
 	} else
 		return -1;
-	if(u == nil)
-		return -1;
 	if((s = fmtstrflush(&fmt)) == nil){
 		freeurl(u);
+		return -1;
+	}
+	if(u == nil){
+		free(s);
 		return -1;
 	}
 	a = emalloc(sizeof(*a));
@@ -414,6 +417,15 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 	qunlock(&authlk);
 
 	return 0;
+}
+
+int
+hauthenticate(Url *u, Url *ru, char *method, char *key, Key *hdr)
+{
+	for(hdr = getkey(hdr, key); hdr != nil; hdr = getkey(hdr->next, key))
+		if(authenticate(u, ru, method, hdr->val) == 0)
+			return 0;
+	return -1;
 }
 
 void
@@ -787,9 +799,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		case 401:	/* Unauthorized */
 			if(x = lookkey(shdr, "Authorization"))
 				flushauth(nil, x);
-			if((x = lookkey(rhdr, "WWW-Authenticate")) == nil)
-				goto Error;
-			if(authenticate(u, &ru, method, x) < 0)
+			if(hauthenticate(u, &ru, method, "WWW-Authenticate", rhdr) < 0)
 				goto Error;
 			}
 			if(0){
@@ -798,9 +808,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				goto Error;
 			if(x = lookkey(shdr, "Proxy-Authorization"))
 				flushauth(proxy, x);
-			if((x = lookkey(rhdr, "Proxy-Authenticate")) == nil)
-				goto Error;
-			if(authenticate(proxy, proxy, method, x) < 0)
+			if(hauthenticate(u, &ru, method, "Proxy-Authenticate", rhdr) < 0)
 				goto Error;
 			}
 		case 0:		/* No status */
