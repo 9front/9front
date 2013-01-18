@@ -242,24 +242,45 @@ ac97interrupt(Ureg *, void *arg)
 {
 	Audio *adev;
 	Ctlr *ctlr;
-	Ring *ring;
 	ulong stat;
 
 	adev = arg;
 	ctlr = adev->ctlr;
 	stat = csr32r(ctlr, Sta);
 	stat &= S2ri | Sri | Pri | Mint | Point | Piint | Moint | Miint | Gsci;
-	if(stat & Point){
+	if(stat & (Point|Piint|Mint)){
 		ilock(ctlr);
-		if(ctlr->sis7012)
-			csr16w(ctlr, Out + Picb, csr16r(ctlr, Out + Picb) & ~Dch);
-		else
-			csr16w(ctlr, Out + Sr, csr16r(ctlr, Out + Sr) & ~Dch);
-		ring = &ctlr->outring;
-		ring->ri = csr8r(ctlr, Out + Civ) * Blocksize;
+		if(stat & Point){
+			ctlr->outring.ri = csr8r(ctlr, Out + Civ) * Blocksize;
+			wakeup(&ctlr->outring.r);
+
+			if(ctlr->sis7012)
+				csr16w(ctlr, Out + Picb, csr16r(ctlr, Out + Picb) & ~Dch);
+			else
+				csr16w(ctlr, Out + Sr, csr16r(ctlr, Out + Sr) & ~Dch);
+			stat &= ~Point;
+		}
+		if(stat & Piint){
+			ctlr->inring.wi = csr8r(ctlr, In + Civ) * Blocksize;
+			wakeup(&ctlr->inring.r);
+
+			if(ctlr->sis7012)
+				csr16w(ctlr, In + Picb, csr16r(ctlr, In + Picb) & ~Dch);
+			else
+				csr16w(ctlr, In + Sr, csr16r(ctlr, In + Sr) & ~Dch);
+			stat &= ~Piint;
+		}
+		if(stat & Mint){
+			ctlr->micring.wi = csr8r(ctlr, Mic + Civ) * Blocksize;
+			wakeup(&ctlr->micring.r);
+
+			if(ctlr->sis7012)
+				csr16w(ctlr, Mic + Picb, csr16r(ctlr, Mic + Picb) & ~Dch);
+			else
+				csr16w(ctlr, Mic + Sr, csr16r(ctlr, Mic + Sr) & ~Dch);
+			stat &= ~Mint;
+		}
 		iunlock(ctlr);
-		wakeup(&ring->r);
-		stat &= ~Point;	
 	}
 	if(stat) /* have seen 0x400, which is sdin0 resume */
 		iprint("#A%d: ac97 unhandled interrupt(s): stat 0x%lux\n",
@@ -282,10 +303,17 @@ ac97status(Audio *adev, void *a, long n, vlong)
 }
 
 static int
+inavail(void *arg)
+{
+	Ring *r = arg;
+	return buffered(r);
+}
+
+static int
 outavail(void *arg)
 {
-	Ctlr *ctlr = arg;
-	return available(&ctlr->outring);
+	Ring *r = arg;
+	return available(r);
 }
 
 static int
@@ -294,6 +322,37 @@ outrate(void *arg)
 	Ctlr *ctlr = arg;
 	int delay = ctlr->adev->delay*BytesPerSample;
 	return (delay <= 0) || (buffered(&ctlr->outring) <= delay);
+}
+
+static long
+ac97read(Audio *adev, void *vp, long n, vlong)
+{
+	uchar *p, *e;
+	Ctlr *ctlr;
+	Ring *ring;
+	ulong oi, ni;
+
+	p = vp;
+	e = p + n;
+	ctlr = adev->ctlr;
+	ring = &ctlr->inring;
+	while(p < e) {
+		oi = ring->ri / Blocksize;
+		if((n = readring(ring, p, e - p)) <= 0){
+			csr8w(ctlr, In + Lvi, (oi - 1) % Ndesc);
+			csr8w(ctlr, In + Cr, Ioce | Rpbm);
+			sleep(&ring->r, inavail, ring);
+			continue;
+		}
+		ni = ring->ri / Blocksize;
+		while(oi != ni){
+			csr8w(ctlr, In + Lvi, (oi - 1) % Ndesc);
+			csr8w(ctlr, In + Cr, Ioce | Rpbm);
+			oi = (oi + 1) % Ndesc;
+		}
+		p += n;
+	}
+	return p - (uchar*)vp;
 }
 
 static long
@@ -311,7 +370,7 @@ ac97write(Audio *adev, void *vp, long n, vlong)
 	while(p < e) {
 		oi = ring->wi / Blocksize;
 		if((n = writering(ring, p, e - p)) <= 0){
-			sleep(&ring->r, outavail, ctlr);
+			sleep(&ring->r, outavail, ring);
 			continue;
 		}
 		ni = ring->wi / Blocksize;
@@ -520,6 +579,7 @@ Found:
 
 	ac97mixreset(adev, ac97mixw, ac97mixr);
 
+	adev->read = ac97read;
 	adev->write = ac97write;
 	adev->close = ac97close;
 	adev->buffered = ac97buffered;

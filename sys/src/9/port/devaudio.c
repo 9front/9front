@@ -170,12 +170,24 @@ audioopen(Chan *c, int omode)
 {
 	Audiochan *ac;
 	Audio *adev;
+	int mode;
 
 	ac = c->aux;
 	adev = ac->adev;
-	if((c->qid.path == Qaudio) && (incref(&adev->audioopen) != 1)){
-		decref(&adev->audioopen);
-		error(Ebusy);
+	if(c->qid.path == Qaudio){
+		mode = openmode(omode);
+		if(mode == OWRITE || mode == ORDWR)
+			if(incref(&adev->audioopenw) != 1){
+				decref(&adev->audioopenw);
+				error(Ebusy);
+			}
+		if(mode == OREAD || mode == ORDWR)
+			if(incref(&adev->audioopenr) != 1){
+				decref(&adev->audioopenr);
+				if(mode == ORDWR)
+					decref(&adev->audioopenw);
+				error(Ebusy);
+			}
 	}
 	return devopen(c, omode, audiodir, nelem(audiodir), devgen);
 }
@@ -303,7 +315,10 @@ audioclose(Chan *c)
 				poperror();
 			}
 		}
-		decref(&adev->audioopen);
+		if(c->mode == OWRITE || c->mode == ORDWR)
+			decref(&adev->audioopenw);
+		if(c->mode == OREAD || c->mode == ORDWR)
+			decref(&adev->audioopenr);
 	}
 	if(ac->owner == c){
 		ac->owner = nil;
