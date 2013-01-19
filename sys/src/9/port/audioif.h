@@ -13,7 +13,7 @@ struct Audio
 
 	long (*read)(Audio *, void *, long, vlong);
 	long (*write)(Audio *, void *, long, vlong);
-	void (*close)(Audio *);
+	void (*close)(Audio *, int);
 
 	long (*volread)(Audio *, void *, long, vlong);
 	long (*volwrite)(Audio *, void *, long, vlong);

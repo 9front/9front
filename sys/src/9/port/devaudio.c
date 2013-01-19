@@ -311,7 +311,7 @@ audioclose(Chan *c)
 	if((c->qid.path == Qaudio) && (c->flag & COPEN)){
 		if(adev->close){
 			if(!waserror()){
-				adev->close(adev);
+				adev->close(adev, c->mode);
 				poperror();
 			}
 		}

@@ -554,10 +554,12 @@ audiowrite(Audio *adev, void *vp, long n, vlong)
 }
 
 static void
-audioclose(Audio *adev)
+audioclose(Audio *adev, int mode)
 {
 	Ctlr *ctlr;
 
+	if(mode == OREAD)
+		return;
 	ctlr = adev->ctlr;
 	sleep(&ctlr->vous, inactive, ctlr);
 	setempty(ctlr);

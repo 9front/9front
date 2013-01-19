@@ -306,14 +306,14 @@ static int
 inavail(void *arg)
 {
 	Ring *r = arg;
-	return buffered(r);
+	return buffered(r) > 0;
 }
 
 static int
 outavail(void *arg)
 {
 	Ring *r = arg;
-	return available(r);
+	return available(r) > 0;
 }
 
 static int
@@ -386,11 +386,14 @@ ac97write(Audio *adev, void *vp, long n, vlong)
 }
 
 static void
-ac97close(Audio *adev)
+ac97close(Audio *adev, int mode)
 {
 	Ctlr *ctlr;
 	Ring *ring;
 	uchar z[1];
+
+	if(mode == OREAD)
+		return;
 
 	z[0] = 0;
 	ctlr = adev->ctlr;
