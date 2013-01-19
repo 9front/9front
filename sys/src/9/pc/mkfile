@@ -71,6 +71,7 @@ LIB=\
 	/$objtype/lib/libaml.a\
 
 ETHER=`{echo devether.c ether*.c | sed 's/\.c/.'$O'/g'}
+AUDIO=`{echo devaudio.c audio*.c | sed 's/\.c/.'$O'/g'}
 VGA=`{echo devvga.c screen.c vga*.c | sed 's/\.c/.'$O'/g'}
 SDEV=`{echo devsd.c sd*.c | sed 's/\.c/.'$O'/g'}
 
@@ -102,6 +103,7 @@ install:V:	$p$CONF
 <|../port/mkbootrules $CONF
 
 $ETHER: 			etherif.h ../port/netif.h
+$AUDIO:				../port/audioif.h
 ether8003.$O ether8390.$O:	ether8390.h
 $VGA mouse.$O:			screen.h /sys/include/memdraw.h
 devfloppy.$O: 			floppy.h
