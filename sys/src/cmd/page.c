@@ -294,7 +294,7 @@ popenimg(Page *p)
 		if(strcmp(p->ext, "ico") == 0)
 			snprint(nam, sizeof(nam), "%s -c", p->ext);
 		else
-			snprint(nam, sizeof(nam), "%s -t9", p->ext);
+			snprint(nam, sizeof(nam), "%s -t39", p->ext);
 		pipeline(fd, "%s", nam);
 	}
 
