@@ -17,17 +17,17 @@ enum {
 };
 
 typedef struct {
-	int idlen;		/* length of string after header */
-	int cmaptype;		/* 1 =>  datatype = 1 => colourmapped */
+	int idlen;			/* length of string after header */
+	int cmaptype;		/* 1 => datatype = 1 => colourmapped */
 	int datatype;		/* see below */
 	int cmaporigin;		/* index of first entry in colour map */
-	int cmaplen;		/* length of olour map */
-	int cmapbpp;		/* bips per pixel of colour map: 16, 24, or 32 */
+	int cmaplen;		/* length of colour map */
+	int cmapbpp;		/* bits per pixel of colour map: 16, 24, or 32 */
 	int xorigin;		/* source image origin */
 	int yorigin;
 	int width;
 	int height;
-	int bpp;		/* bits per pixel of image: 16, 24, or 32 */
+	int bpp;			/* bits per pixel of image: 16, 24, or 32 */
 	int descriptor;
 	uchar *cmap;		/* colour map (optional) */
 } Tga;
@@ -41,13 +41,13 @@ typedef struct {
  */
 
 char *datatype[] = {
-	[0]	"No image data",
-	[1]	"color mapped",
-	[2]	"RGB",
-	[3]	"B&W",
-	[9]	"RLE color-mapped",
+	[0]		"No image data",
+	[1]		"Color mapped",
+	[2]		"RGB",
+	[3]		"B&W",
+	[9]		"RLE color mapped",
 	[10]	"RLE RGB",
-	[11]	"Compressed B&W",
+	[11]	"RLE B&W",
 	[32]	"Compressed color",
 	[33]	"Quadtree compressed color",
 };
@@ -352,39 +352,31 @@ Breadtga(Biobuf *bp)
 	num = h->width*h->height;
 	switch(h->datatype){
 	case 2:
-		if(rgba(bp, h->bpp, r, g, b, num) != num){
-			werrstr("ReadTGA: decode fail - %r\n");
-			goto Error;
-		}
+		n = rgba(bp, h->bpp, r, g, b, num);
 		break;
 	case 3:
-		if(luma(bp, r, num) != num){
-			werrstr("ReadTGA: decode fail - %r\n");
-			goto Error;
-		}
+		n = luma(bp, r, num);
 		break;
 	case 10:
-		if((n = rgba_rle(bp, h->bpp, r, g, b, num)) != num){
-			werrstr("ReadTGA: decode fail (%d!=%d) - %r\n", n, num);
-			goto Error;
-		}
+		n = rgba_rle(bp, h->bpp, r, g, b, num);
 		break;
 	case 11:
-		if(luma_rle(bp, r, num) != num){
-			werrstr("ReadTGA: decode fail - %r\n");
-			goto Error;
-		}
+		n = luma_rle(bp, r, num);
 		break;
 	default:
 		werrstr("ReadTGA: type=%d (%s) unsupported\n", h->datatype, datatype[h->datatype]);
 		goto Error;	
  	}
 
+	if(n != num){
+		werrstr("ReadTGA: decode fail (%d!=%d) - %r\n", n, num);
+		goto Error;
+	}
 	if(h->xorigin != 0)
 		reflect(ar);
 	if(h->yorigin == 0)
 		flip(ar);
-	
+
 	free(h->cmap);
 	free(h);
 	return array;
