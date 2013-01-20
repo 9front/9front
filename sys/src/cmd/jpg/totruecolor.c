@@ -17,8 +17,8 @@ totruecolor(Rawimage *i, int chandesc)
 	int j, k;
 	Rawimage *im;
 	char err[ERRMAX];
-	uchar *rp, *gp, *bp, *cmap, *inp, *outp, cmap1[3*256];
-	int r, g, b, Y, Cr, Cb;
+	uchar *rp, *gp, *bp, *cmap, *inp, *outp, cmap1[4*256];
+	int r, g, b, Y, Cr, Cb, psize;
 
 	if(chandesc!=CY && chandesc!=CRGB24)
 		return _remaperror("remap: can't convert to chandesc %d", chandesc);
@@ -67,16 +67,15 @@ totruecolor(Rawimage *i, int chandesc)
 		break;
 
 	case CRGB1:
+	case CRGBV:
+		psize = (i->chandesc == CRGB1) ? 3 : 4;
 		if(cmap == nil)
 			return _remaperror("remap: image has no color map");
 		if(i->nchans != 1)
 			return _remaperror("remap: can't handle nchans %d", i->nchans);
-		for(j=1; j<=8; j++)
-			if(i->cmaplen == 3*(1<<j))
-				break;
-		if(j > 8)
-			return _remaperror("remap: can't do colormap size 3*%d", i->cmaplen/3);
-		if(i->cmaplen != 3*256){
+		if(i->cmaplen > psize*256)
+			return _remaperror("remap: can't do colormap size %d*%d", psize, i->cmaplen/psize);
+		if(i->cmaplen != psize*256){
 			/* to avoid a range check in loop below, make a full-size cmap */
 			memmove(cmap1, cmap, i->cmaplen);
 			cmap = cmap1;
@@ -84,19 +83,19 @@ totruecolor(Rawimage *i, int chandesc)
 		inp = i->chans[0];
 		if(chandesc == CY){
 			for(j=0; j<i->chanlen; j++){
-				k = *inp++;
-				r = cmap[3*k+2];
-				g = cmap[3*k+1];
-				b = cmap[3*k+0];
+				k = psize*(*inp++);
+				r = cmap[k+2];
+				g = cmap[k+1];
+				b = cmap[k+0];
 				r = (2125*r + 7154*g + 721*b)/10000;	/* Poynton page 84 */
 				*outp++ = r;
 			}
 		}else{
 			for(j=0; j<i->chanlen; j++){
-				k = *inp++;
-				*outp++ = cmap[3*k+2];
-				*outp++ = cmap[3*k+1];
-				*outp++ = cmap[3*k+0];
+				k = psize*(*inp++);
+				*outp++ = cmap[k+2];
+				*outp++ = cmap[k+1];
+				*outp++ = cmap[k+0];
 			}
 		}
 		break;
