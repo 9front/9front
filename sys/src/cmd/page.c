@@ -678,6 +678,7 @@ popenfile(Page *p)
 	"image/png",			popenimg,	"png",
 	"image/ppm",			popenimg,	"ppm",
 	"image/bmp",			popenimg,	"bmp",
+	"image/tga",			popenimg,	"tga",
 	"image/x-icon",			popenimg,	"ico",
 	"image/p9bit",			popenimg,	nil,
 	};
