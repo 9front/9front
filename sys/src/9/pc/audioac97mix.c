@@ -185,8 +185,10 @@ ac97volset(Audio *adev, int x, int a[2])
 			return 0;
 		}
 		m->wr(adev, vol->reg, a[0]);		
-		if(x == Vspeed)
+		if(x == Vspeed){
+			m->wr(adev, 0x32, a[0]);	/* adc rate */
 			adev->speed = m->rr(adev, vol->reg);
+		}
 		break;
 	case Left:
 		v = (vol->range - a[0]) & 0x7f;
