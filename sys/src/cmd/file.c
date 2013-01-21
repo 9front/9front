@@ -1205,15 +1205,28 @@ istga(void)
 	uchar *p;
 
 	p = buf;
-	if(nbuf < 14)
+	if(nbuf < 18)
+		return 0;
+	if((p[12] | p[13]<<8) == 0)	/* width */
+		return 0;
+	if((p[14] | p[15]<<8) == 0)	/* height */
+		return 0;
+	if(p[16] != 8 && p[16] != 16 && p[16] != 24 && p[16] != 32)	/* bpp */
 		return 0;
 	if(((p[2]|(1<<3)) & (~3)) != (1<<3))	/* rle flag */
 		return 0;
-	if(p[1] == 0 && ((p[2]&3) != 2 && (p[2]&3) != 3))	/* non color-mapped */
-		return 0;
-	if(p[1] == 1 && ((p[2]&3) != 1 || p[7] == 0))	/* color-mapped */
-		return 0;
-	if(p[16] != 8 && p[16] != 16 && p[16] != 24 && p[16] != 32)	/* bpp */
+	if(p[1] == 0){	/* non color-mapped */
+		if((p[2]&3) != 2 && (p[2]&3) != 3)	
+			return 0;
+		if((p[5] | p[6]<<8) != 0)	/* palette length */
+			return 0;
+	} else
+	if(p[1] == 1){	/* color-mapped */
+		if((p[2]&3) != 1 || p[7] == 0)	
+			return 0;
+		if((p[5] | p[6]<<8) == 0)	/* palette length */
+			return 0;
+	} else
 		return 0;
 	print("%s\n", mime ? "image/tga" : "targa image");
 	return 1;
