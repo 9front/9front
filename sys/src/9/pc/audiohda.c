@@ -887,6 +887,8 @@ connectpin(Ctlr *ctlr, Stream *s, int type, uint pin, uint cad)
 {
 	Widget *jack, *conv;
 
+	if(s->atag == 0)
+		return -1;
 	if(cad >= Maxcodecs || pin >= Maxwidgets || ctlr->codec[cad] == nil)
 		return -1;
 	jack = ctlr->codec[cad]->widgets[pin];
@@ -929,12 +931,57 @@ connectpin(Ctlr *ctlr, Stream *s, int type, uint pin, uint cad)
 }
 
 static int
-bestpin(Ctlr *ctlr, int *pcad)
+scoreout(Widget *w)
+{
+	int score;
+	uint r;
+
+	if((w->pincap & Pout) == 0)
+		return -1;
+	if(w->id.ctlr->sin.jack == w)
+		return -1;
+
+	score = 0;
+	r = w->pin;
+	if(((r >> 30) & 0x3) >= 2) /* fix or fix+jack */
+		score |= 32;
+	if(((r >> 12) & 0xf) == 4) /* green */
+		score |= 32;
+	if(((r >> 24) & 0xf) == 1) /* rear */
+		score |= 16;
+	if(((r >> 28) & 0x3) == 0) /* ext */
+		score |= 8;
+	if(((r >> 20) & 0xf) == 2) /* hpout */
+		score |= 4;
+	if(((r >> 20) & 0xf) == 0) /* lineout */
+		score |= 4;
+	return score;
+}
+
+static int
+scorein(Widget *w)
+{
+	int score;
+	uint r;
+
+	if((w->pincap & Pin) == 0)
+		return -1;
+	if(w->id.ctlr->sout.jack == w)
+		return -1;
+
+	score = 0;
+	r = w->pin;
+	if(((r >> 30) & 0x3) >= 2) /* fix or fix+jack */
+		score |= 4;
+	return score;
+}
+
+static int
+bestpin(Ctlr *ctlr, int *pcad, int (*fscore)(Widget *))
 {
 	Fungroup *fg;
 	Widget *w;
 	int best, pin, score;
-	uint r;
 	int i;
 
 	pin = -1;
@@ -946,21 +993,8 @@ bestpin(Ctlr *ctlr, int *pcad)
 			for(w=fg->first; w; w=w->next){
 				if(w->type != Wpin)
 					continue;
-				if((w->pincap & Pout) == 0)
-					continue;
-				score = 0;
-				r = w->pin;
-				if(((r >> 12) & 0xf) == 4) /* green */
-					score |= 32;
-				if(((r >> 24) & 0xf) == 1) /* rear */
-					score |= 16;
-				if(((r >> 28) & 0x3) == 0) /* ext */
-					score |= 8;
-				if(((r >> 20) & 0xf) == 2) /* hpout */
-					score |= 4;
-				if(((r >> 20) & 0xf) == 0) /* lineout */
-					score |= 4;
-				if(score >= best){
+				score = (*fscore)(w);
+				if(score >= 0 && score >= best){
 					best = score;
 					pin = w->id.nid;
 					*pcad = i;
@@ -1156,7 +1190,7 @@ hdactl(Audio *adev, void *va, long n, vlong)
 				error("connectpin failed");
 		}else
 		if(cistrcmp(tok[0], "inpin") == 0 && ntok >= 2){
-			cad = ctlr->sout.cad;
+			cad = ctlr->sin.cad;
 			pin = strtoul(tok[1], 0, 0);
 			if(ntok > 2)
 				cad = strtoul(tok[2], 0, 0);
@@ -1243,6 +1277,8 @@ hdawrite(Audio *adev, void *vp, long n, vlong)
 	e = p + n;
 	ctlr = adev->ctlr;
 	ring = &ctlr->sout.ring;
+	if(ring->buf == nil || ctlr->sout.conv == nil)
+		return 0;
 	while(p < e) {
 		if((n = writering(ring, p, e - p)) <= 0){
 			hdakick(ctlr);
@@ -1696,26 +1732,40 @@ Found:
 		print("#A%d: unable to start hda\n", ctlr->no);
 		return -1;
 	}
-	if(streamalloc(ctlr, &ctlr->sout, ctlr->iss) < 0){
+
+	/* iss + oss + bss */
+	if(streamalloc(ctlr, &ctlr->sout, ctlr->iss) < 0)
 		print("#A%d: output streamalloc failed\n", ctlr->no);
-		return -1;
-	}
-	if(ctlr->iss > 0)
+	if(ctlr->iss > 0){
 		if(streamalloc(ctlr, &ctlr->sin, 0) < 0)
 			print("#A%d: input streamalloc failed\n", ctlr->no);
+	}
+	else if(ctlr->bss > 0){
+		if(ctlr->oss > 0){
+			if(streamalloc(ctlr, &ctlr->sin, ctlr->oss) < 0)
+				print("#A%d: input streamalloc failed\n", ctlr->no);
+		} else if(ctlr->bss > 1) {
+			if(streamalloc(ctlr, &ctlr->sin, 1) < 0)
+				print("#A%d: input streamalloc failed\n", ctlr->no);
+		}
+	}
+
 	if(enumdev(ctlr) < 0){
 		print("#A%d: no audio codecs found\n", ctlr->no);
 		return -1;
 	}
-	best = bestpin(ctlr, &cad);
-	if(best < 0){
-		print("#A%d: no output pins found!\n", ctlr->no);
-		return -1;
-	}
-	if(connectpin(ctlr, &ctlr->sout, Waout, best, cad) < 0){
-		print("#A%d: error connecting pin\n", ctlr->no);
-		return -1;
-	}
+
+	best = bestpin(ctlr, &cad, scoreout);
+	if(best < 0)
+		print("#A%d: no output pins found\n", ctlr->no);
+	else if(connectpin(ctlr, &ctlr->sout, Waout, best, cad) < 0)
+		print("#A%d: error connecting output pin\n", ctlr->no);
+
+	best = bestpin(ctlr, &cad, scorein);
+	if(best < 0)
+		print("#A%d: no input pins found\n", ctlr->no);
+	else if(connectpin(ctlr, &ctlr->sin, Wain, best, cad) < 0)
+		print("#A%d: error connecting input pin\n", ctlr->no);
 
 	adev->read = hdaread;
 	adev->write = hdawrite;

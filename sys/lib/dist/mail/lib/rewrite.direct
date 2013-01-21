@@ -12,13 +12,13 @@
 \"(.+)\"		translate	"/bin/upas/aliasmail '\1'"
 [^!@.]+			translate	"/bin/upas/aliasmail '&'"
 
-# deliver mail without a domain locally
-local!"(.+)"		>>		/mail/box/\1/mbox
-local!(.*)		>>		/mail/box/\1/mbox
-
 # your local names
 \l!(.*)					alias		\1
 \l\.YOURDOMAIN\.DOM!(.*)		alias		\1
+
+# deliver mail without a domain locally
+local!"(.+)"		>>		/mail/box/\1/mbox
+local!(.*)		>>		/mail/box/\1/mbox
 
 # convert source domain address to a chain a@b@c@d...
 @([^@!,]*):([^!@]*)@([^!]*)		alias	\2@\3@\1
