@@ -154,9 +154,10 @@ show(int fd, char *name)
 	if(outchan == CMAP8)
 		c = torgbv(r, !eflag);
 	else{
-		if(outchan==GREY8 || (r->chandesc==CY && threeflag==0))
+		if(outchan==GREY8 || (r->chandesc==CY && threeflag==0)){
 			c = totruecolor(r, CY);
-		else
+			outchan = GREY8;
+		}else
 			c = totruecolor(r, CRGB24);
 	}
 	if(c == nil){
