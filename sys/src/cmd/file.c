@@ -150,6 +150,7 @@ int	ishtml(void);
 int	isrfc822(void);
 int	ismbox(void);
 int	islimbo(void);
+int	istga(void);
 int	ismp3(void);
 int	ismung(void);
 int	isp9bit(void);
@@ -196,6 +197,7 @@ int	(*call[])(void) =
 	ismsdos,	/* msdos exe (virus file attachement) */
 	isicocur,		/* windows icon or cursor file */
 	isface,		/* ascii face file */
+	istga,
 	ismp3,
 
 	/* last resorts */
@@ -1194,6 +1196,26 @@ isas(void)
 	if(wfreq[Aword] < 2)
 		return 0;
 	print("%s\n", mime ? PLAIN : "as program");
+	return 1;
+}
+
+int
+istga(void)
+{
+	uchar *p;
+
+	p = buf;
+	if(nbuf < 14)
+		return 0;
+	if(((p[2]|(1<<3)) & (~3)) != (1<<3))	/* rle flag */
+		return 0;
+	if(p[1] == 0 && ((p[2]&3) != 2 && (p[2]&3) != 3))	/* non color-mapped */
+		return 0;
+	if(p[1] == 1 && ((p[2]&3) != 1 || p[7] == 0))	/* color-mapped */
+		return 0;
+	if(p[16] != 8 && p[16] != 16 && p[16] != 24 && p[16] != 32)	/* bpp */
+		return 0;
+	print("%s\n", mime ? "image/tga" : "targa image");
 	return 1;
 }
 
