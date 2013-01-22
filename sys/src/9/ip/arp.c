@@ -405,7 +405,7 @@ arpwrite(Fs *fs, char *s, int len)
 	Route *r;
 	Arp *arp;
 	Block *bp;
-	Arpent *a, *fl, **l;
+	Arpent *a;
 	Medium *m;
 	char *f[4], buf[256];
 	uchar ip[IPaddrlen], mac[MAClen];
@@ -439,8 +439,12 @@ arpwrite(Fs *fs, char *s, int len)
 		memset(arp->hash, 0, sizeof(arp->hash));
 		/* clear all pkts on these lists (rxmt, dropf/l) */
 		arp->rxmt = nil;
-		arp->dropf = nil;
 		arp->dropl = nil;
+		while(arp->dropf != nil){
+			bp = arp->dropf->list;
+			freeblist(arp->dropf);
+			arp->dropf = bp;
+		}
 		qunlock(arp);
 	} else if(strcmp(f[0], "add") == 0){
 		switch(n){
@@ -480,31 +484,17 @@ arpwrite(Fs *fs, char *s, int len)
 			error(Ebadip);
 		qlock(arp);
 
-		l = &arp->hash[haship(ip)];
-		for(a = *l; a; a = a->hash){
-			if(memcmp(ip, a->ip, sizeof(a->ip)) == 0){
-				*l = a->hash;
+		for(a = arp->hash[haship(ip)]; a; a = a->hash)
+			if(memcmp(ip, a->ip, sizeof(a->ip)) == 0)
 				break;
-			}
-			l = &a->hash;
-		}
 	
 		if(a){
-			/* take out of re-transmit chain */
-			l = &arp->rxmt;
-			for(fl = *l; fl; fl = fl->nextrxt){
-				if(fl == a){
-					*l = a->nextrxt;
-					break;
-				}
-				l = &fl->nextrxt;
+			while(a->hold != nil){
+				bp = a->hold->list;
+				freeblist(a->hold);
+				a->hold = bp;
 			}
-
-			a->nextrxt = nil;
-			a->hash = nil;
-			a->hold = nil;
-			a->last = nil;
-			a->ifc = nil;
+			cleanarpent(arp, a);
 			memset(a->ip, 0, sizeof(a->ip));
 			memset(a->mac, 0, sizeof(a->mac));
 		}
