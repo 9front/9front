@@ -473,9 +473,9 @@ Breadtga(Biobuf *bp)
 		werrstr("ReadTGA: decode fail (%d!=%d) - %r\n", n, num);
 		goto Error;
 	}
-	if(h->xorigin != 0)
+	if((h->descriptor&(1<<4)) != 0)
 		reflect(ar);
-	if(h->yorigin == 0)
+	if((h->descriptor&(1<<5)) == 0)
 		flip(ar);
 
 	free(h);
