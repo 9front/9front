@@ -140,7 +140,7 @@ main(int argc, char **argv)
 	}
 	srvfd = pipefd[1];
 
-	switch(rfork(RFNOWAIT|RFNOTEG|RFFDG|RFPROC)){
+	switch(rfork(RFNOWAIT|RFNOTEG|RFFDG|RFPROC|RFNAMEG)){
 	case -1:
 		panic(1, "fork");
 	default:
