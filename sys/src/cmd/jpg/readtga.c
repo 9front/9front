@@ -89,6 +89,7 @@ fixcmap(uchar *cmap, int *cmapbpp, int cmaplen)
 		}
 		break;
 	case 16:
+	case 15:
 		/* convert to 24-bit colormap */
 		if((cmap = realloc(cmap, 3*cmaplen)) == nil)
 			return -1;
@@ -245,6 +246,7 @@ rgba(Biobuf *bp, int bpp, uchar *r, uchar *g, uchar *b, int num)
 
 	switch(bpp){
 	case 16:
+	case 15:
 		for(i = 0; i < num; i++){
 			if(Bread(bp, buf, 2) != 2)
 				break;
