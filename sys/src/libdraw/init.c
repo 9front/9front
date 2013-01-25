@@ -253,7 +253,7 @@ initdisplay(char *dev, char *win, void(*error)(Display*, char*))
 	}
 	if(n==NINFO+1)
 		n = NINFO;
-	buf[n] = '\0';
+	info[n] = '\0';
 	isnew = 0;
 	if(n < NINFO)	/* this will do for now, we need something better here */
 		isnew = 1;
