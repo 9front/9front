@@ -1,13 +1,14 @@
 </$objtype/mkfile
 
 TARG=serial
-OFILES=ftdi.$O serial.$O prolific.$O ucons.$O
+OFILES=ftdi.$O serial.$O prolific.$O ucons.$O silabs.$O
 HFILES=\
 	../lib/usb.h\
 	ftdi.h\
 	prolific.h\
 	serial.h\
 	ucons.h\
+	silabs.h\
 
 LIB=../lib/usb.a$O
 
