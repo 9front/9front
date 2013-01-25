@@ -14,6 +14,7 @@ cons \- console, clocks, process/process group ids, user, null, reboot, etc.
 .B /dev/hostowner
 .B /dev/kmesg
 .B /dev/kprint
+.B /dev/mordor
 .B /dev/null
 .B /dev/osversion
 .B /dev/pgrpid
