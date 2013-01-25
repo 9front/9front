@@ -388,8 +388,8 @@ readslave(Biobuf *b)
 	ZlibW zw;
 
 	buf = pngmalloc(IDATSIZE, 0);
-	Bread(b, buf, sizeof PNGmagic);
-	if(memcmp(PNGmagic, buf, sizeof PNGmagic) != 0)
+	if(Bread(b, buf, sizeof PNGmagic) != sizeof PNGmagic
+	|| memcmp(PNGmagic, buf, sizeof PNGmagic) != 0)
 		sysfatal("bad PNGmagic");
 
 	n = getchunk(b, type, buf, IDATSIZE);
