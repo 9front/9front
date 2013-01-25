@@ -33,6 +33,12 @@
 #define CpDFP		11			/* double FP */
 #define CpSC		15			/* System Control */
 
+ /*
+  * CpFSR op1==0, Crm==0 opcode 2 values.
+  */
+#define CpDFSR		0			/* data fault status */
+#define CpIFSR		1			/* instruction fault status */
+
 /*
  * Primary (CRn) CpSC registers.
  */
