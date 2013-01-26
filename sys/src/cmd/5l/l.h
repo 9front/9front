@@ -7,6 +7,11 @@
 #define	EXTERN	extern
 #endif
 
+#define	LIBNAMELEN	300
+
+void	addlibpath(char*);
+int	fileexists(char*);
+char*	findlib(char*);
 
 typedef	struct	Adr	Adr;
 typedef	struct	Sym	Sym;
@@ -134,6 +139,7 @@ enum
 	LTO		= 1<<1,
 	LPOOL		= 1<<2,
 	V4		= 1<<3,	/* arm v4 arch */
+	VFP		= 1<<4,	/* arm vfpv3 floating point */
 
 	C_NONE		= 0,
 	C_REG,
@@ -269,6 +275,7 @@ EXTERN	char	xcmp[C_GOK+1][C_GOK+1];
 EXTERN	Prog	zprg;
 EXTERN	int	dtype;
 EXTERN	int	armv4;
+EXTERN	int vfp;
 
 EXTERN	int	doexp, dlm;
 EXTERN	int	imports, nimports;
@@ -309,6 +316,7 @@ int	Pconv(Fmt*);
 int	Sconv(Fmt*);
 int	aclass(Adr*);
 void	addhist(long, int);
+void	addlibpath(char*);
 void	append(Prog*, Prog*);
 void	asmb(void);
 void	asmdyn(void);
@@ -336,7 +344,9 @@ long	entryvalue(void);
 void	errorexit(void);
 void	exchange(Prog*);
 void	export(void);
+int	fileexists(char*);
 int	find1(long, int);
+char*	findlib(char*);
 void	follow(void);
 void	gethunk(void);
 void	histtoauto(void);
@@ -361,6 +371,7 @@ int	ocmp(const void*, const void*);
 long	opirr(int);
 Optab*	oplook(Prog*);
 long	oprrr(int, int);
+long	opvfprrr(int, int);
 long	olr(long, int, int, int);
 long	olhr(long, int, int, int);
 long	olrr(int, int, int, int);
