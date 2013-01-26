@@ -36,7 +36,7 @@ static void	uartflow(void*);
 /*
  *  enable/disable uart and add/remove to list of enabled uarts
  */
-static Uart*
+Uart*
 uartenable(Uart *p)
 {
 	Uart **l;
