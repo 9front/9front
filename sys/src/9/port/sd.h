@@ -4,6 +4,7 @@
 typedef struct SDev SDev;
 typedef struct SDfile SDfile;
 typedef struct SDifc SDifc;
+typedef struct SDio SDio;
 typedef struct SDpart SDpart;
 typedef struct SDperm SDperm;
 typedef struct SDreq SDreq;
@@ -143,8 +144,32 @@ enum {
 	SDcdb		= 2,
 };
 
+/*
+ * Allow the default #defines for sdmalloc & sdfree to be overridden by
+ * system-specific versions.  This can be used to avoid extra copying
+ * by making sure sd buffers are cache-aligned (some ARM systems) or
+ * page-aligned (xen) for DMA.
+ */
+#ifndef sdmalloc
 #define sdmalloc(n)	malloc(n)
 #define sdfree(p)	free(p)
+#endif
+
+/*
+ * mmc/sd/sdio host controller interface
+ */
+
+struct SDio {
+	char	*name;
+	int	(*init)(void);
+	void	(*enable)(void);
+	int	(*inquiry)(char*, int);
+	int	(*cmd)(u32int, u32int, u32int*);
+	void	(*iosetup)(int, void*, int, int);
+	void	(*io)(int, uchar*, int);
+};
+
+extern SDio sdio;
 
 /* devsd.c */
 extern void sdadddevs(SDev*);
