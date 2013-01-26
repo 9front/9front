@@ -128,6 +128,8 @@ _v2f(Vlong x)
 	return _v2d(x);
 }
 
+/* too many of these are also needed by profiler; leave them out */
+#pragma profile off
 
 static void
 dodiv(Vlong num, Vlong den, Vlong *q, Vlong *r)
@@ -502,6 +504,7 @@ _sl2v(Vlong *ret, long sl)
 	ret->lo = t;
 	ret->hi = t >> 31;
 }
+
 
 void
 _ul2v(Vlong *ret, ulong ul)
