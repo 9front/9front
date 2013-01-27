@@ -1,0 +1,24 @@
+#!/bin/awk -f
+
+BEGIN {
+phrases=", like,\
+, y'know,\
+, or whatever,\
+, umm,\
+, for sure,"
+
+len=split (phrases, phrase, /\n/)
+}
+
+
+{ 
+  split ( $0, parts, /,/)
+  for (i=1; i<length(parts); i++) {
+    printf "%s", parts[i]
+    ind = int(rand * len)
+    printf "%s", phrase[ind]
+  }
+print parts[i]
+ # print $0
+}
+
