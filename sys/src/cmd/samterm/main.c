@@ -100,7 +100,7 @@ threadmain(int argc, char *argv[])
 					if(nwhich!=which)
 						current(nwhich);
 					else if(scr)
-						scroll(which, 1);
+						scroll(which, (mousep->buttons&8) ? 4 : 1);
 					else{
 						t=(Text *)which->user1;
 						if(flselect(which)){
@@ -119,7 +119,7 @@ threadmain(int argc, char *argv[])
 					menu2hit();
 			}else if(mousep->buttons&(4|16)){
 				if(scr)
-					scroll(which, 3);
+					scroll(which, (mousep->buttons&16) ? 5 : 3);
 				else
 					menu3hit();
 			}
