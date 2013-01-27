@@ -8,6 +8,7 @@ phrases=", like,\
 , for sure,"
 
 len=split (phrases, phrase, /\n/)
+len=len+1
 }
 
 
