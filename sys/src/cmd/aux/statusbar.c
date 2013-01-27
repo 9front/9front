@@ -76,7 +76,7 @@ drawbar(void)
 		return;
 
 	if(lastp != p){
-		sprint(buf, "%d%%", p);
+		sprint(buf, "%3d%%", p);
 		
 		stringbg(screen, addpt(screen->r.min, Pt(Dx(rbar)-30, 4)), text, ZP, display->defaultfont, buf, light, ZP);
 		lastp = p;
