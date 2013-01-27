@@ -1296,7 +1296,7 @@ static void
 hdaclose(Audio *adev, int mode)
 {
 	Ctlr *ctlr;
-	uchar z[1];
+	Ring *ring;
 
 	ctlr = adev->ctlr;
 	if(mode == OREAD || mode == ORDWR){
@@ -1304,11 +1304,10 @@ hdaclose(Audio *adev, int mode)
 			streamstop(ctlr, &ctlr->sin);
 	}
 	if(mode == OWRITE || mode == ORDWR){
-		if(ctlr->sout.active){
-			z[0] = 0;
-			while(ctlr->sout.ring.wi % Blocksize)
-				hdawrite(adev, z, sizeof(z), 0);
-		}
+		ring = &ctlr->sout.ring;
+		while(ring->wi % Blocksize)
+			if(writering(ring, (uchar*)"", 1) <= 0)
+				break;
 	}
 }
 

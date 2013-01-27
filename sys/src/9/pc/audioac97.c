@@ -390,16 +390,15 @@ ac97close(Audio *adev, int mode)
 {
 	Ctlr *ctlr;
 	Ring *ring;
-	uchar z[1];
 
 	if(mode == OREAD)
 		return;
 
-	z[0] = 0;
 	ctlr = adev->ctlr;
 	ring = &ctlr->outring;
 	while(ring->wi % Blocksize)
-		ac97write(adev, z, sizeof(z), 0);
+		if(writering(ring, (uchar*)"", 1) <= 0)
+			break;
 }
 
 static Pcidev*
