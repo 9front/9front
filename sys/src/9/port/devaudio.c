@@ -150,6 +150,7 @@ audioattach(char *spec)
 			"master 100",
 			"audio 100",
 			"head 100",
+			"recgain 0",
 		};
 
 		attached |= i;
@@ -367,7 +368,7 @@ long
 genaudiovolread(Audio *adev, void *a, long n, vlong,
 	Volume *vol, int (*volget)(Audio *, int, int *), ulong caps)
 {
-	int i, j, v[2];
+	int i, j, r, v[2];
 	char *p, *e;
 
 	p = a;
@@ -382,14 +383,17 @@ genaudiovolread(Audio *adev, void *a, long n, vlong,
 		if(vol[i].type == Absolute)
 			p += snprint(p, e - p, "%s %d\n", vol[i].name, v[0]);
 		else {
-			if(vol[i].range == 0)
+			r = abs(vol[i].range);
+			if(r == 0)
 				continue;
 			for(j=0; j<2; j++){
 				if(v[j] < 0)
 					v[j] = 0;
-				if(v[j] > vol[i].range)
-					v[j] = vol[i].range;
-				v[j] = (v[j]*100)/vol[i].range;
+				if(v[j] > r)
+					v[j] = r;
+				if(vol[i].range < 0)
+					v[j] = r - v[j];
+				v[j] = (v[j]*100)/r;
 			}
 			switch(vol[i].type){
 			case Left:
@@ -418,7 +422,7 @@ long
 genaudiovolwrite(Audio *adev, void *a, long n, vlong,
 	Volume *vol, int (*volset)(Audio *, int, int *), ulong caps)
 {
-	int ntok, i, j, v[2];
+	int ntok, i, j, r, v[2];
 	char *p, *e, *x, *tok[4];
 
 	p = a;
@@ -455,12 +459,15 @@ genaudiovolwrite(Audio *adev, void *a, long n, vlong,
 			if(vol[i].type == Absolute)
 				(*volset)(adev, i, v);
 			else {
+				r = abs(vol[i].range);
 				for(j=0; j<2; j++){
-					v[j] = (50+(v[j]*vol[i].range))/100;
+					v[j] = (50+(v[j]*r))/100;
 					if(v[j] < 0)
 						v[j] = 0;
-					if(v[j] > vol[i].range)
-						v[j] = vol[i].range;
+					if(v[j] > r)
+						v[j] = r;
+					if(vol[i].range < 0)
+						v[j] = r - v[j];
 				}
 				(*volset)(adev, i, v);
 			}

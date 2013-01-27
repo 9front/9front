@@ -1321,7 +1321,7 @@ enum {
 
 static Volume voltab[] = {
 	[Vmaster] "master", 0, 0x7f, Stereo, 0,
-	[Vrecord] "record", 0, 0x7f, Stereo, 0,
+	[Vrecord] "recgain", 0, 0x7f, Stereo, 0,
 	[Vspeed] "speed", 0, 0, Absolute, 0,
 	[Vdelay] "delay", 0, 0, Absolute, 0,
 	0

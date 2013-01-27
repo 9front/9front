@@ -114,18 +114,18 @@ enum {
 };
 
 static Volume voltab[] = {
-	[Vmaster] "master", 0x02, 63, Stereo, 0,
-	[Vaudio] "audio", 0x18, 31, Stereo, 0,
-	[Vhead] "head", 0x04, 31, Stereo, Capheadphones,
+	[Vmaster] "master", 0x02, -63, Stereo, 0,
+	[Vaudio] "audio", 0x18, -31, Stereo, 0,
+	[Vhead] "head", 0x04, -31, Stereo, Capheadphones,
 	[Vbass] "bass", 0x08, 15, Left, Captonectl,
 	[Vtreb] "treb", 0x08, 15, Right, Captonectl,
-	[Vbeep] "beep", 0x0a, 31, Right, 0,
-	[Vphone] "phone", 0x0c, 31, Right, 0,
-	[Vmic] "mic", 0x0e, 31, Right, Capmic,
-	[Vline] "line", 0x10, 31, Stereo, 0,
-	[Vcd] "cd", 0x12, 31, Stereo,	0,
-	[Vvideo] "video", 0x14, 31, Stereo, 0,
-	[Vaux] "aux", 0x16, 63, Stereo, 0,
+	[Vbeep] "beep", 0x0a, -31, Right, 0,
+	[Vphone] "phone", 0x0c, -31, Right, 0,
+	[Vmic] "mic", 0x0e, -31, Right, Capmic,
+	[Vline] "line", 0x10, -31, Stereo, 0,
+	[Vcd] "cd", 0x12, -31, Stereo,	0,
+	[Vvideo] "video", 0x14, -31, Stereo, 0,
+	[Vaux] "aux", 0x16, -63, Stereo, 0,
 	[Vrecgain] "recgain", 0x1c, 15, Stereo, 0,
 	[Vmicgain] "micgain", 0x1e, 15, Right, Capmic,
 	[Vspeed] "speed", 0x2c, 0, Absolute, 0,
@@ -160,11 +160,10 @@ ac97volget(Audio *adev, int x, int a[2])
 	default:
 		v = m->rr(adev, vol->reg);
 		if(v & 0x8000){
-			a[0] = 0;
-			a[1] = 0;
+			a[0] = a[1] = vol->range < 0 ? 0x7f : 0;
 		} else {
-			a[0] = vol->range - ((v>>8) & 0x7f);
-			a[1] = vol->range - (v & 0x7f);
+			a[0] = ((v>>8) & 0x7f);
+			a[1] = (v & 0x7f);
 		}
 	}
 	return 0;
@@ -191,18 +190,18 @@ ac97volset(Audio *adev, int x, int a[2])
 		}
 		break;
 	case Left:
-		v = (vol->range - a[0]) & 0x7f;
+		v = a[0] & 0x7f;
 		w = m->rr(adev, vol->reg) & 0x7f;
 		m->wr(adev, vol->reg, (v<<8)|w);
 		break;
 	case Right:
 		v = m->rr(adev, vol->reg) & 0x7f00;
-		w = (vol->range - a[1]) & 0x7f;
+		w = a[1] & 0x7f;
 		m->wr(adev, vol->reg, v|w);
 		break;
 	case Stereo:
-		v = (vol->range - a[0]) & 0x7f;
-		w = (vol->range - a[1]) & 0x7f;
+		v = a[0] & 0x7f;
+		w = a[1] & 0x7f;
 		m->wr(adev, vol->reg, (v<<8)|w);
 		break;
 	}
