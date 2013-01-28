@@ -1,3 +1,0 @@
-#!/bin/rc
-
-echo reset >/dev/mousectl
