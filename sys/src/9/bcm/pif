@@ -18,7 +18,7 @@ dev
 	mouse	mouse
 	uart
 
-	fakertc
+#	fakertc    # fuck you
 	sd
 	usb
 
