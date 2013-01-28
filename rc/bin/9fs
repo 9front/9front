@@ -47,6 +47,14 @@ case sourcesdump
 case sourcessnap
 	9fs sources
 	mount -nC /srv/sources /n/sourcessnap main/snapshot
+case pidos
+	dossrv >/dev/null >[2]/dev/null
+	part=`{ls /dev/sdM*/dos >[2]/dev/null}
+	if(~ $#part 0) {
+		echo 'no dos partition found' >[1=2]
+		exit no.pidos
+	}
+	mount -c '#s/dos' /n/pidos $part
 # arbitrary venti archives
 case vac:*
 	vacfs <{echo $1}
