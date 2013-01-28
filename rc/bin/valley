@@ -8,7 +8,6 @@ phrases=", like,\
 , for sure,"
 
 len=split (phrases, phrase, /\n/)
-len=len+1
 }
 
 
@@ -16,7 +15,7 @@ len=len+1
   split ( $0, parts, /,/)
   for (i=1; i<length(parts); i++) {
     printf "%s", parts[i]
-    ind = int(rand * len)
+    ind = 1+int(rand * 1000)%len;
     printf "%s", phrase[ind]
   }
 print parts[i]
