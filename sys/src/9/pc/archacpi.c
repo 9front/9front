@@ -284,10 +284,8 @@ pcibusno(void *dot)
 		return -1;
 	tbdf = MKBUS(BusPCI, bno, adr>>16, adr&0xFFFF);
 	pdev = pcimatchtbdf(tbdf);
-	if(pdev == nil || pdev->bridge == nil){
-		print("pcibusno: bridge tbdf %luX not found\n", (ulong)tbdf);
+	if(pdev == nil || pdev->bridge == nil)
 		return -1;
-	}
 	return BUSBNO(pdev->bridge->tbdf);
 }
 
@@ -299,10 +297,8 @@ enumprt(void *dot, void *)
 	int n, i;
 
 	bno = pcibusno(dot);
-	if(bno < 0){
-		print("enumprt: cannot get pci bus number for %V\n", dot);
+	if(bno < 0)
 		return 1;
-	}
 
 	/* evalulate _PRT method */
 	p = nil;
