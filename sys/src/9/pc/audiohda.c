@@ -1601,7 +1601,7 @@ hdamatch(Pcidev *p)
 
 		case (0x1002 << 16) | 0x437b:	/* ATI SB450 (untested) */
 		case (0x1002 << 16) | 0x4383:	/* ATI SB600 */
-		case (0x1003 << 16) | 0xaa55:	/* ATI HDMI (8500 series) */
+		case (0x1002 << 16) | 0xaa55:	/* ATI HDMI (8500 series) */
 		case (0x1002 << 16) | 0x7919:	/* ATI HDMI */
 
 		case (0x1106 << 16) | 0x3288:	/* VIA (untested) */
