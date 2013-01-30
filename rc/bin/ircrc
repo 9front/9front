@@ -38,9 +38,18 @@ fn work {
 		title
 		echo JOIN $target > $netdir/data
 	}
-	while (cmd=`{read}) {
-	msg=()
-	out=()
+	if(~ $target *,*)
+		target = `{echo $target | awk -F',' '{print $NF}'}
+	while () {
+		cmd=`{read}
+		if(! ~ `{cat $netdir/status} *Established*)
+			exit
+		if(~ $#cmd 0) {
+			echo  QUIT : Leaving... > $netdir/data
+			exit
+		}
+		msg=()
+		out=()
 		switch ($cmd(1)) {
 		case /!
 			eval `{mshift $cmd} | while(rc=`{read})echo 'PRIVMSG '^$target^' :' $rc | tee $netdir/data
@@ -61,6 +70,8 @@ fn work {
 				target=$cmd(2)
 				title
 				msg = (JOIN `{mshift $cmd})
+				if(~ $target *,*)
+					target = `{echo $target | awk -F',' '{print $NF}'}
 			}
 		case /l
 			msg = (LIST `{mshift $cmd})
@@ -91,6 +102,8 @@ fn work {
 		case /x
 			echo  QUIT : Leaving... > $netdir/data
 			exit
+		case /*
+			echo unknown command
 		case *
 			msg = 'PRIVMSG '^$target^' :'^$"cmd
 			out = '('^$target^')	⇐	'^$"cmd
@@ -148,19 +161,22 @@ fn privmsg {
 			s = s ":" $i;
 		printf("%s\n", s);
 	}'
-
 }
 
 fn pretty {
 	while (~ `{cat $netdir/status} *Established*) {
-		line=`{read}
+		if(! line=`{read}) {
+			echo Connection lost
+			date
+			exit
+		}
 		switch ($line) {
+		case *PRIVMSG*
+			line = `{echo -n $line | privmsg}
 		case *JOIN* *QUIT* *PART* *NICK*
 			line = `{echo -n $line | misc}
 		case *NOTICE*
 			line = `{echo -n $line | notice}
-		case *PRIVMSG*
-			line = `{echo -n $line | privmsg}
 		case *PING*
 			echo -n $line | sed 's/PING/PONG/' > $netdir/data
 			line = ()
@@ -235,6 +251,6 @@ if(~ $#userpass 2 && ~ $nick $user) {
 	netdir=`{basename -d $clonefile} ^ / ^  `{cat /fd/4}
 	echo connect $ip!$port >$netdir/ctl || exit 'cannot connect'
 	echo connected to tcp!$ip!$port on $netdir
-	cat $netdir/data | tr -d '' | pretty & 
+	cat $netdir/data | tr -d '\x2\xd\x1f' | pretty & 
 	work
 }

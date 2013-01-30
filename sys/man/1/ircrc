@@ -25,15 +25,15 @@ ircrc \- internet relay chat client
 .SH DESCRIPTION
 .I Ircrc
 is an IRC client.
-Messages are sent from stdin and received from stdout.
+Messages are sent from standard input and
+received from standard output.
 The default server is
 .BR irc.freenode.net .
-.I Ircrc
-expands
+The arguments
 .B bitlbee
 and
 .B oftc
-to
+are expanded to
 .B im.bitlbee.org
 and
 .BR irc.oftc.net ,
@@ -49,15 +49,23 @@ Change the default name
 .RB ( <nil> ).
 .TP
 .BI -t " target
-Set and join the target channel
-(multiple channels may be separated by commas).
+Set and join the target channel.
+If multiple channels are specified,
+only the last one will be set as
+.IR target .
+Messages are sent to
+.I target
+unless they are commands.
 .TP
 .BI -n " nick
 Change the default nickname
 .RB ( $user ).
 .SS Commands
 .I Ircrc
-understands the following commands:
+commands begin with a slash.
+Unrecognized commands result in an error message
+and send nothing to the server.
+The commands are:
 .TP
 .BI /! " cmd
 Send the output of the shell command
@@ -110,11 +118,11 @@ Send the raw IRC command
 to the server.
 .TP
 .BI /t " target
-Set the current target.
-Messages are sent to
+Set
+.IR target .
+If
 .I target
-unless they are commands.
-If the current target is more than one channel,
+is more than one channel,
 any messages are sent to all of them.
 .TP
 .B /u
@@ -128,8 +136,8 @@ command.
 .B /x
 .B QUIT
 command.
+Control-D also sends this command.
 .PP
-Anything else is sent as a message to the current target.
 See RFC 1459 and RFC 2812 for detailed information about
 IRC commands.
 .SH EXAMPLES
@@ -147,9 +155,7 @@ as a different user:
 % ircrc -r glenda -n glenda irc.oftc.net
 .EE
 .PP
-Join two channels on login
-(remember to set the target to a single channel,
-otherwise messages are sent to both):
+Join two channels on login:
 .IP
 .EX
 % ircrc -t '#cat-v,#plan9'
@@ -162,12 +168,13 @@ otherwise messages are sent to both):
 .B http://tools.ietf.org/html/rfc2812
 .SH BUGS
 .PP
-.I Ircrc
-calls the inexistent
-.IR auth/userpasswd .
-.PP
-Some of
-.BR irc.freenode.net 's
-welcome messages contain control characters.
+.I Auth/userpasswd
+(which is called by
+.IR ircrc )
+isn't compiled by default.
 .PP
 Some fonts do not support the nickname delimiters.
+.PP
+If the connection is lost,
+.I ircrc
+waits for input before exiting.
