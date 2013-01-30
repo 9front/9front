@@ -7,6 +7,7 @@
 
 static void listenproc(void*);
 static void srvproc(void*);
+static void srvend(Srv *);
 static char *getremotesys(char*);
 
 void
@@ -57,6 +58,7 @@ listenproc(void *v)
 		s->rpool = nil;
 		s->rbuf = nil;
 		s->wbuf = nil;
+		s->end = srvend;
 		_forker(srvproc, s, 0);
 	}
 	free(os->addr);
@@ -66,13 +68,13 @@ listenproc(void *v)
 static void
 srvproc(void *v)
 {
-	int data;
-	Srv *s;
-	
-	s = v;
-	data = s->infd;
-	srv(s);
-	close(data);
+	srv((Srv*)v);
+}
+
+static void
+srvend(Srv *s)
+{
+	close(s->infd);
 	free(s->addr);
 	free(s);
 }
