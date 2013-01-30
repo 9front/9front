@@ -26,11 +26,17 @@ Xversion(Fsrpc *t)
 {
 	Fcall rhdr;
 
+	if(t->work.msize < 256){
+		reply(&t->work, &rhdr, "version: message size too small");
+		t->busy = 0;
+		return;
+	}
 	if(t->work.msize > messagesize)
 		t->work.msize = messagesize;
 	messagesize = t->work.msize;
 	if(strncmp(t->work.version, "9P2000", 6) != 0){
 		reply(&t->work, &rhdr, Eversion);
+		t->busy = 0;
 		return;
 	}
 	rhdr.version = "9P2000";

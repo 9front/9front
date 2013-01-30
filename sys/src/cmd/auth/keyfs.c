@@ -224,6 +224,8 @@ Version(Fid*)
 	for(f = fids; f; f = f->next)
 		if(f->busy)
 			Clunk(f);
+	if(rhdr.msize < 256)
+		return "message size too small";
 	if(rhdr.msize > sizeof mdata)
 		thdr.msize = sizeof mdata;
 	else

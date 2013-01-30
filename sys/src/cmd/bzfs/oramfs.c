@@ -221,6 +221,8 @@ rversion(Fid*)
 	for(f = fids; f; f = f->next)
 		if(f->busy)
 			rclunk(f);
+	if(thdr.msize < 256)
+		return "message size too small";
 	if(thdr.msize > sizeof mdata)
 		rhdr.msize = sizeof mdata;
 	else

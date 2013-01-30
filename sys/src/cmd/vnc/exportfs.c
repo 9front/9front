@@ -503,6 +503,8 @@ Exputfid(Export *fs, Fid *f)
 static char*
 Exversion(Export *fs, Fcall *rpc, uchar *)
 {
+	if(rpc->msize < 256)
+		return "version: message size too small";
 	if(rpc->msize > Maxrpc)
 		rpc->msize = Maxrpc;
 	if(strncmp(rpc->version, "9P", 2) != 0){

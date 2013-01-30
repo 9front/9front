@@ -355,6 +355,10 @@ serve(int rfd, int wfd)
 void
 rversion(Fcall *rx, Fcall *tx)
 {
+	if(rx->msize < 256){
+		seterror(tx, "version: message size too small");
+		return;
+	}
 	if(msize > rx->msize)
 		msize = rx->msize;
 	tx->msize = msize;

@@ -113,7 +113,7 @@ mkdir9p2(Dir* dir, Dentry* dentry, void* strs)
 static int
 version(Chan* chan, Fcall* f, Fcall* r)
 {
-	if(chan->protocol != nil)
+	if(chan->protocol != nil || f->msize < 256)
 		return Eversion;
 
 	if(f->msize < MSIZE)

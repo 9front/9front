@@ -15,6 +15,9 @@ seterror(Fcall *ou, int err)
 static int
 fsversion(Chan* chan, Fcall* f, Fcall* r)
 {
+	if(f->msize < 256)
+		return Econvert;
+
 	if(f->msize < MSIZE)
 		r->msize = f->msize;
 	else

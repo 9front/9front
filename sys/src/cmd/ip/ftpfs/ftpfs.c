@@ -304,11 +304,13 @@ rnop(Fid *f)
 char*
 rversion(Fid*)
 {
-	if(thdr.msize > sizeof(mdata))
-		rhdr.msize = messagesize;
+	if(thdr.msize < 256)
+		return "version: message size too small";
+	if(thdr.msize > sizeof mdata)
+		rhdr.msize = sizeof mdata;
 	else
 		rhdr.msize = thdr.msize;
-	messagesize = thdr.msize;
+	messagesize = rhdr.msize;
 
 	if(strncmp(thdr.version, "9P2000", 6) != 0)
 		return "unknown 9P version";
