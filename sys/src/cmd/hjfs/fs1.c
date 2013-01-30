@@ -171,7 +171,7 @@ createroot(Fs *fs)
 	d->atime = d->mtime;
 	c->op |= BWRIM;
 	putbuf(c);
-	c = getbuf(fs->d, SUPERBLK, TSUPERBLOCK, 1);
+	c = getbuf(fs->d, SUPERBLK, TSUPERBLOCK, 0);
 	if(c == nil)
 		goto error;
 	fs->root = r;
