@@ -65,14 +65,8 @@ if(! test -e /net/dns)
 if(! ~ $terminal *vx32*){
 	# start timesync if it isn't running and we weren't told not to
 	if(! ps|grep -s timesync)
-		if(! ~ $TIMESYNCARGS ''){
-			# afaik the only arm platform we support is the rpi
-			# and time sync doesn't work on it.
-			if(! ~ $objtype arm)
-				aux/timesync $TIMESYNCARGS
-			if(~ $objtype arm)
-				echo 'timesync: use another source for time'
-		}
+		if(! ~ $TIMESYNCARGS '')
+			aux/timesync $TIMESYNCARGS
 }
 
 fn ask {
