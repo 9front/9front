@@ -234,6 +234,7 @@ struct Srv {
 
 	QLock	slock;
 	Ref	sref;
+	Ref	rref;
 };
 
 void		srv(Srv*);

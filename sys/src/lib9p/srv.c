@@ -163,23 +163,34 @@ walkandclone(Req *r, char *(*walk1)(Fid*, char*, void*), char *(*clone)(Fid*, Fi
 }
 
 static void
-sversion(Srv*, Req *r)
+sversion(Srv *srv, Req *r)
 {
+	if(srv->rref.ref != 2){
+		respond(r, Ebotch);
+		return;
+	}
 	if(strncmp(r->ifcall.version, "9P", 2) != 0){
 		r->ofcall.version = "unknown";
 		respond(r, nil);
 		return;
 	}
-
 	r->ofcall.version = "9P2000";
-	r->ofcall.msize = r->ifcall.msize;
+	if(r->ifcall.msize < 256){
+		respond(r, "version: message size too small");
+		return;
+	}
+	if(r->ifcall.msize < 1024*1024)
+		r->ofcall.msize = r->ifcall.msize;
+	else
+		r->ofcall.msize = 1024*1024;
 	respond(r, nil);
 }
+
 static void
 rversion(Req *r, char *error)
 {
-	assert(error == nil);
-	changemsize(r->srv, r->ofcall.msize);
+	if(error == nil)
+		changemsize(r->srv, r->ofcall.msize);
 }
 
 static void
@@ -682,14 +693,18 @@ rwstat(Req*, char*)
 {
 }
 
+static void srvclose(Srv *);
+
 static void
 srvwork(void *v)
 {
 	Srv *srv = v;
 	Req *r;
 
+	incref(&srv->rref);
 	incref(&srv->sref);
 	while(r = getreq(srv)){
+		incref(&srv->rref);
 		if(r->error){
 			respond(r, r->error);
 			continue;	
@@ -715,8 +730,18 @@ srvwork(void *v)
 		}
 		qunlock(&srv->slock);
 	}
-	if(decref(&srv->sref))
+	decref(&srv->sref);
+	srvclose(srv);
+}
+
+static void
+srvclose(Srv *srv)
+{
+	if(decref(&srv->rref))
 		return;
+
+	if(chatty9p)
+		fprint(2, "srvclose\n");
 
 	free(srv->rbuf);
 	srv->rbuf = nil;
@@ -752,6 +777,9 @@ srv(Srv *srv)
 {
 	fmtinstall('D', dirfmt);
 	fmtinstall('F', fcallfmt);
+
+	srv->sref.ref = 0;
+	srv->rref.ref = 0;
 
 	if(srv->fpool == nil)
 		srv->fpool = allocfidpool(srv->destroyfid);
@@ -819,7 +847,7 @@ if(chatty9p)
 	qlock(&srv->wlock);
 	n = convS2M(&r->ofcall, srv->wbuf, srv->msize);
 	if(n <= 0){
-		fprint(2, "n = %d %F\n", n, &r->ofcall);
+		fprint(2, "msize = %d n = %d %F\n", srv->msize, n, &r->ofcall);
 		abort();
 	}
 	assert(n > 2);
@@ -827,7 +855,7 @@ if(chatty9p)
 		closereq(removereq(r->pool, r->ifcall.tag));
 	m = write(srv->outfd, srv->wbuf, n);
 	if(m != n)
-		sysfatal("lib9p srv: write %d returned %d on fd %d: %r", n, m, srv->outfd);
+		fprint(2, "lib9p srv: write %d returned %d on fd %d: %r", n, m, srv->outfd);
 	qunlock(&srv->wlock);
 
 	qlock(&r->lk);	/* no one will add flushes now */
@@ -844,6 +872,8 @@ if(chatty9p)
 		closereq(r);
 	else
 		free(r);
+
+	srvclose(srv);
 }
 
 void
