@@ -39,7 +39,7 @@ struct KDev
 
 	/* report descriptor */
 	int	nrep;
-	uchar	rep[128];
+	uchar	rep[512];
 };
 
 /*
@@ -806,7 +806,7 @@ threadmain(int argc, char* argv[])
 	ud = d->usb;
 	for(i = 0; i < nelem(ud->ep); i++){
 		if((ep = ud->ep[i]) == nil)
-			break;
+			continue;
 		if(ep->type == Eintr && ep->dir == Ein && ep->iface->csp == KbdCSP)
 			kbstart(d, ep, "/dev/kbin", kbdwork);
 		if(ep->type == Eintr && ep->dir == Ein && ep->iface->csp == PtrCSP)
