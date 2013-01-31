@@ -265,7 +265,7 @@ getrange(Block *b)
 		"Accept-Encoding:\r\n"
 		"Range: bytes=%lld-%lld\r\n"
 		"\r\n",
-		get, host, b->off, b->off+b->len);
+		get, host, b->off, b->off+b->len-1);
 	Bflush(&netbio);
 
 	status = readhttphdr(&netbio, nil);
