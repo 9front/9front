@@ -1338,8 +1338,7 @@ isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 	Itd *tdi;
 
 	tdi = iso->tdi;
-	assert(tdi != nil);
-	if(itdactive(tdi))			/* not all tds are done */
+	if(tdi == nil || itdactive(tdi))			/* not all tds are done */
 		return 0;
 	ctlr->nisointr++;
 	ddiprint("isohsintr: iso %#p: tdi %#p tdu %#p\n", iso, tdi, iso->tdu);
@@ -1409,8 +1408,7 @@ isofsinterrupt(Ctlr *ctlr, Isoio *iso)
 	Sitd *stdi;
 
 	stdi = iso->stdi;
-	assert(stdi != nil);
-	if((stdi->csw & Stdactive) != 0)		/* nothing new done */
+	if(stdi == nil || (stdi->csw & Stdactive) != 0)		/* nothing new done */
 		return 0;
 	ctlr->nisointr++;
 	ddiprint("isofsintr: iso %#p: tdi %#p tdu %#p\n", iso, stdi, iso->stdu);
@@ -1479,7 +1477,7 @@ qhinterrupt(Ctlr *ctlr, Qh *qh)
 		panic("qhinterrupt: qh state");
 	td = qh->tds;
 	if(td == nil)
-		panic("qhinterrupt: no tds");
+		return 0;
 	if((td->csw & Tdactive) == 0)
 		ddqprint("qhinterrupt port %#p qh %#p\n", ctlr->capio, qh);
 	for(; td != nil; td = td->next){
@@ -1583,8 +1581,8 @@ ehciintr(Hci *hp)
 		qh = ctlr->qhs;
 		i = 0;
 		do{
-			if (qh == nil)
-				panic("ehciintr: nil qh");
+			if(qh == nil)
+				break;
 			if(qh->state == Qrun)
 				some += qhinterrupt(ctlr, qh);
 			qh = qh->next;
@@ -1592,8 +1590,6 @@ ehciintr(Hci *hp)
 		if(i > 100)
 			print("echi: interrupt: qh loop?\n");
 	}
-//	if (some == 0)
-//		panic("ehciintr: no work");
 	iunlock(ctlr);
 	return some;
 }
