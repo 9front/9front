@@ -127,7 +127,7 @@ sendfd(HConnect *c, int fd, Dir *dir, HContent *type, HContent *enc)
 			hprint(hout, "Content-Length: %lld\r\n", length);
 		else if(r->next == nil){
 			hprint(hout, "Content-Range: bytes %ld-%ld/%lld\r\n", r->start, r->stop, length);
-			hprint(hout, "Content-Length: %ld\r\n", r->stop - r->start);
+			hprint(hout, "Content-Length: %ld\r\n", 1 + r->stop - r->start);
 		}else{
 			multir = 1;
 			boundary = hmkmimeboundary(c);
@@ -196,7 +196,7 @@ sendfd(HConnect *c, int fd, Dir *dir, HContent *type, HContent *enc)
 			hprint(hout, "\r\n--%s\r\n", boundary);
 			printtype(hout, type, enc);
 			hprint(hout, "Content-Range: bytes %ld-%ld/%lld\r\n", r->start, r->stop, length);
-			hprint(hout, "Content-Length: %ld\r\n", r->stop - r->start);
+			hprint(hout, "Content-Length: %ld\r\n", 1 + r->stop - r->start);
 			hprint(hout, "\r\n");
 		}
 		hflush(hout);
@@ -205,7 +205,7 @@ sendfd(HConnect *c, int fd, Dir *dir, HContent *type, HContent *enc)
 			ok = -1;
 			break;
 		}
-		for(tr = r->stop - r->start + 1; tr; tr -= n){
+		for(tr = 1 + r->stop - r->start; tr; tr -= n){
 			n = tr;
 			if(n > HBufSize)
 				n = HBufSize;
@@ -418,6 +418,10 @@ fixrange(HRange *h, long length)
 	rr = nil;
 	for(r = h; r != nil; r = r->next){
 		if(r->suffix){
+			/*
+			 * for suffix, r->stop is a byte *length*
+			 * not the byte *offset* of last byte!
+			 */
 			r->start = length - r->stop;
 			if(r->start >= length)
 				r->start = 0;
