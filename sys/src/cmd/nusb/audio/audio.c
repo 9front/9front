@@ -14,7 +14,7 @@ struct Audio
 	int	maxfreq;
 };
 
-int audiodelay = 882;
+int audiodelay = 1764;	/* 40 ms */
 int audiofreq = 44100;
 int audiochan = 2;
 int audiores = 16;

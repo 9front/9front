@@ -146,7 +146,7 @@ audioattach(char *spec)
 	if((attached & i) == 0){
 		static char *settings[] = {
 			"speed 44100",
-			"delay 882",	/* 20 ms */
+			"delay 1764",	/* 40 ms */
 			"master 100",
 			"audio 100",
 			"head 100",

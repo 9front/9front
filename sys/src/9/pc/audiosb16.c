@@ -549,7 +549,8 @@ audiowrite(Audio *adev, void *vp, long n, vlong)
 		}
 		p += n;
 	}
-	sleep(&ctlr->vous, ratebuf, ctlr);
+	while(ratebuf(ctlr) == 0)
+		sleep(&ctlr->vous, ratebuf, ctlr);
 	return p - (uchar*)vp;
 }
 

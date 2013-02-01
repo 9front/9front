@@ -1288,7 +1288,8 @@ hdawrite(Audio *adev, void *vp, long n, vlong)
 		p += n;
 	}
 	hdakick(ctlr);
-	sleep(&ring->r, outrate, ctlr);
+	while(outrate(ctlr) == 0)
+		sleep(&ring->r, outrate, ctlr);
 	return p - (uchar*)vp;
 }
 
