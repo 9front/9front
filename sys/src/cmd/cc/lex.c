@@ -80,7 +80,8 @@ main(int argc, char *argv[])
 
 	case 'I':
 		p = ARGF();
-		setinclude(p);
+		if(p)
+			setinclude(p);
 		break;
 	} ARGEND
 	if(argc < 1 && outfile == 0) {
