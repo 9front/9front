@@ -1,0 +1,2 @@
+#!/bin/rc
+exec /rc/bin/rc-httpd/rc-httpd >>[2]/sys/log/www
