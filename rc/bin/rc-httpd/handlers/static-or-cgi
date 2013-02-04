@@ -1,0 +1,14 @@
+#!/bin/rc
+cgiargs=$*
+
+fn error{
+	if(~ $1 404)
+		exec cgi $cgiargs
+	if not
+		$rc_httpd_dir/handlers/error $1
+}
+
+if(~ $location */)
+	exec cgi $cgiargs
+if not
+	exec serve-static

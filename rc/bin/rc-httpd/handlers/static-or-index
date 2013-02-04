@@ -1,0 +1,5 @@
+#!/bin/rc
+if(~ $PATH_INFO */)
+	exec dir-index $params
+if not
+	exec serve-static

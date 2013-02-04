@@ -1,0 +1,111 @@
+#!/bin/rc
+PATH_INFO=`{echo $PATH_INFO | urlencode -d}
+full_path=$"FS_ROOT^$"PATH_INFO
+full_path=$"full_path
+if(! test -d $full_path){
+	error 404
+	exit
+}
+if(! test -r $full_path -x $full_path){
+	error 503
+	exit
+}
+do_log 200
+builtin cd $full_path
+if(~ $"NOINDEXFILE ^ $"NOINDEX ''){
+	ifile=index.htm*
+	if(! ~ $ifile(1) *'*'){
+		PATH_INFO=$ifile(1)
+		FS_ROOT=''
+		exec serve-static
+	}
+}
+title=`{echo $SITE_TITLE | sed s,%s,^$"PATH_INFO^,}
+title=$"title
+lso=()
+switch($2){
+case size
+	# ls has no option to sort by size
+	# could pipe it through sort, I suppose
+case date
+	lso=-t
+}
+echo 'HTTP/1.1 200 OK'^$cr
+emit_extra_headers
+echo 'Content-type: text/html'^$cr
+echo $cr
+echo '<html>
+<head>
+<title>'^$title^'</title>
+<style type="text/css">
+	.size {
+		text-align: right;
+		padding-right: 4pt;
+	}
+	.day {
+		text-align: right;
+		padding-right: 3pt;
+	}
+	.datetime {
+		text-align: right;
+	}
+	.name {
+		text-align: right;
+		padding-left: 3pt;
+	}
+</style>
+</head>
+<body>'
+echo '<h1>'^$title^'</h1>'
+if(! ~ $PATH_INFO /)
+	echo '<a href="../">Parent directory</a>'
+echo '<table>'
+ls -lQ $lso | awk '
+function urlencode(loc){
+	# very minimal encoding, just enough for our static-file purposes
+	url=loc
+	gsub("%", "%25", url)		# this one first!
+	gsub("\\$", "%24", url)
+	gsub("&", "%26", url)
+	gsub("\\+", "%2B", url)
+	gsub("\\?", "%3F", url)
+	gsub(" ", "%20", url)
+	gsub("\"", "%22", url)
+	gsub("#", "%23", url)
+	return url
+}
+function hrsize(size){
+	if(size > 1073741824) return sprintf("%.1fGB", size/1073741824)
+	if(size > 10485760) return sprintf("%iMB", size/1048576)
+	if(size > 1048576) return sprintf("%.1fMB", size/1048576)
+	if(size > 10240) return sprintf("%iKB", size/1024)
+	if(size > 1024) return sprintf("%.1fKB", size/1024)
+	return sprintf("%iB", size)
+}
+/^-/ {
+	print "<tr>"
+	print "<td class=\"size\">"hrsize($6)"</td>"
+	print "<td class=\"month\">"$7"</td>"
+	print "<td class=\"day\">"$8"</td>"
+	print "<td class=\"datetime\">"$9"</td>"
+	$1="" ; $2="" ; $3="" ; $4="" ; $5="" ; $6="" ; $7="" ; $8="" ; $9=""
+	sub("^ *?", "")
+	print "<td><a class=\"file name\" href=\""urlencode($0)"\">"$0"</a></td>"
+	print "</tr>"
+	$0=""
+}
+/^d/ {
+	print "<tr>"
+	print "<td class=\"size\"> </td>"
+	print "<td class=\"month\">"$7"</td>"
+	print "<td class=\"day\">"$8"</td>"
+	print "<td class=\"datetime\">"$9"</td>"
+	$1="" ; $2="" ; $3="" ; $4="" ; $5="" ; $6="" ; $7="" ; $8="" ; $9=""
+	sub("^ *?", "")
+	print "<td><a class=\"dir name\" href=\""urlencode($0)"/\">"$0"/</a></td>"
+	print "</tr>"
+}'
+echo '</table>
+
+</body>
+</html>'

@@ -1,0 +1,30 @@
+#!/bin/rc
+full_path=`{echo $"FS_ROOT^$"PATH_INFO | urlencode -d}
+full_path=$"full_path
+if(~ $full_path */)
+	error 503
+if(test -d $full_path){
+	redirect perm $"location^'/' \
+		'URL not quite right, and browser did not accept redirect.'
+	exit
+}
+if(! test -e $full_path){
+	error 404
+	exit
+}
+if(! test -r $full_path){
+	error 503
+	exit
+}
+do_log 200
+type=`{file -m $full_path}
+if(~ $type text/*)
+	max_age=3600	# 1 hour
+if not
+	max_age=604800	# 1 week
+echo 'HTTP/1.1 200 OK'^$cr
+emit_extra_headers
+echo 'Content-type: '^$type^$cr
+echo 'Cache-control: max-age='^$max_age^$cr
+echo $cr
+exec cat $full_path

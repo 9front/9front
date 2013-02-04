@@ -1,0 +1,38 @@
+#!/bin/rc
+# DO NOT make this script callable directly from the web!
+fn do_error{
+	echo 'HTTP/1.1 '^$1^$cr
+	emit_extra_headers
+	echo 'Content-type: text/html'^$cr
+	echo $cr
+	echo '<html>
+<head>
+<title>'^$1^'</title>
+</head>
+<body>
+<h1>'^$1^'</h1>'
+	echo $2
+	echo '<p><i>rc-httpd at' $SERVER_NAME '</i>'
+	echo '
+	</body>
+	</html>
+	'
+}
+
+fn 404{
+	do_error '404 Not Found' \
+	'The requested path '^$"location^' was not found on this server.'
+}
+
+fn 500{
+	do_error '500 Internal Server Error' \
+	'The server has encountered an internal misconfiguration and is unable to satisfy your request.'
+}
+
+fn 503{
+	do_error '503 Forbidden' \
+	'You do not have permission to access '^$"location^' on this server.'
+}
+
+do_log $1
+$1

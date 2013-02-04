@@ -1,0 +1,30 @@
+#!/bin/rc
+if(~ $#2 0){
+	error 500
+	exit
+}
+switch($1){
+case perm*
+	do_log 301
+	echo 'HTTP/1.1 301 Moved Permanently'^$cr
+case temp*
+	do_log 302
+	echo 'HTTP/1.1 302 Moved Temporarily'^$cr
+case seeother
+	do_log 303
+	echo 'HTTP/1.1 303 See Other'^$cr
+case *
+	error 500
+	exit
+}
+echo 'Location: ' ^ $2 ^ $cr
+emit_extra_headers
+echo 'Content-type: text/html'^$cr
+echo $cr
+echo '<html><body>'
+if(~ $#3 0)
+	echo 'Browser did not accept redirect.'
+if not
+	echo $3
+echo '<a href="'^$"location^'/">Click here</a>'
+echo '</body></html>'

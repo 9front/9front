@@ -1,0 +1,71 @@
+#!/bin/rc
+
+PATH_INFO=$location
+FS_ROOT=/sys/doc
+exec static-or-index
+
+## EXAMPLES
+#
+#SERVER_NAME=`{echo $SERVER_NAME | sed 's/^www\.//g'}
+#
+#fn do_error{
+#	do_log $1
+#	echo 'HTTP/1.1 '^$1^$cr
+#	emit_extra_headers
+#	echo 'Content-type: text/html'^$cr
+#	echo $cr
+#	echo '<html>
+#<head>
+#<title>'^$1^'</title>
+#</head>
+#<body>
+#<h1>'^$1^'</h1>'
+#	echo $2
+#	echo '<p><i>rc-httpd at' $SERVER_NAME '</i>'
+#	echo '
+#	</body>
+#	</html>
+#	'
+#}
+#
+## surprise!
+#if(~ $HTTP_REFERER *hiphopstan.com/forum* *slax.*/forum*){
+#	PATH_INFO=$location
+#	FS_ROOT=/usr/sl/www/werc/sites/hotlink
+#	exec static-or-index
+#}
+#if(~ $HTTP_REFERER 'http://okturing.com/index.rc?start=100' || {~ $SERVER_NAME okturing.com && ~ $location /index.rc} || ~ $location /qemu/plan9.flp.gz){
+#	do_error '27b/6'
+#	exit
+#}
+#
+## sites
+#if(~ $SERVER_NAME 1oct1993.com 9front.org *.9front.org emma.stanleylieber.com flamesgif.com gl.* iawtp.com inri.net massivefictions.com mold.dk osx.* other.* pop.* qualitycountrylyrics.com sp.* stanleylieber.com tcasey.* textadventure.* volksutils.com){
+#	PATH_INFO=$location
+#	FS_ROOT=/usr/sl/www/werc/sites/$SERVER_NAME
+#	exec static-or-index
+#}
+#if not if(~ $SERVER_NAME 9front.bell-labs.co bell-labs.co cs.bell-labs.co plan9.bell-labs.co sources.cs.bell-labs.co){
+#	PATH_INFO=$location
+#	FS_ROOT=/usr/sl/www/werc/sites/bell-labs.co
+#	exec static-or-index
+#}
+#if not if(~ $SERVER_NAME vr.stanleylieber.com){
+#	if(~ $location / /bin/* /etc/* /*htaccess /*htpasswd /index.rc* /lib/* /stats/*){
+#			PATH_INFO=$location
+#			FS_ROOT=/usr/sl/www/werc/sitesvr.stanleylieber.com
+#			exec cgi /usr/sl/www/werc/sites/vr.stanleylieber.com/index.rc $*
+#	}
+#	if not{
+#		PATH_INFO=$location
+#		FS_ROOT=/usr/sl/www/werc/sites/vr.stanleylieber.com
+#		exec static-or-index
+#	}
+#}
+#if not if(~ $SERVER_NAME applied.bell-labs.co *cat-v.org flesh.* img.* linux.* notreally.info okturing.com openbsd.* *osuny.co.uk plan9.* read.* scandisk.bell-labs.co * url.*){
+#	PATH_INFO=$location
+#	FS_ROOT=/usr/sl/www/werc/sites/$SERVER_NAME
+#	exec static-or-cgi /usr/sl/www/werc/bin/werc.rc
+#}
+#if not
+#	error 503

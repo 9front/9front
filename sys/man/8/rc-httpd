@@ -1,0 +1,177 @@
+.TH RC-HTTPD 8
+.SH NAME
+rc-httpd \- HTTP server
+.SH SYNOPSIS
+.B rc-httpd/rc-httpd
+.SH DESCRIPTION
+.I Rc-httpd
+serves the requested file or an index of files found under
+a website's root directory, or, in the case of CGI, executes
+a specified CGI program.
+.SH CONFIGURATION
+.PP
+As all pieces of
+.B rc-httpd
+are shell scripts, configuration is achieved by setting variables
+and adding, removing or modifying commands in various files.
+.PP
+.B rc-httpd
+.PP
+.I rc_httpd_dir
+must be set to the root of the rc-httpd installation,
+the directory containing the rc-httpd script.
+.PP
+.I path
+must include
+.I  rc_httpd_dir/handlers
+ahead of the base system's path elements.
+.PP
+.I cgi_path
+is substituted for
+.I path
+when cgi scripts are run. (Be sure
+to set
+.I path
+back in rc-based cgi scripts.)
+.PP
+.I extra_headers
+is an optional list of strings to emit when sending http headers.
+.PP
+.I SERVER_PORT
+is the port HTTP is to be served on.
+.PP
+.B select-handler
+.PP
+.I PATH_INFO
+is the location relative to the website's root directory of the file
+to be displayed.
+Typically, the
+.I location
+from the incoming request is honored.
+.PP
+.I FS_ROOT
+sets the root directory of the website.
+.PP
+.I NOINDEXFILE
+instructs the
+.B dir-index
+module not to
+look for
+.B index.html
+files, otherwise if an
+.B index.html
+file is found
+.B dir-index
+will exec
+.B serve-static
+to serve the file.  At present there
+is no module to serve an index file but not a directory.
+.PP
+If you do not want directory indexing at all, replace
+.B static-or-index
+with
+.B serve-static,
+which will report 503 forbidden for directories.
+.PP
+Multiple virtual hosts may be configured by creating conditional
+statements that act upon the
+.I SERVER_NAME
+variable. Fine-grained control of specific request strings may
+be configured via a similar method acting upon the
+.I location
+and/or other variables.
+.SH EXAMPLES
+The following examples demonstrate possible ways to configure
+.BR select-handler.
+.PP
+Serve static files:
+.RS
+.EX
+if(~ $SERVER_NAME 9front.org){
+	PATH_INFO=$location
+	FS_ROOT=/usr/sl/www/$SERVER_NAME
+	exec static-or-index
+}
+.EE
+.RE
+.PP
+CGI:
+.RS
+.EX
+if(~ $SERVER_NAME *cat-v.org){
+	PATH_INFO=$location
+	FS_ROOT=/usr/sl/www/werc/sites/$SERVER_NAME
+	exec static-or-cgi /usr/sl/www/werc/bin/werc.rc
+}
+.EE
+.RE
+.PP
+Custom error message for a denied URL:
+.RS
+.EX
+fn do_error{
+	do_log $1
+	echo 'HTTP/1.1 '^$1^$cr
+	emit_extra_headers
+	echo 'Content-type: text/html'^$cr
+	echo $cr
+	echo '<html>
+<head>
+<title>'^$1^'</title>
+</head>
+<body>
+<h1>'^$1^'</h1>'
+	echo $2
+	echo '<p><i>rc-httpd at' $SERVER_NAME '</i>'
+	echo '
+	</body>
+	</html>
+	'
+}
+if(~ $location /v8.tar.bz2){
+	do_error '27b/6'
+	exit
+}
+.EE
+.RE
+.SH STARTUP
+.I Rc-httpd
+is run from a file in the directory scanned by
+.IR listen (8),
+or called as an argument to
+.IR listen1 (8).
+The program's standard error may be captured to a log file:
+.RS
+.EX
+exec /rc/bin/rc-httpd/rc-httpd >>[2]/sys/log/www
+.EE
+.RE
+.SH FILES
+.TF /sys/lib/httpd.rewrite
+.TP
+.B /rc/bin/rc-httpd/rc-httpd
+.TP
+.B /rc/bin/rc-httpd/select-handlers
+.TP
+.B /rc/bin/rc-httpd/handlers/cgi
+.TP
+.B /rc/bin/rc-httpd/handlers/dir-index
+.TP
+.B /rc/bin/rc-httpd/handlers/error
+.TP
+.B /rc/bin/rc-httpd/handlers/redirect
+.TP
+.B /rc/bin/rc-httpd/handlers/serve-static
+.TP
+.B /rc/bin/rc-httpd/handlers/static-or-cgi
+.TP
+.B /rc/bin/rc-httpd/handlers/static-or-index
+.TP
+.B /rc/bin/service/tcp80
+.TP
+.B /sys/log/www
+.SH SOURCE
+.B /rc/bin/rc-httpd
+.SH "SEE ALSO"
+.IR rc (1),
+.IR listen (8)
