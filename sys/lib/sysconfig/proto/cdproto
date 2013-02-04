@@ -88,6 +88,7 @@ sys	d775
 
 		secstore	a662 sys sys /sys/lib/dist/empty
 		timesync	a662 sys sys /sys/lib/dist/empty
+		www	a662 sys sys /sys/lib/dist/empty
 		
 	man	d775
 		+
