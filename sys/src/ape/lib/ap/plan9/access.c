@@ -53,7 +53,7 @@ access(const char *name, int mode)
 			if(tname == 0)
 				return -1;
 			memset(tname, 0, nname+32);
-			memcpy(tname, name, n);
+			memcpy(tname, name, nname);
 			memcpy(tname+nname, "/_AcChAcK", 9);
 			_ultoa(tname+nname+9, getpid());
 			fd = _CREATE(tname, ORCLOSE, 0666);
