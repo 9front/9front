@@ -67,6 +67,7 @@ link
 	ethersink
 	ethersmc	devi82365 cis
 	etherwavelan	wavelan devi82365 cis pci
+	etheriwl	pci wifi
 	ethermedium
 	netdevmedium
 	loopbackmedium
