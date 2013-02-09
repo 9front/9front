@@ -1309,6 +1309,11 @@ iwlattach(Ether *edev)
 		nexterror();
 	}
 	if(ctlr->attached == 0){
+		if((csr32r(ctlr, Gpc) & RfKill) == 0){
+			print("#l%d: wifi disabled by switch\n", edev->ctlrno);
+			error("wifi disabled by switch");
+		}
+
 		if(ctlr->wifi == nil)
 			ctlr->wifi = wifiattach(edev, transmit);
 
