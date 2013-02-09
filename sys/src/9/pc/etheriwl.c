@@ -29,6 +29,7 @@ enum {
 	Rbufsize	= 4*1024,
 	Rdscsize	= 8,
 
+	Tbufsize	= 4*1024,
 	Tdscsize	= 128,
 	Tcmdsize	= 140,
 };
@@ -844,7 +845,7 @@ static int
 txqready(void *arg)
 {
 	TXQ *q = arg;
-	return q->n < Ntx-8;
+	return q->n < Ntx;
 }
 
 static void
@@ -852,6 +853,9 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 {
 	uchar *d, *c;
 	TXQ *q;
+
+	assert(qid < nelem(ctlr->tx));
+	assert(size <= Tcmdsize-4);
 
 	ilock(ctlr);
 	q = &ctlr->tx[qid];
@@ -878,7 +882,6 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 	c[2] = q->i;
 	c[3] = qid;
 
-	assert(size <= Tcmdsize-4);
 	memmove(c+4, data, size);
 
 	size += 4;
@@ -891,8 +894,11 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 	put32(d, PCIWADDR(c));	d += 4;
 	put16(d, size << 4); d += 2;
 	if(block != nil){
-		put32(d, PCIWADDR(block->rp));	d += 4;
-		put16(d, BLEN(block) << 4);
+		size = BLEN(block);
+		if(size > Tbufsize)
+			size = Tbufsize;
+		put32(d, PCIWADDR(block->rp)); d += 4;
+		put16(d, size << 4);
 	}
 
 	coherence();
@@ -970,6 +976,7 @@ postboot(Ctlr *ctlr)
 	nicunlock(ctlr);
 
 	if(ctlr->type != Type5150){
+		memset(c, 0, sizeof(c));
 		c[0] = 15;	/* code */
 		c[1] = 0;	/* grup */
 		c[2] = 1;	/* ngroup */
@@ -992,14 +999,10 @@ addnode(Ctlr *ctlr, uchar id, uchar *addr)
 	memset(p = c, 0, sizeof(c));
 	*p++ = 0;	/* control (1 = update) */
 	p += 3;		/* reserved */
-
 	memmove(p, addr, 6);
 	p += 6;
-
 	p += 2;		/* reserved */
-
 	*p++ = id;	/* node id */
-
 	p++;		/* flags */
 	p += 2;		/* reserved */
 	p += 2;		/* kflags */
@@ -1028,11 +1031,11 @@ addnode(Ctlr *ctlr, uchar id, uchar *addr)
 void
 rxon(Ether *edev)
 {
+	uchar c[Tcmdsize], *p;
 	Ctlr *ctlr;
-	uchar b[128-4], *p;
 
 	ctlr = edev->ctlr;
-	memset(p = b, 0, sizeof(b));
+	memset(p = c, 0, sizeof(c));
 	memmove(p, edev->ea, 6); p += 8;	/* myaddr */
 	p += 8;					/* bssid */
 	memmove(p, edev->ea, 6); p += 8;	/* wlap */
@@ -1058,7 +1061,7 @@ rxon(Ether *edev)
 		put16(p, 0); p += 2;		/* acquisition */
 		p += 2;				/* reserved */
 	}
-	cmd(ctlr, 16, b, p - b);
+	cmd(ctlr, 16, c, p - c);
 }
 
 static struct ratetab {
@@ -1327,7 +1330,7 @@ static void
 receive(Ctlr *ctlr)
 {
 	Block *b, *bb;
-	uchar *d;
+	uchar *d, *dd, *cc;
 	RXQ *rx;
 	TXQ *tx;
 	uint hw;
@@ -1351,12 +1354,30 @@ receive(Ctlr *ctlr)
 		idx = *d++;
 		qid = *d++;
 
+		if((qid & 0x80) == 0 && qid < nelem(ctlr->tx)){
+			tx = &ctlr->tx[qid];
+			if(tx->n > 0){
+				bb = tx->b[idx];
+				if(bb != nil){
+					tx->b[idx] = nil;
+					freeb(bb);
+				}
+				/* paranoia: clear tx descriptors */
+				dd = tx->d + idx*Tdscsize;
+				cc = tx->c + idx*Tcmdsize;
+				memset(dd, 0, Tdscsize);
+				memset(cc, 0, Tcmdsize);
+				tx->n--;
+
+				wakeup(tx);
+			}
+		}
+
 		len &= 0x3fff;
 		if(len < 4 || type == 0)
 			continue;
 
 		len -= 4;
-
 		switch(type){
 		case 1:		/* microcontroller ready */
 			setfwinfo(ctlr, d, len);
@@ -1364,17 +1385,6 @@ receive(Ctlr *ctlr)
 		case 24:	/* add node done */
 			break;
 		case 28:	/* tx done */
-			if(qid >= nelem(ctlr->tx))
-				break;
-			tx = &ctlr->tx[qid];
-			if(tx->n == 0)
-				break;
-			bb = tx->b[idx];
-			if(bb != nil){
-				tx->b[idx] = nil;
-				freeb(bb);
-			}
-			tx->n--;
 			break;
 		case 102:	/* calibration result (Type5000 only)
 			break;
