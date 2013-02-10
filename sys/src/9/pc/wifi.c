@@ -93,12 +93,12 @@ drop:
 }
 
 static void
-wifitx(Wifi *wifi, Block *b)
+wifitx(Wifi *wifi, Wnode *wn, Block *b)
 {
 	Wifipkt *w;
 	uint seq;
 
-	seq = wifi->txseq++;
+	seq = incref(&wifi->txseq);
 	seq <<= 4;
 
 	w = (Wifipkt*)b->rp;
@@ -107,7 +107,7 @@ wifitx(Wifi *wifi, Block *b)
 	w->seq[0] = seq;
 	w->seq[1] = seq>>8;
 
-	(*wifi->transmit)(wifi, wifi->bss, b);
+	(*wifi->transmit)(wifi, wn, b);
 }
 
 
@@ -118,18 +118,29 @@ nodelookup(Wifi *wifi, uchar *bssid, int new)
 
 	if(memcmp(bssid, wifi->ether->bcast, Eaddrlen) == 0)
 		return nil;
-	for(wn = nn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){
+	if((wn = wifi->bss) != nil){
 		if(memcmp(wn->bssid, bssid, Eaddrlen) == 0){
 			wn->lastseen = MACHP(0)->ticks;
 			return wn;
 		}
-		if(wn != wifi->bss && wn->lastseen < nn->lastseen)
+	}
+	for(wn = nn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){
+		if(wn == wifi->bss)
+			continue;
+		if(memcmp(wn->bssid, bssid, Eaddrlen) == 0){
+			wn->lastseen = MACHP(0)->ticks;
+			return wn;
+		}
+		if(wn->lastseen < nn->lastseen)
 			nn = wn;
 	}
 	if(!new)
 		return nil;
 	memmove(nn->bssid, bssid, Eaddrlen);
 	nn->lastseen = MACHP(0)->ticks;
+	nn->channel = 0;
+	nn->cap = 0;
+	nn->aid = 0;
 	return nn;
 }
 
@@ -156,7 +167,7 @@ sendauth(Wifi *wifi, Wnode *bss)
 	*p++ = 0;	/* status */
 	*p++ = 0;
 	b->wp = p;
-	wifitx(wifi, b);
+	wifitx(wifi, bss, b);
 }
 
 static void
@@ -190,7 +201,7 @@ sendassoc(Wifi *wifi, Wnode *bss)
 	*p++ = 0x8b;
 	*p++ = 0x96;
 	b->wp = p;
-	wifitx(wifi, b);
+	wifitx(wifi, bss, b);
 }
 
 static void
@@ -210,13 +221,14 @@ recvassoc(Wifi *wifi, Wnode *wn, uchar *d, int len)
 		wifi->status = Sassoc;
 		break;
 	default:
+		wn->aid = 0;
 		wifi->status = Sunassoc;
 		return;
 	}
 }
 
 static void
-recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
+recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
 {
 	uchar *e, *x;
 	uchar t, m[256/8];
@@ -251,11 +263,6 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 			if(len != strlen(wn->ssid) || strncmp(wn->ssid, (char*)d, len) != 0){
 				strncpy(wn->ssid, (char*)d, len);
 				wn->ssid[len] = 0;
-				if(wifi->bss == nil && strcmp(wifi->essid, wn->ssid) == 0){
-					wifi->bss = wn;
-					wifi->status = Sconn;
-					sendauth(wifi, wn);
-				}
 			}
 			break;
 		case 3:	/* DSPARAMS */
@@ -289,6 +296,11 @@ wifiproc(void *arg)
 				continue;
 			b->rp += WIFIHDRSIZE;
 			recvbeacon(wifi, wn, b->rp, BLEN(b));
+			if(wifi->bss == nil && wifi->essid[0] != 0 && strcmp(wifi->essid, wn->ssid) == 0){
+				wifi->bss = wn;
+				wifi->status = Sconn;
+				sendauth(wifi, wn);
+			}
 			continue;
 		}
 		if((wn = nodelookup(wifi, w->a3, 0)) == nil)
@@ -306,7 +318,9 @@ wifiproc(void *arg)
 			sendassoc(wifi, wn);
 			break;
 		case 0xc0:	/* deauth */
+			wn->aid = 0;
 			wifi->status = Sunauth;
+			sendauth(wifi, wn);
 			break;
 		}
 	}
@@ -318,6 +332,7 @@ wifietheroq(Wifi *wifi, Block *b)
 {
 	Etherpkt e;
 	Wifipkt *w;
+	Wnode *bss;
 	SNAP *s;
 
 	if(BLEN(b) < ETHERHDRSIZE){
@@ -332,7 +347,8 @@ wifietheroq(Wifi *wifi, Block *b)
 	w = (Wifipkt*)b->rp;
 	w->fc[0] = 0x08;	/* data */
 	w->fc[1] = 0x01;	/* STA->AP */
-	memmove(w->a1, wifi->bss ? wifi->bss->bssid : wifi->ether->bcast, Eaddrlen);
+	bss = wifi->bss;
+	memmove(w->a1, bss != nil ? bss->bssid : wifi->ether->bcast, Eaddrlen);
 	memmove(w->a2, e.s, Eaddrlen);
 	memmove(w->a3, e.d, Eaddrlen);
 
@@ -344,7 +360,7 @@ wifietheroq(Wifi *wifi, Block *b)
 	s->orgcode[2] = 0;
 	memmove(s->type, e.type, 2);
 
-	wifitx(wifi, b);
+	wifitx(wifi, bss, b);
 }
 
 static void
@@ -364,6 +380,7 @@ wifoproc(void *arg)
 Wifi*
 wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 {
+	char name[32];
 	Wifi *wifi;
 
 	wifi = malloc(sizeof(Wifi));
@@ -372,8 +389,10 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 	wifi->transmit = transmit;
 	wifi->status = Snone;
 
-	kproc("wifi", wifiproc, wifi);
-	kproc("wifo", wifoproc, wifi);
+	snprint(name, sizeof(name), "#l%dwifi", ether->ctlrno);
+	kproc(name, wifiproc, wifi);
+	snprint(name, sizeof(name), "#l%dwifo", ether->ctlrno);
+	kproc(name, wifoproc, wifi);
 
 	return wifi;
 }
@@ -392,7 +411,6 @@ wifictl(Wifi *wifi, void *buf, long n)
 	cb = parsecmd(buf, n);
 	if(cb->f[0] && strcmp(cb->f[0], "essid") == 0){
 		if(cb->f[1] == nil){
-			/* TODO senddeauth(wifi); */
 			wifi->essid[0] = 0;
 			wifi->bss = nil;
 		} else {
@@ -425,7 +443,8 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 
 	p = seprint(p, e, "status: %s\n", wifi->status);
 	p = seprint(p, e, "essid: %s\n", wifi->essid);
-	p = seprint(p, e, "bssid: %E\n", wifi->bss ? wifi->bss->bssid : zeros);
+	wn = wifi->bss;
+	p = seprint(p, e, "bssid: %E\n", wn != nil ? wn->bssid : zeros);
 
 	now = MACHP(0)->ticks;
 	for(wn=wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){

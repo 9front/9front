@@ -34,13 +34,13 @@ struct Wifi
 
 	Queue	*iq;
 	char	*status;
+	Ref	txseq;
 	void	(*transmit)(Wifi*, Wnode*, Block*);
 
-	Wnode	node[16];
+	char	essid[32+2];
 	Wnode	*bss;
 
-	uint	txseq;
-	char	essid[32+2];
+	Wnode	node[32];
 };
 
 Wifi *wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*));
