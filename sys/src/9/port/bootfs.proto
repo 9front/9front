@@ -49,3 +49,6 @@ rc
 		nusbrc 555 sys sys ../boot/nusbrc
 		bootrc 555 sys sys ../boot/bootrc
 tmp
+lib
+	firmware
+		+
