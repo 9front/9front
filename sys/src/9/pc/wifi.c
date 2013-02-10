@@ -185,7 +185,7 @@ sendassoc(Wifi *wifi, Wnode *bss)
 	p += 1+*p;
 	*p++ = 1;	/* RATES */
 	*p++ = 1;
-	*p++ = 0x96;
+	*p++ = 0x96;	/* BUG: hardcoded 11Mbit (802.11b) */
 	b->wp = p;
 	wifitx(wifi, b);
 }
@@ -216,6 +216,7 @@ static void
 recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 {
 	uchar *e, *x;
+	uchar t, m[256/8];
 
 	if(len < 8+2+2)
 		return;
@@ -226,10 +227,18 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 	wn->cap = d[0] | d[1]<<8;
 	d += 2;
 
+	memset(m, 0, sizeof(m));
 	for(e = d + len; d+2 <= e; d = x){
 		d += 2;
 		x = d + d[-1];
-		switch(d[-2]){
+		t = d[-2];
+
+		/* skip double entries */
+		if(m[t/8] & 1<<(t%8))
+			continue;
+		m[t/8] |= 1<<(t%8);
+
+		switch(t){
 		case 0:	/* SSID */
 			len = 0;
 			while(len < 32 && d+len < x && d[len] != 0)
@@ -245,7 +254,11 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 					sendauth(wifi, wn);
 				}
 			}
-			return;
+			break;
+		case 3:	/* DSPARAMS */
+			if(d != x)
+				wn->channel = d[0];
+			break;
 		}
 	}
 }
@@ -415,8 +428,8 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 	for(wn=wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){
 		if(wn->lastseen == 0)
 			continue;
-		p = seprint(p, e, "node: %E %.4x %d %ld %s\n",
-			wn->bssid, wn->cap, wn->ival, TK2MS(now - wn->lastseen), wn->ssid);
+		p = seprint(p, e, "node: %E %.4x %d %ld %d %s\n",
+			wn->bssid, wn->cap, wn->ival, TK2MS(now - wn->lastseen), wn->channel, wn->ssid);
 	}
 	n = readstr(off, buf, n, s);
 	free(s);

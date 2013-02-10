@@ -23,10 +23,9 @@ struct Wnode
 	char	ssid[32+2];
 	int	ival;
 	int	cap;
-
-	long	lastseen;
-
 	int	aid;
+	int	channel;
+	long	lastseen;
 };
 
 struct Wifi
