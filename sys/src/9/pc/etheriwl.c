@@ -1706,6 +1706,7 @@ iwlpci(void)
 		default:
 			continue;
 		case 0x4236:	/* WiFi Link 5300 AGN */
+		case 0x4237:	/* Wifi Link 5200 AGN */
 			break;
 		}
 
