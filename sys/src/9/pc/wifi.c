@@ -183,9 +183,12 @@ sendassoc(Wifi *wifi, Wnode *bss)
 	*p = strlen(bss->ssid);
 	memmove(p+1, bss->ssid, *p);
 	p += 1+*p;
-	*p++ = 1;	/* RATES */
-	*p++ = 1;
-	*p++ = 0x96;	/* BUG: hardcoded 11Mbit (802.11b) */
+	*p++ = 1;	/* RATES (BUG: these are all lies!) */
+	*p++ = 4;
+	*p++ = 0x82;
+	*p++ = 0x84;
+	*p++ = 0x8b;
+	*p++ = 0x96;
 	b->wp = p;
 	wifitx(wifi, b);
 }
