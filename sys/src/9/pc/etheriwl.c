@@ -1501,9 +1501,9 @@ receive(Ctlr *ctlr)
 			break;
 		case 28:	/* tx done */
 			break;
-		case 102:	/* calibration result (Type5000 only)
+		case 102:	/* calibration result (Type5000 only) */
 			break;
-		case 103:	/* calibration done (Type5000 only)
+		case 103:	/* calibration done (Type5000 only) */
 			break;
 		case 130:	/* start scan */
 			break;
