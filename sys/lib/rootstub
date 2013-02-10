@@ -107,6 +107,7 @@ mkdir -p cron
 mkdir -p dist/plan9front
 mkdir -p fd
 mkdir -p lib/audio
+mkdir -p lib/firmware
 mkdir -p lib/ndb
 mkdir -p lib/tftpd
 mkdir -p mail/box
