@@ -897,6 +897,108 @@ loadfirmware1(Ctlr *ctlr, u32int dst, uchar *data, int size)
 	return 0;
 }
 
+static char*
+bootfirmware(Ctlr *ctlr)
+{
+	int i, n, size;
+	uchar *p, *dma;
+	FWImage *fw;
+	char *err;
+
+	dma = nil;
+	fw = ctlr->fw;
+
+	if(fw->boot.text.size == 0){
+		if((err = loadfirmware1(ctlr, 0x00000000, fw->main.text.data, fw->main.text.size)) != nil)
+			return err;
+		if((err = loadfirmware1(ctlr, 0x00800000, fw->main.data.data, fw->main.data.size)) != nil)
+			return err;
+		goto bootmain;
+	}
+
+	size = ROUND(fw->init.data.size, 16) + ROUND(fw->init.text.size, 16);
+	dma = mallocalign(size, 16, 0, 0);
+	if(dma == nil)
+		return "no memory for dma";
+
+	if((err = niclock(ctlr)) != nil){
+		free(dma);
+		return err;
+	}
+
+	p = dma;
+	memmove(p, fw->init.data.data, fw->init.data.size);
+	coherence();
+	prphwrite(ctlr, BsmDramDataAddr, PCIWADDR(p) >> 4);
+	prphwrite(ctlr, BsmDramDataSize, fw->init.data.size);
+	p += ROUND(fw->init.data.size, 16);
+	memmove(p, fw->init.text.data, fw->init.text.size);
+	coherence();
+	prphwrite(ctlr, BsmDramTextAddr, PCIWADDR(p) >> 4);
+	prphwrite(ctlr, BsmDramTextSize, fw->init.text.size);
+
+	p = fw->boot.text.data;
+	n = fw->boot.text.size/4;
+	for(i=0; i<n; i++, p += 4)
+		prphwrite(ctlr, BsmSramBase+i*4, get32(p));
+
+	prphwrite(ctlr, BsmWrMemSrc, 0);
+	prphwrite(ctlr, BsmWrMemDst, 0);
+	prphwrite(ctlr, BsmWrDwCount, n);
+
+	prphwrite(ctlr, BsmWrCtrl, 1<<31);
+
+	for(i=0; i<1000; i++){
+		if((prphread(ctlr, BsmWrCtrl) & (1<<31)) == 0)
+			break;
+		delay(10);
+	}
+	if(i == 1000){
+		nicunlock(ctlr);
+		free(dma);
+		return "bootfirmware: bootcode timeout";
+	}
+
+	prphwrite(ctlr, BsmWrCtrl, 1<<30);
+	nicunlock(ctlr);
+
+	csr32w(ctlr, Reset, 0);
+	if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive){
+		free(dma);
+		return "init firmware boot failed";
+	}
+	free(dma);
+
+	size = ROUND(fw->main.data.size, 16) + ROUND(fw->main.text.size, 16);
+	dma = mallocalign(size, 16, 0, 0);
+	if(dma == nil)
+		return "no memory for dma";
+	if((err = niclock(ctlr)) != nil){
+		free(dma);
+		return err;
+	}
+	p = dma;
+	memmove(p, fw->main.data.data, fw->main.data.size);
+	coherence();
+	prphwrite(ctlr, BsmDramDataAddr, PCIWADDR(p) >> 4);
+	prphwrite(ctlr, BsmDramDataSize, fw->main.data.size);
+	p += ROUND(fw->main.data.size, 16);
+	memmove(p, fw->main.text.data, fw->main.text.size);
+	coherence();
+	prphwrite(ctlr, BsmDramTextAddr, PCIWADDR(p) >> 4);
+	prphwrite(ctlr, BsmDramTextSize, fw->main.text.size | (1<<31));
+	nicunlock(ctlr);
+
+bootmain:
+	csr32w(ctlr, Reset, 0);
+	if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive){
+		free(dma);
+		return "main firmware boot failed";
+	}
+	free(dma);
+	return nil;
+}
+
 static int
 txqready(void *arg)
 {
@@ -1423,15 +1525,7 @@ iwlattach(Ether *edev)
 		if(ctlr->type >= Type6000)
 			csr32w(ctlr, ShadowRegCtrl, csr32r(ctlr, ShadowRegCtrl) | 0x800fffff);
 
-		if((err = loadfirmware1(ctlr, 0x00000000, ctlr->fw->main.text.data, ctlr->fw->main.text.size)) != nil)
-			error(err);
-		if((err = loadfirmware1(ctlr, 0x00800000, ctlr->fw->main.data.data, ctlr->fw->main.data.size)) != nil)
-			error(err);
-
-		csr32w(ctlr, Reset, 0);
-		if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive)
-			error("firmware boot failed");
-
+		bootfirmware(ctlr);
 		postboot(ctlr);
 
 		setoptions(edev);
