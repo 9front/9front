@@ -45,7 +45,7 @@ int	mpfmt(Fmt*);
 char*	mptoa(mpint*, int, char*, int);
 mpint*	letomp(uchar*, uint, mpint*);	/* byte array, little-endian */
 int	mptole(mpint*, uchar*, uint, uchar**);
-mpint*	betomp(uchar*, uint, mpint*);	/* byte array, little-endian */
+mpint*	betomp(uchar*, uint, mpint*);	/* byte array, big-endian */
 int	mptobe(mpint*, uchar*, uint, uchar**);
 uint	mptoui(mpint*);			/* unsigned int */
 mpint*	uitomp(uint, mpint*);
