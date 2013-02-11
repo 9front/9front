@@ -419,6 +419,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 		if(cb->f[1] == nil){
 			wifi->essid[0] = 0;
 			wifi->bss = nil;
+			wifi->status = Snone;
 		} else {
 			strncpy(wifi->essid, cb->f[1], 32);
 			wifi->essid[32] = 0;
