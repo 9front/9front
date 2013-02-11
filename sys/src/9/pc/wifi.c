@@ -63,9 +63,13 @@ wifiiq(Wifi *wifi, Block *b)
 		default:
 			goto drop;
 		}
-		if(BLEN(b) < SNAPHDRSIZE || b->rp[0] != 0xAA || b->rp[1] != 0xAA || b->rp[2] != 0x03)
+		if(BLEN(b) < SNAPHDRSIZE)
 			break;
 		memmove(&s, b->rp, SNAPHDRSIZE);
+		if(s.dsap != 0xAA || s.ssap != 0xAA || s.control != 3)
+			break;
+		if(s.orgcode[0] != 0 || s.orgcode[1] != 0 || s.orgcode[2] != 0)
+			break;
 		b->rp += SNAPHDRSIZE-ETHERHDRSIZE;
 		e = (Etherpkt*)b->rp;
 		switch(w.fc[1] & 0x03){
