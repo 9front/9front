@@ -124,7 +124,9 @@ nodelookup(Wifi *wifi, uchar *bssid, int new)
 			return wn;
 		}
 	}
-	for(wn = nn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){
+	if((nn = wifi->node) == wn)
+		nn++;
+	for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){
 		if(wn == wifi->bss)
 			continue;
 		if(memcmp(wn->bssid, bssid, Eaddrlen) == 0){
@@ -137,10 +139,12 @@ nodelookup(Wifi *wifi, uchar *bssid, int new)
 	if(!new)
 		return nil;
 	memmove(nn->bssid, bssid, Eaddrlen);
-	nn->lastseen = MACHP(0)->ticks;
-	nn->channel = 0;
+	nn->ssid[0] = 0;
+	nn->ival = 0;
 	nn->cap = 0;
 	nn->aid = 0;
+	nn->channel = 0;
+	nn->lastseen = MACHP(0)->ticks;
 	return nn;
 }
 
@@ -418,7 +422,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 		} else {
 			strncpy(wifi->essid, cb->f[1], 32);
 			wifi->essid[32] = 0;
-			for(wn=wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++)
+			for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++)
 				if(strcmp(wifi->essid, wn->ssid) == 0){
 					wifi->bss = wn;
 					wifi->status = Sconn;
@@ -449,7 +453,7 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 	p = seprint(p, e, "bssid: %E\n", wn != nil ? wn->bssid : zeros);
 
 	now = MACHP(0)->ticks;
-	for(wn=wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){
+	for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){
 		if(wn->lastseen == 0)
 			continue;
 		p = seprint(p, e, "node: %E %.4x %d %ld %d %s\n",
