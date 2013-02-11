@@ -303,6 +303,8 @@ wifiproc(void *arg)
 			}
 			continue;
 		}
+		if(memcmp(w->a1, wifi->ether->ea, Eaddrlen))
+			continue;
 		if((wn = nodelookup(wifi, w->a3, 0)) == nil)
 			continue;
 		if(wn != wifi->bss)
