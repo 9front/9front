@@ -114,3 +114,6 @@ did anyone at iwp9 give an update about osprey? anyone ask when it'll be availab
 just run linux -- aiju
 I'm fairly new to plan9, and am having trouble ssh'ing to my mac.
 Subject: [golang-dev] not reading code
+Is Trolling Ever Okay?
+I've downloaded the nix bits from http://code.google.com/p/nix-os/ and compiled it under 9vx on OSX, but I'm having some trouble getting the resultant kernel to boot.
+Subject: [nix] servers down
