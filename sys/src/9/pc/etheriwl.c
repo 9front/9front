@@ -19,7 +19,6 @@
 #include "wifi.h"
 
 enum {
-
 	Ntxlog		= 8,
 	Ntx		= 1<<Ntxlog,
 	Nrxlog		= 8,
@@ -197,16 +196,18 @@ enum {
 enum {
 	SchedBase		= 0xa02c00,
 	SchedSramAddr		= SchedBase,
-	SchedDramAddr5000	= SchedBase+0x008,
+
 	SchedDramAddr4965	= SchedBase+0x010,
-	SchedTxFact5000		= SchedBase+0x010,
 	SchedTxFact4965		= SchedBase+0x01c,
 	SchedQueueRdptr4965	= SchedBase+0x064,	// +q*4
-	SchedQueueRdptr5000	= SchedBase+0x068,	// +q*4
 	SchedQChainSel4965	= SchedBase+0x0d0,
 	SchedIntrMask4965	= SchedBase+0x0e4,
-	SchedQChainSel5000	= SchedBase+0x0e8,
 	SchedQueueStatus4965	= SchedBase+0x104,	// +q*4
+
+	SchedDramAddr5000	= SchedBase+0x008,
+	SchedTxFact5000		= SchedBase+0x010,
+	SchedQueueRdptr5000	= SchedBase+0x068,	// +q*4
+	SchedQChainSel5000	= SchedBase+0x0e8,
 	SchedIntrMask5000	= SchedBase+0x108,
 	SchedQueueStatus5000	= SchedBase+0x10c,	// +q*4
 	SchedAggrSel5000	= SchedBase+0x248,
@@ -215,11 +216,9 @@ enum {
 enum {
 	SchedCtxOff4965		= 0x380,
 	SchedCtxLen4965		= 416,
-	SchedTransTblOff4965	= 0x500,
 
 	SchedCtxOff5000		= 0x600,
 	SchedCtxLen5000		= 512,
-	SchedTransTblOff5000	= 0x7e0,
 };
 
 enum {
@@ -252,8 +251,6 @@ typedef struct TXQ TXQ;
 typedef struct RXQ RXQ;
 
 typedef struct Ctlr Ctlr;
-
-typedef struct Ctlrtype Ctlrtype;
 
 struct FWSect
 {
@@ -378,39 +375,16 @@ enum {
 	Type6005	= 11,
 };
 
-struct Ctlrtype
-{
-	char	*fwname;
-};
-
-static Ctlrtype ctlrtype[16] = {
-	[Type4965] {
-		.fwname = "iwn-4965",
-	},
-	[Type5300] {
-		.fwname = "iwn-5000",
-	},
-	[Type5350] {
-		.fwname = "iwn-5000",
-	},
-	[Type5150] {
-		.fwname = "iwn-5150",
-	},
-	[Type5100] {
-		.fwname = "iwn-5000",
-	},
-	[Type1000] {
-		.fwname = "iwn-1000",
-	},
-	[Type6000] {
-		.fwname = "iwn-6000",
-	},
-	[Type6050] {
-		.fwname = "iwn-6050",
-	},
-	[Type6005] {
-		.fwname = "iwn-6005",
-	},
+static char *fwname[16] = {
+	[Type4965] "iwn-4965",
+	[Type5300] "iwn-5000",
+	[Type5350] "iwn-5000",
+	[Type5150] "iwn-5150",
+	[Type5100] "iwn-5000",
+	[Type1000] "iwn-1000",
+	[Type6000] "iwn-6000",
+	[Type6050] "iwn-6050",
+	[Type6005] "iwn-6005",
 };
 
 #define csr32r(c, r)	(*((c)->nic+((r)/4)))
@@ -754,7 +728,7 @@ Tooshort:
 			return "bad firmware signature";
 		p += 4;
 		strncpy(i->descr, (char*)p, 64);
-		i->descr[sizeof(i->descr)-1] = 0;
+		i->descr[64] = 0;
 		p += 64;
 		i->rev = get32(p); p += 4;
 		i->build = get32(p); p += 4;
@@ -776,7 +750,7 @@ Tooshort:
 			default:s = &dummy;
 			}
 			p += 2;
-			if(get16(p) != alt)
+			if(get16(p) != 0 && get16(p) != alt)
 				s = &dummy;
 			p += 2;
 			s->size = get32(p); p += 4;
@@ -942,6 +916,7 @@ bootfirmware(Ctlr *ctlr)
 			return err;
 		if((err = loadfirmware1(ctlr, 0x00800000, fw->main.data.data, fw->main.data.size)) != nil)
 			return err;
+		csr32w(ctlr, Reset, 0);
 		goto bootmain;
 	}
 
@@ -965,6 +940,12 @@ bootfirmware(Ctlr *ctlr)
 	coherence();
 	prphwrite(ctlr, BsmDramTextAddr, PCIWADDR(p) >> 4);
 	prphwrite(ctlr, BsmDramTextSize, fw->init.text.size);
+
+	nicunlock(ctlr);
+	if((err = niclock(ctlr)) != nil){
+		free(dma);
+		return err;
+	}
 
 	p = fw->boot.text.data;
 	n = fw->boot.text.size/4;
@@ -1019,7 +1000,6 @@ bootfirmware(Ctlr *ctlr)
 	nicunlock(ctlr);
 
 bootmain:
-	csr32w(ctlr, Reset, 0);
 	if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive){
 		free(dma);
 		return "main firmware boot failed";
@@ -1120,16 +1100,17 @@ flushq(Ctlr *ctlr, uint qid)
 
 
 static void
+flushcmd(Ctlr *ctlr)
+{
+	flushq(ctlr, 4);
+}
+
+static void
 cmd(Ctlr *ctlr, uint code, uchar *data, int size)
 {
 	qcmd(ctlr, 4, code, data, size, nil);
 }
 
-static void
-flushcmd(Ctlr *ctlr)
-{
-	flushq(ctlr, 4);
-}
 
 static void
 setled(Ctlr *ctlr, int which, int on, int off)
@@ -1173,8 +1154,8 @@ postboot(Ctlr *ctlr)
 	}
 
 	ctlr->sched.base = prphread(ctlr, SchedSramAddr);
-	for(i=0; i < ctxlen/4; i++)
-		memwrite(ctlr, ctlr->sched.base + ctxoff + i*4, 0);
+	for(i=0; i < ctxlen; i += 4)
+		memwrite(ctlr, ctlr->sched.base + ctxoff + i, 0);
 
 	prphwrite(ctlr, dramaddr, PCIWADDR(ctlr->sched.s)>>10);
 
@@ -1185,7 +1166,7 @@ postboot(Ctlr *ctlr)
 		prphwrite(ctlr, SchedQChainSel5000, 0xfffef);
 		prphwrite(ctlr, SchedAggrSel5000, 0);
 
-		for(q=0; q<nelem(ctlr->tx); q++){
+		for(q=0; q<20; q++){
 			prphwrite(ctlr, SchedQueueRdptr5000 + q*4, 0);
 			csr32w(ctlr, HbusTargWptr, q << 8);
 
@@ -1217,25 +1198,26 @@ postboot(Ctlr *ctlr)
 
 	/* Mark TX rings (4 EDCA + cmd + 2 HCCA) as active. */
 	for(q=0; q<7; q++){
-		static uchar qid2fifo[] = { 3, 2, 1, 0, 7, 5, 6 };
-		if(ctlr->type != Type4965)
+		if(ctlr->type != Type4965){
+			static uchar qid2fifo[] = { 3, 2, 1, 0, 7, 5, 6 };
 			prphwrite(ctlr, SchedQueueStatus5000 + q*4, 0x00ff0018 | qid2fifo[q]);
-		else
-			prphwrite(ctlr, SchedQueueStatus4965 + q*4, 0x0007fc01 | qid2fifo[q]);
+		} else {
+			static uchar qid2fifo[] = { 3, 2, 1, 0, 4, 5, 6 };
+			prphwrite(ctlr, SchedQueueStatus4965 + q*4, 0x0007fc01 | qid2fifo[q]<<1);
+		}
 	}
 	nicunlock(ctlr);
 
-	if(ctlr->type != Type5150){
-		memset(c, 0, sizeof(c));
-		c[0] = 15;	/* code */
-		c[1] = 0;	/* grup */
-		c[2] = 1;	/* ngroup */
-		c[3] = 1;	/* isvalid */
-		put16(c+4, ctlr->eeprom.crystal);
-		cmd(ctlr, 176, c, 8);
-	}
-
 	if(ctlr->type != Type4965){
+		if(ctlr->type != Type5150){
+			memset(c, 0, sizeof(c));
+			c[0] = 15;	/* code */
+			c[1] = 0;	/* grup */
+			c[2] = 1;	/* ngroup */
+			c[3] = 1;	/* isvalid */
+			put16(c+4, ctlr->eeprom.crystal);
+			cmd(ctlr, 176, c, 8);
+		}
 		put32(c, ctlr->rfcfg.txantmask & 7);
 		cmd(ctlr, 152, c, 4);
 	}
@@ -1266,15 +1248,15 @@ addnode(Ctlr *ctlr, uchar id, uchar *addr)
 		p += 8;		/* tcs */
 		p += 8;		/* rxmic */
 		p += 8;		/* txmic */
-		p += 4;		/* htflags */
-		p += 4;		/* mask */
-		p += 2;		/* disable tid */
-		p += 2;		/* reserved */
-		p++;		/* add ba tid */
-		p++;		/* del ba tid */
-		p += 2;		/* add ba ssn */
-		p += 4;		/* reserved */
 	}
+	p += 4;		/* htflags */
+	p += 4;		/* mask */
+	p += 2;		/* disable tid */
+	p += 2;		/* reserved */
+	p++;		/* add ba tid */
+	p++;		/* del ba tid */
+	p += 2;		/* add ba ssn */
+	p += 4;		/* reserved */
 	cmd(ctlr, 24, c, p - c);
 }
 
@@ -1344,6 +1326,7 @@ rxon(Ether *edev, Wnode *bss)
 		p += 2;				/* reserved */
 	}
 	cmd(ctlr, 16, c, p - c);
+
 	if(ctlr->bcastnodeid == -1){
 		ctlr->bcastnodeid = (ctlr->type != Type4965) ? 15 : 31;
 		addnode(ctlr, ctlr->bcastnodeid, edev->bcast);
@@ -1617,10 +1600,10 @@ iwlattach(Ether *edev)
 			ctlr->wifi = wifiattach(edev, transmit);
 
 		if(ctlr->fw == nil){
-			fw = readfirmware(ctlrtype[ctlr->type].fwname);
+			fw = readfirmware(fwname[ctlr->type]);
 			print("#l%d: firmware: %s, rev %ux, build %ud, size %ux+%ux+%ux+%ux+%ux\n",
 				edev->ctlrno,
-				ctlrtype[ctlr->type].fwname,
+				fwname[ctlr->type],
 				fw->rev, fw->build,
 				fw->main.text.size, fw->main.data.size,
 				fw->init.text.size, fw->init.data.size,
@@ -1699,18 +1682,20 @@ iwlattach(Ether *edev)
 		if((err = niclock(ctlr)) != nil)
 			error(err);
 
-		prphwrite(ctlr, SchedTxFact5000, 0);
+		if(ctlr->type != Type4965)
+			prphwrite(ctlr, SchedTxFact5000, 0);
+		else
+			prphwrite(ctlr, SchedTxFact4965, 0);
 
 		csr32w(ctlr, FhKwAddr, PCIWADDR(ctlr->kwpage) >> 4);
 
-		for(q=0; q<nelem(ctlr->tx); q++)
-			if(q < 15 || ctlr->type != Type4965)
-				csr32w(ctlr, FhCbbcQueue + q*4, PCIWADDR(ctlr->tx[q].d) >> 8);
+		for(q = (ctlr->type != Type4965) ? 19 : 15; q >= 0; q--)
+			csr32w(ctlr, FhCbbcQueue + q*4, PCIWADDR(ctlr->tx[q].d) >> 8);
+
 		nicunlock(ctlr);
 
-		for(i=0; i<8; i++)
-			if(i < 7 || ctlr->type != Type4965)
-				csr32w(ctlr, FhTxConfig + i*32, FhTxConfigDmaEna | FhTxConfigDmaCreditEna);
+		for(i = (ctlr->type != Type4965) ? 7 : 6; i >= 0; i--)
+			csr32w(ctlr, FhTxConfig + i*32, FhTxConfigDmaEna | FhTxConfigDmaCreditEna);
 
 		csr32w(ctlr, UcodeGp1Clr, UcodeGp1RfKill);
 		csr32w(ctlr, UcodeGp1Clr, UcodeGp1CmdBlocked);
@@ -1820,9 +1805,10 @@ receive(Ctlr *ctlr)
 		case 192:	/* rx phy */
 			break;
 		case 195:	/* rx done */
-			if(d + 60 > b->lim)
+			if(d + 2 > b->lim)
 				break;
-			d += 60;
+			d += d[1];
+			d += 56;
 		case 193:	/* mpdu rx done */
 			if(d + 4 > b->lim)
 				break;
@@ -1906,6 +1892,8 @@ iwlpci(void)
 		switch(pdev->did){
 		default:
 			continue;
+		case 0x4229:	/* WiFi Link 4965 */
+		case 0x4230:	/* WiFi Link 4965 */
 		case 0x4236:	/* WiFi Link 5300 AGN */
 		case 0x4237:	/* Wifi Link 5100 AGN */
 			break;
@@ -1940,7 +1928,7 @@ iwlpci(void)
 		ctlr->pdev = pdev;
 		ctlr->type = (csr32r(ctlr, Rev) >> 4) & 0xF;
 
-		if(ctlrtype[ctlr->type].fwname == nil){
+		if(fwname[ctlr->type] == nil){
 			print("iwl: unsupported controller type %d\n", ctlr->type);
 			vunmap(mem, pdev->mem[0].size);
 			free(ctlr);
