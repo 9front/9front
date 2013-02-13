@@ -79,7 +79,7 @@ struct Umsc
 	/* partitions */
 	Part part[Maxparts];
 
-	uchar 	rawcmd[10];
+	uchar 	rawcmd[16];
 	uchar	phase;
 	char	*inq;
 	Ums	*ums;

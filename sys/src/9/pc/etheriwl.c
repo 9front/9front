@@ -19,7 +19,6 @@
 #include "wifi.h"
 
 enum {
-
 	Ntxlog		= 8,
 	Ntx		= 1<<Ntxlog,
 	Nrxlog		= 8,
@@ -197,16 +196,18 @@ enum {
 enum {
 	SchedBase		= 0xa02c00,
 	SchedSramAddr		= SchedBase,
-	SchedDramAddr5000	= SchedBase+0x008,
+
 	SchedDramAddr4965	= SchedBase+0x010,
-	SchedTxFact5000		= SchedBase+0x010,
 	SchedTxFact4965		= SchedBase+0x01c,
 	SchedQueueRdptr4965	= SchedBase+0x064,	// +q*4
-	SchedQueueRdptr5000	= SchedBase+0x068,	// +q*4
 	SchedQChainSel4965	= SchedBase+0x0d0,
 	SchedIntrMask4965	= SchedBase+0x0e4,
-	SchedQChainSel5000	= SchedBase+0x0e8,
 	SchedQueueStatus4965	= SchedBase+0x104,	// +q*4
+
+	SchedDramAddr5000	= SchedBase+0x008,
+	SchedTxFact5000		= SchedBase+0x010,
+	SchedQueueRdptr5000	= SchedBase+0x068,	// +q*4
+	SchedQChainSel5000	= SchedBase+0x0e8,
 	SchedIntrMask5000	= SchedBase+0x108,
 	SchedQueueStatus5000	= SchedBase+0x10c,	// +q*4
 	SchedAggrSel5000	= SchedBase+0x248,
@@ -215,11 +216,31 @@ enum {
 enum {
 	SchedCtxOff4965		= 0x380,
 	SchedCtxLen4965		= 416,
-	SchedTransTblOff4965	= 0x500,
 
 	SchedCtxOff5000		= 0x600,
 	SchedCtxLen5000		= 512,
-	SchedTransTblOff5000	= 0x7e0,
+};
+
+enum {
+	FilterPromisc		= 1<<0,
+	FilterCtl		= 1<<1,
+	FilterMulticast		= 1<<2,
+	FilterNoDecrypt		= 1<<3,
+	FilterBSS		= 1<<5,
+	FilterBeacon		= 1<<6,
+};
+
+enum {
+	RFlag24Ghz		= 1<<0,
+	RFlagCCK		= 1<<1,
+	RFlagAuto		= 1<<2,
+	RFlagShSlot		= 1<<4,
+	RFlagShPreamble		= 1<<5,
+	RFlagNoDiversity	= 1<<7,
+	RFlagAntennaA		= 1<<8,
+	RFlagAntennaB		= 1<<9,
+	RFlagTSF		= 1<<15,
+	RFlagCTSToSelf		= 1<<30,
 };
 
 typedef struct FWInfo FWInfo;
@@ -230,8 +251,6 @@ typedef struct TXQ TXQ;
 typedef struct RXQ RXQ;
 
 typedef struct Ctlr Ctlr;
-
-typedef struct Ctlrtype Ctlrtype;
 
 struct FWSect
 {
@@ -303,7 +322,15 @@ struct Ctlr {
 	u32int *nic;
 	uchar *kwpage;
 
+	/* assigned node ids in hardware node table or -1 if unassigned */
+	int bcastnodeid;
+	int bssnodeid;
+
+	/* current receiver settings */
+	uchar bssid[Eaddrlen];
 	int channel;
+	int prom;
+	int aid;
 
 	RXQ rx;
 	TXQ tx[20];
@@ -349,39 +376,16 @@ enum {
 	Type6005	= 11,
 };
 
-struct Ctlrtype
-{
-	char	*fwname;
-};
-
-static Ctlrtype ctlrtype[16] = {
-	[Type4965] {
-		.fwname = "iwn-4965",
-	},
-	[Type5300] {
-		.fwname = "iwn-5000",
-	},
-	[Type5350] {
-		.fwname = "iwn-5000",
-	},
-	[Type5150] {
-		.fwname = "iwn-5150",
-	},
-	[Type5100] {
-		.fwname = "iwn-5000",
-	},
-	[Type1000] {
-		.fwname = "iwn-1000",
-	},
-	[Type6000] {
-		.fwname = "iwn-6000",
-	},
-	[Type6050] {
-		.fwname = "iwn-6050",
-	},
-	[Type6005] {
-		.fwname = "iwn-6005",
-	},
+static char *fwname[16] = {
+	[Type4965] "iwn-4965",
+	[Type5300] "iwn-5000",
+	[Type5350] "iwn-5000",
+	[Type5150] "iwn-5150",
+	[Type5100] "iwn-5000",
+	[Type1000] "iwn-1000",
+	[Type6000] "iwn-6000",
+	[Type6050] "iwn-6050",
+	[Type6005] "iwn-6005",
 };
 
 #define csr32r(c, r)	(*((c)->nic+((r)/4)))
@@ -725,7 +729,7 @@ Tooshort:
 			return "bad firmware signature";
 		p += 4;
 		strncpy(i->descr, (char*)p, 64);
-		i->descr[sizeof(i->descr)-1] = 0;
+		i->descr[64] = 0;
 		p += 64;
 		i->rev = get32(p); p += 4;
 		i->build = get32(p); p += 4;
@@ -747,7 +751,7 @@ Tooshort:
 			default:s = &dummy;
 			}
 			p += 2;
-			if(get16(p) != alt)
+			if(get16(p) != 0 && get16(p) != alt)
 				s = &dummy;
 			p += 2;
 			s->size = get32(p); p += 4;
@@ -913,6 +917,7 @@ bootfirmware(Ctlr *ctlr)
 			return err;
 		if((err = loadfirmware1(ctlr, 0x00800000, fw->main.data.data, fw->main.data.size)) != nil)
 			return err;
+		csr32w(ctlr, Reset, 0);
 		goto bootmain;
 	}
 
@@ -936,6 +941,12 @@ bootfirmware(Ctlr *ctlr)
 	coherence();
 	prphwrite(ctlr, BsmDramTextAddr, PCIWADDR(p) >> 4);
 	prphwrite(ctlr, BsmDramTextSize, fw->init.text.size);
+
+	nicunlock(ctlr);
+	if((err = niclock(ctlr)) != nil){
+		free(dma);
+		return err;
+	}
 
 	p = fw->boot.text.data;
 	n = fw->boot.text.size/4;
@@ -990,7 +1001,6 @@ bootfirmware(Ctlr *ctlr)
 	nicunlock(ctlr);
 
 bootmain:
-	csr32w(ctlr, Reset, 0);
 	if(irqwait(ctlr, Ierr|Ialive, 5000) != Ialive){
 		free(dma);
 		return "main firmware boot failed";
@@ -1019,12 +1029,11 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 	q = &ctlr->tx[qid];
 	while(q->n >= Ntx){
 		iunlock(ctlr);
-		eqlock(q);
-		if(waserror()){
-			qunlock(q);
-			nexterror();
+		qlock(q);
+		if(!waserror()){
+			tsleep(q, txqready, q, 10);
+			poperror();
 		}
-		tsleep(q, txqready, q, 10);
 		qunlock(q);
 		ilock(ctlr);
 	}
@@ -1067,11 +1076,42 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 	iunlock(ctlr);
 }
 
+static int
+txqempty(void *arg)
+{
+	TXQ *q = arg;
+	return q->n == 0;
+}
+
+static void
+flushq(Ctlr *ctlr, uint qid)
+{
+	TXQ *q;
+
+	q = &ctlr->tx[qid];
+	while(q->n > 0){
+		qlock(q);
+		if(!waserror()){
+			tsleep(q, txqempty, q, 10);
+			poperror();
+		}
+		qunlock(q);
+	}
+}
+
+
+static void
+flushcmd(Ctlr *ctlr)
+{
+	flushq(ctlr, 4);
+}
+
 static void
 cmd(Ctlr *ctlr, uint code, uchar *data, int size)
 {
 	qcmd(ctlr, 4, code, data, size, nil);
 }
+
 
 static void
 setled(Ctlr *ctlr, int which, int on, int off)
@@ -1099,9 +1139,6 @@ postboot(Ctlr *ctlr)
 	char *err;
 	int i, q;
 
-	/* main led turn on! (verify that firmware processes commands) */
-	setled(ctlr, 2, 0, 1);
-
 	if((err = niclock(ctlr)) != nil)
 		error(err);
 
@@ -1118,8 +1155,8 @@ postboot(Ctlr *ctlr)
 	}
 
 	ctlr->sched.base = prphread(ctlr, SchedSramAddr);
-	for(i=0; i < ctxlen/4; i++)
-		memwrite(ctlr, ctlr->sched.base + ctxoff + i*4, 0);
+	for(i=0; i < ctxlen; i += 4)
+		memwrite(ctlr, ctlr->sched.base + ctxoff + i, 0);
 
 	prphwrite(ctlr, dramaddr, PCIWADDR(ctlr->sched.s)>>10);
 
@@ -1130,7 +1167,7 @@ postboot(Ctlr *ctlr)
 		prphwrite(ctlr, SchedQChainSel5000, 0xfffef);
 		prphwrite(ctlr, SchedAggrSel5000, 0);
 
-		for(q=0; q<nelem(ctlr->tx); q++){
+		for(q=0; q<20; q++){
 			prphwrite(ctlr, SchedQueueRdptr5000 + q*4, 0);
 			csr32w(ctlr, HbusTargWptr, q << 8);
 
@@ -1162,25 +1199,26 @@ postboot(Ctlr *ctlr)
 
 	/* Mark TX rings (4 EDCA + cmd + 2 HCCA) as active. */
 	for(q=0; q<7; q++){
-		static uchar qid2fifo[] = { 3, 2, 1, 0, 7, 5, 6 };
-		if(ctlr->type != Type4965)
+		if(ctlr->type != Type4965){
+			static uchar qid2fifo[] = { 3, 2, 1, 0, 7, 5, 6 };
 			prphwrite(ctlr, SchedQueueStatus5000 + q*4, 0x00ff0018 | qid2fifo[q]);
-		else
-			prphwrite(ctlr, SchedQueueStatus4965 + q*4, 0x0007fc01 | qid2fifo[q]);
+		} else {
+			static uchar qid2fifo[] = { 3, 2, 1, 0, 4, 5, 6 };
+			prphwrite(ctlr, SchedQueueStatus4965 + q*4, 0x0007fc01 | qid2fifo[q]<<1);
+		}
 	}
 	nicunlock(ctlr);
 
-	if(ctlr->type != Type5150){
-		memset(c, 0, sizeof(c));
-		c[0] = 15;	/* code */
-		c[1] = 0;	/* grup */
-		c[2] = 1;	/* ngroup */
-		c[3] = 1;	/* isvalid */
-		put16(c+4, ctlr->eeprom.crystal);
-		cmd(ctlr, 176, c, 8);
-	}
-
 	if(ctlr->type != Type4965){
+		if(ctlr->type != Type5150){
+			memset(c, 0, sizeof(c));
+			c[0] = 15;	/* code */
+			c[1] = 0;	/* grup */
+			c[2] = 1;	/* ngroup */
+			c[3] = 1;	/* isvalid */
+			put16(c+4, ctlr->eeprom.crystal);
+			cmd(ctlr, 176, c, 8);
+		}
 		put32(c, ctlr->rfcfg.txantmask & 7);
 		cmd(ctlr, 152, c, 4);
 	}
@@ -1211,15 +1249,15 @@ addnode(Ctlr *ctlr, uchar id, uchar *addr)
 		p += 8;		/* tcs */
 		p += 8;		/* rxmic */
 		p += 8;		/* txmic */
-		p += 4;		/* htflags */
-		p += 4;		/* mask */
-		p += 2;		/* disable tid */
-		p += 2;		/* reserved */
-		p++;		/* add ba tid */
-		p++;		/* del ba tid */
-		p += 2;		/* add ba ssn */
-		p += 4;		/* reserved */
 	}
+	p += 4;		/* htflags */
+	p += 4;		/* mask */
+	p += 2;		/* disable tid */
+	p += 2;		/* reserved */
+	p++;		/* add ba tid */
+	p++;		/* del ba tid */
+	p += 2;		/* add ba ssn */
+	p += 4;		/* reserved */
 	cmd(ctlr, 24, c, p - c);
 }
 
@@ -1227,13 +1265,39 @@ void
 rxon(Ether *edev, Wnode *bss)
 {
 	uchar c[Tcmdsize], *p;
+	int filter, flags;
 	Ctlr *ctlr;
 
 	ctlr = edev->ctlr;
+	filter = FilterMulticast | FilterBeacon;
+	if(ctlr->prom){
+		filter |= FilterPromisc;
+		bss = nil;
+	}
+	if(bss != nil){
+		ctlr->channel = bss->channel;
+		memmove(ctlr->bssid, bss->bssid, Eaddrlen);
+		ctlr->aid = bss->aid;
+		if(ctlr->aid != 0){
+			filter |= FilterBSS;
+			filter &= ~FilterBeacon;
+			ctlr->bssnodeid = -1;
+		} else
+			ctlr->bcastnodeid = -1;
+	} else {
+		memmove(ctlr->bssid, edev->bcast, Eaddrlen);
+		ctlr->aid = 0;
+		ctlr->bcastnodeid = -1;
+		ctlr->bssnodeid = -1;
+	}
+	flags = RFlagTSF | RFlagCTSToSelf | RFlag24Ghz | RFlagAuto;
+
+	if(0) print("rxon: bssid %E, aid %x, channel %d, filter %x, flags %x\n",
+		ctlr->bssid, ctlr->aid, ctlr->channel, filter, flags);
+
 	memset(p = c, 0, sizeof(c));
 	memmove(p, edev->ea, 6); p += 8;	/* myaddr */
-	memmove(p, (bss != nil) ? bss->bssid : edev->bcast, 6);
-	p += 8;					/* bssid */
+	memmove(p, ctlr->bssid, 6); p += 8;	/* bssid */
 	memmove(p, edev->ea, 6); p += 8;	/* wlap */
 	*p++ = 3;				/* mode (STA) */
 	*p++ = 0;				/* air (?) */
@@ -1242,14 +1306,13 @@ rxon(Ether *edev, Wnode *bss)
 	p += 2;
 	*p++ = 0xff;				/* ofdm mask (not yet negotiated) */
 	*p++ = 0x0f;				/* cck mask (not yet negotiated) */
-	if(bss != nil)
-		put16(p, bss->aid & ~0xc000);
+	put16(p, ctlr->aid & 0x3fff);
 	p += 2;					/* aid */
-	put32(p, (1<<15)|(1<<30)|(1<<0));	/* flags (TSF | CTS_TO_SELF | 24GHZ) */
+	put32(p, flags);
 	p += 4;
-	put32(p, 8|4|1);			/* filter (NODECRYPT|MULTICAST|PROMISC) */
+	put32(p, filter);
 	p += 4;
-	*p++ = bss != nil ? bss->channel : ctlr->channel;
+	*p++ = ctlr->channel;
 	p++;					/* reserved */
 	*p++ = 0xff;				/* ht single mask */
 	*p++ = 0xff;				/* ht dual mask */
@@ -1261,9 +1324,15 @@ rxon(Ether *edev, Wnode *bss)
 	}
 	cmd(ctlr, 16, c, p - c);
 
-	addnode(ctlr, (ctlr->type != Type4965) ? 15 : 31, edev->bcast);
-	if(bss != nil)
-		addnode(ctlr, 0, bss->bssid);
+	if(ctlr->bcastnodeid == -1){
+		ctlr->bcastnodeid = (ctlr->type != Type4965) ? 15 : 31;
+		addnode(ctlr, ctlr->bcastnodeid, edev->bcast);
+	}
+	if(ctlr->bssnodeid == -1 && bss != nil && ctlr->aid != 0){
+		ctlr->bssnodeid = 0;
+		addnode(ctlr, ctlr->bssnodeid, bss->bssid);
+	}
+	flushcmd(ctlr);
 }
 
 static struct ratetab {
@@ -1271,10 +1340,10 @@ static struct ratetab {
 	uchar	plcp;
 	uchar	flags;
 } ratetab[] = {
-	{   2,  10, 1<<1 },
-	{   4,  20, 1<<1 },
-	{  11,  55, 1<<1 },
-	{  22, 110, 1<<1 },
+	{   2,  10, RFlagCCK },
+	{   4,  20, RFlagCCK },
+	{  11,  55, RFlagCCK },
+	{  22, 110, RFlagCCK },
 	{  12, 0xd, 0 },
 	{  18, 0xf, 0 },
 	{  24, 0x5, 0 },
@@ -1286,32 +1355,80 @@ static struct ratetab {
 	{ 120, 0x3, 0 }
 };
 
+enum {
+	TFlagNeedProtection	= 1<<0,
+	TFlagNeedRTS		= 1<<1,
+	TFlagNeedCTS		= 1<<2,
+	TFlagNeedACK		= 1<<3,
+	TFlagLinkq		= 1<<4,
+	TFlagImmBa		= 1<<6,
+	TFlagFullTxOp		= 1<<7,
+	TFlagBtDis		= 1<<12,
+	TFlagAutoSeq		= 1<<13,
+	TFlagMoreFrag		= 1<<14,
+	TFlagInsertTs		= 1<<16,
+	TFlagNeedPadding	= 1<<20,
+};
+
 static void
-transmit(Wifi *wifi, Wnode *, Block *b)
+transmit(Wifi *wifi, Wnode *wn, Block *b)
 {
 	uchar c[Tcmdsize], *p;
+	Ether *edev;
 	Ctlr *ctlr;
+	Wifipkt *w;
+	int flags, nodeid, rate;
 
-	ctlr = wifi->ether->ctlr;
+	w = (Wifipkt*)b->rp;
+	edev = wifi->ether;
+	ctlr = edev->ctlr;
+
+	qlock(ctlr);
+
+	if(ctlr->prom == 0)
+	if(wn->aid != ctlr->aid
+	|| wn->channel != ctlr->channel
+	|| memcmp(wn->bssid, ctlr->bssid, Eaddrlen) != 0)
+		rxon(edev, wn);
+
+	rate = 0;
+	flags = 0;
+	nodeid = ctlr->bcastnodeid;
+	if((w->a1[0] & 1) == 0){
+		flags |= TFlagNeedACK;
+
+		if(BLEN(b) > 512-4)
+			flags |= TFlagNeedRTS;
+
+		if((w->fc[0] & 0x0c) == 0x08 &&	ctlr->bssnodeid != -1){
+			nodeid = ctlr->bssnodeid;
+			rate = 2; /* BUG: hardcode 11Mbit */
+		}
+
+		if(flags & (TFlagNeedRTS|TFlagNeedCTS)){
+			if(ctlr->type != Type4965){
+				flags &= ~(TFlagNeedRTS|TFlagNeedCTS);
+				flags |= TFlagNeedProtection;
+			} else
+				flags |= TFlagFullTxOp;
+		}
+	}
+	qunlock(ctlr);
 
 	memset(p = c, 0, sizeof(c));
 	put16(p, BLEN(b));
 	p += 2;
 	p += 2;		/* lnext */
-	put32(p, 0);	/* flags */
+	put32(p, flags);
 	p += 4;
 	put32(p, 0);
 	p += 4;		/* scratch */
 
-	/* BUG: hardcode 11Mbit */
-	*p++ = ratetab[2].plcp;			/* plcp */
-	*p++ = ratetab[2].flags | (1<<6);	/* rflags */
+	*p++ = ratetab[rate].plcp;
+	*p++ = ratetab[rate].flags | (1<<6);
 
 	p += 2;		/* xflags */
-
-	/* BUG: we always use broadcast node! */
-	*p++ = (ctlr->type != Type4965) ? 15 : 31;
-
+	*p++ = nodeid;
 	*p++ = 0;	/* security */
 	*p++ = 0;	/* linkq */
 	p++;		/* reserved */
@@ -1379,11 +1496,7 @@ setoptions(Ether *edev)
 	int i;
 
 	ctlr = edev->ctlr;
-	ctlr->channel = 3;
 	for(i = 0; i < edev->nopt; i++){
-		if(strncmp(edev->opt[i], "channel=", 8) == 0)
-			ctlr->channel = atoi(edev->opt[i]+8);
-		else
 		if(strncmp(edev->opt[i], "essid=", 6) == 0){
 			snprint(buf, sizeof(buf), "essid %s", edev->opt[i]+6);
 			if(!waserror()){
@@ -1395,8 +1508,74 @@ setoptions(Ether *edev)
 }
 
 static void
+iwlpromiscuous(void *arg, int on)
+{
+	Ether *edev;
+	Ctlr *ctlr;
+
+	edev = arg;
+	ctlr = edev->ctlr;
+	qlock(ctlr);
+	ctlr->prom = on;
+	rxon(edev, ctlr->wifi->bss);
+	qunlock(ctlr);
+}
+
+static void
+iwlproc(void *arg)
+{
+	Ether *edev;
+	Ctlr *ctlr;
+	Wifi *wifi;
+	Wnode *bss;
+
+	edev = arg;
+	ctlr = edev->ctlr;
+	wifi = ctlr->wifi;
+
+	for(;;){
+		/* hop channels for catching beacons */
+		setled(ctlr, 2, 5, 5);
+		while(wifi->bss == nil){
+			qlock(ctlr);
+			if(wifi->bss != nil){
+				qunlock(ctlr);
+				break;
+			}
+			ctlr->channel = 1 + ctlr->channel % 11;
+			ctlr->aid = 0;
+			rxon(edev, nil);
+			qunlock(ctlr);
+			tsleep(&up->sleep, return0, 0, 1000);
+		}
+
+		/* wait for association */
+		setled(ctlr, 2, 10, 10);
+		while((bss = wifi->bss) != nil){
+			if(bss->aid != 0)
+				break;
+			tsleep(&up->sleep, return0, 0, 1000);
+		}
+
+		if(bss == nil)
+			continue;
+
+		/* wait for disassociation */
+		edev->link = 1;
+		setled(ctlr, 2, 0, 1);
+		while((bss = wifi->bss) != nil){
+			if(bss->aid == 0)
+				break;
+			tsleep(&up->sleep, return0, 0, 1000);
+		}
+		edev->link = 0;
+	}
+}
+
+static void
 iwlattach(Ether *edev)
 {
+	char name[32];
 	FWImage *fw;
 	Ctlr *ctlr;
 	char *err;
@@ -1420,10 +1599,10 @@ iwlattach(Ether *edev)
 			ctlr->wifi = wifiattach(edev, transmit);
 
 		if(ctlr->fw == nil){
-			fw = readfirmware(ctlrtype[ctlr->type].fwname);
+			fw = readfirmware(fwname[ctlr->type]);
 			print("#l%d: firmware: %s, rev %ux, build %ud, size %ux+%ux+%ux+%ux+%ux\n",
 				edev->ctlrno,
-				ctlrtype[ctlr->type].fwname,
+				fwname[ctlr->type],
 				fw->rev, fw->build,
 				fw->main.text.size, fw->main.data.size,
 				fw->init.text.size, fw->init.data.size,
@@ -1502,18 +1681,20 @@ iwlattach(Ether *edev)
 		if((err = niclock(ctlr)) != nil)
 			error(err);
 
-		prphwrite(ctlr, SchedTxFact5000, 0);
+		if(ctlr->type != Type4965)
+			prphwrite(ctlr, SchedTxFact5000, 0);
+		else
+			prphwrite(ctlr, SchedTxFact4965, 0);
 
 		csr32w(ctlr, FhKwAddr, PCIWADDR(ctlr->kwpage) >> 4);
 
-		for(q=0; q<nelem(ctlr->tx); q++)
-			if(q < 15 || ctlr->type != Type4965)
-				csr32w(ctlr, FhCbbcQueue + q*4, PCIWADDR(ctlr->tx[q].d) >> 8);
+		for(q = (ctlr->type != Type4965) ? 19 : 15; q >= 0; q--)
+			csr32w(ctlr, FhCbbcQueue + q*4, PCIWADDR(ctlr->tx[q].d) >> 8);
+
 		nicunlock(ctlr);
 
-		for(i=0; i<8; i++)
-			if(i < 7 || ctlr->type != Type4965)
-				csr32w(ctlr, FhTxConfig + i*32, FhTxConfigDmaEna | FhTxConfigDmaCreditEna);
+		for(i = (ctlr->type != Type4965) ? 7 : 6; i >= 0; i--)
+			csr32w(ctlr, FhTxConfig + i*32, FhTxConfigDmaEna | FhTxConfigDmaCreditEna);
 
 		csr32w(ctlr, UcodeGp1Clr, UcodeGp1RfKill);
 		csr32w(ctlr, UcodeGp1Clr, UcodeGp1CmdBlocked);
@@ -1528,12 +1709,16 @@ iwlattach(Ether *edev)
 		bootfirmware(ctlr);
 		postboot(ctlr);
 
+		ctlr->bcastnodeid = -1;
+		ctlr->bssnodeid = -1;
+		ctlr->channel = 1;
+		ctlr->aid = 0;
+
 		setoptions(edev);
 
-		rxon(edev, nil);
+		snprint(name, sizeof(name), "#l%diwl", edev->ctlrno);
+		kproc(name, iwlproc, edev);
 
-		edev->prom = 1;
-		edev->link = 1;
 		ctlr->attached = 1;
 	}
 	qunlock(ctlr);
@@ -1619,9 +1804,10 @@ receive(Ctlr *ctlr)
 		case 192:	/* rx phy */
 			break;
 		case 195:	/* rx done */
-			if(d + 60 > b->lim)
+			if(d + 2 > b->lim)
 				break;
-			d += 60;
+			d += d[1];
+			d += 56;
 		case 193:	/* mpdu rx done */
 			if(d + 4 > b->lim)
 				break;
@@ -1705,6 +1891,8 @@ iwlpci(void)
 		switch(pdev->did){
 		default:
 			continue;
+		case 0x4229:	/* WiFi Link 4965 */
+		case 0x4230:	/* WiFi Link 4965 */
 		case 0x4236:	/* WiFi Link 5300 AGN */
 		case 0x4237:	/* Wifi Link 5100 AGN */
 			break;
@@ -1739,7 +1927,7 @@ iwlpci(void)
 		ctlr->pdev = pdev;
 		ctlr->type = (csr32r(ctlr, Rev) >> 4) & 0xF;
 
-		if(ctlrtype[ctlr->type].fwname == nil){
+		if(fwname[ctlr->type] == nil){
 			print("iwl: unsupported controller type %d\n", ctlr->type);
 			vunmap(mem, pdev->mem[0].size);
 			free(ctlr);
@@ -1783,7 +1971,7 @@ again:
 	edev->attach = iwlattach;
 	edev->ifstat = iwlifstat;
 	edev->ctl = iwlctl;
-	edev->promiscuous = nil;
+	edev->promiscuous = iwlpromiscuous;
 	edev->multicast = nil;
 	edev->mbps = 10;
 
