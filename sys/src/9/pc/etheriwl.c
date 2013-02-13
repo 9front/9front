@@ -327,6 +327,7 @@ struct Ctlr {
 	int bssnodeid;
 
 	/* current receiver settings */
+	uchar bssid[Eaddrlen];
 	int channel;
 	int prom;
 	int aid;
@@ -1264,43 +1265,39 @@ void
 rxon(Ether *edev, Wnode *bss)
 {
 	uchar c[Tcmdsize], *p;
-	Ctlr *ctlr;
-	uchar *bssid;
 	int filter, flags;
+	Ctlr *ctlr;
 
 	ctlr = edev->ctlr;
-	bssid = edev->bcast;
 	filter = FilterMulticast | FilterBeacon;
-	if(ctlr->prom)
+	if(ctlr->prom){
 		filter |= FilterPromisc;
+		bss = nil;
+	}
 	if(bss != nil){
 		ctlr->channel = bss->channel;
-		if(bss->aid != 0){
-			bssid = bss->bssid;
+		memmove(ctlr->bssid, bss->bssid, Eaddrlen);
+		ctlr->aid = bss->aid;
+		if(ctlr->aid != 0){
 			filter |= FilterBSS;
 			filter &= ~FilterBeacon;
-			ctlr->aid = bss->aid;
-
 			ctlr->bssnodeid = -1;
-		} else {
-			filter &= ~FilterBSS;
-			filter |= FilterBeacon;
-			ctlr->aid = 0;
-	
+		} else
 			ctlr->bcastnodeid = -1;
-		}
 	} else {
+		memmove(ctlr->bssid, edev->bcast, Eaddrlen);
+		ctlr->aid = 0;
 		ctlr->bcastnodeid = -1;
 		ctlr->bssnodeid = -1;
 	}
 	flags = RFlagTSF | RFlagCTSToSelf | RFlag24Ghz | RFlagAuto;
 
 	if(0) print("rxon: bssid %E, aid %x, channel %d, filter %x, flags %x\n",
-		bssid, ctlr->aid, ctlr->channel, filter, flags);
+		ctlr->bssid, ctlr->aid, ctlr->channel, filter, flags);
 
 	memset(p = c, 0, sizeof(c));
 	memmove(p, edev->ea, 6); p += 8;	/* myaddr */
-	memmove(p, bssid, 6); p += 8;		/* bssid */
+	memmove(p, ctlr->bssid, 6); p += 8;	/* bssid */
 	memmove(p, edev->ea, 6); p += 8;	/* wlap */
 	*p++ = 3;				/* mode (STA) */
 	*p++ = 0;				/* air (?) */
@@ -1335,6 +1332,7 @@ rxon(Ether *edev, Wnode *bss)
 		ctlr->bssnodeid = 0;
 		addnode(ctlr, ctlr->bssnodeid, bss->bssid);
 	}
+	flushcmd(ctlr);
 }
 
 static struct ratetab {
@@ -1386,7 +1384,11 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 	ctlr = edev->ctlr;
 
 	qlock(ctlr);
-	if(wn != nil && (wn->aid != ctlr->aid || wn->channel != ctlr->channel))
+
+	if(ctlr->prom == 0)
+	if(wn->aid != ctlr->aid
+	|| wn->channel != ctlr->channel
+	|| memcmp(wn->bssid, ctlr->bssid, Eaddrlen) != 0)
 		rxon(edev, wn);
 
 	rate = 0;
@@ -1515,10 +1517,7 @@ iwlpromiscuous(void *arg, int on)
 	ctlr = edev->ctlr;
 	qlock(ctlr);
 	ctlr->prom = on;
-	if(ctlr->prom)
-		rxon(edev, nil);
-	else
-		rxon(edev, ctlr->wifi->bss);
+	rxon(edev, ctlr->wifi->bss);
 	qunlock(ctlr);
 }
 

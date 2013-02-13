@@ -345,7 +345,8 @@ wifietheroq(Wifi *wifi, Block *b)
 	Wnode *bss;
 	SNAP *s;
 
-	if(BLEN(b) < ETHERHDRSIZE){
+	bss = wifi->bss;
+	if(bss == nil || BLEN(b) < ETHERHDRSIZE){
 		freeb(b);
 		return;
 	}
@@ -357,8 +358,7 @@ wifietheroq(Wifi *wifi, Block *b)
 	w = (Wifipkt*)b->rp;
 	w->fc[0] = 0x08;	/* data */
 	w->fc[1] = 0x01;	/* STA->AP */
-	bss = wifi->bss;
-	memmove(w->a1, bss != nil ? bss->bssid : wifi->ether->bcast, Eaddrlen);
+	memmove(w->a1, bss->bssid, Eaddrlen);
 	memmove(w->a2, e.s, Eaddrlen);
 	memmove(w->a3, e.d, Eaddrlen);
 
