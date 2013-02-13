@@ -812,7 +812,7 @@ dwrite(Req *req)
 		}
 		switch(lun->phase){
 		case Pcmd:
-			if(count != 6 && count != 10){
+			if(count != 6 && count != 10 && count != 12 && count != 16){
 				respond(req, "bad command length");
 				break;
 			}
