@@ -1263,8 +1263,10 @@ postboot(Ctlr *ctlr)
 				if((b = ctlr->calib.cmd[i]) == nil)
 					continue;
 				b->ref++;	/* dont free on command completion */
-				if((err = qcmd(ctlr, 4, 176, nil, 0, b)) != nil)
+				if((err = qcmd(ctlr, 4, 176, nil, 0, b)) != nil){
+					freeb(b);
 					return err;
+				}
 				if((err = flushq(ctlr, 4)) != nil)
 					return err;
 			}
@@ -1451,7 +1453,7 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 
 	ilock(ctlr);
 	q = &ctlr->tx[qid];
-	while(!ctlr->broken && q->n >= Ntx){
+	while(q->n >= Ntx && !ctlr->broken){
 		iunlock(ctlr);
 		qlock(q);
 		if(!waserror()){
@@ -1662,7 +1664,7 @@ rxon(Ether *edev, Wnode *bss)
 		p += 2;				/* reserved */
 	}
 	if((err = cmd(ctlr, 16, c, p - c)) != nil){
-		print("rxon error: %s\n", err);
+		print("rxon: %s\n", err);
 		return;
 	}
 
@@ -1714,11 +1716,12 @@ enum {
 static void
 transmit(Wifi *wifi, Wnode *wn, Block *b)
 {
+	int flags, nodeid, rate;
 	uchar c[Tcmdsize], *p;
 	Ether *edev;
 	Ctlr *ctlr;
 	Wifipkt *w;
-	int flags, nodeid, rate;
+	char *err;
 
 	w = (Wifipkt*)b->rp;
 	edev = wifi->ether;
@@ -1794,7 +1797,10 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 	put16(p, 0);	/* timeout */
 	p += 2;
 	p += 2;		/* txop */
-	qcmd(ctlr, 0, 28, c, p - c, b);
+	if((err = qcmd(ctlr, 0, 28, c, p - c, b)) != nil){
+		print("transmit: %s\n", err);
+		freeb(b);
+	}
 }
 
 static long
