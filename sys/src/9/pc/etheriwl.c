@@ -1209,7 +1209,7 @@ reset(Ctlr *ctlr)
 static char*
 postboot(Ctlr *ctlr)
 {
-	uint ctxoff, ctxlen, dramaddr, txfact;
+	uint ctxoff, ctxlen, dramaddr;
 	char *err;
 	int i, q;
 
@@ -1220,12 +1220,10 @@ postboot(Ctlr *ctlr)
 		dramaddr = SchedDramAddr5000;
 		ctxoff = SchedCtxOff5000;
 		ctxlen = SchedCtxLen5000;
-		txfact = SchedTxFact5000;
 	} else {
 		dramaddr = SchedDramAddr4965;
 		ctxoff = SchedCtxOff4965;
 		ctxlen = SchedCtxLen4965;
-		txfact = SchedTxFact4965;
 	}
 
 	ctlr->sched.base = prphread(ctlr, SchedSramAddr);
@@ -1251,6 +1249,9 @@ postboot(Ctlr *ctlr)
 		}
 		/* Enable interrupts for all our 20 queues. */
 		prphwrite(ctlr, SchedIntrMask5000, 0xfffff);
+
+		/* Identify TX FIFO rings (0-7). */
+		prphwrite(ctlr, SchedTxFact5000, 0xff);
 	} else {
 		/* Disable chain mode for all our 16 queues. */
 		prphwrite(ctlr, SchedQChainSel4965, 0);
@@ -1266,10 +1267,10 @@ postboot(Ctlr *ctlr)
 		}
 		/* Enable interrupts for all our 16 queues. */
 		prphwrite(ctlr, SchedIntrMask4965, 0xffff);
-	}
 
-	/* Identify TX FIFO rings (0-7). */
-	prphwrite(ctlr, txfact, 0xff);
+		/* Identify TX FIFO rings (0-7). */
+		prphwrite(ctlr, SchedTxFact4965, 0xff);
+	}
 
 	/* Mark TX rings (4 EDCA + cmd + 2 HCCA) as active. */
 	for(q=0; q<7; q++){
