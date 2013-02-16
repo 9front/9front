@@ -1230,15 +1230,6 @@ postboot(Ctlr *ctlr)
 				return err;
 		}
 
-		if(ctlr->type == Type6005 || ctlr->type == Type6050){
-			/* runtime DC calibration */
-			memset(c, 0, sizeof(c));
-			put32(c + 0*(5*4) + 0, 0xffffffff);
-			put32(c + 0*(5*4) + 4, 1<<1);
-			if((err = cmd(ctlr, 101, c, (((2*(5*4))+4)*2)+4)) != nil)
-				return err;
-		}
-
 		if(ctlr->calib.done == 0){
 			/* query calibration (init firmware) */
 			memset(c, 0, sizeof(c));
@@ -1277,6 +1268,15 @@ postboot(Ctlr *ctlr)
 					return err;
 				}
 				if((err = flushq(ctlr, 4)) != nil)
+					return err;
+			}
+
+			if(ctlr->type == Type6005 || ctlr->type == Type6050){
+				/* runtime DC calibration */
+				memset(c, 0, sizeof(c));
+				put32(c + 0*(5*4) + 0, 0xffffffff);
+				put32(c + 0*(5*4) + 4, 1<<1);
+				if((err = cmd(ctlr, 101, c, (((2*(5*4))+4)*2)+4)) != nil)
 					return err;
 			}
 
