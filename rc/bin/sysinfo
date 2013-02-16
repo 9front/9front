@@ -1,51 +1,52 @@
 #!/bin/rc
 rfork e
 
-fn logprog{ 
-        echo % `{echo $"* | sed 's/#/''#''/g'} 
-        $* 
-        echo 
+fn logprog{
+	echo % `{echo $"* | sed 's/#/''#''/g'}
+	$*
+	echo
+}
 
-} 
+fn work{
+	echo '% cd ''#ec''; for(i in *){echo $i ''='' `{cat $i}}'
+	cd '#ec'; for(i in *){echo $i '=' `{cat $i}}
+	echo
+	logprog cat '#P/archctl'
+	logprog cat '#P/irqalloc'
+	logprog cat '#P/ioalloc'
+	logprog cat '#c/config'
+	logprog cat '#c/swap'
+	logprog cat '#c/sysstat'
+	logprog awk '/^Plan 9$/{p=1}
+/^init: starting/{exit}
+{if(p)print}' '#c/kmesg'
+	logprog pci -v
+	logprog aux/icanhasmsi
+	logprog aux/pcmcia
+	logprog cat '#u/usb/ctl'
+	logprog cat '#S/sdctl'
+	for(i in '#S'/sd[A-Z][0-9]*/ctl)
+		logprog cat $i
+	for(i in '#l0/ether0' '#l1/ether1' '#l2/ether2' '#l3/ether3'){
+		if(test -e $i){
+			logprog cat $i/addr
+			logprog cat $i/stats
+			logprog cat $i/ifstats
+		}
+	}
+	logprog cat '#v/vgactl'
+	echo '@{rfork n; aux/realemu; aux/vga -p}'
+	@{rfork n; aux/realemu; aux/vga -p}
+	logprog xd -x1 '#r/nvram'
+	logprog cat '#A/audiostat'
+	logprog cat '#A/volume'
+	logprog cat /mnt/apm/ctl
+}
 
-fn work{ 
-        echo '% cd ''#ec''; for(i in *){echo $i ''='' `{cat $i}}' 
-        cd '#ec'; for(i in *){echo $i '=' `{cat $i}} 
-        echo 
-        logprog cat '#P/archctl' 
-        logprog cat '#P/irqalloc' 
-        logprog cat '#P/ioalloc' 
-        logprog cat '#c/config' 
-        logprog cat '#c/swap' 
-        logprog cat '#c/sysstat' 
-        logprog awk '/^Plan 9$/{p=1} 
-/^init: starting/{exit} 
-{if(p)print}' '#c/kmesg' 
-        logprog pci -v 
-        logprog aux/icanhasmsi 
-        logprog aux/pcmcia 
-        logprog cat '#u/usb/ctl' 
-        logprog cat '#S/sdctl' 
-        for(i in '#S'/sd[A-Z][0-9]*/ctl) 
-                logprog cat $i 
-        for(i in '#l/ether'*){ 
-                logprog cat $i/addr 
-                logprog cat $i/stats 
-                logprog cat $i/ifstats 
-        } 
-        logprog cat '#v/vgactl' 
-        echo '@{rfork n; aux/realemu; aux/vga -p}' 
-        @{rfork n; aux/realemu; aux/vga -p} 
-        logprog xd -x1 '#r/nvram' 
-        logprog cat '#A/audiostat' 
-        logprog cat '#A/volume' 
-        logprog cat /mnt/apm/ctl 
-} 
-
-switch($1){ 
-case -m 
-        {echo Subject: `{cat '#P/cputype'}; work} >[2=1] | 
-                user=/dev/null upas/smtp 9front.org $user hardware@9front.org 
-case * 
-        work
+switch($1){
+case -m
+	{echo Subject: `{cat '#P/cputype'}; work} >[2=1] |
+		user=/dev/null upas/smtp 9front.org $user hardware@9front.org
+case *
+	work
 }
