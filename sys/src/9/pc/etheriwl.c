@@ -69,6 +69,7 @@ enum {
 
 	EepromIo	= 0x02c,	/* EEPROM i/o register */
 	EepromGp	= 0x030,
+		
 	OtpromGp	= 0x034,
 		DevSelOtp	= 1<<16,
 		RelativeAccess	= 1<<17,
@@ -105,6 +106,7 @@ enum {
 	AnaPll		= 0x20c,
 
 	Dbghpetmem	= 0x240,
+	Dbglinkpwrmgmt	= 0x250,
 
 	MemRaddr	= 0x40c,
 	MemWaddr	= 0x410,
@@ -355,6 +357,9 @@ struct Ctlr {
 	} rfcfg;
 
 	struct {
+		int	otp;
+		uint	off;
+
 		uchar	version;
 		uchar	type;
 		u16int	volt;
@@ -542,10 +547,11 @@ static char*
 eepromread(Ctlr *ctlr, void *data, int count, uint off)
 {
 	uchar *out = data;
-	u32int w;
+	u32int w, s;
 	int i;
 
 	w = 0;
+	off += ctlr->eeprom.off;
 	for(; count > 0; count -= 2, off++){
 		csr32w(ctlr, EepromIo, off << 2);
 		for(i=0; i<10; i++){
@@ -556,6 +562,13 @@ eepromread(Ctlr *ctlr, void *data, int count, uint off)
 		}
 		if(i == 10)
 			return "eepromread: timeout";
+		if(ctlr->eeprom.otp){
+			s = csr32r(ctlr, OtpromGp);
+			if(s & EccUncorrStts)
+				return "eepromread: otprom ecc error";
+			if(s & EccCorrStts)
+				csr32w(ctlr, OtpromGp, s);
+		}
 		*out++ = w >> 16;
 		if(count > 1)
 			*out++ = w >> 24;
@@ -728,6 +741,65 @@ poweroff(Ctlr *ctlr)
 	ctlr->power = 0;
 }
 
+static char*
+rominit(Ctlr *ctlr)
+{
+	uchar buf[2];
+	char *err;
+	uint off;
+	int i;
+
+	ctlr->eeprom.otp = 0;
+	ctlr->eeprom.off = 0;
+	if(ctlr->type < Type1000 || (csr32r(ctlr, OtpromGp) & DevSelOtp) == 0)
+		return nil;
+
+	/* Wait for clock stabilization before accessing prph. */
+	if((err = clockwait(ctlr)) != nil)
+		return err;
+
+	if((err = niclock(ctlr)) != nil)
+		return err;
+	prphwrite(ctlr, ApmgPs, prphread(ctlr, ApmgPs) | ResetReq);
+	delay(5);
+	prphwrite(ctlr, ApmgPs, prphread(ctlr, ApmgPs) & ~ResetReq);
+	nicunlock(ctlr);
+
+	/* Set auto clock gate disable bit for HW with OTP shadow RAM. */
+	if(ctlr->type != Type1000)
+		csr32w(ctlr, Dbglinkpwrmgmt, csr32r(ctlr, Dbglinkpwrmgmt) | (1<<31));
+
+	csr32w(ctlr, EepromGp, csr32r(ctlr, EepromGp) & ~0x00000180);
+
+	/* Clear ECC status. */
+	csr32w(ctlr, OtpromGp, csr32r(ctlr, OtpromGp) | (EccCorrStts | EccUncorrStts));
+
+	ctlr->eeprom.otp = 1;
+	if(ctlr->type != Type1000)
+		return nil;
+
+	/* Switch to absolute addressing mode. */
+	csr32w(ctlr, OtpromGp, csr32r(ctlr, OtpromGp) & ~RelativeAccess);
+
+	/*
+	 * Find the block before last block (contains the EEPROM image)
+	 * for HW without OTP shadow RAM.
+	 */
+	off = 0;
+	for(i=0; i<3; i++){
+		if((err = eepromread(ctlr, buf, 2, off)) != nil)
+			return err;
+		if(get16(buf) == 0)
+			break;
+		off = get16(buf);
+	}
+	if(i == 0 || i >= 3)
+		return "rominit: missing eeprom image";
+
+	ctlr->eeprom.off = off+1;
+	return nil;
+}
+
 static int
 iwlinit(Ether *edev)
 {
@@ -747,6 +819,8 @@ iwlinit(Ether *edev)
 	}
 	if((err = eepromlock(ctlr)) != nil)
 		goto Err;
+	if((err = rominit(ctlr)) != nil)
+		goto Err2;
 	if((err = eepromread(ctlr, edev->ea, sizeof(edev->ea), 0x15)) != nil){
 		eepromunlock(ctlr);
 		goto Err;
