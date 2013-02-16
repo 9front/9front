@@ -1230,6 +1230,15 @@ postboot(Ctlr *ctlr)
 				return err;
 		}
 
+		if(ctlr->type == Type6005 || ctlr->type == Type6050){
+			/* runtime DC calibration */
+			memset(c, 0, sizeof(c));
+			put32(c + 0*(5*4) + 0, 0xffffffff);
+			put32(c + 0*(5*4) + 4, 1<<1);
+			if((err = cmd(ctlr, 101, c, (((2*(5*4))+4)*2)+4)) != nil)
+				return err;
+		}
+
 		if(ctlr->calib.done == 0){
 			/* query calibration (init firmware) */
 			memset(c, 0, sizeof(c));
@@ -2150,6 +2159,7 @@ iwlpci(void)
 		case 0x4230:	/* WiFi Link 4965 */
 		case 0x4236:	/* WiFi Link 5300 AGN */
 		case 0x4237:	/* Wifi Link 5100 AGN */
+		case 0x0085:	/* Centrino Advanced-N 6205 */
 		case 0x422b:	/* Centrino Ultimate-N 6300 */
 			break;
 		}
