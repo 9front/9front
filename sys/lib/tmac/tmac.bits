@@ -1,6 +1,6 @@
 .ds Bf b		\" default format; use i for icons and faces
 .ds Bn /tmp/btroff\n($$	\" temporary file, reused on each macro call
-.ds Bp /usr/lib/btroff	\" bitmap filter
+.ds Bp /sys/lib/btroff	\" bitmap filter
 .de BM
 .if \\n(.$=1 .ds Bf \\$1
 .if \\n(.$=2 \{.	\" copy request, perhaps diverted

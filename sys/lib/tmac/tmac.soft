@@ -631,7 +631,7 @@ the
 .UX
 operating system
 ..
-.so /usr/lib/tmac/tmac.sdisp
+.so /sys/lib/tmac/tmac.sdisp
 .de KF
 .if \\n(KK=0 .GS
 .nr KK 1
