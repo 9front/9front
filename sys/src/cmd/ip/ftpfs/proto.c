@@ -502,7 +502,7 @@ strpunct(char *p)
  *  decode a Unix or Plan 9 directory listing
  */
 static Dir*
-crackdir(char *p, String **remname)
+crackdir(char *p, String **remname, int nlst)
 {
 	char *field[15];
 	char *dfield[4];
@@ -513,9 +513,15 @@ crackdir(char *p, String **remname)
 
 	memset(&d, 0, sizeof(d));
 
-	n = getfields(p, field, 15, 1, " \t");
-	if(n > 2 && strcmp(field[n-2], "->") == 0)
-		n -= 2;
+	if(nlst != 0){
+		field[0] = p;
+		n = 1;
+	} else {
+		n = getfields(p, field, 15, 1, " \t");
+		if(n > 2 && strcmp(field[n-2], "->") == 0)
+			n -= 2;
+	}
+
 	switch(os){
 	case TSO:
 		cp = strchr(field[0], '.');
@@ -786,7 +792,7 @@ readdir(Node *node)
 				n--;
 			line[n - 1] = 0;
 
-			d = crackdir(line, &remname);
+			d = crackdir(line, &remname, (usenlist || usenlst));
 			if(d == nil)
 				continue;
 			files++;
