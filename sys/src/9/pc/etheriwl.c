@@ -1725,7 +1725,7 @@ enum {
 static void
 transmit(Wifi *wifi, Wnode *wn, Block *b)
 {
-	int flags, nodeid, rate;
+	int flags, nodeid, rate, ant;
 	uchar c[Tcmdsize], *p;
 	Ether *edev;
 	Ctlr *ctlr;
@@ -1773,6 +1773,11 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 	}
 	qunlock(ctlr);
 
+	/* select first available antenna */
+	ant = ctlr->rfcfg.txantmask & 7;
+	ant |= (ant == 0);
+	ant = ((ant - 1) & ant) ^ ant;
+
 	memset(p = c, 0, sizeof(c));
 	put16(p, BLEN(b));
 	p += 2;
@@ -1783,7 +1788,7 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 	p += 4;		/* scratch */
 
 	*p++ = ratetab[rate].plcp;
-	*p++ = ratetab[rate].flags | (1<<6);
+	*p++ = ratetab[rate].flags | (ant<<6);
 
 	p += 2;		/* xflags */
 	*p++ = nodeid;
