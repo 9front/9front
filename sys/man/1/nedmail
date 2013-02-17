@@ -185,19 +185,20 @@ but allow the user to type in text to be included
 with the forwarded message.
 .TP
 .B p
-Print message.	An interrupt stops the printing.
+Print message.
+An interrupt stops the printing.
 .TP
 .BI r " args
 Reply to the sender of the message.
 .I Marshal
 is used to format the reply.
-If and optional
-.I Args
+If any optional
+.I args
 are specified, they are added to the command line to
 .I marshal
 before the recipient's address.
 .TP
-.B R " args 
+.BI R " args 
 Like
 .B r
 but with the original message included as an attachment.
