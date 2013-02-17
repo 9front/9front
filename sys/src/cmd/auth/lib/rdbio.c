@@ -33,26 +33,26 @@ rdbio(char *file, char *user, Acctbio *a)
 
 	memset(a, 0, sizeof(Acctbio));
 	b = Bopen(file, OREAD);
-	if(b == 0)
-		return;
-	while(p = Brdline(b, '\n')){
-		p[Blinelen(b)-1] = 0;
-		n = getfields(p, field, nelem(field), 0, "|");
-		if(n < 4)
-			continue;
-		if(strcmp(field[0], user) != 0)
-			continue;
+	if(b != 0){
+		while(p = Brdline(b, '\n')){
+			p[Blinelen(b)-1] = 0;
+			n = getfields(p, field, nelem(field), 0, "|");
+			if(n < 4)
+				continue;
+			if(strcmp(field[0], user) != 0)
+				continue;
 
-		clrbio(a);
+			clrbio(a);
 
-		a->postid = strdup(field[1]);
-		a->name = strdup(field[2]);
-		a->dept = strdup(field[3]);
-		if(n-4 >= Nemail)
-			n = Nemail-4;
-		for(i = 4; i < n; i++)
-			a->email[i-4] = strdup(field[i]);
+			a->postid = strdup(field[1]);
+			a->name = strdup(field[2]);
+			a->dept = strdup(field[3]);
+			if(n-4 >= Nemail)
+				n = Nemail-4;
+			for(i = 4; i < n; i++)
+				a->email[i-4] = strdup(field[i]);
+		}
+		Bterm(b);
 	}
 	a->user = strdup(user);
-	Bterm(b);
 }
