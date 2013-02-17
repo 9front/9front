@@ -667,7 +667,7 @@ crackdir(char *p, String **remname, int nlst)
 	case Plan9:
 	default:
 		switch(n){
-		case 8:		/* ls -l */
+		case 8:		/* ls -lg */
 			s = s_copy(field[7]);
 			d.uid = field[2];
 			d.gid = d.uid;
@@ -678,7 +678,7 @@ crackdir(char *p, String **remname, int nlst)
 			else
 				d.atime = cracktime(field[4], field[5], field[6], 0);
 			break;
-		case 9:		/* ls -lg */
+		case 9:		/* ls -l */
 			s = s_copy(field[8]);
 			d.uid = field[2];
 			d.gid = field[3];
