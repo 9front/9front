@@ -268,7 +268,7 @@ read(void *f, void *data, int len)
 			break;
 		case Tftp_ERROR:
 			print(t->pkt+4);
-			print(crnl);
+			print("\n");
 		default:
 			t->eof = 1;
 			return -1;
@@ -336,27 +336,27 @@ start(void *)
 	Tftp t;
 
 	if(pxeinit()){
-		print("pxe init\r\n");
+		print("pxe init\n");
 		halt();
 	}
 	if(getip(yip, sip, gip, mac)){
-		print("bad dhcp\r\n");
+		print("bad dhcp\n");
 		halt();
 	}
 	memmove(path, "/cfg/pxe/", 9);
 	memmove(path+9, mac, 13);
 	if(tftpopen(f = &t, path, yip, sip, gip))
 		if(tftpopen(f, "/cfg/pxe/default", yip, sip, gip)){
-			print("no config\r\n");
+			print("no config\n");
 			f = 0;
 		}
 	for(;;){
 		kern = configure(f, path); f = 0;
 		if(tftpopen(&t, kern, yip, sip, gip)){
-			print("not found\r\n");
+			print("not found\n");
 			continue;
 		}
 		print(bootkern(&t));
-		print(crnl);
+		print("\n");
 	}
 }

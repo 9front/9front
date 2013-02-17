@@ -38,9 +38,11 @@ memcmp(void *src, void *dst, int n)
 	uchar *s = src;
 	int r = 0;
 
-	while(n-- > 0)
-		if(r = (*d++ - *s++))
+	while(n-- > 0){
+		r = *d++ - *s++;
+		if(r != 0)
 			break;
+	}
 
 	return r;
 }
@@ -50,7 +52,7 @@ strlen(char *s)
 {
 	char *p = s;
 
-	while(*p)
+	while(*p != '\0')
 		p++;
 
 	return p - s;
@@ -59,18 +61,21 @@ strlen(char *s)
 char*
 strchr(char *s, int c)
 {
-	for(; *s; s++)
+	for(; *s != 0; s++)
 		if(*s == c)
 			return s;
 
-	return 0;
+	return nil;
 }
 
 void
 print(char *s)
 {
-	while(*s)
+	while(*s != 0){
+		if(*s == '\n')
+			putc('\r');
 		putc(*s++);
+	}
 }
 
 int
@@ -103,10 +108,10 @@ readline(void *f, char buf[64])
 
 	p = buf;
 	do{
-		if(!f)
+		if(f == nil)
 			putc('>');
 		for(;;){
-			if(!f){
+			if(f == nil){
 				putc(*p = getc());
 				if(*p == '\r')
 					putc('\n');
@@ -116,12 +121,12 @@ readline(void *f, char buf[64])
 				}
 			}else if(read(f, p, 1) <= 0)
 				return 0;
-			if(strchr(crnl, *p))
+			if(strchr("\r\n", *p) != nil)
 				break;
-			if(p == buf && strchr(white, *p))
+			if(p == buf && strchr(white, *p) != nil)
 				continue;	/* whitespace on start of line */
 			if(p >= buf + 64-1){
-				if(!f){
+				if(f == nil){
 					putc('\b');
 					putc(' ');
 					putc('\b');
@@ -171,7 +176,7 @@ getconf(char *s, char *buf)
 		for(e = p+1; e < confend; e++)
 			if(*e == '\n')
 				break;
-		if(!memcmp(p, s, n)){
+		if(memcmp(p, s, n) == 0){
 			p += n;
 			n = e - p;
 			buf[n] = 0;
@@ -179,7 +184,7 @@ getconf(char *s, char *buf)
 			return buf;
 		}
 	}
-	return 0;
+	return nil;
 }
 
 static int
@@ -194,7 +199,7 @@ delconf(char *s)
 				break;
 			}
 		}
-		if(!memcmp(p, s, strlen(s))){
+		if(memcmp(p, s, strlen(s)) == 0){
 			memmove(p, e, confend - e);
 			confend -= e - p;
 			*confend = 0;
@@ -225,45 +230,37 @@ Clear:
 	inblock = 0;
 Loop:
 	while(readline(f, line) > 0){
-		if(*line == 0 || strchr("#;=", *line))
+		if(*line == 0 || strchr("#;=", *line) != nil)
 			continue;
 		if(*line == '['){
-			inblock = memcmp("[common]", line, 8);
+			inblock = memcmp("[common]", line, 8) != 0;
 			continue;
 		}
-		if(!memcmp("boot", line, 5)){
+		if(memcmp("boot", line, 5) == 0){
 			nowait=1;
 			break;
 		}
-		if(!memcmp("wait", line, 5)){
+		if(memcmp("wait", line, 5) == 0){
 			nowait=0;
 			continue;
 		}
-		if(!memcmp("show", line, 5)){
-			for(p = BOOTARGS; p < confend; p++){
-				if(*p == '\n')
-					print(crnl);
-				else
-					putc(*p);
-			}
+		if(memcmp("show", line, 5) == 0){
+			print(BOOTARGS);
 			continue;
 		}
-		if(!memcmp("clear", line, 5)){
-			if(line[5] == 0){
-				print("ok");
-				print(crnl);
+		if(memcmp("clear", line, 5) == 0){
+			if(line[5] == '\0'){
+				print("ok\n");
 				goto Clear;
-			} else if(line[5] == ' ' && delconf(line+6)){
-				print("ok");
-				print(crnl);
-			}
+			} else if(line[5] == ' ' && delconf(line+6))
+				print("ok\n");
 			continue;
 		}
-		if(inblock || (p = strchr(line, '=')) == nil)
+		if(inblock != 0 || (p = strchr(line, '=')) == nil)
 			continue;
 		*p++ = 0;
 		delconf(line);
-		if(!memcmp("apm", line, 3)){
+		if(memcmp("apm", line, 3) == 0){
 			apmconf('0' - line[3]);
 			continue;
 		}
@@ -272,28 +269,25 @@ Loop:
 		memmove(confend, line, n = strlen(line)); confend += n;
 		*confend++ = '=';
 		memmove(confend, p, n = strlen(p)); confend += n;
-		*confend = 0;
-
-		print(s); print(crnl);
-
 		*confend++ = '\n';
 		*confend = 0;
+		print(s);
 	}
 	kern = getconf("bootfile=", path);
 
-	if(f){
+	if(f != nil){
 		close(f);
-		f = 0;
+		f = nil;
 
-		if(kern && (nowait==0 || timeout(1000)))
+		if(kern != nil && (nowait==0 || timeout(1000)))
 			goto Loop;
 	}
 
-	if(!kern){
-		print("no bootfile\r\n");
+	if(kern == nil){
+		print("no bootfile\n");
 		goto Loop;
 	}
-	while(p = strchr(kern, '!'))
+	while((p = strchr(kern, '!')) != nil)
 		kern = p+1;
 
 	return kern;
@@ -333,7 +327,7 @@ apmconf(int id)
 	memset(a, 0, 20);
 
 	apm(id);
-	if(memcmp(a, "APM", 4))
+	if(memcmp(a, "APM", 4) != 0)
 		return;
 
 	s = confend;
@@ -346,10 +340,10 @@ apmconf(int id)
 	addconfx(" di=", 4, *((ushort*)(a+10)));
 	addconfx(" esi=", 8, *((ulong*)(a+16)));
 
-	print(s); print(crnl);
-
 	*confend++ = '\n';
 	*confend = 0;
+
+	print(s);
 }
 
 static void
@@ -392,11 +386,10 @@ e820conf(void)
 	if(confend == s)
 		return;
 
-	*confend = 0;
-	print(s); print(crnl);
-
 	*confend++ = '\n';
 	*confend = 0;
+
+	print(s);
 }
 
 static ulong
@@ -414,7 +407,7 @@ bootkern(void *f)
 	Exec ex;
 
 	while(a20() < 0)
-		print("a20 enable failed\r\n");
+		print("a20 enable failed\n");
 
 	if(readn(f, &ex, sizeof(ex)) != sizeof(ex))
 		return "bad header";
@@ -448,8 +441,7 @@ bootkern(void *f)
 	close(f);
 	unload();
 
-	print("boot");
-	print(crnl);
+	print("boot\n");
 
 	jump(e);
 

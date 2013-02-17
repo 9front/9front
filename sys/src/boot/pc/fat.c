@@ -384,21 +384,21 @@ start(void *sp)
 	drive = ((ushort*)sp)[5] & 0xFF;
 
 	if(findfat(&fat, drive, 0, 0)){
-		print("no fat\r\n");
+		print("no fat\n");
 		halt();
 	}
 	if(fatwalk(f = &fi, &fat, "plan9.ini")){
-		print("no config\r\n");
+		print("no config\n");
 		f = 0;
 	}
 	for(;;){
 		kern = configure(f, path); f = 0;
 		if(fatwalk(&fi, &fat, kern)){
-			print("not found\r\n");
+			print("not found\n");
 			continue;
 		}
 		print(bootkern(&fi));
-		print(crnl);
+		print("\n");
 	}
 }
 

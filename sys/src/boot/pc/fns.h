@@ -1,7 +1,6 @@
 /* handy strings in l.s */
 extern char origin[];
 extern char hex[];
-extern char crnl[];
 extern char bootname[];
 
 /* l.s */

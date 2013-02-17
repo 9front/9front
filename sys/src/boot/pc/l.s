@@ -295,9 +295,6 @@ TEXT bootname(SB), $0
 
 #endif
 
-TEXT crnl(SB), $0
-	BYTE $'\r'; BYTE $'\n'; BYTE $0
-
 TEXT hex(SB), $0
 	BYTE $'0'; BYTE $'1'; BYTE $'2'; BYTE $'3';
 	BYTE $'4'; BYTE $'5'; BYTE $'6'; BYTE $'7';

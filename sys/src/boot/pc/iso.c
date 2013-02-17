@@ -161,17 +161,17 @@ start(void *sp)
 	close(&ex);
 
 	if(isowalk(f = &ex, drive, "/cfg/plan9.ini")){
-		print("no config\r\n");
+		print("no config\n");
 		f = 0;
 	}
 	for(;;){
 		kern = configure(f, path); f = 0;
 		if(isowalk(&ex, drive, kern)){
-			print("not found\r\n");
+			print("not found\n");
 			continue;
 		}
 		print(bootkern(&ex));
-		print(crnl);
+		print("\n");
 	}
 }
 
