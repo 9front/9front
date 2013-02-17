@@ -19,33 +19,32 @@ gets pressed on the keyboard or the kernel file was not
 found then the loader enters the interactive
 boot console.
 
-The syntax of the boot console is the same as in
-the
+The syntax of the boot console is the same as in the
 .IR plan9.ini (8)
-file.
-.BR
-The word
-.B clear
-[
-.I prefix
-]
-can be used to remove parameters from the current configuration.
+file with
+.IB key = value
+pairs setting boot parameters. In addition a few command
+words are recognized that are intended for interactive use:
+.TP
+.BI clear [prefix]
+can be used to remove parameters from the configuration.
 If a
 .IR prefix
 is specified, the first parameter that matches the prefix
 is removed. If the
 .IR prefix
 argument is omitted, the whole configuration will be reset.
-If the word
+.TP
+.B show
+displays the current configuration in memory.
+.TP
 .B wait
-appears in the configuration then
-.IR 9boot
-will return to the console prompt after processing the file.
-
-The word
+will return to the console prompt after processing the
+configuration file preventing automatic boot.
+.TP
 .B boot
-will end the console and resume booting the kernel.
-
+will end the console and attempt booting the kernel.
+.SS
 There are many ways to boot a PC so
 .IR 9boot
 was split into a number of distinct programs one for each boot

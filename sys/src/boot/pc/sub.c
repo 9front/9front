@@ -160,6 +160,28 @@ char *confend;
 static void apmconf(int);
 static void e820conf(void);
 
+static char*
+getconf(char *s, char *buf)
+{
+	char *p, *e;
+	int n;
+
+	n = strlen(s);
+	for(p = BOOTARGS; p < confend; p = e+1){
+		for(e = p+1; e < confend; e++)
+			if(*e == '\n')
+				break;
+		if(!memcmp(p, s, n)){
+			p += n;
+			n = e - p;
+			buf[n] = 0;
+			memmove(buf, p, n);
+			return buf;
+		}
+	}
+	return 0;
+}
+
 static int
 delconf(char *s)
 {
@@ -187,18 +209,20 @@ configure(void *f, char *path)
 {
 	char line[64], *kern, *s, *p;
 	int inblock, nowait, n;
+	static int once = 1;
 
+	if(once){
+		once = 0;
 Clear:
-	kern = 0;
+		memset(BOOTLINE, 0, BOOTLINELEN);
+
+		confend = BOOTARGS;
+		memset(confend, 0, BOOTARGSLEN);
+
+		e820conf();
+	}
 	nowait = 1;
 	inblock = 0;
-
-	memset(BOOTLINE, 0, BOOTLINELEN);
-
-	confend = BOOTARGS;
-	memset(confend, 0, BOOTARGSLEN);
-
-	e820conf();
 Loop:
 	while(readline(f, line) > 0){
 		if(*line == 0 || strchr("#;=", *line))
@@ -213,6 +237,15 @@ Loop:
 		}
 		if(!memcmp("wait", line, 5)){
 			nowait=0;
+			continue;
+		}
+		if(!memcmp("show", line, 5)){
+			for(p = BOOTARGS; p < confend; p++){
+				if(*p == '\n')
+					print(crnl);
+				else
+					putc(*p);
+			}
 			continue;
 		}
 		if(!memcmp("clear", line, 5)){
@@ -234,8 +267,6 @@ Loop:
 			apmconf('0' - line[3]);
 			continue;
 		}
-		if(!memcmp("bootfile", line, 8))
-			memmove(kern = path, p, strlen(p)+1);
 
 		s = confend;
 		memmove(confend, line, n = strlen(line)); confend += n;
@@ -248,6 +279,7 @@ Loop:
 		*confend++ = '\n';
 		*confend = 0;
 	}
+	kern = getconf("bootfile=", path);
 
 	if(f){
 		close(f);
