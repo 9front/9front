@@ -3,8 +3,6 @@
 #include "fns.h"
 #include "mem.h"
 
-int uart = -1;
-
 void
 putc(int c)
 {
@@ -24,25 +22,25 @@ print(char *s)
 }
 
 int
-getc(void)
+readn(void *f, void *data, int len)
 {
-	int c;
+	uchar *p, *e;
 
-	c = kbdgetc();
-	if(c == 0 && uart != -1)
-		c = uartgetc(uart);
-	return c & 0x7f;
-}
-
-void
-memset(void *dst, int v, int n)
-{
-	uchar *d = dst;
-
-	while(n > 0){
-		*d++ = v;
-		n--;
+	putc(' ');
+	p = data;
+	e = p + len;
+	while(p < e){
+		if(((ulong)p & 0xF000) == 0){
+			putc('\b');
+			putc(hex[((ulong)p>>16)&0xF]);
+		}
+		if((len = read(f, p, e - p)) <= 0)
+			break;
+		p += len;
 	}
+	putc('\b');
+
+	return p - (uchar*)data;
 }
 
 void
@@ -99,26 +97,26 @@ strchr(char *s, int c)
 	return nil;
 }
 
-int
-readn(void *f, void *data, int len)
+void
+memset(void *dst, int v, int n)
 {
-	uchar *p, *e;
+	uchar *d = dst;
 
-	putc(' ');
-	p = data;
-	e = p + len;
-	while(p < e){
-		if(((ulong)p & 0xF000) == 0){
-			putc('\b');
-			putc(hex[((ulong)p>>16)&0xF]);
-		}
-		if((len = read(f, p, e - p)) <= 0)
-			break;
-		p += len;
+	while(n > 0){
+		*d++ = v;
+		n--;
 	}
-	putc('\b');
+}
 
-	return p - (uchar*)data;
+int
+getc(void)
+{
+	int c;
+
+	c = kbdgetc();
+	if(c == 0 && uart != -1)
+		c = uartgetc(uart);
+	return c;
 }
 
 static int

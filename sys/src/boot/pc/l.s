@@ -289,6 +289,9 @@ TEXT bootname(SB), $0
 
 #endif
 
+TEXT uart(SB), $0
+	BYTE $0xff
+
 TEXT hex(SB), $0
 	BYTE $'0'; BYTE $'1'; BYTE $'2'; BYTE $'3';
 	BYTE $'4'; BYTE $'5'; BYTE $'6'; BYTE $'7';
