@@ -5,9 +5,8 @@ extern char bootname[];
 
 /* l.s */
 void start(void *sp);
-int getc(void);
-int gotc(void);
-void putc(int c);
+void cgaputc(int c);
+int kbdgetc(void);
 void usleep(int t);
 void halt(void);
 void jump(void *pc);
@@ -16,6 +15,9 @@ int read(void *f, void *data, int len);
 int readn(void *f, void *data, int len);
 void close(void *f);
 void unload(void);
+
+int getc(void);
+void putc(int c);
 
 void memset(void *p, int v, int n);
 void memmove(void *dst, void *src, int n);
@@ -36,3 +38,8 @@ ulong e820(ulong bx, void *p);
 
 /* apm.s */
 void apm(int id);
+
+/* uart.s */
+void uartinit(int p, int c);
+void uartputc(int p, int c);
+int uartgetc(int p);

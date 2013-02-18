@@ -121,26 +121,20 @@ TEXT halt(SB), $0
 _halt:
 	JMP _halt
 
-TEXT getc(SB), $0
-	CALL rmode16(SB)
-	STI
-	MOVB $0x00, AH
-	BIOSCALL(0x16)
-_getcret:
-	CALL16(pmode32(SB))
-	ANDL $0xFF, AX
-	RET
-
-TEXT gotc(SB), $0
+TEXT kbdgetc(SB), $0
 	CALL rmode16(SB)
 	STI
 	MOVB $0x01, AH
 	BIOSCALL(0x16)
-	JNZ _getcret
+	JNZ _gotkey
 	CLR(rAX)
-	JMP _getcret
+	JMP _pret32
+_gotkey:
+	CLR(rAX)
+	BIOSCALL(0x16)
+	JMP _pret32
 	
-TEXT putc(SB), $0
+TEXT cgaputc(SB), $0
 	MOVL 4(SP),AX
 	CALL rmode16(SB)
 	STI

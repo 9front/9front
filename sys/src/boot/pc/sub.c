@@ -3,6 +3,37 @@
 #include "fns.h"
 #include "mem.h"
 
+int uart = -1;
+
+void
+putc(int c)
+{
+	cgaputc(c);
+	if(uart != -1)
+		uartputc(uart, c);
+}
+
+void
+print(char *s)
+{
+	while(*s != 0){
+		if(*s == '\n')
+			putc('\r');
+		putc(*s++);
+	}
+}
+
+int
+getc(void)
+{
+	int c;
+
+	c = kbdgetc();
+	if(c == 0 && uart != -1)
+		c = uartgetc(uart);
+	return c & 0x7f;
+}
+
 void
 memset(void *dst, int v, int n)
 {
@@ -68,16 +99,6 @@ strchr(char *s, int c)
 	return nil;
 }
 
-void
-print(char *s)
-{
-	while(*s != 0){
-		if(*s == '\n')
-			putc('\r');
-		putc(*s++);
-	}
-}
-
 int
 readn(void *f, void *data, int len)
 {
@@ -112,7 +133,9 @@ readline(void *f, char buf[64])
 			putc('>');
 		for(;;){
 			if(f == nil){
-				putc(*p = getc());
+				while((*p = getc()) == 0)
+					;
+				putc(*p);
 				if(*p == '\r')
 					putc('\n');
 				else if(*p == '\b' && p > buf){
@@ -147,7 +170,7 @@ static int
 timeout(int ms)
 {
 	while(ms > 0){
-		if(gotc())
+		if(getc() != 0)
 			return 1;
 		usleep(100000);
 		ms -= 100;
@@ -164,6 +187,7 @@ char *confend;
 
 static void apmconf(int);
 static void e820conf(void);
+static void uartconf(char*);
 
 static char*
 getconf(char *s, char *buf)
@@ -261,9 +285,11 @@ Loop:
 		*p++ = 0;
 		delconf(line);
 		if(memcmp("apm", line, 3) == 0){
-			apmconf('0' - line[3]);
+			apmconf(line[3] - '0');
 			continue;
 		}
+		if(memcmp("console", line, 8) == 0)
+			uartconf(p);
 
 		s = confend;
 		memmove(confend, line, n = strlen(line)); confend += n;
@@ -390,6 +416,16 @@ e820conf(void)
 	*confend = 0;
 
 	print(s);
+}
+
+static void
+uartconf(char *s)
+{
+	if(*s >= '0' && *s <= '3'){
+		uart = *s - '0';
+		uartinit(uart, (7<<5) | 3);	/* b9660 l8 s1 */
+	} else
+		uart = -1;
 }
 
 static ulong
