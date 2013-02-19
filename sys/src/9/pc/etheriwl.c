@@ -744,9 +744,9 @@ poweroff(Ctlr *ctlr)
 static char*
 rominit(Ctlr *ctlr)
 {
+	uint prev, last;
 	uchar buf[2];
 	char *err;
-	uint off;
 	int i;
 
 	ctlr->eeprom.otp = 0;
@@ -785,18 +785,19 @@ rominit(Ctlr *ctlr)
 	 * Find the block before last block (contains the EEPROM image)
 	 * for HW without OTP shadow RAM.
 	 */
-	off = 0;
+	prev = last = 0;
 	for(i=0; i<3; i++){
-		if((err = eepromread(ctlr, buf, 2, off)) != nil)
+		if((err = eepromread(ctlr, buf, 2, last)) != nil)
 			return err;
 		if(get16(buf) == 0)
 			break;
-		off = get16(buf);
+		prev = last;
+		last = get16(buf);
 	}
 	if(i == 0 || i >= 3)
 		return "rominit: missing eeprom image";
 
-	ctlr->eeprom.off = off+1;
+	ctlr->eeprom.off = prev+1;
 	return nil;
 }
 
