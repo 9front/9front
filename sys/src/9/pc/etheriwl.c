@@ -2235,6 +2235,7 @@ iwlpci(void)
 		switch(pdev->did){
 		default:
 			continue;
+		case 0x0084:  /* WiFi Link 1000 */
 		case 0x4229:	/* WiFi Link 4965 */
 		case 0x4230:	/* WiFi Link 4965 */
 		case 0x4236:	/* WiFi Link 5300 AGN */
