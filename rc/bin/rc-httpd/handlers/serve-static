@@ -24,7 +24,7 @@ if not
 	max_age=604800	# 1 week
 echo 'HTTP/1.1 200 OK'^$cr
 emit_extra_headers
-echo 'Content-type: '^$type^$cr
+echo 'Content-type: '^$type^'; charset=utf-8'^$cr
 echo 'Cache-control: max-age='^$max_age^$cr
 echo $cr
 exec cat $full_path
