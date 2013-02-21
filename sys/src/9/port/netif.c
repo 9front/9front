@@ -67,7 +67,7 @@ netifgen(Chan *c, char*, Dirtab *vp, int, int i, Dir *dp)
 
 	/* second level contains clone plus all the conversations */
 	t = NETTYPE(c->qid.path);
-	if(t == N2ndqid || t == Ncloneqid || t == Naddrqid){
+	if(t == N2ndqid || t == Ncloneqid || t == Naddrqid || t == Nstatqid || t == Nifstatqid){
 		switch(i) {
 		case DEVDOTDOT:
 			q.type = QTDIR;
