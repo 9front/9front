@@ -347,7 +347,7 @@ find the IPv6 addresses.  Returns
 domain name
 .RI ( dom )
 and ipv6 address
-.RI ( ipv6 ).
+.RI ( ip ).
 .TP
 .B mx
 look up the mail exchangers.  Returns preference
@@ -390,7 +390,7 @@ and minimum time to lie
 .TP
 .B srv
 get the service records.  Returns the priority of target host
-.RI ( priority ),
+.RI ( pri ),
 relative weight
 .RI ( weight )
 for entries with the same priority,
@@ -400,7 +400,7 @@ and the domain name of the target host
 .RI ( target ).
 .TP
 .B txt
-get the descriptive text. The semantics of the text depends
+get the descriptive text.  The semantics of the text depends
 on the domain.
 .TP
 .B ns
