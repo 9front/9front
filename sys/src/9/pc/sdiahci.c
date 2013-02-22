@@ -587,7 +587,7 @@ ahciwakeup(Aportc *c, uint mode)
 
 	p = c->p;
 	s = p->sstatus;
-	if((s & Isleepy) != 0)
+	if((s & Isleepy) == 0)
 		return;
 	if((s & Smask) != Spresent){
 		dprint("ahci: slumbering drive missing [ss %.3ux]\n", s);
