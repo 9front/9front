@@ -1201,7 +1201,7 @@ iainterrupt(Ureg *u, void *a)
 		cause &= ~m;
 		d = c->rawdrive + i;
 		ilock(d);
-		if(d->port->isr && c->hba->pi & m)
+		if(d->port != nil && d->port->isr && c->hba->pi & m)
 			updatedrive(d);
 		c->hba->isr = m;
 		iunlock(d);
