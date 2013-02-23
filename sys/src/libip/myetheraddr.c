@@ -8,7 +8,7 @@ myetheraddr(uchar *to, char *dev)
 	int n, fd;
 	char buf[256];
 
-	if(*dev == '/')
+	if(*dev == '/' || *dev == '#')
 		sprint(buf, "%s/addr", dev);
 	else
 		sprint(buf, "/net/%s/addr", dev);
