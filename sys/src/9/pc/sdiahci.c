@@ -908,6 +908,7 @@ configdrive(Drive *d)
 
 	ilock(d);
 	switch(d->port->sstatus & Smask){
+	default:
 	case Smissing:
 		d->state = Dmissing;
 		break;
@@ -1497,7 +1498,7 @@ iaonline(SDunit *u)
 	c = u->dev->ctlr;
 	d = c->drive[u->subno];
 
-	while(waitready(d) == 1)
+	while(d->state != Dmissing && waitready(d) == 1)
 		esleep(1);
 
 	dprint("%s: iaonline: %s\n", dnam(d), diskstates[d->state]);
@@ -2136,6 +2137,9 @@ iapnp(void)
 	if(done)
 		return nil;
 	done = 1;
+
+	if(getconf("*noahci") != nil)
+		return nil;
 
 	if(getconf("*ahcidebug") != nil){
 		debug = 1;
