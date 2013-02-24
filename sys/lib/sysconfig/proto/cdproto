@@ -31,29 +31,132 @@ mail	d775 upas upas
 	tmp	d775
 
 386	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
 68000	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
 68020	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
 alpha	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
 amd64	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
 arm	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
 power	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
 power64	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
 sparc	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
 sparc64	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
 mips	d775
-	+
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
+
+$objtype	d775
+	*
+	bin	d775
+		skip=^_
+		+
+	lib	d775
+		+
+
 acme	d775
-	+
+	*
+	acid	d775
+		+
+	mail	d775
+		+
+	news	d775
+		+
+	wiki	d775
+		+
+	bin	d775
+		*
+		386	d775
+		68000	d775
+		68020	d775
+		alpha	d775
+		amd64	d775
+		arm	d775
+		power	d775
+		power64	d775
+		sparc	d775
+		sparc64	d775
+		mips	d775
+		source	d775
+			+
+		dial	d775
+			+
+		$objtype	d775
+			+
+
 mnt	d775
 n	d775
 sys	d775
@@ -95,7 +198,7 @@ sys	d775
 	doc	d775
 		+
 	src	d775
-		skip=\.[ao]?[12578vqki]?$
+		skip=\.(out|([ao]?[12578vqki]?))$
 		+
 
 tmp	d555
@@ -105,7 +208,7 @@ usr	d775
 		uid=glenda
 		gid=glenda
 		bin	d775
-			386	d775
+			$objtype	d775
 				+
 			rc	d775
 				+
