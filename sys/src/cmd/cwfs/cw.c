@@ -1557,14 +1557,13 @@ found1:
 	d1->uid = d->uid;
 	d1->gid = d->gid;
 	putbuf(p);
-	accessdir(p1, d1, FWRITE, 0);
+	accessdir(pr, dr, FWRITE, 0);
 
 	/*
 	 * put mmdd[count] in year directory
 	 */
 found2:
-	accessdir(p1, d1, FREAD, 0);
-	p1->flags |= Bmod;	/* noatime */
+	accessdir(pr, dr, FREAD, 0);
 	putbuf(pr);
 	pr = p1;
 	dr = d1;
@@ -1603,6 +1602,7 @@ found:
 	d1->qid.version += n;
 	accessdir(p1, d1, FWRITE, 0);
 	putbuf(p1);
+	accessdir(pr, dr, FWRITE, 0);
 	putbuf(pr);
 
 	cw->fsize = cwsize(cw->dev);
