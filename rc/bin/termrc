@@ -32,6 +32,11 @@ if (! ~ $#disk 0)
 	swap $disk(1) >/dev/null >[2=1]
 rm -f /env/disk
 
+# we do this before we have a name.  we may need to do network
+# setup so that we can get a name.
+if(test -e /rc/bin/termrc.local)
+	. /rc/bin/termrc.local
+
 # cs sets sysname
 ndb/cs
 sysname=`{cat /dev/sysname}
