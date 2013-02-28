@@ -65,6 +65,7 @@
 #define NGROUPS_MAX 10
 /*#define OPEN_MAX _POSIX_OPEN_MAX */
 /*#define PAGESIZE 1 */
+#define PASS_MAX 64
 /*#define PATH_MAX _POSIX_PATH_MAX */
 /*#define PIPE_BUF _POSIX_PIPE_BUF */
 /*#define RTSIG_MAX _POSIX_RTSIG_MAX */
