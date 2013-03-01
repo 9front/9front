@@ -623,7 +623,7 @@ startrepeat(KDev *f, uchar esc1, uchar sc)
 	sendul(f->repeatc, c);
 }
 
-#define hasesc1(sc)	(((sc) > 0x47) || ((sc) == 0x38))
+#define hasesc1(sc)	(((sc) >= 0x47) || ((sc) == 0x38))
 
 /*
  * This routine diffs the state with the last known state
