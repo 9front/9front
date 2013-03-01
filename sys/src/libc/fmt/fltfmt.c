@@ -204,7 +204,7 @@ found:
 		 */
 		if(xadd(s1, c2, 5))
 			e++;
-		if(e >= -5 && e <= prec) {
+		if(e >= -4 && e <= prec) {
 			c1 = -e - 1;
 			c4 = prec - e;
 			chr = 'h';	// flag for 'f' style
