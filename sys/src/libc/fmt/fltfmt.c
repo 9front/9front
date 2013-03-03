@@ -187,7 +187,7 @@ found:
 	 * c3 digits of trailing '0'
 	 * c4 digits after '.'
 	 */
-	if(chr == 'g') /* Significant figures. */
+	if(chr == 'g' && prec > 0) /* Significant figures. */
 		prec--;
 	c1 = 0;
 	c2 = prec + 1;
