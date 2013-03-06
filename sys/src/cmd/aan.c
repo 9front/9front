@@ -18,6 +18,7 @@ enum {
 	Timer = 0,				// Alt channels.
 	Unsent = 1,
 	Maxto = 24 * 3600,			// A full day to reconnect.
+	Hdrsz = 3*4,
 };
 
 typedef struct Endpoints Endpoints;
@@ -199,7 +200,7 @@ threadmain(int argc, char **argv)
 			PBIT32(hdr.acked, inmsg);
 			PBIT32(hdr.msg, -1);
 
-			if (writen(netfd, (uchar *)&hdr, sizeof(Hdr)) < 0) {
+			if (writen(netfd, (uchar *)&hdr, Hdrsz) < 0) {
 				dmessage(2, "main; writen failed; %r\n");
 				failed = 1;
 				continue;
@@ -216,7 +217,7 @@ threadmain(int argc, char **argv)
 
 			PBIT32(b->hdr.acked, inmsg);
 
-			if (writen(netfd, (uchar *)&b->hdr, sizeof(Hdr)) < 0) {
+			if (writen(netfd, (uchar *)&b->hdr, Hdrsz) < 0) {
 				dmessage(2, "main; writen failed; %r\n");
 				failed = 1;
 			}
@@ -283,7 +284,7 @@ fromnet(void*)
 		}
 
 		// Read the header.
-		len = readn(netfd, (uchar *)&b->hdr, sizeof(Hdr));
+		len = readn(netfd, (uchar *)&b->hdr, Hdrsz);
 		if (len <= 0) {
 			if (len < 0)
 				dmessage(1, "fromnet; (hdr) network failure; %r\n");
@@ -413,7 +414,7 @@ synchronize(void)
 	tmp = chancreate(sizeof(Buf *), Nbuf);
 	while ((b = nbrecvp(unacked)) != nil) {
 		n = GBIT32(b->hdr.nb);
-		writen(netfd, (uchar *)&b->hdr, sizeof(Hdr));
+		writen(netfd, (uchar *)&b->hdr, Hdrsz);
 		writen(netfd, b->buf, n);
 		sendp(tmp, b);
 	}
