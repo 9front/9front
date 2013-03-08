@@ -5,6 +5,7 @@ TARG=4s\
 	ana\
 	catclock\
 	festoon\
+	geigerstats\
 	juggle\
 	life\
 	memo\
