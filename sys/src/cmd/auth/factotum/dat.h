@@ -237,4 +237,6 @@ extern Proto rsa;			/* rsa.c */
 extern Proto wep;			/* wep.c */
 /* extern Proto srs;			/* srs.c */
 extern Proto httpdigest;		/* httpdigest.c */
-extern Proto ecdsa;
+extern Proto ecdsa;			/* ecdsa.c */
+extern Proto wpapsk;			/* wpapsk.c */
+
