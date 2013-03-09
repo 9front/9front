@@ -1,0 +1,63 @@
+.TH WPA 8
+.SH NAME
+wpa \- Wi-Fi Protected Access setup
+.SH SYNOPSIS
+.B aux/wpa
+[
+.B -dp
+] [
+.B -s
+.I essid
+]
+.I dev
+.SH DESCRIPTION
+.I Wpa
+handles the authentication and key exchnage with WPA
+protected wireless networks.
+.PP
+The
+.I dev
+parameter specifies the network interface that needs
+to be setup with WPA.
+The
+.I essid
+can be set with the
+.I -s
+option. Otherwise, the previously configured essid
+on the interface will be used.
+The
+.B -p
+option will prompt and install the preshared key into
+.IR factotum (4),
+otherwise the key has to be already present in
+factotum or an interacrive key prompter like
+.IR fgui (4)
+needs to provide it.
+.PP
+The authentification protocol is initiated by the
+wireless access point so
+.I wpa
+will background itself after the keyprompt and establish
+the encryption automatically as needed.
+.PP
+The
+.B -d
+option enableds debugging and causes
+.I wpa
+to say in foreground writing protocol messages to
+standard error.
+.SH EXAMPLES
+Setup wireless encryption:
+.EX
+% bind -a '#l1' /net
+% aux/wpa -s 9HAL -p /net/ether1
+!Adding key: proto=wpapsk essid=9HAL
+password: *****
+!
+% ip/ipconfig ether /net/ether1
+.EE
+.SH SOURCE
+.B /sys/src/cmd/aux/wpa.c
+.SH SEE ALSO
+.IR factotum (4),
+.IR ipconfig (8)
