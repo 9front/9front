@@ -1578,8 +1578,9 @@ qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block)
 	put32(d, PCIWADDR(c));	d += 4;
 	put16(d, size << 4); d += 2;
 	if(block != nil){
+		size = BLEN(block);
 		put32(d, PCIWADDR(block->rp)); d += 4;
-		put16(d, BLEN(block) << 4);
+		put16(d, size << 4);
 	}
 
 	coherence();
@@ -1695,7 +1696,7 @@ rxon(Ether *edev, Wnode *bss)
 	char *err;
 
 	ctlr = edev->ctlr;
-	filter = FilterMulticast | FilterBeacon;
+	filter = FilterNoDecrypt | FilterMulticast | FilterBeacon;
 	if(ctlr->prom){
 		filter |= FilterPromisc;
 		bss = nil;
