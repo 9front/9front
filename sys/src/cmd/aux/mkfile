@@ -44,6 +44,7 @@ TARG=\
 	write\
 	wacom\
 	wikifmt\
+	wpa\
 	zerotrunc\
 
 BIN=/$objtype/bin/aux
