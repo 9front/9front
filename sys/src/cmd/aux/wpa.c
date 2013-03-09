@@ -368,18 +368,6 @@ main(int argc, char *argv[])
 			(uvlong)kd->rsc[4]<<32 |
 			(uvlong)kd->rsc[5]<<40;
 
-		repc =	(uvlong)kd->repc[7] |
-			(uvlong)kd->repc[6]<<8 |
-			(uvlong)kd->repc[5]<<16 |
-			(uvlong)kd->repc[4]<<24 |
-			(uvlong)kd->repc[3]<<32 |
-			(uvlong)kd->repc[2]<<40 |
-			(uvlong)kd->repc[1]<<48 |
-			(uvlong)kd->repc[0]<<56;
-
-		if(repc <= lastrepc)
-			continue;
-
 		if((flags & Fmic) == 0){
 			if((flags & (Fptk|Fack)) != (Fptk|Fack))
 				continue;
@@ -404,6 +392,16 @@ main(int argc, char *argv[])
 			if(memcmp(tmp, mic, sizeof(mic)) != 0)
 				continue;
 
+			repc =	(uvlong)kd->repc[7] |
+				(uvlong)kd->repc[6]<<8 |
+				(uvlong)kd->repc[5]<<16 |
+				(uvlong)kd->repc[4]<<24 |
+				(uvlong)kd->repc[3]<<32 |
+				(uvlong)kd->repc[2]<<40 |
+				(uvlong)kd->repc[1]<<48 |
+				(uvlong)kd->repc[0]<<56;
+			if(repc <= lastrepc)
+				continue;
 			lastrepc = repc;
 
 			if((flags & (Fptk|Fsec|Fack)) == (Fptk|Fack)){
