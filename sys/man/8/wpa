@@ -12,7 +12,7 @@ wpa \- Wi-Fi Protected Access setup
 .I dev
 .SH DESCRIPTION
 .I Wpa
-handles the authentication and key exchnage with WPA
+handles the authentication and key exchange with WPA
 protected wireless networks.
 .PP
 The
@@ -30,7 +30,7 @@ The
 option will prompt and install the preshared key into
 .IR factotum (4),
 otherwise the key has to be already present in
-factotum or an interacrive key prompter like
+factotum or an interactive key prompter like
 .IR fgui (4)
 needs to provide it.
 .PP
@@ -42,9 +42,9 @@ the encryption automatically as needed.
 .PP
 The
 .B -d
-option enableds debugging and causes
+option enables debugging and causes
 .I wpa
-to say in foreground writing protocol messages to
+to stay in foreground writing protocol messages to
 standard error.
 .SH EXAMPLES
 Setup wireless encryption:
