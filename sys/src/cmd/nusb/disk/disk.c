@@ -345,8 +345,10 @@ umsinit(void)
 		if(SRready(lun) < 0 && SRready(lun) < 0 && SRready(lun) < 0)
 			dprint(2, "disk: lun %d not ready\n", i);
 
-		if((lun->inquiry[0] & 0x1F) == 0)
+		if((lun->inquiry[0] & 0x1F) == 0){
 			SRstart(lun, 1);
+			sleep(250);
+		}
 
 		/*
 		 * we ignore the device type reported by inquiry.
