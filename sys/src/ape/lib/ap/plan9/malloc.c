@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <lock.h>
+
 typedef unsigned int	uint;
 
 enum
@@ -24,6 +26,7 @@ typedef struct Arena Arena;
 struct Arena
 {
 	Bucket	*btab[MAX2SIZE];	
+	Lock;
 };
 static Arena arena;
 
@@ -47,16 +50,19 @@ malloc(size_t size)
 	return nil;
 good:
 	/* Allocate off this list */
+	lock(&arena);
 	bp = arena.btab[pow];
 	if(bp) {
 		arena.btab[pow] = bp->next;
+		unlock(&arena);
 
 		if(bp->magic != 0)
 			abort();
 
 		bp->magic = MAGIC;
-		return  bp->data;
+		return bp->data;
 	}
+
 	size = sizeof(Bucket)+(1<<pow);
 	size += 7;
 	size &= ~7;
@@ -64,8 +70,10 @@ good:
 	if(pow < CUTOFF) {
 		n = (CUTOFF-pow)+2;
 		bp = sbrk(size*n);
-		if((int)bp < 0)
+		if((int)bp < 0){
+			unlock(&arena);
 			return nil;
+		}
 
 		next = (uint)bp+size;
 		nbp = (Bucket*)next;
@@ -80,9 +88,12 @@ good:
 	}
 	else {
 		bp = sbrk(size);
-		if((int)bp < 0)
+		if((int)bp < 0){
+			unlock(&arena);
 			return nil;
+		}
 	}
+	unlock(&arena);
 		
 	bp->size = pow;
 	bp->magic = MAGIC;
@@ -106,8 +117,10 @@ free(void *ptr)
 
 	bp->magic = 0;
 	l = &arena.btab[bp->size];
+	lock(&arena);
 	bp->next = *l;
 	*l = bp;
+	unlock(&arena);
 }
 
 void*
