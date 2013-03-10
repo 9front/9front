@@ -70,6 +70,12 @@ _startbuf(int fd)
 		return 0;
 
 	lock(&mux->lock);
+	f = &_fdinfo[fd];
+	if((f->flags&FD_BUFFERED) != 0){
+		unlock(&mux->lock);
+		return 0;
+	}
+
 	slot = mux->curfds++;
 	if(mux->curfds > INITBUFS) {
 		if(_SEGBRK(mux, mux->bufs+mux->curfds) < 0){
@@ -79,7 +85,6 @@ _startbuf(int fd)
 		}
 	}
 
-	f = &_fdinfo[fd];
 	b = &mux->bufs[slot];
 	b->n = 0;
 	b->putnext = b->data;
@@ -288,16 +293,13 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeo
 	for(i = 0; i < nfds; i++)
 		if((rfds && FD_ISSET(i, rfds)) || (efds && FD_ISSET(i, efds))){
 			f = &_fdinfo[i];
-			if(!(f->flags&FD_BUFFERED))
-				if(_startbuf(i) != 0) {
-					return -1;
-				}
-			b = f->buf;
-			if(rfds && FD_ISSET(i,rfds) && b->eof && b->n == 0)
-			if(efds == 0 || !FD_ISSET(i,efds)) {
-				errno = EBADF;		/* how X tells a client is gone */
+			if((f->flags&FD_ISOPEN) == 0){
+				errno = EBADF;
 				return -1;
 			}
+			if((f->flags&FD_BUFFERED) == 0)
+				if(_startbuf(i) != 0)
+					return -1;
 		}
 
 	/* check wfds;  for now, we'll say they are all ready */
@@ -305,6 +307,11 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeo
 	if(wfds && FD_ANYSET(wfds)){
 		for(i = 0; i<nfds; i++)
 			if(FD_ISSET(i, wfds)) {
+				f = &_fdinfo[i];
+				if((f->flags&FD_ISOPEN) == 0){
+					errno = EBADF;
+					return -1;
+				}
 				n++;
 			}
 	}
