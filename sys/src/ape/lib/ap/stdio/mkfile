@@ -2,6 +2,7 @@ APE=/sys/src/ape
 <$APE/config
 LIB=/$objtype/lib/ape/libap.a
 OFILES=\
+	_IO_newfile.$O\
 	_IO_getc.$O\
 	_IO_putc.$O\
 	_dtoa.$O\
