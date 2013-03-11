@@ -10,7 +10,7 @@
 char _plan9err[ERRMAX];
 
 static struct errmap {
-	int	errno;
+	int	num;
 	char	*ename;
 } map[] = {
 	/* from /sys/src/9/port/errstr.h */
@@ -119,6 +119,6 @@ _syserrno(void)
 			if(strstr(_plan9err, map[i].ename) != 0)
 				break;
 		_ERRSTR(_plan9err, sizeof _plan9err);
-		errno = (i < NERRMAP)? map[i].errno : EINVAL;
+		errno = (i < NERRMAP)? map[i].num : EINVAL;
 	}
 }

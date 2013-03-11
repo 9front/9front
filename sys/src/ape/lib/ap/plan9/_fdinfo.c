@@ -1,12 +1,12 @@
 #define  _BSDTIME_EXTENSION
 #include "lib.h"
 #include <sys/stat.h>
-#include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
+#include <stdlib.h>
 #include "sys9.h"
 #include <string.h>
 
-extern int errno;
 Fdinfo _fdinfo[OPEN_MAX];
 
 /*

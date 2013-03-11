@@ -37,7 +37,7 @@
 #define	WR	4	/* open, buffer allocated, ok to write but not read */
 #define	ERR	5	/* open, but an uncleared error occurred */
 #define	END	6	/* open, but at eof */
-char *strerror(int errno);
+char *strerror(int);
 int _IO_setvbuf(FILE *);
 FILE *_IO_sopenr(const char*);
 FILE *_IO_sopenw(void);

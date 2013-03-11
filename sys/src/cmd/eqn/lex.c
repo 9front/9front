@@ -1,6 +1,7 @@
 #include "e.h"
 #include "y.tab.h"
 #include <ctype.h>
+#include <errno.h>
 
 #define	SSIZE	1000
 char	token[SSIZE];
@@ -234,7 +235,6 @@ void include(void)
 	char name[100];
 	FILE *fin;
 	int c;
-	extern int errno;
 
 	while ((c = input()) == ' ')
 		;

@@ -1,10 +1,11 @@
 #define NPRIVATES	16
 
 GLOBL	_tos(SB), $4
+GLOBL	_errnoloc(SB), $4
 GLOBL	_privates(SB), $4
 GLOBL	_nprivates(SB), $4
 
-TEXT	_main(SB), 1, $(3*4+NPRIVATES*4)
+TEXT	_main(SB), 1, $(16+NPRIVATES*4)
 	MOVW	$setR30(SB), R30
 
 	/* _tos = arg */
@@ -17,7 +18,9 @@ TEXT	_main(SB), 1, $(3*4+NPRIVATES*4)
 	ADDD	F26, F26, F28
 	ADDD	F28, F28, F30
 */
-	MOVW	$8(SP), R1
+	MOVW	$12(SP), R1
+	MOVW	R1, _errnoloc(SB)
+	MOVW	$16(SP), R1
 	MOVW	R1, _privates(SB)
 	MOVW	$NPRIVATES, R1
 	MOVW	R1, _nprivates(SB)

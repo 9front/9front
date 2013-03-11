@@ -2,7 +2,8 @@
 #define __ERRNO
 #pragma lib "/$M/lib/ape/libap.a"
 
-extern int errno;
+extern int *_errnoloc;
+#define errno (*_errnoloc)
 
 #define EDOM	1000
 #define ERANGE	1001

@@ -19,7 +19,7 @@
  */
 
 char **environ;
-int errno;
+int *_errnoloc;
 unsigned long _clock;
 static void fdsetup(char *, char *);
 static void sigsetup(char *, char *);

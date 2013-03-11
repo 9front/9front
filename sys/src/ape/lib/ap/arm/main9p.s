@@ -5,16 +5,19 @@ sb=12
 #define NPRIVATES	16
 
 GLOBL	_tos(SB), $4
+GLOBL	_errnoloc(SB), $4
 GLOBL	_privates(SB), $4
 GLOBL	_nprivates(SB), $4
 
-TEXT	_mainp(SB), 1, $(3*4+NPRIVATES*4)
+TEXT	_mainp(SB), 1, $(16+NPRIVATES*4)
 
 	MOVW	$setR12(SB), R(sb)
 
 	/* _tos = arg */
 	MOVW	R(arg), _tos(SB)
-	MOVW	$private+8(SP), R1
+	MOVW	$errno+12(SP), R1
+	MOVW	R1, _errnoloc(SB)
+	MOVW	$private+16(SP), R1
 	MOVW	R1, _privates(SB)
 	MOVW	$NPRIVATES, R1
 	MOVW	R1, _nprivates(SB)
