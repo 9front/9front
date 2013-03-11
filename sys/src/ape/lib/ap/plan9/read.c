@@ -38,7 +38,7 @@ read(int d, void *buf, size_t nbytes)
 		}
 		n = _readbuf(d, buf, nbytes, noblock);
 	}else{
-		n = _READ(d,  buf, nbytes);
+		n = _READ(d, buf, nbytes);
 		if(n < 0)
 			_syserrno();
 	}

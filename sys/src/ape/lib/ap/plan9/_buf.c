@@ -71,9 +71,19 @@ _startbuf(int fd)
 
 	lock(&mux->lock);
 	f = &_fdinfo[fd];
+	if((f->flags&FD_ISOPEN) == 0){
+		unlock(&mux->lock);
+		errno = EBADF;
+		return -1;
+	}
 	if((f->flags&FD_BUFFERED) != 0){
 		unlock(&mux->lock);
 		return 0;
+	}
+	if((f->flags&FD_BUFFEREDX) != 0){
+		unlock(&mux->lock);
+		errno = EIO;
+		return -1;
 	}
 
 	slot = mux->curfds++;
@@ -127,14 +137,18 @@ void
 _closebuf(int fd)
 {
 	Muxbuf *b;
+	int i;
 
 	b = _fdinfo[fd].buf;
-	if(!b)
+	if(b == 0 || mux == 0)
 		return;
 	lock(&mux->lock);
-	b->fd = -1;
+	if(b->fd == fd){
+		b->fd = -1;
+		for(i=0; i<10 && kill(b->copypid, SIGKILL)==0; i++)
+			_SLEEP(1);
+	}
 	unlock(&mux->lock);
-	kill(b->copypid, SIGKILL);
 }
 
 /* child copy procs execute this until eof */
@@ -149,7 +163,7 @@ _copyproc(int fd, Muxbuf *b)
 	for(;;) {
 		/* make sure there's room */
 		lock(&mux->lock);
-		if(e - b->putnext < READMAX) {
+		if(b->fd == fd && (e - b->putnext) < READMAX) {
 			if(b->getnext == b->putnext) {
 				b->getnext = b->putnext = b->data;
 				unlock(&mux->lock);
@@ -168,12 +182,15 @@ _copyproc(int fd, Muxbuf *b)
 		 */
 		nzeros = 0;
 		do {
+			if(b->fd != fd)
+				break;
 			n = _READ(fd, b->putnext, READMAX);
-			if(b->fd == -1) {
-				_exit(0);		/* we've been closed */
-			}
-		} while(n == 0 && ++nzeros < 3);
+		} while(b->fd == fd && n == 0 && ++nzeros < 3);
 		lock(&mux->lock);
+		if(b->fd != fd){
+			unlock(&mux->lock);
+			_exit(0);	/* we've been closed */
+		}
 		if(n <= 0) {
 			b->eof = 1;
 			if(mux->selwait && FD_ISSET(fd, &mux->ewant)) {
@@ -222,6 +239,11 @@ _readbuf(int fd, void *addr, int nwant, int noblock)
 	int ngot;
 
 	b = _fdinfo[fd].buf;
+	if(b == nil || b->fd != fd){
+badfd:
+		errno = EBADF;
+		return -1;
+	}
 	if(b->eof && b->n == 0) {
 goteof:
 		return 0;
@@ -230,8 +252,12 @@ goteof:
 		errno = EAGAIN;
 		return -1;
 	}
-	/* make sure there's data */
 	lock(&mux->lock);
+	if(b->fd != fd){
+		unlock(&mux->lock);
+		goto badfd;
+	}
+	/* make sure there's data */
 	ngot = b->putnext - b->getnext;
 	if(ngot == 0) {
 		/* maybe EOF just happened */
@@ -244,6 +270,10 @@ goteof:
 		unlock(&mux->lock);
 		_RENDEZVOUS((unsigned long)&b->datawait, 0);
 		lock(&mux->lock);
+		if(b->fd != fd){
+			unlock(&mux->lock);
+			goto badfd;
+		}
 		ngot = b->putnext - b->getnext;
 	}
 	if(ngot == 0) {
@@ -285,7 +315,8 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeo
 		return 0;
 	}
 
-	_startbuf(-1);
+	if(_startbuf(-1) != 0)
+		return -1;
 
 	/* make sure all requested rfds and efds are buffered */
 	if(nfds >= OPEN_MAX)
@@ -363,9 +394,10 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeo
 	mux->selwait = 1;
 	unlock(&mux->lock);
 	fd = _RENDEZVOUS((unsigned long)&mux->selwait, 0);
-	if(fd >= 0) {
+	if(fd >= 0 && fd < nfds) {
 		b = _fdinfo[fd].buf;
-		if(FD_ISSET(fd, &mux->rwant)) {
+		if(b == 0 || b->fd != fd) {
+		} else  if(FD_ISSET(fd, &mux->rwant)) {
 			FD_SET(fd, rfds);
 			n = 1;
 		} else if(FD_ISSET(fd, &mux->ewant) && b->eof && b->n == 0) {
@@ -373,8 +405,6 @@ select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeo
 			n = 1;
 		}
 	}
-	FD_ZERO(&mux->rwant);
-	FD_ZERO(&mux->ewant);
 	return n;
 }
 

@@ -20,15 +20,15 @@ close(int d)
 				_closebuf(d);
 			f->flags &= ~FD_BUFFERED;
 		}
-		n = _CLOSE(d);
-		if(n < 0)
-			_syserrno();
 		_fdinfo[d].flags = 0;
 		_fdinfo[d].oflags = 0;
 		if(_fdinfo[d].name){
 			free(_fdinfo[d].name);
 			_fdinfo[d].name = 0;
 		}
+		n = _CLOSE(d);
+		if(n < 0)
+			_syserrno();
 	}
 	return n;
 }
