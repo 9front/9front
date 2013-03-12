@@ -87,6 +87,10 @@ enum {
 	Gio		= 0x03c,
 		EnaL0S		= 1<<1,
 
+	GpDrv	= 0x050,
+		GpDrvCalV6	= 1<<2,
+		GpDrv1X2	= 1<<3,
+
 	Led		= 0x094,
 		LedBsmCtrl	= 1<<5,
 		LedOn		= 0x38,
@@ -1163,6 +1167,14 @@ reset(Ctlr *ctlr)
 
 	if((err = niclock(ctlr)) != nil)
 		return err;
+	if((ctlr->type == Type6005 || ctlr->type == Type6050) && ctlr->eeprom.version == 6)
+		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrvCalV6);
+	if(ctlr->type == Type6005)
+		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrv1X2);
+	nicunlock(ctlr);
+
+	if((err = niclock(ctlr)) != nil)
+		return err;
 	csr32w(ctlr, FhRxConfig, 0);
 	csr32w(ctlr, FhRxWptr, 0);
 	csr32w(ctlr, FhRxBase, PCIWADDR(ctlr->rx.p) >> 8);
@@ -1344,6 +1356,18 @@ postboot(Ctlr *ctlr)
 					return err;
 				}
 				if((err = flushq(ctlr, 4)) != nil)
+					return err;
+			}
+
+			if(ctlr->type == Type6005){
+				/* temperature sensor offset */
+				memset(c, 0, sizeof(c));
+				c[0] = 18;
+				c[1] = 0;
+				c[2] = 1;
+				c[3] = 1;
+				put16(c + 4, 2700);
+				if((err = cmd(ctlr, 176, c, 4+2+2)) != nil)
 					return err;
 			}
 
