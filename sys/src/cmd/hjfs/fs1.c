@@ -972,46 +972,46 @@ newentry(Fs *fs, Loc *l, Buf *b, char *name, FLoc *res, int dump)
 	int j, sj;
 	Buf *c;
 
-	si = sj = -1;
 	d = getdent(l, b);
-	if(d != nil){
-		for(i = 0; i < d->size; i++){
-			if(getblk(fs, l, b, i, &r, GBREAD) <= 0)
+	if(d == nil)
+		return -1;
+	si = sj = -1;
+	for(i = 0; i < d->size; i++){
+		if(getblk(fs, l, b, i, &r, GBREAD) <= 0)
+			continue;
+		c = getbuf(fs->d, r, TDENTRY, 0);
+		if(c == nil)
+			continue;
+		for(j = 0; j < DEPERBLK; j++){
+			dd = &c->de[j];
+			if((dd->mode & DGONE) != 0)
 				continue;
-			c = getbuf(fs->d, r, TDENTRY, 0);
-			if(c == nil)
-				continue;
-			for(j = 0; j < DEPERBLK; j++){
-				dd = &c->de[j];
-				if((dd->mode & DGONE) != 0)
-					continue;
-				if((dd->mode & DALLOC) != 0){
-					if(strcmp(dd->name, name) == 0){
-						werrstr(Eexists);
-						putbuf(c);
-						return 0;
-					}
-					continue;
-				}
-				if(si != -1 || haveloc(fs, r, j, l))
-					continue;
-				si = i;
-				sj = j;
-			}
-			putbuf(c);
-		}
-		if(si == -1 && i == d->size){
-			if(getblk(fs, l, b, i, &r, GBCREATE) >= 0){
-				c = getbuf(fs->d, r, TDENTRY, 1);
-				if(c != nil){
-					si = i;
-					sj = 0;
-					d->size = i+1;
-					b->op |= BDELWRI;
-					memset(c->de, 0, sizeof(c->de));
-					c->op |= BDELWRI;
+			if((dd->mode & DALLOC) != 0){
+				if(strcmp(dd->name, name) == 0){
+					werrstr(Eexists);
 					putbuf(c);
+					return 0;
 				}
+				continue;
+			}
+			if(si != -1 || haveloc(fs, r, j, l))
+				continue;
+			si = i;
+			sj = j;
+		}
+		putbuf(c);
+	}
+	if(si == -1 && i == d->size){
+		if(getblk(fs, l, b, i, &r, GBCREATE) >= 0){
+			c = getbuf(fs->d, r, TDENTRY, 1);
+			if(c != nil){
+				si = i;
+				sj = 0;
+				d->size = i+1;
+				b->op |= BDELWRI;
+				memset(c->de, 0, sizeof(c->de));
+				c->op |= BDELWRI;
+				putbuf(c);
 			}
 		}
 	}
