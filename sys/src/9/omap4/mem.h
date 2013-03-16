@@ -29,9 +29,7 @@
 
 #define KSTKSIZ		(16*KiB)
 #define KSTACK		KSTKSIZ
-#define TSTKSIZ		256
 #define USTKSIZE		(8*MiB)
-#define	TSTKTOP		(USTKTOP - USTKSIZE)
 #define HZ		100
 
 #define	MAXSYSARG	7

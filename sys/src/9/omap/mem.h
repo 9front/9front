@@ -75,8 +75,6 @@
 /* moved USTKTOP down to 512MB to keep MMIO space out of user space. */
 #define	USTKTOP		0x20000000		/* user segment end +1 */
 #define	USTKSIZE	(8*1024*1024)		/* user stack size */
-#define	TSTKTOP		(USTKTOP-USTKSIZE)	/* sysexec temporary stack */
-#define	TSTKSIZ	 	256
 
 /* address at which to copy and execute rebootcode */
 #define	REBOOTADDR	KADDR(0x100)

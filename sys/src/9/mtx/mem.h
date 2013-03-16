@@ -170,12 +170,10 @@
 
 #define	UZERO	0			/* base of user address space */
 #define	UTZERO	(UZERO+BY2PG)		/* first address in user text */
-#define	USTKTOP	(TSTKTOP-TSTKSIZ*BY2PG)	/* byte just beyond user stack */
-#define	TSTKTOP	KZERO	/* top of temporary stack */
-#define	TSTKSIZ 100
 #define	KZERO	0x80000000		/* base of kernel address space */
-#define	KTZERO	(KZERO+0x4000)	/* first address in kernel text */
-#define	USTKSIZE	(4*1024*1024)		/* size of user stack */
+#define	KTZERO	(KZERO+0x4000)		/* first address in kernel text */
+#define	USTKTOP	KZERO			/* byte just beyond user stack */
+#define	USTKSIZE	(4*1024*1024)	/* size of user stack */
 #define	UREGSIZE	((8+32)*4)
 
 #define	PCIMEM0		0xf0000000

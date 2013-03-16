@@ -57,8 +57,6 @@
 #define	NULLTOP		0xE8000000		/* ... */
 #define	USTKTOP		0x2000000		/* byte just beyond user stack */
 #define	USTKSIZE		(8*1024*1024)		/* size of user stack */
-#define	TSTKTOP		(USTKTOP-USTKSIZE)	/* end of new stack in sysexec */
-#define	TSTKSIZ	 	100
 #define	MACHADDR	(KZERO+0x00001000)
 #define	EVECTORS	0xFFFF0000		/* virt base of exception vectors */
 

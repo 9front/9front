@@ -93,8 +93,6 @@
  */
 #define	USTKTOP		(0x40000000 - 64*KiB - MiB) /* user segment end +1 */
 #define	USTKSIZE	(8*1024*1024)		/* user stack size */
-#define	TSTKTOP		(USTKTOP-USTKSIZE)	/* sysexec temporary stack */
-#define	TSTKSIZ	 	256
 
 /* address at which to copy and execute rebootcode */
 #define	REBOOTADDR	KADDR(0x100)

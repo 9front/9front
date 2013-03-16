@@ -227,7 +227,7 @@ sysexec(ulong *arg)
 	char **argv, **argp;
 	char *a, *charp, *args, *file, *file0;
 	char *progarg[sizeof(Exec)/2+1], *elem, progelem[64];
-	ulong ssize, spage, nargs, nbytes, n, bssend;
+	ulong ssize, tstk, nargs, nbytes, n, bssend;
 	int indir, commit;
 	Exec exec;
 	char line[sizeof(Exec)];
@@ -340,32 +340,38 @@ sysexec(ulong *arg)
 	 */
 	if((ssize+4) & 7)
 		ssize += 4;
-	spage = (ssize+(BY2PG-1)) >> PGSHIFT;
+
+	if(PGROUND(ssize) >= USTKSIZE)
+		error(Enovmem);
 
 	/*
 	 * Build the stack segment, putting it in kernel virtual for the moment
 	 */
-	if(spage > TSTKSIZ)
-		error(Enovmem);
-
 	qlock(&up->seglock);
 	if(waserror()){
 		qunlock(&up->seglock);
 		nexterror();
 	}
-	up->seg[ESEG] = newseg(SG_STACK, TSTKTOP-USTKSIZE, USTKSIZE/BY2PG);
+
+	s = up->seg[SSEG];
+	do {
+		tstk = s->base;
+		if(tstk <= USTKSIZE)
+			error(Enovmem);
+	} while((s = isoverlap(up, tstk-USTKSIZE, USTKSIZE)) != nil);
+	up->seg[ESEG] = newseg(SG_STACK, tstk-USTKSIZE, USTKSIZE/BY2PG);
 
 	/*
 	 * Args: pass 2: assemble; the pages will be faulted in
 	 */
-	tos = (Tos*)(TSTKTOP - sizeof(Tos));
+	tos = (Tos*)(tstk - sizeof(Tos));
 	tos->cyclefreq = m->cyclefreq;
 	tos->kcycles = 0;
 	tos->pcycles = 0;
 	tos->clock = 0;
 
-	argv = (char**)(TSTKTOP - ssize);
-	charp = (char*)(TSTKTOP - nbytes);
+	argv = (char**)(tstk - ssize);
+	charp = (char*)(tstk - nbytes);
 	args = charp;
 	if(indir)
 		argp = progarg;
@@ -377,7 +383,7 @@ sysexec(ulong *arg)
 			indir = 0;
 			argp = (char**)arg[1];
 		}
-		*argv++ = charp + (USTKTOP-TSTKTOP);
+		*argv++ = charp + (USTKTOP-tstk);
 		n = strlen(*argp) + 1;
 		memmove(charp, *argp++, n);
 		charp += n;
@@ -469,7 +475,7 @@ sysexec(ulong *arg)
 	up->seg[ESEG] = 0;
 	s->base = USTKTOP-USTKSIZE;
 	s->top = USTKTOP;
-	relocateseg(s, USTKTOP-TSTKTOP);
+	relocateseg(s, USTKTOP-tstk);
 	up->seg[SSEG] = s;
 	qunlock(&up->seglock);
 	poperror();	/* seglock */

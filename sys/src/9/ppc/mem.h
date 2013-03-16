@@ -209,9 +209,7 @@
 #define	KTZERO		0x80100000		/* first address in kernel text */
 #define	UZERO		0			/* base of user address space */
 #define	UTZERO		(UZERO+BY2PG)		/* first address in user text */
-#define	USTKTOP		(TSTKTOP-TSTKSIZ*BY2PG)	/* byte just beyond user stack */
-#define	TSTKTOP		KZERO			/* top of temporary stack */
-#define	TSTKSIZ		100
+#define	USTKTOP		KZERO			/* byte just beyond user stack */
 #define	USTKSIZE	(4*1024*1024)		/* size of user stack */
 #define	UREGSIZE	((8+40)*4)
 #define	MACHADDR	(KTZERO-MAXMACH*MACHSIZE)
