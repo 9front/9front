@@ -63,15 +63,24 @@ func1(ulong)
 {
 	Res r;
 	static char *bitsdx[32] = {
-		"fpu", "vme", "de", "pse", "tsc", "msr", "pae", "mce", "cx8", "apic",
-		nil, "sep", "mtrr", "pge", "mca", "cmov", "pat", "pse36", "pn", "clflush",
-		nil, "dts", "acpi", "mmx", "fxsr", "sse", "sse2", "ss", "ht", "tm", "ia64", "pbe",
+		[0]		"fpu",  "vme",   "de",   "pse",
+		[4]		"tsc",  "msr",   "pae",  "mce",
+		[8]		"cx8",  "apic",  nil,    "sep",
+		[12]	"mtrr", "pge",   "mca",  "cmov",
+		[16]	"pat",  "pse36", "pn",   "clflush",
+		[20]	nil,    "dts",   "acpi", "mmx",
+		[24]	"fxsr", "sse",   "sse2", "ss",
+		[28]	"ht",   "tm",    "ia64", "pbe",
 	};
 	static char *bitscx[32] = {
-		"pni", "pclmulqdq", "dtes64", "monitor", "ds_cpl", "vmx", "smx", "est", "tm2", "ssse3",
-		"cid", nil, "fma", "cx16", "xtpr", "pdcm", nil, "pcid", "dca", "sse4_1", "sse4_2", "x2apic",
-		"movbe", "popcnt", "tscdeadline", "aes", "xsave", "osxsave", "avx", 
-		"f16c", "rdrnd", "hypervisor"
+		[0]		"pni",         "pclmulqdq", "dtes64", "monitor",
+		[4]		"ds_cpl",      "vmx",       "smx",    "est",
+		[8]		"tm2",         "ssse3",     "cid",    nil,
+		[12]	"fma",         "cx16",      "xtpr",   "pdcm",
+		[16]	nil,           "pcid",      "dca",    "sse4_1",
+		[20]	"sse4_2",      "x2apic",    "movbe",  "popcnt",
+		[24]	"tscdeadline", "aes",       "xsave",  "osxsave",
+		[28]	"avx",         "f16c",      "rdrnd",  "hypervisor",
 	};
 
 	r = cpuid(1, 0);
@@ -85,14 +94,24 @@ extfunc1(ulong ax)
 {
 	Res r;
 	static char *bitsdx[32] = {
-		"fpu", "vme", "de", "pse", "tsc", "msr", "pae", "mce", "cx8", "apic",
-		nil, "syscall", "mtrr", "pge", "mca", "cmov", "pat", "pse36", nil, "mp",
-		"nx", nil, "mmx+", "mmx", "fxsr", "ffxsr", "pg1g", "tscp", nil, "lm", "3dnow!+", "3dnow!"
+		[0]		"fpu",  "vme",   "de",      "pse",
+		[4]		"tsc",  "msr",   "pae",     "mce",
+		[8]		"cx8",  "apic",  nil,       "syscall",
+		[12]	"mtrr", "pge",   "mca",     "cmov",
+		[16]	"pat",  "pse36", nil,       "mp",
+		[20]	"nx",   nil,     "mmx+",    "mmx",
+		[24]	"fxsr", "ffxsr", "pg1g",    "tscp",
+		[28]	nil,    "lm",    "3dnow!+", "3dnow!",
 	};
 	static char *bitscx[32] = {
-		"ahf64", "cmp", "svm", "eas", "cr8d", "lzcnt", "sse4a", "msse", "3dnow!p", "osvw", "ibs",
-		"xop", "skinit", "wdt", nil, "lwp", "fma4", "tce", nil, "nodeid", nil, "tbm", "topx",
-		"pcx_core", "pcx_nb",
+		[0]		"ahf64",   "cmp",   "svm",   "eas",
+		[4]		"cr8d",    "lzcnt", "sse4a", "msse",
+		[8]		"3dnow!p", "osvw",  "ibs",   "xop",
+		[12]	"skinit",  "wdt",   nil,     "lwp",
+		[16]	"fma4",    "tce",   nil,     "nodeid",
+		[20]	nil,       "tbm",   "topx",  "pcx_core",
+		[24]	"pcx_nb",  nil,     nil,     nil,
+		[28]	nil,       nil,     nil,     nil,
 	};
 
 	r = cpuid(ax, 0);
