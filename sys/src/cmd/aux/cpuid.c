@@ -31,7 +31,7 @@ func0(ulong)
 {
 	Res r;
 	char buf[13];
-	
+
 	r = cpuid(0, 0);
 	((ulong *) buf)[0] = r.bx;
 	((ulong *) buf)[1] = r.dx;
@@ -44,7 +44,7 @@ void
 printbits(char *id, ulong x, char **s)
 {
 	int i, j;
-	
+
 	for(i = 0, j = 0; i < 32; i++)
 		if((x & (1<<i)) != 0 && s[i] != nil){
 			if(j++ % 16 == 0){
@@ -73,7 +73,7 @@ func1(ulong)
 		"movbe", "popcnt", "tscdeadline", "aes", "xsave", "osxsave", "avx", 
 		"f16c", "rdrnd", "hypervisor"
 	};
-	
+
 	r = cpuid(1, 0);
 	Bprint(out, "procmodel %.8ulx / %.8ulx\n", r.ax, r.bx);
 	printbits("features", r.dx, bitsdx);
@@ -85,16 +85,16 @@ extfunc1(ulong ax)
 {
 	Res r;
 	static char *bitsdx[32] = {
-		"fpu", "vme", "de", "pse", "tsc", "msr", "pae", "mce", "cx8", "apic", "sep", "mtrr", "pge",
-		"mca", "cmov", "pat", "fcmov", "pse36", nil, "mp", "nx", nil, "mmx+", "mmx", nil,
-		"ffxsr", "pg1g", "tscp", nil, "lm", "3dnow!+", "3dnow"
+		"fpu", "vme", "de", "pse", "tsc", "msr", "pae", "mce", "cx8", "apic",
+		nil, "syscall", "mtrr", "pge", "mca", "cmov", "pat", "pse36", nil, "mp",
+		"nx", nil, "mmx+", "mmx", "fxsr", "ffxsr", "pg1g", "tscp", nil, "lm", "3dnow!+", "3dnow!"
 	};
 	static char *bitscx[32] = {
 		"ahf64", "cmp", "svm", "eas", "cr8d", "lzcnt", "sse4a", "msse", "3dnow!p", "osvw", "ibs",
 		"xop", "skinit", "wdt", nil, "lwp", "fma4", "tce", nil, "nodeid", nil, "tbm", "topx",
 		"pcx_core", "pcx_nb",
 	};
-	
+
 	r = cpuid(ax, 0);
 	Bprint(out, "extmodel %.8ulx / %.8ulx\n", r.ax, r.bx);
 	printbits("extfeatures", r.dx, bitsdx);
@@ -129,7 +129,7 @@ void
 extfunc8(ulong ax)
 {
 	Res r;
-	
+
 	r = cpuid(ax, 0);
 	Bprint(out, "physbits %uld\n", CUT(r.ax, 0, 7));
 	Bprint(out, "virtbits %uld\n", CUT(r.ax, 8, 15));
@@ -154,7 +154,7 @@ void
 stdfunc(ulong ax)
 {
 	Res r;
-	
+
 	r = cpuid(ax, 0);
 	Bprint(out, "%.8ulx %.8ulx %.8ulx %.8ulx %.8ulx\n", ax, r.ax, r.bx, r.cx, r.dx);
 }
@@ -176,7 +176,7 @@ main(int argc, char **argv)
 	int i, rflag, aflag;
 	ulong w;
 	static Biobuf buf;
-	
+
 	rflag = aflag = 0;
 	ARGBEGIN {
 	case 'r': rflag++; break;
