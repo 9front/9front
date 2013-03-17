@@ -90,6 +90,18 @@ func1(ulong)
 }
 
 void
+func13(ulong)
+{
+	Res r;
+	static char *bitsax[32] = {
+		[0]	"xsaveopt",
+	};
+
+	r = cpuid(13, 1);
+	printbits("features", r.ax, bitsax);
+}
+
+void
 extfunc1(ulong ax)
 {
 	Res r;
@@ -157,8 +169,9 @@ extfunc8(ulong ax)
 }
 
 void (*funcs[])(ulong) = {
-	[0] func0,
-	[1] func1,
+	[0] 	func0,
+	[1] 	func1,
+	[13]	func13,
 };
 
 void (*extfuncs[])(ulong) = {
