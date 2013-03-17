@@ -8,6 +8,9 @@
 enum {
 	PTKlen = 512/8,
 	GTKlen = 256/8,
+
+	MIClen = 16,
+
 	Noncelen = 32,
 	Eaddrlen = 6,
 };
@@ -73,10 +76,6 @@ uchar	wpaie[] = {
 	0x01, 0x00,		/* authentication suite count 1 */
 	0x00, 0x50, 0xf2, 0x02,	/* authentication suite PSK */
 };
-
-/* only WPA for now */
-uchar	*rsne = wpaie;
-int	rsnelen = sizeof(wpaie);
 
 char*
 getessid(void)
@@ -181,8 +180,8 @@ dumpkeydescr(Keydescr *kd)
 	int i, f;
 
 	f = kd->flags[0]<<8 | kd->flags[1];
-	fprint(2, "type=%.*H flags=%.*H ( ",
-		sizeof(kd->type), kd->type,
+	fprint(2, "type=%.*H vers=%d flags=%.*H ( ",
+		sizeof(kd->type), kd->type, kd->flags[1] & 7,
 		sizeof(kd->flags), kd->flags);
 	for(i=0; i<nelem(flags); i++)
 		if(flags[i].flag & f)
@@ -196,13 +195,96 @@ dumpkeydescr(Keydescr *kd)
 		sizeof(kd->id), kd->id,
 		sizeof(kd->mic), kd->mic);
 	i = kd->datalen[0]<<8 | kd->datalen[1];
-	fprint(2, "data[%.4x]=%.*H\n\n", i, i, kd->data);
+	fprint(2, "data[%.4x]=%.*H\n", i, i, kd->data);
+}
+
+int
+rc4unwrap(uchar key[16], uchar iv[16], uchar *data, int len)
+{
+	uchar seed[32];
+	RC4state rs;
+
+	memmove(seed, iv, 16);
+	memmove(seed+16, key, 16);
+	setupRC4state(&rs, seed, sizeof(seed));
+	rc4skip(&rs, 256);
+	rc4(&rs, data, len);
+	return len;
+}
+
+int
+aesunwrap(uchar *key, int nkey, uchar *data, int len)
+{
+	static uchar IV[8] = { 0xa6, 0xa6, 0xa6, 0xa6, 0xa6, 0xa6, 0xa6, 0xa6, };
+	uchar B[16], *R;
+	AESstate s;
+	uint t;
+	int n;
+
+	len -= 8;
+	if(len < 16 || (len % 8) != 0)
+		return -1;
+	n = len/8;
+	t = n*6;
+	setupAESstate(&s, key, nkey, 0);
+	memmove(B, data, 8);
+	memmove(data, data+8, n*8);
+	do {
+		for(R = data + (n - 1)*8; R >= data; t--, R -= 8){
+			memmove(B+8, R, 8);
+			B[7] ^= (t >> 0);
+			B[6] ^= (t >> 8);
+			B[5] ^= (t >> 16);
+			B[4] ^= (t >> 24);
+			aes_decrypt(s.dkey, s.rounds, B, B);
+			memmove(R, B+8, 8);
+		}
+	} while(t > 0);
+	fprint(2, "unwrap: A=%.8H %.*H\n", B, n*8, data);
+	if(memcmp(B, IV, 8) != 0)
+		return -1;
+	return n*8;
+}
+
+int
+calcmic(Keydescr *kd, uchar *msg, int msglen)
+{
+	int vers;
+
+	vers = kd->flags[1] & 7;
+	memset(kd->mic, 0, MIClen);
+	if(vers == 1){
+		uchar digest[MD5dlen];
+
+		hmac_md5(msg, msglen, ptk, 16, digest, nil);
+		memmove(kd->mic, digest, MIClen);
+		return 0;
+	}
+	if(vers == 2){
+		uchar digest[SHA1dlen];
+
+		hmac_sha1(msg, msglen, ptk, 16, digest, nil);
+		memmove(kd->mic, digest, MIClen);
+		return 0;
+	}
+	return -1;
+}
+
+int
+checkmic(Keydescr *kd, uchar *msg, int msglen)
+{
+	uchar tmp[MIClen];
+
+	memmove(tmp, kd->mic, MIClen);
+	if(calcmic(kd, msg, msglen) != 0)
+		return -1;
+	return memcmp(tmp, kd->mic, MIClen) != 0;
 }
 
 void
 reply(uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar *data, int datalen)
 {
-	uchar buf[4096], mic[MD5dlen], *m, *p = buf;
+	uchar buf[4096], *m, *p = buf;
 
 	memmove(p, amac, Eaddrlen); p += Eaddrlen;
 	memmove(p, smac, Eaddrlen); p += Eaddrlen;
@@ -227,13 +309,11 @@ reply(uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar
 	memmove(p, data, datalen);
 	p += datalen;
 
-	memset(kd->mic, 0, sizeof(kd->mic));
-	if(flags & Fmic){
-		hmac_md5(m, p - m, ptk, 16, mic, nil);
-		memmove(kd->mic, mic, sizeof(kd->mic));
-	}
+	memset(kd->mic, 0, MIClen);
+	if(flags & Fmic)
+		calcmic(kd, m, p - m);
 	if(debug != 0){
-		fprint(2, "reply %E -> %E: ", smac, amac);
+		fprint(2, "\nreply %E -> %E: ", smac, amac);
 		dumpkeydescr(kd);
 	}
 	datalen = p - buf;
@@ -253,11 +333,17 @@ main(int argc, char *argv[])
 {
 	uchar mac[Eaddrlen], buf[1024];
 	char addr[128];
+	uchar *rsne;
+	int rsnelen;
 	int n;
 
 	quotefmtinstall();
 	fmtinstall('H', Hfmt);
 	fmtinstall('E', eipfmt);
+
+	/* default is WPA */
+	rsne = wpaie;
+	rsnelen = sizeof(wpaie);
 
 	ARGBEGIN {
 	case 'd':
@@ -268,6 +354,14 @@ main(int argc, char *argv[])
 		break;
 	case 's':
 		strncpy(essid, EARGF(usage()), 32);
+		break;
+	case '1':
+		rsne = wpaie;
+		rsnelen = sizeof(wpaie);
+		break;
+	case '2':
+		rsne = rsnie;
+		rsnelen = sizeof(rsnie);
 		break;
 	default:
 		usage();
@@ -325,7 +419,7 @@ main(int argc, char *argv[])
 	
 	for(;;){
 		uchar smac[Eaddrlen], amac[Eaddrlen], snonce[Noncelen], anonce[Noncelen], *p, *e, *m;
-		int proto, flags, kid;
+		int proto, flags, vers, datalen;
 		uvlong repc, rsc;
 		Keydescr *kd;
 
@@ -349,17 +443,15 @@ main(int argc, char *argv[])
 		p += 4;
 		if(n < Keydescrlen || p + n > e)
 			continue;
+		e = p + n;
 		kd = (Keydescr*)p;
 		if(debug){
-			fprint(2, "recv %E <- %E: ", smac, amac);
+			fprint(2, "\nrecv %E <- %E: ", smac, amac);
 			dumpkeydescr(kd);
 		}
 
-		/* only WPA, RSN descriptor format not suppoted yet */
-		if(kd->type[0] != 0xFE)
+		if(kd->type[0] != 0xFE && kd->type[0] != 0x02)
 			continue;
-
-		flags = kd->flags[0]<<8 | kd->flags[1];
 
 		rsc =	(uvlong)kd->rsc[0] |
 			(uvlong)kd->rsc[1]<<8 |
@@ -367,6 +459,12 @@ main(int argc, char *argv[])
 			(uvlong)kd->rsc[3]<<24 |
 			(uvlong)kd->rsc[4]<<32 |
 			(uvlong)kd->rsc[5]<<40;
+
+		vers = kd->flags[1] & 7;
+		flags = kd->flags[0]<<8 | kd->flags[1];
+		datalen = kd->datalen[0]<<8 | kd->datalen[1];
+		if(kd->data + datalen > e)
+			continue;
 
 		if((flags & Fmic) == 0){
 			if((flags & (Fptk|Fack)) != (Fptk|Fack))
@@ -383,14 +481,14 @@ main(int argc, char *argv[])
 			memmove(kd->nonce, snonce, sizeof(kd->nonce));
 			reply(smac, amac, (flags & ~(Fack|Fins)) | Fmic, kd, rsne, rsnelen);
 		} else {
-			uchar tmp[MD5dlen], mic[MD5dlen];
+			uchar gtk[GTKlen];
+			int gtklen, gtkkid;
 
-			/* check mic */
-			memmove(tmp, kd->mic, sizeof(mic));
-			memset(kd->mic, 0, sizeof(kd->mic));
-			hmac_md5(m, e - m, ptk, 16, mic, nil);
-			if(memcmp(tmp, mic, sizeof(mic)) != 0)
+			if(checkmic(kd, m, e - m) != 0){
+				if(debug != 0)
+					fprint(2, "bad mic\n");
 				continue;
+			}
 
 			repc =	(uvlong)kd->repc[7] |
 				(uvlong)kd->repc[6]<<8 |
@@ -400,11 +498,61 @@ main(int argc, char *argv[])
 				(uvlong)kd->repc[2]<<40 |
 				(uvlong)kd->repc[1]<<48 |
 				(uvlong)kd->repc[0]<<56;
-			if(repc <= lastrepc)
+			if(repc <= lastrepc){
+				if(debug != 0)
+					fprint(2, "bad repc: %llux <= %llux\n", repc, lastrepc);
 				continue;
+			}
 			lastrepc = repc;
 
-			if((flags & (Fptk|Fsec|Fack)) == (Fptk|Fack)){
+			if(datalen > 0 && (flags & Fenc) != 0){
+				if(vers == 1)
+					datalen = rc4unwrap(ptk+16, kd->eapoliv, kd->data, datalen);
+				else
+					datalen = aesunwrap(ptk+16, 16, kd->data, datalen);
+				if(datalen <= 0){
+					if(debug != 0)
+						fprint(2, "bad keywrap\n");
+					continue;
+				}
+				if(debug != 0)
+					fprint(2, "unwraped keydata[%.4x]=%.*H\n", datalen, datalen, kd->data);
+			}
+
+			gtklen = 0;
+			gtkkid = -1;
+
+			if(kd->type[0] != 0xFE || (flags & (Fptk|Fack)) == (Fptk|Fack)){
+				uchar *p, *x, *e;
+
+				p = kd->data;
+				e = p + datalen;
+				for(; p+2 <= e; p = x){
+					if((x = p+2+p[1]) > e)
+						break;
+					if(debug != 0)
+						fprint(2, "ie=%.2x data[%.2x]=%.*H\n", p[0], p[1], p[1], p+2);
+					if(p[0] == 0x30){ /* RSN */
+					}
+					if(p[0] == 0xDD){ /* WPA */
+						static uchar oui[] = { 0x00, 0x0f, 0xac, 0x01, };
+
+						if(p+2+sizeof(oui) > x || memcmp(p+2, oui, sizeof(oui)) != 0)
+							continue;
+						if((flags & Fenc) == 0)
+							continue;	/* ignore gorup key if unencrypted */
+						gtklen = x - (p + 8);
+						if(gtklen <= 0)
+							continue;
+						if(gtklen > sizeof(gtk))
+							gtklen = sizeof(gtk);
+						memmove(gtk, p + 8, gtklen);
+						gtkkid = p[6] & 3;
+					}
+				}
+			}
+
+			if((flags & (Fptk|Fack)) == (Fptk|Fack)){
 				/* install peerwise receive key */
 				if(fprint(cfd, "rxkey %.*H tkip:%.*H@%llux", Eaddrlen, amac, 32, ptk+32, rsc) < 0)
 					sysfatal("write rxkey: %r");
@@ -416,37 +564,40 @@ main(int argc, char *argv[])
 				kd->rsc[1] = rsc>>8;
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
-				reply(smac, amac, flags & ~Fack, kd, nil, 0);
+				reply(smac, amac, flags & ~(Fack|Fenc|Fsec), kd, nil, 0);
 				sleep(100);
 
 				/* install peerwise transmit key */ 
 				if(fprint(cfd, "txkey %.*H tkip:%.*H@%llux", Eaddrlen, amac, 32, ptk+32, rsc) < 0)
 					sysfatal("write txkey: %r");
+
+				/* reset rsc for group key */
+				rsc = 0;
 			} else
 			if((flags & (Fptk|Fsec|Fack)) == (Fsec|Fack)){
-				uchar seed[32], gtk[GTKlen];
-				RC4state rs;
-				int len;
-
-				len = kd->datalen[1]<<8 | kd->datalen[0];
-				if(len > sizeof(gtk))
-					len = sizeof(gtk);
-				memmove(gtk, kd->data, len);
-				memmove(seed, kd->eapoliv, 16);
-				memmove(seed+16, ptk+16, 16);
-				setupRC4state(&rs, seed, sizeof(seed));
-				rc4skip(&rs, 256);
-				rc4(&rs, gtk, len);
-	
-				/* install group key */
-				kid = (flags >> 4) & 3;
-				if(fprint(cfd, "rxkey%d %.*H tkip:%.*H@%llux", kid, Eaddrlen, amac, len, gtk, rsc) < 0)
-					sysfatal("write rxkey%d: %r", kid);
+				if(kd->type[0] == 0xFE){
+					/* WPA always RC4 encrypts the GTK, even tho the flag isnt set */
+					if((flags & Fenc) == 0)
+						datalen = rc4unwrap(ptk+16, kd->eapoliv, kd->data, datalen);
+					gtklen = datalen;
+					if(gtklen > sizeof(gtk))
+						gtklen = sizeof(gtk);
+					memmove(gtk, kd->data, gtklen);
+					gtkkid = (flags >> 4) & 3;
+				}
 
 				memset(kd->rsc, 0, sizeof(kd->rsc));
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
-				reply(smac, amac, flags & ~Fack, kd, nil, 0);
+				reply(smac, amac, flags & ~(Fenc|Fack), kd, nil, 0);
+			} else
+				continue;
+
+			if(gtklen > 0 && gtkkid != -1){
+				/* install group key */
+				if(fprint(cfd, "rxkey%d %.*H tkip:%.*H@%llux",
+					gtkkid, Eaddrlen, amac, gtklen, gtk, rsc) < 0)
+					sysfatal("write rxkey%d: %r", gtkkid);
 			}
 		}
 	}
