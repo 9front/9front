@@ -1161,11 +1161,18 @@ aesCCMencrypt(int L, int M, uchar *N /* N[15-L] */,
 
 	xblock(L, M, N, a, la, lm, t, s);
 
-	for(i = 1; lm >= 16; i++, lm -= 16){
-		for(p = sblock(L, N, i, b, s), x = t; p < &b[16]; x++, m++, p++){
-			*x ^= *m;
-			*m ^= *p;
-		}
+	for(i = 1; lm >= 16; i++, m += 16, lm -= 16){
+		sblock(L, N, i, b, s);
+
+		*((u32int*)&t[0]) ^= *((u32int*)&m[0]);
+		*((u32int*)&m[0]) ^= *((u32int*)&b[0]);
+		*((u32int*)&t[4]) ^= *((u32int*)&m[4]);
+		*((u32int*)&m[4]) ^= *((u32int*)&b[4]);
+		*((u32int*)&t[8]) ^= *((u32int*)&m[8]);
+		*((u32int*)&m[8]) ^= *((u32int*)&b[8]);
+		*((u32int*)&t[12]) ^= *((u32int*)&m[12]);
+		*((u32int*)&m[12]) ^= *((u32int*)&b[12]);
+
 		aes_encrypt(s->ekey, s->rounds, t, t);
 	}
 	if(lm > 0){
@@ -1193,11 +1200,18 @@ aesCCMdecrypt(int L, int M, uchar *N /* N[15-L] */,
 
 	xblock(L, M, N, a, la, lm, t, s);
 
-	for(i = 1; lm >= 16; i++, lm -= 16){
-		for(p = sblock(L, N, i, b, s), x = t; p < &b[16]; x++, m++, p++){
-			*m ^= *p;
-			*x ^= *m;
-		}
+	for(i = 1; lm >= 16; i++, m += 16, lm -= 16){
+		sblock(L, N, i, b, s);
+
+		*((u32int*)&m[0]) ^= *((u32int*)&b[0]);
+		*((u32int*)&t[0]) ^= *((u32int*)&m[0]);
+		*((u32int*)&m[4]) ^= *((u32int*)&b[4]);
+		*((u32int*)&t[4]) ^= *((u32int*)&m[4]);
+		*((u32int*)&m[8]) ^= *((u32int*)&b[8]);
+		*((u32int*)&t[8]) ^= *((u32int*)&m[8]);
+		*((u32int*)&m[12]) ^= *((u32int*)&b[12]);
+		*((u32int*)&t[12]) ^= *((u32int*)&m[12]);
+
 		aes_encrypt(s->ekey, s->rounds, t, t);
 	}
 	if(lm > 0){
