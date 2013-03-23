@@ -44,6 +44,19 @@ struct Keydescr
 	uchar	data[];
 };
 
+typedef struct Cipher Cipher;
+struct Cipher
+{
+	char	*name;
+	int	keylen;
+};
+
+Cipher	tkip = { "tkip", 32 };
+Cipher	ccmp = { "ccmp", 16 };
+
+Cipher	*peercipher;
+Cipher	*groupcipher;
+
 int	prompt;
 int	debug;
 int	fd, cfd;
@@ -57,9 +70,9 @@ uchar	rsnie[] = {
 	0x30,			/* RSN */
 	0x14,			/* length */
 	0x01, 0x00,		/* version 1 */
-	0x00, 0x0F, 0xAC, 0x02,	/* group cipher suite TKIP */
+	0x00, 0x0F, 0xAC, 0x04,	/* group cipher suite CCMP */
 	0x01, 0x00,		/* peerwise cipher suite count 1 */
-	0x00, 0x0F, 0xAC, 0x02,	/* peerwise cipher suite TKIP */
+	0x00, 0x0F, 0xAC, 0x04,	/* peerwise cipher suite CCMP */
 	0x01, 0x00,		/* authentication suite count 1 */
 	0x00, 0x0F, 0xAC, 0x02,	/* authentication suite PSK */
 	0x00, 0x00,		/* capabilities */
@@ -324,7 +337,7 @@ reply(uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar
 void
 usage(void)
 {
-	fprint(2, "%s: [-dp] [-s essid] dev\n", argv0);
+	fprint(2, "%s: [-dp12] [-s essid] dev\n", argv0);
 	exits("usage");
 }
 
@@ -344,6 +357,8 @@ main(int argc, char *argv[])
 	/* default is WPA */
 	rsne = wpaie;
 	rsnelen = sizeof(wpaie);
+	peercipher = &tkip;
+	groupcipher = &tkip;
 
 	ARGBEGIN {
 	case 'd':
@@ -358,10 +373,14 @@ main(int argc, char *argv[])
 	case '1':
 		rsne = wpaie;
 		rsnelen = sizeof(wpaie);
+		peercipher = &tkip;
+		groupcipher = &tkip;
 		break;
 	case '2':
 		rsne = rsnie;
 		rsnelen = sizeof(rsnie);
+		peercipher = &ccmp;
+		groupcipher = &ccmp;
 		break;
 	default:
 		usage();
@@ -554,7 +573,8 @@ main(int argc, char *argv[])
 
 			if((flags & (Fptk|Fack)) == (Fptk|Fack)){
 				/* install peerwise receive key */
-				if(fprint(cfd, "rxkey %.*H tkip:%.*H@%llux", Eaddrlen, amac, 32, ptk+32, rsc) < 0)
+				if(fprint(cfd, "rxkey %.*H %s:%.*H@%llux", Eaddrlen, amac,
+					peercipher->name, peercipher->keylen, ptk+32, rsc) < 0)
 					sysfatal("write rxkey: %r");
 
 				/* pick random 16bit tsc value for transmit */
@@ -568,7 +588,8 @@ main(int argc, char *argv[])
 				sleep(100);
 
 				/* install peerwise transmit key */ 
-				if(fprint(cfd, "txkey %.*H tkip:%.*H@%llux", Eaddrlen, amac, 32, ptk+32, rsc) < 0)
+				if(fprint(cfd, "txkey %.*H %s:%.*H@%llux", Eaddrlen, amac,
+					peercipher->name, peercipher->keylen, ptk+32, rsc) < 0)
 					sysfatal("write txkey: %r");
 
 				/* reset rsc for group key */
@@ -593,10 +614,11 @@ main(int argc, char *argv[])
 			} else
 				continue;
 
-			if(gtklen > 0 && gtkkid != -1){
+			if(gtklen >= groupcipher->keylen && gtkkid != -1){
 				/* install group key */
-				if(fprint(cfd, "rxkey%d %.*H tkip:%.*H@%llux",
-					gtkkid, Eaddrlen, amac, gtklen, gtk, rsc) < 0)
+				if(fprint(cfd, "rxkey%d %.*H %s:%.*H@%llux",
+					gtkkid, Eaddrlen, amac, 
+					groupcipher->name, groupcipher->keylen, gtk, rsc) < 0)
 					sysfatal("write rxkey%d: %r", gtkkid);
 			}
 		}

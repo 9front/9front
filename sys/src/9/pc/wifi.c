@@ -503,6 +503,7 @@ hextob(char *s, char **sp, uchar *b, int n)
 static char *ciphers[] = {
 	[0]	"clear",
 	[TKIP]	"tkip",
+	[CCMP]	"ccmp",
 };
 
 static int
@@ -682,13 +683,25 @@ static void micfinish(MICstate *s, uchar mic[8]);
 
 static uchar pad4[4] = { 0x00, 0x00, 0x00, 0x00, };
 
+static int setupCCMP(Wkey *k, Wifipkt *w, uvlong tsc, uchar nonce[13], uchar auth[30], AESstate *as);
+
+void aesCCMencrypt(int L, int M, uchar *N /* N[15-L] */,
+	uchar *a /* a[la] */, int la,
+	uchar *m /* m[lm+M] */, int lm,
+	AESstate *s);
+int aesCCMdecrypt(int L, int M, uchar *N /* N[15-L] */,
+	uchar *a /* a[la] */, int la,
+	uchar *m /* m[lm+M] */, int lm,
+	AESstate *s);
+
 static Block*
 wifiencrypt(Wifi *, Wnode *wn, Block *b)
 {
+	uchar auth[32], seed[16];
 	u16int tk[8], p1k[5];
-	uchar seed[16];
 	uvlong tsc;
 	ulong crc;
+	AESstate as;
 	RC4state rs;
 	MICstate ms;
 	Wifipkt *w;
@@ -699,8 +712,6 @@ wifiencrypt(Wifi *, Wnode *wn, Block *b)
 	k = &wn->txkey[kid];
 	if(k->cipher == 0)
 		goto pass;
-	if(k->cipher != TKIP || k->len != 32)
-		goto drop;
 
 	n = wifihdrlen((Wifipkt*)b->rp);
 
@@ -712,37 +723,63 @@ wifiencrypt(Wifi *, Wnode *wn, Block *b)
 	b->rp += n;
 
 	tsc = ++k->tsc;
-	b->rp[0] = tsc>>8;
-	b->rp[1] = (b->rp[0] | 0x20) & 0x7f;
-	b->rp[2] = tsc;
-	b->rp[3] = kid<<6 | 0x20;
-	b->rp[4] = tsc>>16;
-	b->rp[5] = tsc>>24;
-	b->rp[6] = tsc>>32;
-	b->rp[7] = tsc>>40;
-	b->rp += 8;
 
-	micsetup(&ms, k->key+24);
-	micupdate(&ms, dstaddr(w), Eaddrlen);
-	micupdate(&ms, srcaddr(w), Eaddrlen);
-	micupdate(&ms, pad4, 4);
-	micupdate(&ms, b->rp, BLEN(b));
-	micfinish(&ms, b->wp);
-	b->wp += 8;
+	switch(k->cipher){
+	case TKIP:
+		b->rp[0] = tsc>>8;
+		b->rp[1] = (b->rp[0] | 0x20) & 0x7f;
+		b->rp[2] = tsc;
+		b->rp[3] = kid<<6 | 0x20;
+		b->rp[4] = tsc>>16;
+		b->rp[5] = tsc>>24;
+		b->rp[6] = tsc>>32;
+		b->rp[7] = tsc>>40;
+		b->rp += 8;
 
-	crc = ethercrc(b->rp, BLEN(b));
-	crc = ~crc;
-	b->wp[0] = crc;
-	b->wp[1] = crc>>8;
-	b->wp[2] = crc>>16;
-	b->wp[3] = crc>>24;
-	b->wp += 4;
+		if(k->len != 32)
+			goto drop;
+		micsetup(&ms, k->key+24);
+		micupdate(&ms, dstaddr(w), Eaddrlen);
+		micupdate(&ms, srcaddr(w), Eaddrlen);
+		micupdate(&ms, pad4, 4);
+		micupdate(&ms, b->rp, BLEN(b));
+		micfinish(&ms, b->wp);
+		b->wp += 8;
 
-	tkipk2tk(k->key, tk);
-	tkipphase1(tsc >> 16, w->a2, tk, p1k);
-	tkipphase2(tsc & 0xFFFF, p1k, tk, seed);
-	setupRC4state(&rs, seed, sizeof(seed));
-	rc4(&rs, b->rp, BLEN(b));
+		crc = ethercrc(b->rp, BLEN(b));
+		crc = ~crc;
+		b->wp[0] = crc;
+		b->wp[1] = crc>>8;
+		b->wp[2] = crc>>16;
+		b->wp[3] = crc>>24;
+		b->wp += 4;
+
+		tkipk2tk(k->key, tk);
+		tkipphase1(tsc >> 16, w->a2, tk, p1k);
+		tkipphase2(tsc & 0xFFFF, p1k, tk, seed);
+		setupRC4state(&rs, seed, sizeof(seed));
+		rc4(&rs, b->rp, BLEN(b));
+		break;
+	case CCMP:
+		b->rp[0] = tsc;
+		b->rp[1] = tsc>>8;
+		b->rp[2] = 0;
+		b->rp[3] = kid<<6 | 0x20;
+		b->rp[4] = tsc>>16;
+		b->rp[5] = tsc>>24;
+		b->rp[6] = tsc>>32;
+		b->rp[7] = tsc>>40;
+		b->rp += 8;
+
+		if(k->len != 16)
+			goto drop;
+		aesCCMencrypt(2, 8, seed, auth, setupCCMP(k, w, tsc, seed, auth, &as),
+			b->rp, BLEN(b), &as);
+		b->wp += 8;
+		break;
+	default:
+		goto drop;
+	}
 
 	b->rp = (uchar*)w;
 	w->fc[1] |= 0x40;
@@ -757,9 +794,10 @@ drop:
 static Block*
 wifidecrypt(Wifi *, Wnode *wn, Block *b)
 {
-	uchar seed[16], mic[8];
+	uchar auth[32], seed[16], mic[8];
 	u16int tk[8], p1k[5];
 	RC4state rs;
+	AESstate as;
 	MICstate ms;
 	uvlong tsc;
 	ulong crc;
@@ -773,8 +811,7 @@ wifidecrypt(Wifi *, Wnode *wn, Block *b)
 
 	n = wifihdrlen(w);
 	b->rp += n;
-
-	if(BLEN(b) < 8+8+4)
+	if(BLEN(b) < 8+8)
 		goto drop;
 
 	kid = b->rp[3]>>6;
@@ -784,44 +821,60 @@ wifidecrypt(Wifi *, Wnode *wn, Block *b)
 		kid = 4;	/* use peerwise key for non-unicast */
 
 	k = &wn->rxkey[kid];
-	if(k->cipher != TKIP || k->len != 32)
+	switch(k->cipher){
+	case TKIP:
+		tsc =	(uvlong)b->rp[7]<<40 |
+			(uvlong)b->rp[6]<<32 |
+			(uvlong)b->rp[5]<<24 |
+			(uvlong)b->rp[4]<<16 |
+			(uvlong)b->rp[0]<<8 |
+			(uvlong)b->rp[2];
+		b->rp += 8;
+		if(tsc <= k->tsc || BLEN(b) < 8+4 || k->len != 32)
+			goto drop;
+		tkipk2tk(k->key, tk);
+		tkipphase1(tsc >> 16, w->a2, tk, p1k);
+		tkipphase2(tsc & 0xFFFF, p1k, tk, seed);
+		setupRC4state(&rs, seed, sizeof(seed));
+		rc4(&rs, b->rp, BLEN(b));
+
+		b->wp -= 4;
+		crc =	(ulong)b->wp[0] |
+			(ulong)b->wp[1]<<8 |
+			(ulong)b->wp[2]<<16 |
+			(ulong)b->wp[3]<<24;
+		crc = ~crc;
+		if(ethercrc(b->rp, BLEN(b)) != crc)
+			goto drop;
+
+		b->wp -= 8;
+		micsetup(&ms, k->key+16);
+		micupdate(&ms, dstaddr(w), Eaddrlen);
+		micupdate(&ms, srcaddr(w), Eaddrlen);
+		micupdate(&ms, pad4, 4);
+		micupdate(&ms, b->rp, BLEN(b));
+		micfinish(&ms, mic);
+		if(memcmp(b->wp, mic, 8) != 0)
+			goto drop;
+		break;
+	case CCMP:
+		tsc =	(uvlong)b->rp[7]<<40 |
+			(uvlong)b->rp[6]<<32 |
+			(uvlong)b->rp[5]<<24 |
+			(uvlong)b->rp[4]<<16 |
+			(uvlong)b->rp[1]<<8 |
+			(uvlong)b->rp[0];
+		b->rp += 8;
+		if(tsc <= k->tsc || k->len != 16)
+			goto drop;
+		b->wp -= 8;
+		if(aesCCMdecrypt(2, 8, seed, auth, setupCCMP(k, w, tsc, seed, auth, &as),
+			b->rp, BLEN(b), &as) != 0)
+			goto drop;
+		break;
+	default:
 		goto drop;
-
-	tsc =	(uvlong)b->rp[7]<<40 |
-		(uvlong)b->rp[6]<<32 |
-		(uvlong)b->rp[5]<<24 |
-		(uvlong)b->rp[4]<<16 |
-		(uvlong)b->rp[0]<<8 |
-		(uvlong)b->rp[2];
-	b->rp += 8;
-
-	if(tsc <= k->tsc)
-		goto drop;
-
-	tkipk2tk(k->key, tk);
-	tkipphase1(tsc >> 16, w->a2, tk, p1k);
-	tkipphase2(tsc & 0xFFFF, p1k, tk, seed);
-	setupRC4state(&rs, seed, sizeof(seed));
-	rc4(&rs, b->rp, BLEN(b));
-
-	b->wp -= 4;
-	crc =	(ulong)b->wp[0] |
-		(ulong)b->wp[1]<<8 |
-		(ulong)b->wp[2]<<16 |
-		(ulong)b->wp[3]<<24;
-	crc = ~crc;
-	if(ethercrc(b->rp, BLEN(b)) != crc)
-		goto drop;
-
-	b->wp -= 8;
-	micsetup(&ms, k->key+16);
-	micupdate(&ms, dstaddr(w), Eaddrlen);
-	micupdate(&ms, srcaddr(w), Eaddrlen);
-	micupdate(&ms, pad4, 4);
-	micupdate(&ms, b->rp, BLEN(b));
-	micfinish(&ms, mic);
-	if(memcmp(b->wp, mic, 8) != 0)
-		goto drop;
+	}
 
 	k->tsc = tsc;
 	b->rp -= n;
@@ -1052,4 +1105,139 @@ micfinish(MICstate *s, uchar mic[8])
 	mic[5] = s->r>>8;
 	mic[6] = s->r>>16;
 	mic[7] = s->r>>24;
+}
+
+static uchar*
+putbe(uchar *p, int L, uint v)
+{
+	while(--L >= 0)
+		*p++ = (v >> L*8) & 0xFF;
+	return p;
+}
+
+static void
+xblock(int L, int M, uchar *N, uchar *a, int la, int lm, uchar t[16], AESstate *s)
+{
+	uchar l[8], *p, *x, *e;
+
+	assert(M >= 4 && M <= 16);
+	assert(L >= 2 && L <= 4);
+
+	t[0] = ((la > 0)<<6) | ((M-2)/2)<<3 | (L-1);	/* flags */
+	memmove(&t[1], N, 15-L);
+	putbe(&t[16-L], L, lm);
+	aes_encrypt(s->ekey, s->rounds, t, t);
+	
+	if(la > 0){
+		assert(la < 0xFF00);
+		for(p = l, e = putbe(l, 2, la), x = t; p < e; x++, p++)
+			*x ^= *p;
+		for(e = a + la; a < e; x = t){
+			for(; a < e && x < &t[16]; x++, a++)
+				*x ^= *a;
+			aes_encrypt(s->ekey, s->rounds, t, t);
+		}
+	}
+}
+
+static uchar*
+sblock(int L, uchar *N, uint i, uchar b[16], AESstate *s)
+{
+	b[0] = L-1;	/* flags */
+	memmove(&b[1], N, 15-L);
+	putbe(&b[16-L], L, i);
+	aes_encrypt(s->ekey, s->rounds, b, b);
+	return b;
+};
+
+void
+aesCCMencrypt(int L, int M, uchar *N /* N[15-L] */,
+	uchar *a /* a[la] */, int la,
+	uchar *m /* m[lm+M] */, int lm,
+	AESstate *s)
+{
+	uchar t[16], b[16], *p, *x;
+	uint i;
+
+	xblock(L, M, N, a, la, lm, t, s);
+
+	for(i = 1; lm >= 16; i++, lm -= 16){
+		for(p = sblock(L, N, i, b, s), x = t; p < &b[16]; x++, m++, p++){
+			*x ^= *m;
+			*m ^= *p;
+		}
+		aes_encrypt(s->ekey, s->rounds, t, t);
+	}
+	if(lm > 0){
+		for(p = sblock(L, N, i, b, s), x = t; p < &b[lm]; x++, m++, p++){
+			*x ^= *m;
+			*m ^= *p;
+		}
+		aes_encrypt(s->ekey, s->rounds, t, t);
+	}
+
+	for(p = sblock(L, N, 0, b, s), x = t; p < &b[M]; x++, p++)
+		*x ^= *p;
+
+	memmove(m, t, M);
+}
+
+int
+aesCCMdecrypt(int L, int M, uchar *N /* N[15-L] */,
+	uchar *a /* a[la] */, int la,
+	uchar *m /* m[lm+M] */, int lm,
+	AESstate *s)
+{
+	uchar t[16], b[16], *p, *x;
+	uint i;
+
+	xblock(L, M, N, a, la, lm, t, s);
+
+	for(i = 1; lm >= 16; i++, lm -= 16){
+		for(p = sblock(L, N, i, b, s), x = t; p < &b[16]; x++, m++, p++){
+			*m ^= *p;
+			*x ^= *m;
+		}
+		aes_encrypt(s->ekey, s->rounds, t, t);
+	}
+	if(lm > 0){
+		for(p = sblock(L, N, i, b, s), x = t; p < &b[lm]; x++, m++, p++){
+			*m ^= *p;
+			*x ^= *m;
+		}
+		aes_encrypt(s->ekey, s->rounds, t, t);
+	}
+
+	for(p = sblock(L, N, 0, b, s), x = t; p < &b[M]; x++, p++)
+		*x ^= *p;
+
+	return memcmp(m, t, M) != 0;
+}
+
+static int
+setupCCMP(Wkey *k, Wifipkt *w, uvlong tsc, uchar nonce[13], uchar auth[32], AESstate *as)
+{
+	uchar *p;
+
+	setupAESstate(as, k->key, k->len, nil);
+
+	nonce[0] = ((w->fc[0] & 0x0c) == 0x00) << 4;
+	memmove(&nonce[1], w->a2, Eaddrlen);
+	nonce[7]  = tsc >> 40;
+	nonce[8]  = tsc >> 32;
+	nonce[9]  = tsc >> 24;
+	nonce[10] = tsc >> 16;
+	nonce[11] = tsc >> 8;
+	nonce[12] = tsc;
+
+	p = auth;
+	*p++ = (w->fc[0] & (((w->fc[0] & 0x0c) == 0x08) ? 0x0f : 0xff));
+	*p++ = (w->fc[1] & ~0x38) | 0x40;
+	memmove(p, w->a1, Eaddrlen); p += Eaddrlen;
+	memmove(p, w->a2, Eaddrlen); p += Eaddrlen;
+	memmove(p, w->a3, Eaddrlen); p += Eaddrlen;
+	*p++ = w->seq[0] & 0x0f;
+	*p++ = 0;
+
+	return p - auth;
 }
