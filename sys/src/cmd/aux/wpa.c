@@ -438,7 +438,7 @@ main(int argc, char *argv[])
 	for(;;){
 		uchar smac[Eaddrlen], amac[Eaddrlen], snonce[Noncelen], anonce[Noncelen], *p, *e, *m;
 		int proto, flags, vers, datalen;
-		uvlong repc, rsc;
+		uvlong repc, rsc, tsc;
 		Keydescr *kd;
 
 		if((n = read(fd, buf, sizeof(buf))) < 0)
@@ -470,13 +470,6 @@ main(int argc, char *argv[])
 
 		if(kd->type[0] != 0xFE && kd->type[0] != 0x02)
 			continue;
-
-		rsc =	(uvlong)kd->rsc[0] |
-			(uvlong)kd->rsc[1]<<8 |
-			(uvlong)kd->rsc[2]<<16 |
-			(uvlong)kd->rsc[3]<<24 |
-			(uvlong)kd->rsc[4]<<32 |
-			(uvlong)kd->rsc[5]<<40;
 
 		vers = kd->flags[1] & 7;
 		flags = kd->flags[0]<<8 | kd->flags[1];
@@ -522,6 +515,13 @@ main(int argc, char *argv[])
 				continue;
 			}
 			lastrepc = repc;
+
+			rsc =	(uvlong)kd->rsc[0] |
+				(uvlong)kd->rsc[1]<<8 |
+				(uvlong)kd->rsc[2]<<16 |
+				(uvlong)kd->rsc[3]<<24 |
+				(uvlong)kd->rsc[4]<<32 |
+				(uvlong)kd->rsc[5]<<40;
 
 			if(datalen > 0 && (flags & Fenc) != 0){
 				if(vers == 1)
@@ -571,16 +571,22 @@ main(int argc, char *argv[])
 			}
 
 			if((flags & (Fptk|Fack)) == (Fptk|Fack)){
+				if(vers != 1)	/* in WPA2, RSC is for group key only */
+					tsc = 0LL;
+				else {
+					tsc = rsc;
+					rsc = 0LL;
+				}
 				/* install peerwise receive key */
 				if(fprint(cfd, "rxkey %.*H %s:%.*H@%llux", Eaddrlen, amac,
-					peercipher->name, peercipher->keylen, ptk+32, rsc) < 0)
+					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write rxkey: %r");
 
 				/* pick random 16bit tsc value for transmit */
-				rsc = 1 + (truerand() & 0x7fff);
+				tsc = 1 + (truerand() & 0x7fff);
 				memset(kd->rsc, 0, sizeof(kd->rsc));
-				kd->rsc[0] = rsc;
-				kd->rsc[1] = rsc>>8;
+				kd->rsc[0] = tsc;
+				kd->rsc[1] = tsc>>8;
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
 				reply(smac, amac, flags & ~(Fack|Fenc|Fsec), kd, nil, 0);
@@ -588,11 +594,8 @@ main(int argc, char *argv[])
 
 				/* install peerwise transmit key */ 
 				if(fprint(cfd, "txkey %.*H %s:%.*H@%llux", Eaddrlen, amac,
-					peercipher->name, peercipher->keylen, ptk+32, rsc) < 0)
+					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write txkey: %r");
-
-				/* reset rsc for group key */
-				rsc = 0;
 			} else
 			if((flags & (Fptk|Fsec|Fack)) == (Fsec|Fack)){
 				if(kd->type[0] == 0xFE){
