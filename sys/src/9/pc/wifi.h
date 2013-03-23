@@ -10,6 +10,7 @@ enum {
 /* cipher */
 enum {
 	TKIP	= 1,
+	CCMP	= 2,
 };
 
 struct Wkey
