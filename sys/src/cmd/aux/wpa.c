@@ -253,7 +253,6 @@ aesunwrap(uchar *key, int nkey, uchar *data, int len)
 			memmove(R, B+8, 8);
 		}
 	} while(t > 0);
-	fprint(2, "unwrap: A=%.8H %.*H\n", B, n*8, data);
 	if(memcmp(B, IV, 8) != 0)
 		return -1;
 	return n*8;
