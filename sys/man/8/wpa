@@ -4,7 +4,7 @@ wpa \- Wi-Fi Protected Access setup
 .SH SYNOPSIS
 .B aux/wpa
 [
-.B -dp
+.B -dp12
 ] [
 .B -s
 .I essid
@@ -39,6 +39,12 @@ wireless access point so
 .I wpa
 will background itself after the keyprompt and establish
 the encryption automatically as needed.
+The optional
+.B -1
+or
+.B -2
+arguments can be used to select between WPA1/TKIP
+(default) or WPA2/CCMP encryption.
 .PP
 The
 .B -d
