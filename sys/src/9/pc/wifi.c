@@ -664,54 +664,23 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 	return n;
 }
 
-static void tkipk2tk(uchar key[16], u16int tk[8]);
-static void tkipphase1(u32int tscu, uchar ta[Eaddrlen], u16int tk[8], u16int p1k[5]);
-static void tkipphase2(u16int tscl, u16int p1k[5], u16int tk[8], uchar rc4key[16]);
-
-typedef struct MICstate MICstate;
-struct MICstate
-{
-	u32int	l;
-	u32int	r;
-	u32int	m;
-	u32int	n;
-};
-
-static void micsetup(MICstate *s, uchar key[8]);
-static void micupdate(MICstate *s, uchar *data, ulong len);
-static void micfinish(MICstate *s, uchar mic[8]);
-
-static uchar pad4[4] = { 0x00, 0x00, 0x00, 0x00, };
-
-static int setupCCMP(Wkey *k, Wifipkt *w, uvlong tsc, uchar nonce[13], uchar auth[30], AESstate *as);
-
-void aesCCMencrypt(int L, int M, uchar *N /* N[15-L] */,
-	uchar *a /* a[la] */, int la,
-	uchar *m /* m[lm+M] */, int lm,
-	AESstate *s);
-int aesCCMdecrypt(int L, int M, uchar *N /* N[15-L] */,
-	uchar *a /* a[la] */, int la,
-	uchar *m /* m[lm+M] */, int lm,
-	AESstate *s);
+static void tkipencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc);
+static int tkipdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc);
+static void ccmpencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc);
+static int ccmpdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc);
 
 static Block*
 wifiencrypt(Wifi *, Wnode *wn, Block *b)
 {
-	uchar auth[32], seed[16];
-	u16int tk[8], p1k[5];
 	uvlong tsc;
-	ulong crc;
-	AESstate as;
-	RC4state rs;
-	MICstate ms;
-	Wifipkt *w;
 	int n, kid;
+	Wifipkt *w;
 	Wkey *k;
 
 	kid = 0;
 	k = &wn->txkey[kid];
 	if(k->cipher == 0)
-		goto pass;
+		return b;
 
 	n = wifihdrlen((Wifipkt*)b->rp);
 
@@ -735,30 +704,9 @@ wifiencrypt(Wifi *, Wnode *wn, Block *b)
 		b->rp[6] = tsc>>32;
 		b->rp[7] = tsc>>40;
 		b->rp += 8;
-
 		if(k->len != 32)
 			goto drop;
-		micsetup(&ms, k->key+24);
-		micupdate(&ms, dstaddr(w), Eaddrlen);
-		micupdate(&ms, srcaddr(w), Eaddrlen);
-		micupdate(&ms, pad4, 4);
-		micupdate(&ms, b->rp, BLEN(b));
-		micfinish(&ms, b->wp);
-		b->wp += 8;
-
-		crc = ethercrc(b->rp, BLEN(b));
-		crc = ~crc;
-		b->wp[0] = crc;
-		b->wp[1] = crc>>8;
-		b->wp[2] = crc>>16;
-		b->wp[3] = crc>>24;
-		b->wp += 4;
-
-		tkipk2tk(k->key, tk);
-		tkipphase1(tsc >> 16, w->a2, tk, p1k);
-		tkipphase2(tsc & 0xFFFF, p1k, tk, seed);
-		setupRC4state(&rs, seed, sizeof(seed));
-		rc4(&rs, b->rp, BLEN(b));
+		tkipencrypt(k, w, b, tsc);
 		break;
 	case CCMP:
 		b->rp[0] = tsc;
@@ -770,39 +718,27 @@ wifiencrypt(Wifi *, Wnode *wn, Block *b)
 		b->rp[6] = tsc>>32;
 		b->rp[7] = tsc>>40;
 		b->rp += 8;
-
 		if(k->len != 16)
 			goto drop;
-		aesCCMencrypt(2, 8, seed, auth, setupCCMP(k, w, tsc, seed, auth, &as),
-			b->rp, BLEN(b), &as);
-		b->wp += 8;
+		ccmpencrypt(k, w, b, tsc);
 		break;
 	default:
-		goto drop;
+	drop:
+		free(b);
+		return nil;
 	}
 
 	b->rp = (uchar*)w;
 	w->fc[1] |= 0x40;
-
-pass:
 	return b;
-drop:
-	free(b);
-	return nil;
 }
 
 static Block*
 wifidecrypt(Wifi *, Wnode *wn, Block *b)
 {
-	uchar auth[32], seed[16], mic[8];
-	u16int tk[8], p1k[5];
-	RC4state rs;
-	AESstate as;
-	MICstate ms;
 	uvlong tsc;
-	ulong crc;
-	Wifipkt *w;
 	int n, kid;
+	Wifipkt *w;
 	Wkey *k;
 
 	w = (Wifipkt*)b->rp;
@@ -830,31 +766,9 @@ wifidecrypt(Wifi *, Wnode *wn, Block *b)
 			(uvlong)b->rp[0]<<8 |
 			(uvlong)b->rp[2];
 		b->rp += 8;
-		if(tsc <= k->tsc || BLEN(b) < 8+4 || k->len != 32)
+		if(tsc <= k->tsc || k->len != 32)
 			goto drop;
-		tkipk2tk(k->key, tk);
-		tkipphase1(tsc >> 16, w->a2, tk, p1k);
-		tkipphase2(tsc & 0xFFFF, p1k, tk, seed);
-		setupRC4state(&rs, seed, sizeof(seed));
-		rc4(&rs, b->rp, BLEN(b));
-
-		b->wp -= 4;
-		crc =	(ulong)b->wp[0] |
-			(ulong)b->wp[1]<<8 |
-			(ulong)b->wp[2]<<16 |
-			(ulong)b->wp[3]<<24;
-		crc = ~crc;
-		if(ethercrc(b->rp, BLEN(b)) != crc)
-			goto drop;
-
-		b->wp -= 8;
-		micsetup(&ms, k->key+16);
-		micupdate(&ms, dstaddr(w), Eaddrlen);
-		micupdate(&ms, srcaddr(w), Eaddrlen);
-		micupdate(&ms, pad4, 4);
-		micupdate(&ms, b->rp, BLEN(b));
-		micfinish(&ms, mic);
-		if(memcmp(b->wp, mic, 8) != 0)
+		if(tkipdecrypt(k, w, b, tsc) != 0)
 			goto drop;
 		break;
 	case CCMP:
@@ -867,13 +781,13 @@ wifidecrypt(Wifi *, Wnode *wn, Block *b)
 		b->rp += 8;
 		if(tsc <= k->tsc || k->len != 16)
 			goto drop;
-		b->wp -= 8;
-		if(aesCCMdecrypt(2, 8, seed, auth, setupCCMP(k, w, tsc, seed, auth, &as),
-			b->rp, BLEN(b), &as) != 0)
+		if(ccmpdecrypt(k, w, b, tsc) != 0)
 			goto drop;
 		break;
 	default:
-		goto drop;
+	drop:
+		freeb(b);
+		return nil;
 	}
 
 	k->tsc = tsc;
@@ -882,9 +796,6 @@ wifidecrypt(Wifi *, Wnode *wn, Block *b)
 	w = (Wifipkt*)b->rp;
 	w->fc[1] &= ~0x40;
 	return b;
-drop:
-	freeb(b);
-	return nil;
 }
 
 static u16int Sbox[256] = {
@@ -1043,6 +954,14 @@ tkipphase2(u16int tscl, u16int p1k[5], u16int tk[8], uchar rc4key[16])
 	rc4key[15] = ppk[5] >> 8;
 }
 
+typedef struct MICstate MICstate;
+struct MICstate
+{
+	u32int	l;
+	u32int	r;
+	u32int	m;
+	u32int	n;
+};
 
 static void
 micsetup(MICstate *s, uchar key[8])
@@ -1107,6 +1026,78 @@ micfinish(MICstate *s, uchar mic[8])
 	mic[7] = s->r>>24;
 }
 
+static uchar pad4[4] = { 0x00, 0x00, 0x00, 0x00, };
+
+static void
+tkipencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
+{
+	u16int tk[8], p1k[5];
+	uchar seed[16];
+	RC4state rs;
+	MICstate ms;
+	ulong crc;
+
+	micsetup(&ms, k->key+24);
+	micupdate(&ms, dstaddr(w), Eaddrlen);
+	micupdate(&ms, srcaddr(w), Eaddrlen);
+	micupdate(&ms, pad4, 4);
+	micupdate(&ms, b->rp, BLEN(b));
+	micfinish(&ms, b->wp);
+	b->wp += 8;
+
+	crc = ethercrc(b->rp, BLEN(b));
+	crc = ~crc;
+	b->wp[0] = crc;
+	b->wp[1] = crc>>8;
+	b->wp[2] = crc>>16;
+	b->wp[3] = crc>>24;
+	b->wp += 4;
+
+	tkipk2tk(k->key, tk);
+	tkipphase1(tsc >> 16, w->a2, tk, p1k);
+	tkipphase2(tsc & 0xFFFF, p1k, tk, seed);
+	setupRC4state(&rs, seed, sizeof(seed));
+	rc4(&rs, b->rp, BLEN(b));
+}
+
+static int
+tkipdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
+{
+	uchar seed[16], mic[8];
+	u16int tk[8], p1k[5];
+	RC4state rs;
+	MICstate ms;
+	ulong crc;
+
+	if(BLEN(b) < 8+4)
+		return -1;
+
+	tkipk2tk(k->key, tk);
+	tkipphase1(tsc >> 16, w->a2, tk, p1k);
+	tkipphase2(tsc & 0xFFFF, p1k, tk, seed);
+	setupRC4state(&rs, seed, sizeof(seed));
+	rc4(&rs, b->rp, BLEN(b));
+
+	b->wp -= 4;
+	crc =	(ulong)b->wp[0] |
+		(ulong)b->wp[1]<<8 |
+		(ulong)b->wp[2]<<16 |
+		(ulong)b->wp[3]<<24;
+	crc = ~crc;
+	if(ethercrc(b->rp, BLEN(b)) != crc)
+		return -1;
+
+	b->wp -= 8;
+	micsetup(&ms, k->key+16);
+	micupdate(&ms, dstaddr(w), Eaddrlen);
+	micupdate(&ms, srcaddr(w), Eaddrlen);
+	micupdate(&ms, pad4, 4);
+	micupdate(&ms, b->rp, BLEN(b));
+	micfinish(&ms, mic);
+
+	return memcmp(b->wp, mic, 8) != 0;
+}
+
 static uchar*
 putbe(uchar *p, int L, uint v)
 {
@@ -1150,7 +1141,7 @@ sblock(int L, uchar *N, uint i, uchar b[16], AESstate *s)
 	return b;
 };
 
-void
+static void
 aesCCMencrypt(int L, int M, uchar *N /* N[15-L] */,
 	uchar *a /* a[la] */, int la,
 	uchar *m /* m[lm+M] */, int lm,
@@ -1189,7 +1180,7 @@ aesCCMencrypt(int L, int M, uchar *N /* N[15-L] */,
 	memmove(m, t, M);
 }
 
-int
+static int
 aesCCMdecrypt(int L, int M, uchar *N /* N[15-L] */,
 	uchar *a /* a[la] */, int la,
 	uchar *m /* m[lm+M] */, int lm,
@@ -1254,4 +1245,31 @@ setupCCMP(Wkey *k, Wifipkt *w, uvlong tsc, uchar nonce[13], uchar auth[32], AESs
 	*p++ = 0;
 
 	return p - auth;
+}
+
+static void
+ccmpencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
+{
+	uchar auth[32], nonce[13];
+	AESstate as;
+
+	aesCCMencrypt(2, 8, nonce, auth,
+		setupCCMP(k, w, tsc, nonce, auth, &as),
+		b->rp, BLEN(b), &as);
+	b->wp += 8;
+}
+
+static int
+ccmpdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
+{
+	uchar auth[32], nonce[13];
+	AESstate as;
+
+	if(BLEN(b) < 8)
+		return -1;
+
+	b->wp -= 8;
+	return aesCCMdecrypt(2, 8, nonce, auth,
+		setupCCMP(k, w, tsc, nonce, auth, &as),
+		b->rp, BLEN(b), &as);
 }
