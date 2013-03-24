@@ -117,3 +117,5 @@ Subject: [golang-dev] not reading code
 Is Trolling Ever Okay?
 I've downloaded the nix bits from http://code.google.com/p/nix-os/ and compiled it under 9vx on OSX, but I'm having some trouble getting the resultant kernel to boot.
 Subject: [nix] servers down
+I have an  IDE HD with fossil (no venti) partition on it. It contains some data precious to me.
+Would it be possible to support file:// in acme ?
