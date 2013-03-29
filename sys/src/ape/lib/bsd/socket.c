@@ -14,7 +14,10 @@
 
 #include "priv.h"
 
-Rock *_sock_rock;
+#include <lock.h>
+
+static Lock _sock_lock;
+static Rock *_sock_rock;
 
 Rock*
 _sock_findrock(int fd, struct stat *dp)
@@ -24,12 +27,15 @@ _sock_findrock(int fd, struct stat *dp)
 
 	if(dp == 0)
 		dp = &d;
-	fstat(fd, dp);
+	if(fstat(fd, dp) < 0)
+		return 0;
+	lock(&_sock_lock);
 	for(r = _sock_rock; r; r = r->next){
 		if(r->inode == dp->st_ino
 		&& r->dev == dp->st_dev)
 			break;
 	}
+	unlock(&_sock_lock);
 	return r;
 }
 
@@ -39,22 +45,29 @@ _sock_newrock(int fd)
 	Rock *r;
 	struct stat d;
 
-	r = _sock_findrock(fd, &d);
+	if(fstat(fd, &d) < 0)
+		return 0;
+	lock(&_sock_lock);
+	for(r = _sock_rock; r; r = r->next){
+		if(r->inode == d.st_ino
+		&& r->dev == d.st_dev)
+			break;
+	}
 	if(r == 0){
 		r = malloc(sizeof(Rock));
-		if(r == 0)
+		if(r == 0){
+			unlock(&_sock_lock);
 			return 0;
+		}
 		r->dev = d.st_dev;
 		r->inode = d.st_ino;
-		r->other = -1;
 		r->next = _sock_rock;
 		_sock_rock = r;
 	}
+	unlock(&_sock_lock);
 	memset(&r->raddr, 0, sizeof(r->raddr));
 	memset(&r->addr, 0, sizeof(r->addr));
 	r->reserved = 0;
-	r->dev = d.st_dev;
-	r->inode = d.st_ino;
 	r->other = -1;
 	return r;
 }
@@ -81,7 +94,6 @@ _sock_data(int cfd, char *net, int domain, int stype, int protocol, Rock **rp)
 	fd = open(name, O_RDWR);
 	close(cfd);
 	if(fd < 0){
-		close(cfd);
 		errno = ENOBUFS;
 		return -1;
 	}
@@ -90,18 +102,16 @@ _sock_data(int cfd, char *net, int domain, int stype, int protocol, Rock **rp)
 	snprintf(name, sizeof name, "/net/%s/%d/ctl", net, n);
 	r = _sock_newrock(fd);
 	if(r == 0){
-		errno = ENOBUFS;
 		close(fd);
+		errno = ENOBUFS;
 		return -1;
 	}
-	if(rp)
-		*rp = r;
-	memset(&r->raddr, 0, sizeof(r->raddr));
-	memset(&r->addr, 0, sizeof(r->addr));
 	r->domain = domain;
 	r->stype = stype;
 	r->protocol = protocol;
 	strcpy(r->ctl, name);
+	if(rp)
+		*rp = r;
 	return fd;
 }
 
@@ -140,6 +150,12 @@ socket(int domain, int stype, int protocol)
 			return -1;
 		}
 		r = _sock_newrock(pfd[0]);
+		if(r == 0){
+			close(pfd[0]);
+			close(pfd[1]);
+			errno = ENOBUFS;
+			return -1;
+		}
 		r->domain = domain;
 		r->stype = stype;
 		r->protocol = protocol;
