@@ -1885,18 +1885,25 @@ i82563ctl(Ether *edev, void *buf, long n)
 static int
 didtype(int d)
 {
+	/*
+	 * Some names and did values are from
+	 * OpenBSD's em(4) Intel driver.
+	 */
 	switch(d){
-	case 0x1096:
-	case 0x10ba:		/* “gilgal” */
+	case 0x1096:		/* copper */
+	case 0x10ba:		/* copper “gilgal” */
 	case 0x1098:		/* serdes; not seen */
 	case 0x10bb:		/* serdes */
 		return i82563;
-	case 0x1049:		/* mm */
-	case 0x104a:		/* dm */
-	case 0x104b:		/* dc */
-	case 0x104d:		/* v “ninevah” */
-	case 0x10bd:		/* dm-2 */
-	case 0x294c:		/* ich 9 */
+	case 0x1049:		/* ich8; mm */
+	case 0x104a:		/* ich8; dm */
+	case 0x104b:		/* ich8; dc */
+	case 0x104d:		/* ich8; v “ninevah” */
+	case 0x10bd:		/* ich9; dm-2 */
+	case 0x294c:		/* ich9 */
+	case 0x104c:		/* ich8; untested */
+	case 0x10c4:		/* ich8; untested */
+	case 0x10c5:		/* ich8; untested */
 		return i82566;
 	case 0x10de:		/* lm ich10d */
 	case 0x10df:		/* lf ich10 */
@@ -1904,39 +1911,56 @@ didtype(int d)
 	case 0x10f5:		/* lm ich9m; “boazman” */
 	case 0x10ce:		/* v ich10 */
 	case 0x10c0:		/* ich9 */
+	case 0x10c2:		/* ich9; untested */
+	case 0x10c3:		/* ich9; untested */
+	case 0x1501:		/* ich8; untested */
 		return i82567;
 	case 0x10bf:		/* lf ich9m */
 	case 0x10cb:		/* v ich9m */
 	case 0x10cd:		/* lf ich10 */
 	case 0x10cc:		/* lm ich10 */
 		return i82567m;
-	case 0x105e:		/* eb */
-	case 0x105f:		/* eb */
-	case 0x1060:		/* eb */
-	case 0x10a4:		/* eb */
-	case 0x10a5:		/* eb  fiber */
-	case 0x10bc:		/* eb */
+	case 0x105e:		/* eb copper */
+	case 0x105f:		/* eb fiber */
+	case 0x1060:		/* eb serdes */
+	case 0x10a4:		/* eb copper */
+	case 0x10a5:		/* eb fiber */
+	case 0x10bc:		/* eb copper */
 	case 0x10d9:		/* eb serdes */
 	case 0x10da:		/* eb serdes “ophir” */
+	case 0x10a0:		/* eb; untested */
+	case 0x10a1:		/* eb; untested */
+	case 0x10d5:		/* copper; untested */
 		return i82571;
-	case 0x107d:		/* eb copper */
+	case 0x107d:		/* ei copper */
 	case 0x107e:		/* ei fiber */
-	case 0x107f:		/* ei */
+	case 0x107f:		/* ei serdes */
 	case 0x10b9:		/* ei “rimon” */
 		return i82572;
-	case 0x108b:		/*  e “vidalia” */
-	case 0x108c:		/*  e (iamt) */
-	case 0x109a:		/*  l “tekoa” */
+	case 0x108b:		/* e “vidalia” */
+	case 0x108c:		/* e (iamt) */
+	case 0x109a:		/* l “tekoa” */
+	case 0x10b0:		/* l; untested */
+	case 0x10b2:		/* v; untested */
+	case 0x10b3:		/* e; untested */
+	case 0x10b4:		/* l; untested */
 		return i82573;
 	case 0x10d3:		/* l or it; “hartwell” */
+	case 0x10f6:		/* la; untested */
 		return i82574;
-	case 0x10a7:
-	case 0x10a9:		/* fiber/serdes */
+	case 0x10a7:		/* eb */
+	case 0x10a9:		/* eb fiber/serdes */
+	case 0x10d6:		/* untested */
+	case 0x10e2:		/* untested */
 		return i82575;
 	case 0x10c9:		/* copper */
 	case 0x10e6:		/* fiber */
 	case 0x10e7:		/* serdes; “kawela” */
-	case 0x150d:		/* backplane */
+	case 0x10e8:		/* copper; untested */
+	case 0x150a:		/* untested */
+	case 0x150d:		/* serdes backplane */
+	case 0x1518:		/* serdes; untested */
+	case 0x1526:		/* untested */
 		return i82576;
 	case 0x10ea:		/* lc “calpella”; aka pch lan */
 		return i82577;
@@ -1949,19 +1973,21 @@ didtype(int d)
 		return i82579;
 	case 0x10f0:		/* dm “king's creek” */
 		return i82578m;
-	case 0x150e:		/* “barton hills” */
+	case 0x150e:		/* copper “barton hills” */
 	case 0x150f:		/* fiber */
-	case 0x1510:		/* backplane */
-	case 0x1511:		/* sfp */
-	case 0x1516:		
+	case 0x1510:		/* serdes backplane */
+	case 0x1511:		/* sgmii sfp */
+	case 0x1516:		/* copper */
 		return i82580;
 	case 0x1506:		/* v */
+	case 0x150c:		/* untested */
 		return i82583;
 	case 0x151f:		/* “powerville” eeprom-less */
 	case 0x1521:		/* copper */
 	case 0x1522:		/* fiber */
 	case 0x1523:		/* serdes */
 	case 0x1524:		/* sgmii */
+	case 0x1546:		/* untested */
 		return i350;
 	}
 	return -1;
