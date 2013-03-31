@@ -44,16 +44,12 @@ typedef unsigned char u_char;
 typedef unsigned short u_short;
 typedef unsigned long u_long;
 
-#define EISCONN	63
-
-#define FD_SETSIZE 96	/* see /sys/include/ape/sys/select.h */
-
 #define SIGWINCH 21	/* for curses */
 
 #define S_ISSOCK S_ISFIFO /* for hg, see /sys/include/ape/sys/stat.h */
 
 /* Define if --enable-ipv6 is specified */
-/* #undef ENABLE_IPV6 */
+#define ENABLE_IPV6 1
 
 /* Define if getpgrp() must be called as getpgrp(0). */
 /* #define GETPGRP_HAVE_ARG 1 */
@@ -63,7 +59,7 @@ typedef unsigned long u_long;
 /* #undef GETTIMEOFDAY_NO_TZ */
 
 /* struct addrinfo (netdb.h) */
-/* #define HAVE_ADDRINFO 1 */
+#define HAVE_ADDRINFO 1
 
 /* Define to 1 if you have the `alarm' function. */
 #define HAVE_ALARM 1
@@ -197,10 +193,10 @@ typedef unsigned long u_long;
 #define HAVE_FTRUNCATE 1
 
 /* Define to 1 if you have the `gai_strerror' function. */
-/* #undef HAVE_GAI_STRERROR */
+#define HAVE_GAI_STRERROR 1
 
 /* Define if you have the getaddrinfo function. */
-/* #undef HAVE_GETADDRINFO */
+#define HAVE_GETADDRINFO 1
 
 /* Define to 1 if you have the `getcwd' function. */
 #define HAVE_GETCWD 1
@@ -232,7 +228,7 @@ typedef unsigned long u_long;
 #define HAVE_GETLOGIN 1
 
 /* Define to 1 if you have the `getnameinfo' function. */
-/* #undef HAVE_GETNAMEINFO */
+#define HAVE_GETNAMEINFO 1
 
 /* Define if you have the 'getpagesize' function. */
 /* #undef HAVE_GETPAGESIZE */
@@ -283,7 +279,7 @@ typedef unsigned long u_long;
 /* #undef HAVE_INET_ATON */
 
 /* Define if you have the 'inet_pton' function. */
-/* #undef HAVE_INET_PTON */
+#define HAVE_INET_PTON 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1

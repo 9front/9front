@@ -67,7 +67,7 @@ extern int *_errnoloc;
 #define ENETUNREACH	50
 #define ENETRESET	51
 #define ECONNABORTED	52
-#define EISCON	53
+#define EISCONN		53
 #define ENOTCONN	54
 #define ESHUTDOWN	55
 #define ETOOMANYREFS	56
