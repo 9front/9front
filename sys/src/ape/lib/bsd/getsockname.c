@@ -20,7 +20,6 @@ getsockname(int fd, struct sockaddr *addr, int *alen)
 {
 	Rock *r;
 	int i;
-	struct sockaddr_in *lip;
 	struct sockaddr_un *lunix;
 
 	r = _sock_findrock(fd, 0);
@@ -31,14 +30,15 @@ getsockname(int fd, struct sockaddr *addr, int *alen)
 
 	switch(r->domain){
 	case PF_INET:
-		lip = (struct sockaddr_in*)addr;
-		_sock_ingetaddr(r, lip, alen, "local");
+	case PF_INET6:
+		_sock_ingetaddr(r, addr, alen, "local");
 		break;
 	case PF_UNIX:
 		lunix = (struct sockaddr_un*)&r->addr;
 		i = &lunix->sun_path[strlen(lunix->sun_path)] - (char*)lunix;
 		memmove(addr, lunix, i);
-		*alen = i;
+		if(alen != 0)
+			*alen = i;
 		break;
 	default:
 		errno = EAFNOSUPPORT;

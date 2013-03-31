@@ -47,6 +47,9 @@ listenproc(Rock *r, int fd)
 	case SOCK_STREAM:
 		net = "tcp";
 		break;
+	case SOCK_RDM:
+		net = "il";
+		break;
 	}
 
 	strcpy(listen, r->ctl);
@@ -118,9 +121,8 @@ listen(fd, backlog)
 	int backlog;
 {
 	Rock *r;
-	int n, cfd;
+	int n, cfd, port;
 	char msg[128];
-	struct sockaddr_in *lip;
 	struct sockaddr_un *lunix;
 
 	r = _sock_findrock(fd, 0);
@@ -131,20 +133,20 @@ listen(fd, backlog)
 
 	switch(r->domain){
 	case PF_INET:
+	case PF_INET6:
 		cfd = open(r->ctl, O_RDWR);
 		if(cfd < 0){
 			errno = EBADF;
 			return -1;
 		}
-		lip = (struct sockaddr_in*)&r->addr;
-		if(lip->sin_port >= 0) {
+		port = _sock_inport(&r->addr);
+		if(port >= 0) {
 			if(write(cfd, "bind 0", 6) < 0) {
 				errno = EGREG;
 				close(cfd);
 				return -1;
 			}
-			snprintf(msg, sizeof msg, "announce %d",
-				ntohs(lip->sin_port));
+			snprintf(msg, sizeof msg, "announce %d", port);
 		}
 		else
 			strcpy(msg, "announce *");
@@ -164,7 +166,6 @@ listen(fd, backlog)
 		}
 		lunix = (struct sockaddr_un*)&r->addr;
 		if(_sock_srv(lunix->sun_path, r->other) < 0){
-			_syserrno();
 			r->other = -1;
 			return -1;
 		}

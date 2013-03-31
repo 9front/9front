@@ -102,13 +102,39 @@ struct in_addr {
 #define	IN_LOOPBACKNET		127			/* official! */
 
 /*
+ * IPv6 internet address.
+ */ 
+struct in6_addr {
+	unsigned char s6_addr[16];
+};
+
+extern struct in6_addr in6addr_any;
+extern struct in6_addr in6addr_loopback;
+
+#define IN6ADDR_ANY_INIT \
+	{{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+	   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }}
+
+#define IN6ADDR_LOOPBACK_INIT \
+	{{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+	   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 }}
+
+/*
  * Socket address, internet style.
  */
 struct sockaddr_in {
-	short	sin_family;
+	short		sin_family;
 	unsigned short	sin_port;
-	struct	in_addr sin_addr;
-	char	sin_zero[8];
+	struct in_addr	sin_addr;
+	char		sin_zero[8];
+};
+
+struct sockaddr_in6 {
+	short		sin6_family;
+	unsigned short	sin6_port;
+	unsigned long	sin6_flowinfo;
+	struct in6_addr	sin6_addr;
+	unsigned long	sin6_scope_id;
 };
 
 /*
@@ -139,6 +165,12 @@ extern unsigned short	htons(unsigned short x);
 extern unsigned long	inet_addr(char*);
 extern char*		inet_ntoa(struct in_addr);
 extern unsigned long	nptohl(void*);
+
+extern char*		inet_ntop(int af, void *src, char *dst, int size);
+extern int		inet_pton(int af, char *src, void *dst);
+
+#define INET_ADDRSTRLEN		16
+#define INET6_ADDRSTRLEN	46
 
 #ifdef __cplusplus
 }

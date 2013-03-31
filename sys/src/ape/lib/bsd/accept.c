@@ -20,7 +20,6 @@ accept(int fd, void *a, int *alen)
 {
 	int n, nfd, cfd;
 	Rock *r, *nr;
-	struct sockaddr_in *ip;
 	char name[Ctlsize];
 	char file[8+Ctlsize+1];
 	char *p, *net;
@@ -33,6 +32,7 @@ accept(int fd, void *a, int *alen)
 
 	switch(r->domain){
 	case PF_INET:
+	case PF_INET6:
 		switch(r->stype){
 		case SOCK_DGRAM:
 			net = "udp";
@@ -40,41 +40,35 @@ accept(int fd, void *a, int *alen)
 		case SOCK_STREAM:
 			net = "tcp";
 			break;
+		case SOCK_RDM:
+			net = "il";
+			break;
 		}
 
 		/* get control file name from listener process */
 		n = read(fd, name, sizeof(name)-1);
-		if(n <= 0){
-			_syserrno();
+		if(n <= 0)
 			return -1;
-		}
 		name[n] = 0;
 		cfd = open(name, O_RDWR);
-		if(cfd < 0){
-			_syserrno();
+		if(cfd < 0)
 			return -1;
-		}
 
 		nfd = _sock_data(cfd, net, r->domain, r->stype, r->protocol, &nr);
-		if(nfd < 0){
-			_syserrno();
+		if(nfd < 0)
 			return -1;
-		}
 
 		if(write(fd, "OK", 2) < 0){
 			close(nfd);
-			_syserrno();
 			return -1;
 		}
-
 		/* get remote address */
-		ip = (struct sockaddr_in*)&nr->raddr;
-		_sock_ingetaddr(nr, ip, &n, "remote");
-		if(a){
-			memmove(a, ip, sizeof(struct sockaddr_in));
-			*alen = sizeof(struct sockaddr_in);
+		_sock_ingetaddr(nr, &nr->raddr, &n, "remote");
+		if(a != 0){
+			if(n > 0)
+				memmove(a, &nr->raddr, n);
+			*alen = n;
 		}
-
 		return nfd;
 	case PF_UNIX:
 		if(r->other >= 0){

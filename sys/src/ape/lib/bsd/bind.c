@@ -24,10 +24,9 @@
 int
 bind(int fd, void *a, int alen)
 {
-	int n, len, cfd;
+	int n, len, cfd, port;
 	Rock *r;
 	char msg[128];
-	struct sockaddr_in *lip;
 
 	/* assign the address */
 	r = _sock_findrock(fd, 0);
@@ -42,7 +41,7 @@ bind(int fd, void *a, int alen)
 	memmove(&r->addr, a, alen);
 
 	/* the rest is IP sepecific */
-	if (r->domain != PF_INET)
+	if (r->domain != PF_INET && r->domain != PF_INET6)
 		return 0;
 
 	cfd = open(r->ctl, O_RDWR);
@@ -50,9 +49,9 @@ bind(int fd, void *a, int alen)
 		errno = EBADF;
 		return -1;
 	}
-	lip = (struct sockaddr_in*)&r->addr;
-	if(lip->sin_port > 0)
-		snprintf(msg, sizeof msg, "bind %d", ntohs(lip->sin_port));
+	port = _sock_inport(&r->addr);
+	if(port > 0)
+		snprintf(msg, sizeof msg, "bind %d", port);
 	else
 		strcpy(msg, "bind *");
 	n = write(cfd, msg, strlen(msg));
@@ -62,9 +61,8 @@ bind(int fd, void *a, int alen)
 		return -1;
 	}
 	close(cfd);
-
-	if(lip->sin_port <= 0)
-		_sock_ingetaddr(r, lip, &len, "local");
+	if(port <= 0)
+		_sock_ingetaddr(r, &r->addr, 0, "local");
 
 	return 0;
 }

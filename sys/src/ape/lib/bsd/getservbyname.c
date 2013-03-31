@@ -43,10 +43,8 @@ getservbyname(char *name, char *proto)
 
 	/* connect to server */
 	fd = open("/net/cs", O_RDWR);
-	if(fd < 0){
-		_syserrno();
+	if(fd < 0)
 		return 0;
-	}
 
 	/* construct the query, always expect an ip# back */
 	if(num)
@@ -56,7 +54,7 @@ getservbyname(char *name, char *proto)
 
 	/* query the server */
 	if(write(fd, buf, strlen(buf)) < 0){
-		_syserrno();
+		close(fd);
 		return 0;
 	}
 	lseek(fd, 0, 0);

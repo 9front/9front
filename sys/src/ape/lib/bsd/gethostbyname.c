@@ -29,7 +29,7 @@ struct hostent*
 gethostbyname(char *name)
 {
 	int i, t, fd, m;
-	char *p, *bp;
+	char *p, *k, *bp;
 	int nn, na;
 	unsigned long x;
 	static struct hostent h;
@@ -44,7 +44,6 @@ gethostbyname(char *name)
 	/* connect to server */
 	fd = open("/net/cs", O_RDWR);
 	if(fd < 0){
-		_syserrno();
 		h_errno = NO_RECOVERY;
 		return 0;
 	}
@@ -64,8 +63,8 @@ gethostbyname(char *name)
 
 	/* query the server */
 	if(write(fd, buf, strlen(buf)) < 0){
-		_syserrno();
 		h_errno = TRY_AGAIN;
+		close(fd);
 		return 0;
 	}
 	lseek(fd, 0, 0);
@@ -81,19 +80,26 @@ gethostbyname(char *name)
 	/* parse the reply */
 	nn = na = 0;
 	for(bp = buf;;){
-		p = strchr(bp, '=');
+		k = bp;
+		p = strchr(k, '=');
 		if(p == 0)
 			break;
 		*p++ = 0;
-		if(strcmp(bp, "dom") == 0){
+		for(bp = p; *bp && *bp != ' '; bp++)
+			;
+		if(*bp)
+			*bp++ = 0;
+		if(strcmp(k, "dom") == 0){
 			if(h.h_name == 0)
 				h.h_name = p;
 			if(nn < Nname)
 				nptr[nn++] = p;
-		} else if(strcmp(bp, "sys") == 0){
+		} else if(strcmp(k, "sys") == 0){
 			if(nn < Nname)
 				nptr[nn++] = p;
-		} else if(strcmp(bp, "ip") == 0){
+		} else if(strcmp(k, "ip") == 0){
+			if(strchr(p, ':') != 0)
+				continue;	/* ignore ipv6 addresses */
 			x = inet_addr(p);
 			x = ntohl(x);
 			if(na < Nname){
@@ -105,11 +111,6 @@ gethostbyname(char *name)
 				na++;
 			}
 		}
-		while(*p && *p != ' ')
-			p++;
-		if(*p)
-			*p++ = 0;
-		bp = p;
 	}
 	if(nn+na == 0){
 		h_errno = HOST_NOT_FOUND;

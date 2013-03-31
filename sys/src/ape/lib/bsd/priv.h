@@ -41,6 +41,7 @@ extern void	_sock_srvname(char*, char*);
 extern int	_sock_srv(char*, int);
 extern int	_sock_data(int, char*, int, int, int, Rock**);
 extern int	_sock_ipattr(char*);
-extern void	_sock_ingetaddr(Rock*, struct sockaddr_in*, int*, char*);
-
-extern void	_syserrno(void);
+extern void*	_sock_inip(struct sockaddr*);
+extern int	_sock_inport(struct sockaddr*);
+extern int	_sock_inaddr(int, char*, char*, void*, int*);
+extern void	_sock_ingetaddr(Rock*, void*, int*, char*);

@@ -125,6 +125,7 @@ socket(int domain, int stype, int protocol)
 
 	switch(domain){
 	case PF_INET:
+	case PF_INET6:
 		/* get a free network directory */
 		switch(stype){
 		case SOCK_DGRAM:
@@ -135,20 +136,20 @@ socket(int domain, int stype, int protocol)
 			net = "tcp";
 			cfd = open("/net/tcp/clone", O_RDWR);
 			break;
+		case SOCK_RDM:
+			net = "il";
+			cfd = open("/net/il/clone", O_RDWR);
+			break;
 		default:
 			errno = EPROTONOSUPPORT;
 			return -1;
 		}
-		if(cfd < 0){
-			_syserrno();
+		if(cfd < 0)
 			return -1;
-		}
 		return _sock_data(cfd, net, domain, stype, protocol, 0);
 	case PF_UNIX:
-		if(pipe(pfd) < 0){
-			_syserrno();
+		if(pipe(pfd) < 0)
 			return -1;
-		}
 		r = _sock_newrock(pfd[0]);
 		if(r == 0){
 			close(pfd[0]);

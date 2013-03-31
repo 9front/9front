@@ -22,6 +22,8 @@ extern "C" {
 /*
  * Definitions related to sockets: types, address families, options.
  */
+typedef int socklen_t;
+typedef unsigned short sa_family_t;
 
 /*
  * Types
@@ -108,7 +110,12 @@ struct	linger {
  */
 struct sockaddr {
 	unsigned short	sa_family;	/* address family */
-	char	sa_data[108];
+	char		sa_data[108];
+};
+
+struct sockaddr_storage {
+	unsigned short	ss_family;
+	char		ss_data[108];
 };
 
 /*

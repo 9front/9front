@@ -33,12 +33,10 @@ writev(int fd, struct iovec *v, int ent)
 			f += i;
 			i = write(fd, buf, sizeof(buf));
 			if(i < 0){
-				if(written > 0){
+				if(written > 0)
 					return written;
-				}else{
-					_syserrno();
+				else
 					return -1;
-				}
 			}
 			written += i;
 			if(i != sizeof(buf)) {
@@ -51,10 +49,8 @@ writev(int fd, struct iovec *v, int ent)
 	if(i > 0){
 		n = write(fd, buf, i);
 		if(n < 0){
-			if(written == 0){
-				_syserrno();
+			if(written == 0)
 				return -1;
-			}
 		} else
 			written += n;
 	}

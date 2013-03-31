@@ -21,7 +21,7 @@ connect(int fd, void *a, int alen)
 	Rock *r;
 	int n, cfd, nfd;
 	char msg[8+256+1], file[8+256+1];
-	struct sockaddr_in *lip, *rip;
+	struct sockaddr *sa;
 	struct sockaddr_un *runix;
 	static int vers;
 
@@ -34,35 +34,35 @@ connect(int fd, void *a, int alen)
 		errno = ENAMETOOLONG;
 		return -1;
 	}
+	sa = (struct sockaddr*)a;
+	if(sa->sa_family != r->domain){
+		errno = EAFNOSUPPORT;
+		return -1;
+	}
 	memmove(&r->raddr, a, alen);
 
 	switch(r->domain){
 	case PF_INET:
+	case PF_INET6:
 		/* set up a tcp or udp connection */
 		cfd = open(r->ctl, O_RDWR);
-		if(cfd < 0){
-			_syserrno();
+		if(cfd < 0)
 			return -1;
-		}
-		rip = a;
-		lip = (struct sockaddr_in*)&r->addr;
-		if(lip->sin_port)
+		if(_sock_inport(&r->addr) > 0) {
 			snprintf(msg, sizeof msg, "connect %s!%d%s %d",
-				inet_ntoa(rip->sin_addr), ntohs(rip->sin_port),
+				inet_ntop(sa->sa_family, _sock_inip(sa), file, sizeof(file)),
+				_sock_inport(sa),
 				r->reserved ? "!r" : "",
-				ntohs(lip->sin_port));
-		else
+				_sock_inport(&r->addr));
+		} else {
 			snprintf(msg, sizeof msg, "connect %s!%d%s",
-				inet_ntoa(rip->sin_addr), ntohs(rip->sin_port),
+				inet_ntop(sa->sa_family, _sock_inip(sa), file, sizeof(file)),
+				_sock_inport(sa),
 				r->reserved ? "!r" : "");
-		n = write(cfd, msg, strlen(msg));
-		if(n < 0){
-			_syserrno();
-			close(cfd);
-			return -1;
 		}
+		n = write(cfd, msg, strlen(msg));
 		close(cfd);
-		return 0;
+		return (n < 0) ? -1 : 0;
 	case PF_UNIX:
 		/* null terminate the address */
 		if(alen == sizeof(r->raddr))
@@ -87,12 +87,10 @@ connect(int fd, void *a, int alen)
 		_sock_srvname(file, runix->sun_path);
 		nfd = open(file, O_RDWR);
 		if(nfd < 0){
-			_syserrno();
 			unlink(msg);
 			return -1;
 		}
 		if(write(nfd, msg, strlen(msg)) < 0){
-			_syserrno();
 			close(nfd);
 			unlink(msg);
 			return -1;

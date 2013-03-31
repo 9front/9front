@@ -27,6 +27,8 @@ _sock_ipattr(char *name)
 			alpha = 1;
 		else if(*p == '.')
 			dot = 1;
+		else if(*p == ':')
+			return Tip;
 		else
 			return Tsys;
 	}
