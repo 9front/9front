@@ -19,6 +19,11 @@ typedef struct fd_set {
 #define FD_CLR(n,p)	((p)->fds_bits[(n)>>5] &= ~(1 << ((n) &0x1f)))
 #define FD_ISSET(n,p)	((p)->fds_bits[(n)>>5] & (1 << ((n) &0x1f)))
 #define FD_ZERO(p)	((p)->fds_bits[0] =0, (p)->fds_bits[1] =0, (p)->fds_bits[2] =0)
+
+#ifndef FD_SETSIZE
+#define FD_SETSIZE	96
+#endif
+
 #endif
 
 #ifdef __cplusplus
