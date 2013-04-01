@@ -276,7 +276,7 @@ typedef unsigned long u_long;
 #define HAVE_HYPOT 1
 
 /* Define if you have the 'inet_aton' function. */
-/* #undef HAVE_INET_ATON */
+#define HAVE_INET_ATON 1
 
 /* Define if you have the 'inet_pton' function. */
 #define HAVE_INET_PTON 1

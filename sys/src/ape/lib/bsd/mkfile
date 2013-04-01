@@ -25,6 +25,7 @@ OFILES=\
 	gettimeofday.$O\
 	in6_addr.$O\
 	inet_addr.$O\
+	inet_aton.$O\
 	inet_ntoa.$O\
 	inet_ntop.$O\
 	inet_pton.$O\
@@ -33,7 +34,6 @@ OFILES=\
 	lstat.$O\
 	mktemp.$O\
 	ntohl.$O\
-	nptohl.$O\
 	popen.$O\
 	rcmd.$O\
 	readv.$O\

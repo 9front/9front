@@ -163,8 +163,8 @@ extern unsigned short	ntohs(unsigned short x);
 extern unsigned long	htonl(unsigned long x);
 extern unsigned short	htons(unsigned short x);
 extern unsigned long	inet_addr(char*);
+extern int		inet_aton(char*, struct in_addr*);
 extern char*		inet_ntoa(struct in_addr);
-extern unsigned long	nptohl(void*);
 
 extern char*		inet_ntop(int af, void *src, char *dst, int size);
 extern int		inet_pton(int af, char *src, void *dst);

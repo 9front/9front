@@ -31,7 +31,7 @@ gethostbyname(char *name)
 	int i, t, fd, m;
 	char *p, *k, *bp;
 	int nn, na;
-	unsigned long x;
+	struct in_addr in;
 	static struct hostent h;
 	static char buf[1024];
 	static char *nptr[Nname+1];
@@ -98,15 +98,10 @@ gethostbyname(char *name)
 			if(nn < Nname)
 				nptr[nn++] = p;
 		} else if(strcmp(k, "ip") == 0){
-			if(strchr(p, ':') != 0)
-				continue;	/* ignore ipv6 addresses */
-			x = inet_addr(p);
-			x = ntohl(x);
+			if(inet_aton(p, &in) == 0)
+				continue;
 			if(na < Nname){
-				addr[na][0] = x>>24;
-				addr[na][1] = x>>16;
-				addr[na][2] = x>>8;
-				addr[na][3] = x;
+				memmove(addr[na], (unsigned char*)&in.s_addr, 4);
 				aptr[na] = addr[na];
 				na++;
 			}

@@ -36,10 +36,8 @@ inet_pton(int af, char *src, void *dst)
 	unsigned long x;
 	char *p, *op;
 
-	if(af == AF_INET){
-		((struct in_addr*)dst)->s_addr = inet_addr(src);
-		return 1;
-	}
+	if(af == AF_INET)
+		return inet_aton(src, (struct in_addr*)dst);
 
 	if(af != AF_INET6){
 		errno = EAFNOSUPPORT;
