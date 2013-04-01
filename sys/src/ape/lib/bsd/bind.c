@@ -25,6 +25,7 @@ int
 bind(int fd, void *a, int alen)
 {
 	int n, len, cfd, port;
+	struct sockaddr *sa;
 	Rock *r;
 	char msg[128];
 
@@ -32,6 +33,11 @@ bind(int fd, void *a, int alen)
 	r = _sock_findrock(fd, 0);
 	if(r == 0){
 		errno = ENOTSOCK;
+		return -1;
+	}
+	sa = (struct sockaddr*)a;
+	if(sa->sa_family != r->domain){
+		errno = EAFNOSUPPORT;
 		return -1;
 	}
 	if(alen > sizeof(r->addr)){

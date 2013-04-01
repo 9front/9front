@@ -30,13 +30,13 @@ connect(int fd, void *a, int alen)
 		errno = ENOTSOCK;
 		return -1;
 	}
-	if(alen > sizeof(r->raddr)){
-		errno = ENAMETOOLONG;
-		return -1;
-	}
 	sa = (struct sockaddr*)a;
 	if(sa->sa_family != r->domain){
 		errno = EAFNOSUPPORT;
+		return -1;
+	}
+	if(alen > sizeof(r->raddr)){
+		errno = ENAMETOOLONG;
 		return -1;
 	}
 	memmove(&r->raddr, a, alen);

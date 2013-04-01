@@ -19,7 +19,7 @@ int
 getpeername(int fd, struct sockaddr *addr, int *alen)
 {
 	Rock *r;
-	int i;
+	int olen, len;
 	struct sockaddr_un *runix;
 
 	r = _sock_findrock(fd, 0);
@@ -30,22 +30,28 @@ getpeername(int fd, struct sockaddr *addr, int *alen)
 
 	switch(r->domain){
 	case PF_INET:
-		memmove(addr, &r->raddr, sizeof(struct sockaddr_in));
-		*alen = sizeof(struct sockaddr_in);
+		len = sizeof(struct sockaddr_in);
 		break;
 	case PF_INET6:
-		memmove(addr, &r->raddr, sizeof(struct sockaddr_in6));
-		*alen = sizeof(struct sockaddr_in6);
+		len = sizeof(struct sockaddr_in6);
 		break;
 	case PF_UNIX:
 		runix = (struct sockaddr_un*)&r->raddr;
-		i = &runix->sun_path[strlen(runix->sun_path)] - (char*)runix;
-		memmove(addr, runix, i);
-		*alen = i;
+		len = &runix->sun_path[strlen(runix->sun_path)] - (char*)runix;
 		break;
 	default:
 		errno = EAFNOSUPPORT;
 		return -1;
 	}
+
+	if(alen != 0){
+		olen = *alen;
+		*alen = len;
+		if(olen < len)
+			len = olen;
+	}
+	if(addr != 0 && len > 0)
+		memmove(addr, &r->raddr, len);
+
 	return 0;
 }

@@ -62,14 +62,8 @@ accept(int fd, void *a, int *alen)
 			close(nfd);
 			return -1;
 		}
-		/* get remote address */
-		_sock_ingetaddr(nr, &nr->raddr, &n, "remote");
-		if(a != 0){
-			if(n > 0)
-				memmove(a, &nr->raddr, n);
-			*alen = n;
-		}
-		return nfd;
+		_sock_ingetaddr(nr, &nr->raddr, 0, "remote");	
+		break;
 	case PF_UNIX:
 		if(r->other >= 0){
 			errno = EGREG;
@@ -106,10 +100,15 @@ accept(int fd, void *a, int *alen)
 		nr->domain = r->domain;
 		nr->stype = r->stype;
 		nr->protocol = r->protocol;
-
-		return nfd;
+		nr->raddr = r->addr;
+		break;
 	default:
 		errno = EOPNOTSUPP;
 		return -1;
 	}
+
+	if(a != 0)
+		getpeername(nfd, a, alen);
+
+	return nfd;
 }
