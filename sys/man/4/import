@@ -68,6 +68,19 @@ is a directory.
 Skip the authentication protocol.
 This is useful for connecting to foreign systems like Inferno.
 .TP
+.B -z
+Bypass the initial protocol request for which remote tree to serve.
+This is necessary when the remote 
+.IR exportfs (4) 
+is running with the 
+.B -r 
+or 
+.B -S 
+options which pre-select a file tree to serve. The exception is if both sides are
+operating in the
+.B -B
+backwards mode.
+.TP
 .B -B
 Run in ``backwards'' mode, described below.
 .TP
