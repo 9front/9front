@@ -31,7 +31,7 @@ delimchar(int c)
 int
 inet_pton(int af, char *src, void *dst)
 {
-	int i, elipsis = 0;
+	int i, v4 = 1, elipsis = 0;
 	unsigned char *to;
 	unsigned long x;
 	char *p, *op;
@@ -52,12 +52,23 @@ inet_pton(int af, char *src, void *dst)
 		op = p;
 		x = strtoul(p, &p, 16);
 
+		if(*p == '.' || (*p == 0 && i == 0)){	/* ends with v4? */
+			struct in_addr in;
+
+			if(i > 16-4 || inet_aton(op, &in) == 0)
+				return 0;		/* parse error */
+
+			memmove(to+i, (unsigned char*)&in.s_addr, 4);
+			i += 4;
+			break;
+		}
 		if(x != (unsigned short)x || *p != ':' && !delimchar(*p))
 			return 0;			/* parse error */
 
 		to[i] = x>>8;
 		to[i+1] = x;
 		if(*p == ':'){
+			v4 = 0;
 			if(*++p == ':'){	/* :: is elided zero short(s) */
 				if (elipsis)
 					return 0;	/* second :: */
@@ -73,5 +84,7 @@ inet_pton(int af, char *src, void *dst)
 		memmove(&to[elipsis+16-i], &to[elipsis], i-elipsis);
 		memset(&to[elipsis], 0, 16-i);
 	}
+	if(v4)
+		to[10] = to[11] = 0xff;
 	return 1;
 }
