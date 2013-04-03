@@ -1278,16 +1278,13 @@ gc82543pci(void)
 		}
 		cls = pcicfgr8(p, PciCLS);
 		switch(cls){
-			case 0x00:
-			case 0xFF:
-				print("82543gc: unusable cache line size\n");
-				free(ctlr);
-				continue;
-			case 0x08:
-				break;
-			default:
-				print("82543gc: cache line size %d, expected 32\n",
-					cls*4);
+		case 0x08:
+		case 0x10:
+			break;
+		default:
+			print("82543gc: p->cls %#ux, setting to 0x10\n", p->cls);
+			p->cls = 0x10;
+			pcicfgw8(p, PciCLS, p->cls);
 		}
 		ctlr->port = p->mem[0].bar & ~0x0F;
 		ctlr->pcidev = p;

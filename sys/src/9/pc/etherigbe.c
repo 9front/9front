@@ -1099,9 +1099,9 @@ igberxinit(Ctlr* ctlr)
 	csr32w(ctlr, Rxdctl, (8<<WthreshSHIFT)|(8<<HthreshSHIFT)|4);
 
 	/*
-	 * Enable checksum offload.
+	 * Disable checksum offload as it has known bugs.
 	 */
-	csr32w(ctlr, Rxcsum, Tuofl|Ipofl|(ETHERHDRSIZE<<PcssSHIFT));
+	csr32w(ctlr, Rxcsum, ETHERHDRSIZE<<PcssSHIFT);
 }
 
 static int
@@ -1469,8 +1469,10 @@ igbemii(Ctlr* ctlr)
 		 * so bail.
 		 */
 		r = csr32r(ctlr, Ctrlext);
-		if(!(r & Mdro))
+		if(!(r & Mdro)) {
+			print("igbe: 82543gc Mdro not set\n");
 			return -1;
+		}
 		csr32w(ctlr, Ctrlext, r);
 		delay(20);
 		r = csr32r(ctlr, Ctrlext);
@@ -1953,18 +1955,15 @@ igbepci(void)
 		}
 		cls = pcicfgr8(p, PciCLS);
 		switch(cls){
-			default:
-				print("igbe: unexpected CLS - %d\n", cls*4);
-				break;
-			case 0x00:
-			case 0xFF:
-				cls = 0x08;
-				pcicfgw8(p, PciCLS, cls);
-				break;
-			case 0x08:
-			case 0x10:
-				break;
-		}
+		default:
+			print("igbe: p->cls %#ux, setting to 0x10\n", p->cls);
+			p->cls = 0x10;
+			pcicfgw8(p, PciCLS, p->cls);
+			break;
+		case 0x08:
+		case 0x10:
+			break;
+ 		}
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil){
 			print("igbe: can't allocate memory\n");
