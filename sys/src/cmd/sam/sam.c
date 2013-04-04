@@ -64,6 +64,9 @@ void main(int argc, char *argv[])
 	case 'a':
 		*ap++ = "-a";
 		break;
+	case 'i':
+		*ap++ = "-i";
+		break;
 	}ARGEND
 	*ap = nil;
 	

@@ -14,7 +14,7 @@ static char exname[64];
 void
 usage(void)
 {
-	fprint(2, "usage: samterm [-a]\n");
+	fprint(2, "usage: samterm [-ai]\n");
 	threadexitsall("usage");
 }
 
@@ -26,6 +26,9 @@ getscreen(int argc, char **argv)
 	ARGBEGIN{
 	case 'a':
 		autoindent = 1;
+		break;
+	case 'i':
+		spacesindent = 1;
 		break;
 	default:
 		usage();
