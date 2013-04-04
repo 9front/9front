@@ -46,6 +46,15 @@ in the terminal interface,
 .I samterm
 copies leading white space on the current line to the new line.
 .TP
+.B -i
+Indent with spaces.
+In this mode, when a tab character is typed
+in the terminal interface,
+.I samterm
+will insert spaces until the next tabstop.
+Backspace will delete spaces until the previous tabstop
+or another character is encountered.
+.TP
 .B -d
 Do not `download' the terminal part of
 .IR sam .
