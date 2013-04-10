@@ -2268,6 +2268,7 @@ iwlpci(void)
 		case 0x4237:	/* Wifi Link 5100 AGN */
 		case 0x0085:	/* Centrino Advanced-N 6205 */
 		case 0x422b:	/* Centrino Ultimate-N 6300 */
+		case 0x08ae:	/* Centrino Wireless-N 100 */
 			break;
 		}
 
