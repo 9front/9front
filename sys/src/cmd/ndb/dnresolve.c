@@ -1404,7 +1404,6 @@ udpquery(Query *qp, char *mntpt, int depth, int patient, int inns)
 		pcntprob = likely[qp->type];
 	reqtm = (patient? 2 * Maxreqtm: Maxreqtm);
 	wait = weight(reqtm / 3, pcntprob);	/* time for one udp query */
-	qp->req->aborttime = timems() + 3*wait; /* for all udp queries */
 
 	qp->udpfd = fd;
 	rv = queryns(qp, depth, ibuf, obuf, wait, inns);
