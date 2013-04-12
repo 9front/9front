@@ -32,7 +32,9 @@ jpg, gif, png, ppm, bmp, v210, yuv, ico, tga, togif, toppm, topng, toico \- view
 .br
 .B bmp
 [
-.I file
+.B -39cdektv
+] [
+.I file ...
 ]
 .br
 .B v210
@@ -51,7 +53,9 @@ jpg, gif, png, ppm, bmp, v210, yuv, ico, tga, togif, toppm, topng, toico \- view
 .br
 .B yuv
 [
-.I file
+.B -39cdektv
+] [
+.I file ...
 ]
 .PP
 .B togif
