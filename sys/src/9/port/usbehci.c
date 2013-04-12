@@ -2150,14 +2150,17 @@ epgettd(Qio *io, int flags, void *a, int count, int maxpkt)
 	if(count <= Align - sizeof(Td)){
 		td->data = td->sbuff;
 		td->buff = nil;
-	}else
-		td->data = td->buff = smalloc(Tdmaxpkt);
+	} else if(count <= 0x4000){
+		td->buff = td->data = smalloc(count);
+	} else {
+		td->buff = smalloc(count + 0x1000);
+		td->data = (uchar*)ROUND((uintptr)td->buff, 0x1000);
+	}
 
 	pa = PADDR(td->data);
 	for(i = 0; i < nelem(td->buffer); i++){
 		td->buffer[i] = pa;
-		if(i > 0)
-			td->buffer[i] &= ~0xFFF;
+		pa &= ~0xFFF;
 		pa += 0x1000;
 	}
 	td->ndata = count;
@@ -2435,10 +2438,14 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 				io->toggle = td->csw & Tddata1;
 				coherence();
 			}
-			tot += td->ndata;
-			if(c != nil && (td->csw & Tdtok) == Tdtokin && td->ndata > 0){
-				memmove(c, td->data, td->ndata);
-				c += td->ndata;
+			if((n = td->ndata) > 0 && tot < count){
+				if((tot + n) > count)
+					n = count - tot;
+				if(c != nil && (td->csw & Tdtok) == Tdtokin){
+					memmove(c, td->data, n);
+					c += n;
+				}
+				tot += n;
 			}
 		}
 		ntd = td->next;
@@ -2455,8 +2462,6 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 		return 0;	/* that's our convention */
 	if(err != nil)
 		error(err);
-	if(tot < 0)
-		error(Eio);
 	return tot;
 }
 
@@ -2725,10 +2730,11 @@ isohsinit(Ep *ep, Isoio *iso)
 		td = itdalloc();
 		td->data = iso->data + i * 8 * iso->maxsize;
 		pa = PADDR(td->data) & ~0xFFF;
-		for(p = 0; p < 8; p++)
-			td->buffer[i] = pa + p * 0x1000;
-		td->buffer[0] = PADDR(iso->data) & ~0xFFF |
-			ep->nb << Itdepshift | ep->dev->nb << Itddevshift;
+		for(p = 0; p < nelem(td->buffer); p++){
+			td->buffer[p] = pa;
+			pa += 0x1000;
+		}
+		td->buffer[0] |= ep->nb << Itdepshift | ep->dev->nb << Itddevshift;
 		if(ep->mode == OREAD)
 			td->buffer[1] |= Itdin;
 		else

@@ -7,7 +7,6 @@ OFILES=bbox.$O\
 	glob.$O\
 	misc.$O\
 	request.$O\
-	rune.$O\
 	tempnam.$O\
 	getopt.$O\
 
@@ -15,8 +14,7 @@ HFILES=comments.h\
 	gen.h\
 	ext.h\
 	request.h\
-	path.h\
-	rune.h\
+	path.h
 
 </sys/src/cmd/mklib
 
