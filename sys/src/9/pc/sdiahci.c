@@ -2064,6 +2064,10 @@ didtype(Pcidev *p)
 	default:
 		return -1;
 	case 0x8086:
+		if((p->did & 0xffff) == 0x1e02)
+			return Tich;		/* c210 */
+		if((p->did & 0xffff) == 0x24d1)
+			return Tich;		/* 82801eb/er */
 		if((p->did & 0xffff) == 0x2653)
 			return Tich;		/* 82801fbm */
 		if((p->did & 0xfffc) == 0x2680)
@@ -2080,11 +2084,11 @@ didtype(Pcidev *p)
 			return Tich;		/* ich8 */
 		if((p->did & 0xfffe) == 0x2922)
 			return Tich;		/* ich9 */
-		if((p->did & 0xffff)  == 0x3a02)
+		if((p->did & 0xffff) == 0x3a02)
 			return Tich;		/* 82801jd/do */
-		if((p->did & 0xfefe)  == 0x3a22)
+		if((p->did & 0xfefe) == 0x3a22)
 			return Tich;		/* ich10, pch */
-		if((p->did & 0xfff7)  == 0x3b28)
+		if((p->did & 0xfff7) == 0x3b28)
 			return Tich;		/* pchm */
 		if((p->did & 0xfffe) == 0x3b22)
 			return Tich;		/* pch */
