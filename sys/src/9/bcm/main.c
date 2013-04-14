@@ -249,8 +249,6 @@ main(void)
 	clockinit();
 	printinit();
 	timersinit();
-	if(conf.monitor)
-		swcursorinit();
 	cpuidprint();
 	archreset();
 

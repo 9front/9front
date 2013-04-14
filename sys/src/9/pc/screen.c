@@ -23,7 +23,7 @@ Memimage *gscreen;
 
 VGAscr vgascreen[1];
 
-Cursor	arrow = {
+Cursor arrow = {
 	{ -1, -1 },
 	{ 0xFF, 0xFF, 0x80, 0x01, 0x80, 0x02, 0x80, 0x0C, 
 	  0x80, 0x10, 0x80, 0x10, 0x80, 0x08, 0x80, 0x04, 
@@ -36,8 +36,6 @@ Cursor	arrow = {
 	  0x61, 0xF0, 0x60, 0xE0, 0x40, 0x40, 0x00, 0x00, 
 	},
 };
-
-int didswcursorinit;
 
 int
 screensize(int x, int y, int, ulong chan)
@@ -101,8 +99,7 @@ screensize(int x, int y, int, ulong chan)
 	poperror();
 
 	drawcmap();
-	if(didswcursorinit)
-		swcursorinit();
+	swcursorinit();
 
 	qunlock(&drawlock);
 	poperror();
@@ -327,27 +324,63 @@ setcolor(ulong p, ulong r, ulong g, ulong b)
 	return setpalette(p, r, g, b);
 }
 
-int
-cursoron(int dolock)
+void
+swenable(VGAscr*)
 {
-	VGAscr *scr;
-	int v;
-
-	scr = &vgascreen[0];
-	if(scr->cur == nil || scr->cur->move == nil)
-		return 0;
-
-	if(dolock)
-		lock(&cursor);
-	v = scr->cur->move(scr, mousexy());
-	if(dolock)
-		unlock(&cursor);
-
-	return v;
+	swcursorload(&arrow);
 }
 
 void
-cursoroff(int)
+swdisable(VGAscr*)
+{
+}
+
+void
+swload(VGAscr*, Cursor *curs)
+{
+	swcursorload(curs);
+}
+
+int
+swmove(VGAscr*, Point p)
+{
+	swcursorhide();
+	swcursordraw(p);
+	return 0;
+}
+
+VGAcur swcursor =
+{
+	"soft",
+	swenable,
+	swdisable,
+	swload,
+	swmove,
+};
+
+
+void
+cursoron(void)
+{
+	VGAscr *scr;
+	VGAcur *cur;
+
+	scr = &vgascreen[0];
+	cur = scr->cur;
+	if(cur == nil || cur->move == nil)
+		return;
+
+	if(cur == &swcursor)
+		qlock(&drawlock);
+	lock(&cursor);
+	cur->move(scr, mousexy());
+	unlock(&cursor);
+	if(cur == &swcursor)
+		qunlock(&drawlock);
+}
+
+void
+cursoroff(void)
 {
 }
 
@@ -532,196 +565,3 @@ vgalinearaddr(VGAscr *scr, ulong paddr, int size)
 		poperror();
 	}
 }
-
-
-/*
- * Software cursor. 
- */
-int	swvisible;	/* is the cursor visible? */
-int	swenabled;	/* is the cursor supposed to be on the screen? */
-Memimage*	swback;	/* screen under cursor */
-Memimage*	swimg;	/* cursor image */
-Memimage*	swmask;	/* cursor mask */
-Memimage*	swimg1;
-Memimage*	swmask1;
-
-Point	swoffset;
-Rectangle	swrect;	/* screen rectangle in swback */
-Point	swpt;	/* desired cursor location */
-Point	swvispt;	/* actual cursor location */
-int	swvers;	/* incremented each time cursor image changes */
-int	swvisvers;	/* the version on the screen */
-
-/*
- * called with drawlock locked for us, most of the time.
- * kernel prints at inopportune times might mean we don't
- * hold the lock, but memimagedraw is now reentrant so
- * that should be okay: worst case we get cursor droppings.
- */
-void
-swcursorhide(void)
-{
-	if(swvisible == 0)
-		return;
-	if(swback == nil)
-		return;
-	swvisible = 0;
-	memimagedraw(gscreen, swrect, swback, ZP, memopaque, ZP, S);
-	flushmemscreen(swrect);
-}
-
-void
-swcursoravoid(Rectangle r)
-{
-	if(swvisible && rectXrect(r, swrect))
-		swcursorhide();
-}
-
-void
-swcursordraw(void)
-{
-	if(swvisible)
-		return;
-	if(swenabled == 0)
-		return;
-	if(swback == nil || swimg1 == nil || swmask1 == nil)
-		return;
-	assert(!canqlock(&drawlock));
-	swvispt = swpt;
-	swvisvers = swvers;
-	swrect = rectaddpt(Rect(0,0,16,16), swvispt);
-	memimagedraw(swback, swback->r, gscreen, swpt, memopaque, ZP, S);
-	memimagedraw(gscreen, swrect, swimg1, ZP, swmask1, ZP, SoverD);
-	flushmemscreen(swrect);
-	swvisible = 1;
-}
-
-void
-swload(VGAscr*, Cursor *curs)
-{
-	uchar *ip, *mp;
-	int i, j, set, clr;
-
-	if(!swimg || !swmask || !swimg1 || !swmask1)
-		return;
-	/*
-	 * Build cursor image and mask.
-	 * Image is just the usual cursor image
-	 * but mask is a transparent alpha mask.
-	 * 
-	 * The 16x16x8 memimages do not have
-	 * padding at the end of their scan lines.
-	 */
-	ip = byteaddr(swimg, ZP);
-	mp = byteaddr(swmask, ZP);
-	for(i=0; i<32; i++){
-		set = curs->set[i];
-		clr = curs->clr[i];
-		for(j=0x80; j; j>>=1){
-			*ip++ = set&j ? 0x00 : 0xFF;
-			*mp++ = (clr|set)&j ? 0xFF : 0x00;
-		}
-	}
-	swoffset = curs->offset;
-	swvers++;
-	memimagedraw(swimg1, swimg1->r, swimg, ZP, memopaque, ZP, S);
-	memimagedraw(swmask1, swmask1->r, swmask, ZP, memopaque, ZP, S);
-}
-
-int
-swmove(VGAscr*, Point p)
-{
-	swpt = addpt(p, swoffset);
-	return 0;
-}
-
-void
-swcursorclock(void)
-{
-	int x;
-
-	if(!swenabled)
-		return;
-	if(swvisible && eqpt(swpt, swvispt) && swvers==swvisvers)
-		return;
-
-	x = splhi();
-	if(swenabled)
-	if(!swvisible || !eqpt(swpt, swvispt) || swvers!=swvisvers)
-	if(canqlock(&drawlock)){
-		swcursorhide();
-		swcursordraw();
-		qunlock(&drawlock);
-	}
-	splx(x);
-}
-
-void
-swcursorinit(void)
-{
-	static int init;
-	VGAscr *scr;
-
-	didswcursorinit = 1;
-	if(!init){
-		init = 1;
-		addclock0link(swcursorclock, 10);
-	}
-
-	scr = &vgascreen[0];
-	if(scr->gscreen==nil)
-		return;
-
-	if(swback){
-		freememimage(swback);
-		freememimage(swmask);
-		freememimage(swmask1);
-		freememimage(swimg);
-		freememimage(swimg1); 
-	}
-	swback = allocmemimage(Rect(0,0,32,32), gscreen->chan);
-	swmask = allocmemimage(Rect(0,0,16,16), GREY8);
-	swmask1 = allocmemimage(Rect(0,0,16,16), GREY1);
-	swimg = allocmemimage(Rect(0,0,16,16), GREY8);
-	swimg1 = allocmemimage(Rect(0,0,16,16), GREY1);
-	if(swback==nil || swmask==nil || swmask1==nil || swimg==nil || swimg1 == nil)
-		print("software cursor: allocmemimage fails");
-	memfillcolor(swback, DTransparent);
-	memfillcolor(swmask, DOpaque);
-	memfillcolor(swmask1, DOpaque);
-	memfillcolor(swimg, DBlack);
-	memfillcolor(swimg1, DBlack);
-}
-
-/*
- * Need to lock drawlock for ourselves.
- */
-void
-swenable(VGAscr *scr)
-{
-	swenabled = 1;
-	if(canqlock(&drawlock)){
-		swload(scr, &arrow);
-		swcursordraw();
-		qunlock(&drawlock);
-	}
-}
-
-void
-swdisable(VGAscr*)
-{
-	swenabled = 0;
-	if(canqlock(&drawlock)){
-		swcursorhide();
-		qunlock(&drawlock);
-	}
-}
-
-VGAcur swcursor =
-{
-	"soft",
-	swenable,
-	swdisable,
-	swload,
-	swmove,
-};

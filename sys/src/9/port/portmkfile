@@ -81,6 +81,7 @@ devuart.$O:	../port/netif.h
 devmouse.$O:	screen.h /sys/include/memdraw.h
 devdraw.$O:	screen.h /sys/include/memdraw.h
 screen.$O:	screen.h /sys/include/memdraw.h
+swcursor.$O:	screen.h /sys/include/memdraw.h
 thwack.$O:	../port/thwack.h
 unthwack.$O:	../port/thwack.h
 devsdp.$O:	../port/thwack.h

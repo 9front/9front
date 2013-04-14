@@ -64,7 +64,6 @@ extern void setpower(int, int);
 extern void setr13(int, u32int*);
 extern int splfhi(void);
 extern int splflo(void);
-extern void swcursorinit(void);
 extern int tas(void *);
 extern void touser(uintptr);
 extern void trapinit(void);

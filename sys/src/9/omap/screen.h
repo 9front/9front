@@ -20,12 +20,13 @@ extern Point mousexy(void);
 
 extern void	mouseaccelerate(int);
 extern void	mouseresize(void);
+extern void	mouseredraw(void);
 
 /* screen.c */
 extern uchar* attachscreen(Rectangle*, ulong*, int*, int*, int*);
 extern void	flushmemscreen(Rectangle);
-extern int	cursoron(int);
-extern void	cursoroff(int);
+extern void	cursoron(void);
+extern void	cursoroff(void);
 extern void	setcursor(Cursor*);
 extern int	screensize(int, int, int, ulong);
 extern int	screenaperture(int, int);
@@ -48,6 +49,13 @@ extern int drawidletime(void);
 extern QLock	drawlock;
 
 #define ishwimage(i)	0		/* for ../port/devdraw.c */
+
+/* swcursor.c */
+void		swcursorhide(void);
+void		swcursoravoid(Rectangle);
+void		swcursordraw(Point);
+void		swcursorload(Cursor *);
+void		swcursorinit(void);
 
 /* for communication between devdss.c and screen.c */
 
@@ -93,7 +101,6 @@ struct Settings {
 };
 
 struct OScreen {
-	Lock;
 	Cursor;
 	Settings *settings;
 	int	open;

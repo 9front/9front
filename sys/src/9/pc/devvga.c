@@ -349,7 +349,7 @@ vgactl(Cmdbuf *cb)
 		if(chantodepth(chan) != z)
 			error("depth, channel do not match");
 
-		cursoroff(1);
+		cursoroff();
 		deletescreenimage();
 		if(screensize(x, y, z, chan))
 			error(Egreg);
@@ -397,7 +397,7 @@ vgactl(Cmdbuf *cb)
 		y = scr->gscreen->r.max.y;
 		z = scr->gscreen->depth;
 		chan = scr->gscreen->chan;
-		cursoroff(1);
+		cursoroff();
 		deletescreenimage();
 		if(screensize(x, y, z, chan))
 			error(Egreg);
@@ -411,7 +411,7 @@ vgactl(Cmdbuf *cb)
 		hwaccel = !scr->softscreen && (scr->scroll || scr->fill);
 		vgascreenwin(scr);
 		resetscreenimage();
-		cursoron(1);
+		cursoron();
 		return;
 
 	case CMlinear:

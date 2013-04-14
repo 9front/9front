@@ -132,6 +132,7 @@ enum {
 /* mouse.c */
 extern void mousectl(Cmdbuf*);
 extern void mouseresize(void);
+extern void mouseredraw(void);
 
 /* screen.c */
 extern int		hwaccel;	/* use hw acceleration; default on */
@@ -140,8 +141,8 @@ extern int		panning;	/* use virtual screen panning; default off */
 extern void addvgaseg(char*, ulong, ulong);
 extern uchar* attachscreen(Rectangle*, ulong*, int*, int*, int*);
 extern void	flushmemscreen(Rectangle);
-extern int	cursoron(int);
-extern void	cursoroff(int);
+extern void	cursoron(void);
+extern void	cursoroff(void);
 extern void	setcursor(Cursor*);
 extern int	screensize(int, int, int, ulong);
 extern int	screenaperture(int, int);
@@ -176,3 +177,10 @@ extern void	vgablank(VGAscr*, int);
 extern Lock	vgascreenlock;
 
 #define ishwimage(i)	(vgascreen[0].gscreendata && (i)->data->bdata == vgascreen[0].gscreendata->bdata)
+
+/* swcursor.c */
+void		swcursorhide(void);
+void		swcursoravoid(Rectangle);
+void		swcursordraw(Point);
+void		swcursorload(Cursor *);
+void		swcursorinit(void);

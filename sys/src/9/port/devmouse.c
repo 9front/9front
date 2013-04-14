@@ -33,16 +33,13 @@ struct Mouseinfo
 {
 	Lock;
 	Mousestate;
-	int	dx;
-	int	dy;
-	int	track;		/* dx & dy updated */
 	int	redraw;		/* update cursor on screen */
+	Rendez	redrawr;	/* wait for cursor screen updates */
 	ulong	lastcounter;	/* value when /dev/mouse read */
 	ulong	lastresize;
 	ulong	resize;
 	Rendez	r;
 	Ref;
-	QLock;
 	int	open;
 	int	acceleration;
 	int	maxacc;
@@ -77,8 +74,7 @@ Cursor		curs;
 
 void	Cursortocursor(Cursor*);
 int	mousechanged(void*);
-
-static void mouseclock(void);
+void	mouseredraw(void);
 
 enum{
 	Qdir,
@@ -114,8 +110,6 @@ mousereset(void)
 
 	curs = arrow;
 	Cursortocursor(&arrow);
-	/* redraw cursor about 30 times per second */
-	addclock0link(mouseclock, 33);
 }
 
 static int
@@ -129,6 +123,8 @@ mousedevgen(Chan *c, char *name, Dirtab *tab, int ntab, int i, Dir *dp)
 	return rc;
 }
 
+static void mouseproc(void*);
+
 static void
 mouseinit(void)
 {
@@ -137,8 +133,10 @@ mouseinit(void)
 
 	curs = arrow;
 	Cursortocursor(&arrow);
-	cursoron(1);
+	cursoron();
 	mousetime = seconds();
+
+	kproc("mouse", mouseproc, 0);
 }
 
 static Chan*
@@ -222,13 +220,15 @@ mouseclose(Chan *c)
 			unlock(&mouse);
 			return;
 		}
-		if(--mouse.ref == 0){
-			cursoroff(1);
-			curs = arrow;
-			Cursortocursor(&arrow);
-			cursoron(1);
+		if(--mouse.ref != 0){
+			unlock(&mouse);
+			return;
 		}
 		unlock(&mouse);
+		cursoroff();
+		curs = arrow;
+		Cursortocursor(&arrow);
+		cursoron();
 	}
 }
 
@@ -373,7 +373,7 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		error(Eisdir);
 
 	case Qcursor:
-		cursoroff(1);
+		cursoroff();
 		if(n < 2*4+2*2*16){
 			curs = arrow;
 			Cursortocursor(&arrow);
@@ -385,11 +385,7 @@ mousewrite(Chan *c, void *va, long n, vlong)
 			memmove(curs.set, p+40, 2*16);
 			Cursortocursor(&curs);
 		}
-		qlock(&mouse);
-		mouse.redraw = 1;
-		mouseclock();
-		qunlock(&mouse);
-		cursoron(1);
+		cursoron();
 		return n;
 
 	case Qmousectl:
@@ -466,14 +462,10 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		if(p == 0)
 			error(Eshort);
 		pt.y = strtoul(p, 0, 0);
-		qlock(&mouse);
-		if(ptinrect(pt, gscreen->r)){
+		if(gscreen != nil && ptinrect(pt, gscreen->r)){
 			mouse.xy = pt;
-			mouse.redraw = 1;
-			mouse.track = 1;
-			mouseclock();
+			mousetrack(0, 0, mouse.buttons, TK2MS(MACHP(0)->ticks));
 		}
-		qunlock(&mouse);
 		return n;
 	}
 
@@ -505,32 +497,40 @@ Dev mousedevtab = {
 void
 Cursortocursor(Cursor *c)
 {
+	qlock(&drawlock);
 	lock(&cursor);
 	memmove(&cursor.Cursor, c, sizeof(Cursor));
 	setcursor(c);
 	unlock(&cursor);
+	qunlock(&drawlock);
 }
 
 
+static int
+shouldredraw(void*)
+{
+	return mouse.redraw != 0;
+}
+
 /*
- *  called by the clock routine to redraw the cursor
+ * process that redraws the cursor
  */
 static void
-mouseclock(void)
+mouseproc(void*)
 {
-	if(mouse.track){
-		mousetrack(mouse.dx, mouse.dy, mouse.buttons, TK2MS(MACHP(0)->ticks));
-		mouse.track = 0;
-		mouse.dx = 0;
-		mouse.dy = 0;
+	while(waserror())
+		;
+	for(;;){
+		if(mouse.redraw){
+			mouse.redraw = 0;
+			cursoroff();
+			cursoron();
+			drawactive(1);
+		} else {
+			drawactive(0);
+		}
+		tsleep(&mouse.redrawr, shouldredraw, 0, 20*1000);
 	}
-	if(mouse.redraw && canlock(&cursor)){
-		mouse.redraw = 0;
-		cursoroff(0);
-		mouse.redraw = cursoron(0);
-		unlock(&cursor);
-	}
-	drawactive(0);
 }
 
 static int
@@ -595,7 +595,6 @@ absmousetrack(int x, int y, int b, int msec)
 	lastb = mouse.buttons;
 	mouse.xy = Pt(x, y);
 	mouse.buttons = b;
-	mouse.redraw = 1;
 	mouse.counter++;
 	mouse.msec = msec;
 
@@ -611,7 +610,8 @@ absmousetrack(int x, int y, int b, int msec)
 			mouse.qfull = 1;
 	}
 	wakeup(&mouse.r);
-	drawactive(1);
+
+	mouseredraw();
 }
 
 /*
@@ -782,3 +782,9 @@ mouseresize(void)
 	wakeup(&mouse.r);
 }
 
+void
+mouseredraw(void)
+{
+	mouse.redraw = 1;
+	wakeup(&mouse.redrawr);
+}
