@@ -49,6 +49,7 @@ enum {
 };
 
 int debug;
+int nproc = 1;
 int killgroup = -1;
 int port = 6881;
 char *deftrack = "http://exodus.desync.com/announce";
@@ -1197,6 +1198,12 @@ main(int argc, char *argv[])
 		usage();
 	} ARGEND;
 
+	if((s = getenv("NPROC")) != 0){
+		if((nproc = atoi(s)) <= 0)
+			nproc = 1;
+		free(s);
+	}
+
 	fd = 0;
 	if(*argv)
 		if((fd = open(*argv, OREAD)) < 0)
@@ -1301,8 +1308,18 @@ main(int argc, char *argv[])
 	if(len)
 		sysfatal("pieces do not match file length");
 
-	for(i = 0; i<npieces; i++)
-		havepiece(i);
+	for(i=0; i<nproc; i++){
+		switch(rfork(RFPROC|RFMEM)){
+		case -1:
+			sysfatal("fork: %r");
+		case 0:
+			for(; i<npieces; i+=nproc)
+				havepiece(i);
+			exits(0);
+		}
+	}
+	while(waitpid() >= 0)
+		;
 
 	srand(time(0));
 	atnotify(catch, 1);
