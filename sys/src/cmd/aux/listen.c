@@ -592,7 +592,7 @@ newcall(int fd, char *proto, char *dir, Service *s)
 	bind(data, "/dev/cons", MREPL);
 	dup(fd, 0);
 	dup(fd, 1);
-	dup(fd, 2);
+	/* dup(fd, 2); keep stderr */
 	close(fd);
 
 	/*

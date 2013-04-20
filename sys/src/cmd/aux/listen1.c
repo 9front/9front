@@ -142,7 +142,7 @@ main(int argc, char **argv)
 			bind(data, "/dev/cons", MREPL);
 			dup(fd, 0);
 			dup(fd, 1);
-			dup(fd, 2);
+			/* dup(fd, 2); keep stderr */
 			close(fd);
 			exec(argv[1], argv+1);
 			if(argv[1][0] != '/')
