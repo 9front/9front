@@ -517,6 +517,9 @@ shouldredraw(void*)
 static void
 mouseproc(void*)
 {
+	ulong counter;
+
+	counter = ~0;
 	while(waserror())
 		;
 	for(;;){
@@ -524,10 +527,11 @@ mouseproc(void*)
 			mouse.redraw = 0;
 			cursoroff();
 			cursoron();
-			drawactive(1);
-		} else {
-			drawactive(0);
 		}
+
+		drawactive(mouse.counter != counter);
+		counter = mouse.counter;
+
 		tsleep(&mouse.redrawr, shouldredraw, 0, 20*1000);
 	}
 }
