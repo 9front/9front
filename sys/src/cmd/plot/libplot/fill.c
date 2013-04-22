@@ -47,8 +47,7 @@ static void polygon(int cnt[], double *pts[], Windrule w, int v){
 	edges=(Edge *)malloc(nvert*sizeof(Edge));
 	if(edges==0){
 	NoSpace:
-		fprintf(stderr, "polygon: no space\n");
-		exits("malloc failed");
+		sysfatal("polygon: no space");
 	}
 	ylist=(Edge **)malloc(Dy(screen->r)*sizeof(Edge *));
 	if(ylist==0) goto NoSpace;

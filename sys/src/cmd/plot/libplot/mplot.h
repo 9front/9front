@@ -1,6 +1,6 @@
 #include <u.h>
 #include <libc.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <draw.h>
 #include <event.h>
 #define SCX(A) ((((A) - e1->xmin)*e1->scalex  + e1->left)+.5)
@@ -39,6 +39,7 @@ void m_clrwin(int, int, int, int, int);
 void m_finish(void);
 void m_initialize(char *);
 int m_text(int, int, char *, char *, int, int, int);
+void m_dpt(double, double);
 void m_vector(int, int, int, int, int);
 void m_swapbuf(void);
 void m_dblbuf(void);

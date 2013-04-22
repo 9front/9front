@@ -3,7 +3,9 @@
 #include <bio.h>
 #include "plot.h"
 #include <draw.h>
-#include <event.h>
+#include <thread.h>
+#include <mouse.h>
+#include <keyboard.h>
 
 void	define(char*);
 void	call(char*);
@@ -106,6 +108,7 @@ struct fcall *fptr = flibr;
 
 #define	NFSTACK	50
 struct fstack{
+	char name[128];
 	int peekc;
 	int lineno;
 	char *corebuf;
@@ -124,37 +127,123 @@ double x[NX];			/* numeric arguments */
 int cnt[NPTS];			/* control-polygon vertex counts */
 double *pts[NPTS];		/* control-polygon vertex pointers */
 
-void eresized(int new){
-	if(new && getwindow(display, Refnone) < 0){
-		fprint(2, "Can't reattach to window: %r\n");
-		exits("resize");
+extern void m_swapbuf(void);	/* reaching into implementation.  ick. */
+extern Image *offscreen;
+
+void
+resize(Point p)
+{
+	int fd;
+
+	fd = open("/dev/wctl", OWRITE);
+	if(fd >= 0){
+		fprint(fd, "resize -dx %d -dy %d", p.x+4*2, p.y+4*2);
+		close(fd);
 	}
 }
+
+void
+resizeto(Point p)
+{
+	Point s;
+
+	s = (Point){Dx(screen->r), Dy(screen->r)};
+	if(eqpt(p, s))
+		return;
+	resize(p);
+}
+
+void
+eresized(int new)
+{
+	if(new && getwindow(display, Refnone) < 0)
+		sysfatal("plot: can't reattach to window: %r\n");
+//	resizeto((Point){Dx(offscreen->r)+4, Dy(offscreen->r)+4});
+	m_swapbuf();
+}
+
 char *items[]={
 	"exit",
 	0
 };
 Menu menu={items};
+
 void
-main(int arc, char *arv[]){
+mouseproc(void*)
+{
+	void *v;
+	Rune r;
+	Alt alts[4];
+	Keyboardctl *k;
+	Mousectl *m;
+	Mouse mc;
+	enum{Amouse, Akbd, Aresize, Aend};
+
+	m = initmouse(nil, screen);
+	k = initkeyboard(nil);
+
+	memset(alts, 0, sizeof alts);
+	alts[Amouse].c = m->c;
+	alts[Amouse].v = &mc;
+	alts[Amouse].op = CHANRCV;
+
+	alts[Akbd].c = k->c;
+	alts[Akbd].v = &r;
+	alts[Akbd].op = CHANRCV;
+
+	alts[Aresize].c = m->resizec;
+	alts[Aresize].v = &v;
+	alts[Aresize].op = CHANRCV;
+
+	alts[Aend].op = CHANEND;
+
+	for(;;)
+		switch(alt(alts)){
+		default:
+			sysfatal("mouse!");
+		case Amouse:
+			if(mc.buttons & 4) {
+				if(menuhit(3, m, &menu, nil) == 0)
+					threadexitsall("");
+			}
+			break;
+		case Akbd:
+			switch(r){
+			case 'q':
+			case 0x7f:
+			case 0x04:
+				threadexitsall("");
+			}
+			break;
+		case Aresize:
+			eresized(1);
+			;
+		}
+}
+
+void
+threadmain(int arc, char *arv[]){
 	char *ap;
 	Biobuf *bp;
 	int fd;
 	int i;
 	int dflag;
 	char *oflag;
-	Mouse m;
+
 	bp = 0;
 	fd = dup(0, -1);		/* because openpl will close 0! */
 	dflag=0;
 	oflag="";
+	argv0 = arv[0];
 	for(i=1;i!=arc;i++) if(arv[i][0]=='-') switch(arv[i][1]){
 	case 'd': dflag=1; break;
 	case 'o': oflag=arv[i]+2; break;
 	case 's': fd=server(); break;
 	}
 	openpl(oflag);
-	if(dflag) doublebuffer();
+	proccreate(mouseproc, nil, 32*1024);
+	if(dflag)
+		doublebuffer();
 	for (; arc > 1; arc--, arv++) {
 		if (arv[1][0] == '-') {
 			ap = arv[1];
@@ -192,10 +281,8 @@ main(int arc, char *arv[]){
 	}
 	closepl();
 	flushimage(display, 1);
-	for(;;){
-		m=emouse();
-		if(m.buttons&4 && emenuhit(3, &m, &menu)==0) exits(0);
-	}
+	for(;;)
+		sleep(1000);
 }
 int isalpha(int c)
 {
@@ -320,10 +407,8 @@ numargs(int n){
 			c=nextc();
 		}while(strchr(" \t\n", c) || c!='.' && c!='+' && c!='-' && ispunct(c));
 		fsp->peekc=c;
-		if(!numstring()){
-			fprint(2, "line %d: number expected\n", fsp->lineno);
-			exits("input error");
-		}
+		if(!numstring())
+			sysfatal("%s:%d: number expected\n", fsp->name, fsp->lineno);
 		x[i]=atof(argstr)*fsp->scale;
 	}
 }
@@ -354,17 +439,11 @@ polyarg(void){
 		c=nextc();
 		if(c==r){
 			if(*cntp){
-				if(*cntp&1){
-					fprint(2, "line %d: phase error\n",
-						fsp->lineno);
-					exits("bad input");
-				}
+				if(*cntp&1)
+					sysfatal("%s:%d: phase error", fsp->name, fsp->lineno);
 				*cntp/=2;
-				if(ptsp==&pts[NPTS]){
-					fprint(2, "line %d: out of polygons\n",
-						fsp->lineno);
-					exits("exceeded limit");
-				}
+				if(ptsp==&pts[NPTS])
+					sysfatal("%s:%d: out of polygons", fsp->name, fsp->lineno);
 				*++ptsp=xp;
 				*++cntp=0;
 			}
@@ -379,14 +458,10 @@ polyarg(void){
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
 			fsp->peekc=c;
-			if(!numstring()){
-				fprint(2, "line %d: expected number\n", fsp->lineno);
-				exits("bad input");
-			}
-			if(xp==&x[NX]){
-				fprint(2, "line %d: out of space\n", fsp->lineno);
-				exits("exceeded limit");
-			}
+			if(!numstring())
+				sysfatal("%s:%d: expected number", fsp->name, fsp->lineno);
+			if(xp==&x[NX])
+				sysfatal("%s:%d: out of space", fsp->name, fsp->lineno);
 			*xp++=atof(argstr);
 			++*cntp;
 			break;
@@ -443,19 +518,14 @@ process(Biobuf *fd){
 			for(pplots=plots;pplots->cc;pplots++)
 				if(strncmp(argstr, pplots->cc, pplots->numc)==0)
 					break;
-			if(pplots->cc==0){
-				fprint(2, "line %d, %s unknown\n", fsp->lineno,
-					argstr);
-				exits("bad command");
-			}
+			if(pplots->cc==0)
+				sysfatal("%s:%d: %s unknown", fsp->name, fsp->lineno, argstr);
 		}
 		else{
 			fsp->peekc=c;
 		}
-		if(!pplots){
-			fprint(2, "line %d, no command!\n", fsp->lineno);
-			exits("no command");
-		}
+		if(!pplots)
+			sysfatal("%s:%d: no command\n", fsp->name, fsp->lineno);
 		switch(pplots-plots){
 		case ARC:	numargs(7); rarc(x[0],x[1],x[2],x[3],x[4],x[5],x[6]); break;
 		case BOX:	numargs(4); box(x[0], x[1], x[2], x[3]); break;
@@ -494,8 +564,7 @@ process(Biobuf *fd){
 		case TEXT:	strarg();   text(argstr); pplots=0; break;
 		case VEC:	numargs(2); vec(x[0], x[1]); break;
 		default:
-			fprint(2, "plot: missing case %ld\n", pplots-plots);
-			exits("internal error");
+			sysfatal("%s:%d: plot: missing case %ld\n", fsp->name, fsp->lineno, pplots-plots);
 		}
 	}
 	return 1;
@@ -512,10 +581,8 @@ void define(char *a){
 	int curly = 0;
 	ap = a;
 	while(isalpha(*ap))ap++;
-	if(ap == a){
-		fprint(2,"no name with define\n");
-		exits("define");
-	}
+	if(ap == a)
+		sysfatal("plot: no name with define\n");
 	i = ap - a;
 	if(names+i+1 > enames){
 		names = malloc((unsigned)512);
@@ -532,10 +599,8 @@ void define(char *a){
 	fptr->stash = nstash;
 	while(*ap != '{')
 		if(*ap == '\n'){
-			if((ap=Brdline(fsp->fd, '\n'))==0){
-				fprint(2,"unexpected end of file\n");
-				exits("eof");
-			}
+			if((ap=Brdline(fsp->fd, '\n'))==0)
+				sysfatal("plot: unexpected eof");
 		}
 		else ap++;
 	while((j=Bgetc(fsp->fd))!= Beof){
@@ -549,14 +614,14 @@ void define(char *a){
 			free(bstash);
 			size += 1024;
 			bstash = realloc(bstash,size);
+			if(bstash == nil)
+				sysfatal("plot: realloc: %r");
 			estash = bstash+size;
 		}
 	}
 	*nstash++ = '\0';
-	if(fptr++ >= &flibr[MAXL]){
-		fprint(2,"Too many objects\n");
-		exits("too many objects");
-	}
+	if(fptr++ >= &flibr[MAXL])
+		sysfatal("too many objects");
 }
 void call(char *a){
 	char *ap;
@@ -571,20 +636,17 @@ void call(char *a){
 		if (!(strcmp(a, f->name)))
 			break;
 	}
-	if(f == fptr){
-		fprint(2, "object %s not defined\n",a);
-		exits("undefined");
-	}
+	if(f == fptr)
+		sysfatal("plot: object %s not defined",a);
 	*ap = sav;
 	while (isspace(*ap) || *ap == ',') 
 		ap++;
 	if (*ap != '\0')
 		SC = atof(ap);
 	else SC = 1.;
-	if(++fsp==&fstack[NFSTACK]){
-		fprint(2, "input stack overflow\n");
-		exits("blew stack");
-	}
+	if(++fsp==&fstack[NFSTACK])
+		sysfatal("plot: input stack overflow");
+	snprint(fsp->name, sizeof fsp->name, "call %s", f->name);
 	fsp->peekc=Beof;
 	fsp->lineno=1;
 	fsp->corebuf=f->stash;
@@ -594,14 +656,11 @@ void call(char *a){
 void include(char *a){
 	Biobuf *fd;
 	fd=Bopen(a, OREAD);
-	if(fd==0){
-		perror(a);
-		exits("can't include");
-	}
-	if(++fsp==&fstack[NFSTACK]){
-		fprint(2, "input stack overflow\n");
-		exits("blew stack");
-	}
+	if(fd==0)
+		sysfatal("plot: cant include %s: %r", a);
+	if(++fsp==&fstack[NFSTACK])
+		sysfatal("plot: input stack overflow");
+	snprint(fsp->name, sizeof fsp->name, "%s", a);
 	fsp->peekc=Beof;
 	fsp->lineno=1;
 	fsp->corebuf=0;

@@ -1,5 +1,5 @@
 #include "mplot.h"
 void
 pprompt(void){
-	fprintf(stderr, ":");
+	fprint(2, ":");
 }
