@@ -1,6 +1,6 @@
 .TH GRAPHICS 2
 .SH NAME
-Display, Point, Rectangle, Cursor, initdraw, geninitdraw, drawerror, initdisplay, closedisplay, getdefont, getwindow, gengetwindow, flushimage, bufimage, lockdisplay, unlockdisplay, openfont, buildfont, freefont, Pfmt, Rfmt, strtochan, chantostr, chantodepth \- interactive graphics
+Display, Point, Rectangle, Cursor, initdraw, geninitdraw, newwindow, drawerror, initdisplay, closedisplay, getdefont, getwindow, gengetwindow, flushimage, bufimage, lockdisplay, unlockdisplay, openfont, buildfont, freefont, Pfmt, Rfmt, strtochan, chantostr, chantodepth \- interactive graphics
 .SH SYNOPSIS
 .nf
 .ft L
