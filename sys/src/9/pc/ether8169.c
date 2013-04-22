@@ -765,11 +765,13 @@ rtl8169attach(Ether* edev)
 			ctlr->rd = nil;
 			free(ctlr->dtcc);
 			ctlr->dtcc = nil;
-			qlock(&ctlr->alock);
+			qunlock(&ctlr->alock);
 			error(Enomem);
 		}
 		ctlr->init = 1;
 		kproc("rtl8169", rtl8169reseter, edev);
+
+		/* rtl8169reseter() does qunlock(&ctlr->alock) when complete */
 		qlock(&ctlr->alock);
 	}
 	qunlock(&ctlr->alock);
