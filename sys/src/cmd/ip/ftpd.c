@@ -49,6 +49,7 @@ int	mkdircmd(char*);
 int	modecmd(char*);
 int	namelistcmd(char*);
 int	nopcmd(char*);
+int	optscmd(char*);
 int	passcmd(char*);
 int	pasvcmd(char*);
 int	portcmd(char*);
@@ -96,6 +97,7 @@ Cmd cmdtab[] =
 	{ "mode",	modecmd,	0, },
 	{ "nlst",	namelistcmd,	1, },
 	{ "noop",	nopcmd,		0, },
+	{ "opts",	optscmd,	0, },
 	{ "pass",	passcmd,	0, },
 	{ "pasv",	pasvcmd,	1, },
 	{ "pwd",	pwdcmd,		0, },
@@ -478,6 +480,20 @@ transfer(char *cmd, char *a1, char *a2, char *a3, int image)
 	return bytes;
 }
 
+int
+optscmd(char *arg)
+{
+	char *p;
+
+	if(p = strchr(arg, ' '))
+		*p = 0;
+	if(cistrcmp(arg, "UTF-8") == 0){
+		reply("200 Command okay");
+		return 0;
+	}
+	reply("502 %s option not implemented", arg);
+	return 0;
+}
 
 /*
  *  just reply OK
@@ -1593,6 +1609,7 @@ helpcmd(char *arg)
 
 	USED(arg);
 	reply("214- the following commands are implemented:");
+	buf[0] = 0;
 	p = buf;
 	e = buf+sizeof buf;
 	for(i = 0; cmdtab[i].name; i++){
