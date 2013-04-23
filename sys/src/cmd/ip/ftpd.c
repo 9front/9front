@@ -491,7 +491,7 @@ optscmd(char *arg)
 	}
 	if(p = strchr(arg, ' '))
 		*p = 0;
-	if(cistrcmp(arg, "UTF-8") == 0){
+	if(cistrcmp(arg, "UTF-8") == 0 || cistrcmp(arg, "UTF8") == 0){
 		reply("200 Command okay");
 		return 0;
 	}
