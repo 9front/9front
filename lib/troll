@@ -119,3 +119,4 @@ I've downloaded the nix bits from http://code.google.com/p/nix-os/ and compiled 
 Subject: [nix] servers down
 I have an  IDE HD with fossil (no venti) partition on it. It contains some data precious to me.
 Would it be possible to support file:// in acme ?
+i would not be at all surprised if the nix kernel (with or without the AC stuff) ends up being the basis for continuing evolution of plan9.
