@@ -485,6 +485,10 @@ optscmd(char *arg)
 {
 	char *p;
 
+	if(arg == 0 || *arg == 0){
+		reply("501 Syntax error in parameters or arguments");
+		return 0;
+	}
 	if(p = strchr(arg, ' '))
 		*p = 0;
 	if(cistrcmp(arg, "UTF-8") == 0){
