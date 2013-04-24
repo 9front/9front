@@ -15,7 +15,7 @@ enum
 	ESIZE	= 256,		/* max size of reg exp */
 	GBSIZE	= 256,		/* max size of global command */
 	MAXSUB	= 9,		/* max number of sub reg exp */
-	ESCFLG	= 0xFFFF,	/* escape Rune - user defined code */
+	ESCFLG	= Runemax,	/* escape Rune - user defined code */
 	EOF	= -1,
 };
 
@@ -737,7 +737,7 @@ gety(void)
 		if(c == 0)
 			continue;
 		*p++ = c;
-		if(p >= &linebuf[LBSIZE-2])
+		if(p >= &linebuf[LBSIZE-sizeof(Rune)])
 			error(Q);
 	}
 }
@@ -1162,7 +1162,7 @@ join(void)
 	for(a1=addr1; a1<=addr2; a1++) {
 		lp = getline(*a1);
 		while(*gp = *lp++)
-			if(gp++ >= &genbuf[LBSIZE-2])
+			if(gp++ >= &genbuf[LBSIZE-sizeof(Rune)])
 				error(Q);
 	}
 	lp = linebuf;

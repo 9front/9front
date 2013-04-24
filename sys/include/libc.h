@@ -46,6 +46,7 @@ enum
 	Runeself	= 0x80,		/* rune and UTF sequences are the same (<) */
 	Runeerror	= 0xFFFD,	/* decoding error in UTF */
 	Runemax		= 0xFFFF,	/* 16 bit rune */
+	Runemask	= 0xFFFF,	/* bits used by runes (see grep) */
 };
 
 /*
