@@ -1,7 +1,7 @@
 .TH MACH 2
 .SH NAME
 crackhdr, machbytype, machbyname, newmap, setmap, findseg, unusemap,
-loadmap, attachproc, get1, get2, get4, get8, put1, put2, put4, put8,
+loadmap, attachproc, get1, get2, get4, get8, geta, put1, put2, put4, put8, puta
 beswab, beswal, beswav, leswab, leswal, leswav \- machine-independent access to executable files
 .SH SYNOPSIS
 .B #include <u.h>
@@ -26,10 +26,10 @@ int machbyname(char *name)
 Map *newmap(Map *map, int n)
 .PP
 .B
-int setmap(Map *map, int fd, ulong base, ulong end,
+int setmap(Map *map, int fd, uvlong base, uvlong end,
 .PP
 .B
-            ulong foffset, char *name)
+            vlong foffset, char *name)
 .PP
 .B
 int findseg(Map *map, char *name)
@@ -44,46 +44,52 @@ Map *loadmap(Map *map, int fd, Fhdr *fp)
 Map *attachproc(int pid, int kflag, int corefd, Fhdr *fp)
 .PP
 .B
-int get1(Map *map, ulong addr, uchar *buf, int n)
+int get1(Map *map, uvlong addr, uchar *buf, int n)
 .PP
 .B
-int get2(Map *map, ulong addr, ushort *val)
+int get2(Map *map, uvlong addr, ushort *val)
 .PP
 .B
-int get4(Map *map, ulong addr, long *val)
+int get4(Map *map, uvlong addr, ulong *val)
 .PP
 .B
-int get8(Map *map, ulong addr, vlong *val)
+int get8(Map *map, uvlong addr, uvlong *val)
 .PP
 .B
-int put1(Map *map, ulong addr, uchar *buf, int n)
+int geta(Map *map, uvlong addr, uvlong *val)
 .PP
 .B
-int put2(Map *map, ulong addr, ushort val)
+int put1(Map *map, uvlong addr, uchar *buf, int n)
 .PP
 .B
-int put4(Map *map, ulong addr, long val)
+int put2(Map *map, uvlong addr, ushort val)
 .PP
 .B
-int put8(Map *map, ulong addr, vlong val)
+int put4(Map *map, uvlong addr, ulong val)
+.PP
+.B
+int put8(Map *map, uvlong addr, uvlong val)
+.PP
+.B
+int puta(Map *map, uvlong addr, uvlong val)
 .PP
 .B
 ushort beswab(ushort val)
 .PP
 .B
-long beswal(long val)
+long beswal(ulong val)
 .PP
 .B
-long beswav(vlong val)
+long beswav(uvlong val)
 .PP
 .B
 ushort leswab(ushort val)
 .PP
 .B
-long leswal(long val)
+long leswal(ulong val)
 .PP
 .B
-long leswav(vlong val)
+long leswav(uvlong val)
 .PP
 .B
 extern Mach mach;

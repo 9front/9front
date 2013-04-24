@@ -27,7 +27,7 @@ int isar(Biobuf *bp)
 int nextar(Biobuf *bp, int offset, char *buf)
 .PP
 .B
-int readar(Biobuf *bp, int objtype, int end)
+int readar(Biobuf *bp, int objtype, vlong end, int doautos)
 .SH DESCRIPTION
 These functions provide machine-independent access to object files
 in a directory or an archive.

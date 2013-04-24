@@ -15,36 +15,36 @@ leieeesftos, leieeedftos, ieeesftos, ieeedftos \- machine-independent debugger f
 .ta \w'\fLmachines 'u
 .nf
 .B
-int cisctrace(Map *map, ulong pc, ulong sp, ulong link,
+int cisctrace(Map *map, uvlong pc, uvlong sp, uvlong link,
 .B
               Tracer trace)
 .PP
 .nf
 .B
-int risctrace(Map *map, ulong pc, ulong sp, ulong link,
+int risctrace(Map *map, uvlong pc, uvlong sp, uvlong link,
 .B
               Tracer trace)
 .PP
 .nf
 .B
-ulong ciscframe(Map *map, ulong addr, ulong pc, ulong sp,
+uvlong ciscframe(Map *map, uvlong addr, uvlong pc, uvlong sp,
 .B
-                ulong link)
+                uvlong link)
 .PP
 .nf
 .B
-ulong riscframe(Map *map, ulong addr, ulong pc, ulong sp,
+uvlong riscframe(Map *map, uvlong addr, uvlong pc, uvlong sp,
 .B
-                ulong link)
+                uvlong link)
 .PP
 .nf
 .B
-int localaddr(Map *map, char *fn, char *var, long *ret,
+int localaddr(Map *map, char *fn, char *var, uvlong *ret,
 .B
               Rgetter rget)
 .PP
 .B
-int symoff(char *buf, int n, long addr, int type)
+int symoff(char *buf, int n, uvlong addr, int type)
 .PP
 .B
 int fpformat(Map *map, Reglist *rp, char *buf, int n, int code)

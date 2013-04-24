@@ -29,16 +29,16 @@ int  fileelem(Sym **fp, uchar *encname, char *buf, int n)
 int  filesym(int index, char *buf, int n)
 .PP
 .B
-long pc2sp(ulong pc)
+long pc2sp(uvlong pc)
 .PP
 .B
-long pc2line(ulong pc)
+long pc2line(uvlong pc)
 .PP
 .B
-void textseg(ulong base, Fhdr *fp)
+void textseg(uvlong base, Fhdr *fp)
 .PP
 .B
-long line2addr(ulong line, ulong basepc)
+uvlong line2addr(ulong line, uvlong basepc, uvlong endpc)
 .PP
 .B
 int  lookup(char *fn, char *var, Symbol *s)
@@ -50,7 +50,7 @@ int  findlocal(Symbol *s1, char *name, Symbol *s2)
 int  getauto(Symbol *s1, int off, int class, Symbol *s2)
 .PP
 .B
-int  findsym(long addr, int class, Symbol *s)
+int  findsym(uvlong addr, int class, Symbol *s)
 .PP
 .B
 int  localsym(Symbol *s, int index)
@@ -62,13 +62,13 @@ int  globalsym(Symbol *s, int index)
 int  textsym(Symbol *s, int index)
 .PP
 .B
-long file2pc(char *file, ulong line)
+uvlong file2pc(char *file, ulong line)
 .PP
 .B
-int  fileline(char *str, int n, ulong addr)
+int  fileline(char *str, int n, uvlong addr)
 .PP
 .B
-int  fnbound(long addr, ulong *bounds)
+int  fnbound(uvlong addr, uvlong *bounds)
 .SH DESCRIPTION
 These functions provide machine-independent access to the
 symbol table of an executable file or executing process.
