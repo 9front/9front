@@ -327,7 +327,7 @@ old9p(int fd)
 	return p[1];	
 }
 
-/* Invoked with stdin, stdout and stderr connected to the network connection */
+/* Invoked with stdin and stdout connected to the network connection */
 void
 remoteside(int old)
 {
@@ -352,7 +352,7 @@ remoteside(int old)
 	}
 	if(setamalg(cmd) < 0){
 		writestr(fd, "unsupported auth method", nil, 0);
-		fatal("bad auth method %s: %r", cmd);
+		fatal("bad auth method %s", cmd);
 	} else
 		writestr(fd, "", "", 1);
 
