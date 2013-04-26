@@ -73,7 +73,7 @@ error(char *fmt, ...)
 	va_end(arg);
 	fmtprint(&f, "\n");
 	fmtfdflush(&f);
-	threadexitsall(fmt);
+	threadexitsall(buf);
 }
 
 void
