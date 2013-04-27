@@ -71,7 +71,7 @@ error(char *fmt, ...)
 	va_end(arg);
 	write(2, buf, n);
 	write(2, "\n", 1);
-	threadexitsall(fmt);
+	threadexitsall(buf);
 }
 
 void
