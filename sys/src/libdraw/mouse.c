@@ -39,24 +39,30 @@ static
 void
 _ioproc(void *arg)
 {
-	int n, one;
+	int n, nerr, one;
 	char buf[1+5*12];
 	Mouse m;
 	Mousectl *mc;
 
 	mc = arg;
 	threadsetname("mouseproc");
-	one = 1;
 	memset(&m, 0, sizeof m);
-loop:
+	nerr = 0;
 	while(mc->mfd >= 0){
 		n = read(mc->mfd, buf, sizeof buf);
-		if(n != 1+4*12)
-			goto loop;
+		if(n != 1+4*12){
+			yield();	/* if error is due to exiting, we'll exit here */
+			fprint(2, "mouse: bad count %d not 49: %r\n", n);
+			if(n<0 || ++nerr>10)
+				threadexits("read error");
+			continue;
+		}
+		nerr = 0;
 		switch(buf[0]){
 		case 'r':
+			one = 1;
 			if(send(mc->resizec, &one) < 0)
-				goto loop;
+				continue;
 			/* fall through */
 		case 'm':
 			m.xy.x = atoi(buf+1+0*12);
@@ -64,7 +70,7 @@ loop:
 			m.buttons = atoi(buf+1+2*12);
 			m.msec = atoi(buf+1+3*12);
 			if(send(mc->c, &m) < 0)
-				goto loop;
+				continue;
 			/*
 			 * mc->Mouse is updated after send so it doesn't have wrong value if we block during send.
 			 * This means that programs should receive into mc->Mouse (see readmouse() above) if
