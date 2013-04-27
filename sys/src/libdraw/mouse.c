@@ -52,6 +52,8 @@ _ioproc(void *arg)
 		n = read(mc->mfd, buf, sizeof buf);
 		if(n != 1+4*12){
 			yield();	/* if error is due to exiting, we'll exit here */
+			if(mc->mfd < 0)
+				break;
 			fprint(2, "mouse: bad count %d not 49: %r\n", n);
 			if(n<0 || ++nerr>10)
 				threadexits("read error");
