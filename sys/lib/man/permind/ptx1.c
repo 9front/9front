@@ -108,6 +108,7 @@ FILE *bptr;
 
 char *cmds;
 
+void
 main(int argc, char **argv)
 {
 	int c;
