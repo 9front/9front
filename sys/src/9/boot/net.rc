@@ -7,9 +7,9 @@ fn confignet{
 	if(~ $#auth 0)
 		auth=`{awk -F'=' '/auth=/{print $2; exit}' /net/ndb}
 	if(~ $#fs 0)
-		ask fs ' ip is?' $auth
+		ask fs ' ip is? ' $auth
 	if(~ $#auth 0)
-		ask auth ' ip is?' $fs
+		ask auth ' ip is? ' $fs
 }
 
 fn connecttcp{
