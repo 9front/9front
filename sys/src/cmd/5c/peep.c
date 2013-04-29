@@ -1354,6 +1354,15 @@ joinsplit(Reg *r, Joininfo *j)
 			j->end = r->s2;
 			return Branch;
 		}
+		switch(r->prog->as){
+		case ADIV:
+		case ADIVU:
+		case AMOD:
+		case AMODU:
+			/* emulated by 5l, doesnt handle conditionals */
+			j->end = r->s1;
+			return Toolong;
+		}
 		if (modifiescpsr(r->prog)) {
 			j->end = r->s1;
 			return Setcond;
