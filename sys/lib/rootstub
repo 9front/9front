@@ -70,6 +70,7 @@ mkdir -p alpha/bin/nusb
 mkdir -p alpha/bin/replica
 mkdir -p alpha/bin/upas
 mkdir -p alpha/bin/venti
+mkdir -p alpha/lib/ape
 mkdir -p amd64/bin/ape
 mkdir -p amd64/bin/audio
 mkdir -p amd64/bin/auth
