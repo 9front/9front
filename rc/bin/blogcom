@@ -1,0 +1,39 @@
+#!/bin/rc
+if(~ $#1 0)
+	file=/lib/blogcom
+if not
+	file=$1
+awk ' BEGIN { w = 0; s = ""; nss = 0; srand() }
+function ends() {
+	ss[nss++] = s;
+	s = "";
+}
+{
+	split($0, a, "")
+	for(i = 1; i <= length($0); i++){
+		if(a[i] == "{"){
+			w = 1;
+			delete ws;
+			nws = 0;
+			ws[nws] = "";
+		}
+		else if(a[i] == "}"){
+			nws++;
+			s = s ws[int(rand()*nws)]
+			w = 0;
+		}
+		else if(a[i] == "|"){
+			if(w)
+				ws[++nws] = "";
+			else
+				ends();
+		}
+		else if(w)
+			ws[nws] = ws[nws] a[i];
+		else{
+			s = s a[i];
+		}
+	}
+}
+/[^|]$/ { if(w) ws[nws] = ws[nws] " "; else s = s " "; }
+END { ends(); print ss[int(rand()*nss)] } ' $file | fmt
