@@ -716,14 +716,14 @@ wsetcols(Window *w, int topped)
 {
 	if(w->holding)
 		if(topped)
-			w->cols[TEXT] = w->cols[HTEXT] = holdcol;
+			w->cols[TEXT] = holdcol;
 		else
-			w->cols[TEXT] = w->cols[HTEXT] = lightholdcol;
+			w->cols[TEXT] = lightholdcol;
 	else
 		if(topped)
-			w->cols[TEXT] = w->cols[HTEXT] = cols[TEXT];
+			w->cols[TEXT] = cols[TEXT];
 		else
-			w->cols[TEXT] = w->cols[HTEXT] = paletextcol;
+			w->cols[TEXT] = paletextcol;
 }
 
 void
