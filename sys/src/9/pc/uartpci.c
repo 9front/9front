@@ -99,8 +99,9 @@ uartpcipnp(void)
 	perlehead = perletail = nil;
 	ctlrno = 0;
 	for(p = pcimatch(nil, 0, 0); p != nil; p = pcimatch(p, 0, 0)){
-		if(p->ccrb != Pcibccomm || p->ccru > 2)
-			continue;
+		/* StarTech PCI8S9503V has ccru == 0x80 (other) */
+		if(p->ccrb != Pcibccomm || p->ccru > 2 && p->ccru != 0x80)
+ 			continue;
 
 		switch(p->did<<16 | p->vid){
 		default:
@@ -165,7 +166,14 @@ uartpcipnp(void)
 			freq = 7372800;
 			switch(subid){
 			default:
+				print("uartpci: unknown perle subid %#ux\n", subid);
 				continue;
+			case (0x1588<<16)|0x10B5:	/* StarTech PCI8S9503V (P588UG) */
+				name = "P588UG";
+				/* max. baud rate is 921,600 */
+				freq = 1843200;
+				uart = uartpci(ctlrno, p, 2, 8, freq, name, 8);
+				break;
 			case (0x0011<<16)|0x12E0:	/* Perle PCI-Fast16 */
 				name = "PCI-Fast16";
 				uart = uartpci(ctlrno, p, 2, 16, freq, name, 8);
