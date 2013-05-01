@@ -1,5 +1,5 @@
 /*
- *	© 2005-10 coraid
+ *	© 2005-13 coraid
  *	aoe storage initiator
  */
 
@@ -23,7 +23,12 @@
 #define uprint(...)	snprint(up->genbuf, sizeof up->genbuf, __VA_ARGS__);
 
 enum {
-	Maxunits	= 0xff,
+	Typebits		= 4,
+	Unitbits		= 12,
+	L3bits		= 4,
+	Maxtype		= (1<<Typebits)-1,
+	Maxunits	= (1<<Unitbits)-1,
+	Maxl3		= (1<<L3bits)-1,
 	Maxframes	= 128,
 	Maxmtu		= 100000,
 	Ndevlink	= 6,
@@ -31,11 +36,11 @@ enum {
 	Nnetlink	= 6,
 };
 
-#define TYPE(q)		((ulong)(q).path & 0xf)
-#define UNIT(q)		(((ulong)(q).path>>4) & 0xff)
-#define L(q)		(((ulong)(q).path>>12) & 0xf)
-#define QID(u, t) 	((u)<<4 | (t))
-#define Q3(l, u, t)	((l)<<8 | QID(u, t))
+#define TYPE(q)		((ulong)(q).path & Maxtype)
+#define UNIT(q)		(((ulong)(q).path>>Typebits) & Maxunits)
+#define L(q)		(((ulong)(q).path>>Typebits+Unitbits) & Maxl3)
+#define QID(u, t) 	((u)<<Typebits | (t))
+#define Q3(l, u, t)	((l)<<Typebits+Unitbits | QID(u, t))
 #define UP(d)		((d)->flag & Dup)
 
 #define	Ticks		MACHP(0)->ticks
@@ -520,7 +525,7 @@ pickea(Devlink *l)
 #define Nofail(d, s)	(((d)->flag&Dnofail) == Dnofail)
 
 static int
-hset(Aoedev *d, Frame *f, Aoehdr *h, int cmd)
+hset(Aoedev *d, Frame *f, Aoehdr *h, int cmd, int new)
 {
 	int i;
 	Devlink *l;
@@ -550,7 +555,9 @@ hset(Aoedev *d, Frame *f, Aoehdr *h, int cmd)
 	h->minor = d->minor;
 	h->cmd = cmd;
 
-	hnputl(h->tag, f->tag = newtag(d));
+	if(new)
+		f->tag = newtag(d);
+	hnputl(h->tag, f->tag);
 	f->dl = l;
 	f->nl = l->nl;
 	f->eaidx = i;
@@ -567,7 +574,7 @@ resend(Aoedev *d, Frame *f)
 	Aoehdr *h;
 
 	h = (Aoehdr*)f->hdr;
-	if(hset(d, f, h, h->cmd) == -1)
+	if(hset(d, f, h, h->cmd, 0) == -1)
 		return -1;
 	a = (Aoeata*)(f->hdr + Aoehsz);
 	n = f->bcnt;
@@ -771,19 +778,25 @@ aoeattach(char *spec)
 	return c;
 }
 
-static Aoedev*
-unitseq(ulong unit)
+static int
+unitseq(Chan *c, uint unit, Dir *dp)
 {
-	int i;
+	int i, rv;
+	Qid q;
 	Aoedev *d;
 
 	i = 0;
+	rv = -1;
 	rlock(&devs);
 	for(d = devs.d; d; d = d->next)
-		if(i++ == unit)
+		if(i++ == unit){
+			mkqid(&q, QID(d->unit, Qunitdir), 0, QTDIR);
+			devdir(c, q, unitname(d), 0, eve, 0555, dp);
+			rv = 1;
 			break;
+		}
 	runlock(&devs);
-	return d;
+	return rv;
 }
 
 static Aoedev*
@@ -915,11 +928,7 @@ aoegen(Chan *c, char *, Dirtab *, int, int s, Dir *dp)
 		if(s < Qtopfiles)
 			return topgen(c, Qtopbase + s, dp);
 		s -= Qtopfiles;
-		if((d = unitseq(s)) == 0)
-			return -1;
-		mkqid(&q, QID(d->unit, Qunitdir), 0, QTDIR);
-		devdir(c, q, unitname(d), 0, eve, 0555, dp);
-		return 1;
+		return unitseq(c, s, dp);
 	case Qtopctl:
 	case Qtoplog:
 		return topgen(c, TYPE(c->qid), dp);
@@ -1031,7 +1040,7 @@ atarw(Aoedev *d, Frame *f)
 	f->nhdr = Aoehsz + Aoeatasz;
 	memset(f->hdr, 0, f->nhdr);
 	h = (Aoehdr*)f->hdr;
-	if(hset(d, f, h, ACata) == -1){
+	if(hset(d, f, h, ACata, 1) == -1){
 		d->inprocess = nil;
 		return;
 	}
@@ -1267,7 +1276,7 @@ pstat(Aoedev *d, char *db, int len, int off)
 	int i;
 	char *state, *s, *p, *e;
 
-	s = p = malloc(READSTR);
+	s = p = smalloc(READSTR);
 	e = p + READSTR;
 
 	state = "down";
@@ -1454,7 +1463,7 @@ configwrite(Aoedev *d, void *db, long len)
 	if(len > sizeof d->config)
 		error(Etoobig);
 	srb = srballoc(len);
-	s = smalloc(len);
+	s = malloc(len);
 	memmove(s, db, len);
 	if(waserror()){
 		srbfree(srb);
@@ -1480,7 +1489,7 @@ configwrite(Aoedev *d, void *db, long len)
 	f->nhdr = Aoehsz + Aoecfgsz;
 	memset(f->hdr, 0, f->nhdr);
 	h = (Aoehdr*)f->hdr;
-	if(hset(d, f, h, ACconfig) == -1)
+	if(hset(d, f, h, ACconfig, 1) == -1)
 		return 0;
 	ch = (Aoecfg*)(f->hdr + Aoehsz);
 	f->srb = srb;
@@ -1705,7 +1714,7 @@ addnet(char *path, Chan *cc, Chan *dc, Chan *mtu, uchar *ea)
 	nl->mtu = mtu;
 	strncpy(nl->path, path, sizeof(nl->path)-1);
 	nl->path[sizeof(nl->path)-1] = 0;
-	memmove(nl->ea, ea, sizeof(nl->ea));
+	memmove(nl->ea, ea, sizeof nl->ea);
 	poperror();
 	nl->flag |= Dup;
 	unlock(&netlinks);
@@ -1748,7 +1757,7 @@ newdev(uint major, uint minor, int n)
 
 	d = malloc(sizeof *d);
 	f = malloc(sizeof *f*Maxframes);
-	if(!d || !f) {
+	if(d == nil || f == nil) {
 		free(d);
 		free(f);
 		error("aoe device allocation failure");
@@ -1828,7 +1837,7 @@ ataident(Aoedev *d)
 	f->nhdr = Aoehsz + Aoeatasz;
 	memset(f->hdr, 0, f->nhdr);
 	h = (Aoehdr*)f->hdr;
-	if(hset(d, f, h, ACata) == -1)
+	if(hset(d, f, h, ACata, 1) == -1)
 		return;
 	a = (Aoeata*)(f->hdr + Aoehsz);
 	f->srb = srbkalloc(0, 0);
@@ -1911,7 +1920,7 @@ errrsp(Block *b, char *s)
 	if(n == Tmgmt || n == Tfree)
 		return;
 	d = mm2dev(nhgets(h->major), h->minor);
-	if(d == 0)
+	if(d == nil)
 		return;
 	if(f = getframe(d, n))
 		frameerror(d, f, s);
@@ -1923,7 +1932,7 @@ qcfgrsp(Block *b, Netlink *nl)
 	int cmd, cslen, blen;
 	uint n, major;
 	Aoedev *d;
-	Aoehdr *h;
+	Aoehdr *h, *h0;
 	Aoecfg *ch;
 	Devlink *l;
 	Frame *f;
@@ -1933,7 +1942,7 @@ qcfgrsp(Block *b, Netlink *nl)
 	ch = (Aoecfg*)(b->rp + Aoehsz);
 	major = nhgets(h->major);
 	n = nhgetl(h->tag);
-	if(n != Tmgmt){
+	if(n != Tmgmt && n != Tfree){
 		d = mm2dev(major, h->minor);
 		if(d == nil)
 			return;
@@ -1942,6 +1951,13 @@ qcfgrsp(Block *b, Netlink *nl)
 		if(f == nil){
 			qunlock(d);
 			eventlog("%æ: unknown response tag %ux\n", d, n);
+			return;
+		}
+		h0 = (Aoehdr*)f->hdr;
+		cmd = h0->cmd;
+		if(cmd != ACconfig){
+			qunlock(d);
+			eventlog("%æ: malicious server got ACconfig want %d; tag %ux\n", d, cmd, n);
 			return;
 		}
 		cslen = nhgets(ch->cslen);
@@ -1954,7 +1970,7 @@ qcfgrsp(Block *b, Netlink *nl)
 				d, n, cslen, blen);
 			cslen = blen;
 		}
-		memmove(f->dp, (uchar*)ch + Aoehsz + Aoecfgsz, cslen);
+		memmove(f->dp, b->rp + Aoehsz + Aoecfgsz, cslen);
 		srb = f->srb;
 		f->dp = nil;
 		f->srb = nil;
@@ -1997,11 +2013,13 @@ qcfgrsp(Block *b, Netlink *nl)
 	l = newdevlink(d, nl, h);		/* add this interface. */
 
 	d->fwver = nhgets(ch->fwver);
-	n = nhgets(ch->cslen);
-	if(n > sizeof d->config)
-		n = sizeof d->config;
-	d->nconfig = n;
-	memmove(d->config, (uchar*)ch + Aoehsz + Aoecfgsz, n);
+	cslen = nhgets(ch->cslen);
+	if(cslen > sizeof d->config)
+		cslen = sizeof d->config;
+	if(Aoehsz + Aoecfgsz + cslen > BLEN(b))
+		cslen = BLEN(b) - (Aoehsz + Aoecfgsz);
+	d->nconfig = cslen;
+	memmove(d->config, b->rp + Aoehsz + Aoecfgsz, cslen);
 
 	/* manually set mtu may be reset lower if conditions warrant */
 	if(l){
@@ -2028,10 +2046,12 @@ aoeidentify(Aoedev *d, ushort *id)
 	vlong s;
 
 	s = idfeat(d, id);
-	if(s == -1)
+	if(s == -1){
+		eventlog("%æ: idfeat returns -1\n", d);
 		return -1;
+	}
 	if((d->feat&Dlba) == 0){
-		dprint("%æ: no lba support\n", d);
+		eventlog("%æ: no lba support\n", d);
 		return -1;
 	}
 	d->flag |= Dup;
@@ -2078,10 +2098,10 @@ identify(Aoedev *d, ushort *id)
 static void
 atarsp(Block *b)
 {
-	uint n;
+	uint n, cmd;
 	ushort major;
 	Aoeata *ahin, *ahout;
-	Aoehdr *h;
+	Aoehdr *h, *h0;
 	Aoedev *d;
 	Frame *f;
 	Srb *srb;
@@ -2098,11 +2118,20 @@ atarsp(Block *b)
 		nexterror();
 	}
 	n = nhgetl(h->tag);
+	if(n == Tfree || n == Tmgmt)
+		goto bail;
 	f = getframe(d, n);
 	if(f == nil){
-		dprint("%æ: unexpected response; tag %ux\n", d, n);
+		eventlog("%æ: unexpected response; tag %ux\n", d, n);
 		goto bail;
 	}
+	h0 = (Aoehdr*)f->hdr;
+	cmd = h0->cmd;
+	if(cmd != ACata){
+		eventlog("%æ: malicious server got ACata want %d; tag %ux\n", d, cmd, n);
+		goto bail;
+	}
+
 	rtupdate(f->dl, tsince(f->tag));
 	ahout = (Aoeata*)(f->hdr + Aoehsz);
 	srb = f->srb;
@@ -2168,7 +2197,7 @@ static void
 netrdaoeproc(void *v)
 {
 	int idx;
-	char name[Maxpath], *s;
+	char name[Maxpath+1], *s;
 	Aoehdr *h;
 	Block *b;
 	Netlink *nl;
@@ -2197,13 +2226,14 @@ netrdaoeproc(void *v)
 		h = (Aoehdr*)b->rp;
 		if(h->verflag & AFrsp)
 			if(s = aoeerror(h)){
-				eventlog("%s: %s\n", nl->path, s);
+				eventlog("%s: %d.%d %s\n", nl->path,
+					h->major[0]<<8 | h->major[1], h->minor, s);
 				errrsp(b, s);
 			}else if(h->cmd == ACata)
 				atarsp(b);
 			else if(h->cmd == ACconfig)
 				qcfgrsp(b, nl);
-			else if((h->cmd & 0xf0) == 0){
+			else if((h->cmd & 0xf0) != 0xf0){
 				eventlog("%s: unknown cmd %d\n",
 					nl->path, h->cmd);
 				errrsp(b, "unknown command");
