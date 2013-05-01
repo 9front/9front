@@ -61,6 +61,10 @@ pipeattach(char *spec)
 	Chan *c;
 
 	c = devattach('|', spec);
+	if(waserror()){
+		chanfree(c);
+		nexterror();
+	}
 	p = malloc(sizeof(Pipe));
 	if(p == 0)
 		exhausted("memory");
@@ -73,10 +77,11 @@ pipeattach(char *spec)
 	}
 	p->q[1] = qopen(conf.pipeqsize, 0, 0, 0);
 	if(p->q[1] == 0){
-		free(p->q[0]);
+		qfree(p->q[0]);
 		free(p);
 		exhausted("memory");
 	}
+	poperror();
 
 	lock(&pipealloc);
 	p->path = ++pipealloc.path;
