@@ -131,8 +131,12 @@ loopbackattach(char *spec)
 	}
 
 	c = devattach('X', spec);
-	lb = &loopbacks[dev];
+	if(waserror()){
+		chanfree(c);
+		nexterror();
+	}
 
+	lb = &loopbacks[dev];
 	qlock(lb);
 	if(waserror()){
 		lb->ref--;
@@ -167,6 +171,8 @@ loopbackattach(char *spec)
 	}
 	poperror();
 	qunlock(lb);
+
+	poperror();
 
 	mkqid(&c->qid, QID(0, Qtopdir), 0, QTDIR);
 	c->aux = lb;
