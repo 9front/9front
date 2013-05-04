@@ -3,6 +3,7 @@
  */
 #include <u.h>
 #include "/68020/include/ureg.h"
+#include <libc.h>
 #include <bio.h>
 #include <mach.h>
 

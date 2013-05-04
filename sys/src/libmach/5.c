@@ -2,6 +2,7 @@
  * arm definition
  */
 #include <u.h>
+#include <libc.h>
 #include <bio.h>
 #include "/arm/include/ureg.h"
 #include <mach.h>
