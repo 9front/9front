@@ -62,6 +62,7 @@ Ctype ctype[] = {
 	{ "text",			"txt",	1,	0	},
 	{ "message/rfc822",		"msg",	0,	0	},
 	{ "image/bmp",			"bmp",	0,	"image"	},
+	{ "image/jpg",			"jpg",	0,	"image"	},
 	{ "image/jpeg",			"jpg",	0,	"image"	},
 	{ "image/gif",			"gif",	0,	"image"	},
 	{ "image/png",			"png",	0,	"image"	},
