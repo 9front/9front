@@ -1,6 +1,7 @@
 #include <plan9.h>
 #include <fcall.h>
 #include <oldfcall.h>
+#include <stdlib.h>
 
 /*
  * routines to package the old protocol in the new structures.
