@@ -1430,7 +1430,8 @@ buildkey(Line *l)
 	k->klen = cl;
 
 	if(args.vflag) {
-		write(2, l->line, l->llen);
+		if(write(2, l->line, l->llen) != l->llen)
+			exits("write");
 		for(i=0; i<k->klen; i++) {
 			fprint(2, " %.2x", k->key[i]);
 			if(k->key[i] == 0x00 || k->key[i] == 0xff)
