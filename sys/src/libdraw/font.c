@@ -274,7 +274,8 @@ loadchar(Font *f, Rune r, Cacheinfo *c, int h, int noflush, char **subfontname)
 	if(fi->width == 0)
 		goto TryPJW;
 	wid = (fi+1)->x - fi->x;
-	if(f->width < wid || f->width == 0 || f->maxdepth < subf->f->bits->depth){
+	if(f->width < wid || f->width == 0 || f->maxdepth < subf->f->bits->depth
+	|| (f->display != nil && f->cacheimage == nil)){
 		/*
 		 * Flush, free, reload (easier than reformatting f->b)
 		 */
