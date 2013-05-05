@@ -407,13 +407,8 @@ ipopen(Chan* c, int omode)
 	case Qclone:
 		p = f->p[PROTO(c->qid)];
 		qlock(p);
-		if(waserror()){
-			qunlock(p);
-			nexterror();
-		}
 		cv = Fsprotoclone(p, ATTACHER(c));
 		qunlock(p);
-		poperror();
 		if(cv == nil) {
 			error(Enodev);
 			break;
@@ -1285,7 +1280,7 @@ retry:
 		if(c == nil){
 			c = malloc(sizeof(Conv));
 			if(c == nil)
-				error(Enomem);
+				return nil;
 			if(waserror()){
 				qfree(c->rq);
 				qfree(c->wq);
@@ -1293,7 +1288,7 @@ retry:
 				qfree(c->sq);
 				free(c->ptcl);
 				free(c);
-				nexterror();
+				return nil;
 			}
 			c->p = p;
 			c->x = pp - p->conv;
