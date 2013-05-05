@@ -316,8 +316,10 @@ ipifccreate(Conv *c)
 	Ipifc *ifc;
 
 	c->rq = qopen(QMAX, 0, 0, 0);
-	c->sq = qopen(QMAX, 0, 0, 0);
 	c->wq = qopen(QMAX, Qkick, ipifckick, c);
+	c->sq = qopen(QMAX, 0, 0, 0);
+	if(c->rq == nil || c->wq == nil || c->sq == nil)
+		error(Enomem);
 	ifc = (Ipifc*)c->ptcl;
 	ifc->conv = c;
 	ifc->unbinding = 0;

@@ -1286,20 +1286,32 @@ retry:
 			c = malloc(sizeof(Conv));
 			if(c == nil)
 				error(Enomem);
-			qlock(c);
+			if(waserror()){
+				qfree(c->rq);
+				qfree(c->wq);
+				qfree(c->eq);
+				qfree(c->sq);
+				free(c->ptcl);
+				free(c);
+				nexterror();
+			}
 			c->p = p;
 			c->x = pp - p->conv;
 			if(p->ptclsize != 0){
 				c->ptcl = malloc(p->ptclsize);
-				if(c->ptcl == nil) {
-					free(c);
+				if(c->ptcl == nil)
 					error(Enomem);
-				}
 			}
+			c->eq = qopen(1024, Qmsg, 0, 0);
+			if(c->eq == nil)
+				error(Enomem);
+			(*p->create)(c);
+			if(c->rq == nil || c->wq == nil)
+				error(Enomem);
+			poperror();
+			qlock(c);
 			*pp = c;
 			p->ac++;
-			c->eq = qopen(1024, Qmsg, 0, 0);
-			(*p->create)(c);
 			break;
 		}
 		if(canqlock(c)){
