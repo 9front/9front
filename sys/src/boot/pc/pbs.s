@@ -156,43 +156,47 @@ _nextdir:
 
 _found:
 	CLR(rBX)
-
 	LW(_rootsize(SB), rAX)		/* calculate and save Xrootsz */
 	LWI(0x20, rCX)
 	MUL(rCX)
 	LW(_sectsize(SB), rCX)
-	PUSHR(rCX)
 	DEC(rCX)
 	ADD(rCX, rAX)
 	ADC(rBX, rDX)
-	POPR(rCX)			/* _sectsize(SB) */
+	INC(rCX)
 	DIV(rCX)
 	PUSHR(rAX)			/* Xrootsz */
 
-	LXW(0x1a, xSI, rAX)		/* starting sector address */
-	DEC(rAX)			/* that's just the way it is */
-	DEC(rAX)
-	LB(_clustsize(SB), rCL)
-	CLRB(rCH)
+	CLR(rCX)
+	LXW(0x1a, xSI, rAX)		/* start cluster low */
+	LXW(0x14, xSI, rBX)		/* start cluster high */
+	SUBI(2, rAX)			/* cluster -= 2 */
+	SBB(rCX, rBX)
+
+	LB(_clustsize(SB), rCL)		/* convert to sectors (AX:DX) */
+	IMUL(rCX, rBX)
 	MUL(rCX)
+	ADD(rBX, rDX)
+
 	LW(_volid(SB), rCX)		/* Xrootlo */
 	ADD(rCX, rAX)
 	LW(_volid+2(SB), rCX)		/* Xroothi */
 	ADC(rCX, rDX)
+
+	CLR(rBX)
 	POPR(rCX)			/* Xrootsz */
 	ADD(rCX, rAX)
 	ADC(rBX, rDX)
 
-	PUSHR(rAX)			/* calculate how many sectors to read */
+	PUSHR(rAX)			/* calculate how many sectors to read (CX) */
 	PUSHR(rDX)
 	LXW(0x1c, xSI, rAX)
 	LXW(0x1e, xSI, rDX)
 	LW(_sectsize(SB), rCX)
-	PUSHR(rCX)
 	DEC(rCX)
 	ADD(rCX, rAX)
 	ADC(rBX, rDX)
-	POPR(rCX)	/* _sectsize(SB) */
+	INC(rCX)
 	DIV(rCX)
 	MW(rAX, rCX)
 	POPR(rBX)

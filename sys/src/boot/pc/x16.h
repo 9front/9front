@@ -117,6 +117,7 @@
 			BYTE $i;
 #define SHRBI(i, r)	OPrr(0xC0, 0x05, r);	/* r>>i -> r */		\
 			BYTE $i;
+#define SBB(r0, r1)	OPrr(0x19, r0, r1)	/* r1-r0 -> r1 */
 #define SUB(r0, r1)	OPrr(0x29, r0, r1)	/* r1-r0 -> r1 */
 #define SUBI(i, r)	OP(0x81, 0x03, 0x05, r);/* r-i -> r */		\
 			WORD $i;
