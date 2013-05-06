@@ -85,8 +85,11 @@ netlogopen(Fs *f)
 		nexterror();
 	}
 	if(f->alog->opens == 0){
-		if(f->alog->buf == nil)
+		if(f->alog->buf == nil){
 			f->alog->buf = malloc(Nlog);
+			if(f->alog->buf == nil)
+				error(Enomem);
+		}
 		f->alog->rptr = f->alog->buf;
 		f->alog->end = f->alog->buf + Nlog;
 	}

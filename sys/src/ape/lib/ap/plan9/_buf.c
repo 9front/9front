@@ -20,10 +20,9 @@ typedef struct Muxseg {
 	int	waittime;		/* time for timer process to wait */
 	fd_set	rwant;			/* fd's that select wants to read */
 	fd_set	ewant;			/* fd's that select wants to know eof info on */
-	Muxbuf	bufs[INITBUFS];		/* can grow, via segbrk() */
+	Muxbuf	bufs[OPEN_MAX];
 } Muxseg;
 
-#define MUXADDR ((void*)0x6000000)
 static Muxseg *mux = 0;			/* shared memory segment */
 
 /* _muxsid and _killmuxsid are known in libbsd's listen.c */
@@ -50,14 +49,13 @@ static int copynotehandler(void *, char *);
 int
 _startbuf(int fd)
 {
-	long i, n, slot;
-	int pid, sid;
+	int i, pid, sid;
 	Fdinfo *f;
 	Muxbuf *b;
 
 	if(mux == 0){
 		_RFORK(RFREND);
-		mux = (Muxseg*)_SEGATTACH(0, "shared", MUXADDR, sizeof(Muxseg));
+		mux = (Muxseg*)_SEGATTACH(0, "shared", 0, sizeof(Muxseg));
 		if((long)mux == -1){
 			_syserrno();
 			return -1;
@@ -66,7 +64,7 @@ _startbuf(int fd)
 		atexit(_killmuxsid);
 	}
 
-	if(fd == -1)
+	if(fd < 0)
 		return 0;
 
 	lock(&mux->lock);
@@ -85,17 +83,16 @@ _startbuf(int fd)
 		errno = EIO;
 		return -1;
 	}
-
-	slot = mux->curfds++;
-	if(mux->curfds > INITBUFS) {
-		if(_SEGBRK(mux, mux->bufs+mux->curfds) < 0){
-			_syserrno();
-			unlock(&mux->lock);
-			return -1;
-		}
+	for(b = mux->bufs; b < &mux->bufs[mux->curfds]; b++)
+		if(b->fd == -1)
+			goto Found;
+	if(mux->curfds >= OPEN_MAX){
+		unlock(&mux->lock);
+		errno = ENFILE;
+		return -1;
 	}
-
-	b = &mux->bufs[slot];
+	mux->curfds++;
+Found:
 	b->n = 0;
 	b->putnext = b->data;
 	b->getnext = b->data;
@@ -299,7 +296,7 @@ goteof:
 int
 select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeout)
 {
-	int n, i, tmp, t, slots, fd, err;
+	int n, i, t, slots, fd, err;
 	Fdinfo *f;
 	Muxbuf *b;
 
@@ -412,7 +409,7 @@ static int timerreset;
 static int timerpid;
 
 static void
-alarmed(int v)
+alarmed(int)
 {
 	timerreset = 1;
 }
@@ -500,9 +497,6 @@ _detachbuf(void)
 static int
 copynotehandler(void *u, char *msg)
 {
-	int i;
-	void(*f)(int);
-
 	if(_finishing)
 		_finish(0, 0);
 	_NOTED(1);

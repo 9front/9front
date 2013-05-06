@@ -65,7 +65,14 @@ enum {
 	AAFext		= 1<<6,
 };
 
-typedef struct {
+typedef	struct	Aoehdr	Aoehdr;
+typedef	struct	Aoeata	Aoeata;
+typedef	struct	Aoecfg	Aoecfg;
+typedef	struct	Aoemd	Aoemd;
+typedef	struct	Aoem	Aoem;
+typedef	struct	Aoerr	Aoerr;
+
+struct Aoehdr {
 	uchar	dst[Eaddrlen];
 	uchar	src[Eaddrlen];
 	uchar	type[2];
@@ -75,43 +82,43 @@ typedef struct {
 	uchar	minor;
 	uchar	cmd;
 	uchar	tag[4];
-} Aoehdr;
+};
 
-typedef struct {
+struct Aoeata {
 	uchar	aflag;
 	uchar	errfeat;
 	uchar	scnt;
 	uchar	cmdstat;
 	uchar	lba[6];
 	uchar	res[2];
-} Aoeata;
+};
 
-typedef struct {
+struct Aoecfg {
 	uchar	bufcnt[2];
 	uchar	fwver[2];
 	uchar	scnt;
 	uchar	verccmd;
 	uchar	cslen[2];
-} Aoecfg;
+};
 
-typedef struct {
+struct Aoemd {
 	uchar	dres;
 	uchar	dcmd;
 	uchar	ea[Eaddrlen];
-} Aoemd;
+};
 
-typedef struct {
+struct Aoem {
 	uchar	mres;
 	uchar	mcmd;
 	uchar	merr;
 	uchar	mcnt;
-} Aoem;
+};
 
-typedef struct {
+typedef struct Aoerr {
 	uchar	rcmd;
 	uchar	nea;
 	uchar	ea0[];
-} Aoerr;
+};
 
 extern char Echange[];
 extern char Enotup[];

@@ -980,6 +980,7 @@ sdsetsense(SDreq *r, int status, int key, int asc, int ascq)
 	SDunit *unit;
 
 	unit = r->unit;
+	unit->sense[0] = 0x80 | 0x70;	/* valid; fixed-format */
 	unit->sense[2] = key;
 	unit->sense[12] = asc;
 	unit->sense[13] = ascq;

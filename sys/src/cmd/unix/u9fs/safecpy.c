@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <string.h>
 
 void
 safecpy(char *to, char *from, int tolen)

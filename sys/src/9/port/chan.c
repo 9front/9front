@@ -1472,6 +1472,10 @@ namec(char *aname, int amode, int omode, ulong perm)
 		/* save&update the name; domount might change c */
 		path = c->path;
 		incref(path);
+		if(waserror()){
+			pathclose(path);
+			nexterror();
+		}
 		m = nil;
 		if(!nomount)
 			domount(&c, &m, &path);
@@ -1482,6 +1486,7 @@ namec(char *aname, int amode, int omode, ulong perm)
 		/* now it's our copy anyway, we can put the name back */
 		pathclose(c->path);
 		c->path = path;
+		poperror();
 
 		/* record whether c is on a mount point */
 		c->ismtpt = m!=nil;

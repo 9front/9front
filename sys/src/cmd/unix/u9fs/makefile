@@ -42,7 +42,8 @@ OFILES=\
 	strecpy.o\
 	tokenize.o\
 	u9fs.o\
-	utfrune.o
+	utflen.o\
+	utfrune.o\
 
 HFILES=\
 	fcall.h\
