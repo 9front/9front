@@ -49,7 +49,7 @@ static int copynotehandler(void *, char *);
 int
 _startbuf(int fd)
 {
-	int i, pid, sid;
+	int i, pid;
 	Fdinfo *f;
 	Muxbuf *b;
 
