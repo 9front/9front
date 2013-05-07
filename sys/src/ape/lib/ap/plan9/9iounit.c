@@ -14,7 +14,7 @@ static int
 getfields(char *str, char **args, int max, int mflag)
 {
 	char r;
-	int nr, intok, narg;
+	int intok, narg;
 
 	if(max <= 0)
 		return 0;
@@ -24,8 +24,8 @@ getfields(char *str, char **args, int max, int mflag)
 	if(!mflag)
 		narg++;
 	intok = 0;
-	for(;;) {
-		r = *str++;
+	for(;; str++) {
+		r = *str;
 		if(r == 0)
 			break;
 		if(r == ' ' || r == '\t'){
@@ -33,7 +33,7 @@ getfields(char *str, char **args, int max, int mflag)
 				break;
 			*str = 0;
 			intok = 0;
-			args[narg] = str + nr;
+			args[narg] = str + 1;
 			if(!mflag)
 				narg++;
 		} else {
