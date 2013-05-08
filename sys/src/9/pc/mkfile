@@ -41,7 +41,7 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
-	random.$O\
+	pcrandom.$O\
 
 OBJ=\
 	l.$O\

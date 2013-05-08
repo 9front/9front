@@ -299,6 +299,7 @@ enum {
 	Mmx	= 1<<23,
 	Sse	= 1<<25,	/* thus sfence instr. */
 	Sse2	= 1<<26,	/* thus mfence & lfence instr.s */
+	Rdrnd	= 1<<30,	/* RDRAND support bit */
 };
 
 /*

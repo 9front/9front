@@ -181,6 +181,7 @@ void	vunmap(void*, int);
 void	wbinvd(void);
 int	wrmsr(int, vlong);
 int	xchgw(ushort*, int);
+void	rdrandbuf(void*, ulong);
 
 #define	userureg(ur)	(((ur)->cs & 3) == 3)
 #define	waserror()	(up->nerrlab++, setlabel(&up->errlab[up->nerrlab-1]))
