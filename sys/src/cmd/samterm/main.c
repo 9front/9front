@@ -359,19 +359,29 @@ getcol(Rasp *r, long p)
 	return col;
 }
 
+int
+sptotab(Rasp *r, long p)
+{
+	int i, col, n;
+
+	col = getcol(r, p);
+	if((n = maxtab - col % maxtab) == maxtab)
+		n = 0;
+	for(i = 0; p < r->nrunes && raspc(r, p)==' ' && i<n; p++, i++)
+		;
+	return i;
+}
+
 long
 del(Rasp *r, long o, long p)
 {
-	int i, col, n;
+	int i;
 
 	if(--p < o)
 		return o;
 	if(!spacesindent || raspc(r, p)!=' ')
 		return p;
-	col = getcol(r, p) + 1;
-	if((n = col % maxtab) == 0)
-		n = maxtab;
-	for(i = 0; p-1>=o && raspc(r, p-1)==' ' && i<n-1; --p, i++)
+	for(i = 0; p-1>=o && raspc(r, p-1)==' ' && i<maxtab-1; --p, i++)
 		;
 	return p>=o? p : o;
 }
@@ -622,6 +632,8 @@ type(Flayer *l, int res)	/* what a bloody mess this is */
 			switch(c){
 			case '\b':
 			case 0x7F:	/* del */
+				if(spacesindent)
+					a += sptotab(&t->rasp, a);
 				l->p0 = del(&t->rasp, l->origin, a);
 				break;
 			case 0x15:	/* ctrl-u */
