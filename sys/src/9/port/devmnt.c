@@ -61,7 +61,6 @@ Mntrpc*	mntflushalloc(Mntrpc*, ulong);
 void	mntflushfree(Mnt*, Mntrpc*);
 void	mntfree(Mntrpc*);
 void	mntgate(Mnt*);
-void	mntpntfree(Mnt*);
 void	mntqrm(Mnt*, Mntrpc*);
 Mntrpc*	mntralloc(Chan*, ulong);
 long	mntrdwr(int, Chan*, void*, long, vlong);
@@ -101,6 +100,7 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	uchar *msg;
 	Mnt *m;
 	char *v;
+	Queue *q;
 	long k, l;
 	uvlong oo;
 	char buf[128];
@@ -199,6 +199,16 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	k = strlen(f.version);
 	if(strncmp(f.version, v, k) != 0)
 		error("bad 9P version returned from server");
+	if(returnlen > 0 && returnlen < k)
+		error(Eshort);
+
+	v = nil;
+	kstrdup(&v, f.version);
+	q = qopen(10*MAXRPC, 0, nil, nil);
+	if(q == nil){
+		free(v);
+		exhausted("mount queues");
+	}
 
 	/* now build Mnt associated with this connection */
 	lock(&mntalloc);
@@ -208,24 +218,22 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	else {
 		m = malloc(sizeof(Mnt));
 		if(m == 0) {
+			qfree(q);
+			free(v);
 			unlock(&mntalloc);
 			exhausted("mount devices");
 		}
 	}
 	m->list = mntalloc.list;
 	mntalloc.list = m;
-	m->version = nil;
-	kstrdup(&m->version, f.version);
+	m->version = v;
 	m->id = mntalloc.id++;
-	m->q = qopen(10*MAXRPC, 0, nil, nil);
+	m->q = q;
 	m->msize = f.msize;
 	unlock(&mntalloc);
 
-	if(returnlen > 0){
-		if(returnlen < k)
-			error(Eshort);
-		memmove(version, f.version, k);
-	}
+	if(returnlen > 0)
+		memmove(version, f.version, k);	/* length was checked above */
 
 	poperror();	/* msg */
 	free(msg);
@@ -564,23 +572,18 @@ mntclunk(Chan *c, int t)
 void
 muxclose(Mnt *m)
 {
-	Mntrpc *q, *r;
+	Mnt *f, **l;
+	Mntrpc *r;
 
-	for(q = m->queue; q; q = r) {
-		r = q->list;
-		mntfree(q);
+	while((r = m->queue) != nil){
+		m->queue = r->list;
+		mntfree(r);
 	}
 	m->id = 0;
 	free(m->version);
 	m->version = nil;
-	mntpntfree(m);
-}
-
-void
-mntpntfree(Mnt *m)
-{
-	Mnt *f, **l;
-	Queue *q;
+	qfree(m->q);
+	m->q = nil;
 
 	lock(&mntalloc);
 	l = &mntalloc.list;
@@ -593,10 +596,7 @@ mntpntfree(Mnt *m)
 	}
 	m->list = mntalloc.mntfree;
 	mntalloc.mntfree = m;
-	q = m->q;
 	unlock(&mntalloc);
-
-	qfree(q);
 }
 
 static void
