@@ -119,6 +119,7 @@ enum {					/* Tcr */
 	Macv27		= 0x2c800000,	/* RTL8111e */
 	Macv28		= 0x2c000000,	/* RTL8111/8168B */
 	Macv29		= 0x40800000,	/* RTL8101/8102E */
+	Macv30		= 0x24000000,	/* RTL8101E? (untested) */
 	Ifg0		= 0x01000000,	/* Interframe Gap 0 */
 	Ifg1		= 0x02000000,	/* Interframe Gap 1 */
 };
@@ -392,7 +393,14 @@ rtl8169mii(Ctlr* ctlr)
 	/*
 	 * PHY wakeup
 	 */
-	csr8w(ctlr, Pmch, csr8r(ctlr, Pmch) | 0x80);
+	switch(ctlr->macv){
+	case Macv25:
+	case Macv28:
+	case Macv29:
+	case Macv30:
+		csr8w(ctlr, Pmch, csr8r(ctlr, Pmch) | 0x80);
+		break;
+	}
 	rtl8169miimiw(ctlr->mii, 1, 0x1f, 0);
 	rtl8169miimiw(ctlr->mii, 1, 0x0e, 0);
 
@@ -1031,6 +1039,7 @@ vetmacv(Ctlr *ctlr, uint *macv)
 	case Macv27:
 	case Macv28:
 	case Macv29:
+	case Macv30:
 		break;
 	}
 	return 0;
