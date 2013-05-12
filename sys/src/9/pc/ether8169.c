@@ -50,6 +50,8 @@ enum {					/* registers */
 	Tbianar		= 0x68,		/* TBI Auto-Negotiation Advertisment */
 	Tbilpar		= 0x6A,		/* TBI Auto-Negotiation Link Partner */
 	Phystatus	= 0x6C,		/* PHY Status */
+	Pmch		= 0x6F,		/* power management */
+	Ldps		= 0x82,		/* link down power saving */
 
 	Rms		= 0xDA,		/* Receive Packet Maximum Size */
 	Cplusc		= 0xE0,		/* C+ Command */
@@ -388,12 +390,19 @@ rtl8169mii(Ctlr* ctlr)
 	ctlr->mii->ctlr = ctlr;
 
 	/*
+	 * PHY wakeup
+	 */
+	csr8w(ctlr, Pmch, csr8r(ctlr, Pmch) | 0x80);
+	rtl8169miimiw(ctlr->mii, 1, 0x1f, 0);
+	rtl8169miimiw(ctlr->mii, 1, 0x0e, 0);
+
+	/*
 	 * Get rev number out of Phyidr2 so can config properly.
 	 * There's probably more special stuff for Macv0[234] needed here.
 	 */
 	ctlr->phyv = rtl8169miimir(ctlr->mii, 1, Phyidr2) & 0x0F;
 	if(ctlr->macv == Macv02){
-		csr8w(ctlr, 0x82, 1);				/* magic */
+		csr8w(ctlr, Ldps, 1);				/* magic */
 		rtl8169miimiw(ctlr->mii, 1, 0x0B, 0x0000);	/* magic */
 	}
 
@@ -404,6 +413,10 @@ rtl8169mii(Ctlr* ctlr)
 	}
 	print("rtl8169: oui %#ux phyno %d, macv = %#8.8ux phyv = %#4.4ux\n",
 		phy->oui, phy->phyno, ctlr->macv, ctlr->phyv);
+
+	miireset(ctlr->mii);
+
+	microdelay(100);
 
 	miiane(ctlr->mii, ~0, ~0, ~0);
 
