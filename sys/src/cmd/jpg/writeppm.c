@@ -19,14 +19,14 @@ static
 void
 Bputbit(Biobufhdr *b, int c)
 {
-	if(c >= 0x0) {
+	if(c >= 0x0){
 		bitc = (bitc << 1) | (c & 0x1);
 		nbit++;
-	} else if(nbit > 0) {
+	}else if(nbit > 0){
 		for(; nbit < 8; nbit++)
 			bitc <<= 1;
 	}
-	if(nbit == 8) {
+	if(nbit == 8){
 		Bputc(b, bitc);
 		bitc = nbit = 0;
 	}
@@ -90,7 +90,7 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage, int rflag)
 				pix = (data[i]>>depth*((xmask-x)&xmask))&pmask;
 				if(((x+1)&xmask) == 0)
 					i++;
-				if(rflag) {
+				if(rflag){
 					if(chan == GREY1)
 						Bputbit(fd, pix);
 					else
@@ -110,7 +110,7 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage, int rflag)
 		break;
 	case GREY8:
 		for(i=0; i<ndata; i++){
-			if(rflag) {
+			if(rflag){
 				Bputc(fd, data[i]);
 				continue;
 			}
@@ -124,7 +124,7 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage, int rflag)
 		break;
 	case RGB24:
 		for(i=0; i<ndata; i+=3){
-			if(rflag) {
+			if(rflag){
 				Bputc(fd, data[i+2]);
 				Bputc(fd, data[i+1]);
 				Bputc(fd, data[i]);
