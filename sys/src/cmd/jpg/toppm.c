@@ -49,8 +49,6 @@ main(int argc, char *argv[])
 
 	memimageinit();
 
-	err = nil;
-
 	if(argc == 0){
 		i = readmemimage(0);
 		if(i == nil)
