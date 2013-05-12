@@ -90,6 +90,8 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage, int rflag)
 				pix = (data[i]>>depth*((xmask-x)&xmask))&pmask;
 				if(((x+1)&xmask) == 0)
 					i++;
+				if(chan == GREY1)
+					pix = pix == 1? 0: 1;
 				if(rflag){
 					if(chan == GREY1)
 						Bputbit(fd, pix);
