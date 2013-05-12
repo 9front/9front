@@ -71,7 +71,7 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage, int rflag)
 		err = malloc(ERRMAX);
 		if(err == nil)
 			return "WritePPM: malloc failed";
-		snprint(err, ERRMAX, "WriteGIF: %r");
+		snprint(err, ERRMAX, "WritePPM: %r");
 		free(data);
 		return err;
 	}
