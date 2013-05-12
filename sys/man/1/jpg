@@ -85,6 +85,8 @@ jpg, gif, png, ppm, bmp, v210, yuv, ico, tga, togif, toppm, topng, toico \- view
 .B -c
 .I comment
 ] [
+.B -r
+] [
 .I file
 ]
 .br
@@ -93,7 +95,6 @@ jpg, gif, png, ppm, bmp, v210, yuv, ico, tga, togif, toppm, topng, toico \- view
 .B -c
 .I comment
 ] [
-[
 .B -g
 .I gamma
 ] [
@@ -126,7 +127,7 @@ read files in the corresponding formats and, by default, display
 them in the current window; options cause them instead to convert the images
 to Plan 9 image format and write them to standard output.
 .IR Togif ,
-.IR Toppm ,
+.IR toppm ,
 and
 .I topng
 read Plan 9 images files, convert them to GIF, PPM, or PNG, and write them to standard output.
@@ -212,6 +213,12 @@ and have no display capability.
 Both accept an option
 .B -c
 to set the comment field of the resulting file.
+The
+.B -r
+option makes
+.I toppm
+output raw PPM.
+The default is to output plain PPM.
 If there is only one input picture,
 .I togif
 converts the image to GIF format.

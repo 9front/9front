@@ -12,12 +12,32 @@ static int log2[] = {
 	-1, -1, -1, -1, -1, -1, -1, 4 /* BUG */, -1, -1, -1, -1, -1, -1, -1, 5
 };
 
+static int bitc = 0;
+static int nbit = 0;
+
+static
+void
+Bputbit(Biobufhdr *b, int c)
+{
+	if(c >= 0x0) {
+		bitc = (bitc << 1) | (c & 0x1);
+		nbit++;
+	} else if(nbit > 0) {
+		for(; nbit < 8; nbit++)
+			bitc <<= 1;
+	}
+	if(nbit == 8) {
+		Bputc(b, bitc);
+		bitc = nbit = 0;
+	}
+}
+
 /*
  * Write data
  */
 static
 char*
-writedata(Biobuf *fd, Image *image, Memimage *memimage)
+writedata(Biobuf *fd, Image *image, Memimage *memimage, int rflag)
 {
 	char *err;
 	uchar *data;
@@ -70,6 +90,13 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage)
 				pix = (data[i]>>depth*((xmask-x)&xmask))&pmask;
 				if(((x+1)&xmask) == 0)
 					i++;
+				if(rflag) {
+					if(chan == GREY1)
+						Bputbit(fd, pix);
+					else
+						Bputc(fd, pix);
+					continue;
+				}
 				col += Bprint(fd, "%d", pix);
 				if(col >= MAXLINE-(2+1)){
 					Bprint(fd, "\n");
@@ -77,10 +104,16 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage)
 				}else
 					col += Bprint(fd, " ");
 			}
+			if(rflag)
+				Bputbit(fd, -1);
 		}
 		break;
 	case GREY8:
 		for(i=0; i<ndata; i++){
+			if(rflag) {
+				Bputc(fd, data[i]);
+				continue;
+			}
 			col += Bprint(fd, "%d", data[i]);
 			if(col >= MAXLINE-(4+1)){
 				Bprint(fd, "\n");
@@ -91,6 +124,12 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage)
 		break;
 	case RGB24:
 		for(i=0; i<ndata; i+=3){
+			if(rflag) {
+				Bputc(fd, data[i+2]);
+				Bputc(fd, data[i+1]);
+				Bputc(fd, data[i]);
+				continue;
+			}
 			col += Bprint(fd, "%d %d %d", data[i+2], data[i+1], data[i]);
 			if(col >= MAXLINE-(4+4+4+1)){
 				Bprint(fd, "\n");
@@ -108,21 +147,21 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage)
 
 static
 char*
-writeppm0(Biobuf *fd, Image *image, Memimage *memimage, Rectangle r, int chan, char *comment)
+writeppm0(Biobuf *fd, Image *image, Memimage *memimage, Rectangle r, int chan, char *comment, int rflag)
 {
 	char *err;
 
 	switch(chan){
 	case GREY1:
-		Bprint(fd, "P1\n");
+		Bprint(fd, "%s\n", rflag? "P4": "P1");
 		break;
 	case GREY2:
 	case GREY4:
 	case GREY8:
-		Bprint(fd, "P2\n");
+		Bprint(fd, "%s\n", rflag? "P5": "P2");
 		break;
 	case RGB24:
-		Bprint(fd, "P3\n");
+		Bprint(fd, "%s\n", rflag? "P6": "P3");
 		break;
 	default:
 		return "WritePPM: can't handle channel type";
@@ -149,21 +188,22 @@ writeppm0(Biobuf *fd, Image *image, Memimage *memimage, Rectangle r, int chan, c
 		break;
 	}
 
-	err = writedata(fd, image, memimage);
+	err = writedata(fd, image, memimage, rflag);
 
-	Bprint(fd, "\n");
+	if(!rflag)
+		Bprint(fd, "\n");
 	Bflush(fd);
 	return err;
 }
 
 char*
-writeppm(Biobuf *fd, Image *image, char *comment)
+writeppm(Biobuf *fd, Image *image, char *comment, int rflag)
 {
-	return writeppm0(fd, image, nil, image->r, image->chan, comment);
+	return writeppm0(fd, image, nil, image->r, image->chan, comment, rflag);
 }
 
 char*
-memwriteppm(Biobuf *fd, Memimage *memimage, char *comment)
+memwriteppm(Biobuf *fd, Memimage *memimage, char *comment, int rflag)
 {
-	return writeppm0(fd, nil, memimage, memimage->r, memimage->chan, comment);
+	return writeppm0(fd, nil, memimage, memimage->r, memimage->chan, comment, rflag);
 }

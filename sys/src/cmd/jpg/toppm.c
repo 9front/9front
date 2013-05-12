@@ -9,7 +9,7 @@
 void
 usage(void)
 {
-	fprint(2, "usage: toppm [-c 'comment'] [file]\n");
+	fprint(2, "usage: toppm [-c 'comment'] [-r] [file]\n");
 	exits("usage");
 }
 
@@ -18,10 +18,11 @@ main(int argc, char *argv[])
 {
 	Biobuf bout;
 	Memimage *i, *ni;
-	int fd;
+	int fd, rflag;
 	char buf[256];
 	char *err, *comment;
 
+	rflag = 0;
 	comment = nil;
 	ARGBEGIN{
 	case 'c':
@@ -32,6 +33,9 @@ main(int argc, char *argv[])
 			fprint(2, "ppm: comment cannot contain newlines\n");
 			usage();
 		}
+		break;
+	case 'r':
+		rflag = 1;
 		break;
 	default:
 		usage();
@@ -59,7 +63,7 @@ main(int argc, char *argv[])
 			i = ni;
 		}
 		if(err == nil)
-			err = memwriteppm(&bout, i, comment);
+			err = memwriteppm(&bout, i, comment, rflag);
 	}else{
 		fd = open(argv[0], OREAD);
 		if(fd < 0)
@@ -76,10 +80,10 @@ main(int argc, char *argv[])
 			i = ni;
 		}
 		if(comment)
-			err = memwriteppm(&bout, i, comment);
+			err = memwriteppm(&bout, i, comment, rflag);
 		else{
 			snprint(buf, sizeof buf, "Converted by Plan 9 from %s", argv[0]);
-			err = memwriteppm(&bout, i, buf);
+			err = memwriteppm(&bout, i, buf, rflag);
 		}
 		freememimage(i);
 	}
