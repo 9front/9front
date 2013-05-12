@@ -79,7 +79,7 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage)
 			}
 		}
 		break;
-	case	GREY8:
+	case GREY8:
 		for(i=0; i<ndata; i++){
 			col += Bprint(fd, "%d", data[i]);
 			if(col >= MAXLINE-(4+1)){
@@ -118,7 +118,7 @@ writeppm0(Biobuf *fd, Image *image, Memimage *memimage, Rectangle r, int chan, c
 		break;
 	case GREY2:
 	case GREY4:
-	case	GREY8:
+	case GREY8:
 		Bprint(fd, "P2\n");
 		break;
 	case RGB24:
@@ -143,7 +143,7 @@ writeppm0(Biobuf *fd, Image *image, Memimage *memimage, Rectangle r, int chan, c
 	case GREY4:
 		Bprint(fd, "%d\n", 15);
 		break;
-	case	GREY8:
+	case GREY8:
 	case RGB24:
 		Bprint(fd, "%d\n", 255);
 		break;
