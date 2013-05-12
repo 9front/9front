@@ -74,7 +74,7 @@ main(int argc, char *argv[])
 		close(fd);
 		ni = memmultichan(i);
 		if(ni == nil)
-			sysfatal("converting image to RGBV: %r");
+			sysfatal("converting image to RGB24: %r");
 		if(i != ni){
 			freememimage(i);
 			i = ni;
