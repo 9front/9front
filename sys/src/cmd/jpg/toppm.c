@@ -62,8 +62,7 @@ main(int argc, char *argv[])
 			freememimage(i);
 			i = ni;
 		}
-		if(err == nil)
-			err = memwriteppm(&bout, i, comment, rflag);
+		err = memwriteppm(&bout, i, comment, rflag);
 	}else{
 		fd = open(argv[0], OREAD);
 		if(fd < 0)
