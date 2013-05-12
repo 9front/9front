@@ -70,7 +70,7 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage)
 				pix = (data[i]>>depth*((xmask-x)&xmask))&pmask;
 				if(((x+1)&xmask) == 0)
 					i++;
-				col += Bprint(fd, "%d ", pix);
+				col += Bprint(fd, "%d", pix);
 				if(col >= MAXLINE-(2+1)){
 					Bprint(fd, "\n");
 					col = 0;
@@ -81,7 +81,7 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage)
 		break;
 	case	GREY8:
 		for(i=0; i<ndata; i++){
-			col += Bprint(fd, "%d ", data[i]);
+			col += Bprint(fd, "%d", data[i]);
 			if(col >= MAXLINE-(4+1)){
 				Bprint(fd, "\n");
 				col = 0;
