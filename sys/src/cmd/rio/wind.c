@@ -471,7 +471,7 @@ showcandidates(Window *w, Completion *c)
 	int i;
 	Fmt f;
 	Rune *rp;
-	uint nr, qline, q0;
+	uint nr, qline;
 	char *s;
 
 	runefmtstrinit(&f);
@@ -490,20 +490,21 @@ showcandidates(Window *w, Completion *c)
 		}
 		fmtprint(&f, "]\n");
 	}
-	/* place text at beginning of line before host point */
-	qline = w->qh;
-	while(qline>0 && w->r[qline-1] != '\n')
-		qline--;
-
 	rp = runefmtstrflush(&f);
 	nr = runestrlen(rp);
 
-	q0 = w->q0;
-	q0 += winsert(w, rp, nr, qline) - qline;
-	if(q0 >= w->qh)
-		w->qh += nr;
+	/* place text at beginning of line before cursor */
+	qline = w->q0;
+	while(qline>0 && w->r[qline-1] != '\n')
+		qline--;
+
+	if(qline == w->qh){
+		/* advance host point to avoid readback */
+		w->qh = winsert(w, rp, nr, qline)+nr;
+	} else {
+		winsert(w, rp, nr, qline);
+	}
 	free(rp);
-	wsetselect(w, q0+nr, q0+nr);
 }
 
 Rune*
