@@ -493,8 +493,8 @@ showcandidates(Window *w, Completion *c)
 	rp = runefmtstrflush(&f);
 	nr = runestrlen(rp);
 
-	/* place text at beginning of line before cursor */
-	qline = w->q0;
+	/* place text at beginning of line before cursor and host point */
+	qline = min(w->qh, w->q0);
 	while(qline>0 && w->r[qline-1] != '\n')
 		qline--;
 
