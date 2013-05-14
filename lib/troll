@@ -120,3 +120,5 @@ Subject: [nix] servers down
 I have an  IDE HD with fossil (no venti) partition on it. It contains some data precious to me.
 Would it be possible to support file:// in acme ?
 i would not be at all surprised if the nix kernel (with or without the AC stuff) ends up being the basis for continuing evolution of plan9.
+Subject: [9fans] Go tip build fails
+FWIW may be it would make more sense to install Plan 9 (9front) then?
