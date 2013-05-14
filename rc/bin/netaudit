@@ -38,6 +38,16 @@ fn checknet {
 	}
 	if not
 		echo '	we are in ipnet='^$ipnet
+	ipgw=`{ndb/ipquery sys $sysname ipgw | sed 's/^ipgw=//'}
+	if(~ $ipgw '' '::'){
+		echo '	we do not have an internet gateway, no ipgw= entry'
+	}
+	if not {
+		if(! ~ $ipgw *.*.*.* *:*:*:*:*:*:*:* *::*)
+			echo '	ipgw='$ipgw 'does not look like an ip address'
+		if not
+			echo '	ipgw='$ipgw 'looks ok'
+	}
 	dns=`{ndb/ipquery sys $sysname dns | sed 's/^dns=//'}
 	if(~ $dns '')
 		echo '	no dns= entry'
