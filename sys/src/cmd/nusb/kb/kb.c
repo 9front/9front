@@ -597,9 +597,7 @@ repeatproc(void* arg)
 			l = recvul(repeatc);
 			continue;
 		}
-		sc = l;
-		if((l>>8) != 0)
-			sc |= 0x80;
+		sc = l & 0xff;
 		t = Kbdelay;
 		if(alt(a) == 1){
 			t = Kbrepeat;
@@ -622,13 +620,7 @@ stoprepeat(KDev *f)
 static void
 startrepeat(KDev *f, uchar sc)
 {
-	ulong c;
-
-	if(isext(sc))
-		c = SCesc1 << 8 | (sc & 0xff);
-	else
-		c = sc;
-	sendul(f->repeatc, c);
+	sendul(f->repeatc, sc);
 }
 
 /*
