@@ -522,11 +522,9 @@ putscan(int fd, uchar sc, uchar up)
 {
 	uchar s[2] = {SCesc1, 0};
 
-	s[1] = sc&Keymask;
-	if(s[1] == 0)
+	if(sc == 0)
 		return;
-
-	s[1] |= up;
+	s[1] = up | sc&Keymask;
 	if(isext(sc))
 		write(fd, s, 2);
 	else
