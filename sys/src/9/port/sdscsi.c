@@ -384,8 +384,7 @@ scsibio(SDunit* unit, int lun, int write, void* data, long nb, uvlong bno)
 	SDreq *r;
 	long rlen;
 
-	if((r = malloc(sizeof(SDreq))) == nil)
-		error(Enomem);
+	r = smalloc(sizeof(SDreq));
 	r->unit = unit;
 	r->lun = lun;
 again:

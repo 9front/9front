@@ -847,9 +847,12 @@ sdbio(Chan* c, int write, char* a, long len, uvlong off)
 		b = (uchar*)a;
 		allocd = 0;
 	}else{
-		b = sdmalloc(nb*unit->secsize);
-		if(b == nil)
-			error(Enomem);
+		while((b = sdmalloc(nb*unit->secsize)) == nil){
+			if(!waserror()){
+				tsleep(&up->sleep, return0, 0, 100);
+				poperror();
+			}
+		}
 		allocd = 1;
 	}
 	if(waserror()){
@@ -929,8 +932,12 @@ sdrio(SDreq* r, void* a, long n)
 	}
 
 	data = nil;
-	if(n > 0 && (data = sdmalloc(n)) == nil)
-		error(Enomem);
+	while(n > 0 && (data = sdmalloc(n)) == nil){
+		if(!waserror()){
+			tsleep(&up->sleep, return0, 0, 100);
+			poperror();
+		}
+	}
 	if(waserror()){
 		sdfree(data);
 		r->data = nil;
@@ -1484,8 +1491,7 @@ sdwrite(Chan* c, void* a, long n, vlong off)
 			}		
 			if(n < 6 || n > sizeof(req->cmd))
 				error(Ebadarg);
-			if((req = malloc(sizeof(SDreq))) == nil)
-				error(Enomem);
+			req = smalloc(sizeof(SDreq));
 			req->unit = unit;
 			if(waserror()){
 				free(req);
