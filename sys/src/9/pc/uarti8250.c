@@ -621,12 +621,14 @@ i8250alloc(int io, int irq, int tbdf)
 {
 	Ctlr *ctlr;
 
-	if((ctlr = malloc(sizeof(Ctlr))) != nil){
-		ctlr->io = io;
-		ctlr->irq = irq;
-		ctlr->tbdf = tbdf;
+	ctlr = malloc(sizeof(Ctlr));
+	if(ctlr == nil){
+		print("i8250alloc: no memory for Ctlr\n");
+		return nil;
 	}
-
+	ctlr->io = io;
+	ctlr->irq = irq;
+	ctlr->tbdf = tbdf;
 	return ctlr;
 }
 
