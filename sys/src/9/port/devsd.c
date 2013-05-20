@@ -849,7 +849,7 @@ sdbio(Chan* c, int write, char* a, long len, uvlong off)
 	}else{
 		while((b = sdmalloc(nb*unit->secsize)) == nil){
 			if(!waserror()){
-				tsleep(&up->sleep, return0, 0, 100);
+				resrcwait("no memory for sdbio");
 				poperror();
 			}
 		}
@@ -934,7 +934,7 @@ sdrio(SDreq* r, void* a, long n)
 	data = nil;
 	while(n > 0 && (data = sdmalloc(n)) == nil){
 		if(!waserror()){
-			tsleep(&up->sleep, return0, 0, 100);
+			resrcwait("no memory for sdrio");
 			poperror();
 		}
 	}
