@@ -64,10 +64,16 @@ allocb(int size)
 	 */
 	if(up == nil)
 		panic("allocb without up: %#p", getcallerpc(&size));
-	if((b = _allocb(size)) == nil){
-		xsummary();
-		mallocsummary();
-		panic("allocb: no memory for %d bytes", size);
+	while((b = _allocb(size)) == nil){
+		if(up->nlocks.ref || m->ilockdepth || !islo()){
+			xsummary();
+			mallocsummary();
+			panic("allocb: no memory for %d bytes", size);
+		}
+		if(!waserror()){
+			resrcwait("no memory for allocb");
+			poperror();
+		}
 	}
 	setmalloctag(b, getcallerpc(&size));
 
