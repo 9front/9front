@@ -90,7 +90,7 @@ struct	Optab
 	short	as;
 	uchar*	ytab;
 	uchar	prefix;
-	uchar	op[10];
+	uchar	op[20];
 };
 
 enum
@@ -142,6 +142,8 @@ enum
 	Ycr0,	Ycr1,	Ycr2,	Ycr3,	Ycr4,	Ycr5,	Ycr6,	Ycr7,
 	Ydr0,	Ydr1,	Ydr2,	Ydr3,	Ydr4,	Ydr5,	Ydr6,	Ydr7,
 	Ytr0,	Ytr1,	Ytr2,	Ytr3,	Ytr4,	Ytr5,	Ytr6,	Ytr7,
+	Ymr, Ymm,
+	Yxr, Yxm,
 	Ymax,
 
 	Zxxx		= 0,
@@ -153,6 +155,7 @@ enum
 	Zib_,
 	Zib_rp,
 	Zibo_m,
+	Zibo_m_xm,
 	Zil_,
 	Zil_rp,
 	Zilo_m,
@@ -160,10 +163,16 @@ enum
 	Zloop,
 	Zm_o,
 	Zm_r,
+	Zm_r_xm,
+	Zm_r_i_xm,
+	Zm_r_3d,
+	Zibm_r, /* mmx1,mmx2/mem64,imm8 */
 	Zaut_r,
 	Zo_m,
 	Zpseudo,
 	Zr_m,
+	Zr_m_xm,
+	Zr_m_i_xm,
 	Zrp_,
 	Z_ib,
 	Z_il,
@@ -181,6 +190,8 @@ enum
 	Pm		= 0x0f,	/* 2byte opcode escape */
 	Pq		= 0xff,	/* both escape */
 	Pb		= 0xfe,	/* byte operands */
+	Pf2		= 0xf2,	/* xmm escape 1 */
+	Pf3		= 0xf3,	/* xmm escape 2 */
 
 	Roffset	= 22,		/* no. bits for offset in relocation address */
 	Rindex	= 10,		/* no. bits for index in relocation address */
@@ -250,7 +261,7 @@ EXTERN	char	inuxi4[4];
 EXTERN	char	ycover[Ymax*Ymax];
 EXTERN	uchar*	andptr;
 EXTERN	uchar	and[30];
-EXTERN	char	reg[D_NONE];
+EXTERN	char	reg[D_XNONE];
 EXTERN	Prog*	lastp;
 EXTERN	long	lcsize;
 EXTERN	int	nerrors;
@@ -279,6 +290,7 @@ EXTERN	Prog	undefp;
 #define	UP	(&undefp)
 
 extern	Optab	optab[];
+extern	Optab*	opindex[];
 extern	char*	anames[];
 
 int	Aconv(Fmt*);

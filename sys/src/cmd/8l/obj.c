@@ -195,11 +195,14 @@ main(int argc, char *argv[])
 		Bprint(&bso, "HEADER = -H0x%ld -T0x%lux -D0x%lux -R0x%lux\n",
 			HEADTYPE, INITTEXT, INITDAT, INITRND);
 	Bflush(&bso);
-	for(i=1; optab[i].as; i++)
-		if(i != optab[i].as) {
-			diag("phase error in optab: %d", i);
+	for(i=1; optab[i].as; i++) {
+		c = optab[i].as;
+		if(opindex[c] != nil) {
+			diag("phase error in optab: %d (%A)", i, c);
 			errorexit();
 		}
+		opindex[c] = &optab[i];
+	}
 
 	for(i=0; i<Ymax; i++)
 		ycover[i*Ymax + i] = 1;
@@ -240,7 +243,13 @@ main(int argc, char *argv[])
 	ycover[Yrl*Ymax + Yml] = 1;
 	ycover[Ym*Ymax + Yml] = 1;
 
-	for(i=0; i<D_NONE; i++) {
+	ycover[Ym*Ymax + Ymm] = 1;
+	ycover[Ymr*Ymax + Ymm] = 1;
+
+	ycover[Ym*Ymax + Yxm] = 1;
+	ycover[Yxr*Ymax + Yxm] = 1;
+
+	for(i=0; i<D_XNONE; i++) {
 		reg[i] = -1;
 		if(i >= D_AL && i <= D_BH)
 			reg[i] = (i-D_AL) & 7;
@@ -248,6 +257,10 @@ main(int argc, char *argv[])
 			reg[i] = (i-D_AX) & 7;
 		if(i >= D_F0 && i <= D_F0+7)
 			reg[i] = (i-D_F0) & 7;
+		if(i >= D_M0 && i <= D_M0+7)
+			reg[i] = (i-D_M0) & 7;
+		if(i >= D_X0 && i <= D_X0+7)
+			reg[i] = (i-D_X0) & 7;
 	}
 
 	zprg.link = P;
@@ -988,6 +1001,13 @@ loop:
 	case AFDIVRF:
 	case AFCOMF:
 	case AFCOMFP:
+	case AMOVSS:
+	case AADDSS:
+	case ASUBSS:
+	case AMULSS:
+	case ADIVSS:
+	case ACOMISS:
+	case AUCOMISS:
 		if(skip)
 			goto casdef;
 		if(p->from.type == D_FCONST) {
@@ -1026,6 +1046,13 @@ loop:
 	case AFDIVRD:
 	case AFCOMD:
 	case AFCOMDP:
+	case AMOVSD:
+	case AADDSD:
+	case ASUBSD:
+	case AMULSD:
+	case ADIVSD:
+	case ACOMISD:
+	case AUCOMISD:
 		if(skip)
 			goto casdef;
 		if(p->from.type == D_FCONST) {

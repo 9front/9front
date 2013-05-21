@@ -61,7 +61,7 @@ Dconv(Fmt *fp)
 
 	a = va_arg(fp->args, Adr*);
 	i = a->type;
-	if(i >= D_INDIR) {
+	if(i >= D_INDIR && i < D_M0) {
 		if(a->offset)
 			snprint(str, sizeof(str), "%ld(%R)", a->offset, i-D_INDIR);
 		else
@@ -208,6 +208,24 @@ char*	regstr[] =
 	"TR7",
 
 	"NONE",		/* [D_NONE] */
+
+[D_M0]	"M0",		/* [D_M0] */
+		"M1",
+		"M2",
+		"M3",
+		"M4",
+		"M5",
+		"M6",
+		"M7",
+
+[D_X0]	"X0",		/* [D_X0] */
+		"X1",
+		"X2",
+		"X3",
+		"X4",
+		"X5",
+		"X6",
+		"X7",
 };
 
 int
@@ -217,7 +235,7 @@ Rconv(Fmt *fp)
 	int r;
 
 	r = va_arg(fp->args, int);
-	if(r >= D_AL && r <= D_NONE)
+	if((r >= D_AL && r <= D_NONE) || (r >= D_M0 && r <= D_X0+7))
 		snprint(str, sizeof(str), "%s", regstr[r-D_AL]);
 	else
 		snprint(str, sizeof(str), "gok(%d)", r);

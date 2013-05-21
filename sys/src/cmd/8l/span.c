@@ -326,7 +326,7 @@ oclass(Adr *a)
 {
 	long v;
 
-	if(a->type >= D_INDIR || a->index != D_NONE) {
+	if((a->type >= D_INDIR && a->type < D_M0) || a->index != D_NONE) {
 		if(a->index != D_NONE && a->scale == 0) {
 			if(a->type == D_ADDR) {
 				switch(a->index) {
@@ -386,6 +386,26 @@ oclass(Adr *a)
 	case D_F0+6:
 	case D_F0+7:
 		return	Yrf;
+
+	case D_M0+0:
+	case D_M0+1:
+	case D_M0+2:
+	case D_M0+3:
+	case D_M0+4:
+	case D_M0+5:
+	case D_M0+6:
+	case D_M0+7:
+		return	Ymr;
+
+	case D_X0+0:
+	case D_X0+1:
+	case D_X0+2:
+	case D_X0+3:
+	case D_X0+4:
+	case D_X0+5:
+	case D_X0+6:
+	case D_X0+7:
+		return	Yxr;
 
 	case D_NONE:
 		return Ynone;
@@ -576,7 +596,7 @@ asmand(Adr *a, int r)
 	v = a->offset;
 	t = a->type;
 	if(a->index != D_NONE) {
-		if(t >= D_INDIR) {
+		if(t >= D_INDIR && t < D_M0) {
 			t -= D_INDIR;
 			if(t == D_NONE) {
 				*andptr++ = (0 << 6) | (4 << 0) | (r << 3);
@@ -624,7 +644,13 @@ asmand(Adr *a, int r)
 		*andptr++ = (3 << 6) | (reg[t] << 0) | (r << 3);
 		return;
 	}
-	if(t >= D_INDIR) {
+	if(t >= D_M0 && t <= D_X0+7) {
+		if(v)
+			goto bad;
+		*andptr++ = (3 << 6) | (reg[t] << 0) | (r << 3);
+		return;
+	}
+	if(t >= D_INDIR && t < D_M0) {
 		t -= D_INDIR;
 		if(t == D_NONE || D_CS <= t && t <= D_GS) {
 			*andptr++ = (0 << 6) | (5 << 0) | (r << 3);
@@ -835,6 +861,30 @@ subreg(Prog *p, int from, int to)
 		print("%P\n", p);
 }
 
+static int
+mediaop(Optab *o, int op, int osize, int z)
+{
+	switch(op){
+	case Pm:
+	case Pe:
+	case Pf2:
+	case Pf3:
+		if(osize != 1){
+			if(op != Pm)
+				*andptr++ = op;
+			*andptr++ = Pm;
+			op = o->op[++z];
+			break;
+		}
+	default:
+		if(andptr == and || andptr[-1] != Pm)
+			*andptr++ = Pm;
+		break;
+	}
+	*andptr++ = op;
+	return z;
+}
+
 void
 doasm(Prog *p)
 {
@@ -851,7 +901,7 @@ doasm(Prog *p)
 	if(pre)
 		*andptr++ = pre;
 
-	o = &optab[p->as];
+	o = opindex[p->as];
 	ft = oclass(&p->from) * Ymax;
 	tt = oclass(&p->to) * Ymax;
 	t = o->ytab;
@@ -869,6 +919,12 @@ found:
 	switch(o->prefix) {
 	case Pq:	/* 16 bit escape and opcode escape */
 		*andptr++ = Pe;
+		*andptr++ = Pm;
+		break;
+
+	case Pf2:	/* xmm opcode escape */
+	case Pf3:
+		*andptr++ = o->prefix;
 		*andptr++ = Pm;
 		break;
 
@@ -903,6 +959,30 @@ found:
 		asmand(&p->from, reg[p->to.type]);
 		break;
 
+	case Zm_r_xm:
+		mediaop(o, op, t[3], z);
+		asmand(&p->from, reg[p->to.type]);
+		break;
+
+	case Zm_r_i_xm:
+		mediaop(o, op, t[3], z);
+		asmand(&p->from, reg[p->to.type]);
+		*andptr++ = p->to.offset;
+		break;
+
+	case Zm_r_3d:
+		*andptr++ = 0x0f;
+		*andptr++ = 0x0f;
+		asmand(&p->from, reg[p->to.type]);
+		*andptr++ = op;
+		break;
+
+	case Zibm_r:
+		*andptr++ = op;
+		asmand(&p->from, reg[p->to.type]);
+		*andptr++ = p->to.offset;
+ 		break;
+
 	case Zaut_r:
 		*andptr++ = 0x8d;	/* leal */
 		if(p->from.type != D_ADDR)
@@ -924,6 +1004,17 @@ found:
 		asmand(&p->to, reg[p->from.type]);
 		break;
 
+	case Zr_m_xm:
+		mediaop(o, op, t[3], z);
+		asmand(&p->to, reg[p->from.type]);
+		break;
+
+	case Zr_m_i_xm:
+		mediaop(o, op, t[3], z);
+		asmand(&p->to, reg[p->from.type]);
+		*andptr++ = p->from.offset;
+ 		break;
+
 	case Zo_m:
 		*andptr++ = op;
 		asmand(&p->to, o->op[z+1]);
@@ -941,6 +1032,12 @@ found:
 		asmand(&p->to, o->op[z+1]);
 		*andptr++ = v;
 		break;
+
+	case Zibo_m_xm:
+		z = mediaop(o, op, t[3], z);
+		asmand(&p->to, o->op[z+1]);
+ 		*andptr++ = v;
+ 		break;
 
 	case Z_ib:
 		v = vaddr(&p->to);
