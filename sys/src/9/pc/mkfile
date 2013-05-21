@@ -36,12 +36,12 @@ PORT=\
 	rebootcmd.$O\
 	segment.$O\
 	swap.$O\
+	syscallfmt.$O\
 	sysfile.$O\
 	sysproc.$O\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
-	pcrandom.$O\
 
 OBJ=\
 	l.$O\
@@ -52,8 +52,8 @@ OBJ=\
 	main.$O\
 	memory.$O\
 	mmu.$O\
-	syscallfmt.$O\
 	trap.$O\
+	pcrandom.$O\
 	$CONF.root.$O\
 	$CONF.rootc.$O\
 	$DEVS\
