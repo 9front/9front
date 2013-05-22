@@ -19,6 +19,7 @@
 #define	ROUND(s, sz)	(((s)+((sz)-1))&~((sz)-1))
 #define	PGROUND(s)	ROUND(s, BY2PG)
 #define	BLOCKALIGN	8
+#define	FPalign		16
 
 /*
  * In 32-bit mode, the MAXMACH limit is 32 without

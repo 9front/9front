@@ -434,12 +434,6 @@ uchar	ymskb[] =
 	Ymr,	Yrl,	Zm_r_xm,	1,
 	0
 };
-uchar	yxaes[] =
-{
-	Yxm,	Yxr,	Zm_r_xm,	2,
-	Yxm,	Yxr,	Zm_r_i_xm,	2,
-	0
-};
 
 Optab optab[] =
 /*	as, ytab, andproto, opcode */

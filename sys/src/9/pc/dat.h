@@ -2,7 +2,9 @@ typedef struct BIOS32si	BIOS32si;
 typedef struct BIOS32ci	BIOS32ci;
 typedef struct Conf	Conf;
 typedef struct Confmem	Confmem;
-typedef struct FPsave	FPsave;
+typedef union FPsave	FPsave;
+typedef struct FPssestate FPssestate;
+typedef struct FPstate	FPstate;
 typedef struct ISAConf	ISAConf;
 typedef struct Label	Label;
 typedef struct Lock	Lock;
@@ -64,7 +66,7 @@ enum
 	FPillegal=	0x100,
 };
 
-struct	FPsave
+struct	FPstate
 {
 	ushort	control;
 	ushort	r1;
@@ -79,6 +81,33 @@ struct	FPsave
 	ushort	oselector;
 	ushort	r5;
 	uchar	regs[80];	/* floating point registers */
+};
+
+struct	FPssestate		/* SSE fp state */
+{
+	ushort	fcw;		/* control */
+	ushort	fsw;		/* status */
+	ushort	ftw;		/* tag */
+	ushort	fop;		/* opcode */
+	ulong	fpuip;		/* pc */
+	ushort	cs;		/* pc segment */
+	ushort	r1;		/* reserved */
+	ulong	fpudp;		/* data pointer */
+	ushort	ds;		/* data pointer segment */
+	ushort	r2;
+	ulong	mxcsr;		/* MXCSR register state */
+	ulong	mxcsr_mask;	/* MXCSR mask register */
+	uchar	xregs[480];	/* extended registers */
+	uchar	alignpad[FPalign];
+};
+
+/*
+ * the FP regs must be stored here, not somewhere pointed to from here.
+ * port code assumes this.
+ */
+union FPsave {
+	FPstate;
+	FPssestate;
 };
 
 struct Confmem
@@ -227,6 +256,7 @@ struct Mach
 	uvlong	tscticks;
 	int	pdballoc;
 	int	pdbfree;
+	FPsave	*fpsavalign;
 
 	vlong	mtrrcap;
 	vlong	mtrrdef;
@@ -297,6 +327,7 @@ enum {
 	Clflush = 1<<19,
 	Acpif	= 1<<22,	/* therm control msr */
 	Mmx	= 1<<23,
+	Fxsr	= 1<<24,	/* have SSE FXSAVE/FXRSTOR */
 	Sse	= 1<<25,	/* thus sfence instr. */
 	Sse2	= 1<<26,	/* thus mfence & lfence instr.s */
 	Rdrnd	= 1<<30,	/* RDRAND support bit */

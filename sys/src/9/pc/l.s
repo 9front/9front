@@ -657,13 +657,13 @@ TEXT fpinit(SB), $0				/* enable and init */
 	WAIT
 	RET
 
-TEXT fpsave(SB), $0				/* save state and disable */
+TEXT fpx87save(SB), $0				/* save state and disable */
 	MOVL	p+0(FP), AX
 	FSAVE	0(AX)				/* no WAIT */
 	FPOFF(l2)
 	RET
 
-TEXT fprestore(SB), $0				/* enable and restore state */
+TEXT fpx87restore(SB), $0				/* enable and restore state */
 	FPON
 	MOVL	p+0(FP), AX
 	FRSTOR	0(AX)
@@ -683,6 +683,19 @@ TEXT fpclear(SB), $0				/* clear pending exceptions */
 	FPON
 	FCLEX					/* no WAIT */
 	FPOFF(l3)
+	RET
+
+TEXT fpssesave0(SB), $0				/* save state and disable */
+	MOVL	p+0(FP), AX
+	FXSAVE	0(AX)				/* no WAIT */
+	FPOFF(l4)
+	RET
+
+TEXT fpsserestore0(SB), $0			/* enable and restore state */
+	FPON
+	MOVL	p+0(FP), AX
+	FXRSTOR	0(AX)
+	WAIT
 	RET
 
 /*
