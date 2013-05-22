@@ -175,7 +175,7 @@ smalloc(ulong size)
 		if(v != nil)
 			break;
 		if(!waserror()){
-			tsleep(&up->sleep, return0, 0, 100);
+			resrcwait(0);
 			poperror();
 		}
 	}

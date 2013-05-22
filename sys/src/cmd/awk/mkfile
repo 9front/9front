@@ -41,7 +41,7 @@ clean:V:
 	rm -f *.[$OS] [$OS].out [$OS].maketab y.tab.? y.debug y.output $TARG
 
 nuke:V:
-	rm -f *.[$OS] [$OS].out [$OS].maketab y.tab.? y.debug y.output awkgram.c $TARG
+	rm -f *.[$OS] [$OS].out [$OS].maketab y.tab.? y.debug y.output awkgram.c proctab.c $TARG
 
 proctab.c:	$cpuobjtype.maketab
 	./$cpuobjtype.maketab >proctab.c

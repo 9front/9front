@@ -21,17 +21,23 @@ uartpci(int ctlrno, Pcidev* p, int barno, int n, int freq, char* name,
 	char buf[64];
 	Uart *head, *uart;
 
+	head = malloc(sizeof(Uart)*n);
+	if(head == nil){
+		print("uartpci: no memory for Uarts\n");
+		return nil;
+	}
+
 	io = p->mem[barno].bar & ~0x01;
 	snprint(buf, sizeof(buf), "%s%d", pciphysuart.name, ctlrno);
 	if(ioalloc(io, p->mem[barno].size, 0, buf) < 0){
 		print("uartpci: I/O 0x%uX in use\n", io);
+		free(head);
 		return nil;
 	}
 
-	head = uart = malloc(sizeof(Uart)*n);
+	uart = head;
 	for(i = 0; i < n; i++){
-		ctlr = i8250alloc(io, p->intl, p->tbdf);
-		io += iosize;
+		ctlr = i8250alloc(io + i*iosize, p->intl, p->tbdf);
 		if(ctlr == nil)
 			continue;
 
@@ -44,16 +50,20 @@ uartpci(int ctlrno, Pcidev* p, int barno, int n, int freq, char* name,
 			(uart-1)->next = uart;
 		uart++;
 	}
-
-	if (head) {
-		if(perlehead != nil)
-			perletail->next = head;
-		else
-			perlehead = head;
-		for(perletail = head; perletail->next != nil;
-		    perletail = perletail->next)
-			;
+	if(head == uart){
+		iofree(io);
+		free(head);
+		return nil;
 	}
+
+	if(perlehead != nil)
+		perletail->next = head;
+	else
+		perlehead = head;
+	for(perletail = head; perletail->next != nil;
+	    perletail = perletail->next)
+		;
+
 	return head;
 }
 

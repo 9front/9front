@@ -51,6 +51,7 @@ connectcmd(char *cmd)
 		rfork(RFNOTEG);
 		dup(p[0], 0);
 		dup(p[0], 1);
+		close(p[0]);
 		close(p[1]);
 		execl("/bin/rc", "rc", "-c", cmd, nil);
 		fprint(2, "exec failed: %r\n");

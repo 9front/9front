@@ -31,8 +31,7 @@ lockinit(void)
 	arch = C_fcr0();
 	switch(arch) {
 	case POWER:
-		n = _SEGATTACH(0,  "lock", (void*)Lockaddr, Pagesize);
-		if(n < 0) {
+		if(_SEGATTACH(0,  "lock", (void*)Lockaddr, Pagesize) == (void*)-1) {
 			arch = MAGNUM;
 			break;
 		}

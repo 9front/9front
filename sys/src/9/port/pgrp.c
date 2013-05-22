@@ -306,6 +306,10 @@ resrcwait(char *reason)
 
 	p = up->psstate;
 	if(reason) {
+		if(waserror()){
+			up->psstate = p;
+			nexterror();
+		}
 		up->psstate = reason;
 		now = seconds();
 		/* don't tie up the console with complaints */
@@ -314,7 +318,9 @@ resrcwait(char *reason)
 			print("%s\n", reason);
 		}
 	}
-
-	tsleep(&up->sleep, return0, 0, 300);
-	up->psstate = p;
+	tsleep(&up->sleep, return0, 0, 100+nrand(200));
+	if(reason) {
+		up->psstate = p;
+		poperror();
+	}
 }

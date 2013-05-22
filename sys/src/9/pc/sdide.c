@@ -2079,6 +2079,10 @@ atapnp(void)
 		case (0x7111<<16)|0x8086:	/* 82371[AE]B (PIIX4[E]) */
 			maxdma = 0x20000;
 			break;
+		case (0x1c00<<16)|0x8086:	/* SERIES6 SATA */
+		case (0x1c01<<16)|0x8086:	/* SERIES6 SATA */
+		case (0x1c08<<16)|0x8086:	/* SERIES6 SATA */
+		case (0x1c09<<16)|0x8086:	/* SERIES6 SATA */
 		case (0x2411<<16)|0x8086:	/* 82801AA (ICH) */
 		case (0x2421<<16)|0x8086:	/* 82801AB (ICH0) */
 		case (0x244A<<16)|0x8086:	/* 82801BA (ICH2, Mobile) */

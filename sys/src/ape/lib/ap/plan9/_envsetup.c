@@ -32,7 +32,6 @@ void
 _envsetup(void)
 {
 	int dfd;
-	struct dirent *de;
 	int n, nd, m, i, j, f;
 	int psize, cnt;
 	int nohandle;
@@ -107,7 +106,7 @@ done:
 static void
 sigsetup(char *s, char *se)
 {
-	int i, sig;
+	int sig;
 	char *e;
 
 	while(s < se){

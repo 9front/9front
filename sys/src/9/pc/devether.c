@@ -380,6 +380,10 @@ etherprobe(int cardno, int ctlrno)
 	char buf[128], name[32];
 
 	ether = malloc(sizeof(Ether));
+	if(ether == nil){
+		print("etherprobe: no memory for Ether\n");
+		return nil;
+	}
 	memset(ether, 0, sizeof(Ether));
 	ether->ctlrno = ctlrno;
 	ether->tbdf = BUSUNKNOWN;
@@ -460,8 +464,7 @@ etherprobe(int cardno, int ctlrno)
 		ether->limit = bsz;
 	}
 	if(ether->oq == nil)
-		panic("etherreset %s: can't allocate output queue of %ld bytes",
-			name, bsz);
+		panic("etherreset %s: can't allocate output queue of %ld bytes", name, bsz);
 	ether->alen = Eaddrlen;
 	memmove(ether->addr, ether->ea, Eaddrlen);
 	memset(ether->bcast, 0xFF, Eaddrlen);

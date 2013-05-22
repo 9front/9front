@@ -18,16 +18,22 @@ uartisa(int ctlrno, ISAConf* isa)
 	Uart *uart;
 	char buf[64];
 
+	uart = malloc(sizeof(Uart));
+	if(uart == nil){
+		print("uartisa: no memory for Uart\n");
+		return nil;
+	}
+
 	io = isa->port;
 	snprint(buf, sizeof(buf), "%s%d", isaphysuart.name, ctlrno);
 	if(ioalloc(io, 8, 0, buf) < 0){
 		print("uartisa: I/O 0x%uX in use\n", io);
+		free(uart);
 		return nil;
 	}
 
-	uart = malloc(sizeof(Uart));
 	ctlr = i8250alloc(io, isa->irq, BUSUNKNOWN);
-	if(uart == nil || ctlr == nil){
+	if(ctlr == nil){
 		iofree(io);
 		free(uart);
 		return nil;

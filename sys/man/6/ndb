@@ -199,7 +199,7 @@ Internet network name
 Internet network mask
 .TP
 .B ipgw
-Internet gateway
+Internet gateway (ip address)
 .TP
 .B auth
 authentication server to be used

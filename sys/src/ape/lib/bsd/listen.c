@@ -31,14 +31,11 @@ extern void	_killmuxsid(void);
 static int
 listenproc(Rock *r, int fd)
 {
-	Rock *nr;
-	char *net;
-	int cfd, nfd, dfd;
-	int pfd[2];
+	char listen[Ctlsize], name[Ctlsize], *net, *p;
+	int cfd, nfd, dfd, pfd[2];
 	struct stat d;
-	char *p;
-	char listen[Ctlsize];
-	char name[Ctlsize];
+	Rock *nr;
+	void *v;
 
 	switch(r->stype){
 	case SOCK_DGRAM:
@@ -81,11 +78,14 @@ listenproc(Rock *r, int fd)
 			_muxsid = getpgrp();
 		} else
 			setpgid(getpid(), _muxsid);
-		_RENDEZVOUS(2, _muxsid);
+		while(_RENDEZVOUS(r, (void*)_muxsid) == (void*)~0)
+			;
 		break;
 	default:
+		while((v = _RENDEZVOUS(r, 0)) == (void*)~0)
+			;
+		_muxsid = (int)v;
 		atexit(_killmuxsid);
-		_muxsid = _RENDEZVOUS(2, 0);
 		close(pfd[1]);
 		close(nfd);
 		return 0;

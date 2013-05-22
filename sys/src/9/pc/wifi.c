@@ -464,8 +464,14 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 	Wifi *wifi;
 
 	wifi = malloc(sizeof(Wifi));
-	wifi->ether = ether;
+	if(wifi == nil)
+		error(Enomem);
 	wifi->iq = qopen(8*1024, 0, 0, 0);
+	if(wifi->iq == nil){
+		free(wifi);
+		error(Enomem);
+	}
+	wifi->ether = ether;
 	wifi->transmit = transmit;
 	wifi->status = Snone;
 

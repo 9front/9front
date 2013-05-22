@@ -13,7 +13,6 @@ rename(const char *from, const char *to)
 	int n, i;
 	char *f, *t;
 	Dir *d, nd;
-	long mode;
 
 	if(access(to, 0) >= 0){
 		if(_REMOVE(to) < 0){

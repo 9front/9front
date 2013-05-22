@@ -71,8 +71,8 @@ void		memendgif(Biobuf*);
 Image*		onechan(Image*);
 Memimage*	memonechan(Memimage*);
 
-char*		writeppm(Biobuf*, Image*, char*);
-char*		memwriteppm(Biobuf*, Memimage*, char*);
+char*		writeppm(Biobuf*, Image*, char*, int);
+char*		memwriteppm(Biobuf*, Memimage*, char*, int);
 Image*		multichan(Image*);
 Memimage*	memmultichan(Memimage*);
 

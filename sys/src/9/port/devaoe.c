@@ -1362,7 +1362,7 @@ devlinkread(Chan *c, void *db, int len, int off)
 		return 0;
 	l = d->dl + i;
 
-	s = p = malloc(READSTR);
+	s = p = smalloc(READSTR);
 	e = s + READSTR;
 
 	p = seprint(p, e, "addr: ");
@@ -1398,7 +1398,7 @@ topctlread(Chan *, void *db, int len, int off)
 	char *s, *p, *e;
 	Netlink *n;
 
-	s = p = malloc(READSTR);
+	s = p = smalloc(READSTR);
 	e = s + READSTR;
 
 	p = seprint(p, e, "debug: %d\n", debug);
@@ -1463,7 +1463,7 @@ configwrite(Aoedev *d, void *db, long len)
 	if(len > sizeof d->config)
 		error(Etoobig);
 	srb = srballoc(len);
-	s = malloc(len);
+	s = smalloc(len);
 	memmove(s, db, len);
 	if(waserror()){
 		srbfree(srb);
@@ -1679,7 +1679,7 @@ unitwrite(Chan *c, void *db, long n, vlong off)
 	case Qconfig:
 		if(off + n > sizeof d->config)
 			error(Etoobig);
-		buf = malloc(sizeof d->config);
+		buf = smalloc(sizeof d->config);
 		if(waserror()){
 			free(buf);
 			nexterror();
