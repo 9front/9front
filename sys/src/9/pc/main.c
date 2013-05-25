@@ -480,36 +480,10 @@ static char* mathmsg[] =
 };
 
 static void
-mathstate(ulong *stsp, ulong *pcp, ulong *ctlp)
+mathnote(ulong status, ulong pc)
 {
-	ulong sts, fpc, ctl;
-	FPsave *f = &up->fpsave;
-
-	if(fpsave == fpx87save){
-		sts = f->status;
-		fpc = f->pc;
-		ctl = f->control;
-	} else {
-		sts = f->fsw;
-		fpc = f->fpuip;
-		ctl = f->fcw;
-	}
-	if(stsp)
-		*stsp = sts;
-	if(pcp)
-		*pcp = fpc;
-	if(ctlp)
-		*ctlp = ctl;
-}
-
-static void
-mathnote(void)
-{
-	int i;
-	ulong status, pc;
 	char *msg, note[ERRMAX];
-
-	mathstate(&status, &pc, nil);
+	int i;
 
 	/*
 	 * Some attention should probably be paid here to the
@@ -532,7 +506,7 @@ mathnote(void)
 			msg = "invalid operation";
 	}
 	snprint(note, sizeof note, "sys: fp: %s fppc=0x%lux status=0x%lux",
-		msg, up->fpsave.pc, status);
+		msg, pc, status);
 	postnote(up, 1, note, NDebug);
 }
 
@@ -540,7 +514,6 @@ mathnote(void)
  * sse fp save and restore buffers have to be 16-byte (FPalign) aligned,
  * so we shuffle the data up and down as needed or make copies.
  */
-
 void
 fpssesave(FPsave *fps)
 {
@@ -548,7 +521,7 @@ fpssesave(FPsave *fps)
 
 	afps = (FPsave *)ROUND(((uintptr)fps), FPalign);
 	fpssesave0(afps);
-	if (fps != afps)  /* not aligned? shuffle down from aligned buffer */
+	if(fps != afps)  /* not aligned? shuffle down from aligned buffer */
 		memmove(fps, afps, sizeof(FPssestate) - FPalign);
 }
 
@@ -558,28 +531,46 @@ fpsserestore(FPsave *fps)
 	FPsave *afps;
 
 	afps = (FPsave *)ROUND(((uintptr)fps), FPalign);
-	if (fps != afps) {
-		if (m->fpsavalign == nil)
-			m->fpsavalign = mallocalign(sizeof(FPssestate),
-				FPalign, 0, 0);
-		if (m->fpsavalign)
-			afps = m->fpsavalign;
-		/* copy or shuffle up to make aligned */
+	if(fps != afps)  /* shuffle up to make aligned */
 		memmove(afps, fps, sizeof(FPssestate) - FPalign);
-	}
 	fpsserestore0(afps);
-	/* if we couldn't make a copy, shuffle regs back down */
-	if (fps != afps && afps != m->fpsavalign)
+	if(fps != afps)  /* shuffle regs back down when unaligned */
 		memmove(fps, afps, sizeof(FPssestate) - FPalign);
+}
+
+/*
+ * extract control, status and fppc from process
+ * floating point state independent of format.
+ */
+static void
+mathstate(ulong *stsp, ulong *pcp, ulong *ctlp)
+{
+	ulong sts, fpc, ctl;
+	FPsave *f = &up->fpsave;
+
+	if(fpsave == fpx87save){
+		sts = f->status;
+		fpc = f->pc;
+		ctl = f->control;
+	} else {
+		sts = f->fsw;
+		fpc = f->fpuip;
+		ctl = f->fcw;
+	}
+	if(stsp)
+		*stsp = sts;
+	if(pcp)
+		*pcp = fpc;
+	if(ctlp)
+		*ctlp = ctl;
 }
 
 /*
  *  math coprocessor error
  */
 static void
-matherror(Ureg *ur, void*)
+matherror(Ureg*, void*)
 {
-	ulong status, pc;
 	/*
 	 *  a write cycle to port 0xF0 clears the interrupt latch attached
 	 *  to the error# line from the 387
@@ -588,16 +579,10 @@ matherror(Ureg *ur, void*)
 		outb(0xF0, 0xFF);
 
 	/*
-	 *  save floating point state to check out error
+	 *  get floating point state to check out error
 	 */
 	fpenv(&up->fpsave);
-	mathnote();
-
-	if((ur->pc & 0xf0000000) == KZERO){
-		mathstate(&status, &pc, nil);
-		panic("fp: status %ux fppc=0x%lux pc=0x%lux",
-			up->fpsave.status, up->fpsave.pc, ur->pc);
-	}
+	mathnote(up->fpsave.status, up->fpsave.pc);
 }
 
 /*
@@ -606,7 +591,7 @@ matherror(Ureg *ur, void*)
 static void
 mathemu(Ureg *ureg, void*)
 {
-	ulong status, control;
+	ulong status, control, pc;
 
 	if(up->fpstate & FPillegal){
 		/* someone did floating point in a note handler */
@@ -626,9 +611,9 @@ mathemu(Ureg *ureg, void*)
 		 * More attention should probably be paid here to the
 		 * exception masks and error summary.
 		 */
-		mathstate(&status, nil, &control);
+		mathstate(&status, &pc, &control);
 		if((status & ~control) & 0x07F){
-			mathnote();
+			mathnote(status, pc);
 			break;
 		}
 		fprestore(&up->fpsave);
