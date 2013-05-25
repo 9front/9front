@@ -20,7 +20,7 @@ int	initdraw(void (*errfun)(Display*, char*), char *font,
 int	geninitdraw(char *devdir, void(*errfun)(Display*, char*),
 .PP
 .B
-	   char *font, char *label, char *mousedir, char *windir,
+	   char *font, char *label, char *windir,
 .B
 	   int ref)
 .PP
