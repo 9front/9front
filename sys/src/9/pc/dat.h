@@ -76,10 +76,10 @@ struct	FPstate
 	ushort	r3;
 	ulong	pc;
 	ushort	selector;
-	ushort	r4;
+	ushort	opcode;
 	ulong	operand;
 	ushort	oselector;
-	ushort	r5;
+	ushort	r4;
 	uchar	regs[80];	/* floating point registers */
 };
 
@@ -91,10 +91,10 @@ struct	FPssestate		/* SSE fp state */
 	ushort	fop;		/* opcode */
 	ulong	fpuip;		/* pc */
 	ushort	cs;		/* pc segment */
-	ushort	r1;		/* reserved */
+	ushort	rsrvd1;		/* reserved */
 	ulong	fpudp;		/* data pointer */
 	ushort	ds;		/* data pointer segment */
-	ushort	r2;
+	ushort	rsrvd2;
 	ulong	mxcsr;		/* MXCSR register state */
 	ulong	mxcsr_mask;	/* MXCSR mask register */
 	uchar	xregs[480];	/* extended registers */

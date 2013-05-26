@@ -84,7 +84,6 @@ sysrfork(ulong *arg)
 
 	p = newproc();
 
-	p->fpsave = up->fpsave;
 	p->scallnr = up->scallnr;
 	p->s = up->s;
 	p->nerrlab = 0;
@@ -180,7 +179,6 @@ sysrfork(ulong *arg)
 	if((flag&RFNOTEG) == 0)
 		p->noteid = up->noteid;
 
-	p->fpstate = up->fpstate;
 	pid = p->pid;
 	memset(p->time, 0, sizeof(p->time));
 	p->time[TReal] = MACHP(0)->ticks;

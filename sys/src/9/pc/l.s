@@ -657,13 +657,13 @@ TEXT fpinit(SB), $0				/* enable and init */
 	WAIT
 	RET
 
-TEXT fpx87save(SB), $0				/* save state and disable */
+TEXT fpx87save0(SB), $0				/* save state and disable */
 	MOVL	p+0(FP), AX
 	FSAVE	0(AX)				/* no WAIT */
 	FPOFF(l2)
 	RET
 
-TEXT fpx87restore(SB), $0				/* enable and restore state */
+TEXT fpx87restore0(SB), $0				/* enable and restore state */
 	FPON
 	MOVL	p+0(FP), AX
 	FRSTOR	0(AX)

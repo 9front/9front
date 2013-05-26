@@ -14,9 +14,11 @@
 #define	AX		REGOFF(ax)
 
 #define	REGSIZE		sizeof(struct Ureg)
+#define FP_CTLS(x)	(REGSIZE+2*(x))
 #define FP_CTL(x)	(REGSIZE+4*(x))
-#define FP_REG(x)	(FP_CTL(7)+10*(x))
-#define	FPREGSIZE	(7*4+8*10)
+#define FP_REG(x)	(FP_CTL(8)+16*(x))
+#define XM_REG(x)	(FP_CTL(8)+8*16+16*(x))
+#define	FPREGSIZE	512
 
 Reglist i386reglist[] = {
 	{"DI",		REGOFF(di),	RINT, 'X'},
@@ -38,21 +40,44 @@ Reglist i386reglist[] = {
 	{"SP",		SP,		RINT, 'X'},
 	{"SS",		REGOFF(ss),	RINT, 'X'},
 
-	{"E0",		FP_CTL(0),	RFLT, 'X'},
-	{"E1",		FP_CTL(1),	RFLT, 'X'},
-	{"E2",		FP_CTL(2),	RFLT, 'X'},
-	{"E3",		FP_CTL(3),	RFLT, 'X'},
-	{"E4",		FP_CTL(4),	RFLT, 'X'},
-	{"E5",		FP_CTL(5),	RFLT, 'X'},
-	{"E6",		FP_CTL(6),	RFLT, 'X'},
-	{"F0",		FP_REG(0),	RFLT, '3'},
-	{"F1",		FP_REG(1),	RFLT, '3'},
-	{"F2",		FP_REG(2),	RFLT, '3'},
-	{"F3",		FP_REG(3),	RFLT, '3'},
-	{"F4",		FP_REG(4),	RFLT, '3'},
-	{"F5",		FP_REG(5),	RFLT, '3'},
-	{"F6",		FP_REG(6),	RFLT, '3'},
-	{"F7",		FP_REG(7),	RFLT, '3'},
+	{"FCW",		FP_CTLS(0),	RFLT, 'x'},
+	{"FSW",		FP_CTLS(1),	RFLT, 'x'},
+	{"FTW",		FP_CTLS(2),	RFLT, 'b'},
+	{"FOP",		FP_CTLS(3),	RFLT, 'x'},
+	{"FIP",		FP_CTL(2),	RFLT, 'X'},
+	{"FCS",		FP_CTLS(6),	RFLT, 'x'},
+	{"FDP",		FP_CTL(4),	RFLT, 'X'},
+	{"FDS",		FP_CTLS(10),	RFLT, 'x'},
+	{"MXCSR",	FP_CTL(6),	RFLT, 'X'},
+	{"MXCSRMASK",	FP_CTL(7),	RFLT, 'X'},
+
+	{"M0",		FP_REG(0),	RFLT, 'F'},	/* assumes double */
+	{"M1",		FP_REG(1),	RFLT, 'F'},
+	{"M2",		FP_REG(2),	RFLT, 'F'},
+	{"M3",		FP_REG(3),	RFLT, 'F'},
+	{"M4",		FP_REG(4),	RFLT, 'F'},
+	{"M5",		FP_REG(5),	RFLT, 'F'},
+	{"M6",		FP_REG(6),	RFLT, 'F'},
+	{"M7",		FP_REG(7),	RFLT, 'F'},
+
+	{"X0",		XM_REG(0),	RFLT, 'F'},	/* assumes double */
+	{"X1",		XM_REG(1),	RFLT, 'F'},
+	{"X2",		XM_REG(2),	RFLT, 'F'},
+	{"X3",		XM_REG(3),	RFLT, 'F'},
+	{"X4",		XM_REG(4),	RFLT, 'F'},
+	{"X5",		XM_REG(5),	RFLT, 'F'},
+	{"X6",		XM_REG(6),	RFLT, 'F'},
+	{"X7",		XM_REG(7),	RFLT, 'F'},
+
+	{"F0",		FP_REG(7),	RFLT, '3'},
+	{"F1",		FP_REG(6),	RFLT, '3'},
+	{"F2",		FP_REG(5),	RFLT, '3'},
+	{"F3",		FP_REG(4),	RFLT, '3'},
+	{"F4",		FP_REG(3),	RFLT, '3'},
+	{"F5",		FP_REG(2),	RFLT, '3'},
+	{"F6",		FP_REG(1),	RFLT, '3'},
+	{"F7",		FP_REG(0),	RFLT, '3'},
+
 	{  0 }
 };
 

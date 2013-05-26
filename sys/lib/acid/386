@@ -69,22 +69,14 @@ defn fpr()
 	print("F5\t",  *F5, "\n");
 	print("F6\t",  *F6, "\n");
 	print("F7\t",  *F7, "\n");
-	print("control\t", *fmt(E0, 'x'), "\n");
-	print("status\t", *fmt(E1, 'x'), "\n");
-	print("tag\t", *fmt(E2, 'x'), "\n");
-	print("ip offset\t", *fmt(E3, 'X'), "\n");
-	print("cs selector\t", *fmt(E4, 'x'), "\n");
-	print("opcode\t", *fmt(E4>>8, 'x'), "\n");
-	print("data operand offset\t", *fmt(E5, 'x'), "\n");
-	print("operand selector\t", *fmt(E6, 'x'), "\n");
-}
-
-defn mmregs()
-{
-	print("MM0\t", *MM0, " MM1\t", *MM1, "\n");
-	print("MM2\t", *MM2, " MM3\t", *MM3, "\n");
-	print("MM4\t", *MM4, " MM5\t", *MM5, "\n");
-	print("MM6\t", *MM6, " MM7\t", *MM7, "\n");
+	print("control\t", *FCW, "\n");
+	print("status\t", *FSW, "\n");
+	print("tag\t", *FTW, "\n");
+	print("ip\t", *FIP, "\n");
+	print("cs selector\t", *FCS, "\n");
+	print("opcode\t", *FOP, "\n");
+	print("data operand\t", *FDP, "\n");
+	print("operand selector\t", *FDS, "\n");
 }
 
 defn pstop(pid)

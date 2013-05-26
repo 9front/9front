@@ -469,6 +469,121 @@ confinit(void)
 	}
 }
 
+/*
+ * we keep FPsave structure in sse format emulating FXSAVE / FXRSTOR
+ * instructions for legacy x87 fpu.
+ *
+ * Note that fpx87restore() and fpxsserestore() do modify the FPsave
+ * data structure for conversion / realignment shuffeling. this means
+ * that p->fpsave is only valid when p->fpstate == FPinactive.
+ */
+void
+fpx87save(FPsave *fps)
+{
+	fpx87save0(fps);
+
+	/* NOP fps->fcw = fps->control; */
+	fps->fsw = fps->status;
+	fps->ftw = fps->tag;
+	fps->fop = fps->opcode;
+	fps->fpuip = fps->pc;
+	fps->cs = fps->selector;
+	fps->fpudp = fps->operand;
+	fps->ds = fps->oselector;
+
+#define MOVA(d,s) \
+	*((ushort*)(d+8)) = *((ushort*)(s+8)), \
+	*((ulong*)(d+4)) = *((ulong*)(s+4)), \
+	*((ulong*)(d)) = *((ulong*)(s))
+
+	MOVA(fps->xregs+0x70, fps->regs+70);
+	MOVA(fps->xregs+0x60, fps->regs+60);
+	MOVA(fps->xregs+0x50, fps->regs+50);
+	MOVA(fps->xregs+0x40, fps->regs+40);
+	MOVA(fps->xregs+0x30, fps->regs+30);
+	MOVA(fps->xregs+0x20, fps->regs+20);
+	MOVA(fps->xregs+0x10, fps->regs+10);
+	MOVA(fps->xregs+0x00, fps->regs+00);
+
+#undef MOVA
+
+#define CLR6(d)	\
+	*((ulong*)(d)) = 0, \
+	*((ushort*)(d+4)) = 0
+
+	CLR6(fps->xregs+0x70+10);
+	CLR6(fps->xregs+0x60+10);
+	CLR6(fps->xregs+0x50+10);
+	CLR6(fps->xregs+0x40+10);
+	CLR6(fps->xregs+0x30+10);
+	CLR6(fps->xregs+0x20+10);
+	CLR6(fps->xregs+0x10+10);
+	CLR6(fps->xregs+0x00+10);
+
+#undef CLR6
+
+	fps->rsrvd1 = fps->rsrvd2 = fps->mxcsr = fps->mxcsr_mask = 0;
+}
+
+void
+fpx87restore(FPsave *fps)
+{
+#define MOVA(d,s) \
+	*((ulong*)(d)) = *((ulong*)(s)), \
+	*((ulong*)(d+4)) = *((ulong*)(s+4)), \
+	*((ushort*)(d+8)) = *((ushort*)(s+8))
+
+	MOVA(fps->regs+00, fps->xregs+0x00);
+	MOVA(fps->regs+10, fps->xregs+0x10);
+	MOVA(fps->regs+20, fps->xregs+0x20);
+	MOVA(fps->regs+30, fps->xregs+0x30);
+	MOVA(fps->regs+40, fps->xregs+0x40);
+	MOVA(fps->regs+50, fps->xregs+0x50);
+	MOVA(fps->regs+60, fps->xregs+0x60);
+	MOVA(fps->regs+70, fps->xregs+0x70);
+
+#undef MOVA
+
+	fps->oselector = fps->ds;
+	fps->operand = fps->fpudp;
+	fps->opcode = (fps->fop & 0x7ff);
+	fps->selector = fps->cs;
+	fps->pc = fps->fpuip;
+	fps->tag = fps->ftw;
+	fps->status = fps->fsw;
+	/* NOP fps->control = fps->fcw;  */
+
+	fps->r1 = fps->r2 = fps->r3 = fps->r4 = 0;
+
+	fpx87restore0(fps);
+}
+
+/*
+ * sse fp save and restore buffers have to be 16-byte (FPalign) aligned,
+ * so we shuffle the data up and down as needed or make copies.
+ */
+void
+fpssesave(FPsave *fps)
+{
+	FPsave *afps;
+
+	afps = (FPsave *)ROUND(((uintptr)fps), FPalign);
+	fpssesave0(afps);
+	if(fps != afps)  /* not aligned? shuffle down from aligned buffer */
+		memmove(fps, afps, sizeof(FPssestate) - FPalign);
+}
+
+void
+fpsserestore(FPsave *fps)
+{
+	FPsave *afps;
+
+	afps = (FPsave *)ROUND(((uintptr)fps), FPalign);
+	if(fps != afps)  /* shuffle up to make aligned */
+		memmove(afps, fps, sizeof(FPssestate) - FPalign);
+	fpsserestore0(afps);
+}
+
 static char* mathmsg[] =
 {
 	nil,	/* handled below */
@@ -511,61 +626,6 @@ mathnote(ulong status, ulong pc)
 }
 
 /*
- * sse fp save and restore buffers have to be 16-byte (FPalign) aligned,
- * so we shuffle the data up and down as needed or make copies.
- */
-void
-fpssesave(FPsave *fps)
-{
-	FPsave *afps;
-
-	afps = (FPsave *)ROUND(((uintptr)fps), FPalign);
-	fpssesave0(afps);
-	if(fps != afps)  /* not aligned? shuffle down from aligned buffer */
-		memmove(fps, afps, sizeof(FPssestate) - FPalign);
-}
-
-void
-fpsserestore(FPsave *fps)
-{
-	FPsave *afps;
-
-	afps = (FPsave *)ROUND(((uintptr)fps), FPalign);
-	if(fps != afps)  /* shuffle up to make aligned */
-		memmove(afps, fps, sizeof(FPssestate) - FPalign);
-	fpsserestore0(afps);
-	if(fps != afps)  /* shuffle regs back down when unaligned */
-		memmove(fps, afps, sizeof(FPssestate) - FPalign);
-}
-
-/*
- * extract control, status and fppc from process
- * floating point state independent of format.
- */
-static void
-mathstate(ulong *stsp, ulong *pcp, ulong *ctlp)
-{
-	ulong sts, fpc, ctl;
-	FPsave *f = &up->fpsave;
-
-	if(fpsave == fpx87save){
-		sts = f->status;
-		fpc = f->pc;
-		ctl = f->control;
-	} else {
-		sts = f->fsw;
-		fpc = f->fpuip;
-		ctl = f->fcw;
-	}
-	if(stsp)
-		*stsp = sts;
-	if(pcp)
-		*pcp = fpc;
-	if(ctlp)
-		*ctlp = ctl;
-}
-
-/*
  *  math coprocessor error
  */
 static void
@@ -591,7 +651,7 @@ matherror(Ureg*, void*)
 static void
 mathemu(Ureg *ureg, void*)
 {
-	ulong status, control, pc;
+	ulong status, control;
 
 	if(up->fpstate & FPillegal){
 		/* someone did floating point in a note handler */
@@ -611,9 +671,10 @@ mathemu(Ureg *ureg, void*)
 		 * More attention should probably be paid here to the
 		 * exception masks and error summary.
 		 */
-		mathstate(&status, &pc, &control);
+		status = up->fpsave.fsw;
+		control = up->fpsave.fcw;
 		if((status & ~control) & 0x07F){
-			mathnote(status, pc);
+			mathnote(status, up->fpsave.fpuip);
 			break;
 		}
 		fprestore(&up->fpsave);
