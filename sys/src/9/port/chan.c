@@ -536,7 +536,10 @@ closechanq(Chan *c)
 	if(up != 0 && palloc.Lock.p != up && canqlock(&clunkq.q)){
 		c = up->dot;
 		up->dot = nil;
-		kproc("closeproc", closeproc, nil);
+		if(!waserror()){
+			kproc("closeproc", closeproc, nil);
+			poperror();
+		}
 		up->dot = c;
 	}else
 		wakeup(&clunkq.r);
