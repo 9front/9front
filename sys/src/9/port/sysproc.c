@@ -226,7 +226,7 @@ sysexec(ulong *arg)
 	char *a, *charp, *args, *file, *file0;
 	char *progarg[sizeof(Exec)/2+1], *elem, progelem[64];
 	ulong ssize, tstk, nargs, nbytes, n, bssend;
-	int indir, commit;
+	int indir;
 	Exec exec;
 	char line[sizeof(Exec)];
 	Fgrp *f;
@@ -234,16 +234,16 @@ sysexec(ulong *arg)
 	ulong magic, text, entry, data, bss;
 	Tos *tos;
 
-	commit = 0;
 	indir = 0;
 	elem = nil;
 	validaddr(arg[0], 1, 0);
 	file0 = validnamedup((char*)arg[0], 1);
 	if(waserror()){
 		free(file0);
-		free(elem);
+		if(elem != up->text)
+			free(elem);
 		/* Disaster after commit */
-		if(commit)
+		if(!up->seg[SSEG])
 			pexit(up->errstr, 1);
 		nexterror();
 	}
@@ -386,14 +386,9 @@ sysexec(ulong *arg)
 		memmove(charp, *argp++, n);
 		charp += n;
 	}
-	free(file0);
-	file0 = nil;	/* so waserror() won't free file0 */
-	USED(file0);
 
 	free(up->text);
 	up->text = elem;
-	elem = nil;	/* so waserror() won't free elem */
-	USED(elem);
 
 	/* copy args; easiest from new process's stack */
 	n = charp - args;
@@ -415,9 +410,6 @@ sysexec(ulong *arg)
 	}
 	up->nargs = n;
 
-	commit = 1;
-	USED(commit);
-
 	/*
 	 * Committed.
 	 * Free old memory.
@@ -428,9 +420,9 @@ sysexec(ulong *arg)
 		/* prevent a second free if we have an error */
 		up->seg[i] = 0;
 	}
-	for(i = BSEG+1; i < NSEG; i++) {
+	for(i = ESEG+1; i < NSEG; i++) {
 		s = up->seg[i];
-		if(s != 0 && (s->type&SG_CEXEC)) {
+		if(s != 0 && (s->type&SG_CEXEC) != 0) {
 			putseg(s);
 			up->seg[i] = 0;
 		}
@@ -439,9 +431,10 @@ sysexec(ulong *arg)
 	/*
 	 * Close on exec
 	 */
-	f = up->fgrp;
-	for(i=0; i<=f->maxfd; i++)
-		fdclose(i, CCEXEC);
+	if((f = up->fgrp) != nil){
+		for(i=0; i<=f->maxfd; i++)
+			fdclose(i, CCEXEC);
+	}
 
 	/* Text.  Shared. Attaches to cache image if possible */
 	/* attachimage returns a locked cache image */
@@ -484,9 +477,10 @@ sysexec(ulong *arg)
 	if(devtab[tc->type]->dc == L'/')
 		up->basepri = PriRoot;
 	up->priority = up->basepri;
-	cclose(tc);
 	poperror();	/* tc */
-	poperror();	/* elem */
+	cclose(tc);
+	poperror();	/* file0 */
+	free(file0);
 
 	qlock(&up->debug);
 	up->nnote = 0;
@@ -830,9 +824,9 @@ sysrendezvous(ulong *arg)
 			val = p->rendval;
 			p->rendval = arg[1];
 			unlock(up->rgrp);
-			while(p->mach != 0)
-				;
+
 			ready(p);
+
 			return val;
 		}
 		l = &p->rendhash;
@@ -1140,7 +1134,8 @@ syssemrelease(ulong *arg)
 
 	if((s = seg(up, (ulong)addr, 0)) == nil)
 		error(Ebadarg);
+	/* delta == 0 is a no-op, not a release */
 	if(delta < 0 || *addr < 0)
 		error(Ebadarg);
-	return semrelease(s, addr, arg[1]);
+	return semrelease(s, addr, delta);
 }
