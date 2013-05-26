@@ -506,7 +506,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 	h = nil;
 	pid = 0;
 	needlength = 0;
-	for(try = 0; try < 6; try++){
+	for(try = 0; try < 12; try++){
 		strcpy(status, "0 No status");
 		if(u == nil || (strcmp(u->scheme, "http") && strcmp(u->scheme, "https"))){
 			werrstr("bad url scheme");

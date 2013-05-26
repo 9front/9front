@@ -953,9 +953,20 @@ parsecookie(Cookie *c, char *p, char **e, int isns, char *dom, char *path)
 	}
 	*e = p;
 
-	if(c->dom)
+	if(c->dom){
+		/* add leading dot for explicit domain */
+		if(c->dom[0] != '.' && strcmp(ipattr(c->dom), "dom") == 0){
+			static char *ddom = nil;
+
+			ddom = realloc(ddom, strlen(c->dom)+2);
+			if(ddom != nil){
+				ddom[0] = '.';
+				strcpy(ddom+1, c->dom);
+				c->dom = ddom;
+			}
+		}
 		c->explicitdom = 1;
-	else
+	}else
 		c->dom = dom;
 	if(c->path)
 		c->explicitpath = 1;
