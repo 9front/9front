@@ -748,29 +748,33 @@ rdconf(void)
 	} else
 		mustrd = 1;
 
-	/* read it */
-	cc = nil;
-	c = nil;
-	if (waserror()){
-		if (cc != nil)
-			cclose(cc);
-		if (c)
-			free(c);
-		if (!mustrd)
+	if(waserror()){
+		if(!mustrd)
 			return;
 		nexterror();
 	}
+
+	/* read it */
 	cc = namec(s, Aopen, OREAD, 0);
+	if(waserror()){
+		cclose(cc);
+		nexterror();
+	}
 	devtab[cc->type]->read(cc, confstr, sizeof confstr, 0);
+	poperror();
 	cclose(cc);
-	cc = nil;
 
 	/* validate, copy and erase config; mconfig will repopulate confstr */
 	if (strncmp(confstr, cfgstr, sizeof cfgstr - 1) != 0)
 		error("bad #k config, first line must be: 'fsdev:\\n'");
-	kstrdup(&c, confstr + sizeof cfgstr - 1);
-	memset(confstr, 0, sizeof confstr);
 
+	c = nil;
+	kstrdup(&c, confstr + sizeof cfgstr - 1);
+	if(waserror()){
+		free(c);
+		nexterror();
+	}
+	memset(confstr, 0, sizeof confstr);
 	/* process config copy one line at a time */
 	for (p = c; p != nil && *p != '\0'; p = e){
 		e = strchr(p, '\n');
@@ -780,8 +784,10 @@ rdconf(void)
 			e++;
 		mconfig(p, e - p);
 	}
-	USED(cc);		/* until now, can be used in waserror clause */
 	poperror();
+	free(c);
+
+	poperror();	/* mustrd */
 }
 
 static int

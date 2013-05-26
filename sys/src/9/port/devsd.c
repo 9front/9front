@@ -1558,10 +1558,10 @@ sdwstat(Chan* c, uchar* dp, int n)
 
 	d = nil;
 	if(waserror()){
-		free(d);
 		qunlock(&unit->ctl);
 		if(sdev != nil)
 			decref(&sdev->r);
+		free(d);
 		nexterror();
 	}
 
@@ -1600,13 +1600,11 @@ sdwstat(Chan* c, uchar* dp, int n)
 		error(Eperm);
 	if(d[0].mode != ~0UL)
 		perm->perm = (perm->perm & ~0777) | (d[0].mode & 0777);
-
-	free(d);
-	d = nil; USED(d);
+	poperror();
 	qunlock(&unit->ctl);
 	if(sdev != nil)
 		decref(&sdev->r);
-	poperror();
+	free(d);
 	return n;
 }
 
