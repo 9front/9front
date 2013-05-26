@@ -264,7 +264,10 @@ attachimage(int type, Chan *c, ulong base, ulong len)
 	while(!(i = imagealloc.free)) {
 		unlock(&imagealloc);
 		imagereclaim();
-		sched();
+		if(!imagealloc.free){
+			freebroken();		/* can use the memory */
+			resrcwait("no image after reclaim");
+		}
 		lock(&imagealloc);
 	}
 
@@ -328,7 +331,7 @@ imagereclaim(void)
 	 * end of the list (see putpage) so start there and work
 	 * backward.
 	 */
-	for(p = palloc.tail; p && p->image && n<1000; p = p->prev) {
+	for(p = palloc.tail; p && p->image && (n<1000 || !imagealloc.free); p = p->prev) {
 		if(p->ref == 0 && canlock(p)) {
 			if(p->ref == 0) {
 				n++;
