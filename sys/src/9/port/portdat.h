@@ -421,7 +421,6 @@ struct Segment
 	Pte	**map;
 	int	mapsize;
 	Pte	*ssegmap[SSEGMAPSIZE];
-	Lock	semalock;
 	Sema	sema;
 	ulong	mark;		/* portcountrefs */
 };

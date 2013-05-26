@@ -734,10 +734,6 @@ syscall(Ureg* ureg)
 	scallnr = ureg->ax;
 	up->scallnr = scallnr;
 
-	if(scallnr == RFORK && up->fpstate == FPactive){
-		fpsave(&up->fpsave);
-		up->fpstate = FPinactive;
-	}
 	spllo();
 
 	up->nerrlab = 0;
