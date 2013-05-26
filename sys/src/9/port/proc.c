@@ -1067,7 +1067,7 @@ pexit(char *exitstr, int freemem)
 	Proc *p;
 	Segment **s, **es;
 	long utime, stime;
-	Waitq *wq, *f, *next;
+	Waitq *wq;
 	Fgrp *fgrp;
 	Egrp *egrp;
 	Rgrp *rgrp;
@@ -1178,9 +1178,9 @@ pexit(char *exitstr, int freemem)
 	wakeup(&up->waitr);
 	unlock(&up->exl);
 
-	for(f = up->waitq; f; f = next) {
-		next = f->next;
-		free(f);
+	while((wq = up->waitq) != 0){
+		up->waitq = wq->next;
+		free(wq);
 	}
 
 	/* release debuggers */
@@ -1374,7 +1374,6 @@ kproc(char *name, void (*func)(void *), void *arg)
 	p->kp = 1;
 	p->noswap = 1;
 
-	p->fpsave = up->fpsave;
 	p->scallnr = up->scallnr;
 	p->s = up->s;
 	p->nerrlab = 0;
