@@ -484,6 +484,8 @@ char *genwww(Panel *, int index){
 		return 0;
 	i = wwwtop-index-1;
 	w = www(i);
+	if(!w->url)
+		return 0;
 	if(w->title[0]!='\0'){
 		w->gottitle=1;
 		snprint(buf, sizeof(buf), "%2d %s", i+1, w->title);
@@ -1027,8 +1029,11 @@ void killpix(Www *w){
 }
 void snarf(Panel *p){
 	if(p==0 || p==cmd){
-		plputsnarf(urlstr(selection));
-		plsnarf(text);
+		if(selection){
+			plputsnarf(urlstr(selection));
+			plsnarf(text);
+		}else
+			message("no url selected");
 	}else
 		plsnarf(p);
 }
@@ -1070,6 +1075,10 @@ void hit3(int button, int item){
 		paste(plkbfocus);
 		break;
 	case 4:
+		if(!selection){
+			message("no url selected");
+			break;
+		}
 		snprint(name, sizeof(name), "%s/hit.html", home);
 		fd=open(name, OWRITE);
 		if(fd==-1){

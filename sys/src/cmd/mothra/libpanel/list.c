@@ -22,7 +22,7 @@ void pl_listsel(Panel *p, int sel, int on){
 	Rectangle r;
 	lp=p->data;
 	hi=lp->lo+(lp->listr.max.y-lp->listr.min.y)/font->height;
-	if(lp->lo<=sel && sel<hi && sel<lp->len){
+	if(lp->lo>=0 && lp->lo<=sel && sel<hi && sel<lp->len){
 		r=lp->listr;
 		r.min.y+=(sel-lp->lo)*font->height;
 		r.max.y=r.min.y+font->height;
