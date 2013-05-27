@@ -878,6 +878,8 @@ writejpg0(Biobuf *fd, Image *image, Memimage *memimage,
 	case GREY2:
 	case GREY4:
 	case GREY8:
+		gflag = 1;
+		break;
 	case RGB24:
 		break;
 	default:
