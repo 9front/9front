@@ -333,7 +333,7 @@ imagereclaim(void)
 	 */
 	for(p = palloc.tail; p && p->image && (n<1000 || !imagealloc.free); p = p->prev) {
 		if(p->ref == 0 && canlock(p)) {
-			if(p->ref == 0) {
+			if(p->ref == 0 && p->image && !p->image->notext) {
 				n++;
 				uncachepage(p);
 			}
