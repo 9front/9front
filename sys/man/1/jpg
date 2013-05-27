@@ -1,6 +1,6 @@
 .TH JPG 1
 .SH NAME
-jpg, gif, png, ppm, bmp, v210, yuv, ico, tga, togif, toppm, topng, toico \- view and convert pictures
+jpg, gif, png, ppm, bmp, v210, yuv, ico, tga, tojpg, togeordi, togif, toppm, topng, toico \- view and convert pictures
 .SH SYNOPSIS
 .B jpg
 [
@@ -58,6 +58,26 @@ jpg, gif, png, ppm, bmp, v210, yuv, ico, tga, togif, toppm, topng, toico \- view
 .I file ...
 ]
 .PP
+.B tojpg
+[
+.B -c
+.I comment
+] [
+.B -gs
+] [
+.I file
+]
+.br
+.B togeordi
+[
+.B -c
+.I comment
+] [
+.B -g
+] [
+.I file
+]
+.br
 .B togif
 [
 .B -c
@@ -126,11 +146,12 @@ and
 read files in the corresponding formats and, by default, display
 them in the current window; options cause them instead to convert the images
 to Plan 9 image format and write them to standard output.
-.IR Togif ,
+.IR Tojpg ,
+.IR togif ,
 .IR toppm ,
 and
 .I topng
-read Plan 9 images files, convert them to GIF, PPM, or PNG, and write them to standard output.
+read Plan 9 images files, convert them to JPEG, GIF, PPM, or PNG, and write them to standard output.
 .PP
 The default behavior of
 .IR jpg ,
@@ -205,12 +226,13 @@ The input is a motion JPEG file, with multiple images representing frames of the
 .PD
 .PP
 The
+.IR tojpg ,
 .IR togif
 and
 .IR toppm
-programs go the other way: they convert from Plan 9 images to GIF and PPM,
+programs go the other way: they convert from Plan 9 images to JPEG, GIF and PPM,
 and have no display capability.
-Both accept an option
+They all accept an option
 .B -c
 to set the comment field of the resulting file.
 The
@@ -219,6 +241,20 @@ option makes
 .I toppm
 output raw PPM.
 The default is to output plain PPM.
+The
+.B -g
+option makes
+.I tojpg
+output grayscale images,
+and the
+.B -s
+option makes it output scratched JPEG images.
+.I Togeordi
+is an
+.IR rc (1)
+script that invokes
+.B tojpg
+.BR -s .
 If there is only one input picture,
 .I togif
 converts the image to GIF format.
@@ -269,11 +305,19 @@ a single icon file.  The masks in the icon file will be the white
 space in the image.  The icon file is written to standard output.
 .SH SOURCE
 .B /sys/src/cmd/jpg
+.br
+.B /rc/bin/togeordi
 .SH "SEE ALSO"
 .IR page (1),
 .IR image (6).
 .br
+.B http://www.w3.org/Graphics/JPEG/jfif3.pdf
+.br
 .B http://www.w3.org/Graphics/JPEG/itu-t81.pdf
+.br
+.B http://en.wikibooks.org/wiki/JPEG_-_Idea_and_Practice
+.br
+.B http://en.wikipedia.org/wiki/JPEG
 .br
 .B http://www.w3.org/Graphics/GIF/spec-gif89a.txt
 .br

@@ -1,6 +1,8 @@
 </$objtype/mkfile
 
-TARG=jpg\
+TARG=\
+	jpg\
+	tojpg\
 	gif\
 	togif\
 	ppm\
@@ -46,6 +48,7 @@ c=`{sed -n 's/^O=//p' /$cputype/mkfile}
 
 $O.tga:		$IMFILES readtga.$O tga.$O
 $O.jpg:		$IMFILES readjpg.$O jpg.$O
+$O.tojpg:	writejpg.$O multichan.$O tojpg.$O
 $O.gif:		$IMFILES readgif.$O gif.$O
 $O.togif:	writegif.$O onechan.$O togif.$O torgbv.$O
 $O.ppm:		$IMFILES readppm.$O ppm.$O
