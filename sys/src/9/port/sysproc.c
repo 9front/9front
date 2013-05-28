@@ -21,6 +21,12 @@ sysr1(ulong*)
 	return 0;
 }
 
+static void
+abortion(void*)
+{
+	pexit("fork aborted", 1);
+}
+
 long
 sysrfork(ulong *arg)
 {
@@ -101,6 +107,14 @@ sysrfork(ulong *arg)
 	p->ureg = up->ureg;
 	p->dbgreg = 0;
 
+	/* Abort the child process on error */
+	if(waserror()){
+		p->kp = 1;
+		kprocchild(p, abortion, 0);
+		ready(p);
+		nexterror();
+	}
+
 	/* Make a new set of memory segments */
 	n = flag & RFMEM;
 	qlock(&p->seglock);
@@ -163,6 +177,8 @@ sysrfork(ulong *arg)
 	p->procmode = up->procmode;
 	if(up->procctl == Proc_tracesyscall)
 		p->procctl = Proc_tracesyscall;
+
+	poperror();	/* abortion */
 
 	/* Craft a return frame which will cause the child to pop out of
 	 * the scheduler in user mode with the return register zero
