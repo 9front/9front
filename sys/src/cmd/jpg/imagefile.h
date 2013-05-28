@@ -77,3 +77,6 @@ Image*		multichan(Image*);
 Memimage*	memmultichan(Memimage*);
 
 char*		memwritepng(Biobuf*, Memimage*, ImageInfo*);
+
+char*		writejpg(Biobuf*, Image*, char*, int, int);
+char*		memwritejpg(Biobuf*, Memimage*, char*, int, int);
