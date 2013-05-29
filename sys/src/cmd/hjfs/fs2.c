@@ -186,6 +186,8 @@ chancreat(Chan *ch, char *name, int perm, int mode)
 		ch->open |= CHREAD;
 		break;
 	}
+	if((mode & ORCLOSE) != 0)
+		ch->open |= CHRCLOSE;
 	chend(ch);
 	return 1;
 inval:
