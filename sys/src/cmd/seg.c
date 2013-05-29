@@ -44,4 +44,5 @@ main(int argc, char** argv) {
 		if(size >= 4) data |= (seg[port+2] << 16) | (seg[port+3] << 24);
 		print("0x%ulx\n", data);
 	}
+	exits(nil);
 }

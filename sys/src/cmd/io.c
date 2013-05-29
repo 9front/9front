@@ -52,4 +52,5 @@ main(int argc, char** argv) {
 			((vlong)datab[7] << 56);
 		print("0x%llx\n", data);
 	}
+	exits(nil);
 }
