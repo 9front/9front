@@ -52,7 +52,10 @@ main(int argc, char *argv[])
 
 	initcap();
 	srand(getpid()*time(0));
-	runas(argv[0], argv[1]);
+	if(argc >= 2)
+		runas(argv[0], argv[1]);
+	else
+		usage();
 }
 
 void
@@ -88,7 +91,7 @@ erealloc(void *p, ulong n)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-c]\n", argv0);
+	fprint(2, "usage: %s [-c] [user] [command]\n", argv0);
 	exits("usage");
 }
 
