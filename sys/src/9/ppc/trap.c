@@ -633,10 +633,6 @@ syscall(Ureg* ureg)
 
 	scallnr = ureg->r3;
 	up->scallnr = ureg->r3;
-	if(scallnr == RFORK && up->fpstate == FPactive){
-		fpsave(&up->fpsave);
-		up->fpstate = FPinactive;
-	}
 	spllo();
 
 	sp = ureg->usp;
@@ -714,6 +710,12 @@ notify(Ureg* ur)
 	if(up->nnote == 0)
 		return 0;
 
+	if(up->fpstate == FPactive){
+		fpsave(&up->fpsave);
+		up->fpstate = FPinactive;
+	}
+	up->fpstate |= FPillegal;
+
 	s = spllo();
 	qlock(&up->debug);
 	up->notepending = 0;
@@ -742,12 +744,6 @@ notify(Ureg* ur)
 		qunlock(&up->debug);
 		pexit(n->msg, n->flag!=NDebug);
 	}
-
-	if(up->fpstate == FPactive){
-		fpsave(&up->fpsave);
-		up->fpstate = FPinactive;
-	}
-	up->fpstate |= FPillegal;
 
 	sp = ur->usp & ~(BY2V-1);
 	sp -= sizeof(Ureg);

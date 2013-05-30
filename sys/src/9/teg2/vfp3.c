@@ -239,33 +239,6 @@ fpunoted(void)
 	up->fpstate &= ~FPillegal;
 }
 
-/*
- * Called early in the non-interruptible path of
- * sysrfork() via the machine-dependent syscall() routine.
- * Save the state so that it can be easily copied
- * to the child process later.
- */
-void
-fpusysrfork(Ureg*)
-{
-	if(up->fpstate == FPactive){
-		fpsave(&up->fpsave);
-		up->fpstate = FPinactive;
-	}
-}
-
-/*
- * Called later in sysrfork() via the machine-dependent
- * sysrforkchild() routine.
- * Copy the parent FPU state to the child.
- */
-void
-fpusysrforkchild(Proc *p, Ureg *, Proc *up)
-{
-	/* don't penalize the child, it hasn't done FP in a note handler. */
-	p->fpstate = up->fpstate & ~FPillegal;
-}
-
 /* should only be called if p->fpstate == FPactive */
 void
 fpsave(FPsave *fps)

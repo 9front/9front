@@ -201,8 +201,6 @@ syscall(Ureg* ureg)
 
 	scallnr = ureg->r0;
 	up->scallnr = scallnr;
-	if(scallnr == RFORK)
-		fpusysrfork(ureg);
 	spllo();
 	sp = ureg->sp;
 
@@ -332,6 +330,4 @@ forkchild(Proc *p, Ureg *ureg)
 	/* Things from bottom of syscall which were never executed */
 	p->psstate = 0;
 	p->insyscall = 0;
-
-	fpusysrforkchild(p, cureg, up);
 }

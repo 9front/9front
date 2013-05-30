@@ -42,27 +42,6 @@ fpunoted(void)
 }
 
 void
-fpusysrfork(Ureg*)
-{
-	/*
-	 * Called early in the non-interruptible path of
-	 * sysrfork() via the machine-dependent syscall() routine.
-	 * Save the state so that it can be easily copied
-	 * to the child process later.
-	 */
-}
-
-void
-fpusysrforkchild(Proc*, Ureg *, Proc*)
-{
-	/*
-	 * Called later in sysrfork() via the machine-dependent
-	 * sysrforkchild() routine.
-	 * Copy the parent FPU state to the child.
-	 */
-}
-
-void
 fpuprocsave(Proc*)
 {
 	/*

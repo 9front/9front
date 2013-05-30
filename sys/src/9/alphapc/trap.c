@@ -523,15 +523,15 @@ notify(Ureg *ur)
 	if(up->nnote == 0)
 		return 0;
 
-	spllo();
-	qlock(&up->debug);
-	up->notepending = 0;
-
 	if(up->fpstate == FPactive){
 		savefpregs(&up->fpsave);
 		up->fpstate = FPinactive;
 	}
 	up->fpstate |= FPillegal;
+
+	spllo();
+	qlock(&up->debug);
+	up->notepending = 0;
 
 	n = &up->note[0];
 	if(strncmp(n->msg, "sys:", 4) == 0) {
@@ -712,12 +712,6 @@ syscall(Ureg *aur)
 
 	scallnr = ur->r0;
 	up->scallnr = ur->r0;
-
-	if(scallnr == RFORK && up->fpstate == FPactive){
-		savefpregs(&up->fpsave);
-		up->fpstate = FPinactive;
-//print("SR=%lux+", up->fpsave.fpstatus);
-	}
 	spllo();
 
 	sp = ur->sp;

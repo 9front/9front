@@ -134,6 +134,8 @@ procfork(Proc* p)
 {
 	p->kentry = up->kentry;
 	p->pcycles = -p->kentry;
+
+	fpuprocfork(p);
 }
 
 /*

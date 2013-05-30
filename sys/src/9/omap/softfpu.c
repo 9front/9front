@@ -42,27 +42,6 @@ fpunoted(void)
 }
 
 void
-fpusysrfork(Ureg*)
-{
-	/*
-	 * Called early in the non-interruptible path of
-	 * sysrfork() via the machine-dependent syscall() routine.
-	 * Save the state so that it can be easily copied
-	 * to the child process later.
-	 */
-}
-
-void
-fpusysrforkchild(Proc*, Ureg *, Proc*)
-{
-	/*
-	 * Called later in sysrfork() via the machine-dependent
-	 * sysrforkchild() routine.
-	 * Copy the parent FPU state to the child.
-	 */
-}
-
-void
 fpuprocsave(Proc*)
 {
 	/*
@@ -82,6 +61,15 @@ fpuprocrestore(Proc*)
 	 * Nothing to do here right now. If the process tries to use
 	 * the FPU again it will cause a Device Not Available
 	 * exception and the state will then be restored.
+	 */
+}
+
+void
+fpuprocfork(Proc*)
+{
+	/*
+	 * The current process has been forked, save and copy neccesary
+	 * state to child. Nothing to do here, child proc starts with FPinit.
 	 */
 }
 
