@@ -199,7 +199,7 @@ fn title {
 			echo name /$server/$target/-ircrc > /mnt/acme/$winid/ctl
 	}
 	if not
-		label ircrc $server - $target
+		label $target@$server
 }
 
 while (~ $1 -*) {
