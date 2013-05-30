@@ -69,14 +69,14 @@ Reglist i386reglist[] = {
 	{"X6",		XM_REG(6),	RFLT, 'F'},
 	{"X7",		XM_REG(7),	RFLT, 'F'},
 
-	{"F0",		FP_REG(7),	RFLT, '3'},
-	{"F1",		FP_REG(6),	RFLT, '3'},
-	{"F2",		FP_REG(5),	RFLT, '3'},
-	{"F3",		FP_REG(4),	RFLT, '3'},
-	{"F4",		FP_REG(3),	RFLT, '3'},
-	{"F5",		FP_REG(2),	RFLT, '3'},
-	{"F6",		FP_REG(1),	RFLT, '3'},
-	{"F7",		FP_REG(0),	RFLT, '3'},
+	{"F0",		FP_REG(0),	RFLT, '3'},
+	{"F1",		FP_REG(1),	RFLT, '3'},
+	{"F2",		FP_REG(2),	RFLT, '3'},
+	{"F3",		FP_REG(3),	RFLT, '3'},
+	{"F4",		FP_REG(4),	RFLT, '3'},
+	{"F5",		FP_REG(5),	RFLT, '3'},
+	{"F6",		FP_REG(6),	RFLT, '3'},
+	{"F7",		FP_REG(7),	RFLT, '3'},
 
 	{  0 }
 };
