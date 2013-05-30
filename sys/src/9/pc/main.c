@@ -480,11 +480,23 @@ confinit(void)
 void
 fpx87save(FPsave *fps)
 {
+	ushort tag;
+
 	fpx87save0(fps);
+
+	/*
+	 * convert x87 tag word to fxsave tag byte:
+	 * 00, 01, 10 -> 1, 11 -> 0
+	 */
+	tag = ~fps->tag;
+	tag = (tag | (tag >> 1)) & 0x5555;
+	tag = (tag | (tag >> 1)) & 0x3333;
+	tag = (tag | (tag >> 2)) & 0x0F0F;
+	tag = (tag | (tag >> 4)) & 0x00FF;
 
 	/* NOP fps->fcw = fps->control; */
 	fps->fsw = fps->status;
-	fps->ftw = fps->tag;
+	fps->ftw = tag;
 	fps->fop = fps->opcode;
 	fps->fpuip = fps->pc;
 	fps->cs = fps->selector;
@@ -528,6 +540,36 @@ fpx87save(FPsave *fps)
 void
 fpx87restore(FPsave *fps)
 {
+	ushort msk, tos, tag, *reg;
+
+	/* convert fxsave tag byte to x87 tag word */
+	tag = 0;
+	tos = 7 - ((fps->fsw >> 11) & 7);
+	for(msk = 0x80; msk != 0; tos--, msk >>= 1){
+		tag <<= 2;
+		if((fps->ftw & msk) != 0){
+			reg = (ushort*)&fps->xregs[(tos & 7) << 4];
+			switch(reg[4] & 0x7fff){
+			case 0x0000:
+				if((reg[0] | reg[1] | reg[2] | reg[3]) == 0){
+					tag |= 1;	/* 01 zero */
+					break;
+				}
+				/* no break */
+			case 0x7fff:
+				tag |= 2;		/* 10 special */
+				break;
+			default:
+				if((reg[3] & 0x8000) == 0)
+					break;		/* 00 valid */
+				tag |= 2;		/* 10 special */
+				break;
+			}
+		}else{
+			tag |= 3;			/* 11 empty */
+		}
+	}
+
 #define MOVA(d,s) \
 	*((ulong*)(d)) = *((ulong*)(s)), \
 	*((ulong*)(d+4)) = *((ulong*)(s+4)), \
@@ -546,10 +588,10 @@ fpx87restore(FPsave *fps)
 
 	fps->oselector = fps->ds;
 	fps->operand = fps->fpudp;
-	fps->opcode = (fps->fop & 0x7ff);
+	fps->opcode = fps->fop & 0x7ff;
 	fps->selector = fps->cs;
 	fps->pc = fps->fpuip;
-	fps->tag = fps->ftw;
+	fps->tag = tag;
 	fps->status = fps->fsw;
 	/* NOP fps->control = fps->fcw;  */
 
@@ -726,6 +768,8 @@ procsetup(Proc *p)
 void
 procfork(Proc *p)
 {
+	int s;
+
 	p->kentry = up->kentry;
 	p->pcycles = -p->kentry;
 
@@ -738,6 +782,18 @@ procfork(Proc *p)
 		memmove(p->ldt, up->ldt, sizeof(Segdesc) * up->nldt);
 		p->nldt = up->nldt;
 	}
+
+	/* save floating point state */
+	s = splhi();
+	switch(up->fpstate & ~FPillegal){
+	case FPactive:
+		fpsave(&up->fpsave);
+		up->fpstate = FPinactive;
+	case FPinactive:
+		p->fpsave = up->fpsave;
+		p->fpstate = FPinactive;
+	}
+	splx(s);
 }
 
 void
