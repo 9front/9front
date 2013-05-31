@@ -783,6 +783,8 @@ ctlrinit(Ctlr* ctlr)
 	link = NullPointer;
 	for(i = 0; i < Nrfd; i++){
 		bp = rfdalloc(link);
+		if(bp == nil)
+			panic("i82557: can't allocate rfd buffer");
 		if(ctlr->rfdhead == nil)
 			ctlr->rfdtail = bp;
 		bp->next = ctlr->rfdhead;
