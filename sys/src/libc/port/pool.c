@@ -159,7 +159,6 @@ static void		poolnewarena(Pool*, ulong);
 static void*	poolreallocl(Pool*, void*, ulong);
 static Free*	treedelete(Free*, Free*);
 static Free*	treeinsert(Free*, Free*);
-static Free*	treelookup(Free*, ulong);
 static Free*	treelookupgt(Free*, ulong);
 
 /*
@@ -230,28 +229,19 @@ checktree(Free *t, int a, int b)
 static Free**
 ltreewalk(Free **t, ulong size)
 {
-	assert(t != nil /* ltreewalk */);
+	Free *f;
 
 	for(;;) {
-		if(*t == nil)
+		f = *t;
+		if(f == nil || f->magic != FREE_MAGIC)
 			return t;
-
-		assert((*t)->magic == FREE_MAGIC);
-
-		if(size == (*t)->size)
+		if(size == f->size)
 			return t;
-		if(size < (*t)->size)
-			t = &(*t)->left;
+		if(size < f->size)
+			t = &f->left;
 		else
-			t = &(*t)->right;
+			t = &f->right;
 	}
-}
-
-/* treelookup: find node in tree with size == size */
-static Free*
-treelookup(Free *t, ulong size)
-{
-	return *ltreewalk(&t, size);
 }
 
 /* treeinsert: insert node into tree */
@@ -263,11 +253,11 @@ treeinsert(Free *tree, Free *node)
 	assert(node != nil /* treeinsert */);
 
 	loc = ltreewalk(&tree, node->size);
-	if(*loc == nil) {
+	repl = *loc;
+	if(repl == nil || repl->magic != FREE_MAGIC) {
 		node->left = nil;
 		node->right = nil;
 	} else {	/* replace existing node */
-		repl = *loc;
 		node->left = repl->left;
 		node->right = repl->right;
 	}
@@ -284,7 +274,8 @@ treedelete(Free *tree, Free *node)
 	assert(node != nil /* treedelete */);
 
 	loc = ltreewalk(&tree, node->size);
-	assert(*loc == node);
+	if(*loc != node || node->magic != FREE_MAGIC)
+		return tree;	/* free nodes corrupted */
 
 	if(node->left == nil)
 		*loc = node->right;
@@ -300,7 +291,6 @@ treedelete(Free *tree, Free *node)
 		succ->right = node->right;
 		*loc = succ;
 	}
-
 	node->left = node->right = Poison;
 	return tree;
 }
@@ -313,7 +303,7 @@ treelookupgt(Free *t, ulong size)
 
 	lastgood = nil;
 	for(;;) {
-		if(t == nil)
+		if(t == nil || t->magic != FREE_MAGIC)
 			return lastgood;
 		if(size == t->size)
 			return t;
@@ -387,6 +377,11 @@ pooladd(Pool *p, Alloc *anode)
 	node->magic = FREE_MAGIC;
 	parent = ltreewalk(&p->freeroot, node->size);
 	olst = *parent;
+	if(olst != nil && olst->magic != FREE_MAGIC){
+		/* corruption of free nodes */
+		poolcheckl(p);
+		olst = *parent = nil;
+	}
 	lst = listadd(olst, node);
 	if(olst != lst)	/* need to update tree */
 		*parent = treeinsert(*parent, lst);
@@ -403,14 +398,17 @@ pooldel(Pool *p, Free *node)
 
 	parent = ltreewalk(&p->freeroot, node->size);
 	olst = *parent;
-	assert(olst != nil /* pooldel */);
-
-	lst = listdelete(olst, node);
-	if(lst == nil)
-		*parent = treedelete(*parent, olst);
-	else if(lst != olst)
-		*parent = treeinsert(*parent, lst);
-
+	if(olst == nil || olst->magic != FREE_MAGIC){
+		/* corruption of free nodes */
+		poolcheckl(p);
+		*parent = nil;
+	} else {
+		lst = listdelete(olst, node);
+		if(lst == nil)
+			*parent = treedelete(*parent, olst);
+		else if(lst != olst)
+			*parent = treeinsert(*parent, lst);
+	}
 	node->left = node->right = Poison;
 	p->curfree -= node->size;
 
