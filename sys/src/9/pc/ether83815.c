@@ -644,7 +644,7 @@ ctlrinit(Ether* ether)
 	for(des = ctlr->rdr; des < &ctlr->rdr[ctlr->nrdr]; des++){
 		des->bp = iallocb(Rbsz);
 		if(des->bp == nil)
-			error(Enomem);
+			panic("ether83815: can't allocate receive buffer");
 		des->cmdsts = Rbsz;
 		des->addr = PADDR(des->bp->rp);
 		if(last != nil)
