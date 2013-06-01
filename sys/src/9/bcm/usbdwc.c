@@ -77,7 +77,7 @@ chanalloc(Ep *ep)
 	bitmap = ctlr->chanbusy;
 	for(i = 0; i < ctlr->nchan; i++)
 		if((bitmap & (1<<i)) == 0){
-			ctlr->chanbusy = bitmap | 1 << i;
+			ctlr->chanbusy = bitmap | 1<<i;
 			qunlock(&ctlr->chanlock);
 			return &ctlr->regs->hchan[i];
 		}
@@ -95,7 +95,7 @@ chanrelease(Ep *ep, Hostchan *chan)
 	ctlr = ep->hp->aux;
 	i = chan - ctlr->regs->hchan;
 	qlock(&ctlr->chanlock);
-	ctlr->chanbusy &= ~(1 << i);
+	ctlr->chanbusy &= ~(1<<i);
 	qunlock(&ctlr->chanlock);
 }
 
@@ -138,9 +138,12 @@ chansetup(Hostchan *hc, Ep *ep)
 		hcc |= Lspddev;
 		/* fall through */
 	case Fullspeed:
-		hc->hcsplt = Spltena | POS_ALL | ep->dev->hub << OHubaddr |
-			ep->dev->port;
-		break;
+		if(ep->dev->hub > 1){
+			hc->hcsplt = Spltena | POS_ALL | ep->dev->hub<<OHubaddr |
+				ep->dev->port;
+			break;
+		}
+		/* fall through */
 	default:
 		hc->hcsplt = 0;
 		break;
@@ -168,7 +171,7 @@ sofwait(Ctlr *ctlr, int n)
 	do{
 		r->gintsts = Sofintr;
 		x = splfhi();
-		ctlr->sofchan |= 1 << n;
+		ctlr->sofchan |= 1<<n;
 		r->gintmsk |= Sofintr;
 		sleep(&ctlr->chanintr[n], sofdone, r);
 		splx(x);
@@ -181,6 +184,8 @@ chandone(void *a)
 	Hostchan *hc;
 
 	hc = a;
+	if(hc->hcint == (Chhltd|Ack))
+		return 0;
 	return (hc->hcint & hc->hcintmsk) != 0;
 }
 
@@ -196,7 +201,7 @@ chanwait(Ep *ep, Ctlr *ctlr, Hostchan *hc, int mask)
 	for(;;){
 restart:
 		x = splfhi();
-		r->haintmsk |= 1 << n;
+		r->haintmsk |= 1<<n;
 		hc->hcintmsk = mask;
 		sleep(&ctlr->chanintr[n], chandone, hc);
 		hc->hcintmsk = 0;
@@ -211,14 +216,15 @@ restart:
 			intr = hc->hcint;
 			if(intr & Chhltd){
 				if((ointr != Ack && ointr != (Ack|Xfercomp)) ||
-				    intr != (Ack|Chhltd|Xfercomp) ||
-				    (now - start) > 60)
+				   intr != (Ack|Chhltd|Xfercomp) ||
+				   (now - start) > 60)
 					dprint("await %x after %ld %x -> %x\n",
 						mask, now - start, ointr, intr);
 				return intr;
 			}
 			if((intr & mask) == 0){
-				dprint("ep%d.%d await %x intr %x -> %x\n",						ep->dev->nb, ep->nb, mask, ointr, intr);
+				dprint("ep%d.%d await %x intr %x -> %x\n",
+					ep->dev->nb, ep->nb, mask, ointr, intr);
 				goto restart;
 			}
 			now = fastticks(0);
@@ -248,7 +254,7 @@ chanintr(Ctlr *ctlr, int n)
 	int i;
 
 	hc = &ctlr->regs->hchan[n];
-	if(ctlr->debugchan & (1 << n))
+	if(ctlr->debugchan & (1<<n))
 		clog(nil, hc);
 	if((hc->hcsplt & Spltena) == 0)
 		return 0;
@@ -340,7 +346,7 @@ chanio(Ep *ep, Hostchan *hc, int dir, int pid, void *a, int len)
 		n = ROUND(len, ep->maxpkt);
 	else
 		n = len;
-	hc->hctsiz = n | npkt << OPktcnt | pid;
+	hc->hctsiz = n | npkt<<OPktcnt | pid;
 	hc->hcdma  = PADDR(a);
 
 	nleft = len;
@@ -389,7 +395,7 @@ chanio(Ep *ep, Hostchan *hc, int dir, int pid, void *a, int len)
 		if((i & Xfercomp) == 0 && i != (Chhltd|Ack) && i != Chhltd){
 			if(i & Stall)
 				error(Estalled);
-			if(i & Nyet)
+			if(i & (Nyet|Frmovrun))
 				continue;
 			if(i & Nak){
 				if(ep->ttype == Tintr)
@@ -398,6 +404,7 @@ chanio(Ep *ep, Hostchan *hc, int dir, int pid, void *a, int len)
 					tsleep(&up->sleep, return0, 0, 1);
 				continue;
 			}
+			logdump(ep);
 			print("usbotg: ep%d.%d error intr %8.8ux\n",
 				ep->dev->nb, ep->nb, i);
 			if(i & ~(Chhltd|Ack))
@@ -407,31 +414,33 @@ chanio(Ep *ep, Hostchan *hc, int dir, int pid, void *a, int len)
 					hcdma, hc->hcdma, i, hc->hcint);
 		}
 		n = hc->hcdma - hcdma;
-		if(n == 0)
+		if(n == 0){
 			if((hc->hctsiz & Pktcnt) != (hctsiz & Pktcnt))
 				break;
 			else
 				continue;
+		}
 		if(dir == Epin && ep->ttype == Tbulk && n == nleft){
 			nt = (hctsiz & Xfersize) - (hc->hctsiz & Xfersize);
-			if(nt != n)
-				if(n == ((nt+3) & ~3))
+			if(nt != n){
+				if(n == ROUND(nt, 4))
 					n = nt;
 				else
-					print("usbotg: intr %8.8ux dma "
-						"%8.8ux-%8.8ux hctsiz "
-						"%8.8ux-%8.ux\n",
+					print("usbotg: intr %8.8ux "
+						"dma %8.8ux-%8.8ux "
+						"hctsiz %8.8ux-%8.ux\n",
 						i, hcdma, hc->hcdma, hctsiz,
 						hc->hctsiz);
+			}
 		}
 		if(n > nleft){
-			if(n != ((nleft+3) & ~3))
+			if(n != ROUND(nleft, 4))
 				dprint("too much: wanted %d got %d\n",
 					len, len - nleft + n);
 			n = nleft;
 		}
 		nleft -= n;
-		if(nleft == 0 || n % maxpkt != 0)
+		if(nleft == 0 || (n % maxpkt) != 0)
 			break;
 		if((i & Xfercomp) && ep->ttype != Tctl)
 			break;
@@ -441,6 +450,24 @@ chanio(Ep *ep, Hostchan *hc, int dir, int pid, void *a, int len)
 	}
 	logdump(ep);
 	return len - nleft;
+}
+
+static long
+multitrans(Ep *ep, Hostchan *hc, int rw, void *a, long n)
+{
+	long sofar, m;
+
+	sofar = 0;
+	do{
+		m = n - sofar;
+		if(m > ep->maxpkt)
+			m = ep->maxpkt;
+		m = chanio(ep, hc, rw == Read? Epin : Epout, ep->toggle[rw],
+			(char*)a + sofar, m);
+		ep->toggle[rw] = hc->hctsiz & Pid;
+		sofar += m;
+	}while(sofar < n && m == ep->maxpkt);
+	return sofar;
 }
 
 static long
@@ -464,22 +491,10 @@ eptrans(Ep *ep, int rw, void *a, long n)
 		nexterror();
 	}
 	chansetup(hc, ep);
-	if(rw == Read && ep->ttype == Tbulk){
-		long sofar, m;
-
-		sofar = 0;
-		do{
-			m = n - sofar;
-			if(m > ep->maxpkt)
-				m = ep->maxpkt;
-			m = chanio(ep, hc, Epin, ep->toggle[rw],
-				(char*)a + sofar, m);
-			ep->toggle[rw] = hc->hctsiz & Pid;
-			sofar += m;
-		}while(sofar < n && m == ep->maxpkt);
-		n = sofar;
-	}else{
-		n = chanio(ep, hc, rw == Read? Epin: Epout, ep->toggle[rw],
+	if(rw == Read && ep->ttype == Tbulk)
+		n = multitrans(ep, hc, rw, a, n);
+	else{
+		n = chanio(ep, hc, rw == Read? Epin : Epout, ep->toggle[rw],
 			a, n);
 		ep->toggle[rw] = hc->hctsiz & Pid;
 	}
@@ -529,7 +544,11 @@ ctltrans(Ep *ep, uchar *req, long n)
 	chansetup(hc, ep);
 	chanio(ep, hc, Epout, SETUP, req, Rsetuplen);
 	if(req[Rtype] & Rd2h){
-		b->wp += chanio(ep, hc, Epin, DATA1, data, datalen);
+		if(ep->dev->hub <= 1){
+			ep->toggle[Read] = DATA1;
+			b->wp += multitrans(ep, hc, Read, data, datalen);
+		}else
+			b->wp += chanio(ep, hc, Epin, DATA1, data, datalen);
 		chanio(ep, hc, Epout, DATA1, nil, 0);
 		n = Rsetuplen;
 	}else{
@@ -602,7 +621,7 @@ init(Hci *hp)
 	tx = 0x100;
 	ptx = 0x200;
 	r->grxfsiz = rx;
-	r->gnptxfsiz = rx | tx << ODepth;
+	r->gnptxfsiz = rx | tx<<ODepth;
 	tsleep(&up->sleep, return0, 0, 1);
 	r->hptxfsiz = (rx + tx) | ptx << ODepth;
 	greset(r, Rxfflsh);
@@ -639,9 +658,11 @@ fiqintr(Ureg*, void *a)
 	if(intr & Hcintr){
 		haint = r->haint & r->haintmsk;
 		for(i = 0; haint; i++){
-			if(haint & 1 && chanintr(ctlr, i) == 0){
-				r->haintmsk &= ~(1 << i);
-				wakechan |= 1 << i;
+			if(haint & 1){
+				if(chanintr(ctlr, i) == 0){
+					r->haintmsk &= ~(1<<i);
+					wakechan |= 1<<i;
+				}
 			}
 			haint >>= 1;
 		}
