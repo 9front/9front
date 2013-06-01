@@ -247,7 +247,7 @@ Breadjpg(Biobuf *b, int colorspace)
 	}
 	jpginit();
 	h = malloc(sizeof(Header));
-	array = malloc(sizeof(Header));
+	array = malloc(2*sizeof(Rawimage*));
 	if(h==nil || array==nil){
 		free(h);
 		free(array);

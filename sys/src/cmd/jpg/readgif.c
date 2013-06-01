@@ -156,7 +156,7 @@ readarray(Header *h)
 
 	if(h->fields & 0x80)
 		h->globalcmap = readcmap(h, (h->fields&7)+1);
-	array = malloc(sizeof(Rawimage**));
+	array = malloc(sizeof(Rawimage*));
 	if(array == nil)
 		giferror(h, memerr);
 	nimages = 0;
