@@ -398,19 +398,19 @@ main(int argc, char *argv[])
 	if((fd = dial(addr, nil, devdir, &cfd)) < 0)
 		sysfatal("dial: %r");
 
-	if(essid[0] != 0)
+	if(essid[0] != 0){
 		if(fprint(cfd, "essid %s", essid) < 0)
 			sysfatal("write essid: %r");
+	} else {
+		getessid();
+		if(essid[0] == 0)
+			sysfatal("no essid set");
+	}
 
 	if(prompt){
 		char *s;
 
-		if(essid[0] == 0)
-			getessid();
-		if(essid[0] != 0)
-			s = smprint("proto=wpapsk essid=%q !password?", essid);
-		else
-			s = smprint("proto=wpapsk essid? !password?");
+		s = smprint("proto=wpapsk essid=%q !password?", essid);
 		auth_getkey(s);
 		free(s);
 	}
