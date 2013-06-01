@@ -792,10 +792,12 @@ needkey(Request *r)
 		entry[i].a->type = AttrNameval;
 	}
 
-	/* enter the new key !!!!need to do something in case of error!!!! */
+	/* enter the new key */
 	fd = open("/mnt/factotum/ctl", OWRITE);
-	fprint(fd, "key %A", r->a);
-	close(fd);
+	if(fd >= 0){
+		fprint(fd, "key %A", r->a);
+		close(fd);
+	}
 
 	teardownneedkey(r);
 out:
