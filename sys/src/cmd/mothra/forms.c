@@ -124,12 +124,18 @@ void rdform(Hglob *g){
 	case Tag_input:
 	case Tag_button:
 		if(g->form==0){
-		BadTag:
-			htmlerror(g->name, g->lineno, "<%s> not in form, ignored\n",
-				tag[g->tag].name);
-			break;
-		}
-		f=newfield(g->form);
+			/* no form, assume link button */
+			form = emalloc(sizeof(Form));	
+			form->method = 0;
+			form->fields = 0;
+			form->efields = 0;
+			if(g->state->link[0])
+				form->action = strdup(g->state->link);
+			form->next = g->dst->form;
+			g->dst->form = form;
+			f=newfield(form);
+		} else
+			f=newfield(g->form);
 		s=pl_getattr(g->attr, "name");
 		if(s==0)
 			f->name=0;
@@ -201,7 +207,12 @@ void rdform(Hglob *g){
 			pl_htmloutput(g, g->nsp, f->value[0]?f->value:"blank field", f);
 		break;
 	case Tag_select:
-		if(g->form==0) goto BadTag;
+		if(g->form==0){
+		BadTag:
+			htmlerror(g->name, g->lineno, "<%s> not in form, ignored\n",
+				tag[g->tag].name);
+			break;
+		}
 		f=newfield(g->form);
 		s=pl_getattr(g->attr, "name");
 		if(s==0){
@@ -455,8 +466,15 @@ void h_resetinput(Panel *p, int){
 	}
 	pldraw(text, screen);
 }
+
 void h_buttoninput(Panel *p, int){
+	Field *f;
+
+	f = p->userp;
+	if(f && f->form && f->form->method != POST && f->form->action)
+		geturl(f->form->action, -1, 0, 0);
 }
+
 void h_fileinput(Panel *p, int){
 	char name[NNAME];
 	Field *f;
@@ -638,11 +656,19 @@ void h_submitinput(Panel *p, int){
 	for(f=form->fields;f;f=f->next)
 		if(f->type==SUBMIT)
 			f->state = (f->p == p);
-	if(form->method==GET){
+
+	switch(form->method){
+	case GET:
 		strcpy(buf, "/tmp/mfXXXXXXXXXXX");
 		fd = create(mktemp(buf), ORDWR|ORCLOSE, 0600);
-	} else
+		break;
+	case POST:
 		fd = urlpost(selurl(form->action), form->ctype);
+		break;
+	default:
+		return;
+	}
+
 	if(fd < 0){
 		message("submit: %r");
 		return;
