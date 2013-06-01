@@ -25,7 +25,10 @@ case go
 	prompt $default 'sysname'
 	sysname=$rd
 
+	cp /n/newfs/lib/ndb/local /tmp/ndb.local
 	{
+		ssam 'x/^.*ether='^$etheraddr^'.*$/ d' /tmp/ndb.local
+
 		echo
 		switch($ethermethod){
 		case dhcp
@@ -36,5 +39,5 @@ case go
 				'ip='^$ipaddr 'ipmask='^$ipmask 'ipgw='^$gwaddr
 		}
 		echo
-	} >>/n/newfs/lib/ndb/local
+	} >/n/newfs/lib/ndb/local
 }
