@@ -44,7 +44,7 @@ void		auth_freerpc(AuthRpc *rpc);
 uint		auth_rpc(AuthRpc *rpc, char *verb, void *a, int n);
 .PP
 .B
-int		auth_getkey(char *proto, char *dom);
+int		auth_getkey(char *params);
 .PP
 .B
 int		(*amount_getkey)(char*, char*);
