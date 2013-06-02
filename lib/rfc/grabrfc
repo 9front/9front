@@ -3,7 +3,9 @@
 rfork en
 path=(/bin)
 fn cd
+
 dom=`{ndb/query sys $sysname dom}
+if(~ $dom '') dom=$sysname
 
 ramfs
 ftpfs -q/ -a $user@$dom ftp.rfc-editor.org	# was ftp.isi.edu
