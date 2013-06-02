@@ -43,20 +43,6 @@ struct KDev
 };
 
 /*
- * Map for the logitech bluetooth mouse with 8 buttons and wheels.
- *	{ ptr ->mouse}
- *	{ 0x01, 0x01 },	// left
- *	{ 0x04, 0x02 },	// middle
- *	{ 0x02, 0x04 },	// right
- *	{ 0x40, 0x08 },	// up
- *	{ 0x80, 0x10 },	// down
- *	{ 0x10, 0x08 },	// side up
- *	{ 0x08, 0x10 },	// side down
- *	{ 0x20, 0x02 }, // page
- * besides wheel and regular up/down report the 4th byte as 1/-1
- */
-
-/*
  * scan codes >= 0x80 are extended (E0 XX)
  */
 #define isext(sc)	((sc) >= 0x80)
@@ -378,6 +364,7 @@ struct Ptr
 	int	z;
 
 	int	b;
+	int	m;
 
 	int	absx;
 	int	absy;
@@ -422,14 +409,15 @@ ptrparse(int t, int f, int g[], int l[], int, void *a)
 
 		switch(l[Usage]){
 		case 0x090001:
-			m = 1;
-			goto Button;
 		case 0x090002:
-			m = 4;
-			goto Button;
 		case 0x090003:
-			m = 2;
-		Button:
+		case 0x090004:
+		case 0x090005:
+		case 0x090006:
+		case 0x090007:
+		case 0x090008:
+			m = 1<<(l[Usage] - 0x090001);
+			p->m |= m;
 			p->b &= ~m;
 			if(v != 0)
 				p->b |= m;
@@ -460,9 +448,6 @@ ptrparse(int t, int f, int g[], int l[], int, void *a)
 				p->z = v;
 				p->absz += v;
 			}
-			p->b &= ~(8|16);
-			if(p->z != 0)
-				p->b |= (p->z > 0) ? 8 : 16;
 			break;
 		}
 	}
@@ -474,7 +459,7 @@ ptrwork(void* a)
 {
 	char	err[ERRMAX];
 	char	mbuf[80];
-	int	c, nerrs;
+	int	c, b, nerrs;
 	KDev*	f = a;
 	Ptr	p;
 
@@ -511,7 +496,19 @@ ptrwork(void* a)
 		p.e = p.p + c;
 		repparse(f->rep, f->rep+f->nrep, ptrparse, &p);
 
-		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", p.x, p.y, p.b);
+		if(debug)
+			fprint(2, "ptr: b=%x m=%x x=%d y=%d z=%d\n", p.b, p.m, p.x, p.y, p.z);
+
+		/* map buttons */
+		b = p.b & 1;
+		if(p.b & (4|8))
+			b |= 2;
+		if(p.b & 2)
+			b |= 4;
+		if(p.z != 0)
+			b |= (p.z > 0) ? 8 : 16;
+
+		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", p.x, p.y, b);
 		if(write(f->infd, mbuf, strlen(mbuf)) < 0)
 			kbfatal(f, "mousein i/o");
 	}
