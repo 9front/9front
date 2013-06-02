@@ -404,12 +404,12 @@ Breadtga(Biobuf *bp)
 	}
 
 	array = nil;
-	if((ar = calloc(sizeof(Rawimage), 1)) == nil){
+	if((ar = calloc(1, sizeof(Rawimage))) == nil){
 		werrstr("ReadTGA: no memory - %r\n");
 		goto Error;
 	}
 
-	if((array = calloc(sizeof(Rawimage *), 2)) == nil){
+	if((array = calloc(2, sizeof(Rawimage *))) == nil){
 		werrstr("ReadTGA: no memory - %r\n");
 		goto Error;
 	}

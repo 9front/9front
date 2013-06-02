@@ -723,8 +723,6 @@ chanwstat(Chan *ch, Dir *di)
 			if(di->length != d->size && !permcheck(ch->fs, d, ch->uid, OWRITE))
 				goto perm;
 	}
-	if((ulong)~di->atime)
-		goto inval;
 	if((ulong)~di->mtime && !owner)
 		goto perm;
 	if((ulong)~di->mode && !owner)
