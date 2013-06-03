@@ -338,11 +338,13 @@ isolder(char *pin, char *f)
 
 	/* parse time */
 	n = 0;
+	r = 1;
 	while(*p){
 		m = strtoul(p, &p, 0);
 		switch(*p){
 		case 0:
 			n = m;
+			r = 0;
 			break;
 		case 'y':
 			m *= 12;
@@ -368,7 +370,9 @@ isolder(char *pin, char *f)
 		}
 	}
 
-	r = dir->mtime + n < time(0);
+	if (r != 0)
+		n = time(0) - n;
+	r = dir->mtime < n;
 	free(dir);
 	return r;
 }
