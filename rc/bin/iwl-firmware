@@ -1,0 +1,13 @@
+#!/bin/rc
+rfork e
+
+webfs ; cd /tmp
+echo -n 'Downloading firmware...'
+hget http://firmware.openbsd.org/firmware/iwn-firmware-5.7.tgz > firmware.tgz
+echo -n 'extracting...'
+tar xzf firmware.tgz
+echo -n 'installing...'
+dircp firmware /lib/firmware
+echo -n 'cleaning up...'
+rm -rf firmware +CONTENTS +DESC
+echo 'done.'
