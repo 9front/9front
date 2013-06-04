@@ -126,6 +126,7 @@ struct Op {
 
 struct Frame {
 	int	tag;
+	int	cond;
 	char	*phase;
 	uchar	*start;
 	uchar	*end;
@@ -141,7 +142,6 @@ struct Frame {
 struct Interp {
 	uchar	*pc;
 	Frame	*fp;
-	int	cond;
 };
 
 static Interp	interp;
@@ -167,7 +167,7 @@ enum {
 	Ocfld, Ocfld0, Ocfld1, Ocfld2, Ocfld4, Ocfld8,
 	Oif, Oelse, Owhile, Obreak, Oret, Ocall, 
 	Ostore, Oderef, Osize, Oref, Ocref,
-	Oacq, Orel,
+	Oacq, Orel, Ostall, Osleep,
 };
 
 static Op optab[];
@@ -798,6 +798,7 @@ xec(uchar *pc, uchar *end, Name *dot, Env *env, void **pret){
 	FP = FB;
 
 	FP->tag = 0;
+	FP->cond = 0;
 	FP->narg = 0;
 	FP->phase = "}";
 	FP->start = PC;
@@ -812,7 +813,7 @@ xec(uchar *pc, uchar *end, Name *dot, Env *env, void **pret){
 		if((++loop & 127) == 0)
 			gc();
 		if(amldebug)
-			print("\n%.8p.%.2lx %-8s %d\t%N\t", PC, FP - FB, FP->phase, interp.cond, FP->dot);
+			print("\n%.8p.%.2lx %-8s\t%N\t", PC, FP - FB, FP->phase, FP->dot);
 		r = nil;
 		c = *FP->phase++;
 		switch(c){
@@ -1030,15 +1031,21 @@ evalbuf(void){
 static void*
 evalpkg(void){
 	Package *p;
+	void **x;
 	int n;
 
 	if(p = FP->ref){
-		n = sizeof(Package)+p->n*sizeof(void*);
-		if(n < SIZE(p))
-			p->a[p->n++] = FP->arg[0];
+		x = FP->aux;
+		if(x >= &p->a[0] && x < &p->a[p->n]){
+			*x++ = FP->arg[0];
+			FP->aux = x;
+		}
 	}else {
-		n = sizeof(Package)+ival(FP->arg[0])*sizeof(void*);
-		p = mk('p', n);
+		n = ival(FP->arg[0]);
+		if(n < 0) n = 0;
+		p = mk('p', sizeof(Package) + n*sizeof(void*));
+		p->n = n;
+		FP->aux = p->a;
 		FP->ref = p;
 	}
 	return p;
@@ -1244,12 +1251,16 @@ static void*
 evalcond(void){
 	switch(FP->op - optab){
 	case Oif:
-		interp.cond = ival(FP->arg[0]) != 0;
-		if(!interp.cond)
+		if(FP <= FB)
+			break;
+		FP[-1].cond = ival(FP->arg[0]) != 0;
+		if(!FP[-1].cond)
 			PC = FP->end;
 		break;
 	case Oelse:
-		if(interp.cond)
+		if(FP <= FB)
+			break;
+		if(FP[-1].cond)
 			PC = FP->end;
 		break;
 	case Owhile:
@@ -1261,8 +1272,7 @@ evalcond(void){
 			return nil;
 		}
 		FP->aux = FP->end;
-		interp.cond = ival(FP->arg[0]) != 0;
-		if(!interp.cond){
+		if(ival(FP->arg[0]) == 0){
 			PC = FP->end;
 			break;
 		}
@@ -1616,6 +1626,8 @@ static Op optab[] = {
 
 	[Oacq]		"Acquire",		"@2",		evalnop,
 	[Orel]		"Release",		"@",		evalnop,
+	[Ostall]	"Stall",		"i",		evalnop,
+	[Osleep]	"Sleep",		"i",		evalnop,
 };
 
 static uchar octab1[] = {
@@ -1658,7 +1670,7 @@ static uchar octab2[] = {
 /* 08 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 10 */	Obad,	Obad,	Ocref,	Ocfld,	Obad,	Obad,	Obad,	Obad,
 /* 18 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
-/* 20 */	Obad,	Obad,	Obad,	Oacq,	Obad,	Obad,	Obad,	Orel,
+/* 20 */	Obad,	Ostall,	Osleep,	Oacq,	Obad,	Obad,	Obad,	Orel,
 /* 28 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 30 */	Obad,	Odebug,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 38 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
@@ -1801,7 +1813,7 @@ amleval(void *dot, char *fmt, ...){
 	int i;
 
 	va_start(a, fmt);
-	e = *fmt ? mk('E', sizeof(Env)) : nil;
+	e = mk('E', sizeof(Env));
 	for(i=0;*fmt;fmt++){
 		switch(*fmt){
 		case 's':
