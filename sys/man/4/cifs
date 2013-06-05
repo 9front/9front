@@ -43,7 +43,7 @@ The arguments are:
 .BI -a " auth-method"
 .I Cifs
 authenticates using
-.L BNTLM
+.B ntlmv2
 by default, but alternative strategies may be
 selected using this option.
 .I Cifs
@@ -56,7 +56,7 @@ if no method name is supplied.
 .IP
 .I "Windows server 2003"
 requires the
-.B BNTLMv2
+.B ntlmv2
 method by default, though it can be configured to be more flexible.
 .TP
 .B -b
