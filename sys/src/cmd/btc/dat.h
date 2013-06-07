@@ -4,6 +4,7 @@ typedef struct DirEntry DirEntry;
 enum
 {
 	TROOT,
+	TBLOCKS,
 	TADDR,
 	TADDRSUB,
 	TADDRTX,
