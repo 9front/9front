@@ -38,8 +38,14 @@ struct Tbl {
 };
 
 static Rsd *rsd;
-static int ntbltab;
-static Tbl *tbltab[64];
+
+/* physical addresses visited by maptable() */
+static int ntblpa;
+static uintptr tblpa[64];
+
+/* successfully mapped tables */
+static int ntblmap;
+static Tbl *tblmap[64];
 
 void*
 amlalloc(int n){
@@ -79,16 +85,6 @@ tbldlen(Tbl *t){
 	return get32(t->len) - sizeof(Tbl);
 }
 
-
-static Tbl*
-findtable(void *sig){
-	int i;
-	for(i=0; i<ntbltab; i++)
-		if(memcmp(tbltab[i]->sig, sig, 4) == 0)
-			return tbltab[i];
-	return nil;
-}
-
 static void
 maptable(uvlong xpa)
 {
@@ -96,16 +92,24 @@ maptable(uvlong xpa)
 	uintptr pa;
 	u32int l;
 	Tbl *t;
+	int i;
 
 	pa = xpa;
 	if((uvlong)pa != xpa || pa == 0)
 		return;
-	if(ntbltab >= nelem(tbltab))
+	if(ntblpa >= nelem(tblpa) || ntblmap >= nelem(tblmap))
 		return;
+
+	for(i=0; i<ntblpa; i++){
+		if(pa == tblpa[i])
+			return;
+	}
+	tblpa[ntblpa++] = pa;
+
 	if((t = vmap(pa, 8)) == nil)
 		return;
 	l = get32(t->len);
-	if(l < sizeof(Tbl) || findtable(t->sig)){
+	if(l < sizeof(Tbl)){
 		vunmap(t, 8);
 		return;
 	}
@@ -116,8 +120,7 @@ maptable(uvlong xpa)
 		vunmap(t, l);
 		return;
 	}
-
-	tbltab[ntbltab++] = t;
+	tblmap[ntblmap++] = t;
 
 	p = (uchar*)t;
 	e = p + l;
@@ -145,7 +148,7 @@ maptable(uvlong xpa)
 static void
 maptables(void)
 {
-	if(rsd == nil || ntbltab > 0)
+	if(rsd == nil || ntblmap > 0 || ntblpa > 0)
 		return;
 	if(!checksum(rsd, 20))
 		maptable(get32(rsd->raddr));
@@ -340,17 +343,34 @@ acpiinit(void)
 
 	amlinit();
 
-	if(t = findtable("DSDT"))
-		amlload(t->data, tbldlen(t));
-	if(t = findtable("SSDT"))
-		amlload(t->data, tbldlen(t));
+	/* load DSDT */
+	for(i=0; i<ntblmap; i++){
+		t = tblmap[i];
+		if(memcmp(t->sig, "DSDT", 4) == 0){
+			amlload(t->data, tbldlen(t));
+			break;
+		}
+	}
+
+	/* load SSDT, there can be multiple tables */
+	for(i=0; i<ntblmap; i++){
+		t = tblmap[i];
+		if(memcmp(t->sig, "SSDT", 4) == 0)
+			amlload(t->data, tbldlen(t));
+	}
 
 	/* set APIC mode */
 	amleval(amlwalk(amlroot, "_PIC"), "i", 1, nil);
 
-	if((t = findtable("APIC")) == nil)
-		panic("acpiinit: no MADT table");
+	for(i=0; i<ntblmap; i++){
+		t = tblmap[i];
+		if(memcmp(t->sig, "APIC", 4) == 0)
+			goto Foundapic;
+	}
+	panic("acpiinit: no MADT (APIC) table");
+	return;
 
+Foundapic:
 	p = t->data;
 	e = p + tbldlen(t);
 	lapicbase = get32(p); p += 8;
@@ -461,8 +481,8 @@ readtbls(Chan*, void *v, long n, vlong o)
 	maptables();
 
 	p = v;
-	for(i=0; n > 0 && i < ntbltab; i++){
-		t = tbltab[i];
+	for(i=0; n > 0 && i < ntblmap; i++){
+		t = tblmap[i];
 		l = get32(t->len);
 		if(o >= l){
 			o -= l;
