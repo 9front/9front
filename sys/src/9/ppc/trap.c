@@ -538,7 +538,7 @@ execregs(ulong entry, ulong ssize, ulong nargs)
 	ureg->usp = (ulong)sp;
 	ureg->pc = entry;
 	ureg->srr1 &= ~MSR_FP;		/* disable floating point */
-	up->fpstate = FPinit;
+
 	return USTKTOP-sizeof(Tos);		/* address of kernel/user shared data */
 }
 
