@@ -1753,6 +1753,7 @@ amlinit(void){
 	getname(amlroot, "_SB", 1);
 	getname(amlroot, "_TZ", 1);
 	getname(amlroot, "_SI", 1);
+	getname(amlroot, "_GL", 1);
 
 	if(n = getname(amlroot, "_REV", 1))
 		n->v = mki(2);
