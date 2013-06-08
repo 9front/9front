@@ -195,6 +195,8 @@ catchnote(void *, char *msg)
 		return 1;
 	if(strstr(msg, "alarm"))
 		return 1;
+	if(strstr(msg, "kill"))
+		exits("killed");
 	return 0;
 }
 
