@@ -15,9 +15,9 @@ TEXT	_mainp(SB), 1, $(16+NPRIVATES*4)
 
 	/* _tos = arg */
 	MOVW	R(arg), _tos(SB)
-	MOVW	$errno+12(SP), R1
+	MOVW	$errno-68(SP), R1
 	MOVW	R1, _errnoloc(SB)
-	MOVW	$private+16(SP), R1
+	MOVW	$private-64(SP), R1
 	MOVW	R1, _privates(SB)
 	MOVW	$NPRIVATES, R1
 	MOVW	R1, _nprivates(SB)
@@ -33,12 +33,12 @@ TEXT	_mainp(SB), 1, $(16+NPRIVATES*4)
 	BL	_envsetup(SB)
 
 	/* main(argc, argv, environ); */
+	MOVW	environ(SB), R(arg)
+	MOVW	R(arg), 12(R(sp))
 	MOVW	$inargv+0(FP), R(arg)
 	MOVW	R(arg), 8(R(sp))
 	MOVW	inargc-4(FP), R(arg)
 	MOVW	R(arg), 4(R(sp))
-	MOVW	environ(SB), R(arg)
-	MOVW	R(arg), 8(R(sp))
 	BL	main(SB)
 loop:
 	MOVW	R(arg), 4(R(sp))
