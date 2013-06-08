@@ -74,14 +74,16 @@ parsetx(String *str, JSON *j, JSON *l)
 char *
 balancestr(DirEntry *, Aux *a)
 {
-	char *s;
 	char buf[512];
 
 	sprint(buf, "http://blockchain.info/q/addressbalance/%s", a->addr);
-	s = graburl(buf);
-	if(s == nil)
-		return nil;
-	return s;
+	return graburl(buf);
+}
+
+char *
+blocksstr(DirEntry *, Aux *)
+{
+	return graburl("http://blockchain.info/q/getblockcount");
 }
 
 char *

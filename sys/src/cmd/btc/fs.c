@@ -10,13 +10,20 @@ Reqqueue *queue;
 static char *addrwalk(Fid *, char *, Qid *);
 char *balancestr(DirEntry *, Aux *);
 char *txstr(DirEntry *, Aux *);
+char *blocksstr(DirEntry *, Aux *);
 
 DirEntry entr[] = {
 	[TROOT] = {
 		.name = "",
 		.qid = {TROOT, 0, QTDIR},
 		.par = TROOT,
-		.sub = {TADDR},
+		.sub = {TADDR, TBLOCKS},
+	},
+	[TBLOCKS] = {
+		.name = "blocks",
+		.qid = {TBLOCKS, 0, 0},
+		.par = TROOT,
+		.str = blocksstr,
 	},
 	[TADDR] = {
 		.name = "addr",
