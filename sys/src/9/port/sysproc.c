@@ -17,6 +17,8 @@ extern void checkpagerefs(void);
 long
 sysr1(ulong*)
 {
+	if(!iseve())
+		error(Eperm);
 	checkpagerefs();
 	return 0;
 }
