@@ -36,6 +36,7 @@ ftpfs -q/ -a $user@$dom ftp.ietf.org
 # copy in new ones
 found=no
 LIB=/lib/rfc/drafts
+mkdir -p $LIB
 cd /n/ftp/internet-drafts
 for(i in *){
 	target=$i
