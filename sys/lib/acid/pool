@@ -246,9 +246,9 @@ gendumptree(f, in, s)
 
 	loop 1,in do {print(" ");}
 	print(s, " size ", f.size\D, " left ", f.left\X, " right ", f.right\X, "\n");
-	if f.left != 0 && f.left < 0x7FFFFFFF then
+	if f.left != 0 then
 		gendumptree(f.left, in+1, "l");
-	if f.right != 0 && f.right < 0x7FFFFFFF then
+	if f.right != 0 then
 		gendumptree(f.right, in+1, "r");
 }
 

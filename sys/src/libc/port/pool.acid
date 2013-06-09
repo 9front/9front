@@ -35,6 +35,8 @@ UTFmax = 3;
 Runesync = 128;
 Runeself = 128;
 Runeerror = 65533;
+Runemax = 65535;
+Runemask = 65535;
 sizeofFmt = 48;
 aggr Fmt
 {
@@ -503,7 +505,7 @@ complex Free checklist:t;
 complex Free checklist:q;
 complex Free checktree:t;
 complex Free ltreewalk:t;
-complex Free treelookup:t;
+complex Free ltreewalk:f;
 complex Free treeinsert:tree;
 complex Free treeinsert:node;
 complex Free treeinsert:loc;
