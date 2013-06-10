@@ -1,6 +1,7 @@
 CONF=pif
 CONFLIST=pif picpuf
-EXTRACOPIES=piestand lookout boundary # bovril
+EXTRACOPIES=
+#EXTRACOPIES=''piestand lookout boundary # bovril
 
 loadaddr=0x80008000
 

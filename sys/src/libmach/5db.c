@@ -247,13 +247,14 @@ armclass(long w)
 				op = 108;
 				break;
 			case 7:
-				if(((w >> 19) & 0x1) == 0)
+				if(((w >> 19) & 0x1) == 0){
 					if(((w >> 17) & 0x1) == 0)
 						op = 109 + ((w >> 16) & 0x4) +
 							((w >> 15) & 0x2) +
 							((w >> 7) & 0x1);
 					else if(((w >> 16) & 0x7) == 0x7)
 						op = 117;
+				}
 				else
 					switch((w >> 16) & 0x7){
 					case 0:
@@ -402,6 +403,16 @@ armdps(Opcode *o, Instr *i)
 		} else
 		if(i->op == 11) {
 			format("MOVW", i, "R%s, SPSR");
+			return;
+		}
+	}
+	if(i->rd == 15) {
+		if(i->op == 120) {
+			format("MOVW", i, "PSR, %x");
+			return;
+		} else 
+		if(i->op == 121) {
+			format("MOVW", i, "%x, PSR");
 			return;
 		}
 	}

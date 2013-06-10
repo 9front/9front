@@ -42,6 +42,26 @@ fpunoted(void)
 }
 
 void
+fpuprocrestore(Proc*)
+{
+	/*
+	 * The process has been rescheduled and is about to run.
+	 * Nothing to do here right now. If the process tries to use
+	 * the FPU again it will cause a Device Not Available
+	 * exception and the state will then be restored.
+	 */
+}
+
+void
+fpuprocfork(Proc*)
+{
+	/*
+	 * The current process has been forked, save and copy neccesary
+	 * state to child. Nothing to do here, child proc starts with FPinit.
+	 */
+}
+
+void
 fpuprocsave(Proc*)
 {
 	/*
@@ -50,17 +70,6 @@ fpuprocsave(Proc*)
 	 * About to go in to the scheduler.
 	 * If the process wasn't using the FPU
 	 * there's nothing to do.
-	 */
-}
-
-void
-fpuprocrestore(Proc*)
-{
-	/*
-	 * The process has been rescheduled and is about to run.
-	 * Nothing to do here right now. If the process tries to use
-	 * the FPU again it will cause a Device Not Available
-	 * exception and the state will then be restored.
 	 */
 }
 

@@ -33,6 +33,7 @@ ip
 	icmp
 	icmp6
 	ipmux
+	il
 
 misc
 	uartmini

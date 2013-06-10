@@ -172,6 +172,7 @@ extern void fpunotify(Ureg*);
 extern void fpuprocrestore(Proc*);
 extern void fpuprocsave(Proc*);
 extern void fpusysprocsetup(Proc*);
+extern void fpuprocfork(Proc*);
 extern int fpuemu(Ureg*);
 
 /*
