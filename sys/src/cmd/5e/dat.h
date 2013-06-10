@@ -8,6 +8,7 @@ enum {
 	NAMEMAX = 27,
 	NNOTE = 5,
 	SEGNUM = 8,
+	Nfpregs = 16,
 
 	flN = 1<<31,
 	flZ = 1<<30,
@@ -34,7 +35,7 @@ struct Process {
 	u32int CPSR;		/* status register */
 	
 	u32int FPSR;
-	long double F[8];
+	long double F[Nfpregs];
 
 	char errbuf[ERRMAX];
 	Fd *fd;			/* bitmap of OCEXEC files */
@@ -46,6 +47,8 @@ struct Process {
 	char notes[ERRMAX][NNOTE];
 	long notein, noteout;
 };
+
+int vfp;
 
 extern void **_privates;
 extern int _nprivates;

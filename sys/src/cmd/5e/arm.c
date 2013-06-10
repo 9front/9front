@@ -473,6 +473,12 @@ step(void)
 		fpaoperation(instr);
 	else if((instr & 0x0E000F10) == 0x0E000110)
 		fparegtransfer(instr);
+	else if(vfp && ((instr & 0x0F000A10) == 0x0E000A00))
+		vfpoperation(instr);
+	else if(vfp && ((instr & 0x0F000F10) == 0x0E000A10))
+		vfpregtransfer(instr);
+	else if(vfp && ((instr & 0x0F000A00) == 0x0D000A00))
+		vfprmtransfer(instr);
 	else
 		invalid(instr);
 }

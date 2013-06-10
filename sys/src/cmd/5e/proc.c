@@ -22,7 +22,10 @@ initproc(void)
 	plist.next = P;
 	P->prev = &plist;
 	P->next = &plist;
-	resetfpa();
+	if(vfp)
+		resetvfp();
+	else
+		resetfpa();
 }
 
 void
@@ -211,7 +214,10 @@ loadtext(char *file, int argc, char **argv)
 	close(fd);
 	fdclear(P->fd);
 	initstack(argc, argv);
-	resetfpa();
+	if(vfp)
+		resetvfp();
+	else
+		resetfpa();
 	return 0;
 }
 

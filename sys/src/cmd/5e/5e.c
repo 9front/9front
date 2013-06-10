@@ -48,7 +48,7 @@ cleanup(void)
 static void
 usage(void)
 {
-	fprint(2, "usage: 5e [-npb] text [...]\n");
+	fprint(2, "usage: 5e [-npbf] text [...]\n");
 	exits(nil);
 }
 
@@ -103,6 +103,7 @@ main(int argc, char **argv)
 	case 'n': nflag++; break;
 	case 'p': pflag++; break;
 	case 'b': bflag++; break;
+	case 'f': vfp = 1; break;
 	default: usage();
 	} ARGEND;
 	if(argc < 1)

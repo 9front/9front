@@ -35,4 +35,8 @@ void invalid(u32int);
 void fpatransfer(u32int);
 void fpaoperation(u32int);
 void fparegtransfer(u32int);
+void resetvfp(void);
+void vfpregtransfer(u32int);
+void vfprmtransfer(u32int);
+void vfpoperation(u32int);
 void inittos(void);
