@@ -69,6 +69,10 @@ struct Label
 	uintptr	pc;
 };
 
+enum{
+	Nfpctlregs = 16,
+};
+
 /*
  * emulated floating point
  */
@@ -76,7 +80,7 @@ struct FPsave
 {
 	ulong	status;
 	ulong	control;
-	ulong	regs[8][3];
+	ulong	regs[Nfpctlregs][3];
 
 	int	fpstate;
 };
