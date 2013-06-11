@@ -723,7 +723,6 @@ fpiarm(Ureg *ur)
 	ulong op, o, cp;
 	FPsave *ufp;
 	int i, n;
-	void (*fpemu)(ulong , ulong , Ureg *, FPsave *);
 
 	if(up == nil)
 		panic("fpiarm not in a process");
