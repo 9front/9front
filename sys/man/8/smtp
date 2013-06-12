@@ -6,7 +6,7 @@ smtp, smtpd \-  mail transport
 .ti -0.5i
 .B upas/smtp
 [
-.B -aAdfips
+.B -aAdfipst
 ] [
 .B -b
 .I busted-mx
@@ -118,6 +118,9 @@ don't send any mail.
 .B -s
 if the server supports the ESMTP extension to use TLS encryption, turn it on for
 this session.  See RFC3207 for details.
+.TP
+.B -t
+preemtively establish TLS connection before SMTP handshake (SMTPS).
 .TP
 .B -u
 specify a user name to be used in authentication.  The default name is

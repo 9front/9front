@@ -6,6 +6,7 @@
 #include <auth.h>
 
 static	char*	connect(char*);
+static	char*	wraptls(void);
 static	char*	dotls(char*);
 static	char*	doauth(char*);
 
@@ -26,7 +27,7 @@ int	printheader(void);
 void	putcrnl(char*, int);
 void	quit(char*);
 char*	rcptto(char*);
-char	*rewritezone(char *);
+char*	rewritezone(char *);
 
 #define Retry	"Retry, Temporary Failure"
 #define Giveup	"Permanent Failure"
@@ -151,6 +152,9 @@ main(int argc, char **argv)
 	case 's':
 		trysecure = 1;
 		break;
+	case 't':
+		trysecure = 2;
+		break;
 	case 'u':
 		user = EARGF(usage());
 		break;
@@ -217,7 +221,9 @@ main(int argc, char **argv)
 	/* 10 minutes to get through the initial handshake */
 	atnotify(timeout, 1);
 	alarm(10*alarmscale);
-	if((rv = hello(hellodomain, 0)) != 0)
+	if(trysecure > 1 && (rv = wraptls()) != nil)
+		goto error;
+	if((rv = hello(hellodomain, trysecure > 1)) != 0)
 		goto error;
 	alarm(10*alarmscale);
 	if((rv = mailfrom(s_to_c(from))) != 0)
@@ -313,13 +319,8 @@ connect(char* net)
 static char smtpthumbs[] =	"/sys/lib/tls/smtp";
 static char smtpexclthumbs[] =	"/sys/lib/tls/smtp.exclude";
 
-/*
- *  exchange names with remote host, attempt to
- *  enable encryption and optionally authenticate.
- *  not fatal if we can't.
- */
 static char *
-dotls(char *me)
+wraptls(void)
 {
 	TLSconn *c;
 	Thumbprint *goodcerts;
@@ -327,33 +328,27 @@ dotls(char *me)
 	int fd;
 	uchar hash[SHA1dlen];
 
-	c = mallocz(sizeof(*c), 1);	/* Note: not freed on success */
+	c = mallocz(sizeof(*c), 1);
 	if (c == nil)
-		return Giveup;
-
-	dBprint("STARTTLS\r\n");
-	if (getreply() != 2)
 		return Giveup;
 
 	fd = tlsClient(Bfildes(&bout), c);
 	if (fd < 0) {
 		syslog(0, "smtp", "tlsClient to %q: %r", ddomain);
+		free(c);
 		return Giveup;
 	}
 	goodcerts = initThumbprints(smtpthumbs, smtpexclthumbs);
 	if (goodcerts == nil) {
-		free(c);
-		close(fd);
 		syslog(0, "smtp", "bad thumbprints in %s", smtpthumbs);
+		close(fd);
+		free(c);
 		return Giveup;		/* how to recover? TLS is started */
 	}
-
 	/* compute sha1 hash of remote's certificate, see if we know it */
 	sha1(c->cert, c->certlen, hash, nil);
 	if (!okThumbprint(hash, goodcerts)) {
 		/* TODO? if not excluded, add hash to thumb list */
-		free(c);
-		close(fd);
 		h = malloc(2*sizeof hash + 1);
 		if (h != nil) {
 			enc16(h, 2*sizeof hash + 1, hash, sizeof hash);
@@ -363,9 +358,12 @@ dotls(char *me)
 				h, ddomain);
 			free(h);
 		}
+		close(fd);
+		free(c);
 		return Giveup;		/* how to recover? TLS is started */
 	}
 	freeThumbprints(goodcerts);
+	free(c);
 	Bterm(&bin);
 	Bterm(&bout);
 
@@ -378,6 +376,27 @@ dotls(char *me)
 	Binit(&bout, fd, OWRITE);
 
 	syslog(0, "smtp", "started TLS to %q", ddomain);
+	return nil;
+}
+
+/*
+ *  exchange names with remote host, attempt to
+ *  enable encryption and optionally authenticate.
+ *  not fatal if we can't.
+ */
+static char *
+dotls(char *me)
+{
+	char *err;
+
+	dBprint("STARTTLS\r\n");
+	if (getreply() != 2)
+		return Giveup;
+
+	err = wraptls();
+	if (err != nil)
+		return err;
+
 	return(hello(me, 1));
 }
 
