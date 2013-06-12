@@ -15,18 +15,11 @@
 #include	"arm.h"
 #include	"fpi.h"
 
-#define ARM7500			/* emulate old pre-VFP opcodes */
-
 /* undef this if correct kernel r13 isn't in Ureg;
  * check calculation in fpiarm below
  */
-
 #define	REG(ur, x) (*(long*)(((char*)(ur))+roff[(x)]))
-#ifdef ARM7500
-#define	FR(ufp, x) (*(Internal*)(ufp)->regs[(x)&7])
-#else
-#define	FR(ufp, x) (*(Internal*)(ufp)->regs[(x)&(Nfpregs - 1)])
-#endif
+#define	FR(ufp, x) (*(Internal*)(ufp)->regs[(x)&(Nfpctlregs - 1)])
 
 typedef struct FP2 FP2;
 typedef struct FP1 FP1;
@@ -192,6 +185,24 @@ static	FP2	optab2[16] = {	/* Fd := Fn OP Fm */
 /* POL deprecated */
 };
 
+/*
+ * ARM VFP opcodes
+ */
+
+static	FP1	voptab1[32] = {	/* Vd := OP Vm */
+[0]	{"MOVF",	fmov},
+[1]	{"ABSF",	fabsf},
+[2]	{"NEGF",	fmovn},
+[15]	{"CVTF",	fmov},
+};
+
+static	FP2	voptab2[16] = {	/* Vd := Vn FOP Fm */
+[4]	{"MULF",	fmul},
+[6]	{"ADDF",	fadd},
+[7]	{"SUBF",	fsub},
+[8]	{"DIVF",	fdiv},
+};
+
 static ulong
 fcmp(Internal *n, Internal *m)
 {
@@ -292,7 +303,7 @@ unimp(ulong pc, ulong op)
 }
 
 static void
-fpemu(ulong pc, ulong op, Ureg *ur, FPsave *ufp)
+fpaemu(ulong pc, ulong op, Ureg *ur, FPsave *ufp)
 {
 	int rn, rd, tag, o;
 	long off;
@@ -458,6 +469,174 @@ fpemu(ulong pc, ulong op, Ureg *ur, FPsave *ufp)
 	}
 }
 
+static void
+vfpoptoi(Internal *fm, uchar o2, uchar o4)
+{
+	fm->s = o2>>3;
+	fm->e = ((o2>>3) | ~(o2 & 4)) - 3 + ExpBias;
+	fm->l = 0;
+	fm->h = o4 << (20+NGuardBits);
+	if(fm->e)
+		fm->h |= HiddenBit;
+	else
+		fm->e++;
+}
+
+static void
+vfpemu(ulong pc, ulong op, Ureg *ur, FPsave *ufp)
+{
+	int sz, vd, o1, o2, o3, o4, o, tag;
+	long off;
+	ulong ea;
+	Word w;
+	
+	Internal *fm, fc;
+
+	/* note: would update fault status here if we noted numeric exceptions */
+
+	sz = op & (1<<8);
+	o1 = (op>>20) & 0xF;
+	o2 = (op>>16) & 0xF;
+	vd = (op>>12) & 0xF;
+
+	switch((op>>24) & 0xF){
+	default:
+		unimp(pc, op);
+	case 0xD:
+		/* 
+		 * Extension Register load/store A7.6 
+		 */
+		off = (op&0xFF)<<2;
+		if((op & (1<<23)) == 0)
+			off = -off;
+		ea = REG(ur, o2) + off;
+		switch(o1&0x7){	/* D(Bit 22) = 0 (5l) */
+		default:
+			unimp(pc, op);
+		case 0:
+			if(sz)
+				fst(fpii2d, ea, vd, sz, ufp);
+			else
+				fst(fpii2s, ea, vd, sz, ufp);
+			break;
+		case 1:
+			if(sz)
+				fld(fpid2i, vd, ea, sz, ufp);
+			else
+				fld(fpis2i, vd, ea, sz, ufp);
+			break;
+		}
+		break;
+	case 0xE:
+		if(op & (1<<4)){
+			/* 
+			 * Register transfer between Core & Extension A7.8
+			 */
+			if(sz)	/* C(Bit 8) != 0 */
+				unimp(pc, op);
+			switch(o1){
+			default:
+				unimp(pc, op);
+			case 0:	/* Fn := Rt */
+				*((Word*)&FR(ufp, o2)) = REG(ur, vd);
+				if(fpemudebug)
+					print("MOVWF	R%d, F%d\n", vd, o2);
+				break;
+			case 1:	/* Rt := Fn */
+				REG(ur, vd) = *((Word*)&FR(ufp, o2));
+				if(fpemudebug)
+					print("MOVFW	F%d, R%d =%ld\n", o2, vd, REG(ur, vd));
+				break;
+			case 0xE:	/* FPSCR := Rt */
+				ufp->status = REG(ur, vd);
+				if(fpemudebug)
+					print("MOVW	R%d, FPSCR\n", vd);
+				break;
+			case 0xF:	/* Rt := FPSCR */
+				if(vd == 0xF){
+					ur->psr = ufp->status;
+					if(fpemudebug)
+						print("MOVW	FPSCR, PSR\n");
+				}else{
+					REG(ur, vd) = ufp->status;
+					if(fpemudebug)
+						print("MOVW	FPSCR, R%d\n", vd);
+				}
+				break;
+			}
+		}
+		else{
+			/*
+			 * VFP data processing instructions A7.5
+			 * Note: As per 5l we ignore (D, N, M) bits
+			 */
+			if(fpemudebug)
+				tag = 'F';
+			o3 = (op>>6) & 0x3;
+			o4 = op & 0xF;
+			fm = &FR(ufp, o4);
+
+			if(o1 == 0xB){	/* A7-17 */
+				if(o3 & 0x1){
+					switch(o2){
+					default:
+						o = (o2<<1) | (o3>>1);
+						break;
+					case 0x8:	/* CVT int -> float/double */
+						w = *((Word*)fm);
+						fpiw2i(&FR(ufp, vd), &w);
+						if(fpemudebug)
+							print("CVTW%c	F%d, F%d\n", sz?'D':'F', o4, vd);
+						return;
+					case 0xD:	/* CVT float/double -> int */
+						fpii2w(&w, fm);
+						*((Word*)&FR(ufp, vd)) = w;
+						if(fpemudebug)
+							print("CVT%cW	F%d, F%d\n", sz?'D':'F', o4, vd);
+						return;
+					case 0x5:	/* CMPF(E) */
+							fm = &fpconst[0];
+							if(fpemudebug)
+								tag = 'C';
+					case 0x4:	/* CMPF(E) */
+						ufp->status &= ~(N|C|Z|V);
+						ufp->status |= fcmp(&FR(ufp, vd), fm);
+						if(fpemudebug)
+							print("CMPF	%c%d,F%d =%#lux\n",
+									tag, (o2&0x1)? 0: o4, vd, ufp->status>>28);
+						return;
+					}
+				}else{	/* VMOV imm (VFPv3 & v4) (5l doesn't generate) */
+					vfpoptoi(&fc, o2, o4);
+					fm = &fc;
+					o = 0;
+					if(fpemudebug)
+						tag = 'C';
+				}
+				FP1 *vfp;
+				vfp = &voptab1[o];
+				if(vfp->f == nil)
+					unimp(pc, op);
+				if(fpemudebug)
+					print("%s	%c%d,F%d\n", vfp->name, tag, o4, vd);
+				(*vfp->f)(fm, &FR(ufp, vd));
+			}
+			else {	/* A7-16 */
+				FP2 *vfp;
+				o = ((o1&0x3)<<1) | (o1&0x8) | (o3&0x1);
+				vfp = &voptab2[o];
+				if(vfp->f == nil)
+					unimp(pc, op);
+				if(fpemudebug)
+					print("%s	F%d,F%d,F%d\n", vfp->name, o4, o2, vd);
+				(*vfp->f)(*fm, FR(ufp, o2), &FR(ufp, vd));
+			}
+		}
+		break;
+	}
+}
+
+
 /*
  * returns the number of FP instructions emulated
  */
@@ -467,6 +646,7 @@ fpiarm(Ureg *ur)
 	ulong op, o, cp;
 	FPsave *ufp;
 	int n;
+	void (*fpemu)(ulong , ulong , Ureg *, FPsave *);
 
 	if(up == nil)
 		panic("fpiarm not in a process");
@@ -484,7 +664,7 @@ fpiarm(Ureg *ur)
 		up->fpstate = FPemu;
 		ufp->control = 0;
 		ufp->status = (0x01<<28)|(1<<12); /* sw emulation, alt. C flag */
-		for(n = 0; n < 8; n++)
+		for(n = 0; n < Nfpctlregs; n++)
 			FR(ufp, n) = fpconst[0];
 	}
 	for(n=0; ;n++){
@@ -494,10 +674,15 @@ fpiarm(Ureg *ur)
 			print("%#lux: %#8.8lux ", ur->pc, op);
 		o = (op>>24) & 0xF;
 		cp = (op>>8) & 0xF;
-		if(!ISFPAOP(cp, o))
+		if(ISFPAOP(cp, o))
+			fpemu = fpaemu;
+		else if(ISVFPOP(cp, o))
+			fpemu = vfpemu;
+		else
 			break;
 		if(condok(ur->psr, op>>28))
 			fpemu(ur->pc, op, ur, ufp);
+		
 		ur->pc += 4;		/* pretend cpu executed the instr */
 	}
 	if(fpemudebug)

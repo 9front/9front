@@ -26,9 +26,15 @@
 #define PsrZ		0x40000000		/* zero */
 #define PsrN		0x80000000		/* negative/less than */
 
+/* instruction decoding */
+#define ISCPOP(op)	((op) == 0xE || ((op) & ~1) == 0xC)
+#define ISFPAOP(cp, op)	((cp) == CpOFPA && ISCPOP(op))
+#define ISVFPOP(cp, op)	(((cp) == CpDFP || (cp) == CpFP) && ISCPOP(op))
+
 /*
  * Coprocessors
  */
+#define CpOFPA		1			/* ancient 7500 FPA */
 #define CpFP		10			/* float FP, VFP cfg. */
 #define CpDFP		11			/* double FP */
 #define CpSC		15			/* System Control */
