@@ -749,8 +749,10 @@ fpiarm(Ureg *ur)
 		for(i = 0; specialopc[i].f; i++)
 			if((op & specialopc[i].mask) == specialopc[i].opc)
 				break;
-		if(specialopc[i].f)
-			specialopc[i].f(ur->pc, op, ur);
+		if(specialopc[i].f){
+			if(condok(ur->psr, op>>28))
+				specialopc[i].f(ur->pc, op, ur);
+		}
 		else if(ISVFPOP(cp, o)){
 			if(condok(ur->psr, op>>28))
 				vfpemu(ur->pc, op, ur, ufp);
