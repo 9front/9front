@@ -280,6 +280,7 @@ recvassoc(Wifi *wifi, Wnode *wn, uchar *d, int len)
 static void
 recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
 {
+	static uchar wpa1oui[4] = { 0x00, 0x50, 0xf2, 0x01 };
 	uchar *e, *x;
 	uchar t, m[256/8];
 
@@ -304,7 +305,7 @@ recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
 		m[t/8] |= 1<<(t%8);
 
 		switch(t){
-		case 0:	/* SSID */
+		case 0x00:	/* SSID */
 			len = 0;
 			while(len < Essidlen && d+len < x && d[len] != 0)
 				len++;
@@ -315,9 +316,19 @@ recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
 				wn->ssid[len] = 0;
 			}
 			break;
-		case 3:	/* DSPARAMS */
+		case 0x03:	/* DSPARAMS */
 			if(d != x)
 				wn->channel = d[0];
+			break;
+		case 0xdd:	/* vendor specific */
+			len = x - d;
+			if(len < sizeof(wpa1oui) || memcmp(d, wpa1oui, sizeof(wpa1oui)) != 0)
+				break;
+			/* no break */
+		case 0x30:	/* RSN information */
+			len = x - &d[-2];
+			memmove(wn->brsne, &d[-2], len);
+			wn->brsnelen = len;
 			break;
 		}
 	}
@@ -655,8 +666,20 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 
 	p = seprint(p, e, "status: %s\n", wifi->status);
 	p = seprint(p, e, "essid: %s\n", wifi->essid);
+
 	wn = wifi->bss;
-	p = seprint(p, e, "bssid: %E\n", wn != nil ? wn->bssid : zeros);
+	if(wn != nil){
+		p = seprint(p, e, "bssid: %E\n", wn->bssid);
+		if(wn->brsnelen > 0){
+			int i;
+
+			p = seprint(p, e, "brsne: ");
+			for(i=0; i<wn->brsnelen; i++)
+				p = seprint(p, e, "%.2X", wn->brsne[i]);
+			p = seprint(p, e, "\n");
+		}
+		p = seprint(p, e, "channel: %.2d\n", wn->channel);
+	}
 
 	now = MACHP(0)->ticks;
 	for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){

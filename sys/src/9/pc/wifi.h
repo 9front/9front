@@ -27,15 +27,18 @@ struct Wnode
 	char	ssid[Essidlen+2];
 
 	int	rsnelen;
-	uchar	rsne[256];
+	uchar	rsne[258];
 	Wkey	txkey[1];
 	Wkey	rxkey[5];
 
+	/* stuff from beacon */
 	int	ival;
 	int	cap;
 	int	aid;
 	int	channel;
 	long	lastseen;
+	int	brsnelen;
+	uchar	brsne[258];
 };
 
 struct Wifi
