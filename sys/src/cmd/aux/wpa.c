@@ -208,7 +208,7 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 	if(rsne[0] == 0x30){
 		if(memcmp(p, rsnccmpoui, 4) == 0)
 			groupcipher = &ccmp;
-		else if(memcmp(p, rsnccmpoui, 4) == 0)
+		else if(memcmp(p, rsntkipoui, 4) == 0)
 			groupcipher = &tkip;
 		else {
 			sysfatal("unrecognized RSN group cipher; brsne: %s", buf);
