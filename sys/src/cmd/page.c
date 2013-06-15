@@ -1360,7 +1360,7 @@ docmd(int i, Mouse *m)
 			break;
 		o = subpt(m->xy, screen->r.min);
 		if(i == Czoomin){
-			if(zoom < 0x40000000){
+			if(zoom < 0x1000){
 				zoom *= 2;
 				pos =  addpt(mulpt(subpt(pos, o), 2), o);
 			}
