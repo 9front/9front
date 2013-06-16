@@ -794,8 +794,12 @@ mountio(Mnt *m, Mntrpc *r)
 	if(m->msize == 0)
 		panic("msize");
 	n = convS2M(&r->request, r->rpc, m->msize);
-	if(n < 0)
-		panic("bad message type in mountio");
+	if(n <= 0){
+		print("mountio: proc %s %lud: convS2M returned %d for tag %d fid %d T%d\n",
+			up->text, up->pid, n, r->request.tag, r->request.fid, r->request.type);
+		error(Emountrpc);
+	}
+		
 	if(devtab[m->c->type]->write(m->c, r->rpc, n, 0) != n)
 		error(Emountrpc);
 	r->stime = fastticks(nil);
