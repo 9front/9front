@@ -677,10 +677,12 @@ main(int argc, char *argv[])
 				center();
 				break;
 			case '+':
-				setzoom(e.mouse.xy, zoom*2);
+				if(zoom < 0x1000)
+					setzoom(e.mouse.xy, zoom*2);
 				break;
 			case '-':
-				setzoom(e.mouse.xy, zoom/2);
+				if(zoom > 1)
+					setzoom(e.mouse.xy, zoom/2);
 				break;
 			case 'c':
 				if(canvas == nil)
