@@ -228,7 +228,7 @@ drawclip(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, 
 	int splitcoords;
 	Rectangle omr;
 
-	if(r->min.x>=r->max.x || r->min.y>=r->max.y)
+	if(badrect(*r))
 		return 0;
 	splitcoords = (p0->x!=p1->x) || (p0->y!=p1->y);
 	/* clip to destination */

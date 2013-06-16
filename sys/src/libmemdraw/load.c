@@ -10,7 +10,7 @@ loadmemimage(Memimage *i, Rectangle r, uchar *data, int ndata)
 	Memdrawparam par;
 	uchar *q;
 
-	if(!rectinrect(r, i->r))
+	if(badrect(r) || !rectinrect(r, i->r))
 		return -1;
 
 	memset(&par, 0, sizeof par);
