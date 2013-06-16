@@ -681,8 +681,9 @@ fsrun(void *v)
 		}
 		free(d);
 		r = allocreq(fs, messagesize);
-		n = read9pmsg(fs->fd, r->buf, messagesize);
-		if(n <= 0)
+		while((n = read9pmsg(fs->fd, r->buf, messagesize)) == 0)
+			;
+		if(n < 0)
 			fatal("unmounted");
 
 		if(convM2S(r->buf, n, &r->f) == 0){

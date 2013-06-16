@@ -430,8 +430,9 @@ io(void)
 	while(!stop){
 		procsetname("%d %s/dns Twrites of %d 9p rpcs read; %d alarms",
 			stats.qrecvd9p, mntpt, stats.qrecvd9prpc, stats.alarms);
-		n = read9pmsg(mfd[0], mdata, sizeof mdata);
-		if(n<=0){
+		while((n = read9pmsg(mfd[0], mdata, sizeof mdata)) == 0)
+			;
+		if(n < 0){
 			dnslog("error reading 9P from %s: %r", mntpt);
 			sleep(2000);	/* don't thrash after read error */
 			return;

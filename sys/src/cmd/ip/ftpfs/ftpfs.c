@@ -262,12 +262,14 @@ io(void)
 
 	while(!dying){
 		n = read9pmsg(mfd, mdata, messagesize);
-		if(n <= 0){
+		if(n < 0){
 			errstr(buf, sizeof buf);
 			if(buf[0]=='\0' || strstr(buf, "hungup"))
 				exits("");
 			fatal("mount read: %s\n", buf);
 		}
+		if(n == 0)
+			continue;
 		if(convM2S(mdata, n, &thdr) == 0)
 			continue;
 

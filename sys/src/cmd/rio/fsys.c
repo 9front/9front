@@ -194,8 +194,9 @@ filsysproc(void *arg)
 	x = nil;
 	for(;;){
 		buf = emalloc(messagesize+UTFmax);	/* UTFmax for appending partial rune in xfidwrite */
-		n = read9pmsg(fs->sfd, buf, messagesize);
-		if(n <= 0){
+		while((n = read9pmsg(fs->sfd, buf, messagesize)) == 0)
+			yield();
+		if(n < 0){
 			yield();	/* if threadexitsall'ing, will not return */
 			fprint(2, "rio: %d: read9pmsg: %d %r\n", getpid(), n);
 			errorshouldabort = 0;

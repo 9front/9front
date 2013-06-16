@@ -149,8 +149,9 @@ exportproc(Export *fs)
 		errdepth(ed);
 		q = smalloc(sizeof(Exq));
 
-		n = read9pmsg(fs->io, q->buf, Maxrpc);
-		if(n <= 0 || convM2S(q->buf, n, &q->rpc) != n)
+		while((n = read9pmsg(fs->io, q->buf, Maxrpc)) == 0)
+			;
+		if(n < 0 || convM2S(q->buf, n, &q->rpc) != n)
 			goto bad;
 
 		if(exdebug)

@@ -444,8 +444,10 @@ io(void)
 
 	for(;;){
 		n = read9pmsg(mfd[0], mdata, sizeof mdata);
-		if(n<=0)
+		if(n < 0)
 			error("mount read");
+		if(n == 0)
+			continue;
 		job = newjob();
 		if(convM2S(mdata, n, &job->request) != n){
 			syslog(1, logfile, "format error %ux %ux %ux %ux %ux",
