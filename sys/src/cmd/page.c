@@ -1241,12 +1241,9 @@ showext(Page *p)
 	if(p->ext == nil)
 		return;
 	snprint(label, sizeof(label), "%s %s", p->ext, p->label);
-	if(p->image){
-		ps = subpt(p->image->r.max, p->image->r.min);
-		ps.x += 24;
-		ps.y += 24;
-	} else
-		ps = subpt(screen->r.max, screen->r.min);
+	ps = Pt(0, 0);
+	if(p->image)
+		ps = addpt(subpt(p->image->r.max, p->image->r.min), Pt(24, 24));
 	drawlock(0);
 	if((fd = p->fd) < 0){
 		if(p->open != popenfile)
@@ -1257,13 +1254,15 @@ showext(Page *p)
 		seek(fd, 0, 0);
 	}
 	if(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG|RFNAMEG|RFNOWAIT) == 0){
-		snprint(buf, sizeof(buf), "-pid %d -dx %d -dy %d", getpid(), ps.x, ps.y);
+		snprint(buf, sizeof(buf), "-pid %d", getpid());
 		if(newwindow(buf) != -1){
 			dupfds(fd, 1, 2, -1);
 			if((fd = open("/dev/label", OWRITE)) >= 0){
 				write(fd, label, strlen(label));
 				close(fd);
 			}
+			if(ps.x && ps.y)
+				resizewin(ps);
 			argv[0] = "rc";
 			argv[1] = "-c";
 			argv[2] = p->ext;
