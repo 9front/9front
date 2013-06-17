@@ -810,8 +810,9 @@ threadmain(int argc, char **argv)
 	if(argc != 1)
 		usage();
 
-	d = getdev(atoi(*argv));
-	if(findendpoints(d, &ei, &eo)  < 0)
+	if((d = getdev(atoi(*argv))) == nil)
+		sysfatal("getdev: %r");
+	if(findendpoints(d, &ei, &eo) < 0)
 		sysfatal("no endpoints found");
 
 	werrstr("");
