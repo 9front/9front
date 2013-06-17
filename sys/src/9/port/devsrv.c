@@ -25,9 +25,11 @@ static Srv*
 srvlookup(char *name, ulong qidpath)
 {
 	Srv *sp;
-	for(sp = srv; sp; sp = sp->link)
-		if(sp->path == qidpath || (name && strcmp(sp->name, name) == 0))
+
+	for(sp = srv; sp != nil; sp = sp->link) {
+		if(sp->path == qidpath || (name != nil && strcmp(sp->name, name) == 0))
 			return sp;
+	}
 	return nil;
 }
 
@@ -43,13 +45,13 @@ srvgen(Chan *c, char *name, Dirtab*, int, int s, Dir *dp)
 	}
 
 	qlock(&srvlk);
-	if(name)
+	if(name != nil)
 		sp = srvlookup(name, -1);
 	else {
-		for(sp = srv; sp && s; sp = sp->link)
+		for(sp = srv; sp != nil && s > 0; sp = sp->link)
 			s--;
 	}
-	if(sp == 0 || name && (strlen(sp->name) >= sizeof(up->genbuf))) {
+	if(sp == nil || (name != nil && (strlen(sp->name) >= sizeof(up->genbuf)))) {
 		qunlock(&srvlk);
 		return -1;
 	}
@@ -91,19 +93,25 @@ srvname(Chan *c)
 	Srv *sp;
 	char *s;
 
-	for(sp = srv; sp; sp = sp->link)
+	s = nil;
+	qlock(&srvlk);
+	for(sp = srv; sp != nil; sp = sp->link) {
 		if(sp->chan == c){
-			s = smalloc(3+strlen(sp->name)+1);
-			sprint(s, "#s/%s", sp->name);
-			return s;
+			s = malloc(3+strlen(sp->name)+1);
+			if(s != nil)
+				sprint(s, "#s/%s", sp->name);
+			break;
 		}
-	return nil;
+	}
+	qunlock(&srvlk);
+	return s;
 }
 
 static Chan*
 srvopen(Chan *c, int omode)
 {
 	Srv *sp;
+	Chan *nc;
 
 	if(c->qid.type == QTDIR){
 		if(omode & ORCLOSE)
@@ -122,7 +130,7 @@ srvopen(Chan *c, int omode)
 	}
 
 	sp = srvlookup(nil, c->qid.path);
-	if(sp == 0 || sp->chan == 0)
+	if(sp == nil || sp->chan == nil)
 		error(Eshutdown);
 
 	if(omode&OTRUNC)
@@ -131,17 +139,19 @@ srvopen(Chan *c, int omode)
 		error(Eperm);
 	devpermcheck(sp->owner, sp->perm, omode);
 
-	cclose(c);
-	incref(sp->chan);
+	nc = sp->chan;
+	incref(nc);
+
 	qunlock(&srvlk);
 	poperror();
-	return sp->chan;
+
+	cclose(c);
+	return nc;
 }
 
 static Chan*
 srvcreate(Chan *c, char *name, int omode, ulong perm)
 {
-	char *sname;
 	Srv *sp;
 
 	if(openmode(omode) != OWRITE)
@@ -151,35 +161,35 @@ srvcreate(Chan *c, char *name, int omode, ulong perm)
 		error(Etoolong);
 
 	sp = smalloc(sizeof *sp);
-	sname = smalloc(strlen(name)+1);
+	kstrdup(&sp->name, name);
+	kstrdup(&sp->owner, up->user);
 
 	qlock(&srvlk);
 	if(waserror()){
-		free(sp);
-		free(sname);
 		qunlock(&srvlk);
+		free(sp->owner);
+		free(sp->name);
+		free(sp);
 		nexterror();
 	}
-	if(sp == nil || sname == nil)
-		error(Enomem);
-	if(srvlookup(name, -1))
+	if(srvlookup(name, -1) != nil)
 		error(Eexist);
 
+	sp->perm = perm&0777;
 	sp->path = qidpath++;
-	sp->link = srv;
-	strcpy(sname, name);
-	sp->name = sname;
-	c->qid.type = QTFILE;
+
 	c->qid.path = sp->path;
+	c->qid.type = QTFILE;
+
+	sp->link = srv;
 	srv = sp;
+
 	qunlock(&srvlk);
 	poperror();
 
-	kstrdup(&sp->owner, up->user);
-	sp->perm = perm&0777;
-
 	c->flag |= COPEN;
 	c->mode = OWRITE;
+
 	return c;
 }
 
@@ -197,13 +207,12 @@ srvremove(Chan *c)
 		nexterror();
 	}
 	l = &srv;
-	for(sp = *l; sp; sp = sp->link) {
+	for(sp = *l; sp != nil; sp = *l) {
 		if(sp->path == c->qid.path)
 			break;
-
 		l = &sp->link;
 	}
-	if(sp == 0)
+	if(sp == nil)
 		error(Enonexist);
 
 	/*
@@ -219,10 +228,12 @@ srvremove(Chan *c)
 		error(Eperm);
 
 	*l = sp->link;
+	sp->link = nil;
+
 	qunlock(&srvlk);
 	poperror();
 
-	if(sp->chan)
+	if(sp->chan != nil)
 		cclose(sp->chan);
 	free(sp->owner);
 	free(sp->name);
@@ -233,45 +244,52 @@ static int
 srvwstat(Chan *c, uchar *dp, int n)
 {
 	char *strs;
-	Dir d;
 	Srv *sp;
+	Dir d;
 
 	if(c->qid.type & QTDIR)
 		error(Eperm);
 
-	strs = nil;
+	strs = smalloc(n);
+	if(waserror()){
+		free(strs);
+		nexterror();
+	}
+	n = convM2D(dp, n, &d, strs);
+	if(n == 0)
+		error(Eshortstat);
+
 	qlock(&srvlk);
 	if(waserror()){
 		qunlock(&srvlk);
-		free(strs);
 		nexterror();
 	}
 
 	sp = srvlookup(nil, c->qid.path);
-	if(sp == 0)
+	if(sp == nil)
 		error(Enonexist);
 
 	if(strcmp(sp->owner, up->user) != 0 && !iseve())
 		error(Eperm);
 
-	strs = smalloc(n);
-	n = convM2D(dp, n, &d, strs);
-	if(n == 0)
-		error(Eshortstat);
 	if(d.mode != ~0UL)
 		sp->perm = d.mode & 0777;
-	if(d.uid && *d.uid)
-		kstrdup(&sp->owner, d.uid);
-	if(d.name && *d.name && strcmp(sp->name, d.name) != 0) {
+	if(d.name != nil && *d.name && strcmp(sp->name, d.name) != 0) {
 		if(strchr(d.name, '/') != nil)
 			error(Ebadchar);
 		if(strlen(d.name) >= sizeof(up->genbuf))
 			error(Etoolong);
 		kstrdup(&sp->name, d.name);
 	}
+	if(d.uid != nil && *d.uid)
+		kstrdup(&sp->owner, d.uid);
+
 	qunlock(&srvlk);
+	poperror();
+
 	free(strs);
 	poperror();
+
 	return n;
 }
 
@@ -325,13 +343,14 @@ srvwrite(Chan *c, void *va, long n, vlong)
 	if(c1->qid.type & QTAUTH)
 		error("cannot post auth file in srv");
 	sp = srvlookup(nil, c->qid.path);
-	if(sp == 0)
+	if(sp == nil)
 		error(Enonexist);
 
-	if(sp->chan)
+	if(sp->chan != nil)
 		error(Ebadusefd);
 
 	sp->chan = c1;
+
 	qunlock(&srvlk);
 	poperror();
 	return n;
@@ -364,8 +383,9 @@ srvrenameuser(char *old, char *new)
 	Srv *sp;
 
 	qlock(&srvlk);
-	for(sp = srv; sp; sp = sp->link)
-		if(sp->owner!=nil && strcmp(old, sp->owner)==0)
+	for(sp = srv; sp != nil; sp = sp->link) {
+		if(sp->owner != nil && strcmp(old, sp->owner) == 0)
 			kstrdup(&sp->owner, new);
+	}
 	qunlock(&srvlk);
 }
