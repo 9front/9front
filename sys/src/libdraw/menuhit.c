@@ -234,7 +234,8 @@ menuhit(int but, Mousectl *mc, Menu *menu, Screen *scr)
 	border(b, menur, Blackborder, bord, ZP);
 	save = allocimage(display, menurect(textr, 0), screen->chan, 0, -1);
 	r = menurect(textr, lasti);
-	moveto(mc, divpt(addpt(r.min, r.max), 2));
+	if(pt.x || pt.y)
+		moveto(mc, divpt(addpt(r.min, r.max), 2));
 	menupaint(b, menu, textr, off, nitemdrawn);
 	if(scrolling)
 		menuscrollpaint(b, scrollr, off, nitem, nitemdrawn);
