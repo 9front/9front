@@ -654,8 +654,6 @@ shrwstat(Chan *c, uchar *dp, int n)
 	if(strcmp(ent->owner, up->user) && !iseve())
 		error(Eperm);
 
-	if(d.mode != ~0UL)
-		ent->perm = d.mode & 0777;
 	if(d.name != nil && *d.name && strcmp(ent->name, d.name) != 0) {
 		if(strchr(d.name, '/') != nil)
 			error(Ebadchar);
@@ -665,6 +663,8 @@ shrwstat(Chan *c, uchar *dp, int n)
 	}
 	if(d.uid != nil && *d.uid)
 		kstrdup(&ent->owner, d.uid);
+	if(d.mode != ~0UL)
+		ent->perm = d.mode & 0777;
 
 	switch(sch->level){
 	case Qcshr:

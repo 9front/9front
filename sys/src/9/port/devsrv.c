@@ -272,8 +272,6 @@ srvwstat(Chan *c, uchar *dp, int n)
 	if(strcmp(sp->owner, up->user) != 0 && !iseve())
 		error(Eperm);
 
-	if(d.mode != ~0UL)
-		sp->perm = d.mode & 0777;
 	if(d.name != nil && *d.name && strcmp(sp->name, d.name) != 0) {
 		if(strchr(d.name, '/') != nil)
 			error(Ebadchar);
@@ -283,6 +281,8 @@ srvwstat(Chan *c, uchar *dp, int n)
 	}
 	if(d.uid != nil && *d.uid)
 		kstrdup(&sp->owner, d.uid);
+	if(d.mode != ~0UL)
+		sp->perm = d.mode & 0777;
 
 	qunlock(&srvlk);
 	poperror();
