@@ -242,9 +242,12 @@ asixread(Dev *ep, uchar *p, int plen)
 static void
 asixwrite(Dev *ep, uchar *p, int n)
 {
+	uint hd;
+
 	if(n > sizeof(bout)-8)
 		n = sizeof(bout)-8;
-	PUT4(bout, n | ~(n<<16));
+	hd = n | (n<<16)^0xFFFF0000;
+	PUT4(bout, hd);
 	memmove(bout+4, p, n);
 	n += 4;
 	if((n % ep->maxpkt) == 0){
