@@ -225,7 +225,8 @@ asixread(Dev *ep, uchar *p, int plen)
 	hd = GET4(bin);
 	n = hd & 0xFFFF;
 	m = n+4;
-	if((n != ~(hd>>16)) || (n < 6) || (m > nbin)){
+	hd = (hd>>16) ^ 0xFFFF;
+	if((n != hd) || (n < 6) || (m > nbin)){
 		nbin = 0;
 		return 0;
 	}
