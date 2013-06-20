@@ -145,12 +145,10 @@ guesscpuhz(int aalcycles)
 		 *
 		 */
 		outb(Tmode, Latch2);
-		cycles(&a);
 		x = inb(T2cntr);
 		x |= inb(T2cntr)<<8;
 		aamloop(loops);
 		outb(Tmode, Latch2);
-		cycles(&b);
 		y = inb(T2cntr);
 		y |= inb(T2cntr)<<8;
 
@@ -174,13 +172,25 @@ guesscpuhz(int aalcycles)
 	cpufreq = (vlong)loops*((aalcycles*2*Freq)/x);
 	m->loopconst = (cpufreq/1000)/aalcycles;	/* AAM+LOOP's for 1 ms */
 
-	/* a == b means virtualbox has confused us */
-	if(m->havetsc && b > a){
-		b -= a;
-		b *= 2*Freq;
-		b /= x;
-		m->cyclefreq = b;
-		cpufreq = b;
+	if(m->havetsc){
+		aamloop(loops);		/* warm up */
+		cycles(&a);
+		aamloop(loops);
+		cycles(&b);
+	
+		aamloop(loops);
+		cycles(&a);
+		aamloop(loops);
+		cycles(&b);
+
+		/* a == b means virtualbox has confused us */
+		if(b > a){
+			b -= a;
+			b *= 2*Freq;
+			b /= x;
+			m->cyclefreq = b;
+			cpufreq = b;
+		}
 	}
 	m->cpuhz = cpufreq;
 
