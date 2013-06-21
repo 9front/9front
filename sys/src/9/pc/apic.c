@@ -124,6 +124,12 @@ lapiconline(void)
 	lapicw(LapicTICR, lapictimer.max);
 	lapicw(LapicTIMER, LapicCLKIN|LapicPERIODIC|(VectorPIC+IrqTIMER));
 
+	/*
+	 * not strickly neccesary, but reported (osdev.org) to be
+	 * required for some machines.
+	 */
+	lapicw(LapicTDCR, lapictdxtab[lapictimer.tdx]);
+
 	lapicw(LapicTPR, 0);
 }
 
@@ -134,8 +140,8 @@ static void
 lapictimerinit(void)
 {
 Retry:
-	lapicw(LapicTDCR, lapictdxtab[lapictimer.tdx]);
 	lapicw(LapicTIMER, ApicIMASK|LapicCLKIN|LapicONESHOT|(VectorPIC+IrqTIMER));
+	lapicw(LapicTDCR, lapictdxtab[lapictimer.tdx]);
 
 	if(lapictimer.hz == 0ULL){
 		uvlong x, v, hz;
