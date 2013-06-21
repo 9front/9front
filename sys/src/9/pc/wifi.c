@@ -660,6 +660,7 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 	char *s, *p, *e;
 	Wnode *wn;
 	long now;
+	int i;
 
 	p = s = smalloc(4096);
 	e = s + 4096;
@@ -670,9 +671,16 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 	wn = wifi->bss;
 	if(wn != nil){
 		p = seprint(p, e, "bssid: %E\n", wn->bssid);
-		if(wn->brsnelen > 0){
-			int i;
 
+		/* only print key ciphers and key length */
+		for(i = 0; i<nelem(wn->rxkey); i++)
+			p = seprint(p, e, "rxkey%d: %s:[%d]\n", i,
+				ciphers[wn->rxkey[i].cipher], wn->rxkey[i].len);
+		for(i = 0; i<nelem(wn->txkey); i++)
+			p = seprint(p, e, "txkey%d: %s:[%d]\n", i,
+				ciphers[wn->txkey[i].cipher], wn->txkey[i].len);
+
+		if(wn->brsnelen > 0){
 			p = seprint(p, e, "brsne: ");
 			for(i=0; i<wn->brsnelen; i++)
 				p = seprint(p, e, "%.2X", wn->brsne[i]);
