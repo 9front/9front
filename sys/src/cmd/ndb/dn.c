@@ -597,7 +597,7 @@ dnagedb(void)
 
 /*
  *  mark all local db records about my area as authoritative,
- *  time out any others
+ *  delete timed out ones
  */
 void
 dnauthdb(void)
@@ -606,7 +606,7 @@ dnauthdb(void)
 	ulong minttl;
 	Area *area;
 	DN *dp;
-	RR *rp;
+	RR *rp, **l;
 
 	lock(&dnlock);
 
@@ -614,19 +614,22 @@ dnauthdb(void)
 	for(i = 0; i < HTLEN; i++)
 		for(dp = ht[i]; dp; dp = dp->next){
 			area = inmyarea(dp->name);
-			for(rp = dp->rr; rp; rp = rp->next)
+			l = &dp->rr;
+			for(rp = *l; rp; rp = *l){
 				if(rp->db){
+					if(rp->expire == 0){
+						rrdelhead(l);
+						continue;
+					}
 					if(area){
 						minttl = area->soarr->soa->minttl;
 						if(rp->ttl < minttl)
 							rp->ttl = minttl;
 						rp->auth = 1;
 					}
-					if(rp->expire == 0){
-						rp->db = 0;
-						dp->referenced = now-Reserved-1;
-					}
 				}
+				l = &rp->next;
+			}
 		}
 
 	unlock(&dnlock);
