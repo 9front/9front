@@ -797,7 +797,7 @@ cpuidentify(void)
 	/*
 	 *  if there is one, set tsc to a known value
 	 */
-	if((m->cpuiddx & Tsc) != 0 && getconf("*notsc") == nil){
+	if(m->cpuiddx & Tsc){
 		m->havetsc = 1;
 		cycles = _cycles;
 		if(m->cpuiddx & Cpumsr)
