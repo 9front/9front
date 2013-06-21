@@ -395,5 +395,8 @@ identify(void)
 		return 1;
 	}
 
+	if(m->havetsc)
+		archmp.fastclock = tscticks;
+
 	return 0;
 }
