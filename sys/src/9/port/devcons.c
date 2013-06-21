@@ -73,8 +73,7 @@ prflush(void)
  */
 struct {
 	Lock lk;
-//	char buf[16384];		/* normal */
-	char buf[256*1024];		/* for acpi debugging */
+	char buf[16384];
 	uint n;
 } kmesg;
 
