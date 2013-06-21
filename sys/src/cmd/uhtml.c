@@ -65,7 +65,7 @@ main(int argc, char *argv[])
 
 	if(*argv){
 		close(0);
-		if(open(*argv, OREAD) != 1)
+		if(open(*argv, OREAD) != 0)
 			sysfatal("open: %r");
 	}
 	nbuf = 0;
