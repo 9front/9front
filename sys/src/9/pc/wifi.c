@@ -346,6 +346,20 @@ recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
 	}
 }
 
+/* check if a node qualifies as our bss matching bssid and essid */
+static int
+goodbss(Wifi *wifi, Wnode *wn)
+{
+	if(memcmp(wifi->bssid, wifi->ether->bcast, Eaddrlen) != 0){
+		if(memcmp(wifi->bssid, wn->bssid, Eaddrlen) != 0)
+			return 0;	/* bssid doesnt match */
+	} else if(wifi->essid[0] == 0)
+		return 0;	/* both bssid and essid unspecified */
+	if(wifi->essid[0] != 0 && strcmp(wifi->essid, wn->ssid) != 0)
+		return 0;	/* essid doesnt match */
+	return 1;
+}
+
 static void
 wifiproc(void *arg)
 {
@@ -385,14 +399,7 @@ wifiproc(void *arg)
 				continue;
 			b->rp += wifihdrlen(w);
 			recvbeacon(wifi, wn, b->rp, BLEN(b));
-			if(wifi->bss == nil){
-				if(memcmp(wifi->bssid, wifi->ether->bcast, Eaddrlen) != 0){
-					if(memcmp(wifi->bssid, wn->bssid, Eaddrlen) != 0)
-						continue;	/* bssid doesnt match */
-				} else if(wifi->essid[0] == 0)
-					continue;	/* both bssid and essid unspecified */
-				if(wifi->essid[0] != 0 && strcmp(wifi->essid, wn->ssid) != 0)
-					continue;	/* essid doesnt match */
+			if(wifi->bss == nil && goodbss(wifi, wn)){
 				wifi->bss = wn;
 				setstatus(wifi, Sconn);
 				sendauth(wifi, wn);
@@ -644,39 +651,27 @@ wifictl(Wifi *wifi, void *buf, long n)
 		print("#l%d: debug: %d\n", wifi->ether->ctlrno, wifi->debug);
 		break;
 	case CMessid:
-		if(cb->f[1] != nil){
+		if(cb->f[1] != nil)
 			strncpy(wifi->essid, cb->f[1], Essidlen);
-			for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++)
-				if(strcmp(wifi->essid, wn->ssid) == 0){
-					/* both must match if specified */
-					if(memcmp(wifi->bssid, wifi->ether->bcast, Eaddrlen) != 0
-					&& memcmp(wifi->bssid, wn->bssid, Eaddrlen) != 0)
-						continue;
-
-					wifi->bss = wn;
-					setstatus(wifi, Sconn);
-					sendauth(wifi, wn);
-					goto done;
-				}
-		} else
+		else
 			wifi->essid[0] = 0;
-		wifi->bss = nil;
-		setstatus(wifi, Snone);
-		break;
-	case CMbssid:
-		memmove(wifi->bssid, addr, Eaddrlen);
-		if(wn != nil){
-			/* both must match if specified */
-			if(wifi->essid[0] == 0 || strcmp(wifi->essid, wn->ssid) == 0){
+	Findbss:
+		wn = wifi->bss;
+		if(wn != nil && goodbss(wifi, wn))
+			break;
+		for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++)
+			if(goodbss(wifi, wn)){
 				wifi->bss = wn;
 				setstatus(wifi, Sconn);
 				sendauth(wifi, wn);
 				goto done;
 			}
-		}
 		wifi->bss = nil;
 		setstatus(wifi, Snone);
 		break;
+	case CMbssid:
+		memmove(wifi->bssid, addr, Eaddrlen);
+		goto Findbss;
 	case CMauth:
 		setstatus(wifi, Sauth);
 		memset(wn->rxkey, 0, sizeof(wn->rxkey));
