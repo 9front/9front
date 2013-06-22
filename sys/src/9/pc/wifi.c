@@ -644,31 +644,38 @@ wifictl(Wifi *wifi, void *buf, long n)
 		print("#l%d: debug: %d\n", wifi->ether->ctlrno, wifi->debug);
 		break;
 	case CMessid:
-		if(cb->f[1] == nil){
-			wifi->essid[0] = 0;
-			wifi->bss = nil;
-			setstatus(wifi, Snone);
-		} else {
+		if(cb->f[1] != nil){
 			strncpy(wifi->essid, cb->f[1], Essidlen);
 			for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++)
 				if(strcmp(wifi->essid, wn->ssid) == 0){
+					/* both must match if specifid */
+					if(memcmp(wifi->bssid, wifi->ether->bcast, Eaddrlen) != 0
+					&& memcmp(wifi->bssid, wn->bssid, Eaddrlen) != 0)
+						continue;
+
 					wifi->bss = wn;
 					setstatus(wifi, Sconn);
 					sendauth(wifi, wn);
-					break;
+					goto done;
 				}
-		}
+		} else
+			wifi->essid[0] = 0;
+		wifi->bss = nil;
+		setstatus(wifi, Snone);
 		break;
 	case CMbssid:
 		memmove(wifi->bssid, addr, Eaddrlen);
-		if(wn == nil){
-			wifi->bss = nil;
-			setstatus(wifi, Snone);
-		} else {
-			wifi->bss = wn;
-			setstatus(wifi, Sconn);
-			sendauth(wifi, wn);
+		if(wn != nil){
+			/* both must match if specifid */
+			if(wifi->essid[0] == 0 || strcmp(wifi->essid, wn->ssid) == 0){
+				wifi->bss = wn;
+				setstatus(wifi, Sconn);
+				sendauth(wifi, wn);
+				goto done;
+			}
 		}
+		wifi->bss = nil;
+		setstatus(wifi, Snone);
 		break;
 	case CMauth:
 		setstatus(wifi, Sauth);
@@ -692,6 +699,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 			setstatus(wifi, Sassoc);
 		break;
 	}
+done:
 	poperror();
 	free(cb);
 	return n;
