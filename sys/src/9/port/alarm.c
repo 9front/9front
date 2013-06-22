@@ -37,7 +37,7 @@ alarmkproc(void*)
 }
 
 /*
- *  called every clock tick
+ *  called every clock tick on cpu0
  */
 void
 checkalarms(void)

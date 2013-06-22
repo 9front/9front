@@ -153,7 +153,8 @@ hzclock(Ureg *ur)
 		exit(0);
 	}
 
-	checkalarms();
+	if(m->machno == 0)
+		checkalarms();
 
 	if(up && up->state == Running)
 		hzsched();	/* in proc.c */
