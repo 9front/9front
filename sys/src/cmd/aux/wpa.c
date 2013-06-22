@@ -75,8 +75,8 @@ uchar	rsnie[] = {
 	0x14,			/* length */
 	0x01, 0x00,		/* version 1 */
 	0x00, 0x0F, 0xAC, 0x04,	/* group cipher suite CCMP */
-	0x01, 0x00,		/* peerwise cipher suite count 1 */
-	0x00, 0x0F, 0xAC, 0x04,	/* peerwise cipher suite CCMP */
+	0x01, 0x00,		/* pairwise cipher suite count 1 */
+	0x00, 0x0F, 0xAC, 0x04,	/* pairwise cipher suite CCMP */
 	0x01, 0x00,		/* authentication suite count 1 */
 	0x00, 0x0F, 0xAC, 0x02,	/* authentication suite PSK */
 	0x00, 0x00,		/* capabilities */
@@ -92,8 +92,8 @@ uchar	wpaie[] = {
 	0x00, 0x50, 0xf2, 0x01,	/* WPAIE type 1 */
 	0x01, 0x00,		/* version 1 */
 	0x00, 0x50, 0xf2, 0x02,	/* group cipher suite TKIP */
-	0x01, 0x00,		/* peerwise cipher suite count 1 */
-	0x00, 0x50, 0xf2, 0x02,	/* peerwise cipher suite TKIP */
+	0x01, 0x00,		/* pairwise cipher suite count 1 */
+	0x00, 0x50, 0xf2, 0x02,	/* pairwise cipher suite TKIP */
 	0x01, 0x00,		/* authentication suite count 1 */
 	0x00, 0x50, 0xf2, 0x02,	/* authentication suite PSK */
 };
@@ -194,6 +194,7 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 
 		memmove(w, wpa1oui, 4);
 		w += 4;
+		p += 4;
 	} else {
 		sysfatal("unrecognized RSNE type; brsne: %s", buf);
 		return 0;
@@ -775,7 +776,7 @@ main(int argc, char *argv[])
 					tsc = rsc;
 					rsc = 0LL;
 				}
-				/* install peerwise receive key */
+				/* install pairwise receive key */
 				if(fprint(cfd, "rxkey %.*H %s:%.*H@%llux", Eaddrlen, amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write rxkey: %r");
@@ -790,7 +791,7 @@ main(int argc, char *argv[])
 				reply(smac, amac, flags & ~(Fack|Fenc|Fsec), kd, nil, 0);
 				sleep(100);
 
-				/* install peerwise transmit key */ 
+				/* install pairwise transmit key */ 
 				if(fprint(cfd, "txkey %.*H %s:%.*H@%llux", Eaddrlen, amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write txkey: %r");
