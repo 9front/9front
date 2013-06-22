@@ -32,7 +32,7 @@ enum {
 static char Snone[] = "new";
 static char Sconn[] = "connecting";
 static char Sauth[] = "authenticated";
-static char Sunauth[] = "unauthentictaed";
+static char Sunauth[] = "unauthenticated";
 static char Sassoc[] = "associated";
 static char Sunassoc[] = "unassociated";
 static char Sblocked[] = "blocked";	/* no keys negotiated. only pass EAPOL frames */
