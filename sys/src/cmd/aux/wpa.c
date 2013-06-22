@@ -654,7 +654,7 @@ main(int argc, char *argv[])
 
 		m = p;
 		n = e - p;
-		if(n < 4 || p[0] != 0x01 || p[1] != 0x03)
+		if(n < 4 || (p[0] != 0x01 && p[0] != 0x02) || p[1] != 0x03)
 			continue;
 		n = p[2]<<8 | p[3];
 		p += 4;
