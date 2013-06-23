@@ -1723,6 +1723,8 @@ rxon(Ether *edev, Wnode *bss)
 	filter = FilterNoDecrypt | FilterMulticast | FilterBeacon;
 	if(ctlr->prom){
 		filter |= FilterPromisc;
+		if(bss != nil)
+			ctlr->channel = bss->channel;
 		bss = nil;
 	}
 	if(bss != nil){
@@ -1843,10 +1845,8 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 		return;
 	}
 
-	if(ctlr->prom == 0)
-	if(wn->aid != ctlr->aid
-	|| wn->channel != ctlr->channel
-	|| memcmp(wn->bssid, ctlr->bssid, Eaddrlen) != 0)
+	if((wn->channel != ctlr->channel)
+	|| (!ctlr->prom && (wn->aid != ctlr->aid || memcmp(wn->bssid, ctlr->bssid, Eaddrlen) != 0)))
 		rxon(edev, wn);
 
 	if(b == nil){
