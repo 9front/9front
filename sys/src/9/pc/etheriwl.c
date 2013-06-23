@@ -1943,14 +1943,19 @@ iwlifstat(Ether *edev, void *buf, long n, ulong off)
 static void
 setoptions(Ether *edev)
 {
+	char buf[64], *p;
 	Ctlr *ctlr;
-	char buf[64];
 	int i;
 
 	ctlr = edev->ctlr;
 	for(i = 0; i < edev->nopt; i++){
-		if(strncmp(edev->opt[i], "essid=", 6) == 0){
-			snprint(buf, sizeof(buf), "essid %s", edev->opt[i]+6);
+		snprint(buf, sizeof(buf), "%s", edev->opt[i]);
+		p = strchr(buf, '=');
+		if(p != nil)
+			*p = 0;
+		if(strcmp(buf, "debug") == 0 || strcmp(buf, "essid") == 0){
+			if(p != nil)
+				*p = ' ';
 			if(!waserror()){
 				wifictl(ctlr->wifi, buf, strlen(buf));
 				poperror();

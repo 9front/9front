@@ -45,6 +45,8 @@ struct Wifi
 {
 	Ether	*ether;
 
+	int	debug;
+
 	Queue	*iq;
 	char	*status;
 	Ref	txseq;

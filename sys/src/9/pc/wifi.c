@@ -252,6 +252,18 @@ sendassoc(Wifi *wifi, Wnode *bss)
 }
 
 static void
+setstatus(Wifi *wifi, char *new)
+{
+	char *old;
+
+	old = wifi->status;
+	wifi->status = new;
+	if(wifi->debug && new != old)
+		print("#l%d: status: %s -> %s (from pc=%#p)\n",
+			wifi->ether->ctlrno, old, new, getcallerpc(&wifi));
+}
+
+static void
 recvassoc(Wifi *wifi, Wnode *wn, uchar *d, int len)
 {
 	uint s;
@@ -266,13 +278,13 @@ recvassoc(Wifi *wifi, Wnode *wn, uchar *d, int len)
 	case 0x00:
 		wn->aid = d[0] | d[1]<<8;
 		if(wn->rsnelen > 0)
-			wifi->status = Sblocked;
+			setstatus(wifi, Sblocked);
 		else
-			wifi->status = Sassoc;
+			setstatus(wifi, Sassoc);
 		break;
 	default:
 		wn->aid = 0;
-		wifi->status = Sunassoc;
+		setstatus(wifi, Sunassoc);
 		return;
 	}
 }
@@ -375,7 +387,7 @@ wifiproc(void *arg)
 			recvbeacon(wifi, wn, b->rp, BLEN(b));
 			if(wifi->bss == nil && wifi->essid[0] != 0 && strcmp(wifi->essid, wn->ssid) == 0){
 				wifi->bss = wn;
-				wifi->status = Sconn;
+				setstatus(wifi, Sconn);
 				sendauth(wifi, wn);
 			}
 			continue;
@@ -393,11 +405,11 @@ wifiproc(void *arg)
 			recvassoc(wifi, wn, b->rp, BLEN(b));
 			break;
 		case 0xb0:	/* auth */
-			wifi->status = Sauth;
+			setstatus(wifi, Sauth);
 			sendassoc(wifi, wn);
 			break;
 		case 0xc0:	/* deauth */
-			wifi->status = Sunauth;
+			setstatus(wifi, Sunauth);
 			memset(wn->rxkey, 0, sizeof(wn->rxkey));
 			memset(wn->txkey, 0, sizeof(wn->txkey));
 			wn->aid = 0;
@@ -552,10 +564,9 @@ parsekey(Wkey *k, char *s)
 }
 
 enum {
+	CMdebug,
 	CMessid,
 	CMauth,
-	CMunblock,
-
 	CMrxkey0,
 	CMrxkey1,
 	CMrxkey2,
@@ -566,6 +577,7 @@ enum {
 
 static Cmdtab wifictlmsg[] =
 {
+	CMdebug,	"debug",	0,
 	CMessid,	"essid",	0,
 	CMauth,		"auth",		0,
 
@@ -593,10 +605,12 @@ wifictl(Wifi *wifi, void *buf, long n)
 		free(cb);
 		nexterror();
 	}
+	if(wifi->debug)
+		print("#l%d: wifictl: %.*s\n", wifi->ether->ctlrno, (int)n, buf);
 	wn = wifi->bss;
 	cb = parsecmd(buf, n);
 	ct = lookupcmd(cb, wifictlmsg, nelem(wifictlmsg));
-	if(ct->index != CMessid){
+	if(ct->index >= CMauth){
 		if(ct->index >= CMrxkey0 && cb->nf > 1){
 			uchar addr[Eaddrlen];
 
@@ -610,24 +624,31 @@ wifictl(Wifi *wifi, void *buf, long n)
 			error("missing node");
 	}
 	switch(ct->index){
+	case CMdebug:
+		if(cb->f[1] != nil)
+			wifi->debug = atoi(cb->f[1]);
+		else
+			wifi->debug ^= 1;
+		print("#l%d: debug: %d\n", wifi->ether->ctlrno, wifi->debug);
+		break;
 	case CMessid:
 		if(cb->f[1] == nil){
 			wifi->essid[0] = 0;
 			wifi->bss = nil;
-			wifi->status = Snone;
+			setstatus(wifi, Snone);
 		} else {
 			strncpy(wifi->essid, cb->f[1], Essidlen);
 			for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++)
 				if(strcmp(wifi->essid, wn->ssid) == 0){
 					wifi->bss = wn;
-					wifi->status = Sconn;
+					setstatus(wifi, Sconn);
 					sendauth(wifi, wn);
 					break;
 				}
 		}
 		break;
 	case CMauth:
-		wifi->status = Sauth;
+		setstatus(wifi, Sauth);
 		memset(wn->rxkey, 0, sizeof(wn->rxkey));
 		memset(wn->txkey, 0, sizeof(wn->txkey));
 		if(cb->f[1] == nil)
@@ -645,7 +666,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 		if(cb->f[1] == nil || parsekey(k, cb->f[1]) != 0)
 			error("bad key");
 		if(ct->index >= CMtxkey0 && wifi->status == Sblocked && wifi->bss == wn)
-			wifi->status = Sassoc;
+			setstatus(wifi, Sassoc);
 		break;
 	}
 	poperror();
