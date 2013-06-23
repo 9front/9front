@@ -32,7 +32,7 @@ enum {
 static char Snone[] = "new";
 static char Sconn[] = "connecting";
 static char Sauth[] = "authenticated";
-static char Sunauth[] = "unauthentictaed";
+static char Sunauth[] = "unauthenticated";
 static char Sassoc[] = "associated";
 static char Sunassoc[] = "unassociated";
 static char Sblocked[] = "blocked";	/* no keys negotiated. only pass EAPOL frames */
@@ -385,7 +385,14 @@ wifiproc(void *arg)
 				continue;
 			b->rp += wifihdrlen(w);
 			recvbeacon(wifi, wn, b->rp, BLEN(b));
-			if(wifi->bss == nil && wifi->essid[0] != 0 && strcmp(wifi->essid, wn->ssid) == 0){
+			if(wifi->bss == nil){
+				if(memcmp(wifi->bssid, wifi->ether->bcast, Eaddrlen) != 0){
+					if(memcmp(wifi->bssid, wn->bssid, Eaddrlen) != 0)
+						continue;	/* bssid doesnt match */
+				} else if(wifi->essid[0] == 0)
+					continue;	/* both bssid and essid unspecified */
+				if(wifi->essid[0] != 0 && strcmp(wifi->essid, wn->ssid) != 0)
+					continue;	/* essid doesnt match */
 				wifi->bss = wn;
 				setstatus(wifi, Sconn);
 				sendauth(wifi, wn);
@@ -498,6 +505,9 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 	wifi->transmit = transmit;
 	wifi->status = Snone;
 
+	wifi->essid[0] = 0;
+	memmove(wifi->bssid, ether->bcast, Eaddrlen);
+
 	snprint(name, sizeof(name), "#l%dwifi", ether->ctlrno);
 	kproc(name, wifiproc, wifi);
 	snprint(name, sizeof(name), "#l%dwifo", ether->ctlrno);
@@ -567,6 +577,7 @@ enum {
 	CMdebug,
 	CMessid,
 	CMauth,
+	CMbssid,
 	CMrxkey0,
 	CMrxkey1,
 	CMrxkey2,
@@ -580,6 +591,7 @@ static Cmdtab wifictlmsg[] =
 	CMdebug,	"debug",	0,
 	CMessid,	"essid",	0,
 	CMauth,		"auth",		0,
+	CMbssid,	"bssid",	0,
 
 	CMrxkey0,	"rxkey0",	0,	/* group keys */
 	CMrxkey1,	"rxkey1",	0,
@@ -595,6 +607,7 @@ static Cmdtab wifictlmsg[] =
 long
 wifictl(Wifi *wifi, void *buf, long n)
 {
+	uchar addr[Eaddrlen];
 	Cmdbuf *cb;
 	Cmdtab *ct;
 	Wnode *wn;
@@ -607,20 +620,19 @@ wifictl(Wifi *wifi, void *buf, long n)
 	}
 	if(wifi->debug)
 		print("#l%d: wifictl: %.*s\n", wifi->ether->ctlrno, (int)n, buf);
+	memmove(addr, wifi->ether->bcast, Eaddrlen);
 	wn = wifi->bss;
 	cb = parsecmd(buf, n);
 	ct = lookupcmd(cb, wifictlmsg, nelem(wifictlmsg));
 	if(ct->index >= CMauth){
-		if(ct->index >= CMrxkey0 && cb->nf > 1){
-			uchar addr[Eaddrlen];
-
+		if(cb->nf > 1 && (ct->index == CMbssid || ct->index >= CMrxkey0)){
 			if(parseether(addr, cb->f[1]) == 0){
 				cb->f++;
 				cb->nf--;
 				wn = nodelookup(wifi, addr, 0);
 			}
 		}
-		if(wn == nil)
+		if(wn == nil && ct->index != CMbssid)
 			error("missing node");
 	}
 	switch(ct->index){
@@ -645,6 +657,17 @@ wifictl(Wifi *wifi, void *buf, long n)
 					sendauth(wifi, wn);
 					break;
 				}
+		}
+		break;
+	case CMbssid:
+		memmove(wifi->bssid, addr, Eaddrlen);
+		if(wn == nil){
+			wifi->bss = nil;
+			setstatus(wifi, Snone);
+		} else {
+			wifi->bss = wn;
+			setstatus(wifi, Sconn);
+			sendauth(wifi, wn);
 		}
 		break;
 	case CMauth:
@@ -687,11 +710,12 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 	e = s + 4096;
 
 	p = seprint(p, e, "status: %s\n", wifi->status);
-	p = seprint(p, e, "essid: %s\n", wifi->essid);
 
 	wn = wifi->bss;
 	if(wn != nil){
+		p = seprint(p, e, "essid: %s\n", wn->ssid);
 		p = seprint(p, e, "bssid: %E\n", wn->bssid);
+		p = seprint(p, e, "channel: %.2d\n", wn->channel);
 
 		/* only print key ciphers and key length */
 		for(i = 0; i<nelem(wn->rxkey); i++)
@@ -707,7 +731,9 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 				p = seprint(p, e, "%.2X", wn->brsne[i]);
 			p = seprint(p, e, "\n");
 		}
-		p = seprint(p, e, "channel: %.2d\n", wn->channel);
+	} else {
+		p = seprint(p, e, "essid: %s\n", wifi->essid);
+		p = seprint(p, e, "bssid: %E\n", wifi->bssid);
 	}
 
 	now = MACHP(0)->ticks;

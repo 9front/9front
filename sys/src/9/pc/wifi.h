@@ -52,7 +52,11 @@ struct Wifi
 	Ref	txseq;
 	void	(*transmit)(Wifi*, Wnode*, Block*);
 
+	/* for searching */
+	uchar	bssid[Eaddrlen];
 	char	essid[Essidlen+2];
+
+	/* effective base station */
 	Wnode	*bss;
 
 	Wnode	node[32];

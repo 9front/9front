@@ -1953,7 +1953,9 @@ setoptions(Ether *edev)
 		p = strchr(buf, '=');
 		if(p != nil)
 			*p = 0;
-		if(strcmp(buf, "debug") == 0 || strcmp(buf, "essid") == 0){
+		if(strcmp(buf, "debug") == 0
+		|| strcmp(buf, "essid") == 0
+		|| strcmp(buf, "bssid") == 0){
 			if(p != nil)
 				*p = ' ';
 			if(!waserror()){
