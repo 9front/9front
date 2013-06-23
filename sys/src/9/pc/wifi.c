@@ -417,6 +417,8 @@ wifiproc(void *arg)
 		case 0x30:	/* reassoc response */
 			b->rp += wifihdrlen(w);
 			recvassoc(wifi, wn, b->rp, BLEN(b));
+			/* notify driver about node aid association */
+			(*wifi->transmit)(wifi, wn, nil);
 			break;
 		case 0xb0:	/* auth */
 			setstatus(wifi, Sauth);
@@ -673,13 +675,13 @@ wifictl(Wifi *wifi, void *buf, long n)
 		memmove(wifi->bssid, addr, Eaddrlen);
 		goto Findbss;
 	case CMauth:
-		setstatus(wifi, Sauth);
 		memset(wn->rxkey, 0, sizeof(wn->rxkey));
 		memset(wn->txkey, 0, sizeof(wn->txkey));
 		if(cb->f[1] == nil)
 			wn->rsnelen = 0;
 		else
 			wn->rsnelen = hextob(cb->f[1], nil, wn->rsne, sizeof(wn->rsne));
+		setstatus(wifi, Sauth);
 		sendassoc(wifi, wn);
 		break;
 	case CMrxkey0: case CMrxkey1: case CMrxkey2: case CMrxkey3: case CMrxkey4:

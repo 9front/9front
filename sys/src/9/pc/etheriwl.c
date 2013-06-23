@@ -1833,7 +1833,6 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 	Wifipkt *w;
 	char *err;
 
-	w = (Wifipkt*)b->rp;
 	edev = wifi->ether;
 	ctlr = edev->ctlr;
 
@@ -1850,9 +1849,16 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 	|| memcmp(wn->bssid, ctlr->bssid, Eaddrlen) != 0)
 		rxon(edev, wn);
 
+	if(b == nil){
+		/* association note has no data to transmit */
+		qunlock(ctlr);
+		return;
+	}
+
 	rate = 0;
 	flags = 0;
 	nodeid = ctlr->bcastnodeid;
+	w = (Wifipkt*)b->rp;
 	if((w->a1[0] & 1) == 0){
 		flags |= TFlagNeedACK;
 
