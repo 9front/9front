@@ -648,7 +648,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 			strncpy(wifi->essid, cb->f[1], Essidlen);
 			for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++)
 				if(strcmp(wifi->essid, wn->ssid) == 0){
-					/* both must match if specifid */
+					/* both must match if specified */
 					if(memcmp(wifi->bssid, wifi->ether->bcast, Eaddrlen) != 0
 					&& memcmp(wifi->bssid, wn->bssid, Eaddrlen) != 0)
 						continue;
@@ -666,7 +666,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 	case CMbssid:
 		memmove(wifi->bssid, addr, Eaddrlen);
 		if(wn != nil){
-			/* both must match if specifid */
+			/* both must match if specified */
 			if(wifi->essid[0] == 0 || strcmp(wifi->essid, wn->ssid) == 0){
 				wifi->bss = wn;
 				setstatus(wifi, Sconn);
