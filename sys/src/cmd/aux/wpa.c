@@ -130,7 +130,7 @@ getifstats(char *key, char *val, int nval)
 	snprint(buf, sizeof(buf), "%s/ifstats", devdir);
 	if((fd = open(buf, OREAD)) < 0)
 		return nil;
-	n = read(fd, buf, sizeof(buf)-1);
+	n = readn(fd, buf, sizeof(buf)-1);
 	close(fd);
 	if(n <= 0)
 		return nil;
@@ -330,8 +330,10 @@ getptk(	uchar smac[Eaddrlen], uchar amac[Eaddrlen],
 		goto out;
 	if((ret = auth_rpc(rpc, "read", nil, 0)) != ARok)
 		goto out;
-	if(rpc->narg != PTKlen)
+	if(rpc->narg != PTKlen){
+		ret = -1;
 		goto out;
+	}
 	memmove(ptk, rpc->arg, PTKlen);
 	ret = 0;
 out:
@@ -698,9 +700,9 @@ main(int argc, char *argv[])
 
 			memmove(anonce, kd->nonce, sizeof(anonce));
 			genrandom(snonce, sizeof(snonce));
-			if(getptk(smac, amac, snonce, anonce, ptk) < 0){
+			if(getptk(smac, amac, snonce, anonce, ptk) != 0){
 				if(debug != 0)
-					fprint(2, "getptk: %r");
+					fprint(2, "getptk: %r\n");
 				continue;
 			}
 
