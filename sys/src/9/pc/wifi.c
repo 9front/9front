@@ -285,7 +285,6 @@ recvassoc(Wifi *wifi, Wnode *wn, uchar *d, int len)
 	default:
 		wn->aid = 0;
 		setstatus(wifi, Sunassoc);
-		return;
 	}
 }
 
@@ -346,21 +345,26 @@ recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
 	}
 }
 
-/* notify aux/wpa with a zero length write that we got deassociated from the ap */
 static void
-wifideassoc(Wifi *wifi)
+wifideassoc(Wifi *wifi, Wnode *wn)
 {
 	Ether *ether;
 	Netfile *f;
 	int i;
 
+	/* deassociate node, clear keys */
+	if(wn != nil){
+		memset(wn->rxkey, 0, sizeof(wn->rxkey));
+		memset(wn->txkey, 0, sizeof(wn->txkey));
+		wn->aid = 0;
+	}
+
+	/* notify aux/wpa with a zero length write that we got deassociated from the ap */
 	ether = wifi->ether;
 	for(i=0; i<ether->nfile; i++){
 		f = ether->f[i];
 		if(f == nil || f->in == nil || f->inuse == 0 || f->type != 0x888e)
 			continue;
-		if(wifi->debug)
-			print("#l%d: wifideassoc: %#p\n", ether->ctlrno, f);
 		qwrite(f->in, 0, 0);
 	}
 }
@@ -419,9 +423,27 @@ wifiproc(void *arg)
 			b->rp += wifihdrlen(w);
 			recvbeacon(wifi, wn, b->rp, BLEN(b));
 			if(wifi->bss == nil && goodbss(wifi, wn)){
+				wifi->watchdog = 0;
 				wifi->bss = wn;
 				setstatus(wifi, Sconn);
 				sendauth(wifi, wn);
+			}
+			if(wn == wifi->bss){
+				ulong wdog;
+
+				/* on each beacon from the bss, check if we'r stuck */
+				wdog = ++wifi->watchdog;
+				if(wifi->status == Sconn && (wdog & 0x1f) == 0){
+					setstatus(wifi, Sunauth);
+					wifi->bss = nil;
+				} else if(wifi->status == Sauth && (wdog & 0x1f) == 0){
+					setstatus(wifi, Sunauth);
+					wifi->bss = nil;
+				} else if(wifi->status == Sblocked && (wdog & 0x3f) == 0){
+					setstatus(wifi, Sunauth);
+					wifideassoc(wifi, wn);
+					wifi->bss = nil;
+				}
 			}
 			continue;
 		}
@@ -432,6 +454,8 @@ wifiproc(void *arg)
 		if(wn != wifi->bss)
 			continue;
 		switch(w->fc[0] & 0xf0){
+		default:
+			continue;
 		case 0x10:	/* assoc response */
 		case 0x30:	/* reassoc response */
 			b->rp += wifihdrlen(w);
@@ -445,13 +469,11 @@ wifiproc(void *arg)
 			break;
 		case 0xc0:	/* deauth */
 			setstatus(wifi, Sunauth);
-			memset(wn->rxkey, 0, sizeof(wn->rxkey));
-			memset(wn->txkey, 0, sizeof(wn->txkey));
-			wn->aid = 0;
-			wifideassoc(wifi);
-			sendauth(wifi, wn);
+			wifideassoc(wifi, wn);
+			wifi->bss = nil;
 			break;
 		}
+		wifi->watchdog = 0;
 	}
 	pexit("wifi in queue closed", 0);
 }
@@ -683,6 +705,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 			break;
 		for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++)
 			if(goodbss(wifi, wn)){
+				wifi->watchdog = 0;
 				wifi->bss = wn;
 				setstatus(wifi, Sconn);
 				sendauth(wifi, wn);

@@ -49,6 +49,7 @@ struct Wifi
 
 	Queue	*iq;
 	char	*status;
+	ulong	watchdog;
 	Ref	txseq;
 	void	(*transmit)(Wifi*, Wnode*, Block*);
 
