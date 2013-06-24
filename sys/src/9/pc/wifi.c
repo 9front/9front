@@ -360,7 +360,7 @@ wifideassoc(Wifi *wifi)
 		if(f == nil || f->in == nil || f->inuse == 0 || f->type != 0x888e)
 			continue;
 		if(wifi->debug)
-			print("#%d: wifideassoc: %#p\n", ether->ctlrno, f);
+			print("#l%d: wifideassoc: %#p\n", ether->ctlrno, f);
 		qwrite(f->in, 0, 0);
 	}
 }
