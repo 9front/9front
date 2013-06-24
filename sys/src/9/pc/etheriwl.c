@@ -1745,8 +1745,9 @@ rxon(Ether *edev, Wnode *bss)
 	}
 	flags = RFlagTSF | RFlagCTSToSelf | RFlag24Ghz | RFlagAuto;
 
-	if(0) print("rxon: bssid %E, aid %x, channel %d, filter %x, flags %x\n",
-		ctlr->bssid, ctlr->aid, ctlr->channel, filter, flags);
+	if(ctlr->wifi->debug)
+		print("#l%d: rxon: bssid %E, aid %x, channel %d, filter %x, flags %x\n",
+			edev->ctlrno, ctlr->bssid, ctlr->aid, ctlr->channel, filter, flags);
 
 	memset(p = c, 0, sizeof(c));
 	memmove(p, edev->ea, 6); p += 8;	/* myaddr */
