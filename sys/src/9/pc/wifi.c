@@ -346,6 +346,25 @@ recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
 	}
 }
 
+/* notify aux/wpa with a zero length write that we got deassociated from the ap */
+static void
+wifideassoc(Wifi *wifi)
+{
+	Ether *ether;
+	Netfile *f;
+	int i;
+
+	ether = wifi->ether;
+	for(i=0; i<ether->nfile; i++){
+		f = ether->f[i];
+		if(f == nil || f->in == nil || f->inuse == 0 || f->type != 0x888e)
+			continue;
+		if(wifi->debug)
+			print("#%d: wifideassoc: %#p\n", ether->ctlrno, f);
+		qwrite(f->in, 0, 0);
+	}
+}
+
 /* check if a node qualifies as our bss matching bssid and essid */
 static int
 goodbss(Wifi *wifi, Wnode *wn)
@@ -429,6 +448,7 @@ wifiproc(void *arg)
 			memset(wn->rxkey, 0, sizeof(wn->rxkey));
 			memset(wn->txkey, 0, sizeof(wn->txkey));
 			wn->aid = 0;
+			wifideassoc(wifi);
 			sendauth(wifi, wn);
 			break;
 		}
