@@ -476,7 +476,7 @@ checkmic(Keydescr *kd, uchar *msg, int msglen)
 }
 
 void
-reply(uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar *data, int datalen)
+reply(int eapver, uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar *data, int datalen)
 {
 	uchar buf[4096], *m, *p = buf;
 
@@ -486,7 +486,7 @@ reply(uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar
 	*p++ = 0x8e;
 
 	m = p;
-	*p++ = 0x01;
+	*p++ = eapver;
 	*p++ = 0x03;
 	datalen += Keydescrlen;
 	*p++ = datalen >> 8;
@@ -507,7 +507,7 @@ reply(uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar
 	if(flags & Fmic)
 		calcmic(kd, m, p - m);
 	if(debug != 0){
-		fprint(2, "\nreply %E -> %E: ", smac, amac);
+		fprint(2, "\nreply(v%d) %E -> %E: ", eapver, smac, amac);
 		dumpkeydescr(kd);
 	}
 	datalen = p - buf;
@@ -636,12 +636,20 @@ main(int argc, char *argv[])
 	
 	for(;;){
 		uchar smac[Eaddrlen], amac[Eaddrlen], snonce[Noncelen], anonce[Noncelen], *p, *e, *m;
-		int proto, flags, vers, datalen;
+		int proto, eapver, flags, vers, datalen;
 		uvlong repc, rsc, tsc;
 		Keydescr *kd;
 
 		if((n = read(fd, buf, sizeof(buf))) < 0)
 			sysfatal("read: %r");
+
+		if(n == 0){
+			if(debug != 0)
+				fprint(2, "got deassociation\n");
+			lastrepc = 0ULL;
+			continue;
+		}
+
 		p = buf;
 		e = buf+n;
 		if(n < 2*Eaddrlen + 2)
@@ -654,18 +662,26 @@ main(int argc, char *argv[])
 
 		m = p;
 		n = e - p;
-		if(n < 4 || (p[0] != 0x01 && p[0] != 0x02) || p[1] != 0x03)
+		if(n < 4)
 			continue;
+		eapver = p[0];
+		if((eapver != 0x01 && eapver != 0x02) || p[1] != 0x03)
+			continue;
+
+		if(debug != 0)
+			fprint(2, "\nrecv(v%d) %E <- %E: ", eapver, smac, amac);
+
 		n = p[2]<<8 | p[3];
 		p += 4;
-		if(n < Keydescrlen || p + n > e)
+		if(n < Keydescrlen || p + n > e){
+			if(debug != 0)
+				fprint(2, "bad kd size\n");
 			continue;
+		}
 		e = p + n;
 		kd = (Keydescr*)p;
-		if(debug){
-			fprint(2, "\nrecv %E <- %E: ", smac, amac);
+		if(debug != 0)
 			dumpkeydescr(kd);
-		}
 
 		if(kd->type[0] != 0xFE && kd->type[0] != 0x02)
 			continue;
@@ -682,14 +698,17 @@ main(int argc, char *argv[])
 
 			memmove(anonce, kd->nonce, sizeof(anonce));
 			genrandom(snonce, sizeof(snonce));
-			if(getptk(smac, amac, snonce, anonce, ptk) < 0)
+			if(getptk(smac, amac, snonce, anonce, ptk) < 0){
+				if(debug != 0)
+					fprint(2, "getptk: %r");
 				continue;
+			}
 
 			/* ack key exchange with mic */
 			memset(kd->rsc, 0, sizeof(kd->rsc));
 			memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 			memmove(kd->nonce, snonce, sizeof(kd->nonce));
-			reply(smac, amac, (flags & ~(Fack|Fins)) | Fmic, kd, rsne, rsnelen);
+			reply(eapver, smac, amac, (flags & ~(Fack|Fins)) | Fmic, kd, rsne, rsnelen);
 		} else {
 			uchar gtk[GTKlen];
 			int gtklen, gtkkid;
@@ -781,14 +800,11 @@ main(int argc, char *argv[])
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write rxkey: %r");
 
-				/* pick random 16bit tsc value for transmit */
-				tsc = 1 + (truerand() & 0x7fff);
+				tsc = 0LL;
 				memset(kd->rsc, 0, sizeof(kd->rsc));
-				kd->rsc[0] = tsc;
-				kd->rsc[1] = tsc>>8;
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
-				reply(smac, amac, flags & ~(Fack|Fenc|Fsec), kd, nil, 0);
+				reply(eapver, smac, amac, flags & ~(Fack|Fenc|Fins), kd, nil, 0);
 				sleep(100);
 
 				/* install pairwise transmit key */ 
@@ -811,7 +827,7 @@ main(int argc, char *argv[])
 				memset(kd->rsc, 0, sizeof(kd->rsc));
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
-				reply(smac, amac, flags & ~(Fenc|Fack), kd, nil, 0);
+				reply(eapver, smac, amac, flags & ~(Fenc|Fack), kd, nil, 0);
 			} else
 				continue;
 
