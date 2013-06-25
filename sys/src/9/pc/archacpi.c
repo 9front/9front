@@ -519,7 +519,7 @@ identify(void)
 		return 1;
 	if((cp = getconf("*nomp")) != nil && strcmp(cp, "0") != 0)
 		return 1;
-	if(m->havetsc)
+	if(m->havetsc && getconf("*notsc") == nil)
 		archacpi.fastclock = tscticks;
 	return 0;
 }
