@@ -259,10 +259,16 @@ restore(int n)
 		if((tmp = undo[x]) == nil)
 			return;
 		undo[x] = nil;
-		expand(tmp->r);
-		draw(canvas, tmp->r, tmp, nil, tmp->r.min);
-		update(&tmp->r);
-		freeimage(tmp);
+		if(canvas != nil && canvas->chan != tmp->chan){
+			freeimage(canvas);
+			canvas = tmp;
+			update(nil);
+		} else {
+			expand(tmp->r);
+			draw(canvas, tmp->r, tmp, nil, tmp->r.min);
+			update(&tmp->r);
+			freeimage(tmp);
+		}
 	}
 }
 
