@@ -86,7 +86,7 @@ struct Region {
 	int	space;
 	uvlong	off;
 	uvlong	len;
-	uchar	*va;
+	uchar	*va;	/* non nil when mapped */
 };
 
 struct Field {
@@ -168,7 +168,7 @@ enum {
 	Ocfld, Ocfld0, Ocfld1, Ocfld2, Ocfld4, Ocfld8,
 	Oif, Oelse, Owhile, Obreak, Oret, Ocall, 
 	Ostore, Oderef, Osize, Oref, Ocref,
-	Oacq, Orel, Ostall, Osleep,
+	Oacq, Orel, Ostall, Osleep, Oload, Ounload,
 };
 
 static Op optab[];
@@ -269,6 +269,12 @@ gc(void)
 			continue;
 		}
 		*hh = h->link;
+		if(h->tag == 'r'){
+			Region *r = (void*)H2D(h);
+
+			/* TODO: unmap region */
+			r->va = nil;
+		}
 		memset(h, ~0, sizeof(Heap)+h->size);
 		amlfree(h);
 		i++;
@@ -459,6 +465,7 @@ rwreg(void *reg, int off, int len, uvlong v, int write)
 		p = reg;
 		if((off+len) > SIZE(p))
 			break;
+	RWMem:
 		if(write){
 			for(i=0; i<len; i++){
 				p[off+i] = v & 0xFF;
@@ -478,6 +485,11 @@ rwreg(void *reg, int off, int len, uvlong v, int write)
 				write ? "W" : "R", 
 				spacename[r->space],
 				r->off, off, len, v);
+		}
+		/* TODO: map region */
+		if(r->va != nil){
+			p = r->va + off;
+			goto RWMem;
 		}
 		break;
 	}
@@ -1130,12 +1142,13 @@ evalreg(void)
 	Name *n;
 	Region *r;
 
-	if(n = FP->arg[0]){
+	if((n = FP->arg[0]) != nil){
 		r = mk('r', sizeof(Region));
 		r->space = ival(FP->arg[1]);
 		r->off = ival(FP->arg[2]);
 		r->len = ival(FP->arg[3]);
 		r->name = n;
+		r->va = nil;
 		n->v = r;
 	}
 	return nil;
@@ -1585,6 +1598,59 @@ evalarith(void)
 	return r;
 }
 
+static void*
+evalload(void)
+{
+	enum { LenOffset = 4, HdrLen = 36 };
+	uvlong *tid;
+	Region *r;
+	int l;
+
+	tid = nil;
+	if(FP->aux){
+		if(PC >= FP->end){
+			PC = FP->aux;	/* restore */
+			FP->aux = nil;
+			FP->end = PC;
+			tid = mki(1);	/* fake */
+		}
+	} else {
+		store(nil, FP->arg[1]);
+		if(FP->arg[0] == nil)
+			return nil;
+
+		l = rwreg(FP->arg[0], LenOffset, 32, 0, 0);
+		if(l <= HdrLen)
+			return nil;
+
+		FP->aux = PC;	/* save */
+		FP->ref = FP->arg[0];
+		switch(TAG(FP->ref)){
+		case 'b':
+			if(SIZE(FP->ref) < l)
+				return nil;
+			PC = (uchar*)FP->ref + HdrLen;
+			break;
+		case 'r':
+			r = FP->ref;
+			if(r->len < l || r->va == nil)
+				return nil;
+			/* assuming rwreg() has mapped the region */
+			PC = (uchar*)r->va + HdrLen;
+			break;
+		default:
+			return nil;
+		}
+		FP->end = PC + (l - HdrLen);
+		FP->dot = amlroot;
+		FP->env = nil;
+
+		tid = mki(1); /* fake */
+		store(tid, FP->arg[1]);
+	}
+	return tid;
+}
+
 static Op optab[] = {
 	[Obad]		"",			"",		evalbad,
 	[Onop]		"Noop",			"",		evalnop,
@@ -1670,6 +1736,8 @@ static Op optab[] = {
 	[Orel]		"Release",		"@",		evalnop,
 	[Ostall]	"Stall",		"i",		evalnop,
 	[Osleep]	"Sleep",		"i",		evalnop,
+	[Oload] 	"Load", 		"*@}", 		evalload,
+	[Ounload]	"Unload",		"@",		evalnop,
 };
 
 static uchar octab1[] = {
@@ -1712,8 +1780,8 @@ static uchar octab2[] = {
 /* 08 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 10 */	Obad,	Obad,	Ocref,	Ocfld,	Obad,	Obad,	Obad,	Obad,
 /* 18 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
-/* 20 */	Obad,	Ostall,	Osleep,	Oacq,	Obad,	Obad,	Obad,	Orel,
-/* 28 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
+/* 20 */	Oload,	Ostall,	Osleep,	Oacq,	Obad,	Obad,	Obad,	Orel,
+/* 28 */	Obad,	Obad,	Ounload,Obad,	Obad,	Obad,	Obad,	Obad,
 /* 30 */	Obad,	Odebug,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 38 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 40 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
