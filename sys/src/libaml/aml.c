@@ -167,7 +167,7 @@ enum {
 	Oindex, Omutex, Oevent,
 	Ocfld, Ocfld0, Ocfld1, Ocfld2, Ocfld4, Ocfld8,
 	Oif, Oelse, Owhile, Obreak, Oret, Ocall, 
-	Ostore, Oderef, Osize, Oref, Ocref,
+	Ostore, Oderef, Osize, Oref, Ocref, Ocat,
 	Oacq, Orel, Ostall, Osleep, Oload, Ounload,
 };
 
@@ -440,20 +440,6 @@ getname(Name *dot, char *path, int new)
 }
 
 static uvlong
-ival(void *p)
-{
-	if(p != nil){
-		switch(TAG(p)){
-		case 'i':
-			return *((uvlong*)p);
-		case 's':
-			return strtoull((char*)p, 0, 0);
-		}
-	}
-	return 0;
-}
-
-static uvlong
 rwreg(void *reg, int off, int len, uvlong v, int write)
 {
 	Region *r;
@@ -481,7 +467,7 @@ rwreg(void *reg, int off, int len, uvlong v, int write)
 		if((off+len) > r->len)
 			break;
 		if(amldebug){
-			print("rwreg: %s %-8s [%llux+%x]/%d %llux\n", 
+			print("\nrwreg: %s %-8s [%llux+%x]/%d %llux\n", 
 				write ? "W" : "R", 
 				spacename[r->space],
 				r->off, off, len, v);
@@ -495,6 +481,30 @@ rwreg(void *reg, int off, int len, uvlong v, int write)
 	}
 
 	return ~0;
+}
+
+static uvlong
+ival(void *p)
+{
+	int n;
+
+	if(p != nil){
+		switch(TAG(p)){
+		case 'i':
+			return *((uvlong*)p);
+		case 's':
+			if(*((char*)p) == 0)
+				break;
+			return strtoull((char*)p, 0, 16);
+		case 'b':
+			n = SIZE(p);
+			if(n > 0){
+				if(n > 8) n = 8;
+				return rwreg(p, 0, n, 0, 0);
+			}
+		}
+	}
+	return 0;
 }
 
 static void *deref(void *p);
@@ -601,25 +611,63 @@ deref(void *p)
 static void*
 copy(int tag, void *s)
 {
+	static char hex[] = "0123456789ABCDEF";
+	uvlong v;
 	void *d;
+	int i, n;
 
-	if(s != nil){
-		int n;
-		if(tag == 0)
-			tag = TAG(s);
+	if(tag == 0){
+		if(s == nil)
+			return nil;
+		tag = TAG(s);
+	}
+	if(s == nil || TAG(s) == 'i'){
+		n = 4;
+		v = ival(s);
+		if(v > 0xFFFFFFFFULL)
+			n <<= 1;
 		switch(tag){
 		case 'b':
-		case 's':
-			n = SIZE(s);
-			if(tag == 's' && TAG(s) == 'b')
-				n++;
 			d = mk(tag, n);
-			memmove(d, s, n);
-			if(tag == 's')
-				((uchar*)d)[n-1] = 0;
+			rwreg(d, 0, n, v, 1);
+			return d;
+		case 's':
+			n <<= 1;
+			d = mk(tag, n+1);
+			((char*)d)[n] = 0;
+			while(n > 0){
+				((char*)d)[--n] = hex[v & 0xF];
+				v >>= 4;
+			}
 			return d;
 		case 'i':
-			return mki(ival(s));
+			if(v == 0ULL)
+				return nil;
+			return mki(v);
+		}
+	} else {
+		n = SIZE(s);
+		switch(tag){
+		case 's':
+			if(TAG(s) == 'b'){
+				d = mk(tag, n*3 + 1);
+				for(i=0; i<n; i++){
+					((char*)d)[i*3 + 0] = hex[((uchar*)s)[i] >> 4];
+					((char*)d)[i*3 + 1] = hex[((uchar*)s)[i] & 0xF];
+					((char*)d)[i*3 + 2] = ' ';
+				}
+				((char*)d)[n*3] = 0;
+				return d;
+			}
+			/* no break */
+		case 'b':
+			if(TAG(s) == 's'){
+				n = strlen(s);
+				/* zero length string is converted to zero length buffer */								if(n > 0) n++;
+			}
+			d = mk(tag, n);
+			memmove(d, s, n);
+			return d;
 		}
 	}
 	return s;
@@ -640,33 +688,37 @@ store(void *s, void *d)
 		/* no break */
 	case 'R': case 'L':
 		pp = ((Ref*)d)->ptr;
-		while(p = *pp){
+		while((p = *pp) != nil){
 			switch(TAG(p)){
 			case 'R': case 'A': case 'L':
 				pp = ((Ref*)p)->ptr;
-				continue;
+				break;
 			case 'N':
 				pp = &((Name*)p)->v;
-				if(*pp != p)
-					continue;
+				break;
 			}
-			break;
+			if(*pp == p)
+				break;
 		}
 		break;
 	case 'N':
 		pp = &((Name*)d)->v;
+		break;
 	}
 	p = *pp;
-	if(p && TAG(p) != 'N'){
+	if(p != nil && TAG(p) != 'N'){
 		switch(TAG(p)){
 		case 'f':
 		case 'u':
 			rwfield(p, s, 1);
 			return d;
 		}
-		*pp = copy(TAG(p), s);
-	} else
-		*pp = copy(0, s);
+		if(TAG(d) != 'A' && TAG(d) != 'L'){
+			*pp = copy(TAG(p), s);
+			return d;
+		}
+	}
+	*pp = copy(0, s);
 	return d;
 }
 
@@ -1331,30 +1383,29 @@ static void*
 evalcmp(void)
 {
 	void *a, *b;
-	int c;
+	int tag, c;
 
-	if((a = FP->arg[0]) == nil)
-		a = mki(0);
-	if((b = FP->arg[1]) == nil)
-		b = mki(0);
-
-	switch(TAG(a)){
-	default:
-		return nil;
-	case 'i':
+	a = FP->arg[0];
+	b = FP->arg[1];
+	if(a == nil || TAG(a) == 'i'){
 		c = ival(a) - ival(b);
-		break;
-	case 's':
-		if(TAG(b) != 's')
-			b = copy('s', b);
-		c = strcmp((char*)a, (char*)b);
-		break;
-	case 'b':
-		if(TAG(b) != 'b')
-			b = copy('b', b);
-		if((c = SIZE(a) - SIZE(b)) == 0)
-			c = memcmp(a, b, SIZE(a));
-		break;
+	} else {
+		tag = TAG(a);
+		if(b == nil || TAG(b) != tag)
+			b = copy(tag, b);
+		if(TAG(b) != tag)
+			return nil;	/* botch */
+		switch(tag){
+		default:
+			return nil;	/* botch */
+		case 's':
+			c = strcmp((char*)a, (char*)b);
+			break;
+		case 'b':
+			if((c = SIZE(a) - SIZE(b)) == 0)
+				c = memcmp(a, b, SIZE(a));
+			break;
+		}
 	}
 
 	switch(FP->op - optab){
@@ -1368,7 +1419,6 @@ evalcmp(void)
 		if(c < 0) return mki(1);
 		break;
 	}
-
 	return nil;
 }
 
@@ -1454,6 +1504,44 @@ static void*
 evalstore(void)
 {
 	return store(FP->arg[0], FP->arg[1]);
+}
+
+static void*
+evalcat(void)
+{
+	void *r, *a, *b;
+	int tag, n, m;
+
+	a = FP->arg[0];
+	b = FP->arg[1];
+	if(a == nil || TAG(a) == 'i')
+		a = copy('b', a);	/* Concat(Int, ???) -> Buf */
+	tag = TAG(a);
+	if(b == nil || TAG(b) != tag)
+		b = copy(tag, b);
+	if(TAG(b) != tag)
+		return nil;	/* botch */
+	switch(tag){
+	default:
+		return nil;	/* botch */
+	case 'b':
+		n = SIZE(a);
+		m = SIZE(b);
+		r = mk('b', n + m);
+		memmove(r, a, n);
+		memmove((uchar*)r + n, b, m);
+		break;
+	case 's':
+		n = strlen((char*)a);
+		m = strlen((char*)b);
+		r = mk('s', n + m + 1);
+		memmove(r, a, n);
+		memmove((char*)r + n, b, m);
+		((char*)r)[n+m] = 0;
+		break;
+	}
+	store(r, FP->arg[2]);
+	return r;
 }
 
 static void*
@@ -1731,6 +1819,7 @@ static Op optab[] = {
 	[Oref]		"RefOf",		"@",		evaliarg0,
 	[Ocref]		"CondRefOf",		"@@",		evalcondref,
 	[Oderef]	"DerefOf",		"@",		evalderef,
+	[Ocat]		"Concatenate",		"**@",		evalcat,
 
 	[Oacq]		"Acquire",		"@2",		evalnop,
 	[Orel]		"Release",		"@",		evalnop,
@@ -1755,7 +1844,7 @@ static uchar octab1[] = {
 /* 58 */	Onamec,	Onamec,	Onamec,	Obad,	Onamec,	Obad,	Onamec,	Onamec,
 /* 60 */	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,
 /* 68 */	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Obad,
-/* 70 */	Ostore,	Oref,	Oadd,	Obad,	Osub,	Oinc,	Odec,	Omul,
+/* 70 */	Ostore,	Oref,	Oadd,	Ocat,	Osub,	Oinc,	Odec,	Omul,
 /* 78 */	Odiv,	Oshl,	Oshr,	Oand,	Onand,	Oor,	Onor,	Oxor,
 /* 80 */	Onot,	Obad,	Obad,	Oderef,	Obad,	Omod,	Obad,	Osize,
 /* 88 */	Oindex,	Obad,	Ocfld4,	Ocfld2,	Ocfld1,	Ocfld0,	Obad,	Ocfld8,
