@@ -1846,6 +1846,7 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 		return;
 	}
 
+	if(wn != nil)
 	if((wn->channel != ctlr->channel)
 	|| (!ctlr->prom && (wn->aid != ctlr->aid || memcmp(wn->bssid, ctlr->bssid, Eaddrlen) != 0)))
 		rxon(edev, wn);
@@ -2012,6 +2013,7 @@ iwlproc(void *arg)
 			ctlr->aid = 0;
 			rxon(edev, nil);
 			qunlock(ctlr);
+			wifiprobe(ctlr->wifi, ctlr->channel);
 			tsleep(&up->sleep, return0, 0, 1000);
 		}
 
@@ -2023,7 +2025,7 @@ iwlproc(void *arg)
 			tsleep(&up->sleep, return0, 0, 1000);
 		}
 
-		if(bss == nil)
+		if(wifi->bss == nil)
 			continue;
 
 		/* wait for disassociation */

@@ -83,3 +83,4 @@ long wifistat(Wifi*, void*, long, ulong);
 long wifictl(Wifi*, void*, long);
 
 int wifichecklink(Wifi*);
+void wifiprobe(Wifi*, int);

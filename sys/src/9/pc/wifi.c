@@ -132,7 +132,8 @@ wifitx(Wifi *wifi, Wnode *wn, Block *b)
 	Wifipkt *w;
 	uint seq;
 
-	wn->lastsend = MACHP(0)->ticks;
+	if(wn != nil)
+		wn->lastsend = MACHP(0)->ticks;
 	seq = incref(&wifi->txseq);
 	seq <<= 4;
 
@@ -142,7 +143,7 @@ wifitx(Wifi *wifi, Wnode *wn, Block *b)
 	w->seq[0] = seq;
 	w->seq[1] = seq>>8;
 
-	if((w->fc[0] & 0x0c) != 0x00)
+	if((w->fc[0] & 0x0c) != 0x00 && wn != nil)
 		b = wifiencrypt(wifi, wn, b);
 
 	if(b != nil)
@@ -180,6 +181,50 @@ nodelookup(Wifi *wifi, uchar *bssid, int new)
 	memmove(nn->bssid, bssid, Eaddrlen);
 	nn->lastseen = MACHP(0)->ticks;
 	return nn;
+}
+
+void
+wifiprobe(Wifi *wifi, int channel)
+{
+	Wifipkt *w;
+	Block *b;
+	uchar *p;
+	int n;
+
+	n = strlen(wifi->essid);
+	if(n == 0)
+		return;
+
+	b = allocb(WIFIHDRSIZE + 512);
+	w = (Wifipkt*)b->wp;
+	w->fc[0] = 0x40;	/* probe request */
+	w->fc[1] = 0x00;	/* STA->STA */
+	memmove(w->a1, wifi->ether->bcast, Eaddrlen);	/* ??? */
+	memmove(w->a2, wifi->ether->ea, Eaddrlen);
+	memmove(w->a3, wifi->ether->bcast, Eaddrlen);
+	b->wp += WIFIHDRSIZE;
+	p = b->wp;
+
+	*p++ = 0x00;	/* set */
+	*p++ = n;
+	memmove(p, wifi->essid, n);
+	p += n;
+
+	*p++ = 1;	/* RATES (BUG: these are all lies!) */
+	*p++ = 4;
+	*p++ = 0x82;
+	*p++ = 0x84;
+	*p++ = 0x8b;
+	*p++ = 0x96;
+
+	if(channel > 0){
+		*p++ = 0x03;	/* ds parameter set */
+		*p++ = 1;
+		*p++ = channel;
+	}
+
+	b->wp = p;
+	wifitx(wifi, nil, b);
 }
 
 static void
@@ -425,6 +470,9 @@ wifiproc(void *arg)
 
 		switch(w->fc[0] & 0xf0){
 		case 0x50:	/* probe response */
+			if(wifi->debug)
+				print("#l%d: got probe from %E\n", wifi->ether->ctlrno, w->a3);
+			/* no break */
 		case 0x80:	/* beacon */
 			if((wn = nodelookup(wifi, w->a3, 1)) == nil)
 				continue;
