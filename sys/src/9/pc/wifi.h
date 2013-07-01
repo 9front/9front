@@ -26,17 +26,21 @@ struct Wnode
 	uchar	bssid[Eaddrlen];
 	char	ssid[Essidlen+2];
 
+	char	*status;
+
 	int	rsnelen;
 	uchar	rsne[258];
 	Wkey	txkey[1];
 	Wkey	rxkey[5];
 
+	int	aid;		/* association id */
+	ulong	lastsend;
+	ulong	lastseen;
+
 	/* stuff from beacon */
 	int	ival;
 	int	cap;
-	int	aid;
 	int	channel;
-	long	lastseen;
 	int	brsnelen;
 	uchar	brsne[258];
 };
@@ -48,7 +52,6 @@ struct Wifi
 	int	debug;
 
 	Queue	*iq;
-	char	*status;
 	ulong	watchdog;
 	Ref	txseq;
 	void	(*transmit)(Wifi*, Wnode*, Block*);
@@ -78,3 +81,5 @@ void wifiiq(Wifi*, Block*);
 
 long wifistat(Wifi*, void*, long, ulong);
 long wifictl(Wifi*, void*, long);
+
+int wifichecklink(Wifi*);

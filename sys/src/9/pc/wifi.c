@@ -29,10 +29,10 @@ enum {
 	SNAPHDRSIZE = 8,
 };
 
-static char Snone[] = "new";
 static char Sconn[] = "connecting";
 static char Sauth[] = "authenticated";
 static char Sunauth[] = "unauthenticated";
+
 static char Sassoc[] = "associated";
 static char Sunassoc[] = "unassociated";
 static char Sblocked[] = "blocked";	/* no keys negotiated. only pass EAPOL frames */
@@ -132,6 +132,7 @@ wifitx(Wifi *wifi, Wnode *wn, Block *b)
 	Wifipkt *w;
 	uint seq;
 
+	wn->lastsend = MACHP(0)->ticks;
 	seq = incref(&wifi->txseq);
 	seq <<= 4;
 
@@ -170,7 +171,7 @@ nodelookup(Wifi *wifi, uchar *bssid, int new)
 			wn->lastseen = MACHP(0)->ticks;
 			return wn;
 		}
-		if(wn->lastseen < nn->lastseen)
+		if((long)(wn->lastseen - nn->lastseen) < 0)
 			nn = wn;
 	}
 	if(!new)
@@ -252,15 +253,18 @@ sendassoc(Wifi *wifi, Wnode *bss)
 }
 
 static void
-setstatus(Wifi *wifi, char *new)
+setstatus(Wifi *wifi, Wnode *wn, char *new)
 {
 	char *old;
 
-	old = wifi->status;
-	wifi->status = new;
+	old = wn->status;
+	wn->status = new;
 	if(wifi->debug && new != old)
-		print("#l%d: status: %s -> %s (from pc=%#p)\n",
-			wifi->ether->ctlrno, old, new, getcallerpc(&wifi));
+		print("#l%d: status %E: %s -> %s (from pc=%#p)\n",
+			wifi->ether->ctlrno, 
+			wn->bssid, 
+			old, new,
+			getcallerpc(&wifi));
 }
 
 static void
@@ -278,13 +282,13 @@ recvassoc(Wifi *wifi, Wnode *wn, uchar *d, int len)
 	case 0x00:
 		wn->aid = d[0] | d[1]<<8;
 		if(wn->rsnelen > 0)
-			setstatus(wifi, Sblocked);
+			setstatus(wifi, wn, Sblocked);
 		else
-			setstatus(wifi, Sassoc);
+			setstatus(wifi, wn, Sassoc);
 		break;
 	default:
 		wn->aid = 0;
-		setstatus(wifi, Sunassoc);
+		setstatus(wifi, wn, Sunassoc);
 	}
 }
 
@@ -346,26 +350,29 @@ recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
 }
 
 static void
-wifideassoc(Wifi *wifi, Wnode *wn)
+wifideauth(Wifi *wifi, Wnode *wn)
 {
 	Ether *ether;
 	Netfile *f;
 	int i;
 
 	/* deassociate node, clear keys */
-	if(wn != nil){
-		memset(wn->rxkey, 0, sizeof(wn->rxkey));
-		memset(wn->txkey, 0, sizeof(wn->txkey));
-		wn->aid = 0;
-	}
+	setstatus(wifi, wn, Sunauth);
+	memset(wn->rxkey, 0, sizeof(wn->rxkey));
+	memset(wn->txkey, 0, sizeof(wn->txkey));
+	wn->aid = 0;
 
-	/* notify aux/wpa with a zero length write that we got deassociated from the ap */
-	ether = wifi->ether;
-	for(i=0; i<ether->nfile; i++){
-		f = ether->f[i];
-		if(f == nil || f->in == nil || f->inuse == 0 || f->type != 0x888e)
-			continue;
-		qwrite(f->in, 0, 0);
+	if(wn == wifi->bss){
+		wifi->bss = nil;
+
+		/* notify aux/wpa with a zero length write that we got deassociated from the ap */
+		ether = wifi->ether;
+		for(i=0; i<ether->nfile; i++){
+			f = ether->f[i];
+			if(f == nil || f->in == nil || f->inuse == 0 || f->type != 0x888e)
+				continue;
+			qwrite(f->in, 0, 0);
+		}
 	}
 }
 
@@ -401,7 +408,7 @@ wifiproc(void *arg)
 		w = (Wifipkt*)b->rp;
 		if(w->fc[1] & 0x40){
 			/* encrypted */
-			if((wn = nodelookup(wifi, w->a2, 1)) == nil)
+			if((wn = nodelookup(wifi, w->a2, 0)) == nil)
 				continue;
 			if((b = wifidecrypt(wifi, wn, b)) != nil){
 				w = (Wifipkt*)b->rp;
@@ -415,6 +422,7 @@ wifiproc(void *arg)
 		/* management */
 		if((w->fc[0] & 0x0c) != 0x00)
 			continue;
+
 		switch(w->fc[0] & 0xf0){
 		case 0x50:	/* probe response */
 		case 0x80:	/* beacon */
@@ -422,58 +430,43 @@ wifiproc(void *arg)
 				continue;
 			b->rp += wifihdrlen(w);
 			recvbeacon(wifi, wn, b->rp, BLEN(b));
-			if(wifi->bss == nil && goodbss(wifi, wn)){
-				wifi->watchdog = 0;
-				wifi->bss = wn;
-				setstatus(wifi, Sconn);
+			if(wifi->bss != nil)
+				continue;
+			if(((wn->status == nil || wn->status == Sunauth)
+			||  (wn->status == Sconn && TK2SEC(wn->lastseen - wn->lastsend) > 2))
+			&& goodbss(wifi, wn)){
+				setstatus(wifi, wn, Sconn);
 				sendauth(wifi, wn);
-			}
-			if(wn == wifi->bss){
-				ulong wdog;
-
-				/* on each beacon from the bss, check if we'r stuck */
-				wdog = ++wifi->watchdog;
-				if(wifi->status == Sconn && (wdog & 0x1f) == 0){
-					setstatus(wifi, Sunauth);
-					wifi->bss = nil;
-				} else if(wifi->status == Sauth && (wdog & 0x1f) == 0){
-					setstatus(wifi, Sunauth);
-					wifi->bss = nil;
-				} else if(wifi->status == Sblocked && (wdog & 0x3f) == 0){
-					setstatus(wifi, Sunauth);
-					wifideassoc(wifi, wn);
-					wifi->bss = nil;
-				}
 			}
 			continue;
 		}
+
 		if(memcmp(w->a1, wifi->ether->ea, Eaddrlen))
 			continue;
 		if((wn = nodelookup(wifi, w->a3, 0)) == nil)
 			continue;
-		if(wn != wifi->bss)
-			continue;
 		switch(w->fc[0] & 0xf0){
-		default:
-			continue;
 		case 0x10:	/* assoc response */
 		case 0x30:	/* reassoc response */
 			b->rp += wifihdrlen(w);
 			recvassoc(wifi, wn, b->rp, BLEN(b));
 			/* notify driver about node aid association */
-			(*wifi->transmit)(wifi, wn, nil);
+			if(wn == wifi->bss)
+				(*wifi->transmit)(wifi, wn, nil);
 			break;
 		case 0xb0:	/* auth */
-			setstatus(wifi, Sauth);
-			sendassoc(wifi, wn);
+			setstatus(wifi, wn, Sauth);
+			if(wifi->bss == nil && goodbss(wifi, wn)){
+				wifi->bss = wn;
+				sendassoc(wifi, wn);
+			}
 			break;
 		case 0xc0:	/* deauth */
-			setstatus(wifi, Sunauth);
-			wifideassoc(wifi, wn);
-			wifi->bss = nil;
+			if(wifi->debug)
+				print("#l%d: got deauth\n", wifi->ether->ctlrno);
+			wifideauth(wifi, wn);
 			break;
 		}
-		wifi->watchdog = 0;
 	}
 	pexit("wifi in queue closed", 0);
 }
@@ -494,11 +487,11 @@ wifietheroq(Wifi *wifi, Block *b)
 	memmove(&e, b->rp, ETHERHDRSIZE);
 	b->rp += ETHERHDRSIZE;
 
-	if(wifi->status == Sblocked){
+	if(wn->status == Sblocked){
 		/* only pass EAPOL frames when port is blocked */
 		if((e.type[0]<<8 | e.type[1]) != 0x888e)
 			goto drop;
-	} else if(wifi->status != Sassoc)
+	} else if(wn->status != Sassoc)
 		goto drop;
 
 	b = padblock(b, WIFIHDRSIZE + SNAPHDRSIZE);
@@ -554,7 +547,6 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 	}
 	wifi->ether = ether;
 	wifi->transmit = transmit;
-	wifi->status = Snone;
 
 	wifi->essid[0] = 0;
 	memmove(wifi->bssid, ether->bcast, Eaddrlen);
@@ -565,6 +557,24 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 	kproc(name, wifoproc, wifi);
 
 	return wifi;
+}
+
+int
+wifichecklink(Wifi *wifi)
+{
+	Wnode *wn;
+
+	wn = wifi->bss;
+	if(wn == nil)
+		return 0;
+	if((TK2SEC(MACHP(0)->ticks - wn->lastseen) > 60)
+	|| (TK2SEC(wn->lastseen - wn->lastsend) > 5) && (wn->status == Sauth || wn->status == Sblocked)){
+		if(wifi->debug)
+			print("#l%d: link broken\n", wifi->ether->ctlrno);
+		wifideauth(wifi, wn);
+		return 0;
+	}
+	return 1;
 }
 
 static int
@@ -663,6 +673,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 	Cmdtab *ct;
 	Wnode *wn;
 	Wkey *k;
+	int i;
 
 	cb = nil;
 	if(waserror()){
@@ -703,16 +714,24 @@ wifictl(Wifi *wifi, void *buf, long n)
 		wn = wifi->bss;
 		if(wn != nil && goodbss(wifi, wn))
 			break;
+		wifi->bss = nil;
+		if(wifi->essid[0] == 0 && memcmp(wifi->bssid, wifi->ether->bcast, Eaddrlen) == 0)
+			break;
 		for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++)
 			if(goodbss(wifi, wn)){
-				wifi->watchdog = 0;
-				wifi->bss = wn;
-				setstatus(wifi, Sconn);
+				setstatus(wifi, wn, Sconn);
 				sendauth(wifi, wn);
-				goto done;
 			}
-		wifi->bss = nil;
-		setstatus(wifi, Snone);
+		/* wait 3 seconds for authentication response */
+		for(i=0; i < 30; i++){
+			if(wifi->bss != nil)
+				goto done;
+			if(!waserror()){
+				tsleep(&up->sleep, return0, 0, 100);
+				poperror();
+			}
+		}
+		error("connect timeout");
 		break;
 	case CMbssid:
 		memmove(wifi->bssid, addr, Eaddrlen);
@@ -724,7 +743,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 			wn->rsnelen = 0;
 		else
 			wn->rsnelen = hextob(cb->f[1], nil, wn->rsne, sizeof(wn->rsne));
-		setstatus(wifi, Sauth);
+		setstatus(wifi, wn, Sauth);
 		sendassoc(wifi, wn);
 		break;
 	case CMrxkey0: case CMrxkey1: case CMrxkey2: case CMrxkey3: case CMrxkey4:
@@ -735,8 +754,8 @@ wifictl(Wifi *wifi, void *buf, long n)
 			k = &wn->txkey[ct->index - CMtxkey0];
 		if(cb->f[1] == nil || parsekey(k, cb->f[1]) != 0)
 			error("bad key");
-		if(ct->index >= CMtxkey0 && wifi->status == Sblocked && wifi->bss == wn)
-			setstatus(wifi, Sassoc);
+		if(ct->index >= CMtxkey0 && wn->status == Sblocked)
+			setstatus(wifi, wn, Sassoc);
 		break;
 	}
 done:
@@ -757,12 +776,11 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 	p = s = smalloc(4096);
 	e = s + 4096;
 
-	p = seprint(p, e, "status: %s\n", wifi->status);
-
 	wn = wifi->bss;
 	if(wn != nil){
 		p = seprint(p, e, "essid: %s\n", wn->ssid);
 		p = seprint(p, e, "bssid: %E\n", wn->bssid);
+		p = seprint(p, e, "status: %s\n", wn->status);
 		p = seprint(p, e, "channel: %.2d\n", wn->channel);
 
 		/* only print key ciphers and key length */

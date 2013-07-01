@@ -2017,7 +2017,7 @@ iwlproc(void *arg)
 
 		/* wait for association */
 		setled(ctlr, 2, 10, 10);
-		while((bss = wifi->bss) != nil){
+		while(wifichecklink(wifi) && (bss = wifi->bss) != nil){
 			if(bss->aid != 0)
 				break;
 			tsleep(&up->sleep, return0, 0, 1000);
@@ -2029,7 +2029,7 @@ iwlproc(void *arg)
 		/* wait for disassociation */
 		edev->link = 1;
 		setled(ctlr, 2, 0, 1);
-		while((bss = wifi->bss) != nil){
+		while(wifichecklink(wifi) && (bss = wifi->bss) != nil){
 			if(bss->aid == 0)
 				break;
 			tsleep(&up->sleep, return0, 0, 1000);
