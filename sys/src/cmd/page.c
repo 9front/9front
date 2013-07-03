@@ -680,6 +680,7 @@ popenfile(Page *p)
 	"image/gif",			popenimg,	"gif",
 	"image/jpeg",			popenimg,	"jpg",
 	"image/png",			popenimg,	"png",
+	"image/tiff",			popenimg,	"tif",
 	"image/ppm",			popenimg,	"ppm",
 	"image/bmp",			popenimg,	"bmp",
 	"image/tga",			popenimg,	"tga",

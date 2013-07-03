@@ -50,9 +50,11 @@ typedef struct ImageInfo {
 
 
 Rawimage**	readjpg(int, int);
-Rawimage**	Breadjpg(Biobuf *b, int);
+Rawimage**	Breadjpg(Biobuf*, int);
 Rawimage**	readpng(int, int);
-Rawimage**	Breadpng(Biobuf *b, int);
+Rawimage**	Breadpng(Biobuf*, int);
+Rawimage**	readtif(int);
+Rawimage**	Breadtif(Biobuf*);
 Rawimage**	readgif(int, int);
 Rawimage**	readpixmap(int, int);
 Rawimage*	torgbv(Rawimage*, int);
