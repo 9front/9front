@@ -1745,6 +1745,13 @@ rxon(Ether *edev, Wnode *bss)
 	}
 	flags = RFlagTSF | RFlagCTSToSelf | RFlag24Ghz | RFlagAuto;
 
+	if(ctlr->aid != 0)
+		setled(ctlr, 2, 0, 1);		/* on when associated */
+	else if(memcmp(ctlr->bssid, edev->bcast, Eaddrlen) != 0)
+		setled(ctlr, 2, 10, 10);	/* slow blink when connecting */
+	else
+		setled(ctlr, 2, 5, 5);		/* fast blink when scanning */
+
 	if(ctlr->wifi->debug)
 		print("#l%d: rxon: bssid %E, aid %x, channel %d, filter %x, flags %x\n",
 			edev->ctlrno, ctlr->bssid, ctlr->aid, ctlr->channel, filter, flags);
@@ -1846,7 +1853,6 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 		return;
 	}
 
-	if(wn != nil)
 	if((wn->channel != ctlr->channel)
 	|| (!ctlr->prom && (wn->aid != ctlr->aid || memcmp(wn->bssid, ctlr->bssid, Eaddrlen) != 0)))
 		rxon(edev, wn);
@@ -1989,61 +1995,8 @@ iwlpromiscuous(void *arg, int on)
 }
 
 static void
-iwlproc(void *arg)
-{
-	Ether *edev;
-	Ctlr *ctlr;
-	Wifi *wifi;
-	Wnode *bss;
-
-	edev = arg;
-	ctlr = edev->ctlr;
-	wifi = ctlr->wifi;
-
-	for(;;){
-		/* hop channels for catching beacons */
-		setled(ctlr, 2, 5, 5);
-		while(wifi->bss == nil){
-			qlock(ctlr);
-			if(wifi->bss != nil){
-				qunlock(ctlr);
-				break;
-			}
-			ctlr->channel = 1 + ctlr->channel % 11;
-			ctlr->aid = 0;
-			rxon(edev, nil);
-			qunlock(ctlr);
-			wifiprobe(ctlr->wifi, ctlr->channel);
-			tsleep(&up->sleep, return0, 0, 1000);
-		}
-
-		/* wait for association */
-		setled(ctlr, 2, 10, 10);
-		while(wifichecklink(wifi) && (bss = wifi->bss) != nil){
-			if(bss->aid != 0)
-				break;
-			tsleep(&up->sleep, return0, 0, 1000);
-		}
-
-		if(wifi->bss == nil)
-			continue;
-
-		/* wait for disassociation */
-		edev->link = 1;
-		setled(ctlr, 2, 0, 1);
-		while(wifichecklink(wifi) && (bss = wifi->bss) != nil){
-			if(bss->aid == 0)
-				break;
-			tsleep(&up->sleep, return0, 0, 1000);
-		}
-		edev->link = 0;
-	}
-}
-
-static void
 iwlattach(Ether *edev)
 {
-	char name[32];
 	FWImage *fw;
 	Ctlr *ctlr;
 	char *err;
@@ -2087,9 +2040,6 @@ iwlattach(Ether *edev)
 		ctlr->aid = 0;
 
 		setoptions(edev);
-
-		snprint(name, sizeof(name), "#l%diwl", edev->ctlrno);
-		kproc(name, iwlproc, edev);
 
 		ctlr->attached = 1;
 	}
