@@ -1286,10 +1286,16 @@ static int
 paldecode(Tif *t, Rawimage *im, uchar *data)
 {
 	int pix, pmask, xmask;
-	ulong i, n, x, y, *r, *g, *b;
+	ulong i, n, x, y, *r, *g, *b, max;
 
 	pmask = (1 << t->depth) - 1;
 	xmask = 7 >> log2[t->depth];
+	for(i = max = 0; i < t->ncolor; i++) {
+		if(t->color[i] > max)
+			max = t->color[i];
+	}
+	for(i = 0; i < t->ncolor; i++)
+		t->color[i] = (t->color[i] * 0xff) / max;
 	r = t->color;
 	g = r + pmask + 1;
 	b = g + pmask + 1;
