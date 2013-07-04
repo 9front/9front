@@ -1290,7 +1290,7 @@ paldecode(Tif *t, Rawimage *im, uchar *data)
 
 	pmask = (1 << t->depth) - 1;
 	xmask = 7 >> log2[t->depth];
-	for(i = max = 0; i < t->ncolor; i++) {
+	for(i = 0, max = 1; i < t->ncolor; i++) {
 		if(t->color[i] > max)
 			max = t->color[i];
 	}
