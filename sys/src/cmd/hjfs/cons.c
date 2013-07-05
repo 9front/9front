@@ -322,6 +322,13 @@ error:
 	return -1;
 }
 
+int
+cmdusers(int, char**)
+{
+	readusers(fsmain);
+	return 0;
+}
+
 extern int cmdnewuser(int, char **);
 
 Cmd cmds[] = {
@@ -334,6 +341,7 @@ Cmd cmds[] = {
 	{"sync", 1, cmdsync},
 	{"halt", 1, cmdhalt},
 	{"newuser", 0, cmdnewuser},
+	{"users", 1, cmdusers},
 	{"echo", 2, cmdecho},
 	{"df", 1, cmddf},
 	{"debug-deind", 2, cmddebugdeind},

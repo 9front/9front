@@ -27,6 +27,8 @@ hjfs \- file server maintenance
 .I name
 .RI [ options ]
 .PP
+.B users
+.PP
 .B sync
 .PP
 .B debug-chdeind
@@ -113,10 +115,6 @@ owned by user and group
 The options are
 .TF =leaderxx
 .TP
-.B ?
-Print the entry for
-.IR name .
-.TP
 .B :
 Add a group: add the name to
 .B /adm/users
@@ -156,6 +154,12 @@ After a successful
 command the file server overwrites
 .B /adm/users
 to reflect the internal state of the user table.
+.PP
+.I Users
+reads the contents of file 
+.B /adm/users
+to initialize the file server's internal representation of the
+users structure.
 .PP
 .I Sync
 writes dirty blocks in memory to the magnetic disk cache.
