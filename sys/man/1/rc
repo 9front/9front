@@ -840,9 +840,8 @@ The default directory for
 The input field separators used in backquote substitutions.
 If
 .B $ifs
-is not set in
-.IR rc 's
-environment, it is initialized to blank, tab and newline.
+is not otherwise set, its value is
+.BR "'\ \et\en'" .
 .TP
 .B $path
 The search path used to find commands and input files
