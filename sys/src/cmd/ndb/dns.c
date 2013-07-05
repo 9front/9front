@@ -77,6 +77,7 @@ char	*zonerefreshprogram;
 
 char	*logfile = "dns";	/* or "dns.test" */
 char	*dbfile;
+char	*dnsuser;
 char	mntpt[Maxpath];
 
 int	addforwtarg(char *);
@@ -198,6 +199,7 @@ main(int argc, char *argv[])
 	opendatabase();
 	now = time(nil);		/* open time files before we fork */
 	nowns = nsec();
+	dnsuser = estrdup(getuser());
 
 	snprint(servefile, sizeof servefile, "#s/dns%s", ext);
 	dir = dirstat(servefile);
@@ -428,8 +430,9 @@ io(void)
 	while(!stop){
 		procsetname("%d %s/dns Twrites of %d 9p rpcs read; %d alarms",
 			stats.qrecvd9p, mntpt, stats.qrecvd9prpc, stats.alarms);
-		n = read9pmsg(mfd[0], mdata, sizeof mdata);
-		if(n<=0){
+		while((n = read9pmsg(mfd[0], mdata, sizeof mdata)) == 0)
+			;
+		if(n < 0){
 			dnslog("error reading 9P from %s: %r", mntpt);
 			sleep(2000);	/* don't thrash after read error */
 			return;
@@ -717,10 +720,14 @@ rwrite(Job *job, Mfile *mf, Request *req)
 	if(cnt > 0 && job->request.data[cnt-1] == '\n')
 		job->request.data[cnt-1] = 0;
 
+	if(strcmp(mf->user, "none") == 0 || strcmp(mf->user, dnsuser) != 0)
+		goto query;	/* skip special commands if not owner */
+
 	/*
 	 *  special commands
 	 */
-//	dnslog("rwrite got: %s", job->request.data);
+	if(debug)
+		dnslog("rwrite got: %s", job->request.data);
 	send = 1;
 	if(strcmp(job->request.data, "debug")==0)
 		debug ^= 1;
@@ -744,6 +751,7 @@ rwrite(Job *job, Mfile *mf, Request *req)
 	if (send)
 		goto send;
 
+query:
 	/*
 	 *  kill previous reply
 	 */

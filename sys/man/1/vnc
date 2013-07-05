@@ -194,41 +194,6 @@ start TLS on the connection.
 .B -v
 print verbose output to standard error.
 .PD
-.PP
-The VNC protocol represents keyboard input as
-key up/down events.
-Plan 9 does not expose the state of the
-Ctl and Shift keys except as it can be inferred
-from receipt of control or shifted characters.
-It does not expose the state of the Alt key at all,
-since the Alt key is used to compose Unicode characters
-(see
-.IR keyboard (6)).
-.I Vncv
-correctly handles the sending of control and shifted
-characters.
-To support systems that use key sequences like Alt-X
-(or worse, Alt-mouse-click), typing the Plan 9 compose
-sequences
-.B Alt
-.B Z
-.B A
-(for Alt), 
-.B Alt
-.B Z
-.B C
-(for Ctrl),
-and
-.B Alt
-.B Z
-.B S
-(for Shift)
-will send a ``key down'' message for
-the given key.
-A corresponding ``key up'' message
-will be sent after the next key is pressed,
-or when the sequence is retyped,
-whichever happens first.
 .SH SOURCE
 .B /sys/src/cmd/vnc
 .SH "SEE ALSO

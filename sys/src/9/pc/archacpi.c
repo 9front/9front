@@ -37,6 +37,10 @@ struct Tbl {
 	uchar	data[];
 };
 
+enum {
+	Tblsz	= 4+4+1+1+6+8+4+4+4,
+};
+
 static Rsd *rsd;
 
 /* physical addresses visited by maptable() */
@@ -82,7 +86,7 @@ get64(uchar *p){
 
 static uint
 tbldlen(Tbl *t){
-	return get32(t->len) - sizeof(Tbl);
+	return get32(t->len) - Tblsz;
 }
 
 static void
@@ -109,7 +113,7 @@ maptable(uvlong xpa)
 	if((t = vmap(pa, 8)) == nil)
 		return;
 	l = get32(t->len);
-	if(l < sizeof(Tbl)){
+	if(l < Tblsz){
 		vunmap(t, 8);
 		return;
 	}
@@ -396,7 +400,7 @@ Foundapic:
 			a->addr = va;
 			a->lintr[0] = ApicIMASK;
 			a->lintr[1] = ApicIMASK;
-			a->flags = (p[4] & PcmpEN);
+			a->flags = p[4] & PcmpEN;
 			if(a->flags & PcmpEN){
 				a->machno = machno++;
 
@@ -515,7 +519,7 @@ identify(void)
 		return 1;
 	if((cp = getconf("*nomp")) != nil && strcmp(cp, "0") != 0)
 		return 1;
-	if(cpuserver && m->havetsc)
+	if(m->havetsc && getconf("*notsc") == nil)
 		archacpi.fastclock = tscticks;
 	return 0;
 }

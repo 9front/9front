@@ -290,6 +290,8 @@ mtrr(uvlong base, uvlong size, char *tstr)
 	qlock(&mtrrlk);
 	slot = -1;
 	vcnt = cap & Capvcnt;
+	if(vcnt > Nmtrr)
+		vcnt = Nmtrr;
 	for(i = 0; i < vcnt; i++){
 		mtrrget(&mtrr, i);
 		mok = mtrrdec(&mtrr, &mp, &msize, &mtype);
@@ -330,6 +332,8 @@ mtrrprint(char *buf, long bufsize)
 	n += snprint(buf+n, bufsize-n, "cache default %s\n",
 		type2str(def & Deftype));
 	vcnt = cap & Capvcnt;
+	if(vcnt > Nmtrr)
+		vcnt = Nmtrr;
 	for(i = 0; i < vcnt; i++){
 		mtrrget(&mtrr, i);
 		if (mtrrdec(&mtrr, &base, &size, &type))

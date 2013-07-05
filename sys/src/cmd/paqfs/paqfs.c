@@ -817,7 +817,7 @@ io(int fd)
 		if(n < 0)
 			sysfatal("mount read");
 		if(n == 0)
-			break;
+			continue;
 		if(convM2S(mdata, n, &rhdr) == 0)
 			continue;
 

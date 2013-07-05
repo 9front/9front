@@ -1,13 +1,11 @@
 #!/bin/rc
 rfork e
-
 fn logprog{
 	echo % `{echo $"* | sed 's/#/''#''/g'}
 	$*
 	echo
 }
-
-fn work{
+fn print{
 	echo '% cd ''#ec''; for(i in *){echo $i ''='' `{cat $i}}'
 	cd '#ec'; for(i in *){echo $i '=' `{cat $i}}
 	echo
@@ -42,11 +40,42 @@ fn work{
 	logprog cat '#A/volume'
 	logprog cat /mnt/apm/ctl
 }
-
-switch($1){
-case -m
-	{echo Subject: `{cat '#P/cputype'}; work} >[2=1] |
-		user=/dev/null upas/smtp 9front.org $user hardware@9front.org
-case *
-	work
+fn post{
+	file=/tmp/sysinfo.$user.$pid
+	if(! ~ $#e 0)
+		echo $e >$file
+	print >>$file >[2=1] 
+	@{
+		rfork n
+		webfs
+		hpost -u http://sysinfo.9front.org -p / a_body@$file submit:submit fake:fake a_func:add_post url: |
+			grep -e '\/body\"' |
+			sed 1q | sed 's/^.*href=\"//g; s/body\".*$/body/g; s/^/http:\/\/sysinfo.9front.org/g'
+		rm -f $file
+	}
 }
+argv0=$0
+fn usage {
+	echo usage: $argv0 '[ -e e-mail ] [ -p ]' >[1=2]
+	exit usage
+}
+e=()
+p=()
+while(~ $1 -*){
+	switch($1){
+	case -e
+		e=$2
+		shift
+	case -p
+		p=1
+		shift
+	case *
+		usage
+	}
+	shift
+}
+if(~ $p 1)
+	post
+	
+if not
+	print

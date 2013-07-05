@@ -365,9 +365,10 @@ fsrun(void *a)
 	for(;;){
 		r = allocreq(messagesize);
 		qlock(&iolock);
-		n = read9pmsg(fs->fd, r->buf, messagesize);
+		while((n = read9pmsg(fs->fd, r->buf, messagesize)) == 0)
+			;
 		qunlock(&iolock);
-		if(n <= 0)
+		if(n < 0)
 			fatal("read9pmsg error: %r");
 
 		if(convM2S(r->buf, n, &r->f) == 0){

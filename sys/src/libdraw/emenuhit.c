@@ -230,7 +230,8 @@ emenuhit(int but, Mouse *m, Menu *menu)
 	border(screen, menur, Blackborder, bord, ZP);
 	save = allocimage(display, menurect(textr, 0), screen->chan, 0, -1);
 	r = menurect(textr, lasti);
-	emoveto(divpt(addpt(r.min, r.max), 2));
+	if(pt.x || pt.y)
+		emoveto(divpt(addpt(r.min, r.max), 2));
 	menupaint(menu, textr, off, nitemdrawn);
 	if(scrolling)
 		menuscrollpaint(scrollr, off, nitem, nitemdrawn);

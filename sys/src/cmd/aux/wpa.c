@@ -66,17 +66,25 @@ uchar	ptk[PTKlen];
 char	essid[32+1];
 uvlong	lastrepc;
 
+uchar rsntkipoui[4] = {0x00, 0x0F, 0xAC, 0x02};
+uchar rsnccmpoui[4] = {0x00, 0x0F, 0xAC, 0x04};
+uchar rsnapskoui[4] = {0x00, 0x0F, 0xAC, 0x02};
+
 uchar	rsnie[] = {
 	0x30,			/* RSN */
 	0x14,			/* length */
 	0x01, 0x00,		/* version 1 */
 	0x00, 0x0F, 0xAC, 0x04,	/* group cipher suite CCMP */
-	0x01, 0x00,		/* peerwise cipher suite count 1 */
-	0x00, 0x0F, 0xAC, 0x04,	/* peerwise cipher suite CCMP */
+	0x01, 0x00,		/* pairwise cipher suite count 1 */
+	0x00, 0x0F, 0xAC, 0x04,	/* pairwise cipher suite CCMP */
 	0x01, 0x00,		/* authentication suite count 1 */
 	0x00, 0x0F, 0xAC, 0x02,	/* authentication suite PSK */
 	0x00, 0x00,		/* capabilities */
 };
+
+uchar wpa1oui[4]    = {0x00, 0x50, 0xF2, 0x01};
+uchar wpatkipoui[4] = {0x00, 0x50, 0xF2, 0x02};
+uchar wpaapskoui[4] = {0x00, 0x50, 0xF2, 0x02};
 
 uchar	wpaie[] = {
 	0xdd,			/* vendor specific */
@@ -84,14 +92,37 @@ uchar	wpaie[] = {
 	0x00, 0x50, 0xf2, 0x01,	/* WPAIE type 1 */
 	0x01, 0x00,		/* version 1 */
 	0x00, 0x50, 0xf2, 0x02,	/* group cipher suite TKIP */
-	0x01, 0x00,		/* peerwise cipher suite count 1 */
-	0x00, 0x50, 0xf2, 0x02,	/* peerwise cipher suite TKIP */
+	0x01, 0x00,		/* pairwise cipher suite count 1 */
+	0x00, 0x50, 0xf2, 0x02,	/* pairwise cipher suite TKIP */
 	0x01, 0x00,		/* authentication suite count 1 */
 	0x00, 0x50, 0xf2, 0x02,	/* authentication suite PSK */
 };
 
+int
+hextob(char *s, char **sp, uchar *b, int n)
+{
+	int r;
+
+	n <<= 1;
+	for(r = 0; r < n && *s; s++){
+		*b <<= 4;
+		if(*s >= '0' && *s <= '9')
+			*b |= (*s - '0');
+		else if(*s >= 'a' && *s <= 'f')
+			*b |= 10+(*s - 'a');
+		else if(*s >= 'A' && *s <= 'F')
+			*b |= 10+(*s - 'A');
+		else break;
+		if((++r & 1) == 0)
+			b++;
+	}
+	if(sp != nil)
+		*sp = s;
+	return r >> 1;
+}
+
 char*
-getessid(void)
+getifstats(char *key, char *val, int nval)
 {
 	char buf[8*1024], *f[2], *p, *e;
 	int fd, n;
@@ -99,21 +130,172 @@ getessid(void)
 	snprint(buf, sizeof(buf), "%s/ifstats", devdir);
 	if((fd = open(buf, OREAD)) < 0)
 		return nil;
-	n = read(fd, buf, sizeof(buf)-1);
+	n = readn(fd, buf, sizeof(buf)-1);
 	close(fd);
-	if(n > 0){
-		buf[n] = 0;
-		for(p = buf; (e = strchr(p, '\n')) != nil; p = e){
-			*e++ = 0;
-			if(tokenize(p, f, 2) != 2)
-				continue;
-			if(strcmp(f[0], "essid:") != 0)
-				continue;
-			strncpy(essid, f[1], 32);
-			return essid;
-		}
+	if(n <= 0)
+		return nil;
+	buf[n] = 0;
+	for(p = buf; (e = strchr(p, '\n')) != nil; p = e){
+		*e++ = 0;
+		if(tokenize(p, f, 2) != 2)
+			continue;
+		if(strcmp(f[0], key) != 0)
+			continue;
+		strncpy(val, f[1], nval);
+		val[nval-1] = 0;
+		return val;
 	}
 	return nil;
+}
+
+char*
+getessid(void)
+{
+	return getifstats("essid:", essid, sizeof(essid));
+}
+
+int
+buildrsne(uchar rsne[258])
+{
+	char buf[1024];
+	uchar brsne[258];
+	int brsnelen;
+	uchar *p, *w, *e;
+	int i, n;
+
+	if(getifstats("brsne:", buf, sizeof(buf)) == nil)
+		return 0;	/* not an error, might be old kernel */
+
+	brsnelen = hextob(buf, nil, brsne, sizeof(brsne));
+	if(brsnelen <= 4){
+trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
+		return 0;
+	}
+
+	w = rsne;
+	p = brsne;
+	e = p + brsnelen;
+	if(p[0] == 0x30){
+		p += 2;
+
+		/* RSN */
+		*w++ = 0x30;
+		*w++ = 0;	/* length */
+	} else if(p[0] == 0xDD){
+		p += 2;
+		if((e - p) < 4 || memcmp(p, wpa1oui, 4) != 0){
+			sysfatal("unrecognized WPAIE type; brsne: %s", buf);
+			return 0;
+		}
+
+		/* WPA */
+		*w++ = 0xDD;
+		*w++ = 0;	/* length */
+
+		memmove(w, wpa1oui, 4);
+		w += 4;
+		p += 4;
+	} else {
+		sysfatal("unrecognized RSNE type; brsne: %s", buf);
+		return 0;
+	}
+
+	if((e - p) < 6)
+		goto trunc;
+
+	*w++ = *p++;		/* version */
+	*w++ = *p++;
+
+	if(rsne[0] == 0x30){
+		if(memcmp(p, rsnccmpoui, 4) == 0)
+			groupcipher = &ccmp;
+		else if(memcmp(p, rsntkipoui, 4) == 0)
+			groupcipher = &tkip;
+		else {
+			sysfatal("unrecognized RSN group cipher; brsne: %s", buf);
+			return 0;
+		}
+	} else {
+		if(memcmp(p, wpatkipoui, 4) != 0){
+			sysfatal("unrecognized WPA group cipher; brsne: %s", buf);
+			return 0;
+		}
+		groupcipher = &tkip;
+	}
+
+	memmove(w, p, 4);	/* group cipher */
+	w += 4;
+	p += 4;
+
+	if((e - p) < 6)
+		goto trunc;
+
+	*w++ = 0x01;		/* # of peer ciphers */
+	*w++ = 0x00;
+	n = *p++;
+	n |= *p++ << 8;
+
+	if(n <= 0)
+		goto trunc;
+
+	peercipher = &tkip;
+	for(i=0; i<n; i++){
+		if((e - p) < 4)
+			goto trunc;
+
+		if(rsne[0] == 0x30 && memcmp(p, rsnccmpoui, 4) == 0 && peercipher == &tkip)
+			peercipher = &ccmp;
+		p += 4;
+	}
+	if(peercipher == &ccmp)
+		memmove(w, rsnccmpoui, 4);
+	else if(rsne[0] == 0x30)
+		memmove(w, rsntkipoui, 4);
+	else
+		memmove(w, wpatkipoui, 4);
+	w += 4;
+
+	if((e - p) < 6)
+		goto trunc;
+
+	*w++ = 0x01;		/* # of auth suites */
+	*w++ = 0x00;
+	n = *p++;
+	n |= *p++ << 8;
+
+	if(n <= 0)
+		goto trunc;
+
+	for(i=0; i<n; i++){
+		if((e - p) < 4)
+			goto trunc;
+
+		/* look for PSK oui */
+		if(rsne[0] == 0x30){
+			if(memcmp(p, rsnapskoui, 4) == 0)
+				break;
+		} else {
+			if(memcmp(p, wpaapskoui, 4) == 0)
+				break;
+		}
+		p += 4;
+	}
+	if(i >= n){
+		sysfatal("auth suite is not PSK; brsne: %s", buf);
+		return 0;
+	}
+
+	memmove(w, p, 4);
+	w += 4;
+
+	if(rsne[0] == 0x30){
+		/* RSN caps */
+		*w++ = 0x00;
+		*w++ = 0x00;
+	}
+
+	rsne[1] = (w - rsne) - 2;
+	return w - rsne;
 }
 
 int
@@ -148,8 +330,10 @@ getptk(	uchar smac[Eaddrlen], uchar amac[Eaddrlen],
 		goto out;
 	if((ret = auth_rpc(rpc, "read", nil, 0)) != ARok)
 		goto out;
-	if(rpc->narg != PTKlen)
+	if(rpc->narg != PTKlen){
+		ret = -1;
 		goto out;
+	}
 	memmove(ptk, rpc->arg, PTKlen);
 	ret = 0;
 out:
@@ -294,7 +478,7 @@ checkmic(Keydescr *kd, uchar *msg, int msglen)
 }
 
 void
-reply(uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar *data, int datalen)
+reply(int eapver, uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar *data, int datalen)
 {
 	uchar buf[4096], *m, *p = buf;
 
@@ -304,7 +488,7 @@ reply(uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar
 	*p++ = 0x8e;
 
 	m = p;
-	*p++ = 0x01;
+	*p++ = eapver;
 	*p++ = 0x03;
 	datalen += Keydescrlen;
 	*p++ = datalen >> 8;
@@ -325,7 +509,7 @@ reply(uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar
 	if(flags & Fmic)
 		calcmic(kd, m, p - m);
 	if(debug != 0){
-		fprint(2, "\nreply %E -> %E: ", smac, amac);
+		fprint(2, "\nreply(v%d) %E -> %E: ", eapver, smac, amac);
 		dumpkeydescr(kd);
 	}
 	datalen = p - buf;
@@ -353,11 +537,10 @@ main(int argc, char *argv[])
 	fmtinstall('H', Hfmt);
 	fmtinstall('E', eipfmt);
 
-	/* default is WPA */
-	rsne = wpaie;
-	rsnelen = sizeof(wpaie);
-	peercipher = &tkip;
-	groupcipher = &tkip;
+	rsne = nil;
+	rsnelen = -1;
+	peercipher = nil;
+	groupcipher = nil;
 
 	ARGBEGIN {
 	case 'd':
@@ -415,6 +598,24 @@ main(int argc, char *argv[])
 		free(s);
 	}
 
+	if(rsnelen <= 0){
+		static uchar brsne[258];
+
+		rsne = brsne;
+		rsnelen = buildrsne(rsne);
+	}
+
+	if(rsnelen <= 0){
+		/* default is WPA */
+		rsne = wpaie;
+		rsnelen = sizeof(wpaie);
+		peercipher = &tkip;
+		groupcipher = &tkip;
+	}
+
+	if(debug)
+		fprint(2, "rsne: %.*H\n", rsnelen, rsne);
+
 	/*
 	 * we use write() instead of fprint so message gets  written
 	 * at once and not chunked up on fprint buffer.
@@ -437,12 +638,20 @@ main(int argc, char *argv[])
 	
 	for(;;){
 		uchar smac[Eaddrlen], amac[Eaddrlen], snonce[Noncelen], anonce[Noncelen], *p, *e, *m;
-		int proto, flags, vers, datalen;
+		int proto, eapver, flags, vers, datalen;
 		uvlong repc, rsc, tsc;
 		Keydescr *kd;
 
 		if((n = read(fd, buf, sizeof(buf))) < 0)
 			sysfatal("read: %r");
+
+		if(n == 0){
+			if(debug != 0)
+				fprint(2, "got deassociation\n");
+			lastrepc = 0ULL;
+			continue;
+		}
+
 		p = buf;
 		e = buf+n;
 		if(n < 2*Eaddrlen + 2)
@@ -455,18 +664,26 @@ main(int argc, char *argv[])
 
 		m = p;
 		n = e - p;
-		if(n < 4 || p[0] != 0x01 || p[1] != 0x03)
+		if(n < 4)
 			continue;
+		eapver = p[0];
+		if((eapver != 0x01 && eapver != 0x02) || p[1] != 0x03)
+			continue;
+
+		if(debug != 0)
+			fprint(2, "\nrecv(v%d) %E <- %E: ", eapver, smac, amac);
+
 		n = p[2]<<8 | p[3];
 		p += 4;
-		if(n < Keydescrlen || p + n > e)
+		if(n < Keydescrlen || p + n > e){
+			if(debug != 0)
+				fprint(2, "bad kd size\n");
 			continue;
+		}
 		e = p + n;
 		kd = (Keydescr*)p;
-		if(debug){
-			fprint(2, "\nrecv %E <- %E: ", smac, amac);
+		if(debug != 0)
 			dumpkeydescr(kd);
-		}
 
 		if(kd->type[0] != 0xFE && kd->type[0] != 0x02)
 			continue;
@@ -483,14 +700,17 @@ main(int argc, char *argv[])
 
 			memmove(anonce, kd->nonce, sizeof(anonce));
 			genrandom(snonce, sizeof(snonce));
-			if(getptk(smac, amac, snonce, anonce, ptk) < 0)
+			if(getptk(smac, amac, snonce, anonce, ptk) != 0){
+				if(debug != 0)
+					fprint(2, "getptk: %r\n");
 				continue;
+			}
 
 			/* ack key exchange with mic */
 			memset(kd->rsc, 0, sizeof(kd->rsc));
 			memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 			memmove(kd->nonce, snonce, sizeof(kd->nonce));
-			reply(smac, amac, (flags & ~(Fack|Fins)) | Fmic, kd, rsne, rsnelen);
+			reply(eapver, smac, amac, (flags & ~(Fack|Fins)) | Fmic, kd, rsne, rsnelen);
 		} else {
 			uchar gtk[GTKlen];
 			int gtklen, gtkkid;
@@ -577,22 +797,19 @@ main(int argc, char *argv[])
 					tsc = rsc;
 					rsc = 0LL;
 				}
-				/* install peerwise receive key */
+				/* install pairwise receive key */
 				if(fprint(cfd, "rxkey %.*H %s:%.*H@%llux", Eaddrlen, amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write rxkey: %r");
 
-				/* pick random 16bit tsc value for transmit */
-				tsc = 1 + (truerand() & 0x7fff);
+				tsc = 0LL;
 				memset(kd->rsc, 0, sizeof(kd->rsc));
-				kd->rsc[0] = tsc;
-				kd->rsc[1] = tsc>>8;
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
-				reply(smac, amac, flags & ~(Fack|Fenc|Fsec), kd, nil, 0);
+				reply(eapver, smac, amac, flags & ~(Fack|Fenc|Fins), kd, nil, 0);
 				sleep(100);
 
-				/* install peerwise transmit key */ 
+				/* install pairwise transmit key */ 
 				if(fprint(cfd, "txkey %.*H %s:%.*H@%llux", Eaddrlen, amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write txkey: %r");
@@ -612,7 +829,7 @@ main(int argc, char *argv[])
 				memset(kd->rsc, 0, sizeof(kd->rsc));
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
-				reply(smac, amac, flags & ~(Fenc|Fack), kd, nil, 0);
+				reply(eapver, smac, amac, flags & ~(Fenc|Fack), kd, nil, 0);
 			} else
 				continue;
 

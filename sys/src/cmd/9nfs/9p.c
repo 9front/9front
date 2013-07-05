@@ -44,6 +44,8 @@ again:
 		clog("xmesg read error: %r\n");
 		return -1;
 	}
+	if(n == 0)
+		goto again;
 	if(convM2S(s->data, n, &s->f) <= 0){
 		clog("xmesg bad convM2S %d %.2x %.2x %.2x %.2x\n",
 			n, ((uchar*)s->data)[0], ((uchar*)s->data)[1],

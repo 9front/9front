@@ -228,7 +228,7 @@ drawclip(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, 
 	int splitcoords;
 	Rectangle omr;
 
-	if(r->min.x>=r->max.x || r->min.y>=r->max.y)
+	if(badrect(*r))
 		return 0;
 	splitcoords = (p0->x!=p1->x) || (p0->y!=p1->y);
 	/* clip to destination */
@@ -1541,8 +1541,8 @@ readcmap(Param *p, uchar *buf, int y)
 static void
 writecmap(Param *p, uchar *w, Buffer src)
 {
-	uchar *cmap, *red, *grn, *blu;
-	int i, dx, delta;
+	uchar *cmap, *red, *grn, *blu, *alpha;
+	int i, dx, delta, a, m;
 
 	cmap = p->img->cmap->rgb2cmap;
 	
@@ -1552,8 +1552,20 @@ writecmap(Param *p, uchar *w, Buffer src)
 	blu = src.blu;
 
 	dx = p->dx;
-	for(i=0; i<dx; i++, red+=delta, grn+=delta, blu+=delta)
-		*w++ = cmap[(*red>>4)*256+(*grn>>4)*16+(*blu>>4)];
+	if(p->img->flags&Falpha){
+		alpha = src.alpha;
+		m = p->img->shift[CMap]/8;
+		a = p->img->shift[CAlpha]/8;
+		for(i=0; i<dx; i++, red+=delta, grn+=delta, blu+=delta, w+=2){
+			w[a] = *alpha;
+			if(alpha != &ones)
+				alpha+=delta;
+			w[m] = cmap[(*red>>4)*256+(*grn>>4)*16+(*blu>>4)];
+		}
+	} else {
+		for(i=0; i<dx; i++, red+=delta, grn+=delta, blu+=delta)
+			*w++ = cmap[(*red>>4)*256+(*grn>>4)*16+(*blu>>4)];
+	}
 }
 
 #define DBG if(0)
@@ -1752,7 +1764,7 @@ writefn(Memimage *img)
 {
 	if(img->depth < 8)
 		return writenbit;
-	if(img->chan == CMAP8)
+	if(img->nbits[CMap] == 8)
 		return writecmap;
 	return writebyte;
 }

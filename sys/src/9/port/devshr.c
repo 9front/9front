@@ -89,7 +89,7 @@ putmpt(Mpt *mpt)
 {
 	if(decref(mpt))
 		return;
-	if(mpt->m.to)
+	if(mpt->m.to != nil)
 		cclose(mpt->m.to);
 	free(mpt->name);
 	free(mpt->owner);
@@ -148,9 +148,9 @@ shrclone(Chan *c)
 	nc = devclone(c);
 	sch = smalloc(sizeof(*sch));
 	memmove(sch, och, sizeof(*sch));
-	if(sch->shr)
+	if(sch->shr != nil)
 		incref(sch->shr);
-	if(sch->mpt)
+	if(sch->mpt != nil)
 		incref(sch->mpt);
 	sch->chan = nc;
 	nc->aux = sch;
@@ -165,9 +165,9 @@ shrclunk(Chan *c)
 	sch = tosch(c);
 	c->aux = nil;
 	sch->chan = nil;
-	if(sch->mpt)
+	if(sch->mpt != nil)
 		putmpt(sch->mpt);
-	if(sch->shr)
+	if(sch->shr != nil)
 		putshr(sch->shr);
 	free(sch);	
 }
@@ -226,7 +226,7 @@ shrwalk(Chan *c, Chan *nc, char **name, int nname)
 			sch->shr = nil;
 		} else if(sch->level == Qcroot || sch->level == Qroot) {
 			qlock(&shrslk);
-			for(shr = shrs; shr; shr = shr->next)
+			for(shr = shrs; shr != nil; shr = shr->next)
 				if(strcmp(nam, shr->name) == 0){
 					incref(shr);
 					break;
@@ -242,7 +242,7 @@ shrwalk(Chan *c, Chan *nc, char **name, int nname)
 			shr = sch->shr;
 			h = &shr->umh;
 			rlock(&h->lock);
-			for(m = h->mount; m; m = m->next){
+			for(m = h->mount; m != nil; m = m->next){
 				mpt = tompt(m);
 				if(strcmp(nam, mpt->name) == 0){
 					incref(mpt);
@@ -259,7 +259,7 @@ shrwalk(Chan *c, Chan *nc, char **name, int nname)
 			h = &shr->umh;
 			wq2 = nil;
 			rlock(&h->lock);
-			for(m = h->mount; m && wq2 == nil; m = m->next){
+			for(m = h->mount; m != nil && wq2 == nil; m = m->next){
 				if(m->to == nil)
 					continue;
 				if(waserror())
@@ -302,7 +302,7 @@ shrgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 	case Qroot:
 	case Qcroot:
 		qlock(&shrslk);
-		for(shr = shrs; shr && s; shr = shr->next)
+		for(shr = shrs; shr != nil && s > 0; shr = shr->next)
 			s--;
 		if(shr == nil){
 			qunlock(&shrslk);
@@ -321,7 +321,7 @@ shrgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 		shr = sch->shr;
 		h = &shr->umh;
 		rlock(&h->lock);
-		for(m = h->mount; m && s; m = m->next)
+		for(m = h->mount; m != nil && s > 0; m = m->next)
 			s--;
 		if(m == nil){
 			runlock(&h->lock);
@@ -469,7 +469,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 			qunlock(&shrslk);
 			nexterror();
 		}
-		for(shr = shrs; shr; shr = shr->next)
+		for(shr = shrs; shr != nil; shr = shr->next)
 			if(strcmp(name, shr->name) == 0)
 				error(Eexist);
 
@@ -494,7 +494,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 	case Qcshr:
 		if(up->pgrp->noattach)
 			error(Enoattach);
-		if((perm & DMDIR) || openmode(omode) != OWRITE)
+		if((perm & DMDIR) != 0 || openmode(omode) != OWRITE)
 			error(Eperm);
 
 		shr = sch->shr;
@@ -511,7 +511,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 			wunlock(&h->lock);
 			nexterror();
 		}
-		for(m = h->mount; m; m = m->next){
+		for(m = h->mount; m != nil; m = m->next){
 			mpt = tompt(m);
 			if(strcmp(name, mpt->name) == 0)
 				error(Eexist);
@@ -574,13 +574,13 @@ shrremove(Chan *c)
 		h = &shr->umh;
 		qlock(&shrslk);
 		rlock(&h->lock);
-		if(h->mount){
+		if(h->mount != nil){
 			runlock(&h->lock);
 			qunlock(&shrslk);
 			error("directory not empty");
 		}
 		runlock(&h->lock);
-		for(sl = &shrs; *sl; sl = &((*sl)->next))
+		for(sl = &shrs; *sl != nil; sl = &((*sl)->next))
 			if(*sl == shr){
 				*sl = shr->next;
 				shr->next = nil;
@@ -594,7 +594,7 @@ shrremove(Chan *c)
 		m = &mpt->m;
 		h = &shr->umh;
 		wlock(&h->lock);
-		for(ml = &h->mount; *ml; ml = &((*ml)->next))
+		for(ml = &h->mount; *ml != nil; ml = &((*ml)->next))
 			if(*ml == m){
 				*ml = m->next;
 				m->next = nil;
@@ -617,6 +617,15 @@ shrwstat(Chan *c, uchar *dp, int n)
 	Sch *sch;
 	Ent *ent;
 	Dir d;
+
+	strs = smalloc(n);
+	if(waserror()){
+		free(strs);
+		nexterror();
+	}
+	n = convM2D(dp, n, &d, strs);
+	if(n == 0)
+		error(Eshortstat);
 
 	h = nil;
 	sch = tosch(c);
@@ -645,27 +654,17 @@ shrwstat(Chan *c, uchar *dp, int n)
 	if(strcmp(ent->owner, up->user) && !iseve())
 		error(Eperm);
 
-	strs = smalloc(n);
-	if(waserror()){
-		free(strs);
-		nexterror();
-	}
-	n = convM2D(dp, n, &d, strs);
-	if(n == 0)
-		error(Eshortstat);
-	if(d.mode != ~0UL)
-		ent->perm = d.mode & 0777;
-	if(d.uid && *d.uid)
-		kstrdup(&ent->owner, d.uid);
-	if(d.name && *d.name && strcmp(ent->name, d.name) != 0) {
+	if(d.name != nil && *d.name && strcmp(ent->name, d.name) != 0) {
 		if(strchr(d.name, '/') != nil)
 			error(Ebadchar);
 		if(strlen(d.name) >= sizeof(up->genbuf))
 			error(Etoolong);
 		kstrdup(&ent->name, d.name);
 	}
-	poperror();
-	free(strs);
+	if(d.uid != nil && *d.uid)
+		kstrdup(&ent->owner, d.uid);
+	if(d.mode != ~0UL)
+		ent->perm = d.mode & 0777;
 
 	switch(sch->level){
 	case Qcshr:
@@ -677,6 +676,10 @@ shrwstat(Chan *c, uchar *dp, int n)
 		wunlock(&h->lock);
 		break;
 	}
+
+	poperror();
+	free(strs);
+
 	return n;
 }
 
@@ -771,7 +774,7 @@ shrwrite(Chan *c, void *va, long n, vlong)
 	m->to = c0;
 	wunlock(&h->lock);
 
-	if(bc)
+	if(bc != nil)
 		cclose(bc);
 
 	return n;
@@ -810,7 +813,7 @@ Dev shrdevtab = {
 static void
 chowner(Ent *ent, char *old, char *new)
 {
-	if(ent->owner!=nil && strcmp(old, ent->owner)==0)
+	if(ent->owner != nil && strcmp(old, ent->owner) == 0)
 		kstrdup(&ent->owner, new);
 }
 
@@ -821,9 +824,9 @@ shrrenameuser(char *old, char *new)
 	Mount *m;
 
 	qlock(&shrslk);
-	for(shr = shrs; shr; shr = shr->next){
+	for(shr = shrs; shr != nil; shr = shr->next){
 		wlock(&shr->umh.lock);
-		for(m = shr->umh.mount; m; m = m->next)
+		for(m = shr->umh.mount; m != nil; m = m->next)
 			chowner(tompt(m), old, new);
 		wunlock(&shr->umh.lock);
 		chowner(shr, old, new);

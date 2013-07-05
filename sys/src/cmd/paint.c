@@ -15,6 +15,7 @@ Image *back;
 Image *pal[16];		/* palette */
 Rectangle palr;		/* palette rect on screen */
 Rectangle penr;		/* pen size rect on screen */
+
 enum {
 	NBRUSH = 10+1,
 };
@@ -40,6 +41,29 @@ int c64[] = {		/* c64 color palette */
 	0x6C5EB5,
 	0x959595,
 };
+
+/*
+ * get bounding rectnagle for stroke from r.min to r.max with
+ * specified brush (size).
+ */
+static Rectangle
+strokerect(Rectangle r, int brush)
+{
+	r = canonrect(r);
+	return Rect(r.min.x-brush, r.min.y-brush, r.max.x+brush+1, r.max.y+brush+1);
+}
+
+/*
+ * draw stroke from r.min to r.max to dst with color ink and
+ * brush (size).
+ */
+static void
+strokedraw(Image *dst, Rectangle r, Image *ink, int brush)
+{
+	if(!eqpt(r.min, r.max))
+		line(dst, r.min, r.max, Enddisc, Enddisc, brush, ink, ZP);
+	fillellipse(dst, r.max, brush, brush, ink, ZP);
+}
 
 /*
  * A draw operation that touches only the area contained in bot but not in top.
@@ -259,10 +283,16 @@ restore(int n)
 		if((tmp = undo[x]) == nil)
 			return;
 		undo[x] = nil;
-		expand(tmp->r);
-		draw(canvas, tmp->r, tmp, nil, tmp->r.min);
-		update(&tmp->r);
-		freeimage(tmp);
+		if(canvas == nil || canvas->chan != tmp->chan){
+			freeimage(canvas);
+			canvas = tmp;
+			update(nil);
+		} else {
+			expand(tmp->r);
+			draw(canvas, tmp->r, tmp, nil, tmp->r.min);
+			update(&tmp->r);
+			freeimage(tmp);
+		}
 	}
 }
 
@@ -450,19 +480,21 @@ drawpal(void)
 
 	r = penr;
 	draw(screen, r, back, nil, ZP);
-	for(i=0; i<10; i++){
+	for(i=0; i<NBRUSH; i++){
 		r.max.x = penr.min.x + (i+1)*Dx(penr) / NBRUSH;
 		rr = r;
 		if(i == brush)
 			rr.min.y += Dy(r)/3;
-		fillellipse(screen, addpt(rr.min, divpt(subpt(rr.max, rr.min), 2)), i, i, ink, ZP);
+		if(i == NBRUSH-1){
+			/* last is special brush for fill draw */
+			draw(screen, rr, ink, nil, ZP);
+		} else {
+			rr.min = addpt(rr.min, divpt(subpt(rr.max, rr.min), 2));
+			rr.max = rr.min;
+			strokedraw(screen, rr, ink, i);
+		}
 		r.min.x = r.max.x;
 	}
-	r.max.x = penr.min.x + (i+1)*Dx(penr) / NBRUSH;
-	rr = r;
-	if(i == brush)
-		rr.min.y += Dy(r)/3;
-	draw(screen, rr, ink, nil, ZP);
 
 	r = palr;
 	for(i=1; i<=nelem(pal); i++){
@@ -614,7 +646,7 @@ main(int argc, char *argv[])
 				/* no break */
 			case 1:
 				p = s2c(e.mouse.xy);
-				if(brush >= 10){
+				if(brush == NBRUSH-1){
 					/* flood fill brush */
 					if(canvas == nil || !ptinrect(p, canvas->r)){
 						back = img;
@@ -632,10 +664,10 @@ main(int argc, char *argv[])
 						;
 					break;
 				}
-				r = Rect(p.x-brush, p.y-brush, p.x+brush+1, p.y+brush+1);
+				r = strokerect(Rpt(p, p), brush);
 				expand(r);
 				save(r, 1);
-				fillellipse(canvas, p, brush, brush, img, ZP);
+				strokedraw(canvas, Rpt(p, p), img, brush);
 				update(&r);
 				for(;;){
 					m = e.mouse;
@@ -646,14 +678,10 @@ main(int argc, char *argv[])
 					d = s2c(e.mouse.xy);
 					if(eqpt(d, p))
 						continue;
-					r = canonrect(Rpt(p, d));
-					r.min.x -= brush;
-					r.min.y -= brush;
-					r.max.x += brush+1;
-					r.max.y += brush+1;
+					r = strokerect(Rpt(p, d), brush);
 					expand(r);
 					save(r, 0);
-					line(canvas, p, d, Enddisc, Enddisc, brush, img, ZP);
+					strokedraw(canvas, Rpt(p, d), img, brush);
 					update(&r);
 					p = d;
 				}
@@ -677,10 +705,12 @@ main(int argc, char *argv[])
 				center();
 				break;
 			case '+':
-				setzoom(e.mouse.xy, zoom*2);
+				if(zoom < 0x1000)
+					setzoom(e.mouse.xy, zoom*2);
 				break;
 			case '-':
-				setzoom(e.mouse.xy, zoom/2);
+				if(zoom > 1)
+					setzoom(e.mouse.xy, zoom/2);
 				break;
 			case 'c':
 				if(canvas == nil)
@@ -694,7 +724,7 @@ main(int argc, char *argv[])
 				restore(16);
 				break;
 			case 'f':
-				brush = 10;
+				brush = NBRUSH-1;
 				drawpal();
 				break;
 			case '0': case '1': case '2': case '3': case '4':

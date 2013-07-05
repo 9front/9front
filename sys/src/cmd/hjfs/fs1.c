@@ -214,7 +214,7 @@ error:
 	dprint("writeusers: %r\n");
 }
 
-static void
+void
 readusers(Fs *fs)
 {
 	Chan *ch;

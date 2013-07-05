@@ -44,6 +44,7 @@ wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
 	w->kbdread =  chancreate(sizeof(Kbdreadmesg), 0);
 	w->mouseread =  chancreate(sizeof(Mousereadmesg), 0);
 	w->wctlread =  chancreate(sizeof(Consreadmesg), 0);
+	w->complete = chancreate(sizeof(Completion*), 0);
 	w->scrollr = r;
 	w->scrollr.max.x = r.min.x+Scrollwid;
 	w->lastsr = ZR;
@@ -157,17 +158,19 @@ wclose(Window *w)
 	return 1;
 }
 
+void
+showcandidates(Window *, Completion *);
 
 void
 winctl(void *arg)
 {
 	Rune *rp, *bp, *tp, *up;
-	uint qh;
+	uint qh, q0;
 	int nr, nb, c, wid, i, npart, initial, lastb;
 	char *s, *t, part[3];
 	Window *w;
 	Mousestate *mp, m;
-	enum { WKbd, WKbdread, WMouse, WMouseread, WCtl, WCwrite, WCread, WWread, NWALT };
+	enum { WKbd, WKbdread, WMouse, WMouseread, WCtl, WCwrite, WCread, WWread, WComplete, NWALT };
 	Alt alts[NWALT+1];
 	Mousereadmesg mrm;
 	Kbdreadmesg krm;
@@ -176,6 +179,7 @@ winctl(void *arg)
 	Consreadmesg cwrm;
 	Stringpair pair;
 	Wctlmesg wcm;
+	Completion *cr;
 	char buf[4*12+1], *kbdq[8], *kbds;
 	int kbdqr, kbdqw;
 
@@ -215,6 +219,9 @@ winctl(void *arg)
 	alts[WWread].c = w->wctlread;
 	alts[WWread].v = &cwrm;
 	alts[WWread].op = CHANSND;
+	alts[WComplete].c = w->complete;
+	alts[WComplete].v = &cr;
+	alts[WComplete].op = CHANRCV;
 	alts[NWALT].op = CHANEND;
 
 	memset(kbdq, 0, sizeof(kbdq));
@@ -418,6 +425,21 @@ winctl(void *arg)
 			}
 			send(cwrm.c2, &pair);
 			continue;
+		case WComplete:
+			if(!w->deleted){
+				if(!cr->advance)
+					showcandidates(w, cr);
+				if(cr->advance){
+					rp = runesmprint("%s", cr->string);
+					nr = runestrlen(rp);
+					q0 = w->q0;
+					q0 = winsert(w, rp, nr, q0);
+					wshow(w, q0+nr);
+					free(rp);
+				}
+			}
+			freecompletion(cr);
+			break;
 		}
 		if(!w->deleted)
 			flushimage(display, 1);
@@ -507,24 +529,53 @@ showcandidates(Window *w, Completion *c)
 	free(rp);
 }
 
-Rune*
+typedef struct Completejob Completejob;
+struct Completejob
+{
+	char	*dir;
+	char	*str;
+	Window	*win;
+};
+
+void
+completeproc(void *arg)
+{
+	Completejob *job;
+	Completion *c;
+	char buf[128];
+
+	job = arg;
+	snprint(buf, sizeof(buf), "namecomplete %s", job->dir);
+	threadsetname(buf);
+
+	c = complete(job->dir, job->str);
+	if(c != nil && sendp(job->win->complete, c) <= 0)
+		freecompletion(c);
+
+	wclose(job->win);
+
+	free(job->dir);
+	free(job->str);
+	free(job);
+}
+
+void
 namecomplete(Window *w)
 {
 	int nstr, npath;
-	Rune *rp, *path, *str;
-	Completion *c;
-	char *s, *dir, *root;
+	Rune *path, *str;
+	char *dir, *root;
+	Completejob *job;
 
 	/* control-f: filename completion; works back to white space or / */
 	if(w->q0<w->nr && w->r[w->q0]>' ')	/* must be at end of word */
-		return nil;
+		return;
 	nstr = windfilewidth(w, w->q0, TRUE);
 	str = runemalloc(nstr);
 	runemove(str, w->r+(w->q0-nstr), nstr);
 	npath = windfilewidth(w, w->q0-nstr, FALSE);
 	path = runemalloc(npath);
 	runemove(path, w->r+(w->q0-nstr-npath), npath);
-	rp = nil;
 
 	/* is path rooted? if not, we need to make it relative to window path */
 	if(npath>0 && path[0]=='/'){
@@ -538,34 +589,24 @@ namecomplete(Window *w)
 		dir = malloc(strlen(root)+1+UTFmax*npath+1);
 		sprint(dir, "%s/%.*S", root, npath, path);
 	}
-	dir = cleanname(dir);
 
-	s = smprint("%.*S", nstr, str);
-	c = complete(dir, s);
-	free(s);
-	if(c == nil)
-		goto Return;
+	/* run in background, winctl will collect the result on w->complete chan */
+	job = emalloc(sizeof *job);
+	job->str = smprint("%.*S", nstr, str);
+	job->dir = cleanname(dir);
+	job->win = w;
+	incref(w);
+	proccreate(completeproc, job, STACK);
 
-	if(!c->advance)
-		showcandidates(w, c);
-
-	if(c->advance)
-		rp = runesmprint("%s", c->string);
-
-  Return:
-	freecompletion(c);
-	free(dir);
 	free(path);
 	free(str);
-	return rp;
 }
 
 void
 wkeyctl(Window *w, Rune r)
 {
 	uint q0 ,q1;
-	int n, nb, nr;
-	Rune *rp;
+	int n, nb;
 	int *notefd;
 
 	switch(r){
@@ -679,14 +720,7 @@ wkeyctl(Window *w, Rune r)
 		return;
 	case Kack:	/* ^F: file name completion */
 	case Kins:	/* Insert: file name completion */
-		rp = namecomplete(w);
-		if(rp == nil)
-			return;
-		nr = runestrlen(rp);
-		q0 = w->q0;
-		q0 = winsert(w, rp, nr, q0);
-		wshow(w, q0+nr);
-		free(rp);
+		namecomplete(w);
 		return;
 	case Kbs:	/* ^H: erase character */
 	case Knack:	/* ^U: erase line */
@@ -1193,6 +1227,7 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		chanfree(w->mouseread);
 		chanfree(w->wctlread);
 		chanfree(w->kbdread);
+		chanfree(w->complete);
 		free(w->raw);
 		free(w->r);
 		free(w->dir);

@@ -87,6 +87,7 @@ int	*isslave;	/* *isslave non-zero means this is a slave process */
 long	active;		/* number of active slaves */
 char	*dbfile;
 Ndb	*db, *netdb;
+char	*csuser;
 
 void	rversion(Job*);
 void	rflush(Job*);
@@ -266,6 +267,7 @@ main(int argc, char *argv[])
 	netinit(0);
 
 	if(!justsetname){
+		csuser = estrdup(getuser());
 		mountinit(servefile, mntpt);
 		io();
 	}
@@ -442,8 +444,10 @@ io(void)
 
 	for(;;){
 		n = read9pmsg(mfd[0], mdata, sizeof mdata);
-		if(n<=0)
+		if(n < 0)
 			error("mount read");
+		if(n == 0)
+			continue;
 		job = newjob();
 		if(convM2S(mdata, n, &job->request) != n){
 			syslog(1, logfile, "format error %ux %ux %ux %ux %ux",
@@ -779,6 +783,9 @@ rwrite(Job *job, Mfile *mf)
 	}
 	job->request.data[cnt] = 0;
 
+	if(strcmp(mf->user, "none") == 0 || strcmp(mf->user, csuser) != 0)
+		goto query;	/* skip special commands if not owner */
+
 	/*
 	 *  toggle debugging
 	 */
@@ -825,6 +832,7 @@ rwrite(Job *job, Mfile *mf)
 		goto send;
 	}
 
+query:
 	if(mf->ref){
 		err = "query already in progress";
 		goto send;

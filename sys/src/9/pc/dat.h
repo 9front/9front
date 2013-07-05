@@ -242,7 +242,6 @@ struct Mach
 
 	int	loopconst;
 
-	Lock	apictimerlock;
 	int	cpumhz;
 	uvlong	cyclefreq;		/* Frequency of user readable cycle counter */
 	uvlong	cpuhz;

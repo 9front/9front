@@ -706,8 +706,10 @@ io(void)
 
 	for(;;){
 		n = read9pmsg(mfd[0], mdata, sizeof mdata);
-		if(n <= 0)
+		if(n < 0)
 			break;
+		if(n == 0)
+			continue;
 		if(convM2Su(mdata, n, &rhdr, dotu) != n)
 			sysfatal("convM2S conversion error");
 

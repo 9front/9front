@@ -9,6 +9,7 @@ TARG=\
 	toppm\
 	png\
 	topng\
+	tif\
 	yuv\
 	ico\
 	toico\
@@ -55,6 +56,7 @@ $O.ppm:		$IMFILES readppm.$O ppm.$O
 $O.toppm:	writeppm.$O multichan.$O toppm.$O
 $O.png:		$IMFILES readpng.$O png.$O
 $O.topng:	writepng.$O topng.$O
+$O.tif:		$IMFILES readtif.$O tif.$O
 $O.yuv:		$IMFILES readyuv.$O yuv.$O
 $O.bmp:		$IMFILES readbmp.$O bmp.$O
 $O.v210:	$IMFILES readv210.$O v210.$O

@@ -139,6 +139,7 @@ struct Window
 	Channel		*mouseread;	/* chan(Mousereadmesg) */
 	Channel		*wctlread;		/* chan(Consreadmesg) */
 	Channel		*kbdread;	/* chan(Kbdreadmesg) */
+	Channel		*complete;	/* chan(Completion*) */
 	uint			nr;			/* number of runes in window */
 	uint			maxr;		/* number of runes allocated in r */
 	Rune			*r;

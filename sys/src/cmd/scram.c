@@ -25,6 +25,10 @@ struct Tbl {
 	uchar	data[];
 };
 
+enum {
+	Tblsz	= 4+4+1+1+6+8+4+4+4,
+};
+
 void*
 amlalloc(int n){
 	return mallocz(n, 1);
@@ -64,15 +68,15 @@ loadacpi(void)
 	amlinit();
 	for(;;){
 		t = malloc(sizeof(*t));
-		if((n = readn(fd, t, sizeof(*t))) <= 0)
+		if((n = readn(fd, t, Tblsz)) <= 0)
 			break;
-		if(n != sizeof(*t))
+		if(n != Tblsz)
 			return -1;
 		l = get32(t->len);
-		if(l < sizeof(*t))
+		if(l < Tblsz)
 			return -1;
-		t = realloc(t, l);
-		l -= sizeof(*t);
+		l -= Tblsz;
+		t = realloc(t, sizeof(*t) + l);
 		if(readn(fd, t->data, l) != l)
 			return -1;
 		if(memcmp("DSDT", t->sig, 4) == 0)

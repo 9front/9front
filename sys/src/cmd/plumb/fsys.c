@@ -237,12 +237,10 @@ fsysproc(void*)
 		if(buf == nil)
 			error("malloc failed: %r");
 		qlock(&readlock);
-		n = read9pmsg(srvfd, buf, messagesize);
-		if(n <= 0){
-			if(n < 0)
-				error("i/o error on server channel");
+		while((n = read9pmsg(srvfd, buf, messagesize)) == 0)
+			;
+		if(n < 0)
 			threadexitsall("unmounted");
-		}
 		if(readlock.head == nil)	/* no other processes waiting to read; start one */
 			proccreate(fsysproc, nil, Stack);
 		qunlock(&readlock);

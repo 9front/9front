@@ -141,10 +141,7 @@ static ulong	bsize2asize(Pool*, ulong);
 static ulong	dsize2bsize(Pool*, ulong);
 static ulong	getdsize(Alloc*);
 static Alloc*	trim(Pool*, Alloc*, ulong);
-static Free*	listadd(Free*, Free*);
-static Free*	listdelete(Free*, Free*);
 static void		logstack(Pool*);
-static Free**	ltreewalk(Free**, ulong);
 static void		memmark(void*, int, ulong);
 static Free*	pooladd(Pool*, Alloc*);
 static void*	poolallocl(Pool*, ulong);
@@ -157,9 +154,8 @@ static void		pooldumparena(Pool*, Arena*);
 static void		poolfreel(Pool*, void*);
 static void		poolnewarena(Pool*, ulong);
 static void*	poolreallocl(Pool*, void*, ulong);
-static Free*	treedelete(Free*, Free*);
-static Free*	treeinsert(Free*, Free*);
 static Free*	treelookupgt(Free*, ulong);
+static Free*	treesplay(Free*, ulong);
 
 /*
  * Debugging
@@ -225,76 +221,6 @@ checktree(Free *t, int a, int b)
 	
 }
 
-/* ltreewalk: return address of pointer to node of size == size */
-static Free**
-ltreewalk(Free **t, ulong size)
-{
-	Free *f;
-
-	for(;;) {
-		f = *t;
-		if(f == nil || f->magic != FREE_MAGIC)
-			return t;
-		if(size == f->size)
-			return t;
-		if(size < f->size)
-			t = &f->left;
-		else
-			t = &f->right;
-	}
-}
-
-/* treeinsert: insert node into tree */
-static Free*
-treeinsert(Free *tree, Free *node)
-{
-	Free **loc, *repl;
-
-	assert(node != nil /* treeinsert */);
-
-	loc = ltreewalk(&tree, node->size);
-	repl = *loc;
-	if(repl == nil || repl->magic != FREE_MAGIC) {
-		node->left = nil;
-		node->right = nil;
-	} else {	/* replace existing node */
-		node->left = repl->left;
-		node->right = repl->right;
-	}
-	*loc = node;
-	return tree;
-}
-
-/* treedelete: remove node from tree */
-static Free*
-treedelete(Free *tree, Free *node)
-{
-	Free **loc, **lsucc, *succ;
-
-	assert(node != nil /* treedelete */);
-
-	loc = ltreewalk(&tree, node->size);
-	if(*loc != node || node->magic != FREE_MAGIC)
-		return tree;	/* free nodes corrupted */
-
-	if(node->left == nil)
-		*loc = node->right;
-	else if(node->right == nil)
-		*loc = node->left;
-	else {
-		/* have two children, use inorder successor as replacement */
-		for(lsucc = &node->right; (*lsucc)->left; lsucc = &(*lsucc)->left)
-			;
-		succ = *lsucc;
-		*lsucc = succ->right;
-		succ->left = node->left;
-		succ->right = node->right;
-		*loc = succ;
-	}
-	node->left = node->right = Poison;
-	return tree;
-}
-
 /* treelookupgt: find smallest node in tree with size >= size */
 static Free*
 treelookupgt(Free *t, ulong size)
@@ -303,8 +229,9 @@ treelookupgt(Free *t, ulong size)
 
 	lastgood = nil;
 	for(;;) {
-		if(t == nil || t->magic != FREE_MAGIC)
+		if(t == nil)
 			return lastgood;
+		assert(t->magic == FREE_MAGIC);
 		if(size == t->size)
 			return t;
 		if(size < t->size) {
@@ -315,59 +242,64 @@ treelookupgt(Free *t, ulong size)
 	}
 }
 
-/* 
- * List maintenance
- */
-
-/* listadd: add a node to a doubly linked list */
+/* treesplay: splay node of size size to the root and return new root */
 static Free*
-listadd(Free *list, Free *node)
+treesplay(Free *t, ulong size)
 {
-	if(list == nil) {
-		node->next = node;
-		node->prev = node;
-		return node;
+	Free N, *l, *r, *y;
+
+	N.left = N.right = nil;
+	l = r = &N;
+
+	for(;;) {
+		assert(t->magic == FREE_MAGIC);
+		if(size < t->size) {
+			y = t->left;
+			if(y != nil) {
+				assert(y->magic == FREE_MAGIC);
+				if(size < y->size) {
+					t->left = y->right;
+					y->right = t;
+					t = y;
+				}
+			}
+			if(t->left == nil)
+				break;
+			r->left = t;
+			r = t;
+			t = t->left;
+		} else if(size > t->size) {
+			y = t->right;
+			if(y != nil) {
+				assert(y->magic == FREE_MAGIC);
+				if(size > y->size) {
+					t->right = y->left;
+					y->left = t;
+					t = y;
+				}
+			}
+			if(t->right == nil)
+				break;
+			l->right = t;
+			l = t;
+			t = t->right;
+		} else
+			break;
 	}
 
-	node->prev = list->prev;
-	node->next = list;
+	l->right=t->left;
+	r->left=t->right;
+	t->left=N.right;
+	t->right=N.left;
 
-	node->prev->next = node;
-	node->next->prev = node;
-
-	return list;
+	return t;
 }
-
-/* listdelete: remove node from a doubly linked list */
-static Free*
-listdelete(Free *list, Free *node)
-{
-	if(node->next == node) {	/* singular list */
-		node->prev = node->next = Poison;
-		return nil;
-	}
-
-	node->next->prev = node->prev;
-	node->prev->next = node->next;
-
-	if(list == node)
-		list = node->next;
-
-	node->prev = node->next = Poison;
-	return list;
-}
-
-/*
- * Pool maintenance
- */
 
 /* pooladd: add anode to the free pool */
 static Free*
 pooladd(Pool *p, Alloc *anode)
 {
-	Free *lst, *olst;
-	Free *node;
-	Free **parent;
+	Free *node, *root;
 
 	antagonism {
 		memmark(_B2D(anode), 0xF7, anode->size-sizeof(Bhdr)-sizeof(Btail));
@@ -375,17 +307,33 @@ pooladd(Pool *p, Alloc *anode)
 
 	node = (Free*)anode;
 	node->magic = FREE_MAGIC;
-	parent = ltreewalk(&p->freeroot, node->size);
-	olst = *parent;
-	if(olst != nil && olst->magic != FREE_MAGIC){
-		/* corruption of free nodes */
-		poolcheckl(p);
-		olst = *parent = nil;
+	node->left = node->right = nil;
+	node->next = node->prev = node;
+
+	if(p->freeroot != nil) {
+		root = treesplay(p->freeroot, node->size);
+		if(root->size > node->size) {
+			node->left = root->left;
+			node->right = root;
+			root->left = nil;
+		} else if(root->size < node->size) {
+			node->right = root->right;
+			node->left = root;
+			root->right = nil;
+		} else {
+			node->left = root->left;
+			node->right = root->right;
+			root->left = root->right = Poison;
+
+			node->prev = root->prev;
+			node->next = root;
+			node->prev->next = node;
+			node->next->prev = node;
+		}
 	}
-	lst = listadd(olst, node);
-	if(olst != lst)	/* need to update tree */
-		*parent = treeinsert(*parent, lst);
+	p->freeroot = node;
 	p->curfree += node->size;
+
 	return node;
 }
 
@@ -393,30 +341,38 @@ pooladd(Pool *p, Alloc *anode)
 static Alloc*
 pooldel(Pool *p, Free *node)
 {
-	Free *lst, *olst;
-	Free **parent;
+	Free *root;
 
-	parent = ltreewalk(&p->freeroot, node->size);
-	olst = *parent;
-	if(olst == nil || olst->magic != FREE_MAGIC){
-		/* corruption of free nodes */
-		poolcheckl(p);
-		*parent = nil;
+	root = treesplay(p->freeroot, node->size);
+	if(node == root && node->next == node) {
+		if(node->left == nil)
+			root = node->right;
+		else {
+			root = treesplay(node->left, node->size);
+			assert(root->right == nil);
+			root->right = node->right;
+		}
 	} else {
-		lst = listdelete(olst, node);
-		if(lst == nil)
-			*parent = treedelete(*parent, olst);
-		else if(lst != olst)
-			*parent = treeinsert(*parent, lst);
+		if(node == root) {
+			root = node->next;
+			root->left = node->left;
+			root->right = node->right;
+		}
+		assert(root->magic == FREE_MAGIC && root->size == node->size);
+		node->next->prev = node->prev;
+		node->prev->next = node->next;
 	}
-	node->left = node->right = Poison;
+	p->freeroot = root;
 	p->curfree -= node->size;
+
+	node->left = node->right = node->next = node->prev = Poison;
 
 	antagonism {
 		memmark(_B2D(node), 0xF9, node->size-sizeof(Bhdr)-sizeof(Btail));
 	}
 
 	node->magic = UNALLOC_MAGIC;
+
 	return (Alloc*)node;
 }
 

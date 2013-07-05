@@ -26,28 +26,41 @@ struct Wnode
 	uchar	bssid[Eaddrlen];
 	char	ssid[Essidlen+2];
 
+	char	*status;
+
 	int	rsnelen;
-	uchar	rsne[256];
+	uchar	rsne[258];
 	Wkey	txkey[1];
 	Wkey	rxkey[5];
 
+	int	aid;		/* association id */
+	ulong	lastsend;
+	ulong	lastseen;
+
+	/* stuff from beacon */
 	int	ival;
 	int	cap;
-	int	aid;
 	int	channel;
-	long	lastseen;
+	int	brsnelen;
+	uchar	brsne[258];
 };
 
 struct Wifi
 {
 	Ether	*ether;
 
+	int	debug;
+
 	Queue	*iq;
-	char	*status;
+	ulong	watchdog;
 	Ref	txseq;
 	void	(*transmit)(Wifi*, Wnode*, Block*);
 
+	/* for searching */
+	uchar	bssid[Eaddrlen];
 	char	essid[Essidlen+2];
+
+	/* effective base station */
 	Wnode	*bss;
 
 	Wnode	node[32];

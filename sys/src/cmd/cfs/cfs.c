@@ -808,8 +808,9 @@ rcvmsg(P9fs *p, Fcall *f)
 	char buf[128];
 
 	olen = p->len;
-	p->len = read9pmsg(p->fd[0], datarcv, sizeof(datarcv));
-	if(p->len <= 0){
+	while((p->len = read9pmsg(p->fd[0], datarcv, sizeof(datarcv))) == 0)
+		;
+	if(p->len < 0){
 		snprint(buf, sizeof buf, "read9pmsg(%d)->%ld: %r",
 			p->fd[0], p->len);
 		error(buf);

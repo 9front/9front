@@ -354,11 +354,12 @@ etherread4(void *a)
 			nexterror();
 		}
 		ifc->in++;
-		bp->rp += ifc->m->hsize;
-		if(ifc->lifc == nil)
+		if(ifc->lifc == nil || BLEN(bp) <= ifc->m->hsize)
 			freeb(bp);
-		else
+		else {
+			bp->rp += ifc->m->hsize;
 			ipiput4(er->f, ifc, bp);
+		}
 		runlock(ifc);
 		poperror();
 	}
@@ -393,11 +394,12 @@ etherread6(void *a)
 			nexterror();
 		}
 		ifc->in++;
-		bp->rp += ifc->m->hsize;
-		if(ifc->lifc == nil)
+		if(ifc->lifc == nil || BLEN(bp) <= ifc->m->hsize)
 			freeb(bp);
-		else
+		else {
+			bp->rp += ifc->m->hsize;
 			ipiput6(er->f, ifc, bp);
+		}
 		runlock(ifc);
 		poperror();
 	}

@@ -64,7 +64,7 @@ static int bustedmx;
 void
 usage(void)
 {
-	fprint(2, "usage: smtp [-aAdfips] [-b busted-mx] [-g gw] [-h host] "
+	fprint(2, "usage: smtp [-aAdfipst] [-b busted-mx] [-g gw] [-h host] "
 		"[-u user] [.domain] net!host[!service] sender rcpt-list\n");
 	exits(Giveup);
 }

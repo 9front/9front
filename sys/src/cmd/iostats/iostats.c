@@ -164,7 +164,8 @@ main(int argc, char **argv)
 		if(r == 0)
 			fatal("Out of service buffers");
 
-		n = read9pmsg(p[1], r->buf, sizeof(r->buf));
+		while((n = read9pmsg(p[1], r->buf, sizeof(r->buf))) == 0 && !done)
+			;
 		if(done)
 			break;
 		if(n < 0)

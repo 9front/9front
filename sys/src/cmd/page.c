@@ -680,6 +680,7 @@ popenfile(Page *p)
 	"image/gif",			popenimg,	"gif",
 	"image/jpeg",			popenimg,	"jpg",
 	"image/png",			popenimg,	"png",
+	"image/tiff",			popenimg,	"tif",
 	"image/ppm",			popenimg,	"ppm",
 	"image/bmp",			popenimg,	"bmp",
 	"image/tga",			popenimg,	"tga",
@@ -1241,12 +1242,9 @@ showext(Page *p)
 	if(p->ext == nil)
 		return;
 	snprint(label, sizeof(label), "%s %s", p->ext, p->label);
-	if(p->image){
-		ps = subpt(p->image->r.max, p->image->r.min);
-		ps.x += 24;
-		ps.y += 24;
-	} else
-		ps = subpt(screen->r.max, screen->r.min);
+	ps = Pt(0, 0);
+	if(p->image)
+		ps = addpt(subpt(p->image->r.max, p->image->r.min), Pt(24, 24));
 	drawlock(0);
 	if((fd = p->fd) < 0){
 		if(p->open != popenfile)
@@ -1257,13 +1255,15 @@ showext(Page *p)
 		seek(fd, 0, 0);
 	}
 	if(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG|RFNAMEG|RFNOWAIT) == 0){
-		snprint(buf, sizeof(buf), "-pid %d -dx %d -dy %d", getpid(), ps.x, ps.y);
+		snprint(buf, sizeof(buf), "-pid %d", getpid());
 		if(newwindow(buf) != -1){
 			dupfds(fd, 1, 2, -1);
 			if((fd = open("/dev/label", OWRITE)) >= 0){
 				write(fd, label, strlen(label));
 				close(fd);
 			}
+			if(ps.x && ps.y)
+				resizewin(ps);
 			argv[0] = "rc";
 			argv[1] = "-c";
 			argv[2] = p->ext;
@@ -1360,7 +1360,7 @@ docmd(int i, Mouse *m)
 			break;
 		o = subpt(m->xy, screen->r.min);
 		if(i == Czoomin){
-			if(zoom < 0x40000000){
+			if(zoom < 0x1000){
 				zoom *= 2;
 				pos =  addpt(mulpt(subpt(pos, o), 2), o);
 			}

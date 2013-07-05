@@ -1723,6 +1723,8 @@ rxon(Ether *edev, Wnode *bss)
 	filter = FilterNoDecrypt | FilterMulticast | FilterBeacon;
 	if(ctlr->prom){
 		filter |= FilterPromisc;
+		if(bss != nil)
+			ctlr->channel = bss->channel;
 		bss = nil;
 	}
 	if(bss != nil){
@@ -1743,8 +1745,16 @@ rxon(Ether *edev, Wnode *bss)
 	}
 	flags = RFlagTSF | RFlagCTSToSelf | RFlag24Ghz | RFlagAuto;
 
-	if(0) print("rxon: bssid %E, aid %x, channel %d, filter %x, flags %x\n",
-		ctlr->bssid, ctlr->aid, ctlr->channel, filter, flags);
+	if(ctlr->aid != 0)
+		setled(ctlr, 2, 0, 1);		/* on when associated */
+	else if(memcmp(ctlr->bssid, edev->bcast, Eaddrlen) != 0)
+		setled(ctlr, 2, 10, 10);	/* slow blink when connecting */
+	else
+		setled(ctlr, 2, 5, 5);		/* fast blink when scanning */
+
+	if(ctlr->wifi->debug)
+		print("#l%d: rxon: bssid %E, aid %x, channel %d, filter %x, flags %x\n",
+			edev->ctlrno, ctlr->bssid, ctlr->aid, ctlr->channel, filter, flags);
 
 	memset(p = c, 0, sizeof(c));
 	memmove(p, edev->ea, 6); p += 8;	/* myaddr */
@@ -1833,7 +1843,6 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 	Wifipkt *w;
 	char *err;
 
-	w = (Wifipkt*)b->rp;
 	edev = wifi->ether;
 	ctlr = edev->ctlr;
 
@@ -1844,15 +1853,20 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 		return;
 	}
 
-	if(ctlr->prom == 0)
-	if(wn->aid != ctlr->aid
-	|| wn->channel != ctlr->channel
-	|| memcmp(wn->bssid, ctlr->bssid, Eaddrlen) != 0)
+	if((wn->channel != ctlr->channel)
+	|| (!ctlr->prom && (wn->aid != ctlr->aid || memcmp(wn->bssid, ctlr->bssid, Eaddrlen) != 0)))
 		rxon(edev, wn);
+
+	if(b == nil){
+		/* association note has no data to transmit */
+		qunlock(ctlr);
+		return;
+	}
 
 	rate = 0;
 	flags = 0;
 	nodeid = ctlr->bcastnodeid;
+	w = (Wifipkt*)b->rp;
 	if((w->a1[0] & 1) == 0){
 		flags |= TFlagNeedACK;
 
@@ -1943,14 +1957,21 @@ iwlifstat(Ether *edev, void *buf, long n, ulong off)
 static void
 setoptions(Ether *edev)
 {
+	char buf[64], *p;
 	Ctlr *ctlr;
-	char buf[64];
 	int i;
 
 	ctlr = edev->ctlr;
 	for(i = 0; i < edev->nopt; i++){
-		if(strncmp(edev->opt[i], "essid=", 6) == 0){
-			snprint(buf, sizeof(buf), "essid %s", edev->opt[i]+6);
+		snprint(buf, sizeof(buf), "%s", edev->opt[i]);
+		p = strchr(buf, '=');
+		if(p != nil)
+			*p = 0;
+		if(strcmp(buf, "debug") == 0
+		|| strcmp(buf, "essid") == 0
+		|| strcmp(buf, "bssid") == 0){
+			if(p != nil)
+				*p = ' ';
 			if(!waserror()){
 				wifictl(ctlr->wifi, buf, strlen(buf));
 				poperror();
@@ -1974,60 +1995,8 @@ iwlpromiscuous(void *arg, int on)
 }
 
 static void
-iwlproc(void *arg)
-{
-	Ether *edev;
-	Ctlr *ctlr;
-	Wifi *wifi;
-	Wnode *bss;
-
-	edev = arg;
-	ctlr = edev->ctlr;
-	wifi = ctlr->wifi;
-
-	for(;;){
-		/* hop channels for catching beacons */
-		setled(ctlr, 2, 5, 5);
-		while(wifi->bss == nil){
-			qlock(ctlr);
-			if(wifi->bss != nil){
-				qunlock(ctlr);
-				break;
-			}
-			ctlr->channel = 1 + ctlr->channel % 11;
-			ctlr->aid = 0;
-			rxon(edev, nil);
-			qunlock(ctlr);
-			tsleep(&up->sleep, return0, 0, 1000);
-		}
-
-		/* wait for association */
-		setled(ctlr, 2, 10, 10);
-		while((bss = wifi->bss) != nil){
-			if(bss->aid != 0)
-				break;
-			tsleep(&up->sleep, return0, 0, 1000);
-		}
-
-		if(bss == nil)
-			continue;
-
-		/* wait for disassociation */
-		edev->link = 1;
-		setled(ctlr, 2, 0, 1);
-		while((bss = wifi->bss) != nil){
-			if(bss->aid == 0)
-				break;
-			tsleep(&up->sleep, return0, 0, 1000);
-		}
-		edev->link = 0;
-	}
-}
-
-static void
 iwlattach(Ether *edev)
 {
-	char name[32];
 	FWImage *fw;
 	Ctlr *ctlr;
 	char *err;
@@ -2071,9 +2040,6 @@ iwlattach(Ether *edev)
 		ctlr->aid = 0;
 
 		setoptions(edev);
-
-		snprint(name, sizeof(name), "#l%diwl", edev->ctlrno);
-		kproc(name, iwlproc, edev);
 
 		ctlr->attached = 1;
 	}

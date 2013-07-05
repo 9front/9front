@@ -866,7 +866,7 @@ static
 int
 findctype(char *b, int l, char *keyword, char *s)
 {
-	char *p, *e;
+	char *p, *e, c;
 	int i;
 
 	p = cistrstr(s, keyword);
@@ -882,14 +882,18 @@ findctype(char *b, int l, char *keyword, char *s)
 		p++;
 	if(!*p)
 		return -1;
-	if(*p == '"'){
+	switch (c = *p){
+	case '"':
+	case '\'':
 		p++;
-		e = strchr(p, '"');
+		e = strchr(p, c);
 		if(!e)
 			return -1;
-	}else
+		break;
+	default:
 		for(e = p; *e < 127 && *e > ' ' ; e++)
 			;
+	}
 	i = e-p;
 	if(i < 1)
 		return -1;

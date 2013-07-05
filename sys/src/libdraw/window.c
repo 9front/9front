@@ -22,14 +22,11 @@ allocscreen(Image *image, Image *fill, int public)
 	s = malloc(sizeof(Screen));
 	if(s == 0)
 		return 0;
-	SET(id);
 	for(try=0; try<25; try++){
 		/* loop until find a free id */
 		a = bufimage(d, 1+4+4+4+1);
-		if(a == 0){
-			free(s);
-			return 0;
-		}
+		if(a == 0)
+			break;
 		id = ++screenid;
 		a[0] = 'A';
 		BPLONG(a+1, id);
@@ -37,8 +34,12 @@ allocscreen(Image *image, Image *fill, int public)
 		BPLONG(a+9, fill->id);
 		a[13] = public;
 		if(flushimage(d, 0) != -1)
-			break;
+			goto Found;
 	}
+	free(s);
+	return 0;
+
+    Found:
 	s->display = d;
 	s->id = id;
 	s->image = image;

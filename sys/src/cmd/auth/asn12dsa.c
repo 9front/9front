@@ -18,7 +18,7 @@ main(int argc, char **argv)
 	uchar *buf;
 	int fd;
 	long n, tot;
-	char *tag, *file;
+	char *tag;
 	DSApriv *key;
 
 	fmtinstall('B', mpfmt);
@@ -35,13 +35,12 @@ main(int argc, char **argv)
 	if(argc != 0 && argc != 1)
 		usage();
 
-	if(argc == 1)
-		file = argv[0];
-	else
-		file = "/dev/stdin";
+	fd = 0;
+	if(argc == 1){
+		if((fd = open(*argv, OREAD)) < 0)
+			sysfatal("open %s: %r", *argv);
+	}
 
-	if((fd = open(file, OREAD)) < 0)
-		sysfatal("open %s: %r", file);
 	buf = nil;
 	tot = 0;
 	for(;;){

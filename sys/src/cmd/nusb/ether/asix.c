@@ -225,7 +225,8 @@ asixread(Dev *ep, uchar *p, int plen)
 	hd = GET4(bin);
 	n = hd & 0xFFFF;
 	m = n+4;
-	if((n != ~(hd>>16)) || (n < 6) || (m > nbin)){
+	hd = (hd>>16) ^ 0xFFFF;
+	if((n != hd) || (n < 6) || (m > nbin)){
 		nbin = 0;
 		return 0;
 	}
@@ -242,9 +243,12 @@ asixread(Dev *ep, uchar *p, int plen)
 static void
 asixwrite(Dev *ep, uchar *p, int n)
 {
+	uint hd;
+
 	if(n > sizeof(bout)-8)
 		n = sizeof(bout)-8;
-	PUT4(bout, n | ~(n<<16));
+	hd = n | (n<<16)^0xFFFF0000;
+	PUT4(bout, hd);
 	memmove(bout+4, p, n);
 	n += 4;
 	if((n % ep->maxpkt) == 0){

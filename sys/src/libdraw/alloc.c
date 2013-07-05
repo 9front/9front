@@ -26,6 +26,10 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong val,
 	err = 0;
 	i = 0;
 
+	if(badrect(r)){
+		werrstr("bad rectangle");
+		return nil;
+	}
 	if(chan == 0){
 		werrstr("bad channel descriptor");
 		return nil;

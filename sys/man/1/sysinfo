@@ -4,7 +4,10 @@ sysinfo, sysupdate \- report information about, update the system
 .SH SYNOPSIS
 .B sysinfo
 [
-.B -m
+.B -e e-mail
+]
+[
+.B -p
 ]
 .br
 .B sysupdate
@@ -19,11 +22,20 @@ the running system, concatenating the output to
 stdout.
 .PP
 The
-.B -m
-flag causes the output to be piped to a mail command,
-whose recipient is
-.B hardware@9front.org.
-This flag is useful for reporting new installs to the
+.B -p
+flag causes the output to be posted at a website
+archive,
+.B http://sysinfo.9front.org,
+which in turn forwards the message to a
+mailing list,
+.B 9front-sysinfo@9front.org.
+A URL pointing to the archived output is returned.
+The
+.B -e
+flag causes a reply-to e-mail address to be included
+in the message (the e-mail address is not divulged
+to the mailing list).
+These flags are useful for reporting new installs to the
 development team.
 .PP
 .I Sysupdate
