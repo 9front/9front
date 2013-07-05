@@ -7,7 +7,7 @@ fn logprog{
 	echo
 }
 
-fn work{
+fn print{
 	echo '% cd ''#ec''; for(i in *){echo $i ''='' `{cat $i}}'
 	cd '#ec'; for(i in *){echo $i '=' `{cat $i}}
 	echo
@@ -43,10 +43,23 @@ fn work{
 	logprog cat /mnt/apm/ctl
 }
 
+fn post{
+	file=/tmp/sysinfo.$user.$pid
+	print >$file >[2=1] 
+	@{
+		rfork n
+		webfs
+		hpost -u http://sysinfo.9front.org -p / a_body@$file submit:submit fake:fake a_func:add_post url: |
+			grep -e '\/body\"' |
+			sed 1q | sed 's/^.*href=\"//g; s/body\".*$/body/g; s/^/http:\/\/sysinfo.9front.org/g'
+		rm -f $file
+	}
+}
+
 switch($1){
-case -m
-	{echo Subject: `{cat '#P/cputype'}; work} >[2=1] |
-		user=/dev/null upas/smtp 9front.org $user hardware@9front.org
+case -p
+	post
+	
 case *
-	work
+	print
 }
