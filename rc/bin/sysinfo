@@ -1,12 +1,10 @@
 #!/bin/rc
 rfork e
-
 fn logprog{
 	echo % `{echo $"* | sed 's/#/''#''/g'}
 	$*
 	echo
 }
-
 fn print{
 	echo '% cd ''#ec''; for(i in *){echo $i ''='' `{cat $i}}'
 	cd '#ec'; for(i in *){echo $i '=' `{cat $i}}
@@ -42,10 +40,11 @@ fn print{
 	logprog cat '#A/volume'
 	logprog cat /mnt/apm/ctl
 }
-
 fn post{
 	file=/tmp/sysinfo.$user.$pid
-	print >$file >[2=1] 
+	if(! ~ $#e 0)
+		echo $e >$file
+	print >>$file >[2=1] 
 	@{
 		rfork n
 		webfs
@@ -55,11 +54,28 @@ fn post{
 		rm -f $file
 	}
 }
-
-switch($1){
-case -p
+argv0=$0
+fn usage {
+	echo usage: $argv0 '[ -e e-mail ] [ -p ]' >[1=2]
+	exit usage
+}
+e=()
+p=()
+while(~ $1 -*){
+	switch($1){
+	case -e
+		e=$2
+		shift
+	case -p
+		p=1
+		shift
+	case *
+		usage
+	}
+	shift
+}
+if(~ $p 1)
 	post
 	
-case *
+if not
 	print
-}

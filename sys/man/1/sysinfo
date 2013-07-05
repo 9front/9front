@@ -4,6 +4,9 @@ sysinfo, sysupdate \- report information about, update the system
 .SH SYNOPSIS
 .B sysinfo
 [
+.B -e e-mail
+]
+[
 .B -p
 ]
 .br
@@ -27,7 +30,12 @@ which in turn forwards the message to a
 mailing list,
 .B 9front-sysinfo@9front.org.
 A URL pointing to the archived output is returned.
-This flag is useful for reporting new installs to the
+The
+.B -e
+flag causes a reply-to e-mail address to be included
+in the message (the e-mail address is not divulged
+to the mailing list).
+These flags are useful for reporting new installs to the
 development team.
 .PP
 .I Sysupdate
