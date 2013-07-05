@@ -231,14 +231,14 @@ loaddevstr(Dev *d, int sid)
 int
 loaddevdesc(Dev *d)
 {
-	uchar buf[Ddevlen+255];
+	uchar buf[Ddevlen];
 	int nr;
 	int type;
 	Ep *ep0;
 
 	type = Rd2h|Rstd|Rdev;
 	nr = sizeof(buf);
-	memset(buf, 0, Ddevlen);
+	memset(buf, 0, nr);
 	if((nr=usbcmd(d, type, Rgetdesc, Ddev<<8|0, 0, buf, nr)) < 0)
 		return -1;
 	/*
