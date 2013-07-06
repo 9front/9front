@@ -1704,6 +1704,7 @@ Found:
 		/* magic for Intel */
 		switch(p->did){
 		case 0x1c20:	/* PCH */
+		case 0x1e20:
 		case 0x811b:	/* SCH */
 		case 0x080a:
 			pcicfgw16(p, 0x78, pcicfgr16(p, 0x78) & ~0x800);
