@@ -163,22 +163,25 @@ vesalinear(VGAscr *scr, int, int)
 }
 
 static int
-vesadisabled(void *)
+gotctl(void *arg)
 {
-	return vesactl == Cdisable;
+	return vesactl != *((int*)arg);
 }
 
 static void
 vesaproc(void*)
 {
 	Ureg u;
+	int ctl;
 
-	while(vesactl != Cdisable){
+	ctl = Cenable;
+	while(ctl != Cdisable){
 		if(!waserror()){
-			sleep(&vesar, vesadisabled, nil);
+			sleep(&vesar, gotctl, &ctl);
+			ctl = vesactl;
 
 			vbesetup(&u, 0x4f10);
-			if(vesactl == Cblank)
+			if(ctl == Cblank)
 				u.bx = 0x0101;
 			else	
 				u.bx = 0x0001;
