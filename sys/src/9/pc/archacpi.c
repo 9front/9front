@@ -401,16 +401,21 @@ Foundapic:
 			a->lintr[0] = ApicIMASK;
 			a->lintr[1] = ApicIMASK;
 			a->flags = p[4] & PcmpEN;
-			if(a->flags & PcmpEN){
-				a->machno = machno++;
 
-				/*
-				 * platform firmware should list the boot processor
-				 * as the first processor entry in the MADT
-				 */
-				if(a->machno == 0)
-					a->flags |= PcmpBP;
+			/* skip disabled processors */
+			if((a->flags & PcmpEN) == 0 || mpapic[a->apicno] != nil){
+				xfree(a);
+				break;
 			}
+			a->machno = machno++;
+
+			/*
+			 * platform firmware should list the boot processor
+			 * as the first processor entry in the MADT
+			 */
+			if(a->machno == 0)
+				a->flags |= PcmpBP;
+
 			mpapic[a->apicno] = a;
 			break;
 		case 0x01:	/* I/O APIC */
