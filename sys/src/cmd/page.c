@@ -1437,7 +1437,8 @@ main(int argc, char *argv[])
 	case 'P':
 		break;
 	case 'R':
-		newwin = -1;
+		if(newwin == 0)
+			newwin = -1;
 		break;
 	case 'w':
 		newwin = 1;
