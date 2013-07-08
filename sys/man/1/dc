@@ -98,8 +98,7 @@ top value on the stack.
 Print the top value on the stack.
 The top value remains unchanged.
 .B P
-interprets the top of the stack as an
-text
+interprets the top of the stack as a text
 string,
 removes it, and prints it.
 .TP
