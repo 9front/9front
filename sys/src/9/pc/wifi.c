@@ -58,7 +58,7 @@ dstaddr(Wifipkt *w)
 		return w->a1;
 }
 
-static int
+int
 wifihdrlen(Wifipkt *w)
 {
 	int n;

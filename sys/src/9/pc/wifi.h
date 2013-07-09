@@ -78,6 +78,7 @@ struct Wifipkt
 
 Wifi *wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*));
 void wifiiq(Wifi*, Block*);
+int wifihdrlen(Wifipkt*);
 
 long wifistat(Wifi*, void*, long, ulong);
 long wifictl(Wifi*, void*, long);
