@@ -101,9 +101,9 @@ void rdform(Hglob *g){
 		}
 		g->form=emalloc(sizeof(Form));
 		s=pl_getattr(g->attr, "action");
-		g->form->action=strdup((s && s[0]) ? s : g->dst->url->fullname);
+		g->form->action=strdup((s && *s) ? s : g->dst->url->fullname);
 		s=pl_getattr(g->attr, "method");
-		if(s==0)
+		if(s==0 || *s==0)
 			g->form->method=GET;
 		else if(cistrcmp(s, "post")==0)
 			g->form->method=POST;
@@ -137,7 +137,7 @@ void rdform(Hglob *g){
 		} else
 			f=newfield(g->form);
 		s=pl_getattr(g->attr, "name");
-		if(s==0)
+		if(s==0 || *s == 0)
 			f->name=0;
 		else
 			f->name=strdup(s);
@@ -148,12 +148,12 @@ void rdform(Hglob *g){
 			f->value=strdup(s);
 		f->checked=pl_hasattr(g->attr, "checked");
 		s=pl_getattr(g->attr, "size");
-		if(s==0)
+		if(s==0 || *s==0)
 			f->size=20;
 		else
 			f->size=atoi(s);
 		s=pl_getattr(g->attr, "maxlength");
-		if(s==0)
+		if(s==0 || *s==0)
 			f->maxlength=0x3fffffff;
 		else
 			f->maxlength=atoi(s);
@@ -215,7 +215,7 @@ void rdform(Hglob *g){
 		}
 		f=newfield(g->form);
 		s=pl_getattr(g->attr, "name");
-		if(s==0){
+		if(s==0 || *s==0){
 			f->name=strdup("select");
 			htmlerror(g->name, g->lineno, "select has no name=\n");
 		}
@@ -257,16 +257,16 @@ void rdform(Hglob *g){
 		if(g->form==0) goto BadTag;
 		f=newfield(g->form);
 		s=pl_getattr(g->attr, "name");
-		if(s==0){
+		if(s==0 || *s==0){
 			f->name=strdup("enter text");
 			htmlerror(g->name, g->lineno, "select has no name=\n");
 		}
 		else
 			f->name=strdup(s);
 		s=pl_getattr(g->attr, "rows");
-		f->rows=s?atoi(s):8;
+		f->rows=(s && *s)?atoi(s):8;
 		s=pl_getattr(g->attr, "cols");
-		f->cols=s?atoi(s):30;
+		f->cols=(s && *s)?atoi(s):30;
 		f->type=TEXTWIN;
 		/* suck up initial text */
 		pl_htmloutput(g, g->nsp, f->name, f);
@@ -281,7 +281,7 @@ void rdform(Hglob *g){
 		form->fields=0;
 		form->efields=0;
 		s=pl_getattr(g->attr, "action");
-		form->action=strdup((s && s[0]) ? s : g->dst->url->fullname);
+		form->action=strdup((s && *s) ? s : g->dst->url->fullname);
 		form->method=GET;
 		form->fields=0;
 		f=newfield(form);

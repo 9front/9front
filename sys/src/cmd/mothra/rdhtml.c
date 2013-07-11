@@ -717,7 +717,8 @@ void plrdhtml(char *name, int fd, Www *dst){
 			pl_pushstate(&g, g.tag);
 			break;
 		}
-		if(str=pl_getattr(g.attr, "id")){
+		str=pl_getattr(g.attr, "id");
+		if(str && *str){
 			char swap[NNAME];
 
 			nstrcpy(swap, g.state->name, sizeof(swap));
@@ -733,7 +734,8 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_end:	/* unrecognized start tag */
 			break;
 		case Tag_img:
-			if(str=pl_getattr(g.attr, "src"))
+			str=pl_getattr(g.attr, "src");
+			if(str && *str)
 				nstrcpy(g.state->image, str, sizeof(g.state->image));
 			else {
 				Pair *a;
@@ -754,12 +756,14 @@ void plrdhtml(char *name, int fd, Www *dst){
 				}
 			}
 			g.state->ismap=pl_hasattr(g.attr, "ismap");
-			if(str=pl_getattr(g.attr, "width"))
+			str=pl_getattr(g.attr, "width");
+			if(str && *str)
 				g.state->width=strtolength(&g, HORIZ, str);
-			if(str=pl_getattr(g.attr, "height"))
+			str=pl_getattr(g.attr, "height");
+			if(str && *str)
 				g.state->height=strtolength(&g, VERT, str);
 			str=pl_getattr(g.attr, "alt");
-			if(str==0){
+			if(str==0 || *str == 0){
 				if(g.state->image[0])
 					str=g.state->image;
 				else
@@ -789,7 +793,8 @@ void plrdhtml(char *name, int fd, Www *dst){
 			g.spacc++;
 			break;
 		case Tag_base:
-			if(str=pl_getattr(g.attr, "href")){
+			str=pl_getattr(g.attr, "href");
+			if(str && *str){
 				seturl(g.dst->url, str, g.dst->url->fullname);
 				nstrcpy(g.dst->url->fullname, str, sizeof(g.dst->url->fullname));
 				/* base should be a full url, but it often isnt so have to resolve */
@@ -797,10 +802,12 @@ void plrdhtml(char *name, int fd, Www *dst){
 			}
 			break;
 		case Tag_a:
-			if(str=pl_getattr(g.attr, "name"))
+			str=pl_getattr(g.attr, "name");
+			if(str && *str)
 				nstrcpy(g.state->name, str, sizeof(g.state->name));
 			pl_htmloutput(&g, 0, "", 0);
-			if(str=pl_getattr(g.attr, "href"))
+			str=pl_getattr(g.attr, "href");
+			if(str && *str)
 				nstrcpy(g.state->link, str, sizeof(g.state->link));
 			break;
 		case Tag_meta:
@@ -829,9 +836,11 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_iframe:
 			snprint(buf, sizeof(buf), "[%s: ", tag[g.tag].name);
 			pl_htmloutput(&g, 0, buf, 0);
-			if(str=pl_getattr(g.attr, "src"))
+			str=pl_getattr(g.attr, "src");
+			if(str && *str)
 				nstrcpy(g.state->link, str, sizeof(g.state->link));
-			if(str=pl_getattr(g.attr, "name"))
+			str=pl_getattr(g.attr, "name");
+			if(str && *str)
 				nstrcpy(g.state->name, str, sizeof(g.state->name));
 			else
 				str = g.state->link;
