@@ -1553,7 +1553,7 @@ evalindex(void)
 	int x;
 
 	x = ival(FP->arg[1]);
-	if(p = FP->arg[0]) switch(TAG(p)){
+	if(p = deref(FP->arg[0])) switch(TAG(p)){
 	case 's':
 		if(x >= strlen((char*)p))
 			break;
@@ -1570,7 +1570,10 @@ evalindex(void)
 	case 'p':
 		if(x < 0 || x >= ((Package*)p)->n)
 			break;
-		r = mk('R', sizeof(Ref));
+		if(TAG(FP->arg[0]) == 'A' || TAG(FP->arg[0]) == 'L')
+			r = mk(TAG(FP->arg[0]), sizeof(Ref));
+		else
+			r = mk('R', sizeof(Ref));
 		r->ref = p;
 		r->ptr = &((Package*)p)->a[x];
 		store(r, FP->arg[2]);
@@ -1814,7 +1817,7 @@ static Op optab[] = {
 	[Ocall]		"Call",			"",		evalcall,
 
 	[Ostore]	"Store",		"*@",		evalstore,
-	[Oindex]	"Index",		"*i@",		evalindex,
+	[Oindex]	"Index",		"@i@",		evalindex,
 	[Osize]		"SizeOf",		"*",		evalsize,
 	[Oref]		"RefOf",		"@",		evaliarg0,
 	[Ocref]		"CondRefOf",		"@@",		evalcondref,
