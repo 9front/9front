@@ -683,10 +683,12 @@ static Bridge southbridges[] = {
 	{ 0x8086, 0x3b06, pIIxget, pIIxset },	/* Intel 82801? ibex peak */
 	{ 0x8086, 0x3b14, pIIxget, pIIxset },	/* Intel 82801? 3420 */
 	{ 0x8086, 0x1c49, pIIxget, pIIxset },	/* Intel 82hm65 cougar point pch */
+	{ 0x8086, 0x1c4b, pIIxget, pIIxset },	/* Intel 82hm67 */
 	{ 0x8086, 0x1c4f, pIIxget, pIIxset },	/* Intel 82qm67 cougar point pch */
 	{ 0x8086, 0x1c52, pIIxget, pIIxset },	/* Intel 82q65 cougar point pch */
 	{ 0x8086, 0x1c54, pIIxget, pIIxset },	/* Intel 82q67 cougar point pch */
 	{ 0x8086, 0x1e55, pIIxget, pIIxset },	/* Intel QM77 panter point lpc */
+
 	{ 0x1106, 0x0586, viaget, viaset },	/* Viatech 82C586 */
 	{ 0x1106, 0x0596, viaget, viaset },	/* Viatech 82C596 */
 	{ 0x1106, 0x0686, viaget, viaset },	/* Viatech 82C686 */
