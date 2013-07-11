@@ -186,8 +186,8 @@ int	(*call[])(void) =
 	isrfc822,	/* email file */
 	ismbox,		/* mail box */
 	istar,		/* recognizable by tar checksum */
-	ishtml,		/* html keywords */
 	iscint,		/* compiler/assembler intermediate */
+	ishtml,		/* html keywords */
 	islimbo,	/* limbo source */
 	isc,		/* c & alef compiler key words */
 	isas,		/* assembler key words */
