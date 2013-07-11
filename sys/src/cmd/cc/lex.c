@@ -1535,12 +1535,12 @@ setinclude(char *p)
 			if(strcmp(p, include[i]) == 0)
 				break;
 
-		if(i >= ninclude)
+		if(i >= ninclude){
+			if(ninclude >= nelem(include)) {
+				diag(Z, "ninclude too small %d", nelem(include));
+				exits("ninclude");
+			}
 			include[ninclude++] = p;
-
-		if(ninclude > nelem(include)) {
-			diag(Z, "ninclude too small %d", nelem(include));
-			exits("ninclude");
 		}
 
 		if(e == 0)
