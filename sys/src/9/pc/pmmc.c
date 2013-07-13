@@ -168,7 +168,6 @@ struct Ctlr {
 	Pcidev	*pdev;
 	u8int	*mmio;
 
-	int	intfreq;	/* khz */
 	int	change;
 
 	u32int	waitsts;
