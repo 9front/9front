@@ -107,7 +107,7 @@ identify(SDunit *unit, u32int *csd)
 		break;
 	case 1:				/* CSD version 2 */
 		csize = CSD(69, 48);
-		unit->sectors = (csize+1) * 512LL*KiB / unit->secsize;
+		unit->sectors = (csize+1) * 0x80000LL / unit->secsize;
 		break;
 	}
 	if(unit->secsize == 1024){
@@ -263,7 +263,7 @@ mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 	io = ctl->io;
 	assert(unit->subno == 0);
 	if(unit->sectors == 0)
-		error("media change");
+		error(Echange);
 	buf = data;
 	len = unit->secsize;
 	if(Multiblock){

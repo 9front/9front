@@ -95,6 +95,7 @@ misc
 	sdiahci		pci sdscsi led
 	sdodin		pci sdscsi led
 	sdvirtio	pci sdscsi
+	sdmmc		pci pmmc
 	sdloop
 
 	uarti8250
