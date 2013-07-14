@@ -22,7 +22,6 @@ OFILES=\
 HFILES=\
 	dat.h\
 	fns.h\
-	tcs.h\
 
 UPDATE=\
 	mkfile\
@@ -30,12 +29,6 @@ UPDATE=\
 	${OFILES:%.$O=%.c}\
 
 </sys/src/cmd/mkone
-
-charsets.txt:
-	hget http://www.iana.org/assignments/character-sets | sed 's///' > charsets.txt
-
-tcs.h: charsets.awk charsets.txt tcs.txt
-	charsets.awk charsets.txt tcs.txt > tcs.h
 
 syms:V:
 	8c -a $CFLAGS main.c > syms
