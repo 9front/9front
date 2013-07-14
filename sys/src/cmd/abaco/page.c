@@ -147,40 +147,6 @@ closeimages(Page *p)
 }
 
 static
-int
-pipeline(int fd, char *cmd, ...)
-{
-	Channel *sync;
-	Exec *e;
-	int p[2], q[2];
-	va_list a;
-
-	if(pipe(p)<0 || pipe(q)<0)
-		error("can't create pipe");
-	close(p[0]);
-	p[0] = fd;
-	sync = chancreate(sizeof(ulong), 0);
-	if(sync == nil)
-		error("can't create channel");
-	e = emalloc(sizeof(Exec));
-	e->p[0] = p[0];
-	e->p[1] = p[1];
-	e->q[0] = q[0];
-	e->q[1] = q[1];
-	va_start(a, cmd);
-	e->cmd = vsmprint(cmd, a);
-	va_end(a);
-	e->sync = sync;
-	proccreate(execproc, e, STACK);
-	recvul(sync);
-	chanfree(sync);
-	close(p[0]);
-	close(p[1]);
-	close(q[1]);
-	return q[0];
-}
-
-static
 Cimage *
 loadimg(Rune *src, int x , int y)
 {

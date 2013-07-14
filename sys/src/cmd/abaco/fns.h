@@ -66,7 +66,7 @@ int forceitem(Item *);
 int xtofchar(Rune *, Font *, long);
 int istextsel(Page *, Rectangle, int *, int *, Rune *, Font *);
 int findctype(char *, int, char *, char *);
-void execproc(void *);
+int pipeline(int fd, char *cmd, ...);
 void getimage(Cimage *, Rune *);
 Point getpt(Page *p, Point);
 Rune *urlcombine(Rune *, Rune *);

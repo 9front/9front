@@ -655,7 +655,7 @@ validurl(Rune *r)
 	return TRUE;
 }
 
-void
+static void
 execproc(void *v)
 {
 	Channel *sync;
@@ -687,107 +687,37 @@ execproc(void *v)
 	error("can't exec");
 }
 
-static void
-writeproc(void *v)
-{
-	Channel *sync;
-	void **a;
-	char *s;
-	long np;
-	int fd, i, n;
-
-	threadsetname("writeproc");
-	a = v;
-	sync = a[0];
-	fd = (int)a[1];
-	s = a[2];
-	np =(long)a[3];
-	free(a);
-
-	for(i=0; i<np; i+=n){
-		n = np-i;
-		if(n > BUFSIZE)
-			n = BUFSIZE;
-		if(write(fd, s+i, n) != n)
-			break;
-	}
-	close(fd);
-	sendul(sync, i);
-}
-
-char *
-uhtml(char *cs, char *s, long *np)
+int
+pipeline(int fd, char *cmd, ...)
 {
 	Channel *sync;
 	Exec *e;
-	long i, n;
-	void **a;
-	char buf[BUFSIZE], cmd[50];
-	char *t;
 	int p[2], q[2];
-
-	if(s==nil || *s=='\0' || *np==0){
-		werrstr("uhtml failed: no data");
-		return s;
-	}
+	va_list a;
 
 	if(pipe(p)<0 || pipe(q)<0)
 		error("can't create pipe");
-
+	close(p[0]);
+	p[0] = fd;
 	sync = chancreate(sizeof(ulong), 0);
 	if(sync == nil)
 		error("can't create channel");
-
-	snprint(cmd, sizeof cmd, (cs != nil && *cs != '\0') ? "uhtml -c %s" : "uthml", cs);
 	e = emalloc(sizeof(Exec));
 	e->p[0] = p[0];
 	e->p[1] = p[1];
 	e->q[0] = q[0];
 	e->q[1] = q[1];
-	e->cmd = cmd;
+	va_start(a, cmd);
+	e->cmd = vsmprint(cmd, a);
+	va_end(a);
 	e->sync = sync;
 	proccreate(execproc, e, STACK);
 	recvul(sync);
 	chanfree(sync);
 	close(p[0]);
+	close(p[1]);
 	close(q[1]);
-
-	/* in case uhtml fails */
-	t = s;
-	sync = chancreate(sizeof(ulong), 0);
-	if(sync == nil)
-		error("can't create channel");
-
-	a = emalloc(4*sizeof(void *));
-	a[0] = sync;
-	a[1] = (void *)p[1];
-	a[2] = s;
-	a[3] = (void *)*np;
-	proccreate(writeproc, a, STACK);
-
-	i = 0;
-	s = nil;
-	while((n = read(q[0], buf, sizeof(buf))) > 0){
-		s = erealloc(s, i+n+1);
-		memmove(s+i, buf, n);
-		i += n;
-		s[i] = '\0';
-	}
-	n = recvul(sync);
-	if(n != *np)
-		fprint(2, "uhtml failed: did not write %ld; wrote %uld\n", *np, n);
-
-	*np = i;
-	chanfree(sync);
-	close(q[0]);
-
-	if(s == nil){
-		fprint(2, "uhtml failed: can't convert charset=%s\n", cs);
-		return t;
-	}
-	free(t);
-
-	return s;
+	return q[0];
 }
 
 static
