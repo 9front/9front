@@ -147,15 +147,47 @@ closeimages(Page *p)
 }
 
 static
+int
+pipeline(int fd, char *cmd, ...)
+{
+	Channel *sync;
+	Exec *e;
+	int p[2], q[2];
+	va_list a;
+
+	if(pipe(p)<0 || pipe(q)<0)
+		error("can't create pipe");
+	close(p[0]);
+	p[0] = fd;
+	sync = chancreate(sizeof(ulong), 0);
+	if(sync == nil)
+		error("can't create channel");
+	e = emalloc(sizeof(Exec));
+	e->p[0] = p[0];
+	e->p[1] = p[1];
+	e->q[0] = q[0];
+	e->q[1] = q[1];
+	va_start(a, cmd);
+	e->cmd = vsmprint(cmd, a);
+	va_end(a);
+	e->sync = sync;
+	proccreate(execproc, e, STACK);
+	recvul(sync);
+	chanfree(sync);
+	close(p[0]);
+	close(p[1]);
+	close(q[1]);
+	return q[0];
+}
+
+static
 Cimage *
 loadimg(Rune *src, int x , int y)
 {
-	Channel *sync;
 	Cimage *ci;
 	Runestr rs;
-	Exec *e;
 	char *filter;
-	int fd, p[2], q[2];
+	int fd;
 
 	ci = emalloc(sizeof(Cimage));
 	rs. r = src;
@@ -173,35 +205,16 @@ loadimg(Rune *src, int x , int y)
 		close(fd);
 		goto Err1;
 	}
-
-	if(pipe(p)<0 || pipe(q)<0)
-		error("can't create pipe");
-	close(p[0]);
-	p[0] = fd;
-	sync = chancreate(sizeof(ulong), 0);
-	if(sync == nil)
-		error("can't create channel");
-	e = emalloc(sizeof(Exec));
-	e->p[0] = p[0];
-	e->p[1] = p[1];
-	e->q[0] = q[0];
-	e->q[1] = q[1];
-	e->cmd = filter;
-	e->sync = sync;
-	proccreate(execproc, e, STACK);
-	recvul(sync);
-	chanfree(sync);
-	close(p[0]);
-	close(p[1]);
-	close(q[1]);
-
-	ci->mi = readmemimage(q[0]);
-	close(q[0]);
+	fd = pipeline(fd, "%s", filter);
+	free(filter);
+	if(fd < 0)
+		goto Err2;
+	ci->mi = readmemimage(fd);
+	close(fd);
 	if(ci->mi == nil){
 		werrstr("can't read image");
 		goto Err2;
 	}
-	free(filter);
 	return ci;
 }
 
@@ -262,7 +275,7 @@ void
 pageloadproc(void *v)
 {
 	Page *p;
-	char buf[BUFSIZE], *s;
+	char buf[BUFSIZE], cs[32], *s;
 	long n, l;
 	int fd, i, ctype;
 
@@ -297,6 +310,16 @@ pageloadproc(void *v)
 		goto Err;
 	}
 	addrefresh(p, "loading: %S...", p->url->src.r);
+
+	s = nil;
+	if(p->url->ctype.nr > 0){
+		snprint(buf, sizeof(buf), "%.*S", p->url->ctype.nr, p->url->ctype.r);
+		if(findctype(cs, sizeof(cs), "charset", buf) == 0)
+			s = cs;
+	}
+	if((fd = pipeline(fd, s != nil ? "uhtml -c %q" : "uhtml", s)) < 0)
+		goto Err;
+
 	s = nil;
 	l = 0;
 	while((n=read(fd, buf, sizeof(buf))) > 0){
@@ -315,7 +338,6 @@ pageloadproc(void *v)
 	close(fd);
 	n = l;
 	if(s){
-		s = convert(p->url->ctype, s, &n);
 		p->items = parsehtml((uchar *)s, n, p->url->act.r, ctype, UTF_8, &p->doc);
 		free(s);
 		fixtext(p);

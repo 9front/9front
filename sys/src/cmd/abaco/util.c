@@ -797,7 +797,6 @@ isspace(char c)
 	return c==' ' || c== '\t' || c=='\r' || c=='\n';
 }
 
-static
 int
 findctype(char *b, int l, char *keyword, char *s)
 {
@@ -834,19 +833,6 @@ findctype(char *b, int l, char *keyword, char *s)
 		return -1;
 	snprint(b, l, "%.*s", i, p);
 	return 0;
-}
-
-char *
-convert(Runestr ctype, char *s, long *np)
-{
-	char t[25], buf[256];
-
-	*t = '\0';
-	if(ctype.nr){
-		snprint(buf, sizeof(buf), "%.*S", ctype.nr, ctype.r);
-		findctype(t, sizeof(t), "charset", buf);
-	}
-	return uhtml(t, s, np);
 }
 
 int
