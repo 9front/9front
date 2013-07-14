@@ -131,6 +131,8 @@ main(int argc, char *argv[])
 			s = ++e;
 		} while(t);
 	}
+	if(cset)
+		goto Found;
 	s = p;
 	while(s+UTFmax < p+nbuf){
 		s += chartorune(&r, s);
