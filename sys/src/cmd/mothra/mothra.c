@@ -330,7 +330,6 @@ void main(int argc, char *argv[]){
 	bullet=allocimage(display, Rect(0,0,25, 8), screen->chan, 0, DWhite);
 	fillellipse(bullet, Pt(4,4), 3, 3, display->black, ZP);
 	mkpanels();
-
 	unlockdisplay(display);
 	eresized(0);
 	drawlock(1);
@@ -467,7 +466,7 @@ void eresized(int new){
 	r=screen->r;
 	plpack(root, r);
 	plpack(alt, r);
-	draw(screen, r, display->white, 0, ZP);
+	pldraw(cmd, screen);	/* put cmd box on screen for alt display */
 	pldraw(root, screen);
 	flushimage(display, 1);
 	drawlock(0);
@@ -696,7 +695,7 @@ void docmd(Panel *p, char *s){
 		exits(0);
 	}
 	plinitentry(cmd, EXPAND, 0, "", docmd);
-	if(defdisplay) pldraw(cmd, screen);
+	pldraw(root, screen);
 }
 
 void hiturl(int buttons, char *url, int map){
