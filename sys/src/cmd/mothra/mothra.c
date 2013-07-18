@@ -158,7 +158,8 @@ void scrolltext(int dy, int whence)
 }
 
 void mkpanels(void){
-	Panel *p, *bar;
+	Panel *p, *bar, *swap;
+
 	menu3=plmenu(0, 0, buttons, PACKN|FILLX, hit3);
 	root=plpopup(root, EXPAND, 0, 0, menu3);
 		p=plgroup(root, PACKN|FILLX);
@@ -183,6 +184,15 @@ void mkpanels(void){
 		bar=plscrollbar(alt, PACKW|USERFL);
 		alttext=pltextview(alt, PACKE|EXPAND, Pt(0, 0), 0, dolink);
 		plscroll(alttext, 0, bar);
+
+	if(!defdisplay){
+		swap=root;
+		root=alt;
+		alt=swap;
+		swap=text;
+		text=alttext;
+		alttext=swap;
+	}
 }
 int cohort = -1;
 void killcohort(void){
@@ -265,6 +275,7 @@ void main(int argc, char *argv[]){
 	case 'm':
 		if(mtpt = ARGF())
 			break;
+	case 'a': defdisplay=0; break;
 	default:  goto Usage;
 	}ARGEND
 
@@ -284,7 +295,7 @@ void main(int argc, char *argv[]){
 	switch(argc){
 	default:
 	Usage:
-		fprint(2, "Usage: %s [-dv] [-m mtpt] [url]\n", argv0);
+		fprint(2, "Usage: %s [-dva] [-m mtpt] [url]\n", argv[0]);
 		exits("usage");
 	case 0:
 		url=getenv("url");
