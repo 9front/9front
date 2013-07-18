@@ -531,7 +531,7 @@ main(int argc, char *argv[])
 	char addr[128];
 	uchar *rsne;
 	int rsnelen;
-	int n;
+	int n, try;
 
 	quotefmtinstall();
 	fmtinstall('H', Hfmt);
@@ -617,11 +617,14 @@ main(int argc, char *argv[])
 		fprint(2, "rsne: %.*H\n", rsnelen, rsne);
 
 	/*
-	 * we use write() instead of fprint so message gets  written
-	 * at once and not chunked up on fprint buffer.
+	 * we use write() instead of fprint so the message gets written
+	 * at once and not chunked up on fprint buffer. bss scan might
+	 * not be complete yet, so retry for 10 seconds.
 	 */
 	n = sprint((char*)buf, "auth %.*H", rsnelen, rsne);
-	if(write(cfd, buf, n) != n)
+	for(try = 10; try >= 0 && write(cfd, buf, n) != n; try--)
+		sleep(1000);
+	if(try < 0)
 		sysfatal("write auth: %r");
 
 	if(!debug){

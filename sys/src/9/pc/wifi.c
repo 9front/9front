@@ -766,7 +766,6 @@ wifictl(Wifi *wifi, void *buf, long n)
 	Cmdtab *ct;
 	Wnode *wn;
 	Wkey *k;
-	int i;
 
 	cb = nil;
 	if(waserror()){
@@ -818,16 +817,6 @@ wifictl(Wifi *wifi, void *buf, long n)
 				setstatus(wifi, wn, Sconn);
 				sendauth(wifi, wn);
 			}
-		/* wait 3 seconds for authentication response */
-		for(i=0; i < 30; i++){
-			if(wifi->bss != nil)
-				goto done;
-			if(!waserror()){
-				tsleep(&up->sleep, return0, 0, 100);
-				poperror();
-			}
-		}
-		error("connect timeout");
 		break;
 	case CMbssid:
 		memmove(wifi->bssid, addr, Eaddrlen);
@@ -859,7 +848,6 @@ wifictl(Wifi *wifi, void *buf, long n)
 			setstatus(wifi, wn, Sassoc);
 		break;
 	}
-done:
 	poperror();
 	free(cb);
 	return n;
