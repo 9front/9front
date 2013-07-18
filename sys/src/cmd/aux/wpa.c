@@ -155,6 +155,22 @@ getessid(void)
 }
 
 int
+connected(void)
+{
+	char status[1024];
+
+	if(getifstats("status:", status, sizeof(status)) == nil)
+		return 0;
+	if(strcmp(status, "connecting") == 0)
+		return 0;
+	if(strcmp(status, "unauthenticated") == 0)
+		return 0;
+	if(debug)
+		fprint(2, "status: %s\n", status);
+	return 1;
+}
+
+int
 buildrsne(uchar rsne[258])
 {
 	char buf[1024];
@@ -598,6 +614,10 @@ main(int argc, char *argv[])
 		free(s);
 	}
 
+ 	/* bss scan might not be complete yet, so check for 10 seconds.	*/
+	for(try = 10; try >= 0 && !connected(); try--)
+		sleep(1000);
+
 	if(rsnelen <= 0){
 		static uchar brsne[258];
 
@@ -618,13 +638,10 @@ main(int argc, char *argv[])
 
 	/*
 	 * we use write() instead of fprint so the message gets written
-	 * at once and not chunked up on fprint buffer. bss scan might
-	 * not be complete yet, so retry for 10 seconds.
+	 * at once and not chunked up on fprint buffer.
 	 */
 	n = sprint((char*)buf, "auth %.*H", rsnelen, rsne);
-	for(try = 10; try >= 0 && write(cfd, buf, n) != n; try--)
-		sleep(1000);
-	if(try < 0)
+	if(write(cfd, buf, n) != n)
 		sysfatal("write auth: %r");
 
 	if(!debug){
