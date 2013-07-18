@@ -81,11 +81,12 @@ enum
 	Cpfile	= (1<<2),	/* print files */
 	Cpdir	= (1<<3),	/* print directories */
 	Cfree	= (1<<4),	/* rebuild free list */
-//	Csetqid	= (1<<5),	/* resequence qids */
+	Csetqid	= (1<<5),	/* resequence qids */
 	Cream	= (1<<6),	/* clear all bad tags */
 	Cbad	= (1<<7),	/* clear all bad blocks */
 	Ctouch	= (1<<8),	/* touch old dir and indir */
-	Ctrim	= (1<<9),   /* trim fsize back to fit when checking free list */
+	Ctrim	= (1<<9),	/* trim fsize back to fit when checking free list */
+	Crtmp	= (1<<10),	/* clear temporary files (after recover) */
 };
 
 static struct {
@@ -102,6 +103,7 @@ static struct {
 	"bad",		Cbad,
 	"touch",	Ctouch,
 	"trim",		Ctrim,
+	"rtmp",		Crtmp,
 	0,
 };
 
@@ -351,15 +353,16 @@ indirck(Extdentry *ed, Off a, int tag)
 	if (p1 = xtag(a, tag, ed->qpath)) {
 		for(i=0; i<INDPERBUF; i++) {
 			a = blkck(&((Off *)p1->iobuf)[i], &p1->flags);
-			if (a)
+			if (a) {
 				/*
 				 * check each block named in this
 				 * indirect(^n) block (a).
 				 */
 				if (tag == Tind1)
-					dmod +=   dirck(ed, a);
+					dmod += dirck(ed, a);
 				else
 					dmod += indirck(ed, a, tag-1);
+			}
 		}
 		putbuf(p1);
 	}
@@ -433,6 +436,21 @@ fsck(Dentry *d)
 	qmark(edent.qpath);
 	if(edent.qpath > maxq)
 		maxq = edent.qpath;
+
+	/* clear temporary files (after recover) */
+	if((d->mode & DTMP) && (flags & Crtmp)){
+		for(i=0; i<NDBLOCK; i++)
+			d->dblock[i] = 0;
+		for(i=0; i<NIBLOCK; i++)
+			d->iblocks[i] = 0;
+		d->size = 0;
+
+		/* if not directory, delete file */
+		if((d->mode & DDIR) == 0)
+			memset(d, 0, sizeof(Dentry));
+
+		return 1;
+	}
 
 	/* check direct blocks (the common case) */
 	dmod = 0;
@@ -656,7 +674,7 @@ modd(Off a, int s, Dentry *d1)
 	Iobuf *p;
 	Dentry *d;
 
-	if(!(flags & Cbad))
+	if(!(flags & (Cbad|Crtmp)))
 		return;
 	p = getbuf(dev, a, Brd);
 	d = getdir(p, s);

@@ -277,6 +277,17 @@ Running
 .B "check free"
 afterward will construct a new free list that contains no
 blocks outside the new, smaller file system.
+.TP
+.B rtmp
+Removes temporary files after a recovery from worm.
+After a cache ream and recover, temporary files and directories
+refer to invalid data blocks producing checktag errors
+on access. To get rid of these errors, the
+.I rtmp
+flag can be used with the
+.I check
+command which will truncate temporary directories
+and remove temporary files.
 .PP
 .I Clean
 prints the block numbers in
