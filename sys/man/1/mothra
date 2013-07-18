@@ -4,7 +4,7 @@ mothra \- retrieve and display World-Wide Web files
 .SH SYNOPSIS
 .B mothra
 [
-.B -dv
+.B -dva
 ]
 [
 .B -m
@@ -52,9 +52,13 @@ the environment variable
 .PP
 There are a number of options:
 .TP
-.B  -d
+.B -d
 Debug mode. Causes debug messages to appear in
 .B $home/lib/mothra/mothra.err.
+.TP
+.B -a
+Alt display. Starts in alt display mode, see menu
+commands table below.
 .TP
 .B -m
 Specify the
