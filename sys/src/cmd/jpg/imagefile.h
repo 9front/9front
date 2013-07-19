@@ -75,10 +75,12 @@ Memimage*	memonechan(Memimage*);
 
 char*		writeppm(Biobuf*, Image*, char*, int);
 char*		memwriteppm(Biobuf*, Memimage*, char*, int);
+char*		writejpg(Biobuf*, Image*, char*, int, int);
+char*		memwritejpg(Biobuf*, Memimage*, char*, int, int);
 Image*		multichan(Image*);
 Memimage*	memmultichan(Memimage*);
 
 char*		memwritepng(Biobuf*, Memimage*, ImageInfo*);
 
-char*		writejpg(Biobuf*, Image*, char*, int, int);
-char*		memwritejpg(Biobuf*, Memimage*, char*, int, int);
+char*		writetif(Biobuf*, Image*, char*, int, int);
+char*		memwritetif(Biobuf*, Memimage*, char*, int, int);

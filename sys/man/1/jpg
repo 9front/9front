@@ -1,6 +1,6 @@
 .TH JPG 1
 .SH NAME
-jpg, gif, png, tif, ppm, bmp, v210, yuv, ico, tga, tojpg, togeordi, togif, toppm, topng, toico \- view and convert pictures
+jpg, gif, png, tif, ppm, bmp, v210, yuv, ico, tga, tojpg, togeordi, togif, toppm, topng, totif, toico \- view and convert pictures
 .SH SYNOPSIS
 .B jpg
 [
@@ -127,6 +127,16 @@ jpg, gif, png, tif, ppm, bmp, v210, yuv, ico, tga, tojpg, togeordi, togif, toppm
 ] [
 .I file
 ]
+.br
+.B totif
+[
+.B -c
+.I comment
+] [
+.B -bBgGhHlLmprtT
+] [
+.I file
+]
 .PP
 .B ico
 [
@@ -157,9 +167,11 @@ to Plan 9 image format and write them to standard output.
 .IR Tojpg ,
 .IR togif ,
 .IR toppm ,
+.IR topng ,
 and
-.I topng
-read Plan 9 images files, convert them to JPEG, GIF, PPM, or PNG, and write them to standard output.
+.I totif
+read Plan 9 images files, convert them to JPEG, GIF, PPM,
+PNG, or TIFF and write them to standard output.
 .PP
 The default behavior of
 .IR jpg ,
@@ -246,7 +258,7 @@ The
 and
 .IR topng
 programs go the other way: they convert from Plan 9 images to JPEG, GIF,
-PPM and PNG and have no display capability.
+PPM, PNG, and TIFF and have no display capability.
 They all accept an option
 .B -c
 to set the comment field of the resulting file.
@@ -270,6 +282,52 @@ is an
 script that invokes
 .B tojpg
 .BR -s .
+.I Totif
+accepts many options.
+Choosing Huffman, T4, or T6 compression
+forces the output to be a bilevel image.
+.TP
+.B -b
+Output a bilevel (GREY1) image.
+.TP
+.B -B
+Output a grayscale (GREY2) image.
+.TP
+.B -g
+Output a grayscale (GREY4) image.
+.TP
+.B -G
+Output a grayscale (GREY8) image.
+.TP
+.B -h
+Use Huffman compression.
+.TP
+.B -H
+Use T4 one-dimensional compression.
+.TP
+.B -l
+Use LZW compression.
+.TP
+.B -L
+Use LZW compression with horizontal differencing.
+Note that some TIFF decoders may not accept horizontal
+differencing applied to images with depths less than eight.
+.TP
+.B -m
+Output a color (CMAP8) image.
+.TP
+.B -p
+Use Packbits compression.
+.TP
+.B -r
+Output a color (BGR24) image.
+.TP
+.B -t
+Use T4 two-dimensional compression.
+.TP
+.B -T
+Use T6 compression.
+.PP
 If there is only one input picture,
 .I togif
 converts the image to GIF format.

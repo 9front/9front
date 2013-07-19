@@ -169,17 +169,15 @@ show(int fd, char *name, int outchan)
 	if(array == nil || array[0] == nil) {
 		if(array != nil)
 			free(array);
-		fprint(2, "%s: decode %s failed: %r\n", argv0,
-			name);
+		fprint(2, "%s: decode %s failed: %r\n",
+			argv0, name);
 		return "decode";
 	}
 	Bterm(&b);
 	if(!dflag) {
 		if(init() < 0)
 			return "initdraw";
-/* fixme: ppm doesn't check for outchan==CMAP8 */
-		if(defaultcolor && screen->depth > 8 &&
-			outchan == CMAP8)
+		if(defaultcolor && screen->depth > 8)
 			outchan = RGB24;
 	}
 	r = array[0];
@@ -232,12 +230,10 @@ show(int fd, char *name, int outchan)
 				argv0, name);
 			return "write";
 		}
-	} else if(cflag) {
-		if(writerawimage(1, c) < 0) {
-			fprint(2, "%s: %s: write error: %r\n",
-				argv0, name);
-			return "write";
-		}
+	} else if(cflag && writerawimage(1, c) < 0) {
+		fprint(2, "%s: %s: write error: %r\n",
+			argv0, name);
+		return "write";
 	}
 	if(c != nil && c != r) {
 		free(c->chans[0]);

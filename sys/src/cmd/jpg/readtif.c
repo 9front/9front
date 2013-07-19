@@ -7,7 +7,7 @@
 * http://www.itu.int/rec/T-REC-T.4-199904-S/en
 * http://www.itu.int/rec/T-REC-T.6-198811-I/en
 *
-* fax codes and lzw:
+* copy-pasted fax codes and lzw help:
 * http://www.remotesensing.org/libtiff/
 */
 #include <u.h>
@@ -91,9 +91,10 @@ struct Fax {
 	Tab *tab[2];
 	int ntab; /* position in tab */
 	Tab *eol;
+	int eolfill;
 	int (*getbit)(Fax *);
-	int *l1;
-	int *l2;
+	ulong *l1;
+	ulong *l2;
 	ulong nl;
 	uchar *data;
 	ulong next; /* next strip offset in data */
@@ -433,7 +434,7 @@ static void fillbits(Fax *);
 static int faxalloclines(Fax *);
 static Tab *getfax1d(Fax *, uchar *, ulong, ulong *, ulong *, ulong);
 static Tab *getfax2d(Fax *, uchar *, ulong, ulong *, ulong *, ulong);
-static int faxstrip(Tif *, Fax *, uchar *, ulong, ulong *);
+static int faxstrip(Tif *, Fax *, uchar *, ulong, ulong, ulong *);
 static uchar *fax(Tif *);
 static void tabinit(Lzw *);
 static Code *newcode(Lzw *, Code *);
@@ -441,7 +442,8 @@ static void listadd(Lzw *, Code *);
 static Code *tabadd(Lzw *, Code *, Code *);
 static int getcode(Lzw *);
 static int wstr(uchar *, ulong, ulong *, Code *, long *);
-static void predict(Tif *, uchar *);
+static int predict1(Tif *, uchar *, ulong);
+static int predict8(Tif *, uchar *, ulong);
 static int lzwstrip(Lzw *, uchar *, ulong, ulong *, long);
 static uchar *lzw(Tif *);
 static uchar *packbits(Tif *);
@@ -669,6 +671,10 @@ geteol(Fax *f)
 	Tab *p;
 
 	if(f->eol == nil) {
+		if(f->eolfill) {
+			for(i = 0; i < 4; i++)
+				(*f->getbit)(f);
+		}
 		if((p = gettab(f, 0)) == nil || p->run >= 0) {
 			werrstr("first eol");
 			return nil;
@@ -697,10 +703,8 @@ faxfill(Fax *f, uchar *data, ulong size, ulong *i, ulong *x, ulong dx,
 		werrstr("fax row overflow");
 		return -1;
 	}
-	if((*i += n) >= size) {
-		werrstr("fax data overflow");
+	if((*i += n) > size)
 		return -1;
-	}
 	if(f->st != 0)
 		memset(data+*i-n, f->st, n);
 	return 0;
@@ -744,7 +748,7 @@ getfax1d(Fax *f, uchar *data, ulong size, ulong *i, ulong *x,
 	int j, n;
 	Tab *p;
 
-	for(j = 0; *x < dx;) {
+	for(j = n = 0; *x < dx;) {
 		if((p = gettab(f, 0)) == nil)
 			return nil;
 		if((n = p->run) < 0) {
@@ -760,6 +764,17 @@ getfax1d(Fax *f, uchar *data, ulong size, ulong *i, ulong *x,
 		if(j >= f->nl)
 			faxalloclines(f);
 	}
+	if(n >= 64) {
+		f->l1[j] = dx;
+		if((p = gettab(f, 0)) == nil)
+			return nil;
+		if((n = p->run) < 0)
+			return f->eol;
+		if(n != 0) {
+			werrstr("no terminating code");
+			return nil;
+		}
+	}
 	return nil;
 }
 
@@ -767,7 +782,8 @@ static Tab *
 getfax2d(Fax *f, uchar *data, ulong size, ulong *i, ulong *x,
 	ulong dx)
 {
-	int j, k, n, code, len, a0, a1, b1, b2, v;
+	int j, k, n, code, len, v;
+	long a0, a1, b1, b2;
 	Tab *p;
 
 	a0 = -1;
@@ -795,7 +811,10 @@ getfax2d(Fax *f, uchar *data, ulong size, ulong *i, ulong *x,
 			for(k = 0; k < 2;) {
 				if((p = gettab(f, 0)) == nil)
 					return nil;
-				n = p->run;
+				if((n = p->run) < 0) {
+					werrstr("2d eol");
+					return nil;
+				}
 				if(faxfill(f, data, size, i, x,
 					dx, n) < 0)
 					return nil;
@@ -842,7 +861,8 @@ getfax2d(Fax *f, uchar *data, ulong size, ulong *i, ulong *x,
 }
 
 static int
-faxstrip(Tif *t, Fax *f, uchar *data, ulong size, ulong *i)
+faxstrip(Tif *t, Fax *f, uchar *data, ulong size, ulong rows,
+	ulong *i)
 {
 	int d1;
 	ulong x, y;
@@ -850,7 +870,7 @@ faxstrip(Tif *t, Fax *f, uchar *data, ulong size, ulong *i)
 
 	d1 = t->comp != T6enc;
 	p = nil;
-	for(x = y = 0; x < t->dx || y < t->rows;) {
+	for(x = y = 0; x < t->dx || y < rows;) {
 		f->st = 0;
 		if(t->comp == T4enc) {
 			if(p == nil && geteol(f) == nil) {
@@ -858,8 +878,11 @@ faxstrip(Tif *t, Fax *f, uchar *data, ulong size, ulong *i)
 					return -1;
 				break;
 			}
-			if(y > 0)
+			if(y > 0) {
 				*i += t->dx - x;
+				if(*i > size)
+					break;
+			}
 			if(t->t4 & 1) {
 				d1 = (*f->getbit)(f);
 				if(d1 < 0)
@@ -878,32 +901,34 @@ faxstrip(Tif *t, Fax *f, uchar *data, ulong size, ulong *i)
 		if(t->comp == Huffman)
 			fillbits(f);
 		if(p == nil && x != t->dx) {
-			if(f->st >= 0 || x > t->dx)
+			if(f->st >= 0)
+				return -1;
+			if(x > t->dx)
 				return -1;
 			break;
 		}
 	}
+	if(*i > size) {
+		werrstr("fax data overflow");
+		return -1;
+	}
 	return 0;
 }
 
-/*
-* the t4 fax test images i decoded did not follow the
-* spec. in particular, they did not have rtcs.
-*/
+/* i've encountered t4 images that did not have rtcs */
 static uchar *
 fax(Tif *t)
 {
 	int m;
-	ulong i, j, datasz, linesz;
+	ulong i, j, datasz, r, dy;
 	uchar *data;
 	Fax f;
 
 	datasz = t->dx * t->dy * sizeof *data;
-	data = malloc(datasz);
-	f.nl = t->dx;
-	linesz = f.nl * sizeof *f.l1;
-	f.l1 = malloc(linesz);
-	f.l2 = malloc(linesz);
+	data = mallocz(datasz, 1);
+	f.nl = t->dx + 1;
+	f.l1 = mallocz(f.nl*sizeof *f.l1, 1);
+	f.l2 = mallocz(f.nl*sizeof *f.l2, 1);
 	if(data == nil || f.l1 == nil || f.l2 == nil) {
 		free(t->data);
 		if(data != nil)
@@ -914,9 +939,6 @@ fax(Tif *t)
 			free(f.l2);
 		return nil;
 	}
-	memset(data, 0, datasz);
-	memset(f.l1, 0, linesz);
-	memset(f.l2, 0, linesz);
 	if(t->fill == 1) {
 		f.getbit = getbit1;
 		m = 7;
@@ -928,8 +950,12 @@ fax(Tif *t)
 	f.tab[1] = faxblack;
 	f.ntab = 0;
 	f.eol = nil;
+	if(t->comp == T4enc && t->t4 & (1<<1))
+		f.eolfill = 1;
+	else
+		f.eolfill = 0;
 	f.data = t->data;
-	for(i = j = 0; i < t->nstrips; i++) {
+	for(i = j = 0, dy = t->dy; i < t->nstrips; i++) {
 		f.l1[0] = t->dx;
 		f.n = t->strips[i];
 		f.m = m;
@@ -937,8 +963,10 @@ fax(Tif *t)
 			f.next = t->strips[i+1];
 		else
 			f.next = t->ndata;
-		if(faxstrip(t, &f, data, datasz, &j) < 0)
+		r = dy < t->rows? dy: t->rows;
+		if(faxstrip(t, &f, data, datasz, r, &j) < 0)
 			break;
+		dy -= t->rows;
 	}
 	if(i < t->nstrips) {
 		free(data);
@@ -993,19 +1021,19 @@ tabadd(Lzw *l, Code *p, Code *q)
 {
 	Code *r, *s;
 
-	if(l->ntab >= Tabsz) {
-		werrstr("lzw table full");
-		return nil;
-	}
-	r = s = &l->tab[l->ntab++];
+	r = s = &l->tab[l->ntab];
 	switch(l->ntab) {
-	case 511:
-	case 1023:
-	case 2047:
+	case 510:
+	case 1022:
+	case 2046:
 		l->len++;
 		break;
 	default:
 		break;
+	}
+	if(l->ntab++ >= Tabsz-3) {
+		werrstr("lzw table full");
+		return nil;
 	}
 	s->val = p->val;
 	while((p = p->next) != nil) {
@@ -1033,6 +1061,7 @@ getcode(Lzw *l)
 	int i, c, code;
 
 	if(l->n >= l->next) {
+eof:
 		werrstr("lzw eof");
 		return -1;
 	}
@@ -1042,8 +1071,9 @@ getcode(Lzw *l)
 		code |= c << i;
 		l->m--;
 		if(l->m < 0) {
-			l->n++;
 			l->m = 7;
+			if(++l->n >= l->next && i > 0)
+				goto eof;
 		}
 	}
 	return code;
@@ -1062,24 +1092,61 @@ wstr(uchar *data, ulong size, ulong *i, Code *p, long *striplen)
 	return 0;
 }
 
-static void
-predict(Tif *t, uchar *data)
+static int
+predict1(Tif *t, uchar *data, ulong ndata)
+{
+	int bpl, pix, b[8], d, m, n, j;
+	ulong i, x, y;
+
+	bpl = bytesperline(Rect(0, 0, t->dx, t->dy), t->depth);
+	d = t->depth;
+	m = (1 << d) - 1;
+	n = 8 / d;
+	for(y = 0; y < t->dy; y++) {
+		for(x = 0; x < bpl; x++) {
+			i = y*bpl + x;
+			if(i >= ndata) {
+				werrstr("pred4 overflow");
+				return -1;
+			}
+			pix = data[i];
+			b[n-1] = (pix >> d*(n-1)) & m;
+			if(x > 0)
+				b[n-1] += data[i-1] & m;
+			for(j = n-2; j >= 0; j--) {
+				b[j] = (pix >> d*j) & m;
+				b[j] += b[j+1];
+			}
+			for(j = pix = 0; j < n; j++)
+				pix |= (b[j] & m) << d*j;
+			data[i] = pix;
+		}
+	}
+	return 0;
+}
+
+static int
+predict8(Tif *t, uchar *data, ulong ndata)
 {
 	char a, b;
-	ulong y, x, i, j, k, s;
+	ulong i, j, s, x, y;
 
 	s = t->samples;
 	for(y = 0; y < t->dy; y++) {
 		for(x = 1; x < t->dx; x++) {
-			i = y*t->dx + x;
-			for(j = 0; j < s; j++) {
-				k = i*s + j;
-				a = (char)data[k];
-				b = (char)data[k-s];
-				data[k] = (uchar)(a + b);
+			i = (y*t->dx + x) * s;
+			if(i+s-1 >= ndata) {
+				werrstr("pred8 overflow");
+				return -1;
+			}
+			for(j = 0; j < s; i++, j++) {
+				a = (char)data[i];
+				b = (char)data[i-s];
+				data[i] = (uchar)(a + b);
 			}
 		}
 	}
+	return 0;
 }
 
 static int
@@ -1102,6 +1169,10 @@ lzwstrip(Lzw *l, uchar *data, ulong size, ulong *i, long striplen)
 				break;
 			if(c < 0)
 				return -1;
+			if(c >= l->ntab) {
+				werrstr("table overflow");
+				return -1;
+			}
 			if(wstr(data, size, i, &l->tab[c],
 				&striplen) < 0)
 				return -1;
@@ -1113,13 +1184,16 @@ lzwstrip(Lzw *l, uchar *data, ulong size, ulong *i, long striplen)
 			q = &l->tab[oc];
 			if(tabadd(l, q, p) == nil)
 				return -1;
-		} else {
+		} else if(c == l->ntab) {
 			q = &l->tab[oc];
 			if((p = tabadd(l, q, q)) == nil)
 				return -1;
 			if(wstr(data, size, i, p,
 				&striplen) < 0)
 				return -1;
+		} else {
+			werrstr("table overflow");
+			return -1;
 		}
 		if(striplen <= 0)
 			break;
@@ -1132,15 +1206,16 @@ lzwstrip(Lzw *l, uchar *data, ulong size, ulong *i, long striplen)
 static uchar *
 lzw(Tif *t)
 {
-	ulong i, j, size;
+	ulong i, j, size, r, dy, n;
 	long striplen;
 	uchar *data;
 	Lzw l;
 	Code *p, *q;
+	int (*predict)(Tif *, uchar *, ulong);
 
-	i = t->dx * t->rows * t->depth;
-	striplen = i%8 == 0? i/8: i/8+1;
-	size = t->nstrips * striplen * sizeof *data;
+	n = t->dx * t->dy * t->depth;
+	n = n%8 == 0? n/8: n/8+1;
+	size = n * sizeof *data;
 	if((data = malloc(size)) == nil) {
 		free(t->data);
 		return nil;
@@ -1151,7 +1226,7 @@ lzw(Tif *t)
 	}
 	l.data = t->data;
 	l.first = l.last = nil;
-	for(i = j = 0; i < t->nstrips; i++) {
+	for(i = j = 0, dy = t->dy; i < t->nstrips; i++) {
 		tabinit(&l);
 		l.n = t->strips[i];
 		l.m = 7;
@@ -1159,8 +1234,12 @@ lzw(Tif *t)
 			l.next = t->strips[i+1];
 		else
 			l.next = t->ndata;
+		r = dy < t->rows? dy: t->rows;
+		n = t->dx * r * t->depth;
+		striplen = n%8 == 0? n/8: n/8+1;
 		if(lzwstrip(&l, data, size, &j, striplen) < 0)
 			break;
+		dy -= t->rows;
 	}
 	if(i < t->nstrips) {
 		free(data);
@@ -1177,8 +1256,16 @@ lzw(Tif *t)
 		free(q);
 	}
 	free(t->data);
-	if(data != nil && t->predictor == 2)
-		predict(t, data);
+	if(data != nil && t->predictor == 2) {
+		if(t->depth < 8)
+			predict = predict1;
+		else
+			predict = predict8;
+		if((*predict)(t, data, size) < 0) {
+			free(data);
+			return nil;
+		}
+	}
 	return data;
 }
 
@@ -1189,7 +1276,9 @@ packbits(Tif *t)
 	ulong i, j, k, size;
 	uchar *data;
 
-	size = t->dx * t->dy * t->samples * sizeof *data;
+	i = t->dx * t->dy * t->depth;
+	i = i%8 == 0? i/8: i/8+1;
+	size = i * sizeof *data;
 	if((data = malloc(size)) == nil) {
 		free(t->data);
 		return nil;
@@ -1198,11 +1287,9 @@ packbits(Tif *t)
 		n = (char)t->data[i++];
 		if(n >= 0) {
 			k = n + 1;
-			if(j+k >= size || i+k >= t->ndata)
+			if((j += k) > size || (i += k) > t->ndata)
 				break;
-			memmove(data+j, t->data+i, k);
-			i += k;
-			j += k;
+			memmove(data+j-k, t->data+i-k, k);
 		} else if(n > -128 && n < 0) {
 			k = j - n + 1;
 			if(k > size || i >= t->ndata)
@@ -1461,18 +1548,18 @@ readfield(Tif *t, Fld *f)
 	size = typesizes[f->typ];
 	if((n = size*f->cnt) <= 4) {
 		for(i = 0; i < f->cnt; i++)
-			f->val[i] = readval(t);
+			f->val[i] = (*readval)(t);
 		f->off = 0x0;
 		f->nval = i;
 		for(j = n; j < 4; j += size)
-			readval(t);
+			(*readval)(t);
 	} else {
 		f->off = readlong(t);
 		off = t->n;
 		if(gototif(t, f->off) < 0)
 			return -1;
 		for(i = 0; i < f->cnt; i++)
-			f->val[i] = readval(t);
+			f->val[i] = (*readval)(t);
 		f->nval = i;
 		if(gototif(t, off) < 0)
 			return -1;
@@ -1600,10 +1687,6 @@ checkfields(Tif *t)
 		werrstr("color map");
 		return -1;
 	}
-	if(t->predictor == 2 && t->depth == 1) {
-		werrstr("depth too low for predictor 2");
-		return -1;
-	}
 	return 0;
 }
 
@@ -1613,9 +1696,14 @@ readstrips(Tif *t)
 	int i, j, n;
 	ulong off;
 
+	t->data = nil;
 	t->ndata = 0;
 	for(i = 0; i < t->nstrips; i++)
 		t->ndata += t->counts[i];
+	if(t->ndata == 0) {
+		werrstr("no image data");
+		return -1;
+	}
 	if((t->data = malloc(t->ndata*sizeof *t->data)) == nil)
 		return -1;
 	off = t->n;
