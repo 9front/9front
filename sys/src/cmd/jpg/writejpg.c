@@ -823,7 +823,6 @@ static void
 writetrailer(Biobuf *fd)
 {
 	Bputs(fd, 0xffd9);
-	Bflush(fd);
 }
 
 static char *
@@ -857,8 +856,10 @@ writedata(Biobuf *fd, Image *i, Memimage *m, int gflag, int sflag)
 	else
 		ndata = unloadimage(i, r, data, ndata);
 	if(ndata < 0) {
-		if((err = malloc(ERRMAX)) == nil)
+		if((err = malloc(ERRMAX)) == nil) {
+			free(data);
 			return "WriteJPG: malloc failed";
+		}
 		snprint(err, ERRMAX, "WriteJPG: %r");
 	} else
 		err = encode(fd, r, data, chan, ndata, gflag, sflag);

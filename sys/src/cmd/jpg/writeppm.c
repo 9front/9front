@@ -106,7 +106,7 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage, int rflag)
 				if(col >= MAXLINE-(2+1)){
 					Bprint(fd, "\n");
 					col = 0;
-				}else
+				}else if(y < r.max.y-1 || x < r.max.x-1)
 					col += Bprint(fd, " ");
 			}
 			if(rflag)
@@ -123,7 +123,7 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage, int rflag)
 			if(col >= MAXLINE-(4+1)){
 				Bprint(fd, "\n");
 				col = 0;
-			}else
+			}else if(i < ndata-1)
 				col += Bprint(fd, " ");
 		}
 		break;
@@ -139,7 +139,7 @@ writedata(Biobuf *fd, Image *image, Memimage *memimage, int rflag)
 			if(col >= MAXLINE-(4+4+4+1)){
 				Bprint(fd, "\n");
 				col = 0;
-			}else
+			}else if(i < ndata-3)
 				col += Bprint(fd, " ");
 		}
 		break;
