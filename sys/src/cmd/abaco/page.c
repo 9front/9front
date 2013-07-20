@@ -93,11 +93,11 @@ getfilter(Rune *r, int x, int y)
 	if(x==0 && y==0)
 		return smprint("%s", filtertab[i].filter);
 	if(x!=0 && y!=0)
-		return smprint("%s | resample -x %d -y %d", filtertab[i].filter, x, y);
+		return smprint("%s | resize -x %d -y %d", filtertab[i].filter, x, y);
 	if(x != 0)
-		return smprint("%s | resample -x %d", filtertab[i].filter, x);
+		return smprint("%s | resize -x %d", filtertab[i].filter, x);
 	/* y != 0 */
-	return smprint("%s | resample -y %d", filtertab[i].filter, y);
+	return smprint("%s | resize -y %d", filtertab[i].filter, y);
 }
 
 static Cimage *cimages = nil;
