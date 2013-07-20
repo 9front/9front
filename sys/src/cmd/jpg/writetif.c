@@ -933,6 +933,7 @@ pkbrow(Pkb *p, uchar *data, int ndata, long *buf)
 {
 	int b, repl;
 	long i, j, k, n;
+	ulong m;
 
 	i = n = 0;
 	buf[n++] = i;
@@ -974,8 +975,9 @@ pkbrow(Pkb *p, uchar *data, int ndata, long *buf)
 			i++;
 		if(b == 0)
 			continue;
-		if(p->n+1+(k<0?1:b) > p->ndata) {
-			p->ndata *= 2;
+		m = 1 + (k < 0? 1: b);
+		if(p->n+m > p->ndata) {
+			p->ndata = (p->n + m) * 2;
 			p->data = realloc(p->data,
 				p->ndata*sizeof *p->data);
 			if(p->data == nil)

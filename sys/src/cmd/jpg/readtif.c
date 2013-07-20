@@ -804,6 +804,8 @@ getfax2d(Fax *f, uchar *data, ulong size, ulong *i, ulong *x,
 			f->st = -1;
 			return nil;
 		}
+		if(j+1 >= f->nl)
+			faxalloclines(f);
 		len = p->len;
 		code = p->code;
 		if(code == 1 && len == 3) {
@@ -852,8 +854,6 @@ getfax2d(Fax *f, uchar *data, ulong size, ulong *i, ulong *x,
 			f->l2[j++] = *x;
 			f->st ^= 1;
 		}
-		if(j >= f->nl)
-			faxalloclines(f);
 		a0 = *x;
 	}
 	memmove(f->l1, f->l2, j*sizeof *f->l1);
