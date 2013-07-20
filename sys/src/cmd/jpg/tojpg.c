@@ -9,7 +9,7 @@
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-c 'comment'] [-gs] [file]\n", argv0);
+	fprint(2, "usage: %s [-c 'comment'] [-ks] [file]\n", argv0);
 	exits("usage");
 }
 
@@ -18,17 +18,17 @@ main(int argc, char *argv[])
 {
 	Biobuf bout;
 	Memimage *i, *ni;
-	int fd, gflag, sflag;
+	int fd, kflag, sflag;
 	char *err, *file, *com;
 
-	gflag = sflag = 0;
+	kflag = sflag = 0;
 	com = nil;
 	ARGBEGIN {
 	case 'c':
 		com = EARGF(usage());
 		break;
-	case 'g':
-		gflag = 1;
+	case 'k':
+		kflag = 1;
 		break;
 	case 's':
 		sflag = 1;
@@ -61,7 +61,7 @@ main(int argc, char *argv[])
 		freememimage(i);
 		i = ni;
 	}
-	err = memwritejpg(&bout, i, com, gflag, sflag);
+	err = memwritejpg(&bout, i, com, kflag, sflag);
 	freememimage(i);
 
 	if(err != nil)

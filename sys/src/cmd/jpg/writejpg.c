@@ -552,7 +552,7 @@ toycc2(int *y, int *cb, int *cr, int jx, int jy, int dx, int dy,
 
 static char *
 encode(Biobuf *fd, Rectangle r, uchar *data, ulong chan,
-	int ndata, int gflag, int sflag)
+	int ndata, int kflag, int sflag)
 {
 	int k, x, y, dx, dy, depth, bpl, ncomp;
 	int b[3][64], pred[3];
@@ -587,7 +587,7 @@ encode(Biobuf *fd, Rectangle r, uchar *data, ulong chan,
 	dy = min(Dy(r), 0xffff);
 	depth = chantodepth(chan);
 	bpl = bytesperline(r, depth);
-	ncomp = gflag? 1: 3;
+	ncomp = kflag? 1: 3;
 	memset(pred, 0, sizeof pred);
 	for(x = 0, y = 0;;) {
 		err = (*toycc)(b[0], b[1], b[2], x, y, dx, dy,
@@ -733,11 +733,11 @@ writehuffman(Biobuf *fd, int tc, int th)
 }
 
 static void
-writeframe(Biobuf *fd, int y, int x, int gflag)
+writeframe(Biobuf *fd, int y, int x, int kflag)
 {
 	int n, nf;
 
-	nf = gflag? 0x01: 0x03;
+	nf = kflag? 0x01: 0x03;
 	n = 0x0008 + 0x0003*nf;
 
 	Bputs(fd, 0xffc0);
@@ -752,7 +752,7 @@ writeframe(Biobuf *fd, int y, int x, int gflag)
 	Bputc(fd, (0x1<<4)|0x1);
 	Bputc(fd, 0x00);
 
-	if(!gflag) {
+	if(!kflag) {
 		/* Cb component */
 		Bputc(fd, 0x01);
 		Bputc(fd, (0x1<<4)|0x1);
@@ -766,11 +766,11 @@ writeframe(Biobuf *fd, int y, int x, int gflag)
 }
 
 static void
-writescan(Biobuf *fd, int gflag)
+writescan(Biobuf *fd, int kflag)
 {
 	int n, ns;
 
-	ns = gflag? 0x01: 0x03;
+	ns = kflag? 0x01: 0x03;
 	n = 0x0006 + 0x0002*ns;
 
 	Bputs(fd, 0xffda);
@@ -781,7 +781,7 @@ writescan(Biobuf *fd, int gflag)
 	Bputc(fd, 0x00);
 	Bputc(fd, (0x0<<4)|0x0);
 
-	if(!gflag) {
+	if(!kflag) {
 		/* Cb component */
 		Bputc(fd, 0x01);
 		Bputc(fd, (0x1<<4)|0x1);
@@ -797,7 +797,7 @@ writescan(Biobuf *fd, int gflag)
 }
 
 static void
-writeheader(Biobuf *fd, int dx, int dy, char *s, int gflag, int sflag)
+writeheader(Biobuf *fd, int dx, int dy, char *s, int kflag, int sflag)
 {
 	int i;
 
@@ -808,15 +808,15 @@ writeheader(Biobuf *fd, int dx, int dy, char *s, int gflag, int sflag)
 	writejfif(fd, dx, dy);
 	writecomment(fd, s);
 	writequant(fd, 0, sflag);
-	if(!gflag)
+	if(!kflag)
 		writequant(fd, 1, sflag);
-	writeframe(fd, dy, dx, gflag);
+	writeframe(fd, dy, dx, kflag);
 	for(i = 0; i < 2; i++) {
 		writehuffman(fd, i, 0);
-		if(!gflag)
+		if(!kflag)
 			writehuffman(fd, i, 1);
 	}
-	writescan(fd, gflag);
+	writescan(fd, kflag);
 }
 
 static void
@@ -826,7 +826,7 @@ writetrailer(Biobuf *fd)
 }
 
 static char *
-writedata(Biobuf *fd, Image *i, Memimage *m, int gflag, int sflag)
+writedata(Biobuf *fd, Image *i, Memimage *m, int kflag, int sflag)
 {
 	char *err;
 	uchar *data;
@@ -862,14 +862,14 @@ writedata(Biobuf *fd, Image *i, Memimage *m, int gflag, int sflag)
 		}
 		snprint(err, ERRMAX, "WriteJPG: %r");
 	} else
-		err = encode(fd, r, data, chan, ndata, gflag, sflag);
+		err = encode(fd, r, data, chan, ndata, kflag, sflag);
 	free(data);
 	return err;
 }
 
 static char *
 writejpg0(Biobuf *fd, Image *image, Memimage *memimage,
-	Rectangle r, ulong chan, char *s, int gflag, int sflag)
+	Rectangle r, ulong chan, char *s, int kflag, int sflag)
 {
 	int i;
 	char *err;
@@ -879,7 +879,7 @@ writejpg0(Biobuf *fd, Image *image, Memimage *memimage,
 	case GREY2:
 	case GREY4:
 	case GREY8:
-		gflag = 1;
+		kflag = 1;
 		break;
 	case RGB24:
 		break;
@@ -896,20 +896,20 @@ writejpg0(Biobuf *fd, Image *image, Memimage *memimage,
 		makehuf(ehufcoa[i], ehufsia[i], acbits[i],
 			achuffval[i], nelem(achuffval[i]));
 	}
-	writeheader(fd, Dx(r), Dy(r), s, gflag, sflag);
-	err = writedata(fd, image, memimage, gflag, sflag);
+	writeheader(fd, Dx(r), Dy(r), s, kflag, sflag);
+	err = writedata(fd, image, memimage, kflag, sflag);
 	writetrailer(fd);
 	return err;
 }
 
 char *
-writejpg(Biobuf *fd, Image *i, char *s, int gflag, int sflag)
+writejpg(Biobuf *fd, Image *i, char *s, int kflag, int sflag)
 {
-	return writejpg0(fd, i, nil, i->r, i->chan, s, gflag, sflag);
+	return writejpg0(fd, i, nil, i->r, i->chan, s, kflag, sflag);
 }
 
 char *
-memwritejpg(Biobuf *fd, Memimage *m, char *s, int gflag, int sflag)
+memwritejpg(Biobuf *fd, Memimage *m, char *s, int kflag, int sflag)
 {
-	return writejpg0(fd, nil, m, m->r, m->chan, s, gflag, sflag);
+	return writejpg0(fd, nil, m, m->r, m->chan, s, kflag, sflag);
 }

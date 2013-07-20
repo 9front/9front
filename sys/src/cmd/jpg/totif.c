@@ -11,7 +11,7 @@ void
 usage(void)
 {
 	fprint(2, "usage: %s [-c 'comment'] "
-		"[-bBgGhHlLmprtT] [file]\n", argv0);
+		"[-3bgGhklLptvyY] [file]\n", argv0);
 	exits("usage");
 }
 
@@ -29,31 +29,31 @@ main(int argc, char *argv[])
 	comp = 1;
 	c = nil;
 	ARGBEGIN {
-	case 'b':
-		chan = GREY1;
+	case '3': /* force RGB */
+		chan = BGR24;
 		chanflag = 1;
 		break;
-	case 'B':
-		chan = GREY2;
+	case 'b':
+		chan = GREY1;
 		chanflag = 1;
 		break;
 	case 'c':
 		c = EARGF(usage());
 		break;
-	case 'g':
-		chan = GREY4;
-		chanflag = 1;
+	case 'g': /* t4 */
+		comp = 3;
+		opt = 0;
 		break;
-	case 'G':
-		chan = GREY8;
-		chanflag = 1;
+	case 'G': /* t4 two-dimensional */
+		comp = 3;
+		opt = 1;
 		break;
 	case 'h': /* huffman */
 		comp = 2;
 		break;
-	case 'H': /* t4 */
-		comp = 3;
-		opt = 0;
+	case 'k':
+		chan = GREY8;
+		chanflag = 1;
 		break;
 	case 'l': /* lzw */
 		comp = 5;
@@ -63,23 +63,23 @@ main(int argc, char *argv[])
 		comp = 5;
 		opt = 1;
 		break;
-	case 'm': /* palette */
-		chan = CMAP8;
-		chanflag = 1;
-		break;
 	case 'p': /* packbits */
 		comp = 0x8005;
 		break;
-	case 'r': /* force BGR24 */
-		chan = BGR24;
+	case 't': /* t6 */
+		comp = 4;
+		break;
+	case 'v': /* RGBV */
+		chan = CMAP8;
 		chanflag = 1;
 		break;
-	case 't': /* t4 two-dimensional */
-		comp = 3;
-		opt = 1;
+	case 'y':
+		chan = GREY2;
+		chanflag = 1;
 		break;
-	case 'T': /* t6 */
-		comp = 4;
+	case 'Y':
+		chan = GREY4;
+		chanflag = 1;
 		break;
 	default:
 		usage();

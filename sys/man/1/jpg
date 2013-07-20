@@ -70,7 +70,7 @@ jpg, gif, png, tif, ppm, bmp, v210, yuv, ico, tga, tojpg, togeordi, togif, toppm
 .B -c
 .I comment
 ] [
-.B -gs
+.B -ks
 ] [
 .I file
 ]
@@ -80,7 +80,7 @@ jpg, gif, png, tif, ppm, bmp, v210, yuv, ico, tga, tojpg, togeordi, togif, toppm
 .B -c
 .I comment
 ] [
-.B -g
+.B -k
 ] [
 .I file
 ]
@@ -133,7 +133,7 @@ jpg, gif, png, tif, ppm, bmp, v210, yuv, ico, tga, tojpg, togeordi, togif, toppm
 .B -c
 .I comment
 ] [
-.B -bBgGhHlLmprtT
+.B -3bgGhklLptvyY
 ] [
 .I file
 ]
@@ -269,10 +269,10 @@ option makes
 output raw PPM.
 The default is to output plain PPM.
 The
-.B -g
+.B -k
 option makes
 .I tojpg
-output grayscale images,
+output grey-scale images,
 and the
 .B -s
 option makes it output scratched JPEG images.
@@ -285,48 +285,51 @@ script that invokes
 .I Totif
 accepts many options.
 Choosing Huffman, T4, or T6 compression
-forces the output to be a bilevel image.
+forces the image to GREY1.
+.TP
+.B -3
+Convert the image to a true color RGB image.
 .TP
 .B -b
-Output a bilevel (GREY1) image.
-.TP
-.B -B
-Output a grayscale (GREY2) image.
+Convert the image to a GREY1 black and white image.
 .TP
 .B -g
-Output a grayscale (GREY4) image.
+Use T4 one-dimensional compression.
 .TP
 .B -G
-Output a grayscale (GREY8) image.
+Use T4 two-dimensional compression.
 .TP
 .B -h
 Use Huffman compression.
 .TP
-.B -H
-Use T4 one-dimensional compression.
+.B -k
+Convert the image to a GREY8 grey-scale image.
 .TP
 .B -l
 Use LZW compression.
 .TP
 .B -L
 Use LZW compression with horizontal differencing.
-Note that some TIFF decoders may not accept horizontal
-differencing applied to images with depths less than eight.
-.TP
-.B -m
-Output a color (CMAP8) image.
+Some TIFF decoders may not support horizontal
+differencing applied to images of depths less than eight.
 .TP
 .B -p
 Use Packbits compression.
 .TP
-.B -r
-Output a color (BGR24) image.
-.TP
 .B -t
-Use T4 two-dimensional compression.
-.TP
-.B -T
 Use T6 compression.
+.TP
+.B -v
+Convert the image to an RGBV color-mapped image.
+.TP
+.B -y
+Convert the image to a GREY2 grey-scale image.
+.I Totif
+will then convert it to GREY4 before encoding
+because TIFF does not support depths of two.
+.TP
+.B -Y
+Convert the image to a GREY4 grey-scale image.
 .PP
 If there is only one input picture,
 .I togif
