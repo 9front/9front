@@ -1574,7 +1574,6 @@ readfield(Tif *t, Fld *f)
 static int
 checkfields(Tif *t)
 {
-	double a, b;
 	ulong n, size;
 
 	if(t->dx == 0) {
@@ -1647,9 +1646,7 @@ checkfields(Tif *t)
 		werrstr("rows per strip");
 		return -1;
 	}
-	a = (double)t->dy;
-	b = (double)t->rows;
-	n = (ulong)floor((a+b-1)/b);
+	n = (t->dy + t->rows - 1) / t->rows;
 	if(t->strips == nil || t->nstrips != n) {
 		werrstr("strip offsets");
 		return -1;

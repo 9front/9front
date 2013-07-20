@@ -1041,19 +1041,14 @@ alloctif(Tif *t)
 {
 	int rgb;
 	ulong i, count, n;
-	double a, b;
 
 	count = t->ndata < 0x2000? t->ndata: 0x2000;
-	t->rows = count / t->bpl;
-	if(count%t->bpl != 0)
-		t->rows++;
+	t->rows = (count + t->bpl - 1) / t->bpl;
 	if(t->comp == Tt4enc && t->opt) {
 		if((n = t->rows%Kpar) != 0)
 			t->rows += Kpar - n;
 	}
-	a = (double)t->dy;
-	b = (double)t->rows;
-	t->nstrips = (ulong)floor((a+b-1)/b);
+	t->nstrips = (t->dy + t->rows - 1) / t->rows;
 	t->strips = malloc(t->nstrips*sizeof *t->strips);
 	if(t->strips == nil)
 		return memerr;
