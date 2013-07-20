@@ -672,8 +672,12 @@ geteol(Fax *f)
 
 	if(f->eol == nil) {
 		if(f->eolfill) {
-			for(i = 0; i < 4; i++)
-				(*f->getbit)(f);
+			for(i = 0; i < 4; i++) {
+				if((*f->getbit)(f) < 0) {
+					f->st = -1;
+					return nil;
+				}
+			}
 		}
 		if((p = gettab(f, 0)) == nil || p->run >= 0) {
 			werrstr("first eol");
