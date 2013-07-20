@@ -1210,16 +1210,14 @@ lzwstrip(Lzw *l, uchar *data, ulong size, ulong *i, long striplen)
 static uchar *
 lzw(Tif *t)
 {
-	ulong i, j, size, r, dy, n;
+	ulong i, j, size, r, dy;
 	long striplen;
 	uchar *data;
 	Lzw l;
 	Code *p, *q;
 	int (*predict)(Tif *, uchar *, ulong);
 
-	n = t->dx * t->dy * t->depth;
-	n = n%8 == 0? n/8: n/8+1;
-	size = n * sizeof *data;
+	size = ((t->dx*t->dy*t->depth + 7) / 8) * sizeof *data;
 	if((data = malloc(size)) == nil) {
 		free(t->data);
 		return nil;
@@ -1239,8 +1237,7 @@ lzw(Tif *t)
 		else
 			l.next = t->ndata;
 		r = dy < t->rows? dy: t->rows;
-		n = t->dx * r * t->depth;
-		striplen = n%8 == 0? n/8: n/8+1;
+		striplen = (t->dx*r*t->depth + 7) / 8;
 		if(lzwstrip(&l, data, size, &j, striplen) < 0)
 			break;
 		dy -= t->rows;
@@ -1280,9 +1277,7 @@ packbits(Tif *t)
 	ulong i, j, k, size;
 	uchar *data;
 
-	i = t->dx * t->dy * t->depth;
-	i = i%8 == 0? i/8: i/8+1;
-	size = i * sizeof *data;
+	size = ((t->dx*t->dy*t->depth + 7) / 8) * sizeof *data;
 	if((data = malloc(size)) == nil) {
 		free(t->data);
 		return nil;
@@ -1671,8 +1666,7 @@ checkfields(Tif *t)
 	if(t->counts == nil && t->comp == Nocomp &&
 		t->nstrips == 1 &&
 		(t->counts = malloc(size)) != nil) {
-		n = t->dx * t->dy * t->depth;
-		t->counts[0] = n%8 == 0? n/8: n/8+1;
+		t->counts[0] = (t->dx*t->dy*t->depth + 7) / 8;
 		t->ncounts = t->nstrips;
 	}
 	if(t->counts == nil || t->ncounts != t->nstrips) {
