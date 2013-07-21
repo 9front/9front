@@ -792,27 +792,27 @@ static void
 predict1(Tif *t)
 {
 	int pix, b[8], d, m, n, j;
-	ulong i, x, y;
+	ulong x, y;
+	uchar *data, *p;
 
+	p = t->data;
 	d = *t->depth;
 	m = (1 << d) - 1;
 	n = 8 / d;
 	for(y = 0; y < t->dy; y++) {
-		for(x = t->bpl-1;; x--) {
-			i = y*t->bpl + x;
-			pix = t->data[i];
+		data = p += t->bpl;
+		for(x = t->bpl; x > 0; x--) {
+			pix = *--data;
 			for(j = 0; j < n; j++) {
 				b[j] = (pix >> d*j) & m;
 				if(j > 0)
 					b[j-1] -= b[j];
 			}
-			if(x > 0)
-				b[n-1] -= t->data[i-1] & m;
+			if(x > 1)
+				b[n-1] -= *(data-1) & m;
 			for(j = pix = 0; j < n; j++)
 				pix |= (b[j] & m) << d*j;
-			t->data[i] = pix;
-			if(x == 0)
-				break;
+			*data = pix;
 		}
 	}
 }
@@ -820,14 +820,18 @@ predict1(Tif *t)
 static void
 predict8(Tif *t)
 {
-	ulong i, j, s, x, y;
+	ulong j, s, x, y;
+	uchar *data, *p;
 
+	p = t->data;
 	s = t->samples;
 	for(y = 0; y < t->dy; y++) {
-		for(x = t->dx-1; x >= 1; x--) {
-			i = (y*t->dx + x) * s;
-			for(j = 0; j < s; i++, j++)
-				t->data[i] -= t->data[i-s];
+		data = p += t->dx * s;
+		for(x = t->dx; x > 1; x--) {
+			for(j = 0; j < s; j++) {
+				data--;
+				*data -= *(data-s);
+			}
 		}
 	}
 }

@@ -442,8 +442,8 @@ static void listadd(Lzw *, Code *);
 static Code *tabadd(Lzw *, Code *, Code *);
 static int getcode(Lzw *);
 static int wstr(uchar *, ulong, ulong *, Code *, long *);
-static int predict1(Tif *, uchar *, ulong);
-static int predict8(Tif *, uchar *, ulong);
+static void predict1(Tif *, uchar *);
+static void predict8(Tif *, uchar *);
 static int lzwstrip(Lzw *, uchar *, ulong, ulong *, long);
 static uchar *lzw(Tif *);
 static uchar *packbits(Tif *);
@@ -1096,61 +1096,45 @@ wstr(uchar *data, ulong size, ulong *i, Code *p, long *striplen)
 	return 0;
 }
 
-static int
-predict1(Tif *t, uchar *data, ulong ndata)
+static void
+predict1(Tif *t, uchar *data)
 {
 	int bpl, pix, b[8], d, m, n, j;
-	ulong i, x, y;
+	ulong x, y;
 
-	bpl = bytesperline(Rect(0, 0, t->dx, t->dy), t->depth);
 	d = t->depth;
+	bpl = bytesperline(Rect(0, 0, t->dx, t->dy), d);
 	m = (1 << d) - 1;
 	n = 8 / d;
 	for(y = 0; y < t->dy; y++) {
-		for(x = 0; x < bpl; x++) {
-			i = y*bpl + x;
-			if(i >= ndata) {
-				werrstr("pred4 overflow");
-				return -1;
-			}
-			pix = data[i];
+		for(x = 0; x < bpl; x++, data++) {
+			pix = *data;
 			b[n-1] = (pix >> d*(n-1)) & m;
 			if(x > 0)
-				b[n-1] += data[i-1] & m;
+				b[n-1] += *(data-1) & m;
 			for(j = n-2; j >= 0; j--) {
 				b[j] = (pix >> d*j) & m;
 				b[j] += b[j+1];
 			}
 			for(j = pix = 0; j < n; j++)
 				pix |= (b[j] & m) << d*j;
-			data[i] = pix;
+			*data = pix;
 		}
 	}
-	return 0;
 }
 
-static int
-predict8(Tif *t, uchar *data, ulong ndata)
+static void
+predict8(Tif *t, uchar *data)
 {
-	char a, b;
-	ulong i, j, s, x, y;
+	ulong j, s, x, y;
 
 	s = t->samples;
 	for(y = 0; y < t->dy; y++) {
-		for(x = 1; x < t->dx; x++) {
-			i = (y*t->dx + x) * s;
-			if(i+s-1 >= ndata) {
-				werrstr("pred8 overflow");
-				return -1;
-			}
-			for(j = 0; j < s; i++, j++) {
-				a = (char)data[i];
-				b = (char)data[i-s];
-				data[i] = (uchar)(a + b);
-			}
+		for(x = 1, data += s; x < t->dx; x++) {
+			for(j = 0; j < s; j++, data++)
+				*data += *(data-s);
 		}
 	}
-	return 0;
 }
 
 static int
@@ -1215,7 +1199,6 @@ lzw(Tif *t)
 	uchar *data;
 	Lzw l;
 	Code *p, *q;
-	int (*predict)(Tif *, uchar *, ulong);
 
 	size = ((t->dx*t->dy*t->depth + 7) / 8) * sizeof *data;
 	if((data = malloc(size)) == nil) {
@@ -1259,13 +1242,9 @@ lzw(Tif *t)
 	free(t->data);
 	if(data != nil && t->predictor == 2) {
 		if(t->depth < 8)
-			predict = predict1;
+			predict1(t, data);
 		else
-			predict = predict8;
-		if((*predict)(t, data, size) < 0) {
-			free(data);
-			return nil;
-		}
+			predict8(t, data);
 	}
 	return data;
 }
