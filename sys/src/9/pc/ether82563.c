@@ -1604,6 +1604,12 @@ i82563detach(Ctlr *ctlr)
 	r = csr32r(ctlr, Ctrl);
 	if(ctlr->type == i82566 || ctlr->type == i82579)
 		r |= Phyrst;
+	/*
+	 * hack: 82579LM on lenovo X230 is stuck at 10mbps after
+	 * reseting the phy, but works fine if we dont reset.
+	 */
+	if(ctlr->pcidev->did == 0x1502)
+		r &= ~Phyrst;
 	csr32w(ctlr, Ctrl, Devrst | r);
 	delay(1);
 	for(timeo = 0;; timeo++){
