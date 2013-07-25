@@ -792,14 +792,9 @@ static int
 icansleep(void *v)
 {
 	Rbpool *p;
-	int r;
 
 	p = v;
-	ilock(p);
-	r = p->starve == 0;
-	iunlock(p);
-
-	return r;
+	return p->b != nil;
 }
 
 static Block*
@@ -1058,9 +1053,7 @@ i82563replenish(Ctlr *ctlr, int maysleep)
 			print("i82563%d: no rx buffers\n", ctlr->pool);
 			if(maysleep == 0)
 				return -1;
-			ilock(p);
 			p->starve = 1;
-			iunlock(p);
 			sleep(p, icansleep, p);
 			goto redux;
 		}
