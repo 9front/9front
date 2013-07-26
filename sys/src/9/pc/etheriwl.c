@@ -349,7 +349,6 @@ struct Ctlr {
 		Rendez;
 		u32int	m;
 		u32int	w;
-		u32int	r;
 	} wait;
 
 	struct {
@@ -1014,39 +1013,35 @@ readfirmware(char *name)
 	return fw;
 }
 
-typedef struct Irqwait Irqwait;
-struct Irqwait {
-	Ctlr	*ctlr;
-	u32int	mask;
-};
 
 static int
 gotirq(void *arg)
 {
-	Irqwait *w;
-	Ctlr *ctlr;
-
-	w = arg;
-	ctlr = w->ctlr;
-	ctlr->wait.r = ctlr->wait.m & w->mask;
-	if(ctlr->wait.r){
-		ctlr->wait.m &= ~ctlr->wait.r;
-		return 1;
-	}
-	ctlr->wait.w = w->mask;
-	return 0;
+	Ctlr *ctlr = arg;
+	return (ctlr->wait.m & ctlr->wait.w) != 0;
 }
 
 static u32int
 irqwait(Ctlr *ctlr, u32int mask, int timeout)
 {
-	Irqwait w;
+	u32int r;
 
-	w.ctlr = ctlr;
-	w.mask = mask;
-	tsleep(&ctlr->wait, gotirq, &w, timeout);
-	ctlr->wait.w = 0;
-	return ctlr->wait.r & mask;
+	ilock(ctlr);
+	r = ctlr->wait.m & mask;
+	if(r == 0){
+		ctlr->wait.w = mask;
+		iunlock(ctlr);
+		if(!waserror()){
+			tsleep(&ctlr->wait, gotirq, ctlr, timeout);
+			poperror();
+		}
+		ilock(ctlr);
+		ctlr->wait.w = 0;
+		r = ctlr->wait.m & mask;
+	}
+	ctlr->wait.m &= ~r;
+	iunlock(ctlr);
+	return r;
 }
 
 static int
@@ -1206,7 +1201,7 @@ reset(Ctlr *ctlr)
 	csr32w(ctlr, UcodeGp1Clr, UcodeGp1CmdBlocked);
 
 	ctlr->broken = 0;
-	ctlr->wait.r = 0;
+	ctlr->wait.m = 0;
 	ctlr->wait.w = 0;
 
 	ctlr->ie = Idefmask;
@@ -2197,11 +2192,8 @@ iwlinterrupt(Ureg*, void *arg)
 		dumpctlr(ctlr);
 	}
 	ctlr->wait.m |= isr;
-	if(ctlr->wait.m & ctlr->wait.w){
-		ctlr->wait.r = ctlr->wait.m & ctlr->wait.w;
-		ctlr->wait.m &= ~ctlr->wait.r;
+	if(ctlr->wait.m & ctlr->wait.w)
 		wakeup(&ctlr->wait);
-	}
 done:
 	csr32w(ctlr, Imr, ctlr->ie);
 	iunlock(ctlr);

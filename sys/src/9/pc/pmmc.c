@@ -362,7 +362,9 @@ intrwait(Ctlr *c, u32int mask, int tmo)
 {
 	u32int status;
 
+	ilock(c);
 	c->waitmsk = Seint | mask;
+	iunlock(c);
 	do {
 		if(!waserror()){
 			tsleep(&c->r, waitcond, c, 100);
@@ -373,11 +375,10 @@ intrwait(Ctlr *c, u32int mask, int tmo)
 			break;
 		tmo -= 100;
 	} while(tmo > 0);
-
 	ilock(c);
+	c->waitmsk = 0;
 	status = c->waitsts;
 	c->waitsts &= ~(status & mask);
-	c->waitmsk = 0;
 	if((status & mask) == 0 || (status & Seint) != 0){
 		/* abort command on timeout/error interrupt */
 		softreset(c, 0);
@@ -386,7 +387,7 @@ intrwait(Ctlr *c, u32int mask, int tmo)
 	}
 	iunlock(c);
 
-	return status;
+	return status & mask;
 }
 
 
