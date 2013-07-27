@@ -886,6 +886,7 @@ i82563replenish(Ctlr *ctlr)
 		}
 		i++;
 		bp = allocb(ctlr->rbsz + Rbalign);
+		bp->rp = bp->wp = (uchar*)ROUND((uintptr)bp->base, Rbalign);
 		ctlr->rb[rdt] = bp;
 		rd->addr[0] = PCIWADDR(bp->rp);
 		rd->addr[1] = 0;
