@@ -416,7 +416,6 @@ enum {
 	Ntd		= 128,		/* power of two */
 	Nrb		= 512+512,	/* private receive buffers per Ctlr */
 	Rbalign		= BY2PG,	/* rx buffer alignment */
-	Npool		= 8,
 };
 
 /*
@@ -492,7 +491,6 @@ struct Ctlr {
 	Ctlr	*next;
 	int	active;
 	int	type;
-	int	pool;
 	u16int	eeprom[0x40];
 
 	QLock	alock;			/* attach */
@@ -549,31 +547,11 @@ struct Ctlr {
 	u32int	pba;			/* packet buffer allocation */
 };
 
-typedef struct Rbpool Rbpool;
-struct Rbpool {
-	union {
-		struct {
-			Lock;
-			Block	*b;
-			uint	nstarve;
-			uint	nwakey;
-			uint	starve;
-			Rendez;
-		};
-		uchar pad[128];		/* cacheline */
-	};
-
-	Block	*x;
-	uint	nfast;
-	uint	nslow;
-};
-
 #define csr32r(c, r)	(*((c)->nic+((r)/4)))
 #define csr32w(c, r, v)	(*((c)->nic+((r)/4)) = (v))
 
 static	Ctlr	*i82563ctlrhead;
 static	Ctlr	*i82563ctlrtail;
-static	Rbpool	rbtab[Npool];
 
 static char *statistics[Nstatistics] = {
 	"CRC Error",
@@ -664,7 +642,6 @@ i82563ifstat(Ether *edev, void *a, long n, ulong offset)
 	int i, r;
 	uvlong tuvl, ruvl;
 	Ctlr *ctlr;
-	Rbpool *b;
 
 	p = s = smalloc(READSTR);
 	e = p + READSTR;
@@ -717,9 +694,6 @@ i82563ifstat(Ether *edev, void *a, long n, ulong offset)
 	p = seprint(p, e, "txdctl: %.8ux\n", csr32r(ctlr, Txdctl));
 	p = seprint(p, e, "pba: %.8ux\n", ctlr->pba);
 
-	b = rbtab + ctlr->pool;
-	p = seprint(p, e, "pool: fast %ud slow %ud nstarve %ud nwakey %ud starve %ud\n",
-		b->nfast, b->nslow, b->nstarve, b->nwakey, b->starve);
 	p = seprint(p, e, "speeds: 10:%ud 100:%ud 1000:%ud ?:%ud\n",
 		ctlr->speeds[0], ctlr->speeds[1], ctlr->speeds[2], ctlr->speeds[3]);
 	p = seprint(p, e, "type: %s\n", cname(ctlr));
@@ -786,138 +760,6 @@ i82563multicast(void *arg, uchar *addr, int on)
 //		ctlr->mta[x] &= ~(1<<bit);
 
 	csr32w(ctlr, Mta+x*4, ctlr->mta[x]);
-}
-
-static int
-icansleep(void *v)
-{
-	Rbpool *p;
-
-	p = v;
-	return p->b != nil;
-}
-
-static Block*
-i82563rballoc(Rbpool *p)
-{
-	Block *b;
-
-	for(;;){
-		if((b = p->x) != nil){
-			p->nfast++;
-			p->x = b->next;
-			b->next = nil;
-			_xinc(&b->ref);
-			return b;
-		}
-
-		ilock(p);
-		b = p->b;
-		p->b = nil;
-		if(b == nil){
-			p->nstarve++;
-			iunlock(p);
-			return nil;
-		}
-		p->nslow++;
-		iunlock(p);
-		p->x = b;
-	}
-}
-
-static void
-rbfree(Block *b, int t)
-{
-	Rbpool *p;
-
-	p = rbtab + t;
-	b->rp = b->wp = (uchar*)ROUND((uintptr)b->base, Rbalign);
-	b->flag &= ~(Bipck | Budpck | Btcpck | Bpktck);
-
-	ilock(p);
-	b->next = p->b;
-	p->b = b;
-	if(p->starve){
-		if(0)
-			iprint("wakey %d; %d %d\n", t, p->nstarve, p->nwakey);
-		p->nwakey++;
-		p->starve = 0;
-		wakeup(p);
-	}
-	iunlock(p);
-}
-
-static void
-rbfree0(Block *b)
-{
-	rbfree(b, 0);
-}
-
-static void
-rbfree1(Block *b)
-{
-	rbfree(b, 1);
-}
-
-static void
-rbfree2(Block *b)
-{
-	rbfree(b, 2);
-}
-
-static void
-rbfree3(Block *b)
-{
-	rbfree(b, 3);
-}
-
-static void
-rbfree4(Block *b)
-{
-	rbfree(b, 4);
-}
-
-static void
-rbfree5(Block *b)
-{
-	rbfree(b, 5);
-}
-
-static void
-rbfree6(Block *b)
-{
-	rbfree(b, 6);
-}
-
-static void
-rbfree7(Block *b)
-{
-	rbfree(b, 7);
-}
-
-static Freefn freetab[Npool] = {
-	rbfree0,
-	rbfree1,
-	rbfree2,
-	rbfree3,
-	rbfree4,
-	rbfree5,
-	rbfree6,
-	rbfree7,
-};
-
-static int
-newpool(void)
-{
-	static int seq;
-
-	if(seq == nelem(freetab))
-		return -1;
-	if(freetab[seq] == nil){
-		print("82563: bad freetab\n");
-		return -1;
-	}
-	return seq++;
 }
 
 static void
@@ -1028,38 +870,22 @@ i82563tproc(void *v)
 	}
 }
 
-static int
-i82563replenish(Ctlr *ctlr, int maysleep)
+static void
+i82563replenish(Ctlr *ctlr)
 {
 	uint rdt, i;
 	Block *bp;
-	Rbpool *p;
 	Rd *rd;
 
-	rdt = ctlr->rdt;
-	p = rbtab + ctlr->pool;
 	i = 0;
-	for(; NEXT(rdt, ctlr->nrd) != ctlr->rdh; rdt = NEXT(rdt, ctlr->nrd)){
+	for(rdt = ctlr->rdt; NEXT(rdt, ctlr->nrd) != ctlr->rdh; rdt = NEXT(rdt, ctlr->nrd)){
 		rd = &ctlr->rdba[rdt];
 		if(ctlr->rb[rdt] != nil){
 			iprint("82563: tx overrun\n");
 			break;
 		}
-	redux:
-		bp = i82563rballoc(p);
-		if(bp == nil){
-			if(rdt - ctlr->rdh >= 16)
-				break;
-			print("i82563%d: no rx buffers\n", ctlr->pool);
-			if(maysleep == 0)
-				return -1;
-			ilock(p);
-			p->starve = 1;
-			iunlock(p);
-			sleep(p, icansleep, p);
-			goto redux;
-		}
 		i++;
+		bp = allocb(ctlr->rbsz + Rbalign);
 		ctlr->rb[rdt] = bp;
 		rd->addr[0] = PCIWADDR(bp->rp);
 		rd->addr[1] = 0;
@@ -1071,7 +897,6 @@ i82563replenish(Ctlr *ctlr, int maysleep)
 		ctlr->rdt = rdt;
 		csr32w(ctlr, Rdt, rdt);
 	}
-	return 0;
 }
 
 static void
@@ -1160,14 +985,14 @@ i82563rproc(void *arg)
 	for(;;){
 		i82563im(ctlr, im);
 		ctlr->rsleep++;
-		i82563replenish(ctlr, 1);
+		i82563replenish(ctlr);
 		sleep(&ctlr->rrendez, i82563rim, ctlr);
 
 		rdh = ctlr->rdh;
 		for(;;){
-			rd = &ctlr->rdba[rdh];
 			rim = ctlr->rim;
 			ctlr->rim = 0;
+			rd = &ctlr->rdba[rdh];
 			if(!(rd->status & Rdd))
 				break;
 
@@ -1207,12 +1032,10 @@ i82563rproc(void *arg)
 			} else
 				freeb(bp);
 			ctlr->rb[rdh] = nil;
-			rd->status = 0;
 			ctlr->rdfree--;
 			ctlr->rdh = rdh = NEXT(rdh, ctlr->nrd);
 			if(ctlr->nrd-ctlr->rdfree >= 32 || (rim & Rxdmt0))
-				if(i82563replenish(ctlr, 0) == -1)
-					break;
+				i82563replenish(ctlr);
 		}
 	}
 }
@@ -1460,8 +1283,6 @@ static void
 i82563attach(Ether *edev)
 {
 	char name[KNAMELEN];
-	int i;
-	Block *bp;
 	Ctlr *ctlr;
 
 	ctlr = edev->ctlr;
@@ -1490,10 +1311,6 @@ i82563attach(Ether *edev)
 	ctlr->tdba = (Td*)(ctlr->rdba + ctlr->nrd);
 
 	if(waserror()){
-		while(bp = i82563rballoc(rbtab + ctlr->pool)){
-			bp->free = nil;
-			freeb(bp);
-		}
 		free(ctlr->tb);
 		ctlr->tb = nil;
 		free(ctlr->rb);
@@ -1502,12 +1319,6 @@ i82563attach(Ether *edev)
 		ctlr->alloc = nil;
 		qunlock(&ctlr->alock);
 		nexterror();
-	}
-
-	for(i = 0; i < Nrb; i++){
-		bp = allocb(ctlr->rbsz + Rbalign);
-		bp->free = freetab[ctlr->pool];
-		freeb(bp);
 	}
 
 	snprint(name, sizeof name, "#l%dl", edev->ctlrno);
@@ -2037,10 +1848,6 @@ setup(Ctlr *ctlr)
 {
 	Pcidev *p;
 
-	if((ctlr->pool = newpool()) == -1){
-		print("%s: no pool\n", cname(ctlr));
-		return -1;
-	}
 	p = ctlr->pcidev;
 	ctlr->nic = vmap(ctlr->port, p->mem[0].size);
 	if(ctlr->nic == nil){
