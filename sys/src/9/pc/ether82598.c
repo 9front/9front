@@ -268,7 +268,6 @@ typedef struct {
 	uchar	flag;
 	int	nrd;
 	int	ntd;
-	int	nrb;
 	int	rbsz;
 	Lock	slock;
 	Lock	alock;
@@ -309,8 +308,6 @@ enum {
 
 static	Ctlr	*ctlrtab[4];
 static	int	nctlr;
-static	Lock	rblock;
-static	Block	*rbpool;
 
 static void
 readstats(Ctlr *c)
@@ -398,32 +395,6 @@ ctl(Ether *, void *, long)
 {
 	error(Ebadarg);
 	return -1;
-}
-
-static Block*
-rballoc(void)
-{
-	Block *bp;
-
-	ilock(&rblock);
-	if((bp = rbpool) != nil){
-		rbpool = bp->next;
-		bp->next = 0;
-		_xinc(&bp->ref);	/* prevent bp from being freed */
-	}
-	iunlock(&rblock);
-	return bp;
-}
-
-void
-rbfree(Block *b)
-{
-	b->rp = b->wp = (uchar*)PGROUND((uintptr)b->base);
- 	b->flag &= ~(Bipck | Budpck | Btcpck | Bpktck);
-	ilock(&rblock);
-	b->next = rbpool;
-	rbpool = b;
-	iunlock(&rblock);
 }
 
 #define Next(x, m)	(((x)+1) & (m))
@@ -545,12 +516,11 @@ replenish(Ctlr *c, uint rdh)
 	m = c->nrd - 1;
 	i = 0;
 	for(rdt = c->rdt; Next(rdt, m) != rdh; rdt = Next(rdt, m)){
-		r = c->rdba + rdt;
-		if(!(b = rballoc())){
-			print("82598: no buffers\n");
-			break;
-		}
+		b = allocb(c->rbsz+BY2PG);
+		b->rp = (uchar*)PGROUND((uintptr)b->base);
+		b->wp = b->rp;
 		c->rb[rdt] = b;
+		r = c->rdba + rdt;
 		r->addr[0] = PCIWADDR(b->rp);
 		r->status = 0;
 		c->rdfree++;
@@ -796,7 +766,6 @@ txinit(Ctlr *c)
 static void
 attach(Ether *e)
 {
-	Block *b;
 	Ctlr *c;
 	int t;
 	char buf[KNAMELEN];
@@ -823,23 +792,6 @@ attach(Ether *e)
 	c->tdba = (Td*)ROUNDUP((uintptr)(c->rdba + c->nrd), 256);
 	c->rb = (Block**)(c->tdba + c->ntd);
 	c->tb = (Block**)(c->rb + c->nrd);
-
-	if(waserror()){
-		while(b = rballoc()){
-			b->free = 0;
-			freeb(b);
-		}
-		free(c->alloc);
-		c->alloc = nil;
-		nexterror();
-	}
-	for(c->nrb = 0; c->nrb < 2*Nrb; c->nrb++){
-		if(!(b = allocb(c->rbsz+BY2PG)))
-			error(Enomem);
-		b->free = rbfree;
-		freeb(b);
-	}
-	poperror();
 
 	rxinit(c);
 	txinit(c);

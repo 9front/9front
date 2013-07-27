@@ -466,7 +466,6 @@ typedef struct Ctlr {
 	void*	alloc;			/* receive/transmit descriptors */
 	int	nrd;
 	int	ntd;
-	int	nrb;			/* how many this Ctlr has in the pool */
 
 	int*	nic;
 	Lock	imlock;
@@ -520,9 +519,6 @@ typedef struct Ctlr {
 
 static Ctlr* igbectlrhead;
 static Ctlr* igbectlrtail;
-
-static Lock igberblock;		/* free receive Blocks */
-static Block* igberbpool;	/* receive Blocks for all igbe controllers */
 
 static char* statistics[Nstatistics] = {
 	"CRC Error",
@@ -759,35 +755,6 @@ igbemulticast(void* arg, uchar* addr, int add)
 //		ctlr->mta[x] &= ~(1<<bit);
 
 	csr32w(ctlr, Mta+x*4, ctlr->mta[x]);
-}
-
-static Block*
-igberballoc(void)
-{
-	Block *bp;
-
-	ilock(&igberblock);
-	if((bp = igberbpool) != nil){
-		igberbpool = bp->next;
-		bp->next = nil;
-		_xinc(&bp->ref);	/* prevent bp from being freed */
-	}
-	iunlock(&igberblock);
-
-	return bp;
-}
-
-static void
-igberbfree(Block* bp)
-{
-	bp->rp = bp->lim - Rbsz;
-	bp->wp = bp->rp;
- 	bp->flag &= ~(Bipck | Budpck | Btcpck | Bpktck);
-
-	ilock(&igberblock);
-	bp->next = igberbpool;
-	igberbpool = bp;
-	iunlock(&igberblock);
 }
 
 static void
@@ -1036,12 +1003,9 @@ igbereplenish(Ctlr* ctlr)
 	while(NEXT(rdt, ctlr->nrd) != ctlr->rdh){
 		rd = &ctlr->rdba[rdt];
 		if(ctlr->rb[rdt] == nil){
-			bp = igberballoc();
-			if(bp == nil){
-				iprint("#l%d: igbereplenish: no available buffers\n",
-					ctlr->edev->ctlrno);
-				break;
-			}
+			bp = allocb(Rbsz);
+			bp->rp = bp->lim - Rbsz;
+			bp->wp = bp->rp;
 			ctlr->rb[rdt] = bp;
 			rd->addr[0] = PCIWADDR(bp->rp);
 			rd->addr[1] = 0;
@@ -1195,7 +1159,6 @@ igberproc(void* arg)
 static void
 igbeattach(Ether* edev)
 {
-	Block *bp;
 	Ctlr *ctlr;
 	char name[KNAMELEN];
 
@@ -1227,12 +1190,6 @@ igbeattach(Ether* edev)
 	}
 
 	if(waserror()){
-		while(ctlr->nrb > 0){
-			bp = igberballoc();
-			bp->free = nil;
-			freeb(bp);
-			ctlr->nrb--;
-		}
 		free(ctlr->tb);
 		ctlr->tb = nil;
 		free(ctlr->rb);
@@ -1241,13 +1198,6 @@ igbeattach(Ether* edev)
 		ctlr->alloc = nil;
 		qunlock(&ctlr->alock);
 		nexterror();
-	}
-
-	for(ctlr->nrb = 0; ctlr->nrb < Nrb; ctlr->nrb++){
-		if((bp = allocb(Rbsz)) == nil)
-			break;
-		bp->free = igberbfree;
-		freeb(bp);
 	}
 
 	snprint(name, KNAMELEN, "#l%dlproc", edev->ctlrno);
