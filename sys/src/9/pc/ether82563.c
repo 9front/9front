@@ -1281,6 +1281,31 @@ serdeslproc(void *v)
 }
 
 static void
+maclproc(void *v)
+{
+	uint i;
+	Ctlr *c;
+	Ether *e;
+
+	e = v;
+	c = e->ctlr;
+
+	for(;;){
+		i = csr32r(c, Status);
+		e->link = (i & Lu) != 0;
+		i = (i >> 6) & 3;	/* link speed 6:7 */
+		if(e->link == 0)
+			i = 3;
+		c->speeds[i]++;
+		e->mbps = speedtab[i];
+		c->lim = 0;
+		i82563im(c, Lsc);
+		c->lsleep++;
+		sleep(&c->lrendez, i82563lim, c);
+	}
+}
+
+static void
 i82563attach(Ether *edev)
 {
 	char name[KNAMELEN];
@@ -1329,6 +1354,8 @@ i82563attach(Ether *edev)
 		kproc(name, pcslproc, edev);		/* phy based serdes */
 	else if(cttab[ctlr->type].flag & F79phy)
 		kproc(name, phyl79proc, edev);
+	else if(ctlr->type == i82567)
+		kproc(name, maclproc, edev);		/* use mac link status */
 	else
 		kproc(name, phylproc, edev);
 
