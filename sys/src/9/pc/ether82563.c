@@ -169,6 +169,9 @@ enum {					/* Mdic */
 
 enum {					/* phy interface */
 	Phyctl		= 0,		/* phy ctl register */
+	Physr		= 1,		/* phy status register */
+	Phyid1		= 2,		/* phy id1 */
+	Phyid2		= 3,		/* phy id2 */
 	Phyisr		= 19,		/* 82563 phy interrupt status register */
 	Phylhr		= 19,		/* 8257[12] link health register */
 	Physsr		= 17,		/* phy secondary status register */
@@ -1116,16 +1119,37 @@ phywrite(Ctlr *c, uint phyno, uint reg, ushort v)
 }
 
 static void
-phyerrata(Ether *e, Ctlr *c)
+phyerrata(Ether *e, Ctlr *c, uint phyno)
 {
 	if(e->mbps == 0){
 		if(c->phyerrata == 0){
 			c->phyerrata++;
-			phywrite(c, 1, Phyprst, Prst);	/* try a port reset */
+			phywrite(c, phyno, Phyprst, Prst);	/* try a port reset */
 			print("%s: phy port reset\n", cname(c));
 		}
 	}else
 		c->phyerrata = 0;
+}
+
+static uint
+phyprobe(Ctlr *c, uint mask)
+{
+	uint phy, phyno;
+
+	for(phyno=0; mask != 0; phyno++, mask>>=1){
+		if((mask & 1) == 0)
+			continue;
+		if(phyread(c, phyno, Physr) == ~0)
+			continue;
+		phy = (phyread(c, phyno, Phyid1) & 0x3FFF)<<6;
+		phy |= phyread(c, phyno, Phyid2) >> 10;
+		if(phy == 0xFFFFF || phy == 0)
+			continue;
+		print("%s: phy%d oui %#ux\n", cname(c), phyno, phy);
+		return phyno;
+	}
+	print("%s: no phy\n", cname(c));
+	return ~0;
 }
 
 static void
@@ -1138,9 +1162,9 @@ phyl79proc(void *v)
 	e = v;
 	c = e->ctlr;
 
-	phyno = 1;
-	if(c->type == i82579)
-		phyno = 2;
+	phyno = phyprobe(c, 3<<1);
+	if(phyno == ~0)
+		return;
 
 	for(;;){
 		phy = phyread(c, phyno, Phystat);
@@ -1171,17 +1195,21 @@ next:
 static void
 phylproc(void *v)
 {
-	uint a, i, phy;
+	uint a, i, phy, phyno;
 	Ctlr *c;
 	Ether *e;
 
 	e = v;
 	c = e->ctlr;
 
-	if(c->type == i82573 && (phy = phyread(c, 1, Phyier)) != ~0)
-		phywrite(c, 1, Phyier, phy | Lscie | Ancie | Spdie | Panie);
+	phyno = phyprobe(c, 3<<1);
+	if(phyno == ~0)
+		return;
+
+	if(c->type == i82573 && (phy = phyread(c, phyno, Phyier)) != ~0)
+		phywrite(c, phyno, Phyier, phy | Lscie | Ancie | Spdie | Panie);
 	for(;;){
-		phy = phyread(c, 1, Physsr);
+		phy = phyread(c, phyno, Physsr);
 		if(phy == ~0){
 			phy = 0;
 			i = 3;
@@ -1196,18 +1224,18 @@ phylproc(void *v)
 		case i82578:
 		case i82578m:
 		case i82583:
-			a = phyread(c, 1, Phyisr) & Ane;
+			a = phyread(c, phyno, Phyisr) & Ane;
 			break;
 		case i82571:
 		case i82572:
 		case i82575:
 		case i82576:
-			a = phyread(c, 1, Phylhr) & Anf;
+			a = phyread(c, phyno, Phylhr) & Anf;
 			i = (i-1) & 3;
 			break;
 		}
 		if(a)
-			phywrite(c, 1, Phyctl, phyread(c, 1, Phyctl) | Ran | Ean);
+			phywrite(c, phyno, Phyctl, phyread(c, phyno, Phyctl) | Ran | Ean);
 next:
 		e->link = (phy & Rtlink) != 0;
 		if(e->link == 0)
@@ -1215,7 +1243,7 @@ next:
 		c->speeds[i]++;
 		e->mbps = speedtab[i];
 		if(c->type == i82563)
-			phyerrata(e, c);
+			phyerrata(e, c, phyno);
 		c->lim = 0;
 		i82563im(c, Lsc);
 		c->lsleep++;
@@ -1281,31 +1309,6 @@ serdeslproc(void *v)
 }
 
 static void
-maclproc(void *v)
-{
-	uint i;
-	Ctlr *c;
-	Ether *e;
-
-	e = v;
-	c = e->ctlr;
-
-	for(;;){
-		i = csr32r(c, Status);
-		e->link = (i & Lu) != 0;
-		i = (i >> 6) & 3;	/* link speed 6:7 */
-		if(e->link == 0)
-			i = 3;
-		c->speeds[i]++;
-		e->mbps = speedtab[i];
-		c->lim = 0;
-		i82563im(c, Lsc);
-		c->lsleep++;
-		sleep(&c->lrendez, i82563lim, c);
-	}
-}
-
-static void
 i82563attach(Ether *edev)
 {
 	char name[KNAMELEN];
@@ -1354,8 +1357,6 @@ i82563attach(Ether *edev)
 		kproc(name, pcslproc, edev);		/* phy based serdes */
 	else if(cttab[ctlr->type].flag & F79phy)
 		kproc(name, phyl79proc, edev);
-	else if(ctlr->type == i82567)
-		kproc(name, maclproc, edev);		/* use mac link status */
 	else
 		kproc(name, phylproc, edev);
 
