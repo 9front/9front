@@ -120,7 +120,8 @@ main(int argc, char **argv)
 	ARGBEGIN{
 	case 'a':
 		tryauth = 1;
-		trysecure = 1;
+		if(trysecure == 0)
+			trysecure = 1;
 		break;
 	case 'A':	/* autistic: won't talk to us until we talk (Verizon) */
 		autistic = 1;
@@ -150,7 +151,8 @@ main(int argc, char **argv)
 		ping = 1;
 		break;
 	case 's':
-		trysecure = 1;
+		if(trysecure == 0)
+			trysecure = 1;
 		break;
 	case 't':
 		trysecure = 2;
@@ -221,9 +223,7 @@ main(int argc, char **argv)
 	/* 10 minutes to get through the initial handshake */
 	atnotify(timeout, 1);
 	alarm(10*alarmscale);
-	if(trysecure > 1 && (rv = wraptls()) != nil)
-		goto error;
-	if((rv = hello(hellodomain, trysecure > 1)) != 0)
+	if((rv = hello(hellodomain, 0)) != 0)
 		goto error;
 	alarm(10*alarmscale);
 	if((rv = mailfrom(s_to_c(from))) != 0)
@@ -474,6 +474,12 @@ hello(char *me, int encrypted)
 	char *ret, *s, *t;
 
 	if (!encrypted) {
+		if(trysecure > 1){
+			if((ret = wraptls()) != nil)
+				return ret;
+			encrypted = 1;
+		}
+
 		/*
 		 * Verizon fails to print the smtp greeting banner when it
 		 * answers a call.  Send a no-op in the hope of making it
