@@ -1,7 +1,6 @@
 #!/bin/rc
 
 # desc: choose and mount file system partition
-# prereq: systype
 
 service=cwfs
 
@@ -65,12 +64,7 @@ case go
 			{
 				echo service $service
 				echo config $fs
-
-				if(! ~ $syst cpu){
-					# new config option
-					echo noauth
-				}
-
+				echo noauth
 				echo filsys main c'('$fs')('$fsworm')'
 				echo filsys dump o
 				if(! ~ $fsother ''){

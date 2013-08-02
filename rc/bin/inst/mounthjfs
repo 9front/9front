@@ -1,7 +1,6 @@
 #!/bin/rc
 
 # desc: choose and mount file system partition
-# prereq: systype
 
 service=hjfs
 
