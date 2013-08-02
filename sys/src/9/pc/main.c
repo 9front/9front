@@ -412,6 +412,7 @@ confinit(void)
 		 * The patch of nimage is a band-aid, scanning the whole
 		 * page list in imagereclaim just takes too long.
 		 */
+		if(getconf("*imagemaxmb") == 0)
 		if(kpages > (64*MB + conf.npage*sizeof(Page))/BY2PG){
 			kpages = (64*MB + conf.npage*sizeof(Page))/BY2PG;
 			conf.nimage = 2000;
