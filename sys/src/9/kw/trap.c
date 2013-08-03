@@ -214,6 +214,7 @@ intrs(Ureg *ur, int sort)
 		iprint("spurious irq%s interrupt: %8.8lux\n", irq.name, ibits);
 		s = splfhi();
 		*irq.irq &= ibits;
+		*irq.irqmask &= ~ibits;
 		splx(s);
 	}
 }
@@ -416,6 +417,9 @@ trap(Ureg *ureg)
 	case PsrMabt:			/* prefetch fault */
 		ldrexvalid = 0;
 		faultarm(ureg, ureg->pc, user, 1);
+		if(up->nnote == 0 &&
+		   (*(u32int*)ureg->pc & ~(0xF<<28)) == 0x01200070)
+			postnote(up, 1, "sys: breakpoint", NDebug);
 		break;
 	case PsrMabt+1:			/* data fault */
 		ldrexvalid = 0;
@@ -479,16 +483,21 @@ trap(Ureg *ureg)
 		break;
 	case PsrMund:	/* undefined instruction */
 		if(user){
-			/* look for floating point instructions to interpret */
-			x = spllo();
-			rv = fpiarm(ureg);
-			splx(x);
-			if(rv == 0){
-				ldrexvalid = 0;
-				snprint(buf, sizeof buf,
-					"undefined instruction: pc %#lux",
-					ureg->pc);
-				postnote(up, 1, buf, NDebug);
+			if(seg(up, ureg->pc, 0) != nil &&
+			   (*(u32int*)ureg->pc & ~(0xF<<28)) == 0x01200070)
+				postnote(up, 1, "sys: breakpoint", NDebug);
+			else{
+				/* look for floating point instructions to interpret */
+				x = spllo();
+				rv = fpiarm(ureg);
+				splx(x);
+				if(rv == 0){
+					ldrexvalid = 0;
+					snprint(buf, sizeof buf,
+						"undefined instruction: pc %#lux",
+						ureg->pc);
+					postnote(up, 1, buf, NDebug);
+				}
 			}
 		}else{
 			iprint("undefined instruction: pc %#lux inst %#ux\n",
