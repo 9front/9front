@@ -17,7 +17,6 @@ struct Page {
 
 	Image	*image;
 	int	fd;
-	int	gen;
 
 	Page	*up;
 	Page	*next;
@@ -31,11 +30,17 @@ int imode;
 int newwin;
 int rotate;
 int viewgen;
-int pagegen;
 Point resize, pos;
 Page *root, *current;
 QLock pagelock;
 int nullfd;
+
+enum {
+	MiB	= 1024*1024,
+};
+
+ulong imemlimit = 8*MiB;
+ulong imemsize;
 
 Image *frame, *paper, *ground;
 
@@ -43,7 +48,6 @@ char pagespool[] = "/tmp/pagespool.";
 
 enum {
 	NPROC = 4,
-	NAHEAD = 2,
 	NBUF = 8*1024,
 	NPATH = 1024,
 };
@@ -128,8 +132,7 @@ addpage(Page *up, char *label, int (*popen)(Page *), void *pdata, int fd)
 
 	p = mallocz(sizeof(*p), 1);
 	p->label = strdup(label);
-	p->gen = pagegen;
-	p->image = nil;
+ 	p->image = nil;
 	p->data = pdata;
 	p->open = popen;
 	p->fd = fd;
@@ -818,6 +821,14 @@ openpage(Page *p)
 	return fd;
 }
 
+static ulong
+imagesize(Image *i)
+{
+	if(i == nil)
+		return 0;
+	return Dy(i->r)*bytesperline(i->r, i->depth);
+}
+
 void
 loadpage(Page *p)
 {
@@ -826,15 +837,18 @@ loadpage(Page *p)
 	if(p->open && p->image == nil){
 		fd = openpage(p);
 		if(fd >= 0){
-			pagegen++;
 			if((p->image = readimage(display, fd, 1)) == nil)
 				fprint(2, "readimage: %r\n");
 			close(fd);
 		}
 		if(p->image == nil)
 			p->open = nil;
+		else {
+			lockdisplay(display);
+			imemsize += imagesize(p->image);
+			unlockdisplay(display);
+		}
 	}
-	p->gen = pagegen;
 }
 
 void
@@ -843,59 +857,52 @@ unloadpage(Page *p)
 	if(p->open == nil || p->image == nil)
 		return;
 	lockdisplay(display);
+	imemsize -= imagesize(p->image);
 	freeimage(p->image);
 	unlockdisplay(display);
 	p->image = nil;
 }
 
 void
-unloadpages(int age)
+unloadpages(ulong limit)
 {
 	Page *p;
 
-	for(p = root->down; p; p = nextpage(p)){
-		if(age == 0)	/* synchronous flush */
-			qlock(p);
-		else if(!canqlock(p))
-			continue;
-		if((pagegen - p->gen) >= age)
-			unloadpage(p);
+	for(p = root->down; p && imemsize >= limit; p = nextpage(p)){
+		qlock(p);
+		unloadpage(p);
 		qunlock(p);
 	}
 }
 
 void
-loadpages(Page *p, int ahead, int oviewgen)
+loadpages(Page *p, int oviewgen)
 {
-	int i;
-
-	ahead++;	/* load at least one */
-	unloadpages(ahead*2);
-	for(i = 0; i < ahead && p; p = nextpage(p), i++){
-		if(viewgen != oviewgen)
-			break;
-		if(canqlock(p)){
-			loadpage(p);
-			if(viewgen != oviewgen){
-				unloadpage(p);
-				qunlock(p);
-				break;
-			}
-			if(p == current){
-				Point size;
-
-				esetcursor(nil);
-				size = pagesize(p);
-				if(size.x && size.y && newwin){
-					newwin = 0;
-					resizewin(size);
-				}
-				lockdisplay(display);
-				drawpage(p);
-				unlockdisplay(display);
-			}
+	while(p && viewgen == oviewgen){
+		qlock(p);
+		loadpage(p);
+		if(viewgen != oviewgen){
+			unloadpage(p);
 			qunlock(p);
+			break;
 		}
+		if(p == current){
+			Point size;
+
+			esetcursor(nil);
+			size = pagesize(p);
+			if(size.x && size.y && newwin){
+				newwin = 0;
+				resizewin(size);
+			}
+			lockdisplay(display);
+			drawpage(p);
+			unlockdisplay(display);
+		}
+		qunlock(p);
+		if(p != current || imemsize >= imemlimit)
+			break;
+		p = nextpage(p);
 	}
 }
 
@@ -1149,16 +1156,16 @@ showpage1(Page *p)
 	esetcursor(&reading);
 	current = p;
 	oviewgen = viewgen;
-	if(++nproc > NPROC)
-		if(waitpid() > 0)
-			nproc--;
 	switch(rfork(RFPROC|RFMEM)){
 	case -1:
 		sysfatal("rfork: %r");
 	case 0:
-		loadpages(p, NAHEAD, oviewgen);
+		loadpages(p, oviewgen);
 		exits(nil);
 	}
+	if(++nproc >= NPROC)
+		if(waitpid() > 0)
+			nproc--;
 }
 
 /* recursive display lock, called from main proc only */
@@ -1178,7 +1185,11 @@ drawlock(int dolock){
 void
 showpage(Page *p)
 {
+	if(p == nil)
+		return;
 	drawlock(0);
+	if(p->image == nil)
+		unloadpages(imemlimit/2);
 	showpage1(p);
 	drawlock(1);
 }
@@ -1312,7 +1323,7 @@ void drawerr(Display *, char *msg)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [ -iRw ] [ -p ppi ] [ file ... ]\n", argv0);
+	fprint(2, "usage: %s [ -iRw ] [ -m mb ] [ -p ppi ] [ file ... ]\n", argv0);
 	exits("usage");
 }
 
@@ -1445,6 +1456,9 @@ main(int argc, char *argv[])
 		break;
 	case 'i':
 		imode = 1;
+		break;
+	case 'm':
+		imemlimit = atol(EARGF(usage()))*MiB;
 		break;
 	case 'p':
 		ppi = atoi(EARGF(usage()));
