@@ -22,6 +22,9 @@ struct Page {
 	Page	*next;
 	Page	*down;
 	Page	*tail;
+
+	Page	*lnext;
+	Page	*lprev;
 };
 
 int zoom = 1;
@@ -32,6 +35,7 @@ int rotate;
 int viewgen;
 Point resize, pos;
 Page *root, *current;
+Page lru;
 QLock pagelock;
 int nullfd;
 
@@ -136,10 +140,6 @@ addpage(Page *up, char *label, int (*popen)(Page *), void *pdata, int fd)
 	p->data = pdata;
 	p->open = popen;
 	p->fd = fd;
-
-	p->down = nil;
-	p->tail = nil;
-	p->next = nil;
 
 	qlock(&pagelock);
 	if(p->up = up){
@@ -829,10 +829,29 @@ imagesize(Image *i)
 	return Dy(i->r)*bytesperline(i->r, i->depth);
 }
 
+static void
+lunlink(Page *p)
+{
+	if(p->lnext == nil || p->lnext == p)
+		return;
+	p->lnext->lprev = p->lprev;
+	p->lprev->lnext = p->lnext;
+	p->lnext = nil;
+	p->lprev = nil;
+}
+
 void
 loadpage(Page *p)
 {
 	int fd;
+
+	qlock(&lru);
+	lunlink(p);
+	p->lnext = lru.lnext;
+	p->lprev = &lru;
+	p->lnext->lprev = p;
+	p->lprev->lnext = p;
+	qunlock(&lru);
 
 	if(p->open && p->image == nil){
 		fd = openpage(p);
@@ -854,6 +873,10 @@ loadpage(Page *p)
 void
 unloadpage(Page *p)
 {
+	qlock(&lru);
+	lunlink(p);
+	qunlock(&lru);
+
 	if(p->open == nil || p->image == nil)
 		return;
 	lockdisplay(display);
@@ -868,7 +891,7 @@ unloadpages(ulong limit)
 {
 	Page *p;
 
-	for(p = root->down; p && imemsize >= limit; p = nextpage(p)){
+	while(imemsize >= limit && (p = lru.lprev) != &lru){
 		qlock(p);
 		unloadpage(p);
 		qunlock(p);
@@ -1500,6 +1523,8 @@ main(int argc, char *argv[])
 	memset(&m, 0, sizeof(m));
 	if((nullfd = open("/dev/null", ORDWR)) < 0)
 		sysfatal("open: %r");
+	lru.lprev = &lru;
+	lru.lnext = &lru;
 	current = root = addpage(nil, "", nil, nil, -1);
 	if(*argv == nil && !imode)
 		addpage(root, "stdin", popenfile, strdup("/fd/0"), -1);
