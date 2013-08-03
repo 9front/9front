@@ -1091,8 +1091,20 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 	unique(mp->ns);
 	unique(mp->ar);
 
-	if(mp->an)
+	if(mp->an){
+		/*
+		 * only use cname answer when returned. some dns servers
+		 * attach spam address records which poisons the cache.
+		 */
+		if((tp = rrremtype(&mp->an, Tcname)) != 0){
+			if(mp->an){
+				dnslog("removing spam %Q for %Q from %I", mp->an, tp, srcip);
+				rrfreelist(mp->an);
+			}
+			mp->an = tp;
+		}
 		rrattach(mp->an, (mp->flags & Fauth) != 0);
+	}
 	if(mp->ar)
 		rrattach(mp->ar, Notauthoritative);
 	if(mp->ns && !cfg.justforw){
