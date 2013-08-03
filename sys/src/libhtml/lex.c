@@ -320,6 +320,7 @@ StringInt	chartab[]= {
 	{L"amp", 38},
 	{L"and", 8743},
 	{L"ang", 8736},
+	{L"apos", 39},
 	{L"aring", 229},
 	{L"asymp", 8776},
 	{L"atilde", 227},
