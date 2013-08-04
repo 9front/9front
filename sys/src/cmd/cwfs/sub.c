@@ -921,42 +921,27 @@ void*
 fs_recv(Queue *q, int)
 {
 	void *a;
-	int i, c;
 
-	if(q == nil)
-		panic("recv null q");
-	qlock(q);
-	while((c = q->count) <= 0)
-		rsleep(&q->empty);
-	i = q->loc;
-	a = q->args[i];
-	i++;
-	if(i >= q->size)
-		i = 0;
-	q->loc = i;
-	q->count = c-1;
-	rwakeup(&q->full);			/* no longer full */
-	qunlock(q);
+	semacquire(&q->count, 1);
+	lock(&q->rl);
+	a = *q->rp;
+	if(++q->rp >= &q->args[q->size])
+		q->rp = q->args;
+	unlock(&q->rl);
+	semrelease(&q->avail, 1);
 	return a;
 }
 
 void
 fs_send(Queue *q, void *a)
 {
-	int i, c;
-
-	if(q == nil)
-		panic("send null q");
-	qlock(q);
-	while((c = q->count) >= q->size)
-		rsleep(&q->full);
-	i = q->loc + c;
-	if(i >= q->size)
-		i -= q->size;
-	q->args[i] = a;
-	q->count = c+1;
-	rwakeup(&q->empty);			/* no longer empty */
-	qunlock(q);
+	semacquire(&q->avail, 1);
+	lock(&q->wl);
+	*q->wp = a;
+	if(++q->wp >= &q->args[q->size])
+		q->wp = q->args;
+	unlock(&q->wl);
+	semrelease(&q->count, 1);
 }
 
 Queue*
@@ -966,7 +951,10 @@ newqueue(int size, char *name)
 
 	q = malloc(sizeof(Queue) + (size-1)*sizeof(void*));
 	q->size = size;
-	q->full.l = q->empty.l = &q->QLock;
+	q->avail = size;
+	q->count = 0;
+	q->rp = q->args;
+	q->wp = q->args;
 	q->name = name;
 	return q;
 }

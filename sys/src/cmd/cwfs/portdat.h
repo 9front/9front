@@ -160,15 +160,17 @@ enum {
  */
 struct	Queue
 {
-	QLock;			/* to manipulate values */
-	Rendez	empty;
-	Rendez	full;
-
 	char*	name;		/* for debugging */
 
 	int	size;		/* size of queue */
-	int	loc;		/* circular pointer */
-	int	count;		/* how many in queue */
+
+	long	count;		/* how many in queue (semaphore) */
+	long	avail;		/* how many available to send (semaphore) */
+
+	Lock	rl, wl;		/* circular pointers */
+	void	**rp;
+	void	**wp;
+
 	void*	args[1];	/* list of saved pointers, [->size] */
 };
 
