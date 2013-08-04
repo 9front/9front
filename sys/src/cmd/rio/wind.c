@@ -691,6 +691,10 @@ wkeyctl(Window *w, Rune r)
 			wsetselect(w, q0, q0);
 			wshow(w, w->q0);
 			return;
+		case Kstx:	/* ^B: output point */
+			wsetselect(w, w->qh, w->qh);
+			wshow(w, w->q0);
+			return;
 		}
 	if(w->rawing && (w->q0==w->nr || w->mouseopen)){
 		waddraw(w, &r, 1);
