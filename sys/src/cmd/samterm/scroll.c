@@ -120,10 +120,10 @@ scroll(Flayer *l, int but)
 	draw(scrback, Rect(0,0,Dx(l->scroll), Dy(l->scroll)), l->f.b, nil, l->scroll.min);
 	do{
 		oin = in;
-		in = abs(x-mousep->xy.x)<=FLSCROLLWID/2;
+		in = (but > 3) || (but == 2) || abs(x-mousep->xy.x)<=FLSCROLLWID/2;
 		if(oin && !in)
 			scrunmark(l, r);
-		if(but > 3 || in){
+		if(in){
 			scrmark(l, r);
 			oy = y;
 			my = mousep->xy.y;
@@ -131,8 +131,6 @@ scroll(Flayer *l, int but)
 				my = s.min.y;
 			if(my >= s.max.y)
 				my = s.max.y;
-			if(in && !eqpt(mousep->xy, Pt(x, my)))
-				moveto(mousectl, Pt(x, my));
 			if(but == 1 || but == 4){
 				p0 = l->origin-frcharofpt(&l->f, Pt(s.max.x, my));
 				rt = scrpos(l->scroll, p0, p0+l->f.nchars, tot);
@@ -153,7 +151,7 @@ scroll(Flayer *l, int but)
 			}
 		}
 	}while(but <= 3 && button(but));
-	if(but > 3 || in){
+	if(in){
 		h = s.max.y-s.min.y;
 		scrunmark(l, r);
 		p0 = 0;
