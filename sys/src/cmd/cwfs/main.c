@@ -314,6 +314,8 @@ main(int argc, char **argv)
 		printsizes();
 	}
 
+	qlock(&reflock);
+	qunlock(&reflock);
 	serveq = newqueue(1000, "9P service");	/* tunable */
 	raheadq = newqueue(1000, "readahead");	/* tunable */
 
@@ -449,6 +451,7 @@ serve(void *)
 	Msgbuf *mb;
 
 	for (;;) {
+		qlock(&reflock);
 		/* read 9P request from a network input process */
 		mb = fs_recv(serveq, 0);
 		assert(mb->magic == Mbmagic);
@@ -457,6 +460,7 @@ serve(void *)
 		if (cp == nil)
 			panic("serve: nil mb->chan");
 		rlock(&cp->reflock);
+		qunlock(&reflock);
 
 		rlock(&mainlock);
 

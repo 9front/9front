@@ -56,6 +56,7 @@ Timet	boottime;
 Queue*	serveq;
 Queue*	raheadq;
 Rabuf*	rabuffree;
+QLock	reflock;
 Lock	rabuflock;
 Tlock	tlocks[NTLOCK];
 Lock	tlocklock;
