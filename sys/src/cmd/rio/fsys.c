@@ -270,6 +270,7 @@ filsysrespond(Filsys *fs, Xfid *x, Fcall *t, char *err)
 		fprint(2, "rio:->%F\n", t);
 	free(x->buf);
 	x->buf = nil;
+	x->flushtag = -1;
 	return x;
 }
 

@@ -416,8 +416,9 @@ xfidwrite(Xfid *x)
 		}
 
 		/* received data */
-		x->flushtag = -1;
+		qlock(&x->active);
 		if(x->flushing){
+			qunlock(&x->active);
 			recv(x->flushc, nil);	/* wake up flushing xfid */
 			pair.s = runemalloc(1);
 			pair.ns = 0;
@@ -425,7 +426,6 @@ xfidwrite(Xfid *x)
 			filsyscancel(x);
 			return;
 		}
-		qlock(&x->active);
 		pair.s = r;
 		pair.ns = nr;
 		send(cwm.cw, &pair);
@@ -641,27 +641,27 @@ xfidread(Xfid *x)
 		}
 
 		/* received data */
-		x->flushtag = -1;
 		c1 = crm.c1;
 		c2 = crm.c2;
 		t = malloc(cnt+UTFmax+1);	/* room to unpack partial rune plus */
 		pair.s = t;
 		pair.ns = cnt;
 		send(c1, &pair);
+		qlock(&x->active);
 		if(x->flushing){
+			qunlock(&x->active);
 			recv(x->flushc, nil);	/* wake up flushing xfid */
 			recv(c2, nil);			/* wake up window and toss data */
 			free(t);
 			filsyscancel(x);
 			return;
 		}
-		qlock(&x->active);
 		recv(c2, &pair);
 		fc.data = pair.s;
 		fc.count = pair.ns;
 		filsysrespond(x->fs, x, &fc, nil);
-		free(t);
 		qunlock(&x->active);
+		free(t);
 		break;
 
 	case Qlabel:
@@ -695,14 +695,14 @@ xfidread(Xfid *x)
 		}
 
 		/* received data */
-		x->flushtag = -1;
+		qlock(&x->active);
 		if(x->flushing){
+			qunlock(&x->active);
 			recv(x->flushc, nil);		/* wake up flushing xfid */
 			recv(mrm.cm, nil);			/* wake up window and toss data */
 			filsyscancel(x);
 			return;
 		}
-		qlock(&x->active);
 		recv(mrm.cm, &ms);
 		c = 'm';
 		if(w->resized)
@@ -736,14 +736,14 @@ xfidread(Xfid *x)
 
 		/* received data */
 		t = recvp(krm.ck);
-		x->flushtag = -1;
+		qlock(&x->active);
 		if(x->flushing){
+			qunlock(&x->active);
 			free(t);		/* wake up window and toss data */
 			recv(x->flushc, nil);		/* wake up flushing xfid */
 			filsyscancel(x);
 			return;
 		}
-		qlock(&x->active);
 		fc.data = t;
 		fc.count = strlen(t)+1;
 		filsysrespond(x->fs, x, &fc, nil);
@@ -863,29 +863,29 @@ xfidread(Xfid *x)
 		}
 
 		/* received data */
-		x->flushtag = -1;
 		c1 = cwrm.c1;
 		c2 = cwrm.c2;
 		t = malloc(cnt+1);	/* be sure to have room for NUL */
 		pair.s = t;
 		pair.ns = cnt+1;
 		send(c1, &pair);
+		qlock(&x->active);
 		if(x->flushing){
+			qunlock(&x->active);
 			recv(x->flushc, nil);	/* wake up flushing xfid */
 			recv(c2, nil);			/* wake up window and toss data */
 			free(t);
 			filsyscancel(x);
 			return;
 		}
-		qlock(&x->active);
 		recv(c2, &pair);
 		fc.data = pair.s;
 		if(pair.ns > cnt)
 			pair.ns = cnt;
 		fc.count = pair.ns;
 		filsysrespond(x->fs, x, &fc, nil);
-		free(t);
 		qunlock(&x->active);
+		free(t);
 		break;
 
 	default:
