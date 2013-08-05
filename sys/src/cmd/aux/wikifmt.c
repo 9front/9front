@@ -190,10 +190,20 @@ heading(void)
 		if((*pos >= 'a' && *pos <= 'z')
 		|| (*pos >= 'A' && *pos <= 'Z')
 		|| (*pos >= '0' && *pos <= '9')
-		|| (*pos == '-'))
+		|| (strchr("!#$%&()_+,-./{|}~:;=?@[\\]^_`", *pos) != 0))
 			output(pos, 1);
-		else
+		else if(*pos == ' ' || *pos == '\t')
 			output("_", 1);
+		else if(*pos == '<')
+			output("&lt;", 4);
+		else if(*pos == '>')
+			output("&gt;", 4);
+		else if(*pos == '&')
+			output("&amp;", 5);
+		else if(*pos == '"')
+			output("&quot;", 6);
+		else if(*pos == '\'')
+			output("&#39;", 5);
 		pos++;
 	}
 	string("\"></a>");
