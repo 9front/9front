@@ -917,12 +917,17 @@ hexdump(void *a, int n)
 		fprint(2, "%s\n", s1);
 }
 
+extern int cas(long *p, long ov, long nv);
+
 void*
 fs_recv(Queue *q, int)
 {
 	void *a;
+	long v;
 
-	semacquire(&q->count, 1);
+	v = q->count;
+	if(v == 0 || cas(&q->count, v, v-1) == 0)
+		semacquire(&q->count, 1);
 	lock(&q->rl);
 	a = *q->rp;
 	if(++q->rp >= &q->args[q->size])
@@ -935,7 +940,11 @@ fs_recv(Queue *q, int)
 void
 fs_send(Queue *q, void *a)
 {
-	semacquire(&q->avail, 1);
+	long v;
+
+	v = q->avail;
+	if(v == 0 || cas(&q->avail, v, v-1) == 0)
+		semacquire(&q->avail, 1);
 	lock(&q->wl);
 	*q->wp = a;
 	if(++q->wp >= &q->args[q->size])
