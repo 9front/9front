@@ -8,25 +8,9 @@ if(! ~ $#* 1) {
 }
 
 hget 'http://wwwapps.ups.com/WebTracking/processInputRequest?tracknum='^$1^ \
-	'&TypeOfInquiryNumber=T' >/tmp/ups.1
+	'&TypeOfInquiryNumber=T' |
+	htmlfmt |
+	awk '/^Share/,/^Subscribe/ {print;}' |
+	grep -v '^(Share|Change Delivery|Request Status Updates|Never Track Again|Continue|I am already a UPS My Choice Member|• What|Subscribe to UPS)' |
+	ssam 's/\n\n\n/\n/g'
 
-sed 's/<[Tt][Dd]>/& «TD»/g; s/<[Tt][Rr]>/&<td> «TR» /g' /tmp/ups.1 |
-	htmlfmt >/tmp/ups.2
-sam -d /tmp/ups.2 >[2] /dev/null <<'!'
-/^Tracking results.*/p
-.,$d
-/Help/d
-1,.d
-$-2,$d
-/Status:/+1
-.,/«TR»/-2d
-,s/\n/ /g
-,s/«TR»/\n/g
-,s/«TD»/	/g
-,s/ *	 */	/g
-,s/^[ 	]*//g
-,s/[ 	]*$//g
-,s/\n\n+/\n\n/g
-,p
-!
-echo
