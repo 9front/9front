@@ -11,6 +11,5 @@ hget 'http://wwwapps.ups.com/WebTracking/processInputRequest?tracknum='^$1^ \
 	'&TypeOfInquiryNumber=T' |
 	htmlfmt |
 	awk '/^Share/,/^Subscribe/ {print;}' |
-	grep -v '^(Share|Change Delivery|Request Status Updates|Never Track Again|Continue|I am already a UPS My Choice Member|• What|Subscribe to UPS)' |
+	grep -v '^(Share|Change Delivery|Request Status Updates|Never track again|Continue|I am already a UPS My Choice Member|• What|Subscribe to UPS)' |
 	ssam 's/\n\n\n/\n/g'
-
