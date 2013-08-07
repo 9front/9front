@@ -56,17 +56,20 @@ neti(void *v)
 	net = v;
 	for(;;) {
 		if((lisfd = listen(net->anndir, net->lisdir)) < 0){
-			fprint(2, "listen %s failed: %r\n", net->anndir);
+			fprint(2, "%s: listen %s failed: %r\n", argv0, net->anndir);
 			break;
 		}
 		/* got new call on lisfd */
 		if((accfd = accept(lisfd, net->lisdir)) < 0){
-			fprint(2, "accept %d (from %s) failed: %r\n", lisfd, net->lisdir);
+			fprint(2, "%s: accept %d (from %s) failed: %r\n", argv0, lisfd, net->lisdir);
 			close(lisfd);
 			continue;
 		}
 		nci = getnetconninfo(net->lisdir, accfd);
-		srvchan(accfd, nci->raddr);
+		if(srvchan(accfd, nci->raddr) == nil){
+			fprint(2, "%s: srvchan failed for: %s\n", argv0, nci->raddr);
+			close(accfd);
+		}
 		freenetconninfo(nci);
 	}
 }
