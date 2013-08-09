@@ -52,7 +52,6 @@ void pl_drawedit(Panel *p){
 char *pl_snarfedit(Panel *p){
 	int s0, s1;
 	Rune *t;
-
 	t=pleget(p);
 	plegetsel(p, &s0, &s1);
 	if(t==0 || s0>=s1)
@@ -85,9 +84,9 @@ void pl_pasteedit(Panel *p, char *s){
  */
 int pl_hitedit(Panel *p, Mouse *m){
 	Edit *ep;
-	if(m->buttons&1){
+	ep=p->data;
+	if(ep->t && m->buttons&1){
 		plgrabkb(p);
-		ep=p->data;
 		ep->t->b=p->b;
 		twhilite(ep->t, ep->sel0, ep->sel1, 0);
 		twselect(ep->t, m);
@@ -112,6 +111,7 @@ void pl_scrolledit(Panel *p, int dir, int buttons, int num, int den){
 	if(dir!=VERT) return;
 	ep=p->data;
 	t=ep->t;
+	if(t==0) return;
 	t->b=p->b;
 	switch(buttons){
 	default:
@@ -148,6 +148,7 @@ void pl_typeedit(Panel *p, Rune c){
 	Panel *sb;
 	ep=p->data;
 	t=ep->t;
+	if(t==0) return;
 	t->b=p->b;
 	twhilite(t, ep->sel0, ep->sel1, 0);
 	switch(c){
@@ -208,7 +209,7 @@ void pl_childspaceedit(Panel *g, Point *ul, Point *size){
 void pl_freeedit(Panel *p){
 	Edit *ep;
 	ep=p->data;
-	if(ep->t!=nil) twfree(ep->t);
+	if(ep->t) twfree(ep->t);
 	ep->t=0;
 }
 void plinitedit(Panel *v, int flags, Point minsize, Rune *text, int ntext, void (*hit)(Panel *)){
@@ -245,7 +246,9 @@ Panel *pledit(Panel *parent, int flags, Point minsize, Rune *text, int ntext, vo
 	return v;
 }
 void plescroll(Panel *p, int top){
-	twscroll(((Edit *)p->data)->t, top);
+	Textwin *t;
+	t=((Edit*)p->data)->t;
+	if(t) twscroll(t, top);
 }
 void plegetsel(Panel *p, int *sel0, int *sel1){
 	Edit *ep;
@@ -255,16 +258,20 @@ void plegetsel(Panel *p, int *sel0, int *sel1){
 }
 int plelen(Panel *p){
 	Textwin *t;
-	t=((Edit *)p->data)->t;
+	t=((Edit*)p->data)->t;
 	if(t==0) return 0;
 	return t->etext-t->text;
 }
 Rune *pleget(Panel *p){
-	return ((Edit *)p->data)->t->text;
+	Textwin *t;
+	t=((Edit*)p->data)->t;
+	if(t==0) return 0;
+	return t->text;
 }
 void plesel(Panel *p, int sel0, int sel1){
 	Edit *ep;
 	ep=p->data;
+	if(ep->t==0) return;
 	ep->t->b=p->b;
 	twhilite(ep->t, ep->sel0, ep->sel1, 0);
 	ep->sel0=sel0;
@@ -274,6 +281,7 @@ void plesel(Panel *p, int sel0, int sel1){
 void plepaste(Panel *p, Rune *text, int ntext){
 	Edit *ep;
 	ep=p->data;
+	if(ep->t==0) return;
 	ep->t->b=p->b;
 	twhilite(ep->t, ep->sel0, ep->sel1, 0);
 	twreplace(ep->t, ep->sel0, ep->sel1, text, ntext);
