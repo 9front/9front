@@ -4,7 +4,7 @@
 #define	NSTACK	100	/* html grammar is not recursive, so 30 or so should do */
 #define	NHBUF	8192	/* Input buffer size */
 #define	NPEEKC	3	/* Maximum lookahead */
-#define	NTOKEN	1024	/* Maximum token length */
+#define	NTOKEN	4096	/* Maximum token length */
 #define	NATTR	512	/* Maximum number of attributes of a tag */
 typedef struct Pair Pair;
 typedef struct Tag Tag;
