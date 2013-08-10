@@ -126,11 +126,10 @@ wscroll(Window *w, int but)
 {
 	uint p0, oldp0;
 	Rectangle s;
-	int x, y, my, h, first;
+	int y, my, h, first;
 
 	s = insetrect(w->scrollr, 1);
 	h = s.max.y-s.min.y;
-	x = (s.min.x+s.max.x)/2;
 	oldp0 = ~0;
 	first = TRUE;
 	do{
