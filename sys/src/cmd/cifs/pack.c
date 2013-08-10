@@ -401,17 +401,17 @@ gdatetime(Pkt *p)
 		d = gl16(p);
 	}
 
+	memset(&tm, 0, sizeof(tm));
 	tm.year = 80 + (d >> 9);
 	tm.mon = ((d >> 5) & 017) - 1;
 	tm.mday = d & 037;
-	tm.zone[0] = 0;
-	tm.tzoff = p->s->tz;
 
 	tm.hour = t >> 11;
 	tm.min = (t >> 5) & 63;
 	tm.sec = (t & 31) << 1;
+	strcpy(tm.zone, "GMT");
 
-	return tm2sec(&tm);
+	return tm2sec(&tm) + p->s->tz;
 }
 
 long
