@@ -459,7 +459,7 @@ ptrwork(void* a)
 {
 	char	err[ERRMAX];
 	char	mbuf[80];
-	int	c, b, nerrs;
+	int	c, b, nerrs, lastb;
 	KDev*	f = a;
 	Ptr	p;
 
@@ -467,6 +467,7 @@ ptrwork(void* a)
 	sethipri();
 
 	memset(&p, 0, sizeof(p));
+	lastb = 0;
 
 	nerrs = 0;
 	for(;;){
@@ -507,6 +508,10 @@ ptrwork(void* a)
 			b |= 4;
 		if(p.z != 0)
 			b |= (p.z > 0) ? 8 : 16;
+
+		if(p.x == 0 && p.y == 0 && p.z == 0 && b == lastb)
+			continue;
+		lastb = b;
 
 		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", p.x, p.y, b);
 		if(write(f->infd, mbuf, strlen(mbuf)) < 0)
