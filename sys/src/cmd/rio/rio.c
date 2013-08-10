@@ -695,6 +695,32 @@ obscured(Window *w, Rectangle r, int i)
 	return 0;
 }
 
+static char*
+shortlabel(char *s)
+{
+	enum { NBUF=60 };
+	static char buf[NBUF*UTFmax];
+	int i, k, l;
+	Rune r;
+
+	l = utflen(s);
+	if(l < NBUF-2)
+		return estrdup(s);
+	k = i = 0;
+	while(i < NBUF/2){
+		k += chartorune(&r, s+k);
+		i++;
+	}
+	strncpy(buf, s, k);
+	strcpy(buf+k, "...");
+	while((l-i) >= NBUF/2-4){
+		k += chartorune(&r, s+k);
+		i++;
+	}
+	strcat(buf, s+k);
+	return estrdup(buf);
+}
+
 void
 button3menu(void)
 {
@@ -716,7 +742,7 @@ button3menu(void)
 		n = nelem(menu3str)-Hidden-1;
 	for(i=0; i<n; i++){
 		free(menu3str[i+Hidden]);
-		menu3str[i+Hidden] = estrdup(hidden[i]->label);
+		menu3str[i+Hidden] = shortlabel(hidden[i]->label);
 	}
 	for(i+=Hidden; menu3str[i]; i++){
 		free(menu3str[i]);
