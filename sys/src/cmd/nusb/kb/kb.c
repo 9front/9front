@@ -460,6 +460,7 @@ ptrwork(void* a)
 	char	err[ERRMAX];
 	char	mbuf[80];
 	int	c, b, nerrs;
+	int	lastx, lasty, lastb;
 	KDev*	f = a;
 	Ptr	p;
 
@@ -467,6 +468,7 @@ ptrwork(void* a)
 	sethipri();
 
 	memset(&p, 0, sizeof(p));
+	lastx = lasty = lastb = 0;
 
 	nerrs = 0;
 	for(;;){
@@ -508,7 +510,14 @@ ptrwork(void* a)
 		if(p.z != 0)
 			b |= (p.z > 0) ? 8 : 16;
 
-		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", p.x, p.y, b);
+		if(lastx == p.x && lasty == p.y && lastb == b)
+			continue;
+
+		lastx = p.x;
+		lasty = p.y;
+		lastb = b;
+
+		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", lastx, lasty, lastb);
 		if(write(f->infd, mbuf, strlen(mbuf)) < 0)
 			kbfatal(f, "mousein i/o");
 	}
