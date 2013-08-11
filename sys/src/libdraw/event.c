@@ -423,6 +423,7 @@ ekbd(void)
 		drawerror(display, "events: keyboard not initialzed");
 	eb = ebread(&eslave[Skeyboard]);
 	chartorune(&r, (char*)eb->buf);
+	free(eb);
 	return r;
 }
 
