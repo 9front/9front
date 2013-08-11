@@ -50,7 +50,7 @@ yrsize(int y)
 long
 tm2sec(Tm *tm)
 {
-	long secs;
+	long secs, *p;
 	int i, yday, year, *d2m;
 
 	if(strcmp(tm->zone, "GMT") != 0 && timezone.stname[0] == 0)
@@ -95,8 +95,16 @@ tm2sec(Tm *tm)
 		secs -= timezone.stdiff;
 	else if(strcmp(tm->zone, timezone.dlname) == 0)
 		secs -= timezone.dldiff;
-	if(secs < 0)
-		secs = 0;
+	else if(tm->zone[0] == 0){
+		secs -= timezone.dldiff;
+		for(p = timezone.dlpairs; *p; p += 2)
+			if(secs >= p[0] && secs < p[1])
+				break;
+		if(*p == 0){
+			secs += timezone.dldiff;
+			secs -= timezone.stdiff;
+		}
+	}
 	return secs;
 }
 
