@@ -13,8 +13,7 @@ getdate(char *d)
 	Tm date;
 	int i;
 
-	date.year = date.mon = date.mday = 0;
-	date.hour = date.min = date.sec = 0;
+	memset(&date, 0, sizeof(date));
 	for(i = 0; i < 8; i++)
 		if(!isdigit(d[i]))
 			return date;
@@ -24,7 +23,6 @@ getdate(char *d)
 	date.mon = (d[0]-'0')*10 + d[1]-'0' - 1;
 	d += 2;
 	date.mday = (d[0]-'0')*10 + d[1]-'0';
-	date.yday = 0;
 	return date;
 }
 
