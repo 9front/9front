@@ -76,7 +76,7 @@ Point bpos(int b, int step, int t){
 void move(int t){
 	int i, j;
 	for(i=0;i!=NSTEP;i++){
-		if(ecanmouse()) emouse();
+		while(ecanmouse()) emouse();
 		draw(image, inset(image->r, 3), display->white, nil, ZP);
 		for(j=0;j!=nball;j++)
 			fillellipse(image, bpos(j, i, t), RBALL, RBALL, disk[j%ndisk], ZP);

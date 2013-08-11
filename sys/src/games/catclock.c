@@ -118,7 +118,7 @@ void main(int argc, char *argv[]){
 		eye[i]=draweye(i*PI/NTAIL);
 	}
 	for(;;){
-		if(ecanmouse()) emouse();	/* don't get resize events without this! */
+		while(ecanmouse()) emouse();	/* don't get resize events without this! */
 		drawclock();
 		flushimage(display, 1);
 //		bflush();
