@@ -57,8 +57,6 @@ void I_InitGraphics(void)
 		exits(nil);
 	}
 	mousepid = pid;
-
-	screens[0] = (unsigned char*) malloc(SCREENWIDTH * SCREENHEIGHT);
 }
 
 void I_ShutdownGraphics(void)
