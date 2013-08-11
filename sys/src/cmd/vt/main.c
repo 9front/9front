@@ -183,7 +183,7 @@ initialize(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	host_buf = malloc(host_bsize);
+	host_buf = mallocz(host_bsize, 1);
 	hostp = host_buf;
 	hostlength = 0;
 
@@ -808,8 +808,8 @@ void
 set_host(Event *e)
 {
 	hostlength = e->n;
-	if(hostlength > host_bsize) {
-		host_bsize *= 2;
+	if(hostlength >= host_bsize) {
+		host_bsize = BSIZE*((hostlength + BSIZE)/BSIZE);
 		host_buf = realloc(host_buf,host_bsize);
 	}
 	hostp = host_buf;
