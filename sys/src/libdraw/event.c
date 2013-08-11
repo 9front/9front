@@ -45,21 +45,10 @@ Ebuf*
 ebread(Slave *s)
 {
 	Ebuf *eb;
-	Dir *d;
-	ulong l;
-
-	for(;;){
-		d = dirfstat(epipe[0]);
-		if(d == nil)
-			drawerror(display, "events: eread stat error");
-		l = d->length;
-		free(d);
-		if(s->head && l==0)
-			break;
+ 
+	while((eb = s->head) == 0)
 		extract();
-	}
-	eb = s->head;
-	s->head = s->head->next;
+	s->head = eb->next;
 	if(s->head == 0)
 		s->tail = 0;
 	return eb;
@@ -322,9 +311,10 @@ loop:
 	memmove(eb->buf, &ebuf[1], n - 1);
 	eb->next = 0;
 	if(s->head)
-		s->tail = s->tail->next = eb;
+		s->tail->next = eb;
 	else
-		s->head = s->tail = eb;
+		s->head = eb;
+	s->tail = eb;
 }
 
 static int
