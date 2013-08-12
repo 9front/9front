@@ -83,7 +83,6 @@ redraw(Image *screen)
 	Rectangle r = Rect(0,0,Dx(screen->r), Dy(screen->r));
 	catoffs.x=(Dx(r)-CATWID)/2;
 	catoffs.y=(Dy(r)-CATHGT)/2;
-	if(!ptinrect(catoffs, r)) fprint(2, "catclock: window too small, resize!\n");
 	xredraw=1;
 }
 
@@ -227,6 +226,7 @@ drawclock(void){
 		if(xredraw){
 			draw(screen, screen->r, display->white, nil, ZP);
 			border(screen, screen->r, 4, display->black, ZP);
+			replclipr(screen, 0, insetrect(screen->r, 4));
 			//bitblt(&screen, screen.r.min, &screen, screen.r, Zero);
 			//border(&screen, screen.r, 4, F);
 		}
