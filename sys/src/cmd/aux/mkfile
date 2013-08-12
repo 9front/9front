@@ -16,6 +16,7 @@ TARG=\
 	data2s\
 	depend\
 	disksim\
+	esd\
 	getflags\
 	icanhasmsi\
 	lines\
