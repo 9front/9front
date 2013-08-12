@@ -133,7 +133,7 @@ max(int a, int b)
 Memimage*
 resample(int xsize, int ysize, Memimage *m)
 {
-	int i, j, bpl, nchan;
+	int i, j, d, bpl, nchan;
 	Memimage *new;
 	uchar **oscan, **nscan;
 
@@ -166,13 +166,12 @@ resample(int xsize, int ysize, Memimage *m)
 	}
 
 	/* resample in X */
-	nchan = m->depth/8;
+	nchan = d = m->depth/8;
+	if(m->chan == XRGB32)
+		nchan--;
 	for(i=0; i<Dy(m->r); i++){
-		for(j=0; j<nchan; j++){
-			if(j==0 && m->chan==XRGB32)
-				continue;
-			resamplex(oscan[i], j, nchan, Dx(m->r), nscan[i], xsize);
-		}
+		for(j=0; j<nchan; j++)
+			resamplex(oscan[i], j, d, Dx(m->r), nscan[i], xsize);
 		free(oscan[i]);
 		oscan[i] = nscan[i];
 		nscan[i] = malloc(bpl);
@@ -183,7 +182,7 @@ resample(int xsize, int ysize, Memimage *m)
 	/* resample in Y */
 	for(i=0; i<xsize; i++)
 		for(j=0; j<nchan; j++)
-			resampley(oscan, nchan*i+j, Dy(m->r), nscan, ysize);
+			resampley(oscan, d*i+j, Dy(m->r), nscan, ysize);
 
 	/* pack data into destination */
 	bpl = bytesperline(new->r, m->depth);
