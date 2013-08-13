@@ -630,16 +630,6 @@ lostval(Machine *m, long *v, long *vmax, long *mark)
 	*vmax = 100;
 }
 
-jmp_buf catchalarm;
-
-void
-alarmed(void *a, char *s)
-{
-	if(strcmp(s, "alarm") == 0)
-		notejmp(a, catchalarm, 1);
-	noted(NDFLT);
-}
-
 void
 usage(void)
 {
@@ -1030,7 +1020,6 @@ main(int argc, char *argv[])
 	}
 	colinit();
 	einit(Emouse);
-	notify(nil);
 	startproc(mouseproc, 0);
 	display->locking = 1;	/* tell library we're using the display lock */
 

@@ -346,39 +346,33 @@ eforkslave(ulong key)
 }
 
 static int
-enote(void *v, char *s)
+enote(void*, char *s)
 {
-	char t[1];
 	int i, pid;
 
-	USED(v, s);
-	pid = getpid();
-	if(pid != parentpid){
-		for(i=0; i<nslave; i++){
-			if(pid == eslave[i].pid){
-				t[0] = MAXSLAVE;
-				write(epipe[1], t, 1);
-				break;
-			}
-		}
+	if(strncmp(s, "sys:", 4) == 0 || strcmp(s, "alarm") == 0)
 		return 0;
-	}
-	close(epipe[0]);
-	epipe[0] = -1;
-	close(epipe[1]);
-	epipe[1] = -1;
-	for(i=0; i<nslave; i++){
+	pid = getpid();
+	for(i=0; i<nslave; i++)
 		if(pid == eslave[i].pid)
-			continue;	/* don't kill myself */
-		postnote(PNPROC, eslave[i].pid, "die");
-	}
-	return 0;
+			return 1;
+	if(pid != parentpid)
+		return 0;
+	exits("killed");
+	return 1;
 }
 
 static void
 ekill(void)
 {
-	enote(0, 0);
+	int i, pid;
+
+	pid = getpid();
+	for(i=0; i<nslave; i++){
+		if(pid == eslave[i].pid)
+			continue;	/* don't kill myself */
+		postnote(PNPROC, eslave[i].pid, "die");
+	}
 }
 
 Mouse

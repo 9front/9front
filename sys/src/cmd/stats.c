@@ -710,12 +710,12 @@ initmach(Machine *m, char *name)
 
 jmp_buf catchalarm;
 
-void
+int
 alarmed(void *a, char *s)
 {
 	if(strcmp(s, "alarm") == 0)
 		notejmp(a, catchalarm, 1);
-	noted(NDFLT);
+	return 0;
 }
 
 int
@@ -781,7 +781,7 @@ readmach(Machine *m, int init)
 			eresized(0);
 	}
 	if(m->remote){
-		notify(alarmed);
+		atnotify(alarmed, 1);
 		alarm(5000);
 	}
 	if(needswap(init) && loadbuf(m, &m->swapfd) && readswap(m, a))
@@ -809,7 +809,7 @@ readmach(Machine *m, int init)
 			 m->temp[n] = a[0];
 	if(m->remote){
 		alarm(0);
-		notify(nil);
+		atnotify(alarmed, 0);
 	}
 }
 
@@ -1410,7 +1410,6 @@ main(int argc, char *argv[])
 	}
 	colinit();
 	einit(Emouse);
-	notify(nil);
 	startproc(mouseproc, Mouseproc);
 	pids[Mainproc] = getpid();
 	display->locking = 1;	/* tell library we're using the display lock */
