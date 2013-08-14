@@ -726,9 +726,11 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 	}
 
 	if(creq) {
-		m.u.certificate.ncert = 1;
-		m.u.certificate.certs = emalloc(m.u.certificate.ncert * sizeof(Bytes));
-		m.u.certificate.certs[0] = makebytes(cert, certlen);		
+		if(cert != nil && certlen > 0){
+			m.u.certificate.ncert = 1;
+			m.u.certificate.certs = emalloc(m.u.certificate.ncert * sizeof(Bytes));
+			m.u.certificate.certs[0] = makebytes(cert, certlen);
+		}		
 		m.tag = HCertificate;
 		if(!msgSend(c, &m, AFlush))
 			goto Err;
