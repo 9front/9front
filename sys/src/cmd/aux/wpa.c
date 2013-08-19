@@ -57,6 +57,7 @@ Cipher	ccmp = { "ccmp", 16 };
 Cipher	*peercipher;
 Cipher	*groupcipher;
 
+int	background;
 int	prompt;
 int	debug;
 int	fd, cfd;
@@ -544,6 +545,7 @@ void
 main(int argc, char *argv[])
 {
 	uchar mac[Eaddrlen], buf[1024];
+	static uchar brsne[258];
 	char addr[128];
 	uchar *rsne;
 	int rsnelen;
@@ -614,13 +616,12 @@ main(int argc, char *argv[])
 		free(s);
 	}
 
+Connect:
  	/* bss scan might not be complete yet, so check for 10 seconds.	*/
-	for(try = 10; try >= 0 && !connected(); try--)
+	for(try = 10; (background || try >= 0) && !connected(); try--)
 		sleep(1000);
 
-	if(rsnelen <= 0){
-		static uchar brsne[258];
-
+	if(rsnelen <= 0 || rsne == brsne){
 		rsne = brsne;
 		rsnelen = buildrsne(rsne);
 	}
@@ -644,18 +645,22 @@ main(int argc, char *argv[])
 	if(write(cfd, buf, n) != n)
 		sysfatal("write auth: %r");
 
-	if(!debug){
-		switch(rfork(RFFDG|RFREND|RFPROC|RFNOWAIT)){
-		default:
-			exits(nil);
-		case -1:
-			sysfatal("fork: %r");
-			return;
-		case 0:
-			break;
+	if(!background){
+		background = 1;
+		if(!debug){
+			switch(rfork(RFFDG|RFREND|RFPROC|RFNOWAIT)){
+			default:
+				exits(nil);
+			case -1:
+				sysfatal("fork: %r");
+				return;
+			case 0:
+				break;
+			}
 		}
 	}
 	
+	lastrepc = 0ULL;
 	for(;;){
 		uchar smac[Eaddrlen], amac[Eaddrlen], snonce[Noncelen], anonce[Noncelen], *p, *e, *m;
 		int proto, eapver, flags, vers, datalen;
@@ -668,8 +673,7 @@ main(int argc, char *argv[])
 		if(n == 0){
 			if(debug != 0)
 				fprint(2, "got deassociation\n");
-			lastrepc = 0ULL;
-			continue;
+			goto Connect;
 		}
 
 		p = buf;
