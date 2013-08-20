@@ -223,8 +223,7 @@ threadmain(int argc, char *argv[])
 		if(kbdin){
 			kbdargv[2] = kbdin;
 			r = screen->r;
-			r.max.x = r.min.x+300;
-			r.max.y = r.min.y+80;
+			r.min.y = r.max.y-Dy(r)/3;
 			i = allocwindow(wscreen, r, Refbackup, DNofill);
 			wkeyboard = new(i, FALSE, scrolling, 0, nil, "/bin/rc", kbdargv);
 			if(wkeyboard == nil)
