@@ -12,10 +12,12 @@ Xasync(void)
 	int null = open("/dev/null", 0);
 	int pid;
 	char npid[10];
+
 	if(null<0){
 		Xerror("Can't open /dev/null\n");
 		return;
 	}
+	Updenv();
 	switch(pid = rfork(RFFDG|RFPROC|RFNOTEG)){
 	case -1:
 		close(null);
@@ -45,10 +47,12 @@ Xpipe(void)
 	int lfd = p->code[pc++].i;
 	int rfd = p->code[pc++].i;
 	int pfd[2];
+
 	if(pipe(pfd)<0){
 		Xerror("can't get pipe");
 		return;
 	}
+	Updenv();
 	switch(forkid = fork()){
 	case -1:
 		Xerror("try again");
@@ -91,6 +95,7 @@ Xbackq(void)
 		Xerror("can't make pipe");
 		return;
 	}
+	Updenv();
 	switch(pid = fork()){
 	case -1:
 		Xerror("try again");
@@ -152,6 +157,7 @@ Xpipefd(void)
 	char name[40];
 	int pfd[2];
 	int sidefd, mainfd;
+
 	if(pipe(pfd)<0){
 		Xerror("can't get pipe");
 		return;
@@ -164,6 +170,7 @@ Xpipefd(void)
 		sidefd = pfd[PRD];
 		mainfd = pfd[PWR];
 	}
+	Updenv();
 	switch(pid = fork()){
 	case -1:
 		Xerror("try again");
@@ -191,6 +198,8 @@ void
 Xsubshell(void)
 {
 	int pid;
+
+	Updenv();
 	switch(pid = fork()){
 	case -1:
 		Xerror("try again");
