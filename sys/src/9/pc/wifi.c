@@ -4,7 +4,6 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
-#include "pool.h"
 #include "ureg.h"
 #include "../port/error.h"
 #include "../port/netif.h"
