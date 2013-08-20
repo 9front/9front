@@ -28,7 +28,7 @@ int winshow;
 Channel *kc;
 Channel *ec;
 Channel *tc;
-Rectangle r, rk, rs, rw;
+Rectangle rk, rs, rw;
 Font *keyfont, *keyctlfont;
 
 enum{
@@ -182,10 +182,6 @@ refreshwin(void)
 void
 resizecontrolset(Controlset*)
 {
-	int fd;
-	char buf[61];
-
-
 	if(getwindow(display, Refnone) < 0)
 		ctlerror("resize failed: %r");
 
@@ -194,34 +190,7 @@ resizecontrolset(Controlset*)
 		return;
 	}
 
-	fd = open("/dev/screen", OREAD);
-	if (fd < 0) {
-		r = display->image->r;
-		if (debug) fprint(2, "display->imgae->r: %R\n", r);
-	} else {
-		if (read(fd, buf, 60) != 60)
-			sysfatal("resizecontrolset: read: /dev/screen: %r");
-		close(fd);
-		buf[60] = '\0';
-		r.min.x = atoi(buf+1+1*12);
-		r.min.y = atoi(buf+1+2*12);
-		r.max.x = atoi(buf+1+3*12);
-		r.max.y = atoi(buf+1+4*12);
-		if (debug) fprint(2, "/dev/screen: %R\n", r);
-	}
-	r = insetrect(r, 4);
-	r.min.y = r.max.y - kbdheight - 2*Borderwidth;
-	if (debug) fprint(2, "before eqrect: %R\n", r);
-	if (eqrect(r, screen->r) == 0) {
-		if (debug) fprint(2, "resizecontrolset: resize %R\n", r);
-		if (fprint(wctl, "resize -r %R", insetrect(r, -4)) <= 0) {
-			fprint(2, "resizecontrolset: resize failed\n");
-		}
-		return;
-	}
-
-	if (debug) fprint(2, "after eqrect: %R\n", r);
-	rk = r;
+	rk = screen->r;
 	if (winshow){
 		rw = rk;
 		rw.min.x = (3*rk.max.x + rk.min.x)/4;
