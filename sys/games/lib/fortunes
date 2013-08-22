@@ -4905,3 +4905,8 @@ I did it, now we have Hello World java program running successfully in Inferno!
 I am not well in English. Please email me if you need more information.
 Correct, except on the pi it's cmdline.txt instead of plan9.ini
 GitHub is down...uh...now what?
+As an aside, it looks like the Labs is no longer interested in accepting patches requiring more than a cursory review.
+Tessel runs JavaScript right on the device—no server necessary.
+seems that so much is up on the net, it is hard to comprehend it all. -- my dad
+What we learned after months of work was that we--the original target audience--just didn’t want this.
+Why Are We Still Plugging In Our iPhones?
