@@ -44,7 +44,7 @@ of the network protocol hierarchies
 and
 .IR ether (3).
 .PP
-The top level contains the files files:
+The top level contains the two files:
 .BR ctl ,
 and
 .BR clone .
