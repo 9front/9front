@@ -86,7 +86,7 @@ increase verbosity.
 enumerates the tree of USB hubs and configures the device on
 attachment. It provides a filesystem with the the file
 .B usbevent
-(usualy seen as
+(usually seen as
 .BR /dev/usbevent )
 which, when read, returns a 5 column, space separated line of
 text, one for each event. The columns are:
@@ -100,7 +100,7 @@ and
 .I csp .
 All but
 .I devid
-are formated as 4 digit hexadecimal. This file is read by
+are formatted as 4 digit hexadecimal. This file is read by
 .IR nusbrc (8)
 and the
 .I devid

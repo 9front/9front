@@ -95,10 +95,10 @@ option causes
 .I hget
 and
 .I hpost
-to print the location URL from the transactoin response
-instead of retriving the the body data. This is usefull
+to print the location URL from the transaction response
+instead of retrieving the the body data. This is useful
 for HTTP POST transactions that redirect to a URL containing
-the prosted data so we wont refetch the data we just uploaded
+the posted data so we wont refetch the data we just uploaded
 to the site.
 .PP
 The
@@ -155,7 +155,7 @@ As the
 .I url
 parameter is always required, the
 .B -u
-flag can be omited when
+flag can be omitted when
 .I url
 follows directly after the last option if any.
 .PP

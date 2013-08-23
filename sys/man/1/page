@@ -137,7 +137,7 @@ Plan 9 bitmap.
 .B Ext
 Shows the current image using external
 .IR jpg (1)
-program in a separate window. This is mostly usefull for
+program in a separate window. This is mostly useful for
 animated gifs. 
 .PD
 .PP

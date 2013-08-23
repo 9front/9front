@@ -220,7 +220,7 @@ options specify the input and output format
 .I fmt
 of the conversion.
 .I Fmt
-is a concatinated string of the following parts:
+is a concatenated string of the following parts:
 .TP
 .BI s #
 sample format is little-endian signed integer where
@@ -239,7 +239,7 @@ unsigned big-endian integer format
 .BI f #
 floating point format where
 .I #
-has to be 32 or 64 for single- or double-precisition
+has to be 32 or 64 for single- or double-precision
 .TP
 .B a8
 8-bit a-law format
