@@ -36,7 +36,7 @@ wich passes
 and filedescriptors 0 and 1 to the incoming connection.
 .PP
 Users are authenticated by ther Inferno/pop secret held by the auth server.
-When successfull,
+When successful,
 .I cifsd
 changes its user id and namespace to the authenticated user.
 Informative log messages are appended to
@@ -85,13 +85,13 @@ be enabled.  Valid options are:
 .RS
 .TP
 .B trspaces
-transforms whitespaces in filenames to non breaking whitespaces. This is usefull
+transforms whitespace in filenames to non breaking whitespace. This is useful
 when exporting filesystems other than fossil.
 .TP
 .B casesensitive
 By default, filename lookups are done case insensitive to match
-windows filesystem sematics.  This option disables case insensitive
-lookups wich can result in a performance improvement, but might break
+windows filesystem semantics.  This option disables case insensitive
+lookups which can result in a performance improvement, but might break
 some applications.
 .SH FILES
 .B /rc/bin/service/tcp445

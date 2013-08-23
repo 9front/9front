@@ -177,7 +177,7 @@ the old
 Dangerous if used carelessly.
 .PP
 .I Debug-deind
-requiers a
+requires a
 .I file
 argument. It prints the directory entry of
 .I file.

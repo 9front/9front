@@ -53,7 +53,7 @@ file in the current namespace.
 .PP
 Then programs like
 .IR vga (8)
-can use it to make ther
+can use it to make their
 .SM BIOS
 calls.
 .PP

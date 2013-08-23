@@ -30,7 +30,7 @@ The flags
 .B -i
 and
 .B -o
-activate a previously formated encrypted partition. The
+activate a previously formatted encrypted partition. The
 .B -o
 flag outputs the
 .IR fs (3)

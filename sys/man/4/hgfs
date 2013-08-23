@@ -71,7 +71,7 @@ and the hash
 are able to identify
 a revision uniquely; only one of them needs to be given
 when walking the root directory. The hexadecimal hash
-may be shortend so long as the resulting lookup yields
+may be shortened so long as the resulting lookup yields
 a unique result. The special name
 .B tip
 corresponds to the latest revision but does not appear
@@ -107,7 +107,7 @@ commit message of the changeset.
 .TP
 .B files
 A directory that contains a snapshot of the tree at the time
-the changeset was commited.
+the changeset was committed.
 
 To retrieve the \fIn\fRth
 past version of a file relative to the changeset,

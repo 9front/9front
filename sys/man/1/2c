@@ -404,7 +404,7 @@ only division and modulus use the run-time library
 and the other operators generate in-line code
 (and
 .I uvlong-expression
-.I divison-or-modulus
+.I division-or-modulus
 .BI "(1<<" constant )
 will turn into in-line bit operations,
 as is done for shorter

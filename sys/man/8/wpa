@@ -34,7 +34,7 @@ factotum or an interactive key prompter like
 .IR fgui (4)
 needs to provide it.
 .PP
-The authentification protocol is initiated by the
+The authentication protocol is initiated by the
 wireless access point so
 .I wpa
 will background itself after the keyprompt and establish

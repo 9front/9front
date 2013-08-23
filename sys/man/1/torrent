@@ -45,7 +45,7 @@ option. If provided,
 .I torrent
 reads the file given at the final
 .I file
-argument (or standard-input when omited) and writes
+argument (or standard-input when omitted) and writes
 a torrent file to standard-output and exits.
 A
 .I tracker-url
@@ -60,7 +60,7 @@ can be passed with the
 .B -w
 option. If
 .I webseed-url
-ends with a slash, the filename, from the torrent, concatinated
+ends with a slash, the filename, from the torrent, concatenated
 with the url forms the target url.
 .PP
 Without the

@@ -14,7 +14,7 @@ uhtml \- convert foreign character set HTML file to unicode
 .SH DESCRIPTION
 HTML comes in various character set encodings
 and has special forms to encode characters. To
-make it easier to process html, uthml is used
+make it easier to process html, uhtml is used
 to normalize it to a unicode only form.
 .LP
 Uhtml detects the character set of the html input

@@ -19,8 +19,8 @@ and
 .PP
 Reading the
 .BR scancode
-file returns the raw scancode stream as it is emited by the keyboard
-device without any translation. It is usualy
+file returns the raw scancode stream as it is emitted by the keyboard
+device without any translation. It is usually
 .IR kbdfs (8)
 task to interpret the scancodes and provide device independent
 keyboard input to programs. The

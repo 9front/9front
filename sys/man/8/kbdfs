@@ -37,7 +37,7 @@ and its
 .BR kbin
 and
 .BR kbdin
-file and optionaly reads console input from
+file and optionally reads console input from
 .I consfile
 to provide initial keyboard and console input.
 .PP
