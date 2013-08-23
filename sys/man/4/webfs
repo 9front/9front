@@ -31,11 +31,11 @@ and, if
 is specified, will post a service file descriptor in 
 .BR /srv/\fIservice .
 .PP
-If the enviroment variable
+If the environment variable
 .B httpproxy
 is set, all HTTP request initiated by
 .I webfs
-will be made thru that proxy url.
+will be made through that proxy url.
 .PP
 .I Webfs
 presents a three-level file system suggestive
@@ -81,7 +81,7 @@ with the given
 .I realm
 using HTTP Basic authentication. This will cause
 .I webfs
-to preemtively send the resulting authorization information
+to preemptively send the resulting authorization information
 not waiting for the server to respond with an
 HTTP 401 Unauthorized status.
 .PP
@@ -113,7 +113,7 @@ attribute sets the URL against which relative URLs
 are interpreted.
 Once the URL has been set by writing to the
 .B ctl
-file of the connetcion, its pieces can be retrieved via
+file of the connection, its pieces can be retrieved via
 individual files in the
 .B parsed
 directory:
@@ -148,12 +148,12 @@ file will fail and return a error string.
 .PP
 When the
 .B body
-file has been opend, response headers appear
+file has been opened, response headers appear
 as files in the connection directory. For example
 reading the
 .B contenttype
 file yields the MIME content type of the body data.
-If the request was redirected, the URL represended
+If the request was redirected, the URL represented
 by the
 .B parsed
 directory will change to the final destination.
@@ -175,13 +175,13 @@ Sets a custom useragent string to be used with the request.
 Sets the MIME content type of the postbody.
 .TP
 .B request
-Usualy, the HTTP method used is
+Usually, the HTTP method used is
 .B POST
 when
 .B postbody
 file is opend first or
 .B GET
-otherwise. This can be overriden with the
+otherwise. This can be overridden with the
 .B request
 attribute so send arbitrary HTTP requests.
 .TP
