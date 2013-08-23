@@ -111,7 +111,7 @@ The
 .B baseurl
 attribute sets the URL against which relative URLs
 are interpreted.
-Once the URL has been set by wrting to the
+Once the URL has been set by writing to the
 .B ctl
 file of the connetcion, its pieces can be retrieved via
 individual files in the
