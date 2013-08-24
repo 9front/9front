@@ -753,7 +753,7 @@ usage(void)
 	exits("usage");
 }
 
-
+extern int aueinit(Dev *);
 extern int a88178init(Dev *);
 extern int a88772init(Dev *);
 extern int smscinit(Dev *);
@@ -767,6 +767,7 @@ static struct {
 	"smsc",		smscinit,
 	"a88178",	a88178init,
 	"a88772",	a88772init,
+	"aue", aueinit,
 };
 
 void

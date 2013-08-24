@@ -16,6 +16,8 @@ if(! nusb/usbd)
 			nusb/ether -t a88772 $etherargs $1 &
 		case 0b951780 14eaab11 17370039 0411006e 050d5055
 			nusb/ether -t a88178 $etherargs $1 &
+		case 2001abc1
+			nusb/ether -t aue $etherargs $1 &
 		case *
 			switch($4){
 			case *03
