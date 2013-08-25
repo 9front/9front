@@ -30,7 +30,7 @@ enum
 {
 	Resetdelay	= 100,		/* delay after a controller reset (ms) */
 	Enabledelay	= 100,		/* waiting for a port to enable */
-	Abortdelay	= 5,		/* delay after cancelling Tds (ms) */
+	Abortdelay	= 10,		/* delay after cancelling Tds (ms) */
 	Incr		= 64,		/* for Td and Qh pools */
 
 	Tdatomic	= 8,		/* max nb. of Tds per bulk I/O op. */
@@ -704,11 +704,7 @@ static void
 qhfree(Ctlr *ctlr, Qh *qh)
 {
 	Td *td;
-	Td *ltd;
 	Qh *q;
-
-	if(qh == nil)
-		return;
 
 	ilock(ctlr);
 	for(q = ctlr->qhs; q != nil; q = q->next)
@@ -718,14 +714,15 @@ qhfree(Ctlr *ctlr, Qh *qh)
 		panic("qhfree: nil q");
 	q->next = qh->next;
 	q->link = qh->link;
+	qh->state = Qfree;	/* paranoia */
 	iunlock(ctlr);
 
-	for(td = qh->tds; td != nil; td = ltd){
-		ltd = td->next;
+	while((td = qh->tds) != nil){
+		qh->tds = td->next;
 		tdfree(td);
 	}
+
 	lock(&qhpool);
-	qh->state = Qfree;	/* paranoia */
 	qh->next = qhpool.free;
 	qh->tag = nil;
 	qh->io = nil;
@@ -961,14 +958,14 @@ interrupt(Ureg*, void *a)
 	OUTS(Status, sts & Sall);
 	cmd = INS(Cmd);
 	if(cmd & Crun == 0){
-		print("uhci %#ux: not running: uhci bug?\n", ctlr->port);
+		iprint("uhci %#ux: not running: uhci bug?\n", ctlr->port);
 		/* BUG: should abort everything in this case */
 	}
 	if(debug > 1){
 		frptr = INL(Flbaseadd);
 		frno = INL(Frnum);
 		frno = TRUNC(frno, Nframes);
-		print("cmd %#ux sts %#ux frptr %#ux frno %d\n",
+		iprint("cmd %#ux sts %#ux frptr %#ux frno %d\n",
 			cmd, sts, frptr, frno);
 	}
 	ctlr->ntdintr++;
@@ -1220,12 +1217,14 @@ aborttds(Qh *qh)
 {
 	Td *td;
 
-	qh->state = Qdone;
 	qh->elink = QHterm;
+	coherence();
 	for(td = qh->tds; td != nil; td = td->next){
-		if(td->csw & Tdactive)
+		if(td->csw & Tdactive){
 			td->ndata = 0;
-		td->csw &= ~(Tdactive|Tdioc);
+			td->csw &= ~(Tdactive|Tdioc);
+			coherence();
+		}
 	}
 }
 
@@ -1263,13 +1262,15 @@ epiowait(Ctlr *ctlr, Qio *io, int tmout, ulong load)
 	else if(qh->state != Qdone && qh->state != Qclose)
 		panic("epio: queue not done and not closed");
 	if(timedout){
-		aborttds(io->qh);
-		io->err = "request timed out";
+		aborttds(qh);
+		qh->state = Qdone;
+		if(io->err == nil)
+			io->err = "request timed out";
 		iunlock(ctlr);
-		if(!waserror()){
-			tsleep(&up->sleep, return0, 0, Abortdelay);
-			poperror();
-		}
+		while(waserror())
+			;
+		tsleep(&up->sleep, return0, 0, Abortdelay);
+		poperror();
 		ilock(ctlr);
 	}
 	if(qh->state != Qclose)
@@ -1297,7 +1298,6 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 	ulong load;
 	char *err;
 
-	qh = io->qh;
 	ctlr = ep->hp->aux;
 	io->debug = ep->debug;
 	tmout = ep->tmout;
@@ -1317,7 +1317,8 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 	}
 	io->err = nil;
 	ilock(ctlr);
-	if(qh->state == Qclose){	/* Tds released by cancelio */
+	qh = io->qh;
+	if(qh == nil || qh->state == Qclose){	/* Tds released by cancelio */
 		iunlock(ctlr);
 		error(io->err ? io->err : Eio);
 	}
@@ -1365,6 +1366,8 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 	if(debug > 1 || ep->debug > 1)
 		dumptd(td0, "epio: got tds: ");
 
+	err = io->err;
+
 	tot = 0;
 	c = a;
 	saved = 0;
@@ -1380,16 +1383,22 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 			if(saved++ == 0)
 				io->toggle = td->token & Tddata1;
 		}else{
-			tot += td->ndata;
-			if(c != nil && tdtok(td) == Tdtokin && td->ndata > 0){
-				memmove(c, td->data, td->ndata);
-				c += td->ndata;
+			n = td->ndata;
+			if(err == nil && n < 0)
+				err = Eio;
+			if(err == nil && n > 0 && tot < count){
+				if((tot + n) > count)
+					n = count - tot;
+				if(c != nil && tdtok(td) == Tdtokin){
+					memmove(c, td->data, n);
+					c += n;
+				}
+				tot += n;
 			}
 		}
 		ntd = td->next;
 		tdfree(td);
 	}
-	err = io->err;
 	if(mustlock){
 		qunlock(io);
 		poperror();
@@ -1398,8 +1407,6 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 		io, ntds, tot, err);
 	if(err != nil)
 		error(err);
-	if(tot < 0)
-		error(Eio);
 	return tot;
 }
 
@@ -1817,7 +1824,7 @@ cancelio(Ctlr *ctlr, Qio *io)
 
 	ilock(ctlr);
 	qh = io->qh;
-	if(io == nil || io->qh == nil || io->qh->state == Qclose){
+	if(qh == nil || qh->state == Qclose){
 		iunlock(ctlr);
 		return;
 	}
@@ -1826,18 +1833,20 @@ cancelio(Ctlr *ctlr, Qio *io)
 	aborttds(qh);
 	qh->state = Qclose;
 	iunlock(ctlr);
-	if(!waserror()){
-		tsleep(&up->sleep, return0, 0, Abortdelay);
-		poperror();
-	}
+
+	while(waserror())
+		;
+	tsleep(&up->sleep, return0, 0, Abortdelay);
+	poperror();
 
 	wakeup(io);
 	qlock(io);
 	/* wait for epio if running */
+	if(io->qh == qh)
+		io->qh = nil;
 	qunlock(io);
 
 	qhfree(ctlr, qh);
-	io->qh = nil;
 }
 
 static void
