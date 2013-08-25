@@ -1990,6 +1990,46 @@ iwlpromiscuous(void *arg, int on)
 }
 
 static void
+iwlrecover(void *arg)
+{
+	Ether *edev;
+	Ctlr *ctlr;
+
+	edev = arg;
+	ctlr = edev->ctlr;
+	for(;;){
+		while(waserror())
+			;
+		tsleep(&up->sleep, return0, 0, 4000);
+		poperror();
+
+		qlock(ctlr);
+		for(;;){
+			if(ctlr->broken == 0)
+				break;
+
+			if(ctlr->power)
+				poweroff(ctlr);
+
+			if((csr32r(ctlr, Gpc) & RfKill) == 0)
+				break;
+
+			if(reset(ctlr) != nil)
+				break;
+			if(boot(ctlr) != nil)
+				break;
+
+			ctlr->bcastnodeid = -1;
+			ctlr->bssnodeid = -1;
+			ctlr->aid = 0;
+			rxon(edev, ctlr->wifi->bss);
+			break;
+		}
+		qunlock(ctlr);
+	}
+}
+
+static void
 iwlattach(Ether *edev)
 {
 	FWImage *fw;
@@ -2037,6 +2077,8 @@ iwlattach(Ether *edev)
 		setoptions(edev);
 
 		ctlr->attached = 1;
+
+		kproc("iwlrecover", iwlrecover, edev);
 	}
 	qunlock(ctlr);
 	poperror();
@@ -2188,7 +2230,7 @@ iwlinterrupt(Ureg*, void *arg)
 		receive(ctlr);
 	if(isr & Ierr){
 		ctlr->broken = 1;
-		iprint("#l%d: fatal firmware error\n", edev->ctlrno);
+		print("#l%d: fatal firmware error\n", edev->ctlrno);
 		dumpctlr(ctlr);
 	}
 	ctlr->wait.m |= isr;
