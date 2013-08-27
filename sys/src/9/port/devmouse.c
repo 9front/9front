@@ -170,6 +170,9 @@ mousestat(Chan *c, uchar *db, int n)
 static Chan*
 mouseopen(Chan *c, int omode)
 {
+	int mode;
+
+	mode = openmode(omode);
 	switch((ulong)c->qid.path){
 	case Qdir:
 		if(omode != OREAD)
@@ -193,7 +196,7 @@ mouseopen(Chan *c, int omode)
 	default:
 		incref(&mouse);
 	}
-	c->mode = openmode(omode);
+	c->mode = mode;
 	c->flag |= COPEN;
 	c->offset = 0;
 	return c;
