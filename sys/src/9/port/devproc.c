@@ -351,12 +351,12 @@ procopen(Chan *c, int omode)
 			error(Eperm);
 		lock(&tlock);
 		if (waserror()){
+			topens--;
 			unlock(&tlock);
 			nexterror();
 		}
-		if (topens > 0)
+		if (topens++ > 0)
 			error("already open");
-		topens++;
 		if (tevents == nil){
 			tevents = (Traceevent*)malloc(sizeof(Traceevent) * Nevents);
 			if(tevents == nil)
@@ -613,9 +613,9 @@ procfds(Proc *p, char *va, int count, long offset)
 }
 
 static void
-procclose(Chan * c)
+procclose(Chan *c)
 {
-	if(QID(c->qid) == Qtrace){
+	if(QID(c->qid) == Qtrace && (c->flag & COPEN) != 0){
 		lock(&tlock);
 		if(topens > 0)
 			topens--;
@@ -623,8 +623,10 @@ procclose(Chan * c)
 			proctrace = nil;
 		unlock(&tlock);
 	}
-	if(QID(c->qid) == Qns && c->aux != 0)
+	if(QID(c->qid) == Qns && c->aux != 0){
 		free(c->aux);
+		c->aux = 0;
+	}
 }
 
 static void
