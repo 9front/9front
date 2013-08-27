@@ -1690,22 +1690,23 @@ portreset(Hci *hp, int port, int on)
 	if (opio->sts & Shalted)
 		iprint("ehci %#p: halted yet trying to reset port\n",
 			ctlr->capio);
+
 	*portscp = (*portscp & ~Psenable) | Psreset;	/* initiate reset */
-	coherence();
+	delay(10);
+	*portscp &= ~Psreset;
 
 	/*
 	 * usb 2 spec: reset must finish within 20 ms.
 	 * linux says spec says it can take 50 ms. for hubs.
 	 */
+	delay(10);
 	for(i = 0; *portscp & Psreset && i < 10; i++)
 		delay(10);
 	if (*portscp & Psreset)
-		if(0) iprint("ehci %#p: port %d didn't reset within %d ms; sts %#lux\n",
+		iprint("ehci %#p: port %d didn't reset within %d ms; sts %#lux\n",
 			ctlr->capio, port, i * 10, *portscp);
-	*portscp &= ~Psreset;		/* force appearance of reset done */
-	coherence();
-	delay(10);			/* ehci spec: enable within 2 ms. */
 
+	delay(10);			/* ehci spec: enable within 2 ms. */
 	if((*portscp & Psenable) == 0)
 		portlend(ctlr, port, "full");
 
