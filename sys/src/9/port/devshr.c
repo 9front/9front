@@ -375,10 +375,12 @@ shropen(Chan *c, int omode)
 	Sch *sch;
 	Shr *shr;
 	Mpt *mpt;
+	int mode;
 
 	if(c->qid.type == QTDIR && omode != OREAD)
 		error(Eisdir);
 
+	mode = openmode(omode);
 	sch = tosch(c);
 	switch(sch->level){
 	default:
@@ -389,14 +391,14 @@ shropen(Chan *c, int omode)
 	case Qshr:
 	case Qcshr:
 		shr = sch->shr;
-		devpermcheck(shr->owner, shr->perm, openmode(omode));
+		devpermcheck(shr->owner, shr->perm, mode);
 		break;
 	case Qcmpt:
 		if(omode&OTRUNC)
 			error(Eexist);
 		shr = sch->shr;
 		mpt = sch->mpt;
-		devpermcheck(mpt->owner, mpt->perm, openmode(omode));
+		devpermcheck(mpt->owner, mpt->perm, mode);
 		rlock(&shr->umh.lock);
 		if(mpt->m.to == nil || mpt->m.to->mchan == nil){
 			runlock(&shr->umh.lock);
@@ -405,14 +407,14 @@ shropen(Chan *c, int omode)
 		nc = mpt->m.to->mchan;
 		incref(nc);
 		runlock(&shr->umh.lock);
-		if(openmode(omode) != nc->mode){
+		if(mode != nc->mode){
 			cclose(nc);
 			error(Eperm);
 		}
 		cclose(c);
 		return nc;
 	}
-	c->mode = openmode(omode);
+	c->mode = mode;
 	c->flag |= COPEN;
 	c->offset = 0;
 	return c;
@@ -430,7 +432,9 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 	Mhead *h;
 	Mount *m;
 	Chan *nc;
+	int mode;
 
+	mode = openmode(omode);
 	sch = tosch(c);
 	switch(sch->level){
 	case Qcroot:
@@ -460,7 +464,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 	case Qcroot:
 		if(up->pgrp->noattach)
 			error(Enoattach);
-		if((perm & DMDIR) == 0 || openmode(omode) != OREAD)
+		if((perm & DMDIR) == 0 || mode != OREAD)
 			error(Eperm);
 		if(strlen(name) >= sizeof(up->genbuf))
 			error(Etoolong);
@@ -494,7 +498,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 	case Qcshr:
 		if(up->pgrp->noattach)
 			error(Enoattach);
-		if((perm & DMDIR) != 0 || openmode(omode) != OWRITE)
+		if((perm & DMDIR) != 0 || mode != OWRITE)
 			error(Eperm);
 
 		shr = sch->shr;
@@ -539,7 +543,7 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 		break;
 	}
 	c->flag |= COPEN;
-	c->mode = openmode(omode);
+	c->mode = mode;
 	return c;
 }
 

@@ -177,18 +177,28 @@ audioopen(Chan *c, int omode)
 	adev = ac->adev;
 	if(c->qid.path == Qaudio){
 		mode = openmode(omode);
-		if(mode == OWRITE || mode == ORDWR)
-			if(incref(&adev->audioopenw) != 1){
-				decref(&adev->audioopenw);
-				error(Ebusy);
-			}
-		if(mode == OREAD || mode == ORDWR)
-			if(incref(&adev->audioopenr) != 1){
+		if(waserror()){
+			if(mode == OREAD || mode == ORDWR)
 				decref(&adev->audioopenr);
-				if(mode == ORDWR)
-					decref(&adev->audioopenw);
+			nexterror();
+		}
+		if(mode == OREAD || mode == ORDWR)
+			if(incref(&adev->audioopenr) != 1)
 				error(Ebusy);
-			}
+
+		if(waserror()){
+			if(mode == OWRITE || mode == ORDWR)
+				decref(&adev->audioopenw);
+			nexterror();
+		}
+		if(mode == OWRITE || mode == ORDWR)
+			if(incref(&adev->audioopenw) != 1)
+				error(Ebusy);
+
+		c = devopen(c, omode, audiodir, nelem(audiodir), devgen);
+		poperror();
+		poperror();
+		return c;
 	}
 	return devopen(c, omode, audiodir, nelem(audiodir), devgen);
 }
