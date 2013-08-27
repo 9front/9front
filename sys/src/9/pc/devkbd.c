@@ -339,10 +339,15 @@ kbdopen(Chan *c, int omode)
 	if(!iseve())
 		error(Eperm);
 	if(c->qid.path == Qscancode){
-		if(incref(&kbd.ref) != 1){
+		if(waserror()){
 			decref(&kbd.ref);
-			error(Einuse);
+			nexterror();
 		}
+		if(incref(&kbd.ref) != 1)
+			error(Einuse);
+		c = devopen(c, omode, kbdtab, nelem(kbdtab), devgen);
+		poperror();
+		return c;
 	}
 	return devopen(c, omode, kbdtab, nelem(kbdtab), devgen);
 }
@@ -350,7 +355,7 @@ kbdopen(Chan *c, int omode)
 static void
 kbdclose(Chan *c)
 {
-	if(c->qid.path == Qscancode)
+	if((c->flag & COPEN) && c->qid.path == Qscancode)
 		decref(&kbd.ref);
 }
 
