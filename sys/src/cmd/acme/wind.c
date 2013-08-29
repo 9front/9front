@@ -23,6 +23,8 @@ wininit(Window *w, Window *clone, Rectangle r)
 	int nc;
 
 	w->tag.w = w;
+	w->taglines = 1;
+	w->tagexpand = TRUE;
 	w->body.w = w;
 	w->id = ++winid;
 	incref(w);
@@ -32,6 +34,8 @@ wininit(Window *w, Window *clone, Rectangle r)
 	w->utflastqid = -1;
 	r1 = r;
 	r1.max.y = r1.min.y + font->height;
+	w->tagtop = r;
+	w->tagtop.max.y = r.min.y + font->height;
 	incref(&reffont);
 	f = fileaddtext(nil, &w->tag);
 	textinit(&w->tag, f, r1, &reffont, tagcols);
@@ -48,7 +52,7 @@ wininit(Window *w, Window *clone, Rectangle r)
 		textsetselect(&w->tag, nc, nc);
 	}
 	r1 = r;
-	r1.min.y += font->height + 1;
+	r1.min.y += w->taglines*font->height + 1;
 	if(r1.max.y < r1.min.y)
 		r1.max.y = r1.min.y;
 	f = nil;
@@ -77,6 +81,7 @@ wininit(Window *w, Window *clone, Rectangle r)
 	w->autoindent = globalautoindent;
 	if(clone){
 		w->dirty = clone->dirty;
+		w->autoindent = clone->autoindent;
 		textsetselect(&w->body, clone->body.q0, clone->body.q1);
 		winsettag(w);
 		w->autoindent = clone->autoindent;
@@ -84,18 +89,106 @@ wininit(Window *w, Window *clone, Rectangle r)
 }
 
 int
+delrunepos(Window *w)
+{
+	int n;
+	Rune rune;
+	
+	for(n=0; n<w->tag.file->nc; n++) {
+		bufread(w->tag.file, n, &rune, 1);
+		if(rune == ' ')
+			break;
+	}
+	n += 2;
+	if(n >= w->tag.file->nc)
+		return -1;
+	return n;
+}
+
+void
+movetodel(Window *w)
+{
+	int n;
+	
+	n = delrunepos(w);
+	if(n < 0)
+		return;
+	moveto(mousectl, addpt(frptofchar(&w->tag, n), Pt(4, w->tag.font->height-4)));
+}
+
+/*
+ * Compute number of tag lines required
+ * to display entire tag text.
+ */
+int
+wintaglines(Window *w, Rectangle r)
+{
+	int n;
+	Rune rune;
+	Point p;
+
+	if(!w->tagexpand && !w->showdel)
+		return 1;
+	w->showdel = FALSE;
+	w->noredraw = 1;
+	textresize(&w->tag, r);
+	w->noredraw = 0;
+	w->tagsafe = FALSE;
+	
+	if(!w->tagexpand) {
+		/* use just as many lines as needed to show the Del */
+		n = delrunepos(w);
+		if(n < 0)
+			return 1;
+		p = subpt(frptofchar(&w->tag, n), w->tag.r.min);
+		return 1 + p.y / w->tag.font->height;
+	}
+		
+	/* can't use more than we have */
+	if(w->tag.nlines >= w->tag.maxlines)
+		return w->tag.maxlines;
+
+	/* if tag ends with \n, include empty line at end for typing */
+	n = w->tag.nlines;
+	if(w->tag.file->nc > 0){
+		bufread(w->tag.file, w->tag.file->nc-1, &rune, 1);
+		if(rune == '\n')
+			n++;
+	}
+	if(n == 0)
+		n = 1;
+	return n;
+}
+
+int
 winresize(Window *w, Rectangle r, int safe)
 {
+	int oy, mouseintag, mouseinbody;
+	Point p;
 	Rectangle r1;
 	int y;
 	Image *b;
 	Rectangle br;
 
+	mouseintag = ptinrect(mouse->xy, w->tag.all);
+	mouseinbody = ptinrect(mouse->xy, w->body.all);
+
+	w->tagtop = r;
+	w->tagtop.max.y = r.min.y+font->height;
+
 	r1 = r;
 	r1.max.y = r1.min.y + font->height;
+	r1.max.y = min(r.max.y, r1.min.y + w->taglines*font->height);
+
+	if(!safe || !w->tagsafe || !eqrect(w->tag.all, r1)){
+		w->taglines = wintaglines(w, r);
+		r1.max.y = min(r.max.y, r1.min.y + w->taglines*font->height);
+	}
+
 	y = r1.max.y;
 	if(!safe || !eqrect(w->tag.r, r1)){
-		y = textresize(&w->tag, r1);
+		textresize(&w->tag, r1);
+		y = w->tag.r.max.y;
 		b = button;
 		if(w->body.file->mod && !w->isdir && !w->isscratch)
 			b = modbutton;
@@ -103,26 +196,42 @@ winresize(Window *w, Rectangle r, int safe)
 		br.max.x = br.min.x + Dx(b->r);
 		br.max.y = br.min.y + Dy(b->r);
 		draw(screen, br, b, nil, b->r.min);
+
+		w->tagsafe = TRUE;
+
+		/* If mouse is in tag, pull up as tag closes. */
+		if(mouseintag && !ptinrect(mouse->xy, w->tag.all)){
+			p = mouse->xy;
+			p.y = w->tag.all.max.y-3;
+			moveto(mousectl, p);
+		}
+
+		/* If mouse is in body, push down as tag expands. */
+		if(mouseinbody && ptinrect(mouse->xy, w->tag.all)){
+			p = mouse->xy;
+			p.y = w->tag.all.max.y+3;
+			moveto(mousectl, p);
+		}
+
 	}
 	if(!safe || !eqrect(w->body.r, r1)){
-		if(y+1+font->height > r.max.y){		/* no body */
+		oy = y;
+		if(y+1+w->body.font->height <= r.max.y){	/* room for one line */
+  			r1.min.y = y;
+			r1.max.y = y+1;
+			draw(screen, r1, tagcols[BORD], nil, ZP);
+			y++;
+			r1.min.y = min(y, r.max.y);
+			r1.max.y = r.max.y;
+		}else{
 			r1.min.y = y;
 			r1.max.y = y;
-			textresize(&w->body, r1);
-			w->r = r;
-			w->r.max.y = y;
-			return y;
 		}
-		r1 = r;
-		r1.min.y = y;
-		r1.max.y = y + 1;
-		draw(screen, r1, tagcols[BORD], nil, ZP);
-		r1.min.y = y + 1;
-		r1.max.y = r.max.y;
 		y = textresize(&w->body, r1);
 		w->r = r;
 		w->r.max.y = y;
 		textscrdraw(&w->body);
+		w->body.all.min.y = oy;
 	}
 	w->maxlines = min(w->body.nlines, max(w->maxlines, w->body.maxlines));
 	return w->r.max.y;
@@ -170,7 +279,7 @@ winunlock(Window *w)
 void
 winmousebut(Window *w)
 {
-	moveto(mousectl, divpt(addpt(w->tag.scrollr.min, w->tag.scrollr.max), 2));
+	moveto(mousectl, addpt(w->tag.scrollr.min, divpt(Pt(Dx(w->tag.scrollr), font->height), 2)));
 }
 
 void
@@ -316,7 +425,7 @@ wincleartag(Window *w)
 void
 winsettag1(Window *w)
 {
-	int i, j, k, n, bar, dirty;
+	int i, j, k, n, bar, dirty, resize;
 	Rune *new, *old, *r;
 	Image *b;
 	uint q0, q1;
@@ -376,6 +485,9 @@ winsettag1(Window *w)
 			i += 6;
 		}
 	}
+
+	new[i] = 0;
+	/* replace tag if the new one is different */
 	if(runeeq(new, i, old, k) == FALSE){
 		n = k;
 		if(n > i)
@@ -414,6 +526,9 @@ winsettag1(Window *w)
 	br.max.x = br.min.x + Dx(b->r);
 	br.max.y = br.min.y + Dy(b->r);
 	draw(screen, br, b, nil, b->r.min);
+
+	w->tagsafe = 0;
+	winresize(w, w->r, TRUE);
 }
 
 void
@@ -557,7 +672,7 @@ winevent(Window *w, char *fmt, ...)
 	if(b == nil)
 		error("vsmprint failed");
 	n = strlen(b);
-	w->events = realloc(w->events, w->nevents+1+n);
+	w->events = erealloc(w->events, w->nevents+1+n);
 	w->events[w->nevents++] = w->owner;
 	memmove(w->events+w->nevents, b, n);
 	free(b);

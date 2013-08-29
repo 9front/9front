@@ -191,6 +191,7 @@ struct Text
 	int		ncachealloc;
 	Rune	*cache;
 	int	nofill;
+	int	needundo;
 };
 
 uint		textbacknl(Text*, uint, uint);
@@ -235,6 +236,8 @@ struct Window
 	uchar	filemenu;
 	uchar	dirty;
 	uchar	autoindent;
+	uchar	showdel;
+	uint		noredraw;
 	int		id;
 	Range	addr;
 	Range	limit;
@@ -263,6 +266,10 @@ struct Window
 	int		utflastqid;
 	int		utflastboff;
 	int		utflastq;
+	int		tagsafe;		/* taglines is correct */
+	int		tagexpand;
+	int		taglines;
+	Rectangle	tagtop;
 };
 
 void	wininit(Window*, Window*, Rectangle);
