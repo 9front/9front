@@ -425,7 +425,7 @@ wincleartag(Window *w)
 void
 winsettag1(Window *w)
 {
-	int i, j, k, n, bar, dirty, resize;
+	int i, j, k, n, bar, dirty;
 	Rune *new, *old, *r;
 	Image *b;
 	uint q0, q1;
