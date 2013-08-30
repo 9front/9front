@@ -1692,19 +1692,20 @@ portreset(Hci *hp, int port, int on)
 			ctlr->capio);
 
 	*portscp = (*portscp & ~Psenable) | Psreset;	/* initiate reset */
-	delay(10);
-	*portscp &= ~Psreset;
-
 	/*
 	 * usb 2 spec: reset must finish within 20 ms.
 	 * linux says spec says it can take 50 ms. for hubs.
 	 */
+	delay(50);
+	*portscp &= ~Psreset;	/* terminate reset */
+
 	delay(10);
 	for(i = 0; *portscp & Psreset && i < 10; i++)
 		delay(10);
+
 	if (*portscp & Psreset)
-		iprint("ehci %#p: port %d didn't reset within %d ms; sts %#lux\n",
-			ctlr->capio, port, i * 10, *portscp);
+		iprint("ehci %#p: port %d didn't reset; sts %#lux\n",
+			ctlr->capio, port, *portscp);
 
 	delay(10);			/* ehci spec: enable within 2 ms. */
 	if((*portscp & Psenable) == 0)
