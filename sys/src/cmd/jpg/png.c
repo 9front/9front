@@ -11,7 +11,6 @@ int	dflag = 0;
 int	eflag = 0;
 int	nineflag = 0;
 int	threeflag = 0;
-int	colorspace = CRGB;
 int	output = 0;
 ulong	outchan = CMAP8;
 Image	*image;
@@ -48,7 +47,6 @@ main(int argc, char *argv[])
 {
 	int fd, i;
 	char *err;
-	char buf[12+1];
 
 	ARGBEGIN{
 	case 'c':		/* produce encoded, compressed, bitmap file; no display by default */
@@ -70,9 +68,6 @@ main(int argc, char *argv[])
 	case 'k':		/* force black and white */
 		defaultcolor = 0;
 		outchan = GREY8;
-		break;
-	case 'r':
-		colorspace = CRGB;
 		break;
 	case '3':		/* produce encoded, compressed, three-color bitmap file; no display by default */
 		threeflag++;
@@ -99,16 +94,6 @@ main(int argc, char *argv[])
 		fprint(2, "usage: png [-39cdekrtv] [file.png ...]\n");
 		exits("usage");
 	}ARGEND;
-
-	if(dflag==0 && colorspace==CYCbCr){	/* see if we should convert right to RGB */
-		fd = open("/dev/screen", OREAD);
-		if(fd > 0){
-			buf[12] = '\0';
-			if(read(fd, buf, 12)==12 && chantodepth(strtochan(buf))>8)
-				colorspace = CRGB;
-			close(fd);
-		}
-	}
 
 	err = nil;
 	if(argc == 0)
@@ -146,7 +131,7 @@ show(int fd, char *name, int outc)
 	if(Binit(&b, fd, OREAD) < 0)
 		return nil;
 	outchan = outc;
-	array = Breadpng(&b, colorspace);
+	array = Breadpng(&b, CRGB);
 	if(array == nil || array[0]==nil){
 		fprint(2, "png: decode %s failed: %r\n", name);
 		return "decode";

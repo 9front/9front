@@ -4,7 +4,7 @@ jpg, gif, png, tif, ppm, bmp, v210, yuv, ico, tga, tojpg, togeordi, togif, toppm
 .SH SYNOPSIS
 .B jpg
 [
-.B -39cdefFkJrtv
+.B -39cdefFkJrtvy
 ] [
 .I file ...
 ]

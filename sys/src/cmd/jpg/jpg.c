@@ -110,7 +110,7 @@ main(int argc, char *argv[])
 			outchan = CMAP8;
 		break;
 	default:
-		fprint(2, "usage: jpg -39cdefFkJrtv [file.jpg ...]\n");
+		fprint(2, "usage: jpg -39cdefFkJrtvy [file.jpg ...]\n");
 		exits("usage");
 	}ARGEND;
 

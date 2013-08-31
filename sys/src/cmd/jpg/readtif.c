@@ -1,11 +1,13 @@
 /*
 * code/documentation:
 * http://partners.adobe.com/public/developer/en/tiff/TIFF6.pdf
-* http://paulbourke.net/dataformats/tiff/
 * http://www.fileformat.info/format/tiff/egff.htm
 * http://www.fileformat.info/mirror/egff/ch09_05.htm
 * http://www.itu.int/rec/T-REC-T.4-199904-S/en
 * http://www.itu.int/rec/T-REC-T.6-198811-I/en
+*
+* many thanks to paul bourke for a simple description of tiff:
+* http://paulbourke.net/dataformats/tiff/
 *
 * copy-pasted fax codes and lzw help:
 * http://www.remotesensing.org/libtiff/
@@ -1797,11 +1799,16 @@ readslave(Tif *t)
 }
 
 Rawimage **
-Breadtif(Biobuf *b)
+Breadtif(Biobuf *b, int colorspace)
 {
 	Rawimage **array, *r;
 	Tif *t;
 
+	if(colorspace != CRGB24) {
+		werrstr("unknown color space: %d",
+			colorspace);
+		return nil;
+	}
 	if((t = malloc(sizeof *t)) == nil)
 		return nil;
 	if((array = malloc(2*sizeof *array)) == nil)
@@ -1842,14 +1849,14 @@ Breadtif(Biobuf *b)
 }
 
 Rawimage **
-readtif(int fd)
+readtif(int fd, int colorspace)
 {
 	Rawimage **a;
 	Biobuf b;
 
 	if(Binit(&b, fd, OREAD) < 0)
 		return nil;
-	a = Breadtif(&b);
+	a = Breadtif(&b, colorspace);
 	Bterm(&b);
 	return a;
 }

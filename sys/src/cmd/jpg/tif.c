@@ -165,7 +165,7 @@ show(int fd, char *name, int outchan)
 
 	if(Binit(&b, fd, OREAD) < 0)
 		return nil;
-	array = Breadtif(&b);
+	array = Breadtif(&b, CRGB24);
 	if(array == nil || array[0] == nil) {
 		if(array != nil)
 			free(array);

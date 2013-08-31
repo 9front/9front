@@ -1,11 +1,13 @@
 /*
 * code/documentation:
 * http://partners.adobe.com/public/developer/en/tiff/TIFF6.pdf
-* http://paulbourke.net/dataformats/tiff/
 * http://www.fileformat.info/format/tiff/egff.htm
 * http://www.fileformat.info/mirror/egff/ch09_05.htm
 * http://www.itu.int/rec/T-REC-T.4-199904-S/en
 * http://www.itu.int/rec/T-REC-T.6-198811-I/en
+*
+* many thanks to paul bourke for a simple description of tiff:
+* http://paulbourke.net/dataformats/tiff/
 *
 * copy-pasted fax codes and copy-pasted lzw encoding
 * hash table implementation:
