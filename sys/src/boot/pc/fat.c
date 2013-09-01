@@ -329,7 +329,7 @@ findfat(Fat *fat, int drive, ulong xbase, ulong lba)
 		uchar echs[3];
 		uchar lba[4];
 		uchar len[4];
-	} *p;
+	} p[4];
 	uchar buf[Sectsz];
 	int i;
 
@@ -345,7 +345,7 @@ findfat(Fat *fat, int drive, ulong xbase, ulong lba)
 		if(!conffat(fat, buf))
 			return 0;
 	}
-	p = (void*)&buf[0x1be];
+	memmove(p, &buf[0x1be], sizeof(p));
 	for(i=0; i<4; i++){
 		switch(p[i].typ){
 		case 0x05:
@@ -360,6 +360,7 @@ findfat(Fat *fat, int drive, ulong xbase, ulong lba)
 		default:
 			if(p[i].status != 0x80)
 				continue;
+		case 0x39:	/* always try plan9 partition */
 			fat->drive = drive;
 			fat->partlba = lba + GETLONG(p[i].lba);
 			if(readsect(drive, fat->partlba, buf))
