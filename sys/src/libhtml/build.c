@@ -1187,7 +1187,7 @@ getitems(ItemSource* is, uchar* data, int datalen)
 				additem(ps, textit(ps, prompt), tok);
 				frm = newform(++is->nforms,
 						nil,
-						di->base,
+						_Strdup(di->base),
 						target,
 						HGet,
 						di->forms);
