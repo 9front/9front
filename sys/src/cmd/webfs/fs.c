@@ -810,4 +810,5 @@ main(int argc, char *argv[])
 	}
 
 	postmountsrv(&fs, srv, mtpt, MREPL);
+	exits(0);
 }
