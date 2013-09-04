@@ -253,7 +253,6 @@ struct Ifloat
 	int	y;		/* y coord of top */
 	uchar	side;		/* margin it floats to: ALleft or ALright */
 	uchar	infloats;	/* true if this has been added to a lay.floats */
-	Ifloat*	nextfloat;	/* in list of floats */
 };
 
 

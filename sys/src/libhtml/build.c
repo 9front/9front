@@ -54,6 +54,7 @@ struct ItemSource
 	int			ntables;
 	int			nanchors;
 	int			nframes;
+	Formfield*	curfield;
 	Form*		curform;
 	Map*		curmap;
 	Table*		tabstk;
@@ -358,11 +359,68 @@ newitemsource(Docinfo* di)
 	is->ntables = 0;
 	is->nanchors = 0;
 	is->nframes = 0;
+	is->curfield = nil;
 	is->curform = nil;
 	is->curmap = nil;
 	is->tabstk = nil;
 	is->kidstk = nil;
 	return is;
+}
+
+static void
+linkitems(Docinfo *di, Item *it)
+{
+	Formfield *ff;
+	Tablecell *c;
+	Table *tt;
+
+	while(it != nil){
+		switch(it->tag) {
+		case Iimagetag:
+			/* link image to docinfo */
+			((Iimage*)it)->nextimage = di->images;
+			di->images = (Iimage*)it;
+			break;
+		case Iformfieldtag:
+			/* link formfield to form */
+			ff = ((Iformfield*)it)->formfield;
+			if(ff != nil && ff->form != nil){
+				for(ff = ff->form->fields; ff != nil; ff = ff->next){
+					if(ff == ((Iformfield*)it)->formfield)
+						goto Next;
+					if(ff->next == nil)
+						break;
+				}
+				((Iformfield*)it)->formfield->next = nil;
+				if(ff != nil){
+					ff->next = ((Iformfield*)it)->formfield;
+					ff = ff->next;
+				} else {
+					ff = ((Iformfield*)it)->formfield;
+					ff->form->fields = ff;
+				}
+				linkitems(di, ff->image);
+			}
+			break;
+		case Itabletag:
+			/* link table to docinfo */
+			tt = ((Itable*)it)->table;
+			if(tt == nil)
+				break;
+			tt->tabletok = nil;
+			tt->next = di->tables;
+			di->tables = tt;
+			linkitems(di, tt->caption);
+			for(c = tt->cells; c != nil; c = c->next)
+				linkitems(di, c->content);
+			break;
+		case Ifloattag:
+			linkitems(di, ((Ifloat*)it)->item);
+			break;
+		}
+	Next:
+		it = it->next;
+	}
 }
 
 static Item *getitems(ItemSource* is, uchar* data, int datalen);
@@ -453,7 +511,6 @@ getitems(ItemSource* is, uchar* data, int datalen)
 	Rune*	script;
 	Map*	map;
 	Form*	frm;
-	Iimage*	ii;
 	Kidinfo*	kd;
 	Kidinfo*	ks;
 	Kidinfo*	pks;
@@ -693,19 +750,9 @@ getitems(ItemSource* is, uchar* data, int datalen)
 				bg = makebackground(nil, acolorval(tok, Abgcolor, di->background.color));
 				bgurl = aurlval(tok, Abackground, nil, di->base);
 				if(bgurl != nil) {
-					if(di->backgrounditem != nil){
-						Iimage **ii;
-						for(ii=&di->images; *ii != nil; ii = &((*ii)->nextimage)){
-							if(*ii == di->backgrounditem){
-								*ii = di->backgrounditem->nextimage;
-								break;
-							}
-						}
+					if(di->backgrounditem != nil)
 						freeitem(di->backgrounditem);
-					}
 					di->backgrounditem = (Iimage*)newiimage(bgurl, nil, ALnone, 0, 0, 0, 0, 0, 0, nil);
-					di->backgrounditem->nextimage = di->images;
-					di->images = di->backgrounditem;
 				}
 				ps->curbg = bg;
 				di->background = bg;
@@ -902,8 +949,6 @@ getitems(ItemSource* is, uchar* data, int datalen)
 						fprint(2, "warning: unexpected </FORM>\n");
 					continue;
 				}
-				// put fields back in input order
-				is->curform->fields = (Formfield*)_revlist((List*)is->curform->fields);
 				is->curform = nil;
 				break;
 
@@ -1092,10 +1137,6 @@ getitems(ItemSource* is, uchar* data, int datalen)
 					ps->skipwhite = 0;
 					additem(ps, img, tok);
 				}
-				if(!ps->skipping) {
-					((Iimage*)img)->nextimage = di->images;
-					di->images = (Iimage*)img;
-				}
 				ps->curanchor = oldcuranchor;
 				break;
 
@@ -1107,7 +1148,7 @@ getitems(ItemSource* is, uchar* data, int datalen)
 						fprint(2, "<INPUT> not inside <FORM>\n");
 					continue;
 				}
-				is->curform->fields = field = newformfield(
+				field = newformfield(
 						atabval(tok, Atype, input_tab, NINPUTTAB, Ftext),
 						++is->curform->nfields,
 						is->curform,
@@ -1115,7 +1156,7 @@ getitems(ItemSource* is, uchar* data, int datalen)
 						aval(tok, Avalue),
 						auintval(tok, Asize, 0),
 						auintval(tok, Amaxlength, 1000),
-						is->curform->fields);
+						nil);
 				if(aflagval(tok, Achecked))
 					field->flags = FFchecked;
 
@@ -1167,9 +1208,6 @@ getitems(ItemSource* is, uchar* data, int datalen)
 						atabval(tok, Aalign, align_tab, NALIGNTAB, ALbottom),
 						auintval(tok, Awidth, 0), auintval(tok, Aheight, 0),
 						0, 0, 0, 0, nil);
-					ii = (Iimage*)field->image;
-					ii->nextimage = di->images;
-					di->images = ii;
 					break;
 
 				case Freset:
@@ -1202,15 +1240,13 @@ getitems(ItemSource* is, uchar* data, int datalen)
 						di->forms);
 				di->forms = frm;
 				ff = newformfield(Ftext,
-						1,
+						++frm->nfields,
 						frm,
 						_Strdup(L"_ISINDEX_"),
 						nil,
 						50,
 						1000,
 						nil);
-				frm->fields = ff;
-				frm->nfields = 1;
 				additem(ps, newiformfield(ff), tok);
 				addbrk(ps, 1, 0);
 				break;
@@ -1407,15 +1443,14 @@ getitems(ItemSource* is, uchar* data, int datalen)
 						fprint(2, "<SELECT> not inside <FORM>\n");
 					continue;
 				}
-				field = newformfield(Fselect,
+				is->curfield = field = newformfield(Fselect,
 					++is->curform->nfields,
 					is->curform,
 					aval(tok, Aname),
 					nil,
 					auintval(tok, Asize, 0),
 					0,
-					is->curform->fields);
-				is->curform->fields = field;
+					nil);
 				if(aflagval(tok, Amultiple))
 					field->flags = FFmultiple;
 				ffit = newiformfield(field);
@@ -1429,16 +1464,17 @@ getitems(ItemSource* is, uchar* data, int datalen)
 				break;
 
 			case Tselect+RBRA:
-				if(is->curform == nil || is->curform->fields == nil) {
+				if(is->curform == nil || is->curfield == nil) {
 					if(warn)
 						fprint(2, "warning: unexpected </SELECT>\n");
 					continue;
 				}
-				field = is->curform->fields;
+				field = is->curfield;
 				if(field->ftype != Fselect)
 					continue;
 				// put options back in input order
 				field->options = (Option*)_revlist((List*)field->options);
+				is->curfield = nil;
 				break;
 
 			// <!ELEMENT (STRIKE|U) - - (%text)*>
@@ -1553,8 +1589,6 @@ getitems(ItemSource* is, uchar* data, int datalen)
 				}
 				else
 					is->tabstk = is->tabstk->next;
-				curtab->next = di->tables;
-				di->tables = curtab;
 				curtab = is->tabstk;
 				if(!isempty)
 					addbrk(ps, 0, 0);
@@ -1649,8 +1683,7 @@ getitems(ItemSource* is, uchar* data, int datalen)
 					nil,
 					0,
 					0,
-					is->curform->fields);
-				is->curform->fields = field;
+					nil);
 				field->rows = auintval(tok, Arows, 3);
 				field->cols = auintval(tok, Acols, 50);
 				field->value = getpcdata(toks, tokslen, &toki);
@@ -1803,8 +1836,6 @@ getitems(ItemSource* is, uchar* data, int datalen)
 		}
 		if(is->tabstk != nil)
 			is->tabstk = is->tabstk->next;
-		curtab->next = di->tables;
-		di->tables = curtab;
 		curtab = is->tabstk;
 	}
 	outerps = lastps(ps);
@@ -1828,6 +1859,7 @@ return_ans:
 		else
 			printitems(ans, "getitems returning:");
 	}
+	linkitems(di, ans);
 	_freetokens(toks, tokslen);
 	return ans;
 }
@@ -3738,7 +3770,6 @@ newtable(int tableid, Align align, Dimen width, int border,
 	t->caption_place = ALbottom;
 	t->caption_lay = nil;
 	t->tabletok = tok;
-	t->tabletok = nil;
 	t->next = link;
 	return t;
 }
