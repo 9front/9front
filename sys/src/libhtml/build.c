@@ -693,10 +693,16 @@ getitems(ItemSource* is, uchar* data, int datalen)
 				bg = makebackground(nil, acolorval(tok, Abgcolor, di->background.color));
 				bgurl = aurlval(tok, Abackground, nil, di->base);
 				if(bgurl != nil) {
-					if(di->backgrounditem != nil)
-						freeitem((Item*)di->backgrounditem);
-						// really should remove old item from di->images list,
-						// but there should only be one BODY element ...
+					if(di->backgrounditem != nil){
+						Iimage **ii;
+						for(ii=&di->images; *ii != nil; ii = &((*ii)->nextimage)){
+							if(*ii == di->backgrounditem){
+								*ii = di->backgrounditem->nextimage;
+								break;
+							}
+						}
+						freeitem(di->backgrounditem);
+					}
 					di->backgrounditem = (Iimage*)newiimage(bgurl, nil, ALnone, 0, 0, 0, 0, 0, 0, nil);
 					di->backgrounditem->nextimage = di->images;
 					di->images = di->backgrounditem;
@@ -747,8 +753,11 @@ getitems(ItemSource* is, uchar* data, int datalen)
 						fprint(2, "warning: unexpected </CAPTION>\n");
 					continue;
 				}
+				if(curtab->caption != nil)
+					freeitems(curtab->caption);
 				curtab->caption = ps->items->next;
-				free(ps);
+				ps->items->next = nil;
+				freepstate(ps);
 				ps = nextps;
 				break;
 
@@ -1694,6 +1703,7 @@ getitems(ItemSource* is, uchar* data, int datalen)
 						fprint(2, "warning: empty row\n");
 					curtab->rows = tr->next;
 					tr->next = nil;
+					free(tr);
 				}
 				else
 					tr->flags = 0;
@@ -1803,6 +1813,7 @@ getitems(ItemSource* is, uchar* data, int datalen)
 	// note: ans may be nil and di->kids not nil, if there's a frameset!
 	outerps->items = newispacer(ISPnull);
 	outerps->lastit = outerps->items;
+	outerps->prelastit = nil;
 	is->psstk = ps;
 	if(ans != nil && di->hasscripts) {
 		// TODO evalscript(nil);
@@ -1817,6 +1828,7 @@ return_ans:
 		else
 			printitems(ans, "getitems returning:");
 	}
+	_freetokens(toks, tokslen);
 	return ans;
 }
 
@@ -1892,7 +1904,10 @@ finishcell(Table* curtab, Pstate* psstk)
 					fprint(2, "warning: parse state stack is wrong\n");
 			}
 			else {
+				if(c->content != nil)
+					freeitems(c->content);
 				c->content = psstk->items->next;
+				psstk->items->next = nil;
 				c->flags &= ~TFparsing;
 				freepstate(psstk);
 				psstk = psstknext;
@@ -1977,6 +1992,7 @@ additem(Pstate* ps, Item* it, Token* tok)
 	if(ps->skipping) {
 		if(warn)
 			fprint(2, "warning: skipping item: %I\n", it);
+		freeitem(it);
 		return;
 	}
 	it->anchorid = ps->curanchor;
@@ -2213,6 +2229,7 @@ addbrk(Pstate* ps, int sp, int clr)
 			// try to avoid making empty items
 			// but not crucial f the occasional one gets through
 			if(nl == 0 && ps->prelastit != nil) {
+				freeitems(ps->lastit);
 				ps->lastit = ps->prelastit;
 				ps->lastit->next = nil;
 				ps->prelastit = nil;
@@ -2474,6 +2491,7 @@ finish_table(Table* t)
 		// copy the data from the allocated Tablerow into the array slot
 		t->rows[r] = *row;
 		rownext = row->next;
+		free(row);
 		row = &t->rows[r];
 		r--;
 		rcols = 0;
@@ -2482,7 +2500,7 @@ finish_table(Table* t)
 		// If rowspan is > 1 but this is the last row,
 		// reset the rowspan
 		if(c != nil && c->rowspan > 1 && r == nrow-2)
-				c->rowspan = 1;
+			c->rowspan = 1;
 
 		// reverse row->cells list (along nextinrow pointers)
 		row->cells = nil;
@@ -3220,6 +3238,7 @@ freeitem(Item* it)
 		free(ga->style);
 		free(ga->title);
 		freescriptevents(ga->events);
+		free(ga);
 	}
 	free(it);
 }
@@ -3250,6 +3269,7 @@ freeformfield(Formfield* ff)
 
 	free(ff->name);
 	free(ff->value);
+	freeitem(ff->image);
 	for(o = ff->options; o != nil; o = onext) {
 		onext = o->next;
 		free(o->value);
@@ -3273,6 +3293,7 @@ freetable(Table* t)
 	for(c = t->cells; c != nil; c = cnext) {
 		cnext = c->next;
 		freeitems(c->content);
+		free(c);
 	}
 	if(t->grid != nil) {
 		for(i = 0; i < t->nrow; i++)
@@ -3428,7 +3449,8 @@ freedocinfo(Docinfo* d)
 		return;
 	free(d->src);
 	free(d->base);
-	freeitem((Item*)d->backgrounditem);
+	free(d->doctitle);
+	freeitem(d->backgrounditem);
 	free(d->refresh);
 	freekidinfos(d->kidinfo);
 	freeanchors(d->anchors);
@@ -3440,11 +3462,10 @@ freedocinfo(Docinfo* d)
 	free(d);
 }
 
-// Currently, someone else owns all the memory
-// pointed to by things in a Pstate.
 static void
 freepstate(Pstate* p)
 {
+	freeitems(p->items);
 	free(p);
 }
 
@@ -3456,7 +3477,7 @@ freepstatestack(Pstate* pshead)
 
 	for(p = pshead; p != nil; p = pnext) {
 		pnext = p->next;
-		free(p);
+		freepstate(p);
 	}
 }
 

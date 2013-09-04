@@ -328,9 +328,12 @@ _Strncmpci(Rune *s1, int n1, Rune *s2)
 Rune*
 _Strdup(Rune* s)
 {
+	Rune* ans;
 	if(s == nil)
 		return nil;
-	return _Strndup(s, runestrlen(s));
+	ans = _Strndup(s, runestrlen(s));
+	setmalloctag(ans, getcallerpc(&s));
+	return ans;
 }
 
 // emalloc and copy n chars of s (assume s is at least that long),
@@ -346,6 +349,7 @@ _Strndup(Rune* s, int n)
 	ans = _newstr(n);
 	memmove(ans, s, n*sizeof(Rune));
 	ans[n] = 0;
+	setmalloctag(ans, getcallerpc(&s));
 	return ans;
 }
 // emalloc enough room for n Runes, plus 1 null terminator.
@@ -353,7 +357,11 @@ _Strndup(Rune* s, int n)
 Rune*
 _newstr(int n)
 {
-	return (Rune*)emalloc((n+1)*sizeof(Rune));
+	Rune* ans;
+
+	ans = (Rune*)emalloc((n+1)*sizeof(Rune));
+	setmalloctag(ans, getcallerpc(&n));
+	return ans;
 }
 
 // emalloc and copy s+t
@@ -372,6 +380,7 @@ _Strdup2(Rune* s, Rune* t)
 	p = _Stradd(ans, s, ns);
 	p = _Stradd(p, t, nt);
 	*p = 0;
+	setmalloctag(ans, getcallerpc(&s));
 	return ans;
 }
 
@@ -384,6 +393,7 @@ _Strsubstr(Rune* s, int start, int stop)
 	if(start == stop)
 		return nil;
 	t = _Strndup(s+start, stop-start);
+	setmalloctag(t, getcallerpc(&s));
 	return t;
 }
 
@@ -530,6 +540,7 @@ toStr(uchar* buf, int n, int chset)
 		ans = nil;
 		assert(0);
 	}
+	setmalloctag(ans, getcallerpc(&buf));
 	return ans;
 }
 
@@ -575,6 +586,6 @@ fromStr(Rune* buf, int n, int chset)
 	default:
 		assert(0);
 	}
+	setmalloctag(ans, getcallerpc(&buf));
 	return ans;
-
 }
