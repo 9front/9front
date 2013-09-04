@@ -443,10 +443,13 @@ initfontpaths(void)
 {
 	Biobufhdr *bp;
 	char buf[128];
+	char *s;
 	int i;
 
 	/* we don't care if getenv(2) fails */
-	snprint(buf, sizeof(buf)-1, "%s/lib/abaco.fonts", getenv("home"));
+	s = getenv("home");
+	snprint(buf, sizeof(buf)-1, "%s/lib/abaco.fonts", s);
+	free(s);
 	if((bp=Bopen(buf, OREAD)) == nil)
 		goto Default;
 
@@ -658,66 +661,52 @@ validurl(Rune *r)
 static void
 execproc(void *v)
 {
-	Channel *sync;
 	Exec *e;
-	int p[2], q[2];
-	char *cmd;
 
 	threadsetname("execproc");
 	e = v;
-	p[0] = e->p[0];
-	p[1] = e->p[1];
-	q[0] = e->q[0];
-	q[1] = e->q[1];
-	cmd = e->cmd;
-	sync = e->sync;
 	rfork(RFFDG);
-	free(e);
-	dup(p[0], 0);
-	close(p[0]);
-	close(p[1]);
-	if(q[0]){
-		dup(q[1], 1);
-		close(q[0]);
-		close(q[1]);
+	dup(e->p[0], 0);
+	close(e->p[0]);
+	close(e->p[1]);
+	if(e->q[0]){
+		dup(e->q[1], 1);
+		close(e->q[0]);
+		close(e->q[1]);
 	}
 	if(!procstderr)
 		close(2);
-	procexecl(sync, "/bin/rc", "rc", "-c", cmd, 0);
+	procexecl(e->sync, "/bin/rc", "rc", "-c", e->cmd, 0);
 	error("can't exec");
 }
 
 int
 pipeline(int fd, char *cmd, ...)
 {
-	Channel *sync;
 	Exec *e;
-	int p[2], q[2];
 	va_list a;
 
-	if(pipe(p)<0 || pipe(q)<0)
-		error("can't create pipe");
-	close(p[0]);
-	p[0] = fd;
-	sync = chancreate(sizeof(ulong), 0);
-	if(sync == nil)
-		error("can't create channel");
 	e = emalloc(sizeof(Exec));
-	e->p[0] = p[0];
-	e->p[1] = p[1];
-	e->q[0] = q[0];
-	e->q[1] = q[1];
+	if(pipe(e->p)<0 || pipe(e->q)<0)
+		error("can't create pipe");
+	close(e->p[0]);
+	e->p[0] = fd;
 	va_start(a, cmd);
 	e->cmd = vsmprint(cmd, a);
 	va_end(a);
-	e->sync = sync;
+	e->sync = chancreate(sizeof(ulong), 0);
+	if(e->sync == nil)
+		error("can't create channel");
 	proccreate(execproc, e, STACK);
-	recvul(sync);
-	chanfree(sync);
-	close(p[0]);
-	close(p[1]);
-	close(q[1]);
-	return q[0];
+	recvul(e->sync);
+	chanfree(e->sync);
+	free(e->cmd);
+	close(e->p[0]);
+	close(e->p[1]);
+	close(e->q[1]);
+	fd = e->q[0];
+	free(e);
+	return fd;
 }
 
 static

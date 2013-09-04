@@ -731,7 +731,7 @@ boxalloc(Line *l, Item *i, Rectangle r)
 		l->lastbox->next = b;
 	}
 	l->lastbox = b;
-
+	setmalloctag(b, getcallerpc(&l));
 	return b;
 }
 
@@ -961,8 +961,9 @@ layitems(Item *items, Rectangle r, int laying)
 void
 laypage(Page *p)
 {
-	settables(p);
 	layfree(p->lay);
+	p->lay = nil;
+	settables(p);
 	p->lay = layitems(p->items, Rect(0,0,Dx(p->r),Dy(p->r)), TRUE);
 	p->lay->r.max.y = max(p->lay->r.max.y, Dy(p->r));
 }
@@ -1015,16 +1016,17 @@ layfree(Lay *lay)
 	for(l=lay->lines; l!=nil; l=nextline){
 		for(b=l->boxes; b!=nil; b=nextbox){
 			nextbox = b->next;
-			if(b->i->tag==Iformfieldtag && istextfield(b->i)){
-				aux = &((Iformfield *)b->i)->aux;
-				if(*aux){
-					textclose(*aux);
-					free(*aux);
-				}
-				*aux = nil;
-			}else if(b->i->tag == Itabletag)
-				laytablefree(((Itable *)b->i)->table);
-
+			if(lay->laying==TRUE){
+				if(b->i->tag==Iformfieldtag && istextfield(b->i)){
+					aux = &((Iformfield *)b->i)->aux;
+					if(*aux){
+						textclose(*aux);
+						free(*aux);
+					}
+					*aux = nil;
+				}else if(b->i->tag == Itabletag)
+					laytablefree(((Itable *)b->i)->table);
+			}
 			free(b);
 		}
 		nextline = l->next;
