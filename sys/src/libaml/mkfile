@@ -3,6 +3,9 @@
 LIB=/$objtype/lib/libaml.a
 OFILES=\
 	aml.$O\
+	amlmapio.$O\
+	amlunmapio.$O\
+	amlalloc.$O\
 
 HFILES=/sys/include/aml.h
 

@@ -6,7 +6,6 @@ typedef struct Interp Interp;
 typedef struct Frame Frame;
 typedef struct Heap Heap;
 
-typedef struct Package Package;
 typedef struct Method Method;
 typedef struct Region Region;
 typedef struct Field Field;
@@ -27,17 +26,6 @@ struct Heap {
 #define D2H(d)	(((Heap*)(d))-1)
 #define TAG(d)	D2H(d)->tag
 #define SIZE(d)	D2H(d)->size
-
-enum {
-	MemSpace	= 0x00,
-	IoSpace		= 0x01,
-	PcicfgSpace	= 0x02,
-	EbctlSpace	= 0x03,
-	SmbusSpace	= 0x04,
-	CmosSpace	= 0x05,
-	PcibarSpace	= 0x06,
-	IpmiSpace	= 0x07,
-};
 
 static char *spacename[] = {
 	"Mem", 
@@ -68,11 +56,6 @@ enum {
 	UpdateMask	= 0x60,
 };
 
-struct Package {
-	int	n;
-	void	*a[];
-};
-
 struct Method {
 	Name	*name;
 	int	narg;
@@ -82,11 +65,8 @@ struct Method {
 };
 
 struct Region {
-	Name	*name;
-	int	space;
-	uvlong	off;
-	uvlong	len;
-	uchar	*va;	/* non nil when mapped */
+	Amlio;
+	char	mapped;
 };
 
 struct Field {
@@ -162,7 +142,7 @@ enum {
 	Oreg, Ofld, Oxfld, Opkg, Ovpkg, Oenv, Obuf, Omet, 
 	Odev, Ocpu, Othz, Oprc,
 	Oadd, Osub, Omod, Omul, Odiv, Oshl, Oshr, Oand, Onand, Oor,
-	Onor, Oxor, Onot, Oinc, Odec,
+	Onor, Oxor, Onot, Olbit, Orbit, Oinc, Odec,
 	Oland, Olor, Olnot, Oleq, Olgt, Ollt,
 	Oindex, Omutex, Oevent,
 	Ocfld, Ocfld0, Ocfld1, Ocfld2, Ocfld4, Ocfld8,
@@ -191,14 +171,13 @@ gcmark(void *p)
 	Field *f;
 	Heap *h;
 	Name *n, *d;
-	Package *a;
 
 	if(p == nil)
 		return;
 	h = D2H(p);
-	if(h->mark)
+	if(h->mark & 1)
 		return;
-	h->mark = 1;
+	h->mark |= 1;
 	switch(h->tag){
 	case 'E':
 		e = p;
@@ -221,9 +200,8 @@ gcmark(void *p)
 		gcmark(n->up);
 		break;
 	case 'p':
-		a = p;
-		for(i=0; i<a->n; i++)
-			gcmark(a->a[i]);
+		for(i=0; i<(SIZE(p)/sizeof(void*)); i++)
+			gcmark(((void**)p)[i]);
 		break;
 	case 'r':
 		gcmark(((Region*)p)->name);
@@ -249,7 +227,11 @@ gc(void)
 	Frame *f;
 
 	for(h = hp; h; h = h->link)
-		h->mark = 0;
+		h->mark &= ~1;
+
+	for(h = hp; h; h = h->link)
+		if(h->mark & 2)
+			gcmark(H2D(h));
 
 	for(f = FP; f >= FB; f--){
 		for(i=0; i<f->narg; i++)
@@ -271,8 +253,17 @@ gc(void)
 		*hh = h->link;
 		if(h->tag == 'r'){
 			Region *r = (void*)H2D(h);
-
-			/* TODO: unmap region */
+			if(r->mapped > 0){
+				if(amldebug)
+					print("\namlunmapio(%N): %-8s %llux - %llux\n", 
+						(Name*)r->name, spacename[r->space],
+						r->off, r->off + r->len);
+				amlunmapio(r);
+			}
+			r->mapped = 0;
+			r->write = nil;
+			r->read = nil;
+			r->aux = nil;
 			r->va = nil;
 		}
 		memset(h, ~0, sizeof(Heap)+h->size);
@@ -439,45 +430,118 @@ getname(Name *dot, char *path, int new)
 	return dot;
 }
 
+static int
+fixnames(void *dot, void *arg)
+{
+	void **r, *v;
+	int i;
+
+	if(arg == nil)
+		r = &((Name*)dot)->v;
+	else
+		r = arg;
+	v = *r;
+	if(v == nil || v == dot)
+		return 0;
+	if(TAG(v) == 'p'){
+		r = (void**)v;
+		for(i=0; i<(SIZE(r)/sizeof(void*)); i++)
+			fixnames(dot, r+i);
+		return 0;
+	}
+	if(TAG(v) == 'n' && (v = getname(dot, v, 0)) != nil)
+		*r = v;
+	return 0;
+}
+
+static uvlong
+getle(uchar *p, int len)
+{
+	uvlong v;
+	int i;
+
+	for(i=0; i<len; i++)
+		v |= ((uvlong)p[i]) << i*8;
+	return v;
+}
+
+static void
+putle(uchar *p, int len, uvlong v)
+{
+	int i;
+
+	for(i=0; i<len; i++){
+		p[i] = v;
+		v >>= 8;
+	}
+}
+
 static uvlong
 rwreg(void *reg, int off, int len, uvlong v, int write)
 {
+	uchar buf[8], *p;
 	Region *r;
-	uchar *p;
-	int i;
 
 	switch(TAG(reg)){
 	case 'b':
 		p = reg;
 		if((off+len) > SIZE(p))
 			break;
-	RWMem:
-		if(write){
-			for(i=0; i<len; i++){
-				p[off+i] = v & 0xFF;
-				v >>= 8;
-			}
-		} else {
-			for(i=0; i<len; i++)
-				v |= ((uvlong)p[off+i]) << i*8;
-		}
+		p += off;
+		if(write)
+			putle(p, len, v);
+		else
+			v = getle(p, len);
 		return v;
+
 	case 'r':
 		r = reg;
 		if((off+len) > r->len)
 			break;
-		if(amldebug){
-			print("\nrwreg: %s %-8s [%llux+%x]/%d %llux\n", 
-				write ? "W" : "R", 
-				spacename[r->space],
-				r->off, off, len, v);
+		if(r->mapped == 0){
+			if(amldebug)
+				print("\namlmapio(%N): %-8s %llux - %llux\n", 
+					(Name*)r->name, spacename[r->space],
+					r->off, r->off + r->len);
+			r->mapped = 1;
+			if(amlmapio(r) < 0)
+				r->mapped = -1;
 		}
-		/* TODO: map region */
-		if(r->va != nil){
+		if(r->mapped <= 0)
+			break;
+
+		if(r->va != nil)
 			p = r->va + off;
-			goto RWMem;
+		else {
+			if(len > sizeof(buf))
+				break;
+			p = buf;
 		}
-		break;
+
+		if(write){
+			if(amldebug)
+				print("\nrwreg(%N): %-8s [%llux+%x]/%d <- %llux\n", 
+					(Name*)r->name, spacename[r->space],
+					r->off, off, len, v);
+			putle(p, len, v);
+			if(r->write != nil){
+				if((*r->write)(r, p, len, off) != len)
+					break;
+			} else if(p == buf)
+				break;
+		} else {
+			if(r->read != nil){
+				if((*r->read)(r, p, len, off) != len)
+					break;
+			} else if(p == buf)
+				break;
+			v = getle(p, len);
+			if(amldebug)
+				print("\nrwreg(%N): %-8s [%llux+%x]/%d -> %llux\n", 
+					(Name*)r->name, spacename[r->space],
+					r->off, off, len, v);
+		}
+		return v;
 	}
 
 	return ~0;
@@ -549,10 +613,7 @@ rwfield(Field *f, void *v, int write)
 		} else {
 			w = ival(v);
 			b = mk('b', (blen+7)/8);
-			for(i=0; i<SIZE(b); i++){
-				b[i] = w & 0xFF;
-				w >>= 8;
-			}
+			putle(b, SIZE(b), w);
 		}
 	} else
 		b = mk('b', (blen+7)/8);
@@ -568,10 +629,10 @@ rwfield(Field *f, void *v, int write)
 			w = 0;
 			for(i = 0; i < wl; i++, boff++)
 				if(b[boff/8] & (1<<(boff%8)))
-					w |= 1LL<<i;
+					w |= 1ULL<<i;
 			w <<= ws;
 			if(wl != wd){
-				m = ((1LL<<wl)-1) << ws;
+				m = ((1ULL<<wl)-1) << ws;
 				w |= rwreg(reg, wo*wa, wa, 0, 0) & ~m;
 			}
 			rwreg(reg, wo*wa, wa, w, 1);
@@ -587,10 +648,7 @@ rwfield(Field *f, void *v, int write)
 		return nil;
 	if(blen > 64)
 		return b;
-
-	w = 0;
-	for(i=0; i<SIZE(b); i++)
-		w |= ((uvlong)b[i]) << i*8;
+	w = getle(b, SIZE(b));
 	return mki(w);
 }
 
@@ -755,7 +813,6 @@ Vfmt(Fmt *f)
 	Field *l;
 	Name *nm;
 	Method *m;
-	Package *a;
 	Region *g;
 	Ref *r;
 
@@ -777,17 +834,19 @@ Vfmt(Fmt *f)
 			return fmtprint(f, "Arg%ld=%V", r->ptr - e->arg, *r->ptr);
 		if(c == 'L')
 			return fmtprint(f, "Local%ld=%V", r->ptr - e->loc, *r->ptr);
+	case 'n':
+		return fmtprint(f, "%s", (char*)p);
 	case 's':
 		return fmtprint(f, "\"%s\"", (char*)p);
 	case 'i':
 		return fmtprint(f, "%#llux", *((uvlong*)p));
 	case 'p':
-		a = p;
-		fmtprint(f, "Package(%d){", a->n);
-		for(i=0; i<a->n; i++){
+		n = SIZE(p)/sizeof(void*);
+		fmtprint(f, "Package(%d){", n);
+		for(i=0; i<n; i++){
 			if(i > 0)
 				fmtprint(f, ", ");
-			fmtprint(f, "%V", a->a[i]);
+			fmtprint(f, "%V", ((void**)p)[i]);
 		}
 		fmtprint(f, "}");
 		return 0;
@@ -1015,7 +1074,7 @@ xec(uchar *pc, uchar *end, Name *dot, Env *env, void **pret)
 		}
 		if(FP < FB){
 			if(pret){
-				if(amldebug) print(" => %V\n", r);
+				if(amldebug) print(" -> %V\n", r);
 				*pret = r;
 			}
 			return 0;
@@ -1031,23 +1090,25 @@ Out:
 static void*
 evalnamec(void)
 {
-	int s, c, new;
-	Name *x, *dot;
+	static char name[1024];
+	char *d;
+	void *r;
+	int c;
 
-	dot = FP->dot;
-	new = FP->tag == 'N';
-	s = !new;
 	c = 1;
+	d = name;
 	PC = FP->start;
-	if(*PC == '\\'){
-		PC++;
-		dot = rootname(dot);
-		s = 0;
-	}
+	if(*PC == '\\')
+		*d++ = *PC++;
 	while(*PC == '^'){
-		PC++;
-		dot = dot->up;
-		s = 0;
+		if(d >= &name[sizeof(name)-1]){
+		Toolong:
+			*d = 0;
+			print("aml: name too long: %s\n", name);
+			PC = FP->end;
+			return nil;
+		}
+		*d++ = *PC++;
 	}
 	if(*PC == '.'){
 		PC++;
@@ -1058,23 +1119,25 @@ evalnamec(void)
 	} else if(*PC == 0){
 		PC++;
 		c = 0;
-	} else if(s){
-		for(;;){
-			if(x = getseg(dot, PC, 0))
-				break;
-			if(dot == dot->up)
-				break;
-			dot = dot->up;
-		}
-		PC += 4;
-		return x;
 	}
 	while(c > 0){
-		dot = getseg(dot, PC, new);
-		PC += 4;
-		c--;
+		if(d >= &name[sizeof(name)-5])
+			goto Toolong;
+		*d++ = *PC++;
+		*d++ = *PC++;
+		*d++ = *PC++;
+		*d++ = *PC++;
+		while((d > &name[0]) && (d[-1] == '_' || d[-1] == 0))
+			d--;
+		if(--c > 0)
+			*d++ = '.';
 	}
-	return dot;
+	*d = 0;
+	if((r = getname(FP->dot, name, FP->tag == 'N')) == nil){
+		r = mks(name);
+		D2H(r)->tag = 'n';	/* unresolved name */
+	}
+	return r;
 }
 
 static void*
@@ -1114,22 +1177,20 @@ evalbuf(void)
 static void*
 evalpkg(void)
 {
-	Package *p;
-	void **x;
+	void **p, **x;
 	int n;
 
 	if((p = FP->ref) != nil){
 		x = FP->aux;
-		if(x >= &p->a[0] && x < &p->a[p->n]){
+		if(x >= p && x < (p+(SIZE(p)/sizeof(void*)))){
 			*x++ = FP->arg[0];
 			FP->aux = x;
 		}
 	}else {
 		n = ival(FP->arg[0]);
 		if(n < 0) n = 0;
-		p = mk('p', sizeof(Package) + n*sizeof(void*));
-		p->n = n;
-		FP->aux = p->a;
+		p = mk('p', n*sizeof(void*));
+		FP->aux = p;
 		FP->ref = p;
 	}
 	return p;
@@ -1176,7 +1237,7 @@ evalmet(void)
 	Name *n;
 	Method *m;
 
-	if(n = FP->arg[0]){
+	if((n = FP->arg[0]) != nil){
 		m = mk('m', sizeof(Method));
 		m->narg = ival(FP->arg[1]) & 7;
 		m->start = PC;
@@ -1568,14 +1629,14 @@ evalindex(void)
 		store(f, FP->arg[2]);
 		return f;
 	case 'p':
-		if(x < 0 || x >= ((Package*)p)->n)
+		if(x < 0 || x >= (SIZE(p)/sizeof(void*)))
 			break;
 		if(TAG(FP->arg[0]) == 'A' || TAG(FP->arg[0]) == 'L')
 			r = mk(TAG(FP->arg[0]), sizeof(Ref));
 		else
 			r = mk('R', sizeof(Ref));
 		r->ref = p;
-		r->ptr = &((Package*)p)->a[x];
+		r->ptr = ((void**)p) + x;
 		store(r, FP->arg[2]);
 		return r;
 	}
@@ -1604,7 +1665,7 @@ evalderef(void)
 	void *p;
 
 	if(p = FP->arg[0]){
-		if(TAG(p) == 's')
+		if(TAG(p) == 's' || TAG(p) == 'n')
 			p = getname(FP->dot, (char*)p, 0);
 		p = deref(p);
 	}
@@ -1616,6 +1677,7 @@ evalarith(void)
 {
 	uvlong v, d;
 	void *r;
+	int i;
 
 	r = nil;
 	switch(FP->op - optab){
@@ -1668,6 +1730,22 @@ evalarith(void)
 		r = mki(~ival(FP->arg[0]));
 		store(r, FP->arg[1]);
 		return r;
+	case Olbit:
+		v = ival(FP->arg[0]);
+		if(v == 0)
+			break;
+		for(i=0; (v & 1) == 0; i++)
+			v >>= 1;
+		r = mki(i+1);
+		break;
+	case Orbit:
+		v = ival(FP->arg[0]);
+		if(v == 0)
+			break;
+		for(i=0; v != 0; i++)
+			v >>= 1;
+		r = mki(i);
+		break;
 	case Oland:
 		return mki(ival(FP->arg[0]) && ival(FP->arg[1]));
 	case Olor:
@@ -1700,7 +1778,7 @@ evalload(void)
 	tid = nil;
 	if(FP->aux){
 		if(PC >= FP->end){
-			PC = FP->aux;	/* restore */
+			amlenum(amlroot, nil, fixnames, nil);
 			FP->aux = nil;
 			FP->end = PC;
 			tid = mki(1);	/* fake */
@@ -1724,9 +1802,8 @@ evalload(void)
 			break;
 		case 'r':
 			r = FP->ref;
-			if(r->len < l || r->va == nil)
+			if(r->len < l || r->va == nil || r->mapped <= 0)
 				return nil;
-			/* assuming rwreg() has mapped the region */
 			PC = (uchar*)r->va + HdrLen;
 			break;
 		default:
@@ -1795,6 +1872,9 @@ static Op optab[] = {
 	[Oxor]		"Xor",			"ii@",		evalarith,
 	[Onot]		"Not",			"i@",		evalarith,
 
+	[Olbit]		"FindSetLeftBit",	"i@",		evalarith,
+	[Orbit]		"FindSetRightBit",	"i@",		evalarith,
+
 	[Oinc]		"Increment",		"@",		evalarith,
 	[Odec]		"Decrement",		"@",		evalarith,
 
@@ -1849,7 +1929,7 @@ static uchar octab1[] = {
 /* 68 */	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Oenv,	Obad,
 /* 70 */	Ostore,	Oref,	Oadd,	Ocat,	Osub,	Oinc,	Odec,	Omul,
 /* 78 */	Odiv,	Oshl,	Oshr,	Oand,	Onand,	Oor,	Onor,	Oxor,
-/* 80 */	Onot,	Obad,	Obad,	Oderef,	Obad,	Omod,	Obad,	Osize,
+/* 80 */	Onot,	Olbit,	Orbit,	Oderef,	Obad,	Omod,	Obad,	Osize,
 /* 88 */	Oindex,	Obad,	Ocfld4,	Ocfld2,	Ocfld1,	Ocfld0,	Obad,	Ocfld8,
 /* 90 */	Oland,	Olor,	Olnot,	Oleq,	Olgt,	Ollt,	Obad,	Obad,
 /* 98 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
@@ -1911,10 +1991,7 @@ amltag(void *p)
 void*
 amlval(void *p)
 {
-	p = deref(p);
-	if(p && TAG(p) == 'p')
-		p = ((Package*)p)->a;
-	return p;
+	return deref(p);
 }
 
 uvlong
@@ -1931,15 +2008,32 @@ amllen(void *p)
 		case 'R':
 			p = *((Ref*)p)->ptr;
 			continue;
+		case 'n':
 		case 's':
 			return strlen((char*)p);
 		case 'p':
-			return ((Package*)p)->n;
+			return SIZE(p)/sizeof(void*);
 		default:
 			return SIZE(p);
 		}
 	}
 	return 0;
+}
+
+void*
+amlnew(char tag, int len)
+{
+	switch(tag){
+	case 'i':
+		return mki(0);
+	case 'n':
+	case 's':
+		return mk(tag, len + 1);
+	case 'p':
+		return mk(tag, len * sizeof(void*));
+	default:
+		return mk(tag, len);
+	}
 }
 
 void
@@ -1988,7 +2082,11 @@ amlexit(void)
 int
 amlload(uchar *data, int len)
 {
-	return xec(data, data+len, amlroot, nil, nil);
+	int ret;
+
+	ret = xec(data, data+len, amlroot, nil, nil);
+	amlenum(amlroot, nil, fixnames, nil);
+	return ret;
 }
 
 void*
@@ -2029,6 +2127,8 @@ amleval(void *dot, char *fmt, ...)
 	e = mk('E', sizeof(Env));
 	for(i=0;*fmt;fmt++){
 		switch(*fmt){
+		default:
+			return -1;
 		case 's':
 			e->arg[i++] = mks(va_arg(a, char*));
 			break;
@@ -2037,6 +2137,11 @@ amleval(void *dot, char *fmt, ...)
 			break;
 		case 'I':
 			e->arg[i++] = mki(va_arg(a, uvlong));
+			break;
+		case 'b':
+		case 'p':
+		case '*':
+			e->arg[i++] = va_arg(a, void*);
 			break;
 		}
 	}
@@ -2052,4 +2157,18 @@ amleval(void *dot, char *fmt, ...)
 	if(r != nil)
 		*r = dot;
 	return 0;
+}
+
+void
+amltake(void *p)
+{
+	if(p != nil)
+		D2H(p)->mark |= 2;
+}
+
+void
+amldrop(void *p)
+{
+	if(p != nil)
+		D2H(p)->mark &= ~2;
 }
