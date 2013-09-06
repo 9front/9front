@@ -29,16 +29,6 @@ enum {
 	Tblsz	= 4+4+1+1+6+8+4+4+4,
 };
 
-void*
-amlalloc(int n){
-	return mallocz(n, 1);
-}
-
-void
-amlfree(void *p){
-	free(p);
-}
-
 static ulong
 get32(uchar *p){
 	return p[3]<<24 | p[2]<<16 | p[1]<<8 | p[0];
