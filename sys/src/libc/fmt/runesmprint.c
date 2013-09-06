@@ -10,5 +10,7 @@ runesmprint(char *fmt, ...)
 	va_start(args, fmt);
 	p = runevsmprint(fmt, args);
 	va_end(args);
+	if(p != nil)
+		setmalloctag(p, getcallerpc(&fmt));
 	return p;
 }
