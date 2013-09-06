@@ -51,21 +51,6 @@ static uintptr tblpa[64];
 static int ntblmap;
 static Tbl *tblmap[64];
 
-void*
-amlalloc(int n){
-	void *p;
-
-	if((p = malloc(n)) == nil)
-		panic("amlalloc: no memory");
-	memset(p, 0, n);
-	return p;
-}
-
-void
-amlfree(void *p){
-	free(p);
-}
-
 static ushort
 get16(uchar *p){
 	return p[1]<<8 | p[0];
@@ -269,20 +254,17 @@ pcibusno(void *dot)
 	char *id;
 
 	id = nil;
-	if(x = amlwalk(dot, "^_HID")){
-		p = nil;
-		if(amleval(x, "", &p) == 0)
+	if((x = amlwalk(dot, "^_HID")) != nil)
+		if((p = amlval(x)) != nil)
 			id = eisaid(p);
-	}
 	if((x = amlwalk(dot, "^_BBN")) == nil)
 		if((x = amlwalk(dot, "^_ADR")) == nil)
 			return -1;
-	p = nil;
-	if(amleval(x, "", &p) < 0)
+	if((p = amlval(x)) == nil)
 		return -1;
 	adr = amlint(p);
 	/* if root bridge, then we are done here */
-	if(id && (strcmp(id, "PNP0A03")==0 || strcmp(id, "PNP0A08")==0))
+	if(id != nil && (strcmp(id, "PNP0A03")==0 || strcmp(id, "PNP0A08")==0))
 		return adr;
 	x = amlwalk(dot, "^");
 	if(x == nil || x == dot)
@@ -297,10 +279,145 @@ pcibusno(void *dot)
 }
 
 static int
+pciaddr(void *dot)
+{
+	int adr, bno;
+	void *x;
+
+	for(;;){
+		if((x = amlwalk(dot, "_ADR")) == nil){
+			x = amlwalk(dot, "^");
+			if(x == nil || x == dot)
+				break;
+			dot = x;
+			continue;
+		}
+		if((bno = pcibusno(x)) < 0)
+			break;
+		if((x = amlval(x)) == nil)
+			break;
+		adr = amlint(x);
+		return MKBUS(BusPCI, bno, adr>>16, adr&0xFFFF);
+	}
+	return -1;
+}
+
+static int
+getirqs(void *d, uchar pmask[32], int *pflags)
+{
+	int i, n, m;
+	uchar *p;
+
+	*pflags = 0;
+	memset(pmask, 0, 32);
+	if(amltag(d) != 'b')
+		return -1;
+	p = amlval(d);
+	if(amllen(d) >= 2 && (p[0] == 0x22 || p[0] == 0x23)){
+		pmask[0] = p[1];
+		pmask[1] = p[2];
+		if(amllen(d) >= 3 && p[0] == 0x23)
+			*pflags = ((p[3] & (1<<0)) ? PcmpEDGE : PcmpLEVEL)
+				| ((p[3] & (1<<3)) ? PcmpLOW : PcmpHIGH);
+		return 0;
+	}
+	if(amllen(d) >= 5 && p[0] == 0x89){
+		n = p[4];
+		if(amllen(d) < 5+n*4)
+			return -1;
+		for(i=0; i<n; i++){
+			m = get32(p+5 + i*4);
+			if(m >= 0 && m < 256)
+				pmask[m/8] |= 1<<(m%8);
+		}
+		*pflags = ((p[3] & (1<<1)) ? PcmpEDGE : PcmpLEVEL)
+			| ((p[3] & (1<<2)) ? PcmpLOW : PcmpHIGH);
+		return 0;
+	}
+	return -1;
+}
+
+static uchar*
+setirq(void *d, uint irq)
+{
+	uchar *p;
+
+	if(amltag(d) != 'b')
+		return nil;
+	p = amlnew('b', amllen(d));
+	memmove(p, d, amllen(p));
+	if(p[0] == 0x22 || p[0] == 0x23){
+		irq = 1<<irq;
+		p[1] = irq;
+		p[2] = irq>>8;
+	}
+	if(p[0] == 0x89){
+		p[4] = 1;
+		p[5] = irq;
+		p[6] = irq>>8;
+		p[7] = irq>>16;
+		p[8] = irq>>24;
+	}
+	return p;
+}
+
+static int
+setuplink(void *link, int *pflags)
+{
+	uchar im, pm[32], cm[32], *c;
+	int gsi, gsi2, i, n;
+	void *r;
+
+	if(amltag(link) != 'N')
+		return -1;
+
+	r = nil;
+	if(amleval(amlwalk(link, "_PRS"), "", &r) < 0)
+		return -1;
+	if(getirqs(r, pm, pflags) < 0)
+		return -1;
+
+	r = nil;
+	if(amleval(amlwalk(link, "_CRS"), "", &r) < 0)
+		return -1;
+	if(getirqs(r, cm, pflags) < 0)
+		return -1;
+	
+	gsi = gsi2 = -1;
+	print("setuplink: %N: EL=%s%s PO=%s%s INTIN=[ ", link, 
+		(*pflags & PcmpELMASK) == PcmpEDGE ? "EDGE" : "",
+		(*pflags & PcmpELMASK) == PcmpLEVEL ? "LEVEL" : "",
+		(*pflags & PcmpPOMASK) == PcmpHIGH ? "HIGH" : "",
+		(*pflags & PcmpPOMASK) == PcmpLOW ? "LOW" : "");
+	for(i=0; i<256; i++){
+		im = 1<<(i%8);
+		if(pm[i/8] & im){
+			if(cm[i/8] & im){
+				gsi = i;
+				print("*");
+			}
+			print("%d ", i);
+			gsi2 = i;
+		}
+	}
+	print("]\n");
+
+	if(getconf("*nopcirouting") == nil)
+	if(gsi <= 0 && gsi2 > 0 && (c = setirq(r, gsi2)) != nil){
+		if(amleval(amlwalk(link, "_SRS"), "b", c, nil) == 0){
+			gsi = gsi2;
+			print("setuplink: %N -> %d\n", link, gsi);
+		}
+	}
+
+	return gsi;
+}
+
+static int
 enumprt(void *dot, void *)
 {
 	void *p, **a, **b;
-	int bno, dno, pin;
+	int bno, dno, pin, gsi, flags;
 	int n, i;
 
 	bno = pcibusno(dot);
@@ -314,6 +431,7 @@ enumprt(void *dot, void *)
 	if(amltag(p) != 'p')
 		return 1;
 
+	amltake(p);
 	n = amllen(p);
 	a = amlval(p);
 	for(i=0; i<n; i++){
@@ -321,15 +439,20 @@ enumprt(void *dot, void *)
 			continue;
 		if(amllen(a[i]) != 4)
 			continue;
+		flags = 0;
 		b = amlval(a[i]);
 		dno = amlint(b[0])>>16;
 		pin = amlint(b[1]);
-		if(amltag(b[2]) == 'N' || amlint(b[2])){
-			print("enumprt: interrupt link not handled %V\n", b[2]);
-			continue;
+		gsi = amlint(b[3]);
+		if(gsi==0){
+			gsi = setuplink(b[2], &flags);
+			if(gsi <= 0)
+				continue;
 		}
-		addirq(amlint(b[3]), BusPCI, bno, (dno<<2)|pin, 0);
+		addirq(gsi, BusPCI, bno, (dno<<2)|pin, flags);
 	}
+	amldrop(p);
+
 	return 1;
 }
 
@@ -527,4 +650,192 @@ identify(void)
 	if(m->havetsc && getconf("*notsc") == nil)
 		archacpi.fastclock = tscticks;
 	return 0;
+}
+
+static int
+readpcicfg(Amlio *io, void *data, int n, int offset)
+{
+	ulong r, x;
+	Pcidev *p;
+	uchar *a;
+	int i;
+
+	a = data;
+	p = io->aux;
+	if(p == nil)
+		return -1;
+	offset += io->off;
+	if(offset > 256)
+		return 0;
+	if(n+offset > 256)
+		n = 256-offset;
+	r = offset;
+	if(!(r & 3) && n == 4){
+		x = pcicfgr32(p, r);
+		PBIT32(a, x);
+		return 4;
+	}
+	if(!(r & 1) && n == 2){
+		x = pcicfgr16(p, r);
+		PBIT16(a, x);
+		return 2;
+	}
+	for(i = 0; i <  n; i++){
+		x = pcicfgr8(p, r);
+		PBIT8(a, x);
+		a++;
+		r++;
+	}
+	return i;
+}
+
+static int
+writepcicfg(Amlio *io, void *data, int n, int offset)
+{
+	ulong r, x;
+	Pcidev *p;
+	uchar *a;
+	int i;
+
+	a = data;
+	p = io->aux;
+	if(p == nil)
+		return -1;
+	offset += io->off;
+	if(offset > 256)
+		return 0;
+	if(n+offset > 256)
+		n = 256-offset;
+	r = offset;
+	if(!(r & 3) && n == 4){
+		x = GBIT32(a);
+		pcicfgw32(p, r, x);
+		return 4;
+	}
+	if(!(r & 1) && n == 2){
+		x = GBIT16(a);
+		pcicfgw16(p, r, x);
+		return 2;
+	}
+	for(i = 0; i <  n; i++){
+		x = GBIT8(a);
+		pcicfgw8(p, r, x);
+		a++;
+		r++;
+	}
+	return i;
+}
+
+static int
+readioport(Amlio *io, void *data, int len, int port)
+{
+	uchar *a;
+
+	a = data;
+	port += io->off;
+	switch(len){
+	case 4:
+		PBIT32(a, inl(port));
+		return 4;
+	case 2:
+		PBIT16(a, ins(port));
+		return 2;
+	case 1:
+		PBIT8(a, inb(port));
+		return 1;
+	}
+	return -1;
+}
+
+static int
+writeioport(Amlio *io, void *data, int len, int port)
+{
+	uchar *a;
+
+	a = data;
+	port += io->off;
+	switch(len){
+	case 4:
+		outl(port, GBIT32(a));
+		return 4;
+	case 2:
+		outs(port, GBIT16(a));
+		return 2;
+	case 1:
+		outb(port, GBIT8(a));
+		return 1;
+	}
+	return -1;
+}
+
+int
+amlmapio(Amlio *io)
+{
+	int tbdf;
+	Pcidev *pdev;
+	char buf[64];
+
+	switch(io->space){
+	default:
+		print("amlmapio: address space %x not implemented\n", io->space);
+		break;
+	case MemSpace:
+		if((io->va = vmap(io->off, io->len)) == nil){
+			print("amlmapio: vmap failed\n");
+			break;
+		}
+		return 0;
+	case IoSpace:
+		snprint(buf, sizeof(buf), "%N", io->name);
+		if(ioalloc(io->off, io->len, 0, buf) < 0){
+			print("amlmapio: ioalloc failed\n");
+			break;
+		}
+		io->read = readioport;
+		io->write = writeioport;
+		return 0;
+	case PcicfgSpace:
+		if((tbdf = pciaddr(io->name)) < 0){
+			print("amlmapio: no address\n");
+			break;
+		}
+		if((pdev = pcimatchtbdf(tbdf)) == nil){
+			print("amlmapio: no device %T\n", tbdf);
+			break;
+		}
+		io->aux = pdev;
+		io->read = readpcicfg;
+		io->write = writepcicfg;
+		return 0;
+	}
+	print("amlmapio: mapping %N failed\n", io->name);
+	return -1;
+}
+
+void
+amlunmapio(Amlio *io)
+{
+	switch(io->space){
+	case MemSpace:
+		vunmap(io->va, io->len);
+		break;
+	case IoSpace:
+		iofree(io->off);
+		break;
+	}
+}
+
+void*
+amlalloc(int n){
+	void *p;
+
+	if((p = malloc(n)) == nil)
+		panic("amlalloc: no memory");
+	memset(p, 0, n);
+	return p;
+}
+
+void
+amlfree(void *p){
+	free(p);
 }
