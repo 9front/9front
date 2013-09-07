@@ -722,7 +722,8 @@ copy(int tag, void *s)
 		case 'b':
 			if(TAG(s) == 's'){
 				n = strlen(s);
-				/* zero length string is converted to zero length buffer */								if(n > 0) n++;
+				/* zero length string is converted to zero length buffer */
+				if(n > 0) n++;
 			}
 			d = mk(tag, n);
 			memmove(d, s, n);
