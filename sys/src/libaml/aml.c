@@ -2062,7 +2062,7 @@ evalosi(void)
 	char *s;
 	int i;
 
-	s = deref(FP->arg[0]);
+	s = FP->env->arg[0];
 	if(s == nil || TAG(s) != 's')
 		return nil;
 	for(i = 0; i < nelem(w); i++)
