@@ -6,6 +6,7 @@ OFILES=\
 	amlmapio.$O\
 	amlunmapio.$O\
 	amlalloc.$O\
+	amldelay.$O\
 
 HFILES=/sys/include/aml.h
 

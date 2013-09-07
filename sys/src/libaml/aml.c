@@ -1788,7 +1788,7 @@ evalload(void)
 		if(FP->arg[0] == nil)
 			return nil;
 
-		l = rwreg(FP->arg[0], LenOffset, 32, 0, 0);
+		l = rwreg(FP->arg[0], LenOffset, 4, 0, 0);
 		if(l <= HdrLen)
 			return nil;
 
@@ -1817,6 +1817,20 @@ evalload(void)
 		store(tid, FP->arg[1]);
 	}
 	return tid;
+}
+
+static void*
+evalstall(void)
+{
+	amldelay(ival(FP->arg[0]));
+	return nil;
+}
+
+static void*
+evalsleep(void)
+{
+	amldelay(ival(FP->arg[0])*1000);
+	return nil;
 }
 
 static Op optab[] = {
@@ -1906,8 +1920,8 @@ static Op optab[] = {
 
 	[Oacq]		"Acquire",		"@2",		evalnop,
 	[Orel]		"Release",		"@",		evalnop,
-	[Ostall]	"Stall",		"i",		evalnop,
-	[Osleep]	"Sleep",		"i",		evalnop,
+	[Ostall]	"Stall",		"i",		evalstall,
+	[Osleep]	"Sleep",		"i",		evalsleep,
 	[Oload] 	"Load", 		"*@}", 		evalload,
 	[Ounload]	"Unload",		"@",		evalnop,
 };
@@ -2036,6 +2050,27 @@ amlnew(char tag, int len)
 	}
 }
 
+static void*
+evalosi(void)
+{
+	static char *w[] = { 
+		"Windows 2001",
+		"Windows 2001 SP1",
+		"Windows 2001 SP2",
+		"Windows 2006",
+	};
+	char *s;
+	int i;
+
+	s = deref(FP->arg[0]);
+	if(s == nil || TAG(s) != 's')
+		return nil;
+	for(i = 0; i < nelem(w); i++)
+		if(strcmp(s, w[i]) == 0)
+			return mki(0xFFFFFFFF);
+	return nil;
+}
+
 void
 amlinit(void)
 {
@@ -2065,7 +2100,7 @@ amlinit(void)
 
 		m = mk('m', sizeof(Method));
 		m->narg = 1;
-		m->eval = evalnop;
+		m->eval = evalosi;
 		m->name = n;
 		n->v = m;
 	}

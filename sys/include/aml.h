@@ -44,6 +44,8 @@ int		amldebug;
 extern void*	amlalloc(int);
 extern void	amlfree(void*);
 
+extern void	amldelay(int);	/* microseconds */
+
 enum {
 	MemSpace	= 0x00,
 	IoSpace		= 0x01,
