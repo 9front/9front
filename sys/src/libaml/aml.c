@@ -460,6 +460,7 @@ getle(uchar *p, int len)
 	uvlong v;
 	int i;
 
+	v = 0ULL;
 	for(i=0; i<len; i++)
 		v |= ((uvlong)p[i]) << i*8;
 	return v;
@@ -1504,7 +1505,7 @@ evalcall(void)
 	FP->env = e;
 	FP->narg = 0;
 	FP->dot = m->name;
-	if(m->eval){
+	if(m->eval != nil){
 		FP->op = nil;
 		FP->end = PC;
 		return (*m->eval)();
@@ -2187,7 +2188,15 @@ amleval(void *dot, char *fmt, ...)
 		m = dot;
 		if(i != m->narg)
 			return -1;
-		return xec(m->start, m->end, forkname(m->name), e, r);
+		if(m->eval == nil)
+			return xec(m->start, m->end, forkname(m->name), e, r);
+		FP = FB;
+		FP->op = nil;
+		FP->env = e;
+		FP->narg = 0;
+		FP->dot = m->name;
+		FP->ref = FP->aux = nil;
+		dot = (*m->eval)();
 	}
 	if(r != nil)
 		*r = dot;
