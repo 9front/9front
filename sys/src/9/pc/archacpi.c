@@ -365,7 +365,7 @@ static int
 setuplink(void *link, int *pflags)
 {
 	uchar im, pm[32], cm[32], *c;
-	int gsi, gsi2, i, n;
+	int gsi, gsi2, i;
 	void *r;
 
 	if(amltag(link) != 'N')
@@ -838,4 +838,10 @@ amlalloc(int n){
 void
 amlfree(void *p){
 	free(p);
+}
+
+void
+amldelay(int us)
+{
+	microdelay(us);
 }
