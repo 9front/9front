@@ -387,6 +387,8 @@ wintype(Window *w, Text *t, Rune r)
 	int i;
 
 	texttype(t, r);
+	if(t->what == Tag)
+		w->tagsafe = FALSE;
 	if(t->what == Body)
 		for(i=0; i<t->file->ntext; i++)
 			textscrdraw(t->file->text[i]);
@@ -447,6 +449,7 @@ winsettag1(Window *w)
 		old = runemalloc(w->tag.file->nc+1);
 		bufread(w->tag.file, 0, old, w->tag.file->nc);
 		old[w->tag.file->nc] = '\0';
+		w->tagsafe = FALSE;
 	}
 	new = runemalloc(w->body.file->nname+100);
 	i = 0;
@@ -509,6 +512,7 @@ winsettag1(Window *w)
 				w->tag.q1 = q1+bar;
 			}
 		}
+		w->tagsafe = FALSE;
 	}
 	free(old);
 	free(new);
@@ -526,9 +530,8 @@ winsettag1(Window *w)
 	br.max.x = br.min.x + Dx(b->r);
 	br.max.y = br.min.y + Dy(b->r);
 	draw(screen, br, b, nil, b->r.min);
-
-	w->tagsafe = 0;
-	winresize(w, w->r, TRUE);
+	if(w->tagsafe == FALSE)
+		winresize(w, w->r, TRUE);
 }
 
 void
