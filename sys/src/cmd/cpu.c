@@ -7,7 +7,6 @@
 
 #include <u.h>
 #include <libc.h>
-#include <bio.h>
 #include <auth.h>
 #include <fcall.h>
 #include <libsec.h>

@@ -3,7 +3,6 @@
 #include <libc.h>
 #include <thread.h>
 #include <ip.h>
-#include <bio.h>
 #include <draw.h>
 #include <mouse.h>
 #include <cursor.h>
