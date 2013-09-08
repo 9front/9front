@@ -576,6 +576,65 @@ enum {
 	MSIData64 = 0x0C, /* message data register for 64 bit MSI (16 bit) */
 };
 
+enum {
+	HTMSIMapping	= 0xA8,
+	HTMSIFlags	= 0x02,
+	HTMSIFlagsEn	= 0x01,
+};
+
+static int
+htmsicapenable(Pcidev *p)
+{
+	int cap, flags;
+
+	if((cap = pcihtcap(p, HTMSIMapping)) <= 0)
+		return -1;
+	flags = pcicfgr8(p, cap + HTMSIFlags);
+	if((flags & HTMSIFlagsEn) == 0)
+		pcicfgw8(p, cap + HTMSIFlags, flags | HTMSIFlagsEn);
+	return 0;
+}
+
+static int
+htmsienable(Pcidev *pdev)
+{
+	Pcidev *p;
+
+	p = nil;
+	while((p = pcimatch(p, 0x1022, 0)) != nil)
+		if(p->did == 0x1103 || p->did == 0x1203)
+			break;
+
+	if(p == nil)
+		return 0;	/* not hypertransport platform */
+
+	p = nil;
+	while((p = pcimatch(p, 0x10de, 0)) != nil){
+		switch(p->did){
+		case 0x02f0:	/* NVIDIA NFORCE C51 MEMC0 */
+		case 0x02f1:	/* NVIDIA NFORCE C51 MEMC1 */
+		case 0x02f2:	/* NVIDIA NFORCE C51 MEMC2 */
+		case 0x02f3:	/* NVIDIA NFORCE C51 MEMC3 */
+		case 0x02f4:	/* NVIDIA NFORCE C51 MEMC4 */
+		case 0x02f5:	/* NVIDIA NFORCE C51 MEMC5 */
+		case 0x02f6:	/* NVIDIA NFORCE C51 MEMC6 */
+		case 0x02f7:	/* NVIDIA NFORCE C51 MEMC7 */
+		case 0x0369:	/* NVIDIA NFORCE MCP55 MEMC */
+			htmsicapenable(p);
+			break;
+		}
+	}
+
+	if(htmsicapenable(pdev) == 0)
+		return 0;
+
+	for(p = pdev->parent; p != nil; p = p->parent)
+		if(htmsicapenable(p) == 0)
+			return 0;
+
+	return -1;
+}
+
 static int
 msiintrenable(Vctl *v)
 {
@@ -592,6 +651,8 @@ msiintrenable(Vctl *v)
 		print("msiintrenable: could not find Pcidev for tbdf %uX\n", tbdf);
 		return -1;
 	}
+	if(htmsienable(pci) < 0)
+		return -1;
 	cap = pcicap(pci, PciCapMSI);
 	if(cap < 0)
 		return -1;

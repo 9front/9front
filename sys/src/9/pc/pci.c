@@ -1416,38 +1416,75 @@ pciclrmwi(Pcidev* p)
 	pcicfgw16(p, PciPCR, p->pcr);
 }
 
+static int
+enumcaps(Pcidev *p, int (*fmatch)(Pcidev*, int, int, int), int arg)
+{
+	int i, r, cap, off;
+
+	/* status register bit 4 has capabilities */
+	if((pcicfgr16(p, PciPSR) & 1<<4) == 0)
+		return -1;      
+	switch(pcicfgr8(p, PciHDT) & 0x7F){
+	default:
+		return -1;
+	case 0:                         /* etc */
+	case 1:                         /* pci to pci bridge */
+		off = 0x34;
+		break;
+	case 2:                         /* cardbus bridge */
+		off = 0x14;
+		break;
+	}
+	for(i = 48; i--;){
+		off = pcicfgr8(p, off);
+		if(off < 0x40 || (off & 3))
+			break;
+		off &= ~3;
+		cap = pcicfgr8(p, off);
+		if(cap == 0xff)
+			break;
+		r = (*fmatch)(p, cap, off, arg);
+		if(r < 0)
+			break;
+		if(r == 0)
+			return off;
+		off++;
+	}
+	return -1;
+}
+
+static int
+matchcap(Pcidev *p, int cap, int off, int arg)
+{
+	USED(off);
+	return cap != arg;
+}
+
+static int
+matchhtcap(Pcidev *p, int cap, int off, int arg)
+{
+	int mask;
+
+	if(cap != PciCapHTC)
+		return 1;
+	if(arg == 0x00 || arg == 0x20)
+		mask = 0xE0;
+	else
+		mask = 0xF8;
+	cap = pcicfgr8(p, off+3);
+	return (cap & mask) != arg;
+}
+
 int
 pcicap(Pcidev *p, int cap)
 {
-        int i, c, off;
+	return enumcaps(p, matchcap, cap);
+}
 
-        /* status register bit 4 has capabilities */
-        if((pcicfgr16(p, PciPSR) & 1<<4) == 0)
-                return -1;      
-        switch(pcicfgr8(p, PciHDT) & 0x7F){
-        default:
-                return -1;
-        case 0:                         /* etc */
-        case 1:                         /* pci to pci bridge */
-                off = 0x34;
-                break;
-        case 2:                         /* cardbus bridge */
-                off = 0x14;
-                break;
-        }
-        for(i = 48; i--;){
-                off = pcicfgr8(p, off);
-                if(off < 0x40 || (off & 3))
-                        break;
-                off &= ~3;
-                c = pcicfgr8(p, off);
-                if(c == 0xff)
-                        break;
-                if(c == cap)
-                        return off;
-                off++;
-        }
-        return -1;
+int
+pcihtcap(Pcidev *p, int cap)
+{
+	return enumcaps(p, matchhtcap, cap);
 }
 
 static int
