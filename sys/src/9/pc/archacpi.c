@@ -273,8 +273,10 @@ pcibusno(void *dot)
 		return -1;
 	tbdf = MKBUS(BusPCI, bno, adr>>16, adr&0xFFFF);
 	pdev = pcimatchtbdf(tbdf);
-	if(pdev == nil || pdev->bridge == nil)
+	if(pdev == nil)
 		return -1;
+	if(pdev->bridge == nil)
+		return bno;
 	return BUSBNO(pdev->bridge->tbdf);
 }
 
@@ -365,7 +367,8 @@ static int
 setuplink(void *link, int *pflags)
 {
 	uchar im, pm[32], cm[32], *c;
-	int gsi, gsi2, i;
+	static int lastirq = 1;
+	int gsi, i;
 	void *r;
 
 	if(amltag(link) != 'N')
@@ -383,34 +386,30 @@ setuplink(void *link, int *pflags)
 	if(getirqs(r, cm, pflags) < 0)
 		return -1;
 	
-	gsi = gsi2 = -1;
-	print("setuplink: %N: EL=%s%s PO=%s%s INTIN=[ ", link, 
-		(*pflags & PcmpELMASK) == PcmpEDGE ? "EDGE" : "",
-		(*pflags & PcmpELMASK) == PcmpLEVEL ? "LEVEL" : "",
-		(*pflags & PcmpPOMASK) == PcmpHIGH ? "HIGH" : "",
-		(*pflags & PcmpPOMASK) == PcmpLOW ? "LOW" : "");
+	gsi = -1;
 	for(i=0; i<256; i++){
 		im = 1<<(i%8);
 		if(pm[i/8] & im){
-			if(cm[i/8] & im){
+			if(cm[i/8] & im)
 				gsi = i;
-				print("*");
-			}
-			print("%d ", i);
-			gsi2 = i;
-		}
-	}
-	print("]\n");
-
-	if(getconf("*nopcirouting") == nil)
-	if(gsi <= 0 && gsi2 > 0 && (c = setirq(r, gsi2)) != nil){
-		if(amleval(amlwalk(link, "_SRS"), "b", c, nil) == 0){
-			gsi = gsi2;
-			print("setuplink: %N -> %d\n", link, gsi);
 		}
 	}
 
-	return gsi;
+	if(gsi > 0 || getconf("*nopcirouting") != nil)
+		return gsi;
+
+	for(i=0; i<256; i++){
+		gsi = lastirq++ & 0xFF;	/* round robin */
+		im = 1<<(gsi%8);
+		if(pm[gsi/8] & im){
+			if((c = setirq(r, gsi)) == nil)
+				break;
+			if(amleval(amlwalk(link, "_SRS"), "b", c, nil) < 0)
+				break;
+			return gsi;
+		}
+	}
+	return -1;
 }
 
 static int
