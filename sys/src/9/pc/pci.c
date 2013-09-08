@@ -1454,9 +1454,8 @@ enumcaps(Pcidev *p, int (*fmatch)(Pcidev*, int, int, int), int arg)
 }
 
 static int
-matchcap(Pcidev *p, int cap, int off, int arg)
+matchcap(Pcidev *, int cap, int, int arg)
 {
-	USED(off);
 	return cap != arg;
 }
 
