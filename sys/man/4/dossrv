@@ -1,6 +1,6 @@
 .TH DOSSRV 4
 .SH NAME
-dossrv, 9660srv, a:, b:, c:, d:, 9fat:, dosmnt, eject \- DOS and ISO9660 file systems
+dossrv, 9660srv, dosmnt, eject \- DOS and ISO9660 file systems
 .SH SYNOPSIS
 .B dossrv
 [
@@ -24,14 +24,6 @@ dossrv, 9660srv, a:, b:, c:, d:, 9fat:, dosmnt, eject \- DOS and ISO9660 file sy
 ] [
 .I service
 ]
-.PP
-.B a:
-.PP
-.B b:
-.PP
-.B c:
-.PP
-.B 9fat:
 .PP
 .B dosmnt
 .I n
@@ -92,37 +84,6 @@ flag causes verbose output for debugging, while
 the
 .B -r
 flag makes the file system read-only.
-.PP
-The shell script
-.I a:
-contains
-.IP
-.EX
-unmount /n/a: >[2] /dev/null
-mount -c /srv/dos /n/a: /dev/fd0disk
-.EE
-.LP
-and is therefore a shorthand for mounting a floppy disk in drive A.
-The scripts
-.I b:
-and
-.I dosmnt
-are similar,
-mounting the second floppy disk
-and the
-.IR n th
-non-floppy DOS partition,
-respectively.
-.I C:
-and
-.I d:
-call
-.I dosmnt
-in an attempt to name the drives in
-the same order that Microsoft operating systems do.
-.I 9fat:
-provides access to the FAT component of the Plan 9 partition (see
-.IR prep (8)).
 .PP
 The file attribute flags used by the DOS file system
 do not map directly to those used by Plan 9.
@@ -201,12 +162,6 @@ If the floppy drive has an ejection motor,
 will spit out the floppy from drive
 .IR n ,
 default 0.
-.SH EXAMPLE
-Mount a floppy disk with a DOS file system on it.
-.IP
-.EX
-a:
-.EE
 .SH "SEE ALSO"
 .IR kfs (4)
 .SH SOURCE
@@ -215,6 +170,8 @@ a:
 .B /sys/src/cmd/9660srv
 .br
 .B /rc/bin/eject
+.br
+.B /rc/bin/dosmnt
 .SH BUGS
 The overloading of the semantics of
 the DMEXCL and DMAPPEND
