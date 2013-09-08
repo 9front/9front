@@ -1,6 +1,5 @@
 #include <u.h>
 #include <libc.h>
-#include <bio.h>
 #include <libsec.h>
 
 #pragma	varargck	type	"M"	uchar*
