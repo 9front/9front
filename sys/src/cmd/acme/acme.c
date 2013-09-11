@@ -167,19 +167,19 @@ threadmain(int argc, char *argv[])
 	cwarn = chancreate(sizeof(void*), 1);
 	if(cwait==nil || ccommand==nil || ckill==nil || cxfidalloc==nil || cxfidfree==nil || cerr==nil || cexit==nil || cwarn==nil){
 		fprint(2, "acme: can't create initial channels: %r\n");
-		exits("channels");
+		threadexitsall("channels");
 	}
 
 	mousectl = initmouse(nil, screen);
 	if(mousectl == nil){
 		fprint(2, "acme: can't initialize mouse: %r\n");
-		exits("mouse");
+		threadexitsall("mouse");
 	}
 	mouse = mousectl;
 	keyboardctl = initkeyboard(nil);
 	if(keyboardctl == nil){
 		fprint(2, "acme: can't initialize keyboard: %r\n");
-		exits("keyboard");
+		threadexitsall("keyboard");
 	}
 	mainpid = getpid();
 	plumbeditfd = plumbopen("edit", OREAD|OCEXEC);
