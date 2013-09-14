@@ -221,8 +221,12 @@ pmmcinit(void)
 
 	p = nil;
 	while((p = pcimatch(p, 0, 0)) != nil){
-		if(p->vid == 0x1180 && p->did == 0xe823)	/* Ricoh */
-			break;
+		if(p->vid == 0x1180){	/* Ricoh */
+			if(p->did == 0xe822)	/* 5U822 SD/MMC */
+				break;
+			if(p->did == 0xe823)	/* 5U823 SD/MMC */
+				break;
+		}
 	}
 
 	if(p == nil || p->mem[0].size < 256)
