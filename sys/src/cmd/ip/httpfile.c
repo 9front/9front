@@ -186,12 +186,11 @@ dotls(int fd)
 {
 	TLSconn conn;
 
+	memset(&conn, 0, sizeof(conn));
 	if((fd=tlsClient(fd, &conn)) < 0)
 		sysfatal("tlsclient: %r");
-
-	if(conn.cert != nil)
-		free(conn.cert);
-
+	free(conn.cert);
+	free(conn.sessionID);
 	return fd;
 }
 

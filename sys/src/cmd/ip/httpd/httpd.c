@@ -172,7 +172,6 @@ dolisten(char *address)
 	NetConnInfo *nci;
 	char ndir[NETPATHLEN], dir[NETPATHLEN], *p, *scheme;
 	int ctl, nctl, data, t, ok, spotchk;
-	TLSconn conn;
 
 	spotchk = 0;
 	syslog(0, HTTPLOG, "httpd starting");
@@ -217,12 +216,16 @@ dolisten(char *address)
 			 */
 			data = accept(ctl, ndir);
 			if(data >= 0 && certificate != nil){
+				TLSconn conn;
+
 				memset(&conn, 0, sizeof(conn));
 				conn.cert = certificate;
 				conn.certlen = certlen;
 				if (certchain != nil)
 					conn.chain = certchain;
 				data = tlsServer(data, &conn);
+				free(conn.cert);
+				free(conn.sessionID);
 				scheme = "https";
 			}else
 				scheme = "http";

@@ -129,6 +129,9 @@ pop3pushtls(Pop *pop)
 		err = "tls error";
 		goto out;
 	}
+	pop->fd = fd;
+	Binit(&pop->bin, pop->fd, OREAD);
+	Binit(&pop->bout, pop->fd, OWRITE);
 	if(conn.cert==nil || conn.certlen <= 0){
 		err = "server did not provide TLS certificate";
 		goto out;
@@ -140,17 +143,10 @@ pop3pushtls(Pop *pop)
 		err = "bad server certificate";
 		goto out;
 	}
-	close(pop->fd);
-	pop->fd = fd;
 	pop->encrypted = 1;
-	Binit(&pop->bin, pop->fd, OREAD);
-	Binit(&pop->bout, pop->fd, OWRITE);
-	fd = -1;
 out:
 	free(conn.sessionID);
 	free(conn.cert);
-	if(fd >= 0)
-		close(fd);
 	return err;
 }
 

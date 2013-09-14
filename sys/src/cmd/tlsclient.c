@@ -38,7 +38,7 @@ reporter(char *fmt, ...)
 void
 main(int argc, char **argv)
 {
-	int fd, netfd, debug;
+	int fd, debug;
 	uchar digest[20];
 	TLSconn *conn;
 	char *addr, *file, *filex, *ccert;
@@ -78,7 +78,7 @@ main(int argc, char **argv)
 	}
 
 	addr = argv[0];
-	if((netfd = dial(addr, 0, 0, 0)) < 0)
+	if((fd = dial(addr, 0, 0, 0)) < 0)
 		sysfatal("dial %s: %r", addr);
 
 	conn = (TLSconn*)mallocz(sizeof *conn, 1);
@@ -86,7 +86,7 @@ main(int argc, char **argv)
 		conn->cert = readcert(ccert, &conn->certlen);
 	if(debug)
 		conn->trace = reporter;
-	fd = tlsClient(netfd, conn);
+	fd = tlsClient(fd, conn);
 	if(fd < 0)
 		sysfatal("tlsclient: %r");
 	if(thumb){
@@ -98,8 +98,6 @@ main(int argc, char **argv)
 			sysfatal("server certificate %.*H not recognized", SHA1dlen, digest);
 		}
 	}
-	free(conn->cert);
-	close(netfd);
 
 	rfork(RFNOTEG);
 	switch(fork()){

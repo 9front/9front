@@ -551,27 +551,31 @@ trace(char *fmt, ...)
 static int
 stlscmd(char*)
 {
-	int fd;
 	TLSconn conn;
+	int fd;
 
 	if(didtls)
 		return senderr("tls already started");
 	if(!tlscert)
 		return senderr("don't have any tls credentials");
-	sendok("");
-	Bflush(&out);
-
 	memset(&conn, 0, sizeof conn);
-	conn.cert = tlscert;
 	conn.certlen = ntlscert;
+	conn.cert = malloc(ntlscert);
+	if(conn.cert == nil)
+		return senderr("out of memory");
+	memmove(conn.cert, tlscert, ntlscert);
 	if(debug)
 		conn.trace = trace;
+	sendok("");
+	Bflush(&out);
 	fd = tlsServer(0, &conn);
 	if(fd < 0)
 		sysfatal("tlsServer: %r");
 	dup(fd, 0);
 	dup(fd, 1);
 	close(fd);
+	free(conn.cert);
+	free(conn.sessionID);
 	Binit(&in, 0, OREAD);
 	Binit(&out, 1, OWRITE);
 	didtls = 1;

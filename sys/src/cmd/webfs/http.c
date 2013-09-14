@@ -65,7 +65,7 @@ hdial(Url *u)
 {
 	char addr[128];
 	Hconn *h, *p;
-	int fd, ctl, ofd;
+	int fd, ofd, ctl;
 
 	snprint(addr, sizeof(addr), "tcp!%s!%s", u->host, u->port ? u->port : u->scheme);
 
@@ -90,18 +90,16 @@ hdial(Url *u)
 		return nil;
 	if(strcmp(u->scheme, "https") == 0){
 		char err[ERRMAX];
-		TLSconn *tc;
+		TLSconn conn;
 
-		tc = emalloc(sizeof(*tc));
 		strcpy(err, "tls error");
-		if((fd = tlsClient(ofd = fd, tc)) < 0)
+		memset(&conn, 0, sizeof(conn));
+		if((fd = tlsClient(ofd = fd, &conn)) < 0)
 			errstr(err, sizeof(err));
-		close(ofd);
-		/* BUG: should validate but how? */
-		free(tc->cert);
-		free(tc->sessionID);
-		free(tc);
+		free(conn.cert);
+		free(conn.sessionID);
 		if(fd < 0){
+			close(ofd);
 			close(ctl);
 			if(debug) fprint(2, "tlsClient: %s\n", err);
 			errstr(err, sizeof(err));

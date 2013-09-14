@@ -324,59 +324,53 @@ wraptls(void)
 {
 	TLSconn *c;
 	Thumbprint *goodcerts;
-	char *h;
+	char *h, *err;
 	int fd;
 	uchar hash[SHA1dlen];
 
+	err = Giveup;
 	c = mallocz(sizeof(*c), 1);
 	if (c == nil)
-		return Giveup;
+		return err;
 
 	fd = tlsClient(Bfildes(&bout), c);
 	if (fd < 0) {
 		syslog(0, "smtp", "tlsClient to %q: %r", ddomain);
-		free(c);
-		return Giveup;
+		goto Out;
 	}
+	Bterm(&bout);
+	Binit(&bout, fd, OWRITE);
+	fd = dup(fd, Bfildes(&bin));
+	Bterm(&bin);
+	Binit(&bin, fd, OREAD);
+
 	goodcerts = initThumbprints(smtpthumbs, smtpexclthumbs);
 	if (goodcerts == nil) {
 		syslog(0, "smtp", "bad thumbprints in %s", smtpthumbs);
-		close(fd);
-		free(c);
-		return Giveup;		/* how to recover? TLS is started */
+		goto Out;
 	}
 	/* compute sha1 hash of remote's certificate, see if we know it */
 	sha1(c->cert, c->certlen, hash, nil);
 	if (!okThumbprint(hash, goodcerts)) {
 		/* TODO? if not excluded, add hash to thumb list */
 		h = malloc(2*sizeof hash + 1);
-		if (h != nil) {
-			enc16(h, 2*sizeof hash + 1, hash, sizeof hash);
-			// fprint(2, "x509 sha1=%s", h);
-			syslog(0, "smtp",
-		"remote cert. has bad thumbprint: x509 sha1=%s server=%q",
-				h, ddomain);
-			free(h);
-		}
-		close(fd);
-		free(c);
-		return Giveup;		/* how to recover? TLS is started */
+		if (h == nil)
+			goto Out;
+		enc16(h, 2*sizeof hash + 1, hash, sizeof hash);
+		syslog(0, "smtp", "remote cert. has bad thumbprint: x509 sha1=%s server=%q",
+			h, ddomain);
+		free(h);
+		goto Out;
 	}
-	freeThumbprints(goodcerts);
-	free(c);
-	Bterm(&bin);
-	Bterm(&bout);
-
-	/*
-	 * set up bin & bout to use the TLS fd, i/o upon which generates
-	 * i/o on the original, underlying fd.
-	 */
-	Binit(&bin, fd, OREAD);
-	fd = dup(fd, -1);
-	Binit(&bout, fd, OWRITE);
-
 	syslog(0, "smtp", "started TLS to %q", ddomain);
-	return nil;
+	err = nil;
+Out:
+	if(goodcerts != nil)
+		freeThumbprints(goodcerts);
+	free(c->cert);
+	free(c->sessionID);
+	free(c);
+	return err;
 }
 
 /*

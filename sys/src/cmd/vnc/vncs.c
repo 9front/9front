@@ -152,7 +152,7 @@ main(int argc, char **argv)
 		exits(nil);
 	}
 
-	if(altnet && !cert)
+	if(altnet && cert == nil)
 		sysfatal("announcing on alternate network requires TLS (-c)");
 
 	if(argc == 0)
@@ -524,7 +524,6 @@ vncaccept(Vncs *v)
 {
 	char buf[32];
 	int fd;
-	TLSconn conn;
 
 	/* caller returns to listen */
 	switch(rfork(RFPROC|RFMEM|RFNAMEG)){
@@ -546,6 +545,8 @@ vncaccept(Vncs *v)
 	}
 
 	if(cert != nil){
+		TLSconn conn;
+
 		memset(&conn, 0, sizeof conn);
 		conn.cert = readcert(cert, &conn.certlen);
 		if(conn.cert == nil){
@@ -556,11 +557,9 @@ vncaccept(Vncs *v)
 		if(fd < 0){
 			fprint(2, "%V: tlsServer: %r; hanging up\n", v);
 			free(conn.cert);
-			if(conn.sessionID)
-				free(conn.sessionID);
+			free(conn.sessionID);
 			exits(nil);
 		}
-		close(v->datafd);
 		v->datafd = fd;
 		free(conn.cert);
 		free(conn.sessionID);

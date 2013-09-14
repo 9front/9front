@@ -335,8 +335,8 @@ tlsServer(int fd, TLSconn *conn)
 		return -1;
 	}
 	buf[n] = 0;
-	sprint(conn->dir, "#a/tls/%s", buf);
-	sprint(dname, "#a/tls/%s/hand", buf);
+	snprint(conn->dir, sizeof(conn->dir), "#a/tls/%s", buf);
+	snprint(dname, sizeof(dname), "#a/tls/%s/hand", buf);
 	hand = open(dname, ORDWR);
 	if(hand < 0){
 		close(ctl);
@@ -344,27 +344,32 @@ tlsServer(int fd, TLSconn *conn)
 	}
 	fprint(ctl, "fd %d 0x%x", fd, ProtocolVersion);
 	tls = tlsServer2(ctl, hand, conn->cert, conn->certlen, conn->trace, conn->chain);
-	sprint(dname, "#a/tls/%s/data", buf);
+	snprint(dname, sizeof(dname), "#a/tls/%s/data", buf);
 	data = open(dname, ORDWR);
-	close(fd);
 	close(hand);
 	close(ctl);
-	if(data < 0)
-		return -1;
-	if(tls == nil){
-		close(data);
+	if(data < 0 || tls == nil){
+		if(tls != nil)
+			tlsConnectionFree(tls);
 		return -1;
 	}
-	if(conn->cert)
-		free(conn->cert);
+	free(conn->cert);
 	conn->cert = 0;  // client certificates are not yet implemented
 	conn->certlen = 0;
 	conn->sessionIDlen = tls->sid->len;
 	conn->sessionID = emalloc(conn->sessionIDlen);
 	memcpy(conn->sessionID, tls->sid->data, conn->sessionIDlen);
-	if(conn->sessionKey != nil && conn->sessionType != nil && strcmp(conn->sessionType, "ttls") == 0)
-		tls->sec->prf(conn->sessionKey, conn->sessionKeylen, tls->sec->sec, MasterSecretSize, conn->sessionConst,  tls->sec->crandom, RandomSize, tls->sec->srandom, RandomSize);
+	if(conn->sessionKey != nil
+	&& conn->sessionType != nil
+	&& strcmp(conn->sessionType, "ttls") == 0)
+		tls->sec->prf(
+			conn->sessionKey, conn->sessionKeylen,
+			tls->sec->sec, MasterSecretSize,
+			conn->sessionConst, 
+			tls->sec->crandom, RandomSize,
+			tls->sec->srandom, RandomSize);
 	tlsConnectionFree(tls);
+	close(fd);
 	return data;
 }
 
@@ -378,7 +383,7 @@ tlsClient(int fd, TLSconn *conn)
 	int n, data, ctl, hand;
 	TlsConnection *tls;
 
-	if(!conn)
+	if(conn == nil)
 		return -1;
 	ctl = open("#a/tls/clone", ORDWR);
 	if(ctl < 0)
@@ -389,14 +394,14 @@ tlsClient(int fd, TLSconn *conn)
 		return -1;
 	}
 	buf[n] = 0;
-	sprint(conn->dir, "#a/tls/%s", buf);
-	sprint(dname, "#a/tls/%s/hand", buf);
+	snprint(conn->dir, sizeof(conn->dir), "#a/tls/%s", buf);
+	snprint(dname, sizeof(dname), "#a/tls/%s/hand", buf);
 	hand = open(dname, ORDWR);
 	if(hand < 0){
 		close(ctl);
 		return -1;
 	}
-	sprint(dname, "#a/tls/%s/data", buf);
+	snprint(dname, sizeof(dname), "#a/tls/%s/data", buf);
 	data = open(dname, ORDWR);
 	if(data < 0){
 		close(hand);
@@ -407,7 +412,6 @@ tlsClient(int fd, TLSconn *conn)
 	tls = tlsClient2(ctl, hand, conn->sessionID, conn->sessionIDlen, conn->cert, conn->certlen, conn->trace);
 	close(hand);
 	close(ctl);
-	close(fd);
 	if(tls == nil){
 		close(data);
 		return -1;
@@ -418,9 +422,17 @@ tlsClient(int fd, TLSconn *conn)
 	conn->sessionIDlen = tls->sid->len;
 	conn->sessionID = emalloc(conn->sessionIDlen);
 	memcpy(conn->sessionID, tls->sid->data, conn->sessionIDlen);
-	if(conn->sessionKey != nil && conn->sessionType != nil && strcmp(conn->sessionType, "ttls") == 0)
-		tls->sec->prf(conn->sessionKey, conn->sessionKeylen, tls->sec->sec, MasterSecretSize, conn->sessionConst,  tls->sec->crandom, RandomSize, tls->sec->srandom, RandomSize);
+	if(conn->sessionKey != nil
+	&& conn->sessionType != nil
+	&& strcmp(conn->sessionType, "ttls") == 0)
+		tls->sec->prf(
+			conn->sessionKey, conn->sessionKeylen,
+			tls->sec->sec, MasterSecretSize,
+			conn->sessionConst, 
+			tls->sec->crandom, RandomSize,
+			tls->sec->srandom, RandomSize);
 	tlsConnectionFree(tls);
+	close(fd);
 	return data;
 }
 

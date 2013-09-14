@@ -147,7 +147,7 @@ main(int argc, char *argv[])
 	if(conn == nil)
 		sysfatal("out of memory");
 	conn->chain = readcertchain(cert);
-	if (conn->chain == nil)
+	if(conn->chain == nil)
 		sysfatal("can't read certificate");
 	conn->cert = conn->chain->pem;
 	conn->certlen = conn->chain->pemlen;

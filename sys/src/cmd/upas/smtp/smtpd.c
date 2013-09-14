@@ -1551,38 +1551,33 @@ starttls(void)
 {
 	int certlen, fd;
 	uchar *cert;
-	TLSconn *conn;
+	TLSconn conn;
 
 	if (tlscert == nil) {
 		reply("500 5.5.1 illegal command or bad syntax\r\n");
 		return;
 	}
-	conn = mallocz(sizeof *conn, 1);
 	cert = readcert(tlscert, &certlen);
-	if (conn == nil || cert == nil) {
-		if (conn != nil)
-			free(conn);
+	if (cert == nil) {
 		reply("454 4.7.5 TLS not available\r\n");
 		return;
 	}
 	reply("220 2.0.0 Go ahead make my day\r\n");
-	conn->cert = cert;
-	conn->certlen = certlen;
-	fd = tlsServer(Bfildes(&bin), conn);
+	memset(&conn, 0, sizeof(conn));
+	conn.cert = cert;
+	conn.certlen = certlen;
+	fd = tlsServer(Bfildes(&bin), &conn);
 	if (fd < 0) {
-		free(cert);
-		free(conn);
 		syslog(0, "smtpd", "TLS start-up failed with %s", him);
-
-		/* force the client to hang up */
-		close(Bfildes(&bin));		/* probably fd 0 */
-		close(1);
 		exits("tls failed");
 	}
 	Bterm(&bin);
-	Binit(&bin, fd, OREAD);
-	if (dup(fd, 1) < 0)
+	if (dup(fd, 0) < 0 || dup(fd, 1) < 0)
 		fprint(2, "dup of %d failed: %r\n", fd);
+	close(fd);
+	Binit(&bin, 0, OREAD);
+	free(conn.cert);
+	free(conn.sessionID);
 	passwordinclear = 1;
 	syslog(0, "smtpd", "started TLS with %s", him);
 }

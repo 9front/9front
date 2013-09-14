@@ -55,6 +55,18 @@ static Node*	vmsdir(char*);
 static int	getpassword(char*, char*);
 static int	nw_mode(char dirlet, char *s);
 
+static void
+starttls(int *fd)
+{
+	TLSconn conn;
+	
+	memset(&conn, 0, sizeof(conn));
+	if((*fd = tlsClient(*fd, &conn)) < 0)
+		fatal("starting tls: %r");
+	free(conn.cert);
+	free(conn.sessionID);
+}
+
 /*
  *  connect to remote server, default network is "tcp/ip"
  */
@@ -63,7 +75,6 @@ hello(char *dest)
 {
 	char *p;
 	char dir[Maxpath];
-	TLSconn conn;
 
 	Binit(&stdin, 0, OREAD);	/* init for later use */
 
@@ -93,11 +104,8 @@ hello(char *dest)
 		if(getreply(&ctlin, msg, sizeof(msg), 1) != Success)
 			fatal("bad auth tls");
 
-		ctlfd = tlsClient(ctlfd, &conn);
-		if(ctlfd < 0)
-			fatal("starting tls: %r");
-		free(conn.cert);
-
+		starttls(&ctlfd);
+	
 		Binit(&ctlin, ctlfd, OREAD);
 
 		sendrequest("PBSZ", "0");
@@ -1227,7 +1235,6 @@ active(int mode, Biobuf **bpp, char *cmda, char *cmdb)
 	int cfd, dfd, rv;
 	char newdir[Maxpath];
 	char datafile[Maxpath + 6];
-	TLSconn conn;
 
 	if(port() < 0)
 		return TempFail;
@@ -1253,13 +1260,8 @@ active(int mode, Biobuf **bpp, char *cmda, char *cmdb)
 	if(dfd < 0)
 		fatal("opening data connection");
 
-	if(usetls){
-		memset(&conn, 0, sizeof(conn));
-		dfd = tlsClient(dfd, &conn);
-		if(dfd < 0)
-			fatal("starting tls: %r");
-		free(conn.cert);
-	}
+	if(usetls)
+		starttls(&dfd);
 
 	Binit(&dbuf, dfd, mode);
 	*bpp = &dbuf;
@@ -1277,7 +1279,6 @@ passive(int mode, Biobuf **bpp, char *cmda, char *cmdb)
 	char *f[6];
 	char *p;
 	int x, fd;
-	TLSconn conn;
 
 	if(nopassive)
 		return Impossible;
@@ -1327,13 +1328,9 @@ passive(int mode, Biobuf **bpp, char *cmda, char *cmdb)
 		return x;
 	}
 
-	if(usetls){
-		memset(&conn, 0, sizeof(conn));
-		fd = tlsClient(fd, &conn);
-		if(fd < 0)
-			fatal("starting tls: %r");
-		free(conn.cert);
-	}
+	if(usetls)
+		starttls(&fd);
+
 	Binit(&dbuf, fd, mode);
 
 	*bpp = &dbuf;

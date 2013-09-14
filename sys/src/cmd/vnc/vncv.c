@@ -84,7 +84,6 @@ main(int argc, char **argv)
 	int p, dfd, cfd, shared;
 	char *keypattern, *addr, *label;
 	Point d;
-	TLSconn conn;
 
 	keypattern = nil;
 	shared = 0;
@@ -123,10 +122,14 @@ main(int argc, char **argv)
 	if(dfd < 0)
 		sysfatal("cannot dial %s: %r", addr);
 	if(tls){
-		dfd = tlsClient(dfd, &conn);
-		if(dfd < 0)
+		TLSconn conn;
+
+		memset(&conn, 0, sizeof(conn));
+		if((dfd = tlsClient(dfd, &conn)) < 0)
 			sysfatal("tlsClient: %r");
 		/* XXX check thumbprint */
+		free(conn.cert);
+		free(conn.sessionID);
 	}
 	vnc = vncinit(dfd, cfd, nil);
 
