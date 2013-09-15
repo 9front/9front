@@ -1404,4 +1404,5 @@ threadmain(int argc, char** argv)
 	elevate();
 	procrfork(ctlproc, nil, STACK, RFNAMEG|RFNOTEG);
 	threadpostmountsrv(&fs, srv, mtpt, MBEFORE);
+	threadexits(0);
 }
