@@ -261,23 +261,29 @@ pop3dial(Pop *pop)
 {
 	char *err;
 
+	if(pop->fd >= 0){
+		close(pop->fd);
+		pop->fd = -1;
+	}
 	if((pop->fd = dial(netmkaddr(pop->host, "net", pop->needssl ? "pop3s" : "pop3"), 0, 0, 0)) < 0)
 		return geterrstr();
 
 	if(pop->needssl){
 		if((err = pop3pushtls(pop)) != nil)
-			return err;
+			goto Out;
 	}else{
 		Binit(&pop->bin, pop->fd, OREAD);
 		Binit(&pop->bout, pop->fd, OWRITE);
 	}
-
-	if(err = pop3login(pop)) {
-		close(pop->fd);
-		return err;
+	err = pop3login(pop);
+Out:
+	if(err != nil){
+		if(pop->fd >= 0){
+			close(pop->fd);
+			pop->fd = -1;
+		}
 	}
-
-	return nil;
+	return err;
 }
 
 //
@@ -286,9 +292,12 @@ pop3dial(Pop *pop)
 static void
 pop3hangup(Pop *pop)
 {
+	if(pop->fd < 0)
+		return;
 	pop3cmd(pop, "QUIT");
 	pop3resp(pop);
 	close(pop->fd);
+	pop->fd = -1;
 }
 
 //
@@ -563,12 +572,10 @@ pop3sync(Mailbox *mb, int doplumb)
 	Pop *pop;
 
 	pop = mb->aux;
-
 	if(err = pop3dial(pop)) {
 		mb->waketime = time(0) + pop->refreshtime;
 		return err;
 	}
-
 	if((err = pop3read(pop, mb, doplumb)) == nil){
 		pop3purge(pop, mb);
 		mb->d->atime = mb->d->mtime = time(0);
@@ -667,6 +674,7 @@ pop3mbox(Mailbox *mb, char *path)
 	}
 
 	pop = emalloc(sizeof(*pop));
+	pop->fd = -1;
 	pop->freep = path;
 	pop->host = f[2];
 	if(nf < 4)

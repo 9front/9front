@@ -394,32 +394,32 @@ imaperrstr(char *host, char *port)
 }
 
 static int
-starttls(Imap *imap, TLSconn *connp)
+starttls(Imap *imap)
 {
 	int sfd;
 	uchar digest[SHA1dlen];
+	TLSconn conn;
 
-	memset(connp, 0, sizeof *connp);
-	sfd = tlsClient(imap->fd, connp);
+	memset(&conn, 0, sizeof(conn));
+	sfd = tlsClient(imap->fd, &conn);
 	if(sfd < 0) {
 		werrstr("tlsClient: %r");
 		return -1;
 	}
-	if(connp->cert==nil || connp->certlen <= 0) {
-		close(sfd);
+	imap->fd = sfd;
+	free(conn.sessionID);
+	if(conn.cert==nil || conn.certlen <= 0) {
 		werrstr("server did not provide TLS certificate");
 		return -1;
 	}
-	sha1(connp->cert, connp->certlen, digest, nil);
+	sha1(conn.cert, conn.certlen, digest, nil);
+	free(conn.cert);
 	if(!imap->thumb || !okThumbprint(digest, imap->thumb)){
-		close(sfd);
 		fmtinstall('H', encodefmt);
 		werrstr("server certificate %.*H not recognized",
 			SHA1dlen, digest);
 		return -1;
 	}
-	close(imap->fd);
-	imap->fd = sfd;
 	return sfd;
 }
 
@@ -430,8 +430,6 @@ static char*
 imap4dial(Imap *imap)
 {
 	char *err, *port;
-	int sfd;
-	TLSconn conn;
 
 	if(imap->fd >= 0){
 		imap4cmd(imap, "noop");
@@ -450,35 +448,22 @@ imap4dial(Imap *imap)
 		return imaperrstr(imap->host, port);
 
 	if(imap->mustssl){
-		sfd = starttls(imap, &conn);
-		free(conn.cert);
-		free(conn.sessionID);
-		if(sfd < 0)
-			return imaperrstr(imap->host, port);
-		if(imap->debug){
-			char fn[128];
-			int fd;
-
-			snprint(fn, sizeof fn, "%s/ctl", conn.dir);
-			fd = open(fn, ORDWR);
-			if(fd < 0)
-				fprint(2, "opening ctl: %r\n");
-			else {
-				if(fprint(fd, "debug") < 0)
-					fprint(2, "writing ctl: %r\n");
-				close(fd);
-			}
+		if(starttls(imap) < 0){
+			err = imaperrstr(imap->host, port);
+			goto Out;
 		}
 	}
 	Binit(&imap->bin, imap->fd, OREAD);
 	Binit(&imap->bout, imap->fd, OWRITE);
-
-	if(err = imap4login(imap)) {
-		close(imap->fd);
-		return err;
+	err = imap4login(imap);
+Out:
+	if(err != nil){
+		if(imap->fd >= 0){
+			close(imap->fd);
+			imap->fd = -1;
+		}
 	}
-
-	return nil;
+	return err;
 }
 
 //
@@ -487,9 +472,12 @@ imap4dial(Imap *imap)
 static void
 imap4hangup(Imap *imap)
 {
+	if(imap->fd < 0)
+		return;
 	imap4cmd(imap, "LOGOUT");
 	imap4resp(imap);
 	close(imap->fd);
+	imap->fd = -1;
 }
 
 //
