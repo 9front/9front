@@ -87,7 +87,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	int altnet, baseport, cfd, display, exnum, fd, h, killing, w;
+	int altnet, baseport, cfd, display, exnum, fd, pid, h, killing, w;
 	char adir[NETPATHLEN], ldir[NETPATHLEN];
 	char net[NETPATHLEN], *p;
 	char *kbdfs[] = { "/bin/aux/kbdfs", "-dq", nil };
@@ -197,8 +197,8 @@ main(int argc, char **argv)
 		sysfatal("mounter: %r");
 	close(fd);
 
-	cmdpid = rfork(RFPROC|RFMEM|RFFDG|RFNOTEG);
-	switch(cmdpid){
+	pid = rfork(RFPROC|RFMEM|RFFDG|RFNOTEG);
+	switch(pid){
 	case -1:
 		sysfatal("rfork: %r");
 		break;
@@ -211,8 +211,8 @@ main(int argc, char **argv)
 		open("/dev/cons", OWRITE);
 
 		/* start and mount kbdfs */
-		cmdpid = rfork(RFPROC|RFMEM|RFFDG|RFREND);
-		switch(cmdpid){
+		pid = rfork(RFPROC|RFMEM|RFFDG|RFREND);
+		switch(pid){
 		case -1:
 			sysfatal("rfork: %r");
 			break;
@@ -221,9 +221,9 @@ main(int argc, char **argv)
 			fprint(2, "exec %s: %r\n", kbdfs[0]);
 			_exits("kbdfs");
 		}
-		if(waitpid() != cmdpid){
+		if(waitpid() != pid){
 			rendezvous(&kbdin, nil);
-			sysfatal("%s: %r", kbdfs[0]);
+			sysfatal("waitpid: %s: %r", kbdfs[0]);
 		}
 		rendezvous(&kbdin, nil);
 
@@ -240,6 +240,7 @@ main(int argc, char **argv)
 		fprint(2, "exec %s: %r\n", argv[0]);
 		_exits(nil);
 	}
+	cmdpid = pid;
 
 	/* wait for kbdfs to get mounted */
 	rendezvous(&kbdin, nil);
