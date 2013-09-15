@@ -143,6 +143,7 @@ main(int argc, char **argv)
 	label = smprint("vnc %s", serveraddr);
 	if(initdraw(0, 0, label) < 0)
 		sysfatal("initdraw: %r");
+	free(label);
 	display->locking = 1;
 	unlockdisplay(display);
 
