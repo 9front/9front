@@ -879,8 +879,11 @@ threadmain(int argc, char* argv[])
 	}
 
 	qunlock(ser);
-	if(nports > 0){
-		snprint(buf, sizeof buf, "%d.serial", dev->id);
-		threadpostsharesrv(&serialfs, nil, "usb", buf);
-	}
+
+	if(nports == 0)
+		threadexits("no ports");
+
+	snprint(buf, sizeof buf, "%d.serial", dev->id);
+	threadpostsharesrv(&serialfs, nil, "usb", buf);
+	threadexits(0);
 }
