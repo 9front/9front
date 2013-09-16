@@ -643,7 +643,7 @@ resized(void)
 		r.max.x = (r.max.x*n.x)/o.x;
 		r.max.y = (r.max.y*n.y)/o.y;
 		if(!goodrect(r))
-			r = rectsubpt(w->i->r, viewr.min);
+			r = rectsubpt(w->i->r, subpt(w->i->r.min, r.min));
 		r = rectaddpt(r, screen->clipr.min);
 		for(j=0; j<nhidden; j++)
 			if(w == hidden[j])
