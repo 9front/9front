@@ -411,6 +411,7 @@ xfidwrite(Xfid *x)
 		case CWdata:
 			break;
 		case CWflush:
+			free(r);
 			filsyscancel(x);
 			return;
 		}
@@ -420,6 +421,7 @@ xfidwrite(Xfid *x)
 		if(x->flushing){
 			qunlock(&x->active);
 			recv(x->flushc, nil);	/* wake up flushing xfid */
+			free(r);
 			pair.s = runemalloc(1);
 			pair.ns = 0;
 			send(cwm.cw, &pair);		/* wake up window with empty data */
