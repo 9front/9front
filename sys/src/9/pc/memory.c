@@ -568,7 +568,7 @@ struct Emap
 {
 	int type;
 	uvlong base;
-	uvlong len;
+	uvlong top;
 };
 static Emap emap[128];
 int nemap;
@@ -580,11 +580,15 @@ emapcmp(const void *va, const void *vb)
 	
 	a = (Emap*)va;
 	b = (Emap*)vb;
+	if(a->top < b->top)
+		return -1;
+	if(a->top > b->top)
+		return 1;
 	if(a->base < b->base)
 		return -1;
 	if(a->base > b->base)
 		return 1;
-	return a->len - b->len;
+	return 0;
 }
 
 static void
@@ -592,7 +596,7 @@ map(ulong base, ulong len, int type)
 {
 	ulong e, n;
 	ulong *table, flags, maxkpa;
-	
+
 	/*
 	 * Split any call crossing MemMin to make below simpler.
 	 */
@@ -611,7 +615,7 @@ map(ulong base, ulong len, int type)
 	/*
 	 * Any non-memory below 16*MB is used as upper mem blocks.
 	 */
-	if(type == MemUPA && base < 16*MB && base+len > 16*MB){
+	if(type == MemUPA && base < 16*MB && len > 16*MB-base){
 		map(base, 16*MB-base, MemUMB);
 		map(16*MB, len-(16*MB-base), MemUPA);
 		return;
@@ -633,7 +637,7 @@ map(ulong base, ulong len, int type)
 	 * Memory between KTZERO and end is the kernel itself
 	 * and is already mapped.
 	 */
-	if(base < PADDR(KTZERO) && base+len > PADDR(KTZERO)){
+	if(base < PADDR(KTZERO) && len > PADDR(KTZERO)-base){
 		map(base, PADDR(KTZERO)-base, type);
 		return;
 	}
@@ -697,8 +701,7 @@ map(ulong base, ulong len, int type)
 static int
 e820scan(void)
 {
-	ulong base, len;
-	uvlong last;
+	ulong base, len, last;
 	Emap *e;
 	char *s;
 	int i;
@@ -707,7 +710,8 @@ e820scan(void)
 	if((s = getconf("*e820")) == nil)
 		if((s = getconf("e820")) == nil)
 			return -1;
-	for(nemap = 0; nemap < nelem(emap); nemap++){
+	nemap = 0;
+	while(nemap < nelem(emap)){
 		while(*s == ' ')
 			s++;
 		if(*s == 0)
@@ -721,10 +725,11 @@ e820scan(void)
 		e->base = strtoull(s, &s, 16);
 		if(*s != ' ')
 			break;
-		e->len = strtoull(s, &s, 16);
-		if(*s != ' ' && *s != 0 || e->len <= e->base)
+		e->top  = strtoull(s, &s, 16);
+		if(*s != ' ' && *s != 0)
 			break;
-		e->len -= e->base;
+		if(e->base < e->top)
+			nemap++;
 	}
 	if(nemap == 0)
 		return -1;
@@ -735,23 +740,30 @@ e820scan(void)
 		/*
 		 * pull out the info but only about the low 32 bits...
 		 */
-		if(e->base >= (1LL<<32))
+		if(e->base >= (1ULL<<32))
 			break;
-		base = e->base;
-		if(base+e->len > (1LL<<32))
+		if(e->top <= last)
+			continue;
+		if(e->base < last)
+			base = last;
+		else
+			base = e->base;
+		if(e->top > (1ULL<<32))
 			len = -base;
 		else
-			len = e->len;
+			len = e->top - base;
 		/*
 		 * If the map skips addresses, mark them available.
 		 */
-		if(last < e->base)
-			map(last, e->base-last, MemUPA);
-		last = base+len;
+		if(last < base)
+			map(last, base-last, MemUPA);
 		map(base, len, (e->type == 1) ? MemRAM : MemReserved);
+		last = base + len;
+		if(last == 0)
+			break;
 	}
-	if(last < (1LL<<32))
-		map(last, (u32int)-last, MemUPA);
+	if(last != 0)
+		map(last, -last, MemUPA);
 	return 0;
 }
 
