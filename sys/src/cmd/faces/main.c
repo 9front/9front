@@ -381,7 +381,7 @@ freeface(Face *f)
 {
 	int i;
 
-	if(f->file!=nil && f->bit!=f->file->image)
+	if(f->file==nil || f->bit!=f->file->image)
 		freeimage(f->bit);
 	freefacefile(f->file);
 	for(i=0; i<Nstring; i++)
