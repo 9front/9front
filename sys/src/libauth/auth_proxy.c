@@ -157,9 +157,10 @@ fauth_proxy(int fd, AuthRpc *rpc, AuthGetkey *getkey, char *params)
 			n = 0;
 			memset(buf, 0, AuthRpcMax);
 			while((ret = dorpc(rpc, "write", buf, n, getkey)) == ARtoosmall){
-				if(atoi(rpc->arg) > AuthRpcMax)
+				m = atoi(rpc->arg);
+				if(m <= n || m > AuthRpcMax)
 					break;
-				m = read(fd, buf + n, atoi(rpc->arg) - n);
+				m = read(fd, buf + n, m - n);
 				if(m <= 0){
 					if(m == 0)
 						werrstr("auth_proxy short read: %s",
