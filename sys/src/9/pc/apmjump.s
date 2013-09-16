@@ -9,18 +9,8 @@
 
 #define SSOVERRIDE	BYTE $0x36
 #define CSOVERRIDE	BYTE $0x2E
-#define RETF		BYTE $0xCB
 
 GLOBL	apmjumpstruct+0(SB), $8
-
-TEXT fortytwo(SB), $0
-	MOVL	$42, AX
-	RETF
-
-TEXT getcs(SB), $0
-	PUSHL	CS
-	POPL	AX
-	RET
 
 TEXT apmfarcall(SB), $0
 	/*
@@ -52,6 +42,7 @@ TEXT apmfarcall(SB), $0
 	 * paranoia: zero the segments, since it's the
 	 * BIOS's responsibility to initialize them.
 	 * (trick picked up from Linux driver).
+	 */
 	PUSHL	DX
 	XORL	DX, DX
 	PUSHL	DX
@@ -63,10 +54,6 @@ TEXT apmfarcall(SB), $0
 	PUSHL	DX
 	POPL	GS
 	POPL	DX
-	 */
-
-	PUSHL	$APMDSEG
-	POPL	DS
 
 	/*
 	 * The actual call.
