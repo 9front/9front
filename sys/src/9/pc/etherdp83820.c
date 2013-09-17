@@ -937,7 +937,7 @@ dp83820ifstat(Ether* edev, void* a, long n, ulong offset)
 	l += snprint(p+l, READSTR-l, "tfu %d\n", ctlr->tfu);
 	l += snprint(p+l, READSTR-l, "txa %d\n", ctlr->txa);
 
-	l += snprint(p+l, READSTR, "rom:");
+	l += snprint(p+l, READSTR-l, "rom:");
 	for(i = 0; i < 0x10; i++){
 		if(i && ((i & 0x07) == 0))
 			l += snprint(p+l, READSTR-l, "\n    ");
@@ -946,7 +946,7 @@ dp83820ifstat(Ether* edev, void* a, long n, ulong offset)
 	l += snprint(p+l, READSTR-l, "\n");
 
 	if(ctlr->mii != nil && ctlr->mii->curphy != nil){
-		l += snprint(p+l, READSTR, "phy:");
+		l += snprint(p+l, READSTR-l, "phy:");
 		for(i = 0; i < NMiiPhyr; i++){
 			if(i && ((i & 0x07) == 0))
 				l += snprint(p+l, READSTR-l, "\n    ");
