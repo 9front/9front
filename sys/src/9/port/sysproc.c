@@ -252,19 +252,20 @@ sysexec(ulong *arg)
 	ulong magic, text, entry, data, bss;
 	Tos *tos;
 
-	indir = 0;
+	a = nil;
 	elem = nil;
 	validaddr(arg[0], 1, 0);
 	file0 = validnamedup((char*)arg[0], 1);
 	if(waserror()){
 		free(file0);
-		if(elem != up->text)
-			free(elem);
+		free(elem);
+		free(a);
 		/* Disaster after commit */
 		if(!up->seg[SSEG])
 			pexit(up->errstr, 1);
 		nexterror();
 	}
+	indir = 0;
 	file = file0;
 	for(;;){
 		tc = namec(file, Aopen, OEXEC, 0);
@@ -405,28 +406,21 @@ sysexec(ulong *arg)
 		charp += n;
 	}
 
-	free(up->text);
-	up->text = elem;
-
 	/* copy args; easiest from new process's stack */
 	n = charp - args;
 	if(n > 128)	/* don't waste too much space on huge arg lists */
 		n = 128;
-	a = up->args;
-	up->args = nil;
-	free(a);
-	up->args = smalloc(n);
-	memmove(up->args, args, n);
-	if(n>0 && up->args[n-1]!='\0'){
+	a = smalloc(n);
+	memmove(a, args, n);
+	if(n>0 && a[n-1]!='\0'){
 		/* make sure last arg is NUL-terminated */
 		/* put NUL at UTF-8 character boundary */
 		for(i=n-1; i>0; --i)
-			if(fullrune(up->args+i, n-i))
+			if(fullrune(a+i, n-i))
 				break;
-		up->args[i] = 0;
+		a[i] = 0;
 		n = i+1;
 	}
-	up->nargs = n;
 
 	/*
 	 * Committed.
@@ -501,6 +495,13 @@ sysexec(ulong *arg)
 	free(file0);
 
 	qlock(&up->debug);
+	free(up->text);
+	up->text = elem;
+	free(up->args);
+	up->args = a;
+	up->nargs = n;
+	up->setargs = 0;
+
 	up->nnote = 0;
 	up->notify = 0;
 	up->notified = 0;

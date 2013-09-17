@@ -737,7 +737,7 @@ struct Proc
 	ulong	qpc;		/* pc calling last blocking qlock */
 	QLock	*eql;		/* interruptable eqlock */
 
-	int	setargs;
+	int	setargs;	/* process changed its args */
 
 	void	*ureg;		/* User registers for notes */
 	void	*dbgreg;	/* User registers for devproc */
