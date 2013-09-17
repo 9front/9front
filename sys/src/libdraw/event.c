@@ -385,7 +385,12 @@ emouse(void)
 
 	if(Smouse < 0)
 		drawerror(display, "events: mouse not initialized");
-	eb = ebread(&eslave[Smouse]);
+	for(;;){
+		eb = ebread(&eslave[Smouse]);
+		if(!ecanmouse())
+			break;
+		free(eb);	/* drop queued mouse events */
+	}
 	m.xy.x = atoi((char*)eb->buf+1+0*12);
 	m.xy.y = atoi((char*)eb->buf+1+1*12);
 	b = atoi((char*)eb->buf+1+2*12);
