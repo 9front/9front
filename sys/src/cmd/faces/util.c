@@ -26,7 +26,7 @@ erealloc(void *v, ulong sz)
 		fprint(2, "out of memory allocating %ld\n", sz);
 		exits("mem");
 	}
-	setrealloctag(v, getcallerpc(&sz));
+	setrealloctag(v, getcallerpc(&v));
 	return v;
 }
 
