@@ -1,6 +1,6 @@
 .TH HGET 1
 .SH NAME
-hget, hpost, urlencode \- retrieve, post to a web page corresponding to a url
+hget, hpost, ok, urlencode \- retrieve, post to a web page corresponding to a url
 .SH SYNOPSIS
 .B hget
 [
@@ -47,6 +47,9 @@ hget, hpost, urlencode \- retrieve, post to a web page corresponding to a url
 .I name@file
 ]
 .I ...
+.PP
+.B ok
+.I file
 .PP
 .B urlencode
 [
@@ -175,6 +178,13 @@ flag), the file has to be seekable as
 .IR file (1)
 is invoked to determine its mime type.
 .PP
+.I Ok
+uploads the contents either of its standard input or
+.I file
+to the pastebin website
+.B http://okturing.com
+and then prints a URL where the contents may be retrieved.
+.PP
 .I Urlencode
 is a helper program to URL encode and decode files. The
 .B -d
@@ -209,10 +219,21 @@ Upload a file, print the resulting URL
 .EX
 % hpost -l http://i.intma.in file@/tmp/screen.png | rc
 .EE
+.PP
+Upload the output of
+.IR ns (1)
+to
+.B http://okturing.com
+.IP
+.EX
+% ns | ok
+.EE
 .SH SOURCE
 .B /rc/bin/hget
 .br
 .B /rc/bin/hpost
+.br
+.B /rc/bin/ok
 .br
 .B /sys/src/cmd/urlencode.c
 .SH "SEE ALSO"
@@ -220,9 +241,10 @@ Upload a file, print the resulting URL
 .IR ftpfs (4),
 .IR file (1)
 .SH DIAGNOSTICS
-.I Hget
-and
+.I Hget ,
 .I hpost
+and
+.I ok
 require
 .IR webfs (4)
 service mounted on
