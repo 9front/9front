@@ -1,13 +1,12 @@
 #!/bin/rc
 rfork e
-argv0=$0
 url=()
 at=()	# text fields
 af=()	# file fields
 l=()
 
 fn usage {
-	echo usage: $argv0 '[ -l ] [ -[gpm] action ] [ -u ] url [ field:value | field@file ... ]' >[1=2]
+	echo 'usage: hpost [ -l ] [ -[gpm] action ] [ -u ] url [ field:value | field@file ... ]' >[1=2]
 	exit usage
 }
 
@@ -41,7 +40,7 @@ while(! ~ $#* 0){
 	shift
 }
 
-hpost=($argv0 $l)
+hpost=(hpost $l)
 
 fn uenc {
 	f=$1
