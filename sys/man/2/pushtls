@@ -75,6 +75,11 @@ returns a file descriptor for the TLS data channel.  Anything written to this
 descriptor will get encrypted and authenticated and then written to the
 file descriptor,
 .IR fd .
+.I Pushtls ,
+.IR tlsClient
+and
+.IR tlsServer
+close the original file descriptor on success.
 If
 .I dir
 is non-zero, the path name of the connection directory is copied into
@@ -246,6 +251,22 @@ Return \-1 on failure.
 .SH BUGS
 Client certificates and client sessionIDs are not yet
 implemented.
+.PP
+Note that
+.IR pushtls ,
+.IR tlsClient
+and
+.IR tlsServer
+do not close the original file descriptor on failure,
+only on success. 
+.PP
+The
+.IR sessionID
+and
+.IR cert
+pointers in the
+.IR TLSconn
+structure have to be freed by the caller.
 .PP
 Note that in the TLS protocol
 .I sessionID

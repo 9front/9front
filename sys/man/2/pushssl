@@ -36,6 +36,10 @@ returns a file descriptor for the SSL data channel.  Anything written to this
 descriptor will get encrypted and authenticated and then written to the
 file descriptor,
 .IR fd .
+.I Pushssl
+closes the original file descriptor
+.IR fd
+on success.
 .SH SOURCE
 .B /sys/src/libc/9sys
 .SH "SEE ALSO"
