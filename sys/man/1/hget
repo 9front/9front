@@ -49,7 +49,9 @@ hget, hpost, webpaste, urlencode \- retrieve, post to a web page corresponding t
 .I ...
 .PP
 .B webpaste
+[
 .I file
+]
 .PP
 .B urlencode
 [
