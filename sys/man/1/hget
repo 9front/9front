@@ -204,7 +204,7 @@ edited and sent.
 .IP
 .EX
 % hpost http://p.intma.in
-/bin/hpost -u http://p.intma.in -p paste.cgi text:
+hpost -u http://p.intma.in -p paste.cgi text:
 .EE
 .PP
 Manually specify fields to be sent to a given
