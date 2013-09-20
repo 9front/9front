@@ -71,6 +71,12 @@ varsym(void)
 			if(s->name[0] == '.')
 				continue;
 
+			if(strlen(s->name) >= sizeof(buf)-6){
+				if(!quiet)
+					print("Symbol name too long: %s\n", s->name);
+				continue;
+			}
+
 			v = s->value;
 			tl = al(TLIST);
 			*tail = tl;
