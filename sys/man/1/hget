@@ -1,6 +1,6 @@
 .TH HGET 1
 .SH NAME
-hget, hpost, ok, urlencode \- retrieve, post to a web page corresponding to a url
+hget, hpost, webpaste, urlencode \- retrieve, post to a web page corresponding to a url
 .SH SYNOPSIS
 .B hget
 [
@@ -48,7 +48,7 @@ hget, hpost, ok, urlencode \- retrieve, post to a web page corresponding to a ur
 ]
 .I ...
 .PP
-.B ok
+.B webpaste
 .I file
 .PP
 .B urlencode
@@ -178,7 +178,7 @@ flag), the file has to be seekable as
 .IR file (1)
 is invoked to determine its mime type.
 .PP
-.I Ok
+.I Webpaste
 uploads the contents either of its standard input or
 .I file
 to the pastebin website
@@ -226,14 +226,14 @@ to
 .B http://okturing.com
 .IP
 .EX
-% ns | ok
+% ns | webpaste
 .EE
 .SH SOURCE
 .B /rc/bin/hget
 .br
 .B /rc/bin/hpost
 .br
-.B /rc/bin/ok
+.B /rc/bin/webpaste
 .br
 .B /sys/src/cmd/urlencode.c
 .SH "SEE ALSO"
@@ -244,7 +244,7 @@ to
 .I Hget ,
 .I hpost
 and
-.I ok
+.I webpaste
 require
 .IR webfs (4)
 service mounted on
