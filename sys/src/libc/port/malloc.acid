@@ -122,16 +122,18 @@ Profuser = 1;
 Profkernel = 2;
 Proftime = 3;
 Profsample = 4;
-sizeofLock = 4;
+sizeofLock = 8;
 aggr Lock
 {
-	'D' 0 val;
+	'D' 0 key;
+	'D' 4 sem;
 };
 
 defn
 Lock(addr) {
 	complex Lock addr;
-	print("	val	", addr.val, "\n");
+	print("	key	", addr.key, "\n");
+	print("	sem	", addr.sem, "\n");
 };
 
 sizeofQLp = 12;
@@ -150,13 +152,13 @@ QLp(addr) {
 	print("	state	", addr.state, "\n");
 };
 
-sizeofQLock = 16;
+sizeofQLock = 20;
 aggr QLock
 {
 	Lock 0 lock;
-	'D' 4 locked;
-	'A' QLp 8 $head;
-	'A' QLp 12 $tail;
+	'D' 8 locked;
+	'A' QLp 12 $head;
+	'A' QLp 16 $tail;
 };
 
 defn
@@ -170,14 +172,14 @@ QLock(addr) {
 	print("	$tail	", addr.$tail\X, "\n");
 };
 
-sizeofRWLock = 20;
+sizeofRWLock = 24;
 aggr RWLock
 {
 	Lock 0 lock;
-	'D' 4 readers;
-	'D' 8 writer;
-	'A' QLp 12 $head;
-	'A' QLp 16 $tail;
+	'D' 8 readers;
+	'D' 12 writer;
+	'A' QLp 16 $head;
+	'A' QLp 20 $tail;
 };
 
 defn
@@ -438,12 +440,12 @@ Tos(addr) {
 };
 
 complex Tos _tos;
-sizeofPrivate = 12;
+sizeofPrivate = 16;
 aggr Private
 {
 	Lock 0 lk;
-	'D' 4 pid;
-	'D' 8 printfd;
+	'D' 8 pid;
+	'D' 12 printfd;
 };
 
 defn

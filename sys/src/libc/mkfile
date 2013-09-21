@@ -37,7 +37,7 @@ update:V:
 		cd $i
 		mk $MKFLAGS update
 	}
-	update $UPDATEFLAGS /386/lib/libc.a
+	update $UPDATEFLAGS /$objtype/lib/libc.a
 
 installall:V:
 	for(objtype in $CPUS) mk $MKFLAGS install

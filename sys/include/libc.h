@@ -410,11 +410,18 @@ enum {
 extern	void	prof(void (*fn)(void*), void *arg, int entries, int what);
 
 /*
+ *  atomic
+ */
+extern	long	ainc(long*);
+extern	long	adec(long*);
+
+/*
  *  synchronization
  */
 typedef
 struct Lock {
-	int	val;
+	long	key;
+	long	sem;
 } Lock;
 
 extern int	_tas(int*);
@@ -700,9 +707,6 @@ extern	void	rerrstr(char*, uint);
 extern	char*	sysname(void);
 extern	void	werrstr(char*, ...);
 #pragma	varargck	argpos	werrstr	1
-
-extern	long	ainc(long*);
-extern	long	adec(long*);
 
 extern char *argv0;
 #define	ARGBEGIN	for((argv0||(argv0=*argv)),argv++,argc--;\

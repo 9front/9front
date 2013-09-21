@@ -12,7 +12,8 @@ TEXT _xinc(SB), 1, $-4			/* void _xinc(long *); */
 loop:	MOVW	$1, R3
 	LL(2, 1)
 	NOOP
-	ADD	R1,R3,R3
+	ADDU	R1, R3
+	MOVW	R3, R1			/* return new value */
 	SC(2, 3)
 	NOOP
 	BEQ	R3,loop
@@ -24,8 +25,8 @@ TEXT _xdec(SB), 1, $-4			/* long _xdec(long *); */
 loop1:	MOVW	$-1, R3
 	LL(2, 1)
 	NOOP
-	ADD	R1,R3,R3
-	MOVW	R3, R1
+	ADDU	R1, R3
+	MOVW	R3, R1			/* return new value */
 	SC(2, 3)
 	NOOP
 	BEQ	R3,loop1
@@ -48,10 +49,4 @@ spincas:
 	RET
 fail:
 	MOVW	$0, R1
-	RET
-
-/* general-purpose abort */
-_trap:
-	MOVD	$0, R0
-	MOVD	0(R0), R0
 	RET
