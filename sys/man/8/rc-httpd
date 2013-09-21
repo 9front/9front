@@ -151,7 +151,7 @@ exec /rc/bin/rc-httpd/rc-httpd >>[2]/sys/log/www
 .TP
 .B /rc/bin/rc-httpd/rc-httpd
 .TP
-.B /rc/bin/rc-httpd/select-handlers
+.B /rc/bin/rc-httpd/select-handler
 .TP
 .B /rc/bin/rc-httpd/handlers/cgi
 .TP
