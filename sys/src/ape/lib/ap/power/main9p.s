@@ -1,7 +1,7 @@
 #define NPRIVATES	16
 
 GLOBL	_tos(SB), $4
-GLOBAL	_errnoloc(SB), $4
+GLOBL	_errnoloc(SB), $4
 GLOBL	_privates(SB), $4
 GLOBL	_nprivates(SB), $4
 
