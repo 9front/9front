@@ -107,6 +107,9 @@ as the name of the kfs service (default
 .B p
 Update the permissions of a file even if it is up to date.
 .TP
+.B U
+Update of uid and gid of the target files.
+.TP
 .B r
 Copy all files.
 .TP
