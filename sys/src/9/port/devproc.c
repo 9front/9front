@@ -571,7 +571,7 @@ procfds(Proc *p, char *va, int count, long offset)
 
 	eqlock(&p->debug);
 	f = p->fgrp;
-	if(f == nil){
+	if(f == nil || p->dot == nil){
 		qunlock(&p->debug);
 		return 0;
 	}
@@ -956,7 +956,7 @@ procread(Chan *c, void *va, long n, vlong off)
 			qunlock(&p->debug);
 			nexterror();
 		}
-		if(p->pgrp == nil || p->pid != PID(c->qid))
+		if(p->pgrp == nil || p->dot == nil || p->pid != PID(c->qid))
 			error(Eprocdied);
 		mw = c->aux;
 		if(mw->cddone){
