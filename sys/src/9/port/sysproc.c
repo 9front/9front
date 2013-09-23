@@ -1109,13 +1109,15 @@ syssemacquire(ulong *arg)
 	long *addr;
 	Segment *s;
 
-	validaddr(arg[0], sizeof(long), 1);
 	evenaddr(arg[0]);
 	addr = (long*)arg[0];
 	block = arg[1];
-	
-	if((s = seg(up, (ulong)addr, 0)) == nil)
+
+	s = seg(up, (ulong)addr, 0);
+	if(s == nil || (s->type&SG_RONLY) != 0 || (ulong)addr+sizeof(long) > s->top){
+		validaddr((ulong)addr, sizeof(long), 1);
 		error(Ebadarg);
+	}
 	if(*addr < 0)
 		error(Ebadarg);
 	return semacquire(s, addr, block);
@@ -1128,13 +1130,15 @@ systsemacquire(ulong *arg)
 	ulong ms;
 	Segment *s;
 
-	validaddr(arg[0], sizeof(long), 1);
 	evenaddr(arg[0]);
 	addr = (long*)arg[0];
 	ms = arg[1];
 
-	if((s = seg(up, (ulong)addr, 0)) == nil)
+	s = seg(up, (ulong)addr, 0);
+	if(s == nil || (s->type&SG_RONLY) != 0 || (ulong)addr+sizeof(long) > s->top){
+		validaddr((ulong)addr, sizeof(long), 1);
 		error(Ebadarg);
+	}
 	if(*addr < 0)
 		error(Ebadarg);
 	return tsemacquire(s, addr, ms);
@@ -1146,13 +1150,15 @@ syssemrelease(ulong *arg)
 	long *addr, delta;
 	Segment *s;
 
-	validaddr(arg[0], sizeof(long), 1);
 	evenaddr(arg[0]);
 	addr = (long*)arg[0];
 	delta = arg[1];
 
-	if((s = seg(up, (ulong)addr, 0)) == nil)
+	s = seg(up, (ulong)addr, 0);
+	if(s == nil || (s->type&SG_RONLY) != 0 || (ulong)addr+sizeof(long) > s->top){
+		validaddr((ulong)addr, sizeof(long), 1);
 		error(Ebadarg);
+	}
 	/* delta == 0 is a no-op, not a release */
 	if(delta < 0 || *addr < 0)
 		error(Ebadarg);
