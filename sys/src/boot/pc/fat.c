@@ -339,7 +339,7 @@ findfat(Fat *fat, int drive, ulong xbase, ulong lba)
 		return -1;
 	if(buf[0x1fe] != 0x55 || buf[0x1ff] != 0xAA)
 		return -1;
-	if(lba == 0){
+	if(lba == 0 && (drive & 0x80) == 0){	/* floppy */
 		fat->drive = drive;
 		fat->partlba = 0;
 		if(!conffat(fat, buf))
