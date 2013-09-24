@@ -1016,9 +1016,11 @@ mothon(Www *w, int on)
 			plrtstr(&t->next, 0, 0, t->font, strdup("->"), PL_HOT, ap);
 			t->next->next = x;
 		} else {
-			t->next = x->next;
-			x->next = nil;
-			freetext(x);
+			if(x) {
+				t->next = x->next;
+				x->next = nil;
+				freetext(x);
+			}
 		}
 	}
 	updtext(w);
