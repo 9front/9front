@@ -4915,3 +4915,15 @@ We're losing perspective on 3D CSS
 I think that a clearer definition of the problem will help identify the most appropriate solutions.
 CB/UNIX was developed to address deficiencies inherent in Research Unix
 (#cat-v) BurnZeZ → Yeah, it's just struggling to believe people are so complacent to make arbitrary decisions without being informed
+Configured with: /s/ndk-toolchain/src/build/../gcc/gcc-4.8/configure --prefix=/tmp/ndk-User/build/toolchain/prefix --target=arm-linux-androideabi --host=x86_64-apple-darwin --build=x86_64-apple-darwin --with-gnu-as --with-gnu-ld --enable-languages=c,c++ --with-gmp=/tmp/ndk-User/build/toolchain/temp-install --with-mpfr=/tmp/ndk-User/build/toolchain/temp-install --with-mpc=/tmp/ndk-User/build/toolchain/temp-install --with-cloog=/tmp/ndk-User/build/toolchain/temp-install --with-isl=/tmp/ndk-User/build/toolchain/temp-install --with-ppl=/tmp/ndk-User/build/toolchain/temp-install --disable-ppl-version-check --disable-cloog-version-check --disable-isl-version-check --enable-cloog-backend=isl --with-host-libstdcxx='-static-libgcc -lstdc++ -lm' --disable-libssp --enable-threads --disable-nls --disable-libmudflap --disable-libgomp --disable-libstdc__-v3 --disable-sjlj-exceptions --disable-shared --disable-tls --disable-libitm --with-float=soft --with-fpu=vfp --with-arch=armv5te --enable-target-optspace --enable-initfini-array --disable-nls --prefix=/tmp/ndk-User/build/toolchain/prefix --with-sysroot=/tmp/ndk-User/build/toolchain/prefix/sysroot --with-binutils-version=2.23 --with-mpfr-version=3.1.1 --with-mpc-version=1.0.1 --with-gmp-version=5.0.5 --with-gcc-version=4.8 --with-gdb-version=7.3.x --with-python=/Users/User/mydroid/ndk/prebuilt/darwin-x86_64/bin/python-config.sh --with-gxx-include-dir=/tmp/ndk-User/build/toolchain/prefix/include/c++/4.8 --with-bugurl=http://source.android.com/source/report-bugs.html --disable-bootstrap --disable-libquadmath --enable-plugins --enable-libgomp --disable-libsanitizer --enable-gold --enable-graphite=yes --with-cloog-version=0.18.0 --with-isl-version=0.11.1 --with-arch=armv5te --program-transform-name='s&^&arm-linux-androideabi-&' --enable-gold=default
+(#cat-v) lf94 → guys the driver wont be done by the weekend
+Subject: [liberationtech] Is Dropbox opening uploaded documents?
+We're bad at accurately assessing risk
+YÚN is the first member of a new line of Wi-Fi products that combines the power linux with ease of use of arduino.
+ICD-9-CM E843.0
+(#go-nuts) radiofreejohn → it's not as if Go is being imposed on people
+I knew zero about social media in 2008. I now have 2 certifications in social media.
+I enjoy most of your user profile.
+I gave up, back to 9front. -- Aram
+Poor US Infrastructure Threatens the Cloud
+WIRED: Java returns to rule the web!!
