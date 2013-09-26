@@ -471,15 +471,16 @@ Found:
 	adev->ctlr = ctlr;
 	ctlr->adev = adev;
 
+	if((p->mem[0].bar & 1) == 0 || (p->mem[1].bar & 1) == 0){
+		print("ac97: not i/o regions 0x%04lux 0x%04lux\n", p->mem[0].bar, p->mem[1].bar);
+		return -1;
+	}
+
 	i = 1;
-	if(p->mem[0].size == 64)
-		i = 0;
-	else if(p->mem[1].size == 64)
-		i = 1;
-	else if(p->mem[0].size == 256)		/* sis7012 */
-		i = 1;
-	else if(p->mem[1].size == 256)
-		i = 0;
+	if(p->vid == 0x1039 && p->did == 0x7012){
+		ctlr->sis7012 = 1;
+		//i = 0;	i/o bars swaped?
+	}
 	ctlr->port = p->mem[i].bar & ~3;
 	if(ioalloc(ctlr->port, p->mem[i].size, 0, "ac97") < 0){
 		print("ac97: ioalloc failed for port 0x%04lux\n", ctlr->port);
@@ -495,8 +496,6 @@ Found:
 
 	irq = p->intl;
 	tbdf = p->tbdf;
-	if(p->vid == 0x1039 && p->did == 0x7012)
-		ctlr->sis7012 = 1;
 
 	print("#A%d: ac97 port 0x%04lux mixport 0x%04lux irq %d\n",
 		adev->ctlrno, ctlr->port, ctlr->mixport, irq);

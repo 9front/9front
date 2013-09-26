@@ -7,8 +7,6 @@
 #include "../port/error.h"
 #include "../port/audioif.h"
 
-enum { Maxbusywait = 500000 };
-
 enum {
 	Reset = 0x0,
 		Capmic = 0x1,
@@ -236,7 +234,6 @@ ac97mixreset(Audio *adev, void (*wr)(Audio*,int,ushort), ushort (*rr)(Audio*,int
 {
 	Mixer *m;
 	ushort t;
-	int i;
 
 	m = malloc(sizeof(Mixer));
 	if(m == nil){
@@ -247,14 +244,9 @@ ac97mixreset(Audio *adev, void (*wr)(Audio*,int,ushort), ushort (*rr)(Audio*,int
 	m->rr = rr;
 	m->wr(adev, Reset, 0);
 	m->wr(adev, Powerdowncsr, 0);
-
+	delay(1000);
 	t = (Adcpower | Dacpower | Anlpower | Refpower);
-	for(i = 0; i < Maxbusywait; i++){
-		if((m->rr(adev, Powerdowncsr) & t) == t)
-			break;
-		microdelay(1);
-	}
-	if(i == Maxbusywait)
+	if((m->rr(adev, Powerdowncsr) & t) != t)
 		print("#A%d: ac97 exhausted waiting powerup\n", adev->ctlrno);
 
 	t = m->rr(adev, Extid);
