@@ -19,7 +19,6 @@ struct Hchar
 static Hchar byname[] =
 {
 	{"AElig", 198},
-	{"AMP", 38},
 	{"Aacute", 193},
 	{"Abreve", 258},
 	{"Acirc", 194},
@@ -45,7 +44,6 @@ static Hchar byname[] =
 	{"Bscr", 8492},
 	{"Bumpeq", 8782},
 	{"CHcy", 1063},
-	{"COPY", 169},
 	{"Cacute", 262},
 	{"Cap", 8914},
 	{"CapitalDifferentialD", 8517},
@@ -158,7 +156,6 @@ static Hchar byname[] =
 	{"Fouriertrf", 8497},
 	{"Fscr", 8497},
 	{"GJcy", 1027},
-	{"GT", 62},
 	{"Gamma", 915},
 	{"Gammad", 988},
 	{"Gbreve", 286},
@@ -221,7 +218,6 @@ static Hchar byname[] =
 	{"Kcedil", 310},
 	{"Kcy", 1050},
 	{"LJcy", 1033},
-	{"LT", 60},
 	{"Lacute", 313},
 	{"Lambda", 923},
 	{"Lang", 10218},
@@ -390,10 +386,8 @@ static Hchar byname[] =
 	{"Proportion", 8759},
 	{"Proportional", 8733},
 	{"Psi", 936},
-	{"QUOT", 34},
 	{"Qopf", 8474},
 	{"RBarr", 10512},
-	{"REG", 174},
 	{"Racute", 340},
 	{"Rang", 10219},
 	{"Rarr", 8608},
@@ -474,7 +468,6 @@ static Hchar byname[] =
 	{"SupersetEqual", 8839},
 	{"Supset", 8913},
 	{"THORN", 222},
-	{"TRADE", 8482},
 	{"TSHcy", 1035},
 	{"TScy", 1062},
 	{"Tab", 9},
@@ -558,11 +551,18 @@ static Hchar byname[] =
 	{"Zeta", 918},
 	{"Zfr", 8488},
 	{"Zopf", 8484},
+	{"_AMP", 38},
+	{"_COPY", 169},
+	{"_GT", 62},
+	{"_LT", 60},
+	{"_QUOT", 34},
+	{"_REG", 174},
+	{"_TRADE", 8482},
 	{"_emdash", 8212},	/* non-standard but commonly used */
 	{"_endash", 8211},	/* non-standard but commonly used */
 	{"_ldots", 8230},
 	{"_sp", 8194},
-	{"_varepsilon", 8712},
+	{"_varepsilon", 1013},
 	{"_varpi", 982},
 	{"_vsigma", 962},
 	{"_vtheta", 977},
@@ -1942,11 +1942,9 @@ static Hchar byname[] =
 	{"vBarv", 10985},
 	{"vDash", 8872},
 	{"vangrt", 10652},
-	{"varepsilon", 1013},
 	{"varkappa", 1008},
 	{"varnothing", 8709},
 	{"varphi", 981},
-	{"varpi", 982},
 	{"varpropto", 8733},
 	{"varr", 8597},
 	{"varrho", 1009},
@@ -2048,11 +2046,21 @@ hrunecmp(const void *va, const void *vb)
 	return a->r - b->r;
 }
 
+static int
+hlencmp(const void *va, const void *vb)
+{
+	Hchar *a, *b;
+
+	a = (Hchar*)va;
+	b = (Hchar*)vb;
+	return strlen(a->s) - strlen(b->s);
+}
+
 static void
 html_init(void)
 {
 	static int init;
-	int i;
+	int i, j;
 	
 	if(init)
 		return;
@@ -2068,6 +2076,22 @@ html_init(void)
 	}
 	
 	qsort(byname, nelem(byname), sizeof byname[0], hnamecmp);
+	qsort(byrune, nelem(byrune), sizeof byrune[0], hrunecmp);
+
+	/* Eliminate ambigious runes. use shotest name */
+	for(j=0, i=1; i<nelem(byrune); i++){
+		if(byrune[i].r == byrune[j].r)
+			continue;
+		if(i-j > 1) {
+			qsort(byrune+j, i-j, sizeof byrune[0], hlencmp);
+			while(++j<i) byrune[j].r = Runeerror;
+		}
+		j=i;
+	}
+	if(i-j > 1) {
+		qsort(byrune+j, i-j, sizeof byrune[0], hlencmp);
+		while(++j<i) byrune[j].r = Runeerror;
+	}
 	qsort(byrune, nelem(byrune), sizeof byrune[0], hrunecmp);
 }
 
