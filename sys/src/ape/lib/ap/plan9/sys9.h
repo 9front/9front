@@ -106,11 +106,8 @@ extern	int	_SEGDETACH(void*);
 extern	int	_SEGFLUSH(void*, unsigned long);
 extern	int	_SEGFREE(void*, unsigned long);
 extern	long long	_SEEK(int, long long, int);
-extern	int	_SEMACQUIRE(long*, int);
-extern	long	_SEMRELEASE(long*, long);
 extern	int	_SLEEP(long);
 extern	int	_STAT(const char*, unsigned char*, int);
-extern	int	_TSEMACQUIRE(long*, unsigned long);
 extern	Waitmsg*	_WAIT(void);
 extern	long	_WRITE(int, const void*, long);
 extern	int	_WSTAT(const char*, unsigned char*, int);
@@ -122,9 +119,3 @@ extern	int	__creat(char *, int);
 extern	int	__link(char *, int);
 extern	int	__stat(char *, struct stat *);
 extern	int	__unlink(char *);
-
-/*
- * atomic
- */
-extern long	ainc(long*);
-extern long	adec(long*);

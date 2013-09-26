@@ -24,6 +24,7 @@ SFILES=\
 	strlen.s\
 
 CFILES=\
+	cycles.c\
 	notejmp.c\
 	vlrt.c\
 

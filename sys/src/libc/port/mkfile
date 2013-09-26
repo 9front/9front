@@ -19,7 +19,6 @@ CFILES=\
 	cleanname.c\
 	crypt.c\
 	ctype.c\
-	cycles.c\
 	encodefmt.c\
 	execl.c\
 	exp.c\

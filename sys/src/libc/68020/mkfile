@@ -26,7 +26,7 @@ SFILES=\
 	vlop.s\
 
 CFILES=\
-	lock.c\
+	cycles.c\
 	notejmp.c\
 	vlrt.c\
 

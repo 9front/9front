@@ -1,13 +1,10 @@
-#define _LOCK_EXTENSION
-#include <stdlib.h>
-#include <string.h>
-#include "../plan9/sys9.h"
-#include <lock.h>
+#include <u.h>
+#include <libc.h>
 
 enum
 {
 	Pagesize	= 4096,
-	Semperpg	= Pagesize/(16*sizeof(unsigned int)),
+	Semperpg	= Pagesize/(16*sizeof(uint)),
 	Lockaddr	= 0x60000000,
 
 	POWER		= 0x320,
@@ -24,27 +21,28 @@ extern	int C_fcr0(void);
 static void
 lockinit(void)
 {
-	int n;
+	void *v;
 
 	if(arch != 0)
 		return;	/* allow multiple calls */
 	arch = C_fcr0();
 	switch(arch) {
 	case POWER:
-		if(_SEGATTACH(0,  "lock", (void*)Lockaddr, Pagesize) == (void*)-1) {
+		v = (void*)Lockaddr;
+		if(segattach(SG_CEXEC, "lock", v, Pagesize) == (void*)-1) {
 			arch = MAGNUM;
 			break;
 		}
-		memset((void*)Lockaddr, 0, Pagesize);
+		memset(v, 0, Pagesize);
 		break;
 	case MAGNUM:
 	case MAGNUMII:
 	case R4K:
 		break;
 	default:
-		abort();
+		arch = R4K;
+		break;
 	}
-	
 }
 
 void
@@ -61,7 +59,7 @@ retry:
 	case MAGNUM:
 	case MAGNUMII:
 		while(C_3ktas(&lk->val))
-			_SLEEP(0);
+			sleep(0);
 		return;
 	case R4K:
 		for(;;){
@@ -89,7 +87,7 @@ retry:
 			while(lk->val)
 				;
 		}
-	}	
+	}
 }
 
 int
@@ -126,8 +124,9 @@ retry:
 				return 1;
 			}
 		}
-		return 0;
-	}	
+		break;
+	}
+	return 0;
 }
 
 void
@@ -137,7 +136,7 @@ unlock(Lock *lk)
 }
 
 int
-tas(int *p)
+_tas(int *p)
 {
 	int *hwsem;
 	int hash;
@@ -166,6 +165,7 @@ retry:
 				return 0;
 			}
 		}
-		return 1;
-	}	
+		break;
+	}
+	return 1;
 }

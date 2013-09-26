@@ -2,17 +2,19 @@
 #include "../plan9/sys9.h"
 #include <lock.h>
 
+int	tas(int*);
+
 void
 lock(Lock *lk)
 {
-	while(tas((int*)&lk->key))
+	while(tas(&lk->val))
 		_SLEEP(0);
 }
 
 int
 canlock(Lock *lk)
 {
-	if(tas((int*)&lk->key))
+	if(tas(&lk->val))
 		return 0;
 	return 1;
 }
@@ -20,5 +22,5 @@ canlock(Lock *lk)
 void
 unlock(Lock *lk)
 {
-	lk->key = 0;
+	lk->val = 0;
 }

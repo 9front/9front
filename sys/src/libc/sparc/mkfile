@@ -22,7 +22,7 @@ SFILES=\
 	vlop.s
 
 CFILES=\
-	lock.c\
+	cycles.c\
 	notejmp.c\
 	sqrt.c\
 	vlrt.c\
