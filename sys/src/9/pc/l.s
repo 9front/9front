@@ -17,6 +17,8 @@
 #define INVLPG	BYTE $0x0F; BYTE $0x01; BYTE $0x39	/* INVLPG (%ecx) */
 #define WBINVD	BYTE $0x0F; BYTE $0x09
 
+#define VectorSYSCALL	0x40
+
 /*
  * Macros for calculating offsets within the page directory base
  * and page tables. Note that these are assembler-specific hence
@@ -277,61 +279,6 @@ TEXT load_fs(SB), $0
 TEXT load_gs(SB), $0
 	MOVW gs+0(FP), AX
 	MOVW AX, GS
-	RET
-
-/*
- * Save registers.
- */
-TEXT saveregs(SB), $0
-	/* appease 8l */
-	SUBL $32, SP
-	POPL AX
-	POPL AX
-	POPL AX
-	POPL AX
-	POPL AX
-	POPL AX
-	POPL AX
-	POPL AX
-	
-	PUSHL	AX
-	PUSHL	BX
-	PUSHL	CX
-	PUSHL	DX
-	PUSHL	BP
-	PUSHL	DI
-	PUSHL	SI
-	PUSHFL
-
-	XCHGL	32(SP), AX	/* swap return PC and saved flags */
-	XCHGL	0(SP), AX
-	XCHGL	32(SP), AX
-	RET
-
-TEXT restoreregs(SB), $0
-	/* appease 8l */
-	PUSHL	AX
-	PUSHL	AX
-	PUSHL	AX
-	PUSHL	AX
-	PUSHL	AX
-	PUSHL	AX
-	PUSHL	AX
-	PUSHL	AX
-	ADDL	$32, SP
-	
-	XCHGL	32(SP), AX	/* swap return PC and saved flags */
-	XCHGL	0(SP), AX
-	XCHGL	32(SP), AX
-
-	POPFL
-	POPL	SI
-	POPL	DI
-	POPL	BP
-	POPL	DX
-	POPL	CX
-	POPL	BX
-	POPL	AX
 	RET
 
 /*
@@ -925,7 +872,26 @@ _rndbytes:
 	LOOP _rndbytes
 _rnddone:
 	RET
-	
+
+/*
+ *  Used to get to the first process:
+ * 	set up an interrupt return frame and IRET to user level.
+ */
+TEXT touser(SB), $0
+	PUSHL	$(UDSEL)			/* old ss */
+	MOVL	sp+0(FP), AX			/* old sp */
+	PUSHL	AX
+	MOVL	$0x200, AX			/* interrupt enable flag */
+	PUSHL	AX				/* old flags */
+	PUSHL	$(UESEL)			/* old cs */
+	PUSHL	$(UTZERO+32)			/* old pc */
+	MOVL	$(UDSEL), AX
+	MOVW	AX, DS
+	MOVW	AX, ES
+	MOVW	AX, GS
+	MOVW	AX, FS
+	IRETL
+
 /*
  * Interrupt/exception handling.
  * Each entry in the vector table calls either _strayintr or _strayintrx depending
@@ -974,6 +940,28 @@ TEXT _forkretpopds(SB), $0
 	ADDL	$8, SP			/* pop error code and trap type */
 TEXT _forkretiret(SB), $0
 	IRETL
+
+/*
+ * This is merely _strayintr optimised to vector
+ * to syscall() without going through trap().
+ */
+TEXT _syscallintr(SB), $0
+	PUSHL	$VectorSYSCALL		/* trap type */
+
+	PUSHL	DS
+	PUSHL	ES
+	PUSHL	FS
+	PUSHL	GS
+	PUSHAL
+	MOVL	$(KDSEL), AX
+	MOVW	AX, DS
+	MOVW	AX, ES
+
+	MOVL	$syscall(SB), AX
+
+	PUSHL	SP			/* Ureg* argument to syscall */
+	PUSHL	$forkret(SB)		/* return pc */
+	JMP	*AX
 
 TEXT vectortable(SB), $0
 	CALL _strayintr(SB); BYTE $0x00		/* divide error */
