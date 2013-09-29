@@ -24,7 +24,7 @@ struct Audiochan
 	Audio *adev;
 
 	char *data;
-	char buf[1024+1];
+	char buf[4000+1];
 };
 
 enum {

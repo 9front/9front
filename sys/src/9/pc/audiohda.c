@@ -568,6 +568,30 @@ setoutamp(Widget *w, int mute, int *vol)
 	}
 }
 
+static uint
+getinamprange(Widget *w)
+{
+	uint r;
+
+	if((w->cap & Winampcap) == 0)
+		return 0;
+	if((w->cap & Wampovrcap) == 0)
+		r = cmd(w->fg->id, Getparm, Inampcap);
+	else
+		r = cmd(w->id, Getparm, Inampcap);
+	return (r >> 8) & 0x7f;
+}
+
+static void
+getinamp(Widget *w, int vol[2])
+{
+	vol[0] = vol[1] = 0;
+	if((w->cap & Winampcap) == 0)
+		return;
+	vol[0] = cmd(w->id, Getamp, Agetin | Agetleft) & Againmask;
+	vol[1] = cmd(w->id, Getamp, Agetin | Agetright) & Againmask;
+}
+
 /* vol is 0...range or nil for 0dB; mute is 0/1; in is widget or nil for all */
 static void
 setinamp(Widget *w, Widget *in, int mute, int *vol)
@@ -599,21 +623,44 @@ setinamp(Widget *w, Widget *in, int mute, int *vol)
 }
 
 static Widget *
-findpath(Widget *jack, int type)
+findpath(Widget *jack, int type, char *route)
 {
 	Widget *q[Maxwidgets];
 	uint l, r, i;
 	Widget *w, *to;
+	Fungroup *fg;
+
+	fg = jack->fg;
 
 	l = r = 0;
-	for(w=jack->fg->first; w != nil; w = w->next)
+	for(w=fg->first; w != nil; w = w->next)
 		w->link = nil;
+
+	if(route != nil && *route != 0){
+		w = jack;
+		while(*route++ == ','){
+			i = strtoul(route, &route, 0);
+			if(i >= Maxwidgets)
+				return nil;
+			to = fg->codec->widgets[i];
+			if(to == nil || to->fg != fg || to->link != nil)
+				return nil;
+			if(type == Waout)
+				to->link = w;
+			else
+				w->link = to;
+			w = to;
+		}
+		if(w == jack || w->type != type)
+			w = nil;
+		return w;
+	}
 
 	if(type == Waout){
 		q[r++] = jack;
 		jack->link = jack;
 	} else {
-		for(w=jack->fg->first; w != nil; w = w->next)
+		for(w=fg->first; w != nil; w = w->next)
 			if(w->type == type){
 				q[r++] = w;
 				w->link = w;
@@ -652,9 +699,38 @@ disconnectpath(Widget *from, Widget *to)
 		next = from->path;
 		from->path = nil;
 		setoutamp(from, 1, nil);
-		setinamp(next, from, 1, nil);
+		if(next != nil)
+			setinamp(next, from, 1, nil);
 	}
 	setoutamp(to, 1, nil);
+}
+
+static void
+muteall(Ctlr *ctlr)
+{
+	Fungroup *fg;
+	Widget *w;
+	int i;
+
+	for(i=0; i<Maxcodecs; i++){
+		if(ctlr->codec[i] == nil)
+			continue;
+		for(fg=ctlr->codec[i]->fgroup; fg; fg=fg->next){
+			for(w=fg->first; w != nil; w=w->next){
+				setinamp(w, nil, 1, nil);
+				setoutamp(w, 1, nil);
+				switch(w->type){
+				case Wain:
+				case Waout:
+					cmd(w->id, Setstream, 0);
+					break;
+				case Wpin:
+					cmd(w->id, Setpinctl, 0);
+					break;
+				}
+			}
+		}
+	}
 }
 
 static void
@@ -667,14 +743,15 @@ connectpath(Widget *from, Widget *to)
 		next = from->link;
 		from->path = next;
 		setoutamp(from, 0, nil);
-		setinamp(next, from, 0, nil);
-		if(next->nlist == 1)
-			continue;
-		for(i=0; i < next->nlist; i++)
-			if(next->list[i] == from){
-				cmd(next->id, Setconn, i);	
-				break;
+		if(next != nil){
+			setinamp(next, from, 0, nil);
+			for(i=0; i < next->nlist; i++){
+				if(next->list[i] == from){
+					cmd(next->id, Setconn, i);	
+					break;
+				}
 			}
+		}
 	}
 	setoutamp(to, 0, nil);
 }
@@ -702,7 +779,6 @@ addconn(Widget *w, uint nid)
 		w->list = p;
 	}
 	w->list[w->nlist++] = src;
-	return;
 }
 
 static void
@@ -738,11 +814,10 @@ enumwidget(Widget *w)
 {
 	w->cap = cmd(w->id, Getparm, Widgetcap);
 	w->type = (w->cap >> 20) & 0x7;
-	if(w->cap & Wpwrcap)
+	if(w->cap & Wpwrcap){
 		cmd(w->id, Setpower, 0);
-
-	enumconns(w);
-	
+		delay(10);
+	}	
 	switch(w->type){
 	case Wpin:
 		w->pin = cmd(w->id, Getdefault, 0);
@@ -768,7 +843,19 @@ enumfungroup(Codec *codec, Id id)
 
 	/* open eyes */
 	cmd(id, Setpower, 0);
-	microdelay(100);
+	delay(10);
+
+	r = cmd(id, Getparm, Subnodecnt);
+	n = r & 0xff;
+	base = (r >> 16) & 0xff;
+	if(base >= Maxwidgets){
+		print("hda: enumfungroup: base %d out of range\n", base);
+		return nil;
+	}
+	if(base+n > Maxwidgets){
+		print("hda: enumfungroup: widgets %d - %d out of range\n", base, base+n);
+		n = Maxwidgets - base;
+	}
 
 	fg = mallocz(sizeof *fg, 1);
 	if(fg == nil){
@@ -780,17 +867,12 @@ Nomem:
 	fg->id = id;
 	fg->type = r;
 
-	r = cmd(id, Getparm, Subnodecnt);
-	n = r & 0xff;
-	base = (r >> 16) & 0xff;
-	
-	if(base + n > Maxwidgets){
-		free(fg);
-		return nil;
-	}
-
 	tail = &fg->first;
 	for(i=0; i<n; i++){
+		if(codec->widgets[base + i] != nil){
+			print("hda: enumfungroup: duplicate widget %d\n", base + i);
+			continue;
+		}
 		w = mallocz(sizeof(Widget), 1);
 		if(w == nil){
 			while(w = fg->first){
@@ -810,10 +892,11 @@ Nomem:
 
 	for(i=0; i<n; i++)
 		enumwidget(codec->widgets[base + i]);
+	for(i=0; i<n; i++)
+		enumconns(codec->widgets[base + i]);
 
 	return fg;
 }
-
 
 static int
 enumcodec(Codec *codec, Id id)
@@ -883,7 +966,7 @@ enumdev(Ctlr *ctlr)
 }
 
 static int
-connectpin(Ctlr *ctlr, Stream *s, int type, uint pin, uint cad)
+connectpin(Ctlr *ctlr, Stream *s, int type, uint pin, uint cad, char *route)
 {
 	Widget *jack, *conv;
 
@@ -897,7 +980,7 @@ connectpin(Ctlr *ctlr, Stream *s, int type, uint pin, uint cad)
 	if(jack->type != Wpin)
 		return -1;
 
-	conv = findpath(jack, type);
+	conv = findpath(jack, type, route);
 	if(conv == nil)
 		return -1;
 
@@ -989,8 +1072,8 @@ bestpin(Ctlr *ctlr, int *pcad, int (*fscore)(Widget *))
 	for(i=0; i<Maxcodecs; i++){
 		if(ctlr->codec[i] == nil)
 			continue;
-		for(fg=ctlr->codec[i]->fgroup; fg; fg=fg->next){
-			for(w=fg->first; w; w=w->next){
+		for(fg=ctlr->codec[i]->fgroup; fg != nil; fg=fg->next){
+			for(w=fg->first; w != nil; w=w->next){
 				if(w->type != Wpin)
 					continue;
 				score = (*fscore)(w);
@@ -1164,7 +1247,7 @@ streampos(Ctlr *ctlr, Stream *s)
 static long
 hdactl(Audio *adev, void *va, long n, vlong)
 {
-	char *p, *e, *x, *tok[4];
+	char *p, *e, *x, *route, *tok[4];
 	int ntok;
 	Ctlr *ctlr;
 	uint pin, cad;
@@ -1174,6 +1257,7 @@ hdactl(Audio *adev, void *va, long n, vlong)
 	e = p + n;
 	
 	for(; p < e; p = x){
+		route = nil;
 		if(x = strchr(p, '\n'))
 			*x++ = 0;
 		else
@@ -1183,18 +1267,18 @@ hdactl(Audio *adev, void *va, long n, vlong)
 			continue;
 		if(cistrcmp(tok[0], "pin") == 0 && ntok >= 2){
 			cad = ctlr->sout.cad;
-			pin = strtoul(tok[1], 0, 0);
+			pin = strtoul(tok[1], &route, 0);
 			if(ntok > 2)
 				cad = strtoul(tok[2], 0, 0);
-			if(connectpin(ctlr, &ctlr->sout, Waout, pin, cad) < 0)
+			if(connectpin(ctlr, &ctlr->sout, Waout, pin, cad, route) < 0)
 				error("connectpin failed");
 		}else
 		if(cistrcmp(tok[0], "inpin") == 0 && ntok >= 2){
 			cad = ctlr->sin.cad;
-			pin = strtoul(tok[1], 0, 0);
+			pin = strtoul(tok[1], &route, 0);
 			if(ntok > 2)
 				cad = strtoul(tok[2], 0, 0);
-			if(connectpin(ctlr, &ctlr->sin, Wain, pin, cad) < 0)
+			if(connectpin(ctlr, &ctlr->sin, Wain, pin, cad, route) < 0)
 				error("connectpin failed");
 		}else
 			error(Ebadctl);
@@ -1328,15 +1412,50 @@ static Volume voltab[] = {
 	0
 };
 
+static Widget*
+findoutamp(Stream *s)
+{
+	Widget *w;
+
+	for(w = s->conv; w != nil; w = w->path){
+		if(w->cap & Woutampcap)
+			return w;
+		if(w == s->jack)
+			break;
+	}
+	return nil;
+}
+
+static Widget*
+findinamp(Stream *s)
+{
+	Widget *w, *p, *a;
+
+	a = nil;
+	for(p = nil, w = s->jack; w != nil; p = w, w = w->path){
+		w->link = p;	/* for setinamp */
+		if(w->cap & Winampcap)
+			a = w;
+		if(w == s->conv)
+			break;
+	}
+	return a;
+}
+
 static int
 hdagetvol(Audio *adev, int x, int a[2])
 {
 	Ctlr *ctlr = adev->ctlr;
+	Widget *w;
 
 	switch(x){
 	case Vmaster:
-		if(ctlr->sout.conv != nil)
-			getoutamp(ctlr->sout.conv, a);
+		if((w = findoutamp(&ctlr->sout)) != nil)
+			getoutamp(w, a);
+		break;
+	case Vrecord:
+		if((w = findinamp(&ctlr->sin)) != nil)
+			getinamp(w, a);
 		break;
 	case Vspeed:
 		a[0] = adev->speed;
@@ -1352,15 +1471,16 @@ static int
 hdasetvol(Audio *adev, int x, int a[2])
 {
 	Ctlr *ctlr = adev->ctlr;
+	Widget *w;
 
 	switch(x){
 	case Vmaster:
-		if(ctlr->sout.conv != nil)
-			setoutamp(ctlr->sout.conv, 0, a);
+		if((w = findoutamp(&ctlr->sout)) != nil)
+			setoutamp(w, 0, a);
 		break;
 	case Vrecord:
-		if(ctlr->sin.conv != nil)
-			setinamp(ctlr->sin.conv, nil, 0, a);
+		if((w = findinamp(&ctlr->sin)) != nil)
+			setinamp(w, w->link, 0, a);
 		break;
 	case Vspeed:
 		adev->speed = a[0];
@@ -1375,9 +1495,13 @@ hdasetvol(Audio *adev, int x, int a[2])
 static void
 fillvoltab(Ctlr *ctlr, Volume *vt)
 {
+	Widget *w;
+
 	memmove(vt, voltab, sizeof(voltab));
-	if(ctlr->sout.conv != nil)
-		vt[Vmaster].range = getoutamprange(ctlr->sout.conv);
+	if((w = findoutamp(&ctlr->sout)) != nil)
+		vt[Vmaster].range = getoutamprange(w);
+	if((w = findinamp(&ctlr->sin)) != nil)
+		vt[Vrecord].range = getinamprange(w);
 }
 
 static long
@@ -1438,10 +1562,9 @@ hdastatus(Audio *adev, void *a, long n, vlong)
 {
 	Ctlr *ctlr = adev->ctlr;
 	Codec *codec;
-	Fungroup *fg;
 	Widget *w;
 	uint r;
-	int i;
+	int i, j, k;
 	char *s, *e;
 	
 	s = a;
@@ -1450,15 +1573,16 @@ hdastatus(Audio *adev, void *a, long n, vlong)
 	for(i=0; i<Maxcodecs; i++){
 		if((codec = ctlr->codec[i]) == nil)
 			continue;
-		s = seprint(s, e, "codec %2d pin %3d inpin %3d\n",
+		s = seprint(s, e, "codec %d pin %d inpin %d\n",
 			codec->id.codec, ctlr->sout.pin, ctlr->sin.pin);
-		for(fg=codec->fgroup; fg; fg=fg->next){
-			for(w=fg->first; w; w=w->next){
-				if(w->type != Wpin)
-					continue;
+		for(j=0; j<Maxwidgets; j++){
+			if((w = codec->widgets[j]) == nil)
+				continue;
+			switch(w->type){
+			case Wpin:
 				r = w->pin;
-				s = seprint(s, e, "pin %3d %s%s %s %s %s %s %s%s%s\n",
-					w->id.nid,
+				s = seprint(s, e, "%s %d %s%s %s %s %s %s %s%s%s",
+					widtype[w->type&7], w->id.nid,
 					(w->pincap & Pin) != 0 ? "in" : "",
 					(w->pincap & Pout) != 0 ? "out" : "",
 					pinport[(r >> 30) & 0x3],
@@ -1469,29 +1593,50 @@ hdastatus(Audio *adev, void *a, long n, vlong)
 					(w->pincap & Phdmi) ? " hdmi" : "",
 					(w->pincap & Peapd) ? " eapd" : ""
 				);
+				break;
+			default:
+				s = seprint(s, e, "%s %d %lux",
+					widtype[w->type&7], w->id.nid,
+					(ulong)w->cap);
 			}
+			if(w->nlist > 0){
+				s = seprint(s, e, " ← ");
+				for(k=0; k<w->nlist; k++){
+					if(k > 0)
+						s = seprint(s, e, ", ");
+					if(w->list[k] != nil)
+						s = seprint(s, e, "%s %d", widtype[w->list[k]->type&7], w->list[k]->id.nid);
+				}
+			}
+			s = seprint(s, e, "\n");
 		}
 	}
 
-	s = seprint(s, e, "outpath ");
-	for(w=ctlr->sout.conv; w != nil; w = w->path){
-		s = seprint(s, e, "%s %3d %lux %lux %lux", widtype[w->type&7], w->id.nid,
-			(ulong)w->cap, (ulong)w->pin, (ulong)w->pincap);
-		if(w == ctlr->sout.jack)
-			break;
-		s = seprint(s, e, " → ");
+	if(ctlr->sout.conv != nil && ctlr->sout.jack != nil){
+		s = seprint(s, e, "outpath ");
+		for(w=ctlr->sout.conv; w != nil; w = w->path){
+			s = seprint(s, e, "%s %d", widtype[w->type&7], w->id.nid);
+			if(w == ctlr->sout.jack)
+				break;
+			s = seprint(s, e, " → ");
+		}
+		s = seprint(s, e, "\n");
+		if((w = findoutamp(&ctlr->sout)) != nil)
+			s = seprint(s, e, "outamp %s %d\n", widtype[w->type&7], w->id.nid);
 	}
-	s = seprint(s, e, "\n");
 
-	s = seprint(s, e, "inpath ");
-	for(w=ctlr->sin.jack; w != nil; w = w->path){
-		s = seprint(s, e, "%s %3d %lux %lux %lux", widtype[w->type&7], w->id.nid,
-			(ulong)w->cap, (ulong)w->pin, (ulong)w->pincap);
-		if(w == ctlr->sin.conv)
-			break;
-		s = seprint(s, e, " → ");
+	if(ctlr->sin.conv != nil && ctlr->sin.jack != nil){
+		s = seprint(s, e, "inpath ");
+		for(w=ctlr->sin.jack; w != nil; w = w->path){
+			s = seprint(s, e, "%s %d", widtype[w->type&7], w->id.nid);
+			if(w == ctlr->sin.conv)
+				break;
+			s = seprint(s, e, " → ");
+		}
+		s = seprint(s, e, "\n");
+		if((w = findinamp(&ctlr->sin)) != nil)
+			s = seprint(s, e, "inamp %s %d\n", widtype[w->type&7], w->id.nid);
 	}
-	s = seprint(s, e, "\n");
 
 	return s - (char*)a;
 }
@@ -1678,7 +1823,7 @@ hdareset(Audio *adev)
 	}
 
 	/* pick a card from the list */
-	for(ctlr = cards; ctlr; ctlr = ctlr->next){
+	for(ctlr = cards; ctlr != nil; ctlr = ctlr->next){
 		if(p = ctlr->pcidev){
 			ctlr->pcidev = nil;
 			goto Found;
@@ -1759,17 +1904,18 @@ Found:
 		print("#A%d: no audio codecs found\n", ctlr->no);
 		return -1;
 	}
+	muteall(ctlr);
 
 	best = bestpin(ctlr, &cad, scoreout);
 	if(best < 0)
 		print("#A%d: no output pins found\n", ctlr->no);
-	else if(connectpin(ctlr, &ctlr->sout, Waout, best, cad) < 0)
+	else if(connectpin(ctlr, &ctlr->sout, Waout, best, cad, nil) < 0)
 		print("#A%d: error connecting output pin\n", ctlr->no);
 
 	best = bestpin(ctlr, &cad, scorein);
 	if(best < 0)
 		print("#A%d: no input pins found\n", ctlr->no);
-	else if(connectpin(ctlr, &ctlr->sin, Wain, best, cad) < 0)
+	else if(connectpin(ctlr, &ctlr->sin, Wain, best, cad, nil) < 0)
 		print("#A%d: error connecting input pin\n", ctlr->no);
 
 	adev->read = hdaread;
