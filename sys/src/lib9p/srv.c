@@ -668,15 +668,15 @@ swstat(Srv *srv, Req *r)
 		respond(r, Ebaddir);
 		return;
 	}
-	if((ushort)~r->d.type){
+	if(r->d.type != (ushort)~0){
 		respond(r, "wstat -- attempt to change type");
 		return;
 	}
-	if((uint)~r->d.dev){
+	if(r->d.dev != ~0){
 		respond(r, "wstat -- attempt to change dev");
 		return;
 	}
-	if((uchar)~r->d.qid.type || (ulong)~r->d.qid.vers || (uvlong)~r->d.qid.path){
+	if(r->d.qid.type != (uchar)~0 || r->d.qid.vers != ~0 || r->d.qid.path != ~0){
 		respond(r, "wstat -- attempt to change qid");
 		return;
 	}
@@ -684,7 +684,7 @@ swstat(Srv *srv, Req *r)
 		respond(r, "wstat -- attempt to change muid");
 		return;
 	}
-	if((ulong)~r->d.mode && ((r->d.mode&DMDIR)>>24) != (r->fid->qid.type&QTDIR)){
+	if(r->d.mode != ~0 && ((r->d.mode&DMDIR)>>24) != (r->fid->qid.type&QTDIR)){
 		respond(r, "wstat -- attempt to change DMDIR bit");
 		return;
 	}

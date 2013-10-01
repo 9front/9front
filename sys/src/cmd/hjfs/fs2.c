@@ -716,16 +716,16 @@ chanwstat(Chan *ch, Dir *di)
 		ingroup(ch->fs, ch->uid, d->gid, 1) ||
 		(ch->fs->flags & FSNOPERM) != 0 ||
 		(ch->flags & CHFNOPERM) != 0;
-	if((uvlong)~di->length){
+	if(di->length != ~0){
 		if(isdir && di->length != 0)
 			goto inval;
 		if((ch->flags & CHFNOPERM) == 0)
 			if(di->length != d->size && !permcheck(ch->fs, d, ch->uid, OWRITE))
 				goto perm;
 	}
-	if((ulong)~di->mtime && !owner)
+	if(di->mtime != ~0 && !owner)
 		goto perm;
-	if((ulong)~di->mode && !owner)
+	if(di->mode != ~0 && !owner)
 		goto perm;
 	nuid = NOUID;
 	ngid = NOUID;
@@ -737,13 +737,13 @@ chanwstat(Chan *ch, Dir *di)
 		goto inval;
 	if((nuid != NOUID || ngid != NOUID) && !owner)
 		goto perm;
-	if((uvlong)~di->length && !isdir){
+	if(di->length != ~0 && !isdir){
 		trunc(ch->fs, ch->loc, b, di->length);
 		modified(ch, d);
 	}
-	if((ulong)~di->mtime)
+	if(di->mtime != ~0)
 		d->mtime = di->mtime;
-	if((ulong)~di->mode){
+	if(di->mode != ~0){
 		d->mode = d->mode & ~0777 | di->mode & 0777;
 		ch->loc->type = d->type = di->mode >> 24;
 	}
