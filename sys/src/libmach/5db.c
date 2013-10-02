@@ -499,7 +499,7 @@ static void
 armhwby(Opcode *o, Instr *i)
 {
 	i->store = ((i->w >> 23) & 0x2) | ((i->w >>21) & 0x1);
-	i->imm = (i->w & 0xf) | ((i->w >> 8) & 0xf);
+	i->imm = (i->w & 0xf) | ((i->w >> 4) & 0xf0);
 	if (!(i->w & (1 << 23)))
 		i->imm = - i->imm;
 	i->rn = (i->w >> 16) & 0xf;
@@ -930,9 +930,9 @@ static Opcode opcodes[] =
 	"SWPB",		armdpi, 0,	"R%s,(R%n),R%d",
 
 /* 48+16+4 */
-	"MOV%u%C%p",	armhwby, 0,	"R%d,(R%n%UR%M)",
+	"MOV%u%C%p",	armhwby, 0,	"R%d,(R%n%UR%s)",
 	"MOV%u%C%p",	armhwby, 0,	"R%d,%I",
-	"MOV%u%C%p",	armhwby, armfmov,	"(R%n%UR%M),R%d",
+	"MOV%u%C%p",	armhwby, armfmov,	"(R%n%UR%s),R%d",
 	"MOV%u%C%p",	armhwby, armfmov,	"%I,R%d",
 
 /* 48+24 */
