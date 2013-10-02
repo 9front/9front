@@ -144,7 +144,7 @@ initialize(int argc, char **argv)
 	int i, blkbg;
 	char *fontname, *p;
 
-	rfork(RFNAMEG|RFNOTEG);
+	rfork(RFNAMEG|RFNOTEG|RFENVG);
 
 	fontname = nil;
 	term = "vt100";
