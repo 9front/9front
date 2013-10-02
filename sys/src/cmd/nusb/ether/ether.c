@@ -1,8 +1,6 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
-#include <bio.h>
-#include <auth.h>
 #include <fcall.h>
 #include <9p.h>
 #include <ip.h>
@@ -758,6 +756,7 @@ extern int a88178init(Dev *);
 extern int a88772init(Dev *);
 extern int smscinit(Dev *);
 extern int cdcinit(Dev *);
+extern int urlinit(Dev *);
 
 static struct {
 	char *name;
@@ -768,6 +767,7 @@ static struct {
 	"a88178",	a88178init,
 	"a88772",	a88772init,
 	"aue", aueinit,
+	"url", urlinit,
 };
 
 void

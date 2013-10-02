@@ -8,10 +8,6 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
-#include <bio.h>
-#include <auth.h>
-#include <fcall.h>
-#include <9p.h>
 
 #include "usb.h"
 #include "dat.h"

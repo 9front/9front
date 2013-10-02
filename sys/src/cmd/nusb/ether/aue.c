@@ -7,10 +7,6 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
-#include <bio.h>
-#include <auth.h>
-#include <fcall.h>
-#include <9p.h>
 
 #include "usb.h"
 #include "dat.h"
@@ -80,7 +76,6 @@ enum {
 static int csr8r(Dev *, int);
 static int csr16r(Dev *, int);
 static int csr8w(Dev *, int, int);
-static int csr16w(Dev *, int, int);
 static int eeprom16r(Dev *, int);
 static void reset(Dev *);
 static int aueread(Dev *, uchar *, int);
@@ -129,22 +124,6 @@ csr8w(Dev *d, int reg, int val)
 		val&0xff, reg, &v, sizeof v);
 	if(rc < 0) {
 		fprint(2, "%s: csr8w(%#x, %#x): %r\n",
-			argv0, reg, val);
-	}
-	return rc;
-}
-
-static int
-csr16w(Dev *d, int reg, int val)
-{
-	int rc;
-	uchar v[2];
-
-	PUT2(v, val);
-	rc = usbcmd(d, Rh2d|Rvendor|Rdev, Writereg,
-		val&0xffff, reg, v, sizeof v);
-	if(rc < 0) {
-		fprint(2, "%s: csr16w(%#x, %#x): %r\n",
 			argv0, reg, val);
 	}
 	return rc;
