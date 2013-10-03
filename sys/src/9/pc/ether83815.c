@@ -92,6 +92,7 @@ enum {				/* PCI vendor & device IDs */
 	SiSrev630s =	0x81,
 	SiSrev630e =	0x82,
 	SiSrev630ea1 =	0x83,
+	SiSrev635 =	0x90,
 
 	SiSeenodeaddr =	8,		/* short addr of SiS eeprom mac addr */
 	SiS630eenodeaddr =	9,	/* likewise for the 630 */
@@ -166,6 +167,7 @@ static Ctlr* ctlrtail;
 enum {
 	/* registers (could memory map) */
 	Rcr=	0x00,		/* command register */
+	  Rld=		1<<10,	/* reload */
 	  Rst=		1<<8,
 	  Rxr=		1<<5,	/* receiver reset */
 	  Txr=		1<<4,	/* transmitter reset */
@@ -772,6 +774,8 @@ softreset(Ctlr* ctlr, int resetphys)
 	 * Soft-reset the controller
 	 */
 	resetctlr(ctlr);
+	if(ctlr->id != Nat83815)
+		return 0;
 	csr32w(ctlr, Rccsr, Pmests);
 	csr32w(ctlr, Rccsr, 0);
 	csr32w(ctlr, Rcfg, csr32r(ctlr, Rcfg) | Pint_acen);
@@ -923,7 +927,21 @@ sissrom(Ctlr *ctlr)
 	int i, off = SiSeenodeaddr, cnt = sizeof ee.eaddr / sizeof(short);
 	ushort *shp = (ushort *)ee.eaddr;
 
-	if(!is630(ctlr->id, ctlr->pcidev) || !sisrdcmos(ctlr)) {
+	if(ctlr->id == SiS900 && ctlr->pcidev->rid == SiSrev635) {
+		csr32w(ctlr, Rcr, csr32r(ctlr, Rcr) | Rld);
+		csr32w(ctlr, Rcr, csr32r(ctlr, Rcr) & ~Rld);
+		csr32w(ctlr, Rrfcr, csr32r(ctlr, Rrfcr) & ~Rfen);
+
+		csr32w(ctlr, Rrfcr, 0);
+		*shp++ = csr32r(ctlr, Rrfdr);
+		csr32w(ctlr, Rrfcr, 1<<16);
+		*shp++ = csr32r(ctlr, Rrfdr);
+		csr32w(ctlr, Rrfcr, 1<<17);
+		*shp = csr32r(ctlr, Rrfdr);
+
+		csr32w(ctlr, Rrfcr, csr32r(ctlr, Rrfcr) | Rfen);
+		memmove(ctlr->sromea, ee.eaddr, sizeof ctlr->sromea);
+	} else if(!is630(ctlr->id, ctlr->pcidev) || !sisrdcmos(ctlr)) {
 		for (i = 0; i < cnt; i++)
 			*shp++ = eegetw(ctlr, off++);
 		memmove(ctlr->sromea, ee.eaddr, sizeof ctlr->sromea);
