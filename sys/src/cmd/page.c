@@ -1269,7 +1269,7 @@ Out:
 void
 showext(Page *p)
 {
-	char buf[128], label[64], *argv[4];
+	char label[64], *argv[4];
 	Point ps;
 	int fd;
 
@@ -1289,8 +1289,7 @@ showext(Page *p)
 		seek(fd, 0, 0);
 	}
 	if(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG|RFNAMEG|RFNOWAIT) == 0){
-		snprint(buf, sizeof(buf), "-pid %d", getpid());
-		if(newwindow(buf) != -1){
+		if(newwindow(nil) != -1){
 			dupfds(fd, 1, 2, -1);
 			if((fd = open("/dev/label", OWRITE)) >= 0){
 				write(fd, label, strlen(label));
@@ -1504,10 +1503,8 @@ main(int argc, char *argv[])
 	atexit(killcohort);
 
 	if(newwin > 0){
-		s = smprint("-pid %d", getpid());
-		if(newwindow(s) < 0)
+		if(newwindow(nil) < 0)
 			sysfatal("newwindow: %r");
-		free(s);
 	}
 	if(initdraw(drawerr, nil, argv0) < 0)
 		sysfatal("initdraw: %r");
