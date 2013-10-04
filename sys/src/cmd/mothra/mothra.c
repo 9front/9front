@@ -748,14 +748,12 @@ void dolink(Panel *p, int buttons, Rtext *word){
 }
 
 void filter(char *cmd, int fd){
-	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT)){
+	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT|RFNOTEG)){
 	case -1:
 		message("Can't fork!");
 		break;
 	case 0:
-		close(0);
-		dup(fd, 0);
-		close(fd);
+		dupfds(fd, 1, 2, -1);
 		execl("/bin/rc", "rc", "-c", cmd, 0);
 		_exits(0);
 	}
@@ -796,6 +794,32 @@ void freetext(Rtext *t){
 	plrtfree(tt);
 }
 
+void
+dupfds(int fd, ...)
+{
+	int mfd, n, i;
+	va_list arg;
+	Dir *dir;
+
+	va_start(arg, fd);
+	for(mfd = 0; fd >= 0; fd = va_arg(arg, int), mfd++)
+		if(fd != mfd)
+			if(dup(fd, mfd) < 0)
+				sysfatal("dup: %r");
+	va_end(arg);
+	if((fd = open("/fd", OREAD)) < 0)
+		sysfatal("open: %r");
+	n = dirreadall(fd, &dir);
+	for(i=0; i<n; i++){
+		if(strstr(dir[i].name, "ctl"))
+			continue;
+		fd = atoi(dir[i].name);
+		if(fd >= mfd)
+			close(fd);
+	}
+	free(dir);
+}
+
 int pipeline(char *cmd, int fd)
 {
 	int pfd[2];
@@ -806,22 +830,19 @@ Err:
 		werrstr("pipeline for %s failed: %r", cmd);
 		return -1;
 	}
-	switch(fork()){
+	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT)){
 	case -1:
 		close(pfd[0]);
 		close(pfd[1]);
 		goto Err;
 	case 0:
-		dup(fd, 0);
-		dup(pfd[0], 1);
-		close(pfd[0]);
-		close(pfd[1]);
+		dupfds(fd, pfd[1], 2, -1);
 		execl("/bin/rc", "rc", "-c", cmd, 0);
 		_exits(0);
 	}
-	close(pfd[0]);
 	close(fd);
-	return pfd[1];
+	close(pfd[1]);
+	return pfd[0];
 }
 
 char*

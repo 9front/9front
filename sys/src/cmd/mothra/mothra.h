@@ -87,6 +87,7 @@ Url *selurl(char *);
 void getpix(Rtext *, Www *);
 ulong countpix(void *p);
 void freepix(void *p);
+void dupfds(int fd, ...);
 int pipeline(char *, int);
 void getfonts(void);
 void *emalloc(int);
