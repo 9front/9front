@@ -28,7 +28,7 @@ void getimage(Rtext *t, Www *w){
 	Url url;
 	Image *b;
 	int fd, typ;
-	char err[512];
+	char err[512], buf[80], *s;
 	Pix *p;
 
 	ap=t->user;
@@ -54,19 +54,16 @@ void getimage(Rtext *t, Www *w){
 		werrstr("unknown image type");
 		goto Err;
 	}
-	if((fd = pipeline(pixcmd[typ], fd)) < 0)
+	if((fd = pipeline(fd, "exec %s", pixcmd[typ])) < 0)
 		goto Err;
 	if(ap->width>0 || ap->height>0){
-		char buf[80];
-		char *p;
-
-		p = buf;
-		p += sprint(p, "resize");
+		s = buf;
+		s += sprint(s, "exec resize");
 		if(ap->width>0)
-			p += sprint(p, " -x %d", ap->width);
+			s += sprint(s, " -x %d", ap->width);
 		if(ap->height>0)
-			p += sprint(p, " -y %d", ap->height);
-		if((fd = pipeline(buf, fd)) < 0)
+			s += sprint(s, " -y %d", ap->height);
+		if((fd = pipeline(fd, buf)) < 0)
 			goto Err;
 	}
 	b=readimage(display, fd, 1);

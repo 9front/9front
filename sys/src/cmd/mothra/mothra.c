@@ -747,8 +747,8 @@ void dolink(Panel *p, int buttons, Rtext *word){
 	}
 }
 
-void filter(char *cmd, int fd){
-	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT|RFNOTEG)){
+void filter(int fd, char *cmd){
+	switch(rfork(RFFDG|RFPROC|RFMEM|RFREND|RFNOWAIT|RFNOTEG)){
 	case -1:
 		message("Can't fork!");
 		break;
@@ -820,24 +820,34 @@ dupfds(int fd, ...)
 	free(dir);
 }
 
-int pipeline(char *cmd, int fd)
+int pipeline(int fd, char *fmt, ...)
 {
+	char buf[80], *argv[4];
+	va_list arg;
 	int pfd[2];
 
-	if(pipe(pfd)==-1){
-Err:
+	va_start(arg, fmt);
+	vsnprint(buf, sizeof buf, fmt, arg);
+	va_end(arg);
+
+	if(pipe(pfd) < 0){
+	Err:
 		close(fd);
-		werrstr("pipeline for %s failed: %r", cmd);
+		werrstr("pipeline for %s failed: %r", buf);
 		return -1;
 	}
-	switch(rfork(RFFDG|RFPROC|RFMEM|RFNOWAIT)){
+	switch(rfork(RFPROC|RFMEM|RFFDG|RFREND|RFNOWAIT)){
 	case -1:
 		close(pfd[0]);
 		close(pfd[1]);
 		goto Err;
 	case 0:
 		dupfds(fd, pfd[1], 2, -1);
-		execl("/bin/rc", "rc", "-c", cmd, 0);
+		argv[0] = "rc";
+		argv[1] = "-c";
+		argv[2] = buf;
+		argv[3] = nil;
+		exec("/bin/rc", argv);
 		_exits(0);
 	}
 	close(fd);
@@ -920,7 +930,7 @@ void geturl(char *urlname, int post, int plumb, int map){
 			save(fd, cmd);
 			break;
 		case HTML:
-			fd = pipeline("/bin/uhtml", fd);
+			fd = pipeline(fd, "exec uhtml");
 		case PLAIN:
 			n=0; 
 			for(i=wwwtop-1; i>=0 && i!=(wwwtop-NWWW-1); i--){
@@ -969,7 +979,7 @@ void geturl(char *urlname, int post, int plumb, int map){
 		case PNG:
 		case BMP:
 		case PAGE:
-			filter("page -w", fd);
+			filter(fd, "exec page -w");
 			break;
 		}
 		break;

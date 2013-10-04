@@ -143,11 +143,11 @@ urlget(Url *url, int body)
 	readstr(buf, buf, sizeof(buf));
 
 	if(!cistrcmp(buf, "compress"))
-		fd = pipeline("/bin/uncompress", fd);
+		fd = pipeline(fd, "exec uncompress");
 	else if(!cistrcmp(buf, "gzip"))
-		fd = pipeline("/bin/gunzip", fd);
+		fd = pipeline(fd, "exec gunzip");
 	else if(!cistrcmp(buf, "bzip2"))
-		fd = pipeline("/bin/bunzip2", fd);
+		fd = pipeline(fd, "exec bunzip2");
 
 	return fd;
 }

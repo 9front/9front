@@ -88,7 +88,7 @@ void getpix(Rtext *, Www *);
 ulong countpix(void *p);
 void freepix(void *p);
 void dupfds(int fd, ...);
-int pipeline(char *, int);
+int pipeline(int fd, char *fmt, ...);
 void getfonts(void);
 void *emalloc(int);
 void nstrcpy(char *to, char *from, int len);
