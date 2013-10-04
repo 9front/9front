@@ -1288,9 +1288,9 @@ showext(Page *p)
 		fd = dup(fd, -1);
 		seek(fd, 0, 0);
 	}
-	if(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG|RFNAMEG|RFNOWAIT) == 0){
+	if(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG|RFNOWAIT) == 0){
 		if(newwindow(nil) != -1){
-			dupfds(fd, 1, 2, -1);
+			dupfds(fd, open("/dev/cons", OWRITE), open("/dev/cons", OWRITE), -1);
 			if((fd = open("/dev/label", OWRITE)) >= 0){
 				write(fd, label, strlen(label));
 				close(fd);
@@ -1520,6 +1520,7 @@ main(int argc, char *argv[])
 	memset(&m, 0, sizeof(m));
 	if((nullfd = open("/dev/null", ORDWR)) < 0)
 		sysfatal("open: %r");
+	dup(nullfd, 1);
 	lru.lprev = &lru;
 	lru.lnext = &lru;
 	current = root = addpage(nil, "", nil, nil, -1);
