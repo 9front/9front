@@ -299,10 +299,9 @@ popenimg(Page *p)
 	if(p->data){
 		p->ext = p->data;
 		if(strcmp(p->ext, "ico") == 0)
-			snprint(nam, sizeof(nam), "%s -c", p->ext);
+			pipeline(fd, "exec %s -c", p->ext);
 		else
-			snprint(nam, sizeof(nam), "%s -t9", p->ext);
-		pipeline(fd, "%s", nam);
+			pipeline(fd, "exec %s -t9", p->ext);
 	}
 
 	/*
@@ -325,7 +324,7 @@ popenfilter(Page *p)
 {
 	seek(p->fd, 0, 0);
 	if(p->data){
-		pipeline(p->fd, "%s", (char*)p->data);
+		pipeline(p->fd, "exec %s", (char*)p->data);
 		p->data = nil;
 	}
 	p->open = popenfile;
@@ -339,7 +338,7 @@ popentape(Page *p)
 
 	seek(p->fd, 0, 0);
 	snprint(mnt, sizeof(mnt), "/n/tapefs.%.12d%.8lux", getpid(), (ulong)p);
-	snprint(cmd, sizeof(cmd), "%s -m %s /fd/0", (char*)p->data, mnt);
+	snprint(cmd, sizeof(cmd), "exec %s -m %s /fd/0", (char*)p->data, mnt);
 	switch(rfork(RFPROC|RFMEM|RFFDG|RFREND)){
 	case -1:
 		close(p->fd);
@@ -812,11 +811,11 @@ openpage(Page *p)
 		p->open = nil;
 	else {
 		if(rotate)
-			pipeline(fd, "rotate -r %d", rotate);
+			pipeline(fd, "exec rotate -r %d", rotate);
 		if(resize.x)
-			pipeline(fd, "resize -x %d", resize.x);
+			pipeline(fd, "exec resize -x %d", resize.x);
 		else if(resize.y)
-			pipeline(fd, "resize -y %d", resize.y);
+			pipeline(fd, "exec resize -y %d", resize.y);
 	}
 	return fd;
 }
@@ -1489,6 +1488,11 @@ main(int argc, char *argv[])
 		usage();
 	} ARGEND;
 
+	if(newwin > 0){
+		if(newwindow(nil) < 0)
+			sysfatal("newwindow: %r");
+	}
+
 	/*
 	 * so that we can stop all subprocesses with a note,
 	 * and to isolate rendezvous from other processes
@@ -1501,11 +1505,6 @@ main(int argc, char *argv[])
 	}
 	cohort = getpid();
 	atexit(killcohort);
-
-	if(newwin > 0){
-		if(newwindow(nil) < 0)
-			sysfatal("newwindow: %r");
-	}
 	if(initdraw(drawerr, nil, argv0) < 0)
 		sysfatal("initdraw: %r");
 	paper = display->white;
