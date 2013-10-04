@@ -129,17 +129,18 @@ struct Window
 	Ref;
 	QLock;
 	Frame;
-	Image		*i;
-	Mousectl		mc;
+	Image		*i;		/* window image, nil when deleted */
+	Mousectl	mc;
 	Mouseinfo	mouse;
-	Channel		*ck;			/* chan(char*) */
+	Channel		*ck;		/* chan(char*) */
 	Channel		*cctl;		/* chan(Wctlmesg)[4] */
 	Channel		*conswrite;	/* chan(Conswritemesg) */
 	Channel		*consread;	/* chan(Consreadmesg) */
 	Channel		*mouseread;	/* chan(Mousereadmesg) */
-	Channel		*wctlread;		/* chan(Consreadmesg) */
+	Channel		*wctlread;	/* chan(Consreadmesg) */
 	Channel		*kbdread;	/* chan(Kbdreadmesg) */
 	Channel		*complete;	/* chan(Completion*) */
+	Channel		*gone;		/* chan(char*) */
 	uint			nr;			/* number of runes in window */
 	uint			maxr;		/* number of runes allocated in r */
 	Rune			*r;

@@ -90,15 +90,18 @@ goodrect(Rectangle r)
 {
 	if(!eqrect(canonrect(r), r))
 		return 0;
-	if(Dx(r)<100 || Dy(r)<3*font->height)
-		return 0;
-	/* must have some screen and border visible so we can move it out of the way */
-	if(Dx(r) >= Dx(screen->r) && Dy(r) >= Dy(screen->r))
-		return 0;
 	/* reasonable sizes only please */
 	if(Dx(r) > BIG*Dx(screen->r))
 		return 0;
 	if(Dy(r) > BIG*Dx(screen->r))
+		return 0;
+	if(Dx(r) < 100 || Dy(r) < 3*font->height)
+		return 0;
+	/* window must be on screen */
+	if(!rectXrect(screen->r, r))
+		return 0;
+	/* must have some screen and border visible so we can move it out of the way */
+	if(rectinrect(screen->r, insetrect(r, Borderwidth)))
 		return 0;
 	return 1;
 }
@@ -159,6 +162,8 @@ shift(int *minp, int *maxp, int min, int max)
 	}
 	if(*minp < min){
 		*maxp += min-*minp;
+		if(*maxp > max)
+			*maxp = max;
 		*minp = min;
 	}
 }
@@ -355,6 +360,8 @@ wctlcmd(Window *w, Rectangle r, int cmd, char *err)
 		r = rectonscreen(r);
 		/* fall through */
 	case Resize:
+		if(eqrect(r, w->screenr))
+			return 1;
 		if(!goodrect(r)){
 			strcpy(err, Ebadwr);
 			return -1;
@@ -363,8 +370,6 @@ wctlcmd(Window *w, Rectangle r, int cmd, char *err)
 			strcpy(err, "window not current");
 			return -1;
 		}
-		if(eqrect(r, w->screenr))
-			return 1;
 		i = allocwindow(wscreen, r, Refbackup, DNofill);
 		if(i == nil){
 			strcpy(err, Ewalloc);

@@ -45,6 +45,7 @@ wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
 	w->mouseread =  chancreate(sizeof(Mousereadmesg), 0);
 	w->wctlread =  chancreate(sizeof(Consreadmesg), 0);
 	w->complete = chancreate(sizeof(Completion*), 0);
+	w->gone = chancreate(sizeof(char*), 0);
 	w->scrollr = r;
 	w->scrollr.max.x = r.min.x+Scrollwid;
 	w->lastsr = ZR;
@@ -152,8 +153,7 @@ wclose(Window *w)
 		return 0;
 	if(i < 0)
 		error("negative ref count");
-	if(!w->deleted)
-		wclunk(w);
+	wclunk(w);
 	wsendctlmesg(w, Exited, ZR, nil);
 	return 1;
 }
@@ -170,7 +170,7 @@ winctl(void *arg)
 	char *s, *t, part[3];
 	Window *w;
 	Mousestate *mp, m;
-	enum { WKbd, WKbdread, WMouse, WMouseread, WCtl, WCwrite, WCread, WWread, WComplete, NWALT };
+	enum { WKbd, WKbdread, WMouse, WMouseread, WCtl, WCwrite, WCread, WWread, WComplete, Wgone, NWALT };
 	Alt alts[NWALT+1];
 	Mousereadmesg mrm;
 	Kbdreadmesg krm;
@@ -222,6 +222,9 @@ winctl(void *arg)
 	alts[WComplete].c = w->complete;
 	alts[WComplete].v = &cr;
 	alts[WComplete].op = CHANRCV;
+	alts[Wgone].c = w->gone;
+	alts[Wgone].v = "window deleted";
+	alts[Wgone].op = CHANNOP;
 	alts[NWALT].op = CHANEND;
 
 	memset(kbdq, 0, sizeof(kbdq));
@@ -229,28 +232,38 @@ winctl(void *arg)
 	npart = 0;
 	lastb = -1;
 	for(;;){
-		alts[WKbdread].op = (w->kbdopen && kbdqw != kbdqr) ?
-			CHANSND : CHANNOP;
-		alts[WMouseread].op = (w->mouseopen && w->mouse.counter != w->mouse.lastcounter) ? 
-			CHANSND : CHANNOP;
-		alts[WCwrite].op = (!w->scrolling && !w->mouseopen && w->qh>w->org+w->nchars) ?
-			CHANNOP : CHANSND;
-		alts[WWread].op = (w->deleted || !w->wctlready) ?
-			CHANNOP : CHANSND;
+		if(w->i==nil){
+			/* window deleted */
+			alts[Wgone].op = CHANSND;
 
-		/* this code depends on NL and EOT fitting in a single byte */
-		/* kind of expensive for each loop; worth precomputing? */
-		if(w->holding)
+			alts[WKbdread].op = CHANNOP;
+			alts[WMouseread].op = CHANNOP;
+			alts[WCwrite].op = CHANNOP;
+			alts[WWread].op = CHANNOP;
 			alts[WCread].op = CHANNOP;
-		else if(npart || (w->rawing && w->nraw>0))
-			alts[WCread].op = CHANSND;
-		else{
-			alts[WCread].op = CHANNOP;
-			for(i=w->qh; i<w->nr; i++){
-				c = w->r[i];
-				if(c=='\n' || c=='\004'){
-					alts[WCread].op = CHANSND;
-					break;
+		} else {
+			alts[WKbdread].op = (w->kbdopen && kbdqw != kbdqr) ?
+				CHANSND : CHANNOP;
+			alts[WMouseread].op = (w->mouseopen && w->mouse.counter != w->mouse.lastcounter) ? 
+				CHANSND : CHANNOP;
+			alts[WCwrite].op = w->scrolling || w->mouseopen || (w->qh <= w->org+w->nchars) ?
+				CHANSND : CHANNOP;
+			alts[WWread].op = w->wctlready ?
+				CHANSND : CHANNOP;
+			/* this code depends on NL and EOT fitting in a single byte */
+			/* kind of expensive for each loop; worth precomputing? */
+			if(w->holding)
+				alts[WCread].op = CHANNOP;
+			else if(npart || (w->rawing && w->nraw>0))
+				alts[WCread].op = CHANSND;
+			else{
+				alts[WCread].op = CHANNOP;
+				for(i=w->qh; i<w->nr; i++){
+					c = w->r[i];
+					if(c=='\n' || c=='\004'){
+						alts[WCread].op = CHANSND;
+						break;
+					}
 				}
 			}
 		}
@@ -408,25 +421,16 @@ winctl(void *arg)
 		case WWread:
 			w->wctlready = 0;
 			recv(cwrm.c1, &pair);
-			if(w->deleted || w->i==nil)
-				pair.ns = sprint(pair.s, "");
-			else{
-				s = "visible";
-				for(i=0; i<nhidden; i++)
-					if(hidden[i] == w){
-						s = "hidden";
-						break;
-					}
-				t = "notcurrent";
-				if(w == input)
-					t = "current";
-				pair.ns = snprint(pair.s, pair.ns, "%11d %11d %11d %11d %s %s ",
-					w->i->r.min.x, w->i->r.min.y, w->i->r.max.x, w->i->r.max.y, t, s);
-			}
+			s = Dx(w->screenr) > 0 ? "visible" : "hidden";
+			t = "notcurrent";
+			if(w == input)
+				t = "current";
+			pair.ns = snprint(pair.s, pair.ns, "%11d %11d %11d %11d %s %s ",
+				w->i->r.min.x, w->i->r.min.y, w->i->r.max.x, w->i->r.max.y, t, s);
 			send(cwrm.c2, &pair);
 			continue;
 		case WComplete:
-			if(!w->deleted){
+			if(w->i!=nil){
 				if(!cr->advance)
 					showcandidates(w, cr);
 				if(cr->advance){
@@ -441,7 +445,7 @@ winctl(void *arg)
 			freecompletion(cr);
 			break;
 		}
-		if(!w->deleted)
+		if(w->i!=nil && Dx(w->screenr) > 0)
 			flushimage(display, 1);
 	}
 }
@@ -620,7 +624,7 @@ wkeyctl(Window *w, Rune r)
 		return;
 	}
 
-	if(w->deleted)
+	if(w->i==nil)
 		return;
 	/* navigation keys work only when mouse and kbd is not open */
 	if(!w->mouseopen)
@@ -718,6 +722,8 @@ wkeyctl(Window *w, Rune r)
 	case Kdel:	/* send interrupt */
 		w->qh = w->nr;
 		wshow(w, w->qh);
+		if(w->notefd < 0)
+			return;
 		notefd = emalloc(sizeof(int));
 		*notefd = dup(w->notefd, -1);
 		proccreate(interruptproc, notefd, 4096);
@@ -920,7 +926,7 @@ wmousectl(Window *w)
 	}
 
 	incref(w);		/* hold up window while we track */
-	if(w->deleted)
+	if(w->i==nil)
 		goto Return;
 	if(ptinrect(w->mc.xy, w->scrollr)){
 		if(but)
@@ -1176,26 +1182,24 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 			break;
 		/* fall thrugh for redraw after input change */
 	case Repaint:
-		if(w->deleted || Dx(w->screenr)<=0)
+		if(w->i==nil || Dx(w->screenr)<=0)
 			break;
 		wrepaint(w);
 		flushimage(display, 1);
 		break;
 	case Refresh:
-		if(w->deleted || Dx(w->screenr)<=0 || !rectclip(&r, w->i->r) || w->mouseopen)
+		if(w->i==nil || Dx(w->screenr)<=0 || !rectclip(&r, w->i->r) || w->mouseopen)
 			break;
 		wrefresh(w, r);
 		flushimage(display, 1);
 		break;
 	case Movemouse:
-		if(w->deleted || Dx(w->screenr)<=0 || !ptinrect(r.min, w->i->r))
+		if(w->i==nil || Dx(w->screenr)<=0 || !ptinrect(r.min, w->i->r))
 			break;
 		wmovemouse(w, r.min);
 	case Rawon:
 		break;
 	case Rawoff:
-		if(w->deleted)
-			break;
 		while(w->nraw > 0){
 			wkeyctl(w, w->raw[0]);
 			--w->nraw;
@@ -1204,7 +1208,7 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		break;
 	case Holdon:
 	case Holdoff:
-		if(w->deleted)
+		if(w->i==nil)
 			break;
 		if(w==input)
 			wsetcursor(w, 0);
@@ -1212,17 +1216,19 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		flushimage(display, 1);
 		break;
 	case Deleted:
-		if(w->deleted)
-			break;
 		wclunk(w);
-		write(w->notefd, "hangup", 6);
-		proccreate(deletetimeoutproc, estrdup(w->name), 4096);
-		wclosewin(w);
+		if(w->notefd >= 0)
+			write(w->notefd, "hangup", 6);
+		if(w->i!=nil){
+			proccreate(deletetimeoutproc, estrdup(w->name), 4096);
+			wclosewin(w);
+		}
 		break;
 	case Exited:
 		wclosewin(w);
 		frclear(w, TRUE);
-		close(w->notefd);
+		if(w->notefd >= 0)
+			close(w->notefd);
 		chanfree(w->mc.c);
 		chanfree(w->ck);
 		chanfree(w->cctl);
@@ -1232,6 +1238,7 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		chanfree(w->wctlread);
 		chanfree(w->kbdread);
 		chanfree(w->complete);
+		chanfree(w->gone);
 		free(w->raw);
 		free(w->r);
 		free(w->dir);
@@ -1304,7 +1311,7 @@ wsetcursor(Window *w, int force)
 {
 	Cursor *p;
 
-	if(w==nil || w->deleted || w->i==nil || Dx(w->screenr)<=0)
+	if(w==nil || w->i==nil || Dx(w->screenr)<=0)
 		p = nil;
 	else if(wpointto(mouse->xy) == w){
 		p = w->cursorp;
@@ -1329,7 +1336,7 @@ riosetcursor(Cursor *p, int force)
 void
 wtopme(Window *w)
 {
-	if(w!=nil && w->i!=nil && !w->deleted && w->topped!=topped){
+	if(w!=nil && w->i!=nil && w->topped!=topped){
 		w->topped = ++topped;
 		topwindow(w->i);
 		flushimage(display, 1);
@@ -1339,7 +1346,7 @@ wtopme(Window *w)
 void
 wbottomme(Window *w)
 {
-	if(w!=nil && w->i!=nil && !w->deleted){
+	if(w!=nil && w->i!=nil){
 		w->topped = - ++topped;
 		bottomwindow(w->i);
 		flushimage(display, 1);
@@ -1377,6 +1384,9 @@ wclunk(Window *w)
 {
 	int i;
 
+	if(w->deleted)
+		return;
+	w->deleted = TRUE;
 	if(w == input){
 		input = nil;
 		wsetcursor(w, 0);
@@ -1395,13 +1405,14 @@ wclunk(Window *w)
 			memmove(window+i, window+i+1, (nwindow-i)*sizeof(window[0]));
 			break;
 		}
-	w->deleted = TRUE;
 }
 
 void
 wclosewin(Window *w)
 {
 	Image *i;
+
+	assert(w->deleted==TRUE);
 
 	i = w->i;
 	if(i){

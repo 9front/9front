@@ -571,7 +571,7 @@ mousethread(void*)
 					w = winput;
 				else {
 					riosetcursor(nil, 0);
-					w = nil;
+					w = winput = nil;
 				}
 			}
 			/* we're not sending the event, but if button is down maybe we should */
@@ -642,9 +642,9 @@ resized(void)
 		r.min.y = (r.min.y*n.y)/o.y;
 		r.max.x = (r.max.x*n.x)/o.x;
 		r.max.y = (r.max.y*n.y)/o.y;
+		r = rectaddpt(r, view->clipr.min);
 		if(!goodrect(r))
 			r = rectsubpt(w->i->r, subpt(w->i->r.min, r.min));
-		r = rectaddpt(r, screen->clipr.min);
 		for(j=0; j<nhidden; j++)
 			if(w == hidden[j])
 				break;
@@ -658,7 +658,7 @@ resized(void)
 			wsendctlmesg(w, Reshaped, r, im);
 		wclose(w);
 	}
-	viewr = screen->r;
+	viewr = view->r;
 	flushimage(display, 1);
 }
 
@@ -882,7 +882,7 @@ sweep(void)
 	}
 	if(mouse->buttons != 0)
 		goto Rescue;
-	if(i==nil || Dx(i->r)<100 || Dy(i->r)<3*font->height)
+	if(i==nil || !goodrect(r))
 		goto Rescue;
 	oi = i;
 	i = allocwindow(wscreen, oi->r, Refbackup, DNofill);
@@ -941,20 +941,18 @@ drawborder(Rectangle r, int show)
 Image*
 drag(Window *w, Rectangle *rp)
 {
-	Image *i, *ni;
 	Point p, op, d, dm, om;
 	Rectangle r;
 
-	i = w->i;
 	menuing = TRUE;
 	om = mouse->xy;
 	riosetcursor(&boxcursor, 1);
 	dm = subpt(mouse->xy, w->screenr.min);
-	d = subpt(i->r.max, i->r.min);
+	d = subpt(w->screenr.max, w->screenr.min);
 	op = subpt(mouse->xy, dm);
 	drawborder(Rect(op.x, op.y, op.x+d.x, op.y+d.y), 1);
 	flushimage(display, 1);
-	while(mouse->buttons == 4){
+	while(mouse->buttons==4){
 		p = subpt(mouse->xy, dm);
 		if(!eqpt(p, op)){
 			drawborder(Rect(p.x, p.y, p.x+d.x, p.y+d.y), 1);
@@ -969,16 +967,13 @@ drag(Window *w, Rectangle *rp)
 	moveto(mousectl, mouse->xy);	/* force cursor update; ugly */
 	menuing = FALSE;
 	flushimage(display, 1);
-	if(mouse->buttons!=0 || (ni=allocwindow(wscreen, r, Refbackup, DNofill))==nil){
-		moveto(mousectl, om);
+	if(mouse->buttons!=0 || !goodrect(r)){
 		while(mouse->buttons)
 			readmouse(mousectl);
-		*rp = Rect(0, 0, 0, 0);
 		return nil;
 	}
-	draw(ni, ni->r, i, nil, i->r.min);
 	*rp = r;
-	return ni;
+	return allocwindow(wscreen, r, Refbackup, DNofill);
 }
 
 Point
@@ -1063,7 +1058,7 @@ bandsize(Window *w)
 	or = r;
 	startp = p;
 	
-	while(mouse->buttons == but){
+	while(mouse->buttons==but){
 		p = onscreen(mouse->xy);
 		r = whichrect(w->screenr, p, which);
 		if(!eqrect(r, or) && goodrect(r)){
@@ -1077,7 +1072,7 @@ bandsize(Window *w)
 	drawborder(or, 0);
 	flushimage(display, 1);
 	wsetcursor(w, 1);
-	if(mouse->buttons!=0 || Dx(or)<100 || Dy(or)<3*font->height){
+	if(mouse->buttons!=0 || !goodrect(or)){
 		while(mouse->buttons)
 			readmouse(mousectl);
 		return nil;

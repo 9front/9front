@@ -363,7 +363,7 @@ xfidwrite(Xfid *x)
 	Rune *r;
 	Conswritemesg cwm;
 	Stringpair pair;
-	enum { CWdata, CWflush, NCW };
+	enum { CWdata, CWgone, CWflush, NCW };
 	Alt alts[NCW+1];
 
 	w = x->f->w;
@@ -402,6 +402,9 @@ xfidwrite(Xfid *x)
 		alts[CWdata].c = w->conswrite;
 		alts[CWdata].v = &cwm;
 		alts[CWdata].op = CHANRCV;
+		alts[CWgone].c = w->gone;
+		alts[CWgone].v = nil;
+		alts[CWgone].op = CHANRCV;
 		alts[CWflush].c = x->flushc;
 		alts[CWflush].v = nil;
 		alts[CWflush].op = CHANRCV;
@@ -410,6 +413,16 @@ xfidwrite(Xfid *x)
 		switch(alt(alts)){
 		case CWdata:
 			break;
+		case CWgone:
+			qlock(&x->active);
+			if(!x->flushing){
+				filsysrespond(x->fs, x, &fc, Edeleted);
+				qunlock(&x->active);
+				free(r);
+				return;
+			}
+			qunlock(&x->active);
+			/* no break */
 		case CWflush:
 			free(r);
 			filsyscancel(x);
@@ -609,9 +622,9 @@ xfidread(Xfid *x)
 	Consreadmesg cwrm;
 	Kbdreadmesg krm;
 	Stringpair pair;
-	enum { CRdata, CRflush, NCR };
-	enum { MRdata, MRflush, NMR };
-	enum { WCRdata, WCRflush, NWCR };
+	enum { CRdata, CRgone, CRflush, NCR };
+	enum { MRdata, MRgone, MRflush, NMR };
+	enum { WCRdata, WCRgone, WCRflush, NWCR };
 	Alt alts[NCR+1];
 
 	w = x->f->w;
@@ -629,6 +642,9 @@ xfidread(Xfid *x)
 		alts[CRdata].c = w->consread;
 		alts[CRdata].v = &crm;
 		alts[CRdata].op = CHANRCV;
+		alts[CRgone].c = w->gone;
+		alts[CRgone].v = nil;
+		alts[CRgone].op = CHANRCV;
 		alts[CRflush].c = x->flushc;
 		alts[CRflush].v = nil;
 		alts[CRflush].op = CHANRCV;
@@ -637,6 +653,15 @@ xfidread(Xfid *x)
 		switch(alt(alts)){
 		case CRdata:
 			break;
+		case CRgone:
+			qlock(&x->active);
+			if(!x->flushing){
+				filsysrespond(x->fs, x, &fc, Edeleted);
+				qunlock(&x->active);
+				return;
+			}
+			qunlock(&x->active);
+			/* no break */
 		case CRflush:
 			filsyscancel(x);
 			return;
@@ -683,6 +708,9 @@ xfidread(Xfid *x)
 		alts[MRdata].c = w->mouseread;
 		alts[MRdata].v = &mrm;
 		alts[MRdata].op = CHANRCV;
+		alts[MRgone].c = w->gone;
+		alts[MRgone].v = nil;
+		alts[MRgone].op = CHANRCV;
 		alts[MRflush].c = x->flushc;
 		alts[MRflush].v = nil;
 		alts[MRflush].op = CHANRCV;
@@ -691,6 +719,15 @@ xfidread(Xfid *x)
 		switch(alt(alts)){
 		case MRdata:
 			break;
+		case MRgone:
+			qlock(&x->active);
+			if(!x->flushing){
+				filsysrespond(x->fs, x, &fc, Edeleted);
+				qunlock(&x->active);
+				return;
+			}
+			qunlock(&x->active);
+			/* no break */
 		case MRflush:
 			filsyscancel(x);
 			return;
@@ -723,6 +760,9 @@ xfidread(Xfid *x)
 		alts[MRdata].c = w->kbdread;
 		alts[MRdata].v = &krm;
 		alts[MRdata].op = CHANRCV;
+		alts[MRgone].c = w->gone;
+		alts[MRgone].v = nil;
+		alts[MRgone].op = CHANRCV;
 		alts[MRflush].c = x->flushc;
 		alts[MRflush].v = nil;
 		alts[MRflush].op = CHANRCV;
@@ -731,6 +771,15 @@ xfidread(Xfid *x)
 		switch(alt(alts)){
 		case MRdata:
 			break;
+		case MRgone:
+			qlock(&x->active);
+			if(!x->flushing){
+				filsysrespond(x->fs, x, &fc, Edeleted);
+				qunlock(&x->active);
+				return;
+			}
+			qunlock(&x->active);
+			/* no break */
 		case MRflush:
 			filsyscancel(x);
 			return;
@@ -741,7 +790,7 @@ xfidread(Xfid *x)
 		qlock(&x->active);
 		if(x->flushing){
 			qunlock(&x->active);
-			free(t);		/* wake up window and toss data */
+			free(t);		/* toss data */
 			recv(x->flushc, nil);		/* wake up flushing xfid */
 			filsyscancel(x);
 			return;
@@ -851,6 +900,9 @@ xfidread(Xfid *x)
 		alts[WCRdata].c = w->wctlread;
 		alts[WCRdata].v = &cwrm;
 		alts[WCRdata].op = CHANRCV;
+		alts[WCRgone].c = w->gone;
+		alts[WCRgone].v = nil;
+		alts[WCRgone].op = CHANRCV;
 		alts[WCRflush].c = x->flushc;
 		alts[WCRflush].v = nil;
 		alts[WCRflush].op = CHANRCV;
@@ -859,6 +911,15 @@ xfidread(Xfid *x)
 		switch(alt(alts)){
 		case WCRdata:
 			break;
+		case WCRgone:
+			qlock(&x->active);
+			if(!x->flushing){
+				filsysrespond(x->fs, x, &fc, Edeleted);
+				qunlock(&x->active);
+				return;
+			}
+			qunlock(&x->active);
+			/* no break */
 		case WCRflush:
 			filsyscancel(x);
 			return;
