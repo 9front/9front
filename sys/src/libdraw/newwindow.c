@@ -14,14 +14,19 @@ newwindow(char *str)
 	if(wsys == nil)
 		return -1;
 	fd = open(wsys, ORDWR);
-	free(wsys);
-	if(fd < 0)
+	if(fd < 0){
+		free(wsys);
 		return -1;
+	}
 	rfork(RFNAMEG);
+	unmount(wsys, "/dev");	/* drop reference to old window */
+	free(wsys);
 	if(str)
 		snprint(buf, sizeof buf, "new %s", str);
 	else
 		strcpy(buf, "new");
-	return mount(fd, -1, "/dev", MBEFORE, buf);
+	if(mount(fd, -1, "/mnt/wsys", MREPL, buf) < 0)
+		return mount(fd, -1, "/dev", MBEFORE, buf);
+	return bind("/mnt/wsys", "/dev", MBEFORE);
 }
 
