@@ -422,6 +422,7 @@ xfidwrite(Xfid *x)
 				return;
 			}
 			qunlock(&x->active);
+			recv(x->flushc, nil);	/* wake up flushing xfid */
 			/* no break */
 		case CWflush:
 			free(r);
@@ -661,6 +662,7 @@ xfidread(Xfid *x)
 				return;
 			}
 			qunlock(&x->active);
+			recv(x->flushc, nil);	/* wake up flushing xfid */
 			/* no break */
 		case CRflush:
 			filsyscancel(x);
@@ -727,6 +729,7 @@ xfidread(Xfid *x)
 				return;
 			}
 			qunlock(&x->active);
+			recv(x->flushc, nil);	/* wake up flushing xfid */
 			/* no break */
 		case MRflush:
 			filsyscancel(x);
@@ -779,6 +782,7 @@ xfidread(Xfid *x)
 				return;
 			}
 			qunlock(&x->active);
+			recv(x->flushc, nil);	/* wake up flushing xfid */
 			/* no break */
 		case MRflush:
 			filsyscancel(x);
@@ -919,6 +923,7 @@ xfidread(Xfid *x)
 				return;
 			}
 			qunlock(&x->active);
+			recv(x->flushc, nil);	/* wake up flushing xfid */
 			/* no break */
 		case WCRflush:
 			filsyscancel(x);
