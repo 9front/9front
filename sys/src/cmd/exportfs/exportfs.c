@@ -288,7 +288,10 @@ main(int argc, char **argv)
 		fatal("open ack write");
 
 	ini = initial;
-	if (readn(netfd, initial, sizeof(initial)) < sizeof(initial))
+	n = readn(netfd, initial, sizeof(initial));
+	if (n == 0)
+		fatal(nil);	/* port scan or spurious open/close on exported /srv file (unmount) */
+	if (n < sizeof(initial))
 		fatal("can't read initial string: %r");
 
 	if (memcmp(ini, "impo", 4) == 0) {
@@ -844,10 +847,10 @@ fatal(char *s, ...)
 	for(m = Proclist; m; m = m->next)
 		postnote(PNPROC, m->pid, "kill");
 
-	DEBUG(DFD, "%s\n", buf);
-	if (s) 
+	if (s) {
+		DEBUG(DFD, "%s\n", buf);
 		sysfatal("%s", buf);	/* caution: buf could contain '%' */
-	else
+	} else
 		exits(nil);
 }
 

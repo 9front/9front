@@ -584,8 +584,10 @@ openmount(int sfd)
 	if(pipe(p) < 0)
 		return -1;
 
-	switch(rfork(RFPROC|RFMEM|RFNOWAIT|RFNAMEG|RFFDG)){
+	switch(rfork(RFPROC|RFMEM|RFNOWAIT|RFNAMEG|RFFDG|RFREND)){
 	case -1:
+		close(p[0]);
+		close(p[1]);
 		return -1;
 
 	default:
@@ -597,6 +599,9 @@ openmount(int sfd)
 		break;
 	}
 
+	dup(p[0], 0);
+	dup(p[0], 1);
+	close(p[0]);
 	close(p[1]);
 
 	arg[0] = "exportfs";
@@ -606,10 +611,6 @@ openmount(int sfd)
 	arg[2] = mbuf;
 	arg[3] = nil;
 
-	close(0);
-	close(1);
-	dup(p[0], 0);
-	dup(p[0], 1);
 	exec("/bin/exportfs", arg);
 	_exits("whoops: exec failed");	
 	return -1;
