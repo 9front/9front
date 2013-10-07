@@ -578,8 +578,9 @@ flushme:
 int
 openmount(int sfd)
 {
-	int p[2];
+	int p[2], fd, i, n;
 	char *arg[10], fdbuf[20], mbuf[20];
+	Dir *dir;
 
 	if(pipe(p) < 0)
 		return -1;
@@ -601,8 +602,19 @@ openmount(int sfd)
 
 	dup(p[0], 0);
 	dup(p[0], 1);
-	close(p[0]);
-	close(p[1]);
+
+	/* close all remaining file descriptors except sfd */
+	if((fd = open("/fd", OREAD)) < 0)
+		_exits("open /fd failed");
+	n = dirreadall(fd, &dir);
+	for(i=0; i<n; i++){
+		if(strstr(dir[i].name, "ctl"))
+			continue;
+		fd = atoi(dir[i].name);
+		if(fd > 2 && fd != sfd)
+			close(fd);
+	}
+	free(dir);
 
 	arg[0] = "exportfs";
 	snprint(fdbuf, sizeof fdbuf, "-S/fd/%d", sfd);
