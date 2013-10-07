@@ -71,6 +71,7 @@ Mouseinfo	mouse;
 Cursorinfo	cursor;
 int		mouseshifted;
 Cursor		curs;
+int		mouseinbuttons;
 
 void	Cursortocursor(Cursor*);
 int	mousechanged(void*);
@@ -192,6 +193,9 @@ mouseopen(Chan *c, int omode)
 	case Qmousein:
 		if(!iseve())
 			error(Eperm);
+		c->aux = malloc(sizeof(Mousestate));
+		if(c->aux == nil)
+			error(Enomem);
 		break;
 	default:
 		incref(&mouse);
@@ -220,6 +224,9 @@ mouseclose(Chan *c)
 			mouse.open = 0;
 		else if(c->qid.path == Qmousein){
 			unlock(&mouse);
+			mouseinbuttons &= ~((Mousestate*)c->aux)->buttons;
+			free(c->aux);	/* Mousestate */
+			c->aux = nil;
 			return;
 		}
 		if(--mouse.ref != 0){
@@ -368,6 +375,7 @@ mousewrite(Chan *c, void *va, long n, vlong)
 	Cmdtab *ct;
 	char buf[64];
 	int b, msec;
+	Mousestate *m;
 
 	p = va;
 	switch((ulong)c->qid.path){
@@ -448,6 +456,13 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		msec = strtol(p, &p, 0);
 		if(msec == 0)
 			msec = TK2MS(MACHP(0)->ticks);
+		m = (Mousestate*)c->aux;
+		m->xy = pt;
+		m->msec = msec;
+		b ^= m->buttons;
+		m->buttons ^= b;
+		mouseinbuttons = (m->buttons & b) | (mouseinbuttons & ~b);
+		b = mouse.buttons & ~b;
 		if(buf[0] == 'A')
 			absmousetrack(pt.x, pt.y, b, msec);
 		else
@@ -597,6 +612,8 @@ absmousetrack(int x, int y, int b, int msec)
 		y = gscreen->clipr.min.y;
 	if(y >= gscreen->clipr.max.y)
 		y = gscreen->clipr.max.y;
+
+	b |= mouseinbuttons;
 
 	lastb = mouse.buttons;
 	mouse.xy = Pt(x, y);
