@@ -93,6 +93,7 @@ int scanfd;
 int ledsfd;
 int consfd;
 int mctlfd;
+int msinfd;
 int notefd;
 
 int kbdopen;
@@ -354,13 +355,24 @@ keyproc(void *)
 {
 	Rune rb[Nscan+1];
 	Key key;
-	int i, nb;
+	int i, nb, mouseb;
 	char *s;
 
 	threadsetname("keyproc");
 
 	nb = 0;
+	mouseb = 0;
 	while(recv(keychan, &key) > 0){
+		if(msinfd >= 0 && key.r >= Kmouse+1 && key.r <= Kmouse+5){
+			i = 1<<(key.r-(Kmouse+1));
+			if(key.down)
+				mouseb |= i;
+			else
+				mouseb &= ~i;
+			fprint(msinfd, "m%11d %11d %11d", 0, 0, mouseb);
+			continue; /* ignored when mapped to mouse button */
+		}
+
 		rb[0] = 0;
 		for(i=0; i<nb && rb[i+1] != key.b; i++)
 			;
@@ -898,7 +910,7 @@ kbmapwrite(Req *req)
 				else
 					goto Badarg;
 			}else if(*lp == 'M' && ('1' <= lp[1] && lp[1] <= '5'))
-				r = 0xF900+lp[1]-'0';
+				r = Kmouse+lp[1]-'0';
 			else if(*lp>='0' && *lp<='9') /* includes 0x... */
 				r = strtoul(lp, &lp, 0);
 			else
@@ -1386,6 +1398,7 @@ threadmain(int argc, char** argv)
 	scanfd = eopen("/dev/scancode", OREAD);
 	ledsfd = eopen("/dev/leds", OWRITE);
 	mctlfd = eopen("/dev/mousectl", OWRITE);
+	msinfd = eopen("/dev/mousein", OWRITE);
 
 	if(*argv)
 		consfd = eopen(*argv, OREAD);
