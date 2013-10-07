@@ -53,12 +53,16 @@ enum{
 	Qdir,
 	Qcursor,
 	Qmouse,
+	Qmousein,
+	Qmousectl,
 };
 
 static Dirtab mousedir[]={
 	".",	{Qdir, 0, QTDIR},	0,			DMDIR|0555,
 	"cursor",	{Qcursor},	0,			0666,
 	"mouse",	{Qmouse},	0,			0666,
+	"mousein",	{Qmousein},	0,			0222,
+	"mousectl",	{Qmousectl},	0,			0222,
 };
 
 static uchar buttonmap[8] = {
@@ -122,6 +126,10 @@ mouseopen(Chan *c, int omode)
 		mouse.open = 1;
 		mouse.ref++;
 		unlock(&mouse);
+		break;
+	case Qmousein:
+	case Qmousectl:
+		error(Egreg);	/* dummy */
 		break;
 	default:
 		incref(&mouse);
