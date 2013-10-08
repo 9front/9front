@@ -914,7 +914,7 @@ filter(int fd, char *cmd)
 	if(pipe(p) < 0)
 		fatal("filter: pipe; %r");
 
-	switch(rfork(RFNOWAIT|RFPROC|RFMEM|RFFDG)) {
+	switch(rfork(RFNOWAIT|RFPROC|RFMEM|RFFDG|RFREND)) {
 	case -1:
 		fatal("filter: rfork; %r\n");
 	case 0:
