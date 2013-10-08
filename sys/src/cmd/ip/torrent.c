@@ -450,11 +450,15 @@ peer(int fd, int incoming, char *addr)
 		}
 		if(!hechoking && mewant){
 			x = workpiece;
-			if(x >= 0 && pieces[x].brk < pieces[x].len)
-				{}
-			else x = pickpiece(map);
+			if(x < 0 || (havemap[x>>3]&(0x80>>(x&7))) != 0)
+				x = pickpiece(map);
 			if(x >= 0){
+				workpiece = x;
 				o = pieces[x].brk;
+				if(o < 0 || o >= pieces[x].len){
+					pieces[x].brk = 0;
+					o = 0;
+				}
 				l = pieces[x].len - o;
 				if(l > MAXIO)
 					l = MAXIO;
@@ -462,7 +466,6 @@ peer(int fd, int incoming, char *addr)
 				n = pack(buf, sizeof(buf), "lblll", 1+4+4+4, 0x06, x, o, l);
 				if(write(fd, buf, n) != n)
 					goto Out;
-				workpiece = x;
 			}
 		}
 		if(mechoking && hewant){
@@ -550,13 +553,22 @@ peer(int fd, int incoming, char *addr)
 			if(debug) fprint(2, "peer %s: <- piece %d %d %d\n", addr, x, o, n);
 			if(x < 0 || x >= npieces)
 				continue;
-			if((pieces[x].brk != o) || (havemap[x>>3]&(0x80>>(x&7))))
+			if((havemap[x>>3]&(0x80>>(x&7))) != 0)
 				continue;
-			if(rwpiece(1, x, p, n, o) == n){
-				if((pieces[x].brk = o+n) == pieces[x].len){
-					if(!havepiece(x))
-						pieces[x].brk = 0;
-				}
+			if(o < 0 || o >= pieces[x].len)
+				continue;
+			if(o+n > pieces[x].len)
+				n = o - pieces[x].len;
+			if((o > pieces[x].brk) || (o+n <= pieces[x].brk))
+				continue;
+			n = rwpiece(1, x, p, n, o);
+			if(n <= 0)
+				continue;
+			pieces[x].brk = o+n;
+			if(o+n >= pieces[x].len && !havepiece(x)){
+				/* backoff from this piece for a while */
+				if(x == workpiece)
+					workpiece = -1;
 			}
 			break;
 		case 0x08:	// Cancel <index> <begin> <length>
