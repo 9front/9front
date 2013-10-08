@@ -192,11 +192,11 @@ rwpiece(int wr, int index, uchar *data, int len, int poff)
 	int n, m;
 	File *f;
 
-	if(len <= 0 || poff >= pieces[index].len)
+	if(len <= 0 || poff < 0 || poff >= pieces[index].len)
 		return 0;
 	if(len+poff > pieces[index].len)
 		len = pieces[index].len - poff;
-	off = (vlong)index * blocksize;
+	off = (vlong)index * (vlong)blocksize;
 	off += poff;
 	for(f = files; f; f = f->next)
 		if((f->off+f->len) > off)
