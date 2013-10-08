@@ -34,8 +34,7 @@ void pl_pasteentry(Panel *p, char *s){
 	ep=p->data;
 	n=ep->entp-ep->entry;
 	m=strlen(s);
-	if((e=realloc(ep->entry,n+m+SLACK))==0)
-		return;
+	e=pl_erealloc(ep->entry,n+m+SLACK);
 	ep->entry=e;
 	e+=n;
 	strncpy(e, s, m);
@@ -131,11 +130,7 @@ void pl_typeentry(Panel *p, Rune c){
 		ep->entp+=runetochar(ep->entp, &c);
 		if(ep->entp>ep->eent){
 			n=ep->entp-ep->entry;
-			ep->entry=realloc(ep->entry, n+100+SLACK);
-			if(ep->entry==0){
-				fprint(2, "can't realloc in pl_typeentry\n");
-				exits("no mem");
-			}
+			ep->entry=pl_erealloc(ep->entry, n+100+SLACK);
 			ep->entp=ep->entry+n;
 			ep->eent=ep->entp+100;
 		}
@@ -155,7 +150,7 @@ void pl_freeentry(Panel *p){
 	Entry *ep;
 	ep = p->data;
 	free(ep->entry);
-	ep->entry = ep->eent = 0;
+	ep->entry = ep->eent = ep->entp = 0;
 }
 void plinitentry(Panel *v, int flags, int wid, char *str, void (*hit)(Panel *, char *)){
 	int elen;
@@ -174,8 +169,7 @@ void plinitentry(Panel *v, int flags, int wid, char *str, void (*hit)(Panel *, c
 	v->paste=pl_pasteentry;
 	elen=100;
 	if(str) elen+=strlen(str);
-	if(ep->entry==nil)
-		ep->entry=pl_emalloc(elen+SLACK);
+	ep->entry=pl_erealloc(ep->entry, elen+SLACK);
 	ep->eent=ep->entry+elen;
 	strecpy(ep->entry, ep->eent, str ? str : "");
 	ep->entp=ep->entry+strlen(ep->entry);

@@ -14,6 +14,16 @@ void *pl_emalloc(int n){
 	setmalloctag(v, getcallerpc(&n));
 	return v;
 }
+void *pl_erealloc(void *v, int n)
+{
+	v=realloc(v, n);
+	if(v==0){
+		fprint(2, "Can't realloc!\n");
+		exits("no mem");
+	}
+	setrealloctag(v, getcallerpc(&v));
+	return v;
+}
 void pl_unexpected(Panel *g, char *rou){
 	fprint(2, "%s called unexpectedly (%s %lux)\n", rou, g->kind, (ulong)g);
 	abort();

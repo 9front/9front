@@ -66,11 +66,7 @@ void tw_storeloc(Textwin *t, int l, Point p){
 	int nloc;
 	if(l>=t->eloc-t->loc){
 		nloc=l+SLACK;
-		t->loc=realloc(t->loc, nloc*sizeof(Point));
-		if(t->loc==0){
-			fprint(2, "No mem in tw_storeloc\n");
-			exits("no mem");
-		}
+		t->loc=pl_erealloc(t->loc, nloc*sizeof(Point));
 		t->eloc=t->loc+nloc;
 	}
 	t->loc[l]=p;
@@ -390,16 +386,13 @@ void tw_relocate(Textwin *t, int first, int last, Point dst){
  */
 void twreplace(Textwin *t, int r0, int r1, Rune *ins, int nins){
 	int olen, nlen, tlen, dtop;
-	Rune *ntext;
 	olen=t->etext-t->text;
 	nlen=olen+nins-(r1-r0);
 	tlen=t->eslack-t->text;
 	if(nlen>tlen){
 		tlen=nlen+SLACK;
-		if((ntext=realloc(t->text, tlen*sizeof(Rune)))==0)
-			return;
-		t->text=ntext;
-		t->eslack=ntext+tlen;
+		t->text=pl_erealloc(t->text, tlen*sizeof(Rune));
+		t->eslack=t->text+tlen;
 	}
 	if(olen!=nlen)
 		memmove(t->text+r0+nins, t->text+r1, (olen-r1)*sizeof(Rune));

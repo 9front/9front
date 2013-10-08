@@ -302,8 +302,7 @@ char *plrtsnarftext(Rtext *w){
 		n = strlen(w->text)+64;
 		if(p+n >= e){
 			n = (p+n+64)-b;
-			if((t = realloc(b, n))==0)
-				break;
+			t = pl_erealloc(b, n);
 			p = t+(p-b);
 			e = t+n;
 			b = t;

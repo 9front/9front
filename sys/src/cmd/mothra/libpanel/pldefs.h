@@ -45,6 +45,7 @@ enum{
 };
 Panel *pl_newpanel(Panel *, int);	/* make a new Panel, given parent & data size */
 void *pl_emalloc(int);			/* allocate some space, exit on error */
+void *pl_erealloc(void*,int);		/* reallocate some space, exit on error */
 void pl_print(Panel *);			/* print a Panel tree */
 Panel *pl_ptinpanel(Point, Panel *);	/* highest-priority subpanel containing point */
 /*

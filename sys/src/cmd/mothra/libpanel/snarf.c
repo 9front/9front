@@ -17,16 +17,14 @@ void plputsnarf(char *s){
 }
 char *plgetsnarf(void){
 	int fd, n, r;
-	char *s, *x;
+	char *s;
 
 	if((fd=open("/dev/snarf", OREAD))<0)
 		return nil;
 	n=0;
 	s=nil;
 	for(;;){
-		if((x=realloc(s, n+1024))==0)
-			break;
-		s=x;
+		s=pl_erealloc(s, n+1024);
 		if((r = read(fd, s+n, 1024)) <= 0)
 			break;
 		n += r;
