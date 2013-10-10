@@ -112,6 +112,15 @@ enum{
 };
 
 /*
+ * length direction
+ */
+enum{
+	HORIZ,
+	VERT,
+};
+int strtolength(Hglob *g, int dir, char *str);
+
+/*
  * Token names for the html parser.
  * Tag_end corresponds to </end> tags.
  * Tag_text tags text not in a tag.

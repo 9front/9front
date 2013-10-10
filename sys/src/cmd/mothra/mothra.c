@@ -731,6 +731,13 @@ void dolink(Panel *p, int buttons, Rtext *word){
 	int yoffs;
 	Action *a;
 
+	/* really a button, hit it */
+	if(word->p != nil && word->p != p && strcmp(word->p->kind, "button") == 0){
+		extern void pl_buttonhit(Panel *p, int buttons, int check);
+		pl_buttonhit(word->p, buttons, 0);
+		return;
+	}
+
 	a=word->user;
 	if(a == nil || (a->link == nil && a->image == nil))
 		return;

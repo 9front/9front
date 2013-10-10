@@ -68,10 +68,6 @@ void pl_linespace(Hglob *g){
 	g->para=0;
 	g->linebrk=0;
 }
-enum{
-	HORIZ,
-	VERT,
-};
 
 int strtolength(Hglob *g, int dir, char *str){
 	double f;

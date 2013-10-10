@@ -169,10 +169,27 @@ void rdform(Hglob *g){
 			f->type=RADIO;
 		else if(cistrcmp(s, "submit")==0)
 			f->type=SUBMIT;
+		else if(cistrcmp(s, "image")==0){
+			f->type=SUBMIT;
+			s=pl_getattr(g->attr, "src");
+			if(s && *s)
+				nstrcpy(g->state->image, s, sizeof(g->state->image));
+			s=pl_getattr(g->attr, "width");
+			if(s && *s)
+				g->state->width=strtolength(g, HORIZ, s);
+			s=pl_getattr(g->attr, "height");
+			if(s && *s)
+				g->state->height=strtolength(g, VERT, s);
+			s=pl_getattr(g->attr, "alt");
+			if(s==0 || *s == 0) s = f->value;
+			pl_htmloutput(g, g->nsp, s, f);
+			g->state->image[0] = 0;
+			g->state->width=0;
+			g->state->height=0;
+			break;
+		}
 		else if(cistrcmp(s, "button")==0)
 			f->type=BUTTON;
-		else if(cistrcmp(s, "image")==0)
-			f->type=FILE;
 		else if(cistrcmp(s, "file")==0)
 			f->type=FILE;
 		else if(cistrcmp(s, "reset")==0)
