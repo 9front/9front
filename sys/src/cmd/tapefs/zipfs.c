@@ -304,6 +304,8 @@ trailer(Biobuf *bin, ZipHead *zh)
 {
 	if(zh->flags & ZTrailInfo){
 		zh->crc = get4(bin);
+		if(zh->crc == 0x08074b50)	/* thanks apple */
+			zh->crc = get4(bin);
 		zh->csize = get4(bin);
 		zh->uncsize = get4(bin);
 	}
