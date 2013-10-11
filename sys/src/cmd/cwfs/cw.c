@@ -1331,24 +1331,15 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 	switch(tag) {
 	default:
 		fprint(2, "cwrecur: unknown tag %d %s\n", tag, cw->name);
-
-	case Tfile:
 		break;
 
-	case Tsuper:
+	case Tfile:
+		if(p && checktag(p, tag, qp))
+			fprint(2, "cwrecur: Tfile %s\n", cw->name);
+		break;
+
 	case Tdir:
-		if(!p) {
-			p = getbuf(cw->dev, addr, Brd);
-			if(!p || checktag(p, tag, qp)) {
-				fprint(2, "cwrecur: Tdir p null %s\n", cw->name);
-				if(p){
-					putbuf(p);
-					p = nil;
-				}
-				break;
-			}
-		}
-		if(tag == Tdir) {
+		if(cw->depth > 1) {
 			cw->namepad[0] = 0;	/* force room */
 			np = strchr(cw->name, 0);
 			*np++ = '/';
@@ -1356,13 +1347,18 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 			np = 0;	/* set */
 			cw->name[0] = 0;
 		}
-
+		if(!p)
+			p = getbuf(cw->dev, addr, Brd);
+		if(!p || checktag(p, tag, qp)) {
+			fprint(2, "cwrecur: Tdir %s\n", cw->name);
+			break;
+		}
 		for(i=0; i<DIRPERBUF; i++) {
 			d = getdir(p, i);
 			if((d->mode & (DALLOC|DTMP)) != DALLOC)
 				continue;
 			qp1 = d->qid.path & ~QPDIR;
-			if(tag == Tdir)
+			if(np)
 				strncpy(np, d->name, NAMELEN);
 			else if(i > 0)
 				fprint(2, "cwrecur: root with >1 directory\n");
@@ -1405,16 +1401,11 @@ cwrecur(Cw *cw, Off addr, int tag, int tag1, long qp)
 #endif
 		j = tag-1;
 	tind:
-		if(!p) {
+		if(!p)
 			p = getbuf(cw->dev, addr, Brd);
-			if(!p || checktag(p, tag, qp)) {
-				fprint(2, "cwrecur: Tind p null %s\n", cw->name);
-				if(p){
-					putbuf(p);
-					p = nil;
-				}
-				break;
-			}
+		if(!p || checktag(p, tag, qp)) {
+			fprint(2, "cwrecur: Tind %s\n", cw->name);
+			break;
 		}
 		for(i=0; i<INDPERBUF; i++) {
 			na = ((Off *)p->iobuf)[i];
@@ -1493,7 +1484,7 @@ cfsdump(Filsys *fs)
 	cons.noage = 1;
 	cw->all = cw->allflag | noatime | noatimeset;
 	noatimeset = 0;
-	rba = cwrecur(cw, orba, Tsuper, 0, QPROOT);
+	rba = cwrecur(cw, orba, Tdir, 0, QPROOT);
 	if(rba == 0)
 		rba = orba;
 	if(chatty)
@@ -1504,6 +1495,8 @@ cfsdump(Filsys *fs)
 	 * partial super block
 	 */
 	p = getbuf(cw->dev, cwsaddr(cw->dev), Brd|Bmod|Bimm);
+	if(!p || checktag(p, Tsuper, QPSUPER))
+		goto bad;
 	s = (Superb*)p->iobuf;
 	s->fsize = cw->fsize;
 	s->cwraddr = rba;
@@ -1513,6 +1506,8 @@ cfsdump(Filsys *fs)
 	 * partial cache block
 	 */
 	p = getbuf(cw->cdev, CACHE_ADDR, Brd|Bmod|Bimm|Bres);
+	if(!p || checktag(p, Tcache, QPSUPER))
+		goto bad;
 	h = (Cache*)p->iobuf;
 	h->fsize = cw->fsize;
 	h->cwraddr = rba;
@@ -1523,13 +1518,15 @@ cfsdump(Filsys *fs)
 	 */
 	oroa = cwraddr(cw->rodev);
 	pr = getbuf(cw->dev, oroa, Brd|Bmod);
+	if(!pr || checktag(pr, Tdir, QPROOT))
+		goto bad;
 	dr = getdir(pr, 0);
 
 	datestr(tstr, time(nil));	/* tstr = "yyyymmdd" */
 	n = 0;
 	for(a=0;; a++) {
 		p1 = dnodebuf(pr, dr, a, Tdir, 0);
-		if(!p1)
+		if(!p1 || checktag(p1, Tdir, QPNONE))
 			goto bad;
 		n++;
 		for(i=0; i<DIRPERBUF; i++) {
@@ -1549,6 +1546,8 @@ cfsdump(Filsys *fs)
 	 */
 found1:
 	p = getbuf(cw->dev, rba, Brd);
+	if(!p || checktag(p, Tdir, QPROOT))
+		goto bad;
 	d = getdir(p, 0);
 	d1->qid = d->qid;
 	d1->qid.version += n;
@@ -1572,7 +1571,7 @@ found2:
 	m = 0;
 	for(a=0;; a++) {
 		p1 = dnodebuf(pr, dr, a, Tdir, 0);
-		if(!p1)
+		if(!p1 || checktag(p1, Tdir, QPNONE))
 			goto bad;
 		n++;
 		for(i=0; i<DIRPERBUF; i++) {
@@ -1595,6 +1594,8 @@ found:
 		sprint(tstr+8, "%ld", m);
 
 	p = getbuf(cw->dev, rba, Brd);
+	if(!p || checktag(p, Tdir, QPROOT))
+		goto bad;
 	d = getdir(p, 0);
 	*d1 = *d;				/* qid is QPROOT */
 	putbuf(p);
@@ -1612,7 +1613,7 @@ found:
 
 	cons.noage = 0;
 	cw->all = 0;
-	roa = cwrecur(cw, oroa, Tsuper, 0, QPROOT);
+	roa = cwrecur(cw, oroa, Tdir, 0, QPROOT);
 	if(roa == 0)
 		roa = oroa;
 	if(chatty)
@@ -1626,6 +1627,8 @@ found:
 	if(chatty)
 		fprint(2, "sblock %lld", (Wideoff)a);
 	p = getbuf(cw->dev, a, Brd|Bmod|Bimm);
+	if(!p || checktag(p, Tsuper, QPSUPER))
+		goto bad;
 	s = (Superb*)p->iobuf;
 	s->last = a;
 	sba = s->next;
@@ -1646,6 +1649,8 @@ found:
 	 * final cache block
 	 */
 	p = getbuf(cw->cdev, CACHE_ADDR, Brd|Bmod|Bimm|Bres);
+	if(!p || checktag(p, Tcache, QPSUPER))
+		goto bad;
 	h = (Cache*)p->iobuf;
 	h->fsize = cw->fsize;
 	h->roraddr = roa;
