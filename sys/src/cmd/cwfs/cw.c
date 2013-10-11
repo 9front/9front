@@ -170,7 +170,7 @@ cmd_statw(int, char*[])
 
 	p = getbuf(cw->cdev, CACHE_ADDR, Brd|Bres);
 	if(!p || checktag(p, Tcache, QPSUPER)) {
-		print("cwstats: checktag c bucket\n");
+		print("cwstats: checktag super\n");
 		if(p)
 			putbuf(p);
 		return;
@@ -244,7 +244,7 @@ dumpblock(Device *dev)
 	Cache *h;
 	Centry *c, *ce, *bc;
 	Bucket *b;
-	Off m, a, msize, maddr, wmax, caddr;
+	Off m, a, bn, msize, maddr, wmax, caddr;
 	int s1, s2, count;
 	Cw *cw;
 
@@ -261,12 +261,19 @@ dumpblock(Device *dev)
 	putbuf(cb);
 
 	for(m=msize; m>=0; m--) {
-		a = cw->dbucket + 1;
-		if(a < 0 || a >= msize)
-			a = 0;
-		cw->dbucket = a;
-		p = getbuf(cw->cdev, maddr + a/BKPERBLK, Brd);
-		b = (Bucket*)p->iobuf + a%BKPERBLK;
+		bn = cw->dbucket + 1;
+		if(bn < 0 || bn >= msize)
+			bn = 0;
+		cw->dbucket = bn;
+		a = maddr + bn/BKPERBLK;
+		p = getbuf(cw->cdev, a, Brd);
+		if(!p || checktag(p, Tbuck, a)) {
+			fprint(2, "dump: checktag c bucket\n");
+			if(p)
+				putbuf(p);
+			goto stop;
+		}
+		b = (Bucket*)p->iobuf + bn%BKPERBLK;
 		ce = b->entry + CEPERBK;
 		bc = 0;
 		for(c = b->entry; c < ce; c++)
@@ -301,16 +308,19 @@ dumpblock(Device *dev)
 
 found:
 	if (conf.newcache)
-		a += (c - b->entry)*msize + caddr;
+		a = bn + (c - b->entry)*msize + caddr;
 	else
-		a = a*CEPERBK + (c - b->entry) + caddr;
+		a = bn*CEPERBK + (c - b->entry) + caddr;
 	p1 = getbuf(devnone, Cwdump1, 0);
 	count = 0;
 
 retry:
 	count++;
-	if(count > 10 || devread(cw->cdev, a, p1->iobuf))
+	if(count > 10 || devread(cw->cdev, a, p1->iobuf)) {
+		putbuf(p1);
+		putbuf(p);
 		goto stop;
+	}
 	m = c->waddr;
 	cw->daddr = m;
 	s1 = devwrite(cw->wdev, m, p1->iobuf);
@@ -368,8 +378,6 @@ stop1:
 	return 1;
 
 stop:
-	putbuf(p1);
-	putbuf(p);
 	fprint(2, "stopping dump!!\n");
 	cw->nodump = 1;
 	return 0;
@@ -419,6 +427,8 @@ cwinit(Device *dev)
 	cw = dev->private;
 	l = devsize(cw->wdev);
 	cb = getbuf(cw->cdev, CACHE_ADDR, Brd|Bmod|Bres);
+	if(!cb || checktag(cb, Tcache, QPSUPER))
+		panic("cwinit: checktag super");
 	h = (Cache*)cb->iobuf;
 	h->toytime = toytime() + SECOND(30);
 	h->time = time(nil);
@@ -1705,7 +1715,7 @@ mvstates(Device *dev, int s1, int s2, int side)
 	}
 	cb = getbuf(cw->cdev, CACHE_ADDR, Brd|Bres);
 	if(!cb || checktag(cb, Tcache, QPSUPER))
-		panic("cwstats: checktag c bucket");
+		panic("mvstates: checktag super");
 	h = (Cache*)cb->iobuf;
 	msize = h->msize;
 	maddr = h->maddr;
@@ -1714,7 +1724,7 @@ mvstates(Device *dev, int s1, int s2, int side)
 	for(m=0; m<msize; m++) {
 		p = getbuf(cw->cdev, maddr + m/BKPERBLK, Brd|Bmod);
 		if(!p || checktag(p, Tbuck, maddr + m/BKPERBLK))
-			panic("cwtest: checktag c bucket");
+			panic("mvstates: checktag c bucket");
 		b = (Bucket*)p->iobuf + m%BKPERBLK;
 		ce = b->entry + CEPERBK;
 		for(c=b->entry; c<ce; c++)
@@ -1795,7 +1805,7 @@ storesb(Device *dev, Off last, int doit)
 
 	ps = getbuf(devnone, Cwxx2, 0);
 	if(!ps) {
-		fprint(2, "sbstore: getbuf\n");
+		fprint(2, "storesb: getbuf\n");
 		return;
 	}
 
@@ -1825,7 +1835,7 @@ storesb(Device *dev, Off last, int doit)
 	 */
 	ph = getbuf(CDEV(dev), CACHE_ADDR, Brd|Bres);
 	if(!ph || checktag(ph, Tcache, QPSUPER)) {
-		print("cwstats: checktag c bucket\n");
+		print("storesb: checktag super\n");
 		if(ph)
 			putbuf(ph);
 		putbuf(ps);
@@ -1887,7 +1897,7 @@ savecache(Device *dev)
 	cdev = CDEV(dev);
 	cb = getbuf(cdev, CACHE_ADDR, Brd|Bres);
 	if(!cb || checktag(cb, Tcache, QPSUPER))
-		panic("savecache: checktag c bucket");
+		panic("savecache: checktag super");
 	h = (Cache*)cb->iobuf;
 	msize = h->msize;
 	maddr = h->maddr;
@@ -1912,7 +1922,7 @@ savecache(Device *dev)
 		}
 		p = getbuf(cdev, maddr + m/BKPERBLK, Brd);
 		if(!p || checktag(p, Tbuck, maddr + m/BKPERBLK))
-			panic("cwtest: checktag c bucket");
+			panic("savecache: checktag c bucket");
 		b = (Bucket*)p->iobuf + m%BKPERBLK;
 		ce = b->entry + CEPERBK;
 		for(c = b->entry; c < ce; c++)
@@ -1980,7 +1990,7 @@ morecache(Device *dev, int dskno, Off size)
 
 	p = getbuf(CDEV(dev), CACHE_ADDR, Brd|Bres);
 	if(!p || checktag(p, Tcache, QPSUPER))
-		panic("savecache: checktag c bucket");
+		panic("morecache: checktag super");
 	h = (Cache*)p->iobuf;
 	mm = h->wmax;
 	putbuf(p);
@@ -2069,7 +2079,7 @@ cwtest(Device*)
 	cdev = CDEV(dev);
 	cb = getbuf(cdev, CACHE_ADDR, Brd|Bres);
 	if(!cb || checktag(cb, Tcache, QPSUPER))
-		panic("cwstats: checktag c bucket");
+		panic("cwtest: checktag super");
 	h = (Cache*)cb->iobuf;
 	for(m=0; m<h->msize; m++) {
 		p = getbuf(cdev, h->maddr + m/BKPERBLK, Brd|Bmod);
