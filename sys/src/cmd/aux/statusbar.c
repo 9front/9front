@@ -152,7 +152,10 @@ bar(Biobuf *b)
 		d = strtoll(f[1], 0, 0);
 		drawbar();
 	}
-	postnote(PNPROC, child, "kill");
+	if(textmode)
+		write(1, "\n", 1);
+	else
+		postnote(PNPROC, child, "kill");
 }
 
 
