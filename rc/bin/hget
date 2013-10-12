@@ -81,6 +81,15 @@ if(! ~ $s 0)
 				exec cat >>$o
 			exec cat >$o
 		}
+		c=`{cat $d/contentencoding >[2]/dev/null}
+		switch($c){
+		case *gzip*
+			exec gunzip
+		case *bzip2*
+			exec bunzip2
+		case *compress*
+			exec uncompress
+		}
 		exec cat
 	}
 }
