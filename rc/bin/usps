@@ -13,9 +13,8 @@ hget -p 'qtc_tLabels1='^$1 https://tools.usps.com/go/TrackConfirmAction |
 	uhtml | htmlfmt > /tmp/usps.$pid
 
 sam -d /tmp/usps.$pid >[2] /dev/null <<'!'
-,/Your Label Number/-1d
-/Check on Another Item/,$d
-/id=\"error-tLabels\"/,$d
+,/Tracking Number/-1d
+/Available Options/,$d
 ,p
 !
 rm /tmp/usps.$pid
