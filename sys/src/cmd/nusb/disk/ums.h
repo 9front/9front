@@ -76,6 +76,8 @@ struct Umsc
 	long	off;		/* offset within a block */
 	long	nb;		/* byte count */
 
+	QLock;
+
 	/* partitions */
 	Part part[Maxparts];
 

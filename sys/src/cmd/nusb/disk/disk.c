@@ -619,7 +619,11 @@ dopen(Req *req)
 	lun = ums->lun + (req->ofcall.qid.path >> 16) - 1;
 	switch(path){
 	case Qraw:
+		srvrelease(req->srv);
+		qlock(lun);
 		lun->phase = Pcmd;
+		qunlock(lun);
+		srvacquire(req->srv);
 		break;
 	}
 	respond(req, nil);
@@ -684,6 +688,7 @@ dread(Req *req)
 	long count;
 	void *data;
 	vlong offset;
+	Srv *srv;
 
 	q = req->fid->qid;
 	if(q.path == 0){
@@ -701,13 +706,19 @@ dread(Req *req)
 	case Qdir:
 		dirread9p(req, dirgen, lun);
 		respond(req, nil);
-		break;
+		return;
 	case Qctl:
 		s = ctlstring(lun);
 		readstr(req, s);
 		free(s);
 		respond(req, nil);
-		break;
+		return;
+	}
+
+	srv = req->srv;
+	srvrelease(srv);
+	qlock(lun);
+	switch(path){
 	case Qraw:
 		if(lun->lbsize <= 0 && umscapacity(lun) < 0){
 			respond(req, "phase error");
@@ -772,6 +783,9 @@ dread(Req *req)
 		respond(req, nil);
 		break;
 	}
+
+	qunlock(lun);
+	srvacquire(srv);
 }
 
 static void
@@ -786,12 +800,17 @@ dwrite(Req *req)
 	long count;
 	void *data;
 	vlong offset;
+	Srv *srv;
 
 	lun = ums->lun + (req->fid->qid.path >> 16) - 1;
 	path = req->fid->qid.path & 0xFFFF;
 	count = req->ifcall.count;
 	data = req->ifcall.data;
 	offset = req->ifcall.offset;
+
+	srv = req->srv;
+	srvrelease(srv);
+	qlock(lun);
 
 	switch(path){
 	case Qctl:
@@ -896,6 +915,9 @@ dwrite(Req *req)
 		respond(req, nil);
 		break;
 	}
+
+	qunlock(lun);
+	srvacquire(srv);
 }
 
 int
