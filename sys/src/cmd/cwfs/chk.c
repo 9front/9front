@@ -236,10 +236,9 @@ cmd_check(int argc, char *argv[])
 	print("deepest recursion=%d\n", maxdepth-1);	/* one-origin */
 	if(!cwflag)
 		missing();
-
+	putbuf(p);
 out:
 	cons.noage = 0;
-	putbuf(p);
 	chkfree(name);
 	chkfree(abits);
 	chkfree(qbits);
