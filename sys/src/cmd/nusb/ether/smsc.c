@@ -219,7 +219,7 @@ smscread(Dev *ep, uchar *p, int plen)
 	hd = GET4(bin);
 	n = hd >> 16;
 	m = (n + 4 + 3) & ~3;
-	if(n < 6 || m > nbin){
+	if(n < 6 || n > nbin-4){
 		nbin = 0;
 		return 0;
 	}
