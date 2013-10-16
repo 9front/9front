@@ -246,6 +246,8 @@ enum {
 	Toffset		= 446,		/* offset of partition table in sector */
 	Magic0		= 0x55,
 	Magic1		= 0xAA,
+
+	Tablesize	= NTentry*sizeof(Tentry) + 2,
 };
 
 struct Table {
@@ -454,7 +456,7 @@ recover(Edit *edit)
 
 	err = 0;
 	for(i=0; i<nrtab; i++)
-		if(diskwrite(edit->disk, &rtab[i].table, sizeof(Table), rtab[i].lba, Toffset) < 0)
+		if(diskwrite(edit->disk, &rtab[i].table, Tablesize, rtab[i].lba, Toffset) < 0)
 			err = 1;
 	if(err) {
 		fprint(2, "warning: some writes failed during restoration of old partition tables\n");
@@ -499,7 +501,7 @@ rdpart(Edit *edit, uvlong xbase, uvlong ebrstart, int ebrtype)
 	if(xbase == 0)
 		xbase = ebrstart;
 
-	diskread(edit->disk, &table, sizeof table, ebrstart, Toffset);
+	diskread(edit->disk, &table, Tablesize, ebrstart, Toffset);
 	addrecover(table, ebrstart);
 	if(table.magic[0] != Magic0 || table.magic[1] != Magic1)
 		return;
@@ -533,7 +535,7 @@ findmbr(Edit *edit)
 {
 	Table table;
 
-	diskread(edit->disk, &table, sizeof(Table), 0, Toffset);
+	diskread(edit->disk, &table, Tablesize, 0, Toffset);
 	if(table.magic[0] != Magic0 || table.magic[1] != Magic1)
 		sysfatal("did not find master boot record");
 }
@@ -1022,14 +1024,14 @@ wrextend(Edit *edit, int i, vlong xbase, vlong startlba, vlong *endlba)
 	Finish:
 		if(startlba < *endlba){
 			disk = edit->disk;
-			diskread(disk, &table, sizeof table, startlba, Toffset);
+			diskread(disk, &table, Tablesize, startlba, Toffset);
 			tp = table.entry;
 			ep = tp+NTentry;
 			for(; tp<ep; tp++)
 				memset(tp, 0, sizeof *tp);
 			table.magic[0] = Magic0;
 			table.magic[1] = Magic1;
-			if(diskwrite(edit->disk, &table, sizeof table, startlba, Toffset) < 0)
+			if(diskwrite(edit->disk, &table, Tablesize, startlba, Toffset) < 0)
 				recover(edit);
 		}
 		return i;
@@ -1041,7 +1043,7 @@ wrextend(Edit *edit, int i, vlong xbase, vlong startlba, vlong *endlba)
 	}
 
 	disk = edit->disk;
-	diskread(disk, &table, sizeof table, startlba, Toffset);
+	diskread(disk, &table, Tablesize, startlba, Toffset);
 	tp = table.entry;
 	ep = tp+NTentry;
 
@@ -1077,7 +1079,7 @@ wrextend(Edit *edit, int i, vlong xbase, vlong startlba, vlong *endlba)
 	table.magic[0] = Magic0;
 	table.magic[1] = Magic1;
 
-	if(diskwrite(edit->disk, &table, sizeof table, startlba, Toffset) < 0)
+	if(diskwrite(edit->disk, &table, Tablesize, startlba, Toffset) < 0)
 		recover(edit);
 	return ni;
 }	
@@ -1094,7 +1096,7 @@ wrpart(Edit *edit)
 
 	disk = edit->disk;
 
-	diskread(disk, &table, sizeof table, 0, Toffset);
+	diskread(disk, &table, Tablesize, 0, Toffset);
 
 	tp = table.entry;
 	ep = tp+NTentry;
@@ -1119,7 +1121,7 @@ wrpart(Edit *edit)
 	if(i != edit->npart)
 		sysfatal("cannot happen #1");
 
-	if(diskwrite(disk, &table, sizeof table, 0, Toffset) < 0)
+	if(diskwrite(disk, &table, Tablesize, 0, Toffset) < 0)
 		recover(edit);
 
 	/* bring parts up to date */
