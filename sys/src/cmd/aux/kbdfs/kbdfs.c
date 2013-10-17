@@ -514,22 +514,22 @@ Forward:
 		if(nextrune(rawchan, &r))
 			continue;
 
-		if(r == 'X'){
+		if(r == 'x' || r == 'X'){
+			i = (r == 'X') ? 4 : 6;
 			r = 0;
-			for(i = 0; i<4; i++){
+			do {
 				if(nextrune(rawchan, &rr))
 					break;
-				r <<= 4;
 				if(rr >= '0' && rr <= '9')
-					r |= (rr - '0');
+					r = (r << 4) | (rr - '0');
 				else if(rr >= 'a' && rr <= 'f')
-					r |= 10 + (rr - 'a');
+					r = (r << 4) | (10 + (rr - 'a'));
 				else if(rr >= 'A' && rr <= 'F')
-					r |= 10 + (rr - 'A');
+					r = (r << 4) | (10 + (rr - 'A'));
 				else
 					break;
-			}
-			if(i == 4 && r)
+			} while(--i > 0);
+			if((i == 0 || rr == ';') && r != 0 && r < Runemax)
 				goto Forward;
 		} else {
 			if(nextrune(rawchan, &rr))
