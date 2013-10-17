@@ -717,7 +717,11 @@ substrune(Rune r)
 void
 debugtag(Tag *tag, char *dbg)
 {
-	if(1) return;
+	if(1){
+		USED(tag);
+		USED(dbg);
+		return;
+	}
 
 	if(tag == nil)
 		return;
