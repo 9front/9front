@@ -390,16 +390,13 @@ static void
 doNTchap(char *pass, uchar chal[ChapChallen], uchar reply[MSchapResplen])
 {
 	Rune r;
-	int i, n;
 	uchar digest[MD4dlen];
-	uchar *w, unipass[256];
+	uchar *w, unipass[128*2];	// Standard says unlimited length, experience says 128 max
 
-	// Standard says unlimited length, experience says 128 max
-	if ((n = strlen(pass)) > 128)
-		n = 128;
-
-	for(i=0, w=unipass; i < n; i++) {
+	w=unipass;
+	while(*pass != '\0' && w < &unipass[nelem(unipass)]){
 		pass += chartorune(&r, pass);
+		/* BUG: UTF-16 surrogates */
 		*w++ = r & 0xff;
 		*w++ = r >> 8;
 	}
