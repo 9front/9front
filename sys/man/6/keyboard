@@ -69,7 +69,7 @@ The arrow key ↑ scrolls backward.
 .PP
 Characters in Plan 9 are runes (see
 .IR utf (6)).
-Any 16-bit rune can be typed using a compose key followed by several
+Any rune can be typed using a compose key followed by several
 other keys.
 The compose key is also generally near the lower right of the main key area:
 the
@@ -83,14 +83,15 @@ key on the SLC, the
 key on the Magnum, and either
 .B Alt
 key on the PC.
-After typing the compose key, type a capital
-.L X
-and exactly four hexadecimal characters (digits and
+After typing the compose key, type a lower case
+.L x
+and up to six hexadecimal characters (digits and
 .L a
 to
 .LR f )
-to type a single rune with the value represented by
-the typed number.
+followed by a semicolon (if the sequence is less
+than six digits long) to type a single rune with the
+value represented by the typed number.
 There are shorthands for many characters, comprising
 the compose key followed by a two- or three-character sequence.
 There are several rules guiding the design of the sequences, as
