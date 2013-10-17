@@ -363,13 +363,13 @@ block, arranging for alternate processes
 to handle them is suggested.
 .PP
 .I Srvrelease
-detaches the calling process from the server loop and
-if neccesary spawns a new process to handle 9p requests.
-When released, the process is free to do blocking work
-or even exit because it now running in parallel to the
-server loop.
+temporarily releases the calling process from the server
+loop and if neccesary spawns a new process to handle 9p 
+requests. When released, the process can do blocking work
+that would otherwise halt processing of 9p requests.
 .I Srvacquire
-joins the calling (released) process with the server loop.
+rejoins the calling process with the server loop after
+a srvrelease.
 .PP
 The constraints on the service functions are as follows.
 These constraints are checked while the server executes.
