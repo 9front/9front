@@ -31,12 +31,12 @@ FPdbleword(addr) {
 	print("}\n");
 };
 
-UTFmax = 3;
+UTFmax = 4;
 Runesync = 128;
 Runeself = 128;
 Runeerror = 65533;
-Runemax = 65535;
-Runemask = 65535;
+Runemax = 1114111;
+Runemask = 2097151;
 sizeofFmt = 48;
 aggr Fmt
 {
