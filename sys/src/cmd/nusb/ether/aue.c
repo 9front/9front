@@ -78,8 +78,6 @@ static int csr16r(Dev *, int);
 static int csr8w(Dev *, int, int);
 static int eeprom16r(Dev *, int);
 static void reset(Dev *);
-static int aueread(Dev *, uchar *, int);
-static void auewrite(Dev *, uchar *, int);
 
 static int
 csr8r(Dev *d, int reg)
@@ -165,49 +163,43 @@ reset(Dev *d)
 }
 
 static int
-aueread(Dev *ep, uchar *p, int plen)
+auereceive(Dev *ep)
 {
-	int n;
+	Block *b;
 	uint hd;
-	uchar *q;
+	int n;
 
-	if(nbin < 4)
-		nbin = read(ep->dfd, bin, sizeof bin);
-	if(nbin < 0)
+	b = allocb(Maxpkt+4);
+	if((n = read(ep->dfd, b->wp, b->lim - b->base)) < 0){
+		freeb(b);
 		return -1;
-	if(nbin < 4)
+	}
+	if(n < 4){
+		freeb(b);
 		return 0;
-	q = bin + nbin - 4;
-	hd = GET4(q);
+	}
+	b->wp += n-4;
+	hd = GET4(b->wp);
 	n = hd & 0xfff;
-	if(n < 6 || n > nbin) {
-		nbin = 0;
+	if((hd & Rxerror) != 0 || n > BLEN(b)){
+		freeb(b);
 		return 0;
 	}
-	if(hd & Rxerror) {
-		fprint(2, "%s: rx error %#ux\n",
-			argv0, hd);
-		n = 0;
-	} else {
-		if(n > plen)
-			n = plen;
-		if(n > 0)
-			memmove(p, bin, n);
-	}
-	if(n < nbin)
-		memmove(bin, bin+n, nbin-n);
-	nbin -= n;
-	return n;
+	b->wp = b->rp + n;
+	etheriq(b, 1);
+	return 0;
 }
 
 static void
-auewrite(Dev *ep, uchar *p, int n)
+auetransmit(Dev *ep, Block *b)
 {
-	if(n > sizeof bout-2)
-		n = sizeof bout - 2;
-	PUT2(bout, n);
-	memmove(bout+2, p, n);
-	write(ep->dfd, bout, n+2);
+	int n;
+
+	n = BLEN(b);
+	b->rp -= 2;
+	PUT2(b->rp, n);
+	write(ep->dfd, b->rp, BLEN(b));
+	freeb(b);
 }
 
 int
@@ -227,7 +219,7 @@ aueinit(Dev *d)
 	csr8w(d, Ctl0, C0rxstatappend|C0rxen);
 	csr8w(d, Ctl0, csr8r(d, Ctl0)|C0txen);
 	csr8w(d, Ctl2, csr8r(d, Ctl2)|C2ep3clr);
-	epread = aueread;
-	epwrite = auewrite;
+	epreceive = auereceive;
+	eptransmit = auetransmit;
 	return 0;
 }

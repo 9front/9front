@@ -1,18 +1,17 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
-#include <fcall.h>
-#include <9p.h>
-#include <ip.h>
 
 #include "usb.h"
 #include "dat.h"
 
+#include <fcall.h>
+#include <9p.h>
+#include <ip.h>
+
 typedef struct Tab Tab;
-typedef struct Qbuf Qbuf;
 typedef struct Dq Dq;
 typedef struct Conn Conn;
-typedef struct Ehdr Ehdr;
 typedef struct Stats Stats;
 
 enum
@@ -48,39 +47,29 @@ Tab tab[] =
 	"type",	0444,
 };
 
-struct Qbuf
-{
-	Qbuf		*next;
-	int		ndata;
-	uchar	data[];
-};
-
 struct Dq
 {
-	QLock	l;
+	QLock;
+
 	Dq		*next;
 	Req		*r;
 	Req		**rt;
-	Qbuf		*q;
-	Qbuf		**qt;
+	Block		*q;
+	Block		**qt;
+
+	int		size;
 
 	int		nb;
 };
 
 struct Conn
 {
-	QLock	l;
+	QLock;
+
 	int		used;
 	int		type;
 	int		prom;
 	Dq		*dq;
-};
-
-struct Ehdr
-{
-	uchar	d[6];
-	uchar	s[6];
-	uchar	type[2];
 };
 
 struct Stats
@@ -103,9 +92,6 @@ static char *uname;
 #define TYPE(path)			(((uint)(path) & 0x000000FF)>>0)
 #define NUM(path)			(((uint)(path) & 0xFFFFFF00)>>8)
 #define NUMCONN(c)		(((long)(c)-(long)&conn[0])/sizeof(conn[0]))
-
-static int
-receivepacket(void *buf, int len);
 
 static void
 fillstat(Dir *d, uvlong path)
@@ -238,24 +224,27 @@ static void
 matchrq(Dq *d)
 {
 	Req *r;
-	Qbuf *b;
+	Block *b;
 
 	while(r = d->r){
 		int n;
 
 		if((b = d->q) == nil)
 			break;
+
+		d->size -= BLEN(b);
 		if((d->q = b->next) == nil)
 			d->qt = &d->q;
 		if((d->r = (Req*)r->aux) == nil)
 			d->rt = &d->r;
 
 		n = r->ifcall.count;
-		if(n > b->ndata)
-			n = b->ndata;
-		memmove(r->ofcall.data, b->data, n);
-		free(b);
+		if(n > BLEN(b))
+			n = BLEN(b);
+		memmove(r->ofcall.data, b->rp, n);
 		r->ofcall.count = n;
+		freeb(b);
+
 		respond(r, nil);
 	}
 }
@@ -266,19 +255,18 @@ readconndata(Req *r)
 	Dq *d;
 
 	d = r->fid->aux;
-	qlock(&d->l);
+	qlock(d);
 	if(d->q==nil && d->nb){
-		qunlock(&d->l);
+		qunlock(d);
 		r->ofcall.count = 0;
 		respond(r, nil);
 		return;
 	}
-	// enqueue request
 	r->aux = nil;
 	*d->rt = r;
 	d->rt = (Req**)&r->aux;
 	matchrq(d);
-	qunlock(&d->l);
+	qunlock(d);
 }
 
 static void
@@ -287,6 +275,7 @@ writeconndata(Req *r)
 	Dq *d;
 	void *p;
 	int n;
+	Block *b;
 
 	d = r->fid->aux;
 	p = r->ifcall.data;
@@ -295,11 +284,28 @@ writeconndata(Req *r)
 		d->nb = 1;
 		goto out;
 	}
-	epwrite(epout, p, n);
-	if(receivepacket(p, n) == 0)
-		stats.out++;
+
+	/* minimum frame length for rtl8150 */
+	if(n < 60)
+		n = 60;
+
+	/* slack space for header and trailers */
+	n += 2*16;
+
+	b = allocb(n);
+
+	/* header space */
+	b->wp += 16;
+	b->rp = b->wp;
+
+	/* copy in the ethernet packet */
+	memmove(b->wp, p, r->ifcall.count);
+	b->wp += r->ifcall.count;
+
+	etheriq(b, 0);
+
 out:
-	r->ofcall.count = n;
+	r->ofcall.count = r->ifcall.count;
 	respond(r, nil);
 }
 
@@ -433,7 +439,6 @@ fsopen(Req *r)
 	Dq *d;
 	Conn *c;
 
-
 	/*
 	 * lib9p already handles the blatantly obvious.
 	 * we just have to enforce the permissions we have set.
@@ -472,7 +477,7 @@ fsopen(Req *r)
 	case Qtype:
 	CaseConn:
 		c = &conn[NUM(path)];
-		qlock(&c->l);
+		qlock(c);
 		if(c->used++ == 0){
 			c->type = 0;
 			c->prom = 0;
@@ -481,7 +486,7 @@ fsopen(Req *r)
 			d->next = c->dq;
 			c->dq = d;
 		}
-		qunlock(&c->l);
+		qunlock(c);
 		break;
 	}
 
@@ -501,7 +506,7 @@ fsflush(Req *r)
 	f = o->fid;
 	if(TYPE(f->qid.path) == Qdata){
 		d = f->aux;
-		qlock(&d->l);
+		qlock(d);
 		for(p=&d->r; *p; p=(Req**)&((*p)->aux)){
 			if(*p == o){
 				if((*p = (Req*)o->aux) == nil)
@@ -511,7 +516,7 @@ fsflush(Req *r)
 				break;
 			}
 		}
-		qunlock(&d->l);
+		qunlock(d);
 	}
 	respond(r, nil);
 }
@@ -521,12 +526,12 @@ static void
 fsdestroyfid(Fid *fid)
 {
 	Conn *c;
-	Qbuf *b;
 	Dq **x, *d;
+	Block *b;
 
 	if(TYPE(fid->qid.path) >= Qndir){
 		c = &conn[NUM(fid->qid.path)];
-		qlock(&c->l);
+		qlock(c);
 		if(d = fid->aux){
 			fid->aux = nil;
 			for(x=&c->dq; *x; x=&((*x)->next)){
@@ -535,17 +540,16 @@ fsdestroyfid(Fid *fid)
 					break;
 				}
 			}
-			qlock(&d->l);
 			while(b = d->q){
 				d->q = b->next;
-				free(b);
+				freeb(b);
 			}
-			qunlock(&d->l);
+			free(d);
 		}
 		if(TYPE(fid->qid.path) == Qctl)
 			c->prom = 0;
 		c->used--;
-		qunlock(&c->l);
+		qunlock(c);
 	}
 }
 
@@ -648,26 +652,26 @@ inote(void *, char *msg)
 	return 0;
 }
 
-static int
-receivepacket(void *buf, int len)
+void
+etheriq(Block *b, int wire)
 {
-	int i;
-	int t;
+	int i, t;
+	Block *q;
+	Conn *c;
+	Dq *d;
 	Ehdr *h;
 
-	if(len < sizeof(*h))
-		return -1;
+	if(BLEN(b) < Ehdrsz){
+		freeb(b);
+		return;
+	}
 
-	h = (Ehdr*)buf;
+	h = (Ehdr*)b->rp;
 	t = (h->type[0]<<8)|h->type[1];
 
 	for(i=0; i<nconn; i++){
-		Qbuf *b;
-		Conn *c;
-		Dq *d;
-
 		c = &conn[i];
-		qlock(&c->l);
+		qlock(c);
 		if(!c->used)
 			goto next;
 		if(c->type > 0)
@@ -677,36 +681,42 @@ receivepacket(void *buf, int len)
 			if(memcmp(h->d, macaddr, sizeof(macaddr)))
 				goto next;
 		for(d=c->dq; d; d=d->next){
-			int n;
-
-			n = len;
-			if(c->type == -2 && n > 64)
-				n = 64;
-
-			b = emalloc9p(sizeof(*b) + n);
-			b->ndata = n;
-			memcpy(b->data, buf, n);
-
-			qlock(&d->l);
-			// enqueue buffer
-			b->next = nil;
-			*d->qt = b;
-			d->qt = &b->next;
+			if(d->size > 100000)
+				continue;
+			if(c->type == -2) {
+				q = copyblock(b, 64);
+			} else if(wire && b->ref == 1) {
+				incref(b);
+				q = b;
+			} else {
+				q = copyblock(b, BLEN(b));
+			}
+			qlock(d);
+			q->next = nil;
+			*d->qt = q;
+			d->qt = &q->next;
+			d->size += BLEN(q);
 			matchrq(d);
-			qunlock(&d->l);
+			qunlock(d);
 		}
 next:
-		qunlock(&c->l);
+		qunlock(c);
 	}
-	return 0;
+	if(wire) {
+		freeb(b);
+		stats.in++;
+	} else {
+		/* transmit frees buffer */
+		(*eptransmit)(epout, b);
+		stats.out++;
+	}
 }
 
 static void
 usbreadproc(void *)
 {
 	char err[ERRMAX];
-	uchar buf[4*1024];
-	int n, nerr;
+	int nerr;
 
 	atnotify(inote, 1);
 
@@ -714,8 +724,8 @@ usbreadproc(void *)
 
 	nerr = 0;
 	for(;;){
-		n = epread(epin, buf, sizeof(buf));
-		if(n < 0){
+		/* receive allocates buffer and calls etheriq(b, 1); */
+		if((*epreceive)(epin) < 0){
 			rerrstr(err, sizeof(err));
 			if(strstr(err, "interrupted") || strstr(err, "timed out"))
 				continue;
@@ -725,10 +735,6 @@ usbreadproc(void *)
 			threadexitsall(err);
 		}
 		nerr = 0;
-		if(n == 0)
-			continue;
-		if(receivepacket(buf, n) == 0)
-			stats.in++;
 	}
 }
 
@@ -819,7 +825,7 @@ threadmain(int argc, char **argv)
 	werrstr("");
 	if((*ethertype[et].init)(d) < 0)
 		sysfatal("%s init failed: %r", ethertype[et].name);
-	if(epread == nil || epwrite == nil)
+	if(epreceive == nil || eptransmit == nil)
 		sysfatal("bug in init");
 
 	if((epin = openep(d, ei)) == nil)
@@ -845,4 +851,38 @@ threadmain(int argc, char **argv)
 	threadpostsharesrv(&fs, nil, "usbnet", s);
 
 	threadexits(0);
+}
+
+Block*
+allocb(int size)
+{
+	Block *b;
+
+	b = emalloc9p(sizeof(*b) + size);
+	b->lim = b->base + size;
+	b->rp = b->base;
+	b->wp = b->base;
+	b->next = nil;
+	b->ref = 1;
+	return b;
+}
+
+void
+freeb(Block *b)
+{
+	if(decref(b) == 0)
+		free(b);
+}
+
+Block*
+copyblock(Block *b, int count)
+{
+	Block *nb;
+
+	if(count > BLEN(b))
+		count = BLEN(b);
+	nb = allocb(count);
+	memmove(nb->wp, b->rp, count);
+	nb->wp += count;
+	return nb;
 }

@@ -207,51 +207,53 @@ eepromread(Dev *d, int i)
 }
 
 static int
-asixread(Dev *ep, uchar *p, int plen)
+asixreceive(Dev *ep)
 {
-	int n, m;
+	Block *b;
 	uint hd;
+	int n;
 
-	if(nbin < 4)
-		nbin = read(ep->dfd, bin, sizeof(bin));
-	if(nbin < 0)
+	b = allocb(Maxpkt+4);
+	if((n = read(ep->dfd, b->wp, b->lim - b->base)) < 0){
+		freeb(b);
 		return -1;
-	if(nbin < 4)
-		return 0;
-	hd = GET4(bin);
-	n = hd & 0xFFFF;
-	m = n+4;
-	hd = (hd>>16) ^ 0xFFFF;
-	if((n != hd) || (n < 6) || (m > nbin)){
-		nbin = 0;
-		return 0;
 	}
-	if(n > plen)
-		n = plen;
-	if(n > 0)
-		memmove(p, bin+4, n);
-	if(m < nbin)
-		memmove(bin, bin+m, nbin - m);
-	nbin -= m;
-	return n;
+	b->wp += n;
+	while(BLEN(b) >= 4){
+		hd = GET4(b->rp);
+		b->rp += 4;
+		n = hd & 0xFFFF;
+		hd = (hd>>16) ^ 0xFFFF;
+		if((n != hd) || (n > BLEN(b)))
+			break;
+		if(n == BLEN(b)){
+			etheriq(b, 1);
+			return 0;
+		}
+		etheriq(copyblock(b, n), 1);
+		b->rp += n;
+	}
+	freeb(b);
+	return 0;
 }
 
 static void
-asixwrite(Dev *ep, uchar *p, int n)
+asixtransmit(Dev *ep, Block *b)
 {
 	uint hd;
+	int n;
 
-	if(n > sizeof(bout)-8)
-		n = sizeof(bout)-8;
+	n = BLEN(b);
 	hd = n | (n<<16)^0xFFFF0000;
-	PUT4(bout, hd);
-	memmove(bout+4, p, n);
+	b->rp -= 4;
+	PUT4(b->rp, hd);
 	n += 4;
 	if((n % ep->maxpkt) == 0){
-		PUT4(bout+n, 0xFFFF0000);
-		n += 4;
+		PUT4(b->wp, 0xFFFF0000);
+		b->wp += 4;
 	}
-	write(ep->dfd, bout, n);
+	write(ep->dfd, b->rp, BLEN(b));
+	freeb(b);
 }
 
 static int
@@ -312,8 +314,8 @@ a88178init(Dev *d)
 	asixset(d, Cwmedium, Mall178);
 	asixset(d, Cwrxctl, Rxctlso|Rxctlab);
 
-	epread = asixread;
-	epwrite = asixwrite;
+	epreceive = asixreceive;
+	eptransmit = asixtransmit;
 	return 0;
 }
 
@@ -369,7 +371,7 @@ a88772init(Dev *d)
 	if(asixset(d, Cwrxctl, Rxctlso|Rxctlab) < 0)
 		return -1;
 
-	epread = asixread;
-	epwrite = asixwrite;
+	epreceive = asixreceive;
+	eptransmit = asixtransmit;
 	return 0;
 }

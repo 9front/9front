@@ -5,33 +5,50 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
-#include <ip.h>
 
 #include "usb.h"
 #include "dat.h"
 
+#include <ip.h>
+
 static int
-cdcread(Dev *ep, uchar *p, int n)
+cdcreceive(Dev *ep)
 {
-	return read(ep->dfd, p, n);
+	Block *b;
+	int n;
+
+	b = allocb(Maxpkt);
+	if((n = read(ep->dfd, b->wp, b->lim - b->base)) < 0){
+		freeb(b);
+		return -1;
+	}
+	b->wp += n;
+	etheriq(b, 1);
+	return 0;
 }
 
 static void
-cdcwrite(Dev *ep, uchar *p, int n)
+cdctransmit(Dev *ep, Block *b)
 {
-	if(write(ep->dfd, p, n) < 0){
-		fprint(2, "cdcwrite: %r\n");
-	} else {
-		/*
-		 * this may not work with all CDC devices. the
-		 * linux driver sends one more random byte
-		 * instead of a zero byte transaction. maybe we
-		 * should do the same?
-		 */
-		if(n % ep->maxpkt == 0)
-			write(ep->dfd, "", 0);
+	int n;
+
+	n = BLEN(b);
+	if(write(ep->dfd, b->rp, n) < 0){
+		freeb(b);
+		return;
 	}
+	freeb(b);
+
+	/*
+	 * this may not work with all CDC devices. the
+	 * linux driver sends one more random byte
+	 * instead of a zero byte transaction. maybe we
+	 * should do the same?
+	 */
+	if((n % ep->maxpkt) == 0)
+		write(ep->dfd, "", 0);
 }
+
 int
 cdcinit(Dev *d)
 {
@@ -55,8 +72,8 @@ cdcinit(Dev *d)
 					parseether(macaddr, mac);
 					free(mac);
 
-					epread = cdcread;
-					epwrite = cdcwrite;
+					epreceive = cdcreceive;
+					eptransmit = cdctransmit;
 					return 0;
 				}
 			}

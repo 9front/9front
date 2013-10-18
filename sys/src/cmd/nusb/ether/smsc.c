@@ -205,48 +205,51 @@ doreset(Dev *d, int reg, int bit)
 }
 
 static int
-smscread(Dev *ep, uchar *p, int plen)
+smscreceive(Dev *ep)
 {
-	int n, m;
+	Block *b;
 	uint hd;
+	int n;
 
-	if(nbin < 4)
-		nbin = read(ep->dfd, bin, Doburst ? Hsburst*512: sizeof(bin));
-	if(nbin < 0)
+	if(Doburst)
+		b = allocb(Hsburst*512);
+	else
+		b = allocb(Maxpkt+4);
+	if((n = read(ep->dfd, b->wp, b->lim - b->base)) < 0){
+		freeb(b);
 		return -1;
-	if(nbin < 4)
-		return 0;
-	hd = GET4(bin);
-	n = hd >> 16;
-	m = (n + 4 + 3) & ~3;
-	if(n < 6 || n > nbin-4){
-		nbin = 0;
-		return 0;
 	}
-	if(hd & Rxerror){
-		fprint(2, "smsc rx error %8.8ux\n", hd);
-		n = 0;
-	}else{
-		if(n > plen)
-			n = plen;
-		if(n > 0)
-			memmove(p, bin+4, n);
+	b->wp += n;
+	while(BLEN(b) >= 4){
+		hd = GET4(b->rp);
+		b->rp += 4;
+		n = hd >> 16;
+		if(n > BLEN(b))
+			break;
+		if((hd & Rxerror) == 0){
+			if(n == BLEN(b)){
+				etheriq(b, 1);
+				return 0;
+			}
+			etheriq(copyblock(b, n), 1);
+		}
+		b->rp += (n + 3) & ~3;
 	}
-	if(m < nbin)
-		memmove(bin, bin+m, nbin - m);
-	nbin -= m;
-	return n;
+	freeb(b);
+	return 0;
 }
 
 static void
-smscwrite(Dev *ep, uchar *p, int n)
+smsctransmit(Dev *ep, Block *b)
 {
-	if(n > sizeof(bout)-8)
-		n = sizeof(bout)-8;
-	PUT4(bout, n | Txfirst | Txlast);
-	PUT4(bout+4, n);
-	memmove(bout+8, p, n);
-	write(ep->dfd, bout, n+8);
+	int n;
+
+	n = BLEN(b);
+	b->rp -= 8;
+	PUT4(b->rp, n | Txfirst | Txlast);
+	PUT4(b->rp+4, n);
+	write(ep->dfd, b->rp, BLEN(b));
+	freeb(b);
 }
 
 int
@@ -284,7 +287,7 @@ smscinit(Dev *d)
 	wr(d, Maccr, rr(d, Maccr)|Txen|Rxen);
 	wr(d, Txcfg, Txon);
 
-	epwrite = smscwrite;
-	epread = smscread;
+	eptransmit = smsctransmit;
+	epreceive = smscreceive;
 	return 0;
 }

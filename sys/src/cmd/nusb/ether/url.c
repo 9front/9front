@@ -164,8 +164,6 @@ static int csr8w(Dev *, int, int);
 static int csr16w(Dev *, int, int);
 static int csr32w(Dev *, int, int);
 static void reset(Dev *);
-static int urlread(Dev *, uchar *, int);
-static void urlwrite(Dev *, uchar *, int);
 int urlinit(Dev *);
 
 static int
@@ -263,49 +261,43 @@ reset(Dev *d)
 }
 
 static int
-urlread(Dev *ep, uchar *p, int plen)
+urlreceive(Dev *ep)
 {
-	int n;
+	Block *b;
 	uint hd;
-	uchar *q;
+	int n;
 
-	if(nbin < 4)
-		nbin = read(ep->dfd, bin, sizeof bin);
-	if(nbin < 0)
+	b = allocb(Maxpkt+4);
+	if((n = read(ep->dfd, b->wp, b->lim - b->base)) < 0){
+		freeb(b);
 		return -1;
-	if(nbin < 4)
-		return 0;
-	n = nbin - 4;
-	if(n < 6) {
-		nbin = 0;
+	}
+	if(n < 4){
+		freeb(b);
 		return 0;
 	}
-	q = bin + n;
-	hd = GET2(q);
-	if((hd & Vpm) == 0) {
-		fprint(2, "url: rx error: %#.4ux\n", hd);
-		n = 0;
-	} else {
-		if(n > plen)
-			n = plen;
-		if(n > 0)
-			memmove(p, bin, n);
-	}
-	nbin = 0;
-	return n;
+	n -= 4;
+	b->wp += n;
+	hd = GET2(b->wp);
+	if((hd & Vpm) == 0)
+		freeb(b);
+	else
+		etheriq(b, 1);
+	return 0;
 }
 
 static void
-urlwrite(Dev *ep, uchar *p, int n)
+urltransmit(Dev *ep, Block *b)
 {
-	if(n > sizeof bout)
-		n = sizeof bout;
-	memmove(bout, p, n);
-	if(n < Mfl) {
-		memset(bout+n, 0, Mfl-n);
-		n = Mfl;
+	int n;
+
+	n = BLEN(b);
+	if(n < Mfl){
+		memset(b->wp, 0, Mfl-n);
+		b->wp += (Mfl-n);
 	}
-	write(ep->dfd, bout, n);
+	write(ep->dfd, b->rp, BLEN(b));
+	freeb(b);
 }
 
 int
@@ -331,7 +323,7 @@ urlinit(Dev *d)
 
 	csr8w(d, Cr, Te|Re);
 
-	epwrite = urlwrite;
-	epread = urlread;
+	epreceive = urlreceive;
+	eptransmit = urltransmit;
 	return 0;
 }
