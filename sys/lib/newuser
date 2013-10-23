@@ -46,7 +46,13 @@ case cpu
 	fn cpu%{ $x^* }
 	if(! test -e /mnt/term/dev/wsys){
 		# call from drawterm
-		auth/factotum
+		if(test -e /mnt/term/dev/secstore){
+			auth/factotum -n
+			read -m /mnt/term/dev/secstore >/mnt/factotum/ctl
+			echo >/mnt/term/dev/secstore
+		}
+		if not
+			auth/factotum
 		webcookies
 		webfs
 		plumber
