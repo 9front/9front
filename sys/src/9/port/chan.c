@@ -194,6 +194,8 @@ chandevreset(void)
 		devtab[i]->reset();
 }
 
+static void closeproc(void*);
+
 void
 chandevinit(void)
 {
@@ -201,6 +203,7 @@ chandevinit(void)
 
 	for(i=0; devtab[i] != nil; i++)
 		devtab[i]->init();
+	kproc("closeproc", closeproc, nil);
 }
 
 void
@@ -506,6 +509,8 @@ closeproc(void*)
 		c = clunkq.head;
 		if(c == nil){
 			unlock(&clunkq.l);
+			if(canqlock(&clunkq.q))
+				continue;
 			pexit("no work", 1);
 		}
 		clunkq.head = c->next;
