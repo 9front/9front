@@ -67,9 +67,9 @@ dom=10.in-addr.arpa soa=		# rfc1918 zones
 	dom=9.e.f.ip6.arpa soa=
 	dom=a.e.f.ip6.arpa soa=
 	dom=b.e.f.ip6.arpa soa=
-	refresh=3600 ttl=3600
-	ns=ns1.cs.bell-labs.com
-	ns=ns2.cs.bell-labs.com
+	refresh=86400 ttl=86400
+	ns=a.root-servers.net
+	ns=j.root-servers.net
 
 #
 #  ip protocol numbers
