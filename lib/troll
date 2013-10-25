@@ -133,3 +133,6 @@ Subject: [9fans] p9p on Retina Macs
 Yeah, I forgot to mention that. I'm using plan9port on Mac OS X.
 (#plan9) TimKack → Fish: Got a fossil/fossil: fsSnapshot: corrupted meta data now - I think it came from that I took away the -V (I want to send off snaps to venti)
 Subject: [9fans] Acme real estate on 15" macbook pro?
+Behaviour is clearly broken, but it's not clear exactly what is broken.
+Package Management for Go
+can someone take a look at this bug on p9p?
