@@ -480,7 +480,7 @@ struct {
 	Chan *head;
 	Chan *tail;
 	ulong nqueued;
-	ulong nclosed;
+	ulong nclosed;	
 	Lock l;
 	QLock q;
 	Rendez r;
@@ -490,39 +490,6 @@ static int
 clunkwork(void*)
 {
 	return clunkq.head != nil;
-}
-
-static void
-closeproc(void*)
-{
-	Chan *c;
-
-	for(;;){
-		if(clunkq.head == nil){
-			if(!waserror()){
-				tsleep(&clunkq.r, clunkwork, nil, 5000);
-				poperror();
-			}
-		}
-		qunlock(&clunkq.q);
-		lock(&clunkq.l);
-		c = clunkq.head;
-		if(c == nil){
-			unlock(&clunkq.l);
-			if(canqlock(&clunkq.q))
-				continue;
-			pexit("no work", 1);
-		}
-		clunkq.head = c->next;
-		clunkq.nclosed++;
-		unlock(&clunkq.l);
-		if(!waserror()){
-			devtab[c->type]->close(c);
-			poperror();
-		}
-		chanfree(c);
-		qlock(&clunkq.q);
-	}
 }
 
 static void
@@ -537,17 +504,60 @@ closechanq(Chan *c)
 		clunkq.head = c;
 	clunkq.tail = c;
 	unlock(&clunkq.l);
+	wakeup(&clunkq.r);
+}
 
-	if(up != 0 && palloc.Lock.p != up && canqlock(&clunkq.q)){
-		c = up->dot;
-		up->dot = up->slash;	/* dummy */
+static Chan*
+closechandeq(void)
+{
+	Chan *c;
+
+	lock(&clunkq.l);
+	c = clunkq.head;
+	if(c != nil) {
+		clunkq.head = c->next;
+		clunkq.nclosed++;
+	}
+	unlock(&clunkq.l);
+	return c;
+}
+
+static void
+closeproc(void *)
+{
+	Chan *c;
+
+	for(;;){
+		c = closechandeq();
+		if(c == nil) {
+			qlock(&clunkq.q);
+			if(!waserror()) {
+				tsleep(&clunkq.r, clunkwork, nil, 500);
+				poperror();
+			}
+			c = closechandeq();
+			if(c == nil) {
+				if(clunkq.q.head != nil) {
+					qunlock(&clunkq.q);
+					pexit("no work", 1);
+				}
+				qunlock(&clunkq.q);
+				continue;
+			}
+			if(clunkq.q.head == nil) {
+				if(!waserror()) {
+					kproc("closeproc", closeproc, nil);
+					poperror();
+				}
+			}
+			qunlock(&clunkq.q);
+		}
 		if(!waserror()){
-			kproc("closeproc", closeproc, nil);
+			devtab[c->type]->close(c);
 			poperror();
 		}
-		up->dot = c;
-	}else
-		wakeup(&clunkq.r);
+		chanfree(c);
+	}
 }
 
 void
