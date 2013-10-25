@@ -275,6 +275,7 @@ attachimage(int type, Chan *c, ulong base, ulong len)
 
 	lock(i);
 	incref(c);
+	i->nocache = (c->flag & CCACHE) == 0;
 	c->flag &= ~CCACHE;
 	i->c = c;
 	i->type = c->type;

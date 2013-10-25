@@ -228,6 +228,9 @@ putpage(Page *p)
 		return;
 	}
 
+	if(p->image && p->image->nocache)
+		uncachepage(p);
+
 	if(p->image && p->image != &swapimage)
 		pagechaintail(p);
 	else 
@@ -291,8 +294,8 @@ duppage(Page *p)				/* Always call with p locked */
 		return;
 	}
 
-	/* No freelist cache when memory is very low */
-	if(palloc.freecount < swapalloc.highwater) {
+	/* No freelist cache with uncached image or when memory is very low */
+	if(p->image->nocache || palloc.freecount < swapalloc.highwater) {
 		unlock(&palloc);
 		uncachepage(p);
 		return;

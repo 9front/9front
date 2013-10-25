@@ -352,7 +352,8 @@ struct Image
 	Segment *s;			/* TEXT segment for image if running */
 	Image	*hash;			/* Qid hash chains */
 	Image	*next;			/* Free list */
-	int	notext;			/* no file associated */
+	char	notext;			/* no file associated */
+	char	nocache;		/* no freelist page caching */
 };
 
 struct Pte
