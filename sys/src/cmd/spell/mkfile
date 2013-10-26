@@ -16,10 +16,10 @@ lib:	amspell brspell
 	for (i in $prereq) cp $i /sys/lib/$i
 
 brspell: $cpuobjtype.pcode  list british local stop
-	$cpuobjtype.pcode list british local stop >$target
+	./$cpuobjtype.pcode list british local stop >$target
 
 amspell: $cpuobjtype.pcode  list american local stop
-	$cpuobjtype.pcode list american local stop >$target
+	./$cpuobjtype.pcode list american local stop >$target
 
 $cpuobjtype.pcode:	pcode.c $HFILES
 	objtype=$cputype

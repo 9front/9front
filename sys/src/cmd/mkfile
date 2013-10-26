@@ -60,7 +60,7 @@ $cpuobjtype._cp:	/bin/cp
 
 %.safeinstall:	$O.% $cpuobjtype._cp
 	test -e $BIN/$stem && mv $BIN/$stem $BIN/_$stem
-	$cpuobjtype._cp $O.$stem $BIN/$stem
+	./$cpuobjtype._cp $O.$stem $BIN/$stem
 
 %.safeinstallall:
 	for(objtype in $CPUS)
@@ -68,7 +68,7 @@ $cpuobjtype._cp:	/bin/cp
 	mk $stem.clean
 
 $BIN/%:	$O.% $cpuobjtype._cp
-	$cpuobjtype._cp $O.$stem $BIN/$stem
+	./$cpuobjtype._cp $O.$stem $BIN/$stem
 
 %.directories:V:
 	for(i in $DIRS) @{

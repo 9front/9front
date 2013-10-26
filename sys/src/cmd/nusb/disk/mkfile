@@ -20,5 +20,5 @@ CFLAGS=-I../lib $CFLAGS
 CLEANFILES=scsierrs.c
 
 scsierrs.c: /sys/lib/scsicodes mkscsierrs
-	mkscsierrs >scsierrs.c
+	./mkscsierrs >scsierrs.c
 

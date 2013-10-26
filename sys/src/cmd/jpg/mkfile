@@ -68,12 +68,12 @@ torgbv.$O:	ycbcr.h rgbv.h
 ycbcr.h:	rgbycc.c
 	$c^c rgbycc.c
 	$c^l -o $c.rgbycc rgbycc.$c
-	$c.rgbycc > ycbcr.h
+	./$c.rgbycc > ycbcr.h
 
 rgbv.h:	rgbrgbv.c
 	$c^c rgbrgbv.c
 	$c^l -o $c.rgbrgbv rgbrgbv.$c
-	$c.rgbrgbv > rgbv.h
+	./$c.rgbrgbv > rgbv.h
 
 nuke:V:	nuke-headers
 

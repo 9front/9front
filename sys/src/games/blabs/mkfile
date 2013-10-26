@@ -23,7 +23,7 @@ FACES=\
 </sys/src/cmd/mkone
 
 %.bits:
-	mkface $stem
+	./mkface $stem
 
 blabs.$O: $FACES
 

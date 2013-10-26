@@ -10,7 +10,7 @@ SYS=`{sed '/^#define._/d; s/#define.([A-Z0-9_]*).*/\1/' $SYSH}
 for(I in $SYS) {
 	i=_^$I
 	n=`{sed -n '/[ 	]'$I'[ 	]/s/.*	//p' $SYSH}
-	gencall
+	./gencall
 }
 ar vu /$objtype/lib/ape/libap.a *.$O
 rm -f *.$O *.s

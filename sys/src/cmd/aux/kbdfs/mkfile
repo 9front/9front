@@ -13,4 +13,4 @@ mklatin.$cputype:	mkfile.mklatin
 	@{objtype=$cputype mk -f $prereq $target}
 
 latin1.h:	mklatin.$cputype /lib/keyboard
-	$prereq >$target
+	./mklatin.$cputype /lib/keyboard >$target
