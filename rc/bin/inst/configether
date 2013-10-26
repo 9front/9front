@@ -23,7 +23,7 @@ case go
 		export ipaddr ipmask gwaddr
 	}
 	export ethermethod gwaddr ipaddr ipmask dhcphost
-	exec startether go
+	exec ./startether go
 
 case checkdone
 	if(! ~ $ethermethod manual dhcp) {

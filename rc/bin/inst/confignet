@@ -12,7 +12,7 @@ case checkready checkdone
 	if(~ $netisfrom ppp ether){
 		x=config$netisfrom
 		$x=done
-		config$netisfrom checkdone
+		./config$netisfrom checkdone
 		confignet=$$x
 		export confignet
 		exit
@@ -60,7 +60,7 @@ case go
 	
 	export netisfrom
 	if(~ $netisfrom ether ppp)
-		exec config$netisfrom go
+		exec ./config$netisfrom go
 
 	if(! test -f /srv/cs && ! test -f /net/cs)
 		ndb/cs

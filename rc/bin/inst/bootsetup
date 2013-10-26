@@ -101,7 +101,7 @@ case go
 	logprog unmount /n/9fat
 
 	disk=`{basename `{basename -d $9fat}}
-	if(bootplan9){
+	if(./bootplan9){
 		didbootsetup=1
 		export didbootsetup
 	}

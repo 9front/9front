@@ -1,7 +1,7 @@
 #!/bin/rc
 
 cd /bin/inst
-. defs
+. ./defs
 fn sigint { }
 
 coherence
@@ -11,4 +11,4 @@ coherence
 # continually reexecing from here.
 
 while()
-	main
+	./main

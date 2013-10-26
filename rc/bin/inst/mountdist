@@ -56,7 +56,7 @@ case checkready
 		if(domount){
 			mountdist=done
 			export mountdist
-			if(mountdist checkdone)
+			if(./mountdist checkdone)
 				exit
 		}
 		srvmedia=()

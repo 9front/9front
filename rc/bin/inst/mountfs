@@ -5,9 +5,9 @@
 
 switch($fstype){
 case cwfs cwfs64 cwfs64x
-	exec mountcwfs $*
+	exec ./mountcwfs $*
 case hjfs
-	exec mounthjfs $*
+	exec ./mounthjfs $*
 case *
 	mountfs=notdone
 	export mountfs

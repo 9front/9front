@@ -53,7 +53,7 @@ case go
 	}
 	
 	export pppdev pppmethod pppphone ppppasswd pppuser pppbaud
-	exec startppp go
+	exec ./startppp go
 
 case checkdone
 	if(! ~ $#pppmethod 1 || ! test -f /dev/$pppdev){

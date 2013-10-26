@@ -31,7 +31,7 @@ case go
 	prompt $default 'Disk to partition' $disks
 	disk=$rd
 
-	if(! hasmbr /dev/$disk/data) {
+	if(! ./hasmbr /dev/$disk/data) {
 		echo 'The disk you selected HAS NO master boot record on its first sector.'
 		echo '(Perhaps it is a completely blank disk.)'
 		echo 'You need a master boot record to use the disk.'
@@ -63,7 +63,7 @@ case checkdone
 	mbrandplan9=0
 	disks=`{ls /dev/sd*/plan9 >[2]/dev/null | sed 's!/dev/(sd.*)/plan9!\1!'}
 	for(disk in $disks) {
-		if(hasmbr /dev/$disk/data)
+		if(./hasmbr /dev/$disk/data)
 			mbrandplan9=1
 	}
 	if(~ $mbrandplan9 0){

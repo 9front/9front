@@ -12,5 +12,5 @@ case checkdone
 case go
 	echo 'Congratulations; you''ve completed the install.'
 	echo
-	halt
+	exec ./halt
 }

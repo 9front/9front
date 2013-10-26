@@ -4,7 +4,7 @@ if(test -w /dev/wctl)
 	echo scroll > /dev/wctl
 
 cd /bin/inst
-. defs
+. ./defs
 
 textinst=1
 export textinst
@@ -13,5 +13,4 @@ export textinst
 rm -f /srv/log
 echo 2 >/srv/log
 log `{date} Installation process started
-inst/mainloop
-
+exec ./mainloop
