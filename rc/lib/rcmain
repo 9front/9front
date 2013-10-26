@@ -12,7 +12,7 @@ if(~ $rcname ?.out) prompt=('broken! ' '	')
 if(flag p) path=/bin
 if not{
 	finit
-	if(~ $#path 0) path=(. /bin)
+	if(~ $#path 0) path=(/bin .)
 }
 fn sigexit
 if(! ~ $#cflag 0){
