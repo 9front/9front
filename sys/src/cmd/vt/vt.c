@@ -133,7 +133,7 @@ fixops(int *operand)
 void
 emulate(void)
 {
-	char buf[BUFS+1];
+	Rune buf[BUFS+1];
 	int i;
 	int n;
 	int c;
@@ -328,8 +328,8 @@ print("resetterminal\n");
 			 */
 			case 'Z':
 			Ident:
-				sendnchars2(7, "\033[?1;2c");	/* VT100 with AVO option */
-//				sendnchars2(5, "\033[?6c");	/* VT102 (insert/delete-char, etc.) */
+				sendnchars(7, "\033[?1;2c");	/* VT100 with AVO option */
+//				sendnchars(5, "\033[?6c");	/* VT102 (insert/delete-char, etc.) */
 				break;
 
 			/*
@@ -532,11 +532,11 @@ print("resetterminal\n");
 					case 'n':
 						switch(operand[0]){
 						case 5:	/* status */
-							sendnchars2(4, "\033[0n");	/* terminal ok */
+							sendnchars(4, "\033[0n");	/* terminal ok */
 							break;
 						case 6:	/* cursor position */
-							sendnchars2(sprint(buf, "\033[%d;%dR",
-								originrelative ? y+1 - yscrmin : y+1, x+1), buf);
+							sendnchars(sprint((char*)buf, "\033[%d;%dR",
+								originrelative ? y+1 - yscrmin : y+1, x+1), (char*)buf);
 							break;
 						}
 						break;
@@ -573,7 +573,7 @@ print("resetterminal\n");
 					 * x - report terminal parameters
 					 */
 					case 'x':
-						sendnchars2(20, "\033[3;1;1;120;120;1;0x");
+						sendnchars(20, "\033[3;1;1;120;120;1;0x");
 						break;
 
 					/*
@@ -847,8 +847,8 @@ print("unknown command '%c' (0x%x)\n", dch, dch);
 
 		default:		/* ordinary char */
 Default:
-			if(isgraphics && gmap[(uchar) buf[0]])
-				buf[0] = gmap[(uchar) buf[0]];
+			if(isgraphics && buf[0] < nelem(gmap) && gmap[buf[0]])
+				buf[0] = gmap[buf[0]];
 
 			/* line wrap */
 			if (x > xmax){
@@ -867,7 +867,6 @@ Default:
 				c = 0;
 			}
 			buf[n] = 0;
-//			clear(Rpt(pt(x,y), pt(x+n, y+1)));
 			drawstring(pt(x, y), buf, attr);
 			x += n;
 			peekc = c;

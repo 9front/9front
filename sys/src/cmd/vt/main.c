@@ -32,7 +32,7 @@ char	*menutext3[] = {
 /* variables associated with the screen */
 
 int	x, y;	/* character positions */
-char	*backp;
+Rune	*backp;
 int	backc;
 int	atend;
 int	nbacklines;
@@ -45,8 +45,8 @@ int	peekc;
 int	cursoron = 1;
 Menu	menu2;
 Menu	menu3;
-char	*histp;
-char	hist[HISTSIZ];
+Rune	*histp;
+Rune	hist[HISTSIZ];
 int	yscrmin, yscrmax;
 int	attr, defattr;
 int	wctlout;
@@ -99,6 +99,7 @@ Biobuf	*snarffp = 0;
 
 char	*host_buf;
 char	*hostp;				/* input from host */
+
 int	host_bsize = 2*BSIZE;
 int	hostlength;			/* amount of input from host */
 char	echo_input[BSIZE];
@@ -277,7 +278,7 @@ int
 get_next_char(void)
 {
 	int c = peekc;
-	uchar buf[1];
+
 	peekc = 0;
 	if(c > 0)
 		return(c);
@@ -292,11 +293,9 @@ get_next_char(void)
 			}
 			backp = 0;
 		}
-		c = (uchar)waitchar();
-		if(c > 0 && logfd >= 0) {
-			buf[0] = c;
-			write(logfd, buf, 1);
-		}
+		c = waitchar();
+		if(c > 0 && logfd >= 0)
+			fprint(logfd, "%C", (Rune)c);
 	}
 	*histp++ = c;
 	if(histp >= &hist[HISTSIZ])
@@ -305,68 +304,89 @@ get_next_char(void)
 	return(c);
 }
 
-int
-canon(char *ep, int c)
+char*
+backrune(char *start, char *cp)
 {
-	if(c&0200)
-		return(SCROLL);
+	char *ep;
+
+	ep = cp;
+	cp -= UTFmax;
+	if(cp < start)
+		cp = start;
+	while(cp < ep){
+		Rune r;
+		int n;
+
+		n = chartorune(&r, cp);
+		if(cp + n >= ep)
+			break;
+		cp += n;
+	}
+	return cp;
+}
+
+int
+canon(char *ep, Rune c)
+{
 	switch(c) {
-		case '\b':
-			if(sendp > sendbuf)
-				sendp--;
+	case Kdown:
+	case Kpgdown:
+		return SCROLL;
+	case '\b':
+		if(sendp > sendbuf){
+			sendp = backrune(sendbuf, sendp);
 			*ep++ = '\b';
 			*ep++ = ' ';
 			*ep++ = '\b';
-			break;
-		case 0x15:	/* ^U line kill */
-			sendp = sendbuf;
-			*ep++ = '^';
-			*ep++ = 'U';
+		}
+		break;
+	case 0x15:	/* ^U line kill */
+		sendp = sendbuf;
+		*ep++ = '^';
+		*ep++ = 'U';
+		*ep++ = '\n';
+		break;
+	case 0x17:	/* ^W word kill */
+		while(sendp > sendbuf && !alnum(*sendp)) {
+			sendp = backrune(sendbuf, sendp);
+			*ep++ = '\b';
+			*ep++ = ' ';
+			*ep++ = '\b';
+		}
+		while(sendp > sendbuf && alnum(*sendp)) {
+			sendp = backrune(sendbuf, sendp);
+			*ep++ = '\b';
+			*ep++ = ' ';
+			*ep++ = '\b';
+		}
+		break;
+	case '\177':	/* interrupt */
+		sendp = sendbuf;
+		send_interrupt();
+		return(NEWLINE);
+	case '\021':	/* quit */
+	case '\r':
+	case '\n':
+		if(sendp < &sendbuf[BSIZE])
+			*sendp++ = '\n';
+		sendnchars((int)(sendp-sendbuf), sendbuf);
+		sendp = sendbuf;
+		if(c == '\n' || c == '\r')
 			*ep++ = '\n';
-			break;
-		case 0x17:	/* ^W word kill */
-			while(sendp > sendbuf && !alnum(*sendp)) {
-				*ep++ = '\b';
-				*ep++ = ' ';
-				*ep++ = '\b';
-				sendp--;
-			}
-			while(sendp > sendbuf && alnum(*sendp)) {
-				*ep++ = '\b';
-				*ep++ = ' ';
-				*ep++ = '\b';
-				sendp--;
-			}
-			break;
-		case '\177':	/* interrupt */
-			sendp = sendbuf;
-			send_interrupt();
-			return(NEWLINE);
-		case '\021':	/* quit */
-		case '\r':
-		case '\n':
-			if(sendp < &sendbuf[512])
-				*sendp++ = '\n';
-			sendnchars((int)(sendp-sendbuf), sendbuf);
-			sendp = sendbuf;
-			if(c == '\n' || c == '\r') {
-				*ep++ = '\n';
-			}
+		*ep = 0;
+		return(NEWLINE);
+	case '\004':	/* EOT */
+		if(sendp == sendbuf) {
+			sendnchars(0,sendbuf);
 			*ep = 0;
 			return(NEWLINE);
-		case '\004':	/* EOT */
-			if(sendp == sendbuf) {
-				sendnchars(0,sendbuf);
-				*ep = 0;
-				return(NEWLINE);
-			}
-			/* fall through */
-		default:
-			if(sendp < &sendbuf[512])
-				*sendp++ = c;
-			*ep++ = c;
-			break;
-		
+		}
+		/* fall through */
+	default:
+		if(sendp < &sendbuf[BSIZE-UTFmax])
+			sendp += runetochar(sendp, &c);
+		ep += runetochar(ep, &c);
+		break;
 	}
 	*ep = 0;
 	return(OTHER);
@@ -380,7 +400,7 @@ sendfk(char *name)
 
 	for(i=0; fk[i].name; i++)
 		if(strcmp(name, fk[i].name)==0){
-			sendnchars2(strlen(fk[i].sequence), fk[i].sequence);
+			sendnchars(strlen(fk[i].sequence), fk[i].sequence);
 			return;
 		}
 }
@@ -390,13 +410,10 @@ waitchar(void)
 {
 	Event e;
 	int c;
-	char c2;
 	int newmouse;
 	int wasblocked;
-	int kbdchar = -1;
-	char echobuf[3*BSIZE];
-	static int lastc = -1;
-
+	Rune kbdchar = 0;
+	char echobuf[4*BSIZE];
 
 	for(;;) {
 		if(resize_flag)
@@ -407,26 +424,31 @@ waitchar(void)
 		if(ecanmouse() && (button2() || button3()))
 			readmenu();
 		if(snarffp) {
-			if((c = Bgetc(snarffp)) < 0) {
+			static Rune lastc = ~0;
+
+			if((c = Bgetrune(snarffp)) < 0) {
 				if(lastc != '\n')
 					write(outfd,"\n",1);
 				Bterm(snarffp);
 				snarffp = 0;
 				if(lastc != '\n') {
-					lastc = -1;
+					lastc = ~0;
 					return('\n');
 				}
-				lastc = -1;
+				lastc = ~0;
 				continue;
 			}
 			lastc = c;
-			c2 = c;
-			write(outfd, &c2, 1);
+			write(outfd, echobuf, runetochar(echobuf, &lastc));
 			return(c);
 		}
 		if(!blocked && host_avail())
 			return(rcvchar());
 		if(kbdchar > 0) {
+			if(backc){
+				backc = 0;
+				backup(backc);
+			}
 			if(blocked)
 				resize();
 			if(cs->raw) {
@@ -494,8 +516,7 @@ waitchar(void)
 					sendnchars(1, echobuf);
 					break;
 				default:
-					echobuf[0] = kbdchar;
-					sendnchars(1, echobuf);
+					sendnchars(runetochar(echobuf, &kbdchar), echobuf);
 					break;
 				}
 			} else if(canon(echobuf,kbdchar) == SCROLL) {
@@ -504,7 +525,7 @@ waitchar(void)
 			} else
 				strcat(echo_input,echobuf);
 			blocked = 0;
-			kbdchar = -1;
+			kbdchar = 0;
 			continue;
 		}
 		curson(wasblocked);	/* turn on cursor while we're waiting */
@@ -682,8 +703,8 @@ readmenu(void)
 void
 backup(int count)
 {
-	register n;
-	register char *cp;
+	Rune *cp;
+	int n;
 
 	eresized(0);
 	if(count == 0 && !pagemode) {
@@ -747,7 +768,7 @@ bigscroll(void)			/* scroll up half a page */
 }
 
 int
-number(char *p, int *got)
+number(Rune *p, int *got)
 {
 	int c, n = 0;
 
@@ -767,13 +788,6 @@ number(char *p, int *got)
 void
 sendnchars(int n,char *p)
 {
-	sendnchars2(n, p);
-	p[n+1] = 0;
-}
-
-void
-sendnchars2(int n,char *p)
-{
 	if(write(outfd,p,n) < 0) {
 		close(outfd);
 		close(0);
@@ -786,35 +800,44 @@ sendnchars2(int n,char *p)
 int
 host_avail(void)
 {
-	return(*echop || ((hostp - host_buf) < hostlength));
+	if(*echop != 0 && fullrune(echop, strlen(echop)))
+		return 1;
+	if((hostp - host_buf) < hostlength)
+		return fullrune(hostp, hostlength - (hostp - host_buf));
+	return 0;
 }
 
 int
 rcvchar(void)
 {
-	int c;
-	if(*echop) {
-		c = *echop++;
-		if(!*echop) {
+	Rune r;
+
+	if(*echop != 0) {
+		echop += chartorune(&r, echop);
+		if(*echop == 0) {
 			echop = echo_input;	
 			*echop = 0;
 		}
-		return c;
+		return r;
 	}
-	return *hostp++;
+	hostp += chartorune(&r, hostp);
+	return r;
 }
 
 void
 set_host(Event *e)
 {
-	hostlength = e->n;
+	hostlength -= (hostp - host_buf);
+	if(hostlength > 0)
+		memmove(host_buf, hostp, hostlength);
+	hostlength += e->n;
 	if(hostlength >= host_bsize) {
 		host_bsize = BSIZE*((hostlength + BSIZE)/BSIZE);
-		host_buf = realloc(host_buf,host_bsize);
+		host_buf = realloc(host_buf, host_bsize);
 	}
+	memmove(host_buf + hostlength - e->n, e->data, e->n);
+	host_buf[hostlength] = 0;
 	hostp = host_buf;
-	memmove(host_buf,e->data,hostlength);
-	host_buf[hostlength]=0;
 }
 
 void
@@ -854,12 +877,12 @@ funckey(int key)
 		return;
 	if(fk[key].name == 0)
 		return;
-	sendnchars2(strlen(fk[key].sequence), fk[key].sequence);
+	sendnchars(strlen(fk[key].sequence), fk[key].sequence);
 }
 
 
 void
-drawstring(Point p, char *str, int attr)
+drawstring(Point p, Rune *str, int attr)
 {
 	int i;
 	Image *txt, *bg, *tmp;
@@ -877,6 +900,6 @@ drawstring(Point p, char *str, int attr)
 				txt = hicolors[i];
 	}
 
-	draw(screen, Rpt(p, addpt(p, stringsize(font, str))), bg, nil, p);
-	string(screen, p, txt, ZP, font, str);
+	draw(screen, Rpt(p, addpt(p, runestringsize(font, str))), bg, nil, p);
+	runestring(screen, p, txt, ZP, font, str);
 }

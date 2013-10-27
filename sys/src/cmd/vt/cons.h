@@ -59,14 +59,13 @@ extern void	clear(Rectangle);
 extern void	newline(void);
 extern int	get_next_char(void);
 extern void	ringbell(void);
-extern int	number(char *, int *);
+extern int	number(Rune *, int *);
 extern void	scroll(int,int,int,int);
 extern void	backup(int);
 extern void	sendnchars(int, char *);
-extern void	sendnchars2(int, char *);
 extern Point	pt(int, int);
 extern void	funckey(int);
-extern void	drawstring(Point, char*, int);
+extern void	drawstring(Point, Rune*, int);
 
 extern int	debug;
 extern int	yscrmin, yscrmax;
