@@ -1,9 +1,5 @@
 </$objtype/mkfile
 
-#TARG=hp\
-#	vt\
-#	vt220\
-
 TARG=vt
 
 OFILES=\
