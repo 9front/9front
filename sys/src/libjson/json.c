@@ -52,6 +52,8 @@ lex(Lex *l)
 {
 	Rune r;
 	char *t;
+	int i;
+	char c;
 
 	for(;;){
 		r = peekch(l);
@@ -116,6 +118,19 @@ lex(Lex *l)
 					break;
 				case 'r':
 					r = '\r';
+					break;
+				case 'u':
+					r = 0;
+					for(i = 0; i < 4; i++){
+						if(!isxdigit(peekch(l)))
+							break;
+
+						c = getch(l);
+						r *= 16;
+						if(c > '0' && c < '9') r += c - '0';
+						else if(c > 'a' && c < 'f') r += c - 'a' + 10;
+						else if(c > 'A' && c < 'F') r += c - 'A' + 10;
+					}
 					break;
 				case 't':
 					r = '\t';
