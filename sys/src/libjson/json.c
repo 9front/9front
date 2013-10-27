@@ -127,9 +127,9 @@ lex(Lex *l)
 
 						c = getch(l);
 						r *= 16;
-						if(c > '0' && c < '9') r += c - '0';
-						else if(c > 'a' && c < 'f') r += c - 'a' + 10;
-						else if(c > 'A' && c < 'F') r += c - 'A' + 10;
+						if(c >= '0' && c <= '9') r += c - '0';
+						else if(c >= 'a' && c <= 'f') r += c - 'a' + 10;
+						else if(c >= 'A' && c <= 'F') r += c - 'A' + 10;
 					}
 					break;
 				case 't':
