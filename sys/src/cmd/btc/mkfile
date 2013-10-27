@@ -4,9 +4,6 @@ TARG=httpfs sign genkey
 
 BIN=/$objtype/bin/btc
 
-OFILES=\
-	json.$O\
-
 HFILES=\
 	dat.h\
 

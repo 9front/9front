@@ -1,3 +1,6 @@
+#pragma src "/sys/src/libjson"
+#pragma lib "libjson.a"
+
 typedef struct JSONEl JSONEl;
 typedef struct JSON JSON;
 

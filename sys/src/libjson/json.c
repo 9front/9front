@@ -1,7 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <ctype.h>
-#include "json.h"
+#include <json.h>
 
 typedef struct Lex Lex;
 

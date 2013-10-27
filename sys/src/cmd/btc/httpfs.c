@@ -4,8 +4,8 @@
 #include <thread.h>
 #include <9p.h>
 #include <String.h>
+#include <json.h>
 #include "dat.h"
-#include "json.h"
 
 void gofs(void);
 

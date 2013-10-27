@@ -1,0 +1,10 @@
+</$objtype/mkfile
+
+LIB=/$objtype/lib/libjson.a
+OFILES=\
+	json.$O
+
+HFILES=\
+	/sys/include/json.h
+
+</sys/src/cmd/mksyslib
