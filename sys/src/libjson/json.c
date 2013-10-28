@@ -7,7 +7,7 @@ typedef struct Lex Lex;
 
 enum {
 	TEOF,
-	TSTRING = (1<<(8*sizeof(Rune)))+1,
+	TSTRING = Runemax+1,
 	TNUM,
 	TNULL,
 	TFALSE,
@@ -48,9 +48,32 @@ peekch(Lex *l)
 }
 
 static int
+fixsurrogate(Rune *rp, Rune r2)
+{
+	Rune r1;
+
+	r1 = *rp;
+	if(r1 >= 0xD800 && r1 <= 0xDBFF){
+		if(r2 >= 0xDC00 && r2 <= 0xDFFF){
+			*rp = 0x10000 + (((r1 - 0xD800)<<10) | (r2 - 0xDC00));
+			return 0;
+		}
+		return 1;
+	} else
+	if(r1 >= 0xDC00 && r1 <= 0xDFFF){
+		if(r2 >= 0xD800 && r2 <= 0xDBFF){
+			*rp = 0x10000 + (((r2 - 0xD800)<<10) | (r1 - 0xDC00));
+			return 0;
+		}
+		return 1;
+	}
+	return 0;
+}
+
+static int
 lex(Lex *l)
 {
-	Rune r;
+	Rune r, r2;
 	char *t;
 	int i;
 	char c;
@@ -101,6 +124,7 @@ lex(Lex *l)
 		return 0;
 	}
 	if(r == '"'){
+		r2 = 0;
 		t = l->buf;
 		for(;;){
 			r = getch(l);
@@ -127,9 +151,16 @@ lex(Lex *l)
 
 						c = getch(l);
 						r *= 16;
-						if(c >= '0' && c <= '9') r += c - '0';
-						else if(c >= 'a' && c <= 'f') r += c - 'a' + 10;
-						else if(c >= 'A' && c <= 'F') r += c - 'A' + 10;
+						if(c >= '0' && c <= '9')
+							r += c - '0';
+						if(c >= 'a' && c <= 'f')
+							r += c - 'a' + 10;
+						else if(c >= 'A' && c <= 'F')
+							r += c - 'A' + 10;
+					}
+					if(fixsurrogate(&r, r2)){
+						r2 = r;
+						continue;
 					}
 					break;
 				case 't':
@@ -148,6 +179,7 @@ lex(Lex *l)
 					return -1;
 				}
 			}
+			r2 = 0;
 			t += runetochar(t, &r);
 			if(t >= l->buf + sizeof(l->buf)){
 				werrstr("json: string too long");
