@@ -203,13 +203,9 @@ jsonobj(Lex *l)
 	JSONEl **ln;
 	int obj;
 
-	l->buf = mallocz(l->slen, 1);
-	if(l->buf == nil)
+	if((j = mallocz(sizeof(*j), 1)) == nil)
 		return nil;
 
-	j = mallocz(sizeof(*j), 1);
-	if(j == nil)
-		return nil;
 	if(lex(l) < 0){
 error:
 		free(j);
@@ -232,8 +228,7 @@ error:
 		break;
 	case TSTRING:
 		j->t = JSONString;
-		j->s = strdup(l->buf);
-		if(j->s == nil)
+		if((j->s = strdup(l->buf)) == nil)
 			goto error;
 		break;
 	case TNUM:
@@ -269,8 +264,7 @@ error:
 					werrstr("json: syntax error, not string");
 					goto abort;
 				}
-				e = mallocz(sizeof(*e), 1);
-				if(e == nil)
+				if((e = mallocz(sizeof(*e), 1)) == nil)
 					goto abort;
 				e->name = strdup(l->buf);
 				if(e->name == nil || lex(l) < 0){
@@ -283,8 +277,7 @@ error:
 					goto abort;
 				}
 			}else{
-				e = mallocz(sizeof(*e), 1);
-				if(e == nil)
+				if((e = mallocz(sizeof(*e), 1)) == nil)
 					goto abort;
 			}
 			e->val = jsonobj(l);
@@ -320,12 +313,18 @@ error:
 JSON*
 jsonparse(char *s)
 {
+	JSON *j;
 	Lex l;
 
 	memset(&l, 0, sizeof(l));
 	l.s = s;
 	l.slen = strlen(s)+1;
-	return jsonobj(&l);
+	if((l.buf = mallocz(l.slen, 1)) == nil)
+		return nil;
+
+	j = jsonobj(&l);
+	free(l.buf);
+	return j;
 }
 
 void
