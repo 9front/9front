@@ -122,6 +122,7 @@ char gmap[256] = {
 };
 
 static void setattr(int argc, int *argv);
+static void osc(void);
 
 void
 fixops(int *operand)
@@ -820,19 +821,9 @@ print("unknown escape2 '%c' (0x%x)\n", dch, dch);
 				peekc = '\033';
 				break;
 
-			/* set title */
-			case ']':	/* it's actually <esc> ] num ; title <bel> */
-				{
-					int ch, fd;
-					number(buf, nil);
-					i = 0;
-					while((ch = get_next_char()) != '\a')
-						if(i < sizeof buf)
-							buf[i++] = ch;
-					fd = open("/dev/label", OWRITE);
-					write(fd, buf, i);
-					close(fd);
-				}
+			/* OSC escape */
+			case ']':
+				osc();
 				break;
 
 			/*
@@ -942,6 +933,40 @@ setattr(int argc, int *argv)
 			break;
 		case 49:
 			bgcolor = bgdefault;
+			break;
+		}
+	}
+}
+
+// handle ESC], Operating System Command
+static void
+osc(void)
+{
+	Rune ch, buf[BUFS+1];
+	int fd, osc, got, i;
+	osc = number(&ch, &got);
+
+	if(got) {
+		switch(osc) {
+		case 0:
+		case 1:
+		case 2:
+			// set title
+			i = 0;
+
+			while((ch = get_next_char()) != '\a') {
+				if(i < nelem(buf) - 1) {
+					buf[i++] = ch;
+				}
+			}
+			buf[i] = 0;
+			if((fd = open("/dev/label", OWRITE)) >= 0) {
+				fprint(fd, "%S", buf);
+				close(fd);
+			}
+			break;
+		default:
+			fprint(2, "unknown osc escape %d\n", osc);
 			break;
 		}
 	}
