@@ -22,6 +22,7 @@ main(int argc, char **argv)
 	fmtinstall('B', mpfmt);
 	fmtinstall('[', encodefmt);
 
+	ssh2 = 0;
 	comment = "";
 
 	ARGBEGIN{
@@ -50,7 +51,7 @@ main(int argc, char **argv)
 		p = putmp2(p, k->pub.ek);
 		p = putmp2(p, k->pub.n);
 
-		print("ssh-rsa %.*[ %s\n", p-buf, buf, comment);
+		print("ssh-rsa %.*[ %s\n", (int)(p-buf), buf, comment);
 	} else {
 		print("%d %.10B %.10B %s\n", mpsignif(k->pub.n), k->pub.ek, k->pub.n, comment);
 	}
