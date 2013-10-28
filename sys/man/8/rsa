@@ -33,6 +33,13 @@ rsagen, rsafill, asn12rsa, rsa2pub, rsa2ssh, rsa2x509 \- generate and format rsa
 .PP
 .B rsa2ssh
 [
+.B -2
+]
+[
+.B -c
+.I comment
+]
+[
 .I file
 ]
 .PP
@@ -170,6 +177,11 @@ in the format used by SSH: three space-separated decimal numbers
 .BR ek ,
 and
 .BR n .
+The
+.B -2
+option will change the output to SSH2 RSA public key format. The
+.B -c
+option will set the comment.
 For compatibility with external SSH implementations, the public keys in
 .B /sys/lib/ssh/keyring
 and
