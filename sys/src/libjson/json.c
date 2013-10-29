@@ -17,9 +17,10 @@ enum {
 struct Lex
 {
 	char *s;
+	ulong slen;
 	int t;
 	double n;
-	char buf[4096];
+	char *buf;
 	Rune peeked;
 	jmp_buf jmp;
 	int canjmp;
@@ -96,7 +97,7 @@ lex(Lex *l)
 		t = l->buf;
 		for(;;){
 			t += runetochar(t, &r);
-			if(t >= l->buf + sizeof(l->buf)){
+			if(t >= l->buf + l->slen){
 				werrstr("json: literal too long");
 				return -1;
 			}
@@ -181,7 +182,7 @@ lex(Lex *l)
 			}
 			r2 = 0;
 			t += runetochar(t, &r);
-			if(t >= l->buf + sizeof(l->buf)){
+			if(t >= l->buf + l->slen){
 				werrstr("json: string too long");
 				return -1;
 			}
@@ -201,7 +202,11 @@ jsonobj(Lex *l)
 	JSONEl *e;
 	JSONEl **ln;
 	int obj;
-	
+
+	l->buf = mallocz(l->slen, 1);
+	if(l->buf == nil)
+		return nil;
+
 	j = mallocz(sizeof(*j), 1);
 	if(j == nil)
 		return nil;
@@ -319,6 +324,7 @@ jsonparse(char *s)
 
 	memset(&l, 0, sizeof(l));
 	l.s = s;
+	l.slen = strlen(s)+1;
 	return jsonobj(&l);
 }
 
