@@ -22,23 +22,23 @@ fn sigexit {
 }
 
 fn play1 {
-	if(~ $#* 0){
+	if(! ~ $#* 2){
 		tmp=(/tmp/play.$pid.$#tmp.tmp $tmp)
 		dd -bs 8192 -count 1 >$tmp(1) >[2]/dev/null
-		cat $tmp(1) /fd/0 | play1 `{file -m $tmp(1)} xxx
+		cat $tmp(1) /fd/0 | play1 $1 `{file -m $tmp(1)}
 		cleanup
 	}
 	if not {
-		switch($1){
+		switch($2){
 		case *plain*
 			sed 's///g' | while(j=`{read}){
 				echo $"j >[1=2]
 				if(~ $"j http:* https:* HTTP:* HTTPS:*){
-					hget -r 'Icy-MetaData: 0' $j | play1
+					hget -r 'Icy-MetaData: 0' $"j | play1 $"j
 				}
 				if not {
 					if(test -r $"j)
-						play1 <$"j
+						play1 <$"j $"j
 					if not {
 						echo $argv0: 'can''t open file:' $"j >[1=2]
 					}
@@ -55,9 +55,22 @@ fn play1 {
 		case *audio/basic*
 			audio/sundec
 		case *pls*
-			awk 'BEGIN {FS="="} /^File/{print $2}' | play1 plain
+			awk 'BEGIN {FS="="} /^File/{print $2}' | play1 list plain
 		case *
-			echo $argv0: unknown format: $1 >[1=2]
+			switch($1){
+			case *.mp3 *.MP3
+				audio/mp3dec
+			case *.ogg *.OGG
+				audio/oggdec
+			case *.wav *.WAV
+				audio/wavdec
+			case *.flac *.FLAC
+				audio/flacdec
+			case *.au *.AU
+				audio/sundec
+			case *
+				echo $argv0: $1: unknown format: $2 >[1=2]
+			}
 		}
 	}
 }
@@ -82,6 +95,6 @@ while(~ $1 -*){
 @{echo pri 13 >/proc/$pid/ctl} >/dev/null >[2=1] 
 
 >$out {
-	if(~ $#* 0){play1; exit}
-	for(i){echo $i} | play1 plain 
+	if(~ $#* 0){play1 stdin; exit}
+	for(i){echo $i} | play1 args plain
 } 
