@@ -1171,7 +1171,7 @@ createdir(Chan *c, Mhead *m)
 		nexterror();
 	}
 	for(f = m->mount; f; f = f->next){
-		if(f->mflag&MCREATE){
+		if(f->to != nil && (f->mflag&MCREATE) != 0){
 			nc = cclone(f->to);
 			runlock(&m->lock);
 			poperror();
