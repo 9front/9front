@@ -328,6 +328,7 @@ wraptls(void)
 	int fd;
 	uchar hash[SHA1dlen];
 
+	goodcerts = nil;
 	err = Giveup;
 	c = mallocz(sizeof(*c), 1);
 	if (c == nil)
