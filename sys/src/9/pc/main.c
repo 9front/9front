@@ -59,7 +59,7 @@ multibootargs(void)
 			m++;
 			base = ((uvlong)m[0] | (uvlong)m[1]<<32);
 			size = ((uvlong)m[2] | (uvlong)m[3]<<32);
-			cp = seprint(cp, ep, "%.1x %.16llux %.16llux ",
+			cp = seprint(cp, ep, "%.1lux %.16llux %.16llux ",
 				m[4] & 0xF, base, base+size);
 			l -= m[-1]+4;
 			m = (ulong*)((ulong)m + m[-1]);
