@@ -5,37 +5,16 @@
 int
 plumbopen(char *name, int omode)
 {
-	int fd, f;
-	char *s, *plumber;
+	int fd;
 	char buf[128], err[ERRMAX];
 
 	if(name[0] == '/')
 		return open(name, omode);
-		
-	/* find elusive plumber */
-	if(access("/mnt/plumb/send", AWRITE) >= 0)
-		plumber = "/mnt/plumb";
-	else if(access("/mnt/term/mnt/plumb/send", AWRITE) >= 0)
-		plumber = "/mnt/term/mnt/plumb";
-	else{
-		/* last resort: try mounting service */
-		plumber = "/mnt/plumb";
-		s = getenv("plumbsrv");
-		if(s == nil)
-			return -1;
-		f = open(s, ORDWR);
-		free(s);
-		if(f < 0)
-			return -1;
-		if(mount(f, -1, "/mnt/plumb", MREPL, "") < 0){
-			close(f);
-			return -1;
-		}
-		if(access("/mnt/plumb/send", AWRITE) < 0)
-			return -1;
-	}
 
-	snprint(buf, sizeof buf, "%s/%s", plumber, name);
+	if(access("/mnt/plumb/send", AWRITE) < 0)
+		return -1;
+
+	snprint(buf, sizeof buf, "/mnt/plumb/%s", name);
 	fd = open(buf, omode);
 	if(fd >= 0)
 		return fd;
