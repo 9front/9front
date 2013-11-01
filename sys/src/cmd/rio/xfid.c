@@ -70,6 +70,8 @@ xfidallocthread(void*)
 				fprint(2, "%p incref %ld\n", x, x->ref);
 				error("incref");
 			}
+			if(x->flushing)
+				error("flushing in allocate");
 			if(x->flushtag != -1)
 				error("flushtag in allocate");
 			incref(x);
