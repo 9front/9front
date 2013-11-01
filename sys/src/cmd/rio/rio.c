@@ -156,6 +156,11 @@ threadmain(int argc, char *argv[])
 	case 's':
 		scrolling = TRUE;
 		break;
+	case 'D':
+		debug++;
+		break;
+	default:
+		usage();
 	}ARGEND
 
 	if(getwd(buf, sizeof buf) == nil)

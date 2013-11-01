@@ -18,10 +18,6 @@ char	Eoffset[] = "illegal offset";
 
 int	messagesize = 8192+IOHDRSZ;	/* good start */
 
-enum{
-	DEBUG = 0
-};
-
 Dirtab dirtab[]=
 {
 	{ ".",			QTDIR,	Qdir,			0500|DMDIR },
@@ -142,6 +138,9 @@ filsysinit(Channel *cxfidalloc)
 		close(fd);
 	}
 	fs->user = estrdup(buf);
+	fs->csyncflush = chancreate(sizeof(int), 0);
+	if(fs->csyncflush == nil)
+		error("chancreate syncflush");
 	fs->cxfidalloc = cxfidalloc;
 	pid = getpid();
 
@@ -210,7 +209,7 @@ filsysproc(void *arg)
 		x->buf = buf;
 		if(convM2S(buf, n, x) != n)
 			error("convert error in convM2S");
-		if(DEBUG)
+		if(debug)
 			fprint(2, "rio:<-%F\n", &x->Fcall);
 		if(fcall[x->type] == nil)
 			x = filsysrespond(fs, x, &t, Ebadfcall);
@@ -266,7 +265,7 @@ filsysrespond(Filsys *fs, Xfid *x, Fcall *t, char *err)
 		error("convert error in convS2M");
 	if(write(fs->sfd, x->buf, n) != n)
 		error("write error in respond");
-	if(DEBUG)
+	if(debug)
 		fprint(2, "rio:->%F\n", t);
 	free(x->buf);
 	x->buf = nil;
@@ -307,14 +306,21 @@ filsysauth(Filsys *fs, Xfid *x, Fid*)
 {
 	Fcall t;
 
-		return filsysrespond(fs, x, &t, "rio: authentication not required");
+	return filsysrespond(fs, x, &t, "rio: authentication not required");
 }
 
 static
 Xfid*
-filsysflush(Filsys*, Xfid *x, Fid*)
+filsysflush(Filsys *fs, Xfid *x, Fid*)
 {
 	sendp(x->c, xfidflush);
+
+	/*
+	 * flushes need to be replied in order. xfidflush() will
+	 * awaken us when the flush has been queued.
+	 */
+	recv(fs->csyncflush, nil);
+
 	return nil;
 }
 

@@ -124,24 +124,44 @@ xfidflush(Xfid *x)
 
 	for(xf=xfid; xf; xf=xf->next)
 		if(xf->flushtag == x->oldtag){
-			xf->flushtag = -1;
-			xf->flushing = TRUE;
 			incref(xf);	/* to hold data structures up at tail of synchronization */
 			if(xf->ref == 1)
 				error("ref 1 in flush");
-			if(canqlock(&xf->active)){
-				qunlock(&xf->active);
-				sendul(xf->flushc, 0);
-			}else{
-				qlock(&xf->active);	/* wait for him to finish */
-				qunlock(&xf->active);
-			}
-			xf->flushing = FALSE;
-			if(decref(xf) == 0)
-				sendp(cxfidfree, xf);
+			/* take over flushtag so follow up flushes wait for us */
+			x->flushtag = x->oldtag;
+			xf->flushtag = -1;
 			break;
 		}
+
+	/*
+	 * wakeup filsysflush() in the filsysproc so the next
+	 * flush can come in.
+	 */
+	sendul(x->fs->csyncflush, 0);
+
+	if(xf){
+		qlock(&xf->active);
+		if(xf->buf){	/* not responded yet? */
+			xf->flushing = TRUE;
+			qunlock(&xf->active);
+			sendul(xf->flushc, 0);
+			xf->flushing = FALSE;
+		}else{
+			qunlock(&xf->active);
+		}
+		if(decref(xf) == 0)
+			sendp(cxfidfree, xf);
+	}
+
+	qlock(&x->active);
+	if(x->flushing){
+		qunlock(&x->active);
+		recv(x->flushc, nil);	/* wakeup flushing xfid */
+		filsyscancel(x);
+		return;
+	}
 	filsysrespond(x->fs, x, &t, nil);
+	qunlock(&x->active);
 }
 
 void
