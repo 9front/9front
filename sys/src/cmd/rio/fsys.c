@@ -270,6 +270,8 @@ filsysrespond(Filsys *fs, Xfid *x, Fcall *t, char *err)
 	free(x->buf);
 	x->buf = nil;
 	x->flushtag = -1;
+	if(x->flushing)
+		recv(x->flushc, nil);	/* wakeup flushing xfid */
 	return x;
 }
 

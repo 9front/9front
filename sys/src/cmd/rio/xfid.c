@@ -80,6 +80,8 @@ xfidallocthread(void*)
 				fprint(2, "%p decref %ld\n", x, x->ref);
 				error("decref");
 			}
+			if(x->flushing)
+				error("flushing in free");
 			if(x->flushtag != -1)
 				error("flushtag in free");
 			x->free = xfidfree;
@@ -110,6 +112,7 @@ xfidctl(void *arg)
 	threadsetname(buf);
 	for(;;){
 		f = recvp(x->c);
+		x->flushtag = x->tag;
 		(*f)(x);
 		if(decref(x) == 0)
 			sendp(cxfidfree, x);
@@ -127,11 +130,12 @@ xfidflush(Xfid *x)
 			incref(xf);	/* to hold data structures up at tail of synchronization */
 			if(xf->ref == 1)
 				error("ref 1 in flush");
-			/* take over flushtag so follow up flushes wait for us */
-			x->flushtag = x->oldtag;
 			xf->flushtag = -1;
 			break;
 		}
+
+	/* take over flushtag so follow up flushes wait for us */
+	x->flushtag = x->oldtag;
 
 	/*
 	 * wakeup filsysflush() in the filsysproc so the next
@@ -257,7 +261,7 @@ xfidopen(Xfid *x)
 		w->ctlopen = TRUE;
 		break;
 	case Qkbdin:
-		if(w !=  wkeyboard){
+		if(w != wkeyboard){
 			filsysrespond(x->fs, x, &t, Eperm);
 			return;
 		}
@@ -417,7 +421,6 @@ xfidwrite(Xfid *x)
 			memmove(x->f->rpart, x->data+nb, cnt-nb);
 			x->f->nrpart = cnt-nb;
 		}
-		x->flushtag = x->tag;
 
 		alts[CWdata].c = w->conswrite;
 		alts[CWdata].v = &cwm;
@@ -658,8 +661,6 @@ xfidread(Xfid *x)
 	cnt = x->count;
 	switch(qid){
 	case Qcons:
-		x->flushtag = x->tag;
-
 		alts[CRdata].c = w->consread;
 		alts[CRdata].v = &crm;
 		alts[CRdata].op = CHANRCV;
@@ -725,8 +726,6 @@ xfidread(Xfid *x)
 		break;
 
 	case Qmouse:
-		x->flushtag = x->tag;
-
 		alts[MRdata].c = w->mouseread;
 		alts[MRdata].v = &mrm;
 		alts[MRdata].op = CHANRCV;
@@ -778,8 +777,6 @@ xfidread(Xfid *x)
 		break;
 
 	case Qkbd:
-		x->flushtag = x->tag;
-
 		alts[MRdata].c = w->kbdread;
 		alts[MRdata].v = &krm;
 		alts[MRdata].op = CHANRCV;
@@ -919,7 +916,6 @@ xfidread(Xfid *x)
 			filsysrespond(x->fs, x, &fc, Etooshort);
 			break;
 		}
-		x->flushtag = x->tag;
 
 		alts[WCRdata].c = w->wctlread;
 		alts[WCRdata].v = &cwrm;
