@@ -1212,26 +1212,26 @@ reset(Ether* ether)
 			 */
 			miir(ctlr, phyaddr, 0x01);
 			bmsr = miir(ctlr, phyaddr, 0x01);
-			if((miir(ctlr, phyaddr, 0) & 0x1000) && !(bmsr & 0x0020)){
-				miiw(ctlr, phyaddr, 0x1A, 0x2010);
-				x = miir(ctlr, phyaddr, 0);
-				miiw(ctlr, phyaddr, 0, 0x0200|x);
-				for(i = 0; i < 3000; i++){
-					delay(1);
-					if(miir(ctlr, phyaddr, 0x01) & 0x0020)
-						break;
-				}
-				miiw(ctlr, phyaddr, 0x1A, 0x2000);
-					
-				anar = miir(ctlr, phyaddr, 0x04);
-				anlpar = miir(ctlr, phyaddr, 0x05) & 0x03E0;
-				anar &= anlpar;
-				bmcr = 0;
-				if(anar & 0x380)
-					bmcr = 0x2000;
-				if(anar & 0x0140)
-					bmcr |= 0x0100;
+			if((miir(ctlr, phyaddr, 0) & 0x1000) && (bmsr & 0x0020))
+				break;
+			miiw(ctlr, phyaddr, 0x1A, 0x2010);
+			x = miir(ctlr, phyaddr, 0);
+			miiw(ctlr, phyaddr, 0, 0x1200|x);
+			for(i = 0; i < 3000; i++){
+				delay(1);
+				if(miir(ctlr, phyaddr, 0x01) & 0x0020)
+					break;
 			}
+			miiw(ctlr, phyaddr, 0x1A, 0x2000);
+					
+			anar = miir(ctlr, phyaddr, 0x04);
+			anlpar = miir(ctlr, phyaddr, 0x05) & 0x03E0;
+			anar &= anlpar;
+			bmcr = 0;
+			if(anar & 0x380)
+				bmcr = 0x2000;
+			if(anar & 0x0140)
+				bmcr |= 0x0100;
 			break;
 		}
 
