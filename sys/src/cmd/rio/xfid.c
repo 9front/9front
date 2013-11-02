@@ -11,13 +11,9 @@
 #include "dat.h"
 #include "fns.h"
 
-#define	MAXSNARF	100*1024
-
 char Einuse[] =		"file in use";
 char Edeleted[] =	"window deleted";
-char Ebadreq[] =	"bad graphics request";
 char Etooshort[] =	"buffer too small";
-char Ebadtile[] =	"unknown tile";
 char Eshort[] =		"short i/o request";
 char Elong[] = 		"snarf buffer too long";
 char Eunkid[] = 	"unknown id in attach";
@@ -25,9 +21,9 @@ char Ebadrect[] = 	"bad rectangle in attach";
 char Ewindow[] = 	"cannot make window";
 char Enowindow[] = 	"window has no image";
 char Ebadmouse[] = 	"bad format on /dev/mouse";
-char Ebadwrect[] = 	"rectangle outside screen";
-char Ebadoffset[] = 	"window read not on scan line boundary";
+
 extern char Eperm[];
+extern char Enomem[];
 
 static	Xfid	*xfidfree;
 static	Xfid	*xfid;
@@ -292,12 +288,8 @@ xfidopen(Xfid *x)
 		w->mouseopen = TRUE;
 		break;
 	case Qsnarf:
-		if(x->mode==ORDWR || x->mode==OWRITE){
-			if(tsnarf)
-				free(tsnarf);	/* collision, but OK */
+		if(x->mode==ORDWR || x->mode==OWRITE)
 			ntsnarf = 0;
-			tsnarf = malloc(1);
-		}
 		break;
 	case Qwctl:
 		if(x->mode==OREAD || x->mode==ORDWR){
@@ -364,8 +356,6 @@ xfidclose(Xfid *x)
 		if(x->f->mode==ORDWR || x->f->mode==OWRITE){
 			snarf = runerealloc(snarf, ntsnarf+1);
 			cvttorunes(tsnarf, ntsnarf, snarf, &nb, &nsnarf, &nulls);
-			free(tsnarf);
-			tsnarf = nil;
 			ntsnarf = 0;
 		}
 		break;
@@ -382,8 +372,8 @@ void
 xfidwrite(Xfid *x)
 {
 	Fcall fc;
-	int c, cnt, qid, nb, off, nr;
-	char buf[256], *p;
+	int cnt, qid, nb, off, nr;
+	char err[ERRMAX], *p;
 	Point pt;
 	Window *w;
 	Rune *r;
@@ -403,27 +393,6 @@ xfidwrite(Xfid *x)
 	x->data[cnt] = 0;
 	switch(qid){
 	case Qcons:
-		nr = x->f->nrpart;
-		if(nr > 0){
-			memmove(x->data+nr, x->data, cnt);	/* there's room: see malloc in filsysproc */
-			memmove(x->data, x->f->rpart, nr);
-			cnt += nr;
-			x->f->nrpart = 0;
-		}
-		r = runemalloc(cnt);
-		cvttorunes(x->data, cnt-UTFmax, r, &nb, &nr, nil);
-		/* approach end of buffer */
-		while(fullrune(x->data+nb, cnt-nb)){
-			c = nb;
-			nb += chartorune(&r[nr], x->data+c);
-			if(r[nr])
-				nr++;
-		}
-		if(nb < cnt){
-			memmove(x->f->rpart, x->data+nb, cnt-nb);
-			x->f->nrpart = cnt-nb;
-		}
-
 		alts[CWdata].c = w->conswrite;
 		alts[CWdata].v = &cwm;
 		alts[CWdata].op = CHANRCV;
@@ -440,15 +409,38 @@ xfidwrite(Xfid *x)
 			break;
 		case CWgone:
 			filsysrespond(x->fs, x, &fc, Edeleted);
-			free(r);
 			return;
 		case CWflush:
-			free(r);
 			filsyscancel(x);
 			return;
 		}
 
-		/* received data */
+		nr = x->f->nrpart;
+		if(nr > 0){
+			memmove(x->data+nr, x->data, cnt);	/* there's room: see malloc in filsysproc */
+			memmove(x->data, x->f->rpart, nr);
+			cnt += nr;
+		}
+		r = runemalloc(cnt);
+		if(r == nil){
+			pair.ns = 0;
+			send(cwm.cw, &pair);
+			filsysrespond(x->fs, x, &fc, Enomem);
+			return;
+		}
+		x->f->nrpart = 0;
+		cvttorunes(x->data, cnt-UTFmax, r, &nb, &nr, nil);
+		/* approach end of buffer */
+		while(fullrune(x->data+nb, cnt-nb)){
+			nb += chartorune(&r[nr], x->data+nb);
+			if(r[nr])
+				nr++;
+		}
+		if(nb < cnt){
+			memmove(x->f->rpart, x->data+nb, cnt-nb);
+			x->f->nrpart = cnt-nb;
+		}
+
 		pair.s = r;
 		pair.ns = nr;
 		send(cwm.cw, &pair);
@@ -501,10 +493,14 @@ xfidwrite(Xfid *x)
 			filsysrespond(x->fs, x, &fc, "non-zero offset writing label");
 			return;
 		}
-		free(w->label);
-		w->label = emalloc(cnt+1);
-		memmove(w->label, x->data, cnt);
+		p = realloc(w->label, cnt+1);
+		if(p == nil){
+			filsysrespond(x->fs, x, &fc, Enomem);
+			return;
+		}
+		w->label = p;
 		w->label[cnt] = 0;
+		memmove(w->label, x->data, cnt);
 		break;
 
 	case Qmouse:
@@ -526,12 +522,19 @@ xfidwrite(Xfid *x)
 		break;
 
 	case Qsnarf:
+		if(cnt == 0)
+			break;
 		/* always append only */
 		if(ntsnarf > MAXSNARF){	/* avoid thrashing when people cut huge text */
 			filsysrespond(x->fs, x, &fc, Elong);
 			return;
 		}
-		tsnarf = erealloc(tsnarf, ntsnarf+cnt+1);	/* room for NUL */
+		p = realloc(tsnarf, ntsnarf+cnt+1);	/* room for NUL */
+		if(p == nil){
+			filsysrespond(x->fs, x, &fc, Enomem);
+			return;
+		}
+		tsnarf = p;
 		memmove(tsnarf+ntsnarf, x->data, cnt);
 		ntsnarf += cnt;
 		snarfversion++;
@@ -546,20 +549,17 @@ xfidwrite(Xfid *x)
 			x->data[cnt-1] = '\0';
 		}
 		/* assume data comes in a single write */
-		/*
-		  * Problem: programs like dossrv, ftp produce illegal UTF;
-		  * we must cope by converting it first.
-		  */
-		snprint(buf, sizeof buf, "%.*s", cnt, x->data);
-		if(buf[0] == '/'){
-			free(w->dir);
-			w->dir = estrdup(buf);
+		if(x->data[0] == '/'){
+			p = smprint("%.*s", cnt, x->data);
 		}else{
-			p = emalloc(strlen(w->dir) + 1 + strlen(buf) + 1);
-			sprint(p, "%s/%s", w->dir, buf);
-			free(w->dir);
-			w->dir = cleanname(p);
+			p = smprint("%s/%.*s", w->dir, cnt, x->data);
 		}
+		if(p == nil){
+			filsysrespond(x->fs, x, &fc, Enomem);
+			return;
+		}
+		free(w->dir);
+		w->dir = cleanname(p);
 		break;
 
 	case Qkbdin:
@@ -567,16 +567,15 @@ xfidwrite(Xfid *x)
 		break;
 
 	case Qwctl:
-		if(writewctl(x, buf) < 0){
-			filsysrespond(x->fs, x, &fc, buf);
+		if(writewctl(x, err) < 0){
+			filsysrespond(x->fs, x, &fc, err);
 			return;
 		}
 		break;
 
 	default:
 		fprint(2, "unknown qid %d in write\n", qid);
-		snprint(buf, sizeof(buf), "unknown qid in write");
-		filsysrespond(x->fs, x, &fc, buf);
+		filsysrespond(x->fs, x, &fc, "unknown qid in write");
 		return;
 	}
 	fc.count = cnt;
@@ -653,7 +652,7 @@ xfidread(Xfid *x)
 		alts[CRflush].c = x->flushc;
 		alts[CRflush].v = nil;
 		alts[CRflush].op = CHANRCV;
-		alts[NMR].op = CHANEND;
+		alts[NCR].op = CHANEND;
 
 		switch(alt(alts)){
 		case CRdata:
@@ -666,7 +665,6 @@ xfidread(Xfid *x)
 			return;
 		}
 
-		/* received data */
 		c1 = crm.c1;
 		c2 = crm.c2;
 		t = malloc(cnt+UTFmax+1);	/* room to unpack partial rune plus */
@@ -713,6 +711,7 @@ xfidread(Xfid *x)
 			filsyscancel(x);
 			return;
 		}
+
 		recv(mrm.cm, &ms);
 		c = 'm';
 		if(w->resized)
@@ -747,7 +746,6 @@ xfidread(Xfid *x)
 			return;
 		}
 
-		/* received data */
 		t = recvp(krm.ck);
 		fc.data = t;
 		fc.count = strlen(t)+1;
@@ -829,9 +827,12 @@ xfidread(Xfid *x)
 			goto Text;
 		}
 		off -= 5*12;
+		n = -1;
 		t = malloc(cnt);
-		fc.data = t;
-		n = readwindow(i, t, r, off, cnt);	/* careful; fc.count is unsigned */
+		if(t){
+			fc.data = t;
+			n = readwindow(i, t, r, off, cnt);	/* careful; fc.count is unsigned */
+		}
 		if(n < 0){
 			buf[0] = 0;
 			errstr(buf, sizeof buf);
@@ -858,7 +859,7 @@ xfidread(Xfid *x)
 		alts[WCRflush].c = x->flushc;
 		alts[WCRflush].v = nil;
 		alts[WCRflush].op = CHANRCV;
-		alts[NMR].op = CHANEND;
+		alts[NWCR].op = CHANEND;
 
 		switch(alt(alts)){
 		case WCRdata:
@@ -871,7 +872,6 @@ xfidread(Xfid *x)
 			return;
 		}
 
-		/* received data */
 		c1 = cwrm.c1;
 		c2 = cwrm.c2;
 		t = malloc(cnt+1);	/* be sure to have room for NUL */

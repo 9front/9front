@@ -24,6 +24,7 @@ enum
 };
 
 #define	STACK	8192
+#define	MAXSNARF	100*1024
 
 typedef	struct	Consreadmesg Consreadmesg;
 typedef	struct	Conswritemesg Conswritemesg;

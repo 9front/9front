@@ -270,24 +270,29 @@ void
 getsnarf(void)
 {
 	int i, n, nb, nulls;
-	char *sn, buf[1024];
+	char *s, *sn;
 
 	if(snarffd < 0)
 		return;
 	sn = nil;
 	i = 0;
 	seek(snarffd, 0, 0);
-	while((n = read(snarffd, buf, sizeof buf)) > 0){
-		sn = erealloc(sn, i+n+1);
-		memmove(sn+i, buf, n);
+	for(;;){
+		if(i > MAXSNARF)
+			break;
+		if((s = realloc(sn, i+1024+1)) == nil)
+			break;
+		sn = s;
+		if((n = read(snarffd, sn+i, 1024)) <= 0)
+			break;
 		i += n;
-		sn[i] = 0;
 	}
-	if(i > 0){
-		snarf = runerealloc(snarf, i+1);
+	if(i == 0)
+		return;
+	sn[i] = 0;
+	if((snarf = runerealloc(snarf, i+1)) != nil)
 		cvttorunes(sn, i, snarf, &nb, &nsnarf, &nulls);
-		free(sn);
-	}
+	free(sn);
 }
 
 void
@@ -365,16 +370,15 @@ keyboardsend(char *s, int cnt)
 	if(s[cnt-1] == 0)
 		chanprint(kbdchan, "%s", s);
 	else {
-		Rune *r;
-		int i, nb, nr;
+		Rune r;
+		int nb;
 
-		r = runemalloc(cnt);
-		cvttorunes(s, cnt, r, &nb, &nr, nil);
-		for(i=0; i<nr; i++){
-			if(r[i])
-				chanprint(kbdchan, "c%C", r[i]);
+		nb = 0;
+		while(fullrune(s+nb, cnt-nb)){
+			nb += chartorune(&r, s+nb);
+			if(r != 0)
+				chanprint(kbdchan, "c%C", r);
 		}
-		free(r);
 	}
 }
 

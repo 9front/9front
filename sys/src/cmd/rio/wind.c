@@ -435,11 +435,13 @@ winctl(void *arg)
 					showcandidates(w, cr);
 				if(cr->advance){
 					rp = runesmprint("%s", cr->string);
-					nr = runestrlen(rp);
-					q0 = w->q0;
-					q0 = winsert(w, rp, nr, q0);
-					wshow(w, q0+nr);
-					free(rp);
+					if(rp){
+						nr = runestrlen(rp);
+						q0 = w->q0;
+						q0 = winsert(w, rp, nr, q0);
+						wshow(w, q0+nr);
+						free(rp);
+					}
 				}
 			}
 			freecompletion(cr);
@@ -582,21 +584,19 @@ namecomplete(Window *w)
 	runemove(path, w->r+(w->q0-nstr-npath), npath);
 
 	/* is path rooted? if not, we need to make it relative to window path */
-	if(npath>0 && path[0]=='/'){
-		dir = malloc(UTFmax*npath+1);
-		sprint(dir, "%.*S", npath, path);
-	}else{
+	if(npath>0 && path[0]=='/')
+		dir = runetobyte(path, npath, &npath);
+	else {
 		if(strcmp(w->dir, "") == 0)
 			root = ".";
 		else
 			root = w->dir;
-		dir = malloc(strlen(root)+1+UTFmax*npath+1);
-		sprint(dir, "%s/%.*S", root, npath, path);
+		dir = smprint("%s/%.*S", root, npath, path);
 	}
 
 	/* run in background, winctl will collect the result on w->complete chan */
 	job = emalloc(sizeof *job);
-	job->str = smprint("%.*S", nstr, str);
+	job->str = runetobyte(str, nstr, &nstr);
 	job->dir = cleanname(dir);
 	job->win = w;
 	incref(w);

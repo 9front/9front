@@ -13,8 +13,9 @@
 char Eperm[] = "permission denied";
 char Eexist[] = "file does not exist";
 char Enotdir[] = "not a directory";
-char	Ebadfcall[] = "bad fcall type";
-char	Eoffset[] = "illegal offset";
+char Ebadfcall[] = "bad fcall type";
+char Eoffset[] = "illegal offset";
+char Enomem[] = "out of memory";
 
 int	messagesize = 8192+IOHDRSZ;	/* good start */
 
@@ -192,7 +193,9 @@ filsysproc(void *arg)
 	fs->pid = getpid();
 	x = nil;
 	for(;;){
-		buf = emalloc(messagesize+UTFmax);	/* UTFmax for appending partial rune in xfidwrite */
+		buf = malloc(messagesize+UTFmax);	/* UTFmax for appending partial rune in xfidwrite */
+		if(buf == nil)
+			error(Enomem);
 		while((n = read9pmsg(fs->sfd, buf, messagesize)) == 0)
 			yield();
 		if(n < 0){
@@ -259,7 +262,7 @@ filsysrespond(Filsys *fs, Xfid *x, Fcall *t, char *err)
 	t->fid = x->fid;
 	t->tag = x->tag;
 	if(x->buf == nil)
-		x->buf = malloc(messagesize);
+		error("no buffer in respond");
 	n = convS2M(t, x->buf, messagesize);
 	if(n <= 0)
 		error("convert error in convS2M");
@@ -556,7 +559,7 @@ filsysread(Filsys *fs, Xfid *x, Fid *f)
 	clock = getclock();
 	b = malloc(messagesize-IOHDRSZ);	/* avoid memset of emalloc */
 	if(b == nil)
-		return filsysrespond(fs, x, &t, "out of memory");
+		return filsysrespond(fs, x, &t, Enomem);
 	n = 0;
 	switch(FILE(f->qid)){
 	case Qdir:

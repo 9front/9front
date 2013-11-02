@@ -58,6 +58,7 @@ erealloc(void *p, uint n)
 	p = realloc(p, n);
 	if(p == nil)
 		error("realloc failed");
+	setrealloctag(p, getcallerpc(&p));
 	return p;
 }
 
@@ -69,6 +70,7 @@ emalloc(uint n)
 	p = malloc(n);
 	if(p == nil)
 		error("malloc failed");
+	setmalloctag(p, getcallerpc(&n));
 	memset(p, 0, n);
 	return p;
 }
