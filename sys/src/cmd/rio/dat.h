@@ -258,8 +258,6 @@ struct Xfid
 		Fid		*f;
 		uchar	*buf;
 		Filsys	*fs;
-		QLock	active;
-		int		flushing;	/* another Xfid is trying to flush us */
 		int		flushtag;	/* our tag, so flush can find us */
 		Channel	*flushc;	/* channel(int) to notify us we're being flushed */
 };

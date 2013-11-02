@@ -70,8 +70,6 @@ xfidallocthread(void*)
 				fprint(2, "%p incref %ld\n", x, x->ref);
 				error("incref");
 			}
-			if(x->flushing)
-				error("flushing in allocate");
 			if(x->flushtag != -1)
 				error("flushtag in allocate");
 			incref(x);
@@ -82,8 +80,6 @@ xfidallocthread(void*)
 				fprint(2, "%p decref %ld\n", x, x->ref);
 				error("decref");
 			}
-			if(x->flushing)
-				error("flushing in free");
 			if(x->flushtag != -1)
 				error("flushtag in free");
 			x->free = xfidfree;
@@ -114,8 +110,10 @@ xfidctl(void *arg)
 	threadsetname(buf);
 	for(;;){
 		f = recvp(x->c);
-		x->flushtag = x->tag;
-		(*f)(x);
+		if(f){
+			x->flushtag = x->tag;
+			(*f)(x);
+		}
 		if(decref(x) == 0)
 			sendp(cxfidfree, x);
 	}
@@ -146,28 +144,30 @@ xfidflush(Xfid *x)
 	sendul(x->fs->csyncflush, 0);
 
 	if(xf){
-		qlock(&xf->active);
-		if(xf->buf){	/* not responded yet? */
-			xf->flushing = TRUE;
-			qunlock(&xf->active);
-			sendul(xf->flushc, 0);
-			xf->flushing = FALSE;
-		}else{
-			qunlock(&xf->active);
-		}
-		if(decref(xf) == 0)
-			sendp(cxfidfree, xf);
-	}
+		enum { Done, Flush, End };
+		Alt alts[End+1];
+		void *f;
+		int z;
 
-	qlock(&x->active);
-	if(x->flushing){
-		qunlock(&x->active);
-		recv(x->flushc, nil);	/* wakeup flushing xfid */
+		z = 0;
+		f = nil;
+
+		alts[Done].c = xf->c;
+		alts[Done].v = &f;
+		alts[Done].op = CHANSND;
+		alts[Flush].c = xf->flushc;
+		alts[Flush].v = &z;
+		alts[Flush].op = CHANSND;
+		alts[End].op = CHANEND;
+
+		while(alt(alts) != Done)
+			;
+	}
+	if(nbrecv(x->flushc, nil)){
 		filsyscancel(x);
 		return;
 	}
 	filsysrespond(x->fs, x, &t, nil);
-	qunlock(&x->active);
 }
 
 void
@@ -439,16 +439,9 @@ xfidwrite(Xfid *x)
 		case CWdata:
 			break;
 		case CWgone:
-			qlock(&x->active);
-			if(!x->flushing){
-				filsysrespond(x->fs, x, &fc, Edeleted);
-				qunlock(&x->active);
-				free(r);
-				return;
-			}
-			qunlock(&x->active);
-			recv(x->flushc, nil);	/* wake up flushing xfid */
-			/* no break */
+			filsysrespond(x->fs, x, &fc, Edeleted);
+			free(r);
+			return;
 		case CWflush:
 			free(r);
 			filsyscancel(x);
@@ -456,23 +449,11 @@ xfidwrite(Xfid *x)
 		}
 
 		/* received data */
-		qlock(&x->active);
-		if(x->flushing){
-			qunlock(&x->active);
-			recv(x->flushc, nil);	/* wake up flushing xfid */
-			free(r);
-			pair.s = runemalloc(1);
-			pair.ns = 0;
-			send(cwm.cw, &pair);		/* wake up window with empty data */
-			filsyscancel(x);
-			return;
-		}
 		pair.s = r;
 		pair.ns = nr;
 		send(cwm.cw, &pair);
 		fc.count = x->count;
 		filsysrespond(x->fs, x, &fc, nil);
-		qunlock(&x->active);
 		return;
 
 	case Qconsctl:
@@ -678,15 +659,8 @@ xfidread(Xfid *x)
 		case CRdata:
 			break;
 		case CRgone:
-			qlock(&x->active);
-			if(!x->flushing){
-				filsysrespond(x->fs, x, &fc, Edeleted);
-				qunlock(&x->active);
-				return;
-			}
-			qunlock(&x->active);
-			recv(x->flushc, nil);	/* wake up flushing xfid */
-			/* no break */
+			filsysrespond(x->fs, x, &fc, Edeleted);
+			return;
 		case CRflush:
 			filsyscancel(x);
 			return;
@@ -699,20 +673,10 @@ xfidread(Xfid *x)
 		pair.s = t;
 		pair.ns = cnt;
 		send(c1, &pair);
-		qlock(&x->active);
-		if(x->flushing){
-			qunlock(&x->active);
-			recv(x->flushc, nil);	/* wake up flushing xfid */
-			recv(c2, nil);			/* wake up window and toss data */
-			free(t);
-			filsyscancel(x);
-			return;
-		}
 		recv(c2, &pair);
 		fc.data = pair.s;
 		fc.count = pair.ns;
 		filsysrespond(x->fs, x, &fc, nil);
-		qunlock(&x->active);
 		free(t);
 		break;
 
@@ -743,26 +707,9 @@ xfidread(Xfid *x)
 		case MRdata:
 			break;
 		case MRgone:
-			qlock(&x->active);
-			if(!x->flushing){
-				filsysrespond(x->fs, x, &fc, Edeleted);
-				qunlock(&x->active);
-				return;
-			}
-			qunlock(&x->active);
-			recv(x->flushc, nil);	/* wake up flushing xfid */
-			/* no break */
-		case MRflush:
-			filsyscancel(x);
+			filsysrespond(x->fs, x, &fc, Edeleted);
 			return;
-		}
-
-		/* received data */
-		qlock(&x->active);
-		if(x->flushing){
-			qunlock(&x->active);
-			recv(x->flushc, nil);		/* wake up flushing xfid */
-			recv(mrm.cm, nil);			/* wake up window and toss data */
+		case MRflush:
 			filsyscancel(x);
 			return;
 		}
@@ -775,7 +722,6 @@ xfidread(Xfid *x)
 		fc.data = buf;
 		fc.count = min(n, cnt);
 		filsysrespond(x->fs, x, &fc, nil);
-		qunlock(&x->active);
 		break;
 
 	case Qkbd:
@@ -794,15 +740,8 @@ xfidread(Xfid *x)
 		case MRdata:
 			break;
 		case MRgone:
-			qlock(&x->active);
-			if(!x->flushing){
-				filsysrespond(x->fs, x, &fc, Edeleted);
-				qunlock(&x->active);
-				return;
-			}
-			qunlock(&x->active);
-			recv(x->flushc, nil);	/* wake up flushing xfid */
-			/* no break */
+			filsysrespond(x->fs, x, &fc, Edeleted);
+			return;
 		case MRflush:
 			filsyscancel(x);
 			return;
@@ -810,18 +749,9 @@ xfidread(Xfid *x)
 
 		/* received data */
 		t = recvp(krm.ck);
-		qlock(&x->active);
-		if(x->flushing){
-			qunlock(&x->active);
-			free(t);		/* toss data */
-			recv(x->flushc, nil);		/* wake up flushing xfid */
-			filsyscancel(x);
-			return;
-		}
 		fc.data = t;
 		fc.count = strlen(t)+1;
 		filsysrespond(x->fs, x, &fc, nil);
-		qunlock(&x->active);
 		free(t);
 		break;
 
@@ -934,15 +864,8 @@ xfidread(Xfid *x)
 		case WCRdata:
 			break;
 		case WCRgone:
-			qlock(&x->active);
-			if(!x->flushing){
-				filsysrespond(x->fs, x, &fc, Edeleted);
-				qunlock(&x->active);
-				return;
-			}
-			qunlock(&x->active);
-			recv(x->flushc, nil);	/* wake up flushing xfid */
-			/* no break */
+			filsysrespond(x->fs, x, &fc, Edeleted);
+			return;
 		case WCRflush:
 			filsyscancel(x);
 			return;
@@ -955,22 +878,12 @@ xfidread(Xfid *x)
 		pair.s = t;
 		pair.ns = cnt+1;
 		send(c1, &pair);
-		qlock(&x->active);
-		if(x->flushing){
-			qunlock(&x->active);
-			recv(x->flushc, nil);	/* wake up flushing xfid */
-			recv(c2, nil);			/* wake up window and toss data */
-			free(t);
-			filsyscancel(x);
-			return;
-		}
 		recv(c2, &pair);
 		fc.data = pair.s;
 		if(pair.ns > cnt)
 			pair.ns = cnt;
 		fc.count = pair.ns;
 		filsysrespond(x->fs, x, &fc, nil);
-		qunlock(&x->active);
 		free(t);
 		break;
 
