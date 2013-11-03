@@ -206,7 +206,7 @@ extern void	amldelay(int);
 .EE
 .PP
 .I Amldelay
-is called by the interpreter with the number of milliseconds it
+is called by the interpreter with the number of microseconds it
 needs to wait.
 .PP
 .EX
