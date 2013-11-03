@@ -164,7 +164,7 @@ showcandidates(Window *, Completion *);
 void
 winctl(void *arg)
 {
-	Rune *rp, *bp, *tp, *up;
+	Rune *rp, *up;
 	uint qh, q0;
 	int nr, nb, c, wid, i, npart, initial, lastb;
 	char *s, *t, part[3];
@@ -346,23 +346,18 @@ winctl(void *arg)
 			recv(cwm.cw, &pair);
 			rp = pair.s;
 			nr = pair.ns;
-			bp = rp;
 			for(i=0; i<nr; i++)
-				if(*bp++ == '\b'){
-					--bp;
+				if(rp[i] == '\b'){
+					up = rp+i;
 					initial = 0;
-					tp = runemalloc(nr);
-					runemove(tp, rp, i);
-					up = tp+i;
 					for(; i<nr; i++){
-						*up = *bp++;
-						if(*up == '\b')
-							if(up == tp)
+						if(rp[i] == '\b'){
+							if(up == rp)
 								initial++;
 							else
-								--up;
-						else
-							up++;
+								up--;
+						}else
+							*up++ = rp[i];
 					}
 					if(initial){
 						if(initial > w->qh)
@@ -371,10 +366,7 @@ winctl(void *arg)
 						wdelete(w, qh, qh+initial);
 						w->qh = qh;
 					}
-					free(rp);
-					rp = tp;
-					nr = up-tp;
-					rp[nr] = 0;
+					nr = up - rp;
 					break;
 				}
 			w->qh = winsert(w, rp, nr, w->qh)+nr;
