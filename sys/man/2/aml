@@ -31,7 +31,7 @@ void*	amlroot;
 int	amldebug;
 .EE
 .SH DESCRIPTION
-The aml library implements a interpreter for the ACPI machine language
+The aml library implements an interpreter for the ACPI machine language
 byte code.
 .PP
 The interpreter runtime state is initialized by calling
@@ -40,7 +40,7 @@ and frees all the resources when
 .I amlexit
 is called.
 The runtime state consists of objects organized in a global
-namespace. The name object refered by
+namespace. The name object referred to by
 .I amlroot
 is the root of that namespace.
 .PP
@@ -74,7 +74,7 @@ underlying type:
 .PP
 Name objects (like
 .IR amlroot )
-can be traversed with
+can be traversed with the
 .I amlenum
 and
 .I amlwalk
@@ -107,19 +107,19 @@ for the current dot.
 returns the value of a name, reference or field object.
 Calling
 .I amlval
-on any other object yiedls the same object.
+on any other object yields the same object.
 .PP
 .I Amllen
 is defined for variable length objects like buffers, strings and packages.
-For strings, the number of characters (not including terminating null byte)
+For strings, the number of characters (not including the terminating null byte)
 is returned. For buffers, the size of the buffer in bytes is returned.
 For packages (arrays), the number of elements is returned. For any other
 object types, the return value is undefined.
 .PP
 .I Amlint
 returns the integer value of an object. For strings, the string is interpreted
-as hexadecimal number. For buffers and buffer fields, the binary value is returned.
-Integers just return ther value. Any other object types yield zero.
+as an hexadecimal number. For buffers and buffer fields, the binary value is returned.
+Integers just return their value. Any other object types yield zero.
 .PP
 Integer, buffer, string and package objects can be created with the
 .I amlnew
@@ -191,7 +191,7 @@ extern void	amlfree(void*);
 .I Amlalloc
 and
 .I amlfree
-can be optionaly defined to control dynamic memory allocation 
+can be optionally defined to control dynamic memory allocation 
 providing a way to limit or pool the memory allocated by acpi.
 If not provided, the library will use the functions
 defined in
