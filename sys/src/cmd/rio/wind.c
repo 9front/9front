@@ -569,11 +569,9 @@ namecomplete(Window *w)
 	if(w->q0<w->nr && w->r[w->q0]>' ')	/* must be at end of word */
 		return;
 	nstr = windfilewidth(w, w->q0, TRUE);
-	str = runemalloc(nstr);
-	runemove(str, w->r+(w->q0-nstr), nstr);
+	str = w->r+(w->q0-nstr);
 	npath = windfilewidth(w, w->q0-nstr, FALSE);
-	path = runemalloc(npath);
-	runemove(path, w->r+(w->q0-nstr-npath), npath);
+	path = w->r+(w->q0-nstr-npath);
 
 	/* is path rooted? if not, we need to make it relative to window path */
 	if(npath>0 && path[0]=='/')
@@ -585,6 +583,8 @@ namecomplete(Window *w)
 			root = w->dir;
 		dir = smprint("%s/%.*S", root, npath, path);
 	}
+	if(dir == nil)
+		return;
 
 	/* run in background, winctl will collect the result on w->complete chan */
 	job = emalloc(sizeof *job);
@@ -593,9 +593,6 @@ namecomplete(Window *w)
 	job->win = w;
 	incref(w);
 	proccreate(completeproc, job, STACK);
-
-	free(path);
-	free(str);
 }
 
 void
@@ -1640,10 +1637,8 @@ wsetorigin(Window *w, uint org, int exact)
 		fixup = 1;	/* frdelete can leave end of last line in wrong selection mode; it doesn't know what follows */
 	}else if(a<0 && -a<w->nchars){
 		n = w->org - org;
-		r = runemalloc(n);
-		runemove(r, w->r+org, n);
+		r = w->r+org;
 		frinsert(w, r, r+n, 0);
-		free(r);
 	}else
 		frdelete(w, 0, w->nchars);
 	w->org = org;
@@ -1764,16 +1759,14 @@ wfill(Window *w)
 	Rune *rp;
 	int i, n, m, nl;
 
-	if(w->lastlinefull)
-		return;
-	rp = malloc(messagesize);
-	do{
+	while(w->lastlinefull == FALSE){
 		n = w->nr-(w->org+w->nchars);
 		if(n == 0)
 			break;
 		if(n > 2000)	/* educated guess at reasonable amount */
 			n = 2000;
-		runemove(rp, w->r+(w->org+w->nchars), n);
+		rp = w->r+(w->org+w->nchars);
+
 		/*
 		 * it's expensive to frinsert more than we need, so
 		 * count newlines.
@@ -1788,8 +1781,7 @@ wfill(Window *w)
 			}
 		}
 		frinsert(w, rp, rp+i, w->nchars);
-	}while(w->lastlinefull == FALSE);
-	free(rp);
+	}
 }
 
 char*
