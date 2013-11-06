@@ -46,7 +46,7 @@ output(void *, struct mad_header const* header, struct mad_pcm *pcm)
 
 		rate = pcm->samplerate;
 		chans = pcm->channels;
-		snprint(fmt, sizeof(fmt), "s32r%dc%d", rate, chans);
+		snprint(fmt, sizeof(fmt), "s%dr%dc%d", MAD_F_FRACBITS+1, rate, chans);
 
 		if(ifd >= 0){
 			close(ifd);
@@ -82,6 +82,13 @@ output(void *, struct mad_header const* header, struct mad_pcm *pcm)
 		p = buf + j*4;
 		for(i=0; i < pcm->length; i++){
 			v = *s++;
+
+			/* clipping */
+			if(v >= MAD_F_ONE)
+				v = MAD_F_ONE-1;
+			else if(v < -MAD_F_ONE)
+				v = -MAD_F_ONE;
+
 			p[0] = v, v>>=8;
 			p[1] = v, v>>=8;
 			p[2] = v, v>>=8;
