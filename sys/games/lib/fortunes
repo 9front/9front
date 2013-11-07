@@ -4947,3 +4947,6 @@ etymology: various
 AFTER READ THE PAGE YOU UNDRSTAND WHAT IM TALKING TO YOU !
 To oversimplify, the POSIX.1-2008 specification is simultaneously released as both The Open Group's Base Specifications Issue 7 and IEEE Std 1003.1(TM)-2008.
 i'm having trouble typing spaces on the r400 lately. not sure if it'sthe machine, or if my disease is making my fingersweaker
+Subject: make ftp(1) ignore leading whitespace in URLs
+cat-v.org claims that C++ was invented as a joke... Is it a joke? -- bbs.archlinux.org
+That's great. -- Andy Warhol
