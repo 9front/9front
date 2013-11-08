@@ -228,9 +228,6 @@ putpage(Page *p)
 		return;
 	}
 
-	if(p->image && p->image->nocache)
-		uncachepage(p);
-
 	if(p->image && p->image != &swapimage)
 		pagechaintail(p);
 	else 
@@ -294,8 +291,8 @@ duppage(Page *p)				/* Always call with p locked */
 		return;
 	}
 
-	/* No freelist cache with uncached image or when memory is very low */
-	if(p->image->nocache || palloc.freecount < swapalloc.highwater) {
+	/* No freelist cache when memory is very low */
+	if(palloc.freecount < swapalloc.highwater) {
 		unlock(&palloc);
 		uncachepage(p);
 		return;
@@ -360,8 +357,10 @@ void
 uncachepage(Page *p)			/* Always called with a locked page */
 {
 	Page **l, *f;
+	Image *i;
 
-	if(p->image == 0)
+	i = p->image;
+	if(i == 0)
 		return;
 
 	lock(&palloc.hashlock);
@@ -374,9 +373,13 @@ uncachepage(Page *p)			/* Always called with a locked page */
 		l = &f->hash;
 	}
 	unlock(&palloc.hashlock);
-	putimage(p->image);
 	p->image = 0;
 	p->daddr = 0;
+
+	lock(i);
+	i->pgref--;
+	unlock(i);
+	putimage(i);
 }
 
 void
@@ -392,7 +395,11 @@ cachepage(Page *p, Image *i)
 	if(p->image)
 		panic("cachepage");
 
-	incref(i);
+	lock(i);
+	i->ref++;
+	i->pgref++;
+	unlock(i);
+
 	lock(&palloc.hashlock);
 	p->image = i;
 	l = &pghash(p->daddr);

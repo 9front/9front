@@ -247,12 +247,8 @@ attachimage(int type, Chan *c, ulong base, ulong len)
 	for(i = ihash(c->qid.path); i; i = i->hash) {
 		if(c->qid.path == i->qid.path) {
 			lock(i);
-			if(eqqid(c->qid, i->qid) &&
-			   eqqid(c->mqid, i->mqid) &&
-			   c->mchan == i->mchan &&
-			   c->type == i->type) {
+			if(eqchantdqid(c, i->type, i->dev, i->qid, 0) && c->qid.type == i->qid.type)
 				goto found;
-			}
 			unlock(i);
 		}
 	}
@@ -274,18 +270,20 @@ attachimage(int type, Chan *c, ulong base, ulong len)
 	imagealloc.free = i->next;
 
 	lock(i);
-	incref(c);
-	i->nocache = (c->flag & CCACHE) == 0;
-	c->flag &= ~CCACHE;
-	i->c = c;
 	i->type = c->type;
+	i->dev = c->dev;
 	i->qid = c->qid;
-	i->mqid = c->mqid;
-	i->mchan = c->mchan;
+
 	l = &ihash(c->qid.path);
 	i->hash = *l;
 	*l = i;
+
 found:
+	if(i->c == nil){
+		i->c = c;
+		c->flag &= ~CCACHE;
+		incref(c);
+	}
 	unlock(&imagealloc);
 
 	if(i->s == 0) {
@@ -360,12 +358,21 @@ putimage(Image *i)
 	if(i->notext)
 		return;
 
+	c = nil;
 	lock(i);
-	if(--i->ref == 0) {
+	if(--i->ref == i->pgref){
+		/*
+		 * all remaining references to this image are from the
+		 * page cache now. close the channel as we can reattach
+		 * the chan on attachimage()
+		 */
+		c = i->c;
+		i->c = nil;
+	}
+	if(i->ref == 0){
 		l = &ihash(i->qid.path);
 		mkqid(&i->qid, ~0, ~0, QTFILE);
 		unlock(i);
-		c = i->c;
 
 		lock(&imagealloc);
 		for(f = *l; f; f = f->hash) {
@@ -375,15 +382,13 @@ putimage(Image *i)
 			}
 			l = &f->hash;
 		}
-
 		i->next = imagealloc.free;
 		imagealloc.free = i;
 		unlock(&imagealloc);
-
+	} else
+		unlock(i);
+	if(c)
 		ccloseq(c);	/* does not block */
-		return;
-	}
-	unlock(i);
 }
 
 long

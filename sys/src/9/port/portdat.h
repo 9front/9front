@@ -344,16 +344,15 @@ struct Swapalloc
 struct Image
 {
 	Ref;
-	Chan	*c;			/* channel to text file */
+	long	pgref;			/* number of cached pages (pgref <= ref) */
+	Chan	*c;			/* channel to text file, nil when not used */
 	Qid 	qid;			/* Qid for page cache coherence */
-	Qid	mqid;
-	Chan	*mchan;
+	ulong	dev;			/* Device id of owning channel */
 	ushort	type;			/* Device type of owning channel */
 	Segment *s;			/* TEXT segment for image if running */
 	Image	*hash;			/* Qid hash chains */
 	Image	*next;			/* Free list */
 	char	notext;			/* no file associated */
-	char	nocache;		/* no freelist page caching */
 };
 
 struct Pte

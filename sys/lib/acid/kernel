@@ -29,9 +29,18 @@ defn path(p) {
 // print Image cache contents
 IHASHSIZE = 64;
 defn imagecacheline(h) {
+	local d, p, q;
+
 	while h != 0 do {
 		complex Image h;
-		print (h\X, " ", qid(h.qid), " type ", h.type\D, " ref ", h.ref, " next ", h.next\X, " ", path(h.c.path), "\n");
+
+		d=(Dev)(*(devtab+4*h.type));
+		p = "*closed*";
+		if h.c != 0 then
+			p = path(h.c.path);
+		q = h.qid;
+		print (h\X, " ref=", h.ref, " pgref=", h.pgref, "\t#", d.dc\r, h.dev\D, " (",
+			q.path, " ", q.vers\D, " ", q.type\X, ") ", p, "\n");
 		h = h.hash;
 	}
 }
