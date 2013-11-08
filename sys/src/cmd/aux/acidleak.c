@@ -305,7 +305,9 @@ main(int argc, char **argv)
 					else
 						nhdr++;
 				}
-				if(b->mark == 0 && !b->free)
+				if(b->free)
+					continue;
+				if(b->mark == 0)
 					nleak++;
 				nb++;
 			}
