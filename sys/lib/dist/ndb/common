@@ -14,10 +14,21 @@ dom=F.ROOT-SERVERS.NET ip=192.5.5.241
 dom=G.ROOT-SERVERS.NET ip=192.112.36.4
 dom=H.ROOT-SERVERS.NET ip=128.63.2.53
 dom=I.ROOT-SERVERS.NET ip=192.36.148.17
-dom=J.ROOT-SERVERS.NET ip=192.58.128.30	# nov 2002
+dom=J.ROOT-SERVERS.NET ip=192.58.128.30		# nov 2002
 dom=K.ROOT-SERVERS.NET ip=193.0.14.129
 dom=L.ROOT-SERVERS.NET ip=199.7.83.42		# nov 2007
 dom=M.ROOT-SERVERS.NET ip=202.12.27.33
+
+dom=A.ROOT-SERVERS.NET ip=2001:503:ba3e::2:30
+dom=B.ROOT-SERVERS.NET ip=2001:478:65::53
+dom=D.ROOT-SERVERS.NET ip=2001:500:2d::d
+dom=F.ROOT-SERVERS.NET ip=2001:500:2f::f
+dom=H.ROOT-SERVERS.NET ip=2001:500:1::803f:235
+dom=I.ROOT-SERVERS.NET ip=2001:7fe::53
+dom=J.ROOT-SERVERS.NET ip=2001:503:c27::2:30
+dom=K.ROOT-SERVERS.NET ip=2001:7fd::1
+dom=L.ROOT-SERVERS.NET ip=2001:500:3::42
+dom=M.ROOT-SERVERS.NET ip=2001:dc3::35
 
 dom=a.gtld-servers.net ip=192.5.6.30
 dom=b.gtld-servers.net ip=192.33.14.30
@@ -32,6 +43,9 @@ dom=j.gtld-servers.net ip=192.48.79.30
 dom=k.gtld-servers.net ip=192.52.178.30
 dom=l.gtld-servers.net ip=192.41.162.30
 dom=m.gtld-servers.net ip=192.55.83.30
+
+dom=a.gtld-servers.net ip=2001:503:a83e::2:30
+dom=b.gtld-servers.net ip=2001:503:231d::2:30
 
 #
 # spam defense.  unfortunately, arin doesn't give negative
