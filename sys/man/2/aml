@@ -52,6 +52,11 @@ definition block of
 .I len
 byte size read from
 .IR data .
+The pc kernel provides access to the ACPI tables through the
+.B /dev/acpitbls
+file (see
+.IR arch (3)
+for further details).
 .TP
 .BI amltag( p )
 Objects are dynamically allocated and typed and are passed as
@@ -278,3 +283,5 @@ defined in
 for dynamic allocation.
 .SH SOURCE
 .B /sys/src/libaml
+.SH "SEE ALSO"
+.IR arch (3)

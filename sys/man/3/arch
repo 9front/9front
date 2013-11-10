@@ -5,6 +5,7 @@ arch \- architecture-specific information and control
 .nf
 .B bind -a #P /dev
 .sp 0.3v
+.B /dev/acpitbls
 .B /dev/archctl
 .B /dev/cputype
 .B /dev/ioalloc
@@ -126,6 +127,14 @@ file descriptor.
 Reads and writes to
 .I msr
 go to the P4/P6/Core/Core2/AMD64 MSRs.
+.PP
+Reads from
+.I acpitbls
+returns a concatenation of system ACPI tables. Each table
+is prefixed with a fixed size header that gives the name
+sigature and size of the table (see section
+.IR "5.2.6 System Description Table Header"
+in the ACPI specification).
 .SH EXAMPLE
 The following code reads from an x86 byte I/O port.
 .IP
