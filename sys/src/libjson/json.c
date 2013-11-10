@@ -36,6 +36,8 @@ getch(Lex *l)
 		l->peeked = 0;
 		return r;
 	}
+	if(l->s[0] == '\0')
+		return 0;
 	l->s += chartorune(&r, l->s);
 	return r;
 }
@@ -318,11 +320,8 @@ jsonparse(char *s)
 
 	memset(&l, 0, sizeof(l));
 	l.s = s;
-	if((l.slen = strlen(s)) == 0){
-		werrstr("empty string");
-		return nil;
-	}
-	if((l.buf = mallocz(l.slen, 1)) == nil)
+	l.slen = strlen(s);
+	if((l.buf = mallocz(l.slen+1, 1)) == nil)
 		return nil;
 
 	j = jsonobj(&l);
