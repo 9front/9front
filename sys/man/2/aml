@@ -33,7 +33,8 @@ int	amldebug;
 .SH DESCRIPTION
 The aml library implements an interpreter for the ACPI machine language
 byte code.
-.PP
+.TP
+\f5amlinit() \f5amlexit()
 The interpreter runtime state is initialized by calling
 .I amlinit
 and frees all the resources when
@@ -43,14 +44,16 @@ The runtime state consists of objects organized in a global
 namespace. The name object referred to by
 .I amlroot
 is the root of that namespace.
-.PP
+.TP
+.BI amlload( data , len )
 .I Amlload
 populates the namespace with objects parsed from the
 definition block of 
 .I len
 byte size read from
 .IR data .
-.PP
+.TP
+.BI amltag( p )
 Objects are dynamically allocated and typed and are passed as
 .B void*
 pointers. The type tag of an object can be determined with the
@@ -71,20 +74,18 @@ underlying type:
  *	R	void*	reference
  */
 .EE
-.PP
-Name objects (like
-.IR amlroot )
-can be traversed with the
-.I amlenum
-and
-.I amlwalk
-functions. The
-.I amlwalk
-function
-takes a path string (relative or absolute)
+.TP
+.BI amlwalk( dot , name )
+.I Amlwalk
+takes a path string (relative to
+.IR dot )
+in
+.I name
 and returns the final name object of the walk; or
 .B nil
 if not found.
+.TP
+\f5amlenum(\fIdot\f5,\fIseg\f5,\fIproc\f5,\fIarg\f5)
 .I Amlenum
 recursively enumerates all child name objects of
 .I dot
@@ -102,25 +103,29 @@ When
 .I proc
 returns zero, enumeration will continue recursively down
 for the current dot.
-.PP
+.TP
+.BI amlval( p )
 .I Amlval
 returns the value of a name, reference or field object.
 Calling
 .I amlval
 on any other object yields the same object.
-.PP
+.TP
+.BI amllen( p )
 .I Amllen
 is defined for variable length objects like buffers, strings and packages.
 For strings, the number of characters (not including the terminating null byte)
 is returned. For buffers, the size of the buffer in bytes is returned.
 For packages (arrays), the number of elements is returned. For any other
 object types, the return value is undefined.
-.PP
+.TP
+.BI amlint( p )
 .I Amlint
 returns the integer value of an object. For strings, the string is interpreted
 as an hexadecimal number. For buffers and buffer fields, the binary value is returned.
 Integers just return their value. Any other object types yield zero.
-.PP
+.TP
+.BI amlnew( tag , len )
 Integer, buffer, string and package objects can be created with the
 .I amlnew
 function. The 
@@ -130,7 +135,8 @@ specific definition of the
 parameter is the same as in
 .I amllen
 (see above).
-.PP
+.TP
+\f5amleval(\fIdot\f5,\fIfmt\f5,\fI...\f5)
 .I Amleval
 evaluates the name object
 .IR dot .
@@ -168,7 +174,8 @@ The last variable argument is a pointer to the result
 object location. When the last parameter is
 .B nil
 the result is discarded.
-.PP
+.TP
+\f5amltake(\fIp\f5) \f5amldrop(\fIp\f5)
 Objects returned by
 .IR amlval ,
 .I amleval
@@ -182,45 +189,28 @@ To remark an object for collection,
 needs be called.
 Objects stay valid as long as they are reachable from
 .IR amlroot .
-.PP
-.EX
-extern void*	amlalloc(int);
-extern void	amlfree(void*);
-.EE
-.PP
-.I Amlalloc
-and
-.I amlfree
-can be optionally defined to control dynamic memory allocation 
-providing a way to limit or pool the memory allocated by acpi.
-If not provided, the library will use the functions
-defined in
-.IR malloc (2)
-for dynamic allocation.
+.bp
 .PP
 The aml library can be linked into userspace programs and
-and the kernel which have different means of hardware access.
+and the kernel which have different means of hardware access
+and memory constraints.
 .PP
-.EX
-extern void	amldelay(int);
-.EE
-.PP
-.I Amldelay
-is called by the interpreter with the number of microseconds it
-needs to wait.
-.PP
-.EX
-extern int	amlmapio(Amlio *io);
-extern void	amlunmapio(Amlio *io);
-.EE
-.PP
-The interpreter calls
-.I amlmapio
-with a
+The
 .I Amlio
-data structure that needs be filled out.
-.PP
+data structure defines access to a hardware space.
 .EX
+
+enum {
+	MemSpace	= 0x00,
+	IoSpace		= 0x01,
+	PcicfgSpace	= 0x02,
+	EbctlSpace	= 0x03,
+	SmbusSpace	= 0x04,
+	CmosSpace	= 0x05,
+	PcibarSpace	= 0x06,
+	IpmiSpace	= 0x07,
+};
+
 typedef struct Amlio Amlio;
 struct Amlio
 {
@@ -234,8 +224,8 @@ struct Amlio
 	int	(*read)(Amlio *io, void *data, int len, int off);
 	int	(*write)(Amlio *io, void *data, int len, int off);
 };
+
 .EE
-.PP
 The
 members
 .IR space ,
@@ -260,19 +250,31 @@ pointer can be used freely by the map function to attach its own
 resources to the I/O region and allows it to free these resources
 on
 .IR amlunmapio .
-.PP
-The following region types are defined by ACPI:
-.EX
-enum {
-	MemSpace	= 0x00,
-	IoSpace		= 0x01,
-	PcicfgSpace	= 0x02,
-	EbctlSpace	= 0x03,
-	SmbusSpace	= 0x04,
-	CmosSpace	= 0x05,
-	PcibarSpace	= 0x06,
-	IpmiSpace	= 0x07,
-};
-.EE
+.TP
+\f5amlmapio(\fIio\f5) \f5amlunmapio(\fIio\f5)
+The interpreter calls
+.I amlmapio
+with a
+.I Amlio
+data structure that is to be filled out. When finished, the
+interpreter calls
+.I amlunmapio
+with the same data structure to allow freeing resources.
+.TP
+.BI amldelay( µs )
+.I Amldelay
+is called by the interpreter with the number of microseconds
+to sleep.
+.TP
+\f5amlalloc(\fIn\f5) \f5amlfree(\fIp\f5)
+.I Amlalloc
+and
+.I amlfree
+can be optionally defined to control dynamic memory allocation 
+providing a way to limit or pool the memory allocated by acpi.
+If not provided, the library will use the functions
+defined in
+.IR malloc (2)
+for dynamic allocation.
 .SH SOURCE
 .B /sys/src/libaml
