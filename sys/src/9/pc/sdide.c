@@ -1959,6 +1959,7 @@ atapnp(void)
 		case (0x4D69<<16)|0x105A:	/* Promise Ultra/133 TX2 */
 		case (0x3373<<16)|0x105A:	/* Promise 20378 RAID */
 		case (0x3149<<16)|0x1106:	/* VIA VT8237 SATA/RAID */
+		case (0x0415<<16)|0x1106:	/* VIA VT6415 PATA IDE */
 		case (0x3112<<16)|0x1095:	/* SiL 3112 SATA/RAID */
 			maxio = 15;
 			span = 8*1024;
