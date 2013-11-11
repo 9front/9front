@@ -318,7 +318,10 @@ jsonparse(char *s)
 
 	memset(&l, 0, sizeof(l));
 	l.s = s;
-	l.slen = strlen(s)+1;
+	if((l.slen = strlen(s)) == 0){
+		werrstr("empty string");
+		return nil;
+	}
 	if((l.buf = mallocz(l.slen, 1)) == nil)
 		return nil;
 
