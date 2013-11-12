@@ -48,7 +48,8 @@ screensize(int x, int y, int, ulong chan)
 		nexterror();
 	}
 
-	memimageinit();
+	if(memimageinit() < 0)
+		error("memimageinit failed");
 
 	lock(&vgascreenlock);
 	if(waserror()){
