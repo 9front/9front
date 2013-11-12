@@ -1072,7 +1072,9 @@ sdfakescsi(SDreq *r)
 		 * Read capacity returns the LBA of the last sector.
 		 */
 		len = unit->sectors;
-		if(len > 0)
+		if(len >= 0xffffffff)
+			len = 0xffffffff;
+		else if(len > 0)
 			len--;
 		p = r->data;
 		*p++ = len>>24;
