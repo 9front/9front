@@ -79,7 +79,7 @@ _memfillpolysc(Memimage *dst, Point *vert, int nvert, int w, Memimage *src, Poin
 	Point p0;
 	int i;
 
-	if(nvert == 0)
+	if(nvert <= 0)
 		return;
 
 	seg = malloc((nvert+2)*sizeof(Seg*));

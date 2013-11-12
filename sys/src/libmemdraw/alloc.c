@@ -121,7 +121,7 @@ freememimage(Memimage *i)
 {
 	if(i == nil)
 		return;
-	if(i->data->ref-- == 1 && i->data->allocd){
+	if(--i->data->ref == 0 && i->data->allocd){
 		if(i->data->base)
 			poolfree(imagmem, i->data->base);
 		free(i->data);

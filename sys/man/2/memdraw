@@ -94,7 +94,7 @@ int	drawdebug;
 .PP
 .ft L
 .nf
-void	memimageinit(void)
+int	memimageinit(void)
 ulong*	wordaddr(Memimage *i, Point p)
 uchar*	byteaddr(Memimage *i, Point p)
 void	memimagemove(void *from, void *to)
@@ -213,7 +213,8 @@ as well as the replicated solid color images
 and
 .BR memwhite .
 It should be called before referring to any of these images
-and before calling any of the other library functions.
+and before calling any of the other library functions. It
+returns non-zero on error.
 .PP
 Each 
 .B Memimage
