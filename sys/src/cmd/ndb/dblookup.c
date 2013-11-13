@@ -3,6 +3,7 @@
 #include <bio.h>
 #include <ndb.h>
 #include <ip.h>
+#include <ctype.h>
 #include "dns.h"
 
 enum {
@@ -102,7 +103,7 @@ RR*
 dblookup(char *name, int class, int type, int auth, int ttl)
 {
 	int err;
-	char *wild, *cp;
+	char *wild;
 	char buf[256];
 	RR *rp, *tp;
 	DN *dp, *ndp;
@@ -131,16 +132,6 @@ dblookup(char *name, int class, int type, int auth, int ttl)
 		err = 0;
 
 	/* first try the given name */
-	if(cfg.cachedb)
-		rp = rrlookup(dp, type, NOneg);
-	else
-		rp = dblookup1(name, type, auth, ttl);
-	if(rp)
-		goto out;
-
-	/* try lower case version */
-	for(cp = name; *cp; cp++)
-		*cp = tolower(*cp);
 	if(cfg.cachedb)
 		rp = rrlookup(dp, type, NOneg);
 	else
@@ -253,20 +244,30 @@ dblookup1(char *name, int type, int auth, int ttl)
 	 *  find a matching entry in the database
 	 */
 	t = nil;
-	free(ndbgetvalue(db, &s, "dom", name, attr, &t));
+	nstrcpy(dname, name, sizeof dname);
+	free(ndbgetvalue(db, &s, "dom", dname, attr, &t));
+	if(t == nil && strchr(dname, '.') == nil)
+		free(ndbgetvalue(db, &s, "sys", dname, attr, &t));
+	if(t == nil) {
+		char *cp;
 
-	/*
-	 *  hack for local names
-	 */
-	if(t == nil && strchr(name, '.') == nil)
-		free(ndbgetvalue(db, &s, "sys", name, attr, &t));
+		/* try lower case */
+		for(cp = dname; *cp; cp++)
+			if(isupper(*cp)) {
+				for(; *cp; cp++)
+					*cp = tolower(*cp);
+				free(ndbgetvalue(db, &s, "dom", dname, attr, &t));
+				if(t == nil && strchr(dname, '.') == nil)
+					free(ndbgetvalue(db, &s, "sys", dname, attr, &t));
+				break;
+			}
+	}
 	if(t == nil) {
 //		dnslog("dnlookup1(%s) name not found", name);
 		return nil;
 	}
 
 	/* search whole entry for default domain name */
-	strncpy(dname, name, sizeof dname);
 	for(nt = t; nt; nt = nt->entry)
 		if(strcmp(nt->attr, "dom") == 0){
 			nstrcpy(dname, nt->val, sizeof dname);
@@ -295,7 +296,7 @@ dblookup1(char *name, int type, int auth, int ttl)
 			nstrcpy(dname, nt->val, sizeof dname);
 			found = 1;
 		}
-		if(cistrcmp(attr, nt->attr) == 0){
+		if(strcmp(attr, nt->attr) == 0){
 			rp = (*f)(t, nt);
 			rp->auth = auth;
 			rp->db = 1;
@@ -315,7 +316,7 @@ dblookup1(char *name, int type, int auth, int ttl)
 
 	/* search whole entry */
 	for(nt = t; nt; nt = nt->entry)
-		if(nt->ptr == 0 && cistrcmp(attr, nt->attr) == 0){
+		if(nt->ptr == 0 && strcmp(attr, nt->attr) == 0){
 			rp = (*f)(t, nt);
 			rp->db = 1;
 			if(ttl)
@@ -527,7 +528,7 @@ look(Ndbtuple *entry, Ndbtuple *line, char *attr)
 
 	/* first look on same line (closer binding) */
 	for(nt = line;;){
-		if(cistrcmp(attr, nt->attr) == 0)
+		if(strcmp(attr, nt->attr) == 0)
 			return nt;
 		nt = nt->line;
 		if(nt == line)
@@ -535,7 +536,7 @@ look(Ndbtuple *entry, Ndbtuple *line, char *attr)
 	}
 	/* search whole tuple */
 	for(nt = entry; nt; nt = nt->entry)
-		if(cistrcmp(attr, nt->attr) == 0)
+		if(strcmp(attr, nt->attr) == 0)
 			return nt;
 	return 0;
 }
@@ -585,24 +586,26 @@ dbpair2cache(DN *dp, Ndbtuple *entry, Ndbtuple *pair)
 	static ulong ord;
 
 	rp = 0;
-	if(cistrcmp(pair->attr, "ip") == 0 ||
-	   cistrcmp(pair->attr, "ipv6") == 0){
+	if(strcmp(pair->attr, "ip") == 0 ||
+	   strcmp(pair->attr, "ipv6") == 0) {
 		dp->ordinal = ord++;
 		rp = addrrr(entry, pair);
-	} else 	if(cistrcmp(pair->attr, "ns") == 0)
+	}
+	else if(strcmp(pair->attr, "ns") == 0)
 		rp = nsrr(entry, pair);
-	else if(cistrcmp(pair->attr, "soa") == 0) {
+	else if(strcmp(pair->attr, "soa") == 0) {
 		rp = soarr(entry, pair);
 		addarea(dp, rp, pair);
-	} else if(cistrcmp(pair->attr, "mx") == 0)
+	}
+	else if(strcmp(pair->attr, "mx") == 0)
 		rp = mxrr(entry, pair);
-	else if(cistrcmp(pair->attr, "srv") == 0)
+	else if(strcmp(pair->attr, "srv") == 0)
 		rp = srvrr(entry, pair);
-	else if(cistrcmp(pair->attr, "cname") == 0)
+	else if(strcmp(pair->attr, "cname") == 0)
 		rp = cnamerr(entry, pair);
-	else if(cistrcmp(pair->attr, "nullrr") == 0)
+	else if(strcmp(pair->attr, "nullrr") == 0)
 		rp = nullrr(entry, pair);
-	else if(cistrcmp(pair->attr, "txtrr") == 0)
+	else if(strcmp(pair->attr, "txtrr") == 0)
 		rp = txtrr(entry, pair);
 	if(rp == nil)
 		return;
@@ -1023,7 +1026,7 @@ createv4ptrs(void)
 {
 	int len, dlen, n;
 	char *dom;
-	char buf[Domlen+1], ipa[48];
+	char buf[Domlen], ipa[48];
 	char *f[40];
 	uchar net[IPaddrlen], mask[IPaddrlen];
 	Area *s;
@@ -1038,8 +1041,7 @@ createv4ptrs(void)
 			continue;
 
 		/* get mask and net value */
-		strncpy(buf, dom, sizeof buf);
-		buf[sizeof buf-1] = 0;
+		nstrcpy(buf, dom, sizeof buf);
 		/* buf contains something like 178.204.in-addr.arpa (n==4) */
 		n = getfields(buf, f, nelem(f), 0, ".");
 		memset(mask, 0xff, IPaddrlen);
@@ -1123,7 +1125,7 @@ createv6ptrs(void)
 {
 	int len, dlen, i, n, pfxnibs;
 	char *dom;
-	char buf[Domlen+1];
+	char buf[Domlen];
 	char *f[40];
 	uchar net[IPaddrlen], mask[IPaddrlen];
 	uchar nibnet[IPaddrlen*2], nibmask[IPaddrlen*2];
@@ -1138,8 +1140,7 @@ createv6ptrs(void)
 			continue;
 
 		/* get mask and net value */
-		strncpy(buf, dom, sizeof buf);
-		buf[sizeof buf-1] = 0;
+		nstrcpy(buf, dom, sizeof buf);
 		/* buf contains something like 2.0.0.2.ip6.arpa (n==6) */
 		n = getfields(buf, f, nelem(f), 0, ".");
 		pfxnibs = n - 2;		/* 2 for .ip6.arpa */

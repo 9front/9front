@@ -56,7 +56,7 @@ addarea(DN *dp, RR *rp, Ndbtuple *t)
 		l = &owned;
 
 	for (s = *l; s != nil; s = s->next)
-		if (strcmp(dp->name, s->soarr->owner->name) == 0) {
+		if(s->soarr->owner == dp) {
 			unlock(&dnlock);
 			return;		/* we've already got one */
 		}
@@ -89,14 +89,14 @@ freearea(Area **l)
 {
 	Area *s;
 
+	lock(&dnlock);
 	while(s = *l){
 		*l = s->next;
-		lock(&dnlock);
 		rrfree(s->soarr);
 		memset(s, 0, sizeof *s);	/* cause trouble */
-		unlock(&dnlock);
 		free(s);
 	}
+	unlock(&dnlock);
 }
 
 /*

@@ -3,7 +3,6 @@
 #include <auth.h>
 #include <fcall.h>
 #include <bio.h>
-#include <ctype.h>
 #include <ip.h>
 #include <pool.h>
 #include "dns.h"

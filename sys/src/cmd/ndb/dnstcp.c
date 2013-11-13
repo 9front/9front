@@ -233,7 +233,7 @@ inzone(DN *dp, char *name, int namelen, int depth)
 	n = strlen(dp->name);
 	if(n < namelen)
 		return 0;
-	if(strcmp(name, dp->name + n - namelen) != 0)
+	if(cistrcmp(name, dp->name + n - namelen) != 0)
 		return 0;
 	if(n > namelen && dp->name[n - namelen - 1] != '.')
 		return 0;
