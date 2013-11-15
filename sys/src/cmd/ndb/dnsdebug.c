@@ -141,7 +141,7 @@ prettyrrfmt(Fmt *f)
 	p = buf;
 	e = buf + sizeof(buf);
 	p = seprint(p, e, "%-32.32s %-15.15s %-5.5s", rp->owner->name,
-		longtime(rp->db? rp->ttl: (rp->ttl - now)),
+		longtime(rp->ttl),
 		rrname(rp->type, buf, sizeof buf));
 
 	if(rp->negative){
@@ -308,9 +308,10 @@ squirrelserveraddrs(void)
 	/* look up the resolver address first */
 	cfg.resolver = 0;
 	debug = 0;
-	if(serveraddrs)
+	if(serveraddrs){
 		rrfreelist(serveraddrs);
-	serveraddrs = nil;
+		serveraddrs = nil;
+	}
 	rr = getdnsservers(Cin);
 	l = &serveraddrs;
 	for(rp = rr; rp != nil; rp = rp->next){

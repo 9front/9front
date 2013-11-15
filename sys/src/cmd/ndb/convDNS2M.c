@@ -192,18 +192,16 @@ static uchar*
 convRR2M(RR *rp, uchar *p, uchar *ep, Dict *dp)
 {
 	uchar *lp, *data;
-	int len, ttl;
+	long ttl;
+	int len;
 	Txt *t;
 
 	NAME(rp->owner->name);
 	USHORT(rp->type);
 	USHORT(rp->owner->class);
 
-	/* egregious overuse of ttl (it's absolute time in the cache) */
-	if(rp->db)
+	if(rp->db || (ttl = (long)(rp->expire - now)) > rp->ttl)
 		ttl = rp->ttl;
-	else
-		ttl = rp->ttl - now;
 	if(ttl < 0)
 		ttl = 0;
 	ULONG(ttl);

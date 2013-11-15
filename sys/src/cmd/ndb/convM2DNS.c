@@ -345,7 +345,6 @@ retry:
 	rp->type = type;
 
 	ULONG(rp->ttl);
-	rp->ttl += now;
 	USHORT(len);			/* length of data following */
 	data = sp->p;
 	assert(data != nil);

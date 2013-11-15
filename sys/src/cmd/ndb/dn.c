@@ -14,14 +14,10 @@
  * figure it out.
  */
 enum {
-//	Deftarget	= 1<<30,	/* effectively disable aging */
-//	Minage		= 1<<30,
-//	Defagefreq	= 1<<30,	/* age names this often (seconds) */
-
 	/* these settings will trigger frequent aging */
 	Deftarget	= 4000,
-	Minage		=  5*60,
-	Defagefreq	= 15*60,	/* age names this often (seconds) */
+	Minage		=  5*Min,
+	Defagefreq	= 15*Min,	/* age names this often (seconds) */
 };
 
 /*
@@ -305,9 +301,9 @@ dndump(char *file)
 		for(dp = ht[i]; dp; dp = dp->next){
 			fprint(fd, "%s\n", dp->name);
 			for(rp = dp->rr; rp; rp = rp->next) {
-				fprint(fd, "\t%R %c%c %lud/%lud\n",
+				fprint(fd, "\t%R %c%c %ld/%lud\n",
 					rp, rp->auth? 'A': 'U',
-					rp->db? 'D': 'N', rp->expire, rp->ttl);
+					rp->db? 'D': 'N', (long)(rp->expire - now), rp->ttl);
 				if (rronlist(rp, rp->next))
 					fprint(fd, "*** duplicate:\n");
 			}
@@ -372,29 +368,28 @@ dnage(DN *dp)
 	if (canlock(&dnlock))
 		abort();	/* dnage called with dnlock not held */
 	diff = now - dp->referenced;
-	if(diff < Reserved || dp->keep)
+	if(diff < Reserved || dp->mark != 0)
 		return;
 
 	l = &dp->rr;
 	while ((rp = *l) != nil){
 		assert(rp->magic == RRmagic && rp->cached);
-		if(!rp->db && (rp->expire < now || diff > dnvars.oldest))
+		if(!rp->db && ((long)(rp->expire - now) <= 0 || diff > dnvars.oldest))
 			rrdelhead(l); /* rp == *l before; *l == rp->next after */
 		else
 			l = &rp->next;
 	}
 }
 
-#define MARK(dp)	{ if (dp) (dp)->keep = 1; }
+#define MARK(dp)	{ if (dp) (dp)->mark |= 2; }
 
 /* mark a domain name and those in its RRs as never to be aged */
 void
-dnagenever(DN *dp, int dolock)
+dnagenever(DN *dp)
 {
 	RR *rp;
 
-	if (dolock)
-		lock(&dnlock);
+	lock(&dnlock);
 
 	/* mark all referenced domain names */
 	MARK(dp);
@@ -449,11 +444,10 @@ dnagenever(DN *dp, int dolock)
 		}
 	}
 
-	if (dolock)
-		unlock(&dnlock);
+	unlock(&dnlock);
 }
 
-#define REF(dp)	{ if (dp) (dp)->refs++; }
+#define REF(dp)	{ if (dp) (dp)->mark |= 1; }
 
 /*
  *  periodicly sweep for old records and remove unreferenced domain names
@@ -468,7 +462,7 @@ dnageall(int doit)
 	RR *rp;
 	static ulong nextage;
 
-	if(dnvars.names < target || (now < nextage && !doit)){
+	if(dnvars.names < target || ((long)(nextage - now) > 0 && !doit)){
 		dnvars.oldest = maxage;
 		return;
 	}
@@ -483,14 +477,14 @@ dnageall(int doit)
 	if (agefreq > dnvars.oldest / 2)
 		nextage = now + dnvars.oldest / 2;
 	else
-		nextage = now + agefreq;
+		nextage = now + (ulong)agefreq;
 
 	lock(&dnlock);
 
 	/* time out all old entries (and set refs to 0) */
 	for(i = 0; i < HTLEN; i++)
 		for(dp = ht[i]; dp; dp = dp->next){
-			dp->refs = 0;
+			dp->mark &= ~1;
 			dnage(dp);
 		}
 
@@ -552,7 +546,7 @@ dnageall(int doit)
 	for(i = 0; i < HTLEN; i++){
 		l = &ht[i];
 		for(dp = *l; dp; dp = *l){
-			if(dp->rr == nil && dp->refs == 0 && dp->keep == 0){
+			if(dp->rr == nil && dp->mark == 0){
 				assert(dp->magic == DNmagic);
 				*l = dp->next;
 
@@ -586,7 +580,7 @@ dnagedb(void)
 	/* time out all database entries */
 	for(i = 0; i < HTLEN; i++)
 		for(dp = ht[i]; dp; dp = dp->next) {
-			dp->keep = 0;
+			dp->mark = 0;
 			for(rp = dp->rr; rp; rp = rp->next)
 				if(rp->db)
 					rp->expire = 0;
@@ -738,21 +732,27 @@ rrattach1(RR *new, int auth)
 	RR **l;
 	RR *rp;
 	DN *dp;
+	ulong ttl;
 
 	assert(new->magic == RRmagic && !new->cached);
-	if(!new->db) {
-		/*
-		 * try not to let responses expire before we
-		 * can use them to complete this query, by extending
-		 * past (or nearly past) expiration time.
-		 */
-		new->expire = new->ttl > now + Min? new->ttl: now + 10*Min;
-	} else
-		new->expire = now + Year;
+
 	dp = new->owner;
 	assert(dp != nil && dp->magic == DNmagic);
 	new->auth |= auth;
 	new->next = 0;
+
+	/*
+	 * try not to let responses expire before we
+	 * can use them to complete this query, by extending
+	 * past (or nearly past) expiration time.
+	 */
+	if(new->db)
+		ttl = Year;
+	else
+		ttl = new->ttl;
+	if(ttl <= Min)
+		ttl = 10*Min;
+	new->expire = now + ttl;
 
 	/*
 	 *  find first rr of the right type
@@ -788,9 +788,8 @@ rrattach1(RR *new, int auth)
 			}
 			/* all things equal, pick the newer one */
 			else if(rp->arg0 == new->arg0 && rp->arg1 == new->arg1){
-				/* new drives out old */
-				if (new->ttl <= rp->ttl &&
-				    new->expire <= rp->expire) {
+				/* old drives out new */
+				if((long)(rp->expire - new->expire) > 0) {
 					rrfree(new);
 					return;
 				}
@@ -842,8 +841,8 @@ rrattach(RR *rp, int auth)
 		next = rp->next;
 		rp->next = nil;
 		dp = rp->owner;
-		/* avoid any outside spoofing; leave keepers alone */
-		if(cfg.cachedb && !rp->db && (dp->keep || inmyarea(dp->name)))
+		/* avoid any outside spoofing */
+		if(cfg.cachedb && !rp->db && inmyarea(dp->name))
 			rrfree(rp);
 		else
 			rrattach1(rp, auth);
@@ -974,8 +973,8 @@ rrlookup(DN *dp, int type, int flag)
 	for(rp = dp->rr; rp; rp = rp->next){
 		if(!rp->db)
 		if(rp->auth)
-		if(rp->ttl + 60 > now)
-		if(tsame(type, rp->type)){
+		if((long)(rp->expire - now) > 0)
+ 		if(tsame(type, rp->type)){
 			if(flag == NOneg && rp->negative)
 				goto out;
 			last = rrcopy(rp, last);
@@ -987,7 +986,7 @@ rrlookup(DN *dp, int type, int flag)
 	/* try for a living unauthoritative network entry */
 	for(rp = dp->rr; rp; rp = rp->next){
 		if(!rp->db)
-		if(rp->ttl + 60 > now)
+		if((long)(rp->expire - now) > 0)
 		if(tsame(type, rp->type)){
 			if(flag == NOneg && rp->negative)
 				goto out;
@@ -1822,7 +1821,9 @@ dnptr(uchar *net, uchar *mask, char *dom, int forwtype, int subdoms, int ttl)
 	for(rp = first; rp != nil; rp = nrp){
 		nrp = rp->next;
 		rp->next = nil;
+		dp = rp->owner;
 		rrattach(rp, Authoritative);
+		dnagenever(dp);
 	}
 }
 

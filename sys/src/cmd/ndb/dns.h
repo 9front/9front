@@ -194,13 +194,10 @@ struct DN
 	char	*name;		/* owner */
 	RR	*rr;		/* resource records off this name */
 	ulong	referenced;	/* time last referenced */
-	ulong	lookuptime;	/* last time we tried to get a better value */
-	/* refs was `char' but we've seen refs > 120, so go whole hog */
-	ulong	refs;		/* for mark and sweep */
 	ulong	ordinal;
 	ushort	class;		/* RR class */
-	uchar	keep;		/* flag: never age this name */
 	uchar	respcode;	/* response code */
+	uchar	mark;		/* for mark and sweep */
 };
 
 /*
@@ -448,7 +445,7 @@ void	db2cache(int);
 void	dnage(DN*);
 void	dnageall(int);
 void	dnagedb(void);
-void	dnagenever(DN *, int);
+void	dnagenever(DN *);
 void	dnauthdb(void);
 void	dncheck(void);
 void	dndump(char*);

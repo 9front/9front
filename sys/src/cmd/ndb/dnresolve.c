@@ -346,7 +346,7 @@ issuequery(Query *qp, char *name, int class, int depth, int recurse)
 			nsrp = randomize(rrlookup(nsdp, Tns, NOneg));
 
 		/* if the entry timed out, ignore it */
-		if(nsrp && nsrp->ttl < now)
+		if(nsrp && !nsrp->db && (long)(nsrp->expire - now) <= 0)
 			rrfreelistptr(&nsrp);
 
 		if(nsrp){
@@ -397,7 +397,7 @@ dnresolve1(char *name, int class, int type, Request *req, int depth,
 			}
 		} else
 			/* cached entry must still be valid */
-			if(rp->ttl > now)
+			if((long)(rp->expire - now) > 0)
 				/* but Tall entries are special */
 				if(type != Tall || rp->query == Tall) {
 					noteinmem();
@@ -850,7 +850,7 @@ cacheneg(DN *dp, int type, int rcode, RR *soarr)
 
 	/* the attach can cause soarr to be freed so mine it now */
 	if(soarr != nil && soarr->soa != nil)
-		ttl = soarr->soa->minttl+now;
+		ttl = soarr->soa->minttl;
 	else
 		ttl = 5*Min;
 
@@ -893,11 +893,8 @@ mydnsquery(Query *qp, int medium, uchar *udppkt, int len)
 
 	rv = -1;
 	snprint(domain, sizeof(domain), "%I", udppkt);
-	if (myaddr(domain)) {
-		dnslog("mydnsquery: trying to send to myself (%s); bzzzt",
-			domain);
+	if (myaddr(domain))
 		return rv;
-	}
 	switch (medium) {
 	case Udp:
 		nfd = dup(qp->udpfd, -1);
@@ -1094,13 +1091,11 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 	if(mp->an){
 		/*
 		 * only use cname answer when returned. some dns servers
-		 * attach spam address records which poisons the cache.
+		 * attach (potential) spam hint address records which poisons the cache.
 		 */
 		if((tp = rrremtype(&mp->an, Tcname)) != 0){
-			if(mp->an){
-				dnslog("removing spam %Q for %Q from %I", mp->an, tp, srcip);
+			if(mp->an)
 				rrfreelist(mp->an);
-			}
 			mp->an = tp;
 		}
 		rrattach(mp->an, (mp->flags & Fauth) != 0);

@@ -17,7 +17,7 @@ enum {
 	 * confused by a zero ttl, and instead of using the data and then
 	 * discarding the RR, they conclude that they don't have valid data.
 	 */
-	Ptrttl = 120,
+	Ptrttl = 2*Min,
 };
 
 static Ndb *db;
@@ -611,10 +611,10 @@ dbpair2cache(DN *dp, Ndbtuple *entry, Ndbtuple *pair)
 		return;
 
 	rp->owner = dp;
-	dnagenever(dp, 1);
 	rp->db = 1;
 	rp->ttl = intval(entry, pair, "ttl", rp->ttl);
 	rrattach(rp, Notauthoritative);
+	dnagenever(dp);
 }
 static void
 dbtuple2cache(Ndbtuple *t)
@@ -911,9 +911,9 @@ addlocaldnsserver(DN *dp, int class, char *ipaddr, int i)
 	rp->owner = dp;			/* e.g., local#dns#servers */
 	rp->local = 1;
 	rp->db = 1;
-//	rp->ttl = 10*Min;		/* seems too short */
-	rp->ttl = (1UL<<31)-1;
+	rp->ttl = 10*Min;
 	rrattach(rp, Authoritative);	/* will not attach rrs in my area */
+	dnagenever(dp);
 
 	/* A or AAAA record */
 	if (parseip(ip, ipaddr) >= 0 && isv4(ip))
@@ -924,9 +924,9 @@ addlocaldnsserver(DN *dp, int class, char *ipaddr, int i)
 	rp->owner = nsdp;
 	rp->local = 1;
 	rp->db = 1;
-//	rp->ttl = 10*Min;		/* seems too short */
-	rp->ttl = (1UL<<31)-1;
+	rp->ttl = 10*Min;
 	rrattach(rp, Authoritative);	/* will not attach rrs in my area */
+	dnagenever(nsdp);
 
 	dnslog("added local dns server %s at %s", buf, ipaddr);
 }
@@ -983,6 +983,7 @@ addlocaldnsdomain(DN *dp, int class, char *domain)
 	rp->db = 1;
 	rp->ttl = 10*Min;
 	rrattach(rp, Authoritative);
+	dnagenever(dp);
 }
 
 /*
