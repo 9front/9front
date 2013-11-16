@@ -655,6 +655,7 @@ getactivity(Request *req, int recursive)
 	now = time(nil);
 	nowns = nsec();
 	req->id = ++dnvars.id;
+	req->aux = nil;
 	unlock(&dnvars);
 
 	return rv;

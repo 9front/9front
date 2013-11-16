@@ -52,6 +52,8 @@ struct Query {
 	DN	*dp;		/* domain */
 	ushort	type;		/* and type to look up */
 	Request *req;
+	Query	*prev;		/* previous query */
+
 	RR	*nsrp;		/* name servers to consult */
 
 	/* dest must not be on the stack due to forking in slave() */
@@ -225,14 +227,18 @@ queryinit(Query *qp, DN *dp, int type, Request *req)
 	qp->type = type;
 	if (qp->type != type)
 		dnslog("queryinit: bogus type %d", type);
-	qp->req = req;
 	qp->nsrp = nil;
 	qp->dest = qp->curdest = nil;
+	qp->prev = req->aux;
+	qp->req = req;
+	req->aux = qp;
 }
 
 static void
 querydestroy(Query *qp)
 {
+	if(qp->req->aux == qp)
+		qp->req->aux = qp->prev;
 	/* leave udpfd open */
 	if (qp->tcpfd >= 0)
 		close(qp->tcpfd);
@@ -739,6 +745,30 @@ ipisbm(uchar *ip)
 	return 0;
 }
 
+static int
+queryloops(Query *qp, RR *rp)
+{
+	DN *ns;
+
+	ns = rp->host;
+
+	/*
+	 *  avoid loops looking up a server under itself
+	 */
+	if(subsume(rp->owner->name, ns->name))
+		return 1;
+
+	/*
+	 *  must not cycle on name servers refering
+	 *  to each another.
+	 */
+	for(qp = qp->prev; qp; qp = qp->prev)
+		for(rp = qp->nsrp; rp; rp = rp->next)
+			if(rp->host == ns)
+				return 1;
+	return 0;
+}
+
 /*
  *  Get next server address(es) into qp->dest[nd] and beyond
  */
@@ -787,13 +817,8 @@ serveraddrs(Query *qp, int nd, int depth)
 			if(rp->marker)
 				continue;
 			rp->marker = 1;
-
-			/*
-			 *  avoid loops looking up a server under itself
-			 */
-			if(subsume(rp->owner->name, rp->host->name))
+			if(queryloops(qp, rp))
 				continue;
-
 			arp = dnresolve(rp->host->name, Cin, Ta, qp->req, 0,
 				depth+1, Recurse, 1, 0);
 			if(arp == nil)

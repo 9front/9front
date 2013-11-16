@@ -182,6 +182,7 @@ struct Request
 	jmp_buf	mret;		/* where master jumps to after starting a slave */
 	int	id;
 	char	*from;		/* who asked us? */
+	void	*aux;
 };
 
 /*
