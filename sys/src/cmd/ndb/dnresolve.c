@@ -748,24 +748,22 @@ ipisbm(uchar *ip)
 static int
 queryloops(Query *qp, RR *rp)
 {
-	DN *ns;
-
-	ns = rp->host;
+	DN *ns = rp->host;
 
 	/*
-	 *  avoid loops looking up a server under itself
+	 *  looking up a server under itself
 	 */
 	if(subsume(rp->owner->name, ns->name))
 		return 1;
 
 	/*
-	 *  must not cycle on name servers refering
+	 *  cycle on name servers refering
 	 *  to each another.
 	 */
-	for(qp = qp->prev; qp; qp = qp->prev)
-		for(rp = qp->nsrp; rp; rp = rp->next)
-			if(rp->host == ns)
-				return 1;
+	for(; qp; qp = qp->prev)
+		if(qp->dp == ns)
+			return 1;
+
 	return 0;
 }
 
@@ -812,13 +810,20 @@ serveraddrs(Query *qp, int nd, int depth)
 	 *  server addresses, try resolving one via the network.
 	 *  Mark any we try to resolve so we don't try a second time.
 	 */
-	if(arp == 0)
+	if(arp == 0){
+		for(rp = qp->nsrp; rp; rp = rp->next)
+			if(queryloops(qp, rp))
+				/*
+				 * give up as we should have got the address
+				 * by higher up nameserver when recursing
+				 * down, or will be queried when recursing up.
+				 */
+				return nd;
+
 		for(rp = qp->nsrp; rp; rp = rp->next){
 			if(rp->marker)
 				continue;
 			rp->marker = 1;
-			if(queryloops(qp, rp))
-				continue;
 			arp = dnresolve(rp->host->name, Cin, Ta, qp->req, 0,
 				depth+1, Recurse, 1, 0);
 			if(arp == nil)
@@ -828,6 +833,7 @@ serveraddrs(Query *qp, int nd, int depth)
 			if(arp)
 				break;
 		}
+	}
 
 	/* use any addresses that we found */
 	for(trp = arp; trp && nd < Maxdest; trp = trp->next){
