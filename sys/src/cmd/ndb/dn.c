@@ -1085,36 +1085,8 @@ rrcat(RR **start, RR *rp)
 	return *start;
 }
 
-/*
- *  remove negative cache rr's from an rr list
- */
 RR*
-rrremneg(RR **l)
-{
-	RR **nl, *rp;
-	RR *first;
-
-	first = nil;
-	nl = &first;
-	while(*l != nil){
-		rp = *l;
-		if(rp->negative){
-			*l = rp->next;
-			*nl = rp;
-			nl = &rp->next;
-			*nl = nil;
-		} else
-			l = &rp->next;
-	}
-
-	return first;
-}
-
-/*
- *  remove rr's of a particular type from an rr list
- */
-RR*
-rrremtype(RR **l, int type)
+rrremfilter(RR **l, int (*filter)(RR*, void*), void *arg)
 {
 	RR *first, *rp;
 	RR **nl;
@@ -1123,7 +1095,7 @@ rrremtype(RR **l, int type)
 	nl = &first;
 	while(*l != nil){
 		rp = *l;
-		if(rp->type == type){
+		if((*filter)(rp, arg)){
 			*l = rp->next;
 			*nl = rp;
 			nl = &rp->next;
@@ -1133,6 +1105,49 @@ rrremtype(RR **l, int type)
 	}
 
 	return first;
+}
+
+static int
+filterneg(RR *rp, void*)
+{
+	return rp->negative;
+}
+static int
+filtertype(RR *rp, void *arg)
+{
+	return rp->type == *((int*)arg);
+}
+static int
+filterowner(RR *rp, void *arg)
+{
+	return rp->owner == (DN*)arg;
+}
+
+/*
+ *  remove negative cache rr's from an rr list
+ */
+RR*
+rrremneg(RR **l)
+{
+	return rrremfilter(l, filterneg, nil);
+}
+
+/*
+ *  remove rr's of a particular type from an rr list
+ */
+RR*
+rrremtype(RR **l, int type)
+{
+	return rrremfilter(l, filtertype, &type);
+}
+
+/*
+ *  remove rr's of a particular owner from an rr list
+ */
+RR*
+rrremowner(RR **l, DN *owner)
+{
+	return rrremfilter(l, filterowner, owner);
 }
 
 static char *

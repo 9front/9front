@@ -478,6 +478,8 @@ RR*	rrlookup(DN*, int, int);
 char*	rrname(int, char*, int);
 RR*	rrremneg(RR**);
 RR*	rrremtype(RR**, int);
+RR*	rrremowner(RR**, DN*);
+RR*	rrremfilter(RR**, int (*)(RR*, void*), void*);
 int	rrsupported(int);
 int	rrtype(char*);
 void	slave(Request*);

@@ -796,44 +796,31 @@ char *localserverprefix = "local#dns#server";
 int
 baddelegation(RR *rp, RR *nsrp, uchar *addr)
 {
-	Ndbtuple *nt;
 	static int whined;
 	static Ndbtuple *t;
+	Ndbtuple *nt;
+
+	if(rp->type != Tns)
+		return 0;
 
 	if(t == nil)
 		t = lookupinfo("dom");
-
-	for(; rp; rp = rp->next){
-		if(rp->type != Tns)
-			continue;
-
-		/* see if delegation is looping */
-		if(nsrp)
-		if(rp->owner != nsrp->owner)
-		if(subsume(rp->owner->name, nsrp->owner->name) &&
-		   strcmp(nsrp->owner->name, localservers) != 0){
-			dnslog("delegation loop %R -> %R from %I",
-				nsrp, rp, addr);
-			return 1;
-		}
-
-		if(t == nil)
-			continue;
-
+	if(t != nil){
 		/* see if delegating to us what we don't own */
 		for(nt = t; nt != nil; nt = nt->entry)
 			if(rp->host && cistrcmp(rp->host->name, nt->val) == 0)
 				break;
+
 		if(nt != nil && !inmyarea(rp->owner->name)){
 			if (!whined) {
 				whined = 1;
-				dnslog("bad delegation %R from %I; "
-					"no further logging of them", rp, addr);
+				dnslog("bad delegation %R from %I/%s; "
+					"no further logging of them",
+					rp, addr, nsrp->host->name);
 			}
 			return 1;
 		}
 	}
-
 	return 0;
 }
 

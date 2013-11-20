@@ -43,7 +43,8 @@ enum { Outns, Inns, };
 struct Dest
 {
 	uchar	a[IPaddrlen];	/* ip address */
-	DN	*s;		/* name server */
+	DN	*s;		/* name server name */
+	RR	*n;		/* name server rr */
 	int	nx;		/* number of transmissions */
 	int	code;		/* response code; used to clear dp->respcode */
 };
@@ -56,7 +57,6 @@ struct Query {
 
 	RR	*nsrp;		/* name servers to consult */
 
-	/* dest must not be on the stack due to forking in slave() */
 	Dest	*dest;		/* array of destinations */
 	Dest	*curdest;	/* pointer to next to fill */
 	int	ndest;		/* transmit to this many on this round */
@@ -294,6 +294,8 @@ netqueryns(Query *qp, int depth, RR *nsrp)
 {
 	int rv;
 
+	if(nsrp == nil)
+		return Answnone;
 	qp->nsrp = nsrp;
 	rv = netquery(qp, depth);
 	qp->nsrp = nil;		/* prevent accidents */
@@ -849,7 +851,14 @@ serveraddrs(Query *qp, int nd, int depth)
 		    cfg.straddle && !insideaddr(qp->dp->name) && insidens(p->a))
 			continue;
 		p->nx = 0;
+		p->n = nil;
 		p->s = trp->owner;
+		for(rp = qp->nsrp; rp; rp = rp->next){
+			if(rp->host == p->s){
+				p->n = rp;
+				break;
+			}
+		}
 		p->code = Rtimeout;
 		nd++;
 	}
@@ -1073,9 +1082,66 @@ isnegrname(DNSmsg *mp)
 	return mp->an == nil && (mp->flags & Rmask) == Rname;
 }
 
+static int
+filterhints(RR *rp, void *arg)
+{
+	RR *nsrp;
+
+	if(rp->type != Ta && rp->type != Taaaa)
+		return 0;
+
+	for(nsrp = arg; nsrp; nsrp = nsrp->next)
+		if(nsrp->type == Tns && rp->owner == nsrp->host)
+			return 1;
+
+	return 0;
+}
+
+static int
+filterauth(RR *rp, void *arg)
+{
+	Dest *dest;
+	RR *nsrp;
+
+	dest = arg;
+	nsrp = dest->n;
+	if(nsrp == nil)
+		return 0;
+
+	if(rp->type == Tsoa && rp->owner != nsrp->owner
+	&& !subsume(nsrp->owner->name, rp->owner->name)
+	&& strncmp(nsrp->owner->name, "local#", 6) != 0)
+		return 1;
+
+	if(rp->type != Tns)
+		return 0;
+
+	if(rp->owner != nsrp->owner
+	&& !subsume(nsrp->owner->name, rp->owner->name)
+	&& strncmp(nsrp->owner->name, "local#", 6) != 0)
+		return 1;
+
+	return baddelegation(rp, nsrp, dest->a);
+}
+
+static void
+reportandfree(RR *l, char *note, Dest *p)
+{
+	RR *rp;
+
+	while(rp = l){
+		l = l->next;
+		rp->next = nil;
+		if(debug)
+			dnslog("ignoring %s from %I/%s: %R",
+				note, p->a, p->s->name, rp);
+		rrfree(rp);
+	}
+}
+
 /* returns Answerr (-1) on errors, else number of answers, which can be zero. */
 static int
-procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
+procansw(Query *qp, DNSmsg *mp, int depth, Dest *p)
 {
 	int rv;
 	char buf[32];
@@ -1083,7 +1149,7 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 	Query nq;
 	RR *tp, *soarr;
 
-	if (mp->an == nil)
+	if(mp->an == nil)
 		stats.negans++;
 
 	/* ignore any error replies */
@@ -1096,23 +1162,29 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 	}
 
 	/* ignore any bad delegations */
-	if(mp->ns && baddelegation(mp->ns, qp->nsrp, srcip)){
-		stats.negbaddeleg++;
-		if(mp->an == nil){
-			stats.negbdnoans++;
-			freeanswers(mp);
-			if(p != nil)
-				p->code = Rserver;
-			dnslog(" and no answers");
-			return Answerr;
-		}
-		dnslog(" but has answers; ignoring ns");
-		rrfreelistptr(&mp->ns);
-		mp->nscount = 0;
-	}
+	if((tp = rrremfilter(&mp->ns, filterauth, p)) != 0)
+		reportandfree(tp, "bad delegation", p);
 
 	/* remove any soa's from the authority section */
 	soarr = rrremtype(&mp->ns, Tsoa);
+
+	/* only nameservers remaining */
+	if((tp = rrremtype(&mp->ns, Tns)) != 0){
+		reportandfree(mp->ns, "non-nameserver", p);
+		mp->ns = tp;
+	}
+
+	/* remove answers not related to the question. */
+	if((tp = rrremowner(&mp->an, qp->dp)) != 0){
+		reportandfree(mp->an, "wrong subject answer", p);
+		mp->an = tp;
+	}
+	if(qp->type != Tall){
+		if((tp = rrremtype(&mp->an, qp->type)) != 0){
+			reportandfree(mp->an, "wrong type answer", p);
+			mp->an = tp;
+		}
+	}
 
 	/* incorporate answers */
 	unique(mp->an);
@@ -1122,17 +1194,23 @@ procansw(Query *qp, DNSmsg *mp, uchar *srcip, int depth, Dest *p)
 	if(mp->an){
 		/*
 		 * only use cname answer when returned. some dns servers
-		 * attach (potential) spam hint address records which poisons the cache.
+		 * attach (potential) spam hint address records which poisons
+		 * the cache.
 		 */
 		if((tp = rrremtype(&mp->an, Tcname)) != 0){
-			if(mp->an)
-				rrfreelist(mp->an);
+			reportandfree(mp->an, "ip in cname answer", p);
 			mp->an = tp;
 		}
 		rrattach(mp->an, (mp->flags & Fauth) != 0);
 	}
-	if(mp->ar)
+	if(mp->ar){
+		/* restrict hints to address rr's for nameservers only */
+		if((tp = rrremfilter(&mp->ar, filterhints, mp->ns)) != 0){
+			reportandfree(mp->ar, "hint", p);
+			mp->ar = tp;
+		}
 		rrattach(mp->ar, Notauthoritative);
+	}
 	if(mp->ns && !cfg.justforw){
 		ndp = mp->ns->owner;
 		rrattach(mp->ns, Notauthoritative);
@@ -1303,21 +1381,23 @@ queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 			}
 
 			/* find responder */
-			// dnslog("queryns got reply from %I", srcip);
+			if(debug)
+				dnslog("queryns got reply from %I", srcip);
 			for(p = qp->dest; p < qp->curdest; p++)
 				if(memcmp(p->a, srcip, sizeof p->a) == 0)
 					break;
+			if(p >= qp->curdest){
+				dnslog("response from %I but no destination", srcip);
+				continue;
+			}
 
-			if(p != qp->curdest) {
-				/* remove all addrs of responding server from list */
-				for(np = qp->dest; np < qp->curdest; np++)
-					if(np->s == p->s)
-						np->nx = Maxtrans;
-			} else
-				p = nil;
+			/* remove all addrs of responding server from list */
+			for(np = qp->dest; np < qp->curdest; np++)
+				if(np->s == p->s)
+					np->nx = Maxtrans;
 
 			/* free or incorporate RRs in m */
-			rv = procansw(qp, &m, srcip, depth, p);
+			rv = procansw(qp, &m, depth, p);
 			if (rv > Answnone) {
 				qp->dest = qp->curdest = nil; /* prevent accidents */
 				return rv;
