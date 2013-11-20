@@ -189,7 +189,7 @@ iconinit(void)
 	} else {
 		cols[HIGH] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DPurpleblue);
 		titlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DPurpleblue);
-		lighttitlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x999999FF);
+		lighttitlecol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x222222FF);
 	}
 	dholdcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DMedblue);
 	lightholdcol = allocimage(display, Rect(0,0,1,1), CMAP8, 1, DGreyblue);
