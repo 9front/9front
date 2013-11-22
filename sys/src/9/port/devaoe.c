@@ -701,8 +701,10 @@ loop:
 	}
 	runlock(&devs);
 	i = Nms - TK2MS(Ticks - starttick);
-	if(i > 0)
+	if(i > 0 && !waserror()){
 		tsleep(&up->sleep, return0, 0, i);
+		poperror();
+	}
 	goto loop;
 }
 

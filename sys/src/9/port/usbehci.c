@@ -2225,6 +2225,8 @@ ehcipoll(void* a)
 	hp = a;
 	ctlr = hp->aux;
 	poll = &ctlr->poll;
+	while(waserror())
+		;
 	for(;;){
 		if(ctlr->nreqs == 0){
 			if(0)ddprint("ehcipoll %#p sleep\n", ctlr->capio);

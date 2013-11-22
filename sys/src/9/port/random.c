@@ -42,10 +42,11 @@ genrandom(void*)
 	up->basepri = PriNormal;
 	up->priority = up->basepri;
 
+	while(waserror())
+		;
 	for(;;){
-		for(;;)
-			if(++rb.randomcount > 100000)
-				break;
+		if(++rb.randomcount <= 100000)
+			continue;
 		if(anyhigher())
 			sched();
 		if(!rbnotfull(0))

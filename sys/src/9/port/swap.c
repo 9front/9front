@@ -147,12 +147,11 @@ pager(void *junk)
 	Segment *s;
 	Proc *p, *ep;
 
-	if(waserror())
-		panic("pager: os error");
-
 	p = proctab(0);
 	ep = &p[conf.nproc];
 
+	while(waserror())
+		;
 loop:
 	up->psstate = "Idle";
 	wakeup(&palloc.r);

@@ -530,6 +530,8 @@ segmentkproc(void *arg)
 	incref(g->s);
 	up->seg[sno] = g->s;
 
+	while(waserror())
+		;
 	for(done = 0; !done;){
 		sleep(&g->cmdwait, cmdready, g);
 		if(waserror()){
@@ -554,6 +556,8 @@ segmentkproc(void *arg)
 		g->cmd = Cnone;
 		wakeup(&g->replywait);
 	}
+
+	pexit("done", 1);
 }
 
 Dev segmentdevtab = {

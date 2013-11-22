@@ -908,6 +908,8 @@ sdpackproc(void *a)
 	int i;
 	Conv *c;
 
+	while(waserror())
+		;
 	for(;;) {
 		tsleep(&up->sleep, return0, 0, 1000);
 		sec = TK2SEC(m->ticks);

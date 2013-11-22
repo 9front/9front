@@ -13,6 +13,9 @@ alarmkproc(void*)
 	Proc *rp;
 	ulong now;
 
+	while(waserror())
+		;
+
 	for(;;){
 		now = MACHP(0)->ticks;
 		qlock(&alarms);
