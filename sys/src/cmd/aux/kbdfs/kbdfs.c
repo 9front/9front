@@ -180,6 +180,46 @@ Rune kbtabesc1[Nscan] =
 [0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
 };
 
+Rune kbtabshiftesc1[Nscan] =
+{
+[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x48]	Kup,	0,	0,	0,	0,	0,	0,	0,
+[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
+};
+
+Rune kbtabctrlesc1[Nscan] =
+{
+[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x48]	Kup,	0,	0,	0,	0,	0,	0,	0,
+[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x78]	0,	Kup,	0,	0,	0,	0,	0,	0,
+};
+
 Rune kbtabaltgr[Nscan] =
 {
 [0x00]	0,	0,	0,	0,	0,	0,	0,	0,
@@ -251,7 +291,11 @@ kbdputsc(Scan *scan, int c)
 	if(c >= Nscan)
 		return;
 
-	if(scan->esc1)
+	if(scan->esc1 && scan->ctl)
+		key.r = kbtabctrlesc1[c];
+	else if(scan->esc1 && scan->shift)
+		key.r = kbtabshiftesc1[c];
+	else if(scan->esc1)
 		key.r = kbtabesc1[c];
 	else if(scan->shift)
 		key.r = kbtabshift[c];
@@ -823,6 +867,10 @@ kbmapent(int t, int sc)
 		return &kbtabaltgr[sc];
 	case 4:
 		return &kbtabctl[sc];
+	case 5:	
+		return &kbtabctrlesc1[sc];
+	case 6:	
+		return &kbtabshiftesc1[sc];
 	}
 }
 
