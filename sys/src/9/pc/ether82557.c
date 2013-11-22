@@ -348,6 +348,8 @@ watchdog(void* arg)
 	static void txstart(Ether*);
 
 	ether = arg;
+	while(waserror())
+		;
 	for(;;){
 		tsleep(&up->sleep, return0, 0, 4000);
 
@@ -357,10 +359,8 @@ watchdog(void* arg)
 		 * the future.
 		 */
 		ctlr = ether->ctlr;
-		if(ctlr == nil || ctlr->state == 0){
-			print("%s: exiting\n", up->text);
-			pexit("disabled", 0);
-		}
+		if(ctlr == nil || ctlr->state == 0)
+			break;
 
 		ilock(&ctlr->cblock);
 		if(ctlr->tick++){
@@ -369,6 +369,8 @@ watchdog(void* arg)
 		}
 		iunlock(&ctlr->cblock);
 	}
+	print("%s: exiting\n", up->text);
+	pexit("disabled", 1);
 }
 
 static void

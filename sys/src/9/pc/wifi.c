@@ -450,9 +450,14 @@ wifiproc(void *arg)
 
 	b = nil;
 	wifi = arg;
+	while(waserror())
+		;
 	for(;;){
-		if(b != nil)
+		if(b != nil){
 			freeb(b);
+			b = nil;
+			continue;
+		}
 		if((b = qbread(wifi->iq, 100000)) == nil)
 			break;
 		w = (Wifipkt*)b->rp;
@@ -526,7 +531,7 @@ wifiproc(void *arg)
 			break;
 		}
 	}
-	pexit("wifi in queue closed", 0);
+	pexit("wifi in queue closed", 1);
 }
 
 static void
@@ -584,9 +589,11 @@ wifoproc(void *arg)
 
 	wifi = arg;
 	ether = wifi->ether;
+	while(waserror())
+		;
 	while((b = qbread(ether->oq, 1000000)) != nil)
 		wifietheroq(wifi, b);
-	pexit("ether out queue closed", 0);
+	pexit("ether out queue closed", 1);
 }
 
 static void

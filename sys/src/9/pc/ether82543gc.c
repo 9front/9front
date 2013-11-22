@@ -1228,18 +1228,19 @@ gc82543watchdog(void* arg)
 	Ctlr *ctlr;
 
 	edev = arg;
+	while(waserror())
+		;
 	for(;;){
 		tsleep(&up->sleep, return0, 0, 1000);
-
 		ctlr = edev->ctlr;
-		if(ctlr == nil){
-			print("%s: exiting\n", up->text);
-			pexit("disabled", 0);
-		}
+		if(ctlr == nil)
+			break;
 
 		gc82543checklink(ctlr);
 		gc82543replenish(ctlr);
 	}
+	print("%s: exiting\n", up->text);
+	pexit("disabled", 1);
 }
 
 static void

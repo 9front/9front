@@ -782,6 +782,8 @@ igbelproc(void* arg)
 
 	edev = arg;
 	ctlr = edev->ctlr;
+	while(waserror())
+		;
 	for(;;){
 		if(ctlr->mii == nil || ctlr->mii->curphy == nil)
 			continue;
@@ -1090,6 +1092,9 @@ igberproc(void* arg)
 	r = csr32r(ctlr, Rctl);
 	r |= Ren;
 	csr32w(ctlr, Rctl, r);
+
+	while(waserror())
+		;
 
 	for(;;){
 		ctlr->rim = 0;

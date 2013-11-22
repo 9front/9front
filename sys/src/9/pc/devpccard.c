@@ -449,10 +449,13 @@ eventoccured(void)
 static void
 processevents(void *)
 {
-	while (1) {
-		int message;
-		Cardbus *cb;
+	int message;
+	Cardbus *cb;
 
+	while(waserror())
+		;
+
+	for(;;){
 		sleep(&revents, (int (*)(void *))eventoccured, nil);
 
 		cb = nil;

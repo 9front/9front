@@ -1243,6 +1243,8 @@ tproc(void *v)
 
 	txinit(e);
 	linkup(c, Txen);
+	while(waserror())
+		;
 	for(;;){
 		if((b = qbread(e->oq, 100000)) == nil)
 			break;
@@ -1381,6 +1383,8 @@ rproc(void *v)
 
 	rxinit(e);
 	linkup(c, Rxen);
+	while(waserror())
+		;
 	for(;;)
 		if(replenish(e, c) == 0){
 			starve(k);
@@ -1750,7 +1754,8 @@ iproc(void *v)
 	e = v;
 	c = e->ctlr;
 	k = &c->iproc;
-
+	while(waserror())
+		;
 	for(;;){
 		starve(k);
 		cause = c->reg[Eisr];

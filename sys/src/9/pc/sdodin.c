@@ -2272,6 +2272,8 @@ mskproc(void*)
 {
 	int i;
 
+	while(waserror())
+		;
 	for(;;){
 		tsleep(&up->sleep, return0, 0, Nms);
 		for(i = 0; i < nmsdrive; i++)

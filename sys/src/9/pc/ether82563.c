@@ -853,6 +853,8 @@ i82563tproc(void *v)
 	i82563txinit(ctlr);
 
 	tdt = ctlr->tdt;
+	while(waserror())
+		;
 	for(;;){
 		n = NEXT(tdt, ctlr->ntd);
 		if(n == i82563cleanup(ctlr)){
@@ -986,6 +988,8 @@ i82563rproc(void *arg)
 	}else
 		im = Rxt0|Rxo|Rxdmt0|Rxseq|Ack;
 
+	while(waserror())
+		;
 	for(;;){
 		i82563im(ctlr, im);
 		ctlr->rsleep++;
@@ -1163,9 +1167,13 @@ phyl79proc(void *v)
 	c = e->ctlr;
 
 	phyno = phyprobe(c, 3<<1);
-	if(phyno == ~0)
-		return;
+	if(phyno == ~0){
+		print("%s: no phy, exiting\n", up->text);
+		pexit("no phy", 1);
+	}
 
+	while(waserror())
+		;
 	for(;;){
 		phy = phyread(c, phyno, Phystat);
 		if(phy == ~0){
@@ -1203,11 +1211,16 @@ phylproc(void *v)
 	c = e->ctlr;
 
 	phyno = phyprobe(c, 3<<1);
-	if(phyno == ~0)
-		return;
+	if(phyno == ~0){
+		print("%s: no phy, exiting\n", up->text);
+		pexit("no phy", 1);
+	}
 
 	if(c->type == i82573 && (phy = phyread(c, phyno, Phyier)) != ~0)
 		phywrite(c, phyno, Phyier, phy | Lscie | Ancie | Spdie | Panie);
+
+	while(waserror())
+		;
 	for(;;){
 		phy = phyread(c, phyno, Physsr);
 		if(phy == ~0){
@@ -1263,6 +1276,8 @@ pcslproc(void *v)
 
 	if(c->type == i82575 || c->type == i82576)
 		csr32w(c, Connsw, Enrgirq);
+	while(waserror())
+		;
 	for(;;){
 		phy = csr32r(c, Pcsstat);
 		e->link = phy & Linkok;
@@ -1290,6 +1305,8 @@ serdeslproc(void *v)
 	e = v;
 	c = e->ctlr;
 
+	while(waserror())
+		;
 	for(;;){
 		rx = csr32r(c, Rxcw);
 		tx = csr32r(c, Txcw);

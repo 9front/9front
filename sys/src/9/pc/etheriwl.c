@@ -1997,11 +1997,10 @@ iwlrecover(void *arg)
 
 	edev = arg;
 	ctlr = edev->ctlr;
+	while(waserror())
+		;
 	for(;;){
-		while(waserror())
-			;
 		tsleep(&up->sleep, return0, 0, 4000);
-		poperror();
 
 		qlock(ctlr);
 		for(;;){

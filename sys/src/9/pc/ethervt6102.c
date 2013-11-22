@@ -440,6 +440,8 @@ vt6102lproc(void* arg)
 
 	edev = arg;
 	ctlr = edev->ctlr;
+	while(waserror())
+		;
 	for(;;){
 		if(ctlr->mii == nil || ctlr->mii->curphy == nil)
 			break;

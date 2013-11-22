@@ -375,6 +375,8 @@ lproc(void *v)
 
 	e = v;
 	c = e->ctlr;
+	while(waserror())
+		;
 	for (;;) {
 		r = c->reg[Links];
 		e->link = (r & Lnkup) != 0;
@@ -467,6 +469,8 @@ tproc(void *v)
 
 	e = v;
 	c = e->ctlr;
+	while(waserror())
+		;
 	for (;;) {
 		sleep(&c->trendez, tim, c);	/* transmit kicks us */
 		c->tim = 0;
@@ -551,6 +555,8 @@ rproc(void *v)
 	c = e->ctlr;
 	m = c->nrd - 1;
 	rdh = 0;
+	while(waserror())
+		;
 loop:
 	replenish(c, rdh);
 	im(c, Irx0);

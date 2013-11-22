@@ -1082,6 +1082,8 @@ m10rx(void *v)
 
 	e = v;
 	c = e->ctlr;
+	while(waserror())
+		;
 	for(;;){
 		replenish(&c->sm);
 		replenish(&c->bg);
@@ -1144,6 +1146,8 @@ txproc(void *v)
 	e = v;
 	c = e->ctlr;
 	tx = &c->tx;
+	while(waserror())
+		;
 	for(;;){
  		sleep(&c->txrendez, txcansleep, c);
 		txcleanup(tx, gbit32(c->stats->txcnt));
