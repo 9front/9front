@@ -855,6 +855,8 @@ rproc(void* arg)
 
 	edev = arg;
 	ctlr = edev->ctlr;
+	while(waserror())
+		;
 	for(;;){
 		/* wait for next interrupt */
 		ilock(&ctlr->reglock);

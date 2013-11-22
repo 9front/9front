@@ -237,6 +237,9 @@ powerkproc(void*)
 {
 	ulong xlink, xlink1;
 
+	while(waserror())
+		;
+
 	for(;;){
 		while(powerflag == 0)
 			sleep(&powerr, powerdown, 0);
@@ -246,7 +249,6 @@ powerkproc(void*)
 //		iprint("call deepsleep, pc = 0x%lux, sp = 0x%lux\n", xlink, &xlink);
 		deepsleep();
 		xlink1 = getcallerpc(&xlink1);
-
 
 		delay(2000);
 

@@ -682,6 +682,8 @@ w_timer(void* arg)
 	Ctlr* ctlr = (Ctlr*)ether->ctlr;
 
 	ctlr->timerproc = up;
+	while(waserror())
+		;
 	for(;;){
 		tsleep(&up->sleep, return0, 0, MSperTick);
 		ctlr = (Ctlr*)ether->ctlr;
@@ -732,7 +734,7 @@ w_timer(void* arg)
 		}
 		iunlock(ctlr);
 	}
-	pexit("terminated", 0);
+	pexit("terminated", 1);
 }
 
 void

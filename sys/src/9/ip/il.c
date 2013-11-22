@@ -1145,6 +1145,8 @@ ilackproc(void *x)
 
 	il = x;
 
+	while(waserror())
+		;
 loop:
 	tsleep(&up->sleep, return0, 0, Iltickms);
 	for(s = il->conv; s && *s; s++) {

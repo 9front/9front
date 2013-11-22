@@ -733,6 +733,8 @@ relackproc(void *a)
 
 	rudp = (Proto *)a;
 
+	while(waserror())
+		;
 loop:
 	tsleep(&up->sleep, return0, 0, Rudptickms);
 

@@ -747,6 +747,9 @@ tcpackproc(void *a)
 	tcp = a;
 	priv = tcp->priv;
 
+	while(waserror())
+		;
+
 	for(;;) {
 		tsleep(&up->sleep, return0, 0, MSPTICK);
 

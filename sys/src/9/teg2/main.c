@@ -692,7 +692,6 @@ init0(void)
 		poperror();
 	}
 	kproc("alarm", alarmkproc, 0);
-//	kproc("startcpusproc", startcpusproc, nil);
 
 	touser(sp);
 }

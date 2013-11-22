@@ -776,6 +776,8 @@ rcvproc(void* arg)
 
 	ether = arg;
 	ctlr = ether->ctlr;
+	while(waserror())
+		;
 	for(;;){
 		tsleep(&ctlr->rrendez, gotinput, ctlr, 10*1000);
 		ilock(ctlr);

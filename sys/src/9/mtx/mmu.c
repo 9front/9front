@@ -76,6 +76,9 @@ mmusweep(void*)
 	int i, x, sweepcolor;
 	ulong *ptab, *ptabend, ptecol;
 
+	while(waserror())
+		;
+
 	for(;;) {
 		if(PIDCOLOR(m->mmupid) != m->trigcolor)
 			sleep(&m->sweepr, work, nil);
