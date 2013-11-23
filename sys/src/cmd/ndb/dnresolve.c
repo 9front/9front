@@ -1153,11 +1153,12 @@ procansw(Query *qp, DNSmsg *mp, int depth, Dest *p)
 		stats.negans++;
 
 	/* ignore any error replies */
-	if((mp->flags & Rmask) == Rserver){
+	switch(mp->flags & Rmask){
+	case Rrefused:
+	case Rserver:
 		stats.negserver++;
 		freeanswers(mp);
-		if(p != nil)
-			p->code = Rserver;
+		p->code = Rserver;
 		return Answerr;
 	}
 
