@@ -291,9 +291,9 @@ kbdputsc(Scan *scan, int c)
 	if(c >= Nscan)
 		return;
 
-	if(scan->esc1 && scan->ctl)
+	if(scan->esc1 && scan->ctl && kbtabctrlesc1[c] != 0)
 		key.r = kbtabctrlesc1[c];
-	else if(scan->esc1 && scan->shift)
+	else if(scan->esc1 && scan->shift && kbtabshiftesc1[c] != 0)
 		key.r = kbtabshiftesc1[c];
 	else if(scan->esc1)
 		key.r = kbtabesc1[c];
