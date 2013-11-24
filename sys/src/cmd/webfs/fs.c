@@ -765,6 +765,7 @@ main(int argc, char *argv[])
 	quotefmtinstall();
 	fmtinstall('U', Ufmt);
 	fmtinstall('E', Efmt);
+	fmtinstall('H', Hfmt);
 
 	srv = nil;
 	mtpt = "/mnt/web";

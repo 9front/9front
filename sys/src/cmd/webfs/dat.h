@@ -68,3 +68,7 @@ int	debug;
 Url	*proxy;
 int	timeout;
 char	*whitespace;
+
+enum {
+	Domlen = 256,
+};

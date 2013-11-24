@@ -69,6 +69,21 @@ Efmt(Fmt *f)
 }
 
 int
+Hfmt(Fmt *f)
+{
+	char *d, *s;
+
+	s = va_arg(f->args, char*);
+	d = emalloc(Domlen);
+	if(utf2idn(s, d, Domlen) == nil)
+		d = s;
+	fmtprint(f, "%s", d);
+	if(d != s)
+		free(d);
+	return 0;
+}
+
+int
 Ufmt(Fmt *f)
 {
 	char *s;
@@ -87,7 +102,7 @@ Ufmt(Fmt *f)
 		fmtprint(f, "@");
 	}
 	if(u->host){
-		fmtprint(f, strchr(u->host, ':') ? "[%s]" : "%s", u->host);
+		fmtprint(f, strchr(u->host, ':') ? "[%s]" : "%H", u->host);
 		if(u->port)
 			fmtprint(f, ":%s", u->port);
 	}
@@ -184,12 +199,17 @@ pstrdup(char **p)
 static char*
 mklowcase(char *s)
 {
-	char *p;
-
+	char *cp;
+	Rune r;
+	
 	if(s == nil)
 		return s;
-	for(p = s; *p; p++)
-		*p = tolower(*p);
+	cp = s;
+	while(*cp != 0){
+		chartorune(&r, cp);
+		r = tolowerrune(r);
+		cp += runetochar(cp, &r);
+	}
 	return s;
 }
 
@@ -298,6 +318,15 @@ Out:
 	if(s = u->query)
 		while(s = strchr(s, '+'))
 			*s++ = ' ';
+
+	if(s = u->host){
+		t = emalloc(Domlen);
+		if(idn2utf(s, t, Domlen)){
+			u->host = estrdup(t);
+			free(s);
+		}
+		free(t);
+	}
 
 	unescape(u->user, "");
 	unescape(u->pass, "");

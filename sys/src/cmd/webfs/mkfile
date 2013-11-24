@@ -3,6 +3,6 @@ BIN=/$objtype/bin
 TARG=webfs
 
 HFILES=fns.h dat.h
-OFILES=sub.$O url.$O buq.$O http.$O fs.$O
+OFILES=sub.$O url.$O buq.$O http.$O fs.$O idn.$O
 
 </sys/src/cmd/mkone

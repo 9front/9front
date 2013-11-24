@@ -16,12 +16,17 @@ char*	unquote(char *s, char **ps);
 #pragma varargck type "E" Str2
 
 int	Efmt(Fmt*);
+int	Hfmt(Fmt*);
 int	Ufmt(Fmt*);
 char*	Upath(Url *);
 Url*	url(char *s, Url *b);
 Url*	saneurl(Url *u);
 int	matchurl(Url *u, Url *s);
 void	freeurl(Url *u);
+
+/* idn */
+char*	idn2utf(char *name, char *buf, int nbuf);
+char*	utf2idn(char *name, char *buf, int nbuf);
 
 /* buq */
 int	buread(Buq *q, void *v, int l);
