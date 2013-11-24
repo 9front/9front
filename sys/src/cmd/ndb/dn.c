@@ -224,6 +224,16 @@ dnlookup(char *name, int class, int enter)
 	return dp;
 }
 
+DN*
+idnlookup(char *name, int class, int enter)
+{
+	char dom[Domlen];
+
+	if(utf2idn(name, dom, sizeof dom) != nil)
+		name = dom;
+	return dnlookup(name, class, enter);
+}
+
 static int
 rrsame(RR *rr1, RR *rr2)
 {
@@ -1156,6 +1166,17 @@ dnname(DN *dn)
 	return dn? dn->name: "<null>";
 }
 
+static char *
+idnname(DN *dn, char *buf, int nbuf)
+{
+	char *name;
+
+	name = dnname(dn);
+	if(idn2utf(name, buf, nbuf) != nil)
+		return buf;
+	return name;
+}
+
 /*
  *  print conversion for rr records
  */
@@ -1287,7 +1308,7 @@ int
 rravfmt(Fmt *f)
 {
 	int rv, quote;
-	char *strp;
+	char buf[Domlen], *strp;
 	Fmt fstr;
 	RR *rp;
 	Server *s;
@@ -1306,34 +1327,37 @@ rravfmt(Fmt *f)
 	if(rp->type == Tptr)
 		fmtprint(&fstr, "ptr=%s", dnname(rp->owner));
 	else
-		fmtprint(&fstr, "dom=%s", dnname(rp->owner));
+		fmtprint(&fstr, "dom=%s", idnname(rp->owner, buf, sizeof(buf)));
 
 	switch(rp->type){
 	case Thinfo:
 		fmtprint(&fstr, " cpu=%s os=%s",
-			dnname(rp->cpu), dnname(rp->os));
+			idnname(rp->cpu, buf, sizeof(buf)),
+			idnname(rp->os, buf, sizeof(buf)));
 		break;
 	case Tcname:
-		fmtprint(&fstr, " cname=%s", dnname(rp->host));
+		fmtprint(&fstr, " cname=%s", idnname(rp->host, buf, sizeof(buf)));
 		break;
 	case Tmb:
 	case Tmd:
 	case Tmf:
-		fmtprint(&fstr, " mbox=%s", dnname(rp->host));
+		fmtprint(&fstr, " mbox=%s", idnname(rp->host, buf, sizeof(buf)));
 		break;
 	case Tns:
-		fmtprint(&fstr,  " ns=%s", dnname(rp->host));
+		fmtprint(&fstr,  " ns=%s", idnname(rp->host, buf, sizeof(buf)));
 		break;
 	case Tmg:
 	case Tmr:
-		fmtprint(&fstr, " mbox=%s", dnname(rp->mb));
+		fmtprint(&fstr, " mbox=%s", idnname(rp->mb, buf, sizeof(buf)));
 		break;
 	case Tminfo:
 		fmtprint(&fstr, " mbox=%s mbox=%s",
-			dnname(rp->mb), dnname(rp->rmb));
+			idnname(rp->mb, buf, sizeof(buf)),
+			idnname(rp->rmb, buf, sizeof(buf)));
 		break;
 	case Tmx:
-		fmtprint(&fstr, " pref=%lud mx=%s", rp->pref, dnname(rp->host));
+		fmtprint(&fstr, " pref=%lud mx=%s", rp->pref,
+			idnname(rp->host, buf, sizeof(buf)));
 		break;
 	case Ta:
 	case Taaaa:
@@ -1346,7 +1370,8 @@ rravfmt(Fmt *f)
 		soa = rp->soa;
 		fmtprint(&fstr,
 " ns=%s mbox=%s serial=%lud refresh=%lud retry=%lud expire=%lud ttl=%lud",
-			dnname(rp->host), dnname(rp->rmb),
+			idnname(rp->host, buf, sizeof(buf)),
+			idnname(rp->rmb, buf, sizeof(buf)),
 			(soa? soa->serial: 0),
 			(soa? soa->refresh: 0), (soa? soa->retry: 0),
 			(soa? soa->expire: 0), (soa? soa->minttl: 0));
@@ -1357,7 +1382,7 @@ rravfmt(Fmt *f)
 		srv = rp->srv;
 		fmtprint(&fstr, " pri=%ud weight=%ud port=%ud target=%s",
 			(srv? srv->pri: 0), (srv? srv->weight: 0),
-			rp->port, dnname(rp->host));
+			rp->port, idnname(rp->host, buf, sizeof(buf)));
 		break;
 	case Tnull:
 		if (rp->null == nil)
@@ -1381,7 +1406,8 @@ rravfmt(Fmt *f)
 		break;
 	case Trp:
 		fmtprint(&fstr, " rp=%s txt=%s",
-			dnname(rp->rmb), dnname(rp->rp));
+			idnname(rp->rmb, buf, sizeof(buf)),
+			idnname(rp->rp, buf, sizeof(buf)));
 		break;
 	case Tkey:
 		if (rp->key == nil)
@@ -1399,7 +1425,7 @@ rravfmt(Fmt *f)
 " type=%d alg=%d labels=%d ttl=%lud exp=%lud incep=%lud tag=%d signer=%s",
 				rp->sig->type, rp->sig->alg, rp->sig->labels,
 				rp->sig->ttl, rp->sig->exp, rp->sig->incep,
-				rp->sig->tag, dnname(rp->sig->signer));
+				rp->sig->tag, idnname(rp->sig->signer, buf, sizeof(buf)));
 		break;
 	case Tcert:
 		if (rp->cert == nil)

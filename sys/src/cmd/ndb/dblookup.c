@@ -103,8 +103,7 @@ RR*
 dblookup(char *name, int class, int type, int auth, int ttl)
 {
 	int err;
-	char *wild;
-	char buf[256];
+	char buf[Domlen], *wild;
 	RR *rp, *tp;
 	DN *dp, *ndp;
 
@@ -124,7 +123,7 @@ dblookup(char *name, int class, int type, int auth, int ttl)
 	}
 
 	lock(&dblock);
-	dp = dnlookup(name, class, 1);
+	dp = idnlookup(name, class, 1);
 
 	if(opendatabase() < 0)
 		goto out;
@@ -142,7 +141,7 @@ dblookup(char *name, int class, int type, int auth, int ttl)
 	/* walk the domain name trying the wildcard '*' at each position */
 	for(wild = strchr(name, '.'); wild; wild = strchr(wild+1, '.')){
 		snprint(buf, sizeof buf, "*%s", wild);
-		ndp = dnlookup(buf, class, 1);
+		ndp = idnlookup(buf, class, 1);
 		if(ndp->rr)
 			err = 0;
 		if(cfg.cachedb)
@@ -162,7 +161,7 @@ out:
 		 * don't call it non-existent if it's not ours
 		 * (unless we're a resolver).
 		 */
-		if(err == Rname && (!inmyarea(name) || cfg.resolver))
+		if(err == Rname && (!inmyarea(dp->name) || cfg.resolver))
 			err = Rserver;
 		dp->respcode = err;
 	}
@@ -177,6 +176,18 @@ intval(Ndbtuple *entry, Ndbtuple *pair, char *attr, ulong def)
 	Ndbtuple *t = look(entry, pair, attr);
 
 	return (t? strtoul(t->val, 0, 10): def);
+}
+
+static void
+mklowcase(char *cp)
+{
+	Rune r;
+
+	while(*cp != 0){
+		chartorune(&r, cp);
+		r = tolowerrune(r);
+		cp += runetochar(cp, &r);
+	}
 }
 
 /*
@@ -236,34 +247,43 @@ dblookup1(char *name, int type, int auth, int ttl)
 	case Tixfr:
 		return doaxfr(db, name);
 	default:
-//		dnslog("dnlookup1(%s) bad type", name);
+//		dnslog("dblookup1(%s) bad type", name);
 		return nil;
 	}
 
 	/*
 	 *  find a matching entry in the database
 	 */
-	t = nil;
 	nstrcpy(dname, name, sizeof dname);
-	free(ndbgetvalue(db, &s, "dom", dname, attr, &t));
-	if(t == nil && strchr(dname, '.') == nil)
-		free(ndbgetvalue(db, &s, "sys", dname, attr, &t));
-	if(t == nil) {
-		char *cp;
-
-		/* try lower case */
-		for(cp = dname; *cp; cp++)
-			if(isupper(*cp)) {
-				for(; *cp; cp++)
-					*cp = tolower(*cp);
-				free(ndbgetvalue(db, &s, "dom", dname, attr, &t));
-				if(t == nil && strchr(dname, '.') == nil)
-					free(ndbgetvalue(db, &s, "sys", dname, attr, &t));
-				break;
+	for(x=0; x<4; x++){
+		switch(x){
+		case 1:	/* try unicode */
+			if(idn2utf(name, dname, sizeof dname) == nil){
+				nstrcpy(dname, name, sizeof dname);
+				continue;
 			}
+			if(strcmp(name, dname) == 0)
+				continue;
+			break;
+		case 3:	/* try ascii (lower case) */
+			if(utf2idn(name, dname, sizeof dname) == nil)
+				continue;
+		case 2:
+			mklowcase(dname);
+			if(strcmp(name, dname) == 0)
+				continue;
+			break;
+		}
+		t = nil;
+		free(ndbgetvalue(db, &s, "dom", dname, attr, &t));
+		if(t == nil && strchr(dname, '.') == nil)
+			free(ndbgetvalue(db, &s, "sys", dname, attr, &t));
+		if(t != nil)
+			break;
 	}
+
 	if(t == nil) {
-//		dnslog("dnlookup1(%s) name not found", name);
+//		dnslog("dblookup1(%s) name not found", name);
 		return nil;
 	}
 
@@ -303,7 +323,7 @@ dblookup1(char *name, int type, int auth, int ttl)
 			if(ttl)
 				rp->ttl = ttl;
 			if(dp == nil)
-				dp = dnlookup(dname, Cin, 1);
+				dp = idnlookup(dname, Cin, 1);
 			rp->owner = dp;
 			*l = rp;
 			l = &rp->next;
@@ -323,14 +343,14 @@ dblookup1(char *name, int type, int auth, int ttl)
 				rp->ttl = ttl;
 			rp->auth = auth;
 			if(dp == nil)
-				dp = dnlookup(dname, Cin, 1);
+				dp = idnlookup(dname, Cin, 1);
 			rp->owner = dp;
 			*l = rp;
 			l = &rp->next;
 		}
 	ndbfree(t);
 
-//	dnslog("dnlookup1(%s) -> %#p", name, list);
+//	dnslog("dblookup1(%s) -> %#p", name, list);
 	return list;
 }
 
@@ -406,7 +426,7 @@ cnamerr(Ndbtuple *entry, Ndbtuple *pair)
 
 	USED(entry);
 	rp = rralloc(Tcname);
-	rp->host = dnlookup(pair->val, Cin, 1);
+	rp->host = idnlookup(pair->val, Cin, 1);
 	return rp;
 }
 static RR*
@@ -415,7 +435,7 @@ mxrr(Ndbtuple *entry, Ndbtuple *pair)
 	RR *rp;
 
 	rp = rralloc(Tmx);
-	rp->host = dnlookup(pair->val, Cin, 1);
+	rp->host = idnlookup(pair->val, Cin, 1);
 	rp->pref = intval(entry, pair, "pref", 1);
 	return rp;
 }
@@ -426,7 +446,7 @@ nsrr(Ndbtuple *entry, Ndbtuple *pair)
 	Ndbtuple *t;
 
 	rp = rralloc(Tns);
-	rp->host = dnlookup(pair->val, Cin, 1);
+	rp->host = idnlookup(pair->val, Cin, 1);
 	t = look(entry, pair, "soa");
 	if(t && t->val[0] == 0)
 		rp->local = 1;
@@ -466,7 +486,7 @@ soarr(Ndbtuple *entry, Ndbtuple *pair)
 	ns = look(entry, pair, "ns");
 	if(ns == nil)
 		ns = look(entry, pair, "dom");
-	rp->host = dnlookup(ns->val, Cin, 1);
+	rp->host = idnlookup(ns->val, Cin, 1);
 
 	/* accept all of:
 	 *  mbox=person
@@ -481,15 +501,15 @@ soarr(Ndbtuple *entry, Ndbtuple *pair)
 			p = strchr(mb->val, '@');
 			if(p != nil)
 				*p = '.';
-			rp->rmb = dnlookup(mb->val, Cin, 1);
+			rp->rmb = idnlookup(mb->val, Cin, 1);
 		} else {
 			snprint(mailbox, sizeof mailbox, "%s.%s",
 				mb->val, ns->val);
-			rp->rmb = dnlookup(mailbox, Cin, 1);
+			rp->rmb = idnlookup(mailbox, Cin, 1);
 		}
 	else {
 		snprint(mailbox, sizeof mailbox, "postmaster.%s", ns->val);
-		rp->rmb = dnlookup(mailbox, Cin, 1);
+		rp->rmb = idnlookup(mailbox, Cin, 1);
 	}
 
 	/*
@@ -509,7 +529,7 @@ srvrr(Ndbtuple *entry, Ndbtuple *pair)
 	RR *rp;
 
 	rp = rralloc(Tsrv);
-	rp->host = dnlookup(pair->val, Cin, 1);
+	rp->host = idnlookup(pair->val, Cin, 1);
 	rp->srv->pri = intval(entry, pair, "pri", 0);
 	rp->srv->weight = intval(entry, pair, "weight", 0);
 	/* TODO: translate service name to port # */
@@ -624,7 +644,7 @@ dbtuple2cache(Ndbtuple *t)
 
 	for(et = t; et; et = et->entry)
 		if(strcmp(et->attr, "dom") == 0){
-			dp = dnlookup(et->val, Cin, 1);
+			dp = idnlookup(et->val, Cin, 1);
 
 			/* first same line */
 			for(nt = et->line; nt != et; nt = nt->line){
@@ -787,9 +807,6 @@ lookupinfo(char *attr)
 	return t;
 }
 
-char *localservers =	  "local#dns#servers";
-char *localserverprefix = "local#dns#server";
-
 /*
  *  return non-zero if this is a bad delegation
  */
@@ -892,7 +909,7 @@ addlocaldnsserver(DN *dp, int class, char *ipaddr, int i)
 
 	/* ns record for name server, make up an impossible name */
 	rp = rralloc(Tns);
-	snprint(buf, sizeof buf, "%s%d", localserverprefix, i);
+	snprint(buf, sizeof buf, "local#dns#server%d", i);
 	nsdp = dnlookup(buf, class, 1);
 	rp->host = nsdp;
 	rp->owner = dp;			/* e.g., local#dns#servers */
@@ -932,7 +949,7 @@ dnsservers(int class)
 	RR *nsrp;
 	DN *dp;
 
-	dp = dnlookup(localservers, class, 1);
+	dp = dnlookup("local#dns#servers", class, 1);
 	nsrp = rrlookup(dp, Tns, NOneg);
 	if(nsrp != nil)
 		return nsrp;

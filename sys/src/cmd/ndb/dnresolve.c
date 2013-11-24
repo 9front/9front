@@ -177,7 +177,7 @@ dnresolve(char *name, int class, int type, Request *req, RR **cn, int depth,
 	 *  try the name directly
 	 */
 	rp = dnresolve1(name, class, type, req, depth, recurse);
-	if(rp == nil && (dp = dnlookup(name, class, 0)) != nil) {
+	if(rp == nil && (dp = idnlookup(name, class, 0)) != nil) {
 		/*
 		 * try it as a canonical name if we weren't told
 		 * that the name didn't exist
@@ -348,7 +348,7 @@ issuequery(Query *qp, char *name, int class, int depth, int recurse)
 		}
 
 		/* look for ns in cache */
-		nsdp = dnlookup(cp, class, 0);
+		nsdp = idnlookup(cp, class, 0);
 		nsrp = nil;
 		if(nsdp)
 			nsrp = randomize(rrlookup(nsdp, Tns, NOneg));
@@ -387,7 +387,7 @@ dnresolve1(char *name, int class, int type, Request *req, int depth,
 	if(class != Cin)
 		return nil;
 
-	dp = dnlookup(name, class, 1);
+	dp = idnlookup(name, class, 1);
 
 	/*
 	 *  Try the cache first

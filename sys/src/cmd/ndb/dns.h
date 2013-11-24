@@ -453,6 +453,7 @@ void	dndump(char*);
 void	dnget(void);
 void	dninit(void);
 DN*	dnlookup(char*, int, int);
+DN*	idnlookup(char*, int, int);
 void	dnptr(uchar*, uchar*, char*, int, int, int);
 void	dnpurge(void);
 void	dnput(void);
@@ -533,5 +534,9 @@ int	convDNS2M(DNSmsg*, uchar*, int);
 
 /* convM2DNS.c */
 char*	convM2DNS(uchar*, int, DNSmsg*, int*);
+
+/* idn.c */
+char*	utf2idn(char *, char *, int);
+char*	idn2utf(char *, char *, int);
 
 #pragma varargck argpos dnslog 1

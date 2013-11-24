@@ -292,7 +292,7 @@ getdnsservers(int class)
 
 	rr = rralloc(Tns);
 	rr->owner = dnlookup("local#dns#servers", class, 1);
-	rr->host = dnlookup(servername, class, 1);
+	rr->host = idnlookup(servername, class, 1);
 
 	return rr;
 }
