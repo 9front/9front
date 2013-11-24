@@ -389,7 +389,7 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 		fmtprint(&fmt, "Digest ");
 		fmtprint(&fmt, "username=\"%s\", ", ouser);
 		fmtprint(&fmt, "realm=\"%s\", ", realm);
-		fmtprint(&fmt, "host=\"%s\", ", u->host);
+		fmtprint(&fmt, "host=\"%H\", ", u->host);
 		fmtprint(&fmt, "uri=\"%U\", ", ru);
 		fmtprint(&fmt, "nonce=\"%s\", ", nonce);
 		fmtprint(&fmt, "response=\"%s\"", resp);
@@ -465,7 +465,7 @@ void
 http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 {
 	int i, l, n, try, pid, fd, cfd, needlength, chunked, retry, nobody;
-	char *s, *x, buf[8192+2], status[256], method[16];
+	char *s, *x, buf[8192+2], status[256], method[16], *host;
 	vlong length, offset;
 	Url ru, tu, *nu;
 	Key *k, *rhdr;
@@ -503,6 +503,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 
 	h = nil;
 	pid = 0;
+	host = nil;
 	needlength = 0;
 	for(try = 0; try < 12; try++){
 		strcpy(status, "0 No status");
@@ -565,16 +566,21 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			qunlock(qpost);
 		}
 
+		/* http requires ascii encoding of host */
+		free(host);
+		host = smprint("%H", u->host);
+
 		if(proxy){
 			ru = *u;
+			ru.host = host;
 			ru.fragment = nil;
 		} else {
 			memset(&ru, 0, sizeof(tu));
 			ru.path = Upath(u);
 			ru.query = u->query;
 		}
-		n = snprint(buf, sizeof(buf), "%s %U HTTP/1.1\r\nHost: %H%s%s\r\n",
-			method, &ru, u->host, u->port ? ":" : "", u->port ? u->port : "");
+		n = snprint(buf, sizeof(buf), "%s %U HTTP/1.1\r\nHost: %s%s%s\r\n",
+			method, &ru, host, u->port ? ":" : "", u->port ? u->port : "");
 		if(n >= sizeof(buf)-64){
 			werrstr("request too large");
 			break;
@@ -589,7 +595,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			/* only scheme, host and path are relevant for cookies */
 			memset(&tu, 0, sizeof(tu));
 			tu.scheme = u->scheme;
-			tu.host = u->host;
+			tu.host = host;
 			tu.path = Upath(u);
 			fprint(cfd, "%U", &tu);
 			for(;;){
@@ -925,6 +931,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 
 	hclose(h);
 	freeurl(u);
+	free(host);
 
 	while(k = shdr){
 		shdr = k->next;

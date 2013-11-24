@@ -102,7 +102,7 @@ Ufmt(Fmt *f)
 		fmtprint(f, "@");
 	}
 	if(u->host){
-		fmtprint(f, strchr(u->host, ':') ? "[%s]" : "%H", u->host);
+		fmtprint(f, strchr(u->host, ':') ? "[%s]" : "%s", u->host);
 		if(u->port)
 			fmtprint(f, ":%s", u->port);
 	}

@@ -415,6 +415,10 @@ fsopen(Req *r)
 				 * so we make one up.
 				 */
 				if(u = url("/", cl->url)){
+					if(r = u->host){
+						u->host = smprint("%H", r);
+						free(r);
+					}
 					if(r = smprint("%U", u)){
 						cl->hdr = addkey(cl->hdr, "Referer", r);
 						free(r);
@@ -764,8 +768,8 @@ main(int argc, char *argv[])
 
 	quotefmtinstall();
 	fmtinstall('U', Ufmt);
-	fmtinstall('E', Efmt);
 	fmtinstall('H', Hfmt);
+	fmtinstall('E', Efmt);
 
 	srv = nil;
 	mtpt = "/mnt/web";
