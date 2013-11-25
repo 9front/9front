@@ -639,7 +639,7 @@ reverseimages(Iimage **head)
 }
 
 char urlexpr[] = "^(https?|ftp|file|gopher|mailto|news|nntp|telnet|wais|"
-	"prospero)://([a-zA-Z0-9_@\\-]+([.:][a-zA-Z0-9_@\\-]+)*)";
+	"prospero)://[^/]+";
 Reprog	*urlprog;
 
 int
