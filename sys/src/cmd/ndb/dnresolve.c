@@ -814,6 +814,7 @@ serveraddrs(Query *qp, int nd, int depth)
 	 */
 	if(arp == 0){
 		for(rp = qp->nsrp; rp; rp = rp->next)
+			if(rp->marker == 0)
 			if(queryloops(qp, rp))
 				/*
 				 * give up as we should have got the address
