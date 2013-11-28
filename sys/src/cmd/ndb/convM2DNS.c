@@ -226,17 +226,21 @@ gname(char *to, RR *rp, Scan *sp)
 		goto err;
 	pointer = 0;
 	p = sp->p;
-	if (p == nil) {
+	if(p == nil) {
 		dnslog("gname: %R: nil sp->p", rp);
 		goto err;
 	}
 	toend = to + Domlen;
 	for(len = 0; *p && p < sp->ep; len += (pointer? 0: n+1)) {
 		n = 0;
-		switch (*p & 0300) {
+		switch(*p & 0300) {
 		case 0:			/* normal label */
-			if (p < sp->ep)
+			if(p < sp->ep)
 				n = *p++ & 077;		/* pick up length */
+			if(sp->ep - p <= n){
+				sp->err = "bad name length";
+				goto err;
+			}
 			if(len + n < Domlen - 1){
 				if(n > toend - to){
 					errtoolong(rp, sp, toend - to, n,
