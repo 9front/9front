@@ -367,9 +367,11 @@ p9anyattach(Fcall *rx, Fcall *tx)
 		return ep;
 	if (chatty9p)
 		fprint(2, "p9anyattach: afid %d state %d\n", rx->afid, sp->state);
-	if (sp->state == Established && strcmp(rx->uname, sp->uname) == 0
-		&& strcmp(rx->aname, sp->aname) == 0)
+	if(sp->state == Established && strcmp(rx->uname, sp->uname) == 0
+		&& strcmp(rx->aname, sp->aname) == 0){
+		rx->uname = sp->t.suid;
 		return nil;
+	}
 	return "authentication failed";
 }
 
@@ -392,7 +394,7 @@ p9anyread(Fcall *rx, Fcall *tx)
 	char *ep;
 
 	Fid *f;
-	f = oldauthfid(rx->afid, (void **)&sp, &ep);
+	f = oldauthfid(rx->fid, (void **)&sp, &ep);
 	if (f == nil)
 		return ep;
 	if (chatty9p)
@@ -437,7 +439,7 @@ p9anywrite(Fcall *rx, Fcall *tx)
 
 	Fid *f;
 
-	f = oldauthfid(rx->afid, (void **)&sp, &ep);
+	f = oldauthfid(rx->fid, (void **)&sp, &ep);
 	if (f == nil)
 		return ep;
 	if (chatty9p)
@@ -515,7 +517,7 @@ p9anyclunk(Fcall *rx, Fcall *tx)
 	AuthSession *sp;
 	char *ep;
 
-	f = oldauthfid(rx->afid, (void **)&sp, &ep);
+	f = oldauthfid(rx->fid, (void **)&sp, &ep);
 	if (f == nil)
 		return ep;
 	if (chatty9p)
