@@ -30,6 +30,8 @@ cpu \- connection to CPU server
 .PP
 .B cpu
 [
+.B -n
+] [
 .B -A
 .I address
 ] [
@@ -127,6 +129,11 @@ back to
 This is used if the local host is in a different protection domain than
 the server or if the user wants to log into the server as a different
 user.
+.TP
+.B none
+This skips authentication. This requires the
+.IR -n
+flag to be specified on the remote side.
 .PD
 .PP
 The
@@ -181,6 +188,16 @@ flag is similar but simulates the pre-9P2000 version
 of the 
 .I cpu
 protocol.
+The
+.B -n
+option allows using the
+.B none
+authentication method for incoming connections and must be
+specified before the
+.B -R
+and
+.B -O
+flags.
 .PP
 The
 .B -p

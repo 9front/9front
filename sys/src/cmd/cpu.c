@@ -30,6 +30,7 @@ int 	notechan;
 int	exportpid;
 char	*system;
 int	cflag;
+int	nflag;
 int	dbg;
 char	*user;
 char	*patternfile;
@@ -59,7 +60,7 @@ struct AuthMethod {
 {
 	{ "p9",		p9auth,		srvp9auth,},
 	{ "netkey",	netkeyauth,	netkeysrvauth,},
-//	{ "none",	noauth,		srvnoauth,},
+	{ "none",	noauth,		srvnoauth,},
 	{ nil,	nil}
 };
 AuthMethod *am = authmethod;	/* default is p9 */
@@ -175,6 +176,10 @@ main(int argc, char **argv)
 		break;
 	case 'f':
 		/* ignored but accepted for compatibility */
+		break;
+	case 'n':
+		/* must be specified before -R/-O */
+		nflag++;
 		break;
 	case 'A':
 		anstring = EARGF(usage());
@@ -349,7 +354,7 @@ remoteside(int old)
 		if(n < 0)
 			fatal("authenticating: %r");
 	}
-	if(setamalg(cmd) < 0){
+	if(setamalg(cmd) < 0 || (nflag == 0 && am->sf == srvnoauth)) {
 		writestr(fd, "unsupported auth method", nil, 0);
 		fatal("bad auth method %s", cmd);
 	} else
