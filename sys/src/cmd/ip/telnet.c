@@ -333,6 +333,8 @@ consctlcmd(char *s)
 void
 rawon(void)
 {
+	if(notkbd)
+		return;
 	consctlcmd("rawon");
 }
 
@@ -342,6 +344,8 @@ rawon(void)
 void
 rawoff(void)
 {
+	if(notkbd)
+		return;
 	consctlcmd("rawoff");
 }
 
