@@ -314,7 +314,7 @@ fromnet(int net)
 void
 consctlcmd(char *s)
 {
-	if(srv != nil)
+	if(srv != nil || notkbd)
 		return;
 	if(debug)
 		fprint(2, "consctl: %s\n", s);
@@ -333,8 +333,6 @@ consctlcmd(char *s)
 void
 rawon(void)
 {
-	if(notkbd)
-		return;
 	consctlcmd("rawon");
 }
 
@@ -344,8 +342,6 @@ rawon(void)
 void
 rawoff(void)
 {
-	if(notkbd)
-		return;
 	consctlcmd("rawoff");
 }
 
