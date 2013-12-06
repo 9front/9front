@@ -121,9 +121,10 @@ efork(Execargs *e)
 int
 _schedexec(Execargs *e)
 {
-	int pid;
+	int pid, flag;
 
-	switch(pid = rfork(RFREND|RFNOTEG|RFFDG|RFMEM|RFPROC)){
+	flag = (_threadwaitchan == nil) ? RFNOWAIT : 0;
+	switch(pid = rfork(RFREND|RFNOTEG|RFFDG|RFMEM|RFPROC|flag)){
 	case 0:
 		efork(e);
 	default:
