@@ -395,8 +395,6 @@ show(int fd, char *name)
     Out:
 		draw(screen, screen->clipr, display->white, nil, ZP);
 	}
-	if(n>1 && output)
-		fprint(2, "gif: warning: only writing first image in %d-image GIF %s\n", n, name);
 	if(nineflag){
 		if(images[0]->gifflags&TRANSP){
 			addalpha(rgbv[0]);
