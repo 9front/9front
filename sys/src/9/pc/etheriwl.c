@@ -2263,6 +2263,7 @@ iwlpci(void)
 		case 0x0084:  /* WiFi Link 1000 */
 		case 0x4229:	/* WiFi Link 4965 */
 		case 0x4230:	/* WiFi Link 4965 */
+		case 0x4232:	/* Wifi Link 5100 */
 		case 0x4236:	/* WiFi Link 5300 AGN */
 		case 0x4237:	/* Wifi Link 5100 AGN */
 		case 0x0085:	/* Centrino Advanced-N 6205 */
