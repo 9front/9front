@@ -11,8 +11,8 @@
 #include <panel.h>
 #include "mothra.h"
 #include "rtext.h"
-int debug=0;		/* -d flag causes debug messages to appear in mothra.err */
-int verbose=0;		/* -v flag causes html errors to appear in mothra.err */
+int debug=0;
+int verbose=0;		/* -v flag causes html errors to be written to file-descriptor 2 */
 int defdisplay=1;	/* is the default (initial) display visible? */
 Panel *root;	/* the whole display */
 Panel *alt;	/* the alternate display */
@@ -208,29 +208,29 @@ void catch(void*, char*){
 void dienow(void*, char*){
 	noted(NDFLT);
 }
-int mkmfile(char *stem, int mode){
-	char *henv;
-	char filename[NNAME];
+
+char* mkhome(void){
+	static char *home;		/* where to put files */
+	char *henv, *tmp;
 	int f;
-	if(home[0]=='\0'){
+
+	if(home == nil){
 		henv=getenv("home");
 		if(henv){
-			sprint(home, "%s/lib", henv);
-			f=create(home, OREAD, DMDIR|0777);
+			tmp = smprint("%s/lib", henv);
+			f=create(tmp, OREAD, DMDIR|0777);
 			if(f!=-1) close(f);
-			sprint(home, "%s/lib/mothra", henv);
+			free(tmp);
+
+			home = smprint("%s/lib/mothra", henv);
 			f=create(home, OREAD, DMDIR|0777);
 			if(f!=-1) close(f);
 			free(henv);
 		}
 		else
-			strcpy(home, "/tmp");
+			home = strdup("/tmp");
 	}
-	snprint(filename, sizeof(filename), "%s/%s", home, stem);
-	f=create(filename, OWRITE, mode);
-	if(f==-1)
-		f=create(stem, OWRITE, mode);
-	return f;
+	return home;
 }
 
 void donecurs(void){
@@ -263,7 +263,6 @@ void main(int argc, char *argv[]){
 	Www *new;
 	Action *a;
 	char *url;
-	int errfile;
 	int i;
 
 	quotefmtinstall();
@@ -301,11 +300,6 @@ void main(int argc, char *argv[]){
 		url=getenv("url");
 		break;
 	case 1: url=argv[0]; break;
-	}
-	errfile=mkmfile("mothra.err", 0666);
-	if(errfile!=-1){
-		dup(errfile, 2);
-		close(errfile);
 	}
 	if(initdraw(0, 0, mothra) < 0)
 		sysfatal("initdraw: %r");
@@ -1129,7 +1123,7 @@ void hit3(int button, int item){
 			message("no url selected");
 			break;
 		}
-		snprint(name, sizeof(name), "%s/hit.html", home);
+		snprint(name, sizeof(name), "%s/hit.html", mkhome());
 		fd=open(name, OWRITE);
 		if(fd==-1){
 			fd=create(name, OWRITE, 0666);
@@ -1145,7 +1139,7 @@ void hit3(int button, int item){
 		close(fd);
 		break;
 	case 5:
-		snprint(name, sizeof(name), "file:%s/hit.html", home);
+		snprint(name, sizeof(name), "file:%s/hit.html", mkhome());
 		geturl(name, -1, 1, 0);
 		break;
 	case 6:

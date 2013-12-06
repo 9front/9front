@@ -4,7 +4,7 @@ mothra \- retrieve and display World-Wide Web files
 .SH SYNOPSIS
 .B mothra
 [
-.B -dva
+.B -va
 ]
 [
 .B -m
@@ -52,10 +52,6 @@ the environment variable
 .PP
 There are a number of options:
 .TP
-.B -d
-Debug mode. Causes debug messages to appear in
-.B $home/lib/mothra/mothra.err.
-.TP
 .B -a
 Alt display. Starts in alt display mode, see menu
 commands table below.
@@ -70,8 +66,8 @@ The default is
 .B /mnt/web.
 .TP
 .B -v
-Verbose mode. Causes HTML errors to appear in
-.B $home/lib/mothra/mothra.err.
+Verbose mode. Causes HTML errors to be printed
+on file-descriptor 2.
 .PP
 The display contains the last message from
 .I mothra,
@@ -169,9 +165,6 @@ for most image files.
 .SH FILES
 .B $home/lib/mothra/hit.html 
 the hit list
-.br
-.B $home/lib/mothra/mothra.err
-log of debug and/or error messages, including HTML syntax errors
 .SH SOURCE
 .B /sys/src/cmd/mothra
 .SH "SEE ALSO"

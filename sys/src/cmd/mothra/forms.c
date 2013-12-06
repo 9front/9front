@@ -701,17 +701,8 @@ void h_submitinput(Panel *p, int){
 			return;
 		}
 		buf[n] = 0;
-		if(debug)fprint(2, "GET %s\n", buf);
 		geturl(buf, -1, 0, 0);
 	} else {
-		if(debug){
-			fprint(2, "POST %s ->\n", form->action);
-			if(form->ctype)
-				mencodeform(form, 2);
-			else
-				uencodeform(form, 2);
-			fprint(2, "\n");
-		}
 		/* only set for multipart/form-data */
 		if(form->ctype)
 			mencodeform(form, fd);

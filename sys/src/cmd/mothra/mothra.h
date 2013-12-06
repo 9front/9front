@@ -65,7 +65,6 @@ enum{
 };
 
 Image *hrule, *bullet, *linespace;
-char home[512];		/* where to put files */
 int chrwidth;		/* nominal width of characters in font */
 Panel *text;		/* Panel displaying the current www page */
 int debug;		/* command line flag */
