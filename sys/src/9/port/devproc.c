@@ -680,12 +680,23 @@ eventsavailable(void *)
 	return tproduced > tconsumed;
 }
 
+static int
+prochaswaitq(void *x)
+{
+	Chan *c;
+	Proc *p;
+
+	c = (Chan *)x;
+	p = proctab(SLOT(c->qid));
+	return p->pid != PID(c->qid) || p->waitq != 0;
+}
+
 static long
 procread(Chan *c, void *va, long n, vlong off)
 {
 	/* NSEG*32 was too small for worst cases */
 	char *a, flag[10], *sps, *srv, statbuf[NSEG*64];
-	int i, j, m, navail, ne, pid, rsize;
+	int i, j, m, navail, ne, rsize;
 	long l;
 	uchar *rptr;
 	ulong offset;
@@ -924,17 +935,18 @@ procread(Chan *c, void *va, long n, vlong off)
 		}
 
 		lock(&p->exl);
-		pid = p->pid;
-		while(p->waitq == 0) {
+		while(p->waitq == 0 && p->pid == PID(c->qid)) {
 			if(up == p && p->nchild == 0) {
 				unlock(&p->exl);
 				error(Enochild);
 			}
 			unlock(&p->exl);
-			sleep(&p->waitr, haswaitq, p);
-			if(p->pid != pid)
-				error(Eprocdied);
+			sleep(&p->waitr, prochaswaitq, c);
 			lock(&p->exl);
+		}
+		if(p->pid != PID(c->qid)){
+			unlock(&p->exl);
+			error(Eprocdied);
 		}
 		wq = p->waitq;
 		p->waitq = wq->next;
@@ -1229,11 +1241,12 @@ procstopwait(Proc *p, int ctl)
 		error(Einuse);
 	if(procstopped(p) || p->state == Broken)
 		return;
-
+	pid = p->pid;
+	if(pid == 0)
+		error(Eprocdied);
 	if(ctl != 0)
 		p->procctl = ctl;
 	p->pdbg = up;
-	pid = p->pid;
 	qunlock(&p->debug);
 	up->psstate = "Stopwait";
 	if(waserror()) {

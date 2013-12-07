@@ -1205,7 +1205,7 @@ pexit(char *exitstr, int freemem)
 	panic("pexit");
 }
 
-int
+static int
 haswaitq(void *x)
 {
 	Proc *p;

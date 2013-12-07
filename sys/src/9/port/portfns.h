@@ -124,7 +124,6 @@ ulong		getmalloctag(void*);
 ulong		getrealloctag(void*);
 void		gotolabel(Label*);
 char*		getconfenv(void);
-int		haswaitq(void*);
 long		hostdomainwrite(char*, int);
 long		hostownerwrite(char*, int);
 void		hzsched(void);
