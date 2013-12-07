@@ -1111,14 +1111,7 @@ pexit(char *exitstr, int freemem)
 	 * if not a kernel process and have a parent,
 	 * do some housekeeping.
 	 */
-	if(up->kp == 0) {
-		p = up->parent;
-		if(p == 0) {
-			if(exitstr == 0)
-				exitstr = "unknown";
-			panic("boot process died: %s", exitstr);
-		}
-
+	if(up->kp == 0 && up->parentpid != 0) {
 		wq = smalloc(sizeof(Waitq));
 		wq->w.pid = up->pid;
 		utime = up->time[TUser] + up->time[TCUser];
@@ -1131,11 +1124,12 @@ pexit(char *exitstr, int freemem)
 		else
 			wq->w.msg[0] = '\0';
 
+		p = up->parent;
 		lock(&p->exl);
 		/*
 		 * Check that parent is still alive.
 		 */
-		if(p->pid != 0 && p->pid == up->parentpid && p->state != Broken) {
+		if(p->pid == up->parentpid && p->state != Broken) {
 			p->nchild--;
 			p->time[TCUser] += utime;
 			p->time[TCSys] += stime;
@@ -1157,6 +1151,11 @@ pexit(char *exitstr, int freemem)
 		unlock(&p->exl);
 		if(wq)
 			free(wq);
+	}
+	else if(up->kp == 0 && up->parent == 0){
+		if(exitstr == 0)
+			exitstr = "unknown";
+		panic("boot process died: %s", exitstr);
 	}
 
 	if(!freemem)
