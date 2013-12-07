@@ -1135,7 +1135,7 @@ pexit(char *exitstr, int freemem)
 		/*
 		 * Check that parent is still alive.
 		 */
-		if(p->pid == up->parentpid && p->state != Broken) {
+		if(p->pid != 0 && p->pid == up->parentpid && p->state != Broken) {
 			p->nchild--;
 			p->time[TCUser] += utime;
 			p->time[TCSys] += stime;
