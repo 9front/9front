@@ -206,8 +206,15 @@ ntv2_blob(uchar *blob, int len, char *windom)
 	*p++ = 0;
 	*p++ = 0;
 
+	len -= 4;
 	p += putname(p, len - (p-blob), windom, Bdomain);
 	p += putname(p, len - (p-blob), "", Beof);
+	len += 4;
+
+	*p++ = 0;		/* 32bit: unknown data */
+	*p++ = 0;
+	*p++ = 0;
+	*p++ = 0;
 
 	return p - blob;
 }

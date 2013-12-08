@@ -733,6 +733,13 @@ mschap(Ticketreq *tr)
 			if(id == MsvAvEOL)
 				break;
 		}
+
+		/* Z[4] */
+		if(ntbloblen > sizeof(ntblob)-4)
+			exits(0);
+		if(readn(0, ntblob+ntbloblen, 4) < 0)
+			exits(0);
+		ntbloblen += 4;
 	}
 
 	safecpy(tr->uid, reply.uid, sizeof(tr->uid));
@@ -750,21 +757,29 @@ mschap(Ticketreq *tr)
 
 	if(ntbloblen > 0){
 		getname(MsvAvNbDomainName, ntblob, ntbloblen, windom, sizeof(windom));
-		ntv2hash(hash, secret, tr->uid, windom);
 
-		/*
-		 * LmResponse = Cat(HMAC_MD5(LmHash, Cat(SC, CC)), CC)
-		 */
-		s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
-		hmac_md5((uchar*)reply.LMresp+16, 8, hash, MShashlen, resp, s);
-		lmok = memcmp(resp, reply.LMresp, 16) == 0;
+		for(;;){
+			ntv2hash(hash, secret, tr->uid, windom);
 
-		/*
-		 * NtResponse = Cat(HMAC_MD5(NtHash, Cat(SC, NtBlob)), NtBlob)
-		 */
-		s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
-		hmac_md5(ntblob, ntbloblen, hash, MShashlen, resp, s);
-		ntok = memcmp(resp, reply.NTresp, 16) == 0;
+			/*
+			 * LmResponse = Cat(HMAC_MD5(LmHash, Cat(SC, CC)), CC)
+			 */
+			s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
+			hmac_md5((uchar*)reply.LMresp+16, 8, hash, MShashlen, resp, s);
+			lmok = memcmp(resp, reply.LMresp, 16) == 0;
+
+			/*
+			 * NtResponse = Cat(HMAC_MD5(NtHash, Cat(SC, NtBlob)), NtBlob)
+			 */
+			s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
+			hmac_md5(ntblob, ntbloblen, hash, MShashlen, resp, s);
+			ntok = memcmp(resp, reply.NTresp, 16) == 0;
+
+			if(lmok || ntok || windom[0] == '\0')
+				break;
+
+			windom[0] = '\0';	/* try NIL domain */
+		}
 		dupe = 0;
 	} else {
 		lmhash(hash, secret);
