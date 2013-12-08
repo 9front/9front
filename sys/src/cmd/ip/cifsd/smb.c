@@ -99,22 +99,25 @@ smbsessionsetupandx(Req *r, uchar *h, uchar *p, uchar *e)
 		logit("ignoring bad session key");
 	while(!remoteuser){
 		if(needauth){
-			MSchapreply mcr;
+			MSchapreply *mcr;
 
 			if(smbcs == nil || strlen(user) == 0)
 				break;
-			memset(&mcr, 0, sizeof(mcr));
-			if((lme - lm) == sizeof(mcr.LMresp))
-				memmove(mcr.LMresp, lm, lme - lm);
-			if((nte - nt) == sizeof(mcr.NTresp))
-				memmove(mcr.NTresp, nt, nte - nt);
 			smbcs->user = user;
-			smbcs->resp = &mcr;
-			smbcs->nresp = sizeof(mcr);
+			smbcs->nresp = (nte - nt)+sizeof(*mcr)-sizeof(mcr->NTresp);
+			if(smbcs->nresp < sizeof(*mcr))
+				smbcs->nresp = sizeof(*mcr);
+			smbcs->resp = mallocz(smbcs->nresp, 1);
+			mcr = (MSchapreply*)smbcs->resp;
+			if((lme - lm) <= sizeof(mcr->LMresp))
+				memmove(mcr->LMresp, lm, lme - lm);
+			if((nte - nt) > 0)
+				memmove(mcr->NTresp, nt, nte - nt);
 			if((ai = auth_response(smbcs)) == nil)
 				logit("auth_response: %r");
 			auth_freechal(smbcs);
 			smbcs = nil;
+			free(mcr);
 			if(ai == nil)
 				break;
 			if(auth_chuid(ai, nil) < 0)

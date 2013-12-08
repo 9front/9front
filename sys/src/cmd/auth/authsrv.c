@@ -34,6 +34,7 @@ void	mkkey(char*);
 void	randombytes(uchar*, int);
 void	nthash(uchar hash[MShashlen], char *passwd);
 void	lmhash(uchar hash[MShashlen], char *passwd);
+void	ntv2hash(uchar hash[MShashlen], char *passwd, char *user, char *dom);
 void	mschalresp(uchar resp[MSresplen], uchar hash[MShashlen], uchar chal[MSchallen]);
 void	desencrypt(uchar data[8], uchar key[7]);
 int	tickauthreply(Ticketreq*, char*);
@@ -629,19 +630,59 @@ printresp(uchar resp[MSresplen])
 	syslog(0, AUTHLOG, "resp = %s", buf);
 }
 
+enum {
+	MsvAvEOL = 0,
+	MsvAvNbComputerName,
+	MsvAvNbDomainName,
+	MsvAvDnsComputerName,
+	MsvAvDnsomainName,
+};
+
+char*
+getname(int id, uchar *ntblob, int ntbloblen, char *buf, int nbuf)
+{
+	int aid, alen, i;
+	uchar *p, *e;
+	char *d;
+	Rune r;
+
+	d = buf;
+	p = ntblob+8+8+8+4;	/* AvPair offset */
+	e = ntblob+ntbloblen;
+	while(p+4 <= e){
+		aid = *p++;
+		aid |= *p++ << 8;
+		alen = *p++;
+		alen |= *p++ << 8;
+
+		if(p+alen > e)
+			break;
+		if(aid == id){
+			for(i=0; i+1 < alen && d-buf < nbuf-(UTFmax+1); i+=2){
+				r = p[i] | p[i+1]<<8;
+				d += runetochar(d, &r);
+			}
+			break;
+		}
+		p += alen;
+	}
+	*d = '\0';
+	return buf;
+}
+
+static uchar ntblobsig[] = {0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 void
 mschap(Ticketreq *tr)
 {
-
 	char *secret, *hkey;
-	char sbuf[SECRETLEN], hbuf[DESKEYLEN];
-	uchar chal[CHALLEN];
+	char sbuf[SECRETLEN], hbuf[DESKEYLEN], windom[128];
+	uchar chal[CHALLEN], ntblob[1024];
 	uchar hash[MShashlen];
 	uchar hash2[MShashlen];
 	uchar resp[MSresplen];
 	OMSchapreply reply;
-	int dupe, lmok, ntok;
+	int dupe, lmok, ntok, ntbloblen;
 	DigestState *s;
 	uchar digest[SHA1dlen];
 
@@ -657,6 +698,43 @@ mschap(Ticketreq *tr)
 	if(readn(0, &reply, sizeof(reply)) < 0)
 		exits(0);
 
+	/*
+	 * CIFS/NTLMv2 uses variable length NT response.
+	 */
+	ntbloblen = 0;
+	if(memcmp(reply.NTresp+16, ntblobsig, sizeof(ntblobsig)) == 0){
+		/* Version[1], HiVision[1], Z[6] */
+		ntbloblen += 1+1+6;
+		memmove(ntblob, reply.NTresp+16, ntbloblen);
+
+		/* Time[8], CC[8], Z[4] */
+		if(readn(0, ntblob+ntbloblen, 8+8+4) < 0)
+			exits(0);
+		ntbloblen += 8+8+4;
+
+		/* variable AvPairs */
+		for(;;){
+			int len, id;
+
+			if(ntbloblen > sizeof(ntblob)-4)
+				exits(0);
+			/* AvId[2], AvLen[2], Vairable[AvLen] */
+			if(readn(0, ntblob+ntbloblen, 4) < 0)
+				exits(0);
+			id = ntblob[ntbloblen+0] | ntblob[ntbloblen+1]<<8;
+			len = ntblob[ntbloblen+2] | ntblob[ntbloblen+3]<<8;
+			ntbloblen += 4;
+
+			if(ntbloblen+len > sizeof(ntblob))
+				exits(0);
+			if(readn(0, ntblob+ntbloblen, len) < 0)
+				exits(0);
+			ntbloblen += len;
+			if(id == MsvAvEOL)
+				break;
+		}
+	}
+
 	safecpy(tr->uid, reply.uid, sizeof(tr->uid));
 	/*
 	 * lookup
@@ -670,13 +748,33 @@ mschap(Ticketreq *tr)
 		exits(0);
 	}
 
-	lmhash(hash, secret);
-	mschalresp(resp, hash, chal);
-	lmok = memcmp(resp, reply.LMresp, MSresplen) == 0;
-	nthash(hash, secret);
-	mschalresp(resp, hash, chal);
-	ntok = memcmp(resp, reply.NTresp, MSresplen) == 0;
-	dupe = memcmp(reply.LMresp, reply.NTresp, MSresplen) == 0;
+	if(ntbloblen > 0){
+		getname(MsvAvNbDomainName, ntblob, ntbloblen, windom, sizeof(windom));
+		ntv2hash(hash, secret, tr->uid, windom);
+
+		/*
+		 * LmResponse = Cat(HMAC_MD5(LmHash, Cat(SC, CC)), CC)
+		 */
+		s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
+		hmac_md5((uchar*)reply.LMresp+16, 8, hash, MShashlen, resp, s);
+		lmok = memcmp(resp, reply.LMresp, 16) == 0;
+
+		/*
+		 * NtResponse = Cat(HMAC_MD5(NtHash, Cat(SC, NtBlob)), NtBlob)
+		 */
+		s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
+		hmac_md5(ntblob, ntbloblen, hash, MShashlen, resp, s);
+		ntok = memcmp(resp, reply.NTresp, 16) == 0;
+		dupe = 0;
+	} else {
+		lmhash(hash, secret);
+		mschalresp(resp, hash, chal);
+		lmok = memcmp(resp, reply.LMresp, MSresplen) == 0;
+		nthash(hash, secret);
+		mschalresp(resp, hash, chal);
+		ntok = memcmp(resp, reply.NTresp, MSresplen) == 0;
+		dupe = memcmp(reply.LMresp, reply.NTresp, MSresplen) == 0;
+	}
 
 	/*
 	 * It is valid to send the same response in both the LM and NTLM 
@@ -707,8 +805,7 @@ mschap(Ticketreq *tr)
 		exits(0);
 
 	if(debug)
-		replyerror("mschap-ok %s/%s(%s) %ux",
-			tr->uid, tr->hostid, raddr);
+		replyerror("mschap-ok %s/%s(%s)", tr->uid, tr->hostid, raddr);
 
 	nthash(hash, secret);
 	md4(hash, 16, hash2, 0);
@@ -723,19 +820,52 @@ mschap(Ticketreq *tr)
 void
 nthash(uchar hash[MShashlen], char *passwd)
 {
-	uchar buf[512];
-	int i;
+	DigestState *ds;
+	uchar b[2];
+	Rune r;
 
-	for (i = 0; *passwd && i + 1 < sizeof(buf);) {
-		Rune r;
+	ds = md4(nil, 0, nil, nil);
+	while(*passwd){
 		passwd += chartorune(&r, passwd);
-		buf[i++] = r;
-		buf[i++] = r >> 8;
+		b[0] = r & 0xff;
+		b[1] = r >> 8;
+		md4(b, 2, nil, ds);
 	}
+	md4(nil, 0, hash, ds);
+}
 
-	memset(hash, 0, 16);
+void
+ntv2hash(uchar hash[MShashlen], char *passwd, char *user, char *dom)
+{
+	uchar v1hash[MShashlen];
+	DigestState *ds;
+	uchar b[2];
+	Rune r;
 
-	md4(buf, i, hash, 0);
+	nthash(v1hash, passwd);
+
+	/*
+	 * Some documentation insists that the username must be forced to
+	 * uppercase, but the domain name should not be. Other shows both
+	 * being forced to uppercase. I am pretty sure this is irrevevant as the
+	 * domain name passed from the remote server always seems to be in
+	 * uppercase already.
+	 */
+        ds = hmac_md5(nil, 0, v1hash, sizeof(v1hash), nil, nil);
+	while(*user){
+		user += chartorune(&r, user);
+		r = toupperrune(r);
+		b[0] = r & 0xff;
+		b[1] = r >> 8;
+        	hmac_md5(b, 2, v1hash, sizeof(v1hash), nil, ds);
+	}
+	while(*dom){
+		dom += chartorune(&r, dom);
+		b[0] = r & 0xff;
+		b[1] = r >> 8;
+        	hmac_md5(b, 2, v1hash, sizeof(v1hash), nil, ds);
+	}
+        hmac_md5(nil, 0, v1hash, sizeof(v1hash), hash, ds);
 }
 
 void
@@ -745,12 +875,12 @@ lmhash(uchar hash[MShashlen], char *passwd)
 	char *stdtext = "KGS!@#$%";
 	int i;
 
+	memset(buf, 0, sizeof(buf));
 	strncpy((char*)buf, passwd, sizeof(buf));
 	for(i=0; i<sizeof(buf); i++)
 		if(buf[i] >= 'a' && buf[i] <= 'z')
 			buf[i] += 'A' - 'a';
 
-	memset(hash, 0, 16);
 	memcpy(hash, stdtext, 8);
 	memcpy(hash+8, stdtext, 8);
 

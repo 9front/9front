@@ -130,14 +130,14 @@ chapwrite(Fsstate *fss, void *va, uint n)
 {
 	int ret, nreply;
 	char *a, *v;
-	void *reply;
 	Key *k;
 	Keyinfo ki;
 	State *s;
-	Chapreply cr;
-	MSchapreply mcr;
-	OChapreply ocr;
-	OMSchapreply omcr;
+	Chapreply *cr;
+	MSchapreply *mcr;
+	OChapreply *ocr;
+	OMSchapreply *omcr;
+	uchar reply[4*1024];
 
 	s = fss->ps;
 	a = va;
@@ -150,17 +150,28 @@ chapwrite(Fsstate *fss, void *va, uint n)
 		if(ret != RpcOk)
 			return ret;
 		v = _strfindattr(k->privattr, "!password");
-		if(v == nil)
+		if(v == nil){
+			closekey(k);
 			return failure(fss, "key has no password");
+		}
 		setattrs(fss->attr, k->attr);
 		switch(s->astype){
 		default:
-			abort();
+			closekey(k);
+			return failure(fss, "chap internal botch");
 		case AuthMSchap:
+			if(n < ChapChallen){
+				closekey(k);
+				return failure(fss, "challenge too short");
+			}
 			doLMchap(v, (uchar *)a, (uchar *)s->mcr.LMresp);
 			doNTchap(v, (uchar *)a, (uchar *)s->mcr.NTresp);
 			break;
 		case AuthChap:
+			if(n < ChapChallen+1){
+				closekey(k);
+				return failure(fss, "challenge too short");
+			}
 			dochap(v, *a, a+1, (uchar *)s->cr);
 			break;
 		}
@@ -181,26 +192,28 @@ chapwrite(Fsstate *fss, void *va, uint n)
 		default:
 			return failure(fss, "chap internal botch");
 		case AuthChap:
-			if(n != sizeof(Chapreply))
+			if(n != sizeof(*cr))
 				return failure(fss, "did not get Chapreply");
-			memmove(&cr, va, sizeof cr);
-			ocr.id = cr.id;
-			memmove(ocr.resp, cr.resp, sizeof ocr.resp);
-			memset(omcr.uid, 0, sizeof(omcr.uid));
-			strecpy(ocr.uid, ocr.uid+sizeof ocr.uid, s->user);
-			reply = &ocr;
-			nreply = sizeof ocr;
+			cr = (Chapreply*)va;
+			nreply = sizeof(*ocr);
+			memset(reply, 0, nreply);
+			ocr = (OChapreply*)reply;
+			strecpy(ocr->uid, ocr->uid+sizeof(ocr->uid), s->user);
+			ocr->id = cr->id;
+			memmove(ocr->resp, cr->resp, sizeof(ocr->resp));
 			break;
 		case AuthMSchap:
-			if(n != sizeof(MSchapreply))
+			if(n < sizeof(*mcr))
 				return failure(fss, "did not get MSchapreply");
-			memmove(&mcr, va, sizeof mcr);
-			memmove(omcr.LMresp, mcr.LMresp, sizeof omcr.LMresp);
-			memmove(omcr.NTresp, mcr.NTresp, sizeof omcr.NTresp);
-			memset(omcr.uid, 0, sizeof(omcr.uid));
-			strecpy(omcr.uid, omcr.uid+sizeof omcr.uid, s->user);
-			reply = &omcr;
-			nreply = sizeof omcr;
+			if(n > sizeof(reply)+sizeof(*mcr)-sizeof(*omcr))
+				return failure(fss, "MSchapreply too long");
+			mcr = (MSchapreply*)va;
+			nreply = n+sizeof(*omcr)-sizeof(*mcr);
+			memset(reply, 0, nreply);
+			omcr = (OMSchapreply*)reply;
+			strecpy(omcr->uid, omcr->uid+sizeof(omcr->uid), s->user);
+			memmove(omcr->LMresp, mcr->LMresp, sizeof(omcr->LMresp));
+			memmove(omcr->NTresp, mcr->NTresp, n+sizeof(mcr->NTresp)-sizeof(*mcr));
 			break;
 		}
 		if(doreply(s, reply, nreply) < 0)
