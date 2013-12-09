@@ -42,7 +42,7 @@ ldrawop(Memimage *dst, Rectangle screenr, Rectangle clipr, void *etc, int insave
 	if(!rectinrect(r, clipr)){
 		oclipr = dst->clipr;
 		dst->clipr = clipr;
-		ok = drawclip(dst, &r, d->src, &p0, d->mask, &p1, &srcr, &mr);
+		ok = drawclipnorepl(dst, &r, d->src, &p0, d->mask, &p1, &srcr, &mr);
 		dst->clipr = oclipr;
 		if(!ok)
 			return;
@@ -74,7 +74,7 @@ if(drawdebug)	iprint("mask->layer != nil\n");
 		return;
 	}
 
-	if(drawclip(dst, &r, src, &p0, mask, &p1, &srcr, &mr) == 0){
+	if(drawclipnorepl(dst, &r, src, &p0, mask, &p1, &srcr, &mr) == 0){
 if(drawdebug)	iprint("drawclip dstcr %R srccr %R maskcr %R\n", dst->clipr, src->clipr, mask->clipr);
 		return;
 	}

@@ -213,17 +213,16 @@ DBG print("alphadraw handled\n");
 }
 #undef DBG
 
+
 /*
  * Clip the destination rectangle further based on the properties of the 
  * source and mask rectangles.  Once the destination rectangle is properly
  * clipped, adjust the source and mask rectangles to be the same size.
- * Then if source or mask is replicated, move its clipped rectangle
- * so that its minimum point falls within the repl rectangle.
  *
  * Return zero if the final rectangle is null.
  */
 int
-drawclip(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, Point *p1, Rectangle *sr, Rectangle *mr)
+drawclipnorepl(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, Point *p1, Rectangle *sr, Rectangle *mr)
 {
 	Point rmin, delta;
 	int splitcoords;
@@ -270,15 +269,13 @@ drawclip(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, 
 		sr->min.y += mr->min.y-omr.min.y;
 		sr->max.x += mr->max.x-omr.max.x;
 		sr->max.y += mr->max.y-omr.max.y;
-		*p1 = mr->min;
 	}else{
 		if(!(mask->flags&Frepl) && !rectclip(sr, mask->r))
 			return 0;
 		if(!rectclip(sr, mask->clipr))
 			return 0;
-		*p1 = sr->min;
+		*mr = *sr;
 	}
-
 	/* move source clipping back to destination */
 	delta.x = r->min.x - p0->x;
 	delta.y = r->min.y - p0->y;
@@ -286,6 +283,30 @@ drawclip(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, 
 	r->min.y = sr->min.y + delta.y;
 	r->max.x = sr->max.x + delta.x;
 	r->max.y = sr->max.y + delta.y;
+	*p0 = sr->min;
+	*p1 = mr->min;
+
+	assert(Dx(*sr) == Dx(*mr) && Dx(*mr) == Dx(*r));
+	assert(Dy(*sr) == Dy(*mr) && Dy(*mr) == Dy(*r));
+	assert(ptinrect(r->min, dst->r));
+
+	return 1;
+}
+
+/*
+ * like drawclipnorepl() above, but if source or mask is replicated,
+ * move its clipped rectangle so that its minimum point falls within
+ * the repl rectangle.
+ *
+ * Return zero if the final rectangle is null.
+ */
+int
+drawclip(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, Point *p1, Rectangle *sr, Rectangle *mr)
+{
+	Point delta;
+
+	if(!drawclipnorepl(dst, r, src, p0, mask, p1, sr, mr))
+		return 0;
 
 	/* move source rectangle so sr->min is in src->r */
 	if(src->flags&Frepl) {
@@ -295,8 +316,8 @@ drawclip(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, 
 		sr->min.y += delta.y;
 		sr->max.x += delta.x;
 		sr->max.y += delta.y;
+		*p0 = sr->min;
 	}
-	*p0 = sr->min;
 
 	/* move mask point so it is in mask->r */
 	*p1 = drawrepl(mask->r, *p1);
@@ -304,11 +325,8 @@ drawclip(Memimage *dst, Rectangle *r, Memimage *src, Point *p0, Memimage *mask, 
 	mr->max.x = p1->x+Dx(*sr);
 	mr->max.y = p1->y+Dy(*sr);
 
-	assert(Dx(*sr) == Dx(*mr) && Dx(*mr) == Dx(*r));
-	assert(Dy(*sr) == Dy(*mr) && Dy(*mr) == Dy(*r));
 	assert(ptinrect(*p0, src->r));
 	assert(ptinrect(*p1, mask->r));
-	assert(ptinrect(r->min, dst->r));
 
 	return 1;
 }

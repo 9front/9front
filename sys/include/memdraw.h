@@ -127,6 +127,7 @@ extern int		cloadmemimage(Memimage*, Rectangle, uchar*, int);
 extern int		unloadmemimage(Memimage*, Rectangle, uchar*, int);
 extern ulong*	wordaddr(Memimage*, Point);
 extern uchar*	byteaddr(Memimage*, Point);
+extern int		drawclipnorepl(Memimage*, Rectangle*, Memimage*, Point*, Memimage*, Point*, Rectangle*, Rectangle*);
 extern int		drawclip(Memimage*, Rectangle*, Memimage*, Point*, Memimage*, Point*, Rectangle*, Rectangle*);
 extern void	memfillcolor(Memimage*, ulong);
 extern int		memsetchan(Memimage*, ulong);

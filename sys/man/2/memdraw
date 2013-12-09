@@ -25,6 +25,7 @@ memfillpoly,
 memimageline,
 memimagedraw,
 drawclip,
+drawclipnorepl,
 memlinebbox,
 memlineendsize,
 allocmemsubfont,
@@ -137,6 +138,9 @@ void	memimagedraw(Memimage *dst, Rectangle r, Memimage *src,
 .ft L
 .nf
 int	drawclip(Memimage *dst, Rectangle *dr, Memimage *src,
+	   Point *sp, Memimage *mask, Point *mp,
+	   Rectangle *sr, Rectangle *mr)
+int	drawclipnorepl(Memimage *dst, Rectangle *dr, Memimage *src,
 	   Point *sp, Memimage *mask, Point *mp,
 	   Rectangle *sr, Rectangle *mr)
 Rectangle	memlinebbox(Point p0, Point p1, int end0, int end1,
@@ -396,8 +400,18 @@ but translated so the upper left corners are the returned
 .B sp
 and
 .BR mp .
+.I Drawclipnorepl
+does the same as
+.B drawclip
+but avoids clamping
+.B sp
+and
+.B mr
+within the image rectangle of source and mask when replicated.
 .I Drawclip
-returns zero when the clipped rectangle is empty.
+and
+.I drawclipnorepl
+return zero when the clipped rectangle is empty.
 .I Memlinebbox
 returns a conservative bounding box containing a line between
 two points
