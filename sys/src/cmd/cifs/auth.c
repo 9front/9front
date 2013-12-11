@@ -21,7 +21,6 @@ static enum {
 	MACkeylen	= 40,	/* MAC key len */
 	MAClen		= 8,	/* signature length */
 	MACoff		= 14,	/* sign. offset from start of SMB (not netbios) pkt */
-	Bliplen		= 8,	/* size of LMv2 client nonce */
 };
 
 static void
@@ -67,18 +66,25 @@ auth_plain(char *windom, char *keyp, uchar *chal, int len)
 }
 
 static Auth *
-auth_lm_and_ntlm(char *windom, char *keyp, uchar *chal, int len)
+auth_proto(char *proto, char *windom, char *keyp, uchar *chal, int len)
 {
-	int err;
+	MSchapreply *mcr;
+	uchar resp[4096];
+	int nresp;
 	char user[64];
 	Auth *ap;
-	MSchapreply mcr;
 
-	err = auth_respond(chal, len, user, sizeof user, &mcr, sizeof mcr,
-		auth_getkey, "windom=%s proto=mschap role=client service=cifs %s",
-		windom, keyp);
-	if(err == -1)
-		sysfatal("cannot get key - %r");
+	mcr = (MSchapreply*)resp;
+	nresp = sizeof(resp);
+	if(strcmp(proto, "mschap") == 0)
+		nresp = sizeof(*mcr);	/* backwards compatibility with old factotum */
+	nresp = auth_respond(chal, len, user, sizeof user, resp, nresp,
+		auth_getkey, "proto=%s role=client service=cifs windom=%s %s",
+		proto, windom, keyp);
+	if(nresp < 0)
+		sysfatal("cannot get response - %r");
+	if(nresp < sizeof(*mcr))
+		sysfatal("bad response size");
 
 	ap = emalloc9p(sizeof(Auth));
 	memset(ap, 0, sizeof(ap));
@@ -86,16 +92,22 @@ auth_lm_and_ntlm(char *windom, char *keyp, uchar *chal, int len)
 	ap->windom = estrdup9p(windom);
 
 	/* LM response */
-	ap->len[0] = sizeof(mcr.LMresp);
+	ap->len[0] = sizeof(mcr->LMresp);
 	ap->resp[0] = emalloc9p(ap->len[0]);
-	memcpy(ap->resp[0], mcr.LMresp, ap->len[0]);
+	memcpy(ap->resp[0], mcr->LMresp, ap->len[0]);
 
-	/* NTLM response */
-	ap->len[1] = sizeof(mcr.NTresp);
+	/* NT response */
+	ap->len[1] = nresp+sizeof(mcr->NTresp)-sizeof(*mcr);
 	ap->resp[1] = emalloc9p(ap->len[1]);
-	memcpy(ap->resp[1], mcr.NTresp, ap->len[1]);
+	memcpy(ap->resp[1], mcr->NTresp, ap->len[1]);
 
 	return ap;
+}
+
+static Auth *
+auth_lm_and_ntlm(char *windom, char *keyp, uchar *chal, int len)
+{
+	return auth_proto("mschap", windom, keyp, chal, len);
 }
 
 /*
@@ -119,211 +131,10 @@ auth_ntlm(char *windom, char *keyp, uchar *chal, int len)
 	return ap;
 }
 
-/*
- * This is not really nescessary as all fields hmac_md5'ed
- * in the ntlmv2 protocol are less than 64 bytes long, however
- * I still do this for completeness
- */
-static DigestState *
-hmac_t64(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest,
-	DigestState *state)
-{
-	if(klen > 64)
-		klen = 64;
-	return hmac_md5(data, dlen, key, klen, digest, state);
-}
-
-
-static int
-putname(uchar *buf, int len, char *name, int type)
-{
-	int n;
-	Rune r;
-	char *d;
-	uchar *p = buf;
-
-	*p++ = type;
-	*p++ = 0;		/* 16bit: name type */
-
-	n = utflen(name) * 2;
-	*p++ = n;
-	*p++ = n >> 8;		/* 16bit: name length */
-
-	d = name;
-	while(*d != 0 && p-buf < len-8){
-		d += chartorune(&r, d);
-		r = toupperrune(r);
-		*p++ = r;
-			*p++ = r >> 8;
-	}			/* var: actual name */
-
-	return p - buf;
-}
-
-static int
-ntv2_blob(uchar *blob, int len, char *windom)
-{
-	uvlong t;
-	uchar *p;
-	enum {			/* name types */
-		Beof,		/* end of name list */
-		Bhost,		/* Netbios host name */
-		Bdomain,	/* Windows Domain name (NT) */
-		Bdnshost,	/* DNS host name */
-		Bdnsdomain,	/* DNS domain name */
-	};
-
-	p = blob;
-	*p++ = 1;		/* 8bit: response type */
-	*p++ = 1;		/* 8bit: max response type understood by client */
-
-	*p++ = 0;		/* 16bit: reserved */
-	*p++ = 0;
-
-	*p++ = 0;		/* 32bit: unknown */
-	*p++ = 0;
-	*p++ = 0;
-	*p++ = 0;
-
-	t = time(nil);
-	t += 11644473600LL;
-	t *= 10000000LL;
-
-	*p++ = t;		/* 64bit: time in NT format */
-	*p++ = t >> 8;
-	*p++ = t >> 16;
-	*p++ = t >> 24;
-	*p++ = t >> 32;
-	*p++ = t >> 40;
-	*p++ = t >> 48;
-	*p++ = t >> 56;
-
-	genrandom(p, 8);
-	p += 8;			/* 64bit: client nonce */
-
-	*p++ = 0;		/* 32bit: unknown data */
-	*p++ = 0;
-	*p++ = 0;
-	*p++ = 0;
-
-	len -= 4;
-	p += putname(p, len - (p-blob), windom, Bdomain);
-	p += putname(p, len - (p-blob), "", Beof);
-
-	*p++ = 0;		/* 32bit: unknown data */
-	*p++ = 0;
-	*p++ = 0;
-	*p++ = 0;
-
-	return p - blob;
-}
-
 static Auth *
 auth_ntlmv2(char *windom, char *keyp, uchar *chal, int len)
 {
-	int i, n;
-	Rune r;
-	char *p, *u;
-	uchar v1hash[MD5dlen], blip[Bliplen], blob[1024], v2hash[MD5dlen];
-	uchar c, lm_hmac[MD5dlen], nt_hmac[MD5dlen], nt_sesskey[MD5dlen],
-		lm_sesskey[MD5dlen];
-	DigestState *ds;
-	UserPasswd *up;
-	static Auth *ap;
-
-	up = auth_getuserpasswd(auth_getkey, "windom=%s proto=pass  service=cifs-ntlmv2 %s",
-		windom, keyp);
-	if(!up)
-		sysfatal("cannot get key - %r");
-
-	ap = emalloc9p(sizeof(Auth));
-	memset(ap, 0, sizeof(ap));
-
-	/* Standard says unlimited length, experience says 128 max */
-	if((n = strlen(up->passwd)) > 128)
-		n = 128;
-
-	ds = md4(nil, 0, nil, nil);
-	for(i=0, p=up->passwd; i < n; i++) {
-		p += chartorune(&r, p);
-		c = r;
-		md4(&c, 1, nil, ds);
-		c = r >> 8;
-		md4(&c, 1, nil, ds);
-	}
-	md4(nil, 0, v1hash, ds);
-
-	/*
-	 * Some documentation insists that the username must be forced to
-	 * uppercase, but the domain name should not be. Other shows both
-	 * being forced to uppercase. I am pretty sure this is irrevevant as the
-	 * domain name passed from the remote server always seems to be in
-	 * uppercase already.
-	 */
-        ds = hmac_t64(nil, 0, v1hash, MD5dlen, nil, nil);
-	u = up->user;
-	while(*u){
-		u += chartorune(&r, u);
-		r = toupperrune(r);
-		c = r;
-        	hmac_t64(&c, 1, v1hash, MD5dlen, nil, ds);
-		c = r >> 8;
-        	hmac_t64(&c, 1, v1hash, MD5dlen, nil, ds);
-	}
-	u = windom;
-
-	while(*u){
-		u += chartorune(&r, u);
-		c = r;
-        	hmac_t64(&c, 1, v1hash, MD5dlen, nil, ds);
-		c = r >> 8;
-        	hmac_t64(&c, 1, v1hash, MD5dlen, nil, ds);
-	}
-        hmac_t64(nil, 0, v1hash, MD5dlen, v2hash, ds);
-	ap->user = estrdup9p(up->user);
-	ap->windom = estrdup9p(windom);
-
-	/* LM v2 */
-
-	genrandom(blip, Bliplen);
-        ds = hmac_t64(chal, len, v2hash, MD5dlen, nil, nil);
-	hmac_t64(blip, Bliplen, v2hash, MD5dlen, lm_hmac, ds);
-	ap->len[0] = MD5dlen+Bliplen;
-	ap->resp[0] = emalloc9p(ap->len[0]);
-	memcpy(ap->resp[0], lm_hmac, MD5dlen);
-	memcpy(ap->resp[0]+MD5dlen, blip, Bliplen);
-
-	/* LM v2 session key */
-	hmac_t64(lm_hmac, MD5dlen, v2hash, MD5dlen, lm_sesskey, nil);
-
-	/* LM v2 MAC key */
-	ap->mackey[0] = emalloc9p(MACkeylen);
-	memcpy(ap->mackey[0], lm_sesskey, MD5dlen);
-	memcpy(ap->mackey[0]+MD5dlen, ap->resp[0], MACkeylen-MD5dlen);
-
-	/* NTLM v2 */
-	n = ntv2_blob(blob, sizeof blob, windom);
-        ds = hmac_t64(chal, len, v2hash, MD5dlen, nil, nil);
-	hmac_t64(blob, n, v2hash, MD5dlen, nt_hmac, ds);
-	ap->len[1] = MD5dlen+n;
-	ap->resp[1] = emalloc9p(ap->len[1]);
-	memcpy(ap->resp[1], nt_hmac, MD5dlen);
-	memcpy(ap->resp[1]+MD5dlen, blob, n);
-
-	/*
-	 * v2hash definitely OK by
-	 * the time we get here.
-	 */
-	/* NTLM v2 session key */
-	hmac_t64(nt_hmac, MD5dlen, v2hash, MD5dlen, nt_sesskey, nil);
-
-	/* NTLM v2 MAC key */
-	ap->mackey[1] = emalloc9p(MACkeylen);
-	memcpy(ap->mackey[1], nt_sesskey, MD5dlen);
-	memcpy(ap->mackey[1]+MD5dlen, ap->resp[1], MACkeylen-MD5dlen);
-	free(up);
-
-	return ap;
+	return auth_proto("mschap2", windom, keyp, chal, len);
 }
 
 struct {

@@ -19,27 +19,29 @@
 enum {
 	ChapChallen = 8,
 	ChapResplen = 16,
-	MSchapResplen = 24,
+
+	/* Microsoft auth constants */
+	MShashlen = 16,
+	MSchallen = 8,
+	MSresplen = 24,
 };
 
-static int dochal(State*);
-static int doreply(State*, void*, int);
-static void doLMchap(char *, uchar [ChapChallen], uchar [MSchapResplen]);
-static void doNTchap(char *, uchar [ChapChallen], uchar [MSchapResplen]);
-static void dochap(char *, int, char [ChapChallen], uchar [ChapResplen]);
-
+static int dochal(State *s);
+static int doreply(State *s, uchar *reply, int nreply);
+static int dochap(char *passwd, int id, char chal[ChapChallen], uchar *resp, int resplen);
+static int domschap(char *passwd, uchar chal[MSchallen], uchar *resp, int resplen);
+static int domschap2(char *passwd, char *user, char *dom, uchar chal[MSchallen], uchar *resp, int resplen);
 
 struct State
 {
-	char *protoname;
 	int astype;
 	int asfd;
 	Key *key;
-	Ticket	t;
-	Ticketreq	tr;
+	Ticket t;
+	Ticketreq tr;
 	char chal[ChapChallen];
-	MSchapreply mcr;
-	char cr[ChapResplen];
+	int nresp;
+	uchar resp[4096];
 	char err[ERRMAX];
 	char user[64];
 	uchar secret[16];	/* for mschap */
@@ -82,17 +84,16 @@ chapinit(Proto *p, Fsstate *fss)
 		return failure(fss, nil);
 
 	s = emalloc(sizeof *s);
+	s->nresp = 0;
+	s->nsecret = 0;
 	fss->phasename = phasenames;
 	fss->maxphase = Maxphase;
 	s->asfd = -1;
-	if(p == &chap){
-		s->astype = AuthChap;
-		s->protoname = "chap";
-	}else{
+	if(p == &mschap || p == &mschap2){
 		s->astype = AuthMSchap;
-		s->protoname = "mschap";
+	}else {
+		s->astype = AuthChap;
 	}
-
 	if(iscli)
 		fss->phase = CNeedChal;
 	else{
@@ -124,7 +125,6 @@ chapclose(Fsstate *fss)
 	free(s);
 }
 
-
 static int
 chapwrite(Fsstate *fss, void *va, uint n)
 {
@@ -137,7 +137,8 @@ chapwrite(Fsstate *fss, void *va, uint n)
 	MSchapreply *mcr;
 	OChapreply *ocr;
 	OMSchapreply *omcr;
-	uchar reply[4*1024];
+	uchar reply[4096];
+	char *user, *dom;
 
 	s = fss->ps;
 	a = va;
@@ -154,28 +155,33 @@ chapwrite(Fsstate *fss, void *va, uint n)
 			closekey(k);
 			return failure(fss, "key has no password");
 		}
+		s->nresp = 0;
+		memset(s->resp, 0, sizeof(s->resp));
 		setattrs(fss->attr, k->attr);
 		switch(s->astype){
-		default:
-			closekey(k);
-			return failure(fss, "chap internal botch");
 		case AuthMSchap:
-			if(n < ChapChallen){
-				closekey(k);
-				return failure(fss, "challenge too short");
-			}
-			doLMchap(v, (uchar *)a, (uchar *)s->mcr.LMresp);
-			doNTchap(v, (uchar *)a, (uchar *)s->mcr.NTresp);
+			if(n < MSchallen)
+				break;
+			if(fss->proto == &mschap2){
+				user = _strfindattr(fss->attr, "user");
+				if(user == nil)
+					break;
+				dom = _strfindattr(fss->attr, "windom");
+				if(dom == nil)
+					dom = "";
+				s->nresp = domschap2(v, user, dom, (uchar*)a, s->resp, sizeof(s->resp));
+			} else
+				s->nresp = domschap(v, (uchar*)a, s->resp, sizeof(s->resp));
 			break;
 		case AuthChap:
-			if(n < ChapChallen+1){
-				closekey(k);
-				return failure(fss, "challenge too short");
-			}
-			dochap(v, *a, a+1, (uchar *)s->cr);
+			if(n < ChapChallen+1)
+				break;
+			s->nresp = dochap(v, *a, a+1, s->resp, sizeof(s->resp));
 			break;
 		}
 		closekey(k);
+		if(s->nresp <= 0)
+			return failure(fss, "chap botch");
 		fss->phase = CHaveResp;
 		return RpcOk;
 
@@ -239,21 +245,9 @@ chapread(Fsstate *fss, void *va, uint *n)
 		return phaseerror(fss, "read");
 
 	case CHaveResp:
-		switch(s->astype){
-		default:
-			phaseerror(fss, "write");
-			break;
-		case AuthMSchap:
-			if(*n > sizeof(MSchapreply))
-				*n = sizeof(MSchapreply);
-			memmove(va, &s->mcr, *n);
-			break;
-		case AuthChap:
-			if(*n > ChapResplen)
-				*n = ChapResplen;
-			memmove(va, s->cr, ChapResplen);
-			break;
-		}
+		if(*n > s->nresp)
+			*n = s->nresp;
+		memmove(va, s->resp, *n);
 		fss->phase = Established;
 		fss->haveai = 0;
 		return RpcOk;
@@ -313,7 +307,7 @@ err:
 }
 
 static int
-doreply(State *s, void *reply, int nreply)
+doreply(State *s, uchar *reply, int nreply)
 {
 	char ticket[TICKETLEN+AUTHENTLEN];
 	int n;
@@ -382,90 +376,240 @@ Proto mschap = {
 .keyprompt= "!password?"
 };
 
+Proto mschap2 = {
+.name=	"mschap2",
+.init=	chapinit,
+.write=	chapwrite,
+.read=	chapread,
+.close=	chapclose,
+.addkey= replacekey,
+.keyprompt= "user? windom? !password?"
+};
+
 static void
-hash(uchar pass[16], uchar c8[ChapChallen], uchar p24[MSchapResplen])
+nthash(uchar hash[MShashlen], char *passwd)
+{
+	DigestState *ds;
+	uchar b[2];
+	Rune r;
+
+	ds = md4(nil, 0, nil, nil);
+	while(*passwd){
+		passwd += chartorune(&r, passwd);
+		b[0] = r & 0xff;
+		b[1] = r >> 8;
+		md4(b, 2, nil, ds);
+	}
+	md4(nil, 0, hash, ds);
+}
+
+static void
+ntv2hash(uchar hash[MShashlen], char *passwd, char *user, char *dom)
+{
+	uchar v1hash[MShashlen];
+	DigestState *ds;
+	uchar b[2];
+	Rune r;
+
+	nthash(v1hash, passwd);
+
+	/*
+	 * Some documentation insists that the username must be forced to
+	 * uppercase, but the domain name should not be. Other shows both
+	 * being forced to uppercase. I am pretty sure this is irrevevant as the
+	 * domain name passed from the remote server always seems to be in
+	 * uppercase already.
+	 */
+        ds = hmac_md5(nil, 0, v1hash, sizeof(v1hash), nil, nil);
+	while(*user){
+		user += chartorune(&r, user);
+		r = toupperrune(r);
+		b[0] = r & 0xff;
+		b[1] = r >> 8;
+        	hmac_md5(b, 2, v1hash, sizeof(v1hash), nil, ds);
+	}
+	while(*dom){
+		dom += chartorune(&r, dom);
+		b[0] = r & 0xff;
+		b[1] = r >> 8;
+        	hmac_md5(b, 2, v1hash, sizeof(v1hash), nil, ds);
+	}
+        hmac_md5(nil, 0, v1hash, sizeof(v1hash), hash, ds);
+}
+
+static void
+desencrypt(uchar data[8], uchar key[7])
+{
+	ulong ekey[32];
+
+	key_setup(key, ekey);
+	block_cipher(ekey, data, 0);
+}
+
+static void
+lmhash(uchar hash[MShashlen], char *passwd)
+{
+	uchar buf[14];
+	char *stdtext = "KGS!@#$%";
+	int i;
+
+	memset(buf, 0, sizeof(buf));
+	strncpy((char*)buf, passwd, sizeof(buf));
+	for(i=0; i<sizeof(buf); i++)
+		if(buf[i] >= 'a' && buf[i] <= 'z')
+			buf[i] += 'A' - 'a';
+
+	memcpy(hash, stdtext, 8);
+	memcpy(hash+8, stdtext, 8);
+
+	desencrypt(hash, buf);
+	desencrypt(hash+8, buf+7);
+}
+
+static void
+mschalresp(uchar resp[MSresplen], uchar hash[MShashlen], uchar chal[MSchallen])
 {
 	int i;
-	uchar p21[21];
-	ulong schedule[32];
+	uchar buf[21];
 
-	memset(p21, 0, sizeof p21 );
-	memmove(p21, pass, 16);
+	memset(buf, 0, sizeof(buf));
+	memcpy(buf, hash, MShashlen);
 
 	for(i=0; i<3; i++) {
-		key_setup(p21+i*7, schedule);
-		memmove(p24+i*8, c8, 8);
-		block_cipher(schedule, p24+i*8, 0);
+		memmove(resp+i*MSchallen, chal, MSchallen);
+		desencrypt(resp+i*MSchallen, buf+i*7);
 	}
 }
 
-static void
-doNTchap(char *pass, uchar chal[ChapChallen], uchar reply[MSchapResplen])
+static int
+domschap(char *passwd, uchar chal[MSchallen], uchar *resp, int resplen)
 {
-	Rune r;
-	uchar digest[MD4dlen];
-	uchar *w, unipass[128*2];	// Standard says unlimited length, experience says 128 max
+	uchar hash[MShashlen];
+	MSchapreply *r;
 
-	w=unipass;
-	while(*pass != '\0' && w < &unipass[nelem(unipass)]){
-		pass += chartorune(&r, pass);
-		/* BUG: UTF-16 surrogates */
-		*w++ = r & 0xff;
-		*w++ = r >> 8;
-	}
+	r = (MSchapreply*)resp;
+	if(resplen < sizeof(*r))
+		return 0;
 
-	memset(digest, 0, sizeof digest);
-	md4(unipass, w-unipass, digest, nil);
-	memset(unipass, 0, sizeof unipass);
-	hash(digest, chal, reply);
+	lmhash(hash, passwd);
+	mschalresp((uchar*)r->LMresp, hash, chal);
+
+	nthash(hash, passwd);
+	mschalresp((uchar*)r->NTresp, hash, chal);
+
+	return sizeof(*r);
 }
 
-static void
-doLMchap(char *pass, uchar chal[ChapChallen], uchar reply[MSchapResplen])
+static int
+domschap2(char *passwd, char *user, char *dom, uchar chal[MSchallen], uchar *resp, int resplen)
 {
-	int i;
-	ulong schedule[32];
-	uchar p14[15], p16[16];
-	uchar s8[8] = {0x4b, 0x47, 0x53, 0x21, 0x40, 0x23, 0x24, 0x25};
-	int n = strlen(pass);
+	uchar hash[MShashlen], *p, *e;
+	MSchapreply *r;
+	DigestState *s;
+	uvlong t;
+	Rune rr;
+	int nb;
 
-	if(n > 14){
-		// let prudent people avoid the LM vulnerability
-		//   and protect the loop below from buffer overflow
-		memset(reply, 0, MSchapResplen);
-		return;
+	ntv2hash(hash, passwd, user, dom);
+
+	r = (MSchapreply*)resp;
+	p = (uchar*)r->NTresp+16;
+	e = resp + resplen;
+
+	if(p+2+2+4+8+8+4+4+4+4 > e)
+		return 0;	
+
+	*p++ = 1;		/* 8bit: response type */
+	*p++ = 1;		/* 8bit: max response type understood by client */
+
+	*p++ = 0;		/* 16bit: reserved */
+	*p++ = 0;
+
+	*p++ = 0;		/* 32bit: unknown */
+	*p++ = 0;
+	*p++ = 0;
+	*p++ = 0;
+
+	t = time(nil);
+	t += 11644473600LL;
+	t *= 10000000LL;
+
+	*p++ = t;		/* 64bit: time in NT format */
+	*p++ = t >> 8;
+	*p++ = t >> 16;
+	*p++ = t >> 24;
+	*p++ = t >> 32;
+	*p++ = t >> 40;
+	*p++ = t >> 48;
+	*p++ = t >> 56;
+
+	memrandom(p, 8);
+	p += 8;			/* 64bit: client nonce */
+
+	*p++ = 0;		/* 32bit: unknown data */
+	*p++ = 0;
+	*p++ = 0;
+	*p++ = 0;
+
+	*p++ = 2;		/* AvPair Domain */
+	*p++ = 0;
+	*p++ = 0;		/* length */
+	*p++ = 0;
+	nb = 0;
+	while(*dom){
+		dom += chartorune(&rr, dom);
+		if(p+2+4+4 > e)
+			return 0;
+		*p++ = rr & 0xFF;
+		*p++ = rr >> 8;
+		nb += 2;
 	}
+	p[-nb - 2] = nb & 0xFF;
+	p[-nb - 1] = nb >> 8;
 
-	// Spec says space padded, experience says otherwise
-	memset(p14, 0, sizeof p14 -1);
-	p14[sizeof p14 - 1] = '\0';
+	*p++ = 0;		/* AvPair EOF */
+	*p++ = 0;
+	*p++ = 0;
+	*p++ = 0;
+	
+	*p++ = 0;		/* 32bit: unknown data */
+	*p++ = 0;
+	*p++ = 0;
+	*p++ = 0;
 
-	// NT4 requires uppercase, Win XP doesn't care
-	for (i = 0; pass[i]; i++)
-		p14[i] = islower(pass[i])? toupper(pass[i]): pass[i];
+	/*
+	 * LmResponse = Cat(HMAC_MD5(LmHash, Cat(SC, CC)), CC)
+	 */
+	s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
+	memrandom((uchar*)r->LMresp+16, 8);
+	hmac_md5((uchar*)r->LMresp+16, 8, hash, MShashlen, (uchar*)r->LMresp, s);
 
-	for(i=0; i<2; i++) {
-		key_setup(p14+i*7, schedule);
-		memmove(p16+i*8, s8, 8);
-		block_cipher(schedule, p16+i*8, 0);
-	}
+	/*
+	 * NtResponse = Cat(HMAC_MD5(NtHash, Cat(SC, NtBlob)), NtBlob)
+	 */
+	s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
+	hmac_md5((uchar*)r->NTresp+16, p - ((uchar*)r->NTresp+16), hash, MShashlen, (uchar*)r->NTresp, s);
 
-	memset(p14, 0, sizeof p14);
-	hash(p16, chal, reply);
+	return p - resp;
 }
 
-static void
-dochap(char *pass, int id, char chal[ChapChallen], uchar resp[ChapResplen])
+static int
+dochap(char *passwd, int id, char chal[ChapChallen], uchar *resp, int resplen)
 {
 	char buf[1+ChapChallen+MAXNAMELEN+1];
-	int n = strlen(pass);
+	int n;
 
-	*buf = id;
-	if (n > MAXNAMELEN)
-		n = MAXNAMELEN-1;
+	if(resplen < ChapResplen)
+		return 0;
+
 	memset(buf, 0, sizeof buf);
-	strncpy(buf+1, pass, n);
+	*buf = id;
+	n = strlen(passwd);
+	if(n > MAXNAMELEN)
+		n = MAXNAMELEN-1;
+	strncpy(buf+1, passwd, n);
 	memmove(buf+1+n, chal, ChapChallen);
 	md5((uchar*)buf, 1+n+ChapChallen, resp, nil);
-}
 
+	return ChapResplen;
+}
