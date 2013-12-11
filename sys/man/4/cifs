@@ -4,7 +4,10 @@ cifs - Microsoft™ Windows network filesystem client
 .SH SYNOPSIS
 .B cifs
 [
-.B -bdDiv
+.B -bDiv
+] [
+.B -d
+.I debug
 ] [
 .B -a
 .I auth-method
@@ -67,8 +70,11 @@ This requires an open and close per file and thus will slow
 .I cifs
 considerably; its use is not recommended.
 .TP
-.B -d
-CIFS packet debug.
+.BI -d " debug"
+followed by non-whitespace separated list of debug options
+.I debug
+writes specific debug output to file descriptor 2. See source
+for more information.
 .TP
 .B -D
 9P request debug.
