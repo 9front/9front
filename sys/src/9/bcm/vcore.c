@@ -288,3 +288,14 @@ getclkrate(int clkid)
 		return 0;
 	return buf[1];
 }
+
+uint
+gettemp(int tempid)
+{
+	u32int buf[2];
+	buf[0] = tempid;
+	if(vcreq(0x00030006, buf, sizeof(buf[0]), sizeof(buf)) != sizeof buf)
+		return 0;
+
+	return buf[1];
+}

@@ -156,8 +156,17 @@ cputyperead(Chan*, void *a, long n, vlong offset)
 	return readstr(offset, a, n, str);
 }
 
+static long
+cputempread(Chan*, void *a, long n, vlong offset)
+{
+ 	char str[128];
+ 	snprint(str, sizeof str, "%d±%d\n", gettemp(0) / 1000, 1);
+	return readstr(offset, a, n, str);
+}
+
 void
 archinit(void)
 {
 	addarchfile("cputype", 0444, cputyperead, nil);
+	addarchfile("cputemp", 0444, cputempread, nil);
 }
