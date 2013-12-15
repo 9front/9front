@@ -76,9 +76,9 @@ noteconn(int fd)
 	nci = getnetconninfo(nil, fd);
 	if (nci == nil)
 		return;
-	netdir = strdup(nci->dir);
-	local = strdup(nci->lsys);
-	remote = strdup(nci->rsys);
+	netdir = estrdup(nci->dir);
+	local = estrdup(nci->lsys);
+	remote = estrdup(nci->rsys);
 	freenetconninfo(nci);
 }
 
@@ -237,8 +237,6 @@ main(int argc, char **argv)
 		if(messagesize == 0)
 			messagesize = 8192+IOHDRSZ;
 	}
-
-	Workq = emallocz(sizeof(Fsrpc)*Nr_workbufs);
 	fhash = emallocz(sizeof(Fid*)*FHASHSIZE);
 
 	fmtinstall('F', fcallfmt);
@@ -546,41 +544,49 @@ newfid(int nr)
 	return new;	
 }
 
+static struct {
+	Lock;
+	Fsrpc	*free;
+
+	/* statistics */
+	int	nalloc;
+	int	nfree;
+}	sbufalloc;
+
 Fsrpc *
 getsbuf(void)
 {
-	static int ap;
-	int look, rounds;
-	Fsrpc *wb;
-	int small_instead_of_fast = 1;
+	Fsrpc *w;
 
-	if(small_instead_of_fast)
-		ap = 0;	/* so we always start looking at the beginning and reuse buffers */
-
-	for(rounds = 0; rounds < 10; rounds++) {
-		for(look = 0; look < Nr_workbufs; look++) {
-			if(++ap == Nr_workbufs)
-				ap = 0;
-			if(Workq[ap].busy == 0)
-				break;
-		}
-
-		if(look == Nr_workbufs){
-			sleep(10 * rounds);
-			continue;
-		}
-
-		wb = &Workq[ap];
-		wb->pid = 0;
-		wb->canint = 0;
-		wb->flushtag = NOTAG;
-		wb->busy = 1;
-		if(wb->buf == nil)	/* allocate buffers dynamically to keep size down */
-			wb->buf = emallocz(messagesize);
-		return wb;
+	lock(&sbufalloc);
+	w = sbufalloc.free;
+	if(w != 0){
+		sbufalloc.free = w->next;
+		w->next = nil;
+		sbufalloc.nfree--;
+		unlock(&sbufalloc);
+	} else {
+		sbufalloc.nalloc++;
+		unlock(&sbufalloc);
+		w = emallocz(sizeof(*w) + messagesize);
 	}
-	fatal("No more work buffers");
-	return nil;
+	w->pid = 0;
+	w->canint = 0;
+	w->flushtag = NOTAG;
+	return w;
+}
+
+void
+putsbuf(Fsrpc *w)
+{
+	w->pid = 0;
+	w->canint = 0;
+	w->flushtag = NOTAG;
+	lock(&sbufalloc);
+	w->next = sbufalloc.free;
+	sbufalloc.free = w;
+	sbufalloc.nfree++;
+	unlock(&sbufalloc);
 }
 
 void
@@ -711,9 +717,7 @@ makepath(File *p, char *name)
 		seg[i] = p->name;
 		n += strlen(p->name)+1;
 	}
-	path = malloc(n);
-	if(path == nil)
-		fatal("out of memory");
+	path = emallocz(n);
 	s = path;
 
 	while(i--) {

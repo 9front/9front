@@ -14,12 +14,12 @@ typedef struct Qidtab Qidtab;
 
 struct Fsrpc
 {
-	int	busy;		/* Work buffer has pending rpc to service */
+	Fsrpc	*next;		/* freelist */
 	uintptr	pid;		/* Pid of slave process executing the rpc */
 	int	canint;		/* Interrupt gate */
 	int	flushtag;	/* Tag on which to reply to flush */
 	Fcall	work;		/* Plan 9 incoming Fcall */
-	uchar	*buf;		/* Data buffer */
+	uchar	buf[];		/* Data buffer */
 };
 
 struct Fid
@@ -54,7 +54,7 @@ struct File
 struct Proc
 {
 	uintptr	pid;
-	int	busy;
+	Fsrpc	*busy;
 	Proc	*next;
 };
 
@@ -72,7 +72,6 @@ enum
 {
 	MAXPROC		= 50,
 	FHASHSIZE	= 64,
-	Nr_workbufs 	= 50,
 	Fidchunk	= 1000,
 	Npsmpt		= 32,
 	Nqidbits		= 5,
@@ -88,7 +87,6 @@ char Enomem[];
 char Emip[];
 char Enopsmt[];
 
-Extern Fsrpc	*Workq;
 Extern int  	dbg;
 Extern File	*root;
 Extern File	*psmpt;
@@ -121,6 +119,7 @@ Fid 	*getfid(int);
 int	freefid(int);
 Fid	*newfid(int);
 Fsrpc	*getsbuf(void);
+void	putsbuf(Fsrpc*);
 void	initroot(void);
 void	fatal(char*, ...);
 char*	makepath(File*, char*);

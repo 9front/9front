@@ -24,15 +24,11 @@ exclusions(void)
 		fatal("cannot open patternfile");
 	ni = 0;
 	nmaxi = 100;
-	include = malloc(nmaxi*sizeof(*include));
-	if(include == nil)
-		fatal("out of memory");
+	include = emallocz(nmaxi*sizeof(*include));
 	include[0] = nil;
 	ne = 0;
 	nmaxe = 100;
-	exclude = malloc(nmaxe*sizeof(*exclude));
-	if(exclude == nil)
-		fatal("out of memory");
+	exclude = emallocz(nmaxe*sizeof(*exclude));
 	exclude[0] = nil;
 	while(line = Brdline(f, '\n')){
 		line[Blinelen(f) - 1] = 0;
