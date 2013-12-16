@@ -209,7 +209,7 @@ etheriq(Ether* ether, Block* bp, int fromwire)
 static int
 etheroq(Ether* ether, Block* bp)
 {
-	int len, loopback, s;
+	int len, loopback;
 	Etherpkt *pkt;
 
 	ether->outpackets++;
@@ -226,19 +226,13 @@ etheroq(Ether* ether, Block* bp)
 	pkt = (Etherpkt*)bp->rp;
 	len = BLEN(bp);
 	loopback = memcmp(pkt->d, ether->ea, sizeof(pkt->d)) == 0;
-	if(loopback || memcmp(pkt->d, ether->bcast, sizeof(pkt->d)) == 0 || ether->prom){
-		s = splhi();
-		etheriq(ether, bp, 0);
-		splx(s);
-	}
+	if(loopback || memcmp(pkt->d, ether->bcast, sizeof(pkt->d)) == 0 || ether->prom)
+		if(etheriq(ether, bp, loopback) == 0)
+			return len;
 
-	if(!loopback){
-		qbwrite(ether->oq, bp);
-		if(ether->transmit != nil)
-			ether->transmit(ether);
-	} else
-		freeb(bp);
-
+	qbwrite(ether->oq, bp);
+	if(ether->transmit != nil)
+		ether->transmit(ether);
 	return len;
 }
 
