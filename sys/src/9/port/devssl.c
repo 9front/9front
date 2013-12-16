@@ -996,6 +996,7 @@ struct Encalg
 };
 
 #ifdef NOSPOOKS
+static
 Encalg encrypttab[] =
 {
 	{ "descbc", 8, DESCBC, initDESkey, },           /* DEPRECATED -- use des_56_cbc */
@@ -1011,6 +1012,7 @@ Encalg encrypttab[] =
 	{ 0 }
 };
 #else
+static
 Encalg encrypttab[] =
 {
 	{ "des_40_cbc", 8, DESCBC, initDESkey_40, },
@@ -1040,14 +1042,31 @@ parseencryptalg(char *p, Dstate *s)
 	return -1;
 }
 
+enum {
+	Cfd,
+	Calg,
+	Csin,
+	Csout,
+};
+	
+static
+Cmdtab sslcmds[] = {
+	{Cfd, 	"fd", 	2 },
+	{Calg, 	"alg", 	0 },
+	{Csin, 	"secretin", 	2 },
+	{Csout,	"secretout",	2 },
+};
+
 static long
 sslwrite(Chan *c, void *a, long n, vlong)
 {
 	Dstate * volatile s;
 	Block * volatile b;
-	int m, t;
-	char *p, *np, *e, buf[128];
+	int m, t, i;
+	char *p, *e;
 	uchar *x;
+	Cmdbuf *cb;
+	Cmdtab *ct;
 
 	s = dstate[CONV(c->qid)];
 	if(s == 0)
@@ -1113,19 +1132,15 @@ sslwrite(Chan *c, void *a, long n, vlong)
 		break;
 	}
 
-	if(n >= sizeof(buf))
-		error("arg too long");
-	strncpy(buf, a, n);
-	buf[n] = 0;
-	p = strchr(buf, '\n');
-	if(p)
-		*p = 0;
-	p = strchr(buf, ' ');
-	if(p)
-		*p++ = 0;
-
-	if(strcmp(buf, "fd") == 0){
-		s->c = buftochan(p);
+	cb = parsecmd(a, n);
+	if(waserror()){
+		free(cb);
+		nexterror();
+	}
+	ct = lookupcmd(cb, sslcmds, nelem(sslcmds));
+	switch(ct->index){
+	case Cfd:
+		s->c = buftochan(cb->f[1]);
 
 		/* default is clear (msg delimiters only) */
 		s->state = Sclear;
@@ -1134,7 +1149,11 @@ sslwrite(Chan *c, void *a, long n, vlong)
 		s->maxpad = s->max = (1<<15) - s->diglen - 1;
 		s->in.mid = 0;
 		s->out.mid = 0;
-	} else if(strcmp(buf, "alg") == 0 && p != 0){
+		break;
+	case Calg:
+		if(cb->nf < 2)
+			cmderror(cb, "no algorithms");
+
 		s->blocklen = 1;
 		s->diglen = 0;
 
@@ -1143,9 +1162,8 @@ sslwrite(Chan *c, void *a, long n, vlong)
 
 		s->state = Sclear;
 		s->maxpad = s->max = (1<<15) - s->diglen - 1;
-		if(strcmp(p, "clear") == 0){
-			goto out;
-		}
+		if(strcmp(cb->f[1], "clear") == 0)
+			break;
 
 		if(s->in.secret && s->out.secret == 0)
 			setsecret(&s->out, s->in.secret, s->in.slen);
@@ -1158,18 +1176,11 @@ sslwrite(Chan *c, void *a, long n, vlong)
 		s->encryptalg = Noencryption;
 		s->blocklen = 1;
 
-		for(;;){
-			np = strchr(p, ' ');
-			if(np)
-				*np++ = 0;
-
+		for(i=1; i<cb->nf; i++){
+			p = cb->f[i];
 			if(parsehashalg(p, s) < 0)
 			if(parseencryptalg(p, s) < 0)
 				error("bad algorithm");
-
-			if(np == 0)
-				break;
-			p = np;
 		}
 
 		if(s->hf == 0 && s->encryptalg == Noencryption)
@@ -1182,7 +1193,9 @@ sslwrite(Chan *c, void *a, long n, vlong)
 			s->maxpad -= s->maxpad % s->blocklen;
 		} else
 			s->maxpad = s->max = (1<<15) - s->diglen - 1;
-	} else if(strcmp(buf, "secretin") == 0 && p != 0) {
+		break;
+	case Csin:
+		p = cb->f[1];
 		m = (strlen(p)*3)/2;
 		x = smalloc(m);
 		t = dec64(x, m, p, strlen(p));
@@ -1192,7 +1205,9 @@ sslwrite(Chan *c, void *a, long n, vlong)
 		}
 		setsecret(&s->in, x, t);
 		free(x);
-	} else if(strcmp(buf, "secretout") == 0 && p != 0) {
+		break;
+	case Csout:
+		p = cb->f[1];
 		m = (strlen(p)*3)/2 + 1;
 		x = smalloc(m);
 		t = dec64(x, m, p, strlen(p));
@@ -1202,8 +1217,10 @@ sslwrite(Chan *c, void *a, long n, vlong)
 		}
 		setsecret(&s->out, x, t);
 		free(x);
-	} else
-		error(Ebadarg);
+		break;
+	}
+	poperror();
+	free(cb);
 
 out:
 	qunlock(&s->in.ctlq);
