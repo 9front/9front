@@ -571,7 +571,6 @@ loop1:
 	b = c->rb[rdh];
 	c->rb[rdh] = 0;
 	b->wp += r->length;
-	b->lim = b->wp;		/* lie like a dog */
 	if(!(r->status & Ixsm)){
 		if(r->status & Ipcs)
 			b->flag |= Bipck;

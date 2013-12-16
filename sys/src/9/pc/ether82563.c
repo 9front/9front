@@ -1014,7 +1014,6 @@ i82563rproc(void *arg)
 			bp = ctlr->rb[rdh];
 			if((rd->status & Reop) && rd->errors == 0){
 				bp->wp += rd->length;
-				bp->lim = bp->wp;	/* lie like a dog.  avoid packblock. */
 				if(!(rd->status & Ixsm)){
 					ctlr->ixsm++;
 					if(rd->status & Ipcs){
