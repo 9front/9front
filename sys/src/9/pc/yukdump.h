@@ -200,25 +200,8 @@ rs(uint r)
 	return s;
 }
 
-static int
-nblocktab(int qno)
-{
-	uint i;
-	Block *b;
-
-	ilock(&rbtab[qno]);
-	b = rbtab[qno].b;
-	for(i = 0;; i++){
-		if(b == nil)
-			break;
-		b = b->next;
-	}
-	iunlock(&rbtab[qno]);
-	return i;
-}
-
 static char*
-dumpring(Sring *r, Block **t, int qno, char *p, char *e)
+dumpring(Sring *r, Block **t, char *p, char *e)
 {
 	int m, n;
 	uint i;
@@ -244,8 +227,7 @@ dumpring(Sring *r, Block **t, int qno, char *p, char *e)
 		if(i != m + 1)
 			p = seprint(p, e, "-%ud ", i-1);
 	}
-	p = seprint(p, e, "n=%d/%d", n, r->cnt);
-	return seprint(p, e, "  list %d\n", nblocktab(qno));
+	return seprint(p, e, "n=%d/%d", n, r->cnt);
 }
 
 /* debug; remove */
@@ -291,6 +273,6 @@ descriptorfu(Ether *e, uint qoff)
 	else
 		print("	%#p %#p  (rp)\n", b? b->rp: 0, a? a->rp: 0);
 
-	dumpring(r, bring, c->qno, p, f);
+	dumpring(r, bring, p, f);
 	print("	%s", buf);
 }

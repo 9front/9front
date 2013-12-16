@@ -26,7 +26,6 @@ enum {
 	Fprobe	= 1<<0,
 	Sringcnt	= 2048,
 	Tringcnt	= 512,
-//	Rringcnt	= Nrb,
 	Rringcnt	= 512,
 	Rringl	= Rringcnt - 8,
 };
@@ -803,20 +802,6 @@ static	uchar	nilea[Eaddrlen];
 static	int	debug;
 static	Ctlr	*ctlrtab[Nctlr];
 static	int	nctlr;
-static	struct {
-	union {
-		struct {
-			Lock;
-			Block	*b;
-			uint	starve;
-		};
-		uchar pad[128];		/* cacheline */
-	};
-	Kproc	*k;
-	Block	*x;
-	uint	nfast;
-	uint	nslow;
-} rbtab[Nctlr];
 
 static int
 icansleep(void *v)
@@ -841,14 +826,6 @@ starve(Kproc *k)
 	k->event = 0;
 }
 
-static Status*
-getslot(Sring *r, Kproc *k)
-{
-	if(r->rp + r->m - r->wp & ~r->m)
-		starve(k);
-	return r->r + (r->wp++ & r->m);
-}
-
 static int
 getnslot(Sring *r, uint *wp, Status **t, uint n)
 {
@@ -860,82 +837,6 @@ getnslot(Sring *r, uint *wp, Status **t, uint n)
 		t[i] = r->r + (wp[0]++ & r->m);
 	return 0;
 }
-
-/* assume allocs come from a single thread; 30*0.999x speedup */
-static Block*
-rballoc(int t)
-{
-	Block *b;
-
-	if((b = rbtab[t].x) != nil){
-		rbtab[t].nfast++;
-		rbtab[t].x = b->next;
-		b->next = nil;
-b->ref = 1;
-		return b;
-	}
-
-	ilock(&rbtab[t]);
-	b = rbtab[t].x = rbtab[t].b;
-	rbtab[t].b = nil;
-	if(b == nil)
-		rbtab[t].starve = 1;
-	iunlock(&rbtab[t]);
-	
-	rbtab[t].nslow++;
-	if(b != nil){
-		rbtab[t].x = b->next;
-		b->next = nil;
-b->ref = 1;
-	}
-	return b;
-}
-
-static void
-rbfree(Block *b, int t)
-{
-	b->rp = b->wp = (uchar*)ROUND((uintptr)b->base, Rbalign);
-	b->flag &= ~(Bipck | Budpck | Btcpck | Bpktck);
-	ilock(&rbtab[t]);
-	b->next = rbtab[t].b;
-	if(b->next == nil && rbtab[t].starve){
-		rbtab[t].starve = 0;
-		unstarve(rbtab[t].k);
-	}
-	rbtab[t].b = b;
-	iunlock(&rbtab[t]);
-}
-
-static void
-rbfree0(Block *b)
-{
-	rbfree(b, 0);
-}
-
-static void
-rbfree1(Block *b)
-{
-	rbfree(b, 1);
-}
-
-static void
-rbfree2(Block *b)
-{
-	rbfree(b, 2);
-}
-
-static void
-rbfree3(Block *b)
-{
-	rbfree(b, 3);
-}
-
-static Freefn freetab[Nctlr] = {
-	rbfree0,
-	rbfree1,
-	rbfree2,
-	rbfree3,
-};
 
 static uint
 macread32(Ctlr *c, uint r)
@@ -1232,13 +1133,11 @@ tproc(void *v)
 	Block *b;
 	Ctlr *c;
 	Ether *e;
-	Kproc *k;
 	Sring *r;
-	Status *t;
+	Status *tab[2], *t;
 
 	e = v;
 	c = e->ctlr;
-	k = &c->txmit;
 	r = &c->tx;
 
 	txinit(e);
@@ -1248,14 +1147,17 @@ tproc(void *v)
 	for(;;){
 		if((b = qbread(e->oq, 100000)) == nil)
 			break;
-		if(Pciwaddrh(b->rp) != 0){
-			t = getslot(r, k);
+		while(getnslot(r, &r->wp, tab, 1 + is64()) == -1)
+			starve(&c->txmit);
+		t = tab[is64()];
+		assert(c->tbring[t - r->r] == nil);
+		c->tbring[t - r->r] = b;
+		if(is64()){
+			Status *t = tab[0];
 			t->ctl = 0;
 			t->op = Oaddr64 | Hw;
 			putle(t->status, Pciwaddrh(b->rp), 4);
 		}
-		t = getslot(r, k);
-		c->tbring[t - r->r] = b;
 		putle(t->status, Pciwaddrl(b->rp), 4);
 		putle(t->l, BLEN(b), 2);
 		t->op = Opkt | Hw;
@@ -1270,9 +1172,7 @@ tproc(void *v)
 static void
 rxinit(Ether *e)
 {
-	int i;
 	Ctlr *c;
-	Block *b;
 	Sring *r;
 	Status *t;
 
@@ -1281,19 +1181,14 @@ rxinit(Ether *e)
 	if(c->rxinit == 1)
 		return;
 	c->rxinit = 1;
-	for(i = 0; i < Nrb; i++){
-		b = allocb(c->rbsz + Rbalign);
-		b->free = freetab[c->qno];
-		freeb(b);
-	}
-
 	qinit(c, Qr);
 	if(c->type == Yukecu && (c->rev == 2 || c->rev == 3))
 		qrwrite(c, Qr + Qtest, Qramdis);
 	pinit(c,  Qr, &c->rx);
 
 	if((c->flag & Fnewle) == 0){
-		t = getslot(r, &c->rxmit);
+		while(getnslot(r, &r->wp, &t, 1) == -1)
+			starve(&c->rxmit);
 		putle(t->status, 14<<16 | 14, 4);
 		t->ctl = 0;
 		t->op = Ock | Hw;
@@ -1325,7 +1220,7 @@ rxscrew(Ether *e, Sring *r, Status *t, uint wp)
 static int
 replenish(Ether *e, Ctlr *c)
 {
-	int req, n, lim;
+	int n, lim;
 	uint wp;
 	Block *b;
 	Sring *r;
@@ -1333,29 +1228,32 @@ replenish(Ether *e, Ctlr *c)
 
 	r = &c->rx;
 	wp = r->wp;
-	req = 1 + is64();
 
 	lim = r->cnt/2;
 	if(lim > 128)
 		lim = 128;		/* hw limit? */
 	for(n = 0; n < lim; n++){
-		b = rballoc(c->qno);
-		if(b == nil || getnslot(r, &wp, tab, req) == -1){
+		b = iallocb(c->rbsz + Rbalign);
+		if(b == nil || getnslot(r, &wp, tab, 1 + is64()) == -1){
 			freeb(b);
 			break;
 		}
-		t = tab[0];
-		if(is64()){
-			putle(t->status, Pciwaddrh(b->wp), 4);
-			t->ctl = 0;
-			t->op = Oaddr64 | Hw;
-			t = tab[1];
-		}
-		if(rxscrew(e, r, t, wp) == -1)
+		b->rp = b->wp = (uchar*)ROUND((uintptr)b->base, Rbalign);
+
+		t = tab[is64()];
+		if(rxscrew(e, r, t, wp) == -1){
+			freeb(b);
 			break;
+		}
 		assert(c->rbring[t - r->r] == nil);
 		c->rbring[t - r->r] = b;
 
+		if(is64()){
+			Status *t = tab[0];
+			putle(t->status, Pciwaddrh(b->wp), 4);
+			t->ctl = 0;
+			t->op = Oaddr64 | Hw;
+		}
 		putle(t->status, Pciwaddrl(b->wp), 4);
 		putle(t->l, c->rbsz, 2);
 		t->ctl = 0;
@@ -1367,7 +1265,7 @@ replenish(Ether *e, Ctlr *c)
 		r->wp = wp;
 		dprint("yuk: replenish %d %ud-%ud [%d-%d]\n", n, r->rp, wp, r->rp&r->m, wp&r->m);
 	}
-	return lim - n == 0;
+	return n == lim;
 }
 
 static void
@@ -1375,21 +1273,18 @@ rproc(void *v)
 {
 	Ctlr *c;
 	Ether *e;
-	Kproc *k;
 
 	e = v;
 	c = e->ctlr;
-	k = &c->rxmit;
 
 	rxinit(e);
 	linkup(c, Rxen);
 	while(waserror())
 		;
-	for(;;)
-		if(replenish(e, c) == 0){
-			starve(k);
-			print("yuk: rx unstarve?\n");
-		}
+	for(;;){
+		if(replenish(e, c) == 0)
+			starve(&c->rxmit);
+	}
 }
 
 static void
@@ -1502,10 +1397,8 @@ txcleanup(Ctlr *c, uint end)
 		if(b != nil)
 			freeb(b);
 	}
-	if(r->wp - r->rp > 16){		/* BOTCH */
-		print("TX unstarve %ud - %ud \n", r->wp, r->rp);
+	if(r->wp - r->rp > 16)
 		unstarve(&c->txmit);
-	}
 }
 
 static void
@@ -1519,6 +1412,8 @@ rx(Ether *e, uint l, uint x, uint flag)
 	c = e->ctlr;
 	r = &c->rx;
 	for(rp = r->rp;;){
+		if(rp == r->wp)
+			return;
 		i = rp++&r->m;
 		b = c->rbring[i];
 		c->rbring[i] = nil;
@@ -1526,13 +1421,12 @@ rx(Ether *e, uint l, uint x, uint flag)
 			break;
 	}
 	cnt = x>>16 & 0x7fff;
-	if(cnt != l || x&Rxerror &&
+	if((cnt != l || x&Rxerror) &&
 	!(c->type == Yukfep && c->rev == 0)){
 		print("#l%d: yuk rx error %.4ux\n", e->ctlrno, x&0xffff);
 		freeb(b);
 	}else{
 		b->wp += l;
-		b->lim = b->wp;		/* lie like a dog */
 		b->flag |= flag;
 		etheriq(e, b, 1);
 	}
@@ -1560,15 +1454,15 @@ sring(Ether *e)
 
 	c = e->ctlr;
 	r = &c->status;
-	lim = r->rp & r->m;
+	lim = c->reg16[Stathd] & r->m;
 	p = 0;
 	for(;;){
-		if((r->rp & r->m) == lim){
-			lim = c->reg16[Stathd];
-			if((r->rp & r->m) == lim)
+		i = r->rp & r->m;
+		if(i == lim){
+			lim = c->reg16[Stathd] & r->m;
+			if(i == lim)
 				break;
 		}
-		i = r->rp & r->m;
 		s = r->r + i;
 		op = s->op;
 		if((op & Hw) == 0)
@@ -1602,8 +1496,8 @@ sring(Ether *e)
 		s->op = 0;
 		r->rp++;
 	}
-	while(p && replenish(e, c) != 0)
-		;
+	if(p != 0)
+		unstarve(&c->rxmit);
 	c->reg[Statctl] = Statirqclr;
 }
 
@@ -1749,15 +1643,13 @@ iproc(void *v)
 	uint cause, d;
 	Ether *e;
 	Ctlr *c;
-	Kproc *k;
 
 	e = v;
 	c = e->ctlr;
-	k = &c->iproc;
 	while(waserror())
 		;
 	for(;;){
-		starve(k);
+		starve(&c->iproc);
 		cause = c->reg[Eisr];
 		if(cause & Iphy)
 			link(e);
@@ -1865,7 +1757,6 @@ ifstat(Ether *e0, void *a, long n, ulong offset)
 	p = seprint(p, e, "stat %.4ux ctl %.3ux\n", gmacread(c, Stat), gmacread(c, Ctl));
 	p = seprint(p, e, "irq %.8ux\n", c->reg[Isrc2]);
 	p = seprint(p, e, "pref %.8ux %.4ux\n", prread32(c, Qr + Pctl), prread16(c, Qr + Pgetidx));
-	p = seprint(p, e, "nfast %ud nslow %ud\n", rbtab[c->qno].nfast, rbtab[c->qno].nslow);
 	if(debug){
 		p = dumppci(c, p, e);
 		p = dumpgmac(c, p, e);
@@ -2311,9 +2202,12 @@ scan(void)
 			return;
 		}
 		c = malloc(sizeof *c);
+		if(c == nil){
+			print("yuk: no memory for Ctlr\n");
+			return;
+		}
 		c->p = p;
 		c->qno = nctlr;
-		rbtab[c->qno].k = &c->rxmit;
 		c->rbsz = vtab[i].mtu;
 		ctlrtab[nctlr++] = c;
 	}
