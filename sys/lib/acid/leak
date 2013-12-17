@@ -80,22 +80,27 @@ dumpblock(addr, sum)
 		a = addr;
 		complex Alloc a;
 
-		x = addr+8;
+		x = addr+sizeofBhdr;
+		if addr.magic == ALLOC_MAGIC then {
+			// for mallocalign()
+			while *x == ALIGN_MAGIC do {
+				x = x + 4;
+			}
+		}
 		if sum then {
-			if *(addr+8) != lastalloc then {
+			if *x != lastalloc then {
 				emitsum();
-				lastalloc = *(addr+8);
+				lastalloc = *x;
 			}
 			lastcount = lastcount+1;
 			lastsize = lastsize+a.size;
 		}else{
-			if addr.magic == ALLOC_MAGIC then
+			if addr.magic == ALLOC_MAGIC then {
 				s = "block";
-			else
+			} else
 				s = "free";
 			print(s, " ", addr\X, " ", a.size\X, " ");
-			print(*(addr+8)\X, " ", *(addr+12)\X, " ",
-				*(addr+8)\a, " ", *(addr+12)\a, "\n");
+			print(*x\X, " ", *(x+4)\X, " ", *x\a, " ", *(x+4)\a, "\n");
 		}
 	}
 }
