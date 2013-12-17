@@ -1212,7 +1212,7 @@ poolallocalign(Pool *p, ulong n, ulong align, long offset, ulong span)
 		pooldumpl(p);
 	}
 	if(p->logstack && (p->flags & POOL_LOGGING)) p->logstack(p);
-	LOG(p, "poolalignspanalloc %p %lud %lud %lud %ld = %p\n", p, n, align, span, offset, v);
+	LOG(p, "poolallocalign %p %lud %lud %ld %lud = %p\n", p, n, align, offset, span, v);
 	p->unlock(p);
 	return v;
 }
