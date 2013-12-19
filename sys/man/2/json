@@ -59,7 +59,7 @@ members in the structure.
 Arrays and objects (dictionaries) are represented by
 a singly-linked list of
 .B JSONEl
-structures refered to from the
+structures referred to from the
 .B first
 pointer in the
 .B JSON
