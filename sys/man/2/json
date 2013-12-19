@@ -1,0 +1,110 @@
+.TH JSON 2
+.SH NAME
+jsonparse,
+jsonfree,
+jsonbyname,
+jsonstr
+\- JSON parser
+.SH SYNOPSIS
+.\" .ta 0.75i 1.5i 2.25i 3i 3.75i 4.5i
+.ta 0.7i +0.7i +0.7i +0.7i +0.7i +0.7i +0.7i
+.EX
+#include <u.h>
+#include <libc.h>
+#include <json.h>
+
+enum {
+	JSONNull,
+	JSONBool,
+	JSONNumber,
+	JSONString,
+	JSONArray,
+	JSONObject,
+};
+
+typedef struct JSONEl JSONEl;
+struct JSONEl {
+	char *name;
+	JSON *val;
+	JSONEl *next;
+};
+
+typedef struct JSON JSON;
+struct JSON
+{
+	int t;
+	union {
+		double n;
+		char *s;
+		JSONEl *first;
+	};
+};
+
+JSON*	jsonparse(char *);
+void	jsonfree(JSON *);
+JSON*	jsonbyname(JSON *, char *);
+char*	jsonstr(JSON *);
+.EE
+.SH DESCRIPTION
+The
+.B JSON
+structure represents a variant json value. The variant type
+is stored in the
+.I t
+member of the structure. String values use
+.BR s ,
+booleans and numbers use the
+.B n
+members in the structure.
+Arrays and objects (dictionaries) are represented by
+a singly-linked list of
+.B JSONEl
+structures refered to from the
+.B first
+pointer in the
+.B JSON
+structure.
+Each
+.B JSONEl
+has a
+.B val
+pointer to the associated value and a
+.B next
+pointer to the next element in the array or object.
+Dictionary objects have the
+.B name
+member set to the key of the association.
+.P
+A json object is parsed by calling
+.B jsonparse
+with a
+.B UTF-8
+string of the json encoded data. On success, a non-nil pointer to a
+newly allocated
+.B JSON
+structure is returned.
+To free the parsed objects,
+.B jsonfree
+has to be called.
+.P
+The
+.B jsonbyname
+function returns the associated value of a dictionary item.
+.P
+The function
+.B jsonstr
+returns the string value of a json object or
+.B nil
+for any other object type.
+.SH DIAGNOSTICS
+The functions
+.IB jsonparse ,
+.B jsonbyname
+and
+.B jsonstr
+return
+.B nil
+on error and set an error string (see
+.IR errstr (2)).
+.SH SOURCE
+.B /sys/src/libjson
