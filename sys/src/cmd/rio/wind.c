@@ -476,7 +476,7 @@ windfilewidth(Window *w, uint q0, int oneelement)
 	q = q0;
 	while(q > 0){
 		r = w->r[q-1];
-		if(r<=' ')
+		if(r<=' ' || r=='=' || r=='^' || r=='(' || r=='{')
 			break;
 		if(oneelement && r=='/')
 			break;
