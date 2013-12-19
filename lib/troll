@@ -136,3 +136,11 @@ Subject: [9fans] Acme real estate on 15" macbook pro?
 Behaviour is clearly broken, but it's not clear exactly what is broken.
 Package Management for Go
 can someone take a look at this bug on p9p?
+i'd really like things to tab complete because I have no idea of the API
+Fast compilation times[8]
+This worked very well under Mavericks.
+Log: Edited wiki page 9pi through web user interface.
+I briefly looked at 9front and 9atom.  I thought I would query this group about the two.  Is one better maintained than the other?  Does one have better hardware support than the other?
+Hi, I'm using golang to code a 9p filesystem on linux.
+In spite of some really great ideas, I think we'd all agree that Plan-9 has no real future.
+I now have 9Front running fine, and, in fact, I am renewing a port of an OO language extension to it.
