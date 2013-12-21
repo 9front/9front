@@ -9,12 +9,13 @@ files
 .B page
 [
 .B -abirPRvVw
-]
-[
+] [
 .B -p
 .I ppi
-]
-[
+] [
+.B -j
+.I addr
+] [
 .IR file ...
 ]
 .SH DESCRIPTION
@@ -96,6 +97,12 @@ to not load any graphics files nor to read
 from standard input but rather to listen
 for ones to load from the plumbing channel.
 .PP
+The
+.B -j
+option with a page address
+.I addr
+jumps to the specified page on startup.
+.PP
 Pressing and holding button 1 permits panning about the page.
 .PP
 Button 2 raises a menu of operations on the current image or the
@@ -125,6 +132,9 @@ Displays the next page.
 .TP
 .B Prev
 Displays the previous page.
+.TP
+.B Snarf
+Writes the current page address to the snarf buffer.
 .TP
 .B Zerox
 Displays the current image in a new page window. 
@@ -177,6 +187,10 @@ Display a color PostScript file.
 .L
 page /usr/inferno/icons/*.bit
 Browse the Inferno bitmap library.
+.TP
+.L
+page -j /sys/doc/troff.pdf!7 /sys/doc/troff.pdf
+Jump to page 7 in the troff manual.
 .TP
 .L
 man -t page | page -w

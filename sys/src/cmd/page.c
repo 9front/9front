@@ -8,7 +8,8 @@
 
 typedef struct Page Page;
 struct Page {
-	char	*label;
+	char	*name;
+	char	*delim;
 
 	QLock;
 	char	*ext;
@@ -38,6 +39,7 @@ Page *root, *current;
 Page lru;
 QLock pagelock;
 int nullfd;
+char *pagewalk = nil;
 
 enum {
 	MiB	= 1024*1024,
@@ -67,6 +69,7 @@ enum {
 	Cdummy1,
 	Cnext,
 	Cprev,
+	Csnarf,
 	Czerox,
 	Cwrite,
 	Cext,
@@ -90,6 +93,7 @@ struct {
 	[Cdummy1]	"",		0, 0, 0,
 	[Cnext]		"next",		Kright, ' ', '\n', 
 	[Cprev]		"prev",		Kleft, Kbs, 0,
+	[Csnarf]	"snarf",	's', 0, 0,
 	[Czerox]	"zerox",	'z', 0, 0,
 	[Cwrite]	"write",	'w', 0, 0,
 	[Cext]		"ext",		'x', 0, 0,
@@ -124,18 +128,20 @@ Cursor reading = {
 	 0x00, 0x00, 0x01, 0xb6, 0x01, 0xb6, 0x00, 0x00, }
 };
 
+int pagewalk1(Page *p);
 void showpage1(Page *);
 void showpage(Page *);
 void drawpage(Page *);
 Point pagesize(Page *);
 
 Page*
-addpage(Page *up, char *label, int (*popen)(Page *), void *pdata, int fd)
+addpage(Page *up, char *name, int (*popen)(Page *), void *pdata, int fd)
 {
 	Page *p;
 
 	p = mallocz(sizeof(*p), 1);
-	p->label = strdup(label);
+	p->name = strdup(name);
+	p->delim = "!";
  	p->image = nil;
 	p->data = pdata;
 	p->open = popen;
@@ -152,8 +158,11 @@ addpage(Page *up, char *label, int (*popen)(Page *), void *pdata, int fd)
 	}
 	qunlock(&pagelock);
 
-	if(up && current == up)
+	if(up && current == up){
+		if(!pagewalk1(p))
+			return p;
 		showpage1(p);
+	}
 	return p;
 }
 
@@ -265,19 +274,50 @@ pipeline(int fd, char *fmt, ...)
 	close(pfd[0]);
 }
 
-char*
-shortname(char *s)
+static char*
+shortlabel(char *s)
 {
-	char *x;
+	enum { NR=60 };
+	static char buf[NR*UTFmax];
+	int i, k, l;
+	Rune r;
 
-	while(strlen(s) > 20){
-		if((x = strchr(s, '/')) == nil)
-			break;
-		if(x[1] == 0)
-			break;
-		s = x+1;
+	l = utflen(s);
+	if(l < NR-2)
+		return s;
+	k = i = 0;
+	while(i < NR/2){
+		k += chartorune(&r, s+k);
+		i++;
 	}
-	return s;
+	strncpy(buf, s, k);
+	strcpy(buf+k, "...");
+	while((l-i) >= NR/2-4){
+		k += chartorune(&r, s+k);
+		i++;
+	}
+	strcat(buf, s+k);
+	return buf;
+}
+
+static char*
+pageaddr1(Page *p, char *s, char *e)
+{
+	if(p == nil || p == root)
+		return s;
+	return seprint(pageaddr1(p->up, s, e), e, "%s%s", p->up->delim, p->name);
+}
+
+/*
+ * returns address string of a page in the form:
+ * /dir/filename!page!subpage!...
+ */
+char*
+pageaddr(Page *p, char *buf, int nbuf)
+{
+	buf[0] = 0;
+	pageaddr1(p, buf, buf+nbuf);
+	return buf;
 }
 
 int
@@ -401,7 +441,7 @@ popenepub(Page *p)
 		while(n > 0 && s[n-1] == '\n')
 			n--;
 		s[n] = 0;
-		addpage(p, shortname(buf), popenfile, strdup(buf), -1);
+		addpage(p, buf, popenfile, strdup(buf), -1);
 	}
 	close(fd);
 	return -1;
@@ -439,7 +479,7 @@ popenpdf(Page *p)
 			"(/fd/3) (w) file "
 			"dup flushfile "
 			"dup (THIS IS NOT AN INFERNO BITMAP\\n) writestring "
-			"flushfile\n", p->label);
+			"flushfile\n", p->name);
 		while((n = read(0, buf, sizeof buf)) > 0){
 			if(memcmp(buf, "THIS IS NOT AN INFERNO BITMAP\n", 30) == 0)
 				break;
@@ -477,6 +517,7 @@ popengs(Page *p)
 	pdf = 0;
 	ifd = p->fd;
 	p->fd = -1;
+	p->open = nil;
 	seek(ifd, 0, 0);
 	if(read(ifd, buf, 5) != 5)
 		goto Err0;
@@ -699,6 +740,7 @@ popenfile(Page *p)
 	p->ext = nil;
 	file = p->data;
 	p->data = nil;
+	p->open = nil;
 	if(fd < 0){
 		if((fd = open(file, OREAD)) < 0){
 		Err0:
@@ -724,7 +766,8 @@ popenfile(Page *p)
 			p->open = popenepub;
 			return p->open(p);
 		}
-
+		if(strcmp(pageaddr(p, buf, sizeof(buf)), file) == 0)
+			p->delim = "/";
 		if((n = dirreadall(fd, &d)) < 0)
 			goto Err1;
 		qsort(d, n, sizeof d[0], dircmp);
@@ -1077,11 +1120,11 @@ drawpage(Page *p)
 		r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
 		zoomdraw(screen, r, ZR, paper, i, i->r.min, zoom);
 	} else {
-		r = Rpt(ZP, stringsize(font, p->label));
+		r = Rpt(ZP, stringsize(font, p->name));
 		r = rectaddpt(r, addpt(subpt(divpt(subpt(screen->r.max, screen->r.min), 2),
 			divpt(r.max, 2)), screen->r.min));
 		draw(screen, r, paper, nil, ZP);
-		string(screen, r.min, display->black, ZP, font, p->label);
+		string(screen, r.min, display->black, ZP, font, p->name);
 	}
 	drawframe(r);
 }
@@ -1104,24 +1147,81 @@ translate(Page *p, Point d)
 	drawframe(nr);
 }
 
+int
+pagewalk1(Page *p)
+{
+	char *s;
+	int n;
+
+	if((s = pagewalk) == nil || *s == 0)
+		return 1;
+	n = strlen(p->name);
+	if(n == 0 || strncmp(s, p->name, n) != 0)
+		return 0;
+	if(s[n] == 0){
+		pagewalk = nil;
+		return 1;
+	}
+	if(s[n] == '/' || s[n] == '!'){
+		pagewalk = s + n+1;
+		return 1;
+	}
+	return 0;
+}
+
+Page*
+trywalk(char *name, char *addr)
+{
+	static char buf[NPATH];
+	Page *p, *a;
+
+	pagewalk = nil;
+	memset(buf, 0, sizeof(buf));
+	snprint(buf, sizeof(buf), "%s%s%s",
+		name ? name : "",
+		(name && addr) ? "!" : "", 
+		addr ? addr : "");
+	pagewalk = buf;
+
+	a = nil;
+	if(root){
+		p = root->down;
+	Loop:
+		for(; p; p = p->next)
+			if(pagewalk1(p)){
+				a = p;
+				p = p->down;
+				goto Loop;
+			}
+	}
+	return a;
+}
+
 Page*
 findpage(char *name)
 {
+	static char buf[NPATH], *f[32];
 	Page *p;
 	int n;
 
+	if(name == nil)
+		return nil;
+
 	n = strlen(name);
-	/* look in current document first */
+	/* look in current document */
 	if(current && current->up){
 		for(p = current->up->down; p; p = p->next)
-			if(cistrncmp(p->label, name, n) == 0)
+			if(cistrncmp(p->name, name, n) == 0)
 				return p;
 	}
 	/* look everywhere */
-	for(p = root->down; p; p = nextpage(p))
-		if(cistrncmp(p->label, name, n) == 0)
-			return p;
-	return nil;
+	if(root){
+		for(p = root->down; p; p = nextpage(p))
+			if(cistrncmp(p->name, name, n) == 0)
+				return p;
+	}
+	/* try bookmark */
+	return trywalk(name, nil);
 }
 
 Page*
@@ -1149,8 +1249,9 @@ char*
 pagemenugen(int i)
 {
 	Page *p;
+
 	if(p = pageat(i))
-		return p->label;
+		return shortlabel(p->name);
 	return nil;
 }
 
@@ -1274,7 +1375,7 @@ showext(Page *p)
 
 	if(p->ext == nil)
 		return;
-	snprint(label, sizeof(label), "%s %s", p->ext, p->label);
+	snprint(label, sizeof(label), "%s %s", p->ext, p->name);
 	ps = Pt(0, 0);
 	if(p->image)
 		ps = addpt(subpt(p->image->r.max, p->image->r.min), Pt(24, 24));
@@ -1308,6 +1409,19 @@ showext(Page *p)
 	drawlock(1);
 }
 
+
+void
+snarfaddr(Page *p)
+{
+	char buf[NPATH], *s;
+	int fd;
+
+	s = pageaddr(p, buf, sizeof(buf));
+	if((fd = open("/dev/snarf", OWRITE)) >= 0){
+		write(fd, s, strlen(s));
+		close(fd);
+	}
+}
 
 void
 eresized(int new)
@@ -1344,7 +1458,7 @@ void drawerr(Display *, char *msg)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [ -iRw ] [ -m mb ] [ -p ppi ] [ file ... ]\n", argv0);
+	fprint(2, "usage: %s [ -iRw ] [ -m mb ] [ -p ppi ] [ -j addr ] [ file ... ]\n", argv0);
 	exits("usage");
 }
 
@@ -1411,11 +1525,11 @@ docmd(int i, Mouse *m)
 		if(current->image){
 			s = nil;
 			if(current->up && current->up != root)
-				s = current->up->label;
+				s = current->up->name;
 			snprint(buf, sizeof(buf), "%s%s%s.bit",
 				s ? s : "",
 				s ? "." : "",
-				current->label);
+				current->name);
 			if(eenter("Write", buf, sizeof(buf), m) > 0){
 				if((fd = create(buf, OWRITE, 0666)) < 0){
 					errstr(buf, sizeof(buf));
@@ -1435,6 +1549,9 @@ docmd(int i, Mouse *m)
 			break;
 		showext(current);
 		qunlock(current);
+		break;
+	case Csnarf:
+		snarfaddr(current);
 		break;
 	case Cnext:
 		shownext();
@@ -1462,6 +1579,8 @@ main(int argc, char *argv[])
 	char *s;
 	int i;
 
+	quotefmtinstall();
+
 	ARGBEGIN {
 	case 'a':
 	case 'v':
@@ -1477,6 +1596,9 @@ main(int argc, char *argv[])
 		break;
 	case 'i':
 		imode = 1;
+		break;
+	case 'j':
+		trywalk(EARGF(usage()), nil);
 		break;
 	case 'm':
 		imemlimit = atol(EARGF(usage()))*MiB;
@@ -1523,10 +1645,11 @@ main(int argc, char *argv[])
 	lru.lprev = &lru;
 	lru.lnext = &lru;
 	current = root = addpage(nil, "", nil, nil, -1);
+	root->delim = "";
 	if(*argv == nil && !imode)
 		addpage(root, "stdin", popenfile, strdup("/fd/0"), -1);
 	for(; *argv; argv++)
-		addpage(root, shortname(*argv), popenfile, strdup(*argv), -1);
+		addpage(root, *argv, popenfile, strdup(*argv), -1);
 
 	for(;;){
 		drawlock(0);
@@ -1615,6 +1738,7 @@ main(int argc, char *argv[])
 		case Eplumb:
 			pm = e.v;
 			if(pm && pm->ndata > 0){
+				Page *j;
 				int fd;
 
 				fd = -1;
@@ -1639,7 +1763,12 @@ main(int argc, char *argv[])
 					sprint(s, "%s/%s", pm->wdir, pm->data);
 					cleanname(s);
 				}
-				showpage(addpage(root, shortname(s), popenfile, s, fd));
+				j = trywalk(s, plumblookup(pm->attr, "addr"));
+				if(j == nil){
+					current = root;
+					j = addpage(root, s, popenfile, s, fd);
+				}
+				showpage(j);
 			}
 		Plumbfree:
 			plumbfree(pm);
