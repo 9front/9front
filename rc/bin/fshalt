@@ -1,7 +1,7 @@
 #!/bin/rc
 # fshalt [-r] - sync (flush) and, if possible, halt all file servers
 #	and optionally reboot
-rfork e
+rfork en
 reboot=no
 scram=no
 switch ($#*) {
