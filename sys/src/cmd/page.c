@@ -1141,8 +1141,10 @@ translate(Page *p, Point d)
 	r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
 	pos = addpt(pos, d);
 	nr = rectaddpt(r, d);
-	rectclip(&r, screen->r);
-	draw(screen, rectaddpt(r, d), screen, nil, r.min);
+	if(rectclip(&r, screen->r))
+		draw(screen, rectaddpt(r, d), screen, nil, r.min);
+	else
+		r = ZR;
 	zoomdraw(screen, nr, rectaddpt(r, d), paper, i, i->r.min, zoom);
 	drawframe(nr);
 }
@@ -1224,6 +1226,19 @@ findpage(char *name)
 	return trywalk(name, nil);
 }
 
+void
+writeaddr(Page *p, char *file)
+{
+	char buf[NPATH], *s;
+	int fd;
+
+	s = pageaddr(p, buf, sizeof(buf));
+	if((fd = open(file, OWRITE)) >= 0){
+		write(fd, s, strlen(s));
+		close(fd);
+	}
+}
+
 Page*
 pageat(int i)
 {
@@ -1277,6 +1292,7 @@ showpage1(Page *p)
 	if(p == nil)
 		return;
 	esetcursor(&reading);
+	writeaddr(p, "/dev/label");
 	current = p;
 	oviewgen = viewgen;
 	switch(rfork(RFPROC|RFMEM)){
@@ -1409,20 +1425,6 @@ showext(Page *p)
 	drawlock(1);
 }
 
-
-void
-snarfaddr(Page *p)
-{
-	char buf[NPATH], *s;
-	int fd;
-
-	s = pageaddr(p, buf, sizeof(buf));
-	if((fd = open("/dev/snarf", OWRITE)) >= 0){
-		write(fd, s, strlen(s));
-		close(fd);
-	}
-}
-
 void
 eresized(int new)
 {
@@ -1551,7 +1553,7 @@ docmd(int i, Mouse *m)
 		qunlock(current);
 		break;
 	case Csnarf:
-		snarfaddr(current);
+		writeaddr(current, "/dev/snarf");
 		break;
 	case Cnext:
 		shownext();
@@ -1565,6 +1567,51 @@ docmd(int i, Mouse *m)
 	case Cquit:
 		exits(0);
 	}
+}
+
+void
+scroll(int y)
+{
+	Point z;
+	Page *p;
+
+	if(current == nil || !canqlock(current))
+		return;
+	if(y < 0){
+		if(pos.y >= 0){
+			p = prevpage(current);
+			if(p){
+				qunlock(current);
+				z = ZP;
+				if(canqlock(p)){
+					z = pagesize(p);
+					qunlock(p);
+				}
+				if(z.y == 0)
+					z.y = Dy(screen->r);
+				if(pos.y+z.y > Dy(screen->r))
+					pos.y = Dy(screen->r) - z.y;
+				showprev();
+				return;
+			}
+			y = 0;
+		}
+	} else {
+		z = pagesize(current);
+		if(pos.y+z.y <= Dy(screen->r)){
+			p = nextpage(current);
+			if(p){
+				qunlock(current);
+				if(pos.y < 0)
+					pos.y = 0;
+				shownext();
+				return;
+			}
+			y = 0;
+		}
+	}
+	translate(current, Pt(0, -y));
+	qunlock(current);
 }
 
 void
@@ -1685,36 +1732,25 @@ main(int argc, char *argv[])
 					qunlock(&pagelock);
 					showpage(x);
 				}
+			} else if(m.buttons & 8){
+				scroll(screen->r.min.y - m.xy.y);
+			} else if(m.buttons & 16){
+				scroll(m.xy.y - screen->r.min.y);
 			}
 			break;
 		case Ekeyboard:
 			switch(e.kbdc){
 			case Kup:
-				if(current == nil || !canqlock(current))
-					break;
-				if(pos.y < 0){
-					translate(current, Pt(0, Dy(screen->r)/2));
-					qunlock(current);
-					break;
-				}
-				if(prevpage(current))
-					pos.y = 0;
-				qunlock(current);
-				docmd(Cprev, &m);
+				scroll(-Dy(screen->r)/3);
+				break;
+			case Kpgup:
+				scroll(-Dy(screen->r)/2);
 				break;
 			case Kdown:
-				if(current == nil || !canqlock(current))
-					break;
-				o = addpt(pos, pagesize(current));
-				if(o.y > Dy(screen->r)){
-					translate(current, Pt(0, -Dy(screen->r)/2));
-					qunlock(current);
-					break;
-				}
-				if(nextpage(current))
-					pos.y = 0;
-				qunlock(current);
-				docmd(Cnext, &m);
+				scroll(Dy(screen->r)/3);
+				break;
+			case Kpgdown:
+				scroll(Dy(screen->r)/2);
 				break;
 			default:
 				for(i = 0; i<nelem(cmds); i++)
