@@ -1,100 +1,104 @@
 #!/bin/rc
 # window [many options] cmd [arg...] - create new window and run cmd in it
 rfork e
-fn checkwsys{
-	if(~ $wsys ''){
-		echo  'window: $wsys not defined'
-		exit bad
-	}
-}
 
-# original version used mount to do the work
-fn oldway{
-	switch($#*){
-	case 0 1
-		echo usage: window '''minx miny maxx maxy''' cmd args ...
-		exit usage
-	}
-	
-	checkwsys
-	
-	dir = /mnt/wsys
-	srv = $wsys
-	
-	rfork ne
-	{
-		if(x=`{cat /dev/ppid}; mount $srv $dir N`{{echo $x $1 }| sed 's/^ //g;s/ +/,/g'}){
-			shift
-			bind -b $dir /dev
-			echo -n `{basename $1} > /dev/label >[2] /dev/null
-			exec $* < /dev/cons > /dev/cons >[2] /dev/cons
-		}
-	}&
-}
+cmd=()
+spec=()
+wdir=()
+wpid=()
+mflag=()
+xflag=()
+argv0=$0
 
-# if argument is of form '100 100 200 200' or '100,100,200,200' use old way
 if(~ $1 *[0-9][' ,'][0-9]*){
-	oldway $*
-	exit
+	# old syntax: '100 100 200 200' or '100,100,200,200'
+	spec=(-r `{echo $1 | sed 's/,/ /g'})
+	shift
+	mflag=1
 }
-
-# geometry parameters are:
-#	-r 0 0 100 100
-#	-dx n
-#	-dy n
-#	-minx n
-#	-miny n
-#	-maxx n
-#	-maxy n
-# where n can be a number, to set the value, or +number or -number to change it
-
-# find wctl file
-fn getwctl{
-	if(~ $wctl ''){
-		if(test -f /dev/wctl) echo /dev/wctl
-		if not if(test -f /mnt/term/dev/wctl) echo /mnt/term/dev/wctl
-		if not if(~ $service cpu) echo /mnt/term/srv/riowctl.*.*
-		if not {
-			echo window: '$wctl' not defined >[1=2]
+if not {
+	while(~ $1 -* && ~ $#xflag 0)
+		switch($1){
+		case -hide -scroll -noscroll
+			spec=($spec $1)
+			shift
+		case -dx -dy -minx -miny -maxx -maxy
+			spec=($spec $1 $2)
+			shift 2
+		case -r
+			spec=($spec $1 $2 $3 $4 $5)
+			shift 5
+		case -cd
+			wdir=$2
+			shift 2
+		case -pid
+			wpid=$2
+			shift 2
+		case -m
+			mflag=1
+			shift
+		case -x
+			xflag=1
+			shift
+		case *
+			echo usage: $argv0 '[ -m ] [ -r minx miny maxx maxy ]' \
+			'[ -dx n ] [ -dy n ] [ -minx n ] [ -miny n ] [ -maxx n ] [ -maxy n ]' \
+			'[ -cd dir ] [ -hide ] [ -scroll ] [ -noscroll ] [ cmd arg ... ]' >[1=2]
 			exit usage
 		}
-	}
-	if not echo $wctl
 }
 
-# use mount to make local window
-if(~ $1 -m){
-	shift
+if(~ $#* 0) cmd=rc
+if not cmd=$*
 
-	checkwsys
-	
-	dir = /mnt/wsys
-	srv = $wsys
-	rfork ne
+if(~ $#xflag 1){
+	echo -n `{basename $cmd(1)} >/dev/label >[2]/dev/null
+	rm -f /env/^(cmd spec wdir wpid mflag xflag argv0)
+	exec $cmd
+	exit exec
+}
+
+if(~ $#mflag 1) {
+	if(~ $wsys ''){
+		echo $argv0: '$wsys' not defined >[1=2]
+		exit bad
+	}
+
 	{
-		unmount /mnt/acme /dev >[2]/dev/null
-		if(mount $srv $dir 'new -pid '^`{cat /dev/ppid}^' '$"*){
-			bind -b $dir /dev
-			# toss geometry parameters to find command
-			while(~ $1 -*)
-				switch($1){
-				case -dx -dy -minx -miny -maxx -maxy
-					shift 2
-				case -r
-					shift 5
-				case -scroll
-					shift
-				case -noscroll
-					shift
-				case -hide
-					shift
-				}
-			if(~ $#* 0) cmd = rc
-			if not cmd = $*
-			echo -n `{basename $cmd(1)} > /dev/label >[2] /dev/null
-			exec $cmd < /dev/cons > /dev/cons >[2] /dev/cons
+		rfork n
+
+		if(~ $wsys /srv/*){
+			if(~ $#wpid 0)
+				wpid=`{cat /dev/ppid}
+			spec=($spec -pid $wpid)
+		}
+		if(~ $#wdir 0){
+			wdir=`{pwd}
+		}
+		if not {
+			builtin cd $wdir
+		}
+		spec=($spec -cd $wdir)
+
+		{unmount /mnt/acme /dev; unmount $wsys /dev} >[2]/dev/null
+		if(mount $wsys /mnt/wsys 'new '$"spec){
+			bind -b /mnt/wsys /dev
+			exec $argv0 -x $cmd </dev/cons >/dev/cons >[2]/dev/cons
 		}
 	}&
 }
+if not {
+	if(~ $wctl ''){
+		if(test -f /dev/wctl) wctl=/dev/wctl
+		if not if(test -f /mnt/term/dev/wctl) wctl=/mnt/term/dev/wctl
+		if not if(test -r /mnt/term/env/wctl) wctl=/mnt/term^`{cat /mnt/term/env/wctl}
+		if not {
+			echo $argv0: '$wctl' not defined >[1=2]
+			exit bad
+		}
+	}
 
-if not echo new -cd `{pwd} $* >> `{getwctl}
+	if(! ~ $#wdir 0)
+		spec=($spec -cd $wdir)
+	echo new $spec $argv0 -x $cmd >>$wctl
+}
