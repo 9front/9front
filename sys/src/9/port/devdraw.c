@@ -607,6 +607,7 @@ drawdelname(DName *name)
 {
 	int i;
 
+	free(name->name);
 	i = name-sdraw.name;
 	memmove(name, name+1, (sdraw.nname-(i+1))*sizeof(DName));
 	sdraw.nname--;
