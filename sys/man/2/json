@@ -96,6 +96,8 @@ The function
 returns the string value of a json object or
 .B nil
 for any other object type.
+.SH SOURCE
+.B /sys/src/libjson
 .SH DIAGNOSTICS
 The functions
 .IB jsonparse ,
@@ -106,5 +108,3 @@ return
 .B nil
 on error and set an error string (see
 .IR errstr (2)).
-.SH SOURCE
-.B /sys/src/libjson
