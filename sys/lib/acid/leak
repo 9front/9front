@@ -10,7 +10,7 @@ dumppool(p, sum)
 	a = p.arenalist;
 
 	print("A: ", p.arenalist\X, "\n");
-	while a != 0 && a < 0xff000000 do {
+	while a != 0 do {
 		complex Arena a;
 		dumparena(a, sum);
 		a = a.down;
