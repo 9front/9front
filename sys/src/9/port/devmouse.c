@@ -374,7 +374,7 @@ mousewrite(Chan *c, void *va, long n, vlong)
 	Cmdbuf *cb;
 	Cmdtab *ct;
 	char buf[64];
-	int b, msec;
+	int b, z, msec;
 	Mousestate *m;
 
 	p = va;
@@ -456,6 +456,11 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		msec = strtol(p, &p, 0);
 		if(msec == 0)
 			msec = TK2MS(MACHP(0)->ticks);
+
+		/* exclude wheel */
+		z = b & (8|16);
+		b ^= z;
+
 		m = (Mousestate*)c->aux;
 		m->xy = pt;
 		m->msec = msec;
@@ -463,6 +468,11 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		m->buttons ^= b;
 		mouseinbuttons = (m->buttons & b) | (mouseinbuttons & ~b);
 		b = mouse.buttons & ~b;
+
+		/* include wheel */
+		b &= ~(8|16);
+		b ^= z;
+
 		if(buf[0] == 'A')
 			absmousetrack(pt.x, pt.y, b, msec);
 		else
