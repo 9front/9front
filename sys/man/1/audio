@@ -275,10 +275,10 @@ bytes have been consumed from input.
 .I Mixfs
 is a fileserver serving a single
 .B audio
-file which allows simultanious playback of audio streams. When
+file which allows simultaneous playback of audio streams. When
 run, it binds over
 .B /dev/audio
-and mixes the audio samples that get written to it.
+and mixes the audio samples that are written to it.
 A service name
 .I srvname
 can be given with the
@@ -346,5 +346,7 @@ dd -conv swab | audio/mp3enc -a -r -m m --resample 16 -b 24
 .B http://xiph.org/doc/
 .br
 .B http://flac.sourceforge.net/documentation.html
-.SH BUGS
-It's another GNU behemoth, lightly tamed.
+.SH HISTORY
+.I Mixfs
+first appeared in 9front (December, 2013).
+It was written by cinap_lenrek.
