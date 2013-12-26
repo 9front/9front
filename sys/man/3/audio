@@ -32,7 +32,7 @@ is driver specific control file and left undocumented here.
 is a read only status file. The first line has a length of 32 bytes
 including the newline and starts with the string
 .B bufsize
-followed by the prefered write unit (in bytes) and the string
+followed by the preferred write unit (in bytes) and the string
 .B buffered
 followed by the number of bytes currently queued for output. The
 numbers are decimal and right-padded with spaces to fit.
