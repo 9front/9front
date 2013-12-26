@@ -53,6 +53,17 @@ q ] [
 .I length
 ]
 .PP
+.B audio/mixfs
+[
+.B -D
+] [
+.B -s
+.I srvname
+] [
+.B -m
+.I mtpt
+]
+.PP
 .SH DESCRIPTION
 These programs decode and encode various audio formats from and to
 16-bit stereo PCM (little endian). The decoders read the compressed
@@ -260,6 +271,38 @@ until it reached end of file or, if
 was given, a number of
 .I length
 bytes have been consumed from input.
+.PP
+.I Mixfs
+is a fileserver serving a single
+.B audio
+file which allows simultanious playback of audio streams. When
+run, it binds over
+.B /dev/audio
+and mixes the audio samples that get written to it.
+A service name
+.I srvname
+can be given with the
+.B -s
+option which gets posted to
+.BR /srv .
+By default,
+.I mixfs
+mounts itself on
+.B /mnt/mix
+and then binds
+.B /mnt/mix/audio
+over
+.BR /dev .
+A alternative mountpoint 
+.I mtpt
+can be specified with the
+.B -m
+option.
+The
+.B -D
+option causes
+.B 9p
+debug messages to be written to file-descriptor 2.
 .SH EXAMPLE
 Play back an
 .L .mp3
