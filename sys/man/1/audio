@@ -347,6 +347,7 @@ dd -conv swab | audio/mp3enc -a -r -m m --resample 16 -b 24
 .br
 .B http://flac.sourceforge.net/documentation.html
 .SH HISTORY
+.I Pcmconv
+first appeared in 9front (December, 2012).
 .I Mixfs
 first appeared in 9front (December, 2013).
-It was written by cinap_lenrek.
