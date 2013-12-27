@@ -4,10 +4,7 @@ cifs - Microsoft™ Windows network filesystem client
 .SH SYNOPSIS
 .B cifs
 [
-.B -bDiv
-] [
-.B -d
-.I debug
+.B -bdDiv
 ] [
 .B -a
 .I auth-method
@@ -46,7 +43,7 @@ The arguments are:
 .BI -a " auth-method"
 .I Cifs
 authenticates using
-.B ntlmv2
+.L BNTLM
 by default, but alternative strategies may be
 selected using this option.
 .I Cifs
@@ -59,7 +56,7 @@ if no method name is supplied.
 .IP
 .I "Windows server 2003"
 requires the
-.B ntlmv2
+.B BNTLMv2
 method by default, though it can be configured to be more flexible.
 .TP
 .B -b
@@ -70,18 +67,15 @@ This requires an open and close per file and thus will slow
 .I cifs
 considerably; its use is not recommended.
 .TP
-.BI -d " debug"
-followed by non-whitespace separated list of debug options
-.I debug
-writes specific debug output to file descriptor 2. See source
-for more information.
+.B -d
+CIFS packet debug.
 .TP
 .B -D
 9P request debug.
 .TP
 .B -i 
 By default 
-.I cifs
+.I cifs(4)
 attempts to enforce case significance file and directory names, though objects
 which differ only in their case still cannot co-exist in the same directory. The
 .B -i
@@ -192,8 +186,8 @@ in milliseconds, the server proximity (0 is local), the server name,
 and the share name on that server.
 .SH COMPATIBILITY
 .I Cifs
-has been tested against aquarela,
-.IR cifsd (8),
+has been tested against
+.IR aquarela (8),
 Windows 95, NT4.0sp6,
 Windows server 2003, Windows server 2003, WinXP pro, 
 Samba 2.0 (Pluto VideoSpace), and Samba 3.0.
@@ -220,10 +214,14 @@ likely that this could be easily fixed.
 .B /sys/src/cmd/cifs
 .SH SEE ALSO
 .IR factotum (4),
-.IR cifsd (8)
+.IR aquarela (8)
 .SH BUGS
 DFS support is unfinished, it will not follow referals that span servers.
 .PP
 Kerberos authentication is not supported.
 .PP
 NetBios name resolution is not supported, though it is now rarely used.
+.SH HISTORY
+.I Cifs
+first appeared in Plan 9 from Bell Labs. It was updated to the author's
+latest revision for 9front (January, 2012).

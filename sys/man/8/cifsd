@@ -104,3 +104,6 @@ some applications.
 .SH "SEE ALSO"
 .IR listen (8),
 .IR srv (4)
+.SH HISTORY
+.I Cifsd
+first appeared in 9front (May, 2011).
