@@ -8,6 +8,7 @@ enum {
 	NBUF = 8*1024,
 	NDELAY = 2048,
 	NCHAN = 2,
+	FREQ = 44100,
 };
 
 typedef struct Stream Stream;
@@ -83,21 +84,21 @@ void
 audioproc(void *)
 {
 	static uchar buf[NBUF*NCHAN*2];
-	int nsleep, fd, i, j, n, m, v;
+	int sweep, fd, i, j, n, m, v;
 	Stream *s;
 	uchar *p;
 
 	threadsetname("audioproc");
 
 	fd = -1;
-	nsleep = 0;
+	sweep = 0;
 	for(;;){
 		m = NBUF;
 		for(s = streams; s < streams+nelem(streams); s++){
 			qlock(s);
 			if(s->run){
 				n = (long)(s->wp - mixrp);
-				if(n <= 0 && nsleep > 4)
+				if(n <= 0 && (s->used == 0 || sweep))
 					s->run = 0;
 				else if(n < m)
 					m = n;
@@ -109,20 +110,34 @@ audioproc(void *)
 		m %= NBUF;
 
 		if(m == 0){
-			sleep(1<<nsleep);
-			if(nsleep < 7)
-				nsleep++;
-			else {
-				close(fd);
-				fd = -1;
+			int ms;
+
+			ms = 100;
+			if(fd >= 0){
+				if(sweep){
+					close(fd);
+					fd = -1;
+				} else {
+					/* attempt to sleep just shortly before buffer underrun */
+					ms = seek(fd, 0, 2);
+					if(ms > 0){
+						ms *= 800;
+						ms /= FREQ*NCHAN*2;
+					} else
+						ms = 4;
+				}
+				sweep = 1;
 			}
+			sleep(ms);
 			continue;
 		}
+		sweep = 0;
 		if(fd < 0)
-			if((fd = open("/dev/audio", OWRITE)) < 0)
-				continue;
-
-		nsleep = 0;
+		if((fd = open("/dev/audio", OWRITE)) < 0){
+			fprint(2, "%s: open /dev/audio: %r\n", argv0);
+			sleep(1000);
+			continue;
+		}
 
 		p = buf;
 		for(i=0; i<m; i++){
@@ -180,6 +195,28 @@ fswrite(Req *r)
 }
 
 void
+fsstat(Req *r)
+{
+	Stream *s;
+
+	if(r->fid->file == nil){
+		respond(r, "bug");
+		return;
+	}
+	if(strcmp(r->fid->file->name, "audio") == 0 && (s = r->fid->aux) != nil){
+		qlock(s);
+		if(s->run){
+			r->d.length = (long)(s->wp - mixrp);
+			r->d.length *= NCHAN*2;
+		} else {
+			r->d.length = 0;
+		}
+		qunlock(s);
+	}
+	respond(r, nil);
+}
+
+void
 fsstart(Srv *)
 {
 	Stream *s;
@@ -200,6 +237,7 @@ fsend(Srv *)
 Srv fs = {
 	.open=		fsopen,
 	.write=		fswrite,
+	.stat=		fsstat,
 	.destroyfid=	fsclunk,
 	.start=		fsstart,
 	.end=		fsend,
