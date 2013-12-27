@@ -19,14 +19,12 @@ is specified, the saying is taken from that file;
 otherwise it is selected from
 .BR /sys/games/lib/fortunes .
 .LP
-.I
-Troll
+.I Troll
 is more specific than
 .I fortune;
 it specializes in inflammatory rhetoric.
 .LP
-.I
-Theo
+.I Theo
 is more specific than
 .I troll;
 it presents insults from OpenBSD founder
@@ -47,5 +45,10 @@ Theo de Raadt.
 .B /rc/bin/theo
 .br
 .B /rc/bin/troll
+.SH HISTORY
+.I Theo
+and
+.I troll
+first appeared in 9front (July, 2011).
 .SH AUTHORS
 Some initial trolls were provided by ChrisPBS.

@@ -37,3 +37,6 @@ is tested if it requires authentication on mount.
 .IR auth (8),
 .IR ndb (8),
 .IR ndb (6).
+.SH HISTORY
+.I Netaudit
+first appeared in 9front (August, 2012).

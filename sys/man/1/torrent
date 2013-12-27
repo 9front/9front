@@ -129,3 +129,6 @@ hget http://www.trackon.org/api/live
 .SH "SEE ALSO"
 .IR hget (1),
 .IR webfs (4)
+.SH HISTORY
+.I Torrent
+first appeared in 9front (October, 2011).

@@ -21,9 +21,9 @@ by name or through hypertext links.
 Web names, called URLs, have a peculiar syntax:
 .IP
 .EX
-http://netlib.att.com/netlib/1127/www/1127.html
-http://akebono.stanford.edu:80/yahoo/
-http://www.teleport.com/~crowell/
+http://9front.org/
+http://code.google.com/p/plan9front/
+http://cat-v.org/
 .EE
 .PP
 The part up to the first colon gives the protocol for
@@ -182,3 +182,7 @@ Sanitizing remote file names for the local file system is imperfect.
 is distributed in a preliminary state; it has more than its share of bugs. Note that
 .I mothra,
 like the other Guardian Monsters, has no particular concern for humanity.
+.SH HISTORY
+.I Mothra
+first appeared in Plan 9 from Bell Labs (1995). It was later modified for inclusion in
+9front (September, 2011).

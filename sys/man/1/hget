@@ -252,3 +252,15 @@ require
 service mounted on
 .B /mnt/web
 to work.
+.SH HISTORY
+.I Hget
+first appeared in Plan 9 from Bell Labs. It was
+rewritten as an
+.I rc
+script for 9front (January, 2012).
+.I Hpost
+and
+.I urlencode
+first appeared in 9front (October, 2012).
+.I Webpaste
+first appeared in 9front (September, 2013).

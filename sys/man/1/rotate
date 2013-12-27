@@ -34,3 +34,6 @@ mirror the image upside/down or left/right.
 .IR crop (1),
 .IR resample (1),
 .IR image (6)
+.SH HISTORY
+.I Rotate
+first appeared in 9front (September, 2011).

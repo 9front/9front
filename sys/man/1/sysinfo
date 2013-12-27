@@ -59,3 +59,8 @@ is prepended.
 .IR intro (3),
 .IR plan9.ini (8),
 .IR hg (1)
+.SH HISTORY
+.I Sysinfo
+first appeared in 9front (May, 2012).
+.I Sysupdate
+first appeared in 9front (February, 2012).

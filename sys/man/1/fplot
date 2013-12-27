@@ -49,9 +49,11 @@ fplot -c -s 400x400 'sqrt(x*x)' 'x^3' | page
 .IR sin (2),
 .IR image (6),
 .IR plot (1).
-
 .SH DIAGNOSTICS
 .I Fplot
 either exits with
 .LR "syntax error"
 or an empty status.
+.SH HISTORY
+.I Fplot
+first appeared in 9front (July, 2011).

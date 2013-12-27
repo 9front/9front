@@ -202,3 +202,7 @@ For cookies to work,
 should be running and mounted on
 .B /mnt/webcookies
 otherwise cookies will be ignored.
+.SH HISTORY
+.I Webfs
+first appeared in Plan 9 from Bell Labs. It was
+rewritten from scratch for 9front (January, 2012).

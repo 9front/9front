@@ -113,3 +113,5 @@ failing
 .I
 Standards for Efficient Cryptography (SEC) 1: Elliptic Curve Cryptography
 - Certicom Research, 2009
+.SH HISTORY
+This implementation of elliptic curve cryptography first appeared in 9front (June, 2012).

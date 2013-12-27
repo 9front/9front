@@ -67,3 +67,6 @@ password: *****
 .SH SEE ALSO
 .IR factotum (4),
 .IR ipconfig (8)
+.SH HISTORY
+.I Wpa
+first appeared in 9front (March, 2013).

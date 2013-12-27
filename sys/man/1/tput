@@ -37,3 +37,6 @@ tput </dev/zero
 .SH DIAGNOSTICS
 .I Tput
 sets error status on read error.
+.SH HISTORY
+.I Tput
+first appeared in 9front (May, 2011).

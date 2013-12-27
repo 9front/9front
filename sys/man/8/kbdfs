@@ -259,3 +259,6 @@ to represent a control character.
 .B /sys/lib/kbmap/*
 .SH SOURCE
 .B /sys/src/cmd/aux/kbdfs
+.SH HISTORY
+.I Kbdfs
+first appeared in 9front (May, 2011).

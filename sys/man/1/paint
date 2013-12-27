@@ -80,3 +80,6 @@ Quits the program.
 .IR jpg (1),
 .IR page (1),
 .IR image (6)
+.SH HISTORY
+.I Paint
+first appeared in 9front (October, 2011).

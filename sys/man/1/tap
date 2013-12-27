@@ -20,3 +20,6 @@ process pipeline.
 .IR ps (1),
 .IR pipe (3),
 .IR proc (3).
+.SH HISTORY
+.I Tap
+first appeared in 9front (March, 2012).

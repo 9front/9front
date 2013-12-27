@@ -37,3 +37,6 @@ option.
 .SH "SEE ALSO"
 .IR audio (1),
 .IR hget (1)
+.SH HISTORY
+.I Play
+first appeared in 9front (January, 2012).

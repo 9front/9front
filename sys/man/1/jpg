@@ -410,3 +410,10 @@ space in the image.  The icon file is written to standard output.
 Writing an animated GIF using
 .I togif
 is a clumsy undertaking.
+.SH HISTORY
+.I Tojpg
+first appeared in 9front (May, 2013).
+.I Tif
+and
+.I totif
+first appeared in 9front (July, 2013).

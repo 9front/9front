@@ -109,12 +109,11 @@ source files of packages installed locally.
 .SH REPOSITORIES
 .B http://r-36.net/9front/pkg/386
 .br
-.B http://ph.inri.net/9front/pkg/386
-.br
-.B http://bell-labs.co/9front/pkg/386
-.br
 .B http://plan9.bell-labs.com/sources/contrib/staal1978/pkg
 .SH SEE ALSO
 .IR contrib (1) ,
 .IR gzip (1) ,
 .IR tar (1)
+.SH HISTORY
+.I Pkg
+first appeared in 9front (May, 2011).

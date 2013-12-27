@@ -103,3 +103,6 @@ completes:
 .SH "SEE ALSO"
 .IR vga (8),
 .IR arch (3)
+.SH HISTORY
+.I Realemu
+first appeared in 9front (April, 2011).

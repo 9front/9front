@@ -203,6 +203,8 @@ Preview this manual in a new window.
 .SH SOURCE
 .B /sys/src/cmd/page.c
 .SH BUGS
-The interface to the plumber is unsatisfactory.  In particular,
-document references cannot be sent 
-via plumbing messages.
+The interface to the plumber is experimental.
+.SH HISTORY
+.I Page
+first appeared in Plan 9 from Bell Labs. It was rewritten from
+scratch for 9front (September, 2011).

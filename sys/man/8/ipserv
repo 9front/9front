@@ -228,3 +228,8 @@ is a simple HTTP proxy server.
 .SH "SEE ALSO"
 .IR ftpfs (4),
 .IR pop3 (8)
+.SH HISTORY
+.I Hproxy
+first appeared in 9front (July, 2012).
+.I Socksd
+first appeared in 9front (March, 2012).

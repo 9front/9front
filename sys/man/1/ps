@@ -127,3 +127,6 @@ line drawing runes to reflect the nesting in the hierarchy.
 .IR kill (1), 
 .IR ns (1),
 .IR proc (3)
+.SH HISTORY
+.I Pstree
+first appeared in 9front (June, 2011).

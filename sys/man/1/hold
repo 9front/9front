@@ -18,3 +18,6 @@ in the named file upon exit.
 .SH "SEE ALSO"
 .IR emacs (1),
 .IR rio (1)
+.SH HISTORY
+.I Hold
+first appeared in 9front (May, 2011).

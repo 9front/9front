@@ -53,3 +53,6 @@ argument.
 .SH SEE ALSO
 .IR aes (2) ,
 .IR fs (3)
+.SH HISTORY
+.I Cryptsetup
+first appeared in 9front (May, 2011).

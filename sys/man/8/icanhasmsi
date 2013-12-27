@@ -13,7 +13,9 @@ found on the system, one line per device.
 .IR pnp (3)
 .SH BUGS
 Should probably be renamed to
-.I
-msi
+.I msi
 or merged with
 .IR pci (8).
+.SH HISTORY
+.I Icanhasmsi
+first appeared in 9front (May, 2011).

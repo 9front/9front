@@ -63,3 +63,6 @@ directory. The special user
 is prohibited from these operations.
 .SH SOURCE
 .B /sys/src/9/port/devshr.c
+.SH HISTORY
+.I Shr
+first appeared in 9front (July, 2011).

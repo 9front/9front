@@ -132,3 +132,6 @@ option.
 .SH DIAGNOSTICS
 The exit status is set to 'errors' when
 errors were encountered.
+.SH HISTORY
+.I Derp
+first appeared in 9front (November, 2012).

@@ -102,3 +102,5 @@ file.
 .BR /sys/src/boot/pc
 .SH "SEE ALSO"
 .IR plan9.ini (8)
+.SH HISTORY
+9boot first appeared in 9front (April, 2011).

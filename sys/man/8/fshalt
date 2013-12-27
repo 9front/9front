@@ -62,3 +62,6 @@ after invoking bare
 
 .I Scram
 is limited to the PC and requires APM or ACPI.
+.SH HISTORY
+.I Scram
+first appeared in 9front (May, 2011).
