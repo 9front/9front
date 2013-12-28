@@ -55,6 +55,7 @@ ALLOFILES=\
 	strtoull.$O\
 	strxfrm.$O\
 	toupper.$O\
+	strdup.$O\
 
 # cull things in the per-machine directories from this list
 OFILES=	`{rc ./reduce $O $objtype $ALLOFILES}

@@ -49,7 +49,6 @@ OFILES=\
 	strncasecmp.$O\
 	socket.$O\
 	socketpair.$O\
-	strdup.$O\
 	pty.$O\
 	writev.$O\
 	
