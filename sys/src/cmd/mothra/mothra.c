@@ -9,6 +9,7 @@
 #include <plumb.h>
 #include <cursor.h>
 #include <panel.h>
+#include <regexp.h>
 #include "mothra.h"
 #include "rtext.h"
 int debug=0;
@@ -91,6 +92,7 @@ char *buttons[]={
 	"moth mode",
 	"snarf",
 	"paste",
+	"search",
 	"save hit",
 	"hit list",
 	"exit",
@@ -254,6 +256,8 @@ void drawlock(int dolock){
 }
 
 void scrollto(char *tag);
+void search(void);
+
 extern char *mtpt; /* url */
 
 void main(int argc, char *argv[]){
@@ -382,6 +386,9 @@ void main(int argc, char *argv[]){
 				break;
 			case Kend:
 				scrolltext(-text->size.y, 2);
+				break;
+			case Kack:
+				search();
 				break;
 			}
 			break;
@@ -690,6 +697,46 @@ void docmd(Panel *p, char *s){
 	}
 	plinitentry(cmd, EXPAND, 0, "", docmd);
 	pldraw(root, screen);
+}
+
+void search(void){
+	static char last[256];
+	char buf[256];
+	Reprog *re;
+	Rtext *tp;
+
+	for(;;){
+		if(current == nil || current->text == nil || text == nil)
+			return;
+		strncpy(buf, last, sizeof(buf)-1);
+		if(eenter("Search for", buf, sizeof(buf), &mouse) <= 0)
+			return;
+		re = regcompnl(buf);
+		if(re == nil)
+			return;
+		strncpy(last, buf, sizeof(buf)-1);
+		for(tp=current->text;tp;tp=tp->next)
+			if(tp->flags & PL_SEL)
+				break;
+		if(tp == nil)
+			tp = current->text;
+		else {
+			tp->flags &= ~PL_SEL;
+			tp = tp->next;
+		}
+		while(tp != nil){
+			tp->flags &= ~PL_SEL;
+			if(tp->text && *tp->text)
+			if(regexec(re, tp->text, nil, 0)){
+				tp->flags |= PL_SEL;
+				plsetpostextview(text, tp->topy);
+				break;
+			}
+			tp = tp->next;
+		}
+		free(re);
+		updtext(current);
+	}
 }
 
 void hiturl(int buttons, char *url, int map){
@@ -1119,6 +1166,9 @@ void hit3(int button, int item){
 		paste(plkbfocus);
 		break;
 	case 4:
+		search();
+		break;
+	case 5:
 		if(!selection){
 			message("no url selected");
 			break;
@@ -1138,11 +1188,11 @@ void hit3(int button, int item){
 		fprint(fd, "<p><a href=\"%s\">%s</a>\n", urlstr(selection), urlstr(selection));
 		close(fd);
 		break;
-	case 5:
+	case 6:
 		snprint(name, sizeof(name), "file:%s/hit.html", mkhome());
 		geturl(name, -1, 1, 0);
 		break;
-	case 6:
+	case 7:
 		if(confirm(3))
 			exits(0);
 		break;
