@@ -441,7 +441,7 @@ popenepub(Page *p)
 		while(n > 0 && s[n-1] == '\n')
 			n--;
 		s[n] = 0;
-		addpage(p, buf, popenfile, strdup(buf), -1);
+		addpage(p, s, popenfile, strdup(buf), -1);
 	}
 	close(fd);
 	return -1;
