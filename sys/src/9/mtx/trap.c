@@ -717,9 +717,9 @@ notify(Ureg* ur)
 	}
 
 	if(n->flag!=NUser && (up->notified || up->notify==0)){
+		qunlock(&up->debug);
 		if(n->flag == NDebug)
 			pprint("suicide: %s\n", n->msg);
-		qunlock(&up->debug);
 		pexit(n->msg, n->flag!=NDebug);
 	}
 
@@ -738,8 +738,8 @@ notify(Ureg* ur)
 
 	if(!okaddr((ulong)up->notify, BY2WD, 0) ||
 	   !okaddr(sp-ERRMAX-4*BY2WD, sizeof(Ureg)+ERRMAX+4*BY2WD, 1)) {
-		pprint("suicide: bad address or sp in notify\n");
 		qunlock(&up->debug);
+		pprint("suicide: bad address or sp in notify\n");
 		pexit("Suicide", 0);
 	}
 
@@ -788,8 +788,8 @@ noted(Ureg* ureg, ulong arg0)
 	/* sanity clause */
 	oureg = (ulong)nureg;
 	if(!okaddr((ulong)oureg-BY2WD, BY2WD+sizeof(Ureg), 0)){
-		pprint("bad ureg in noted or call to noted when not notified\n");
 		qunlock(&up->debug);
+		pprint("bad ureg in noted or call to noted when not notified\n");
 		pexit("Suicide", 0);
 	}
 
@@ -799,8 +799,8 @@ noted(Ureg* ureg, ulong arg0)
 	case NCONT:
 	case NRSTR:
 		if(!okaddr(nureg->pc, 1, 0) || !okaddr(nureg->usp, BY2WD, 0)){
-			pprint("suicide: trap in noted\n");
 			qunlock(&up->debug);
+			pprint("suicide: trap in noted\n");
 			pexit("Suicide", 0);
 		}
 		up->ureg = (Ureg*)(*(ulong*)(oureg-BY2WD));
@@ -810,8 +810,8 @@ noted(Ureg* ureg, ulong arg0)
 	case NSAVE:
 		if(!okaddr(nureg->pc, BY2WD, 0)
 		|| !okaddr(nureg->usp, BY2WD, 0)){
-			pprint("suicide: trap in noted\n");
 			qunlock(&up->debug);
+			pprint("suicide: trap in noted\n");
 			pexit("Suicide", 0);
 		}
 		qunlock(&up->debug);
@@ -823,14 +823,13 @@ noted(Ureg* ureg, ulong arg0)
 		break;
 
 	default:
-		pprint("unknown noted arg 0x%lux\n", arg0);
 		up->lastnote.flag = NDebug;
 		/* fall through */
 		
 	case NDFLT:
+		qunlock(&up->debug);
 		if(up->lastnote.flag == NDebug)
 			pprint("suicide: %s\n", up->lastnote.msg);
-		qunlock(&up->debug);
 		pexit(up->lastnote.msg, up->lastnote.flag!=NDebug);
 	}
 }

@@ -80,16 +80,12 @@ noted(Ureg* cur, uintptr arg0)
 		cur->sp = PTR2UINT(nf);
 		break;
 	default:
-		pprint("unknown noted arg %#p\n", arg0);
 		up->lastnote.flag = NDebug;
 		/*FALLTHROUGH*/
 	case NDFLT:
-		if(up->lastnote.flag == NDebug){ 
-			qunlock(&up->debug);
+		qunlock(&up->debug);
+		if(up->lastnote.flag == NDebug)
 			pprint("suicide: %s\n", up->lastnote.msg);
-		}
-		else
-			qunlock(&up->debug);
 		pexit(up->lastnote.msg, up->lastnote.flag != NDebug);
 	}
 }
@@ -127,9 +123,9 @@ notify(Ureg* ureg)
 	}
 
 	if(n->flag != NUser && (up->notified || up->notify == 0)){
+		qunlock(&up->debug);
 		if(n->flag == NDebug)
 			pprint("suicide: %s\n", n->msg);
-		qunlock(&up->debug);
 		pexit(n->msg, n->flag != NDebug);
 	}
 
@@ -144,8 +140,8 @@ notify(Ureg* ureg)
 		pexit(n->msg, n->flag != NDebug);
 	}
 	if(!okaddr(PTR2UINT(up->notify), 1, 0)){
-		pprint("suicide: notify function address %#p\n", up->notify);
 		qunlock(&up->debug);
+		pprint("suicide: notify function address %#p\n", up->notify);
 		pexit("Suicide", 0);
 	}
 

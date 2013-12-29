@@ -124,7 +124,7 @@ etherconfig(int on, char *spec, DevConf *cf)
 			ether->ea[0], ether->ea[1], ether->ea[2],
 			ether->ea[3], ether->ea[4], ether->ea[5]);
 		seprint(p, e, "\n");
-		pprint(buf);
+		print("%s", buf);
 
 		etherxx[ctlrno] = ether;
 		return 0;

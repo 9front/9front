@@ -846,9 +846,9 @@ notify(Ureg* ureg)
 	}
 
 	if(n->flag!=NUser && (up->notified || up->notify==0)){
+		qunlock(&up->debug);
 		if(n->flag == NDebug)
 			pprint("suicide: %s\n", n->msg);
-		qunlock(&up->debug);
 		pexit(n->msg, n->flag!=NDebug);
 	}
 
@@ -964,16 +964,13 @@ if(0) print("%s %lud: noted %.8lux %.8lux\n",
 		break;
 
 	default:
-		pprint("unknown noted arg 0x%lux\n", arg0);
 		up->lastnote.flag = NDebug;
 		/* fall through */
 
 	case NDFLT:
-		if(up->lastnote.flag == NDebug){
-			qunlock(&up->debug);
+		qunlock(&up->debug);
+		if(up->lastnote.flag == NDebug)
 			pprint("suicide: %s\n", up->lastnote.msg);
-		} else
-			qunlock(&up->debug);
 		pexit(up->lastnote.msg, up->lastnote.flag!=NDebug);
 	}
 }

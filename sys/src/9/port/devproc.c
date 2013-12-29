@@ -446,7 +446,7 @@ procopen(Chan *c, int omode)
 		break;
 
 	default:
-		pprint("procopen %#lux\n", QID(c->qid));
+		print("procopen %#lux\n", QID(c->qid));
 		error(Egreg);
 	}
 
@@ -1156,7 +1156,7 @@ procwrite(Chan *c, void *va, long n, vlong off)
 			error(Ebadarg);
 		break;
 	default:
-		pprint("unknown qid in procwrite\n");
+		print("unknown qid in procwrite\n");
 		error(Egreg);
 	}
 	poperror();

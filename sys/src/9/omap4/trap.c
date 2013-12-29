@@ -154,9 +154,9 @@ notify(Ureg *ureg)
 		sprint(n->msg + l, " pc=0x%.8lux", ureg->pc);
 	}
 	if(n->flag != NUser && (up->notified || up->notify == 0)){
+		qunlock(&up->debug);
 		if(n->flag == NDebug)
 			pprint("suicide: %s\n", n->msg);
-		qunlock(&up->debug);
 		pexit(n->msg, n->flag != NDebug);
 	}
 	if(up->notified){
@@ -247,7 +247,6 @@ noted(Ureg *ureg, ulong arg0)
 		break;
 	
 	default:
-		pprint("unknown noted arg 0x%lux\n", arg0);
 		up->lastnote.flag = NDebug;
 		/* fallthrough */
 	

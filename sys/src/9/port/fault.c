@@ -328,7 +328,6 @@ okaddr(ulong addr, ulong len, int write)
 			return 1;
 		}
 	}
-	pprint("suicide: invalid address %#lux/%lud in sys call pc=%#lux\n", addr, len, userpc());
 	return 0;
 }
 
@@ -336,6 +335,7 @@ void
 validaddr(ulong addr, ulong len, int write)
 {
 	if(!okaddr(addr, len, write)){
+		pprint("suicide: invalid address %#lux/%lud in sys call pc=%#lux\n", addr, len, userpc());
 		postnote(up, 1, "sys: bad address in syscall", NDebug);
 		error(Ebadarg);
 	}
