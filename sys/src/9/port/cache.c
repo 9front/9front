@@ -129,33 +129,6 @@ cinit(void)
 	fscache.notext = 1;
 }
 
-void
-cprint(Chan *c, Mntcache *m, char *s)
-{
-	ulong o;
-	int nb, ct;
-	Extent *e;
-
-	nb = 0;
-	ct = 1;
-	o = 0;
-	if(m->list)
-		o = m->list->start;
-	for(e = m->list; e; e = e->next) {
-		nb += e->len;
-		if(o != e->start)
-			ct = 0;
-		o = e->start+e->len;
-	}
-	pprint("%s: %#llux.%#lux %d %d %s (%d %c)\n",
-	s, m->qid.path, m->qid.vers, m->type, m->dev, c->path->s, nb, ct ? 'C' : 'N');
-
-	for(e = m->list; e; e = e->next) {
-		pprint("\t%4d %5lud %4d %#p\n",
-			e->bid, e->start, e->len, e->cache);
-	}
-}
-
 Page*
 cpage(Extent *e)
 {
