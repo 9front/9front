@@ -283,7 +283,7 @@ sysexec(ulong *arg)
 		text = l2be(exec.text);
 		entry = l2be(exec.entry);
 		if(n==sizeof(Exec) && (magic == AOUT_MAGIC)){
-			if(text >= USTKTOP-UTZERO
+			if(text >= (USTKTOP-USTKSIZE)-(UTZERO+sizeof(Exec))
 			|| entry < UTZERO+sizeof(Exec)
 			|| entry >= UTZERO+sizeof(Exec)+text)
 				error(Ebadexec);
@@ -322,7 +322,7 @@ sysexec(ulong *arg)
 	d = (t + data + (BY2PG-1)) & ~(BY2PG-1);
 	bssend = t + data + bss;
 	b = (bssend + (BY2PG-1)) & ~(BY2PG-1);
-	if(t >= KZERO || d >= KZERO || b >= KZERO)
+	if(t >= (USTKTOP-USTKSIZE) || d >= (USTKTOP-USTKSIZE) || b >= (USTKTOP-USTKSIZE))
 		error(Ebadexec);
 
 	/*
