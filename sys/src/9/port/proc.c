@@ -1467,6 +1467,7 @@ error(char *err)
 void
 nexterror(void)
 {
+	assert(up->nerrlab > 0);
 	gotolabel(&up->errlab[--up->nerrlab]);
 }
 
