@@ -1136,16 +1136,21 @@ procwrite(Chan *c, void *va, long n, vlong off)
 			error("note not posted");
 		break;
 	case Qnoteid:
+		if(p->kp)
+			error(Eperm);
 		id = atoi(a);
+		if(id <= 0)
+			error(Ebadarg);
 		if(id == p->pid) {
 			p->noteid = id;
 			break;
 		}
 		t = proctab(0);
 		for(et = t+conf.nproc; t < et; t++) {
-			if(t->state == Dead)
+			if(t->state == Dead || t->kp)
 				continue;
 			if(id == t->noteid) {
+				nonone(t);
 				if(strcmp(p->user, t->user) != 0)
 					error(Eperm);
 				p->noteid = id;
