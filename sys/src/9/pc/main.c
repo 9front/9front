@@ -31,6 +31,7 @@ char *confval[MAXCONF];
 int nconf;
 uchar *sp;	/* user stack of init proc */
 int delaylink;
+int idle_spin;
 
 static void
 multibootargs(void)
@@ -1083,6 +1084,15 @@ cistrncmp(char *a, char *b, int n)
 /*
  *  put the processor in the halt state if we've no processes to run.
  *  an interrupt will get us going again.
+ *
+ *  halting in an smp system can result in a startup latency for
+ *  processes that become ready.
+ *  if idle_spin is zero, we care more about saving energy
+ *  than reducing this latency.
+ *
+ *  the performance loss with idle_spin == 0 seems to be slight
+ *  and it reduces lock contention (thus system time and real time)
+ *  on many-core systems with large values of NPROC.
  */
 void
 idlehands(void)
@@ -1093,4 +1103,6 @@ idlehands(void)
 		halt();
 	else if(m->cpuidcx & Monitor)
 		mwait(&nrdy);
+	else if(idle_spin == 0)
+		halt();
 }
