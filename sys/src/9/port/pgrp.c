@@ -24,20 +24,13 @@ pgrpnote(ulong noteid, char *a, long n, int flag)
 	memmove(buf, a, n);
 	buf[n] = 0;
 	p = proctab(0);
-	ep = p+conf.nproc;
-	for(; p < ep; p++) {
+	for(ep = p+conf.nproc; p < ep; p++) {
 		if(p->state == Dead)
 			continue;
 		if(up != p && p->noteid == noteid && p->kp == 0) {
 			qlock(&p->debug);
-			if(p->pid == 0 || p->noteid != noteid){
-				qunlock(&p->debug);
-				continue;
-			}
-			if(!waserror()) {
+			if(p->pid != 0 && p->noteid == noteid)
 				postnote(p, 0, buf, flag);
-				poperror();
-			}
 			qunlock(&p->debug);
 		}
 	}
