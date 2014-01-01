@@ -29,7 +29,7 @@ pgrpnote(ulong noteid, char *a, long n, int flag)
 			continue;
 		if(up != p && p->noteid == noteid && p->kp == 0) {
 			qlock(&p->debug);
-			if(p->pid != 0 && p->noteid == noteid)
+			if(p->noteid == noteid)
 				postnote(p, 0, buf, flag);
 			qunlock(&p->debug);
 		}
