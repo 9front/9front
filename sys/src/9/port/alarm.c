@@ -11,7 +11,7 @@ void
 alarmkproc(void*)
 {
 	Proc *rp;
-	ulong now;
+	ulong now, when;
 
 	while(waserror())
 		;
@@ -19,20 +19,20 @@ alarmkproc(void*)
 	for(;;){
 		now = MACHP(0)->ticks;
 		qlock(&alarms);
-		while((rp = alarms.head) && (long)(now - rp->alarm) >= 0){
-			if(rp->alarm != 0L){
-				if(canqlock(&rp->debug)){
-					if(!waserror()){
-						postnote(rp, 0, "alarm", NUser);
-						poperror();
-					}
-					qunlock(&rp->debug);
-					rp->alarm = 0L;
-				}else
-					break;
+		for(rp = alarms.head; rp != nil; rp = rp->palarm){
+			if((when = rp->alarm) == 0)
+				continue;
+			if((long)(now - when) < 0)
+				break;
+			if(!canqlock(&rp->debug))
+				break;
+			if(rp->alarm != 0){
+				postnote(rp, 0, "alarm", NUser);
+				rp->alarm = 0;
 			}
-			alarms.head = rp->palarm;
+			qunlock(&rp->debug);
 		}
+		alarms.head = rp;
 		qunlock(&alarms);
 
 		sleep(&alarmr, return0, 0);
@@ -46,13 +46,15 @@ void
 checkalarms(void)
 {
 	Proc *p;
-	ulong now;
+	ulong now, when;
 
 	p = alarms.head;
-	now = MACHP(0)->ticks;
-
-	if(p != nil && (long)(now - p->alarm) >= 0)
-		wakeup(&alarmr);
+	if(p != nil){
+		now = MACHP(0)->ticks;
+		when = p->alarm;
+		if(when == 0 || (long)(now - when) >= 0)
+			wakeup(&alarmr);
+	}
 }
 
 ulong
@@ -61,10 +63,9 @@ procalarm(ulong time)
 	Proc **l, *f;
 	ulong when, old;
 
-	if(up->alarm)
-		old = tk2ms(up->alarm - MACHP(0)->ticks);
-	else
-		old = 0;
+	old = up->alarm;
+	if(old)
+		old = tk2ms(old - MACHP(0)->ticks);
 	if(time == 0) {
 		up->alarm = 0;
 		return old;
