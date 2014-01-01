@@ -136,10 +136,13 @@ the amount of memory used by the process in units of 1024 bytes
 .IP \-
 the base and current scheduling priority, each 11 character numbers
 .PP
-The read-only
+The
 .B args
 file contains the arguments of the program when it was created by
 .IR exec (2).
+Writing to the
+.B args
+file will overwrite its contents.
 If the program was not created by
 .BR exec ,
 such as by
