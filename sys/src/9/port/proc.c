@@ -903,8 +903,17 @@ postnote(Proc *p, int dolock, char *n, int flag)
 	int s, ret;
 	QLock *q;
 
+	if(p == nil)
+		return 0;
+
 	if(dolock)
 		qlock(&p->debug);
+
+	if(p->pid == 0){
+		if(dolock)
+			qunlock(&p->debug);
+		return 0;
+	}
 
 	if(n != nil && flag != NUser && (p->notify == 0 || p->notified))
 		p->nnote = 0;
