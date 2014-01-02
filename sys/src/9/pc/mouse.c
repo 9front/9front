@@ -165,9 +165,7 @@ ps2mouse(void)
 		return;
 
 	i8042auxenable(ps2mouseputc);
-	/* make mouse streaming, enabled */
-	i8042auxcmd(0xEA);
-	i8042auxcmd(0xF4);
+	i8042auxcmd(0xEA);	/* set stream mode */
 
 	mousetype = MousePS2;
 	packetsize = 3;
@@ -255,7 +253,16 @@ resetmouse(void)
 		i8042auxcmd(0xEA);	/* streaming */
 		i8042auxcmd(0xE8);	/* set resolution */
 		i8042auxcmd(3);
-		i8042auxcmd(0xF4);	/* enabled */
+		break;
+	}
+}
+
+static void
+setstream(int on)
+{
+	switch(mousetype){
+	case MousePS2:
+		i8042auxcmd(on ? 0xF4 : 0xF5);
 		break;
 	}
 }
@@ -274,27 +281,37 @@ mousectl(Cmdbuf *cb)
 	ct = lookupcmd(cb, mousectlmsg, nelem(mousectlmsg));
 	switch(ct->index){
 	case CMaccelerated:
+		setstream(0);
 		setaccelerated(cb->nf == 1 ? 1 : atoi(cb->f[1]));
+		setstream(1);
 		break;
 	case CMintellimouse:
+		setstream(0);
 		setintellimouse();
+		setstream(1);
 		break;
 	case CMlinear:
+		setstream(0);
 		setlinear();
+		setstream(1);
 		break;
 	case CMps2:
 		intellimouse = 0;
 		ps2mouse();
+		setstream(1);
 		break;
 	case CMps2intellimouse:
 		ps2mouse();
 		setintellimouse();
+		setstream(1);
 		break;
 	case CMres:
+		setstream(0);
 		if(cb->nf >= 2)
 			setres(atoi(cb->f[1]));
 		else
 			setres(1);
+		setstream(1);
 		break;
 	case CMreset:
 		resetmouse();
@@ -304,6 +321,7 @@ mousectl(Cmdbuf *cb)
 			setres(resolution);
 		if(intellimouse)
 			setintellimouse();
+		setstream(1);
 		break;
 	case CMserial:
 		if(mousetype == Mouseserial)
