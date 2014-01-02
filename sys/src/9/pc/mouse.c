@@ -260,9 +260,19 @@ resetmouse(void)
 static void
 setstream(int on)
 {
+	int i;
+
 	switch(mousetype){
 	case MousePS2:
-		i8042auxcmd(on ? 0xF4 : 0xF5);
+		/*
+		 * disabling streaming can fail when
+		 * a packet is currently transmitted.
+		 */
+		for(i=0; i<4; i++){
+			if(i8042auxcmd(on ? 0xF4 : 0xF5) != -1)
+				break;
+			delay(50);
+		}
 		break;
 	}
 }
