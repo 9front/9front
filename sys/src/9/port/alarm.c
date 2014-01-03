@@ -83,24 +83,15 @@ procalarm(ulong time)
 		}
 		l = &f->palarm;
 	}
-
-	up->palarm = 0;
-	if(alarms.head) {
-		l = &alarms.head;
-		for(f = *l; f; f = f->palarm) {
-			time = f->alarm;
-			if(time != 0 && (long)(time - when) >= 0) {
-				up->palarm = f;
-				*l = up;
-				goto done;
-			}
-			l = &f->palarm;
-		}
-		*l = up;
+	l = &alarms.head;
+	for(f = *l; f; f = f->palarm) {
+		time = f->alarm;
+		if(time != 0 && (long)(time - when) >= 0)
+			break;
+		l = &f->palarm;
 	}
-	else
-		alarms.head = up;
-done:
+	up->palarm = f;
+	*l = up;
 	up->alarm = when;
 	qunlock(&alarms);
 
