@@ -88,7 +88,8 @@ procalarm(ulong time)
 	if(alarms.head) {
 		l = &alarms.head;
 		for(f = *l; f; f = f->palarm) {
-			if((long)(f->alarm - when) >= 0) {
+			time = f->alarm;
+			if(time != 0 && (long)(time - when) >= 0) {
 				up->palarm = f;
 				*l = up;
 				goto done;
