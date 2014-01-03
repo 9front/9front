@@ -47,6 +47,8 @@ case sourcesdump
 case sourcessnap
 	9fs sources
 	mount -nC /srv/sources /n/sourcessnap main/snapshot
+case atom
+	srv -nqC tcp!atom.9atom.org atom /n/atom
 case pidos
 	dossrv >/dev/null >[2]/dev/null
 	part=`{ls /dev/sdM*/dos >[2]/dev/null}
