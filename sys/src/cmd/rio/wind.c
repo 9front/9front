@@ -900,32 +900,22 @@ wmousectl(Window *w)
 {
 	int but;
 
-	if(w->mc.buttons == 1)
-		but = 1;
-	else if(w->mc.buttons == 2)
-		but = 2;
-	else if(w->mc.buttons == 4)
-		but = 3;
-	else{
-		if(w->mc.buttons == 8)
-			wkeyctl(w, Kscrolloneup);
-		if(w->mc.buttons == 16)
-			wkeyctl(w, Kscrollonedown);
-		return;
+	for(but=1;; but++){
+		if(but > 5)
+			return;
+		if(w->mc.buttons == 1<<(but-1))
+			break;
 	}
 
 	incref(w);		/* hold up window while we track */
-	if(w->i==nil)
-		goto Return;
-	if(ptinrect(w->mc.xy, w->scrollr)){
-		if(but)
+	if(w->i != nil){
+		if(shiftdown && but > 3)
+			wkeyctl(w, but == 4 ? Kscrolloneup : Kscrollonedown);
+		else if(ptinrect(w->mc.xy, w->scrollr) || (but > 3))
 			wscroll(w, but);
-		goto Return;
+		else if(but == 1)
+			wselect(w);
 	}
-	if(but == 1)
-		wselect(w);
-	/* else all is handled by main process */
-   Return:
 	wclose(w);
 }
 
