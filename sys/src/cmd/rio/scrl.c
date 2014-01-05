@@ -153,7 +153,7 @@ wscroll(Window *w, int but)
 			readmouse(&w->mc);
 			continue;
 		}
-		if(but == 1)
+		if(but == 1 || but == 4)
 			p0 = wbacknl(w, w->org, (my-s.min.y)/w->font->height);
 		else
 			p0 = w->org+frcharofpt(w, Pt(s.max.x, my));
@@ -163,6 +163,8 @@ wscroll(Window *w, int but)
 		/* debounce */
 		if(first){
 			flushimage(display, 1);
+			if(but > 3)
+				return;
 			sleep(200);
 			nbrecv(w->mc.c, &w->mc.Mouse);
 			first = FALSE;
