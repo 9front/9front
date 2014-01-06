@@ -46,13 +46,13 @@ frdelete(Frame *f, ulong p0, ulong p1)
 	while(pt1.x!=pt0.x && n1<f->nbox){
 		_frcklinewrap0(f, &pt0, b);
 		_frcklinewrap(f, &pt1, b);
-		n = _frcanfit(f, pt0, b);
-		if(n==0)
-			drawerror(f->display, "_frcanfit==0");
 		r.min = pt0;
 		r.max = pt0;
 		r.max.y += f->font->height;
 		if(b->nrune > 0){
+			n = _frcanfit(f, pt0, b);
+			if(n==0)
+				drawerror(f->display, "_frcanfit==0");
 			if(n != b->nrune){
 				_frsplitbox(f, n1, n);
 				b = &f->box[n1];
