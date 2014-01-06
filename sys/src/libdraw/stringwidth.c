@@ -5,13 +5,11 @@
 int
 _stringnwidth(Font *f, char *s, Rune *r, int len)
 {
-	int wid, twid, n, max, l;
-	char *name;
+	int wid, twid, n, max, try;
 	enum { Max = 64 };
 	ushort cbuf[Max];
 	Rune rune, **rptr;
 	char *subfontname, **sptr;
-	Font *def;
 	Subfont *sf;
 
 	if(s == nil){
@@ -26,38 +24,38 @@ _stringnwidth(Font *f, char *s, Rune *r, int len)
 		rptr = &r;
 	sf = nil;
 	twid = 0;
-	while(len>0 && (*s || *r)){
+	try = 0;
+	while((*s || *r) && len > 0){
 		max = Max;
 		if(len < max)
 			max = len;
-		n = 0;
-		while((l = cachechars(f, sptr, rptr, cbuf, max, &wid, &subfontname)) <= 0){
-			if(++n > 10){
-				if(*r)
-					rune = *r;
-				else
-					chartorune(&rune, s);
-				if(f->name != nil)
-					name = f->name;
-				else
-					name = "unnamed font";
-				fprint(2, "stringwidth: bad character set for rune 0x%.4ux in %s\n", rune, name);
-				return twid;
-			}
+		if((n = cachechars(f, sptr, rptr, cbuf, max, &wid, &subfontname)) <= 0){
 			if(subfontname){
+				if(++try > 10)
+					break;
+			Nextfont:
 				freesubfont(sf);
-				if((sf=_getsubfont(f->display, subfontname)) == 0){
-					def = f->display->defaultfont;
-					if(def && f!=def)
-						f = def;
-					else
-						break;
-				}
+				if((sf=_getsubfont(f->display, subfontname)) != nil)
+					continue;
+				if(f->display == nil || f->display->defaultfont == nil || f->display->defaultfont == f)
+					break;
+				f = f->display->defaultfont;
+				continue;
 			}
+			if(*r)
+				r++;
+			else
+				s += chartorune(&rune, s);
+			len--;
+			continue;
 		}
+		try = 0;
 		agefont(f);
 		twid += wid;
-		len -= l;
+		len -= n;
+
+		if(subfontname)
+			goto Nextfont;
 	}
 	freesubfont(sf);
 	return twid;

@@ -58,13 +58,12 @@ runestringnop(Image *dst, Point pt, Image *src, Point sp, Font *f, Rune *r, int 
 Point
 _string(Image *dst, Point pt, Image *src, Point sp, Font *f, char *s, Rune *r, int len, Rectangle clipr, Image *bg, Point bgp, Drawop op)
 {
-	int m, n, wid, max;
+	int m, n, wid, max, try;
 	ushort cbuf[Max], *c, *ec;
 	uchar *b;
 	char *subfontname;
 	char **sptr;
-	Rune **rptr;
-	Font *def;
+	Rune **rptr, rune;
 	Subfont *sf;
 
 	if(s == nil){
@@ -78,63 +77,76 @@ _string(Image *dst, Point pt, Image *src, Point sp, Font *f, char *s, Rune *r, i
 	}else
 		rptr = &r;
 	sf = nil;
-	while((*s || *r) && len){
+	try = 0;
+	while((*s || *r) && len > 0){
 		max = Max;
 		if(len < max)
 			max = len;
-		n = cachechars(f, sptr, rptr, cbuf, max, &wid, &subfontname);
-		if(n > 0){
-			_setdrawop(dst->display, op);
-
-			m = 47+2*n;
-			if(bg)
-				m += 4+2*4;
-			b = bufimage(dst->display, m);
-			if(b == 0){
-				fprint(2, "string: %r\n");
-				break;
-			}
-			if(bg)
-				b[0] = 'x';
-			else
-				b[0] = 's';
-			BPLONG(b+1, dst->id);
-			BPLONG(b+5, src->id);
-			BPLONG(b+9, f->cacheimage->id);
-			BPLONG(b+13, pt.x);
-			BPLONG(b+17, pt.y+f->ascent);
-			BPLONG(b+21, clipr.min.x);
-			BPLONG(b+25, clipr.min.y);
-			BPLONG(b+29, clipr.max.x);
-			BPLONG(b+33, clipr.max.y);
-			BPLONG(b+37, sp.x);
-			BPLONG(b+41, sp.y);
-			BPSHORT(b+45, n);
-			b += 47;
-			if(bg){
-				BPLONG(b, bg->id);
-				BPLONG(b+4, bgp.x);
-				BPLONG(b+8, bgp.y);
-				b += 12;
-			}
-			ec = &cbuf[n];
-			for(c=cbuf; c<ec; c++, b+=2)
-				BPSHORT(b, *c);
-			pt.x += wid;
-			bgp.x += wid;
-			agefont(f);
-			len -= n;
-		}
-		if(subfontname){
-			freesubfont(sf);
-			if((sf=_getsubfont(f->display, subfontname)) == 0){
-				def = f->display ? f->display->defaultfont : nil;
-				if(def && f!=def)
-					f = def;
-				else
+		if((n = cachechars(f, sptr, rptr, cbuf, max, &wid, &subfontname)) <= 0){
+			if(subfontname){
+				if(++try > 10)
 					break;
+			Nextfont:
+				freesubfont(sf);
+				if((sf=_getsubfont(f->display, subfontname)) != nil)
+					continue;
+				if(f->display->defaultfont == nil || f->display->defaultfont == f)
+					break;
+				f = f->display->defaultfont;
+				continue;
 			}
+			if(*r)
+				r++;
+			else
+				s += chartorune(&rune, s);
+			len--;
+			continue;
 		}
+		try = 0;
+
+		_setdrawop(dst->display, op);
+
+		m = 47+2*n;
+		if(bg)
+			m += 4+2*4;
+		b = bufimage(dst->display, m);
+		if(b == 0){
+			fprint(2, "string: %r\n");
+			break;
+		}
+		if(bg)
+			b[0] = 'x';
+		else
+			b[0] = 's';
+		BPLONG(b+1, dst->id);
+		BPLONG(b+5, src->id);
+		BPLONG(b+9, f->cacheimage->id);
+		BPLONG(b+13, pt.x);
+		BPLONG(b+17, pt.y+f->ascent);
+		BPLONG(b+21, clipr.min.x);
+		BPLONG(b+25, clipr.min.y);
+		BPLONG(b+29, clipr.max.x);
+		BPLONG(b+33, clipr.max.y);
+		BPLONG(b+37, sp.x);
+		BPLONG(b+41, sp.y);
+		BPSHORT(b+45, n);
+		b += 47;
+		if(bg){
+			BPLONG(b, bg->id);
+			BPLONG(b+4, bgp.x);
+			BPLONG(b+8, bgp.y);
+			b += 12;
+		}
+		ec = &cbuf[n];
+		for(c=cbuf; c<ec; c++, b+=2)
+			BPSHORT(b, *c);
+		pt.x += wid;
+		bgp.x += wid;
+		agefont(f);
+		len -= n;
+
+		if(subfontname)
+			goto Nextfont;
 	}
 	freesubfont(sf);
 	return pt;

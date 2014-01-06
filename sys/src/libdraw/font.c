@@ -10,7 +10,7 @@ static int	freeup(Font*);
 int
 cachechars(Font *f, char **ss, Rune **rr, ushort *cp, int max, int *wp, char **subfontname)
 {
-	int i, th, sh, h, ld, w, rw, wid, nc;
+	int i, th, sh, h, w, rw, wid, nc;
 	char *sp;
 	Rune r, *rp, vr;
 	ulong a;
@@ -81,12 +81,9 @@ cachechars(Font *f, char **ss, Rune **rr, ushort *cp, int max, int *wp, char **s
 		if(c->age == f->age)	/* flush pending string output */
 			break;
 
-		ld = loadchar(f, r, c, h, i, subfontname);
-		if(ld <= 0){
-			if(ld == 0)
-				continue;
+		if(loadchar(f, r, c, h, i, subfontname) <= 0)
 			break;
-		}
+
 		c = &f->cache[h];	/* may have reallocated f->cache */
 	
 	    Found:
