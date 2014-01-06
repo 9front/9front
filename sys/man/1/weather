@@ -28,8 +28,13 @@ location identifiers known for
 The arguments are mutually exclusive and case-insensitive.
 If neither is given,
 .I air
-defaults to location identifier
+defaults to the value of the environment variable
+.BR $weather ,
+or if it is unset,
+to the location identifier
 .BR ewr ,
 designating the Newark, NJ, airport near Bell Labs, Murray Hill.
 .SH SOURCE
 .B /rc/bin/weather
+.SH BUGS
+Weather is hopelessly provincial.

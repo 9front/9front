@@ -42,5 +42,5 @@ sed 's/   Press Return to continue, M to return to menu, X to exit: //' |
 grep -v 'CITY FORECAST MENU' |
 tr -d '' |
 sed 's/ *$//' |
-uniq
-
+uniq |
+sed -n '/^VTEC/q; p'
