@@ -25,10 +25,9 @@ _frcanfit(Frame *f, Point pt, Frbox *b)
 			w = chartorune(&r, (char*)p);
 		left -= stringnwidth(f->font, (char*)p, 1);
 		if(left < 0)
-			return nr;
+			break;
 	}
-	drawerror(f->display, "_frcanfit can't");
-	return 0;
+	return nr;
 }
 
 void

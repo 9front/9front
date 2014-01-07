@@ -78,11 +78,10 @@ static
 void
 chopframe(Frame *f, Point pt, ulong p, int bn)
 {
-	Frbox *b;
+	Frbox *b, *eb;
 
-	for(b = &f->box[bn]; ; b++){
-		if(b >= &f->box[f->nbox])
-			drawerror(f->display, "endofframe");
+	eb = &f->box[f->nbox];
+	for(b = &f->box[bn]; b < eb; b++){
 		_frcklinewrap(f, &pt, b);
 		if(pt.y >= f->r.max.y)
 			break;
@@ -91,7 +90,7 @@ chopframe(Frame *f, Point pt, ulong p, int bn)
 	}
 	f->nchars = p;
 	f->nlines = f->maxlines;
-	if(b<&f->box[f->nbox])				/* BUG */
+	if(b < eb)				/* BUG */
 		_frdelbox(f, (int)(b-f->box), f->nbox-1);
 }
 
