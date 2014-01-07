@@ -102,5 +102,4 @@ void geturl(char *, int, int, int);
 int urlpost(Url*, char*);
 int urlget(Url*, int);
 int urlresolve(Url *);
-char version[];
 Mouse mouse;
