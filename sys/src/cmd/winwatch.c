@@ -188,7 +188,7 @@ geometry(void)
 
 	z = 0;
 	rows = (Dy(screen->r)-2*MARGIN+PAD)/(font->height+PAD);
-	if(rows == 0)
+	if(rows <= 0)
 		rows = 1;
 	if(rows*cols < nwin || rows*cols >= nwin*2){
 		ncols = nwin <= 0 ? 1 : (nwin+rows-1)/rows;
