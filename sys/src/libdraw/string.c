@@ -76,23 +76,25 @@ _string(Image *dst, Point pt, Image *src, Point sp, Font *f, char *s, Rune *r, i
 		rptr = nil;
 	}else
 		rptr = &r;
+	subfontname = nil;
 	sf = nil;
 	try = 0;
 	while((*s || *r) && len > 0){
 		max = Max;
 		if(len < max)
 			max = len;
+		if(subfontname){
+			freesubfont(sf);
+			if((sf=_getsubfont(f->display, subfontname)) == nil){
+				if(f->display->defaultfont == nil || f->display->defaultfont == f)
+					break;
+				f = f->display->defaultfont;
+			}
+		}
 		if((n = cachechars(f, sptr, rptr, cbuf, max, &wid, &subfontname)) <= 0){
 			if(subfontname){
 				if(++try > 10)
 					break;
-			Nextfont:
-				freesubfont(sf);
-				if((sf=_getsubfont(f->display, subfontname)) != nil)
-					continue;
-				if(f->display->defaultfont == nil || f->display->defaultfont == f)
-					break;
-				f = f->display->defaultfont;
 				continue;
 			}
 			if(*r)
@@ -144,9 +146,6 @@ _string(Image *dst, Point pt, Image *src, Point sp, Font *f, char *s, Rune *r, i
 		bgp.x += wid;
 		agefont(f);
 		len -= n;
-
-		if(subfontname)
-			goto Nextfont;
 	}
 	freesubfont(sf);
 	return pt;

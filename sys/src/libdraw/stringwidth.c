@@ -22,6 +22,7 @@ _stringnwidth(Font *f, char *s, Rune *r, int len)
 		rptr = nil;
 	}else
 		rptr = &r;
+	subfontname = nil;
 	sf = nil;
 	twid = 0;
 	try = 0;
@@ -29,17 +30,18 @@ _stringnwidth(Font *f, char *s, Rune *r, int len)
 		max = Max;
 		if(len < max)
 			max = len;
+		if(subfontname){
+			freesubfont(sf);
+			if((sf=_getsubfont(f->display, subfontname)) == nil){
+				if(f->display == nil || f->display->defaultfont == nil || f->display->defaultfont == f)
+					break;
+				f = f->display->defaultfont;
+			}
+		}
 		if((n = cachechars(f, sptr, rptr, cbuf, max, &wid, &subfontname)) <= 0){
 			if(subfontname){
 				if(++try > 10)
 					break;
-			Nextfont:
-				freesubfont(sf);
-				if((sf=_getsubfont(f->display, subfontname)) != nil)
-					continue;
-				if(f->display == nil || f->display->defaultfont == nil || f->display->defaultfont == f)
-					break;
-				f = f->display->defaultfont;
 				continue;
 			}
 			if(*r)
@@ -50,12 +52,10 @@ _stringnwidth(Font *f, char *s, Rune *r, int len)
 			continue;
 		}
 		try = 0;
+
 		agefont(f);
 		twid += wid;
 		len -= n;
-
-		if(subfontname)
-			goto Nextfont;
 	}
 	freesubfont(sf);
 	return twid;
