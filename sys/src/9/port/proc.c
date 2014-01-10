@@ -317,7 +317,7 @@ reprioritize(Proc *p)
 		return p->basepri;
 
 	/*
-	 *  fairshare = 1.000 * conf.nproc * 1.000/load,
+	 * fairshare = 1.000 * conf.nmach * 1.000/load,
 	 * except the decimal point is moved three places
 	 * on both load and fairshare.
 	 */
