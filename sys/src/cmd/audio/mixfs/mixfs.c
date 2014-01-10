@@ -23,6 +23,7 @@ struct Stream
 
 ulong	mixrp;
 int	mixbuf[NBUF][NCHAN];
+Lock	mixlock;
 Stream	streams[16];
 
 int
@@ -163,33 +164,44 @@ fswrite(Req *r)
 
 	p = (uchar*)r->ifcall.data;
 	n = r->ifcall.count;
-	m = n/(NCHAN*2);
+	r->ofcall.count = n;
+	n /= (NCHAN*2);
 
 	srv = r->srv;
 	srvrelease(srv);
 	s = r->fid->aux;
 	qlock(s);
-	if(s->run == 0){
-		s->wp = mixrp;
-		s->run = 1;
-	}
-	for(i=0; i<m; i++){
-		while((long)(s->wp - mixrp) >= NBUF-1){
+	while(n > 0){
+		if(s->run == 0){
+			s->wp = mixrp;
+			s->run = 1;
+		}
+		m = NBUF-1 - (long)(s->wp - mixrp);
+		if(m <= 0){
 			s->run = 1;
 			rsleep(s);
+			continue;
 		}
-		for(j=0; j<NCHAN; j++){
-			mixbuf[s->wp % NBUF][j] += s16(p);
-			p += 2;
+		if(m > n)
+			m = n;
+
+		lock(&mixlock);
+		for(i=0; i<m; i++){
+			for(j=0; j<NCHAN; j++){
+				mixbuf[s->wp % NBUF][j] += s16(p);
+				p += 2;
+			}
+			s->wp++;
 		}
-		s->wp++;
+		unlock(&mixlock);
+
+		n -= m;
 	}
 	if((long)(s->wp - mixrp) >= NDELAY){
 		s->run = 1;
 		rsleep(s);
 	}
 	qunlock(s);
-	r->ofcall.count = n;
 	respond(r, nil);
 	srvacquire(srv);
 }
