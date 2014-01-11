@@ -900,6 +900,9 @@ wlook(Window *w)
 	if(n <= 0 || e < n)
 		return;
 
+	if(i > e)
+		i = 0;
+
 	while(runestrncmp(w->r+w->q0, w->r+i, n) != 0){
 		if(i < e)
 			i++;
