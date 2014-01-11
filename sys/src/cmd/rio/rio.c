@@ -62,6 +62,7 @@ enum
 	Paste,
 	Snarf,
 	Plumb,
+	Look,
 	Send,
 	Scroll,
 };
@@ -71,6 +72,7 @@ char		*menu2str[] = {
  [Paste]		"paste",
  [Snarf]		"snarf",
  [Plumb]		"plumb",
+ [Look]		"look",
  [Send]		"send",
  [Scroll]		"scroll",
 			nil
@@ -814,6 +816,10 @@ button2menu(Window *w)
 
 	case Plumb:
 		wplumb(w);
+		break;
+
+	case Look:
+		wlook(w);
 		break;
 
 	case Send:
