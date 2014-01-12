@@ -49,6 +49,7 @@ enum {
 	Isrc2	= 0x001c/4,
 	Eisr	= 0x0024/4,
 	Lisr	= 0x0028/4,		/* leave isr */
+	Icr	= 0x002c/4,
 	Macadr	= 0x0100,		/* mac address 2ports*3 */
 	Pmd	= 0x0119,
 	Maccfg	= 0x011a,
@@ -831,7 +832,7 @@ getnslot(Sring *r, uint *wp, Status **t, uint n)
 {
 	int i;
 
-	if(r->rp + r->m - (n - 1) - wp[0] & ~r->m)
+	if(r->m - (int)(wp[0] - r->rp) < n)
 		return -1;
 	for(i = 0; i < n; i++)
 		t[i] = r->r + (wp[0]++ & r->m);
@@ -1150,7 +1151,6 @@ tproc(void *v)
 		while(getnslot(r, &r->wp, tab, 1 + is64()) == -1)
 			starve(&c->txmit);
 		t = tab[is64()];
-		assert(c->tbring[t - r->r] == nil);
 		c->tbring[t - r->r] = b;
 		if(is64()){
 			Status *t = tab[0];
@@ -1205,7 +1205,7 @@ rxscrew(Ether *e, Sring *r, Status *t, uint wp)
 	Ctlr *c;
 
 	c = e->ctlr;
-	if(wp - r->rp > r->cnt){
+	if((int)(wp - r->rp) >= r->cnt){
 		print("rxscrew1 wp %ud(%ud) rp %ud %lud\n", wp, r->wp, r->rp, t-r->r);
 		return -1;
 	}
@@ -1245,7 +1245,6 @@ replenish(Ether *e, Ctlr *c)
 			freeb(b);
 			break;
 		}
-		assert(c->rbring[t - r->r] == nil);
 		c->rbring[t - r->r] = b;
 
 		if(is64()){
@@ -1260,9 +1259,9 @@ replenish(Ether *e, Ctlr *c)
 		t->op = Opkt | Hw;
 	}
 	if(n>0){
+		r->wp = wp;
 		sfence();
 		prwrite16(c, Qr + Pputidx, wp & r->m);
-		r->wp = wp;
 		dprint("yuk: replenish %d %ud-%ud [%d-%d]\n", n, r->rp, wp, r->rp&r->m, wp&r->m);
 	}
 	return n == lim;
@@ -1380,14 +1379,14 @@ link(Ether *e)
 static void
 txcleanup(Ctlr *c, uint end)
 {
-	uint rp0, rp;
+	uint rp;
 	Block *b;
 	Sring *r;
 	Status *t;
 
 	r = &c->tx;
-	rp0 = r->rp & r->m;
-	for(rp = rp0; rp != end; rp = r->rp & r->m){
+	end &= r->m;
+	for(rp = r->rp & r->m; rp != end; rp = r->rp & r->m){
 		t = r->r + rp;
 		r->rp++;
 		if((t->ctl & Eop) == 0)
@@ -1397,8 +1396,7 @@ txcleanup(Ctlr *c, uint end)
 		if(b != nil)
 			freeb(b);
 	}
-	if(r->wp - r->rp > 16)
-		unstarve(&c->txmit);
+	unstarve(&c->txmit);
 }
 
 static void
@@ -1412,14 +1410,17 @@ rx(Ether *e, uint l, uint x, uint flag)
 	c = e->ctlr;
 	r = &c->rx;
 	for(rp = r->rp;;){
-		if(rp == r->wp)
+		if(rp == r->wp){
+			print("#l%d: yuk rx empty\n", e->ctlrno);
 			return;
+		}
 		i = rp++&r->m;
 		b = c->rbring[i];
 		c->rbring[i] = nil;
 		if(b != nil)
 			break;
 	}
+	r->rp = rp;
 	cnt = x>>16 & 0x7fff;
 	if((cnt != l || x&Rxerror) &&
 	!(c->type == Yukfep && c->rev == 0)){
@@ -1430,7 +1431,7 @@ rx(Ether *e, uint l, uint x, uint flag)
 		b->flag |= flag;
 		etheriq(e, b, 1);
 	}
-	r->rp = rp;
+	unstarve(&c->rxmit);
 }
 
 static uint
@@ -1446,7 +1447,7 @@ cksum(Ctlr *c, uint ck, uint css)
 static void
 sring(Ether *e)
 {
-	uint i, p, lim, op, l, x;
+	uint i, lim, op, l, x;
 	Ctlr *c;
 	Sring *r;
 	Status *s;
@@ -1455,7 +1456,6 @@ sring(Ether *e)
 	c = e->ctlr;
 	r = &c->status;
 	lim = c->reg16[Stathd] & r->m;
-	p = 0;
 	for(;;){
 		i = r->rp & r->m;
 		if(i == lim){
@@ -1477,7 +1477,6 @@ sring(Ether *e)
 			x = getle(s->status, 4);
 			rx(e, l, x, cksum(c, ck, s->ctl));
 			ck = Badck;
-			p++;
 			break;
 		case Otxidx:
 			l = getle(s->l, 2);
@@ -1496,8 +1495,6 @@ sring(Ether *e)
 		s->op = 0;
 		r->rp++;
 	}
-	if(p != 0)
-		unstarve(&c->rxmit);
 	c->reg[Statctl] = Statirqclr;
 }
 
@@ -1674,9 +1671,14 @@ interrupt(Ureg*, void *v)
 	e = v;
 	c = e->ctlr;
 
+	/* reading Isrc2 masks interrupts */
 	cause = c->reg[Isrc2];
-	if(cause != 0 && cause != ~0)
-		unstarve(&c->iproc);
+	if(cause == 0 || cause == ~0){
+		/* reenable interrupts */
+		c->reg[Icr] = 2;
+		return;
+	}
+	unstarve(&c->iproc);
 }
 
 static void
@@ -1755,7 +1757,6 @@ ifstat(Ether *e0, void *a, long n, ulong offset)
 			p = seprint(p, e, "%s\t%ud\n", stattab[i].name, u);
 	}
 	p = seprint(p, e, "stat %.4ux ctl %.3ux\n", gmacread(c, Stat), gmacread(c, Ctl));
-	p = seprint(p, e, "irq %.8ux\n", c->reg[Isrc2]);
 	p = seprint(p, e, "pref %.8ux %.4ux\n", prread32(c, Qr + Pctl), prread16(c, Qr + Pgetidx));
 	if(debug){
 		p = dumppci(c, p, e);
