@@ -1187,10 +1187,11 @@ drawread(Chan *c, void *a, long n, vlong off)
 				error(Enodrawimage);
 			i = di->image;
 		}
-		n = sprint(a, "%11d %11d %11s %11d %11d %11d %11d %11d %11d %11d %11d %11d ",
+		n = sprint(a, "%11d %11d %11s %11d %11d %11d %11d %11d %11d %11d %11d %11d",
 			cl->clientid, cl->infoid, chantostr(buf, i->chan), (i->flags&Frepl)==Frepl,
 			i->r.min.x, i->r.min.y, i->r.max.x, i->r.max.y,
 			i->clipr.min.x, i->clipr.min.y, i->clipr.max.x, i->clipr.max.y);
+		((char*)a)[n++] = ' ';
 		cl->infoid = -1;
 		break;
 
