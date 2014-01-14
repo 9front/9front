@@ -4977,3 +4977,6 @@ That's a video card, Blake.
 I stole a fair amount of code from W, surrounded it with an asynchronous rather than a synchronous interface, and called it X. -- Bob Scheifer
 Emacs Needs To Move To GitHub, Says ESR
 If you move your mouse pointer continuously while the data is being returned to Microsoft Excel, the query may not fail. Do not stop moving the mouse until all the data has been returned to Microsoft Excel. -- Microsoft Support Article ID: 168702
+Nobody knows what "most" C++ programmers do. -- Bjarne Stroustrup
+(iv) Make changes to the UNIX system only after much deliberation, and only when major gains can be made. Avoid changing the UNIX system's interfaces, and isolate any such changes as much as possible. Stay close to the Research UNIX system, in order to take advantage of continuing improvements.
+9front at least has DVCS but they have one good programmer and 50 idiots who prefer to fill up the fortune file rather than fix a bug–oh, and they switched from the publically-archived Google Groups mailing list to a self-hosted non-archived mailing list, so nobody really knows what’s actually going on there.

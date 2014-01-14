@@ -132,7 +132,7 @@ netifgen(Chan *c, char*, Dirtab *vp, int, int i, Dir *dp)
 		devdir(c, q, "ctl", 0, o, perm, dp);
 		break;
 	case 2:
-		q.path = NETQID(NETID(c->qid.path), Nstatqid);
+		q.path = Nstatqid;
 		devdir(c, q, "stats", 0, eve, 0444, dp);
 		break;
 	case 3:
@@ -140,7 +140,7 @@ netifgen(Chan *c, char*, Dirtab *vp, int, int i, Dir *dp)
 		devdir(c, q, "type", 0, eve, 0444, dp);
 		break;
 	case 4:
-		q.path = NETQID(NETID(c->qid.path), Nifstatqid);
+		q.path = Nifstatqid;
 		devdir(c, q, "ifstats", 0, eve, 0444, dp);
 		break;
 	default:

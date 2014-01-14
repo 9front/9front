@@ -216,6 +216,19 @@ optionsinit(char* s)
 }
 
 void
+gpiomeminit(void)
+{
+	Physseg seg;
+	memset(&seg, 0, sizeof seg);
+	seg.attr = SG_PHYSICAL;
+	seg.name = "gpio";
+	seg.pa = (VIRTIO+0x200000);
+	seg.size = 1;
+	addphysseg(&seg);
+}
+
+
+void
 main(void)
 {
 	extern char edata[], end[];
@@ -259,6 +272,7 @@ main(void)
 	pageinit();
 	swapinit();
 	userinit();
+	gpiomeminit();
 	schedinit();
 	assert(0);			/* shouldn't have returned */
 }
