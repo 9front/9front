@@ -90,7 +90,7 @@ fn mpost {
 }
 fn multi {
 	f='HJBOUNDARY'
-	menc $"f | $hget -r 'Content-Type: multipart/form-data, boundary='$"f -b $url -P $action
+	menc $"f | $hget -r 'Content-Type: multipart/form-data; boundary='$"f -b $url -P $action
 }
 
 if(! ~ $action ''){
