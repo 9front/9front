@@ -57,8 +57,8 @@ will appear as
 .I d
 contiguous bits in a byte, with the pixel's high order bit
 starting at the byte's bit number
-.if t \fIw\fP\(mu(\fIx\fP mod (8/\fIw\fP)),
-.if n w*(x mod (8/w)),
+.if t \fId\fP\(mu(\fIx\fP mod (8/\fId\fP)),
+.if n d*(x mod (8/d)),
 where bits within a byte are numbered 0 to 7 from the
 high order to the low order bit.
 Rows contain integral number of bytes, so there may be some unused

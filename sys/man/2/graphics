@@ -368,14 +368,10 @@ and
 .I label
 are as in
 .IR initdraw ;
-.I mousedir
-and
 .I windir
-are the directories holding the
-.B mouse
-and
+is the directory holding the
 .B winname
-files; and
+file; and
 .I ref
 specifies the refresh function to be used to create the window, if running under
 .IR rio (1)

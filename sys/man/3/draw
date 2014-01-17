@@ -40,6 +40,8 @@ the
 channel format
 of the image,
 the
+replicate bit,
+the
 .BR min.x ,
 .BR min.y ,
 .BR max.x ,
@@ -70,7 +72,7 @@ files associated with the connection.
 Via the 
 .B ctl
 and
-.B draw 
+.B data 
 files, the
 .I draw
 device provides access to 
