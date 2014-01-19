@@ -29,16 +29,16 @@ void*	calloc(ulong nelem, ulong elsize)
 ulong	msize(void *ptr)
 .PP
 .B
-void	setmalloctag(void *ptr, ulong tag)
+void	setmalloctag(void *ptr, uintptr tag)
 .PP
 .B
-ulong	getmalloctag(void *ptr)
+uintptr	getmalloctag(void *ptr)
 .PP
 .B
-void	setrealloctag(void *ptr, ulong tag)
+void	setrealloctag(void *ptr, uintptr tag)
 .PP
 .B
-ulong	getrealloctag(void *ptr)
+uintptr	getrealloctag(void *ptr)
 .PP
 .B
 void*	malloctopoolblock(void*)
