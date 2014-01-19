@@ -30,7 +30,7 @@ boot(int argc, char *argv[])
 
 		print("argc=%d\n", argc);
 		for(i = 0; i < argc; i++)
-			print("%lux %s ", (ulong)argv[i], argv[i]);
+			print("%p %s ", argv[i], argv[i]);
 		print("\n");
 	}
 	USED(argc);

@@ -274,7 +274,7 @@ upafree(ulong, int)
 }
 
 void
-checkmmu(ulong, ulong)
+checkmmu(uintptr, uintptr)
 {
 }
 

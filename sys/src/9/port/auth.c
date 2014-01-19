@@ -19,59 +19,68 @@ iseve(void)
 	return strcmp(eve, up->user) == 0;
 }
 
-long
-sysfversion(ulong *arg)
+uintptr
+sysfversion(va_list list)
 {
+	uint msize, arglen;
 	char *vers;
-	uint arglen, m, msize;
 	Chan *c;
+	int fd;
 
-	msize = arg[1];
-	vers = (char*)arg[2];
-	arglen = arg[3];
-	validaddr(arg[2], arglen, 1);
+	fd = va_arg(list, int);
+	msize = va_arg(list, uint);
+	vers = va_arg(list, char*);
+	arglen = va_arg(list, uint);
+	validaddr((uintptr)vers, arglen, 1);
 	/* check there's a NUL in the version string */
 	if(arglen==0 || memchr(vers, 0, arglen)==0)
 		error(Ebadarg);
-	c = fdtochan(arg[0], ORDWR, 0, 1);
+	c = fdtochan(fd, ORDWR, 0, 1);
 	if(waserror()){
 		cclose(c);
 		nexterror();
 	}
-
-	m = mntversion(c, vers, msize, arglen);
-
+	msize = mntversion(c, vers, msize, arglen);
 	cclose(c);
 	poperror();
-	return m;
+	return msize;
 }
 
-long
-sys_fsession(ulong *arg)
+uintptr
+sys_fsession(va_list list)
 {
-	/* deprecated; backwards compatibility only */
+	int fd;
+	char *str;
+	uint len;
 
-	if(arg[2] == 0)
+	/* deprecated; backwards compatibility only */
+	fd = va_arg(list, int);
+	str = va_arg(list, char*);
+	len = va_arg(list, uint);
+	if(len == 0)
 		error(Ebadarg);
-	validaddr(arg[1], arg[2], 1);
-	((uchar*)arg[1])[0] = '\0';
+	validaddr((uintptr)str, len, 1);
+	*str = '\0';
+	USED(fd);
 	return 0;
 }
 
-long
-sysfauth(ulong *arg)
+uintptr
+sysfauth(va_list list)
 {
 	Chan *c, *ac;
 	char *aname;
 	int fd;
 
-	validaddr(arg[1], 1, 0);
-	aname = validnamedup((char*)arg[1], 1);
+	fd = va_arg(list, int);
+	aname = va_arg(list, char*);
+	validaddr((uintptr)aname, 1, 0);
+	aname = validnamedup(aname, 1);
 	if(waserror()){
 		free(aname);
 		nexterror();
 	}
-	c = fdtochan(arg[0], ORDWR, 0, 1);
+	c = fdtochan(fd, ORDWR, 0, 1);
 	if(waserror()){
 		cclose(c);
 		nexterror();
@@ -96,8 +105,7 @@ sysfauth(ulong *arg)
 
 	/* always mark it close on exec */
 	ac->flag |= CCEXEC;
-
-	return fd;
+	return (uintptr)fd;
 }
 
 /*

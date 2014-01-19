@@ -20,7 +20,7 @@ fmtrwdata(Fmt* f, char* a, int n, char* suffix)
 		fmtprint(f, "0x0%s", suffix);
 		return;
 	}
-	validaddr((ulong)a, n, 0);
+	validaddr((uintptr)a, n, 0);
 	t = smalloc(n+1);
 	t[n] = 0;
 	for(i = 0; i < n; i++)
@@ -43,7 +43,7 @@ fmtuserstring(Fmt* f, char* a, char* suffix)
 		fmtprint(f, "0/\"\"%s", suffix);
 		return;
 	}
-	validaddr((ulong)a, 1, 0);
+	validaddr((uintptr)a, 1, 0);
 	n = ((char*)vmemchr(a, 0, 0x7fffffff) - a) + 1;
 	t = smalloc(n+1);
 	memmove(t, a, n);
@@ -53,7 +53,7 @@ fmtuserstring(Fmt* f, char* a, char* suffix)
 }
 
 void
-syscallfmt(ulong syscallno, ulong pc, va_list list)
+syscallfmt(ulong syscallno, uintptr pc, va_list list)
 {
 	long l;
 	Fmt fmt;
@@ -72,7 +72,7 @@ syscallfmt(ulong syscallno, ulong pc, va_list list)
 		fmtprint(&fmt, "%s ", sysctab[syscallno]?
 			sysctab[syscallno]: "huh?");
 
-	fmtprint(&fmt, "%ulx ", pc);
+	fmtprint(&fmt, "%p ", pc);
 	switch(syscallno){
 	case SYSR1:
 		p = va_arg(list, uintptr);
@@ -113,7 +113,7 @@ syscallfmt(ulong syscallno, ulong pc, va_list list)
 		argv = va_arg(list, char**);
 		evenaddr(PTR2UINT(argv));
 		for(;;){
-			validaddr((ulong)argv, sizeof(char**), 0);
+			validaddr((uintptr)argv, sizeof(char**), 0);
 			a = *(char **)argv;
 			if(a == nil)
 				break;
@@ -307,7 +307,7 @@ syscallfmt(ulong syscallno, ulong pc, va_list list)
 }
 
 void
-sysretfmt(ulong syscallno, va_list list, long ret, uvlong start, uvlong stop)
+sysretfmt(ulong syscallno, va_list list, uintptr ret, uvlong start, uvlong stop)
 {
 	long l;
 	void* v;
@@ -324,9 +324,9 @@ sysretfmt(ulong syscallno, va_list list, long ret, uvlong start, uvlong stop)
 	case ALARM:
 	case _WRITE:
 	case PWRITE:
-		if(ret == -1)
+		if((long)ret == -1)
 			errstr = up->syserrstr;
-		fmtprint(&fmt, " = %ld", ret);
+		fmtprint(&fmt, " = %ld", (long)ret);
 		break;
 	case EXEC:
 	case SEGBRK:
@@ -341,10 +341,10 @@ sysretfmt(ulong syscallno, va_list list, long ret, uvlong start, uvlong stop)
 		l = va_arg(list, unsigned long);
 		if(ret > 0){
 			fmtuserstring(&fmt, a, " ");
-			fmtprint(&fmt, "%lud = %ld", l, ret);
+			fmtprint(&fmt, "%lud = %ld", l, (long)ret);
 		}
 		else{
-			fmtprint(&fmt, "%#p/\"\" %lud = %ld", a, l, ret);
+			fmtprint(&fmt, "%#p/\"\" %lud = %ld", a, l, (long)ret);
 			errstr = up->syserrstr;
 		}
 		break;
@@ -357,10 +357,10 @@ sysretfmt(ulong syscallno, va_list list, long ret, uvlong start, uvlong stop)
 			l = va_arg(list, unsigned long);
 		if(ret > 0){
 			fmtuserstring(&fmt, a, " ");
-			fmtprint(&fmt, "%lud = %ld", l, ret);
+			fmtprint(&fmt, "%lud = %ld", l, (long)ret);
 		}
 		else{
-			fmtprint(&fmt, "\"\" %lud = %ld", l, ret);
+			fmtprint(&fmt, "\"\" %lud = %ld", l, (long)ret);
 			errstr = up->syserrstr;
 		}
 		break;
@@ -371,10 +371,10 @@ sysretfmt(ulong syscallno, va_list list, long ret, uvlong start, uvlong stop)
 		l = va_arg(list, unsigned long);
 		if(ret > 0){
 			fmtuserstring(&fmt, a, " ");
-			fmtprint(&fmt, "%lud = %ld", l, ret);
+			fmtprint(&fmt, "%lud = %ld", l, (long)ret);
 		}
 		else{
-			fmtprint(&fmt, "\"\" %lud = %ld", l, ret);
+			fmtprint(&fmt, "\"\" %lud = %ld", l, (long)ret);
 			errstr = up->syserrstr;
 		}
 		break;
@@ -397,7 +397,7 @@ sysretfmt(ulong syscallno, va_list list, long ret, uvlong start, uvlong stop)
 			vl = va_arg(list, vlong);
 			fmtprint(&fmt, " %lld", vl);
 		}
-		fmtprint(&fmt, " = %ld", ret);
+		fmtprint(&fmt, " = %ld", (long)ret);
 		break;
 	}
 	fmtprint(&fmt, " %s %#llud %#llud\n", errstr, start, stop);

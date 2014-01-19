@@ -6,7 +6,7 @@
 #include	"../port/error.h"
 
 int
-fault(ulong addr, int read)
+fault(uintptr addr, int read)
 {
 	Segment *s;
 	char *sps;
@@ -70,18 +70,19 @@ faulterror(char *s, Chan *c, int freemem)
 	pexit(s, freemem);
 }
 
-void	(*checkaddr)(ulong, Segment *, Page *);
-ulong	addr2check;
+void	(*checkaddr)(uintptr, Segment *, Page *);
+uintptr	addr2check;
 
 int
-fixfault(Segment *s, ulong addr, int read, int doputmmu)
+fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 {
 	int type;
 	int ref;
 	Pte **p, *etp;
-	ulong mmuphys=0, soff;
+	ulong mmuphys=0;
+	uintptr soff;
 	Page **pg, *lkp, *new;
-	Page *(*fn)(Segment*, ulong);
+	Page *(*fn)(Segment*, uintptr);
 
 	addr &= ~(BY2PG-1);
 	soff = addr-s->base;
@@ -198,14 +199,14 @@ fixfault(Segment *s, ulong addr, int read, int doputmmu)
 }
 
 void
-pio(Segment *s, ulong addr, ulong soff, Page **p)
+pio(Segment *s, uintptr addr, uintptr soff, Page **p)
 {
 	Page *new;
 	KMap *k;
 	Chan *c;
 	int n, ask;
 	char *kaddr;
-	ulong daddr;
+	uintptr daddr;
 	Page *loadrec;
 
 retry:
@@ -310,7 +311,7 @@ done:
  * Called only in a system call
  */
 int
-okaddr(ulong addr, ulong len, int write)
+okaddr(uintptr addr, ulong len, int write)
 {
 	Segment *s;
 
@@ -332,10 +333,10 @@ okaddr(ulong addr, ulong len, int write)
 }
 
 void
-validaddr(ulong addr, ulong len, int write)
+validaddr(uintptr addr, ulong len, int write)
 {
 	if(!okaddr(addr, len, write)){
-		pprint("suicide: invalid address %#lux/%lud in sys call pc=%#lux\n", addr, len, userpc());
+		pprint("suicide: invalid address %#p/%lud in sys call pc=%#p\n", addr, len, userpc());
 		postnote(up, 1, "sys: bad address in syscall", NDebug);
 		error(Ebadarg);
 	}
@@ -348,10 +349,10 @@ void*
 vmemchr(void *s, int c, int n)
 {
 	int m;
-	ulong a;
+	uintptr a;
 	void *t;
 
-	a = (ulong)s;
+	a = (uintptr)s;
 	while(PGROUND(a) != PGROUND(a+n-1)){
 		/* spans pages; handle this page */
 		m = BY2PG - (a & (BY2PG-1));
@@ -369,7 +370,7 @@ vmemchr(void *s, int c, int n)
 }
 
 Segment*
-seg(Proc *p, ulong addr, int dolock)
+seg(Proc *p, uintptr addr, int dolock)
 {
 	Segment **s, **et, *n;
 
@@ -392,12 +393,13 @@ seg(Proc *p, ulong addr, int dolock)
 	return 0;
 }
 
-extern void checkmmu(ulong, ulong);
+extern void checkmmu(uintptr, uintptr);
+
 void
 checkpages(void)
 {
 	int checked;
-	ulong addr, off;
+	uintptr addr, off;
 	Pte *p;
 	Page *pg;
 	Segment **sp, **ep, *s;

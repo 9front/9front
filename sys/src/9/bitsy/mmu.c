@@ -523,7 +523,7 @@ peekmmu(ulong va)
 }
 
 void
-checkmmu(ulong, ulong)
+checkmmu(uintptr, uintptr)
 {
 }
 

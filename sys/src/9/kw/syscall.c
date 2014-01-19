@@ -224,7 +224,7 @@ syscall(Ureg* ureg)
 
 	/*	iprint("%s: syscall %s\n", up->text, sysctab[scallnr]?sysctab[scallnr]:"huh?"); */
 
-		ret = systab[scallnr](up->s.args);
+		ret = systab[scallnr]((va_list)up->s.args);
 		poperror();
 	}else{
 		/* failure: save the error buffer for errstr */
@@ -275,8 +275,8 @@ syscall(Ureg* ureg)
 	kexit(ureg);
 }
 
-long
-execregs(ulong entry, ulong ssize, ulong nargs)
+uintptr
+execregs(uintptr entry, ulong ssize, ulong nargs)
 {
 	ulong *sp;
 	Ureg *ureg;

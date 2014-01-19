@@ -475,14 +475,14 @@ putmmu(ulong va, ulong pa, Page*)
  * Error checking only.
  */
 void
-checkmmu(ulong va, ulong pa)
+checkmmu(uintptr va, uintptr pa)
 {
 	if(up->mmupdb == 0)
 		return;
 	if(!(vpd[PDX(va)]&PTEVALID) || !(vpt[VPTX(va)]&PTEVALID))
 		return;
 	if(PPN(vpt[VPTX(va)]) != pa)
-		print("%ld %s: va=%#08lux pa=%#08lux pte=%#08lux\n",
+		print("%ld %s: va=%#p pa=%#p pte=%#08lux\n",
 			up->pid, up->text,
 			va, pa, vpt[VPTX(va)]);
 }

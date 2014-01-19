@@ -152,7 +152,7 @@ static char *sname[]={ "Text", "Data", "Bss", "Stack", "Shared", "Phys", };
 #define	NOTEID(q)	((q).vers)
 
 void	procctlreq(Proc*, char*, int);
-int	procctlmemio(Proc*, ulong, int, void*, int);
+int	procctlmemio(Proc*, uintptr, int, void*, int);
 Chan*	proctext(Chan*, Proc*);
 Segment* txt2data(Proc*, Segment*);
 int	procstopped(void*);
@@ -699,7 +699,7 @@ procread(Chan *c, void *va, long n, vlong off)
 	int i, j, m, navail, ne, rsize;
 	long l;
 	uchar *rptr;
-	ulong offset;
+	uintptr offset;
 	Confmem *cm;
 	Mntwalk *mw;
 	Proc *p;
@@ -766,9 +766,9 @@ procread(Chan *c, void *va, long n, vlong off)
 			error(Eperm);
 
 		/* validate kernel addresses */
-		if(offset < (ulong)end) {
-			if(offset+n > (ulong)end)
-				n = (ulong)end - offset;
+		if(offset < (uintptr)end) {
+			if(offset+n > (uintptr)end)
+				n = (uintptr)end - offset;
 			memmove(a, (char*)offset, n);
 			return n;
 		}
@@ -910,7 +910,7 @@ procread(Chan *c, void *va, long n, vlong off)
 			sg = p->seg[i];
 			if(sg == 0)
 				continue;
-			j += sprint(statbuf+j, "%-6s %c%c %.8lux %.8lux %4ld\n",
+			j += sprint(statbuf+j, "%-6s %c%c %p %p %4ld\n",
 				sname[sg->type&SG_TYPE],
 				sg->type&SG_RONLY ? 'R' : ' ',
 				sg->profile ? 'P' : ' ',
@@ -1533,13 +1533,13 @@ procstopped(void *a)
 }
 
 int
-procctlmemio(Proc *p, ulong offset, int n, void *va, int read)
+procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
 {
 	KMap *k;
 	Pte *pte;
 	Page *pg;
 	Segment *s;
-	ulong soff, l;
+	uintptr soff, l;
 	char *a = va, *b;
 
 	for(;;) {

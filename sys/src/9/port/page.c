@@ -118,7 +118,7 @@ pagechainhead(Page *p)
 }
 
 Page*
-newpage(int clear, Segment **s, ulong va)
+newpage(int clear, Segment **s, uintptr va)
 {
 	Page *p;
 	KMap *k;
@@ -409,7 +409,7 @@ cachepage(Page *p, Image *i)
 }
 
 void
-cachedel(Image *i, ulong daddr)
+cachedel(Image *i, uintptr daddr)
 {
 	Page *f;
 
@@ -434,7 +434,7 @@ retry:
 }
 
 Page *
-lookpage(Image *i, ulong daddr)
+lookpage(Image *i, uintptr daddr)
 {
 	Page *f;
 
@@ -574,7 +574,7 @@ checkpagerefs(void)
 	nwrong = 0;
 	for(i=0; i<np; i++){
 		if(palloc.pages[i].ref != ref[i]){
-			iprint("page %#.8lux ref %d actual %lud\n", 
+			iprint("page %#p ref %d actual %lud\n", 
 				palloc.pages[i].pa, palloc.pages[i].ref, ref[i]);
 			ref[i] = 1;
 			nwrong++;
@@ -627,7 +627,7 @@ portcountpagerefs(ulong *ref, int print)
 						continue;
 					if(print){
 						if(ref[pagenumber(entry)])
-							iprint("page %#.8lux in segment %#p\n", entry->pa, s);
+							iprint("page %#p in segment %#p\n", entry->pa, s);
 						continue;
 					}
 					if(ref[pagenumber(entry)]++ == 0)

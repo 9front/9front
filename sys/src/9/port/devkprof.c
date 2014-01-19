@@ -11,8 +11,8 @@
 
 struct
 {
-	int	minpc;
-	int	maxpc;
+	uintptr	minpc;
+	uintptr	maxpc;
 	int	nbuf;
 	int	time;
 	ulong	*buf;
@@ -30,7 +30,7 @@ Dirtab kproftab[]={
 };
 
 static void
-_kproftimer(ulong pc)
+_kproftimer(uintptr pc)
 {
 	extern void spldone(void);
 
@@ -40,7 +40,7 @@ _kproftimer(ulong pc)
 	 *  if the pc is coming out of spllo or splx,
 	 *  use the pc saved when we went splhi.
 	 */
-	if(pc>=(ulong)spllo && pc<=(ulong)spldone)
+	if(pc>=(uintptr)spllo && pc<=(uintptr)spldone)
 		pc = m->splpc;
 
 	kprof.buf[0] += TK2MS(1);
@@ -67,7 +67,7 @@ kprofattach(char *spec)
 
 	/* allocate when first used */
 	kprof.minpc = KTZERO;
-	kprof.maxpc = (ulong)etext;
+	kprof.maxpc = (uintptr)etext;
 	kprof.nbuf = (kprof.maxpc-kprof.minpc) >> LRES;
 	n = kprof.nbuf*SZ;
 	if(kprof.buf == 0) {

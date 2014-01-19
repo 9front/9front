@@ -14,8 +14,8 @@ int	shargs(char*, int, char**);
 extern void checkpages(void);
 extern void checkpagerefs(void);
 
-long
-sysr1(ulong*)
+uintptr
+sysr1(va_list)
 {
 	if(!iseve())
 		error(Eperm);
@@ -29,8 +29,8 @@ abortion(void*)
 	pexit("fork aborted", 1);
 }
 
-long
-sysrfork(ulong *arg)
+uintptr
+sysrfork(va_list list)
 {
 	Proc *p;
 	int n, i;
@@ -41,7 +41,7 @@ sysrfork(ulong *arg)
 	ulong pid, flag;
 	Mach *wm;
 
-	flag = arg[0];
+	flag = va_arg(list, ulong);
 	/* Check flags before we commit */
 	if((flag & (RFFDG|RFCFDG)) == (RFFDG|RFCFDG))
 		error(Ebadarg);
@@ -221,7 +221,7 @@ sysrfork(ulong *arg)
 		procwired(p, wm->machno);
 	ready(p);
 	sched();
-	return pid;
+	return (uintptr)pid;
 }
 
 static ulong
@@ -233,29 +233,30 @@ l2be(long l)
 	return (cp[0]<<24) | (cp[1]<<16) | (cp[2]<<8) | cp[3];
 }
 
-long
-sysexec(ulong *arg)
+uintptr
+sysexec(va_list list)
 {
 	Segment *s, *ts;
-	ulong t, d, b;
 	int i;
 	Chan *tc;
-	char **argv, **argp;
+	char **argv, **argp, **argp0;
 	char *a, *charp, *args, *file, *file0;
 	char *progarg[sizeof(Exec)/2+1], *elem, progelem[64];
-	ulong ssize, tstk, nargs, nbytes, n, bssend;
+	ulong magic, ssize, nargs, nbytes, n;
+	uintptr t, d, b, entry, bssend, text, data, bss, tstk;
 	int indir;
 	Exec exec;
 	char line[sizeof(Exec)];
 	Fgrp *f;
 	Image *img;
-	ulong magic, text, entry, data, bss;
 	Tos *tos;
 
 	a = nil;
 	elem = nil;
-	validaddr(arg[0], 1, 0);
-	file0 = validnamedup((char*)arg[0], 1);
+	file0 = va_arg(list, char*);
+	validaddr((uintptr)file0, 1, 0);
+	argp0 = va_arg(list, char**);
+	file0 = validnamedup(file0, 1);
 	if(waserror()){
 		free(file0);
 		free(elem);
@@ -305,8 +306,7 @@ sysexec(ulong *arg)
 		 */
 		progarg[n++] = file;
 		progarg[n] = 0;
-		validaddr(arg[1], BY2WD, 1);
-		arg[1] += BY2WD;
+		argp0++;
 		file = progarg[0];
 		if(strlen(elem) >= sizeof progelem)
 			error(Ebadexec);
@@ -338,14 +338,14 @@ sysexec(ulong *arg)
 			nargs++;
 		}
 	}
-	evenaddr(arg[1]);
-	argp = (char**)arg[1];
-	validaddr((ulong)argp, BY2WD, 0);
+	argp = argp0;
+	evenaddr((uintptr)argp);
+	validaddr((uintptr)argp, BY2WD, 0);
 	while(*argp){
 		a = *argp++;
-		if(((ulong)argp&(BY2PG-1)) < BY2WD)
-			validaddr((ulong)argp, BY2WD, 0);
-		validaddr((ulong)a, 1, 0);
+		if(((uintptr)argp&(BY2PG-1)) < BY2WD)
+			validaddr((uintptr)argp, BY2WD, 0);
+		validaddr((uintptr)a, 1, 0);
 		nbytes += ((char*)vmemchr(a, 0, 0x7FFFFFFF) - a) + 1;
 		nargs++;
 	}
@@ -393,12 +393,12 @@ sysexec(ulong *arg)
 	if(indir)
 		argp = progarg;
 	else
-		argp = (char**)arg[1];
+		argp = argp0;
 
 	for(i=0; i<nargs; i++){
 		if(indir && *argp==0) {
 			indir = 0;
-			argp = (char**)arg[1];
+			argp = argp0;
 		}
 		*argv++ = charp + (USTKTOP-tstk);
 		n = strlen(*argp) + 1;
@@ -557,45 +557,45 @@ return0(void*)
 	return 0;
 }
 
-long
-syssleep(ulong *arg)
+uintptr
+syssleep(va_list list)
 {
+	long ms;
 
-	int n;
-
-	n = arg[0];
-	if(n <= 0) {
+	ms = va_arg(list, long);
+	if(ms <= 0) {
 		if (up->edf && (up->edf->flags & Admitted))
 			edfyield();
 		else
 			yield();
-		return 0;
+	} else {
+		if(ms < TK2MS(1))
+			ms = TK2MS(1);
+		tsleep(&up->sleep, return0, 0, ms);
 	}
-	if(n < TK2MS(1))
-		n = TK2MS(1);
-	tsleep(&up->sleep, return0, 0, n);
 	return 0;
 }
 
-long
-sysalarm(ulong *arg)
+uintptr
+sysalarm(va_list list)
 {
-	return procalarm(arg[0]);
+	return (uintptr)procalarm(va_arg(list, ulong));
 }
 
-long
-sysexits(ulong *arg)
+
+uintptr
+sysexits(va_list list)
 {
 	char *status;
 	char *inval = "invalid exit string";
 	char buf[ERRMAX];
 
-	status = (char*)arg[0];
+	status = va_arg(list, char*);
 	if(status){
 		if(waserror())
 			status = inval;
 		else{
-			validaddr((ulong)status, 1, 0);
+			validaddr((uintptr)status, 1, 0);
 			if(vmemchr(status, 0, ERRMAX) == 0){
 				memmove(buf, status, ERRMAX);
 				buf[ERRMAX-1] = 0;
@@ -606,53 +606,57 @@ sysexits(ulong *arg)
 
 	}
 	pexit(status, 1);
-	return 0;		/* not reached */
+	return 0;	/* not reached */
 }
 
-long
-sys_wait(ulong *arg)
+uintptr
+sys_wait(va_list list)
 {
 	int pid;
 	Waitmsg w;
 	OWaitmsg *ow;
 
-	if(arg[0] == 0)
-		return pwait(nil);
-
-	validaddr(arg[0], sizeof(OWaitmsg), 1);
-	evenaddr(arg[0]);
-	pid = pwait(&w);
-	if(pid >= 0){
-		ow = (OWaitmsg*)arg[0];
-		readnum(0, ow->pid, NUMSIZE, w.pid, NUMSIZE);
-		readnum(0, ow->time+TUser*NUMSIZE, NUMSIZE, w.time[TUser], NUMSIZE);
-		readnum(0, ow->time+TSys*NUMSIZE, NUMSIZE, w.time[TSys], NUMSIZE);
-		readnum(0, ow->time+TReal*NUMSIZE, NUMSIZE, w.time[TReal], NUMSIZE);
-		strncpy(ow->msg, w.msg, sizeof(ow->msg)-1);
-		ow->msg[sizeof(ow->msg)-1] = '\0';
+	ow = va_arg(list, OWaitmsg*);
+	if(ow == 0)
+		pid = pwait(nil);
+	else {
+		validaddr((uintptr)ow, sizeof(OWaitmsg), 1);
+		evenaddr((uintptr)ow);
+		pid = pwait(&w);
+		if(pid >= 0){
+			readnum(0, ow->pid, NUMSIZE, w.pid, NUMSIZE);
+			readnum(0, ow->time+TUser*NUMSIZE, NUMSIZE, w.time[TUser], NUMSIZE);
+			readnum(0, ow->time+TSys*NUMSIZE, NUMSIZE, w.time[TSys], NUMSIZE);
+			readnum(0, ow->time+TReal*NUMSIZE, NUMSIZE, w.time[TReal], NUMSIZE);
+			strncpy(ow->msg, w.msg, sizeof(ow->msg)-1);
+			ow->msg[sizeof(ow->msg)-1] = '\0';
+		}
 	}
-	return pid;
+	return (uintptr)pid;
 }
 
-long
-sysawait(ulong *arg)
+uintptr
+sysawait(va_list list)
 {
 	int i;
 	int pid;
+	char *p;
 	Waitmsg w;
-	ulong n;
+	uint n;
 
-	n = arg[1];
-	validaddr(arg[0], n, 1);
+	p = va_arg(list, char*);
+	n = va_arg(list, uint);
+	validaddr((uintptr)p, n, 1);
 	pid = pwait(&w);
 	if(pid < 0)
-		return -1;
-	i = snprint((char*)arg[0], n, "%d %lud %lud %lud %q",
-		w.pid,
-		w.time[TUser], w.time[TSys], w.time[TReal],
-		w.msg);
-
-	return i;
+		i = -1;
+	else {
+		i = snprint(p, n, "%d %lud %lud %lud %q",
+			w.pid,
+			w.time[TUser], w.time[TSys], w.time[TReal],
+			w.msg);
+	}
+	return (uintptr)i;
 }
 
 void
@@ -668,14 +672,14 @@ werrstr(char *fmt, ...)
 	va_end(va);
 }
 
-static long
+static int
 generrstr(char *buf, uint nbuf)
 {
 	char tmp[ERRMAX];
 
 	if(nbuf == 0)
 		error(Ebadarg);
-	validaddr((ulong)buf, nbuf, 1);
+	validaddr((uintptr)buf, nbuf, 1);
 	if(nbuf > sizeof tmp)
 		nbuf = sizeof tmp;
 	memmove(tmp, buf, nbuf);
@@ -688,44 +692,51 @@ generrstr(char *buf, uint nbuf)
 	return 0;
 }
 
-long
-syserrstr(ulong *arg)
+uintptr
+syserrstr(va_list list)
 {
-	return generrstr((char*)arg[0], arg[1]);
+	char *buf;
+	uint len;
+
+	buf = va_arg(list, char*);
+	len = va_arg(list, uint);
+	return (uintptr)generrstr(buf, len);
 }
 
 /* compatibility for old binaries */
-long
-sys_errstr(ulong *arg)
+uintptr
+sys_errstr(va_list list)
 {
-	return generrstr((char*)arg[0], 64);
+	return (uintptr)generrstr(va_arg(list, char*), 64);
 }
 
-long
-sysnotify(ulong *arg)
+uintptr
+sysnotify(va_list list)
 {
-	if(arg[0] != 0)
-		validaddr(arg[0], sizeof(ulong), 0);
-	up->notify = (int(*)(void*, char*))(arg[0]);
+	int (*f)(void*, char*);
+	f = va_arg(list, void*);
+	if(f != 0)
+		validaddr((uintptr)f, sizeof(void*), 0);
+	up->notify = f;
 	return 0;
 }
 
-long
-sysnoted(ulong *arg)
+uintptr
+sysnoted(va_list list)
 {
-	if(arg[0]!=NRSTR && !up->notified)
+	if(va_arg(list, int) !=NRSTR && !up->notified)
 		error(Egreg);
 	return 0;
 }
 
-long
-syssegbrk(ulong *arg)
+uintptr
+syssegbrk(va_list list)
 {
 	int i;
-	ulong addr;
+	uintptr addr;
 	Segment *s;
 
-	addr = arg[0];
+	addr = va_arg(list, uintptr);
 	for(i = 0; i < NSEG; i++) {
 		s = up->seg[i];
 		if(s == 0 || addr < s->base || addr >= s->top)
@@ -736,26 +747,36 @@ syssegbrk(ulong *arg)
 		case SG_STACK:
 			error(Ebadarg);
 		default:
-			return ibrk(arg[1], i);
+			return (uintptr)ibrk(va_arg(list, uintptr), i);
 		}
 	}
-
 	error(Ebadarg);
-	return 0;		/* not reached */
+	return 0;	/* not reached */
 }
 
-long
-syssegattach(ulong *arg)
+uintptr
+syssegattach(va_list list)
 {
-	return segattach(up, arg[0], (char*)arg[1], arg[2], arg[3]);
+	ulong attr;
+	char *name;
+	uintptr va;
+	ulong len;
+
+	attr = va_arg(list, ulong);
+	name = va_arg(list, char*);
+	va = va_arg(list, uintptr);
+	len = va_arg(list, ulong);
+	return segattach(up, attr, name, va, len);
 }
 
-long
-syssegdetach(ulong *arg)
+uintptr
+syssegdetach(va_list list)
 {
 	int i;
-	ulong addr;
+	uintptr addr;
 	Segment *s;
+
+	addr = va_arg(list, uintptr);
 
 	qlock(&up->seglock);
 	if(waserror()){
@@ -764,7 +785,6 @@ syssegdetach(ulong *arg)
 	}
 
 	s = 0;
-	addr = arg[0];
 	for(i = 0; i < NSEG; i++)
 		if(s = up->seg[i]) {
 			qlock(&s->lk);
@@ -795,17 +815,19 @@ found:
 	return 0;
 }
 
-long
-syssegfree(ulong *arg)
+uintptr
+syssegfree(va_list list)
 {
 	Segment *s;
-	ulong from, to;
+	uintptr from, to;
 
-	from = arg[0];
+	from = va_arg(list, uintptr);
 	s = seg(up, from, 1);
 	if(s == nil)
 		error(Ebadarg);
-	to = (from + arg[1]) & ~(BY2PG-1);
+	to = va_arg(list, ulong);
+	to += from;
+	to &= ~(BY2PG-1);
 	from = PGROUND(from);
 
 	if(to > s->top) {
@@ -816,24 +838,24 @@ syssegfree(ulong *arg)
 	mfreeseg(s, from, (to - from) / BY2PG);
 	qunlock(&s->lk);
 	flushmmu();
-
 	return 0;
 }
 
 /* For binary compatibility */
-long
-sysbrk_(ulong *arg)
+uintptr
+sysbrk_(va_list list)
 {
-	return ibrk(arg[0], BSEG);
+	return (uintptr)ibrk(va_arg(list, uintptr), BSEG);
 }
 
-long
-sysrendezvous(ulong *arg)
+uintptr
+sysrendezvous(va_list list)
 {
-	uintptr tag, val;
+	uintptr tag, val, new;
 	Proc *p, **l;
 
-	tag = arg[0];
+	tag = va_arg(list, uintptr);
+	new = va_arg(list, uintptr);
 	l = &REND(up->rgrp, tag);
 
 	lock(up->rgrp);
@@ -841,7 +863,7 @@ sysrendezvous(ulong *arg)
 		if(p->rendtag == tag) {
 			*l = p->rendhash;
 			val = p->rendval;
-			p->rendval = arg[1];
+			p->rendval = new;
 			unlock(up->rgrp);
 
 			ready(p);
@@ -853,7 +875,7 @@ sysrendezvous(ulong *arg)
 
 	/* Going to sleep here */
 	up->rendtag = tag;
-	up->rendval = arg[1];
+	up->rendval = new;
 	up->rendhash = *l;
 	*l = up;
 	up->state = Rendezvous;
@@ -1102,65 +1124,62 @@ tsemacquire(Segment *s, long *addr, ulong ms)
 	return 1;
 }
 
-long
-syssemacquire(ulong *arg)
+uintptr
+syssemacquire(va_list list)
 {
 	int block;
 	long *addr;
 	Segment *s;
 
-	evenaddr(arg[0]);
-	addr = (long*)arg[0];
-	block = arg[1];
-
-	s = seg(up, (ulong)addr, 0);
-	if(s == nil || (s->type&SG_RONLY) != 0 || (ulong)addr+sizeof(long) > s->top){
-		validaddr((ulong)addr, sizeof(long), 1);
+	addr = va_arg(list, long*);
+	block = va_arg(list, int);
+	evenaddr((uintptr)addr);
+	s = seg(up, (uintptr)addr, 0);
+	if(s == nil || (s->type&SG_RONLY) != 0 || (uintptr)addr+sizeof(long) > s->top){
+		validaddr((uintptr)addr, sizeof(long), 1);
 		error(Ebadarg);
 	}
 	if(*addr < 0)
 		error(Ebadarg);
-	return semacquire(s, addr, block);
+	return (uintptr)semacquire(s, addr, block);
 }
 
-long
-systsemacquire(ulong *arg)
+uintptr
+systsemacquire(va_list list)
 {
 	long *addr;
 	ulong ms;
 	Segment *s;
 
-	evenaddr(arg[0]);
-	addr = (long*)arg[0];
-	ms = arg[1];
-
-	s = seg(up, (ulong)addr, 0);
-	if(s == nil || (s->type&SG_RONLY) != 0 || (ulong)addr+sizeof(long) > s->top){
-		validaddr((ulong)addr, sizeof(long), 1);
+	addr = va_arg(list, long*);
+	ms = va_arg(list, ulong);
+	evenaddr((uintptr)addr);
+	s = seg(up, (uintptr)addr, 0);
+	if(s == nil || (s->type&SG_RONLY) != 0 || (uintptr)addr+sizeof(long) > s->top){
+		validaddr((uintptr)addr, sizeof(long), 1);
 		error(Ebadarg);
 	}
 	if(*addr < 0)
 		error(Ebadarg);
-	return tsemacquire(s, addr, ms);
+	return (uintptr)tsemacquire(s, addr, ms);
 }
 
-long
-syssemrelease(ulong *arg)
+uintptr
+syssemrelease(va_list list)
 {
 	long *addr, delta;
 	Segment *s;
 
-	evenaddr(arg[0]);
-	addr = (long*)arg[0];
-	delta = arg[1];
-
-	s = seg(up, (ulong)addr, 0);
-	if(s == nil || (s->type&SG_RONLY) != 0 || (ulong)addr+sizeof(long) > s->top){
-		validaddr((ulong)addr, sizeof(long), 1);
+	addr = va_arg(list, long*);
+	delta = va_arg(list, long);
+	evenaddr((uintptr)addr);
+	s = seg(up, (uintptr)addr, 0);
+	if(s == nil || (s->type&SG_RONLY) != 0 || (uintptr)addr+sizeof(long) > s->top){
+		validaddr((uintptr)addr, sizeof(long), 1);
 		error(Ebadarg);
 	}
 	/* delta == 0 is a no-op, not a release */
 	if(delta < 0 || *addr < 0)
 		error(Ebadarg);
-	return semrelease(s, addr, delta);
+	return (uintptr)semrelease(s, addr, delta);
 }

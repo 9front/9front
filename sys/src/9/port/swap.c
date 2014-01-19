@@ -77,7 +77,7 @@ putswap(Page *p)
 	uchar *idx;
 
 	lock(&swapalloc);
-	idx = &swapalloc.swmap[((ulong)p)/BY2PG];
+	idx = &swapalloc.swmap[((uintptr)p)/BY2PG];
 	if(*idx == 0)
 		panic("putswap %#p ref == 0", p);
 
@@ -111,7 +111,7 @@ dupswap(Page *p)
 	uchar *idx;
 
 	lock(&swapalloc);
-	idx = &swapalloc.swmap[((ulong)p)/BY2PG];
+	idx = &swapalloc.swmap[((uintptr)p)/BY2PG];
 	if(*idx == 255)
 		swapalloc.xref++;
 	else {
@@ -122,7 +122,7 @@ dupswap(Page *p)
 }
 
 int
-swapcount(ulong daddr)
+swapcount(uintptr daddr)
 {
 	return swapalloc.swmap[daddr/BY2PG];
 }
@@ -309,7 +309,7 @@ canflush(Proc *p, Segment *s)
 static void
 pagepte(int type, Page **pg)
 {
-	ulong daddr;
+	uintptr daddr;
 	Page *outp;
 
 	outp = *pg;

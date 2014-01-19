@@ -5,7 +5,7 @@ file=/sys/src/libc/9syscall/sys.h
 cat <<'!'
 #include "/sys/src/libc/9syscall/sys.h"
 
-typedef long Syscall(ulong*);
+typedef uintptr Syscall(va_list);
 
 !
 

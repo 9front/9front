@@ -51,12 +51,12 @@ dumplockmem(char *tag, Lock *l)
 }
 
 void
-lockloop(Lock *l, ulong pc)
+lockloop(Lock *l, uintptr pc)
 {
 	Proc *p;
 
 	p = l->p;
-	print("lock %#p loop key %#lux pc %#lux held by pc %#lux proc %lud\n",
+	print("lock %#p loop key %#lux pc %#p held by pc %#p proc %lud\n",
 		l, l->key, pc, l->pc, p ? p->pid : 0);
 	dumpaproc(up);
 	if(p != nil)
@@ -67,7 +67,7 @@ int
 lock(Lock *l)
 {
 	int i;
-	ulong pc;
+	uintptr pc;
 
 	pc = getcallerpc(&l);
 
@@ -98,7 +98,7 @@ lock(Lock *l)
 				 * Priority inversion, yield on a uniprocessor; on a
 				 * multiprocessor, the other processor will unlock
 				 */
-				print("inversion %#p pc %#lux proc %lud held by pc %#lux proc %lud\n",
+				print("inversion %#p pc %#p proc %lud held by pc %#p proc %lud\n",
 					l, pc, up ? up->pid : 0, l->pc, l->p ? l->p->pid : 0);
 				up->edf->d = todget(nil);	/* yield to process with lock */
 			}
@@ -129,7 +129,7 @@ void
 ilock(Lock *l)
 {
 	ulong x;
-	ulong pc;
+	uintptr pc;
 
 	pc = getcallerpc(&l);
 	lockstats.locks++;
@@ -203,9 +203,9 @@ unlock(Lock *l)
 	if(l->key == 0)
 		print("unlock: not locked: pc %#p\n", getcallerpc(&l));
 	if(l->isilock)
-		print("unlock of ilock: pc %lux, held by %lux\n", getcallerpc(&l), l->pc);
+		print("unlock of ilock: pc %#p, held by %#p\n", getcallerpc(&l), l->pc);
 	if(l->p != up)
-		print("unlock: up changed: pc %#p, acquired at pc %lux, lock p %#p, unlock up %#p\n", getcallerpc(&l), l->pc, l->p, up);
+		print("unlock: up changed: pc %#p, acquired at pc %#p, lock p %#p, unlock up %#p\n", getcallerpc(&l), l->pc, l->p, up);
 	l->m = nil;
 	l->key = 0;
 	coherence();
@@ -240,9 +240,9 @@ iunlock(Lock *l)
 	if(l->key == 0)
 		print("iunlock: not locked: pc %#p\n", getcallerpc(&l));
 	if(!l->isilock)
-		print("iunlock of lock: pc %#p, held by %#lux\n", getcallerpc(&l), l->pc);
+		print("iunlock of lock: pc %#p, held by %#p\n", getcallerpc(&l), l->pc);
 	if(islo())
-		print("iunlock while lo: pc %#p, held by %#lux\n", getcallerpc(&l), l->pc);
+		print("iunlock while lo: pc %#p, held by %#p\n", getcallerpc(&l), l->pc);
 
 	sr = l->sr;
 	l->m = nil;

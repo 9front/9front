@@ -728,7 +728,7 @@ syscall(Ureg *aur)
 
 		up->s = *((Sargs*)(sp+2*BY2WD));
 		up->psstate = sysctab[scallnr];
-		ret = systab[scallnr](up->s.args);
+		ret = systab[scallnr]((va_list)up->s.args);
 		poperror();
 	}else{
 		/* failure: save the error buffer for errstr */
@@ -794,8 +794,8 @@ kprocchild(Proc *p, void (*func)(void*), void *arg)
 	p->kparg = arg;
 }
 
-long
-execregs(ulong entry, ulong ssize, ulong nargs)
+uintptr
+execregs(uintptr entry, ulong ssize, ulong nargs)
 {
 	Ureg *ur;
 	ulong *sp;
@@ -809,7 +809,7 @@ execregs(ulong entry, ulong ssize, ulong nargs)
 	return USTKTOP-BY2WD;			/* address of user-level clock */
 }
 
-ulong
+uintptr
 userpc(void)
 {
 	Ureg *ur;
@@ -842,7 +842,7 @@ setkernur(Ureg *xp, Proc *p)
 	xp->r26 = (ulong)sched;
 }
 
-ulong
+uintptr
 dbgpc(Proc *p)
 {
 	Ureg *ur;

@@ -1721,14 +1721,14 @@ char isfrog[256]={
  * to access unchecked addresses.) 
  */
 static char*
-validname0(char *aname, int slashok, int dup, ulong pc)
+validname0(char *aname, int slashok, int dup, uintptr pc)
 {
 	char *ename, *name, *s;
 	int c, n;
 	Rune r;
 
 	name = aname;
-	if((ulong)name < KZERO){
+	if((uintptr)name < KZERO){
 		if(!dup)
 			print("warning: validname called from %#p with user pointer", pc);
 		ename = vmemchr(name, 0, (1<<16));

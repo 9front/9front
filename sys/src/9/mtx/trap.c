@@ -533,8 +533,8 @@ evenaddr(ulong addr)
 	}
 }
 
-long
-execregs(ulong entry, ulong ssize, ulong nargs)
+uintptr
+execregs(uintptr entry, ulong ssize, ulong nargs)
 {
 	ulong *sp;
 	Ureg *ureg;
@@ -566,7 +566,7 @@ forkchild(Proc *p, Ureg *ur)
 	p->insyscall = 0;
 }
 
-ulong
+uintptr
 userpc(void)
 {
 	Ureg *ureg;
@@ -600,7 +600,7 @@ setkernur(Ureg* ureg, Proc* p)
 	ureg->sp = p->sched.sp+4;
 }
 
-ulong
+uintptr
 dbgpc(Proc *p)
 {
 	Ureg *ureg;

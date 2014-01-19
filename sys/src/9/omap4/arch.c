@@ -11,13 +11,13 @@
 
 void (*proctrace)(Proc *, int, vlong);
 
-ulong
+uintptr
 userpc(void)
 {
 	return dbgpc(up);
 }
 
-ulong
+uintptr
 dbgpc(Proc *p)
 {
 	Ureg *ureg;
@@ -101,8 +101,8 @@ forkchild(Proc *p, Ureg *ureg)
 	p->insyscall = 0;
 }
 
-long
-execregs(ulong entry, ulong ssize, ulong nargs)
+uintptr
+execregs(uintptr entry, ulong ssize, ulong nargs)
 {
 	ulong *sp;
 	Ureg *ureg;

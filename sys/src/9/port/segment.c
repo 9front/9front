@@ -47,7 +47,7 @@ initseg(void)
 }
 
 Segment *
-newseg(int type, ulong base, ulong size)
+newseg(int type, uintptr base, ulong size)
 {
 	Segment *s;
 	int mapsize;
@@ -125,7 +125,7 @@ putseg(Segment *s)
 }
 
 void
-relocateseg(Segment *s, ulong offset)
+relocateseg(Segment *s, uintptr offset)
 {
 	Page **pg, *x;
 	Pte *pte, **p, **endpte;
@@ -214,7 +214,7 @@ void
 segpage(Segment *s, Page *p)
 {
 	Pte **pte;
-	ulong off;
+	uintptr off;
 	Page **pg;
 
 	if(p->va < s->base || p->va >= s->top)
@@ -234,7 +234,7 @@ segpage(Segment *s, Page *p)
 }
 
 Image*
-attachimage(int type, Chan *c, ulong base, ulong len)
+attachimage(int type, Chan *c, uintptr base, ulong len)
 {
 	Image *i, **l;
 
@@ -392,10 +392,11 @@ putimage(Image *i)
 }
 
 long
-ibrk(ulong addr, int seg)
+ibrk(uintptr addr, int seg)
 {
 	Segment *s, *ns;
-	ulong newtop, newsize;
+	uintptr newtop;
+	ulong newsize;
 	int i, mapsize;
 	Pte **map;
 
@@ -492,10 +493,10 @@ mcountseg(Segment *s)
  *  called with s->lk locked
  */
 void
-mfreeseg(Segment *s, ulong start, int pages)
+mfreeseg(Segment *s, uintptr start, int pages)
 {
 	int i, j, size;
-	ulong soff;
+	uintptr soff;
 	Page *pg;
 	Page *list;
 
@@ -553,11 +554,11 @@ out:
 }
 
 Segment*
-isoverlap(Proc *p, ulong va, int len)
+isoverlap(Proc *p, uintptr va, int len)
 {
 	int i;
 	Segment *ns;
-	ulong newtop;
+	uintptr newtop;
 
 	newtop = va+len;
 	for(i = 0; i < NSEG; i++) {
@@ -615,8 +616,8 @@ isphysseg(char *name)
 	return rv;
 }
 
-ulong
-segattach(Proc *p, ulong attr, char *name, ulong va, ulong len)
+uintptr
+segattach(Proc *p, ulong attr, char *name, uintptr va, ulong len)
 {
 	int sno;
 	Segment *s, *os;
@@ -625,7 +626,7 @@ segattach(Proc *p, ulong attr, char *name, ulong va, ulong len)
 	if(va != 0 && va >= USTKTOP)
 		error(Ebadarg);
 
-	validaddr((ulong)name, 1, 0);
+	validaddr((uintptr)name, 1, 0);
 	vmemchr(name, 0, ~0);
 
 	for(sno = 0; sno < NSEG; sno++)
@@ -708,16 +709,17 @@ pteflush(Pte *pte, int s, int e)
 	}
 }
 
-long
-syssegflush(ulong *arg)
+uintptr
+syssegflush(va_list list)
 {
 	Segment *s;
-	ulong addr, l;
+	ulong len, l;
 	Pte *pte;
-	int chunk, ps, pe, len;
+	int chunk, ps, pe;
+	uintptr addr;
 
-	addr = arg[0];
-	len = arg[1];
+	addr = va_arg(list, uintptr);
+	len = va_arg(list, ulong);
 
 	while(len > 0) {
 		s = seg(up, addr, 1);
@@ -760,7 +762,7 @@ syssegflush(ulong *arg)
 }
 
 void
-segclock(ulong pc)
+segclock(uintptr pc)
 {
 	Segment *s;
 

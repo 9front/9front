@@ -21,7 +21,7 @@ static Block*
 _allocb(int size)
 {
 	Block *b;
-	ulong addr;
+	uintptr addr;
 
 	if((b = mallocz(sizeof(Block)+size+Hdrspc, 0)) == nil)
 		return nil;
@@ -34,13 +34,13 @@ _allocb(int size)
 	_xinc(&b->ref);
 
 	/* align start of data portion by rounding up */
-	addr = (ulong)b;
+	addr = (uintptr)b;
 	addr = ROUND(addr + sizeof(Block), BLOCKALIGN);
 	b->base = (uchar*)addr;
 
 	/* align end of data portion by rounding down */
 	b->lim = ((uchar*)b) + msize(b);
-	addr = (ulong)(b->lim);
+	addr = (uintptr)(b->lim);
 	addr = addr & ~(BLOCKALIGN-1);
 	b->lim = (uchar*)addr;
 

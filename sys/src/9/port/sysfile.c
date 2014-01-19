@@ -113,7 +113,6 @@ newfd2(int fd[2], Chan *c[2])
 	f->fd[fd[0]] = c[0];
 	f->fd[fd[1]] = c[1];
 	unlockfgrp(f);
-
 	return 0;
 }
 
@@ -155,7 +154,6 @@ fdtochan(int fd, int mode, int chkmnt, int iref)
 			cclose(c);
 		error(Ebadusefd);
 	}
-
 	return c;
 }
 
@@ -170,29 +168,36 @@ openmode(ulong o)
 	return o;
 }
 
-long
-sysfd2path(ulong *arg)
+uintptr
+sysfd2path(va_list list)
 {
 	Chan *c;
+	char *buf;
+	uint len;
+	int fd;
 
-	validaddr(arg[1], arg[2], 1);
-
-	c = fdtochan(arg[0], -1, 0, 1);
-	snprint((char*)arg[1], arg[2], "%s", chanpath(c));
+	fd = va_arg(list, int);
+	buf = va_arg(list, char*);
+	len = va_arg(list, uint);
+	validaddr((uintptr)buf, len, 1);
+	c = fdtochan(fd, -1, 0, 1);
+	snprint(buf, len, "%s", chanpath(c));
 	cclose(c);
 	return 0;
 }
 
-long
-syspipe(ulong *arg)
+uintptr
+syspipe(va_list list)
 {
-	int fd[2];
+	int *fd;
 	Chan *c[2];
 	Dev *d;
 	static char *datastr[] = {"data", "data1"};
 
-	validaddr(arg[0], 2*BY2WD, 1);
-	evenaddr(arg[0]);
+	fd = va_arg(list, int*);
+	validaddr((uintptr)fd, 2*sizeof(int), 1);
+	evenaddr((uintptr)fd);
+
 	d = devtab[devno('|', 0)];
 	c[0] = namec("#|", Atodir, 0, 0);
 	c[1] = 0;
@@ -215,24 +220,23 @@ syspipe(ulong *arg)
 	if(newfd2(fd, c) < 0)
 		error(Enofd);
 	poperror();
-
-	((long*)arg[0])[0] = fd[0];
-	((long*)arg[0])[1] = fd[1];
 	return 0;
 }
 
-long
-sysdup(ulong *arg)
+uintptr
+sysdup(va_list list)
 {
 	int fd;
 	Chan *c, *oc;
 	Fgrp *f = up->fgrp;
 
+	fd = va_arg(list, int);
+
 	/*
 	 * Close after dup'ing, so date > #d/1 works
 	 */
-	c = fdtochan(arg[0], -1, 0, 1);
-	fd = arg[1];
+	c = fdtochan(fd, -1, 0, 1);
+	fd = va_arg(list, int);
 	if(fd != -1){
 		lock(f);
 		if(fd<0 || growfd(f, fd)<0) {
@@ -258,19 +262,22 @@ sysdup(ulong *arg)
 			error(Enofd);
 		poperror();
 	}
-
-	return fd;
+	return (uintptr)fd;
 }
 
-long
-sysopen(ulong *arg)
+uintptr
+sysopen(va_list list)
 {
 	int fd;
 	Chan *c;
+	char *name;
+	ulong mode;
 
-	openmode(arg[1]);	/* error check only */
-	validaddr(arg[0], 1, 0);
-	c = namec((char*)arg[0], Aopen, arg[1], 0);
+	name = va_arg(list, char*);
+	mode = va_arg(list, ulong);
+	openmode(mode);	/* error check only */
+	validaddr((uintptr)name, 1, 0);
+	c = namec(name, Aopen, mode, 0);
 	if(waserror()){
 		cclose(c);
 		nexterror();
@@ -279,7 +286,7 @@ sysopen(ulong *arg)
 	if(fd < 0)
 		error(Enofd);
 	poperror();
-	return fd;
+	return (uintptr)fd;
 }
 
 void
@@ -311,12 +318,14 @@ fdclose(int fd, int flag)
 	cclose(c);
 }
 
-long
-sysclose(ulong *arg)
+uintptr
+sysclose(va_list list)
 {
-	fdtochan(arg[0], -1, 0, 0);
-	fdclose(arg[0], 0);
+	int fd;
 
+	fd = va_arg(list, int);
+	fdtochan(fd, -1, 0, 0);
+	fdclose(fd, 0);
 	return 0;
 }
 
@@ -625,17 +634,14 @@ mountfix(Chan *c, uchar *op, long n, long maxn)
 }
 
 static long
-read(ulong *arg, vlong *offp)
+read(int fd, uchar *p, long n, vlong *offp)
 {
-	long n, nn, nnn;
-	uchar *p;
+	long nn, nnn;
 	Chan *c;
 	vlong off;
 
-	n = arg[2];
-	validaddr(arg[1], n, 1);
-	p = (void*)arg[1];
-	c = fdtochan(arg[0], OREAD, 1, 1);
+	validaddr((uintptr)p, n, 1);
+	c = fdtochan(fd, OREAD, 1, 1);
 
 	if(waserror()){
 		cclose(c);
@@ -688,43 +694,51 @@ read(ulong *arg, vlong *offp)
 
 	poperror();
 	cclose(c);
-
 	return nnn;
 }
 
-long
-sys_read(ulong *arg)
+uintptr
+sys_read(va_list list)
 {
-	return read(arg, nil);
+	int fd;
+	void *buf;
+	long len;
+
+	fd = va_arg(list, int);
+	buf = va_arg(list, void*);
+	len = va_arg(list, long);
+	return (uintptr)read(fd, buf, len, nil);
 }
 
-long
-syspread(ulong *arg)
+uintptr
+syspread(va_list list)
 {
-	vlong v;
-	va_list list;
+	int fd;
+	void *buf;
+	long len;
+	vlong off, *offp;
 
-	/* use varargs to guarantee alignment of vlong */
-	va_start(list, arg[2]);
-	v = va_arg(list, vlong);
-	va_end(list);
-
-	if(v == ~0ULL)
-		return read(arg, nil);
-
-	return read(arg, &v);
+	fd = va_arg(list, int);
+	buf = va_arg(list, void*);
+	len = va_arg(list, long);
+	off = va_arg(list, vlong);
+	if(off != ~0ULL)
+		offp = &off;
+	else
+		offp = nil;
+	return (uintptr)read(fd, buf, len, offp);
 }
 
 static long
-write(ulong *arg, vlong *offp)
+write(int fd, void *buf, long len, vlong *offp)
 {
 	Chan *c;
 	long m, n;
 	vlong off;
 
-	validaddr(arg[1], arg[2], 0);
+	validaddr((uintptr)buf, len, 0);
 	n = 0;
-	c = fdtochan(arg[0], OWRITE, 1, 1);
+	c = fdtochan(fd, OWRITE, 1, 1);
 	if(waserror()) {
 		if(offp == nil){
 			lock(c);
@@ -738,7 +752,7 @@ write(ulong *arg, vlong *offp)
 	if(c->qid.type & QTDIR)
 		error(Eisdir);
 
-	n = arg[2];
+	n = len;
 
 	if(offp == nil){	/* use and maintain channel's offset */
 		lock(c);
@@ -751,8 +765,7 @@ write(ulong *arg, vlong *offp)
 	if(off < 0)
 		error(Enegoff);
 
-	m = devtab[c->type]->write(c, (void*)arg[1], n, off);
-
+	m = devtab[c->type]->write(c, buf, n, off);
 	if(offp == nil && m < n){
 		lock(c);
 		c->offset -= n - m;
@@ -761,47 +774,51 @@ write(ulong *arg, vlong *offp)
 
 	poperror();
 	cclose(c);
-
 	return m;
 }
 
-long
-sys_write(ulong *arg)
+uintptr
+sys_write(va_list list)
 {
-	return write(arg, nil);
+	int fd;
+	void *buf;
+	long len;
+
+	fd = va_arg(list, int);
+	buf = va_arg(list, void*);
+	len = va_arg(list, long);
+	return (uintptr)write(fd, buf, len, nil);
 }
 
-long
-syspwrite(ulong *arg)
+uintptr
+syspwrite(va_list list)
 {
-	vlong v;
-	va_list list;
+	int fd;
+	void *buf;
+	long len;
+	vlong off, *offp;
 
-	/* use varargs to guarantee alignment of vlong */
-	va_start(list, arg[2]);
-	v = va_arg(list, vlong);
-	va_end(list);
-
-	if(v == ~0ULL)
-		return write(arg, nil);
-
-	return write(arg, &v);
+	fd = va_arg(list, int);
+	buf = va_arg(list, void*);
+	len = va_arg(list, long);
+	off = va_arg(list, vlong);
+	if(off != ~0ULL)
+		offp = &off;
+	else
+		offp = nil;
+	return (uintptr)write(fd, buf, len, offp);
 }
 
-static void
-sseek(ulong *arg)
+static vlong
+sseek(int fd, vlong o, int type)
 {
 	Chan *c;
 	uchar buf[sizeof(Dir)+100];
 	Dir dir;
 	int n;
 	vlong off;
-	union {
-		vlong v;
-		ulong u[2];
-	} o;
 
-	c = fdtochan(arg[1], -1, 1, 1);
+	c = fdtochan(fd, -1, 1, 1);
 	if(waserror()){
 		cclose(c);
 		nexterror();
@@ -810,11 +827,9 @@ sseek(ulong *arg)
 		error(Eisstream);
 
 	off = 0;
-	o.u[0] = arg[2];
-	o.u[1] = arg[3];
-	switch(arg[4]){
+	switch(type){
 	case 0:
-		off = o.v;
+		off = o;
 		if((c->qid.type & QTDIR) && off != 0)
 			error(Eisdir);
 		if(off < 0)
@@ -826,7 +841,7 @@ sseek(ulong *arg)
 		if(c->qid.type & QTDIR)
 			error(Eisdir);
 		lock(c);	/* lock for read/write update */
-		off = o.v + c->offset;
+		off = o + c->offset;
 		if(off < 0){
 			unlock(c);
 			error(Enegoff);
@@ -841,7 +856,7 @@ sseek(ulong *arg)
 		n = devtab[c->type]->stat(c, buf, sizeof buf);
 		if(convM2D(buf, n, &dir, nil) == 0)
 			error("internal error: stat error in seek");
-		off = dir.length + o.v;
+		off = dir.length + o;
 		if(off < 0)
 			error(Enegoff);
 		c->offset = off;
@@ -850,38 +865,41 @@ sseek(ulong *arg)
 	default:
 		error(Ebadarg);
 	}
-	*(vlong*)arg[0] = off;
 	c->uri = 0;
 	c->dri = 0;
 	cclose(c);
 	poperror();
+	return off;
 }
 
-long
-sysseek(ulong *arg)
+uintptr
+sysseek(va_list list)
 {
-	validaddr(arg[0], BY2V, 1);
-	sseek(arg);
+	int fd, t;
+	vlong n, *v;
+
+	v = va_arg(list, vlong*);
+	validaddr((uintptr)v, sizeof(vlong), 1);
+
+	fd = va_arg(list, int);
+	n = va_arg(list, vlong);
+	t = va_arg(list, int);
+
+	*v = sseek(fd, n, t);
+
 	return 0;
 }
 
-long
-sysoseek(ulong *arg)
+uintptr
+sysoseek(va_list list)
 {
-	union {
-		vlong v;
-		ulong u[2];
-	} o;
-	ulong a[5];
+	int fd, t;
+	long n;
 
-	o.v = (long)arg[1];
-	a[0] = (ulong)&o.v;
-	a[1] = arg[0];
-	a[2] = o.u[0];
-	a[3] = o.u[1];
-	a[4] = arg[2];
-	sseek(a);
-	return o.v;
+	fd = va_arg(list, int);
+	n = va_arg(list, long);
+	t = va_arg(list, int);
+	return (uintptr)sseek(fd, n, t);
 }
 
 void
@@ -926,58 +944,67 @@ pathlast(Path *p)
 	return p->s;
 }
 
-long
-sysfstat(ulong *arg)
+uintptr
+sysfstat(va_list list)
 {
 	Chan *c;
+	int fd;
 	uint l;
+	uchar *s;
 
-	l = arg[2];
-	validaddr(arg[1], l, 1);
-	c = fdtochan(arg[0], -1, 0, 1);
+	fd = va_arg(list, int);
+	s = va_arg(list, uchar*);
+	l = va_arg(list, uint);
+	validaddr((uintptr)s, l, 1);
+
+	c = fdtochan(fd, -1, 0, 1);
 	if(waserror()) {
 		cclose(c);
 		nexterror();
 	}
-	l = devtab[c->type]->stat(c, (uchar*)arg[1], l);
+	l = devtab[c->type]->stat(c, s, l);
 	poperror();
 	cclose(c);
 	return l;
 }
 
-long
-sysstat(ulong *arg)
+uintptr
+sysstat(va_list list)
 {
 	char *name;
 	Chan *c;
-	uint l;
+	uint l, r;
+	uchar *s;
 
-	l = arg[2];
-	validaddr(arg[1], l, 1);
-	validaddr(arg[0], 1, 0);
-	c = namec((char*)arg[0], Aaccess, 0, 0);
+	name = va_arg(list, char*);
+	s = va_arg(list, uchar*);
+	l = va_arg(list, uint);
+	validaddr((uintptr)s, l, 1);
+	validaddr((uintptr)name, 1, 0);
+	c = namec(name, Aaccess, 0, 0);
 	if(waserror()){
 		cclose(c);
 		nexterror();
 	}
-	l = devtab[c->type]->stat(c, (uchar*)arg[1], l);
+	r = devtab[c->type]->stat(c, s, l);
 	name = pathlast(c->path);
 	if(name)
-		l = dirsetname(name, strlen(name), (uchar*)arg[1], l, arg[2]);
+		r = dirsetname(name, strlen(name), s, r, l);
 
 	poperror();
 	cclose(c);
-	return l;
+	return r;
 }
 
-long
-syschdir(ulong *arg)
+uintptr
+syschdir(va_list list)
 {
 	Chan *c;
+	char *name;
 
-	validaddr(arg[0], 1, 0);
-
-	c = namec((char*)arg[0], Atodir, 0, 0);
+	name = va_arg(list, char*);
+	validaddr((uintptr)name, 1, 0);
+	c = namec(name, Atodir, 0, 0);
 	cclose(up->dot);
 	up->dot = c;
 	return 0;
@@ -999,7 +1026,7 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char
 		error(Ebadarg);
 
 	if(ismount){
-		validaddr((ulong)spec, 1, 0);
+		validaddr((uintptr)spec, 1, 0);
 		spec = validnamedup(spec, 1);
 		if(waserror()){
 			free(spec);
@@ -1033,7 +1060,7 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char
 		cclose(bc);
 	}else{
 		spec = 0;
-		validaddr((ulong)arg0, 1, 0);
+		validaddr((uintptr)arg0, 1, 0);
 		c0 = namec(arg0, Abind, 0, 0);
 	}
 
@@ -1042,7 +1069,7 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char
 		nexterror();
 	}
 
-	validaddr((ulong)arg1, 1, 0);
+	validaddr((uintptr)arg1, 1, 0);
 	c1 = namec(arg1, Amount, 0, 0);
 	if(waserror()){
 		cclose(c1);
@@ -1063,33 +1090,59 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char
 	return ret;
 }
 
-long
-sysbind(ulong *arg)
+uintptr
+sysbind(va_list list)
 {
-	return bindmount(0, -1, -1, (char*)arg[0], (char*)arg[1], arg[2], nil);
+	char *arg0, *arg1;
+	ulong flag;
+
+	arg0 = va_arg(list, char*);
+	arg1 = va_arg(list, char*);
+	flag = va_arg(list, ulong);
+	return (uintptr)bindmount(0, -1, -1, arg0, arg1, flag, nil);
 }
 
-long
-sysmount(ulong *arg)
+uintptr
+sysmount(va_list list)
 {
-	return bindmount(1, arg[0], arg[1], nil, (char*)arg[2], arg[3], (char*)arg[4]);
+	char *arg1, *spec;
+	ulong flag;
+	int fd, afd;
+
+	fd = va_arg(list, int);
+	afd = va_arg(list, int);
+	arg1 = va_arg(list, char*);
+	flag = va_arg(list, ulong);
+	spec = va_arg(list, char*);
+	return (uintptr)bindmount(1, fd, afd, nil, arg1, flag, spec);
 }
 
-long
-sys_mount(ulong *arg)
+uintptr
+sys_mount(va_list list)
 {
-	return bindmount(1, arg[0], -1, nil, (char*)arg[1], arg[2], (char*)arg[3]);
+	char *arg1, *spec;
+	ulong flag;
+	int fd;
+
+	fd = va_arg(list, int);
+	arg1 = va_arg(list, char*);
+	flag = va_arg(list, ulong);
+	spec = va_arg(list, char*);
+	return (uintptr)bindmount(1, fd, -1, nil, arg1, flag, spec);
 }
 
-long
-sysunmount(ulong *arg)
+uintptr
+sysunmount(va_list list)
 {
 	Chan *cmount, *cmounted;
+	char *name, *old;
+
+	name = va_arg(list, char*);
+	old = va_arg(list, char*);
 
 	cmounted = 0;
-
-	validaddr(arg[1], 1, 0);
-	cmount = namec((char *)arg[1], Amount, 0, 0);
+	validaddr((uintptr)old, 1, 0);
+	cmount = namec(old, Amount, 0, 0);
 	if(waserror()) {
 		cclose(cmount);
 		if(cmounted)
@@ -1097,15 +1150,15 @@ sysunmount(ulong *arg)
 		nexterror();
 	}
 
-	if(arg[0]) {
+	if(name) {
 		/*
 		 * This has to be namec(..., Aopen, ...) because
 		 * if arg[0] is something like /srv/cs or /fd/0,
 		 * opening it is the only way to get at the real
 		 * Chan underneath.
 		 */
-		validaddr(arg[0], 1, 0);
-		cmounted = namec((char*)arg[0], Aopen, OREAD, 0);
+		validaddr((uintptr)name, 1, 0);
+		cmounted = namec(name, Aopen, OREAD, 0);
 	}
 	cunmount(cmount, cmounted);
 	poperror();
@@ -1115,15 +1168,19 @@ sysunmount(ulong *arg)
 	return 0;
 }
 
-long
-syscreate(ulong *arg)
+uintptr
+syscreate(va_list list)
 {
-	int fd;
+	int fd, mode, perm;
+	char *name;
 	Chan *c;
 
-	openmode(arg[1]&~OEXCL);	/* error check only; OEXCL okay here */
-	validaddr(arg[0], 1, 0);
-	c = namec((char*)arg[0], Acreate, arg[1], arg[2]);
+	name = va_arg(list, char*);
+	mode = va_arg(list, int);
+	perm = va_arg(list, int);
+	openmode(mode&~OEXCL);	/* error check only; OEXCL okay here */
+	validaddr((uintptr)name, 1, 0);
+	c = namec(name, Acreate, mode, perm);
 	if(waserror()) {
 		cclose(c);
 		nexterror();
@@ -1132,16 +1189,18 @@ syscreate(ulong *arg)
 	if(fd < 0)
 		error(Enofd);
 	poperror();
-	return fd;
+	return (uintptr)fd;
 }
 
-long
-sysremove(ulong *arg)
+uintptr
+sysremove(va_list list)
 {
+	char *name;
 	Chan *c;
 
-	validaddr(arg[0], 1, 0);
-	c = namec((char*)arg[0], Aremove, 0, 0);
+	name = va_arg(list, char*);
+	validaddr((uintptr)name, 1, 0);
+	c = namec(name, Aremove, 0, 0);
 	/*
 	 * Removing mount points is disallowed to avoid surprises
 	 * (which should be removed: the mount point or the mounted Chan?).
@@ -1191,31 +1250,39 @@ wstat(Chan *c, uchar *d, int nd)
 	return l;
 }
 
-long
-syswstat(ulong *arg)
+uintptr
+syswstat(va_list list)
 {
+	char *name;
+	uchar *s;
 	Chan *c;
 	uint l;
 
-	l = arg[2];
-	validaddr(arg[1], l, 0);
-	validstat((uchar*)arg[1], l);
-	validaddr(arg[0], 1, 0);
-	c = namec((char*)arg[0], Aaccess, 0, 0);
-	return wstat(c, (uchar*)arg[1], l);
+	name = va_arg(list, char*);
+	s = va_arg(list, uchar*);
+	l = va_arg(list, uint);
+	validaddr((uintptr)s, l, 0);
+	validstat(s, l);
+	validaddr((uintptr)name, 1, 0);
+	c = namec(name, Aaccess, 0, 0);
+	return (uintptr)wstat(c, s, l);
 }
 
-long
-sysfwstat(ulong *arg)
+uintptr
+sysfwstat(va_list list)
 {
+	uchar *s;
 	Chan *c;
 	uint l;
+	int fd;
 
-	l = arg[2];
-	validaddr(arg[1], l, 0);
-	validstat((uchar*)arg[1], l);
-	c = fdtochan(arg[0], -1, 1, 1);
-	return wstat(c, (uchar*)arg[1], l);
+	fd = va_arg(list, int);
+	s = va_arg(list, uchar*);
+	l = va_arg(list, uint);
+	validaddr((uintptr)s, l, 0);
+	validstat(s, l);
+	c = fdtochan(fd, -1, 1, 1);
+	return (uintptr)wstat(c, s, l);
 }
 
 static void
@@ -1252,19 +1319,21 @@ packoldstat(uchar *buf, Dir *d)
 	PBIT16(p, d->dev);
 }
 
-long
-sys_stat(ulong *arg)
+uintptr
+sys_stat(va_list list)
 {
 	Chan *c;
 	uint l;
-	uchar buf[128];	/* old DIRLEN plus a little should be plenty */
+	uchar *s, buf[128];	/* old DIRLEN plus a little should be plenty */
 	char strs[128], *name;
 	Dir d;
 	char old[] = "old stat system call - recompile";
 
-	validaddr(arg[1], 116, 1);
-	validaddr(arg[0], 1, 0);
-	c = namec((char*)arg[0], Aaccess, 0, 0);
+	name = va_arg(list, char*);
+	s = va_arg(list, uchar*);
+	validaddr((uintptr)s, 116, 1);
+	validaddr((uintptr)name, 1, 0);
+	c = namec(name, Aaccess, 0, 0);
 	if(waserror()){
 		cclose(c);
 		nexterror();
@@ -1279,26 +1348,29 @@ sys_stat(ulong *arg)
 	l = convM2D(buf, l, &d, strs);
 	if(l == 0)
 		error(old);
-	packoldstat((uchar*)arg[1], &d);
+	packoldstat(s, &d);
 	
 	poperror();
 	cclose(c);
 	return 0;
 }
 
-long
-sys_fstat(ulong *arg)
+uintptr
+sys_fstat(va_list list)
 {
 	Chan *c;
 	char *name;
 	uint l;
-	uchar buf[128];	/* old DIRLEN plus a little should be plenty */
+	uchar *s, buf[128];	/* old DIRLEN plus a little should be plenty */
 	char strs[128];
 	Dir d;
 	char old[] = "old fstat system call - recompile";
+	int fd;
 
-	validaddr(arg[1], 116, 1);
-	c = fdtochan(arg[0], -1, 0, 1);
+	fd = va_arg(list, int);
+	s = va_arg(list, uchar*);
+	validaddr((uintptr)s, 116, 1);
+	c = fdtochan(fd, -1, 0, 1);
 	if(waserror()){
 		cclose(c);
 		nexterror();
@@ -1313,23 +1385,23 @@ sys_fstat(ulong *arg)
 	l = convM2D(buf, l, &d, strs);
 	if(l == 0)
 		error(old);
-	packoldstat((uchar*)arg[1], &d);
+	packoldstat(s, &d);
 	
 	poperror();
 	cclose(c);
 	return 0;
 }
 
-long
-sys_wstat(ulong *)
+uintptr
+sys_wstat(va_list)
 {
 	error("old wstat system call - recompile");
-	return -1;
+	return (uintptr)-1;
 }
 
-long
-sys_fwstat(ulong *)
+uintptr
+sys_fwstat(va_list)
 {
 	error("old fwstat system call - recompile");
-	return -1;
+	return (uintptr)-1;
 }

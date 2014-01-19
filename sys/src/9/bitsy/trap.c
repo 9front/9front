@@ -557,7 +557,7 @@ syscall(Ureg* ureg)
 		up->s = *((Sargs*)(sp+BY2WD));
 		up->psstate = sysctab[scallnr];
 
-		ret = systab[scallnr](up->s.args);
+		ret = systab[scallnr]((va_list)up->s.args);
 		poperror();
 	}else{
 		/* failure: save the error buffer for errstr */
@@ -757,7 +757,7 @@ setkernur(Ureg *ureg, Proc *p)
 /*
  *  return the userpc the last exception happened at
  */
-ulong
+uintptr
 userpc(void)
 {
 	Ureg *ureg;
@@ -829,8 +829,8 @@ forkchild(Proc *p, Ureg *ureg)
 /*
  *  setup stack, initial PC, and any arch dependent regs for an execing user proc.
  */
-long
-execregs(ulong entry, ulong ssize, ulong nargs)
+uintptr
+execregs(uintptr entry, ulong ssize, ulong nargs)
 {
 	ulong *sp;
 	Ureg *ureg;
@@ -901,7 +901,7 @@ dumpstack(void)
 /*
  *  pc output by ps
  */
-ulong
+uintptr
 dbgpc(Proc *p)
 {
 	Ureg *ureg;
