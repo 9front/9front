@@ -186,7 +186,7 @@ flushmemscreen(Rectangle r)
 	if(rectclip(&r, scr->gscreen->r) == 0)
 		return;
 	disp = scr->vaddr;
-	incs = scr->gscreen->width*BY2WD;
+	incs = scr->gscreen->width*sizeof(ulong);
 	off = (r.min.x*scr->gscreen->depth) / 8;
 	len = (r.max.x*scr->gscreen->depth + 7) / 8;
 	len -= off;

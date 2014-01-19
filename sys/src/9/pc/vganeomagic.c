@@ -377,7 +377,7 @@ neomagichwfill(VGAscr *scr, Rectangle r, ulong sval)
 		| NEO_BC3_SKIP_MAPPING
 		| GXcopy;
 	mmio[DstStartOff] = scr->paddr
-		+ r.min.y*scr->gscreen->width*BY2WD
+		+ r.min.y*scr->gscreen->width*sizeof(ulong)
 		+ r.min.x*scr->gscreen->depth/BI2BY;
 	mmio[XYExt] = (Dy(r) << 16) | (Dx(r) & 0xffff);
 	waitforidle(scr);
@@ -392,7 +392,7 @@ neomagichwscroll(VGAscr *scr, Rectangle r, Rectangle sr)
 
 	mmio = scr->mmio;
 
-	pitch = scr->gscreen->width*BY2WD;
+	pitch = scr->gscreen->width*sizeof(ulong);
 	pixel = scr->gscreen->depth/BI2BY;
 
 	waitforfifo(scr, 4);
@@ -433,7 +433,7 @@ neomagicdrawinit(VGAscr *scr)
 
 	mmio = scr->mmio;
 
-	pitch = scr->gscreen->width*BY2WD;
+	pitch = scr->gscreen->width*sizeof(ulong);
 
 	neomagicbltflags = bltmode = 0;
 

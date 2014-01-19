@@ -589,7 +589,7 @@ mach64xxcurenable(VGAscr* scr)
 	 * Find a place for the cursor data in display memory.
 	 * Must be 64-bit aligned.
 	 */
-	storage = (scr->gscreen->width*BY2WD*scr->gscreen->r.max.y+7)/8;
+	storage = (scr->gscreen->width*sizeof(ulong)*scr->gscreen->r.max.y+7)/8;
 	iow32(scr, CurOffset, storage);
 	scr->storage = storage*8;
 

@@ -169,7 +169,7 @@ cyber938xcurenable(VGAscr* scr)
 	/*
 	 * Find a place for the cursor data in display memory.
 	 */
-	storage = ((scr->gscreen->width*BY2WD*scr->gscreen->r.max.y+1023)/1024);
+	storage = ((scr->gscreen->width*sizeof(ulong)*scr->gscreen->r.max.y+1023)/1024);
 	vgaxo(Crtx, 0x44, storage & 0xFF);
 	vgaxo(Crtx, 0x45, (storage>>8) & 0xFF);
 	storage *= 1024;

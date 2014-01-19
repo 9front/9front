@@ -307,7 +307,7 @@ s3enable(VGAscr* scr)
 	 * Find a place for the cursor data in display memory.
 	 * Must be on a 1024-byte boundary.
 	 */
-	storage = (scr->gscreen->width*BY2WD*scr->gscreen->r.max.y+1023)/1024;
+	storage = (scr->gscreen->width*sizeof(ulong)*scr->gscreen->r.max.y+1023)/1024;
 	vgaxo(Crtx, 0x4C, storage>>8);
 	vgaxo(Crtx, 0x4D, storage & 0xFF);
 	storage *= 1024;

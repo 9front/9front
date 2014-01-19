@@ -34,7 +34,7 @@ ct65545enable(VGAscr* scr)
 	 * Find a place for the cursor data in display memory.
 	 * Must be on a 1024-byte boundary.
 	 */
-	storage = ROUND(scr->gscreen->width*BY2WD*scr->gscreen->r.max.y, 1024);
+	storage = ROUND(scr->gscreen->width*sizeof(ulong)*scr->gscreen->r.max.y, 1024);
 	outl(0xB3D0, storage);
 	scr->storage = storage;
 

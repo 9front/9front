@@ -79,7 +79,7 @@ et4000enable(VGAscr *scr)
 	 * 1024-byte boundary so that there's no danger of it
 	 * crossing a page.
 	 */
-	scr->storage = (scr->gscreen->width*BY2WD*scr->gscreen->r.max.y+1023)/1024;
+	scr->storage = (scr->gscreen->width*sizeof(ulong)*scr->gscreen->r.max.y+1023)/1024;
 	scr->storage *= 1024/4;
 	outb(0x217A, 0xE8);
 	outb(0x217B, scr->storage & 0xFF);
