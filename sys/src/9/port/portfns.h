@@ -240,7 +240,7 @@ Block*		pullupblock(Block*, int);
 Block*		pullupqueue(Queue*, int);
 void		putimage(Image*);
 void		putmhead(Mhead*);
-void		putmmu(ulong, ulong, Page*);
+void		putmmu(uintptr, uintptr, Page*);
 void		putpage(Page*);
 void		putseg(Segment*);
 void		putstrn(char*, int);

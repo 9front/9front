@@ -79,8 +79,7 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 	int type;
 	int ref;
 	Pte **p, *etp;
-	ulong mmuphys=0;
-	uintptr soff;
+	uintptr soff, mmuphys=0;
 	Page **pg, *lkp, *new;
 	Page *(*fn)(Segment*, uintptr);
 

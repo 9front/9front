@@ -139,7 +139,7 @@ mmunewtop(void)
 }
 
 void
-putmmu(ulong va, ulong pa, Page *pg)
+putmmu(uintptr va, uintptr pa, Page *pg)
 {
 	int lvl2off;
 	uvlong *lvl2, *pt;

@@ -362,7 +362,7 @@ static ulong mmubits[16] =
  *  add an entry to the current map
  */
 void
-putmmu(ulong va, ulong pa, Page *pg)
+putmmu(uintptr va, uintptr pa, Page *pg)
 {
 	Page *l2pg;
 	ulong *t, *l1p, *l2p;

@@ -139,7 +139,7 @@ mmuswitch(Proc *p)
 }
 
 void
-putmmu(ulong va, ulong pa, Page *)
+putmmu(uintptr va, uintptr pa, Page *)
 {
 	ulong *l1a, *l1b, *l2;
 	int l1o, l2o;

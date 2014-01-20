@@ -421,7 +421,7 @@ upallocpdb(void)
  * Update the mmu in response to a user fault.  pa may have PTEWRITE set.
  */
 void
-putmmu(ulong va, ulong pa, Page*)
+putmmu(uintptr va, uintptr pa, Page*)
 {
 	int old, s;
 	Page *page;

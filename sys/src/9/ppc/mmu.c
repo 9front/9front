@@ -196,7 +196,7 @@ mmurelease(Proc* p)
 }
 
 void
-putmmu(ulong va, ulong pa, Page *pg)
+putmmu(uintptr va, uintptr pa, Page *pg)
 {
 	int mp;
 	char *ctl;
