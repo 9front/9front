@@ -562,7 +562,7 @@ notify(Ureg *ur)
 	sp = ur->usp & ~(BY2V-1);
 	sp -= sizeof(Ureg);
 
-	if(!okaddr((ulong)up->notify, BY2WD, 0)
+	if(!okaddr((uintptr)up->notify, BY2WD, 0)
 	|| !okaddr(sp-ERRMAX-6*BY2WD, sizeof(Ureg)+ERRMAX-6*BY2WD, 1)) {
 		qunlock(&up->debug);
 		pprint("suicide: bad address or sp in notify\n");
@@ -627,7 +627,7 @@ noted(Ureg *kur, Ureg **urp, ulong arg0)
 
 	oureg = (ulong)nur;
 	if((oureg & (BY2V-1))
-	|| !okaddr((ulong)oureg-BY2WD, BY2WD+sizeof(Ureg), 0)){
+	|| !okaddr(oureg-BY2WD, BY2WD+sizeof(Ureg), 0)){
 		qunlock(&up->debug);
 		pprint("bad ureg in noted or call to noted() when not notified\n");
 		pexit("Suicide", 0);

@@ -221,7 +221,7 @@ sysrfork(va_list list)
 		procwired(p, wm->machno);
 	ready(p);
 	sched();
-	return (uintptr)pid;
+	return pid;
 }
 
 static ulong
@@ -579,7 +579,7 @@ syssleep(va_list list)
 uintptr
 sysalarm(va_list list)
 {
-	return (uintptr)procalarm(va_arg(list, ulong));
+	return procalarm(va_arg(list, ulong));
 }
 
 
@@ -612,34 +612,32 @@ sysexits(va_list list)
 uintptr
 sys_wait(va_list list)
 {
-	int pid;
+	ulong pid;
 	Waitmsg w;
 	OWaitmsg *ow;
 
 	ow = va_arg(list, OWaitmsg*);
-	if(ow == 0)
+	if(ow == nil)
 		pid = pwait(nil);
 	else {
 		validaddr((uintptr)ow, sizeof(OWaitmsg), 1);
 		evenaddr((uintptr)ow);
 		pid = pwait(&w);
-		if(pid >= 0){
-			readnum(0, ow->pid, NUMSIZE, w.pid, NUMSIZE);
-			readnum(0, ow->time+TUser*NUMSIZE, NUMSIZE, w.time[TUser], NUMSIZE);
-			readnum(0, ow->time+TSys*NUMSIZE, NUMSIZE, w.time[TSys], NUMSIZE);
-			readnum(0, ow->time+TReal*NUMSIZE, NUMSIZE, w.time[TReal], NUMSIZE);
-			strncpy(ow->msg, w.msg, sizeof(ow->msg)-1);
-			ow->msg[sizeof(ow->msg)-1] = '\0';
-		}
 	}
-	return (uintptr)pid;
+	if(ow != nil){
+		readnum(0, ow->pid, NUMSIZE, w.pid, NUMSIZE);
+		readnum(0, ow->time+TUser*NUMSIZE, NUMSIZE, w.time[TUser], NUMSIZE);
+		readnum(0, ow->time+TSys*NUMSIZE, NUMSIZE, w.time[TSys], NUMSIZE);
+		readnum(0, ow->time+TReal*NUMSIZE, NUMSIZE, w.time[TReal], NUMSIZE);
+		strncpy(ow->msg, w.msg, sizeof(ow->msg)-1);
+		ow->msg[sizeof(ow->msg)-1] = '\0';
+	}
+	return pid;
 }
 
 uintptr
 sysawait(va_list list)
 {
-	int i;
-	int pid;
 	char *p;
 	Waitmsg w;
 	uint n;
@@ -647,16 +645,11 @@ sysawait(va_list list)
 	p = va_arg(list, char*);
 	n = va_arg(list, uint);
 	validaddr((uintptr)p, n, 1);
-	pid = pwait(&w);
-	if(pid < 0)
-		i = -1;
-	else {
-		i = snprint(p, n, "%d %lud %lud %lud %q",
-			w.pid,
-			w.time[TUser], w.time[TSys], w.time[TReal],
-			w.msg);
-	}
-	return (uintptr)i;
+	pwait(&w);
+	return (uintptr)snprint(p, n, "%d %lud %lud %lud %q",
+		w.pid,
+		w.time[TUser], w.time[TSys], w.time[TReal],
+		w.msg);
 }
 
 void

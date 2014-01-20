@@ -648,7 +648,7 @@ casemu(ulong pc, ulong op, Ureg *ur)
 	rn = rp[op>>0 & 0x7];
 	rd = rp + (op>>12 & 0x7);
 	rp = (ulong*)*rd;
-	validaddr((ulong)rp, 4, 1);
+	validaddr((uintptr)rp, 4, 1);
 	splhi();
 	if(*rd = (*rp == ro))
 		*rp = rn;
@@ -667,7 +667,7 @@ ldrex(ulong pc, ulong op, Ureg *ur)
 	rp = (ulong*)ur;
 	rd = rp + (op>>16 & 0x7);
 	addr = (ulong*)*rd;
-	validaddr((ulong)addr, 4, 0);
+	validaddr((uintptr)addr, 4, 0);
 	ldrexvalid = 1;
 	rp[op>>12 & 0x7] = *addr;
 	if(fpemudebug)
@@ -686,7 +686,7 @@ strex(ulong pc, ulong op, Ureg *ur)
 	rd = rp + (op>>16 & 0x7);
 	rn = rp[op>>0 & 0x7];
 	addr = (ulong*)*rd;
-	validaddr((ulong)addr, 4, 1);
+	validaddr((uintptr)addr, 4, 1);
 	splhi();
 	if(ldrexvalid){
 		if(fpemudebug)
