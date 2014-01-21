@@ -370,7 +370,7 @@ void		wunlock(RWlock*);
 void*		xalloc(ulong);
 void*		xallocz(ulong, int);
 void		xfree(void*);
-void		xhole(ulong, ulong);
+void		xhole(uintptr, uintptr);
 void		xinit(void);
 int		xmerge(void*, void*);
 void*		xspanalloc(ulong, int, ulong);

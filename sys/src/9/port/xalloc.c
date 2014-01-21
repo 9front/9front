@@ -16,9 +16,9 @@ typedef struct Xhdr Xhdr;
 
 struct Hole
 {
-	ulong	addr;
-	ulong	size;
-	ulong	top;
+	uintptr	addr;
+	uintptr	size;
+	uintptr	top;
 	Hole*	link;
 };
 
@@ -44,6 +44,7 @@ xinit(void)
 {
 	int i, n, upages, kpages;
 	ulong maxpages;
+	uintptr size;
 	Confmem *m;
 	Pallocmem *pm;
 	Hole *h, *eh;
@@ -66,11 +67,12 @@ xinit(void)
 		maxpages = cankaddr(m->base)/BY2PG;
 		if(n > maxpages)
 			n = maxpages;
+		size = (uintptr)n*BY2PG;
 		/* first give to kernel */
 		if(n > 0){
-			m->kbase = (ulong)KADDR(m->base);
-			m->klimit = (ulong)KADDR(m->base+n*BY2PG);
-			xhole(m->base, n*BY2PG);
+			m->kbase = (uintptr)KADDR(m->base);
+			m->klimit = (uintptr)KADDR(m->base+size);
+			xhole(m->base, size);
 			kpages -= n;
 		}
 		/* if anything left over, give to user */
@@ -79,7 +81,7 @@ xinit(void)
 				print("xinit: losing %lud pages\n", m->npage-n);
 				continue;
 			}
-			pm->base = m->base+n*BY2PG;
+			pm->base = m->base+size;
 			pm->npage = m->npage - n;
 			pm++;
 		}
@@ -90,8 +92,9 @@ xinit(void)
 void*
 xspanalloc(ulong size, int align, ulong span)
 {
-	ulong a, v, t;
-	a = (ulong)xalloc(size+align+span);
+	uintptr a, v, t;
+
+	a = (uintptr)xalloc(size+align+span);
 	if(a == 0)
 		panic("xspanalloc: %lud %d %lux", size, align, span);
 
@@ -159,7 +162,7 @@ xfree(void *p)
 {
 	Xhdr *x;
 
-	x = (Xhdr*)((ulong)p - offsetof(Xhdr, data[0]));
+	x = (Xhdr*)((uintptr)p - offsetof(Xhdr, data[0]));
 	if(x->magix != Magichole) {
 		xsummary();
 		panic("xfree(%#p) %#ux != %#lux", p, Magichole, x->magix);
@@ -172,8 +175,8 @@ xmerge(void *vp, void *vq)
 {
 	Xhdr *p, *q;
 
-	p = (Xhdr*)(((ulong)vp - offsetof(Xhdr, data[0])));
-	q = (Xhdr*)(((ulong)vq - offsetof(Xhdr, data[0])));
+	p = (Xhdr*)(((uintptr)vp - offsetof(Xhdr, data[0])));
+	q = (Xhdr*)(((uintptr)vq - offsetof(Xhdr, data[0])));
 	if(p->magix != Magichole || q->magix != Magichole) {
 		int i;
 		ulong *wd;
@@ -200,10 +203,10 @@ xmerge(void *vp, void *vq)
 }
 
 void
-xhole(ulong addr, ulong size)
+xhole(uintptr addr, uintptr size)
 {
-	ulong top;
 	Hole *h, *c, **l;
+	uintptr top;
 
 	if(size == 0)
 		return;
@@ -239,7 +242,7 @@ xhole(ulong addr, ulong size)
 
 	if(xlists.flist == nil) {
 		iunlock(&xlists);
-		print("xfree: no free holes, leaked %lud bytes\n", size);
+		print("xfree: no free holes, leaked %p bytes\n", size);
 		return;
 	}
 
@@ -266,7 +269,7 @@ xsummary(void)
 	print("%d holes free\n", i);
 	i = 0;
 	for(h = xlists.table; h; h = h->link) {
-		print("%.8lux %.8lux %lud\n", h->addr, h->top, h->size);
+		print("%#p %#p %p\n", h->addr, h->top, h->size);
 		i += h->size;
 	}
 	print("%d bytes free\n", i);
