@@ -4980,3 +4980,6 @@ If you move your mouse pointer continuously while the data is being returned to 
 Nobody knows what "most" C++ programmers do. -- Bjarne Stroustrup
 (iv) Make changes to the UNIX system only after much deliberation, and only when major gains can be made. Avoid changing the UNIX system's interfaces, and isolate any such changes as much as possible. Stay close to the Research UNIX system, in order to take advantage of continuing improvements.
 9front at least has DVCS but they have one good programmer and 50 idiots who prefer to fill up the fortune file rather than fix a bug–oh, and they switched from the publically-archived Google Groups mailing list to a self-hosted non-archived mailing list, so nobody really knows what’s actually going on there.
+I do not want you to check my systems. -- Lt. Cmd. Data
+006: SECURITY FIX: Jan 10, 2014   All architectures A BDF font file containing a longer than expected string could overflow a buffer on the stack in the X server.
+Dear subscriber, you are registered as a participant in a mass disturbance.

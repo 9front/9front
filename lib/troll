@@ -146,3 +146,8 @@ In spite of some really great ideas, I think we'd all agree that Plan-9 has no r
 I now have 9Front running fine, and, in fact, I am renewing a port of an OO language extension to it.
 prevailing wisdom seems to say to go with 9atom unless you need the hardware support of 9front - please correct me if this is wrong.
 If you want your work to be useful to the Plan 9 community (and I hope you do), please stay with us and improve the real Plan 9.
+I have been running with p9p fossil on both my OSX and Linux box now for a while. It has been very stable so far.
+I am just trying to figure out the best way of using fossil+venti with a laptop.
+if there are any 9srv users in the room: my fossil went crashy  early this morning.
+(This is p9p fossil)
+srv: timeout establishing connection to tcp!sources.cs.bell-labs.com!9fs
