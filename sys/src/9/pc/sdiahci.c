@@ -1573,7 +1573,7 @@ iadisable(SDev *s)
 }
 
 static Alist*
-ahcibuild(Drive *d, int rw, void *data, uint n, vlong lba)
+ahcibuild(Drive *d, int rw, void *data, int nsect, vlong lba)
 {
 	uchar *c;
 	uint flags;
@@ -1581,11 +1581,11 @@ ahcibuild(Drive *d, int rw, void *data, uint n, vlong lba)
 
 	m = &d->portm;
 	c = m->ctab->cfis;
-	rwfis(m, c, rw, n, lba);
+	rwfis(m, c, rw, nsect, lba);
 	flags = Lpref;
 	if(rw == SDwrite)
 		flags |= Lwrite;
-	return mkalist(m, flags, data, 512*n);
+	return mkalist(m, flags, data, nsect * d->secsize);
 }
 
 static Alist*
@@ -1812,7 +1812,7 @@ ahcibio(SDunit *u, int lun, int write, void *a, long count, uvlong lba)
 		}
 		try = 0;
 		count -= n;
-		lba   += n;
+		lba += n;
 		data += n * u->secsize;
 		if(count == 0)
 			return data - (uchar*)a;
@@ -2297,7 +2297,7 @@ iarctl(SDunit *u, char *p, int l)
 	p = capfmt(p, e, ctab, nelem(ctab), o->cmd);
 	p = seprint(p, e, "\n");
 	p = seprint(p, e, "mode\t%s %s\n", modes[d->mode], modes[maxmode(c)]);
-	p = seprint(p, e, "geometry %llud %lud\n", d->sectors, u->secsize);
+	p = seprint(p, e, "geometry %llud %d\n", d->sectors, d->secsize);
 	p = seprint(p, e, "alignment %d %d\n", 
 		d->secsize<<d->portm.physshift, d->portm.physalign);
 	p = seprint(p, e, "missirq\t%ud\n", c->missirq);
