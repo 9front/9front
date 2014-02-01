@@ -8,7 +8,10 @@
 #include "fns.h"
 #include "io.h"
 #include "../port/error.h"
-#include "ureg.h"
+
+#define Ureg Ureg386
+#include "/386/include/ureg.h"
+typedef struct Ureg386 Ureg386;
 
 #define	Image	IMAGE
 #include <draw.h>
@@ -36,7 +39,7 @@ static int vesactl;
 #define PLONG(p, v) (p)[0] = (v); (p)[1] = (v)>>8; (p)[2] = (v)>>16; (p)[3] = (v)>>24
 
 static uchar*
-vbesetup(Ureg *u, int ax)
+vbesetup(Ureg386 *u, int ax)
 {
 	memset(modebuf, 0, sizeof modebuf);
 	memset(u, 0, sizeof *u);
@@ -47,7 +50,7 @@ vbesetup(Ureg *u, int ax)
 }
 
 static void
-vbecall(Ureg *u)
+vbecall(Ureg386 *u)
 {
 	if(devtab[cmem->type]->write(cmem, modebuf, sizeof(modebuf), RealModeBuf) != sizeof(modebuf))
 		error("write modebuf");
@@ -65,7 +68,7 @@ vbecall(Ureg *u)
 static void
 vbecheck(void)
 {
-	Ureg u;
+	Ureg386 u;
 	uchar *p;
 
 	p = vbesetup(&u, 0x4F00);
@@ -80,7 +83,7 @@ vbecheck(void)
 static int
 vbegetmode(void)
 {
-	Ureg u;
+	Ureg386 u;
 
 	vbesetup(&u, 0x4F03);
 	vbecall(&u);
@@ -91,7 +94,7 @@ static uchar*
 vbemodeinfo(int mode)
 {
 	uchar *p;
-	Ureg u;
+	Ureg386 u;
 
 	p = vbesetup(&u, 0x4F01);
 	u.cx = mode;
@@ -171,7 +174,7 @@ gotctl(void *arg)
 static void
 vesaproc(void*)
 {
-	Ureg u;
+	Ureg386 u;
 	int ctl;
 
 	ctl = Cenable;
