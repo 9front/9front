@@ -601,15 +601,15 @@ consread(Chan *c, void *buf, long n, vlong off)
 
 	case Qswap:
 		snprint(tmp, sizeof tmp,
-			"%lud memory\n"
-			"%d pagesize\n"
+			"%llud memory\n"
+			"%llud pagesize\n"
 			"%lud kernel\n"
 			"%lud/%lud user\n"
 			"%lud/%lud swap\n"
 			"%lud/%lud kernel malloc\n"
 			"%lud/%lud kernel draw\n",
-			conf.npage*BY2PG,
-			BY2PG,
+			(uvlong)conf.npage*BY2PG,
+			(uvlong)BY2PG,
 			conf.npage-conf.upages,
 			palloc.user-palloc.freecount, palloc.user,
 			conf.nswap-swapalloc.free, conf.nswap,
