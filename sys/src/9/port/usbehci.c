@@ -424,7 +424,7 @@ edalloc(void)
 	unlock(&edpool);
 
 	memset(ed, 0, sizeof(Ed));	/* safety */
-	assert(((ulong)ed & 0xF) == 0);
+	assert(((uintptr)ed & 0xF) == 0);
 	return ed;
 }
 

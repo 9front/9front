@@ -153,7 +153,7 @@ scanpci(void)
 {
 	static int already = 0;
 	int i;
-	ulong io;
+	uintptr io;
 	Ctlr *ctlr;
 	Pcidev *p;
 	Ecapio *capio;
@@ -180,7 +180,7 @@ scanpci(void)
 				p->vid, p->did);
 			continue;
 		}
-		dprint("usbehci: %#x %#x: port %#lux size %#x irq %d\n",
+		dprint("usbehci: %#x %#x: port %#p size %#x irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 
 		ctlr = malloc(sizeof(Ctlr));

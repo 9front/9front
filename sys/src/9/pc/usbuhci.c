@@ -245,7 +245,6 @@ struct Qh
 	Qh*	next;		/* in active or free list */
 	Td*	tds;		/* Td list in this Qh (initially, elink) */
 	char*	tag;		/* debug and align, mostly */
-	ulong	align;
 };
 
 /*
@@ -579,17 +578,18 @@ tdalloc(void)
 {
 	int i;
 	Td *td;
-	Td *pool;
+	uchar *pool;
 
 	lock(&tdpool);
 	if(tdpool.free == nil){
 		ddprint("uhci: tdalloc %d Tds\n", Incr);
-		pool = xspanalloc(Incr*sizeof(Td), Align, 0);
+		pool = xspanalloc(Incr*ROUND(sizeof(Td), Align), Align, 0);
 		if(pool == nil)
 			panic("tdalloc");
 		for(i=Incr; --i>=0;){
-			pool[i].next = tdpool.free;
-			tdpool.free = &pool[i];
+			td = (Td*)(pool + i*ROUND(sizeof(Td), Align));
+			td->next = tdpool.free;
+			tdpool.free = td;
 		}
 		tdpool.nalloc += Incr;
 		tdpool.nfree += Incr;
@@ -602,7 +602,7 @@ tdalloc(void)
 
 	memset(td, 0, sizeof(Td));
 	td->link = Tdterm;
-	assert(((ulong)td & 0xF) == 0);
+	assert(((uintptr)td & 0xF) == 0);
 	return td;
 }
 
@@ -659,17 +659,18 @@ qhalloc(Ctlr *ctlr, Qh *prev, Qio *io, char *tag)
 {
 	int i;
 	Qh *qh;
-	Qh *pool;
+	uchar *pool;
 
 	lock(&qhpool);
 	if(qhpool.free == nil){
 		ddprint("uhci: qhalloc %d Qhs\n", Incr);
-		pool = xspanalloc(Incr*sizeof(Qh), Align, 0);
+		pool = xspanalloc(Incr*ROUND(sizeof(Qh), Align), Align, 0);
 		if(pool == nil)
 			panic("qhalloc");
 		for(i=Incr; --i>=0;){
-			pool[i].next = qhpool.free;
-			qhpool.free = &pool[i];
+			qh = (Qh*)(pool + i*ROUND(sizeof(Qh), Align));
+			qh->next = qhpool.free;
+			qhpool.free = qh;
 		}
 		qhpool.nalloc += Incr;
 		qhpool.nfree += Incr;
@@ -696,7 +697,7 @@ qhalloc(Ctlr *ctlr, Qh *prev, Qio *io, char *tag)
 		iunlock(ctlr);
 	}
 
-	assert(((ulong)qh & 0xF) == 0);
+	assert(((uintptr)qh & 0xF) == 0);
 	return qh;
 }
 
