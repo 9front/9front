@@ -57,6 +57,7 @@ xinit(void)
 
 	upages = conf.upages;
 	kpages = conf.npage - upages;
+
 	pm = palloc.mem;
 	for(i=0; i<nelem(conf.mem); i++){
 		m = &conf.mem[i];
@@ -99,7 +100,7 @@ xspanalloc(ulong size, int align, ulong span)
 		panic("xspanalloc: %lud %d %lux", size, align, span);
 
 	if(span > 2) {
-		v = (a + span) & ~(span-1);
+		v = (a + span) & ~((uintptr)span-1);
 		t = v - a;
 		if(t > 0)
 			xhole(PADDR(a), t);
@@ -111,7 +112,7 @@ xspanalloc(ulong size, int align, ulong span)
 		v = a;
 
 	if(align > 1)
-		v = (v + align) & ~(align-1);
+		v = (v + align) & ~((uintptr)align-1);
 
 	return (void*)v;
 }
@@ -261,16 +262,17 @@ xsummary(void)
 {
 	int i;
 	Hole *h;
+	uintptr s;
 
 	i = 0;
 	for(h = xlists.flist; h; h = h->link)
 		i++;
-
 	print("%d holes free\n", i);
-	i = 0;
+
+	s = 0;
 	for(h = xlists.table; h; h = h->link) {
 		print("%#p %#p %p\n", h->addr, h->top, h->size);
-		i += h->size;
+		s += h->size;
 	}
-	print("%d bytes free\n", i);
+	print("%lld bytes free\n", (vlong)s);
 }
