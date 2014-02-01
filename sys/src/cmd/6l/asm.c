@@ -132,6 +132,7 @@ asmb(void)
 	default:
 		diag("unknown header type %ld", HEADTYPE);
 	case 2:
+	case 3:
 	case 5:
 		seek(cout, HEADR+textsize, 0);
 		break;
@@ -165,6 +166,7 @@ asmb(void)
 		switch(HEADTYPE) {
 		default:
 		case 2:
+		case 3:
 		case 5:
 			seek(cout, HEADR+textsize+datsize, 0);
 			break;
