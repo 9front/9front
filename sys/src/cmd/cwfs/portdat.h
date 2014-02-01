@@ -77,6 +77,9 @@ typedef	struct	Tm	Tm;
 typedef	struct	Uid	Uid;
 typedef	struct	Wpath	Wpath;
 
+#pragma pack on
+
+/* DONT TOUCH, this is the disk structure */
 struct	Tag
 {
 	short	pad;		/* make tag end at a long boundary */
@@ -138,6 +141,8 @@ struct	Dentry
 	long	atime;
 	long	mtime;
 };
+
+#pragma pack off
 
 /*
  * derived constants
@@ -399,6 +404,8 @@ struct	Uid
 	char	name[NAMELEN];	/* user name */
 };
 
+#pragma pack on
+
 /* DONT TOUCH, this is the disk structure */
 struct	Fbuf
 {
@@ -412,6 +419,8 @@ struct	Superb
 	Fbuf	fbuf;
 	Super1;
 };
+
+#pragma pack off
 
 struct	Conf
 {
@@ -530,6 +539,7 @@ typedef struct
 /*
  * cw device
  */
+#pragma pack on
 
 /* DONT TOUCH, this is the disk structure */
 struct	Cache
@@ -568,6 +578,8 @@ struct Label			/* label block on Devlworms, in last block */
 	ushort	ord;		/* side number within Juke */
 	char	service[64];	/* documentation only */
 };
+
+#pragma pack off
 
 typedef struct Map Map;
 struct Map {
