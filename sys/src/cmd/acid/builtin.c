@@ -1009,10 +1009,10 @@ patom(char type, Store *res)
 		Bprint(bout, "%d", (int)res->ival);
 		break;
 	case 'd':
-		Bprint(bout, "%d", (ushort)res->ival);
+		Bprint(bout, "%hd", (short)res->ival);
 		break;
 	case 'u':
-		Bprint(bout, "%d", (int)res->ival&0xffff);
+		Bprint(bout, "%hud", (ushort)res->ival);
 		break;
 	case 'U':
 		Bprint(bout, "%lud", (ulong)res->ival);
