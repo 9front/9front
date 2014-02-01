@@ -42,6 +42,6 @@ mallocz(ulong size, int clr)
 }
 
 void
-setmalloctag(void*, ulong)
+setmalloctag(void*, uintptr)
 {
 }

@@ -50,7 +50,7 @@ mysbrk(ulong size)
 }
 
 void
-setmalloctag(void *v, ulong pc)
+setmalloctag(void *v, uintptr pc)
 {
 	USED(v, pc);
 }
