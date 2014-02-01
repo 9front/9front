@@ -1896,7 +1896,7 @@ setup(Ctlr *ctlr)
 	p = ctlr->pcidev;
 	ctlr->nic = vmap(ctlr->port, p->mem[0].size);
 	if(ctlr->nic == nil){
-		print("%s: can't map %#p\n", cname(ctlr), ctlr->port);
+		print("%s: can't map 0x%lux\n", cname(ctlr), ctlr->port);
 		return -1;
 	}
 	if(i82563reset(ctlr)){

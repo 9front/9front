@@ -759,7 +759,7 @@ cpuidentify(void)
 	char *p;
 	int family, model, nomce;
 	X86type *t, *tab;
-	ulong cr4;
+	uintptr cr4;
 	ulong regs[4];
 	vlong mca, mct;
 
@@ -804,6 +804,7 @@ cpuidentify(void)
 			wrmsr(0x10, 0);
 	}
 
+
 	/*
 	 *  use i8253 to guess our cpu speed
 	 */
@@ -815,7 +816,7 @@ cpuidentify(void)
 	 * If machine check was enabled clear out any lingering status.
 	 */
 	if(m->cpuiddx & (Pge|Mce|Pse)){
-		cr4 = 0;
+		cr4 = getcr4();
 		if(m->cpuiddx & Pse)
 			cr4 |= 0x10;		/* page size extensions */
 		if(p = getconf("*nomce"))
@@ -851,6 +852,7 @@ cpuidentify(void)
 		}
 
 		putcr4(cr4);
+
 		if(m->cpuiddx & Mce)
 			rdmsr(0x01, &mct);
 	}

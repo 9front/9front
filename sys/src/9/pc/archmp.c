@@ -41,7 +41,6 @@ mpgetbus(int busno)
 			return bus;
 
 	print("mpgetbus: can't find bus %d\n", busno);
-
 	return 0;
 }
 
@@ -292,11 +291,12 @@ pcmpinit(void)
 	 * Map the local APIC.
 	 */
 	va = vmap(pcmp->lapicbase, 1024);
-	print("LAPIC: %.8lux %.8lux\n", pcmp->lapicbase, (ulong)va);
+
+	print("LAPIC: %.8lux %#p\n", pcmp->lapicbase, va);
 	if(va == nil)
 		panic("pcmpinit: cannot map lapic %.8lux", pcmp->lapicbase);
 
-	p = ((uchar*)pcmp)+sizeof(PCMP);
+	p = ((uchar*)pcmp)+PCMPsz;
 	e = ((uchar*)pcmp)+pcmp->length;
 	if(getconf("*dumpmp") != nil)
 		dumpmp(p, e);
@@ -323,28 +323,28 @@ pcmpinit(void)
 			apic->addr = va;
 			apic->paddr = pcmp->lapicbase;
 		}
-		p += sizeof(PCMPprocessor);
+		p += PCMPprocessorsz;
 		continue;
 
 	case PcmpBUS:
 		mkbus((PCMPbus*)p);
-		p += sizeof(PCMPbus);
+		p += PCMPbussz;
 		continue;
 
 	case PcmpIOAPIC:
 		if(apic = mkioapic((PCMPioapic*)p))
 			ioapicinit(apic, apic->apicno);
-		p += sizeof(PCMPioapic);
+		p += PCMPioapicsz;
 		continue;
 
 	case PcmpIOINTR:
 		mkiointr((PCMPintr*)p);
-		p += sizeof(PCMPintr);
+		p += PCMPintrsz;
 		continue;
 
 	case PcmpLINTR:
 		mklintr((PCMPintr*)p);
-		p += sizeof(PCMPintr);
+		p += PCMPintrsz;
 		continue;
 	}
 
@@ -384,7 +384,7 @@ identify(void)
 	 * if correct, check the version.
 	 * To do: check extended table checksum.
 	 */
-	if((_mp_ = sigsearch("_MP_")) == 0 || checksum(_mp_, sizeof(_MP_)) || 
+	if((_mp_ = sigsearch("_MP_")) == 0 || checksum(_mp_, _MP_sz) || 
 	   (_mp_->physaddr == 0))
 		return 1;
 

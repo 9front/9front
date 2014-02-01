@@ -106,9 +106,11 @@ $AUDIO:				../port/audioif.h
 ether8003.$O ether8390.$O:	ether8390.h
 etheryuk.$O:			yukdump.h
 $VGA mouse.$O:			screen.h /sys/include/memdraw.h
+vgavesa.$O:			/386/include/ureg.h
 devfloppy.$O: 			floppy.h
 archmp.$O mp.$O:		apbootstrap.h
 apic.$O archmp.$O mp.$O:	mp.h
+squidboy.$O:			mp.h
 $SDEV:				../port/sd.h
 sd53c8xx.$O:			sd53c8xx.i
 sdiahci.$O:			ahci.h

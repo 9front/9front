@@ -12,6 +12,8 @@ typedef struct {			/* floating pointer */
 	uchar	reserved[3];
 } _MP_;
 
+#define _MP_sz			(4+4+1+1+1+1+1+3)
+
 typedef struct {			/* configuration table header */
 	uchar	signature[4];		/* "PCMP" */
 	ushort	length;			/* total table length */
@@ -27,6 +29,8 @@ typedef struct {			/* configuration table header */
 	uchar	reserved;
 } PCMP;
 
+#define PCMPsz			(4+2+1+1+20+4+2+2+4+2+1+1)
+
 typedef struct {			/* processor table entry */
 	uchar	type;			/* entry type (0) */
 	uchar	apicno;			/* local APIC id */
@@ -37,11 +41,15 @@ typedef struct {			/* processor table entry */
 	uchar	reserved[8];
 } PCMPprocessor;
 
+#define PCMPprocessorsz		(1+1+1+1+4+4+8)
+
 typedef struct {			/* bus table entry */
 	uchar	type;			/* entry type (1) */
 	uchar	busno;			/* bus id */
 	char	string[6];		/* bus type string */
 } PCMPbus;
+
+#define PCMPbussz		(1+1+6)
 
 typedef struct {			/* I/O APIC table entry */
 	uchar	type;			/* entry type (2) */
@@ -50,6 +58,8 @@ typedef struct {			/* I/O APIC table entry */
 	uchar	flags;			/* I/O APIC flags */
 	ulong	addr;			/* I/O APIC address */
 } PCMPioapic;
+
+#define PCMPioapicsz		(1+1+1+1+4)
 
 typedef struct {			/* interrupt table entry */
 	uchar	type;			/* entry type ([34]) */
@@ -61,6 +71,8 @@ typedef struct {			/* interrupt table entry */
 	uchar	intin;			/* destination APIC [L]INTIN# */
 } PCMPintr;
 
+#define PCMPintrsz		(1+1+2+1+1+1+1)
+
 typedef struct {			/* system address space mapping entry */
 	uchar	type;			/* entry type (128) */
 	uchar	length;			/* of this entry (20) */
@@ -69,6 +81,8 @@ typedef struct {			/* system address space mapping entry */
 	ulong	addrbase[2];
 	ulong	addrlength[2];
 } PCMPsasm;
+
+#define PCMPsasmsz		(1+1+1+1+8+8)
 
 typedef struct {			/* bus hierarchy descriptor entry */
 	uchar	type;			/* entry type (129) */
@@ -79,6 +93,8 @@ typedef struct {			/* bus hierarchy descriptor entry */
 	uchar	reserved[3];
 } PCMPhierarchy;
 
+#define PCMPhirarchysz		(1+1+1+1+1+3)
+
 typedef struct {			/* compatibility bus address space modifier entry */
 	uchar	type;			/* entry type (130) */
 	uchar	length;			/* of this entry (8) */
@@ -86,6 +102,8 @@ typedef struct {			/* compatibility bus address space modifier entry */
 	uchar	modifier;		/* address modifier */
 	ulong	range;			/* predefined range list */
 } PCMPcbasm;
+
+#define PCMPcbasmsz		(1+1+1+1+4)
 
 enum {					/* table entry types */
 	PcmpPROCESSOR	= 0x00,		/* one entry per processor */
@@ -233,6 +251,7 @@ extern int mpintrinit(Bus*, PCMPintr*, int, int);
 extern void mpinit(void);
 extern int mpintrenable(Vctl*);
 extern void mpshutdown(void);
+extern void mpstartap(Apic*);
 
 extern Bus* mpbus;
 extern Bus* mpbuslast;

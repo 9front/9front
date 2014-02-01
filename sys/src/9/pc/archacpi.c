@@ -501,7 +501,7 @@ Foundapic:
 	e = p + tbldlen(t);
 	lapicbase = get32(p); p += 8;
 	va = vmap(lapicbase, 1024);
-	print("LAPIC: %.8lux %.8lux\n", lapicbase, (ulong)va);
+	print("LAPIC: %.8lux %#p\n", lapicbase, va);
 	if(va == nil)
 		panic("acpiinit: cannot map lapic %.8lux", lapicbase);
 
