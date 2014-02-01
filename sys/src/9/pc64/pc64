@@ -38,11 +38,9 @@ dev
 	usb
 
 link
-#	segdesc
 #	devpccard
 #	devi82365
 #	cputemp
-#	apm		apmjump
 #	ether2000	ether8390
 #	ether2114x	pci
 #	ether589	etherelnk3
@@ -92,7 +90,7 @@ misc
 #	sdide		pci sdscsi
 #	sd53c8xx	pci sdscsi
 #	sdmylex		pci sdscsi
-#	sdiahci		pci sdscsi led
+	sdiahci		pci sdscsi led
 #	sdodin		pci sdscsi led
 #	sdvirtio	pci sdscsi
 #	sdmmc		pci pmmc

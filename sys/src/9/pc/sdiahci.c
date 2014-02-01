@@ -2133,7 +2133,7 @@ static SDev*
 iapnp(void)
 {
 	int i, n, nunit, type;
-	ulong io;
+	uintptr io;
 	Ctlr *c;
 	Drive *d;
 	Pcidev *p;
