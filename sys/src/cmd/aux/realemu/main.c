@@ -286,7 +286,7 @@ static Bus memio[] = {
 	/* B */ nil,	rrealmem, wrealmem,	/* RAM: VGA framebuffer */
 	/* C */ memory,	rmem, wmem,	/* ROM: VGA BIOS */
 	/* D */ nil,	rbad, wbad,
-	/* E */ memory,	rmem, wbad,	/* ROM: BIOS */
+	/* E */ memory,	rmem, wmem,	/* ROM: BIOS */
 	/* F */ memory,	rmem, wbad,	/* ROM: BIOS */
 };
 
