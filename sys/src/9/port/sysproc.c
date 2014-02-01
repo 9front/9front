@@ -243,7 +243,7 @@ sysexec(va_list list)
 	char *a, *charp, *args, *file, *file0;
 	char *progarg[sizeof(Exec)/2+1], *elem, progelem[64];
 	ulong magic, ssize, nargs, nbytes, n;
-	uintptr t, d, b, entry, bssend, text, data, bss, tstk;
+	uintptr t, d, b, entry, bssend, text, data, bss, tstk, align;
 	int indir;
 	Exec exec;
 	char line[sizeof(Exec)];
@@ -266,6 +266,7 @@ sysexec(va_list list)
 			pexit(up->errstr, 1);
 		nexterror();
 	}
+	align = BY2PG;
 	indir = 0;
 	file = file0;
 	for(;;){
@@ -284,6 +285,10 @@ sysexec(va_list list)
 		text = l2be(exec.text);
 		entry = l2be(exec.entry);
 		if(n==sizeof(Exec) && (magic == AOUT_MAGIC)){
+			if(magic == S_MAGIC){
+				text += 8;
+				align = 0x200000ull;	/* 2MB segment alignment for amd64 */
+			}
 			if(text >= (USTKTOP-USTKSIZE)-(UTZERO+sizeof(Exec))
 			|| entry < UTZERO+sizeof(Exec)
 			|| entry >= UTZERO+sizeof(Exec)+text)
@@ -318,10 +323,12 @@ sysexec(va_list list)
 
 	data = l2be(exec.data);
 	bss = l2be(exec.bss);
-	t = (UTZERO+sizeof(Exec)+text+(BY2PG-1)) & ~(BY2PG-1);
-	d = (t + data + (BY2PG-1)) & ~(BY2PG-1);
+	align--;
+	t = (UTZERO+sizeof(Exec)+text+align) & ~align;
+	align = BY2PG-1;
+	d = (t + data + align) & ~align;
 	bssend = t + data + bss;
-	b = (bssend + (BY2PG-1)) & ~(BY2PG-1);
+	b = (bssend + align) & ~align;
 	if(t >= (USTKTOP-USTKSIZE) || d >= (USTKTOP-USTKSIZE) || b >= (USTKTOP-USTKSIZE))
 		error(Ebadexec);
 
