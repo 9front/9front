@@ -22,7 +22,7 @@ struct Ureg {
 
 	u64int	type;
 	u64int	error;				/* error code (or zero) */
-	u64int	ip;				/* pc */
+	u64int	pc;				/* pc */
 	u64int	cs;				/* old context */
 	u64int	flags;				/* old flags */
 	u64int	sp;				/* sp */
