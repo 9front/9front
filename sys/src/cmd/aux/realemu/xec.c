@@ -769,12 +769,58 @@ opdiv(Cpu *cpu, Inst *i)
 	n = (uvlong)ar(ra)<<s | (uvlong)ar(qa);
 	q = n/d;
 	if(q > m)
-		trap(cpu, EGPF);
+		trap(cpu, EDIV0);
 	r = n%d;
 	aw(ra, r);
 	aw(qa, q);
 }
-	
+
+static void
+opidiv(Cpu *cpu, Inst *i)
+{
+	Iarg *qa, *ra;
+	vlong n, q, min, max;
+	long r, d;
+	int s;
+
+	s = i->a1->len*8;
+	d = ars(i->a1);
+	if(d == 0)
+		trap(cpu, EDIV0);
+	if(s == 8){
+		qa = areg(cpu, 1, RAX);
+		ra = adup(qa);
+		ra->tag |= TH;
+	} else {
+		qa = areg(cpu, i->olen, RAX);
+		ra = areg(cpu, i->olen, RDX);
+	}
+	n = (vlong)ars(ra)<<s | (uvlong)ars(qa);
+	q = n/d;
+	r = n%d;
+
+	/* check for overflow based on operand size */
+	switch(s) {
+	case 8:
+		min = (char)0x80;
+		max = 0x7F;
+		break;
+	case 16:
+		min = (short)0x8000;
+		max = 0x7FFF;
+		break;
+	case 32:
+		min = (long)0x80000000;
+		max = 0x7FFFFFFF;
+		break;
+	}
+
+	if(q > max || q < min)
+		trap(cpu, EDIV0);
+
+	aw(ra, r);
+	aw(qa, q);
+}	
 
 static int
 cctrue(Cpu *cpu, Inst *i)
@@ -1249,6 +1295,7 @@ static void (*exctab[NUMOP])(Cpu *cpu, Inst*) = {
 	[OMUL] = opmul,
 	[OIMUL] = opimul,
 	[ODIV] = opdiv,
+	[OIDIV] = opidiv,
 
 	[OLEA] = oplea,
 	[OMOV] = opmov,
