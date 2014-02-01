@@ -40,8 +40,8 @@ Reglist amd64reglist[] = {
 	{"TYPE",	REGOFF(type), 	RINT, 'Y'},
 	{"TRAP",	REGOFF(type), 	RINT, 'Y'},	/* alias for acid */
 	{"ERROR",	REGOFF(error),	RINT, 'Y'},
-	{"IP",		REGOFF(ip),	RINT, 'Y'},
-	{"PC",		REGOFF(ip),	RINT, 'Y'},	/* alias for acid */
+	{"IP",		REGOFF(pc),	RINT, 'Y'},
+	{"PC",		REGOFF(pc),	RINT, 'Y'},	/* alias for acid */
 	{"CS",		REGOFF(cs),	RINT, 'Y'},
 	{"FLAGS",	REGOFF(flags),	RINT, 'Y'},
 	{"SP",		REGOFF(sp),	RINT, 'Y'},
@@ -105,8 +105,8 @@ Mach mamd64=
 	0,			/* link register */
 	"setSB",		/* static base register name (bogus anyways) */
 	0,			/* static base register value */
-	0x200000,		/* page size */
-	0xfffffffff0110000ull,	/* kernel base */
+	0x1000,			/* page size */
+	0xffffffff80110000ull,	/* kernel base */
 	0xffff800000000000ull,	/* kernel text mask */
 	0x00007ffffffff000ull,	/* user stack top */
 	1,			/* quantization of pc */
