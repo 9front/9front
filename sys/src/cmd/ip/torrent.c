@@ -853,6 +853,15 @@ webtracker(char *url)
 			bparse(p, p+n, &d);
 			free(p);
 		} else if(debug) fprint(2, "tracker %s: %r\n", url);
+		/* check errors and warnings */
+		if(p = dstr(dlook(d, "failure reason"))) {
+			if(debug)
+				fprint(2, "tracker failure: %s\n", p);
+			exits(0);
+		}
+		if(p = dstr(dlook(d, "warning message")))
+			if(debug)
+				fprint(2, "tracker warning: %s\n", p);
 		if(l = dlook(d, "peers")){
 			if(l->typ == 's')
 				clients4((uchar*)l->str, l->len);
@@ -1206,6 +1215,9 @@ main(int argc, char *argv[])
 	case 'd':
 		debug++;
 		break;
+	case 'i':
+		strncpy((char*)peerid, EARGF(usage()), sizeof(peerid));
+		break;
 	default:
 		usage();
 	} ARGEND;
@@ -1339,8 +1351,9 @@ main(int argc, char *argv[])
 	case -1:
 		sysfatal("fork: %r");
 	case 0:
-		memmove(peerid, "-NF9001-", 8);
-		for(i=8; i<sizeof(peerid); i++)
+		if(peerid[0] == 0)
+			strncpy((char*)peerid, "-NF9001-", 9);
+		for(i=sizeof(peerid)-1; i >= 0 && peerid[i] == 0; i--)
 			peerid[i] = nrand(10)+'0';
 		server();
 		for(; alist; alist = alist->next)

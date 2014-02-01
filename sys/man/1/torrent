@@ -23,6 +23,9 @@ torrent \- bittorrent client
 ] [
 .B -c
 ] [
+.B -i
+.I peer-id
+] [
 .I file
 ]
 .SH DESCRIPTION
@@ -104,6 +107,17 @@ To monitor the download progress, the
 option can be given to cause the completed and total number of
 pieces written as a line of text to standard-output in one
 second intervals.
+.PP
+The
+.B -i
+option allows you to set the 20-byte
+.I peer-id
+that is sent to trackers and peers. If less than 20 bytes, the
+.I peer-id
+will be padded on the right with random ASCII numbers. This is
+useful to fool trackers that filter clients based on the
+.I peer-id
+.
 .SH EXAMPLES
 Create new torrent file
 .EX
