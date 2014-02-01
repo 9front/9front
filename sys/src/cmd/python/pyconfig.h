@@ -17,7 +17,7 @@
 
 typedef struct Threadarg Threadarg;
 
-#if defined(T386) || defined(Talpha) || defined(Tarm) || defined(Tpower)
+#if defined(T386) || defined(Talpha) || defined(Tarm) || defined(Tpower) || defined(Tamd64)
 #undef WORDS_BIGENDIAN
 #elif defined(Tmips) || defined(Tsparc)
 #define WORDS_BIGENDIAN

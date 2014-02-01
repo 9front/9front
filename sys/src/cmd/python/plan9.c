@@ -17,8 +17,6 @@ main(int argc, char **argv)
 	setfcr(getfcr()&~(1<<0));
 #elif defined(Tarm)
 	setfsr(getfsr()&~(1<<16));
-#else
-Error define code for disabling fp exceptions for your arch.
 #endif
 
 	memset(&ta, 0, sizeof ta);
