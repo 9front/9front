@@ -655,8 +655,8 @@ fault386(Ureg* ureg, void*)
 	up->insyscall = 1;
 	n = fault(addr, read);
 	if(n < 0){
-		dumpregs(ureg);
 		if(!user){
+			dumpregs(ureg);
 			panic("fault: %#p", addr);
 		}
 		checkpages();
