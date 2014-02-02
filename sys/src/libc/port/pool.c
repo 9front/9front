@@ -1042,11 +1042,12 @@ alignptr(void *v, ulong align, long offset)
 
 	c = v;
 	if(align){
-		off = (uintptr)c%align;
+		off = ((ulong)(uintptr)c) % align;
 		if(off != offset){
-			c += offset - off;
-			if(off > offset)
-				c += align;
+			offset -= off;
+			if(offset < 0)
+				offset += align;
+			c += offset;
 		}
 	}
 	return c;
@@ -1080,8 +1081,7 @@ poolallocalignl(Pool *p, ulong dsize, ulong align, long offset, ulong span)
 	if(align){
 		if(offset < 0)
 			offset = align - ((-offset)%align);
-		else
-			offset %= align;
+		offset %= align;
 	}
 	asize = dsize+align;
 	v = poolallocl(p, asize);
