@@ -170,7 +170,7 @@ ppanic(Pool *p, char *fmt, ...)
 /* - except the code for malloc(), which alternately doesn't clear or does. - */
 
 /*
- * Npadlong is the number of uintptr's to leave at the beginning of 
+ * Npadlong is the number of ulongs's to leave at the beginning of 
  * each allocated buffer for our own bookkeeping.  We return to the callers
  * a pointer that points immediately after our bookkeeping area.  Incoming pointers
  * must be decremented by that much, and outgoing pointers incremented.
@@ -204,9 +204,9 @@ malloc(ulong size)
 {
 	void *v;
 
-	v = poolalloc(mainmem, size+Npadlong*sizeof(uintptr));
+	v = poolalloc(mainmem, size+Npadlong*sizeof(ulong));
 	if(Npadlong && v != nil) {
-		v = (uintptr*)v+Npadlong;
+		v = (ulong*)v+Npadlong;
 		setmalloctag(v, getcallerpc(&size));
 		setrealloctag(v, 0);
 	}
@@ -218,9 +218,9 @@ mallocz(ulong size, int clr)
 {
 	void *v;
 
-	v = poolalloc(mainmem, size+Npadlong*sizeof(uintptr));
+	v = poolalloc(mainmem, size+Npadlong*sizeof(ulong));
 	if(Npadlong && v != nil){
-		v = (uintptr*)v+Npadlong;
+		v = (ulong*)v+Npadlong;
 		setmalloctag(v, getcallerpc(&size));
 		setrealloctag(v, 0);
 	}
@@ -234,9 +234,9 @@ mallocalign(ulong size, ulong align, long offset, ulong span)
 {
 	void *v;
 
-	v = poolallocalign(mainmem, size+Npadlong*sizeof(uintptr), align, offset-Npadlong*sizeof(uintptr), span);
+	v = poolallocalign(mainmem, size+Npadlong*sizeof(ulong), align, offset-Npadlong*sizeof(ulong), span);
 	if(Npadlong && v != nil){
-		v = (uintptr*)v+Npadlong;
+		v = (ulong*)v+Npadlong;
 		setmalloctag(v, getcallerpc(&size));
 		setrealloctag(v, 0);
 	}
@@ -247,7 +247,7 @@ void
 free(void *v)
 {
 	if(v != nil)
-		poolfree(mainmem, (uintptr*)v-Npadlong);
+		poolfree(mainmem, (ulong*)v-Npadlong);
 }
 
 void*
@@ -261,11 +261,11 @@ realloc(void *v, ulong size)
 	}
 
 	if(v)
-		v = (uintptr*)v-Npadlong;
-	size += Npadlong*sizeof(uintptr);
+		v = (ulong*)v-Npadlong;
+	size += Npadlong*sizeof(ulong);
 
 	if(nv = poolrealloc(mainmem, v, size)){
-		nv = (uintptr*)nv+Npadlong;
+		nv = (ulong*)nv+Npadlong;
 		setrealloctag(nv, getcallerpc(&v));
 		if(v == nil)
 			setmalloctag(nv, getcallerpc(&v));
@@ -276,7 +276,7 @@ realloc(void *v, ulong size)
 ulong
 msize(void *v)
 {
-	return poolmsize(mainmem, (uintptr*)v-Npadlong)-Npadlong*sizeof(uintptr);
+	return poolmsize(mainmem, (ulong*)v-Npadlong)-Npadlong*sizeof(ulong);
 }
 
 void*
@@ -294,23 +294,19 @@ calloc(ulong n, ulong s)
 void
 setmalloctag(void *v, uintptr pc)
 {
-	uintptr *u;
 	USED(v, pc);
 	if(Npadlong <= MallocOffset || v == nil)
 		return;
-	u = v;
-	u[-Npadlong+MallocOffset] = pc;
+	((ulong*)v)[-Npadlong+MallocOffset] = (ulong)pc;
 }
 
 void
 setrealloctag(void *v, uintptr pc)
 {
-	uintptr *u;
 	USED(v, pc);
 	if(Npadlong <= ReallocOffset || v == nil)
 		return;
-	u = v;
-	u[-Npadlong+ReallocOffset] = pc;
+	((ulong*)v)[-Npadlong+ReallocOffset] = (ulong)pc;
 }
 
 uintptr
@@ -319,7 +315,7 @@ getmalloctag(void *v)
 	USED(v);
 	if(Npadlong <= MallocOffset)
 		return ~0;
-	return ((uintptr*)v)[-Npadlong+MallocOffset];
+	return (int)((ulong*)v)[-Npadlong+MallocOffset];
 }
 
 uintptr
@@ -327,8 +323,8 @@ getrealloctag(void *v)
 {
 	USED(v);
 	if(Npadlong <= ReallocOffset)
-		return ((uintptr*)v)[-Npadlong+ReallocOffset];
-	return ~0;
+		return ~0;
+	return (int)((ulong*)v)[-Npadlong+ReallocOffset];
 }
 
 void*
@@ -336,6 +332,5 @@ malloctopoolblock(void *v)
 {
 	if(v == nil)
 		return nil;
-
-	return &((uintptr*)v)[-Npadlong];
+	return &((ulong*)v)[-Npadlong];
 }
