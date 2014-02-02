@@ -8,7 +8,7 @@ if(test -f $home/lib/profile){
 }
 cd $home
 x='$'
-mkdir bin bin/rc bin/mips bin/386 bin/power bin/arm
+mkdir bin bin/rc bin/mips bin/386 bin/amd64 bin/power bin/arm
 mkdir lib tmp
 chmod +t tmp
 bind -qc /n/other/usr/$user/tmp $home/tmp
@@ -17,8 +17,8 @@ mail -c
 auth/cron -c
 
 cat > lib/profile <<!
-bind -a $x^home/bin/rc /bin
-bind -a $x^home/bin/$x^cputype /bin
+bind -qa $x^home/bin/rc /bin
+bind -qa $x^home/bin/$x^cputype /bin
 mount -qC /srv/boot /n/other other
 bind -qc /n/other/usr/$x^user/tmp $x^home/tmp
 bind -c $x^home/tmp /tmp
