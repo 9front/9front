@@ -479,7 +479,6 @@ kunmap(KMap *k)
 	if(pte == 0 || (*pte & PTEVALID) == 0)
 		panic("kunmap: va=%#p", va);
 	*pte = 0;
-	mmuflushtlb();
 	splx(x);
 }
 
