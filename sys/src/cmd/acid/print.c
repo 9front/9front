@@ -88,6 +88,7 @@ fundefs(void)
 			Bprint(bout, "%-*s", max, vec[j]);
 		Bprint(bout, "\n");
 	}
+	free(vec);
 }
 
 void
