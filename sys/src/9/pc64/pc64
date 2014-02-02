@@ -87,7 +87,7 @@ misc
 	mtrr
 
 #	sdaoe
-#	sdide		pci sdscsi
+	sdide		pci sdscsi
 #	sd53c8xx	pci sdscsi
 #	sdmylex		pci sdscsi
 	sdiahci		pci sdscsi led
