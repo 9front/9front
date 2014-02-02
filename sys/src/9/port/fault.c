@@ -14,8 +14,11 @@ fault(uintptr addr, int read)
 
 	if(up == nil)
 		panic("fault: nil up");
-	if(up->nlocks.ref)
-		print("fault: nlocks %ld\n", up->nlocks.ref);
+	if(up->nlocks.ref){
+		Lock *l = up->lastlock;
+		print("fault: nlocks %ld, proc %lud %s, addr %#p, lock %#p, lpc %#p\n", 
+			up->nlocks.ref, up->pid, up->text, addr, l, l ? l->pc : 0);
+	}
 
 	pnd = up->notepending;
 	sps = up->psstate;
