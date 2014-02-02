@@ -149,7 +149,7 @@ paddr(void *v)
 	if(va >= KZERO)
 		return va-KZERO;
 	if(va >= VMAP)
-		return va-VMAP;
+		return va-(VMAP-(-KZERO));
 	panic("paddr: va=%#p pc=%#p", va, getcallerpc(&v));
 	return 0;
 }
@@ -260,7 +260,7 @@ pmap(uintptr *pml4, uintptr pa, uintptr va, int size)
 			pte = mmuwalk(pml4, va, ++l, 0);
 			if(pte && (*pte & PTESIZE)){
 				flags |= PTESIZE;
-				z = va & PGLSZ(l)-1;
+				z = va & (PGLSZ(l)-1);
 				va -= z;
 				pa -= z;
 				size += z;
@@ -442,6 +442,7 @@ kunmap(KMap *k)
 	if(pte == 0 || (*pte & PTEVALID) == 0)
 		panic("kunmap: va=%#p", va);
 	*pte = 0;
+	mmuflushtlb();
 	splx(x);
 }
 
@@ -454,12 +455,12 @@ vmap(uintptr pa, int size)
 	uintptr va;
 	int o;
 
-	if(size <= 0 || pa & ~0xffffffffull)
+	if(size <= 0 || pa >= -VMAP)
 		panic("vmap: pa=%#p size=%d pc=%#p", pa, size, getcallerpc(&pa));
 	if(cankaddr(pa) >= size)
 		va = pa+KZERO;
 	else
-		va = pa+VMAP;
+		va = pa+(VMAP-(-KZERO));
 	/*
 	 * might be asking for less than a page.
 	 */
