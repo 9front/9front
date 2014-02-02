@@ -713,10 +713,9 @@ uintptr
 syssegflush(va_list list)
 {
 	Segment *s;
-	ulong len, l;
+	ulong len, chunk, l;
 	Pte *pte;
-	int chunk, ps, pe;
-	uintptr addr;
+	uintptr ps, pe, addr;
 
 	addr = va_arg(list, uintptr);
 	len = va_arg(list, ulong);
@@ -738,7 +737,7 @@ syssegflush(va_list list)
 		pe = PTEMAPMEM;
 		if(pe-ps > l){
 			pe = ps + l;
-			pe = (pe+BY2PG-1)&~(BY2PG-1);
+			pe = PGROUND(pe);
 		}
 		if(pe == ps) {
 			qunlock(&s->lk);
