@@ -571,7 +571,7 @@ _dumpstack(Ureg *ureg)
 			 * (((uchar*)v)[-2] == 0xFF && ((uchar*)v)[-2] == 0xD0),
 			 * but this is too clever and misses faulting address.
 			 */
-			x += iprint("%.8p=%.8p ", l, v);
+			x += iprint("%.8lux=%.8lux ", (ulong)l, (ulong)v);
 			i++;
 		}
 		if(i == 4){
