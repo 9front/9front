@@ -251,8 +251,7 @@ sysexec(va_list list)
 	Image *img;
 	Tos *tos;
 
-	a = nil;
-	elem = nil;
+	args = elem = nil;
 	file0 = va_arg(list, char*);
 	validaddr((uintptr)file0, 1, 0);
 	argp0 = va_arg(list, char**);
@@ -260,7 +259,7 @@ sysexec(va_list list)
 	if(waserror()){
 		free(file0);
 		free(elem);
-		free(a);
+		free(args);
 		/* Disaster after commit */
 		if(!up->seg[SSEG])
 			pexit(up->errstr, 1);
@@ -396,7 +395,7 @@ sysexec(va_list list)
 
 	argv = (char**)(tstk - ssize);
 	charp = (char*)(tstk - nbytes);
-	args = charp;
+	a = charp;
 	if(indir)
 		argp = progarg;
 	else
@@ -414,18 +413,18 @@ sysexec(va_list list)
 	}
 
 	/* copy args; easiest from new process's stack */
-	n = charp - args;
+	n = charp - a;
 	if(n > 128)	/* don't waste too much space on huge arg lists */
 		n = 128;
-	a = smalloc(n);
-	memmove(a, args, n);
-	if(n>0 && a[n-1]!='\0'){
+	args = smalloc(n);
+	memmove(args, a, n);
+	if(n>0 && args[n-1]!='\0'){
 		/* make sure last arg is NUL-terminated */
 		/* put NUL at UTF-8 character boundary */
 		for(i=n-1; i>0; --i)
-			if(fullrune(a+i, n-i))
+			if(fullrune(args+i, n-i))
 				break;
-		a[i] = 0;
+		args[i] = 0;
 		n = i+1;
 	}
 
@@ -505,7 +504,7 @@ sysexec(va_list list)
 	free(up->text);
 	up->text = elem;
 	free(up->args);
-	up->args = a;
+	up->args = args;
 	up->nargs = n;
 	up->setargs = 0;
 
