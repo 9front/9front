@@ -25,6 +25,15 @@ Segdesc gdt[NGDT] =
 
 static int didmmuinit = 0;
 
+static struct {
+	Lock;
+	MMU	*free;
+
+	int	nshare;
+	int	nalloc;
+	int	nfree;
+} mmupool;
+
 /* level */
 enum {
 	PML4E	= 2,
@@ -161,22 +170,40 @@ mmualloc(void)
 	int i, n;
 
 	p = m->mmufree;
-	if(p == nil){
-		n = 256;
-		p = malloc(n * sizeof(MMU));
-		if(p == nil)
-			panic("mmualloc: out of memory for MMU");
-		p->page = mallocalign(n * PTSZ, BY2PG, 0, 0);
-		if(p->page == nil)
-			panic("mmualloc: out of memory for MMU pages");
-		for(i=1; i<n; i++){
-			p[i].page = p[i-1].page + (1<<PTSHIFT);
-			p[i-1].next = &p[i];
+	if(p != nil){
+		m->mmufree = p->next;
+		m->mmucount--;
+	} else {
+		lock(&mmupool);
+		p = mmupool.free;
+		if(p != nil){
+			mmupool.free = p->next;
+			mmupool.nfree--;
+		} else {
+			unlock(&mmupool);
+
+			n = 256;
+			p = malloc(n * sizeof(MMU));
+			if(p == nil)
+				panic("mmualloc: out of memory for MMU");
+			p->page = mallocalign(n * PTSZ, BY2PG, 0, 0);
+			if(p->page == nil)
+				panic("mmualloc: out of memory for MMU pages");
+			for(i=1; i<n; i++){
+				p[i].page = p[i-1].page + (1<<PTSHIFT);
+				p[i-1].next = &p[i];
+			}
+
+			lock(&mmupool);
+			p[n-1].next = mmupool.free;
+			mmupool.free = p->next;
+			mmupool.nalloc += n;
+			mmupool.nfree += n-1;
+
+			mmupool.nshare = mmupool.nalloc / conf.nmach;
 		}
-		m->mmucount += n;
+		unlock(&mmupool);
 	}
-	m->mmucount--;
-	m->mmufree = p->next;
 	p->next = nil;
 	return p;
 }
@@ -216,7 +243,9 @@ mmuwalk(uintptr* table, uintptr va, int level, int create)
 				} else {
 					/* PDP and PD entries linked to tail */
 					up->mmutail->next = p;
+					up->mmutail = p;
 				}
+				up->mmucount++;
 				page = p->page;
 			} else if(didmmuinit) {
 				page = mallocalign(PTSZ, BY2PG, 0, 0);
@@ -315,13 +344,21 @@ mmufree(Proc *proc)
 	MMU *p;
 
 	p = proc->mmutail;
-	if(p != nil){
+	if(p == nil)
+		return;
+	if(m->mmucount < mmupool.nshare){
 		p->next = m->mmufree;
 		m->mmufree = proc->mmuhead;
-		proc->mmuhead = proc->mmutail = nil;
 		m->mmucount += proc->mmucount;
-		proc->mmucount = 0;
+	} else {
+		lock(&mmupool);
+		p->next = mmupool.free;
+		mmupool.free = proc->mmuhead;
+		mmupool.nfree += proc->mmucount;
+		unlock(&mmupool);
 	}
+	proc->mmuhead = proc->mmutail = nil;
+	proc->mmucount = 0;
 }
 
 void
