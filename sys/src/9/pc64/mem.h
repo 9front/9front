@@ -57,8 +57,8 @@
 #define VMAP		(0xffffffff00000000ull)	/* 2GB identity map of upper 2GB ram */
 #define VMAPSIZE	(2*GiB)
 
-#define	KMAP		(0xffffff7f00000000ull)
-#define KMAPSIZE	(512*GiB)
+#define	KMAP		(0xffffff7f00000000ull)	/* 2MB for per process temporary kernel mappings */
+#define KMAPSIZE	(2*MiB)
 
 /*
  * Fundamental addresses - bottom 64kB saved for return to real mode

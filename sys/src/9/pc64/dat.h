@@ -137,8 +137,11 @@ struct MMU
 #define NCOLOR 1
 struct PMMU
 {
-	MMU	*mmuhead;
-	MMU	*mmutail;
+	MMU*	mmuhead;
+	MMU*	mmutail;
+	MMU*	kmaphead;
+	MMU*	kmaptail;
+	int	kmapcount;
 	int	mmucount;
 };
 

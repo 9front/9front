@@ -227,25 +227,36 @@ mmuwalk(uintptr* table, uintptr va, int level, int create)
 				return 0;
 			pte = PTEWRITE|PTEVALID;
 			if(va < VMAP){
-				if(va < TSTKTOP)
+				if(va < TSTKTOP){
 					pte |= PTEUSER;
-				p = mmualloc();
-				p->index = x;
-				p->level = i;
-				if(i == PML4E){
-					/* PML4 entries linked to head */
-					p->next = up->mmuhead;
-					if(p->next == nil)
-						up->mmutail = p;
-					up->mmuhead = p;
-					if(p->index <= PTLX(TSTKTOP, 3))
+
+					p = mmualloc();
+					p->index = x;
+					p->level = i;
+					if(i == PML4E){
+						if((p->next = up->mmuhead) == nil)
+							up->mmutail = p;
+						up->mmuhead = p;
 						m->mmumap[p->index/MAPBITS] |= 1ull<<(p->index%MAPBITS);
-				} else {
-					/* PDP and PD entries linked to tail */
-					up->mmutail->next = p;
-					up->mmutail = p;
-				}
-				up->mmucount++;
+					} else {
+						up->mmutail->next = p;
+						up->mmutail = p;
+					}
+					up->mmucount++;
+				} else if(va >= KMAP && va < (KMAP+KMAPSIZE)) {
+					p = mmualloc();
+					p->index = x;
+					p->level = i;
+					if(i == PML4E){
+						up->kmaptail = p;
+						up->kmaphead = p;
+					} else {
+						up->kmaptail->next = p;
+						up->kmaptail = p;
+					}
+					up->kmapcount++;
+				} else
+					return 0;
 				page = p->page;
 			} else if(didmmuinit) {
 				page = mallocalign(PTSZ, BY2PG, 0, 0);
@@ -375,7 +386,6 @@ flushmmu(void)
 void
 mmuswitch(Proc *proc)
 {
-	uintptr pte;
 	MMU *p;
 
 	mmuzap();
@@ -383,13 +393,11 @@ mmuswitch(Proc *proc)
 		mmufree(proc);
 		proc->newtlb = 0;
 	}
-	for(p = proc->mmuhead; p && p->level==PML4E; p = p->next){
-		pte = PADDR(p->page) | PTEWRITE|PTEVALID;
-		if(p->index <= PTLX(TSTKTOP, 3)){
-			m->mmumap[p->index/MAPBITS] |= 1ull<<(p->index%MAPBITS);
-			pte |= PTEUSER;
-		}
-		m->pml4[p->index] = pte;
+	if((p = proc->kmaphead) != nil)
+		m->pml4[PTLX(KMAP, 3)] = PADDR(p->page) | PTEWRITE|PTEVALID;
+	for(p = proc->mmuhead; p != nil && p->level == PML4E; p = p->next){
+		m->mmumap[p->index/MAPBITS] |= 1ull<<(p->index%MAPBITS);
+		m->pml4[p->index] = PADDR(p->page) | PTEUSER|PTEWRITE|PTEVALID;
 	}
 	taskswitch((uintptr)proc->kstack+KSTACK);
 }
@@ -397,7 +405,18 @@ mmuswitch(Proc *proc)
 void
 mmurelease(Proc *proc)
 {
+	MMU *p;
+
 	mmuzap();
+	if((p = proc->kmaptail) != nil){
+		if((p->next = proc->mmuhead) == nil)
+			proc->mmutail = p;
+		proc->mmuhead = p;
+		proc->mmucount += proc->kmapcount;
+
+		proc->kmaphead = proc->kmaptail = nil;
+		proc->kmapcount = 0;
+	}
 	mmufree(proc);
 	taskswitch((uintptr)m+MACHSIZE);
 }
@@ -410,10 +429,8 @@ putmmu(uintptr va, uintptr pa, Page *)
 
 	x = splhi();
 	pte = mmuwalk(m->pml4, va, 0, 1);
-	if(pte == 0){
+	if(pte == 0)
 		panic("putmmu: bug: va=%#p pa=%#p", va, pa);
-		return;
-	}
 	old = *pte;
 	*pte = pa | PTEVALID|PTEUSER;
 	splx(x);
