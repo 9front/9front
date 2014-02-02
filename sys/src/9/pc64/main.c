@@ -26,6 +26,8 @@ char *confname[MAXCONF];
 char *confval[MAXCONF];
 int nconf;
 int delaylink;
+int idle_spin;
+
 uchar *sp;	/* user stack of init proc */
 
 extern void (*i8237alloc)(void);
@@ -419,24 +421,62 @@ main()
 	schedinit();
 }
 
-void
-exit(int)
+static void
+shutdown(int ispanic)
 {
-	print("exit\n");
-	splhi();
-	for(;;);
+	int ms, once;
+
+	lock(&active);
+	if(ispanic)
+		active.ispanic = ispanic;
+	else if(m->machno == 0 && (active.machs & (1<<m->machno)) == 0)
+		active.ispanic = 0;
+	once = active.machs & (1<<m->machno);
+	/*
+	 * setting exiting will make hzclock() on each processor call exit(0),
+	 * which calls shutdown(0) and arch->reset(), which on mp systems is
+	 * mpshutdown, from which there is no return: the processor is idled
+	 * or initiates a reboot.  clearing our bit in machs avoids calling
+	 * exit(0) from hzclock() on this processor.
+	 */
+	active.machs &= ~(1<<m->machno);
+	active.exiting = 1;
+	unlock(&active);
+
+	if(once)
+		iprint("cpu%d: exiting\n", m->machno);
+
+	/* wait for any other processors to shutdown */
+	spllo();
+	for(ms = 5*1000; ms > 0; ms -= TK2MS(2)){
+		delay(TK2MS(2));
+		if(active.machs == 0 && consactive() == 0)
+			break;
+	}
+
+	if(active.ispanic){
+		if(!cpuserver)
+			for(;;)
+				halt();
+		if(getconf("*debug"))
+			delay(5*60*1000);
+		else
+			delay(10000);
+	}else
+		delay(1000);
+}
+
+void
+exit(int ispanic)
+{
+	shutdown(ispanic);
+	arch->reset();
 }
 
 void
 reboot(void*, void*, ulong)
 {
 	exit(0);
-}
-
-void
-idlehands(void)
-{
-	halt();
 }
 
 /*
@@ -706,37 +746,4 @@ procsave(Proc *p)
 	 * especially on VMware, but it turns out not to matter.
 	 */
 	mmuflushtlb();
-}
-
-int
-isaconfig(char *class, int ctlrno, ISAConf *isa)
-{
-	char cc[32], *p;
-	int i;
-
-	snprint(cc, sizeof cc, "%s%d", class, ctlrno);
-	p = getconf(cc);
-	if(p == nil)
-		return 0;
-
-	isa->type = "";
-	isa->nopt = tokenize(p, isa->opt, NISAOPT);
-	for(i = 0; i < isa->nopt; i++){
-		p = isa->opt[i];
-		if(cistrncmp(p, "type=", 5) == 0)
-			isa->type = p + 5;
-		else if(cistrncmp(p, "port=", 5) == 0)
-			isa->port = strtoul(p+5, &p, 0);
-		else if(cistrncmp(p, "irq=", 4) == 0)
-			isa->irq = strtoul(p+4, &p, 0);
-		else if(cistrncmp(p, "dma=", 4) == 0)
-			isa->dma = strtoul(p+4, &p, 0);
-		else if(cistrncmp(p, "mem=", 4) == 0)
-			isa->mem = strtoul(p+4, &p, 0);
-		else if(cistrncmp(p, "size=", 5) == 0)
-			isa->size = strtoul(p+5, &p, 0);
-		else if(cistrncmp(p, "freq=", 5) == 0)
-			isa->freq = strtoul(p+5, &p, 0);
-	}
-	return 1;
 }
