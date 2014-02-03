@@ -332,9 +332,19 @@ TEXT mb586(SB), 1, $-4
 	RET
 
 /*
+ * Park a processor. Should never fall through a return from main to here,
+ * should only be called by application processors when shutting down.
+ */
+TEXT idle(SB), 1, $-4
+_idle:
+	STI
+	HLT
+	JMP	_idle
+
+/*
  * BIOS32.
  */
-TEXT bios32call(SB), 1, $-1
+TEXT bios32call(SB), 1, $-4
 	XORL	AX, AX
 	INCL	AX
 	RET
@@ -526,14 +536,30 @@ TEXT setlabel(SB), 1, $-4
 	MOVL	$0, AX				/* return 0 */
 	RET
 
-TEXT idle(SB), $0
-_idle:
+TEXT halt(SB), 1, $-4
+	CLI
+	CMPL	nrdy(SB), $0
+	JEQ	_nothingready
+	STI
+	RET
+_nothingready:
 	STI
 	HLT
-	JMP	_idle
+	RET
 
-TEXT halt(SB), 1, $-4
-	HLT
+TEXT mwait(SB), 1, $-4
+	MOVQ	RARG, AX
+	MOVL	(AX), CX
+	ORL	CX, CX
+	JNZ	_mwaitdone
+	XORL	DX, DX
+	BYTE $0x0f; BYTE $0x01; BYTE $0xc8	/* MONITOR */
+	MOVL	(AX), CX
+	ORL	CX, CX
+	JNZ	_mwaitdone
+	XORL	AX, AX
+	BYTE $0x0f; BYTE $0x01; BYTE $0xc9	/* MWAIT */
+_mwaitdone:
 	RET
 
 /*

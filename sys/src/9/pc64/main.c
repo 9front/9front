@@ -26,6 +26,8 @@ char *confname[MAXCONF];
 char *confval[MAXCONF];
 int nconf;
 int delaylink;
+int idle_spin;
+
 uchar *sp;	/* user stack of init proc */
 
 extern void (*i8237alloc)(void);
@@ -419,12 +421,56 @@ main()
 	schedinit();
 }
 
-void
-exit(int)
+static void
+shutdown(int ispanic)
 {
-	print("exit\n");
-	splhi();
-	for(;;);
+	int ms, once;
+
+	lock(&active);
+	if(ispanic)
+		active.ispanic = ispanic;
+	else if(m->machno == 0 && (active.machs & (1<<m->machno)) == 0)
+		active.ispanic = 0;
+	once = active.machs & (1<<m->machno);
+	/*
+	 * setting exiting will make hzclock() on each processor call exit(0),
+	 * which calls shutdown(0) and arch->reset(), which on mp systems is
+	 * mpshutdown, from which there is no return: the processor is idled
+	 * or initiates a reboot.  clearing our bit in machs avoids calling
+	 * exit(0) from hzclock() on this processor.
+	 */
+	active.machs &= ~(1<<m->machno);
+	active.exiting = 1;
+	unlock(&active);
+
+	if(once)
+		iprint("cpu%d: exiting\n", m->machno);
+
+	/* wait for any other processors to shutdown */
+	spllo();
+	for(ms = 5*1000; ms > 0; ms -= TK2MS(2)){
+		delay(TK2MS(2));
+		if(active.machs == 0 && consactive() == 0)
+			break;
+	}
+
+	if(active.ispanic){
+		if(!cpuserver)
+			for(;;)
+				halt();
+		if(getconf("*debug"))
+			delay(5*60*1000);
+		else
+			delay(10000);
+	}else
+		delay(1000);
+}
+
+void
+exit(int ispanic)
+{
+	shutdown(ispanic);
+	arch->reset();
 }
 
 void
@@ -436,7 +482,14 @@ reboot(void*, void*, ulong)
 void
 idlehands(void)
 {
-	halt();
+	extern int nrdy;
+
+	if(conf.nmach == 1)
+		halt();
+	else if(m->cpuidcx & Monitor)
+		mwait(&nrdy);
+	else if(idle_spin == 0)
+		halt();
 }
 
 /*
