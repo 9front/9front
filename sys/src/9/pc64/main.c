@@ -479,19 +479,6 @@ reboot(void*, void*, ulong)
 	exit(0);
 }
 
-void
-idlehands(void)
-{
-	extern int nrdy;
-
-	if(conf.nmach == 1)
-		halt();
-	else if(m->cpuidcx & Monitor)
-		mwait(&nrdy);
-	else if(idle_spin == 0)
-		halt();
-}
-
 /*
  * SIMD Floating Point.
  * Assembler support to get at the individual instructions
@@ -759,37 +746,4 @@ procsave(Proc *p)
 	 * especially on VMware, but it turns out not to matter.
 	 */
 	mmuflushtlb();
-}
-
-int
-isaconfig(char *class, int ctlrno, ISAConf *isa)
-{
-	char cc[32], *p;
-	int i;
-
-	snprint(cc, sizeof cc, "%s%d", class, ctlrno);
-	p = getconf(cc);
-	if(p == nil)
-		return 0;
-
-	isa->type = "";
-	isa->nopt = tokenize(p, isa->opt, NISAOPT);
-	for(i = 0; i < isa->nopt; i++){
-		p = isa->opt[i];
-		if(cistrncmp(p, "type=", 5) == 0)
-			isa->type = p + 5;
-		else if(cistrncmp(p, "port=", 5) == 0)
-			isa->port = strtoul(p+5, &p, 0);
-		else if(cistrncmp(p, "irq=", 4) == 0)
-			isa->irq = strtoul(p+4, &p, 0);
-		else if(cistrncmp(p, "dma=", 4) == 0)
-			isa->dma = strtoul(p+4, &p, 0);
-		else if(cistrncmp(p, "mem=", 4) == 0)
-			isa->mem = strtoul(p+4, &p, 0);
-		else if(cistrncmp(p, "size=", 5) == 0)
-			isa->size = strtoul(p+5, &p, 0);
-		else if(cistrncmp(p, "freq=", 5) == 0)
-			isa->freq = strtoul(p+5, &p, 0);
-	}
-	return 1;
 }
