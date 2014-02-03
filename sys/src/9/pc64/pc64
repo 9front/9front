@@ -92,7 +92,7 @@ misc
 #	sdmylex		pci sdscsi
 	sdiahci		pci sdscsi led
 #	sdodin		pci sdscsi led
-#	sdvirtio	pci sdscsi
+	sdvirtio	pci sdscsi
 #	sdmmc		pci pmmc
 #	sdloop
 

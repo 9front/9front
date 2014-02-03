@@ -42,6 +42,11 @@ enum {
 	Next = 1,
 	Write = 2,
 	Indirect = 4,
+};
+
+/* struct sizes */
+enum {
+	VringSize = 4,
 };	
 
 struct Vring
@@ -111,10 +116,10 @@ mkvqueue(int size)
 	q = malloc(sizeof(*q) + sizeof(void*)*size);
 	p = mallocalign(
 		PGROUND(sizeof(Vdesc)*size + 
-			sizeof(Vring) + 
+			VringSize + 
 			sizeof(u16int)*size + 
 			sizeof(u16int)) +
-		PGROUND(sizeof(Vring) + 
+		PGROUND(VringSize + 
 			sizeof(Vused)*size + 
 			sizeof(u16int)), 
 		BY2PG, 0, 0);
@@ -128,15 +133,15 @@ mkvqueue(int size)
 	q->desc = (void*)p;
 	p += sizeof(Vdesc)*size;
 	q->avail = (void*)p;
-	p += sizeof(Vring);
+	p += VringSize;
 	q->availent = (void*)p;
 	p += sizeof(u16int)*size;
 	q->availevent = (void*)p;
 	p += sizeof(u16int);
 
-	p = (uchar*)PGROUND((ulong)p);
+	p = (uchar*)PGROUND((uintptr)p);
 	q->used = (void*)p;
-	p += sizeof(Vring);
+	p += VringSize;
 	q->usedent = (void*)p;
 	p += sizeof(Vused)*size;
 	q->usedevent = (void*)p;
