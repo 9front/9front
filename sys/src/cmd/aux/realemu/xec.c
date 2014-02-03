@@ -799,21 +799,8 @@ opidiv(Cpu *cpu, Inst *i)
 	q = n/d;
 	r = n%d;
 
-	/* check for overflow based on operand size */
-	switch(s) {
-	case 8:
-		min = (char)0x80;
-		max = 0x7F;
-		break;
-	case 16:
-		min = (short)0x8000;
-		max = 0x7FFF;
-		break;
-	case 32:
-		min = (long)0x80000000;
-		max = 0x7FFFFFFF;
-		break;
-	}
+	max = sign(s)-1;
+	min = ~max;
 
 	if(q > max || q < min)
 		trap(cpu, EDIV0);
