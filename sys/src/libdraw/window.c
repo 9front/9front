@@ -29,7 +29,7 @@ allocscreen(Image *image, Image *fill, int public)
 		a = bufimage(d, 1+4+4+4+1);
 		if(a == 0)
 			break;
-		id = ++screenid & 0xfffff;	/* old devdraw bug */
+		id = ++screenid & 0xffff;	/* old devdraw bug */
 		a[0] = 'A';
 		BPLONG(a+1, id);
 		BPLONG(a+5, image->id);
