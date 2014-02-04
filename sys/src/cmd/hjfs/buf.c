@@ -246,7 +246,7 @@ bufinit(int nbuf)
 		markfree(b++);
 	getb = chancreate(sizeof(BufReq), 0);
 	putb = chancreate(sizeof(Buf *), 32);
-	syncb = chancreate(sizeof(ulong), 0);
+	syncb = chancreate(sizeof(void*), 0);
 	proccreate(bufproc, nil, mainstacksize);
 }
 
