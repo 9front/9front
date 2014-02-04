@@ -378,7 +378,6 @@ trap(Ureg *ureg)
 	else if(vno < nelem(excname) && user){
 		spllo();
 		sprint(buf, "sys: trap: %s", excname[vno]);
-		dumpregs(ureg);
 		postnote(up, 1, buf, NDebug);
 	}
 	else if(vno >= VectorPIC){
