@@ -313,18 +313,6 @@ kexit(Ureg*)
 }
 
 void
-display(char *s)
-{
-	char *d;
-
-	d = (char*)KADDR(0xB8000);
-	while(*s){
-		*d = *s++;
-		d += 2;
-	}
-}
-
-void
 trap(Ureg *ureg)
 {
 	int clockintr, i, vno, user;
