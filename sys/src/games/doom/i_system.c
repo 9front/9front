@@ -62,27 +62,6 @@ void I_Tactile(int on, int off, int total)
 	USED(on, off, total);
 }
 
-/*
-ticcmd_t	emptycmd;
-ticcmd_t*	I_BaseTiccmd(void)
-{
-    return &emptycmd;
-}
-
-
-int  I_GetHeapSize (void)
-{
-    return mb_used*1024*1024;
-}
-
-byte* I_ZoneBase (int*	size)
-{
-    *size = mb_used*1024*1024;
-    return (byte *) malloc (*size);
-}
-*/
-
-
 //
 // I_Error
 //

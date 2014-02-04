@@ -179,7 +179,6 @@ void Z_Free (void* ptr)
 //
 #define MINFRAGMENT		64
 
-
 void*
 Z_Malloc
 ( int		size,
@@ -192,7 +191,7 @@ Z_Malloc
     memblock_t* newblock;
     memblock_t*	base;
 
-    size = (size + 3) & ~3;
+    size = (size + 7) & ~7;
     
     // scan through the block list,
     // looking for the first free block
@@ -437,7 +436,7 @@ Z_ChangeTag2
     if (block->id != ZONEID)
 	I_Error ("Z_ChangeTag: freed a pointer without ZONEID");
 
-    if (tag >= PU_PURGELEVEL && (unsigned)block->user < 0x100)
+    if (tag >= PU_PURGELEVEL && (uintptr)block->user < 0x100)
 	I_Error ("Z_ChangeTag: an owner is required for purgable blocks");
 
     block->tag = tag;
