@@ -361,7 +361,7 @@ sysexec(va_list list)
 	 * 8-byte align SP for those (e.g. sparc) that need it.
 	 * execregs() will subtract another 4 bytes for argc.
 	 */
-	if((ssize+4) & 7)
+	if(BY2WD == 4 && (ssize+4) & 7)
 		ssize += 4;
 
 	if(PGROUND(ssize) >= USTKSIZE)
