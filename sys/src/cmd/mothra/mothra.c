@@ -699,7 +699,10 @@ void docmd(Panel *p, char *s){
 	pldraw(root, screen);
 }
 
-void regerror(char*){}	/* don't panic */
+void regerror(char *msg)
+{
+	werrstr("regerror: %s", msg);
+}
 
 void search(void){
 	static char last[256];
@@ -713,10 +716,12 @@ void search(void){
 		strncpy(buf, last, sizeof(buf)-1);
 		if(eenter("Search for", buf, sizeof(buf), &mouse) <= 0)
 			return;
-		re = regcompnl(buf);
-		if(re == nil)
-			return;
 		strncpy(last, buf, sizeof(buf)-1);
+		re = regcompnl(buf);
+		if(re == nil){
+			message("%r");
+			continue;
+		}
 		for(tp=current->text;tp;tp=tp->next)
 			if(tp->flags & PL_SEL)
 				break;
