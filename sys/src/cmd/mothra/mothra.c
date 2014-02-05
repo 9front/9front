@@ -699,6 +699,8 @@ void docmd(Panel *p, char *s){
 	pldraw(root, screen);
 }
 
+void regerror(char*){}	/* don't panic */
+
 void search(void){
 	static char last[256];
 	char buf[256];
