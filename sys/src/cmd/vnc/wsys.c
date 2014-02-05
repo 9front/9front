@@ -195,8 +195,8 @@ tcs(int fd0, int fd1)
 		}
 		close(pfd[0]);
 		close(pfd[1]);
-		execl("/bin/tcs", "tcs", fd0 < 0 ? "-f" : "-t", charset, 0);
-		execl("/bin/cat", "cat", 0);
+		execl("/bin/tcs", "tcs", fd0 < 0 ? "-f" : "-t", charset, nil);
+		execl("/bin/cat", "cat", nil);
 		_exits(0);
 	}
 	close(pfd[0]);

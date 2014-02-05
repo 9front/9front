@@ -61,7 +61,7 @@ output(void *, struct mad_header const* header, struct mad_pcm *pcm)
 			dup(pfd[1], 0);
 			close(pfd[1]);
 			close(pfd[0]);
-			execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, 0);
+			execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, nil);
 			sysfatal("exec: %r");
 		}
 		close(pfd[1]);

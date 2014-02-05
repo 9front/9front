@@ -809,7 +809,7 @@ void filter(int fd, char *cmd){
 		break;
 	case 0:
 		dupfds(fd, 1, 2, -1);
-		execl("/bin/rc", "rc", "-c", cmd, 0);
+		execl("/bin/rc", "rc", "-c", cmd, nil);
 		_exits(0);
 	}
 	close(fd);

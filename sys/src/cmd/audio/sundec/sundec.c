@@ -56,7 +56,7 @@ main(int, char *argv[])
 	}
 	if(len > 0){
 		snprint(buf, sizeof(buf), "%lud", len);
-		execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, "-l", buf, 0);
+		execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, "-l", buf, nil);
 	} else
-		execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, 0);
+		execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, nil);
 }

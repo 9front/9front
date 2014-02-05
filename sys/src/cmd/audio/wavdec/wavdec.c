@@ -97,5 +97,5 @@ main(int, char *argv[])
 		sysfatal("wave format (0x%lux) not supported", (ulong)wav.fmt);
 	}
 	snprint(buf, sizeof(buf), "%lud", len);
-	execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, "-l", buf, 0);
+	execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, "-l", buf, nil);
 }

@@ -55,7 +55,7 @@ decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], v
 			dup2(pfd[1], 0);
 			close(pfd[1]);
 			close(pfd[0]);
-			execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, 0);
+			execl("/bin/audio/pcmconv", "pcmconv", "-i", fmt, nil);
 			fprintf(stderr, "Error executing converter\n");
 			exit(1);
 		}

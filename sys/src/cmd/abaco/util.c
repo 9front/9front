@@ -676,7 +676,7 @@ execproc(void *v)
 	}
 	if(!procstderr)
 		close(2);
-	procexecl(e->sync, "/bin/rc", "rc", "-c", e->cmd, 0);
+	procexecl(e->sync, "/bin/rc", "rc", "-c", e->cmd, nil);
 	error("can't exec");
 }
 
