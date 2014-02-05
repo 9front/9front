@@ -25,7 +25,7 @@ void *pl_erealloc(void *v, int n)
 	return v;
 }
 void pl_unexpected(Panel *g, char *rou){
-	fprint(2, "%s called unexpectedly (%s %lux)\n", rou, g->kind, (ulong)g);
+	fprint(2, "%s called unexpectedly (%s %#p)\n", rou, g->kind, (uintptr)g);
 	abort();
 }
 void pl_drawerror(Panel *g){
@@ -62,7 +62,7 @@ int pl_prinormal(Panel *, Point){
 Panel *pl_newpanel(Panel *parent, int ndata){
 	Panel *v;
 	if(parent && parent->flags&LEAF){
-		fprint(2, "newpanel: can't create child of %s %lux\n", parent->kind, (ulong)parent);
+		fprint(2, "newpanel: can't create child of %s %#p\n", parent->kind, (uintptr)parent);
 		exits("bad newpanel");
 	}
 	v=pl_emalloc(sizeof(Panel));
