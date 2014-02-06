@@ -346,6 +346,9 @@ userinit(void)
 	p->sched.pc = (uintptr)init0;
 	p->sched.sp = (uintptr)p->kstack+KSTACK-(sizeof(Sargs)+BY2WD);
 
+	/* temporarily set up for kmap() */
+	up = p;
+
 	/*
 	 * User Stack
 	 */
@@ -371,6 +374,10 @@ userinit(void)
 	memset(v, 0, BY2PG);
 	memmove(v, initcode, sizeof initcode);
 	kunmap(v);
+
+	/* free kmap */
+	mmurelease(p);
+	up = nil;
 
 	ready(p);
 }

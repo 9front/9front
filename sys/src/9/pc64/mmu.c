@@ -415,7 +415,7 @@ mmurelease(Proc *proc)
 		proc->mmucount += proc->kmapcount;
 
 		proc->kmaphead = proc->kmaptail = nil;
-		proc->kmapcount = 0;
+		proc->kmapcount = proc->kmapindex = 0;
 	}
 	mmufree(proc);
 	taskswitch((uintptr)m+MACHSIZE);
@@ -469,13 +469,13 @@ kmap(Page *page)
 		return (KMap*)KADDR(pa);
 
 	x = splhi();
-	va = KMAP + ((uintptr)m->kmapindex << PGSHIFT);
+	va = KMAP + ((uintptr)up->kmapindex << PGSHIFT);
 	pte = mmuwalk(m->pml4, va, 0, 1);
 	if(pte == 0 || *pte & PTEVALID)
 		panic("kmap: pa=%#p va=%#p", pa, va);
 	*pte = pa | PTEWRITE|PTEVALID;
-	m->kmapindex = (m->kmapindex + 1) % (1<<PTSHIFT);
-	if(m->kmapindex == 0)
+ 	up->kmapindex = (up->kmapindex + 1) % (1<<PTSHIFT);
+	if(up->kmapindex == 0)
 		mmuflushtlb();
 	splx(x);
 	return (KMap*)va;
