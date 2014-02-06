@@ -758,8 +758,19 @@ syscall(Ureg* ureg)
 	up->insyscall = 0;
 	up->psstate = 0;
 
-	if(scallnr == NOTED)
-		noted(ureg, up->s.args[0]);
+	if(scallnr == NOTED){
+		noted(ureg, *((ulong*)up->s.args));
+
+		/*
+		 * normally, syscall() returns to forkret()
+		 * not restoring general registers when going
+		 * to userspace. to completely restore the
+		 * interrupted context, we have to return thru
+		 * noteret(). we override return pc to jump to
+		 * to it when returning form syscall()
+		 */
+		((void**)&ureg)[-1] = (void*)noteret;
+	}
 
 	if(scallnr!=RFORK && (up->procctl || up->nnote)){
 		splhi();
@@ -904,7 +915,7 @@ if(0) print("%s %lud: noted %#p %#p\n",
 			pprint("suicide: trap in noted\n");
 			pexit("Suicide", 0);
 		}
-		up->ureg = (Ureg*)(*(ulong*)(oureg-BY2WD));
+		up->ureg = (Ureg*)(*(uintptr*)(oureg-BY2WD));
 		qunlock(&up->debug);
 		break;
 

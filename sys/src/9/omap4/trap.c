@@ -370,7 +370,7 @@ syscall(Ureg *ureg)
 	up->psstate = nil;
 
 	if(scall == NOTED)
-		noted(ureg, up->s.args[0]);
+		noted(ureg, *((ulong*)up->s.args));
 	if(scall != RFORK && (up->procctl || up->nnote)){
 		splhi();
 		notify(ureg);

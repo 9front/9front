@@ -104,6 +104,7 @@ uintptr	*mmuwalk(uintptr*, uintptr, int, int);
 int	mtrr(uvlong, uvlong, char *);
 void	mtrrclock(void);
 int	mtrrprint(char *, long);
+void	noteret(void);
 uchar	nvramread(int);
 void	nvramwrite(int, uchar);
 void	outb(int, int);

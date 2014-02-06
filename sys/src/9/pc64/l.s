@@ -737,6 +737,10 @@ TEXT forkret(SB), 1, $-4
 
 	BYTE $0x48; SYSRET			/* SYSRETQ */
 
+TEXT noteret(SB), 1, $-4
+	CLI
+	JMP _intrestore
+
 /*
  * Interrupt/exception handling.
  */
@@ -786,6 +790,7 @@ _intrnested:
 	PUSHQ	SP
 	CALL	trap(SB)
 
+_intrestore:
 	POPQ	AX
 
 	POPQ	AX
