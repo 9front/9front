@@ -1,11 +1,11 @@
 typedef struct Pool Pool;
 struct Pool {
 	char*	name;
-	ulong	maxsize;
+	uintptr	maxsize;
 
-	ulong	cursize;
-	ulong	curfree;
-	ulong	curalloc;
+	uintptr	cursize;
+	uintptr	curfree;
+	uintptr	curalloc;
 
 	ulong	minarena;	/* smallest size of new arena */
 	ulong	quantum;	/* allocated blocks should be multiple of */

@@ -555,8 +555,8 @@ poolnewarena(Pool *p, ulong asize)
 	LOG(p, "newarena %lud\n", asize);
 	if(p->cursize+asize > p->maxsize) {
 		if(poolcompactl(p) == 0){
-			LOG(p, "pool too big: %lud+%lud > %lud\n",
-				p->cursize, asize, p->maxsize);
+			LOG(p, "pool too big: %llud+%lud > %llud\n",
+				(uvlong)p->cursize, asize, (uvlong)p->maxsize);
 			werrstr("memory pool too large");
 		}
 		return;
@@ -637,12 +637,14 @@ arenamerge(Pool *p, Arena *bot, Arena *top)
 {
 	Bhdr *bbot, *btop;
 	Btail *t;
+	ulong newsize;
 
 	blockcheck(p, bot);
 	blockcheck(p, top);
 	assert(bot->aup == top && top > bot);
 
-	if(p->merge == nil || p->merge(bot, top) == 0)
+	newsize = top->asize + ((uchar*)top - (uchar*)bot);
+	if(newsize < top->asize || p->merge == nil || p->merge(bot, top) == 0)
 		return nil;
 
 	/* remove top from list */
@@ -659,7 +661,7 @@ arenamerge(Pool *p, Arena *bot, Arena *top)
 	blockcheck(p, btop);
 
 	/* grow bottom arena to encompass top */
-	arenasetsize(bot, top->asize + ((uchar*)top - (uchar*)bot));
+	arenasetsize(bot, newsize);
 
 	/* grow bottom block to encompass space between arenas */
 	blockgrow(p, bbot, (uchar*)btop-(uchar*)bbot);
