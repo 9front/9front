@@ -992,6 +992,7 @@ setregisters(Ureg* ureg, char* pureg, char* uva, int n)
 	if(ureg->gs != UDSEL)
 		ureg->gs = 0;
 	ureg->flags = (ureg->flags & 0x00ff) | (flags & 0xff00);
+	ureg->pc &= UADDRMASK;
 }
 
 static void
