@@ -4,7 +4,7 @@
 static ulong
 memsize(void)
 {
-	ulong pgsize, userpgs, userused;
+	ulong pgsize, pgmax, userpgs, userused;
 	char *s, *f[2];
 	int n, mpcnt;
 	Biobuf *bp;
@@ -29,13 +29,18 @@ memsize(void)
 		Bterm(bp);
 	}
 	if(pgsize && userused < userpgs){
+		userpgs -= userused;
 		if(s = getenv("fsmempercent")){
 			mpcnt = atoi(s);
 			free(s);
 		}
 		if(mpcnt < 1)
 			mpcnt = 1;
-		return ((userpgs-userused)*mpcnt/100)*pgsize;
+		userpgs = (userpgs*mpcnt)/100;
+		pgmax = (1024*1024*1024)/pgsize;	/* 1GB max */
+		if(userpgs > pgmax)
+			userpgs = pgmax;
+		return userpgs*pgsize;
 	}
 	return 16*MB;
 }
