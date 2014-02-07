@@ -606,15 +606,17 @@ consread(Chan *c, void *buf, long n, vlong off)
 			"%lud kernel\n"
 			"%lud/%lud user\n"
 			"%lud/%lud swap\n"
-			"%lud/%lud kernel malloc\n"
-			"%lud/%lud kernel draw\n",
+			"%llud/%llud kernel malloc\n"
+			"%llud/%llud kernel draw\n",
 			(uvlong)conf.npage*BY2PG,
 			(uvlong)BY2PG,
 			conf.npage-conf.upages,
 			palloc.user-palloc.freecount, palloc.user,
 			conf.nswap-swapalloc.free, conf.nswap,
-			mainmem->cursize, mainmem->maxsize,
-			imagmem->cursize, imagmem->maxsize);
+			(uvlong)mainmem->cursize,
+			(uvlong)mainmem->maxsize,
+			(uvlong)imagmem->cursize,
+			(uvlong)imagmem->maxsize);
 
 		return readstr((ulong)offset, buf, n, tmp);
 
