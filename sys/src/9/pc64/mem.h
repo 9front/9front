@@ -128,9 +128,9 @@
  */
 #define	PTEMAPMEM	(1024*1024)	
 #define	PTEPERTAB	(PTEMAPMEM/BY2PG)
-#define	SEGMAPSIZE	1984
+#define	SEGMAPSIZE	65536
 #define	SSEGMAPSIZE	16
-#define	PPN(x)		((x)&~((uintptr)BY2PG-1))
+#define	PPN(x)		((x)&~(BY2PG-1))
 
 /*
  *  physical MMU
