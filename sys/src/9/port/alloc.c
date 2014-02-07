@@ -119,8 +119,9 @@ punlock(Pool *p)
 void
 poolsummary(Pool *p)
 {
-	print("%s max %lud cur %lud free %lud alloc %lud\n", p->name,
-		p->maxsize, p->cursize, p->curfree, p->curalloc);
+	print("%s max %llud cur %llud free %llud alloc %llud\n", p->name,
+		(uvlong)p->maxsize, (uvlong)p->cursize,
+		(uvlong)p->curfree, (uvlong)p->curalloc);
 }
 
 void
