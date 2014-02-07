@@ -295,8 +295,7 @@ mtrr(uvlong base, uvlong size, char *tstr)
 	for(i = 0; i < vcnt; i++){
 		mtrrget(&mtrr, i);
 		mok = mtrrdec(&mtrr, &mp, &msize, &mtype);
-		/* reuse any entry for addresses above 4GB */
-		if(!mok || mp == base && msize == size || mp >= (1LL<<32)){
+		if(!mok || mp == base && msize == size){
 			slot = i;
 			break;
 		}
