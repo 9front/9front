@@ -72,7 +72,7 @@ pcicfginit(void)
 				break;
 			p->mem[j].bar = strtoul(s+1, &s, 16);
 			p->mem[j].size = strtoul(s+1, &s, 10);
-			trace("\tmem[%d] = %p %d\n", j, p->mem[j].bar, p->mem[j].size);
+			trace("\tmem[%d] = %lux %d\n", j, p->mem[j].bar, p->mem[j].size);
 		}
 
 		if(pcilist != nil)
