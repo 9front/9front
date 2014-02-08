@@ -708,6 +708,10 @@ procread(Chan *c, void *va, long n, vlong off)
 	Waitq *wq;
 	
 	a = va;
+
+	/* sign extend 63 bit to 64 bit */
+	off <<= 1;
+	off >>= 1;
 	offset = off;
 
 	if(c->qid.type & QTDIR)

@@ -263,7 +263,17 @@ reloc(Map *map, uvlong addr, vlong *offp)
 	for (i = 0; i < map->nsegs; i++) {
 		if (map->seg[i].inuse)
 		if (map->seg[i].b <= addr && addr < map->seg[i].e) {
-			*offp = addr + map->seg[i].f - map->seg[i].b;
+			addr += map->seg[i].f - map->seg[i].b;
+
+			/*
+			 * avoid negative file offsets for kernel
+			 * addresses by clearing the sign bit.
+			 * devproc sign extends back to 64 bit.
+			 */
+			addr <<= 1;
+			addr >>= 1;
+
+			*offp = addr;
 			return &map->seg[i];
 		}
 	}
