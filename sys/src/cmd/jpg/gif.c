@@ -26,14 +26,14 @@ char	*show(int, char*);
 Rectangle
 imager(void)
 {
-	Rectangle r;
+	Point p1, p2;
 
 	if(allims==nil || allims[0]==nil)
 		return screen->r;
-	r = insetrect(screen->clipr, Edge+Border);
-	r.max.x = r.min.x+Dx(allims[0]->r);
-	r.max.y = r.min.y+Dy(allims[0]->r);
-	return r;
+
+	p1 = addpt(divpt(subpt(allims[0]->r.max, allims[0]->r.min), 2), allims[0]->r.min);
+	p2 = addpt(divpt(subpt(screen->clipr.max, screen->clipr.min), 2), screen->clipr.min);
+	return rectaddpt(allims[0]->r, subpt(p2, p1));
 }
 
 void

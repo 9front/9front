@@ -24,6 +24,16 @@ char	*show(int, char*);
 
 Rawimage** readyuv(int fd, int colorspace);
 
+Rectangle
+imager(Image *i)
+{
+	Point p1, p2;
+
+	p1 = addpt(divpt(subpt(i->r.max, i->r.min), 2), i->r.min);
+	p2 = addpt(divpt(subpt(screen->clipr.max, screen->clipr.min), 2), screen->clipr.min);
+	return rectaddpt(i->r, subpt(p2, p1));
+}
+
 void
 eresized(int new)
 {
@@ -35,9 +45,7 @@ eresized(int new)
 	}
 	if(image == nil)
 		return;
-	r = insetrect(screen->clipr, Edge+Border);
-	r.max.x = r.min.x+Dx(image->r);
-	r.max.y = r.min.y+Dy(image->r);
+	r = imager(image);
 	border(screen, r, -Border, nil, ZP);
 	drawop(screen, r, image, nil, image->r.min, S);
 	flushimage(display, 1);
