@@ -281,7 +281,7 @@ readtext(char *s)
 	if(mach->sbreg && lookup(0, mach->sbreg, &sym)) {
 		mach->sb = sym.value;
 		l = enter("SB", Tid);
-		l->v->fmt = 'X';
+		l->v->fmt = 'A';
 		l->v->ival = mach->sb;
 		l->v->type = TINT;
 		l->v->set = 1;

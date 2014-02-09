@@ -185,7 +185,7 @@ listvar(char *s, vlong v)
 	l->string = strnode(s);
 	l->next = al(TINT);
 	l = l->next;
-	l->fmt = 'X';
+	l->fmt = 'A';
 	l->ival = v;
 
 	return tl;
@@ -260,7 +260,7 @@ trlist(Map *map, uvlong pc, uvlong sp, Symbol *sym)
 	l = al(TINT);			/* Function address */
 	q->l = l;
 	l->ival = sym->value;
-	l->fmt = 'X';
+	l->fmt = 'A';
 
 	l->next = al(TINT);		/* called from address */
 	l = l->next;

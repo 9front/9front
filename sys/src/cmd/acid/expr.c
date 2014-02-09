@@ -6,7 +6,7 @@
 #define Extern extern
 #include "acid.h"
 
-static int fsize[] =
+int fsize[] =
 {
 	['A'] 4,
 	['B'] 4,
@@ -149,7 +149,7 @@ oframe(Node *n, Node *res)
 
 	res->ival = ival;
 	res->op = OCONST;
-	res->fmt = 'X';
+	res->fmt = 'A';
 	res->type = TINT;
 
 	/* Try and set comt */

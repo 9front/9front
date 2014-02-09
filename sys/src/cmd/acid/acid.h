@@ -29,6 +29,8 @@ typedef struct Frtype	Frtype;
 Extern int	kernel;
 Extern int	text;
 Extern int	silent;
+Extern int	fsize[];
+Extern char	afmt;
 Extern Fhdr	fhdr;
 Extern int	line;
 Extern Biobuf*	bout;

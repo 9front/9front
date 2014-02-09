@@ -87,7 +87,7 @@ struct Btab
 	0
 };
 
-char vfmt[] = "aBbcCdDfFgGiIoOqQrRsSuUVWxXYZ38";
+char vfmt[] = "aABbcCdDfFgGiIoOqQrRsSuUVWxXYZ38";
 
 void
 mkprint(Lsym *s)
@@ -365,7 +365,7 @@ follow(Node *r, Node *args)
 	for(i = 0; i < n; i++) {
 		l = al(TINT);
 		l->ival = f[i];
-		l->fmt = 'X';
+		l->fmt = 'A';
 		*tail = l;
 		tail = &l->next;
 	}
@@ -390,11 +390,11 @@ funcbound(Node *r, Node *args)
 		r->l = al(TINT);
 		l = r->l;
 		l->ival = bounds[0];
-		l->fmt = 'X';
+		l->fmt = 'A';
 		l->next = al(TINT);
 		l = l->next;
 		l->ival = bounds[1];
-		l->fmt = 'X';
+		l->fmt = 'A';
 	}
 }
 
@@ -970,10 +970,14 @@ void
 patom(char type, Store *res)
 {
 	int i;
+	char fmt;
 	char buf[512];
 	extern char *typenames[];
 
-	switch(res->fmt) {
+	fmt = res->fmt;
+	if(fmt == 'A')
+		fmt = afmt;
+	switch(fmt) {
 	case 'c':
 		Bprint(bout, "%c", (int)res->ival);
 		break;
@@ -1065,7 +1069,6 @@ patom(char type, Store *res)
 			Bprint(bout, "%S", (Rune*)res->string->string);
 		break;
 	case 'a':
-	case 'A':
 		symoff(buf, sizeof(buf), res->ival, CANY);
 		Bprint(bout, "%s", buf);
 		break;
@@ -1117,10 +1120,7 @@ comx(Node res)
 	Lsym *sl;
 	Node *n, xx;
 
-	if(res.fmt != 'a' && res.fmt != 'A')
-		return 0;
-
-	if(res.comt == 0 || res.comt->base == 0)
+	if(res.fmt != 'a' || res.comt == 0 || res.comt->base == 0)
 		return 0;
 
 	sl = res.comt->base;

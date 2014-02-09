@@ -7,6 +7,7 @@
 #include "acid.h"
 #include "y.tab.h"
 
+char afmt = 'X';
 static int syren;
 
 Lsym*
@@ -88,7 +89,7 @@ varsym(void)
 			l->v->type = TINT;
 			l->v->ival = v;
 			if(l->v->comt == 0)
-				l->v->fmt = 'X';
+				l->v->fmt = 'A';
 
 			/* Enter as list of { name, type, value } */
 			list = al(TSTRING);
@@ -101,7 +102,7 @@ varsym(void)
 			list->ival = s->type;
 			list->next = al(TINT);
 			list = list->next;
-			list->fmt = 'X';
+			list->fmt = l->v->fmt;
 			list->ival = v;
 
 		}
@@ -121,6 +122,12 @@ varreg(void)
 	Value *v;
 	Reglist *r;
 	List **tail, *li;
+
+	if(mach->szaddr == 8){
+		afmt = 'Y';
+		fsize['a'] = fsize[afmt];
+		fsize['A'] = fsize[afmt];
+	}
 
 	l = mkvar("registers");
 	v = l->v;
