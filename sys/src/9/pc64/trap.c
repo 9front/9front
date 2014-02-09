@@ -851,11 +851,12 @@ if(0) print("%s %lud: notify %#p %#p %#p %s\n",
 	sp -= BY2WD+ERRMAX;
 	memmove((char*)sp, up->note[0].msg, ERRMAX);
 	sp -= 3*BY2WD;
-	*(uintptr*)(sp+2*BY2WD) = sp+3*BY2WD;		/* arg 2 is string */
-	*(uintptr*)(sp+1*BY2WD) = (uintptr)up->ureg;	/* arg 1 is ureg* */
-	*(uintptr*)(sp+0*BY2WD) = 0;			/* arg 0 is pc */
+	((uintptr*)sp)[2] = sp + 3*BY2WD;	/* arg2 string */
+	((uintptr*)sp)[1] = (uintptr)up->ureg;	/* arg1 is ureg* */
+	((uintptr*)sp)[0] = 0;			/* arg0 is pc */
 	ureg->sp = sp;
 	ureg->pc = (uintptr)up->notify;
+	ureg->bp = (uintptr)up->ureg;		/* arg1 passed in RARG */
 	ureg->cs = UESEL;
 	ureg->ss = ureg->ds = ureg->es = UDSEL;
 	up->notified = 1;
@@ -920,7 +921,7 @@ if(0) print("%s %lud: noted %#p %#p\n",
 		break;
 
 	case NSAVE:
-		if(!okaddr(nureg->pc, BY2WD, 0)
+		if(!okaddr(nureg->pc, 1, 0)
 		|| !okaddr(nureg->sp, BY2WD, 0)){
 			qunlock(&up->debug);
 			pprint("suicide: trap in noted\n");
@@ -930,6 +931,7 @@ if(0) print("%s %lud: noted %#p %#p\n",
 		sp = oureg-4*BY2WD-ERRMAX;
 		splhi();
 		ureg->sp = sp;
+		ureg->bp = oureg;		/* arg 1 passed in RARG */
 		((uintptr*)sp)[1] = oureg;	/* arg 1 0(FP) is ureg* */
 		((uintptr*)sp)[0] = 0;		/* arg 0 is pc */
 		break;
