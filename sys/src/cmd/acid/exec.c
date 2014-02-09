@@ -57,6 +57,32 @@ unwind(void)
 }
 
 void
+execrec(Node *n)
+{
+	Value *v;
+	Lsym *s;
+
+	/* make node a root so it isn't collected! */
+	s = mkvar("_thiscmd");
+
+	v = gmalloc(sizeof(Value));
+	memset(v, 0, sizeof(Value));
+	v->type = TCODE;
+	v->cc = n;
+	v->pop = s->v;
+
+	s->v = v;
+	s->proc = n;
+
+	gc();
+	execute(n);
+
+	s->proc = s->v->cc;
+	s->v = v->pop;
+	free(v);
+}
+
+void
 execute(Node *n)
 {
 	Value *v;
@@ -66,7 +92,6 @@ execute(Node *n)
 	Node res, xx;
 	static int stmnt;
 
-	gc();
 	if(gotint)
 		error("interrupted");
 

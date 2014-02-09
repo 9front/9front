@@ -569,11 +569,11 @@ enter(char *name, int t)
 	s->lexval = t;
 
 	v = gmalloc(sizeof(Value));
-	s->v = v;
-
+	memset(v, 0, sizeof(Value));
 	v->fmt = 'X';
 	v->type = TINT;
-	memset(v, 0, sizeof(Value));
+
+	s->v = v;
 
 	return s;
 }

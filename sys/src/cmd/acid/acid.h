@@ -190,6 +190,7 @@ void	dostop(int);
 Lsym*	enter(char*, int);
 void	error(char*, ...);
 void	execute(Node*);
+void	execrec(Node*);
 void	fatal(char*, ...);
 void	flatten(Node**, Node*);
 void	gc(void);
