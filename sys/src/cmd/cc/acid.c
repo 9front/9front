@@ -129,8 +129,8 @@ acidmember(Type *t, long off, int flag)
 			}
 		} else {
 			Bprint(&outbuf,
-				"\tprint(\"\t%s\t\", addr.%s\\X, \"\\n\");\n",
-				amap(s->name), amap(s->name));
+				"\tprint(\"\t%s\t\", addr.%s\\%c, \"\\n\");\n",
+				amap(s->name), amap(s->name), acidchar[TIND]);
 			break;
 		}
 
