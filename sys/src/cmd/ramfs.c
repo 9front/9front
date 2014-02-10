@@ -3,6 +3,8 @@
 #include <auth.h>
 #include <fcall.h>
 
+#include <pool.h>
+
 /*
  * Rather than reading /adm/users, which is a lot of work for
  * a toy program, we assume all groups have the form
@@ -180,6 +182,7 @@ main(int argc, char *argv[])
 		break;
 	case 'u':
 		memlim = 0;		/* unlimited memory consumption */
+		mainmem->maxsize = (uintptr)~0;
 		break;
 	case 'D':
 		debug = 1;
