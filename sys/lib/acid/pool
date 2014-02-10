@@ -1,4 +1,4 @@
-include("/sys/src/libc/port/pool." + objchar + ".acid");
+include("/sys/src/libc/port/pool." + objtype + ".acid");
 
 aggr Byte {
 	'b' 0 byte;

@@ -1,4 +1,4 @@
-include("/sys/src/libthread/sched." + objchar + ".acid");
+include("/sys/src/libthread/sched." + objtype + ".acid");
 
 defn labpc(l)
 {

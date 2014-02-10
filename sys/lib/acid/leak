@@ -1,7 +1,7 @@
 //
 // usage: acid -l pool -l leak
 //
-include("/sys/src/libc/port/pool." + objchar + ".acid");
+include("/sys/src/libc/port/pool." + objtype + ".acid");
 
 defn
 dumppool(p, sum)

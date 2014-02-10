@@ -192,6 +192,4 @@ Ureg(addr) {
 };
 sizeofUreg = 184;
 
-objchar = "6";
-objtype = "amd64";
 print("/sys/lib/acid/amd64");
