@@ -29,7 +29,6 @@ static struct {
 	Lock;
 	MMU	*free;
 
-	int	nshare;
 	int	nalloc;
 	int	nfree;
 } mmupool;
@@ -199,8 +198,6 @@ mmualloc(void)
 			mmupool.free = p->next;
 			mmupool.nalloc += n;
 			mmupool.nfree += n-1;
-
-			mmupool.nshare = mmupool.nalloc / conf.nmach;
 		}
 		unlock(&mmupool);
 	}
@@ -357,7 +354,7 @@ mmufree(Proc *proc)
 	p = proc->mmutail;
 	if(p == nil)
 		return;
-	if(m->mmucount < mmupool.nshare){
+	if(m->mmucount+proc->mmucount < 256){
 		p->next = m->mmufree;
 		m->mmufree = proc->mmuhead;
 		m->mmucount += proc->mmucount;
