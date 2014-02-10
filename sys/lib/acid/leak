@@ -1,7 +1,7 @@
 //
 // usage: acid -l pool -l leak
 //
-include("/sys/src/libc/port/pool.acid");
+include("/sys/src/libc/port/pool." + objchar + ".acid");
 
 defn
 dumppool(p, sum)
@@ -9,7 +9,7 @@ dumppool(p, sum)
 	complex Pool p;
 	a = p.arenalist;
 
-	print("A: ", p.arenalist\X, "\n");
+	print("A: ", p.arenalist\A, "\n");
 	while a != 0 do {
 		complex Arena a;
 		dumparena(a, sum);
@@ -25,25 +25,25 @@ dumparena(arena, sum)
 	atail = A2TB(arena);
 	complex Bhdr arena;
 	b = a;
-	print("B: ", b\X, " ", atail\X, "\n");
+	print("B: ", b\A, " ", atail\A, "\n");
 	while b < atail && b.magic != ARENATAIL_MAGIC do {
 		dumpblock(b, sum);
 		nb = B2NB(b);
 		if nb == b then {
-			print("B2NB(", b\X, ") = b\n");
+			print("B2NB(", b\A, ") = b\n");
 			b = atail;	// end loop
 		}
 		if nb > atail then {
 			b = (Bhdr)(b+4);
-			print("lost at block ", (b-4)\X, ", scanning forward\n");
+			print("lost at block ", (b-4)\A, ", scanning forward\n");
 			while b < atail && b.magic != ALLOC_MAGIC && b.magic != FREE_MAGIC do
 				b = (Bhdr)(b+4);
-			print("stopped at ", b\X, " ", *b\X, "\n");
+			print("stopped at ", b\A, " ", *b\A, "\n");
 		}else
 			b = nb;
 	}
 	if b != atail then
-		print("found wrong tail to arena ", arena\X, " wanted ", atail\X, "\n");
+		print("found wrong tail to arena ", arena\A, " wanted ", atail\A, "\n");
 }
 
 defn
@@ -70,27 +70,38 @@ emitsum()
 }
 
 defn
+sxpc(addr)
+{
+	if objtype == "amd64" && addr & 0x80000000 then {
+		return addr | 0xffffffff00000000;
+	}
+	return addr;
+}
+
+defn
 dumpblock(addr, sum)
 {
 	complex Bhdr addr;
 
 	if addr.magic == ALLOC_MAGIC || (!sum && addr.magic == FREE_MAGIC) then {
-		local a, x, s;
+		local a, x, s, allocpc, reallocpc;
 
 		a = addr;
 		complex Alloc a;
 
-		x = addr+sizeofBhdr;
+		x = fmt(addr+sizeofBhdr, 'X');
 		if addr.magic == ALLOC_MAGIC then {
 			// for mallocalign()
 			while *x == ALIGN_MAGIC do {
 				x = x + 4;
 			}
 		}
+		allocpc=sxpc(x[0]);
+		reallocpc=sxpc(x[1]);
 		if sum then {
-			if *x != lastalloc then {
+			if allocpc != lastalloc then {
 				emitsum();
-				lastalloc = *x;
+				lastalloc = allocpc;
 			}
 			lastcount = lastcount+1;
 			lastsize = lastsize+a.size;
@@ -99,8 +110,8 @@ dumpblock(addr, sum)
 				s = "block";
 			} else
 				s = "free";
-			print(s, " ", addr\X, " ", a.size\X, " ");
-			print(*x\X, " ", *(x+4)\X, " ", *x\a, " ", *(x+4)\a, "\n");
+			print(s, " ", addr\A, " ", a.size\X, " ");
+			print(x[0]\X, " ", x[1]\X, " ", allocpc\a, " ", reallocpc\a, "\n");
 		}
 	}
 }
@@ -191,3 +202,5 @@ blocksummary()
 	emitsum();
 	print("==BLOCK END==\n");
 }
+
+print("/sys/lib/acid/leak");

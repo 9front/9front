@@ -1,8 +1,8 @@
-include("/sys/src/libthread/sched.acid");
+include("/sys/src/libthread/sched." + objchar + ".acid");
 
 defn labpc(l)
 {
-	if objtype == "386" then
+	if objtype == "386" || objtype == "amd64" then
 		return longjmp;
 	return *(l+4);
 }

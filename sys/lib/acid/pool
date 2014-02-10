@@ -1,4 +1,4 @@
-include("/sys/src/libc/port/pool.acid");
+include("/sys/src/libc/port/pool." + objchar + ".acid");
 
 aggr Byte {
 	'b' 0 byte;
@@ -308,3 +308,4 @@ blockhdr(addr)
 	return addr;
 }
 
+print("/sys/lib/acid/pool");

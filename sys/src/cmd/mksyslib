@@ -36,8 +36,8 @@ clean:V:
 nuke:V:
 	rm -f *.[$OS] [$OS].out $CLEANFILES $LIB
 
-%.acid: %.$O $HFILES
-	$CC $CFLAGS -a $stem.c >$target
+%.acid:V:
+	$CC $CFLAGS -a `{basename $stem .$O}^.c >$target
 
 update:V:
 	update $UPDATEFLAGS $UPDATE
