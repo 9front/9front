@@ -143,7 +143,7 @@ sd53c8xx.i:	sd53c8xx.n
 	aux/na $prereq > $target
 
 acid:V:
-	$CC -a -w -I. -. ../pc/i8253.c>acid
+	$CC -a -w main.c>acid
 
 %.clean:V:
 	rm -f $stem.c [9bz]$stem [9bz]$stem.gz boot$stem.* apbootstrap.h init.h $PCHEADERS

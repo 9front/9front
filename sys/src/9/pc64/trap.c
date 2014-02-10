@@ -1051,6 +1051,7 @@ setkernur(Ureg* ureg, Proc* p)
 {
 	ureg->pc = p->sched.pc;
 	ureg->sp = p->sched.sp+8;
+	ureg->r14 = (uintptr)p;
 }
 
 uintptr
