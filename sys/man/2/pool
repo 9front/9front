@@ -133,10 +133,10 @@ structure itself provides much of the setup interface.
 typedef struct Pool Pool;
 struct Pool {
 	char*	name;
-	ulong	maxsize;	/* of entire Pool */
-	ulong	cursize;	/* of Pool */
-	ulong	curfree;	/* total free bytes in Pool */
-	ulong	curalloc;	/* total allocated bytes in Pool */
+	uintptr	maxsize;	/* of entire Pool */
+	uintptr	cursize;	/* of Pool */
+	uintptr	curfree;	/* total free bytes in Pool */
+	uintptr	curalloc;	/* total allocated bytes in Pool */
 	ulong	minarena;	/* smallest size of new arena */
 	ulong	quantum;	/* allocated blocks should be multiple of */
 	ulong	minblock;	/* smallest newly allocated block */
