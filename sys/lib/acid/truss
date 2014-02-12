@@ -198,7 +198,7 @@ defn new() {
 }
 
 defn truss() {
-	local pc, lst, offset, prevpc, pcspret, ret;
+	local pc, lst, offset, prevpc, pcspret, arg, ret;
 
 	offset = trapoffset();
 
@@ -225,33 +225,34 @@ defn truss() {
 			trussflush();
 			prevpc = *PC;
 			step();
+			arg = eval pcspret[1];
 			ret = eval pcspret[2];
 			print("\treturn value: ", ret\D, "\n");
 			if (ret>=0) && (match(prevpc, readPC)>=0) then {
 				print("\tdata: ");
-				printtextordata(*((eval pcspret[1])+4), ret);
+				printtextordata(arg[1], ret);
 				print("\n");
 			}
 			if (ret>=0) && (match(prevpc, fd2pathPC)>=0) then {
-				print("\tdata: \"", *(*((eval pcspret[1])+4)\s), "\"\n");
+				print("\tdata: \"", *(arg[1]\s), "\"\n");
 			}
 			if (ret>=0) && (match(prevpc, errstrPC)>=0) then {
-				print("\tdata: \"", *(*(eval pcspret[1])\s), "\"\n");
+				print("\tdata: \"", *(arg[1]\s), "\"\n");
 			}
 			if (ret>=0) && (match(prevpc, awaitPC)>=0) then {
 				print("\tdata: ");
-				printtextordata(*(eval pcspret[1]), ret);
+				printtextordata(arg[0], ret);
 				print("\n");
 			}
 			// compatibility hacks for old kernel:
 			if (ret>=0) && (match(prevpc, _waitPC)>=0) then {
 				print("\tdata: ");
-				printtextordata(*(eval pcspret[1]), 12+3*12+64);
+				printtextordata(arg[0], 12+3*12+64);
 				print("\n");
 			}
 			if (ret>=0) && (match(prevpc, _errstrPC)>=0) then {
 				print("\tdata: ");
-				printtextordata(*(eval pcspret[1]), 64);
+				printtextordata(arg[0], 64);
 				print("\n");
 			}
 		}

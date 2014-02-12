@@ -150,6 +150,8 @@ defn UPCSPRET() {
 	// return sys call number, address of first argument, location of syscall return value
 	if objtype == "386" then 
 		return { code(*(*PC-4)), code(*SP+4), code(*AX) };
+	if objtype == "amd64" then 
+		return { code(*BP), code(*SP+8), code(*AX) };
 	if (objtype == "mips") || (objtype == "mips2") then
 		return { code(*(*PC-4) & 0xffff), code(*SP+4), code(*R1) };
 	if objtype == "arm" then
@@ -161,6 +163,7 @@ defn UPCSPRET() {
 defn trapoffset() {
 	// return offset from entry point to trap instr
 	if objtype == "386" then return 5;
+	if objtype == "amd64" then return 12;
 	if objtype == "mips" then return 8;
 	if objtype == "mips2" then return 8;
 	if objtype == "arm" then return 8;	// untested
@@ -170,6 +173,7 @@ defn trapoffset() {
 defn trapreason() {
 	// return reason for trap
 	if objtype == "386" then return reason(*TRAP);
+	if objtype == "amd64" then return reason(*TYPE);
 	if objtype == "mips" then return reason(*CAUSE);
 	if objtype == "mips2" then return reason(*CAUSE);
 	if objtype == "arm" then return "unknown trap";	// untested
