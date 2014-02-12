@@ -9,7 +9,7 @@ _ni() {
 
 defn
 ipdev(n) {
-	_ipfs(*(ipfs+4*n));
+	_ipfs(ipfs[n]);
 }
 
 // the funny _foo/foo pairs exist so that if we get
@@ -21,11 +21,11 @@ _ipfs(fs) {
 	complex Fs fs;
 	local i;
 
-	print("ipfs(", fs\X, ")  #I", fs.dev\D, "\n");
+	print("ipfs(", fs\A, ")  #I", fs.dev\D, "\n");
 	i=0;
 	_ni = _ni+1;
 	while i < fs.np do {
-		_proto(*(fs.p+i*4));
+		_proto(fs.p[i]);
 		i = i + 1;
 	}
 	_ni = _ni-1;
@@ -42,15 +42,15 @@ _proto(p) {
 	local c;
 	complex Proto p;
 	_ni();
-	print("proto(", p\X, ") ", *(p.name\s), "\n");
+	print("proto(", p\A, ") ", *(p.name\s), "\n");
 	_ni = _ni+1;
 	local i;
 	i = 0;
 	while i < p.nc do {
-		c = *(p.conv+i*4);
+		c = p.conv[i];
 		complex Conv c;
 		if c != 0 && c.inuse then 
-			_conv(*(p.conv+i*4));
+			_conv(c);
 		i = i + 1;
 	}
 	_ni = _ni - 1;
@@ -69,7 +69,7 @@ _conv(c) {
 	local p;
 	p = c.p;
 	complex Proto p;
-	print("conv(", c\X, ") ", *(p.name\s), "/", c.x\D, " ", 
+	print("conv(", c\A, ") ", *(p.name\s), "/", c.x\D, " ", 
 		iptostr(*(c.laddr+12)), "!", c.lport\D, " ", iptostr(*(c.raddr+12)), 
 		"!", c.rport\D, " rq ", qtostr(c.rq), " wq ", qtostr(c.wq), 
 		" eq ", qtostr(c.eq), "\n");
@@ -93,7 +93,7 @@ qtostr(q)
 {
 	complex Queue q;
 
-	return "queue("+itoa(q, "%lux")+") ["+itoa(q.len, "%d")+","+itoa(q.dlen, "%d")+","+itoa(qblocks(q), "%d")+"]";
+	return "queue("+itoa(q, "%ux")+") ["+itoa(q.len, "%d")+","+itoa(q.dlen, "%d")+","+itoa(qblocks(q), "%d")+"]";
 }
 
 defn
@@ -118,7 +118,7 @@ _queue(q)
 	complex Queue q;
 	local b;
 
-	print("queue(", q\X, ") len ", q.len\D, " dlen ", q.dlen\D, " limit ", q.limit\D, " nblocks ", qblocks(q)\D);
+	print("queue(", q\A, ") len ", q.len\D, " dlen ", q.dlen\D, " limit ", q.limit\D, " nblocks ", qblocks(q)\D);
 	if q.state & Qstarve then 
 		print(" starve");
 	if q.state & Qmsg then
@@ -154,7 +154,7 @@ _block(b)
 	complex Block b;
 
 	_ni();
-	print("block(", b\X, ") base ", b.base\X, " rp ", b.rp\X, "/", b.rp-b.base\D, " wp ", b.wp\X, "/", b.wp-b.base\D, " lim ", b.lim\X, "/", b.lim-b.base\D, "\n");
+	print("block(", b\A, ") base ", b.base, " rp ", b.rp, "/", b.rp-b.base\D, " wp ", b.wp, "/", b.wp-b.base\D, " lim ", b.lim, "/", b.lim-b.base\D, "\n");
 }
 
 defn

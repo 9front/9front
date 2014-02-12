@@ -11,8 +11,8 @@ notestk(addr)
 	local pc, sp;
 	complex Ureg addr;
 
-	pc = addr.pc\X;
-	sp = addr.sp\X;
+	pc = addr.pc\A;
+	sp = addr.sp\A;
 
 	print("Note pc:", pc, " sp:", sp, " ", fmt(pc, 'a'), " ");
 	pfl(pc);
@@ -25,17 +25,12 @@ notelstk(addr)
 	local pc, sp;
 	complex Ureg addr;
 
-	pc = addr.pc\X;
-	sp = addr.sp\X;
+	pc = addr.pc\A;
+	sp = addr.sp\A;
 
 	print("Note pc:", pc, " sp:", sp, " ", fmt(pc, 'a'), " ");
 	pfl(pc);
 	_stk(pc, sp, linkreg(addr), 1);
-}
-
-defn labstk(l)				// trace from a label
-{
-	_stk(*(l+4), *l, linkreg(0), 0);
 }
 
 defn params(param)
@@ -313,7 +308,7 @@ defn bptab()					// print a table of breakpoints
 	lst = bplist;
 	while lst do {
 		addr = head lst;
-		print("\t", fmt(addr, 'X'), " ", fmt(addr, 'a'), "  ", fmt(addr, 'i'), "\n");
+		print("\t", fmt(addr, 'A'), " ", fmt(addr, 'a'), "  ", fmt(addr, 'i'), "\n");
 		lst = tail lst;
 	}
 }
@@ -390,7 +385,7 @@ defn asm(addr)
 
 	addr = fmt(addr, 'i');
 	loop 1,_asmlines do {
-		print(fmt(addr, 'a'), " ", fmt(addr, 'X'));
+		print(fmt(addr, 'a'), " ", fmt(addr, 'A'));
 		print("\t", @addr++, "\n");
 		if bound != {} && addr > bound[1] then {
 			lasmaddr = addr;
@@ -510,7 +505,7 @@ defn dump(addr, n, fmt)
 {
 	// see definition of dump in acid manual: it does n+1 iterations
 	loop 0, n do {
-		print(fmt(addr, 'X'), ": ");
+		print(fmt(addr, 'A'), ": ");
 		addr = mem(addr, fmt);
 	}
 }
