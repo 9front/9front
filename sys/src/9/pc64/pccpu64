@@ -138,7 +138,7 @@ ip
 	il
 
 port
-	int cpuserver = 0;
+	int cpuserver = 1;
 
 boot boot
 	tcp
