@@ -91,7 +91,7 @@ static char *uname;
 #define PATH(type, n)		((type)|((n)<<8))
 #define TYPE(path)			(((uint)(path) & 0x000000FF)>>0)
 #define NUM(path)			(((uint)(path) & 0xFFFFFF00)>>8)
-#define NUMCONN(c)		(((long)(c)-(long)&conn[0])/sizeof(conn[0]))
+#define NUMCONN(c)		(((uintptr)(c)-(uintptr)&conn[0])/sizeof(conn[0]))
 
 static void
 fillstat(Dir *d, uvlong path)
