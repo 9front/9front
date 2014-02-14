@@ -377,7 +377,7 @@ popentape(Page *p)
 	char mnt[32], cmd[64], *argv[4];
 
 	seek(p->fd, 0, 0);
-	snprint(mnt, sizeof(mnt), "/n/tapefs.%.12d%.8lux", getpid(), (ulong)p);
+	snprint(mnt, sizeof(mnt), "/n/tapefs.%.12d%.8lux", getpid(), (ulong)(uintptr)p);
 	snprint(cmd, sizeof(cmd), "exec %s -m %s /fd/0", (char*)p->data, mnt);
 	switch(rfork(RFPROC|RFMEM|RFFDG|RFREND)){
 	case -1:
