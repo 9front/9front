@@ -31,7 +31,7 @@ xdirdup(Dir *d, int n)
 		if(d[i].gid) p += strlen(d[i].gid)+1;
 		if(d[i].muid) p += strlen(d[i].muid)+1;
 	}
-	o = malloc(n*sizeof(*d) + (int)p);
+	o = malloc(n*sizeof(*d) + (uintptr)p);
 	memmove(o, d, n*sizeof(*d));
 	p = (char*)&o[n];
 	for(i=0; i<n; i++){
