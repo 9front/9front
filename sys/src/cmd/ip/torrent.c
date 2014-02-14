@@ -1044,7 +1044,6 @@ mktorrent(int fd, Dict *alist, Dict *wlist)
 		werrstr("empty file");
 		return -1;
 	}
-	npieces = 1;
 	for(blocksize = 256*1024;;blocksize<<=1){
 		npieces = (d->length + blocksize-1) / blocksize;
 		if(npieces <= 8*1024 || blocksize >= 2*1024*1024)
