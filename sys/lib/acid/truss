@@ -84,6 +84,8 @@ trusscalls = {
 		"rendezvous",
 		"unmount",
 		"_wait",
+		"semacquire",
+		"semrelease",
 		"seek",
 		"fversion",
 		"errstr",
@@ -95,6 +97,7 @@ trusscalls = {
 		"await",
 		"pread",
 		"pwrite",
+		"tsemacquire",
 	};
 
 trussapecalls = {
@@ -135,6 +138,8 @@ trussapecalls = {
 		"_RENDEZVOUS",
 		"_UNMOUNT",
 		"__WAIT",
+		"_SEMACQUIRE",
+		"_SEMRELEASE",
 		"_SEEK",
 		"__NFVERSION",
 		"__NERRSTR",
@@ -146,13 +151,16 @@ trussapecalls = {
 		"__NAWAIT",
 		"_PREAD",
 		"_PWRITE",
+		"_TSEMACQUIRE",
 	};
 
 defn addressof(pattern) {
 	// translate to ape system calls if we have an ape binary
-	if _addressof("_EXITS") == 0 then
-		return _addressof(pattern);
-	return _addressof(trussapecalls[match(pattern, trusscalls)]);
+	if _addressof("_EXITS") != 0 then
+		pattern = trussapecalls[match(pattern, trusscalls)];
+	if regexp("(seek|_SEEK)", pattern) && (objtype=="amd64" || objtype == "power64" || objtype == "alpha") then
+		pattern = "_" + pattern;
+	return _addressof(pattern);
 }
 
 defn setuptruss() {

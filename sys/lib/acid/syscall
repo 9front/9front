@@ -106,7 +106,7 @@ syscalls = {
 	{24, {"brk_",		"X",		code(*sysbrk_:list)}},
 	{25, {"remove",		"s",		code(*sysremove:list)}},
 	{26, {"_wstat",		"sX",		code(*sys_wstat:list)}},
-	{27, {"_fwstat",		"DX",		code(*sys_fwstat:list)}},
+	{27, {"_fwstat",	"DX",		code(*sys_fwstat:list)}},
 	{28, {"notify",		"X",		code(*sysnotify:list)}},
 	{29, {"noted",		"D",		code(*sysnoted:list)}},
 	{30, {"segattach",	"DsXD",		code(*syssegattach:list)}},
@@ -116,6 +116,8 @@ syscalls = {
 	{34, {"rendezvous",	"XX",		code(*sysrendezvous:list)}},
 	{35, {"unmount",	"ss",		code(*sysunmount:list)}},
 	{36, {"_wait",		"X",		code(*sys_wait:list)}},
+	{37, {"semacquire",	"XD",		code(*syssemacquire:list)}},
+	{38, {"semrelease",	"XD",		code(*syssemrelease:list)}},
 	{39, {"seek",		"XDVD",		code(*sysseek:list)}},
 	{40, {"fversion",	"DDsD",		code(*sysfversion:list)}},
 	{41, {"errstr",		"TD",		code(*syserrstr:list)}},
@@ -123,10 +125,11 @@ syscalls = {
 	{43, {"fstat",		"DXD",		code(*sysfstat:list)}},
 	{44, {"wstat",		"sXD",		code(*syswstat:list)}},
 	{45, {"fwstat",		"DXD",		code(*sysfwstat:list)}},
-	{46, {"mount",		"DDsXs",		code(*sysmount:list)}},
+	{46, {"mount",		"DDsXs",	code(*sysmount:list)}},
 	{47, {"await",		"TD",		code(*sysawait:list)}},
 	{50, {"pread",		"DXDZ",		code(*syspread:list)}},
 	{51, {"pwrite",		"DTDZ",		code(*syspwrite:list)}},
+	{52, {"tsemacquire",	"XD",		code(*systsemacquire:list)}},
 };
 
 defn syscall() {
