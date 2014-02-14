@@ -167,7 +167,7 @@ fsmkqid(Qid *q, int level, void *aux)
 	case Qclient:
 		q->type = QTDIR;
 	default:
-		q->path = (level<<24) | (((ulong)aux ^ time0) & 0x00ffffff);
+		q->path = (level<<24) | (((uintptr)aux ^ time0) & 0x00ffffff);
 	}
 }
 
