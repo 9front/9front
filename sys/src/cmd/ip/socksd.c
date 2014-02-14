@@ -112,6 +112,7 @@ udprelay(int fd, char *dir)
 
 	if((cfd = listen(dir, ldir)) < 0)
 		return -1;
+	close(fd);	/* close inside udp server */
 	if((fd = accept(cfd, ldir)) < 0)
 		return -1;
 
