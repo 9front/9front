@@ -1,6 +1,9 @@
 #!/bin/rc
 
 fn confignet{
+	if(~ $#netwait 1)
+		sleep $netwait
+
 	must ip/ipconfig -p $*
 	if(~ $#fs 0)
 		fs=`{awk -F'=' '/fs=/{print $2; exit}' /net/ndb}
