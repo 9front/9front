@@ -82,8 +82,8 @@ mmuinit(void)
 	didmmuinit = 1;
 
 	/* zap double map done by l.s */ 
-	m->pml4[0] = 0;
 	m->pml4[512] = 0;
+	m->pml4[0] = 0;
 
 	m->tss = mallocz(sizeof(Tss), 1);
 	if(m->tss == nil)
@@ -157,7 +157,7 @@ paddr(void *v)
 	if(va >= KZERO)
 		return va-KZERO;
 	if(va >= VMAP)
-		return va-(VMAP-(-KZERO));
+		return va-VMAP;
 	panic("paddr: va=%#p pc=%#p", va, getcallerpc(&v));
 	return 0;
 }
@@ -505,12 +505,7 @@ vmap(uintptr pa, int size)
 	uintptr va;
 	int o;
 
-	if(size <= 0 || pa >= -VMAP)
-		panic("vmap: pa=%#p size=%d pc=%#p", pa, size, getcallerpc(&pa));
-	if(cankaddr(pa) >= size)
-		va = pa+KZERO;
-	else
-		va = pa+(VMAP-(-KZERO));
+	va = pa+VMAP;
 	/*
 	 * might be asking for less than a page.
 	 */
