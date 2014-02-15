@@ -217,8 +217,8 @@ mmucreate(uintptr *table, uintptr va, int level, int index)
 		assert((va < TSTKTOP) || (va >= KMAP && va < KMAP+KMAPSIZE));
 
 		p = mmualloc();
-		p->index = level;
-		p->level = index;
+		p->index = index;
+		p->level = level;
 		if(va < TSTKTOP){
 			flags |= PTEUSER;
 			if(level == PML4E){
