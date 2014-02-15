@@ -100,6 +100,7 @@ struct	OChapreply
 	char	uid[ANAMELEN];
 	char	resp[OMD5LEN];
 };
+#define OCHAPREPLYLEN	(1+ANAMELEN+OMD5LEN)
 
 struct	OMSchapreply
 {
@@ -107,6 +108,7 @@ struct	OMSchapreply
 	char	LMresp[24];		/* Lan Manager response */
 	char	NTresp[24];		/* NT response */
 };
+#define OMSCHAPREPLYLEN	(ANAMELEN+24+24)
 
 /*
  *  convert to/from wire format

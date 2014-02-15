@@ -695,7 +695,7 @@ mschap(Ticketreq *tr)
 	/*
 	 *  get chap reply
 	 */
-	if(readn(0, &reply, sizeof(reply)) < 0)
+	if(readn(0, &reply, OMSCHAPREPLYLEN) < 0)
 		exits(0);
 
 	/*

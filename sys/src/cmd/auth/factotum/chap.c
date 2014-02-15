@@ -24,6 +24,9 @@ enum {
 	MShashlen = 16,
 	MSchallen = 8,
 	MSresplen = 24,
+
+	Chapreplylen = MD5LEN+1,
+	MSchapreplylen = 24+24,
 };
 
 static int dochal(State *s);
@@ -198,10 +201,10 @@ chapwrite(Fsstate *fss, void *va, uint n)
 		default:
 			return failure(fss, "chap internal botch");
 		case AuthChap:
-			if(n != sizeof(*cr))
+			if(n < Chapreplylen)
 				return failure(fss, "did not get Chapreply");
 			cr = (Chapreply*)va;
-			nreply = sizeof(*ocr);
+			nreply = OCHAPREPLYLEN;
 			memset(reply, 0, nreply);
 			ocr = (OChapreply*)reply;
 			strecpy(ocr->uid, ocr->uid+sizeof(ocr->uid), s->user);
@@ -209,17 +212,17 @@ chapwrite(Fsstate *fss, void *va, uint n)
 			memmove(ocr->resp, cr->resp, sizeof(ocr->resp));
 			break;
 		case AuthMSchap:
-			if(n < sizeof(*mcr))
+			if(n < MSchapreplylen)
 				return failure(fss, "did not get MSchapreply");
-			if(n > sizeof(reply)+sizeof(*mcr)-sizeof(*omcr))
+			if(n > sizeof(reply)+MSchapreplylen-OMSCHAPREPLYLEN)
 				return failure(fss, "MSchapreply too long");
 			mcr = (MSchapreply*)va;
-			nreply = n+sizeof(*omcr)-sizeof(*mcr);
+			nreply = n+OMSCHAPREPLYLEN-MSchapreplylen;
 			memset(reply, 0, nreply);
 			omcr = (OMSchapreply*)reply;
 			strecpy(omcr->uid, omcr->uid+sizeof(omcr->uid), s->user);
 			memmove(omcr->LMresp, mcr->LMresp, sizeof(omcr->LMresp));
-			memmove(omcr->NTresp, mcr->NTresp, n+sizeof(mcr->NTresp)-sizeof(*mcr));
+			memmove(omcr->NTresp, mcr->NTresp, n+sizeof(mcr->NTresp)-MSchapreplylen);
 			break;
 		}
 		if(doreply(s, reply, nreply) < 0)
@@ -282,7 +285,7 @@ dochal(State *s)
 	
 	memset(&s->tr, 0, sizeof(s->tr));
 	s->tr.type = s->astype;
-	safecpy(s->tr.authdom, dom, sizeof s->tr.authdom);
+	safecpy(s->tr.authdom, dom, sizeof(s->tr.authdom));
 	safecpy(s->tr.hostid, user, sizeof(s->tr.hostid));
 	convTR2M(&s->tr, trbuf);
 
@@ -488,7 +491,7 @@ domschap(char *passwd, uchar chal[MSchallen], uchar *resp, int resplen)
 	MSchapreply *r;
 
 	r = (MSchapreply*)resp;
-	if(resplen < sizeof(*r))
+	if(resplen < MSchapreplylen)
 		return 0;
 
 	lmhash(hash, passwd);
@@ -497,7 +500,7 @@ domschap(char *passwd, uchar chal[MSchallen], uchar *resp, int resplen)
 	nthash(hash, passwd);
 	mschalresp((uchar*)r->NTresp, hash, chal);
 
-	return sizeof(*r);
+	return MSchapreplylen;
 }
 
 static int
