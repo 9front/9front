@@ -205,12 +205,58 @@ mmualloc(void)
 	return p;
 }
 
+static uintptr*
+mmucreate(uintptr *table, uintptr va, int level, int index)
+{
+	uintptr *page, flags;
+	MMU *p;
+	
+	flags = PTEWRITE|PTEVALID;
+	if(va < VMAP){
+		assert(up != nil);
+		assert((va < TSTKTOP) || (va >= KMAP && va < KMAP+KMAPSIZE));
+
+		p = mmualloc();
+		p->index = level;
+		p->level = index;
+		if(va < TSTKTOP){
+			flags |= PTEUSER;
+			if(level == PML4E){
+				if((p->next = up->mmuhead) == nil)
+					up->mmutail = p;
+				up->mmuhead = p;
+				m->mmumap[index/MAPBITS] |= 1ull<<(index%MAPBITS);
+			} else {
+				up->mmutail->next = p;
+				up->mmutail = p;
+			}
+			up->mmucount++;
+		} else {
+			if(level == PML4E){
+				up->kmaptail = p;
+				up->kmaphead = p;
+			} else {
+				up->kmaptail->next = p;
+				up->kmaptail = p;
+			}
+			up->kmapcount++;
+		}
+		page = p->page;
+	} else if(didmmuinit) {
+		page = mallocalign(PTSZ, BY2PG, 0, 0);
+	} else {
+		page = rampage();
+	}
+	memset(page, 0, PTSZ);
+	table[index] = PADDR(page) | flags;
+	return page;
+}
+
 uintptr*
 mmuwalk(uintptr* table, uintptr va, int level, int create)
 {
-	uintptr pte, *page;
+	uintptr pte;
 	int i, x;
-	MMU *p;
 
 	x = PTLX(va, 3);
 	for(i = 2; i >= level; i--){
@@ -219,49 +265,10 @@ mmuwalk(uintptr* table, uintptr va, int level, int create)
 			if(pte & PTESIZE)
 				return 0;
 			table = KADDR(PPN(pte));
-		} else {			
+		} else {
 			if(!create)
 				return 0;
-			pte = PTEWRITE|PTEVALID;
-			if(va < VMAP){
-				if(va < TSTKTOP){
-					pte |= PTEUSER;
-
-					p = mmualloc();
-					p->index = x;
-					p->level = i;
-					if(i == PML4E){
-						if((p->next = up->mmuhead) == nil)
-							up->mmutail = p;
-						up->mmuhead = p;
-						m->mmumap[p->index/MAPBITS] |= 1ull<<(p->index%MAPBITS);
-					} else {
-						up->mmutail->next = p;
-						up->mmutail = p;
-					}
-					up->mmucount++;
-				} else if(va >= KMAP && va < (KMAP+KMAPSIZE)) {
-					p = mmualloc();
-					p->index = x;
-					p->level = i;
-					if(i == PML4E){
-						up->kmaptail = p;
-						up->kmaphead = p;
-					} else {
-						up->kmaptail->next = p;
-						up->kmaptail = p;
-					}
-					up->kmapcount++;
-				} else
-					return 0;
-				page = p->page;
-			} else if(didmmuinit) {
-				page = mallocalign(PTSZ, BY2PG, 0, 0);
-			} else
-				page = rampage();
-			memset(page, 0, PTSZ);
-			table[x] = PADDR(page) | pte;
-			table = page;
+			table = mmucreate(table, va, i, x);
 		}
 		x = PTLX(va, i);
 	}
