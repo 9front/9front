@@ -73,6 +73,7 @@ mpstartap(Apic* apic)
 	 * PDP between processors.
 	 */
 	pml4[PTLX(KZERO, 3)] = MACHP(0)->pml4[PTLX(KZERO, 3)];
+	pml4[PTLX(VMAP, 3)] = MACHP(0)->pml4[PTLX(VMAP, 3)];
 
 	/* double map */
 	pml4[0] = PADDR(pdp0) | PTEWRITE|PTEVALID;

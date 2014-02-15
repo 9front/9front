@@ -86,11 +86,18 @@ TEXT _warp64<>(SB), 1, $-4
 	MOVL	DX, PML4O(KZERO)(AX)		/* PML4E for KZERO */
 
 	ADDL	$PTSZ, AX			/* PDP at PML4 + PTSZ */
-	ADDL	$PTSZ, DX			/* PD at PML4 + 2*PTSZ */
+	ADDL	$PTSZ, DX			/* PD0 at PML4 + 2*PTSZ */
 	MOVL	DX, PDPO(0)(AX)			/* PDPE for double-map */
 	MOVL	DX, PDPO(KZERO)(AX)		/* PDPE for KZERO */
 
-	ADDL	$PTSZ, AX			/* PD at PML4 + 2*PTSZ */
+	/*
+	 * add PDPE for KZERO+1GB early as Vmware
+	 * hangs when modifying kernel PDP
+	 */
+	ADDL	$PTSZ, DX			/* PD1 */
+	MOVL	DX, PDPO(KZERO+GiB)(AX)
+
+	ADDL	$PTSZ, AX			/* PD0 at PML4 + 2*PTSZ */
 	MOVL	$(PTESIZE|PTEGLOBAL|PTEWRITE|PTEVALID), DX
 	MOVL	DX, PDO(0)(AX)			/* PDE for double-map */
 

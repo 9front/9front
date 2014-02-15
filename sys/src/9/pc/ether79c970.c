@@ -83,8 +83,9 @@ struct Dre {			/* descriptor ring entry */
 	ulong	addr;
 	ulong	md1;			/* status|bcnt */
 	ulong	md2;			/* rcc|rpc|mcnt */
-	Block*	bp;
+	ulong	aux;
 };
+
 
 enum {					/* md1 */
 	Enp		= 0x01000000,	/* end of packet */
@@ -120,9 +121,11 @@ struct Ctlr {
 	int	init;			/* initialisation in progress */
 	Iblock	iblock;
 
+	Block**	rb;
 	Dre*	rdr;			/* receive descriptor ring */
 	int	rdrx;
 
+	Block**	tb;
 	Dre*	tdr;			/* transmit descriptor ring */
 	int	tdrh;			/* host index into tdr */
 	int	tdri;			/* interface index into tdr */
@@ -227,7 +230,9 @@ ifstat(Ether* ether, void* a, long n, ulong offset)
 static void
 ringinit(Ctlr* ctlr)
 {
+	Block *bp;
 	Dre *dre;
+	int i;
 
 	/*
 	 * Initialise the receive and transmit buffer rings.
@@ -235,19 +240,26 @@ ringinit(Ctlr* ctlr)
 	 *
 	 * This routine is protected by ctlr->init.
 	 */
+	if(ctlr->rb == nil)
+		ctlr->rb = malloc(Nrdre*sizeof(Block*));
 	if(ctlr->rdr == 0){
 		ctlr->rdr = xspanalloc(Nrdre*sizeof(Dre), 0x10, 0);
-		for(dre = ctlr->rdr; dre < &ctlr->rdr[Nrdre]; dre++){
-			dre->bp = iallocb(Rbsize);
-			if(dre->bp == nil)
+		for(i=0; i<Nrdre; i++){
+			bp = iallocb(Rbsize);
+			if(bp == nil)
 				panic("can't allocate ethernet receive ring");
-			dre->addr = PADDR(dre->bp->rp);
+			ctlr->rb[i] = bp;
+			dre = &ctlr->rdr[i];
+			dre->addr = PADDR(bp->rp);
 			dre->md2 = 0;
 			dre->md1 = Own|(-Rbsize & 0xFFFF);
+			dre->aux = 0;
 		}
 	}
 	ctlr->rdrx = 0;
 
+	if(ctlr->tb == nil)
+		ctlr->tb = malloc(Ntdre*sizeof(Block*));
 	if(ctlr->tdr == 0)
 		ctlr->tdr = xspanalloc(Ntdre*sizeof(Dre), 0x10, 0);
 	memset(ctlr->tdr, 0, Ntdre*sizeof(Dre));
@@ -312,6 +324,7 @@ txstart(Ether* ether)
 	Ctlr *ctlr;
 	Block *bp;
 	Dre *dre;
+	int i;
 
 	ctlr = ether->ctlr;
 
@@ -330,8 +343,11 @@ txstart(Ether* ether)
 		 * There's no need to pad to ETHERMINTU
 		 * here as ApadXmt is set in CSR4.
 		 */
-		dre = &ctlr->tdr[ctlr->tdrh];
-		dre->bp = bp;
+		i = ctlr->tdrh;
+		if(ctlr->tb[i] != nil)
+			break;
+		dre = &ctlr->tdr[i];
+		ctlr->tb[i] = bp;
 		dre->addr = PADDR(bp->rp);
 		dre->md2 = 0;
 		dre->md1 = Own|Stp|Enp|(-BLEN(bp) & 0xFFFF);
@@ -357,9 +373,9 @@ interrupt(Ureg*, void* arg)
 {
 	Ctlr *ctlr;
 	Ether *ether;
-	int csr0, len;
+	int csr0, len, i;
 	Dre *dre;
-	Block *bp;
+	Block *bp, *bb;
 
 	ether = arg;
 	ctlr = ether->ctlr;
@@ -388,7 +404,8 @@ intrloop:
 	 * until a descriptor is encountered still owned by the chip.
 	 */
 	if(csr0 & Rint){
-		dre = &ctlr->rdr[ctlr->rdrx];
+		i = ctlr->rdrx;
+		dre = &ctlr->rdr[i];
 		while(!(dre->md1 & Own)){
 			if(dre->md1 & RxErr){
 				if(dre->md1 & RxBuff)
@@ -401,10 +418,13 @@ intrloop:
 					ctlr->fram++;
 			}
 			else if(bp = iallocb(Rbsize)){
-				len = (dre->md2 & 0x0FFF)-4;
-				dre->bp->wp = dre->bp->rp+len;
-				etheriq(ether, dre->bp, 1);
-				dre->bp = bp;
+				bb = ctlr->rb[i];
+				ctlr->rb[i] = bp;
+				if(bb != nil){
+					len = (dre->md2 & 0x0FFF)-4;
+					bb->wp = bb->rp+len;
+					etheriq(ether, bb, 1);
+				}
 				dre->addr = PADDR(bp->rp);
 			}
 
@@ -426,7 +446,8 @@ intrloop:
 	if(csr0 & Tint){
 		lock(ctlr);
 		while(ctlr->ntq){
-			dre = &ctlr->tdr[ctlr->tdri];
+			i = ctlr->tdri;
+			dre = &ctlr->tdr[i];
 			if(dre->md1 & Own)
 				break;
 	
@@ -443,8 +464,11 @@ intrloop:
 					ctlr->txbuff++;
 				ether->oerrs++;
 			}
-	
-			freeb(dre->bp);
+			bp = ctlr->tb[i];
+			if(bp != nil){
+				ctlr->tb[i] = nil;
+				freeb(bp);
+			}
 	
 			ctlr->ntq--;
 			ctlr->tdri = NEXT(ctlr->tdri, Ntdre);

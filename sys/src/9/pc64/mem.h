@@ -52,13 +52,13 @@
 /*
  *  Address spaces. Kernel, sorted by address.
  */
-#define KZERO		(0xffffffff80000000ull)	/* 2GB identity map of lower 2GB ram */
+#define KZERO		(0xffffffff80000000ull)
 #define KTZERO		(KZERO+1*MiB+64*KiB)
 
-#define VMAP		(0xffffffff00000000ull)	/* 2GB identity map of upper 2GB ram */
-#define VMAPSIZE	(2*GiB)
+#define VMAP		(0xffffff0000000000ull)
+#define VMAPSIZE	(512*GiB)
 
-#define	KMAP		(0xffffff7f00000000ull)	/* 2MB for per process temporary kernel mappings */
+#define	KMAP		(0xfffffe8000000000ull)
 #define KMAPSIZE	(2*MiB)
 
 /*
@@ -68,8 +68,14 @@
 #define	APBOOTSTRAP	(KZERO+0x3000ull)		/* AP bootstrap code */
 #define	IDTADDR		(KZERO+0x10000ull)		/* idt */
 #define	REBOOTADDR	(0x11000)			/* reboot code - physical address */
+
 #define CPU0PML4	(KZERO+0x13000ull)
+#define CPU0PDP		(KZERO+0x14000ull)
+#define CPU0PD0		(KZERO+0x15000ull)		/* KZERO */
+#define CPU0PD1		(KZERO+0x16000ull)		/* KZERO+1GB */
+
 #define	CPU0GDT		(KZERO+0x17000ull)		/* bootstrap processor GDT */
+
 #define	CPU0MACH	(KZERO+0x18000ull)		/* Mach for bootstrap processor */
 #define CPU0END		(CPU0MACH+MACHSIZE)
 
