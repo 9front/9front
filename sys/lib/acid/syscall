@@ -12,7 +12,7 @@ defn printtextordata(addr, n)
 	i = 0;
 	loop 1, n do {
 		if (a[i]>=127) then {
-			print(fmt(addr, 'X'), ", ", n\D);
+			print(fmt(addr, 'A'), ", ", n\D);
 			return {};
 		}
 		i = i+1;
