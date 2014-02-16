@@ -108,9 +108,21 @@ t:
 	n = 0;
 }
 
+static void
+mmc7(int v, u8int p)
+{
+	if(v < 0){
+		nrom(-1, 0);
+		p = 0;
+	}
+	prgb[0] = prg + (p & 3) * 0x8000;
+	prgb[1] = prgb[0] + 0x4000;
+}
+
 void (*mapper[256])(int, u8int) = {
 	[0] nrom,
 	[1] mmc1,
+	[7] mmc7,
 };
 
 static void
