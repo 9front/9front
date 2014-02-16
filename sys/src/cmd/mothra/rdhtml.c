@@ -219,8 +219,7 @@ void pl_putback(Hglob *g, int c){
 }
 int pl_nextc(Hglob *g){
 	int c;
-	int n;
-	Rune r;
+
 	if(g->heof) return EOF;
 	if(g->npeekc!=0) return g->peekc[--g->npeekc];
 	c=pl_readc(g);
