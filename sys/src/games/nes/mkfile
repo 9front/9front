@@ -1,0 +1,13 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/games
+TARG=nes
+OFILES=\
+	cpu.$O\
+	mem.$O\
+	nes.$O\
+	ppu.$O\
+	
+HFILES=dat.h fns.h
+
+</sys/src/cmd/mkone
