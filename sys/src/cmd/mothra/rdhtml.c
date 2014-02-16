@@ -172,10 +172,14 @@ int pl_bread(Hglob *g){
 }
 /*
  * Read a character, translating \r\n, \n\r, \r and \n into \n
+ * convert to runes.
  */
 int pl_readc(Hglob *g){
-	int c;
 	static int peek=-1;
+	char crune[UTFmax+1];
+	int c, n;
+	Rune r;
+
 	if(peek!=-1){
 		c=peek;
 		peek=-1;
@@ -192,6 +196,21 @@ int pl_readc(Hglob *g){
 		if(c!='\r') peek=c;
 		return '\n';
 	}
+
+	if(c < Runeself)
+		return c;
+
+	crune[0]=c;
+	for (n=1; n<=sizeof(crune); n++){
+		if(fullrune(crune, n)){
+			chartorune(&r, crune);
+			return r;
+		}
+		c=pl_bread(g);
+		if(c==EOF)
+			return EOF;
+		crune[n]=c;
+	}
 	return c;
 }
 void pl_putback(Hglob *g, int c){
@@ -202,7 +221,6 @@ int pl_nextc(Hglob *g){
 	int c;
 	int n;
 	Rune r;
-	char crune[UTFmax+1];
 	if(g->heof) return EOF;
 	if(g->npeekc!=0) return g->peekc[--g->npeekc];
 	c=pl_readc(g);
@@ -220,19 +238,9 @@ int pl_nextc(Hglob *g){
 		return '<';
 	}
 	if(c=='>') return ETAG;
-	if(c==EOF) return c;
-	for (n=1; n<=sizeof(crune); n++){
-		crune[n-1]=c;
-		if(fullrune(crune, n)){
-			chartorune(&r, crune);
-			return r;
-		}
-		c=pl_readc(g);
-		if(c==EOF)
-			return EOF;
-	}
 	return c;
 }
+
 char *unquot(char *dst, char *src, int len){
 	char *e;
 
