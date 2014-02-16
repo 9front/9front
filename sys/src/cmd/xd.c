@@ -7,7 +7,7 @@ unsigned char	data[16];
 int		ndata;
 unsigned long	addr;
 int		repeats;
-int		swizzle;
+int		le;	/* little endian */
 int		flush;
 int		abase=2;
 int		xd(char *, int);
@@ -79,7 +79,7 @@ main(int argc, char *argv[])
 			continue;
 		}
 		if(argv[0][0] == 's'){
-			swizzle = 1;
+			le = 1;
 			if(argv[0][1])
 				goto Usage;
 			continue;
@@ -215,8 +215,6 @@ xd(char *name, int title)
 		if(ndata < 16)
 			for(i=ndata; i<16; i++)
 				data[i] = 0;
-		if(swizzle)
-			swizz();
 		if(ndata==16 && repeats){
 			if(addr>0 && data[0]==odata[0]){
 				for(i=1; i<16; i++)
@@ -256,29 +254,6 @@ xd(char *name, int title)
 }
 
 void
-swizz(void)
-{
-	uchar *p, *q;
-	int i;
-	uchar swdata[16];
-
-	p = data;
-	q = swdata;
-	for(i=0; i<16; i++)
-		*q++ = *p++;
-	p = data;
-	q = swdata;
-	for(i=0; i<4; i++){
-		p[0] = q[3];
-		p[1] = q[2];
-		p[2] = q[1];
-		p[3] = q[0];
-		p += 4;
-		q += 4;
-	}
-}
-
-void
 fmt0(char *f)
 {
 	int i;
@@ -291,7 +266,8 @@ fmt1(char *f)
 {
 	int i;
 	for(i=0; i<ndata; i+=sizeof(unsigned short))
-		xprint(f, (data[i]<<8)|data[i+1]);
+		xprint(f, le ? (data[i+1]<<8)|data[i]
+		             : (data[i]<<8)|data[i+1]);
 }
 
 void
@@ -299,7 +275,8 @@ fmt2(char *f)
 {
 	int i;
 	for(i=0; i<ndata; i+=sizeof(unsigned long))
-		xprint(f, (data[i]<<24)|(data[i+1]<<16)|(data[i+2]<<8)|data[i+3]);
+		xprint(f, le ? (data[i+3]<<24)|(data[i+2]<<16)|(data[i+1]<<8)|data[i]
+		             : (data[i]<<24)|(data[i+1]<<16)|(data[i+2]<<8)|data[i+3]);
 }
 
 void
@@ -308,9 +285,15 @@ fmt3(char *f)
 	int i;
 	unsigned long long v;
 	for(i=0; i<ndata; i+=sizeof(unsigned long long)){
-		v = (data[i]<<24)|(data[i+1]<<16)|(data[i+2]<<8)|data[i+3];
-		v <<= 32;
-		v |= (data[i+4]<<24)|(data[i+1+4]<<16)|(data[i+2+4]<<8)|data[i+3+4];
+		if(le){
+			v = (data[i+3+4]<<24)|(data[i+2+4]<<16)|(data[i+1+4]<<8)|data[i+4];
+			v <<= 32;
+			v |= (data[i+3]<<24)|(data[i+2]<<16)|(data[i+1]<<8)|data[i];
+		}else{
+			v = (data[i]<<24)|(data[i+1]<<16)|(data[i+2]<<8)|data[i+3];
+			v <<= 32;
+			v |= (data[i+4]<<24)|(data[i+1+4]<<16)|(data[i+2+4]<<8)|data[i+3+4];
+		}
 		if(Bprint(&bout, f, v)<0){
 			fprint(2, "xd: i/o error\n");
 			exits("i/o error");

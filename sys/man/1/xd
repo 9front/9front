@@ -73,7 +73,7 @@ Print file addresses in the given style (and size 4).
 (Unbuffered) Flush the output buffer after each 16-byte sequence.
 .TP
 .B -s
-Reverse (swab) the order of bytes in each group of 4 before printing.
+Switch to little-endian units.
 .TP
 .B -r
 Print repeating groups of identical 16-byte sequences as the first group
