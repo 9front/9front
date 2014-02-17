@@ -11,17 +11,26 @@ typedef struct Res {
 Biobuf *out;
 
 uchar _cpuid[] = {
-	0x8B, 0x44, 0x24, 0x08,    /* MOV 8(SP), AX */
-	0x31, 0xDB,                /* XOR BX, BX */
-	0x8B, 0x4C, 0x24, 0x0C,    /* MOV 12(SP), CX */ 
-	0x31, 0xD2,                /* XOR DX, DX */
-	0x0F, 0xA2,                /* CPUID */
-	0x8B, 0x7C, 0x24, 0x04,    /* MOV 4(SP), DI */
-	0x89, 0x07,                /* MOV AX, (DI) */
-	0x89, 0x5F, 0x04,          /* MOV BX, 4(DI) */
-	0x89, 0x4F, 0x08,          /* MOV CX, 8(DI) */
-	0x89, 0x57, 0x0C,          /* MOV DX, 12(DI) */
-	0xC3                       /* RET */
+	0x5E,			/* POP SI (PC) */
+	0x5D,			/* POP BP (Res&) */
+	0x58,			/* POP AX */
+	0x59,			/* POP CX */
+
+	0x51,			/* PUSH CX */
+	0x50,			/* PUSH AX */
+	0x55,			/* PUSH BP */
+	0x56,			/* PUSH SI */
+
+	0x31, 0xDB,		/* XOR BX, BX */
+	0x31, 0xD2,		/* XOR DX, DX */
+
+	0x0F, 0xA2,		/* CPUID */
+
+	0x89, 0x45, 0x00,	/* MOV AX, 0(BP) */
+	0x89, 0x5d, 0x04,	/* MOV BX, 4(BP) */
+	0x89, 0x4d, 0x08,	/* MOV CX, 8(BP) */
+	0x89, 0x55, 0x0C,	/* MOV DX, 12(BP) */
+	0xC3,			/* RET */
 };
 
 Res (*cpuid)(ulong ax, ulong cx) = (Res(*)(ulong, ulong)) _cpuid;
@@ -215,10 +224,18 @@ main(int argc, char **argv)
 	case 'a': aflag++; break;
 	} ARGEND;
 	notify(notehand);
-	w = *(ulong *)0x1000;
+	/* first long in a.out header */
+	w = *(ulong *)(((uintptr)main)&~0xfff);
 	notify(nil);
-	if(w != 0xeb010000)
+	switch(w){
+	default:
 		sysfatal(Egreg);
+	case 0x978a0000:	/* amd64 */
+		/* patch out POP BP -> POP AX */
+		_cpuid[1] = 0x58;
+	case 0xeb010000:	/* 386 */
+		break;
+	}
 	Binit(&buf, 1, OWRITE);
 	out = &buf;
 	r = cpuid(0, 0);
