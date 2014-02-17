@@ -2,8 +2,9 @@
 #include	<libc.h>
 #include	<tos.h>
 
-extern	long	_callpc(void**);
-extern	long	_savearg(void);
+extern	uintptr	_callpc(void**);
+extern	uintptr	_saveret(void);
+extern	uintptr	_savearg(void);
 
 static	ulong	khz;
 static	ulong	perr;
@@ -22,21 +23,27 @@ struct	Plink
 
 #pragma profile off
 
-ulong
+static uintptr
+_restore(uintptr, uintptr ret)
+{
+	return ret;
+}
+
+uintptr
 _profin(void)
 {
 	void *dummy;
 	long pc;
 	Plink *pp, *p;
-	ulong arg;
+	uintptr arg, ret;
 	vlong t;
 
+	ret = _saveret();
 	arg = _savearg();
 	pc = _callpc(&dummy);
 	pp = _tos->prof.pp;
 	if(pp == 0 || (_tos->prof.pid && _tos->pid != _tos->prof.pid))
-		return arg;
-
+		return _restore(arg, ret);
 	for(p=pp->down; p; p=p->link)
 		if(p->pc == pc)
 			goto out;
@@ -44,7 +51,7 @@ _profin(void)
 	if(p >= _tos->prof.last) {
 		_tos->prof.pp = 0;
 		perr++;
-		return arg;
+		return _restore(arg, ret);
 	}
 	_tos->prof.next = p;
 	p->link = pp->down;
@@ -75,20 +82,21 @@ out:
 		p->time = p->time - _tos->clock;
 		break;
 	}
-	return arg;		/* disgusting linkage */
+	return _restore(arg, ret);
 }
 
-ulong
+uintptr
 _profout(void)
 {
 	Plink *p;
-	ulong arg;
+	uintptr ret, arg;
 	vlong t;
 
+	ret = _saveret();
 	arg = _savearg();
 	p = _tos->prof.pp;
 	if (p == nil || (_tos->prof.pid != 0 && _tos->pid != _tos->prof.pid))
-		return arg;	/* Not our process */
+		return _restore(arg, ret);	/* Not our process */
 	switch(_tos->prof.what){
 	case Profkernel:		/* Add proc cycles on proc entry */
 		p->time = p->time + _tos->pcycles;
@@ -106,7 +114,7 @@ _profout(void)
 		break;
 	}
 	_tos->prof.pp = p->old;
-	return arg;
+	return _restore(arg, ret);
 }
 
 void

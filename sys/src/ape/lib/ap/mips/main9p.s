@@ -49,6 +49,7 @@ loop:
 	MOVW	$_profin(SB), R0	/* force loading of profile */
 	JMP	loop
 
+TEXT	_saveret(SB), 1, $0
 TEXT	_savearg(SB), 1, $0
 	RET
 

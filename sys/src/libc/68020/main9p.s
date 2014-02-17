@@ -20,6 +20,7 @@ loop:
 	LEA	_profin(SB), A0		/* force loading of profile */
 	BRA	loop
 
+TEXT	_saveret(SB), 1, $0
 TEXT	_savearg(SB), 1, $0
 	RTS
 

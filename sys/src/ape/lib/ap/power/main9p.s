@@ -40,6 +40,7 @@ loop:
 	MOVW	$_profin(SB), R4	/* force loading of profile */
 	BR	loop
 
+TEXT	_saveret(SB), 1, $0
 TEXT	_savearg(SB), 1, $0
 	RETURN
 

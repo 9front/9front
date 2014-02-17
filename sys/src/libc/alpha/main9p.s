@@ -26,6 +26,7 @@ loop:
 	MOVQ	$_profin(SB), R31	/* force loading of profile */
 	JMP	loop
 
+TEXT	_saveret(SB), 1, $0
 TEXT	_savearg(SB), 1, $0
 	RET
 

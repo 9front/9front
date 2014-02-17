@@ -37,7 +37,11 @@ loop:
 	MOVL	$0, AX
 	JMP	loop
 
+TEXT	_saveret(SB), 1, $0
+	RET
+
 TEXT	_savearg(SB), 1, $0
+	MOVQ	RARG, AX
 	RET
 
 TEXT	_callpc(SB), 1, $0
