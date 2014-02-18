@@ -460,8 +460,8 @@ reply(Fcall *r, Fcall *t, char *err)
 		fatal(Enomem);
 	n = convS2M(t, data, messagesize);
 	if(write(netfd, data, n)!=n){
-		syslog(0, "exportfs", "short write: %r");
-		fatal("mount write");
+		/* not fatal, might have got a note due to flush */
+		fprint(2, "exportfs: short write in reply: %r\n");
 	}
 	free(data);
 }
@@ -570,8 +570,6 @@ getsbuf(void)
 		unlock(&sbufalloc);
 		w = emallocz(sizeof(*w) + messagesize);
 	}
-	w->pid = 0;
-	w->canint = 0;
 	w->flushtag = NOTAG;
 	return w;
 }
@@ -579,8 +577,6 @@ getsbuf(void)
 void
 putsbuf(Fsrpc *w)
 {
-	w->pid = 0;
-	w->canint = 0;
 	w->flushtag = NOTAG;
 	lock(&sbufalloc);
 	w->next = sbufalloc.free;
