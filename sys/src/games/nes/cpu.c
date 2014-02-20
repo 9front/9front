@@ -6,7 +6,6 @@
 u16int pc, curpc;
 u8int rA, rX, rY, rS, rP;
 int nmi;
-extern int map;
 
 static u8int
 fetch8(void)

@@ -1,9 +1,15 @@
 extern u16int pc, curpc;
 extern u8int rA, rX, rY, rS, rP;
-extern uchar mem[32768];
-extern int scale;
+extern uchar mem[32768], ppuram[16384], oam[256];
 extern u16int pput, ppuv;
 extern u8int ppusx;
+extern int mirr;
+
+extern int map, scale;
+extern uchar *prg, *chr;
+extern int nprg, nchr, nmi, map;
+
+extern int keys;
 
 enum {
 	FLAGC = 1<<0,

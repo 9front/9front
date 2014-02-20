@@ -9,12 +9,9 @@ uchar mem[32768];
 uchar ppuram[16384];
 uchar oam[256];
 uchar *prgb[2], *chrb[2];
-extern uchar *prg, *chr;
-extern int nprg, nchr;
 u16int pput, ppuv;
 u8int ppusx;
 static int vramlatch = 1, keylatch = 0xFF;
-extern int keys, nmi, map, mirr;
 
 static void
 nrom(int p, u8int)
