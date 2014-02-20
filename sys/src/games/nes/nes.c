@@ -83,6 +83,8 @@ loadrom(char *file)
 	mapper[map](-1, 0);
 }
 
+extern int trace;
+
 void
 keyproc(void *)
 {
@@ -99,6 +101,8 @@ keyproc(void *)
 		if(buf[0] == 'c'){
 			if(utfrune(buf, Kdel))
 				threadexitsall(nil);
+			if(utfrune(buf, 't'))
+				trace ^= 1;
 		}
 		if(buf[0] != 'k' && buf[0] != 'K')
 			continue;

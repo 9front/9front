@@ -6,6 +6,7 @@
 u16int pc, curpc;
 u8int rA, rX, rY, rS, rP;
 int nmi;
+extern int map;
 
 static u8int
 fetch8(void)
@@ -172,7 +173,13 @@ dec(u16int a)
 static void
 inc(u16int a)
 {
-	memwrite(a, nz(memread(a) + 1));
+	u8int v;
+
+	v = memread(a);
+	memwrite(a, v);
+	v = nz(v + 1);
+	if(!(map == 1 && a >= 0x8000))
+		memwrite(a, v);
 }
 
 static void
@@ -229,6 +236,8 @@ interrupt(int nmi, int brk)
 	rP |= FLAGI;
 }
 
+int trace;
+
 int
 step(void)
 {
@@ -243,6 +252,8 @@ step(void)
 	}
 	curpc = pc;
 	op = fetch8();
+	if(trace)
+		print("%x %x %x %x %x %x %x %x\n", curpc, op, rA, rX, rY, rS, rP, memread(0x2c));
 	switch(op){
 	case 0x00: pc++; interrupt(0, 1); return 7;
 	case 0x01: nz(rA |= indX()); return 6;
@@ -397,12 +408,12 @@ step(void)
 	case 0xC5: cmp(rA, zp()); return 3;
 	case 0xC9: cmp(rA, imm()); return 2;
 	case 0xCD: cmp(rA, abso()); return 4;
+	case 0xD0: if((rP & FLAGZ) == 0) return branch(); pc++; return 3;
 	case 0xD1: cmp(rA, indY(&c)); return 5 + c;
 	case 0xD5: cmp(rA, zpX()); return 4;
 	case 0xD8: rP &= ~FLAGD; return 2;
 	case 0xD9: cmp(rA, absY()); return 4 + ((u8int)a < rY);
 	case 0xDD: cmp(rA, absX()); return 4 + ((u8int)a < rX);
-	case 0xD0: if((rP & FLAGZ) == 0) return branch(); pc++; return 3;
 	case 0xC0: cmp(rY, imm()); return 2;
 	case 0xC4: cmp(rY, zp()); return 3;
 	case 0xC6: dec(fetch8()); return 5;

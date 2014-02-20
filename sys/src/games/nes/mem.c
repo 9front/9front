@@ -193,7 +193,8 @@ memwrite(u16int p, u8int v)
 			p &= 0x2007;
 		switch(p){
 		case PPUCTRL:
-			if((v & PPUNMI) != 0 && (mem[PPUSTATUS] & PPUVBLANK) != 0)
+			if((mem[PPUCTRL] & PPUNMI) == 0 && (v & PPUNMI) != 0 &&
+			   (mem[PPUSTATUS] & PPUVBLANK) != 0)
 				nmi = 1;
 			pput = (pput & 0xF3FF) | ((v & 3) << 10);
 			break;

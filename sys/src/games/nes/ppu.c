@@ -5,7 +5,7 @@
 #include "dat.h"
 #include "fns.h"
 
-int ppuy, ppux;
+int ppuy, ppux, odd;
 uchar pic[256*240*4*9];
 extern uchar oam[256];
 
@@ -289,7 +289,11 @@ ppustep(void)
 	if(ppux > 340){
 		ppux = 0;
 		ppuy++;
-		if(ppuy > 261)
+		if(ppuy > 261){
 			ppuy = 0;
+			if(odd && (mem[PPUCTRL] & (BGDISP | SPRITEDISP)) != 0)
+				ppux++;
+			odd ^= 1;
+		}
 	}
 }
