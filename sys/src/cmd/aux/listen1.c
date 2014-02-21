@@ -118,7 +118,7 @@ main(int argc, char **argv)
 		if(nctl < 0)
 			sysfatal("listen %s: %r", argv[0]);
 
-		switch(rfork(RFFDG|RFPROC|RFMEM|RFENVG|RFNAMEG|RFNOTEG|nowait)){
+		switch(rfork(RFFDG|RFPROC|RFMEM|RFENVG|RFNAMEG|RFNOTEG|RFREND|nowait)){
 		case -1:
 			reject(nctl, ndir, "host overloaded");
 			close(nctl);

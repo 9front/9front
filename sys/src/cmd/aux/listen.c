@@ -456,7 +456,7 @@ dolisten(char *proto, char *dir, int ctl, char *srvdir, char *dialstr, long *pch
 		/*
 		 *  start a subprocess for the connection
 		 */
-		switch(rfork(RFFDG|RFPROC|RFMEM|RFENVG|RFNAMEG|RFNOTEG|nowait)){
+		switch(rfork(RFFDG|RFPROC|RFMEM|RFENVG|RFNAMEG|RFNOTEG|RFREND|nowait)){
 		case -1:
 			reject(nctl, ndir, "host overloaded");
 			close(nctl);
