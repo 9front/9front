@@ -15,8 +15,6 @@ typedef struct Qidtab Qidtab;
 struct Fsrpc
 {
 	Fsrpc	*next;		/* freelist */
-	uintptr	pid;		/* Pid of slave process executing the rpc */
-	int	canint;		/* Interrupt gate */
 	int	flushtag;	/* Tag on which to reply to flush */
 	Fcall	work;		/* Plan 9 incoming Fcall */
 	uchar	buf[];		/* Data buffer */
@@ -53,9 +51,10 @@ struct File
 
 struct Proc
 {
-	uintptr	pid;
+	Lock;
 	Fsrpc	*busy;
 	Proc	*next;
+	int	pid;
 };
 
 struct Qidtab
@@ -70,7 +69,6 @@ struct Qidtab
 
 enum
 {
-	MAXPROC		= 50,
 	FHASHSIZE	= 64,
 	Fidchunk	= 1000,
 	Npsmpt		= 32,
@@ -128,7 +126,7 @@ void	freefile(File*);
 void	slaveopen(Fsrpc*);
 void	slaveread(Fsrpc*);
 void	slavewrite(Fsrpc*);
-void	blockingslave(void);
+void	blockingslave(Proc*);
 void	reopen(Fid *f);
 void	noteproc(int, char*);
 void	flushaction(void*, char*);
