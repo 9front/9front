@@ -64,20 +64,14 @@ Xflush(Fsrpc *t)
 
 	for(m = Proclist; m; m = m->next){
 		w = m->busy;
-		if(w == nil || w->work.tag != t->work.oldtag)
-			continue;
-
-		lock(m);
-		w = m->busy;
-		if(w != nil && w->work.tag == t->work.oldtag) {
+		if(w != 0 && w->pid == m->pid && w->work.tag == t->work.oldtag) {
 			w->flushtag = t->work.tag;
 			DEBUG(DFD, "\tset flushtag %d\n", t->work.tag);
-			postnote(PNPROC, m->pid, "flush");
-			unlock(m);
+			if(w->canint)
+				postnote(PNPROC, w->pid, "flush");
 			putsbuf(t);
 			return;
 		}
-		unlock(m);
 	}
 
 	reply(&t->work, &rhdr, 0);
@@ -465,10 +459,10 @@ procsetname(char *fmt, ...)
 void
 slave(Fsrpc *f)
 {
-	static int nproc;
-	Proc *p, **l;
+	Proc *p;
+	uintptr pid;
 	Fcall rhdr;
-	int pid;
+	static int nproc;
 
 	if(readonly){
 		switch(f->work.type){
@@ -485,41 +479,30 @@ slave(Fsrpc *f)
 		}
 	}
 	for(;;) {
-		for(l = &Proclist; (p = *l) != nil; l = &p->next) {
-			if(p->busy != nil)
-				continue;
-
-			p->busy = f;
-			while(rendezvous(p, f) == (void*)~0)
-				;
-
-			/* swept a slave proc */
-			if(f == nil){
-				*l = p->next;
-				free(p);
-				nproc--;
-				break;
-			}
-			f = nil;
-
-			/*
-			 * as long as the number of slave procs
-			 * is small, dont bother sweeping.
-			 */
-			if(nproc < 16)
-				break;
+		for(p = Proclist; p; p = p->next) {
+			if(p->busy == 0) {
+				f->pid = p->pid;
+				p->busy = f;
+				do {
+					pid = (uintptr)rendezvous((void*)p->pid, f);
+				}
+				while(pid == ~0);	/* Interrupted */
+				if(pid != p->pid)
+					fatal("rendezvous sync fail");
+				return;
+			}	
 		}
-		if(f == nil)
-			return;
 
-		p = emallocz(sizeof(Proc));
-		pid = rfork(RFPROC|RFMEM|RFNOWAIT);
-		switch(pid) {
-		case -1:
+		if(nproc >= MAXPROC){
 			reply(&f->work, &rhdr, Enoprocs);
 			putsbuf(f);
-			free(p);
 			return;
+		}
+		nproc++;
+		pid = rfork(RFPROC|RFMEM);
+		switch(pid) {
+		case -1:
+			fatal("rfork");
 
 		case 0:
 			if (local[0] != '\0')
@@ -528,34 +511,44 @@ slave(Fsrpc *f)
 						local, remote);
 				else
 					procsetname("%s -> %s", local, remote);
-			blockingslave(p);
-			_exits(0);
+			blockingslave();
+			fatal("slave");
 
 		default:
+			p = emallocz(sizeof(Proc));
+			p->busy = 0;
 			p->pid = pid;
 			p->next = Proclist;
 			Proclist = p;
-			nproc++;
+			while(rendezvous((void*)pid, p) == (void*)~0)
+				;
 		}
 	}
 }
 
 void
-blockingslave(Proc *m)
+blockingslave(void)
 {
 	Fsrpc *p;
 	Fcall rhdr;
+	Proc *m;
+	uintptr pid;
 
 	notify(flushaction);
 
-	for(;;) {
-		p = rendezvous(m, nil);
-		if(p == (void*)~0)	/* Interrupted */
-			continue;
-		if(p == nil)		/* Swept */
-			break;
+	pid = getpid();
 
-		DEBUG(DFD, "\tslave: %d %F\n", m->pid, &p->work);
+	do {
+		m = rendezvous((void*)pid, 0);
+	}
+	while(m == (void*)~0);	/* Interrupted */
+	
+	for(;;) {
+		p = rendezvous((void*)pid, (void*)pid);
+		if(p == (void*)~0)			/* Interrupted */
+			continue;
+
+		DEBUG(DFD, "\tslave: %p %F p %p\n", pid, &p->work, p->pid);
 		if(p->flushtag != NOTAG)
 			goto flushme;
 
@@ -575,17 +568,13 @@ blockingslave(Proc *m)
 		default:
 			reply(&p->work, &rhdr, "exportfs: slave type error");
 		}
-flushme:
-		lock(m);
-		m->busy = nil;
-		unlock(m);
-
-		/* no more flushes can come in now */
 		if(p->flushtag != NOTAG) {
+flushme:
 			p->work.type = Tflush;
 			p->work.tag = p->flushtag;
 			reply(&p->work, &rhdr, 0);
 		}
+		m->busy = 0;
 		putsbuf(p);
 	}
 }
@@ -665,8 +654,16 @@ slaveopen(Fsrpc *p)
 	
 	path = makepath(f->f, "");
 	DEBUG(DFD, "\topen: %s %d\n", path, work->mode);
+
+	p->canint = 1;
+	if(p->flushtag != NOTAG){
+		free(path);
+		return;
+	}
+	/* There is a race here I ignore because there are no locks */
 	f->fid = open(path, work->mode);
 	free(path);
+	p->canint = 0;
 	if(f->fid < 0 || (d = dirfstat(f->fid)) == nil) {
 	Error:
 		errstr(err, sizeof err);
@@ -706,6 +703,9 @@ slaveread(Fsrpc *p)
 	}
 
 	n = (work->count > messagesize-IOHDRSZ) ? messagesize-IOHDRSZ : work->count;
+	p->canint = 1;
+	if(p->flushtag != NOTAG)
+		return;
 	data = malloc(n);
 	if(data == 0) {
 		reply(work, &rhdr, Enomem);
@@ -717,12 +717,14 @@ slaveread(Fsrpc *p)
 		r = preaddir(f, (uchar*)data, n, work->offset);
 	else
 		r = pread(f->fid, data, n, work->offset);
+	p->canint = 0;
 	if(r < 0) {
 		free(data);
 		errstr(err, sizeof err);
 		reply(work, &rhdr, err);
 		return;
 	}
+
 	DEBUG(DFD, "\tread: fd=%d %d bytes\n", f->fid, r);
 
 	rhdr.data = data;
@@ -748,7 +750,11 @@ slavewrite(Fsrpc *p)
 	}
 
 	n = (work->count > messagesize-IOHDRSZ) ? messagesize-IOHDRSZ : work->count;
+	p->canint = 1;
+	if(p->flushtag != NOTAG)
+		return;
 	n = pwrite(f->fid, work->data, n, work->offset);
+	p->canint = 0;
 	if(n < 0) {
 		errstr(err, sizeof err);
 		reply(work, &rhdr, err);
