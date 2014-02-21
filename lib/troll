@@ -151,3 +151,9 @@ I am just trying to figure out the best way of using fossil+venti with a laptop.
 if there are any 9srv users in the room: my fossil went crashy  early this morning.
 (This is p9p fossil)
 srv: timeout establishing connection to tcp!sources.cs.bell-labs.com!9fs
+[go-nuts] help us get to #1 on HN
+Are OpenBSD's packages extremely outdated?
+While I think the overall concept is amazing, my understanding is that the user interface stayed somewhere in the mid-nineties, and that it lacks things people tend to expect in a modern UNIX-like operating system, such as a decent browser, vim, shell history and symlinks.
+Porting a modern browser to Plan 9 woulbe incredibly painful, and I believe the codebase of Chromium or Firefox is larger than Plan 9 itself these days!
+Subject: [sources] applied patch: /n/atom/patch/applied/websocket2
+#ifdef PLAN9
