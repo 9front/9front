@@ -8,16 +8,29 @@
 #include "fns.h"
 
 extern uchar ppuram[16384];
-int nprg, nchr, map;
+int nprg, nchr, map, chrram;
 uchar *prg, *chr;
 int scale;
 Rectangle picr;
 Image *tmp, *bg;
-int clock, ppuclock, syncclock, syncfreq, checkclock, sleeps;
+int clock, ppuclock, syncclock, syncfreq, checkclock, msgclock, sleeps;
 Mousectl *mc;
-int keys;
-extern void (*mapper[])(int, u8int);
+int keys, paused, savereq, loadreq;
 int mirr;
+QLock pauselock;
+
+void
+message(char *fmt, ...)
+{
+	va_list va;
+	static char buf[512];
+	
+	va_start(va, fmt);
+	vsnprint(buf, sizeof buf, fmt, va);
+	string(screen, Pt(10, 10), display->black, ZP, display->defaultfont, buf);
+	msgclock = FREQ;
+	va_end(va);
+}
 
 void
 loadrom(char *file)
@@ -62,6 +75,7 @@ loadrom(char *file)
 		sysfatal("malloc: %r");
 	if(readn(fd, prg, nprg * PRGSZ) < nprg * PRGSZ)
 		sysfatal("read: %r");
+	chrram = nchr == 0;
 	if(nchr != 0){
 		chr = malloc(nchr * CHRSZ);
 		if(chr == nil)
@@ -70,7 +84,7 @@ loadrom(char *file)
 			sysfatal("read: %r");
 	}else{
 		nchr = 16;
-		chr = malloc(16 * CHRSZ);
+		chr = malloc(nchr * CHRSZ);
 		if(chr == nil)
 			sysfatal("malloc: %r");
 	}
@@ -88,40 +102,53 @@ extern int trace;
 void
 keyproc(void *)
 {
-	int fd;
-	char buf[256], *s;
+	int fd, k;
+	static char buf[256];
+	char *s;
 	Rune r;
 
 	fd = open("/dev/kbd", OREAD);
 	if(fd < 0)
 		sysfatal("open: %r");
 	for(;;){
-		if(read(fd, buf, 256) <= 0)
+		if(read(fd, buf, sizeof(buf) - 1) <= 0)
 			sysfatal("read /dev/kbd: %r");
 		if(buf[0] == 'c'){
 			if(utfrune(buf, Kdel))
 				threadexitsall(nil);
+			if(utfrune(buf, KF|5))
+				savereq = 1;
+			if(utfrune(buf, KF|6))
+				loadreq = 1;
 			if(utfrune(buf, 't'))
 				trace ^= 1;
 		}
 		if(buf[0] != 'k' && buf[0] != 'K')
 			continue;
 		s = buf + 1;
-		keys = 0;
+		k = 0;
 		while(*s != 0){
 			s += chartorune(&r, s);
 			switch(r){
 			case Kdel: threadexitsall(nil);
-			case 'x': keys |= 1<<0; break;
-			case 'z': keys |= 1<<1; break;
-			case Kshift: keys |= 1<<2; break;
-			case 10: keys |= 1<<3; break;
-			case Kup: keys |= 1<<4; break;
-			case Kdown: keys |= 1<<5; break;
-			case Kleft: keys |= 1<<6; break;
-			case Kright: keys |= 1<<7; break;
+			case 'x': k |= 1<<0; break;
+			case 'z': k |= 1<<1; break;
+			case Kshift: k |= 1<<2; break;
+			case 10: k |= 1<<3; break;
+			case Kup: k |= 1<<4; break;
+			case Kdown: k |= 1<<5; break;
+			case Kleft: k |= 1<<6; break;
+			case Kright: k |= 1<<7; break;
+			case Kesc:
+				if(paused)
+					qunlock(&pauselock);
+				else
+					qlock(&pauselock);
+				paused = !paused;
+				break;
 			}
-		}	
+		}
+		keys = k;
 	}
 }
 
@@ -164,6 +191,18 @@ threadmain(int argc, char **argv)
 	syncfreq = FREQ / 30;
 	old = nsec();
 	for(;;){
+		if(savereq){
+			savestate("nes.save");
+			savereq = 0;
+		}
+		if(loadreq){
+			loadstate("nes.save");
+			loadreq = 0;
+		}
+		if(paused){
+			qlock(&pauselock);
+			qunlock(&pauselock);
+		}
 		t = step() * 12;
 		clock += t;
 		ppuclock += t;
@@ -191,6 +230,13 @@ threadmain(int argc, char **argv)
 			old = new;
 			checkclock = 0;
 			sleeps = 0;
+		}
+		if(msgclock > 0){
+			msgclock -= t;
+			if(msgclock <= 0){
+				draw(screen, screen->r, bg, nil, ZP);
+				msgclock = 0;
+			}
 		}
 	}
 }

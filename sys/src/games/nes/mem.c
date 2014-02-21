@@ -10,13 +10,23 @@ uchar ppuram[16384];
 uchar oam[256];
 uchar *prgb[2], *chrb[2];
 u16int pput, ppuv;
-u8int ppusx;
-static int vramlatch = 1, keylatch = 0xFF;
+u8int ppusx, vrambuf;
+int vramlatch = 1, keylatch = 0xFF;
+
+static void
+nope(int p)
+{
+	print("unimplemented mapper function %d (mapper %d)\n", p, map);
+}
 
 static void
 nrom(int p, u8int)
 {
-	if(p < 0){
+	if(p >= 0)
+		return;
+	switch(p){
+	case INIT:
+	case RSTR:
 		prgb[0] = prg;
 		if(nprg == 1)
 			prgb[1] = prg;
@@ -24,22 +34,45 @@ nrom(int p, u8int)
 			prgb[1] = prg + 0x4000;
 		chrb[0] = chr;
 		chrb[1] = chr + 0x1000;
+		break;
+	case SAVE:
+		break;
+	default:
+		nope(p);
 	}
-	return;
 }
 
 static void
 mmc1(int v, u8int p)
 {
 	static u8int n, s, mode, c0, c1, pr;
-	int wchr, wprg;
 	static int mirrs[] = {MSINGB, MSINGA, MVERT, MHORZ};
 	
 	if(v < 0){
-		wchr = 1;
-		wprg = 1;
-		mode = 0x0C;
-		goto t;
+		switch(v){
+		case INIT:
+			mode = 0x0C;
+			goto t;
+		case RSTR:
+			mode = get8();
+			c0 = get8();
+			c1 = get8();
+			pr = get8();
+			n = get8();
+			s = get8();
+			goto t;
+		case SAVE:
+			put8(mode);
+			put8(c0);
+			put8(c1);
+			put8(pr);
+			put8(n);
+			put8(s);
+			break;
+		default:
+			nope(v);
+		}
+		return;
 	}
 	if((p & 0x80) != 0){
 		n = 0;
@@ -53,66 +86,74 @@ mmc1(int v, u8int p)
 		s >>= 1;
 		return;
 	}
-	wchr = wprg = 1;
 	switch(v & 0xE000){
 	case 0x8000:
 		mode = s;
 		mirr = mirrs[mode & 3];
-		wchr = wprg = 1;
 		break;
 	case 0xA000:
 		c0 = s & 0x1f;
 		c0 %= 2*nchr;
-		wchr = 1;
 		break;
 	case 0xC000:
 		c1 = s & 0x1f;
 		c1 %= 2*nchr;
-		if((mode & 0x10) != 0)
-			wchr = 1;
 		break;
 	case 0xE000:
 		pr = s & 0x0f;
 		pr %= nprg;
-		wprg = 1;
 		break;
 	}
-t:
-	if(wprg)
-		switch(mode & 0x0c){
-		case 0x08:
-			prgb[0] = prg;
-			prgb[1] = prg + pr * 0x4000;
-			break;
-		case 0x0C:
-			prgb[0] = prg + pr * 0x4000;
-			prgb[1] = prg + (0x0f % nprg) * 0x4000;
-			break;
-		default:
-			prgb[0] = prg + (pr & 0xfe) * 0x4000;
-			prgb[1] = prg + (pr | 1) * 0x4000;
-			break;
-		}
-	if(wchr)
-		if((mode & 0x10) != 0){
-			chrb[0] = chr + c0 * 0x1000;
-			chrb[1] = chr + c1 * 0x1000;
-		}else{
-			chrb[0] = chr + (c0 & 0xfe) * 0x1000;
-			chrb[1] = chr + (c0 | 1) * 0x1000;
-		}
 	s = 0;
 	n = 0;
+t:
+	switch(mode & 0x0c){
+	case 0x08:
+		prgb[0] = prg;
+		prgb[1] = prg + pr * 0x4000;
+		break;
+	case 0x0C:
+		prgb[0] = prg + pr * 0x4000;
+		prgb[1] = prg + (0x0f % nprg) * 0x4000;
+		break;
+	default:
+		prgb[0] = prg + (pr & 0xfe) * 0x4000;
+		prgb[1] = prg + (pr | 1) * 0x4000;
+		break;
+	}
+	if((mode & 0x10) != 0){
+		chrb[0] = chr + c0 * 0x1000;
+		chrb[1] = chr + c1 * 0x1000;
+	}else{
+		chrb[0] = chr + (c0 & 0xfe) * 0x1000;
+		chrb[1] = chr + (c0 | 1) * 0x1000;
+	}
 }
 
 static void
 mmc7(int v, u8int p)
 {
-	if(v < 0){
-		nrom(-1, 0);
-		p = 0;
-	}
-	prgb[0] = prg + (p & 3) * 0x8000;
+	static int b;
+
+	if(v >= 0)
+		b = p;
+	else
+		switch(v){
+		case INIT:
+			nrom(INIT, 0);
+			b = 0;
+			break;
+		case SAVE:
+			put8(b);
+			return;
+		case RSTR:
+			b = get8();
+			break;
+		default:
+			nope(v);
+			return;
+		}
+	prgb[0] = prg + (b & 3) * 0x8000;
 	prgb[1] = prgb[0] + 0x4000;
 }
 
@@ -135,7 +176,6 @@ incvram(void)
 u8int
 memread(u16int p)
 {
-	static u8int vrambuf;
 	u8int v;
 
 	if(p < 0x2000){

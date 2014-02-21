@@ -2,14 +2,16 @@ extern u16int pc, curpc;
 extern u8int rA, rX, rY, rS, rP;
 extern uchar mem[32768], ppuram[16384], oam[256];
 extern u16int pput, ppuv;
-extern u8int ppusx;
-extern int mirr;
+extern u8int ppusx, vrambuf;
+extern int mirr, ppux, ppuy, odd, vramlatch, keylatch;
 
 extern int map, scale;
 extern uchar *prg, *chr;
-extern int nprg, nchr, nmi, map;
+extern int nprg, nchr, nmi, map, chrram;
 
-extern int keys;
+extern int keys, clock, ppuclock;
+
+extern void (*mapper[])(int, u8int);
 
 enum {
 	FLAGC = 1<<0,
@@ -76,4 +78,10 @@ enum {
 	MSINGA,
 	MSINGB,
 	MFOUR
+};
+
+enum {
+	INIT = -1,
+	SAVE = -2,
+	RSTR = -3,
 };
