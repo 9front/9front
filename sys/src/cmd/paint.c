@@ -562,7 +562,7 @@ pipeline(char *fmt, ...)
 	va_end(a);
 	if(pipe(p) < 0)
 		return -1;
-	switch(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG)){
+	switch(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG|RFREND)){
 	case -1:
 		close(p[0]);
 		close(p[1]);

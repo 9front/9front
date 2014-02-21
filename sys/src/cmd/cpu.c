@@ -301,7 +301,7 @@ old9p(int fd)
 	if(pipe(p) < 0)
 		fatal("pipe: %r");
 
-	switch(rfork(RFPROC|RFMEM|RFFDG|RFNAMEG)) {
+	switch(rfork(RFPROC|RFMEM|RFFDG|RFNAMEG|RFREND)) {
 	case -1:
 		fatal("rfork srvold9p: %r");
 	case 0:
@@ -760,7 +760,7 @@ filter(int fd, char *host)
 	if(filterp == nil)
 		return fd;
 	procsetname("filter %s", filterp);
-	flags = RFNOWAIT|RFPROC|RFMEM|RFFDG;
+	flags = RFNOWAIT|RFPROC|RFMEM|RFFDG|RFREND;
 	if(host == nil){
 		/* remote side */
 		if(announce(anstring, addr) < 0)

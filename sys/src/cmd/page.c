@@ -1404,7 +1404,7 @@ showext(Page *p)
 		fd = dup(fd, -1);
 		seek(fd, 0, 0);
 	}
-	if(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG|RFNOWAIT) == 0){
+	if(rfork(RFPROC|RFMEM|RFFDG|RFNOTEG|RFREND|RFNOWAIT) == 0){
 		if(newwindow(nil) != -1){
 			dupfds(fd, open("/dev/cons", OWRITE), open("/dev/cons", OWRITE), -1);
 			if((fd = open("/dev/label", OWRITE)) >= 0){
