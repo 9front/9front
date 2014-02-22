@@ -26,7 +26,7 @@
 .I gravity-y
 ]
 .br
-.B games/catlock
+.B games/catclock
 .br
 .B games/doom
 .br
@@ -176,13 +176,13 @@ and
 quit.
 .TP
 .B doom
-This is a port of id Softwares doom I and II engine.
-In Doom, players assume the role of a space marine, who became
+This is a port of id Software's DOOM I and II engine.
+In DOOM, players assume the role of a space marine, who became
 popularly known as "Doomguy", fighting their way through hordes
 of invading demons from Hell. Game data (WAD-files) for
 .B doom
-are not part of the distribution, but free WAD-files
-can be obtained on the net like the shareware version.
+are not part of the distribution, but free WAD-files,
+like the shareware version, can be obtained on the net.
 .TP
 .B festoon
 Generate an official-looking but utterly nonsensical bureaucratic report as
@@ -196,7 +196,7 @@ and
 add gibberish diagrams, equations and tables.
 .TP
 .B gb
-Is a Nintendo gameboy emulator. The
+Is a Nintendo Game Boy emulator. The
 .B -a
 option enables audio. The screen size can be
 scaled with
@@ -206,10 +206,10 @@ and
 options.
 The last argument
 .I romfile
-is the filename to the gameboy rom.
+is the filename of a Game Boy ROM.
 .TP
 .B glendy
-Dont let the rabbit escape.
+Don't let the rabbit escape.
 .TP
 .B juggle
 Display the juggling
@@ -285,7 +285,7 @@ Once the game has been completed, a message pops up with how long it took to win
 Use the button 3 menu to choose a mode, or click to play again.
 .TP
 .B nes
-Is a Nintendo entertainment system (NES) emulator. The
+Is a Nintendo entertainment system (NES) emulator.
 The screen size can be adjusted with
 .B -2
 and
@@ -293,7 +293,7 @@ and
 flags.
 The last argument
 .I romfile
-is a filename to the nes rom.
+is the filename of an NES ROM.
 .TP
 .B sokoban
 Guide Glenda through a room full of walls, pebbles and holes to put
