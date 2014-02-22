@@ -28,6 +28,7 @@ DIRS=\
 	mahjongg\
 	mines\
 	music\
+	nes\
 	sokoban\
 	sudoku\
 
