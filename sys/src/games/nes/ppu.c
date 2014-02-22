@@ -109,13 +109,14 @@ drawbg(void)
 	static int t;
 	u8int c, a;
 	static u8int nr1, nr2, na;
-	static u32int r1, r2, a1, a2;
+	static u16int r1, r2, a1, a2;
 	
 	if(ppux >= 2 && ppux <= 257 || ppux >= 322 && ppux <= 337){
 		c = (r1 >> (15-ppusx)) & 1 | (r2 >> (14-ppusx)) & 2;
-		a = (a1 >> (15-ppusx)) & 1 | (a2 >> (14-ppusx)) & 2;
-		if(ppuy < 240 && ppux <= 257)
+		if(ppuy < 240 && ppux <= 257){
+			a = (a1 >> (15-ppusx)) & 1 | (a2 >> (14-ppusx)) & 2;
 			pixel(ppux-2, ppuy, pal(c, a, 0), c == 0);
+		}
 		r1 <<= 1;
 		r2 <<= 1;
 		a1 <<= 1;
