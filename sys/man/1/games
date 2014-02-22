@@ -1,10 +1,34 @@
 .TH GAMES 1
 .SH NAME
-4s, 5s, festoon, juggle, life, mahjongg, memo, sokoban, sudoku \- time wasters
+4s, 5s, blabs, catclock, doom, festoon, gb, geigerstats, glendy, juggle, life, mandel, mahjongg, memo, midi, mines, mole, nes, packet, sokoban, sudoku \- time wasters
 .SH SYNOPSIS
 .B games/4s
 .br
 .B games/5s
+.br
+.B games/blabs
+[
+.B -i
+] [
+.B -k
+.I k-floor
+] [
+.B -n
+.I track-length
+] [
+.B -w
+.I track-width
+] [
+.B -x
+.I gravity-x
+] [
+.B -y
+.I gravity-y
+]
+.br
+.B games/catlock
+.br
+.B games/doom
 .br
 .B games/festoon
 [
@@ -14,6 +38,20 @@
 [
 .I percent-invented-nouns
 ] ]
+.br
+.B games/gb
+[
+.B -a
+] [
+.B -2
+|
+.B -3
+]
+.I romfile
+.br
+.B games/geigerstats
+.br
+.B games/glendy
 .br
 .B games/juggle
 [
@@ -29,6 +67,8 @@
 .br
 .B games/life
 .I startfile
+.br
+.B games/mandel
 .br
 .B games/mahjongg
 [
@@ -49,6 +89,45 @@
 .B games/memo
 [
 .B -h
+]
+.br
+.B games/midi
+.I midifile
+.br
+.B games/mines
+.br
+.B games/mole
+.br
+.B games/nes
+[
+.B -2
+|
+.B -3
+]
+.I romfile
+.br
+.B games/packet
+[
+.B -n
+.I nnode
+] [
+.B -o
+.I speed-offset
+] [
+.B -d
+.I decay
+] [
+.B -b
+.I speed-bonus
+] [
+.B -r
+.I regen-rate
+] [
+.B -t
+.I thick-factor
+] [
+.B -T
+.I display-threshold
 ]
 .br
 .B games/sokoban
@@ -96,6 +175,15 @@ and
 .LR control-D
 quit.
 .TP
+.B doom
+This is a port of id Softwares doom I and II engine.
+In Doom, players assume the role of a space marine, who became
+popularly known as "Doomguy", fighting their way through hordes
+of invading demons from Hell. Game data (WAD-files) for
+.B doom
+are not part of the distribution, but free WAD-files
+can be obtained on the net like the shareware version.
+.TP
 .B festoon
 Generate an official-looking but utterly nonsensical bureaucratic report as
 .L "pic | eqn | tbl | troff -mm"
@@ -106,6 +194,22 @@ Options
 and
 .B -t
 add gibberish diagrams, equations and tables.
+.TP
+.B gb
+Is a Nintendo gameboy emulator. The
+.B -a
+option enables audio. The screen size can be
+scaled with
+.B -2
+and
+.B -3
+options.
+The last argument
+.I romfile
+is the filename to the gameboy rom.
+.TP
+.B glendy
+Dont let the rabbit escape.
 .TP
 .B juggle
 Display the juggling
@@ -179,6 +283,17 @@ The
 option sets the game to hard mode.
 Once the game has been completed, a message pops up with how long it took to win.
 Use the button 3 menu to choose a mode, or click to play again.
+.TP
+.B nes
+Is a Nintendo entertainment system (NES) emulator. The
+The screen size can be adjusted with
+.B -2
+and
+.B -3
+flags.
+The last argument
+.I romfile
+is a filename to the nes rom.
 .TP
 .B sokoban
 Guide Glenda through a room full of walls, pebbles and holes to put
@@ -297,6 +412,13 @@ image sprites and levels used by
 .B /sys/games/lib/sudoku/*
 images and boards used by
 .I sudoku
+.TP
+.B $home/lib/doom/*
+.TP
+.B /sys/lib/doom/*
+.TP
+.B /sys/games/lib/doom/*
+doom WAD-files.
 .SH SOURCE
 .B /sys/src/games
 .SH BUGS
