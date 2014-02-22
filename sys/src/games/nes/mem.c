@@ -8,10 +8,11 @@
 uchar mem[32768];
 uchar ppuram[16384];
 uchar oam[256];
-uchar *prgb[2], *chrb[2];
+uchar *prgb[16], *chrb[16];
 u16int pput, ppuv;
 u8int ppusx, vrambuf;
 int vramlatch = 1, keylatch = 0xFF;
+int prgsh, chrsh, mmc3hack;
 
 static void
 nope(int p)
@@ -32,10 +33,12 @@ nrom(int p, u8int)
 			prgb[1] = prg;
 		else
 			prgb[1] = prg + 0x4000;
+		prgsh = 14;
 		chrb[0] = chr;
-		chrb[1] = chr + 0x1000;
+		chrsh = 13;
 		break;
 	case SAVE:
+	case SCAN:
 		break;
 	default:
 		nope(p);
@@ -52,6 +55,8 @@ mmc1(int v, u8int p)
 		switch(v){
 		case INIT:
 			mode = 0x0C;
+			prgsh = 14;
+			chrsh = 12;
 			goto t;
 		case RSTR:
 			mode = get8();
@@ -71,6 +76,8 @@ mmc1(int v, u8int p)
 			break;
 		default:
 			nope(v);
+		case SCAN:
+			break;
 		}
 		return;
 	}
@@ -131,14 +138,103 @@ t:
 }
 
 static void
-mmc7(int v, u8int p)
+mmc3(int p, u8int v)
+{
+	static u8int m, b[8], l, n, en;
+	int i, j, c;
+
+	if(p < 0){
+		switch(p){
+		case INIT:
+			prgsh = 13;
+			chrsh = 10;
+			mmc3hack = 1;
+			prgb[2] = prg + (2 * nprg - 2) * 0x2000;
+			prgb[3] = prgb[2] + 0x2000;
+			goto t;
+		case SCAN:
+			if(n == 0)
+				n = l;
+			else
+				n--;
+			if(n == 0 && en)
+				irq |= 2;
+			return;
+		case SAVE:
+			put8(m);
+			for(i = 0; i < 8; i++)
+				put8(b[i]);
+			put8(l);
+			put8(n);
+			put8(en);
+			return;
+		case RSTR:
+			m = get8();
+			for(i = 0; i < 8; i++)
+				b[i] = get8();
+			l = get8();
+			n = get8();
+			en = get8();
+			goto t;
+		}
+	}
+	switch(p & 0xE001){
+	case 0x8000:
+		if(((m ^ v) & 0xc0) != 0){
+			m = v;
+			goto t;
+		}
+		m = v;
+		break;
+	case 0x8001:
+		i = m & 7;
+		if(i < 6)
+			v %= 8 * nchr;
+		else
+			v %= 2 * nprg;
+		b[i] = v;
+		goto t;
+	case 0xA000:
+		if(mirr == MFOUR)
+			break;
+		if(v & 1)
+			mirr = MHORZ;
+		else
+			mirr = MVERT;
+		break;
+	case 0xC000: l = v; break;
+	case 0xC001: n = 0; break;
+	case 0xE000: en = 0; irq &= ~2; break;
+	case 0xE001: en = 1; break;
+	}
+	return;
+t:
+	if((m & 0x40) != 0){
+		prgb[0] = prg + (2 * nprg - 2) * 0x2000;
+		prgb[2] = prg + b[6] * 0x2000;
+	}else{
+		prgb[0] = prg + b[6] * 0x2000;
+		prgb[2] = prg + (2 * nprg - 2) * 0x2000;
+	}
+	prgb[1] = prg + b[7] * 0x2000;
+	c = (m & 0x80) >> 6;
+	for(i = 0; i < 2; i++){
+		chrb[j = (i << 1) ^ c] = chr + (b[i] >> 1) * 0x800;
+		chrb[j+1] = chrb[j] + 0x400;
+	}
+	for(i = 2; i < 6; i++)
+		chrb[(i + 2) ^ c] = chr + b[i] * 0x400;
+}
+
+static void
+mmc7(int p, u8int v)
 {
 	static int b;
 
-	if(v >= 0)
-		b = p;
+	if(p >= 0)
+		b = v;
 	else
-		switch(v){
+		switch(p){
 		case INIT:
 			nrom(INIT, 0);
 			b = 0;
@@ -150,7 +246,7 @@ mmc7(int v, u8int p)
 			b = get8();
 			break;
 		default:
-			nope(v);
+			nope(p);
 			return;
 		}
 	prgb[0] = prg + (b & 3) * 0x8000;
@@ -160,17 +256,23 @@ mmc7(int v, u8int p)
 void (*mapper[256])(int, u8int) = {
 	[0] nrom,
 	[1] mmc1,
+	[4] mmc3,
 	[7] mmc7,
 };
 
 static void
 incvram(void)
 {
+	int old;
+	
+	old = ppuv;
 	if((mem[PPUCTRL] & VRAMINC) != 0)
 		ppuv += 32;
 	else
 		ppuv += 1;
 	ppuv &= 0x3FFF;
+	if(mmc3hack && (old & (1<<12)) == 0 && (ppuv & (1<<12)) != 0)
+		mapper[map](SCAN, 0);
 }
 
 u8int
@@ -212,10 +314,8 @@ memread(u16int p)
 		}
 	}
 	if(p >= 0x8000){
-		if((p & 0x4000) != 0)
-			return prgb[1][p - 0xC000];
-		else
-			return prgb[0][p - 0x8000];
+		p -= 0x8000;
+		return prgb[p >> prgsh][p & ((1 << prgsh) - 1)];
 	}
 	return mem[p];
 }
@@ -253,6 +353,8 @@ memwrite(u16int p, u8int v)
 				pput = (pput & 0xFF) | (v << 8) & 0x3F00;
 			else{
 				pput = (pput & 0xFF00) | v;
+				if(mmc3hack && (ppuv & (1<<12)) == 0 && (pput & (1<<12)) != 0)
+					mapper[map](SCAN, 0);
 				ppuv = pput;
 			}
 			vramlatch ^= 1;
@@ -295,10 +397,8 @@ ppumap(u16int p)
 		case MSINGA: p &= ~0xC00; break;
 		case MSINGB: p |= 0xC00; break;
 		}
-	if(p < 0x1000)
-		return chrb[0] + p;
-	else if(p < 0x2000)
-		return chrb[1] + p - 0x1000;
+	if(p < 0x2000)
+		return chrb[p >> chrsh] + (p & ((1 << chrsh) - 1));
 	else
 		return ppuram + p;
 }

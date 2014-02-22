@@ -5,7 +5,7 @@
 
 u16int pc, curpc;
 u8int rA, rX, rY, rS, rP;
-int nmi;
+u8int irq, nmi;
 
 static u8int
 fetch8(void)
@@ -247,6 +247,10 @@ step(void)
 	if(nmi){
 		interrupt(1, 0);
 		nmi = 0;
+		return 7;
+	}
+	if(irq && (rP & 4) == 0){
+		interrupt(0, 0);
 		return 7;
 	}
 	curpc = pc;

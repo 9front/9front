@@ -1,13 +1,14 @@
 extern u16int pc, curpc;
 extern u8int rA, rX, rY, rS, rP;
+extern u8int irq, nmi;
 extern uchar mem[32768], ppuram[16384], oam[256];
 extern u16int pput, ppuv;
 extern u8int ppusx, vrambuf;
 extern int mirr, ppux, ppuy, odd, vramlatch, keylatch;
 
-extern int map, scale;
+extern int map, scale, mmc3hack;
 extern uchar *prg, *chr;
-extern int nprg, nchr, nmi, map, chrram;
+extern int nprg, nchr, map, chrram;
 
 extern int keys, clock, ppuclock;
 
@@ -37,7 +38,7 @@ enum {
 
 	GRAYSCALE = 1<<0,
 	BG8DISP = 1<<1,
-	BG8SPRITE = 1<<2,
+	SPRITE8DISP = 1<<2,
 	BGDISP = 1<<3,
 	SPRITEDISP = 1<<4,
 
@@ -84,4 +85,5 @@ enum {
 	INIT = -1,
 	SAVE = -2,
 	RSTR = -3,
+	SCAN = -4,
 };
