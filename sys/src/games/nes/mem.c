@@ -227,7 +227,7 @@ t:
 }
 
 static void
-mmc7(int p, u8int v)
+axrom(int p, u8int v)
 {
 	static int b;
 
@@ -245,6 +245,8 @@ mmc7(int p, u8int v)
 		case RSTR:
 			b = get8();
 			break;
+		case SCAN:
+			return;
 		default:
 			nope(p);
 			return;
@@ -257,7 +259,7 @@ void (*mapper[256])(int, u8int) = {
 	[0] nrom,
 	[1] mmc1,
 	[4] mmc3,
-	[7] mmc7,
+	[7] axrom,
 };
 
 static void
