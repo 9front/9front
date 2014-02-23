@@ -15,7 +15,7 @@ Rectangle picr;
 Image *tmp, *bg;
 int clock, ppuclock, syncclock, syncfreq, checkclock, msgclock, sleeps;
 Mousectl *mc;
-int keys, paused, savereq, loadreq;
+int keys, paused, savereq, loadreq, oflag;
 int mirr;
 QLock pauselock;
 
@@ -155,17 +155,22 @@ keyproc(void *)
 void
 threadmain(int argc, char **argv)
 {
-	int t;
+	int t, h;
 	Point p;
 	uvlong old, new, diff;
 
 	scale = 1;
+	h = 240;
 	ARGBEGIN {
 	case '2':
 		scale = 2;
 		break;
 	case '3':
 		scale = 3;
+		break;
+	case 'o':
+		oflag = 1;
+		h -= 16;
 		break;
 	} ARGEND;
 
@@ -180,9 +185,9 @@ threadmain(int argc, char **argv)
 	proccreate(keyproc, nil, 8192);
 	originwindow(screen, Pt(0, 0), screen->r.min);
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
-	picr = (Rectangle){subpt(p, Pt(scale * 128, scale * 120)), addpt(p, Pt(scale * 128, scale * 120))};
+	picr = (Rectangle){subpt(p, Pt(scale * 128, scale * h/2)), addpt(p, Pt(scale * 128, scale * h/2))};
 	if(screen->chan != XRGB32)
-		tmp = allocimage(display, Rect(0, 0, scale * 256, scale * 240), XRGB32, 0, 0);
+		tmp = allocimage(display, Rect(0, 0, scale * 256, scale * h), XRGB32, 0, 0);
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	draw(screen, screen->r, bg, nil, ZP);
 	

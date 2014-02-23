@@ -6,7 +6,7 @@ extern u16int pput, ppuv;
 extern u8int ppusx, vrambuf;
 extern int mirr, ppux, ppuy, odd, vramlatch, keylatch;
 
-extern int map, scale, mmc3hack;
+extern int map, scale, mmc3hack, oflag;
 extern uchar *prg, *chr;
 extern int nprg, nchr, map, chrram;
 

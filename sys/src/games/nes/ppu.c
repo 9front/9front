@@ -257,22 +257,26 @@ flush(void)
 	extern Mousectl *mc;
 	Mouse m;
 	Point p;
+	int h;
 
+	h = 240;
+	if(oflag)
+		h -= 16;
 	while(nbrecv(mc->c, &m) > 0)
 		;
 	if(nbrecvul(mc->resizec) > 0){
 		if(getwindow(display, Refnone) < 0)
 			sysfatal("resize failed: %r");
 		p = divpt(addpt(screen->r.min, screen->r.max), 2);
-		picr = (Rectangle){subpt(p, Pt(scale * 128, scale * 120)), addpt(p, Pt(scale * 128, scale * 120))};
+		picr = (Rectangle){subpt(p, Pt(scale * 128, scale * h/2)), addpt(p, Pt(scale * 128, scale * h/2))};
 		bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 		draw(screen, screen->r, bg, nil, ZP);
 	}
 	if(tmp){
-		loadimage(tmp, tmp->r, pic, 256*240*4*scale*scale);
+		loadimage(tmp, tmp->r, pic + oflag*8*256*4*scale*scale, 256*h*4*scale*scale);
 		draw(screen, picr, tmp, nil, ZP);
 	}else
-		loadimage(screen, picr, pic, 256*240*4*scale*scale);
+		loadimage(screen, picr, pic + oflag*8*256*4*scale*scale, 256*h*4*scale*scale);
 	flushimage(display, 1);
 	memset(pic, sizeof pic, 0);
 }
