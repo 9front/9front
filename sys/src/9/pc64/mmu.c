@@ -415,7 +415,7 @@ mmurelease(Proc *proc)
 	if((p = proc->kmaptail) != nil){
 		if((p->next = proc->mmuhead) == nil)
 			proc->mmutail = p;
-		proc->mmuhead = p;
+		proc->mmuhead = proc->kmaphead;
 		proc->mmucount += proc->kmapcount;
 
 		proc->kmaphead = proc->kmaptail = nil;
