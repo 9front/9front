@@ -10,7 +10,9 @@ extern int map, scale, mmc3hack, oflag;
 extern uchar *prg, *chr;
 extern int nprg, nchr, map, chrram;
 
-extern int keys, clock, ppuclock;
+extern u8int apuseq, apuctr[10];
+
+extern int keys, clock, ppuclock, apuclock, saveclock, paused;
 
 extern void (*mapper[])(int, u8int);
 
@@ -29,6 +31,8 @@ enum {
 	PPUMASK = 0x2001,
 	PPUSTATUS = 0x2002,
 	PPUSCROLL = 0x2005,
+	APUSTATUS = 0x4015,
+	APUFRAME = 0x4017,
 
 	PPUNMI = 1<<7,
 	BIGSPRITE = 1<<5,
@@ -71,6 +75,8 @@ enum {
 	FREQ = 21477272,
 	MILLION = 1000000,
 	BILLION = 1000000000,
+	APUDIV = 89490,
+	SAVEFREQ = FREQ/5,
 };
 
 enum {
@@ -86,4 +92,10 @@ enum {
 	SAVE = -2,
 	RSTR = -3,
 	SCAN = -4,
+};
+
+enum {
+	IRQFRAME = 1,
+	IRQDMC = 2,
+	IRQMMC = 4,
 };

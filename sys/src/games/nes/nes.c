@@ -13,9 +13,9 @@ uchar *prg, *chr;
 int scale;
 Rectangle picr;
 Image *tmp, *bg;
-int clock, ppuclock, syncclock, syncfreq, checkclock, msgclock, sleeps;
+int clock, ppuclock, apuclock, syncclock, syncfreq, checkclock, msgclock, saveclock, sleeps;
 Mousectl *mc;
-int keys, paused, savereq, loadreq, oflag;
+int keys, paused, savereq, loadreq, oflag, savefd = -1;
 int mirr;
 QLock pauselock;
 
@@ -33,12 +33,22 @@ message(char *fmt, ...)
 }
 
 void
-loadrom(char *file)
+flushram(void)
+{
+	if(savefd >= 0)
+		pwrite(savefd, mem + 0x6000, 0x2000, 0);
+	saveclock = 0;
+}
+
+void
+loadrom(char *file, int sflag)
 {
 	int fd;
 	int nes20;
+	char *s;
 	static uchar header[16];
 	static u32int flags;
+	static char buf[512];
 	
 	fd = open(file, OREAD);
 	if(fd < 0)
@@ -94,7 +104,22 @@ loadrom(char *file)
 		mirr = MVERT;
 	else
 		mirr = MHORZ;
-	mapper[map](-1, 0);
+	if(sflag){
+		strncpy(buf, file, sizeof buf - 5);
+		s = buf + strlen(buf) - 4;
+		if(s < buf || strcmp(s, ".nes") != 0)
+			s += 4;
+		strcpy(s, ".sav");
+		savefd = create(buf, ORDWR | OEXCL, 0666);
+		if(savefd < 0)
+			savefd = open(buf, ORDWR);
+		if(savefd < 0)
+			message("open: %r");
+		else
+			readn(savefd, mem + 0x6000, 0x2000);
+		atexit(flushram);
+	}
+	mapper[map](INIT, 0);
 }
 
 extern int trace;
@@ -114,8 +139,10 @@ keyproc(void *)
 		if(read(fd, buf, sizeof(buf) - 1) <= 0)
 			sysfatal("read /dev/kbd: %r");
 		if(buf[0] == 'c'){
-			if(utfrune(buf, Kdel))
+			if(utfrune(buf, Kdel)){
+				close(fd);
 				threadexitsall(nil);
+			}
 			if(utfrune(buf, KF|5))
 				savereq = 1;
 			if(utfrune(buf, KF|6))
@@ -130,7 +157,7 @@ keyproc(void *)
 		while(*s != 0){
 			s += chartorune(&r, s);
 			switch(r){
-			case Kdel: threadexitsall(nil);
+			case Kdel: close(fd); threadexitsall(nil);
 			case 'x': k |= 1<<0; break;
 			case 'z': k |= 1<<1; break;
 			case Kshift: k |= 1<<2; break;
@@ -155,13 +182,17 @@ keyproc(void *)
 void
 threadmain(int argc, char **argv)
 {
-	int t, h;
+	int t, h, sflag;
 	Point p;
 	uvlong old, new, diff;
 
 	scale = 1;
 	h = 240;
+	sflag = 0;
 	ARGBEGIN {
+	case 'a':
+		initaudio();
+		break;
 	case '2':
 		scale = 2;
 		break;
@@ -172,11 +203,19 @@ threadmain(int argc, char **argv)
 		oflag = 1;
 		h -= 16;
 		break;
+	case 's':
+		sflag = 1;
+		break;
+	default:
+		goto usage;
 	} ARGEND;
 
-	if(argc < 1)
-		sysfatal("missing argument");
-	loadrom(argv[0]);
+	if(argc != 1){
+	usage:
+		fprint(2, "usage: %s [-23aos] rom\n", argv0);
+		threadexitsall("usage");
+	}
+	loadrom(argv[0], sflag);
 	if(initdraw(nil, nil, nil) < 0)
 		sysfatal("initdraw: %r");
 	mc = initmouse(nil, screen);
@@ -186,8 +225,7 @@ threadmain(int argc, char **argv)
 	originwindow(screen, Pt(0, 0), screen->r.min);
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = (Rectangle){subpt(p, Pt(scale * 128, scale * h/2)), addpt(p, Pt(scale * 128, scale * h/2))};
-	if(screen->chan != XRGB32)
-		tmp = allocimage(display, Rect(0, 0, scale * 256, scale * h), XRGB32, 0, 0);
+	tmp = allocimage(display, Rect(0, 0, scale * 256, scale * h), XRGB32, 0, 0);
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	draw(screen, screen->r, bg, nil, ZP);
 	
@@ -211,11 +249,16 @@ threadmain(int argc, char **argv)
 		t = step() * 12;
 		clock += t;
 		ppuclock += t;
+		apuclock += t;
 		syncclock += t;
 		checkclock += t;
 		while(ppuclock >= 4){
 			ppustep();
 			ppuclock -= 4;
+		}
+		if(apuclock >= APUDIV){
+			apustep();
+			apuclock -= APUDIV;
 		}
 		if(syncclock >= syncfreq){
 			sleep(10);
@@ -242,6 +285,11 @@ threadmain(int argc, char **argv)
 				draw(screen, screen->r, bg, nil, ZP);
 				msgclock = 0;
 			}
+		}
+		if(saveclock > 0){
+			saveclock -= t;
+			if(saveclock <= 0)
+				flushram();
 		}
 	}
 }

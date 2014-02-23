@@ -269,10 +269,13 @@ flush(void)
 			sysfatal("resize failed: %r");
 		p = divpt(addpt(screen->r.min, screen->r.max), 2);
 		picr = (Rectangle){subpt(p, Pt(scale * 128, scale * h/2)), addpt(p, Pt(scale * 128, scale * h/2))};
-		bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
+		if(bg->chan != screen->chan){
+			freeimage(bg);
+			bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
+		}
 		draw(screen, screen->r, bg, nil, ZP);
 	}
-	if(tmp){
+	if(screen->chan != tmp->chan || !rectinrect(picr, screen->r)){
 		loadimage(tmp, tmp->r, pic + oflag*8*256*4*scale*scale, 256*h*4*scale*scale);
 		draw(screen, picr, tmp, nil, ZP);
 	}else

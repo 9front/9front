@@ -9,3 +9,5 @@ void	savestate(char *);
 void	message(char *, ...);
 void	put8(u8int);
 int	get8(void);
+void	apustep(void);
+void	initaudio(void);

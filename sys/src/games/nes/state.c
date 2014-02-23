@@ -92,6 +92,9 @@ loadstate(char *file)
 	vrambuf = get8();
 	clock = get32();
 	ppuclock = get32();
+	apuclock = get32();
+	apuseq = get8();
+	read(fd, apuctr, sizeof(apuctr));
 	mapper[map](RSTR, 0);
 	close(fd);
 }
@@ -128,6 +131,9 @@ savestate(char *file)
 	put8(vrambuf);
 	put32(clock);
 	put32(ppuclock);
+	put32(apuclock);
+	put8(apuseq);
+	write(fd, apuctr, sizeof(apuctr));
 	mapper[map](SAVE, 0);
 	close(fd);
 }

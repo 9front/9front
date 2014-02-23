@@ -8,6 +8,7 @@ OFILES=\
 	nes.$O\
 	ppu.$O\
 	state.$O\
+	apu.$O\
 	
 HFILES=dat.h fns.h
 

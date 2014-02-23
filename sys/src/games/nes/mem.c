@@ -158,7 +158,7 @@ mmc3(int p, u8int v)
 			else
 				n--;
 			if(n == 0 && en)
-				irq |= 2;
+				irq |= IRQMMC;
 			return;
 		case SAVE:
 			put8(m);
@@ -204,7 +204,7 @@ mmc3(int p, u8int v)
 		break;
 	case 0xC000: l = v; break;
 	case 0xC001: n = 0; break;
-	case 0xE000: en = 0; irq &= ~2; break;
+	case 0xE000: en = 0; irq &= ~IRQMMC; break;
 	case 0xE001: en = 1; break;
 	}
 	return;
@@ -281,6 +281,7 @@ u8int
 memread(u16int p)
 {
 	u8int v;
+	int i;
 
 	if(p < 0x2000){
 		p &= 0x7FF;
@@ -305,6 +306,16 @@ memread(u16int p)
 			vrambuf = ppuread(ppuv);
 			incvram();
 			return vrambuf;
+		case APUSTATUS:
+			v = (irq & 3) << 6;
+			for(i = 0; i < 4; i++){
+				if(apuctr[i] != 0)
+					v |= (1<<i);
+			}
+			if(mem[0x4013] != 0)
+				v |= (1<<4);
+			irq &= ~IRQFRAME;
+			return v;
 		case 0x4016:
 			if((mem[p] & 1) != 0)
 				return keys & 1;
@@ -325,6 +336,9 @@ memread(u16int p)
 void
 memwrite(u16int p, u8int v)
 {
+	extern u8int apulen[32];
+	int i;
+
 	if(p < 0x2000){
 		p &= 0x7FF;
 	}else if(p < 0x6000){
@@ -365,15 +379,48 @@ memwrite(u16int p, u8int v)
 			ppuwrite(ppuv, v);
 			incvram();
 			return;
+		case 0x4001:
+		case 0x4005:
+			i = (p & 0xC) >> 2;
+			apuctr[i+8] |= 0x80;
+			break;
+		case 0x4003:
+		case 0x4007:
+		case 0x400B:
+		case 0x400F:
+			i = (p & 0xC) >> 2;
+			if((mem[APUSTATUS] & (1<<i)) != 0){
+				apuctr[i] = apulen[v >> 3];
+				apuctr[i+4] |= 0x80;
+			}
+			break;
 		case 0x4014:
 			memcpy(oam, mem + (v<<8), sizeof(oam));
 			return;
+		case APUSTATUS:
+			for(i = 0; i < 4; i++)
+				if((v & (1<<i)) == 0)
+					apuctr[i] = 0;
+			irq &= ~IRQDMC;
+			break;
 		case 0x4016:
 			if((mem[p] & 1) != 0 && (v & 1) == 0)
 				keylatch = keys;
 			break;
+		case APUFRAME:
+			apuseq = 0;
+			if((v & 0x80) != 0)
+				apuclock = APUDIV;
+			else
+				apuclock = 0;
+			if((v & 0x40) != 0)
+				irq &= ~IRQFRAME;
+			break;
 		}
-	}else if(p >= 0x8000){
+	}else if(p < 0x8000){
+		if(saveclock == 0)
+			saveclock = SAVEFREQ;
+	}else{
 		if(mapper[map] != nil)
 			mapper[map](p, v);
 		return;
