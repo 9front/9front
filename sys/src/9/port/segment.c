@@ -313,7 +313,7 @@ static void
 imagereclaim(void)
 {
 	int n;
-	Page *p;
+	Page *p, *x;
 	uvlong ticks;
 
 	irstats.calls++;
@@ -329,11 +329,16 @@ imagereclaim(void)
 	 * end of the list (see putpage) so start there and work
 	 * backward.
 	 */
-	for(p = palloc.tail; p && p->image && (n<1000 || !imagealloc.free); p = p->prev) {
+	for(p = palloc.tail; p && p->image && (n<1000 || !imagealloc.free); p = x) {
+		x = p->prev;
 		if(p->ref == 0 && canlock(p)) {
 			if(p->ref == 0 && p->image && !p->image->notext) {
 				n++;
 				uncachepage(p);
+
+				/* move to head to maintain the invariant above */
+				pageunchain(p);
+				pagechainhead(p);
 			}
 			unlock(p);
 		}
