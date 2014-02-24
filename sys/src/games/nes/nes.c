@@ -13,7 +13,7 @@ uchar *prg, *chr;
 int scale;
 Rectangle picr;
 Image *tmp, *bg;
-int clock, ppuclock, apuclock, syncclock, syncfreq, checkclock, msgclock, saveclock, sleeps;
+int clock, ppuclock, apuclock, sampclock, msgclock, saveclock;
 Mousectl *mc;
 int keys, paused, savereq, loadreq, oflag, savefd = -1;
 int mirr;
@@ -184,7 +184,6 @@ threadmain(int argc, char **argv)
 {
 	int t, h, sflag;
 	Point p;
-	uvlong old, new, diff;
 
 	scale = 1;
 	h = 240;
@@ -231,8 +230,6 @@ threadmain(int argc, char **argv)
 	
 	pc = memread(0xFFFC) | memread(0xFFFD) << 8;
 	rP = FLAGI;
-	syncfreq = FREQ / 30;
-	old = nsec();
 	for(;;){
 		if(savereq){
 			savestate("nes.save");
@@ -250,8 +247,9 @@ threadmain(int argc, char **argv)
 		clock += t;
 		ppuclock += t;
 		apuclock += t;
-		syncclock += t;
-		checkclock += t;
+		sampclock += t;
+		//syncclock += t;
+		//checkclock += t;
 		while(ppuclock >= 4){
 			ppustep();
 			ppuclock -= 4;
@@ -260,24 +258,9 @@ threadmain(int argc, char **argv)
 			apustep();
 			apuclock -= APUDIV;
 		}
-		if(syncclock >= syncfreq){
-			sleep(10);
-			sleeps++;
-			syncclock = 0;
-		}
-		if(checkclock >= FREQ){
-			new = nsec();
-			diff = new - old - sleeps * 10 * MILLION;
-			diff = BILLION - diff;
-			if(diff <= 0)
-				syncfreq = FREQ;
-			else
-				syncfreq = ((vlong)FREQ) * 10 * MILLION / diff;
-			if(syncfreq < FREQ / 100)
-				syncfreq = FREQ / 100;
-			old = new;
-			checkclock = 0;
-			sleeps = 0;
+		if(sampclock >= SAMPDIV){
+			audiosample();
+			sampclock -= SAMPDIV;
 		}
 		if(msgclock > 0){
 			msgclock -= t;

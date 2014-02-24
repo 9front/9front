@@ -11,3 +11,5 @@ void	put8(u8int);
 int	get8(void);
 void	apustep(void);
 void	initaudio(void);
+void	audiosample(void);
+int	audioout(void);

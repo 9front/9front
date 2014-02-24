@@ -5,10 +5,11 @@
 #include "dat.h"
 #include "fns.h"
 
+enum { MAXBUF = 2000 };
+
 u8int apuseq, apuctr[10];
 static int fd;
-
-enum { RATE = 44100 };
+static short sbuf[2*MAXBUF], *sbufp;
 
 int
 targperiod(int i)
@@ -204,31 +205,36 @@ dmc(void)
 	return 0;
 }
 
-static void
-sample(short *s)
+void
+audiosample(void)
 {
 	double d;
 	
+	if(sbufp == nil)
+		return;
 	d = 95.88 / (8128.0 / (0.01 + pulse(0) + pulse(1)) + 100);
 	d += 159.79 / (1.0 / (0.01 + tri()/8227.0 + noise()/12241.0 + dmc()/22638.0) + 100.0);
-	*s++ = d * 20000;
-	*s = d * 20000;
+	if(sbufp < sbuf + nelem(sbuf) - 1){
+		*sbufp++ = d * 20000;
+		*sbufp++ = d * 20000;
+	}
 }
 
-static void
-audioproc(void *)
+int
+audioout(void)
 {
-	static short samples[500 * 2];
-	int i;
+	int rc;
 
-	for(;;){
-		if(paused)
-			memset(samples, 0, sizeof samples);
-		else
-			for(i = 0; i < sizeof samples/4; i++)
-				sample(samples + 2 * i);
-		write(fd, samples, sizeof samples);
-	}
+	if(sbufp == nil)
+		return -1;
+	if(sbufp == sbuf)
+		return 0;
+	rc = write(fd, sbuf, (sbufp - sbuf) * 2);
+	if(rc > 0)
+		sbufp -= (rc+1)/2;
+	if(sbufp < sbuf)
+		sbufp = sbuf;
+	return 0;
 }
 
 void
@@ -237,7 +243,7 @@ initaudio(void)
 	fd = open("/dev/audio", OWRITE);
 	if(fd < 0)
 		return;
-	proccreate(audioproc, nil, 8192);
+	sbufp = sbuf;
 }
 
 u8int apulen[32] = {

@@ -255,6 +255,8 @@ flush(void)
 	extern Rectangle picr;
 	extern Image *tmp, *bg;
 	extern Mousectl *mc;
+	static vlong old, diff;
+	vlong new;
 	Mouse m;
 	Point p;
 	int h;
@@ -282,6 +284,15 @@ flush(void)
 		loadimage(screen, picr, pic + oflag*8*256*4*scale*scale, 256*h*4*scale*scale);
 	flushimage(display, 1);
 	memset(pic, sizeof pic, 0);
+	if(audioout() < 0){
+		new = nsec();
+		if(old != 0){
+			diff = BILLION/60 - (new - old);
+			if(diff >= MILLION)
+				sleep(diff/MILLION);
+		}
+		old = new;
+	}
 }
 
 void
