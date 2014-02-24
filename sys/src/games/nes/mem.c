@@ -168,6 +168,40 @@ uxrom(int p, u8int v)
 }
 
 static void
+cnrom(int p, u8int v)
+{
+	static u8int b;
+	
+	if(p < 0)
+		switch(p){
+		case INIT:
+			prgsh = 14;
+			chrsh = 13;
+			prgb[0] = prg;
+			if(nprg == 1)
+				prgb[1] = prg;
+			else
+				prgb[1] = prg + 0x4000;
+			break;
+		case SAVE:
+			put8(b);
+			return;
+		case RSTR:
+			b = get8();
+			break;
+		case SCAN:
+			return;
+		default:
+			nope(p);
+			return;
+		}
+	else
+		b = v % nchr;
+	chrb[0] = chr + b * 0x2000;
+
+}
+
+static void
 mmc3(int p, u8int v)
 {
 	static u8int m, b[8], l, n, en;
@@ -289,6 +323,7 @@ void (*mapper[256])(int, u8int) = {
 	[0] nrom,
 	[1] mmc1,
 	[2] uxrom,
+	[3] cnrom,
 	[4] mmc3,
 	[7] axrom,
 };
@@ -368,6 +403,7 @@ void
 memwrite(u16int p, u8int v)
 {
 	extern u8int apulen[32];
+	extern u16int dmclen[16];
 	int i;
 
 	if(p < 0x2000){
@@ -422,8 +458,16 @@ memwrite(u16int p, u8int v)
 			i = (p & 0xC) >> 2;
 			if((mem[APUSTATUS] & (1<<i)) != 0){
 				apuctr[i] = apulen[v >> 3];
-				apuctr[i+4] |= 0x80;
+				apuctr[10] |= (1<<i);
 			}
+			break;
+		case DMCCTRL:
+			if((v & 0x80) == 0)
+				irq &= ~IRQDMC;
+			dmcfreq = 12 * dmclen[v & 0xf];
+			break;
+		case DMCBUF:
+			v &= ~0x80;
 			break;
 		case 0x4014:
 			memcpy(oam, mem + (v<<8), sizeof(oam));
@@ -432,6 +476,10 @@ memwrite(u16int p, u8int v)
 			for(i = 0; i < 4; i++)
 				if((v & (1<<i)) == 0)
 					apuctr[i] = 0;
+			if((v & 0x10) != 0 && dmccnt == 0){
+				dmcaddr = mem[DMCADDR] * 0x40 + 0xC000;
+				dmccnt = mem[DMCLEN] * 0x10 + 1;
+			}
 			irq &= ~IRQDMC;
 			break;
 		case 0x4016:

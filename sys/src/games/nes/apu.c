@@ -7,7 +7,17 @@
 
 enum { MAXBUF = 2000 };
 
-u8int apuseq, apuctr[10];
+enum {
+	LEN = 0,
+	ENV = 4,
+	TRILIN = 6,
+	SWEEP = 8,
+	RELOAD = 10,
+	DMCCTR = 11,
+	DMCSHFT = 12,
+};
+u8int apuseq, apuctr[13];
+u16int dmcaddr, dmccnt;
 static int fd;
 static short sbuf[2*MAXBUF], *sbufp;
 
@@ -41,10 +51,10 @@ declen(void)
 			m >>= 2;
 		if((m & 0x20) != 0)
 			continue;
-		if(apuctr[i] != 0)
-			apuctr[i]--;
+		if(apuctr[LEN + i] != 0)
+			apuctr[LEN + i]--;
 	}
-	for(i = 0, a = apuctr + 8; i < 2; i++, a++){
+	for(i = 0, a = apuctr + SWEEP; i < 2; i++, a++){
 		m = mem[0x4001 + i * 4];
 		if((m & 0x80) != 0 && (m & 0x07) != 0 && (*a & 7) == 0){ 
 			p = targperiod(i);
@@ -66,19 +76,23 @@ doenv(void)
 	int i, m;
 	u8int *a;
 	
-	for(i = 0, a = apuctr + 4; i < 4; i++, a++){
+	for(i = 0, a = apuctr + ENV; i < 4; i++, a++){
 		if(i == 2)
 			continue;
 		m = mem[0x4000 + 4 * i];
-		if((*a & 0x80) != 0)
-			*a = *a & 0x70 | 0x0f;
-		else if(*a == 0){
-			if((m & 0x20) != 0)
-				*a |= 0x0f;
+		if((apuctr[RELOAD] & (1<<i)) != 0)
+			*a = 0xf0 | m & 0x0f;
+		else if((*a & 0x0f) == 0){
+			*a |= m & 0x0f;
+			if((*a & 0xf0) == 0){
+				if((m & 0x20) != 0)
+					*a |= 0xf0;
+			}else
+				*a -= 0x10;
 		}else
 			(*a)--;
 	}
-	a = apuctr + 6;
+	a = apuctr + TRILIN;
 	if((*a & 0x80) != 0)
 		*a = mem[0x4008];
 	else if(*a != 0)
@@ -143,11 +157,10 @@ pulse(int i)
 		c[i]++;
 	m = mem[0x4000 + 4 * i];
 	if((m & 0x10) != 0)
-		s = m;
+		s = m & 0x0f;
 	else
-		s = apuctr[i+4];
-	s &= 0x0f;
-	if(c[i] >= f/2 || apuctr[i] == 0)
+		s = apuctr[ENV + i] >> 4;
+	if(c[i] >= f/2 || apuctr[LEN + i] == 0)
 		s = 0;
 	return s;
 }
@@ -168,7 +181,7 @@ tri(void)
 		c++;
 	i = 32 * c / f;
 	i ^= (i < 16) ? 0xf : 0x10;
-	if(apuctr[2] == 0 || (apuctr[6] & 0x7f) == 0)
+	if(apuctr[LEN + 2] == 0 || (apuctr[TRILIN] & 0x7f) == 0)
 		return 0;
 	return i;
 }
@@ -191,18 +204,18 @@ noise(void)
 		r >>= 1;
 		c -= f;
 	}
-	if(apuctr[3] == 0 || (r & 1) != 0)
+	if(apuctr[LEN + 3] == 0 || (r & 1) != 0)
 		return 0;
 	m = mem[0x400C];
 	if((m & 0x10) != 0)
 		return m & 0xf;
-	return apuctr[7] & 0xf;
+	return apuctr[ENV + 3] >> 4;
 }
 
 static int
 dmc(void)
 {
-	return 0;
+	return mem[DMCBUF];
 }
 
 void
@@ -218,6 +231,40 @@ audiosample(void)
 		*sbufp++ = d * 20000;
 		*sbufp++ = d * 20000;
 	}
+}
+
+void
+dmcstep(void)
+{
+	if((apuctr[DMCCTR] & 7) == 0){
+		apuctr[DMCCTR] = 8;
+		if(dmccnt != 0){
+			apuctr[DMCSHFT] = memread(dmcaddr);
+			if(dmcaddr == 0xFFFF)
+				dmcaddr = 0x8000;
+			else
+				dmcaddr++;
+			if(--dmccnt == 0){
+				if((mem[DMCCTRL] & 0x40) != 0){
+					dmcaddr = mem[DMCADDR] * 0x40 + 0xC000;
+					dmccnt = mem[DMCLEN] * 0x10 + 1;
+				}else if((mem[DMCCTRL] & 0x80) != 0)
+					irq |= IRQDMC;
+			}
+		}else
+			apuctr[DMCCTR] |= 0x80;
+	}
+	if((apuctr[DMCCTR] & 0x80) == 0){
+		if((apuctr[DMCSHFT] & 1) != 0){
+			if(mem[DMCBUF] < 126)
+				mem[DMCBUF] += 2;
+		}else{
+			if(mem[DMCBUF] > 1)
+				mem[DMCBUF] -= 2;
+		}
+	}
+	apuctr[DMCSHFT] >>= 1;
+	apuctr[DMCCTR]--;
 }
 
 int
@@ -251,4 +298,9 @@ u8int apulen[32] = {
 	0xA0, 0x08, 0x3C, 0x0A, 0x0E, 0x0C, 0x1A, 0x0E,
 	0x0C, 0x10, 0x18, 0x12, 0x30, 0x14, 0x60, 0x16,
 	0xC0, 0x18, 0x48, 0x1A, 0x10, 0x1C, 0x20, 0x1E,
+};
+
+u16int dmclen[16] = {
+	0x1AC, 0x17C, 0x154, 0x140, 0x11E, 0x0FE, 0x0E2, 0x0D6,
+	0x0BE, 0x0A0, 0x08E, 0x080, 0x06A, 0x054, 0x048, 0x036,
 };
