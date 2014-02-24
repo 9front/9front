@@ -320,7 +320,7 @@ is not zero,
 .I *rptr
 is set to point to the character immediately after the
 string converted.
-If the parse pterminates before any digits are found,
+If the parse terminates before any digits are found,
 .I strtomp
 return
 .BR nil .
@@ -548,7 +548,7 @@ We assume p has room for n+1 digits.
 .TP
 .I mpvecdigmulsub
 .BR "p[0:n] -= m * b[0:n-1]" .
-This multiplies a an array of digits times a scalar and subtracts it fromo another array.
+This multiplies a an array of digits times a scalar and subtracts it from another array.
 We assume p has room for n+1 digits.  It returns +1 is the result is positive and
 -1 if negative.
 .TP
