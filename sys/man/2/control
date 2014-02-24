@@ -217,7 +217,7 @@ are of the form,
 .RI [ argument
 \&... ]
 .LP
-The sender (and the colon following it) may be ommitted.
+The sender (and the colon following it) may be omitted.
 For example, the initial field of a text entry control called
 .I entry
 could be set by sending the message,
@@ -404,7 +404,7 @@ the string
 .B sync
 to the
 .I ctl
-channel causes tha string to be echoed to the
+channel causes that string to be echoed to the
 .BR Controlset 's
 .I data
 channel when all commands up to the
