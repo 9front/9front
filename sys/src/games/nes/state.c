@@ -94,6 +94,8 @@ loadstate(char *file)
 	ppuclock = get32();
 	apuclock = get32();
 	apuseq = get8();
+	dmcaddr = get16();
+	dmccnt = get16();
 	read(fd, apuctr, sizeof(apuctr));
 	mapper[map](RSTR, 0);
 	close(fd);
@@ -133,6 +135,8 @@ savestate(char *file)
 	put32(ppuclock);
 	put32(apuclock);
 	put8(apuseq);
+	put16(dmcaddr);
+	put16(dmccnt);
 	write(fd, apuctr, sizeof(apuctr));
 	mapper[map](SAVE, 0);
 	close(fd);

@@ -13,7 +13,7 @@ uchar *prg, *chr;
 int scale;
 Rectangle picr;
 Image *tmp, *bg;
-int clock, ppuclock, apuclock, sampclock, msgclock, saveclock;
+int clock, ppuclock, apuclock, dmcclock, dmcfreq, sampclock, msgclock, saveclock;
 Mousectl *mc;
 int keys, paused, savereq, loadreq, oflag, savefd = -1;
 int mirr;
@@ -230,6 +230,7 @@ threadmain(int argc, char **argv)
 	
 	pc = memread(0xFFFC) | memread(0xFFFD) << 8;
 	rP = FLAGI;
+	dmcfreq = 12 * 428;
 	for(;;){
 		if(savereq){
 			savestate("nes.save");
@@ -248,8 +249,7 @@ threadmain(int argc, char **argv)
 		ppuclock += t;
 		apuclock += t;
 		sampclock += t;
-		//syncclock += t;
-		//checkclock += t;
+		dmcclock += t;
 		while(ppuclock >= 4){
 			ppustep();
 			ppuclock -= 4;
@@ -261,6 +261,10 @@ threadmain(int argc, char **argv)
 		if(sampclock >= SAMPDIV){
 			audiosample();
 			sampclock -= SAMPDIV;
+		}
+		if(dmcclock >= dmcfreq){
+			dmcstep();
+			dmcclock -= dmcfreq;
 		}
 		if(msgclock > 0){
 			msgclock -= t;

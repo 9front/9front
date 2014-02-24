@@ -13,3 +13,4 @@ void	apustep(void);
 void	initaudio(void);
 void	audiosample(void);
 int	audioout(void);
+void	dmcstep(void);

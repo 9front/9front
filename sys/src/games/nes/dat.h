@@ -10,9 +10,10 @@ extern int map, scale, mmc3hack, oflag;
 extern uchar *prg, *chr;
 extern int nprg, nchr, map, chrram;
 
-extern u8int apuseq, apuctr[10];
+extern u8int apuseq, apuctr[13];
+extern u16int dmcaddr, dmccnt;
 
-extern int keys, clock, ppuclock, apuclock, saveclock, paused;
+extern int keys, clock, ppuclock, apuclock, dmcclock, dmcfreq, saveclock, paused;
 
 extern void (*mapper[])(int, u8int);
 
@@ -31,6 +32,10 @@ enum {
 	PPUMASK = 0x2001,
 	PPUSTATUS = 0x2002,
 	PPUSCROLL = 0x2005,
+	DMCCTRL = 0x4010,
+	DMCBUF = 0x4011,
+	DMCADDR = 0x4012,
+	DMCLEN = 0x4013,
 	APUSTATUS = 0x4015,
 	APUFRAME = 0x4017,
 
