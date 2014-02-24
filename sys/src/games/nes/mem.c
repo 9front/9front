@@ -138,6 +138,36 @@ t:
 }
 
 static void
+uxrom(int p, u8int v)
+{
+	static u8int b;
+	
+	if(p < 0)
+		switch(p){
+		case INIT:
+			prgsh = 14;
+			chrsh = 13;
+			prgb[1] = prg + (nprg - 1) * 0x4000;
+			chrb[0] = chr;
+			break;
+		case SAVE:
+			put8(b);
+			return;
+		case RSTR:
+			b = get8();
+			break;
+		case SCAN:
+			return;
+		default:
+			nope(p);
+			return;
+		}
+	else
+		b = v % nprg;
+	prgb[0] = prg + b * 0x4000;
+}
+
+static void
 mmc3(int p, u8int v)
 {
 	static u8int m, b[8], l, n, en;
@@ -258,6 +288,7 @@ axrom(int p, u8int v)
 void (*mapper[256])(int, u8int) = {
 	[0] nrom,
 	[1] mmc1,
+	[2] uxrom,
 	[4] mmc3,
 	[7] axrom,
 };
