@@ -245,7 +245,7 @@ defn truss() {
 				print("\tdata: \"", *(arg[1]\s), "\"\n");
 			}
 			if (ret>=0) && (match(prevpc, errstrPC)>=0) then {
-				print("\tdata: \"", *(arg[1]\s), "\"\n");
+				print("\tdata: \"", *(arg[0]\s), "\"\n");
 			}
 			if (ret>=0) && (match(prevpc, awaitPC)>=0) then {
 				print("\tdata: ");
