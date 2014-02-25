@@ -67,8 +67,12 @@ typedef struct TlsConnection{
 	int state;		// must be set using setstate
 
 	// input buffer for handshake messages
-	uchar buf[MaxChunk+2048];
+	uchar recvbuf[MaxChunk];
 	uchar *rp, *ep;
+
+	// output buffer
+	uchar sendbuf[MaxChunk];
+	uchar *sendp;
 
 	uchar crandom[RandomSize];	// client random
 	uchar srandom[RandomSize];	// server random
@@ -869,19 +873,17 @@ Err:
 
 //================= message functions ========================
 
-static uchar sendbuf[9000], *sendp;
-
 static int
 msgSend(TlsConnection *c, Msg *m, int act)
 {
 	uchar *p; // sendp = start of new message;  p = write pointer
 	int nn, n, i;
 
-	if(sendp == nil)
-		sendp = sendbuf;
-	p = sendp;
+	if(c->sendp == nil)
+		c->sendp = c->sendbuf;
+	p = c->sendp;
 	if(c->trace)
-		c->trace("send %s", msgPrint((char*)p, (sizeof sendbuf) - (p-sendbuf), m));
+		c->trace("send %s", msgPrint((char*)p, (sizeof(c->sendbuf)) - (p - c->sendbuf), m));
 
 	p[0] = m->tag;	// header - fill in size later
 	p += 4;
@@ -947,7 +949,7 @@ msgSend(TlsConnection *c, Msg *m, int act)
 		nn = 0;
 		for(i = 0; i < m->u.certificate.ncert; i++)
 			nn += 3 + m->u.certificate.certs[i]->len;
-		if(p + 3 + nn - sendbuf > sizeof(sendbuf)) {
+		if(p + 3 + nn - c->sendbuf > sizeof(c->sendbuf)) {
 			tlsError(c, EInternalError, "output buffer too small for certificate");
 			goto Err;
 		}
@@ -982,20 +984,20 @@ msgSend(TlsConnection *c, Msg *m, int act)
 	}
 
 	// go back and fill in size
-	n = p-sendp;
-	assert(p <= sendbuf+sizeof(sendbuf));
-	put24(sendp+1, n-4);
+	n = p - c->sendp;
+	assert(p <= c->sendbuf + sizeof(c->sendbuf));
+	put24(c->sendp+1, n-4);
 
 	// remember hash of Handshake messages
 	if(m->tag != HHelloRequest) {
-		md5(sendp, n, 0, &c->hsmd5);
-		sha1(sendp, n, 0, &c->hssha1);
+		md5(c->sendp, n, 0, &c->hsmd5);
+		sha1(c->sendp, n, 0, &c->hssha1);
 	}
 
-	sendp = p;
+	c->sendp = p;
 	if(act == AFlush){
-		sendp = sendbuf;
-		if(write(c->hand, sendbuf, p-sendbuf) < 0){
+		c->sendp = c->sendbuf;
+		if(write(c->hand, c->sendbuf, p - c->sendbuf) < 0){
 			fprint(2, "write error: %r\n");
 			goto Err;
 		}
@@ -1015,10 +1017,10 @@ tlsReadN(TlsConnection *c, int n)
 
 	nn = c->ep - c->rp;
 	if(nn < n){
-		if(c->rp != c->buf){
-			memmove(c->buf, c->rp, nn);
-			c->rp = c->buf;
-			c->ep = &c->buf[nn];
+		if(c->rp != c->recvbuf){
+			memmove(c->recvbuf, c->rp, nn);
+			c->rp = c->recvbuf;
+			c->ep = &c->recvbuf[nn];
 		}
 		for(; nn < n; nn += nr) {
 			nr = read(c->hand, &c->rp[nn], n - nn);
@@ -1053,8 +1055,8 @@ msgRecv(TlsConnection *c, Msg *m)
 		}
 	}
 
-	if(n > sizeof(c->buf)) {
-		tlsError(c, EDecodeError, "handshake message too long %d %d", n, sizeof(c->buf));
+	if(n > sizeof(c->recvbuf)) {
+		tlsError(c, EDecodeError, "handshake message too long %d %d", n, sizeof(c->recvbuf));
 		return 0;
 	}
 
