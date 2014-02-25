@@ -19,8 +19,6 @@ Rune		recognize(Scribble *);
 The scribble library implements simple character recognition.
 All characters are drawn using a single stroke of the pen (mouse button 1)
 as on a palmtop computer.
-A reference card is in
-.BR /sys/src/libscribble/quickref.gif .
 .PP
 The library is not really intended for standalone use.  Its primary
 use is by the scribble graphical control (see
@@ -121,9 +119,6 @@ field of the
 structure; it
 returns the rune or zero if nothing was recognized.
 .SH FILES
-.B /sys/src/libscribble/quickref.gif
-serves as a quick reference card.
-.PP
 .B /sys/lib/scribble/classifiers
 contains the stroke definitions.
 .SH SOURCE
