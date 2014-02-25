@@ -80,9 +80,10 @@ doenv(void)
 		if(i == 2)
 			continue;
 		m = mem[0x4000 + 4 * i];
-		if((apuctr[RELOAD] & (1<<i)) != 0)
+		if((apuctr[RELOAD] & (1<<i)) != 0){
 			*a = 0xf0 | m & 0x0f;
-		else if((*a & 0x0f) == 0){
+			apuctr[RELOAD] &= ~(1<<i);
+		}else if((*a & 0x0f) == 0){
 			*a |= m & 0x0f;
 			if((*a & 0xf0) == 0){
 				if((m & 0x20) != 0)
@@ -93,9 +94,10 @@ doenv(void)
 			(*a)--;
 	}
 	a = apuctr + TRILIN;
-	if((*a & 0x80) != 0)
+	if((apuctr[RELOAD] & (1<<2)) != 0){
 		*a = mem[0x4008];
-	else if(*a != 0)
+		apuctr[RELOAD] &= ~(1<<2);
+	}else if(*a != 0)
 		(*a)--;
 }
 
