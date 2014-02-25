@@ -94,11 +94,12 @@ doenv(void)
 			(*a)--;
 	}
 	a = apuctr + TRILIN;
-	if((apuctr[RELOAD] & (1<<2)) != 0){
-		*a = mem[0x4008];
-		apuctr[RELOAD] &= ~(1<<2);
-	}else if(*a != 0)
+	if((apuctr[RELOAD] & (1<<2)) != 0)
+		*a = mem[0x4008] & 0x7f;
+	else if(*a != 0)
 		(*a)--;
+	if((mem[0x4008] & 0x80) == 0)
+		apuctr[RELOAD] &= ~(1<<2);
 }
 
 void
