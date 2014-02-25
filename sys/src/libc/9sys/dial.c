@@ -99,29 +99,30 @@ csdial(DS *ds)
 	 *  loop through each address from the connection server till
 	 *  we get one that works.
 	 */
-	*besterr = 0;
 	rv = -1;
+	*err = 0;
+	*besterr = 0;
 	seek(fd, 0, 0);
 	while((n = read(fd, buf, sizeof(buf) - 1)) > 0){
 		buf[n] = 0;
 		p = strchr(buf, ' ');
-		if(p == 0)
+		if(p == nil)
 			continue;
 		*p++ = 0;
 		rv = call(buf, p, ds);
 		if(rv >= 0)
 			break;
-		err[0] = '\0';
+		*err = 0;
 		errstr(err, sizeof err);
 		if(strstr(err, "does not exist") == 0)
 			strcpy(besterr, err);
 	}
 	close(fd);
 
-	if(rv < 0 && *besterr)
-		werrstr("%s", besterr);
-	else
-		werrstr("%s", err);
+	/* restore errstr if any */
+	if(rv < 0 && *err)
+		errstr(*besterr ? besterr : err, sizeof err);
+
 	return rv;
 }
 
