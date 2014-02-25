@@ -2547,6 +2547,12 @@ sock_recvfrom_into(PySocketSockObject *s, PyObject *args, PyObject* kwds)
             recvlen = buflen;
 	}
 
+	if (buflen < recvlen) {
+		PyErr_SetString(PyExc_ValueError,
+				"buffer too small for requested bytes");
+		return NULL;
+	}
+
 	readlen = sock_recvfrom_guts(s, buf, recvlen, flags, &addr);
 	if (readlen < 0) {
 		/* Return an error */
