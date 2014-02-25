@@ -281,7 +281,7 @@ t:
 		prgb[2] = prg + (2 * nprg - 2) * 0x2000;
 	}
 	prgb[1] = prg + b[7] * 0x2000;
-	c = (m & 0x80) >> 6;
+	c = (m & 0x80) >> 5;
 	for(i = 0; i < 2; i++){
 		chrb[j = (i << 1) ^ c] = chr + (b[i] >> 1) * 0x800;
 		chrb[j+1] = chrb[j] + 0x400;
