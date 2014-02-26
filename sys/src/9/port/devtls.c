@@ -848,7 +848,7 @@ if(tr->debug) pdump(unpad_len, p, "decrypted:");
 			rcvError(tr, EIllegalParameter, "invalid alert fatal code");
 
 		/*
-		 * propate non-fatal alerts to handshaker
+		 * propagate non-fatal alerts to handshaker
 		 */
 		if(p[1] == ECloseNotify) {
 			tlsclosed(tr, SRClose);
