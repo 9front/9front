@@ -258,9 +258,11 @@ This will always include
 .BR clear ,
 meaning no encryption or digesting.
 Currently implemented encryption algorithms are
-.B 'rc4_128'
+.B 'rc4_128',
+.BR '3des_ede_cbc',
+.BR 'aes_128_cbc',
 and
-.BR '3des_ede_cbc' .
+.BR 'aes_256_cbc'.
 Currently implemented hashing algorithms are
 .B 'md5'
 and
