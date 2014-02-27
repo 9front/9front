@@ -9,3 +9,6 @@ void flushram(void);
 void savestate(char *);
 void loadstate(char *);
 void initaudio(void);
+void audiosample(void);
+int audioout(void);
+void flush(void);

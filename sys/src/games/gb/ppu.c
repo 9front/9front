@@ -177,9 +177,6 @@ drawwindow(void)
 void
 ppustep(void)
 {
-	extern Rectangle picr;
-	extern Image *tmp;
-
 	if(mem[LY] == 144){
 		mem[STAT] &= ~3;
 		mem[STAT] |= 1;
@@ -204,14 +201,8 @@ ppustep(void)
 	mem[LY]++;
 	if(mem[LY] > 160){
 		mem[LY] = 0;
-		if(mem[LCDC] & LCDOP){
-			if(tmp){
-				loadimage(tmp, tmp->r, pic, 160*144*4*scale*scale);
-				draw(screen, picr, tmp, nil, ZP);
-			}else
-				loadimage(screen, picr, pic, 160*144*4*scale*scale);
-			flushimage(display, 1);
-			memset(pic, sizeof pic, 0);
-		}
+		if((mem[LCDC] & LCDOP) == 0)
+			memset(pic, 0, sizeof(pic));
+		flush();
 	}
 }

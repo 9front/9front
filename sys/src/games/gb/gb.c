@@ -9,7 +9,7 @@
 #include "fns.h"
 
 uchar *cart, *ram;
-int mbc, rombanks, rambanks, clock, ppuclock, divclock, timerclock, syncclock, syncfreq, sleeps, checkclock, msgclock, timerfreq, timer, keys, savefd, savereq, loadreq, scale, paused;
+int mbc, rombanks, rambanks, clock, ppuclock, divclock, timerclock, audioclock, msgclock, timerfreq, timer, keys, savefd, savereq, loadreq, scale, paused;
 Rectangle picr;
 Image *bg, *tmp;
 Mousectl *mc;
@@ -143,8 +143,7 @@ loadrom(char *file)
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = (Rectangle){subpt(p, Pt(scale * 80, scale * 72)), addpt(p, Pt(scale * 80, scale * 72))};
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
-	if(screen->chan != XRGB32 || screen->chan != XBGR32)
-		tmp = allocimage(display, Rect(0, 0, scale * 160, scale * 144), XRGB32, 0, 0);
+	tmp = allocimage(display, Rect(0, 0, scale * 160, scale * 144), XRGB32, 0, 0);
 	draw(screen, screen->r, bg, nil, ZP);
 	
 	if(ram && battery){
@@ -234,9 +233,6 @@ void
 threadmain(int argc, char** argv)
 {
 	int t;
-	vlong old, new, diff;
-	Mouse m;
-	Point p;
 
 	scale = 1;
 	ARGBEGIN{
@@ -267,8 +263,6 @@ threadmain(int argc, char** argv)
 	if(mc == nil)
 		sysfatal("init mouse: %r");
 	proccreate(keyproc, nil, 8192);
-	syncfreq = CPUFREQ / 50;
-	old = nsec();
 	for(;;){
 		if(savereq){
 			savestate("gb.save");
@@ -286,25 +280,19 @@ threadmain(int argc, char** argv)
 		clock += t;
 		ppuclock += t;
 		divclock += t;
+		audioclock += t;
 		timerclock += t;
-		syncclock += t;
-		checkclock += t;
 		if(ppuclock >= 456){
 			ppustep();
 			ppuclock -= 456;
-			while(nbrecv(mc->c, &m) > 0)
-				;
-			if(nbrecvul(mc->resizec) > 0){
-				if(getwindow(display, Refnone) < 0)
-					sysfatal("resize failed: %r");
-				p = divpt(addpt(screen->r.min, screen->r.max), 2);
-				picr = (Rectangle){subpt(p, Pt(scale * 80, scale * 72)), addpt(p, Pt(scale * 80, scale * 72))};
-				bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
-			}
 		}
 		if(divclock >= 256){
 			mem[DIV]++;
 			divclock = 0;
+		}
+		if(audioclock >= CPUFREQ / SAMPLE){
+			audiosample();
+			audioclock -= CPUFREQ / SAMPLE;
 		}
 		if(timer && timerclock >= timerfreq){
 			mem[TIMA]++;
@@ -314,23 +302,6 @@ threadmain(int argc, char** argv)
 			}
 			timerclock = 0;
 		}
-		if(syncclock >= syncfreq){
-			sleep(10);
-			sleeps++;
-			syncclock = 0;
-		}
-		if(checkclock >= CPUFREQ){
-			new = nsec();
-			diff = new - old - sleeps * 10 * MILLION;
-			diff = BILLION - diff;
-			if(diff <= 0)
-				syncfreq = CPUFREQ;
-			else
-				syncfreq = ((vlong)CPUFREQ) * 10 * MILLION / diff;
-			old = new;
-			checkclock = 0;
-			sleeps = 0;
-		}
 		if(msgclock > 0){
 			msgclock -= t;
 			if(msgclock <= 0){
@@ -338,5 +309,45 @@ threadmain(int argc, char** argv)
 				msgclock = 0;
 			}
 		}
+	}
+}
+
+void
+flush(void)
+{
+	extern uchar pic[160*144*4*3*3];
+	Mouse m;
+	Point p;
+	static vlong old;
+	vlong new, diff;
+
+	while(nbrecv(mc->c, &m) > 0)
+		;
+	if(nbrecvul(mc->resizec) > 0){
+		if(getwindow(display, Refnone) < 0)
+			sysfatal("resize failed: %r");
+		p = divpt(addpt(screen->r.min, screen->r.max), 2);
+		picr = (Rectangle){subpt(p, Pt(scale * 80, scale * 72)), addpt(p, Pt(scale * 80, scale * 72))};
+		if(bg->chan != screen->chan){
+			freeimage(bg);
+			bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
+		}
+		draw(screen, screen->r, bg, nil, ZP);
+	}
+	if(screen->chan != tmp->chan){
+		loadimage(tmp, tmp->r, pic, 160*144*4*scale*scale);
+		draw(screen, picr, tmp, nil, ZP);
+	}else
+		loadimage(screen, picr, pic, 160*144*4*scale*scale);
+	flushimage(display, 1);
+	memset(pic, sizeof pic, 0);
+	if(audioout() < 0){
+		new = nsec();
+		if(old != 0){
+			diff = BILLION/60 - (new - old);
+			if(diff >= MILLION)
+				sleep(diff/MILLION);
+		}
+		old = nsec();
 	}
 }

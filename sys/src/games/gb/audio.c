@@ -9,7 +9,7 @@ static int fd;
 static int sc, ch1c, ch2c, ch3c, ch4c, ch4sr = 1, ch1vec, ch2vec, ch4vec, ch1v, ch2v, ch4v;
 extern int paused;
 
-enum { SAMPLE = 44100 };
+static short sbuf[2*2000], *sbufp;
 
 static int
 thresh(int f, int b)
@@ -84,12 +84,14 @@ envelope(int *v, int *c)
 	(*c)++;
 }
 
-static void
-dosample(short *smp)
+void
+audiosample(void)
 {
 	int ch1s, ch2s, ch3s, ch4s, ch1f, ch2f, ch3f, ch4f, k, r, s;
 	u8int f;
 	
+	if(sbufp == nil)
+		return;
 	if(sc >= SAMPLE/256){
 		soundlen(0xFF11, 0xFF14, 0);
 		soundlen(0xFF16, 0xFF19, 1);
@@ -179,51 +181,40 @@ dosample(short *smp)
 	ch4s *= ch4v >> 4;
 	ch4s *= 8000 / 0xF;
 	
-	smp[0] = 0;
-	smp[1] = 0;
 	f = mem[0xFF25];
 	r = mem[0xFF26] & 15;
 	r = r | (r << 4);
 	f &= r;
-	if(f & 0x01) smp[0] += ch1s;
-	if(f & 0x02) smp[0] += ch2s;
-	if(f & 0x04) smp[0] += ch3s;
-	if(f & 0x08) smp[0] += ch4s;
-	if(f & 0x10) smp[1] += ch1s;
-	if(f & 0x20) smp[1] += ch2s;
-	if(f & 0x40) smp[1] += ch3s;
-	if(f & 0x80) smp[1] += ch4s;
-}
-
-void
-setpri(int pri)
-{
-	char buf[64];
-	int fd;
-
-	snprint(buf, sizeof(buf), "/proc/%d/ctl", getpid());
-	if((fd = open(buf, OWRITE)) >= 0){
-		fprint(fd, "pri %d\n", pri);
-		close(fd);
+	if(sbufp < sbuf + nelem(sbuf) - 1){
+		*sbufp = 0;
+		if(f & 0x01) *sbufp += ch1s;
+		if(f & 0x02) *sbufp += ch2s;
+		if(f & 0x04) *sbufp += ch3s;
+		if(f & 0x08) *sbufp += ch4s;
+		*++sbufp = 0;
+		if(f & 0x10) *sbufp += ch1s;
+		if(f & 0x20) *sbufp += ch2s;
+		if(f & 0x40) *sbufp += ch3s;
+		if(f & 0x80) *sbufp += ch4s;
+		sbufp++;
 	}
 }
 
-void
-audioproc(void *)
+int
+audioout(void)
 {
-	short samples[10 * 2];
-	int i;
+	int rc;
 
-	setpri(13);
-
-	for(;;){
-		if(paused)
-			memset(samples, 0, sizeof samples);
-		else
-			for(i = 0; i < sizeof samples/4; i++)
-				dosample(samples + 2 * i);
-		write(fd, samples, sizeof samples);
-	}
+	if(sbufp == nil)
+		return -1;
+	if(sbufp == sbuf)
+		return 0;
+	rc = write(fd, sbuf, (sbufp - sbuf) * 2);
+	if(rc > 0)
+		sbufp -= (rc+1)/2;
+	if(sbufp < sbuf)
+		sbufp = sbuf;
+	return 0;
 }
 
 void
@@ -236,5 +227,5 @@ initaudio(void)
 	fd = open("/dev/audio", OWRITE);
 	if(fd < 0)
 		return;
-	proccreate(audioproc, nil, 8192);
+	sbufp = sbuf;
 }
