@@ -425,10 +425,15 @@ userinit(void)
 void
 confinit(void)
 {
-	int i;
+	int i, userpcnt;
 	ulong kpages;
 	uintptr pa;
 	char *p;
+
+	if(p = getconf("*kernelpercent"))
+		userpcnt = 100 - strtol(p, 0, 0);
+	else
+		userpcnt = 0;
 
 	if(0 && (p = getconf("service")) != nil){
 		if(strcmp(p, "cpu") == 0)
@@ -465,8 +470,19 @@ confinit(void)
 		conf.npage += conf.mem[i].npage;
 	}
 
-	conf.upages = (conf.npage*80)/100;
-	conf.ialloc = ((conf.npage-conf.upages)/2)*BY2PG;
+	if(userpcnt < 10)
+		userpcnt = 60 + cpuserver*10;
+	kpages = conf.npage - (conf.npage*userpcnt)/100;
+
+	/*
+	 * can't go past the end of virtual memory
+	 * (ulong)-KZERO is 2^32 - KZERO
+	 */
+	if(kpages > ((ulong)-KZERO)/BY2PG)
+		kpages = ((ulong)-KZERO)/BY2PG;
+
+	conf.upages = conf.npage - kpages;
+	conf.ialloc = (kpages/2)*BY2PG;
 
 	/* only one processor */
 	conf.nmach = 1;
@@ -494,7 +510,7 @@ confinit(void)
 		+ conf.nproc*sizeof(Proc)
 		+ conf.nimage*sizeof(Image)
 		+ conf.nswap
-		+ conf.nswppo*sizeof(Page);
+		+ conf.nswppo*sizeof(Page*);
 	mainmem->maxsize = kpages;
 	if(!cpuserver)
 		/*
