@@ -261,11 +261,9 @@ ber_decode(uchar** pp, uchar* pend, Elem* pelem)
 	if(err == ASN_OK) {
 		err = length_decode(pp, pend, &length);
 		if(err == ASN_OK) {
-			if(tag.class == Universal) {
+			if(tag.class == Universal)
 				err = value_decode(pp, pend, length, tag.num, isconstr, &val);
-				if(val.tag == VSeq || val.tag == VSet)
-					setmalloctag(val.u.seqval, getcallerpc(&pp));
-			}else
+			else
 				err = value_decode(pp, pend, length, OCTET_STRING, 0, &val);
 			if(err == ASN_OK) {
 				pelem->tag = tag;
@@ -400,8 +398,7 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 				pval->u.bitstringval = makebits(0, 0, 0);
 				p += 2;
 			}
-			else
-				/* TODO: recurse and concat results */
+			else	/* TODO: recurse and concat results */
 				err = ASN_EUNIMPL;
 		}
 		else {
@@ -502,7 +499,6 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 
 	case SEQUENCE:
 		err = seq_decode(&p, pend, length, isconstr, &vl);
-		setmalloctag(vl, getcallerpc(&pp));
 		if(err == ASN_OK) {
 			pval->tag = VSeq ;
 			pval->u.seqval = vl;
@@ -511,7 +507,6 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 
 	case SETOF:
 		err = seq_decode(&p, pend, length, isconstr, &vl);
-		setmalloctag(vl, getcallerpc(&pp));
 		if(err == ASN_OK) {
 			pval->tag = VSet;
 			pval->u.setval = vl;
@@ -665,25 +660,27 @@ octet_decode(uchar** pp, uchar* pend, int length, int isconstr, Bytes** pbytes)
 			switch(elem.val.tag) {
 			case VOctets:
 				newans = catbytes(ans, elem.val.u.octetsval);
+				freevalfields(&elem.val);
 				freebytes(ans);
 				ans = newans;
 				break;
 
 			case VEOC:
-				if(length != -1) {
-					p = pold;
-					err = ASN_EINVAL;
-				}
-				goto cloop_done;
-
+				if(length == -1)
+					goto cloop_done;
+				/* no break */
 			default:
+				freevalfields(&elem.val);
 				p = pold;
 				err = ASN_EINVAL;
 				goto cloop_done;
 			}
 		}
 cloop_done:
-		;
+		if(err != ASN_OK){
+			freebytes(ans);
+			ans = nil;
+		}
 	}
 	*pp = p;
 	*pbytes = ans;
@@ -736,7 +733,9 @@ seq_decode(uchar** pp, uchar* pend, int length, int isconstr, Elist** pelist)
 			else
 				lve = mkel(elem, lve);
 		}
-		if(err == ASN_OK) {
+		if(err != ASN_OK)
+			freeelist(lve);
+		else {
 			/* reverse back to original order */
 			while(lve != nil) {
 				lveold = lve;
@@ -748,7 +747,6 @@ seq_decode(uchar** pp, uchar* pend, int length, int isconstr, Elist** pelist)
 	}
 	*pp = p;
 	*pelist = ans;
-	setmalloctag(ans, getcallerpc(&pp));
 	return err;
 }
 
@@ -977,8 +975,8 @@ val_enc(uchar** pp, Elem e, int *pconstr, int lenonly)
 				memmove(p, bb->data, bb->len);
 			p += bb->len;
 		}
-			else
-				err = ASN_EINVAL;
+		else
+			err = ASN_EINVAL;
 		break;
 
 	case NULLTAG:
