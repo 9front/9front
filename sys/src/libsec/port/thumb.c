@@ -34,6 +34,8 @@ okThumbprint(uchar *sum, Thumbprint *table)
 {
 	Thumbprint *hd, *p;
 
+	if(table == nil)
+		return 0;
 	hd = tablehead(sum, table);
 	for(p = hd->next; p; p = p->next){
 		if(memcmp(sum, p->sha1, SHA1dlen) == 0)
@@ -52,6 +54,8 @@ loadThumbprints(char *file, Thumbprint *table, Thumbprint *crltab)
 	uchar sum[SHA1dlen];
 	Biobuf *bin;
 
+	if(access(file, AEXIST) < 0)
+		return 0;	/* not an error */
 	if((bin = Bopen(file, OREAD)) == nil)
 		return -1;
 	for(; (line = Brdstr(bin, '\n', 1)) != nil; free(line)){
@@ -114,4 +118,3 @@ err:
 	freeThumbprints(crltab);
 	return table;
 }
-
