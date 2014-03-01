@@ -165,7 +165,7 @@ drawbg(void)
 }
 
 static void
-drawsprites(void)
+drawsprites(int show)
 {
 	uchar *p;
 	int big, dx, dy, i, x, cc, pri;
@@ -209,7 +209,7 @@ drawsprites(void)
 		x = ppux - 2;
 		dx = x - t[0].x;
 		if(t0 && dx >= 0 && dx < 8 && ppux != 257){
-			if((nz & 1) != 0 && iscolor(x, ppuy))
+			if((nz & 1) != 0 && iscolor(x, ppuy) && show)
 				mem[PPUSTATUS] |= SPRITE0HIT;
 			nz >>= 1;
 		}
@@ -227,7 +227,7 @@ drawsprites(void)
 			t[i].r1 >>= 1;
 			t[i].r2 >>= 1;
 		}
-		if(cc != -1 && (pri || !iscolor(x, ppuy)))
+		if(cc != -1 && show && (pri || !iscolor(x, ppuy)))
 			pixel(x, ppuy, cc, 0);
 	}
 	if(ppux == 257){
@@ -310,10 +310,10 @@ ppustep(void)
 		mask = mem[PPUMASK];
 		if((mask & BGDISP) != 0)
 			drawbg();
-		if(((mask & BGDISP) == 0 && ppux <= 257 || ppux <= 10 && (mask & BG8DISP) == 0) && ppux >= 2)
+		if(((mask & BGDISP) == 0 && ppux <= 257 || ppux < 10 && (mask & BG8DISP) == 0) && ppux >= 2)
 			pixel(ppux - 2, ppuy, ppuread(0x3F00), 1);
-		if((mask & SPRITEDISP) != 0 && ppuy != 261 && (ppux > 10 || (mask & SPRITE8DISP) != 0))
-			drawsprites();
+		if((mask & SPRITEDISP) != 0 && ppuy != 261)
+			drawsprites(ppux >= 10 || (mask & SPRITE8DISP) != 0);
 		if(ppux == 240 && (mask & SPRITEDISP) != 0)
 			mapper[map](SCAN, 0);
 		if(ppuy == 261){
