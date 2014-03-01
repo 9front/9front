@@ -30,6 +30,49 @@ TEXT _protected<>(SB), 1, $-4
 
 	pFARJMP32(SELECTOR(3, SELGDT, 0), _warp64<>-KZERO(SB))
 
+	BYTE	$0x90	/* align */
+
+/*
+ * Must be 4-byte aligned.
+ */
+TEXT _multibootheader<>(SB), 1, $-4
+	LONG	$0x1BADB002			/* magic */
+	LONG	$0x00010003			/* flags */
+	LONG	$-(0x1BADB002 + 0x00010003)	/* checksum */
+	LONG	$_multibootheader<>-KZERO(SB)	/* header_addr */
+	LONG	$_protected<>-KZERO(SB)		/* load_addr */
+	LONG	$edata-KZERO(SB)		/* load_end_addr */
+	LONG	$end-KZERO(SB)			/* bss_end_addr */
+	LONG	$_multibootentry<>-KZERO(SB)	/* entry_addr */
+	LONG	$0				/* mode_type */
+	LONG	$0				/* width */
+	LONG	$0				/* height */
+	LONG	$0				/* depth */
+
+/* 
+ * the kernel expects the data segment to be page-aligned
+ * multiboot bootloaders put the data segment right behind text
+ */
+TEXT _multibootentry<>(SB), 1, $-4
+	MOVL	$etext-KZERO(SB), SI
+	MOVL	SI, DI
+	ADDL	$(BY2PG-1), DI
+	ANDL	$~(BY2PG-1), DI
+	MOVL	$edata-KZERO(SB), CX
+	SUBL	DI, CX
+	ADDL	CX, SI
+	ADDL	CX, DI
+	STD
+	REP; MOVSB
+	CLD
+	MOVL	BX, multibootptr-KZERO(SB)
+	MOVL	$_protected<>-KZERO(SB), AX
+	JMP*	AX
+
+/* multiboot structure pointer (physical address) */
+TEXT multibootptr(SB), 1, $-4
+	LONG	$0
+
 TEXT _gdt<>(SB), 1, $-4
 	/* null descriptor */
 	LONG	$0

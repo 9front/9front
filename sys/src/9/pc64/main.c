@@ -33,12 +33,61 @@ uchar *sp;	/* user stack of init proc */
 extern void (*i8237alloc)(void);
 
 static void
+multibootargs(void)
+{
+	extern ulong multibootptr;
+	ulong *multiboot;
+	char *cp, *ep;
+	ulong *m, l;
+
+	if(multibootptr == 0)
+		return;
+
+	multiboot = (ulong*)KADDR(multibootptr);
+	/* command line */
+	if((multiboot[0] & (1<<2)) != 0)
+		strncpy(BOOTLINE, KADDR(multiboot[4]), BOOTLINELEN-1);
+
+	cp = BOOTARGS;
+	ep = cp + BOOTARGSLEN-1;
+
+	/* memory map */
+	if((multiboot[0] & (1<<6)) != 0 && (l = multiboot[11]) >= 24){
+		cp = seprint(cp, ep, "*e820=");
+		m = KADDR(multiboot[12]);
+		while(m[0] >= 20 && m[0] <= l-4){
+			uvlong base, size;
+			m++;
+			base = ((uvlong)m[0] | (uvlong)m[1]<<32);
+			size = ((uvlong)m[2] | (uvlong)m[3]<<32);
+			cp = seprint(cp, ep, "%.1lux %.16llux %.16llux ",
+				m[4] & 0xF, base, base+size);
+			l -= m[-1]+4;
+			m = (ulong*)((uintptr)m + m[-1]);
+		}
+		cp[-1] = '\n';
+	}
+
+	/* plan9.ini passed as the first module */
+	if((multiboot[0] & (1<<3)) != 0 && multiboot[5] > 0){
+		m = KADDR(multiboot[6]);
+		l = m[1] - m[0];
+		m = KADDR(m[0]);
+		if(cp+l > ep)
+			l = ep - cp;
+		memmove(cp, m, l);
+		cp += l;
+	}
+	*cp = 0;
+}
+
+static void
 options(void)
 {
 	long i, n;
 	char *cp, *line[MAXCONF], *p, *q;
 
-	// multibootargs();
+	multibootargs();
 
 	/*
 	 *  parse configuration args from dos file plan9.ini
