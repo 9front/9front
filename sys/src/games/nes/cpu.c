@@ -244,11 +244,12 @@ step(void)
 	u16int a, v;
 	int c;
 	
-	if(nmi){
-		interrupt(1, 0);
-		nmi = 0;
-		return 7;
-	}
+	if(nmi)
+		if(--nmi == 0){
+			interrupt(1, 0);
+			nmi = 0;
+			return 7;
+		}
 	if(irq && (rP & 4) == 0){
 		interrupt(0, 0);
 		return 7;
@@ -256,7 +257,7 @@ step(void)
 	curpc = pc;
 	op = fetch8();
 	if(trace)
-		print("%x %x %x %x %x %x %x %x\n", curpc, op, rA, rX, rY, rS, rP, memread(0x2c));
+		print("%x %x %x %x %x %x %x\n", curpc, op, rA, rX, rY, rS, rP);
 	switch(op){
 	case 0x00: pc++; interrupt(0, 1); return 7;
 	case 0x01: nz(rA |= indX()); return 6;

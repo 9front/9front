@@ -54,6 +54,8 @@ mmc1(int v, u8int p)
 	if(v < 0){
 		switch(v){
 		case INIT:
+			if(nprg > 32)
+				sysfatal("bad rom, too much prg rom for mmc1");
 			mode = 0x0C;
 			prgsh = 14;
 			chrsh = 12;
@@ -99,6 +101,10 @@ mmc1(int v, u8int p)
 		mirr = mirrs[mode & 3];
 		break;
 	case 0xA000:
+		if(nprg > 16){
+			pr = s & 0x10 | pr & 0x0f;
+			pr %= nprg;
+		}
 		c0 = s & 0x1f;
 		c0 %= 2*nchr;
 		break;
@@ -107,7 +113,7 @@ mmc1(int v, u8int p)
 		c1 %= 2*nchr;
 		break;
 	case 0xE000:
-		pr = s & 0x0f;
+		pr = pr & 0x10 | s & 0x0f;
 		pr %= nprg;
 		break;
 	}
@@ -121,7 +127,7 @@ t:
 		break;
 	case 0x0C:
 		prgb[0] = prg + pr * 0x4000;
-		prgb[1] = prg + (0x0f % nprg) * 0x4000;
+		prgb[1] = prg + ((pr & 0x10 | 0x0f) % nprg) * 0x4000;
 		break;
 	default:
 		prgb[0] = prg + (pr & 0xfe) * 0x4000;

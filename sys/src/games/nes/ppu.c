@@ -326,7 +326,7 @@ ppustep(void)
 		if(ppux == 1){
 			mem[PPUSTATUS] |= PPUVBLANK;
 			if((mem[PPUCTRL] & PPUNMI) != 0)
-				nmi = 1;
+				nmi = 2;
 			flush();
 		}
 	}
