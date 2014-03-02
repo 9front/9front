@@ -80,7 +80,6 @@ int
 fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 {
 	int type;
-	int ref;
 	Pte **p, *etp;
 	uintptr soff, mmuphys=0;
 	Page **pg, *lkp, *new;
@@ -121,7 +120,6 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 			new = newpage(1, &s, addr);
 			if(s == 0)
 				return -1;
-
 			*pg = new;
 		}
 		goto common;
@@ -143,24 +141,15 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 
 		lkp = *pg;
 		lock(lkp);
-		ref = lkp->ref;
-		if(ref == 0)
+		if(lkp->ref == 0)
 			panic("fault %#p ref == 0", lkp);
-		if(lkp->image == &swapimage)
-			ref += swapcount(lkp->daddr);
-		if(ref == 1 && lkp->image) {
-			/*
-			 * save a copy of the original for the image cache
-			 * and uncache the page. page might temporarily be
-			 * unlocked while trying to acquire palloc lock so
-			 * recheck ref in case it got grabbed.
-			 */
-			duppage(lkp);
-
-			ref = lkp->ref;
-		}
-		unlock(lkp);
-		if(ref > 1){
+		if(lkp->ref == 1 && lkp->image == nil) {
+			unlock(lkp);
+		} else if(lkp->image == &swapimage && (lkp->ref + swapcount(lkp->daddr)) == 1) {
+			uncachepage(lkp);
+			unlock(lkp);
+		} else {
+			unlock(lkp);
 			new = newpage(0, &s, addr);
 			if(s == 0)
 				return -1;

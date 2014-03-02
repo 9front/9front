@@ -49,7 +49,7 @@ swapinit(void)
 	swapimage.notext = 1;
 }
 
-ulong
+uintptr
 newswap(void)
 {
 	uchar *look;
