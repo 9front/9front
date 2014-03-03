@@ -1,0 +1,54 @@
+.TH NINTENDO 1
+.SH NAME
+gb, nes \- emulators
+.SH SYNOPSIS
+.B games/gb
+[
+.B -a
+] [
+.B -2
+|
+.B -3
+]
+.I romfile
+.br
+.B games/nes
+[
+.B -2
+|
+.B -3
+]
+.I romfile
+.SH DESCRIPTION
+.TP
+.B gb
+Is a Nintendo Game Boy emulator. The
+.B -a
+option enables audio. The screen size can be
+scaled with
+.B -2
+and
+.B -3
+options.
+The last argument
+.I romfile
+is the filename of a Game Boy ROM.
+.TP
+.B nes
+Is a Nintendo Entertainment System (NES) emulator.
+The screen size can be adjusted with
+.B -2
+and
+.B -3
+flags.
+The last argument
+.I romfile
+is the filename of an NES ROM.
+.SH BUGS
+You bet!
+.SH HISTORY
+.I Gb
+first appeared in 9front (April, 2012).
+.br
+.I Nes
+first appeared in 9front (February, 2014).

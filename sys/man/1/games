@@ -1,6 +1,6 @@
 .TH GAMES 1
 .SH NAME
-4s, 5s, blabs, catclock, doom, festoon, gb, geigerstats, glendy, juggle, life, mandel, mahjongg, memo, midi, mines, mole, nes, packet, sokoban, sudoku \- time wasters
+4s, 5s, blabs, catclock, doom, festoon, geigerstats, glendy, juggle, life, mandel, mahjongg, memo, midi, mines, mole, packet, sokoban, sudoku \- time wasters
 .SH SYNOPSIS
 .B games/4s
 .br
@@ -38,16 +38,6 @@
 [
 .I percent-invented-nouns
 ] ]
-.br
-.B games/gb
-[
-.B -a
-] [
-.B -2
-|
-.B -3
-]
-.I romfile
 .br
 .B games/geigerstats
 .br
@@ -97,14 +87,6 @@
 .B games/mines
 .br
 .B games/mole
-.br
-.B games/nes
-[
-.B -2
-|
-.B -3
-]
-.I romfile
 .br
 .B games/packet
 [
@@ -195,19 +177,6 @@ and
 .B -t
 add gibberish diagrams, equations and tables.
 .TP
-.B gb
-Is a Nintendo Game Boy emulator. The
-.B -a
-option enables audio. The screen size can be
-scaled with
-.B -2
-and
-.B -3
-options.
-The last argument
-.I romfile
-is the filename of a Game Boy ROM.
-.TP
 .B glendy
 Don't let the rabbit escape.
 .TP
@@ -283,17 +252,6 @@ The
 option sets the game to hard mode.
 Once the game has been completed, a message pops up with how long it took to win.
 Use the button 3 menu to choose a mode, or click to play again.
-.TP
-.B nes
-Is a Nintendo entertainment system (NES) emulator.
-The screen size can be adjusted with
-.B -2
-and
-.B -3
-flags.
-The last argument
-.I romfile
-is the filename of an NES ROM.
 .TP
 .B sokoban
 Guide Glenda through a room full of walls, pebbles and holes to put
@@ -432,3 +390,9 @@ the mouse cursor is outside the game window.
 Those who prefer to use the keyboard without the mouse
 cursor blocking the view (or being warped all the time)
 may consider this a feature.
+.SH HISTORY
+.I Doom
+first appeared in 9front (May, 2011).
+.br
+.I Packet
+first appeared in 9front (August, 2011).
