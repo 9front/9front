@@ -82,3 +82,5 @@ If the Plan 9 group had had its way, Plan 9 would have been released for free un
 Code freeze on March 1 does not mean "break everything the day before March 1".
 Godoc is a relatively small program. It is built from 102 packages built from 582 source files.
 does anyone understand why the dragonfly builder times out connecting to localhost during run.bash?
+We've entered the feature freeze.
+We're far from stable right now.
