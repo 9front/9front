@@ -209,7 +209,7 @@ dither(int *y, int ibits, int obits, int count)
 {
 	static ulong prnd;
 
-	if(ibits >= 32 || obits >= ibits)
+	if(ibits >= 32 || ibits >= obits)
 		return;
 
 	while(count--){
