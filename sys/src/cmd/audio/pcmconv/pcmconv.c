@@ -209,12 +209,13 @@ dither(int *y, int ibits, int obits, int count)
 {
 	static ulong prnd;
 
-	if(ibits >= 32 || ibits >= obits)
+	if(ibits >= 32 || obits >= ibits)
 		return;
 
 	while(count--){
 		prnd = (prnd*0x19660dL + 0x3c6ef35fL) & 0xffffffffL;
-		*y++ += ((int)prnd) >> ibits;
+		*y = clip((vlong)*y + ((int)prnd >> ibits));
+		y++;
 	}
 }
 
