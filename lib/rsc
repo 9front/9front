@@ -81,3 +81,4 @@ Let's focus on what's there.
 If the Plan 9 group had had its way, Plan 9 would have been released for free under a trivial MIT-like license (the one used for other pieces of code, like the one true awk) in 2003 instead of creating the Lucent Public License. Or in 2000 instead of creating the "Plan 9 License". Or in 1995 instead of as a $350 book+CD that came with a license for use by an entire "organization". Or in 1992 instead of being a limited academic release.
 Code freeze on March 1 does not mean "break everything the day before March 1".
 Godoc is a relatively small program. It is built from 102 packages built from 582 source files.
+does anyone understand why the dragonfly builder times out connecting to localhost during run.bash?

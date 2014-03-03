@@ -4993,3 +4993,7 @@ No. -- Brad Fitzpatrick
 // run runs the command named by cmd.
 building a small rpi cluster is really easy (i have one with 8-nodes) -- Skip Tavakkolian
 https://github.com/jfloren/plan9/commit/445b546003d071f3cf3cd6a0133b92397e5c9024
+Evidenced by last few years of bug reports, nobody knows what 5g, 8g, and 6g are these days, so I deleted the "which compiler?" part of our bug report template. -- Brad Fitzpatrick
+(#cat-v) qrstuv → my patch to disable posting in lucio's mail client was put in the maybe directory
+I have "reduced"(hah) my vim config to about 50 plugins, so it takes ~25 megabytes of ram
+Internet Explorer 7 was audited by Microsoft to ensure that it contained no Mosaic code, and thus no longer credits Spyglass or Mosaic.

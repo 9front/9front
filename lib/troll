@@ -157,3 +157,6 @@ While I think the overall concept is amazing, my understanding is that the user 
 Porting a modern browser to Plan 9 woulbe incredibly painful, and I believe the codebase of Chromium or Firefox is larger than Plan 9 itself these days!
 Subject: [sources] applied patch: /n/atom/patch/applied/websocket2
 #ifdef PLAN9
+It's back.  One of the backing servers wedged and needed a reboot.
+[9fans] p9p on 64 bit Linux
+acme: error while loading shared libraries: libX11.so.6: cannot open shared
