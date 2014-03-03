@@ -310,7 +310,7 @@ ppustep(void)
 		mask = mem[PPUMASK];
 		if((mask & BGDISP) != 0)
 			drawbg();
-		if(((mask & BGDISP) == 0 && ppux <= 257 || ppux < 10 && (mask & BG8DISP) == 0) && ppux >= 2)
+		if((((mask & BGDISP) == 0 && ppux <= 257 || ppux < 10 && (mask & BG8DISP) == 0) && ppux >= 2) && ppuy != 261)
 			pixel(ppux - 2, ppuy, ppuread(0x3F00), 1);
 		if((mask & SPRITEDISP) != 0 && ppuy != 261)
 			drawsprites(ppux >= 10 || (mask & SPRITE8DISP) != 0);
