@@ -436,14 +436,13 @@ char*
 rexcall(int *fd, char *host, char *service)
 {
 	char *na;
-	char dir[MaxStr];
 	char err[ERRMAX];
 	char msg[MaxStr];
 	int n;
 
 	na = netmkaddr(host, 0, service);
 	procsetname("dialing %s", na);
-	if((*fd = dial(na, 0, dir, 0)) < 0)
+	if((*fd = dial(na, 0, 0, 0)) < 0)
 		return "can't dial";
 
 	/* negotiate aan filter extension */
