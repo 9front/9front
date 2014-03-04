@@ -4,46 +4,51 @@ gb, nes \- emulators
 .SH SYNOPSIS
 .B games/gb
 [
-.B -a
-] [
-.B -2
-|
-.B -3
+.B -23a
 ]
 .I romfile
 .br
 .B games/nes
 [
-.B -2
-|
-.B -3
+.B -23aso
 ]
 .I romfile
 .SH DESCRIPTION
+.I Gb
+and
+.I nes
+are emulators for the Nintendo Game Boy and Nintendo Entertainment System (NES).
+They execute the romfile given as an argument.
+The \fBz\fR, \fBx\fR, return and shift keys correspond to B, A, Start and Select, respectively.
+Other keys:
 .TP
-.B gb
-Is a Nintendo Game Boy emulator. The
+F5
+Save the current state in \fBgb.save\fR / \fBnes.save\fR.
+.TP
+F6
+Load the current state from \fBgb.save\fR / \fBnes.save\fR.
+.TP
+Esc
+Pause the emulator.
+.TP
+Del
+Exit the emulator.
+.PP
+Command line options:
+.TP
+.B -2 -3
+Scale the screen by the given factor.
+.TP
 .B -a
-option enables audio. The screen size can be
-scaled with
-.B -2
-and
-.B -3
-options.
-The last argument
-.I romfile
-is the filename of a Game Boy ROM.
+Enable audio output.
 .TP
-.B nes
-Is a Nintendo Entertainment System (NES) emulator.
-The screen size can be adjusted with
-.B -2
-and
-.B -3
-flags.
-The last argument
-.I romfile
-is the filename of an NES ROM.
+.B -s
+(\fInes\fR only)
+Save contents of battery backed SRAM (used by some games for savegames) as a file (\fIgb\fR automatically detects if this is needed)
+.TP
+.B -o
+(\fInes\fR only)
+Hide the top and bottom eight pixels (overscan area), like a real television would.
 .SH BUGS
 You bet!
 .SH HISTORY
