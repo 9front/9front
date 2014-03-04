@@ -49,6 +49,10 @@ Save contents of battery backed SRAM (used by some games for savegames) as a fil
 .B -o
 (\fInes\fR only)
 Hide the top and bottom eight pixels (overscan area), like a real television would.
+.SH SOURCE
+.B /sys/src/games/gb
+.br
+.B /sys/src/games/nes
 .SH BUGS
 You bet!
 .SH HISTORY
