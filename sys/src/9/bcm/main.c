@@ -223,7 +223,7 @@ gpiomeminit(void)
 	seg.attr = SG_PHYSICAL;
 	seg.name = "gpio";
 	seg.pa = (VIRTIO+0x200000);
-	seg.size = 1;
+	seg.size = BY2PG;
 	addphysseg(&seg);
 }
 

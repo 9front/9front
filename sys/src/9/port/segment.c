@@ -558,7 +558,7 @@ out:
 }
 
 Segment*
-isoverlap(Proc *p, uintptr va, int len)
+isoverlap(Proc *p, uintptr va, uintptr len)
 {
 	int i;
 	Segment *ns;
@@ -621,7 +621,7 @@ isphysseg(char *name)
 }
 
 uintptr
-segattach(Proc *p, ulong attr, char *name, uintptr va, ulong len)
+segattach(Proc *p, ulong attr, char *name, uintptr va, uintptr len)
 {
 	int sno;
 	Segment *s, *os;
@@ -671,12 +671,11 @@ segattach(Proc *p, ulong attr, char *name, uintptr va, ulong len)
 				error(Enovmem);
 			va -= len;
 		}
-		va &= ~(BY2PG-1);
-	} else {
-		va &= ~(BY2PG-1);
-		if(va == 0 || va >= USTKTOP)
-			error(Ebadarg);
 	}
+
+	va &= ~(BY2PG-1);
+	if(va == 0 || (va+len) > USTKTOP || (va+len) < va)
+		error(Ebadarg);
 
 	if(isoverlap(p, va, len) != nil)
 		error(Esoverlap);

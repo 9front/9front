@@ -132,7 +132,7 @@
 /*
  *  virtual MMU
  */
-#define	PTEMAPMEM	(1024*1024)	
+#define	PTEMAPMEM	(1ull*MiB)	
 #define	PTEPERTAB	(PTEMAPMEM/BY2PG)
 #define	SEGMAPSIZE	65536
 #define	SSEGMAPSIZE	16

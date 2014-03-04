@@ -389,7 +389,7 @@ struct Physseg
 	ulong	attr;			/* Segment attributes */
 	char	*name;			/* Attach name */
 	uintptr	pa;			/* Physical address */
-	ulong	size;			/* Maximum segment size in pages */
+	uintptr	size;			/* Maximum segment size in bytes */
 	Page	*(*pgalloc)(Segment*, uintptr);	/* Allocation if we need it */
 	void	(*pgfree)(Page*);
 };
