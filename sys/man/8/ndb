@@ -89,6 +89,10 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 ]
 .br
 .B ndb/dnsquery
+[
+.B -x
+.I netmntpt
+]
 .br
 .B ndb/dnsdebug
 [
