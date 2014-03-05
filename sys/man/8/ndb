@@ -91,7 +91,6 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 .B ndb/dnsquery
 [
 .B -x
-.I netmntpt
 ]
 .br
 .B ndb/dnsdebug
@@ -679,6 +678,14 @@ In the case of the inverse query type,
 will reverse the ip address and tack on the
 .B .in-addr.arpa
 if necessary.
+The
+.B -x
+option switches
+.I ndb/dnsquery
+to query the dns server on
+.B /net.alt
+instead of
+.B /net
 .PP
 .I Ndb/dnsdebug
 is like
