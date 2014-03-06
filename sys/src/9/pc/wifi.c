@@ -997,9 +997,6 @@ wifidecrypt(Wifi *, Wnode *wn, Block *b)
 	Wkey *k;
 
 	w = (Wifipkt*)b->rp;
-	if(BLEN(b) < WIFIHDRSIZE)
-		goto drop;
-
 	n = wifihdrlen(w);
 	b->rp += n;
 	if(BLEN(b) < 8+8)
