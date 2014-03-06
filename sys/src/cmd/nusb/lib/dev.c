@@ -186,25 +186,26 @@ mkstr(uchar *b, int n)
 	Rune r;
 	char *us;
 	char *s;
-	char *e;
 
+	if(n > 0 && n > b[0])
+		n = b[0];
 	if(n <= 2 || (n & 1) != 0)
 		return strdup("none");
 	n = (n - 2)/2;
 	b += 2;
 	us = s = emallocz(n*UTFmax+1, 0);
-	e = s + n*UTFmax+1;
 	for(; --n >= 0; b += 2){
 		r = GET2(b);
-		s = seprint(s, e, "%C", r);
+		s += runetochar(s, &r);
 	}
+	*s = 0;
 	return us;
 }
 
 char*
 loaddevstr(Dev *d, int sid)
 {
-	uchar buf[128];
+	uchar buf[256];
 	int langid;
 	int type;
 	int nr;
