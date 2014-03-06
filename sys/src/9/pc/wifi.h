@@ -74,6 +74,7 @@ struct Wifipkt
 	uchar	a2[Eaddrlen];
 	uchar	a3[Eaddrlen];
 	uchar	seq[2];
+	uchar	a4[Eaddrlen];
 };
 
 Wifi *wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*));

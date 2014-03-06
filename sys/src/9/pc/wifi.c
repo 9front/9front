@@ -43,18 +43,18 @@ static Block* wifiencrypt(Wifi *, Wnode *, Block *);
 static uchar*
 srcaddr(Wifipkt *w)
 {
-	if((w->fc[1] & 3) == 0x02)
-		return w->a3;
-	else
+	if((w->fc[1] & 0x02) == 0)
 		return w->a2;
+	if((w->fc[1] & 0x01) == 0)
+		return w->a3;
+	return w->a4;
 }
 static uchar*
 dstaddr(Wifipkt *w)
 {
-	if((w->fc[1] & 3) == 0x01)
+	if((w->fc[1] & 0x01) != 0)
 		return w->a3;
-	else
-		return w->a1;
+	return w->a1;
 }
 
 int
@@ -69,6 +69,8 @@ wifihdrlen(Wifipkt *w)
 			if(w->fc[1] & 0x80)
 				n += 4;
 		}
+	if((w->fc[1] & 3) == 0x03)
+		n += Eaddrlen;
 	return n;
 }
 
@@ -78,10 +80,14 @@ wifiiq(Wifi *wifi, Block *b)
 	SNAP s;
 	Wifipkt h, *w;
 	Etherpkt *e;
+	int hdrlen;
 
 	if(BLEN(b) < WIFIHDRSIZE)
 		goto drop;
 	w = (Wifipkt*)b->rp;
+	hdrlen = wifihdrlen(w);
+	if(BLEN(b) < hdrlen)
+		goto drop;
 	if(w->fc[1] & 0x40){
 		/* encrypted */
 		qpass(wifi->iq, b);
@@ -96,9 +102,7 @@ wifiiq(Wifi *wifi, Block *b)
 	case 0x04:	/* control */
 		break;
 	case 0x08:	/* data */
-		if((w->fc[1] & 3) == 0x03)	/* AP->AP */
-			break;
-		b->rp += wifihdrlen(w);
+		b->rp += hdrlen;
 		switch(w->fc[0] & 0xf0){
 		default:
 			goto drop;
@@ -538,7 +542,8 @@ static void
 wifietheroq(Wifi *wifi, Block *b)
 {
 	Etherpkt e;
-	Wifipkt *w;
+	Wifipkt h;
+	int hdrlen;
 	Wnode *wn;
 	SNAP *s;
 
@@ -557,16 +562,21 @@ wifietheroq(Wifi *wifi, Block *b)
 	} else if(wn->status != Sassoc)
 		goto drop;
 
-	b = padblock(b, WIFIHDRSIZE + SNAPHDRSIZE);
+	h.fc[0] = 0x08;	/* data */
+	memmove(h.a1, wn->bssid, Eaddrlen);
+	if(memcmp(e.s, wifi->ether->ea, Eaddrlen) == 0) {
+		h.fc[1] = 0x01;	/* STA->AP */
+	} else {
+		h.fc[1] = 0x03;	/* AP->AP (WDS) */
+		memmove(h.a2, wifi->ether->ea, Eaddrlen);
+	}
+	memmove(dstaddr(&h), e.d, Eaddrlen);
+	memmove(srcaddr(&h), e.s, Eaddrlen);
 
-	w = (Wifipkt*)b->rp;
-	w->fc[0] = 0x08;	/* data */
-	w->fc[1] = 0x01;	/* STA->AP */
-	memmove(w->a1, wn->bssid, Eaddrlen);
-	memmove(w->a2, e.s, Eaddrlen);
-	memmove(w->a3, e.d, Eaddrlen);
-
-	s = (SNAP*)(b->rp + WIFIHDRSIZE);
+	hdrlen = wifihdrlen(&h);
+	b = padblock(b, hdrlen + SNAPHDRSIZE);
+	memmove(b->rp, &h, hdrlen);
+	s = (SNAP*)(b->rp + hdrlen);
 	s->dsap = s->ssap = 0xAA;
 	s->control = 0x03;
 	s->orgcode[0] = 0;
@@ -998,7 +1008,7 @@ wifidecrypt(Wifi *, Wnode *wn, Block *b)
 	kid = b->rp[3]>>6;
 	if((b->rp[3] & 0x20) == 0)
 		goto drop;
-	if((dstaddr(w)[0] & 1) == 0)
+	if((w->a1[0] & 1) == 0)
 		kid = 4;	/* use peerwise key for non-unicast */
 
 	k = &wn->rxkey[kid];
@@ -1488,6 +1498,10 @@ setupCCMP(Wkey *k, Wifipkt *w, uvlong tsc, uchar nonce[13], uchar auth[32], AESs
 	memmove(p, w->a3, Eaddrlen); p += Eaddrlen;
 	*p++ = w->seq[0] & 0x0f;
 	*p++ = 0;
+	if((w->fc[1] & 3) == 0x03) {
+		memmove(p, w->a4, Eaddrlen);
+		p += Eaddrlen;
+	}
 
 	return p - auth;
 }
