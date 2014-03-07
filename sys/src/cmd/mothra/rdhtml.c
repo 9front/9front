@@ -540,9 +540,9 @@ int pl_gettag(Hglob *g){
 	return ENDTAG;
 }
 /*
- * The next token is a tag, an end tag or a sequence of
- * non-white characters.
- * If inside <pre>, newlines are converted to <br> and spaces are preserved.
+ * The next token is a tag, an end tag or a sequence of non-white
+ * characters. If inside <pre>, single newlines are converted to <br>,
+ * double newlines are converted to <p> and spaces are preserved.
  * Otherwise, spaces and newlines are noted and discarded.
  */
 int pl_gettoken(Hglob *g){
@@ -552,8 +552,15 @@ int pl_gettoken(Hglob *g){
 	case STAG: return pl_gettag(g);
 	case EOF: return EOF;
 	case '\n':
-		pl_tagparse(g, "br");
-		return TAG;
+		switch(c=pl_nextc(g)){
+		case '\n':
+			pl_tagparse(g, "p");
+			return TAG;
+		default:
+			pl_tagparse(g, "br");
+			pl_putback(g, c);
+			return TAG;
+		}
 	default:
 		tokp=g->token;
 		while(c=='\t'){
