@@ -84,3 +84,7 @@ Godoc is a relatively small program. It is built from 102 packages built from 58
 does anyone understand why the dragonfly builder times out connecting to localhost during run.bash?
 We've entered the feature freeze.
 We're far from stable right now.
+it would be nice to be able to try the plan 9 go port without a plan 9 system.
+is anyone willing to put together a plan 9 qemu image with mercurial set up and a go tree checked out and ready to build?
+okay.
+sounds worth trying
