@@ -100,6 +100,7 @@ fpaoperation(u32int instr)
 	case 19: res = (vlong) op2; break;
 	case 20: res = sqrt(op2); break;
 	default: sysfatal("unimplemented FPA operation %#x @ %8ux", opc, P->R[15] - 4);
+	return;
 	}
 	switch(prec) {
 	case 0: *Fd = (float) res; break;
