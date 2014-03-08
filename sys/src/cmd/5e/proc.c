@@ -4,9 +4,29 @@
 #include <bio.h>
 #include <mach.h>
 #include <ctype.h>
-#include <tos.h>
 #include "dat.h"
 #include "fns.h"
+
+#pragma pack on
+typedef struct Tos Tos;
+struct Tos {
+	struct			/* Per process profiling */
+	{
+		ulong	pp;	/* known to be 0(ptr) */
+		ulong	next;	/* known to be 4(ptr) */
+		ulong	last;
+		ulong	first;
+		ulong	pid;
+		ulong	what;
+	} prof;
+	uvlong	cyclefreq;	/* cycle clock frequency if there is one, 0 otherwise */
+	vlong	kcycles;	/* cycles spent in kernel */
+	vlong	pcycles;	/* cycles spent in process (kernel + user) */
+	ulong	pid;		/* might as well put the pid here */
+	ulong	clock;
+	/* top of stack is here */
+};
+#pragma pack off
 
 Process plist;
 Lock plistlock;
@@ -77,7 +97,7 @@ copyname(char *file)
 
 	if(P->path != nil && decref(P->path) == 0)
 		free(P->path);
-	P->path = emallocz(5 + strlen(file));
+	P->path = emallocz(sizeof(Ref) + strlen(file)+1);
 	incref(P->path);
 	strcpy((char*)(P->path + 1), file);
 }

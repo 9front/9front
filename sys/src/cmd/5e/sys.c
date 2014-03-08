@@ -252,13 +252,15 @@ sysbrk(void)
 	Segment *s;
 	
 	v = arg(0);
+	if(systrace)
+		fprint(2, "brk(%#lux)\n", v);
 	if(v >= P->S[SEGSTACK]->start)
 		sysfatal("bss > stack, wtf?");
 	if(v < P->S[SEGBSS]->start)
 		sysfatal("bss length < 0, wtf?");
 	s = P->S[SEGBSS];
 	wlock(&s->rw);
-	s->dref = realloc(s->dref, v - s->start + 4);
+	s->dref = realloc(s->dref, v - s->start + sizeof(Ref));
 	if(s->dref == nil)
 		sysfatal("error reallocating");
 	s->data = s->dref + 1;
@@ -503,7 +505,7 @@ sysrendezvous(void)
 	value = arg(1);
 	if(systrace)
 		fprint(2, "rendezvous(%#ux, %#ux)\n", tag, value);
-	P->R[0] = (u32int) rendezvous((void *) tag, (void *) value);
+	P->R[0] = (u32int) (uintptr)rendezvous((void *) tag, (void *) value);
 	if(P->R[0] == ~0)
 		noteerr(0, 1);
 }
