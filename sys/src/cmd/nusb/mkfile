@@ -9,6 +9,7 @@ DIRS=\
 	disk\
 	serial\
 	ptp\
+	joy\
 
 UPDATE=\
 	mkfile\
