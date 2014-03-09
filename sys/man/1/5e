@@ -138,3 +138,6 @@ The
 .I text
 argument should behave more like it would if it had been entered as an argument to
 .IR rc (1).
+.SH HISTORY
+.I 5e
+first appeared in 9front (June, 2011).
