@@ -5,11 +5,13 @@
 #include <u.h>
 #include <libc.h>
 #include <bio.h>
-#include "/power/include/ureg.h"
 #include <mach.h>
 
+#pragma pack on
+#include "/power/include/ureg.h"
+#pragma pack off
 
-#define	REGOFF(x)	(ulong) (&((struct Ureg *) 0)->x)
+#define	REGOFF(x)	(uintptr) (&((struct Ureg *) 0)->x)
 
 #define SP		REGOFF(sp)
 #define PC		REGOFF(pc)
