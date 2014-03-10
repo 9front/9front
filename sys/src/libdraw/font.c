@@ -7,10 +7,11 @@ static int	freeup(Font*);
 
 #define	PJW	0	/* use NUL==pjw for invisible characters */
 
+/* return number of translated cache indices, 0 must retry, -1 on error */
 int
 cachechars(Font *f, char **ss, Rune **rr, ushort *cp, int max, int *wp, char **subfontname)
 {
-	int i, th, sh, h, w, rw, wid, nc;
+	int i, j, th, sh, h, w, rw, wid, nc;
 	char *sp;
 	Rune r, *rp, vr;
 	ulong a;
@@ -78,14 +79,16 @@ cachechars(Font *f, char **ss, Rune **rr, ushort *cp, int max, int *wp, char **s
 			}
 		}
 
-		if(c->age == f->age)	/* flush pending string output */
+		if(i > 0 && c->age == f->age)	/* flush pending string output */
 			break;
 
-		if(loadchar(f, r, c, h, i, subfontname) <= 0)
-			break;
+		j = loadchar(f, r, c, h, i, subfontname);
+		if(j <= 0){
+			if(j < 0 || i > 0)	/* flush output or retry */ 
+				break;
+			return -1;		/* stop retrying */
+		}
 
-		c = &f->cache[h];	/* may have reallocated f->cache */
-	
 	    Found:
 		wid += c->width;
 		c->age = f->age;
@@ -282,9 +285,8 @@ loadchar(Font *f, Rune r, Cacheinfo *c, int h, int noflush, char **subfontname)
 			f->width = wid;
 		if(f->maxdepth < subf->f->bits->depth)
 			f->maxdepth = subf->f->bits->depth;
-		i = fontresize(f, f->width, f->ncache, f->maxdepth);
-		if(i <= 0)
-			return i;
+		if(fontresize(f, f->width, f->ncache, f->maxdepth) <= 0)
+			return -1;
 		/* c is still valid as didn't reallocate f->cache */
 	}
 	c->value = r;
@@ -340,7 +342,7 @@ freeup(Font *f)
 	return nf;
 }
 
-/* return whether resize succeeded && f->cache is unchanged */
+/* returns whether resize succeeded && f->cache is unchanged */
 static int
 fontresize(Font *f, int wid, int ncache, int depth)
 {

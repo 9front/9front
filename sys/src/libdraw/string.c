@@ -92,7 +92,7 @@ _string(Image *dst, Point pt, Image *src, Point sp, Font *f, char *s, Rune *r, i
 			}
 		}
 		if((n = cachechars(f, sptr, rptr, cbuf, max, &wid, &subfontname)) <= 0){
-			if(subfontname){
+			if(n == 0){
 				if(++try > 10)
 					break;
 				continue;

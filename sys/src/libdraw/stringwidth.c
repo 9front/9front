@@ -39,7 +39,7 @@ _stringnwidth(Font *f, char *s, Rune *r, int len)
 			}
 		}
 		if((n = cachechars(f, sptr, rptr, cbuf, max, &wid, &subfontname)) <= 0){
-			if(subfontname){
+			if(n == 0){
 				if(++try > 10)
 					break;
 				continue;
