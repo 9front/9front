@@ -30,7 +30,7 @@ evenaddr(u32int addr, u32int mask)
 {
 	if((addr & mask) == 0)
 		return addr;
-	suicide("unaligned access %8ux @ %8ux\n", addr, P->R[15] - 4);
+	suicide("unaligned access %8ux @ %8ux", addr, P->R[15] - 4);
 	return addr & ~mask;
 }
 
