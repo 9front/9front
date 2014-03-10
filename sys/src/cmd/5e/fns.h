@@ -32,6 +32,7 @@ void addnote(char *);
 void dump(void);
 void resetfpa(void);
 void invalid(u32int);
+u32int evenaddr(u32int,u32int);
 void fpatransfer(u32int);
 void fpaoperation(u32int);
 void fparegtransfer(u32int);

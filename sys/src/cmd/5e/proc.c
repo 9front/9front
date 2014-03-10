@@ -107,7 +107,7 @@ initstack(int argc, char **argv)
 {
 	ulong tos, sp, ap, size, i, len;
 	
-	tos = mach->utop - sizeof(Tos) * 2;
+	tos = (mach->utop & ~7) - sizeof(Tos) * 2;
 	sp = tos;
 	
 	size = 8;
@@ -139,7 +139,7 @@ inittos(void)
 {
 	ulong tos;
 
-	tos = mach->utop - sizeof(Tos) * 2;
+	tos = (mach->utop & ~7) - sizeof(Tos) * 2;
 	((Tos *) vaddrnol(tos, sizeof(Tos)))->pid = P->pid;
 }
 

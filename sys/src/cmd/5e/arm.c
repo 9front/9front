@@ -25,6 +25,15 @@ invalid(u32int instr)
 	suicide("undefined instruction %8ux @ %8ux", instr, P->R[15] - 4);
 }
 
+u32int
+evenaddr(u32int addr, u32int mask)
+{
+	if((addr & mask) == 0)
+		return addr;
+	suicide("unaligned access %8ux @ %8ux\n", addr, P->R[15] - 4);
+	return addr & ~mask;
+}
+
 static u32int
 doshift(u32int instr)
 {
@@ -81,6 +90,8 @@ single(u32int instr)
 		addr = *Rn;
 	if(instr & fP)
 		addr += offset;
+	if((instr & fB) == 0)
+		addr = evenaddr(addr, 3);
 	targ = vaddr(addr, 4, &seg);
 	switch(instr & (fB | fL)) {
 	case 0:
@@ -112,7 +123,7 @@ single(u32int instr)
 static void
 swap(u32int instr)
 {
-	u32int *Rm, *Rn, *Rd, *targ, tmp;
+	u32int *Rm, *Rn, *Rd, *targ, addr, tmp;
 	Segment *seg;
 	
 	Rm = P->R + (instr & 15);
@@ -120,7 +131,10 @@ swap(u32int instr)
 	Rn = P->R + ((instr >> 16) & 15);
 	if(Rm == P->R + 15 || Rd == P->R + 15 || Rn == P->R + 15)
 		invalid(instr);
-	targ = (u32int *) vaddr(*Rn, 4, &seg);
+	addr = *Rn;
+	if((instr & fB) == 0)
+		addr = evenaddr(addr, 3);
+	targ = (u32int *) vaddr(addr, 4, &seg);
 	lock(&seg->lock);
 	if(instr & fB) {
 		tmp = *(u8int*) targ;
@@ -255,6 +269,8 @@ halfword(u32int instr)
 	target = *Rn;
 	if(instr & fP)
 		target += offset;
+	if(instr & fH)
+		target = evenaddr(target, 1);
 	switch(instr & (fSg | fH | fL)) {
 	case fSg: *(u8int*) vaddr(target, 1, &seg) = *Rd; break;
 	case fSg | fL: *Rd = (long) *(char*) vaddr(target, 1, &seg); break;
@@ -281,7 +297,7 @@ block(u32int instr)
 	Rn = P->R + ((instr >> 16) & 15);
 	if(Rn == P->R + 15 || instr & (1<<15))
 		sysfatal("R15 block");
-	targ = *Rn;
+	targ = evenaddr(*Rn, 3);
 	if(instr & fU) {
 		for(i = 0; i < 16; i++) {
 			if(!(instr & (1<<i)))
@@ -374,15 +390,16 @@ multiplylong(u32int instr)
 static void
 singleex(u32int instr)
 {
-	u32int *Rn, *Rd, *Rm, *targ;
+	u32int *Rn, *Rd, *Rm, *targ, addr;
 	Segment *seg;
 	
 	Rd = P->R + ((instr >> 12) & 15);
 	Rn = P->R + ((instr >> 16) & 15);
 	if(Rd == P->R + 15 || Rn == P->R + 15)
 		invalid(instr);
+	addr = evenaddr(*Rn, 3);
 	if(instr & fS) {
-		targ = vaddr(*Rn, 4, &seg);
+		targ = vaddr(addr, 4, &seg);
 		lock(&seg->lock);
 		*Rd = *targ;
 		segunlock(seg);
@@ -390,7 +407,7 @@ singleex(u32int instr)
 		Rm = P->R + (instr & 15);
 		if(Rm == P->R + 15)
 			invalid(instr);
-		targ = vaddr(*Rn, 4, &seg);
+		targ = vaddr(addr, 4, &seg);
 		if(canlock(&seg->lock)) {
 			*Rd = 1;
 		} else {
