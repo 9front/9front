@@ -927,10 +927,11 @@ filter(int fd, char *cmd)
 		exec(file, argv);
 		fatal("filter: exec; %r");
 	default:
-		close(fd);
+		dup(p[1], fd);
 		close(p[0]);
+		close(p[1]);
 	}
-	return p[1];	
+	return fd;
 }
 
 static void
