@@ -1,0 +1,14 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/games
+TARG=snes
+OFILES=\
+	cpu.$O\
+	snes.$O\
+	mem.$O\
+	ppu.$O\
+	spc.$O\
+
+HFILES=dat.h fns.h
+
+</sys/src/cmd/mkone

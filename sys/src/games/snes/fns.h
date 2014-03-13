@@ -1,0 +1,13 @@
+u8int	memread(u32int);
+void	memwrite(u32int, u8int);
+void	cpureset(void);
+int	cpustep(void);
+void	spcreset(void);
+int	spcstep(void);
+void	spctimerstep(void);
+int	dmastep(void);
+void	ppustep(void);
+void	memreset(void);
+int	hdmastep(void);
+void	flush(void);
+void	message(char *, ...);
