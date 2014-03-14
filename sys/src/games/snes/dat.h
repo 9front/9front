@@ -5,8 +5,8 @@ extern u32int hdma;
 extern int trace;
 
 extern uchar *prg, *sram;
-extern int nprg, nsram, keys;
-extern u32int keylatch, lastkeys;
+extern int nprg, nsram, hirom;
+extern u32int keys, keylatch, lastkeys;
 extern u8int reg[32768], spcmem[65536], vram[65536], oam[544];
 extern u16int cgram[256];
 

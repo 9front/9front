@@ -48,6 +48,14 @@ incvram(int i, int r)
 }
 
 static void
+incwram(void)
+{
+	if(++reg[0x2181] == 0)
+		if(++reg[0x2182] == 0)
+			reg[0x2183] ^= 1;
+}
+
+static void
 hvlatch(void)
 {
 	reg[0x213c] = ppux;
@@ -146,8 +154,8 @@ regread(u16int p)
 			reg[OPCTLATCH] &= ~3;
 		return v;
 	case 0x2180:
-		v = memread(reg[0x2181] | reg[0x2182] << 8 | reg[0x2183] << 16);
-		reg[0x2181]++;
+		v = memread(0x7e0000 | reg[0x2181] | reg[0x2182] << 8 | (reg[0x2183] & 1) << 16);
+		incwram();
 		return v;
 	case 0x4016:
 		if((reg[0x4016] & 1) != 0){
@@ -261,8 +269,8 @@ regwrite(u16int p, u8int v)
 		if((v & 0x20) != 0) subcolor = subcolor & 0x03ff | (v & 0x1f) << 10;
 		return;
 	case 0x2180:
-		memwrite(reg[0x2181] | reg[0x2182] << 8 | reg[0x2183] << 16, v);
-		reg[0x2181]++;
+		memwrite(0x7e0000 | reg[0x2181] | reg[0x2182] << 8 | (reg[0x2183] & 1) << 16, v);
+		incwram();
 		return;
 	case 0x213e:
 		return;
@@ -342,11 +350,13 @@ memread(u32int a)
 	if(al < 0x8000){
 		if(b < 0x40)
 			return regread(al);
-		if(b >= 0x70 && b < 0x78 && nsram != 0)
-			return sram[((a & 0x7fffff) - 0x700000) & (nsram - 1)];
+		if((b & 0xf8) == (hirom ? 0x20 : 0x70) && nsram != 0)
+			return sram[a & 0x07ffff & (nsram - 1)];
 	}
 	if(b >= 0x7e && (a & (1<<23)) == 0)
 		return mem[a - 0x7e0000];
+	if(hirom)
+		return prg[((b & 0x3f) % nprg) << 16 | al];
 	return prg[(b%nprg) << 15 | al & 0x7fff];
 }
 
@@ -365,8 +375,8 @@ memwrite(u32int a, u8int v)
 			regwrite(a, v);
 			return;
 		}
-		if(b >= 0x70 && b < 0x78 && nsram != 0){
-			sram[((a & 0x7fffff) - 0x700000) & (nsram - 1)] = v;
+		if((b & 0xf8) == (hirom ? 0x20 : 0x70) && nsram != 0){
+			sram[a & 0x07ffff & (nsram - 1)] = v;
 			if(saveclock == 0)
 				saveclock = SAVEFREQ;
 			return;

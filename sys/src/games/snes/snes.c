@@ -14,8 +14,8 @@ int nprg, nsram, hirom, battery;
 int ppuclock, spcclock, stimerclock, saveclock, msgclock, paused, perfclock;
 Mousectl *mc;
 QLock pauselock;
-int keys, savefd;
-int scale, profile, mouse;
+u32int keys;
+int savefd, scale, profile, mouse;
 Rectangle picr;
 Image *tmp, *bg;
 
@@ -57,6 +57,13 @@ loadrom(char *file)
 	if(readn(fd, prg, size) < size)
 		sysfatal("read: %r");
 	close(fd);
+	if((memread(0xffd5) & ~0x10) != 0x20)
+		if((memread(0x1ffd5) & ~0x10) == 0x21)
+			hirom = 1;
+		else
+			sysfatal("invalid rom (neither hirom nor lorom)");
+	if(hirom)
+		nprg >>= 1;
 	switch(memread(0xffd6)){
 	case 0:
 		break;
