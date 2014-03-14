@@ -11,7 +11,7 @@ u16int vtime = 0x1ff, htime = 0x1ff, subcolor, mosatop;
 uchar pic[256*239*2*9];
 u16int m7[6], hofs[4], vofs[4];
 
-enum { OBJ = 4, COL = 5, OBJNC = 6 };
+enum { OBJ = 4, COL = 5, OBJNC = 8 };
 
 static u16int
 darken(u16int v)
@@ -290,8 +290,6 @@ bg(int n)
 	u8int v;
 
 	p = bgctxts + n;
-	if(p->sz == 0)
-		return;
 	v = bgpixel(p->c, p->nb, p->t & 0x4000);
 	if(p->msz != 1)
 		if(p->mx++ == 0)
@@ -348,11 +346,23 @@ bgsinit(void)
 static void
 bgs(void)
 {
-	bg(0);
-	bg(1);
-	if(mode <= 1){
+	switch(mode){
+	case 0:
+		bg(0);
+		bg(1);
 		bg(2);
 		bg(3);
+		break;
+	case 1:
+		bg(0);
+		bg(1);
+		bg(2);
+		break;
+	case 2:
+	case 3:
+		bg(0);
+		bg(1);
+		break;
 	}
 }
 
@@ -510,7 +520,7 @@ static u16int
 colormath(void)
 {
 	u16int v, w, r, g, b;
-	u8int m, m2;
+	u8int m, m2, div;
 	int cw;
 	
 	m = reg[CGWSEL];
@@ -536,31 +546,33 @@ colormath(void)
 	case 2: if(cw < 0) cw = window(COL); if(cw) return v; break;
 	default: return v;
 	}
+	div = (m2 & 0x40) != 0;
 	if((m & 2) != 0){
 		if((pixelcol[1] & 0x10000) != 0)
 			w = pixelcol[1];
 		else
 			w = cgram[pixelcol[1] & 0xff];
+		div = div && (pixelpri[1] & 0xf) != COL;
 	}else
 		w = subcolor;
 	if((m2 & 0x80) != 0){
 		r = (v & 0x7c00) - (w & 0x7c00);
 		g = (v & 0x03e0) - (w & 0x03e0);
 		b = (v & 0x001f) - (w & 0x001f);
-		if((m2 & 0x40) != 0){
+		if(r > 0x7c00) r = 0;
+		if(g > 0x03e0) g = 0;
+		if(b > 0x001f) b = 0;
+		if(div){
 			r = (r >> 1) & 0xfc00;
 			g = (g >> 1) & 0xffe0;
 			b >>= 1;
 		}
-		if(r > 0x7c00) r = 0;
-		if(g > 0x03e0) g = 0;
-		if(b > 0x001f) b = 0;
 		return r | g | b;
 	}else{
 		r = (v & 0x7c00) + (w & 0x7c00);
 		g = (v & 0x03e0) + (w & 0x03e0);
 		b = (v & 0x001f) + (w & 0x001f);
-		if((m2 & 0x40) != 0){
+		if(div){
 			r = (r >> 1) & 0xfc00;
 			g = (g >> 1) & 0xffe0;
 			b >>= 1;

@@ -348,9 +348,12 @@ memread(u32int a)
 	al = a;
 	b = (a>>16) & 0x7f;
 	if(al < 0x8000){
-		if(b < 0x40)
+		if(b < 0x40){
+			if(hirom && al >= 0x6000 && nsram != 0)
+				return sram[(b << 13 | al & 0x1ffff) & (nsram - 1)];
 			return regread(al);
-		if((b & 0xf8) == (hirom ? 0x20 : 0x70) && nsram != 0)
+		}
+		if(!hirom && (b & 0xf8) == 0x70 && nsram != 0)
 			return sram[a & 0x07ffff & (nsram - 1)];
 	}
 	if(b >= 0x7e && (a & (1<<23)) == 0)
@@ -372,11 +375,16 @@ memwrite(u32int a, u8int v)
 		mem[a - 0x7e0000] = v;
 	if(al < 0x8000){
 		if(b < 0x40){
+			if(hirom && al >= 0x6000 && nsram != 0){
+				sram[(b << 13 | al & 0x1fff) & (nsram - 1)] = v;
+				goto save;
+			}
 			regwrite(a, v);
 			return;
 		}
-		if((b & 0xf8) == (hirom ? 0x20 : 0x70) && nsram != 0){
+		if(!hirom && (b & 0xf8) == 0x70 && nsram != 0){
 			sram[a & 0x07ffff & (nsram - 1)] = v;
+		save:
 			if(saveclock == 0)
 				saveclock = SAVEFREQ;
 			return;

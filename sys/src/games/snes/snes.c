@@ -233,8 +233,8 @@ usage:
 	mc = initmouse(nil, screen);
 	if(mc == nil)
 		sysfatal("initmouse: %r");
-	loadbat(argv[0]);
 	screeninit();
+	loadbat(argv[0]);
 	proccreate(keyproc, 0, 8192);
 	cpureset();
 	memreset();
