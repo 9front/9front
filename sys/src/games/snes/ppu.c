@@ -231,54 +231,68 @@ bgpixel(u32int *c, int nb, int d)
 	return v;
 }
 
-static void
-bg(int n, int nb, int prilo, int prihi)
-{
-	static struct bg {
-		u8int sz, szsh;
-		u16int tx, ty, tnx, tny;
-		u16int t;
-		u32int c[2];
-		int pal;
-		u8int msz, mv, mx;
-	} bgs[4];
-	struct bg *p;
-	int v, sx, sy;
+static struct bgctxt {
+	u8int sz, szsh, nb, pri[2];
+	u16int tx, ty, tnx, tny;
+	u16int t;
+	u32int c[2];
+	int pal;
+	u8int msz, mv, mx;
+} bgctxts[4];
 
-	p = bgs + n;
-	if(rx == 0){
-		p->szsh = (reg[BGMODE] & (1<<(4+n))) != 0 ? 4 : 3;
-		p->sz = 1<<p->szsh;
-		sx = hofs[n];
-		sy = vofs[n] + ppuy;
-		if(reg[MOSAIC] != 0 && (reg[MOSAIC] & (1<<n)) != 0){
-			p->msz = (reg[MOSAIC] >> 4) + 1;
-			if(p->msz != 1){
-				sx -= p->mx = sx % p->msz;
-				sy -= sy % p->msz;
-			}
-		}else
-			p->msz = 1;
-	redo:
-		p->tx = sx >> p->szsh;
-		p->tnx = sx & (p->sz - 1);
-		p->ty = sy >> p->szsh;
-		p->tny = sy & (p->sz - 1);
-		p->t = tile(n, p->tx, p->ty);
-		chr(n, nb, p->sz, p->t, p->tnx, p->tny, p->c);
-		p->pal = palette(n, p->t >> 10 & 7);
-		if(p->tnx != 0)
-			shift(p->c, nb, p->tnx, p->t & 0x4000);
-		if(p->msz != 1 && p->mx != 0 && sx % p->msz == 0){
-			p->mv = bgpixel(p->c, nb, p->t & 0x4000);
-			if(p->tnx + p->mx >= 8){
-				sx += p->mx;
-				goto redo;
-			}else if(p->mx > 1)
-				shift(p->c, nb, p->mx - 1, p->t & 0x4000);
+static void
+bginit(int n, int nb, int prilo, int prihi)
+{
+	struct bgctxt *p;
+	int sx, sy;
+
+	p = bgctxts + n;
+	p->szsh = (reg[BGMODE] & (1<<(4+n))) != 0 ? 4 : 3;
+	p->sz = 1<<p->szsh;
+	p->nb = nb;
+	p->pri[0] = prilo;
+	p->pri[1] = prihi;
+	sx = hofs[n];
+	sy = vofs[n] + ppuy;
+	if(reg[MOSAIC] != 0 && (reg[MOSAIC] & (1<<n)) != 0){
+		p->msz = (reg[MOSAIC] >> 4) + 1;
+		if(p->msz != 1){
+			sx -= p->mx = sx % p->msz;
+			sy -= sy % p->msz;
 		}
+	}else
+		p->msz = 1;
+redo:
+	p->tx = sx >> p->szsh;
+	p->tnx = sx & (p->sz - 1);
+	p->ty = sy >> p->szsh;
+	p->tny = sy & (p->sz - 1);
+	p->t = tile(n, p->tx, p->ty);
+	chr(n, nb, p->sz, p->t, p->tnx, p->tny, p->c);
+	p->pal = palette(n, p->t >> 10 & 7);
+	if(p->tnx != 0)
+		shift(p->c, nb, p->tnx, p->t & 0x4000);
+	if(p->msz != 1 && p->mx != 0 && sx % p->msz == 0){
+		p->mv = bgpixel(p->c, nb, p->t & 0x4000);
+		if(p->tnx + p->mx >= 8){
+			sx += p->mx;
+			goto redo;
+		}else if(p->mx > 1)
+			shift(p->c, nb, p->mx - 1, p->t & 0x4000);
 	}
-	v = bgpixel(p->c, nb, p->t & 0x4000);
+
+}
+
+static void
+bg(int n)
+{
+	struct bgctxt *p;
+	u8int v;
+
+	p = bgctxts + n;
+	if(p->sz == 0)
+		return;
+	v = bgpixel(p->c, p->nb, p->t & 0x4000);
 	if(p->msz != 1)
 		if(p->mx++ == 0)
 			p->mv = v;
@@ -288,7 +302,7 @@ bg(int n, int nb, int prilo, int prihi)
 			v = p->mv;
 		}
 	if(v != 0)
-		pixel(n, p->pal + v, (p->t & 0x2000) != 0 ? prihi : prilo);
+		pixel(n, p->pal + v, p->pri[(p->t & 0x2000) != 0]);
 	if(++p->tnx == p->sz){
 		p->tx++;
 		p->tnx = 0;
@@ -296,33 +310,49 @@ bg(int n, int nb, int prilo, int prihi)
 		p->pal = palette(n, p->t >> 10 & 7);
 	}
 	if((p->tnx & 7) == 0)
-		chr(n, nb, p->sz, p->t, p->tnx, p->tny, p->c);
+		chr(n, p->nb, p->sz, p->t, p->tnx, p->tny, p->c);
 }
 
 static void
-bgs(void)
+bgsinit(void)
 {
 	static int bitch[8];
 
 	switch(mode){
 	case 0:
-		bg(0, 2, 0x80, 0xb0);
-		bg(1, 2, 0x71, 0xa1);
-		bg(2, 2, 0x22, 0x52);
-		bg(3, 2, 0x13, 0x43);
+		bginit(0, 2, 0x80, 0xb0);
+		bginit(1, 2, 0x71, 0xa1);
+		bginit(2, 2, 0x22, 0x52);
+		bginit(3, 2, 0x13, 0x43);
 		break;
 	case 1:
-		bg(0, 4, 0x80, 0xb0);
-		bg(1, 4, 0x71, 0xa1);
-		bg(2, 2, 0x12, (reg[BGMODE] & 8) != 0 ? 0xd2 : 0x42);
+		bginit(0, 4, 0x80, 0xb0);
+		bginit(1, 4, 0x71, 0xa1);
+		bginit(2, 2, 0x12, (reg[BGMODE] & 8) != 0 ? 0xd2 : 0x42);
+		break;
+	case 2:
+		bginit(0, 4, 0x40, 0xa0);
+		bginit(1, 4, 0x11, 0x71);
 		break;
 	case 3:
-		bg(0, 8, 0x40, 0xa0);
-		bg(1, 4, 0x11, 0x71);
+		bginit(0, 8, 0x40, 0xa0);
+		bginit(1, 4, 0x11, 0x71);
 		break;
 	default:
+		bgctxts[0].sz = bgctxts[1].sz = 0;
 		if(bitch[mode]++ == 0)
 			print("bg mode %d not implemented\n", mode);
+	}
+}
+
+static void
+bgs(void)
+{
+	bg(0);
+	bg(1);
+	if(mode <= 1){
+		bg(2);
+		bg(3);
 	}
 }
 
@@ -578,6 +608,8 @@ ppustep(void)
 			hdma = reg[0x420c]<<8;
 			flush();
 		}
+		if(ppuy < yvbl)
+			bgsinit();
 		if(ppuy == yvbl){
 			reg[RDNMI] |= VBLANK;
 			if((reg[NMITIMEN] & VBLANK) != 0)

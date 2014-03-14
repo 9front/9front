@@ -657,7 +657,7 @@ cpustep(void)
 		print("BRK PC=%.6x from PC=%.6x\n", curpc, lastpc);
 	lastpc = curpc;
 	if(trace)
-		print("%.6x %.2x A=%.4x X=%.4x Y=%.4x P=%.2x %.2x %x\n", curpc, op, rA, rX, rY, rP, rS, memread(0x05));
+		print("%.6x %.2x A=%.4x X=%.4x Y=%.4x P=%.2x %.2x\n", curpc, op, rA, rX, rY, rP, rS);
 	cyc = 0;
 	switch(op){
 	case 0x00: pc++; interrupt(BRK); return 8 - emu;
@@ -993,9 +993,10 @@ cpustep(void)
 			rX &= 0xff;
 			rY &= 0xff;
 			rS = rS & 0xff | 0x100;
+			rP |= 0x30;
 		}
 		rP &= ~1;
-		rP |= 0x30 | a;
+		rP |= a;
 		return 2;
 	case 0xFC: push16(pc+1); pc = absi(1); return 8+cyc;
 	case 0xFD: sbc(mem816(abso(0, 1), 0)); return 4+cyc;
