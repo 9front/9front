@@ -316,6 +316,10 @@ bgs(void)
 		bg(1, 4, 0x71, 0xa1);
 		bg(2, 2, 0x12, (reg[BGMODE] & 8) != 0 ? 0xd2 : 0x42);
 		break;
+	case 3:
+		bg(0, 8, 0x40, 0xa0);
+		bg(1, 4, 0x11, 0x71);
+		break;
 	default:
 		if(bitch[mode]++ == 0)
 			print("bg mode %d not implemented\n", mode);
