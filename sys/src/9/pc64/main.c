@@ -140,6 +140,13 @@ confinit(void)
 	int i, userpcnt;
 	ulong kpages;
 
+	if(p = getconf("service")){
+		if(strcmp(p, "cpu") == 0)
+			cpuserver = 1;
+		else if(strcmp(p,"terminal") == 0)
+			cpuserver = 0;
+	}
+
 	if(p = getconf("*kernelpercent"))
 		userpcnt = 100 - strtol(p, 0, 0);
 	else
