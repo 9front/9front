@@ -833,6 +833,13 @@ confinit(void)
 	uintptr pa;
 	char *p;
 
+	if(p = getconf("service")){
+		if(strcmp(p, "cpu") == 0)
+			cpuserver = 1;
+		else if(strcmp(p,"terminal") == 0)
+			cpuserver = 0;
+	}
+
 	/*
 	 * Copy the physical memory configuration to Conf.mem.
 	 */
@@ -912,8 +919,6 @@ confinit(void)
 		 * be careful with 32-bit overflow.
 		 */
 		imagmem->maxsize = kpages;
-
-//	archconfinit();
 }
 
 int

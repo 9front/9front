@@ -430,17 +430,18 @@ confinit(void)
 	uintptr pa;
 	char *p;
 
-	if(p = getconf("*kernelpercent"))
-		userpcnt = 100 - strtol(p, 0, 0);
-	else
-		userpcnt = 0;
-
-	if(0 && (p = getconf("service")) != nil){
+	if(p = getconf("service")){
 		if(strcmp(p, "cpu") == 0)
 			cpuserver = 1;
 		else if(strcmp(p,"terminal") == 0)
 			cpuserver = 0;
 	}
+
+	if(p = getconf("*kernelpercent"))
+		userpcnt = 100 - strtol(p, 0, 0);
+	else
+		userpcnt = 0;
+
 	if((p = getconf("*maxmem")) != nil){
 		memsize = strtoul(p, 0, 0) - PHYSDRAM;
 		if (memsize < 16*MB)		/* sanity */
