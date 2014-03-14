@@ -25,9 +25,12 @@ Each symbol name is preceded by its hexadecimal
 value (blanks if undefined)
 and one of the letters
 .TP
+.B U
+undefined symbol
+.PD0
+.TP
 .B T
 text segment symbol
-.PD0
 .TP
 .B t
 static text segment symbol
