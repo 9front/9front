@@ -29,6 +29,7 @@ DIRS=\
 	mines\
 	music\
 	nes\
+	snes\
 	sokoban\
 	sudoku\
 
