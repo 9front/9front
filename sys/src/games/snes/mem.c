@@ -486,7 +486,7 @@ hdmastep(void)
 {
 	int i, j, cyc;
 	u8int *p, *q, n, m, b, v, c;
-	u32int a;
+	u32int a, br;
 	
 	cyc = 0;
 	if(dma != 0)
@@ -502,12 +502,15 @@ hdmastep(void)
 		if((hdma & (1<<(16+i))) != 0){
 			n = nbytes[c & 7];
 			m = modes[c & 7];
-			if((c & 0x40) != 0)
+			if((c & 0x40) != 0){
 				q = p + 5;
-			else
+				br = p[7] << 16;
+			}else{
 				q = p + 8;
+				br = p[4] << 16;
+			}
 			for(j = 0; j < n; j++){
-				a = q[0] | q[1] << 8 | p[4] << 16;
+				a = q[0] | q[1] << 8 | br;
 				b = p[1] + (m & 3);
 				if((c & 0x80) != 0){
 					v = dmavalid(b, 1) ? memread(0x2100 | b) : 0;
