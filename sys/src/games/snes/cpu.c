@@ -4,7 +4,7 @@
 #include "dat.h"
 #include "fns.h"
 
-u8int rP, emu, irq, nmi, dma;
+u8int rP, emu, irq, nmi, dma, wai;
 u16int rA, rX, rY, rS, rD, pc;
 u32int rDB, rPB, curpc, hdma;
 static u8int m8, x8;
@@ -329,29 +329,51 @@ adc(u16int a)
 {
 	int r;
 
-	if((rP & FLAGD) != 0)
-		print("decimal mode\n");
 	if(m8){
-		r = (rA & 0xff) + a + (rP & FLAGC);
+		if((rP & FLAGD) != 0){
+			r = (rA & 0xf) + (a & 0xf) + (rP & FLAGC);
+			if(r > 0x09)
+				r += 0x06;
+			if(r > 0x1f)
+				r -= 0x10;
+			r += (rA & 0xf0) + (a & 0xf0);
+		}else
+			r = (rA & 0xff) + a + (rP & FLAGC);
 		rP &= ~(FLAGC | FLAGN | FLAGV | FLAGZ);
+		if((~(rA ^ a) & (rA ^ r)) & 0x80)
+			rP |= FLAGV;
+		if((rP & FLAGD) != 0 && r > 0x9f)
+			r += 0x60;
 		if(r > 0xFF)
 			rP |= FLAGC;
 		rP |= r & 0x80;
-		if((~(rA ^ a) & (rA ^ r)) & 0x80)
-			rP |= FLAGV;
 		r &= 0xFF;
 		if(r == 0)
 			rP |= FLAGZ;
 		rA = rA & 0xFF00 | r;
 	}else{
-		r = rA + a + (rP & FLAGC);
+		if((rP & FLAGD) != 0){
+			r  = (rA & 0x000f) + (a & 0x000f) + (rP & FLAGC);
+			if(r > 0x0009) r += 0x0006;
+			if(r > 0x001f) r -= 0x0010;
+			r += (rA & 0x00f0) + (a & 0x00f0);
+			if(r > 0x0090) r += 0x0060;
+			if(r > 0x01f0) r -= 0x0100;
+			r += (rA & 0x0f00) + (a & 0x0f00);
+			if(r > 0x0900) r += 0x0600;
+			if(r > 0x1f00) r -= 0x1000;
+			r += (rA & 0xf000) + (a & 0xf000);
+		}else
+			r = rA + a + (rP & FLAGC);
 		rP &= ~(FLAGC | FLAGN | FLAGV | FLAGZ);
+		if((~(rA ^ a) & (rA ^ r)) & 0x8000)
+			rP |= FLAGV;
+		if((rP & FLAGD) != 0 && r > 0x9fff)
+			r += 0x6000;
 		if(r > 0xFFFF)
 			rP |= FLAGC;
 		if((r & 0x8000) != 0)
 			rP |= FLAGN;
-		if((~(rA ^ a) & (rA ^ r)) & 0x8000)
-			rP |= FLAGV;
 		rA = r;
 		if(rA == 0)
 			rP |= FLAGZ;
@@ -478,34 +500,51 @@ sbc(u16int a)
 {
 	int r;
 
-	if((rP & FLAGD) != 0)
-		print("decimal mode\n");
 	if(m8){
-		r = (rA & 0xff) + (a ^ 0xff) + (rP & FLAGC);
+		a ^= 0xff;
+		if((rP & FLAGD) != 0){
+			r = (rA & 0xf) + (a & 0xf) + (rP & FLAGC);
+			if(r < 0x10) r -= 0x06;
+			r += (rA & 0xf0) + (a & 0xf0);
+		}else
+			r = (rA & 0xff) + a + (rP & FLAGC);
 		rP &= ~(FLAGC | FLAGN | FLAGV | FLAGZ);
-		if(r > 0xFF)
-			rP |= FLAGC;
-		rP |= r & 0x80;
-		if(((rA ^ a) & (rA ^ r)) & 0x80)
+		if((~(rA ^ a) & (rA ^ r)) & 0x80)
 			rP |= FLAGV;
+		if(r > 0xff)
+			rP |= FLAGC;
+		else if((rP & FLAGD) != 0)
+			r -= 0x60;
+		rP |= r & 0x80;
 		r &= 0xFF;
 		if(r == 0)
 			rP |= FLAGZ;
 		rA = rA & 0xFF00 | r;
 	}else{
-		r = rA + (a ^ 0xffff) + (rP & FLAGC);
+		a ^= 0xffff;
+		if((rP & FLAGD) != 0){
+			r  = (rA & 0x000f) + (a & 0x000f) + (rP & FLAGC);
+			if(r < 0x0010) r -= 0x0006;
+			r += (rA & 0x00f0) + (a & 0x00f0);
+			if(r < 0x0100) r -= 0x0060;
+			r += (rA & 0x0f00) + (a & 0x0f00);
+			if(r < 0x1000) r -= 0x0600;
+			r += (rA & 0xf000) + (a & 0xf000);
+		}else
+			r = rA + a + (rP & FLAGC);
 		rP &= ~(FLAGC | FLAGN | FLAGV | FLAGZ);
+		if((~(rA ^ a) & (rA ^ r)) & 0x8000)
+			rP |= FLAGV;	
 		if(r > 0xFFFF)
 			rP |= FLAGC;
+		else if((rP & FLAGD) != 0)
+			r -= 0x6000;
 		if((r & 0x8000) != 0)
 			rP |= FLAGN;
-		if(((rA ^ a) & (rA ^ r)) & 0x8000)
-			rP |= FLAGV;
 		rA = r;
 		if(rA == 0)
 			rP |= FLAGZ;
 	}
-
 }
 
 static void
@@ -565,6 +604,7 @@ interrupt(int src)
 	rPB = 0;
 	if(emu)
 		rDB = 0;
+	wai = 0;
 }
 
 void
@@ -605,6 +645,11 @@ cpustep(void)
 		return 8 - emu;
 	}
 	curpc = pc|rPB;
+	if(wai)
+		if(irq)
+			wai = 0;
+		else
+			return 1;
 	m8 = (rP & FLAGM) != 0;
 	x8 = (rP & FLAGX) != 0;
 	op = fetch8();
@@ -888,6 +933,7 @@ cpustep(void)
 			rX &= 0xff;
 		nzx(rX);
 		return 2;
+	case 0xCB: wai = 1; return 1;
 	case 0xCC: cmp(rY, memx816(abso(0, 0)), x8); return 4+cyc;
 	case 0xCD: cmp(rA, mem816(abso(0, 0), 0), m8); return 4+cyc;
 	case 0xCE: dec(abso(0, 0)); return 6+cyc;
@@ -903,6 +949,7 @@ cpustep(void)
 	case 0xD8: rP &= ~FLAGD; return 2;
 	case 0xD9: cmp(rA, mem816(abso(0, 2), 0), m8); return 4+cyc;
 	case 0xDA: push816(rX, x8); return 3+cyc;
+	case 0xDB: print("STP\n"); return 2;
 	case 0xDC: a = fetch16(); pc = memread(a) | memread((u16int)(a+1))<<8; rPB = memread((u16int)(a+2)) << 16; return 6;
 	case 0xDD: cmp(rA, mem816(abso(0, 1), 0), m8); return 4+cyc;
 	case 0xDE: dec(abso(0, 1)); return 7+cyc;
