@@ -783,7 +783,8 @@ filter(int fd, char *host)
 		buf[len] = '\0';
 		if((s = strrchr(buf, '!')) == nil)
 			fatal("filter: malformed remote port: %s", buf);
-		snprint(addr, sizeof(addr), "%s", netmkaddr(host, "tcp", s+1));
+		strecpy(addr, addr+sizeof(addr), netmkaddr(host, "tcp", s+1));
+		strecpy(strrchr(addr, '!'), addr+sizeof(addr), s);
 	}
 
 	snprint(buf, sizeof(buf), "%s", filterp);
