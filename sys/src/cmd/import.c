@@ -389,7 +389,8 @@ filter(int fd, char *cmd, char *host)
 
 	if ((s = strrchr(buf, '!')) == nil)
 		sysfatal("filter: illegally formatted port %s", buf);
-	snprint(addr, sizeof(addr), "%s", netmkaddr(host, "tcp", s+1));
+	strecpy(addr, addr+sizeof(addr), netmkaddr(host, "tcp", s+1));
+	strecpy(strrchr(addr, '!'), addr+sizeof(addr), s);
 
 	if(debug)
 		fprint(2, "filter: remote %s\n", addr);
