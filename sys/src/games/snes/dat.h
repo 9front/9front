@@ -14,7 +14,7 @@ extern int ppux, ppuy;
 extern u16int vtime, htime, subcolor, oamaddr;
 extern u16int m7[6], hofs[4], vofs[4];
 
-extern int battery, saveclock;
+extern int battery, saveclock, scale;
 
 enum {
 	FLAGC = 1<<0,

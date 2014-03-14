@@ -11,11 +11,11 @@
 uchar *prg, *sram;
 int nprg, nsram, hirom, battery;
 
-int ppuclock, spcclock, stimerclock, saveclock, msgclock, paused;
+int ppuclock, spcclock, stimerclock, saveclock, msgclock, paused, perfclock;
 Mousectl *mc;
 QLock pauselock;
 int keys, savefd;
-int scale;
+int scale, profile;
 Rectangle picr;
 Image *tmp, *bg;
 
@@ -30,8 +30,6 @@ flushram(void)
 void
 loadrom(char *file)
 {
-	static char buf[512];
-	char *s;
 	int fd;
 	vlong size;
 
@@ -78,6 +76,14 @@ loadrom(char *file)
 	default:
 		print("unknown rom type %d\n", memread(0xffd5));
 	}
+}
+
+void
+loadbat(char *file)
+{
+	static char buf[512];
+	char *s;
+
 	if(battery && nsram != 0){
 		strncpy(buf, file, sizeof buf - 5);
 		s = buf + strlen(buf) - 4;
@@ -164,6 +170,23 @@ screeninit(void)
 }
 
 void
+timing(void)
+{
+	static vlong old;
+	static char buf[32];
+	vlong new;
+	
+	new = nsec();
+	if(new != old)
+		sprint(buf, "%6.2f%%", 1e11 / (new - old));
+	else
+		buf[0] = 0;
+	draw(screen, Rect(10, 10, 200, 30), bg, nil, ZP);
+	string(screen, Pt(10, 10), display->black, ZP, display->defaultfont, buf);
+	old = nsec();
+}
+
+void
 threadmain(int argc, char **argv)
 {
 	int t;
@@ -171,13 +194,25 @@ threadmain(int argc, char **argv)
 
 	scale = 1;
 	ARGBEGIN {
+	case '2':
+		scale = 2;
+		break;
+	case '3':
+		scale = 3;
+		break;
 	case 's':
 		battery++;
 		break;
+	case 'T':
+		profile++;
+		break;
+	default:
+		goto usage;
 	} ARGEND;
 	
 	if(argc != 1){
-		fprint(2, "usage: %s rom\n", argv0);
+usage:
+		fprint(2, "usage: %s [-23s] rom\n", argv0);
 		threadexitsall("usage");
 	}
 	loadrom(argv[0]);
@@ -186,6 +221,7 @@ threadmain(int argc, char **argv)
 	mc = initmouse(nil, screen);
 	if(mc == nil)
 		sysfatal("initmouse: %r");
+	loadbat(argv[0]);
 	screeninit();
 	proccreate(keyproc, 0, 8192);
 	cpureset();
@@ -200,6 +236,7 @@ threadmain(int argc, char **argv)
 		spcclock -= t;
 		stimerclock += t;
 		ppuclock += t;
+		perfclock -= t;
 
 		while(ppuclock >= 4){
 			ppustep();
@@ -222,6 +259,10 @@ threadmain(int argc, char **argv)
 				draw(screen, screen->r, bg, nil, ZP);
 				msgclock = 0;
 			}
+		}
+		if(profile && perfclock <= 0){
+			perfclock = FREQ;
+			timing();
 		}
 	}
 }

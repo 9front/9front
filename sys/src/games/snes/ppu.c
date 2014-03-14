@@ -31,12 +31,36 @@ static void
 pixeldraw(int x, int y, u16int v)
 {
 	uchar *p;
+	u16int *q;
+	union { u16int w; u8int b[2]; } u;
+	int i;
 
 	if(bright != 0xf)
 		v = darken(v);
-	p = pic + (x + y * 256) * 2;
-	*p++ = v;
-	*p = v >> 8;
+	if(scale == 1){
+		p = pic + (x + y * 256) * 2;
+		*p++ = v;
+		*p = v >> 8;
+		return;
+	}
+	u.b[0] = v;
+	u.b[1] = v >> 8;
+	if(scale == 2){
+		q = (u16int*)pic + (x + y * 256 * 2) * 2;
+		*q++ = u.w;
+		*q = u.w;
+		q += 256 * 2 - 1;
+		*q++ = u.w;
+		*q = u.w;
+	}else{
+		q = (u16int*)pic + (x + y * 256 * 3) * 3;
+		for(i = 0; i < 3; i++){
+			*q++ = u.w;
+			*q++ = u.w;
+			*q = u.w;
+			q += 256 * 3 - 2;
+		}
+	}
 }
 
 static int
@@ -100,9 +124,8 @@ tile(int n, int tx, int ty)
 }
 
 static void
-chr(int n, int nb, int sz, u16int t, int x, int y, u8int c[])
+chr(int n, int nb, int sz, u16int t, int x, int y, u32int c[])
 {
-	int i;
 	u16int a;
 
 	if(sz == 16){
@@ -120,10 +143,20 @@ chr(int n, int nb, int sz, u16int t, int x, int y, u8int c[])
 	else
 		a &= 0xf;
 	a = (a << 13) + (t & 0x3ff) * 8 * nb + y * 2;
-	for(i = 0; i < nb; i += 2){
-		c[i] = vram[a++];
-		c[i+1] = vram[a];
+	c[0] = vram[a++];
+	c[0] |= vram[a] << 8;
+	if(nb != 2){
 		a += 15;
+		c[0] |= vram[a++] << 16;
+		c[0] |= vram[a] << 24;
+		if(nb == 8){
+			a += 15;
+			c[1] = vram[a++];
+			c[1] |= vram[a] << 8;
+			a += 15;
+			c[1] |= vram[a++] << 16;
+			c[1] |= vram[a] << 24;
+		}
 	}
 }
 
@@ -156,36 +189,45 @@ palette(int n, int p)
 }
 
 static void
-shift(u8int *c, int nb, int n, int d)
+shift(u32int *c, int nb, int n, int d)
 {
-	u8int *e;
-	
-	e = c + nb;
-	if(d)
-		while(c < e)
-			*c++ >>= n;
-	else
-		while(c < e)
-			*c++ <<= n;
+	if(d){
+		c[0] >>= n;
+		if(nb == 8)
+			c[1] >>= n;
+	}else{
+		c[0] <<= n;
+		if(nb == 8)
+			c[1] <<= n;
+	}
 }
 
 static u8int
-bgpixel(u8int *c, int nb, int d)
+bgpixel(u32int *c, int nb, int d)
 {
 	u8int v;
-	int i;
 	
-	v = 0;
-	if(d)
-		for(i = 0; i < nb; i++){
-			v |= (*c & 1) << i;
-			*c++ >>= 1;
+	if(d){
+		v = c[0] & 1 | c[0] >> 7 & 2;
+		if(nb != 2){
+			v |= c[0] >> 14 & 4 | c[0] >> 21 & 8;
+			if(nb == 8){
+				v |= c[1] << 4 & 16 | c[1] >> 3 & 32 | c[1] >> 10 & 64 | c[1] >> 17 & 128;
+				c[1] >>= 1;
+			}
 		}
-	else
-		for(i = 0; i < nb; i++){
-			v |= (*c & 0x80) >> (7 - i);
-			*c++ <<= 1;
+		c[0] >>= 1;
+	}else{
+		v = c[0] >> 7 & 1 | c[0] >> 14 & 2;
+		if(nb != 2){
+			v |= c[0] >> 21 & 4 | c[0] >> 28 & 8;
+			if(nb == 8){
+				v |= c[1] >> 3 & 16 | c[1] >> 10 & 32 | c[1] >> 17 & 64 | c[1] >> 24 & 128;
+				c[1] <<= 1;
+			}
 		}
+		c[0] <<= 1;
+	}
 	return v;
 }
 
@@ -196,7 +238,7 @@ bg(int n, int nb, int prilo, int prihi)
 		u8int sz, szsh;
 		u16int tx, ty, tnx, tny;
 		u16int t;
-		u8int c[8];
+		u32int c[2];
 		int pal;
 		u8int msz, mv, mx;
 	} bgs[4];
@@ -206,8 +248,6 @@ bg(int n, int nb, int prilo, int prihi)
 	p = bgs + n;
 	if(rx == 0){
 		p->szsh = (reg[BGMODE] & (1<<(4+n))) != 0 ? 4 : 3;
-		if(mode >= 5)
-			p->szsh = 4;
 		p->sz = 1<<p->szsh;
 		sx = hofs[n];
 		sy = vofs[n] + ppuy;
@@ -293,10 +333,10 @@ sprites(void)
 	static struct {
 		short x;
 		u8int sx, i, c, pal, pri;
-		u8int *ch;
+		u32int *ch;
 	} t[32], *tp;
-	static uchar ch[34*4], *cp;
-	static uchar *p, q, over;
+	static u32int ch[34];
+	static u8int *p, q, over;
 	static int n, m;
 	static int *sz;
 	static int szs[] = {
@@ -308,6 +348,7 @@ sprites(void)
 	static u16int base[2];
 	u8int dy, v, col, pri0, pri1, prio;
 	u16int a;
+	u32int w, *cp;
 	int i, nt, dx;
 
 	if(rx == 0){
@@ -358,20 +399,16 @@ nope:
 			dx = rx - tp->x;
 			if(dx < 0 || dx >= tp->sx)
 				continue;
-			p = tp->ch + (dx >> 1 & 0xfc);
+			w = *tp->ch;
 			if((tp->c & 0x40) != 0){
-				v = p[2] & 1 | p[3] << 1 & 2 | p[0] << 2 & 4 | p[1] << 3 & 8;
-				p[0] >>= 1;
-				p[1] >>= 1;
-				p[2] >>= 1;
-				p[3] >>= 1;
+				v = w & 1 | w >> 7 & 2 | w >> 14 & 4 | w >> 21 & 8;
+				*tp->ch = w >> 1;
 			}else{
-				v = p[0] >> 7 & 1 | p[1] >> 6 & 2 | p[2] >> 5 & 4 | p[3] >> 4 & 8;
-				p[0] <<= 1;
-				p[1] <<= 1;
-				p[2] <<= 1;
-				p[3] <<= 1;
+				v = w >> 7 & 1 | w >> 14 & 2 | w >> 21 & 4 | w >> 28 & 8;
+				*tp->ch = w << 1;
 			}
+			if((dx & 7) == 7)
+				tp->ch++;
 			nt = (tp->i - prio) & 0x7f;
 			if(v != 0 && nt < pri1){
 				col = tp->pal + v;
@@ -397,7 +434,7 @@ nope:
 				tp->pri |= OBJNC;
 			tp->ch = cp;
 			tp->i = sp->i;
-			nt = sp->sx >> 2;
+			nt = sp->sx >> 3;
 			dy = ppuy - sp->y;
 			if((sp->c & 0x80) != 0)
 				dy = sp->sy - 1 - dy;
@@ -407,21 +444,26 @@ nope:
 			if((sp->c & 0x40) != 0){
 				a += sp->sx * 4;
 				for(i = 0; i < nt; i++){
-					if(cp < ch + sizeof(ch)){
-						a -= 16;
-						*(u16int*)cp = *(u16int*)&vram[sp->t1 | a & 0x1fff];
-						cp += 2;
-						tp->sx += 4;
+					if(cp < ch + nelem(ch)){
+						w  = vram[sp->t1 | (a -= 16) & 0x1fff] << 16;
+						w |= vram[sp->t1 | (a + 1) & 0x1fff] << 24;
+						w |= vram[sp->t1 | (a -= 16) & 0x1fff] << 0;
+						w |= vram[sp->t1 | (a + 1) & 0x1fff] << 8;
+						*cp++ = w;
+						tp->sx += 8;
 					}else
 						over |= 0x80;
 				}
 			}else
 				for(i = 0; i < nt; i++){
-					if(cp < ch + sizeof(ch)){
-						*(u16int*)cp = *(u16int*)&vram[sp->t1 | a & 0x1fff];
-						cp += 2;
-						tp->sx += 4;
-						a += 16;
+					if(cp < ch + nelem(ch)){
+						w  = vram[sp->t1 | a & 0x1fff];
+						w |= vram[sp->t1 | ++a & 0x1fff] << 8;
+						w |= vram[sp->t1 | (a += 15) & 0x1fff] << 16;
+						w |= vram[sp->t1 | ++a & 0x1fff] << 24;
+						*cp++ = w;
+						tp->sx += 8;
+						a += 15;
 					}else
 						over |= 0x80;
 				}
