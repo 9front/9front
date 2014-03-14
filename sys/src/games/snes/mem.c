@@ -8,7 +8,8 @@ u8int reg[32768];
 u8int mem[131072];
 u8int oam[544], vram[65536];
 u16int cgram[256];
-u16int oamaddr, vramlatch, keylatch;
+u16int oamaddr, vramlatch;
+u32int keylatch, lastkeys;
 enum {
 	OAMLATCH,
 	CGLATCH,
@@ -60,6 +61,31 @@ static u16int
 swaprb(u16int a)
 {
 	return (a & 0x83e0) | (a & 0x7c00) >> 10 | (a & 0x001f) << 10;
+}
+
+static void
+mouselatch(void)
+{
+	int x, y;
+	u32int v;
+	
+	v = keys & 0xffff0000;
+	x = (keys & 0xff) - (lastkeys & 0xff);
+	y = (keys >> 8 & 0xff) - (lastkeys >> 8 & 0xff);
+	if(x < 0){
+		v |= 0x80;
+		x = -x;
+	}
+	if(y < 0){
+		v |= 0x8000;
+		y = -y;
+	}
+	if(x > 127)
+		x = 127;
+	if(y > 127)
+		y = 127;
+	keylatch = v | x | y << 8;
+	lastkeys = keys;
 }
 
 u8int
@@ -124,9 +150,15 @@ regread(u16int p)
 		reg[0x2181]++;
 		return v;
 	case 0x4016:
-		if((reg[0x4016] & 1) != 0)
-			return keylatch >> 15;
-		v = keylatch >> 15;
+		if((reg[0x4016] & 1) != 0){
+			if(mouse)
+				if((keys & 0x300000) == 0x300000)
+					keys &= ~0x300000;
+				else
+					keys += 0x100000;
+			return keys >> 31;
+		}
+		v = keylatch >> 31;
 		keylatch = (keylatch << 1) | 1;
 		return v;
 	case 0x4017:
@@ -235,8 +267,12 @@ regwrite(u16int p, u8int v)
 	case 0x213e:
 		return;
 	case 0x4016:
-		if((reg[0x4016] & 1) != 0 && (v & 1) == 0)
-			keylatch = keys;
+		if((reg[0x4016] & 1) != 0 && (v & 1) == 0){
+			if(mouse)
+				mouselatch();
+			else
+				keylatch = keys;
+		}
 		break;
 	case 0x4200:
 		if((reg[0x4200] & 0x80) == 0 && (v & 0x80) != 0 && (reg[RDNMI] & 0x80) != 0)

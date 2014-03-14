@@ -6,7 +6,7 @@ extern int trace;
 
 extern uchar *prg, *sram;
 extern int nprg, nsram, keys;
-extern u16int keylatch;
+extern u32int keylatch, lastkeys;
 extern u8int reg[32768], spcmem[65536], vram[65536], oam[544];
 extern u16int cgram[256];
 
@@ -14,7 +14,7 @@ extern int ppux, ppuy;
 extern u16int vtime, htime, subcolor, oamaddr;
 extern u16int m7[6], hofs[4], vofs[4];
 
-extern int battery, saveclock, scale;
+extern int battery, saveclock, scale, mouse;
 
 enum {
 	FLAGC = 1<<0,

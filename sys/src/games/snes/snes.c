@@ -15,7 +15,7 @@ int ppuclock, spcclock, stimerclock, saveclock, msgclock, paused, perfclock;
 Mousectl *mc;
 QLock pauselock;
 int keys, savefd;
-int scale, profile;
+int scale, profile, mouse;
 Rectangle picr;
 Image *tmp, *bg;
 
@@ -126,23 +126,23 @@ keyproc(void *)
 		if(buf[0] != 'k' && buf[0] != 'K')
 			continue;
 		s = buf + 1;
-		k = 0;
+		k = 0xffff;
 		while(*s != 0){
 			s += chartorune(&r, s);
 			switch(r){
 			case Kdel: close(fd); threadexitsall(nil);
-			case 'z': k |= 1<<15; break;
-			case 'x': k |= 1<<7; break;
-			case 'a': k |= 1<<14; break;
-			case 's': k |= 1<<6; break;
-			case 'q': k |= 1<<5; break;
-			case 'w': k |= 1<<4; break;
-			case Kshift: k |= 1<<13; break;
-			case 10: k |= 1<<12; break;
-			case Kup: k |= 1<<11; break;
-			case Kdown: k |= 1<<10; break;
-			case Kleft: k |= 1<<9; break;
-			case Kright: k |= 1<<8; break;
+			case 'z': k |= 1<<31; break;
+			case 'x': k |= 1<<23; break;
+			case 'a': k |= 1<<30; break;
+			case 's': k |= 1<<22; break;
+			case 'q': k |= 1<<21; break;
+			case 'w': k |= 1<<20; break;
+			case Kshift: k |= 1<<29; break;
+			case 10: k |= 1<<28; break;
+			case Kup: k |= 1<<27; break;
+			case Kdown: k |= 1<<26; break;
+			case Kleft: k |= 1<<25; break;
+			case Kright: k |= 1<<24; break;
 			case Kesc:
 				if(paused)
 					qunlock(&pauselock);
@@ -152,7 +152,8 @@ keyproc(void *)
 				break;
 			}
 		}
-		keys = k;
+		if(!mouse)
+			keys = k;
 	}
 }
 
@@ -202,6 +203,10 @@ threadmain(int argc, char **argv)
 		break;
 	case 's':
 		battery++;
+		break;
+	case 'm':
+		mouse++;
+		keys = 1<<16;
 		break;
 	case 'T':
 		profile++;
@@ -272,14 +277,26 @@ flush(void)
 {
 	extern uchar pic[256*240*2*9];
 	Mouse m;
+	Point p;
 
-	while(nbrecv(mc->c, &m) > 0)
-		;
 	if(nbrecvul(mc->resizec) > 0){
 		if(getwindow(display, Refnone) < 0)
 			sysfatal("resize failed: %r");
 		screeninit();
 	}
+	while(nbrecv(mc->c, &m) > 0)
+		if(mouse && ptinrect(m.xy, picr)){
+			p = subpt(m.xy, picr.min);
+			p.x /= scale;
+			p.y /= scale;
+			keys = keys & 0xff3f0000 | p.x | p.y << 8;
+			if((m.buttons & 1) != 0)
+				keys |= 1<<22;
+			if((m.buttons & 4) != 0)
+				keys |= 1<<23;
+			if((m.buttons & 2) != 0)
+				lastkeys = keys;
+		}
 	loadimage(tmp, tmp->r, pic, 256*239*2*scale*scale);
 	draw(screen, picr, tmp, nil, ZP);
 	flushimage(display, 1);

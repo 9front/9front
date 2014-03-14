@@ -579,9 +579,11 @@ ppustep(void)
 			if((reg[NMITIMEN] & VBLANK) != 0)
 				nmi = 2;
 			if((reg[NMITIMEN] & AUTOJOY) != 0){
-				reg[0x4218] = keys;
-				reg[0x4219] = keys >> 8;
-				keylatch = 0xffff;
+				memwrite(0x4016, 1);
+				memwrite(0x4016, 0);
+				reg[0x4218] = keylatch >> 16;
+				reg[0x4219] = keylatch >> 24;
+				keylatch = keylatch << 16 | 0xffff;
 			}
 		}
 		if((reg[NMITIMEN] & (HCNTIRQ|VCNTIRQ)) == VCNTIRQ && vtime == ppuy)
