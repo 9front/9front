@@ -366,8 +366,11 @@ bg7init(int n)
 		if(p->msz != 1)
 			y -= y % p->msz;
 	}
-	if(n == 1 && (reg[MOSAIC] & 2) != 0)
-		p->msz = (reg[MOSAIC] >> 4) + 1;
+	if(n == 1)
+		if((reg[MOSAIC] & 2) != 0)
+			p->msz = (reg[MOSAIC] >> 4) + 1;
+		else
+			p->msz = 1;
 	if((m & 2) != 0)
 		y = 255 - y;
 	p->x = b7->x0 + ((m7[M7B] * y) & ~63);
@@ -412,12 +415,13 @@ end:
 		if(++p->mx == p->msz)
 			p->mx = 0;
 	}
-	if(n == 1)
-		if((v & 0x80) != 0)
-			pixel(1, v & 0x7f, 0x71);
-		else
-			pixel(1, v, 0x11);
-	else
+	if(n == 1){
+		if((v & 0x7f) != 0)
+			if((v & 0x80) != 0)
+				pixel(1, v & 0x7f, 0x71);
+			else
+				pixel(1, v, 0x11);
+	}else if(v != 0)
 		pixel(0, v, 0x40);
 	if((m & 1) != 0){
 		p->x -= m7[M7A];
