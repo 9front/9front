@@ -203,12 +203,10 @@ regwrite(u16int p, u8int v)
 	}
 	switch(p){
 	case 0x2102:
-		oamaddr &= 0x200;
-		oamaddr |= v << 1;
+		oamaddr = (reg[0x2103] & 1) << 9 | v << 1;
 		break;
 	case 0x2103:
-		oamaddr &= 0x1fe;
-		oamaddr |= (v & 1) << 9;
+		oamaddr = (v & 1) << 9 | reg[0x2102];
 		break;
 	case 0x2104:
 		if((oamaddr & 1) == 0)
