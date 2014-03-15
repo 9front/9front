@@ -442,6 +442,7 @@ spcstep(void)
 	if(trace)
 		print("SPC %.4x %.2x A=%.2x X=%.2x Y=%.2x P=%.2x S=%.2x\n", spc-1, op, sA, sX, sY, sP, sS);
 	switch(op){
+	case 0x00: return 2;
 	case 0x01: jsr(mem16(0xffde)); return 8;
 	case 0x02: setb(azp(), 0); return 4;
 	case 0x03: return branch((zp() & 0x01) != 0, 5);

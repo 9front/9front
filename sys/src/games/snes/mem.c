@@ -21,6 +21,8 @@ enum {
 	OPVCTH,
 };
 
+extern void calc7(void);
+
 static void
 incvram(int i, int r)
 {
@@ -220,15 +222,29 @@ regwrite(u16int p, u8int v)
 			oam[oamaddr & 0x21f] = v;
 		oamaddr = (oamaddr + 1) & 0x3ff;
 		return;
-	case 0x210d: case 0x210f:
-	case 0x2111: case 0x2113:
+	case 0x2105:
+		reg[p] = v;
+		calc7();
+		return;
+	case 0x210d:
+		hofs[4] = (v & 0x1f) << 8 | reg[M7PREV];
+		if((v & 0x10) != 0)
+			hofs[4] |= 0xe000;
+		reg[M7PREV] = v;
+		calc7();
+	case 0x210f: case 0x2111: case 0x2113:
 		a = (p - 0x210d) >> 1;
-		hofs[a] = (v << 8) | reg[OFSPREV] & ~7 | (hofs[a] >> 8) & 7;
+		hofs[a] = v << 8 | reg[OFSPREV] & ~7 | (hofs[a] >> 8) & 7;
 		reg[OFSPREV] = v;
 		break;
-	case 0x210e: case 0x2110:
-	case 0x2112: case 0x2114:
-		vofs[(p - 0x210e) >> 1] = (v << 8) | reg[OFSPREV];
+	case 0x210e:
+		vofs[4] = (v & 0x1f) << 8 | reg[M7PREV];
+		if((v & 0x10) != 0)
+			vofs[4] |= 0xe000;
+		reg[M7PREV] = v;
+		calc7();
+	case 0x2110: case 0x2112: case 0x2114:
+		vofs[(p - 0x210e) >> 1] = v << 8 | reg[OFSPREV];
 		reg[OFSPREV] = v;
 		break;
 	case 0x2116:
@@ -248,8 +264,14 @@ regwrite(u16int p, u8int v)
 		return;
 	case 0x211b: case 0x211c: case 0x211d:
 	case 0x211e: case 0x211f: case 0x2120:
-		m7[p - 0x211b] = (v << 8) | reg[M7PREV];
+		m7[p - 0x211b] = v << 8 | reg[M7PREV];
+		if(p >= 0x211f)
+			if((v & 0x10) != 0)
+				m7[p - 0x211b] |= 0xe000;
+			else
+				m7[p - 0x211b] &= 0x1fff;
 		reg[M7PREV] = v;
+		calc7();
 		break;
 	case 0x2121:
 		reg[CGLH] = 0;

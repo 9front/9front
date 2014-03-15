@@ -9,7 +9,17 @@ static u8int mode, bright, pixelpri[2];
 static u32int pixelcol[2];
 u16int vtime = 0x1ff, htime = 0x1ff, subcolor, mosatop;
 uchar pic[256*239*2*9];
-u16int m7[6], hofs[4], vofs[4];
+u16int hofs[5], vofs[5];
+s16int m7[6];
+
+enum {
+	M7A,
+	M7B,
+	M7C,
+	M7D,
+	M7X,
+	M7Y
+};
 
 enum { OBJ = 4, COL = 5, OBJNC = 8 };
 
@@ -311,6 +321,113 @@ bg(int n)
 		chr(n, p->nb, p->sz, p->t, p->tnx, p->tny, p->c);
 }
 
+struct bg7ctxt {
+	int x, y, x0, y0;
+	u8int msz, mx, mv;
+} b7[2];
+
+void
+calc7(void)
+{
+	s16int t;
+
+	if((reg[0x2105] & 7) != 7)
+		return;
+	t = hofs[4] - m7[M7X];
+	if((t & 0x2000) != 0)
+		t |= ~0x3ff;
+	else
+		t &= 0x3ff;
+	b7->x0 = (t * m7[M7A]) & ~63;
+	b7->y0 = (t * m7[M7C]) & ~63;
+	t = vofs[4] - m7[M7Y];
+	if((t & 0x2000) != 0)
+		t |= ~0x3ff;
+	else
+		t &= 0x3ff;
+	b7->x0 += (t * m7[M7B]) & ~63;
+	b7->y0 += (t * m7[M7D]) & ~63;
+	b7->x0 += m7[M7X] << 8;
+	b7->y0 += m7[M7Y] << 8;
+}
+
+static void
+bg7init(int n)
+{
+	u8int m, y;
+	struct bg7ctxt *p;
+	
+	p = b7 + n;
+	m = reg[M7SEL];
+	y = ppuy;
+	p->msz = 1;
+	if((reg[MOSAIC] & 1) != 0){
+		p->msz = (reg[MOSAIC] >> 4) + 1;
+		if(p->msz != 1)
+			y -= y % p->msz;
+	}
+	if(n == 1 && (reg[MOSAIC] & 2) != 0)
+		p->msz = (reg[MOSAIC] >> 4) + 1;
+	if((m & 2) != 0)
+		y = 255 - y;
+	p->x = b7->x0 + ((m7[M7B] * y) & ~63);
+	p->y = b7->y0 + ((m7[M7D] * y) & ~63);
+	if((m & 1) != 0){
+		p->x += 255 * m7[M7A];
+		p->y += 255 * m7[M7C];
+	}
+}
+
+static void
+bg7(int n)
+{
+	u16int x, y;
+	u8int m, v, t;
+	struct bg7ctxt *p;
+
+	p = b7 + n;
+	m = reg[M7SEL];
+	x = p->x >> 8;
+	y = p->y >> 8;
+	if((m & 0x80) == 0){
+		x &= 1023;
+		y &= 1023;
+	}else if(x > 1023 || y > 1023){
+		if((m & 0x40) != 0){
+			t = 0;
+			goto lookup;
+		}
+		v = 0;
+		goto end;
+	}
+	t = vram[x >> 2 & 0xfe | y << 5 & 0x7f00];
+lookup:
+	v = vram[t << 7 | y << 4 & 0x70 | x << 1 & 0x0e | 1];
+end:
+	if(p->msz != 1){
+		if(p->mx == 0)
+			p->mv = v;
+		else
+			v = p->mv;
+		if(++p->mx == p->msz)
+			p->mx = 0;
+	}
+	if(n == 1)
+		if((v & 0x80) != 0)
+			pixel(1, v & 0x7f, 0x71);
+		else
+			pixel(1, v, 0x11);
+	else
+		pixel(0, v, 0x40);
+	if((m & 1) != 0){
+		p->x -= m7[M7A];
+		p->y -= m7[M7C];
+	}else{
+		p->x += m7[M7A];
+		p->y += m7[M7C];
+	}
+}
+
 static void
 bgsinit(void)
 {
@@ -335,6 +452,11 @@ bgsinit(void)
 	case 3:
 		bginit(0, 8, 0x40, 0xa0);
 		bginit(1, 4, 0x11, 0x71);
+		break;
+	case 7:
+		bg7init(0);
+		if((reg[SETINI] & EXTBG) != 0)
+			bg7init(1);
 		break;
 	default:
 		bgctxts[0].sz = bgctxts[1].sz = 0;
@@ -362,6 +484,11 @@ bgs(void)
 	case 3:
 		bg(0);
 		bg(1);
+		break;
+	case 7:
+		bg7(0);
+		if((reg[SETINI] & EXTBG) != 0)
+			bg7(1);
 		break;
 	}
 }

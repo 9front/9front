@@ -10,9 +10,11 @@ extern u32int keys, keylatch, lastkeys;
 extern u8int reg[32768], spcmem[65536], vram[65536], oam[544];
 extern u16int cgram[256];
 
-extern int ppux, ppuy;
+extern int ppux, ppuy, rx;
 extern u16int vtime, htime, subcolor, oamaddr;
-extern u16int m7[6], hofs[4], vofs[4];
+extern u16int hofs[5], vofs[5];
+typedef signed short s16int;
+extern s16int m7[6];
 
 extern int battery, saveclock, scale, mouse;
 
@@ -43,6 +45,7 @@ enum {
 	OAMADDH = 0x2103,
 	BGMODE = 0x2105,
 	MOSAIC = 0x2106,
+	M7SEL = 0x211a,
 	WIN1 = 2,
 	INVW1 = 1,
 	WIN2 = 8,
@@ -55,6 +58,7 @@ enum {
 	CGADSUB = 0x2131,
 	DIRCOL = 1,
 	SETINI = 0x2133,
+	EXTBG = 1<<6,
 	OVERSCAN = 1<<2,
 	AUTOJOY = 1,
 	NMITIMEN = 0x4200,
