@@ -475,15 +475,23 @@ dumpregs(Ureg* ureg)
 			m->machno, up->text, up->pid);
 	else
 		iprint("cpu%d: registers for kernel\n", m->machno);
-	iprint("FLAGS=%#p TYPE=%#p ERROR=%#p PC=%#p SP=%#p",
-		ureg->flags, ureg->type, ureg->error, ureg->pc, ureg->sp);
-	iprint("  AX %#p  BX %#p  CX %#p  DX %#p\n",
-		ureg->ax, ureg->bx, ureg->cx, ureg->dx);
-	iprint("  SI %#p  DI %#p  BP %#p\n",
-		ureg->si, ureg->di, ureg->bp);
-	iprint("  CS %4.4lluX  DS %4.4uX  ES %4.4uX  FS %4.4uX  GS %4.4uX\n",
-		ureg->cs & 0xFFFF, ureg->ds & 0xFFFF, ureg->es & 0xFFFF,
-		ureg->fs & 0xFFFF, ureg->gs & 0xFFFF);
+
+	iprint("  DS %.4uX      AX %.16lluX  BX %.16lluX  CX %.16lluX\n",
+		ureg->ds, ureg->ax, ureg->bx, ureg->cx);
+	iprint("  ES %.4uX      DX %.16lluX  SI %.16lluX  DI %.16lluX\n",
+		ureg->es, ureg->dx, ureg->si, ureg->di);
+	iprint("  FS %.4uX      BP %.16lluX  R8 %.16lluX  R9 %.16lluX\n",
+		ureg->fs, ureg->bp, ureg->r8, ureg->r9);
+	iprint("  GS %.4uX     R10 %.16lluX R11 %.16lluX R12 %.16lluX\n",
+		ureg->gs, ureg->r10, ureg->r11, ureg->r12);
+
+	iprint("  SS %.4lluX     R13 %.16lluX R14 %.16lluX R15 %.16lluX\n",
+		ureg->ss & 0xffff, ureg->r13, ureg->r14, ureg->r15);
+	iprint("  CS %.4lluX      PC %.16lluX  SP %.16lluX\n",
+		ureg->cs & 0xffff, ureg->pc, ureg->sp);
+
+	iprint("TYPE %.2lluX     ERROR %.4lluX           FLAGS %.8lluX\n",
+		ureg->type & 0xff, ureg->flags & 0xffffffff, ureg->error & 0xffff);
 
 	/*
 	 * Processor control registers.
@@ -492,7 +500,7 @@ dumpregs(Ureg* ureg)
 	 * CR4. If there is a CR4 and machine check extensions, read the machine
 	 * check address and machine check type registers if RDMSR supported.
 	 */
-	iprint("  CR0 %8.8llux CR2 %16.16llux CR3 %16.16llux",
+	iprint(" CR0 %8.8llux CR2 %16.16llux CR3 %16.16llux",
 		getcr0(), getcr2(), getcr3());
 	if(m->cpuiddx & (Mce|Tsc|Pse|Vmex)){
 		iprint(" CR4 %16.16llux", getcr4());
@@ -501,7 +509,7 @@ dumpregs(Ureg* ureg)
 
 			rdmsr(0x00, &mca);
 			rdmsr(0x01, &mct);
-			iprint("\n  MCA %8.8llux MCT %8.8llux", mca, mct);
+			iprint("\n MCA %8.8llux MCT %8.8llux", mca, mct);
 		}
 	}
 	iprint("\n  ur %#p up %#p\n", ureg, up);
