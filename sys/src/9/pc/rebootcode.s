@@ -1,7 +1,7 @@
 #include "mem.h"
 
 /*
- * Turn off MMU, then memmory the new kernel to its correct location
+ * Turn off MMU, then memmove the new kernel to its correct location
  * in physical memory.  Then jumps the to start of the kernel.
  */
 

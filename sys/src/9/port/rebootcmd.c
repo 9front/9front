@@ -69,8 +69,16 @@ rebootcmd(int argc, char *argv[])
 	entry = l2be(exec.entry);
 	text = l2be(exec.text);
 	data = l2be(exec.data);
-	if(magic != AOUT_MAGIC)
+
+	if(AOUT_MAGIC == S_MAGIC || AOUT_MAGIC == I_MAGIC){
+		if(magic != S_MAGIC && magic != I_MAGIC)
+			error(Ebadexec);
+	} else if(magic != AOUT_MAGIC)
 		error(Ebadexec);
+
+	/* amd64 extra header */
+	if(magic == S_MAGIC)
+		readn(c, &exec, 8);
 
 	/* round text out to page boundary */
 	rtext = PGROUND(entry+text)-entry;

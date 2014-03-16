@@ -244,6 +244,7 @@ struct
 	int	exiting;		/* shutdown */
 	int	ispanic;		/* shutdown in response to a panic */
 	int	thunderbirdsarego;	/* lets the added processors continue to schedinit */
+	int	rebooting;		/* about to rebooting another kernel */
 }active;
 
 /*

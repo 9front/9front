@@ -188,6 +188,7 @@ mach0init(void)
 
 	active.machs = 1;
 	active.exiting = 0;
+	active.rebooting = 0;
 }
 
 void
@@ -936,8 +937,7 @@ shutdown(int ispanic)
 			delay(5*60*1000);
 		else
 			delay(10000);
-	}else
-		delay(1000);
+	}
 }
 
 void
@@ -959,17 +959,21 @@ reboot(void *entry, void *code, ulong size)
 		sched();
 	}
 
+	lock(&active);
+	active.rebooting = 1;
+	unlock(&active);
+
 	shutdown(0);
 
 	/*
 	 * should be the only processor running now
 	 */
 	if (m->machno != 0)
-		print("on cpu%d (not 0)!\n", m->machno);
+		iprint("on cpu%d (not 0)!\n", m->machno);
 	if (active.machs)
-		print("still have active ap processors!\n");
+		iprint("still have active ap processors!\n");
 
-	print("shutting down...\n");
+	iprint("shutting down...\n");
 	delay(200);
 
 	splhi();
@@ -993,11 +997,9 @@ reboot(void *entry, void *code, ulong size)
 	f = (void*)REBOOTADDR;
 	memmove(f, rebootcode, sizeof(rebootcode));
 
-	print("rebooting...\n");
-
 	/* off we go - never to return */
 	coherence();
-	(*f)(PADDR(entry), PADDR(code), size);
+	(*f)((ulong)entry & ~0xF0000000UL, PADDR(code), size);
 }
 
 

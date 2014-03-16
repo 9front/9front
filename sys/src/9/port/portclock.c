@@ -148,10 +148,8 @@ hzclock(Ureg *ur)
 	if((active.machs&(1<<m->machno)) == 0)
 		return;
 
-	if(active.exiting) {
-		print("someone's exiting\n");
+	if(active.exiting)
 		exit(0);
-	}
 
 	if(m->machno == 0)
 		checkalarms();

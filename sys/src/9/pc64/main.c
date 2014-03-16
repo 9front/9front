@@ -8,6 +8,7 @@
 #include	"ureg.h"
 #include	"init.h"
 #include	"pool.h"
+#include	"reboot.h"
 
 /*
  * Where configuration info is left for the loaded programme.
@@ -131,6 +132,35 @@ getconf(char *name)
 		if(cistrcmp(confname[i], name) == 0)
 			return confval[i];
 	return 0;
+}
+
+static void
+writeconf(void)
+{
+	char *p, *q;
+	int n;
+
+	p = getconfenv();
+
+	if(waserror()) {
+		free(p);
+		nexterror();
+	}
+
+	/* convert to name=value\n format */
+	for(q=p; *q; q++) {
+		q += strlen(q);
+		*q = '=';
+		q += strlen(q);
+		*q = '\n';
+	}
+	n = q - p + 1;
+	if(n >= BOOTARGSLEN)
+		error("kernel configuration too large");
+	memset(BOOTLINE, 0, BOOTLINELEN);
+	memmove(BOOTARGS, p, n);
+	poperror();
+	free(p);
 }
 
 void
@@ -276,6 +306,7 @@ mach0init(void)
 
 	active.machs = 1;
 	active.exiting = 0;
+	active.rebooting = 0;
 }
 
 
@@ -525,8 +556,7 @@ shutdown(int ispanic)
 			delay(5*60*1000);
 		else
 			delay(10000);
-	}else
-		delay(1000);
+	}
 }
 
 void
@@ -537,9 +567,63 @@ exit(int ispanic)
 }
 
 void
-reboot(void*, void*, ulong)
+reboot(void *entry, void *code, ulong size)
 {
-	exit(0);
+	void (*f)(uintptr, uintptr, ulong);
+
+	writeconf();
+
+	/*
+	 * the boot processor is cpu0.  execute this function on it
+	 * so that the new kernel has the same cpu0.  this only matters
+	 * because the hardware has a notion of which processor was the
+	 * boot processor and we look at it at start up.
+	 */
+	if (m->machno != 0) {
+		procwired(up, 0);
+		sched();
+	}
+
+	lock(&active);
+	active.rebooting = 1;
+	unlock(&active);
+
+	shutdown(0);
+
+	/*
+	 * should be the only processor running now
+	 */
+	if (m->machno != 0)
+		iprint("on cpu%d (not 0)!\n", m->machno);
+	if (active.machs)
+		iprint("still have active ap processors!\n");
+
+	iprint("shutting down...\n");
+	delay(200);
+
+	splhi();
+
+	/* turn off buffered serial console */
+	serialoq = nil;
+
+	/* shutdown devices */
+	chandevshutdown();
+	arch->introff();
+
+	/*
+	 * This allows the reboot code to turn off the page mapping
+	 */
+	*mmuwalk(m->pml4, 0, 3, 0) = *mmuwalk(m->pml4, KZERO, 3, 0);
+	*mmuwalk(m->pml4, 0, 2, 0) = *mmuwalk(m->pml4, KZERO, 2, 0);
+	mmuflushtlb();
+
+	/* setup reboot trampoline function */
+	f = (void*)REBOOTADDR;
+	memmove(f, rebootcode, sizeof(rebootcode));
+
+	/* off we go - never to return */
+	coherence();
+	(*f)((uintptr)entry & ~0xF0000000UL, (uintptr)PADDR(code), size);
 }
 
 /*

@@ -622,23 +622,13 @@ mpshutdown(void)
 {
 	static Lock shutdownlock;
 
-	/*
-	 * To be done...
-	 */
-	if(!canlock(&shutdownlock)){
-		/*
-		 * If this processor received the CTRL-ALT-DEL from
-		 * the keyboard, acknowledge it. Send an INIT to self.
-		 */
-#ifdef FIXTHIS
-		if(lapicisr(VectorKBD))
-			lapiceoi(VectorKBD);
-#endif /* FIX THIS */
+	if(active.rebooting || !canlock(&shutdownlock)){
+		splhi();
 		arch->introff();
 		idle();
 	}
 
-	print("apshutdown: active = %#8.8ux\n", active.machs);
+	print("mpshutdown: active = %#8.8ux\n", active.machs);
 	delay(1000);
 	splhi();
 
@@ -666,6 +656,5 @@ mpshutdown(void)
 	outb(0xCF9, 0x06);
 
 	print("can't reset\n");
-	for(;;)
-		idle();
+	idle();
 }

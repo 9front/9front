@@ -7,6 +7,7 @@ p=9
 
 KTZERO=0xffffffff80110000
 APBOOTSTRAP=0xffffffff80003000
+REBOOTADDR=0x11000
 
 DEVS=`{rc ../port/mkdevlist $CONF}
 
@@ -112,7 +113,7 @@ $SDEV:				../port/sd.h
 sdiahci.$O:			ahci.h
 devaoe.$O sdaoe.$O:		../port/aoe.h
 
-main.$O:			init.h
+main.$O:			init.h reboot.h
 
 devusb.$O usbuhci.$O usbohci.$O usbehci.$O: ../port/usb.h
 usbehci.$O:			usbehci.h uncached.h
@@ -131,6 +132,15 @@ init.h:D:		../port/initcode.c ../pc/init9.c
 		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
 	 echo '};'} > init.h
 
+reboot.h:	rebootcode.s
+	$AS rebootcode.s
+	$LD -l -R1 -s -o reboot.out -T$REBOOTADDR rebootcode.$O
+	{echo 'uchar rebootcode[]={'
+	 dd -if reboot.out -bs 1 -iseek 40 | 
+	 xd -1x |
+	 sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
+	 echo '};'} > $target
+
 apbootstrap.h:	apbootstrap.s
 	$AS apbootstrap.s
 	$LD -l -R1 -s -o apbootstrap.out -T$APBOOTSTRAP apbootstrap.$O
@@ -147,4 +157,4 @@ acid:V:
 	$CC -a -w main.c>acid
 
 %.clean:V:
-	rm -f $stem.c [9bz]$stem [9bz]$stem.gz boot$stem.* apbootstrap.h init.h $PCHEADERS
+	rm -f $stem.c [9bz]$stem [9bz]$stem.gz boot$stem.* apbootstrap.h reboot.h init.h $PCHEADERS
