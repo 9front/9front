@@ -99,7 +99,6 @@ TEXT _ap32(SB), 1, $-4
  * Long mode. Welcome to 2003.
  * Jump out of the identity map space;
  * load a proper long mode GDT;
- * zap the identity map;
  * initialise the stack and call the
  * C startup code in m->splpc.
  */

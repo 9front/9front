@@ -491,7 +491,7 @@ dumpregs(Ureg* ureg)
 		ureg->cs & 0xffff, ureg->pc, ureg->sp);
 
 	iprint("TYPE %.2lluX     ERROR %.4lluX           FLAGS %.8lluX\n",
-		ureg->type & 0xff, ureg->flags & 0xffffffff, ureg->error & 0xffff);
+		ureg->type & 0xff, ureg->error & 0xffff, ureg->flags & 0xffffffff);
 
 	/*
 	 * Processor control registers.
