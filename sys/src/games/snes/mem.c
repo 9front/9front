@@ -342,7 +342,7 @@ regwrite(u16int p, u8int v)
 		vtime = vtime & 0xff | (v & 1) << 8;
 		break;
 	case 0x420b:
-		dma |= v & ~reg[0x420c];
+		dma |= v & ~(reg[0x420c] & ~hdma >> 24);
 		break;
 	case 0x4210:
 		return;

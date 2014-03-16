@@ -280,8 +280,8 @@ redo:
 	p->t = tile(n, p->tx, p->ty);
 	chr(n, nb, p->sz, p->t, p->tnx, p->tny, p->c);
 	p->pal = palette(n, p->t >> 10 & 7);
-	if(p->tnx != 0)
-		shift(p->c, nb, p->tnx, p->t & 0x4000);
+	if((p->tnx & 7) != 0)
+		shift(p->c, nb, p->tnx & 7, p->t & 0x4000);
 	if(p->msz != 1 && p->mx != 0 && sx % p->msz == 0){
 		p->mv = bgpixel(p->c, nb, p->t & 0x4000);
 		if(p->tnx + p->mx >= 8){
