@@ -857,7 +857,11 @@ cpustep(void)
 			rY &= 0xff;
 		nzx(rY);
 		return 2;
-	case 0x89: bit(imm(0)); return 2+cyc;
+	case 0x89:
+		rP &= ~FLAGZ;
+		if((imm(0) & rA) == 0)
+			rP |= FLAGZ;
+		return 2+cyc;
 	case 0x8A: setra(rX); return 2+cyc;
 	case 0x8B: push8(rDB >> 16); return 3;
 	case 0x8C: memwx816(abso(0, 0), rY); return 4+cyc;
