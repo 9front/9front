@@ -2240,6 +2240,17 @@ done:
 	iunlock(ctlr);
 }
 
+static void
+iwlshutdown(Ether *edev)
+{
+	Ctlr *ctlr;
+
+	ctlr = edev->ctlr;
+	if(ctlr->power)
+		poweroff(ctlr);
+	ctlr->broken = 0;
+}
+
 static Ctlr *iwlhead, *iwltail;
 
 static void
@@ -2345,6 +2356,7 @@ again:
 	edev->attach = iwlattach;
 	edev->ifstat = iwlifstat;
 	edev->ctl = iwlctl;
+	edev->shutdown = iwlshutdown;
 	edev->promiscuous = iwlpromiscuous;
 	edev->multicast = nil;
 	edev->mbps = 10;
