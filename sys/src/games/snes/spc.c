@@ -30,6 +30,8 @@ spcread(u16int p)
 		return ipl[p - 0xffc0];
 	if((p & 0xfff0) == 0x00f0)
 		switch(p){
+		case 0xf3:
+			return dspread(spcmem[0xf2]);
 		case 0xf4:
 		case 0xf5:
 		case 0xf6:
@@ -70,6 +72,9 @@ spcwrite(u16int p, u8int v)
 			if((spcmem[0xf1] & 4) == 0 && (v & 4) != 0)
 				spctimer[2] = spcmem[0xff] = 0;
 			break;
+		case 0xf3:
+			dspwrite(spcmem[0xf2], v);
+			return;
 		case 0xfd:
 		case 0xfe:
 		case 0xff:

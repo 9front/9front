@@ -1,3 +1,6 @@
+typedef signed char s8int;
+typedef signed short s16int;
+
 extern u16int pc;
 extern u32int rPB, curpc;
 extern u8int dma, nmi, irq;
@@ -13,8 +16,9 @@ extern u16int cgram[256];
 extern int ppux, ppuy, rx;
 extern u16int vtime, htime, subcolor, oamaddr;
 extern u16int hofs[5], vofs[5];
-typedef signed short s16int;
 extern s16int m7[6];
+
+extern u8int spcmem[65536];
 
 extern int battery, saveclock, scale, mouse;
 

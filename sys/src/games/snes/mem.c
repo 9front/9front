@@ -288,11 +288,11 @@ regwrite(u16int p, u8int v)
 		if((v & 0x40) != 0) subcolor = subcolor & 0x7c1f | (v & 0x1f) << 5;
 		if((v & 0x20) != 0) subcolor = subcolor & 0x03ff | (v & 0x1f) << 10;
 		return;
+	case 0x213e:
+		return;
 	case 0x2180:
 		memwrite(0x7e0000 | reg[0x2181] | reg[0x2182] << 8 | (reg[0x2183] & 1) << 16, v);
 		incwram();
-		return;
-	case 0x213e:
 		return;
 	case 0x4016:
 		if((reg[0x4016] & 1) != 0 && (v & 1) == 0){

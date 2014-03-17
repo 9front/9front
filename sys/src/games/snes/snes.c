@@ -11,7 +11,7 @@
 uchar *prg, *sram;
 int nprg, nsram, hirom, battery;
 
-int ppuclock, spcclock, stimerclock, saveclock, msgclock, paused, perfclock;
+int ppuclock, spcclock, dspclock, stimerclock, saveclock, msgclock, paused, perfclock;
 Mousectl *mc;
 QLock pauselock;
 u32int keys;
@@ -57,11 +57,14 @@ loadrom(char *file)
 	if(readn(fd, prg, size) < size)
 		sysfatal("read: %r");
 	close(fd);
-	if((memread(0xffd5) & ~0x10) != 0x20)
-		if((memread(0x1ffd5) & ~0x10) == 0x21)
-			hirom = 1;
-		else
-			sysfatal("invalid rom (neither hirom nor lorom)");
+	if(hirom < 0){
+		hirom = 0;
+		if((memread(0xffd5) & ~0x10) != 0x20)
+			if((memread(0x1ffd5) & ~0x10) == 0x21)
+				hirom = 1;
+			else
+				sysfatal("invalid rom (ffd5 = %.2x, 1ffd5 = %.2x)", memread(0xffd5), memread(0x1ffd5));
+	}
 	if(hirom)
 		nprg >>= 1;
 	switch(memread(0xffd6)){
@@ -201,6 +204,7 @@ threadmain(int argc, char **argv)
 	extern u16int pc;
 
 	scale = 1;
+	hirom = -1;
 	ARGBEGIN {
 	case '2':
 		scale = 2;
@@ -208,12 +212,18 @@ threadmain(int argc, char **argv)
 	case '3':
 		scale = 3;
 		break;
+	case 'a':
+		audioinit();
+		break;
 	case 's':
 		battery++;
 		break;
 	case 'm':
 		mouse++;
 		keys = 1<<16;
+		break;
+	case 'h':
+		hirom++;
 		break;
 	case 'T':
 		profile++;
@@ -239,6 +249,7 @@ usage:
 	cpureset();
 	memreset();
 	spcreset();
+	dspreset();
 	for(;;){
 		if(paused){
 			qlock(&pauselock);
@@ -248,6 +259,7 @@ usage:
 		spcclock -= t;
 		stimerclock += t;
 		ppuclock += t;
+		dspclock += t;
 		perfclock -= t;
 
 		while(ppuclock >= 4){
@@ -259,6 +271,10 @@ usage:
 		if(stimerclock >= SPCDIV*16){
 			spctimerstep();
 			stimerclock -= SPCDIV*16;
+		}
+		if(dspclock >= SPCDIV){
+			dspstep();
+			dspclock -= SPCDIV;
 		}
 		if(saveclock > 0){
 			saveclock -= t;
@@ -307,6 +323,7 @@ flush(void)
 	loadimage(tmp, tmp->r, pic, 256*239*2*scale*scale);
 	draw(screen, picr, tmp, nil, ZP);
 	flushimage(display, 1);
+	audioout();
 }
 
 void
