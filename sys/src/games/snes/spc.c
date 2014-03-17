@@ -581,6 +581,7 @@ spcstep(void)
 	case 0x79: cmp(spcread(sX|dp), spcread(sY|dp)); return 5;
 	case 0x7A:
 		b = memd16(azp());
+		sP &= ~SPCC;
 		sA = adc(sA, b);
 		sY = adc(sY, b >> 8);
 		if(sA != 0)
@@ -625,6 +626,7 @@ spcstep(void)
 	case 0x99: spcwrite(sX|dp, adc(spcread(sX|dp), spcread(sY|dp))); return 5;
 	case 0x9A:
 		b = memd16(azp());
+		sP |= SPCC;
 		sA = sbc(sA, b);
 		sY = sbc(sY, b >> 8);
 		if(sA != 0)
