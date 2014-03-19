@@ -30,7 +30,7 @@ struct Ctlr {
 	ulong *recvret, *recvprod, *sendr;
 	ulong port;
 	ulong recvreti, recvprodi, sendri, sendcleani;
-	Block **sends;
+	Block **sends, **recvs;
 	int active, duplex;
 };
 
@@ -370,21 +370,24 @@ static int
 replenish(Ctlr *ctlr)
 {
 	ulong *next;
-	ulong incr;
+	ulong incr, idx;
 	Block *bp;
-	
-	incr = (ctlr->recvprodi + 1) & (RecvProdRingLen - 1);
+
+	idx = ctlr->recvprodi;
+	incr = (idx + 1) & (RecvProdRingLen - 1);
 	if(incr == (ctlr->status[2] >> 16)) return -1;
+	if(ctlr->recvs[idx] != 0) return -1;
 	bp = iallocb(Rbsz);
 	if(bp == nil) {
 		print("bcm: out of memory for receive buffers\n");
 		return -1;
 	}
-	next = ctlr->recvprod + ctlr->recvprodi * 8;
+	ctlr->recvs[idx] = bp;
+	next = ctlr->recvprod + idx * 8;
 	memset(next, 0, 32);
 	next[1] = PADDR(bp->rp);
 	next[2] = Rbsz;
-	next[7] = (ulong) bp;
+	next[7] = idx;
 	coherence();
 	csr32(ctlr, RecvProdBDRingIndex) = ctlr->recvprodi = incr;
 	return 0;
@@ -395,11 +398,17 @@ bcmreceive(Ether *edev)
 {
 	Ctlr *ctlr;
 	Block *bp;
-	ulong *pkt, len;
+	ulong *pkt, len, idx;
 	
 	ctlr = edev->ctlr;
 	for(; pkt = currentrecvret(ctlr); replenish(ctlr), consumerecvret(ctlr)) {
-		bp = (Block*) pkt[7];
+		idx = pkt[7] & (RecvProdRingLen - 1);
+		bp = ctlr->recvs[idx];
+		if(bp == 0) {
+			print("bcm: nil block at %lux -- shouldn't happen\n", idx);
+			break;
+		}
+		ctlr->recvs[idx] = 0;
 		len = pkt[2] & 0xFFFF;
 		bp->wp = bp->rp + len;
 		if((pkt[3] & PacketEnd) == 0) print("bcm: partial frame received -- shouldn't happen\n");
@@ -446,7 +455,6 @@ bcmtransmit(Ether *edev)
 		}
 		bp = qget(edev->oq);
 		if(bp == nil) break;
-		setmalloctag(bp, (ulong)(void*)bcmtransmit);
 		next = ctlr->sendr + ctlr->sendri * 4;
 		next[0] = 0;
 		next[1] = PADDR(bp->rp);
@@ -792,8 +800,11 @@ bcmpci(void)
 			continue;
 		}
 		ctlr->sends = malloc(sizeof(ctlr->sends[0]) * SendRingLen);
-		if(ctlr->sends == nil){
-			print("bcm: unable to alloc ctlr->sends\n");
+		ctlr->recvs = malloc(sizeof(ctlr->recvs[0]) * RecvProdRingLen);
+		if(ctlr->sends == nil || ctlr->recvs == nil){
+			print("bcm: unable to alloc ctlr->sends and ctlr->recvs\n");
+			free(ctlr->sends);
+			free(ctlr->recvs);
 			free(ctlr);
 			continue;
 		}
