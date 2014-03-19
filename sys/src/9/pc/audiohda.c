@@ -1319,9 +1319,12 @@ hdabuffered(Audio *adev)
 static void
 hdakick(Ctlr *ctlr)
 {
+	int delay;
+
 	if(ctlr->sout.active)
 		return;
-	if(buffered(&ctlr->sout.ring) > Blocksize)
+	delay = ctlr->adev->delay*BytesPerSample;
+	if(buffered(&ctlr->sout.ring) >= delay)
 		streamstart(ctlr, &ctlr->sout);
 }
 
@@ -1486,7 +1489,13 @@ hdasetvol(Audio *adev, int x, int a[2])
 		adev->speed = a[0];
 		break;
 	case Vdelay:
-		adev->delay = a[0];
+		if(a[0] < Blocksize/BytesPerSample) {
+			adev->delay = Blocksize/BytesPerSample;
+		} else if(a[0] > (ctlr->sout.ring.nbuf/BytesPerSample)-1) {
+			adev->delay = (ctlr->sout.ring.nbuf/BytesPerSample)-1;
+		} else {
+			adev->delay = a[0];
+		}
 		break;
 	}
 	return 0;
