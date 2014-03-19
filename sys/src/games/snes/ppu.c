@@ -616,6 +616,14 @@ nope:
 			a = sp->t0 | (dy & 7) << 1;
 			if(dy >= 8)
 				a += (dy & ~7) << 6;
+			if(sp->x < 0 && (i = (-sp->x >> 3)) != 0){
+				if((sp->c & 0x40) != 0)
+					a -= i << 5;
+				else
+					a += i << 5;
+				nt -= i;
+				tp->sx += i << 3;
+			}
 			if((sp->c & 0x40) != 0){
 				a += sp->sx * 4;
 				for(i = 0; i < nt; i++){
@@ -642,6 +650,11 @@ nope:
 					}else
 						over |= 0x80;
 				}
+			if(sp->x < 0 && (i = (-sp->x) & 7) != 0)
+				if((sp->c & 0x40) != 0)
+					*tp->ch >>= i;
+				else
+					*tp->ch <<= i;
 		}
 		reg[0x213e] = over;
 	}
