@@ -159,7 +159,7 @@ typedef struct {
 	u8int *r;
 	
 	u16int hdrp, dp, sp;
-	u8int hdr;
+	u8int hdr, bp;
 	u16int brr;
 
 	u8int envst;
@@ -167,7 +167,7 @@ typedef struct {
 	
 	u8int init;
 	u16int interp;
-	s16int buf[12];
+	s16int buf[24];
 	
 	u16int pitch;
 	s16int sample, modin;
@@ -243,8 +243,8 @@ decode(vctxt *p)
 	f = (p->hdr >> 2) & 3;
 	s = p->hdr >> 4;
 	brr = p->brr;
-	s1 = p->buf[7];
-	s2 = p->buf[6];
+	s1 = p->buf[p->bp + 11];
+	s2 = p->buf[p->bp + 10];
 	for(i = 0; i < 4; i++){
 		d = brr >> 12;
 		if(s >= 13)
@@ -273,11 +273,14 @@ decode(vctxt *p)
 			break;
 		}
 		d = (s16int)(clamp16(d) << 1);
-		p->buf[8 + i] = d;
+		p->buf[p->bp] = d;
+		p->buf[p->bp++ + 12] = d;
 		s1 = d;
 		s2 = s1;
 		brr <<= 4;
 	}
+	if(p->bp == 12)
+		p->bp = 0;
 }
 
 static s16int
@@ -337,6 +340,8 @@ voice(int n, int s)
 		}
 		if((dsp[INT|NON] & 1<<n) != 0)
 			p->sample = noise;
+		else
+			p->sample = interp(p->interp, p->buf + p->bp);
 		p->sample = (((int)p->sample * p->env) >> 11) & ~1;
 		p->modin = p->sample;
 		r[INT|OUTX] = p->sample >> 8;
@@ -362,10 +367,11 @@ voice(int n, int s)
 		if(p->init == 1){
 			p->hdrp = p->sp;
 			p->dp = p->hdrp + 1;
+			p->bp = 0;
 		}
 		if(p->interp >= 0x4000 || p->init <= 4 && p->init >= 2){
-			memmove(p->buf, p->buf + 4, 8 * sizeof(s16int));
 			p->brr |= spcmem[++p->dp];
+			decode(p);
 			if(++p->dp == p->hdrp + 9){
 				if((p->hdr & 1) != 0){
 					dsp[INT|ENDX] |= 1<<n;
@@ -374,11 +380,8 @@ voice(int n, int s)
 					p->hdrp += 9;
 				p->dp = p->hdrp + 1;
 			}
-			decode(p);
 		}
-		if(p->interp >= 0x4000)
-			p->interp -= 0x4000;
-		p->interp += p->pitch;
+		p->interp = (p->interp & 0x3fff) + p->pitch;
 		if(p->interp >= 0x7fff)
 			p->interp = 0x7fff;
 		break;
@@ -387,7 +390,6 @@ voice(int n, int s)
 		samp[1] = clamp16(samp[1] + v);
 		if((dsp[INT|EON] & (1<<n)) != 0)
 			echoin[1] = clamp16(echoin[1] + v); 
-		p->sample = interp(p->interp, p->buf);
 		break;
 	case 7:
 		m = 1<<n;
@@ -503,13 +505,13 @@ dspstep(void)
 		break;
 	case 29:
 		echo(29);
-		if((dspstate & 64) == 0)
+		if((dspstate & 32) == 0)
 			dsp[NEWKON] &= ~dsp[INT|KON];
 		break;
 	case 30:
 		voice(0, 0x32);
 		echo(30);
-		if((dspstate & 64) == 0){
+		if((dspstate & 32) == 0){
 			dsp[INT|KOFF] = dsp[KOFF];
 			dsp[INT|KON] = dsp[NEWKON];
 		}
