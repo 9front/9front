@@ -6,6 +6,7 @@ extern u32int rPB, curpc;
 extern u8int dma, nmi, irq;
 extern u32int hdma;
 extern int trace;
+extern int memcyc;
 
 extern uchar *prg, *sram;
 extern int nprg, nsram, hirom;
@@ -66,6 +67,7 @@ enum {
 	OVERSCAN = 1<<2,
 	AUTOJOY = 1,
 	NMITIMEN = 0x4200,
+	MEMSEL = 0x420d,
 	RDNMI = 0x4210,
 	VBLANK = 1<<7,
 	VCNTIRQ = 1<<5,

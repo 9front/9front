@@ -10,6 +10,7 @@ u8int oam[544], vram[65536];
 u16int cgram[256];
 u16int oamaddr, vramlatch;
 u32int keylatch, lastkeys;
+int memcyc;
 enum {
 	OAMLATCH,
 	CGLATCH,
@@ -373,11 +374,18 @@ memread(u32int a)
 				return sram[(b << 13 | al & 0x1ffff) & (nsram - 1)];
 			return regread(al);
 		}
-		if(!hirom && (b & 0xf8) == 0x70 && nsram != 0)
+		if(!hirom && (b & 0xf8) == 0x70 && nsram != 0){
+			if(a < 0x800000 || (reg[MEMSEL] & 1) == 0)
+				memcyc += 2;
 			return sram[a & 0x07ffff & (nsram - 1)];
+		}
 	}
-	if(b >= 0x7e && (a & (1<<23)) == 0)
+	if(b >= 0x7e && (a & (1<<23)) == 0){
+		memcyc += 2;
 		return mem[a - 0x7e0000];
+	}
+	if(a < 0x800000 || (reg[MEMSEL] & 1) == 0)
+		memcyc += 2;
 	if(hirom)
 		return prg[((b & 0x3f) % nprg) << 16 | al];
 	return prg[(b%nprg) << 15 | al & 0x7fff];
@@ -391,8 +399,10 @@ memwrite(u32int a, u8int v)
 
 	al = a;
 	b = (a>>16) & 0x7f;
-	if(b >= 0x7e && a < 0x800000)
+	if(b >= 0x7e && a < 0x800000){
+		memcyc += 2;
 		mem[a - 0x7e0000] = v;
+	}
 	if(al < 0x8000){
 		if(b < 0x40){
 			if(hirom && al >= 0x6000 && nsram != 0){
@@ -405,6 +415,8 @@ memwrite(u32int a, u8int v)
 		if(!hirom && (b & 0xf8) == 0x70 && nsram != 0){
 			sram[a & 0x07ffff & (nsram - 1)] = v;
 		save:
+			if(a < 0x800000 || (reg[MEMSEL] & 1) == 0)
+				memcyc += 2;	
 			if(saveclock == 0)
 				saveclock = SAVEFREQ;
 			return;
