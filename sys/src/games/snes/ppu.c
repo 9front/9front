@@ -248,6 +248,7 @@ static struct bgctxt {
 	u32int c[2];
 	int pal;
 	u8int msz, mv, mx;
+	u16int otx, oty, otny;
 } bgctxts[4];
 
 static void
@@ -319,6 +320,101 @@ bg(int n)
 	}
 	if((p->tnx & 7) == 0)
 		chr(n, p->nb, p->sz, p->t, p->tnx, p->tny, p->c);
+}
+
+static void
+optinit(void)
+{
+	struct bgctxt *p;
+	
+	p = bgctxts + 2;
+	p->szsh = (reg[BGMODE] & (1<<6)) != 0 ? 4 : 3;
+	p->sz = 1<<p->szsh;
+	p->tnx = hofs[2] & (p->sz - 1);
+	p->tx = hofs[2] >> p->szsh;
+	bgctxts[0].otx = bgctxts[1].otx = 0xffff;
+	bgctxts[0].oty = bgctxts[0].ty;
+	bgctxts[0].otny = bgctxts[0].tny;
+	bgctxts[1].oty = bgctxts[1].ty;
+	bgctxts[1].otny = bgctxts[1].tny;
+}
+
+static void
+opt(void)
+{
+	struct bgctxt *p;
+	u16int hval, vval;
+	int sx, sy;
+	
+	p = bgctxts + 2;
+	if(++p->tnx == p->sz){
+		if(mode == 4){
+			hval = tile(2, p->tx, vofs[2] >> p->szsh);
+			if((hval & 0x8000) != 0){
+				vval = hval;
+				hval = 0;
+			}else
+				vval = 0;
+		}else{
+			hval = tile(2, p->tx, vofs[2] >> p->szsh);
+			vval = tile(2, p->tx, (vofs[2]+8) >> p->szsh);
+		}
+		sx = (rx & ~7) + (hval & 0x1ff8);
+		sy = ppuy + (vval & 0x1fff);
+		if((vval & 0x2000) != 0){
+			bgctxts[0].oty = sy >> bgctxts[0].szsh;
+			bgctxts[0].otny = sy & (bgctxts[0].sz - 1);
+		}else{
+			bgctxts[0].oty = bgctxts[0].ty;
+			bgctxts[0].otny = bgctxts[0].tny;
+		}
+		if((vval & 0x4000) != 0){
+			bgctxts[1].oty = sy >> bgctxts[1].szsh;
+			bgctxts[1].otny = sy & (bgctxts[1].sz - 1);
+		}else{
+			bgctxts[1].oty = bgctxts[1].ty;
+			bgctxts[1].otny = bgctxts[1].tny;
+		}
+		if((hval & 0x2000) != 0)
+			bgctxts[0].otx = sx >> bgctxts[0].szsh;
+		else
+			bgctxts[0].otx = 0xffff;
+		if((hval & 0x4000) != 0)
+			bgctxts[1].otx = sx >> bgctxts[1].szsh;
+		else
+			bgctxts[1].otx = 0xffff;
+		p->tnx = 0;
+		p->tx++;
+	}
+}
+
+static void
+bgopt(int n)
+{
+	struct bgctxt *p;
+	u8int v;
+	
+	p = bgctxts + n;
+	v = bgpixel(p->c, p->nb, p->t & 0x4000);
+	if(p->msz != 1)
+		if(p->mx++ == 0)
+			p->mv = v;
+		else{
+			if(p->mx == p->msz)
+				p->mx = 0;
+			v = p->mv;
+		}
+	if(v != 0)
+		pixel(n, p->pal + v, p->pri[(p->t & 0x2000) != 0]);
+	if(++p->tnx == p->sz){
+		p->tx++;
+		p->tnx = 0;
+	}
+	if((p->tnx & 7) == 0){
+		p->t = tile(n, p->otx == 0xffff ? p->tx : p->otx, p->oty);
+		p->pal = palette(n, p->t >> 10 & 7);
+		chr(n, p->nb, p->sz, p->t, p->tnx, p->otny, p->c);
+	}
 }
 
 struct bg7ctxt {
@@ -452,10 +548,16 @@ bgsinit(void)
 	case 2:
 		bginit(0, 4, 0x40, 0xa0);
 		bginit(1, 4, 0x11, 0x71);
+		optinit();
 		break;
 	case 3:
 		bginit(0, 8, 0x40, 0xa0);
 		bginit(1, 4, 0x11, 0x71);
+		break;
+	case 4:
+		bginit(0, 8, 0x40, 0xa0);
+		bginit(1, 2, 0x11, 0x71);
+		optinit();
 		break;
 	case 7:
 		bg7init(0);
@@ -485,6 +587,11 @@ bgs(void)
 		bg(2);
 		break;
 	case 2:
+	case 4:
+		opt();
+		bgopt(0);
+		bgopt(1);
+		break;
 	case 3:
 		bg(0);
 		bg(1);
