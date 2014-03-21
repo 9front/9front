@@ -357,11 +357,11 @@ adc(u16int a)
 			if(r > 0x0009) r += 0x0006;
 			if(r > 0x001f) r -= 0x0010;
 			r += (rA & 0x00f0) + (a & 0x00f0);
-			if(r > 0x0090) r += 0x0060;
-			if(r > 0x01f0) r -= 0x0100;
+			if(r > 0x009f) r += 0x0060;
+			if(r > 0x01ff) r -= 0x0100;
 			r += (rA & 0x0f00) + (a & 0x0f00);
-			if(r > 0x0900) r += 0x0600;
-			if(r > 0x1f00) r -= 0x1000;
+			if(r > 0x09ff) r += 0x0600;
+			if(r > 0x1fff) r -= 0x1000;
 			r += (rA & 0xf000) + (a & 0xf000);
 		}else
 			r = rA + a + (rP & FLAGC);
@@ -505,6 +505,7 @@ sbc(u16int a)
 		if((rP & FLAGD) != 0){
 			r = (rA & 0xf) + (a & 0xf) + (rP & FLAGC);
 			if(r < 0x10) r -= 0x06;
+			if(r < 0) r += 0x10;
 			r += (rA & 0xf0) + (a & 0xf0);
 		}else
 			r = (rA & 0xff) + a + (rP & FLAGC);
@@ -525,10 +526,13 @@ sbc(u16int a)
 		if((rP & FLAGD) != 0){
 			r  = (rA & 0x000f) + (a & 0x000f) + (rP & FLAGC);
 			if(r < 0x0010) r -= 0x0006;
+			if(r < 0x0000) r += 0x0010;
 			r += (rA & 0x00f0) + (a & 0x00f0);
 			if(r < 0x0100) r -= 0x0060;
+			if(r < 0x0000) r += 0x0100;
 			r += (rA & 0x0f00) + (a & 0x0f00);
 			if(r < 0x1000) r -= 0x0600;
+			if(r < 0x0000) r += 0x1000;
 			r += (rA & 0xf000) + (a & 0xf000);
 		}else
 			r = rA + a + (rP & FLAGC);
