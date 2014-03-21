@@ -756,7 +756,7 @@ cpustep(void)
 			rA--;
 		nz(rA);
 		return 2;
-	case 0x3B: nz(rA = rS); return 2;
+	case 0x3B: nz16(rA = rS); return 2;
 	case 0x3C: bit(mem816(abso(0, 1), 0)); return 4+cyc;
 	case 0x3D: nz(rA &= mem816(abso(0, 1), 0xFF00)); return 4+cyc;
 	case 0x3E: rol(abso(0, 1)); return 7+cyc;
