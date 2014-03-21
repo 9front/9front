@@ -4,8 +4,8 @@
 #include "dat.h"
 #include "fns.h"
 
-static u8int dsp[256], dspstate;
-static u16int counter, noise;
+u8int dsp[256], dspstate;
+u16int dspcounter, noise;
 static s16int samp[2], echoin[2];
 
 enum {
@@ -134,9 +134,9 @@ envyes(int r)
 	if(r >= 30){
 		if(r == 31)
 			return 1;
-		return (counter & 1) == 0;
+		return (dspcounter & 1) == 0;
 	}
-	c = counter;
+	c = dspcounter;
 	switch(r % 3){
 	case 0: c += 536; break;
 	case 2: c += 1040; break;
@@ -515,8 +515,8 @@ dspstep(void)
 			dsp[INT|KOFF] = dsp[KOFF];
 			dsp[INT|KON] = dsp[NEWKON];
 		}
-		if(counter-- == 0)
-			counter = 0x77ff;
+		if(dspcounter-- == 0)
+			dspcounter = 0x77ff;
 		break;
 	case 31: voice(0, 4); voice(2, 1); break;
 	}

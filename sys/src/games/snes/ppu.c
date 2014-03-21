@@ -7,7 +7,7 @@
 int ppux, ppuy, rx;
 static u8int mode, bright, pixelpri[2];
 static u32int pixelcol[2];
-u16int vtime = 0x1ff, htime = 0x1ff, subcolor, mosatop;
+u16int vtime = 0x1ff, htime = 0x1ff, subcolor;
 uchar pic[256*239*2*9];
 u16int hofs[5], vofs[5];
 s16int m7[6];

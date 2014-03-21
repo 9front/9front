@@ -15,7 +15,7 @@ int ppuclock, spcclock, dspclock, stimerclock, saveclock, msgclock, paused, perf
 Mousectl *mc;
 QLock pauselock;
 u32int keys;
-int savefd, scale, profile, mouse;
+int savefd, scale, profile, mouse, loadreq, savereq;
 Rectangle picr;
 Image *tmp, *bg;
 
@@ -126,6 +126,10 @@ keyproc(void *)
 		if(read(fd, buf, sizeof(buf) - 1) <= 0)
 			sysfatal("read /dev/kbd: %r");
 		if(buf[0] == 'c'){
+			if(utfrune(buf, KF|5))
+				savereq = 1;
+			if(utfrune(buf, KF|6))
+				loadreq = 1;
 			if(utfrune(buf, Kdel)){
 				close(fd);
 				threadexitsall(nil);
@@ -251,6 +255,14 @@ usage:
 	spcreset();
 	dspreset();
 	for(;;){
+		if(savereq){
+			savestate("snes.save");
+			savereq = 0;
+		}
+		if(loadreq){
+			loadstate("snes.save");
+			loadreq = 0;
+		}
 		if(paused){
 			qlock(&pauselock);
 			qunlock(&pauselock);

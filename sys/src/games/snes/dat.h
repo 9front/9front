@@ -1,26 +1,30 @@
 typedef signed char s8int;
 typedef signed short s16int;
 
-extern u16int pc;
-extern u32int rPB, curpc;
-extern u8int dma, nmi, irq;
-extern u32int hdma;
+extern u8int rP, dma, nmi, irq, emu, wai;
+extern u16int rA, rX, rY, rS, rD, pc;
+extern u32int rPB, rDB, curpc, hdma;
 extern int trace;
 extern int memcyc;
 
 extern uchar *prg, *sram;
 extern int nprg, nsram, hirom;
 extern u32int keys, keylatch, lastkeys;
-extern u8int reg[32768], spcmem[65536], vram[65536], oam[544];
-extern u16int cgram[256];
+extern u8int reg[32768], mem[131072], spcmem[65536], vram[65536], oam[544];
+extern u16int cgram[256], vramlatch;
 
 extern int ppux, ppuy, rx;
 extern u16int vtime, htime, subcolor, oamaddr;
 extern u16int hofs[5], vofs[5];
 extern s16int m7[6];
 
-extern u8int spcmem[65536];
+extern u8int spcmem[65536], spctimer[4], dsp[256];
+extern u8int sA, sX, sY, sP, sS;
+extern u16int spc;
+extern u8int dspstate;
+extern u16int dspcounter, noise;
 
+extern int ppuclock, spcclock, dspclock, stimerclock;
 extern int battery, saveclock, scale, mouse;
 
 enum {

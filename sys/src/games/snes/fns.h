@@ -17,3 +17,6 @@ void	dspwrite(u8int, u8int);
 void	dspreset(void);
 void	audioinit(void);
 int	audioout(void);
+void	flushram(void);
+void	loadstate(char *);
+void	savestate(char *);
