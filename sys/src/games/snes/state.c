@@ -106,6 +106,9 @@ loadstate(char *file)
 	dma = get8();
 	hdma = get32();
 	wai = get8();
+	mdr = get8();
+	mdr1 = get8();
+	mdr2 = get8();
 	oamaddr = get16();
 	vramlatch = get16();
 	keylatch = get32();
@@ -163,6 +166,9 @@ savestate(char *file)
 	put8(dma);
 	put32(hdma);
 	put8(wai);
+	put8(mdr);
+	put8(mdr1);
+	put8(mdr2);
 	put16(oamaddr);
 	put16(vramlatch);
 	put32(keylatch);

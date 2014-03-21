@@ -22,6 +22,8 @@ enum {
 	OPVCTH,
 };
 
+u8int mdr, mdr1, mdr2;
+
 extern void calc7(void);
 
 static u16int
@@ -120,51 +122,54 @@ regread(u16int p)
 	switch(p){
 	case 0x2134: case 0x2135: case 0x2136:
 		r = ((signed short)m7[0] * (signed char)reg[0x211c]) & 0xffffff;
-		return r >> 8 * (p - 0x2134);
+		return mdr1 = r >> 8 * (p - 0x2134);
 	case 0x2137:
 		if((reg[0x4201] & 0x80) != 0)
 			hvlatch();
-		return 0;
+		return mdr;
 	case 0x2138:
 		if(oamaddr < 0x200)
 			v = oam[oamaddr];
 		else
 			v = oam[oamaddr & 0x21f];
 		oamaddr = (oamaddr + 1) & 0x3ff;
-		return v;
+		return mdr1 = v;
 	case 0x2139:
 		v = vramlatch;
 		incvram(0, 1);
-		return v;
+		return mdr1 = v;
 	case 0x213a:
 		v = vramlatch >> 8;
 		incvram(1, 1);
-		return v;
+		return mdr1 = v;
 	case 0x213b:
 		a = swaprb(cgram[reg[0x2121]]);
 		if(reg[CGLH] != 0){
 			a >>= 8;
+			a |= mdr2 & 0x80;
 			reg[0x2121]++;
 		}
 		reg[CGLH] ^= 1;
-		return a;
+		return mdr2 = a;
 	case 0x213c:
 		reg[OPCTLATCH] ^= 1;
 		if((reg[OPCTLATCH] & 1) == 0)
-			return reg[OPHCTH];
-		break;
+			return mdr2 = reg[OPHCTH] | mdr2 & 0xfe;
+		return mdr2 = reg[p];
 	case 0x213d:
 		reg[OPCTLATCH] ^= 2;
 		if((reg[OPCTLATCH] & 2) == 0)
-			return reg[OPVCTH];
-		break;
+			return reg[OPVCTH] | mdr2 & 0xfe;
+		return mdr2 = reg[p];
+	case 0x213e:
+		return (mdr1 = reg[p]) | mdr & 0x10;
 	case 0x213f:
 		v = 2 | reg[OPCTLATCH] & 0x40;
 		if((reg[0x4201] & 0x80) != 0)
 			reg[OPCTLATCH] &= ~0x43;
 		else
 			reg[OPCTLATCH] &= ~3;
-		return v;
+		return mdr2 = v | mdr2 & 0x20;
 	case 0x2180:
 		v = memread(0x7e0000 | reg[0x2181] | reg[0x2182] << 8 | (reg[0x2183] & 1) << 16);
 		incwram();
@@ -180,13 +185,15 @@ regread(u16int p)
 		}
 		v = keylatch >> 31;
 		keylatch = (keylatch << 1) | 1;
-		return v;
+		return v | mdr & 0xfc;
 	case 0x4017:
-		return 0;
+		return 0x1f | mdr & 0xe0;
+	case 0x4210:
+		return reg[p] | mdr & 0x70;
 	case 0x4211:
 		v = irq;
 		irq &= ~IRQPPU;
-		return v;
+		return v | mdr & 0x7f;
 	case 0x4212:
 		v = 0;
 		if(ppux >= 274 || ppux == 0)
@@ -197,11 +204,17 @@ regread(u16int p)
 			if(ppuy <= a + 2 && (reg[NMITIMEN] & AUTOJOY) != 0)
 				v |= 1;
 		}
-		return v;
+		return v | mdr & 0x3e;
+	case 0x4214: case 0x4215: case 0x4216: case 0x4217: case 0x4218:
+	case 0x4219: case 0x421a: case 0x421b: case 0x421c: case 0x421d:
+	case 0x421e: case 0x421f:
+		return reg[p];
 	}
-	if((p & 0xff40) == 0x2140)
+	if((p & 0xff80) == 0x4300)
+		return reg[p];
+	if((p & 0xffc0) == 0x2140)
 		return spcmem[0xf4 | p & 3];
-	return reg[p];
+	return mdr;
 }
 
 void
@@ -381,25 +394,28 @@ memread(u32int a)
 	b = (a>>16) & 0x7f;
 	if(al < 0x8000){
 		if(b < 0x40){
-			if(hirom && al >= 0x6000 && nsram != 0)
-				return sram[(b << 13 | al & 0x1ffff) & (nsram - 1)];
-			return regread(al);
+			if(hirom && al >= 0x6000 && nsram != 0){
+				if(a < 0x800000 || (reg[MEMSEL] & 1) == 0)
+					memcyc += 2;
+				return mdr = sram[(b << 13 | al & 0x1ffff) & (nsram - 1)];
+			}
+			return mdr = regread(al);
 		}
 		if(!hirom && (b & 0xf8) == 0x70 && nsram != 0){
 			if(a < 0x800000 || (reg[MEMSEL] & 1) == 0)
 				memcyc += 2;
-			return sram[a & 0x07ffff & (nsram - 1)];
+			return mdr = sram[a & 0x07ffff & (nsram - 1)];
 		}
 	}
 	if(b >= 0x7e && (a & (1<<23)) == 0){
 		memcyc += 2;
-		return mem[a - 0x7e0000];
+		return mdr = mem[a - 0x7e0000];
 	}
 	if(a < 0x800000 || (reg[MEMSEL] & 1) == 0)
 		memcyc += 2;
 	if(hirom)
-		return prg[((b & 0x3f) % nprg) << 16 | al];
-	return prg[(b%nprg) << 15 | al & 0x7fff];
+		return mdr = prg[((b & 0x3f) % nprg) << 16 | al];
+	return mdr = prg[(b%nprg) << 15 | al & 0x7fff];
 }
 
 void

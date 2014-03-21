@@ -12,6 +12,7 @@ extern int nprg, nsram, hirom;
 extern u32int keys, keylatch, lastkeys;
 extern u8int reg[32768], mem[131072], spcmem[65536], vram[65536], oam[544];
 extern u16int cgram[256], vramlatch;
+extern u8int mdr, mdr1, mdr2;
 
 extern int ppux, ppuy, rx;
 extern u16int vtime, htime, subcolor, oamaddr;
