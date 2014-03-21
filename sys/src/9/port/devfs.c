@@ -646,7 +646,7 @@ mconfig(char* a, long n)
 Fail:
 		for(i = 1; i < cb->nf; i++)
 			if(idev != nil && idev[i-1] != nil)
-				cclose(idev[i]);
+				cclose(idev[i-1]);
 		if(mp != nil)
 			mdeldev(mp);
 		free(idev);
