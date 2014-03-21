@@ -877,7 +877,8 @@ ppustep(void)
 			reg[RDNMI] |= VBLANK;
 			if((reg[NMITIMEN] & VBLANK) != 0)
 				nmi = 2;
-			oamaddr = reg[0x2102] << 1 | (reg[0x2103] & 1) << 9;
+			if((reg[INIDISP] & 0x80) == 0)
+				oamaddr = reg[0x2102] << 1 | (reg[0x2103] & 1) << 9;
 			if((reg[NMITIMEN] & AUTOJOY) != 0){
 				memwrite(0x4016, 1);
 				memwrite(0x4016, 0);

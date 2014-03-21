@@ -231,7 +231,7 @@ regwrite(u16int p, u8int v)
 		oamaddr = (reg[0x2103] & 1) << 9 | v << 1;
 		break;
 	case 0x2103:
-		oamaddr = (v & 1) << 9 | reg[0x2102];
+		oamaddr = (v & 1) << 9 | reg[0x2102] << 1;
 		break;
 	case 0x2104:
 		if((oamaddr & 1) == 0)
