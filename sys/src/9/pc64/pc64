@@ -96,7 +96,7 @@ misc
 	sdmmc		pci pmmc
 #	sdloop
 
-#	uarti8250
+	uarti8250
 #	uartisa
 #	uartpci		pci
 

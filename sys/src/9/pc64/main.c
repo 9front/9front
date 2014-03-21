@@ -475,7 +475,7 @@ main()
 	mach0init();
 	options();
 	ioinit();
-	// i8250console();
+	i8250console();
 	quotefmtinstall();
 	screeninit();
 	trapinit0();
