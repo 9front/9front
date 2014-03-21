@@ -24,6 +24,17 @@ enum {
 
 extern void calc7(void);
 
+static u16int
+vrammap(u16int a)
+{
+	switch(reg[0x2115] & 12){
+	default: return a << 1;
+	case  4: return a << 1 & 0xfe00 | a << 4 & 0x01f0 | a >> 4 & 0x000e;
+	case  8: return a << 1 & 0xfc00 | a << 4 & 0x03f0 | a >> 5 & 0x000e;
+	case 12: return a << 1 & 0xf800 | a << 4 & 0x07f0 | a >> 6 & 0x000e;
+	}
+}
+
 static void
 incvram(int i, int r)
 {
@@ -34,10 +45,8 @@ incvram(int i, int r)
 	if((c >> 7) != i)
 		return;
 	a = reg[0x2116] | reg[0x2117] << 8;
-	if((c & 0x0c) != 0)
-		print("address remapping\n");
 	if(r){
-		b = a<<1;
+		b = vrammap(a);
 		vramlatch = vram[b++];
 		vramlatch |= vram[b] << 8;
 	}
@@ -254,12 +263,12 @@ regwrite(u16int p, u8int v)
 		v &= 0x7f;
 		break;
 	case 0x2118:
-		a = reg[0x2116] << 1 | reg[0x2117] << 9;
+		a = vrammap(reg[0x2116] | reg[0x2117] << 8);
 		vram[a] = v;
 		incvram(0, 0);
 		return;
 	case 0x2119:
-		a = reg[0x2116] << 1 | reg[0x2117] << 9;
+		a = vrammap(reg[0x2116] | reg[0x2117] << 8);
 		vram[a|1] = v;
 		incvram(1, 0);
 		return;
@@ -306,6 +315,8 @@ regwrite(u16int p, u8int v)
 	case 0x4200:
 		if((reg[0x4200] & 0x80) == 0 && (v & 0x80) != 0 && (reg[RDNMI] & 0x80) != 0)
 			nmi = 2;
+		if((v & (HCNTIRQ|VCNTIRQ)) == 0)
+			irq &= ~IRQPPU;
 		break;
 	case 0x4201:
 		if((reg[0x4201] & 0x80) == 0 && (v & 0x80) != 0)
