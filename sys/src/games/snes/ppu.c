@@ -618,7 +618,7 @@ sprites(void)
 		u32int *ch;
 	} t[32], *tp;
 	static u32int ch[34];
-	static u8int *p, q, over;
+	static u8int *p, q;
 	static int n, m;
 	static int *sz;
 	static int szs[] = {
@@ -635,7 +635,6 @@ sprites(void)
 
 	if(rx == 0){
 		n = 0;
-		over = 1;
 		sp = s;
 		sz = szs + ((reg[OBSEL] & 0xe0) >> 3);
 		base[0] = (reg[OBSEL] & 0x07) << 14;
@@ -654,10 +653,10 @@ sprites(void)
 		sp->x = p[0];
 		if((q & 1) != 0)
 			sp->x |= 0xff00;
-		if(sp->x < -(short)sp->sx && sp->x != -256)
+		if(sp->x <= -(short)sp->sx && sp->x != -256)
 			goto nope;
 		if(n == 32){
-			over |= 0x40;
+			reg[0x213e] |= 0x40;
 			goto nope;
 		}
 		sp->i = rx >> 1;
@@ -742,7 +741,7 @@ nope:
 						*cp++ = w;
 						tp->sx += 8;
 					}else
-						over |= 0x80;
+						reg[0x213e] |= 0x80;
 				}
 			}else
 				for(i = 0; i < nt; i++){
@@ -755,7 +754,7 @@ nope:
 						tp->sx += 8;
 						a += 15;
 					}else
-						over |= 0x80;
+						reg[0x213e] |= 0x80;
 				}
 			if(sp->x < 0 && (i = (-sp->x) & 7) != 0)
 				if((sp->c & 0x40) != 0)
@@ -763,7 +762,6 @@ nope:
 				else
 					*tp->ch <<= i;
 		}
-		reg[0x213e] = over;
 	}
 }
 
@@ -868,6 +866,8 @@ ppustep(void)
 		if(++ppuy >= 262){
 			ppuy = 0;
 			reg[RDNMI] &= ~VBLANK;
+			reg[0x213e] = 1;
+			reg[0x213f] ^= 0x80;
 			hdma = reg[0x420c]<<8;
 			flush();
 		}

@@ -38,20 +38,27 @@ vrammap(u16int a)
 }
 
 static void
+vramread(void)
+{
+	u16int b;
+
+	b = vrammap(reg[0x2116] | reg[0x2117] << 8);
+	vramlatch = vram[b++];
+	vramlatch |= vram[b] << 8;
+}
+
+static void
 incvram(int i, int r)
 {
-	u16int a, b;
+	u16int a;
 	int c;
 	
 	c = reg[0x2115];
 	if((c >> 7) != i)
 		return;
 	a = reg[0x2116] | reg[0x2117] << 8;
-	if(r){
-		b = vrammap(a);
-		vramlatch = vram[b++];
-		vramlatch |= vram[b] << 8;
-	}
+	if(r)
+		vramread();
 	switch(c & 3){
 	case 0: a++; break;
 	case 1: a += 32; break;
@@ -162,14 +169,14 @@ regread(u16int p)
 			return reg[OPVCTH] | mdr2 & 0xfe;
 		return mdr2 = reg[p];
 	case 0x213e:
-		return (mdr1 = reg[p]) | mdr & 0x10;
+		return mdr1 = reg[p] | mdr1 & 0x10;
 	case 0x213f:
-		v = 2 | reg[OPCTLATCH] & 0x40;
+		v = reg[OPCTLATCH] & 0x40;
 		if((reg[0x4201] & 0x80) != 0)
 			reg[OPCTLATCH] &= ~0x43;
 		else
 			reg[OPCTLATCH] &= ~3;
-		return mdr2 = v | mdr2 & 0x20;
+		return mdr2 = reg[p] | v | mdr2 & 0x20;
 	case 0x2180:
 		v = memread(0x7e0000 | reg[0x2181] | reg[0x2182] << 8 | (reg[0x2183] & 1) << 16);
 		incwram();
@@ -189,7 +196,9 @@ regread(u16int p)
 	case 0x4017:
 		return 0x1f | mdr & 0xe0;
 	case 0x4210:
-		return reg[p] | mdr & 0x70;
+		v = reg[p];
+		reg[p] &= ~VBLANK;
+		return v | mdr & 0x70;
 	case 0x4211:
 		v = irq;
 		irq &= ~IRQPPU;
@@ -209,6 +218,10 @@ regread(u16int p)
 	case 0x4219: case 0x421a: case 0x421b: case 0x421c: case 0x421d:
 	case 0x421e: case 0x421f:
 		return reg[p];
+	case 0x2104: case 0x2105: case 0x2106: case 0x2108: case 0x2109: case 0x210a:
+	case 0x2114: case 0x2115: case 0x2116: case 0x2118: case 0x2119: case 0x211a:
+	case 0x2124: case 0x2125: case 0x2126: case 0x2128: case 0x2129: case 0x212a:
+		return mdr1;
 	}
 	if((p & 0xff80) == 0x4300)
 		return reg[p];
@@ -270,11 +283,12 @@ regwrite(u16int p, u8int v)
 		vofs[(p - 0x210e) >> 1] = v << 8 | reg[OFSPREV];
 		reg[OFSPREV] = v;
 		break;
-	case 0x2116:
-		break;
 	case 0x2117:
 		v &= 0x7f;
-		break;
+	case 0x2116:
+		reg[p] = v;
+		vramread();
+		return;
 	case 0x2118:
 		a = vrammap(reg[0x2116] | reg[0x2117] << 8);
 		vram[a] = v;
@@ -620,6 +634,7 @@ void
 memreset(void)
 {
 	reg[0x213e] = 1;
+	reg[0x213f] = 2;
 	reg[0x4201] = 0xff;
 	reg[0x4210] = 2;
 }
