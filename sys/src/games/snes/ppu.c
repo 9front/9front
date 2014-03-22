@@ -857,9 +857,11 @@ ppustep(void)
 			pixeldraw(rx, ppuy - 1, ppuy >= yvbl ? 0x31c8 : 0);
 	}
 
+	if(ppux == 134)
+		cpupause = 1;
 	if(ppux == 0x116 && ppuy <= yvbl)
 		hdma |= reg[0x420c];
-	if((reg[NMITIMEN] & HCNTIRQ) != 0 && htime == ppux && ((reg[NMITIMEN] & VCNTIRQ) == 0 || vtime == ppuy))
+	if((reg[NMITIMEN] & HCNTIRQ) != 0 && htime+4 == ppux && ((reg[NMITIMEN] & VCNTIRQ) == 0 || vtime == ppuy))
 		irq |= IRQPPU;
 	if(++ppux >= 340){
 		ppux = 0;

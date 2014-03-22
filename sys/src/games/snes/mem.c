@@ -183,7 +183,7 @@ regread(u16int p)
 			reg[OPCTLATCH] &= ~3;
 		return mdr2 = reg[p] | v | mdr2 & 0x20;
 	case 0x2180:
-		v = memread(0x7e0000 | reg[0x2181] | reg[0x2182] << 8 | (reg[0x2183] & 1) << 16);
+		v = mem[reg[0x2181] | reg[0x2182] << 8 | (reg[0x2183] & 1) << 16];
 		incwram();
 		return v;
 	case 0x4016:
@@ -337,7 +337,7 @@ regwrite(u16int p, u8int v)
 	case 0x213e:
 		return;
 	case 0x2180:
-		memwrite(0x7e0000 | reg[0x2181] | reg[0x2182] << 8 | (reg[0x2183] & 1) << 16, v);
+		mem[reg[0x2181] | reg[0x2182] << 8 | (reg[0x2183] & 1) << 16] = v;
 		incwram();
 		return;
 	case 0x4016:

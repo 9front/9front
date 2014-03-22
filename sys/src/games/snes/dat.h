@@ -24,7 +24,7 @@ extern u16int spc;
 extern u8int dspstate;
 extern u16int dspcounter, noise;
 
-extern int ppuclock, spcclock, dspclock, stimerclock;
+extern int ppuclock, spcclock, dspclock, stimerclock, cpupause;
 extern int battery, saveclock, scale, mouse;
 
 enum {

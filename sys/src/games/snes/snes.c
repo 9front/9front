@@ -11,7 +11,7 @@
 uchar *prg, *sram;
 int nprg, nsram, hirom, battery;
 
-int ppuclock, spcclock, dspclock, stimerclock, saveclock, msgclock, paused, perfclock;
+int ppuclock, spcclock, dspclock, stimerclock, saveclock, msgclock, paused, perfclock, cpupause;
 Mousectl *mc;
 QLock pauselock;
 u32int keys;
@@ -267,7 +267,11 @@ usage:
 			qlock(&pauselock);
 			qunlock(&pauselock);
 		}
-		t = cpustep();
+		if(cpupause){
+			t = 40;
+			cpupause = 0;
+		}else
+			t = cpustep();
 		spcclock -= t;
 		stimerclock += t;
 		ppuclock += t;

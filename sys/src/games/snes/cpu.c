@@ -609,11 +609,8 @@ enum { COP = 0, BRK = 1, NMI = 3, IRQ = 5 };
 static void
 interrupt(int src)
 {
-	if(src > BRK){
-		io();
-		if(!emu)
-			io();
-	}
+	if(src > BRK)
+		memread(pc | rPB);
 	if(!emu)
 		push8(rPB >> 16);
 	push16(pc);
@@ -687,7 +684,6 @@ cpustep(void)
 	lastpc = curpc;
 	if(trace)
 		print("%.6x %.2x A=%.4x X=%.4x Y=%.4x P=%.2x %.2x\n", curpc, op, rA, rX, rY, rP, rS);
-	cyc = 0;
 	switch(op){
 	case 0x00: fetch8(); interrupt(BRK); break;
 	case 0x01: nz(rA |= mem816(dpi(0, 1, 0), 0)); break;
