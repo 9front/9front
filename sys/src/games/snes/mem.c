@@ -10,7 +10,7 @@ u8int oam[544], vram[65536];
 u16int cgram[256];
 u16int oamaddr, vramlatch;
 u32int keylatch, lastkeys;
-int memcyc;
+int cyc;
 enum {
 	OAMLATCH,
 	CGLATCH,
@@ -124,8 +124,13 @@ regread(u16int p)
 	u16int a;
 	int r;
 
-	if(p < 0x2000)
+	if(p < 0x2000){
+		cyc += 8;
 		return mem[p];
+	}
+	cyc += 6;
+	if((p & 0xfe00) == 0x4000)
+		cyc += 6;
 	switch(p){
 	case 0x2134: case 0x2135: case 0x2136:
 		r = ((signed short)m7[0] * (signed char)reg[0x211c]) & 0xffffff;
@@ -236,9 +241,13 @@ regwrite(u16int p, u8int v)
 	u16int a;
 
 	if(p < 0x2000){
+		cyc += 8;
 		mem[p] = v;
 		return;
 	}
+	cyc += 6;
+	if((p & 0xfe00) == 0x4000)
+		cyc += 6;
 	switch(p){
 	case 0x2102:
 		oamaddr = (reg[0x2103] & 1) << 9 | v << 1;
@@ -403,30 +412,31 @@ memread(u32int a)
 {
 	u16int al;
 	u8int b;
+	int speed;
 
 	al = a;
 	b = (a>>16) & 0x7f;
+	speed = a < 0x800000 || (reg[MEMSEL] & 1) == 0 ? 8 : 6;
 	if(al < 0x8000){
 		if(b < 0x40){
-			if(hirom && al >= 0x6000 && nsram != 0){
-				if(a < 0x800000 || (reg[MEMSEL] & 1) == 0)
-					memcyc += 2;
-				return mdr = sram[(b << 13 | al & 0x1ffff) & (nsram - 1)];
+			if(al >= 0x6000){
+				cyc += 8;
+				if(hirom && nsram != 0)
+					return mdr = sram[(b << 13 | al & 0x1ffff) & (nsram - 1)];
+				return mdr;
 			}
 			return mdr = regread(al);
 		}
 		if(!hirom && (b & 0xf8) == 0x70 && nsram != 0){
-			if(a < 0x800000 || (reg[MEMSEL] & 1) == 0)
-				memcyc += 2;
+			cyc += speed;
 			return mdr = sram[a & 0x07ffff & (nsram - 1)];
 		}
 	}
 	if(b >= 0x7e && (a & (1<<23)) == 0){
-		memcyc += 2;
+		cyc += 8;
 		return mdr = mem[a - 0x7e0000];
 	}
-	if(a < 0x800000 || (reg[MEMSEL] & 1) == 0)
-		memcyc += 2;
+	cyc += speed;
 	if(hirom)
 		return mdr = prg[((b & 0x3f) % nprg) << 16 | al];
 	return mdr = prg[(b%nprg) << 15 | al & 0x7fff];
@@ -437,32 +447,37 @@ memwrite(u32int a, u8int v)
 {
 	u16int al;
 	u8int b;
+	int speed;
 
 	al = a;
 	b = (a>>16) & 0x7f;
+	speed = a < 0x800000 || (reg[MEMSEL] & 1) == 0 ? 8 : 6;
 	if(b >= 0x7e && a < 0x800000){
-		memcyc += 2;
+		cyc += 8;
 		mem[a - 0x7e0000] = v;
 	}
 	if(al < 0x8000){
 		if(b < 0x40){
-			if(hirom && al >= 0x6000 && nsram != 0){
-				sram[(b << 13 | al & 0x1fff) & (nsram - 1)] = v;
-				goto save;
-			}
-			regwrite(a, v);
+			if(al >= 0x6000){
+				cyc += 8;
+				if(hirom && nsram != 0){
+					sram[(b << 13 | al & 0x1fff) & (nsram - 1)] = v;
+					goto save;
+				}
+			}else
+				regwrite(a, v);
 			return;
 		}
 		if(!hirom && (b & 0xf8) == 0x70 && nsram != 0){
 			sram[a & 0x07ffff & (nsram - 1)] = v;
-		save:
-			if(a < 0x800000 || (reg[MEMSEL] & 1) == 0)
-				memcyc += 2;	
+			cyc += speed;
+		save:	
 			if(saveclock == 0)
 				saveclock = SAVEFREQ;
 			return;
 		}
 	}
+	cyc += speed;
 }
 
 static u8int nbytes[] = {1, 2, 2, 4, 4, 4, 2, 4};
@@ -486,12 +501,12 @@ dmavalid(int a, int b)
 int
 dmastep(void)
 {
-	int i, j, n, m, cyc;
+	int i, j, n, m, cycl;
 	u32int a;
 	u8int b, c, *p;
 	u32int v;
 	
-	cyc = 0;
+	cycl = 0;
 	for(i = 0; i < 8; i++)
 		if((dma & (1<<i)) != 0)
 			break;
@@ -513,7 +528,7 @@ dmastep(void)
 			if(dmavalid(b, 1))
 				memwrite(0x2100 | b, v);
 		}
-		cyc++;
+		cycl += 8;
 		m >>= 2;
 		if((c & 0x08) == 0){
 			if((c & 0x10) != 0){
@@ -532,7 +547,7 @@ dmastep(void)
 			break;
 		}
 	}
-	return cyc;
+	return cycl;
 }
 
 static int
@@ -551,22 +566,22 @@ hdmaload(u8int *p)
 	}
 	p[8] = a;
 	p[9] = a >> 8;
-	return (p[0] & 0x40) != 0 ? 3 : 1;
+	return (p[0] & 0x40) != 0 ? 24 : 8;
 }
 
 int
 hdmastep(void)
 {
-	int i, j, cyc;
+	int i, j, cycl;
 	u8int *p, *q, n, m, b, v, c;
 	u32int a, br;
 	
-	cyc = 0;
+	cycl = 0;
 	if(dma != 0)
 		dma &= ~((hdma & 0xff00) >> 8 | (hdma & 0xff));
 	if((hdma & 0xff) == 0)
 		goto init;
-	cyc += 2;
+	cycl += 18;
 	for(i = 0; i < 8; i++){
 		if(((hdma >> i) & (1<<24|1)) != 1)
 			continue;
@@ -596,15 +611,15 @@ hdmastep(void)
 				}
 				if(++q[0] == 0)
 					q[1]++;
-				cyc++;
+				cycl += 8;
 				m >>= 2;
 			}
 		}
 		p[10]--;
 		hdma = (hdma & ~(1<<(16+i))) | ((p[10] & 0x80) << (9+i));
-		cyc++;
+		cycl += 8;
 		if((p[10] & 0x7f) == 0){
-			cyc += hdmaload(p)-1;
+			cycl += hdmaload(p) - 8;
 			if(p[10] == 0)
 				hdma |= 1<<(24+i);
 			hdma |= 1<<(16+i);
@@ -612,7 +627,7 @@ hdmastep(void)
 	}
 	hdma &= ~0xff;
 	if((hdma & 0xff00) == 0)
-		return cyc;
+		return cycl;
 init:
 	for(i = 0; i < 8; i++){
 		if((hdma & (1<<(8+i))) == 0)
@@ -620,14 +635,14 @@ init:
 		p = reg + 0x4300 + (i << 4);
 		p[8] = p[2];
 		p[9] = p[3];
-		cyc += hdmaload(p);
+		cycl += hdmaload(p);
 		if(p[10] == 0)
 			hdma |= 1<<(24+i);
 		hdma |= 1<<(16+i);
 	}
-	cyc += 2;
+	cycl += 18;
 	hdma &= ~0xff00;
-	return cyc;
+	return cycl;
 }
 
 void

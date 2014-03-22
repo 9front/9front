@@ -8,8 +8,18 @@ u8int rP, emu, irq, nmi, dma, wai;
 u16int rA, rX, rY, rS, rD, pc;
 u32int rDB, rPB, curpc, hdma;
 static u8int m8, x8;
-static int cyc;
+int cyc;
 static u32int lastpc;
+#define io() cyc += 6
+
+static void
+ioirq(void)
+{
+	if(irq && (rP & FLAGI) == 0)
+		memread(pc | rPB);
+	else
+		io();
+}
 
 static u8int
 fetch8(void)
@@ -42,7 +52,6 @@ mem816(u32int a, u16int v)
 {
 	if(m8)
 		return memread(a) | v;
-	cyc++;
 	return mem16(a);
 }
 
@@ -51,7 +60,6 @@ memx816(u32int a)
 {
 	if(x8)
 		return memread(a);
-	cyc++;
 	return mem16(a);
 }
 
@@ -63,7 +71,6 @@ memw816(u32int a, u16int v)
 	if(m8)
 		return;
 	memwrite(++a, v >> 8);
-	cyc++;
 }
 
 static void
@@ -73,7 +80,6 @@ memwx816(u32int a, u16int v)
 	if(x8)
 		return;
 	memwrite(++a, v >> 8);
-	cyc++;
 }
 
 static void
@@ -116,10 +122,8 @@ pop16(void)
 static void
 push816(u16int v, int m)
 {
-	if(!m){
+	if(!m)
 		push8(v >> 8);
-		cyc++;
-	}
 	push8(v);
 }
 
@@ -131,7 +135,6 @@ pop816(u16int a, int m)
 	r = pop8();
 	if(m)
 		return r | a;
-	cyc++;
 	r |= pop8() << 8;
 	return r;
 }
@@ -178,7 +181,6 @@ imm(int a)
 {
 	if(m8)
 		return fetch8() | a;
-	cyc++;
 	return fetch16();
 }
 
@@ -187,7 +189,6 @@ immx(int a)
 {
 	if(x8)
 		return fetch8() | a;
-	cyc++;
 	return fetch16();
 }
 
@@ -218,6 +219,7 @@ absi(int x)
 	if(x){
 		p += rX;
 		b = rPB;
+		io();
 	}else
 		b = 0;
 	r = memread(p++ | b);
@@ -229,18 +231,17 @@ static u32int
 dp(int x)
 {
 	u32int p;
-	
-	if((rD & 0xFF) != 0)
-		cyc++;
+
 	p = fetch8();
 	switch(x){
-	case 1: p += rX; break;
-	case 2: p += rY; break;
+	case 1: p += rX; io(); break;
+	case 2: p += rY; io(); break;
 	}
-	if(emu && (rD & 0xFF) == 0)
-		p = rD & 0xFF00 | p & 0xFF;
-	else
-		p = (p + rD) & 0xFFFF;
+	if((rD & 0xFF) != 0)
+		io();
+	else if(emu)
+		return rD & 0xFF00 | p & 0xFF;
+	p = (p + rD) & 0xFFFF;
 	return p;
 }
 
@@ -270,7 +271,7 @@ dpi(int l, int x, int y)
 	if(y){
 		s = r + rY;
 		if(x8 && ((r ^ s) & 0xFF00) != 0)
-			cyc++;
+			io();
 		r = s;
 	}
 	r += b;
@@ -280,36 +281,48 @@ dpi(int l, int x, int y)
 static u32int
 sr(void)
 {
-	return (rS + fetch8()) & 0xFFFF;
+	u8int d;
+	
+	d = fetch8();
+	io();
+	return (rS + d) & 0xFFFF;
 }
 
 static u32int
 sry(void)
 {
-	return (mem16((rS + fetch8()) & 0xFFFF) | rDB) + rY;
+	u8int d;
+	u32int a;
+	
+	d = fetch8();
+	io();
+	a = (mem16((rS + d) & 0xFFFF) | rDB) + rY;
+	io();
+	return a;
 }
 
 static void
 rmw(u32int a, u16int, u16int w)
 {
+	io();
 	memw816(a, w);
 	nz(w);
 }
 
-static int
-branch(void)
+static void
+branch(int c)
 {
 	signed char t;
 	u16int npc;
 	
 	t = fetch8();
+	if(!c)
+		return;
 	npc = pc + t;
-	if(emu && (npc ^ pc) >> 8){
-		pc = npc;
-		return 4;
-	}
+	io();
+	if(emu && (npc ^ pc) >> 8)
+		io();
 	pc = npc;
-	return 3;
 }
 
 static void
@@ -424,6 +437,8 @@ block(int incr)
 	}
 	if(rA-- != 0)
 		pc -= 3;
+	io();
+	io();
 }
 
 static void
@@ -583,9 +598,9 @@ tsb(u32int a, int set)
 		if((rA & v) == 0)
 			rP |= FLAGZ;
 	if(set)
-		memw816(a, v | rA);
+		rmw(a, v, v | rA);
 	else
-		memw816(a, v & ~rA);
+		rmw(a, v, v & ~rA);
 }
 
 enum { COP = 0, BRK = 1, NMI = 3, IRQ = 5 };
@@ -593,6 +608,11 @@ enum { COP = 0, BRK = 1, NMI = 3, IRQ = 5 };
 static void
 interrupt(int src)
 {
+	if(src > BRK){
+		io();
+		if(!emu)
+			io();
+	}
 	if(!emu)
 		push8(rPB >> 16);
 	push16(pc);
@@ -631,11 +651,7 @@ cpustep(void)
 	int a;
 	static int cnt;
 
-	if(nmi)
-		if(--nmi == 0){
-			interrupt(NMI);
-			return 8 - emu;
-		}
+	cyc = 0;
 	if((hdma & 0xffff) != 0){
 		curpc = -1;
 		return hdmastep();
@@ -644,16 +660,24 @@ cpustep(void)
 		curpc = -1;
 		return dmastep();
 	}
+	if(nmi)
+		if(--nmi == 0){
+			interrupt(NMI);
+			return cyc;
+		}
 	if(irq && (rP & FLAGI) == 0){
 		interrupt(IRQ);
-		return 8 - emu;
+		return cyc;
 	}
 	curpc = pc|rPB;
-	if(wai)
-		if(irq)
+	if(wai){
+		io();
+		if(irq){
 			wai = 0;
-		else
-			return 1;
+			io();
+		}else
+			return cyc;
+	}
 	m8 = (rP & FLAGM) != 0;
 	x8 = (rP & FLAGX) != 0;
 	op = fetch8();
@@ -664,16 +688,16 @@ cpustep(void)
 		print("%.6x %.2x A=%.4x X=%.4x Y=%.4x P=%.2x %.2x\n", curpc, op, rA, rX, rY, rP, rS);
 	cyc = 0;
 	switch(op){
-	case 0x00: pc++; interrupt(BRK); return 8 - emu;
-	case 0x01: nz(rA |= mem816(dpi(0, 1, 0), 0)); return 6+cyc;
-	case 0x02: pc++; interrupt(COP); return 8 - emu;
-	case 0x03: nz(rA |= mem816(sr(), 0)); return 4+cyc;
-	case 0x04: tsb(dp(0), 1); return 5+cyc;
-	case 0x05: nz(rA |= mem816(dp(0), 0)); return 3+cyc;
-	case 0x06: asl(dp(0)); return 5+cyc;
-	case 0x07: nz(rA |= mem816(dpi(1, 0, 0), 0)); return 6+cyc;
-	case 0x08: push8(rP); return 3+cyc;
-	case 0x09: nz(rA |= imm(0)); return 3+cyc;
+	case 0x00: fetch8(); interrupt(BRK); break;
+	case 0x01: nz(rA |= mem816(dpi(0, 1, 0), 0)); break;
+	case 0x02: fetch8(); interrupt(COP); break;
+	case 0x03: nz(rA |= mem816(sr(), 0)); break;
+	case 0x04: tsb(dp(0), 1); break;
+	case 0x05: nz(rA |= mem816(dp(0), 0)); break;
+	case 0x06: asl(dp(0)); break;
+	case 0x07: nz(rA |= mem816(dpi(1, 0, 0), 0)); break;
+	case 0x08: io(); push8(rP); break;
+	case 0x09: nz(rA |= imm(0)); break;
 	case 0x0A:
 		rP &= ~FLAGC;
 		if(m8){
@@ -684,44 +708,46 @@ cpustep(void)
 			rA <<= 1;
 		}
 		nz(rA);
-		return 2;
-	case 0x0B: push16(rD); return 4+cyc;
-	case 0x0C: tsb(abso(0, 0), 1); return 6+cyc;
-	case 0x0D: nz(rA |= mem816(abso(0, 0), 0)); return 4+cyc;
-	case 0x0E: asl(abso(0, 0)); return 6+cyc;
-	case 0x0F: nz(rA |= mem816(abso(1, 0), 0)); return 5+cyc;
-	case 0x10: if((rP & FLAGN) == 0) return branch(); pc++; return 2;
-	case 0x11: nz(rA |= mem816(dpi(0, 0, 1), 0)); return 5+cyc;
-	case 0x12: nz(rA |= mem816(dpi(0, 0, 0), 0)); return 5+cyc;
-	case 0x13: nz(rA |= mem816(sry(), 0)); return 7+cyc;
-	case 0x14: tsb(dp(0), 0); return 5+cyc;
-	case 0x15: nz(rA |= mem816(dp(1), 0)); return 4+cyc;
-	case 0x16: asl(dp(1)); return 6+cyc;
-	case 0x17: nz(rA |= mem816(dpi(1, 0, 1), 0)); return 6+cyc;
-	case 0x18: rP &= ~FLAGC; return 2;
-	case 0x19: nz(rA |= mem816(abso(0, 2), 0)); return 4+cyc;
+		ioirq();
+		break;
+	case 0x0B: io(); push16(rD); break;
+	case 0x0C: tsb(abso(0, 0), 1); break;
+	case 0x0D: nz(rA |= mem816(abso(0, 0), 0)); break;
+	case 0x0E: asl(abso(0, 0)); break;
+	case 0x0F: nz(rA |= mem816(abso(1, 0), 0)); break;
+	case 0x10: branch((rP & FLAGN) == 0); break;
+	case 0x11: nz(rA |= mem816(dpi(0, 0, 1), 0)); break;
+	case 0x12: nz(rA |= mem816(dpi(0, 0, 0), 0)); break;
+	case 0x13: nz(rA |= mem816(sry(), 0)); break;
+	case 0x14: tsb(dp(0), 0); break;
+	case 0x15: nz(rA |= mem816(dp(1), 0)); break;
+	case 0x16: asl(dp(1)); break;
+	case 0x17: nz(rA |= mem816(dpi(1, 0, 1), 0)); break;
+	case 0x18: rP &= ~FLAGC; ioirq(); break;
+	case 0x19: nz(rA |= mem816(abso(0, 2), 0)); break;
 	case 0x1A:
 		if(m8 && (rA & 0xFF) == 0xFF)
 			rA &= ~0xFF;
 		else
 			rA++;
 		nz(rA);
-		return 2;
-	case 0x1B: rS = rA; if(emu) rS = rS & 0xff | 0x100; return 2;
-	case 0x1C: tsb(abso(0, 0), 0); return 6+cyc;
-	case 0x1D: nz(rA |= mem816(abso(0, 1), 0)); return 4+cyc;
-	case 0x1E: asl(abso(0, 1)); return 7+cyc;
-	case 0x1F: nz(rA |= mem816(abso(1, 1), 0)); return 4+cyc;
-	case 0x20: push16(pc+1); pc = fetch16(); return 6+cyc;
-	case 0x21: nz(rA &= mem816(dpi(0, 1, 0), 0xFF00)); return 6+cyc;
-	case 0x22: push8(rPB>>16); push16(pc+2); a = fetch16(); rPB = fetch8()<<16; pc = a; return 8+cyc;
-	case 0x23: nz(rA &= mem816(sr(), 0xFF00)); return 4+cyc;
-	case 0x24: bit(mem816(dp(0), 0)); return 3+cyc;
-	case 0x25: nz(rA &= mem816(dp(0), 0xFF00)); return 3+cyc;
-	case 0x26: rol(dp(0)); return 5+cyc;
-	case 0x27: nz(rA &= mem816(dpi(1, 0, 0), 0xFF00)); return 6+cyc;
-	case 0x28: setrp(pop8()); return 5+cyc;
-	case 0x29: nz(rA &= imm(0xFF00)); return 2+cyc;
+		ioirq();
+		break;
+	case 0x1B: rS = rA; if(emu) rS = rS & 0xff | 0x100; ioirq(); break;
+	case 0x1C: tsb(abso(0, 0), 0); break;
+	case 0x1D: nz(rA |= mem816(abso(0, 1), 0)); break;
+	case 0x1E: asl(abso(0, 1)); break;
+	case 0x1F: nz(rA |= mem816(abso(1, 1), 0)); break;
+	case 0x20: a = fetch16(); io(); push16(pc-1); pc = a; break;
+	case 0x21: nz(rA &= mem816(dpi(0, 1, 0), 0xFF00)); break;
+	case 0x22: a = fetch16(); push8(rPB>>16); io(); rPB = fetch8()<<16; push16(pc-1); pc = a; break;
+	case 0x23: nz(rA &= mem816(sr(), 0xFF00)); break;
+	case 0x24: bit(mem816(dp(0), 0)); break;
+	case 0x25: nz(rA &= mem816(dp(0), 0xFF00)); break;
+	case 0x26: rol(dp(0)); break;
+	case 0x27: nz(rA &= mem816(dpi(1, 0, 0), 0xFF00)); break;
+	case 0x28: io(); io(); setrp(pop8()); break;
+	case 0x29: nz(rA &= imm(0xFF00)); break;
 	case 0x2A:
 		a = rP & FLAGC;
 		rP &= ~FLAGC;
@@ -733,49 +759,53 @@ cpustep(void)
 			rA = (rA << 1) | a;
 		}
 		nz(rA);
-		return 2;
-	case 0x2B: nz16(rD = pop16()); return 5;
-	case 0x2C: bit(mem816(abso(0, 0), 0)); return 4+cyc;
-	case 0x2D: nz(rA &= mem816(abso(0, 0), 0xFF00)); return 4+cyc;
-	case 0x2E: rol(abso(0, 0)); return 6+cyc;
-	case 0x2F: nz(rA &= mem816(abso(1, 0), 0xFF00)); return 5+cyc;
-	case 0x30: if((rP & FLAGN) != 0) return branch(); pc++; return 2;
-	case 0x31: nz(rA &= mem816(dpi(0, 0, 1), 0xFF00)); return 5+cyc;
-	case 0x32: nz(rA &= mem816(dpi(0, 0, 0), 0xFF00)); return 5+cyc;
-	case 0x33: nz(rA &= mem816(sry(), 0xFF00)); return 7+cyc;
-	case 0x34: bit(mem816(dp(1), 0)); return 4+cyc;
-	case 0x35: nz(rA &= mem816(dp(1), 0xFF00)); return 4+cyc;
-	case 0x36: rol(dp(1)); return 6+cyc;
-	case 0x37: nz(rA &= mem816(dpi(1, 0, 1), 0xFF00)); return 6+cyc;
-	case 0x38: rP |= FLAGC; return 2;
-	case 0x39: nz(rA &= mem816(abso(0, 2), 0xFF00)); return 4+cyc;
+		ioirq();
+		break;
+	case 0x2B: io(); io(); nz16(rD = pop16()); break;
+	case 0x2C: bit(mem816(abso(0, 0), 0)); break;
+	case 0x2D: nz(rA &= mem816(abso(0, 0), 0xFF00)); break;
+	case 0x2E: rol(abso(0, 0)); break;
+	case 0x2F: nz(rA &= mem816(abso(1, 0), 0xFF00)); break;
+	case 0x30: branch((rP & FLAGN) != 0); break;
+	case 0x31: nz(rA &= mem816(dpi(0, 0, 1), 0xFF00)); break;
+	case 0x32: nz(rA &= mem816(dpi(0, 0, 0), 0xFF00)); break;
+	case 0x33: nz(rA &= mem816(sry(), 0xFF00)); break;
+	case 0x34: bit(mem816(dp(1), 0)); break;
+	case 0x35: nz(rA &= mem816(dp(1), 0xFF00)); break;
+	case 0x36: rol(dp(1)); break;
+	case 0x37: nz(rA &= mem816(dpi(1, 0, 1), 0xFF00)); break;
+	case 0x38: rP |= FLAGC; ioirq(); break;
+	case 0x39: nz(rA &= mem816(abso(0, 2), 0xFF00)); break;
 	case 0x3A:
 		if(m8 && (rA & 0xFF) == 0)
 			rA |= 0xFF;
 		else
 			rA--;
 		nz(rA);
-		return 2;
-	case 0x3B: nz16(rA = rS); return 2;
-	case 0x3C: bit(mem816(abso(0, 1), 0)); return 4+cyc;
-	case 0x3D: nz(rA &= mem816(abso(0, 1), 0xFF00)); return 4+cyc;
-	case 0x3E: rol(abso(0, 1)); return 7+cyc;
-	case 0x3F: nz(rA &= mem816(abso(1, 1), 0xFF00)); return 4+cyc;
+		ioirq();
+		break;
+	case 0x3B: nz16(rA = rS); ioirq(); break;
+	case 0x3C: bit(mem816(abso(0, 1), 0)); break;
+	case 0x3D: nz(rA &= mem816(abso(0, 1), 0xFF00)); break;
+	case 0x3E: rol(abso(0, 1)); break;
+	case 0x3F: nz(rA &= mem816(abso(1, 1), 0xFF00)); break;
 	case 0x40:
+		io();
+		io();
 		setrp(pop8());
 		pc = pop16();
 		if(!emu)
 			rPB = pop8() << 16;
-		return 7 - emu;
-	case 0x41: nz(rA ^= mem816(dpi(0, 1, 0), 0)); return 6+cyc;
-	case 0x42: fetch8(); return 2;
-	case 0x43: nz(rA ^= mem816(sr(), 0)); return 4+cyc;
-	case 0x44: block(0); return 7;
-	case 0x45: nz(rA ^= mem816(dp(0), 0)); return 3+cyc;
-	case 0x46: lsr(dp(0)); return 5+cyc;
-	case 0x47: nz(rA ^= mem816(dpi(1, 0, 0), 0)); return 6+cyc;
-	case 0x48: push816(rA, m8); return 3+cyc;
-	case 0x49: nz(rA ^= imm(0)); return 2+cyc;
+		break;
+	case 0x41: nz(rA ^= mem816(dpi(0, 1, 0), 0)); break;
+	case 0x42: fetch8(); break;
+	case 0x43: nz(rA ^= mem816(sr(), 0)); break;
+	case 0x44: block(0); break;
+	case 0x45: nz(rA ^= mem816(dp(0), 0)); break;
+	case 0x46: lsr(dp(0)); break;
+	case 0x47: nz(rA ^= mem816(dpi(1, 0, 0), 0)); break;
+	case 0x48: io(); push816(rA, m8); break;
+	case 0x49: nz(rA ^= imm(0)); break;
 	case 0x4A:
 		rP &= ~FLAGC;
 		rP |= rA & 1;
@@ -784,38 +814,39 @@ cpustep(void)
 		else
 			rA >>= 1;
 		nz(rA);
-		return 2;
-	case 0x4B: push8(rPB >> 16); return 3;
-	case 0x4C: pc = fetch16(); return 3;
-	case 0x4D: nz(rA ^= mem816(abso(0, 0), 0)); return 4+cyc;
-	case 0x4E: lsr(abso(0, 0)); return 6+cyc;
-	case 0x4F: nz(rA ^= mem816(abso(1, 0), 0)); return 5+cyc;
-	case 0x50: if((rP & FLAGV) == 0) return branch(); pc++; return 2;
-	case 0x51: nz(rA ^= mem816(dpi(0, 0, 1), 0)); return 5+cyc;
-	case 0x52: nz(rA ^= mem816(dpi(0, 0, 0), 0)); return 5+cyc;
-	case 0x53: nz(rA ^= mem816(sry(), 0)); return 7+cyc;
-	case 0x54: block(1); return 7;
-	case 0x55: nz(rA ^= mem816(dp(1), 0)); return 4+cyc;
-	case 0x56: lsr(dp(1)); return 6+cyc;
-	case 0x57: nz(rA ^= mem816(dpi(1, 0, 1), 0)); return 6+cyc;
-	case 0x58: rP &= ~FLAGI; return 2;
-	case 0x59: nz(rA ^= mem816(abso(0, 2), 0)); return 4+cyc;
-	case 0x5A: push816(rY, x8); return 3+cyc;
-	case 0x5B: nz16(rD = rA); return 2;
-	case 0x5C: a = fetch16(); rPB = fetch8() << 16; pc = a; return 4;
-	case 0x5D: nz(rA ^= mem816(abso(0, 1), 0)); return 4+cyc;
-	case 0x5E: lsr(abso(0, 1)); return 7+cyc;
-	case 0x5F: nz(rA ^= mem816(abso(1, 1), 0)); return 5+cyc;
-	case 0x60: pc = pop16() + 1; return 6;
-	case 0x61: adc(mem816(dpi(0, 1, 0), 0)); return 6+cyc;
-	case 0x62: a = fetch16(); push16(a + pc); return 6;
-	case 0x63: adc(mem816(sr(), 0)); return 4+cyc;
-	case 0x64: memw816(dp(0), 0); return 3+cyc;
-	case 0x65: adc(mem816(dp(0), 0)); return 3+cyc;
-	case 0x66: ror(dp(0)); return 5+cyc;
-	case 0x67: adc(mem816(dpi(1, 0, 0), 0)); return 6+cyc;
-	case 0x68: nz(rA = pop816(rA & 0xFF00, m8)); return 4+cyc;
-	case 0x69: adc(imm(0)); return 2+cyc;
+		ioirq();
+		break;
+	case 0x4B: io(); push8(rPB >> 16); break;
+	case 0x4C: pc = fetch16(); break;
+	case 0x4D: nz(rA ^= mem816(abso(0, 0), 0)); break;
+	case 0x4E: lsr(abso(0, 0)); break;
+	case 0x4F: nz(rA ^= mem816(abso(1, 0), 0)); break;
+	case 0x50: branch((rP & FLAGV) == 0); break;
+	case 0x51: nz(rA ^= mem816(dpi(0, 0, 1), 0)); break;
+	case 0x52: nz(rA ^= mem816(dpi(0, 0, 0), 0)); break;
+	case 0x53: nz(rA ^= mem816(sry(), 0)); break;
+	case 0x54: block(1); break;
+	case 0x55: nz(rA ^= mem816(dp(1), 0)); break;
+	case 0x56: lsr(dp(1)); break;
+	case 0x57: nz(rA ^= mem816(dpi(1, 0, 1), 0)); break;
+	case 0x58: rP &= ~FLAGI; ioirq(); break;
+	case 0x59: nz(rA ^= mem816(abso(0, 2), 0)); break;
+	case 0x5A: io(); push816(rY, x8); break;
+	case 0x5B: nz16(rD = rA); ioirq(); break;
+	case 0x5C: a = fetch16(); rPB = fetch8() << 16; pc = a; break;
+	case 0x5D: nz(rA ^= mem816(abso(0, 1), 0)); break;
+	case 0x5E: lsr(abso(0, 1)); break;
+	case 0x5F: nz(rA ^= mem816(abso(1, 1), 0)); break;
+	case 0x60: io(); io(); pc = pop16() + 1; io(); break;
+	case 0x61: adc(mem816(dpi(0, 1, 0), 0)); break;
+	case 0x62: a = fetch16(); io(); push16(a + pc); break;
+	case 0x63: adc(mem816(sr(), 0)); break;
+	case 0x64: memw816(dp(0), 0); break;
+	case 0x65: adc(mem816(dp(0), 0)); break;
+	case 0x66: ror(dp(0)); break;
+	case 0x67: adc(mem816(dpi(1, 0, 0), 0)); break;
+	case 0x68: nz(rA = pop816(rA & 0xFF00, m8)); break;
+	case 0x69: adc(imm(0)); break;
 	case 0x6A:
 		a = rP & FLAGC;
 		rP &= ~FLAGC;
@@ -825,175 +856,180 @@ cpustep(void)
 		else
 			rA = rA >> 1 | a << 15;
 		nz(rA);
-		return 2;
-	case 0x6B: pc = pop16() + 1; rPB = pop8() << 16; return 6;
-	case 0x6C: pc = absi(0); return 5;
-	case 0x6D: adc(mem816(abso(0, 0), 0)); return 4+cyc;
-	case 0x6E: ror(abso(0, 0)); return 6+cyc;
-	case 0x6F: adc(mem816(abso(1, 0), 0)); return 6+cyc;
-	case 0x70: if((rP & FLAGV) != 0) return branch(); pc++; return 2;
-	case 0x71: adc(mem816(dpi(0, 0, 1), 0)); return 5+cyc;
-	case 0x72: adc(mem816(dpi(0, 0, 0), 0)); return 5+cyc;
-	case 0x73: adc(mem816(sry(), 0)); return 7+cyc;
-	case 0x74: memw816(dp(1), 0); return 4+cyc;
-	case 0x75: adc(mem816(dp(1), 0)); return 4+cyc;
-	case 0x76: ror(dp(1)); return 6+cyc;
-	case 0x77: adc(mem816(dpi(1, 0, 1), 0)); return 6+cyc;
-	case 0x78: rP |= FLAGI; return 2;
-	case 0x79: adc(mem816(abso(0, 2), 0)); return 6+cyc;
-	case 0x7A: nzx(rY = pop816(0, x8)); return 4+cyc;
-	case 0x7B: nz16(rA = rD); return 2;
-	case 0x7C: pc = absi(1); return 6;
-	case 0x7D: adc(mem816(abso(0, 1), 0)); return 4+cyc;
-	case 0x7E: ror(abso(0, 1)); return 7+cyc;
-	case 0x7F: adc(mem816(abso(1, 1), 0)); return 5+cyc;
-	case 0x80: return branch();
-	case 0x81: memw816(dpi(0, 1, 0), rA); return 6+cyc;
-	case 0x82: a = fetch16(); pc += a; return 4;
-	case 0x83: memw816(sr(), rA); return 4+cyc;
-	case 0x84: memwx816(dp(0), rY); return 3+cyc;
-	case 0x85: memw816(dp(0), rA); return 3+cyc;
-	case 0x86: memwx816(dp(0), rX); return 3+cyc;
-	case 0x87: memw816(dpi(1, 0, 0), rA); return 6+cyc;
+		ioirq();
+		break;
+	case 0x6B: io(); io(); pc = pop16() + 1; rPB = pop8() << 16; break;
+	case 0x6C: pc = absi(0); break;
+	case 0x6D: adc(mem816(abso(0, 0), 0)); break;
+	case 0x6E: ror(abso(0, 0)); break;
+	case 0x6F: adc(mem816(abso(1, 0), 0)); break;
+	case 0x70: branch((rP & FLAGV) != 0); break;
+	case 0x71: adc(mem816(dpi(0, 0, 1), 0)); break;
+	case 0x72: adc(mem816(dpi(0, 0, 0), 0)); break;
+	case 0x73: adc(mem816(sry(), 0)); break;
+	case 0x74: memw816(dp(1), 0); break;
+	case 0x75: adc(mem816(dp(1), 0)); break;
+	case 0x76: ror(dp(1)); break;
+	case 0x77: adc(mem816(dpi(1, 0, 1), 0)); break;
+	case 0x78: rP |= FLAGI; io(); break;
+	case 0x79: adc(mem816(abso(0, 2), 0)); break;
+	case 0x7A: io(); io(); nzx(rY = pop816(0, x8)); break;
+	case 0x7B: nz16(rA = rD); ioirq(); break;
+	case 0x7C: pc = absi(1); break;
+	case 0x7D: adc(mem816(abso(0, 1), 0)); break;
+	case 0x7E: ror(abso(0, 1)); break;
+	case 0x7F: adc(mem816(abso(1, 1), 0)); break;
+	case 0x80: branch(1); break;
+	case 0x81: memw816(dpi(0, 1, 0), rA); break;
+	case 0x82: a = fetch16(); io(); pc += a; break;
+	case 0x83: memw816(sr(), rA); break;
+	case 0x84: memwx816(dp(0), rY); break;
+	case 0x85: memw816(dp(0), rA); break;
+	case 0x86: memwx816(dp(0), rX); break;
+	case 0x87: memw816(dpi(1, 0, 0), rA); break;
 	case 0x88: 
 		rY--;
 		if(x8)
 			rY &= 0xff;
 		nzx(rY);
-		return 2;
+		ioirq();
+		break;
 	case 0x89:
 		rP &= ~FLAGZ;
 		if((imm(0) & rA) == 0)
 			rP |= FLAGZ;
-		return 2+cyc;
-	case 0x8A: setra(rX); return 2+cyc;
-	case 0x8B: push8(rDB >> 16); return 3;
-	case 0x8C: memwx816(abso(0, 0), rY); return 4+cyc;
-	case 0x8D: memw816(abso(0, 0), rA); return 4+cyc;
-	case 0x8E: memwx816(abso(0, 0), rX); return 4+cyc;
-	case 0x8F: memw816(abso(1, 0), rA); return 5+cyc;
-	case 0x90: if((rP & FLAGC) == 0) return branch(); pc++; return 2;
-	case 0x91: memw816(dpi(0, 0, 1), rA); return 6+cyc;
-	case 0x92: memw816(dpi(0, 0, 0), rA); return 6+cyc;
-	case 0x93: memw816(sry(), rA); return 6+cyc;
-	case 0x94: memwx816(dp(1), rY); return 4+cyc;
-	case 0x95: memw816(dp(1), rA); return 4+cyc;
-	case 0x96: memwx816(dp(2), rX); return 4+cyc;
-	case 0x97: memw816(dpi(1, 0, 1), rA); return 6+cyc;
-	case 0x98: setra(rY); return 2;
-	case 0x99: memw816(abso(0, 2), rA); return 3+cyc;
-	case 0x9A: rS = rX; if(emu) rS = rS & 0xff | 0x100; return 2;
-	case 0x9B: setx(rX, &rY); return 2;
-	case 0x9C: memw816(abso(0, 0), 0); return 3+cyc;
-	case 0x9D: memw816(abso(0, 1), rA); return 5+cyc;
-	case 0x9E: memw816(abso(0, 1), 0); return 5+cyc;
-	case 0x9F: memw816(abso(1, 1), rA); return 4+cyc;
-	case 0xA0: nzx(rY = immx(0)); return 2+cyc;
-	case 0xA1: nz(rA = mem816(dpi(0, 1, 0), rA & 0xFF00)); return 6+cyc;
-	case 0xA2: nzx(rX = immx(0)); return 2+cyc;
-	case 0xA3: nz(rA = mem816(sr(), rA & 0xFF00)); return 4+cyc;
-	case 0xA4: nzx(rY = memx816(dp(0))); return 3+cyc;
-	case 0xA5: nz(rA = mem816(dp(0), rA & 0xFF00)); return 3+cyc;
-	case 0xA6: nzx(rX = memx816(dp(0))); return 3+cyc;
-	case 0xA7: nz(rA = mem816(dpi(1, 0, 0), rA & 0xFF00)); return 6+cyc;
-	case 0xA8: setx(rA, &rY); return 2;
-	case 0xA9: nz(rA = imm(rA & 0xFF00)); return 2+cyc;
-	case 0xAA: setx(rA, &rX); return 2;
-	case 0xAB: rDB = nz8(pop8()) << 16; return 4;
-	case 0xAC: nzx(rY = memx816(abso(0, 0))); return 4+cyc;
-	case 0xAD: nz(rA = mem816(abso(0, 0), rA & 0xFF00)); return 4+cyc;
-	case 0xAE: nzx(rX = memx816(abso(0, 0))); return 4+cyc;
-	case 0xAF: nz(rA = mem816(abso(1, 0), rA & 0xFF00)); return 5+cyc;
-	case 0xB0: if((rP & FLAGC) != 0) return branch(); pc++; return 2;
-	case 0xB1: nz(rA = mem816(dpi(0, 0, 1), rA & 0xFF00)); return 5+cyc;
-	case 0xB2: nz(rA = mem816(dpi(0, 0, 0), rA & 0xFF00)); return 5+cyc;
-	case 0xB3: nz(rA = mem816(sry(), rA & 0xFF00)); return 7+cyc;
-	case 0xB4: nzx(rY = memx816(dp(1))); return 4+cyc;
-	case 0xB5: nz(rA = mem816(dp(1), rA & 0xFF00)); return 4+cyc;
-	case 0xB6: nzx(rX = memx816(dp(2))); return 4+cyc;
-	case 0xB7: nz(rA = mem816(dpi(1, 0, 1), rA & 0xFF00)); return 6+cyc;
-	case 0xB8: rP &= ~FLAGV; return 2;
-	case 0xB9: nz(rA = mem816(abso(0, 2), rA & 0xFF00)); return 4+cyc;
-	case 0xBA: setx(rS, &rX); return 2;
-	case 0xBB: setx(rY, &rX); return 2;
-	case 0xBC: nzx(rY = memx816(abso(0, 1))); return 4+cyc;
-	case 0xBD: nz(rA = mem816(abso(0, 1), rA & 0xFF00)); return 4+cyc;
-	case 0xBE: nzx(rX = memx816(abso(0, 2))); return 4+cyc;
-	case 0xBF: nz(rA = mem816(abso(1, 1), rA & 0xFF00)); return 5+cyc;
-	case 0xC0: cmp(rY, immx(0), x8); return 2+cyc;
-	case 0xC1: cmp(rA, mem816(dpi(0, 1, 0), 0), m8); return 6+cyc;
-	case 0xC2: setrp(rP & ~fetch8()); return 3;
-	case 0xC3: cmp(rA, mem816(sr(), 0), m8); return 4+cyc;
-	case 0xC4: cmp(rY, memx816(dp(0)), x8); return 3+cyc;
-	case 0xC5: cmp(rA, mem816(dp(0), 0), m8); return 3+cyc;
-	case 0xC6: dec(dp(0)); return 5+cyc;
-	case 0xC7: cmp(rA, mem816(dpi(1, 0, 0), 0), m8); return 6+cyc;
+		break;
+	case 0x8A: setra(rX); ioirq(); break;
+	case 0x8B: io(); push8(rDB >> 16); break;
+	case 0x8C: memwx816(abso(0, 0), rY); break;
+	case 0x8D: memw816(abso(0, 0), rA); break;
+	case 0x8E: memwx816(abso(0, 0), rX); break;
+	case 0x8F: memw816(abso(1, 0), rA); break;
+	case 0x90: branch((rP & FLAGC) == 0); break;
+	case 0x91: memw816(dpi(0, 0, 1), rA); break;
+	case 0x92: memw816(dpi(0, 0, 0), rA); break;
+	case 0x93: memw816(sry(), rA); break;
+	case 0x94: memwx816(dp(1), rY); break;
+	case 0x95: memw816(dp(1), rA); break;
+	case 0x96: memwx816(dp(2), rX); break;
+	case 0x97: memw816(dpi(1, 0, 1), rA); break;
+	case 0x98: setra(rY); ioirq(); break;
+	case 0x99: memw816(abso(0, 2), rA); break;
+	case 0x9A: rS = rX; if(emu) rS = rS & 0xff | 0x100; ioirq(); break;
+	case 0x9B: setx(rX, &rY); ioirq(); break;
+	case 0x9C: memw816(abso(0, 0), 0); break;
+	case 0x9D: memw816(abso(0, 1), rA); break;
+	case 0x9E: memw816(abso(0, 1), 0); break;
+	case 0x9F: memw816(abso(1, 1), rA); break;
+	case 0xA0: nzx(rY = immx(0)); break;
+	case 0xA1: nz(rA = mem816(dpi(0, 1, 0), rA & 0xFF00)); break;
+	case 0xA2: nzx(rX = immx(0)); break;
+	case 0xA3: nz(rA = mem816(sr(), rA & 0xFF00)); break;
+	case 0xA4: nzx(rY = memx816(dp(0))); break;
+	case 0xA5: nz(rA = mem816(dp(0), rA & 0xFF00)); break;
+	case 0xA6: nzx(rX = memx816(dp(0))); break;
+	case 0xA7: nz(rA = mem816(dpi(1, 0, 0), rA & 0xFF00)); break;
+	case 0xA8: setx(rA, &rY); ioirq(); break;
+	case 0xA9: nz(rA = imm(rA & 0xFF00)); break;
+	case 0xAA: setx(rA, &rX); ioirq(); break;
+	case 0xAB: io(); io(); rDB = nz8(pop8()) << 16; break;
+	case 0xAC: nzx(rY = memx816(abso(0, 0))); break;
+	case 0xAD: nz(rA = mem816(abso(0, 0), rA & 0xFF00)); break;
+	case 0xAE: nzx(rX = memx816(abso(0, 0))); break;
+	case 0xAF: nz(rA = mem816(abso(1, 0), rA & 0xFF00)); break;
+	case 0xB0: branch((rP & FLAGC) != 0); break;
+	case 0xB1: nz(rA = mem816(dpi(0, 0, 1), rA & 0xFF00)); break;
+	case 0xB2: nz(rA = mem816(dpi(0, 0, 0), rA & 0xFF00)); break;
+	case 0xB3: nz(rA = mem816(sry(), rA & 0xFF00)); break;
+	case 0xB4: nzx(rY = memx816(dp(1))); break;
+	case 0xB5: nz(rA = mem816(dp(1), rA & 0xFF00)); break;
+	case 0xB6: nzx(rX = memx816(dp(2))); break;
+	case 0xB7: nz(rA = mem816(dpi(1, 0, 1), rA & 0xFF00)); break;
+	case 0xB8: rP &= ~FLAGV; ioirq(); break;
+	case 0xB9: nz(rA = mem816(abso(0, 2), rA & 0xFF00)); break;
+	case 0xBA: setx(rS, &rX); ioirq(); break;
+	case 0xBB: setx(rY, &rX); ioirq(); break;
+	case 0xBC: nzx(rY = memx816(abso(0, 1))); break;
+	case 0xBD: nz(rA = mem816(abso(0, 1), rA & 0xFF00)); break;
+	case 0xBE: nzx(rX = memx816(abso(0, 2))); break;
+	case 0xBF: nz(rA = mem816(abso(1, 1), rA & 0xFF00)); break;
+	case 0xC0: cmp(rY, immx(0), x8); break;
+	case 0xC1: cmp(rA, mem816(dpi(0, 1, 0), 0), m8); break;
+	case 0xC2: setrp(rP & ~fetch8()); io(); break;
+	case 0xC3: cmp(rA, mem816(sr(), 0), m8); break;
+	case 0xC4: cmp(rY, memx816(dp(0)), x8); break;
+	case 0xC5: cmp(rA, mem816(dp(0), 0), m8); break;
+	case 0xC6: dec(dp(0)); break;
+	case 0xC7: cmp(rA, mem816(dpi(1, 0, 0), 0), m8); break;
 	case 0xC8: 
 		rY++;
 		if(x8)
 			rY &= 0xff;
 		nzx(rY);
-		return 2;
-	case 0xC9: cmp(rA, imm(0), m8); return 2+cyc;
+		ioirq();
+		break;
+	case 0xC9: cmp(rA, imm(0), m8); break;
 	case 0xCA:
 		rX--;
 		if(x8)
 			rX &= 0xff;
 		nzx(rX);
-		return 2;
-	case 0xCB: wai = 1; return 1;
-	case 0xCC: cmp(rY, memx816(abso(0, 0)), x8); return 4+cyc;
-	case 0xCD: cmp(rA, mem816(abso(0, 0), 0), m8); return 4+cyc;
-	case 0xCE: dec(abso(0, 0)); return 6+cyc;
-	case 0xCF: cmp(rA, mem816(abso(1, 0), 0), m8); return 4+cyc;
-	case 0xD0: if((rP & FLAGZ) == 0) return branch(); pc++; return 2;
-	case 0xD1: cmp(rA, mem816(dpi(0, 0, 1), 0), m8); return 5+cyc;
-	case 0xD2: cmp(rA, mem816(dpi(0, 0, 0), 0), m8); return 5+cyc;
-	case 0xD3: cmp(rA, mem816(sry(), 0), m8); return 7+cyc;
-	case 0xD4: push16(dpi(0, 0, 0)); return 6+cyc;
-	case 0xD5: cmp(rA, mem816(dp(1), 0), m8); return 4+cyc;
-	case 0xD6: dec(dp(1)); return 6+cyc;
-	case 0xD7: cmp(rA, mem816(dpi(1, 0, 1), 0), m8); return 6+cyc;
-	case 0xD8: rP &= ~FLAGD; return 2;
-	case 0xD9: cmp(rA, mem816(abso(0, 2), 0), m8); return 4+cyc;
-	case 0xDA: push816(rX, x8); return 3+cyc;
-	case 0xDB: print("STP\n"); return 2;
-	case 0xDC: a = fetch16(); pc = memread(a) | memread((u16int)(a+1))<<8; rPB = memread((u16int)(a+2)) << 16; return 6;
-	case 0xDD: cmp(rA, mem816(abso(0, 1), 0), m8); return 4+cyc;
-	case 0xDE: dec(abso(0, 1)); return 7+cyc;
-	case 0xDF: cmp(rA, mem816(abso(1, 1), 0), m8); return 7+cyc;
-	case 0xE0: cmp(rX, immx(0), x8); return 2+cyc;
-	case 0xE1: sbc(mem816(dpi(0, 1, 0), 0)); return 6+cyc;
-	case 0xE2: setrp(rP | fetch8()); return 2;
-	case 0xE3: sbc(mem816(sr(), 0)); return 4+cyc;
-	case 0xE4: cmp(rX, memx816(dp(0)), x8); return 3+cyc;
-	case 0xE5: sbc(mem816(dp(0), 0)); return 3+cyc;
-	case 0xE6: inc(dp(0)); return 5+cyc;
-	case 0xE7: sbc(mem816(dpi(1, 0, 0), 0)); return 6+cyc;
+		ioirq();
+		break;
+	case 0xCB: wai = 1; break;
+	case 0xCC: cmp(rY, memx816(abso(0, 0)), x8); break;
+	case 0xCD: cmp(rA, mem816(abso(0, 0), 0), m8); break;
+	case 0xCE: dec(abso(0, 0)); break;
+	case 0xCF: cmp(rA, mem816(abso(1, 0), 0), m8); break;
+	case 0xD0: branch((rP & FLAGZ) == 0); break;
+	case 0xD1: cmp(rA, mem816(dpi(0, 0, 1), 0), m8); break;
+	case 0xD2: cmp(rA, mem816(dpi(0, 0, 0), 0), m8); break;
+	case 0xD3: cmp(rA, mem816(sry(), 0), m8); break;
+	case 0xD4: io(); push16(dpi(0, 0, 0)); break;
+	case 0xD5: cmp(rA, mem816(dp(1), 0), m8); break;
+	case 0xD6: dec(dp(1)); break;
+	case 0xD7: cmp(rA, mem816(dpi(1, 0, 1), 0), m8); break;
+	case 0xD8: rP &= ~FLAGD; ioirq(); break;
+	case 0xD9: cmp(rA, mem816(abso(0, 2), 0), m8); break;
+	case 0xDA: io(); push816(rX, x8); break;
+	case 0xDB: print("STP\n"); break;
+	case 0xDC: a = fetch16(); pc = memread(a) | memread((u16int)(a+1))<<8; rPB = memread((u16int)(a+2)) << 16; break;
+	case 0xDD: cmp(rA, mem816(abso(0, 1), 0), m8); break;
+	case 0xDE: dec(abso(0, 1)); break;
+	case 0xDF: cmp(rA, mem816(abso(1, 1), 0), m8); break;
+	case 0xE0: cmp(rX, immx(0), x8); break;
+	case 0xE1: sbc(mem816(dpi(0, 1, 0), 0)); break;
+	case 0xE2: setrp(rP | fetch8()); io(); break;
+	case 0xE3: sbc(mem816(sr(), 0)); break;
+	case 0xE4: cmp(rX, memx816(dp(0)), x8); break;
+	case 0xE5: sbc(mem816(dp(0), 0)); break;
+	case 0xE6: inc(dp(0)); break;
+	case 0xE7: sbc(mem816(dpi(1, 0, 0), 0)); break;
 	case 0xE8:
 		rX++;
 		if(x8)
 			rX &= 0xff;
 		nzx(rX);
-		return 2;
-	case 0xE9: sbc(imm(0)); return 2+cyc;
-	case 0xEA: return 2;
-	case 0xEB: nz8(rA = (rA >> 8) | (rA << 8)); return 3;
-	case 0xEC: cmp(rX, memx816(abso(0, 0)), x8); return 4+cyc;
-	case 0xED: sbc(mem816(abso(0, 0), 0)); return 4+cyc;
-	case 0xEE: inc(abso(0, 0)); return 6+cyc;
-	case 0xEF: sbc(mem816(abso(1, 0), 0)); return 5+cyc;
-	case 0xF0: if((rP & FLAGZ) != 0) return branch(); pc++; return 2;
-	case 0xF1: sbc(mem816(dpi(0, 0, 1), 0)); return 5+cyc;
-	case 0xF2: sbc(mem816(dpi(0, 0, 0), 0)); return 5+cyc;
-	case 0xF3: sbc(mem816(sry(), 0)); return 7+cyc;
-	case 0xF4: push16(fetch16()); return 5;
-	case 0xF5: sbc(mem816(dp(1), 0)); return 4+cyc;
-	case 0xF6: inc(dp(1)); return 6+cyc;
-	case 0xF7: sbc(mem816(dpi(1, 0, 1), 0)); return 6+cyc;
-	case 0xF8: rP |= FLAGD; return 2;
-	case 0xF9: sbc(mem816(abso(0, 2), 0)); return 4+cyc;
-	case 0xFA: nzx(rX = pop816(0, x8)); return 4+cyc;
+		ioirq();
+		break;
+	case 0xE9: sbc(imm(0)); break;
+	case 0xEA: ioirq(); break;
+	case 0xEB: nz8(rA = (rA >> 8) | (rA << 8)); io(); io(); break;
+	case 0xEC: cmp(rX, memx816(abso(0, 0)), x8); break;
+	case 0xED: sbc(mem816(abso(0, 0), 0)); break;
+	case 0xEE: inc(abso(0, 0)); break;
+	case 0xEF: sbc(mem816(abso(1, 0), 0)); break;
+	case 0xF0: branch((rP & FLAGZ) != 0); break;
+	case 0xF1: sbc(mem816(dpi(0, 0, 1), 0)); break;
+	case 0xF2: sbc(mem816(dpi(0, 0, 0), 0)); break;
+	case 0xF3: sbc(mem816(sry(), 0)); break;
+	case 0xF4: push16(fetch16()); break;
+	case 0xF5: sbc(mem816(dp(1), 0)); break;
+	case 0xF6: inc(dp(1)); break;
+	case 0xF7: sbc(mem816(dpi(1, 0, 1), 0)); break;
+	case 0xF8: rP |= FLAGD; ioirq(); break;
+	case 0xF9: sbc(mem816(abso(0, 2), 0)); break;
+	case 0xFA: nzx(rX = pop816(0, x8)); break;
 	case 0xFB:
 		a = emu;
 		emu = rP & 1;
@@ -1005,13 +1041,15 @@ cpustep(void)
 		}
 		rP &= ~1;
 		rP |= a;
-		return 2;
-	case 0xFC: push16(pc+1); pc = absi(1); return 8+cyc;
-	case 0xFD: sbc(mem816(abso(0, 1), 0)); return 4+cyc;
-	case 0xFE: inc(abso(0, 1)); return 7+cyc;
-	case 0xFF: sbc(mem816(abso(1, 1), 0)); return 5+cyc;
+		ioirq();
+		break;
+	case 0xFC: push16(pc+1); pc = absi(1); break;
+	case 0xFD: sbc(mem816(abso(0, 1), 0)); break;
+	case 0xFE: inc(abso(0, 1)); break;
+	case 0xFF: sbc(mem816(abso(1, 1), 0)); break;
 	default:
 		print("undefined %#x (pc %#.6x)\n", op, curpc);
-		return 2;
+		io();
 	}
+	return cyc;
 }

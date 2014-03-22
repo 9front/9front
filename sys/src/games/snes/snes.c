@@ -267,12 +267,7 @@ usage:
 			qlock(&pauselock);
 			qunlock(&pauselock);
 		}
-		memcyc = 0;
 		t = cpustep();
-		if(curpc == -1)
-			t *= 8;
-		else
-			t = t * 6 + memcyc;
 		spcclock -= t;
 		stimerclock += t;
 		ppuclock += t;

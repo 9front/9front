@@ -5,7 +5,6 @@ extern u8int rP, dma, nmi, irq, emu, wai;
 extern u16int rA, rX, rY, rS, rD, pc;
 extern u32int rPB, rDB, curpc, hdma;
 extern int trace;
-extern int memcyc;
 
 extern uchar *prg, *sram;
 extern int nprg, nsram, hirom;
