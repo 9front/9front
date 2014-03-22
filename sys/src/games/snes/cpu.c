@@ -597,10 +597,11 @@ tsb(u32int a, int set)
 	}else
 		if((rA & v) == 0)
 			rP |= FLAGZ;
+	io();
 	if(set)
-		rmw(a, v, v | rA);
+		memw816(a, v | rA);
 	else
-		rmw(a, v, v & ~rA);
+		memw816(a, v & ~rA);
 }
 
 enum { COP = 0, BRK = 1, NMI = 3, IRQ = 5 };
