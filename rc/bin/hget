@@ -2,7 +2,7 @@
 rfork e
 argv0=$0
 fn usage {
-	echo usage: $argv0 '[ -l | -o file] [ -p body | -P ] [ -r header ] [ -m method ] [ -b baseurl ] url' >[1=2]
+	echo usage: $argv0 '[ -v ] [ -l | -o file] [ -p body | -P ] [ -r header ] [ -m method ] [ -b baseurl ] url' >[1=2]
 	exit usage
 }
 s=0
@@ -13,6 +13,7 @@ r=()
 m=()
 b=()
 l=()
+v=()
 while(~ $1 -*){
 	switch($1){
 	case -o
@@ -34,6 +35,8 @@ while(~ $1 -*){
 	case -b
 		b=$2
 		shift
+	case -v
+		v=1
 	case *
 		usage
 	}
@@ -70,6 +73,17 @@ if(! ~ $s 0)
 		if(~ $#l 1){
 			echo `{cat $d/parsed/url}
 			exit
+		}
+		if(~ $#v 1){
+			hpid=$pid
+			@{
+				while(ls /proc | grep -s $hpid) {
+					have=`{grep '^  0' /proc/$hpid/fd | awk '{ print $9 }' }
+					want=`{cat $d/contentlength}
+					echo $have $want >[1=2]
+					sleep 1
+				}
+			} &
 		}
 		if(~ $#o 1){
 			l=`{cat $d/contentlength >[2]/dev/null}
