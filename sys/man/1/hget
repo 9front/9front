@@ -22,8 +22,6 @@ hget, hpost, webpaste, urlencode \- retrieve, post to a web page corresponding t
 ] [
 .B -b
 .I baseurl
-] [
-.B -v
 ]
 .I url
 .PP
@@ -126,15 +124,6 @@ Option
 .B -m
 overrides the HTTP method used for the request.
 .PP
-Option
-.B -v
-causes
-.I hget
-to emit download status on file descriptor 2,
-suitable for use with
-.I aux/statusbar .
-See EXAMPLES.
-.PP
 .I Hpost
 retrieves the web page specified by the URL
 .I url,
@@ -210,18 +199,6 @@ Download a file from the web.
 .IP
 .EX
 % hget http://9front.org/img/nix-on.jpg >/tmp/nix-on.jpg
-.EE
-.PP
-Use
-.I hget
-in conjuncton with
-.I aux/statusbar
-to monitor progress.
-.IP
-.EX
-hget -v -o 9front.iso.bz2 \\
-	http://www.r-36.net/9front/9front.iso.bz2 \\
-	|[2] aux/statusbar '9front.iso.bz2'
 .EE
 .PP
 Retrieve the commands needed to submit a form, which may then be
