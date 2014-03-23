@@ -2,6 +2,10 @@
 #include <libc.h>
 #include <auth.h>
 #include <authsrv.h>
+#include <bio.h>
+#include <ndb.h>
+
+char *authdom;
 
 void
 readln(char *prompt, char *line, int len, int raw)
@@ -111,6 +115,35 @@ mountfactotum(char *srvname)
 }
 
 /*
+ * find authdom
+ */
+char*
+getauthdom(void)
+{
+	char *sysname, *s;
+	Ndbtuple *t, *p;
+
+	if(authdom != nil)
+		return authdom;
+
+	sysname = getenv("sysname");
+	if(sysname == nil)
+		return strdup("cs.bell-labs.com");
+
+	s = "authdom";
+	t = csipinfo(nil, "sys", sysname, &s, 1);
+	free(sysname);
+	for(p = t; p != nil; p = p->entry)
+		if(strcmp(p->attr, s) == 0){
+			authdom = strdup(p->val);
+			break;
+		}
+	ndbfree(t);
+fprint(2, "authdom=%s\n", authdom);
+	return authdom;
+}
+
+/*
  *  start a new factotum and pass it the username and password
  */
 void
@@ -141,8 +174,15 @@ startfactotum(char *user, char *password, char *srvname)
 	fd = open("/mnt/factotum/ctl", ORDWR);
 	if(fd < 0)
 		sysfatal("opening factotum: %r");
-	fprint(fd, "key proto=p9sk1 dom=cs.bell-labs.com user=%q !password=%q", user, password);
+	fprint(fd, "key proto=p9sk1 dom=%s user=%q !password=%q", getauthdom(), user, password);
 	close(fd);
+}
+
+void
+usage(void)
+{
+	fprint(2, "usage: %s [-a authdom] user\n", argv0);
+	exits("");
 }
 
 void
@@ -156,7 +196,16 @@ main(int argc, char *argv[])
 	AuthInfo *ai;
 
 	ARGBEGIN{
+	case 'a':
+		authdom = EARGF(usage());
+		break;
+	default:
+		usage();
+		break;
 	}ARGEND;
+
+	if(argc != 1)
+		usage();
 
 	rfork(RFENVG|RFNAMEG);
 

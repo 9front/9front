@@ -35,6 +35,10 @@ changeuser, convkeys, convkeys2, printnetkey, status, enable, disable, authsrv, 
 .B auth/wrkey
 .PP
 .B auth/login
+[
+.B -a
+.I authdom
+]
 .I user
 .PP
 .B auth/newns
