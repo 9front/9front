@@ -214,7 +214,9 @@ Download a file from the web.
 .PP
 Use
 .I hget
-in conjuncton with aux/statusbar to monitor progress.
+in conjuncton with
+.I aux/statusbar
+to monitor progress.
 .IP
 .EX
 hget -v -o 9front.iso.bz2 \\
