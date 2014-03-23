@@ -284,11 +284,11 @@ usage:
 		}
 		while(spcclock < 0)
 			spcclock += spcstep() * SPCDIV;
-		if(stimerclock >= SPCDIV*16){
+		while(stimerclock >= SPCDIV*16){
 			spctimerstep();
 			stimerclock -= SPCDIV*16;
 		}
-		if(dspclock >= SPCDIV){
+		while(dspclock >= SPCDIV){
 			dspstep();
 			dspclock -= SPCDIV;
 		}
