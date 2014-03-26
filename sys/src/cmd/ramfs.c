@@ -468,7 +468,7 @@ main(int argc, char **argv)
 		chatty9p++;
 		break;
 	case 's':
-		srvname = "/srv/ramfs";
+		srvname = "ramfs";
 		mtpt = nil;
 		break;
 	case 'S':
