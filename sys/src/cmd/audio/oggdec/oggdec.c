@@ -26,15 +26,18 @@
 #include <stdlib.h>
 #include <math.h>
 #include <vorbis/codec.h>
+#include <sys/wait.h>
+
+static int ifd = -1;
 
 static void
 output(float **pcm, int samples, vorbis_info *vi)
 {
 	static int rate, chans;
 	static unsigned char *buf;
-	static int nbuf, ifd = -1;
+	static int nbuf;
 	unsigned char *p;
-	int i, j, n, v;
+	int i, j, n, v, status;
 	float *s;
 
 	/* start converter if format changed */
@@ -46,8 +49,10 @@ output(float **pcm, int samples, vorbis_info *vi)
 		chans = vi->channels;
 		sprintf(fmt, "f%dr%dc%d", sizeof(float)*8, rate, chans);
 
-		if(ifd >= 0)
+		if(ifd >= 0){
 			close(ifd);
+			wait(&status);
+		}
 		if(pipe(pfd) < 0){
 			fprintf(stderr, "Error creating pipe\n");
 			exit(1);
@@ -105,7 +110,7 @@ int main(){
   
   char *buffer;
   int  bytes;
-
+  int  status;
 
   /********** Decode setup ************/
 
@@ -291,7 +296,12 @@ int main(){
 
   /* OK, clean up the framer */
   ogg_sync_clear(&oy);
-  
+
+  if(ifd >= 0){
+    close(ifd);
+    wait(&status);
+  }
+
   fprintf(stderr,"Done.\n");
   return(0);
 }
