@@ -196,6 +196,53 @@ loop1:
 				p->from = zprog.from;
 			}
 			break;
+
+		case ACMPL:
+		case ACMPQ:
+			if(p->to.type != D_CONST || p->to.offset != 0 || regtyp(&p->from) == 0)
+				break;
+			if(p->link == P || (p->link->as != AJEQ && p->link->as != AJNE))
+				break;
+			r1 = uniqp(r);
+			while(r1 != R && r1->prog->as == ANOP)
+				r1 = uniqp(r1);
+			if(r1 == R || r1->prog->to.type != p->from.type)
+				break;
+			p1 = r1->prog;
+			switch(p1->as){
+			case AANDQ:
+			case AORQ:
+			case AXORQ:
+			case ANEGQ:
+			case AADDQ:
+			case AADCQ:
+			case ASUBQ:
+			case ASBBQ:
+			case ASHLQ:
+			case ASHRQ:
+			case ASALQ:
+			case ASARQ:
+			case AINCQ:
+			case ADECQ:
+				if(p->as != ACMPQ)
+					break;
+			case AANDL:
+			case AORL:
+			case AXORL:
+			case ANEGL:
+			case AADDL:
+			case AADCL:
+			case ASUBL:
+			case ASBBL:
+			case ASHLL:
+			case ASHRL:
+			case ASALL:
+			case ASARL:
+			case AINCL:
+			case ADECL:
+				excise(r);
+			}
+			break;
 		}
 	}
 	if(t)
