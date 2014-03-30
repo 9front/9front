@@ -131,17 +131,17 @@ loop:
 	}
 }
 
-Rune	tab1[] =
+int	tab1[] =
 {
 	0x007f,
 	0x07ff,
 	0xffff,
 };
-Rune	tab2[] =
+int	tab2[] =
 {
 	0x003f,
 	0x0fff,
-	0xffff,
+	0x3ffff,
 };
 
 Re2
