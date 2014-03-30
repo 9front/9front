@@ -135,11 +135,13 @@ Rune	tab1[] =
 {
 	0x007f,
 	0x07ff,
+	0xffff,
 };
 Rune	tab2[] =
 {
 	0x003f,
 	0x0fff,
+	0xffff,
 };
 
 Re2
@@ -275,7 +277,7 @@ re2class(char *s)
 			x = re2or(x, rclass(ov, p[0]-1));
 			ov = p[1]+1;
 		}
-		x = re2or(x, rclass(ov, Runemask));
+		x = re2or(x, rclass(ov, Runemax));
 	} else {
 		x = rclass(p[0], p[1]);
 		for(p+=2; *p; p+=2)
