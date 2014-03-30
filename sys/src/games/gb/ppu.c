@@ -32,25 +32,34 @@ resolvetile(u8int tx, u8int ty, u8int toy, int window, u8int* tnl1, u8int *tnl2)
 static void
 pixel(int x, int y, int val, int back)
 {
-	int X, Y;
-	uchar *p;
+	int Y;
+	union { u8int c[4]; u32int l; } u;
+	u32int *p, l;
 
 	val = (3 - val) * 0x55;
-	if(scale > 1){
-		for(X = scale * x; X < scale * (x+1); X++)
-			for(Y = scale * y; Y < scale * (y+1); Y++){
-				p = pic + Y * scale * 160 * 4 + X * 4;
-				p[0] = val;
-				p[1] = val;
-				p[2] = val;
-				p[3] = back ? 0 : 0xFF;
-			}
+	u.c[0] = val;
+	u.c[1] = val;
+	u.c[2] = val;
+	u.c[3] = back ? 0 : 0xFF;
+	l = u.l;
+	if(scale == 3){
+		p = ((u32int*)pic) + y * 3 * 3 * 160 + 3 * x;
+		for(Y = 0; Y < 3; Y++){
+			*p++ = l;
+			*p++ = l;
+			*p = l;
+			p += 3 * 160 - 2;
+		}
+	}else if(scale == 2){
+		p = ((u32int*)pic) + y * 2 * 2 * 160 + 2 * x;
+		*p++ = l;
+		*p = l;
+		p += 2 * 160 - 1;
+		*p++ = l;
+		*p = l;
 	}else{
-		p = pic + y*160*4 + x*4;
-		p[0] = val;
-		p[1] = val;
-		p[2] = val;
-		p[3] = back ? 0 : 0xFF;
+		p = ((u32int*)pic) + y * 160 + x;
+		*p = l;
 	}
 }
 
