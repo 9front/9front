@@ -1,0 +1,132 @@
+.TH NEWT 1
+.SH NAME
+newt \- network news transport protocol (NNTP) client
+.SH SYNOPSIS
+.B newt
+[
+.B -f
+.I newsgroup
+] [
+.B -m
+.I mountpoint
+] [
+.B -p
+.I maxposts
+]
+.SH DESCRIPTION
+.I Newt
+provides an interactive, text-based interface to NNTP
+articles served by
+.IR nntpfs (4) .
+.PP
+There are a number of options:
+.TP
+.B  -f
+Load the specified newsgroup. Default is
+.B alt.test.
+.TP
+.B  -m
+Directory where
+.I nntpfs
+is mounted. Default is
+.B /mnt/news.
+.TP
+.B -p
+Number of posts to display, up to and including the most recent post.
+.PP
+.I Newt
+starts by reading the list of messages in the
+.I newsgroup,
+printing out the number of messages, and then prompting for commands
+from standard input. The prompt itself presents the name of the group
+and the message number in the form of a file system path relative to the
+.I mountpoint.
+.PP
+The commands are:
+.PP
+.TP
+.I number
+Print message
+.I number.
+.TP
+.B b
+Print the previous message.
+.TP
+.B e
+Enter a new message, honoring the environment variable
+.I editor.
+Default is
+.IR hold (1) .
+.TP
+.B f
+Jump to the first message in the group.
+.TP
+.BI g " newsgroup
+Change to the specified
+.I newsgroup.
+The name of a group may be provided in dotted
+(\fIalt.test\fR) or path (\fIalt/test\fR) format.
+.TP
+.B h
+Print the disposition, date, sender and subject line
+of all messages in the group. These lines are suitable
+for selecting and sending to the prompt, in order to
+print messages either singly or in aggregate.
+.TP
+.B help
+Print a summary of the available commands.
+.TP
+.BI k " [newsgroup]
+Without an argument,
+.I k
+walks the directories under the current group
+and prints commands suitable for changing to each
+available sub-group. When provided with an argument,
+it instead walks the directories under the group specified
+by the argument.
+.TP
+.B l
+Jump to the last message in the group.
+.TP
+.B n, or enter key
+Print the next message.
+.TP
+.B p
+Print the current message with minimal headers.
+.TP
+.B P
+Print the raw message with full headers.
+.TP
+.B q
+Quit.
+.TP
+.B r
+Reply to the current message.
+.TP
+.B y
+Synchronize message list with the server.
+.TP
+.BI | command
+Run the
+.I command
+with the message body as standard input.
+.TP
+.BI || command
+Run the
+.I command
+with the whole message as standard input.
+.TP
+\fB"\fP
+Print the current message in quoted form, suitable for reply.
+.SH SOURCE
+.B /rc/bin/newt
+.SH "SEE ALSO"
+.IR nntpfs (4)
+.SH BUGS
+The list of available newsgroups offered by a given server
+may run to many megabytes in size. This complicates
+walking the list over a slow Internet connection, and renders
+searching all but infeasible.
+.SH HISTORY
+.I Newt
+first appeared in 9front (April, 2014).
