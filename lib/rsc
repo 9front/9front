@@ -88,3 +88,12 @@ it would be nice to be able to try the plan 9 go port without a plan 9 system.
 is anyone willing to put together a plan 9 qemu image with mercurial set up and a go tree checked out and ready to build?
 okay.
 sounds worth trying
+I'd like to keep the discussion here about Windows 2000 support in general and not about the technical details of this specific problem.
+But that is just a guess.
+RFC 3339 is very clear about this.
+Thanks.
+It is just not worth the effort.
+Hello there.  Has anyone written a vt100 emulator for Plan9?  Thanks.
+Much better to spend time reading and learning from the code than blogging about what's wrong with the local variable names.
+I would prefer to arrange that the output is useful.
+Nice.

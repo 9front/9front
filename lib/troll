@@ -1,33 +1,18 @@
-I'm so glad i live in europe and not america.
-Azns are such shitty drivers, they should all go back to wherever the fuck they came from and smash each others' cars there.
-The Wii is actually a pretty technically-advanced console compared to the PS3.
-Lighttpd is a great drop-in replacement for Apache.
-You shouldn't really run hdd speed tests under Plan 9 because the controller drivers are hacked-together open-source shit, something closed-source but official like Windows would give a more accurate result.
-The British empire had the right idea when they enslaved all those damn niggers.
-Ken is an idiot, he could have learned C++ instead of inventing Go.
-Transparent terminals provide a huge productivity boost.
-Cirno is the official 9front mascot and the best you could ever think of.
+Cirno's been our mascot for a while.
 No woman would voluntarily prostitute themselves.
 TODO: recursive userlevel page fault handler, shared libraries and async i/o
-Cirno's been our mascot for a while.
-We removed private namespaces from Plan 9 to support hotplugging better.
-Plan 9 is just a shitty rip-off of GNU/HURD.
 How popular is Plan 9 compared to say HURD?
 Copyright protects the author.
 Communism works.
 Free-market capitalism inevitably exploits man and nature.
-Hitler was basically right.
 Socialism and national socialism are unrelated concepts.
 The phallic form of the shell prompt just demonstrates the patriarchic nature of Plan 9.
 We live in a society based on Christianity, there is no place for other religions.
-XMPP is a great standard.
 fossil file system corrupts after a power cut
-Survey: Current Fossil+venti Filesystem
 can't access fossil dumps anymore
 how to mount an inert fossil partition?
 Never trust someone from the government or any corporation with personal interests that may conflict with your own safety.
 There was this one accident when Uriel got drunk and picked a fist fight with Russ Cox one year on 9 convention.
-The 9front shell is written in Flash.
 Unlimited Detail is different from existing 3D graphics systems because it can process unlimited point cloud data in real time.
 Sexist jokes are the number one way to drive women out of any group, and they are more common than many people realize.
 Note: NEVER use the term "feminazi." It discredits all feminists, and trivializes the victims of the Nazi Holocaust. Consider how ridiculous it sounds to call people like Rush Limbaugh "male chauvinazis" and you may understand why "feminazi" is so emotionally loaded.
@@ -46,7 +31,6 @@ The problem with all the economists is that they base their theories on empiric 
 Why would you program in C if you know Lisp anyway?
 Dead Island dev apologises for "feminist whore" code.
 Why should I boot Plan 9, when I know I can't run a browser, and I already have p9p?
-9p (the network filesystem plan9 and inferno are using) is horribly slow. It only works on fast no-latency LANs. Don't even think about using it on any link with more than 20ms latency.
 The (9P) protocol has also other glaring mis-features -- it lacks the ability of moving files -- if you want to move a big file on a remote machine from one directory to another, you'll have to copy it back and forth, all the way. This is incredibly dumb.
 I doubt plan9 will ever get into a usable system. Everything inside is like high-brow silliness, second-system syndrome and stupid vulnerabilities you only meet with in historic code from 30 years ago.
 As to the ideas inspired by plan9 in modern unix systems, they quickly became just encumbering legacy crap -- e.g. the /proc system in linux.
@@ -104,11 +88,8 @@ The go executable is pretty small. Usually 3M or so.
 I want to understand what the diffrence between things like slackware and plan9
 this bug was introduced with the new parallel dial implementation.
 is there any simple way to send mail in mail.Message format through net.Smtp?
-Reddit is under heavy load right now, sorry. Try again in a few minutes.
-linux cannot even be a sane client to adequate performance for most network filesystems ;_;
 Does anyone know if there is any scalable and performant MVC framework available for building web apps? If no, then what is the reason that go is lagging in that front?
 Re: [ZS] Bitcoin - A Means for Redistribution of Wealth
-Subject: [go-nuts] Re: php eval equivalent in go
 [go-nuts] Why is this binary so large?
 did anyone at iwp9 give an update about osprey? anyone ask when it'll be available?
 just run linux -- aiju
@@ -123,7 +104,6 @@ i would not be at all surprised if the nix kernel (with or without the AC stuff)
 Subject: [9fans] Go tip build fails
 FWIW may be it would make more sense to install Plan 9 (9front) then?
 [9fans]  Installing Go
-Subject: [9fans] Go testing and resource exhaustion
 [dev] trying to get surf working on Raspberry pi
 I have not good result for bell-labs version.
 [drone-list] gender question
@@ -157,6 +137,11 @@ While I think the overall concept is amazing, my understanding is that the user 
 Porting a modern browser to Plan 9 woulbe incredibly painful, and I believe the codebase of Chromium or Firefox is larger than Plan 9 itself these days!
 Subject: [sources] applied patch: /n/atom/patch/applied/websocket2
 #ifdef PLAN9
-It's back.  One of the backing servers wedged and needed a reboot.
-[9fans] p9p on 64 bit Linux
 acme: error while loading shared libraries: libX11.so.6: cannot open shared
+Subject: [9fans] Accessing Mac OS Extended drives
+Having seen Go perform really well in framework benchmarks, I wanted to try learning it over the weekend.
+Exists a X11 port for paln 9?
+Sorry I missed the discussion on 9fans -- I got tired of the rudeness and unsubscripted.
+I searched and didn't find a canonical way to install mercurial and golang on plan9.
+you can also look at the stat graph on the venti httpd
+As someone who has written a fair bit of Go code, I also find myself keeping a close eye on Rust.
