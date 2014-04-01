@@ -91,6 +91,8 @@ set to \f5"\et\er\en\ "\fP,
 except that quotes are interpreted but do not appear in the resulting
 .IR args .
 .SH SOURCE
+.B /sys/src/libc/port/getfields.c
+.br
 .B /sys/src/libc/port/tokenize.c
 .SH SEE ALSO
 .I strtok
