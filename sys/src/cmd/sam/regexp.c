@@ -462,7 +462,7 @@ nextrec(void){
 			exprp++;
 			return '\n';
 		}
-		return *exprp++|(Runemax+1);
+		return *exprp++|(Runemask+1);
 	}
 	return *exprp++;
 }
@@ -498,11 +498,11 @@ bldcclass(void)
 			if((c2 = nextrec()) == ']')
 				goto Error;
 			classp[n+0] = Runemax;
-			classp[n+1] = c1;
-			classp[n+2] = c2;
+			classp[n+1] = c1 & Runemask;
+			classp[n+2] = c2 & Runemask;
 			n += 3;
 		}else
-			classp[n++] = c1;
+			classp[n++] = c1 & Runemask;
 	}
 	classp[n] = 0;
 	if(nclass == Nclass){
