@@ -124,9 +124,9 @@ Print the current message in quoted form, suitable for reply.
 .IR nntpfs (4)
 .SH BUGS
 The list of available newsgroups offered by a given server
-may run to many megabytes in size. This complicates
-walking the list over a slow Internet connection, and renders
-searching all but infeasible.
+may be quite large. This complicates walking the list over 
+a slow Internet connection, and renders searching in real-time
+all but infeasible.
 .SH HISTORY
 .I Newt
 first appeared in 9front (April, 2014).
