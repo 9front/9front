@@ -97,3 +97,6 @@ Hello there.  Has anyone written a vt100 emulator for Plan9?  Thanks.
 Much better to spend time reading and learning from the code than blogging about what's wrong with the local variable names.
 I would prefer to arrange that the output is useful.
 Nice.
+No one googles local variable names.
+This is not a step forward.
+the opposite of brevity is length, not clarity.
