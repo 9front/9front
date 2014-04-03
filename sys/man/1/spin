@@ -91,7 +91,7 @@ spin - verification tool for models of concurrent systems
 .I Spin
 is a tool for analyzing the logical consistency of
 asynchronous systems, specifically distributed software
-amd communication protocols.
+and communication protocols.
 A verification model of the system is first specified
 in a guarded command language called
 .IR Promela .
@@ -102,7 +102,7 @@ nondeterministic case selection, loops, gotos, local and
 global variables.
 It also allows for a concise specification of logical
 correctness requirements, including, but not restricted
-to requirements expressed in linear temporal logic.
+to, requirements expressed in linear temporal logic.
 .PP
 Given a Promela model stored in
 .IR file ,
