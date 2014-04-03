@@ -31,7 +31,7 @@ unescape(char *s, char *spec)
 	for(r=w=s; x = *r; r++){
 		if(x == '%' && isxdigit(r[1]) && isxdigit(r[2])){
 			x = (dhex(r[1])<<4)|dhex(r[2]);
-			if(x == 0 || (x > 0x1F && x < 0x7F && strchr(spec, x))){
+			if(x == 0 || x == '%' || (x > 0x1F && x < 0x7F && strchr(spec, x))){
 				*w++ = '%';
 				*w++ = toupper(r[1]);
 				*w++ = toupper(r[2]);
