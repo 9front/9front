@@ -461,7 +461,7 @@ acpiinit(void)
 	Tbl *t;
 	Apic *a;
 	void *va;
-	uchar *p, *e;
+	uchar *s, *p, *e;
 	ulong lapicbase;
 	int machno, i, c;
 
@@ -497,16 +497,16 @@ acpiinit(void)
 	return;
 
 Foundapic:
-	p = t->data;
-	e = p + tbldlen(t);
-	lapicbase = get32(p); p += 8;
+	s = t->data;
+	e = s + tbldlen(t);
+	lapicbase = get32(s); s += 8;
 	va = vmap(lapicbase, 1024);
 	print("LAPIC: %.8lux %#p\n", lapicbase, va);
 	if(va == nil)
 		panic("acpiinit: cannot map lapic %.8lux", lapicbase);
 
 	machno = 0;
-	for(; p < e; p += c){
+	for(p = s; p < e; p += c){
 		c = p[1];
 		if(c < 2 || (p+c) > e)
 			break;
@@ -555,6 +555,18 @@ Foundapic:
 			mpioapic[a->apicno] = a;
 			ioapicinit(a, a->apicno);
 			break;
+		}
+	}
+
+	/*
+	 * need 2nd pass as vbox puts interrupt overrides
+	 * *before* the ioapic entries (!)
+	 */
+	for(p = s; p < e; p += c){
+		c = p[1];
+		if(c < 2 || (p+c) > e)
+			break;
+		switch(*p){
 		case 0x02:	/* Interrupt Source Override */
 			addirq(get32(p+4), BusISA, 0, p[3], get16(p+8));
 			break;
