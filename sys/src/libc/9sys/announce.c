@@ -218,11 +218,11 @@ nettrans(char *addr, char *naddr, int na, char *file, int nf)
 		werrstr("bad dial string: %s", addr);
 		return -1;
 	}
-	if(*addr != '/'){
+	if(*addr != '/' && *addr != '#'){
 		strncpy(netdir, "/net", sizeof(netdir));
 		netdir[sizeof(netdir) - 1] = 0;
 	} else {
-		for(p2 = p; *p2 != '/'; p2--)
+		for(p2 = p; p2 > addr && *p2 != '/'; p2--)
 			;
 		i = p2 - addr;
 		if(i == 0 || i >= sizeof(netdir)){
