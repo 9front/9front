@@ -154,8 +154,10 @@ while(){
 	cmd=`{read}
 	switch($cmd){
 	case [0-9]*
-		post=$cmd(1)
-		printp $post
+		if(grep -s -e '^[0-9]+$' <{echo $cmd(1)}){
+			post=$cmd(1)
+			printp $post
+		}
 	case b
 		if(! ~ $post $posts(1)){
 			post=`{echo $post^-1 | bc}
