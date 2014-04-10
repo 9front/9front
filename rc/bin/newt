@@ -62,10 +62,10 @@ fn geth{
 		if(! ~ $#from 0){
 			date=`{awk -F '	' '{print $4;}' $i/xover >[2]/dev/null | fmtd}
 			awk -v date'='$"date -v from'='$from(1) -F '	' \
-				'{print " " $1 "	" date " " from "		" substr($2,0,50);}' $i/xover >[2]/dev/null
+				'{print "  " $1 "	" date " " from "		" substr($2,0,50);}' $i/xover >[2]/dev/null
 		}
 		if not
-			echo ' '$"i'	nil	nil	nil'
+			echo '  '$"i'	nil	nil	nil'
 	}
 }
 fn getposts{ ls | grep -e '^[0-9]+$' | sort -n | tail -$maxposts }
