@@ -26,6 +26,8 @@ fn fmtd{
 	if(! ~ $date(1) [0-9]*)
 		date=`{nshift $date}
 	da=$date(1)
+	if(~ $da [0-9])
+		da=0^$da
 	switch($date(2)){
 	case Jan;	mo=1
 	case Feb;	mo=2
