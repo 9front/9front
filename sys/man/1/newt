@@ -85,6 +85,13 @@ available sub-group. When provided with an argument,
 it instead walks the directories under the group specified
 by the argument.
 .TP
+.BI kf " regexp
+Greps
+.B $home/lib/newsgroups
+for
+.I regexp
+and prints commands suitable for changing to each match.
+.TP
 .B l
 Jump to the last message in the group.
 .TP
@@ -118,6 +125,9 @@ with the whole message as standard input.
 .TP
 \fB"\fP
 Print the current message in quoted form, suitable for reply.
+.SH FILES
+.B $home/lib/newsgroups
+list of newsgroups, one per line
 .SH SOURCE
 .B /rc/bin/newt
 .SH "SEE ALSO"
@@ -126,7 +136,9 @@ Print the current message in quoted form, suitable for reply.
 The list of available newsgroups offered by a given server
 may be quite large. This complicates walking the list over 
 a slow Internet connection, and renders searching in real-time
-all but infeasible.
+all but infeasible. Grepping a pre-generated
+.B newsgroups
+file is a compromise.
 .SH HISTORY
 .I Newt
 first appeared in 9front (April, 2014).

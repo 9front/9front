@@ -75,7 +75,7 @@ fn k{
 	kmnt=`{echo $mnt | sed 's/\//\\\//g'}
 	f $mnt/$* |
 		grep -v -e '\/([0-9]+|article|body|header|post|xover)$' |
-		sed 's/^'$"kmnt'\// g	/g' |
+		sed 's/^'$"kmnt'\//  g	/g' |
 		sort
 }
 fn nshift{ shift; echo $* }
@@ -88,6 +88,7 @@ g ...		go to specified group
 h		print message headlines
 help		print this help message
 k ...		list sub-groups under specified group
+kf ...		grep $home/lib/newsgroups for regexp
 l		jump to last message
 n		next
 p		print message with minimal headers
@@ -194,6 +195,9 @@ while(){
 		k $group
 	case k' '*
 		k `{nshift $cmd | sed 's/\./\//g'}
+	case kf' '*
+		grep -e `{nshift $cmd} $home/lib/newsgroups |
+			sed 's/^/  g	/g'
 	case l
 		post=$posts($#posts)
 		printp $post
