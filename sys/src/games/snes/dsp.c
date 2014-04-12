@@ -42,31 +42,30 @@ enum {
 
 enum { RELEASE, ATTACK, DECAY, SUSTAIN };
 
+enum { Freq = 44100 };
 static s16int sbuf[2*2000], *sbufp;
+static int stime;
 static int fd;
 
 void
 audioinit(void)
 {
-	int cfd;
-	static char c[] = "speed 32000";
-
 	fd = open("/dev/audio", OWRITE);
 	if(fd < 0)
-		return;
-	cfd = open("/dev/volume", OWRITE);
-	if(cfd >= 0)
-		write(cfd, c, sizeof(c));
+		sysfatal("open: %r");
 	sbufp = sbuf;
 }
 
 static void
 audiosample(s16int *s)
 {
-	if(sbufp < sbuf + nelem(sbuf)){
-		*sbufp++ = s[0];
-		*sbufp++ = s[1];
-	}
+	stime -= 1<<16;
+	do {
+		sbufp[0] = s[0];
+		sbufp[1] = s[1];
+		sbufp += 2;
+		stime += (32000<<16)/Freq;
+	} while(stime < 0);
 }
 
 int
@@ -459,7 +458,7 @@ echo(int s)
 void
 dspstep(void)
 {
-	if(sbufp == nil)
+	if(sbufp == nil || sbufp >= sbuf+nelem(sbuf)-2)
 		return;
 	switch(dspstate++ & 31){
 	case  0: voice(0, 5); voice(1, 2); break;
