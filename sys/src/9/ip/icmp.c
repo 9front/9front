@@ -318,6 +318,16 @@ static char *unreachcode[] =
 [3]	"port unreachable",
 [4]	"fragmentation needed and DF set",
 [5]	"source route failed",
+[6]	"destination network unknown",
+[7]	"destination host unknown",
+[8]	"source host isolated",
+[9]	"network administratively prohibited",
+[10]	"host administratively prohibited",
+[11]	"network unreachable for tos",
+[12]	"host unreachable for tos",
+[13]	"communication administratively prohibited",
+[14]	"host precedence violation",
+[15]	"precedence cutoff in effect",
 };
 
 static void
@@ -371,9 +381,11 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 		ipoput4(icmp->f, r, 0, MAXTTL, DFLTTOS, nil);
 		break;
 	case Unreachable:
-		if(p->code > 5)
-			msg = unreachcode[1];
-		else
+		if(p->code >= nelem(unreachcode)) {
+			snprint(m2, sizeof m2, "unreachable %V->%V code %d",
+				p->src, p->dst, p->code);
+			msg = m2;
+		} else
 			msg = unreachcode[p->code];
 
 		bp->rp += ICMP_IPSIZE+ICMP_HDRSIZE;
@@ -393,7 +405,7 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 		break;
 	case TimeExceed:
 		if(p->code == 0){
-			sprint(m2, "ttl exceeded at %V", p->src);
+			snprint(m2, sizeof m2, "ttl exceeded at %V", p->src);
 
 			bp->rp += ICMP_IPSIZE+ICMP_HDRSIZE;
 			if(blocklen(bp) < MinAdvise){
