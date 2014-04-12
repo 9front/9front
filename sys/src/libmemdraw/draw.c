@@ -1496,7 +1496,7 @@ readcmap(Param *p, uchar *buf, int y)
 	end = p->bytey0e + y*p->bwidth;
 	cmap = p->img->cmap->cmap2rgb;
 	convgrey = p->convgrey;
-	copyalpha = (p->img->flags&Falpha) ? 1 : 0;
+	copyalpha = (p->img->flags&Falpha) != 0;
 
 	w = buf;
 	dx = p->dx;
@@ -1603,7 +1603,7 @@ readbyte(Param *p, uchar *buf, int y)
 	convgrey = p->convgrey;	/* convert rgb to grey */
 	isgrey = img->flags&Fgrey;
 	alphaonly = p->alphaonly;
-	copyalpha = (img->flags&Falpha) ? 1 : 0;
+	copyalpha = (img->flags&Falpha) != 0;
 
 DBG print("copyalpha %d alphaonly %d convgrey %d isgrey %d\n", copyalpha, alphaonly, convgrey, isgrey);
 	/* if we can, avoid processing everything */
@@ -1655,16 +1655,17 @@ DBG print("g %x %x %x\n", ured, ugrn, ublu);
 				*w++ = RGB2K(ured, ugrn, ublu);
 DBG print("%x\n", w[-1]);
 			}else{
-				*w++ = brepl[(u >> img->shift[CBlue]) & img->mask[CBlue]];
-				*w++ = grepl[(u >> img->shift[CGreen]) & img->mask[CGreen]];
-				*w++ = rrepl[(u >> img->shift[CRed]) & img->mask[CRed]];
+				w[0] = ublu;
+				w[1] = ugrn;
+				w[2] = ured;
+				w += 3;
 			}
 		}
 		r += nb;
 		if(r == end)
 			r = begin;
 	}
-	
+
 	b.alpha = copyalpha ? buf : &ones;
 	b.rgba = (ulong*)buf;
 	if(alphaonly){
@@ -1708,7 +1709,6 @@ writebyte(Param *p, uchar *w, Buffer src)
 	dx = p->dx;
 
 	nb = img->depth/8;
-	mask = (nb==4) ? 0 : ~((1<<img->depth)-1);
 
 	isalpha = img->flags&Falpha;
 	isgrey = img->flags&Fgrey;
@@ -1720,6 +1720,37 @@ writebyte(Param *p, uchar *w, Buffer src)
 		adelta = 0;
 	}
 
+	if((img->flags&Fbytes) != 0){
+		int ogry, ored, ogrn, oblu, oalp;
+
+		ogry = img->shift[CGrey]/8;
+		ored = img->shift[CRed]/8;
+		ogrn = img->shift[CGreen]/8;
+		oblu = img->shift[CBlue]/8;
+		oalp = img->shift[CAlpha]/8;
+
+		for(i=0; i<dx; i++){
+			if(isgrey){
+				w[ogry] = *grey;
+				grey += delta;
+			} else {
+				w[ored] = *red;
+				w[ogrn] = *grn;
+				w[oblu] = *blu;
+				red += delta;
+				grn += delta;
+				blu += delta;
+			}
+			if(isalpha){
+				w[oalp] = *alpha;
+				alpha += adelta;
+			}
+			w += nb;
+		}
+		return;
+	}
+
+	mask = (nb==4) ? 0 : ~((1<<img->depth)-1);
 	for(i=0; i<dx; i++){
 		u = w[0] | (w[1]<<8) | (w[2]<<16) | (w[3]<<24);
 DBG print("u %.8lux...", u);
@@ -2016,17 +2047,6 @@ boolcopyfn(Memimage *img, Memimage *mask)
 /*
  * Optimized draw for filling and scrolling; uses memset and memmove.
  */
-static void
-memsetb(void *vp, uchar val, int n)
-{
-	uchar *p, *ep;
-
-	p = vp;
-	ep = p+n;
-	while(p<ep)
-		*p++ = val;
-}
-
 static void
 memsets(void *vp, ushort val, int n)
 {
