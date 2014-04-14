@@ -1878,7 +1878,7 @@ pea(Instr *ip)
 {
 	if (ip->mod == 3) {
 		if (ip->osize == 'B')
-			bprint(ip, (ip->rex & REXB? breg64: breg)[ip->base]);
+			bprint(ip, (ip->rex? breg64: breg)[ip->rex&REXB? ip->base+8: ip->base]);
 		else if(ip->rex & REXB)
 			bprint(ip, "%s%s", ANAME(ip), reg[ip->base+8]);
 		else
