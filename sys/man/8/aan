@@ -126,4 +126,6 @@ Log file
 .IR import (4),
 .IR exportfs (4),
 .IR cpu (1)
-
+.SH HISTORY
+.I Aanuke
+first appeared in 9front (April, 2014).
