@@ -8,7 +8,7 @@ int ppux, ppuy, rx;
 static u8int mode, bright, pixelpri[2];
 static u32int pixelcol[2];
 u16int vtime = 0x1ff, htime = 0x1ff, subcolor;
-uchar pic[256*239*2*9];
+uchar pic[256*239*2*3];
 u16int hofs[5], vofs[5];
 s16int m7[6];
 
@@ -43,33 +43,26 @@ pixeldraw(int x, int y, u16int v)
 	uchar *p;
 	u16int *q;
 	union { u16int w; u8int b[2]; } u;
-	int i;
 
 	if(bright != 0xf)
 		v = darken(v);
 	if(scale == 1){
 		p = pic + (x + y * 256) * 2;
-		*p++ = v;
-		*p = v >> 8;
+		p[0] = v;
+		p[1] = v >> 8;
 		return;
 	}
 	u.b[0] = v;
 	u.b[1] = v >> 8;
 	if(scale == 2){
-		q = (u16int*)pic + (x + y * 256 * 2) * 2;
-		*q++ = u.w;
-		*q = u.w;
-		q += 256 * 2 - 1;
-		*q++ = u.w;
-		*q = u.w;
+		q = (u16int*)pic + (x + y * 256) * 2;
+		q[0] = u.w;
+		q[1] = u.w;
 	}else{
-		q = (u16int*)pic + (x + y * 256 * 3) * 3;
-		for(i = 0; i < 3; i++){
-			*q++ = u.w;
-			*q++ = u.w;
-			*q = u.w;
-			q += 256 * 3 - 2;
-		}
+		q = (u16int*)pic + (x + y * 256) * 3;
+		q[0] = u.w;
+		q[1] = u.w;
+		q[2] = u.w;
 	}
 }
 

@@ -179,7 +179,7 @@ screeninit(void)
 	originwindow(screen, Pt(0, 0), screen->r.min);
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = (Rectangle){subpt(p, Pt(scale * 128, scale * 112)), addpt(p, Pt(scale * 128, scale * 112))};
-	tmp = allocimage(display, Rect(0, 0, scale * 256, scale * 239), RGB15, 0, 0);
+	tmp = allocimage(display, Rect(0, 0, scale * 256, scale > 1 ? 1 : scale * 239), RGB15, scale > 1, 0);
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	draw(screen, screen->r, bg, nil, ZP);	
 }
@@ -314,7 +314,7 @@ usage:
 void
 flush(void)
 {
-	extern uchar pic[256*240*2*9];
+	extern uchar pic[256*240*2*3];
 	Mouse m;
 	Point p;
 
@@ -336,8 +336,25 @@ flush(void)
 			if((m.buttons & 2) != 0)
 				lastkeys = keys;
 		}
-	loadimage(tmp, tmp->r, pic, 256*239*2*scale*scale);
-	draw(screen, picr, tmp, nil, ZP);
+	if(scale == 1){
+		loadimage(tmp, tmp->r, pic, 256*239*2);
+		draw(screen, picr, tmp, nil, ZP);
+	} else {
+		Rectangle r;
+		uchar *s;
+		int w;
+
+		s = pic;
+		r = picr;
+		w = 256*2*scale;
+		while(r.min.y < picr.max.y){
+			loadimage(tmp, tmp->r, s, w);
+			s += w;
+			r.max.y = r.min.y+scale;
+			draw(screen, r, tmp, nil, ZP);
+			r.min.y = r.max.y;
+		}
+	}
 	flushimage(display, 1);
 	audioout();
 }
