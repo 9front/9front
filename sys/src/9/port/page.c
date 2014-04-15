@@ -15,7 +15,8 @@ pageinit(void)
 	int color, i, j;
 	Page *p;
 	Pallocmem *pm;
-	ulong m, np, k, vkb, pkb;
+	vlong m, v, u;
+	ulong np;
 
 	np = 0;
 	for(i=0; i<nelem(palloc.mem); i++){
@@ -46,8 +47,8 @@ pageinit(void)
 	palloc.tail->next = 0;
 
 	palloc.user = p - palloc.pages;
-	pkb = palloc.user*BY2PG/1024;
-	vkb = pkb + (conf.nswap*BY2PG)/1024;
+	u = palloc.user*BY2PG;
+	v = u + conf.nswap*BY2PG;
 
 	/* Paging numbers */
 	swapalloc.highwater = (palloc.user*5)/100;
@@ -57,11 +58,12 @@ pageinit(void)
 	for(i=0; i<nelem(conf.mem); i++)
 		if(conf.mem[i].npage)
 			m += conf.mem[i].npage*BY2PG;
-	k = PGROUND(end - (char*)KTZERO);
-	print("%ldM memory: ", (m+k+1024*1024-1)/(1024*1024));
-	print("%ldM kernel data, ", (m+k-pkb*1024+1024*1024-1)/(1024*1024));
-	print("%ldM user, ", pkb/1024);
-	print("%ldM swap\n", vkb/1024);
+	m += PGROUND(end - (char*)KTZERO);
+
+	print("%lldM memory: ", (m+1024*1024-1)/(1024*1024));
+	print("%lldM kernel data, ", (m-u+1024*1024-1)/(1024*1024));
+	print("%lldM user, ", u/(1024*1024));
+	print("%lldM swap\n", v/(1024*1024));
 }
 
 void
