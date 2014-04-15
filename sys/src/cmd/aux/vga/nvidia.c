@@ -208,7 +208,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 		case 0x01D0:
 		case 0x0210:
 		case 0x0290:	/* nvidia 7950 */
-		case 0x0390:
+		case 0x0390:	/* nvidia 7600 */
 		case 0x0420:
 			nv->arch = 40;
 			break;
@@ -813,7 +813,7 @@ load(Vga* vga, Ctlr* ctlr)
 		nv->pramin[0x0815] = 0;
 		nv->pramin[0x0816] = 0;
 		nv->pramin[0x0817] = 0;
-		nv->pramin[0x0818] = 0x0100805F;
+		nv->pramin[0x0818] = 0x0100805F;	/*WaitVSync not possible, if possible =0x01008062 */
 		nv->pramin[0x0819] = 0;
 		nv->pramin[0x081A] = 0x12001200;
 		nv->pramin[0x081B] = 0;
@@ -932,7 +932,7 @@ load(Vga* vga, Ctlr* ctlr)
 				case 0x0090:
 				case 0x0290:
 				case 0x0390:
-					nv->pgraph[0x0608/4] |= 0x00100000;
+					nv->pgraph[0x0608/4] |= nv->pfb[(0x0608/4)] | 0x00100000;	/* K.Okamoto */
 					nv->pgraph[0x0828/4] = 0x07830610;
 					nv->pgraph[0x082C/4] = 0x0000016A;
 					break;
@@ -1016,9 +1016,17 @@ load(Vga* vga, Ctlr* ctlr)
 					nv->pgraph[0x0824/4] = 0;
 					nv->pgraph[0x0864/4] = vga->vmz - 1;
 					nv->pgraph[0x0868/4] = vga->vmz - 1;
-				} else {
-					nv->pgraph[0x09F0/4] = nv->pfb[0x0200/4];
-					nv->pgraph[0x09F4/4] = nv->pfb[0x0204/4];
+				} else {		/* K.Okamoto */
+					if ((nv->did & 0xfff0) == 0x0090 ||
+					    (nv->did & 0xfff0) == 0x01D0 ||
+					    (nv->did & 0xfff0) == 0x0290 ||
+					    (nv->did & 0xfff0) == 0x0390) {
+						nv->pgraph[0x0DF0/4] = nv->pfb[0x0200/4];
+						nv->pgraph[0x0DF4/4] = nv->pfb[0x0204/4];
+					} else {
+						nv->pgraph[0x09F0/4] = nv->pfb[0x0200/4];
+						nv->pgraph[0x09F4/4] = nv->pfb[0x0204/4];
+					}
 					nv->pgraph[0x69F0/4] = nv->pfb[0x0200/4];
 					nv->pgraph[0x69F4/4] = nv->pfb[0x0204/4];
 
