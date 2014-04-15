@@ -1,6 +1,6 @@
 #!/bin/rc
 rfork e
-for(i in `{ps | grep -e '[ ]+aan$' | awk '{print $2}'}){
+for(i in `{psu | awk '/[ ]+aan$/ {print $2}'}){
 	if(! grep -s -e '[ ]+\/net(\.alt)?\/tcp\/[0-9]+\/data$' /proc/$i/fd)
 		echo '@{echo kill>/proc/'$i'/note} # aan (idle)'
 }
