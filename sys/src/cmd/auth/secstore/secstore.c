@@ -490,7 +490,7 @@ main(int argc, char **argv)
 	int chpass = 0, pass_stdin = 0, pass_nvram = 0, rc;
 	int ngfile = 0, npfile = 0, nrfile = 0, Gflag[MAXFILES+1];
 	char *serve, *tcpserve, *user;
-	char *gfile[MAXFILES], *pfile[MAXFILES], *rfile[MAXFILES];
+	char *gfile[MAXFILES+1], *pfile[MAXFILES+1], *rfile[MAXFILES+1];
 	AuthConn *c;
 
 	serve = "$auth";
