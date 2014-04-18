@@ -7,6 +7,7 @@ enum {
 
 	/* HID class subclass protocol ids */
 	PtrCSP		= 0x020103,	/* mouse.boot.hid */
+	Ptr2CSP		= 0x000003, /* could be a trackpoint */
 	KbdCSP		= 0x010103,	/* keyboard.boot.hid */
 
 	/* Requests */

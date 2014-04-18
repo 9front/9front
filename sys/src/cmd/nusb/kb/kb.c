@@ -255,10 +255,12 @@ static int
 setproto(KDev *f, int eid)
 {
 	int id, proto;
+	Iface *iface;
 
 	proto = Bootproto;
-	id = f->dev->usb->ep[eid]->iface->id;
-	if(f->dev->usb->ep[eid]->iface->csp == PtrCSP){
+	iface = f->dev->usb->ep[eid]->iface;
+	id = iface->id;
+	if(iface->csp == PtrCSP || iface->csp == Ptr2CSP){
 		f->nrep = usbcmd(f->dev, Rd2h|Rstd|Riface, Rgetdesc, Dreport<<8, id, 
 			f->rep, sizeof(f->rep));
 		if(f->nrep > 0){
@@ -809,8 +811,9 @@ threadmain(int argc, char* argv[])
 			continue;
 		if(ep->type == Eintr && ep->dir == Ein && ep->iface->csp == KbdCSP)
 			kbstart(d, ep, "/dev/kbin", kbdwork);
-		if(ep->type == Eintr && ep->dir == Ein && ep->iface->csp == PtrCSP)
+		if(ep->type == Eintr && ep->dir == Ein && (ep->iface->csp == PtrCSP || ep->iface->csp == Ptr2CSP))
 			kbstart(d, ep, "/dev/mousein", ptrwork);
 	}
+	closedev(d);
 	threadexits(nil);
 }
