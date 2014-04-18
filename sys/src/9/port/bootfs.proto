@@ -2,8 +2,11 @@ $objtype
 	bin
 		9660srv
 		awk
+		auth
+			secstore
 		aux
 			kbdfs
+			wpa
 		bind
 		cat
 		cfs
