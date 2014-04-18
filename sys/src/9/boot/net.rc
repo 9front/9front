@@ -1,6 +1,20 @@
 #!/bin/rc
 
 fn confignet{
+	# get primary default interface if not specified
+	if(~ $#* 0){
+		e=/net/ether*
+		if(! ~ $e '/net/ether*')
+			*=(ether $e(1))
+	}
+
+	# setup wifi encryption if any
+	if(~ $1 ether && ~ $service terminal && test -x /bin/aux/wpa){
+		if(grep -s '^status: need authentication' $2/ifstats){
+			aux/wpa -p $2
+		}
+	}
+
 	must ip/ipconfig -p $*
 	if(~ $#fs 0)
 		fs=`{awk -F'=' '/fs=/{print $2; exit}' /net/ndb}
@@ -8,8 +22,11 @@ fn confignet{
 		auth=`{awk -F'=' '/auth=/{print $2; exit}' /net/ndb}
 	if(~ $#fs 0)
 		ask fs ' ip is? ' $auth
-	if(~ $#auth 0)
+	if(~ $#auth 0){
 		ask auth ' ip is? ' $fs
+		if(~ $#auth 1)
+			echo '	auth='^$auth >>/net/ndb
+	}
 }
 
 fn connecttcp{

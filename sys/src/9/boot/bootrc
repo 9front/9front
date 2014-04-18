@@ -78,27 +78,34 @@ fn main{
 		}
 	}
 
+	# authentication agent
+	if(! test -f /srv/factotum){
+		x=(/boot/factotum -n -sfactotum)
+		if(~ $service cpu){
+			x=($x -S)
+			if(~ -k $ff)
+				x=($x -k)
+		}
+		if not
+			x=($x -u)
+		if(! ~ $#auth 0)
+			x=($x -a $auth)
+		if(! ~ $#debugfactotum 0)
+			x=($x -p)
+		must $x
+	}
+
 	# config method
 	$mp(1) $ma
 
-	# authentication agent
-	if(test -f /srv/factotum){
-		rm -f /srv/factotum
-		user=`{cat /dev/hostowner}
+	# load keys from secstore
+	if(~ $#auth 1 && test -x /bin/auth/secstore && test -f /mnt/factotum/ctl){
+		x=(auth/secstore -G factotum -s $auth)
+		if(~ $service cpu)
+			$x -n >/mnt/factotum/ctl
+		if(~ $status *readnvram* || ! ~ $service cpu)
+			$x >/mnt/factotum/ctl
 	}
-	x=(/boot/factotum -sfactotum)
-	if(~ $service cpu){
-		x=($x -S)
-		if(~ -k $ff)
-			x=($x -k)
-	}
-	if not
-		x=($x -u)
-	if(! ~ $#auth 0)
-		x=($x -a $auth)
-	if(! ~ $#debugfactotum 0)
-		x=($x -p)
-	must $x
 
 	# connect method
 	$mp(2) $ma

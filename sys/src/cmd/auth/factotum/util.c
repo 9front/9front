@@ -22,6 +22,45 @@ bindnetcs(void)
 	return 0;
 }
 
+/* get auth= attribute value from /net/ndb */
+static char*
+netndbauthaddr(void)
+{
+	enum { CHUNK = 1024 };
+	char *b, *p, *e;
+	int fd, n, m;
+
+	if((fd = open("/net/ndb", OREAD)) < 0)
+		return nil;
+	m = 0;
+	b = nil;
+	for(;;){
+		if((p = realloc(b, m+CHUNK+1)) == nil)
+			break;
+		b = p;
+		if((n = read(fd, b+m, CHUNK)) <= 0)
+			break;
+		m += n;
+	}
+	close(fd);
+	if(b == nil)
+		return nil;
+	b[m] = '\0';
+	p = strstr(b, "auth=");
+	if(p != nil && p > b && strchr("\n\t ", p[-1]) == nil)
+		p = nil;
+	if(p != nil){
+		p += strlen("auth=");
+		for(e = p; *e != '\0'; e++)
+			if(strchr("\n\t ", *e) != nil)
+				break;
+		*e = '\0';
+		p = estrdup(p);
+	}
+	free(b);
+	return p;
+}
+
 int
 _authdial(char *net, char *authdom)
 {
@@ -35,7 +74,8 @@ _authdial(char *net, char *authdom)
 		/*
 		 * If we failed to mount /srv/cs, assume that
 		 * we're still bootstrapping the system and dial
-		 * the one auth server passed to us on the command line.
+		 * the one auth server passed to us on the command line or
+		 * look for auth= attribute in /net/ndb.
 		 * In normal operation, it is important *not* to do this,
 		 * because the bootstrap auth server is only good for
 		 * a single auth domain.
@@ -43,9 +83,9 @@ _authdial(char *net, char *authdom)
 		 * The ticket request code should really check the
 		 * remote authentication domain too.
 		 */
-
-		/* use the auth server passed to us as an arg */
 		fd = -1;
+		if(authaddr == nil)
+			authaddr = netndbauthaddr();
 		if(authaddr != nil){
 			fd = dial(netmkaddr(authaddr, "tcp", "567"), 0, 0, 0);
 			if(fd < 0)
@@ -56,46 +96,6 @@ _authdial(char *net, char *authdom)
 	return fd;
 }
 
-int
-secdial(void)
-{
-	char *p, buf[80], *f[3];
-	int fd, nf;
-
-	p = secstore; /* take it from writehostowner, if set there */
-	if(*p == 0)	  /* else use the authserver */
-		p = "$auth";
-
-	if(bindnetcs() >= 0)
-		return dial(netmkaddr(p, "net", "secstore"), 0, 0, 0);
-
-	/* translate $auth ourselves.
-	 * authaddr is something like il!host!566 or tcp!host!567.
-	 * extract host, accounting for a change of format to something
-	 * like il!host or tcp!host or host.
-	 */
-	if(strcmp(p, "$auth")==0){
-		if(authaddr == nil)
-			return -1;
-		safecpy(buf, authaddr, sizeof buf);
-		nf = getfields(buf, f, nelem(f), 0, "!");
-		switch(nf){
-		default:
-			return -1;
-		case 1:
-			p = f[0];
-			break;
-		case 2:
-		case 3:
-			p = f[1];
-			break;
-		}
-	}
-	fd = dial(netmkaddr(p, "tcp", "5356"), 0, 0, 0);
-	if(fd >= 0)
-		return fd;
-	return -1;
-}
 /*
  *  prompt user for a key.  don't care about memory leaks, runs standalone
  */
@@ -483,7 +483,7 @@ getnvramkey(int flag, char **secstorepw)
 	 */
 	memmove(spw, safe.config, CONFIGLEN);
 	spw[CONFIGLEN] = 0;
-	if(spw[0] != 0)
+	if(spw[0] != 0 && secstorepw != nil)
 		*secstorepw = estrdup(spw);
 
 	/*
@@ -955,10 +955,8 @@ writehostowner(char *owner)
 	int fd;
 	char *s;
 
-	if((s = strchr(owner,'@')) != nil){
-		*s++ = 0;
-		strncpy(secstore, s, (sizeof secstore)-1);
-	}
+	if((s = strchr(owner,'@')) != nil)
+		*s = 0;
 	fd = open("#c/hostowner", OWRITE);
 	if(fd >= 0){
 		if(fprint(fd, "%s", owner) < 0)

@@ -59,13 +59,11 @@ void
 main(int argc, char **argv)
 {
 	int i, trysecstore;
-	char err[ERRMAX], *s;
+	char *s;
 	Dir d;
 	Proto *p;
-	char *secstorepw;
 
 	trysecstore = 1;
-	secstorepw = nil;
 
 	ARGBEGIN{
 	case 'D':
@@ -147,13 +145,11 @@ main(int argc, char **argv)
 	}
 
 	if(sflag){
-		s = getnvramkey(kflag ? NVwrite : NVwriteonerr, &secstorepw);
+		s = getnvramkey(kflag ? NVwrite : NVwriteonerr, nil);
 		if(s == nil)
 			fprint(2, "factotum warning: cannot read nvram: %r\n");
 		else if(ctlwrite(s, 0) < 0)
 			fprint(2, "factotum warning: cannot add nvram key: %r\n");
-		if(secstorepw != nil)
-			trysecstore = 1;
 		if (s != nil) {
 			memset(s, 0, strlen(s));
 			free(s);
@@ -161,26 +157,6 @@ main(int argc, char **argv)
 	} else if(uflag)
 		promptforhostowner();
 	owner = getuser();
-
-	if(trysecstore){
-		if(havesecstore() == 1){
-			while(secstorefetch(secstorepw) < 0){
-				rerrstr(err, sizeof err);
-				if(strcmp(err, "cancel") == 0)
-					break;
-				fprint(2, "factotum: secstorefetch: %r\n");
-				fprint(2, "Enter an empty password to quit.\n");
-				free(secstorepw);
-				secstorepw = nil; /* just try nvram pw once */
-			}
-		}else{
-/*
-			rerrstr(err, sizeof err);
-			if(*err)
-				fprint(2, "factotum: havesecstore: %r\n");
-*/
-		}
-	}
 
 	postmountsrv(&fs, service, mtpt, MBEFORE);
 	if(service){
@@ -192,6 +168,18 @@ main(int argc, char **argv)
 		if(dirwstat(s, &d) < 0)
 			fprint(2, "factotum warning: cannot chmod 666 %s: %r\n", s);
 		free(s);
+	}
+	if(trysecstore){
+		if(fork() == 0){
+			int fd;
+
+			if((fd = open(smprint("%s/factotum/ctl", mtpt), OWRITE)) < 0)
+				sysfatal("can't open factotum: %r");
+			dup(fd, 1);
+			execl("/bin/auth/secstore", "secstore", "-G", "factotum", nil);
+			exits(nil);
+		}
+		waitpid();
 	}
 	exits(nil);
 }

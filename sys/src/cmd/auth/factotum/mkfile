@@ -23,7 +23,6 @@ FOFILES=\
 	log.$O\
 	rpc.$O\
 	util.$O\
-	secstore.$O\
 
 HFILES=\
 	dat.h\

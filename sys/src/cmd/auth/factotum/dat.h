@@ -179,10 +179,6 @@ void rpcread(Req*);
 void rpcwrite(Req*);
 void retrpc(Req*, int, Fsstate*);
 
-/* secstore.c */
-int havesecstore(void);
-int secstorefetch(char*);
-
 /* util.c */
 #define emalloc emalloc9p
 #define estrdup estrdup9p
@@ -217,7 +213,6 @@ void 		promptforhostowner(void);
 char		*readcons(char*, char*, int);
 int		replacekey(Key*, int before);
 char		*safecpy(char*, char*, int);
-int		secdial(void);
 Attr		*setattr(Attr*, char*, ...);
 Attr		*setattrs(Attr*, Attr*);
 void		sethostowner(void);
