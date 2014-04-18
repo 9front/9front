@@ -389,8 +389,10 @@ login(char *id, char *dest, int pass_stdin, int pass_nvram)
 		sysfatal("tried to login with nil dest");
 	c = emalloc(sizeof(*c));
 	if(pass_nvram){
-		if(readnvram(&nvr, 0) < 0)
-			exits("readnvram: %r");
+		if(readnvram(&nvr, 0) < 0){
+			fprint(2, "secstore: readnvram: %r\n");
+			exits("readnvram failed");
+		}
 		strecpy(c->pass, c->pass+sizeof c->pass, nvr.config);
 	}
 	if(pass_stdin){
