@@ -1,7 +1,6 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
-#include <bio.h>
 #include "usb.h"
 
 int usbdebug;
