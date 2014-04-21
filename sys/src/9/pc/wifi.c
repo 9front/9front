@@ -37,6 +37,15 @@ static char Sassoc[] = "associated";
 static char Sunassoc[] = "unassociated";
 static char Sblocked[] = "blocked";	/* no keys negotiated. only pass EAPOL frames */
 
+static uchar basicrates[] = {
+	0x80 | 2,	/* 1.0	Mb/s */
+	0x80 | 4,	/* 2.0	Mb/s */
+	0x80 | 11,	/* 5.5	Mb/s */
+	0x80 | 22,	/* 11.0	Mb/s */
+
+	0
+};
+
 static Block* wifidecrypt(Wifi *, Wnode *, Block *);
 static Block* wifiencrypt(Wifi *, Wnode *, Block *);
 
@@ -187,6 +196,29 @@ nodelookup(Wifi *wifi, uchar *bssid, int new)
 	return nn;
 }
 
+static uchar*
+putrates(uchar *p, uchar *rates)
+{
+	int n, m;
+
+	n = m = strlen((char*)rates);
+	if(n > 8)
+		n = 8;
+	/* supported rates */
+	*p++ = 1;
+	*p++ = n;
+	memmove(p, rates, n);
+	p += n;
+	if(m > 8){
+		/* extended supported rates */
+		*p++ = 50;
+		*p++ = m;
+		memmove(p, rates, m);
+		p += m;
+	}
+	return p;
+}
+
 static void
 wifiprobe(Wifi *wifi, Wnode *wn)
 {
@@ -212,19 +244,14 @@ wifiprobe(Wifi *wifi, Wnode *wn)
 	b->wp += WIFIHDRSIZE;
 	p = b->wp;
 
-	*p++ = 0x00;	/* set */
+	*p++ = 0;	/* set */
 	*p++ = n;
 	memmove(p, wifi->essid, n);
 	p += n;
 
-	*p++ = 1;	/* RATES (BUG: these are all lies!) */
-	*p++ = 4;
-	*p++ = 0x82;
-	*p++ = 0x84;
-	*p++ = 0x8b;
-	*p++ = 0x96;
+	p = putrates(p, wifi->rates);
 
-	*p++ = 0x03;	/* ds parameter set */
+	*p++ = 3;	/* ds parameter set */
 	*p++ = 1;
 	*p++ = wn->channel;
 
@@ -283,17 +310,13 @@ sendassoc(Wifi *wifi, Wnode *bss)
 	*p++ = 16;	/* interval */
 	*p++ = 16>>8;
 
+	n = strlen(bss->ssid);
 	*p++ = 0;	/* SSID */
-	*p = strlen(bss->ssid);
-	memmove(p+1, bss->ssid, *p);
-	p += 1+*p;
+	*p++ = n;
+	memmove(p, bss->ssid, n);
+	p += n;
 
-	*p++ = 1;	/* RATES (BUG: these are all lies!) */
-	*p++ = 4;
-	*p++ = 0x82;
-	*p++ = 0x84;
-	*p++ = 0x8b;
-	*p++ = 0x96;
+	p = putrates(p, wifi->rates);
 
 	n = bss->rsnelen;
 	if(n > 0){
@@ -346,10 +369,10 @@ recvassoc(Wifi *wifi, Wnode *wn, uchar *d, int len)
 }
 
 static void
-recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
+recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 {
 	static uchar wpa1oui[4] = { 0x00, 0x50, 0xf2, 0x01 };
-	uchar *e, *x;
+	uchar *e, *x, *p;
 	uchar t, m[256/8];
 
 	if(len < 8+2+2)
@@ -373,7 +396,7 @@ recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
 		m[t/8] |= 1<<(t%8);
 
 		switch(t){
-		case 0x00:	/* SSID */
+		case 0:		/* SSID */
 			len = 0;
 			while(len < Essidlen && d+len < x && d[len] != 0)
 				len++;
@@ -384,16 +407,33 @@ recvbeacon(Wifi *, Wnode *wn, uchar *d, int len)
 				wn->ssid[len] = 0;
 			}
 			break;
-		case 0x03:	/* DSPARAMS */
+		case 1:		/* supported rates */
+		case 50:	/* extended rates */
+			if(wn->minrate != nil || wn->maxrate != nil || wifi->rates == nil)
+				break;	/* already set */
+			while(d < x){
+				t = *d++ & 0x7f;
+				for(p = wifi->rates; *p != 0; p++){
+					if((*p & 0x7f) == t){
+						if(wn->minrate == nil || t < (*wn->minrate & 0x7f))
+							wn->minrate = p;
+						if(wn->maxrate == nil || t > (*wn->maxrate & 0x7f))
+							wn->maxrate = p;
+						break;
+					}
+				}
+			}
+			break;
+		case 3:		/* DSPARAMS */
 			if(d != x)
 				wn->channel = d[0];
 			break;
-		case 0xdd:	/* vendor specific */
+		case 221:	/* vendor specific */
 			len = x - d;
 			if(len < sizeof(wpa1oui) || memcmp(d, wpa1oui, sizeof(wpa1oui)) != 0)
 				break;
 			/* no break */
-		case 0x30:	/* RSN information */
+		case 48:	/* RSN information */
 			len = x - &d[-2];
 			memmove(wn->brsne, &d[-2], len);
 			wn->brsnelen = len;
@@ -672,6 +712,8 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 	}
 	wifi->ether = ether;
 	wifi->transmit = transmit;
+
+	wifi->rates = basicrates;
 
 	wifi->essid[0] = 0;
 	memmove(wifi->bssid, ether->bcast, Eaddrlen);

@@ -1813,6 +1813,24 @@ static struct ratetab {
 	{ 120, 0x3, 0 }
 };
 
+static uchar iwlrates[] = {
+	0x80 | 2,
+	0x80 | 4,
+	0x80 | 11,
+	0x80 | 22,
+	12,
+	18,
+	24,
+	36,
+	48,
+	72,
+	96,
+	108,
+	120,
+
+	0
+};
+
 enum {
 	TFlagNeedProtection	= 1<<0,
 	TFlagNeedRTS		= 1<<1,
@@ -1858,9 +1876,9 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 		return;
 	}
 
-	rate = 0;
 	flags = 0;
 	nodeid = ctlr->bcastnodeid;
+	p = wn->minrate;
 	w = (Wifipkt*)b->rp;
 	if((w->a1[0] & 1) == 0){
 		flags |= TFlagNeedACK;
@@ -1870,7 +1888,7 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 
 		if((w->fc[0] & 0x0c) == 0x08 &&	ctlr->bssnodeid != -1){
 			nodeid = ctlr->bssnodeid;
-			rate = 2; /* BUG: hardcode 11Mbit */
+			p = wn->maxrate;
 		}
 
 		if(flags & (TFlagNeedRTS|TFlagNeedCTS)){
@@ -1882,6 +1900,10 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 		}
 	}
 	qunlock(ctlr);
+
+	rate = 0;
+	if(p >= iwlrates && p < &iwlrates[nelem(ratetab)])
+		rate = p - iwlrates;
 
 	/* select first available antenna */
 	ant = ctlr->rfcfg.txantmask & 7;
@@ -2048,8 +2070,10 @@ iwlattach(Ether *edev)
 		if((csr32r(ctlr, Gpc) & RfKill) == 0)
 			error("wifi disabled by switch");
 
-		if(ctlr->wifi == nil)
+		if(ctlr->wifi == nil){
 			ctlr->wifi = wifiattach(edev, transmit);
+			ctlr->wifi->rates = iwlrates;
+		}
 
 		if(ctlr->fw == nil){
 			fw = readfirmware(fwname[ctlr->type]);
@@ -2359,7 +2383,7 @@ again:
 	edev->shutdown = iwlshutdown;
 	edev->promiscuous = iwlpromiscuous;
 	edev->multicast = nil;
-	edev->mbps = 10;
+	edev->mbps = 54;
 
 	if(iwlinit(edev) < 0){
 		edev->ctlr = nil;

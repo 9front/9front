@@ -37,6 +37,9 @@ struct Wnode
 	ulong	lastsend;
 	ulong	lastseen;
 
+	uchar	*minrate;	/* pointers into wifi->rates */
+	uchar	*maxrate;
+
 	/* stuff from beacon */
 	int	ival;
 	int	cap;
@@ -59,6 +62,9 @@ struct Wifi
 	/* for searching */
 	uchar	bssid[Eaddrlen];
 	char	essid[Essidlen+2];
+
+	/* supported data rates by hardware */
+	uchar	*rates;
 
 	/* effective base station */
 	Wnode	*bss;
