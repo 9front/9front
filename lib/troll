@@ -148,3 +148,6 @@ As someone who has written a fair bit of Go code, I also find myself keeping a c
 It is really annoying that things which could be accomplished perfectly well in a browser are now apps because apparently the web is terribly unfashionable these days.
 [9fans] fossil memory corruption
 I’m experimenting with plan9 on a raspberry pi
+Subject: Setting the $venti variable in .bashrc
+I can limp along without the internals, but life's too unpleasant without something like acme.
+I want to from the /r/golang community to share some experience about using Acme and why it's popular in the golang people.
