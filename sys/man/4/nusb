@@ -162,14 +162,15 @@ Without specifying the
 option, the device is assumed to be a CDC compliant ethernet
 communication device. Other devices might require setting an
 explicit
-.IR ethertype
+.IR ethertype ,
 such as
+.BR rndis ,
 .BR smsc ,
-.B a88772
+.BR a88772
 or
-.B a88178
-see
-.IR nusbrc (8).
+.BR a88178
+(see
+.IR nusbrc (8)).
 On devices that support it, the mac address can be set using
 the
 .B -a

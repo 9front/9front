@@ -763,6 +763,7 @@ extern int a88772init(Dev *);
 extern int smscinit(Dev *);
 extern int cdcinit(Dev *);
 extern int urlinit(Dev *);
+extern int rndisinit(Dev *);
 
 static struct {
 	char *name;
@@ -772,8 +773,9 @@ static struct {
 	"smsc",		smscinit,
 	"a88178",	a88178init,
 	"a88772",	a88772init,
-	"aue", aueinit,
-	"url", urlinit,
+	"aue",		aueinit,
+	"url",		urlinit,
+	"rndis",	rndisinit,
 };
 
 void
