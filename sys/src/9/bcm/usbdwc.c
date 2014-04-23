@@ -115,10 +115,10 @@ chansetup(Hostchan *hc, Ep *ep)
 		hcc = 0;
 		break;
 	default:
-		hcc = ep->dev->nb<<ODevaddr;
+		hcc = (ep->dev->nb&Devmax)<<ODevaddr;
 		break;
 	}
-	hcc |= ep->maxpkt | 1<<OMulticnt | ep->nb<<OEpnum;
+	hcc |= ep->maxpkt | 1<<OMulticnt | (ep->nb&Epmax)<<OEpnum;
 	switch(ep->ttype){
 	case Tctl:
 		hcc |= Epctl;

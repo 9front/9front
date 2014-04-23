@@ -96,7 +96,7 @@ extern Ep* mkep(Usbdev *, int);
 static int
 parseendpt(Usbdev *d, Conf *c, Iface *ip, Altc *altc, uchar *b, int n, Ep **epp)
 {
-	int i, dir, epid, type;
+	int i, dir, epid, type, addr;
 	Ep *ep;
 	DEp *dep;
 
@@ -109,25 +109,38 @@ parseendpt(Usbdev *d, Conf *c, Iface *ip, Altc *altc, uchar *b, int n, Ep **epp)
 	altc->attrib = dep->bmAttributes;	/* here? */
 	altc->interval = dep->bInterval;
 
-	epid = dep->bEndpointAddress & 0xF;
-	assert(epid < nelem(d->ep));
-	if(dep->bEndpointAddress & 0x80)
+	type = dep->bmAttributes & 0x03;
+	addr = dep->bEndpointAddress;
+	if(addr & 0x80)
 		dir = Ein;
 	else
 		dir = Eout;
-	type = dep->bmAttributes & 0x03;
+	epid = addr & 0xF;	/* default map to 0..15 */
+	assert(epid < nelem(d->ep));
 	ep = d->ep[epid];
 	if(ep == nil){
 		ep = mkep(d, epid);
 		ep->dir = dir;
-	}else if((ep->addr & 0x80) != (dep->bEndpointAddress & 0x80) && ep->type == type)
-		ep->dir = Eboth;
-	else
-		ep->dir = dir;
+	}else if((ep->addr & 0x80) != (addr & 0x80)){
+		if(ep->type == type)
+			ep->dir = Eboth;
+		else {
+			/*
+			 * resolve conflict when same endpoint number
+			 * is used for different input and output types.
+			 * map input endpoint to 16..31 and output to 0..15.
+			 */
+			ep->id = ((ep->addr & 0x80) != 0)<<4 | (ep->addr & 0xF);
+			d->ep[ep->id] = ep;
+			epid = ep->id ^ 0x10;
+			ep = mkep(d, epid);
+			ep->dir = dir;
+		}
+	}
 	ep->maxpkt = GET2(dep->wMaxPacketSize);
 	ep->ntds = 1 + ((ep->maxpkt >> 11) & 3);
 	ep->maxpkt &= 0x7FF;
-	ep->addr = dep->bEndpointAddress;
+	ep->addr = addr;
 	ep->type = type;
 	ep->isotype = (dep->bmAttributes>>2) & 0x03;
 	ep->conf = c;

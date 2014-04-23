@@ -2578,7 +2578,7 @@ epctlio(Ep *ep, Ctlio *cio, void *a, long count)
 	/* set the address if unset and out of configuration state */
 	if(ep->dev->state != Dconfig && ep->dev->state != Dreset)
 		if(cio->usbid == 0){
-			cio->usbid = (ep->nb&Epmax) << 7 | ep->dev->nb&Devmax;
+			cio->usbid = (ep->nb&Epmax)<<7 | (ep->dev->nb&Devmax);
 			coherence();
 			qhsetaddr(cio->qh, cio->usbid);
 		}
@@ -2688,8 +2688,8 @@ isofsinit(Ep *ep, Isoio *iso)
 		td->data = iso->data + i * ep->maxpkt;
 		td->epc = ep->dev->port << Stdportshift;
 		td->epc |= ep->dev->hub << Stdhubshift;
-		td->epc |= ep->nb << Stdepshift;
-		td->epc |= ep->dev->nb << Stddevshift;
+		td->epc |= (ep->nb&Epmax) << Stdepshift;
+		td->epc |= (ep->dev->nb&Devmax) << Stddevshift;
 		td->mfs = 034 << Stdscmshift | 1 << Stdssmshift;
 		if(ep->mode == OREAD){
 			td->epc |= Stdin;
@@ -2743,7 +2743,7 @@ isohsinit(Ep *ep, Isoio *iso)
 			td->buffer[p] = pa;
 			pa += 0x1000;
 		}
-		td->buffer[0] |= ep->nb << Itdepshift | ep->dev->nb << Itddevshift;
+		td->buffer[0] |= (ep->nb&Epmax)<<Itdepshift | (ep->dev->nb&Devmax)<<Itddevshift;
 		if(ep->mode == OREAD)
 			td->buffer[1] |= Itdin;
 		else
@@ -2789,7 +2789,7 @@ isoopen(Ctlr *ctlr, Ep *ep)
 	default:
 		error("iso i/o is half-duplex");
 	}
-	iso->usbid = ep->nb << 7 | ep->dev->nb & Devmax;
+	iso->usbid = (ep->nb&Epmax)<<7 | (ep->dev->nb&Devmax);
 	iso->state = Qidle;
 	coherence();
 	iso->debug = ep->debug;
@@ -2926,7 +2926,7 @@ epopen(Ep *ep)
 	case Tintr:
 		io = ep->aux = smalloc(sizeof(Qio)*2);
 		io[OREAD].debug = io[OWRITE].debug = ep->debug;
-		usbid = (ep->nb&Epmax) << 7 | ep->dev->nb &Devmax;
+		usbid = (ep->nb&Epmax)<<7 | (ep->dev->nb&Devmax);
 		assert(ep->pollival != 0);
 		if(ep->mode != OREAD){
 			if(ep->toggle[OWRITE] != 0)

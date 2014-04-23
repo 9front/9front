@@ -1719,7 +1719,7 @@ epctlio(Ep *ep, Ctlio *cio, void *a, long count)
 	/* set the address if unset and out of configuration state */
 	if(ep->dev->state != Dconfig && ep->dev->state != Dreset)
 		if(cio->usbid == 0){
-			cio->usbid = (ep->nb<<7)|(ep->dev->nb & Devmax);
+			cio->usbid = (ep->nb&Epmax)<<7 | (ep->dev->nb&Devmax);
 			edsetaddr(cio->ed, cio->usbid);
 		}
 	/* adjust maxpkt if the user has learned a different one */
@@ -1986,7 +1986,7 @@ isoopen(Ctlr *ctlr, Ep *ep)
 	int i;
 
 	iso = ep->aux;
-	iso->usbid = (ep->nb<<7)|(ep->dev->nb & Devmax);
+	iso->usbid = (ep->nb&Epmax)<<7 | (ep->dev->nb&Devmax);
 	iso->bw = ep->hz * ep->samplesz;	/* bytes/sec */
 	if(ep->mode != OWRITE){
 		print("ohci: bug: iso input streams not implemented\n");
@@ -2067,7 +2067,7 @@ epopen(Ep *ep)
 	case Tintr:
 		io = ep->aux = smalloc(sizeof(Qio)*2);
 		io[OREAD].debug = io[OWRITE].debug = ep->debug;
-		usbid = (ep->nb<<7)|(ep->dev->nb & Devmax);
+		usbid = (ep->nb&Epmax)<<7 | (ep->dev->nb&Devmax);
 		if(ep->mode != OREAD){
 			if(ep->toggle[OWRITE] != 0)
 				io[OWRITE].toggle = Tddata1;
