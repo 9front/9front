@@ -96,7 +96,7 @@ extern Ep* mkep(Usbdev *, int);
 static int
 parseendpt(Usbdev *d, Conf *c, Iface *ip, Altc *altc, uchar *b, int n, Ep **epp)
 {
-	int i, dir, epid;
+	int i, dir, epid, type;
 	Ep *ep;
 	DEp *dep;
 
@@ -115,17 +115,20 @@ parseendpt(Usbdev *d, Conf *c, Iface *ip, Altc *altc, uchar *b, int n, Ep **epp)
 		dir = Ein;
 	else
 		dir = Eout;
+	type = dep->bmAttributes & 0x03;
 	ep = d->ep[epid];
 	if(ep == nil){
 		ep = mkep(d, epid);
 		ep->dir = dir;
-	}else if((ep->addr & 0x80) != (dep->bEndpointAddress & 0x80))
+	}else if((ep->addr & 0x80) != (dep->bEndpointAddress & 0x80) && ep->type == type)
 		ep->dir = Eboth;
+	else
+		ep->dir = dir;
 	ep->maxpkt = GET2(dep->wMaxPacketSize);
 	ep->ntds = 1 + ((ep->maxpkt >> 11) & 3);
 	ep->maxpkt &= 0x7FF;
 	ep->addr = dep->bEndpointAddress;
-	ep->type = dep->bmAttributes & 0x03;
+	ep->type = type;
 	ep->isotype = (dep->bmAttributes>>2) & 0x03;
 	ep->conf = c;
 	ep->iface = ip;
