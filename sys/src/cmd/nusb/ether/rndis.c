@@ -95,19 +95,15 @@ static void
 rndistransmit(Dev *ep, Block *b)
 {
 	int n;
-	uchar *req;
 
 	n = BLEN(b);
-	if((req = malloc(44 + n)) != nil){
-		PUT4(req, 1);      /* type = 1 (packet) */
-		PUT4(req+4, 44+n); /* len */
-		PUT4(req+8, 44-8); /* data offset */
-		PUT4(req+12, n);   /* data length */
-		memset(req+16, 0, 7*4);
-		memcpy(req+44, b->rp, n);
-		write(ep->dfd, req, 44+n);
-		free(req);
-	}
+	b->rp -= 44;
+	PUT4(b->rp, 1);      /* type = 1 (packet) */
+	PUT4(b->rp+4, 44+n); /* len */
+	PUT4(b->rp+8, 44-8); /* data offset */
+	PUT4(b->rp+12, n);   /* data length */
+	memset(b->rp+16, 0, 7*4);
+	write(ep->dfd, b->rp, 44+n);
 	freeb(b);
 }
 

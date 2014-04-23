@@ -290,12 +290,12 @@ writeconndata(Req *r)
 		n = 60;
 
 	/* slack space for header and trailers */
-	n += 2*16;
+	n += 44+16;
 
 	b = allocb(n);
 
 	/* header space */
-	b->wp += 16;
+	b->wp += 44;
 	b->rp = b->wp;
 
 	/* copy in the ethernet packet */
