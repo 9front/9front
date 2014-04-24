@@ -481,7 +481,7 @@ unstall(Dev *dev, Dev *ep, int dir)
 	else
 		dir = 0;
 	r = Rh2d|Rstd|Rep;
-	if(usbcmd(dev, r, Rclearfeature, Fhalt, (ep->addr&0xF)|dir, nil, 0)<0){
+	if(usbcmd(dev, r, Rclearfeature, Fhalt, (ep->id&0xF)|dir, nil, 0)<0){
 		werrstr("unstall: %s: %r", ep->dir);
 		return -1;
 	}
