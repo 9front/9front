@@ -5,7 +5,7 @@
 #include "fns.h"
 
 int ppux, ppuy, rx;
-static u8int mode, bright, pixelpri[2];
+static u8int mode, bright, pixelpri[2], hires;
 static u32int pixelcol[2];
 u16int vtime = 0x1ff, htime = 0x1ff, subcolor;
 uchar pic[256*239*2*3];
@@ -38,13 +38,13 @@ darken(u16int v)
 }
 
 static void
-pixeldraw(int x, int y, u16int v)
+pixeldraw(int x, int y, u16int v, int s)
 {
 	uchar *p;
 	u16int *q;
 	union { u16int w; u8int b[2]; } u;
 
-	if(bright != 0xf)
+	if(bright != 0xf && s >= 0)
 		v = darken(v);
 	if(scale == 1){
 		p = pic + (x + y * 256) * 2;
@@ -56,7 +56,8 @@ pixeldraw(int x, int y, u16int v)
 	u.b[1] = v >> 8;
 	if(scale == 2){
 		q = (u16int*)pic + (x + y * 256) * 2;
-		q[0] = u.w;
+		if(s < 1)
+			q[0] = u.w;
 		q[1] = u.w;
 	}else{
 		q = (u16int*)pic + (x + y * 256) * 3;
@@ -94,7 +95,7 @@ window(int n)
 }
 
 static void
-pixel(int n, int v, int pri)
+npixel(int n, int v, int pri)
 {
 	int a;
 	
@@ -108,6 +109,32 @@ pixel(int n, int v, int pri)
 		pixelpri[1] = pri;
 	}
 }
+
+static void
+spixel(int n, int v, int pri)
+{
+	int a;
+	
+	a = 1<<n;
+	if((reg[TS] & a) != 0 && pri > pixelpri[1] && ((reg[TSW] & a) == 0 || !window(n))){
+		pixelcol[1] = v;
+		pixelpri[1] = pri;
+	}
+}
+
+static void
+mpixel(int n, int v, int pri)
+{
+	int a;
+	
+	a = 1<<n;
+	if((reg[TM] & a) != 0 && pri > pixelpri[0] && ((reg[TMW] & a) == 0 || !window(n))){
+		pixelcol[0] = v;
+		pixelpri[0] = pri;
+	}
+}
+
+static void (*pixel)(int, int, int) = npixel;
 
 static u16int
 tile(int n, int tx, int ty)
@@ -127,16 +154,18 @@ tile(int n, int tx, int ty)
 }
 
 static void
-chr(int n, int nb, int sz, u16int t, int x, int y, u32int c[])
+chr(int n, int nb, int w, int h, u16int t, int x, int y, u32int c[])
 {
 	u16int a;
 
-	if(sz == 16){
+	if(w == 16)
+		t += (x >> 3 ^ t >> 14) & 1;
+	if(h == 16){
 		if(y >= 8){
-			t += ((x >> 3 ^ t >> 14) & 1) + ((~t >> 11) & 16);
+			t += (~t >> 11) & 16;
 			y -= 8;
 		}else
-			t += ((x >> 3 ^ t >> 14) & 1) + ((t >> 11) & 16);
+			t += (t >> 11) & 16;
 	}
 	if((t & 0x8000) != 0)
 		y = 7 - y;
@@ -235,7 +264,7 @@ bgpixel(u32int *c, int nb, int d)
 }
 
 static struct bgctxt {
-	u8int sz, szsh, nb, pri[2];
+	u8int w, h, wsh, hsh, nb, pri[2];
 	u16int tx, ty, tnx, tny;
 	u16int t;
 	u32int c[2];
@@ -251,8 +280,10 @@ bginit(int n, int nb, int prilo, int prihi)
 	int sx, sy;
 
 	p = bgctxts + n;
-	p->szsh = (reg[BGMODE] & (1<<(4+n))) != 0 ? 4 : 3;
-	p->sz = 1<<p->szsh;
+	p->hsh = ((reg[BGMODE] & (1<<(4+n))) != 0) ? 4 : 3;
+	p->wsh = mode >= 5 ? 4 : p->hsh;
+	p->h = 1<<p->hsh;
+	p->w = 1<<p->wsh;
 	p->nb = nb;
 	p->pri[0] = prilo;
 	p->pri[1] = prihi;
@@ -266,13 +297,15 @@ bginit(int n, int nb, int prilo, int prihi)
 		}
 	}else
 		p->msz = 1;
+	if(mode >= 5)
+		sx <<= 1;
 redo:
-	p->tx = sx >> p->szsh;
-	p->tnx = sx & (p->sz - 1);
-	p->ty = sy >> p->szsh;
-	p->tny = sy & (p->sz - 1);
+	p->tx = sx >> p->wsh;
+	p->tnx = sx & (p->w - 1);
+	p->ty = sy >> p->hsh;
+	p->tny = sy & (p->h - 1);
 	p->t = tile(n, p->tx, p->ty);
-	chr(n, nb, p->sz, p->t, p->tnx, p->tny, p->c);
+	chr(n, nb, p->w, p->h, p->t, p->tnx, p->tny, p->c);
 	p->pal = palette(n, p->t >> 10 & 7);
 	if((p->tnx & 7) != 0)
 		shift(p->c, nb, p->tnx & 7, p->t & 0x4000);
@@ -305,14 +338,14 @@ bg(int n)
 		}
 	if(v != 0)
 		pixel(n, p->pal + v, p->pri[(p->t & 0x2000) != 0]);
-	if(++p->tnx == p->sz){
+	if(++p->tnx == p->w){
 		p->tx++;
 		p->tnx = 0;
 		p->t = tile(n, p->tx, p->ty);
 		p->pal = palette(n, p->t >> 10 & 7);
 	}
 	if((p->tnx & 7) == 0)
-		chr(n, p->nb, p->sz, p->t, p->tnx, p->tny, p->c);
+		chr(n, p->nb, p->w, p->h, p->t, p->tnx, p->tny, p->c);
 }
 
 static void
@@ -321,10 +354,12 @@ optinit(void)
 	struct bgctxt *p;
 	
 	p = bgctxts + 2;
-	p->szsh = (reg[BGMODE] & (1<<6)) != 0 ? 4 : 3;
-	p->sz = 1<<p->szsh;
-	p->tnx = hofs[2] & (p->sz - 1);
-	p->tx = hofs[2] >> p->szsh;
+	p->hsh = (reg[BGMODE] & (1<<6)) != 0 ? 4 : 3;
+	p->wsh = mode >= 5 ? 4 : p->hsh;
+	p->w = 1<<p->wsh;
+	p->h = 1<<p->hsh;
+	p->tnx = hofs[2] & (p->w - 1);
+	p->tx = hofs[2] >> p->wsh;
 	bgctxts[0].otx = bgctxts[1].otx = 0xffff;
 	bgctxts[0].oty = bgctxts[0].ty;
 	bgctxts[0].otny = bgctxts[0].tny;
@@ -340,40 +375,40 @@ opt(void)
 	int sx, sy;
 	
 	p = bgctxts + 2;
-	if(++p->tnx == p->sz){
+	if(++p->tnx == p->w){
 		if(mode == 4){
-			hval = tile(2, p->tx, vofs[2] >> p->szsh);
+			hval = tile(2, p->tx, vofs[2] >> p->hsh);
 			if((hval & 0x8000) != 0){
 				vval = hval;
 				hval = 0;
 			}else
 				vval = 0;
 		}else{
-			hval = tile(2, p->tx, vofs[2] >> p->szsh);
-			vval = tile(2, p->tx, (vofs[2]+8) >> p->szsh);
+			hval = tile(2, p->tx, vofs[2] >> p->hsh);
+			vval = tile(2, p->tx, (vofs[2]+8) >> p->hsh);
 		}
 		sx = (rx & ~7) + (hval & 0x1ff8);
 		sy = ppuy + (vval & 0x1fff);
 		if((vval & 0x2000) != 0){
-			bgctxts[0].oty = sy >> bgctxts[0].szsh;
-			bgctxts[0].otny = sy & (bgctxts[0].sz - 1);
+			bgctxts[0].oty = sy >> bgctxts[0].hsh;
+			bgctxts[0].otny = sy & (bgctxts[0].h - 1);
 		}else{
 			bgctxts[0].oty = bgctxts[0].ty;
 			bgctxts[0].otny = bgctxts[0].tny;
 		}
 		if((vval & 0x4000) != 0){
-			bgctxts[1].oty = sy >> bgctxts[1].szsh;
-			bgctxts[1].otny = sy & (bgctxts[1].sz - 1);
+			bgctxts[1].oty = sy >> bgctxts[1].hsh;
+			bgctxts[1].otny = sy & (bgctxts[1].h - 1);
 		}else{
 			bgctxts[1].oty = bgctxts[1].ty;
 			bgctxts[1].otny = bgctxts[1].tny;
 		}
 		if((hval & 0x2000) != 0)
-			bgctxts[0].otx = sx >> bgctxts[0].szsh;
+			bgctxts[0].otx = sx >> bgctxts[0].wsh;
 		else
 			bgctxts[0].otx = 0xffff;
 		if((hval & 0x4000) != 0)
-			bgctxts[1].otx = sx >> bgctxts[1].szsh;
+			bgctxts[1].otx = sx >> bgctxts[1].wsh;
 		else
 			bgctxts[1].otx = 0xffff;
 		p->tnx = 0;
@@ -399,14 +434,14 @@ bgopt(int n)
 		}
 	if(v != 0)
 		pixel(n, p->pal + v, p->pri[(p->t & 0x2000) != 0]);
-	if(++p->tnx == p->sz){
+	if(++p->tnx == p->w){
 		p->tx++;
 		p->tnx = 0;
 	}
 	if((p->tnx & 7) == 0){
 		p->t = tile(n, p->otx == 0xffff ? p->tx : p->otx, p->oty);
 		p->pal = palette(n, p->t >> 10 & 7);
-		chr(n, p->nb, p->sz, p->t, p->tnx, p->otny, p->c);
+		chr(n, p->nb, p->w, p->h, p->t, p->tnx, p->otny, p->c);
 	}
 }
 
@@ -526,6 +561,7 @@ bgsinit(void)
 {
 	static int bitch[8];
 
+	pixel = npixel;
 	switch(mode){
 	case 0:
 		bginit(0, 2, 0x80, 0xb0);
@@ -552,13 +588,21 @@ bgsinit(void)
 		bginit(1, 2, 0x11, 0x71);
 		optinit();
 		break;
+	case 5:
+		bginit(0, 4, 0x40, 0xa0);
+		bginit(1, 2, 0x11, 0x71);
+		break;
+	case 6:
+		bginit(0, 4, 0x40, 0xa0);
+		optinit();
+		break;
 	case 7:
 		bg7init(0);
 		if((reg[SETINI] & EXTBG) != 0)
 			bg7init(1);
 		break;
 	default:
-		bgctxts[0].sz = bgctxts[1].sz = 0;
+		bgctxts[0].w = bgctxts[1].w = 0;
 		if(bitch[mode]++ == 0)
 			print("bg mode %d not implemented\n", mode);
 	}
@@ -588,6 +632,23 @@ bgs(void)
 	case 3:
 		bg(0);
 		bg(1);
+		break;
+	case 5:
+		pixel = spixel;
+		bg(0);
+		bg(1);
+		pixel = mpixel;
+		bg(0);
+		bg(1);
+		pixel = npixel;
+		break;
+	case 6:
+		opt();
+		pixel = spixel;
+		bgopt(0);
+		pixel = mpixel;
+		bgopt(0);
+		pixel = npixel;
 		break;
 	case 7:
 		bg7(0);
@@ -759,7 +820,7 @@ nope:
 }
 
 static u16int
-colormath(void)
+colormath(int n)
 {
 	u16int v, w, r, g, b;
 	u8int m, m2, div;
@@ -775,12 +836,12 @@ colormath(void)
 	case 3: v = 0; break;
 	}
 	if(v){
-		if((pixelcol[0] & 0x10000) != 0)
-			v = pixelcol[0];
+		if((pixelcol[n] & 0x10000) != 0)
+			v = pixelcol[n];
 		else
-			v = cgram[pixelcol[0] & 0xff];
+			v = cgram[pixelcol[n] & 0xff];
 	}
-	if((m2 & (1 << (pixelpri[0] & 0xf))) == 0)
+	if((m2 & (1 << (pixelpri[n] & 0xf))) == 0)
 		return v;
 	switch((m >> 4) & 3){
 	case 0: break;
@@ -790,11 +851,11 @@ colormath(void)
 	}
 	div = (m2 & 0x40) != 0;
 	if((m & 2) != 0){
-		if((pixelcol[1] & 0x10000) != 0)
-			w = pixelcol[1];
+		if((pixelcol[1-n] & 0x10000) != 0)
+			w = pixelcol[1-n];
 		else
-			w = cgram[pixelcol[1] & 0xff];
-		div = div && (pixelpri[1] & 0xf) != COL;
+			w = cgram[pixelcol[1-n] & 0xff];
+		div = div && (pixelpri[1-n] & 0xf) != COL;
 	}else
 		w = subcolor;
 	if((m2 & 0x80) != 0){
@@ -833,6 +894,7 @@ ppustep(void)
 
 	mode = reg[BGMODE] & 7;
 	bright = reg[INIDISP] & 0xf;
+	hires = mode >= 5 && mode < 7 || (reg[SETINI] & 8) != 0;
 	yvbl = (reg[SETINI] & OVERSCAN) != 0 ? 0xf0 : 0xe1;
 
 	if(ppux >= XLEFT && ppux <= XRIGHT && ppuy < 0xf0){
@@ -845,9 +907,13 @@ ppustep(void)
 			bgs();
 			sprites();
 			if(ppuy != 0)
-				pixeldraw(rx, ppuy - 1, colormath());
+				if(hires){
+					pixeldraw(rx, ppuy - 1, colormath(1), 0);
+					pixeldraw(rx, ppuy - 1, colormath(0), 1);
+				}else
+					pixeldraw(rx, ppuy - 1, colormath(0), 0);
 		}else if(ppuy != 0)
-			pixeldraw(rx, ppuy - 1, ppuy >= yvbl ? 0x31c8 : 0);
+			pixeldraw(rx, ppuy - 1, ppuy >= yvbl ? 0x6739 : 0, -1);
 	}
 
 	if(ppux == 134)
