@@ -165,7 +165,7 @@ enum {  /* flags */
 };
 .EE
 .PP
-The pool obtains arenas of memory to manage by calling the the given
+The pool obtains arenas of memory to manage by calling the given
 .B alloc
 routine.
 The total number of requested bytes will not exceed 

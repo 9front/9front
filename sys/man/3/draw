@@ -379,7 +379,7 @@ Free the resources associated with the image
 .B F
 .IR id [4]
 .br
-Free the the screen with the specified
+Free the screen with the specified
 .IR id .
 Windows on the screen must be freed separately.
 .HP

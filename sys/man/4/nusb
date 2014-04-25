@@ -84,7 +84,7 @@ increase verbosity.
 .SS Hubs
 .I Usbd
 enumerates the tree of USB hubs and configures the device on
-attachment. It provides a filesystem with the the file
+attachment. It provides a filesystem with the file
 .B usbevent
 (usually seen as
 .BR /dev/usbevent )

@@ -32,7 +32,7 @@ Each line of the
 .I proto
 file specifies a file to copy except lines in the form of
 .IB attr = val
-wich sets an attribute (see below).
+which sets an attribute (see below).
 Blank lines and lines beginning with
 .B #
 are ignored.

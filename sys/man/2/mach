@@ -213,7 +213,7 @@ is the offset to the start of the segment in the file.
 is a name to be attached to the segment.
 .PP
 .I Findseg
-returns the index of the the
+returns the index of the
 segment named
 .I name
 in

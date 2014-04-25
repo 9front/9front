@@ -216,7 +216,7 @@ The text is grey by default:
 differences between versions appear in black.
 .TP
 .B edit.html
-A web form for editing the the current version of the page.
+A web form for editing the current version of the page.
 .TP
 .B history.html
 A web page listing the time stamps of the historical versions of the page.

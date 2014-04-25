@@ -31,7 +31,7 @@ It is normally started by the network listen process via the
 .B /rc/bin/service/tcp445
 service script (see
 .IR listen (8)),
-wich passes
+which passes
 .I conndir
 and filedescriptors 0 and 1 to the incoming connection.
 .PP

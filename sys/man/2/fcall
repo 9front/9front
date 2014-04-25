@@ -295,7 +295,7 @@ entry suitable as an argument, for example, for the
 (see
 .IR stat (2))
 system call.
-It checks that the sizes of all the elements of the the entry sum to exactly
+It checks that the sizes of all the elements of the entry sum to exactly
 .IR nbuf ,
 which is a simple but effective test of validity.
 .I Nbuf

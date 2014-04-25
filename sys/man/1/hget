@@ -101,7 +101,7 @@ option causes
 and
 .I hpost
 to print the location URL from the transaction response
-instead of retrieving the the body data. This is useful
+instead of retrieving the body data. This is useful
 for HTTP POST transactions that redirect to a URL containing
 the posted data so we wont refetch the data we just uploaded
 to the site.

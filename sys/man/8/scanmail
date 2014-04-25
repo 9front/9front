@@ -237,7 +237,7 @@ Lines beginning with
 .B *
 contain a
 .I pattern-spec
-that is a string; otherwise, the the
+that is a string; otherwise, the
 .I pattern-spec
 is a regular expression in the style of
 .IR regexp (6).

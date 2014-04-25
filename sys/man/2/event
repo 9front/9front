@@ -380,7 +380,7 @@ is nil, it restores the image to the default arrow.
 provides a simple method of text input in graphical programs. It displays
 a box at the current position of the mouse cursor (passed in the
 .B Mouse *m
-argument) in wich text can be
+argument) in which text can be
 typed and edited.
 If the string argument
 .B ask
