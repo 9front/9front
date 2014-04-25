@@ -103,17 +103,19 @@ y		synchronize message list with server
 }
 fn printp{
 	if(test -d $mnt/$group/$1){
-		grep -e '(^From|^Newsgroups|^Subject|^Date)' $1/header
-		echo
-		cat $1/body
+		{ # don't stutter
+			grep -e '(^From|^Newsgroups|^Subject|^Date)' $1/header
+			echo
+			cat $1/body
+		} >/tmp/p
+		cat /tmp/p
 	}
 	echo
 	prompt=$group/$1
 }
 fn printpp{
-	if(test -d $mnt/$group/$1){
+	if(test -d $mnt/$group/$1)
 		cat $1/article
-	}
 	echo
 	prompt=$group/$1
 }
