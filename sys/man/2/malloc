@@ -198,7 +198,7 @@ the call
 .B poolcheck(mainmem)
 can be used to scan the storage arena for inconsistencies
 such as data written beyond the bounds of allocated blocks.
-It is often useful to combine this with with setting
+It is often useful to combine this with setting
 .EX
     mainmem->flags |= POOL_NOREUSE;
 .EE

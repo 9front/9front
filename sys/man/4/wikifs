@@ -166,7 +166,7 @@ Finally, the
 file (with associated lock
 .BR L.map )
 provides a mapping from
-sequence numbers to
+sequence numbers
 to page titles.
 Each map line is a decimal
 .IR n ,

@@ -44,7 +44,7 @@ create
 and write debugging output to it
 .TP
 .B -a
-causes pop3 to assume that it it already authenticated
+causes pop3 to assume that it already authenticated
 and to read
 .I mailbox
 immediately

@@ -1366,7 +1366,7 @@ from the current one.
 .RS 4
 .nf
 By default, push will refuse to run if it detects the result would
-increase the number of remote heads. This generally indicates the
+increase the number of remote heads. This generally indicates
 the client has forgotten to pull and merge before pushing.
 .fi
 .RE

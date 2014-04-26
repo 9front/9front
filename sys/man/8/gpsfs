@@ -192,7 +192,7 @@ service is posted in
 .PP
 The
 .B \-m
-flag specifies a mount mount other than
+flag specifies a mount other than
 .BR /mnt .
 .SS Evermore
 .B Aux/gpsevermore

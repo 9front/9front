@@ -35,7 +35,7 @@ that are then downloaded by clients in random order.
 As soon as a client completes a piece, it makes the piece 
 available for others to download.
 .PP
-To find find other clients (peers), a tracker-server is
+To find other clients (peers), a tracker-server is
 contacted.
 .PP
 Before files can be transmitted, a torrent-file needs

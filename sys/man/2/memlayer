@@ -219,7 +219,7 @@ within the window, using the backing store or appropriate refresh method.
 .I Memlhide
 goes the other way, backing up
 .I r
-so that that portion of the screen may be modified without losing the data in this window.
+so that portion of the screen may be modified without losing the data in this window.
 .PP
 .I Memltofront
 pulls

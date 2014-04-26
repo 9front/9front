@@ -17,7 +17,7 @@ cb \- C program beautifier
 .SH DESCRIPTION
 .I Cb
 reads syntactically correct C programs from
-from its input or the given files, and writes them to its stdout
+its input or the given files, and writes them to its stdout
 with a more visually pleasing spacing and indentation.
 .I Cb
 understands no C++ syntax bar newline-terminated comments;

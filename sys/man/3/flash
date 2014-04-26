@@ -78,7 +78,7 @@ can be read and written.
 A read returns several lines containing decimal and hexadecimal numbers
 (separated by white space)
 revealing the characteristics of memory within the partition.
-The first line gives the 
+The first line gives
 the manufacturer ID,  the flash device ID, the memory width in bytes,
 and a string giving the flash type
 (currently either

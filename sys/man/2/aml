@@ -196,7 +196,7 @@ Objects stay valid as long as they are reachable from
 .IR amlroot .
 .bp
 .PP
-The aml library can be linked into userspace programs and
+The aml library can be linked into userspace programs
 and the kernel which have different means of hardware access
 and memory constraints.
 .PP
