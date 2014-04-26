@@ -221,6 +221,8 @@ pmmcinit(void)
 
 	p = nil;
 	while((p = pcimatch(p, 0, 0)) != nil){
+		if(p->ccrb == 8 && p->ccru == 5)
+			break;
 		if(p->vid == 0x1180){	/* Ricoh */
 			if(p->did == 0xe822)	/* 5U822 SD/MMC */
 				break;
