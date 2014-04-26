@@ -169,9 +169,8 @@ emalloc(int n)
 	if(n==0)
 		n=1;
 	p = malloc(n);
-	if(p == nil){
-		exits("out of memory");
-	}
+	if(p == nil)
+		sysfatal("out of memory");
 	memset(p, 0, n);
 	setmalloctag(p, getcallerpc(&n));
 	return p;

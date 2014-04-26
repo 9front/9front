@@ -526,6 +526,10 @@ tlsServer2(int ctl, int hand, uchar *cert, int ncert, int (*trace)(char*fmt, ...
 		goto Err;
 	}
 	c->sec->rsapub = X509toRSApub(cert, ncert, nil, 0);
+	if(c->sec->rsapub == nil){
+		tlsError(c, EHandshakeFailure, "invalid X509/rsa certificate");
+		goto Err;
+	}
 	msgClear(&m);
 
 	m.tag = HServerHello;
@@ -542,7 +546,7 @@ tlsServer2(int ctl, int hand, uchar *cert, int ncert, int (*trace)(char*fmt, ...
 	m.tag = HCertificate;
 	numcerts = countchain(chp);
 	m.u.certificate.ncert = 1 + numcerts;
-	m.u.certificate.certs = emalloc(m.u.certificate.ncert * sizeof(Bytes));
+	m.u.certificate.certs = emalloc(m.u.certificate.ncert * sizeof(Bytes*));
 	m.u.certificate.certs[0] = makebytes(cert, ncert);
 	for (i = 0; i < numcerts && chp; i++, chp = chp->next)
 		m.u.certificate.certs[i+1] = makebytes(chp->pem, chp->pemlen);
@@ -746,7 +750,7 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 	if(creq) {
 		if(cert != nil && certlen > 0){
 			m.u.certificate.ncert = 1;
-			m.u.certificate.certs = emalloc(m.u.certificate.ncert * sizeof(Bytes));
+			m.u.certificate.certs = emalloc(m.u.certificate.ncert * sizeof(Bytes*));
 			m.u.certificate.certs[0] = makebytes(cert, certlen);
 		}		
 		m.tag = HCertificate;
@@ -795,21 +799,22 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 			goto Err;
 		}
 		c->sec->rsapub = X509toRSApub(cert, certlen, nil, 0);
-		
+		if(c->sec->rsapub == nil){
+			tlsError(c, EHandshakeFailure, "invalid X509/rsa certificate");
+			goto Err;
+		}
+
 		paddedHashes = pkcs1padbuf(hshashes, 36, c->sec->rsapub->n);
 		signedMP = factotum_rsa_decrypt(c->sec->rpc, paddedHashes);
+		if(signedMP == nil){
+			tlsError(c, EHandshakeFailure, "factotum_rsa_decrypt: %r");
+			goto Err;
+		}
 		m.u.certificateVerify.signature = mptobytes(signedMP);
-		free(signedMP);
+		mpfree(signedMP);
 
-		if(m.u.certificateVerify.signature == nil){
-			msgClear(&m);	
+		if(!msgSend(c, &m, AFlush))
 			goto Err;
-		}
-
-		if(!msgSend(c, &m, AFlush)){
-			msgClear(&m);
-			goto Err;
-		}
 		msgClear(&m);
 	} 
 
@@ -1207,7 +1212,7 @@ msgRecv(TlsConnection *c, Msg *m)
 			if(nn > n)
 				goto Short;
 			m->u.certificate.ncert = i+1;
-			m->u.certificate.certs = erealloc(m->u.certificate.certs, (i+1)*sizeof(Bytes));
+			m->u.certificate.certs = erealloc(m->u.certificate.certs, (i+1)*sizeof(Bytes*));
 			m->u.certificate.certs[i] = makebytes(p, nn);
 			p += nn;
 			n -= nn;
@@ -1245,7 +1250,7 @@ msgRecv(TlsConnection *c, Msg *m)
 				goto Short;
 			m->u.certificateRequest.nca = i+1;
 			m->u.certificateRequest.cas = erealloc(
-				m->u.certificateRequest.cas, (i+1)*sizeof(Bytes));
+				m->u.certificateRequest.cas, (i+1)*sizeof(Bytes*));
 			m->u.certificateRequest.cas[i] = makebytes(p, nn);
 			p += nn;
 			n -= nn;
@@ -1729,13 +1734,14 @@ factotum_rsa_decrypt(AuthRpc *rpc, mpint *cipher)
 	char *p;
 	int rv;
 
-	if((p = mptoa(cipher, 16, nil, 0)) == nil)
+	p = mptoa(cipher, 16, nil, 0);
+	mpfree(cipher);
+	if(p == nil)
 		return nil;
 	rv = auth_rpc(rpc, "write", p, strlen(p));
 	free(p);
 	if(rv != ARok || auth_rpc(rpc, "read", nil, 0) != ARok)
 		return nil;
-	mpfree(cipher);
 	return strtomp(rpc->arg, nil, 16, nil);
 }
 
@@ -2141,10 +2147,7 @@ sslPRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label, uchar *seed0, in
 static mpint*
 bytestomp(Bytes* bytes)
 {
-	mpint* ans;
-
-	ans = betomp(bytes->data, bytes->len, nil);
-	return ans;
+	return betomp(bytes->data, bytes->len, nil);
 }
 
 /*
@@ -2153,16 +2156,13 @@ bytestomp(Bytes* bytes)
 static Bytes*
 mptobytes(mpint* big)
 {
-	int n, m;
-	uchar *a;
 	Bytes* ans;
+	int n;
 
-	a = nil;
 	n = (mpsignif(big)+7)/8;
-	m = mptobe(big, nil, n, &a);
-	ans = makebytes(a, m);
-	if(a != nil)
-		free(a);
+	if(n == 0) n = 1;
+	ans = newbytes(n);
+	ans->len = mptobe(big, ans->data, n, nil);
 	return ans;
 }
 
@@ -2180,6 +2180,7 @@ rsacomp(Bytes* block, RSApub* key, int modlen)
 	mpfree(x);
 	ybytes = mptobytes(y);
 	ylen = ybytes->len;
+	mpfree(y);
 
 	if(ylen < modlen) {
 		a = newbytes(modlen);
@@ -2195,7 +2196,6 @@ rsacomp(Bytes* block, RSApub* key, int modlen)
 		freebytes(ybytes);
 		ybytes = a;
 	}
-	mpfree(y);
 	return ybytes;
 }
 
@@ -2250,6 +2250,7 @@ pkcs1_decrypt(TlsSec *sec, uchar *epm, int nepm)
 	if(y == nil)
 		return nil;
 	eb = mptobytes(y);
+	mpfree(y);
 	if(eb->len < modlen){ // pad on left with zeros
 		ans = newbytes(modlen);
 		memset(ans->data, 0, modlen-eb->len);
@@ -2278,9 +2279,8 @@ emalloc(int n)
 	if(n==0)
 		n=1;
 	p = malloc(n);
-	if(p == nil){
-		exits("out of memory");
-	}
+	if(p == nil)
+		sysfatal("out of memory");
 	memset(p, 0, n);
 	setmalloctag(p, getcallerpc(&n));
 	return p;
@@ -2291,11 +2291,10 @@ erealloc(void *ReallocP, int ReallocN)
 {
 	if(ReallocN == 0)
 		ReallocN = 1;
-	if(!ReallocP)
+	if(ReallocP == nil)
 		ReallocP = emalloc(ReallocN);
-	else if(!(ReallocP = realloc(ReallocP, ReallocN))){
-		exits("out of memory");
-	}
+	else if((ReallocP = realloc(ReallocP, ReallocN)) == nil)
+		sysfatal("out of memory");
 	setrealloctag(ReallocP, getcallerpc(&ReallocP));
 	return(ReallocP);
 }
@@ -2344,17 +2343,12 @@ get16(uchar *p)
 
 #define OFFSET(x, s) offsetof(s, x)
 
-/*
- * malloc and return a new Bytes structure capable of
- * holding len bytes. (len >= 0)
- * Used to use crypt_malloc, which aborts if malloc fails.
- */
 static Bytes*
 newbytes(int len)
 {
 	Bytes* ans;
 
-	ans = (Bytes*)malloc(OFFSET(data[0], Bytes) + len);
+	ans = (Bytes*)emalloc(OFFSET(data[0], Bytes) + len);
 	ans->len = len;
 	return ans;
 }
@@ -2368,7 +2362,8 @@ makebytes(uchar* buf, int len)
 	Bytes* ans;
 
 	ans = newbytes(len);
-	memmove(ans->data, buf, len);
+	if(len > 0)
+		memmove(ans->data, buf, len);
 	return ans;
 }
 
@@ -2385,7 +2380,7 @@ newints(int len)
 {
 	Ints* ans;
 
-	ans = (Ints*)malloc(OFFSET(data[0], Ints) + len*sizeof(int));
+	ans = (Ints*)emalloc(OFFSET(data[0], Ints) + len*sizeof(int));
 	ans->len = len;
 	return ans;
 }
