@@ -92,7 +92,7 @@ delete(void)
 			SETBIT(t, c);
 	}
 
-	last = 0x10000;
+	last = Runemax+1;
 	while (readrune(0, &c) > 0) {
 		if(!BITSET(f, c) && (c != last || !BITSET(t,c))) {
 			last = c;
@@ -132,7 +132,7 @@ complement(void)
 		else p[i] = i;
 	}
 	if (sflag){
-		lastc = 0x10000;
+		lastc = Runemax+1;
 		while (readrune(0, &from) > 0) {
 			if (from > high)
 				from = to;
@@ -186,7 +186,7 @@ translit(void)
 		SETBIT(t,to);
 	}
 	if (sflag){
-		lastc = 0x10000;
+		lastc = Runemax+1;
 		while (readrune(0, &from) > 0) {
 			if (from <= high)
 				from = p[from];
