@@ -10,6 +10,7 @@ void
 usage(void)
 {
 	fprint(2, "%s: usage: %s [-d dev] [-v vol]\n", argv0, argv0);
+	exits("usage");
 }
 
 int

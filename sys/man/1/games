@@ -40,6 +40,13 @@
 ] ]
 .br
 .B games/geigerstats
+[
+.B -d
+.I dev
+] [
+.B -v
+.I vol
+]
 .br
 .B games/glendy
 .br
