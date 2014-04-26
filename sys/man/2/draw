@@ -600,7 +600,7 @@ corresponds to
 in
 .IR dst .
 .TP
-\f5bezspline(\f2dst\fP, \f2p\fP, \f2end0\fP, \f2end1\fP, \f2thick\fP, \f2src\fP, \f2sp\fP)
+\f5bezspline(\f2dst\fP, \f2p\fP, \f2np\fP, \f2end0\fP, \f2end1\fP, \f2thick\fP, \f2src\fP, \f2sp\fP)
 .I Bezspline
 takes the same arguments as
 .I poly
