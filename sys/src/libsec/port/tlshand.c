@@ -804,7 +804,7 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 			goto Err;
 		}
 
-		paddedHashes = pkcs1padbuf(hshashes, 36, c->sec->rsapub->n);
+		paddedHashes = pkcs1padbuf(hshashes, MD5dlen+SHA1dlen, c->sec->rsapub->n);
 		signedMP = factotum_rsa_decrypt(c->sec->rpc, paddedHashes);
 		if(signedMP == nil){
 			tlsError(c, EHandshakeFailure, "factotum_rsa_decrypt: %r");
