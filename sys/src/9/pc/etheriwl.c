@@ -1309,7 +1309,8 @@ postboot(Ctlr *ctlr)
 			c[3] = 1;	/* isvalid */
 			c[4] = ctlr->eeprom.crystal;
 			c[5] = ctlr->eeprom.crystal>>16;
-			if((err = cmd(ctlr, 176, c, 8)) != nil)
+			/* for some reason 8086:4238 needs a second try */
+			if(cmd(ctlr, 176, c, 8) != nil && (err = cmd(ctlr, 176, c, 8)) != nil)
 				return err;
 		}
 
@@ -2303,7 +2304,8 @@ iwlpci(void)
 		case 0x4237:	/* Wifi Link 5100 AGN */
 		case 0x423d:	/* Wifi Link 5150 */
 		case 0x0085:	/* Centrino Advanced-N 6205 */
-		case 0x422b:	/* Centrino Ultimate-N 6300 */
+		case 0x422b:	/* Centrino Ultimate-N 6300 variant 1 */
+		case 0x4238:	/* Centrino Ultimate-N 6300 variant 2 */
 		case 0x08ae:	/* Centrino Wireless-N 100 */
 			break;
 		}
