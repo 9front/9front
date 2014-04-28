@@ -10,7 +10,7 @@ HFILES=\
 default:V: all
 
 $BIN:
-	mkdir $BIN
+	mkdir -p $BIN
 
 install: $BIN
 
