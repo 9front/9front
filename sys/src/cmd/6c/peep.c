@@ -210,6 +210,13 @@ loop1:
 				break;
 			p1 = r1->prog;
 			switch(p1->as){
+			case ASHLQ:
+			case ASHRQ:
+			case ASALQ:
+			case ASARQ:
+				/* shift doesnt affect ZF when shift count is zero */
+				if(p1->from.type != D_CONST || p1->from.offset == 0)
+					break;
 			case AANDQ:
 			case AORQ:
 			case AXORQ:
@@ -218,10 +225,6 @@ loop1:
 			case AADCQ:
 			case ASUBQ:
 			case ASBBQ:
-			case ASHLQ:
-			case ASHRQ:
-			case ASALQ:
-			case ASARQ:
 			case AINCQ:
 			case ADECQ:
 				if(p->as != ACMPQ)
@@ -234,12 +237,17 @@ loop1:
 			case AADCL:
 			case ASUBL:
 			case ASBBL:
+			case AINCL:
+			case ADECL:
+				excise(r);
+				break;
 			case ASHLL:
 			case ASHRL:
 			case ASALL:
 			case ASARL:
-			case AINCL:
-			case ADECL:
+				/* shift doesnt affect ZF when shift count is zero */
+				if(p1->from.type != D_CONST || p1->from.offset == 0)
+					break;
 				excise(r);
 			}
 			break;

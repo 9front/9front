@@ -150,6 +150,13 @@ loop1:
 				break;
 			p1 = r1->prog;
 			switch(p1->as){
+			case ASALL:
+			case ASARL:
+			case ASHLL:
+			case ASHRL:
+				/* shift doesnt affect ZF when shift count is zero */
+				if(p1->from.type != D_CONST || p1->from.offset == 0)
+					break;
 			case AANDL:
 			case AORL:
 			case AXORL:
@@ -158,10 +165,6 @@ loop1:
 			case AADCL:
 			case ASUBL:
 			case ASBBL:
-			case ASHLL:
-			case ASHRL:
-			case ASALL:
-			case ASARL:
 			case AINCL:
 			case ADECL:
 				excise(r);
