@@ -58,7 +58,7 @@ struct Mntalloc
 Mnt*	mntchk(Chan*);
 void	mntdirfix(uchar*, Chan*);
 Mntrpc*	mntflushalloc(Mntrpc*, ulong);
-void	mntflushfree(Mnt*, Mntrpc*);
+Mntrpc*	mntflushfree(Mnt*, Mntrpc*);
 void	mntfree(Mntrpc*);
 void	mntgate(Mnt*);
 void	mntqrm(Mnt*, Mntrpc*);
@@ -777,6 +777,7 @@ mountio(Mnt *m, Mntrpc *r)
 		if(m->rip == up)
 			mntgate(m);
 		if(strcmp(up->errstr, Eintr) != 0){
+			r = mntflushfree(m, r);
 			switch(r->request.type){
 			case Tremove:
 			case Tclunk:
@@ -784,7 +785,6 @@ mountio(Mnt *m, Mntrpc *r)
 				if(strcmp(up->errstr, Ehungup) != 0)
 					r->c->fid = 0;
 			}
-			mntflushfree(m, r);
 			nexterror();
 		}
 		r = mntflushalloc(r, m->msize);
@@ -1007,9 +1007,9 @@ mntflushalloc(Mntrpc *r, ulong iounit)
  *  flush and the original message from the unanswered
  *  request queue.  Mark the original message as done
  *  and if it hasn't been answered set the reply to to
- *  Rflush.
+ *  Rflush. Return the original rpc.
  */
-void
+Mntrpc*
 mntflushfree(Mnt *m, Mntrpc *r)
 {
 	Mntrpc *fr;
@@ -1020,10 +1020,12 @@ mntflushfree(Mnt *m, Mntrpc *r)
 			r->reply.type = Rflush;
 			mntqrm(m, r);
 		}
-		if(fr)
-			mntfree(r);
+		if(fr == nil)
+			break;
+		mntfree(r);
 		r = fr;
 	}
+	return r;
 }
 
 int
