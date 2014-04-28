@@ -225,20 +225,19 @@ newchan(void)
 
 	lock(&chanalloc);
 	c = chanalloc.free;
-	if(c != 0){
+	if(c != nil){
 		chanalloc.free = c->next;
-		c->next = 0;
-	}
-	unlock(&chanalloc);
-
-	if(c == nil){
+		c->next = nil;
+	} else {
+		unlock(&chanalloc);
 		c = smalloc(sizeof(Chan));
 		lock(&chanalloc);
-		c->fid = ++chanalloc.fid;
 		c->link = chanalloc.list;
 		chanalloc.list = c;
-		unlock(&chanalloc);
 	}
+	if(c->fid == 0)
+		c->fid = ++chanalloc.fid;
+	unlock(&chanalloc);
 
 	/* if you get an error before associating with a dev,
 	   close calls rootclose, a nop */

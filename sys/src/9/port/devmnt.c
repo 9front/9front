@@ -777,6 +777,13 @@ mountio(Mnt *m, Mntrpc *r)
 		if(m->rip == up)
 			mntgate(m);
 		if(strcmp(up->errstr, Eintr) != 0){
+			switch(r->request.type){
+			case Tremove:
+			case Tclunk:
+				/* botch, abandon fid */ 
+				if(strcmp(up->errstr, Ehungup) != 0)
+					r->c->fid = 0;
+			}
 			mntflushfree(m, r);
 			nexterror();
 		}
