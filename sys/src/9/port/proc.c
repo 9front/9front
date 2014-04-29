@@ -802,12 +802,18 @@ sleep(Rendez *r, int (*f)(void*), void *arg)
 	if(up->notepending) {
 		up->notepending = 0;
 		splx(s);
-		if(up->procctl == Proc_exitme && up->closingfgrp)
-			forceclosefgrp();
-		error(Eintr);
+		interrupted();
 	}
 
 	splx(s);
+}
+
+void
+interrupted(void)
+{
+	if(up->procctl == Proc_exitme && up->closingfgrp != nil)
+		forceclosefgrp();
+	error(Eintr);
 }
 
 static int

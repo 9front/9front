@@ -225,7 +225,7 @@ closefgrp(Fgrp *f)
 }
 
 /*
- * Called from sleep because up is in the middle
+ * Called from interrupted() because up is in the middle
  * of closefgrp and just got a kill ctl message.
  * This usually means that up has wedged because
  * of some kind of deadly embrace with mntclose

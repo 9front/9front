@@ -39,8 +39,9 @@ eqlock(QLock *q)
 	if(up == 0)
 		panic("eqlock");
 	if(up->notepending){
+		up->notepending = 0;
 		unlock(&q->use);
-		error(Eintr);
+		interrupted();
 	}
 	rwstats.qlockq++;
 	p = q->tail;
@@ -57,7 +58,7 @@ eqlock(QLock *q)
 	sched();
 	if(up->eql == 0){
 		up->notepending = 0;
-		error(Eintr);
+		interrupted();
 	}
 	up->eql = 0;
 }
