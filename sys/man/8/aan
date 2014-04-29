@@ -19,8 +19,9 @@ aan, aanuke \- always available network
 [
 .B -m maxto
 ]
-.B aanuke
 .I netdir
+.br
+.B aanuke
 .SH DESCRIPTION
 .I Aan
 tunnels traffic between a client and a server through a persistent
