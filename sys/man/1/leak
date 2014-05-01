@@ -168,7 +168,7 @@ but prints a summary for the running kernel.
 List lost blocks in 
 .IR 8.out .
 This depends on the fact that there is only
-once instance of 
+one instance of 
 .I 8.out
 running; if there were more, the output of
 .B "leak -s 8.out
