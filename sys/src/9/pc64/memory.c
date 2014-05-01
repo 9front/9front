@@ -44,7 +44,7 @@ struct RMap {
 /* 
  * Memory allocation tracking.
  */
-static Map mapupa[16];
+static Map mapupa[64];
 static RMap rmapupa = {
 	"unallocated unbacked physical memory",
 	mapupa,
