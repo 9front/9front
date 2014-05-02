@@ -3,13 +3,12 @@
 #include	<bio.h>
 
 static char*
-badd(char *p, int *np, char *data, int ndata, int delim, int nulldelim)
+badd(char *oldp, int *np, char *data, int ndata, int delim, int nulldelim)
 {
 	int n;
-	char *oldp;
+	char *p;
 
 	n = *np;
-	oldp = p;
 	p = realloc(oldp, n+ndata+1);
 	if(p){
 		memmove(p+n, data, ndata);
