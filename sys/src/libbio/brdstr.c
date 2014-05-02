@@ -6,9 +6,11 @@ static char*
 badd(char *p, int *np, char *data, int ndata, int delim, int nulldelim)
 {
 	int n;
+	char *oldp;
 
 	n = *np;
-	p = realloc(p, n+ndata+1);
+	oldp = p;
+	p = realloc(oldp, n+ndata+1);
 	if(p){
 		memmove(p+n, data, ndata);
 		n += ndata;
@@ -17,7 +19,8 @@ badd(char *p, int *np, char *data, int ndata, int delim, int nulldelim)
 		else
 			p[n] = '\0';
 		*np = n;
-	}
+	}else
+		free(oldp);
 	return p;
 }
 
