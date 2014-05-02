@@ -41,6 +41,7 @@ getscreen(int argc, char **argv)
 	t = getenv("tabstop");
 	if(t != nil)
 		maxtab = strtoul(t, nil, 0);
+	free(t);
 	draw(screen, screen->clipr, display->white, nil, ZP);
 }
 
