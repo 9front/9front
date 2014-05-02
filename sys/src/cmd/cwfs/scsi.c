@@ -46,8 +46,8 @@ scsiinit(void)
 
 			tp->ctlrno = ctlrno;
 			tp->targetno = targetno;
-			tp->inquiry = malloc(Ninquiry);
-			tp->sense = malloc(Nsense);
+			tp->inquiry = ialloc(Ninquiry, 0);
+			tp->sense = ialloc(Nsense, 0);
 		}
 	}
 }

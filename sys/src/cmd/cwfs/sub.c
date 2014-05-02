@@ -38,7 +38,7 @@ fs_chaninit(int count, int data)
 	Chan *cp, *icp;
 	int i;
 
-	p = malloc(count * (sizeof(Chan)+data));
+	p = ialloc(count * (sizeof(Chan)+data), 0);
 	icp = (Chan*)p;
 	for(i = 0; i < count; i++) {
 		cp = (Chan*)p;
@@ -761,17 +761,17 @@ mbinit(void)
 	msgalloc.lmsgbuf = 0;
 	msgalloc.smsgbuf = 0;
 	for(i=0; i<conf.nlgmsg; i++) {
-		mb = malloc(sizeof(Msgbuf));
+		mb = ialloc(sizeof(Msgbuf), 0);
 		mb->magic = Mbmagic;
-		mb->xdata = malloc(LARGEBUF+Slop);
+		mb->xdata = ialloc(LARGEBUF+Slop, 0);
 		mb->flags = LARGE;
 		mbfree(mb);
 		cons.nlarge++;
 	}
 	for(i=0; i<conf.nsmmsg; i++) {
-		mb = malloc(sizeof(Msgbuf));
+		mb = ialloc(sizeof(Msgbuf), 0);
 		mb->magic = Mbmagic;
-		mb->xdata = malloc(SMALLBUF+Slop);
+		mb->xdata = ialloc(SMALLBUF+Slop, 0);
 		mb->flags = 0;
 		mbfree(mb);
 		cons.nsmall++;
@@ -782,7 +782,7 @@ mbinit(void)
 	unlock(&rabuflock);
 	rabuffree = 0;
 	for(i=0; i<1000; i++) {
-		rb = malloc(sizeof(*rb));
+		rb = ialloc(sizeof(*rb), 0);
 		rb->link = rabuffree;
 		rabuffree = rb;
 	}
@@ -799,8 +799,8 @@ mballoc(int count, Chan *cp, int category)
 			panic("msgbuf count");
 		mb = msgalloc.lmsgbuf;
 		if(mb == nil) {
-			mb = malloc(sizeof(Msgbuf));
-			mb->xdata = malloc(LARGEBUF+Slop);
+			mb = ialloc(sizeof(Msgbuf), 0);
+			mb->xdata = ialloc(LARGEBUF+Slop, 0);
 			cons.nlarge++;
 		} else
 			msgalloc.lmsgbuf = mb->next;
@@ -808,8 +808,8 @@ mballoc(int count, Chan *cp, int category)
 	} else {
 		mb = msgalloc.smsgbuf;
 		if(mb == nil) {
-			mb = malloc(sizeof(Msgbuf));
-			mb->xdata = malloc(SMALLBUF+Slop);
+			mb = ialloc(sizeof(Msgbuf), 0);
+			mb->xdata = ialloc(SMALLBUF+Slop, 0);
 			cons.nsmall++;
 		} else
 			msgalloc.smsgbuf = mb->next;
@@ -958,7 +958,7 @@ newqueue(int size, char *name)
 {
 	Queue *q;
 
-	q = malloc(sizeof(Queue) + (size-1)*sizeof(void*));
+	q = ialloc(sizeof(Queue) + (size-1)*sizeof(void*), 0);
 	q->size = size;
 	q->avail = size;
 	q->count = 0;

@@ -39,7 +39,7 @@ wreninit(Device *d)
 
 	if(d->private)
 		return;
-	d->private = dr = malloc(sizeof(Wren));
+	d->private = dr = ialloc(sizeof(Wren), 0);
 
 	if (d->wren.file)
 		d->wren.sddata = dataof(d->wren.file);

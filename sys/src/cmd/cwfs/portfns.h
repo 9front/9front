@@ -95,7 +95,7 @@ Chan*	getlcp(uchar*, long);
 Off	getraddr(Device*);
 void	hexdump(void*, int);
 int	iaccess(File*, Dentry*, int);
-void*	ialloc(ulong, int);
+void*	ialloc(uintptr, int);
 Off	ibbpow(int);
 Off	ibbpowsum(int);
 Device*	iconfig(char *);

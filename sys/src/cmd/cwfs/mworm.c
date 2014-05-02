@@ -14,7 +14,7 @@ mcatinit(Device *d)
 		d->cat.ndev++;
 	}
 
-	list = malloc(d->cat.ndev*sizeof(Device*));
+	list = ialloc(d->cat.ndev * sizeof(Device*), 0);
 	d->private = list;
 	for(x=d->cat.first; x; x=x->link) {
 		*list++ = x;

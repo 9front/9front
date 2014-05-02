@@ -10,8 +10,6 @@
 #include "dat.h"
 #include "portfns.h"
 
-#define malloc(n)	ialloc(n, 0)
-
 #define	CHAT(cp) ((cons.flags&chatflag) || \
 			((cp) && (((Chan*)(cp))->flags&chatflag)))
 #define	QID9P1(a,b)	(Qid9p1){a,b}

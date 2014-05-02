@@ -1,7 +1,7 @@
 #include	"all.h"
 #include	"io.h"
 
-extern	long nhiob;
+extern	uint nhiob;
 extern	Hiob *hiob;
 
 Iobuf*

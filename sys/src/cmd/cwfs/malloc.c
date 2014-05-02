@@ -1,10 +1,12 @@
 #include "all.h"
 #include "io.h"
 
-static ulong
+#include <pool.h>
+
+static uvlong
 memsize(void)
 {
-	ulong pgsize, pgmax, userpgs, userused;
+	ulong pgsize, userpgs, userused;
 	char *s, *f[2];
 	int n, mpcnt;
 	Biobuf *bp;
@@ -37,17 +39,13 @@ memsize(void)
 		if(mpcnt < 1)
 			mpcnt = 1;
 		userpgs = (userpgs*mpcnt)/100;
-		pgmax = (1024*1024*1024)/pgsize;	/* 1GB max */
-		if(userpgs > pgmax)
-			userpgs = pgmax;
-		return userpgs*pgsize;
+		return (uvlong)userpgs*pgsize;
 	}
 	return 16*MB;
 }
 
-
-long	niob;
-long	nhiob;
+uint	niob;
+uint	nhiob;
 Hiob	*hiob;
 
 /*
@@ -56,14 +54,26 @@ Hiob	*hiob;
  * end of the allocated memory.
  */
 void*
-ialloc(ulong n, int align)
+ialloc(uintptr n, int align)
 {
-	void *p = mallocalign(n, align, 0, 0);
+	char *p;
+	int m;
 
-	if (p == nil)
+	if(align <= 0)
+		align = sizeof(uintptr);
+
+	mainmem->lock(mainmem);
+
+	p = sbrk(0);
+	if(m = n % align)
+		n += align - m;
+	if(m = (uintptr)p % align)
+		p += align - m;
+	if(brk(p+n) < 0)
 		panic("ialloc: out of memory");
-	setmalloctag(p, getcallerpc(&n));
-	memset(p, 0, n);
+
+	mainmem->unlock(mainmem);
+
 	return p;
 }
 
@@ -89,7 +99,7 @@ iobufinit(void)
 	while(!prime(nhiob))
 		nhiob++;
 	if(chatty)
-		print("\t%ld buffers; %ld hashes\n", niob, nhiob);
+		print("\t%ud buffers; %ud hashes\n", niob, nhiob);
 	hiob = ialloc(nhiob * sizeof(Hiob), 0);
 	hp = hiob;
 	for(i=0; i<nhiob; i++) {

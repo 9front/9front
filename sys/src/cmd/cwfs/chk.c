@@ -59,7 +59,6 @@ static void *
 chkalloc(ulong n)
 {
 	char *p = mallocz(n, 1);
-
 	if (p == nil)
 		panic("chkalloc: out of memory");
 	return p;

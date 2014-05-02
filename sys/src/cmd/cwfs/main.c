@@ -71,7 +71,7 @@ mapinit(char *mapfile)
 				fields[0], mapfile);
 			continue;
 		}
-		map = malloc(sizeof *map);
+		map = ialloc(sizeof(Map), 0);
 		map->from = strdup(fields[0]);
 		map->to =   strdup(fields[1]);
 		map->fdev = iconfig(fields[0]);
@@ -323,15 +323,15 @@ main(int argc, char **argv)
 	netinit();
 	scsiinit();
 
-	files = malloc(conf.nfile * sizeof *files);
+	files = ialloc(conf.nfile * sizeof(*files), 0);
 	for(i=0; i < conf.nfile; i++) {
 		qlock(&files[i]);
 		qunlock(&files[i]);
 	}
 
-	wpaths = malloc(conf.nwpath * sizeof(*wpaths));
-	uid = malloc(conf.nuid * sizeof(*uid));
-	gidspace = malloc(conf.gidspace * sizeof(*gidspace));
+	wpaths = ialloc(conf.nwpath * sizeof(*wpaths), 0);
+	uid = ialloc(conf.nuid * sizeof(*uid), 0);
+	gidspace = ialloc(conf.gidspace * sizeof(*gidspace), 0);
 
 	iobufinit();
 
@@ -597,11 +597,12 @@ Devsize
 inqsize(char *file)
 {
 	int nf;
-	char *ln, *end, *data = malloc(strlen(file) + 5 + 1);
+	char *ln, *end, *data;
 	char *fields[4];
 	Devsize rv = -1;
 	Biobuf *bp;
 
+	data = malloc(strlen(file) + 5 + 1);
 	strcpy(data, file);
 	end = strstr(data, "/data");
 	if (end == nil)
@@ -621,4 +622,3 @@ inqsize(char *file)
 	free(data);
 	return rv;
 }
-

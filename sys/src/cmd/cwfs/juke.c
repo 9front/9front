@@ -1166,7 +1166,7 @@ querychanger(Device *xdev)
 	 * allocate a juke structure
 	 * no locking problems.
 	 */
-	w = malloc(sizeof(Juke));
+	w = ialloc(sizeof(Juke), 0);
 	w->magic = Jukemagic;
 	w->isfixedsize = FIXEDSIZE;
 	w->link = jukelist;

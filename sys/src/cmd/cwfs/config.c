@@ -175,7 +175,7 @@ config1(int c)
 	Device *d, *t;
 	int m;
 
-	d = malloc(sizeof(Device));
+	d = ialloc(sizeof(Device), 0);
 	do {
 		t = config();
 		if(d->cat.first == 0)
@@ -233,8 +233,7 @@ config(void)
 
 	if(f.error)
 		return devnone;
-	d = malloc(sizeof(Device));
-
+	d = ialloc(sizeof(Device), 0);
 	c = *f.charp++;
 	switch(c) {
 	default:
@@ -277,7 +276,7 @@ config(void)
 		d->wren.ctrl = -1;
 		d->wren.targ = -1;
 		d->wren.lun = -1;
-		d->wren.file = malloc((e - s) + 1);
+		d->wren.file = ialloc((e - s) + 1, 0);
 		memmove(d->wren.file, s, e - s);
 		d->wren.file[e - s] = 0;
 		break;
@@ -336,7 +335,7 @@ config(void)
 		d->type = Devcw;
 		d->cw.c = config();
 		d->cw.w = config();
-		d->cw.ro = malloc(sizeof(Device));
+		d->cw.ro = ialloc(sizeof(Device), 0);
 		d->cw.ro->type = Devro;
 		d->cw.ro->ro.parent = d;
 		f.lastcw = d;

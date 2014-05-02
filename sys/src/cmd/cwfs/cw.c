@@ -400,7 +400,7 @@ cwinit1(Device *dev)
 		roflag = flag_install("ro", "-- ro reads and writes");
 		first = 1;
 	}
-	cw = malloc(sizeof(Cw));
+	cw = ialloc(sizeof(Cw), 0);
 	dev->private = cw;
 
 	cw->allflag = 0;
