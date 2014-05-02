@@ -1115,11 +1115,14 @@ atapktio0(Drive *drive, SDreq *r)
 		atadmastart(ctlr, drive->write);
 	iunlock(ctlr);
 
-	if(iowait(drive, 30*1000, 0) <= 0){
-		ilock(ctlr);
+	while(iowait(drive, 30*1000, 1) == 0)
+		;
+
+	ilock(ctlr);
+	if(!ctlr->done){
+		rv = SDcheck;
 		ataabort(drive, 0);
-	} else
-		ilock(ctlr);
+	}
 	if(drive->error){
 		if(drive->pktdma)
 			atadmastop(ctlr);
@@ -1128,12 +1131,11 @@ atapktio0(Drive *drive, SDreq *r)
 	}
 	iunlock(ctlr);
 
-	if(drive->status & Chk){
+	if(rv != SDcheck && drive->status & Chk){
 		rv = SDcheck;
 		if(drive->pktdma){
 			print("atapktio: disabling dma\n");
 			drive->dmactl = 0;
-			rv = SDretry;
 		}
 	}
 	return rv;
