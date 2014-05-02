@@ -51,7 +51,8 @@ Brdstr(Biobufhdr *bp, int delim, int nulldelim)
 	if(ep) {
 		j = (ep - ip) + 1;
 		bp->icount += j;
-		return badd(nil, &bp->rdline, ip, j, delim, nulldelim);
+		p = badd(nil, &bp->rdline, ip, j, delim, nulldelim);
+		goto out;
 	}
 
 	/*
@@ -72,7 +73,7 @@ Brdstr(Biobufhdr *bp, int delim, int nulldelim)
 			if(j < 0)
 				Berror(bp, "read error: %r");
 			if(j <= 0 && i == 0)
-				return p;
+				goto out;
 			if(j <= 0 && i > 0){
 				/*
 				 * end of file but no delim. pretend we got a delim
@@ -100,7 +101,8 @@ Brdstr(Biobufhdr *bp, int delim, int nulldelim)
 				}
 				j = (ep - (char*)bp->bbuf) + 1;
 				bp->icount = j - i;
-				return badd(p, &bp->rdline, ip, j, delim, nulldelim);
+				p = badd(p, &bp->rdline, ip, j, delim, nulldelim);
+				goto out;
 			}
 			ip += j;
 		}
@@ -113,4 +115,7 @@ Brdstr(Biobufhdr *bp, int delim, int nulldelim)
 		bp->icount = 0;
 		bp->gbuf = bp->ebuf;
 	}
+out:
+	setmalloctag(p, getcallerpc(&bp));
+	return p;
 }

@@ -114,6 +114,7 @@ Bopen(char *name, int mode)
 	if(f < 0)
 		return 0;
 	bp = malloc(sizeof(Biobuf));
+	setmalloctag(bp, getcallerpc(&name));
 	Binits(bp, f, mode, bp->b, sizeof(bp->b));
 	bp->flag = Bmagic;			/* mark bp open & malloced */
 	return bp;
