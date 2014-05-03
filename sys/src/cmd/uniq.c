@@ -6,15 +6,12 @@
 #include <bio.h>
 #include <ctype.h>
 
-#define	SIZE	8000
-
 int	fields	= 0;
 int	letters	= 0;
 int	linec	= 0;
 char	mode;
 int	uniq;
 char	*b1, *b2;
-long	bsize;
 Biobuf	fin;
 Biobuf	fout;
 
@@ -29,9 +26,8 @@ main(int argc, char *argv[])
 	int f;
 
 	argv0 = argv[0];
-	bsize = SIZE;
-	b1 = malloc(bsize);
-	b2 = malloc(bsize);
+	b1 = malloc(Bsize);
+	b2 = malloc(Bsize);
 	f = 0;
 	while(argc > 1) {
 		if(*argv[1] == '-') {
@@ -93,7 +89,7 @@ gline(char *buf)
 	if(p == 0)
 		return 1;
 	len = Blinelen(&fin);
-	if(len >= bsize-1)
+	if(len > Bsize)
 		sysfatal("line too long");
 	memmove(buf, p, len);
 	buf[len-1] = 0;
