@@ -4,7 +4,7 @@ uniq \- report repeated lines in a file
 .SH SYNOPSIS
 .B uniq
 [
-.B -udc
+.B -udcs
 [
 .BI +- num
 ]
@@ -36,6 +36,9 @@ Implies
 .B -u
 and
 .BR -d .
+.TP
+.B -s
+Count as a duplicate if the prefix matches the previous unique line.
 .TP
 .BI - num
 The first
