@@ -171,7 +171,7 @@ download(void *aux)
 	if((c = f->c) == nil)
 		goto out;
 
-	threadsetname(f->path);
+	threadsetname("%s", f->path);
 
 	snprint(buf, sizeof(buf), "%s/udp!*!0", net);
 	if((cfd = announce(buf, adir)) < 0){

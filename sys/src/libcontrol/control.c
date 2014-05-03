@@ -160,12 +160,11 @@ controlsetthread(void *v)
 	Control *f;
 	int prevbut, n, i;
 	Alt alts[NALT+1];
-	char tmp[64], *str;
+	char *str;
 	Rune buf[2][20], *rp;
 
 	cs = v;
-	snprint(tmp, sizeof tmp, "controlsetthread 0x%p", cs);
-	threadsetname(tmp);
+	threadsetname("controlsetthread 0x%p", cs);
 
 	alts[AKey].c = cs->kbdc;
 	alts[AKey].v = &rp;
@@ -619,12 +618,10 @@ static void
 resizethread(void *v)
 {
 	Controlset *cs;
-	char buf[64];
 	Alt alts[3];
 
 	cs = v;
-	snprint(buf, sizeof buf, "resizethread0x%p", cs);
-	threadsetname(buf);
+	threadsetname("resizethread 0x%p", cs);
 
 	alts[0].c = cs->resizec;
 	alts[0].v = nil;

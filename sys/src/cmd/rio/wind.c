@@ -180,12 +180,11 @@ winctl(void *arg)
 	Stringpair pair;
 	Wctlmesg wcm;
 	Completion *cr;
-	char buf[4*12+1], *kbdq[8], *kbds;
+	char *kbdq[8], *kbds;
 	int kbdqr, kbdqw;
 
 	w = arg;
-	snprint(buf, sizeof buf, "winctl-id%d", w->id);
-	threadsetname(buf);
+	threadsetname("winctl-id%d", w->id);
 
 	mrm.cm = chancreate(sizeof(Mouse), 0);
 	krm.ck = chancreate(sizeof(char*), 0);
@@ -540,11 +539,9 @@ completeproc(void *arg)
 {
 	Completejob *job;
 	Completion *c;
-	char buf[128];
 
 	job = arg;
-	snprint(buf, sizeof(buf), "namecomplete %s", job->dir);
-	threadsetname(buf);
+	threadsetname("namecomplete %s", job->dir);
 
 	c = complete(job->dir, job->str);
 	if(c != nil && sendp(job->win->complete, c) <= 0)

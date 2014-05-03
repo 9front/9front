@@ -229,14 +229,6 @@ setproto(KDev *f, int eid)
 }
 
 static void
-kbprocname(KDev *kd, char *name)
-{
-	char buf[128];
-	snprint(buf, sizeof(buf), "%s %s", name, kd->ep->dir);
-	threadsetname(buf);
-}
-
-static void
 sethipri(void)
 {
 	char fn[64];
@@ -324,7 +316,7 @@ joywork(void *a)
 	Joy	p;
 	u64int lastb;
 
-	kbprocname(f, "joy");
+	threadsetname("joy %s", f->ep->dir);
 	sethipri();
 
 	memset(&p, 0, sizeof(p));

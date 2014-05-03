@@ -337,14 +337,6 @@ kbfatal(KDev *kd, char *sts)
 }
 
 static void
-kbprocname(KDev *kd, char *name)
-{
-	char buf[128];
-	snprint(buf, sizeof(buf), "%s %s", name, kd->ep->dir);
-	threadsetname(buf);
-}
-
-static void
 sethipri(void)
 {
 	char fn[64];
@@ -465,7 +457,7 @@ ptrwork(void* a)
 	KDev*	f = a;
 	Ptr	p;
 
-	kbprocname(f, "ptr");
+	threadsetname("ptr %s", f->ep->dir);
 	sethipri();
 
 	memset(&p, 0, sizeof(p));
@@ -698,7 +690,7 @@ kbdwork(void *a)
 	char err[128];
 	KDev *f = a;
 
-	kbprocname(f, "kbd");
+	threadsetname("kbd %s", f->ep->dir);
 
 	f->repeatc = chancreate(sizeof(ulong), 0);
 	if(f->repeatc == nil)

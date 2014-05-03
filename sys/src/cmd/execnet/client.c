@@ -215,11 +215,9 @@ readthread(void *a)
 	Client *c;
 	Ioproc *io;
 	Msg *m;
-	char tmp[32];
 
 	c = a;
-	snprint(tmp, sizeof tmp, "read%d", c->num);
-	threadsetname(tmp);
+	threadsetname("read%d", c->num);
 
 	buf = emalloc(8192);
 	io = c->readerproc;
@@ -279,11 +277,9 @@ writethread(void *a)
 	Ioproc *io;
 	Req *r;
 	Client *c;
-	char tmp[32];
 
 	c = a;
-	snprint(tmp, sizeof tmp, "write%d", c->num);
-	threadsetname(tmp);
+	threadsetname("write%d", c->num);
 
 	buf = emalloc(8192);
 	io = c->writerproc;
@@ -320,11 +316,9 @@ execproc(void *a)
 {
 	int i, fd;
 	Client *c;
-	char tmp[32];
 
 	c = a;
-	snprint(tmp, sizeof tmp, "execproc%d", c->num);
-	threadsetname(tmp);
+	threadsetname("execproc%d", c->num);
 	if(pipe(c->fd) < 0){
 		rerrstr(c->err, sizeof c->err);
 		sendul(c->execpid, -1);
@@ -346,11 +340,9 @@ execthread(void *a)
 {
 	Client *c;
 	int p;
-	char tmp[32];
 
 	c = a;
-	snprint(tmp, sizeof tmp, "exec%d", c->num);
-	threadsetname(tmp);
+	threadsetname("exec%d", c->num);
 	c->execpid = chancreate(sizeof(ulong), 0);
 	proccreate(execproc, c, STACK);
 	p = recvul(c->execpid);

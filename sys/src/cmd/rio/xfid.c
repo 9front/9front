@@ -99,11 +99,9 @@ xfidctl(void *arg)
 {
 	Xfid *x;
 	void (*f)(Xfid*);
-	char buf[64];
 
 	x = arg;
-	snprint(buf, sizeof buf, "xfid.%p", x);
-	threadsetname(buf);
+	threadsetname("xfid.%p", x);
 	for(;;){
 		f = recvp(x->c);
 		if(f){
