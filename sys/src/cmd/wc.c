@@ -37,7 +37,7 @@ main(int argc, char *argv[])
 		pchar = 1;
 	}
 	if(argc==0)
-		count(0, 0);
+		count(0, nil);
 	else{
 		for(i=0;i<argc;i++){
 			f=open(argv[i], OREAD);
@@ -63,33 +63,23 @@ main(int argc, char *argv[])
 void
 report(uvlong nline, uvlong nword, uvlong nrune, uvlong nbadr, uvlong nchar, char *fname)
 {
-	char line[1024], word[128];
+	char line[128], *e;
 	line[0] = '\0';
-	if(pline){
-		sprint(word, " %7llud", nline);
-		strcat(line, word);
-	}
-	if(pword){
-		sprint(word, " %7llud", nword);
-		strcat(line, word);
-	}
-	if(prune){
-		sprint(word, " %7llud", nrune);
-		strcat(line, word);
-	}
-	if(pbadr){
-		sprint(word, " %7llud", nbadr);
-		strcat(line, word);
-	}
-	if(pchar){
-		sprint(word, " %7llud", nchar);
-		strcat(line, word);
-	}
-	if(fname){
-		sprint(word, " %s",   fname);
-		strcat(line, word);
-	}
-	print("%s\n", line+1);
+	e = line;
+	if(pline)
+		e += sprint(e, " %7llud", nline);
+	if(pword)
+		e += sprint(e, " %7llud", nword);
+	if(prune)
+		e += sprint(e, " %7llud", nrune);
+	if(pbadr)
+		e += sprint(e, " %7llud", nbadr);
+	if(pchar)
+		sprint(e, " %7llud", nchar);
+	if(fname)
+		print("%s %s\n", line+1, fname);
+	else
+		print("%s\n", line+1);
 }
 /*
  * How it works.  Start in statesp.  Each time we read a character,
