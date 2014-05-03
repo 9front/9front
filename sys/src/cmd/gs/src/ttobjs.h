@@ -589,7 +589,7 @@ typedef struct _TExecution_Context TExecution_Context;
     PLong            cvt;
 
     Int              storeSize; /* The storage area is now part of the */
-    PStorage            storage;   /* instance                            */
+    PLong            storage;   /* instance                            */
 
   };
 
@@ -638,11 +638,11 @@ typedef struct _TExecution_Context TExecution_Context;
                                      /* useful for the debugger   */
   
     Int             storeSize;  /* size of current storage */
-    PStorage        storage;    /* storage area            */
+    PLong           storage;    /* storage area            */
   
     Int             stackSize;  /* size of exec. stack */
     Int             top;        /* top of exec. stack  */
-    PStorage        stack;      /* current exec. stack */
+    PLong           stack;      /* current exec. stack */
   
     Int             args,
                     new_top;    /* new top after exec.    */
