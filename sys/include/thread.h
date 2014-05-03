@@ -109,6 +109,8 @@ void	tprivfree(int);
 void	**tprivaddr(int);
 void	yield(void);
 
+#pragma	varargck	argpos	threadsetname	1
+
 extern	int	mainstacksize;
 
 /* slave I/O processes */
