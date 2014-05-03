@@ -75,3 +75,4 @@ void	Blethal(Biobufhdr*, void(*)(char*));
 void	Berror(Biobufhdr*, char*, ...);
 
 #pragma	varargck	argpos	Bprint	2
+#pragma	varargck	argpos	Berror	2
