@@ -361,8 +361,6 @@ cie_cache_joint(i_ctx_t *i_ctx_p, const ref_cie_render_procs * pcrprocs,
     space = r_space(&pqr_procs);
     for (i = 0; i < 3; i++) {
 	ref *p = pqr_procs.value.refs + 3 + (4 + 4 * 6) * i;
-	const float *ppt = (float *)&pjc->points_sd;
-	int j;
 
 	make_array(pqr_procs.value.refs + i, a_readonly | a_executable | space,
 		   4, p);
@@ -370,9 +368,37 @@ cie_cache_joint(i_ctx_t *i_ctx_p, const ref_cie_render_procs * pcrprocs,
 	p[1] = pcrprocs->TransformPQR.value.refs[i];
 	make_oper(p + 2, 0, cie_exec_tpqr);
 	make_oper(p + 3, 0, cie_post_exec_tpqr);
-	for (j = 0, p += 4; j < 4 * 6; j++, p++, ppt++)
-	    make_real(p, *ppt);
-    }
+	p += 4;
+
+        /* cant use array due to structure alignment */
+        make_real(p, pjc->points_sd.ws.xyz.u); p++;
+        make_real(p, pjc->points_sd.ws.xyz.v); p++;
+        make_real(p, pjc->points_sd.ws.xyz.w); p++;
+        make_real(p, pjc->points_sd.ws.pqr.u); p++;
+        make_real(p, pjc->points_sd.ws.pqr.v); p++;
+        make_real(p, pjc->points_sd.ws.pqr.w); p++;
+
+        make_real(p, pjc->points_sd.bs.xyz.u); p++;
+        make_real(p, pjc->points_sd.bs.xyz.v); p++;
+        make_real(p, pjc->points_sd.bs.xyz.w); p++;
+        make_real(p, pjc->points_sd.bs.pqr.u); p++;
+        make_real(p, pjc->points_sd.bs.pqr.v); p++;
+        make_real(p, pjc->points_sd.bs.pqr.w); p++;
+
+        make_real(p, pjc->points_sd.wd.xyz.u); p++;
+        make_real(p, pjc->points_sd.wd.xyz.v); p++;
+        make_real(p, pjc->points_sd.wd.xyz.w); p++;
+        make_real(p, pjc->points_sd.wd.pqr.u); p++;
+        make_real(p, pjc->points_sd.wd.pqr.v); p++;
+        make_real(p, pjc->points_sd.wd.pqr.w); p++;
+
+        make_real(p, pjc->points_sd.bd.xyz.u); p++;
+        make_real(p, pjc->points_sd.bd.xyz.v); p++;
+        make_real(p, pjc->points_sd.bd.xyz.w); p++;
+        make_real(p, pjc->points_sd.bd.pqr.u); p++;
+        make_real(p, pjc->points_sd.bd.pqr.v); p++;
+        make_real(p, pjc->points_sd.bd.pqr.w); p++;
+   }
     return cie_prepare_cache3(i_ctx_p, &pcrd->RangePQR,
 			      pqr_procs.value.const_refs,
 			      pjc->TransformPQR.caches,
