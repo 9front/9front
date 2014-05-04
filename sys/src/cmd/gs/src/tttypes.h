@@ -118,11 +118,7 @@
 #endif
 
 #ifdef Plan9
-#ifdef Tamd64
-  typedef unsigned long long* PStorage;
-#else
   typedef unsigned int* PStorage;
-#endif
 #elif   ARCH_SIZEOF_PTR == SIZEOF_LONG
   typedef long*  PStorage;
 #elif ARCH_SIZEOF_PTR == SIZEOF_INT

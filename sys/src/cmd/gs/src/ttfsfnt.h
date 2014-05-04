@@ -47,6 +47,8 @@ typedef   int16_t  F2Dot14; /* 2.14 16-bit signed fixed-point number */
 typedef   int32_t  F26Dot6; /* 26.6 32-bit signed fixed-point number */
 #endif
 
+#pragma pack on
+
 typedef struct {
 	uint32 bc;
 	uint32 ad;
@@ -348,5 +350,7 @@ typedef struct FontTableInfo {
 } FontTableInfo;
 
 #define RAW_TRUE_TYPE_SIZE 512
+
+#pragma pack off
 
 #endif
