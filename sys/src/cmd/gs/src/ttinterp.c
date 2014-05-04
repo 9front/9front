@@ -166,7 +166,7 @@ static int nInstrCount=0;
 #endif
 
 
-#define INS_ARG         EXEC_OPS PStorage args  /* see ttexec.h */
+#define INS_ARG         EXEC_OPS PLong args  /* see ttexec.h */
 
 #define SKIP_Code()     SkipCode( EXEC_ARG )
 

@@ -191,7 +191,7 @@
   struct  _TLoca
   {
     UShort    Size;
-    PStorage  Table;
+    PLong     Table;
   };
 
   typedef struct _TLoca  TLoca;
