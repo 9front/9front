@@ -347,7 +347,7 @@ mmuzap(void)
 			if(w & 1)
 				pte[x] = 0;
 			x++;
-			x >>= 1;
+			w >>= 1;
 		} while(w);
 		m->mmumap[i] = 0;
 	}
