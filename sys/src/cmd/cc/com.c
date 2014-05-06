@@ -1370,11 +1370,6 @@ compar(Node *n, int reverse)
 	if(l->op == OCONST)
 		return 0;
 	lt = l->type;
-	if(l->op == ONAME && l->sym->type){
-		lt = l->sym->type;
-		if(lt->etype == TARRAY)
-			lt = lt->link;
-	}
 	if(lt == T)
 		return 0;
 	if(lt->etype == TXXX || lt->etype > TUVLONG)
