@@ -177,7 +177,6 @@ Reprog	*compile(void);
 Rune	*compsub(Rune *, Rune *);
 void	dechain(void);
 void	dosub(Rune *);
-int	ecmp(Rune *, Rune *, int);
 void	enroll(char *);
 void	errexit(void);
 int	executable(SedCom *);
@@ -1323,13 +1322,6 @@ putline(Biobuf *bp, Rune *buf, int n)
 	while (n--)
 		Bputrune(bp, *buf++);
 	Bputc(bp, '\n');
-}
-ecmp(Rune *a, Rune *b, int count)
-{
-	while(count--)
-		if(*a++ != *b++)
-			return 0;
-	return 1;
 }
 
 void
