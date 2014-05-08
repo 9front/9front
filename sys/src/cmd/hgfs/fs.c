@@ -663,8 +663,10 @@ fsread(Req *r)
 	rf = r->fid->aux;
 	switch(rf->level){
 	case Qroot:
-		revlogupdate(&changelog);
-		revlogupdate(&manifest);
+		if(off == 0){
+			revlogupdate(&changelog);
+			revlogupdate(&manifest);
+		}
 		dirread9p(r, rootgen, nil);
 		respond(r, nil);
 		return;
