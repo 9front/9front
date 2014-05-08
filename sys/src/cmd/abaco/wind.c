@@ -36,7 +36,6 @@ wininit(Window *w, Window *, Rectangle r)
 	r1.min.y = r1.max.y;
 	r1.max.y += font->height;
 	textinit(&w->url, screen, r1, font, tagcols);
-	w->url.
 	w->url.what = Urltag;
 	r1.min.y = r1.max.y++;
 	draw(screen, r1, tagcols[BORD], nil, ZP);
