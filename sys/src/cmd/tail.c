@@ -8,6 +8,7 @@
  * the simple command tail -c, legal in v10, is illegal
  */
 
+vlong	fend;
 long	count;
 int	anycount;
 int	follow;
@@ -111,7 +112,7 @@ main(int argc, char **argv)
 	else
 	if(units==LINES && origin==BEG)
 		skip();
-	if(follow && seekable)
+	if(follow && (seekable || fend == 0))
 		for(;;) {
 			static Dir *sb0, *sb1;
 			trunc(sb1, &sb0);
@@ -368,5 +369,6 @@ usage(void)
 static int
 isseekable(int fd)
 {
-	return seek(fd, 0, 2) > 0 && seek(fd, 0, 0) == 0;
+	fend = seek(fd, 0, 2);
+	return fend > 0 && seek(fd, 0, 0) == 0;
 }
