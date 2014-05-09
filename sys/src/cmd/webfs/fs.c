@@ -806,7 +806,7 @@ main(int argc, char *argv[])
 	rfork(RFNOTEG);
 
 	if(agent == nil)
-		agent = "hjdicks";
+		agent = "Mozilla/5.0 (compatible; hjdicks)";
 	agent = estrdup(agent);
 
 	if(s = getenv("httpproxy")){
