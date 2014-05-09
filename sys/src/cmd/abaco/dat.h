@@ -303,7 +303,7 @@ enum
 
 	BUFSIZE =		1024*8,
 	RBUFSIZE =	BUFSIZE/sizeof(Rune),
-	STACK =		64*1024,
+	STACK =		128*1024,
 };
 
 enum
