@@ -73,7 +73,6 @@ main(int argc, char **argv)
 		break;
 	} ARGEND
 
-	USED(argc);
 	if(verbose)
 		squawk = 1;
 	if(listem){
@@ -214,49 +213,63 @@ Again:
 }
 
 void
-unicode_in_be(int fd, long *notused, struct convert *out)
+unicode_in_be(int fd, long *, struct convert *out)
 {
-	int i, n;
-	Rune buf[N], r;
-	uchar *p;
+	uchar buf[2*N], *p, *e;
+	Rune *r, r2;
+	int n;
 
-	USED(notused);
-	while((n = cread(fd, (char *)buf, 2*N, 2)) > 0){
-		/* go backwards as sizeof(Rune) >= 2 */
-		p = (uchar*)buf + n;
+	r2 = 0;
+	while((n = cread(fd, (char*)buf, 2*N, 2)) > 0){
 		ninput += n;
-		n /= 2;
-		for(i=n-1; i>=0; i--){
-			r = *(--p);
-			r |= *(--p) << 8;
-			buf[i] = r;
+		p = buf;
+		e = buf + n;
+		r = runes;
+		while(p < e){
+			*r = *p++ << 8;
+			*r |= *p++;
+			if(fixsurrogate(r, r2)){
+				r2 = *r;
+				continue;
+			}
+			r2 = 0;
+			r++;
 		}
-		OUT(out, buf, n);
+		if(r > runes){
+			OUT(out, runes, r-runes);
+		}
 	}
-	OUT(out, buf, 0);
+	OUT(out, runes, 0);
 }
 
 void
-unicode_in_le(int fd, long *notused, struct convert *out)
+unicode_in_le(int fd, long *, struct convert *out)
 {
-	int i, n;
-	Rune buf[N], r;
-	uchar *p;
+	uchar buf[2*N], *p, *e;
+	Rune *r, r2;
+	int n;
 
-	USED(notused);
-	while((n = cread(fd, (char *)buf, 2*N, 2)) > 0){
-		/* go backwards as sizeof(Rune) >= 2 */
-		p = (uchar*)buf + n;
+	r2 = 0;
+	while((n = cread(fd, (char*)buf, 2*N, 2)) > 0){
 		ninput += n;
-		n /= 2;
-		for(i=n-1; i>=0; i--){
-			r = *(--p) << 8;
-			r |= *(--p);
-			buf[i] = r;
+		p = buf;
+		e = buf + n;
+		r = runes;
+		while(p < e){
+			*r = *p++;
+			*r |= *p++ << 8;
+			if(fixsurrogate(r, r2)){
+				r2 = *r;
+				continue;
+			}
+			r2 = 0;
+			r++;
 		}
-		OUT(out, buf, n);
+		if(r > runes){
+			OUT(out, runes, r-runes);
+		}
 	}
-	OUT(out, buf, 0);
+	OUT(out, runes, 0);
 }
 
 void
@@ -284,41 +297,57 @@ unicode_in(int fd, long *notused, struct convert *out)
 }
 
 void
-unicode_out_be(Rune *base, int n, long *notused)
+unicode_out_be(Rune *base, int n, long *)
 {
 	int i;
 	uchar *p;
-	Rune r;
+	unsigned long r;
 
-	USED(notused);
 	p = (uchar*)base;
 	for(i=0; i<n; i++){
 		r = base[i];
-		*p++ = r>>8;
-		*p++ = r;
+		if(r > 0xFFFF){
+			r -= 0x10000;
+			*p++ = ((r>>18)&3) + 0xD8;
+			*p++ = r>>10;
+			*p++ = ((r>>8)&3) + 0xDC;
+			*p++ = r;
+		} else {
+			*p++ = r>>8;
+			*p++ = r;
+		}
 	}
 	nrunes += n;
-	noutput += 2*n;
-	write(1, (char *)base, 2*n);
+	n = p - (uchar*)base;
+	noutput += n;
+	write(1, (char *)base, n);
 }
 
 void
-unicode_out_le(Rune *base, int n, long *notused)
+unicode_out_le(Rune *base, int n, long *)
 {
 	int i;
 	uchar *p;
-	Rune r;
+	unsigned long r;
 
-	USED(notused);
 	p = (uchar*)base;
 	for(i=0; i<n; i++){
 		r = base[i];
-		*p++ = r;
-		*p++ = r>>8;
+		if(r > 0xFFFF){
+			r -= 0x10000;
+			*p++ = r>>10;
+			*p++ = ((r>>18)&3) + 0xD8;
+			*p++ = r;
+			*p++ = ((r>>8)&3) + 0xDC;
+		} else {
+			*p++ = r;
+			*p++ = r>>8;
+		}
 	}
 	nrunes += n;
-	noutput += 2*n;
-	write(1, (char *)base, 2*n);
+	n = p - (uchar*)base;
+	noutput += n;
+	write(1, (char *)base, n);
 }
 
 void
@@ -401,6 +430,29 @@ outtable(Rune *base, int n, long *map)
 	}
 	noutput += p-obuf;
 	write(1, obuf, p-obuf);
+}
+
+int
+fixsurrogate(Rune *rp, Rune r2)
+{
+	Rune r1;
+
+	r1 = *rp;
+	if(r1 >= 0xD800 && r1 <= 0xDBFF){
+		if(r2 >= 0xDC00 && r2 <= 0xDFFF){
+			*rp = 0x10000 + (((r1 - 0xD800)<<10) | (r2 - 0xDC00));
+			return 0;
+		}
+		return 1;
+	} else
+	if(r1 >= 0xDC00 && r1 <= 0xDFFF){
+		if(r2 >= 0xD800 && r2 <= 0xDBFF){
+			*rp = 0x10000 + (((r2 - 0xD800)<<10) | (r1 - 0xDC00));
+			return 0;
+		}
+		return 1;
+	}
+	return 0;
 }
 
 long tabascii[256] =

@@ -106,22 +106,20 @@ findindex(Rune *rstr, int size, Rune r)
 }
 
 void
-tune_in(int fd, long *x, struct convert *out)
+tune_in(int fd, long *, struct convert *out)
 {
 	Biobuf b;
-	Rune rbuf[N];
 	Rune *r, *er, tr;
 	int c, i;
 	
-	USED(x);
-	r = rbuf;
-	er = rbuf+N-3;
+	r = runes;
+	er = runes+N-3;
 	Binit(&b, fd, OREAD);
 	while((c = Bgetrune(&b)) != Beof){
 		ninput += b.runesize;
 		if(r >= er){
-			OUT(out, rbuf, r-rbuf);
-			r = rbuf;
+			OUT(out, runes, r-runes);
+			r = runes;
 		}
 		if(c>=0xe210/**/ && c <= 0xe38c/**/ && (i = c%16) < nelem(t2)){
 			if(c >= 0xe380/**/){
@@ -172,13 +170,13 @@ tune_in(int fd, long *x, struct convert *out)
 				break;
 		}
 	}
-	if(r > rbuf)
-		OUT(out, rbuf, r-rbuf);
-	OUT(out, rbuf, 0);
+	if(r > runes)
+		OUT(out, runes, r-runes);
+	OUT(out, runes, 0);
 }
 
 void
-tune_out(Rune *r, int n, long *x)
+tune_out(Rune *r, int n, long *)
 {
 	static int state = 0;
 	static Rune lastr;
@@ -186,7 +184,6 @@ tune_out(Rune *r, int n, long *x)
 	char *p;
 	int i;
 
-	USED(x);
 	nrunes += n;
 	er = r+n;
 	for(p = obuf; r < er; r++){

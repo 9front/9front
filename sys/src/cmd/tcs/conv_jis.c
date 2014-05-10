@@ -367,30 +367,26 @@ do_in(int fd, void (*procfn)(int, Rune **, long), struct convert *out)
 }
 
 void
-jis_in(int fd, long *notused, struct convert *out)
+jis_in(int fd, long *, struct convert *out)
 {
-	USED(notused);
 	do_in(fd, alljis, out);
 }
 
 void
-ujis_in(int fd, long *notused, struct convert *out)
+ujis_in(int fd, long *, struct convert *out)
 {
-	USED(notused);
 	do_in(fd, ujis, out);
 }
 
 void
-msjis_in(int fd, long *notused, struct convert *out)
+msjis_in(int fd, long *, struct convert *out)
 {
-	USED(notused);
 	do_in(fd, ms, out);
 }
 
 void
-jisjis_in(int fd, long *notused, struct convert *out)
+jisjis_in(int fd, long *, struct convert *out)
 {
-	USED(notused);
 	do_in(fd, jis, out);
 }
 
@@ -417,14 +413,13 @@ tab_init(void)
 
 /*	jis-kanji, or ISO 2022-JP	*/
 void
-jisjis_out(Rune *base, int n, long *notused)
+jisjis_out(Rune *base, int n, long *)
 {
 	char *p;
 	int i;
 	Rune r;
 	static enum { ascii, japan646, jp2022 } state = ascii;
 
-	USED(notused);
 	if(first)
 		tab_init();
 	nrunes += n;
@@ -462,13 +457,12 @@ jisjis_out(Rune *base, int n, long *notused)
 
 /*	ms-kanji, or Shift-JIS	*/
 void
-msjis_out(Rune *base, int n, long *notused)
+msjis_out(Rune *base, int n, long *)
 {
 	char *p;
 	int i, hi, lo;
 	Rune r;
 
-	USED(notused);
 	if(first)
 		tab_init();
 	nrunes += n;
@@ -501,13 +495,12 @@ msjis_out(Rune *base, int n, long *notused)
 
 /*	ujis, or EUC	*/
 void
-ujis_out(Rune *base, int n, long *notused)
+ujis_out(Rune *base, int n, long *)
 {
 	char *p;
 	int i;
 	Rune r;
 
-	USED(notused);
 	if(first)
 		tab_init();
 	nrunes += n;

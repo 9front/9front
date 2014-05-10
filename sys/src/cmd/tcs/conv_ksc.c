@@ -81,7 +81,7 @@ ukscproc(int c, Rune **r, long input_loc)
 }
 
 void
-uksc_in(int fd, long *notused, struct convert *out)
+uksc_in(int fd, long *, struct convert *out)
 {
 	Rune ob[N];
 	Rune *r, *re;
@@ -89,7 +89,6 @@ uksc_in(int fd, long *notused, struct convert *out)
 	int n, i;
 	long nin;
 
-	USED(notused);
 	r = ob;
 	re = ob+N-3;
 	nin = 0;
@@ -113,7 +112,7 @@ uksc_in(int fd, long *notused, struct convert *out)
 }
 
 void
-uksc_out(Rune *base, int n, long *notused)
+uksc_out(Rune *base, int n, long *)
 {
 	char *p;
 	int i;
@@ -121,7 +120,6 @@ uksc_out(Rune *base, int n, long *notused)
 	long l;
 	static int first = 1;
 
-	USED(notused);
 	if(first){
 		first = 0;
 		for(i = 0; i < NRUNE; i++)

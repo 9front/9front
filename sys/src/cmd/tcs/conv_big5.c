@@ -82,7 +82,7 @@ big5proc(int c, Rune **r, long input_loc)
 }
 
 void
-big5_in(int fd, long *notused, struct convert *out)
+big5_in(int fd, long *, struct convert *out)
 {
 	Rune ob[N];
 	Rune *r, *re;
@@ -90,7 +90,6 @@ big5_in(int fd, long *notused, struct convert *out)
 	int n, i;
 	long nin;
 
-	USED(notused);
 	r = ob;
 	re = ob+N-3;
 	nin = 0;
@@ -114,14 +113,13 @@ big5_in(int fd, long *notused, struct convert *out)
 }
 
 void
-big5_out(Rune *base, int n, long *notused)
+big5_out(Rune *base, int n, long *)
 {
 	char *p;
 	int i;
 	Rune r;
 	static int first = 1;
 
-	USED(notused);
 	if(first){
 		first = 0;
 		for(i = 0; i < NRUNE; i++)

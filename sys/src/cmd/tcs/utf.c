@@ -27,13 +27,12 @@ int fullisorune(char *str, int n);
 int isochartorune(Rune *rune, char *str);
 
 void
-utf_in(int fd, long *notused, struct convert *out)
+utf_in(int fd, long *, struct convert *out)
 {
 	char buf[N];
 	int i, j, c, n, tot;
-	ulong l;
+	unsigned long l;
 
-	USED(notused);
 	tot = 0;
 	while((n = read(fd, buf+tot, N-tot)) >= 0){
 		tot += n;
@@ -65,12 +64,11 @@ utf_in(int fd, long *notused, struct convert *out)
 }
 
 void
-utf_out(Rune *base, int n, long *notused)
+utf_out(Rune *base, int n, long *)
 {
 	char *p;
 	Rune *r;
 
-	USED(notused);
 	nrunes += n;
 	for(r = base, p = obuf; n-- > 0; r++){
 		p += our_wctomb(p, *r);
@@ -80,12 +78,11 @@ utf_out(Rune *base, int n, long *notused)
 }
 
 void
-isoutf_in(int fd, long *notused, struct convert *out)
+isoutf_in(int fd, long *, struct convert *out)
 {
 	char buf[N];
 	int i, j, c, n, tot;
 
-	USED(notused);
 	tot = 0;
 	while((n = read(fd, buf+tot, N-tot)) >= 0){
 		tot += n;
@@ -117,12 +114,11 @@ isoutf_in(int fd, long *notused, struct convert *out)
 }
 
 void
-isoutf_out(Rune *base, int n, long *notused)
+isoutf_out(Rune *base, int n, long *)
 {
 	char *p;
 	Rune *r;
 
-	USED(notused);
 	nrunes += n;
 	for(r = base, p = obuf; n-- > 0; r++)
 		p += runetoisoutf(p, r);

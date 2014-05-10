@@ -19,6 +19,7 @@ struct convert *conv(char *, int);
 typedef void (*Infn)(int, long *, struct convert *);
 typedef void (*Outfn)(Rune *, int, long *);
 void outtable(Rune *, int, long *);
+int fixsurrogate(Rune *rp, Rune r2);
 
 void utf_in(int, long *, struct convert *);
 void utf_out(Rune *, int, long *);
@@ -41,6 +42,5 @@ extern char obuf[UTFmax*N];	/* maximum bloat from N runes */
 #define	EXIT(n,s)	exits(s)
 #else
 #define	EPR		fprintf(stderr,
-#define	USED(x)		/* in plan 9, USED(x) tells the compiler to treat x as used */
 #define	EXIT(n,s)	exit(n)
 #endif

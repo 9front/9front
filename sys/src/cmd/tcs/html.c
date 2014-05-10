@@ -2141,24 +2141,22 @@ findbyrune(Rune r)
 }
 
 void
-html_in(int fd, long *x, struct convert *out)
+html_in(int fd, long *, struct convert *out)
 {
 	char buf[100], *p;
 	Biobuf b;
-	Rune rbuf[N];
-	Rune *r, *er;
+	Rune *r, *er, r2;
 	int c, s, i;
 	
-	USED(x);
-	
 	html_init();
-	r = rbuf;
-	er = rbuf+N;
+	r = runes;
+	er = runes+N;
+	r2 = 0;
 	Binit(&b, fd, OREAD);
 	while((c = Bgetrune(&b)) != Beof){
 		if(r >= er){
-			OUT(out, rbuf, r-rbuf);
-			r = rbuf;
+			OUT(out, runes, r-runes);
+			r = runes;
 		}
 		if(c == '&'){
 			s = 0;
@@ -2185,7 +2183,7 @@ html_in(int fd, long *x, struct convert *out)
 						c = strtol(buf+3, &p, 16);
 					else
 						c = strtol(buf+2, &p, 10);
-					if(*p || c >= NRUNE || c < 0)
+					if(*p || c < 0)
 						goto bad;
 					goto out;
 				}
@@ -2196,10 +2194,11 @@ html_in(int fd, long *x, struct convert *out)
 			for(p=buf; p<buf+i; ){
 				p += chartorune(r++, p);
 				if(r >= er){
-					OUT(out, rbuf, r-rbuf);
-					r = rbuf;
+					OUT(out, runes, r-runes);
+					r = runes;
 				}
 			}
+			r2 = 0;
 			continue;
 		out:
 			if((c & 0x7f) == c && strchr("<>&\"'", c)){
@@ -2207,25 +2206,30 @@ html_in(int fd, long *x, struct convert *out)
 				i = sprint(buf, "&%s", findbyrune(c));
 				goto bad;
 			}
+		}	
+		*r = c;
+		if(fixsurrogate(r, r2)){
+			r2 = *r;
+			continue;
 		}
-		*r++ = c;
+		r2 = 0;
+		r++;
 	}
-	if(r > rbuf)
-		OUT(out, rbuf, r-rbuf);
-	OUT(out, rbuf, 0);
+	if(r > runes)
+		OUT(out, runes, r-runes);
+	OUT(out, runes, 0);
 }
 
 /*
  * use biobuf because can use more than UTFmax bytes per rune
  */
 void
-html_out(Rune *r, int n, long *x)
+html_out(Rune *r, int n, long *)
 {
 	char *s;
 	Biobuf b;
 	Rune *er;
 	
-	USED(x);
 	html_init();
 	Binit(&b, 1, OWRITE);
 	er = r+n;
