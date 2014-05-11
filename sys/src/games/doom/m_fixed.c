@@ -60,21 +60,5 @@ FixedDiv
 {
     if ( (abs(a)>>14) >= abs(b))
 	return (a^b)<0 ? MININT : MAXINT;
-    return FixedDiv2 (a,b);
-}
-
-
-
-fixed_t
-FixedDiv2
-( fixed_t	a,
-  fixed_t	b )
-{
-    double c;
-
-    c = ((double)a) / ((double)b) * FRACUNIT;
-
-    if (c >= 2147483648.0 || c < -2147483648.0)
-	I_Error("FixedDiv: divide by zero");
-    return (fixed_t) c;
+    return ((long long)a << FRACBITS) / (long long)b;
 }
