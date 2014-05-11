@@ -115,7 +115,7 @@ gb_out(Rune *base, int n, long *notused)
 		if(r < 128)
 			*p++ = r;
 		else {
-			if(tab[r] != -1){
+			if(r < NRUNE && tab[r] != -1){
 				r = tab[r];
 				*p++ = 0xA0 + (r/100);
 				*p++ = 0xA0 + (r%100);

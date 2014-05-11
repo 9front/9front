@@ -106,7 +106,7 @@ gbk_out(Rune *base, int n, long *notused)
 		if(r < 0x80)
 			*p++ = r;
 		else {
-			if(tab[r] != -1){
+			if(r < NRUNE && tab[r] != -1){
 				r = tab[r];
 				*p++ = (r>>8) & 0xFF;
 				*p++ = r & 0xFF;

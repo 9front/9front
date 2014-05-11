@@ -141,7 +141,7 @@ uksc_out(Rune *base, int n, long *notused)
 		if(r < 128)
 			*p++ = r;
 		else {
-			if(tab[r] != -1){
+			if(r < NRUNE && tab[r] != -1){
 				*p++ = 0x80 | (tab[r]/94 + 0x21);
 				*p++ = 0x80 | (tab[r]%94 + 0x21);
 				continue;

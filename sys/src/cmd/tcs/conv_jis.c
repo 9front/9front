@@ -438,7 +438,7 @@ jisjis_out(Rune *base, int n, long *notused)
 			}
 			*p++ = r;
 		} else {
-			if(tab[r] != -1){
+			if(r < NRUNE && tab[r] != -1){
 				if(state != jp2022){
 					*p++ = ESC; *p++ = '$'; *p++ = 'B';
 					state = jp2022;
@@ -478,7 +478,7 @@ msjis_out(Rune *base, int n, long *notused)
 		if(r < 128)
 			*p++ = r;
 		else {
-			if(tab[r] != -1){
+			if(r < NRUNE && tab[r] != -1){
 				hi = tab[r]/100 + ' ';
 				lo = tab[r]%100 + ' ';
 				J2S(hi, lo);
@@ -517,7 +517,7 @@ ujis_out(Rune *base, int n, long *notused)
 		if(r < 128)
 			*p++ = r;
 		else {
-			if(tab[r] != -1){
+			if(r < NRUNE && tab[r] != -1){
 				*p++ = 0x80 | (tab[r]/100 + ' ');
 				*p++ = 0x80 | (tab[r]%100 + ' ');
 				continue;

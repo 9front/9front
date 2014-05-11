@@ -137,7 +137,7 @@ big5_out(Rune *base, int n, long *notused)
 		if(r < 128)
 			*p++ = r;
 		else {
-			if(tab[r] != -1){
+			if(r < NRUNE && tab[r] != -1){
 				r = tab[r];
 				if(r >= BIG5MAX){
 					*p++ = 0xA1;
