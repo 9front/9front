@@ -258,7 +258,7 @@ static char* excname[32] = {
 	"coprocessor error",
 	"alignment check",
 	"machine check",
-	"19 (reserved)",
+	"simd error",
 	"20 (reserved)",
 	"21 (reserved)",
 	"22 (reserved)",
