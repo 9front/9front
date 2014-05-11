@@ -41,6 +41,7 @@ enum {
 
 enum {
 	CR4Osfxsr = 1 << 9,
+	CR4Oxmmex = 1 << 10,
 };
 
 enum {				/* cpuid standard function codes */
@@ -860,7 +861,7 @@ cpuidentify(void)
 	if(m->cpuiddx & Fxsr){			/* have sse fp? */
 		fpsave = fpssesave;
 		fprestore = fpsserestore;
-		putcr4(getcr4() | CR4Osfxsr);
+		putcr4(getcr4() | CR4Osfxsr|CR4Oxmmex);
 	} else {
 		fpsave = fpx87save;
 		fprestore = fpx87restore;

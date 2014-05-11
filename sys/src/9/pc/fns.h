@@ -94,6 +94,7 @@ void*	kaddr(ulong);
 void	kbdenable(void);
 void	kbdinit(void);
 #define	kmapinval()
+void	ldmxcsr(ulong);
 void	lgdt(ushort[3]);
 void	lldt(ulong);
 void	lidt(ushort[3]);

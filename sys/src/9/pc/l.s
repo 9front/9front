@@ -645,6 +645,10 @@ TEXT fpsserestore0(SB), $0			/* enable and restore state */
 	WAIT
 	RET
 
+TEXT ldmxcsr(SB), $0				/* Load MXCSR */
+	LDMXCSR	mxcsr+0(FP)
+	RET
+
 /*
  */
 TEXT splhi(SB), $0
@@ -983,7 +987,7 @@ TEXT vectortable(SB), $0
 	CALL _strayintr(SB); BYTE $0x10		/* coprocessor error */
 	CALL _strayintrx(SB); BYTE $0x11	/* alignment check */
 	CALL _strayintr(SB); BYTE $0x12		/* machine check */
-	CALL _strayintr(SB); BYTE $0x13
+	CALL _strayintr(SB); BYTE $0x13		/* simd error */
 	CALL _strayintr(SB); BYTE $0x14
 	CALL _strayintr(SB); BYTE $0x15
 	CALL _strayintr(SB); BYTE $0x16

@@ -732,6 +732,17 @@ matherror(Ureg*, void*)
 }
 
 /*
+ *  SIMD error
+ */
+static void
+simderror(Ureg *ureg, void*)
+{
+	fpsave(&up->fpsave);
+	up->fpstate = FPinactive;
+	mathnote(up->fpsave.mxcsr & 0x3f, ureg->pc);
+}
+
+/*
  *  math coprocessor emulation fault
  */
 static void
@@ -747,6 +758,8 @@ mathemu(Ureg *ureg, void*)
 	switch(up->fpstate){
 	case FPinit:
 		fpinit();
+		if(fpsave == fpssesave)
+			ldmxcsr(0);	/* no simd exceptions on 386 */
 		up->fpstate = FPactive;
 		break;
 	case FPinactive:
@@ -790,6 +803,7 @@ mathinit(void)
 		intrenable(IrqIRQ13, matherror, 0, BUSUNKNOWN, "matherror");
 	trapenable(VectorCNA, mathemu, 0, "mathemu");
 	trapenable(VectorCSO, mathover, 0, "mathover");
+	trapenable(VectorSIMD, simderror, 0, "simderror");
 }
 
 /*

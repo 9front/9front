@@ -15,6 +15,9 @@ enum {
 	VectorPF	= 14,		/* page fault */
 	Vector15	= 15,		/* reserved */
 	VectorCERR	= 16,		/* coprocessor error */
+	VectorAC	= 17,		/* alignment check */
+	VectorMC	= 18,		/* machine check */
+	VectorSIMD	= 19,		/* simd error */
 
 	VectorPIC	= 32,		/* external i8259 interrupts */
 	IrqCLOCK	= 0,
