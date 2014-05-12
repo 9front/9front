@@ -484,7 +484,6 @@ nontypingkey(int c)
 	case Kpgup:
 	case Kleft:
 	case Kright:
-	case Kesc:
 	case Ksoh:
 	case Kenq:
 	case Kstx:
@@ -653,10 +652,13 @@ type(Flayer *l, int res)	/* what a bloody mess this is */
 			}
 		}
 	}else if(c == Kstx){
+		t = &cmd;
+		l = &t->l[0];
+		current(l);
 		flushtyping(0);
-		a0 = t->rasp.nrunes;
-		flsetselect(l, a0, a0);
-		center(l, a0);
+		a = t->rasp.nrunes;
+		flsetselect(l, a, a);
+		center(l, a);
 	}else{
 		if(c==Kesc && typeesc>=0){
 			l->p0 = typeesc;
