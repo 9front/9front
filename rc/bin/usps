@@ -10,7 +10,7 @@ if(! ~ $#* 1) {
 rfork e
 
 hget -p 'qtc_tLabels1='^$1 https://tools.usps.com/go/TrackConfirmAction |
-	uhtml | htmlfmt > /tmp/usps.$pid
+	htmlfmt > /tmp/usps.$pid
 
 sam -d /tmp/usps.$pid >[2] /dev/null <<'!'
 ,/Tracking Number/-1d
