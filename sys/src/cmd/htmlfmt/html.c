@@ -285,40 +285,13 @@ rerender(URLwin *u)
 	free(t);
 }
 
-/*
- * Somewhat of a hack.  Not a full parse, just looks for strings in the beginning
- * of the document (cistrstr only looks at first somewhat bytes).
- */
-int
-charset(char *s)
-{
-	char *meta, *emeta, *charset;
-
-	if(defcharset == 0)
-		defcharset = ISO_8859_1;
-	meta = cistrstr(s, "<meta");
-	if(meta == nil)
-		return defcharset;
-	for(emeta=meta; *emeta!='>' && *emeta!='\0'; emeta++)
-		;
-	charset = cistrstr(s, "charset=");
-	if(charset == nil)
-		return defcharset;
-	charset += 8;
-	if(*charset == '"')
-		charset++;
-	if(cistrncmp(charset, "utf-8", 5) || cistrncmp(charset, "utf8", 4))
-		return UTF_8;
-	return defcharset;
-}
-
 void
 rendertext(URLwin *u, Bytes *b)
 {
 	Rune *rurl;
 
-	rurl = toStr((uchar*)u->url, strlen(u->url), ISO_8859_1);
-	u->items = parsehtml(b->b, b->n, rurl, u->type, charset((char*)b->b), &u->docinfo);
+	rurl = toStr((uchar*)u->url, strlen(u->url), UTF_8);
+	u->items = parsehtml(b->b, b->n, rurl, u->type, UTF_8, &u->docinfo);
 //	free(rurl);
 
 	rerender(u);

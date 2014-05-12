@@ -8,7 +8,34 @@
 char *url = "";
 int aflag;
 int width = 70;
-int defcharset;
+char *defcharset = "latin1";
+
+int
+uhtml(int fd)
+{
+	int p[2];
+
+	if(pipe(p) < 0)
+		return fd;
+	switch(fork()){
+	case -1:
+		break;
+	case 0:
+		dup(fd, 0);
+		dup(p[1], 1);
+		close(p[1]);
+		close(p[0]);
+		execl("/bin/uhtml", "uhtml", "-c", defcharset, nil);
+		execl("/bin/cat", "cat", nil);
+		exits("exec");
+	default:
+		dup(p[0], fd);
+		break;
+	}
+	close(p[0]);
+	close(p[1]);
+	return fd;
+}
 
 void
 usage(void)
@@ -21,7 +48,7 @@ void
 main(int argc, char *argv[])
 {
 	int i, fd;
-	char *p, *err, *file;
+	char *err, *file;
 	char errbuf[ERRMAX];
 
 	ARGBEGIN{
@@ -29,9 +56,7 @@ main(int argc, char *argv[])
 		aflag++;
 		break;
 	case 'c':
-		p = smprint("<meta charset=\"%s\">", EARGF(usage()));
-		defcharset = charset(p);
-		free(p);
+		defcharset = EARGF(usage());
 		break;
 	case 'l': case 'w':
 		err = EARGF(usage());
@@ -50,7 +75,7 @@ main(int argc, char *argv[])
 	err = nil;
 	file = "<stdin>";
 	if(argc == 0)
-		err = loadhtml(0);
+		err = loadhtml(uhtml(0));
 	else
 		for(i=0; err==nil && i<argc; i++){
 			file = argv[i];
@@ -60,7 +85,7 @@ main(int argc, char *argv[])
 				err = errbuf;
 				break;
 			}
-			err = loadhtml(fd);
+			err = loadhtml(uhtml(fd));
 			close(fd);
 			if(err)
 				break;
