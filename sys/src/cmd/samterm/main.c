@@ -472,32 +472,22 @@ flushtyping(int clearesc)
 	typeend = -1;
 }
 
-#define	BACKSCROLLKEY	Kup
-#define	ENDKEY	Kend
-#define	ESC		0x1B
-#define	HOMEKEY	Khome
-#define	LEFTARROW	Kleft
-#define	LINEEND	0x05
-#define	LINESTART	0x01
-#define	PAGEDOWN	Kpgdown
-#define	PAGEUP	Kpgup
-#define	RIGHTARROW	Kright
-#define	SCROLLKEY	Kdown
-
 int
 nontypingkey(int c)
 {
 	switch(c){
-	case BACKSCROLLKEY:
-	case ENDKEY:
-	case HOMEKEY:
-	case LEFTARROW:
-	case LINEEND:
-	case LINESTART:
-	case PAGEDOWN:
-	case PAGEUP:
-	case RIGHTARROW:
-	case SCROLLKEY:
+	case Kup:
+	case Kdown:
+	case Khome:
+	case Kend:
+	case Kpgdown:
+	case Kpgup:
+	case Kleft:
+	case Kright:
+	case Kesc:
+	case Ksoh:
+	case Kenq:
+	case Kstx:
 		return 1;
 	}
 	return 0;
@@ -531,10 +521,10 @@ type(Flayer *l, int res)	/* what a bloody mess this is */
 	backspacing = 0;
 	while((c = kbdchar())>0){
 		if(res == RKeyboard){
-			if(nontypingkey(c) || c==ESC)
+			if(nontypingkey(c) || c==Kesc)
 				break;
 			/* backspace, ctrl-u, ctrl-w, del */
-			if(c=='\b' || c==0x15 || c==0x17 || c==0x7F){
+			if(c==Kbs || c==Knack || c==Ketb || c==Kdel){
 				backspacing = 1;
 				break;
 			}
@@ -579,39 +569,39 @@ type(Flayer *l, int res)	/* what a bloody mess this is */
 			flushtyping(0);
 		onethird(l, a);
 	}
-	if(c==SCROLLKEY || c==PAGEDOWN){
+	if(c==Kdown || c==Kpgdown){
 		flushtyping(0);
 		center(l, l->origin+l->f.nchars+1);
 		/* backspacing immediately after outcmd(): sorry */
-	}else if(c==BACKSCROLLKEY || c==PAGEUP){
+	}else if(c==Kup || c==Kpgup){
 		flushtyping(0);
 		a0 = l->origin-l->f.nchars;
 		if(a0 < 0)
 			a0 = 0;
 		center(l, a0);
-	}else if(c == RIGHTARROW){
+	}else if(c == Kright){
 		flushtyping(0);
 		a0 = l->p0;
 		if(a0 < t->rasp.nrunes)
 			a0++;
 		flsetselect(l, a0, a0);
 		center(l, a0);
-	}else if(c == LEFTARROW){
+	}else if(c == Kleft){
 		flushtyping(0);
 		a0 = l->p0;
 		if(a0 > 0)
 			a0--;
 		flsetselect(l, a0, a0);
 		center(l, a0);
-	}else if(c == HOMEKEY){
+	}else if(c == Khome){
 		flushtyping(0);
 		center(l, 0);
-	}else if(c == ENDKEY){
+	}else if(c == Kend){
 		flushtyping(0);
 		center(l, t->rasp.nrunes);
-	}else if(c == LINESTART || c == LINEEND){
+	}else if(c == Ksoh || c == Kenq){
 		flushtyping(1);
-		if(c == LINESTART)
+		if(c == Ksoh)
 			while(a > 0 && raspc(&t->rasp, a-1)!='\n')
 				a--;
 		else
@@ -625,14 +615,14 @@ type(Flayer *l, int res)	/* what a bloody mess this is */
 		/* backspacing immediately after outcmd(): sorry */
 		if(l->f.p0>0 && a>0){
 			switch(c){
-			case '\b':
-			case 0x7F:	/* del */
+			case Kbs:
+			case Kdel:	/* del */
 				l->p0 = del(&t->rasp, l->origin, a);
 				break;
-			case 0x15:	/* ctrl-u */
+			case Knack:	/* ctrl-u */
 				l->p0 = ctlu(&t->rasp, l->origin, a);
 				break;
-			case 0x17:	/* ctrl-w */
+			case Ketb:	/* ctrl-w */
 				l->p0 = ctlw(&t->rasp, l->origin, a);
 				break;
 			}
@@ -662,8 +652,13 @@ type(Flayer *l, int res)	/* what a bloody mess this is */
 				}
 			}
 		}
+	}else if(c == Kstx){
+		flushtyping(0);
+		a0 = t->rasp.nrunes;
+		flsetselect(l, a0, a0);
+		center(l, a0);
 	}else{
-		if(c==ESC && typeesc>=0){
+		if(c==Kesc && typeesc>=0){
 			l->p0 = typeesc;
 			l->p1 = a;
 			flushtyping(1);
