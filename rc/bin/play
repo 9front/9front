@@ -34,7 +34,7 @@ fn play1 {
 			sed 's///g' | while(j=`{read}){
 				echo $"j >[1=2]
 				if(~ $"j http:* https:* HTTP:* HTTPS:*){
-					hget -r 'Icy-MetaData: 0' $"j | play1 $"j
+					hget -r 'User-Agent: play' -r 'Icy-MetaData: 0' $"j | play1 $"j
 				}
 				if not {
 					if(test -r $"j)
