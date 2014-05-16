@@ -723,7 +723,7 @@ ahcihbareset(Ahba *h)
 
 	h->ghc |= Hhr;
 	for(wait = 0; wait < 1000; wait += 100){
-		if(h->ghc == 0)
+		if((h->ghc & Hhr) == 0)
 			return 0;
 		delay(100);
 	}
