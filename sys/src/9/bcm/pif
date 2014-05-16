@@ -17,7 +17,7 @@ dev
 	draw	screen swcursor
 	mouse	mouse
 	uart
-
+	gpio
 	sd
 	usb
 

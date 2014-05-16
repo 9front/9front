@@ -33,6 +33,7 @@ enum {
 	TagResp		= 1<<31,
 
 	TagGetfwrev	= 0x00000001,
+	TagGetbrdrev	= 0x00010002,
 	TagGetmac	= 0x00010003,
 	TagGetram	= 0x00010005,
 	TagGetpower	= 0x00020001,
@@ -257,6 +258,15 @@ getfirmware(void)
 	u32int buf[1];
 
 	if(vcreq(TagGetfwrev, buf, 0, sizeof buf) != sizeof buf)
+		return 0;
+	return buf[0];
+}
+
+uint
+getrevision(void)
+{
+	u32int buf[1];
+	if(vcreq(TagGetbrdrev, buf, 0, sizeof buf) != sizeof buf)
 		return 0;
 	return buf[0];
 }

@@ -72,6 +72,7 @@ extern int userureg(Ureg*);
 extern void vectors(void);
 extern void vtable(void);
 extern uint gettemp(int);
+extern uint getrevision(void);
 
 /*
  * floating point emulation
