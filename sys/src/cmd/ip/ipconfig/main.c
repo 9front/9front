@@ -182,7 +182,7 @@ void	controldevice(void);
 void	dhcpquery(int, int);
 void	dhcprecv(void);
 void	dhcpsend(int);
-int	dhcptimer(void);
+void	dhcptimer(void);
 void	dhcpwatch(int);
 void	doadd(int);
 void	doremove(void);
@@ -933,10 +933,9 @@ dhcpquery(int needconfig, int startstate)
 	conf.resend = 0;
 	conf.timeout = time(0) + 4;
 
-	while(conf.state != Sbound){
+	while(conf.state != Sbound && conf.state != Sinit){
 		dhcprecv();
-		if(dhcptimer() < 0)
-			break;
+		dhcptimer();
 	}
 	close(conf.fd);
 
@@ -956,8 +955,7 @@ enum {
 void
 dhcpwatch(int needconfig)
 {
-	int secs, s;
-	ulong t;
+	ulong secs, s, t;
 
 	if(nodhcpwatch)
 		return;
@@ -973,10 +971,9 @@ dhcpwatch(int needconfig)
 	procsetname("dhcpwatch");
 	/* keep trying to renew the lease */
 	for(;;){
-		if(conf.lease == 0)
+		secs = conf.lease/2;
+		if(secs < 5)
 			secs = 5;
-		else
-			secs = conf.lease >> 1;
 
 		/* avoid overflows */
 		for(s = secs; s > 0; s -= t){
@@ -1022,14 +1019,14 @@ dhcpwatch(int needconfig)
 	}
 }
 
-int
+void
 dhcptimer(void)
 {
 	ulong now;
 
 	now = time(0);
 	if(now < conf.timeout)
-		return 0;
+		return;
 
 	switch(conf.state) {
 	default:
@@ -1042,10 +1039,8 @@ dhcptimer(void)
 	case Srebinding:
 		dhcpsend(conf.state == Sselecting? Discover: Request);
 		conf.timeout = now + 4;
-		if(++conf.resend > 5) {
+		if(++conf.resend > 5)
 			conf.state = Sinit;
-			return -1;
-		}
 		break;
 	case Srenewing:
 		dhcpsend(Request);
@@ -1056,7 +1051,6 @@ dhcptimer(void)
 		}
 		break;
 	}
-	return 0;
 }
 
 void

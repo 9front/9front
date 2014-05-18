@@ -103,7 +103,7 @@ void	controldevice(void);
 void	dhcpquery(int, int);
 void	dhcprecv(void);
 void	dhcpsend(int);
-int	dhcptimer(void);
+void	dhcptimer(void);
 void	dhcpwatch(int);
 void	doadd(int);
 void	doremove(void);
