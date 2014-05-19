@@ -54,7 +54,7 @@ int killgroup = -1;
 int port = 6881;
 char *deftrack = "http://exodus.desync.com/announce";
 char *mntweb = "/mnt/web";
-char *useragent = "hjdicks";
+char *useragent = "torrent";
 uchar infohash[20];
 uchar peerid[20];
 int blocksize;
