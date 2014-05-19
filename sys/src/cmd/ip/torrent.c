@@ -54,6 +54,7 @@ int killgroup = -1;
 int port = 6881;
 char *deftrack = "http://exodus.desync.com/announce";
 char *mntweb = "/mnt/web";
+char *useragent = "hjdicks";
 uchar infohash[20];
 uchar peerid[20];
 int blocksize;
@@ -726,6 +727,10 @@ hopen(char *url, ...)
 		close(ctlfd);
 		return -1;
 	}
+	if(useragent != nil && useragent[0] != '\0'){
+		n = snprint(buf, sizeof buf, "useragent %s", useragent);
+		write(ctlfd, buf, n);
+	}
 	snprint(buf, sizeof buf, "%s/%d/body", mntweb, conn);
 	if((fd = open(buf, OREAD)) < 0)
 		goto ErrOut;
@@ -1157,7 +1162,7 @@ void
 usage(void)
 {
 	fprint(2, "usage: %s [ -vsdpc ] [ -m mtpt ] [ -t tracker-url ] "
-		  "[ -w webseed-url ] [ file ]\n", argv0);
+		  "[ -w webseed-url ] [ -i peerid ] [ -A useragent ] [ file ]\n", argv0);
 	exits("usage");
 }
 
@@ -1216,6 +1221,9 @@ main(int argc, char *argv[])
 		break;
 	case 'i':
 		strncpy((char*)peerid, EARGF(usage()), sizeof(peerid));
+		break;
+	case 'A':
+		useragent = EARGF(usage());
 		break;
 	default:
 		usage();
