@@ -3,6 +3,7 @@
 #include <auth.h>
 #include <authsrv.h>
 
+char*	readfile(char*);
 char*	readenv(char*);
 void	setenv(char*, char*);
 void	cpenv(char*, char*);
@@ -11,7 +12,6 @@ int	procopen(int, char*, int);
 void	fexec(void(*)(void));
 void	rcexec(void);
 void	cpustart(void);
-void	pass(int);
 
 char	*service;
 char	*cmd;
@@ -46,7 +46,7 @@ main(int argc, char *argv[])
 	fd = procopen(getpid(), "ctl", OWRITE);
 	if(fd >= 0){
 		if(write(fd, "pri 10", 6) != 6)
-			print("init: warning: can't set priority: %r\n");
+			fprint(2, "init: warning: can't set priority: %r\n");
 		close(fd);
 	}
 
@@ -54,6 +54,7 @@ main(int argc, char *argv[])
 	setenv("#e/objtype", cpu);
 	setenv("#e/service", service);
 	cpenv("/adm/timezone/local", "#e/timezone");
+
 	user = readenv("#c/user");
 	systemname = readenv("#c/sysname");
 
@@ -64,49 +65,11 @@ main(int argc, char *argv[])
 		fexec(cpustart);
 
 	for(;;){
-		print("\ninit: starting /bin/rc\n");
+		fprint(2, "\ninit: starting /bin/rc\n");
 		fexec(rcexec);
 		manual = 1;
 		cmd = 0;
 		sleep(1000);
-	}
-}
-
-void
-pass(int fd)
-{
-	char key[DESKEYLEN];
-	char typed[32];
-	char crypted[DESKEYLEN];
-	int i;
-
-	for(;;){
-		print("\n%s password:", systemname);
-		for(i=0; i<sizeof typed; i++){
-			if(read(0, typed+i, 1) != 1){
-				print("init: can't read password; insecure\n");
-				return;
-			}
-			if(typed[i] == '\n'){
-				typed[i] = 0;
-				break;
-			}
-		}
-		if(i == sizeof typed)
-			continue;
-		if(passtokey(crypted, typed) == 0)
-			continue;
-		seek(fd, 0, 0);
-		if(read(fd, key, DESKEYLEN) != DESKEYLEN){
-			print("init: can't read key; insecure\n");
-			return;
-		}
-		if(memcmp(crypted, key, sizeof key))
-			continue;
-		/* clean up memory */
-		memset(crypted, 0, sizeof crypted);
-		memset(key, 0, sizeof key);
-		return;
 	}
 }
 
@@ -134,11 +97,11 @@ fexec(void (*execfn)(void))
 	case 0:
 		rfork(RFNOTEG);
 		(*execfn)();
-		print("init: exec error: %r\n");
+		fprint(2, "init: exec error: %r\n");
 		exits("exec");
 	case -1:
-		print("init: fork error: %r\n");
-		exits("fork");
+		fprint(2, "init: fork error: %r\n");
+		return;
 	default:
 		fd = procopen(pid, "notepg", OWRITE);
 	casedefault:
@@ -151,7 +114,7 @@ fexec(void (*execfn)(void))
 				write(fd, "interrupt", 9);
 			if(gotnote)
 				goto casedefault;
-			print("init: wait error: %r\n");
+			fprint(2, "init: wait error: %r\n");
 			break;
 		}
 		if(w->pid != pid){
@@ -159,14 +122,13 @@ fexec(void (*execfn)(void))
 			goto casedefault;
 		}
 		if(strstr(w->msg, "exec error") != 0){
-			print("init: exit string %s\n", w->msg);
-			print("init: sleeping because exec failed\n");
-			free(w);
+			fprint(2, "init: exit string %s\n", w->msg);
+			fprint(2, "init: sleeping because exec failed\n");
 			for(;;)
 				sleep(1000);
 		}
 		if(w->msg[0])
-			print("init: rc exit status: %s\n", w->msg);
+			fprint(2, "init: rc exit status: %s\n", w->msg);
 		free(w);
 		break;
 	}
@@ -194,7 +156,7 @@ cpustart(void)
 }
 
 char*
-readenv(char *name)
+readfile(char *name)
 {
 	int f, len;
 	Dir *d;
@@ -202,13 +164,14 @@ readenv(char *name)
 
 	f = open(name, OREAD);
 	if(f < 0){
-		print("init: can't open %s: %r\n", name);
-		return "*unknown*";	
+		fprint(2, "init: can't open %s: %r\n", name);
+		return nil;	
 	}
 	d = dirfstat(f);
 	if(d == nil){
-		print("init: can't stat %s: %r\n", name);
-		return "*unknown*";
+		fprint(2, "init: can't stat %s: %r\n", name);
+		close(f);
+		return nil;
 	}
 	len = d->length;
 	free(d);
@@ -216,51 +179,54 @@ readenv(char *name)
 		len = 64;
 	val = malloc(len+1);
 	if(val == nil){
-		print("init: can't malloc %s: %r\n", name);
-		return "*unknown*";
+		fprint(2, "init: can't malloc %s: %r\n", name);
+		close(f);
+		return nil;
 	}
 	len = read(f, val, len);
 	close(f);
 	if(len < 0){
-		print("init: can't read %s: %r\n", name);
-		return "*unknown*";
+		fprint(2, "init: can't read %s: %r\n", name);
+		return nil;
 	}else
 		val[len] = '\0';
 	return val;
 }
 
+char*
+readenv(char *name)
+{
+	char *val;
+
+	val = readfile(name);
+	if(val == nil)
+		val = "*unknown*";
+	return val;
+}
+
 void
-setenv(char *var, char *val)
+setenv(char *name, char *val)
 {
 	int fd;
 
-	fd = create(var, OWRITE, 0644);
+	fd = create(name, OWRITE, 0644);
 	if(fd < 0)
-		print("init: can't open %s\n", var);
+		fprint(2, "init: can't create %s: %r\n", name);
 	else{
-		fprint(fd, val);
+		write(fd, val, strlen(val));
 		close(fd);
 	}
 }
 
 void
-cpenv(char *file, char *var)
+cpenv(char *from, char *to)
 {
-	int i, fd;
-	char buf[8192];
+	char *val;
 
-	fd = open(file, OREAD);
-	if(fd < 0)
-		print("init: can't open %s\n", file);
-	else{
-		i = read(fd, buf, sizeof(buf)-1);
-		if(i <= 0)
-			print("init: can't read %s: %r\n", file);
-		else{
-			close(fd);
-			buf[i] = 0;
-			setenv(var, buf);
-		}
+	val = readfile(from);
+	if(val != nil){
+		setenv(to, val);
+		free(val);
 	}
 }
 
@@ -285,6 +251,6 @@ procopen(int pid, char *name, int mode)
 	snprint(buf, sizeof(buf), "#p/%d/%s", pid, name);
 	fd = open(buf, mode);
 	if(fd < 0)
-		print("init: warning: can't open %s: %r\n", name);
+		fprint(2, "init: warning: can't open %s: %r\n", name);
 	return fd;
 }
