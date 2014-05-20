@@ -297,6 +297,10 @@ syscallfmt(ulong syscallno, uintptr pc, va_list list)
 			fmtprint(&fmt, " %lld", vl);
 		}
 		break;
+	case _NSEC:
+		v = va_arg(list, vlong*);
+		fmtprint(&fmt, "%#p", v);
+		break;
 	}
 
 	a = fmtstrflush(&fmt);

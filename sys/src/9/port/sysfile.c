@@ -879,6 +879,7 @@ sysseek(va_list list)
 	vlong n, *v;
 
 	v = va_arg(list, vlong*);
+	evenaddr((uintptr)v);
 	validaddr((uintptr)v, sizeof(vlong), 1);
 
 	fd = va_arg(list, int);

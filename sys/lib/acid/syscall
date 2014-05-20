@@ -130,6 +130,7 @@ syscalls = {
 	{50, {"pread",		"DADZ",		code(*syspread:list)}},
 	{51, {"pwrite",		"DTDZ",		code(*syspwrite:list)}},
 	{52, {"tsemacquire",	"AD",		code(*systsemacquire:list)}},
+	{53, {"_nsec",		"A",		code(*sys_nsec:list)}},
 };
 
 defn syscall() {

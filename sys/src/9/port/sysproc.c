@@ -1182,3 +1182,16 @@ syssemrelease(va_list list)
 		error(Ebadarg);
 	return (uintptr)semrelease(s, addr, delta);
 }
+
+/* For binary compatibility */
+uintptr
+sys_nsec(va_list list)
+{
+	vlong *v;
+
+	v = va_arg(list, vlong*);
+	evenaddr((uintptr)v);
+	validaddr((uintptr)v, sizeof(vlong), 1);
+	*v = todget(nil);
+	return 0;
+}
