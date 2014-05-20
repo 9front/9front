@@ -28,8 +28,7 @@ is not zero then
 is also set to the answer.
 .PP
 These functions work by reading
-.BR /dev/bintime ,
-opening that file when they are first called.
+.BR /dev/bintime .
 .SH SOURCE
 .B /sys/src/libc/9sys/time.c
 .br
@@ -40,5 +39,3 @@ opening that file when they are first called.
 .SH DIAGNOSTICS
 Sets
 .IR errstr .
-.SH BUGS
-These routines maintain a static file descriptor.
