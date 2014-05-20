@@ -26,6 +26,7 @@ int	_nwstat(char*, void*, int);
 int	_fsession(char*, void*, int);
 int	_mount(int, char*, int, char*);
 int	_wait(void*);
+int	_nsec(vlong*);
 
 struct{
 	char	*name;
