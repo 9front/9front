@@ -211,9 +211,11 @@ retry:
 		}
 
 		c = s->image->c;
-		ask = s->flen-soff;
-		if(ask > BY2PG)
-			ask = BY2PG;
+		ask = BY2PG;
+		if(soff >= s->flen)
+			ask = 0;
+		else if((soff+ask) > s->flen)
+			ask = s->flen-soff;
 	}
 	else {			/* from a swap image */
 		daddr = swapaddr(loadrec);
