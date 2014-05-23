@@ -16,60 +16,48 @@ be2vlong(vlong *to, uchar *f)
 		t[o[i]] = f[i];
 }
 
-static int fd = -1;
-static struct {
-	int	pid;
-	int	fd;
-} fds[64];
+static int
+stillopen(int fd, char *name)
+{
+	char buf[64];
+
+	return fd >= 0 && fd2path(fd, buf, sizeof(buf)) == 0 && strcmp(buf, name) == 0;
+}
 
 vlong
 nsec(void)
 {
+	static char name[] = "/dev/bintime";
+	static int *pidp = nil, *fdp = nil, fd = -1;
 	uchar b[8];
 	vlong t;
-	int pid, i, f, tries;
+	int f;
 
-	/*
-	 * Threaded programs may have multiple procs
-	 * with different fd tables, so we may need to open
-	 * /dev/bintime on a per-pid basis
-	 */
-
-	/* First, look if we've opened it for this particular pid */
-	pid = _tos->pid;
-	do{
-		f = -1;
-		for(i = 0; i < nelem(fds); i++)
-			if(fds[i].pid == pid){
-				f = fds[i].fd;
-				break;
-			}
-		tries = 0;
-		if(f < 0){
-			/* If it's not open for this pid, try the global pid */
-			if(fd >= 0)
-				f = fd;
-			else{
-				/* must open */
-				if((f = open("/dev/bintime", OREAD|OCEXEC)) < 0)
-					return 0;
-				fd = f;
-				for(i = 0; i < nelem(fds); i++)
-					if(fds[i].pid == pid || fds[i].pid == 0){
-						fds[i].pid = pid;
-						fds[i].fd = f;
-						break;
-					}
-			}
+	if(pidp != nil && *pidp == _tos->pid)
+		f = *fdp;
+	else{
+Reopen:
+		f = fd;
+		if(fdp != nil && *fdp != f && stillopen(*fdp, name))
+			f = *fdp;
+		else if(!stillopen(f, name)){
+			if((f = open(name, OREAD|OCEXEC)) < 0)
+				return 0;
 		}
-		if(pread(f, b, sizeof b, 0) == sizeof b){
-			be2vlong(&t, b);
-			return t;
+		fd = f;
+		if(fdp == nil){
+			fdp = (int*)privalloc();
+			pidp = (int*)privalloc();
 		}
+		*fdp = f;
+		*pidp = _tos->pid;
+	}
+	if(pread(f, b, sizeof b, 0) != sizeof b){
+		if(!stillopen(f, name))
+			goto Reopen;
 		close(f);
-		if(i < nelem(fds))
-			fds[i].fd = -1;
-	}while(tries++ == 0);	/* retry once */
-	USED(tries);
-	return 0;
+		return 0;
+	}
+	be2vlong(&t, b);
+	return t;
 }
