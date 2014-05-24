@@ -207,6 +207,8 @@ spritesinit(void)
 		if((q->t & 0x1000) != 0)
 			dy = q->h + ~dy;
 		q->x = (p[3] & 0x3ff) - 128;
+		if(q->x == 0xff80)
+			break;
 		q->w = (p[1] >> 10 & 3) + 1 << 3;
 		c = vram + ((q->t & 0x7ff) << 4) + (dy << 1);
 		for(i = 0; i < q->w >> 3 && np < xdisp; i++){

@@ -126,7 +126,7 @@ amode(int m, int n, int s)
 		case 3:
 			w = fetch16();
 			v = r[w >> 12];
-			if((v & 1<<11) == 0)
+			if((w & 1<<11) == 0)
 				v = (s16int)v;
 			return (u32int)(pc + v + (s8int)w - 2);
 		case 4:
@@ -461,7 +461,7 @@ step(void)
 	int n, m, d;
 	static int cnt;
 
-	if(0){
+	if(0 && pc == 0x13dc4){
 		trace++;
 		print("%x\n", curpc);
 	}
@@ -806,7 +806,7 @@ step(void)
 		}
 		if(s == 3){ /* Scc */
 			a = amode(op >> 3, op, 0);
-			wmode(a, s, -cond((op >> 8) & 0xf));
+			wmode(a, 0, -cond(op >> 8 & 0xf));
 			break;
 		} /* ADDQ, SUBQ */
 		rS |= FLAGZ;

@@ -171,6 +171,8 @@ memwrite(u32int a, u16int v, u16int m)
 	u16int *p;
 	u16int w;
 
+	if(0 && (a & 0xe0fffe) == 0xe0b1f4)
+		print("%x %x %x\n", curpc, v, m);
 	switch((a >> 21) & 7){
 	case 5:
 		switch(a >> 16 & 0xff){
@@ -193,7 +195,7 @@ memwrite(u32int a, u16int v, u16int m)
 				dma = 4;
 				vdpdata = v >> 8;
 				p = &vram[vdpaddr / 2];
-				if((vdpaddr & 1) != 0)
+				if((vdpaddr & 1) == 0)
 					*p = *p & 0xff | v << 8;
 				else
 					*p = *p & 0xff00 | v & 0xff;
