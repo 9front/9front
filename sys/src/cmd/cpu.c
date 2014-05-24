@@ -335,7 +335,7 @@ old9p(int fd)
 void
 remoteside(int old)
 {
-	char user[MaxStr], home[MaxStr], buf[MaxStr], xdir[MaxStr], cmd[MaxStr];
+	char user[MaxStr], buf[MaxStr], xdir[MaxStr], cmd[MaxStr];
 	int i, n, fd, badchdir, gotcmd;
 
 	rfork(RFENVG);
@@ -364,11 +364,6 @@ remoteside(int old)
 	if(fd < 0)
 		fatal("srvauth: %r");
 
-	/* Set environment values for the user */
-	putenv("user", user);
-	snprint(home, sizeof(home), "/usr/%s", user);
-	putenv("home", home);
-
 	/* Now collect invoking cpu's current directory or possibly a command */
 	gotcmd = 0;
 	if(readstr(fd, xdir, sizeof(xdir)) < 0)
@@ -380,15 +375,11 @@ remoteside(int old)
 			fatal("dir: %r");
 	}
 
-	/* Establish the new process at the current working directory of the
-	 * gnot */
+	/* Establish the new process at the current working directory of the gnot */
 	badchdir = 0;
-	if(strcmp(xdir, "NO") == 0)
-		chdir(home);
-	else if(chdir(xdir) < 0) {
-		badchdir = 1;
-		chdir(home);
-	}
+	if(strcmp(xdir, "NO") != 0)
+		if(chdir(xdir) < 0)
+			badchdir = 1;
 
 	/* Start the gnot serving its namespace */
 	writestr(fd, "FS", "FS", 0);
