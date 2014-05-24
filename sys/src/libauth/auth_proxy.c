@@ -163,14 +163,15 @@ fauth_proxy(int fd, AuthRpc *rpc, AuthGetkey *getkey, char *params)
 				m = read(fd, buf + n, m - n);
 				if(m <= 0){
 					if(m == 0)
-						werrstr("auth_proxy short read: %s",
-							buf);
+						werrstr("auth_proxy short read");
+					else
+						werrstr("auth_proxy read fd: %r");
 					goto Error;
 				}
 				n += m;
 			}
 			if(ret != ARok){
-				werrstr("auth_proxy rpc write: %s: %r", buf);
+				werrstr("auth_proxy rpc write: %r");
 				goto Error;
 			}
 			break;
