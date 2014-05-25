@@ -339,17 +339,13 @@ mmuzap(void)
 	m->mmumap[PTLX(TSTKTOP, 3)/MAPBITS] &= ~(1ull<<(PTLX(TSTKTOP, 3)%MAPBITS));
 
 	for(i = 0; i < nelem(m->mmumap); pte += MAPBITS, i++){
-		w = m->mmumap[i];
-		if(w == 0)
+		if((w = m->mmumap[i]) == 0)
 			continue;
-		x = 0;
-		do {
+		m->mmumap[i] = 0;
+		for(x = 0; w != 0; w >>= 1, x++){
 			if(w & 1)
 				pte[x] = 0;
-			x++;
-			w >>= 1;
-		} while(w);
-		m->mmumap[i] = 0;
+		}
 	}
 }
 
