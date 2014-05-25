@@ -187,13 +187,13 @@ static struct sprite {
 static void
 spritesinit(void)
 {
-	u16int *t, *p, dy, *c;
+	u16int t, *p, dy, *c;
 	u32int v;
 	int i, ns, np;
 	struct sprite *q;
 	
-	t = vram + (reg[SPRTAB] << 8 & 0x7f00);
-	p = t;
+	t = (reg[SPRTAB] << 8 & 0x7f00);
+	p = vram + t;
 	q = spr;
 	ns = (reg[MODE4] & WIDE) != 0 ? 20 : 16;
 	np = 0;
@@ -229,7 +229,7 @@ spritesinit(void)
 			vdpstat |= STATOVR;
 			break;
 		}
-	}while(p = t + ((p[1] & 0x7f) << 2), p != t);
+	}while(p = vram + (u16int)(t + ((p[1] & 0x7f) << 2)), p - vram != t);
 	lsp = q;
 }
 

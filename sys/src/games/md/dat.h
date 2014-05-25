@@ -3,6 +3,7 @@ typedef signed short s16int;
 typedef signed long s32int;
 
 extern u32int curpc, irq;
+extern int trace;
 
 extern u8int reg[32];
 extern u8int dma;

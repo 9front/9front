@@ -91,6 +91,8 @@ keyproc(void *)
 				close(fd);
 				threadexitsall(nil);
 			}
+			if(utfrune(buf, 't'))
+				trace = !trace;
 		}
 		if(buf[0] != 'k' && buf[0] != 'K')
 			continue;

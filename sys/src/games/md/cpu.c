@@ -252,7 +252,7 @@ add(u32int u, u32int w, int c, int s)
 		if((v >> 32) != 0)
 			rS |= FLAGC;
 		if((v >> 31) != 0)
-			rS |= FLAGV;
+			rS |= FLAGN;
 		if((~(w ^ u) & (v ^ u) & (1<<31)) != 0)
 			rS |= FLAGV;
 		if((u32int)v != 0)
@@ -461,7 +461,7 @@ step(void)
 	int n, m, d;
 	static int cnt;
 
-	if(0 && pc == 0x13dc4){
+	if(0 && pc == 0x48ee){
 		trace++;
 		print("%x\n", curpc);
 	}
