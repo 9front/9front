@@ -691,6 +691,19 @@ prochaswaitq(void *x)
 	return p->pid != PID(c->qid) || p->waitq != 0;
 }
 
+/*
+ * userspace can't pass negative file offset for a
+ * 64 bit kernel address, so we use 63 bit and sign
+ * extend to 64 bit.
+ */
+static uintptr
+off2addr(vlong off)
+{
+	off <<= 1;
+	off >>= 1;
+	return off;
+}
+
 static long
 procread(Chan *c, void *va, long n, vlong off)
 {
@@ -699,7 +712,8 @@ procread(Chan *c, void *va, long n, vlong off)
 	int i, j, m, navail, ne, rsize;
 	long l;
 	uchar *rptr;
-	uintptr offset;
+	uintptr addr;
+	ulong offset;
 	Confmem *cm;
 	Mntwalk *mw;
 	Proc *p;
@@ -708,12 +722,7 @@ procread(Chan *c, void *va, long n, vlong off)
 	Waitq *wq;
 	
 	a = va;
-
-	/* sign extend 63 bit to 64 bit */
-	off <<= 1;
-	off >>= 1;
 	offset = off;
-
 	if(c->qid.type & QTDIR)
 		return devdirread(c, a, n, 0, 0, procgen);
 
@@ -763,26 +772,27 @@ procread(Chan *c, void *va, long n, vlong off)
 		return n;
 
 	case Qmem:
-		if(offset < KZERO)
-			return procctlmemio(p, offset, n, va, 1);
+		addr = off2addr(off);
+		if(addr < KZERO)
+			return procctlmemio(p, addr, n, va, 1);
 
 		if(!iseve())
 			error(Eperm);
 
 		/* validate kernel addresses */
-		if(offset < (uintptr)end) {
-			if(offset+n > (uintptr)end)
-				n = (uintptr)end - offset;
-			memmove(a, (char*)offset, n);
+		if(addr < (uintptr)end) {
+			if(addr+n > (uintptr)end)
+				n = (uintptr)end - addr;
+			memmove(a, (char*)addr, n);
 			return n;
 		}
 		for(i=0; i<nelem(conf.mem); i++){
 			cm = &conf.mem[i];
 			/* klimit-1 because klimit might be zero! */
-			if(cm->kbase <= offset && offset <= cm->klimit-1){
-				if(offset+n >= cm->klimit-1)
-					n = cm->klimit - offset;
-				memmove(a, (char*)offset, n);
+			if(cm->kbase <= addr && addr <= cm->klimit-1){
+				if(addr+n >= cm->klimit-1)
+					n = cm->klimit - addr;
+				memmove(a, (char*)addr, n);
 				return n;
 			}
 		}
@@ -1057,9 +1067,10 @@ procwrite(Chan *c, void *va, long n, vlong off)
 	int id, m;
 	Proc *p, *t, *et;
 	char *a, *arg, buf[ERRMAX];
-	ulong offset = off;
+	ulong offset;
 
 	a = va;
+	offset = off;
 	if(c->qid.type & QTDIR)
 		error(Eisdir);
 
@@ -1103,8 +1114,7 @@ procwrite(Chan *c, void *va, long n, vlong off)
 	case Qmem:
 		if(p->state != Stopped)
 			error(Ebadctl);
-
-		n = procctlmemio(p, offset, n, va, 0);
+		n = procctlmemio(p, off2addr(off), n, va, 0);
 		break;
 
 	case Qregs:
