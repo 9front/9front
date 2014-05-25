@@ -1010,20 +1010,22 @@ archctlwrite(Chan*, void *a, long n, vlong)
 static long
 rmemrw(int isr, void *a, long n, vlong off)
 {
+	uintptr addr = off;
+
 	if(off < 0 || n < 0)
 		error("bad offset/count");
 	if(isr){
-		if(off >= MB)
+		if(addr >= MB)
 			return 0;
-		if(off+n >= MB)
-			n = MB - off;
-		memmove(a, KADDR((ulong)off), n);
+		if(addr+n >= MB)
+			n = MB - addr;
+		memmove(a, KADDR(addr), n);
 	}else{
-		/* allow vga framebuf's access */
-		if(off >= MB || off+n > MB ||
-		    (off < 0xA0000 || off+n > 0xB0000+0x10000))
+		/* allow vga framebuf's write access */
+		if(addr >= MB || addr+n > MB ||
+		    (addr < 0xA0000 || addr+n > 0xB0000+0x10000))
 			error("bad offset/count in write");
-		memmove(KADDR((ulong)off), a, n);
+		memmove(KADDR(addr), a, n);
 	}
 	return n;
 }
