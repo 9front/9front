@@ -97,7 +97,7 @@ keyproc(void *)
 		if(buf[0] != 'k' && buf[0] != 'K')
 			continue;
 		s = buf + 1;
-		k = 0;
+		k = 0xc00;
 		while(*s != 0){
 			s += chartorune(&r, s);
 			switch(r){
