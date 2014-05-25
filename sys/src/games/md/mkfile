@@ -1,7 +1,7 @@
 </$objtype/mkfile
 
 BIN=/$objtype/bin/games
-TARG=sega
+TARG=md
 OFILES=\
 	cpu.$O\
 	mem.$O\

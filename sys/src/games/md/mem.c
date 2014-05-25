@@ -31,8 +31,8 @@ regread(u16int a)
 			v >>= 8;
 		return ctl[0] & 0xc0 | v & 0x3f;
 	case 0x0005:
-		return ctl[1] & 0xc0 | 0x3f;
 	case 0x0007:
+		return ctl[1] & 0xc0 | 0x3f;
 	case 0x0009: case 0x000b: case 0x000d:
 		return ctl[a-3>>1];
 	case 0x1101: return (~z80bus & BUSACK) << 7;
@@ -330,7 +330,7 @@ z80write(u16int a, u8int v)
 	}
 }
 
-u32int irql[8] = {[6] INTVBL};
+u32int irql[8] = {[6] INTVBL, [4] INTHOR};
 
 int
 intack(int l)

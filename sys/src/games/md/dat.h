@@ -35,6 +35,8 @@ enum {
 	HORSCR  = 0x0d,
 	AUTOINC = 0x0f,
 	PLSIZ   = 0x10,
+	WINH    = 0x11,
+	WINV    = 0x12,
 	DMACL   = 0x13,
 	DMACH   = 0x14,
 	DMASRC0 = 0x15,

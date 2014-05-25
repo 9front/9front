@@ -69,6 +69,7 @@ struct pctxt {
 	u16int t;
 	u32int c;
 } pctxt[3];
+int lwin, rwin;
 
 static void
 tile(struct pctxt *p)
@@ -79,7 +80,7 @@ tile(struct pctxt *p)
 	switch(p - pctxt){
 	default: a = (reg[PANT] & 0x38) << 9; break;
 	case 1: a = (reg[PBNT] & 7) << 12; break;
-	case 2: a = (reg[PWNT] & 0x38) << 9; break;
+	case 2: a = (reg[PWNT] & 0x3e) << 9; break;
 	}
 	a += p->ty << p->ws;
 	a += p->tx;
@@ -102,7 +103,7 @@ planeinit(void)
 	pctxt[0].ws = pctxt[1].ws = szs[reg[PLSIZ] & 3];
 	pctxt[2].ws = (reg[MODE4] & WIDE) != 0 ? 6 : 5;
 	pctxt[2].hs = 5;
-	for(i = 0; i < 2; i++){
+	for(i = 0; i <= 2; i++){
 		pctxt[i].h = 1<<pctxt[i].hs;
 		pctxt[i].w = 1<<pctxt[i].ws;
 	}
@@ -120,7 +121,7 @@ planeinit(void)
 		v = vsram[i] + vdpy;
 		p->tny = v & 7;
 		p->ty = v >> 3 & pctxt[i].h - 1;
-		tile(pctxt + i);
+		tile(p);
 		if(p->tnx != 0)
 			if((p->t & 0x800) != 0)
 				p->c >>= p->tnx << 2;
@@ -129,10 +130,30 @@ planeinit(void)
 	}
 	sx = 0;
 	snx = 0;
+	v = reg[WINV] << 3 & 0xf8;
+	if((reg[WINV] & 0x80) != 0 ? vdpy < v : vdpy >= v){
+		lwin = 0;
+		rwin = reg[WINH] << 4 & 0x1f0;
+		if((reg[WINH] & 0x80) != 0){
+			lwin = rwin;
+			rwin = 320;
+		}
+	}else{
+		lwin = 0;
+		rwin = 320;
+	}
+	if(rwin > lwin){
+		p = pctxt + 2;
+		p->tx = p->ty = 0;
+		v = vdpy - v;
+		p->tny = vdpy & 7;
+		p->ty = vdpy >> 3 & pctxt[2].h - 1;
+		tile(p);
+	}
 }
 
 static void
-plane(int n)
+plane(int n, int w)
 {
 	struct pctxt *p;
 	u8int v, pr;
@@ -145,7 +166,7 @@ plane(int n)
 		v = p->c >> 28;
 		p->c <<= 4;
 	}
-	if(v != 0){
+	if(v != 0 && w != 0){
 		v |= p->t >> 9 & 48;
 		pr = 2 - (n & 1) + (p->t >> 13 & 4);
 		pixel(v, pr);
@@ -161,7 +182,7 @@ plane(int n)
 static void
 planes(void)
 {
-	int i;
+	int i, w;
 	u16int v;
 
 	if((reg[MODE3] & 4) != 0 && ++snx == 16){
@@ -173,8 +194,11 @@ planes(void)
 			pctxt[i].ty = v >> 3 & pctxt[i].h - 1;
 		}
 	}
-	plane(0);
-	plane(1);
+	w = vdpx < rwin && vdpx >= lwin;
+	plane(0, !w);
+	plane(1, 1);
+	if(w)
+		plane(2, 1);
 }
 
 static struct sprite {
@@ -289,7 +313,7 @@ vdpstep(void)
 			vdpy = 0;
 			irq &= ~INTVBL;
 			vdpstat ^= STATFR;
-			vdpstat &= ~(STATINT | STATFR | STATOVR | STATCOLL);
+			vdpstat &= ~(STATINT | STATVBL | STATOVR | STATCOLL);
 			flush();
 		}
 		if(vdpy == 0 || vdpy >= 225)

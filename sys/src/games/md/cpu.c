@@ -461,7 +461,7 @@ step(void)
 	int n, m, d;
 	static int cnt;
 
-	if(0 && pc == 0x48ee){
+	if(0 && pc == 0x61e8){
 		trace++;
 		print("%x\n", curpc);
 	}
@@ -935,7 +935,7 @@ step(void)
 			if((op & 8) != 0){
 				a = amode(4, n, 0);
 				v = rmode(a, 0);
-				w = rmode(amode(5, n, 0), 0);
+				w = rmode(amode(4, m, 0), 0);
 				v = addbcd(v, w);
 				wmode(a, 0, v);
 			}else
