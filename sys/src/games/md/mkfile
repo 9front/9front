@@ -1,0 +1,14 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/games
+TARG=sega
+OFILES=\
+	cpu.$O\
+	mem.$O\
+	md.$O\
+	vdp.$O\
+	z80.$O\
+
+HFILES=dat.h fns.h
+
+</sys/src/cmd/mkone

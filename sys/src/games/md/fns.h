@@ -1,0 +1,12 @@
+u16int memread(u32int);
+void memwrite(u32int, u16int, u16int);
+void cpureset(void);
+void step(void);
+int z80step(void);
+u8int z80read(u16int);
+void z80write(u16int, u8int);
+int intack(int);
+void vdpstep(void);
+void flush(void);
+void dmastep(void);
+void vdpmode(void);
