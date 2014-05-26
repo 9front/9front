@@ -176,7 +176,6 @@ screeninit(void)
 {
 	Point p;
 
-	originwindow(screen, Pt(0, 0), screen->r.min);
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = (Rectangle){subpt(p, Pt(scale * 128, scale * 112)), addpt(p, Pt(scale * 128, scale * 127))};
 	tmp = allocimage(display, Rect(0, 0, scale * 256, scale > 1 ? 1 : scale * 239), RGB15, scale > 1, 0);
