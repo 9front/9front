@@ -155,7 +155,7 @@ or
 control-D exits the program.
 .PP
 To go to a specific page, one can type its number followed by enter.
-Typing left arrow, backspace displays the previous page.
+Typing left arrow or backspace displays the previous page.
 Typing right arrow, space, or enter displays the next page.
 The up and down arrow pan up and down one half screen height,
 changing pages when panning off the top or bottom of the page.
