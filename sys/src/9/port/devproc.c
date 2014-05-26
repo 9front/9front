@@ -1270,39 +1270,34 @@ procstopwait(Proc *p, int ctl)
 		error(Eprocdied);
 }
 
-static void
-procctlcloseone(Proc *p, Fgrp *f, int fd)
-{
-	Chan *c;
-
-	c = f->fd[fd];
-	if(c == nil)
-		return;
-	f->fd[fd] = nil;
-	unlock(f);
-	qunlock(&p->debug);
-	cclose(c);
-	qlock(&p->debug);
-	lock(f);
-}
-
 void
 procctlclosefiles(Proc *p, int all, int fd)
 {
-	int i;
 	Fgrp *f;
+	Chan *c;
 
+	if(fd < 0)
+		error(Ebadfd);
 	f = p->fgrp;
 	if(f == nil)
 		error(Eprocdied);
 
 	lock(f);
 	f->ref++;
-	if(all)
-		for(i = 0; i < f->maxfd; i++)
-			procctlcloseone(p, f, i);
-	else
-		procctlcloseone(p, f, fd);
+	while(fd <= f->maxfd){
+		c = f->fd[fd];
+		if(c != nil){
+			f->fd[fd] = nil;
+			unlock(f);
+			qunlock(&p->debug);
+			cclose(c);
+			qlock(&p->debug);
+			lock(f);
+		}
+		if(!all)
+			break;
+		fd++;
+	}
 	unlock(f);
 	closefgrp(f);
 }
