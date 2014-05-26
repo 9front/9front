@@ -292,28 +292,20 @@ sysopen(va_list list)
 void
 fdclose(int fd, int flag)
 {
-	int i;
 	Chan *c;
 	Fgrp *f = up->fgrp;
 
 	lock(f);
 	c = f->fd[fd];
-	if(c == 0){
-		/* can happen for users with shared fd tables */
+	if(c == nil || (flag != 0 && (c->flag&flag) == 0)){
 		unlock(f);
 		return;
 	}
-	if(flag){
-		if(c==0 || !(c->flag&flag)){
-			unlock(f);
-			return;
-		}
+	f->fd[fd] = nil;
+	if(fd == f->maxfd){
+		while(fd > 0 && f->fd[fd] == nil)
+			f->maxfd = --fd;
 	}
-	f->fd[fd] = 0;
-	if(fd == f->maxfd)
-		for(i=fd; --i>=0 && f->fd[i]==0; )
-			f->maxfd = i;
-
 	unlock(f);
 	cclose(c);
 }
