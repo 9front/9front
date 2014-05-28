@@ -145,7 +145,6 @@ planeinit(void)
 	if(rwin > lwin){
 		p = pctxt + 2;
 		p->tx = p->ty = 0;
-		v = vdpy - v;
 		p->tny = vdpy & 7;
 		p->ty = vdpy >> 3 & pctxt[2].h - 1;
 		tile(p);
@@ -211,9 +210,9 @@ static struct sprite {
 static void
 spritesinit(void)
 {
-	u16int t, *p, dy, *c;
+	u16int t, *p, dy, c;
 	u32int v;
-	int i, ns, np;
+	int i, ns, np, nt;
 	struct sprite *q;
 	
 	t = (reg[SPRTAB] << 8 & 0x7f00);
@@ -221,6 +220,7 @@ spritesinit(void)
 	q = spr;
 	ns = (reg[MODE4] & WIDE) != 0 ? 20 : 16;
 	np = 0;
+	nt = 0;
 	do{
 		q->y = (p[0] & 0x3ff) - 128;
 		q->h = (p[1] >> 8 & 3) + 1 << 3;
@@ -234,9 +234,9 @@ spritesinit(void)
 		if(q->x == 0xff80)
 			break;
 		q->w = (p[1] >> 10 & 3) + 1 << 3;
-		c = vram + ((q->t & 0x7ff) << 4) + (dy << 1);
+		c = ((q->t & 0x7ff) << 4) + (dy << 1);
 		for(i = 0; i < q->w >> 3 && np < xdisp; i++){
-			v = c[0] << 16 | c[1];
+			v = vram[c] << 16 | vram[(u16int)(c+1)];
 			c += q->h << 1;
 			if((q->t & 0x800) != 0)
 				q->c[(q->w >> 3) - 1 - i] = v;
@@ -244,16 +244,18 @@ spritesinit(void)
 				q->c[i] = v;
 			np += 8;
 		}
-		if(-q->x < q->w)
+		if((u16int)-q->x < q->w){
+			i = -(s16int)q->x;
 			if((q->t & 0x800) != 0)
-				q->c[-q->x>>3] >>= (-q->x & 7) << 2;
+				q->c[i>>3] >>= (i & 7) << 2;
 			else
-				q->c[-q->x>>3] <<= (-q->x & 7) << 2;
+				q->c[i>>3] <<= (i & 7) << 2;
+		}
 		if(++q == spr + ns || np >= xdisp){
 			vdpstat |= STATOVR;
 			break;
 		}
-	}while(p = vram + (u16int)(t + ((p[1] & 0x7f) << 2)), p - vram != t);
+	}while(p = vram + (u16int)(t + ((p[1] & 0x7f) << 2)), p - vram != t && ++nt < 80);
 	lsp = q;
 }
 

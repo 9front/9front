@@ -18,6 +18,9 @@ u16int vdpaddr, vdpdata;
 u8int z80bus = RESET;
 u16int z80bank;
 
+//#define vramdebug(a, s, a1, a2, a3) if((a & ~1) == 0xe7a0) print(s, a1, a2, a3);
+#define vramdebug(a, s, a1, a2, a3)
+
 u8int
 regread(u16int a)
 {
@@ -60,7 +63,7 @@ regwrite(u16int a, u16int v)
 			z80bus &= ~RESET;
 		return;
 	}
-	sysfatal("write to 0xa1%.4x", a);
+	sysfatal("write to 0xa1%.4x (pc=%#.6ux)", a, curpc);
 }
 
 void
@@ -154,6 +157,12 @@ memread(u32int a)
 			if(vdpx >= 0xe4 || vdpx < 0x08)
 				v |= STATHBL;
 			return v;
+		case 8: case 10: case 12: case 14:
+			if((reg[MODE4] & WIDE) != 0)
+				v = vdpx - (vdpx >= 360 ? 406 : 0);
+			else
+				v = vdpx - (vdpx >= 296 ? 342 : 0);
+			return vdpy - (vdpy >= 234 ? 5 : 0) << 8 | v >> 1 & 0xff;
 		default:
 			goto invalid;
 		}
@@ -171,7 +180,7 @@ memwrite(u32int a, u16int v, u16int m)
 	u16int *p;
 	u16int w;
 
-	if(0 && (a & 0xe0fffe) == 0xe0b1f4)
+	if(0 && (a & 0xe0fffe) == 0xe0df46)
 		print("%x %x %x\n", curpc, v, m);
 	switch((a >> 21) & 7){
 	case 5:
@@ -194,6 +203,7 @@ memwrite(u32int a, u16int v, u16int m)
 			if(dma == 2){
 				dma = 4;
 				vdpdata = v >> 8;
+				vramdebug(vdpaddr, "vdp fill write val %x (pc = %x) %d\n", v & 0xff, curpc, 0);
 				p = &vram[vdpaddr / 2];
 				if((vdpaddr & 1) == 0)
 					*p = *p & 0xff | v << 8;
@@ -207,6 +217,7 @@ memwrite(u32int a, u16int v, u16int m)
 				if((vdpaddr & 1) != 0)
 					v = v << 8 | v >> 8;
 				p = &vram[vdpaddr / 2];
+				vramdebug(vdpaddr, "vdp write val %x mask %x (pc = %x)\n", v, m, curpc);
 				*p = *p & ~m | v & m;
 				vdpaddr += reg[AUTOINC];
 				return;
@@ -257,6 +268,7 @@ dmastep(void)
 		case 1:
 			if((vdpaddr & 1) != 0)
 				v = v >> 8 | v << 8;
+			vramdebug(vdpaddr, "dma from 68K %x val %x (%d)\n", a, v, 0);
 			vram[vdpaddr / 2] = v;
 			break;
 		case 3:
@@ -280,6 +292,7 @@ dmastep(void)
 			v = v >> 8;
 		if(++reg[DMASRC0] == 0)
 			reg[DMASRC1]++;
+		vramdebug(vdpaddr, "dma copy from %x val %x (%d)\n", a, v, 0);
 		p = &vram[vdpaddr / 2];
 		if((vdpaddr & 1) != 0)
 			*p = *p & 0xff00 | v & 0xff;
@@ -288,6 +301,7 @@ dmastep(void)
 		break;
 	case 4:
 		p = &vram[vdpaddr / 2];
+		vramdebug(vdpaddr, "dma fill val %x (%d%d)\n", vdpdata, 0, 0);
 		if((vdpaddr & 1) == 0)
 			*p = *p & 0xff00 | vdpdata;
 		else
@@ -295,7 +309,9 @@ dmastep(void)
 		break;
 	}
 	vdpaddr += reg[AUTOINC];
-	if(--reg[DMACL] == 0 && reg[DMACH]-- == 0)
+	if(reg[DMACL]-- == 0)
+		reg[DMACH]--;
+	if((reg[DMACL] | reg[DMACH]) == 0)
 		dma = 0;
 }
 

@@ -14,7 +14,7 @@ enum {
 };
 
 u32int r[16], pc, curpc;
-u32int asp, irq;
+u32int asp, irq, stop;
 extern u32int irql[8];
 u32int irqla[8];
 u16int rS;
@@ -248,12 +248,12 @@ add(u32int u, u32int w, int c, int s)
 			rS &= ~FLAGZ;
 		break;
 	default:
-		v = w + u + c;
+		v = (u64int)w + u + c;
 		if((v >> 32) != 0)
 			rS |= FLAGC;
-		if((v >> 31) != 0)
+		if((v & 0x80000000) != 0)
 			rS |= FLAGN;
-		if((~(w ^ u) & (v ^ u) & (1<<31)) != 0)
+		if((~(w ^ u) & (v ^ u) & 0x80000000) != 0)
 			rS |= FLAGV;
 		if((u32int)v != 0)
 			rS &= ~FLAGZ;
@@ -380,10 +380,11 @@ addbcd(u8int a, u8int b)
 {
 	int r;
 	
-	r = (a & 0xf) + (b & 0xf) + (rS & FLAGX >> 4);
+	r = (a & 0xf) + (b & 0xf) + ((rS & FLAGX) != 0);
 	if(r > 0x09) r += 0x06;
 	if(r > 0x1f) r -= 0x10;
 	r += (a & 0xf0) + (b & 0xf0);
+	if(r > 0x9f) r += 0x60;
 	if((u8int)r != 0)
 		rS &= ~FLAGZ;
 	if(r > 0xff)
@@ -398,16 +399,18 @@ subbcd(u8int a, u8int b)
 {
 	int x;
 	
-	x = (a & 0xf) + (~b & 0xf) + !(rS & FLAGX);
+	x = (a & 0xf) + (~b & 0xf) + ((rS & FLAGX) == 0);
 	if(x < 0x10) x -= 0x06;
 	if(x < 0) x += 0x10;
 	x += (a & 0xf0) + (~b & 0xf0);
+	if(x > 0xff)
+		rS &= ~(FLAGC|FLAGX);
+	else{
+		rS |= FLAGC|FLAGX;
+		x -= 0x60;
+	}
 	if((u8int)x != 0)
 		rS &= ~FLAGZ;
-	if(x <= 0xff)
-		rS |= FLAGC|FLAGX;
-	else
-		rS &= ~(FLAGC|FLAGX);
 	return x;
 }
 
@@ -437,6 +440,7 @@ trap(int n, u32int pcv)
 	push16(sr);
 	pc = memread(v * 4) << 16;
 	pc |= memread(v * 4 + 2);
+	stop = 0;
 }
 
 void
@@ -461,7 +465,7 @@ step(void)
 	int n, m, d;
 	static int cnt;
 
-	if(0 && pc == 0x61e8){
+	if(0 && pc == 0x200){
 		trace++;
 		print("%x\n", curpc);
 	}
@@ -470,6 +474,8 @@ step(void)
 		trap(-1, curpc);
 		return;
 	}
+	if(stop)
+		return;
 	op = fetch16();
 	if(trace)
 		print("%.6ux %.6uo %.4ux %.8ux | %.8ux %.8ux %.8ux %.8ux | %.8ux %.8ux %.8ux\n", curpc, op, rS, memread(ra[7])<<16|memread(ra[7]+2), r[0], r[1], r[2], r[3], ra[0], ra[1], ra[7]);
@@ -765,6 +771,13 @@ step(void)
 			switch(op){
 			case 0x4e70: break; /* RESET */
 			case 0x4e71: break; /* NOP */
+			case 0x4e72: /* STOP */
+				if((rS & FLAGS) != 0){
+					rS = fetch16();
+					stop = 1;
+				}else
+					trap(8, curpc);
+				break;
 			case 0x4e73: /* RTE */
 				if((rS & FLAGS) != 0){
 					v = rS;
@@ -875,7 +888,7 @@ step(void)
 			if((op & 8) != 0){
 				a = amode(4, n, 0);
 				v = rmode(a, 0);
-				w = rmode(amode(5, n, 0), 0);
+				w = rmode(amode(4, m, 0), 0);
 				v = subbcd(v, w);
 				wmode(a, 0, v);
 			}else
