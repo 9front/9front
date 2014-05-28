@@ -5,6 +5,7 @@
 
 #define _PLAN9_SOURCE
 #include <lock.h>
+#include <errno.h>
 
 FILE *_IO_newfile(void)
 {
@@ -21,7 +22,9 @@ FILE *_IO_newfile(void)
 	}
 	f = fx;
 	unlock(&fl);
-	if(f->state!=CLOSED)
+	if(f->state!=CLOSED){
+		errno = EMFILE;
 		return NULL;
+	}
 	return f;
 }

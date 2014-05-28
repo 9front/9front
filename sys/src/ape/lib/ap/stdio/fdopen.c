@@ -2,6 +2,7 @@
  * Posix stdio -- fdopen
  */
 #include "iolib.h"
+#include <errno.h>
 /*
  * Open the named file with the given mode, using the given FILE
  * Legal modes are given below, `additional characters may follow these sequences':
@@ -15,12 +16,15 @@
 FILE *fdopen(const int fd, const char *mode){
 	FILE *f;
 
+	if(fd < 0){
+		errno = EBADF;
+		return NULL;
+	}
 	if((f = _IO_newfile()) == NULL)
 		return NULL;
 	f->fd=fd;
 	if(mode[0]=='a')
 		lseek(f->fd, 0L, 2);
-	if(f->fd==-1) return NULL;
 	f->flags=0;
 	f->state=OPEN;
 	f->buf=0;
