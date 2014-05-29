@@ -620,9 +620,10 @@ mpintrenable(Vctl* v)
 void
 mpshutdown(void)
 {
-	static Lock shutdownlock;
-
-	if(active.rebooting || !canlock(&shutdownlock)){
+	/*
+	 * Park application processors.
+	 */
+	if(active.rebooting || m->machno != 0){
 		splhi();
 		arch->introff();
 		idle();
