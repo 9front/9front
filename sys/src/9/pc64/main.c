@@ -291,7 +291,6 @@ mach0init(void)
 
 	active.machs = 1;
 	active.exiting = 0;
-	active.rebooting = 0;
 }
 
 
@@ -568,20 +567,7 @@ reboot(void *entry, void *code, ulong size)
 		procwired(up, 0);
 		sched();
 	}
-
-	lock(&active);
-	active.rebooting = 1;
-	unlock(&active);
-
 	shutdown(0);
-
-	/*
-	 * should be the only processor running now
-	 */
-	if (m->machno != 0)
-		iprint("on cpu%d (not 0)!\n", m->machno);
-	if (active.machs)
-		iprint("still have active ap processors!\n");
 
 	iprint("shutting down...\n");
 	delay(200);

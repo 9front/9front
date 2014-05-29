@@ -623,7 +623,7 @@ mpshutdown(void)
 	/*
 	 * Park application processors.
 	 */
-	if(active.rebooting || m->machno != 0){
+	if(m->machno != 0){
 		splhi();
 		arch->introff();
 		idle();
