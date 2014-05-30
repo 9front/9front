@@ -698,6 +698,8 @@ enum	as
 	ASWAPGS,
 
 	AMODE,
+	
+	AMOVQL,
 
 	ALAST
 };
