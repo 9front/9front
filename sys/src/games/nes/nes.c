@@ -15,7 +15,7 @@ Rectangle picr;
 Image *tmp, *bg;
 int clock, ppuclock, apuclock, dmcclock, dmcfreq, sampclock, msgclock, saveclock;
 Mousectl *mc;
-int keys, paused, savereq, loadreq, oflag, savefd = -1;
+int keys, keys2, paused, savereq, loadreq, oflag, savefd = -1;
 int mirr;
 QLock pauselock;
 
@@ -125,6 +125,51 @@ loadrom(char *file, int sflag)
 extern int trace;
 
 void
+joyproc(void *)
+{
+	char *s, *down[9];
+	static char buf[64];
+	int n, k, j;
+
+	j = 1;
+	for(;;){
+		n = read(0, buf, sizeof(buf) - 1);
+		if(n <= 0)
+			sysfatal("read: %r");
+		buf[n] = 0;
+		n = getfields(buf, down, nelem(down), 1, " ");
+		k = 0;
+		for(n--; n >= 0; n--){
+			s = down[n];
+			if(strcmp(s, "joy1") == 0)
+				j = 1;
+			else if(strcmp(s, "joy2") == 0)
+				j = 2;
+			else if(strcmp(s, "a") == 0)
+				k |= 1<<0;
+			else if(strcmp(s, "b") == 0)
+				k |= 1<<1;
+			else if(strcmp(s, "control") == 0)
+				k |= 1<<2;
+			else if(strcmp(s, "start") == 0)
+				k |= 1<<3;
+			else if(strcmp(s, "up") == 0)
+				k |= 1<<4;
+			else if(strcmp(s, "down") == 0)
+				k |= 1<<5;
+			else if(strcmp(s, "left") == 0)
+				k |= 1<<6;
+			else if(strcmp(s, "right") == 0)
+				k |= 1<<7;
+		}
+		if(j == 2)
+			keys2 = k;
+		else
+			keys = k;
+	}
+}
+
+void
 keyproc(void *)
 {
 	int fd, k;
@@ -220,6 +265,7 @@ threadmain(int argc, char **argv)
 	mc = initmouse(nil, screen);
 	if(mc == nil)
 		sysfatal("initmouse: %r");
+	proccreate(joyproc, nil, 8192);
 	proccreate(keyproc, nil, 8192);
 	originwindow(screen, Pt(0, 0), screen->r.min);
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);

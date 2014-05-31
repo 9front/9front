@@ -4,7 +4,7 @@ extern u8int irq, nmi;
 extern uchar mem[32768], ppuram[16384], oam[256];
 extern u16int pput, ppuv;
 extern u8int ppusx, vrambuf;
-extern int mirr, ppux, ppuy, odd, vramlatch, keylatch;
+extern int mirr, ppux, ppuy, odd, vramlatch, keylatch, keylatch2;
 
 extern int map, scale, mmc3hack, oflag;
 extern uchar *prg, *chr;
@@ -13,7 +13,7 @@ extern int nprg, nchr, map, chrram;
 extern u8int apuseq, apuctr[13];
 extern u16int dmcaddr, dmccnt;
 
-extern int keys, clock, ppuclock, apuclock, dmcclock, dmcfreq, saveclock, paused;
+extern int keys, keys2, clock, ppuclock, apuclock, dmcclock, dmcfreq, saveclock, paused;
 
 extern void (*mapper[])(int, u8int);
 

@@ -11,7 +11,7 @@ uchar oam[256];
 uchar *prgb[16], *chrb[16];
 u16int pput, ppuv;
 u8int ppusx, vrambuf;
-int vramlatch = 1, keylatch = 0xFF;
+int vramlatch = 1, keylatch = 0xFF, keylatch2 = 0xFF;
 int prgsh, chrsh, mmc3hack;
 
 static void
@@ -395,7 +395,11 @@ memread(u16int p)
 			keylatch = (keylatch >> 1) | 0x80;
 			return v | 0x40;
 		case 0x4017:
-			return 0x40;
+			if((mem[p] & 1) != 0)
+				return keys2 & 1;
+			v = keylatch2 & 1;
+			keylatch2 = (keylatch2 >> 1) | 0x80;
+			return v | 0x40;
 		}
 	}
 	if(p >= 0x8000){
@@ -489,8 +493,10 @@ memwrite(u16int p, u8int v)
 			irq &= ~IRQDMC;
 			break;
 		case 0x4016:
-			if((mem[p] & 1) != 0 && (v & 1) == 0)
+			if((mem[p] & 1) != 0 && (v & 1) == 0){
 				keylatch = keys;
+				keylatch2 = keys2;
+			}
 			break;
 		case APUFRAME:
 			apuseq = 0;
