@@ -259,7 +259,7 @@ static void
 preallocpages(void)
 {
 	Pallocmem *pm;
-	uintptr va;
+	uintptr va, base, top;
 	vlong size;
 	ulong np;
 	int i;
@@ -272,17 +272,18 @@ preallocpages(void)
 	size = (uvlong)np * BY2PG;
 	size += sizeof(Page) + BY2PG;	/* round up */
 	size = (size / (sizeof(Page) + BY2PG)) * sizeof(Page);
-	size = PGROUND(size);
+	size = ROUND(size, PGLSZ(1));
 
-	np = size/BY2PG;
 	for(i=0; i<nelem(palloc.mem); i++){
 		pm = &palloc.mem[i];
-		if((pm->base + size) <= VMAPSIZE && pm->npage >= np){
-			va = VMAP + pm->base;
-			pmap(m->pml4, pm->base | PTEGLOBAL|PTEWRITE|PTEVALID, va, size);
+		base = ROUND(pm->base, PGLSZ(1));
+		top = pm->base + (uvlong)pm->npage * BY2PG;
+		if((base + size) <= VMAPSIZE && (top - base) >= size){
+			va = base + VMAP;
+			pmap(m->pml4, base | PTEGLOBAL|PTEWRITE|PTEVALID, va, size);
 			palloc.pages = (Page*)va;
-			pm->base += size;
-			pm->npage -= np;
+			pm->base = base + size;
+			pm->npage = (top - pm->base)/BY2PG;
 			break;
 		}
 	}
