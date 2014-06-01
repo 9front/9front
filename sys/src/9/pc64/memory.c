@@ -371,25 +371,6 @@ sigsearch(char* signature)
 	return sigscan(KADDR(0xe0000), 0x20000, signature);
 }
 
-static void
-lowraminit(void)
-{
-	uintptr pa, x;
-
-	/*
-	 * Initialise the memory bank information for conventional memory
-	 * (i.e. less than 640KB). The base is the first location after the
-	 * bootstrap processor MMU information and the limit is obtained from
-	 * the BIOS data area.
-	 */
-	x = PADDR(PGROUND((uintptr)end));
-	pa = MemMin;
-	if(x > pa)
-		panic("kernel too big");
-	mapfree(&rmapram, x, pa-x);
-	memset(KADDR(x), 0, pa-x);		/* keep us honest */
-}
-
 typedef struct Emap Emap;
 struct Emap
 {
@@ -421,7 +402,7 @@ emapcmp(const void *va, const void *vb)
 static void
 map(uintptr base, uintptr len, int type)
 {
-	uintptr e, n, *pte, flags, maxkpa;
+	uintptr n, flags, maxkpa;
 
 	/*
 	 * Split any call crossing MemMin to make below simpler.
@@ -433,7 +414,7 @@ map(uintptr base, uintptr len, int type)
 	}
 	
 	/*
-	 * Let lowraminit and umbscan hash out the low MemMin.
+	 * Let umbscan hash out the low MemMin.
 	 */
 	if(base < MemMin)
 		return;
@@ -495,21 +476,6 @@ map(uintptr base, uintptr len, int type)
 	case MemReserved:
 		flags = 0;
 		break;
-	}
-	
-	/*
-	 * bottom MemMin is already mapped - just twiddle flags.
-	 * (not currently used - see above)
-	 */
-	if(base < MemMin){
-		e = base+len;
-		base &= ~((uintptr)PGLSZ(1)-1);
-		for(; base<e; base+=PGLSZ(1)){
-			pte = mmuwalk(m->pml4, base+KZERO, 1, 0);
-			if(pte != 0 && *pte & PTEVALID)
-				*pte |= flags;
-		}
-		return;
 	}
 	
 	if(flags){
@@ -595,7 +561,6 @@ meminit(void)
 	uintptr lost;
 
 	umbscan();
-	// lowraminit();
 	e820scan();
 
 	/*

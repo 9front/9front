@@ -146,7 +146,7 @@ int	(*_pcmspecial)(char *, ISAConf *);
 void	pcmspecialclose(int);
 void	(*_pcmspecialclose)(int);
 void	pcmunmap(int, PCMmap*);
-void	pmap(uintptr *, uintptr, uintptr, int);
+void	pmap(uintptr *, uintptr, uintptr, vlong);
 void	procrestore(Proc*);
 void	procsave(Proc*);
 void	procsetup(Proc*);

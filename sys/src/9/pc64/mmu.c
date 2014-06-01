@@ -282,13 +282,13 @@ ptecount(uintptr va, int level)
 }
 
 void
-pmap(uintptr *pml4, uintptr pa, uintptr va, int size)
+pmap(uintptr *pml4, uintptr pa, uintptr va, vlong size)
 {
 	uintptr *pte, *ptee, flags;
 	int z, l;
 
 	if((size <= 0) || va < VMAP)
-		panic("pmap: pa=%#p va=%#p size=%d", pa, va, size);
+		panic("pmap: pa=%#p va=%#p size=%lld", pa, va, size);
 	flags = pa;
 	pa = PPN(pa);
 	flags -= pa;
@@ -310,7 +310,7 @@ pmap(uintptr *pml4, uintptr pa, uintptr va, int size)
 				size += z;
 				continue;
 			}
-			panic("pmap: pa=%#p va=%#p size=%d", pa, va, size);
+			panic("pmap: pa=%#p va=%#p size=%lld", pa, va, size);
 		}
 		ptee = pte + ptecount(va, l);
 		while(size > 0 && pte < ptee){

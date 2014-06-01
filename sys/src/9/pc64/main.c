@@ -231,8 +231,7 @@ confinit(void)
 	 * (probably ~300KB).
 	 */
 	kpages *= BY2PG;
-	kpages -= conf.upages*sizeof(Page)
-		+ conf.nproc*sizeof(Proc)
+	kpages -= conf.nproc*sizeof(Proc)
 		+ conf.nimage*sizeof(Image)
 		+ conf.nswap
 		+ conf.nswppo*sizeof(Page*);
@@ -250,6 +249,44 @@ confinit(void)
 	}
 }
 
+/*
+ * The palloc.pages array takes arround 5% of the amount
+ * of upages which can be a large chunk out of the 2GB
+ * window above KZERO, so we allocate the array from
+ * upages and map in the VMAP window before pageinit()
+ */
+static void
+preallocpages(void)
+{
+	Pallocmem *pm;
+	uintptr va;
+	vlong size;
+	ulong np;
+	int i;
+
+	np = 0;
+	for(i=0; i<nelem(palloc.mem); i++){
+		pm = &palloc.mem[i];
+		np += pm->npage;
+	}
+	size = (uvlong)np * BY2PG;
+	size += sizeof(Page) + BY2PG;	/* round up */
+	size = (size / (sizeof(Page) + BY2PG)) * sizeof(Page);
+	size = PGROUND(size);
+
+	np = size/BY2PG;
+	for(i=0; i<nelem(palloc.mem); i++){
+		pm = &palloc.mem[i];
+		if((pm->base + size) <= VMAPSIZE && pm->npage >= np){
+			va = VMAP + pm->base;
+			pmap(m->pml4, pm->base | PTEGLOBAL|PTEWRITE|PTEVALID, va, size);
+			palloc.pages = (Page*)va;
+			pm->base += size;
+			pm->npage -= np;
+			break;
+		}
+	}
+}
 
 void
 machinit(void)
@@ -492,6 +529,7 @@ main()
 		links();
 	conf.monitor = 1;
 	chandevreset();
+	preallocpages();
 	pageinit();
 	swapinit();
 	userinit();

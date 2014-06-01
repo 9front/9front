@@ -16,16 +16,19 @@ pageinit(void)
 	Page *p;
 	Pallocmem *pm;
 	vlong m, v, u;
-	ulong np;
 
-	np = 0;
-	for(i=0; i<nelem(palloc.mem); i++){
-		pm = &palloc.mem[i];
-		np += pm->npage;
+	if(palloc.pages == nil){
+		ulong np;
+
+		np = 0;
+		for(i=0; i<nelem(palloc.mem); i++){
+			pm = &palloc.mem[i];
+			np += pm->npage;
+		}
+		palloc.pages = xalloc(np*sizeof(Page));
+		if(palloc.pages == nil)
+			panic("pageinit");
 	}
-	palloc.pages = xalloc(np*sizeof(Page));
-	if(palloc.pages == 0)
-		panic("pageinit");
 
 	color = 0;
 	palloc.head = palloc.pages;
@@ -33,6 +36,7 @@ pageinit(void)
 	for(i=0; i<nelem(palloc.mem); i++){
 		pm = &palloc.mem[i];
 		for(j=0; j<pm->npage; j++){
+			memset(p, 0, sizeof *p);
 			p->prev = p-1;
 			p->next = p+1;
 			p->pa = pm->base+j*BY2PG;
