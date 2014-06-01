@@ -278,7 +278,7 @@ preallocpages(void)
 		pm = &palloc.mem[i];
 		base = ROUND(pm->base, PGLSZ(1));
 		top = pm->base + (uvlong)pm->npage * BY2PG;
-		if((base + size) <= VMAPSIZE && (top - base) >= size){
+		if((base + size) <= VMAPSIZE && (vlong)(top - base) >= size){
 			va = base + VMAP;
 			pmap(m->pml4, base | PTEGLOBAL|PTEWRITE|PTEVALID, va, size);
 			palloc.pages = (Page*)va;
