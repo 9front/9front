@@ -91,9 +91,9 @@ procreqs(void)
 
 Loop:
 	for(p = nil, r = reqfirst; r != nil; p = r, r = x){
-		x = (Req*)r->aux;
+		x = r->aux;
 		f = r->fid;
-		e = (Event*)f->aux;
+		e = f->aux;
 		if(e == evlast)
 			continue;
 		if(e->dev->aux == f){
@@ -150,10 +150,10 @@ dirgen(int n, Dir *d, void *)
 		d->qid.type = 0;
 	else
 		d->qid.type = QTDIR;
-	d->uid = strdup(getuser());
-	d->gid = strdup(d->uid);
-	d->muid = strdup(d->uid);
-	d->name = strdup(names[n+1]);
+	d->uid = estrdup9p(getuser());
+	d->gid = estrdup9p(d->uid);
+	d->muid = estrdup9p(d->uid);
+	d->name = estrdup9p(names[n+1]);
 	d->mode = 0555 | (d->qid.type << 24);
 	d->atime = d->mtime = time(0);
 	d->length = 0;
@@ -173,20 +173,19 @@ usbdwalk(Fid *fid, char *name, Qid *qid)
 {
 	int i;
 
+	if(fid->qid.path != Qroot)
+		return "not a directory";
 	if(strcmp(name, "..") == 0){
-		fid->qid = (Qid) {Qroot, 0, QTDIR};
 		*qid = fid->qid;
 		return nil;
 	}
-	if(fid->qid.path != Qroot)
-		return "not a directory";
-	for(i = 0; i < Qmax; i++)
+	for(i = Qroot+1; i < Qmax; i++)
 		if(strcmp(name, names[i]) == 0){
 			fid->qid = (Qid) {i, 0, 0};
 			*qid = fid->qid;
 			return nil;
 		}
-	return "does not exist";
+	return Enonexist;
 }
 
 static void
@@ -198,10 +197,6 @@ usbdread(Req *req)
 		respond(req, nil);
 		break;
 	case Qusbevent:
-		if(req->fid->aux == nil){
-			respond(req, "the front fell off");
-			return;
-		}
 		qlock(&evlock);
 		addreader(req);
 		procreqs();
@@ -217,7 +212,7 @@ static void
 usbdstat(Req *req)
 {
 	if(dirgen(req->fid->qid.path - 1, &req->d, nil) < 0)
-		respond(req, "the front fell off");
+		respond(req, Enonexist);
 	else
 		respond(req, nil);
 }
@@ -225,9 +220,8 @@ usbdstat(Req *req)
 static char *
 formatdev(Dev *d, int type)
 {
-	Usbdev *u;
-	
-	u = d->usb;
+	Usbdev *u = d->usb;
+
 	return smprint("%s %d %.4x %.4x %.8lx\n", type ? "detach" : "attach", d->id, u->vid, u->did, u->csp);
 }
 
@@ -274,10 +268,10 @@ usbdopen(Req *req)
 		qlock(&hublock);
 		qlock(&evlock);
 
-		enumerate(&req->fid->aux);
-		e = req->fid->aux;
-		e->ref++;
+		enumerate(&e);
 		e->prev--;
+		e->ref++;
+		req->fid->aux = e;
 
 		qunlock(&evlock);
 		qunlock(&hublock);
@@ -288,18 +282,21 @@ usbdopen(Req *req)
 static void
 usbddestroyfid(Fid *fid)
 {
-	Event *e;
+	if(fid->qid.path == Qusbevent){
+		Event *e;
 
-	if(fid->qid.path == Qusbevent && fid->aux != nil){
 		qlock(&evlock);
 		e = fid->aux;
-		if(e->dev != nil && e->dev->aux == fid){
-			e->dev->aux = nil;	/* release device */
-			procreqs();
-		}
-		if(--e->ref == 0 && e->prev == 0)
+		if(e != nil){
+			fid->aux = nil;
+			if(e->dev != nil && e->dev->aux == fid){
+				e->dev->aux = nil;	/* release device */
+				procreqs();
+			}
+			e->ref--;
 			while(e->ref == 0 && e->prev == 0 && e != evlast)
 				e = putevent(e);
+		}
 		qunlock(&evlock);
 	}
 }
@@ -311,7 +308,7 @@ usbdflush(Req *req)
 
 	qlock(&evlock);
 	for(p = nil, r = reqfirst; r != nil; p = r, r = x){
-		x = (Req*)r->aux;
+		x = r->aux;
 		if(r == req->oldreq){
 			if(x == nil)
 				reqlast = p;
@@ -355,10 +352,10 @@ attachdev(Port *p)
 		return 0;
 	}
 
+	/* close control endpoint so driver can open it */
 	close(d->dfd);
 	d->dfd = -1;
 	
-	d->aux = nil;	/* device initially unclaimed */
 	pushevent(d, formatdev(d, 0));
 	return 0;
 }
@@ -366,9 +363,8 @@ attachdev(Port *p)
 void
 detachdev(Port *p)
 {
-	Dev *d;
+	Dev *d = p->dev;
 
-	d = p->dev;
 	if(d->usb->class == Clhub)
 		return;
 	pushevent(d, formatdev(d, 1));
@@ -413,7 +409,7 @@ main(int argc, char **argv)
 		free(d);
 	}else
 		for(i = 0; i < argc; i++)
-			rendezvous(work, strdup(argv[i]));
+			rendezvous(work, estrdup9p(argv[i]));
 	rendezvous(work, nil);
 	postsharesrv(&usbdsrv, nil, "usb", "usbd");
 	exits(nil);
