@@ -23,13 +23,15 @@ static char Enonexist[] = "does not exist";
 typedef struct Event Event;
 
 struct Event {
+	Dev *dev;	/* the device producing the event,
+			   dev->aux points to Fid processing the event */
 	char *data;
 	int len;
 	Event *link;
-	int ref;  /* number of readers which will read this one
-                     the next time they'll read */
-	int prev; /* number of events pointing to this one with
-                     their link pointers */
+	int ref;	/* number of readers which will read this one
+			   the next time they'll read */
+	int prev;	/* number of events pointing to this one with
+			   their link pointers */
 };
 
 static Event *evlast;
@@ -74,58 +76,66 @@ putevent(Event *e)
 	if(e->ref || e->prev)
 		return ee;
 	ee->prev--;
+	closedev(e->dev);
 	free(e->data);
 	free(e);
 	return ee;
 }
 
 static void
-readevent(Req *req)
+procreqs(void)
 {
+	Req *r, *p, *x;
 	Event *e;
+	Fid *f;
 
-	qlock(&evlock);
-	e = req->fid->aux;
-	if(e == evlast){
-		addreader(req);
-		qunlock(&evlock);
-		return;
+Loop:
+	for(p = nil, r = reqfirst; r != nil; p = r, r = x){
+		x = (Req*)r->aux;
+		f = r->fid;
+		e = (Event*)f->aux;
+		if(e == evlast)
+			continue;
+		if(e->dev->aux == f){
+			e->dev->aux = nil;	/* release device */
+			e->ref--;
+			e = putevent(e);
+			e->ref++;
+			f->aux = e;
+			goto Loop;
+		}
+		if(e->dev->aux == nil){
+			e->dev->aux = f;	/* claim device */
+			if(x == nil)
+				reqlast = p;
+			if(p == nil)
+				reqfirst = x;
+			else
+				p->aux = x;
+			r->aux = nil;
+			fulfill(r, e);
+			respond(r, nil);
+			goto Loop;
+		}
 	}
-	fulfill(req, e);
-	req->fid->aux = e->link;
-	e->link->ref++;
-	e->ref--;
-	putevent(e);
-	qunlock(&evlock);
-	respond(req, nil);
 }
 
 static void
-pushevent(char *data)
+pushevent(Dev *d, char *data)
 {
-	Event *e, *ee;
-	Req *r, *rr;
+	Event *e;
 	
 	qlock(&evlock);
 	e = evlast;
-	ee = emallocz(sizeof(Event), 1);
-	evlast = ee;
+	evlast = emallocz(sizeof(Event), 1);
+	incref(d);
+	e->dev = d;
 	e->data = data;
 	e->len = strlen(data);
-	e->link = ee;
-	ee->prev++;
-	for(r = reqfirst; r != nil; r = rr){
-		rr = r->aux;
-		r->aux = nil;
-		r->fid->aux = ee;
-		ee->ref++;
-		e->ref--;
-		fulfill(r, e);
-		respond(r, nil);
-	}
+	e->link = evlast;
+	evlast->prev++;
+	procreqs();
 	putevent(e);
-	reqfirst = nil;
-	reqlast = nil;
 	qunlock(&evlock);
 }
 
@@ -192,7 +202,10 @@ usbdread(Req *req)
 			respond(req, "the front fell off");
 			return;
 		}
-		readevent(req);
+		qlock(&evlock);
+		addreader(req);
+		procreqs();
+		qunlock(&evlock);
 		break;
 	default:
 		respond(req, Enonexist);
@@ -226,16 +239,19 @@ enumerate(Event **l)
 	Event *e;
 	Hub *h;
 	Port *p;
+	Dev *d;
 	int i;
 	
 	for(h = hubs; h != nil; h = h->next){
 		for(i = 1; i <= h->nport; i++){
 			p = &h->port[i];
-
-			if(p->dev == nil || p->dev->usb == nil || p->hub != nil)
+			d = p->dev;
+			if(d == nil || d->usb == nil || p->hub != nil)
 				continue;
 			e = emallocz(sizeof(Event), 1);
-			e->data = formatdev(p->dev, 0);
+			incref(d);
+			e->dev = d;
+			e->data = formatdev(d, 0);
 			e->len = strlen(e->data);
 			e->prev = 1;
 			*l = e;
@@ -277,6 +293,10 @@ usbddestroyfid(Fid *fid)
 	if(fid->qid.path == Qusbevent && fid->aux != nil){
 		qlock(&evlock);
 		e = fid->aux;
+		if(e->dev != nil && e->dev->aux == fid){
+			e->dev->aux = nil;	/* release device */
+			procreqs();
+		}
 		if(--e->ref == 0 && e->prev == 0)
 			while(e->ref == 0 && e->prev == 0 && e != evlast)
 				e = putevent(e);
@@ -287,18 +307,24 @@ usbddestroyfid(Fid *fid)
 static void
 usbdflush(Req *req)
 {
-	Req **l, *r;
+	Req *r, *p, *x;
+
 	qlock(&evlock);
-	l = &reqfirst;
-	while(r = *l){
+	for(p = nil, r = reqfirst; r != nil; p = r, r = x){
+		x = (Req*)r->aux;
 		if(r == req->oldreq){
-			*l = r->aux;
+			if(x == nil)
+				reqlast = p;
+			if(p == nil)
+				reqfirst = x;
+			else
+				p->aux = x;
+			r->aux = nil;
+			respond(r, "interrupted");
 			break;
 		}
-		l = &r->aux;
 	}
 	qunlock(&evlock);
-	respond(req->oldreq, "interrupted");
 	respond(req, nil);
 }
 
@@ -331,16 +357,21 @@ attachdev(Port *p)
 
 	close(d->dfd);
 	d->dfd = -1;
-	pushevent(formatdev(d, 0));
+	
+	d->aux = nil;	/* device initially unclaimed */
+	pushevent(d, formatdev(d, 0));
 	return 0;
 }
 
 void
 detachdev(Port *p)
 {
-	if(p->dev->usb->class == Clhub)
+	Dev *d;
+
+	d = p->dev;
+	if(d->usb->class == Clhub)
 		return;
-	pushevent(formatdev(p->dev, 1));
+	pushevent(d, formatdev(d, 1));
 }
 
 void
