@@ -76,6 +76,8 @@ static char *nametab[] = {
 			nil,
 };
 
+static char *mtpt;
+static char *service;
 static long time0;
 static char *user;
 static char *agent;
@@ -741,8 +743,17 @@ fsdestroyfid(Fid *fid)
 	}
 }
 
+static void
+fsstart(Srv*)
+{
+	/* drop reference to old webfs mount */
+	if(mtpt != nil)
+		unmount(nil, mtpt);
+}
+
 Srv fs = 
 {
+	.start=fsstart,
 	.attach=fsattach,
 	.stat=fsstat,
 	.walk1=fswalk1,
@@ -757,26 +768,24 @@ Srv fs =
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-D] [-A useragent] [-T timeout] [-m mtpt] [-s srv]\n", argv0);
+	fprint(2, "usage: %s [-D] [-A useragent] [-T timeout] [-m mtpt] [-s service]\n", argv0);
 	exits("usage");
 }
 
 void
 main(int argc, char *argv[])
 {
-	char *srv, *mtpt, *s;
+	char *s;
 
 	quotefmtinstall();
 	fmtinstall('U', Ufmt);
 	fmtinstall('H', Hfmt);
 	fmtinstall('E', Efmt);
 
-	srv = nil;
 	mtpt = "/mnt/web";
 	user = getuser();
 	time0 = time(0);
 	timeout = 10000;
-	agent = nil;
 
 	ARGBEGIN {
 	case 'D':
@@ -794,7 +803,7 @@ main(int argc, char *argv[])
 		mtpt = EARGF(usage());
 		break;
 	case 's':
-		srv = EARGF(usage());
+		service = EARGF(usage());
 		break;
 	case 'd':
 		debug++;
@@ -814,6 +823,6 @@ main(int argc, char *argv[])
 		free(s);
 	}
 
-	postmountsrv(&fs, srv, mtpt, MREPL);
+	postmountsrv(&fs, service, mtpt, MREPL);
 	exits(0);
 }
