@@ -13,26 +13,25 @@ if(! nusb/usbd)
 	fn attach {
 		switch($2$3){
 		case 0b957720 0b95772a 0db0a877 13b10018 15577720 20013c05 07d13c05 05ac1402
-			nusb/ether -t a88772 $etherargs $1 &
+			nusb/ether -t a88772 $etherargs $1
 		case 0b951780 14eaab11 17370039 0411006e 050d5055
-			nusb/ether -t a88178 $etherargs $1 &
+			nusb/ether -t a88178 $etherargs $1
 		case 2001abc1
-			nusb/ether -t aue $etherargs $1 &
+			nusb/ether -t aue $etherargs $1
 		case 0bda8150
-			nusb/ether -t url $etherargs $1 &
+			nusb/ether -t url $etherargs $1
 		case 18d14ee3 0bb40003
-			nusb/ether -t rndis $etherargs $1 &
+			nusb/ether -t rndis $etherargs $1
 		case *
 			switch($4){
 			case *03
-				nusb/kb $1 &
+				nusb/kb $1
 			case *02
 				# CDC ethernet
-				nusb/ether $etherargs $1 &
+				nusb/ether $etherargs $1
 			case *08
-				@{
+				if(nusb/disk $1) {@{
 					rfork ne
-					nusb/disk $1
 					cd '#σ/usb'
 					for(dev in sdU^$1.*) if(test -d $dev) {
 						diskparts $dev
@@ -43,10 +42,10 @@ if(! nusb/usbd)
 							exit
 						}
 					}
-				} &
+				}&}
 			case *
 				if(~ $2 0424)
-					nusb/ether -t smsc $etherargs $1 &
+					nusb/ether -t smsc $etherargs $1
 			}
 		}
 	}
