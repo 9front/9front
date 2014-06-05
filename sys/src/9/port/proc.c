@@ -137,7 +137,7 @@ sched(void)
 		 * in the middle of taslock when a process holds a lock
 		 * but Lock.p has not yet been initialized.
 		 */
-		if(up->nlocks.ref)
+		if(up->nlocks)
 		if(up->state != Moribund)
 		if(up->delaysched < 20
 		|| palloc.Lock.p == up
@@ -632,7 +632,7 @@ newproc(void)
 	p->syserrstr = p->errbuf1;
 	p->errbuf0[0] = '\0';
 	p->errbuf1[0] = '\0';
-	p->nlocks.ref = 0;
+	p->nlocks = 0;
 	p->delaysched = 0;
 	p->trace = 0;
 	kstrdup(&p->user, "*nouser");
@@ -742,9 +742,9 @@ sleep(Rendez *r, int (*f)(void*), void *arg)
 
 	s = splhi();
 
-	if(up->nlocks.ref)
-		print("process %lud sleeps with %lud locks held, last lock %#p locked at pc %#p, sleep called from %#p\n",
-			up->pid, up->nlocks.ref, up->lastlock, up->lastlock->pc, getcallerpc(&r));
+	if(up->nlocks)
+		print("process %lud sleeps with %d locks held, last lock %#p locked at pc %#p, sleep called from %#p\n",
+			up->pid, up->nlocks, up->lastlock, up->lastlock->pc, getcallerpc(&r));
 	lock(r);
 	lock(&up->rlock);
 	if(r->p){
@@ -1289,9 +1289,9 @@ dumpaproc(Proc *p)
 	s = p->psstate;
 	if(s == 0)
 		s = statename[p->state];
-	print("%3lud:%10s pc %#p dbgpc %#p  %8s (%s) ut %ld st %ld bss %lux qpc %#p nl %lud nd %lud lpc %#p pri %lud\n",
+	print("%3lud:%10s pc %#p dbgpc %#p  %8s (%s) ut %ld st %ld bss %lux qpc %#p nl %d nd %lud lpc %#p pri %lud\n",
 		p->pid, p->text, p->pc, dbgpc(p),  s, statename[p->state],
-		p->time[0], p->time[1], bss, p->qpc, p->nlocks.ref, p->delaysched,
+		p->time[0], p->time[1], bss, p->qpc, p->nlocks, p->delaysched,
 		p->lastlock ? p->lastlock->pc : 0, p->priority);
 }
 
