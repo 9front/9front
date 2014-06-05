@@ -610,7 +610,7 @@ Filemagic long0tab[] = {
 	070707,		0xFFFF,		"cpio archive", "application/x-cpio",
 	0x2F7,		0xFFFF,		"tex dvi", "application/dvi",
 	0xfaff,		0xfeff,		"mp3 audio",	"audio/mpeg",
-	0xf0ff,		0xf6ff,		"aac audio\n",	"audio/mpeg",
+	0xf0ff,		0xf6ff,		"aac audio",	"audio/mpeg",
 	/* 0xfeedface: this could alternately be a Next Plan 9 boot image */
 	0xcefaedfe,	0xFFFFFFFF,	"32-bit power Mach-O executable", OCTET,
 	/* 0xfeedfacf */
@@ -627,6 +627,7 @@ Filemagic long0tab[] = {
 	 */
 	0xad4e5cd1,	0xFFFFFFFF,	"venti arena", OCTET,
 	0x2bb19a52,	0xFFFFFFFF,	"paq archive", OCTET,
+	0x1a53454e,	0xFFFFFFFF,	"NES ROM", OCTET,
 };
 
 int
@@ -667,6 +668,7 @@ Fileoffmag longofftab[] = {
 	256*1024, 0xc75e5cd1, 0xFFFFFFFF, "venti index section", OCTET,
 	128*1024, 0x89ae7637, 0xFFFFFFFF, "fossil write buffer", OCTET,
 	4,	  0x31647542, 0xFFFFFFFF, "OS X finder properties", OCTET,
+	0x100,	  0x41474553, 0xFFFFFFFF, "SEGA ROM", OCTET,
 };
 
 int
