@@ -509,39 +509,20 @@ TEXT islo(SB), 1, $-4
 /*
  * Synchronisation
  */
-TEXT ainc8(SB), 1, $-4
-	XORL	AX, AX
-	INCL	AX
-	LOCK;	XADDB AX, (RARG)
-/* BOTCH	INCL	AX */
-	RET
-
-TEXT _xinc(SB), 1, $-4				/* int _inc(long*); */
+TEXT _xinc(SB), 1, $-4				/* void _xinc(long*); */
 	MOVL	$1, AX
 	LOCK; XADDL AX, (RARG)
-	ADDL	$1, AX				/* overflow if -ve or 0 */
-	JGT	_return
-_trap:
-	XORQ	BX, BX
-	MOVQ	(BX), BX			/* over under sideways down */
-_return:
 	RET
 
-TEXT _xdec(SB), 1, $-4				/* int _dec(long*); */
+TEXT _xdec(SB), 1, $-4				/* long _xdec(long*); */
 	MOVL	$-1, AX
 	LOCK; XADDL AX, (RARG)
-	SUBL	$1, AX				/* underflow if -ve */
-	JLT	_trap
+	SUBL	$1, AX
 	RET
 
 TEXT tas(SB), 1, $-4
 	MOVL	$0xdeaddead, AX
 	XCHGL	AX, (RARG)			/*  */
-	RET
-
-TEXT fas64(SB), 1, $-4
-	MOVQ	p+8(FP), AX
-	LOCK; XCHGQ	AX, (RARG)			/*  */
 	RET
 
 TEXT cmpswap486(SB), 1, $-4
@@ -554,18 +535,6 @@ TEXT cas(SB), 1, $-4
 _cas32r1:
 	RET
 _cas32r0:
-	DECL	AX
-	RET
-
-TEXT cas64(SB), 1, $-4
-	MOVQ	exp+8(FP), AX
-	MOVQ	new+16(FP), BX
-	LOCK; CMPXCHGQ BX, (RARG)
-	MOVL	$1, AX				/* use CMOVLEQ etc. here? */
-	JNZ	_cas64r0
-_cas64r1:
-	RET
-_cas64r0:
 	DECL	AX
 	RET
 
