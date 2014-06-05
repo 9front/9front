@@ -65,7 +65,7 @@ allocb(int size)
 	if(up == nil)
 		panic("allocb without up: %#p", getcallerpc(&size));
 	while((b = _allocb(size)) == nil){
-		if(up->nlocks.ref || m->ilockdepth || !islo()){
+		if(up->nlocks || m->ilockdepth || !islo()){
 			xsummary();
 			mallocsummary();
 			panic("allocb: no memory for %d bytes", size);

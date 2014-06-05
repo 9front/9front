@@ -10,8 +10,8 @@ long maxlockcycles;
 long maxilockcycles;
 long cumlockcycles;
 long cumilockcycles;
-ulong maxlockpc;
-ulong maxilockpc;
+uintptr maxlockpc;
+uintptr maxilockpc;
 
 struct
 {
@@ -19,23 +19,6 @@ struct
 	ulong	glare;
 	ulong	inglare;
 } lockstats;
-
-static void
-inccnt(Ref *r)
-{
-	_xinc(&r->ref);
-}
-
-static int
-deccnt(Ref *r)
-{
-	int x;
-
-	x = _xdec(&r->ref);
-	if(x < 0)
-		panic("deccnt pc=%#p", getcallerpc(&r));
-	return x;
-}
 
 static void
 dumplockmem(char *tag, Lock *l)
@@ -73,12 +56,13 @@ lock(Lock *l)
 
 	lockstats.locks++;
 	if(up)
-		inccnt(&up->nlocks);	/* prevent being scheded */
+		up->nlocks++;	/* prevent being scheded */
 	if(tas(&l->key) == 0){
 		if(up)
 			up->lastlock = l;
 		l->pc = pc;
 		l->p = up;
+		l->m = MACHP(m->machno);
 		l->isilock = 0;
 #ifdef LOCKCYCLES
 		l->lockcycles = -lcycles();
@@ -86,7 +70,7 @@ lock(Lock *l)
 		return 0;
 	}
 	if(up)
-		deccnt(&up->nlocks);
+		up->nlocks--;
 
 	lockstats.glare++;
 	for(;;){
@@ -108,12 +92,13 @@ lock(Lock *l)
 			}
 		}
 		if(up)
-			inccnt(&up->nlocks);
+			up->nlocks++;
 		if(tas(&l->key) == 0){
 			if(up)
 				up->lastlock = l;
 			l->pc = pc;
 			l->p = up;
+			l->m = MACHP(m->machno);
 			l->isilock = 0;
 #ifdef LOCKCYCLES
 			l->lockcycles = -lcycles();
@@ -121,7 +106,7 @@ lock(Lock *l)
 			return 1;
 		}
 		if(up)
-			deccnt(&up->nlocks);
+			up->nlocks--;
 	}
 }
 
@@ -159,8 +144,8 @@ acquire:
 	l->sr = x;
 	l->pc = pc;
 	l->p = up;
-	l->isilock = 1;
 	l->m = MACHP(m->machno);
+	l->isilock = 1;
 #ifdef LOCKCYCLES
 	l->lockcycles = -lcycles();
 #endif
@@ -170,10 +155,10 @@ int
 canlock(Lock *l)
 {
 	if(up)
-		inccnt(&up->nlocks);
+		up->nlocks++;
 	if(tas(&l->key)){
 		if(up)
-			deccnt(&up->nlocks);
+			up->nlocks--;
 		return 0;
 	}
 
@@ -210,7 +195,7 @@ unlock(Lock *l)
 	l->key = 0;
 	coherence();
 
-	if(up && deccnt(&up->nlocks) == 0 && up->delaysched && islo()){
+	if(up && --up->nlocks == 0 && up->delaysched && islo()){
 		/*
 		 * Call sched if the need arose while locks were held
 		 * But, don't do it from interrupt routines, hence the islo() test
@@ -219,7 +204,7 @@ unlock(Lock *l)
 	}
 }
 
-ulong ilockpcs[0x100] = { [0xff] = 1 };
+uintptr ilockpcs[0x100] = { [0xff] = 1 };
 static int n;
 
 void
