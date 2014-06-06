@@ -158,3 +158,7 @@ Subject: [9fans] Need help setting up MacPro to prepare ps files for printing on
 I don't care if it's 3 meg or 300 meg, compared to the size of my hard drive. -- Brad Fitzgerald, on golang binary size
 Did you know that more than 80 percent of the time when a gun is fired in the U.S., no one calls 911?
 Subject: acme not opening urls
+To keep the ball rolling, let me suggest that we drop the requirement that Plan 9 be self-contained as a measure to make some progress with existing expertise.
+Plan 9 does not (yet?) contain sufficient tools to be self-sustaining.
+Has anyone else had trouble getting recent plan9.iso’s to boot?
+This year I'll continue to work on the Dart implementation of dis interpreter.
