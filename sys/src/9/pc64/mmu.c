@@ -287,7 +287,7 @@ pmap(uintptr *pml4, uintptr pa, uintptr va, vlong size)
 	uintptr *pte, *ptee, flags;
 	int z, l;
 
-	if((size <= 0) || va < VMAP)
+	if(size <= 0 || va < VMAP)
 		panic("pmap: pa=%#p va=%#p size=%lld", pa, va, size);
 	flags = pa;
 	pa = PPN(pa);
