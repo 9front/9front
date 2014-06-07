@@ -32,6 +32,7 @@ PORT=\
 	qlock.$O\
 	segment.$O\
 	swap.$O\
+	syscallfmt.$O\
 	sysfile.$O\
 	sysproc.$O\
 	taslock.$O\
@@ -46,6 +47,7 @@ OBJ=\
 	clock.$O\
 	arch.$O\
 	trap.$O\
+	syscall.$O\
 	$CONF.root.$O\
 	$CONF.rootc.$O\
 	$DEVS\

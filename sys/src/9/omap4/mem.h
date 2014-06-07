@@ -30,7 +30,9 @@
 #define KSTKSIZ		(16*KiB)
 #define KSTACK		KSTKSIZ
 #define USTKSIZE		(8*MiB)
-#define HZ		100
+
+#define	HZ		(100)			/* clock frequency */
+#define	MS2HZ		(1000/HZ)		/* millisec per clock tick */
 
 #define	MAXSYSARG	7
 #define MAXMACH		2

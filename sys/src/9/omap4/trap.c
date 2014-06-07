@@ -346,7 +346,7 @@ syscall(Ureg *ureg)
 			error(Ebadarg);
 		}
 		up->psstate = sysctab[scall];
-		ret = systab[scall](up->s.args);
+		ret = systab[scall]((va_list)up->s.args);
 		poperror();
 	}else{
 		e = up->syserrstr;

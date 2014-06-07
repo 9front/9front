@@ -29,7 +29,7 @@ dev
 #	mouse
 
 	uart
-	usb
+#	usb
 
 link
 #	archoma
@@ -39,7 +39,7 @@ link
 	netdevmedium
 
 #	usbohci
-	usbehci		usbehciomap
+#	usbehci		usbehciomap
 
 ip
 	tcp
@@ -58,7 +58,6 @@ misc
 #	mouse
 #	sdaoe		sdscsi
 #	softfpu
-#	syscall
 #	uarti8250
 #	ucalloc
 #	ucallocb
