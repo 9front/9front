@@ -62,8 +62,6 @@ misc
 	cache-l2-pl310
 #	mouse
 #	sdaoe		sdscsi
-	syscall
-	syscallfmt
 	uarti8250
 	ucalloc
 	ucallocb
