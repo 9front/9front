@@ -524,28 +524,6 @@ getconf(char*)
 	return nil;
 }
 
-long
-_xdec(long *p)
-{
-	int s;
-	long v;
-
-	s = splhi();
-	v = --*p;
-	splx(s);
-	return v;
-}
-
-void
-_xinc(long *p)
-{
-	int s;
-
-	s = splhi();
-	++*p;
-	splx(s);
-}
-
 int
 cmpswap(long *addr, long old, long new)
 {

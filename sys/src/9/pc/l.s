@@ -700,25 +700,6 @@ TEXT tas(SB), $0
 	XCHGL	AX, (BX)			/* lock->key */
 	RET
 
-TEXT _xinc(SB), $0				/* void _xinc(long*); */
-	MOVL	l+0(FP), AX
-	LOCK;	INCL 0(AX)
-	RET
-
-TEXT _xdec(SB), $0				/* long _xdec(long*); */
-	MOVL	l+0(FP), BX
-	XORL	AX, AX
-	LOCK;	DECL 0(BX)
-	JLT	_xdeclt
-	JGT	_xdecgt
-	RET
-_xdecgt:
-	INCL	AX
-	RET
-_xdeclt:
-	DECL	AX
-	RET
-
 TEXT mb386(SB), $0
 	POPL	AX				/* return PC */
 	PUSHFL

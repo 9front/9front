@@ -146,7 +146,6 @@ casfail:
 	RET
 
 TEXT ainc(SB), $-4
-TEXT _xinc(SB), $-4
 spinainc:
 	LDREX(0,1)
 	ADD	$1, R1
@@ -157,7 +156,6 @@ spinainc:
 	RET
 
 TEXT adec(SB), $-4
-TEXT _xdec(SB), $-4
 spinadec:
 	LDREX(0,1)
 	SUB	$1, R1

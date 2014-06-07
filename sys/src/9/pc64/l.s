@@ -509,17 +509,6 @@ TEXT islo(SB), 1, $-4
 /*
  * Synchronisation
  */
-TEXT _xinc(SB), 1, $-4				/* void _xinc(long*); */
-	MOVL	$1, AX
-	LOCK; XADDL AX, (RARG)
-	RET
-
-TEXT _xdec(SB), 1, $-4				/* long _xdec(long*); */
-	MOVL	$-1, AX
-	LOCK; XADDL AX, (RARG)
-	SUBL	$1, AX
-	RET
-
 TEXT tas(SB), 1, $-4
 	MOVL	$0xdeaddead, AX
 	XCHGL	AX, (RARG)			/*  */

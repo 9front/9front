@@ -932,11 +932,6 @@ command(Drive *d, uint cmd, int ms)
 	m = 1<<i;
 	n = cmd | Ditor | i*Dsatareg | m*Dphyno | i*Dcslot;
 //	print("cqwp\t%.8ux : n %ux : d%d; \n", c->cq[0], n, i);
-	/*
-	 * xinc doesn't return the previous value and i can't
-	 * figure out how to do this without a lock
-	 *	s = _xinc(&c->dqwp);
-	 */
 	d->cmd->cflag = Active;
 	ilock(c);
 	s = c->dqwp++;
