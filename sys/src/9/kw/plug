@@ -58,7 +58,6 @@ misc
 	coproc
 	sdaoe		sdscsi
 	softfpu
-	syscall
 	uartkw
 	ucalloc
 ##	vgavesa

@@ -54,6 +54,7 @@ OBJ=\
 	main.$O\
 	mmu.$O\
 	trap.$O\
+	syscall.$O\
 	$CONF.root.$O\
 	$CONF.rootc.$O\
 	$DEVS\
