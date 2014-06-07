@@ -61,7 +61,6 @@ misc
 	mouse
 #	sdaoe		sdscsi
 	softfpu
-	syscall
 	uarti8250
 	ucalloc
 	ucallocb
