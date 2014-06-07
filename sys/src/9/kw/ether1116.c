@@ -484,8 +484,6 @@ static void getmibstats(Ctlr *);
 static void
 rxfreeb(Block *b)
 {
-	/* freeb(b) will have previously decremented b->ref to 0; raise to 1 */
-	_xinc(&b->ref);
 	b->wp = b->rp =
 		(uchar*)((uintptr)(b->lim - Rxblklen) & ~(Bufalign - 1));
 	assert(((uintptr)b->rp & (Bufalign - 1)) == 0);
@@ -1413,7 +1411,6 @@ ctlralloc(Ctlr *ctlr)
 			iprint("ether1116: no memory for rx buffers\n");
 			break;
 		}
-		assert(b->ref == 1);
 		b->wp = b->rp = (uchar*)
 			((uintptr)(b->lim - Rxblklen) & ~(Bufalign - 1));
 		assert(((uintptr)b->rp & (Bufalign - 1)) == 0);

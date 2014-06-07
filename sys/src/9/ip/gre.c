@@ -65,7 +65,7 @@ struct GREhdr{
 typedef struct GREpriv GREpriv;
 struct GREpriv{
 	/* non-MIB stats */
-	ulong	lenerr;			/* short packet */
+	uvlong	lenerr;			/* short packet */
 };
 
 typedef struct Bring	Bring;
@@ -135,8 +135,8 @@ static char *sessend = "session end";
 static void grekick(void *x, Block *bp);
 static char *gresetup(Conv *, char *, char *, char *);
 
-ulong grepdin, grepdout, grebdin, grebdout;
-ulong grepuin, grepuout, grebuin, grebuout;
+uvlong grepdin, grepdout, grebdin, grebdout;
+uvlong grepuin, grepuout, grebuin, grebuout;
 
 static Block *
 getring(Bring *r)
@@ -437,13 +437,7 @@ restart:
 	memmove(gre->src, grec->coa, sizeof gre->dst);
 	memmove(gre->dst, grec->south, sizeof gre->dst);
 
-	/*
-	 * Make sure the packet does not go away.
-	 */
-	_xinc(&bp->ref);
-	assert(bp->ref == 2);
-
-	ipoput4(c->p->f, bp, 0, gre->ttl - 1, gre->tos, nil);
+	ipoput4(c->p->f, copyblock(bp, BLEN(bp)), 0, gre->ttl - 1, gre->tos, nil);
 	grepdout++;
 	grebdout += BLEN(bp);
 
@@ -673,7 +667,7 @@ grestats(Proto *gre, char *buf, int len)
 
 	gpriv = gre->priv;
 	return snprint(buf, len,
-		"gre: %lud %lud %lud %lud %lud %lud %lud %lud, lenerrs %lud\n",
+		"gre: %llud %llud %llud %llud %llud %llud %llud %llud, lenerrs %llud\n",
 		grepdin, grepdout, grepuin, grepuout,
 		grebdin, grebdout, grebuin, grebuout, gpriv->lenerr);
 }
@@ -800,13 +794,7 @@ grectldlresume(Conv *c, int, char **)
 		gre = (GREhdr *)bp->rp;
 		qunlock(&grec->lock);
 
-		/*
-		 * Make sure the packet does not go away.
-		 */
-		_xinc(&bp->ref);
-		assert(bp->ref == 2);
-
-		ipoput4(c->p->f, bp, 0, gre->ttl - 1, gre->tos, nil);
+		ipoput4(c->p->f, copyblock(bp, BLEN(bp)), 0, gre->ttl - 1, gre->tos, nil);
 
 		qlock(&grec->lock);
 		addring(&grec->dlpending, bp);
@@ -841,8 +829,7 @@ grectlulresume(Conv *c, int, char **)
 static char *
 grectlforward(Conv *c, int, char **argv)
 {
-	int len;
-	Block *bp, *nbp;
+	Block *bp;
 	GREconv *grec;
 	GREhdr *gre;
 	Metablock *m;
@@ -866,22 +853,7 @@ grectlforward(Conv *c, int, char **argv)
 		m = (Metablock *)bp->base;
 		assert(m->rp >= bp->base && m->rp < bp->lim);
 
-		/*
-		 * If the packet is still held inside the IP transmit
-		 * system, make a copy of the packet first.
-		 */
-		if(bp->ref > 1){
-			len = bp->wp - m->rp;
-			nbp = allocb(len);
-			memmove(nbp->wp, m->rp, len);
-			nbp->wp += len;
-			freeb(bp);
-			bp  = nbp;
-		}
-		else{
-			/* Patch up rp */
-			bp->rp = m->rp;
-		}
+		bp->rp = m->rp;
 
 		gre = (GREhdr *)bp->rp;
 		memmove(gre->src, grec->coa, sizeof gre->dst);

@@ -864,7 +864,6 @@ balloc(Rx* rx)
 	if((bp = rx->pool->head) != nil){
 		rx->pool->head = bp->next;
 		bp->next = nil;
-		_xinc(&bp->ref);	/* prevent bp from being freed */
 		rx->pool->n--;
 	}
 	iunlock(rx->pool);

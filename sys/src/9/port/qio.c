@@ -77,8 +77,7 @@ freeblist(Block *b)
 
 	for(; b != 0; b = next){
 		next = b->next;
-		if(b->ref == 1)
-			b->next = nil;
+		b->next = nil;
 		freeb(b);
 	}
 }

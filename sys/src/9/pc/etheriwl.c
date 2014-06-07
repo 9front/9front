@@ -1346,7 +1346,7 @@ postboot(Ctlr *ctlr)
 					continue;
 				if((b = ctlr->calib.cmd[i]) == nil)
 					continue;
-				b->ref++;	/* dont free on command completion */
+				b = copyblock(b, BLEN(b));
 				if((err = qcmd(ctlr, 4, 176, nil, 0, b)) != nil){
 					freeb(b);
 					return err;

@@ -30,8 +30,6 @@ _allocb(int size)
 	b->list = nil;
 	b->free = 0;
 	b->flag = 0;
-	b->ref = 0;
-	_xinc(&b->ref);
 
 	/* align start of data portion by rounding up */
 	addr = (uintptr)b;
@@ -123,15 +121,9 @@ void
 freeb(Block *b)
 {
 	void *dead = (void*)Bdead;
-	long ref;
 
-	if(b == nil || (ref = _xdec(&b->ref)) > 0)
+	if(b == nil)
 		return;
-
-	if(ref < 0){
-		dumpstack();
-		panic("freeb: ref %ld; caller pc %#p", ref, getcallerpc(&b));
-	}
 
 	/*
 	 * drivers which perform non cache coherent DMA manage their own buffer
