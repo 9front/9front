@@ -438,10 +438,19 @@ putmmu(uintptr va, uintptr pa, Page *)
 		invlpg(va);
 }
 
+/*
+ * Double-check the user MMU.
+ * Error checking only.
+ */
 void
 checkmmu(uintptr va, uintptr pa)
 {
-	USED(va, pa);
+	uintptr *pte;
+
+	pte = mmuwalk(m->pml4, va, 0, 0);
+	if(pte != 0 && (*pte & PTEVALID) != 0 && PPN(*pte) != pa)
+		print("%ld %s: va=%#p pa=%#p pte=%#p\n",
+			up->pid, up->text, va, pa, *pte);
 }
 
 uintptr
