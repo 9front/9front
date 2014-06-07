@@ -864,6 +864,7 @@ struct	FILE_STRING
 	"#EXTM3U",		"playlist",		7,	"audio/x-mpegurl",
 	"BEGIN:VCARD\r\n",	"vCard",		13,	"text/directory;profile=vcard",
 	"BEGIN:VCARD\n",	"vCard",		12,	"text/directory;profile=vcard",
+	"AT&T",			"DjVu document",	4,	"image/vnd.djvu",
 	0,0,0,0
 };
 
