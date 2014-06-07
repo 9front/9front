@@ -186,7 +186,7 @@ mtrrop(Mtrrop **op)
 	int s;
 	ulong cr0, cr4;
 	vlong def;
-	static long bar1, bar2;
+	static Ref bar1, bar2;
 
 	s = splhi();		/* avoid race with mtrrclock */
 
@@ -194,8 +194,8 @@ mtrrop(Mtrrop **op)
 	 * wait for all CPUs to sync here, so that the MTRR setup gets
 	 * done at roughly the same time on all processors.
 	 */
-	_xinc(&bar1);
-	while(bar1 < conf.nmach)
+	incref(&bar1);
+	while(bar1.ref < conf.nmach)
 		microdelay(10);
 
 	cr4 = getcr4();
@@ -218,14 +218,14 @@ mtrrop(Mtrrop **op)
 	 * wait for all CPUs to sync up again, so that we don't continue
 	 * executing while the MTRRs are still being set up.
 	 */
-	_xinc(&bar2);
-	while(bar2 < conf.nmach)
+	incref(&bar2);
+	while(bar2.ref < conf.nmach)
 		microdelay(10);
+	decref(&bar1);
+	while(bar1.ref > 0)
+		microdelay(10);
+	decref(&bar2);
 	*op = nil;
-	_xdec(&bar1);
-	while(bar1 > 0)
-		microdelay(10);
-	_xdec(&bar2);
 	wakeup(&oprend);
 	splx(s);
 }
@@ -288,6 +288,10 @@ mtrr(uvlong base, uvlong size, char *tstr)
 	}
 
 	qlock(&mtrrlk);
+	if(waserror()){
+		qunlock(&mtrrlk);
+		nexterror();
+	}
 	slot = -1;
 	vcnt = cap & Capvcnt;
 	if(vcnt > Nmtrr)
@@ -305,14 +309,16 @@ mtrr(uvlong base, uvlong size, char *tstr)
 	if(slot == -1)
 		error("no free mtrr slots");
 
-	while(postedop != nil)
+	while(!opavail(0))
 		sleep(&oprend, opavail, 0);
+
 	mtrrenc(&entry, base, size, type, 1);
 	op.reg = &entry;
 	op.slot = slot;
 	postedop = &op;
 	mtrrop(&postedop);
 	qunlock(&mtrrlk);
+	poperror();
 	return 0;
 }
 
