@@ -49,7 +49,7 @@ swapinit(void)
 	swapimage.notext = 1;
 }
 
-uintptr
+static uintptr
 newswap(void)
 {
 	uchar *look;
@@ -64,7 +64,8 @@ newswap(void)
 	if(look == 0)
 		panic("inconsistent swap");
 
-	*look = 1;
+	*look = 2;	/* ref for pte + io transaction */
+
 	swapalloc.last = look;
 	swapalloc.free--;
 	unlock(&swapalloc);
@@ -324,24 +325,20 @@ pagepte(int type, Page **pg)
 	case SG_STACK:
 	case SG_SHARED:
 		/*
-		 *  get a new swap address and clear any pages
-		 *  referring to it from the cache
+		 *  get a new swap address with swapcount 2, one for the pte
+		 *  and one extra ref for us while we write the page to disk
 		 */
 		daddr = newswap();
 		if(daddr == ~0)
 			break;
+
+		/* clear any pages referring to it from the cache */
 		cachedel(&swapimage, daddr);
 
 		lock(outp);
 
 		/* forget anything that it used to cache */
 		uncachepage(outp);
-
-		/*
-		 *  incr the reference count to make sure it sticks around while
-		 *  being written
-		 */
-		outp->ref++;
 
 		/*
 		 *  enter it into the cache so that a fault happening
@@ -396,23 +393,27 @@ executeio(void)
 		if(ioptr > conf.nswppo)
 			panic("executeio: ioptr %d > %d", ioptr, conf.nswppo);
 		out = iolist[i];
-		k = kmap(out);
-		kaddr = (char*)VA(k);
 
-		if(waserror())
-			panic("executeio: page out I/O error");
+		/* only write when swap address still referenced */
+		if(swapcount(out->daddr) > 1){
+			k = kmap(out);
+			kaddr = (char*)VA(k);
 
-		n = devtab[c->type]->write(c, kaddr, BY2PG, out->daddr);
-		if(n != BY2PG)
-			nexterror();
+			if(waserror())
+				panic("executeio: page out I/O error");
 
-		kunmap(k);
-		poperror();
+			n = devtab[c->type]->write(c, kaddr, BY2PG, out->daddr);
+			if(n != BY2PG)
+				nexterror();
+
+			kunmap(k);
+			poperror();
+		}
+
+		/* drop our extra swap reference */
+		putswap((Page*)out->daddr);
 
 		/* Free up the page after I/O */
-		lock(out);
-		out->ref--;
-		unlock(out);
 		putpage(out);
 	}
 	ioptr = 0;
