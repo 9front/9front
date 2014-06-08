@@ -48,8 +48,9 @@ main(int argc, char **argv)
 	char *dbfile, *s;
 	char buf[128];
 	float brpsec, bwpsec, bppsec;
-	int type, cpid, fspid, n;
+	int type, cpid, fspid, n, mflag;
 
+	mflag = MREPL;
 	dbfile = DEBUGFILE;
 
 	ARGBEGIN{
@@ -58,6 +59,9 @@ main(int argc, char **argv)
 		break;
 	case 'f':
 		dbfile = ARGF();
+		break;
+	case 'C':
+		mflag |= MCACHE;
 		break;
 	default:
 		usage();
@@ -83,7 +87,7 @@ main(int argc, char **argv)
 			fatal("no working directory");
 
 		rfork(RFENVG|RFNAMEG|RFNOTEG);
-		if(mount(p[0], -1, "/", MREPL, "") < 0)
+		if(mount(p[0], -1, "/", mflag, "") < 0)
 			fatal("mount /");
 
 		bind("#c/pid", "/dev/pid", MREPL);

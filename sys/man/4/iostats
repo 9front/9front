@@ -5,8 +5,9 @@ iostats \- file system to measure I/O
 .B iostats
 [
 .B -d
-]
-[
+] [
+.B -C
+] [
 .B -f
 .I dbfile
 ]
@@ -55,6 +56,12 @@ is written to
 .I dbfile
 (default
 .BR iostats.out ).
+.PP
+The
+.B -C
+flag sets the MCACHE flag on the mount which allows
+the kernel to cache (see 
+.IR bind(1) ).
 .SH EXAMPLE
 Display summary of file I/O incurred by
 .IR ls (1):
