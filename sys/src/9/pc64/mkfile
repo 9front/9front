@@ -39,7 +39,6 @@ PORT=\
 	taslock.$O\
 	tod.$O\
 	xalloc.$O\
-	random.$O\
 
 OBJ=\
 	l.$O\
@@ -50,6 +49,7 @@ OBJ=\
 	memory.$O\
 	mmu.$O\
 	trap.$O\
+	pcrandom.$O\
 	$CONF.root.$O\
 	$CONF.rootc.$O\
 	$DEVS\
