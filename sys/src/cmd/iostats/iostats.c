@@ -166,10 +166,8 @@ main(int argc, char **argv)
 
 		while((n = read9pmsg(p[1], r->buf, sizeof(r->buf))) == 0 && !done)
 			;
-		if(done)
+		if(done || n < 0)
 			break;
-		if(n < 0)
-			fatal("read server");
 
 		if(convM2S(r->buf, n, &r->work) == 0)
 			fatal("format error");
