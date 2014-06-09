@@ -1746,6 +1746,7 @@ hdamatch(Pcidev *p)
 		case (0x8086 << 16) | 0x080a:	/* Intel SCH (Oaktrail) */
 		case (0x8086 << 16) | 0x1c20:	/* Intel PCH */
 		case (0x8086 << 16) | 0x1e20:	/* Intel (Thinkpad x230t) */
+		case (0x8086 << 16) | 0x8c20:	/* Intel 8 Series/C220 Series */
 
 		case (0x10de << 16) | 0x026c:	/* NVidia MCP51 (untested) */
 		case (0x10de << 16) | 0x0371:	/* NVidia MCP55 (untested) */
@@ -1863,6 +1864,7 @@ Found:
 		case 0x1e20:
 		case 0x811b:	/* SCH */
 		case 0x080a:
+		case 0x8c20:
 			pcicfgw16(p, 0x78, pcicfgr16(p, 0x78) & ~0x800);
 		}
 	}
