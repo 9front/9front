@@ -39,6 +39,7 @@ extern void*	poolrealloc(Pool*, void*, ulong);
 extern void	poolcheck(Pool*);
 extern int	poolcompact(Pool*);
 extern void	poolblockcheck(Pool*, void*);
+extern void	pooldump(Pool*);
 
 extern Pool*	mainmem;
 extern Pool*	imagmem;
