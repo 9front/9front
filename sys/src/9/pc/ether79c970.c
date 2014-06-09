@@ -404,6 +404,7 @@ intrloop:
 	 * until a descriptor is encountered still owned by the chip.
 	 */
 	if(csr0 & Rint){
+		ilock(ctlr);
 		i = ctlr->rdrx;
 		dre = &ctlr->rdr[i];
 		while(!(dre->md1 & Own)){
@@ -435,16 +436,17 @@ intrloop:
 			dre->md2 = 0;
 			dre->md1 = Own|(-Rbsize & 0xFFFF);
 
-			ctlr->rdrx = NEXT(ctlr->rdrx, Nrdre);
-			dre = &ctlr->rdr[ctlr->rdrx];
+			i = ctlr->rdrx = NEXT(ctlr->rdrx, Nrdre);
+			dre = &ctlr->rdr[i];
 		}
+		iunlock(ctlr);
 	}
 
 	/*
 	 * Transmitter interrupt: wakeup anyone waiting for a free descriptor.
 	 */
 	if(csr0 & Tint){
-		lock(ctlr);
+		ilock(ctlr);
 		while(ctlr->ntq){
 			i = ctlr->tdri;
 			dre = &ctlr->tdr[i];
@@ -474,7 +476,7 @@ intrloop:
 			ctlr->tdri = NEXT(ctlr->tdri, Ntdre);
 		}
 		txstart(ether);
-		unlock(ctlr);
+		iunlock(ctlr);
 	}
 	goto intrloop;
 }
