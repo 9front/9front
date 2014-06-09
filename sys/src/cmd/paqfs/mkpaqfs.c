@@ -67,7 +67,7 @@ main(int argc, char *argv[])
 				blocksize *= 1024;
 		}
 		if(blocksize < MinBlockSize)
-			sysfatal("blocksize too small: must be at lease %d", MinBlockSize);
+			sysfatal("blocksize too small: must be at least %d", MinBlockSize);
 		if(blocksize > MaxBlockSize)
 			sysfatal("blocksize too large: must be no greater than %d", MaxBlockSize);
 		break;
