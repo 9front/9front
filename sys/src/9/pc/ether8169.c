@@ -120,6 +120,7 @@ enum {					/* Tcr */
 	Macv28		= 0x2c000000,	/* RTL8111/8168B */
 	Macv29		= 0x40800000,	/* RTL8101/8102E */
 	Macv30		= 0x24000000,	/* RTL8101E? (untested) */
+	Macv40		= 0x4c000000,	/* RTL8168G */
 	Ifg0		= 0x01000000,	/* Interframe Gap 0 */
 	Ifg1		= 0x02000000,	/* Interframe Gap 1 */
 };
@@ -178,6 +179,7 @@ enum {					/* Cplusc */
 	Dac		= 0x0010,	/* PCI Dual Address Cycle Enable */
 	Rxchksum	= 0x0020,	/* Receive Checksum Offload Enable */
 	Rxvlan		= 0x0040,	/* Receive VLAN De-tagging Enable */
+	Macstatdis	= 0x0080,	/* Disable Mac Statistics */
 	Endian		= 0x0200,	/* Endian Mode */
 };
 
@@ -697,7 +699,15 @@ rtl8169init(Ether* edev)
 
 	cplusc = csr16r(ctlr, Cplusc);
 	cplusc &= ~(Endian|Rxchksum);
-	cplusc |= Txenb|Rxenb|Mulrw;
+	cplusc |= Txenb|Mulrw;
+	switch(ctlr->macv){
+	case Macv40:
+		cplusc |= Macstatdis;
+		break;
+	default:
+		cplusc |= Rxenb;
+		break;
+	}
 	csr16w(ctlr, Cplusc, cplusc);
 
 	csr32w(ctlr, Tnpds+4, 0);
@@ -1040,6 +1050,7 @@ vetmacv(Ctlr *ctlr, uint *macv)
 	case Macv28:
 	case Macv29:
 	case Macv30:
+	case Macv40:
 		break;
 	}
 	return 0;
