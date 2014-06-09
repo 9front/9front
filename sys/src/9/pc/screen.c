@@ -179,12 +179,12 @@ flushmemscreen(Rectangle r)
 	scr = &vgascreen[0];
 	if(scr->gscreen == nil || scr->useflush == 0)
 		return;
+	if(rectclip(&r, scr->gscreen->r) == 0)
+		return;
 	if(scr->dev && scr->dev->flush){
 		scr->dev->flush(scr, r);
 		return;
 	}
-	if(rectclip(&r, scr->gscreen->r) == 0)
-		return;
 	disp = scr->vaddr;
 	incs = scr->gscreen->width*sizeof(ulong);
 	off = (r.min.x*scr->gscreen->depth) / 8;
