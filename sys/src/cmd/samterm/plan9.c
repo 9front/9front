@@ -9,6 +9,10 @@
 #include "flayer.h"
 #include "samterm.h"
 
+enum {
+	STACK = 4096,
+};
+
 static char exname[64];
 
 void
@@ -172,7 +176,7 @@ extstart(void)
 	plumbc = chancreate(sizeof(int), 0);
 	arg[0] = plumbc;
 	arg[1] = &p[1];
-	proccreate(extproc, arg, 1024);
+	proccreate(extproc, arg, STACK);
 	atexit(removeextern);
 }
 
@@ -264,7 +268,7 @@ plumbstart(void)
 	}
 	arg[0] =plumbc;
 	arg[1] = &fd;
-	proccreate(plumbproc, arg, 4096);
+	proccreate(plumbproc, arg, STACK);
 	return 1;
 }
 
@@ -299,5 +303,5 @@ void
 hoststart(void)
 {
 	hostc = chancreate(sizeof(int), 0);
-	proccreate(hostproc, hostc, 1024);
+	proccreate(hostproc, hostc, STACK);
 }
