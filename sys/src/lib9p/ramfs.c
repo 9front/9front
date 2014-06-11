@@ -53,7 +53,7 @@ fswrite(Req *r)
 	count = r->ifcall.count;
 
 	if(offset+count >= rf->ndata){
-		v = erealloc9p(rf->data, offset+count);
+		v = realloc(rf->data, offset+count);
 		if(v == nil){
 			respond(r, Enomem);
 			return;
