@@ -21,8 +21,9 @@ static double private_mem[PRIVATE_mem], *pmem_next = private_mem;
 #define DBL_MAX_EXP	1024
 #define FLT_RADIX	2
 #define Storeinc(a,b,c) (*a++ = b << 16 | c & 0xffff)
-#define fpword0(x) ((FPdbleword*)&x)->hi
-#define fpword1(x) ((FPdbleword*)&x)->lo
+#define fpword0(x) ((x).hi)
+#define fpword1(x) ((x).lo)
+
 /* Ten_pmax = floor(P*log(2)/log(5)) */
 /* Bletch = (highest power of 2 < DBL_MAX_10_EXP) / 16 */
 /* Quick_max = floor((P-1)*log(FLT_RADIX)/log(10) - 1) */
@@ -45,14 +46,12 @@ static double private_mem[PRIVATE_mem], *pmem_next = private_mem;
 #define Bletch 0x10
 #define Bndry_mask  0xfffff
 #define Bndry_mask1 0xfffff
-#define LSB 1
 #define Sign_bit 0x80000000
 #define Log2P 1
 #define Tiny0 0
 #define Tiny1 1
 #define Quick_max 14
 #define Int_max 14
-#define Avoid_Underflow
 
 #define rounded_product(a,b) a *= b
 #define rounded_quotient(a,b) a /= b
@@ -83,6 +82,8 @@ Balloc(int k)
 	int	x;
 	Bigint * rv;
 	unsigned int	len;
+
+	assert(k < nelem(freelist));
 
 	ACQUIRE_DTOA_LOCK(0);
 	if (rv = freelist[k]) {
@@ -483,25 +484,25 @@ diff(Bigint *a, Bigint *b)
 }
 
 static double	
-ulp(double x)
+ulp(FPdbleword x)
 {
-	register int L;
-	double	a;
+	int L;
+	FPdbleword a;
 
 	L = (fpword0(x) & Exp_mask) - (P - 1) * Exp_msk1;
 	fpword0(a) = L;
 	fpword1(a) = 0;
-	return a;
+	return a.x;
 }
 
-static double	
+static FPdbleword	
 b2d(Bigint *a, int *e)
 {
 	unsigned int * xa, *xa0, w, y, z;
 	int	k;
-	double	d;
 #define d0 fpword0(d)
 #define d1 fpword1(d)
+	FPdbleword d;
 
 	xa0 = a->x;
 	xa = xa0 + a->wds;
@@ -530,13 +531,13 @@ ret_d:
 }
 
 static Bigint *
-d2b(double d, int *e, int *bits)
+d2b(FPdbleword d, int *e, int *bits)
 {
 	Bigint * b;
-	int	de, i, k;
+	int	de, k;
 	unsigned int * x, y, z;
-#define d0 fpword0(d)
-#define d1 fpword1(d)
+#define d0 d.hi
+#define d1 d.lo
 
 	b = Balloc(1);
 	x = b->x;
@@ -551,11 +552,11 @@ d2b(double d, int *e, int *bits)
 			z >>= k;
 		} else
 			x[0] = y;
-		i = b->wds = (x[1] = z) ? 2 : 1;
+		b->wds = (x[1] = z) ? 2 : 1;
 	} else {
 		k = lo0bits(&z);
 		x[0] = z;
-		i = b->wds = 1;
+		b->wds = 1;
 		k += 32;
 	}
 	*e = de - Bias - (P - 1) + k;
@@ -569,7 +570,7 @@ d2b(double d, int *e, int *bits)
 static double	
 ratio(Bigint *a, Bigint *b)
 {
-	double	da, db;
+	FPdbleword da, db;
 	int	k, ka, kb;
 
 	da = b2d(a, &ka);
@@ -581,7 +582,7 @@ ratio(Bigint *a, Bigint *b)
 		k = -k;
 		fpword0(db) += k * Exp_msk1;
 	}
-	return da / db;
+	return da.x / db.x;
 }
 
 static const double
@@ -626,7 +627,7 @@ match(const char **sp, char *t)
 }
 
 static void	
-gethex(double *rvp, const char **sp)
+gethex(FPdbleword *rvp, const char **sp)
 {
 	unsigned int c, x[2];
 	const char * s;
@@ -813,7 +814,7 @@ freedtoa(char *s)
  */
 
 char	*
-dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve)
+dtoa(double _d, int mode, int ndigits, int *decpt, int *sign, char **rve)
 {
 	/*	Arguments ndigits, decpt, sign are similar to those
 	of ecvt and fcvt; trailing zeros are suppressed from
@@ -854,9 +855,11 @@ dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve)
 	spec_case, try_quick;
 	int L;
 	Bigint * b, *b1, *delta, *mlo=nil, *mhi, *S;
-	double	d2, ds, eps;
+	double	ds;
+	FPdbleword d, d2, eps;
 	char	*s, *s0;
 
+	d.x = _d;
 	if (fpword0(d) & Sign_bit) {
 		/* set sign for everything, including 0's and NaNs */
 		*sign = 1;
@@ -871,7 +874,7 @@ dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve)
 			return nrv_alloc("Infinity", rve, 8);
 		return nrv_alloc("NaN", rve, 3);
 	}
-	if (!d) {
+	if (!d.x) {
 		*decpt = 1;
 		return nrv_alloc("0", rve, 1);
 	}
@@ -905,13 +908,13 @@ dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve)
 		 */
 
 	i -= Bias;
-	ds = (d2 - 1.5) * 0.289529654602168 + 0.1760912590558 + i * 0.301029995663981;
+	ds = (d2.x - 1.5) * 0.289529654602168 + 0.1760912590558 + i * 0.301029995663981;
 	k = (int)ds;
 	if (ds < 0. && ds != k)
 		k--;	/* want k = floor(ds) */
 	k_check = 1;
 	if (k >= 0 && k <= Ten_pmax) {
-		if (d < tens[k])
+		if (d.x < tens[k])
 			k--;
 		k_check = 0;
 	}
@@ -932,6 +935,7 @@ dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve)
 		b5 = -k;
 		s5 = 0;
 	}
+	assert(k < 100);
 	if (mode < 0 || mode > 9)
 		mode = 0;
 	try_quick = 1;
@@ -943,6 +947,7 @@ dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve)
 	switch (mode) {
 	case 0:
 	case 1:
+	default:
 		ilim = ilim1 = -1;
 		i = 18;
 		ndigits = 0;
@@ -982,7 +987,7 @@ dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve)
 			if (j & Bletch) {
 				/* prevent overflows */
 				j &= Bletch - 1;
-				d /= bigtens[n_bigtens-1];
+				d.x /= bigtens[n_bigtens-1];
 				ieps++;
 			}
 			for (; j; j >>= 1, i++)
@@ -990,44 +995,44 @@ dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve)
 					ieps++;
 					ds *= bigtens[i];
 				}
-			d /= ds;
+			d.x /= ds;
 		} else if (j1 = -k) {
-			d *= tens[j1 & 0xf];
+			d.x *= tens[j1 & 0xf];
 			for (j = j1 >> 4; j; j >>= 1, i++)
 				if (j & 1) {
 					ieps++;
-					d *= bigtens[i];
+					d.x *= bigtens[i];
 				}
 		}
-		if (k_check && d < 1. && ilim > 0) {
+		if (k_check && d.x < 1. && ilim > 0) {
 			if (ilim1 <= 0)
 				goto fast_failed;
 			ilim = ilim1;
 			k--;
-			d *= 10.;
+			d.x *= 10.;
 			ieps++;
 		}
-		eps = ieps * d + 7.;
+		eps.x = ieps * d.x + 7.;
 		fpword0(eps) -= (P - 1) * Exp_msk1;
 		if (ilim == 0) {
 			S = mhi = 0;
-			d -= 5.;
-			if (d > eps)
+			d.x -= 5.;
+			if (d.x > eps.x)
 				goto one_digit;
-			if (d < -eps)
+			if (d.x < -eps.x)
 				goto no_digits;
 			goto fast_failed;
 		}
 		/* Generate ilim digits, then fix them up. */
-		eps *= tens[ilim-1];
-		for (i = 1; ; i++, d *= 10.) {
-			L = d;
-			d -= L;
+		eps.x *= tens[ilim-1];
+		for (i = 1; ; i++, d.x *= 10.) {
+			L = d.x;
+			d.x -= L;
 			*s++ = '0' + (int)L;
 			if (i == ilim) {
-				if (d > 0.5 + eps)
+				if (d.x > 0.5 + eps.x)
 					goto bump_up;
-				else if (d < 0.5 - eps) {
+				else if (d.x < 0.5 - eps.x) {
 					while (*--s == '0')
 						;
 					s++;
@@ -1038,7 +1043,7 @@ dtoa(double d, int mode, int ndigits, int *decpt, int *sign, char **rve)
 		}
 fast_failed:
 		s = s0;
-		d = d2;
+		d.x = d2.x;
 		k = k0;
 		ilim = ilim0;
 	}
@@ -1050,17 +1055,17 @@ fast_failed:
 		ds = tens[k];
 		if (ndigits < 0 && ilim <= 0) {
 			S = mhi = 0;
-			if (ilim < 0 || d <= 5 * ds)
+			if (ilim < 0 || d.x <= 5 * ds)
 				goto no_digits;
 			goto one_digit;
 		}
 		for (i = 1; ; i++) {
-			L = d / ds;
-			d -= L * ds;
+			L = d.x / ds;
+			d.x -= L * ds;
 			*s++ = '0' + (int)L;
 			if (i == ilim) {
-				d += d;
-				if (d > ds || d == ds && L & 1) {
+				d.x += d.x;
+				if (d.x > ds || d.x == ds && L & 1) {
 bump_up:
 					while (*--s == '9')
 						if (s == s0) {
@@ -1072,7 +1077,7 @@ bump_up:
 				}
 				break;
 			}
-			if (!(d *= 10.))
+			if (!(d.x *= 10.))
 				break;
 		}
 		goto ret1;
