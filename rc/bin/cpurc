@@ -1,5 +1,5 @@
 #!/bin/rc
-# the pccpuf kernel runs this file
+# this file is run if service=cpu
 
 date > /env/boottime
 

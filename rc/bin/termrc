@@ -1,5 +1,5 @@
 #!/bin/rc
-# terminal startup
+# this file is run if service=terminal
 TIMESYNCARGS=(-rLa1000000)
 
 # bind all likely devices
