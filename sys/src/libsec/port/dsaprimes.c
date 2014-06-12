@@ -12,7 +12,7 @@
 static void
 Hrand(uchar *s)
 {
-	uint *u = (uint*)s;
+	u32int *u = (u32int*)s;
 	*u++ = fastrand();
 	*u++ = fastrand();
 	*u++ = fastrand();
