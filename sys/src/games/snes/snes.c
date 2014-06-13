@@ -195,8 +195,8 @@ timing(void)
 		sprint(buf, "%6.2f%%", 1e11 / (new - old));
 	else
 		buf[0] = 0;
-	draw(screen, Rect(10, 10, 200, 30), bg, nil, ZP);
-	string(screen, Pt(10, 10), display->black, ZP, display->defaultfont, buf);
+	draw(screen, rectaddpt(Rect(10, 10, 200, 30), screen->r.min), bg, nil, ZP);
+	string(screen, addpt(screen->r.min, Pt(10, 10)), display->black, ZP, display->defaultfont, buf);
 	old = nsec();
 }
 
