@@ -35,11 +35,40 @@ struct fm {
 	u8int st, alg, en, fbs;
 	float samp;
 } fms[6];
+u8int ymstat;
 static u32int cyc;
+static u16int tima;
+static u8int timb;
 
 static short sbuf[2 * 2000], *sbufp;
 static int fd;
 static int sint[256], expt[256];
+
+static void
+timers(void)
+{
+	u8int m;
+	static u8int bdiv;
+
+	m = ym[0x27];
+	if((m & 1) != 0){
+		tima = (tima + 1) & 0x3ff;
+		if(tima == 0 && (m & 4) != 0){
+			ymstat |= 2;
+			tima = ym[0x24] | ym[0x25] << 8 & 0x300;
+		}
+	}
+	if(++bdiv == 8){
+		bdiv = 0;
+		if((m & 2) != 0){
+			timb++;
+			if(timb == 0 && (m & 8) != 0){
+				ymstat |= 1;
+				timb = ym[0x26];
+			}
+		}
+	}
+}
 
 static void
 calcfreq(int n)
@@ -129,6 +158,10 @@ ymwrite(u8int a, u8int v, u8int c)
 		ch = c + (a & 3);
 		switch(a){
 		case MODE:
+			if((v & 0x10) != 0)
+				ymstat &= ~2;
+			if((v & 0x20) != 0)
+				ymstat &= ~1;
 			calcfreq(2);
 			calcfreq(5);
 			break;
@@ -359,6 +392,7 @@ ymstep(void)
 			if(++ymcyc == 3){
 				cyc++;
 				ymcyc = 0;
+				timers();
 			}
 		}
 		ymop = 0;

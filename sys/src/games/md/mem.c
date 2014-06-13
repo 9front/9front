@@ -328,7 +328,7 @@ z80read(u16int a)
 	case 1:
 		return zram[a & 0x1fff];
 	case 2:
-		return 0;
+		return ymstat;
 	case 3:
 		if(a >= 0x7f00){
 			v = memread(0xc00000 | a & 0x7e);

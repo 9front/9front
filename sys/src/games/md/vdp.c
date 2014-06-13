@@ -144,7 +144,8 @@ planeinit(void)
 	}
 	if(rwin > lwin){
 		p = pctxt + 2;
-		p->tx = p->ty = 0;
+		p->tx = lwin >> 3 & pctxt[2].w - 1;
+		p->tnx = lwin & 7;
 		p->tny = vdpy & 7;
 		p->ty = vdpy >> 3 & pctxt[2].h - 1;
 		tile(p);
@@ -306,7 +307,10 @@ vdpstep(void)
 			pri = 0;
 			planes();
 			sprites();
-			pixeldraw(vdpx, vdpy, cramc[col]);
+			if((reg[MODE2] & 0x40) != 0 && (vdpx >= 8 || (reg[MODE1] & 0x20) == 0))
+				pixeldraw(vdpx, vdpy, cramc[col]);
+			else
+				pixeldraw(vdpx, vdpy, 0);
 		}else
 			pixeldraw(vdpx, vdpy, 0xcccccc);
 	if(++vdpx >= xmax){

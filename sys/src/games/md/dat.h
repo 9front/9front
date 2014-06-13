@@ -22,7 +22,7 @@ extern u32int cramc[64];
 extern u16int vdpstat;
 extern int vdpx, vdpy;
 
-extern u8int ym[512];
+extern u8int ym[512], ymstat;
 
 enum {
 	MODE1   = 0x00,
