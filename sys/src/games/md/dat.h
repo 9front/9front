@@ -3,12 +3,13 @@ typedef signed short s16int;
 typedef signed long s32int;
 
 extern u32int curpc, irq;
-extern int trace;
+extern int trace, debug;
 
 extern u8int reg[32];
 extern u8int dma;
 
-extern u8int z80bus;
+extern u8int z80bus, z80irq;
+extern u16int spc, scurpc;
 
 extern u16int ram[32768];
 extern u16int *prg;
@@ -20,6 +21,8 @@ extern u16int vram[32768], vsram[40];
 extern u32int cramc[64];
 extern u16int vdpstat;
 extern int vdpx, vdpy;
+
+extern u8int ym[512];
 
 enum {
 	MODE1   = 0x00,
@@ -65,4 +68,15 @@ enum {
 	
 	INTVBL = 1,
 	INTHOR = 2,
+};
+
+enum {
+	FREQ = 53203400,
+	YMDIV = 7 * 6,
+	CPUDIV = 7,
+	Z80DIV = 15,
+	RATE = 44100,
+	SAMPDIV = FREQ / RATE,
+	MILLION = 1000 * 1000,
+	BILLION = 1000 * 1000 * 1000,
 };

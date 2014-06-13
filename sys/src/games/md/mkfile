@@ -8,6 +8,7 @@ OFILES=\
 	md.$O\
 	vdp.$O\
 	z80.$O\
+	ym.$O\
 
 HFILES=dat.h fns.h
 

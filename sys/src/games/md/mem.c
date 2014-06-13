@@ -15,6 +15,8 @@ u8int dma;
 u8int vdplatch;
 u16int vdpaddr, vdpdata;
 
+u8int yma1, yma2;
+
 u8int z80bus = RESET;
 u16int z80bank;
 
@@ -38,7 +40,8 @@ regread(u16int a)
 		return ctl[1] & 0xc0 | 0x3f;
 	case 0x0009: case 0x000b: case 0x000d:
 		return ctl[a-3>>1];
-	case 0x1101: return (~z80bus & BUSACK) << 7;
+	case 0x1101:
+		return (~z80bus & BUSACK) >> 1;
 	}
 	sysfatal("read from 0xa1%.4ux (pc=%#.6ux)", a, curpc);
 	return 0;
@@ -53,10 +56,10 @@ regwrite(u16int a, u16int v)
 		ctl[a-3>>1] = v;
 		return;
 	case 0x1101:
-		z80bus = z80bus & ~BUSREQ | v >> 8 & BUSREQ;
+		z80bus = z80bus & ~BUSREQ | v & BUSREQ;
 		return;
 	case 0x1201:
-		if((v & 1<<8) == 0){
+		if((v & 1) == 0){
 			z80bus |= RESET;
 			z80bus &= ~BUSACK;
 		}else
@@ -187,7 +190,7 @@ memwrite(u32int a, u16int v, u16int m)
 		switch(a >> 16 & 0xff){
 		case 0xa0:
 			if((z80bus & BUSACK) != 0)
-				z80write(a & 0x7fff, v >> 8);
+				z80write(a & 0xffff, v >> 8);
 			return;
 		case 0xa1:
 			regwrite(a, v >> 8);
@@ -318,15 +321,27 @@ dmastep(void)
 u8int
 z80read(u16int a)
 {
+	u16int v;
+
 	switch(a >> 13){
 	case 0:
 	case 1:
 		return zram[a & 0x1fff];
 	case 2:
+		return 0;
 	case 3:
-		sysfatal("z80 read from %#.4x\n", a);
+		if(a >= 0x7f00){
+			v = memread(0xc00000 | a & 0x7e);
+			if((a & 1) == 0)
+				v >>= 8;
+			return v;
+		}
+		sysfatal("z80 read from %#.4x (pc=%#.4x)", a, scurpc);
 	default:
-		return memread(z80bank << 15 | a & 0x7fff);
+		v = memread(z80bank << 15 | a & 0x7ffe);
+		if((a & 1) == 0)
+			v >>= 8;
+		return v;
 	}
 }
 
@@ -339,11 +354,36 @@ z80write(u16int a, u8int v)
 		zram[a & 0x1fff] = v;
 		return;
 	case 2:
+		switch(a & 3){
+		case 0: yma1 = v; return;
+		case 1: ymwrite(yma1, v, 0); return;
+		case 2: yma2 = v; return;
+		case 3: ymwrite(yma2, v, 3); return;
+		}
 	case 3:
-		sysfatal("z80 write to %#.4x\n", a);
+		if(a < 0x6100){
+			z80bank = z80bank >> 1 | v << 8 & 0x100;
+			return;
+		}
+		if(a >= 0x7f00){
+			memwrite(0xc00000 | a & 0x7e, v | v << 8, (a & 1) != 0 ? 0xff : 0xff00);
+			return;
+		}
+		sysfatal("z80 write to %#.4x (pc=%#.4x)", a, scurpc);
 	default:
 		memwrite(z80bank << 15 | a & 0x7ffe, v << 8 | v, (a & 1) != 0 ? 0xff : 0xff00);
 	}
+}
+
+u8int
+z80in(u8int)
+{
+	return 0xff;
+}
+
+void
+z80out(u8int, u8int)
+{
 }
 
 u32int irql[8] = {[6] INTVBL, [4] INTHOR};

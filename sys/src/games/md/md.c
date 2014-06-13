@@ -7,10 +7,14 @@
 #include "dat.h"
 #include "fns.h"
 
+int debug;
+
 u16int *prg;
 int nprg;
 
 int keys;
+
+int dmaclock, vdpclock, z80clock, audioclock, ymclock;
 
 int scale, paused;
 QLock pauselock;
@@ -100,6 +104,7 @@ keyproc(void *)
 		k = 0xc00;
 		while(*s != 0){
 			s += chartorune(&r, s);
+			if(r >= '0' && r <= '9') debug = r - '0';
 			switch(r){
 			case Kdel: close(fd); threadexitsall(nil);
 			case 'c':	k |= 0x0020; break;
@@ -126,8 +131,13 @@ keyproc(void *)
 void
 threadmain(int argc, char **argv)
 {
+	int t;
+
 	scale = 1;
 	ARGBEGIN{
+	case 'a':
+		initaudio();
+		break;
 	case '2':
 		scale = 2;
 		break;
@@ -152,17 +162,39 @@ threadmain(int argc, char **argv)
 	screeninit();
 	cpureset();
 	vdpmode();
+	ymreset();
 	for(;;){
 		if(paused != 0){
 			qlock(&pauselock);
 			qunlock(&pauselock);
 		}
-		if(dma != 1)
-			step();
-		if(dma != 0)
+		if(dma != 1){
+			t = step() * CPUDIV;
+			if(dma != 0)
+				dmastep();
+		}else{
+			t = CPUDIV;
 			dmastep();
-		z80step();
-		vdpstep();
+		}
+		z80clock -= t;
+		vdpclock -= t;
+		audioclock += t;
+		ymclock += t;
+
+		while(vdpclock < 0){
+			vdpstep();
+			vdpclock += 8;
+		}
+		while(z80clock < 0)
+			z80clock += z80step() * Z80DIV;
+		while(audioclock >= SAMPDIV){
+			audiosample();
+			audioclock -= SAMPDIV;
+		}
+		while(ymclock >= YMDIV){
+			ymstep();
+			ymclock -= YMDIV;
+		}
 	}
 }
 
@@ -174,7 +206,8 @@ flush(void)
 	Rectangle r;
 	uchar *s;
 	int w;
-
+	static vlong old, delta;
+	vlong new, diff;
 
 	if(nbrecvul(mc->resizec) > 0){
 		if(getwindow(display, Refnone) < 0)
@@ -199,4 +232,18 @@ flush(void)
 		}
 	}
 	flushimage(display, 1);
+	if(audioout() < 0){
+		new = nsec();
+		diff = 0;
+		if(old != 0){
+			diff = BILLION/60 - (new - old) - delta;
+			if(diff >= MILLION)
+				sleep(diff/MILLION);
+		}
+		old = nsec();
+		if(diff != 0){
+			diff = (old - new) - (diff / MILLION) * MILLION;
+			delta += (diff - delta) / 100;
+		}
+	}
 }

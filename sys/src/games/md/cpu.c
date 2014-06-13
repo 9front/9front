@@ -19,7 +19,7 @@ extern u32int irql[8];
 u32int irqla[8];
 u16int rS;
 static u32int op;
-int trace;
+int trace, tim;
 #define ra (r+8)
 
 static void
@@ -99,16 +99,21 @@ amode(int m, int n, int s)
 	case 1:
 		return ~(n+8);
 	case 2:
+		tim += s == 2 ? 8 : 4;
 		return ra[n];
 	case 3:
 		v = ra[n];
 		ra[n] += 1<<s;
+		tim += s == 2 ? 8 : 4;
 		return v;
 	case 4:
+		tim += s == 2 ? 10 : 6;
 		return ra[n] -= 1<<s;
 	case 5:
+		tim += s == 2 ? 12 : 8;
 		return (u32int)(ra[n] + (s16int)fetch16());
 	case 6:
+		tim += s == 2 ? 14 : 10;
 		w = fetch16();
 		v = r[w >> 12];
 		if((w & 1<<11) == 0)
@@ -117,19 +122,24 @@ amode(int m, int n, int s)
 	case 7:
 		switch(n){
 		case 0:
+			tim += s == 2 ? 12 : 8;
 			return (u32int)(s16int)fetch16();
 		case 1:
+			tim += s == 2 ? 16 : 12;
 			return fetch32();
 		case 2:
+			tim += s == 2 ? 12 : 8;
 			v = fetch16();
 			return (u32int)(pc + (s16int)v - 2);
 		case 3:
+			tim += s == 2 ? 14 : 4;
 			w = fetch16();
 			v = r[w >> 12];
 			if((w & 1<<11) == 0)
 				v = (s16int)v;
 			return (u32int)(pc + v + (s8int)w - 2);
 		case 4:
+			tim += s == 2 ? 8 : 4;
 			v = pc;
 			pc += 1<<s;
 			if(s == 0)
@@ -367,11 +377,13 @@ rot(u32int v, int m, int n, int s)
 		}else
 			v |= x;
 		vf |= x ^ (v & msb) != 0;
+		tim += 2;
 	}
 	nz(v, s);
 	rS |= l;
 	if(m <= 1 && vf)
 		rS |= FLAGV;
+	tim += s == 2 ? 8 : 6;
 	return v;
 }
 
@@ -415,6 +427,30 @@ subbcd(u8int a, u8int b)
 }
 
 static void
+dtime(u16int op, u8int s)
+{
+	if((op & 0x100) != 0){
+		if(s == 2)
+			if((op & 0x30) == 0 || (op & 0x3f) == 0x3c)
+				tim += 8;
+			else
+				tim += 6;
+		else
+			tim += 4;
+	}else
+		tim += s == 2 ? 12 : 8;
+}
+
+static void
+stime(int a, u8int s)
+{
+	if(a)
+		tim += s == 2 ? 6 : 4;
+	else
+		tim += s == 2 ? 12 : 8;
+}
+
+static void
 trap(int n, u32int pcv)
 {
 	int l, v;
@@ -428,8 +464,16 @@ trap(int n, u32int pcv)
 		v = intack(l);
 		rS = rS & ~0x700 | l << 8;
 		irq = 0;
-	}else
+		tim += 44;
+	}else{
+		switch(n){
+		case 2: case 3: tim += 50; break;
+		case 5: tim += 38; break;
+		case 6: tim += 40; break;
+		default: tim += 34; break;
+		}
 		v = n;
+	}
 	if((rS & FLAGS) == 0){
 		t = asp;
 		asp = ra[7];
@@ -456,7 +500,7 @@ cpureset(void)
 		irqla[i] = v |= irql[i];
 }
 
-void
+int
 step(void)
 {
 	u32int v, w;
@@ -465,17 +509,18 @@ step(void)
 	int n, m, d;
 	static int cnt;
 
-	if(0 && pc == 0x200){
+	if(0 && pc == 0x1300){
 		trace++;
 		print("%x\n", curpc);
 	}
+	tim = 0;
 	curpc = pc;
 	if(irq && (irqla[(rS >> 8) & 7] & irq) != 0){
 		trap(-1, curpc);
-		return;
+		return tim;
 	}
 	if(stop)
-		return;
+		return 1;
 	op = fetch16();
 	if(trace)
 		print("%.6ux %.6uo %.4ux %.8ux | %.8ux %.8ux %.8ux %.8ux | %.8ux %.8ux %.8ux\n", curpc, op, rS, memread(ra[7])<<16|memread(ra[7]+2), r[0], r[1], r[2], r[3], ra[0], ra[1], ra[7]);
@@ -504,6 +549,7 @@ step(void)
 				ra[7] = asp;
 				asp = v;
 			}
+			tim += 20;
 			break;
 		}
 		if((op & 0x13f) == 0x108){ /* MOVEP */
@@ -513,23 +559,27 @@ step(void)
 				v = (u8int)rmode(a, 0) << 8;
 				v |= (u8int)rmode(a + 2, 0);
 				r[n] = r[n] & 0xff00 | v;
+				tim += 16;
 				break;
 			case 1:
 				v = (u8int)rmode(a, 0) << 24;
 				v |= (u8int)rmode(a + 2, 0) << 16;
 				v |= (u8int)rmode(a + 4, 0) << 8;
 				v |= (u8int)rmode(a + 6, 0);
+				tim += 24;
 				r[n] = v;
 				break;
 			case 2:
 				wmode(a, 0, r[n] >> 8);
 				wmode(a + 2, 0, r[n]);
+				tim += 16;
 				break;
 			case 3:
 				wmode(a, 0, r[n] >> 24);
 				wmode(a + 2, 0, r[n] >> 16);
 				wmode(a + 4, 0, r[n] >> 8);
 				wmode(a + 6, 0, r[n]);
+				tim += 24;
 				break;
 			}
 			break;
@@ -553,11 +603,17 @@ step(void)
 				rS |= FLAGZ;
 			switch(s){
 			case 1: v ^= w; break;
-			case 2: v &= ~w; break;
+			case 2: v &= ~w; if(n == 2) tim += 2; break;
 			case 3: v |= w; break;
 			}
-			if(s != 0)
+			if(s != 0){
 				wmode(a, n, v);
+				tim += (op & 0x100) != 0 ? 8 : 12;
+			}else{
+				tim += (op & 0x100) != 0 ? 4 : 8;
+				if(n == 2)
+					tim += 2;
+			}
 			break;
 		}
 		switch(s){
@@ -576,6 +632,10 @@ step(void)
 		case 6: rS |= FLAGZ; sub(v, w, 0, s); break;
 		default: undef();
 		}
+		if(a < 0)
+			tim += s == 2 ? (n == 1 || n == 6 ? 14 : 16) : 8;
+		else
+			tim += s == 2 ? 20 : 12;
 		if(n != 6)
 			wmode(a, s, v);
 		break;
@@ -592,14 +652,21 @@ step(void)
 		wmode(amode(op >> 6, op >> 9, s), s, v);
 		if((op & 0x1c0) != 0x40)
 			nz(v, s);
+		tim += 4;
 		break;
 	case 4:
 		if((op & 0x1c0) == 0x1c0){ /* LEA */
 			ra[n] = amode(op >> 3, op, 2);
 			break;
 		}
-		if((op & 0x1c0) == 0x180) /* CHK */
-			undef();
+		if((op & 0x1c0) == 0x180){ /* CHK */
+			a = amode(op >> 3, op, s);
+			v = rmode(a, s);
+			if((s32int)r[n] < 0 || (s32int)r[n] > (s32int)v)
+				trap(6, curpc);
+			else
+				tim += 10;
+		}
 		if((op & 0xb80) == 0x880 && (op & 0x38) >= 0x10){ /* MOVEM */
 			s = (op >> 6 & 1) + 1;
 			w = fetch16();
@@ -610,10 +677,12 @@ step(void)
 					if((w & 1) != 0){
 						r[m] = rmode(a, s);
 						a += 1<<s;
+						tim += 2<<s;
 					}
 					w >>= 1;
 				}
 				ra[n] = a;
+				tim += 12;
 				break;
 			}
 			if((op & 0x38) == 0x20){
@@ -623,10 +692,12 @@ step(void)
 					if((w & 1) != 0){
 						a -= 1<<s;
 						wmode(a, s, r[15 - m]);
+						tim += 2<<s;
 					}
 					w >>= 1;
 				}
 				ra[n] = a;
+				tim += 8;
 				break;
 			}
 			a = amode(op >> 3, op, s);
@@ -637,17 +708,21 @@ step(void)
 					else
 						wmode(a, s, r[m]);
 					a += 1<<s;
+					tim += 2<<s;
 				}
 				w >>= 1;
 			}
+			tim += (op & 0x400) != 0 ? 8 : 12;
 			break;
 		}
 		switch(op >> 8 & 0xf){
 		case 0:
 			if(s == 3){ /* MOVE from SR */
-				if((rS & FLAGS) != 0)
-					wmode(amode(op >> 3, op, 1), 1, rS);
-				else
+				if((rS & FLAGS) != 0){
+					a = amode(op >> 3, op, 1);
+					wmode(a, 1, rS);
+					tim += a < 0 ? 6 : 8;
+				}else
 					trap(8, curpc);
 				break;
 			} /* NEGX */
@@ -666,20 +741,25 @@ step(void)
 				rS &= ~FLAGZ;
 			}
 			wmode(a, s, v);
+			stime(a < 0, s);
 			break;
 		case 2: /* CLR */
-			wmode(amode(op >> 3, op, s), s, 0);
+			a = amode(op >> 3, op, s);
+			wmode(a, s, 0);
 			nz(0, 0);
+			stime(a < 0, s);
 			break;
 		case 4:
 			if(s == 3){ /* MOVE to CCR */
 				rS = rS & 0xff00 | rmode(amode(op >> 3, op, 1), 1);
+				tim += 12;
 				break;
 			} /* NEG */
 			a = amode(op >> 3, op, s);
 			v = -rmode(a, s);
 			nz(v, s);
 			wmode(a, s, v);
+			stime(a < 0, s);
 			break;
 		case 6:
 			if(s == 3){ /* MOVE to SR */
@@ -690,6 +770,7 @@ step(void)
 						asp = ra[7];
 						ra[7] = v;
 					}
+					tim += 12;
 				}else
 					trap(8, curpc);
 				break;
@@ -698,6 +779,7 @@ step(void)
 			v = ~rmode(a, s);
 			nz(v, s);
 			wmode(a, s, v);
+			stime(a < 0, s);
 			break;
 		case 8:
 			n = op & 7;
@@ -706,18 +788,27 @@ step(void)
 				a = amode(op >> 3, op, 0);
 				v = rmode(a, 0);
 				wmode(a, 0, subbcd(0, v));
+				if(a < 0)
+					tim += 8;
+				else
+					tim += 6;
 				break;
 			case 1:
-				if((op >> 3 & 7) != 0)
+				if((op >> 3 & 7) != 0){
 					push32(amode(op >> 3, op, 0)); /* PEA */
-				else
+					tim += 8;
+				}else{
 					nz(r[n] = r[n] >> 16 | r[n] << 16, 2); /* SWAP */
+					tim += 4;
+				}
 				break;
 			case 2: /* EXT */
 				nz(r[n] = r[n] & 0xffff0000 | (u16int)(s8int)r[n], 1);
+				tim += 4;
 				break;
 			case 3: /* EXT */
 				nz(r[n] = (s16int)r[n], 2);
+				tim += 4;
 				break;
 			}
 			break;
@@ -727,10 +818,12 @@ step(void)
 				v = rmode(a, 0);
 				nz(v, 0);
 				wmode(a, s, v | 0x80);
+				tim += a < 0 ? 4 : 14;
 				break;
 			} /* TST */
 			a = amode(op >> 3, op, s);
 			nz(rmode(a, s), s);
+			tim += 4;
 			break;
 		case 14:
 			v = op >> 4 & 0xf;
@@ -743,9 +836,11 @@ step(void)
 					push32(ra[n]);
 					ra[n] = ra[7];
 					ra[7] += (s16int)fetch16();
+					tim += 16;
 				}else{ /* UNLK */
 					ra[7] = ra[n];
 					ra[n] = pop32();
+					tim += 12;
 				}
 				break;
 			}else if(v == 6){ /* MOVE USP */
@@ -754,29 +849,33 @@ step(void)
 						ra[n] = asp;
 					else
 						asp = ra[n];
+					tim += 4;
 				}else
 					trap(8, curpc);
 				break;
 			}
 			if((op & 0xc0) == 0xc0){ /* JMP */
 				pc = amode(op >> 3, op, 2);
+				tim += 4;
 				break;
 			}
 			if((op & 0xc0) == 0x80){ /* JSR */
 				a = amode(op >> 3, op, 2);
 				push32(pc);
 				pc = a;
+				tim += 12;
 				break;
 			}
 			switch(op){
-			case 0x4e70: break; /* RESET */
-			case 0x4e71: break; /* NOP */
+			case 0x4e70: tim += 132; break; /* RESET */
+			case 0x4e71: tim += 4; break; /* NOP */
 			case 0x4e72: /* STOP */
 				if((rS & FLAGS) != 0){
 					rS = fetch16();
 					stop = 1;
 				}else
 					trap(8, curpc);
+				tim += 4;
 				break;
 			case 0x4e73: /* RTE */
 				if((rS & FLAGS) != 0){
@@ -788,14 +887,16 @@ step(void)
 						asp = ra[7];
 						ra[7] = v;
 					}
+					tim += 20;
 				}else
 					trap(8, curpc);
 				break;
-			case 0x4e75: pc = pop32(); break; /* RTS */
-			case 0x4e76: if((rS & FLAGV) != 0) trap(7, curpc); break; /* TRAPV */
+			case 0x4e75: pc = pop32(); tim += 16; break; /* RTS */
+			case 0x4e76: if((rS & FLAGV) != 0) trap(7, curpc); tim += 4; break; /* TRAPV */
 			case 0x4e77: /* RTR */
 				rS = rS & 0xff00 | fetch16() & 0xff;
 				pc = pop32();
+				tim += 20;
 				break;
 			default: undef();
 			}
@@ -812,14 +913,23 @@ step(void)
 				if((u16int)r[n] != 0){
 					r[n]--;
 					pc = pc + v - 2;
-				}else
+					tim += 10;
+				}else{
 					r[n] |= 0xffff;
-			}
+					tim += 14;
+				}
+			}else
+				tim += 12;
 			break;
 		}
 		if(s == 3){ /* Scc */
 			a = amode(op >> 3, op, 0);
-			wmode(a, 0, -cond(op >> 8 & 0xf));
+			v = cond(op >> 8 & 0xf);
+			wmode(a, 0, -v);
+			if(a < 0)
+				tim += 4 + 2 * v;
+			else
+				tim += 8;
 			break;
 		} /* ADDQ, SUBQ */
 		rS |= FLAGZ;
@@ -833,6 +943,10 @@ step(void)
 			v = add(v, n, 0, s);
 		else
 			v = sub(v, n, 0, s);
+		if(a < 0)
+			tim += s == 2 || (op & 0x130) == 0x110 ? 8 : 4;
+		else
+			tim += s == 2 ? 12 : 8;
 		wmode(a, s, v);
 		break;
 	case 6: /* BRA */
@@ -844,14 +958,19 @@ step(void)
 		if((op & 0xf00) == 0x100){ /* BSR */
 			push32(pc);
 			pc = curpc + 2 + v;
+			tim += 18;
 			break;
 		}
-		if(cond((op >> 8) & 0xf))
+		if(cond((op >> 8) & 0xf)){
 			pc = curpc + 2 + v;
+			tim += 10;
+		}else
+			tim += (u8int)(op + 1) <= 1 ? 12 : 8;
 		break;
 	case 7: /* MOVEQ */
 		r[n] = (s8int)op;
 		nz(r[n], 0);
+		tim += 4;
 		break;
 	case 8:
 		if(s == 3){ /* DIVU, DIVS */
@@ -870,6 +989,7 @@ step(void)
 					rS = rS & ~FLAGC | FLAGV;
 					break;
 				}
+				tim += 158;
 			}else{
 				w = r[n] % (u16int)v;
 				v = r[n] / (u16int)v;
@@ -877,6 +997,7 @@ step(void)
 					rS = rS & ~FLAGC | FLAGV;
 					break;
 				}
+				tim += 140;
 			}
 			r[n] = (u16int)v | w << 16;
 			nz(v, 1);
@@ -891,8 +1012,11 @@ step(void)
 				w = rmode(amode(4, m, 0), 0);
 				v = subbcd(v, w);
 				wmode(a, 0, v);
-			}else
+				tim += 18;
+			}else{
 				r[n] = r[n] & 0xffffff00 | subbcd((u8int)r[n], (u8int)r[m]);
+				tim += 6;
+			}
 			break;
 		}
 	logic: /* OR, EOR, AND */
@@ -908,6 +1032,7 @@ step(void)
 			a = ~n;
 		wmode(a, s, v);
 		nz(v, s);
+		dtime(op, s);
 		break;
 	case 11:
 		if(s == 3){ /* CMPA */
@@ -915,18 +1040,21 @@ step(void)
 			a = amode(op >> 3, op, s);
 			rS |= FLAGZ;
 			sub(ra[n], rmode(a, s), 0, 2);
+			tim += 6;
 			break;
 		}
 		if((op & 0x138) == 0x108){ /* CMPM */
 			m = op & 7;
 			rS |= FLAGZ;
 			sub(rmode(amode(3, n, s), s), rmode(amode(3, m, s), s), 0, s);
+			tim += s == 2 ? 20 : 12;
 			break;
 		}
 		if((op & 0x100) == 0){ /* CMP */
 			a = amode(op >> 3, op, s);
 			rS |= FLAGZ;
 			sub(r[n], rmode(a, s), 0, s);
+			tim += s == 2 ? 6 : 4;
 			break;
 		}
 		goto logic;
@@ -940,6 +1068,7 @@ step(void)
 				v = (u16int)v * (u16int)r[n];
 			r[n] = v;
 			nz(v, 1);
+			tim += 70;
 			break;
 		}
 		if((op & 0x1f0) == 0x100){ /* ABCD */
@@ -951,8 +1080,11 @@ step(void)
 				w = rmode(amode(4, m, 0), 0);
 				v = addbcd(v, w);
 				wmode(a, 0, v);
-			}else
+				tim += 18;
+			}else{
 				r[n] = r[n] & 0xffffff00 | addbcd((u8int)r[n], (u8int)r[m]);
+				tim += 6;
+			}
 			break;
 		
 		}
@@ -963,15 +1095,20 @@ step(void)
 			v = r[n];
 			r[n] = r[m];
 			r[m] = v;
+			tim += 6;
 			break;
 		}
 		goto logic;
 	case 9:
 	case 13:
 		if(s == 3){ /* ADDA, SUBA */
-			s = 1;
-			if((op & 0x100) != 0)
-				s++;
+			if((op & 0x100) != 0){
+				s = 2;
+				tim += 6;
+			}else{
+				s = 1;
+				tim += 8;
+			}
 			a = amode(op >> 3, op, s);
 			if((op >> 12) == 13)
 				ra[n] += rmode(a, s);
@@ -985,10 +1122,12 @@ step(void)
 				a = ra[n] -= 1<<s;
 				v = rmode(a, s);
 				w = rmode(ra[m] -= 1<<s, s);
+				tim += s == 2 ? 30 : 18;
 			}else{
 				v = r[n];
 				w = r[m];
 				a = ~n;
+				tim += s == 2 ? 8 : 4;
 			}
 			if((op >> 12) == 13)
 				v = add(v, w, (rS & FLAGX) != 0, s);
@@ -1010,6 +1149,7 @@ step(void)
 		if(d)
 			a = ~n;
 		wmode(a, s, v);
+		dtime(op, s);
 		break;
 	case 14: /* shifts */
 		if(s == 3){
@@ -1037,4 +1177,5 @@ step(void)
 	default:
 		undef();
 	}
+	return tim;
 }

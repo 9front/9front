@@ -310,6 +310,7 @@ vdpstep(void)
 		}else
 			pixeldraw(vdpx, vdpy, 0xcccccc);
 	if(++vdpx >= xmax){
+		z80irq = 0;
 		vdpx = 0;
 		if(++vdpy >= ymax){
 			vdpy = 0;
@@ -328,6 +329,7 @@ vdpstep(void)
 			}
 		if(vdpy == yvbl){
 			vdpstat |= STATVBL | STATINT;
+			z80irq = 1;
 			if((reg[MODE2] & IE0) != 0)
 				irq |= INTVBL;
 		}
