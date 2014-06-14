@@ -326,7 +326,7 @@ vdpstep(void)
 		if(vdpy == 0 || vdpy >= 225)
 			hctr = reg[HORCTR];
 		else
-			if(--hctr == 0){
+			if(hctr-- == 0){
 				if((reg[MODE1] & IE1) != 0)
 					irq |= INTHOR;
 				hctr = reg[HORCTR];

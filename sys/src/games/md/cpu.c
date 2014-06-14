@@ -509,7 +509,7 @@ step(void)
 	int n, m, d;
 	static int cnt;
 
-	if(0 && pc == 0x1300){
+	if(0 && pc == 0x23000000){
 		trace++;
 		print("%x\n", curpc);
 	}
@@ -894,7 +894,7 @@ step(void)
 			case 0x4e75: pc = pop32(); tim += 16; break; /* RTS */
 			case 0x4e76: if((rS & FLAGV) != 0) trap(7, curpc); tim += 4; break; /* TRAPV */
 			case 0x4e77: /* RTR */
-				rS = rS & 0xff00 | fetch16() & 0xff;
+				rS = rS & 0xff00 | pop16() & 0xff;
 				pc = pop32();
 				tim += 20;
 				break;
