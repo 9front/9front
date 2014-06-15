@@ -14,6 +14,9 @@ extern u16int spc, scurpc;
 extern u16int ram[32768];
 extern u16int *prg;
 extern int nprg;
+extern u8int *sram;
+extern u32int sramctl, sram0, sram1;
+extern int savefd, saveclock;
 
 extern int keys, scale;
 
@@ -77,6 +80,17 @@ enum {
 	Z80DIV = 15,
 	RATE = 44100,
 	SAMPDIV = FREQ / RATE,
+	SAVEFREQ = FREQ / 4,
 	MILLION = 1000 * 1000,
 	BILLION = 1000 * 1000 * 1000,
+};
+
+enum {
+	SRAM = 0x01,
+	BATTERY = 0x02,
+	ADDRMASK = 0x0c,
+	ADDRBOTH = 0x00,
+	ADDREVEN = 0x08,
+	ADDRODD = 0x0c,
+	SRAMEN = 0x10,
 };

@@ -509,7 +509,7 @@ step(void)
 	int n, m, d;
 	static int cnt;
 
-	if(0 && pc == 0x23000000){
+	if(0 && pc == 0x59500){
 		trace++;
 		print("%x\n", curpc);
 	}
@@ -552,7 +552,7 @@ step(void)
 			tim += 20;
 			break;
 		}
-		if((op & 0x13f) == 0x108){ /* MOVEP */
+		if((op & 0x138) == 0x108){ /* MOVEP */
 			a = ra[op & 7] + (s16int)fetch16();
 			switch(s){
 			case 0:
@@ -829,7 +829,7 @@ step(void)
 			v = op >> 4 & 0xf;
 			n = op & 7;
 			if(v == 4){ /* TRAP */
-				trap(op & 0xf, curpc);
+				trap(0x20 | op & 0xf, pc);
 				break;
 			}else if(v == 5){
 				if((op & 8) == 0){ /* LINK */

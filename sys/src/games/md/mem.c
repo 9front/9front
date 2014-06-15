@@ -37,7 +37,7 @@ regread(u16int a)
 		return ctl[0] & 0xc0 | v & 0x3f;
 	case 0x0005:
 	case 0x0007:
-		return ctl[1] & 0xc0 | 0x3f;
+		return ctl[a-3>>1] & 0xc0 | 0x3f;
 	case 0x0009: case 0x000b: case 0x000d:
 		return ctl[a-3>>1];
 	case 0x1101:
@@ -64,6 +64,14 @@ regwrite(u16int a, u16int v)
 			z80bus &= ~BUSACK;
 		}else
 			z80bus &= ~RESET;
+		return;
+	case 0x30f1:
+		if((v & 1) != 0)
+			sramctl |= SRAMEN;
+		else
+			sramctl &= ~SRAMEN;
+		return;
+	case 0x30f3: case 0x30f5: case 0x30f7: case 0x30f9: case 0x30fb:
 		return;
 	}
 	sysfatal("write to 0xa1%.4x (pc=%#.6ux)", a, curpc);
@@ -112,7 +120,14 @@ memread(u32int a)
 	u16int v;
 
 	switch(a >> 21 & 7){
-	case 0: case 1: return prg[(a % nprg) / 2];
+	case 0: case 1:
+		if((sramctl & SRAMEN) != 0 && a >= sram0 && a <= sram1)
+			switch(sramctl & ADDRMASK){
+			case ADDREVEN: return sram[(a - sram0) >> 1] << 8;
+			case ADDRODD: return sram[(a - sram0) >> 1];
+			case ADDRBOTH: return sram[a - sram0] << 8 | sram[a - sram0 + 1];
+			}
+		return prg[(a % nprg) / 2];
 	case 5:
 		switch(a >> 16 & 0xff){
 		case 0xa0:
@@ -186,6 +201,23 @@ memwrite(u32int a, u16int v, u16int m)
 	if(0 && (a & 0xe0fffe) == 0xe0df46)
 		print("%x %x %x\n", curpc, v, m);
 	switch((a >> 21) & 7){
+	case 0: case 1:
+		if((sramctl & SRAMEN) != 0 && a >= sram0 && a <= sram1){
+			switch(sramctl & ADDRMASK){
+			case ADDREVEN: sram[(a - sram0) >> 1] = v >> 8; break;
+			case ADDRODD: sram[(a - sram0) >> 1] = v; break;
+			case ADDRBOTH:
+				if((m & 0xff00) == 0xff00)
+					sram[a - sram0] = v >> 8;
+				if((m & 0xff) == 0xff)
+					sram[a + 1 - sram0] = v;
+				break;
+			}
+			if(saveclock == 0)
+				saveclock = SAVEFREQ;
+			return;
+		}
+		goto invalid;
 	case 5:
 		switch(a >> 16 & 0xff){
 		case 0xa0:

@@ -11,10 +11,13 @@ int debug;
 
 u16int *prg;
 int nprg;
+u8int *sram;
+u32int sramctl, nsram, sram0, sram1;
+int savefd = -1;
 
 int keys;
 
-int dmaclock, vdpclock, z80clock, audioclock, ymclock;
+int dmaclock, vdpclock, z80clock, audioclock, ymclock, saveclock;
 
 int scale, paused;
 QLock pauselock;
@@ -23,6 +26,30 @@ Rectangle picr;
 Image *tmp, *bg;
 
 void
+flushram(void)
+{
+	if(savefd >= 0)
+		pwrite(savefd, sram, nsram, 0);
+	saveclock = 0;
+}
+
+static void
+loadbat(char *file)
+{
+	static char buf[512];
+	
+	strncpy(buf, file, sizeof buf - 5);
+	strcat(buf, ".sav");
+	savefd = create(buf, ORDWR | OEXCL, 0666);
+	if(savefd < 0)
+		savefd = open(buf, ORDWR);
+	if(savefd < 0)
+		print("open: %r\n");
+	else
+		readn(savefd, sram, nsram);
+}
+
+static void
 loadrom(char *file)
 {
 	static uchar hdr[512], buf[4096];
@@ -61,6 +88,28 @@ loadrom(char *file)
 		v -= rc;
 	}
 	close(fd);
+	if(hdr[0x1b0] == 0x52 && hdr[0x1b1] == 0x41){
+		sramctl = SRAM | hdr[0x1b2] >> 1 & ADDRMASK;
+		if((hdr[0x1b2] & 0x40) != 0)
+			sramctl |= BATTERY;
+		sram0 = hdr[0x1b4] << 24 | hdr[0x1b5] << 16 | hdr[0x1b6] << 8 | hdr[0x1b7] & 0xfe;
+		sram1 = hdr[0x1b8] << 24 | hdr[0x1b9] << 16 | hdr[0x1ba] << 8 | hdr[0x1bb] | 1;
+		if(sram1 <= sram0){
+			print("SRAM of size <= 0?\n");
+			sramctl = 0;
+		}else{
+			nsram = sram1 - sram0;
+			if((sramctl & ADDRMASK) != ADDRBOTH)
+				nsram >>= 1;
+			sram = malloc(nsram);
+			if(sram == nil)
+				sysfatal("malloc: %r");
+			if((sramctl & BATTERY) != 0){
+				loadbat(file);
+				atexit(flushram);
+			}
+		}
+	}
 }
 
 void
@@ -194,6 +243,13 @@ threadmain(int argc, char **argv)
 		while(ymclock >= YMDIV){
 			ymstep();
 			ymclock -= YMDIV;
+		}
+		if(saveclock > 0){
+			saveclock -= t;
+			if(saveclock <= 0){
+				saveclock = 0;
+				flushram();
+			}
 		}
 	}
 }
