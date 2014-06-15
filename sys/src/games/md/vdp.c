@@ -9,7 +9,8 @@ u16int vdpstat = 0x3400;
 int vdpx, vdpy;
 u16int hctr;
 static int xmax, xdisp, ymax = 262, yvbl = 234;
-static int sx, snx, col, pri;
+static int sx, snx, col, pri, lum;
+enum { DARK, NORM, BRIGHT };
 
 void
 vdpmode(void)
@@ -51,6 +52,16 @@ pixeldraw(int x, int y, int v)
 		q[1] = u.w;
 		q[2] = u.w;
 	}
+}
+
+static u32int
+shade(u32int v, int l)
+{
+	if(l == 1)
+		return v;
+	if(l == 2)
+		return v << 1 & 0xefefef;
+	return v >> 1 & 0xf7f7f7;
 }
 
 static void
@@ -153,7 +164,7 @@ planeinit(void)
 }
 
 static void
-plane(int n, int w)
+plane(int n, int vis)
 {
 	struct pctxt *p;
 	u8int v, pr;
@@ -166,10 +177,13 @@ plane(int n, int w)
 		v = p->c >> 28;
 		p->c <<= 4;
 	}
-	if(v != 0 && w != 0){
-		v |= p->t >> 9 & 48;
-		pr = 2 - (n & 1) + (p->t >> 13 & 4);
-		pixel(v, pr);
+	if(vis != 0){
+		if(v != 0){
+			v |= p->t >> 9 & 48;
+			pr = 2 - (n & 1) + (p->t >> 13 & 4);
+			pixel(v, pr);
+		}
+		lum |= p->t >> 15;
 	}
 	if(++p->tnx == 8){
 		p->tnx = 0;
@@ -288,15 +302,28 @@ sprites(void)
 			else{
 				set = 1 | p->t & 0x8000;
 				col = p->t >> 9 & 48 | v;
-			}	
+			}
 	}
 	if(set)
-		pixel(col, set >> 13 | 2);
+		if((reg[MODE4] & SHI) != 0)
+			if((col & 0xfe) == 0x3e)
+				lum = col & 1;
+			else{
+				pixel(col, set >> 13 | 2);
+				if((col & 0xf) == 0xe)
+					lum = 1;
+				else
+					lum |= set >> 15;
+			}
+		else
+			pixel(col, set >> 13 | 2);
 }
 
 void
 vdpstep(void)
 {
+	u32int v;
+
 	if(vdpx == 0){
 		planeinit();
 		spritesinit();
@@ -305,11 +332,15 @@ vdpstep(void)
 		if(vdpx < xdisp){
 			col = reg[BGCOL] & 0x3f;
 			pri = 0;
+			lum = 0;
 			planes();
 			sprites();
-			if((reg[MODE2] & 0x40) != 0 && (vdpx >= 8 || (reg[MODE1] & 0x20) == 0))
-				pixeldraw(vdpx, vdpy, cramc[col]);
-			else
+			if((reg[MODE2] & 0x40) != 0 && (vdpx >= 8 || (reg[MODE1] & 0x20) == 0)){
+				v = cramc[col];
+				if((reg[MODE4] & SHI) != 0)
+					v = shade(v, lum);
+				pixeldraw(vdpx, vdpy, v);
+			}else
 				pixeldraw(vdpx, vdpy, 0);
 		}else
 			pixeldraw(vdpx, vdpy, 0xcccccc);

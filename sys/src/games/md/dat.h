@@ -52,6 +52,7 @@ enum {
 	IE0 = 0x20,
 	IE1 = 0x10,
 	DMAEN = 0x10,
+	SHI = 0x08,
 	
 	WIDE = 0x01,
 	
