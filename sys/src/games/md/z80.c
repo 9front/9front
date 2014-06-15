@@ -498,6 +498,7 @@ ed(void)
 	case 0x5b: a = fetch16(); s[rE] = z80read(a++); s[rD] = z80read(a); return 20;
 	case 0x6b: a = fetch16(); s[rL] = z80read(a++); s[rH] = z80read(a); return 20;
 	case 0x7b: sp = read16(fetch16()); return 20;
+	case 0x4d: spc = pop16(); return 14;
 	case 0x5e: intm = intm & 0xc0 | 2; return 8;
 	case 0x4f: return 9;
 	}

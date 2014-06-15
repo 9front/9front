@@ -54,7 +54,7 @@ timers(void)
 	if((m & 1) != 0){
 		tima = (tima + 1) & 0x3ff;
 		if(tima == 0 && (m & 4) != 0){
-			ymstat |= 2;
+			ymstat |= 1;
 			tima = ym[0x24] | ym[0x25] << 8 & 0x300;
 		}
 	}
@@ -63,7 +63,7 @@ timers(void)
 		if((m & 2) != 0){
 			timb++;
 			if(timb == 0 && (m & 8) != 0){
-				ymstat |= 1;
+				ymstat |= 2;
 				timb = ym[0x26];
 			}
 		}
