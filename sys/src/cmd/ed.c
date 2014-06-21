@@ -157,7 +157,7 @@ main(int argc, char *argv[])
 		globp = L"r";
 	}
 	zero = malloc((nlall+5)*sizeof(int*));
-	tfname = mktemp("/tmp/eXXXXX");
+	tfname = mktemp(strdup("/tmp/eXXXXX"));
 	init();
 	setjmp(savej);
 	commands();
