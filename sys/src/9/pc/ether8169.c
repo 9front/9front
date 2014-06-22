@@ -670,7 +670,7 @@ rtl8169init(Ether* edev)
 	u32int r;
 	Block *bp;
 	Ctlr *ctlr;
-	u8int cplusc;
+	u16int cplusc;
 
 	ctlr = edev->ctlr;
 	ilock(ctlr);
