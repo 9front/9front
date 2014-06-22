@@ -33,13 +33,14 @@ is mounted. Default is
 .TP
 .B -p
 Number of posts to display, up to and including the most recent post.
+Default is 30.
 .PP
 .I Newt
 starts by reading the list of messages in the
 .I newsgroup,
-printing out the number of messages, and then prompting for commands
-from standard input. The prompt itself presents the name of the group
-and the message number in the form of a file system path relative to the
+printing out the number of messages, and then prompting for commands.
+The prompt itself presents the name of the group followed by
+the message number in the form of a file system path, relative to the
 .I mountpoint.
 .PP
 The commands are:
