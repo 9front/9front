@@ -250,8 +250,7 @@ confinit(void)
 }
 
 /*
- * The palloc.pages array takes arround 5% of the amount
- * of upages which can be a large chunk out of the 2GB
+ * The palloc.pages array can be a large chunk out of the 2GB
  * window above KZERO, so we allocate the array from
  * upages and map in the VMAP window before pageinit()
  */
