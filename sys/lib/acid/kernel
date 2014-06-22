@@ -29,20 +29,6 @@ defn path(p) {
 // print Image cache contents
 IHASHSIZE = 64;
 
-defn imagepagerefs(i) {
-	local p, n;
-
-	n = 0;
-	p = palloc.$tail;
-	while p != 0 && p.image != 0 do {
-		if p.image == i then {
-			n = n + 1;
-		}
-		p = p.prev;
-	}
-	return n;
-}
-
 defn imagecacheline(h) {
 	local d, p, q;
 
