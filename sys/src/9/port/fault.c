@@ -28,14 +28,14 @@ fault(uintptr addr, int read)
 	for(;;) {
 		spllo();
 
-		s = seg(up, addr, 1);		/* leaves s->lk qlocked if seg != nil */
-		if(s == 0) {
+		s = seg(up, addr, 1);		/* leaves s locked if seg != nil */
+		if(s == nil) {
 			up->psstate = sps;
 			return -1;
 		}
 
 		if(!read && (s->type&SG_RONLY)) {
-			qunlock(&s->lk);
+			qunlock(s);
 			up->psstate = sps;
 			return -1;
 		}
@@ -62,7 +62,7 @@ faulterror(char *s, Chan *c, int freemem)
 {
 	char buf[ERRMAX];
 
-	if(c && c->path){
+	if(c != nil && c->path != nil){
 		snprint(buf, sizeof buf, "%s accessing %s: %s", s, c->path->s, up->errstr);
 		s = buf;
 	}
@@ -82,13 +82,13 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 	int type;
 	Pte **p, *etp;
 	uintptr soff, mmuphys=0;
-	Page **pg, *lkp, *new;
+	Page **pg, *old, *new;
 	Page *(*fn)(Segment*, uintptr);
 
 	addr &= ~(BY2PG-1);
 	soff = addr-s->base;
 	p = &s->map[soff/PTEMAPMEM];
-	if(*p == 0)
+	if(*p == nil)
 		*p = ptealloc();
 
 	etp = *p;
@@ -116,9 +116,9 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 	case SG_BSS:
 	case SG_SHARED:			/* Zero fill on demand */
 	case SG_STACK:
-		if(*pg == 0) {
+		if(*pg == nil) {
 			new = newpage(1, &s, addr);
-			if(s == 0)
+			if(s == nil)
 				return -1;
 			*pg = new;
 		}
@@ -139,30 +139,23 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 			break;
 		}
 
-		lkp = *pg;
-		lock(lkp);
-		if(lkp->ref == 0)
-			panic("fault %#p ref == 0", lkp);
-		if(lkp->ref == 1 && lkp->image == nil) {
-			unlock(lkp);
-		} else if(lkp->image == &swapimage && (lkp->ref + swapcount(lkp->daddr)) == 1) {
-			uncachepage(lkp);
-			unlock(lkp);
-		} else {
-			unlock(lkp);
+		old = *pg;
+		if(old->image == &swapimage && (old->ref + swapcount(old->daddr)) == 1)
+			uncachepage(old);
+		if(old->ref > 1 || old->image != nil) {
 			new = newpage(0, &s, addr);
-			if(s == 0)
+			if(s == nil)
 				return -1;
 			*pg = new;
-			copypage(lkp, *pg);
-			putpage(lkp);
+			copypage(old, *pg);
+			putpage(old);
 		}
 		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEVALID;
 		(*pg)->modref = PG_MOD|PG_REF;
 		break;
 
 	case SG_PHYSICAL:
-		if(*pg == 0) {
+		if(*pg == nil) {
 			fn = s->pseg->pgalloc;
 			if(fn)
 				*pg = (*fn)(s, addr);
@@ -181,7 +174,7 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 		(*pg)->modref = PG_MOD|PG_REF;
 		break;
 	}
-	qunlock(&s->lk);
+	qunlock(s);
 
 	if(doputmmu)
 		putmmu(addr, mmuphys, *pg);
@@ -202,7 +195,7 @@ pio(Segment *s, uintptr addr, uintptr soff, Page **p)
 
 retry:
 	loadrec = *p;
-	if(loadrec == 0) {	/* from a text/data image */
+	if(loadrec == nil) {	/* from a text/data image */
 		daddr = s->fstart+soff;
 		new = lookpage(s->image, daddr);
 		if(new != nil) {
@@ -229,7 +222,7 @@ retry:
 		c = swapimage.c;
 		ask = BY2PG;
 	}
-	qunlock(&s->lk);
+	qunlock(s);
 
 	new = newpage(0, 0, addr);
 	k = kmap(new);
@@ -250,37 +243,42 @@ retry:
 
 	poperror();
 	kunmap(k);
-	qlock(&s->lk);
-	if(loadrec == 0) {	/* This is demand load */
+	qlock(s);
+	if(loadrec == nil) {	/* This is demand load */
 		/*
 		 *  race, another proc may have gotten here first while
-		 *  s->lk was unlocked
+		 *  s was unlocked
 		 */
-		if(*p == 0) { 
-			new->daddr = daddr;
-			cachepage(new, s->image);
-			*p = new;
+		if(*p == nil) { 
+			/*
+			 *  check page cache again after i/o to reduce double caching
+			 */
+			*p = lookpage(s->image, daddr);
+			if(*p == nil) {
+				incref(new);
+				new->daddr = daddr;
+				cachepage(new, s->image);
+				*p = new;
+			}
 		}
-		else
-			putpage(new);
 	}
 	else {			/* This is paged out */
 		/*
 		 *  race, another proc may have gotten here first
 		 *  (and the pager may have run on that page) while
-		 *  s->lk was unlocked
+		 *  s was unlocked
 		 */
-		if(*p != loadrec){
-			if(!pagedout(*p)){
+		if(*p != loadrec) {
+			if(!pagedout(*p)) {
 				/* another process did it for me */
-				putpage(new);
 				goto done;
-			} else if(*p) {
+			} else if(*p != nil) {
 				/* another process and the pager got in */
 				putpage(new);
 				goto retry;
 			} else {
 				/* another process segfreed the page */
+				incref(new);
 				k = kmap(new);
 				memset((void*)VA(k), 0, ask);
 				kunmap(k);
@@ -289,13 +287,14 @@ retry:
 			}
 		}
 
+		incref(new);
 		new->daddr = daddr;
 		cachepage(new, &swapimage);
 		*p = new;
 		putswap(loadrec);
 	}
-
 done:
+	putpage(new);
 	if(s->flushme)
 		memset((*p)->cachectl, PG_TXTFLUSH, sizeof((*p)->cachectl));
 }
@@ -311,7 +310,7 @@ okaddr(uintptr addr, ulong len, int write)
 	if((long)len >= 0) {
 		for(;;) {
 			s = seg(up, addr, 0);
-			if(s == 0 || (write && (s->type&SG_RONLY)))
+			if(s == nil || (write && (s->type&SG_RONLY)))
 				break;
 
 			if(addr+len > s->top) {
@@ -369,21 +368,20 @@ seg(Proc *p, uintptr addr, int dolock)
 
 	et = &p->seg[NSEG];
 	for(s = p->seg; s < et; s++) {
-		n = *s;
-		if(n == 0)
+		if((n = *s) == nil)
 			continue;
 		if(addr >= n->base && addr < n->top) {
 			if(dolock == 0)
 				return n;
 
-			qlock(&n->lk);
+			qlock(n);
 			if(addr >= n->base && addr < n->top)
 				return n;
-			qunlock(&n->lk);
+			qunlock(n);
 		}
 	}
 
-	return 0;
+	return nil;
 }
 
 extern void checkmmu(uintptr, uintptr);
@@ -402,22 +400,20 @@ checkpages(void)
 
 	checked = 0;
 	for(sp=up->seg, ep=&up->seg[NSEG]; sp<ep; sp++){
-		s = *sp;
-		if(s == nil)
+		if((s = *sp) == nil)
 			continue;
-		qlock(&s->lk);
+		qlock(s);
 		for(addr=s->base; addr<s->top; addr+=BY2PG){
 			off = addr - s->base;
-			p = s->map[off/PTEMAPMEM];
-			if(p == 0)
+			if((p = s->map[off/PTEMAPMEM]) == nil)
 				continue;
 			pg = p->pages[(off&(PTEMAPMEM-1))/BY2PG];
-			if(pg == 0 || pagedout(pg))
+			if(pagedout(pg))
 				continue;
 			checkmmu(addr, pg->pa);
 			checked++;
 		}
-		qunlock(&s->lk);
+		qunlock(s);
 	}
 	print("%ld %s: checked %d page table entries\n", up->pid, up->text, checked);
 }

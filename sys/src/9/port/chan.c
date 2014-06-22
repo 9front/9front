@@ -96,25 +96,27 @@ isdotdot(char *p)
 long
 incref(Ref *r)
 {
-	long x;
+	long old, new;
 
-	lock(r);
-	x = ++r->ref;
-	unlock(r);
-	return x;
+	do {
+		old = r->ref;
+		new = old+1;
+	} while(!cmpswap(&r->ref, old, new));
+	return new;
 }
 
 long
 decref(Ref *r)
 {
-	long x;
+	long old, new;
 
-	lock(r);
-	x = --r->ref;
-	unlock(r);
-	if(x < 0)
-		panic("decref pc=%#p", getcallerpc(&r));
-	return x;
+	do {
+		old = r->ref;
+		if(old <= 0)
+			panic("decref pc=%#p", getcallerpc(&r));
+		new = old-1;
+	} while(!cmpswap(&r->ref, old, new));
+	return new;
 }
 
 /*

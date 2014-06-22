@@ -5,9 +5,7 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
-static void	imagereclaim(void);
-
-#include "io.h"
+int imagereclaim(int);
 
 /*
  * Attachable segment types
@@ -25,6 +23,7 @@ static Lock physseglock;
 static struct Imagealloc
 {
 	Lock;
+	Image	*list;
 	Image	*free;
 	Image	*hash[IHASHSIZE];
 	QLock	ireclaim;	/* mutex on reclaiming free images */
@@ -37,13 +36,14 @@ initseg(void)
 {
 	Image *i, *ie;
 
-	imagealloc.free = xalloc(conf.nimage*sizeof(Image));
-	if(imagealloc.free == nil)
+	imagealloc.list = xalloc(conf.nimage*sizeof(Image));
+	if(imagealloc.list == nil)
 		panic("initseg: no memory for Image");
-	ie = &imagealloc.free[conf.nimage-1];
-	for(i = imagealloc.free; i < ie; i++)
+	ie = &imagealloc.list[conf.nimage-1];
+	for(i = imagealloc.list; i < ie; i++)
 		i->next = i+1;
-	i->next = 0;
+	i->next = nil;
+	imagealloc.free = imagealloc.list;
 }
 
 Segment *
@@ -55,7 +55,9 @@ newseg(int type, uintptr base, ulong size)
 	if(size > (SEGMAPSIZE*PTEPERTAB))
 		error(Enovmem);
 
-	s = smalloc(sizeof(Segment));
+	s = malloc(sizeof(Segment));
+	if(s == nil)
+		error(Enomem);
 	s->ref = 1;
 	s->type = type;
 	s->base = base;
@@ -66,7 +68,11 @@ newseg(int type, uintptr base, ulong size)
 
 	mapsize = ROUND(size, PTEPERTAB)/PTEPERTAB;
 	if(mapsize > nelem(s->ssegmap)){
-		s->map = smalloc(mapsize*sizeof(Pte*));
+		s->map = malloc(mapsize*sizeof(Pte*));
+		if(s->map == nil){
+			free(s);
+			error(Enomem);
+		}
 		s->mapsize = mapsize;
 	}
 	else{
@@ -83,41 +89,33 @@ putseg(Segment *s)
 	Pte **pp, **emap;
 	Image *i;
 
-	if(s == 0)
+	if(s == nil)
 		return;
 
 	i = s->image;
-	if(i != 0) {
+	if(i != nil) {
 		lock(i);
-		lock(s);
-		if(i->s == s && s->ref == 1)
-			i->s = 0;
+		if(decref(s) != 0){
+			unlock(i);
+			return;
+		}
+		if(i->s == s)
+			i->s = nil;
 		unlock(i);
-	}
-	else
-		lock(s);
-
-	s->ref--;
-	if(s->ref != 0) {
-		unlock(s);
-		return;
-	}
-	unlock(s);
-
-	qlock(&s->lk);
-	if(i)
 		putimage(i);
+	} else if(decref(s) != 0)
+		return;
 
 	emap = &s->map[s->mapsize];
 	for(pp = s->map; pp < emap; pp++)
-		if(*pp)
+		if(*pp != nil)
 			freepte(s, *pp);
 
-	qunlock(&s->lk);
 	if(s->map != s->ssegmap)
 		free(s->map);
-	if(s->profile != 0)
+	if(s->profile != nil)
 		free(s->profile);
+
 	free(s);
 }
 
@@ -129,11 +127,10 @@ relocateseg(Segment *s, uintptr offset)
 
 	endpte = &s->map[s->mapsize];
 	for(p = s->map; p < endpte; p++) {
-		if(*p == 0)
+		if((pte = *p) == nil)
 			continue;
-		pte = *p;
 		for(pg = pte->first; pg <= pte->last; pg++) {
-			if(x = *pg)
+			if((x = *pg) != nil)
 				x->va += offset;
 		}
 	}
@@ -149,9 +146,9 @@ dupseg(Segment **seg, int segno, int share)
 	SET(n);
 	s = seg[segno];
 
-	qlock(&s->lk);
+	qlock(s);
 	if(waserror()){
-		qunlock(&s->lk);
+		qunlock(s);
 		nexterror();
 	}
 	switch(s->type&SG_TYPE) {
@@ -174,7 +171,7 @@ dupseg(Segment **seg, int segno, int share)
 		if(segno == TSEG){
 			n = data2txt(s);
 			poperror();
-			qunlock(&s->lk);
+			qunlock(s);
 			return n;
 		}
 
@@ -190,20 +187,20 @@ dupseg(Segment **seg, int segno, int share)
 	}
 	size = s->mapsize;
 	for(i = 0; i < size; i++)
-		if(pte = s->map[i])
+		if((pte = s->map[i]) != nil)
 			n->map[i] = ptecpy(pte);
 
 	n->flushme = s->flushme;
 	if(s->ref > 1)
 		procflushseg(s);
 	poperror();
-	qunlock(&s->lk);
+	qunlock(s);
 	return n;
 
 sameseg:
 	incref(s);
 	poperror();
-	qunlock(&s->lk);
+	qunlock(s);
 	return s;
 }
 
@@ -219,7 +216,7 @@ segpage(Segment *s, Page *p)
 
 	off = p->va - s->base;
 	pte = &s->map[off/PTEMAPMEM];
-	if(*pte == 0)
+	if(*pte == nil)
 		*pte = ptealloc();
 
 	pg = &(*pte)->pages[(off&(PTEMAPMEM-1))/BY2PG];
@@ -250,14 +247,11 @@ attachimage(int type, Chan *c, uintptr base, ulong len)
 		}
 	}
 
-	/*
-	 * imagereclaim dumps pages from the free list which are cached by image
-	 * structures. This should free some image structures.
-	 */
-	while(!(i = imagealloc.free)) {
+	/* dump pages of inactive images to free image structures */
+	while((i = imagealloc.free) == nil) {
 		unlock(&imagealloc);
-		imagereclaim();
-		if(!imagealloc.free){
+		imagereclaim(1000);
+		if(imagealloc.free == nil){
 			freebroken();		/* can use the memory */
 			resrcwait("no image after reclaim");
 		}
@@ -276,15 +270,15 @@ attachimage(int type, Chan *c, uintptr base, ulong len)
 	*l = i;
 
 found:
+	unlock(&imagealloc);
 	if(i->c == nil){
 		i->c = c;
 		c->flag &= ~CCACHE;
 		incref(c);
 	}
-	unlock(&imagealloc);
 
-	if(i->s == 0) {
-		i->ref++;
+	if(i->s == nil) {
+		incref(i);
 		if(waserror()) {
 			unlock(i);
 			putimage(i);
@@ -300,55 +294,38 @@ found:
 	return i;
 }
 
-static struct {
-	int	calls;			/* times imagereclaim was called */
-	int	loops;			/* times the main loop was run */
-	uvlong	ticks;			/* total time in the main loop */
-	uvlong	maxt;			/* longest time in main loop */
-} irstats;
+extern int pagereclaim(Image*, int);	/* page.c */
 
-static void
-imagereclaim(void)
+int
+imagereclaim(int min)
 {
-	int n;
-	Page *p, *x;
-	uvlong ticks;
+	static Image *i, *ie;
+	int j, n;
 
-	irstats.calls++;
-	/* Somebody is already cleaning the page cache */
-	if(!canqlock(&imagealloc.ireclaim))
-		return;
-
-	lock(&palloc);
-	ticks = fastticks(nil);
+	eqlock(&imagealloc.ireclaim);
+	if(i == nil){
+		i = imagealloc.list;
+		ie = &imagealloc.list[conf.nimage];
+	}
 	n = 0;
-	/*
-	 * All the pages with images backing them are at the
-	 * end of the list (see putpage) so start there and work
-	 * backward.
-	 */
-	for(p = palloc.tail; p && p->image && (n<1000 || !imagealloc.free); p = x) {
-		x = p->prev;
-		if(p->ref == 0 && canlock(p)) {
-			if(p->ref == 0 && p->image && !p->image->notext) {
-				n++;
-				uncachepage(p);
-
-				/* move to head to maintain the invariant above */
-				pageunchain(p);
-				pagechainhead(p);
-			}
-			unlock(p);
+	for(j = 0; j < conf.nimage; j++, i++){
+		if(i >= ie)
+			i = imagealloc.list;
+		if(i->ref == 0)
+			continue;
+		/*
+		 * if there are no free image structures, only
+		 * reclaim pages from inactive images.
+		 */
+		if(imagealloc.free != nil || i->ref == i->pgref){
+			n += pagereclaim(i, min - n);
+			if(n >= min)
+				break;
 		}
 	}
-	ticks = fastticks(nil) - ticks;
-	unlock(&palloc);
-	irstats.loops++;
-	irstats.ticks += ticks;
-	if(ticks > irstats.maxt)
-		irstats.maxt = ticks;
-	//print("T%llud+", ticks);
 	qunlock(&imagealloc.ireclaim);
+
+	return n;
 }
 
 void
@@ -356,28 +333,31 @@ putimage(Image *i)
 {
 	Image *f, **l;
 	Chan *c;
+	int r;
 
-	if(i->notext)
+	if(i->notext){
+		decref(i);
 		return;
+	}
 
 	c = nil;
 	lock(i);
-	if(--i->ref == i->pgref){
+	r = decref(i);
+	if(r == i->pgref){
 		/*
 		 * all remaining references to this image are from the
-		 * page cache now. close the channel as we can reattach
-		 * the chan on attachimage()
+		 * page cache, so close the chan.
 		 */
 		c = i->c;
 		i->c = nil;
 	}
-	if(i->ref == 0){
+	if(r == 0){
 		l = &ihash(i->qid.path);
 		mkqid(&i->qid, ~0, ~0, QTFILE);
 		unlock(i);
 
 		lock(&imagealloc);
-		for(f = *l; f; f = f->hash) {
+		for(f = *l; f != nil; f = f->hash) {
 			if(f == i) {
 				*l = i->hash;
 				break;
@@ -389,7 +369,7 @@ putimage(Image *i)
 		unlock(&imagealloc);
 	} else
 		unlock(i);
-	if(c)
+	if(c != nil)
 		ccloseq(c);	/* does not block */
 }
 
@@ -403,18 +383,18 @@ ibrk(uintptr addr, int seg)
 	Pte **map;
 
 	s = up->seg[seg];
-	if(s == 0)
+	if(s == nil)
 		error(Ebadarg);
 
 	if(addr == 0)
 		return s->base;
 
-	qlock(&s->lk);
+	qlock(s);
 
 	/* We may start with the bss overlapping the data */
 	if(addr < s->base) {
-		if(seg != BSEG || up->seg[DSEG] == 0 || addr < up->seg[DSEG]->base) {
-			qunlock(&s->lk);
+		if(seg != BSEG || up->seg[DSEG] == nil || addr < up->seg[DSEG]->base) {
+			qunlock(s);
 			error(Enovmem);
 		}
 		addr = s->base;
@@ -429,29 +409,29 @@ ibrk(uintptr addr, int seg)
 		 * already by another proc and is past the validaddr stage.
 		 */
 		if(s->ref > 1){
-			qunlock(&s->lk);
+			qunlock(s);
 			error(Einuse);
 		}
 		mfreeseg(s, newtop, (s->top-newtop)/BY2PG);
 		s->top = newtop;
 		s->size = newsize;
-		qunlock(&s->lk);
+		qunlock(s);
 		flushmmu();
 		return 0;
 	}
 
 	for(i = 0; i < NSEG; i++) {
 		ns = up->seg[i];
-		if(ns == 0 || ns == s)
+		if(ns == nil || ns == s)
 			continue;
 		if(newtop >= ns->base && newtop < ns->top) {
-			qunlock(&s->lk);
+			qunlock(s);
 			error(Esoverlap);
 		}
 	}
 
 	if(newsize > (SEGMAPSIZE*PTEPERTAB)) {
-		qunlock(&s->lk);
+		qunlock(s);
 		error(Enovmem);
 	}
 	mapsize = ROUND(newsize, PTEPERTAB)/PTEPERTAB;
@@ -466,33 +446,34 @@ ibrk(uintptr addr, int seg)
 
 	s->top = newtop;
 	s->size = newsize;
-	qunlock(&s->lk);
+	qunlock(s);
 	return 0;
 }
 
 /*
- *  called with s->lk locked
+ *  called with s locked
  */
 int
 mcountseg(Segment *s)
 {
 	int i, j, pages;
-	Page **map;
+	Page *pg;
 
 	pages = 0;
 	for(i = 0; i < s->mapsize; i++){
-		if(s->map[i] == 0)
+		if(s->map[i] == nil)
 			continue;
-		map = s->map[i]->pages;
-		for(j = 0; j < PTEPERTAB; j++)
-			if(map[j])
+		for(j = 0; j < PTEPERTAB; j++){
+			pg = s->map[i]->pages[j];
+			if(!pagedout(pg))
 				pages++;
+		}
 	}
 	return pages;
 }
 
 /*
- *  called with s->lk locked
+ *  called with s locked
  */
 void
 mfreeseg(Segment *s, uintptr start, int pages)
@@ -500,58 +481,38 @@ mfreeseg(Segment *s, uintptr start, int pages)
 	int i, j, size;
 	uintptr soff;
 	Page *pg;
-	Page *list;
+
+	/*
+	 * We want to zero s->map[i]->page[j] and putpage(pg),
+	 * but we have to make sure other processors flush the
+	 * entry from their TLBs before the page is freed.
+	 */
+	if(s->ref > 1)
+		procflushseg(s);
 
 	soff = start-s->base;
 	j = (soff&(PTEMAPMEM-1))/BY2PG;
 
 	size = s->mapsize;
-	list = nil;
 	for(i = soff/PTEMAPMEM; i < size; i++) {
 		if(pages <= 0)
-			break;
-		if(s->map[i] == 0) {
+			return;
+		if(s->map[i] == nil) {
 			pages -= PTEPERTAB-j;
 			j = 0;
 			continue;
 		}
 		while(j < PTEPERTAB) {
 			pg = s->map[i]->pages[j];
-			/*
-			 * We want to zero s->map[i]->page[j] and putpage(pg),
-			 * but we have to make sure other processors flush the
-			 * entry from their TLBs before the page is freed.
-			 * We construct a list of the pages to be freed, zero
-			 * the entries, then (below) call procflushseg, and call
-			 * putpage on the whole list.
-			 *
-			 * Swapped-out pages don't appear in TLBs, so it's okay
-			 * to putswap those pages before procflushseg.
-			 */
-			if(pg){
-				if(onswap(pg))
-					putswap(pg);
-				else{
-					pg->next = list;
-					list = pg;
-				}
-				s->map[i]->pages[j] = 0;
+			if(pg != nil){
+				s->map[i]->pages[j] = nil;
+				putpage(pg);
 			}
 			if(--pages == 0)
-				goto out;
+				return;
 			j++;
 		}
 		j = 0;
-	}
-out:
-	/* flush this seg in all other processes */
-	if(s->ref > 1)
-		procflushseg(s);
-
-	/* free the pages */
-	for(pg = list; pg != nil; pg = list){
-		list = list->next;
-		putpage(pg);
 	}
 }
 
@@ -565,7 +526,7 @@ isoverlap(Proc *p, uintptr va, uintptr len)
 	newtop = va+len;
 	for(i = 0; i < NSEG; i++) {
 		ns = p->seg[i];
-		if(ns == 0)
+		if(ns == nil)
 			continue;
 		if((newtop > ns->base && newtop <= ns->top) ||
 		   (va >= ns->base && va < ns->top))
@@ -594,7 +555,6 @@ addphysseg(Physseg* new)
 		unlock(&physseglock);
 		return -1;
 	}
-
 	*ps = *new;
 	unlock(&physseglock);
 
@@ -700,13 +660,13 @@ found:
 void
 pteflush(Pte *pte, int s, int e)
 {
+	Page *pg;
 	int i;
-	Page *p;
 
 	for(i = s; i < e; i++) {
-		p = pte->pages[i];
-		if(pagedout(p) == 0)
-			memset(p->cachectl, PG_TXTFLUSH, sizeof(p->cachectl));
+		pg = pte->pages[i];
+		if(!pagedout(pg))
+			memset(pg->cachectl, PG_TXTFLUSH, sizeof(pg->cachectl));
 	}
 }
 
@@ -741,7 +701,7 @@ syssegflush(va_list list)
 			pe = PGROUND(pe);
 		}
 		if(pe == ps) {
-			qunlock(&s->lk);
+			qunlock(s);
 			error(Ebadarg);
 		}
 
@@ -755,7 +715,7 @@ syssegflush(va_list list)
 		if(len > 0 && addr < s->top)
 			goto more;
 
-		qunlock(&s->lk);
+		qunlock(s);
 	}
 	flushmmu();
 	return 0;
@@ -767,7 +727,7 @@ segclock(uintptr pc)
 	Segment *s;
 
 	s = up->seg[TSEG];
-	if(s == 0 || s->profile == 0)
+	if(s == nil || s->profile == nil)
 		return;
 
 	s->profile[0] += TK2MS(1);

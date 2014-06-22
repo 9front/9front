@@ -60,7 +60,6 @@ typedef int    Devgen(Chan*, char*, Dirtab*, int, int, Dir*);
 
 struct Ref
 {
-	Lock;
 	long	ref;
 };
 
@@ -151,7 +150,8 @@ struct Block
 
 struct Chan
 {
-	Ref;				/* the Lock in this Ref is also Chan's lock */
+	Ref;
+	Lock;
 	Chan*	next;			/* allocation */
 	Chan*	link;
 	vlong	offset;			/* in fd */
@@ -311,19 +311,16 @@ enum
 
 struct Page
 {
-	Lock;
+	Ref;
+	Page	*next;			/* Free list or Hash chains */
 	uintptr	pa;			/* Physical address in memory */
 	uintptr	va;			/* Virtual address for user */
 	uintptr	daddr;			/* Disc address on swap */
-	ulong	gen;			/* Generation counter for swap */
-	ushort	ref;			/* Reference count */
+	Image	*image;			/* Associated text or swap image */
+	ushort	refage;			/* Swap reference age */
 	char	modref;			/* Simulated modify/reference bits */
 	char	color;			/* Cache coloring */
 	char	cachectl[MAXMACH];	/* Cache flushing control for putmmu */
-	Image	*image;			/* Associated text or swap image */
-	Page	*next;			/* Lru free list */
-	Page	*prev;
-	Page	*hash;			/* Image hash chains */
 };
 
 struct Swapalloc
@@ -339,20 +336,6 @@ struct Swapalloc
 	ulong	headroom;		/* Space pager frees under highwater */
 	ulong	xref;			/* Ref count for all map refs >= 255 */
 }swapalloc;
-
-struct Image
-{
-	Ref;
-	long	pgref;			/* number of cached pages (pgref <= ref) */
-	Chan	*c;			/* channel to text file, nil when not used */
-	Qid 	qid;			/* Qid for page cache coherence */
-	ulong	dev;			/* Device id of owning channel */
-	ushort	type;			/* Device type of owning channel */
-	Segment *s;			/* TEXT segment for image if running */
-	Image	*hash;			/* Qid hash chains */
-	Image	*next;			/* Free list */
-	char	notext;			/* no file associated */
-};
 
 struct Pte
 {
@@ -405,7 +388,7 @@ struct Sema
 struct Segment
 {
 	Ref;
-	QLock	lk;
+	QLock;
 	ushort	steal;		/* Page stealer lock */
 	ushort	type;		/* segment type */
 	uintptr	base;		/* virtual base */
@@ -436,10 +419,29 @@ enum
 };
 #define REND(p,s)	((p)->rendhash[(s)&((1<<RENDLOG)-1)])
 #define MOUNTH(p,qid)	((p)->mnthash[(qid).path&((1<<MNTLOG)-1)])
+#define PGHASH(i,daddr)	((i)->pghash[((daddr)>>PGSHIFT)&(PGHSIZE-1)])
+
+struct Image
+{
+	Ref;
+	Lock;
+	Chan	*c;			/* channel to text file, nil when not used */
+	Qid 	qid;			/* Qid for page cache coherence */
+	ulong	dev;			/* Device id of owning channel */
+	ushort	type;			/* Device type of owning channel */
+	char	notext;			/* no file associated */
+	Segment *s;			/* TEXT segment for image if running */
+	Image	*hash;			/* Qid hash chains */
+	Image	*next;			/* Free list */
+	long	pgref;			/* number of cached pages (pgref <= ref) */
+	Page	*pghash[PGHSIZE];	/* page cache */
+};
+
 
 struct Pgrp
 {
-	Ref;				/* also used as a lock when mounting */
+	Ref;
+	Lock;
 	int	noattach;
 	ulong	pgrpid;
 	QLock	debug;			/* single access via devproc.c */
@@ -449,7 +451,8 @@ struct Pgrp
 
 struct Rgrp
 {
-	Ref;				/* the Ref's lock is also the Rgrp's lock */
+	Ref;
+	Lock;
 	Proc	*rendhash[RENDHASH];	/* Rendezvous tag hash */
 };
 
@@ -476,6 +479,7 @@ struct Evalue
 struct Fgrp
 {
 	Ref;
+	Lock;
 	Chan	**fd;
 	int	nfd;			/* number allocated */
 	int	maxfd;			/* highest fd in use */
@@ -497,13 +501,10 @@ struct Palloc
 {
 	Lock;
 	Pallocmem	mem[4];
-	Page	*head;			/* most recently used */
-	Page	*tail;			/* least recently used */
+	Page	*head;			/* freelist head */
 	ulong	freecount;		/* how many pages on free list now */
 	Page	*pages;			/* array of all pages */
 	ulong	user;			/* how many user pages */
-	Page	*hash[PGHSIZE];
-	Lock	hashlock;
 	Rendez	r;			/* Sleep for free mem */
 	QLock	pwait;			/* Queue of procs waiting for memory */
 };
@@ -772,6 +773,7 @@ extern	Palloc	palloc;
 extern	Queue*	serialoq;
 extern	char*	statename[];
 extern	Image	swapimage;
+extern	Image	fscache;
 extern	char*	sysname;
 extern	uint	qiomaxatomic;
 extern	char*	sysctab[];

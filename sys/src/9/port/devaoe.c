@@ -954,7 +954,7 @@ aoegen(Chan *c, char *, Dirtab *, int, int s, Dir *dp)
 			devdir(c, q, "devlink", 0, eve, 0555, dp);
 			return 1;
 		}
-		if(i >= units.ref)
+		if(i >= Maxunits || i >= units.ref)
 			return -1;
 		d = unit2dev(i);
 		if(s >= d->ndl)
@@ -1728,24 +1728,18 @@ newunit(void)
 {
 	int x;
 
-	lock(&units);
-	if(units.ref == Maxunits)
+	x = incref(&units);
+	if(x >= Maxunits){
+		decref(&units);
 		x = -1;
-	else
-		x = units.ref++;
-	unlock(&units);
+	}
 	return x;
 }
 
 static int
 dropunit(void)
 {
-	int x;
-
-	lock(&units);
-	x = --units.ref;
-	unlock(&units);
-	return x;
+	return decref(&units);
 }
 
 /*
@@ -2064,9 +2058,7 @@ aoeidentify(Aoedev *d, ushort *id)
 static void
 newvers(Aoedev *d)
 {
-	lock(&drivevers);
-	d->vers = drivevers.ref++;
-	unlock(&drivevers);
+	d->vers = incref(&drivevers);
 }
 
 static int

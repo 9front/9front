@@ -480,6 +480,8 @@ consread(Chan *c, void *buf, long n, vlong off)
 	int i, k, id;
 	vlong offset = off;
 	extern char configfile[];
+	extern Image fscache;
+	extern Image swapimage;
 
 	if(n <= 0)
 		return n;
@@ -611,7 +613,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 			(uvlong)conf.npage*BY2PG,
 			(uvlong)BY2PG,
 			conf.npage-conf.upages,
-			palloc.user-palloc.freecount, palloc.user,
+			palloc.user-palloc.freecount-fscache.pgref-swapimage.pgref, palloc.user,
 			conf.nswap-swapalloc.free, conf.nswap,
 			(uvlong)mainmem->cursize,
 			(uvlong)mainmem->maxsize,

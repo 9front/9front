@@ -303,7 +303,7 @@ mmuswitch(Proc* proc)
 		proc->newtlb = 0;
 	}
 
-	if(proc->mmupdb){
+	if(proc->mmupdb != nil){
 		pdb = tmpmap(proc->mmupdb);
 		pdb[PDX(MACHADDR)] = m->pdb[PDX(MACHADDR)];
 		tmpunmap(pdb);
@@ -341,11 +341,11 @@ mmurelease(Proc* proc)
 	if(islo())
 		panic("mmurelease: islo");
 	taskswitch(PADDR(m->pdb), (ulong)m + BY2PG);
-	if(proc->kmaptable){
+	if(proc->kmaptable != nil){
 		if(proc->mmupdb == nil)
 			panic("mmurelease: no mmupdb");
-		if(--proc->kmaptable->ref)
-			panic("mmurelease: kmap ref %d", proc->kmaptable->ref);
+		if(--proc->kmaptable->ref != 0)
+			panic("mmurelease: kmap ref %ld", proc->kmaptable->ref);
 		if(proc->nkmap)
 			panic("mmurelease: nkmap %d", proc->nkmap);
 		/*
@@ -361,23 +361,23 @@ mmurelease(Proc* proc)
 		 * move kmaptable to free list.
 		 */
 		pagechainhead(proc->kmaptable);
-		proc->kmaptable = 0;
+		proc->kmaptable = nil;
 	}
-	if(proc->mmupdb){
+	if(proc->mmupdb != nil){
 		mmuptefree(proc);
 		mmupdbfree(proc, proc->mmupdb);
-		proc->mmupdb = 0;
+		proc->mmupdb = nil;
 	}
-	for(page = proc->mmufree; page; page = next){
+	for(page = proc->mmufree; page != nil; page = next){
 		next = page->next;
-		if(--page->ref)
-			panic("mmurelease: page->ref %d", page->ref);
+		if(--page->ref != 0)
+			panic("mmurelease: page->ref %ld", page->ref);
 		pagechainhead(page);
 	}
-	if(proc->mmufree && palloc.r.p)
+	if(proc->mmufree != nil && palloc.r.p != nil)
 		wakeup(&palloc.r);
-	proc->mmufree = 0;
-	if(proc->ldt){
+	proc->mmufree = nil;
+	if(proc->ldt != nil){
 		free(proc->ldt);
 		proc->ldt = nil;
 		proc->nldt = 0;

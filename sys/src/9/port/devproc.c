@@ -260,7 +260,7 @@ procgen(Chan *c, char *name, Dirtab *tab, int, int s, Dir *dp)
 		break;
 	case Qprofile:
 		q = p->seg[TSEG];
-		if(q && q->profile) {
+		if(q != nil && q->profile != nil) {
 			len = (q->top-q->base)>>LRESPROF;
 			len *= sizeof(*q->profile);
 		}
@@ -800,7 +800,7 @@ procread(Chan *c, void *va, long n, vlong off)
 
 	case Qprofile:
 		s = p->seg[TSEG];
-		if(s == 0 || s->profile == 0)
+		if(s == nil || s->profile == nil)
 			error("profile is off");
 		i = (s->top-s->base)>>LRESPROF;
 		i *= sizeof(*s->profile);
@@ -904,9 +904,9 @@ procread(Chan *c, void *va, long n, vlong off)
 		}
 		for(i=0; i<NSEG; i++){
 			if(s = p->seg[i]){
-				eqlock(&s->lk);
+				eqlock(s);
 				l += mcountseg(s);
-				qunlock(&s->lk);
+				qunlock(s);
 			}
 		}
 		poperror();
@@ -1212,18 +1212,14 @@ proctext(Chan *c, Proc *p)
 	Segment *s;
 
 	s = p->seg[TSEG];
-	if(s == 0)
+	if(s == nil)
 		error(Enonexist);
 	if(p->state==Dead)
 		error(Eprocdied);
 
-	lock(s);
 	i = s->image;
-	if(i == 0) {
-		unlock(s);
+	if(i == nil)
 		error(Eprocdied);
-	}
-	unlock(s);
 
 	lock(i);
 	if(waserror()) {
@@ -1231,8 +1227,11 @@ proctext(Chan *c, Proc *p)
 		nexterror();
 	}
 
+	if(i->s != s)
+		error(Eprocdied);
+		
 	tc = i->c;
-	if(tc == 0)
+	if(tc == nil)
 		error(Eprocdied);
 
 	if(incref(tc) == 1 || (tc->flag&COPEN) == 0 || tc->mode!=OREAD) {
@@ -1292,8 +1291,8 @@ procctlclosefiles(Proc *p, int all, int fd)
 	if(f == nil)
 		error(Eprocdied);
 
+	incref(f);
 	lock(f);
-	f->ref++;
 	while(fd <= f->maxfd){
 		c = f->fd[fd];
 		if(c != nil){
@@ -1417,11 +1416,11 @@ procctlreq(Proc *p, char *va, int n)
 		s = p->seg[TSEG];
 		if(s == 0 || (s->type&SG_TYPE) != SG_TEXT)
 			error(Ebadctl);
-		if(s->profile != 0)
+		if(s->profile != nil)
 			free(s->profile);
 		npc = (s->top-s->base)>>LRESPROF;
 		s->profile = malloc(npc*sizeof(*s->profile));
-		if(s->profile == 0)
+		if(s->profile == nil)
 			error(Enomem);
 		break;
 	case CMstart:
@@ -1632,9 +1631,9 @@ txt2data(Proc *p, Segment *s)
 	if(i == NSEG)
 		panic("segment gone");
 
-	qunlock(&s->lk);
+	qunlock(s);
 	putseg(s);
-	qlock(&ps->lk);
+	qlock(ps);
 	p->seg[i] = ps;
 	qunlock(&p->seglock);
 

@@ -1350,13 +1350,12 @@ procflushseg(Segment *s)
 		return;
 
 	/*
-	 *  wait for all processors to take a clock interrupt
+	 *  wait for all other processors to take a clock interrupt
 	 *  and flush their mmu's
 	 */
 	for(nm = 0; nm < conf.nmach; nm++)
-		if(MACHP(nm) != m)
-			while(MACHP(nm)->flushmmu)
-				sched();
+		while(m->machno != nm && MACHP(nm)->flushmmu)
+			sched();
 }
 
 void
@@ -1514,10 +1513,10 @@ killbig(char *why)
 		l = 0;
 		for(i=1; i<NSEG; i++) {
 			s = p->seg[i];
-			if(s == 0 || !canqlock(&s->lk))
+			if(s == nil || !canqlock(s))
 				continue;
 			l += (ulong)mcountseg(s);
-			qunlock(&s->lk);
+			qunlock(s);
 		}
 		qunlock(&p->seglock);
 		if(l > max && ((p->procmode&0222) || strcmp(eve, p->user)!=0)) {
@@ -1537,9 +1536,9 @@ killbig(char *why)
 	kp->procctl = Proc_exitbig;
 	for(i = 0; i < NSEG; i++) {
 		s = kp->seg[i];
-		if(s != 0 && canqlock(&s->lk)) {
+		if(s != nil && canqlock(s)) {
 			mfreeseg(s, s->base, (s->top - s->base)/BY2PG);
-			qunlock(&s->lk);
+			qunlock(s);
 		}
 	}
 	qunlock(&kp->seglock);

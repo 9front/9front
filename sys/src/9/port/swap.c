@@ -18,19 +18,7 @@ static 	int	swopen;
 static	Page	**iolist;
 static	int	ioptr;
 
-static	ulong	genage, genclock, gencount;
-static	uvlong	gensum;
-
-static void
-gentick(void)
-{
-	genclock++;
-	if(gencount)
-		genage = gensum / gencount;
-	else
-		genage = 0;
-	gensum = gencount = 0;
-}
+static	ushort	ageclock;
 
 void
 swapinit(void)
@@ -59,13 +47,10 @@ newswap(void)
 		unlock(&swapalloc);
 		return ~0;
 	}
-
 	look = memchr(swapalloc.last, 0, swapalloc.top-swapalloc.last);
-	if(look == 0)
-		panic("inconsistent swap");
-
+	if(look == nil)
+		look = memchr(swapalloc.swmap, 0, swapalloc.last-swapalloc.swmap);
 	*look = 2;	/* ref for pte + io transaction */
-
 	swapalloc.last = look;
 	swapalloc.free--;
 	unlock(&swapalloc);
@@ -91,17 +76,12 @@ putswap(Page *p)
 				if(*idx == 255) {
 					*idx = 0;
 					swapalloc.free++;
-					if(idx < swapalloc.last)
-						swapalloc.last = idx;
 				}
 			}
 		}
 	} else {
-		if(--(*idx) == 0) {
+		if(--(*idx) == 0)
 			swapalloc.free++;
-			if(idx < swapalloc.last)
-				swapalloc.last = idx;
-		}
 	}
 	unlock(&swapalloc);
 }
@@ -131,18 +111,40 @@ swapcount(uintptr daddr)
 void
 kickpager(void)
 {
-	static int started;
+	static Ref started;
 
-	if(started)
+	if(started.ref || incref(&started) != 1)
 		wakeup(&swapalloc.r);
-	else {
+	else
 		kproc("pager", pager, 0);
-		started = 1;
+}
+
+extern int pagereclaim(Image*,int);	/* page.c */
+extern int imagereclaim(int);		/* segment.c */
+
+static int
+reclaim(void)
+{
+	int n;
+
+	for(;;){
+		if((n = pagereclaim(&fscache, 1000)) > 0) {
+			if(0) print("reclaim: %d fscache\n", n);
+		} else if((n = pagereclaim(&swapimage, 1000)) > 0) {
+			if(0) print("reclaim: %d swap\n", n);
+		} else if((n = imagereclaim(1000)) > 0) {
+			if(0) print("reclaim: %d image\n", n);
+		}
+		if(!needpages(nil))
+			return 1;	/* have pages, done */
+		if(n == 0)
+			return 0;	/* didnt reclaim, need to swap */
+		sched();
 	}
 }
 
 static void
-pager(void *junk)
+pager(void*)
 {
 	int i;
 	Segment *s;
@@ -153,86 +155,86 @@ pager(void *junk)
 
 	while(waserror())
 		;
-loop:
-	up->psstate = "Idle";
-	wakeup(&palloc.r);
-	sleep(&swapalloc.r, needpages, 0);
 
-	while(needpages(junk)) {
-		if(swapimage.c && swapalloc.free) {
-			p++;
-			if(p >= ep){
-				p = proctab(0);
-				gentick();			
-			}
+	for(;;){
+		up->psstate = "Reclaim";
+		if(reclaim()){
+			up->psstate = "Idle";
+			wakeup(&palloc.r);
+			sleep(&swapalloc.r, needpages, nil);
+			continue;
+		}
 
-			if(p->state == Dead || p->noswap)
-				continue;
-
-			if(!canqlock(&p->seglock))
-				continue;		/* process changing its segments */
-
-			for(i = 0; i < NSEG; i++) {
-				if(!needpages(junk)){
-					qunlock(&p->seglock);
-					goto loop;
-				}
-
-				if(s = p->seg[i]) {
-					switch(s->type&SG_TYPE) {
-					default:
-						break;
-					case SG_TEXT:
-						pageout(p, s);
-						break;
-					case SG_DATA:
-					case SG_BSS:
-					case SG_STACK:
-					case SG_SHARED:
-						up->psstate = "Pageout";
-						pageout(p, s);
-						if(ioptr != 0) {
-							up->psstate = "I/O";
-							executeio();
-						}
-						break;
-					}
-				}
-			}
-			qunlock(&p->seglock);
-		} else {
+		if(swapimage.c == nil || swapalloc.free == 0){
 			killbig("out of memory");
 			freebroken();		/* can use the memory */
 			sched();
+			continue;
+		}
+
+		p++;
+		if(p >= ep){
+			p = proctab(0);
+			ageclock++;
+		}
+
+		if(p->state == Dead || p->noswap)
+			continue;
+
+		if(!canqlock(&p->seglock))
+			continue;		/* process changing its segments */
+
+		up->psstate = "Pageout";
+		for(i = 0; i < NSEG; i++) {
+			if((s = p->seg[i]) != nil) {
+				switch(s->type&SG_TYPE) {
+				default:
+					break;
+				case SG_TEXT:
+					pageout(p, s);
+					break;
+				case SG_DATA:
+				case SG_BSS:
+				case SG_STACK:
+				case SG_SHARED:
+					pageout(p, s);
+					break;
+				}
+			}
+		}
+		qunlock(&p->seglock);
+
+		if(ioptr > 0) {
+			up->psstate = "I/O";
+			executeio();
 		}
 	}
-	goto loop;
 }
 
 static void
 pageout(Proc *p, Segment *s)
 {
 	int type, i, size;
-	ulong age;
+	short age;
 	Pte *l;
 	Page **pg, *entry;
 
-	if(!canqlock(&s->lk))	/* We cannot afford to wait, we will surely deadlock */
+	if(!canqlock(s))	/* We cannot afford to wait, we will surely deadlock */
 		return;
 
 	if(s->steal) {		/* Protected by /dev/proc */
-		qunlock(&s->lk);
+		qunlock(s);
 		return;
 	}
 
 	if(!canflush(p, s)) {	/* Able to invalidate all tlbs with references */
-		qunlock(&s->lk);
+		qunlock(s);
 		putseg(s);
 		return;
 	}
 
 	if(waserror()) {
-		qunlock(&s->lk);
+		qunlock(s);
 		putseg(s);
 		return;
 	}
@@ -248,30 +250,19 @@ pageout(Proc *p, Segment *s)
 			entry = *pg;
 			if(pagedout(entry))
 				continue;
-
 			if(entry->modref & PG_REF) {
 				entry->modref &= ~PG_REF;
-				entry->gen = genclock;
-			}
-
-			if(genclock < entry->gen)
-				age = ~(entry->gen - genclock);
-			else
-				age = genclock - entry->gen;
-			gensum += age;
-			gencount++;
-			if(age <= genage)
+				entry->refage = ageclock;
 				continue;
-
+			}
+			age = (short)(ageclock - entry->refage);
+			if(age < 16)
+				continue;
 			pagepte(type, pg);
-
-			if(ioptr >= conf.nswppo)
-				goto out;
 		}
 	}
-out:
 	poperror();
-	qunlock(&s->lk);
+	qunlock(s);
 	putseg(s);
 }
 
@@ -281,14 +272,8 @@ canflush(Proc *p, Segment *s)
 	int i;
 	Proc *ep;
 
-	lock(s);
-	if(s->ref == 1) {		/* Easy if we are the only user */
-		s->ref++;
-		unlock(s);
+	if(incref(s) == 2)		/* Easy if we are the only user */
 		return canpage(p);
-	}
-	s->ref++;
-	unlock(s);
 
 	/* Now we must do hardwork to ensure all processes which have tlb
 	 * entries for this segment will be flushed if we succeed in paging it out
@@ -317,13 +302,16 @@ pagepte(int type, Page **pg)
 	switch(type) {
 	case SG_TEXT:				/* Revert to demand load */
 		putpage(outp);
-		*pg = 0;
+		*pg = nil;
 		break;
 
 	case SG_DATA:
 	case SG_BSS:
 	case SG_STACK:
 	case SG_SHARED:
+		if(ioptr >= conf.nswppo)
+			break;
+
 		/*
 		 *  get a new swap address with swapcount 2, one for the pte
 		 *  and one extra ref for us while we write the page to disk
@@ -334,8 +322,6 @@ pagepte(int type, Page **pg)
 
 		/* clear any pages referring to it from the cache */
 		cachedel(&swapimage, daddr);
-
-		lock(outp);
 
 		/* forget anything that it used to cache */
 		uncachepage(outp);
@@ -348,7 +334,6 @@ pagepte(int type, Page **pg)
 		outp->daddr = daddr;
 		cachepage(outp, &swapimage);
 		*pg = (Page*)(daddr|PG_ONSWAP);
-		unlock(outp);
 
 		/* Add page to IO transaction list */
 		iolist[ioptr++] = outp;
@@ -365,44 +350,34 @@ pagersummary(void)
 		ioptr);
 }
 
-static int
-pageiocomp(void *a, void *b)
-{
-	Page *p1, *p2;
-
-	p1 = *(Page **)a;
-	p2 = *(Page **)b;
-	if(p1->daddr > p2->daddr)
-		return 1;
-	else
-		return -1;
-}
-
 static void
 executeio(void)
 {
-	Page *out;
+	Page *outp;
 	int i, n;
 	Chan *c;
 	char *kaddr;
 	KMap *k;
 
 	c = swapimage.c;
-	qsort(iolist, ioptr, sizeof iolist[0], pageiocomp);
 	for(i = 0; i < ioptr; i++) {
 		if(ioptr > conf.nswppo)
 			panic("executeio: ioptr %d > %d", ioptr, conf.nswppo);
-		out = iolist[i];
+		outp = iolist[i];
 
-		/* only write when swap address still referenced */
-		if(swapcount(out->daddr) > 1){
-			k = kmap(out);
+		assert(outp->ref > 0);
+		assert(outp->image == &swapimage);
+		assert(outp->daddr != ~0);
+
+		/* only write when swap address still in use */
+		if(swapcount(outp->daddr) > 1){
+			k = kmap(outp);
 			kaddr = (char*)VA(k);
 
 			if(waserror())
-				panic("executeio: page out I/O error");
+				panic("executeio: page outp I/O error");
 
-			n = devtab[c->type]->write(c, kaddr, BY2PG, out->daddr);
+			n = devtab[c->type]->write(c, kaddr, BY2PG, outp->daddr);
 			if(n != BY2PG)
 				nexterror();
 
@@ -411,10 +386,10 @@ executeio(void)
 		}
 
 		/* drop our extra swap reference */
-		putswap((Page*)out->daddr);
+		putswap((Page*)outp->daddr);
 
 		/* Free up the page after I/O */
-		putpage(out);
+		putpage(outp);
 	}
 	ioptr = 0;
 }
@@ -432,7 +407,7 @@ setswapchan(Chan *c)
 	Dir d;
 	int n;
 
-	if(swapimage.c) {
+	if(swapimage.c != nil) {
 		if(swapalloc.free != conf.nswap){
 			cclose(c);
 			error(Einuse);
@@ -460,10 +435,4 @@ setswapchan(Chan *c)
 	}
 	c->flag &= ~CCACHE;
 	swapimage.c = c;
-}
-
-int
-swapfull(void)
-{
-	return swapalloc.free < conf.nswap/10;
 }

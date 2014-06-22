@@ -125,7 +125,7 @@ sysrfork(va_list list)
 		nexterror();
 	}
 	for(i = 0; i < NSEG; i++)
-		if(up->seg[i])
+		if(up->seg[i] != nil)
 			p->seg[i] = dupseg(up->seg, i, n);
 	qunlock(&p->seglock);
 	poperror();
@@ -338,7 +338,7 @@ sysexec(va_list list)
 	nargs = 0;
 	if(indir){
 		argp = progarg;
-		while(*argp){
+		while(*argp != nil){
 			a = *argp++;
 			nbytes += strlen(a) + 1;
 			nargs++;
@@ -402,7 +402,7 @@ sysexec(va_list list)
 		argp = argp0;
 
 	for(i=0; i<nargs; i++){
-		if(indir && *argp==0) {
+		if(indir && *argp==nil) {
 			indir = 0;
 			argp = argp0;
 		}
@@ -436,20 +436,20 @@ sysexec(va_list list)
 	for(i = SSEG; i <= BSEG; i++) {
 		putseg(up->seg[i]);
 		/* prevent a second free if we have an error */
-		up->seg[i] = 0;
+		up->seg[i] = nil;
 	}
 	for(i = ESEG+1; i < NSEG; i++) {
 		s = up->seg[i];
-		if(s != 0 && (s->type&SG_CEXEC) != 0) {
+		if(s != nil && (s->type&SG_CEXEC) != 0) {
 			putseg(s);
-			up->seg[i] = 0;
+			up->seg[i] = nil;
 		}
 	}
 
 	/*
 	 * Close on exec
 	 */
-	if((f = up->fgrp) != nil){
+	if((f = up->fgrp) != nil) {
 		for(i=0; i<=f->maxfd; i++)
 			fdclose(i, CCEXEC);
 	}
@@ -481,7 +481,7 @@ sysexec(va_list list)
 	 * Move the stack
 	 */
 	s = up->seg[ESEG];
-	up->seg[ESEG] = 0;
+	up->seg[ESEG] = nil;
 	s->base = USTKTOP-USTKSIZE;
 	s->top = USTKTOP;
 	relocateseg(s, USTKTOP-tstk);
@@ -570,7 +570,7 @@ syssleep(va_list list)
 
 	ms = va_arg(list, long);
 	if(ms <= 0) {
-		if (up->edf && (up->edf->flags & Admitted))
+		if (up->edf != nil && (up->edf->flags & Admitted))
 			edfyield();
 		else
 			yield();
@@ -597,7 +597,7 @@ sysexits(va_list list)
 	char buf[ERRMAX];
 
 	status = va_arg(list, char*);
-	if(status){
+	if(status != nil){
 		if(waserror())
 			status = inval;
 		else{
@@ -714,7 +714,7 @@ sysnotify(va_list list)
 {
 	int (*f)(void*, char*);
 	f = va_arg(list, void*);
-	if(f != 0)
+	if(f != nil)
 		validaddr((uintptr)f, sizeof(void*), 0);
 	up->notify = f;
 	return 0;
@@ -723,7 +723,7 @@ sysnotify(va_list list)
 uintptr
 sysnoted(va_list list)
 {
-	if(va_arg(list, int) !=NRSTR && !up->notified)
+	if(va_arg(list, int) != NRSTR && !up->notified)
 		error(Egreg);
 	return 0;
 }
@@ -738,7 +738,7 @@ syssegbrk(va_list list)
 	addr = va_arg(list, uintptr);
 	for(i = 0; i < NSEG; i++) {
 		s = up->seg[i];
-		if(s == 0 || addr < s->base || addr >= s->top)
+		if(s == nil || addr < s->base || addr >= s->top)
 			continue;
 		switch(s->type&SG_TYPE) {
 		case SG_TEXT:
@@ -783,14 +783,14 @@ syssegdetach(va_list list)
 		nexterror();
 	}
 
-	s = 0;
+	s = nil;
 	for(i = 0; i < NSEG; i++)
-		if(s = up->seg[i]) {
-			qlock(&s->lk);
+		if((s = up->seg[i]) != nil) {
+			qlock(s);
 			if((addr >= s->base && addr < s->top) ||
 			   (s->top == s->base && addr == s->base))
 				goto found;
-			qunlock(&s->lk);
+			qunlock(s);
 		}
 
 	error(Ebadarg);
@@ -800,11 +800,11 @@ found:
 	 * Check we are not detaching the initial stack segment.
 	 */
 	if(s == up->seg[SSEG]){
-		qunlock(&s->lk);
+		qunlock(s);
 		error(Ebadarg);
 	}
-	up->seg[i] = 0;
-	qunlock(&s->lk);
+	up->seg[i] = nil;
+	qunlock(s);
 	putseg(s);
 	qunlock(&up->seglock);
 	poperror();
@@ -830,12 +830,12 @@ syssegfree(va_list list)
 	from = PGROUND(from);
 
 	if(to > s->top) {
-		qunlock(&s->lk);
+		qunlock(s);
 		error(Ebadarg);
 	}
 
 	mfreeseg(s, from, (to - from) / BY2PG);
-	qunlock(&s->lk);
+	qunlock(s);
 	flushmmu();
 	return 0;
 }
@@ -858,7 +858,7 @@ sysrendezvous(va_list list)
 	l = &REND(up->rgrp, tag);
 
 	lock(up->rgrp);
-	for(p = *l; p; p = p->rendhash) {
+	for(p = *l; p != nil; p = p->rendhash) {
 		if(p->rendtag == tag) {
 			*l = p->rendhash;
 			val = p->rendval;
