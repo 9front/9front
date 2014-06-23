@@ -120,7 +120,7 @@ sched(void)
 			m->machno,
 			m->ilockdepth,
 			up != nil ? up->lastilock: nil,
-			(up != nil && up->lastilock) ? up->lastilock->pc: 0,
+			(up != nil && up->lastilock != nil) ? up->lastilock->pc: 0,
 			getcallerpc(&p+2));
 	if(up != nil) {
 		/*
@@ -486,7 +486,7 @@ another:
 		if(npri != pri){
 			x = splhi();
 			p = dequeueproc(rq, p);
-			if(p)
+			if(p != nil)
 				queueproc(&runq[npri], p);
 			splx(x);
 			goto another;
@@ -714,15 +714,14 @@ procinit0(void)		/* bad planning - clashes with devproc.c */
 	Proc *p;
 	int i;
 
-	procalloc.free = xalloc(conf.nproc*sizeof(Proc));
-	if(procalloc.free == nil){
+	p = xalloc(conf.nproc*sizeof(Proc));
+	if(p == nil){
 		xsummary();
 		panic("cannot allocate %lud procs (%ludMB)", conf.nproc, conf.nproc*sizeof(Proc)/(1024*1024));
 	}
-	procalloc.arena = procalloc.free;
-
-	p = procalloc.free;
-	for(i=0; i<conf.nproc-1; i++,p++)
+	procalloc.arena = p;
+	procalloc.free = p;
+	for(i=0; i<conf.nproc-1; i++, p++)
 		p->qnext = p+1;
 	p->qnext = nil;
 }
@@ -1223,10 +1222,7 @@ pexit(char *exitstr, int freemem)
 static int
 haswaitq(void *x)
 {
-	Proc *p;
-
-	p = (Proc *)x;
-	return p->waitq != 0;
+	return ((Proc*)x)->waitq != nil;
 }
 
 ulong
@@ -1308,10 +1304,8 @@ procdump(void)
 		print("no current process\n");
 	for(i=0; i<conf.nproc; i++) {
 		p = &procalloc.arena[i];
-		if(p->state == Dead)
-			continue;
-
-		dumpaproc(p);
+		if(p->state != Dead)
+			dumpaproc(p);
 	}
 }
 
@@ -1556,7 +1550,7 @@ renameuser(char *old, char *new)
 
 	ep = procalloc.arena+conf.nproc;
 	for(p = procalloc.arena; p < ep; p++)
-		if(p->user!=nil && strcmp(old, p->user)==0)
+		if(p->user != nil && strcmp(old, p->user) == 0)
 			kstrdup(&p->user, new);
 }
 
