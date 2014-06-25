@@ -111,7 +111,7 @@ backendconnect(Ctlr *ctlr)
 	xenstore_gets(dir, "state", buf, sizeof buf);
 	while (strtol(buf, 0, 0) != XenbusStateConnected) {
 		print("sdxen: waiting for vbd %d to connect\n", ctlr->devid);
-		tsleep(&up->sleep, return0, 0, 1000);
+		tsleep(&up->sleep, return0, 0, 50);
 		xenstore_gets(dir, "state", buf, sizeof buf);
 	}
 	xenstore_gets(dir, "sector-size", buf, sizeof buf);
