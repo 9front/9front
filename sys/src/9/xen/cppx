@@ -1,0 +1,41 @@
+#!/bin/rc
+awk '
+function qq(s) {
+	gsub("\"", "£", s)
+	return "\"@" s "\""
+}
+
+/^#include/	{ next
+}
+/^#define.*\\$/ {
+	save[n++] = $0
+	print qq($0 "\\")
+	next
+}
+(n > 0) && /\\$/ {
+	save[n++] = $0
+	print qq($0 "\\")
+	next
+}
+(n > 0)  {
+	save[n++] = $0
+	print qq($0)
+	for (i = 0; i < n; i++) print save[i]
+	n = 0
+	next
+}
+/^# *((define)|(error)).*[^\\]*$/ {
+	print qq($0)
+	print
+	next
+}
+/^# *undef.*[^\\]*$/ {
+	print
+	print qq($0)
+	next
+}
+	{ print
+}
+' $* |
+cpp -P |
+sed -e 's/£/"/g' -e 's/^"@(.*\\)\\"$/\1/' -e 's/^"@(.*)"$/\1/'

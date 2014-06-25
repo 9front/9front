@@ -1,0 +1,62 @@
+dev
+	root		netif
+	cons
+	uart
+	arch
+	env
+	pipe
+	proc
+	mnt
+	srv
+	shr
+	dup
+	rtc
+	ssl
+	tls
+	cap
+	kprof
+	fs
+
+	xenstore
+	ether		netif
+	ip			arp chandial ip ipv6 ipaux iproute netlog nullmedium pktmedium ptclbsum386 inferno
+
+	sd
+
+link
+	etherxen
+	ethermedium
+	netdevmedium
+	loopbackmedium
+
+misc
+	archxen
+	sdxen
+	uartxen
+
+ip
+	tcp
+	udp
+	rudp
+	ipifc
+	icmp
+	icmp6
+	gre
+	ipmux
+	esp
+	il
+
+port
+	int cpuserver = 0;
+
+boot boot
+	tcp
+	local
+
+bootdir
+	boot$CONF.out	boot
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	bootfs.paq
+	xenstore
+
