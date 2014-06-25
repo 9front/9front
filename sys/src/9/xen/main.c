@@ -73,8 +73,9 @@ main(void)
 {
 	mach0init();
 	options();
-	quotefmtinstall();
+	ioinit();
 	xenconsinit();
+	quotefmtinstall();
 
 	//consdebug = rdb;
 	print("\nPlan 9 (%s)\n", xenstart->magic);

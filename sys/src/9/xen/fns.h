@@ -59,6 +59,7 @@ void	insl(int, void*, int);
 int	intrdisable(int, void (*)(Ureg *, void *), void*, int, char*);
 void	intrenable(int, void (*)(Ureg*, void*), void*, int, char*);
 int	ioalloc(int, int, int, char*);
+void	ioinit(void);
 int	isaconfig(char*, int, ISAConf*);
 void	kbdenable(void);
 #define	kmapinval()

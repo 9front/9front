@@ -90,7 +90,7 @@ interrupt(Ureg*, void *arg)
 	coherence();
 	while (cons != con->in_prod) {
 		c = con->in[MASK_XENCONS_IDX(cons++, con->in)];
-		uartrecv(uart, c & 0xFF);
+		uartrecv(uart, c);
 	}
 	coherence();
 	con->in_cons = cons;
@@ -232,22 +232,13 @@ xenputc(Uart*, int c)
 	struct xencons_interface *con = xencons.intf;
 	unsigned long prod;
 
-	c &= 0xFF;
-
 	ilock(&xencons.txlock);
-	/*
-	while(con->out_cons == con->out_prod)
-		HYPERVISOR_yield();
-	*/
-	if(con->out_cons == con->out_prod){
-		iunlock(&xencons.txlock);
-		return;
-	}
-
 	prod = con->out_prod;
-
-	if((con->out[MASK_XENCONS_IDX(prod++, con->out)] = c) == '\n')
-		con->out[MASK_XENCONS_IDX(prod++, con->out)] = '\r';
+	if((prod - con->out_cons) < sizeof(con->out)){
+		if (c == '\n')
+			con->out[MASK_XENCONS_IDX(prod++, con->out)] = '\r';
+		con->out[MASK_XENCONS_IDX(prod++, con->out)] = c;
+	}
 
 	coherence();
 	con->out_prod = prod;
@@ -303,6 +294,7 @@ xenconsinit(void)
 	xencons.evtchn = xenstart->console_evtchn;
 
 	consuart = &xenuart;
+	consuart->console = 1;
 }
 
 void
@@ -326,9 +318,5 @@ kbdenable(void)
 
 	consuart = uart;
 	uart->console = 1;
-
-	uartputs("CONSOLE1\n", 9);
-
-	//*(char*)0 = 0;
 }
 
