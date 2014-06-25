@@ -281,7 +281,7 @@ bootargs(ulong base)
 	sp = (uchar*)base + BY2PG - Ustkheadroom;
 
 	ac = 0;
-	av[ac++] = pusharg("/386/9dos");
+	av[ac++] = pusharg("boot");
 	av[ac++] = pusharg("-D");
 
 	/* 4 byte word align stack */
