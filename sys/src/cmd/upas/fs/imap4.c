@@ -9,7 +9,18 @@
 #pragma varargck	type	"Z"	char*
 
 int	doublequote(Fmt*);
-int	pipeline = 1;
+
+// if pipeline == 1 and upas/fs is used with dovecot,
+// 9Xn OK responses sometimes come much later after FETCH responses, i.e.
+// <- * 1 FETCH ...
+// <- * 2 FETCH ...
+// <- * 3 FETCH ...
+// <- 9X5 OK Fetch completed.
+// <- 9X6 OK Fetch completed.
+// download 40: did not get message body
+// <- 9X7 OK Fetch completed.
+// causing multiple messages to turn into one in imap4.c:/^imap4resp.
+int	pipeline = 0;
 
 static char Eio[] = "i/o error";
 
