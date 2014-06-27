@@ -45,10 +45,7 @@ struct Ptprpc
 	uchar	type[2];
 	uchar	code[2];
 	uchar	transid[4];
-	union {
-		uchar	p[5][4];
-		uchar	d[52];
-	};
+	uchar	d[52];
 };
 
 struct Node
@@ -225,7 +222,7 @@ vptprpc(Ioproc *io, int code, int flags, va_list a)
 
 	for(i=0; i<np; i++){
 		int x = va_arg(a, int);
-		PUT4(rpc.p[i], x);
+		PUT4(rpc.d + i*4, x);
 	}
 	if(debug)
 		hexdump("req>", (uchar*)&rpc, n);
@@ -351,10 +348,10 @@ Resp1:
 	if(flags & OutParam){
 		int *pp;
 
-		for(i=0; i<nelem(rpc.p); i++){
+		for(i=0; i<5; i++){
 			if((pp = va_arg(a, int*)) == nil)
 				break;
-			*pp = GET4(rpc.p[i]);
+			*pp = GET4(rpc.d + i*4);
 		}
 	}
 	return 0;
@@ -1040,7 +1037,7 @@ threadmain(int argc, char **argv)
 
 	time0 = time(0);
 
-	snprint(name, sizeof name, "sdU%d.0", d->id);
+	snprint(name, sizeof name, "sdU%d", d->id);
 	snprint(desc, sizeof desc, "%d.ptp", d->id);
 	threadpostsharesrv(&fs, nil, name, desc);
 
