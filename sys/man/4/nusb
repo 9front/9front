@@ -111,7 +111,7 @@ are formatted as 4 digit hexadecimal.
 is the device class, subclass, protocol indentifier
 formatd as 6 digit hexadecimal.
 .I Usbd
-assigns a stable device uniqueue name based on the
+assigns a stable device unique name based on the
 device descriptor for
 .I hname .
 This information is read by
@@ -142,7 +142,7 @@ provides a file system (usually seen under
 .BR /dev )
 that includes one directory per storage device, named
 .BI sdU N [. M ]
-in correspondence with the usb device uniqueue name
+in correspondence with the usb device unique name
 and the storage unit number (or LUN). The LUN is omited
 for single lun devices.
 .PP

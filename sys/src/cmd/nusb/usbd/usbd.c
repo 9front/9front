@@ -348,7 +348,7 @@ assignhname(Dev *dev)
 
 	ud = dev->usb;
 
-	/* build string of device uniqueue stuff */
+	/* build string of device unique stuff */
 	snprint(buf, sizeof(buf), "%.4x%.4x%.4x%.6lx%s",
 		ud->vid, ud->did, ud->dno, ud->csp, ud->serial);
 

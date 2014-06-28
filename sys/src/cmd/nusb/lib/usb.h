@@ -174,7 +174,7 @@ struct Dev
 	Usbdev*	usb;		/* USB description */
 	void*	aux;		/* for the device driver */
 	void	(*free)(void*);	/* idem. to release aux */
-	char*	hname;		/* hash name, uniqueue for device */
+	char*	hname;		/* hash name, unique for device */
 };
 
 /*
