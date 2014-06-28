@@ -121,6 +121,7 @@ opendev(char *fn)
 		free(d);
 		return nil;
 	}
+	d->hname = nil;
 	dprint(2, "%s: opendev %#p %s\n", argv0, d, fn);
 	return d;
 }
@@ -323,6 +324,8 @@ closedev(Dev *d)
 	d->cfd = d->dfd = -1;
 	free(d->dir);
 	d->dir = nil;
+	free(d->hname);
+	d->hname = nil;
 	ud = d->usb;
 	d->usb = nil;
 	if(ud != nil){
@@ -509,12 +512,26 @@ devctl(Dev *dev, char *fmt, ...)
 }
 
 Dev *
-getdev(int id)
+getdev(char *devid)
 {
+	char buf[40], *p;
 	Dev *d;
-	char buf[40];
-	
-	snprint(buf, sizeof buf, "/dev/usb/ep%d.0", id);
+
+	if(devid[0] == '/' || devid[0] == '#'){
+		snprint(buf, sizeof buf, "%s", devid);
+		p = strrchr(buf, '/');
+		if(p != nil){
+			p = strrchr(buf, ':');
+			if(p != nil)
+				*p = 0;
+		}
+	} else {
+		p = nil;
+		snprint(buf, sizeof buf, "/dev/usb/ep%ld.0", strtol(devid, &p, 10));
+		if(*p != ':')
+			p = nil;
+	}
+
 	d = opendev(buf);
 	if(d == nil)
 		return nil;
@@ -522,5 +539,12 @@ getdev(int id)
 		closedev(d);
 		return nil;
 	}
+
+	if(p == nil){
+		snprint(buf, sizeof buf, ":%d", d->id);
+		p = buf;
+	}
+	d->hname = strdup(p+1);
+
 	return d;
 }

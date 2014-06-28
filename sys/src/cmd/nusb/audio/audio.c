@@ -184,7 +184,7 @@ main(int argc, char *argv[])
 	if(argc == 0)
 		usage();
 
-	if((d = getdev(atoi(*argv))) == nil)
+	if((d = getdev(*argv)) == nil)
 		sysfatal("getdev: %r");
 	audiodev = d;
 

@@ -810,7 +810,7 @@ threadmain(int argc, char* argv[])
 	}ARGEND
 	if(argc != 1)
 		usage();
-	dev = getdev(atoi(*argv));
+	dev = getdev(*argv);
 	if(dev == nil)
 		sysfatal("getdev: %r");
 
@@ -859,17 +859,10 @@ threadmain(int argc, char* argv[])
 		}
 
 		dsprint(2, "serial: adding interface %d, %p\n", p->interfc, p);
-		if(p->isjtag){
-			snprint(p->name, sizeof p->name, "jtag");
-			dsprint(2, "serial: JTAG interface %d %p\n", i, p);
-			snprint(p->name, sizeof p->name, "jtag%d.%d", dev->id, i);
-		} else {
-			snprint(p->name, sizeof p->name, "eiaU");
-			if(i == 0)
-				snprint(p->name, sizeof p->name, "eiaU%d", dev->id);
-			else
-				snprint(p->name, sizeof p->name, "eiaU%d.%d", dev->id, i);
-		}
+		if(ser->nifcs == 1)
+			snprint(p->name, sizeof p->name, "%s%s", p->isjtag ? "jtag" : "eiaU", dev->hname);
+		else
+			snprint(p->name, sizeof p->name, "%s%s.%d", p->isjtag ? "jtag" : "eiaU", dev->hname, i);
 		fprint(2, "%s...", p->name);
 		incref(dev);
 		p->readrend.l = &p->readq;

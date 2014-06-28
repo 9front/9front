@@ -28,6 +28,7 @@ struct Dev {
 	Usbdev*	usb;		/* USB description */
 	void*	aux;		/* for the device driver */
 	void	(*free)(void*);	/* idem. to release aux */
+	char*	hname;		/* hash name, uniqueue for device */
 };
 .sp 0.3v
 struct Usbdev {
@@ -119,7 +120,7 @@ Dev*	openep(Dev *d, int id);
 int	unstall(Dev *dev, Dev *ep, int dir);
 int	usbcmd(Dev *d, int type, int req,
 		int value, int index, uchar *data, int count);
-Dev*	getdev(int id);
+Dev*	getdev(char *devid);
 .sp 0.3v
 extern int usbdebug;	/* more messages for bigger values */
 .EE

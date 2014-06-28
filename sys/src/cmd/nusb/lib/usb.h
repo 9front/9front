@@ -174,6 +174,7 @@ struct Dev
 	Usbdev*	usb;		/* USB description */
 	void*	aux;		/* for the device driver */
 	void	(*free)(void*);	/* idem. to release aux */
+	char*	hname;		/* hash name, uniqueue for device */
 };
 
 /*
@@ -351,7 +352,7 @@ int	parsedesc(Usbdev *d, Conf *c, uchar *b, int n);
 int	parsedev(Dev *xd, uchar *b, int n);
 int	unstall(Dev *dev, Dev *ep, int dir);
 int	usbcmd(Dev *d, int type, int req, int value, int index, uchar *data, int count);
-Dev*	getdev(int id);
+Dev*	getdev(char *devid);
 
 extern int usbdebug;	/* more messages for bigger values */
 

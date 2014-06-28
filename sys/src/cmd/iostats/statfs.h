@@ -5,7 +5,7 @@
 #define DEBUGFILE	"iostats.out"
 #define DONESTR		"done"
 #define DEBUG		if(!dbg){}else fprint
-#define MAXPROC		16
+#define MAXPROC		64
 #define FHASHSIZE	64
 #define fidhash(s)	fhash[s%FHASHSIZE]
 

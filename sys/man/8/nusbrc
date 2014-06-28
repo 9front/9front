@@ -15,9 +15,21 @@ or
 .IR cpurc (8)),
 .I nusbrc
 handles the startup and shutdown of usb drivers on physical
-device attach and detach events.
+device attach and detach events by reading
+.B /dev/usbevent
+file.
 .SH SOURCE
 .B /rc/bin/nusbrc
 .B /sys/src/9/boot/nusbrc
 .SH "SEE ALSO"
 .IR nusb (4)
+.SH BUGS
+Usb devices appear as files under
+.B /dev
+and
+.B /shr
+identified by the devices uniqueue name assigned by usbd.
+When the environment variable
+.I nousbhname
+is defined, devies are named by ther dynamically assigned
+usb device address instead. This emulates the old behaviour.

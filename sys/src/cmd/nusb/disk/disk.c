@@ -1042,7 +1042,7 @@ main(int argc, char **argv)
 	if(argc != 1)
 		usage();
 	
-	dev = getdev(atoi(*argv));
+	dev = getdev(*argv);
 	if(dev == nil)
 		sysfatal("getdev: %r");
 	ums = dev->aux = emallocz(sizeof(Ums), 1);
@@ -1062,7 +1062,10 @@ main(int argc, char **argv)
 
 	for(i = 0; i <= ums->maxlun; i++){
 		lun = &ums->lun[i];
-		snprint(lun->name, sizeof(lun->name), "sdU%d.%d", dev->id, i);
+		if(ums->maxlun > 0)
+			snprint(lun->name, sizeof(lun->name), "sdU%s.%d", dev->hname, i);
+		else
+			snprint(lun->name, sizeof(lun->name), "sdU%s", dev->hname);
 		makeparts(lun);
 	}
 	snprint(buf, sizeof buf, "%d.disk", dev->id);
