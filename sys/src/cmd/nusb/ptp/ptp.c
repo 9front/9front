@@ -1011,7 +1011,7 @@ threadmain(int argc, char **argv)
 
 	if(argc == 0)
 		usage();
-	if((d = getdev(atoi(*argv))) == nil)
+	if((d = getdev(*argv)) == nil)
 		sysfatal("opendev: %r");
 	if(findendpoints(d, &epin, &epout, &epint)  < 0)
 		sysfatal("findendpoints: %r");
@@ -1037,7 +1037,7 @@ threadmain(int argc, char **argv)
 
 	time0 = time(0);
 
-	snprint(name, sizeof name, "sdU%d", d->id);
+	snprint(name, sizeof name, "sdU%s", d->hname);
 	snprint(desc, sizeof desc, "%d.ptp", d->id);
 	threadpostsharesrv(&fs, nil, name, desc);
 

@@ -819,7 +819,7 @@ threadmain(int argc, char **argv)
 	if(argc != 1)
 		usage();
 
-	if((d = getdev(atoi(*argv))) == nil)
+	if((d = getdev(*argv)) == nil)
 		sysfatal("getdev: %r");
 	if(findendpoints(d, &ei, &eo) < 0)
 		sysfatal("no endpoints found");
@@ -847,7 +847,7 @@ threadmain(int argc, char **argv)
 
 	atnotify(inote, 1);
 	time0 = time(0);
-	tab[Qiface].name = smprint("etherU%d", d->id);
+	tab[Qiface].name = smprint("etherU%s", d->hname);
 	snprint(s, sizeof(s), "%d.ether", d->id);
 	closedev(d);
 	threadpostsharesrv(&fs, nil, "usbnet", s);

@@ -221,8 +221,10 @@ static char *
 formatdev(Dev *d, int type)
 {
 	Usbdev *u = d->usb;
-
-	return smprint("%s %d %.4x %.4x %.8lx\n", type ? "detach" : "attach", d->id, u->vid, u->did, u->csp);
+	return smprint("%s %d %.4x %.4x %.6lx %s\n",
+		type ? "detach" : "attach",
+		d->id, u->vid, u->did, u->csp, 
+		d->hname != nil ? d->hname : "");
 }
 
 static void
@@ -335,6 +337,39 @@ Srv usbdsrv = {
 	.destroyfid = usbddestroyfid,
 };
 
+static void
+assignhname(Dev *dev)
+{
+	extern Hub *hubs;
+	char buf[64];
+	Usbdev *ud;
+	Hub *h;
+	int i;
+
+	ud = dev->usb;
+
+	/* build string of device uniqueue stuff */
+	snprint(buf, sizeof(buf), "%.4x%.4x%.4x%.6lx%s",
+		ud->vid, ud->did, ud->dno, ud->csp, ud->serial);
+
+	hname(buf);
+
+	/* check for collisions */
+	for(h = hubs; h != nil; h = h->next){
+		for(i = 1; i <= h->nport; i++){
+			if(h->port[i].dev == nil)
+				continue;
+			if(h->port[i].dev->hname == nil || h->port[i].dev == dev)
+				continue;
+			if(strcmp(h->port[i].dev->hname, buf) == 0){
+				dev->hname = smprint("%s%d", buf, dev->id);
+				return;
+			}
+		}
+	}
+	dev->hname = strdup(buf);
+}
+
 int
 attachdev(Port *p)
 {
@@ -355,6 +390,9 @@ attachdev(Port *p)
 	/* close control endpoint so driver can open it */
 	close(d->dfd);
 	d->dfd = -1;
+
+	/* assign stable name based on device descriptor */
+	assignhname(d);
 	
 	pushevent(d, formatdev(d, 0));
 	return 0;

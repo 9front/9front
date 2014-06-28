@@ -11,29 +11,33 @@ if(! nusb/usbd)
 @{
 	rfork ne
 	fn attach {
+		id=$1
+		if(~ $#* 5 && ! test -e /env/nousbhname)
+			id=$1:$5
 		switch($2$3){
 		case 0b957720 0b95772a 0db0a877 13b10018 15577720 20013c05 07d13c05 05ac1402
-			nusb/ether -t a88772 $etherargs $1
+			nusb/ether -t a88772 $etherargs $id
 		case 0b951780 14eaab11 17370039 0411006e 050d5055
-			nusb/ether -t a88178 $etherargs $1
+			nusb/ether -t a88178 $etherargs $id
 		case 2001abc1
-			nusb/ether -t aue $etherargs $1
+			nusb/ether -t aue $etherargs $id
 		case 0bda8150
-			nusb/ether -t url $etherargs $1
+			nusb/ether -t url $etherargs $id
 		case 18d14ee3 0bb40003
-			nusb/ether -t rndis $etherargs $1
+			nusb/ether -t rndis $etherargs $id
 		case *
 			switch($4){
 			case *03
-				nusb/kb $1
+				nusb/kb $id
 			case *02
 				# CDC ethernet
-				nusb/ether $etherargs $1
+				nusb/ether $etherargs $id
 			case *08
-				if(nusb/disk $1) {@{
+				if(nusb/disk $id) {@{
 					rfork ne
 					cd '#σ/usb'
-					for(dev in sdU^$1.*) if(test -d $dev) {
+					devs=sdU^($1 $5)
+					for(dev in $devs $devs.*) if(test -d $dev) {
 						diskparts $dev
 						for(part in $dev/dos* $dev/9fat) if(test -r $part) {
 							mkdir -m 0700 '#σc/'^$dev || exit
@@ -45,12 +49,13 @@ if(! nusb/usbd)
 				}&}
 			case *
 				if(~ $2 0424)
-					nusb/ether -t smsc $etherargs $1
+					nusb/ether -t smsc $etherargs $id
 			}
 		}
 	}
 	fn detach {
-		rm -rf '#σc/usb/'^$1.* '#σc/sdU'^$1.* '#σc/usbnet/'^$1.*
+		devs='#σc/sdU'^($1 $5)
+		rm -rf '#σc/usb/'^$1.* '#σc/usbnet/'^$1.* $devs $devs.* 
 	}
 	rc < '#σ/usb/usbevent' &
 }

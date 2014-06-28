@@ -88,23 +88,41 @@ attachment. It provides a filesystem with the file
 .B usbevent
 (usually seen as
 .BR /dev/usbevent )
-which, when read, returns a 5 column, space separated line of
+which, when read, returns a 6 column, space separated line of
 text, one for each event. The columns are:
 .B attach
 or
 .B detach
-.I devid
+followed by
+.I addr
 .I vid
 .I did
+.I csp
 and
-.I csp .
-All but
-.I devid
-are formatted as 4 digit hexadecimal. This file is read by
+.I hname .
+The
+.I addr
+is the decimal device address assigned.
+.I Vid
+and
+.I did
+are formatted as 4 digit hexadecimal.
+.I Csp
+is the device class, subclass, protocol indentifier
+formatd as 6 digit hexadecimal.
+.I Usbd
+assigns a stable device uniqueue name based on the
+device descriptor for
+.I hname .
+This information is read by
 .IR nusbrc (8)
 and the
+.I addr
+and
+.I hname
+are passed to a suitable driver as
 .I devid
-is passed to a suitable driver.
+in the form \fIaddr\fB:\fIhname
 .SS Keyboards and mice
 .I Kb
 supports USB keyboards and mice either as separate USB devices
@@ -123,13 +141,10 @@ configures and manages USB mass storage devices. It
 provides a file system (usually seen under
 .BR /dev )
 that includes one directory per storage device, named
-.BI sdU N . M
-in correspondence with the usb device number and the storage
-unit number (or LUN).
-For example, LUN number 2 on
-.B /dev/usb/ep3.0
-can be accessed through
-.BR /dev/sdU3.2 .
+.BI sdU N [. M ]
+in correspondence with the usb device uniqueue name
+and the storage unit number (or LUN). The LUN is omited
+for single lun devices.
 .PP
 The storage device directory contains the usual files
 served by
@@ -183,7 +198,7 @@ provides a file system (usually seen under
 that includes one directory per USB serial port, named
 .BI eiaU N
 or
-.BI eiaU N . M.
+.BI eiaU N [. M ].
 In this directory there are two files,
 .BR eiaU ,
 similar to

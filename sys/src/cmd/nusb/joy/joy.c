@@ -410,7 +410,7 @@ threadmain(int argc, char* argv[])
 	}ARGEND;
 	if(argc != 1)
 		usage();
-	d = getdev(atoi(*argv));
+	d = getdev(*argv);
 	if(d == nil)
 		sysfatal("getdev: %r");
 	ud = d->usb;

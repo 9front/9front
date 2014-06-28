@@ -3,6 +3,7 @@
 OFILES=\
 	usbd.$O\
 	hub.$O\
+	hname.$O\
 
 HFILES=\
 	dat.h\

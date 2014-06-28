@@ -7,22 +7,25 @@ if(! bind -a '#u' /dev)
 @{
 	rfork ne
 	fn attach {
+		id=$1
+		if(~ $#* 5 && ! test -e /env/nousbhname)
+			id=$1:$5
 		switch($4){
 		case *01
-			nusb/audio $1
+			nusb/audio $id
 		case *02
 			# serial and ethernet
-			nusb/serial $1
+			nusb/serial $id
 			# handled /sys/src/9/boot/nusbrc
-			# nusb/ether $1
+			# nusb/ether $id
 		case *03
 			# handled /sys/src/9/boot/nusbrc
-			# nusb/kb $1
+			# nusb/kb $id
 		case *08
 			# handled /sys/src/9/boot/nusbrc
-			# nusb/disk $1
-		case *10106
-			nusb/ptp $1
+			# nusb/disk $id
+		case 010106
+			nusb/ptp $id
 		}
 	}
 	fn detach {
