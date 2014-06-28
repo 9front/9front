@@ -52,7 +52,7 @@ static	int	autodir;
 static void
 usage(void)
 {
-	fprint(2, "usage: unzip [-tsv] [-f zipfile] [file ...]\n");
+	fprint(2, "usage: unzip [-acistTvD] [-f zipfile] [file ...]\n");
 	exits("usage");
 }
 
