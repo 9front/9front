@@ -407,7 +407,7 @@ database file
 exists for the AS.
 This database maintains ``speaks for'' relationships, i.e.,
 it lists which users may speak for other users when
-authtenticating.
+authenticating.
 The attribute types used by the AS are
 .B hostid
 and
@@ -418,7 +418,7 @@ is a client host's ID.
 The values in the
 .B uid
 pairs in the same entry list which users that host ID
-make speak for.
+may speak for.
 A uid value of
 .B *
 means the host ID may speak for all users.
@@ -672,7 +672,7 @@ authentication
 The
 .I challenge
 is eight random bytes.
-The two responses are Microsofts LM and NT hashes.
+The two responses are Microsoft's LM and NT hashes.
 Only the NT hash may be used to authenticate,
 as the LM hash is considered too weak.
 The reply packet is defined as
