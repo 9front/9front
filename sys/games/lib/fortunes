@@ -5041,3 +5041,7 @@ We are programmers, not lawyers. -- Aram
 The urine collection device also was rebuilt to eliminate leakage.[30]
 That's Rob Pike. I remember when he came to Bell Labs, we even shared an office for three months. -- Bjarne Stroustrup
 It's tricky when you're marketing a language. -- Niko Matsakis
+RFC 2616, which was written more than 15 years ago, was the specification everybody has implemented, and I suspect many of you occassionally have used as a reference.
+The biggest difference compared to the old spec, is that there is simply a lot more text.
+Subject: ftp(1) User-Agent
+It may seem counterintuitive, but skilled professionals working behind the scenes may actually be more fulfilled than the rest of us.

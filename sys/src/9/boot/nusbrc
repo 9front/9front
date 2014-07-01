@@ -48,8 +48,9 @@ if(! nusb/usbd)
 					}
 				}&}
 			case *
+				# Raspberry Pi ethernet will always appear as /net/etherU0
 				if(~ $2 0424)
-					nusb/ether -t smsc $etherargs $id
+					nusb/ether -t smsc $etherargs $1:0
 			}
 		}
 	}
