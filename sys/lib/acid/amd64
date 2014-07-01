@@ -153,7 +153,7 @@ aggr Ureg
 	'u' 126 gs;
 	'W' 128 type;
 	'W' 136 error;
-	'W' 144 ip;
+	'W' 144 pc;
 	'W' 152 cs;
 	'W' 160 flags;
 	'W' 168 sp;
@@ -184,7 +184,7 @@ Ureg(addr) {
 	print("	gs	", addr.gs, "\n");
 	print("	type	", addr.type, "\n");
 	print("	error	", addr.error, "\n");
-	print("	ip	", addr.ip, "\n");
+	print("	pc	", addr.pc, "\n");
 	print("	cs	", addr.cs, "\n");
 	print("	flags	", addr.flags, "\n");
 	print("	sp	", addr.sp, "\n");
