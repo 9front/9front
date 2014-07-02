@@ -360,7 +360,8 @@ and
 is single-threaded.
 If it is expected that some requests might
 block, arranging for alternate processes
-to handle them is suggested.
+to handle them is suggested (see
+.IR 9pqueue (2)).
 .PP
 .I Srvrelease
 temporarily releases the calling process from the server
@@ -822,6 +823,7 @@ or is maintained elsewhere.
 .SH SEE ALSO
 .IR 9pfid (2),
 .IR 9pfile (2),
+.IR 9pqueue (2),
 .IR srv (3),
 .IR shr (3),
 .IR intro (5)
