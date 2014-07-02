@@ -3,7 +3,7 @@
 Reqqueue,
 reqqueuecreate,
 reqqueuepush,
-reqqueueflush \- defered processing of 9P requests
+reqqueueflush \- deferred processing of 9P requests
 .SH SYNOPSIS
 .ft L
 .nf
@@ -32,7 +32,7 @@ void		reqqueueflush(Reqqueue *q, Req *r);
 .fi
 .SH DESCRIPTION
 .I Reqqueue
-provides routines for defered processing of 9p request in
+provides routines for deferred processing of 9p request in
 multithreaded 9p servers.
 .PP
 The
@@ -49,10 +49,10 @@ is called with request
 and its handler function
 .IR f .
 .PP
-A previously submited request can be flushed from a queue
+A previously submitted request can be flushed from a queue
 by
 .I reqqueueflush
-which will reply the request immidiately when processing has
+which will remove the request immediately if processing has
 not started. If processing has been started, the process
 will be interrupted.
 .SH SOURCE
