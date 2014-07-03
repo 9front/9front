@@ -143,6 +143,9 @@ protocol=sipp-ah	ipv4proto=51
 protocol=i-nlsp		ipv4proto=52
 protocol=swipe		ipv4proto=53
 protocol=nhrp		ipv4proto=54
+protocol=ipv6-icmp	ipv4proto=58
+protocol=ipv6-nonxt	ipv4proto=59
+protocol=ipv6-opts	ipv4proto=60
 protocol=any		ipv4proto=61
 protocol=cftp		ipv4proto=62
 protocol=any		ipv4proto=63
@@ -331,6 +334,7 @@ il=ramfs port=17031
 
 udp=echo port=7
 udp=tacacs port=49
+udp=bootps port=67
 udp=tftp port=69
 udp=bootpc port=68
 udp=bootp port=67
