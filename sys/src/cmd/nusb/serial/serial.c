@@ -11,10 +11,8 @@
 #include <9p.h>
 #include "usb.h"
 #include "serial.h"
-#include "prolific.h"
-#include "ucons.h"
-#include "ftdi.h"
-#include "silabs.h"
+
+
 
 int serialdebug;
 static int sdebug;
@@ -666,7 +664,7 @@ openeps(Serialport *p, int epin, int epout, int epintr)
 		devctl(p->epintr, "timeout 1000");
 	}
 
-	if(ser->seteps!= nil)
+	if(ser->seteps != nil)
 		ser->seteps(p);
 	if(p->epin == p->epout)
 		opendevdata(p->epin, ORDWR);
@@ -743,54 +741,24 @@ usage(void)
 }
 
 static void
-serdevfree(void *a)
+dend(Srv*)
 {
-	Serial *ser = a;
-	Serialport *p;
-	int i;
-
-	if(ser == nil)
-		return;
-
-	for(i = 0; i < ser->nifcs; i++){
-		p = &ser->p[i];
-
-		if(ser->hasepintr)
-			closedev(p->epintr);
-		closedev(p->epin);
-		closedev(p->epout);
-		p->epintr = p->epin = p->epout = nil;
-		if(p->w4data != nil)
-			chanfree(p->w4data);
-		if(p->gotdata != nil)
-			chanfree(p->gotdata);
-		if(p->readc)
-			chanfree(p->readc);
-
-	}
-	free(ser);
+	threadexitsall(nil);
 }
 
 static Srv serialfs = {
 	.attach = dattach,
-	.walk1 =	dwalk,
+	.walk1 = dwalk,
 	.read =	dread,
 	.write=	dwrite,
 	.stat =	dstat,
+	.end = dend,
 };
 
-/*
-static void
-serialfsend(void)
-{
-	if(p->w4data != nil)
-		chanclose(p->w4data);
-	if(p->gotdata != nil)
-		chanclose(p->gotdata);
-	if(p->readc)
-		chanclose(p->readc);
-}
-*/
+int ftmatch(Serial *ser, char *info);
+int plmatch(Serial *ser, char *info);
+int slmatch(Serial *ser, char *info);
+int uconsmatch(Serial *ser, char *info);
 
 void
 threadmain(int argc, char* argv[])
@@ -803,6 +771,7 @@ threadmain(int argc, char* argv[])
 
 	ARGBEGIN{
 	case 'd':
+		usbdebug++;
 		serialdebug++;
 		break;
 	default:
@@ -818,31 +787,26 @@ threadmain(int argc, char* argv[])
 	ser->maxrtrans = ser->maxwtrans = sizeof ser->p[0].data;
 	ser->maxread = ser->maxwrite = sizeof ser->p[0].data;
 	ser->dev = dev;
-	dev->free = serdevfree;
 	ser->jtag = -1;
 	ser->nifcs = 1;
 
 	snprint(buf, sizeof buf, "vid %#06x did %#06x",
 		dev->usb->vid, dev->usb->did);
-	if(plmatch(buf) == 0){
-		ser->hasepintr = 1;
-		ser->Serialops = plops;
-	} else if(uconsmatch(buf) == 0)
-		ser->Serialops = uconsops;
-	else if(ftmatch(ser, buf) == 0)
-		ser->Serialops = ftops;
-	else if(slmatch(buf) == 0)
-		ser->Serialops = slops;
-	else {
+
+	/* probe all the drivers */
+	if(plmatch(ser, buf)
+	&& uconsmatch(ser, buf)
+	&& ftmatch(ser, buf)
+	&& slmatch(ser, buf))
 		sysfatal("no serial devices found");
-	}
+
 	for(i = 0; i < ser->nifcs; i++){
 		p = &ser->p[i];
+		p->baud = ~0;
 		p->interfc = i;
 		p->s = ser;
-		if(i == ser->jtag){
+		if(i == ser->jtag)
 			p->isjtag++;
-		}
 		if(findendpoints(ser, i) < 0)
 			sysfatal("no endpoints found for ifc %d", i);
 		p->w4data  = chancreate(sizeof(ulong), 0);
@@ -863,14 +827,12 @@ threadmain(int argc, char* argv[])
 			snprint(p->name, sizeof p->name, "%s%s", p->isjtag ? "jtag" : "eiaU", dev->hname);
 		else
 			snprint(p->name, sizeof p->name, "%s%s.%d", p->isjtag ? "jtag" : "eiaU", dev->hname, i);
-		fprint(2, "%s...", p->name);
 		incref(dev);
 		p->readrend.l = &p->readq;
 		p->readpid = proccreate(readproc, p, mainstacksize);
 		ports = realloc(ports, (nports + 1) * sizeof(Serialport*));
 		ports[nports++] = p;
 	}
-
 	qunlock(ser);
 
 	if(nports == 0)

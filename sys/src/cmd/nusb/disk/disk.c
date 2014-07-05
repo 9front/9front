@@ -1012,6 +1012,22 @@ umsdevfree(void *a)
 	free(ums);
 }
 
+/*
+ * some devices like usb modems appear as mass storage
+ * for windows driver installation. switch mode here
+ * and exit if we detect one so the real driver can
+ * attach it.
+ */ 
+static void
+notreallyums(Dev *dev)
+{
+	/* HUAWEI E220 */
+	if(dev->usb->vid == 0x12d1 && dev->usb->did == 0x1003){
+		usbcmd(dev, Rh2d|Rstd|Rdev, Rsetfeature, Fdevremotewakeup, 0x02, nil, 0);
+		exits("mode switch");
+	}
+}
+
 static Srv diskfs = {
 	.attach = dattach,
 	.walk1 = dwalk,
@@ -1045,6 +1061,7 @@ main(int argc, char **argv)
 	dev = getdev(*argv);
 	if(dev == nil)
 		sysfatal("getdev: %r");
+	notreallyums(dev);
 	ums = dev->aux = emallocz(sizeof(Ums), 1);
 	ums->maxlun = -1;
 	dev->free = umsdevfree;

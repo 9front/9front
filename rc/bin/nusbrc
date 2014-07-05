@@ -26,6 +26,10 @@ if(! bind -a '#u' /dev)
 			# nusb/disk $id
 		case 010106
 			nusb/ptp $id
+		case *
+			# HUAWEI E220 modem
+			if(~ $2$3 12d11003)
+				nusb/serial $id
 		}
 	}
 	fn detach {

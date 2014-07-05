@@ -5,13 +5,6 @@
 #include <9p.h>
 #include "usb.h"
 #include "serial.h"
-#include "silabs.h"
-
-static Cinfo slinfo[] = {
-	{ 0x10c4, 0xea60, },		/* CP210x */
-	{ 0x10c4, 0xea61, },		/* CP210x */
-	{ 0,	0, },
-};
 
 enum {
 	Enable		= 0x00,
@@ -30,7 +23,15 @@ enum {
 		Stop2		= 0x0002,
 };
 
-slmatch(char *info)
+static Cinfo slinfo[] = {
+	{ 0x10c4, 0xea60, },		/* CP210x */
+	{ 0x10c4, 0xea61, },		/* CP210x */
+	{ 0,	0, },
+};
+
+static Serialops slops;
+
+slmatch(Serial *ser, char *info)
 {
 	Cinfo *ip;
 	char buf[50];
@@ -38,8 +39,10 @@ slmatch(char *info)
 	for(ip = slinfo; ip->vid != 0; ip++){
 		snprint(buf, sizeof buf, "vid %#06x did %#06x",
 			ip->vid, ip->did);
-		if(strstr(info, buf) != nil)
+		if(strstr(info, buf) != nil){
+			ser->Serialops = slops;
 			return 0;
+		}
 	}
 	return -1;
 }
@@ -138,7 +141,7 @@ wait4data(Serialport *p, uchar *data, int count)
 	return n;
 }
 
-Serialops slops = {
+static Serialops slops = {
 	.init		= slinit,
 	.getparam	= slgetparam,
 	.setparam	= slsetparam,
