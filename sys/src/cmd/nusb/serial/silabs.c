@@ -31,20 +31,14 @@ static Cinfo slinfo[] = {
 
 static Serialops slops;
 
-slmatch(Serial *ser, char *info)
+slprobe(Serial *ser)
 {
-	Cinfo *ip;
-	char buf[50];
+	Usbdev *ud = ser->dev->usb;
 
-	for(ip = slinfo; ip->vid != 0; ip++){
-		snprint(buf, sizeof buf, "vid %#06x did %#06x",
-			ip->vid, ip->did);
-		if(strstr(info, buf) != nil){
-			ser->Serialops = slops;
-			return 0;
-		}
-	}
-	return -1;
+	if(matchid(slinfo, ud->vid, ud->did) == nil)
+		return -1;
+	ser->Serialops = slops;
+	return 0;
 }
 
 static int

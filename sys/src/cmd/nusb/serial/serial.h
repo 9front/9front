@@ -22,7 +22,6 @@ enum {
 	Maxifc = 16,
 };
 
-
 struct Serialport {
 	char name[32];
 	Serial	*s;		/* device we belong to */
@@ -110,17 +109,14 @@ enum {
  * !hget http://lxr.linux.no/source/drivers/usb/serial/pl2303.c|htmlfmt
  */
 
-int serialmain(Dev *d, int argc, char *argv[]);
-
 typedef struct Cinfo Cinfo;
 struct Cinfo {
 	int	vid;		/* usb vendor id */
 	int	did;		/* usb device/product id */
-	int	cid;		/* controller id assigned by us */
+
+	int	cid;		/* assigned for us */
 };
 
-extern Cinfo plinfo[];
-extern Cinfo uconsinfo[];
 extern int serialdebug;
 
 #define	dsprint	if(serialdebug)fprint
@@ -128,3 +124,4 @@ extern int serialdebug;
 int	serialrecover(Serial *ser, Serialport *p, Dev *ep, char *err);
 int	serialreset(Serial *ser);
 char	*serdumpst(Serialport *p, char *buf, int bufsz);
+Cinfo	*matchid(Cinfo *tab, int vid, int did);

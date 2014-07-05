@@ -12,11 +12,7 @@
 #include "usb.h"
 #include "serial.h"
 
-
-
 int serialdebug;
-static int sdebug;
-
 Serialport **ports;
 int nports;
 
@@ -306,6 +302,17 @@ serdumpst(Serialport *p, char *buf, int bufsz)
 	s = seprint(s, e, "berr(%d) ", p->nbreakerr);
 	s = seprint(s, e, " serr(%d)\n", p->nparityerr);
 	return s;
+}
+
+Cinfo*
+matchid(Cinfo *tab, int vid, int did)
+{
+	while(tab->vid != 0){
+		if(tab->vid == vid && (tab->did == did || did == 0))
+			return tab;
+		tab++;
+	}
+	return nil;
 }
 
 static int
@@ -755,10 +762,10 @@ static Srv serialfs = {
 	.end = dend,
 };
 
-int ftmatch(Serial *ser, char *info);
-int plmatch(Serial *ser, char *info);
-int slmatch(Serial *ser, char *info);
-int uconsmatch(Serial *ser, char *info);
+extern int ftprobe(Serial *ser);
+extern int plprobe(Serial *ser);
+extern int slprobe(Serial *ser);
+extern int uconsprobe(Serial *ser);
 
 void
 threadmain(int argc, char* argv[])
@@ -790,14 +797,11 @@ threadmain(int argc, char* argv[])
 	ser->jtag = -1;
 	ser->nifcs = 1;
 
-	snprint(buf, sizeof buf, "vid %#06x did %#06x",
-		dev->usb->vid, dev->usb->did);
-
 	/* probe all the drivers */
-	if(plmatch(ser, buf)
-	&& uconsmatch(ser, buf)
-	&& ftmatch(ser, buf)
-	&& slmatch(ser, buf))
+	if(plprobe(ser)
+	&& uconsprobe(ser)
+	&& ftprobe(ser)
+	&& slprobe(ser))
 		sysfatal("no serial devices found");
 
 	for(i = 0; i < ser->nifcs; i++){
@@ -818,9 +822,8 @@ threadmain(int argc, char* argv[])
 	for(i = 0; i < ser->nifcs; i++){
 		p = &ser->p[i];
 		dprint(2, "serial: valid interface, calling serinit\n");
-		if(serinit(p) < 0){
+		if(serinit(p) < 0)
 			sysfatal("wserinit: %r");
-		}
 
 		dsprint(2, "serial: adding interface %d, %p\n", p->interfc, p);
 		if(ser->nifcs == 1)
@@ -835,10 +838,7 @@ threadmain(int argc, char* argv[])
 	}
 	qunlock(ser);
 
-	if(nports == 0)
-		threadexits("no ports");
-
 	snprint(buf, sizeof buf, "%d.serial", dev->id);
 	threadpostsharesrv(&serialfs, nil, "usb", buf);
-	threadexits(0);
+	threadexits(nil);
 }

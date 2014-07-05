@@ -1167,20 +1167,14 @@ ftgettype(Serial *ser)
 }
 
 int
-ftmatch(Serial *ser, char *info)
+ftprobe(Serial *ser)
 {
-	Cinfo *ip;
-	char buf[50];
+	Usbdev *ud = ser->dev->usb;
 
-	for(ip = ftinfo; ip->vid != 0; ip++){
-		snprint(buf, sizeof buf, "vid %#06x did %#06x", ip->vid, ip->did);
-		dsprint(2, "serial: %s %s\n", buf, info);
-		if(strstr(info, buf) != nil){
-			ftgettype(ser);
-			return 0;
-		}
-	}
-	return -1;
+	if(matchid(ftinfo, ud->vid, ud->did) == nil)
+		return -1;
+	ftgettype(ser);
+	return 0;
 }
 
 static int

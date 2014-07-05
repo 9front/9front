@@ -15,26 +15,19 @@ enum {
 };
 
 Cinfo uconsinfo[] = {
-	{ Net20DCVid,	Net20DCDid },
-	{ HuaweiVid,	HuaweiE220 },
-	{ 0,		0 },
+	{ Net20DCVid,	Net20DCDid,	1 },
+	{ HuaweiVid,	HuaweiE220,	2 },
+	{ 0,		0,		0 },
 };
 
 int
-uconsmatch(Serial *ser, char *info)
+uconsprobe(Serial *ser)
 {
+	Usbdev *ud = ser->dev->usb;
 	Cinfo *ip;
-	char buf[50];
 
-	for(ip = uconsinfo; ip->vid != 0; ip++){
-		snprint(buf, sizeof buf, "vid %#06x did %#06x",
-			ip->vid, ip->did);
-		dsprint(2, "serial: %s %s\n", buf, info);
-		if(strstr(info, buf) != nil){
-			if(ip->vid == HuaweiVid && ip->did == HuaweiE220)
-				ser->nifcs = 2;
-			return 0;
-		}
-	}
-	return -1;
+	if((ip = matchid(uconsinfo, ud->vid, ud->did)) == nil)
+		return -1;
+	ser->nifcs = ip->cid;
+	return 0;
 }

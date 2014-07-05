@@ -231,22 +231,15 @@ Cinfo plinfo[] = {
 static Serialops plops;
 
 int
-plmatch(Serial *ser, char *info)
+plprobe(Serial *ser)
 {
-	Cinfo *ip;
-	char buf[50];
+	Usbdev *ud = ser->dev->usb;
 
-	for(ip = plinfo; ip->vid != 0; ip++){
-		snprint(buf, sizeof buf, "vid %#06x did %#06x",
-			ip->vid, ip->did);
-		dsprint(2, "serial: %s %s\n", buf, info);
-		if(strstr(info, buf) != nil){
-			ser->hasepintr = 1;
-			ser->Serialops = plops;
-			return 0;
-		}
-	}
-	return -1;
+	if(matchid(plinfo, ud->vid, ud->did) == nil)
+		return -1;
+	ser->hasepintr = 1;
+	ser->Serialops = plops;
+	return 0;
 }
 
 static void	statusreader(void *u);
