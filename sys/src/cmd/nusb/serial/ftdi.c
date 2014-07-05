@@ -1235,12 +1235,9 @@ wait4data(Serialport *p, uchar *data, int count)
 		count = p->ndata;
 		p->ndata = 0;
 	}
-	assert(count >= 0);
-	assert(p->ndata >= 0);
 	memmove(data, p->data, count);
 	if(p->ndata != 0)
 		memmove(p->data, p->data+count, p->ndata);
-
 	recvul(p->gotdata);
 	return count;
 }
@@ -1313,7 +1310,6 @@ static void
 epreader(void *u)
 {
 	int dfd, rcount, cl, ntries, recov;
-	char err[40];
 	Areader *a;
 	Channel *c;
 	Packser *pk;
@@ -1333,7 +1329,7 @@ epreader(void *u)
 
 	ntries = 0;
 	pk = nil;
-	do {
+	for(;;) {
 		if (pk == nil)
 			pk = emallocz(sizeof(Packser), 1);
 Eagain:
@@ -1374,7 +1370,7 @@ Eagain:
 			ntries = 0;
 			pk = nil;
 		}
-	} while(rcount >= 0 || (rcount < 0 && strstr(err, "timed out") != nil));
+	}
 
 	if(rcount < 0)
 		fprint(2, "%s: error reading %s: %r\n", argv0, p->name);
@@ -1413,16 +1409,13 @@ statusreader(void *u)
 		memmove(p->data, pk->b, pk->nb);
 		p->ndata = pk->nb;
 		free(pk);
-		dsprint(2, "serial %p: status reader %d \n", p, p->ndata);
 		/* consume it all */
 		while(p->ndata != 0){
-			dsprint(2, "serial %p: status reader to consume: %d\n",
-				p, p->ndata);
 			cl = recvul(p->w4data);
-			if(cl  < 0)
+			if(cl < 0)
 				break;
 			cl = sendul(p->gotdata, 1);
-			if(cl  < 0)
+			if(cl < 0)
 				break;
 		}
 	}
@@ -1473,9 +1466,6 @@ ftinit(Serialport *p)
 			return -1;
 
 		dsprint(2, "serial: jtag latency timer set to %d\n", timerval);
-		/* may be unnecessary */
-		devctl(p->epin,  "timeout 5000");
-		devctl(p->epout, "timeout 5000");
 		/* 0xb is the mask for lines. plug dependant? */
 		ftdiwrite(p, BMMPSSE|0x0b, 0, FTSETBITMODE);
 	}

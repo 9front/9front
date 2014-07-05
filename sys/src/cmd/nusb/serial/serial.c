@@ -414,222 +414,155 @@ dstat(Req *req)
 		respond(req, nil);
 }
 
-enum {
-	Serbufsize	= 255,
-};
-
 static void
-readproc(void *aux)
+procread(Req *req)
 {
-	int dfd;
-	Req *req;
-	long count, rcount;
+	int count, rcount;
 	void *data;
 	Serial *ser;
 	Serialport *p;
-	static int errrun, good;
-	char err[Serbufsize];
+	char err[ERRMAX];
+	int dfd;
 
-	p = aux;
+	p = req->aux;
 	ser = p->s;
-	for(;;){
-		qlock(&p->readq);
-		while(p->readfirst == nil)
-			rsleep(&p->readrend);
-		req = p->readfirst;
-		p->readfirst = req->aux;
-		if(p->readlast == req)
-			p->readlast = nil;
-		req->aux = nil;
-		qunlock(&p->readq);
-
-		count = req->ifcall.count;
-		data = req->ofcall.data;
-		qlock(ser);
-		if(count > ser->maxread)
-			count = ser->maxread;
-		dsprint(2, "serial: reading from data\n");
-		do {
-			err[0] = 0;
-			dfd = p->epin->dfd;
-			if(usbdebug >= 3)
-				dsprint(2, "serial: reading: %ld\n", count);
-	
-			assert(count > 0);
-			if(ser->wait4data != nil)
-				rcount = ser->wait4data(p, data, count);
-			else{
-				qunlock(ser);
-				rcount = read(dfd, data, count);
-				qlock(ser);
-			}
-			/*
-			 * if we encounter a long run of continuous read
-			 * errors, do something drastic so that our caller
-			 * doesn't just spin its wheels forever.
-			 */
-			if(rcount < 0) {
-				snprint(err, Serbufsize, "%r");
-				++errrun;
-				sleep(20);
-				if (good > 0 && errrun > 10000) {
-					/* the line has been dropped; give up */
-					qunlock(ser);
-					fprint(2, "%s: line %s is gone: %r\n",
-						argv0, p->name);
-					threadexitsall("serial line gone");
-				}
-			} else {
-				errrun = 0;
-				good++;
-			}
-			if(usbdebug >= 3)
-				dsprint(2, "serial: read: %s %ld\n", err, rcount);
-		} while(rcount < 0 && strstr(err, "timed out") != nil);
-	
-		dsprint(2, "serial: read from bulk %ld, %10.10s\n", rcount, err);
-		if(rcount < 0){
-			dsprint(2, "serial: need to recover, data read %ld %r\n",
-				count);
-			serialrecover(ser, p, p->epin, err);
-		}
-		dsprint(2, "serial: read from bulk %ld\n", rcount);
-		if(rcount >= 0){
-			req->ofcall.count = rcount;
-			respond(req, nil);
-		} else
-			responderror(req);
+	data = req->ofcall.data;
+	count = req->ifcall.count;
+Again:
+	qlock(ser);
+	if(count > ser->maxread)
+		count = ser->maxread;
+	if(ser->wait4data != nil) {
+		rcount = ser->wait4data(p, data, count);
 		qunlock(ser);
+	} else {
+		dfd = p->epin->dfd;
+		qunlock(ser);
+		rcount = read(dfd, data, count);
+	}
+	if(rcount < 0) {
+		err[0] = 0;
+		errstr(err, sizeof err);
+		if(p->rq->flush == 0 && strstr(err, "timed out") != nil)
+			goto Again;
+		respond(req, err);
+	} else {
+		req->ofcall.count = rcount;
+		respond(req, nil);
+	}
+}
+
+static void
+procwrite(Req *req)
+{
+	int count, wcount;
+	void *data;
+	Serial *ser;
+	Serialport *p;
+	char err[ERRMAX];
+	int dfd;
+
+	p = req->aux;
+	ser = p->s;
+	data = req->ifcall.data;
+	count = req->ifcall.count;
+	qlock(ser);
+	if(ser->wait4data != nil) {
+		wcount = ser->wait4write(p, data, count);
+		qunlock(ser);
+	} else {
+		dfd = p->epout->dfd;
+		qunlock(ser);
+		wcount = write(dfd, data, count);
+	}
+	if(wcount != count) {
+		err[0] = 0;
+		errstr(err, sizeof err);
+		respond(req, err);
+
+		qlock(ser);
+		serialrecover(p->s, p, p->epout, err);
+		qunlock(ser);
+	} else {
+		req->ofcall.count = wcount;
+		respond(req, nil);
 	}
 }
 
 static void
 dread(Req *req)
 {
-	char *e;	/* change */
-	Qid q;
 	Serial *ser;
-	vlong offset;
 	Serialport *p;
-	static char buf[Serbufsize];
+	ulong path;
 	
-	q = req->fid->qid;
-	
-	if(q.path == 0){
+	path = req->fid->qid.path;
+	if(path == 0){
 		dirread9p(req, dirgen, nil);
 		respond(req, nil);
 		return;
 	}
 
-	p = ports[(q.path - 1) / 2];
+	p = ports[(path - 1) / 2];
 	ser = p->s;
-	offset = req->ifcall.offset;
-
-	memset(buf, 0, sizeof buf);
 	qlock(ser);
-	switch((long)((q.path - 1) % 2)){
+	switch((path - 1) % 2){
 	case 0:
-		qlock(&p->readq);
-		if(p->readfirst == nil)
-			p->readfirst = req;
-		else
-			p->readlast->aux = req;
-		p->readlast = req;
-		rwakeup(&p->readrend);
-		qunlock(&p->readq);
+		req->aux = p;
+		reqqueuepush(p->rq, req, procread);
 		break;
 	case 1:
-		if(offset == 0) {
-			if(!p->isjtag){
-				e = serdumpst(p, buf, Serbufsize);
-				readbuf(req, buf, e - buf);
-			}
+		req->ofcall.count = 0;
+		if(req->ifcall.offset == 0 && !p->isjtag){
+			char buf[256];
+			serdumpst(p, buf, sizeof buf);
+			readstr(req, buf);
 		}
 		respond(req, nil);
 		break;
 	}
 	qunlock(ser);
-}
-
-static long
-altwrite(Serialport *p, uchar *buf, long count)
-{
-	int nw, dfd;
-	char err[128];
-	Serial *ser;
-
-	ser = p->s;
-	do{
-		dsprint(2, "serial: write to bulk %ld\n", count);
-
-		if(ser->wait4write != nil)
-			/* unlocked inside later */
-			nw = ser->wait4write(p, buf, count);
-		else{
-			dfd = p->epout->dfd;
-			qunlock(ser);
-			nw = write(dfd, buf, count);
-			qlock(ser);
-		}
-		rerrstr(err, sizeof err);
-		dsprint(2, "serial: written %s %d\n", err, nw);
-	} while(nw < 0 && strstr(err, "timed out") != nil);
-
-	if(nw != count){
-		dsprint(2, "serial: need to recover, status in write %d %r\n",
-			nw);
-		snprint(err, sizeof err, "%r");
-		serialrecover(p->s, p, p->epout, err);
-	}
-	return nw;
 }
 
 static void
 dwrite(Req *req)
 {
-	ulong path;
-	char *cmd;
 	Serial *ser;
-	long count;
-	void *buf;
 	Serialport *p;
+	ulong path;
+	int count;
 
 	path = req->fid->qid.path;
-	p = ports[(path-1)/2];
+	p = ports[(path-1) / 2];
 	ser = p->s;
-	count = req->ifcall.count;
-	buf = req->ifcall.data;
-
 	qlock(ser);
-	switch((long)((path-1)%2)){
+	switch((path-1) % 2){
 	case 0:
-		count = altwrite(p, (uchar *)buf, count);
+		req->aux = p;
+		reqqueuepush(p->wq, req, procwrite);
 		break;
 	case 1:
-		if(p->isjtag)
-			break;
-		cmd = emallocz(count+1, 1);
-		memmove(cmd, buf, count);
-		cmd[count] = 0;
-		if(serialctl(p, cmd) < 0){
-			qunlock(ser);
+		count = req->ifcall.count;
+		if(!p->isjtag){
+			char *cmd, *buf;
+
+			buf = (char*)req->ifcall.data;
+			cmd = emallocz(count+1, 1);
+			memmove(cmd, buf, count);
+			cmd[count] = 0;
+			if(serialctl(p, cmd) < 0){
+				qunlock(ser);
+				free(cmd);
+				respond(req, "bad control request");
+				return;
+			}
 			free(cmd);
-			respond(req, "bad control request");
-			return;
 		}
-		free(cmd);
-		break;
-	}
-	if(count >= 0)
-		ser->recover = 0;
-	else
-		serialrecover(ser, p, p->epout, "writing");
-	qunlock(ser);
-	if(count >= 0){
 		req->ofcall.count = count;
 		respond(req, nil);
-	} else
-		responderror(req);
+		break;
+	}
+	qunlock(ser);
 }
 
 static int
@@ -653,12 +586,6 @@ openeps(Serialport *p, int epin, int epout, int epintr)
 		closedev(p->epin);
 		return -1;
 	}
-
-	if(!p->isjtag){
-		devctl(p->epin,  "timeout 1000");
-		devctl(p->epout, "timeout 1000");
-	}
-
 	if(ser->hasepintr){
 		p->epintr = openep(ser->dev, epintr);
 		if(p->epintr == nil){
@@ -739,6 +666,27 @@ findendpoints(Serial *ser, int ifc)
 	return 0;
 }
 
+static void
+dflush(Req *req)
+{
+	Serialport *p;
+	Req *old;
+	ulong path;
+
+	old = req->oldreq;
+	path = old->fid->qid.path;
+	if(path != 0){
+		p = ports[(path - 1) / 2];
+		if(p != nil){
+			if(old->ifcall.type == Twrite)
+				reqqueueflush(p->wq, old);
+			else
+				reqqueueflush(p->rq, old);
+		}
+	}
+	respond(req, nil);
+}
+
 /* keep in sync with main.c */
 static void
 usage(void)
@@ -759,6 +707,7 @@ static Srv serialfs = {
 	.read =	dread,
 	.write=	dwrite,
 	.stat =	dstat,
+	.flush = dflush,
 	.end = dend,
 };
 
@@ -821,18 +770,14 @@ threadmain(int argc, char* argv[])
 	serialreset(ser);
 	for(i = 0; i < ser->nifcs; i++){
 		p = &ser->p[i];
-		dprint(2, "serial: valid interface, calling serinit\n");
 		if(serinit(p) < 0)
 			sysfatal("wserinit: %r");
-
-		dsprint(2, "serial: adding interface %d, %p\n", p->interfc, p);
 		if(ser->nifcs == 1)
 			snprint(p->name, sizeof p->name, "%s%s", p->isjtag ? "jtag" : "eiaU", dev->hname);
 		else
 			snprint(p->name, sizeof p->name, "%s%s.%d", p->isjtag ? "jtag" : "eiaU", dev->hname, i);
-		incref(dev);
-		p->readrend.l = &p->readq;
-		p->readpid = proccreate(readproc, p, mainstacksize);
+		p->rq = reqqueuecreate();
+		p->wq = reqqueuecreate();
 		ports = realloc(ports, (nports + 1) * sizeof(Serialport*));
 		ports[nports++] = p;
 	}

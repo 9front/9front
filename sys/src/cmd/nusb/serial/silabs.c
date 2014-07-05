@@ -114,16 +114,6 @@ slsetparam(Serialport *p)
 }
 
 static int
-seteps(Serialport *p)
-{
-	if(devctl(p->epin, "timeout 0") < 0){
-		fprint(2, "can't set timeout on %s: %r\n", p->epin->dir);
-		return -1;
-	}
-	return 0;
-}
-
-static int
 wait4data(Serialport *p, uchar *data, int count)
 {
 	int n;
@@ -139,6 +129,5 @@ static Serialops slops = {
 	.init		= slinit,
 	.getparam	= slgetparam,
 	.setparam	= slsetparam,
-	.seteps		= seteps,
 	.wait4data	= wait4data,
 };

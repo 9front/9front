@@ -65,11 +65,9 @@ struct Serialport {
 	Channel *readc;		/* to uncouple reads, only used in ftdi... */
 	int	ndata;
 	uchar	data[DataBufSz];
-	
-	QLock readq;
-	Req *readfirst, *readlast; /* read request queue */
-	int readpid;
-	Rendez readrend;
+
+	Reqqueue *rq;
+	Reqqueue *wq;
 };
 
 struct Serial {
