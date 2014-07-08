@@ -305,7 +305,7 @@ mmukmap(uintptr va, uintptr pa, usize size)
 		*pte++ = (pa+n)|Dom0|L1AP(Krw)|Section;
 		mmuinvalidateaddr(va+n);
 	}
-	cachedwbse(pte0, pte - pte0);
+	cachedwbse(pte0, (uintptr)pte - (uintptr)pte0);
 	return va + o;
 }
 
