@@ -2068,6 +2068,8 @@ didtype(Pcidev *p)
 	case 0x8086:
 		if((p->did & 0xffff) == 0x1e02)
 			return Tich;		/* c210 */
+		if((p->did & 0xffff) == 0x8c02)
+			return Tich;		/* c220 */
 		if((p->did & 0xffff) == 0x24d1)
 			return Tich;		/* 82801eb/er */
 		if((p->did & 0xffff) == 0x2653)
