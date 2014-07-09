@@ -109,6 +109,10 @@ source files of packages installed locally.
 .SH REPOSITORIES
 .B http://r-36.net/9front/pkg/386
 .br
+.B https://offblast.org/pkg/386
+.br
+.B https://offblast.org/pkg/amd64
+.br
 .B http://plan9.bell-labs.com/sources/contrib/staal1978/pkg
 .SH SEE ALSO
 .IR contrib (1) ,
