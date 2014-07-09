@@ -962,12 +962,12 @@ addrefresh(Page *p, char *fmt, ...)
 	if(s == nil)
 		error("runevsmprint failed");
 
+	qlock(&refreshlock);
 	if(p->status){
 		free(p->status);
 		p->status = nil;
 	}
 	p->status = s;
-	qlock(&refreshlock);
 	for(r=refreshs; r!=nil; r=r->next)
 		if(r->p == p)
 			goto Return;
