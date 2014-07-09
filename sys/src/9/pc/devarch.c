@@ -824,12 +824,37 @@ cpuidentify(void)
 			nomce = strtoul(p, 0, 0);
 		else
 			nomce = 0;
-		if((m->cpuiddx & Mce) && !nomce){
-			cr4 |= 0x40;		/* machine check enable */
-			if(family == 5){
+		if((m->cpuiddx & Mce) != 0 && !nomce){
+			if((m->cpuiddx & Mca) != 0){
+				vlong cap;
+				int bank;
+
+				cap = 0;
+				rdmsr(0x179, &cap);
+
+				if(cap & 0x100)
+					wrmsr(0x17B, ~0ULL);	/* enable all mca features */
+
+				bank = cap & 0xFF;
+				if(bank > 64)
+					bank = 64;
+
+				/* init MCi .. MC1 (except MC0) */
+				while(--bank > 0){
+					wrmsr(0x400 + bank*4, ~0ULL);
+					wrmsr(0x401 + bank*4, 0);
+				}
+
+				if(family != 6 || model >= 0x1A)
+					wrmsr(0x400, ~0ULL);
+
+				wrmsr(0x401, 0);
+			}
+			else if(family == 5){
 				rdmsr(0x00, &mca);
 				rdmsr(0x01, &mct);
 			}
+			cr4 |= 0x40;		/* machine check enable */
 		}
 
 		/*
@@ -854,7 +879,7 @@ cpuidentify(void)
 
 		putcr4(cr4);
 
-		if(m->cpuiddx & Mce)
+		if((m->cpuiddx & (Mca|Mce)) == Mce)
 			rdmsr(0x01, &mct);
 	}
 
@@ -1194,4 +1219,42 @@ isaconfig(char *class, int ctlrno, ISAConf *isa)
 			isa->freq = strtoul(p+5, &p, 0);
 	}
 	return 1;
+}
+
+void
+dumpmcregs(void)
+{
+	vlong v, w;
+	int bank;
+
+	if((m->cpuiddx & (Mce|Cpumsr)) != (Mce|Cpumsr))
+		return;
+	if((m->cpuiddx & Mca) == 0){
+		rdmsr(0x00, &v);
+		rdmsr(0x01, &w);
+		iprint("MCA %8.8llux MCT %8.8llux\n", v, w);
+		return;
+	}
+	rdmsr(0x179, &v);
+	rdmsr(0x17A, &w);
+	iprint("MCG CAP %.16llux STATUS %.16llux\n", v, w);
+
+	bank = v & 0xFF;
+	if(bank > 64)
+		bank = 64;
+	while(--bank >= 0){
+		rdmsr(0x401 + bank*4, &v);
+		if((v & (1ull << 63)) == 0)
+			continue;
+		iprint("MC%d STATUS %.16llux", bank, v);
+		if(v & (1ull << 58)){
+			rdmsr(0x402 + bank*4, &w);
+			iprint(" ADDR %.16llux", w);
+		}
+		if(v & (1ull << 59)){
+			rdmsr(0x403 + bank*4, &w);
+			iprint(" MISC %.16llux", w);
+		}
+		iprint("\n");
+	}
 }

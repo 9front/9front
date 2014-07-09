@@ -28,6 +28,7 @@ int	dmainit(int, int);
 #define DMAREAD 1
 #define DMALOOP 2
 long	dmasetup(int, void*, long, int);
+void	dumpmcregs(void);
 #define	evenaddr(x)				/* x86 doesn't care */
 void	fpclear(void);
 void	fpenv(FPsave*);

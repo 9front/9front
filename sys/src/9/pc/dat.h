@@ -321,6 +321,7 @@ enum {
 	Cpuapic	= 1<<9,
 	Mtrr	= 1<<12,	/* memory-type range regs.  */
 	Pge	= 1<<13,	/* page global extension */
+	Mca	= 1<<14,	/* machine-check architecture */
 	Pse2	= 1<<17,	/* more page size extensions */
 	Clflush = 1<<19,
 	Acpif	= 1<<22,	/* therm control msr */

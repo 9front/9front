@@ -503,14 +503,9 @@ dumpregs(Ureg* ureg)
 	iprint(" CR0 %8.8llux CR2 %16.16llux CR3 %16.16llux",
 		getcr0(), getcr2(), getcr3());
 	if(m->cpuiddx & (Mce|Tsc|Pse|Vmex)){
-		iprint(" CR4 %16.16llux", getcr4());
-		if((m->cpuiddx & (Mce|Cpumsr)) == (Mce|Cpumsr)){
-			vlong mca, mct;
-
-			rdmsr(0x00, &mca);
-			rdmsr(0x01, &mct);
-			iprint("\n MCA %8.8llux MCT %8.8llux", mca, mct);
-		}
+		iprint(" CR4 %16.16llux\n", getcr4());
+		if(ureg->type == 18)
+			dumpmcregs();
 	}
 	iprint("\n  ur %#p up %#p\n", ureg, up);
 }
