@@ -19,6 +19,7 @@ fn print{
 /^init: starting/{exit}
 {if(p)print}' '#c/kmesg'
 	logprog pci -v
+	logprog aux/cpuid
 	logprog aux/icanhasmsi
 	logprog aux/pcmcia
 	logprog cat '#u/usb/ctl'
