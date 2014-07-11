@@ -250,8 +250,7 @@ attachimage(int type, Chan *c, uintptr base, ulong len)
 	/* dump pages of inactive images to free image structures */
 	while((i = imagealloc.free) == nil) {
 		unlock(&imagealloc);
-		imagereclaim(1000);
-		if(imagealloc.free == nil){
+		if(imagereclaim(1000) == 0 && imagealloc.free == nil){
 			freebroken();		/* can use the memory */
 			resrcwait("no image after reclaim");
 		}
