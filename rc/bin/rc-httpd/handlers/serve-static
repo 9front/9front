@@ -17,11 +17,23 @@ if(! test -r $full_path){
 	exit
 }
 do_log 200
-type=`{file -m $full_path}
-if(~ $type text/*)
-	max_age=3600	# 1 hour
-if not
-	max_age=604800	# 1 week
+switch($full_path){
+case *.html *.htm
+        type=text/html
+case *.css
+        type=text/css
+case *.txt
+        type='text/plain; charset=utf-8'
+case *.jpg *.jpeg
+        type=image/jpeg
+case *.gif
+        type=image/gif
+case *.png
+        type=image/png
+case *
+        type=`{file -m $full_path}
+}
+max_age=3600	# 1 hour
 echo 'HTTP/1.1 200 OK'^$cr
 emit_extra_headers
 echo 'Content-type: '^$type^'; charset=utf-8'^$cr
