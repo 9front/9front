@@ -211,6 +211,8 @@ char *index(s, t) char *s, *t; {
 }
 
 char *match(s, p)
+char *s;
+register char *p;
 {
 	register char *rv;
 
