@@ -53,7 +53,7 @@ tfileget(uchar *addr, char *path)
 	f = emalloc9p(sizeof *f);
 	memset(f, 0, sizeof(*f));
 	ipmove(f->addr, addr);
-	strncpy(f->path, path, sizeof(f->path));
+	strncpy(f->path, path, Maxpath-1);
 	f->ref = 1;
 	f->id = id++;
 	f->next = files;
