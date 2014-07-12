@@ -11,7 +11,6 @@
 enum
 {
 	Maxpath=	128,
-	Maxerr=		256,
 
 	Debug=		0,
 
@@ -561,7 +560,7 @@ sendfile(int fd, char *name, char *mode, int opts)
 {
 	int file, block, ret, rexmit, n, txtry;
 	uchar buf[Maxsegsize+Hdrsize];
-	char errbuf[Maxerr];
+	char errbuf[ERRMAX];
 
 	file = -1;
 	syslog(dbg, flog, "tftpd %d send file '%s' %s to %s",
@@ -642,7 +641,7 @@ recvfile(int fd, char *name, char *mode)
 {
 	ushort op, block, inblock;
 	uchar buf[Maxsegsize+8];
-	char errbuf[Maxerr];
+	char errbuf[ERRMAX];
 	int n, ret, file;
 
 	syslog(dbg, flog, "receive file '%s' %s from %s", name, mode, raddr);
@@ -651,7 +650,7 @@ recvfile(int fd, char *name, char *mode)
 	if(file < 0) {
 		errstr(errbuf, sizeof errbuf);
 		nak(fd, 0, errbuf);
-		syslog(dbg, flog, "can't create %s: %r", name);
+		syslog(dbg, flog, "can't create %s: %s", name, errbuf);
 		return;
 	}
 
@@ -729,13 +728,16 @@ nak(int fd, int code, char *msg)
 	char buf[128];
 	int n;
 
+	n = 5 + strlen(msg);
+	if(n > sizeof(buf))
+		n = sizeof(buf);
 	buf[0] = 0;
 	buf[1] = Tftp_ERROR;
 	buf[2] = 0;
 	buf[3] = code;
-	strcpy(buf+4, msg);
-	n = strlen(msg) + 4 + 1;
-	if(write(fd, buf, n) < n)
+	memmove(buf+4, msg, n - 5);
+	buf[n-1] = 0;
+	if(write(fd, buf, n) != n)
 		sysfatal("write nak: %r");
 }
 
