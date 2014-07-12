@@ -33,7 +33,6 @@ enum
 	/* maximum ms we'll wait for a command */
 	Maxwait=	1000*60*30,		/* inactive for 30 minutes, we hang up */
 
-	Maxerr=		128,
 	Maxpath=	512,
 };
 
@@ -161,7 +160,7 @@ logit(char *fmt, ...)
 {
 	char buf[8192];
 	va_list arg;
-	char errstr[128];
+	char errstr[ERRMAX];
 
 	rerrstr(errstr, sizeof errstr);
 	va_start(arg, fmt);
@@ -1078,7 +1077,7 @@ list(char *arg, int lflag)
 
 	dfd = dialdata();
 	if(dfd < 0){
-		reply("425 Error opening data connection:%r");
+		reply("425 Error opening data connection: %r");
 		return;
 	}
 	reply("150 Opened data connection (%s)", data);
@@ -1373,7 +1372,7 @@ retrieve(char *arg, int arg2)
 	reply("150 Opening data connection for %s (%s)", arg, data);
 	dfd = dialdata();
 	if(dfd < 0){
-		reply("425 Error opening data connection:%r");
+		reply("425 Error opening data connection: %r");
 		close(fd);
 		return;
 	}
@@ -1445,7 +1444,7 @@ store(char *arg, int fd)
 	reply("150 Opening data connection for %s (%s)", arg, data);
 	dfd = dialdata();
 	if(dfd < 0){
-		reply("425 Error opening data connection:%r");
+		reply("425 Error opening data connection: %r");
 		close(fd);
 		return;
 	}
@@ -1697,30 +1696,29 @@ dialdata(void)
 {
 	int fd, cfd;
 	char ldir[40];
-	char err[Maxerr];
+	char err[ERRMAX];
 
 	if(mountnet() < 0)
 		return -1;
 
-	if(!passive.inuse){
+	if(!passive.inuse)
 		fd = dial(data, "20", 0, 0);
-		errstr(err, sizeof err);
-	} else {
+	else {
+		fd = -1;
 		alarm(5*60*1000);
 		cfd = listen(passive.adir, ldir);
 		alarm(0);
-		errstr(err, sizeof err);
-		if(cfd < 0)
-			return -1;
-		fd = accept(cfd, ldir);
-		errstr(err, sizeof err);
-		close(cfd);
+		if(cfd >= 0){
+			fd = accept(cfd, ldir);
+			close(cfd);
+		}
 	}
+	err[0] = 0;
+	errstr(err, sizeof err);
 	if(fd < 0)
 		logit("can't dial %s: %s", data, err);
-
 	unmountnet();
-	werrstr(err, sizeof err);
+	errstr(err, sizeof err);
 	return fd;
 }
 
