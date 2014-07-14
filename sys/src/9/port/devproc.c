@@ -1614,12 +1614,14 @@ procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
 		poperror();
 		poperror();
 		/* segment s still locked, fixfault() unlocks */
-		if(!waserror()){
-			if(fixfault(s, offset, read, 0) == 0)
-				break;
-			poperror();
+		if(waserror()){
+			putseg(s);
+			nexterror();
 		}
+		if(fixfault(s, offset, read, 0) == 0)
+			break;
 		putseg(s);
+		poperror();
 	}
 
 	/*
