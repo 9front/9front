@@ -154,9 +154,9 @@ static char *sname[]={ "Text", "Data", "Bss", "Stack", "Shared", "Phys", };
 void	procctlreq(Proc*, char*, int);
 int	procctlmemio(Proc*, uintptr, int, void*, int);
 Chan*	proctext(Chan*, Proc*);
-Segment* txt2data(Proc*, Segment*);
 int	procstopped(void*);
 void	mntscan(Mntwalk*, Proc*);
+ulong	procpagecount(Proc *);
 
 static Traceevent *tevents;
 static Lock tlock;
@@ -896,23 +896,7 @@ procread(Chan *c, void *va, long n, vlong off)
 			readnum(0, statbuf+j+NUMSIZE*i, NUMSIZE, l, NUMSIZE);
 		}
 
-		l = 0;
-		eqlock(&p->seglock);
-		if(waserror()){
-			qunlock(&p->seglock);
-			nexterror();
-		}
-		for(i=0; i<NSEG; i++){
-			if(s = p->seg[i]){
-				eqlock(s);
-				l += mcountseg(s);
-				qunlock(s);
-			}
-		}
-		poperror();
-		qunlock(&p->seglock);
-
-		readnum(0, statbuf+j+NUMSIZE*6, NUMSIZE, l*BY2PG/1024, NUMSIZE);
+		readnum(0, statbuf+j+NUMSIZE*6, NUMSIZE, procpagecount(p)*BY2PG/1024, NUMSIZE);
 		readnum(0, statbuf+j+NUMSIZE*7, NUMSIZE, p->basepri, NUMSIZE);
 		readnum(0, statbuf+j+NUMSIZE*8, NUMSIZE, p->priority, NUMSIZE);
 		memmove(a, statbuf+offset, n);
@@ -1540,6 +1524,32 @@ procstopped(void *a)
 	return p->state == Stopped;
 }
 
+ulong
+procpagecount(Proc *p)
+{
+	Segment *s;
+	ulong pages;
+	int i;
+
+	eqlock(&p->seglock);
+	if(waserror()){
+		qunlock(&p->seglock);
+		nexterror();
+	}
+	pages = 0;
+	for(i=0; i<NSEG; i++){
+		if((s = p->seg[i]) != nil){
+			eqlock(s);
+			pages += mcountseg(s);
+			qunlock(s);
+		}
+	}
+	qunlock(&p->seglock);
+	poperror();
+
+	return pages;
+}
+
 int
 procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
 {
@@ -1547,110 +1557,118 @@ procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
 	Pte *pte;
 	Page *pg;
 	Segment *s;
-	uintptr soff, l;
-	char *a = va, *b;
+	uintptr soff;
+	char *a, *b;
+	int i, l;
 
-	for(;;) {
-		s = seg(p, offset, 1);
-		if(s == 0)
-			error(Ebadarg);
-
-		if(offset+n >= s->top)
-			n = s->top-offset;
-
-		if(!read && (s->type&SG_TYPE) == SG_TEXT)
-			s = txt2data(p, s);
-
-		s->steal++;
-		soff = offset-s->base;
-		if(waserror()) {
-			s->steal--;
-			nexterror();
-		}
-		if(fixfault(s, offset, read, 0) == 0)
-			break;
-		poperror();
-		s->steal--;
-	}
-	poperror();
-	pte = s->map[soff/PTEMAPMEM];
-	if(pte == 0)
-		panic("procctlmemio");
-	pg = pte->pages[(soff&(PTEMAPMEM-1))/BY2PG];
-	if(pagedout(pg))
-		panic("procctlmemio1");
-
+	/* Only one page at a time */
 	l = BY2PG - (offset&(BY2PG-1));
 	if(n > l)
 		n = l;
 
-	k = kmap(pg);
+	/*
+	 * Make temporary copy to avoid fault while we have
+	 * segment locked as we would deadlock when trying
+	 * to read the calling procs memory.
+	 */
+	a = malloc(n);
+	if(a == nil)
+		error(Enomem);
 	if(waserror()) {
-		s->steal--;
-		kunmap(k);
+		free(a);
 		nexterror();
 	}
+
+	if(!read)
+		memmove(a, va, n);	/* can fault */
+
+	for(;;) {
+		s = seg(p, offset, 0);
+		if(s == nil)
+			error(Ebadarg);
+
+		eqlock(&p->seglock);
+		if(waserror()) {
+			qunlock(&p->seglock);
+			nexterror();
+		}
+
+		for(i = 0; i < NSEG; i++) {
+			if(p->seg[i] == s)
+				break;
+		}
+		if(i == NSEG)
+			error(Egreg);	/* segment gone */
+
+		eqlock(s);
+		if(waserror()){
+			qunlock(s);
+			nexterror();
+		}
+		if(!read && (s->type&SG_TYPE) == SG_TEXT) {
+			s = txt2data(s);
+			p->seg[i] = s;
+		}
+		incref(s);
+		qunlock(&p->seglock);
+		poperror();
+		poperror();
+		/* segment s still locked, fixfault() unlocks */
+		if(!waserror()){
+			if(fixfault(s, offset, read, 0) == 0)
+				break;
+			poperror();
+		}
+		putseg(s);
+	}
+
+	/*
+	 * Only access the page while segment is locked
+	 * as the proc could segfree or relocate the pte
+	 * concurrently.
+	 */ 
+	eqlock(s);
+	if(waserror()){
+		qunlock(s);
+		nexterror();
+	}
+	if(offset+n >= s->top)
+		n = s->top-offset;
+	soff = offset-s->base;
+	pte = s->map[soff/PTEMAPMEM];
+	if(pte == nil)
+		error(Egreg);	/* page gone, should retry? */
+	pg = pte->pages[(soff&(PTEMAPMEM-1))/BY2PG];
+	if(pagedout(pg))
+		error(Egreg);	/* page gone, should retry?  */
+
+	/* Map and copy the page */
+	k = kmap(pg);
 	b = (char*)VA(k);
 	b += offset&(BY2PG-1);
-	if(read == 1)
-		memmove(a, b, n);	/* This can fault */
+	if(read)
+		memmove(a, b, n);
 	else
 		memmove(b, a, n);
 	kunmap(k);
-	poperror();
 
 	/* Ensure the process sees text page changes */
 	if(s->flushme)
 		memset(pg->cachectl, PG_TXTFLUSH, sizeof(pg->cachectl));
 
-	s->steal--;
-
-	if(read == 0)
+	if(!read)
 		p->newtlb = 1;
 
-	return n;
-}
-
-Segment*
-txt2data(Proc *p, Segment *s)
-{
-	int i;
-	Segment *ps;
-
-	ps = newseg(SG_DATA, s->base, s->size);
-	ps->image = s->image;
-	incref(ps->image);
-	ps->fstart = s->fstart;
-	ps->flen = s->flen;
-	ps->flushme = 1;
-
-	qlock(&p->seglock);
-	for(i = 0; i < NSEG; i++)
-		if(p->seg[i] == s)
-			break;
-	if(i == NSEG)
-		panic("segment gone");
-
 	qunlock(s);
+	poperror();
 	putseg(s);
-	qlock(ps);
-	p->seg[i] = ps;
-	qunlock(&p->seglock);
+	poperror();
 
-	return ps;
-}
+	if(read)
+		memmove(va, a, n);	/* can fault */
 
-Segment*
-data2txt(Segment *s)
-{
-	Segment *ps;
+	free(a);
+	poperror();
 
-	ps = newseg(SG_TEXT, s->base, s->size);
-	ps->image = s->image;
-	incref(ps->image);
-	ps->fstart = s->fstart;
-	ps->flen = s->flen;
-	ps->flushme = 1;
-
-	return ps;
+	return n;
 }

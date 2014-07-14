@@ -1510,7 +1510,7 @@ killbig(char *why)
 			s = p->seg[i];
 			if(s == nil || !canqlock(s))
 				continue;
-			l += (ulong)mcountseg(s);
+			l += mcountseg(s);
 			qunlock(s);
 		}
 		qunlock(&p->seglock);

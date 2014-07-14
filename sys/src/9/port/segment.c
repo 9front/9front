@@ -452,10 +452,11 @@ ibrk(uintptr addr, int seg)
 /*
  *  called with s locked
  */
-int
+ulong
 mcountseg(Segment *s)
 {
-	int i, j, pages;
+	ulong pages;
+	int i, j;
 	Page *pg;
 
 	pages = 0;
@@ -736,3 +737,33 @@ segclock(uintptr pc)
 	}
 }
 
+Segment*
+txt2data(Segment *s)
+{
+	Segment *ps;
+
+	ps = newseg(SG_DATA, s->base, s->size);
+	ps->image = s->image;
+	incref(ps->image);
+	ps->fstart = s->fstart;
+	ps->flen = s->flen;
+	ps->flushme = 1;
+	qunlock(s);
+	putseg(s);
+	qlock(ps);
+	return ps;
+}
+
+Segment*
+data2txt(Segment *s)
+{
+	Segment *ps;
+
+	ps = newseg(SG_TEXT, s->base, s->size);
+	ps->image = s->image;
+	incref(ps->image);
+	ps->fstart = s->fstart;
+	ps->flen = s->flen;
+	ps->flushme = 1;
+	return ps;
+}

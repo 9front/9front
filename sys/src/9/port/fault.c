@@ -58,7 +58,7 @@ fault(uintptr addr, int read)
 }
 
 static void
-faulterror(char *s, Chan *c, int freemem)
+faulterror(char *s, Chan *c, int isfatal)
 {
 	char buf[ERRMAX];
 
@@ -67,123 +67,15 @@ faulterror(char *s, Chan *c, int freemem)
 		s = buf;
 	}
 	if(up->nerrlab) {
-		postnote(up, 1, s, NDebug);
+		if(isfatal)
+			postnote(up, 1, s, NDebug);
 		error(s);
 	}
-	pexit(s, freemem);
+	pexit(s, 1);
 }
 
-void	(*checkaddr)(uintptr, Segment *, Page *);
-uintptr	addr2check;
-
-int
-fixfault(Segment *s, uintptr addr, int read, int doputmmu)
-{
-	int type;
-	Pte **p, *etp;
-	uintptr soff, mmuphys=0;
-	Page **pg, *old, *new;
-	Page *(*fn)(Segment*, uintptr);
-
-	addr &= ~(BY2PG-1);
-	soff = addr-s->base;
-	p = &s->map[soff/PTEMAPMEM];
-	if(*p == nil)
-		*p = ptealloc();
-
-	etp = *p;
-	pg = &etp->pages[(soff&(PTEMAPMEM-1))/BY2PG];
-	type = s->type&SG_TYPE;
-
-	if(pg < etp->first)
-		etp->first = pg;
-	if(pg > etp->last)
-		etp->last = pg;
-
-	switch(type) {
-	default:
-		panic("fault");
-		break;
-
-	case SG_TEXT: 			/* Demand load */
-		if(pagedout(*pg))
-			pio(s, addr, soff, pg);
-
-		mmuphys = PPN((*pg)->pa) | PTERONLY|PTEVALID;
-		(*pg)->modref = PG_REF;
-		break;
-
-	case SG_BSS:
-	case SG_SHARED:			/* Zero fill on demand */
-	case SG_STACK:
-		if(*pg == nil) {
-			new = newpage(1, &s, addr);
-			if(s == nil)
-				return -1;
-			*pg = new;
-		}
-		goto common;
-
-	case SG_DATA:
-	common:			/* Demand load/pagein/copy on write */
-		if(pagedout(*pg))
-			pio(s, addr, soff, pg);
-
-		/*
-		 *  It's only possible to copy on write if
-		 *  we're the only user of the segment.
-		 */
-		if(read && conf.copymode == 0 && s->ref == 1) {
-			mmuphys = PPN((*pg)->pa)|PTERONLY|PTEVALID;
-			(*pg)->modref |= PG_REF;
-			break;
-		}
-
-		old = *pg;
-		if(old->image == &swapimage && (old->ref + swapcount(old->daddr)) == 1)
-			uncachepage(old);
-		if(old->ref > 1 || old->image != nil) {
-			new = newpage(0, &s, addr);
-			if(s == nil)
-				return -1;
-			*pg = new;
-			copypage(old, *pg);
-			putpage(old);
-		}
-		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEVALID;
-		(*pg)->modref = PG_MOD|PG_REF;
-		break;
-
-	case SG_PHYSICAL:
-		if(*pg == nil) {
-			fn = s->pseg->pgalloc;
-			if(fn)
-				*pg = (*fn)(s, addr);
-			else {
-				new = smalloc(sizeof(Page));
-				new->va = addr;
-				new->pa = s->pseg->pa+(addr-s->base);
-				new->ref = 1;
-				*pg = new;
-			}
-		}
-
-		if (checkaddr && addr == addr2check)
-			(*checkaddr)(addr, s, *pg);
-		mmuphys = PPN((*pg)->pa) |PTEWRITE|PTEUNCACHED|PTEVALID;
-		(*pg)->modref = PG_MOD|PG_REF;
-		break;
-	}
-	qunlock(s);
-
-	if(doputmmu)
-		putmmu(addr, mmuphys, *pg);
-
-	return 0;
-}
-
-void
-pio(Segment *s, uintptr addr, uintptr soff, Page **p)
+static void
+pio(Segment *s, uintptr addr, uintptr soff, Page **p, int isfatal)
 {
 	Page *new;
 	KMap *k;
@@ -227,22 +119,21 @@ retry:
 	new = newpage(0, 0, addr);
 	k = kmap(new);
 	kaddr = (char*)VA(k);
-
 	while(waserror()) {
-		if(strcmp(up->errstr, Eintr) == 0)
+		if(isfatal && strcmp(up->errstr, Eintr) == 0)
 			continue;
 		kunmap(k);
 		putpage(new);
-		faulterror(Eioload, c, 0);
+		faulterror(Eioload, c, isfatal);
 	}
 	n = devtab[c->type]->read(c, kaddr, ask, daddr);
 	if(n != ask)
-		error(Eioload);
+		error(Eshort);
 	if(ask < BY2PG)
 		memset(kaddr+ask, 0, BY2PG-ask);
-
 	poperror();
 	kunmap(k);
+
 	qlock(s);
 	if(loadrec == nil) {	/* This is demand load */
 		/*
@@ -297,6 +188,115 @@ done:
 	putpage(new);
 	if(s->flushme)
 		memset((*p)->cachectl, PG_TXTFLUSH, sizeof((*p)->cachectl));
+}
+
+void	(*checkaddr)(uintptr, Segment *, Page *);
+uintptr	addr2check;
+
+int
+fixfault(Segment *s, uintptr addr, int read, int doputmmu)
+{
+	int type;
+	Pte **p, *etp;
+	uintptr soff, mmuphys=0;
+	Page **pg, *old, *new;
+	Page *(*fn)(Segment*, uintptr);
+
+	addr &= ~(BY2PG-1);
+	soff = addr-s->base;
+	p = &s->map[soff/PTEMAPMEM];
+	if(*p == nil)
+		*p = ptealloc();
+
+	etp = *p;
+	pg = &etp->pages[(soff&(PTEMAPMEM-1))/BY2PG];
+	type = s->type&SG_TYPE;
+
+	if(pg < etp->first)
+		etp->first = pg;
+	if(pg > etp->last)
+		etp->last = pg;
+
+	switch(type) {
+	default:
+		panic("fault");
+		break;
+
+	case SG_TEXT: 			/* Demand load */
+		if(pagedout(*pg))
+			pio(s, addr, soff, pg, doputmmu);
+
+		mmuphys = PPN((*pg)->pa) | PTERONLY|PTEVALID;
+		(*pg)->modref = PG_REF;
+		break;
+
+	case SG_BSS:
+	case SG_SHARED:			/* Zero fill on demand */
+	case SG_STACK:
+		if(*pg == nil) {
+			new = newpage(1, &s, addr);
+			if(s == nil)
+				return -1;
+			*pg = new;
+		}
+		goto common;
+
+	case SG_DATA:
+	common:			/* Demand load/pagein/copy on write */
+		if(pagedout(*pg))
+			pio(s, addr, soff, pg, doputmmu);
+
+		/*
+		 *  It's only possible to copy on write if
+		 *  we're the only user of the segment.
+		 */
+		if(read && conf.copymode == 0 && s->ref == 1) {
+			mmuphys = PPN((*pg)->pa)|PTERONLY|PTEVALID;
+			(*pg)->modref |= PG_REF;
+			break;
+		}
+
+		old = *pg;
+		if(old->image == &swapimage && (old->ref + swapcount(old->daddr)) == 1)
+			uncachepage(old);
+		if(old->ref > 1 || old->image != nil) {
+			new = newpage(0, &s, addr);
+			if(s == nil)
+				return -1;
+			*pg = new;
+			copypage(old, *pg);
+			putpage(old);
+		}
+		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEVALID;
+		(*pg)->modref = PG_MOD|PG_REF;
+		break;
+
+	case SG_PHYSICAL:
+		if(*pg == nil) {
+			fn = s->pseg->pgalloc;
+			if(fn)
+				*pg = (*fn)(s, addr);
+			else {
+				new = smalloc(sizeof(Page));
+				new->va = addr;
+				new->pa = s->pseg->pa+(addr-s->base);
+				new->ref = 1;
+				*pg = new;
+			}
+		}
+
+		if (checkaddr && addr == addr2check)
+			(*checkaddr)(addr, s, *pg);
+		mmuphys = PPN((*pg)->pa) |PTEWRITE|PTEUNCACHED|PTEVALID;
+		(*pg)->modref = PG_MOD|PG_REF;
+		break;
+	}
+	qunlock(s);
+
+	if(doputmmu)
+		putmmu(addr, mmuphys, *pg);
+
+	return 0;
 }
 
 /*

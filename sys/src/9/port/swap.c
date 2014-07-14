@@ -222,11 +222,6 @@ pageout(Proc *p, Segment *s)
 	if(!canqlock(s))	/* We cannot afford to wait, we will surely deadlock */
 		return;
 
-	if(s->steal) {		/* Protected by /dev/proc */
-		qunlock(s);
-		return;
-	}
-
 	if(!canflush(p, s)) {	/* Able to invalidate all tlbs with references */
 		qunlock(s);
 		putseg(s);

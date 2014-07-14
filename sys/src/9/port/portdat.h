@@ -389,8 +389,7 @@ struct Segment
 {
 	Ref;
 	QLock;
-	ushort	steal;		/* Page stealer lock */
-	ushort	type;		/* segment type */
+	int	type;		/* segment type */
 	uintptr	base;		/* virtual base */
 	uintptr	top;		/* virtual top */
 	ulong	size;		/* size in pages */
