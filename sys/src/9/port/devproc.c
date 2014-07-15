@@ -623,9 +623,9 @@ procclose(Chan *c)
 			proctrace = nil;
 		unlock(&tlock);
 	}
-	if(QID(c->qid) == Qns && c->aux != 0){
+	if(QID(c->qid) == Qns && c->aux != nil){
 		free(c->aux);
-		c->aux = 0;
+		c->aux = nil;
 	}
 }
 
