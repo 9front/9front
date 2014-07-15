@@ -1681,7 +1681,6 @@ main(int argc, char *argv[])
 	ground = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0x777777FF);
 	display->locking = 1;
 	unlockdisplay(display);
-	drawlock(1);
 
 	einit(Ekeyboard|Emouse);
 	eplumb(Eplumb, "image");
@@ -1698,6 +1697,7 @@ main(int argc, char *argv[])
 	for(; *argv; argv++)
 		addpage(root, *argv, popenfile, strdup(*argv), -1);
 
+	drawlock(1);
 	for(;;){
 		drawlock(0);
 		i=event(&e);
@@ -1802,7 +1802,9 @@ main(int argc, char *argv[])
 				j = trywalk(s, plumblookup(pm->attr, "addr"));
 				if(j == nil){
 					current = root;
+					drawlock(0);
 					j = addpage(root, s, popenfile, s, fd);
+					drawlock(1);
 				}
 				showpage(j);
 			}
