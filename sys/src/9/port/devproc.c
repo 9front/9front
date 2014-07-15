@@ -171,7 +171,7 @@ profclock(Ureg *ur, Timer *)
 {
 	Tos *tos;
 
-	if(up == 0 || up->state != Running)
+	if(up == nil || up->state != Running)
 		return;
 
 	/* user profiling clock */
@@ -688,7 +688,7 @@ prochaswaitq(void *x)
 
 	c = (Chan *)x;
 	p = proctab(SLOT(c->qid));
-	return p->pid != PID(c->qid) || p->waitq != 0;
+	return p->pid != PID(c->qid) || p->waitq != nil;
 }
 
 /*
@@ -764,11 +764,18 @@ procread(Chan *c, void *va, long n, vlong off)
 		return n;
 	case Qsyscall:
 		eqlock(&p->debug);
-		if(p->syscalltrace)
+		if(waserror()){
+			qunlock(&p->debug);
+			nexterror();
+		}
+		if(p->pid != PID(c->qid))
+			error(Eprocdied);
+		if(p->syscalltrace != nil)
 			n = readstr(offset, a, n, p->syscalltrace);
 		else
 			n = 0;
 		qunlock(&p->debug);
+		poperror();
 		return n;
 
 	case Qmem:
@@ -803,8 +810,8 @@ procread(Chan *c, void *va, long n, vlong off)
 		if(s == nil || s->profile == nil)
 			error("profile is off");
 		i = (s->top-s->base)>>LRESPROF;
-		i *= sizeof(*s->profile);
-		if(offset >= i)
+		i *= sizeof(s->profile[0]);
+		if(i < 0 || offset >= i)
 			return 0;
 		if(offset+n > i)
 			n = i - offset;
@@ -863,7 +870,7 @@ procread(Chan *c, void *va, long n, vlong off)
 		rptr = (uchar*)&p->fpsave;
 		rsize = sizeof(FPsave);
 	regread:
-		if(rptr == 0)
+		if(rptr == nil)
 			error(Enoreg);
 		if(offset >= rsize)
 			return 0;
@@ -879,7 +886,7 @@ procread(Chan *c, void *va, long n, vlong off)
 			n = STATSIZE - offset;
 
 		sps = p->psstate;
-		if(sps == 0)
+		if(sps == nil)
 			sps = statename[p->state];
 
 		memset(statbuf, ' ', sizeof statbuf);
@@ -906,7 +913,7 @@ procread(Chan *c, void *va, long n, vlong off)
 		j = 0;
 		for(i = 0; i < NSEG; i++) {
 			sg = p->seg[i];
-			if(sg == 0)
+			if(sg == nil)
 				continue;
 			j += sprint(statbuf+j, "%-6s %c%c %8p %8p %4ld\n",
 				sname[sg->type&SG_TYPE],
@@ -933,7 +940,7 @@ procread(Chan *c, void *va, long n, vlong off)
 		}
 
 		lock(&p->exl);
-		while(p->waitq == 0 && p->pid == PID(c->qid)) {
+		while(p->waitq == nil && p->pid == PID(c->qid)) {
 			if(up == p && p->nchild == 0) {
 				unlock(&p->exl);
 				error(Enochild);
@@ -975,7 +982,7 @@ procread(Chan *c, void *va, long n, vlong off)
 			return 0;
 		}
 		mntscan(mw, p);
-		if(mw->mh == 0){
+		if(mw->mh == nil){
 			mw->cddone = 1;
 			i = snprint(a, n, "cd %s\n", p->dot->path->s);
 			qunlock(&p->debug);
@@ -1023,13 +1030,13 @@ mntscan(Mntwalk *mw, Proc *p)
 	bestmid = ~0;
 
 	last = 0;
-	if(mw->mh)
+	if(mw->mh != nil)
 		last = mw->cm->mountid;
 
 	for(i = 0; i < MNTHASH; i++) {
-		for(f = pg->mnthash[i]; f; f = f->hash) {
-			for(t = f->mount; t; t = t->next) {
-				if(mw->mh == 0 ||
+		for(f = pg->mnthash[i]; f != nil; f = f->hash) {
+			for(t = f->mount; t != nil; t = t->next) {
+				if(mw->mh == nil ||
 				  (t->mountid > last && t->mountid < bestmid)) {
 					mw->cm = t;
 					mw->mh = f;
@@ -1040,7 +1047,7 @@ mntscan(Mntwalk *mw, Proc *p)
 		}
 	}
 	if(nxt == 0)
-		mw->mh = 0;
+		mw->mh = nil;
 
 	runlock(&pg->ns);
 }
@@ -1106,7 +1113,7 @@ procwrite(Chan *c, void *va, long n, vlong off)
 			n = 0;
 		else if(offset+n > sizeof(Ureg))
 			n = sizeof(Ureg) - offset;
-		if(p->dbgreg == 0)
+		if(p->dbgreg == nil)
 			error(Enoreg);
 		setregisters(p->dbgreg, (char*)(p->dbgreg)+offset, va, n);
 		break;
@@ -1218,7 +1225,7 @@ proctext(Chan *c, Proc *p)
 	if(tc == nil)
 		error(Eprocdied);
 
-	if(incref(tc) == 1 || (tc->flag&COPEN) == 0 || tc->mode!=OREAD) {
+	if(incref(tc) == 1 || (tc->flag&COPEN) == 0 || tc->mode != OREAD) {
 		cclose(tc);
 		error(Eprocdied);
 	}
@@ -1239,7 +1246,7 @@ procstopwait(Proc *p, int ctl)
 {
 	int pid;
 
-	if(p->pdbg)
+	if(p->pdbg != nil)
 		error(Einuse);
 	if(procstopped(p) || p->state == Broken)
 		return;
@@ -1252,7 +1259,7 @@ procstopwait(Proc *p, int ctl)
 	qunlock(&p->debug);
 	up->psstate = "Stopwait";
 	if(waserror()) {
-		p->pdbg = 0;
+		p->pdbg = nil;
 		qlock(&p->debug);
 		nexterror();
 	}
@@ -1398,7 +1405,7 @@ procctlreq(Proc *p, char *va, int n)
 		break;
 	case CMprofile:
 		s = p->seg[TSEG];
-		if(s == 0 || (s->type&SG_TYPE) != SG_TEXT)
+		if(s == nil || (s->type&SG_TYPE) != SG_TEXT)
 			error(Ebadctl);
 		if(s->profile != nil)
 			free(s->profile);
@@ -1492,7 +1499,7 @@ procctlreq(Proc *p, char *va, int n)
 		p->edf->flags |= Sendnotes;
 		break;
 	case CMadmit:
-		if(p->edf == 0)
+		if(p->edf == nil)
 			error("edf params");
 		if(e = edfadmit(p))
 			error(e);
@@ -1503,12 +1510,12 @@ procctlreq(Proc *p, char *va, int n)
 		p->edf->flags |= Extratime;
 		break;
 	case CMexpel:
-		if(p->edf)
+		if(p->edf != nil)
 			edfstop(p);
 		break;
 	case CMevent:
 		pt = proctrace;
-		if(up->trace && pt)
+		if(up->trace && pt != nil)
 			pt(up, SUser, 0);
 		break;
 	}
@@ -1520,8 +1527,7 @@ procctlreq(Proc *p, char *va, int n)
 int
 procstopped(void *a)
 {
-	Proc *p = a;
-	return p->state == Stopped;
+	return ((Proc*)a)->state == Stopped;
 }
 
 ulong
