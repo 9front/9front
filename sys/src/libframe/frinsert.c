@@ -101,7 +101,7 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 	Frbox *b;
 	int n, n0, nn0, y;
 	ulong cn0;
-	Image *col;
+	Image *back, *text;
 	Rectangle r;
 	static struct{
 		Point pt0, pt1;
@@ -219,10 +219,10 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 				r.max.x = f->r.max.x;
 				r.max.y += f->font->height;
 				if(f->p0<=cn0 && cn0<f->p1)	/* b+1 is inside selection */
-					col = f->cols[HIGH];
+					back = f->cols[HIGH];
 				else
-					col = f->cols[BACK];
-				draw(f->b, r, col, nil, r.min);
+					back = f->cols[BACK];
+				draw(f->b, r, back, nil, r.min);
 			}else if(pt.y < y){
 				r.min = pt;
 				r.max = pt;
@@ -230,10 +230,10 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 				r.max.x = f->r.max.x;
 				r.max.y += f->font->height;
 				if(f->p0<=cn0 && cn0<f->p1)	/* b+1 is inside selection */
-					col = f->cols[HIGH];
+					back = f->cols[HIGH];
 				else
-					col = f->cols[BACK];
-				draw(f->b, r, col, nil, r.min);
+					back = f->cols[BACK];
+				draw(f->b, r, back, nil, r.min);
 			}
 			y = pt.y;
 			cn0 -= b->nrune;
@@ -246,22 +246,26 @@ frinsert(Frame *f, Rune *sp, Rune *ep, ulong p0)
 				r.max.x = f->r.max.x;
 			cn0--;
 			if(f->p0<=cn0 && cn0<f->p1)	/* b is inside selection */
-				col = f->cols[HIGH];
+				back = f->cols[HIGH];
 			else
-				col = f->cols[BACK];
-			draw(f->b, r, col, nil, r.min);
+				back = f->cols[BACK];
+			draw(f->b, r, back, nil, r.min);
 			y = 0;
 			if(pt.x == f->r.min.x)
 				y = pt.y;
 		}
 	}
 	/* insertion can extend the selection, so the condition here is different */
-	if(f->p0<p0 && p0<=f->p1)
-		col = f->cols[HIGH];
-	else
-		col = f->cols[BACK];
-	frselectpaint(f, ppt0, ppt1, col);
-	_frdrawtext(&frame, ppt0, f->cols[TEXT], col);
+	if(f->p0<p0 && p0<=f->p1){
+		text = f->cols[HTEXT];
+		back = f->cols[HIGH];
+	}
+	else {
+		text = f->cols[TEXT];
+		back = f->cols[BACK];
+	}
+	frselectpaint(f, ppt0, ppt1, back);
+	_frdrawtext(&frame, ppt0, text, back);
 	_fraddbox(f, nn0, frame.nbox);
 	for(n=0; n<frame.nbox; n++)
 		f->box[nn0+n] = frame.box[n];
