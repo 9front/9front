@@ -687,14 +687,6 @@ TEXT touser(SB), 1, $-4
 	CLI
 	SWAPGS
 
-	MOVW	$UDSEL, AX
-	MOVW	AX, DS
-	MOVW	AX, ES
-
-	MOVW	$NULLSEL, AX
-	MOVW	AX, FS
-	MOVW	AX, GS
-
 	MOVL	$0, RMACH
 	MOVL	$0, RUSER
 
@@ -719,13 +711,7 @@ TEXT syscallentry(SB), 1, $-4
 	PUSHQ	R11				/* old flags */
 	PUSHQ	$UESEL				/* old code segment */
 	PUSHQ	CX				/* old ip */
-
 	SUBQ	$(16+16*8), SP			/* unsaved registers */
-
-	MOVW	$UDSEL, (15*8+0)(SP)
-	MOVW	ES, (15*8+2)(SP)
-	MOVW	FS, (15*8+4)(SP)
-	MOVW	GS, (15*8+6)(SP)
 
 	MOVQ	RMACH, (14*8)(SP)
 	MOVQ	RUSER, (13*8)(SP)
@@ -745,11 +731,6 @@ TEXT forkret(SB), 1, $-4
 
 	CLI
 	SWAPGS
-
-	MOVW	22(SP), GS
-	MOVW	20(SP), FS
-	MOVW	18(SP), ES
-	MOVW	16(SP), DS
 
 	MOVQ	8(SP), RMACH
 	MOVQ	0(SP), RUSER
@@ -785,10 +766,6 @@ _intrcommon:
 
 	MOVQ	RUSER, 0(SP)
 	MOVQ	RMACH, 8(SP)
-	MOVW	DS, 16(SP)
-	MOVW	ES, 18(SP)
-	MOVW	FS, 20(SP)
-	MOVW	GS, 22(SP)
 
 	SWAPGS
 	BYTE $0x65; MOVQ 0, RMACH		/* m-> (MOVQ GS:0x0, R15) */
@@ -834,10 +811,7 @@ _intrestore:
 	JEQ	_iretnested
 
 	SWAPGS
-	MOVW	22(SP), GS
-	MOVW	20(SP), FS
-	MOVW	18(SP), ES
-	MOVW	16(SP), DS
+
 	MOVQ	8(SP), RMACH
 	MOVQ	0(SP), RUSER
 

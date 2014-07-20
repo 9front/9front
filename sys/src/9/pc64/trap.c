@@ -476,21 +476,19 @@ dumpregs(Ureg* ureg)
 	else
 		iprint("cpu%d: registers for kernel\n", m->machno);
 
-	iprint("  DS %.4uX      AX %.16lluX  BX %.16lluX  CX %.16lluX\n",
-		ureg->ds, ureg->ax, ureg->bx, ureg->cx);
-	iprint("  ES %.4uX      DX %.16lluX  SI %.16lluX  DI %.16lluX\n",
-		ureg->es, ureg->dx, ureg->si, ureg->di);
-	iprint("  FS %.4uX      BP %.16lluX  R8 %.16lluX  R9 %.16lluX\n",
-		ureg->fs, ureg->bp, ureg->r8, ureg->r9);
-	iprint("  GS %.4uX     R10 %.16lluX R11 %.16lluX R12 %.16lluX\n",
-		ureg->gs, ureg->r10, ureg->r11, ureg->r12);
-
-	iprint("  SS %.4lluX     R13 %.16lluX R14 %.16lluX R15 %.16lluX\n",
-		ureg->ss & 0xffff, ureg->r13, ureg->r14, ureg->r15);
-	iprint("  CS %.4lluX      PC %.16lluX  SP %.16lluX\n",
-		ureg->cs & 0xffff, ureg->pc, ureg->sp);
-
-	iprint("TYPE %.2lluX     ERROR %.4lluX           FLAGS %.8lluX\n",
+	iprint("  AX %.16lluX  BX %.16lluX  CX %.16lluX\n",
+		ureg->ax, ureg->bx, ureg->cx);
+	iprint("  DX %.16lluX  SI %.16lluX  DI %.16lluX\n",
+		ureg->dx, ureg->si, ureg->di);
+	iprint("  BP %.16lluX  R8 %.16lluX  R9 %.16lluX\n",
+		ureg->bp, ureg->r8, ureg->r9);
+	iprint(" R10 %.16lluX R11 %.16lluX R12 %.16lluX\n",
+		ureg->r10, ureg->r11, ureg->r12);
+	iprint(" R13 %.16lluX R14 %.16lluX R15 %.16lluX\n",
+		ureg->r13, ureg->r14, ureg->r15);
+	iprint("  CS %.4lluX   SS %.4lluX    PC %.16lluX  SP %.16lluX\n",
+		ureg->cs & 0xffff, ureg->ss & 0xffff, ureg->pc, ureg->sp);
+	iprint("TYPE %.2lluX  ERROR %.4lluX FLAGS %.8lluX\n",
 		ureg->type & 0xff, ureg->error & 0xffff, ureg->flags & 0xffffffff);
 
 	/*
@@ -507,7 +505,7 @@ dumpregs(Ureg* ureg)
 		if(ureg->type == 18)
 			dumpmcregs();
 	}
-	iprint("\n  ur %#p up %#p\n", ureg, up);
+	iprint("  ur %#p up %#p\n", ureg, up);
 }
 
 
@@ -854,7 +852,7 @@ if(0) print("%s %lud: notify %#p %#p %#p %s\n",
 	ureg->pc = (uintptr)up->notify;
 	ureg->bp = (uintptr)up->ureg;		/* arg1 passed in RARG */
 	ureg->cs = UESEL;
-	ureg->ss = ureg->ds = ureg->es = UDSEL;
+	ureg->ss = UDSEL;
 	up->notified = 1;
 	up->nnote--;
 	memmove(&up->lastnote, &up->note[0], sizeof(Note));
@@ -952,8 +950,7 @@ execregs(uintptr entry, ulong ssize, ulong nargs)
 	ureg->sp = (uintptr)sp;
 	ureg->pc = entry;
 	ureg->cs = UESEL;
-	ureg->ss = ureg->ds = ureg->es = UDSEL;
-	ureg->fs = ureg->gs = NULLSEL;
+	ureg->ss = UDSEL;
 	ureg->r14 = ureg->r15 = 0;	/* extern user registers */
 	return (uintptr)USTKTOP-sizeof(Tos);		/* address of kernel/user shared data */
 }
@@ -981,11 +978,7 @@ setregisters(Ureg* ureg, char* pureg, char* uva, int n)
 	flags = ureg->flags;
 	memmove(pureg, uva, n);
 	ureg->cs = UESEL;
-	ureg->ss = ureg->ds = ureg->es = UDSEL;
-	if(ureg->fs != UDSEL)
-		ureg->fs = NULLSEL;
-	if(ureg->gs != UDSEL)
-		ureg->gs = NULLSEL;
+	ureg->ss = UDSEL;
 	ureg->flags = (ureg->flags & 0x00ff) | (flags & 0xff00);
 	ureg->pc &= UADDRMASK;
 }
