@@ -686,7 +686,7 @@ syscall(Ureg* ureg)
 	up->dbgreg = ureg;
 
 	sp = ureg->sp;
-	scallnr = ureg->ax;
+	scallnr = ureg->bp;	/* RARG */
 	up->scallnr = scallnr;
 
 	spllo();
@@ -735,13 +735,6 @@ syscall(Ureg* ureg)
 				up->errlab[i].sp, up->errlab[i].pc);
 		panic("error stack");
 	}
-
-	/*
-	 *  Put return value in frame.  On the x86 the syscall is
-	 *  just another trap and the return value from syscall is
-	 *  ignored.  On other machines the return value is put into
-	 *  the results register by caller of syscall.
-	 */
 	ureg->ax = ret;
 
 	if(0){
@@ -902,12 +895,8 @@ noted(Ureg* ureg, ulong arg0)
 		pexit("Suicide", 0);
 	}
 
-	/* don't let user change system flags */
-	nureg->flags = (ureg->flags & ~0xCD5) | (nureg->flags & 0xCD5);
-	nureg->cs |= 3;
-	nureg->ss |= 3;
-
-	memmove(ureg, nureg, sizeof(Ureg));
+	/* don't let user change system flags or segment registers */
+	setregisters(ureg, (char*)ureg, (char*)nureg, sizeof(Ureg));
 
 	switch(arg0){
 	case NCONT:
@@ -965,6 +954,7 @@ execregs(uintptr entry, ulong ssize, ulong nargs)
 	ureg->cs = UESEL;
 	ureg->ss = ureg->ds = ureg->es = UDSEL;
 	ureg->fs = ureg->gs = NULLSEL;
+	ureg->r14 = ureg->r15 = 0;	/* extern user registers */
 	return (uintptr)USTKTOP-sizeof(Tos);		/* address of kernel/user shared data */
 }
 
@@ -981,7 +971,7 @@ userpc(void)
 }
 
 /* This routine must save the values of registers the user is not permitted
- * to write from devproc and then restore the saved values before returning.
+ * to write from devproc and noted() and then restore the saved values before returning.
  */
 void
 setregisters(Ureg* ureg, char* pureg, char* uva, int n)
@@ -995,7 +985,7 @@ setregisters(Ureg* ureg, char* pureg, char* uva, int n)
 	if(ureg->fs != UDSEL)
 		ureg->fs = NULLSEL;
 	if(ureg->gs != UDSEL)
-		ureg->gs = 0;
+		ureg->gs = NULLSEL;
 	ureg->flags = (ureg->flags & 0x00ff) | (flags & 0xff00);
 	ureg->pc &= UADDRMASK;
 }
@@ -1063,8 +1053,7 @@ dbgpc(Proc *p)
 	Ureg *ureg;
 
 	ureg = p->dbgreg;
-	if(ureg == 0)
+	if(ureg == nil)
 		return 0;
-
 	return ureg->pc;
 }

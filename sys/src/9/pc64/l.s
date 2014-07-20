@@ -686,15 +686,20 @@ f3:
 TEXT touser(SB), 1, $-4
 	CLI
 	SWAPGS
-	MOVQ	$UDSEL, AX
+
+	MOVW	$UDSEL, AX
 	MOVW	AX, DS
 	MOVW	AX, ES
+
+	MOVW	$NULLSEL, AX
 	MOVW	AX, FS
 	MOVW	AX, GS
 
-	MOVQ	$(UTZERO+0x28), CX		/* ip */
-	MOVQ	$0x200, R11			/* flags */
+	MOVL	$0, RMACH
+	MOVL	$0, RUSER
 
+	MOVQ	$(UTZERO+0x28), CX		/* ip */
+	MOVL	$0x200, R11			/* flags */
 	MOVQ	RARG, SP			/* sp */
 
 	BYTE $0x48; SYSRET			/* SYSRETQ */
@@ -703,45 +708,55 @@ TEXT touser(SB), 1, $-4
  */
 TEXT syscallentry(SB), 1, $-4
 	SWAPGS
-	BYTE $0x65; MOVQ 0, RMACH		/* m-> (MOVQ GS:0x0, R15) */
-	MOVQ	16(RMACH), RUSER		/* m->proc */
+	BYTE $0x65; MOVQ 0, AX			/* m-> (MOVQ GS:0x0, AX) */
+	MOVQ	16(AX), BX			/* m->proc */
 	MOVQ	SP, R13
-	MOVQ	16(RUSER), SP			/* m->proc->kstack */
+	MOVQ	16(BX), SP			/* m->proc->kstack */
 	ADDQ	$KSTACK, SP
+
 	PUSHQ	$UDSEL				/* old stack segment */
 	PUSHQ	R13				/* old sp */
 	PUSHQ	R11				/* old flags */
 	PUSHQ	$UESEL				/* old code segment */
 	PUSHQ	CX				/* old ip */
 
-	SUBQ	$(17*8), SP			/* unsaved registers */
-	PUSHQ	RARG				/* system call number */
+	SUBQ	$(16+16*8), SP			/* unsaved registers */
 
 	MOVW	$UDSEL, (15*8+0)(SP)
 	MOVW	ES, (15*8+2)(SP)
 	MOVW	FS, (15*8+4)(SP)
 	MOVW	GS, (15*8+6)(SP)
 
+	MOVQ	RMACH, (14*8)(SP)
+	MOVQ	RUSER, (13*8)(SP)
+
+	MOVQ	RARG, (6*8)(SP)			/* system call number */
+
+	MOVQ	AX, RMACH			/* m */
+	MOVQ	BX, RUSER			/* up */
+
 	MOVQ	SP, RARG
-	PUSHQ	SP				/* Ureg* */
+	PUSHQ	SP
 	CALL	syscall(SB)
 
 TEXT forkret(SB), 1, $-4
-	MOVQ	8(SP), AX			/* Ureg.ax */
-	MOVQ	(8+6*8)(SP), BP			/* Ureg.bp */
-	ADDQ	$(16*8), SP			/* registers + arguments */
+	MOVQ	8(SP), AX
+	ADDQ	$(8+13*8), SP			/* unsaved registers */
 
 	CLI
 	SWAPGS
-	MOVW	0(SP), DS
-	MOVW	2(SP), ES
-	MOVW	4(SP), FS
-	MOVW	6(SP), GS
 
-	MOVQ	24(SP), CX			/* ip */
-	MOVQ	40(SP), R11			/* flags */
+	MOVW	22(SP), GS
+	MOVW	20(SP), FS
+	MOVW	18(SP), ES
+	MOVW	16(SP), DS
 
-	MOVQ	48(SP), SP			/* sp */
+	MOVQ	8(SP), RMACH
+	MOVQ	0(SP), RUSER
+
+	MOVQ	40(SP), CX			/* ip */
+	MOVQ	56(SP), R11			/* flags */
+	MOVQ	64(SP), SP			/* sp */
 
 	BYTE $0x48; SYSRET			/* SYSRETQ */
 
