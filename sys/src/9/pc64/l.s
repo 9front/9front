@@ -711,33 +711,33 @@ TEXT syscallentry(SB), 1, $-4
 	PUSHQ	R11				/* old flags */
 	PUSHQ	$UESEL				/* old code segment */
 	PUSHQ	CX				/* old ip */
-	SUBQ	$(16+16*8), SP			/* unsaved registers */
 
-	MOVQ	RMACH, (14*8)(SP)
-	MOVQ	RUSER, (13*8)(SP)
+	SUBQ	$(8 + 23*8-5*8), SP		/* arg + sizeof(Ureg)-pushed */
 
-	MOVQ	RARG, (6*8)(SP)			/* system call number */
+	MOVQ	RMACH, (15*8)(SP)		/* old r15 */
+	MOVQ	RUSER, (14*8)(SP)		/* old r14 */
+
+	MOVQ	RARG, (7*8)(SP)			/* system call number */
 
 	MOVQ	AX, RMACH			/* m */
 	MOVQ	BX, RUSER			/* up */
 
-	MOVQ	SP, RARG
-	PUSHQ	SP
+	LEAQ	8(SP), RARG			/* Ureg* arg */
+
 	CALL	syscall(SB)
 
 TEXT forkret(SB), 1, $-4
-	MOVQ	8(SP), AX
-	ADDQ	$(8+13*8), SP			/* unsaved registers */
-
 	CLI
 	SWAPGS
 
-	MOVQ	8(SP), RMACH
-	MOVQ	0(SP), RUSER
+	MOVQ	8(SP), AX			/* return value */
 
-	MOVQ	40(SP), CX			/* ip */
-	MOVQ	56(SP), R11			/* flags */
-	MOVQ	64(SP), SP			/* sp */
+	MOVQ	(15*8)(SP), RMACH		/* r15 */
+	MOVQ	(14*8)(SP), RUSER		/* r14 */
+
+	MOVQ	(19*8)(SP), CX			/* ip */
+	MOVQ	(21*8)(SP), R11			/* flags */
+	MOVQ	(22*8)(SP), SP			/* sp */
 
 	BYTE $0x48; SYSRET			/* SYSRETQ */
 
