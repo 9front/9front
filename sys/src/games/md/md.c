@@ -198,7 +198,7 @@ threadmain(int argc, char **argv)
 	} ARGEND;
 	
 	if(argc != 1){
-		fprint(2, "usage: %s rom", argv0);
+		fprint(2, "usage: %s [-23a] rom\n", argv0);
 		threadexitsall("usage");
 	}
 	loadrom(*argv);
