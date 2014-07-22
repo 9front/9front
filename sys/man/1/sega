@@ -1,0 +1,36 @@
+.TH SEGA 1
+.SH NAME
+md \- emulator
+.SH SYNOPSIS
+.B games/md
+[
+.B -23a
+]
+.I romfile
+.SH DESCRIPTION
+.I Md
+is an emulator for the Sega Megadrive/Genesis.
+It executes the romfile given as an argument.
+The \fBz\fR, \fBx\fR, \fBc\fR, return and shift keys correspond to A, B, C, Start and Select, respectively.
+Other keys:
+.TP
+Esc
+Pause the emulator.
+.TP
+Del
+Exit the emulator.
+.PP
+Command line options:
+.TP
+.B -2 -3
+Scale the screen by the given factor.
+.TP
+.B -a
+Enable audio output.
+.SH SOURCE
+.B /sys/src/games/md
+.SH BUGS
+Probably!
+.SH HISTORY
+.I Md
+first appeared in 9front (May, 2014).
