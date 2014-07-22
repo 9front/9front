@@ -1,6 +1,6 @@
 .TH NINTENDO 1
 .SH NAME
-gb, nes \- emulators
+gb, nes, snes \- emulators
 .SH SYNOPSIS
 .B games/gb
 [
@@ -10,23 +10,30 @@ gb, nes \- emulators
 .br
 .B games/nes
 [
-.B -23aso
+.B -23aos
+]
+.I romfile
+.br
+.B games/snes
+[
+.B -23ahmsT
 ]
 .I romfile
 .SH DESCRIPTION
-.I Gb
-and
+.I Gb,
 .I nes
-are emulators for the Nintendo Game Boy and Nintendo Entertainment System (NES).
+and
+.I snes
+are emulators for the Nintendo Game Boy, Nintendo Entertainment System (NES) and Super Nintendo Entertainment System (SNES).
 They execute the romfile given as an argument.
-The \fBz\fR, \fBx\fR, return and shift keys correspond to B, A, Start and Select, respectively.
+The \fBz\fR, \fBx\fR, \fBa\fR, \fBs\fR, return and shift keys correspond to B, A, Y, X, Start and Select, respectively.
 Other keys:
 .TP
 F5
-Save the current state in \fBgb.save\fR / \fBnes.save\fR.
+Save the current state in \fBgb.save\fR / \fBnes.save\fR / \fBsnes.save\fR.
 .TP
 F6
-Load the current state from \fBgb.save\fR / \fBnes.save\fR.
+Load the current state from \fBgb.save\fR / \fBnes.save\fR / \fBsnes.save\fR.
 .TP
 Esc
 Pause the emulator.
@@ -41,23 +48,53 @@ Scale the screen by the given factor.
 .TP
 .B -a
 Enable audio output.
-.TP
-.B -s
-(\fInes\fR only)
-Save contents of battery backed SRAM (used by some games for savegames) as a file (\fIgb\fR automatically detects if this is needed)
+.PP
+.B nes
+options:
 .TP
 .B -o
-(\fInes\fR only)
 Hide the top and bottom eight pixels (overscan area), like a real television would.
+.TP
+.B -s
+Save contents of battery backed SRAM (used by some games for savegames) as a file (\fIgb\fR and \fIsnes\fR automatically detect if this is needed).
+.PP
+.B snes
+options:
+.TP
+.B -h
+Override HiROM/LoROM detection:
+.B -h
+sets LoROM,
+.B -hh
+sets HiROM.
+.TP
+.B -m
+Enable mouse emulation using system mouse. Mouse button 1 (left button) engages the SNES left mouse button. Mouse button 3 (right button) engages the SNES right mouse button. Holding down mouse button 2 (middle button) disengages the SNES mouse entirely so that the Plan 9 cursor offset can be adjusted to align with the SNES cursor.
+.TP
+.B -T
+Display percentage of how fast the system is running relative to a real SNES.
 .SH SOURCE
 .B /sys/src/games/gb
 .br
 .B /sys/src/games/nes
+.br
+.B /sys/src/games/snes
 .SH BUGS
 You bet!
+.br
+SRAM saving on the NES only functions when the
+.B -s
+option is used.
+.br
+The SNES horizontal hires mode is supported only with
+.B -2
+scaling.
 .SH HISTORY
 .I Gb
 first appeared in 9front (April, 2012).
 .br
 .I Nes
 first appeared in 9front (February, 2014).
+.br
+.I Snes
+first appeared in 9front (March, 2014).
