@@ -12,10 +12,10 @@ Channel *quit;
 Channel *forkc;
 int nread = 0;
 
-typedef struct Str Str;
-struct Str {
+typedef struct Msg Msg;
+struct Msg {
 	char	*buf;
-	int	len;
+	int	pid;
 };
 
 void
@@ -40,7 +40,7 @@ reader(void *v)
 {
 	int cfd, tfd, forking = 0, pid, newpid;
 	char *ctl, *truss;
-	Str *s;
+	Msg *s;
 
 	pid = (int)(uintptr)v;
 	ctl = smprint("/proc/%d/ctl", pid);
@@ -53,9 +53,10 @@ reader(void *v)
 	cwrite(cfd, ctl, "stop", 4);
 	cwrite(cfd, truss, "startsyscall", 12);
 
-	s = mallocz(sizeof(Str) + Bufsize, 1);
+	s = mallocz(sizeof(Msg) + Bufsize, 1);
+	s->pid = pid;
 	s->buf = (char *)&s[1];
-	while((s->len = pread(tfd, s->buf, Bufsize - 1, 0)) > 0){
+	while(pread(tfd, s->buf, Bufsize - 1, 0) > 0){
 		if (forking && s->buf[1] == '=' && s->buf[3] != '-') {
 			forking = 0;
 			newpid = strtol(&s->buf[3], 0, 0);
@@ -83,7 +84,8 @@ reader(void *v)
 		}
 		sendp(out, s);
 		cwrite(cfd, truss, "startsyscall", 12);
-		s = mallocz(sizeof(Str) + Bufsize, 1);
+		s = mallocz(sizeof(Msg) + Bufsize, 1);
+		s->pid = pid;
 		s->buf = (char *)&s[1];
 	}
 	sendp(quit, nil);
@@ -91,11 +93,13 @@ reader(void *v)
 }
 
 void
-writer(void *)
+writer(void *arg)
 {
-	int newpid;
+	int lastpid;
 	Alt a[4];
-	Str *s;
+	Msg *s;
+
+	lastpid = (int)(uintptr)arg;
 
 	a[0].op = CHANRCV;
 	a[0].c = quit;
@@ -105,7 +109,7 @@ writer(void *)
 	a[1].v = &s;
 	a[2].op = CHANRCV;
 	a[2].c = forkc;
-	a[2].v = &newpid;
+	a[2].v = nil;
 	a[3].op = CHANEND;
 
 	for(;;)
@@ -116,12 +120,14 @@ writer(void *)
 				goto done;
 			break;
 		case 1:
-			/* it's a nice null terminated thing */
+			if(s->pid != lastpid){
+				lastpid = s->pid;
+				fprint(2, s->buf[1]=='='? "\n%d ...": "\n", lastpid);
+			}
 			fprint(2, "%s", s->buf);
 			free(s);
 			break;
 		case 2:
-			// procrfork(reader, (void*)newpid, Stacksize, 0);
 			nread++;
 			break;
 		}
@@ -183,6 +189,6 @@ threadmain(int argc, char **argv)
 	quit  = chancreate(sizeof(char*), 0);
 	forkc = chancreate(sizeof(ulong *), 0);
 	nread++;
-	procrfork(writer, nil, Stacksize, 0);
+	procrfork(writer, (void*)pid, Stacksize, 0);
 	reader((void*)pid);
 }
