@@ -167,3 +167,10 @@ I'm doing a research about OS'GUI, and I'd like to know if Plan 9 has a GUI. If 
 Is there a list somewhere on the web with all those 9atom patches?
 I created a web service in Go for transcoding gif to html5 video
 Higher level terminal UI library?
+Would it be possible to change a bit the 9front mercurial repository so that it can work on MacOS filesystem.
+I'm doing a research about OS'GUI, and I'd like to know if Plan 9 has a GUI. If so, where can I take some screenshoots? Thanks in advance
+Is there a list somewhere on the web with all those 9atom patches?
+I created a web service in Go for transcoding gif to html5 video
+Higher level terminal UI library?
+I noticed some odd problem with Fossil on plan9port
+Just heard about Plan 9, and was wondering if anyone would care to take a stab at explaining the differences between it, Linux, and the versions of BSD.

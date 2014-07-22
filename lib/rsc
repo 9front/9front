@@ -125,3 +125,8 @@ working as intended; please don't file an issue.
 sure
 I would love it if someone would create a well-tested emacs Go module.
 Honestly it sounds like you have not written any Go programs.
+I'm not convinced this needs to be in the standard library.
+I haven't thought about it yet.
+Don't do that.
+Don't overthink this.
+I don't know what you are arguing for or against.
