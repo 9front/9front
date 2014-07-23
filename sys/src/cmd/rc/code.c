@@ -56,7 +56,7 @@ void
 cleanhere(char *f)
 {
 	emitf(Xdelhere);
-	emits(strdup(f));
+	emits(estrdup(f));
 }
 
 char*
@@ -258,7 +258,7 @@ outcode(tree *t, int eflag)
 		else{
 			emitf(Xmark);
 			emitf(Xword);
-			emits(strdup("*"));
+			emits(estrdup("*"));
 			emitf(Xdol);
 		}
 		emitf(Xmark);		/* dummy value for Xlocal */
@@ -275,7 +275,7 @@ outcode(tree *t, int eflag)
 		break;
 	case WORD:
 		emitf(Xword);
-		emits(strdup(t->str));
+		emits(estrdup(t->str));
 		break;
 	case DUP:
 		if(t->rtype==DUPFD){

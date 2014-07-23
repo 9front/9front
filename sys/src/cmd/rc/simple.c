@@ -131,7 +131,7 @@ execfunc(var *func)
 	runq->argv->words = 0;
 	poplist();
 	start(func->fn, func->pc, runq->local);
-	runq->local = newvar(strdup("*"), runq->local);
+	runq->local = newvar("*", runq->local);
 	runq->local->val = starval;
 	runq->local->changed = 1;
 }
@@ -172,7 +172,7 @@ execcd(void)
 				dir = smprint("%s/%s", cdpath->word,
 					a->next->word);
 			else
-				dir = strdup(a->next->word);
+				dir = estrdup(a->next->word);
 
 			if(dochdir(dir) >= 0){
 				if(cdpath->word[0] != '\0' &&
@@ -355,14 +355,14 @@ execdot(void)
 		Xerror1("Usage: . [-i] file [arg ...]");
 		return;
 	}
-	zero = strdup(p->argv->words->word);
+	zero = estrdup(p->argv->words->word);
 	popword();
 	fd = -1;
 	for(path = searchpath(zero); path; path = path->next){
 		if(path->word[0] != '\0')
 			file = smprint("%s/%s", path->word, zero);
 		else
-			file = strdup(zero);
+			file = estrdup(zero);
 
 		fd = open(file, 0);
 		free(file);
@@ -480,7 +480,7 @@ execwhatis(void){	/* mildly wrong -- should fork before writing */
 						file = smprint("%s/%s",
 							path->word, a->word);
 					else
-						file = strdup(a->word);
+						file = estrdup(a->word);
 					if(Executable(file)){
 						pfmt(out, "%s\n", file);
 						free(file);

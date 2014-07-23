@@ -34,7 +34,7 @@ heredoc(tree *tag)
 	h->tag = tag;
 	hexnum(&tmp[9], getpid());
 	hexnum(&tmp[14], ser++);
-	h->name = strdup(tmp);
+	h->name = estrdup(tmp);
 	return token(tmp, WORD);
 }
 /*

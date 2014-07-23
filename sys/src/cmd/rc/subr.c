@@ -30,6 +30,19 @@ efree(void *p)
 		free(p);
 	else pfmt(err, "free 0\n");
 }
+
+char*
+estrdup(char *s)
+{
+	char *d;
+	int n;
+
+	n = strlen(s)+1;
+	d = emalloc(n);
+	Memcpy(d, s, n);
+	return d;
+}
+
 extern int lastword, lastdol;
 
 void

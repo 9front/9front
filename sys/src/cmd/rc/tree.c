@@ -111,7 +111,7 @@ simplemung(tree *t)
 	t = tree1(SIMPLE, t);
 	s = openstr();
 	pfmt(s, "%t", t);
-	t->str = strdup((char *)s->strp);
+	t->str = estrdup((char *)s->strp);
 	closeio(s);
 	for(u = t->child[0];u->type==ARGLIST;u = u->child[0]){
 		if(u->child[1]->type==DUP

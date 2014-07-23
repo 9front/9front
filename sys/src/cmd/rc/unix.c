@@ -256,7 +256,7 @@ register struct word *args, *path;
 		case ENOEXEC:
 			pfmt(err, "%s: Bourne again\n", argv[1]);
 			argv[0]="sh";
-			argv[1] = strdup(file);
+			argv[1] = estrdup(file);
 			execve("/bin/sh", argv, env);
 			goto Bad;
 		case ETXTBSY:

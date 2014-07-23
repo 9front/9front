@@ -28,20 +28,30 @@ start(code *c, int pc, var *local)
 }
 
 word*
-newword(char *wd, word *next)
+Newword(char *wd, word *next)
 {
 	word *p = new(word);
-	p->word = strdup(wd);
+	p->word = wd;
 	p->next = next;
 	return p;
 }
-
 void
-pushword(char *wd)
+Pushword(char *wd)
 {
 	if(runq->argv==0)
 		panic("pushword but no argv!", 0);
-	runq->argv->words = newword(wd, runq->argv->words);
+	runq->argv->words = Newword(wd, runq->argv->words);
+}
+
+word*
+newword(char *wd, word *next)
+{
+	return Newword(estrdup(wd), next);
+}
+void
+pushword(char *wd)
+{
+	Pushword(estrdup(wd));
 }
 
 void
@@ -113,7 +123,7 @@ var*
 newvar(char *name, var *next)
 {
 	var *v = new(var);
-	v->name = name;
+	v->name = estrdup(name);
 	v->val = 0;
 	v->fn = 0;
 	v->changed = 0;
@@ -174,7 +184,7 @@ main(int argc, char *argv[])
 	start(bootstrap, 1, (var *)0);
 	/* prime bootstrap argv */
 	pushlist();
-	argv0 = strdup(argv[0]);
+	argv0 = estrdup(argv[0]);
 	for(i = argc-1;i!=0;--i) pushword(argv[i]);
 	for(;;){
 		if(flag['r'])
@@ -304,7 +314,7 @@ Xexit(void)
 			--runq->pc;
 			starval = vlook("*")->val;
 			start(trapreq->fn, trapreq->pc, (struct var *)0);
-			runq->local = newvar(strdup("*"), runq->local);
+			runq->local = newvar("*", runq->local);
 			runq->local->val = copywords(starval, (struct word *)0);
 			runq->local->changed = 1;
 			runq->redir = runq->startredir = 0;
@@ -548,16 +558,21 @@ Xcase(void)
 word*
 conclist(word *lp, word *rp, word *tail)
 {
-	char *buf;
-	word *v;
-	if(lp->next || rp->next)
-		tail = conclist(lp->next==0? lp: lp->next,
-			rp->next==0? rp: rp->next, tail);
-	buf = emalloc(strlen(lp->word)+strlen((char *)rp->word)+1);
-	strcpy(buf, lp->word);
-	strcat(buf, rp->word);
-	v = newword(buf, tail);
-	efree(buf);
+	word *v, *p, **end;
+	int ln, rn;
+
+	for(end = &v;;){
+		ln = strlen(lp->word), rn = strlen(rp->word);
+		p = Newword(emalloc(ln+rn+1), (word *)0);
+		Memcpy(p->word, lp->word, ln);
+		Memcpy(p->word+ln, rp->word, rn+1);
+		*end = p, end = &p->next;
+		if(lp->next == 0 && rp->next == 0)
+			break;
+		if(lp->next) lp = lp->next;
+		if(rp->next) rp = rp->next;
+	}
+	*end = tail;
 	return v;
 }
 
@@ -647,9 +662,8 @@ Xdol(void)
 void
 Xqdol(void)
 {
-	word *a, *p;
 	char *s;
-	int n;
+	word *a;
 	if(count(runq->argv->words)!=1){
 		Xerror1("variable name not singleton!");
 		return;
@@ -658,24 +672,7 @@ Xqdol(void)
 	deglob(s);
 	a = vlook(s)->val;
 	poplist();
-	n = count(a);
-	if(n==0){
-		pushword("");
-		return;
-	}
-	for(p = a;p;p = p->next) n+=strlen(p->word);
-	s = emalloc(n);
-	if(a){
-		strcpy(s, a->word);
-		for(p = a->next;p;p = p->next){
-			strcat(s, " ");
-			strcat(s, p->word);
-		}
-	}
-	else
-		s[0]='\0';
-	pushword(s);
-	efree(s);
+	Pushword(list2str(a));
 }
 
 word*
@@ -780,7 +777,7 @@ Xlocal(void)
 		return;
 	}
 	deglob(runq->argv->words->word);
-	runq->local = newvar(strdup(runq->argv->words->word), runq->local);
+	runq->local = newvar(runq->argv->words->word, runq->local);
 	poplist();
 	globlist();
 	runq->local->val = runq->argv->words;
