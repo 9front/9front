@@ -23,9 +23,13 @@ if(~ $"m 011ce50d){
 	echo hjfs
 	exit
 }
+m=`{dd -if $1 -bs 16 -count 1 -skip 16 >[2]/dev/null}
+if(~ $"m 'kfs wren device'){
+	echo kfs
+	exit
+}
 dd -if $1 -count 1 >[2]/dev/null | \
 awk '
-/^kfs/{fs["kfs"]++}
 /^(blocksize|daddrbits|daddrbits|indirblks|dirblks|namelen)/{p[$1]=$2}
 END{
 	ca["fs", "blocksize"] = 4*1024
