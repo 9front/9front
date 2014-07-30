@@ -1,0 +1,58 @@
+b.TH SPRED 1
+.SH NAME
+spred \- sprite editor
+.SH SYNOPSIS
+.B spred
+.SH DESCRIPTION
+.I Spred
+is an editor for small images using a limited palette.
+It uses a window system mimicking
+.IR samterm (1).
+There is a command window which uses a command language described below.
+There is also an arbitrary number of palette and sprite windows.
+Each open sprite file has an associated palette file.
+.PP
+A left click on a color in a palette window selects that color.
+Colors in different palettes can be selected indepedently.
+A left click on a pixel in a sprite window sets that pixel to the selected color.
+.PP
+A right click brings up the global menu to create windows etc.
+It also lists all currently open files, including those that are not open in any window.
+A middle click brings up the menu for the local window, if applicable. Available commands there are:
+.TP
+.I pal
+The \fIpal\fR command sets the palette for the current sprite window. The palette is selected with a middle click.
+.PP
+The command language is a very stripped down version of
+.IR rc (1),
+currently only supporting "simple" commands consisting of a name and an arbitrary number of arguments separated by spaces. Quoting works just like with
+.IR rc (1).
+Available commands are:
+.TP
+.B q
+Quits the program. If any files have unsaved changes, it will fail on the first attempt to quit.
+.TP
+.BI pal file
+.TP
+.BI spr file
+Open a palette (\fIpal\fR) or sprite (\fIspr\fR) file named \fIfile\fR.
+If the file does not exist it is created.
+.TP
+.BI w [file]
+Write the currently selected file to \fIfile\fR. If \fIfile\fR is not specified, the name specified to the command opening the file is used.
+.TP
+.BI size sz
+Sets the size of the current file to \fIsz\fR.
+\fISz\fR should be of the form \fIn\fR for palettes or \fIn\fB*\fIm\fR for sprites where \fIn\fR and \fIm\fR are integers.
+.TP
+.B set 0x\fIrrggbb\fR
+Sets the currently selected color to the rgb color \fI(rr,gg,bb)\fR where
+.IR rr , gg and bb
+are in hexadecimal notation.
+.TP
+.B zoom n
+Sets the current zoom factor to \fIn\fR.
+.SH SOURCE
+.B /sys/src/cmd/spred
+.SH SEE ALSO
+.IR sam (1)

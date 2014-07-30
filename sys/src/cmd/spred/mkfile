@@ -1,0 +1,16 @@
+</$objtype/mkfile
+
+TARG=spred
+BIN=/$objtype/bin
+OFILES=\
+	spred.$O\
+	win.$O\
+	cmd.$O\
+	pal.$O\
+	cmdw.$O\
+	spr.$O\
+	fil.$O\
+
+HFILES=dat.h fns.h
+
+</sys/src/cmd/mkone
