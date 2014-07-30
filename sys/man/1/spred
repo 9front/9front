@@ -1,4 +1,4 @@
-b.TH SPRED 1
+.TH SPRED 1
 .SH NAME
 spred \- sprite editor
 .SH SYNOPSIS
@@ -32,25 +32,24 @@ Available commands are:
 .B q
 Quits the program. If any files have unsaved changes, it will fail on the first attempt to quit.
 .TP
-.BI pal file
+.BI pal " file
 .TP
-.BI spr file
+.BI spr " file
 Open a palette (\fIpal\fR) or sprite (\fIspr\fR) file named \fIfile\fR.
 If the file does not exist it is created.
 .TP
-.BI w [file]
+.BI w " file
 Write the currently selected file to \fIfile\fR. If \fIfile\fR is not specified, the name specified to the command opening the file is used.
 .TP
-.BI size sz
+.BI size " sz
 Sets the size of the current file to \fIsz\fR.
 \fISz\fR should be of the form \fIn\fR for palettes or \fIn\fB*\fIm\fR for sprites where \fIn\fR and \fIm\fR are integers.
 .TP
 .B set 0x\fIrrggbb\fR
 Sets the currently selected color to the rgb color \fI(rr,gg,bb)\fR where
-.IR rr , gg and bb
-are in hexadecimal notation.
+\fIrr, gg\fR and \fIbb\fR are in hexadecimal notation.
 .TP
-.B zoom n
+.BI zoom " n
 Sets the current zoom factor to \fIn\fR.
 .SH SOURCE
 .B /sys/src/cmd/spred
