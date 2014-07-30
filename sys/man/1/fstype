@@ -46,5 +46,9 @@ Plan 9 disk file system (see
 .B cwfs64x
 long file name cache worm file system (see
 .IR cwfs (4))
+.TP
+.B hjfs
+hj file system (see
+.IR hjfs (4))
 .SH SOURCE
 .B /rc/bin/fstype
