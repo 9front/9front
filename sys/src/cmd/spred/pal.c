@@ -177,7 +177,7 @@ palredraw(Pal *p)
 }
 
 void
-palsize(Pal *p, int sz)
+palsize(Pal *p, int sz, int ch)
 {
 	int i;
 
@@ -185,14 +185,14 @@ palsize(Pal *p, int sz)
 		return;
 	p->cols = realloc(p->cols, sz * sizeof(*p->cols));
 	p->ims = realloc(p->ims, sz * sizeof(*p->ims));
-	if(sz > p->ncol){
-		memset(p->cols + p->ncol, 0, sz);
-		for(i = p->ncol; i < sz; i++)
+	if(sz > p->ncol)
+		for(i = p->ncol; i < sz; i++){
+			p->cols[i] = 0;
 			p->ims[i] = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0);
-	}
+		}
 	p->ncol = sz;
-	p->change = 1;
-	quitok = 0;
+	if(ch)
+		change(p);
 	palredraw(p);
 }
 
@@ -226,8 +226,7 @@ palset(Pal *p, int s, u32int c)
 	p->cols[s] = c;
 	freeimage(p->ims[s]);
 	p->ims[s] = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, c << 8 | 0xff);
-	p->change = 1;
-	quitok = 0;
+	change(p);
 	palredraw(p);
 }
 

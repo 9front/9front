@@ -19,6 +19,7 @@ dopal(int, char **argv)
 	if(p == nil){
 		cmdprint("?%r\n");
 		p = newpal(argv[1]);
+		palsize(p, 8, 0);
 	}
 	if(newwinsel(PAL, mc, p) == nil){
 		if(p->ref == 0)
@@ -40,7 +41,7 @@ dosize(int, char **argv)
 		n = strtol(argv[1], &p, 0);
 		if(*p != 0 || n < 0)
 			goto err;
-		palsize((Pal *) actf->f, n);
+		palsize((Pal *) actf->f, n, 1);
 		return;
 	case SPR:
 		n = strtol(argv[1], &p, 0);
@@ -49,7 +50,7 @@ dosize(int, char **argv)
 		m = strtol(++p, &p, 0);
 		if(*p != 0 || m < 0)
 			goto err;
-		sprsize((Spr *) actf->f, n, m);
+		sprsize((Spr *) actf->f, n, m, 1);
 		return;
 	}
 err:
@@ -105,11 +106,14 @@ dospr(int, char **argv)
 	
 	s = newspr(argv[1]);
 	bp = Bopen(argv[1], OREAD);
-	if(bp == nil)
+	if(bp == nil){
 		cmdprint("?%r\n");
-	else{
-		if(readspr(s, bp) < 0)
+		sprsize(s, 8, 8, 0);
+	}else{
+		if(readspr(s, bp) < 0){
 			cmdprint("?%r\n");
+			sprsize(s, 8, 8, 0);
+		}
 		Bterm(bp);
 	}
 	w = newwinsel(SPR, mc, s);

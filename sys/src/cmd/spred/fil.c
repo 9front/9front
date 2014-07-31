@@ -155,3 +155,10 @@ filredraw(File *f)
 	for(w = f->wins.wnext; w != &f->wins; w = w->wnext)
 		w->tab->draw(w);
 }
+
+void
+change(File *f)
+{
+	f->change = 1;
+	quitok = 0;
+}

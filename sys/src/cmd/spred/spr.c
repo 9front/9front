@@ -258,15 +258,14 @@ sprclick(Win *w, Mousectl *mc)
 			continue;
 		if(s->data[q.y * s->w + q.x] != p->sel){
 			s->data[q.y * s->w + q.x] = p->sel;
-			s->change = 1;
-			quitok = 0;
+			change(s);
 			sprdraw(w);
 		}
 	}while(readmouse(mc) >= 0 && (mc->buttons & 1) != 0);
 }
 
 void
-sprsize(Spr *s, int n, int m)
+sprsize(Spr *s, int n, int m, int ch)
 {
 	u32int *v;
 	int i, j, w, h;
@@ -282,8 +281,8 @@ sprsize(Spr *s, int n, int m)
 			s->data[j * n + i] = v[j * w + i];
 	s->w = n;
 	s->h = m;
-	s->change = 1;
-	quitok = 0;
+	if(ch)
+		change(s);
 	filredraw(s);
 }
 
@@ -322,8 +321,8 @@ sprmenu(Win *w, Mousectl *mc)
 			s->pal = (Pal *) wp->f;
 			free(s->palfile);
 			s->palfile = palfile(s->name, s->pal->name);
-			s->change = 1;
-			quitok = 0;
+			cmdprint("palette set to %q\n", s->palfile);
+			change(s);
 			filredraw(s);
 		}
 		break;

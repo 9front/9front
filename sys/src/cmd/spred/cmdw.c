@@ -4,6 +4,7 @@
 #include <thread.h>
 #include <draw.h>
 #include <mouse.h>
+#include <keyboard.h>
 #include <frame.h>
 #include "dat.h"
 #include "fns.h"
@@ -57,15 +58,18 @@ cmdscroll(Win *w, int l)
 		for(r = w->toprune; r < w->nrunes && l != 0; r++)
 			if(w->runes[r] == '\n')
 				l--;
-		frdelete(&w->fr, 0, r - w->toprune);
 		w->toprune = r;
 	}else{
 		for(r = w->toprune; r > 0; r--)
-			if(w->runes[r] == '\n' && --l == 0)
+			if(w->runes[r] == '\n' && ++l == 0){
+				r++;
 				break;
-		frinsert(&w->fr, w->runes + r, w->runes + w->toprune, 0);
+			}
 		w->toprune = r;
+	
 	}
+	frdelete(&w->fr, 0, w->fr.nchars);
+		frinsert(&w->fr, w->runes + w->toprune, w->runes + w->nrunes, 0);
 	scrollbar(w);
 }
 
@@ -88,7 +92,7 @@ cmdrmb(Win *w, Mousectl *mc)
 	return 0;
 }
 
-void
+int
 cmdinsert(Win *w, Rune *r, int nr, int rp)
 {
 	Rune *s;
@@ -116,6 +120,7 @@ cmdinsert(Win *w, Rune *r, int nr, int rp)
 				cmdscroll(w, 1);
 		}
 	}
+	return nr;
 }
 
 static void
@@ -148,23 +153,26 @@ cmdkey(Win *w, Rune r)
 	case 0x1b:
 		break;
 	case '\b':
-		if(w->fr.p0 > 0)
+		if(w->fr.p0 > 0 && w->toprune + w->fr.p0 != w->opoint)
 			cmddel(w, w->toprune + w->fr.p0 - 1, w->toprune + w->fr.p0);
 		break;
 	case '\n':
 		cmdinsert(w, &r, 1, w->fr.p0 + w->toprune);
 		if(w->toprune + w->fr.p0 == w->nrunes){
-			q = w->runes + w->toprune + w->fr.p0 - 1;
+			q = w->runes + w->opoint;
 			p = buf;
-			while(*--q != 0xa && q > w->runes)
-				;
-			if(*q == 0xa)
-				q++;
-			while(q < w->runes + w->nrunes && p < buf + nelem(buf) + 1 && *q != 0xa)
+			while(q < w->runes + w->nrunes && p < buf + nelem(buf) + 1)
 				p += runetochar(p, q++);
 			*p = 0;
+			w->opoint = w->nrunes;
 			docmd(buf);
 		}
+		break;
+	case Kview:
+		cmdscroll(w, 3);
+		break;
+	case Kup:
+		cmdscroll(w, -3);
 		break;
 	default:
 		cmdinsert(w, &r, 1, w->fr.p0 + w->toprune);
@@ -181,7 +189,7 @@ cmdprint(char *fmt, ...)
 	r = runevsmprint(fmt, va);
 	va_end(va);
 	if(r != nil)
-		cmdinsert(cmdw, r, -1, -1);
+		cmdw->opoint += cmdinsert(cmdw, r, -1, cmdw->opoint);
 }
 
 Wintab cmdtab = {

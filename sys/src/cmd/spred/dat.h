@@ -50,7 +50,7 @@ struct Win {
 	
 	Frame fr;
 	Rune *runes;
-	int nrunes, arunes;
+	int nrunes, arunes, opoint;
 	int toprune;
 	
 	int zoom;
