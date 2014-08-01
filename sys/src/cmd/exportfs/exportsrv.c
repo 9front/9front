@@ -62,7 +62,7 @@ Xflush(Fsrpc *t)
 	Fsrpc *w;
 	Proc *m;
 
-	for(m = Proclist; m; m = m->next){
+	for(m = Proclist; m != nil; m = m->next){
 		w = m->busy;
 		if(w == nil || w->work.tag != t->work.oldtag)
 			continue;
@@ -94,14 +94,14 @@ Xattach(Fsrpc *t)
 	char buf[128];
 
 	f = newfid(t->work.fid);
-	if(f == 0) {
+	if(f == nil) {
 		reply(&t->work, &rhdr, Ebadfid);
 		putsbuf(t);
 		return;
 	}
 
 	if(srvfd >= 0){
-		if(psmpt == 0){
+		if(psmpt == nil){
 		Nomount:
 			reply(&t->work, &rhdr, Enopsmt);
 			freefid(t->work.fid);
@@ -145,15 +145,15 @@ clonefid(Fid *f, int new)
 	Fid *n;
 
 	n = newfid(new);
-	if(n == 0) {
+	if(n == nil) {
 		n = getfid(new);
-		if(n == 0)
+		if(n == nil)
 			fatal("inconsistent fids");
 		if(n->fid >= 0)
 			close(n->fid);
 		freefid(new);
 		n = newfid(new);
-		if(n == 0)
+		if(n == nil)
 			fatal("inconsistent fids2");
 	}
 	n->f = f->f;
@@ -171,7 +171,7 @@ Xwalk(Fsrpc *t)
 	int i;
 
 	f = getfid(t->work.fid);
-	if(f == 0) {
+	if(f == nil) {
 		reply(&t->work, &rhdr, Ebadfid);
 		putsbuf(t);
 		return;
@@ -202,7 +202,7 @@ Xwalk(Fsrpc *t)
 		}
 	
 		wf = file(f->f, t->work.wname[i]);
-		if(wf == 0){
+		if(wf == nil){
 			errstr(err, sizeof err);
 			e = err;
 			break;
@@ -229,7 +229,7 @@ Xclunk(Fsrpc *t)
 	Fid *f;
 
 	f = getfid(t->work.fid);
-	if(f == 0) {
+	if(f == nil) {
 		reply(&t->work, &rhdr, Ebadfid);
 		putsbuf(t);
 		return;
@@ -254,7 +254,7 @@ Xstat(Fsrpc *t)
 	uchar *statbuf;
 
 	f = getfid(t->work.fid);
-	if(f == 0) {
+	if(f == nil) {
 		reply(&t->work, &rhdr, Ebadfid);
 		putsbuf(t);
 		return;
@@ -311,7 +311,7 @@ Xcreate(Fsrpc *t)
 		return;
 	}
 	f = getfid(t->work.fid);
-	if(f == 0) {
+	if(f == nil) {
 		reply(&t->work, &rhdr, Ebadfid);
 		putsbuf(t);
 		return;
@@ -329,7 +329,7 @@ Xcreate(Fsrpc *t)
 	}
 
 	nf = file(f->f, t->work.name);
-	if(nf == 0) {
+	if(nf == nil) {
 		errstr(err, sizeof err);
 		reply(&t->work, &rhdr, err);
 		putsbuf(t);
@@ -358,7 +358,7 @@ Xremove(Fsrpc *t)
 		return;
 	}
 	f = getfid(t->work.fid);
-	if(f == 0) {
+	if(f == nil) {
 		reply(&t->work, &rhdr, Ebadfid);
 		putsbuf(t);
 		return;
@@ -400,7 +400,7 @@ Xwstat(Fsrpc *t)
 		return;
 	}
 	f = getfid(t->work.fid);
-	if(f == 0) {
+	if(f == nil) {
 		reply(&t->work, &rhdr, Ebadfid);
 		putsbuf(t);
 		return;
@@ -631,14 +631,14 @@ openmount(int sfd)
 	}
 	free(dir);
 
-	arg[0] = "exportfs";
+	arg[0] = argv0; /* "/bin/exportfs" */
 	snprint(fdbuf, sizeof fdbuf, "-S/fd/%d", sfd);
 	arg[1] = fdbuf;
 	snprint(mbuf, sizeof mbuf, "-m%lud", messagesize-IOHDRSZ);
 	arg[2] = mbuf;
 	arg[3] = nil;
 
-	exec("/bin/exportfs", arg);
+	exec(arg[0], arg);
 	_exits("whoops: exec failed");	
 	return -1;
 }
@@ -654,7 +654,7 @@ slaveopen(Fsrpc *p)
 	work = &p->work;
 
 	f = getfid(work->fid);
-	if(f == 0) {
+	if(f == nil) {
 		reply(work, &rhdr, Ebadfid);
 		return;
 	}
@@ -700,14 +700,14 @@ slaveread(Fsrpc *p)
 	work = &p->work;
 
 	f = getfid(work->fid);
-	if(f == 0) {
+	if(f == nil) {
 		reply(work, &rhdr, Ebadfid);
 		return;
 	}
 
 	n = (work->count > messagesize-IOHDRSZ) ? messagesize-IOHDRSZ : work->count;
 	data = malloc(n);
-	if(data == 0) {
+	if(data == nil) {
 		reply(work, &rhdr, Enomem);
 		return;
 	}
@@ -742,7 +742,7 @@ slavewrite(Fsrpc *p)
 	work = &p->work;
 
 	f = getfid(work->fid);
-	if(f == 0) {
+	if(f == nil) {
 		reply(work, &rhdr, Ebadfid);
 		return;
 	}
