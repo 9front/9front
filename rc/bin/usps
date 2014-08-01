@@ -14,7 +14,7 @@ hget -p 'qtc_tLabels1='^$1 https://tools.usps.com/go/TrackConfirmAction |
 
 sam -d /tmp/usps.$pid >[2] /dev/null <<'!'
 ,/Tracking Number/-1d
-/Available Options/,$d
+/Available Actions/,$d
 ,p
 !
 rm /tmp/usps.$pid
