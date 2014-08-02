@@ -74,7 +74,7 @@ noteconn(int fd)
 	NetConnInfo *nci;
 
 	nci = getnetconninfo(nil, fd);
-	if (nci == nil)
+	if(nci == nil)
 		return;
 	netdir = estrdup(nci->dir);
 	local = estrdup(nci->lsys);
@@ -165,7 +165,7 @@ main(int argc, char **argv)
 		break;
 
 	case 'S':
-		if(srvfdfile)
+		if(srvfdfile != nil)
 			usage();
 		srvfdfile = EARGF(usage());
 		break;
@@ -192,12 +192,12 @@ main(int argc, char **argv)
 		putenv("service", "exportfs");
 	}
 
-	if(srvfdfile){
+	if(srvfdfile != nil){
 		if((srvfd = open(srvfdfile, ORDWR)) < 0)
 			fatal("open %s: %r", srvfdfile);
 	}
 
-	if(na){
+	if(na != nil){
 		if(srv == nil)
 			fatal("-B requires -s");
 
@@ -223,7 +223,7 @@ main(int argc, char **argv)
 		close(n);
 	}
 
-	if(srvfd >= 0 && srv){
+	if(srvfd >= 0 && srv != nil){
 		fprint(2, "exportfs: -S cannot be used with -r or -s\n");
 		usage();
 	}
@@ -248,7 +248,7 @@ main(int argc, char **argv)
 	if(srvfd != -1) {
 		/* do nothing */
 	}
-	else if(srv) {
+	else if(srv != nil) {
 		if(chdir(srv) < 0) {
 			errstr(ebuf, sizeof ebuf);
 			fprint(0, "chdir(\"%s\"): %s\n", srv, ebuf);
@@ -287,49 +287,49 @@ main(int argc, char **argv)
 
 	ini = initial;
 	n = readn(netfd, initial, sizeof(initial));
-	if (n == 0)
+	if(n == 0)
 		fatal(nil);	/* port scan or spurious open/close on exported /srv file (unmount) */
-	if (n < sizeof(initial))
+	if(n < sizeof(initial))
 		fatal("can't read initial string: %r");
 
-	if (memcmp(ini, "impo", 4) == 0) {
+	if(memcmp(ini, "impo", 4) == 0) {
 		char buf[128], *p, *args[3];
 
 		ini = nil;
 		p = buf;
 		for(;;){
-			if ((n = read(netfd, p, 1)) < 0)
+			if((n = read(netfd, p, 1)) < 0)
 				fatal("can't read impo arguments: %r");
-			if (n == 0)
+			if(n == 0)
 				fatal("connection closed while reading arguments");
-			if (*p == '\n') 
+			if(*p == '\n') 
 				*p = '\0';
-			if (*p++ == '\0')
+			if(*p++ == '\0')
 				break;
 			if(p >= buf + sizeof(buf))
 				fatal("import parameters too long");
 		}
 		
-		if (tokenize(buf, args, nelem(args)) != 2)
+		if(tokenize(buf, args, nelem(args)) != 2)
 			fatal("impo arguments invalid: impo%s...", buf);
 
-		if (strcmp(args[0], "aan") == 0)
+		if(strcmp(args[0], "aan") == 0)
 			filterp = aanfilter;
-		else if (strcmp(args[0], "nofilter") != 0)
+		else if(strcmp(args[0], "nofilter") != 0)
 			fatal("import filter argument unsupported: %s", args[0]);
 
-		if (strcmp(args[1], "ssl") == 0)
+		if(strcmp(args[1], "ssl") == 0)
 			encproto = Encssl;
-		else if (strcmp(args[1], "tls") == 0)
+		else if(strcmp(args[1], "tls") == 0)
 			encproto = Enctls;
-		else if (strcmp(args[1], "clear") != 0)
+		else if(strcmp(args[1], "clear") != 0)
 			fatal("import encryption proto unsupported: %s", args[1]);
 
-		if (encproto == Enctls)
+		if(encproto == Enctls)
 			fatal("%s: tls has not yet been implemented", argv[0]);
 	}
 
-	if (encproto != Encnone && ealgs && ai) {
+	if(encproto != Encnone && ealgs != nil && ai != nil) {
 		uchar key[16], digest[SHA1dlen];
 		char fromclientsecret[21];
 		char fromserversecret[21];
@@ -343,7 +343,7 @@ main(int argc, char **argv)
 		for(i = 0; i < 4; i++)
 			key[i+12] = rand();
 
-		if (ini) 
+		if(ini != nil) 
 			fatal("Protocol botch: old import");
 		if(readn(netfd, key, 4) != 4)
 			fatal("can't read key part; %r");
@@ -356,10 +356,10 @@ main(int argc, char **argv)
 		mksecret(fromclientsecret, digest);
 		mksecret(fromserversecret, digest+10);
 
-		if (filterp)
+		if(filterp != nil)
 			netfd = filter(netfd, filterp);
 
-		switch (encproto) {
+		switch(encproto) {
 		case Encssl:
 			netfd = pushssl(netfd, ealgs, fromserversecret, 
 						fromclientsecret, nil);
@@ -372,13 +372,13 @@ main(int argc, char **argv)
 		if(netfd < 0)
 			fatal("can't establish ssl connection: %r");
 	}
-	else if (filterp) {
-		if (ini)
+	else if(filterp != nil) {
+		if(ini != nil)
 			fatal("Protocol botch: don't know how to deal with this");
 		netfd = filter(netfd, filterp);
 	}
 
-	if(ai)
+	if(ai != nil)
 		auth_freeAI(ai);
 
 	/*
@@ -386,7 +386,7 @@ main(int argc, char **argv)
 	 */
 	for(;;) {
 		r = getsbuf();
-		if(r == 0)
+		if(r == nil)
 			fatal("Out of service buffers");
 			
 		while((n = localread9pmsg(netfd, r->buf, messagesize, ini)) == 0)
@@ -416,7 +416,7 @@ localread9pmsg(int fd, void *abuf, uint n, void *ini)
 	buf = abuf;
 
 	/* read count */
-	if (ini)
+	if(ini != nil)
 		memcpy(buf, ini, BIT32SZ);
 	else {
 		m = readn(fd, buf, BIT32SZ);
@@ -446,7 +446,7 @@ reply(Fcall *r, Fcall *t, char *err)
 
 	t->tag = r->tag;
 	t->fid = r->fid;
-	if(err) {
+	if(err != nil) {
 		t->type = Rerror;
 		t->ename = err;
 	}
@@ -459,7 +459,7 @@ reply(Fcall *r, Fcall *t, char *err)
 	if(data == nil)
 		fatal(Enomem);
 	n = convS2M(t, data, messagesize);
-	if(write(netfd, data, n)!=n){
+	if(write(netfd, data, n) != n){
 		/* not fatal, might have got a note due to flush */
 		fprint(2, "exportfs: short write in reply: %r\n");
 	}
@@ -471,11 +471,11 @@ getfid(int nr)
 {
 	Fid *f;
 
-	for(f = fidhash(nr); f; f = f->next)
+	for(f = fidhash(nr); f != nil; f = f->next)
 		if(f->nr == nr)
 			return f;
 
-	return 0;
+	return nil;
 }
 
 int
@@ -485,18 +485,18 @@ freefid(int nr)
 	char buf[128];
 
 	l = &fidhash(nr);
-	for(f = *l; f; f = f->next) {
+	for(f = *l; f != nil; f = f->next) {
 		if(f->nr == nr) {
 			if(f->mid) {
 				snprint(buf, sizeof(buf), "/mnt/exportfs/%d", f->mid);
 				unmount(0, buf);
 				psmap[f->mid] = 0;
 			}
-			if(f->f) {
+			if(f->f != nil) {
 				freefile(f->f);
 				f->f = nil;
 			}
-			if(f->dir){
+			if(f->dir != nil){
 				free(f->dir);
 				f->dir = nil;
 			}
@@ -518,17 +518,17 @@ newfid(int nr)
 	int i;
 
 	l = &fidhash(nr);
-	for(new = *l; new; new = new->next)
+	for(new = *l; new != nil; new = new->next)
 		if(new->nr == nr)
-			return 0;
+			return nil;
 
-	if(fidfree == 0) {
+	if(fidfree == nil) {
 		fidfree = emallocz(sizeof(Fid) * Fidchunk);
 
 		for(i = 0; i < Fidchunk-1; i++)
 			fidfree[i].next = &fidfree[i+1];
 
-		fidfree[Fidchunk-1].next = 0;
+		fidfree[Fidchunk-1].next = nil;
 	}
 
 	new = fidfree;
@@ -560,7 +560,7 @@ getsbuf(void)
 
 	lock(&sbufalloc);
 	w = sbufalloc.free;
-	if(w != 0){
+	if(w != nil){
 		sbufalloc.free = w->next;
 		w->next = nil;
 		sbufalloc.nfree--;
@@ -635,7 +635,7 @@ file(File *parent, char *name)
 	if(dir == nil)
 		return nil;
 
-	for(f = parent->child; f; f = f->childlist)
+	for(f = parent->child; f != nil; f = f->childlist)
 		if(strcmp(name, f->name) == 0)
 			break;
 
@@ -696,7 +696,7 @@ initroot(void)
 	free(dir);
 
 	psmpt = file(psmpt, "mnt");
-	if(psmpt == 0)
+	if(psmpt == nil)
 		return;
 	psmpt = file(psmpt, "exportfs");
 }
@@ -815,10 +815,8 @@ uniqueqid(Dir *d)
 		path |= newqid<<48;
 		DEBUG(DFD, "assign qid %.16llux\n", path);
 	}
-	q = mallocz(sizeof(Qidtab), 1);
-	if(q == nil)
-		fatal("no memory for qid table");
 	qidcnt++;
+	q = emallocz(sizeof(Qidtab));
 	q->ref = 1;
 	q->type = d->type;
 	q->dev = d->dev;
@@ -837,17 +835,17 @@ fatal(char *s, ...)
 	va_list arg;
 	Proc *m;
 
-	if (s) {
+	if(s != nil) {
 		va_start(arg, s);
 		vsnprint(buf, ERRMAX, s, arg);
 		va_end(arg);
 	}
 
 	/* Clear away the slave children */
-	for(m = Proclist; m; m = m->next)
+	for(m = Proclist; m != nil; m = m->next)
 		postnote(PNPROC, m->pid, "kill");
 
-	if (s) {
+	if(s != nil) {
 		DEBUG(DFD, "%s\n", buf);
 		sysfatal("%s", buf);	/* caution: buf could contain '%' */
 	} else
