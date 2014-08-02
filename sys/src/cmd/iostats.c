@@ -300,7 +300,7 @@ main(int argc, char **argv)
 		if(getwd(buf, sizeof(buf)) == 0)
 			sysfatal("no working directory");
 
-		rfork(RFENVG|RFNAMEG|RFNOTEG);
+		rfork(RFENVG|RFNAMEG);
 
 		if(mount(pfd[0], -1, "/", mflag, "") < 0)
 			sysfatal("mount /");
@@ -320,6 +320,8 @@ main(int argc, char **argv)
 		close(pfd[0]);
 	}
 
+	/* isolate us from interrupts */
+	rfork(RFNOTEG);
 	switch(fspid = fork()) {
 	default:
 		while(cpid != waitpid())
