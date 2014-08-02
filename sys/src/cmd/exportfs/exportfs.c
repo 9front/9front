@@ -386,9 +386,6 @@ main(int argc, char **argv)
 	 */
 	for(;;) {
 		r = getsbuf();
-		if(r == nil)
-			fatal("Out of service buffers");
-			
 		while((n = localread9pmsg(netfd, r->buf, messagesize, ini)) == 0)
 			;
 		if(n < 0)
