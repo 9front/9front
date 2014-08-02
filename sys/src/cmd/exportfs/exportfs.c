@@ -587,30 +587,25 @@ freefile(File *f)
 {
 	File *parent, *child;
 
-Loop:
-	f->ref--;
-	if(f->ref > 0)
-		return;
-	freecnt++;
-	if(f->ref < 0) abort();
-	DEBUG(DFD, "free %s\n", f->name);
-	/* delete from parent */
-	parent = f->parent;
-	if(parent->child == f)
-		parent->child = f->childlist;
-	else{
-		for(child=parent->child; child->childlist!=f; child=child->childlist)
-			if(child->childlist == nil)
-				fatal("bad child list");
-		child->childlist = f->childlist;
+	while(--f->ref == 0){
+		freecnt++;
+		DEBUG(DFD, "free %s\n", f->name);
+		/* delete from parent */
+		parent = f->parent;
+		if(parent->child == f)
+			parent->child = f->childlist;
+		else{
+			for(child = parent->child; child->childlist != f; child = child->childlist) {
+				if(child->childlist == nil)
+					fatal("bad child list");
+			}
+			child->childlist = f->childlist;
+		}
+		freeqid(f->qidt);
+		free(f->name);
+		free(f);
+		f = parent;
 	}
-	freeqid(f->qidt);
-	free(f->name);
-	f->name = nil;
-	free(f);
-	f = parent;
-	if(f != nil)
-		goto Loop;
 }
 
 File *
@@ -744,8 +739,7 @@ freeqid(Qidtab *q)
 	ulong h;
 	Qidtab *l;
 
-	q->ref--;
-	if(q->ref > 0)
+	if(--q->ref)
 		return;
 	qfreecnt++;
 	h = qidhash(q->path);
