@@ -420,7 +420,7 @@ typedef unsigned long u_long;
 #define HAVE_PUTENV 1
 
 /* Define to 1 if you have the `readlink' function. */
-#define HAVE_READLINK 1
+/* #define HAVE_READLINK 1 */
 
 /* Define to 1 if you have the `realpath' function. */
 /* #undef HAVE_REALPATH */
@@ -572,7 +572,7 @@ typedef unsigned long u_long;
 /* #undef HAVE_ST_BLOCKS */
 
 /* Define if you have the 'symlink' function. */
-#define HAVE_SYMLINK 1
+/* #define HAVE_SYMLINK 1 */
 
 /* Define to 1 if you have the `sysconf' function. */
 #define HAVE_SYSCONF 1
