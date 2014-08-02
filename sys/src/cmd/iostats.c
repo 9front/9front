@@ -308,12 +308,8 @@ main(int argc, char **argv)
 		bind("#c/pid", "/dev/pid", MREPL);
 		bind("#c/ppid", "/dev/ppid", MREPL);
 		bind("#e", "/env", MREPL|MCREATE);
-		close(0);
-		close(1);
-		close(2);
-		open("/fd/0", OREAD);
-		open("/fd/1", OWRITE);
-		open("/fd/2", OWRITE);
+		bind("#d", "/fd", MREPL);
+
 		if(chdir(buf) < 0)
 			sysfatal("chdir");
 		exec(*argv, argv);
