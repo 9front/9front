@@ -11,7 +11,6 @@
 
 enum{
 	Maxfile		= 1000,	/* number of Files we'll log */
-	Maxrpc		= 20000,/* number of RPCs we'll log */
 };
 
 typedef struct File File;
@@ -74,7 +73,7 @@ struct Stats
 	vlong	totwrite;
 	ulong	nrpc;
 	vlong	nproto;
-	Rpc	rpc[Maxrpc];
+	Rpc	rpc[Tmax];
 	File	file[Maxfile];
 };
 
@@ -377,7 +376,7 @@ main(int argc, char **argv)
 	stats->rpc[Tstat].name = "stat";
 	stats->rpc[Twstat].name = "wstat";
 
-	for(n = 0; n < Maxrpc; n++)
+	for(n = 0; n < nelem(stats->rpc); n++)
 		stats->rpc[n].lo = 10000000000LL;
 
 	switch(rspid = rfork(RFPROC|RFMEM)) {
@@ -487,7 +486,7 @@ main(int argc, char **argv)
 	bwpsec = (double)stats->totwrite / (((float)rpc->time/1e9)+.000001);
 
 	ttime = 0;
-	for(n = 0; n < Maxrpc; n++) {
+	for(n = 0; n < nelem(stats->rpc); n++) {
 		rpc = &stats->rpc[n];
 		if(rpc->count == 0)
 			continue;
@@ -504,7 +503,7 @@ main(int argc, char **argv)
 	fprint(2, "%-10s %5s %5s %5s %5s %5s          T       R\n", 
 	      "Message", "Count", "Low", "High", "Time", "Averg");
 
-	for(n = 0; n < Maxrpc; n++) {
+	for(n = 0; n < nelem(stats->rpc); n++) {
 		rpc = &stats->rpc[n];
 		if(rpc->count == 0)
 			continue;
