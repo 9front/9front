@@ -1517,14 +1517,17 @@ fromlatin1(char *from)
 {
 	char *p, *to;
 	Rune r;
+	int n;
 
 	if(os == Plan9)
 		return nil;
 
 	/* don't convert if we don't have to */
-	for(p = from; *p; p++)
-		if(*p & 0x80)
+	for(p = from; *p; p += n){
+		n = chartorune(&r, p);
+		if(r == Runeerror)
 			break;
+	}
 	if(*p == 0)
 		return nil;
 
