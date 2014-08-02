@@ -316,8 +316,9 @@ main(int argc, char **argv)
 		open("/fd/2", OWRITE);
 		if(chdir(buf) < 0)
 			sysfatal("chdir");
-		exec(argv[0], argv);
-		exec(smprint("/bin/%s", argv[0]), argv);
+		exec(*argv, argv);
+		if(**argv != '/' && strncmp(*argv, "./", 2) != 0 && strncmp(*argv, "../", 3) != 0)
+			exec(smprint("/bin/%s", *argv), argv);
 		sysfatal("exec: %r");
 	default:
 		close(pfd[0]);
