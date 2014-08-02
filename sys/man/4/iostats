@@ -17,7 +17,7 @@ iostats \- file system to measure I/O
 ]
 .SH DESCRIPTION
 .I Iostats
-is a user-level file server that interposes itself between a program
+is a user-level 9p filter that interposes itself between a program
 and the regular file server, which
 allows it to gather statistics of file system
 use at the level of the Plan 9 file system protocol, 9P.
@@ -76,9 +76,10 @@ Start a new shell, displaying all 9P traffic caused by the shell or its children
 iostats -df /fd/1 rc
 .EE
 .SH SOURCE
-.B /sys/src/cmd/iostats
+.B /sys/src/cmd/iostats.c
 .SH SEE ALSO
-.IR dup (3)
+.IR dup (3),
+.IR exportfs (4)
 .SH BUGS
 Poor clock resolution means that large amounts of I/O must be done to
 get accurate rate figures.
