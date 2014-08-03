@@ -262,10 +262,11 @@ main(int argc, char **argv)
 	char *dbfile;
 	char buf[64*1024];
 	float brpsec, bwpsec, bppsec;
-	int cpid, fspid, rspid, dbg, n, mflag;
+	int cpid, fspid, expid, rspid, dbg, n, mflag;
 	char *fds[3];
+	Waitmsg *w;
 	File *fs;
-	Req *r, **rr;
+	Req *r;
 
 	dbg = 0;
 	mflag = MREPL;
@@ -291,7 +292,7 @@ main(int argc, char **argv)
 		usage();
 
 	if(pipe(pfd) < 0)
-		sysfatal("pipe");
+		sysfatal("pipe: %r");
 
 	/* dup std fds to be inherited to exportfs */
 	fds[0] = smprint("/fd/%d", dup(0, -1));
@@ -300,7 +301,7 @@ main(int argc, char **argv)
 
 	switch(cpid = fork()) {
 	case -1:
-		sysfatal("fork");
+		sysfatal("fork: %r");
 	case 0:
 		close(pfd[1]);
 		close(atoi(strrchr(fds[0], '/')+1));
@@ -308,12 +309,12 @@ main(int argc, char **argv)
 		close(atoi(strrchr(fds[2], '/')+1));
 
 		if(getwd(buf, sizeof(buf)) == 0)
-			sysfatal("no working directory");
+			sysfatal("no working directory: %r");
 
 		rfork(RFENVG|RFNAMEG);
 
 		if(mount(pfd[0], -1, "/", mflag, "") < 0)
-			sysfatal("mount /");
+			sysfatal("mount /: %r");
 
 		/* replace std fds with the exported ones */
 		close(0); open(fds[0], OREAD);
@@ -326,7 +327,7 @@ main(int argc, char **argv)
 		bind("#d", "/fd", MREPL);
 
 		if(chdir(buf) < 0)
-			sysfatal("chdir");
+			sysfatal("chdir: %r");
 
 		exec(*argv, argv);
 		if(**argv != '/' && strncmp(*argv, "./", 2) != 0 && strncmp(*argv, "../", 3) != 0)
@@ -339,10 +340,10 @@ main(int argc, char **argv)
 	/* isolate us from interrupts */
 	rfork(RFNOTEG);
 	if(pipe(efd) < 0)
-		sysfatal("pipe");
+		sysfatal("pipe: %r");
 
 	/* spawn exportfs */
-	switch(fork()) {
+	switch(expid = fork()) {
 	default:
 		close(efd[0]);
 		close(atoi(strrchr(fds[0], '/')+1));
@@ -350,7 +351,7 @@ main(int argc, char **argv)
 		close(atoi(strrchr(fds[2], '/')+1));
 		break;
 	case -1:
-		sysfatal("fork");
+		sysfatal("fork: %r");
 	case 0:
 		dup(efd[0], 0);
 		close(efd[0]);
@@ -361,21 +362,33 @@ main(int argc, char **argv)
 		} else {
 			execl("/bin/exportfs", "exportfs", "-r", "/", nil);
 		}
-		exits(0);
+		sysfatal("exec: %r");
 	}
 
 	switch(fspid = fork()) {
 	default:
 		close(pfd[1]);
 		close(efd[1]);
-		while(cpid != waitpid())
-			;
-		postnote(PNPROC, fspid, DONESTR);
-		while(fspid != waitpid())
-			;
-		exits(0);
+
+		buf[0] = '\0';
+		while((w = wait()) != nil && (cpid != -1 || fspid != -1 || expid != -1)){
+			if(w->pid == fspid)
+				fspid = -1;
+			else if(w->pid == expid)
+				expid = -1;
+			else if(w->pid == cpid){
+				cpid = -1;
+				strcpy(buf, w->msg);
+				if(fspid != -1)
+					postnote(PNPROC, fspid, DONESTR);
+			}
+			if(buf[0] == '\0')
+				strcpy(buf, w->msg);
+			free(w);
+		}
+		exits(buf);
 	case -1:
-		sysfatal("fork");
+		sysfatal("fork: %r");
 	case 0:
 		notify(catcher);
 		break;
@@ -404,6 +417,7 @@ main(int argc, char **argv)
 		while(!done){
 			uchar tmp[sizeof(buf)];
 			Fcall f;
+			Req **rr;
 
 			n = read(efd[1], buf, sizeof(buf));
 			if(n < 0)
@@ -458,7 +472,7 @@ main(int argc, char **argv)
 			if(write(pfd[1], buf, n) != n)
 				break;
 		}
-		exits(0);
+		exits(nil);
 	default:
 		/* read request from mount and pass to exportfs */
 		while(!done){
@@ -556,5 +570,5 @@ main(int argc, char **argv)
 			fs->path);
 	}
 
-	exits(0);
+	exits(nil);
 }
