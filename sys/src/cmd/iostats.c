@@ -263,6 +263,7 @@ main(int argc, char **argv)
 	char buf[64*1024];
 	float brpsec, bwpsec, bppsec;
 	int cpid, fspid, rspid, dbg, n, mflag;
+	char *fds[3];
 	File *fs;
 	Req *r, **rr;
 
@@ -292,11 +293,20 @@ main(int argc, char **argv)
 	if(pipe(pfd) < 0)
 		sysfatal("pipe");
 
+	/* dup std fds to be inherited to exportfs */
+	fds[0] = smprint("/fd/%d", dup(0, -1));
+	fds[1] = smprint("/fd/%d", dup(1, -1));
+	fds[2] = smprint("/fd/%d", dup(2, -1));
+
 	switch(cpid = fork()) {
 	case -1:
 		sysfatal("fork");
 	case 0:
 		close(pfd[1]);
+		close(atoi(strrchr(fds[0], '/')+1));
+		close(atoi(strrchr(fds[1], '/')+1));
+		close(atoi(strrchr(fds[2], '/')+1));
+
 		if(getwd(buf, sizeof(buf)) == 0)
 			sysfatal("no working directory");
 
@@ -304,6 +314,11 @@ main(int argc, char **argv)
 
 		if(mount(pfd[0], -1, "/", mflag, "") < 0)
 			sysfatal("mount /");
+
+		/* replace std fds with the exported ones */
+		close(0); open(fds[0], OREAD);
+		close(1); open(fds[1], OWRITE);
+		close(2); open(fds[2], OWRITE);
 
 		bind("#c/pid", "/dev/pid", MREPL);
 		bind("#c/ppid", "/dev/ppid", MREPL);
@@ -322,21 +337,6 @@ main(int argc, char **argv)
 
 	/* isolate us from interrupts */
 	rfork(RFNOTEG);
-	switch(fspid = fork()) {
-	default:
-		while(cpid != waitpid())
-			;
-		postnote(PNPROC, fspid, DONESTR);
-		while(fspid != waitpid())
-			;
-		exits(0);
-	case -1:
-		sysfatal("fork");
-	case 0:
-		notify(catcher);
-		break;
-	}
-
 	if(pipe(efd) < 0)
 		sysfatal("pipe");
 
@@ -344,6 +344,9 @@ main(int argc, char **argv)
 	switch(fork()) {
 	default:
 		close(efd[0]);
+		close(atoi(strrchr(fds[0], '/')+1));
+		close(atoi(strrchr(fds[1], '/')+1));
+		close(atoi(strrchr(fds[2], '/')+1));
 		break;
 	case -1:
 		sysfatal("fork");
@@ -357,6 +360,21 @@ main(int argc, char **argv)
 			execl("/bin/exportfs", "exportfs", "-r", "/", nil);
 		}
 		exits(0);
+	}
+
+	switch(fspid = fork()) {
+	default:
+		while(cpid != waitpid())
+			;
+		postnote(PNPROC, fspid, DONESTR);
+		while(fspid != waitpid())
+			;
+		exits(0);
+	case -1:
+		sysfatal("fork");
+	case 0:
+		notify(catcher);
+		break;
 	}
 
 	fmtinstall('F', fcallfmt);
@@ -521,6 +539,14 @@ main(int argc, char **argv)
 	for(fs = stats->file; fs < &stats->file[Maxfile]; fs++){
 		if(fs->nopen == 0)
 			break;
+
+		if(strcmp(fs->path, fds[0]) == 0)
+			fs->path = "stdin";
+		else if(strcmp(fs->path, fds[1]) == 0)
+			fs->path = "stdout";
+		else if(strcmp(fs->path, fds[2]) == 0)
+			fs->path = "stderr";
+
 		fprint(2, "%5lud %8lud %8llud %8lud %8llud %s\n",
 			fs->nopen,
 			fs->nread, fs->bread,
