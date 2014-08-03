@@ -327,6 +327,7 @@ main(int argc, char **argv)
 
 		if(chdir(buf) < 0)
 			sysfatal("chdir");
+
 		exec(*argv, argv);
 		if(**argv != '/' && strncmp(*argv, "./", 2) != 0 && strncmp(*argv, "../", 3) != 0)
 			exec(smprint("/bin/%s", *argv), argv);
@@ -354,6 +355,7 @@ main(int argc, char **argv)
 		dup(efd[0], 0);
 		close(efd[0]);
 		close(efd[1]);
+		close(pfd[1]);
 		if(dbg){
 			execl("/bin/exportfs", "exportfs", "-df", dbfile, "-r", "/", nil);
 		} else {
@@ -364,6 +366,8 @@ main(int argc, char **argv)
 
 	switch(fspid = fork()) {
 	default:
+		close(pfd[1]);
+		close(efd[1]);
 		while(cpid != waitpid())
 			;
 		postnote(PNPROC, fspid, DONESTR);
@@ -376,8 +380,6 @@ main(int argc, char **argv)
 		notify(catcher);
 		break;
 	}
-
-	fmtinstall('F', fcallfmt);
 
 	stats->rpc[Tversion].name = "version";
 	stats->rpc[Tauth].name = "auth";
