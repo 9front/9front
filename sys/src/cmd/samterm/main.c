@@ -653,7 +653,8 @@ type(Flayer *l, int res)	/* what a bloody mess this is */
 		}
 	}else if(c == Kstx){
 		t = &cmd;
-		l = &t->l[0];
+		for(l=t->l; l->textfn==0; l++)
+			;
 		current(l);
 		flushtyping(0);
 		a = t->rasp.nrunes;
