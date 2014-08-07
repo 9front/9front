@@ -769,6 +769,7 @@ syscall(Ureg* ureg)
 	if(scallnr!=RFORK && (up->procctl || up->nnote)){
 		splhi();
 		notify(ureg);
+		((void**)&ureg)[-1] = (void*)noteret;	/* loads RARG */
 	}
 	/* if we delayed sched because we held a lock, sched now */
 	if(up->delaysched)
