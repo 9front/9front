@@ -161,8 +161,11 @@ Optab	optab[] =
 	{ AMOVM,	C_SOREG,C_NONE,	C_LCON,		39, 4, 0 },
 
 	{ ASWPW,	C_SOREG,C_REG,	C_REG,		40, 4, 0 },
+	{ ALDREX,	C_SOREG,C_NONE,	C_REG,		40, 4, 0 },
+	{ ASTREX,	C_SOREG,C_REG,	C_REG,		40, 4, 0 },
 
 	{ ARFE,		C_NONE,	C_NONE,	C_NONE,		41, 4, 0 },
+	{ ACLREX,	C_NONE, C_NONE, C_NONE,		42, 4, 0 },
 
 	{ AMOVF,	C_FREG,	C_NONE,	C_FEXT,		50, 4, REGSB },
 	{ AMOVF,	C_FREG,	C_NONE,	C_FAUTO,	50, 4, REGSP },

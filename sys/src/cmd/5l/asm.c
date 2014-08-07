@@ -1094,12 +1094,19 @@ PP = p;
 		break;
 
 	case 40:	/* swp oreg,reg,reg */
-		aclass(&p->from);
-		if(instoffset != 0)
-			diag("offset must be zero in SWP");
+		if(p->as != ASTREX){
+			aclass(&p->from);
+			if(instoffset != 0)
+				diag("offset must be zero in SWP");
+		}
 		o1 = (0x2<<23) | (0x9<<4);
-		if(p->as != ASWPW)
-			o1 |= 1 << 22;
+		if(p->as == ASWPBU)
+			o1 |= (1 << 22);
+		else if(p->as == ALDREX || p->as == ASTREX){
+			o1 |= (1 << 23) | 0xf00;
+			if(p->as == ALDREX)
+				o1 |= (1 << 20) | 0xf;
+		}
 		o1 |= p->from.reg << 16;
 		o1 |= p->reg << 0;
 		o1 |= p->to.reg << 12;
@@ -1108,6 +1115,10 @@ PP = p;
 
 	case 41:	/* rfe -> movm.s.w.u 0(r13),[r15] */
 		o1 = 0xe8fd8000;
+		break;
+
+	case 42:	/* clrex */
+		o1 = 0xf57ff01f;
 		break;
 
 	case 50:	/* floating point store */

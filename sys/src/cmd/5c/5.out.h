@@ -156,6 +156,8 @@ enum	as
 	ALDREXD,
 	ASTREXD,
 
+	ACLREX,
+
 	ALAST,
 };
 

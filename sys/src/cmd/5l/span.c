@@ -743,7 +743,11 @@ buildop(void)
 			break;
 		case ASWPW:
 			oprange[ASWPBU] = oprange[r];
+			oprange[ALDREX] = oprange[r];
+			oprange[ASTREX] = oprange[r];
 			break;
+		case ALDREX:
+		case ASTREX:
 		case AB:
 		case ABL:
 		case ABX:
@@ -752,6 +756,7 @@ buildop(void)
 		case AWORD:
 		case AMOVM:
 		case ARFE:
+		case ACLREX:
 		case ATEXT:
 		case ACASE:
 		case ABCASE:
