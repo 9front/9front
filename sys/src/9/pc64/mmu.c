@@ -143,7 +143,7 @@ mmuinit(void)
 void*
 kaddr(uintptr pa)
 {
-	if(pa > (uintptr)-KZERO)
+	if(pa >= (uintptr)-KZERO)
 		panic("kaddr: pa=%#p pc=%#p", pa, getcallerpc(&pa));
 	return (void*)(pa+KZERO);
 }

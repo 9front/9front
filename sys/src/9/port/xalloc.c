@@ -72,7 +72,7 @@ xinit(void)
 		/* first give to kernel */
 		if(n > 0){
 			m->kbase = (uintptr)KADDR(m->base);
-			m->klimit = (uintptr)KADDR(m->base+size);
+			m->klimit = (uintptr)KADDR(m->base+size-1)+1;
 			xhole(m->base, size);
 			kpages -= n;
 		}

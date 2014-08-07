@@ -947,7 +947,7 @@ tmpunmap(void *v)
 void*
 kaddr(ulong pa)
 {
-	if(pa > (ulong)-KZERO)
+	if(pa >= (ulong)-KZERO)
 		panic("kaddr: pa=%#.8lux", pa);
 	return (void*)(pa+KZERO);
 }
