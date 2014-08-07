@@ -36,3 +36,5 @@ $LIB:
 
 bound.$O:	bound.h
 
+enam.c:	6.out.h
+	rc mkenam

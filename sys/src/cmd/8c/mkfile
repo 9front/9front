@@ -37,3 +37,5 @@ $LIB:
 	$CC $CFLAGS ../cc/$stem.c
 
 
+enam.c:	8.out.h
+	rc mkenam
