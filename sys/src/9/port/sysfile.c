@@ -355,7 +355,7 @@ unionread(Chan *c, void *va, long n)
 
 		/* Advance to next element */
 		c->uri++;
-		if(c->umc){
+		if(c->umc != nil){
 			cclose(c->umc);
 			c->umc = nil;
 		}

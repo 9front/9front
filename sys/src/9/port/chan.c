@@ -250,16 +250,20 @@ newchan(void)
 	c->offset = 0;
 	c->devoffset = 0;
 	c->iounit = 0;
-	c->umh = 0;
+	c->umh = nil;
+	c->umc = nil;
 	c->uri = 0;
 	c->dri = 0;
-	c->aux = 0;
-	c->mchan = 0;
-	c->mcp = 0;
-	c->mux = 0;
-	memset(&c->mqid, 0, sizeof(c->mqid));
-	c->path = 0;
+	c->dirrock = nil;
+	c->nrock = 0;
+	c->mrock = 0;
 	c->ismtpt = 0;
+	c->mcp = nil;
+	c->mux = nil;
+	c->aux = nil;
+	c->mchan = nil;
+	memset(&c->mqid, 0, sizeof(c->mqid));
+	c->path = nil;
 	
 	return c;
 }
@@ -444,7 +448,7 @@ chanfree(Chan *c)
 
 	if(c->dirrock != nil){
 		free(c->dirrock);
-		c->dirrock = 0;
+		c->dirrock = nil;
 		c->nrock = 0;
 		c->mrock = 0;
 	}
@@ -868,8 +872,7 @@ cclone(Chan *c)
 		error("clone failed");
 	nc = wq->clone;
 	free(wq);
-	nc->path = c->path;
-	if(c->path)
+	if((nc->path = c->path) != nil)
 		incref(c->path);
 	return nc;
 }
@@ -924,7 +927,7 @@ domount(Chan **cp, Mhead **mp, Path **path)
 	if(findmount(cp, mp, (*cp)->type, (*cp)->dev, (*cp)->qid) == 0)
 		return 0;
 
-	if(path){
+	if(path != nil){
 		p = *path;
 		p = uniquepath(p);
 		if(p->mlen <= 0)
