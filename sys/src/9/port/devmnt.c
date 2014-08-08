@@ -74,8 +74,6 @@ Chan*	mntchan(void);
 char	Esbadstat[] = "invalid directory entry received from server";
 char	Enoversion[] = "version not established for mount channel";
 
-void	(*mntstats)(int, Chan*, uvlong, ulong);
-
 
 static void
 mntreset(void)
@@ -213,11 +211,11 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	/* now build Mnt associated with this connection */
 	lock(&mntalloc);
 	m = mntalloc.mntfree;
-	if(m != 0)
+	if(m != nil)
 		mntalloc.mntfree = m->list;
 	else {
 		m = malloc(sizeof(Mnt));
-		if(m == 0) {
+		if(m == nil) {
 			qfree(q);
 			free(v);
 			unlock(&mntalloc);
@@ -239,8 +237,8 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	free(msg);
 
 	lock(m);
-	m->queue = 0;
-	m->rip = 0;
+	m->queue = nil;
+	m->rip = nil;
 
 	c->flag |= CMSG;
 	c->mux = m;
@@ -587,7 +585,7 @@ muxclose(Mnt *m)
 
 	lock(&mntalloc);
 	l = &mntalloc.list;
-	for(f = *l; f; f = f->list) {
+	for(f = *l; f != nil; f = f->list) {
 		if(f == m) {
 			*l = m->list;
 			break;
@@ -815,7 +813,7 @@ mountio(Mnt *m, Mntrpc *r)
 	/* Gate readers onto the mount point one at a time */
 	for(;;) {
 		lock(m);
-		if(m->rip == 0)
+		if(m->rip == nil)
 			break;
 		unlock(m);
 		sleep(r->z, rpcattn, r);
@@ -933,8 +931,8 @@ mntgate(Mnt *m)
 	Mntrpc *q;
 
 	lock(m);
-	m->rip = 0;
-	for(q = m->queue; q; q = q->list) {
+	m->rip = nil;
+	for(q = m->queue; q != nil; q = q->list) {
 		if(q->done == 0)
 		if(wakeup(q->z))
 			break;
@@ -950,28 +948,26 @@ mountmux(Mnt *m, Mntrpc *r)
 
 	lock(m);
 	l = &m->queue;
-	for(q = *l; q; q = q->list) {
+	for(q = *l; q != nil; q = q->list) {
 		/* look for a reply to a message */
 		if(q->request.tag == r->reply.tag) {
 			*l = q->list;
-			if(mntstats != nil)
-				(*mntstats)(q->request.type,
-					m->c, q->stime,
-					q->reqlen + r->replen);
-			if(q != r) {
-				/*
-				 * Completed someone else.
-				 * Trade pointers to receive buffer.
-				 */
-				q->reply = r->reply;
-				q->b = r->b;
-				r->b = nil;
-				z = q->z;
-			} else
-				z = nil;
-			q->done = 1;	/* hands off */
-			if(z != nil)
-				wakeup(z);
+			if(q == r) {
+				q->done = 1;
+				unlock(m);
+				return;
+			}
+			/*
+			 * Completed someone else.
+			 * Trade pointers to receive buffer.
+			 */
+			q->reply = r->reply;
+			q->b = r->b;
+			r->b = nil;
+			z = q->z;
+			coherence();
+			q->done = 1;
+			wakeup(z);
 			unlock(m);
 			return;
 		}
@@ -1014,7 +1010,7 @@ mntflushfree(Mnt *m, Mntrpc *r)
 {
 	Mntrpc *fr;
 
-	while(r){
+	while(r != nil){
 		fr = r->flushed;
 		if(!r->done){
 			r->reply.type = Rflush;
@@ -1133,7 +1129,7 @@ mntqrm(Mnt *m, Mntrpc *r)
 	r->done = 1;
 
 	l = &m->queue;
-	for(f = *l; f; f = f->list) {
+	for(f = *l; f != nil; f = f->list) {
 		if(f == r) {
 			*l = r->list;
 			break;
@@ -1190,7 +1186,7 @@ rpcattn(void *v)
 	Mntrpc *r;
 
 	r = v;
-	return r->done || r->m->rip == 0;
+	return r->done || r->m->rip == nil;
 }
 
 Dev mntdevtab = {
