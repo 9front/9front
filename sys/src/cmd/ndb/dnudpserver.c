@@ -215,6 +215,11 @@ restart:
 			goto freereq;
 		}
 
+		if(reqmsg.qd == nil){
+			dnslog("server: no question RR from %I", buf);
+			goto freereq;
+		}
+
 		if(debug || (trace && subsume(trace, reqmsg.qd->owner->name)))
 			dnslog("%d: serve (%I/%d) %d %s %s",
 				req.id, buf, uh->rport[0]<<8 | uh->rport[1],

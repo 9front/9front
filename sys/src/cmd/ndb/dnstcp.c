@@ -122,6 +122,12 @@ main(int argc, char *argv[])
 					reqmsg.flags & Omask, caller);
 				break;
 			}
+
+		if(reqmsg.qd == nil){
+			dnslog("server: no question RR from %s", caller);
+			break;
+		}
+
 		if(debug)
 			dnslog("[%d] %d: serve (%s) %d %s %s",
 				getpid(), req.id, caller,
