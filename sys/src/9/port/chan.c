@@ -290,7 +290,7 @@ newpath(char *s)
 	 * array will not be populated correctly.  The names #/ and / are
 	 * allowed, but other names with / in them draw warnings.
 	 */
-	if(strchr(s, '/') && strcmp(s, "#/") != 0 && strcmp(s, "/") != 0)
+	if(strchr(s, '/') != nil && strcmp(s, "#/") != 0 && strcmp(s, "/") != 0)
 		print("newpath: %s from %#p\n", s, getcallerpc(&s));
 
 	p->mlen = 1;
@@ -320,7 +320,7 @@ copypath(Path *p)
 	pp->mtpt = smalloc(p->malen*sizeof pp->mtpt[0]);
 	for(i=0; i<pp->mlen; i++){
 		pp->mtpt[i] = p->mtpt[i];
-		if(pp->mtpt[i])
+		if(pp->mtpt[i] != nil)
 			incref(pp->mtpt[i]);
 	}
 
@@ -345,7 +345,7 @@ pathclose(Path *p)
 	decref(&npath);
 	free(p->s);
 	for(i=0; i<p->mlen; i++)
-		if(p->mtpt[i])
+		if(p->mtpt[i] != nil)
 			cclose(p->mtpt[i]);
 	free(p->mtpt);
 	free(p);
@@ -421,7 +421,7 @@ addelem(Path *p, char *s, Chan *from)
 	if(isdotdot(s)){
 		fixdotdotname(p);
 		DBG("addelem %s .. => rm %p\n", p->s, p->mtpt[p->mlen-1]);
-		if(p->mlen>1 && (c = p->mtpt[--p->mlen])){
+		if(p->mlen > 1 && (c = p->mtpt[--p->mlen]) != nil){
 			p->mtpt[p->mlen] = nil;
 			cclose(c);
 		}
@@ -435,7 +435,7 @@ addelem(Path *p, char *s, Chan *from)
 		}
 		DBG("addelem %s %s => add %p\n", p->s, s, from);
 		p->mtpt[p->mlen++] = from;
-		if(from)
+		if(from != nil)
 			incref(from);
 	}
 	return p;
@@ -936,7 +936,7 @@ domount(Chan **cp, Mhead **mp, Path **path)
 			lc = &p->mtpt[p->mlen-1];
 DBG("domount %p %s => add %p (was %p)\n", p, p->s, (*mp)->from, p->mtpt[p->mlen-1]);
 			incref((*mp)->from);
-			if(*lc)
+			if(*lc != nil)
 				cclose(*lc);
 			*lc = (*mp)->from;
 		}
@@ -959,7 +959,7 @@ undomount(Chan *c, Path *path)
 		print("undomount: path %s ref %ld mlen %d caller %#p\n",
 			path->s, path->ref, path->mlen, getcallerpc(&c));
 
-	if(path->mlen>0 && (nc=path->mtpt[path->mlen-1]) != nil){
+	if(path->mlen > 0 && (nc = path->mtpt[path->mlen-1]) != nil){
 DBG("undomount %p %s => remove %p\n", path, path->s, nc);
 		cclose(c);
 		path->mtpt[path->mlen-1] = nil;
@@ -1128,7 +1128,7 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 			}
 			for(i=0; i<n; i++){
 				mtpt = nil;
-				if(i==n-1 && nmh)
+				if(i==n-1 && nmh!=nil)
 					mtpt = nmh->from;
 				path = addelem(path, names[nhave+i], mtpt);
 			}
@@ -1398,7 +1398,7 @@ namec(char *aname, int amode, int omode, ulong perm)
 		 */
 		n = chartorune(&r, up->genbuf+1)+1;
 		/* actually / is caught by parsing earlier */
-		if(utfrune("M", r))
+		if(utfrune("M", r) != nil)
 			error(Enoattach);
 		if(up->pgrp->noattach && utfrune("|decp", r)==nil)
 			error(Enoattach);
@@ -1527,7 +1527,7 @@ if(c->umh != nil){
 	c->umh = nil;
 }
 			/* only save the mount head if it's a multiple element union */
-			if(m && m->mount && m->mount->next)
+			if(m != nil && m->mount != nil && m->mount->next != nil)
 				c->umh = m;
 			else
 				putmhead(m);
@@ -1644,7 +1644,7 @@ if(c->umh != nil){
 				cnew->flag |= CCEXEC;
 			if(omode & ORCLOSE)
 				cnew->flag |= CRCLOSE;
-			if(m)
+			if(m != nil)
 				putmhead(m);
 			cclose(c);
 			c = cnew;
@@ -1654,7 +1654,7 @@ if(c->umh != nil){
 
 		/* create failed */
 		cclose(cnew);
-		if(m)
+		if(m != nil)
 			putmhead(m);
 		if(omode & OEXCL)
 			nexterror();
@@ -1813,7 +1813,7 @@ isdir(Chan *c)
 void
 putmhead(Mhead *m)
 {
-	if(m && decref(m) == 0){
+	if(m != nil && decref(m) == 0){
 		m->mount = (Mount*)0xCafeBeef;
 		free(m);
 	}
