@@ -38,7 +38,7 @@ fs_chaninit(int count, int data)
 	Chan *cp, *icp;
 	int i;
 
-	p = ialloc(count * (sizeof(Chan)+data), 0);
+	p = ialloc((uintptr)count * (sizeof(Chan)+data), 0);
 	icp = (Chan*)p;
 	for(i = 0; i < count; i++) {
 		cp = (Chan*)p;

@@ -100,15 +100,15 @@ iobufinit(void)
 		nhiob++;
 	if(chatty)
 		print("\t%ud buffers; %ud hashes\n", niob, nhiob);
-	hiob = ialloc(nhiob * sizeof(Hiob), 0);
+	hiob = ialloc((uintptr)nhiob * sizeof(Hiob), 0);
 	hp = hiob;
 	for(i=0; i<nhiob; i++) {
 		lock(hp);
 		unlock(hp);
 		hp++;
 	}
-	p = ialloc(niob * sizeof(Iobuf), 0);
-	xiop = ialloc(niob * RBUFSIZE, 0);
+	p = ialloc((uintptr)niob * sizeof(Iobuf), 0);
+	xiop = ialloc((uintptr)niob * RBUFSIZE, 0);
 	hp = hiob;
 	for(i=0; i < niob; i++) {
 		qlock(p);

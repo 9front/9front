@@ -323,15 +323,15 @@ main(int argc, char **argv)
 	netinit();
 	scsiinit();
 
-	files = ialloc(conf.nfile * sizeof(*files), 0);
+	files = ialloc((uintptr)conf.nfile * sizeof(*files), 0);
 	for(i=0; i < conf.nfile; i++) {
 		qlock(&files[i]);
 		qunlock(&files[i]);
 	}
 
-	wpaths = ialloc(conf.nwpath * sizeof(*wpaths), 0);
-	uid = ialloc(conf.nuid * sizeof(*uid), 0);
-	gidspace = ialloc(conf.gidspace * sizeof(*gidspace), 0);
+	wpaths = ialloc((uintptr)conf.nwpath * sizeof(*wpaths), 0);
+	uid = ialloc((uintptr)conf.nuid * sizeof(*uid), 0);
+	gidspace = ialloc((uintptr)conf.gidspace * sizeof(*gidspace), 0);
 
 	iobufinit();
 
