@@ -162,7 +162,7 @@ disables permission checking and allows
 .BR wstat
 for the specified
 .I uid
-or for any user if omited.
+or for any user if omitted.
 This may help in initializing a file system.
 Use this with caution.
 .PP
