@@ -174,3 +174,5 @@ I created a web service in Go for transcoding gif to html5 video
 Higher level terminal UI library?
 I noticed some odd problem with Fossil on plan9port
 Just heard about Plan 9, and was wondering if anyone would care to take a stab at explaining the differences between it, Linux, and the versions of BSD.
+I'm trying to port some unix programs to plan9
+I'm trying to port gtk to Plan 9.
