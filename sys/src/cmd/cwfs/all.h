@@ -85,12 +85,10 @@ int	noauth;			/* auth is disable */
 int	nonone;			/* attach as none disabled */
 int	noatime;		/* atime is disabled */
 int	noatimeset;		/* noatime was changed (reset after dump) */
-int	wstatallow;		/* set to circumvent wstat permissions */
-int	writeallow;		/* set to circumvent write permissions */
+int	allowed;		/* allow wstat and disable permission checks
+				 * for user or anyone when -1 */
 int	duallow;		/* single user to allow du */
 int	readonly;		/* disable writes if true */
-
-
 int	rawreadok;		/* allow reading raw data */
 
 File*	flist[5003];		/* base of file structures */

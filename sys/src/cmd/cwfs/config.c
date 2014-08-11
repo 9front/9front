@@ -1105,9 +1105,6 @@ arginit(void)
 		}
 		switch(verb) {
 		case FREAM:
-			if(strcmp(fs->name, "main") == 0)
-				wstatallow = 1;	/* only set, never reset */
-			/* fallthrough */
 		case FRECOVER:
 			fs->flags |= verb;
 			break;

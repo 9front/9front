@@ -9,6 +9,7 @@ fs, exsort \- file server maintenance
 ]
 .PP
 .B allow
+.RI [ uid ]
 .PP
 .B arp
 .I subcommand
@@ -158,7 +159,10 @@ incorrect or incomplete parameters.
 .PP
 .I Allow
 disables permission checking and allows
-.BR wstat .
+.BR wstat
+for the specified
+.I uid
+or for any user if omited.
 This may help in initializing a file system.
 Use this with caution.
 .PP

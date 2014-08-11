@@ -89,7 +89,7 @@ loop:
 				f->tlock = 0;
 			}
 			if(f->open & FREMOV)
-				doremove(f, 0);
+				doremove(f);
 			freewp(f->wpath);
 			f->open = 0;
 			authfree(f->auth);
@@ -237,26 +237,41 @@ iaccess(File *f, Dentry *d, int m)
 				return 0;
 	}
 
-	/*
-	 * other
-	 */
+	/* other */
 	if(m & d->mode) {
+		/* 
+		 *  walk directories regardless.
+		 *  otherwise its impossible to get
+		 *  from the root to noworld's directories.
+		 */
 		if((d->mode & DDIR) && (m == DEXEC))
 			return 0;
 		if(!ingroup(f->uid, 9999))
 			return 0;
 	}
 
-	/*
-	 * various forms of superuser
-	 */
-	if(wstatallow)
-		return 0;
+	/* read access for du */
 	if(duallow != 0 && duallow == f->uid)
 		if((d->mode & DDIR) && (m == DREAD || m == DEXEC))
 			return 0;
 
-	return 1;
+	/* allow god */
+	return !isallowed(f);
+}
+
+int
+isallowed(File *f)
+{
+	if(f->cp == cons.chan)
+		return 1;
+	switch(allowed){
+	case 0:
+		return 0;
+	case -1:
+		return 1;
+	default:
+		return f->uid == allowed;
+	}
 }
 
 Tlock*

@@ -461,15 +461,31 @@ cmd_clri(int argc, char *argv[])
 }
 
 static void
-cmd_allow(int, char**)
+cmd_allow(int argc, char *argv[])
 {
-	wstatallow = writeallow = 1;
+	char *name;
+	int uid;
+
+	uid = -1;
+	name = "any user";
+	if(argc > 1){
+		name = argv[1];
+		uid = strtouid(name);
+		if(uid < 0)
+			uid = number(name, -2, 10);
+		if(uid < 0) {
+			print("bad uid %s\n", name);
+			return;
+		}
+	}
+	print("allowed %s\n", name);
+	allowed = uid;
 }
 
 static void
 cmd_disallow(int, char**)
 {
-	wstatallow = writeallow = 0;
+	allowed = 0;
 }
 
 void
@@ -748,14 +764,14 @@ cmd_chatty(int argc, char *argv[])
 static void
 installcmds(void)
 {
-	cmd_install("allow", "-- disable permission checking", cmd_allow);
+	cmd_install("allow", "[uid] -- disable permission checking", cmd_allow);
 	cmd_install("cfs", "[file] -- set current filesystem", cmd_cfs);
 	cmd_install("chatty", "n -- set chattiness", cmd_chatty);
 	cmd_install("clean", "file [bno [addr]] -- block print/fix", cmd_clean);
 	cmd_install("check", "[options]", cmd_check);
 	cmd_install("clri", "[file ...] -- purge files/dirs", cmd_clri);
 	cmd_install("create", "path uid gid perm [lad] -- make a file/dir", cmd_create);
-	cmd_install("disallow", "-- enable permission checking", cmd_disallow);
+	cmd_install("disallow", "-- (re)enable permission checking", cmd_disallow);
 	cmd_install("duallow", "uid -- duallow", cmd_duallow);
 	cmd_install("flag", "-- print set flags", cmd_flag);
 	cmd_install("fstat", "path -- print info on a file/dir", cmd_fstat);

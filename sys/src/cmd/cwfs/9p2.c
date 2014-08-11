@@ -148,7 +148,7 @@ auth(Chan* chan, Fcall* f, Fcall* r)
 	Filsys *fs;
 	int error;
 
-	if(noauth || wstatallow)
+	if(noauth)
 		return Eauthdisabled;
 
 	error = 0;
@@ -201,7 +201,7 @@ authorize(Chan* chan, Fcall* f)
 
 	db = cons.flags & authdebugflag;
 
-	if(noauth || wstatallow){
+	if(noauth){
 		uid = strtouid(f->uname);
 		if(db)
 			fprint(2, "permission granted by noauth uid %s = %d\n",
@@ -290,7 +290,7 @@ attach(Chan* chan, Fcall* f, Fcall* r)
 		error = Ealloc;
 		goto out;
 	}
-	if (iaccess(file, d, DEXEC) ||
+	if(iaccess(file, d, DEXEC) ||
 	    file->uid == 0 && fs->dev->type == Devro) {
 		/*
 		 * 'none' not allowed on dump
@@ -394,7 +394,7 @@ walkname(File* file, char* wname, Qid* wqid)
 	 * For walked elements the implied user must
 	 * have permission to search the directory.
 	 */
-	if(file->cp != cons.chan && iaccess(file, d, DEXEC)){
+	if(iaccess(file, d, DEXEC)){
 		error = Eaccess;
 		goto out;
 	}
@@ -607,14 +607,9 @@ fs_open(Chan* chan, Fcall* f, Fcall* r)
 	File *file;
 	Tlock *t;
 	Qid qid;
-	int error, ro, fmod, wok;
+	int error, ro, fmod;
 
-	wok = 0;
 	p = nil;
-
-	if(chan == cons.chan || writeallow)
-		wok = 1;
-
 	if((file = filep(chan, f->fid, 0)) == nil){
 		error = Efid;
 		goto out;
@@ -672,13 +667,13 @@ fs_open(Chan* chan, Fcall* f, Fcall* r)
 	switch(f->mode & 7){
 
 	case OREAD:
-		if(iaccess(file, d, DREAD) && !wok)
+		if(iaccess(file, d, DREAD))
 			goto badaccess;
 		fmod = FREAD;
 		break;
 
 	case OWRITE:
-		if((d->mode & DDIR) || (iaccess(file, d, DWRITE) && !wok))
+		if((d->mode & DDIR) || iaccess(file, d, DWRITE))
 			goto badaccess;
 		if(ro){
 			error = Eronly;
@@ -689,8 +684,8 @@ fs_open(Chan* chan, Fcall* f, Fcall* r)
 
 	case ORDWR:
 		if((d->mode & DDIR)
-		|| (iaccess(file, d, DREAD) && !wok)
-		|| (iaccess(file, d, DWRITE) && !wok))
+		|| iaccess(file, d, DREAD)
+		|| iaccess(file, d, DWRITE))
 			goto badaccess;
 		if(ro){
 			error = Eronly;
@@ -700,7 +695,7 @@ fs_open(Chan* chan, Fcall* f, Fcall* r)
 		break;
 
 	case OEXEC:
-		if((d->mode & DDIR) || (iaccess(file, d, DEXEC) && !wok))
+		if((d->mode & DDIR) || iaccess(file, d, DEXEC))
 			goto badaccess;
 		fmod = FREAD;
 		break;
@@ -710,7 +705,7 @@ fs_open(Chan* chan, Fcall* f, Fcall* r)
 		goto out;
 	}
 	if(f->mode & OTRUNC){
-		if((d->mode & DDIR) || (iaccess(file, d, DWRITE) && !wok))
+		if((d->mode & DDIR) || iaccess(file, d, DWRITE))
 			goto badaccess;
 		if(ro){
 			error = Eronly;
@@ -759,16 +754,12 @@ fs_create(Chan* chan, Fcall* f, Fcall* r)
 	Iobuf *p, *p1;
 	Dentry *d, *d1;
 	File *file;
-	int error, slot, slot1, fmod, wok;
+	int error, slot, slot1, fmod;
 	Off addr, addr1, path;
 	Tlock *t;
 	Wpath *w;
 
-	wok = 0;
 	p = nil;
-
-	if(chan == cons.chan || writeallow)
-		wok = 1;
 
 	if((file = filep(chan, f->fid, 0)) == nil){
 		error = Efid;
@@ -799,7 +790,7 @@ fs_create(Chan* chan, Fcall* f, Fcall* r)
 		error = Edir2;
 		goto out;
 	}
-	if(iaccess(file, d, DWRITE) && !wok) {
+	if(iaccess(file, d, DWRITE)) {
 		error = Eaccess;
 		goto out;
 	}
@@ -1273,7 +1264,7 @@ out:
 }
 
 static int
-_clunk(File* file, int remove, int wok)
+_clunk(File* file, int remove)
 {
 	Tlock *t;
 	int error;
@@ -1285,7 +1276,7 @@ _clunk(File* file, int remove, int wok)
 		file->tlock = 0;
 	}
 	if(remove && (file->qid.type & QTAUTH) == 0)
-		error = doremove(file, wok);
+		error = doremove(file);
 	file->open = 0;
 	freewp(file->wpath);
 	authfree(file->auth);
@@ -1304,7 +1295,7 @@ clunk(Chan* chan, Fcall* f, Fcall*)
 	if((file = filep(chan, f->fid, 0)) == nil)
 		return Efid;
 
-	_clunk(file, file->open & FREMOV, 0);
+	_clunk(file, file->open & FREMOV);
 	return 0;
 }
 
@@ -1315,8 +1306,7 @@ fs_remove(Chan* chan, Fcall* f, Fcall*)
 
 	if((file = filep(chan, f->fid, 0)) == nil)
 		return Efid;
-
-	return _clunk(file, 1, chan == cons.chan);
+	return _clunk(file, 1);
 }
 
 static int
@@ -1433,13 +1423,10 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 	 * .qid.path, .qid.vers and .muid are checked for validity but
 	 * any attempt to change them is an error.
 	 * .qid.type/.mode, .mtime, .name, .length, .uid and .gid can
-	 * possibly be changed (and .muid iff wstatallow).
+	 * possibly be changed (and .muid iff is god).
 	 *
 	 * 'Op' flags there are changed fields, i.e. it's not a no-op.
 	 * 'Tsync' flags all fields are defaulted.
-	 *
-	 * Wstatallow and writeallow are set to allow changes during the
-	 * fileserver bootstrap phase.
 	 */
 	tsync = 1;
 	if(dir.qid.path != ~0){
@@ -1526,7 +1513,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 	gl = leadgroup(file->uid, gid) != 0;
 	gl += leadgroup(file->uid, d->gid) != 0;
 
-	if(op && !wstatallow && d->uid != file->uid && !gl){
+	if(op && !isallowed(file) && d->uid != file->uid && !gl){
 		error = Ewstato;
 		goto out;
 	}
@@ -1613,7 +1600,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 		/*
 		 * Check write permission in the parent.
 		 */
-		if(!wstatallow && !writeallow && iaccess(file, d1, DWRITE)){
+		if(iaccess(file, d1, DWRITE)){
 			error = Eaccess;
 			goto out;
 		}
@@ -1625,7 +1612,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 	if(dir.uid != nil && *dir.uid != '\0'){
 		uid = strtouid(dir.uid);
 		if(uid != d->uid){
-			if(!wstatallow){
+			if(!isallowed(file)){
 				error = Ewstatu;
 				goto out;
 			}
@@ -1637,7 +1624,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 	if(dir.muid != nil && *dir.muid != '\0'){
 		muid = strtouid(dir.muid);
 		if(muid != d->muid){
-			if(!wstatallow){
+			if(!isallowed(file)){
 				error = Ewstatm;
 				goto out;
 			}
@@ -1652,7 +1639,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 	 * either owner and in new group or leader of both groups.
 	 */
 	if(gid != d->gid){
-		if(!(wstatallow || writeallow)
+		if(!isallowed(file)
 		&& !(d->uid == file->uid && ingroup(file->uid, gid))
 		&& !(gl == 2)){
 			error = Ewstatg;

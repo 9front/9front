@@ -57,7 +57,7 @@ f_session(Chan *cp, Fcall *in, Fcall *ou)
 	memmove(aip->rchal, in->chal, sizeof(aip->rchal));
 	mkchallenge(aip);
 	memmove(ou->chal, aip->chal, sizeof(ou->chal));
-	if(noauth || wstatallow)
+	if(noauth)
 		memset(ou->authid, 0, sizeof(ou->authid));
 	else
 		memmove(ou->authid, nvr.authid, sizeof(ou->authid));
@@ -78,7 +78,7 @@ authorize(Chan *cp, Fcall *in, Fcall *ou)
 	ulong bit;
 	Authinfo *aip;
 
-	if(noauth || wstatallow)	/* set to allow entry during boot */
+	if(noauth)
 		return 1;
 
 	if(strcmp(in->uname, "none") == 0)
@@ -245,7 +245,7 @@ f_attach(Chan *cp, Fcall *in, Fcall *ou)
 		ou->err = Ealloc;
 		goto out;
 	}
-	if (iaccess(f, d, DEXEC) ||
+	if(iaccess(f, d, DEXEC) ||
 	    f->uid == 0 && fs->dev->type == Devro) {
 		/*
 		 * 'none' not allowed on dump
@@ -370,7 +370,7 @@ f_walk(Chan *cp, Fcall *in, Fcall *ou)
 	}
 	if(ou->err = mkqidcmp(&f->qid, d))
 		goto out;
-	if(cp != cons.chan && iaccess(f, d, DEXEC)) {
+	if(iaccess(f, d, DEXEC)) {
 		ou->err = Eaccess;
 		goto out;
 	}
@@ -469,17 +469,13 @@ f_open(Chan *cp, Fcall *in, Fcall *ou)
 	File *f;
 	Tlock *t;
 	Qid qid;
-	int ro, fmod, wok;
+	int ro, fmod;
 
 	if(CHAT(cp)) {
 		fprint(2, "c_open %d\n", cp->chan);
 		fprint(2, "\tfid = %d\n", in->fid);
 		fprint(2, "\tmode = %o\n", in->mode);
 	}
-
-	wok = 0;
-	if(cp == cons.chan || writeallow)
-		wok = 1;
 
 	p = 0;
 	f = filep(cp, in->fid, 0);
@@ -528,14 +524,13 @@ f_open(Chan *cp, Fcall *in, Fcall *ou)
 	switch(in->mode & 7) {
 
 	case OREAD:
-		if(iaccess(f, d, DREAD) && !wok)
+		if(iaccess(f, d, DREAD))
 			goto badaccess;
 		fmod = FREAD;
 		break;
 
 	case OWRITE:
-		if((d->mode & DDIR) ||
-		   (iaccess(f, d, DWRITE) && !wok))
+		if((d->mode & DDIR) || iaccess(f, d, DWRITE))
 			goto badaccess;
 		if(ro) {
 			ou->err = Eronly;
@@ -545,9 +540,7 @@ f_open(Chan *cp, Fcall *in, Fcall *ou)
 		break;
 
 	case ORDWR:
-		if((d->mode & DDIR) ||
-		   (iaccess(f, d, DREAD) && !wok) ||
-		   (iaccess(f, d, DWRITE) && !wok))
+		if((d->mode & DDIR) || iaccess(f, d, DREAD) || iaccess(f, d, DWRITE))
 			goto badaccess;
 		if(ro) {
 			ou->err = Eronly;
@@ -557,8 +550,7 @@ f_open(Chan *cp, Fcall *in, Fcall *ou)
 		break;
 
 	case OEXEC:
-		if((d->mode & DDIR) ||
-		   (iaccess(f, d, DEXEC) && !wok))
+		if((d->mode & DDIR) || iaccess(f, d, DEXEC))
 			goto badaccess;
 		fmod = FREAD;
 		break;
@@ -568,8 +560,7 @@ f_open(Chan *cp, Fcall *in, Fcall *ou)
 		goto out;
 	}
 	if(in->mode & OTRUNC) {
-		if((d->mode & DDIR) ||
-		   (iaccess(f, d, DWRITE) && !wok))
+		if((d->mode & DDIR) || iaccess(f, d, DWRITE))
 			goto badaccess;
 		if(ro) {
 			ou->err = Eronly;
@@ -617,7 +608,7 @@ f_create(Chan *cp, Fcall *in, Fcall *ou)
 	Iobuf *p, *p1;
 	Dentry *d, *d1;
 	File *f;
-	int slot, slot1, fmod, wok;
+	int slot, slot1, fmod;
 	Off addr, addr1, path;
 	Qid qid;
 	Tlock *t;
@@ -631,10 +622,6 @@ f_create(Chan *cp, Fcall *in, Fcall *ou)
 				in->perm&0777);
 		fprint(2, "\tmode = %o\n", in->mode);
 	}
-
-	wok = 0;
-	if(cp == cons.chan || writeallow)
-		wok = 1;
 
 	p = 0;
 	f = filep(cp, in->fid, 0);
@@ -659,7 +646,7 @@ f_create(Chan *cp, Fcall *in, Fcall *ou)
 		ou->err = Edir2;
 		goto out;
 	}
-	if(iaccess(f, d, DWRITE) && !wok) {
+	if(iaccess(f, d, DWRITE)) {
 		ou->err = Eaccess;
 		goto out;
 	}
@@ -1118,7 +1105,7 @@ out:
 }
 
 int
-doremove(File *f, int wok)
+doremove(File *f)
 {
 	Iobuf *p, *p1;
 	Dentry *d, *d1;
@@ -1144,7 +1131,7 @@ doremove(File *f, int wok)
 		err = Ephase;
 		goto out;
 	}
-	if(iaccess(f, d1, DWRITE) && !wok) {
+	if(iaccess(f, d1, DWRITE)) {
 		err = Eaccess;
 		goto out;
 	}
@@ -1202,7 +1189,7 @@ out:
 }
 
 static int
-doclunk(File* f, int remove, int wok)
+doclunk(File* f, int remove)
 {
 	Tlock *t;
 	int err;
@@ -1214,7 +1201,7 @@ doclunk(File* f, int remove, int wok)
 		f->tlock = 0;
 	}
 	if(remove)
-		err = doremove(f, wok);
+		err = doremove(f);
 	f->open = 0;
 	freewp(f->wpath);
 	freefp(f);
@@ -1236,7 +1223,7 @@ f_clunk(Chan *cp, Fcall *in, Fcall *ou)
 	if(!f)
 		ou->err = Efid;
 	else {
-		doclunk(f, f->open & FREMOV, 0);
+		doclunk(f, f->open & FREMOV);
 		qunlock(f);
 	}
 	ou->fid = in->fid;
@@ -1256,7 +1243,7 @@ f_remove(Chan *cp, Fcall *in, Fcall *ou)
 	if(!f)
 		ou->err = Efid;
 	else {
-		ou->err = doclunk(f, 1, cp==cons.chan);
+		ou->err = doclunk(f, 1);
 		qunlock(f);
 	}
 	ou->fid = in->fid;
@@ -1371,7 +1358,7 @@ f_wstat(Chan *cp, Fcall *in, Fcall *ou)
 	 * if chown,
 	 * must be god
 	 */
-	if(xd.uid != d->uid && !wstatallow) { /* set to allow chown during boot */
+	if(xd.uid != d->uid && !isallowed(f)) {
 		ou->err = Ewstatu;
 		goto out;
 	}
@@ -1382,10 +1369,9 @@ f_wstat(Chan *cp, Fcall *in, Fcall *ou)
 	 *	a) owner and in new group
 	 *	b) leader of both groups
 	 */
-	if (xd.gid != d->gid &&
-	    (!wstatallow && !writeallow &&  /* set to allow chgrp during boot */
+	if (xd.gid != d->gid && !isallowed(f) && 
 	     (d->uid != f->uid || !ingroup(f->uid, xd.gid)) &&
-	     (!leadgroup(f->uid, xd.gid) || !leadgroup(f->uid, d->gid)))) {
+	     (!leadgroup(f->uid, xd.gid) || !leadgroup(f->uid, d->gid))) {
 		ou->err = Ewstatg;
 		goto out;
 	}
@@ -1439,8 +1425,7 @@ f_wstat(Chan *cp, Fcall *in, Fcall *ou)
 			goto out;
 		}
 
-		if (!wstatallow && !writeallow && /* set to allow rename during boot */
-		    (!d1 || iaccess(f, d1, DWRITE))) {
+		if(iaccess(f, d1, DWRITE)) {
 			ou->err = Eaccess;
 			goto out;
 		}
@@ -1453,8 +1438,7 @@ f_wstat(Chan *cp, Fcall *in, Fcall *ou)
 	 */
 	if (d->mtime != xd.mtime ||
 	    ((d->mode^xd.mode) & (DAPND|DLOCK|0777)))
-		if (!wstatallow &&	/* set to allow chmod during boot */
-		    d->uid != f->uid &&
+		if (d->uid != f->uid && !isallowed(f) &&
 		    !leadgroup(f->uid, xd.gid) &&
 		    !leadgroup(f->uid, d->gid)) {
 			ou->err = Ewstatu;
