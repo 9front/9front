@@ -88,10 +88,20 @@ Option
 .B -r
 removes a file from the secstore.
 .PP
-The server is
-.BR tcp!$auth!secstore  ,
-or the server specified by option
-.BR -s .
+Option
+.B -s
+sets the dial string of the
+.IR secstore (8)
+server. The default is contained in the 
+.BR $secstore
+environment variable. If the
+.B -s
+option is absent and
+.BR $secstore
+is empty,
+.IR secstore (1)
+will attempt to dial
+.BR tcp!$auth!secstore  .
 .PP
 Option
 .B -u
