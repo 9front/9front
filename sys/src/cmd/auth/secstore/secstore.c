@@ -495,7 +495,9 @@ main(int argc, char **argv)
 	char *gfile[MAXFILES+1], *pfile[MAXFILES+1], *rfile[MAXFILES+1];
 	AuthConn *c;
 
-	serve = "$auth";
+	serve = getenv("secstore");
+	if(serve == nil)
+		serve = "$auth";
 	user = getuser();
 	memset(Gflag, 0, sizeof Gflag);
 
