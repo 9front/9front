@@ -45,7 +45,7 @@ struct Ptprpc
 	uchar	type[2];
 	uchar	code[2];
 	uchar	transid[4];
-	uchar	d[52];
+	uchar	d[500];
 };
 
 struct Node
@@ -281,7 +281,7 @@ vptprpc(Ioproc *io, int code, int flags, va_list a)
 		*prdata = nil;
 		*prdatalen = 0;
 
-		while((n = ioread(io, usbep[In]->dfd, &rpc, sizeof(rpc))) <= 0){
+		while((n = ioread(io, usbep[In]->dfd, &rpc, usbep[In]->maxpkt)) <= 0){
 			if(n < 0){
 				wasinterrupt();
 				return -1;
@@ -334,7 +334,7 @@ vptprpc(Ioproc *io, int code, int flags, va_list a)
 		}
 	}
 
-	while((n = ioread(io, usbep[In]->dfd, &rpc, sizeof(rpc))) <= 0){
+	while((n = ioread(io, usbep[In]->dfd, &rpc, usbep[In]->maxpkt)) <= 0){
 		if(n < 0){
 			wasinterrupt();
 			return -1;
@@ -1028,6 +1028,8 @@ threadmain(int argc, char **argv)
 	}
 	if(usbep[In]->dfd < 0 || usbep[Out]->dfd < 0)
 		sysfatal("open endpoints: %r");
+	if(usbep[In]->maxpkt < 12 || usbep[In]->maxpkt > sizeof(Ptprpc))
+		sysfatal("bad packet size: %d\n", usbep[In]->maxpkt);
 	iochan = chancreate(sizeof(Ioproc*), 1);
 	sendp(iochan, ioproc());
 
