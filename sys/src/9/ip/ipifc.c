@@ -174,16 +174,11 @@ ipifcunbind(Ipifc *ifc)
 {
 	char *err;
 
+	wlock(ifc);
 	if(waserror()){
 		wunlock(ifc);
 		nexterror();
 	}
-	wlock(ifc);
-
-	/* dissociate routes */
-	if(ifc->m != nil && ifc->m->unbindonclose == 0)
-		ifc->conv->inuse--;
-	ifc->ifcid++;
 
 	/* disassociate logical interfaces (before zeroing ifc->arg) */
 	while(ifc->lifc){
@@ -208,7 +203,12 @@ ipifcunbind(Ipifc *ifc)
 	qclose(ifc->conv->wq);
 	qclose(ifc->conv->sq);
 
+	/* dissociate routes */
+	ifc->ifcid++;
+	if(ifc->m != nil && ifc->m->unbindonclose == 0)
+		ifc->conv->inuse--;
 	ifc->m = nil;
+
 	wunlock(ifc);
 	poperror();
 	return nil;
@@ -299,10 +299,10 @@ ipifckick(void *x)
 		runlock(ifc);
 		nexterror();
 	}
-	if(ifc->m == nil || ifc->m->pktin == nil)
-		freeb(bp);
-	else
+	if(ifc->m && ifc->m->pktin)
 		(*ifc->m->pktin)(c->p->f, ifc, bp);
+	else
+		freeb(bp);
 	runlock(ifc);
 	poperror();
 }
@@ -416,7 +416,12 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 	}
 	if(isv4(ip))
 		tentative = 0;
+
 	wlock(ifc);
+	if(waserror()){
+		wunlock(ifc);
+		nexterror();
+	}
 
 	/* ignore if this is already a local address for this ifc */
 	for(lifc = ifc->lifc; lifc; lifc = lifc->next) {
@@ -526,11 +531,13 @@ ipifcadd(Ipifc *ifc, char **argv, int argc, int tentative, Iplifc *lifcp)
 	}
 
 	/* register the address on this network for address resolution */
-	if(isv4(ip) && ifc->m->areg != nil)
+	if(isv4(ip) && ifc->m->areg)
 		(*ifc->m->areg)(ifc, ip);
 
 out:
 	wunlock(ifc);
+	poperror();
+
 	if(tentative && sendnbrdisc)
 		icmpns(f, 0, SRC_UNSPEC, ip, TARG_MULTI, ifc->mac);
 	return nil;
@@ -603,20 +610,18 @@ ipifcrem(Ipifc *ifc, char **argv, int argc)
 		if (parseip(rem, argv[3]) == -1)
 			return Ebadip;
 
-	wlock(ifc);
-
 	/*
 	 *  find address on this interface and remove from chain.
 	 *  for pt to pt we actually specify the remote address as the
 	 *  addresss to remove.
 	 */
+	wlock(ifc);
 	for(lifc = ifc->lifc; lifc != nil; lifc = lifc->next) {
 		if (memcmp(ip, lifc->local, IPaddrlen) == 0
 		&& memcmp(mask, lifc->mask, IPaddrlen) == 0
 		&& memcmp(rem, lifc->remote, IPaddrlen) == 0)
 			break;
 	}
-
 	rv = ipifcremlifc(ifc, lifc);
 	wunlock(ifc);
 	return rv;
@@ -639,7 +644,7 @@ ipifcaddroute(Fs *f, int vers, uchar *addr, uchar *mask, uchar *gate, int type)
 			ifc = (Ipifc*)(*cp)->ptcl;
 			m = ifc->m;
 			if(m && m->addroute)
-				m->addroute(ifc, vers, addr, mask, gate, type);
+				(*m->addroute)(ifc, vers, addr, mask, gate, type);
 		}
 	}
 }
@@ -656,8 +661,12 @@ ipifcremroute(Fs *f, int vers, uchar *addr, uchar *mask)
 		if(*cp != nil) {
 			ifc = (Ipifc*)(*cp)->ptcl;
 			m = ifc->m;
-			if(m && m->remroute)
-				m->remroute(ifc, vers, addr, mask);
+			if(m && m->remroute){
+				if(!waserror()){
+					(*m->remroute)(ifc, vers, addr, mask);
+					poperror();
+				}
+			}
 		}
 	}
 }
@@ -678,18 +687,15 @@ ipifcconnect(Conv* c, char **argv, int argc)
 	if(ifc->m == nil)
 		 return "ipifc not yet bound to device";
 
-	if(waserror()){
-		wunlock(ifc);
-		nexterror();
-	}
 	wlock(ifc);
 	while(ifc->lifc){
 		err = ipifcremlifc(ifc, ifc->lifc);
-		if(err)
-			error(err);
+		if(err){
+			wunlock(ifc);
+			return err;
+		}
 	}
 	wunlock(ifc);
-	poperror();
 
 	err = ipifcadd(ifc, argv, argc, 0, nil);
 	if(err)
@@ -839,6 +845,10 @@ addselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a, int type)
 	int h;
 
 	qlock(f->self);
+	if(waserror()){
+		qunlock(f->self);
+		nexterror();
+	}
 
 	/* see if the address already exists */
 	h = hashipa(a);
@@ -882,12 +892,13 @@ addselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a, int type)
 		else
 			v6addroute(f, tifc, a, IPallbits, a, type);
 
-		if((type & Rmulti) && ifc->m->addmulti != nil)
+		if((type & Rmulti) && ifc->m->addmulti)
 			(*ifc->m->addmulti)(ifc, a, lifc->local);
 	} else
 		lp->ref++;
 
 	qunlock(f->self);
+	poperror();
 }
 
 /*
@@ -994,8 +1005,12 @@ remselfcache(Fs *f, Ipifc *ifc, Iplifc *lifc, uchar *a)
 	if(--(link->ref) != 0)
 		goto out;
 
-	if((p->type & Rmulti) && ifc->m->remmulti != nil)
-		(*ifc->m->remmulti)(ifc, a, lifc->local);
+	if((p->type & Rmulti) && ifc->m->remmulti){
+		if(!waserror()){
+			(*ifc->m->remmulti)(ifc, a, lifc->local);
+			poperror();
+		}
+	}
 
 	/* ref == 0, remove from both chains and free the link */
 	*l_lifc = link->lifclink;
@@ -1448,11 +1463,11 @@ ipifcaddmulti(Conv *c, uchar *ma, uchar *ia)
 		if((*p)->inuse == 0)
 			continue;
 		ifc = (Ipifc*)(*p)->ptcl;
+		wlock(ifc);
 		if(waserror()){
 			wunlock(ifc);
 			nexterror();
 		}
-		wlock(ifc);
 		for(lifc = ifc->lifc; lifc; lifc = lifc->next)
 			if(ipcmp(ia, lifc->local) == 0)
 				addselfcache(f, ifc, lifc, ma, Rmulti);
@@ -1491,16 +1506,11 @@ ipifcremmulti(Conv *c, uchar *ma, uchar *ia)
 			continue;
 
 		ifc = (Ipifc*)(*p)->ptcl;
-		if(waserror()){
-			wunlock(ifc);
-			nexterror();
-		}
 		wlock(ifc);
 		for(lifc = ifc->lifc; lifc; lifc = lifc->next)
 			if(ipcmp(ia, lifc->local) == 0)
 				remselfcache(f, ifc, lifc, ma);
 		wunlock(ifc);
-		poperror();
 	}
 
 	free(multi);
@@ -1545,6 +1555,10 @@ ipifcregisterproxy(Fs *f, Ipifc *ifc, uchar *ip)
 				runlock(nifc);
 				continue;
 			}
+			if(waserror()){
+				runlock(nifc);
+				nexterror();
+			}
 			for(lifc = nifc->lifc; lifc; lifc = lifc->next){
 				maskip(ip, lifc->mask, net);
 				if(ipcmp(net, lifc->remote) == 0) {
@@ -1557,6 +1571,7 @@ ipifcregisterproxy(Fs *f, Ipifc *ifc, uchar *ip)
 				}
 			}
 			runlock(nifc);
+			poperror();
 		}
 	}
 	else {					/* V4 */
@@ -1569,6 +1584,10 @@ ipifcregisterproxy(Fs *f, Ipifc *ifc, uchar *ip)
 				runlock(nifc);
 				continue;
 			}
+			if(waserror()){
+				runlock(nifc);
+				nexterror();
+			}
 			for(lifc = nifc->lifc; lifc; lifc = lifc->next){
 				maskip(ip, lifc->mask, net);
 				if(ipcmp(net, lifc->remote) == 0){
@@ -1577,6 +1596,7 @@ ipifcregisterproxy(Fs *f, Ipifc *ifc, uchar *ip)
 				}
 			}
 			runlock(nifc);
+			poperror();
 		}
 	}
 }
@@ -1649,9 +1669,9 @@ ipifcadd6(Ipifc *ifc, char**argv, int argc)
 	lifc->origint = origint;
 
 	/* issue "add" ctl msg for v6 link-local addr and prefix len */
-	if(!ifc->m->pref2addr)
+	if(ifc->m->pref2addr == nil)
 		return Ebadarg;
-	ifc->m->pref2addr(prefix, ifc->mac);	/* mac → v6 link-local addr */
+	(*ifc->m->pref2addr)(prefix, ifc->mac);	/* mac → v6 link-local addr */
 	sprint(addr, "%I", prefix);
 	sprint(preflen, "/%d", plen);
 	params[0] = "add";
