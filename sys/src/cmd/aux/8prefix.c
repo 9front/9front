@@ -59,7 +59,7 @@ void renamesyms(int, Sym*, uchar*, int);
 void
 usage(void)
 {
-	fprint(2, "usage: 8prelink [-mv] prefix file.8...\n");
+	fprint(2, "usage: 8prefix [-mv] prefix file.8...\n");
 	exits("usage");
 }
 
