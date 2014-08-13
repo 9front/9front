@@ -21,6 +21,7 @@ char		*filterp;
 char		*ealgs = "rc4_256 sha1";
 int		encproto = Encnone;
 char		*aan = "/bin/aan";
+char		*anstring  = "tcp!*!0";
 AuthInfo 	*ai;
 int		debug;
 int		doauth = 1;
@@ -140,6 +141,9 @@ main(int argc, char **argv)
 	case 'p':
 		filterp = aan;
 		break;
+	case 'n':
+		anstring = EARGF(usage());
+		break;
 	case 's':
 		srvpost = EARGF(usage());
 		break;
@@ -181,7 +185,7 @@ main(int argc, char **argv)
 	notify(catcher);
 	alarm(60*1000);
 
-	if(backwards)
+	if (backwards)
 		fd = passive();
 	else
 		fd = connect(argv[0], argv[1], oldserver);
@@ -214,7 +218,7 @@ main(int argc, char **argv)
 		mksecret(fromserversecret, digest+10);
 
 		if (filterp)
-			fd = filter(fd, filterp, argv[0]);
+			fd = filter(fd, filterp, backwards ? nil : argv[0]);
 
 		/* set up encryption */
 		procsetname("pushssl");
@@ -223,7 +227,7 @@ main(int argc, char **argv)
 			sysfatal("can't establish ssl connection: %r");
 	}
 	else if (filterp)
-		fd = filter(fd, filterp, argv[0]);
+		fd = filter(fd, filterp, backwards ? nil : argv[0]);
 
 	if(ai)
 		auth_freeAI(ai);
@@ -372,58 +376,83 @@ void
 usage(void)
 {
 	fprint(2, "usage: import [-abcC] [-A] [-E clear|ssl|tls] "
-"[-e 'crypt auth'|clear] [-k keypattern] [-p] [-z] host remotefs [mountpoint]\n");
+"[-e 'crypt auth'|clear] [-k keypattern] [-p] [-n address ] [-z] host remotefs [mountpoint]\n");
 	exits("usage");
 }
 
-/* Network on fd1, mount driver on fd0 */
 int
 filter(int fd, char *cmd, char *host)
 {
 	char addr[128], buf[256], *s, *file, *argv[16];
-	int p[2], len, argc;
+	int lfd, p[2], len, argc;
 
-	if ((len = read(fd, buf, sizeof buf - 1)) < 0)
-		sysfatal("filter: cannot write port; %r");
-	buf[len] = '\0';
+	if(host == nil){
+		/* Get a free port and post it to the client. */
+		if (announce(anstring, addr) < 0)
+			sysfatal("filter: Cannot announce %s: %r", anstring);
 
-	if ((s = strrchr(buf, '!')) == nil)
-		sysfatal("filter: illegally formatted port %s", buf);
-	strecpy(addr, addr+sizeof(addr), netmkaddr(host, "tcp", s+1));
-	strecpy(strrchr(addr, '!'), addr+sizeof(addr), s);
+		snprint(buf, sizeof(buf), "%s/local", addr);
+		if ((lfd = open(buf, OREAD)) < 0)
+			sysfatal("filter: Cannot open %s: %r", buf);
+		if ((len = read(lfd, buf, sizeof buf - 1)) < 0)
+			sysfatal("filter: Cannot read %s: %r", buf);
+		close(lfd);
+		buf[len] = '\0';
+		if ((s = strchr(buf, '\n')) != nil)
+			len = s - buf;
+		if (write(fd, buf, len) != len) 
+			sysfatal("filter: cannot write port; %r");
+	} else {
+		/* Read address string from connection */
+		if ((len = read(fd, buf, sizeof buf - 1)) < 0)
+			sysfatal("filter: cannot write port; %r");
+		buf[len] = '\0';
+
+		if ((s = strrchr(buf, '!')) == nil)
+			sysfatal("filter: illegally formatted port %s", buf);
+		strecpy(addr, addr+sizeof(addr), netmkaddr(host, "tcp", s+1));
+		strecpy(strrchr(addr, '!'), addr+sizeof(addr), s);
+	}
 
 	if(debug)
-		fprint(2, "filter: remote %s\n", addr);
+		fprint(2, "filter: %s\n", addr);
 
 	snprint(buf, sizeof(buf), "%s", cmd);
-	argc = tokenize(buf, argv, nelem(argv)-2);
+	argc = tokenize(buf, argv, nelem(argv)-3);
 	if (argc == 0)
 		sysfatal("filter: empty command");
-	argv[argc++] = "-c";
+
+	if(host != nil)
+		argv[argc++] = "-c";
 	argv[argc++] = addr;
 	argv[argc] = nil;
+
 	file = argv[0];
-	if (s = strrchr(argv[0], '/'))
+	if((s = strrchr(argv[0], '/')) != nil)
 		argv[0] = s+1;
 
 	if(pipe(p) < 0)
 		sysfatal("pipe: %r");
 
-	switch(rfork(RFNOWAIT|RFPROC|RFMEM|RFFDG)) {
+	switch(rfork(RFNOWAIT|RFPROC|RFMEM|RFFDG|RFREND)) {
 	case -1:
-		sysfatal("filter: rfork; %r");
+		sysfatal("filter: rfork; %r\n");
 	case 0:
-		dup(p[0], 1);
-		dup(p[0], 0);
+		close(fd);
+		if (dup(p[0], 1) < 0)
+			sysfatal("filter: Cannot dup to 1; %r");
+		if (dup(p[0], 0) < 0)
+			sysfatal("filter: Cannot dup to 0; %r");
 		close(p[0]);
 		close(p[1]);
 		exec(file, argv);
 		sysfatal("filter: exec; %r");
 	default:
-		close(fd);
+		dup(p[1], fd);
 		close(p[0]);
+		close(p[1]);
 	}
-	return p[1];
+	return fd;
 }
 
 static void

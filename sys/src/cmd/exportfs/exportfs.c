@@ -42,7 +42,6 @@ int	qidcnt;
 int	qfreecnt;
 int	ncollision;
 
-int	netfd;				/* initially stdin */
 int	srvfd = -1;
 int	nonone = 1;
 char	*filterp;
@@ -57,7 +56,7 @@ static char *anstring  = "tcp!*!0";
 
 char *netdir = "", *local = "", *remote = "";
 
-int	filter(int, char *);
+void	filter(int, char *, char *);
 
 void
 usage(void)
@@ -175,7 +174,7 @@ main(int argc, char **argv)
 	}ARGEND
 	USED(argc, argv);
 
-	if(doauth){
+	if(na == nil && doauth){
 		/*
 		 * We use p9any so we don't have to visit this code again, with the
 		 * cost that this code is incompatible with the old world, which
@@ -233,7 +232,7 @@ main(int argc, char **argv)
 	rfork(RFNOTEG|RFREND);
 
 	if(messagesize == 0){
-		messagesize = iounit(netfd);
+		messagesize = iounit(0);
 		if(messagesize == 0)
 			messagesize = 8192+IOHDRSZ;
 	}
@@ -259,7 +258,7 @@ main(int argc, char **argv)
 		strncpy(buf, srv, sizeof buf);
 	}
 	else {
-		noteconn(netfd);
+		noteconn(0);
 		buf[0] = 0;
 		n = read(0, buf, sizeof(buf)-1);
 		if(n < 0) {
@@ -286,7 +285,7 @@ main(int argc, char **argv)
 		fatal("open ack write");
 
 	ini = initial;
-	n = readn(netfd, initial, sizeof(initial));
+	n = readn(0, initial, sizeof(initial));
 	if(n == 0)
 		fatal(nil);	/* port scan or spurious open/close on exported /srv file (unmount) */
 	if(n < sizeof(initial))
@@ -298,7 +297,7 @@ main(int argc, char **argv)
 		ini = nil;
 		p = buf;
 		for(;;){
-			if((n = read(netfd, p, 1)) < 0)
+			if((n = read(0, p, 1)) < 0)
 				fatal("can't read impo arguments: %r");
 			if(n == 0)
 				fatal("connection closed while reading arguments");
@@ -345,10 +344,10 @@ main(int argc, char **argv)
 
 		if(ini != nil) 
 			fatal("Protocol botch: old import");
-		if(readn(netfd, key, 4) != 4)
+		if(readn(0, key, 4) != 4)
 			fatal("can't read key part; %r");
 
-		if(write(netfd, key+12, 4) != 4)
+		if(write(0, key+12, 4) != 4)
 			fatal("can't write key part; %r");
 
 		/* scramble into two secrets */
@@ -357,26 +356,29 @@ main(int argc, char **argv)
 		mksecret(fromserversecret, digest+10);
 
 		if(filterp != nil)
-			netfd = filter(netfd, filterp);
+			filter(0, filterp, na);
 
 		switch(encproto) {
 		case Encssl:
-			netfd = pushssl(netfd, ealgs, fromserversecret, 
-						fromclientsecret, nil);
+			fd = pushssl(0, ealgs, fromserversecret, fromclientsecret, nil);
+			if(fd < 0)
+				fatal("can't establish ssl connection: %r");
+			if(fd != 0){
+				dup(fd, 0);
+				close(fd);
+			}
 			break;
 		case Enctls:
 		default:
 			fatal("Unsupported encryption protocol");
 		}
-
-		if(netfd < 0)
-			fatal("can't establish ssl connection: %r");
 	}
 	else if(filterp != nil) {
 		if(ini != nil)
 			fatal("Protocol botch: don't know how to deal with this");
-		netfd = filter(netfd, filterp);
+		filter(0, filterp, na);
 	}
+	dup(0, 1);
 
 	if(ai != nil)
 		auth_freeAI(ai);
@@ -386,7 +388,7 @@ main(int argc, char **argv)
 	 */
 	for(;;) {
 		r = getsbuf();
-		while((n = localread9pmsg(netfd, r->buf, messagesize, ini)) == 0)
+		while((n = localread9pmsg(0, r->buf, messagesize, ini)) == 0)
 			;
 		if(n < 0)
 			fatal(nil);
@@ -456,7 +458,7 @@ reply(Fcall *r, Fcall *t, char *err)
 	if(data == nil)
 		fatal(Enomem);
 	n = convS2M(t, data, messagesize);
-	if(write(netfd, data, n) != n){
+	if(write(0, data, n) != n){
 		/* not fatal, might have got a note due to flush */
 		fprint(2, "exportfs: short write in reply: %r\n");
 	}
@@ -867,46 +869,64 @@ estrdup(char *s)
 	return t;
 }
 
-/* Network on fd1, mount driver on fd0 */
-int
-filter(int fd, char *cmd)
+void
+filter(int fd, char *cmd, char *host)
 {
-	char buf[128], devdir[40], *s, *file, *argv[16];
-	int p[2], lfd, len, argc;
+	char addr[128], buf[256], *s, *file, *argv[16];
+	int lfd, p[2], len, argc;
 
-	/* Get a free port and post it to the client. */
-	if (announce(anstring, devdir) < 0)
-		fatal("filter: Cannot announce %s: %r", anstring);
+	if(host == nil){
+		/* Get a free port and post it to the client. */
+		if (announce(anstring, addr) < 0)
+			fatal("filter: Cannot announce %s: %r", anstring);
 
-	snprint(buf, sizeof(buf), "%s/local", devdir);
-	if ((lfd = open(buf, OREAD)) < 0)
-		fatal("filter: Cannot open %s: %r", buf);
-	if ((len = read(lfd, buf, sizeof buf - 1)) < 0)
-		fatal("filter: Cannot read %s: %r", buf);
-	close(lfd);
-	buf[len] = '\0';
-	if ((s = strchr(buf, '\n')) != nil)
-		len = s - buf;
-	if (write(fd, buf, len) != len) 
-		fatal("filter: cannot write port; %r");
+		snprint(buf, sizeof(buf), "%s/local", addr);
+		if ((lfd = open(buf, OREAD)) < 0)
+			fatal("filter: Cannot open %s: %r", buf);
+		if ((len = read(lfd, buf, sizeof buf - 1)) < 0)
+			fatal("filter: Cannot read %s: %r", buf);
+		close(lfd);
+		buf[len] = '\0';
+		if ((s = strchr(buf, '\n')) != nil)
+			len = s - buf;
+		if (write(fd, buf, len) != len) 
+			fatal("filter: cannot write port; %r");
+	} else {
+		/* Read address string from connection */
+		if ((len = read(fd, buf, sizeof buf - 1)) < 0)
+			sysfatal("filter: cannot write port; %r");
+		buf[len] = '\0';
+
+		if ((s = strrchr(buf, '!')) == nil)
+			sysfatal("filter: illegally formatted port %s", buf);
+		strecpy(addr, addr+sizeof(addr), netmkaddr(host, "tcp", s+1));
+		strecpy(strrchr(addr, '!'), addr+sizeof(addr), s);
+	}
+
+	DEBUG(DFD, "filter: %s\n", addr);
 
 	snprint(buf, sizeof(buf), "%s", cmd);
-	argc = tokenize(buf, argv, nelem(argv)-2);
+	argc = tokenize(buf, argv, nelem(argv)-3);
 	if (argc == 0)
-		fatal("filter: empty command");
-	argv[argc++] = devdir;
+		sysfatal("filter: empty command");
+
+	if(host != nil)
+		argv[argc++] = "-c";
+	argv[argc++] = addr;
 	argv[argc] = nil;
+
 	file = argv[0];
-	if (s = strrchr(argv[0], '/'))
+	if((s = strrchr(argv[0], '/')) != nil)
 		argv[0] = s+1;
 
 	if(pipe(p) < 0)
-		fatal("filter: pipe; %r");
+		sysfatal("pipe: %r");
 
 	switch(rfork(RFNOWAIT|RFPROC|RFMEM|RFFDG|RFREND)) {
 	case -1:
 		fatal("filter: rfork; %r\n");
 	case 0:
+		close(fd);
 		if (dup(p[0], 1) < 0)
 			fatal("filter: Cannot dup to 1; %r");
 		if (dup(p[0], 0) < 0)
@@ -920,7 +940,6 @@ filter(int fd, char *cmd)
 		close(p[0]);
 		close(p[1]);
 	}
-	return fd;
 }
 
 static void

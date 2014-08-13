@@ -123,6 +123,11 @@ Push the
 filter onto the connection to protect against
 temporary network outages.
 .TP
+.B -n
+Specify announce string for
+.IR aan (8)
+filter when run in ``backwards'' mode.
+.TP
 .B -s \fIname
 Post the connection's mountable file descriptor as
 .BI /srv/ name\fR.
