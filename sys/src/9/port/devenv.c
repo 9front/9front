@@ -23,7 +23,7 @@ envlookup(Egrp *eg, char *name, ulong qidpath)
 
 	for(i=0; i<eg->nent; i++){
 		e = eg->ent[i];
-		if(e->qid.path == qidpath || (name && e->name[0]==name[0] && strcmp(e->name, name) == 0))
+		if(e->qid.path == qidpath || (name != nil && name[0] == e->name[0] && strcmp(e->name, name) == 0))
 			return e;
 	}
 	return nil;
@@ -42,13 +42,13 @@ envgen(Chan *c, char *name, Dirtab*, int, int s, Dir *dp)
 
 	eg = envgrp(c);
 	rlock(eg);
-	e = 0;
-	if(name)
+	e = nil;
+	if(name != nil)
 		e = envlookup(eg, name, -1);
 	else if(s < eg->nent)
 		e = eg->ent[s];
 
-	if(e == 0 || name && (strlen(e->name) >= sizeof(up->genbuf))) {
+	if(e == nil || name != nil && (strlen(e->name) >= sizeof(up->genbuf))) {
 		runlock(eg);
 		return -1;
 	}
@@ -66,11 +66,10 @@ envattach(char *spec)
 	Chan *c;
 	Egrp *egrp = nil;
 
-	if(spec && *spec) {
-		if(strcmp(spec, "c") == 0)
-			egrp = &confegrp;
-		if(egrp == nil)
+	if(spec != nil && *spec != '\0') {
+		if(strcmp(spec, "c") != 0)
 			error(Ebadarg);
+		egrp = &confegrp;
 	}
 
 	c = devattach('e', spec);
@@ -113,17 +112,17 @@ envopen(Chan *c, int omode)
 		else
 			rlock(eg);
 		e = envlookup(eg, nil, c->qid.path);
-		if(e == 0) {
+		if(e == nil) {
 			if(trunc)
 				wunlock(eg);
 			else
 				runlock(eg);
 			error(Enonexist);
 		}
-		if(trunc && e->value) {
+		if(trunc && e->value != nil) {
 			e->qid.vers++;
 			free(e->value);
-			e->value = 0;
+			e->value = nil;
 			e->len = 0;
 		}
 		if(trunc)
@@ -144,7 +143,7 @@ envcreate(Chan *c, char *name, int omode, ulong)
 	Evalue *e;
 	Evalue **ent;
 
-	if(c->qid.type != QTDIR)
+	if(c->qid.type != QTDIR || !envwriteable(c))
 		error(Eperm);
 
 	if(strlen(name) >= sizeof(up->genbuf))
@@ -159,7 +158,7 @@ envcreate(Chan *c, char *name, int omode, ulong)
 		nexterror();
 	}
 
-	if(envlookup(eg, name, -1))
+	if(envlookup(eg, name, -1) != nil)
 		error(Eexist);
 
 	e = smalloc(sizeof(Evalue));
@@ -196,12 +195,12 @@ envremove(Chan *c)
 	Egrp *eg;
 	Evalue *e;
 
-	if(c->qid.type & QTDIR)
+	if(c->qid.type & QTDIR || !envwriteable(c))
 		error(Eperm);
 
 	eg = envgrp(c);
 	wlock(eg);
-	e = 0;
+	e = nil;
 	for(i=0; i<eg->nent; i++){
 		if(eg->ent[i]->qid.path == c->qid.path){
 			e = eg->ent[i];
@@ -212,11 +211,10 @@ envremove(Chan *c)
 		}
 	}
 	wunlock(eg);
-	if(e == 0)
+	if(e == nil)
 		error(Enonexist);
 	free(e->name);
-	if(e->value)
-		free(e->value);
+	free(e->value);
 	free(e);
 }
 
@@ -245,12 +243,12 @@ envread(Chan *c, void *a, long n, vlong off)
 	eg = envgrp(c);
 	rlock(eg);
 	e = envlookup(eg, nil, c->qid.path);
-	if(e == 0) {
+	if(e == nil) {
 		runlock(eg);
 		error(Enonexist);
 	}
 
-	if(offset > e->len)	/* protects against overflow converting vlong to ulong */
+	if(offset >= e->len || e->value == nil)
 		n = 0;
 	else if(offset + n > e->len)
 		n = e->len - offset;
@@ -279,7 +277,7 @@ envwrite(Chan *c, void *a, long n, vlong off)
 	eg = envgrp(c);
 	wlock(eg);
 	e = envlookup(eg, nil, c->qid.path);
-	if(e == 0) {
+	if(e == nil) {
 		wunlock(eg);
 		error(Enonexist);
 	}
@@ -291,7 +289,7 @@ envwrite(Chan *c, void *a, long n, vlong off)
 			wunlock(eg);
 			error(Enomem);
 		}
-		if(e->value){
+		if(e->value != nil){
 			memmove(s, e->value, e->len);
 			free(e->value);
 		}
@@ -340,7 +338,7 @@ envcpy(Egrp *to, Egrp *from)
 		ne = smalloc(sizeof(Evalue));
 		ne->name = smalloc(strlen(e->name)+1);
 		strcpy(ne->name, e->name);
-		if(e->value){
+		if(e->value != nil){
 			ne->value = smalloc(e->len);
 			memmove(ne->value, e->value, e->len);
 			ne->len = e->len;
@@ -362,8 +360,7 @@ closeegrp(Egrp *eg)
 		for(i=0; i<eg->nent; i++){
 			e = eg->ent[i];
 			free(e->name);
-			if(e->value)
-				free(e->value);
+			free(e->value);
 			free(e);
 		}
 		free(eg->ent);
@@ -382,7 +379,7 @@ envgrp(Chan *c)
 static int
 envwriteable(Chan *c)
 {
-	return iseve() || c->aux == nil;
+	return c->aux == nil || c->aux == up->egrp || iseve();
 }
 
 /*
@@ -438,7 +435,7 @@ getconfenv(void)
 		/* move up to the first null */
 		q += strlen(q) + 1;
 	}
-	*q = 0;
+	*q = '\0';
 	
 	poperror();
 	runlock(eg);
