@@ -69,7 +69,7 @@ cmdscroll(Win *w, int l)
 	
 	}
 	frdelete(&w->fr, 0, w->fr.nchars);
-		frinsert(&w->fr, w->runes + w->toprune, w->runes + w->nrunes, 0);
+	frinsert(&w->fr, w->runes + w->toprune, w->runes + w->nrunes, 0);
 	scrollbar(w);
 }
 
@@ -120,6 +120,8 @@ cmdinsert(Win *w, Rune *r, int nr, int rp)
 				cmdscroll(w, 1);
 		}
 	}
+	if(w->opoint > rp)
+		w->opoint += nr;
 	return nr;
 }
 
@@ -137,15 +139,58 @@ cmddel(Win *w, int a, int b)
 		if(w->toprune >= a)
 			w->toprune = a;
 	}
+	if(a <= w->opoint && w->opoint < b)
+		w->opoint = a;
+	else if(w->opoint >= b)
+		w->opoint -= b -  a;
+}
+
+static void
+setsel(Win *w, int p0, int p1)
+{
+	frdrawsel(&w->fr, frptofchar(&w->fr, w->fr.p0), w->fr.p0, w->fr.p1, 0);
+	w->fr.p0 = p0;
+	w->fr.p1 = p1;
+	frdrawsel(&w->fr, frptofchar(&w->fr, p0), p0, p1, 1);
+}
+
+static void
+cmdline(Win *w)
+{
+	static char buf[4096];
+	Rune *q;
+	char *p;
+
+	q = w->runes + w->opoint;
+	p = buf;
+	while(q < w->runes + w->nrunes && p < buf + nelem(buf) + 1)
+		p += runetochar(p, q++);
+	*p = 0;
+	w->opoint = w->nrunes;
+	docmd(buf);
 }
 
 static void
 cmdkey(Win *w, Rune r)
 {
-	static char buf[4096];
-	char *p;
-	Rune *q;
-
+	switch(r){
+	case Kview:
+		cmdscroll(w, 3);
+		return;
+	case Kup:
+		cmdscroll(w, -3);
+		return;
+	case Kleft:
+		if(w->fr.p0 == 0)
+			return;
+		setsel(w, w->fr.p0 - 1, w->fr.p0 - 1);
+		return;
+	case Kright:
+		if(w->toprune + w->fr.p1 == w->nrunes)
+			return;
+		setsel(w, w->fr.p1 + 1, w->fr.p1 + 1);
+		return;
+	}
 	if(w->fr.p0 < w->fr.p1)
 		cmddel(w, w->toprune + w->fr.p0, w->toprune + w->fr.p1);
 	switch(r){
@@ -158,24 +203,111 @@ cmdkey(Win *w, Rune r)
 		break;
 	case '\n':
 		cmdinsert(w, &r, 1, w->fr.p0 + w->toprune);
-		if(w->toprune + w->fr.p0 == w->nrunes){
-			q = w->runes + w->opoint;
-			p = buf;
-			while(q < w->runes + w->nrunes && p < buf + nelem(buf) + 1)
-				p += runetochar(p, q++);
-			*p = 0;
-			w->opoint = w->nrunes;
-			docmd(buf);
-		}
-		break;
-	case Kview:
-		cmdscroll(w, 3);
-		break;
-	case Kup:
-		cmdscroll(w, -3);
+		if(w->toprune + w->fr.p0 == w->nrunes)
+			cmdline(w);
 		break;
 	default:
 		cmdinsert(w, &r, 1, w->fr.p0 + w->toprune);
+	}
+}
+
+static int
+tosnarf(Win *w, int p0, int p1)
+{
+	int fd;
+	static char buf[512];
+	char *c, *ce;
+	Rune *rp, *re;
+	
+	if(p0 >= p1)
+		return 0;
+	fd = open("/dev/snarf", OWRITE|OTRUNC);
+	if(fd < 0){
+		cmdprint("tosnarf: %r");
+		return -1;
+	}
+	c = buf;
+	ce = buf + sizeof(buf);
+	rp = w->runes + p0;
+	re = w->runes + p1;
+	for(; rp < re; rp++){
+		if(c + UTFmax > ce){
+			write(fd, buf, c - buf);
+			c = buf;
+		}
+		c += runetochar(c, rp);
+	}
+	if(c > buf)
+		write(fd, buf, c - buf);
+	close(fd);
+	return 0;
+}
+
+static int
+fromsnarf(Win *w, int p0)
+{
+	int fd, rc;
+	char *buf, *p;
+	Rune *rbuf, *r;
+	int nc, end;
+	
+	fd = open("/dev/snarf", OREAD);
+	if(fd < 0){
+		cmdprint("fromsnarf: %r");
+		return -1;
+	}
+	buf = nil;
+	nc = 0;
+	for(;;){
+		buf = realloc(buf, nc + 4096);
+		rc = readn(fd, buf + nc, nc + 4096);
+		if(rc <= 0)
+			break;
+		nc += rc;
+		if(rc < 4096)
+			break;
+	}
+	close(fd);
+	rbuf = emalloc(sizeof(Rune) * nc);
+	r = rbuf;
+	for(p = buf; p < buf + nc; r++)
+		p += chartorune(r, p);
+	end = p0 == w->nrunes;
+	cmdinsert(w, rbuf, r - rbuf, p0);
+	if(end && r > rbuf && r[-1] == '\n')
+		cmdline(w);
+	return 0;
+}
+
+static void
+cmdmenu(Win *w, Mousectl *mc)
+{
+	enum {
+		CUT,
+		PASTE,
+		SNARF,
+	};
+	static char *ms[] = {
+		[CUT] "cut",
+		[PASTE] "paste",
+		[SNARF] "snarf",
+		nil,
+	};
+	static Menu m = {ms};
+	
+	switch(menuhit(2, mc, &m, nil)){
+	case CUT:
+		if(tosnarf(w, w->toprune + w->fr.p0, w->toprune + w->fr.p1) >= 0)
+			cmddel(w, w->toprune + w->fr.p0, w->toprune + w->fr.p1);
+		break;
+	case SNARF:
+		tosnarf(w, w->toprune + w->fr.p0, w->toprune + w->fr.p1);
+		break;
+	case PASTE:
+		if(w->fr.p0 < w->fr.p1)
+			cmddel(w, w->toprune + w->fr.p0, w->toprune + w->fr.p1);
+		fromsnarf(w, w->toprune + w->fr.p0);
+		break;
 	}
 }
 
@@ -196,6 +328,7 @@ Wintab cmdtab = {
 	.init = cmdinit,
 	.draw = cmddraw,
 	.click = cmdclick,
+	.menu = cmdmenu,
 	.rmb = cmdrmb,
 	.key = cmdkey,
 	.hexcols = {
