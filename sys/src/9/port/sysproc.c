@@ -512,6 +512,7 @@ sysexec(va_list list)
 	up->notify = 0;
 	up->notified = 0;
 	up->privatemem = 0;
+	up->noswap = 0;
 	procsetup(up);
 	qunlock(&up->debug);
 

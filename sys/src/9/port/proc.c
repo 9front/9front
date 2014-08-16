@@ -1491,6 +1491,32 @@ exhausted(char *resource)
 	error(buf);
 }
 
+ulong
+procpagecount(Proc *p)
+{
+	Segment *s;
+	ulong pages;
+	int i;
+
+	eqlock(&p->seglock);
+	if(waserror()){
+		qunlock(&p->seglock);
+		nexterror();
+	}
+	pages = 0;
+	for(i=0; i<NSEG; i++){
+		if((s = p->seg[i]) != nil){
+			eqlock(s);
+			pages += mcountseg(s);
+			qunlock(s);
+		}
+	}
+	qunlock(&p->seglock);
+	poperror();
+
+	return pages;
+}
+
 void
 killbig(char *why)
 {
@@ -1503,25 +1529,20 @@ killbig(char *why)
 	kp = nil;
 	ep = procalloc.arena+conf.nproc;
 	for(p = procalloc.arena; p < ep; p++) {
-		if(p->state == Dead || p->kp || !canqlock(&p->seglock))
+		if(p->state == Dead || p->kp)
 			continue;
-		l = 0;
-		for(i=1; i<NSEG; i++) {
-			s = p->seg[i];
-			if(s == nil || !canqlock(s))
-				continue;
-			l += mcountseg(s);
-			qunlock(s);
-		}
-		qunlock(&p->seglock);
-		if(l > max && ((p->procmode&0222) || strcmp(eve, p->user)!=0)) {
+		if((p->noswap || (p->procmode & 0222) == 0) && strcmp(eve, p->user) == 0)
+			continue;
+		l = procpagecount(p);
+		if(l > max){
 			kp = p;
 			max = l;
 		}
 	}
-	if(kp == nil || !canqlock(&kp->seglock))
+	if(kp == nil)
 		return;
 	print("%lud: %s killed: %s\n", kp->pid, kp->text, why);
+	qlock(&kp->seglock);
 	for(p = procalloc.arena; p < ep; p++) {
 		if(p->state == Dead || p->kp)
 			continue;
@@ -1531,7 +1552,8 @@ killbig(char *why)
 	kp->procctl = Proc_exitbig;
 	for(i = 0; i < NSEG; i++) {
 		s = kp->seg[i];
-		if(s != nil && canqlock(s)) {
+		if(s != nil) {
+			qlock(s);
 			mfreeseg(s, s->base, (s->top - s->base)/BY2PG);
 			qunlock(s);
 		}

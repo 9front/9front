@@ -301,6 +301,32 @@ This bit is inherited across
 and
 .IR exec (2).
 .TP 10n
+.B nohang
+Clear the hang bit.
+.TP 10n
+.B private
+Make it impossible to read the process's user memory.
+This property is inherited on
+.IR fork (2),
+cleared on
+.IR exec (2),
+and is not otherwise resettable.
+.TP 10n
+.B noswap
+Don't allow this process to be swapped out.  This should
+be used carefully and sparingly or the system could run
+out of memory.  It is meant for processes that can't be
+swapped, like the local fileserver implementing the swap
+device and for processes containing sensitive data.
+This property is inherited on
+.IR fork (2),
+cleared on
+.IR exec (2),
+and is not otherwise resettable.
+.TP 10n
+.B kill
+Kill the process the next time it crosses the user/kernel boundary.
+.TP 10n
 .B "close\ \fIn
 Close file descriptor
 .I n
@@ -308,25 +334,6 @@ in the process.
 .TP 10n
 .B closefiles
 Close all open file descriptors in the process.
-.TP 10n
-.B nohang
-Clear the hang bit.
-.TP 10n
-.B noswap
-Don't allow this process to be swapped out.  This should
-be used carefully and sparingly or the system could run
-out of memory.  It is meant for processes that can't be
-swapped, like the ones implementing the swap device and for
-processes containing sensitive data.
-.TP 10n
-.B kill
-Kill the process the next time it crosses the user/kernel boundary.
-.TP 10n
-.B private
-Make it impossible to read the process's user memory.
-This property is inherited on fork, cleared on
-.IR exec (2),
-and is not otherwise resettable.
 .TP 10n
 .B "pri\ \fIn
 Set the base priority for the process to the integer

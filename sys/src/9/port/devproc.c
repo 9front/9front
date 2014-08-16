@@ -492,7 +492,7 @@ procwstat(Chan *c, uchar *db, int n)
 	if(p->pid != PID(c->qid))
 		error(Eprocdied);
 
-	if(strcmp(up->user, p->user) != 0 && strcmp(up->user, eve) != 0)
+	if(strcmp(up->user, p->user) != 0 && !iseve())
 		error(Eperm);
 
 	d = smalloc(sizeof(Dir)+n);
@@ -500,10 +500,9 @@ procwstat(Chan *c, uchar *db, int n)
 	if(n == 0)
 		error(Eshortstat);
 	if(!emptystr(d->uid) && strcmp(d->uid, p->user) != 0){
-		if(strcmp(up->user, eve) != 0)
+		if(!iseve())
 			error(Eperm);
-		else
-			kstrdup(&p->user, d->uid);
+		kstrdup(&p->user, d->uid);
 	}
 	/* p->procmode determines default mode for files in /proc */
 	if(d->mode != ~0UL)
@@ -1528,32 +1527,6 @@ int
 procstopped(void *a)
 {
 	return ((Proc*)a)->state == Stopped;
-}
-
-ulong
-procpagecount(Proc *p)
-{
-	Segment *s;
-	ulong pages;
-	int i;
-
-	eqlock(&p->seglock);
-	if(waserror()){
-		qunlock(&p->seglock);
-		nexterror();
-	}
-	pages = 0;
-	for(i=0; i<NSEG; i++){
-		if((s = p->seg[i]) != nil){
-			eqlock(s);
-			pages += mcountseg(s);
-			qunlock(s);
-		}
-	}
-	qunlock(&p->seglock);
-	poperror();
-
-	return pages;
 }
 
 int
