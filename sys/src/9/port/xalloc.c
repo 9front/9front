@@ -42,12 +42,12 @@ static Xalloc	xlists;
 void
 xinit(void)
 {
-	int i, n, upages, kpages;
-	ulong maxpages;
+	ulong maxpages, kpages, n;
 	uintptr size;
 	Confmem *m;
 	Pallocmem *pm;
 	Hole *h, *eh;
+	int i;
 
 	eh = &xlists.hole[Nhole-1];
 	for(h = xlists.hole; h < eh; h++)
@@ -55,8 +55,7 @@ xinit(void)
 
 	xlists.flist = xlists.hole;
 
-	upages = conf.upages;
-	kpages = conf.npage - upages;
+	kpages = conf.npage - conf.upages;
 
 	pm = palloc.mem;
 	for(i=0; i<nelem(conf.mem); i++){
