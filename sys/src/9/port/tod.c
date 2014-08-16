@@ -198,11 +198,13 @@ todfix(void)
 	uvlong x;
 
 	ticks = fastticks(nil);
+	diff = ticks - tod.last;
+	if(diff <= tod.hz)
+		return;
 
+	ilock(&tod);
 	diff = ticks - tod.last;
 	if(diff > tod.hz){
-		ilock(&tod);
-
 		/* convert to epoch */
 		mul64fract(&x, diff, tod.multiplier);
 if(x > 30000000000ULL) iprint("todfix %llud\n", x);
@@ -211,9 +213,8 @@ if(x > 30000000000ULL) iprint("todfix %llud\n", x);
 		/* protect against overflows */
 		tod.last = ticks;
 		tod.off = x;
-
-		iunlock(&tod);
 	}
+	iunlock(&tod);
 }
 
 long
