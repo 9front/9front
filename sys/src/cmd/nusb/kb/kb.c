@@ -29,17 +29,53 @@ enum
 	Kbrepeat = 100,
 };
 
-typedef struct KDev KDev;
-struct KDev
+typedef struct Hiddev Hiddev;
+struct Hiddev
 {
 	Dev*	dev;		/* usb device*/
 	Dev*	ep;		/* endpoint to get events */
-	int	infd;		/* used to send events to kernel */
+
+	int	minfd;
+	int	kinfd;
+
 	Channel	*repeatc;	/* only for keyboard */
 
 	/* report descriptor */
 	int	nrep;
 	uchar	rep[512];
+};
+
+typedef struct Hidreport Hidreport;
+struct Hidreport
+{
+	int	x;
+	int	y;
+	int	z;
+
+	int	b;
+	int	m;
+
+	int	absx;
+	int	absy;
+	int	absz;
+
+	int	nk;
+	uchar	k[64];
+
+	int	o;
+	uchar	*e;
+	uchar	p[128];
+};
+
+/*
+ * Plan 9 keyboard driver constants.
+ */
+enum {
+	/* Scan codes (see kbd.c) */
+	SCesc1		= 0xe0,		/* first of a 2-character sequence */
+	SCesc2		= 0xe1,
+	Keyup		= 0x80,		/* flag bit */
+	Keymask		= 0x7f,		/* regular scan code bits */
 };
 
 /*
@@ -87,6 +123,17 @@ static char sctab[256] =
 [0xf8]	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,	0x0,
 };
 
+static uchar kbdbootrep[] = {
+0x05, 0x01, 0x09, 0x06, 0xa1, 0x01, 0x05, 0x07,
+0x19, 0xe0, 0x29, 0xe7, 0x15, 0x00, 0x25, 0x01,
+0x75, 0x01, 0x95, 0x08, 0x81, 0x02, 0x95, 0x01,
+0x75, 0x08, 0x81, 0x01, 0x95, 0x05, 0x75, 0x01,
+0x05, 0x08, 0x19, 0x01, 0x29, 0x05, 0x91, 0x02,
+0x95, 0x01, 0x75, 0x03, 0x91, 0x01, 0x95, 0x06,
+0x75, 0x08, 0x15, 0x00, 0x25, 0x65, 0x05, 0x07,
+0x19, 0x00, 0x29, 0x65, 0x81, 0x00, 0xc0,
+};
+
 static uchar ptrbootrep[] = {
 0x05, 0x01, 0x09, 0x02, 0xa1, 0x01, 0x09, 0x01, 
 0xa1, 0x00, 0x05, 0x09, 0x19, 0x01, 0x29, 0x03, 
@@ -99,7 +146,7 @@ static uchar ptrbootrep[] = {
 0x07, 0xb1, 0x01, 0xc0, 
 };
 
-static int debug;
+static int debug = 0;
 
 static int
 signext(int v, int bits)
@@ -252,7 +299,7 @@ repparse(uchar *d, uchar *e,
 }
 
 static int
-setproto(KDev *f, int eid)
+setproto(Hiddev *f, int eid)
 {
 	int id, proto;
 	Iface *iface;
@@ -260,22 +307,25 @@ setproto(KDev *f, int eid)
 	proto = Bootproto;
 	iface = f->dev->usb->ep[eid]->iface;
 	id = iface->id;
-	if(iface->csp == PtrCSP || iface->csp == Ptr2CSP){
-		f->nrep = usbcmd(f->dev, Rd2h|Rstd|Riface, Rgetdesc, Dreport<<8, id, 
-			f->rep, sizeof(f->rep));
-		if(f->nrep > 0){
-			if(debug){
-				int i;
+	f->nrep = usbcmd(f->dev, Rd2h|Rstd|Riface, Rgetdesc, Dreport<<8, id, 
+		f->rep, sizeof(f->rep));
+	if(f->nrep > 0){
+		if(debug){
+			int i;
 
-				fprint(2, "report descriptor:");
-				for(i = 0; i < f->nrep; i++){
-					if(i%8 == 0)
-						fprint(2, "\n\t");
-					fprint(2, "%#2.2ux ", f->rep[i]);
-				}
-				fprint(2, "\n");
+			fprint(2, "report descriptor:");
+			for(i = 0; i < f->nrep; i++){
+				if(i%8 == 0)
+					fprint(2, "\n\t");
+				fprint(2, "%#2.2ux ", f->rep[i]);
 			}
-			proto = Reportproto;
+			fprint(2, "\n");
+		}
+		proto = Reportproto;
+	} else {
+		if(iface->csp == KbdCSP){
+			f->nrep = sizeof(kbdbootrep);
+			memmove(f->rep, kbdbootrep, f->nrep);
 		} else {
 			f->nrep = sizeof(ptrbootrep);
 			memmove(f->rep, ptrbootrep, f->nrep);
@@ -285,7 +335,7 @@ setproto(KDev *f, int eid)
 }
 
 static int
-setleds(KDev* f, int, uchar leds)
+setleds(Hiddev* f, int, uchar leds)
 {
 	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setreport, Reportout, 0, &leds, 1);
 }
@@ -295,7 +345,7 @@ setleds(KDev* f, int, uchar leds)
  * BUG: we should be careful not to reset a bundle with several devices.
  */
 static void
-recoverkb(KDev *f)
+hdrecover(Hiddev *f)
 {
 	int i;
 
@@ -312,68 +362,121 @@ recoverkb(KDev *f)
 }
 
 static void
-kbfree(KDev *kd)
+hdfree(Hiddev *f)
 {
-	if(kd->infd >= 0)
-		close(kd->infd);
-	if(kd->ep != nil)
-		closedev(kd->ep);
-	if(kd->dev != nil)
-		closedev(kd->dev);
-	free(kd);
+	if(f->kinfd >= 0)
+		close(f->kinfd);
+	if(f->minfd >= 0)
+		close(f->minfd);
+	if(f->ep != nil)
+		closedev(f->ep);
+	if(f->dev != nil)
+		closedev(f->dev);
+	free(f);
 }
 
 static void
-kbfatal(KDev *kd, char *sts)
+hdfatal(Hiddev *f, char *sts)
 {
 	if(sts != nil)
 		fprint(2, "%s: fatal: %s\n", argv0, sts);
 	else
 		fprint(2, "%s: exiting\n", argv0);
-	if(kd->repeatc != nil)
-		sendul(kd->repeatc, Diemsg);
-	kbfree(kd);
+	if(f->repeatc != nil)
+		sendul(f->repeatc, Diemsg);
+	hdfree(f);
 	threadexits(sts);
 }
 
 static void
-sethipri(void)
+putscan(Hiddev *f, uchar sc, uchar up)
 {
-	char fn[64];
-	int fd;
+	uchar s[2] = {SCesc1, 0};
 
-	snprint(fn, sizeof(fn), "/proc/%d/ctl", getpid());
-	fd = open(fn, OWRITE);
-	if(fd < 0)
+	if(sc == 0)
 		return;
-	fprint(fd, "pri 13");
-	close(fd);
+	s[1] = up | sc&Keymask;
+	if(isext(sc))
+		write(f->kinfd, s, 2);
+	else
+		write(f->kinfd, s+1, 1);
 }
 
-typedef struct Ptr Ptr;
-struct Ptr
+static void
+sleepproc(void* a)
 {
-	int	x;
-	int	y;
-	int	z;
+	Channel *c = a;
+	int ms;
 
-	int	b;
-	int	m;
-
-	int	absx;
-	int	absy;
-	int	absz;
-
-	int	o;
-	uchar	*e;
-	uchar	p[128];
-};
+	threadsetname("sleepproc");
+	while((ms = recvul(c)) > 0)
+		sleep(ms);
+	chanfree(c);
+}
 
 static void
-ptrparse(int t, int f, int g[], int l[], int, void *a)
+repeatproc(void* arg)
 {
+	Hiddev *f = arg;
+	Channel *repeatc, *sleepc;
+	ulong l, t;
+	uchar sc;
+	Alt a[3];
+
+	repeatc = f->repeatc;
+	threadsetname("repeatproc");
+	
+	sleepc = chancreate(sizeof(ulong), 0);
+	if(sleepc != nil)
+		proccreate(sleepproc, sleepc, Stack);
+
+	a[0].c = repeatc;
+	a[0].v = &l;
+	a[0].op = CHANRCV;
+	a[1].c = sleepc;
+	a[1].v = &t;
+	a[1].op = sleepc!=nil ? CHANSND : CHANNOP;
+	a[2].c = nil;
+	a[2].v = nil;
+	a[2].op = CHANEND;
+
+	l = Awakemsg;
+	while(l != Diemsg){
+		if(l == Awakemsg){
+			l = recvul(repeatc);
+			continue;
+		}
+		sc = l & 0xff;
+		t = Kbdelay;
+		if(alt(a) == 1){
+			t = Kbrepeat;
+			while(alt(a) == 1)
+				putscan(f, sc, 0);
+		}
+	}
+	if(sleepc != nil)
+		sendul(sleepc, 0);
+	chanfree(repeatc);
+	threadexits(nil);
+}
+
+static void
+stoprepeat(Hiddev *f)
+{
+	sendul(f->repeatc, Awakemsg);
+}
+
+static void
+startrepeat(Hiddev *f, uchar sc)
+{
+	sendul(f->repeatc, sc);
+}
+
+static void
+hidparse(int t, int f, int g[], int l[], int, void *a)
+{
+	Hidreport *p = a;
 	int v, m;
-	Ptr *p = a;
 
 	if(t != Input)
 		return;
@@ -386,6 +489,22 @@ ptrparse(int t, int f, int g[], int l[], int, void *a)
 			p->o = 8;	/* skip report id byte */
 	}
 	v = getbits(p->p, p->e, g[RepSize], p->o);
+	p->o += g[RepSize];
+
+	if((f & (Fconst|Fdata)) != Fdata)
+		return;
+
+	if(debug > 1)
+		fprint(2, "hidparse: t=%x f=%x usage=%x v=%x\n", t, f, l[Usage], v);
+
+	if((l[Usage]>>16) == 0x07){	/* keycode */
+		if((f & (Fvar|Farray)) == Fvar)
+			if(v != 0) v = l[Usage] & 0xFF;
+		if(p->nk < nelem(p->k) && v != 0)
+			p->k[p->nk++] = v;
+		return;
+	}
+
 	if(g[LogiMin] < 0)
 		v = signext(v, g[RepSize]);
 	if((f & (Fvar|Farray)) == Fvar && v >= g[LogiMin] && v <= g[LogiMax]){
@@ -445,30 +564,42 @@ ptrparse(int t, int f, int g[], int l[], int, void *a)
 			break;
 		}
 	}
-	p->o += g[RepSize];
 }
 
 static void
-ptrwork(void* a)
+sethipri(void)
 {
-	char	err[ERRMAX];
-	char	mbuf[80];
-	int	c, b, nerrs, lastb;
-	KDev*	f = a;
-	Ptr	p;
+	char fn[64];
+	int fd;
 
-	threadsetname("ptr %s", f->ep->dir);
+	snprint(fn, sizeof(fn), "/proc/%d/ctl", getpid());
+	fd = open(fn, OWRITE);
+	if(fd < 0)
+		return;
+	fprint(fd, "pri 13");
+	close(fd);
+}
+
+static void
+readerproc(void* a)
+{
+	char	err[ERRMAX], mbuf[80];
+	uchar	lastk[64], uk, dk;
+	int	i, c, b, nerrs, lastb, nlastk;
+	Hidreport p;
+	Hiddev*	f = a;
+
+	threadsetname("readerproc %s", f->ep->dir);
 	sethipri();
 
 	memset(&p, 0, sizeof(p));
-	lastb = 0;
+	lastb = nlastk = nerrs = 0;
 
-	nerrs = 0;
 	for(;;){
 		if(f->ep == nil)
-			kbfatal(f, nil);
+			hdfatal(f, nil);
 		if(f->ep->maxpkt < 1 || f->ep->maxpkt > sizeof(p.p))
-			kbfatal(f, "ptr: weird mouse maxpkt");
+			hdfatal(f, "hid: weird maxpkt");
 
 		memset(p.p, 0, sizeof(p.p));
 		c = read(f->ep->dfd, p.p, f->ep->maxpkt);
@@ -478,23 +609,61 @@ ptrwork(void* a)
 			else
 				strcpy(err, "zero read");
 			if(++nerrs < 3){
-				fprint(2, "%s: ptr: %s: read: %s\n", argv0, f->ep->dir, err);
+				fprint(2, "%s: hid: %s: read: %s\n", argv0, f->ep->dir, err);
 				if(strstr(err, "babble") != 0)
-					recoverkb(f);
+					hdrecover(f);
 				continue;
 			}
-			kbfatal(f, err);
+			hdfatal(f, err);
 		}
 		nerrs = 0;
 
 		p.o = 0;
 		p.e = p.p + c;
-		repparse(f->rep, f->rep+f->nrep, ptrparse, &p);
+		repparse(f->rep, f->rep+f->nrep, hidparse, &p);
 
-		if(debug)
-			fprint(2, "ptr: b=%x m=%x x=%d y=%d z=%d\n", p.b, p.m, p.x, p.y, p.z);
+		if(p.nk != 0 || nlastk != 0){
+			if(debug){
+				fprint(2, "kbd: ");
+				for(i = 0; i < p.nk; i++)
+					fprint(2, "%#2.2ux ", p.k[i]);
+				fprint(2, "\n");
+			}
 
-		/* map buttons */
+			if(f->kinfd < 0){
+				f->kinfd = open("/dev/kbin", OWRITE);
+				if(f->kinfd < 0)
+					hdfatal(f, "open /dev/kbdin");
+
+				f->repeatc = chancreate(sizeof(ulong), 0);
+				if(f->repeatc == nil)
+					hdfatal(f, "chancreate failed");
+				proccreate(repeatproc, f, Stack);
+			}
+	
+			dk = uk = 0;
+			for(i=0; i<nlastk; i++){
+				if(memchr(p.k, lastk[i], p.nk) == nil){
+					uk = sctab[lastk[i]];
+					putscan(f, uk, Keyup);
+				}
+			}
+			for(i=0; i<p.nk; i++){
+				if(memchr(lastk, p.k[i], nlastk) == nil){
+					dk = sctab[p.k[i]];
+					putscan(f, dk, 0);
+				}
+			}
+			if(uk != 0 && (dk == 0 || dk == uk))
+				stoprepeat(f);
+			else if(dk != 0)
+				startrepeat(f, dk);
+
+			memmove(lastk, p.k, nlastk = p.nk);
+			p.nk = 0;
+		}
+
+		/* map mouse buttons */
 		b = p.b & 1;
 		if(p.b & (4|8))
 			b |= 2;
@@ -503,271 +672,51 @@ ptrwork(void* a)
 		if(p.z != 0)
 			b |= (p.z > 0) ? 8 : 16;
 
-		if(p.x == 0 && p.y == 0 && p.z == 0 && b == lastb)
-			continue;
-		lastb = b;
+		if(p.x != 0 || p.y != 0 || p.z != 0 || b != lastb){
+			if(debug)
+				fprint(2, "ptr: b=%x m=%x x=%d y=%d z=%d\n", p.b, p.m, p.x, p.y, p.z);
 
-		seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", p.x, p.y, b);
-		if(write(f->infd, mbuf, strlen(mbuf)) < 0)
-			kbfatal(f, "mousein i/o");
-	}
-}
-
-static void
-putscan(int fd, uchar sc, uchar up)
-{
-	uchar s[2] = {SCesc1, 0};
-
-	if(sc == 0)
-		return;
-	s[1] = up | sc&Keymask;
-	if(isext(sc))
-		write(fd, s, 2);
-	else
-		write(fd, s+1, 1);
-}
-
-static void
-putmod(int fd, uchar mods, uchar omods, uchar mask, uchar esc, uchar sc)
-{
-	uchar s[4], *p;
-
-	p = s;
-	if((mods&mask) && !(omods&mask)){
-		if(esc)
-			*p++ = SCesc1;
-		*p++ = sc;
-	}
-	if(!(mods&mask) && (omods&mask)){
-		if(esc)
-			*p++ = SCesc1;
-		*p++ = Keyup|sc;
-	}
-	if(p > s)
-		write(fd, s, p - s);
-}
-
-static void
-sleepproc(void* a)
-{
-	Channel *c = a;
-	int ms;
-
-	threadsetname("sleepproc");
-	while((ms = recvul(c)) > 0)
-		sleep(ms);
-	chanfree(c);
-}
-
-static void
-repeatproc(void* arg)
-{
-	KDev *f = arg;
-	Channel *repeatc, *sleepc;
-	int kbdinfd;
-	ulong l, t;
-	uchar sc;
-	Alt a[3];
-
-	repeatc = f->repeatc;
-	kbdinfd = f->infd;
-	threadsetname("repeatproc");
-	
-	sleepc = chancreate(sizeof(ulong), 0);
-	if(sleepc != nil)
-		proccreate(sleepproc, sleepc, Stack);
-
-	a[0].c = repeatc;
-	a[0].v = &l;
-	a[0].op = CHANRCV;
-	a[1].c = sleepc;
-	a[1].v = &t;
-	a[1].op = sleepc!=nil ? CHANSND : CHANNOP;
-	a[2].c = nil;
-	a[2].v = nil;
-	a[2].op = CHANEND;
-
-	l = Awakemsg;
-	while(l != Diemsg){
-		if(l == Awakemsg){
-			l = recvul(repeatc);
-			continue;
-		}
-		sc = l & 0xff;
-		t = Kbdelay;
-		if(alt(a) == 1){
-			t = Kbrepeat;
-			while(alt(a) == 1)
-				putscan(kbdinfd, sc, 0);
-		}
-	}
-	if(sleepc != nil)
-		sendul(sleepc, 0);
-	chanfree(repeatc);
-	threadexits(nil);
-}
-
-static void
-stoprepeat(KDev *f)
-{
-	sendul(f->repeatc, Awakemsg);
-}
-
-static void
-startrepeat(KDev *f, uchar sc)
-{
-	sendul(f->repeatc, sc);
-}
-
-/*
- * This routine diffs the state with the last known state
- * and invents the scan codes that would have been sent
- * by a non-usb keyboard in that case. This also requires supplying
- * the extra esc1 byte as well as keyup flags.
- * The aim is to allow future addition of other keycode pages
- * for other keyboards.
- */
-static uchar
-putkeys(KDev *f, uchar buf[], uchar obuf[], int n, uchar dk)
-{
-	int i, j;
-	uchar uk;
-	int fd;
-
-	fd = f->infd;
-	putmod(fd, buf[0], obuf[0], Mctrl, 0, SCctrl);
-	putmod(fd, buf[0], obuf[0], (1<<Mlshift), 0, SClshift);
-	putmod(fd, buf[0], obuf[0], (1<<Mrshift), 0, SCrshift);
-	putmod(fd, buf[0], obuf[0], Mcompose, 0, SCcompose);
-	putmod(fd, buf[0], obuf[0], Maltgr, 1, SCcompose);
-
-	/* Report key downs */
-	for(i = 2; i < n; i++){
-		for(j = 2; j < n; j++)
-			if(buf[i] == obuf[j])
-			 	break;
-		if(j == n && buf[i] != 0){
-			dk = sctab[buf[i]];
-			putscan(fd, dk, 0);
-			startrepeat(f, dk);
-		}
-	}
-
-	/* Report key ups */
-	uk = 0;
-	for(i = 2; i < n; i++){
-		for(j = 2; j < n; j++)
-			if(obuf[i] == buf[j])
-				break;
-		if(j == n && obuf[i] != 0){
-			uk = sctab[obuf[i]];
-			putscan(fd, uk, Keyup);
-		}
-	}
-	if(uk && (dk == 0 || dk == uk)){
-		stoprepeat(f);
-		dk = 0;
-	}
-	return dk;
-}
-
-static int
-kbdbusy(uchar* buf, int n)
-{
-	int i;
-
-	for(i = 1; i < n; i++)
-		if(buf[i] == 0 || buf[i] != buf[0])
-			return 0;
-	return 1;
-}
-
-static void
-kbdwork(void *a)
-{
-	uchar dk, buf[64], lbuf[64];
-	int c, i, nerrs;
-	char err[128];
-	KDev *f = a;
-
-	threadsetname("kbd %s", f->ep->dir);
-
-	f->repeatc = chancreate(sizeof(ulong), 0);
-	if(f->repeatc == nil)
-		kbfatal(f, "chancreate failed");
-	proccreate(repeatproc, f, Stack);
-
-	setleds(f, f->ep->id, 0);
-	sethipri();
-
-	memset(lbuf, 0, sizeof lbuf);
-	dk = nerrs = 0;
-	for(;;){
-		if(f->ep == nil)
-			kbfatal(f, nil);
-		if(f->ep->maxpkt < 3 || f->ep->maxpkt > sizeof buf)
-			kbfatal(f, "kbd: weird maxpkt");
-		memset(buf, 0, sizeof buf);
-		c = read(f->ep->dfd, buf, f->ep->maxpkt);
-		if(c <= 0){
-			if(c < 0)
-				rerrstr(err, sizeof(err));
-			else
-				strcpy(err, "zero read");
-			if(++nerrs < 3){
-				fprint(2, "%s: kbd: %s: read: %s\n", argv0, f->ep->dir, err);
-				if(strstr(err, "babble") != 0)
-					recoverkb(f);
-				continue;
+			if(f->minfd < 0){
+				f->minfd = open("/dev/mousein", OWRITE);
+				if(f->minfd < 0)
+					hdfatal(f, "open /dev/mousein");
 			}
-			kbfatal(f, err);
+
+			seprint(mbuf, mbuf+sizeof(mbuf), "m%11d %11d %11d", p.x, p.y, b);
+			write(f->minfd, mbuf, strlen(mbuf));
+
+			lastb = b;
 		}
-		nerrs = 0;
-		if(c < 3)
-			continue;
-		if(kbdbusy(buf + 2, c - 2))
-			continue;
-		if(usbdebug > 2 || debug > 1){
-			fprint(2, "kbd mod %x: ", buf[0]);
-			for(i = 2; i < c; i++)
-				fprint(2, "kc %x ", buf[i]);
-			fprint(2, "\n");
-		}
-		dk = putkeys(f, buf, lbuf, f->ep->maxpkt, dk);
-		memmove(lbuf, buf, c);
 	}
 }
 
 static void
-kbstart(Dev *d, Ep *ep, char *infile, void (*f)(void*))
+hdsetup(Dev *d, Ep *ep)
 {
-	KDev *kd;
+	Hiddev *f;
 
-	kd = emallocz(sizeof(KDev), 1);
-	kd->infd = open(infile, OWRITE);
-	if(kd->infd < 0){
-		fprint(2, "%s: %s: open: %r\n", argv0, d->dir);
-		goto Err;
-	}
+	f = emallocz(sizeof(Hiddev), 1);
+	f->minfd = -1;
+	f->kinfd = -1;
 	incref(d);
-	kd->dev = d;
-	if(setproto(kd, ep->id) < 0){
+	f->dev = d;
+	if(setproto(f, ep->id) < 0){
 		fprint(2, "%s: %s: setproto: %r\n", argv0, d->dir);
 		goto Err;
 	}
-	kd->ep = openep(kd->dev, ep->id);
-	if(kd->ep == nil){
+	f->ep = openep(f->dev, ep->id);
+	if(f->ep == nil){
 		fprint(2, "%s: %s: openep %d: %r\n", argv0, d->dir, ep->id);
 		goto Err;
 	}
-	if(opendevdata(kd->ep, OREAD) < 0){
-		fprint(2, "%s: %s: opendevdata: %r\n", argv0, kd->ep->dir);
+	if(opendevdata(f->ep, OREAD) < 0){
+		fprint(2, "%s: %s: opendevdata: %r\n", argv0, f->ep->dir);
 		goto Err;
 	}
-	procrfork(f, kd, Stack, RFNOTEG);
+	procrfork(readerproc, f, Stack, RFNOTEG);
 	return;
 Err:
-	kbfree(kd);
+	hdfree(f);
 }
 
 static void
@@ -801,10 +750,15 @@ threadmain(int argc, char* argv[])
 	for(i = 0; i < nelem(ud->ep); i++){
 		if((ep = ud->ep[i]) == nil)
 			continue;
-		if(ep->type == Eintr && ep->dir == Ein && ep->iface->csp == KbdCSP)
-			kbstart(d, ep, "/dev/kbin", kbdwork);
-		if(ep->type == Eintr && ep->dir == Ein && (ep->iface->csp == PtrCSP || ep->iface->csp == Ptr2CSP))
-			kbstart(d, ep, "/dev/mousein", ptrwork);
+		if(ep->type != Eintr || ep->dir != Ein)
+			continue;
+		switch(ep->iface->csp){
+		case KbdCSP:
+		case PtrCSP:
+		case HidCSP:
+			hdsetup(d, ep);
+			break;
+		}
 	}
 	closedev(d);
 	threadexits(nil);
