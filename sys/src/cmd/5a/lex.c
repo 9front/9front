@@ -563,14 +563,6 @@ outcode(int a, int scond, Gen *g1, int reg, Gen *g2)
 		scond = (scond & ~0xf) | Always;
 	}
 
-	if(a == AMOVM){
-		if((scond & (C_SBIT|C_WBIT)) == (C_SBIT|C_WBIT))
-		if(g2->type != D_CONST || (g2->offset & (1<<15)) == 0){
-			yyerror("MOVM .S and .W are exclusive");
-			errorexit();
-		}
-	}
-
 	if(pass == 1)
 		goto out;
 jackpot:
