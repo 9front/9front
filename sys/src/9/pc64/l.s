@@ -62,9 +62,9 @@ TEXT _multibootentry<>(SB), 1, $-4
 	SUBL	DI, CX
 	ADDL	CX, SI
 	ADDL	CX, DI
+	INCL	CX	/* one more for post decrement */
 	STD
 	REP; MOVSB
-	CLD
 	MOVL	BX, multibootptr-KZERO(SB)
 	MOVL	$_protected<>-KZERO(SB), AX
 	JMP*	AX

@@ -67,9 +67,9 @@ TEXT _multibootentry(SB), $0
 	SUBL	DI, CX
 	ADDL	CX, SI
 	ADDL	CX, DI
+	INCL	CX	/* one more for post decrement */
 	STD
 	REP; MOVSB
-	CLD
 	ADDL	$KZERO, BX
 	MOVL	BX, multiboot-KZERO(SB)
 	MOVL	$_startPADDR(SB), AX
