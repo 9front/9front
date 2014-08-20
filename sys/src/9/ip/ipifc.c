@@ -1628,25 +1628,29 @@ char*
 ipifcadd6(Ipifc *ifc, char**argv, int argc)
 {
 	int plen = 64;
-	long origint = NOW / 1000, preflt = ~0L, validlt = ~0L;
 	char addr[40], preflen[6];
 	char *params[3];
-	uchar autoflag = 1, onlink = 1;
 	uchar prefix[IPaddrlen];
-	Iplifc *lifc;
+	Iplifc lifc;
+
+	lifc.onlink = 1;
+	lifc.autoflag = 1;
+	lifc.validlt = ~0L;
+	lifc.preflt = ~0L;
+	lifc.origint = NOW / 1000;
 
 	switch(argc) {
 	case 7:
-		preflt = atoi(argv[6]);
+		lifc.preflt = atoi(argv[6]);
 		/* fall through */
 	case 6:
-		validlt = atoi(argv[5]);
+		lifc.validlt = atoi(argv[5]);
 		/* fall through */
 	case 5:
-		autoflag = atoi(argv[4]);
+		lifc.autoflag = atoi(argv[4]) != 0;
 		/* fall through */
 	case 4:
-		onlink = atoi(argv[3]);
+		lifc.onlink = atoi(argv[3]) != 0;
 		/* fall through */
 	case 3:
 		plen = atoi(argv[2]);
@@ -1657,26 +1661,20 @@ ipifcadd6(Ipifc *ifc, char**argv, int argc)
 		return Ebadarg;
 	}
 
-	if (parseip(prefix, argv[1]) != 6 || validlt < preflt || plen < 0 ||
+	if (parseip(prefix, argv[1]) != 6 || lifc.validlt < lifc.preflt || plen < 0 ||
 	    plen > 64 || islinklocal(prefix))
 		return Ebadarg;
-
-	lifc = smalloc(sizeof(Iplifc));
-	lifc->onlink = (onlink != 0);
-	lifc->autoflag = (autoflag != 0);
-	lifc->validlt = validlt;
-	lifc->preflt = preflt;
-	lifc->origint = origint;
 
 	/* issue "add" ctl msg for v6 link-local addr and prefix len */
 	if(ifc->m->pref2addr == nil)
 		return Ebadarg;
 	(*ifc->m->pref2addr)(prefix, ifc->mac);	/* mac → v6 link-local addr */
+
 	sprint(addr, "%I", prefix);
 	sprint(preflen, "/%d", plen);
 	params[0] = "add";
 	params[1] = addr;
 	params[2] = preflen;
 
-	return ipifcadd(ifc, params, 3, 0, lifc);
+	return ipifcadd(ifc, params, 3, 0, &lifc);
 }
