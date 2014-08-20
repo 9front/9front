@@ -228,8 +228,7 @@ dologin(int fd, char *S, int forceSTA)
 	rv = -1;
 
 	/* collect the first message */
-	if((conn = newSConn(fd)) == nil)
-		return -1;
+	conn = newSConn(fd);
 	if(readstr(conn, msg) < 0){
 		fprint(2, "secstored: remote: %s: %r\n", msg);
 		writerr(conn, "can't read your first message");

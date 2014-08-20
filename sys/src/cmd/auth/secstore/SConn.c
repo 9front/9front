@@ -169,8 +169,6 @@ newSConn(int fd)
 	SS *ss;
 	SConn *conn;
 
-	if(fd < 0)
-		return nil;
 	ss = (SS*)emalloc(sizeof(*ss));
 	conn = (SConn*)emalloc(sizeof(*conn));
 	ss->fd  = fd;

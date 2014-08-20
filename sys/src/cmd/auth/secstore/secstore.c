@@ -414,14 +414,10 @@ login(char *id, char *dest, int pass_stdin, int pass_nvram)
 		if(verbose)
 			fprint(2, "dialing %s\n", dest);
 		if((fd = dial(dest, nil, nil, nil)) < 0){
-			fprint(2, "secstore: can't dial %s\n", dest);
-			free(c);
-			return nil;
+			fprint(2, "secstore: can't dial %s: %r\n", dest);
+			exits("dial failed");
 		}
-		if((c->conn = newSConn(fd)) == nil){
-			free(c);
-			return nil;
-		}
+		c->conn = newSConn(fd);
 		ntry++;
 		if(!pass_stdin && !pass_nvram){
 			pass = getpassm("secstore password: ");
@@ -478,7 +474,7 @@ login(char *id, char *dest, int pass_stdin, int pass_nvram)
 		readstr(c->conn, s);	/* TODO: check for error? */
 	}
 	if(strcmp(s, "OK") != 0){
-		fprint(2, "%s: %s\n", argv0, s);
+		fprint(2, "secstore: %s\n", s);
 		c->conn->free(c->conn);
 		free(c);
 		return nil;
@@ -563,12 +559,12 @@ main(int argc, char **argv)
 	c = login(user, tcpserve, pass_stdin, pass_nvram);
 	free(tcpserve);
 	if(c == nil)
-		sysfatal("secstore authentication failed");
+		sysfatal("authentication failed");
 	if(chpass)
 		rc = chpasswd(c, user);
 	else
 		rc = cmd(c, gfile, Gflag, pfile, rfile);
 	if(rc < 0)
-		sysfatal("secstore cmd failed");
+		sysfatal("cmd failed");
 	exits("");
 }
