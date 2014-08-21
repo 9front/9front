@@ -403,7 +403,7 @@ rtl8139init(Ether* edev)
 	/*
 	 * Receiver
 	 */
-	alloc = (uchar*)ROUNDUP((ulong)ctlr->alloc, 32);
+	alloc = ctlr->alloc;
 	ctlr->rbstart = alloc;
 	alloc += ctlr->rblen+16;
 	memset(ctlr->rbstart, 0, ctlr->rblen+16);
@@ -453,7 +453,7 @@ rtl8139attach(Ether* edev)
 	qlock(&ctlr->alock);
 	if(ctlr->alloc == nil){
 		ctlr->rblen = 1<<((Rblen>>RblenSHIFT)+13);
-		ctlr->alloc = mallocz(ctlr->rblen+16 + Ntd*Tdbsz + 32, 0);
+		ctlr->alloc = mallocalign(ctlr->rblen+16 + Ntd*Tdbsz, 32, 0, 0);
 		if(ctlr->alloc == nil){
 			qunlock(&ctlr->alock);
 			error(Enomem);
