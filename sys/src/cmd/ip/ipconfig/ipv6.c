@@ -385,9 +385,8 @@ dialicmp(uchar *dst, int dport, int *ctlfd)
 int
 ip6cfg(int autoconf)
 {
-	int dupfound = 0, n;
-	char *p;
-	char buf[256];
+	int tentative, dupfound = 0, n;
+	char *p, buf[256];
 	uchar ethaddr[6];
 	Biobuf *bp;
 
@@ -397,7 +396,10 @@ ip6cfg(int autoconf)
 		ea2lla(conf.laddr, ethaddr);
 	}
 
-	if (dupl_disc)
+	tentative = dupl_disc;
+
+Again:
+	if (tentative)
 		n = sprint(buf, "try");
 	else
 		n = sprint(buf, "add");
@@ -417,7 +419,7 @@ ip6cfg(int autoconf)
 		return -1;
 	}
 
-	if (!dupl_disc)
+	if (!tentative)
 		return 0;
 
 	sleep(3000);
@@ -434,25 +436,19 @@ ip6cfg(int autoconf)
 	while(p = Brdline(bp, '\n')){
 		p[Blinelen(bp)-1] = 0;
 		if(cistrstr(p, buf) != 0) {
-			warning("found dup entry in arp cache");
 			dupfound = 1;
 			break;
 		}
 	}
 	Bterm(bp);
 
-	if (dupfound)
-		doremove();
-	else {
-		n = sprint(buf, "add %I %M", conf.laddr, conf.mask);
-		if(validip(conf.raddr)){
-			n += snprint(buf+n, sizeof buf-n, " %I", conf.raddr);
-			if(conf.mtu != 0)
-				n += snprint(buf+n, sizeof buf-n, " %d",
-					conf.mtu);
-		}
-		write(conf.cfd, buf, n);
+	if (!dupfound) {
+		tentative = 0;
+		goto Again;
 	}
+
+	warning("found dup entry in arp cache");
+	doremove();
 	return 0;
 }
 
