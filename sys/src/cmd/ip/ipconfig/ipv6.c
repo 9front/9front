@@ -904,7 +904,6 @@ sendra6(void)
 		if (ifc == nil) {
 			ralog("sendra6: can't read router params on %s",
 				conf.mpoint);
-			sleep(1000);
 			continue;
 		}
 
