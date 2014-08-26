@@ -453,11 +453,8 @@ Again:
 }
 
 static int
-recvra6on(char *net, int conn)
+recvra6on(Ipifc *ifc)
 {
-	Ipifc* ifc;
-
-	ifc = readipifc(net, nil, conn);
 	if (ifc == nil)
 		return 0;
 	else if (ifc->sendra6 > 0)
@@ -663,6 +660,7 @@ recvra6(void)
 {
 	int fd, cfd, n, sendrscnt, sleepfor;
 	uchar buf[4096];
+	Ipifc *ifc = nil;
 
 	/* TODO: why not v6allroutersL? */
 	fd = dialicmp(v6allnodesL, ICMP6_RA, &cfd);
@@ -695,10 +693,18 @@ recvra6(void)
 		alarm(sleepfor);
 		n = read(fd, buf, sizeof buf);
 		alarm(0);
+
+		ifc = readipifc(conf.mpoint, ifc, myifc);
+		if (ifc == nil) {
+			ralog("recvra6: can't read router params on %s",
+				conf.mpoint);
+			continue;
+		}
+		
 		if (n <= 0) {
 			if (sendrscnt > 0) {
 				sendrscnt--;
-				if (recvra6on(conf.mpoint, myifc) == IsHostRecv)
+				if (recvra6on(ifc) == IsHostRecv)
 					sendrs(fd);
 				sleepfor = V6rsintvl + nrand(100);
 			}
@@ -713,7 +719,7 @@ recvra6(void)
 
 		sleepfor = 0;
 		sendrscnt = -1;		/* got at least initial ra; no whining */
-		switch (recvra6on(conf.mpoint, myifc)) {
+		switch (recvra6on(ifc)) {
 		case IsRouter:
 			recvrarouter(buf, n);
 			break;
@@ -724,10 +730,6 @@ recvra6(void)
 			ralog("recvra6: recvra off, quitting on %s", conf.dev);
 			close(fd);
 			exits(0);
-		default:
-			ralog("recvra6: unable to read router status on %s",
-				conf.dev);
-			break;
 		}
 	}
 }
@@ -783,12 +785,11 @@ recvrs(uchar *buf, int pktlen, uchar *sol)
 }
 
 void
-sendra(int fd, uchar *dst, int rlt)
+sendra(int fd, uchar *dst, int rlt, Ipifc *ifc)
 {
 	int pktsz, preflen;
 	char abuf[1024], tmp[40];
 	uchar buf[1024], macaddr[6], src[IPaddrlen];
-	Ipifc *ifc = nil;
 	Iplifc *lifc, *nlifc;
 	Lladdropt *llao;
 	Prefixopt *prfo;
@@ -818,7 +819,6 @@ sendra(int fd, uchar *dst, int rlt)
 	pktsz = sizeof *ra;
 
 	/* include all global unicast prefixes on interface in prefix options */
-	ifc = readipifc(conf.mpoint, ifc, myifc);
 	for (lifc = (ifc? ifc->lifc: nil); lifc; lifc = nlifc) {
 		nlifc = lifc->next;
 		prfo = (Prefixopt *)(buf + pktsz);
@@ -904,12 +904,13 @@ sendra6(void)
 		if (ifc == nil) {
 			ralog("sendra6: can't read router params on %s",
 				conf.mpoint);
+			sleep(1000);
 			continue;
 		}
 
 		if (ifc->sendra6 <= 0)
 			if (nquitmsgs > 0) {
-				sendra(fd, v6allnodesL, 0);
+				sendra(fd, v6allnodesL, 0, ifc);
 				nquitmsgs--;
 				sleepfor = Minv6interradelay + jitter();
 				continue;
@@ -938,9 +939,9 @@ sendra6(void)
 		}
 		sleepfor = randint(ifc->rp.minraint, ifc->rp.maxraint);
 		if (dstknown > 0)
-			sendra(fd, dst, 1);
+			sendra(fd, dst, 1, ifc);
 		else
-			sendra(fd, v6allnodesL, 1);
+			sendra(fd, v6allnodesL, 1, ifc);
 	}
 }
 
