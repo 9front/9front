@@ -538,8 +538,13 @@ out:
 	wunlock(ifc);
 	poperror();
 
-	if(tentative && sendnbrdisc)
-		icmpns(f, 0, SRC_UNSPEC, ip, TARG_MULTI, ifc->mac);
+	if(!isv4(ip) && ipcmp(ip, IPnoaddr) != 0){
+		if(!tentative)
+			arpenter(f, V6, ip, ifc->mac, 6, 0);
+		else if(sendnbrdisc)
+			icmpns(f, 0, SRC_UNSPEC, ip, TARG_MULTI, ifc->mac);
+	}
+
 	return nil;
 }
 
@@ -1566,7 +1571,6 @@ ipifcregisterproxy(Fs *f, Ipifc *ifc, uchar *ip)
 					ipv62smcast(net, ip);
 					addselfcache(f, nifc, lifc, net, Rmulti);
 					arpenter(f, V6, ip, nifc->mac, 6, 0);
-					// (*m->addmulti)(nifc, net, ip);
 					break;
 				}
 			}
