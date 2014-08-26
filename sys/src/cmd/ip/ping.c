@@ -303,6 +303,7 @@ rcvr(int fd, int msglen, int interval, int nmsg)
 	int i, n, munged;
 	ushort x;
 	vlong now;
+	char err[ERRMAX];
 	uchar buf[64*1024+512];
 	Icmphdr *icmp;
 	Req *r;
@@ -312,9 +313,16 @@ rcvr(int fd, int msglen, int interval, int nmsg)
 		alarm((nmsg-lostmsgs-rcvdmsgs)*interval+waittime);
 		n = read(fd, buf, sizeof buf);
 		alarm(0);
+		if(n == 0)
+			strcpy(err, "got eof");
+		else if(n < 0)
+			rerrstr(err, sizeof(err));
 		now = nsec();
-		if(n <= 0){	/* read interrupted - time to go */
+		if(n <= 0){
+			print("%s\n", err);
 			clean(0, now+MINUTE, nil);
+			if(strstr(err, "interrupted") == nil)
+				sleep(waittime);
 			continue;
 		}
 		if(n < msglen){
@@ -572,7 +580,7 @@ main(int argc, char **argv)
 	switch(rfork(RFPROC|RFMEM|RFFDG)){
 	case -1:
 		fprint(2, "%s: can't fork: %r\n", argv0);
-		/* fallthrough */
+		exits("forking");
 	case 0:
 		rcvr(fd, msglen, interval, nmsg);
 		exits(0);
