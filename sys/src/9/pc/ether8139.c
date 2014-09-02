@@ -479,7 +479,7 @@ rtl8139txstart(Ether* edev)
 		size = BLEN(bp);
 
 		td = &ctlr->td[ctlr->tdh];
-		if(((int)bp->rp) & 0x03){
+		if(((uintptr)bp->rp) & 0x03){
 			memmove(td->data, bp->rp, size);
 			freeb(bp);
 			csr32w(ctlr, td->tsad, PCIWADDR(td->data));
