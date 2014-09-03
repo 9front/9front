@@ -385,9 +385,9 @@ donote(char *msg, ulong type)
 	ureg[16] = P->CPSR;
 	ureg[17] = P->R[15];
 	P->R[13] = uregp;
-	msgp = P->R[13] -= strlen(msg) + 1;
-	msgb = vaddrnol(msgp, strlen(msg) + 1);
-	strcpy(msgb, msg);
+	msgp = P->R[13] -= ERRMAX;
+	msgb = vaddrnol(msgp, ERRMAX);
+	strncpy(msgb, msg, ERRMAX);
 	P->R[13] -= 3 * 4;
 	sp = vaddrnol(P->R[13], 3 * 4);
 	sp[0] = 0;
