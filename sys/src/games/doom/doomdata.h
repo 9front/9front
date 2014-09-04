@@ -211,7 +211,6 @@ typedef struct
     short		options;
 } mapthing_t;
 
-
 #pragma pack off
 
 

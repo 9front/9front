@@ -91,6 +91,7 @@ typedef struct
 	mappatch_t	patches[1];
 } maptexture_t;
 
+#pragma pack off
 
 /* A single patch from a texture definition,
 **  basically a rectangular area within
@@ -125,10 +126,6 @@ typedef struct
 	short		patchcount;
 	texpatch_t	patches[1];		
 } texture_t;
-
-
-#pragma pack off
-
 
 int		firstflat;
 int		lastflat;

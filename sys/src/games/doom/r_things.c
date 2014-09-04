@@ -173,12 +173,12 @@ void R_InitSpriteDefs (char** namelist)
 /*    char**	check; */
     int		i;
     int		l;
-    int		intname;
     int		frame;
     int		rotation;
     int		start;
     int		end;
     int		patched;
+    char*	name;
 
 /* BUG
    This would work if the namelist was NULL terminated which it is not.
@@ -213,13 +213,13 @@ numsprites = NUMSPRITES;
 	memset (sprtemp,-1, sizeof(sprtemp));
 		
 	maxframe = -1;
-	intname = *(int *)namelist[i];
+	name = namelist[i];
 	
 	// scan the lumps,
 	//  filling in the frames for whatever is found
 	for (l=start+1 ; l<end ; l++)
 	{
-	    if (*(int *)lumpinfo[l].name == intname)
+	    if (memcmp(lumpinfo[l].name, name, 4) == 0)
 	    {
 		frame = lumpinfo[l].name[4] - 'A';
 		rotation = lumpinfo[l].name[5] - '0';

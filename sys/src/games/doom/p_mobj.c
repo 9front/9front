@@ -396,7 +396,7 @@ P_NightmareRespawn (mobj_t* mobj)
 
     // inherit attributes from deceased one
     mo = P_SpawnMobj (x,y,z, mobj->type);
-    mo->spawnpoint = mobj->spawnpoint;	
+    memcpy (&mo->spawnpoint, mthing, sizeof(*mthing));
     mo->angle = ANG45 * (mthing->angle/45);
 
     if (mthing->options & MTF_AMBUSH)
@@ -552,7 +552,7 @@ void P_RemoveMobj (mobj_t* mobj)
 	&& (mobj->type != MT_INV)
 	&& (mobj->type != MT_INS))
     {
-	itemrespawnque[iquehead] = mobj->spawnpoint;
+	memcpy (&itemrespawnque[iquehead], &mobj->spawnpoint, sizeof(mobj->spawnpoint));
 	itemrespawntime[iquehead] = leveltime;
 	iquehead = (iquehead+1)&(ITEMQUESIZE-1);
 
@@ -625,7 +625,7 @@ void P_RespawnSpecials (void)
 	z = ONFLOORZ;
 
     mo = P_SpawnMobj (x,y,z, i);
-    mo->spawnpoint = *mthing;	
+    memcpy (&mo->spawnpoint, mthing, sizeof(*mthing));	
     mo->angle = ANG45 * (mthing->angle/45);
 
     // pull it from the que
@@ -728,10 +728,10 @@ void P_SpawnMapThing (mapthing_t* mthing)
     }
 	
     // check for players specially
-    if (mthing->type <= 4)
+    if (mthing->type <= MAXPLAYERS)
     {
 	// save spots for respawning in network games
-	playerstarts[mthing->type-1] = *mthing;
+	memcpy (&playerstarts[mthing->type-1], mthing, sizeof(*mthing));
 	if (!deathmatch)
 	    P_SpawnPlayer (mthing);
 
@@ -784,7 +784,7 @@ void P_SpawnMapThing (mapthing_t* mthing)
 	z = ONFLOORZ;
     
     mobj = P_SpawnMobj (x,y,z, i);
-    mobj->spawnpoint = *mthing;
+    memcpy (&mobj->spawnpoint, mthing, sizeof(*mthing));
 
     if (mobj->tics > 0)
 	mobj->tics = 1 + (P_Random () % mobj->tics);
