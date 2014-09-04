@@ -367,11 +367,12 @@ multiplylong(u32int instr)
 	RdH = P->R + ((instr >> 16) & 15);
 	if(RdL == RdH || RdH == Rm || RdL == Rm || Rm == P->R + 15 || Rs == P->R + 15 || RdL == P->R + 15 || RdH == P->R + 15)
 		invalid(instr);
-	if(instr & (1<<22)) {
+	if(instr & (1<<22))
+		res = ((vlong)*(int*)Rs) * *(int*)Rm;
+	else {
 		res = *Rs;
 		res *= *Rm;
-	} else
-		res = ((vlong)*(int*)Rs) * *(int*)Rm;
+	}
 	if(instr & (1<<21)) {
 		res += *RdL;
 		res += ((uvlong)*RdH) << 32;
