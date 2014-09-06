@@ -1,6 +1,7 @@
 </$objtype/mkfile
 
 TARG = 	6in4\
+	ayiya\
 	dhcpclient\
 	ftpd\
 	gping\
