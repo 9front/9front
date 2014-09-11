@@ -7,7 +7,6 @@
 #include <keyboard.h>
 #include <frame.h>
 #include <fcall.h>
-#include <regexp.h>
 #include <plumb.h>
 #include "dat.h"
 #include "fns.h"
