@@ -225,7 +225,6 @@ void
 audiosample(void)
 {
 	double d;
-	static int i;
 	
 	if(sbufp == nil)
 		return;
