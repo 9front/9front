@@ -65,6 +65,7 @@ char *sysctab[]={
 	[AWAIT]		"Await",
 	[PREAD]		"Pread",
 	[PWRITE]	"Pwrite",
+	[_NSEC]		"_nsec",
 };
 
 void sys1(void) { Bprint(bioout, "No system call %s\n", sysctab[reg.r[REGRET]]); exits(0); }
@@ -638,6 +639,22 @@ syssegflush(void)
 	reg.r[REGRET] = 0;
 }
 
+void
+sys_nsec(void)
+{
+	ulong ta;
+	vlong t;
+
+	ta = getmem_w(reg.r[REGSP]+4);
+	if(sysdbg)
+		itrace("_nsec(%lux)", ta);
+
+	t = nsec();
+
+	putmem_w(ta, t >> 32);
+	putmem_w(ta+4, t);
+}
+
 void sysfversion(void) { Bprint(bioout, "No system call %s\n", sysctab[reg.r[REGRET]]); exits(0); }
 void sysfsession(void) { Bprint(bioout, "No system call %s\n", sysctab[reg.r[REGRET]]); exits(0); }
 void sysfauth(void) { Bprint(bioout, "No system call %s\n", sysctab[reg.r[REGRET]]); exits(0); }
@@ -710,6 +727,7 @@ void (*systab[])(void)	={
 	[AWAIT]		sysawait,
 	[PREAD]		syspread,
 	[PWRITE]	syspwrite,
+	[_NSEC]		sys_nsec,
 };
 
 void
@@ -719,7 +737,7 @@ Ssyscall(ulong inst)
 
 	USED(inst);
 	call = reg.r[REGRET];
-	if(call < 0 || call > PWRITE || systab[call] == nil) {
+	if(call < 0 || call > _NSEC || systab[call] == nil) {
 		Bprint(bioout, "Bad system call\n");
 		dumpreg();
 	}
