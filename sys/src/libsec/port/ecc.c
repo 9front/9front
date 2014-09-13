@@ -397,10 +397,10 @@ ecgen(ECdomain *dom, ECpriv *p)
 		p = mallocz(sizeof(*p), 1);
 		if(p == nil)
 			return nil;
+		p->x = mpnew(0);
+		p->y = mpnew(0);
+		p->d = mpnew(0);
 	}
-	p->x = mpnew(0);
-	p->y = mpnew(0);
-	p->d = mpnew(0);
 	for(;;){
 		mprand(mpsignif(dom->n), genrandom, p->d);
 		if(mpcmp(p->d, mpzero) > 0 && mpcmp(p->d, dom->n) < 0)
@@ -418,6 +418,7 @@ ecdsasign(ECdomain *dom, ECpriv *priv, uchar *dig, int len, mpint *r, mpint *s)
 
 	tmp.x = mpnew(0);
 	tmp.y = mpnew(0);
+	tmp.d = mpnew(0);
 	E = betomp(dig, len, nil);
 	t = mpnew(0);
 	if(mpsignif(dom->n) < 8*len)
@@ -439,6 +440,7 @@ ecdsasign(ECdomain *dom, ECpriv *priv, uchar *dig, int len, mpint *r, mpint *s)
 	mpfree(E);
 	mpfree(tmp.x);
 	mpfree(tmp.y);
+	mpfree(tmp.d);
 }
 
 int
