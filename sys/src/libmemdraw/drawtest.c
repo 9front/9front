@@ -974,7 +974,7 @@ drawonepixel(Memimage *dst, Point dp, Memimage *src, Point sp, Memimage *mask, P
 	pixtorgba(getpixel(dst, dp), &dr, &dg, &db, &da);
 	pixtorgba(getpixel(src, sp), &sr, &sg, &sb, &sa);
 	m = getmask(mask, mp);
-	M = 255-(sa*m)/255;
+	M = 255-(sa*m + 127)/255;
 
 DBG print("dst %x %x %x %x src %x %x %x %x m %x = ", dr,dg,db,da, sr,sg,sb,sa, m);
 	if(dst->flags&Fgrey){
@@ -985,18 +985,18 @@ DBG print("dst %x %x %x %x src %x %x %x %x m %x = ", dr,dg,db,da, sr,sg,sb,sa, m
 		 */
 		sk = RGB2K(sr, sg, sb);
 		dk = RGB2K(dr, dg, db);
-		dk = (sk*m + dk*M)/255;
+		dk = (sk*m + dk*M + 127)/255;
 		dr = dg = db = dk;
-		da = (sa*m + da*M)/255;
+		da = (sa*m + da*M + 127)/255;
 	}else{
 		/*
 		 * True color alpha calculation treats all channels (including alpha)
 		 * the same.  It might have been nice to use an array, but oh well.
 		 */
-		dr = (sr*m + dr*M)/255;
-		dg = (sg*m + dg*M)/255;
-		db = (sb*m + db*M)/255;
-		da = (sa*m + da*M)/255;
+		dr = (sr*m + dr*M + 127)/255;
+		dg = (sg*m + dg*M + 127)/255;
+		db = (sb*m + db*M + 127)/255;
+		da = (sa*m + da*M + 127)/255;
 	}
 
 DBG print("%x %x %x %x\n", dr,dg,db,da);
