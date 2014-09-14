@@ -439,3 +439,22 @@ void	base58enc(uchar *, char *, int);
 int	base58dec(char *, uchar *, int);
 
 DigestState*	ripemd160(uchar *, ulong, uchar *, DigestState *);
+
+/*
+ * Diffie-Hellman key exchange
+ */
+
+typedef struct DHstate DHstate;
+struct DHstate
+{
+	mpint	*g;	/* base g */
+	mpint	*p;	/* large prime */
+	mpint	*x;	/* random secret */
+	mpint	*y;	/* public key y = g ^ x % p */
+};
+
+/* generate new public key: y = g ^ x % p */
+mpint* dh_new(DHstate *dh, mpint *p, mpint *g);
+
+/* calculate shared key: k = pub ^ x % p */
+mpint* dh_finish(DHstate *dh, mpint *pub);

@@ -20,6 +20,7 @@ CFILES = des.c desmodes.c desECB.c desCBC.c des3ECB.c des3CBC.c\
 	aes_xts.c  \
 	ecc.c\
 	ripemd.c\
+	dh.c\
 
 ALLOFILES=${CFILES:%.c=%.$O}
 
