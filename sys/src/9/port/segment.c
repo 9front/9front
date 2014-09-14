@@ -610,7 +610,10 @@ segattach(Proc *p, ulong attr, char *name, uintptr va, uintptr len)
 		}
 	}
 
+	/* round up va+len */
+	len += va & (BY2PG-1);
 	len = PGROUND(len);
+
 	if(len == 0)
 		error(Ebadarg);
 
