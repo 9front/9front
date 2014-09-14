@@ -11,8 +11,13 @@ hmac_x(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DigestState *
 
 	if(xlen > sizeof(innerdigest))
 		return nil;
-	if(klen > Hmacblksz)
-		return nil;
+	if(klen > Hmacblksz){
+		if(xlen > Hmacblksz)
+			return nil;
+		(*x)(key, klen, innerdigest, nil);
+		key = innerdigest;
+		klen = xlen;
+	}
 
 	/* first time through */
 	if(s == nil || s->seeded == 0){
