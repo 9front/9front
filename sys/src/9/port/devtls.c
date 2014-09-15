@@ -1824,7 +1824,7 @@ tlsError(TlsRec *tr, char *msg)
 {
 	int s;
 
-if(tr->debug)pprint("tleError %s\n", msg);
+if(tr->debug)pprint("tlsError %s\n", msg);
 	lock(&tr->statelk);
 	s = tr->state;
 	tr->state = SError;
