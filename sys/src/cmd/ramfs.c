@@ -352,6 +352,10 @@ fswstat(Req *r)
 		truncfile(f, r->d.length);
 
 	accessfile(f, AWRITE);
+	if(r->d.mtime != ~0){
+		f->mtime = r->d.mtime;
+	}
+
 	respond(r, nil);
 	return;
 
