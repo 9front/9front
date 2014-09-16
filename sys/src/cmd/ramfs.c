@@ -285,7 +285,7 @@ fswstat(Req *r)
 			respond(r, Ebadoff);
 			return;
 		}
-	 	if(!hasperm(f, u, AWRITE) || (r->d.mode & DMDIR) != 0)
+	 	if(!hasperm(f, u, AWRITE) || (f->mode & DMDIR) != 0)
 			goto Perm;
 	}
 
