@@ -139,7 +139,10 @@ int main(){
       fprintf(stderr,"Input does not appear to be an Ogg bitstream.\n");
       exit(1);
     }
-  
+
+    
+BOS:/* Begin of stream */
+
     /* Get the serial number and set up the rest of decode. */
     /* serialno first; use it to set up a logical stream */
     ogg_stream_init(&os,ogg_page_serialno(&og));
@@ -248,6 +251,14 @@ int main(){
 	  fprintf(stderr,"Corrupt or missing data in bitstream; "
 		  "continuing...\n");
 	}else{
+	  if(ogg_page_bos(&og)){ /* got new start of stream */
+	    ogg_stream_clear(&os);
+	    vorbis_block_clear(&vb);
+	    vorbis_dsp_clear(&vd);
+	    vorbis_comment_clear(&vc);
+	    vorbis_info_clear(&vi);
+	    goto BOS;
+	  }
 	  ogg_stream_pagein(&os,&og); /* can safely ignore errors at
 					 this point */
 	  while(1){
