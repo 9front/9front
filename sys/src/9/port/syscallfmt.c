@@ -298,6 +298,8 @@ syscallfmt(ulong syscallno, uintptr pc, va_list list)
 		}
 		break;
 	case _NSEC:
+		if(sizeof(uintptr) == sizeof(vlong))
+			break;
 		v = va_arg(list, vlong*);
 		fmtprint(&fmt, "%#p", v);
 		break;
@@ -324,14 +326,6 @@ sysretfmt(ulong syscallno, va_list list, uintptr ret, uvlong start, uvlong stop)
 
 	errstr = "\"\"";
 	switch(syscallno){
-	default:
-	case ALARM:
-	case _WRITE:
-	case PWRITE:
-		if((long)ret == -1)
-			errstr = up->syserrstr;
-		fmtprint(&fmt, " = %ld", (long)ret);
-		break;
 	case EXEC:
 	case SEGBRK:
 	case SEGATTACH:
@@ -401,6 +395,20 @@ sysretfmt(ulong syscallno, va_list list, uintptr ret, uvlong start, uvlong stop)
 			vl = va_arg(list, vlong);
 			fmtprint(&fmt, " %lld", vl);
 		}
+		fmtprint(&fmt, " = %ld", (long)ret);
+		break;
+	case _NSEC:
+		if(sizeof(uintptr) == sizeof(vlong)){
+			fmtprint(&fmt, " = %lld", (vlong)ret);
+			break;
+		}
+		/* wet floor */
+	case ALARM:
+	case _WRITE:
+	case PWRITE:
+	default:
+		if((long)ret == -1)
+			errstr = up->syserrstr;
 		fmtprint(&fmt, " = %ld", (long)ret);
 		break;
 	}
