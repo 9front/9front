@@ -365,6 +365,23 @@ rwalk(Req *r, char *error)
 	}
 }
 
+static int
+dirwritable(Fid *fid)
+{
+	File *f;
+
+	f = fid->file;
+	if(f){
+		rlock(f);
+		if(f->parent && !hasperm(f->parent, fid->uid, AWRITE)){
+			runlock(f);
+			return 0;
+		}
+		runlock(f);
+	}
+	return 1;
+}
+
 static void
 sopen(Srv *srv, Req *r)
 {
@@ -410,9 +427,7 @@ sopen(Srv *srv, Req *r)
 			respond(r, Eperm);
 			return;
 		}
-	/* BUG RACE */
-		if((r->ifcall.mode&ORCLOSE)
-		&& !hasperm(r->fid->file->parent, r->fid->uid, AWRITE)){
+		if((r->ifcall.mode&ORCLOSE) && !dirwritable(r->fid)){
 			respond(r, Eperm);
 			return;
 		}
@@ -574,8 +589,7 @@ sremove(Srv *srv, Req *r)
 		respond(r, Eunknownfid);
 		return;
 	}
-	/* BUG RACE */
-	if(r->fid->file && !hasperm(r->fid->file->parent, r->fid->uid, AWRITE)){
+	if(!dirwritable(r->fid)){
 		respond(r, Eperm);
 		return;
 	}
