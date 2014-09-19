@@ -2051,6 +2051,12 @@ static void
 memsets(void *vp, ushort val, int n)
 {
 	ushort *p, *ep;
+	uchar b[2];
+
+	/* make little endian */
+	b[0] = val;
+	b[1] = val>>8;
+	val = *(ushort*)b;
 
 	p = vp;
 	ep = p+n;
@@ -2062,6 +2068,14 @@ static void
 memsetl(void *vp, ulong val, int n)
 {
 	ulong *p, *ep;
+	uchar b[4];
+
+	/* make little endian */
+	b[0] = val;
+	b[1] = val>>8;
+	b[2] = val>>16;
+	b[3] = val>>24;
+	val = *(ulong*)b;
 
 	p = vp;
 	ep = p+n;
@@ -2075,15 +2089,17 @@ memset24(void *vp, ulong val, int n)
 	uchar *p, *ep;
 	uchar a,b,c;
 
-	p = vp;
-	ep = p+3*n;
 	a = val;
 	b = val>>8;
 	c = val>>16;
+
+	p = vp;
+	ep = p+3*n;
 	while(p<ep){
-		*p++ = a;
-		*p++ = b;
-		*p++ = c;
+		p[0] = a;
+		p[1] = b;
+		p[2] = c;
+		p += 3;
 	}
 }
 
@@ -2126,9 +2142,9 @@ imgtorgba(Memimage *img, ulong val)
 			break;
 		case CMap:
 			p = img->cmap->cmap2rgb+3*ov;
-			r = *p++;
-			g = *p++;	
-			b = *p;
+			r = p[0];
+			g = p[1];
+			b = p[2];
 			break;
 		}
 	}
@@ -2202,9 +2218,8 @@ DBG print("state %lux mval %lux dd %d\n", par->state, par->mval, dst->depth);
 	 */
 	m = Simplesrc|Simplemask|Fullmask;
 	if((par->state&m)==m && (par->srgba&0xFF) == 0xFF && (op ==S || op == SoverD)){
-		uchar *dp, p[4];
 		int d, dwid, ppb, np, nb;
-		uchar lm, rm;
+		uchar *dp, lm, rm;
 
 DBG print("memopt, dst %p, dst->data->bdata %p\n", dst, dst->data->bdata);
 		dwid = dst->width*sizeof(ulong);
@@ -2273,11 +2288,6 @@ DBG print("dp %p v %lux lm %ux (v ^ *dp) & lm %lux\n", dp, v, lm, (v^*dp)&lm);
 				memset(dp, v, dx);
 			return 1;
 		case 16:
-			p[0] = v;		/* make little endian */
-			p[1] = v>>8;
-			v = *(ushort*)p;
-DBG print("dp=%p; dx=%d; for(y=0; y<%d; y++, dp+=%d)\nmemsets(dp, v, dx);\n",
-	dp, dx, dy, dwid);
 			for(y=0; y<dy; y++, dp+=dwid)
 				memsets(dp, v, dx);
 			return 1;
@@ -2286,11 +2296,6 @@ DBG print("dp=%p; dx=%d; for(y=0; y<%d; y++, dp+=%d)\nmemsets(dp, v, dx);\n",
 				memset24(dp, v, dx);
 			return 1;
 		case 32:
-			p[0] = v;		/* make little endian */
-			p[1] = v>>8;
-			p[2] = v>>16;
-			p[3] = v>>24;
-			v = *(ulong*)p;
 			for(y=0; y<dy; y++, dp+=dwid)
 				memsetl(dp, v, dx);
 			return 1;
@@ -2439,9 +2444,8 @@ DBG print("dp=%p; dx=%d; for(y=0; y<%d; y++, dp+=%d)\nmemsets(dp, v, dx);\n",
 static int
 chardraw(Memdrawparam *par)
 {
-	ulong bits;
 	int i, ddepth, dy, dx, x, bx, ex, y, npack, bsh, depth, op;
-	ulong v, maskwid, dstwid;
+	ulong bits, v, maskwid, dstwid;
 	uchar *wp, *rp, *q, *wc;
 	ushort *ws;
 	ulong *wl;
