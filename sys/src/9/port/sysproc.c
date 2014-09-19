@@ -1190,6 +1190,12 @@ sys_nsec(va_list list)
 {
 	vlong *v;
 
+	/* return in register on 64bit machine */
+	if(sizeof(uintptr) == sizeof(vlong)){
+		USED(list);
+		return (uintptr)todget(nil);
+	}
+
 	v = va_arg(list, vlong*);
 	evenaddr((uintptr)v);
 	validaddr((uintptr)v, sizeof(vlong), 1);
