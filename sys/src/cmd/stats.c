@@ -353,6 +353,10 @@ datapoint(Graph *g, int x, uvlong v, uvlong vmax)
 			y = (y+2.)/3.;
 		}
 	}
+	if(y >= 1.)
+		y = 1;
+	if(y <= 0.)
+		y = 0;
 	p.y = g->r.max.y - Dy(g->r)*y - Dot;
 	if(p.y < g->r.min.y)
 		p.y = g->r.min.y;
@@ -830,7 +834,7 @@ swapval(Machine *m, uvlong *v, uvlong *vmax, int)
 void
 contextval(Machine *m, uvlong *v, uvlong *vmax, int init)
 {
-	*v = m->devsysstat[Context]-m->prevsysstat[Context];
+	*v = (m->devsysstat[Context]-m->prevsysstat[Context])&0xffffffff;
 	*vmax = sleeptime*m->nproc;
 	if(init)
 		*vmax = sleeptime;
@@ -842,7 +846,7 @@ contextval(Machine *m, uvlong *v, uvlong *vmax, int init)
 void
 intrval(Machine *m, uvlong *v, uvlong *vmax, int init)
 {
-	*v = m->devsysstat[Interrupt]-m->prevsysstat[Interrupt];
+	*v = (m->devsysstat[Interrupt]-m->prevsysstat[Interrupt])&0xffffffff;
 	*vmax = sleeptime*m->nproc*10;
 	if(init)
 		*vmax = sleeptime*10;
@@ -851,7 +855,7 @@ intrval(Machine *m, uvlong *v, uvlong *vmax, int init)
 void
 syscallval(Machine *m, uvlong *v, uvlong *vmax, int init)
 {
-	*v = m->devsysstat[Syscall]-m->prevsysstat[Syscall];
+	*v = (m->devsysstat[Syscall]-m->prevsysstat[Syscall])&0xffffffff;
 	*vmax = sleeptime*m->nproc;
 	if(init)
 		*vmax = sleeptime;
@@ -860,7 +864,7 @@ syscallval(Machine *m, uvlong *v, uvlong *vmax, int init)
 void
 faultval(Machine *m, uvlong *v, uvlong *vmax, int init)
 {
-	*v = m->devsysstat[Fault]-m->prevsysstat[Fault];
+	*v = (m->devsysstat[Fault]-m->prevsysstat[Fault])&0xffffffff;
 	*vmax = sleeptime*m->nproc;
 	if(init)
 		*vmax = sleeptime;
@@ -869,7 +873,7 @@ faultval(Machine *m, uvlong *v, uvlong *vmax, int init)
 void
 tlbmissval(Machine *m, uvlong *v, uvlong *vmax, int init)
 {
-	*v = m->devsysstat[TLBfault]-m->prevsysstat[TLBfault];
+	*v = (m->devsysstat[TLBfault]-m->prevsysstat[TLBfault])&0xffffffff;
 	*vmax = (sleeptime/1000)*10*m->nproc;
 	if(init)
 		*vmax = (sleeptime/1000)*10;
@@ -878,7 +882,7 @@ tlbmissval(Machine *m, uvlong *v, uvlong *vmax, int init)
 void
 tlbpurgeval(Machine *m, uvlong *v, uvlong *vmax, int init)
 {
-	*v = m->devsysstat[TLBpurge]-m->prevsysstat[TLBpurge];
+	*v = (m->devsysstat[TLBpurge]-m->prevsysstat[TLBpurge])&0xffffffff;
 	*vmax = (sleeptime/1000)*10*m->nproc;
 	if(init)
 		*vmax = (sleeptime/1000)*10;
