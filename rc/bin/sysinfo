@@ -15,7 +15,7 @@ fn print{
 	logprog cat '#c/config'
 	logprog cat '#c/swap'
 	logprog cat '#c/sysstat'
-	logprog awk '/^Plan 9$/{p=1}
+	logprog awk '/^Plan 9/{p=1}
 /^init: starting/{exit}
 {if(p)print}' '#c/kmesg'
 	logprog pci -v
