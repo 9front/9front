@@ -499,6 +499,7 @@ main()
 	i8250console();
 	quotefmtinstall();
 	screeninit();
+	print("\nPlan 9\n");
 	trapinit0();
 	kbdinit();
 	i8253init();
