@@ -1243,6 +1243,10 @@ Fsproto(Fs *f, Proto *p)
 
 	p->qid.type = QTDIR;
 	p->qid.path = QID(f->np, 0, Qprotodir);
+	if(p->nc > Maskconv+1){
+		print("Fsproto: %s nc %d > %d\n", p->name, p->nc, Maskconv+1);
+		p->nc = Maskconv+1;
+	}
 	p->conv = malloc(sizeof(Conv*)*(p->nc+1));
 	if(p->conv == nil)
 		panic("Fsproto");
