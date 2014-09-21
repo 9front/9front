@@ -1321,10 +1321,11 @@ retry:
 		}
 	}
 	if(pp >= ep) {
-		if(p->gc)
-			print("Fsprotoclone: garbage collecting Convs\n");
-		if(p->gc != nil && (*p->gc)(p))
-			goto retry;
+		if(p->gc != nil){
+			print("Fsprotoclone: garbage collecting %s Convs\n", p->name);
+			if((*p->gc)(p))
+				goto retry;
+		}
 		return nil;
 	}
 
