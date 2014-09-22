@@ -122,12 +122,13 @@ installbuiltin(void)
 void
 dosysr1(Node *r, Node*)
 {
-	extern int sysr1(void);
+	/* dummy argument for RARG spill */
+	extern int sysr1(void*);
 	
 	r->op = OCONST;
 	r->type = TINT;
 	r->fmt = 'D';
-	r->ival = sysr1();
+	r->ival = sysr1(0);
 }
 
 void
