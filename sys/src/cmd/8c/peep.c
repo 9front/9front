@@ -315,6 +315,25 @@ subprop(Reg *r0)
 		case AFSTSW:
 			return 0;
 
+		case AORL:
+		case AANDL:
+		case AXORL:
+		case AADDL:
+		case AADCL:
+			/*
+			 * can swap when:
+			 *  ADD R2, R1
+			 *  MOV R1, R2
+			 * convert to:
+			 *  ADD R1, R2
+			 *  MOV R2, R1	/ no use for R1
+			 */
+			if(p->to.type == v1->type && p->from.type == v2->type){
+				copysub(&p->from, v2, v1, 1);
+				goto gotit;
+			}
+			break;
+
 		case AMOVL:
 			if(p->to.type == v1->type)
 				goto gotit;

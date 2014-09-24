@@ -407,6 +407,30 @@ subprop(Reg *r0)
 		case AMOVQL:
 			return 0;
 
+		case AORL:
+		case AORQ:
+		case AANDL:
+		case AANDQ:
+		case AXORL:
+		case AXORQ:
+		case AADDL:
+		case AADDQ:
+		case AADCL:
+		case AADCQ:
+			/*
+			 * can swap when:
+			 *  ADD R2, R1
+			 *  MOV R1, R2
+			 * convert to:
+			 *  ADD R1, R2
+			 *  MOV R2, R1	/ no use for R1
+			 */
+			if(p->to.type == v1->type && p->from.type == v2->type){
+				copysub(&p->from, v2, v1, 1);
+				goto gotit;
+			}
+			break;
+
 		case AMOVL:
 		case AMOVQ:
 			if(p->to.type == v1->type)
