@@ -1,0 +1,13 @@
+u32int memread(u32int, int, int);
+void memwrite(u32int, u32int, int);
+extern int (*step)(void);
+void reset(void);
+void memreset(void);
+void setif(u16int);
+void ppustep(void);
+void timerstep(int t);
+void flush(void);
+int dmastep(void);
+void dmastart(int);
+void flushback(void);
+void writeback(void);
