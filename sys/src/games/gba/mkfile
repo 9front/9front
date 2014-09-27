@@ -1,0 +1,13 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/games
+TARG=gba
+OFILES=\
+	cpu.$O\
+	mem.$O\
+	gba.$O\
+	ppu.$O\
+
+HFILES=dat.h fns.h
+
+</sys/src/cmd/mkone
