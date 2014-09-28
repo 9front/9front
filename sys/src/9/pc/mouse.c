@@ -113,7 +113,7 @@ ps2mouseputc(int c, int shift)
 	}
 
 	msg[nb] = c;
-	if(++nb == packetsize){
+	if(++nb >= packetsize){
 		nb = 0;
 		if(msg[0] & 0x10)
 			msg[1] |= 0xFF00;
@@ -152,7 +152,6 @@ ps2mouseputc(int c, int shift)
 		dy = -msg[2];
 		mousetrack(dx, dy, buttons, TK2MS(MACHP(0)->ticks));
 	}
-	return;
 }
 
 /*
@@ -164,12 +163,12 @@ ps2mouse(void)
 	if(mousetype == MousePS2)
 		return;
 
-	i8042auxenable(ps2mouseputc);
-	i8042auxcmd(0xEA);	/* set stream mode */
-
 	mousetype = MousePS2;
 	packetsize = 3;
 	mousehwaccel = 0;
+
+	i8042auxenable(ps2mouseputc);
+	i8042auxcmd(0xEA);	/* set stream mode */
 }
 
 /*
