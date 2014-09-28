@@ -187,7 +187,7 @@ i8042auxcmd(int cmd)
 	iunlock(&i8042lock);
 
 	if(c != 0xFA){
-		print("i8042: %2.2ux returned to the %2.2ux command\n", c, cmd);
+		print("i8042: %2.2ux returned to the %2.2ux command (pc=%#p)\n", c, cmd, getcallerpc(&cmd));
 		return -1;
 	}
 	return 0;
@@ -303,6 +303,7 @@ i8042auxenable(void (*putc)(int, int))
 		print(err);
 	outb(Cmd, 0xA8);			/* auxiliary device enable */
 	if(outready() < 0){
+		print(err);
 		iunlock(&i8042lock);
 		return;
 	}
