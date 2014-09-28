@@ -581,13 +581,14 @@ consread(Chan *c, void *buf, long n, vlong off)
 				bp += NUMSIZE;
 				readnum(0, bp, NUMSIZE, mp->load, NUMSIZE);
 				bp += NUMSIZE;
+				l = mp->perf.period;
+				if(l == 0)
+					l = 1;
 				readnum(0, bp, NUMSIZE,
-					(mp->perf.avg_inidle*100)/mp->perf.period,
-					NUMSIZE);
+					(mp->perf.avg_inidle*100)/l, NUMSIZE);
 				bp += NUMSIZE;
 				readnum(0, bp, NUMSIZE,
-					(mp->perf.avg_inintr*100)/mp->perf.period,
-					NUMSIZE);
+					(mp->perf.avg_inintr*100)/l, NUMSIZE);
 				bp += NUMSIZE;
 				*bp++ = '\n';
 			}
