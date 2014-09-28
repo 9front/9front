@@ -283,6 +283,7 @@ keyproc(void *)
 				break;
 			}
 		}
+		k &= ~(k << 1 & 0xa0 | k >> 1 & 0x50);
 		keys = k;
 	}
 

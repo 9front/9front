@@ -128,6 +128,10 @@ regwrite16(u32int a, u16int v)
 		*p &= ~v;
 		setif(0);
 		return;
+	case IME*2: case IE*2:
+		*p = v;
+		setif(0);
+		return;
 	case BLDALPHA*2:
 		blda = v & 0x1f;
 		if(blda > 16)
@@ -142,8 +146,8 @@ regwrite16(u32int a, u16int v)
 			bldy = 16;
 		break;
 	case DMA0CNTH*2: case DMA1CNTH*2: case DMA2CNTH*2: case DMA3CNTH*2:
-		if((*p & DMAEN) == 0 && (v & DMAEN) != 0){
-			i = (a - DMA0CNTH*2) / 12;
+		i = (a - DMA0CNTH*2) / 12;
+		if((v & DMAEN) != 0){
 			if((v >> DMAWHEN & 3) == 0)
 				dmaact |= 1<<i;
 			if(i == 3 && (v >> DMAWHEN & 3) == 3)
@@ -151,14 +155,12 @@ regwrite16(u32int a, u16int v)
 			dmar[4*i + DMASRC] = p[-5] | p[-4] << 16;
 			dmar[4*i + DMADST] = p[-3] | p[-2] << 16;
 			dmar[4*i + DMACNT] = p[-1];
-		}
+		}else
+			dmaact &= ~1<<i;
 		break;
 	case 0x102: case 0x106: case 0x10a: case 0x10e:
 		if((*p & 1<<7) == 0 && (v & 1<<7) != 0)
 			tim[(a-0x102)/4] = p[-1];
-		break;
-	case IME*2: case IE*2:
-		setif(0);
 		break;
 	case WAITCNT*2:
 		waitst[3] = waitst[7] = ws0[v & 3];
@@ -196,13 +198,9 @@ regwrite(u32int a, u32int v, int n)
 		regwrite16(a, w);
 		break;
 	default:
-		if((a & 1) != 0)
-			sysfatal("unaligned register access");
 		regwrite16(a, v);
 		break;
 	case 4:
-		if((a & 1) != 0)
-			sysfatal("unaligned register access");
 		regwrite16(a, v);
 		regwrite16(a + 2, v >> 16);
 		break;
@@ -277,7 +275,7 @@ memread(u32int a, int n, int seq)
 		return 0;
 	default:
 	fault:
-		sysfatal("read from %#.8ux (pc=%#.8ux)", a, curpc);
+		print("read from %#.8ux (pc=%#.8ux)\n", a, curpc);
 		return 0;
 	}
 }
@@ -346,7 +344,7 @@ memwrite(u32int a, u32int v, int n)
 		return;
 	default:
 	fault:
-		sysfatal("write to %#.8ux, value %#.8ux (pc=%#.8ux)", a, v, curpc);
+		print("write to %#.8ux, value %#.8ux (pc=%#.8ux)\n", a, v, curpc);
 	}
 }
 

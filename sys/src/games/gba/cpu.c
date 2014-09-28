@@ -238,7 +238,7 @@ armextra(u32int instr)
 			addr = r[Rn];
 			if((instr & 0x0ffffff0) == 0x012fff10){
 				r[14] = r[15] - 4;
-				r[15] = r[Rm];
+				r[15] = r[Rm] & ~1;
 				setcpsr(cpsr | FLAGT);
 				pipeflush();
 			}else if((instr & BYTE) != 0){
@@ -253,7 +253,7 @@ armextra(u32int instr)
 					sh = (addr & 3) << 2;
 					val = val >> sh | val << 32 - sh;
 				}
-				memwrite(addr, r[Rm], 4);
+				memwrite(addr & ~3, r[Rm], 4);
 				r[Rd] = val;	
 			}
 		}else{
@@ -935,7 +935,7 @@ thalu(u16int instr)
 			if(b != 0){
 				if(b < 32){
 					c = v >> b - 1;
-					v >>= b;
+					v = (int)v >> b;
 				}else
 					c = v = -((int)v < 0);
 				cpsr = cpsr & ~FLAGC | c << 29 & FLAGC;
@@ -1084,7 +1084,7 @@ thldst(u16int instr)
 	off += r[Rb];
 	if(load){
 		io();
-		v = memread(off & ~(size - 1), size, 0);
+		v = memread(off & -size, size, 0);
 		if(sx)
 			if(size == 2)
 				v = ((int)(v << 16)) >> 16;
@@ -1096,7 +1096,7 @@ thldst(u16int instr)
 		}
 		r[Rd] = v;
 	}else
-		memwrite(off, r[Rd], size);
+		memwrite(off & -size, r[Rd], size);
 }
 
 static void
