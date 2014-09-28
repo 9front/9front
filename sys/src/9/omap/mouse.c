@@ -107,7 +107,7 @@ ps2mouseputc(int c, int shift)
 		}
 
 	msg[nb] = c;
-	if(++nb == packetsize){
+	if(++nb >= packetsize){
 		nb = 0;
 		if(msg[0] & 0x10)
 			msg[1] |= 0xFF00;
@@ -142,13 +142,13 @@ ps2mouse(void)
 	if(mousetype == MousePS2)
 		return;
 
-//	i8042auxenable(ps2mouseputc);
-//	i8042auxcmd(0xEA);	// TODO
-//	i8042auxcmd(0xF4);
-
 	mousetype = MousePS2;
 	packetsize = 3;
 	mousehwaccel = 1;
+
+//	i8042auxenable(ps2mouseputc);
+//	i8042auxcmd(0xEA);	// TODO
+//	i8042auxcmd(0xF4);
 }
 
 /*
