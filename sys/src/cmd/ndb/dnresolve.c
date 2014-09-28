@@ -1326,16 +1326,22 @@ tcpquery(Query *qp, DNSmsg *mp, int depth, uchar *ibuf, uchar *obuf, int len,
 static int
 queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 {
-	int ndest, len, replywaits, rv;
+	int ndest, len, replywaits, rv, flag;
 	ushort req;
 	uvlong endms;
 	char buf[32];
 	uchar srcip[IPaddrlen];
 	Dest *p, *np, dest[Maxdest];
 
-	/* pack request into a udp message */
 	req = rand();
-	len = mkreq(qp->dp, qp->type, obuf, Frecurse|Oquery, req);
+
+	/* request recursion only for local dns servers */
+	flag = Oquery;
+	if(strncmp(qp->nsrp->owner->name, "local#", 6) == 0)
+		flag |= Frecurse;
+
+	/* pack request into a udp message */
+	len = mkreq(qp->dp, qp->type, obuf, flag, req);
 
 	/* no server addresses yet */
 	memset(dest, 0, sizeof dest);
