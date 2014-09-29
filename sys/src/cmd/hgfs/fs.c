@@ -606,6 +606,19 @@ fsopen(Req *r)
 		if(rf->node == nil || rf->node->mode != 'x')
 			break;
 	case OREAD:
+		if(rf->level == Qlog){
+			if((rf->fd = revlogopentemp(&changelog, hashrev(&changelog, rf->info->chash))) < 0){
+				responderror(r);
+				return;
+			}
+			rf->doff = rf->info->logoff;
+		} else if(rf->level == Qtree && rf->node->down == nil){
+			if((rf->fd = revlogopentemp(rf->rlog, hashrev(rf->rlog, rf->node->hash))) < 0){
+				responderror(r);
+				return;
+			}
+			rf->doff = fmetaheader(rf->fd);
+		}
 		respond(r, nil);
 		return;
 	}
@@ -697,13 +710,6 @@ fsread(Req *r)
 			len = 0;
 		else if((off + len) >= rf->info->loglen)
 			len = rf->info->loglen - off;
-		if(rf->fd >= 0)
-			goto Fdgen;
-		if((rf->fd = revlogopentemp(&changelog, hashrev(&changelog, rf->info->chash))) < 0){
-			responderror(r);
-			return;
-		}
-		rf->doff = rf->info->logoff;
 		goto Fdgen;
 	case Qwho:
 		s = rf->info->who;
@@ -724,14 +730,9 @@ fsread(Req *r)
 			respond(r, nil);
 			return;
 		}
-		if(rf->fd >= 0)
-			goto Fdgen;
-		if((rf->fd = revlogopentemp(rf->rlog, hashrev(rf->rlog, rf->node->hash))) < 0){
-			responderror(r);
-			return;
-		}
-		rf->doff = fmetaheader(rf->fd);
 	Fdgen:
+		if(rf->fd < 0)
+			break;
 		if((n = pread(rf->fd, r->ofcall.data, len, off + rf->doff)) < 0){
 			responderror(r);
 			return;
