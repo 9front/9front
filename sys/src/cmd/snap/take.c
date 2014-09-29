@@ -144,7 +144,7 @@ Die:
 }
 
 /* discover the stack pointer of the given process */
-ulong
+uvlong
 stackptr(Proc *proc, int fd)
 {
 	char *q;
@@ -202,8 +202,7 @@ snap(long pid, int usetext)
 	Seg **s;
 	char *name, *segdat, *q, *f[128+1], buf[128];
 	int fd, i, stacki, nf, np;
-	uvlong off, len, stackoff, stacklen;
-	uvlong sp;
+	uvlong off, len, stackoff, stacklen, sp;
 
 	proc = emalloc(sizeof(*proc));
 	proc->pid = pid;
