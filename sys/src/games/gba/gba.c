@@ -198,8 +198,8 @@ loadrom(char *file)
 	if(fd < 0)
 		sysfatal("open: %r");
 	sz = seek(fd, 0, 2);
-	if(sz <= 0 || sz >= 32*1024*1024)
-		sysfatal("nope.jpg");
+	if(sz <= 0 || sz > 32*1024*1024)
+		sysfatal("invalid file size");
 	seek(fd, 0, 0);
 	nrom = sz;
 	rom = emalloc(nrom);

@@ -95,6 +95,7 @@ loadbat(char *file)
 	char *s;
 
 	if(battery && nsram != 0){
+		buf[sizeof buf - 1] = 0;
 		strncpy(buf, file, sizeof buf - 5);
 		s = buf + strlen(buf) - 4;
 		if(s < buf || strcmp(s, ".smc") != 0)
