@@ -1,0 +1,18 @@
+#!/bin/rc
+file=$1
+if(~ $#file 0)
+	file=/fd/0
+if(! crc=`{crc32 <$file})
+	exit $status
+url=`{hget 'http://releases.pocketheaven.com/advsearching.php?CRC32='^$crc | sed -n 's/[^"]*"([^"]*)"[^"]*/\1\n/gp' | sed -n '/index\.php\?.*rel=[0-9]*/ { s/^/http:\/\/releases.pocketheaven.com\//; p; q;}'}
+if(~ $#url 0){
+	echo $file: $crc not found >[1=2]
+	exit 'not found'
+}
+hget $url | sed -n 's/.*<td>Save Type<\/td><td>(.*)<\/td>.*/\1/p' | sed '
+	s/^SRAM_.*\(([0-9]*)Kbit\)/sram\1/g
+	s/^FLASH_.*\(([0-9]*)Kbit\)/flash\1/g
+	s/^EEPROM_.*\(([0-9]*)Kbit\)/eeprom\1/g
+	t
+	s/.*/unknown type \1/g
+'
