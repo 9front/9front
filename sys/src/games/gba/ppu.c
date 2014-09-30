@@ -132,7 +132,7 @@ tile(bg *b)
 }
 
 void
-bginit(bg *b, int scal, int bit)
+bginit(bg *b, int scal, int)
 {
 	u16int cnt, x, y;
 	u16int *rr;

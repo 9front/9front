@@ -20,6 +20,7 @@ enum {
 };
 u32int dmar[16];
 u8int waitst[16] = {5, 5, 5, 5, 3, 5, 5, 9, 8, 10, 10, 14};
+u32int eepstart;
 
 extern int cyc;
 
@@ -260,7 +261,7 @@ memread(u32int a, int n, int seq)
 		b = a & 0x1ffffff;
 		cyc += waitst[(a >> 25) - 4 | seq << 2 | (n > 2) << 3];
 		if(b >= nrom){
-			if(backup == EEPROM && b >= 0x1000000 && (nrom < 16*KB*KB || b >= 0x1ffff00))
+			if(b >= eepstart)
 				return eepromread();
 			return 0;
 		}
@@ -326,7 +327,7 @@ memwrite(u32int a, u32int v, int n)
 	case 8: case 9: case 10: case 11: case 12: case 13:
 		if(backup == EEPROM){
 			b = a & 0x01ffffff;
-			if(b >= 0x1000000 && (nrom < 16*KB*KB || b >= 0x1ffff00))
+			if(b >= eepstart)
 				eepromwrite(v & 1);
 		}
 		return;
@@ -352,6 +353,13 @@ void
 memreset(void)
 {
 	reg[0x88/2] = 0x200;
+	if(backup == EEPROM)
+		if(nrom <= 16*KB*KB)
+			eepstart = 0x1000000;
+		else
+			eepstart = 0x1ffff00;
+	else
+		eepstart = -1;
 }
 
 void
@@ -442,9 +450,9 @@ dmastep(void)
 	if(--dr[DMACNT] == 0){
 		dmaact &= ~(1<<i);
 		if((cnt & DMAREP) != 0){
-			dmar[DMACNT] = cntp[-1];
+			dr[DMACNT] = cntp[-1];
 			if((cnt >> DMADCNT & 3) == DMAINCREL)
-				dmar[DMADST] = cntp[-3] | cntp[-2] << 16;
+				dr[DMADST] = cntp[-3] | cntp[-2] << 16;
 		}else
 			*cntp &= ~DMAEN;
 		if((cnt & DMAIRQ) != 0)
