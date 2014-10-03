@@ -10,8 +10,6 @@ u16int pram[512], oam[512];
 uchar *rom, *back;
 int nrom, nback;
 u16int reg[512];
-u16int tim[4];
-int timerclock;
 int dmaact;
 enum {
 	DMASRC,
@@ -100,7 +98,7 @@ regread(u32int a)
 		
 		if(ppuy >= 160 && ppuy != 227)
 			v |= 1;
-		if(ppux >= 240)
+		if(hblank)
 			v |= 2;
 		if(ppuy == v >> 8)
 			v |= 4;
@@ -108,7 +106,7 @@ regread(u32int a)
 	case 0x006:
 		return ppuy;
 	case 0x100: case 0x104: case 0x108: case 0x10c:
-		return tim[(a - 0x100) / 4];
+		return timerget((a - 0x100) / 4);
 	case 0x130:
 		return keys ^ 0x3ff;
 	default:
@@ -122,7 +120,11 @@ regwrite16(u32int a, u16int v)
 	u16int *p;
 	int i;
 	static u8int ws0[4] = {5,4,3,9};
-	
+
+	if(a < 0x56)
+		ppuwrite(a, v);
+	else if(a < 0xa0)
+		sndwrite(a, v);
 	p = &reg[a/2];
 	switch(a){
 	case IF*2:
@@ -133,19 +135,6 @@ regwrite16(u32int a, u16int v)
 		*p = v;
 		setif(0);
 		return;
-	case BLDALPHA*2:
-		blda = v & 0x1f;
-		if(blda > 16)
-			blda = 16;
-		bldb = v >> 8 & 0x1f;
-		if(bldb > 16)
-			bldb = 16;
-		break;
-	case BLDY*2:
-		bldy = v & 0x1f;
-		if(bldy > 16)
-			bldy = 16;
-		break;
 	case DMA0CNTH*2: case DMA1CNTH*2: case DMA2CNTH*2: case DMA3CNTH*2:
 		i = (a - DMA0CNTH*2) / 12;
 		if((v & DMAEN) != 0){
@@ -159,9 +148,14 @@ regwrite16(u32int a, u16int v)
 		}else
 			dmaact &= ~1<<i;
 		break;
+	case SOUNDCNTH*2:
+		soundcnth(v);
+		break;
+	case FIFOAH*2: case FIFOBH*2:
+		fifoput(a >> 2 & 1, p[-1] | v << 16);
+		break;
 	case 0x102: case 0x106: case 0x10a: case 0x10e:
-		if((*p & 1<<7) == 0 && (v & 1<<7) != 0)
-			tim[(a-0x102)/4] = p[-1];
+		timerset((a - 0x102) / 4, v);
 		break;
 	case WAITCNT*2:
 		waitst[3] = waitst[7] = ws0[v & 3];
@@ -196,7 +190,7 @@ regwrite(u32int a, u32int v, int n)
 			w = w & 0xff00 | (u8int)v;
 		else
 			w = w & 0xff | v << 8;
-		regwrite16(a, w);
+		regwrite16(a & ~1, w);
 		break;
 	default:
 		regwrite16(a, v);
@@ -242,6 +236,11 @@ memread(u32int a, int n, int seq)
 		cyc++;
 		if(n == 4)
 			return regread(b) | regread(b+2) << 16;
+		else if(n == 1)
+			if((b & 1) != 0)
+				return regread(b) >> 8;
+			else
+				return regread(b) & 0xff;
 		return regread(b);
 	case 5:
 		b = a & sizeof(pram) - 1;
@@ -353,6 +352,7 @@ void
 memreset(void)
 {
 	reg[0x88/2] = 0x200;
+	reg[BG2PA] = reg[BG2PD] = 0x100;
 	if(backup == EEPROM)
 		if(nrom <= 16*KB*KB)
 			eepstart = 0x1000000;
@@ -362,50 +362,6 @@ memreset(void)
 		eepstart = -1;
 }
 
-void
-timerstep(int t)
-{
-	int i, carry;
-	u16int c;
-	u16int nt;
-
-	nt = -t;
-	carry = 0;
-	timerclock += t;
-	for(i = 0; i < 4; i++){
-		c = reg[0x102/2 + i*2];
-		if((c & 1<<7) == 0)
-			goto next;
-		if((c & 1<<2) == 0)
-			switch(c & 3){
-			case 1:
-				if((timerclock & 63) != 0)
-					goto next;
-				break;
-			case 2:
-				if((timerclock & 255) != 0)
-					goto next;
-				break;
-			case 3:
-				if((timerclock & 1023) != 0)
-					goto next;
-				break;
-			}
-		else
-			if(!carry)
-				goto next;
-		if(carry = tim[i] >= nt){
-			tim[i] += reg[0x100/2 + i*2];
-			if((c & 1<<6) != 0)
-				setif(IRQTIM0 << i);
-		}
-		tim[i] += t;
-		continue;
-	next:
-		carry = 0;
-	}
-}
-
 int
 dmastep(void)
 {
@@ -413,7 +369,7 @@ dmastep(void)
 	u16int *cntp, cnt;
 	u32int *dr;
 	u32int v;
-	int sz;
+	int sz, snd;
 	
 	cyc = 0;
 	for(i = 0; i < 4; i++)
@@ -425,6 +381,9 @@ dmastep(void)
 	cntp = reg + DMA0CNTH + i * 6;
 	cnt = *cntp;
 	dr = dmar + 4 * i;
+	snd = (cnt >> DMAWHEN & 3) == 3 && (i == 1 || i == 2);
+	if(snd)
+		cnt = cnt & ~(3 << DMADCNT) | DMAFIX << DMADCNT | DMAWIDE;
 
 	sz = (cnt & DMAWIDE) != 0 ? 4 : 2;
 	if(i == 0)
@@ -468,15 +427,18 @@ dmastart(int cond)
 	u16int *cntp, cnt, c;
 	
 	cntp = reg + DMA0CNTH;
-	for(i = 0; i < 3; i++, cntp += 6){
+	for(i = 0; i < 4; i++, cntp += 6){
 		cnt = *cntp;
 		if((cnt & DMAEN) == 0)
 			continue;
 		c = cnt >> DMAWHEN & 3;
 		if(c == 3)
 			c += (i + 1) / 2;
-		if(c == cond)
+		if(c == cond){
 			dmaact |= 1<<i;
+			if(c == DMASOUND)
+				dmar[i * 4 + DMACNT] = 4;
+		}
 	}
 }
 

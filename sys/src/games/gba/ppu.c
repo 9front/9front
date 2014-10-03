@@ -4,29 +4,28 @@
 #include "dat.h"
 #include "fns.h"
 
-int ppux, ppuy;
-uchar pic[240*160*2*3*3];
+int hblank, ppuy;
 u8int bldy, blda, bldb;
+u32int hblclock;
+int ppux0;
+u32int pixcol[480];
+u8int pixpri[480];
+u8int pixwin[240];
+uchar pic[240*160*3*2];
+int objalpha;
 
 typedef struct bg bg;
 struct bg {
 	uchar n;
-	uchar depth;
-
-	s32int rpx0, rpy0, rpx, rpy;
-	s32int sx, sy;
-	
+	s32int rpx0, rpy0, rpx1, rpy1, rpx, rpy;
 	u16int tx, ty;
 	u8int tnx, tny;
-	u16int t;
-	u8int *chr;
-	u16int *pal;
+	
+	u8int mosaic, mctr, lasti;
+	u32int curc;
+	u8int curpri;
 };
-static u8int mode=-1;
 static bg bgst[4] = {{.n = 0}, {.n = 1}, {.n = 2}, {.n = 3}};
-static u32int pixeldat[2], pixelpri[2];
-static u16int bgmask;
-static u8int objwin, objtrans;
 
 typedef struct sprite sprite;
 struct sprite {
@@ -44,287 +43,36 @@ struct sprite {
 	
 	s32int rx, ry;
 	s16int dx, dy;
+	
+	u8int mctr, mcol;
 };
 static sprite sprt[128], *sp = sprt;
 enum {
 	SPRROT = 1<<8,
 	SPRDIS = 1<<9,
 	SPRDOUB = 1<<9,
+	SPRMOSA = 1<<12,
 	SPR8 = 1<<13,
 	SPRWIDE = 1<<14,
 	SPRTALL = 1<<15,
 	SPRHFLIP = 1<<28,
 	SPRVFLIP = 1<<29,
 	SPRSIZE0 = 1<<30,
-	SPRSIZE1 = 1<<31
+	SPRSIZE1 = 1<<31,
+
+	NOWIN = 0,
+	OBJWIN = 1,
+	WIN2 = 2,
+	WIN1 = 4,
+	
+	OBJALPHA = 1<<16,
+	SRCOBJ = 4<<17,
+	SRCBACK = 5<<17,
+	
+	VACANT = 0x10,
+	BACKDROP = 8,
 };
-
-void
-pixeldraw(int x, int y, u16int v)
-{
-	uchar *p;
-	u16int *q;
-	union { u16int w; u8int b[2]; } u;
-
-	if(scale == 1){
-		p = pic + (x + y * 240) * 2;
-		p[0] = v;
-		p[1] = v >> 8;
-		return;
-	}
-	u.b[0] = v;
-	u.b[1] = v >> 8;
-	if(scale == 2){
-		q = (u16int*)pic + (x + y * 240) * 2;
-		q[0] = u.w;
-		q[1] = u.w;
-	}else{
-		q = (u16int*)pic + (x + y * 240) * 3;
-		q[0] = u.w;
-		q[1] = u.w;
-		q[2] = u.w;
-	}
-}
-
-void
-pixel(u16int c, int n, int p)
-{
-	if(p < pixelpri[0]){
-		pixeldat[1] = pixeldat[0];
-		pixelpri[1] = pixelpri[0];
-		pixelpri[0] = p;
-		pixeldat[0] = c | n << 16;
-	}else if(p < pixelpri[1]){
-		pixelpri[1] = p;
-		pixeldat[1] = c | n << 16;
-	}
-}
-
-void
-tile(bg *b)
-{
-	u16int bgcnt, ta, tx, ty, y, t;
-	u8int d;
-	u8int *chr;
-	
-	bgcnt = reg[BG0CNT + b->n];
-	d = bgcnt >> 7 & 1;
-	tx = b->tx;
-	ty = b->ty;
-	ta = (bgcnt << 3 & 0xf800) + ((tx & 0x1f) << 1) + ((ty & 0x1f) << 6);
-	switch(bgcnt >> 14){
-	case 1: ta += tx << 6 & 0x800; break;
-	case 2: ta += ty << 6 & 0x800; break;
-	case 3: ta += tx << 6 & 0x800 | ty << 7 & 0x1000; break;
-	}
-	t = vram[ta] | vram[ta+1] << 8;
-	b->t = t;
-	chr = vram + (bgcnt << 12 & 0xc000) + ((t & 0x3ff) << 5+d);
-	y = b->tny;
-	if((t & 1<<11) != 0)
-		y ^= 7;
-	chr = chr + (y << 2+d);
-	b->chr = chr;
-	if(d != 0)
-		b->pal = pram;
-	else
-		b->pal = pram + (t >> 8 & 0xf0);
-}
-
-void
-bginit(bg *b, int scal, int)
-{
-	u16int cnt, x, y;
-	u16int *rr;
-	
-	cnt = reg[DISPCNT];
-	if(scal){
-		rr = reg + (b->n - 2 << 3);
-		if(ppuy == 0){
-			b->rpx0 = (s32int)(rr[BG2XL] | rr[BG2XH] << 16) << 4 >> 4;
-			b->rpy0 = (s32int)(rr[BG2YL] | rr[BG2YH] << 16) << 4 >> 4;
-		}
-		b->rpx = b->rpx0;
-		b->rpy = b->rpy0;
-		b->rpx0 += (s16int)rr[BG2PB];
-		b->rpy0 += (s16int)rr[BG2PD];
-		switch(cnt & 7){
-		case 3:
-		case 4:
-			b->sx = 240 << 8;
-			b->sy = 160 << 8;
-			b->depth = (cnt & 7) == 3;
-			break;
-		case 5:
-			b->sx = 160 << 8;
-			b->sy = 128 << 8;
-			b->depth = 1;
-			break;
-		}
-	}else{
-		rr = reg + (b->n << 1);
-		x = rr[BG0HOFS] & 0x1ff;
-		y = (rr[BG0VOFS] & 0x1ff) + ppuy;
-		b->tx = x >> 3;
-		b->ty = y >> 3;
-		b->tnx = x & 7;
-		b->tny = y & 7;
-		tile(b);
-	}
-}
-
-void
-bgsinit(void)
-{
-	mode = reg[DISPCNT] & 7;
-	switch(mode){
-	case 0:
-		bginit(&bgst[0], 0, 0);
-		bginit(&bgst[1], 0, 0);
-		bginit(&bgst[2], 0, 0);
-		bginit(&bgst[3], 0, 0);
-		break;
-	case 1:
-		bginit(&bgst[0], 0, 0);
-		bginit(&bgst[1], 0, 0);
-		bginit(&bgst[2], 1, 0);
-		break;
-	case 2:
-		bginit(&bgst[2], 1, 0);
-		bginit(&bgst[3], 1, 0);
-		break;
-	case 3:
-	case 4:
-	case 5:
-		bginit(&bgst[2], 1, 1);
-		break;
-	}	
-}
-
-void
-bitbg(bg *b)
-{
-	u16int cnt;
-	int v;
-	uchar *p;
-	u16int *rr;
-	uchar *base;
-	
-	cnt = reg[DISPCNT];
-	rr = reg - 8 + (b->n << 3);
-	if((bgmask & 1<<b->n) == 0)
-		goto next;
-	if(b->rpx >= 0 && b->rpy >= 0 && b->rpx <= b->sx && b->rpy <= b->sy){
-		base = vram;
-		if((cnt & FRAME) != 0 && (cnt & 7) != 3)
-			base += 0xa000;
-		if(b->depth){
-			p = base + 2 * (b->rpx >> 8) + 480 * (b->rpy >> 8);
-			v = p[0] | p[1] << 8;
-		}else{
-			v = base[(b->rpx >> 8) + 240 * (b->rpy >> 8)];
-			if(v != 0)
-				v = pram[v];
-			else
-				v = -1;
-		}
-	}else
-		v = -1;
-	if(v >= 0)
-		pixel(v, b->n, reg[BG0CNT + b->n] & 3);
-next:
-	b->rpx += (s16int) rr[BG2PA];
-	b->rpy += (s16int) rr[BG2PC];
-}
-
-void
-rotbg(bg *b)
-{
-	u16int *rr, ta;
-	u16int bgcnt;
-	int row, sz, x, y;
-	uchar *p, v;
-
-	rr = reg - 8 + (b->n << 3);
-	if((bgmask & 1<<b->n) == 0)
-		goto next;
-	bgcnt = reg[BG0CNT + b->n];
-	row = (bgcnt >> 14) + 4;
-	sz = 1 << 3 + row;
-	x = b->rpx >> 8;
-	y = b->rpy >> 8;
-	if((bgcnt & DISPWRAP) != 0){
-		x &= sz - 1;
-		y &= sz - 1;
-	}else if((uint)x >= sz || (uint)y >= sz)
-		goto next;
-	ta = (bgcnt << 3 & 0xf800) + ((y >> 3) << row) + (x >> 3);
-	p = vram + (bgcnt << 12 & 0xc000) + (vram[ta] << 6);
-	p += (x & 7) + ((y & 7) << 3);
-	if((v = *p) != 0)
-		pixel(pram[v], b->n, bgcnt & 3);
-next:
-	b->rpx += (s16int) rr[BG2PA];
-	b->rpy += (s16int) rr[BG2PC];
-}
-
-void
-txtbg(bg *b)
-{
-	u16int bgcnt;
-	u8int x, v;
-
-	bgcnt = reg[BG0CNT + b->n];
-	if((bgmask & 1<<b->n) == 0)
-		goto next;
-	x = b->tnx;
-	if((b->t & 1<<10) != 0)
-		x ^= 7;
-	if((bgcnt & BG8) != 0)
-		v = b->chr[x];
-	else{
-		v = b->chr[x>>1];
-		if((x & 1) != 0)
-			v >>= 4;
-		else
-			v &= 0xf;
-	}
-	if(v != 0)
-		pixel(b->pal[v], b->n, bgcnt & 3);
-next:
-	if(++b->tnx == 8){
-		b->tnx = 0;
-		b->tx++;
-		tile(b);
-	}
-}
-
-void
-bgs(void)
-{
-	switch(mode){
-	case 0:
-		txtbg(&bgst[0]);
-		txtbg(&bgst[1]);
-		txtbg(&bgst[2]);
-		txtbg(&bgst[3]);
-		break;
-	case 1:
-		txtbg(&bgst[0]);
-		txtbg(&bgst[1]);
-		rotbg(&bgst[2]);
-		break;
-	case 2:
-		rotbg(&bgst[2]);
-		rotbg(&bgst[3]);
-		break;
-	case 3:
-	case 4:
-	case 5:
-		bitbg(&bgst[2]);
-		break;
-	}
-}
+#define SRCBG(n) ((n)<<17)
 
 void
 sprinit(void)
@@ -352,6 +100,10 @@ sprinit(void)
 			hb <<= 1;
 		if(dy >= hb || (u8int)t0 + hb > 256 && ppuy + 256 - (u8int)t0 >= hb)
 			continue;
+		if((t0 & SPRMOSA) != 0){
+			dy = dy - dy % ((reg[MOSAIC] >> 12 & 15) + 1);
+			sp->mctr = 0;
+		}
 		sp->x = (s32int)(t0 << 7) >> 23;
 		sp->t0 = t0;
 		ws = wss[s];
@@ -402,89 +154,403 @@ sprinit(void)
 }
 
 void
-spr(void)
+spr(int x1)
 {
+	int x0, i, dx, sx0, sx1;
+	u8int pri, v, d, *b;
+	u16int x, y;
+	u32int c, t0;
 	sprite *s;
-	ushort dx;
-	u32int t0;
-	uchar v;
-	ushort x, y;
-	u16int c;
-	int pv, ppri, pri;
-	uchar d;
-	uchar *b;
 	
-	pv = -1;
-	ppri = 6;;
+	x0 = ppux0;
 	for(s = sprt; s < sp; s++){
-		dx = ppux - s->x;
-		if(dx >= s->wb)
+		if(s->x >= x1 || s->x + s->wb <= x0)
 			continue;
 		t0 = s->t0;
-		if((t0 & SPRROT) != 0){
-			x = s->rx >> 8;
-			y = s->ry >> 8;
-			if(x < s->w && y < s->h){
-				b = s->base;
+		pri = s->t1 >> 10 & 3;
+		sx0 = s->x >= x0 ? s->x : x0;
+		sx1 = s->x + s->wb;
+		if(x1 < sx1)
+			sx1 = x1;
+		dx = sx0 - s->x;
+		for(i = sx0; i < sx1; i++, dx++){
+			if((t0 & SPRROT) != 0){
 				d = (t0 & SPR8) != 0;
-				b += (y & 7) << 2 + d;
-				b += y >> 3 << s->ysh;
-				b += (x & 7) >> 1 - d;
-				b += x >> 3 << 5 + d;
-				v = *b;
-				if(!d)
-					if((x & 1) != 0)
-						v >>= 4;
-					else
-						v &= 0xf;
-			}else
-				v = 0;
-			s->rx += s->dx;
-			s->ry += s->dy;
-		}else if((t0 & SPRHFLIP) != 0){
-			if((t0 & SPR8) != 0)
-				v = *--s->base;
-			else if((dx & 1) != 0)
-				v = *s->base & 0x0f;
-			else
-				v = *--s->base >> 4;
-			if((dx & 7) == 7)
-				s->base -= s->inc;
-		}else{
-			v = *s->base;
-			if((t0 & SPR8) != 0)
-				s->base++;
-			else if((dx & 1) != 0){
-				v >>= 4;
-				s->base++;
-			}else
-				v &= 0xf;
-			if((dx & 7) == 7)
-				s->base += s->inc;
-		}
-		if(v != 0){
-			pri = s->t1 >> 10 & 3;
-			c = s->pal[v];
-			switch(s->t0 >> 10 & 3){
-			case 1:
-				c |= 1<<16;
-			case 0:
-				if(ppri > pri){
-					pv = c;
-					ppri = pri;
+				x = s->rx >> 8;
+				y = s->ry >> 8;
+				s->rx += s->dx;
+				s->ry += s->dy;
+				if(x < s->w && y < s->h){
+					b = s->base;
+					b += (y & 7) << 2 + d;
+					b += y >> 3 << s->ysh;
+					b += (x & 7) >> 1 - d;
+					b += x >> 3 << 5 + d;
+					v = *b;
+					if(!d)
+						if((x & 1) != 0)
+							v >>= 4;
+						else
+							v &= 0xf;
+				}else
+					v = 0;
+			}else if((t0 & SPRHFLIP) != 0){
+				if((t0 & SPR8) != 0)
+					v = *--s->base;
+				else if((dx & 1) != 0)
+					v = *s->base & 0x0f;
+				else
+					v = *--s->base >> 4;
+				if((dx & 7) == 7)
+					s->base -= s->inc;
+			}else{
+				v = *s->base;
+				if((t0 & SPR8) != 0)
+					s->base++;
+				else if((dx & 1) != 0){
+					v >>= 4;
+					s->base++;
+				}else
+					v &= 0xf;
+				if((dx & 7) == 7)
+					s->base += s->inc;
+			}
+			if((t0 & SPRMOSA) != 0)
+				if(s->mctr == 0){
+					s->mctr = reg[MOSAIC] >> 8 & 15;
+					s->mcol = v;
+				}else{
+					--s->mctr;
+					v = s->mcol;
 				}
-				break;
-			case 2:
-				objwin = 1;
-				break;
+			if(v != 0){
+				c = s->pal[v] | SRCOBJ;
+				switch(t0 >> 10 & 3){
+				case 1:
+					c |= OBJALPHA;
+					objalpha++;
+				case 0:
+					if(pri < pixpri[i]){
+						pixcol[i] = c;
+						pixpri[i] = pri;
+					}
+					break;
+				case 2:
+					if((reg[DISPCNT] & 1<<15) != 0)
+						pixwin[i] |= OBJWIN;
+					break;
+				}
 			}
 		}
 	}
-	if(pv >= 0){
-		pixel(pv, 4, ppri);
-		if(pv >> 16 != 0)
-			objtrans = 1;
+}
+
+void
+bgpixel(bg *b, int i, u32int c, int pri)
+{
+	u8int *p;
+	u32int *q;
+	int j;
+
+	if(b != nil){
+		c |= SRCBG(b->n);
+		if(b->mosaic){
+			for(j = (u8int)(b->lasti+1); j <= i; j++){
+				if(b->mctr == 0){
+					if(j == i){
+						b->curc = c;
+						b->curpri = pri;
+					}else
+						b->curpri = VACANT;
+					b->mctr = reg[MOSAIC] & 15;
+				}else
+					b->mctr--;
+				if(b->curpri != VACANT && (pixwin[j] & 1<<b->n) == 0)
+					bgpixel(nil, j, b->curc, b->curpri);
+			}
+			b->lasti = i;
+			return;
+		}
 	}
+	p = pixpri + i;
+	q = pixcol + i;
+	if(pri < p[0]){
+		p[240] = p[0];
+		p[0] = pri;
+		q[240] = q[0];
+		q[0] = c;
+	}else if(pri < p[240]){
+		p[240] = pri;
+		q[240] = c;
+	}
+}
+
+
+
+void
+bginit(bg *b, int scal, int)
+{
+	u16int x, y;
+	u16int *rr;
+	int msz;
+
+	b->mosaic = (reg[BG0CNT + b->n] & BGMOSAIC) != 0;
+	if(b->mosaic){
+		b->mctr = 0;
+		b->lasti = -1;
+	}
+	if(scal){
+		rr = reg + (b->n - 2 << 3);
+		if(ppuy == 0){
+			b->rpx0 = (s32int)(rr[BG2XL] | rr[BG2XH] << 16) << 4 >> 4;
+			b->rpy0 = (s32int)(rr[BG2YL] | rr[BG2YH] << 16) << 4 >> 4;
+		}
+		if(!b->mosaic || ppuy % ((reg[MOSAIC] >> 4 & 15) + 1) == 0){
+			b->rpx1 = b->rpx0;
+			b->rpy1 = b->rpy0;
+		}
+		b->rpx = b->rpx1;
+		b->rpy = b->rpy1;
+		b->rpx0 += (s16int)rr[BG2PB];
+		b->rpy0 += (s16int)rr[BG2PD];
+	}else{
+		rr = reg + (b->n << 1);
+		x = rr[BG0HOFS] & 0x1ff;
+		y = ppuy;
+		if(b->mosaic){
+			msz = (reg[MOSAIC] >> 4 & 15) + 1;
+			y = y - y % msz;
+		}
+		y += (rr[BG0VOFS] & 0x1ff);
+		b->tx = x >> 3;
+		b->ty = y >> 3;
+		b->tnx = x & 7;
+		b->tny = y & 7;
+	}
+}
+
+void
+bgsinit(void)
+{
+	switch(reg[DISPCNT] & 7){
+	case 0:
+		bginit(&bgst[0], 0, 0);
+		bginit(&bgst[1], 0, 0);
+		bginit(&bgst[2], 0, 0);
+		bginit(&bgst[3], 0, 0);
+		break;
+	case 1:
+		bginit(&bgst[0], 0, 0);
+		bginit(&bgst[1], 0, 0);
+		bginit(&bgst[2], 1, 0);
+		break;
+	case 2:
+		bginit(&bgst[2], 1, 0);
+		bginit(&bgst[3], 1, 0);
+		break;
+	case 3:
+	case 4:
+	case 5:
+		bginit(&bgst[2], 1, 1);
+		break;
+	}	
+}
+
+void
+bitbg(bg *b, int x1)
+{
+	u8int *base, *p, pri, d;
+	u16int cnt, *rr, sx, sy;
+	int i, v;
+	
+	cnt = reg[DISPCNT];
+	if((cnt & 1<<8 + b->n) == 0)
+		return;
+	rr = reg + (b->n - 2 << 3);
+	if((cnt & 7) != 5){
+		sx = 240 << 8;
+		sy = 160 << 8;
+		d = (cnt & 7) == 3;
+	}else{
+		sx = 160 << 8;
+		sy = 128 << 8;
+		d = 1;
+	}
+	base = vram;
+	if((cnt & FRAME) != 0 && (cnt & 7) != 3)
+		base += 0xa000;
+	pri = reg[BG0CNT + b->n] & 3;
+	for(i = ppux0; i < x1; i++){
+		if(((pixwin[i] & 1<<b->n) == 0 || b->mosaic) && (u32int)b->rpx < sx && (u32int)b->rpy < sy){
+			if(d){
+				p = base + 2 * (b->rpx >> 8) + 480 * (b->rpy >> 8);
+				v = p[0] | p[1] << 8;
+			}else{
+				v = base[(b->rpx >> 8) + 240 * (b->rpy >> 8)];
+				if(v != 0)
+					v = pram[v];
+				else
+					v = -1;
+			}
+			if(v >= 0)
+				bgpixel(b, i, v, pri);
+	
+		}
+		b->rpx += (s16int) rr[BG2PA];
+		b->rpy += (s16int) rr[BG2PC];
+	}
+}
+
+void
+txtbg(bg *b, int x1)
+{
+	u8int y, v, d, *cp;
+	u16int bgcnt, ta0, ta, tx, ty, t, *pal;
+	u32int ca;
+	int i, x, mx;
+	
+	if((reg[DISPCNT] & 1<<8 + b->n) == 0)
+		return;
+	bgcnt = reg[BG0CNT + b->n];
+	d = bgcnt >> 7 & 1;
+	tx = b->tx;
+	ty = b->ty;
+	ta0 = (bgcnt << 3 & 0xf800) + ((ty & 0x1f) << 6);
+	switch(bgcnt >> 14){
+	case 2: ta0 += ty << 6 & 0x800; break;
+	case 3: ta0 += ty << 7 & 0x1000; break;
+	}
+	x = ppux0;
+	i = b->tnx;
+	for(; x < x1; tx++, i = 0){
+		ta = ta0 + ((tx & 0x1f) << 1);
+		if((bgcnt & 1<<14) != 0)
+			ta += tx << 6 & 0x800;
+		t = vram[ta] | vram[ta+1] << 8;
+		if(d)
+			pal = pram;
+		else
+			pal = pram + (t >> 8 & 0xf0);
+		ca = (bgcnt << 12 & 0xc000) + ((t & 0x3ff) << 5+d);
+		if(ca >= 0x10000)
+			continue;
+		y = b->tny;
+		if((t & 1<<11) != 0)
+			y ^= 7;
+		ca += y << 2+d;
+		cp = vram + ca;
+		for(; i < 8; i++, x++){
+			if(x >= x1)
+				goto out;
+			if((pixwin[x] & 1<<b->n) != 0 && !b->mosaic)
+				continue;
+			mx = i;
+			if((t & 1<<10) != 0)
+				mx ^= 7;
+			v = cp[mx >> 1-d];
+			if(!d)
+				if((mx & 1) != 0)
+					v >>= 4;
+				else
+					v &= 0xf;
+			if(v != 0)
+				bgpixel(b, x, pal[v], bgcnt & 3);
+		}
+	}
+out:
+	b->tx = tx;
+	b->tnx = i;
+}
+
+void
+rotbg(bg *b, int x1)
+{
+	uchar *p, v;
+	u16int bgcnt, *rr, ta;
+	int i, row, sz, x, y;
+
+	rr = reg + (b->n - 2 << 3);
+	if((reg[DISPCNT] & 1<<8 + b->n) == 0)
+		return;
+	bgcnt = reg[BG0CNT + b->n];
+	row = (bgcnt >> 14) + 4;
+	sz = 1 << 3 + row;
+	for(i = ppux0; i < x1; i++){
+		x = b->rpx >> 8;
+		y = b->rpy >> 8;
+		b->rpx += (s16int) rr[BG2PA];
+		b->rpy += (s16int) rr[BG2PC];
+		if((pixwin[i] & 1<<b->n) != 0 && !b->mosaic)
+			continue;
+		if((bgcnt & DISPWRAP) != 0){
+			x &= sz - 1;
+			y &= sz - 1;
+		}else if((uint)x >= sz || (uint)y >= sz)
+			 continue;
+		ta = (bgcnt << 3 & 0xf800) + ((y >> 3) << row) + (x >> 3);
+		p = vram + (bgcnt << 12 & 0xc000) + (vram[ta] << 6);
+		p += (x & 7) + ((y & 7) << 3);
+		if((v = *p) != 0)
+			bgpixel(b, i, pram[v], bgcnt & 3);
+		
+	}
+}
+
+void
+windows(int x1)
+{
+	static u8int wintab[8] = {2, 3, 1, 1, 0, 0, 0, 0};
+	int i, sx0, sx1;
+	u16int v, h;
+	u16int cnt;
+	
+	cnt = reg[DISPCNT];
+	if((cnt >> 13) != 0){
+		if((cnt & 1<<13) != 0){
+			v = reg[WIN0V];
+			h = reg[WIN0H];
+			if(ppuy < (u8int)v && ppuy >= v >> 8){
+				sx1 = (u8int)h;
+				sx0 = h >> 8;
+				if(sx0 < ppux0)
+					sx0 = ppux0;
+				if(sx1 > x1)
+					sx1 = x1;
+				for(i = sx0; i < sx1; i++)
+					pixwin[i] |= WIN1;
+			}
+		}
+		if((cnt & 1<<14) != 0){
+			v = reg[WIN1V];
+			h = reg[WIN1H];
+			if(ppuy < (u8int)v && ppuy >= v >> 8){
+				sx1 = (u8int)h;
+				sx0 = h >> 8;
+				if(sx0 < ppux0)
+					sx0 = ppux0;
+				if(sx1 > x1)
+					sx1 = x1;
+				for(i = sx0; i < sx1; i++)
+					pixwin[i] |= WIN2;
+			}
+		}
+		for(i = ppux0; i < x1; i++){
+			v = wintab[pixwin[i]];
+			h = reg[WININ + (v & 2) / 2];
+			if((v & 1) != 0)
+				h >>= 8;
+			pixwin[i] = ~h;
+		}
+	}
+	for(i = ppux0; i < x1; i++)
+		if(pixpri[i] == VACANT || (pixwin[i] & 1<<4) != 0){
+			pixcol[i] = pram[0] | SRCBACK;
+			pixpri[i] = BACKDROP;
+		}else{
+			pixcol[i+240] = pram[0] | SRCBACK;
+			pixpri[i+240] = BACKDROP;
+		}
+	objalpha = 0;
 }
 
 u16int
@@ -537,117 +603,185 @@ darken(u16int c1)
 }
 
 void
-windows(void)
+colormath(int x1)
 {
-	u16int dispcnt;
-	u16int v, h;
-
-	dispcnt = reg[DISPCNT];
-	bgmask = dispcnt >> 8 | 1<<5;
-	if((dispcnt >> 13) != 0){
-		if((dispcnt & 1<<13) != 0){
-			v = reg[WIN0V];
-			h = reg[WIN0H];
-			if(ppuy < (u8int)v && ppuy >= v >> 8 &&
-				ppux < (u8int)h && ppux >= h >> 8){
-				bgmask &= reg[WININ];
-				goto windone;
-			}
+	u16int bldcnt;
+	u32int *p;
+	int i;
+	
+	bldcnt = reg[BLDCNT];
+	if((bldcnt & 3<<6) == 0 && objalpha == 0)
+		return;
+	p = pixcol + ppux0;
+	for(i = ppux0; i < x1; i++, p++){
+		if((*p & OBJALPHA) != 0)
+			goto alpha;
+		if((pixwin[i] & 1<<5) != 0 || (bldcnt & 1<<(*p >> 17)) == 0)
+			continue;
+		switch(bldcnt >> 6 & 3){
+		case 1:
+		alpha:
+			if((bldcnt & 1<<8+(p[240] >> 17)) == 0)
+				continue;
+			*p = mix(*p, p[240]);
+			break;
+		case 2:
+			*p = brighten(*p);
+			break;
+		case 3:
+			*p = darken(*p);
+			break;
 		}
-		if((dispcnt & 1<<14) != 0){
-			v = reg[WIN1V];
-			h = reg[WIN1H];
-			if(ppuy < (u8int)v && ppuy >= v >> 8 &&
-				ppux < (u8int)h && ppux >= h >> 8){
-				bgmask &= reg[WININ] >> 8;
-				goto windone;
-			}
-		}
-		if((dispcnt & 1<<15) != 0 && objwin != 0){
-			bgmask &= reg[WINOUT] >> 8;
-			goto windone;
-		}
-		bgmask &= reg[WINOUT];
-	}
-windone:
-	if(pixelpri[0] != 8 && (bgmask & 1<<4) == 0){
-		pixelpri[0] = 8;
-		pixeldat[0] = pram[0] | 5 << 16;
 	}
 }
 
 void
-colormath(void)
+linecopy(void)
 {
-	u8int src0;
-	u16int bldcnt;
+	u32int *p;
+	uchar *q;
+	u16int *r;
+	u16int v;
+	union { u16int w; u8int b[2]; } u;
+	int n;
 	
-	if((bgmask & 1<<5) == 0)
+	p = pixcol;
+	q = pic + ppuy * 240 * 2 * scale;
+	r = (u16int*)q;
+	n = 240;
+	while(n--){
+		v = *p++;
+		if(scale == 1){
+			*q++ = v;
+			*q++ = v >> 8;
+			continue;
+		}
+		u.b[0] = v;
+		u.b[1] = v >> 8;
+		if(scale == 2){
+			*r++ = u.w;
+			*r++ = u.w;
+		}else{
+			*r++ = u.w;
+			*r++ = u.w;
+			*r++ = u.w;
+		}
+	}
+}
+
+void
+syncppu(int x1)
+{
+	int i;
+	u16int cnt;
+
+	if(hblank || ppuy >= 160)
 		return;
-	bldcnt = reg[BLDCNT];
-	src0 = pixeldat[0] >> 16;
-	if(objtrans && src0 == 4)
-		goto alpha;
-	if((bldcnt & 3<<6) == 0 || (bldcnt & 1<<src0) == 0)
+	if(x1 >= 240)
+		x1 = 240;
+	else if(x1 <= ppux0)
 		return;
-	switch(bldcnt >> 6 & 3){
+	cnt = reg[DISPCNT];
+	if((cnt & FBLANK) != 0){
+		for(i = ppux0; i < x1; i++)
+			pixcol[i] = 0xffff;
+		ppux0 = x1;
+		return;
+	}
+
+	if((cnt & 1<<12) != 0)
+		spr(x1);
+	windows(x1);
+	switch(cnt & 7){
+	case 0:
+		txtbg(&bgst[0], x1);
+		txtbg(&bgst[1], x1);
+		txtbg(&bgst[2], x1);
+		txtbg(&bgst[3], x1);
+		break;
 	case 1:
-	alpha:
-		if((bldcnt & 1<<8+(pixeldat[1]>>16)) == 0)
-			return;
-		pixeldat[0] = mix(pixeldat[0], pixeldat[1]);
+		txtbg(&bgst[0], x1);
+		txtbg(&bgst[1], x1);
+		rotbg(&bgst[2], x1);
 		break;
 	case 2:
-		pixeldat[0] = brighten(pixeldat[0]);
+		rotbg(&bgst[2], x1);
+		rotbg(&bgst[3], x1);
 		break;
 	case 3:
-		pixeldat[0] = darken(pixeldat[0]);
-		break;
+	case 4:
+	case 5:
+		bitbg(&bgst[2], x1);
 	}
+	colormath(x1);
+	ppux0 = x1;
 }
 
 void
-ppustep(void)
+hblanktick(void *)
 {
+	extern Event evhblank;
 	u16int stat;
-	u16int cnt;
-	
+
 	stat = reg[DISPSTAT];
-	cnt = reg[DISPCNT];
-	if(ppuy < 160 && ppux < 240)
-		if((cnt & FBLANK) == 0){
-			objwin = 0;
-			objtrans = 0;
-			pixelpri[0] = 8;
-			pixeldat[0] = pram[0] | 5 << 16;
-			if((cnt & 1<<12) != 0)
-				spr();
-			windows();
-			bgs();
-			colormath();
-			pixeldraw(ppux, ppuy, pixeldat[0]);
-		}else
-			pixeldraw(ppux, ppuy, 0xffff);
-	if(ppux == 240 && ppuy < 160){
-		if((stat & IRQHBLEN) != 0)
-			setif(IRQHBL);
-		dmastart(DMAHBL);
-	}
-	if(++ppux >= 308){
-		ppux = 0;
+	if(hblank){
+		hblclock = clock + evhblank.time;
+		addevent(&evhblank, 240*4 + evhblank.time);
+		hblank = 0;
+		ppux0 = 0;
+		memset(pixpri, VACANT, sizeof(pixpri));
+		memset(pixwin, 0, 240);
 		if(++ppuy >= 228){
 			ppuy = 0;
 			flush();
 		}
-		if((stat & IRQVCTREN) != 0 && ppuy == stat >> 8)
-			setif(IRQVCTR);
 		if(ppuy < 160){
-			bgsinit();
 			sprinit();
+			bgsinit();
 		}else if(ppuy == 160){
+			dmastart(DMAVBL);
 			if((stat & IRQVBLEN) != 0)
 				setif(IRQVBL);
-			dmastart(DMAVBL);
 		}
+		if((stat & IRQVCTREN) != 0 && ppuy == stat >> 8)
+			setif(IRQVCTR);
+	}else{
+		syncppu(240);
+		linecopy();
+		addevent(&evhblank, 68*4 + evhblank.time);
+		hblank = 1;
+		if((stat & IRQHBLEN) != 0)
+			setif(IRQHBL);
+		if(ppuy < 160)
+			dmastart(DMAHBL);
+	}
+}
+
+void
+ppuwrite(u16int a, u16int v)
+{
+	syncppu((clock - hblclock) / 4);
+	switch(a){
+	case BLDALPHA*2:
+		blda = v & 0x1f;
+		if(blda > 16)
+			blda = 16;
+		bldb = v >> 8 & 0x1f;
+		if(bldb > 16)
+			bldb = 16;
+		break;
+	case BLDY*2:
+		bldy = v & 0x1f;
+		if(bldy > 16)
+			bldy = 16;
+		break;
+	case BG2XL*2: bgst[2].rpx0 = bgst[2].rpx0 & 0xffff0000 | v; break;
+	case BG2XH*2: bgst[2].rpx0 = bgst[2].rpx0 & 0xffff | (s32int)(v << 20) >> 4; break;
+	case BG2YL*2: bgst[2].rpy0 = bgst[2].rpy0 & 0xffff0000 | v; break;
+	case BG2YH*2: bgst[2].rpy0 = bgst[2].rpy0 & 0xffff | (s32int)(v << 20) >> 4; break;
+	case BG3XL*2: bgst[3].rpx0 = bgst[3].rpx0 & 0xffff0000 | v; break;
+	case BG3XH*2: bgst[3].rpx0 = bgst[3].rpx0 & 0xffff | (s32int)(v << 20) >> 4; break;
+	case BG3YL*2: bgst[3].rpy0 = bgst[3].rpy0 & 0xffff0000 | v; break;
+	case BG3YH*2: bgst[3].rpy0 = bgst[3].rpy0 & 0xffff | (s32int)(v << 20) >> 4; break;
 	}
 }

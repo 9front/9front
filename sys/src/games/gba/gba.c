@@ -15,10 +15,9 @@ Mousectl *mc;
 int keys, paused, framestep, backup;
 QLock pauselock;
 int savefd, saveframes;
+int clock;
 
 char *biosfile = "/sys/games/lib/gbabios.bin";
-
-int ppuclock;
 
 void *
 emalloc(ulong sz)
@@ -347,6 +346,7 @@ flush(void)
 	flushimage(display, 1);
 	if(profile)
 		timing();
+	audioout();
 	if(framestep){
 		paused = 1;
 		qlock(&pauselock);
@@ -370,7 +370,7 @@ flush(void)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-23T] [-s savetype] [-b biosfile] rom\n", argv0);
+	fprint(2, "usage: %s [-23aT] [-s savetype] [-b biosfile] rom\n", argv0);
 	exits("usage");
 }
 
@@ -387,6 +387,9 @@ threadmain(int argc, char **argv)
 		break;
 	case '3':
 		scale = 3;
+		break;
+	case 'a':
+		audioinit();
 		break;
 	case 's':
 		s = EARGF(usage());
@@ -416,7 +419,8 @@ threadmain(int argc, char **argv)
 		sysfatal("initmouse: %r");
 	proccreate(keyproc, nil, mainstacksize);
 	screeninit();
-	
+
+	eventinit();
 	memreset();
 	reset();
 	for(;;){
@@ -430,11 +434,8 @@ threadmain(int argc, char **argv)
 			t = 8;
 		else
 			t = step();
-		ppuclock += t;
-		while(ppuclock >= 4){
-			ppustep();
-			ppuclock -= 4;
-		}
-		timerstep(t);
+		clock += t;
+		if((elist->time -= t) <= 0)
+			popevent();
 	}
 }

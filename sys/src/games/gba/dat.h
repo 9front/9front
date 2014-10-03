@@ -15,10 +15,19 @@ extern u16int reg[];
 extern uchar *rom, *back;
 extern int nrom, nback, backup;
 
-extern int ppux, ppuy;
-extern u8int bldy, blda, bldb;
+extern int hblank, ppuy;
 
+extern int clock;
 extern int scale;
+
+typedef struct Event Event;
+struct Event {
+	int time;
+	void (*f)(void *);
+	Event *next;
+	void *aux;
+};
+extern Event *elist;
 
 enum {
 	DISPCNT = 0x0/2,
@@ -35,6 +44,10 @@ enum {
 	BG2XH = 0x2a/2,
 	BG2YL = 0x2c/2,
 	BG2YH = 0x2e/2,
+	BG3XL = 0x38/2,
+	BG3XH = 0x3a/2,
+	BG3YL = 0x3c/2,
+	BG3YH = 0x3e/2,
 	
 	WIN0H = 0x40/2,
 	WIN1H = 0x42/2,
@@ -42,15 +55,24 @@ enum {
 	WIN1V = 0x46/2,
 	WININ = 0x48/2,
 	WINOUT = 0x4a/2,
+	MOSAIC = 0x4c/2,
 	BLDCNT = 0x50/2,
 	BLDALPHA = 0x52/2,
 	BLDY = 0x54/2,
+	
+	SOUNDCNTL = 0x80/2,
+	SOUNDCNTH = 0x82/2,
+	SOUNDBIAS = 0x88/2,
+	
+	FIFOAH = 0xa2/2,
+	FIFOBH = 0xa6/2,
 	
 	DMA0CNTH = 0xba/2,
 	DMA1CNTH = 0xc6/2,
 	DMA2CNTH = 0xd2/2,
 	DMA3CNTH = 0xde/2,
 	
+	TM0CNTH = 0x102/2,
 	KEYCNT = 0x132/2,
 
 	IE = 0x200/2,
@@ -73,8 +95,15 @@ enum {
 	IRQVCTREN = 1<<5,
 
 	/* BGnCNT */
+	BGMOSAIC = 1<<6,
 	BG8 = 1<<7,
 	DISPWRAP = 1<<13,
+	
+	/* TIMERnCNTH */
+	PRESC = 3,
+	COUNTUP = 1<<2,
+	TIMERIRQ = 1<<6,
+	TIMERON = 1<<7,
 	
 	/* DMAnCNTH */
 	DMADCNT = 5,
@@ -111,4 +140,5 @@ enum {
 	
 	KB = 1024,
 	BACKTYPELEN = 64,
+	HZ = 16777216,
 };
