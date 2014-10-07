@@ -176,3 +176,9 @@ I noticed some odd problem with Fossil on plan9port
 Just heard about Plan 9, and was wondering if anyone would care to take a stab at explaining the differences between it, Linux, and the versions of BSD.
 I'm trying to port some unix programs to plan9
 I'm trying to port gtk to Plan 9.
+If upstream rejects a kernel module pull request solely based on the fact that it is written in Go; despite the module being well written and reasonably efficient, then I say their prejudice is in hostile conflict with the pace of innovation.
+[dev][sbase] Proposal of suckless compression
+[9fans] is plan9.bell-labs.com down
+I like Acme a lot, but without vi keybindings, I cannot edit text.
+Subject: Pingdom Alert: incident #11 is open for Sources (plan9.bell-labs.com)
+My two favorite languages before Go came along were Objective-C and Python.

@@ -135,3 +135,7 @@ Thanks for letting us know.
 It happened.
 i do not want to support a linux/amd64p32 port right now.
 No. I've answered this before.
+If this isn't solved soon I think we should turn off commit access for everyone.
+Very small changes can still contain very large bugs.
+I don't intend to try to fix rc.
+That's fine.
