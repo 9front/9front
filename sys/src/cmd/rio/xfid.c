@@ -179,6 +179,7 @@ xfidattach(Xfid *x)
 	qlock(&all);
 	w = nil;
 	err = Eunkid;
+	dir = nil;
 	newlymade = FALSE;
 	hideit = 0;
 	scrollit = scrolling;
@@ -209,7 +210,7 @@ xfidattach(Xfid *x)
 			if(i){
 				if(pid == 0)
 					pid = -1;	/* make sure we don't pop a shell! - UGH */
-				w = new(i, hideit, scrollit, pid, nil, nil, nil);
+				w = new(i, hideit, scrollit, pid, dir, nil, nil);
 				newlymade = TRUE;
 			}else
 				err = Ewindow;
