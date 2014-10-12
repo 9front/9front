@@ -376,7 +376,7 @@ sigsearch(char* signature)
 static void
 lowraminit(void)
 {
-	ulong n, pa, x;
+	ulong pa, x;
 	uchar *bda;
 
 	/*
@@ -387,9 +387,11 @@ lowraminit(void)
 	 */
 	x = PADDR(CPU0END);
 	bda = (uchar*)KADDR(0x400);
-	n = ((bda[0x14]<<8)|bda[0x13])*KB-x;
-	mapfree(&rmapram, x, n);
-	memset(KADDR(x), 0, n);			/* keep us honest */
+	pa = ((bda[0x14]<<8)|bda[0x13])*KB;
+	if(x < pa){
+		mapfree(&rmapram, x, pa-x);
+		memset(KADDR(x), 0, pa-x);		/* keep us honest */
+	}
 
 	x = PADDR(PGROUND((ulong)end));
 	pa = MemMin;
