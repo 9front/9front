@@ -80,11 +80,11 @@ Create the package
 
 .LP
 Install the
-.B gopherd
-server:
+.B mpm
+troff macros:
 .sp 1
 .EX
-% pkg/install gopherd-2012.04.15
+% pkg/install mpm-2011.05.14
 .EE
 .SH FILES
 .TF
@@ -107,7 +107,7 @@ source files of packages installed locally.
 .br
 .B /sys/src/cmd/pkg/unpkg.c
 .SH REPOSITORIES
-.B http://r-36.net/9front/pkg/386
+.B http://9front.org/pkg/386
 .br
 .B https://offblast.org/pkg/386
 .br
