@@ -124,6 +124,7 @@ options(void)
 
 extern void mmuinit0(void);
 extern void (*i8237alloc)(void);
+extern void bootscreeninit(void);
 
 void
 main(void)
@@ -153,6 +154,7 @@ main(void)
 	printinit();
 	cpuidprint();
 	mmuinit();
+	bootscreeninit();
 	if(arch->intrinit)	/* launches other processors on an mp */
 		arch->intrinit();
 	timersinit();

@@ -13,10 +13,6 @@
 #include <cursor.h>
 #include "screen.h"
 
-#define RGB2K(r,g,b)	((156763*(r)+307758*(g)+59769*(b))>>19)
-
-Point ZP = {0, 0};
-
 Rectangle physgscreenr;
 
 Memimage *gscreen;
@@ -531,7 +527,6 @@ vgalinearaddr(VGAscr *scr, ulong paddr, int size)
 	 * later, let's assume that we can just allocate the
 	 * entire window to start with.
 	 */
-
 	if(scr->paddr == paddr && size <= scr->apsize)
 		return;
 
@@ -542,7 +537,7 @@ vgalinearaddr(VGAscr *scr, ulong paddr, int size)
 		 */
 		error("cannot grow vga frame buffer");
 	}
-	
+
 	/* round to page boundary, just in case */
 	x = paddr&(BY2PG-1);
 	npaddr = paddr-x;
@@ -560,9 +555,104 @@ vgalinearaddr(VGAscr *scr, ulong paddr, int size)
 	scr->vaddr = (char*)scr->vaddr+x;
 	scr->paddr = paddr;
 	scr->apsize = nsize;
+
 	/* let mtrr harmlessly fail on old CPUs, e.g., P54C */
 	if(!waserror()){
 		mtrr(npaddr, nsize, "wc");
 		poperror();
 	}
+}
+
+/*
+ * called early on boot to attach to framebuffer
+ * setup by bootloader or firmware.
+ */
+void
+bootscreeninit(void)
+{
+	static Memdata md;
+	VGAscr *scr;
+	int x, y, z;
+	ulong chan, pa, sz;
+	char *s, *p;
+
+	/* *bootscreen=WIDTHxHEIGHTxDEPTH CHAN PA [SZ] */
+	s = getconf("*bootscreen");
+	if(s == nil)
+		return;
+
+	x = strtoul(s, &s, 0);
+	if(x == 0 || *s++ != 'x')
+		return;
+
+	y = strtoul(s, &s, 0);
+	if(y == 0 || *s++ != 'x')
+		return;
+
+	z = strtoul(s, &s, 0);
+	if(*s != ' ')
+		return;
+	if((p = strchr(++s, ' ')) == nil)
+		return;
+	*p = 0;
+	chan = strtochan(s);
+	*p = ' ';
+	if(chan == 0 || chantodepth(chan) != z)
+		return;
+
+	sz = 0;
+	pa = strtoul(p+1, &s, 0);
+	if(pa == 0)
+		return;
+	if(*s++ == ' ')
+		sz = strtoul(s, nil, 0);
+	if(sz < x * y * (z+7)/8)
+		sz = x * y * (z+7)/8;
+
+	/* round to pages */
+	z = pa&(BY2PG-1);
+	pa -= z;
+	sz += z;
+
+	/* map framebuffer */
+	scr = &vgascreen[0];
+	scr->apsize = PGROUND(sz);
+	scr->vaddr = vmap(pa, scr->apsize);
+	if(scr->vaddr == 0){
+		scr->apsize = 0;
+		return;
+	}
+	scr->vaddr = (char*)scr->vaddr + z;
+	scr->paddr = pa + z;
+
+	if(memimageinit() < 0)
+		return;
+
+	md.ref = 1;
+	md.bdata = scr->vaddr;
+	gscreen = allocmemimaged(Rect(0,0,x,y), chan, &md);
+	if(gscreen == nil)
+		return;
+
+	scr->palettedepth = 6;	/* default */
+	scr->memdefont = getmemdefont();
+	scr->gscreen = gscreen;
+	scr->gscreendata = gscreen->data;
+	scr->softscreen = 0;
+	scr->useflush = 0;
+	scr->dev = nil;
+
+	hwblank = 0;
+	hwaccel = 0;
+
+	physgscreenr = gscreen->r;
+
+	vgaimageinit(chan);
+	vgascreenwin(scr);
+
+	/* turn mouse cursor on */
+	swcursorinit();
+	scr->cur = &swcursor;
+	scr->cur->enable(scr);
+	cursoron();
 }
