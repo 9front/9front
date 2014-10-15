@@ -10,7 +10,7 @@ case -v
 
 switch($#*){
 case 0 1
-	echo usage: $0 telephone-number recipient [files]
+	echo usage: $0 telephone-number recipient '[files]'
 	exit 0
 case 2
 	stdin=yes

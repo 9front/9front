@@ -76,7 +76,7 @@ fn play1 {
 }
 
 fn usage {
-	echo usage: $argv0 [ -o file ] [ file ... ] >[1=2]
+	echo usage: $argv0 '[ -o file ] [ file ... ]' >[1=2]
 	exit usage
 }
 

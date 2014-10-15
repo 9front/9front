@@ -8,7 +8,7 @@ while(! ~ $#* 0){
 	case -i
 		hg incoming
 	case *
-		echo usage: sysupdate [-i] >[1=2]
+		echo usage: sysupdate '[-i]' >[1=2]
 		exit usage
 	}
 	shift
