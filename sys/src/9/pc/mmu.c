@@ -59,7 +59,6 @@ Segdesc gdt[NGDT] =
 [KESEG16]		EXEC16SEGM(0),	/* kernel code 16-bit */
 };
 
-static int didmmuinit;
 static void taskswitch(ulong, ulong);
 static void memglobal(void);
 
@@ -78,8 +77,6 @@ mmuinit(void)
 {
 	ulong x, *p;
 	ushort ptr[3];
-
-	didmmuinit = 1;
 
 	if(0) print("vpt=%#.8ux vpd=%#p kmap=%#.8ux\n",
 		VPT, vpd, KMAP);
@@ -523,7 +520,7 @@ mmuwalk(ulong* pdb, ulong va, int level, int create)
 			 * memory.c if we haven't set up the xalloc
 			 * tables yet.
 			 */
-			if(didmmuinit)
+			if(conf.mem[0].npage != 0)
 				map = xspanalloc(BY2PG, BY2PG, 0);
 			else
 				map = rampage();

@@ -32,6 +32,7 @@ int idle_spin;
 uchar *sp;	/* user stack of init proc */
 
 extern void (*i8237alloc)(void);
+extern void bootscreeninit(void);
 
 static void
 multibootargs(void)
@@ -506,8 +507,9 @@ main()
 	cpuidentify();
 	meminit();
 	confinit();
-	archinit();
 	xinit();
+	archinit();
+	bootscreeninit();
 	if(i8237alloc != nil)
 		i8237alloc();
 	trapinit();

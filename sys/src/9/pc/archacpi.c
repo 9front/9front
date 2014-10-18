@@ -645,11 +645,17 @@ readtbls(Chan*, void *v, long n, vlong o)
 static int
 identify(void)
 {
+	uintptr pa;
 	char *cp;
 
 	if((cp = getconf("*acpi")) == nil)
 		return 1;
-	if((rsd = sigsearch("RSD PTR ")) == nil)
+	pa = (uintptr)strtoull(cp, nil, 16);
+	if(pa <= 1)
+		rsd = sigsearch("RSD PTR ");
+	else
+		rsd = vmap(pa, sizeof(Rsd));
+	if(rsd == nil)
 		return 1;
 	if(checksum(rsd, 20) && checksum(rsd, 36))
 		return 1;

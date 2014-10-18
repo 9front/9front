@@ -371,6 +371,34 @@ sigsearch(char* signature)
 	return sigscan(KADDR(0xe0000), 0x20000, signature);
 }
 
+static void
+lowraminit(void)
+{
+	uintptr pa, x;
+	uchar *bda;
+
+	/*
+	 * Initialise the memory bank information for conventional memory
+	 * (i.e. less than 640KB). The base is the first location after the
+	 * bootstrap processor MMU information and the limit is obtained from
+	 * the BIOS data area.
+	 */
+	x = PADDR(CPU0END);
+	bda = (uchar*)KADDR(0x400);
+	pa = ((bda[0x14]<<8)|bda[0x13])*KB;
+	if(x < pa){
+		mapfree(&rmapram, x, pa-x);
+		memset(KADDR(x), 0, pa-x);		/* keep us honest */
+	}
+
+	x = PADDR(PGROUND((uintptr)end));
+	pa = MemMin;
+	if(x > pa)
+		panic("kernel too big");
+	mapfree(&rmapram, x, pa-x);
+	memset(KADDR(x), 0, pa-x);		/* keep us honest */
+}
+
 typedef struct Emap Emap;
 struct Emap
 {
@@ -561,6 +589,7 @@ meminit(void)
 	uintptr lost;
 
 	umbscan();
+	lowraminit();
 	e820scan();
 
 	/*

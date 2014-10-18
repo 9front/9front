@@ -146,15 +146,15 @@ main(void)
 	cpuidentify();
 	meminit();
 	confinit();
-	archinit();
 	xinit();
+	archinit();
+	bootscreeninit();
 	if(i8237alloc != nil)
 		i8237alloc();
 	trapinit();
 	printinit();
 	cpuidprint();
 	mmuinit();
-	bootscreeninit();
 	if(arch->intrinit)	/* launches other processors on an mp */
 		arch->intrinit();
 	timersinit();

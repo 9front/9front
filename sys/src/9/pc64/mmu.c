@@ -23,8 +23,6 @@ Segdesc gdt[NGDT] =
 [UESEG]		EXECSEGM(3),		/* user code */
 };
 
-static int didmmuinit = 0;
-
 static struct {
 	Lock;
 	MMU	*free;
@@ -78,8 +76,6 @@ mmuinit(void)
 	uintptr x;
 	vlong v;
 	int i;
-
-	didmmuinit = 1;
 
 	/* zap double map done by l.s */ 
 	m->pml4[512] = 0;
@@ -242,7 +238,7 @@ mmucreate(uintptr *table, uintptr va, int level, int index)
 			up->kmapcount++;
 		}
 		page = p->page;
-	} else if(didmmuinit) {
+	} else if(conf.mem[0].npage != 0) {
 		page = mallocalign(PTSZ, BY2PG, 0, 0);
 	} else {
 		page = rampage();
