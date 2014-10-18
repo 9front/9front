@@ -20,6 +20,12 @@ u32int dmar[16];
 u8int waitst[16] = {5, 5, 5, 5, 3, 5, 5, 9, 8, 10, 10, 14};
 u32int eepstart;
 
+Var memvars[] = {
+	ARR(wram0), ARR(wram1), ARR(vram), ARR(pram), ARR(oam), ARR(reg),
+	VAR(dmaact), ARR(dmar), ARR(waitst),
+	{nil, 0, 0},
+};
+
 extern int cyc;
 
 static int eepromread(void);

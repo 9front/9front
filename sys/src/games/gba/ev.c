@@ -22,6 +22,19 @@ fifo sndfifo[2];
 Event *elist;
 Timer timers[4];
 Event evhblank;
+extern Event evsamp;
+Event *events[NEVENT] = {&timers[0].Event, &timers[1].Event, &timers[2].Event, &timers[3].Event, &evhblank, &evsamp};
+
+Var evvars[] = {
+	VAR(clock),
+	ARR(sndfifo[0].d), VAR(sndfifo[0].head), VAR(sndfifo[0].level), VAR(sndfifo[0].headpos),
+	ARR(sndfifo[1].d), VAR(sndfifo[1].head), VAR(sndfifo[1].level), VAR(sndfifo[1].headpos),
+	VAR(timers[0].val), VAR(timers[0].clock), VAR(timers[0].sh), VAR(timers[0].snd),
+	VAR(timers[1].val), VAR(timers[1].clock), VAR(timers[1].sh), VAR(timers[1].snd),
+	VAR(timers[2].val), VAR(timers[2].clock), VAR(timers[2].sh), VAR(timers[2].snd),
+	VAR(timers[3].val), VAR(timers[3].clock), VAR(timers[3].sh), VAR(timers[3].snd),
+	{nil, 0, 0},
+};
 
 void
 addevent(Event *ev, int time)

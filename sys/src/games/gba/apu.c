@@ -50,6 +50,16 @@ chan sndch[4] = {
 	}
 };
 
+Var apuvars[] = {
+	ARR(snddma), VAR(envctr), VAR(envrel), VAR(envmod), VAR(sweepen),
+	VAR(sweepctr), VAR(sweepfreq), ARR(wave), VAR(wpos), VAR(wbank), VAR(lfsr),
+	VAR(sndch[0].ectr), VAR(sndch[0].len), VAR(sndch[0].fctr), VAR(sndch[0].fthr), VAR(sndch[0].finc), VAR(sndch[0].vol),
+	VAR(sndch[1].ectr), VAR(sndch[1].len), VAR(sndch[1].fctr), VAR(sndch[1].fthr), VAR(sndch[1].finc), VAR(sndch[1].vol),
+	VAR(sndch[2].ectr), VAR(sndch[2].len), VAR(sndch[2].fctr), VAR(sndch[2].fthr), VAR(sndch[2].finc), VAR(sndch[2].vol),
+	VAR(sndch[3].ectr), VAR(sndch[3].len), VAR(sndch[3].fctr), VAR(sndch[3].fthr), VAR(sndch[3].finc), VAR(sndch[3].vol),
+	{nil, 0, 0},
+};
+
 void
 rate(int i, u16int v)
 {

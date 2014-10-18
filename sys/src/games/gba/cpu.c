@@ -36,6 +36,12 @@ int irq;
 u32int instr0, instr1, pipel = -1;
 int cyc, trace;
 
+Var cpuvars[] = {
+	ARR(r), VAR(cpsr), VAR(spsr), ARR(saver), VAR(irq),
+	VAR(instr0), VAR(instr1), VAR(pipel),
+	{nil, 0, 0},
+};
+
 #define pipeflush() {io(); pipel = -1;}
 #define io() cyc++
 
@@ -1266,4 +1272,13 @@ reset(void)
 	setcpsr(0xd3);
 	r[15] = 0;
 	pipel = -1;
+}
+
+void
+cpuload(void)
+{
+	if((cpsr & FLAGT) != 0)
+		step = stepthumb;
+	else
+		step = steparm;
 }

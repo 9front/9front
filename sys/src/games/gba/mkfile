@@ -9,6 +9,7 @@ OFILES=\
 	ppu.$O\
 	ev.$O\
 	apu.$O\
+	state.$O\
 
 HFILES=dat.h fns.h
 

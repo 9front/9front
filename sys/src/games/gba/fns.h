@@ -23,3 +23,6 @@ void soundbias(u16int);
 void audioinit(void);
 int audioout(void);
 void sndwrite(u16int, u16int);
+void loadstate(char *);
+void savestate(char *);
+void cpuload(void);

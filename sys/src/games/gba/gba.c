@@ -16,6 +16,7 @@ int keys, paused, framestep, backup;
 QLock pauselock;
 int savefd, saveframes;
 int clock;
+int savereq, loadreq;
 
 char *biosfile = "/sys/games/lib/gbabios.bin";
 
@@ -237,10 +238,10 @@ keyproc(void *)
 		if(read(fd, buf, sizeof(buf) - 1) <= 0)
 			sysfatal("read /dev/kbd: %r");
 		if(buf[0] == 'c'){
-			/*if(utfrune(buf, KF|5))
+			if(utfrune(buf, KF|5))
 				savereq = 1;
 			if(utfrune(buf, KF|6))
-				loadreq = 1;*/
+				loadreq = 1;
 			if(utfrune(buf, Kdel)){
 				close(fd);
 				threadexitsall(nil);
@@ -424,6 +425,14 @@ threadmain(int argc, char **argv)
 	memreset();
 	reset();
 	for(;;){
+		if(savereq){
+			savestate("gba.save");
+			savereq = 0;
+		}
+		if(loadreq){
+			loadstate("gba.save");
+			loadreq = 0;
+		}
 		if(paused){
 			qlock(&pauselock);
 			qunlock(&pauselock);

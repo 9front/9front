@@ -142,3 +142,13 @@ enum {
 	BACKTYPELEN = 64,
 	HZ = 16777216,
 };
+
+typedef struct Var Var;
+
+struct Var {
+	void *a;
+	int s, n;
+};
+#define VAR(a) {&a, sizeof(a), 1}
+#define ARR(a) {a, sizeof(*a), nelem(a)}
+enum { NEVENT = 6 };

@@ -27,6 +27,13 @@ struct bg {
 };
 static bg bgst[4] = {{.n = 0}, {.n = 1}, {.n = 2}, {.n = 3}};
 
+Var ppuvars[] = {
+	VAR(hblank), VAR(ppuy), VAR(hblclock),
+	VAR(bldy), VAR(blda), VAR(bldb), VAR(objalpha),
+	VAR(bgst[2].rpx0), VAR(bgst[2].rpy0), VAR(bgst[3].rpx0), VAR(bgst[3].rpy0),
+	{nil, 0, 0},
+};
+
 typedef struct sprite sprite;
 struct sprite {
 	uchar w, wb, h;
