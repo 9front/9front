@@ -472,16 +472,65 @@ blankscreen(int blank)
 	}
 }
 
-void
-vgalinearpci(VGAscr *scr)
+static char*
+vgalinearaddr0(VGAscr *scr, ulong paddr, int size)
+{
+	int x, nsize;
+	ulong npaddr;
+
+	/*
+	 * new approach.  instead of trying to resize this
+	 * later, let's assume that we can just allocate the
+	 * entire window to start with.
+	 */
+	if(scr->paddr == paddr && size <= scr->apsize)
+		return nil;
+
+	if(scr->paddr){
+		/*
+		 * could call vunmap and vmap,
+		 * but worried about dangling pointers in devdraw
+		 */
+		return "cannot grow vga frame buffer";
+	}
+
+	/* round to page boundary, just in case */
+	x = paddr&(BY2PG-1);
+	npaddr = paddr-x;
+	nsize = PGROUND(size+x);
+
+	/*
+	 * Don't bother trying to map more than 4000x4000x32 = 64MB.
+	 * We only have a 256MB window.
+	 */
+	if(nsize > 64*MB)
+		nsize = 64*MB;
+	scr->vaddr = vmap(npaddr, nsize);
+	if(scr->vaddr == 0)
+		return "cannot allocate vga frame buffer";
+	scr->vaddr = (char*)scr->vaddr+x;
+	scr->paddr = paddr;
+	scr->apsize = nsize;
+
+	if(up != nil){
+		/* let mtrr harmlessly fail on old CPUs, e.g., P54C */
+		if(!waserror()){
+			mtrr(npaddr, nsize, "wc");
+			poperror();
+		}
+	}
+
+	return nil;
+}
+
+static char*
+vgalinearpci0(VGAscr *scr)
 {
 	ulong paddr;
 	int i, size, best;
 	Pcidev *p;
 	
 	p = scr->pci;
-	if(p == nil)
-		return;
 
 	/*
 	 * Scan for largest memory region on card.
@@ -510,57 +559,51 @@ vgalinearpci(VGAscr *scr)
 	if(best >= 0){
 		paddr = p->mem[best].bar & ~0x0F;
 		size = p->mem[best].size;
-		vgalinearaddr(scr, paddr, size);
-		return;
+		return vgalinearaddr0(scr, paddr, size);
 	}
-	error("no video memory found on pci card");
+	return "no video memory found on pci card";
+}
+
+void
+vgalinearpci(VGAscr *scr)
+{
+	char *err;
+
+	if(scr->pci == nil)
+		return;
+	if((err = vgalinearpci0(scr)) != nil)
+		error(err);
 }
 
 void
 vgalinearaddr(VGAscr *scr, ulong paddr, int size)
 {
-	int x, nsize;
-	ulong npaddr;
+	char *err;
 
-	/*
-	 * new approach.  instead of trying to resize this
-	 * later, let's assume that we can just allocate the
-	 * entire window to start with.
-	 */
-	if(scr->paddr == paddr && size <= scr->apsize)
-		return;
+	if((err = vgalinearaddr0(scr, paddr, size)) != nil)
+		error(err);
+}
 
-	if(scr->paddr){
-		/*
-		 * could call vunmap and vmap,
-		 * but worried about dangling pointers in devdraw
-		 */
-		error("cannot grow vga frame buffer");
+static char*
+bootmapfb(VGAscr *scr, ulong pa, ulong sz)
+{
+	ulong start, end;
+	Pcidev *p;
+	int i;
+
+	for(p = pcimatch(nil, 0, 0); p != nil; p = pcimatch(p, 0, 0)){
+		for(i=0; i<nelem(p->mem); i++){
+			if(p->mem[i].bar & 1)
+				continue;
+			start = p->mem[i].bar & ~0xF;
+			end = start + p->mem[i].size;
+			if(pa == start && (pa + sz) <= end){
+				scr->pci = p;
+				return vgalinearpci0(scr);
+			}
+		}
 	}
-
-	/* round to page boundary, just in case */
-	x = paddr&(BY2PG-1);
-	npaddr = paddr-x;
-	nsize = PGROUND(size+x);
-
-	/*
-	 * Don't bother trying to map more than 4000x4000x32 = 64MB.
-	 * We only have a 256MB window.
-	 */
-	if(nsize > 64*MB)
-		nsize = 64*MB;
-	scr->vaddr = vmap(npaddr, nsize);
-	if(scr->vaddr == 0)
-		error("cannot allocate vga frame buffer");
-	scr->vaddr = (char*)scr->vaddr+x;
-	scr->paddr = paddr;
-	scr->apsize = nsize;
-
-	/* let mtrr harmlessly fail on old CPUs, e.g., P54C */
-	if(!waserror()){
-		mtrr(npaddr, nsize, "wc");
-		poperror();
-	}
+	return vgalinearaddr0(scr, pa, sz);
 }
 
 /*
@@ -574,7 +617,7 @@ bootscreeninit(void)
 	VGAscr *scr;
 	int x, y, z;
 	ulong chan, pa, sz;
-	char *s, *p;
+	char *s, *p, *err;
 
 	/* *bootscreen=WIDTHxHEIGHTxDEPTH CHAN PA [SZ] */
 	s = getconf("*bootscreen");
@@ -609,21 +652,12 @@ bootscreeninit(void)
 	if(sz < x * y * (z+7)/8)
 		sz = x * y * (z+7)/8;
 
-	/* round to pages */
-	z = pa&(BY2PG-1);
-	pa -= z;
-	sz += z;
-
 	/* map framebuffer */
 	scr = &vgascreen[0];
-	scr->apsize = PGROUND(sz);
-	scr->vaddr = vmap(pa, scr->apsize);
-	if(scr->vaddr == 0){
-		scr->apsize = 0;
+	if((err = bootmapfb(scr, pa, sz)) != nil){
+		print("bootmapfb: %s\n", err);
 		return;
 	}
-	scr->vaddr = (char*)scr->vaddr + z;
-	scr->paddr = pa + z;
 
 	if(memimageinit() < 0)
 		return;
