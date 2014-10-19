@@ -1,6 +1,6 @@
 .TH 9BOOT 8
 .SH NAME
-9bootfat, 9bootiso, 9bootpxe \- PC bootloader for FAT, ISO and PXE network booting
+9bootfat, 9bootiso, 9bootpxe, bootia32.efi, bootx64.efi \- PC bootloader for FAT, ISO and PXE network booting
 .SH SYNOPSIS
 Started by PC BIOS or chainloaded by partition bootsector
 .SH DESCRIPTION
@@ -90,6 +90,21 @@ is the MAC address of the client's network card
 in lower case hex, and uses this as its
 .IR plan9.ini (8)
 file.
+.SH EFI BOOTING
+EFI firmware looks for the files
+.B bootia32.efi
+(for 386)
+or
+.B bootx64.efi
+(for amd64)
+in the directory
+.B /efi/boot
+of the EFI boot partition and executes them.
+Once started, the file
+.B /plan9.ini
+is read from the boot partition and interpretated in
+the same way as with
+BIOS booting.
 .SH FILES
 .B /386/pbs
 .br
@@ -98,9 +113,18 @@ file.
 .B /386/9bootiso
 .br
 .B /386/9bootpxe
+.br
+.B /386/bootia32.efi
+.br
+.B /386/bootx64.efi
+.br
 .SH SOURCE
 .BR /sys/src/boot/pc
+.br
+.BR /sys/src/boot/efi
+.br
 .SH "SEE ALSO"
 .IR plan9.ini (8)
 .SH HISTORY
 9boot first appeared in 9front (April, 2011).
+EFI support first appeared in 9front (Oct, 2014).
