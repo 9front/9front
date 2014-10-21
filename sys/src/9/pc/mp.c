@@ -90,58 +90,6 @@ mpintrinit(Bus* bus, PCMPintr* intr, int vno, int /*irq*/)
 	return v;
 }
 
-void
-checkmtrr(void)
-{
-	int i, vcnt;
-	Mach *mach0;
-
-	/*
-	 * If there are MTRR registers, snarf them for validation.
-	 */
-	if(!(m->cpuiddx & Mtrr))
-		return;
-
-	rdmsr(0x0FE, &m->mtrrcap);
-	rdmsr(0x2FF, &m->mtrrdef);
-	if(m->mtrrcap & 0x0100){
-		rdmsr(0x250, &m->mtrrfix[0]);
-		rdmsr(0x258, &m->mtrrfix[1]);
-		rdmsr(0x259, &m->mtrrfix[2]);
-		for(i = 0; i < 8; i++)
-			rdmsr(0x268+i, &m->mtrrfix[(i+3)]);
-	}
-	vcnt = m->mtrrcap & 0x00FF;
-	if(vcnt > nelem(m->mtrrvar))
-		vcnt = nelem(m->mtrrvar);
-	for(i = 0; i < vcnt; i++)
-		rdmsr(0x200+i, &m->mtrrvar[i]);
-
-	/*
-	 * If not the bootstrap processor, compare.
-	 */
-	if(m->machno == 0)
-		return;
-
-	mach0 = MACHP(0);
-	if(mach0->mtrrcap != m->mtrrcap)
-		print("mtrrcap%d: %lluX %lluX\n",
-			m->machno, mach0->mtrrcap, m->mtrrcap);
-	if(mach0->mtrrdef != m->mtrrdef)
-		print("mtrrdef%d: %lluX %lluX\n",
-			m->machno, mach0->mtrrdef, m->mtrrdef);
-	for(i = 0; i < 11; i++){
-		if(mach0->mtrrfix[i] != m->mtrrfix[i])
-			print("mtrrfix%d: i%d: %lluX %lluX\n",
-				m->machno, i, mach0->mtrrfix[i], m->mtrrfix[i]);
-	}
-	for(i = 0; i < vcnt; i++){
-		if(mach0->mtrrvar[i] != m->mtrrvar[i])
-			print("mtrrvar%d: i%d: %lluX %lluX\n",
-				m->machno, i, mach0->mtrrvar[i], m->mtrrvar[i]);
-	}
-}
-
 uvlong
 tscticks(uvlong *hz)
 {
@@ -233,8 +181,6 @@ mpinit(void)
 	intrenable(IrqERROR, lapicerror, 0, BUSUNKNOWN, "lapicerror");
 	intrenable(IrqSPURIOUS, lapicspurious, 0, BUSUNKNOWN, "lapicspurious");
 	lapiconline();
-
-	checkmtrr();
 
 	/*
 	 * Initialise the application processors.

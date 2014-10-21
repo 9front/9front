@@ -883,6 +883,9 @@ cpuidentify(void)
 			rdmsr(0x01, &mct);
 	}
 
+	if(m->cpuiddx & Mtrr)
+		mtrrsync();
+
 	if(m->cpuiddx & Fxsr){			/* have sse fp? */
 		fpsave = fpssesave;
 		fprestore = fpsserestore;
@@ -1024,7 +1027,9 @@ archctlwrite(Chan*, void *a, long n, vlong)
 		size = strtoull(cb->f[2], &ep, 0);
 		if(*ep)
 			error("cache: parse error: size not a number?");
-		mtrr(base, size, cb->f[3]);
+		ep = mtrr(base, size, cb->f[3]);
+		if(ep != nil)
+			error(ep);
 		break;
 	}
 	free(cb);

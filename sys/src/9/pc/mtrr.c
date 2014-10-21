@@ -69,10 +69,6 @@ struct Mtrreg {
 	vlong	base;
 	vlong	mask;
 };
-struct Mtrrop {
-	Mtrreg	*reg;
-	int	slot;
-};
 
 static char *types[] = {
 [Uncacheable]	"uc",
@@ -84,8 +80,9 @@ static char *types[] = {
 [Writeback]	"wb",
 		nil
 };
-static Mtrrop *postedop;
-static Rendez oprend;
+
+static int dosync;
+static Mtrreg mtrreg[Nmtrr];
 
 static char *
 type2str(int type)
@@ -163,8 +160,6 @@ mtrrenc(Mtrreg *mtrr, uvlong ptr, uvlong size, int type, int ok)
 static void
 mtrrget(Mtrreg *mtrr, uint i)
 {
-	if (i >= Nmtrr)
-		error("mtrr index out of range");
 	rdmsr(MTRRPhysBase0 + 2*i, &mtrr->base);
 	rdmsr(MTRRPhysMask0 + 2*i, &mtrr->mask);
 	sanity(mtrr);
@@ -173,30 +168,43 @@ mtrrget(Mtrreg *mtrr, uint i)
 static void
 mtrrput(Mtrreg *mtrr, uint i)
 {
-	if (i >= Nmtrr)
-		error("mtrr index out of range");
 	sanity(mtrr);
 	wrmsr(MTRRPhysBase0 + 2*i, mtrr->base);
 	wrmsr(MTRRPhysMask0 + 2*i, mtrr->mask);
 }
 
-static void
-mtrrop(Mtrrop **op)
+static int
+mtrrvcnt(void)
 {
-	int s;
+	vlong cap;
+	int vcnt;
+
+	rdmsr(MTRRCap, &cap);
+	vcnt = cap & Capvcnt;
+	if(vcnt > Nmtrr)
+		vcnt = Nmtrr;
+	return vcnt;
+}
+
+static int
+mtrrgetall(void)
+{
+	int i, vcnt;
+
+	vcnt = mtrrvcnt();
+	for(i = 0; i < vcnt; i++)
+		mtrrget(&mtrreg[i], i);
+	return vcnt;
+}
+
+static void
+mtrrputall(void)
+{
+	int s, i, vcnt;
 	ulong cr0, cr4;
 	vlong def;
-	static Ref bar1, bar2;
 
-	s = splhi();		/* avoid race with mtrrclock */
-
-	/*
-	 * wait for all CPUs to sync here, so that the MTRR setup gets
-	 * done at roughly the same time on all processors.
-	 */
-	incref(&bar1);
-	while(bar1.ref < conf.nmach)
-		microdelay(10);
+	s = splhi();
 
 	cr4 = getcr4();
 	putcr4(cr4 & ~CR4PageGlobalEnable);
@@ -207,12 +215,38 @@ mtrrop(Mtrrop **op)
 	rdmsr(MTRRDefaultType, &def);
 	wrmsr(MTRRDefaultType, def & ~(vlong)Defena);
 
-	mtrrput((*op)->reg, (*op)->slot);
+	vcnt = mtrrvcnt();
+	for(i=0; i<vcnt; i++)
+		mtrrput(&mtrreg[i], i);
 
 	wbinvd();
 	wrmsr(MTRRDefaultType, def);
 	putcr0(cr0);
 	putcr4(cr4);
+
+	splx(s);
+}
+
+void
+mtrrclock(void)				/* called from clock interrupt */
+{
+	static Ref bar1, bar2;
+	int s;
+
+	if(dosync == 0)
+		return;
+
+	s = splhi();
+
+	/*
+	 * wait for all CPUs to sync here, so that the MTRR setup gets
+	 * done at roughly the same time on all processors.
+	 */
+	incref(&bar1);
+	while(bar1.ref < conf.nmach)
+		microdelay(10);
+
+	mtrrputall();
 
 	/*
 	 * wait for all CPUs to sync up again, so that we don't continue
@@ -225,60 +259,41 @@ mtrrop(Mtrrop **op)
 	while(bar1.ref > 0)
 		microdelay(10);
 	decref(&bar2);
-	*op = nil;
-	wakeup(&oprend);
+
+	dosync = 0;
 	splx(s);
 }
 
-void
-mtrrclock(void)				/* called from clock interrupt */
-{
-	if(postedop != nil)
-		mtrrop(&postedop);
-}
-
-/* if there's an operation still pending, keep sleeping */
-static int
-opavail(void *)
-{
-	return postedop == nil;
-}
-
-int
-mtrr(uvlong base, uvlong size, char *tstr)
+static char*
+mtrr0(uvlong base, uvlong size, char *tstr)
 {
 	int i, vcnt, slot, type, mtype, mok;
 	vlong def, cap;
 	uvlong mp, msize;
-	Mtrreg entry, mtrr;
-	Mtrrop op;
-	static int tickreg;
-	static QLock mtrrlk;
 
 	if(!(m->cpuiddx & Mtrr))
-		error("mtrrs not supported");
+		return "mtrrs not supported";
 	if(base & (BY2PG-1) || size & (BY2PG-1) || size == 0)
-		error("mtrr base or size not 4k aligned or zero size");
+		return "mtrr base or size not 4k aligned or zero size";
 	if(base + size >= Paerange)
-		error("mtrr range exceeds 36 bits");
+		return "mtrr range exceeds 36 bits";
 	if(!ispow2(size))
-		error("mtrr size not power of 2");
+		return "mtrr size not power of 2";
 	if(base & (size - 1))
-		error("mtrr base not naturally aligned");
+		return "mtrr base not naturally aligned";
 
 	if((type = str2type(tstr)) == -1)
-		error("mtrr bad type");
+		return "mtrr bad type";
 
 	rdmsr(MTRRCap, &cap);
 	rdmsr(MTRRDefaultType, &def);
 
 	switch(type){
 	default:
-		error("mtrr unknown type");
-		break;
+		return "mtrr unknown type";
 	case Writecomb:
 		if(!(cap & Capwc))
-			error("mtrr type wc (write combining) unsupported");
+			return "mtrr type wc (write combining) unsupported";
 		/* fallthrough */
 	case Uncacheable:
 	case Writethru:
@@ -287,18 +302,11 @@ mtrr(uvlong base, uvlong size, char *tstr)
 		break;
 	}
 
-	qlock(&mtrrlk);
-	if(waserror()){
-		qunlock(&mtrrlk);
-		nexterror();
-	}
+	vcnt = mtrrgetall();
+
 	slot = -1;
-	vcnt = cap & Capvcnt;
-	if(vcnt > Nmtrr)
-		vcnt = Nmtrr;
 	for(i = 0; i < vcnt; i++){
-		mtrrget(&mtrr, i);
-		mok = mtrrdec(&mtrr, &mp, &msize, &mtype);
+		mok = mtrrdec(&mtrreg[i], &mp, &msize, &mtype);
 		if(slot == -1 && (!mok || mtype == (def & Deftype)))
 			slot = i;	/* good, but look further for exact match */
 		if(mok && mp == base && msize == size){
@@ -307,40 +315,45 @@ mtrr(uvlong base, uvlong size, char *tstr)
 		}
 	}
 	if(slot == -1)
-		error("no free mtrr slots");
+		return "no free mtrr slots";
 
-	while(!opavail(0))
-		sleep(&oprend, opavail, 0);
+	mtrrenc(&mtrreg[slot], base, size, type, 1);
 
-	mtrrenc(&entry, base, size, type, 1);
-	op.reg = &entry;
-	op.slot = slot;
-	postedop = &op;
-	mtrrop(&postedop);
+	coherence();
+
+	dosync = 1;
+	mtrrclock();
+
+	return nil;
+}
+
+char*
+mtrr(uvlong base, uvlong size, char *tstr)
+{
+	static QLock mtrrlk;
+	char *err;
+
+	qlock(&mtrrlk);
+	err = mtrr0(base, size, tstr);
 	qunlock(&mtrrlk);
-	poperror();
-	return 0;
+
+	return err;
 }
 
 int
 mtrrprint(char *buf, long bufsize)
 {
-	int i, vcnt, type;
-	long n;
+	int i, n, vcnt, type;
 	uvlong base, size;
-	vlong cap, def;
 	Mtrreg mtrr;
+	vlong def;
 
-	n = 0;
 	if(!(m->cpuiddx & Mtrr))
 		return 0;
-	rdmsr(MTRRCap, &cap);
 	rdmsr(MTRRDefaultType, &def);
-	n += snprint(buf+n, bufsize-n, "cache default %s\n",
+	n = snprint(buf, bufsize, "cache default %s\n",
 		type2str(def & Deftype));
-	vcnt = cap & Capvcnt;
-	if(vcnt > Nmtrr)
-		vcnt = Nmtrr;
+	vcnt = mtrrvcnt();
 	for(i = 0; i < vcnt; i++){
 		mtrrget(&mtrr, i);
 		if (mtrrdec(&mtrr, &base, &size, &type))
@@ -349,4 +362,29 @@ mtrrprint(char *buf, long bufsize)
 				base, size, type2str(type));
 	}
 	return n;
+}
+
+void
+mtrrsync(void)
+{
+	static vlong cap0, def0;
+	vlong cap, def;
+
+	rdmsr(MTRRCap, &cap);
+	rdmsr(MTRRDefaultType, &def);
+
+	if(m->machno == 0){
+		cap0 = cap;
+		def0 = def;
+		mtrrgetall();
+		return;
+	}
+
+	if(cap0 != cap)
+		print("mtrrcap%d: %lluX %lluX\n",
+			m->machno, cap0, cap);
+	if(def0 != def)
+		print("mtrrdef%d: %lluX %lluX\n",
+			m->machno, def0, def);
+	mtrrputall();
 }

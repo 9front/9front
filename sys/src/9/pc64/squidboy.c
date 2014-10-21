@@ -8,8 +8,6 @@
 
 #include "mp.h"
 
-extern void checkmtrr(void);
-
 static void
 squidboy(Apic* apic)
 {
@@ -17,7 +15,6 @@ squidboy(Apic* apic)
 	mmuinit();
 	cpuidentify();
 	cpuidprint();
-	checkmtrr();
 	apic->online = 1;
 	coherence();
 

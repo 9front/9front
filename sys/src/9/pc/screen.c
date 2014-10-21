@@ -512,13 +512,7 @@ vgalinearaddr0(VGAscr *scr, ulong paddr, int size)
 	scr->paddr = paddr;
 	scr->apsize = nsize;
 
-	if(up != nil){
-		/* let mtrr harmlessly fail on old CPUs, e.g., P54C */
-		if(!waserror()){
-			mtrr(npaddr, nsize, "wc");
-			poperror();
-		}
-	}
+	mtrr(npaddr, nsize, "wc");
 
 	return nil;
 }

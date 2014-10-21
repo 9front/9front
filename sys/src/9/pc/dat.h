@@ -256,11 +256,6 @@ struct Mach
 	int	pdballoc;
 	int	pdbfree;
 
-	vlong	mtrrcap;
-	vlong	mtrrdef;
-	vlong	mtrrfix[11];
-	vlong	mtrrvar[32];		/* 256 max. */
-
 	int	stack[1];
 };
 

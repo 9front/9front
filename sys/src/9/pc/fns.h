@@ -111,9 +111,10 @@ void	mfence(void);
 #define mmuflushtlb(pdb) putcr3(pdb)
 void	mmuinit(void);
 ulong*	mmuwalk(ulong*, ulong, int, int);
-int	mtrr(uvlong, uvlong, char *);
+char*	mtrr(uvlong, uvlong, char *);
 void	mtrrclock(void);
 int	mtrrprint(char *, long);
+void	mtrrsync(void);
 uchar	nvramread(int);
 void	nvramwrite(int, uchar);
 void	outb(int, int);

@@ -102,9 +102,10 @@ void	mfence(void);
 #define mmuflushtlb() putcr3(getcr3())
 void	mmuinit(void);
 uintptr	*mmuwalk(uintptr*, uintptr, int, int);
-int	mtrr(uvlong, uvlong, char *);
+char*	mtrr(uvlong, uvlong, char *);
 void	mtrrclock(void);
 int	mtrrprint(char *, long);
+void	mtrrsync(void);
 void	noteret(void);
 uchar	nvramread(int);
 void	nvramwrite(int, uchar);
