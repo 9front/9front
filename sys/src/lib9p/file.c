@@ -191,6 +191,12 @@ createfile(File *fp, char *name, char *uid, ulong perm, void *aux)
 	}
 
 	wlock(fp);
+	if(fp->parent == nil){
+		wunlock(fp);
+		werrstr("create in deleted directory");
+		return nil;
+	}
+
 	/*
 	 * We might encounter blank spots along the
 	 * way due to deleted files that have not yet
