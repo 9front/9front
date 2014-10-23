@@ -254,7 +254,8 @@ walkfile1(File *dir, char *elem)
 	rlock(dir);
 	if(strcmp(elem, "..") == 0){
 		fp = dir->parent;
-		incref(fp);
+		if(fp != nil)
+			incref(fp);
 		runlock(dir);
 		closefile(dir);
 		return fp;
