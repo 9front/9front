@@ -139,3 +139,7 @@ If this isn't solved soon I think we should turn off commit access for everyone.
 Very small changes can still contain very large bugs.
 I don't intend to try to fix rc.
 That's fine.
+This is a serious mistake.
+I am going to be away for the rest of the week.
+At the risk of sounding pedantic, package url is not an http server.
+don't worry about it.
