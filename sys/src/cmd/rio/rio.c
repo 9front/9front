@@ -1340,6 +1340,9 @@ kbdproc(void *arg)
 	if((kfd = open("/dev/kbd", OREAD)) >= 0){
 		close(fd);
 
+		/* only serve a kbd file per window when we got one */
+		servekbd = 1;
+
 		/* read kbd state */
 		while((n = read(kfd, buf, sizeof(buf))) > 0)
 			chanprint(c, "%.*s", n, buf);

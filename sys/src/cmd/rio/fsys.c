@@ -365,6 +365,8 @@ skipdir(char *name)
 		return 1;
 	if(gotscreen && strcmp(name, "screen")==0)
 		return 1;
+	if(!servekbd && strcmp(name, "kbd")==0)
+		return 1;
 	return 0;
 }
 
