@@ -24,14 +24,6 @@ fn e{
 		cat /tmp/post >$mnt/$group/post
 }
 fn f { du -a $* | sed 's/^.*	//g' }
-fn flag{
-	if(~ $1 [\+][aDdfrSs] [-][aDdfrSs]){
-		if(test $2 -le $#rposts && test -f $rposts($2)^/flags)
-			echo $1 >$rposts($2)^/flags
-		if not
-			echo !address
-	}
-}
 fn fmtd{
 	date=`{cat}
 	if(! ~ $date(1) [0-9]*)
