@@ -39,9 +39,34 @@ Default is 30.
 starts by reading the list of messages in the
 .I newsgroup,
 printing out the number of messages, and then prompting for commands.
-The prompt itself presents the name of the group followed by
-the message number in the form of a file system path, relative to the
+The prompt itself represents the name of the group followed by the
+message number in the form of a file system path, relative to the
 .I mountpoint.
+.PP
+Commands, as in
+.IR ed (1),
+are of the form
+.RI `[ range ]
+.I command
+.RI [ arguments ]'.
+The command is applied to each message in the (optional) range.
+.PD
+.PP
+The address range can be:
+.TP 1.4i
+.I address
+to indicate a single message header.
+.PD
+.TP
+.IB address , address
+to indicate a range of contiguous message headers.
+.PD
+.PP
+The addresses can be:
+.TP 1.4i
+.I number
+to indicate a particular message.
+.PD
 .PP
 The commands are:
 .PP
@@ -51,16 +76,13 @@ Print message
 .I number.
 .TP
 .B b
-Print the previous message.
+Print the headers for the next ten messages.
 .TP
 .B e
 Enter a new message, honoring the environment variable
 .I editor.
 Default is
 .IR hold (1) .
-.TP
-.B f
-Jump to the first message in the group.
 .TP
 .BI g " newsgroup
 Change to the specified
@@ -70,9 +92,9 @@ The name of a group may be provided in dotted
 .TP
 .B h
 Print the disposition, date, sender and subject line
-of all messages in the group. These lines are suitable
-for selecting and sending to the prompt, in order to
-print messages either singly or in aggregate.
+of the message. These lines are suitable for selecting
+and sending to the prompt, in order to print messages
+either singly or in aggregate.
 .TP
 .B help
 Print a summary of the available commands.
@@ -92,12 +114,6 @@ Greps
 for
 .I regexp
 and prints commands suitable for changing to each match.
-.TP
-.B l
-Jump to the last message in the group.
-.TP
-.B n, or enter key
-Print the next message.
 .TP
 .B p
 Print the current message with minimal headers.

@@ -1,5 +1,6 @@
 #!/bin/rc
-# bloated, featureful usenet reader for use with nntpfs
+# NEWT, their six-year-old daughter, yells from the back...
+# use with nntpfs
 rfork en
 ramfs
 argv0=$0
@@ -10,7 +11,7 @@ maxposts=30
 mnt=/mnt/news
 if(~ $#newtname 0)
 	newtname=newt@dont-email.me
-fn enterpost{
+fn e{
 	{
 		echo From: $"newtname
 		echo Newsgroups: `{echo $group | sed 's/\//\./g'}
@@ -18,9 +19,19 @@ fn enterpost{
 		echo
 	} >/tmp/post
 	eval $editor /tmp/post
-	cat /tmp/post >$mnt/$group/post
+	yn send
+	if(~ $yn y)
+		cat /tmp/post >$mnt/$group/post
 }
 fn f { du -a $* | sed 's/^.*	//g' }
+fn flag{
+	if(~ $1 [\+][aDdfrSs] [-][aDdfrSs]){
+		if(test $2 -le $#rposts && test -f $rposts($2)^/flags)
+			echo $1 >$rposts($2)^/flags
+		if not
+			echo !address
+	}
+}
 fn fmtd{
 	date=`{cat}
 	if(! ~ $date(1) [0-9]*)
@@ -50,7 +61,7 @@ fn fmtd{
 }
 fn geth{
 	for(i in $*){
-		from=`{awk -F '	' '{print $3;}' $i/xover}
+		from=`{awk -F '	' '{print $3;}' $rposts($i)^/xover >[2]/dev/null}
 		if(! ~ $#from 0 && ! ~ $#from 1){
 			nfrom=`{
 				for(i in $from){
@@ -61,16 +72,31 @@ fn geth{
 			if(! ~ $#nfrom 0)
 				from=$nfrom
 		}
-		if(! ~ $#from 0){
-			date=`{awk -F '	' '{print $4;}' $i/xover >[2]/dev/null | fmtd}
-			awk -v date'='$"date -v from'='$from(1) -F '	' \
-				'{print "  " $1 "	" date " " from "		" substr($2,0,50);}' $i/xover >[2]/dev/null
-		}
-		if not
-			echo '  '$"i'	nil	nil	nil'
+		if(~ $#from 0)
+			from=nil
+		date=`{awk -F '	' '{print $4;}' $rposts($i)^/xover >[2]/dev/null | fmtd}
+		if(~ $#date 0)
+			date=nil
+		subject=`{awk -F '	' '{print substr($2,0,50);}' $rposts($i)^/xover >[2]/dev/null}
+		if(~ $#subject 0)
+			subject=nil
+		# unicode 00a0 divides message number from headline.
+		# command input ignores everything after unicode 00a0.
+		# these lines may be selected and sent to the prompt.
+		echo '  '$"i' '$"date' '$"from'		'$"subject
 	}
 }
 fn getposts{ ls | grep -e '^[0-9]+$' | sort -n | tail -$maxposts }
+fn getr{
+	switch($*){
+	case ,;	echo $posts
+	case ,*;	seq 1 `{echo $* | sed 's/,//g'}
+	case *,;	seq `{echo $* | sed 's/,//g'} $posts($#posts)
+	case *,*;	seq `{echo $* | sed 's/,/ /g'}
+	case *;	echo $*
+	}
+}
+fn h{ sed -n $1^p /tmp/h }
 fn k{
 	kmnt=`{echo $mnt | sed 's/\//\\\//g'}
 	f $mnt/$* |
@@ -80,17 +106,16 @@ fn k{
 }
 fn nshift{ shift; echo $* }
 fn printhelp{
-echo '[0-9]+	print specified message
-b		back
+echo 'Commands are of the form [<range>] <command> [args]
+<range> := <addr> | <addr>','<addr>
+<command> :=
+b		print the next ten headers
 e		enter message
-f		jump to first message
 g ...		go to specified group
-h		print message headlines
+h		print message headline (,h for all)
 help		print this help message
 k ...		list sub-groups under specified group
 kf ...		grep $home/lib/newsgroups for regexp
-l		jump to last message
-n		next
 p		print message with minimal headers
 P		print message with full headers
 q		quit
@@ -101,24 +126,62 @@ y		synchronize message list with server
 ||cmd		pipe raw message to a command
 ?		print debug information'
 }
-fn printp{
-	if(test -d $mnt/$group/$1){
+fn p{
+	if(test $1 -le $#rposts && test -f $mnt/$group/$rposts($1)^/body){
 		{ # don't stutter
-			grep -e '(^From|^Newsgroups|^Subject|^Date)' $1/header
+			grep -e '(^From|^Newsgroups|^Subject|^Date)' $rposts($1)^/header
 			echo
-			cat $1/body
+			cat $rposts($1)^/body
 		} >/tmp/p
 		cat /tmp/p
 	}
 	echo
+	r=$1
+	post=$1
 	prompt=$group/$1
 }
-fn printpp{
-	if(test -d $mnt/$group/$1)
-		cat $1/article
+fn P{
+	if(test $1 -le $#rposts && test -f $mnt/$group/$rposts($1)^/article)
+		cat $rposts($1)^/article
 	echo
+	r=$1
+	post=$1
 	prompt=$group/$1
 }
+fn r{
+	if(test $1 -le $#rposts && test -f $mnt/$group/$rposts($1)^/header){
+		subject=`{grep -e '^Subject: ' $mnt/$group/$rposts($1)^/header | sed 's/^Subject: //g'}
+		if(! ~ $subject RE:* Re:* re:*)
+			subject=(Re: $subject)
+		e
+	}
+	if not
+		echo !message missing
+}
+fn y{
+	go=()
+	r=$post
+	if(! ~ $q 1){
+		rposts=`{getposts}
+		posts=`{seq 1 $#rposts}
+		post=$posts(1)
+		prompt=$post
+		geth $posts >/tmp/h
+		echo $#posts messages
+	}
+}
+fn yn{
+	echo
+	echo -n $* ' (y, n) '
+	yn=`{read}
+	switch($yn){
+	case y n
+		;
+	case *
+		yn
+	}
+}
+fn '"' {{p $1 | sed 1d | sed 's/^/> /g' | sed 's/^> >/>>/g' | sed '$d'; echo}}
 fn usage{
 	echo usage: $argv0 '[ -f newsgroup ] [ -m mountpoint ] [ -p maxposts ]' >[1=2]
 	exit usage
@@ -147,42 +210,42 @@ if(! test -d $mnt/$group){
 	exit
 }
 builtin cd $mnt/$group
-go=()
-posts=`{getposts}
-geth $posts >/tmp/h
-post=$posts(1)
-echo $#posts messages
+y
 while(){
 	echo -n $"prompt': '
-	cmd=`{read}
+	# command input ignores everything after unicode 00a0.
+	rcmd=`{read | sed 's/[ ].*$//g' | sed 's/^([0-9]+)?(,)?([0-9]+)?/& /g'}
+	switch($rcmd){
+	case ,* [0-9]*
+		r=`{getr $rcmd(1)}
+		cmd=`{nshift $rcmd}
+		if(~ $#cmd 0)
+			cmd=p
+	case *
+		r=$post
+		cmd=$rcmd
+	}
 	switch($cmd){
-	case [0-9]*
-		if(grep -s -e '^[0-9]+$' <{echo $cmd(1)}){
-			post=$cmd(1)
-			printp $post
-		}
 	case b
-		if(! ~ $post $posts(1)){
-			post=`{echo $post^-1 | bc}
-			printp $post
+		r=`{seq $r(1) `{echo $r(1)^+10|bc}}
+		if(test $r($#r) -gt $posts($#posts))
+			r=`{seq $r(1) $posts($#posts)}
+		if(! ~ $#r 0 && test $r(1) -le $posts($#posts)){
+			sed -n $r(1)^,$r($#r)^p /tmp/h
+			post=$r($#r)
+			prompt=$post
 		}
+		if not
+			echo !address
 	case e
-		enterpost
-	case f
-		post=$posts(1)
-		printp $post
+		subject=() e
 	case g' '*
 		ngroup=`{nshift $cmd | sed 's/\./\//g'}
 		if(test -d $mnt/$ngroup){
 			if(grep -s -e '^[0-9]+$' <{ls -p $mnt/$ngroup}){
 				group=$ngroup
 				builtin cd $mnt/$group
-				go=()
-				posts=`{getposts}
-				geth $posts >/tmp/h
-				post=$posts(1)
-				prompt=$group
-				echo $#posts messages
+				y
 			}
 			if not
 				echo !$ngroup contains no messages
@@ -190,7 +253,10 @@ while(){
 		if not
 			echo !$ngroup does not exist
 	case h
-		cat /tmp/h
+		for(i in $r)
+			h $i
+		post=$r($#r)
+		prompt=$post
 	case help
 		printhelp
 	case k
@@ -200,57 +266,53 @@ while(){
 	case kf' '*
 		grep -e `{nshift $cmd} $home/lib/newsgroups |
 			sed 's/^/  g	/g'
-	case l
-		post=$posts($#posts)
-		printp $post
 	case p
-		printp $post
-	case p' '*
-		post=`{nshift $cmd}
-		printp $post
+		for(i in $r)
+			p $i
 	case P
-		printpp $post
-	case P' '*
-		post=`{nshift $cmd}
-		printpp $post
+		for(i in $r)
+			P $i
 	case q
+		q=1 y # BUP STOP
 		exit
 	case r
-		if(test -f $mnt/$group/$post/header){
-			subject='Re: '^`{grep -e '^Subject: ' $mnt/$group/$post/header | sed 's/^Subject: //g'}
-			enterpost
-		}
-		if not
-			echo !message missing
+		for(i in $r)
+			r $i
+		post=$r($#r)
+		prompt=$post
 	case y
-		posts=`{getposts}
-		geth $posts >/tmp/h
-		echo $#posts messages
+		y
 	case '"'
-		printp $post | sed 1d | sed 's/^/> /g' | sed 's/^> >/>>/g'
+		for(i in $r)
+			'"' $i
+		post=$r($#r)
+		prompt=$post
 	case '||'*
 		cmd=`{echo $"cmd | sed 's/^\|\|//g'}
-		cat $mnt/$group/$post/article | eval $cmd
+		cat $mnt/$group/^$rposts($post)^/article | eval $cmd
 	case '|'*
 		cmd=`{echo $"cmd | sed 's/^\|//g'}
-		cat $mnt/$group/$post/body | eval $cmd
+		cat $mnt/$group/^$rposts($post)^/body | eval $cmd
 	case '?'
 		echo mnt: $mnt
 		echo group: $group
 		echo maxposts: $maxposts
+		echo rposts: $rposts
+		echo 'rposts(r):' $rposts($r)
 		echo posts: $posts
-		echo post: $post	
-	case n *
+		echo post: $post
+		echo r: $r
+	case *
 		if(~ $post $posts(1) && ~ $#go 0){
 			go=1
-			printp $post
+			p $post
 		}
 		if not if(! ~ $post $posts($#posts)){
 			go=1
 			post=`{echo $post^+1 | bc}
 			if(test $post -gt $posts($#posts))
 				post=$posts($#posts)
-			printp $post
+			p $post
 		}
 	}	
 }
