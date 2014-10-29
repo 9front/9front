@@ -1452,7 +1452,7 @@ receiver(Dev *d)
 		argv[argc++] = dev->t->name;
 		argv[argc] = 0;
 		exec(prog, argv);
-		syslog(0, LOGFILE, "can't exec %s: %r\n", prog);
+		syslog(0, LOGFILE, "can't exec %s: %r", prog);
 		exits(0);
 	default:
 		/* wait till child gets the device open */

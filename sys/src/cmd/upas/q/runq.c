@@ -517,7 +517,7 @@ dofile(Dir *dp)
 		if(wm->msg[0]){
 			if(debug)
 				fprint(2, "[%d] wm->msg == %s\n", getpid(), wm->msg);
-			syslog(0, runqlog, "message: %s\n", wm->msg);
+			syslog(0, runqlog, "message: %s", wm->msg);
 			if(strstr(wm->msg, "Ignore") != nil){
 				/* fix for fish/chips, leave message alone */
 				logit("ignoring", dp->name, av);

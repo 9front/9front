@@ -261,7 +261,7 @@ lognolease(Binding *b)
 	/* complain if we haven't in the last 5 minutes */
 	if(now - b->lastcomplained < 5*60)
 		return;
-	syslog(0, blog, "dhcp: lease for %I to %s ended at %ld but still in use\n",
+	syslog(0, blog, "dhcp: lease for %I to %s ended at %ld but still in use",
 		b->ip, b->boundto != nil ? b->boundto : "?", b->lease);
 	b->lastcomplained = now;
 }

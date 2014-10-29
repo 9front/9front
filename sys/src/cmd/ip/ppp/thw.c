@@ -253,7 +253,7 @@ uncomp(PPP *ppp, Block *bb, int *protop, Block **reply)
 	uncs = ppp->uncstate;
 
 	if(BLEN(bb) < 4){
-		syslog(0, "ppp", ": thwack: short packet\n");
+		syslog(0, "ppp", ": thwack: short packet");
 		freeb(bb);
 		return nil;
 	}
@@ -279,7 +279,7 @@ uncomp(PPP *ppp, Block *bb, int *protop, Block **reply)
 			n = unthwack(&uncs->ut, b->wptr, ThwMaxBlock, bb->rptr, BLEN(bb), seq & ThwSeqMask);
 			freeb(bb);
 			if(n < 2){
-				syslog(0, "ppp", ": unthwack: short or corrupted packet %d seq=%ld\n", n, seq);
+				syslog(0, "ppp", ": unthwack: short or corrupted packet %d seq=%ld", n, seq);
 				netlog("unthwack: short or corrupted packet n=%d seq=%ld: %s\n", n, seq, uncs->ut.err);
 				freeb(b);
 

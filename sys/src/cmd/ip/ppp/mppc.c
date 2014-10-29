@@ -487,7 +487,7 @@ uncomp(PPP *ppp, Block *b, int *protop, Block **r)
 	*protop = 0;
 	s = ppp->uncstate;
 	if(BLEN(b) < 2){
-		syslog(0, "ppp", ": mppc: short packet\n");
+		syslog(0, "ppp", ": mppc: short packet");
 		freeb(b);
 		return nil;
 	}
@@ -506,7 +506,7 @@ uncomp(PPP *ppp, Block *b, int *protop, Block **r)
 	}
 
 	if(BLEN(b) < 2){
-		syslog(0, "ppp", ": mppc: short packet\n");
+		syslog(0, "ppp", ": mppc: short packet");
 		freeb(b);
 		*protop = 0;
 		return nil;

@@ -131,7 +131,7 @@ main(int argc, char**argv)
 	while((n = read(0, buf, sizeof(buf)-1)) > 0){
 		if(i++ == 0 && strncmp(buf, "From", 4) != 0){
 			buf[n] = 0;
-			syslog(0, "smtp", "qer usys data starts with %-40.40s\n", buf);
+			syslog(0, "smtp", "qer usys data starts with %-40.40s", buf);
 		}
 		if(write(fd, buf, n) != n)
 			error("writing data file %s", s_to_c(f));
