@@ -397,7 +397,7 @@ secureidcheck(char *user, char *response)
 	shared.len = strlen(radiussecret);
 	ip = getipv4addr();
 	if(ip == nil){
-		syslog(0, AUTHLOG, "no interfaces: %r\n");
+		syslog(0, AUTHLOG, "no interfaces: %r");
 		goto out;
 	}
 	if(setAttribute(req, R_NASIPAddress, ip + IPv4off, 4) < 0)
@@ -413,7 +413,7 @@ secureidcheck(char *user, char *response)
 
 	t = ndbsearch(netdb, &s, "sys", "lra-radius");
 	if(t == nil){
-		syslog(0, AUTHLOG, "secureidcheck: nil radius sys search: %r\n");
+		syslog(0, AUTHLOG, "secureidcheck: nil radius sys search: %r");
 		goto out;
 	}
 	for(nt = t; nt; nt = nt->entry){

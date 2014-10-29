@@ -1346,11 +1346,11 @@ rcv(PPP *ppp, Pstate *p, Block *b)
 		break;
 	case Lcoderej:
 		//newstate(ppp, p, Sclosed);
-		syslog(0, LOG, "code reject %d\n", m->data[0]);
+		syslog(0, LOG, "code reject %d", m->data[0]);
 		break;
 	case Lprotorej:
 		proto = nhgets(m->data);
-		netlog("ppp: proto reject %ux\n", proto);
+		netlog("ppp: proto reject %ux", proto);
 		if(proto == Pccp)
 			newstate(ppp, ppp->ccp, Sclosed);
 		break;
@@ -2218,7 +2218,7 @@ getchap(PPP *ppp, Block *b)
 		netlog("ppp: chap failed\n");
 		break;
 	default:
-		syslog(0, LOG, "chap code %d?\n", m->code);
+		syslog(0, LOG, "chap code %d?", m->code);
 		break;
 	}
 	qunlock(ppp);
