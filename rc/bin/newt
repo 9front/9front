@@ -49,7 +49,10 @@ fn fmtd{
 		ti=$date(3)
 	if not
 		ti=`{echo $date(4) | awk '{print substr($0,0,5);}'}
-	echo $mo/$da $ti
+	if(! ~ $#mo 0 && ! ~ $#da 0 && ! ~ $#ti 0)
+		echo $mo/$da $ti
+	if not
+		echo nil
 }
 fn geth{
 	for(i in $*){
