@@ -251,14 +251,7 @@ main(int argc, char *argv[])
 	USED(argc);
 	USED(argv);
 
-	rfork(RFREND|RFNOTEG);
-
-	snprint(servefile, sizeof(servefile), "#s/cs%s", ext);
 	snprint(netndb, sizeof(netndb), "%s/ndb", mntpt);
-	if(!justsetname){
-		unmount(servefile, mntpt);
-		remove(servefile);
-	}
 
 	fmtinstall('E', eipfmt);
 	fmtinstall('I', eipfmt);
@@ -269,6 +262,11 @@ main(int argc, char *argv[])
 	netinit(0);
 
 	if(!justsetname){
+		snprint(servefile, sizeof(servefile), "#s/cs%s", ext);
+		unmount(servefile, mntpt);
+		remove(servefile);
+
+		rfork(RFREND|RFNOTEG);
 		csuser = estrdup(getuser());
 		mountinit(servefile, mntpt);
 		io();
@@ -1007,7 +1005,7 @@ readipinterfaces(void)
 		ipmove(ipa, IPnoaddr);
 	sprint(ipaddr, "%I", ipa);
 	if (debug)
-		syslog(0, logfile, "ipaddr is %s\n", ipaddr);
+		syslog(0, logfile, "ipaddr is %s", ipaddr);
 }
 
 /*
@@ -1151,7 +1149,7 @@ netinit(int background)
 	ipid();
 
 	if(debug)
-		syslog(0, logfile, "mysysname %s eaddr %s ipaddr %s ipa %I\n",
+		syslog(0, logfile, "mysysname %s eaddr %s ipaddr %s ipa %I",
 			mysysname?mysysname:"???", eaddr, ipaddr, ipa);
 
 	if(background){
