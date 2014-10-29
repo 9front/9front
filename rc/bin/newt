@@ -301,12 +301,9 @@ while(){
 		echo post: $post
 		echo r: $r
 	case *
-		if(~ $post $posts(1) && ~ $#go 0){
-			go=1
+		if(~ $post $posts(1) && ~ $#go 0)
 			p $post
-		}
 		if not if(! ~ $post $posts($#posts)){
-			go=1
 			post=`{echo $post^+1 | bc}
 			if(test $post -gt $posts($#posts))
 				post=$posts($#posts)
