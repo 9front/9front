@@ -255,8 +255,10 @@ main(int argc, char *argv[])
 
 	snprint(servefile, sizeof(servefile), "#s/cs%s", ext);
 	snprint(netndb, sizeof(netndb), "%s/ndb", mntpt);
-	unmount(servefile, mntpt);
-	remove(servefile);
+	if(!justsetname){
+		unmount(servefile, mntpt);
+		remove(servefile);
+	}
 
 	fmtinstall('E', eipfmt);
 	fmtinstall('I', eipfmt);
@@ -975,7 +977,7 @@ sendmsg(Job *job, char *err)
 void
 error(char *s)
 {
-	syslog(1, "cs", "%s: %r", s);
+	syslog(1, logfile, "%s: %r", s);
 	_exits(0);
 }
 
@@ -1005,7 +1007,7 @@ readipinterfaces(void)
 		ipmove(ipa, IPnoaddr);
 	sprint(ipaddr, "%I", ipa);
 	if (debug)
-		syslog(0, "dns", "ipaddr is %s\n", ipaddr);
+		syslog(0, logfile, "ipaddr is %s\n", ipaddr);
 }
 
 /*
@@ -1018,7 +1020,8 @@ ipid(void)
 	Ndbtuple *t, *tt;
 	char *p, *attr;
 	Ndbs s;
-	int f;
+	int f, n;
+	Dir *d;
 	char buf[Maxpath];
 
 	/* use environment, ether addr, or ipaddr to get system name */
@@ -1059,8 +1062,17 @@ ipid(void)
 			if(isvalidip(ipa))
 				free(ndbgetvalue(db, &s, "ip", ipaddr, "sys", &t));
 			if(t == nil){
-				for(f = 0; f < 3; f++){
-					snprint(buf, sizeof buf, "%s/ether%d", mntpt, f);
+				n = 0;
+				d = nil;
+				f = open(mntpt, OREAD);
+				if(f >= 0){
+					n = dirreadall(f, &d);
+					close(f);
+				}
+				for(f = 0; f < n; f++){
+					if((d[f].mode & DMDIR) == 0 || strncmp(d[f].name, "ether", 5) != 0)
+						continue;
+					snprint(buf, sizeof buf, "%s/%s", mntpt, d[f].name);
 					if(myetheraddr(addr, buf) >= 0){
 						snprint(eaddr, sizeof(eaddr), "%E", addr);
 						free(ndbgetvalue(db, &s, "ether", eaddr, "sys", &t));
@@ -1068,6 +1080,7 @@ ipid(void)
 							break;
 					}
 				}
+				free(d);
 			}
 			for(tt = t; tt != nil; tt = tt->entry){
 				if(strcmp(tt->attr, "sys") == 0){
