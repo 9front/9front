@@ -165,9 +165,7 @@ enable(Uart *uart, int ie)
 	gpiopulloff(RxPin);
 	ap[Enables] |= UartEn;
 	ap[MuIir] = 6;
-	ap[MuLcr] = Bits8;
 	ap[MuCntl] = TxEn|RxEn;
-	ap[MuBaud] = 250000000 / (115200 * 8) - 1;
 	if(ie){
 		intrenable(IRQaux, interrupt, uart, 0, "uart");
 		ap[MuIer] = RxIen|TxIen;
@@ -372,11 +370,12 @@ uartconsinit(void)
 		break;
 	}
 
-	if(!uart->enabled)
-		(*uart->phys->enable)(uart, 0);
 	uartctl(uart, "b9600 l8 pn s1");
 	if(*cmd != '\0')
 		uartctl(uart, cmd);
+
+	if(!uart->enabled)
+		(*uart->phys->enable)(uart, 0);
 
 	consuart = uart;
 	uart->console = 1;
