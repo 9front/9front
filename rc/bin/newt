@@ -131,6 +131,7 @@ fn p{
 		cat /tmp/p
 	}
 	echo
+	go=1
 	r=$1
 	post=$1
 	prompt=$group/$1
@@ -139,6 +140,7 @@ fn P{
 	if(test $1 -le $#rposts && test -f $mnt/$group/$rposts($1)^/article)
 		cat $rposts($1)^/article
 	echo
+	go=1
 	r=$1
 	post=$1
 	prompt=$group/$1
@@ -292,6 +294,7 @@ while(){
 		echo mnt: $mnt
 		echo group: $group
 		echo maxposts: $maxposts
+		echo '#go': $#go
 		echo rposts: $rposts
 		echo 'rposts(r):' $rposts($r)
 		echo posts: $posts
