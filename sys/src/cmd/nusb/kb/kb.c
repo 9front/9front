@@ -304,7 +304,6 @@ setproto(Hiddev *f, int eid)
 	int id, proto;
 	Iface *iface;
 
-	proto = Bootproto;
 	iface = f->dev->usb->ep[eid]->iface;
 	id = iface->id;
 	f->nrep = usbcmd(f->dev, Rd2h|Rstd|Riface, Rgetdesc, Dreport<<8, id, 
@@ -323,13 +322,20 @@ setproto(Hiddev *f, int eid)
 		}
 		proto = Reportproto;
 	} else {
-		if(iface->csp == KbdCSP){
+		switch(iface->csp){
+		case KbdCSP:
 			f->nrep = sizeof(kbdbootrep);
 			memmove(f->rep, kbdbootrep, f->nrep);
-		} else {
+			break;
+		case PtrCSP:
 			f->nrep = sizeof(ptrbootrep);
 			memmove(f->rep, ptrbootrep, f->nrep);
+			break;
+		default:
+			werrstr("no report descriptor");
+			return -1;
 		}
+		proto = Bootproto;
 	}
 	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setproto, proto, id, nil, 0);
 }
