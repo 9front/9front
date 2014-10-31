@@ -1,6 +1,6 @@
 .TH 9BOOT 8
 .SH NAME
-9bootfat, 9bootiso, 9bootpxe, bootia32.efi, bootx64.efi \- PC bootloader for FAT, ISO and PXE network booting
+9bootfat, 9bootiso, 9bootpxe, bootia32.efi, bootx64.efi, efiboot.fat \- PC bootloader for FAT, ISO and PXE network booting
 .SH SYNOPSIS
 Started by PC BIOS or chainloaded by partition bootsector
 .SH DESCRIPTION
@@ -118,6 +118,7 @@ BIOS booting.
 .br
 .B /386/bootx64.efi
 .br
+.B /386/efiboot.fat
 .SH SOURCE
 .BR /sys/src/boot/pc
 .br
