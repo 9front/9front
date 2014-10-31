@@ -18,6 +18,10 @@ dump9660, mk9660 \- create an ISO-9660 CD image
 .I bootfile
 ]
 [
+.B -E
+.I bootfile
+]
+[
 .B -p
 .I proto
 ]
@@ -192,6 +196,17 @@ but the created CD image is marked as having a non-floppy-emulation
 boot block.
 This gives the program in the boot block full (ATA) LBA access
 to the CD filesystem, not just the initial blocks that would fit on a floppy.
+.PP
+In addition to
+.B -b
+and
+.B -B
+a boot entry for UEFI systems can be created with the
+.B -E
+option and with
+.I bootfile
+pointing to a FAT image containing the contents of
+the efi system partition.
 .PP
 The
 .B -D

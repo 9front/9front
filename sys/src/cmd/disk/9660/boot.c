@@ -149,23 +149,16 @@ enum {
 	Emusectsz	= 512,		/* bytes per emulated sector */
 };
 
-void
-Cupdatebootcat(Cdimg *cd)
+static void
+Caddbootentry(Cdimg *cd, Direc *bootrec, int bios)
 {
-	uvlong o;
 	int n;
 
-	if(cd->bootdirec == nil)
-		return;
-
-	o = Cwoffset(cd);
-	Cwseek(cd, cd->bootimageptr);
 	Cputc(cd, 0x88);
-
 	if(cd->flags & CDbootnoemu)
 		Cputc(cd, 0);			/* no disk emulation */
 	else
-		switch(cd->bootdirec->length){
+		switch(bootrec->length){
 		default:
 			fprint(2, "warning: boot image is not 1.44MB or 2.88MB; "
 				"pretending 1.44MB\n");
@@ -183,28 +176,53 @@ Cupdatebootcat(Cdimg *cd)
 
 	n = 1;
 	if(cd->flags & CDbootnoemu){
-		n = (cd->bootdirec->length + Emusectsz - 1) / Emusectsz;
-		if(n > 4){
+		n = (bootrec->length + Emusectsz - 1) / Emusectsz;
+		if(bios && n > 4){
 			fprint(2, "warning: boot image too big; "
 				"will only load the first 2K\n");
 			n = 4;
 		}
 	}
 	Cputnl(cd, n, 2);	/* Emusectsz-byte sector count for load */
-	Cputnl(cd, cd->bootdirec->block, 4);	/* ptr to disk image */
-	Cwseek(cd, o);
+	Cputnl(cd, bootrec->block, 4);	/* ptr to disk image */
 }
 
 void
-findbootimage(Cdimg *cd, Direc *root)
+Cupdatebootcat(Cdimg *cd, Direc *root)
 {
-	Direc *d;
+	Direc *bootrec;
+	uvlong o;
 
-	d = walkdirec(root, cd->bootimage);
-	if(d == nil){
+	bootrec = nil;
+	if(cd->bootimage)
+		bootrec = walkdirec(root, cd->bootimage);
+	else if(cd->efibootimage)
+		bootrec = walkdirec(root, cd->efibootimage);
+	if(bootrec == nil){
 		fprint(2, "warning: did not encounter boot image\n");
 		return;
 	}
 
-	cd->bootdirec = d;
+	o = Cwoffset(cd);
+
+	Cwseek(cd, cd->bootimageptr);
+	Caddbootentry(cd, bootrec, cd->bootimage != nil);
+
+	bootrec = nil;
+	if(cd->efibootimage && cd->bootimage){
+		bootrec = walkdirec(root, cd->efibootimage);
+		if(bootrec == nil)
+			fprint(2, "warning: did not encounter efi boot image\n");
+	}
+	if(bootrec != nil) {
+		Crepeat(cd, 0, 20);	/* Unused */
+		Cputc(cd, 0x91);
+		Cputc(cd, 0xef);	/* platform id */
+		Cputnl(cd, 1, 2);	/* num entries */
+		Crepeat(cd, 0, 28);	/* ID string */
+		Caddbootentry(cd, bootrec, 0);
+		Crepeat(cd, 0, 20);	/* vendor unique selection criteria. */
+	}
+
+	Cwseek(cd, o);
 }

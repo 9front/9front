@@ -23,7 +23,7 @@ void
 usage(void)
 {
 	if(mk9660)
-		fprint(2, "usage: disk/mk9660 [-D:] [-9cjr] [-b bootfile] [-o offset blocksize] [-p proto] [-s src] cdimage\n");
+		fprint(2, "usage: disk/mk9660 [-D:] [-9cjr] [-[EBb] bootfile] [-o offset blocksize] [-p proto] [-s src] cdimage\n");
 	else
 		fprint(2, "usage: disk/dump9660 [-D:] [-9cjr] [-m maxsize] [-n now] [-p proto] [-s src] cdimage\n");
 	exits("usage");
@@ -85,6 +85,14 @@ main(int argc, char **argv)
 			usage();
 		info.flags |= CDbootable;
 		info.bootimage = EARGF(usage());
+		break;
+	case 'E':
+		/* efi fat image */
+		if(!mk9660)
+			usage();
+		info.flags |= CDbootable;
+		info.flags |= CDbootnoemu;
+		info.efibootimage = EARGF(usage());
 		break;
 	case 'c':
 		info.flags |= CDconform;
@@ -204,10 +212,8 @@ main(int argc, char **argv)
 	Cwseek(cd, (vlong)cd->nextblock * Blocksize);
 	writefiles(dump, cd, &iroot);
 
-	if(cd->bootimage){
-		findbootimage(cd, &iroot);
-		Cupdatebootcat(cd);
-	}
+	if(cd->bootimage || cd->efibootimage)
+		Cupdatebootcat(cd, &iroot);
 		
 	/* create Joliet tree */
 	if(cd->flags & CDjoliet)

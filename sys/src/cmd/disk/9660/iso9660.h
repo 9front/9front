@@ -114,8 +114,8 @@ struct Cdimg {
 	uvlong bootcatptr;
 	ulong bootcatblock;
 	uvlong bootimageptr;
-	Direc *bootdirec;
 	char *bootimage;
+	char *efibootimage;
 	
 	Biobuf brd;
 	Biobuf bwr;
@@ -157,11 +157,8 @@ struct Cdinfo {
 	char *preparer;
 	char *application;
 	char *bootimage;
+	char *efibootimage;
 };
-
-//enum {
-//	Blocklen = 2048,		/* unused */
-//};
 
 /*
  * This is a doubly binary tree.
@@ -293,8 +290,7 @@ enum { /* CputrripNM flag types */
 void Cputbootvol(Cdimg*);
 void Cputbootcat(Cdimg*);
 void Cupdatebootvol(Cdimg*);
-void Cupdatebootcat(Cdimg*);
-void findbootimage(Cdimg*, Direc*);
+void Cupdatebootcat(Cdimg*, Direc*);
 
 /* cdrdwr.c */
 Cdimg *createcd(char*, Cdinfo);
