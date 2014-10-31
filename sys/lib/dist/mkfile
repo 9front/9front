@@ -12,5 +12,5 @@ cd:V:	$iso
 	bind -a adm/timezone /n/src9/adm/timezone
 	bind usr /n/src9/usr
 	bind /n/src9 /n/src9/dist/plan9front
-	disk/mk9660 -c9j -B 386/9bootiso -p $proto -s /n/src9 -v 'Plan 9 Front' $target
+	disk/mk9660 -c9j -B 386/9bootiso -E 386/efiboot.fat -p $proto -s /n/src9 -v 'Plan 9 Front' $target
 	}
