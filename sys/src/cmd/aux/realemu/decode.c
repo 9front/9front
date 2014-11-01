@@ -572,6 +572,7 @@ decode(Iarg *ip, Inst *i)
 	i->dsreg = RDS;
 	i->olen = cpu->olen;
 	i->alen = cpu->alen;
+	i->a1 = i->a2 = i->a3 = nil;
 
 	for(;;){
 		i->code = ar(ip); ip->off++;
@@ -608,7 +609,6 @@ decode(Iarg *ip, Inst *i)
 	if(i->sreg == 0)
 		i->sreg = i->dsreg;
 
-	i->a1 = i->a2 = i->a3 = nil;
 	for(;;){
 		if(t->a1)
 			i->a1 = getarg(ip, i, t->a1);
