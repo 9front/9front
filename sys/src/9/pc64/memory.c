@@ -386,6 +386,8 @@ lowraminit(void)
 	x = PADDR(CPU0END);
 	bda = (uchar*)KADDR(0x400);
 	pa = ((bda[0x14]<<8)|bda[0x13])*KB;
+	if(pa > 640*KB)
+		pa = 640*KB;
 	if(x < pa){
 		mapfree(&rmapram, x, pa-x);
 		memset(KADDR(x), 0, pa-x);		/* keep us honest */
