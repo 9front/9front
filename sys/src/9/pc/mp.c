@@ -585,6 +585,7 @@ mpshutdown(void)
 	lapicicrw(0, 0x000C0000|ApicINIT);
 
 	pcireset();
+	acpireset();
 	i8042reset();
 
 	/*
