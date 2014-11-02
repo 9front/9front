@@ -2,7 +2,7 @@
 .SH NAME
 9bootfat, 9bootiso, 9bootpxe, bootia32.efi, bootx64.efi, efiboot.fat \- PC bootloader for FAT, ISO and PXE network booting
 .SH SYNOPSIS
-Started by PC BIOS or chainloaded by partition bootsector
+Started by PC BIOS/EFI or chainloaded by partition bootsector
 .SH DESCRIPTION
 9boot is the bootloader used on PCs to start the Plan 9 kernel.
 Its task is to read and parse the
@@ -66,11 +66,13 @@ from the root directory of the filesystem.
 Booting from CD-ROM requires only the 
 .IR 9bootiso
 bootloader to be included in the ISO-9660 image under
-.B 386/9bootiso,
+.BR /386/9bootiso ,
 set as a non-emulation bootblock (see
+.B -B
+in
 .IR mk9660 (8)).
 Boot parameters are read from
-.B cfg/plan9.ini.
+.BR /cfg/plan9.ini .
 .SH NETWORK BOOTING
 With a PXE capable BIOS and network card one can download
 .IR 9bootpxe
@@ -92,19 +94,47 @@ in lower case hex, and uses this as its
 file.
 .SH EFI BOOTING
 EFI firmware looks for the files
-.B bootia32.efi
+.I bootia32.efi
 (for 386)
 or
-.B bootx64.efi
+.I bootx64.efi
 (for amd64)
-in the directory
+in the boot media and executes them.
+For local disk media, these files are located in the directory
 .B /efi/boot
-of the EFI boot partition and executes them.
-Once started, the file
-.B /plan9.ini
-is read from the boot partition and interpretated in
-the same way as with
-BIOS booting.
+of the 
+.B FAT
+formated boot partition.
+For 
+.B CD-ROM
+media, the boot partition is provided
+as a embedded 
+.B FAT
+filesystem image
+.I efiboot.fat
+(see the
+.B -E
+in
+.IR mk9660 (8)).
+In the network boot case, the
+.I bootia32.efi
+or
+.I bootx64.efi
+files are used as the
+.B BSP
+program instead of
+.IR 9bootpxe .
+Once started, the boot media 
+.RB ( PXE ,
+.BR ISO ,
+.BR FAT )
+is discovered and
+.IR plan9.ini (8)
+configuration is read from from it in the same way as
+with the BIOS-based
+.I 9boot*
+loaders.
+
 .SH FILES
 .B /386/pbs
 .br
@@ -125,7 +155,10 @@ BIOS booting.
 .BR /sys/src/boot/efi
 .br
 .SH "SEE ALSO"
-.IR plan9.ini (8)
+.IR plan9.ini (8),
+.IR mk9660 (8),
+.IR dhcpd (8),
+.IR ndb (6)
 .SH HISTORY
 9boot first appeared in 9front (April, 2011).
 EFI support first appeared in 9front (Oct, 2014).
