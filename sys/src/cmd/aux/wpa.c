@@ -648,7 +648,7 @@ Connect:
 	if(!background){
 		background = 1;
 		if(!debug){
-			switch(rfork(RFFDG|RFREND|RFPROC|RFNOWAIT)){
+			switch(rfork(RFNOTEG|RFREND|RFPROC|RFNOWAIT)){
 			default:
 				exits(nil);
 			case -1:
