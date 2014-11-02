@@ -112,7 +112,7 @@ as a embedded
 .B FAT
 filesystem image
 .I efiboot.fat
-(see the
+(see
 .B -E
 in
 .IR mk9660 (8)).
