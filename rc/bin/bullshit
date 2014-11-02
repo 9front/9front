@@ -1,4 +1,5 @@
 #!/bin/rc
+rfork e
 if(~ $#1 0)
 	file=/lib/bullshit
 if not
