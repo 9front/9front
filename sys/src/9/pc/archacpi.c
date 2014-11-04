@@ -260,9 +260,7 @@ pcibusno(void *dot)
 	if((x = amlwalk(dot, "^_BBN")) == nil)
 		if((x = amlwalk(dot, "^_ADR")) == nil)
 			return -1;
-	if((p = amlval(x)) == nil)
-		return -1;
-	adr = amlint(p);
+	adr = amlint(amlval(x));
 	/* if root bridge, then we are done here */
 	if(id != nil && (strcmp(id, "PNP0A03")==0 || strcmp(id, "PNP0A08")==0))
 		return adr;
