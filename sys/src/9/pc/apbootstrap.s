@@ -73,6 +73,11 @@ TEXT _ap32(SB), $0
 	MOVL	DX, (PDO(0))(CX)
 	MOVL	CX, CR3				/* load and flush the mmu */
 
+	MOVL	CR4, AX
+	ANDL	$~0x00000020, AX		/* ~PAE */
+	ORL	$0x00000010, AX			/* PSE */
+	MOVL	AX, CR4
+
 	MOVL	CR0, DX
 	ORL	$0x80010000, DX			/* PG|WP */
 	ANDL	$~0x6000000A, DX		/* ~(CD|NW|TS|MP) */
