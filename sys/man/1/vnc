@@ -197,8 +197,6 @@ print verbose output to standard error.
 .SH SOURCE
 .B /sys/src/cmd/vnc
 .SH "SEE ALSO
-.IR drawterm (8)
-.br
 .B http://www.uk.research.att.com/vnc
 .SH BUGS
 If the remote frame buffer is larger than the local screen,
