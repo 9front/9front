@@ -75,6 +75,7 @@ if(! ~ $terminal *vx32*){
 			aux/timesync $TIMESYNCARGS
 }
 
+# setup mouse and graphics
 fn ask {
 	if(~ $"$1 ask){
 		echo -n $1
@@ -92,27 +93,27 @@ fn ask {
 		ask $*
 	}
 }
-
-ask vgasize ' is (text, 640x480x8, 1024x768x16, ...)' 1024x768x16
-if(! ~ $"vgasize '' text none){
-	ask monitor ' is (vesa, xga, lcd, ...)' vesa
-	if(! ~ $"monitor ''){
-		if(test -f /dev/mousectl)
-			ask mouseport ' is (ps2, ps2intellimouse, 0, 1, 2)' ps2
-		if not
-			mouseport=none
-		@{
-			rfork n
-			if(~ $monitor vesa)
-				aux/realemu
-			aux/vga -l $vgasize
+if(test -f /dev/vgactl){
+	ask vgasize ' is (text, 640x480x8, 1024x768x16, ...)' 1024x768x16
+	if(! ~ $"vgasize '' text none){
+		ask monitor ' is (vesa, xga, lcd, ...)' vesa
+		if(! ~ $"monitor ''){
+			@{
+				rfork n
+				if(~ $monitor vesa)
+					aux/realemu
+				aux/vga -l $vgasize
+			}
 		}
-		switch($mouseport){
-		case ps2 ps2intellimouse 0 1 2
-			aux/mouse $mouseport
-			if(~ $accupoint 1)
-				pipefile -dr /bin/aux/accupoint /dev/mouse
-		}
+	}
+}
+if(test -f /dev/mousectl && test -f '#i/winname'){
+	ask mouseport ' is (ps2, ps2intellimouse, 0, 1, 2)' ps2
+	switch($mouseport){
+	case ps2 ps2intellimouse 0 1 2
+		aux/mouse $mouseport
+		if(~ $accupoint 1)
+			pipefile -dr /bin/aux/accupoint /dev/mouse
 	}
 }
 rm -f '/env/fn#ask'
