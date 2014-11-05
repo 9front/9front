@@ -88,8 +88,15 @@ case go
 	# make file continous on disk
 	logprog chmod +al /n/9fat/9bootfat
 
+	# copy config
 	logprog cp /tmp/plan9.ini /n/9fat/plan9.ini
+
+	# copy kernel
 	logprog cp /n/newfs/386/9pcf /n/9fat/9pcf
+
+	# copy efi bootloader
+	logprog mkdir -p /n/9fat/efi/boot
+	logprog cp /386/^(bootia32.efi bootx64.efi) /n/9fat/efi/boot
 
 	# copy in backups
 	if(test -f /tmp/oldplan9.ini)
