@@ -23,9 +23,6 @@ Mousectl	*initmouse(char *file, Image *i)
 int		readmouse(Mousectl *mc)
 .PP
 .B
-int		atomouse();
-.PP
-.B
 void		closemouse(Mousectl *mc)
 .PP
 .B
