@@ -114,6 +114,8 @@ csdial(DS *ds)
 			break;
 		*err = 0;
 		errstr(err, sizeof err);
+		if(strcmp(err, "interrupted") == 0)
+			break;
 		if(strstr(err, "does not exist") == 0)
 			strcpy(besterr, err);
 	}
