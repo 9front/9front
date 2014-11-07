@@ -1258,8 +1258,8 @@ procstopwait(Proc *p, int ctl)
 	qunlock(&p->debug);
 	up->psstate = "Stopwait";
 	if(waserror()) {
-		p->pdbg = nil;
 		qlock(&p->debug);
+		p->pdbg = nil;
 		nexterror();
 	}
 	sleep(&up->sleep, procstopped, p);
