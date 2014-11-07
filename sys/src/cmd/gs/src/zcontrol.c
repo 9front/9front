@@ -235,7 +235,7 @@ end_runandhide(i_ctx_t *i_ctx_p)
 
     if ((code = runandhide_restore_hidden(i_ctx_p, esp, esp - 1)) < 0)
         return code;
-    esp -= 2;		/* pop the hidden value and its atributes */
+    esp -= 2;		/* pop the hidden value and its attributes */
     return o_pop_estack;
 }
 

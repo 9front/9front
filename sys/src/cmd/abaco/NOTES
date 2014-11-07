@@ -5,10 +5,10 @@ Not Bugs:
 	* complaints like "gif: decode <stdin> failed: ReadGIF: can't recognize format ��"
 	  are caused by sites that return a jpeg and send Content-Type: image/gif.
 
-Not implented:
+Not implemented:
 	* frame's borders and scroll are ignored
 	* Image: maps
-	* table atributes
+	* table attributes
 	* css
 	* Js
 

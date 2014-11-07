@@ -10741,7 +10741,7 @@ icmLuSpaces(
 	icColorSpaceSignature *outs,	/* Return effective output color space */
 	int *outn,						/* Return number of output components */
 	icmLuAlgType *alg,				/* Return type of lookup algorithm used */
-    icRenderingIntent *intt,		/* Return the intent being implented */
+    icRenderingIntent *intt,		/* Return the intent being implemented */
     icmLookupFunc *fnc,				/* Return the profile function being implemented */
 	icColorSpaceSignature *pcs		/* Return the profile effective PCS */
 ) {

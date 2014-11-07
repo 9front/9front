@@ -253,7 +253,7 @@ At first, pictures of various Bell Labs employees, Lucent Technologies' logo, an
 Memorize the sequence, then click to hide them and begin.
 Use the mouse to select two tiles.
 If they are the same, the tiles will disappear, otherwise the tiles will flip back and you will get a chance to try again.
-Button 3 generates a memu allowing you to restart, switch between easy and hard modes, and exit.
+Button 3 generates a menu allowing you to restart, switch between easy and hard modes, and exit.
 The
 .B -h
 option sets the game to hard mode.
