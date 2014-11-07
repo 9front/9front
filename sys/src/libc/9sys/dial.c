@@ -35,7 +35,7 @@ dial(char *dest, char *local, char *dir, int *cfdp)
 {
 	DS ds;
 	int rv;
-	char err[ERRMAX], alterr[ERRMAX];
+	char err[ERRMAX];
 
 	ds.local = local;
 	ds.dir = dir;
@@ -49,23 +49,20 @@ dial(char *dest, char *local, char *dir, int *cfdp)
 	rv = csdial(&ds);
 	if(rv >= 0)
 		return rv;
-	err[0] = '\0';
+	*err = 0;
 	errstr(err, sizeof err);
-	if(strstr(err, "refused") != 0){
-		werrstr("%s", err);
+	if(strcmp(err, "interrupted") == 0 || strstr(err, "refused") != nil){
+		errstr(err, sizeof err);
 		return rv;
 	}
+
 	ds.netdir = "/net.alt";
 	rv = csdial(&ds);
 	if(rv >= 0)
 		return rv;
-
-	alterr[0] = 0;
-	errstr(alterr, sizeof alterr);
-	if(strstr(alterr, "translate") || strstr(alterr, "does not exist"))
-		werrstr("%s", err);
-	else
-		werrstr("%s", alterr);
+	errstr(err, sizeof err);
+	if(strstr(err, "translate") == nil && strstr(err, "does not exist") == nil)
+		errstr(err, sizeof err);
 	return rv;
 }
 
@@ -73,7 +70,7 @@ static int
 csdial(DS *ds)
 {
 	int n, fd, rv;
-	char *p, buf[Maxstring], clone[Maxpath], err[ERRMAX], besterr[ERRMAX];
+	char *p, buf[Maxstring], clone[Maxpath], err[ERRMAX];
 
 	/*
 	 *  open connection server
@@ -101,7 +98,6 @@ csdial(DS *ds)
 	 */
 	rv = -1;
 	*err = 0;
-	*besterr = 0;
 	seek(fd, 0, 0);
 	while((n = read(fd, buf, sizeof(buf) - 1)) > 0){
 		buf[n] = 0;
@@ -112,18 +108,17 @@ csdial(DS *ds)
 		rv = call(buf, p, ds);
 		if(rv >= 0)
 			break;
-		*err = 0;
 		errstr(err, sizeof err);
 		if(strcmp(err, "interrupted") == 0)
 			break;
-		if(strstr(err, "does not exist") == 0)
-			strcpy(besterr, err);
+		if(strstr(err, "does not exist") != nil)
+			errstr(err, sizeof err);	/* get previous error back */
 	}
 	close(fd);
 
 	/* restore errstr if any */
 	if(rv < 0 && *err)
-		errstr(*besterr ? besterr : err, sizeof err);
+		errstr(err, sizeof err);
 
 	return rv;
 }
