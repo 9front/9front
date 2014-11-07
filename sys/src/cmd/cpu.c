@@ -443,7 +443,7 @@ rexcall(int *fd, char *host, char *service)
 		if(n < 0)
 			return "negotiating aan";
 		if(*err){
-			werrstr(err);
+			errstr(err, sizeof err);
 			return negstr;
 		}
 	}
@@ -460,7 +460,7 @@ rexcall(int *fd, char *host, char *service)
 	if(n < 0)
 		return negstr;
 	if(*err){
-		werrstr(err);
+		errstr(err, sizeof err);
 		return negstr;
 	}
 

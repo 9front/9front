@@ -160,14 +160,11 @@ logit(char *fmt, ...)
 {
 	char buf[8192];
 	va_list arg;
-	char errstr[ERRMAX];
 
-	rerrstr(errstr, sizeof errstr);
 	va_start(arg, fmt);
 	vseprint(buf, buf+sizeof(buf), fmt, arg);
 	va_end(arg);
 	syslog(0, FTPLOG, "%s.%s %s", nci->rsys, nci->rserv, buf);
-	werrstr(errstr, sizeof errstr);
 }
 
 static void

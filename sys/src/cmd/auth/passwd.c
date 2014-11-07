@@ -29,7 +29,7 @@ asrdresp(int fd, char *buf, int len)
 			return -1;
 		}
 		error[AERRLEN-1] = 0;
-		werrstr(error);
+		errstr(error, sizeof error);
 		return -1;
 	default:
 		werrstr(pbmsg);

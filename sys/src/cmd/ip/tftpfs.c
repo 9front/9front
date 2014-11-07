@@ -212,7 +212,7 @@ download(void *aux)
 		msg.buf[n] = 0;
 		switch(nhgets(msg.buf)){
 		case Tftp_ERROR:
-			werrstr((char*)msg.buf+4);
+			werrstr("%s", (char*)msg.buf+4);
 			err = "%r";
 			goto out;
 

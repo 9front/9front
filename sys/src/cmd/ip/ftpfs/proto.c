@@ -1324,7 +1324,7 @@ passive(int mode, Biobuf **bpp, char *cmda, char *cmdb)
 		close(fd);
 		if(debug)
 			fprint(2, "passive mode retrieve failed: %s\n", msg);
-		werrstr(msg);
+		werrstr("%s", msg);
 		return x;
 	}
 

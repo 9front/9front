@@ -140,8 +140,7 @@ static int
 udpprobe(int cfd, int dfd, char *dest, int interval)
 {
 	int n, i, rv;
-	char msg[Maxstring];
-	char err[Maxstring];
+	char msg[Maxstring], err[ERRMAX];
 
 	seek(cfd, 0, 0);
 	n = snprint(msg, sizeof msg, "connect %s", dest);
@@ -166,12 +165,13 @@ udpprobe(int cfd, int dfd, char *dest, int interval)
 			rv = 0;
 			break;
 		}
+		*err = 0;
 		errstr(err, sizeof err);
-		if(strstr(err, "alarm") == 0){
-			werrstr(err);
+		if(strcmp(err, "interrupted") != 0){
+			errstr(err, sizeof err);
 			break;
 		}
-		werrstr(err);
+		errstr(err, sizeof err);
 	}
 	alarm(0);
 	return rv;
@@ -185,7 +185,7 @@ static int
 icmpprobe(int cfd, int dfd, char *dest, int interval)
 {
 	int x, i, n, len, rv;
-	char buf[512], err[Maxstring], msg[Maxstring];
+	char buf[512], err[ERRMAX], msg[Maxstring];
 	Icmphdr *ip;
 
 	seek(cfd, 0, 0);
@@ -212,12 +212,13 @@ icmpprobe(int cfd, int dfd, char *dest, int interval)
 		n = read(dfd, buf, sizeof(buf));
 		alarm(0);
 		if(n < 0){
+			*err = 0;
 			errstr(err, sizeof err);
-			if(strstr(err, "alarm") == 0){
-				werrstr(err);
+			if(strcmp(err, "interrupted") != 0){
+				errstr(err, sizeof err);
 				break;
 			}
-			werrstr(err);
+			errstr(err, sizeof err);
 			continue;
 		}
 		x = (ip->seq[1]<<8) | ip->seq[0];
@@ -337,7 +338,7 @@ main(int argc, char **argv)
 	long *t;
 	char *net, *p;
 	char clone[Maxpath], dest[Maxstring], hop[Maxstring], dom[Maxstring];
-	char err[Maxstring];
+	char err[ERRMAX];
 	DS ds;
 
 	buckets = 0;
@@ -396,6 +397,7 @@ main(int argc, char **argv)
 				done = 1;
 				continue;
 			}
+			*err = 0;
 			errstr(err, sizeof err);
 			if(strstr(err, "refused")){
 				strcpy(hop, dest);

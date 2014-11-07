@@ -227,7 +227,7 @@ jpgerror(Header *h, char *fmt, ...)
 	vseprint(h->err, h->err+sizeof h->err, fmt, arg);
 	va_end(arg);
 
-	werrstr(h->err);
+	werrstr("%s", h->err);
 	jpgfreeall(h, 1);
 	longjmp(h->errlab, 1);
 }

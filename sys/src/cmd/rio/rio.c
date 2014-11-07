@@ -1380,7 +1380,7 @@ initkbd(void)
 	if(e = recvp(c)){
 		chanfree(c);
 		c = nil;
-		werrstr(e);
+		werrstr("%s", e);
 		free(e);
 	}
 	return c;

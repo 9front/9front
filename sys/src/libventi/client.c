@@ -21,7 +21,7 @@ vtfcallrpc(VtConn *z, VtFcall *ou, VtFcall *in)
 	if(chattyventi)
 		fprint(2, "%s <- %F\n", argv0, in);
 	if(in->msgtype == VtRerror){
-		werrstr(in->error);
+		werrstr("%s", in->error);
 		vtfcallclear(in);
 		packetfree(p);
 		return -1;

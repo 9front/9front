@@ -16,13 +16,13 @@ void*
 _remaperror(char *fmt, ...)
 {
 	va_list arg;
-	char buf[256];
+	char buf[ERRMAX];
 
 	va_start(arg, fmt);
 	vseprint(buf, buf+sizeof buf, fmt, arg);
 	va_end(arg);
 
-	werrstr(buf);
+	errstr(buf, sizeof buf);
 	return nil;
 }
 

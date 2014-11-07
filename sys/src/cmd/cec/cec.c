@@ -196,14 +196,14 @@ timewait(int ms)
 int
 didtimeout(void)
 {
-	char buf[ERRMAX];
+	char err[ERRMAX];
+	int rv;
 
-	rerrstr(buf, sizeof buf);
-	if(strcmp(buf, "interrupted") == 0){
-		werrstr(buf, 0);
-		return 1;
-	}
-	return 0;
+	*err = 0;
+	errstr(err, sizeof err);
+	rv = strcmp(err, "interrupted") == 0;
+	errstr(err, sizeof err);
+	return rv;
 }
 
 ushort

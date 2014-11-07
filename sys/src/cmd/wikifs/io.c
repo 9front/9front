@@ -676,7 +676,7 @@ writepage(int num, ulong t, String *s, char *title)
 	if(conflict){
 		close(lfd);
 		voidcache(num);
-		werrstr(err);
+		errstr(err, sizeof err);
 		return -1;
 	}
 
