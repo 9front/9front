@@ -42,9 +42,10 @@ fn work {
 		target = `{echo $target | awk -F',' '{print $NF}'}
 	while () {
 		cmd=`{read}
+		s=$status
 		if(! ~ `{cat $netdir/status} *Established*)
 			exit
-		if(~ $#cmd 0) {
+		if(~ $s *eof) {
 			echo  QUIT : Leaving... > $netdir/data
 			exit
 		}
