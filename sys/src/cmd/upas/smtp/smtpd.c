@@ -335,6 +335,7 @@ hello(String *himp, int extended)
 {
 	char **mynames;
 	char *ldot, *rdot;
+	char *p;
 
 	him = s_to_c(himp);
 	syslog(0, "smtpd", "%s from %s as %s", extended? "ehlo": "helo",
@@ -342,89 +343,81 @@ hello(String *himp, int extended)
 	if(rejectcheck())
 		return;
 
-	if (strchr(him, '.') && nci && !trusted && fflag &&
-	    strcmp(nci->rsys, nci->lsys) != 0){
+	if (him[0] == '[') {
 		/*
-		 * We don't care if he lies about who he is, but it is
-		 * not okay to pretend to be us.  Many viruses do this,
-		 * just parroting back what we say in the greeting.
+		 * reject literal ip addresses when not trusted.
 		 */
-		if(strcmp(him, dom) == 0)
+		if (!trusted)
 			goto Liarliar;
-		for(mynames = sysnames_read(); mynames && *mynames; mynames++){
-			if(cistrcmp(*mynames, him) == 0){
-Liarliar:
-				syslog(0, "smtpd",
-					"Hung up on %s; claimed to be %s",
-					nci->rsys, him);
-				if(Dflag)
-					sleep(delaysecs()*1000);
-				reply("554 5.7.0 Liar!\r\n");
-				exits("client pretended to be us");
-				return;
-			}
+		him = nci->rsys;
+	} else {
+		if (!trusted && fflag && nci && strcmp(nci->rsys, nci->lsys) != 0){
+			/*
+			 * We don't care if he lies about who he is, but it is
+			 * not okay to pretend to be us.  Many viruses do this,
+			 * just parroting back what we say in the greeting.
+			 */
+			if(cistrcmp(him, dom) == 0)
+				goto Liarliar;
+			for(mynames = sysnames_read(); mynames && *mynames; mynames++)
+				if(cistrcmp(*mynames, him) == 0)
+					goto Liarliar;
 		}
-	}
 
-	/*
-	 * it is unacceptable to claim any string that doesn't look like
-	 * a domain name (e.g., has at least one dot in it), but
-	 * Microsoft mail client software gets this wrong, so let trusted
-	 * (local) clients omit the dot.
-	 */
-	rdot = strrchr(him, '.');
-	if (rdot && rdot[1] == '\0') {
-		*rdot = '\0';			/* clobber trailing dot */
-		rdot = strrchr(him, '.');	/* try again */
-	}
-	if (!trusted && rdot == nil)
-		goto Liarliar;
-	/*
-	 * Reject obviously bogus domains and those reserved by RFC 2606.
-	 */
-	if (rdot == nil)
-		rdot = him;
-	else
-		rdot++;
-	if (cistrcmp(rdot, "localdomain") == 0 ||
-	    cistrcmp(rdot, "localhost") == 0 ||
-	    cistrcmp(rdot, "example") == 0 ||
-	    cistrcmp(rdot, "invalid") == 0 ||
-	    cistrcmp(rdot, "test") == 0)
-		goto Liarliar;			/* bad top-level domain */
-	/* check second-level RFC 2606 domains: example\.(com|net|org) */
-	if (rdot != him)
-		*--rdot = '\0';
-	ldot = strrchr(him, '.');
-	if (rdot != him)
-		*rdot = '.';
-	if (ldot == nil)
-		ldot = him;
-	else
-		ldot++;
-	if (cistrcmp(ldot, "example.com") == 0 ||
-	    cistrcmp(ldot, "example.net") == 0 ||
-	    cistrcmp(ldot, "example.org") == 0)
-		goto Liarliar;
-
-	/*
-	 * similarly, if the claimed domain is not an address-literal,
-	 * require at least one letter, which there will be in
-	 * at least the last component (e.g., .com, .net) if it's real.
-	 * this rejects non-address-literal IP addresses,
-	 * among other bogosities.
-	 */
-	if (!trusted && him[0] != '[') {
-		char *p;
-
+		/*
+		 * require at least one letter, which there will be in
+		 * at least the last component (e.g., .com, .net) if it's real.
+		 * this rejects non-address-literal IP addresses,
+		 * among other bogosities.
+		 */
 		for (p = him; *p != '\0'; p++)
 			if (isascii(*p) && isalpha(*p))
 				break;
 		if (*p == '\0')
 			goto Liarliar;
+
+		/*
+		 * it is unacceptable to claim any string that doesn't look like
+		 * a domain name (e.g., has at least one dot in it), but
+		 * Microsoft mail client software gets this wrong, so let trusted
+		 * (local) clients omit the dot.
+		 */
+		rdot = strrchr(him, '.');
+		if (rdot && rdot[1] == '\0') {
+			*rdot = '\0';			/* clobber trailing dot */
+			rdot = strrchr(him, '.');	/* try again */
+		}
+		if (!trusted && rdot == nil)
+			goto Liarliar;
+
+		/*
+		 * Reject obviously bogus domains and those reserved by RFC 2606.
+		 */
+		if (rdot == nil)
+			rdot = him;
+		else
+			rdot++;
+		if (cistrcmp(rdot, "localdomain") == 0 ||
+		    cistrcmp(rdot, "localhost") == 0 ||
+		    cistrcmp(rdot, "example") == 0 ||
+		    cistrcmp(rdot, "invalid") == 0 ||
+		    cistrcmp(rdot, "test") == 0)
+			goto Liarliar;			/* bad top-level domain */
+		/* check second-level RFC 2606 domains: example\.(com|net|org) */
+		if (rdot != him)
+			*--rdot = '\0';
+		ldot = strrchr(him, '.');
+		if (rdot != him)
+			*rdot = '.';
+		if (ldot == nil)
+			ldot = him;
+		else
+			ldot++;
+		if (cistrcmp(ldot, "example.com") == 0 ||
+		    cistrcmp(ldot, "example.net") == 0 ||
+		    cistrcmp(ldot, "example.org") == 0)
+			goto Liarliar;
 	}
-	if(strchr(him, '.') == 0 && nci != nil && strchr(nci->rsys, '.') != nil)
-		him = nci->rsys;
 
 	if(Dflag)
 		sleep(delaysecs()*1000);
@@ -438,6 +431,15 @@ Liarliar:
 		else
 			reply("250 AUTH CRAM-MD5\r\n");
 	}
+	return;
+
+Liarliar:
+	syslog(0, "smtpd", "Hung up on %s; claimed to be %s",
+		nci->rsys, him);
+	if(Dflag)
+		sleep(delaysecs()*1000);
+	reply("554 5.7.0 Liar!\r\n");
+	exits("client pretended to be us");
 }
 
 void
