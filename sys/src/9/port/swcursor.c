@@ -42,7 +42,6 @@ swcursorhide(void)
 		return;
 	swvisible = 0;
 	memimagedraw(gscreen, swrect, swback, ZP, memopaque, ZP, S);
-	flushmemscreen(swrect);
 }
 
 void
@@ -57,16 +56,20 @@ swcursoravoid(Rectangle r)
 void
 swcursordraw(Point p)
 {
+	Rectangle flushr;
+
 	if(swvisible)
 		return;
 	if(swback == nil || swimg1 == nil || swmask1 == nil || gscreen == nil)
 		return;
 	assert(!canqlock(&drawlock));
 	swvispt = addpt(swoffset, p);
+	flushr = swrect; 
 	swrect = rectaddpt(Rect(0,0,16,16), swvispt);
+	combinerect(&flushr, swrect);
 	memimagedraw(swback, swback->r, gscreen, swvispt, memopaque, ZP, S);
 	memimagedraw(gscreen, swrect, swimg1, ZP, swmask1, ZP, SoverD);
-	flushmemscreen(swrect);
+	flushmemscreen(flushr);
 	swvisible = 1;
 }
 
