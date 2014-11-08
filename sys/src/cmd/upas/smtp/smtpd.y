@@ -102,7 +102,7 @@ domain		: element		={ $$ = cat(&$1, 0, 0, 0, 0 ,0, 0); }
 element		: name			={ $$ = cat(&$1, 0, 0, 0, 0 ,0, 0); }
 		| '#' number		={ $$ = cat(&$1, &$2, 0, 0, 0 ,0, 0); }
 		| '[' ']'		={ $$ = cat(&$1, &$2, 0, 0, 0 ,0, 0); }
-		| '[' dotnum ']'	={ $$ = cat(&$1, &$2, &$3, 0, 0 ,0, 0); }
+		| '[' ipaddr ']'	={ $$ = cat(&$1, &$2, &$3, 0, 0 ,0, 0); }
 		;
 mailbox		: local_part		={ $$ = cat(&$1, 0, 0, 0, 0 ,0, 0); }
 		| local_part '@' domain	={ $$ = cat(&$3, bang, &$1, 0, 0 ,0, 0); }
@@ -142,12 +142,30 @@ qtext		: '\\' x		={ $$ = cat(&$2, 0, 0, 0, 0 ,0, 0); }
 char		: c
 		| '\\' x		={ $$ = $2; }
 		;
-dotnum		: snum '.' snum '.' snum '.' snum ={ $$ = cat(&$1, &$2, &$3, &$4, &$5, &$6, &$7); }
+ipaddr		: ipv4addr				={ $$ = cat(&$1, 0, 0, 0, 0, 0, 0); }
+		| 'i' 'p' 'v' '6' ':' ipv6addr		={ $$ = cat(&$6, 0, 0, 0, 0, 0, 0); }
 		;
-number		: d		={ $$ = cat(&$1, 0, 0, 0, 0 ,0, 0); }
-		| number d	={ $$ = cat(&$1, &$2, 0, 0, 0 ,0, 0); }
+ipv6addr	: ipv6addr_list				={ $$ = cat(&$1, 0, 0, 0, 0, 0, 0); }
+		| ipv6addr_list ':' ':' ipv6addr_list	={ $$ = cat(&$1, &$2, &$3, &$4, 0, 0, 0); }
+		| ':' ':' ipv6addr_list			={ $$ = cat(&$1, &$2, &$3, 0, 0, 0, 0); }
+		;
+ipv6addr_list	: ipv6addr_elem				={ $$ = cat(&$1, 0, 0, 0, 0, 0, 0); }
+		| ipv6addr_list ':' ipv6addr_elem	={ $$ = cat(&$1, &$2, &$3, 0, 0, 0, 0); }
+		;
+ipv6addr_elem	: hnum					={ $$ = cat(&$1, 0, 0, 0, 0, 0, 0); }
+		| ipv4addr				={ $$ = cat(&$1, 0, 0, 0, 0, 0, 0); }
+		;
+ipv4addr	: snum '.' snum '.' snum '.' snum	={ $$ = cat(&$1, &$2, &$3, &$4, &$5, &$6, &$7); }
+		;
+number		: d		={ $$ = cat(&$1, 0, 0, 0, 0, 0, 0); }
+		| number d	={ $$ = cat(&$1, &$2, 0, 0, 0, 0, 0); }
 		;
 snum		: number		={ if(atoi(s_to_c($1.s)) > 255) fprint(2, "bad snum\n"); }
+		;
+hnum		: h		={ $$ = cat(&$1, 0, 0, 0, 0, 0, 0); }
+		| h h		={ $$ = cat(&$1, &$2, 0, 0, 0, 0, 0); }
+		| h h h		={ $$ = cat(&$1, &$2, &$3, 0, 0, 0, 0); }
+		| h h h h	={ $$ = cat(&$1, &$2, &$3, &$4, 0, 0, 0); }
 		;
 spaces		: SPACE		={ $$ = $1; }
 		| SPACE	spaces	={ $$ = $1; }
@@ -171,6 +189,8 @@ a		: 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i'
 		| 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z'
 		;
 d		: '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+		;
+h		: d | 'a' | 'b' | 'c' | 'd' | 'e' | 'f'
 		;
 c		: a | d | notspecial
 		;
