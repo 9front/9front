@@ -30,6 +30,9 @@ int	dmainit(int, int);
 #define DMALOOP 2
 long	dmasetup(int, void*, long, int);
 void	dumpmcregs(void);
+int	ecinit(int cmdport, int dataport);
+int	ecread(uchar addr);
+int	ecwrite(uchar addr, uchar val);
 #define	evenaddr(x)				/* x86 doesn't care */
 void	fpclear(void);
 void	fpenv(FPsave*);

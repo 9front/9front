@@ -8,6 +8,7 @@ arch \- architecture-specific information and control
 .B /dev/acpitbls
 .B /dev/archctl
 .B /dev/cputype
+.B /dev/ec
 .B /dev/ioalloc
 .B /dev/iob
 .B /dev/iol
@@ -127,6 +128,10 @@ file descriptor.
 Reads and writes to
 .I msr
 go to the P4/P6/Core/Core2/AMD64 MSRs.
+.PP
+Reads and writes to
+.I ec
+transfer bytes from and to the embedded controller.
 .PP
 Reads from
 .I acpitbls

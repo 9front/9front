@@ -87,6 +87,7 @@ misc
 	archacpi	mp apic squidboy
 	archmp		mp apic squidboy
 	mtrr
+	ec
 
 	sdaoe
 	sdide		pci sdscsi
