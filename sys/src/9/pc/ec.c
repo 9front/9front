@@ -96,7 +96,7 @@ ecread(uchar addr)
 	lock(&ec);
 	if(!ec.init)
 		goto out;
-	if(ecwait(BURST|CMD, 0))
+	if(ecwait(IBF, 0))
 		goto out;
 	ecwr(EC_SC, RD_EC);
 	if(ecwait(IBF, 0))
@@ -120,7 +120,7 @@ ecwrite(uchar addr, uchar val)
 	lock(&ec);
 	if(!ec.init)
 		goto out;
-	if(ecwait(BURST|CMD, 0))
+	if(ecwait(IBF, 0))
 		goto out;
 	ecwr(EC_SC, WR_EC);
 	if(ecwait(IBF, 0))
