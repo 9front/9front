@@ -222,7 +222,7 @@ int		preempted(void);
 void		prflush(void);
 void		printinit(void);
 ulong		procalarm(ulong);
-void		procctl(Proc*);
+void		procctl(void);
 void		procdump(void);
 int		procfdprint(Chan*, int, int, char*, int);
 void		procflushseg(Segment*);

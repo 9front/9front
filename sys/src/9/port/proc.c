@@ -1420,12 +1420,12 @@ kproc(char *name, void (*func)(void *), void *arg)
  *  reasoning.
  */
 void
-procctl(Proc *p)
+procctl(void)
 {
 	char *state;
 	ulong s;
 
-	switch(p->procctl) {
+	switch(up->procctl) {
 	case Proc_exitbig:
 		spllo();
 		pprint("Killed: Insufficient physical memory\n");
@@ -1436,26 +1436,26 @@ procctl(Proc *p)
 		pexit("Killed", 1);
 
 	case Proc_traceme:
-		if(p->nnote == 0)
+		if(up->nnote == 0)
 			return;
 		/* No break */
 
 	case Proc_stopme:
-		p->procctl = 0;
-		state = p->psstate;
-		p->psstate = "Stopped";
+		up->procctl = 0;
+		state = up->psstate;
+		up->psstate = "Stopped";
 		/* free a waiting debugger */
 		s = spllo();
-		qlock(&p->debug);
-		if(p->pdbg != nil) {
-			wakeup(&p->pdbg->sleep);
-			p->pdbg = nil;
+		qlock(&up->debug);
+		if(up->pdbg != nil) {
+			wakeup(&up->pdbg->sleep);
+			up->pdbg = nil;
 		}
-		qunlock(&p->debug);
+		qunlock(&up->debug);
 		splhi();
-		p->state = Stopped;
+		up->state = Stopped;
 		sched();
-		p->psstate = state;
+		up->psstate = state;
 		splx(s);
 		return;
 	}

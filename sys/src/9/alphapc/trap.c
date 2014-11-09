@@ -519,7 +519,7 @@ notify(Ureg *ur)
 	Note *n;
 
 	if(up->procctl)
-		procctl(up);
+		procctl();
 	if(up->nnote == 0)
 		return 0;
 

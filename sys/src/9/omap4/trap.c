@@ -140,7 +140,7 @@ notify(Ureg *ureg)
 	Note *n;
 
 	if(up->procctl)
-		procctl(up);
+		procctl();
 	if(up->nnote == 0)
 		return 0;
 	s = spllo();
@@ -337,7 +337,7 @@ syscall(Ureg *ureg)
 			syscallfmt(scall, ureg->pc, (va_list)up->s.args);
 			s = splhi();
 			up->procctl = Proc_stopme;
-			procctl(up);
+			procctl();
 			splx(s);
 			startns = todget(nil);
 		}
@@ -362,7 +362,7 @@ syscall(Ureg *ureg)
 		sysretfmt(scall, (va_list)up->s.args, ret, startns, stopns);
 		s = splhi();
 		up->procctl = Proc_stopme;
-		procctl(up);
+		procctl();
 		splx(s);
 	}
 

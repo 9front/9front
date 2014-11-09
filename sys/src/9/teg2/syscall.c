@@ -110,7 +110,7 @@ notify(Ureg* ureg)
 	NFrame *nf;
 
 	if(up->procctl)
-		procctl(up);
+		procctl();
 	if(up->nnote == 0)
 		return 0;
 
@@ -221,7 +221,7 @@ syscall(Ureg* ureg)
 
 		syscallfmt(scallnr, ureg->pc, (va_list)(sp+BY2WD));
 		up->procctl = Proc_stopme;
-		procctl(up);
+		procctl();
 		if (up->syscalltrace) 
 			free(up->syscalltrace);
 		up->syscalltrace = nil;
@@ -274,10 +274,10 @@ syscall(Ureg* ureg)
 
 	if(up->procctl == Proc_tracesyscall){
 		stopns = todget(nil);
-		up->procctl = Proc_stopme;
 		sysretfmt(scallnr, (va_list)(sp+BY2WD), ret, startns, stopns);
 		s = splhi();
-		procctl(up);
+		up->procctl = Proc_stopme;
+		procctl();
 		splx(s);
 		if(up->syscalltrace)
 			free(up->syscalltrace);

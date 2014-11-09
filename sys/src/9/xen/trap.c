@@ -690,7 +690,7 @@ syscall(Ureg* ureg)
 
 	if(up->procctl == Proc_tracesyscall){
 		up->procctl = Proc_stopme;
-		procctl(up);
+		procctl();
 	}
 
 	scallnr = ureg->ax;
@@ -746,9 +746,9 @@ syscall(Ureg* ureg)
 	ureg->ax = ret;
 
 	if(up->procctl == Proc_tracesyscall){
-		up->procctl = Proc_stopme;
 		s = splhi();
-		procctl(up);
+		up->procctl = Proc_stopme;
+		procctl();
 		splx(s);
 	}
 
@@ -781,7 +781,7 @@ notify(Ureg* ureg)
 	Note *n;
 
 	if(up->procctl)
-		procctl(up);
+		procctl();
 	if(up->nnote == 0)
 		return 0;
 

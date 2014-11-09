@@ -47,7 +47,7 @@ fault(uintptr addr, int read)
 		switch(up->procctl){
 		case Proc_exitme:
 		case Proc_exitbig:
-			procctl(up);
+			procctl();
 		}
 	}
 

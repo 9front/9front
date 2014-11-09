@@ -104,7 +104,7 @@ notify(Ureg* ureg)
 	NFrame *nf;
 
 	if(up->procctl)
-		procctl(up);
+		procctl();
 	if(up->nnote == 0)
 		return 0;
 
@@ -196,7 +196,7 @@ syscall(Ureg* ureg)
 
 	if(up->procctl == Proc_tracesyscall){
 		up->procctl = Proc_stopme;
-		procctl(up);
+		procctl();
 	}
 
 	scallnr = ureg->r0;
@@ -247,9 +247,9 @@ syscall(Ureg* ureg)
 	ureg->r0 = ret;
 
 	if(up->procctl == Proc_tracesyscall){
-		up->procctl = Proc_stopme;
 		s = splhi();
-		procctl(up);
+		up->procctl = Proc_stopme;
+		procctl();
 		splx(s);
 	}
 
