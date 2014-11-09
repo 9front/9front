@@ -453,6 +453,30 @@ enumprt(void *dot, void *)
 	return 1;
 }
 
+static int
+enumec(void *dot, void *)
+{
+	int cmdport, dataport;
+	uchar *b;
+	void *x;
+	char *id;
+
+	b = nil;
+	id = eisaid(amlval(amlwalk(dot, "^_HID")));
+	if(id == nil || strcmp(id, "PNP0C09") != 0)
+		return 1;
+	if((x = amlwalk(dot, "^_CRS")) == nil)
+		return 1;
+	if(amleval(x, "", &b) < 0 || amltag(b) != 'b' || amllen(b) < 16)
+		return 1;
+	if(b[0] != 0x47 || b[8] != 0x47)	/* two i/o port descriptors */
+		return 1;
+	dataport = b[0+2] | b[0+3]<<8;
+	cmdport = b[8+2] | b[8+3]<<8;
+	ecinit(cmdport, dataport);
+	return 1;
+}
+
 static void
 acpiinit(void)
 {
@@ -588,6 +612,9 @@ Foundapic:
 	/* add identity mapped legacy isa interrupts */
 	for(i=0; i<16; i++)
 		addirq(i, BusISA, 0, i, 0);
+
+	/* find embedded controller */
+	amlenum(amlroot, "_HID", enumec, nil);
 
 	/* free the AML interpreter */
 	amlexit();
