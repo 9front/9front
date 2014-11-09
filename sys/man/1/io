@@ -4,7 +4,7 @@ io \- access PC I/O registers
 .SH SYNOPSIS
 .B io
 [
-.B -WLMrw
+.B -WLMErw
 ]
 .I address
 [
@@ -38,7 +38,11 @@ Perform a long / double word (32 bit) operation.
 .TP
 .B  -M
 Access a 64 bit wide machine specific register (MSR).
+.TP
+.B  -E
+Access embedded controller space.
 .SH SOURCE
 .B /sys/src/cmd/io.c
 .SH SEE ALSO
-.IR seg (1)
+.IR seg (1),
+.IR arch (3)

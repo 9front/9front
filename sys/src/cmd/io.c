@@ -1,7 +1,7 @@
 #include <u.h>
 #include <libc.h>
 
-const char const * datac[] = {0,"#P/iob","#P/iow",0,"#P/iol",0,0,0,"#P/msr"};
+char *datac[] = {0,"#P/iob","#P/iow",0,"#P/iol",0,0,0,"#P/msr"};
 
 void
 main(int argc, char** argv) {
@@ -17,6 +17,7 @@ main(int argc, char** argv) {
 		case 'W': size = 2; break;
 		case 'L': size = 4; break;
 		case 'M': size = 8; break;
+		case 'E': datac[1] = datac[2] = datac[4] = datac[8] = "#P/ec"; break;
 		case 'r': op = OREAD; break;
 		case 'w': op = OWRITE; break;
 		default: sysfatal("bad flag %c", ARGC());
