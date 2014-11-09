@@ -151,7 +151,7 @@ to add a pattern to
 .I patternfile
 for each address in the
 .I addressfiles
-that doesh't already match a pattern.
+that doesn't already match a pattern.
 .PP
 .IR Token ,
 with only one argument, prints to standard output a unique token
