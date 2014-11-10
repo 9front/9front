@@ -1,10 +1,22 @@
 .TH NINTENDO 1
 .SH NAME
-gb, nes, snes \- emulators
+gb, gba, nes, snes \- emulators
 .SH SYNOPSIS
 .B games/gb
 [
 .B -23a
+]
+.I romfile
+.br
+.B games/gba
+[
+.B -23aT
+] [
+.B -b
+.I biosfile
+] [
+.B -s
+.I savetype
 ]
 .I romfile
 .br
@@ -21,19 +33,20 @@ gb, nes, snes \- emulators
 .I romfile
 .SH DESCRIPTION
 .I Gb,
+.I gba,
 .I nes
 and
 .I snes
-are emulators for the Nintendo Game Boy, Nintendo Entertainment System (NES) and Super Nintendo Entertainment System (SNES).
+are emulators for the Nintendo Game Boy (GB), Nintendo Game Boy Advance (GBA), Nintendo Entertainment System (NES) and Super Nintendo Entertainment System (SNES).
 They execute the romfile given as an argument.
 The \fBz\fR, \fBx\fR, \fBa\fR, \fBs\fR, return and shift keys correspond to B, A, Y, X, Start and Select, respectively.
 Other keys:
 .TP
 F5
-Save the current state in \fBgb.save\fR / \fBnes.save\fR / \fBsnes.save\fR.
+Save the current state in \fBgb.save\fR / \fBgba.save\fR / \fBnes.save\fR / \fBsnes.save\fR.
 .TP
 F6
-Load the current state from \fBgb.save\fR / \fBnes.save\fR / \fBsnes.save\fR.
+Load the current state from \fBgb.save\fR / \fBgba.save\fR / \fBnes.save\fR / \fBsnes.save\fR.
 .TP
 Esc
 Pause the emulator.
@@ -48,6 +61,18 @@ Scale the screen by the given factor.
 .TP
 .B -a
 Enable audio output.
+.PP
+.B gba
+options:
+.TP
+.B -b
+Location of the GBA BIOS file (required to operate the emulator).
+.TP
+.B -s
+Save format used by the original game.
+.TP
+.B -T
+Display percentage of how fast the system is running relative to a real GBA.
 .PP
 .B nes
 options:
@@ -92,6 +117,9 @@ scaling.
 .SH HISTORY
 .I Gb
 first appeared in 9front (April, 2012).
+.br
+.I Gba
+first appeared in 9front (September, 2014).
 .br
 .I Nes
 first appeared in 9front (February, 2014).
