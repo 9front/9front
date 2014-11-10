@@ -121,6 +121,7 @@ enum {					/* Tcr */
 	Macv29		= 0x40800000,	/* RTL8101/8102E */
 	Macv30		= 0x24000000,	/* RTL8101E? (untested) */
 	Macv40		= 0x4c000000,	/* RTL8168G */
+	Macv44		= 0x5c800000,	/* RTL8411B */
 	Ifg0		= 0x01000000,	/* Interframe Gap 0 */
 	Ifg1		= 0x02000000,	/* Interframe Gap 1 */
 };
@@ -702,6 +703,7 @@ rtl8169init(Ether* edev)
 	cplusc |= Txenb|Mulrw;
 	switch(ctlr->macv){
 	case Macv40:
+	case Macv44:
 		cplusc |= Macstatdis;
 		break;
 	default:
@@ -1051,6 +1053,7 @@ vetmacv(Ctlr *ctlr, uint *macv)
 	case Macv29:
 	case Macv30:
 	case Macv40:
+	case Macv44:
 		break;
 	}
 	return 0;
