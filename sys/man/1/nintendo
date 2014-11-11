@@ -66,10 +66,10 @@ Enable audio output.
 options:
 .TP
 .B -b
-Location of the GBA BIOS file (required to operate the emulator).
+Location of the GBA BIOS file (required to operate the emulator). Default is \fB/sys/games/lib/gbabios.bin\fR.
 .TP
 .B -s
-Save format used by the original game.
+Save format used by the original game. Valid formats are: eeprom4, eeprom64, sram256, flash512, flash1024. The number corresponds to the size, in kilobits, of the save file. By default, the emulator attempts to automatically detect the save format, but does not always succeed.
 .TP
 .B -T
 Display percentage of how fast the system is running relative to a real GBA.
