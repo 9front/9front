@@ -243,7 +243,7 @@ to
 .IR ftpfs (4),
 .IR file (1)
 .SH DIAGNOSTICS
-.I Hget ,
+.IR Hget ,
 .I hpost
 and
 .I webpaste

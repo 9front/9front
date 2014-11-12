@@ -2,7 +2,7 @@
 .SH NAME
 httpfile \- serve a single web file
 .SH SYNOPSIS
-.B httpfile
+.B ip/httpfile
 [
 .B -9d
 ]
@@ -74,3 +74,10 @@ mount /srv/9660 /n/iso 9front.iso
 .SH "SEE ALSO"
 .IR hget (1),
 .IR webfs (4)
+.SH DIAGNOSTICS
+.I Httpfile
+requires
+.IR webfs (4)
+service mounted on
+.B /mnt/web
+to work.
