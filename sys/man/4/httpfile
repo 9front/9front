@@ -22,10 +22,6 @@ httpfile \- serve a single web file
 .B -s
 .I srvname
 ]
-[
-.B -x
-.I net
-]
 .I url
 .SH DESCRIPTION
 .I Httpfile
@@ -63,21 +59,15 @@ to post the 9P service as
 and disables the default mount.
 .PP
 The
-.B -x
-option specifies an alternate network directory
-.RI ( e.g., 
-.BR /net.alt ).
-.PP
-The
 .B -c
 option sets the number of file blocks kept cached in memory (default 32).
 .SH EXAMPLE
 Mount an ISO image on a web server:
 .IP
 .EX
-ip/httpfile http://www.9grid.de/plan9/plan9.iso
+ip/httpfile http://www.r-36.net/9front/9front.iso
 9660srv
-mount /srv/9660 /n/iso plan9.iso
+mount /srv/9660 /n/iso 9front.iso
 .EE
 .SH SOURCE
 .B /sys/src/cmd/ip/httpfile.c
