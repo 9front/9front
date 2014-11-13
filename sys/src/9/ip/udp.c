@@ -518,6 +518,11 @@ udpctl(Conv *c, char **f, int n)
 
 	ucb = (Udpcb*)c->ptcl;
 	if(n == 1){
+		if(strcmp(f[0], "hangup") == 0){
+			qhangup(c->rq, nil);
+			qhangup(c->wq, nil);
+			return nil;
+		}
 		if(strcmp(f[0], "headers") == 0){
 			ucb->headers = 7;	/* new headers format */
 			return nil;
