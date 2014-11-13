@@ -212,6 +212,8 @@ mkdir -p sys/lib/dist/usr/glenda/tmp
 mkdir -p sys/lib/lp/log
 mkdir -p sys/lib/lp/tmp
 mkdir -p sys/lib/ssl
+mkdir -p sys/lib/pkg
+mkdir -p sys/src/pkg
 mkdir -p sys/log
 mkdir -p tmp
 mkdir -p usr
