@@ -182,11 +182,13 @@ retry:
 	fd = open(mb->path, OREAD);
 	if(fd < 0){
 		rerrstr(err, sizeof(err));
-		if(strstr(err, "exclusive lock") != 0 && n++ < 20){
-			sleep(500);	/* wait for lock to go away */
-			goto retry;
-		}
-		if(strstr(err, "exist") != 0){
+		if(strstr(err, "file is locked") != nil
+		|| strstr(err, "exclusive lock") != nil)
+			if(n++ < 20){
+				sleep(500);	/* wait for lock to go away */
+				goto retry;
+			}
+		if(strstr(err, "exist") != nil){
 			tmp = s_copy(mb->path);
 			s_append(tmp, ".tmp");
 			if(sysrename(s_to_c(tmp), mb->path) == 0){
