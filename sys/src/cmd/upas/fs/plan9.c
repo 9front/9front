@@ -182,7 +182,7 @@ retry:
 	fd = open(mb->path, OREAD);
 	if(fd < 0){
 		rerrstr(err, sizeof(err));
-		if(strstr(err, "file is locked") != nil
+		if(strstr(err, "locked") != nil
 		|| strstr(err, "exclusive lock") != nil)
 			if(n++ < 20){
 				sleep(500);	/* wait for lock to go away */
