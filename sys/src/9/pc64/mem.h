@@ -79,7 +79,6 @@
 #define CPU0END		(CPU0MACH+MACHSIZE)
 
 #define	MACHSIZE	(2*KSTACK)
-#define	INIMAP		(8*MiB)		/* 4 pages; size of inital map in l.s */
 
 /*
  *  known x86 segments (in GDT) and their selectors

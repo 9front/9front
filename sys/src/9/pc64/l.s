@@ -144,13 +144,20 @@ TEXT _warp64<>(SB), 1, $-4
 	MOVL	$(PTESIZE|PTEGLOBAL|PTEWRITE|PTEVALID), DX
 	MOVL	DX, PDO(0)(AX)			/* PDE for double-map */
 
+	/*
+	 * map from KZERO to end using 2MB pages
+	 */
 	ADDL	$PDO(KZERO), AX
+	MOVL	$end-KZERO(SB), CX
+	ADDL	$(PGLSZ(1)-1), CX
+	ANDL	$~(PGLSZ(1)-1), CX
+	MOVL	CX, MemMin-KZERO(SB)		/* see memory.c */
+	SHRL	$(1*PTSHIFT+PGSHIFT), CX
 memloop:
-	MOVL	DX, 0(AX)
+	MOVL	DX, (AX)
 	ADDL	$PGLSZ(1), DX
 	ADDL	$8, AX
-	CMPL	DX, $INIMAP
-	JLT	memloop
+	LOOP	memloop
 
 /*
  * Enable and activate Long Mode. From the manual:

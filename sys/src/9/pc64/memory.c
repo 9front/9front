@@ -12,6 +12,8 @@
 #include "io.h"
 #include "ureg.h"
 
+u32int	MemMin;		/* set by l.s */
+
 #define MEMDEBUG	0
 
 enum {
@@ -22,8 +24,6 @@ enum {
 	NMemType	= 4,
 
 	KB		= 1024,
-
-	MemMin		= INIMAP,
 };
 
 typedef struct Map Map;
