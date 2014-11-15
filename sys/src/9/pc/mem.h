@@ -63,12 +63,14 @@
 #define	REBOOTADDR	(0x11000)		/* reboot code - physical address */
 #define	CPU0PDB		(KZERO+0x12000)		/* bootstrap processor PDB */
 #define	CPU0PTE		(KZERO+0x13000)		/* bootstrap processor PTE's for 0-4MB */
-#define	CPU0GDT		(KZERO+0x14000)		/* bootstrap processor GDT */
-#define	MACHADDR	(KZERO+0x15000)		/* as seen by current processor */
-#define	CPU0MACH	(KZERO+0x16000)		/* Mach for bootstrap processor */
+#define	CPU0PTE1	(KZERO+0x14000)		/* bootstrap processor PTE's for 4-8MB */
+#define	CPU0PTE2	(KZERO+0x15000)		/* bootstrap processor PTE's for 8-12MB */
+#define	CPU0PTE3	(KZERO+0x16000)		/* bootstrap processor PTE's for 12-16MB */
+#define	CPU0GDT		(KZERO+0x17000)		/* bootstrap processor GDT */
+#define	MACHADDR	(KZERO+0x18000)		/* as seen by current processor */
+#define	CPU0MACH	(KZERO+0x19000)		/* Mach for bootstrap processor */
 #define	MACHSIZE	BY2PG
-#define CPU0PTE1	(KZERO+0x17000)		/* bootstrap processor PTE's for 4MB-8MB */
-#define CPU0END		(CPU0PTE1+BY2PG)
+#define	CPU0END		(CPU0MACH+BY2PG)
 /*
  * N.B.  ramscan knows that CPU0END is the end of reserved data
  * N.B.  _startPADDR knows that CPU0PDB is the first reserved page

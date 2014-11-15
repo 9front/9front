@@ -15,6 +15,8 @@
 
 #define MEMDEBUG	0
 
+u32int MemMin = 8*MB;	/* set in l.s */
+
 enum {
 	MemUPA		= 0,		/* unbacked physical address */
 	MemRAM		= 1,		/* physical memory */
@@ -24,7 +26,6 @@ enum {
 
 	KB		= 1024,
 
-	MemMin		= 8*MB,
 	MemMax		= (3*1024+768)*MB,
 };
 

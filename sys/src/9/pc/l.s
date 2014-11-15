@@ -162,46 +162,45 @@ TEXT m0idtptr(SB), $0
 TEXT mode32bit(SB), $0
 	/* At this point, the GDT setup is done. */
 
-	MOVL	$PADDR(CPU0PDB), DI		/* clear 4 pages for the tables etc. */
+	MOVL	$((CPU0END-CPU0PDB)>>2), CX
+	MOVL	$PADDR(CPU0PDB), DI
 	XORL	AX, AX
-	MOVL	$(4*BY2PG), CX
-	SHRL	$2, CX
 
 	CLD
 	REP;	STOSL
 
+	MOVL	$PADDR(CPU0PTE), DX
+	MOVL	$(PTEWRITE|PTEVALID), BX	/* page permissions */
+	ORL	BX, DX
+
 	MOVL	$PADDR(CPU0PDB), AX
 	ADDL	$PDO(KZERO), AX			/* page directory offset for KZERO */
-	MOVL	$PADDR(CPU0PTE), (AX)		/* PTE's for KZERO */
-	MOVL	$(PTEWRITE|PTEVALID), BX	/* page permissions */
-	ORL	BX, (AX)
 
-	ADDL	$4, AX
-	MOVL	$PADDR(CPU0PTE1), (AX)		/* PTE's for KZERO+4MB */
-	MOVL	$(PTEWRITE|PTEVALID), BX	/* page permissions */
-	ORL	BX, (AX)
+	MOVL	DX, 0(AX)			/* PTE's for KZERO */
+	ADDL	$BY2PG, DX
+	MOVL	DX, 4(AX)			/* PTE's for KZERO+4MB */
+	ADDL	$BY2PG, DX
+	MOVL	DX, 8(AX)			/* PTE's for KZERO+8MB */
+	ADDL	$BY2PG, DX
+	MOVL	DX, 12(AX)			/* PTE's for KZERO+12MB */
 
 	MOVL	$PADDR(CPU0PTE), AX		/* first page of page table */
-	MOVL	$1024, CX			/* 1024 pages in 4MB */
+	MOVL	$end-KZERO(SB), CX
+	ADDL	$(BY2XPG-1), CX
+	ANDL	$~(BY2XPG-1), CX		/* round to 4MB */
+	MOVL	CX, MemMin-KZERO(SB)		/* see memory.c */
+	SHRL	$PGSHIFT, CX
+	MOVL	BX, DX
 _setpte:
-	MOVL	BX, (AX)
-	ADDL	$(1<<PGSHIFT), BX
+	MOVL	DX, (AX)
+	ADDL	$BY2PG, DX
 	ADDL	$4, AX
 	LOOP	_setpte
 
-	MOVL	$PADDR(CPU0PTE1), AX		/* second page of page table */
-	MOVL	$1024, CX			/* 1024 pages in 4MB */
-_setpte1:
-	MOVL	BX, (AX)
-	ADDL	$(1<<PGSHIFT), BX
-	ADDL	$4, AX
-	LOOP	_setpte1
-
 	MOVL	$PADDR(CPU0PTE), AX
 	ADDL	$PTO(MACHADDR), AX		/* page table entry offset for MACHADDR */
-	MOVL	$PADDR(CPU0MACH), (AX)		/* PTE for Mach */
-	MOVL	$(PTEWRITE|PTEVALID), BX	/* page permissions */
-	ORL	BX, (AX)
+	ORL	$PADDR(CPU0MACH), BX
+	MOVL	BX, (AX)			/* PTE for Mach */
 
 /*
  * Now ready to use the new map. Make sure the processor options are what is wanted.
