@@ -164,7 +164,7 @@ textbswidth(Text *t, Rune c)
 	int skipping;
 
 	/* there is known to be at least one character to erase */
-	if(c == 0x08)	/* ^H: erase character */
+	if(c == Kbs)	/* ^H: erase character */
 		return 1;
 	q = t->q0;
 	skipping = TRUE;
@@ -175,7 +175,7 @@ textbswidth(Text *t, Rune c)
 				--q;
 			break;
 		}
-		if(c == 0x17){
+		if(c == Ketb){
 			eq = isalnum(r);
 			if(eq && skipping)	/* found one; stop skipping */
 				skipping = FALSE;
@@ -246,14 +246,14 @@ texttype(Text *t, Rune r)
 	case Kend:
 		textshow(t, t->rs.nr, t->rs.nr, FALSE);
 		return;
-	case 0x01:	/* ^A: beginning of line */
+	case Ksoh:	/* ^A: beginning of line */
 		/* go to where ^U would erase, if not already at BOL */
 		nb = 0;
 		if(t->q0>0 && t->rs.r[t->q0-1]!='\n')
-			nb = textbswidth(t, 0x15);
+			nb = textbswidth(t, Knack);
 		textshow(t, t->q0-nb, t->q0-nb, TRUE);
 		return;
-	case 0x05:	/* ^E: end of line */
+	case Kenq:	/* ^E: end of line */
 		q0 = t->q0;
 		while(q0<t->rs.nr && t->rs.r[q0]!='\n')
 			q0++;
@@ -265,9 +265,9 @@ texttype(Text *t, Rune r)
 
 	textshow(t, t->q0, t->q0, TRUE);
 	switch(r){
-	case 0x08:	/* ^H: erase character */
-	case 0x15:	/* ^U: erase line */
-	case 0x17:	/* ^W: erase word */
+	case Kbs:	/* ^H: erase character */
+	case Knack:	/* ^U: erase line */
+	case Ketb:	/* ^W: erase word */
 		if(t->q0 == 0)	/* nothing to erase */
 			return;
 		nb = textbswidth(t, r);

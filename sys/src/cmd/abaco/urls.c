@@ -70,57 +70,12 @@ getattr(int conn, char *s)
 	return (Runestr){runesmprint("%s", buf), n};
 }
 
-// tired of typing http://, tired of going to google first.
-void
-justgoogleit(Url *u)
-{
-	Rune *s;
-	
-	s = ucvt(u->src.r+2);
-	free(u->src.r);
-	u->src.r = runesmprint("http://www.google.com/search?hl=en&ie=UTF-8&q=%S", s);
-	free(s);
-	u->src.nr = runestrlen(u->src.r);
-}
-
-void
-addhttp(Url *u)
-{
-	Rune *s;
-	if(validurl(u->src.r))
-		return;
-	s = u->src.r;
-	u->src.r = runesmprint("http://%S", u->src.r);
-	free(s);
-	u->src.nr = runestrlen(u->src.r);
-}
-
-struct{
-	void	(*f)(Url*);
-	Rune	*lead;
-	int	len;
-} ctab[] = {
-	justgoogleit,	L"g ",		2,
-	addhttp,		L"",		0,
-};
-
-void
-urlconvience(Url *u)
-{
-	int i;
-
-	for(i = 0; u->src.nr >= ctab[i].len && runestrncmp(u->src.r, ctab[i].lead, ctab[i].len) != 0; i++)
-		;
-	ctab[i].f(u);
-}
-
 int
 urlopen(Url *u)
 {
 	char buf[BUFSIZE];
 	int cfd, fd, conn, n;
 
-	urlconvience(u);
 	snprint(buf, sizeof(buf), "%s/clone", webmountpt);
 	cfd = open(buf, ORDWR);
 	if(cfd < 0)

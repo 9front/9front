@@ -73,6 +73,7 @@ static struct {
 	"image/pjpeg",	"jpg -t9",
 	"image/png",	"png -t9",
 	"image/ppm",	"ppm -t9",
+	"image/x-icon", "ico -c",
 	nil,	nil,
 };
 
@@ -711,11 +712,6 @@ pagetype(Page *p, Rune r, Point xy)
 	b = boxwhich(p->lay, xy);
 	if(b && b->key){
 		b->key(b, p, r);
-		return;
-	}
-	/* ^H: same as 'Back' */
-	if(r == 0x08){
-		wingohist(p->w, FALSE);
 		return;
 	}
 
