@@ -107,7 +107,8 @@ for(i in $at $af){
 	n=(1 $n)
 }
 a$#n=''
-hget $url | uhtml | sed '
+hget $url | uhtml | tr '>' '
+' | sed '
 s!^(TAG|ATT)! \1!g;		# escape our inline signaling
 s!<[ 	]*!\nTAG !g;		# find starttags, mark with TAG name ...
 s!>[^>"'']*$!!g;		# remove garbage after the tag
