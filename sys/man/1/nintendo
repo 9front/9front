@@ -114,6 +114,8 @@ option is used.
 The SNES horizontal hires mode is supported only with
 .B -2
 scaling.
+.br
+All emulators assume a North American (i.e. NTSC) system. PAL games (and in some cases Japanese games) are not supported.
 .SH HISTORY
 .I Gb
 first appeared in 9front (April, 2012).
