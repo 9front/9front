@@ -96,7 +96,7 @@ SedCom pspace[MAXCMDS];			/* Command storage */
 SedCom *pend = pspace+MAXCMDS;		/* End of command storage */
 SedCom *rep = pspace;			/* Current fill point */
 
-Reprog	*lastre = 0;			/* Last regular expression */
+Reprog	*lastre;			/* Last regular expression */
 Resub	subexp[MAXSUB];			/* sub-patterns of pattern match*/
 
 Rune	addspace[ADDSIZE];		/* Buffer for a, c, & i commands */
@@ -116,10 +116,10 @@ struct {				/* Sed program input control block */
 	};
 } prog;
 
-Rune	genbuf[LBSIZE];			/* Miscellaneous buffer */
+Rune	genbuf[LBSIZE+1];		/* Miscellaneous buffer */
 
-FileCache	*fhead = 0;		/* Head of File Cache Chain */
-FileCache	*ftail = 0;		/* Tail of File Cache Chain */
+FileCache	*fhead;			/* Head of File Cache Chain */
+FileCache	*ftail;			/* Tail of File Cache Chain */
 
 Rune	*loc1;				/* Start of pattern match */
 Rune	*loc2;				/* End of pattern match */
@@ -142,21 +142,21 @@ int	sflag;				/* Set when substitution done */
 int	jflag;				/* Set when jump required */
 int	delflag;			/* Delete current line when set */
 
-long	lnum = 0;			/* Input line count */
+long	lnum;				/* Input line count */
 
 char	fname[MAXFILES][40];		/* File name cache */
 Biobuf	*fcode[MAXFILES];		/* File ID cache */
-int	nfiles = 0;			/* Cache fill point */
+int	nfiles;				/* Cache fill point */
 
 Biobuf	fout;				/* Output stream */
 Biobuf	stdin;				/* Default input */
-Biobuf*	f = 0;				/* Input data */
+Biobuf*	f;				/* Input data */
 
 Label	ltab[LABSIZE];			/* Label name symbol table */
 Label	*labend = ltab+LABSIZE;		/* End of label table */
 Label	*lab = ltab+1;			/* Current Fill point */
 
-int	depth = 0;			/* {} stack pointer */
+int	depth;				/* {} stack pointer */
 
 Rune	bad;				/* Dummy err ptr reference */
 Rune	*badp = &bad;
@@ -211,7 +211,7 @@ main(int argc, char **argv)
 	compfl = 0;
 
 	if(argc == 1)
-		exits(0);
+		exits(nil);
 	ARGBEGIN{
 	case 'e':
 		if (argc <= 1)
@@ -234,8 +234,7 @@ main(int argc, char **argv)
 		nflag++;
 		continue;
 	default:
-		fprint(2, "sed: Unknown flag: %c\n", ARGC());
-		continue;
+		quit("Unknown flag: %c", ARGC());
 	} ARGEND
 
 	if(compfl == 0) {
@@ -253,12 +252,12 @@ main(int argc, char **argv)
 	dechain();
 
 	if(argc <= 0)
-		enroll(0);		/* Add stdin to cache */
+		enroll(nil);		/* Add stdin to cache */
 	else
 		while(--argc >= 0)
 			enroll(*argv++);
 	execute();
-	exits(0);
+	exits(nil);
 }
 
 void
@@ -518,7 +517,7 @@ jtcommon:
 			seof = *cp++;
 			if ((rep->re1 = compile()) == 0) {
 				if(!lastre)
-					quit("First RE may not be null.");
+					quit("First RE may not be null");
 				rep->re1 = lastre;
 			}
 			rep->rhs = p;
@@ -1061,19 +1060,18 @@ dosub(Rune *rhsbuf)
 				continue;
 			}
 			else {
-				fprint(2, "sed: Invalid back reference \\%d\n",n);
-				errexit();
+				quit("Invalid back reference \\%d", n);
 			}
 		}
 		*sp++ = c;
 		if (sp >= &genbuf[LBSIZE])
-			fprint(2, "sed: Output line too long.\n");
+			quit("Output line too long");
 	}
 	lp = loc2;
 	loc2 = sp - genbuf + linebuf;
 	while (*sp++ = *lp++)
 		if (sp >= &genbuf[LBSIZE])
-			fprint(2, "sed: Output line too long.\n");
+			quit("Output line too long");
 	lp = linebuf;
 	sp = genbuf;
 	while (*lp++ = *sp++)
@@ -1087,7 +1085,7 @@ place(Rune *sp, Rune *l1, Rune *l2)
 	while (l1 < l2) {
 		*sp++ = *l1++;
 		if (sp >= &genbuf[LBSIZE])
-			fprint(2, "sed: Output line too long.\n");
+			quit("Output line too long");
 	}
 	return sp;
 }
@@ -1128,8 +1126,7 @@ command(SedCom *ipc)
 	case ACOM:
 		*aptr++ = ipc;
 		if(aptr >= abuf+MAXADDS)
-			quit("sed: Too many appends after line %ld\n",
-				(char *)lnum);
+			quit("Too many appends after line %ld", lnum);
 		*aptr = 0;
 		break;
 	case CCOM:
@@ -1260,12 +1257,11 @@ cpcom:
 			putline(&fout, linebuf, spend-linebuf);
 		if(aptr > abuf)
 			arout();
-		exits(0);
+		exits(nil);
 	case RCOM:
 		*aptr++ = ipc;
 		if(aptr >= &abuf[MAXADDS])
-			quit("sed: Too many reads after line %ld\n",
-				(char *)lnum);
+			quit("Too many reads after line %ld", lnum);
 		*aptr = 0;
 		break;
 	case SCOM:
@@ -1393,7 +1389,7 @@ gline(Rune *addr)
 		p = addr;
 		for (c = (peekc? peekc: Bgetrune(f)); c >= 0; c = Bgetrune(f)) {
 			if (c == '\n') {
-				if ((peekc = Bgetrune(f)) < 0 && fhead == 0)
+				if ((peekc = Bgetrune(f)) < 0 && fhead == nil)
 					dolflag = 1;
 				*p = '\0';
 				return p;
@@ -1405,7 +1401,7 @@ gline(Rune *addr)
 		if(p != addr) {
 			*p = '\0';
 			peekc = -1;
-			if (fhead == 0)
+			if (fhead == nil)
 				dolflag = 1;
 			return p;
 		}
