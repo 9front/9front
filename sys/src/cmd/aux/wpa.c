@@ -600,7 +600,7 @@ main(int argc, char *argv[])
 		sysfatal("dial: %r");
 
 	if(essid[0] != 0){
-		if(fprint(cfd, "essid %s", essid) < 0)
+		if(fprint(cfd, "essid %q", essid) < 0)
 			sysfatal("write essid: %r");
 	} else {
 		getessid();
