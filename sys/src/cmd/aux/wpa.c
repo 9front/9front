@@ -138,7 +138,7 @@ getifstats(char *key, char *val, int nval)
 	buf[n] = 0;
 	for(p = buf; (e = strchr(p, '\n')) != nil; p = e){
 		*e++ = 0;
-		if(tokenize(p, f, 2) != 2)
+		if(gettokens(p, f, 2, "\t\r\n ") != 2)
 			continue;
 		if(strcmp(f[0], key) != 0)
 			continue;
