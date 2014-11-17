@@ -535,6 +535,50 @@ dspreset(void)
 	dsp[FLG] = 0xe0;
 }
 
+void
+dspsave(void)
+{
+	vctxt *p;
+
+	for(p = vctxts; p < vctxts + nelem(vctxts); p++){
+		put16(p->hdrp);
+		put16(p->dp);
+		put16(p->sp);
+		put8(p->hdr);
+		put8(p->bp);
+		put16(p->brr);
+		put8(p->envst);
+		put16(p->env);
+		put16(p->envbent);
+		put8(p->init);
+		put16(p->interp);
+		put16(p->pitch);
+		put16(p->modin);
+	}
+}
+
+void
+dspload(void)
+{
+	vctxt *p;
+
+	for(p = vctxts; p < vctxts + nelem(vctxts); p++){
+		p->hdrp = get16();
+		p->dp = get16();
+		p->sp = get16();
+		p->hdr = get8();
+		p->bp = get8();
+		p->brr = get16();
+		p->envst = get8();
+		p->env = get16();
+		p->envbent = get16();
+		p->init = get8();
+		p->interp = get16();
+		p->pitch = get16();
+		p->modin = get16();
+	}
+}
+
 u16int gauss[512] = {
 	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,
 	0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000, 0x000,

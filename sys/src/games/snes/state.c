@@ -128,6 +128,8 @@ loadstate(char *file)
 	dspstate = get8();
 	dspcounter = get16();
 	noise = get16();
+	Bread(bp, spctimer, sizeof(spctimer));
+	dspload();
 	Bterm(bp);
 }
 
@@ -186,5 +188,7 @@ savestate(char *file)
 	put8(dspstate);
 	put16(dspcounter);
 	put16(noise);
+	Bwrite(bp, spctimer, sizeof(spctimer));
+	dspsave();
 	Bterm(bp);
 }
