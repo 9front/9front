@@ -13,6 +13,7 @@ int nprg, nsram, hirom, battery;
 
 int ppuclock, spcclock, dspclock, stimerclock, saveclock, msgclock, paused, perfclock, cpupause;
 Mousectl *mc;
+Channel *flushc;
 QLock pauselock;
 u32int keys;
 int savefd, scale, profile, mouse, loadreq, savereq;
@@ -185,6 +186,68 @@ screeninit(void)
 }
 
 void
+screenproc(void *)
+{
+	extern uchar pic[256*240*2*3];
+	Mouse m;
+	Point p;
+
+	enum { AMOUSE, ARESIZE, AFLUSH, AEND };
+	Alt a[AEND+1] = {
+		{ mc->c,	&m,	CHANRCV },
+		{ mc->resizec,	nil,	CHANRCV },
+		{ flushc,	nil,	CHANRCV },
+		{ nil,		nil,	CHANEND }
+	};
+
+	for(;;){
+		switch(alt(a)){
+		case AMOUSE:
+			if(mouse && ptinrect(m.xy, picr)){
+				p = subpt(m.xy, picr.min);
+				p.x /= scale;
+				p.y /= scale;
+				keys = keys & 0xff3f0000 | p.x | p.y << 8;
+				if((m.buttons & 1) != 0)
+					keys |= 1<<22;
+				if((m.buttons & 4) != 0)
+					keys |= 1<<23;
+				if((m.buttons & 2) != 0)
+					lastkeys = keys;
+			}
+			break;
+		case ARESIZE:
+			if(getwindow(display, Refnone) < 0)
+				sysfatal("resize failed: %r");
+			screeninit();
+			/* wet floor */
+		case AFLUSH:
+			if(scale == 1){
+				loadimage(tmp, tmp->r, pic, 256*239*2);
+				draw(screen, picr, tmp, nil, ZP);
+			} else {
+				Rectangle r;
+				uchar *s;
+				int w;
+
+				s = pic;
+				r = picr;
+				w = 256*2*scale;
+				while(r.min.y < picr.max.y){
+					loadimage(tmp, tmp->r, s, w);
+					s += w;
+					r.max.y = r.min.y+scale;
+					draw(screen, r, tmp, nil, ZP);
+					r.min.y = r.max.y;
+				}
+			}
+			flushimage(display, 1);
+			break;
+		}
+	}
+}
+
+void
 timing(void)
 {
 	static vlong old;
@@ -242,14 +305,16 @@ usage:
 		threadexitsall("usage");
 	}
 	loadrom(argv[0]);
-	if(initdraw(nil, nil, nil) < 0)
+	if(initdraw(nil, nil, argv0) < 0)
 		sysfatal("initdraw: %r");
+	flushc = chancreate(sizeof(ulong), 1);
 	mc = initmouse(nil, screen);
 	if(mc == nil)
 		sysfatal("initmouse: %r");
 	screeninit();
-	loadbat(argv[0]);
 	proccreate(keyproc, 0, 8192);
+	proccreate(screenproc, 0, 8192);
+	loadbat(argv[0]);
 	cpureset();
 	memreset();
 	spcreset();
@@ -314,48 +379,7 @@ usage:
 void
 flush(void)
 {
-	extern uchar pic[256*240*2*3];
-	Mouse m;
-	Point p;
-
-	if(nbrecvul(mc->resizec) > 0){
-		if(getwindow(display, Refnone) < 0)
-			sysfatal("resize failed: %r");
-		screeninit();
-	}
-	while(nbrecv(mc->c, &m) > 0)
-		if(mouse && ptinrect(m.xy, picr)){
-			p = subpt(m.xy, picr.min);
-			p.x /= scale;
-			p.y /= scale;
-			keys = keys & 0xff3f0000 | p.x | p.y << 8;
-			if((m.buttons & 1) != 0)
-				keys |= 1<<22;
-			if((m.buttons & 4) != 0)
-				keys |= 1<<23;
-			if((m.buttons & 2) != 0)
-				lastkeys = keys;
-		}
-	if(scale == 1){
-		loadimage(tmp, tmp->r, pic, 256*239*2);
-		draw(screen, picr, tmp, nil, ZP);
-	} else {
-		Rectangle r;
-		uchar *s;
-		int w;
-
-		s = pic;
-		r = picr;
-		w = 256*2*scale;
-		while(r.min.y < picr.max.y){
-			loadimage(tmp, tmp->r, s, w);
-			s += w;
-			r.max.y = r.min.y+scale;
-			draw(screen, r, tmp, nil, ZP);
-			r.min.y = r.max.y;
-		}
-	}
-	flushimage(display, 1);
+	sendul(flushc, 1);	/* flush screen */
 	audioout();
 }
 
