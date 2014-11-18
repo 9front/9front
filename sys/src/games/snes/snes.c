@@ -188,7 +188,7 @@ screeninit(void)
 void
 screenproc(void *)
 {
-	extern uchar pic[256*240*2*3];
+	extern uchar pic[256*239*2*3];
 	Mouse m;
 	Point p;
 
