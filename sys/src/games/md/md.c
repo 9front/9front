@@ -22,6 +22,7 @@ int dmaclock, vdpclock, z80clock, audioclock, ymclock, saveclock;
 int scale, paused;
 QLock pauselock;
 Mousectl *mc;
+Channel *flushc;
 Rectangle picr;
 Image *tmp, *bg;
 
@@ -126,6 +127,51 @@ screeninit(void)
 }
 
 void
+screenproc(void *)
+{
+	extern u8int pic[320*224*4*3];
+	Rectangle r;
+	uchar *s;
+	int w;
+
+	enum { AMOUSE, ARESIZE, AFLUSH, AEND };
+	Alt a[AEND+1] = {
+		{ mc->c,	nil,	CHANRCV },
+		{ mc->resizec,	nil,	CHANRCV },
+		{ flushc,	nil,	CHANRCV },
+		{ nil,		nil,	CHANEND }
+	};
+
+	for(;;){
+		switch(alt(a)){
+		case ARESIZE:
+			if(getwindow(display, Refnone) < 0)
+				sysfatal("resize failed: %r");
+			screeninit();
+			/* wet floor */
+		case AFLUSH:
+			if(scale == 1){
+				loadimage(tmp, tmp->r, pic, 320*224*4);
+				draw(screen, picr, tmp, nil, ZP);
+			}else{
+				s = pic;
+				r = picr;
+				w = 320*4*scale;
+				while(r.min.y < picr.max.y){
+					loadimage(tmp, tmp->r, s, w);
+					s += w;
+					r.max.y = r.min.y+scale;
+					draw(screen, r, tmp, nil, ZP);
+					r.min.y = r.max.y;
+				}
+			}
+			flushimage(display, 1);
+			break;
+		}
+	}
+}
+
+void
 keyproc(void *)
 {
 	int fd, k;
@@ -202,13 +248,15 @@ threadmain(int argc, char **argv)
 		threadexitsall("usage");
 	}
 	loadrom(*argv);
-	if(initdraw(nil, nil, nil) < 0)
+	if(initdraw(nil, nil, argv0) < 0)
 		sysfatal("initdraw: %r");
-	proccreate(keyproc, nil, 8192);
+	flushc = chancreate(sizeof(ulong), 1);
 	mc = initmouse(nil, screen);
 	if(mc == nil)
 		sysfatal("initmouse: %r");
 	screeninit();
+	proccreate(keyproc, nil, 8192);
+	proccreate(screenproc, nil, 8192);
 	cpureset();
 	vdpmode();
 	ymreset();
@@ -257,37 +305,10 @@ threadmain(int argc, char **argv)
 void
 flush(void)
 {
-	extern uchar pic[320*224*2*3*3];
-	Mouse m;
-	Rectangle r;
-	uchar *s;
-	int w;
 	static vlong old, delta;
 	vlong new, diff;
 
-	if(nbrecvul(mc->resizec) > 0){
-		if(getwindow(display, Refnone) < 0)
-			sysfatal("resize failed: %r");
-		screeninit();
-	}
-	while(nbrecv(mc->c, &m) > 0)
-		;
-	if(scale == 1){
-		loadimage(tmp, tmp->r, pic, 320*224*4);
-		draw(screen, picr, tmp, nil, ZP);
-	}else{
-		s = pic;
-		r = picr;
-		w = 320*4*scale;
-		while(r.min.y < picr.max.y){
-			loadimage(tmp, tmp->r, s, w);
-			s += w;
-			r.max.y = r.min.y+scale;
-			draw(screen, r, tmp, nil, ZP);
-			r.min.y = r.max.y;
-		}
-	}
-	flushimage(display, 1);
+	sendul(flushc, 1);	/* flush screen */
 	if(audioout() < 0){
 		new = nsec();
 		diff = 0;
