@@ -121,7 +121,9 @@ screeninit(void)
 	originwindow(screen, Pt(0, 0), screen->r.min);
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = (Rectangle){subpt(p, Pt(scale * 160, scale * 112)), addpt(p, Pt(scale * 160, scale * 112))};
+	if(tmp != nil) freeimage(tmp);
 	tmp = allocimage(display, Rect(0, 0, scale * 320, scale > 1 ? 1 : scale * 224), XRGB32, scale > 1, 0);
+	if(bg != nil) freeimage(bg);
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	draw(screen, screen->r, bg, nil, ZP);	
 }
