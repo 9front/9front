@@ -50,7 +50,8 @@ file server.
 .PP
 .I Allow
 disables permission checking and allows
-.BR chown .
+changing file ownership (see
+.IR chgrp (1)).
 This may help in initializing a file system.
 Use this with caution.
 .PP
