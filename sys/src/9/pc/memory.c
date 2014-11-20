@@ -340,6 +340,24 @@ sigscan(uchar* addr, int len, char* signature)
 	return nil;
 }
 
+static uintptr
+convmemsize(void)
+{
+	uintptr top;
+	uchar *bda;
+
+	bda = KADDR(0x400);
+	top = ((bda[0x14]<<8) | bda[0x13])*KB;
+
+	if(top < 64*KB || top > 640*KB)
+		top = 640*KB;	/* sanity */
+
+	/* reserved for bios tables (EBDA) */
+	top -= 1*KB;
+
+	return top;
+}
+
 void*
 sigsearch(char* signature)
 {
@@ -362,11 +380,9 @@ sigsearch(char* signature)
 				return r;
 		}
 	}
+	if((r = sigscan(KADDR(convmemsize()), 1024, signature)) != nil)
+		return r;
 
-	if((p = ((bda[0x14]<<8)|bda[0x13])*1024) != 0){
-		if((r = sigscan(KADDR(p-1024), 1024, signature)) != nil)
-			return r;
-	}
 	/* hack for virtualbox: look in KiB below 0xa0000 */
 	if((r = sigscan(KADDR(0xa0000-1024), 1024, signature)) != nil)
 		return r;
@@ -377,8 +393,7 @@ sigsearch(char* signature)
 static void
 lowraminit(void)
 {
-	ulong pa, x;
-	uchar *bda;
+	uintptr pa, x;
 
 	/*
 	 * Initialise the memory bank information for conventional memory
@@ -387,16 +402,13 @@ lowraminit(void)
 	 * the BIOS data area.
 	 */
 	x = PADDR(CPU0END);
-	bda = (uchar*)KADDR(0x400);
-	pa = ((bda[0x14]<<8)|bda[0x13])*KB;
-	if(pa > 640*KB)
-		pa = 640*KB;
+	pa = convmemsize();
 	if(x < pa){
 		mapfree(&rmapram, x, pa-x);
 		memset(KADDR(x), 0, pa-x);		/* keep us honest */
 	}
 
-	x = PADDR(PGROUND((ulong)end));
+	x = PADDR(PGROUND((uintptr)end));
 	pa = MemMin;
 	if(x > pa)
 		panic("kernel too big");
