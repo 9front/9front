@@ -13,7 +13,7 @@ int nprg, nsram, hirom, battery;
 
 int ppuclock, spcclock, dspclock, stimerclock, saveclock, msgclock, paused, perfclock, cpupause;
 Mousectl *mc;
-Channel *flushc;
+Channel *flushc, *msgc;
 QLock pauselock;
 u32int keys;
 int savefd, scale, profile, mouse, loadreq, savereq;
@@ -191,14 +191,16 @@ void
 screenproc(void *)
 {
 	extern uchar pic[256*239*2*3];
+	char *s;
 	Mouse m;
 	Point p;
 
-	enum { AMOUSE, ARESIZE, AFLUSH, AEND };
+	enum { AMOUSE, ARESIZE, AFLUSH, AMSG, AEND };
 	Alt a[AEND+1] = {
 		{ mc->c,	&m,	CHANRCV },
 		{ mc->resizec,	nil,	CHANRCV },
 		{ flushc,	nil,	CHANRCV },
+		{ msgc,		&s,	CHANRCV },
 		{ nil,		nil,	CHANEND }
 	};
 
@@ -245,6 +247,14 @@ screenproc(void *)
 			}
 			flushimage(display, 1);
 			break;
+		case AMSG:
+			draw(screen, rectaddpt(Rect(10, 10, 200, 30), screen->r.min), bg, nil, ZP);
+			if(s != nil){
+				string(screen, addpt(screen->r.min, Pt(10, 10)), display->black, ZP, 
+					display->defaultfont, s);
+				free(s);
+			}
+			break;
 		}
 	}
 }
@@ -253,16 +263,11 @@ void
 timing(void)
 {
 	static vlong old;
-	static char buf[32];
 	vlong new;
 	
 	new = nsec();
 	if(new != old)
-		sprint(buf, "%6.2f%%", 1e11 / (new - old));
-	else
-		buf[0] = 0;
-	draw(screen, rectaddpt(Rect(10, 10, 200, 30), screen->r.min), bg, nil, ZP);
-	string(screen, addpt(screen->r.min, Pt(10, 10)), display->black, ZP, display->defaultfont, buf);
+		message("%6.2f%%", 1e11 / (new - old));
 	old = nsec();
 }
 
@@ -310,6 +315,7 @@ usage:
 	if(initdraw(nil, nil, argv0) < 0)
 		sysfatal("initdraw: %r");
 	flushc = chancreate(sizeof(ulong), 1);
+	msgc = chancreate(sizeof(char*), 0);
 	mc = initmouse(nil, screen);
 	if(mc == nil)
 		sysfatal("initmouse: %r");
@@ -367,7 +373,7 @@ usage:
 		if(msgclock > 0){
 			msgclock -= t;
 			if(msgclock <= 0){
-				draw(screen, screen->r, bg, nil, ZP);
+				sendp(msgc, nil);	/* clear message */
 				msgclock = 0;
 			}
 		}
@@ -389,11 +395,9 @@ void
 message(char *fmt, ...)
 {
 	va_list va;
-	static char buf[512];
 	
 	va_start(va, fmt);
-	vsnprint(buf, sizeof buf, fmt, va);
-	string(screen, Pt(10, 10), display->black, ZP, display->defaultfont, buf);
+	sendp(msgc, vsmprint(fmt, va));
 	msgclock = FREQ;
 	va_end(va);
 }
