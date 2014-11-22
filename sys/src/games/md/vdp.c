@@ -4,7 +4,7 @@
 #include "dat.h"
 #include "fns.h"
 
-u8int pic[320*224*4*3];
+u8int pic[320*224*4*4];
 u16int vdpstat = 0x3400;
 int vdpx, vdpy, vdpyy, frame, intla;
 u16int hctr;

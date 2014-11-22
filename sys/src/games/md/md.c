@@ -131,10 +131,11 @@ screeninit(void)
 void
 screenproc(void *)
 {
-	extern u8int pic[320*224*4*3];
+	extern u8int pic[320*224*4*4];
+	extern int intla;
 	Rectangle r;
 	uchar *s;
-	int w;
+	int w, h;
 
 	enum { AMOUSE, ARESIZE, AFLUSH, AEND };
 	Alt a[AEND+1] = {
@@ -159,10 +160,13 @@ screenproc(void *)
 				s = pic;
 				r = picr;
 				w = 320*4*scale;
+				h = scale;
+				if(intla && (h & 1) == 0)
+					h >>= 1;
 				while(r.min.y < picr.max.y){
 					loadimage(tmp, tmp->r, s, w);
 					s += w;
-					r.max.y = r.min.y+scale;
+					r.max.y = r.min.y+h;
 					draw(screen, r, tmp, nil, ZP);
 					r.min.y = r.max.y;
 				}
