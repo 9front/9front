@@ -23,7 +23,7 @@ extern int keys, scale;
 extern u16int vram[32768], vsram[40];
 extern u32int cramc[64];
 extern u16int vdpstat;
-extern int vdpx, vdpy;
+extern int vdpx, vdpy, frame, intla;
 
 extern u8int ym[512], ymstat;
 

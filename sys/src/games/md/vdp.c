@@ -6,11 +6,12 @@
 
 u8int pic[320*224*4*3];
 u16int vdpstat = 0x3400;
-int vdpx, vdpy;
+int vdpx, vdpy, vdpyy, frame, intla;
 u16int hctr;
-static int xmax, xdisp, ymax = 262, yvbl = 234;
+static int xmax, xdisp;
 static int sx, snx, col, pri, lum;
 enum { DARK, NORM, BRIGHT };
+enum { ymax = 262, yvbl = 234 };
 
 void
 vdpmode(void)
@@ -22,6 +23,7 @@ vdpmode(void)
 		xdisp = 256;
 		xmax = 342;
 	}
+	intla = (reg[MODE4] & 6) == 6;
 }
 
 static void
@@ -43,6 +45,8 @@ pixeldraw(int x, int y, int v)
 	u.b[2] = v;
 	u.b[3] = 0;
 	if(scale == 2){
+		if(intla)
+			y = y << 1 | frame;
 		q = (u32int*)pic + (x + y * 320) * 2;
 		q[0] = u.w;
 		q[1] = u.w;
@@ -97,9 +101,15 @@ tile(struct pctxt *p)
 	a += p->tx;
 	p->t = vram[a];
 	y = p->tny;
-	if((p->t & 0x1000) != 0)
-		y = 7 - y;
-	a = (p->t & 0x7ff) << 4 | y << 1;
+	if(intla){
+		if((p->t & 0x1000) != 0)
+			y = 15 - y;
+		a = (p->t & 0x7ff) << 5 | y << 1;
+	}else{
+		if((p->t & 0x1000) != 0)
+			y = 7 - y;
+		a = (p->t & 0x7ff) << 4 | y << 1;
+	}
 	p->c = vram[a] << 16 | vram[a+1];
 }
 
@@ -129,9 +139,15 @@ planeinit(void)
 		v = -(vram[a + i] & 0x3ff);
 		p->tnx = v & 7;
 		p->tx = v >> 3 & pctxt[i].w - 1;
-		v = vsram[i] + vdpy;
-		p->tny = v & 7;
-		p->ty = v >> 3 & pctxt[i].h - 1;
+		if(intla){
+			v = vsram[i] + vdpyy;
+			p->tny = v & 15;
+			p->ty = v >> 4 & pctxt[i].h - 1;
+		}else{
+			v = vsram[i] + vdpy;
+			p->tny = v & 7;
+			p->ty = v >> 3 & pctxt[i].h - 1;
+		}
 		tile(p);
 		if(p->tnx != 0)
 			if((p->t & 0x800) != 0)
@@ -237,9 +253,15 @@ spritesinit(void)
 	np = 0;
 	nt = 0;
 	do{
-		q->y = (p[0] & 0x3ff) - 128;
-		q->h = (p[1] >> 8 & 3) + 1 << 3;
-		dy = vdpy - q->y;
+		if(intla){
+			q->y = (p[0] & 0x3ff) - 256;
+			q->h = (p[1] >> 8 & 3) + 1 << 4;
+			dy = vdpyy - q->y;
+		}else{
+			q->y = (p[0] & 0x3ff) - 128;
+			q->h = (p[1] >> 8 & 3) + 1 << 3;
+			dy = vdpy - q->y;
+		}
 		if(dy >= q->h)
 			continue;
 		q->t = p[2];
@@ -249,7 +271,7 @@ spritesinit(void)
 		if(q->x == 0xff80)
 			break;
 		q->w = (p[1] >> 10 & 3) + 1 << 3;
-		c = ((q->t & 0x7ff) << 4) + (dy << 1);
+		c = ((q->t & 0x7ff) << 4+intla) + (dy << 1);
 		for(i = 0; i < q->w >> 3 && np < xdisp; i++){
 			v = vram[c] << 16 | vram[(u16int)(c+1)];
 			c += q->h << 1;
@@ -354,6 +376,8 @@ vdpstep(void)
 			vdpstat &= ~(STATINT | STATVBL | STATOVR | STATCOLL);
 			flush();
 		}
+		if(intla)
+			vdpyy = vdpy << 1 | frame;
 		if(vdpy == 0 || vdpy >= 225)
 			hctr = reg[HORCTR];
 		else
@@ -364,6 +388,7 @@ vdpstep(void)
 			}
 		if(vdpy == yvbl){
 			vdpstat |= STATVBL | STATINT;
+			frame ^= 1;
 			z80irq = 1;
 			if((reg[MODE2] & IE0) != 0)
 				irq |= INTVBL;

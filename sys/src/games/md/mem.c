@@ -180,6 +180,8 @@ memread(u32int a)
 				v = vdpx - (vdpx >= 360 ? 406 : 0);
 			else
 				v = vdpx - (vdpx >= 296 ? 342 : 0);
+			if(intla)
+				return vdpy - (vdpy >= 234 ? 5 : 0) << 8 & 0xfe00 | frame << 8 | v >> 1 & 0xff;
 			return vdpy - (vdpy >= 234 ? 5 : 0) << 8 | v >> 1 & 0xff;
 		default:
 			goto invalid;
