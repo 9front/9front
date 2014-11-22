@@ -746,11 +746,11 @@ pcirouting(void)
 {
 	Slot *e;
 	Router *r;
-	int size, i, fn, tbdf;
+	int i, size, tbdf;
 	Pcidev *sbpci, *pci;
 	uchar *p, pin, irq, link, *map;
 
-	if((p = sigsearch("$PIR")) == 0)
+	if((p = sigsearch("$PIR")) == nil)
 		return;
 
 	r = (Router*)p;
@@ -761,14 +761,14 @@ pcirouting(void)
 	if(0) print("PCI interrupt routing table version %d.%d at %p\n",
 		r->version[0], r->version[1], r);
 
-	tbdf = (BusPCI << 24)|(r->bus << 16)|(r->devfn << 8);
+	tbdf = MKBUS(BusPCI, r->bus, (r->devfn>>3)&0x1f, r->devfn&7);
 	sbpci = pcimatchtbdf(tbdf);
 	if(sbpci == nil) {
 		print("pcirouting: Cannot find south bridge %T\n", tbdf);
 		return;
 	}
 
-	for(i = 0; i != nelem(southbridges); i++)
+	for(i = 0; i < nelem(southbridges); i++)
 		if(sbpci->vid == southbridges[i].vid && sbpci->did == southbridges[i].did)
 			break;
 
@@ -777,22 +777,21 @@ pcirouting(void)
 		return;
 	}
 	southbridge = &southbridges[i];
-	if(southbridge->get == nil || southbridge->set == nil)
+	if(southbridge->get == nil)
 		return;
 
 	pciirqs = (r->pciirqs[1] << 8)|r->pciirqs[0];
 	for(e = (Slot *)&r[1]; (uchar *)e < p + size; e++) {
-		if (0) {
+		if(0) {
 			print("%.2uX/%.2uX %.2uX: ", e->bus, e->dev, e->slot);
-			for (i = 0; i != 4; i++) {
-				uchar *m = &e->maps[i * 3];
-				print("[%d] %.2uX %.4uX ",
-					i, m[0], (m[2] << 8)|m[1]);
+			for (i = 0; i < 4; i++) {
+				map = &e->maps[i * 3];
+				print("[%d] %.2uX %.4uX ", i, map[0], (map[2] << 8)|map[1]);
 			}
 			print("\n");
 		}
-		for(fn = 0; fn != 8; fn++) {
-			tbdf = (BusPCI << 24)|(e->bus << 16)|((e->dev | fn) << 8);
+		for(i = 0; i < 8; i++) {
+			tbdf = MKBUS(BusPCI, e->bus, (e->dev>>3)&0x1f, i);
 			pci = pcimatchtbdf(tbdf);
 			if(pci == nil)
 				continue;
@@ -800,18 +799,20 @@ pcirouting(void)
 			if(pin == 0 || pin == 0xff)
 				continue;
 
-			map = &e->maps[(pin - 1) * 3];
+			map = &e->maps[((pin - 1) % 4) * 3];
 			link = map[0];
 			irq = southbridge->get(sbpci, link);
-			if(irq == 0 || irq == pci->intl)
+			if(irq == pci->intl)
 				continue;
-			if(pci->intl != 0 && pci->intl != 0xFF) {
-				print("pcirouting: BIOS workaround: %T at pin %d link %d irq %d -> %d\n",
-					  tbdf, pin, link, irq, pci->intl);
-				southbridge->set(sbpci, link, pci->intl);
-				continue;
+			if(irq == 0 || (irq & 0x80) != 0){
+				irq = pci->intl;
+				if(irq == 0 || irq == 0xff)
+					continue;
+				if(southbridge->set == nil)
+					continue;
+				southbridge->set(sbpci, link, irq);
 			}
-			print("pcirouting: %T at pin %d link %d irq %d\n", tbdf, pin, link, irq);
+			print("pcirouting: %T at pin %d link %.2uX irq %d -> %d\n", tbdf, pin, link, pci->intl, irq);
 			pcicfgw8(pci, PciINTL, irq);
 			pci->intl = irq;
 		}
