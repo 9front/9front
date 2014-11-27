@@ -58,7 +58,7 @@ search(void)
 			for(j=0; bettab[j].beta!=0; j++) {
 				t = betcross(bettab[j].beta);
 				if(t >= 0)
-					event("%s  meeteeor shouwer",
+					event("%s meteor shower",
 					bettab[j].betstr, "", t, SIGNIF);
 			}
 			t = rise(p, -18);
