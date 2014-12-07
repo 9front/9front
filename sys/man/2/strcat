@@ -38,10 +38,10 @@ char*	strncpy(char *s1, char *s2, long n)
 long	strlen(char *s)
 .PP
 .B
-char*	strchr(char *s, char c)
+char*	strchr(char *s, int c)
 .PP
 .B
-char*	strrchr(char *s, char c)
+char*	strrchr(char *s, int c)
 .PP
 .B
 char*	strpbrk(char *s1, char *s2)
