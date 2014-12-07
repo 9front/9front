@@ -197,33 +197,36 @@ txproc(void *v)
 	q->used->flags &= ~Rnointerrupt;
 
 	while((b = qbread(edev->oq, 1000000)) != nil){
-		i = q->avail->idx & (q->qmask >> 1);
-		if(q->block[i] == nil) {
-			/* slot free, fill in descriptor */
-			q->block[i] = b;
-			j = (i << 1) | 1;
-			q->desc[j].addr = PADDR(b->rp);
-			q->desc[j].len = BLEN(b);
-			coherence();
-			q->avail->idx++;
-			outs(ctlr->port+Qnotify, Vtxq);
-		} else {
-			/* transmit ring is full */
-			freeb(b);
+		for(;;){
+			/* retire completed packets */
+			while((i = q->lastused) != q->used->idx){
+				u = &q->usedent[i & q->qmask];
+				i = (u->id & q->qmask) >> 1;
+				if(q->block[i] == nil)
+					break;
+				freeb(q->block[i]);
+				q->block[i] = nil;
+				q->lastused++;
+			}
+
+			/* have free slot? */
+			i = q->avail->idx & (q->qmask >> 1);
+			if(q->block[i] == nil)
+				break;
+
+			/* ring full, wait and retry */
 			if(!vhasroom(q))
 				sleep(q, vhasroom, q);
 		}
 
-		/* free completed packets */
-		while((i = q->lastused) != q->used->idx){
-			u = &q->usedent[i & q->qmask];
-			i = (u->id & q->qmask) >> 1;
-			if((b = q->block[i]) == nil)
-				break;
-			q->block[i] = nil;
-			freeb(b);
-			q->lastused++;
-		}
+		/* slot is free, fill in descriptor */
+		q->block[i] = b;
+		j = (i << 1) | 1;
+		q->desc[j].addr = PADDR(b->rp);
+		q->desc[j].len = BLEN(b);
+		coherence();
+		q->avail->idx++;
+		outs(ctlr->port+Qnotify, Vtxq);
 	}
 
 	pexit("ether out queue closed", 1);
