@@ -543,7 +543,7 @@ pciprobe(int typ)
 	for(p = nil; p = pcimatch(p, 0, 0);){
 		if(p->vid != 0x1AF4)
 			continue;
-		/* the two possible DIDs for virtio-net
+		/* the two possible DIDs for virtio-net */
 		if(p->did != 0x1000 && p->did != 0x1041)
 			continue;
 		/* non-transitional devices will have a revision > 0 */
