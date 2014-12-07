@@ -130,7 +130,7 @@ Once started, the boot media
 .BR FAT )
 is discovered and
 .IR plan9.ini (8)
-configuration is read from from it in the same way as
+configuration is read from it in the same way as
 with the BIOS-based
 .I 9boot*
 loaders.
