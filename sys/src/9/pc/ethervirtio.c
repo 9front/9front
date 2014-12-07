@@ -11,10 +11,6 @@
 /*
  * virtio ethernet driver
  * http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.html
- *
- * TODO
- *
- * implement control queue
  */
 
 typedef struct Vring Vring;
@@ -78,6 +74,16 @@ enum {
 	Vrxq	= 0,
 	Vtxq	= 1,
 	Vctlq	= 2,
+
+	/* class/cmd for Vctlq */
+	CtrlRx	= 0x00,
+		CmdPromisc	= 0x00,
+		CmdAllmulti	= 0x01,
+	CtrlMac	= 0x01,
+		CmdMacTableSet	= 0x00,
+	CtrlVlan= 0x02,
+		CmdVlanAdd	= 0x00,
+		CmdVlanDel	= 0x01,
 };
 
 struct Vring
@@ -128,24 +134,23 @@ struct Vqueue
 	Vused	*usedent;
 	u16int	*usedevent;
 	u16int	lastused;
-
-	Vheader *header;
-	Block	**block;
 };
 
 struct Ctlr {
 	Lock;
 
-	int		attached;
+	QLock	ctllock;
 
-	int		port;
-	Pcidev*	pcidev;
-	Ctlr*	next;
-	int		active;
-	int		id;
-	int		typ;
+	int	attached;
+
+	int	port;
+	Pcidev	*pcidev;
+	Ctlr	*next;
+	int	active;
+	int	id;
+	int	typ;
 	ulong	feat;
-	int		nqueue;
+	int	nqueue;
 
 	/* virtioether has 3 queues: rx, tx and ctl */
 	Vqueue	*queue[3];
@@ -166,6 +171,8 @@ vhasroom(void *v)
 static void
 txproc(void *v)
 {
+	Vheader *header;
+	Block **blocks;
 	Ether *edev;
 	Ctlr *ctlr;
 	Vqueue *q;
@@ -177,12 +184,12 @@ txproc(void *v)
 	ctlr = edev->ctlr;
 	q = ctlr->queue[Vtxq];
 
-	while(waserror())
-		;
+	header = smalloc(VheaderSize);
+	blocks = smalloc(sizeof(Block*) * (q->qsize/2));
 
 	for(i = 0; i < q->qsize/2; i++){
 		j = i << 1;
-		q->desc[j].addr = PADDR(q->header);
+		q->desc[j].addr = PADDR(header);
 		q->desc[j].len = VheaderSize;
 		q->desc[j].next = j | 1;
 		q->desc[j].flags = Dnext;
@@ -196,22 +203,25 @@ txproc(void *v)
 
 	q->used->flags &= ~Rnointerrupt;
 
+	while(waserror())
+		;
+
 	while((b = qbread(edev->oq, 1000000)) != nil){
 		for(;;){
 			/* retire completed packets */
 			while((i = q->lastused) != q->used->idx){
 				u = &q->usedent[i & q->qmask];
 				i = (u->id & q->qmask) >> 1;
-				if(q->block[i] == nil)
+				if(blocks[i] == nil)
 					break;
-				freeb(q->block[i]);
-				q->block[i] = nil;
+				freeb(blocks[i]);
+				blocks[i] = nil;
 				q->lastused++;
 			}
 
 			/* have free slot? */
 			i = q->avail->idx & (q->qmask >> 1);
-			if(q->block[i] == nil)
+			if(blocks[i] == nil)
 				break;
 
 			/* ring full, wait and retry */
@@ -220,7 +230,7 @@ txproc(void *v)
 		}
 
 		/* slot is free, fill in descriptor */
-		q->block[i] = b;
+		blocks[i] = b;
 		j = (i << 1) | 1;
 		q->desc[j].addr = PADDR(b->rp);
 		q->desc[j].len = BLEN(b);
@@ -235,6 +245,8 @@ txproc(void *v)
 static void
 rxproc(void *v)
 {
+	Vheader *header;
+	Block **blocks;
 	Ether *edev;
 	Ctlr *ctlr;
 	Vqueue *q;
@@ -246,12 +258,12 @@ rxproc(void *v)
 	ctlr = edev->ctlr;
 	q = ctlr->queue[Vrxq];
 
-	while(waserror())
-		;
+	header = smalloc(VheaderSize);
+	blocks = smalloc(sizeof(Block*) * (q->qsize/2));
 
 	for(i = 0; i < q->qsize/2; i++){
 		j = i << 1;
-		q->desc[j].addr = PADDR(q->header);
+		q->desc[j].addr = PADDR(header);
 		q->desc[j].len = VheaderSize;
 		q->desc[j].next = j | 1;
 		q->desc[j].flags = Dwrite|Dnext;
@@ -265,15 +277,18 @@ rxproc(void *v)
 
 	q->used->flags &= ~Rnointerrupt;
 
+	while(waserror())
+		;
+
 	for(;;){
 		/* replenish receive ring */
 		do {
 			i = q->avail->idx & (q->qmask >> 1);
-			if(q->block[i] != nil)
+			if(blocks[i] != nil)
 				break;
 			if((b = iallocb(ETHERMAXTU)) == nil)
 				break;
-			q->block[i] = b;
+			blocks[i] = b;
 			j = (i << 1) | 1;
 			q->desc[j].addr = PADDR(b->rp);
 			q->desc[j].len = BALLOC(b);
@@ -290,10 +305,10 @@ rxproc(void *v)
 		while((i = q->lastused) != q->used->idx) {
 			u = &q->usedent[i & q->qmask];
 			i = (u->id & q->qmask) >> 1;
-			if((b = q->block[i]) == nil)
+			if((b = blocks[i]) == nil)
 				break;
 
-			q->block[i] = nil;
+			blocks[i] = nil;
 
 			b->wp = b->rp + u->len;
 			etheriq(edev, b, 1);
@@ -302,21 +317,81 @@ rxproc(void *v)
 	}
 }
 
+static int
+vctlcmd(Ether *edev, uchar class, uchar cmd, uchar *data, int ndata)
+{
+	uchar hdr[2], ack[1];
+	Ctlr *ctlr;
+	Vqueue *q;
+	Vdesc *d;
+	int i;
+
+	ctlr = edev->ctlr;
+	q = ctlr->queue[Vctlq];
+	if(q == nil || q->qsize < 3)
+		return -1;
+
+	qlock(&ctlr->ctllock);
+	while(waserror())
+		;
+
+	ack[0] = 0x55;
+	hdr[0] = class;
+	hdr[1] = cmd;
+
+	d = &q->desc[0];
+	d->addr = PADDR(hdr);
+	d->len = sizeof(hdr);
+	d->next = 1;
+	d->flags = Dnext;
+	d++;
+	d->addr = PADDR(data);
+	d->len = ndata;
+	d->next = 2;
+	d->flags = Dnext;
+	d++;
+	d->addr = PADDR(ack);
+	d->len = sizeof(ack);
+	d->next = 0;
+	d->flags = Dwrite;
+
+	i = q->avail->idx & q->qmask;
+	q->availent[i] = 0;
+	coherence();
+
+	q->used->flags &= ~Rnointerrupt;
+	q->avail->idx++;
+	outs(ctlr->port+Qnotify, Vctlq);
+	while(!vhasroom(q))
+		sleep(q, vhasroom, q);
+	q->lastused = q->used->idx;
+	q->used->flags |= Rnointerrupt;
+
+	qunlock(&ctlr->ctllock);
+	poperror();
+
+	if(ack[0] != 0)
+		print("#l%d: vctlcmd: %ux.%ux -> %ux\n", edev->ctlrno, class, cmd, ack[0]);
+
+	return ack[0];
+}
+
 static void
 interrupt(Ureg*, void* arg)
 {
 	Ether *edev;
-	Ctlr* ctlr;
+	Ctlr *ctlr;
 	Vqueue *q;
+	int i;
 
 	edev = arg;
 	ctlr = edev->ctlr;
-
 	if(inb(ctlr->port+Qisr) & 1){
-		if(vhasroom(q = ctlr->queue[Vtxq]))
-			wakeup(q);
-		if(vhasroom(q = ctlr->queue[Vrxq]))
-			wakeup(q);
+		for(i = 0; i < ctlr->nqueue; i++){
+			q = ctlr->queue[i];
+			if(vhasroom(q))
+				wakeup(q);
+		}
 	}
 }
 
@@ -327,21 +402,19 @@ attach(Ether* edev)
 	Ctlr* ctlr;
 
 	ctlr = edev->ctlr;
-
 	lock(ctlr);
 	if(!ctlr->attached){
 		ctlr->attached = 1;
+
+		/* ready to go */
+		outb(ctlr->port+Qstatus, inb(ctlr->port+Qstatus) | Sdriverok);
 
 		/* start kprocs */
 		snprint(name, sizeof name, "#l%drx", edev->ctlrno);
 		kproc(name, rxproc, edev);
 		snprint(name, sizeof name, "#l%dtx", edev->ctlrno);
 		kproc(name, txproc, edev);
-
-		/* ready to go */
-		outb(ctlr->port+Qstatus, inb(ctlr->port+Qstatus) | Sdriverok);
 	}
-
 	unlock(ctlr);
 }
 
@@ -375,48 +448,31 @@ ifstat(Ether *edev, void *a, long n, ulong offset)
 	return n;
 }
 
-/* XXX: not done */
-static long
-ctl(Ether *, void *, long)
-{
-	return 0;
-}
-
-/* XXX: not done */
 static void
-promiscuous(void *v, int on)
+shutdown(Ether* edev)
 {
-	Ether *edev;
-	Ctlr *ctlr;
-
-	edev = v;
-	ctlr = edev->ctlr;
-
-	USED(ctlr, on);
-}
-
-/* XXX: not done */
-static void
-shutdown(Ether* ether)
-{
-	Ctlr *ctlr;
-
-	ctlr = (Ctlr*) ether;
-
+	Ctlr *ctlr = edev->ctlr;
 	outb(ctlr->port+Qstatus, 0);
 }
 
-/* XXX: not done */
+static void
+promiscuous(void *arg, int on)
+{
+	Ether *edev = arg;
+	uchar b[1];
+
+	b[0] = on != 0;
+	vctlcmd(edev, CtrlRx, CmdPromisc, b, sizeof(b));
+}
+
 static void
 multicast(void *arg, uchar*, int)
 {
-	Ether *edev;
-	Ctlr *ctlr;
+	Ether *edev = arg;
+	uchar b[1];
 
-	edev = arg;
-	ctlr = edev->ctlr;
-
-	USED(ctlr);
+	b[0] = edev->nmaddr > 0;
+	vctlcmd(edev, CtrlRx, CmdAllmulti, b, sizeof(b));
 }
 
 /* §2.4.2 Legacy Interfaces: A Note on Virtqueue Layout */
@@ -465,9 +521,6 @@ mkqueue(int size)
 	q->qmask = q->qsize - 1;
 
 	q->lastused = q->avail->idx = q->used->idx = 0;
-
-	q->block = mallocz(sizeof(Block*) * size, 1);
-	q->header = mallocz(VheaderSize, 1);
 
 	/* disable interrupts
 	 * virtio spec says we still get interrupts if
@@ -614,9 +667,8 @@ reset(Ether* edev)
 	edev->interrupt = interrupt;
 
 	edev->ifstat = ifstat;
-	edev->ctl = ctl;
-	edev->promiscuous = promiscuous;
 	edev->multicast = multicast;
+	edev->promiscuous = promiscuous;
 
 	return 0;
 }
