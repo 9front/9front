@@ -48,6 +48,7 @@ enum {
 	Fmac = (1<<5),
 	Fstatus = (1<<16),
 	Fctrlvq = (1<<17),
+	Fctrlrx = (1<<18),
 
 	/* vring used flags */
 	Unonotify = 1,
@@ -134,6 +135,8 @@ struct Vqueue
 	Vused	*usedent;
 	u16int	*usedevent;
 	u16int	lastused;
+
+	uint	nintr;
 };
 
 struct Ctlr {
@@ -153,10 +156,7 @@ struct Ctlr {
 	int	nqueue;
 
 	/* virtioether has 3 queues: rx, tx and ctl */
-	Vqueue	*queue[3];
-
-	/* MAC address */
-	uchar	ea[Eaddrlen];
+	Vqueue	queue[3];
 };
 
 static Ctlr *ctlrhead;
@@ -182,7 +182,7 @@ txproc(void *v)
 
 	edev = v;
 	ctlr = edev->ctlr;
-	q = ctlr->queue[Vtxq];
+	q = &ctlr->queue[Vtxq];
 
 	header = smalloc(VheaderSize);
 	blocks = smalloc(sizeof(Block*) * (q->qsize/2));
@@ -256,7 +256,7 @@ rxproc(void *v)
 
 	edev = v;
 	ctlr = edev->ctlr;
-	q = ctlr->queue[Vrxq];
+	q = &ctlr->queue[Vrxq];
 
 	header = smalloc(VheaderSize);
 	blocks = smalloc(sizeof(Block*) * (q->qsize/2));
@@ -327,8 +327,8 @@ vctlcmd(Ether *edev, uchar class, uchar cmd, uchar *data, int ndata)
 	int i;
 
 	ctlr = edev->ctlr;
-	q = ctlr->queue[Vctlq];
-	if(q == nil || q->qsize < 3)
+	q = &ctlr->queue[Vctlq];
+	if(q->qsize < 3)
 		return -1;
 
 	qlock(&ctlr->ctllock);
@@ -388,9 +388,11 @@ interrupt(Ureg*, void* arg)
 	ctlr = edev->ctlr;
 	if(inb(ctlr->port+Qisr) & 1){
 		for(i = 0; i < ctlr->nqueue; i++){
-			q = ctlr->queue[i];
-			if(vhasroom(q))
+			q = &ctlr->queue[i];
+			if(vhasroom(q)){
+				q->nintr++;
 				wakeup(q);
+			}
 		}
 	}
 }
@@ -433,13 +435,13 @@ ifstat(Ether *edev, void *a, long n, ulong offset)
 	l = snprint(p, READSTR, "devfeat %32.32lub\n", ctlr->feat);
 	l += snprint(p+l, READSTR-l, "drvfeat %32.32lub\n", inl(ctlr->port+Qdrvfeat));
 	l += snprint(p+l, READSTR-l, "devstatus %8.8ub\n", inb(ctlr->port+Qstatus));
-	l += snprint(p+l, READSTR-l, "isr %8.8ub\n",  inb(ctlr->port+Qisr));
-	l += snprint(p+l, READSTR-l, "netstatus %8.8ub\n",  inb(ctlr->port+Qnetstatus));
+	if(ctlr->feat & Fstatus)
+		l += snprint(p+l, READSTR-l, "netstatus %8.8ub\n",  inb(ctlr->port+Qnetstatus));
 
 	for(i = 0; i < ctlr->nqueue; i++){
-		q = ctlr->queue[i];
-		l += snprint(p+l, READSTR-l, "vq%d %#p size %d avail->idx %d used->idx %d lastused %hud\n",
-			i, q, q->qsize, q->avail->idx, q->used->idx, q->lastused);
+		q = &ctlr->queue[i];
+		l += snprint(p+l, READSTR-l, "vq%d %#p size %d avail->idx %d used->idx %d lastused %hud nintr %ud\n",
+			i, q, q->qsize, q->avail->idx, q->used->idx, q->lastused, q->nintr);
 	}
 
 	n = readstr(offset, a, n, p);
@@ -483,22 +485,19 @@ queuesize(ulong size)
 		+ VPGROUND(sizeof(u16int)*3 + VusedSize*size);
 }
 
-static Vqueue*
-mkqueue(int size)
+static int
+initqueue(Vqueue *q, int size)
 {
-	Vqueue *q;
 	uchar *p;
 
 	/* §2.4: Queue Size value is always a power of 2 and <= 32768 */
 	assert(!(size & (size - 1)) && size <= 32768);
 
-	q = mallocz(sizeof(Vqueue), 1);
 	p = mallocalign(queuesize(size), VBY2PG, 0, 0);
-	if(p == nil || q == nil){
+	if(p == nil){
 		print("ethervirtio: no memory for Vqueue\n");
 		free(p);
-		free(q);
-		return nil;
+		return -1;
 	}
 
 	q->desc = (void*)p;
@@ -521,13 +520,9 @@ mkqueue(int size)
 	q->qmask = q->qsize - 1;
 
 	q->lastused = q->avail->idx = q->used->idx = 0;
-
-	/* disable interrupts
-	 * virtio spec says we still get interrupts if
-	 * VnotifyEmpty is set in Drvfeat */
 	q->used->flags |= Rnointerrupt;
 
-	return q;
+	return 0;
 }
 
 static Ctlr*
@@ -552,13 +547,12 @@ pciprobe(int typ)
 		/* non-transitional device will have typ+0x40 */
 		if(pcicfgr16(p, 0x2E) != typ)
 			continue;
-		if((c = malloc(sizeof(Ctlr))) == nil){
+		if((c = mallocz(sizeof(Ctlr), 1)) == nil){
 			print("ethervirtio: no memory for Ctlr\n");
 			break;
 		}
 
 		c->port = p->mem[0].bar & ~0x1;
-
 		if(ioalloc(c->port, p->mem[0].size, 0, "ethervirtio") < 0){
 			print("ethervirtio: port %ux in use\n", c->port);
 			free(c);
@@ -571,53 +565,25 @@ pciprobe(int typ)
 
 		/* §3.1.2 Legacy Device Initialization */
 		outb(c->port+Qstatus, 0);
-
 		outb(c->port+Qstatus, Sacknowledge|Sdriver);
 
+		/* negotiate feature bits */
 		c->feat = inl(c->port+Qdevfeat);
-
-		if((c->feat & (Fmac|Fstatus|Fctrlvq)) != (Fmac|Fstatus|Fctrlvq)){
-			print("ethervirtio: feature mismatch %32.32lub\n", c->feat);
-			outb(c->port+Qstatus, Sfailed);
-			iofree(c->port);
-			free(c);
-			continue;
-		}
-
-		outl(c->port+Qdrvfeat, Fmac|Fstatus|Fctrlvq);
-
-		/* part of the 1.0 spec, not used in legacy */
-		/*
-		outb(vd->port+Status, inb(vd->port+Status) | FeatureOk);
-		i = inb(vd->port+Status);
-		if(!(i & FeatureOk)){
-			print("ethervirtio: feature mismatch %32.32lub\n", vd->feat);
-			outb(vd->port+Status, Failed);
-			iofree(vd->port);
-			free(vd);
-			continue;
-		}
-		*/
+		outl(c->port+Qdrvfeat, c->feat & (Fmac|Fstatus|Fctrlvq|Fctrlrx));
 
 		/* §4.1.5.1.4 Virtqueue Configuration */
 		for(i=0; i<nelem(c->queue); i++){
 			outs(c->port+Qselect, i);
 			n = ins(c->port+Qsize);
-			if(n == 0 || (n & (n-1)) != 0){
-				c->queue[i] = nil;
+			if(n == 0 || (n & (n-1)) != 0)
 				break;
-			}
-			if((c->queue[i] = mkqueue(n)) == nil)
+			if(initqueue(&c->queue[i], n) < 0)
 				break;
 			coherence();
-			outl(c->port+Qaddr, PADDR(c->queue[i]->desc)/VBY2PG);
+			outl(c->port+Qaddr, PADDR(c->queue[i].desc)/VBY2PG);
 		}
-		c->nqueue = i;
+		c->nqueue = i;		
 	
-		/* read virtio mac */
-		for(i = 0; i < Eaddrlen; i++)
-			c->ea[i] = inb(c->port+Qmac+i);
-
 		if(h == nil)
 			h = c;
 		else
@@ -632,7 +598,9 @@ pciprobe(int typ)
 static int
 reset(Ether* edev)
 {
+	static uchar zeros[Eaddrlen];
 	Ctlr *ctlr;
+	int i;
 
 	if(ctlrhead == nil) {
 		ctlrhead = pciprobe(1);
@@ -657,18 +625,25 @@ reset(Ether* edev)
 	edev->mbps = 1000;
 	edev->link = 1;
 
-	memmove(edev->ea, ctlr->ea, Eaddrlen);
+	if((ctlr->feat & Fmac) != 0 && memcmp(edev->ea, zeros, Eaddrlen) == 0){
+		for(i = 0; i < Eaddrlen; i++)
+			edev->ea[i] = inb(ctlr->port+Qmac+i);
+	} else {
+		for(i = 0; i < Eaddrlen; i++)
+			outb(ctlr->port+Qmac+i, edev->ea[i]);
+	}
 
 	edev->arg = edev;
 
 	edev->attach = attach;
 	edev->shutdown = shutdown;
-
 	edev->interrupt = interrupt;
-
 	edev->ifstat = ifstat;
-	edev->multicast = multicast;
-	edev->promiscuous = promiscuous;
+
+	if((ctlr->feat & (Fctrlvq|Fctrlrx)) == (Fctrlvq|Fctrlrx)){
+		edev->multicast = multicast;
+		edev->promiscuous = promiscuous;
+	}
 
 	return 0;
 }
@@ -676,6 +651,6 @@ reset(Ether* edev)
 void
 ethervirtiolink(void)
 {
-	addethercard("ethervirtio", reset);
+	addethercard("virtio", reset);
 }
 
