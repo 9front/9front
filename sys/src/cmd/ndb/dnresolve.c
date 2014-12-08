@@ -1229,11 +1229,12 @@ procansw(Query *qp, DNSmsg *mp, int depth, Dest *p)
 	}
 
 	/*
-	 *  Any reply from an authoritative server,
+	 *  Any reply from an authoritative server
+	 *  that does not provide more nameservers,
 	 *  or a positive reply terminates the search.
 	 *  A negative response now also terminates the search.
 	 */
-	if(mp->an != nil || (mp->flags & Fauth)){
+	if(mp->an || (mp->flags & Fauth) && mp->ns == nil){
 		if(isnegrname(mp))
 			qp->dp->respcode = Rname;
 		else
@@ -1267,7 +1268,7 @@ procansw(Query *qp, DNSmsg *mp, int depth, Dest *p)
 	 *  if we're a pure resolver, don't recurse, we have
 	 *  to forward to a fixed set of named servers.
 	 */
-	if(!mp->ns || cfg.resolver && cfg.justforw)
+	if(mp->ns == nil || cfg.resolver && cfg.justforw)
 		return Answnone;
 	tp = rrlookup(ndp, Tns, NOneg);
 	if(contains(qp->nsrp, tp)){
