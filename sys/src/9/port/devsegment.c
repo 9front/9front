@@ -264,7 +264,7 @@ segmentclose(Chan *c)
 		putgseg(c->aux);
 }
 
-static void
+static Chan*
 segmentcreate(Chan *c, char *name, int omode, ulong perm)
 {
 	int x, xfree;
@@ -311,6 +311,7 @@ segmentcreate(Chan *c, char *name, int omode, ulong perm)
 	c->qid.vers = 0;
 	c->mode = openmode(omode);
 	c->mode = OWRITE;
+	return c;
 }
 
 static long
