@@ -88,8 +88,6 @@ fn main{
 		}
 		if not
 			x=($x -u)
-		if(! ~ $#auth 0)
-			x=($x -a $auth)
 		if(! ~ $#debugfactotum 0)
 			x=($x -p)
 		must $x
@@ -98,9 +96,11 @@ fn main{
 	# config method
 	$mp(1) $ma
 
-	# load keys from secstore
-	if(~ $#auth 1 && test -x /bin/auth/secstore && test -f /mnt/factotum/ctl){
-		x=(auth/secstore -G factotum -s $auth)
+	# load keys from secstore if $auth or $secstore is not empty
+	x=secstore
+	if(~ $#$x 0) x=auth
+	if(! ~ $#$x 0 && test -x /bin/auth/secstore && test -f /mnt/factotum/ctl){
+		x=(auth/secstore -G factotum -s^$$x)
 		if(~ $service cpu)
 			$x -n >/mnt/factotum/ctl
 		if(~ $status *readnvram* || ! ~ $service cpu)
