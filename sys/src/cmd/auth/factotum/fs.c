@@ -1,7 +1,7 @@
 #include "dat.h"
 
 int		askforkeys = 1;
-char		*authaddr;
+char		*authaddr[8];
 int		debug;
 int		doprivate = 1;
 int		gflag;
@@ -75,7 +75,9 @@ main(int argc, char **argv)
 		sflag = 1;
 		break;
 	case 'a':
-		authaddr = EARGF(usage());
+		for(i=0; i < nelem(authaddr)-2 && authaddr[i] != nil; i++)
+			;
+		authaddr[i] = EARGF(usage());
 		break;
 	case 'd':
 		debug = 1;

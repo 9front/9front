@@ -22,16 +22,16 @@ bindnetcs(void)
 	return 0;
 }
 
-/* get auth= attribute value from /net/ndb */
-static char*
+/* get all auth= attribute values from /net/ndb */
+static void
 netndbauthaddr(void)
 {
 	enum { CHUNK = 1024 };
 	char *b, *p, *e;
-	int fd, n, m;
+	int fd, n, m, i;
 
 	if((fd = open("/net/ndb", OREAD)) < 0)
-		return nil;
+		return;
 	m = 0;
 	b = nil;
 	for(;;){
@@ -44,27 +44,37 @@ netndbauthaddr(void)
 	}
 	close(fd);
 	if(b == nil)
-		return nil;
+		return;
 	b[m] = '\0';
-	p = strstr(b, "auth=");
-	if(p != nil && p > b && strchr("\n\t ", p[-1]) == nil)
-		p = nil;
-	if(p != nil){
+
+	i = 0;
+	e = b;
+	while((p = strstr(e, "auth=")) != nil){
+		if(p > e && strchr("\n\t ", p[-1]) == nil){
+			e = p + strlen("auth=");
+			continue;
+		}
 		p += strlen("auth=");
 		for(e = p; *e != '\0'; e++)
 			if(strchr("\n\t ", *e) != nil)
 				break;
-		*e = '\0';
-		p = estrdup(p);
+		if(*e == '\0')
+			break;
+		*e++ = '\0';
+		if(*p == '\0')
+			continue;
+		authaddr[i++] = estrdup(p);
+		if(i >= nelem(authaddr)-1)
+			break;
 	}
+	authaddr[i] = nil;
 	free(b);
-	return p;
 }
 
 int
 _authdial(char *net, char *authdom)
 {
-	int fd, vanilla;
+	int i, fd, vanilla;
 
 	alarm(30*1000);
 	vanilla = net==nil || strcmp(net, "/net")==0;
@@ -75,7 +85,7 @@ _authdial(char *net, char *authdom)
 		 * If we failed to mount /srv/cs, assume that
 		 * we're still bootstrapping the system and dial
 		 * the one auth server passed to us on the command line or
-		 * look for auth= attribute in /net/ndb.
+		 * look for auth= attributes in /net/ndb.
 		 * In normal operation, it is important *not* to do this,
 		 * because the bootstrap auth server is only good for
 		 * a single auth domain.
@@ -84,12 +94,12 @@ _authdial(char *net, char *authdom)
 		 * remote authentication domain too.
 		 */
 		fd = -1;
-		if(authaddr == nil)
-			authaddr = netndbauthaddr();
-		if(authaddr != nil){
-			fd = dial(netmkaddr(authaddr, "tcp", "567"), 0, 0, 0);
+		if(authaddr[0] == nil)
+			netndbauthaddr();
+		for(i = 0; fd < 0 && authaddr[i] != nil; i++){
+			fd = dial(netmkaddr(authaddr[i], "tcp", "567"), 0, 0, 0);
 			if(fd < 0)
-				fd = dial(netmkaddr(authaddr, "il", "566"), 0, 0, 0);
+				fd = dial(netmkaddr(authaddr[i], "il", "566"), 0, 0, 0);
 		}
 	}
 	alarm(0);
