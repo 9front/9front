@@ -137,6 +137,7 @@ struct Vqueue
 	u16int	lastused;
 
 	uint	nintr;
+	uint	nnote;
 };
 
 struct Ctlr {
@@ -166,6 +167,19 @@ vhasroom(void *v)
 {
 	Vqueue *q = v;
 	return q->lastused != q->used->idx;
+}
+
+static void
+vqnotify(Ctlr *ctlr, int x)
+{
+	Vqueue *q;
+
+	coherence();
+	q = &ctlr->queue[x];
+	if(q->used->flags & Unonotify)
+		return;
+	q->nnote++;
+	outs(ctlr->port+Qnotify, x);
 }
 
 static void
@@ -201,7 +215,7 @@ txproc(void *v)
 		q->desc[j].flags = 0;
 	}
 
-	q->used->flags &= ~Rnointerrupt;
+	q->avail->flags &= ~Rnointerrupt;
 
 	while(waserror())
 		;
@@ -236,7 +250,7 @@ txproc(void *v)
 		q->desc[j].len = BLEN(b);
 		coherence();
 		q->avail->idx++;
-		outs(ctlr->port+Qnotify, Vtxq);
+		vqnotify(ctlr, Vtxq);
 	}
 
 	pexit("ether out queue closed", 1);
@@ -275,7 +289,7 @@ rxproc(void *v)
 		q->desc[j].flags = Dwrite;
 	}
 
-	q->used->flags &= ~Rnointerrupt;
+	q->avail->flags &= ~Rnointerrupt;
 
 	while(waserror())
 		;
@@ -294,8 +308,8 @@ rxproc(void *v)
 			q->desc[j].len = BALLOC(b);
 			coherence();
 			q->avail->idx++;
-			outs(ctlr->port+Qnotify, Vrxq);
 		} while(q->avail->idx != q->used->idx);
+		vqnotify(ctlr, Vrxq);
 
 		/* wait for any packets to complete */
 		if(!vhasroom(q))
@@ -359,13 +373,13 @@ vctlcmd(Ether *edev, uchar class, uchar cmd, uchar *data, int ndata)
 	q->availent[i] = 0;
 	coherence();
 
-	q->used->flags &= ~Rnointerrupt;
+	q->avail->flags &= ~Rnointerrupt;
 	q->avail->idx++;
-	outs(ctlr->port+Qnotify, Vctlq);
+	vqnotify(ctlr, Vctlq);
 	while(!vhasroom(q))
 		sleep(q, vhasroom, q);
 	q->lastused = q->used->idx;
-	q->used->flags |= Rnointerrupt;
+	q->avail->flags |= Rnointerrupt;
 
 	qunlock(&ctlr->ctllock);
 	poperror();
@@ -440,8 +454,9 @@ ifstat(Ether *edev, void *a, long n, ulong offset)
 
 	for(i = 0; i < ctlr->nqueue; i++){
 		q = &ctlr->queue[i];
-		l += snprint(p+l, READSTR-l, "vq%d %#p size %d avail->idx %d used->idx %d lastused %hud nintr %ud\n",
-			i, q, q->qsize, q->avail->idx, q->used->idx, q->lastused, q->nintr);
+		l += snprint(p+l, READSTR-l,
+			"vq%d %#p size %d avail->idx %d used->idx %d lastused %hud nintr %ud nnote %ud\n",
+			i, q, q->qsize, q->avail->idx, q->used->idx, q->lastused, q->nintr, q->nnote);
 	}
 
 	n = readstr(offset, a, n, p);
@@ -520,7 +535,8 @@ initqueue(Vqueue *q, int size)
 	q->qmask = q->qsize - 1;
 
 	q->lastused = q->avail->idx = q->used->idx = 0;
-	q->used->flags |= Rnointerrupt;
+
+	q->avail->flags |= Rnointerrupt;
 
 	return 0;
 }
