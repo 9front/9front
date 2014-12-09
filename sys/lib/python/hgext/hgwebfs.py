@@ -68,6 +68,9 @@ class Webopener:
 	def __init__(self):
 		self.handlers = []
 
+	def add_handler(self, handler):
+		return
+
 	def open(self, req, data=None):
 		return Webconn('/mnt/web', req)
 
