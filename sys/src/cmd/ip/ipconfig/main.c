@@ -1233,6 +1233,8 @@ dhcprecv(void)
 		if(!validip(conf.mask) || !Oflag){
 			if(!optgetaddr(bp->optdata, OBmask, conf.mask))
 				ipmove(conf.mask, IPnoaddr);
+			if(ipcmp(conf.mask, IPv4bcast) == 0)
+				ipmove(conf.mask, IPnoaddr);
 		}
 		DEBUG("ipaddr=%I ipmask=%M ", conf.laddr, conf.mask);
 
