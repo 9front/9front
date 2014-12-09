@@ -17,24 +17,33 @@ fn confignet{
 
 	must ip/ipconfig -p $*
 	if(~ $#fs 0)
-		fs=`{awk -F'=' '/fs=/{print $2; exit}' /net/ndb}
+		fs=`{awk -F'=' '/^[ 	]*fs=/{print $2}' /net/ndb}
 	if(~ $#auth 0)
-		auth=`{awk -F'=' '/auth=/{print $2; exit}' /net/ndb}
+		auth=`{awk -F'=' '/^[ 	]*auth=/{print $2}' /net/ndb}
 	if(~ $#fs 0)
-		ask fs ' ip is? ' $auth
-	if(~ $#auth 0){
-		ask auth ' ip is? ' $fs
-		if(~ $#auth 1)
-			echo '	auth='^$auth >>/net/ndb
+		ask fs ' ip is? ' $auth(1)
+	if(~ $#auth 0)
+		ask auth ' ip is? ' $fs(1)
+
+	# set bootstrap authservers for factotum
+	if(! ~ $#auth 0){
+		grep -v '^[ 	]*auth=' /net/ndb >/env/x
+		cat /env/x <{echo '	auth='^$auth^'
+'} >/net/ndb
+		rm /env/x
 	}
 }
 
 fn connecttcp{
-	srv -q tcp!$fs!564 boot 
+	while(! ~ $#fs 0 && ! srv -q tcp!$fs(1)^!564 boot)
+		fs=$fs(2-);
+	fs=$fs(1)
 }
 
 fn connectil{
-	srv -q il!$fs!17008 boot 
+	while(! ~ $#fs 0 && ! srv -q il!$fs(1)^!17008 boot)
+		fs=$fs(2-);
+	fs=$fs(1)
 }
 
 mtcp=(confignet connecttcp)

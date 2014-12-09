@@ -4,6 +4,7 @@ mntgen -s slash /mnt
 bind /root /mnt/broot
 unmount /root
 
+bind -q '#d' /fd
 bind -q '#p' /proc
 for(i in S f k æ t b m)
 	bind -qa '#'^$i /dev
