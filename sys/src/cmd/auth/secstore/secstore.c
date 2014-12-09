@@ -379,13 +379,13 @@ Out:
 }
 
 static AuthConn*
-login(char *id, char *dest, int pass_stdin, int pass_nvram)
+login(char *id, char **dest, int pass_stdin, int pass_nvram)
 {
 	int fd, n, ntry = 0;
 	char *S, *PINSTA = nil, *nl, s[Maxmsg+1], *pass;
 	AuthConn *c;
 
-	if(dest == nil)
+	if(dest == nil || *dest == nil)
 		sysfatal("tried to login with nil dest");
 	c = emalloc(sizeof(*c));
 	if(pass_nvram){
@@ -411,11 +411,15 @@ login(char *id, char *dest, int pass_stdin, int pass_nvram)
 		strecpy(c->pass, c->pass+sizeof c->pass, s);
 	}
 	for(;;){
-		if(verbose)
-			fprint(2, "dialing %s\n", dest);
-		if((fd = dial(dest, nil, nil, nil)) < 0){
-			fprint(2, "secstore: can't dial %s: %r\n", dest);
-			exits("dial failed");
+		for(;; dest++){
+			if(verbose)
+				fprint(2, "dialing %s\n", *dest);
+			if((fd = dial(netmkaddr(*dest, "tcp", "5356"), nil, nil, nil)) >= 0)
+				break;
+			if(dest[1] == nil){
+				fprint(2, "secstore: can't dial %s: %r\n", *dest);
+				exits("dial failed");
+			}
 		}
 		c->conn = newSConn(fd);
 		ntry++;
@@ -487,14 +491,12 @@ main(int argc, char **argv)
 {
 	int chpass = 0, pass_stdin = 0, pass_nvram = 0, rc;
 	int ngfile = 0, npfile = 0, nrfile = 0, Gflag[MAXFILES+1];
-	char *serve, *tcpserve, *user;
-	char *gfile[MAXFILES+1], *pfile[MAXFILES+1], *rfile[MAXFILES+1];
+	char *user, *dest[8], *gfile[MAXFILES+1], *pfile[MAXFILES+1], *rfile[MAXFILES+1];
 	AuthConn *c;
+	int i;
 
-	serve = getenv("secstore");
-	if(serve == nil)
-		serve = "$auth";
 	user = getuser();
+	memset(dest, 0, sizeof dest);
 	memset(Gflag, 0, sizeof Gflag);
 
 	ARGBEGIN{
@@ -526,7 +528,9 @@ main(int argc, char **argv)
 		rfile[nrfile++] = EARGF(usage());
 		break;
 	case 's':
-		serve = EARGF(usage());
+		for(i=0; i<nelem(dest)-2 && dest[i] != nil; i++)
+			;
+		dest[i] = EARGF(usage());
 		break;
 	case 'u':
 		user = EARGF(usage());
@@ -550,14 +554,14 @@ main(int argc, char **argv)
 		exits("usage");
 	}
 
-	rc = strlen(serve) + sizeof "tcp!!99990";
-	tcpserve = emalloc(rc);
-	if(strchr(serve,'!'))
-		strcpy(tcpserve, serve);
-	else
-		snprint(tcpserve, rc, "tcp!%s!5356", serve);
-	c = login(user, tcpserve, pass_stdin, pass_nvram);
-	free(tcpserve);
+	if(dest[0] == nil)
+		if((dest[0] = getenv("secstore")) != nil)
+			tokenize(dest[0], dest, nelem(dest)-1);
+
+	if(dest[0] == nil)
+		dest[0] = "$auth";
+
+	c = login(user, dest, pass_stdin, pass_nvram);
 	if(c == nil)
 		sysfatal("authentication failed");
 	if(chpass)
