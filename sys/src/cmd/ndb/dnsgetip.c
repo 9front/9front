@@ -8,7 +8,7 @@
 Cfg cfg;
 char *dbfile;
 int debug		= 0;
-char *logfile		= "resolve";
+char *logfile		= "dnsgetip";
 int	maxage		= 60*60;
 char mntpt[Maxpath];
 int	needrefresh	= 0;
@@ -32,9 +32,9 @@ resolve(char *name, int type)
 	req.aborttime = NS2MS(nowns) + Maxreqtm;
 
 	rp = dnresolve(name, Cin, type, &req, 0, 0, Recurse, 0, 0);
+	rrremneg(&rp);
 	while(rp != nil){
-		if(rp->ip != nil)
-			print("%s\n", rp->ip->name);
+		print("%s\n", rp->ip->name);
 		if(!aflag)
 			exits(nil);
 		rp = rp->next;
@@ -44,7 +44,7 @@ resolve(char *name, int type)
 void
 usage(void)
 {
-	fprint(2, "%s: [-adx] [-f ndb-file] domain\n", argv0);
+	fprint(2, "%s: [-adx] domain\n", argv0);
 	exits("usage");
 }
 
@@ -65,9 +65,6 @@ main(int argc, char **argv)
 	case 'x':
 		strcpy(mntpt, "/net.alt");
 		break;
-	case 'f':
-		dbfile = EARGF(usage());
-		break;
 	default:
 		usage();
 	}ARGEND
@@ -75,14 +72,13 @@ main(int argc, char **argv)
 	if(argc != 1)
 		usage();
 
-	if(strcmp(ipattr(argv[0]), "ip") == 0){
-		print("%s\n", argv[0]);
-		exits(nil);
+	if(strcmp(ipattr(*argv), "ip") == 0)
+		print("%s\n", *argv);
+	else {
+		dninit();
+		resolve(*argv, Ta);
+		resolve(*argv, Taaaa);
 	}
-
-	dninit();
-	resolve(argv[0], Ta);
-	resolve(argv[0], Taaaa);
 	exits(nil);
 }
 
@@ -96,4 +92,3 @@ getdnsservers(int class)
 void syslog(int, char*, char*, ...){}
 void logreply(int, uchar*, DNSmsg*){}
 void logsend(int, int, uchar*, char*, char*, int){}
-
