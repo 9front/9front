@@ -27,6 +27,8 @@ $objtype
 		mntgen
 		mount
 		mv
+		ndb
+			dnsgetip
 		hjfs
 		rc
 		rm
