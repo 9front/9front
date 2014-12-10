@@ -28,7 +28,8 @@ fn confignet{
 	# resolve dns names
 	if(test -x /bin/ndb/dnsgetip){
 		for(i in fs auth secstore){
-			$i=`{for(x in $$i) ndb/dnsgetip -a $x}
+			x=`{for(x in $$i) ndb/dnsgetip -a $x}
+			~ $#x 0 || $i=$x
 		}
 	}
 
