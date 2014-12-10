@@ -21,9 +21,9 @@ fn confignet{
 	if(~ $#auth 0)
 		auth=`{awk -F'=' '/^[ 	]*auth=/{print $2}' /net/ndb}
 	if(~ $#fs 0)
-		ask fs ' ip is? ' $auth(1)
+		ask fs ' address is? ' $auth(1)
 	if(~ $#auth 0)
-		ask auth ' ip is? ' $fs(1)
+		ask auth ' address is? ' $fs(1)
 
 	# resolve dns names
 	if(test -x /bin/ndb/dnsgetip){
