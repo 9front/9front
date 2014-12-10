@@ -1,6 +1,6 @@
 .TH NDB 8
 .SH NAME
-query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsdebug, inform \- network database
+query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsdebug, dnsgetip, inform \- network database
 .SH SYNOPSIS
 .B ndb/query
 [
@@ -106,6 +106,12 @@ query, ipquery, mkhash, mkdb, mkhosts, cs, csquery, dns, dnstcp, dnsquery, dnsde
 [
 .I type
 ] ]
+.br
+.B ndb/dnsgetip
+[
+.B -ax
+]
+.I domain-name
 .br
 .B ndb/inform
 [
@@ -736,6 +742,28 @@ to use the
 interface and
 .B /lib/ndb/external
 database file.
+.PP
+.I Ndb/dnsgetip
+resolves and prints A and AAAA records without consulting
+.I ndb/dns .
+By default,
+.I ndb/dnsgetip
+queries A records first and then AAAA records. As with
+.I ndb/dns,
+.B /env/DNSSERVER
+or
+.IR ndb(6)
+.B dns
+attributes are used as the DNS server. The
+.I -a
+flag will return all records. The
+.B -x
+option switches
+.I ndb/dnsgetip
+to query the dns server through
+.B /net.alt
+instead of
+.B /net.
 .SH EXAMPLES
 Look up
 .B helix
