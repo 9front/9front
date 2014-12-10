@@ -12,9 +12,9 @@ TARG =	\
 	dnsquery\
 	dnstcp\
 	dnsdebug\
+	dnsgetip\
 	ipquery\
 	inform\
-
 
 DNSOBJ = dns.$O dnudpserver.$O dn.$O dnresolve.$O dblookup.$O dnserver.$O dnnotify.$O\
 	 dnarea.$O convM2DNS.$O convDNS2M.$O idn.$O
@@ -23,6 +23,9 @@ DNSTCPOBJ = dnstcp.$O dn.$O dnresolve.$O dblookup.$O dnserver.$O\
 	 dnarea.$O convM2DNS.$O convDNS2M.$O idn.$O
 
 DNSDEBUGOBJ = dnsdebug.$O dn.$O dnresolve.$O dblookup.$O dnserver.$O\
+	 dnarea.$O convM2DNS.$O convDNS2M.$O idn.$O
+
+DNSGETIPOBJ = dnsgetip.$O dn.$O dnresolve.$O dblookup.$O dnserver.$O\
 	 dnarea.$O convM2DNS.$O convDNS2M.$O idn.$O
 
 HFILES = dns.h /$objtype/lib/libndb.a
@@ -38,6 +41,9 @@ $O.dnstcp: $DNSTCPOBJ
 	$LD -o $target $prereq
 
 $O.dnsdebug: $DNSDEBUGOBJ
+	$LD -o $target $prereq
+
+$O.dnsgetip: $DNSGETIPOBJ
 	$LD -o $target $prereq
 
 $O.cs: cs.$O
