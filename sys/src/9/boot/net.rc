@@ -25,6 +25,13 @@ fn confignet{
 	if(~ $#auth 0)
 		ask auth ' ip is? ' $fs(1)
 
+	# resolve dns names
+	if(test -x /bin/ndb/dnsgetip){
+		for(i in fs auth secstore){
+			$i=`{for(x in $$i) ndb/dnsgetip -a $x}
+		}
+	}
+
 	# set bootstrap authservers for factotum
 	if(! ~ $#auth 0){
 		grep -v '^[ 	]*auth=' /net/ndb >/env/x

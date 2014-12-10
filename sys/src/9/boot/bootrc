@@ -145,7 +145,7 @@ fn main{
 	}
 
 	# remove enviroment variables
-	rm -f /env/^$mt /env/? /env/?? '/env/fn#'* 
+	rm -f '#e/'^$mt '#e/'? '#e/'?? '#e/fn#'* 
 
 	# remove part of our temporary root
 	/mnt/broot/$cputype/bin/unmount /$cputype/bin /bin
