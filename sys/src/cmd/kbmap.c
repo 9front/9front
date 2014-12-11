@@ -64,7 +64,6 @@ init(void)
 {
 	int i, fd, nr;
 	Dir *pd;
-	char buf[128];
 
 	if((fd = open(dir, OREAD)) < 0)
 		return;
@@ -72,8 +71,8 @@ init(void)
 	nmap = nr = dirreadall(fd, &pd);
 	map = emalloc(nr * sizeof(KbMap));
 	for(i=0; i<nr; i++){
-		sprint(buf, "%s/%s", dir, pd[i].name);
-		map[i].file = estrdup(buf);
+		map[i].file = emalloc(strlen(dir) + strlen(pd[i].name) + 2);
+		sprint(map[i].file, "%s/%s", dir, pd[i].name);
 		map[i].name = estrdup(pd[i].name);
 		map[i].current = 0;
 	}
