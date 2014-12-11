@@ -43,7 +43,7 @@ information for that file.
 mounts onto
 .I mtpt
 (default
-.BR / )
+.BR /mnt/cfs )
 after connecting to the file server.
 .PP
 The options are:

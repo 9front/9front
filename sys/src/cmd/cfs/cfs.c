@@ -136,7 +136,7 @@ main(int argc, char *argv[])
 	chkid = 1;
 	part = "/dev/sdC0/cache";
 	server = "tcp!fs";
-	mtpt = "/tmp";
+	mtpt = "/mnt/cfs";
 
 	ARGBEGIN{
 	case 'a':
