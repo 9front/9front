@@ -602,10 +602,10 @@ putfile(File *f, int q0, int q1, Rune *namer, int nname)
 
 	for(q=q0; q<q1; q+=n){
 		n = q1 - q;
-		if(n > BUFSIZE/UTFmax)
-			n = BUFSIZE/UTFmax;
+		if(n > (BUFSIZE-1)/UTFmax)
+			n = (BUFSIZE-1)/UTFmax;
 		bufread(f, q, r, n);
-		m = snprint(s, BUFSIZE+1, "%.*S", n, r);
+		m = snprint(s, BUFSIZE, "%.*S", n, r);
 		if(write(fd, s, m) != m){
 			warning(nil, "can't write file %s: %r\n", name);
 			goto Rescue2;
