@@ -94,7 +94,7 @@ fswrite(Req *r)
 			nb = EVENTSIZE - partial;
 
 		/* fill buffer */
-		ep = e[n % nelem(e)];
+		ep = e[n++ % nelem(e)];
 		memmove(ep->b+partial, s, nb);
 		partial += nb;
 		s += nb;
@@ -118,18 +118,15 @@ fswrite(Req *r)
 			ep->nb += wid;
 		}
 
+		/* put partial reminder onto next buffer */
+		if(partial > 0)
+			memmove(e[n % nelem(e)]->b, p, partial);
+
 		/* send buffer when not empty */
 		if(ep->nb > 0){
 			ep->b[ep->nb] = '\0';
 			sendp(win->cevent, ep);
 			recvp(writechan);
-		}
-		n++;
-
-		/* put partial reminder onto next buffer */
-		if(partial > 0){
-			ep = e[n % nelem(e)];
-			memmove(ep->b, p, partial);
 		}
 	}
 
