@@ -88,11 +88,10 @@ devsdp.$O:	../port/thwack.h
 devproc.$O sysproc.$O:	/sys/include/tos.h
 devproc.$O edf.$O proc.$O: /sys/include/trace.h
 
-boot$CONF.out: $CONF print.$O $BOOTDIR/boot.c $BOOTLIB
+boot$CONF.out: $CONF printstub.$O $BOOTLIB 
 	$BOOTDIR/mkboot $CONF > boot$CONF.c
 	$CC $CFLAGS boot$CONF.c
-	$CC $CFLAGS ../boot/printstub.c
-	$LD -o boot$CONF.out boot$CONF.$O $BOOTLIB printstub.$O
+	$LD -o boot$CONF.out boot$CONF.$O printstub.$O $BOOTLIB 
 
 bootfs.paq:	../port/bootfs.proto
 	mkdir -p bootfs
