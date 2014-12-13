@@ -1679,7 +1679,7 @@ dnsiplookup(char *host, Ndbs *s)
 	slave(host);
 	if(*isslave == 0){
 		qlock(&dblock);
-		werrstr("too mutch activity");
+		werrstr("too much activity");
 		return nil;
 	}
 
