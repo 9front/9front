@@ -3,6 +3,7 @@
 #include <bio.h>
 #include <draw.h>
 #include <event.h>
+#include <keyboard.h>
 #include "imagefile.h"
 
 int		cflag = 0;
@@ -321,7 +322,7 @@ rpt:	array = Breadjpg(&b, colorspace);
 			free(array);
 			goto rpt;
 		}
-		if((ch=ekbd())=='q' || ch==0x7F || ch==0x04)
+		if((ch=ekbd())=='q' || ch==Kdel || ch==Keof)
 			exits(nil);
 		draw(screen, screen->clipr, display->white, nil, ZP);
 		image = nil;

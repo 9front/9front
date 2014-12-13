@@ -195,7 +195,7 @@ cmdkey(Win *w, Rune r)
 		cmddel(w, w->toprune + w->fr.p0, w->toprune + w->fr.p1);
 	switch(r){
 	case 0x00:
-	case 0x1b:
+	case Kesc:
 		break;
 	case '\b':
 		if(w->fr.p0 > 0 && w->toprune + w->fr.p0 != w->opoint)

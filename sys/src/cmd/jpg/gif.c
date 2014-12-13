@@ -3,6 +3,7 @@
 #include <bio.h>
 #include <draw.h>
 #include <event.h>
+#include <keyboard.h>
 #include "imagefile.h"
 
 int		cflag = 0;
@@ -382,7 +383,7 @@ show(int fd, char *name)
 					dt = 50;
 				while(n==1 || ecankbd()){
 					/* an odd, democratic list */
-					if((ch=ekbd())=='q' || ch==0x7F || ch==0x04)
+					if((ch=ekbd())=='q' || ch==Kdel || ch==Keof)
 						exits(nil);
 					if(ch == '\n')
 						goto Out;

@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <draw.h>
 #include <event.h>
+#include <keyboard.h>
 
 enum {
 	Edge = 5,
@@ -109,8 +110,8 @@ main(int argc, char *argv[])
 		case Ekeyboard:
 			switch(e.kbdc){
 			case 'q':
-			case 0x7f:
-			case '\04':
+			case Kdel:
+			case Keof:
 			caseexit:
 				exits(nil);
 			case '=':

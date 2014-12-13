@@ -3,6 +3,7 @@
 #include <draw.h>
 #include <event.h>
 #include <regexp.h>
+#include <keyboard.h>
 
 enum {
 	VISIBLE = 1,
@@ -318,7 +319,7 @@ main(int argc, char **argv)
 	for(;;){
 		switch(eread(Emouse|Ekeyboard|Etimer, &e)){
 		case Ekeyboard:
-			if(e.kbdc==0x7F || e.kbdc=='q')
+			if(e.kbdc==Kdel || e.kbdc=='q')
 				exits(0);
 			break;
 		case Emouse:

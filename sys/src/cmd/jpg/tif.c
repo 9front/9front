@@ -3,6 +3,7 @@
 #include <bio.h>
 #include <draw.h>
 #include <event.h>
+#include <keyboard.h>
 #include "imagefile.h"
 
 int cflag = 0;
@@ -220,7 +221,7 @@ show(int fd, char *name, int outchan)
 		image = i;
 		eresized(0);
 		ch = ekbd();
-		if(ch == 'q' || ch == 0x7f || ch == 0x04)
+		if(ch == 'q' || ch == Kdel || ch == Keof)
 			exits(nil);
 		draw(screen, screen->clipr, display->white,
 			nil, ZP);

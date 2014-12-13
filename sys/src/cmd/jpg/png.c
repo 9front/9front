@@ -3,6 +3,7 @@
 #include <bio.h>
 #include <draw.h>
 #include <event.h>
+#include <keyboard.h>
 #include "imagefile.h"
 
 extern int	debug;
@@ -198,7 +199,7 @@ show(int fd, char *name, int outc)
 		draw(i2, i2->r, i, nil, i->r.min);
 		image = i2;
 		eresized(0);
-		if((ch=ekbd())=='q' || ch==0x7F || ch==0x04)
+		if((ch=ekbd())=='q' || ch==Kdel || ch==Keof)
 			exits(nil);
 		draw(screen, screen->clipr, display->white, nil, ZP);
 		image = nil;

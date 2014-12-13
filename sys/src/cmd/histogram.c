@@ -251,7 +251,7 @@ histogram(char *rect)
 				goto done;
 			break;
 		case 2:
-			if(km == 0x7F)
+			if(km == Kdel)
 				goto done;
 			break;
 		case 3:

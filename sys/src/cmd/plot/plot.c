@@ -210,8 +210,8 @@ mouseproc(void*)
 		case Akbd:
 			switch(r){
 			case 'q':
-			case 0x7f:
-			case 0x04:
+			case Kdel:
+			case Keof:
 				threadexitsall("");
 			}
 			break;

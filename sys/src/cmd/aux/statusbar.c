@@ -3,6 +3,7 @@
 #include <draw.h>
 #include <bio.h>
 #include <event.h>
+#include <keyboard.h>
 
 int newwin(char*);
 
@@ -135,7 +136,7 @@ bar(Biobuf *b)
 	case 0:
 		sleep(1000);
 		while(!die && (k = eread(Ekeyboard|Emouse, &e))) {
-			if(nokill==0 && k == Ekeyboard && (e.kbdc == 0x7F || e.kbdc == 0x03)) { /* del, ctl-c */
+			if(nokill==0 && k == Ekeyboard && (e.kbdc == Kdel || e.kbdc == Ketx)) {
 				die = 1;
 				postnote(PNPROC, parent, "interrupt");
 				_exits("interrupt");

@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <draw.h>
 #include <event.h>
+#include <keyboard.h>
 
 typedef struct KbMap KbMap;
 struct KbMap {
@@ -245,7 +246,7 @@ main(int argc, char **argv)
 	for(;;){
 		switch(eread(Emouse|Ekeyboard, &e)){
 		case Ekeyboard:
-			if(e.kbdc==0x7F || e.kbdc=='q')
+			if(e.kbdc==Kdel || e.kbdc=='q')
 				exits(0);
 			break;
 		case Emouse:
