@@ -5,6 +5,7 @@
 #include <fcall.h>
 #include <draw.h>
 #include <event.h>
+#include <keyboard.h>
 
 #define	MAXNUM	10	/* maximum number of numbers on data line */
 
@@ -85,7 +86,7 @@ struct Machine
 enum
 {
 	Mainproc,
-	Mouseproc,
+	Inputproc,
 	NPROC,
 };
 
@@ -204,7 +205,7 @@ int	ylabels = 0;
 int	oldsystem = 0;
 int 	sleeptime = 1000;
 
-char	*procnames[NPROC] = {"main", "mouse"};
+char	*procnames[NPROC] = {"main", "input"};
 
 void
 killall(char *s)
@@ -1238,29 +1239,36 @@ eresized(int new)
 }
 
 void
-mouseproc(void)
+inputproc(void)
 {
-	Mouse mouse;
+	Event e;
 	int i;
 
 	for(;;){
-		mouse = emouse();
-		if(mouse.buttons == 4){
-			lockdisplay(display);
-			for(i=0; i<Nmenu2; i++)
-				if(present[i])
-					memmove(menu2str[i], "drop ", Opwid);
-				else
-					memmove(menu2str[i], "add  ", Opwid);
-			i = emenuhit(3, &mouse, &menu2);
-			if(i >= 0){
-				if(!present[i])
-					addgraph(i);
-				else if(ngraph > 1)
-					dropgraph(i);
-				resize();
+		switch(eread(Emouse|Ekeyboard, &e)){
+		case Emouse:
+			if(e.mouse.buttons == 4){
+				lockdisplay(display);
+				for(i=0; i<Nmenu2; i++)
+					if(present[i])
+						memmove(menu2str[i], "drop ", Opwid);
+					else
+						memmove(menu2str[i], "add  ", Opwid);
+				i = emenuhit(3, &e.mouse, &menu2);
+				if(i >= 0){
+					if(!present[i])
+						addgraph(i);
+					else if(ngraph > 1)
+						dropgraph(i);
+					resize();
+				}
+				unlockdisplay(display);
 			}
-			unlockdisplay(display);
+			break;
+		case Ekeyboard:
+			if(e.kbdc==Kdel || e.kbdc=='q')
+				killall(nil);
+			break;
 		}
 	}
 }
@@ -1413,8 +1421,8 @@ main(int argc, char *argv[])
 		exits("initdraw");
 	}
 	colinit();
-	einit(Emouse);
-	startproc(mouseproc, Mouseproc);
+	einit(Emouse|Ekeyboard);
+	startproc(inputproc, Inputproc);
 	pids[Mainproc] = getpid();
 	display->locking = 1;	/* tell library we're using the display lock */
 
