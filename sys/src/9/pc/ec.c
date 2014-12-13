@@ -64,30 +64,6 @@ ecwait(uchar mask, uchar val)
 }
 
 int
-ecinit(int cmdport, int dataport)
-{
-	print("ec: cmd %X, data %X\n", cmdport, dataport);
-
-	if(ioalloc(cmdport, 1, 0, "ec.sc") < 0){
-		print("ec: cant allocate cmd port %X\n", cmdport);
-		return -1;
-	}
-	if(ioalloc(dataport, 1, 0, "ec.data") < 0){
-		print("ec: cant allocate data port %X\n", dataport);
-		iofree(cmdport);
-		return -1;
-	}
-
-	lock(&ec);
-	ec.port[EC_SC] = cmdport;
-	ec.port[EC_DATA] = dataport;
-	ec.init = 1;
-	unlock(&ec);
-
-	return 0;
-}
-
-int
 ecread(uchar addr)
 {
 	int r;
@@ -135,4 +111,64 @@ ecwrite(uchar addr, uchar val)
 out:
 	unlock(&ec);
 	return r;
+}
+
+static long
+ecarchread(Chan*, void *a, long n, vlong off)
+{
+	int port, v;
+	uchar *p;
+
+	if(off < 0 || off >= 256)
+		return 0;
+	if(off+n > 256)
+		n = 256 - off;
+	p = a;
+	for(port = off; port < off+n; port++){
+		if((v = ecread(port)) < 0)
+			error(Eio);
+		*p++ = v;
+	}
+	return n;
+}
+
+static long
+ecarchwrite(Chan*, void *a, long n, vlong off)
+{
+	int port;
+	uchar *p;
+
+	if(off < 0 || off+n > 256)
+		error(Ebadarg);
+	p = a;
+	for(port = off; port < off+n; port++)
+		if(ecwrite(port, *p++) < 0)
+			error(Eio);
+	return n;
+}
+
+int
+ecinit(int cmdport, int dataport)
+{
+	print("ec: cmd %X, data %X\n", cmdport, dataport);
+
+	if(ioalloc(cmdport, 1, 0, "ec.sc") < 0){
+		print("ec: cant allocate cmd port %X\n", cmdport);
+		return -1;
+	}
+	if(ioalloc(dataport, 1, 0, "ec.data") < 0){
+		print("ec: cant allocate data port %X\n", dataport);
+		iofree(cmdport);
+		return -1;
+	}
+
+	lock(&ec);
+	ec.port[EC_SC] = cmdport;
+	ec.port[EC_DATA] = dataport;
+	ec.init = 1;
+	unlock(&ec);
+
+	addarchfile("ec", 0660, ecarchread, ecarchwrite);
+
+	return 0;
 }

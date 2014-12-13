@@ -69,6 +69,7 @@ link
 #	etherwavelan	wavelan devi82365 cis pci
 	etheriwl	pci wifi
 #	etherrt2860	pci wifi
+	ethervirtio	pci
 	ethermedium
 #	pcmciamodem
 	netdevmedium
@@ -82,7 +83,7 @@ link
 	audiohda
 
 misc
-	archacpi	mp apic squidboy
+	archacpi	mp apic squidboy ec
 	archmp		mp apic squidboy
 	mtrr
 
@@ -96,7 +97,7 @@ misc
 #	sdmmc		pci pmmc
 #	sdloop
 
-#	uarti8250
+	uarti8250
 #	uartisa
 #	uartpci		pci
 

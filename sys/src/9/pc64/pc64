@@ -83,10 +83,9 @@ link
 	audiohda
 
 misc
-	archacpi	mp apic squidboy
+	archacpi	mp apic squidboy ec
 	archmp		mp apic squidboy
 	mtrr
-	ec
 
 #	sdaoe
 	sdide		pci sdscsi

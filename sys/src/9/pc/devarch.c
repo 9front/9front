@@ -34,7 +34,6 @@ enum {
 	Qiow,
 	Qiol,
 	Qmsr,
-	Qec,
 	Qbase,
 
 	Qmax = 16,
@@ -64,7 +63,6 @@ static Dirtab archdir[Qmax] = {
 	"iow",		{ Qiow, 0 },		0,	0660,
 	"iol",		{ Qiol, 0 },		0,	0660,
 	"msr",		{ Qmsr, 0 },		0,	0660,
-	"ec",		{ Qec, 0 },		0,	0660,
 };
 Lock archwlock;	/* the lock is only for changing archdir */
 int narchdir = Qbase;
@@ -363,7 +361,7 @@ static long
 archread(Chan *c, void *a, long n, vlong offset)
 {
 	char *buf, *p;
-	int port, v;
+	int port;
 	ushort *sp;
 	ulong *lp;
 	vlong *vp;
@@ -407,19 +405,6 @@ archread(Chan *c, void *a, long n, vlong offset)
 		for(port = offset; port < offset+n; port += 8)
 			if(rdmsr(port, vp++) < 0)
 				error(Ebadarg);
-		return n;
-
-	case Qec:
-		if(offset >= 256)
-			error(Ebadarg);
-		if(offset+n > 256)
-			n = 256 - offset;
-		p = a;
-		for(port = offset; port < offset+n; port++){
-			if((v = ecread(port)) < 0)
-				error(Eio);
-			*p++ = v;
-		}
 		return n;
 
 	case Qioalloc:
@@ -499,15 +484,6 @@ archwrite(Chan *c, void *a, long n, vlong offset)
 		for(port = offset; port < offset+n; port += 8)
 			if(wrmsr(port, *vp++) < 0)
 				error(Ebadarg);
-		return n;
-
-	case Qec:
-		if(offset+n > 256)
-			error(Ebadarg);
-		p = a;
-		for(port = offset; port < offset+n; port++)
-			if(ecwrite(port, *p++) < 0)
-				error(Eio);
 		return n;
 
 	default:
