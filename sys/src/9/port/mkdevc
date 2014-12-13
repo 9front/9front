@@ -166,6 +166,9 @@ END{
 	  	for(i = 0; i < nvgacur; i++)
 			printf "\t&%scur,\n", vgacur[i];
 	  	printf "\tnil,\n};\n\n";
+	} else {
+		if(objtype ~ "(386|amd64)")
+			printf "void bootscreeninit(void)\n{\n}\n\n";
 	}
 	
 	if(nip){
