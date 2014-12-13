@@ -91,9 +91,12 @@ devproc.$O edf.$O proc.$O: /sys/include/trace.h
 boot$CONF.out: $CONF printstub.$O $BOOTLIB 
 	$BOOTDIR/mkboot $CONF > boot$CONF.c
 	$CC $CFLAGS boot$CONF.c
-	$LD -o boot$CONF.out boot$CONF.$O printstub.$O $BOOTLIB 
+	$LD -o boot$CONF.out boot$CONF.$O printstub.$O $BOOTLIB
 
-bootfs.paq:	../port/bootfs.proto
+bootfs.paq:	../port/bootfs.proto \
+		`{disk/mkfs -s / -ax ../port/bootfs.proto >[2]/dev/null \
+			| awk '/^end of archive/{exit}{print $1}' \
+			| while(x=`{read}){test -f $x && echo $x}}
 	mkdir -p bootfs
 	disk/mkfs -s / -d bootfs ../port/bootfs.proto
 	@{
