@@ -3,7 +3,7 @@
 mkfs, mkext \- archive or update a file system
 .SH SYNOPSIS
 .B disk/mkfs
-.RB [ -aprvxU ]
+.RB [ -aprvoxU ]
 .RB [ -d
 .IR root ]
 .RB [ -n
@@ -82,6 +82,12 @@ not just those out of date, are archived.
 For use with
 .BR -a ,
 this option writes a list of file names, dates, and sizes to standard output
+rather than producing an archive file.
+.TP
+.B o
+Similar to
+.BR -x
+above, but produces a list of source file names to standard output
 rather than producing an archive file.
 .TP
 .BI "d " root

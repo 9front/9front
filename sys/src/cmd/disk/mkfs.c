@@ -46,6 +46,7 @@ int	modes;
 int	ream;
 int	debug;
 int	xflag;
+int	oflag;
 int	sfd;
 int	fskind;			/* Kfs, Fs, Archive */
 int	setuid;			/* on Fs: set uid and gid? */
@@ -106,6 +107,9 @@ main(int argc, char **argv)
 	case 'v':
 		verb = 1;
 		break;
+	case 'o':
+		oflag = 1;
+		break;
 	case 'x':
 		xflag = 1;
 		break;
@@ -116,8 +120,13 @@ main(int argc, char **argv)
 		usage();
 	}ARGEND
 
-	if(!argc)	
+	if(!argc)
 		usage();
+
+	if((xflag || oflag) && fskind != Archive){
+		fprint(2, "cannot use -x and -o without -a\n");
+		usage();
+	}
 
 	buf = malloc(buflen);
 	zbuf = malloc(buflen);
@@ -145,7 +154,8 @@ main(int argc, char **argv)
 	if(errs)
 		exits("skipped protos");
 	if(fskind == Archive){
-		Bprint(&bout, "end of archive\n");
+		if(!xflag && !oflag)
+			Bprint(&bout, "end of archive\n");
 		Bterm(&bout);
 	}
 	exits(0);
@@ -319,6 +329,11 @@ protoenum(char *new, char *old, Dir *d, void *)
 	sprint(newfile, "%s%s", newroot, new);
 	sprint(oldfile, "%s", old);
 
+	if(oflag){
+		if(!(d->mode & DMDIR))
+			Bprint(&bout, "%q\n", cleanname(oldfile));
+		return;
+	}
 	if(xflag){
 		Bprint(&bout, "%q\t%ld\t%lld\n", new, d->mtime, d->length);
 		return;
@@ -438,6 +453,6 @@ warn(char *fmt, ...)
 void
 usage(void)
 {
-	fprint(2, "usage: %q [-adprvxUD] [-d root] [-n name] [-s source] [-u users] [-z n] proto ...\n", prog);
+	fprint(2, "usage: %q [-adprvoxUD] [-d root] [-n name] [-s source] [-u users] [-z n] proto ...\n", prog);
 	exits("usage");
 }
