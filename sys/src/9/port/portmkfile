@@ -30,7 +30,7 @@ all:V:
 		mk 'CONF='$i
 
 clean:V:
-	rm -f *.[$OS] *.i *.root.s *.rootc.c cfs.h fs.h init.h conf.h *.out *.m errstr.h bootfs.paq
+	rm -f *.[$OS] *.i *.root.s *.rootc.c cfs.h fs.h init.h conf.h *.out *.m errstr.h boot bootfs.paq
 	for(i in $CONFLIST $CRAPLIST)
 		mk $i.clean
 
@@ -87,21 +87,3 @@ unthwack.$O:	../port/thwack.h
 devsdp.$O:	../port/thwack.h
 devproc.$O sysproc.$O:	/sys/include/tos.h
 devproc.$O edf.$O proc.$O: /sys/include/trace.h
-
-boot$CONF.out: $CONF printstub.$O $BOOTLIB 
-	$BOOTDIR/mkboot $CONF > boot$CONF.c
-	$CC $CFLAGS boot$CONF.c
-	$LD -o boot$CONF.out boot$CONF.$O printstub.$O $BOOTLIB
-
-bootfs.paq:	../port/bootfs.proto \
-		`{disk/mkfs -s / -ax ../port/bootfs.proto >[2]/dev/null \
-			| awk '/^end of archive/{exit}{print $1}' \
-			| while(x=`{read}){test -f $x && echo $x}}
-	mkdir -p bootfs
-	disk/mkfs -s / -d bootfs ../port/bootfs.proto
-	@{
-		cd bootfs/$objtype/bin
-		strip * */* */*/* >[2]/dev/null || status=''
-	}
-	mkpaqfs -o $target bootfs
-	rm -rf bootfs

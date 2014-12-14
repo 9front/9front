@@ -36,11 +36,11 @@ ip
 port
 	int cpuserver = 0;
 
-boot
-	tcp
-
 bootdir
-	bootmtx.out boot
-	/power/bin/ip/ipconfig
-	/power/bin/auth/factotum
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	bootfs.paq
+	boot
+
+	
 

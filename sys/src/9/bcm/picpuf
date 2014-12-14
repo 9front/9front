@@ -45,12 +45,8 @@ misc
 port
 	int cpuserver = 1;
 
-boot boot #S/sdM0/
-	local
-	tcp
-
 bootdir
-	boot$CONF.out	boot
 	/$objtype/bin/paqfs
 	/$objtype/bin/auth/factotum
 	bootfs.paq
+	boot

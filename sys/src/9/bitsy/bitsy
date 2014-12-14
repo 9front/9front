@@ -41,9 +41,9 @@ misc
 port
 	int cpuserver = 1;
 
-boot cpu
-boot
-	paq
 bootdir
-	bootbitsy.out	boot
-	/arm/bin/paqfs	paqfs
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	bootfs.paq
+	boot
+

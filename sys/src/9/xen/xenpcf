@@ -49,14 +49,10 @@ ip
 port
 	int cpuserver = 0;
 
-boot boot
-	tcp
-	local
-
 bootdir
-	boot$CONF.out	boot
 	/$objtype/bin/paqfs
 	/$objtype/bin/auth/factotum
 	bootfs.paq
+	boot
 	xenstore
 

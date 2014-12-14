@@ -36,11 +36,8 @@ ip
 port
 	int cpuserver = 1;
 
-boot cpu
-	tcp
-
 bootdir
-	bootmtxcpu.out boot
-	ipconfig.hack ipconfig
-	factotum.hack factotum
-
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	bootfs.paq
+	boot

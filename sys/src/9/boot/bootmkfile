@@ -1,18 +1,29 @@
 BOOTDIR=../boot
-BOOTLIB=$BOOTDIR/libboot.a$O
 
 BOOTFILES=\
 	aux.$O\
 	boot.$O\
-
-$BOOTLIB(%.$O):N:	%.$O
-
-$BOOTLIB:	${BOOTFILES:%=$BOOTLIB(%)}
-	names=`{membername $newprereq}
-	ar vu $BOOTLIB $names
-	rm $names
+	printstub.$O\
 
 $BOOTFILES:	$BOOTDIR/boot.h
 
 %.$O:	$BOOTDIR/%.c
 	$CC -I$BOOTDIR $CFLAGS $BOOTDIR/$stem.c
+
+boot:	$BOOTFILES
+	$LD -o $target $BOOTFILES
+
+BOOTFSPROTO=$BOOTDIR/bootfs.proto
+
+bootfs.paq:	$BOOTFSPROTO \
+		`{disk/mkfs -s / -ax $BOOTFSPROTO >[2]/dev/null \
+			| awk '/^end of archive/{exit}{print $1}' \
+			| while(x=`{read}){test -f $x && echo $x}}
+	mkdir -p bootfs
+	disk/mkfs -s / -d bootfs $BOOTFSPROTO
+	@{
+		cd bootfs/$objtype/bin
+		strip * */* */*/* >[2]/dev/null || status=''
+	}
+	mkpaqfs -o $target bootfs
+	rm -rf bootfs

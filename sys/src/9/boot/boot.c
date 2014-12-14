@@ -5,7 +5,7 @@
 #include "../boot/boot.h"
 
 void
-boot(int argc, char *argv[])
+main(int argc, char *argv[])
 {
 	char cputype[64];
 	char buf[32];
@@ -36,7 +36,6 @@ boot(int argc, char *argv[])
 	USED(argc);
 
 	readfile("#e/cputype", cputype, sizeof(cputype));
-	setenv("bootdisk", bootdisk, 0);
 
 	/* setup the boot namespace */
 	bind("/boot", "/bin", MAFTER);

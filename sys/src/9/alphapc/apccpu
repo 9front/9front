@@ -49,12 +49,8 @@ ip
 port
 	int cpuserver = 1;
 
-boot cpu
-	tcp
-
 bootdir
-	bootapccpu.out boot
-	/alpha/bin/ip/ipconfig
-	/alpha/bin/auth/factotum
-
-
+	/$objtype/bin/paqfs
+	/$objtype/bin/auth/factotum
+	bootfs.paq
+	boot

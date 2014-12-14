@@ -2,8 +2,6 @@ enum {
 	Debug = 0,
 };
 
-extern char*	bootdisk;
-
 extern void	fatal(char*);
 extern int	readfile(char*, char*, int);
 extern void	run(char*, ...);

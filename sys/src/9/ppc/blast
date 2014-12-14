@@ -37,9 +37,6 @@ ip
 port
 	int cpuserver = 1;
 
-boot cpu
-	tcp
-
 bootdir
 	/power/bin/rc
 	/rc/lib/rcmain
