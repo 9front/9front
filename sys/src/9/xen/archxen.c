@@ -97,7 +97,8 @@ void	i8259on(void)	{}
 void	i8259off(void)	{}
 int	i8259vecno(int)	{ return 0; }
 int	mtrrprint(char*, long) { return 0; }
-int	mtrr(uvlong, uvlong, char *) { return 0; }
+char*	mtrr(uvlong, uvlong, char *) { return nil; }
+void	mtrrsync(void) {}
 
 /*
  * XXX until fpsave is debugged

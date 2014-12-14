@@ -78,8 +78,9 @@ ulong	mmukmap(ulong, ulong, int);
 int	mmukmapsync(ulong);
 #define	mmunewpage(x)
 ulong*	mmuwalk(ulong*, ulong, int, int);
-int	mtrr(uvlong, uvlong, char *);
+char*	mtrr(uvlong, uvlong, char *);
 int	mtrrprint(char *, long);
+void	mtrrsync(void);
 void	outb(int, int);
 void	outsb(int, void*, int);
 void	outs(int, ushort);
