@@ -420,30 +420,40 @@ readslave(Biobuf *b)
 	nout = 0;
 	switch(colorfmt){
 	case 0:	/* grey */
+		if(bpc != 1 && bpc != 2 && bpc != 4 && bpc != 8 && bpc != 16)
+			sysfatal("invalid greyscale bpc %d", bpc);
 		image->nchans = 1;
 		image->chandesc = CY;
 		nout = 1;
 		nchan = 1;
 		break;
 	case 2:	/* rgb */
+		if(bpc != 8 && bpc != 16)
+			sysfatal("invalid rgb bpc %d", bpc);
 		image->nchans = 1;
 		image->chandesc = CRGB24;
 		nout = 3;
 		nchan = 3;
 		break;
 	case 3: /* indexed rgb with PLTE */
+		if(bpc != 1 && bpc != 2 && bpc != 4 && bpc != 8)
+			sysfatal("invalid indexed rgb bpc %d", bpc);
 		image->nchans = 1;
 		image->chandesc = CRGB24;
 		nout = 3;
 		nchan = 1;
 		break;
 	case 4:	/* grey+alpha */
+		if(bpc != 8 && bpc != 16)
+			sysfatal("invalid grey+alpha bpc %d", bpc);
 		image->nchans = 1;
 		image->chandesc = CYA16;
 		nout = 2;
 		nchan = 2;
 		break;
 	case 6:	/* rgb+alpha */
+		if(bpc != 8 && bpc != 16)
+			sysfatal("invalid rgb+alpha bpc %d", bpc);
 		image->nchans = 1;
 		image->chandesc = CRGBA32;
 		nout = 4;
