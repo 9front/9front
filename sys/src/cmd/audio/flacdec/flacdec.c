@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include "FLAC/stream_decoder.h"
+
+static int ifd = -1;
+static int sts;
 
 static FLAC__StreamDecoderReadStatus
 decinput(FLAC__StreamDecoder *dec, FLAC__byte buffer[], unsigned *bytes, void *client_data)
@@ -23,7 +27,7 @@ decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], v
 {
 	static int rate, chans, bits;
 	static unsigned char *buf;
-	static int nbuf, ifd = -1;
+	static int nbuf;
 	FLAC__int32 *s, v;
 	unsigned char *p;
 	int i, j, n, b, len;
@@ -40,8 +44,10 @@ decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], v
 		bits = frame->header.bits_per_sample;
 		sprintf(fmt, "s%dr%dc%d", bits, rate, chans);
 
-		if(ifd >= 0)
+		if(ifd >= 0){
 			close(ifd);
+			wait(&sts);
+		}
 		if(pipe(pfd) < 0){
 			fprintf(stderr, "Error creating pipe\n");
 			exit(1);
@@ -123,5 +129,11 @@ int main(int argc, char *argv[])
 	FLAC__stream_decoder_init(dec);
 	FLAC__stream_decoder_process_until_end_of_stream(dec);
 	FLAC__stream_decoder_finish(dec);
+
+	if(ifd >= 0){
+		close(ifd);
+		wait(&sts);
+	}
+
 	return 0;
 }
