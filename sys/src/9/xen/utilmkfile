@@ -1,0 +1,5 @@
+</$cputype/mkfile
+</sys/src/cmd/mkone
+
+%.$cputype:	%.$O
+	$LD -o $target $prereq

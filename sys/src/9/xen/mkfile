@@ -93,17 +93,17 @@ SDEV=`{echo devsd.c sd*.c | sed 's/\.c/.'$O'/g'}
 PAE=`{echo $PAE | sed 's/yes/yes[extended-cr3]/'}
 XENELF='LOADER=generic,XEN_VER=xen-3.0,ELF_PADDR_OFFSET=0,VIRT_BASE='$KZERO',VIRT_ENTRY='$KTZERO',PAE='$PAE
 
-#$p$CONF:	$CONF.c $OBJ $LIB xenbin
+#$p$CONF:	$CONF.c $OBJ $LIB xenbin.$cputype
 #	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
 #	$LD -o $target.tmp -T$KTZERO -l $OBJ $CONF.$O $LIB
-#	./xenbin <$target.tmp >$target
+#	./xenbin.$cputype <$target.tmp >$target
 #	rm $target.tmp
 #	size $target
 
-$p$CONF:	$CONF.c $OBJ $LIB xenelf
+$p$CONF:	$CONF.c $OBJ $LIB xenelf.$cputype
 	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
 	$LD -o $target.elf -H5 -T$KTZERO -P$KPZERO -l $OBJ $CONF.$O $LIB
-	./xenelf $target.elf $target __xen_guest ''$XENELF''
+	./xenelf.$cputype $target.elf $target __xen_guest ''$XENELF''
 	size $target
 
 $p$CONF.gz: $p$CONF
@@ -176,13 +176,10 @@ dpart: dpart.$O
 xenstore: xenstore.$O
 	$LD -o xenstore xenstore.$O
 
-# XXX this is wrong if we're cross-compiling
-xenbin:	xenbin.$O
-	$LD -o xenbin xenbin.$O
-xenelf: xenelf.$O
-	$LD -o xenelf xenelf.$O
+xenbin.$cputype xenelf.$cputype:	utilmkfile
+	mk -f utilmkfile $target
 
 %.clean:V:
-	rm -f $stem.c [9bz]$stem [9bz]$stem.gz 9$stem.elf boot$stem.* reboot.h init.h xendat.h xendefs.h $PCHEADERS dpart xenbin xenelf xenstore
+	rm -f $stem.c [9bz]$stem [9bz]$stem.gz 9$stem.elf boot$stem.* reboot.h init.h xendat.h xendefs.h $PCHEADERS dpart xenbin.$cputype xenelf.$cputype xenstore
 
 
