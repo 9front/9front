@@ -16,7 +16,7 @@ enum
 typedef struct Extent Extent;
 struct Extent
 {
-	int	bid;
+	uintptr	bid;
 	ulong	start;
 	int	len;
 	Page	*cache;
@@ -40,7 +40,7 @@ typedef struct Cache Cache;
 struct Cache
 {
 	Lock;
-	int		pgno;
+	uintptr		pgno;
 	Mntcache	*head;
 	Mntcache	*tail;
 	Mntcache	*hash[NHASH];
@@ -59,7 +59,7 @@ Image fscache;
 
 static Cache cache;
 static Ecache ecache;
-static int maxcache = MAXCACHE;
+static ulong maxcache = MAXCACHE;
 
 static void
 extentfree(Extent* e)
@@ -89,15 +89,16 @@ extentalloc(void)
 			ecache.head = e;
 			e++;
 		}
-		ecache.free += NEXTENT;
 		ecache.total += NEXTENT;
+		ecache.free += NEXTENT;
 	}
 
 	e = ecache.head;
 	ecache.head = e->next;
-	memset(e, 0, sizeof(Extent));
 	ecache.free--;
 	unlock(&ecache);
+
+	memset(e, 0, sizeof(Extent));
 
 	return e;
 }
@@ -124,61 +125,61 @@ cinit(void)
 	}
 
 	cache.tail = m;
-	cache.tail->next = 0;
-	cache.head->prev = 0;
+	cache.tail->next = nil;
+	cache.head->prev = nil;
 
 	fscache.notext = 1;
 }
 
-Page*
+static Page*
 cpage(Extent *e)
 {
 	/* Easy consistency check */
 	if(e->cache->daddr != e->bid)
-		return 0;
+		return nil;
 
 	return lookpage(&fscache, e->bid);
 }
 
-void
+static void
 cnodata(Mntcache *m)
 {
 	Extent *e;
 
 	/*
 	 * Invalidate all extent data
-	 * Image lru will waste the pages
+	 * pagereclaim() will waste the pages
 	 */
-	while(e = m->list){
+	while((e = m->list) != nil){
 		m->list = e->next;
 		extentfree(e);
 	}
 }
 
-void
+static void
 ctail(Mntcache *m)
 {
 	/* Unlink and send to the tail */
-	if(m->prev)
+	if(m->prev != nil)
 		m->prev->next = m->next;
 	else
 		cache.head = m->next;
-	if(m->next)
+	if(m->next != nil)
 		m->next->prev = m->prev;
 	else
 		cache.tail = m->prev;
 
-	if(cache.tail) {
+	if(cache.tail != nil) {
 		m->prev = cache.tail;
 		cache.tail->next = m;
-		m->next = 0;
+		m->next = nil;
 		cache.tail = m;
 	}
 	else {
 		cache.head = m;
 		cache.tail = m;
-		m->prev = 0;
-		m->next = 0;
+		m->prev = nil;
+		m->next = nil;
 	}
 }
 
@@ -188,11 +189,11 @@ clookup(Chan *c, int skipvers)
 {
 	Mntcache *m;
 
-	for(m = cache.hash[c->qid.path%NHASH]; m; m = m->hash)
+	for(m = cache.hash[c->qid.path%NHASH]; m != nil; m = m->hash)
 		if(eqchantdqid(c, m->type, m->dev, m->qid, skipvers) && c->qid.type == m->qid.type)
 			return m;
 
-	return 0;
+	return nil;
 }
 
 void
@@ -202,13 +203,13 @@ copen(Chan *c)
 
 	/* directories aren't cacheable and append-only files confuse us */
 	if(c->qid.type&(QTDIR|QTAPPEND)){
-		c->mcp = 0;
+		c->mcp = nil;
 		return;
 	}
 
 	lock(&cache);
 	m = clookup(c, 1);
-	if(m == 0)
+	if(m == nil)
 		m = cache.head;
 	else if(m->qid.vers == c->qid.vers) {
 		ctail(m);
@@ -219,7 +220,7 @@ copen(Chan *c)
 	ctail(m);
 
 	l = &cache.hash[m->qid.path%NHASH];
-	for(f = *l; f; f = f->hash) {
+	for(f = *l; f != nil; f = f->hash) {
 		if(f == m) {
 			*l = m->hash;
 			break;
@@ -232,7 +233,7 @@ copen(Chan *c)
 		qlock(m);
 		lock(&cache);
 		f = clookup(c, 0);
-		if(f != 0) {
+		if(f != nil) {
 			/*
 			 * someone got there first while cache lock
 			 * was released and added a updated Mntcache
@@ -266,14 +267,14 @@ ccache(Chan *c)
 	Mntcache *m;
 
 	m = c->mcp;
-	if(m) {
+	if(m != nil) {
 		qlock(m);
 		if(eqchantdqid(c, m->type, m->dev, m->qid, 0) && c->qid.type == m->qid.type)
 			return m;
-		c->mcp = 0;
+		c->mcp = nil;
 		qunlock(m);
 	}
-	return 0;
+	return nil;
 }
 
 int
@@ -286,34 +287,33 @@ cread(Chan *c, uchar *buf, int len, vlong off)
 	int o, l, total;
 	ulong offset;
 
-	if(off+len > maxcache)
+	if(off >= maxcache || len <= 0)
 		return 0;
 
 	m = ccache(c);
-	if(m == 0)
+	if(m == nil)
 		return 0;
 
 	offset = off;
 	t = &m->list;
-	for(e = *t; e; e = e->next) {
+	for(e = *t; e != nil; e = e->next) {
 		if(offset >= e->start && offset < e->start+e->len)
 			break;
 		t = &e->next;
 	}
 
-	if(e == 0) {
+	if(e == nil) {
 		qunlock(m);
 		return 0;
 	}
 
 	total = 0;
-	while(len) {
+	while(len > 0) {
 		p = cpage(e);
-		if(p == 0) {
+		if(p == nil) {
 			*t = e->next;
 			extentfree(e);
-			qunlock(m);
-			return total;
+			break;
 		}
 
 		o = offset - e->start;
@@ -342,7 +342,7 @@ cread(Chan *c, uchar *buf, int len, vlong off)
 		total += l;
 		t = &e->next;
 		e = e->next;
-		if(e == 0 || e->start != offset)
+		if(e == nil || e->start != offset)
 			break;
 	}
 
@@ -350,7 +350,7 @@ cread(Chan *c, uchar *buf, int len, vlong off)
 	return total;
 }
 
-Extent*
+static Extent*
 cchain(uchar *buf, ulong offset, int len, Extent **tail)
 {
 	int l;
@@ -358,16 +358,16 @@ cchain(uchar *buf, ulong offset, int len, Extent **tail)
 	KMap *k;
 	Extent *e, *start, **t;
 
-	start = 0;
-	*tail = 0;
+	start = nil;
+	*tail = nil;
 	t = &start;
-	while(len) {
+	while(len > 0) {
 		e = extentalloc();
-		if(e == 0)
+		if(e == nil)
 			break;
 
 		p = auxpage();
-		if(p == 0) {
+		if(p == nil) {
 			extentfree(e);
 			break;
 		}
@@ -417,14 +417,14 @@ cchain(uchar *buf, ulong offset, int len, Extent **tail)
 	return start;
 }
 
-int
+static int
 cpgmove(Extent *e, uchar *buf, int boff, int len)
 {
 	Page *p;
 	KMap *k;
 
 	p = cpage(e);
-	if(p == 0)
+	if(p == nil)
 		return 0;
 
 	k = kmap(p);
@@ -445,25 +445,25 @@ cpgmove(Extent *e, uchar *buf, int boff, int len)
 void
 cupdate(Chan *c, uchar *buf, int len, vlong off)
 {
+	int o;
 	Mntcache *m;
 	Extent *tail;
 	Extent *e, *f, *p;
-	int o, ee, eblock;
-	ulong offset;
+	ulong offset, eblock, ee;
 
-	if(off > maxcache || len == 0)
+	if(off >= maxcache || len <= 0)
 		return;
 
 	m = ccache(c);
-	if(m == 0)
+	if(m == nil)
 		return;
 
 	/*
 	 * Find the insertion point
 	 */
 	offset = off;
-	p = 0;
-	for(f = m->list; f; f = f->next) {
+	p = nil;
+	for(f = m->list; f != nil; f = f->next) {
 		if(f->start > offset)
 			break;
 		p = f;
@@ -471,22 +471,19 @@ cupdate(Chan *c, uchar *buf, int len, vlong off)
 
 	/* trim if there is a successor */
 	eblock = offset+len;
-	if(f != 0 && eblock > f->start) {
+	if(f != nil && eblock > f->start) {
 		len -= (eblock - f->start);
-		if(len <= 0) {
-			qunlock(m);
-			return;
-		}
+		if(len <= 0)
+			goto out;
 	}
 
-	if(p == 0) {		/* at the head */
+	if(p == nil) {		/* at the head */
 		e = cchain(buf, offset, len, &tail);
-		if(e != 0) {
+		if(e != nil) {
 			m->list = e;
 			tail->next = f;
 		}
-		qunlock(m);
-		return;
+		goto out;
 	}
 
 	/* trim to the predecessor */
@@ -494,10 +491,8 @@ cupdate(Chan *c, uchar *buf, int len, vlong off)
 	if(offset < ee) {
 		o = ee - offset;
 		len -= o;
-		if(len <= 0) {
-			qunlock(m);
-			return;
-		}
+		if(len <= 0)
+			goto out;
 		buf += o;
 		offset += o;
 	}
@@ -513,20 +508,20 @@ cupdate(Chan *c, uchar *buf, int len, vlong off)
 			len -= o;
 			offset += o;
 			if(len <= 0) {
-				if(f && p->start + p->len > f->start)
+				if(f != nil && p->start + p->len > f->start)
 					print("CACHE: p->start=%uld p->len=%d f->start=%uld\n",
 						p->start, p->len, f->start);
-				qunlock(m);
-				return;
+				goto out;
 			}
 		}
 	}
 
 	e = cchain(buf, offset, len, &tail);
-	if(e != 0) {
+	if(e != nil) {
 		p->next = e;
 		tail->next = f;
 	}
+out:
 	qunlock(m);
 }
 
@@ -535,29 +530,28 @@ cwrite(Chan* c, uchar *buf, int len, vlong off)
 {
 	int o, eo;
 	Mntcache *m;
-	ulong eblock, ee;
 	Extent *p, *f, *e, *tail;
-	ulong offset;
+	ulong offset, eblock, ee;
 
-	if(off > maxcache || len == 0)
+	if(off >= maxcache || len <= 0)
 		return;
 
 	m = ccache(c);
-	if(m == 0)
+	if(m == nil)
 		return;
 
 	offset = off;
 	m->qid.vers++;
 	c->qid.vers++;
 
-	p = 0;
-	for(f = m->list; f; f = f->next) {
+	p = nil;
+	for(f = m->list; f != nil; f = f->next) {
 		if(f->start >= offset)
 			break;
 		p = f;
 	}
 
-	if(p != 0) {
+	if(p != nil) {
 		ee = p->start+p->len;
 		eo = offset - p->start;
 		/* pack in predecessor if there is space */
@@ -577,7 +571,7 @@ cwrite(Chan* c, uchar *buf, int len, vlong off)
 
 	/* free the overlap -- it's a rare case */
 	eblock = offset+len;
-	while(f && f->start < eblock) {
+	while(f != nil && f->start < eblock) {
 		e = f->next;
 		extentfree(f);
 		f = e;
@@ -585,12 +579,12 @@ cwrite(Chan* c, uchar *buf, int len, vlong off)
 
 	/* link the block (if any) into the middle */
 	e = cchain(buf, offset, len, &tail);
-	if(e != 0) {
+	if(e != nil) {
 		tail->next = f;
 		f = e;
 	}
 
-	if(p == 0)
+	if(p == nil)
 		m->list = f;
 	else
 		p->next = f;
