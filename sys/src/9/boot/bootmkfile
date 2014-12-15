@@ -15,10 +15,7 @@ boot:	$BOOTFILES
 
 BOOTFSPROTO=$BOOTDIR/bootfs.proto
 
-bootfs.paq:	$BOOTFSPROTO \
-		`{disk/mkfs -s / -ax $BOOTFSPROTO >[2]/dev/null \
-			| awk '/^end of archive/{exit}{print $1}' \
-			| while(x=`{read}){test -f $x && echo $x}}
+bootfs.paq:	$BOOTFSPROTO `{disk/mkfs -aos / $BOOTFSPROTO >[2]/dev/null}
 	mkdir -p bootfs
 	disk/mkfs -s / -d bootfs $BOOTFSPROTO
 	@{
