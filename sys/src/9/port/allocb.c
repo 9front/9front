@@ -28,7 +28,7 @@ _allocb(int size)
 
 	b->next = nil;
 	b->list = nil;
-	b->free = 0;
+	b->free = nil;
 	b->flag = 0;
 
 	/* align start of data portion by rounding up */
@@ -37,9 +37,9 @@ _allocb(int size)
 	b->base = (uchar*)addr;
 
 	/* align end of data portion by rounding down */
-	b->lim = ((uchar*)b) + msize(b);
-	addr = (uintptr)(b->lim);
-	addr = addr & ~(BLOCKALIGN-1);
+	b->lim = (uchar*)b + msize(b);
+	addr = (uintptr)b->lim;
+	addr &= ~(BLOCKALIGN-1);
 	b->lim = (uchar*)addr;
 
 	/* leave sluff at beginning for added headers */
@@ -129,7 +129,7 @@ freeb(Block *b)
 	 * drivers which perform non cache coherent DMA manage their own buffer
 	 * pool of uncached buffers and provide their own free routine.
 	 */
-	if(b->free) {
+	if(b->free != nil) {
 		b->free(b);
 		return;
 	}
