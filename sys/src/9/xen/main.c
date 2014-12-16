@@ -424,8 +424,7 @@ confinit(void)
 
 	/*
 	 * Guess how much is taken by the large permanent
-	 * datastructures. Mntcache and Mntrpc are not accounted for
-	 * (probably ~300KB).
+	 * datastructures. Mntcache and Mntrpc are not accounted for.
 	 */
 	kpages *= BY2PG;
 	kpages -= conf.upages*sizeof(Page)

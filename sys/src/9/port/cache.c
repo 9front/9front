@@ -51,11 +51,11 @@ cinit(void)
 	int i;
 	Mntcache *m;
 
-	cache.alloc = xalloc(sizeof(Mntcache)*NFILE);
-	m = cache.alloc;
+	m = xalloc(sizeof(Mntcache)*NFILE);
 	if (m == nil)
 		panic("cinit: no memory");
 
+	cache.alloc = m;
 	cache.head = m;
 
 	for(i = 0; i < NFILE-1; i++) {
