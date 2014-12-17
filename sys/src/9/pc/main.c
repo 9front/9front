@@ -29,7 +29,7 @@ Conf conf;
 char *confname[MAXCONF];
 char *confval[MAXCONF];
 int nconf;
-uchar *sp;	/* user stack of init proc */
+char *sp;	/* user stack of init proc */
 int delaylink;
 int idle_spin;
 
@@ -321,53 +321,39 @@ userinit(void)
 	ready(p);
 }
 
-uchar *
-pusharg(char *p)
-{
-	int n;
-
-	n = strlen(p)+1;
-	sp -= n;
-	memmove(sp, p, n);
-	return sp;
-}
-
 void
 bootargs(void *base)
 {
- 	int i, ac;
-	uchar *av[32];
-	uchar **lsp;
-	char *cp = BOOTLINE;
-	char buf[64];
+	char *argv[8];
+	int i, argc;
 
-	sp = (uchar*)base + BY2PG - sizeof(Tos);
+#define UA(ka)	((char*)(ka) + ((uintptr)(USTKTOP - BY2PG) - (uintptr)base))
+	sp = (char*)base + BY2PG - sizeof(Tos);
 
-	ac = 0;
-	av[ac++] = pusharg("boot");
+	/* push boot command line onto the stack */
+	sp -= BOOTLINELEN;
+	sp[BOOTLINELEN-1] = '\0';
+	memmove(sp, BOOTLINE, BOOTLINELEN-1);
 
-	/* when boot is changed to only use rc, this code can go away */
-	cp[BOOTLINELEN-1] = 0;
-	buf[0] = 0;
-	if(strncmp(cp, "fd", 2) == 0){
-		sprint(buf, "local!#f/fd%lddisk", strtol(cp+2, 0, 0));
-		av[ac++] = pusharg(buf);
-	} else if(strncmp(cp, "sd", 2) == 0){
-		sprint(buf, "local!#S/sd%c%c/fs", *(cp+2), *(cp+3));
-		av[ac++] = pusharg(buf);
-	} else if(strncmp(cp, "ether", 5) == 0)
-		av[ac++] = pusharg("-n");
+	/* parse boot command line */
+	argc = tokenize(sp, argv, nelem(argv));
+	if(argc < 1){
+		strcpy(sp, "boot");
+		argc = 0;
+		argv[argc++] = sp;
+	}
 
 	/* 4 byte word align stack */
-	sp = (uchar*)((ulong)sp & ~3);
+	sp = (char*)((uintptr)sp & ~3);
 
-	/* build argc, argv on stack */
-	sp -= (ac+1)*sizeof(sp);
-	lsp = (uchar**)sp;
-	for(i = 0; i < ac; i++)
-		lsp[i] = av[i] + ((USTKTOP - BY2PG) - (ulong)base);
-	lsp[i] = 0;
-	sp += (USTKTOP - BY2PG) - (ulong)base;
+	/* build argv on stack */
+	sp -= (argc+1)*BY2WD;
+	for(i=0; i<argc; i++)
+		((char**)sp)[i] = UA(argv[i]);
+	((char**)sp)[i] = nil;
+
+	sp = UA(sp);
+#undef UA
 	sp -= BY2WD;
 }
 
