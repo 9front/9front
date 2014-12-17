@@ -24,7 +24,6 @@ Mach *m;
 #define	BOOTARGSLEN	(4096-0x200-BOOTLINELEN)
 #define	MAXCONF		64
 
-char bootdisk[KNAMELEN];
 Conf conf;
 char *confname[MAXCONF];
 char *confval[MAXCONF];
