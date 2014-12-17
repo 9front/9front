@@ -643,8 +643,6 @@ texttype(Text *t, Rune r)
 	Rune *rp;
 	Text *u;
 
-	if(t->what!=Body && r=='\n')
-		return;
 	nr = 1;
 	rp = &r;
 	switch(r){
@@ -670,7 +668,8 @@ texttype(Text *t, Rune r)
 		n = 2*t->maxlines/3;
 	case_Down:
 		q0 = t->org+frcharofpt(t, Pt(t->r.min.x, t->r.min.y+n*t->font->height));
-		textsetorigin(t, q0, TRUE);
+		if(t->what == Body)
+			textsetorigin(t, q0, TRUE);
 		return;
 	case Kup:
 		n = t->maxlines/3;
@@ -682,7 +681,8 @@ texttype(Text *t, Rune r)
 		n = 2*t->maxlines/3;
 	case_Up:
 		q0 = textbacknl(t, t->org, n);
-		textsetorigin(t, q0, TRUE);
+		if(t->what == Body)
+			textsetorigin(t, q0, TRUE);
 		return;
 	case Khome:
 		typecommit(t);
@@ -776,7 +776,7 @@ texttype(Text *t, Rune r)
 			textfill(t->file->text[i]);
 		return;
 	case '\n':
-		if(t->w->autoindent){
+		if(t->what == Body && t->w->autoindent){
 			/* find beginning of previous line using backspace code */
 			nnb = textbswidth(t, 0x15); /* ^U case */
 			rp = runemalloc(nnb + 1);
