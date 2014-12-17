@@ -3,16 +3,17 @@
 fstype \- determine file system type
 .SH SYNOPSIS
 .B fstype
-.I File
+.I file
 .SH DESCRIPTION
+The
 .I file
 being a partition or file system image,
 .I fstype
-determines the type of a disk filesystem and prints it.
+determines the type of a disk file system and prints it.
 If the type cannot be determined, then the error status
 is set.
 .PP
-Known filesystem are:
+Known file systems are:
 .TP 12
 .B 9660
 ISO9660 CD-ROM (see
