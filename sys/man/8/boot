@@ -10,7 +10,7 @@ boot, bootrc \- connect to the root file server
 .BI -u username
 ]
 [
-.IB method ! fs-addr
+.IB method ! device
 ]
 [
 .I args
@@ -19,13 +19,13 @@ boot, bootrc \- connect to the root file server
 .I Boot
 is the first program run after a kernel has been loaded. It
 mounts
-.B bootfs.paq,
+.BR bootfs.paq ,
 a compressed filesystem contained in
 .IR root (3),
 sets up the
 .IR rc (1)
 environment and executes
-.I /boot/bootrc
+.I bootrc
 passing on its arguments.
 .I Bootrc
 connects to the file server that will serve the root, performs any 
@@ -74,20 +74,18 @@ variable with the same name and value.
 The command line is
 .IP
 .B /boot/boot
-.IB method ! server
+.IB method ! device
 .PP
 After
 .I boot
 passed its execution to
 .I bootrc,
-it must determine the file
-.I server
-to use
-and a
+it must determine the fileserver to use and a
 .I method
 with which to connect to it.
-Typically this will name a file server on the network,
-or state that the root file system is on local disk and name the partition.
+Typically
+.I device
+will name a local disk partition or ethernet interface.
 The complete list of methods is given below.
 .PP
 .I Bootrc
@@ -98,11 +96,11 @@ when challenged.
 .I Bootrc
 will prompt for these.
 .PP
-Method and address are prompted for first.
+Method and device are prompted for first.
 The prompt lists all valid methods, with the default in brackets, for example:
 .IP
 .EX
-bootargs is (tcp, local!device) [local!/dev/sdC0/fscache]
+bootargs is (tcp, il, local!device) [local!/dev/sdC0/fscache]
 .EE
 .PP
 A newline picks the default. Entering
@@ -111,9 +109,11 @@ breaks into the
 .IR rc (1)
 shell.
 Other possible responses are
-.I method
+.IR method ,
+.IB method ! device
 or
-.IB method ! address\f1.
+.IB method ! device
+.IR args .
 .PP
 The other interactions depend on whether the system
 is a
@@ -226,6 +226,8 @@ The complete list of booting methods are listed below.
 .BR tcp
 connect via Ethernet using the TCP protocol.
 The
+.I device
+and
 .I args
 are passed to
 .IR ipconfig (8)
@@ -236,30 +238,27 @@ variables
 .B fs
 and
 .BR auth
-override the file server and authentication server IP addresses
+override the file server and authentication servers
 obtained (if any) from DHCP during
 .IR ipconfig (8).
 .TP 8
-.B local
-connect to the local file system.
-The first argument is a disk holding a file system.
-.I Boot
-inspects the disk.
-.I Boot
-will configure the IP stack by passing
-.IR args ,
-if any, to
-.IR ipconfig (8).
-.RE
-.PP
-For the
+.BR il
+the same as
 .B tcp
-method,
-the address must be a numeric IP address.
-If no address is specified,
-a file server address will be found from another
-system on the network using the BOOTP protocol and
-the Plan 9 vendor-specific fields.
+but uses the IL protocol to connect to the fileserver.
+.TP 8
+.BR local
+connect to the local file system.
+The 
+.I device
+is a disk partition file holding a file system.
+.I Bootrc
+inspects the disk partition with
+.IR fstype (1)
+to determine the file system type and starts the
+appropriate server with
+.IR args .
+.RE
 .SH EXAMPLES
 On PCs, the default arguments to boot are constructed using
 the 
