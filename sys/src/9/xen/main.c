@@ -21,7 +21,6 @@ enum {
 	Ustkheadroom	= sizeof(Sargs) + sizeof(uintptr) + sizeof(Tos),
 };
 
-char bootdisk[KNAMELEN];
 Conf conf;
 char *confname[MAXCONF];
 char *confval[MAXCONF];
@@ -431,7 +430,7 @@ confinit(void)
 		+ conf.nproc*sizeof(Proc)
 		+ conf.nimage*sizeof(Image)
 		+ conf.nswap
-		+ conf.nswppo*sizeof(Page);
+		+ conf.nswppo*sizeof(Page*);
 	mainmem->maxsize = kpages;
 	if(!cpuserver){
 		/*
