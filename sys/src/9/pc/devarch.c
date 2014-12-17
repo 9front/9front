@@ -91,6 +91,7 @@ addarchfile(char *name, int perm, Rdwrfn *rdfn, Rdwrfn *wrfn)
 	lock(&archwlock);
 	if(narchdir >= Qmax){
 		unlock(&archwlock);
+		print("addarchfile: out of entries for %s\n", name);
 		return nil;
 	}
 
@@ -218,8 +219,7 @@ ioalloc(int port, int size, int align, char *tag)
 	if(port < 0){
 		/* find a free port above 0x400 and below 0x1000 */
 		port = 0x400;
-		for(l = &iomap.m; *l; l = &(*l)->next){
-			m = *l;
+		for(l = &iomap.m; (m = *l) != nil; l = &m->next){
 			if (m->start < 0x400) continue;
 			i = m->start - port;
 			if(i > size)
@@ -229,7 +229,7 @@ ioalloc(int port, int size, int align, char *tag)
 			else
 				port = m->end;
 		}
-		if(*l == nil){
+		if(m == nil){
 			unlock(&iomap);
 			return -1;
 		}
@@ -240,8 +240,7 @@ ioalloc(int port, int size, int align, char *tag)
 			return -1;
 		}
 		/* see if the space clashes with previously allocated ports */
-		for(l = &iomap.m; *l; l = &(*l)->next){
-			m = *l;
+		for(l = &iomap.m; (m = *l) != nil; l = &m->next){
 			if(m->end <= port)
 				continue;
 			if(m->reserved && m->start == port && m->end >= port + size) {
@@ -281,15 +280,14 @@ iofree(int port)
 	IOMap *m, **l;
 
 	lock(&iomap);
-	for(l = &iomap.m; *l; l = &(*l)->next){
-		if((*l)->start == port){
-			m = *l;
+	for(l = &iomap.m; (m = *l) != nil; l = &m->next){
+		if(m->start == port){
 			*l = m->next;
 			m->next = iomap.free;
 			iomap.free = m;
 			break;
 		}
-		if((*l)->start > port)
+		if(m->start > port)
 			break;
 	}
 	archdir[0].qid.vers++;
@@ -301,7 +299,7 @@ iounused(int start, int end)
 {
 	IOMap *m;
 
-	for(m = iomap.m; m; m = m->next){
+	for(m = iomap.m; m != nil; m = m->next){
 		if(start >= m->start && start < m->end
 		|| start <= m->start && end > m->start)
 			return 0;
@@ -369,7 +367,6 @@ archread(Chan *c, void *a, long n, vlong offset)
 	Rdwrfn *fn;
 
 	switch((ulong)c->qid.path){
-
 	case Qdir:
 		return devdirread(c, a, n, archdir, narchdir, devgen);
 
@@ -451,7 +448,6 @@ archwrite(Chan *c, void *a, long n, vlong offset)
 	Rdwrfn *fn;
 
 	switch((ulong)c->qid.path){
-
 	case Qiob:
 		p = a;
 		checkport(offset, offset+n);
@@ -487,7 +483,7 @@ archwrite(Chan *c, void *a, long n, vlong offset)
 		return n;
 
 	default:
-		if(c->qid.path < narchdir && (fn = writefn[c->qid.path]))
+		if(c->qid.path < narchdir && (fn = writefn[c->qid.path]) != nil)
 			return fn(c, a, n, offset);
 		error(Eperm);
 		break;
@@ -731,16 +727,9 @@ simplecycles(uvlong*x)
 void
 cpuidprint(void)
 {
-	int i;
-	char buf[128];
-
-	i = sprint(buf, "cpu%d: %dMHz ", m->machno, m->cpumhz);
-	if(m->cpuidid[0])
-		i += sprint(buf+i, "%12.12s ", m->cpuidid);
-	seprint(buf+i, buf + sizeof buf - 1,
-		"%s (cpuid: AX 0x%4.4uX CX 0x%4.4uX DX 0x%4.4uX)\n",
-		m->cpuidtype, m->cpuidax, m->cpuidcx, m->cpuiddx);
-	print(buf);
+	print("cpu%d: %dMHz %s %s (AX %8.8uX CX %8.8uX DX %8.8uX)\n",
+		m->machno, m->cpumhz, m->cpuidid, m->cpuidtype,
+		m->cpuidax, m->cpuidcx, m->cpuiddx);
 }
 
 /*
@@ -964,7 +953,7 @@ static Cmdtab archctlmsg[] =
 	CMpge,		"pge",		2,
 	CMcoherence,	"coherence",	2,
 	CMi8253set,	"i8253set",	2,
-	CMcache,		"cache",		4,
+	CMcache,	"cache",	4,
 };
 
 static long
@@ -1047,7 +1036,7 @@ rmemrw(int isr, void *a, long n, vlong off)
 	if(isr){
 		if(addr >= MB)
 			return 0;
-		if(addr+n >= MB)
+		if(addr+n > MB)
 			n = MB - addr;
 		memmove(a, KADDR(addr), n);
 	}else{
@@ -1077,27 +1066,25 @@ archinit(void)
 {
 	PCArch **p;
 
-	arch = 0;
-	for(p = knownarch; *p; p++){
-		if((*p)->ident && (*p)->ident() == 0){
+	arch = &archgeneric;
+	for(p = knownarch; *p != nil; p++){
+		if((*p)->ident != nil && (*p)->ident() == 0){
 			arch = *p;
 			break;
 		}
 	}
-	if(arch == 0)
-		arch = &archgeneric;
-	else{
-		if(arch->id == 0)
+	if(arch != &archgeneric){
+		if(arch->id == nil)
 			arch->id = archgeneric.id;
-		if(arch->reset == 0)
+		if(arch->reset == nil)
 			arch->reset = archgeneric.reset;
-		if(arch->serialpower == 0)
+		if(arch->serialpower == nil)
 			arch->serialpower = archgeneric.serialpower;
-		if(arch->modempower == 0)
+		if(arch->modempower == nil)
 			arch->modempower = archgeneric.modempower;
-		if(arch->intrinit == 0)
+		if(arch->intrinit == nil)
 			arch->intrinit = archgeneric.intrinit;
-		if(arch->intrenable == 0)
+		if(arch->intrenable == nil)
 			arch->intrenable = archgeneric.intrenable;
 	}
 
