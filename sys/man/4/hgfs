@@ -124,3 +124,6 @@ Same as
 but contains only the changed files of the changeset.
 .SH SEE ALSO
 .IR hg (1)
+.SH HISTORY
+.I Hgfs
+first appeared in 9front (June, 2011).
