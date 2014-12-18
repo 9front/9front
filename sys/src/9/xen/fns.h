@@ -4,8 +4,6 @@ Dirtab*	addarchfile(char*, int, long(*)(Chan*,void*,long,vlong), long(*)(Chan*,v
 void	archinit(void);
 void	bootargs(ulong);
 ulong	cankaddr(ulong);
-int		cistrcmp(char*, char*);
-int		cistrncmp(char*, char*, int);
 #define	clearmmucache()				/* x86 doesn't have one */
 void	clockintr(Ureg*, void*);
 int		(*cmpswap)(long*, long, long);
@@ -63,10 +61,7 @@ void	ioinit(void);
 int	isaconfig(char*, int, ISAConf*);
 void	kbdenable(void);
 #define	kmapinval()
-void	lgdt(ushort[3]);					// XXX remove and in l.s
-void	lidt(ushort[3]);					// XXX remove and in l.s
 void	links(void);
-void	ltr(ulong);						// XXX remove?
 void	mach0init(void);
 void	mathinit(void);
 void	mb386(void);

@@ -118,9 +118,6 @@ mach0init(void)
 	conf.nmach = 1;
 	MACHP(0) = (Mach*)CPU0MACH;
 	m->pdb = (ulong*)xenstart->pt_base;
-#ifdef NOT
-	m->gdt = (Segdesc*)CPU0GDT;
-#endif
 
 	machinit();
 
@@ -133,15 +130,12 @@ machinit(void)
 {
 	int machno;
 	ulong *pdb;
-	Segdesc *gdt;
 
 	machno = m->machno;
 	pdb = m->pdb;
-	gdt = m->gdt;
 	memset(m, 0, sizeof(Mach));
 	m->machno = machno;
 	m->pdb = pdb;
-	m->gdt = gdt;
 	m->perf.period = 1;
 
 	/*
@@ -585,16 +579,6 @@ procfork(Proc *p)
 	p->kentry = up->kentry;
 	p->pcycles = -p->kentry;
 
-	/* inherit user descriptors */
-	memmove(p->gdt, up->gdt, sizeof(p->gdt));
-
-	/* copy local descriptor table */
-	if(up->ldt != nil && up->nldt > 0){
-		p->ldt = smalloc(sizeof(Segdesc) * up->nldt);
-		memmove(p->ldt, up->ldt, sizeof(Segdesc) * up->nldt);
-		p->nldt = up->nldt;
-	}
-
 	/* save floating point state */
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
@@ -750,51 +734,3 @@ exit(int ispanic)
 	shutdown(ispanic);
 	arch->reset();
 }
-
-int
-cistrcmp(char *a, char *b)
-{
-	int ac, bc;
-
-	for(;;){
-		ac = *a++;
-		bc = *b++;
-	
-		if(ac >= 'A' && ac <= 'Z')
-			ac = 'a' + (ac - 'A');
-		if(bc >= 'A' && bc <= 'Z')
-			bc = 'a' + (bc - 'A');
-		ac -= bc;
-		if(ac)
-			return ac;
-		if(bc == 0)
-			break;
-	}
-	return 0;
-}
-
-int
-cistrncmp(char *a, char *b, int n)
-{
-	unsigned ac, bc;
-
-	while(n > 0){
-		ac = *a++;
-		bc = *b++;
-		n--;
-
-		if(ac >= 'A' && ac <= 'Z')
-			ac = 'a' + (ac - 'A');
-		if(bc >= 'A' && bc <= 'Z')
-			bc = 'a' + (bc - 'A');
-
-		ac -= bc;
-		if(ac)
-			return ac;
-		if(bc == 0)
-			break;
-	}
-
-	return 0;
-}
-
