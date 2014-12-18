@@ -242,7 +242,7 @@ xhole(uintptr addr, uintptr size)
 
 	if(xlists.flist == nil) {
 		iunlock(&xlists);
-		print("xfree: no free holes, leaked %p bytes\n", size);
+		print("xfree: no free holes, leaked %llud bytes\n", (uvlong)size);
 		return;
 	}
 
@@ -270,8 +270,8 @@ xsummary(void)
 
 	s = 0;
 	for(h = xlists.table; h; h = h->link) {
-		print("%#p %#p %p\n", h->addr, h->top, h->size);
+		print("%#8.8p %#8.8p %llud\n", h->addr, h->top, (uvlong)h->size);
 		s += h->size;
 	}
-	print("%lld bytes free\n", (vlong)s);
+	print("%llud bytes free\n", (uvlong)s);
 }
