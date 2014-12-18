@@ -389,7 +389,6 @@ extern void checkmmu(uintptr, uintptr);
 void
 checkpages(void)
 {
-	int checked;
 	uintptr addr, off;
 	Pte *p;
 	Page *pg;
@@ -398,7 +397,6 @@ checkpages(void)
 	if(up == nil)
 		return;
 
-	checked = 0;
 	for(sp=up->seg, ep=&up->seg[NSEG]; sp<ep; sp++){
 		if((s = *sp) == nil)
 			continue;
@@ -411,9 +409,7 @@ checkpages(void)
 			if(pagedout(pg))
 				continue;
 			checkmmu(addr, pg->pa);
-			checked++;
 		}
 		qunlock(s);
 	}
-	print("%ld %s: checked %d page table entries\n", up->pid, up->text, checked);
 }
