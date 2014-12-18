@@ -121,7 +121,6 @@ options(void)
 	}
 }
 
-extern void mmuinit0(void);
 extern void (*i8237alloc)(void);
 extern void bootscreeninit(void);
 
@@ -138,8 +137,6 @@ main(void)
 	print("\nPlan 9\n");
 
 	trapinit0();
-	mmuinit0();
-
 	kbdinit();
 	i8253init();
 	cpuidentify();
