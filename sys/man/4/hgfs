@@ -122,6 +122,8 @@ and \fB.\fI0\fR yields the same file as when omitting the appendix.
 Same as
 .B files,
 but contains only the changed files of the changeset.
+.SH SOURCE
+.B /sys/src/cmd/hgfs
 .SH SEE ALSO
 .IR hg (1)
 .SH HISTORY
