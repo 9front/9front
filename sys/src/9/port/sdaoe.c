@@ -249,19 +249,6 @@ static char 	*probef[32];
 static char	*probebuf;
 static int 	nprobe;
 
-static int
-pnpprobeid(char *s)
-{
-	int id;
-
-	if(strlen(s) < 2)
-		return 0;
-	id = 'e';
-	if(s[1] == '!')
-		id = s[0];
-	return id;
-}
-
 static SDev*
 aoepnp(void)
 {
@@ -275,9 +262,26 @@ aoepnp(void)
 	nprobe = tokenize(probebuf, probef, nelem(probef));
 	h = t = 0;
 	for(i = 0; i < nprobe; i++){
-		id = pnpprobeid(probef[i]);
-		if(id == 0)
+		p = probef[i];
+		if(strlen(p) < 2)
 			continue;
+		id = 'e';
+		if(p[1] == '!'){
+			id = p[0];
+			p += 2;
+		}
+		/*
+		 * shorthand for: id!lun -> id!#æ/aoe/lun
+		 * because we cannot type æ in the bootloader console.
+		 */
+		if(strchr(p, '/') == nil){
+			char tmp[64];
+
+			snprint(tmp, sizeof(tmp), "%c!#æ/aoe/%s", (char)id, p);
+
+			probef[i] = nil;
+			kstrdup(&probef[i], tmp);
+		}
 		s = malloc(sizeof *s);
 		if(s == nil)
 			break;
