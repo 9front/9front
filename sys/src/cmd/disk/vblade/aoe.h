@@ -40,8 +40,6 @@ enum{
 	AAFext		= 1<<6,
 };
 
-#pragma pack on
-
 typedef struct{
 	uchar	dst[Eaddrlen];
 	uchar	src[Eaddrlen];
@@ -55,7 +53,6 @@ typedef struct{
 }Aoehdr;
 
 typedef struct{
-	Aoehdr;
 	uchar	aflag;
 	uchar	errfeat;
 	uchar	scnt;
@@ -65,7 +62,6 @@ typedef struct{
 }Aoeata;
 
 typedef struct{
-	Aoehdr;
 	uchar	bufcnt[2];
 	uchar	fwver[2];
 	uchar	scnt;

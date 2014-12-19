@@ -83,7 +83,7 @@ getmtu(char *p)
 		return 2;
 	close(fd);
 	buf[36] = 0;
-	mtu = strtoul(buf+12, 0, 0)-sizeof(Aoehdr);
+	mtu = strtoul(buf+12, 0, 0)-Aoehsz;
 	return mtu>>9;
 }
 
@@ -238,18 +238,20 @@ replyhdr(Aoehdr *h, Vblade *vblade)
 }
 
 static int
-serveconfig(Aoeqc *q, Vblade *vb, int mtu)
+serveconfig(Aoehdr *h, Vblade *vb, int mtu)
 {
 	int cmd, reqlen, len;
 	char *cfg;
+	Aoeqc *q;
 
-	if(memcmp(q->src, q->dst, Eaddrlen) == 0)
+	if(memcmp(h->src, h->dst, Eaddrlen) == 0)
 		return -1;
 
+	q = (Aoeqc*)((char*)h + Aoehsz);
 	reqlen = nhgets(q->cslen);
 	len = vb->clen;
 	cmd = q->verccmd&0xf;
-	cfg = (char*)(q+1);
+	cfg = (char*)q + Aoecfgsz;
 
 	switch(cmd){
 	case AQCtest:
@@ -264,14 +266,14 @@ serveconfig(Aoeqc *q, Vblade *vb, int mtu)
 		break;
 	case AQCset:
 		if(len && len != reqlen || memcmp(vb->hdr.config, cfg, reqlen) != 0){
-			q->verflag |= AFerr;
-			q->error = AEcfg;
+			h->verflag |= AFerr;
+			h->error = AEcfg;
 			break;
 		}
 	case AQCfset:
 		if(reqlen > Conflen){
-			q->verflag |= AFerr;
-			q->error = AEarg;
+			h->verflag |= AFerr;
+			h->error = AEarg;
 			break;
 		}
 		memset(vb->hdr.config, 0, sizeof vb->hdr.config);
@@ -280,8 +282,8 @@ serveconfig(Aoeqc *q, Vblade *vb, int mtu)
 		savevblade(vb->fd, vb);
 		break;
 	default:
-		q->verflag |= AFerr;
-		q->error = AEarg;
+		h->verflag |= AFerr;
+		h->error = AEarg;
 	}
 
 	memmove(cfg, vb->hdr.config, len);
@@ -291,7 +293,7 @@ serveconfig(Aoeqc *q, Vblade *vb, int mtu)
 	hnputs(q->fwver, 2323);
 	q->verccmd = Aoever<<4 | cmd;
 
-	return len+sizeof *q;
+	return Aoehsz+Aoecfgsz + len;
 }
 
 static ushort ident[256] = {
@@ -368,29 +370,32 @@ putlba(uchar *p, vlong lba)
 }
 
 static int
-serveata(Aoeata *a, Vblade *vb, int mtu)
+serveata(Aoehdr *h, Vblade *vb, int mtu)
 {
+	Aoeata *a;
 	char *buf;
 	int rbytes, bytes, len;
 	vlong lba, off;
 
-	buf = (char*)(a+1);
+	a = (Aoeata*)((char*)h + Aoehsz);
+	buf = (char*)a + Aoeatasz;
 	lba = getlba(a->lba);
 	len = a->scnt<<9;
 	off = lba+vb->hdrsz<<9;
 
+	rbytes  = 0;
 	if(a->scnt > mtu || a->scnt == 0){
-		a->verflag |= AFerr;
+		h->verflag |= AFerr;
 		a->cmdstat = ASdrdy|ASerr;
-		a->error = AEarg;
-		return 0;
+		h->error = AEarg;
+		goto out;
 	}
 	
 	if(a->cmdstat != Cid)
 	if(lba+a->scnt > vb->maxlba){
 		a->errfeat = Eidnf;
 		a->cmdstat = ASdrdy|ASerr;
-		return 0;
+		goto out;
 	}
 
 	if(a->cmdstat&0xf0 == 0x20)
@@ -399,7 +404,7 @@ serveata(Aoeata *a, Vblade *vb, int mtu)
 	default:
 		a->errfeat = Eabrt;
 		a->cmdstat = ASdrdy|ASerr;
-		return 0;
+		goto out;
 	case Cid:
 		memmove(buf, ident, sizeof ident);
 		idmoveto(buf, 27, 40, "Plan 9 Vblade");
@@ -408,8 +413,8 @@ serveata(Aoeata *a, Vblade *vb, int mtu)
 		lbamoveto(buf, 60, 4, vb->maxlba);
 		lbamoveto(buf, 100, 8, vb->maxlba);
 		a->cmdstat = ASdrdy;
-		return 512;
-		break;
+		rbytes = 512;
+		goto out;
 	case Crd:
 	case Crdext:
 		bytes = pread(vb->fd, buf, len, off);
@@ -418,22 +423,22 @@ serveata(Aoeata *a, Vblade *vb, int mtu)
 	case Cwr:
 	case Cwrext:
 		bytes = pwrite(vb->fd, buf, len, off);
-		rbytes  = 0;
 		break;
 	}
 	if(bytes != len){
 		a->errfeat = Eabrt;
 		a->cmdstat = ASdf|ASerr;
 		putlba(a->lba, lba+(len-bytes)>>9);
-		return 0;
+		rbytes = 0;
+		goto out;
 	}
 
 	putlba(a->lba, lba+a->scnt);
 	a->scnt = 0;
 	a->errfeat = 0;
 	a->cmdstat = ASdrdy;
-
-	return rbytes;
+out:
+	return Aoehsz+Aoeatasz + rbytes;
 }
 
 static int
@@ -451,8 +456,8 @@ myea(uchar ea[6], char *p)
 	return parseether(ea, buf);
 }
 
-static int
-bcastpkt(Aoeqc *h, uint shelf, uint slot, int i)
+static void
+bcastpkt(Aoehdr *h, uint shelf, uint slot, int i)
 {
 	myea(h->dst, ethertab[i]);
 	memset(h->src, 0xff, Eaddrlen);
@@ -460,8 +465,7 @@ bcastpkt(Aoeqc *h, uint shelf, uint slot, int i)
 	hnputs(h->major, shelf);
 	h->minor = slot;
 	h->cmd = ACconfig;
-	*(u32int*)h->tag = 0;
-	return Aoehsz + Aoecfgsz;
+	h->tag[0] = h->tag[1] = h->tag[2] = h->tag[3] = 0;
 }
 
 int
@@ -473,11 +477,10 @@ bladereply(Vblade *v, int i, int fd, char *pkt)
 	h = (Aoehdr*)pkt;
 	switch(h->cmd){
 	case ACata:
-		n = serveata((Aoeata*)h, v, mtutab[i]);
-		n += sizeof(Aoeata);
+		n = serveata(h, v, mtutab[i]);
 		break;
 	case ACconfig:
-		n = serveconfig((Aoeqc*)h, v, mtutab[i]);
+		n = serveconfig(h, v, mtutab[i]);
 		break;
 	default:
 		n = -1;
@@ -513,7 +516,7 @@ fmtinstall('E', eipfmt);
 
 	n = 60;
 	h = (Aoehdr*)pkt;
-	bcastpkt((Aoeqc*)pkt, 0xffff, 0xff, i);
+	bcastpkt(h, 0xffff, 0xff, i);
 	goto start;
 
 	for(;;){
