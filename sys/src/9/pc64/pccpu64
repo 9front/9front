@@ -28,7 +28,7 @@ dev
 
 	sd
 #	floppy		dma
-#	aoe
+	aoe
 #	lpt
 
 	audio		dma
@@ -87,15 +87,15 @@ misc
 	archmp		mp apic squidboy
 	mtrr
 
-#	sdaoe
+	sdaoe
 	sdide		pci sdscsi
 #	sd53c8xx	pci sdscsi
 #	sdmylex		pci sdscsi
 	sdiahci		pci sdscsi led
 #	sdodin		pci sdscsi led
 	sdvirtio	pci sdscsi
-#	sdmmc		pci pmmc
-#	sdloop
+	sdmmc		pci pmmc
+	sdloop
 
 	uarti8250
 #	uartisa
