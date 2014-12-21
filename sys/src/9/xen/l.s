@@ -54,25 +54,6 @@ _idle:
  * CR4 and the 'model specific registers' should only be read/written
  * after it has been determined the processor supports them
  */
-TEXT lgdt(SB), $0				/* GDTR - global descriptor table */
-	MOVL	gdtptr+0(FP), AX
-	MOVL	(AX), GDTR
-	RET
-
-TEXT lidt(SB), $0				/* IDTR - interrupt descriptor table */
-	MOVL	idtptr+0(FP), AX
-	MOVL	(AX), IDTR
-	RET
-
-TEXT ltr(SB), $0				/* TR - task register */
-	MOVL	tptr+0(FP), AX
-	MOVW	AX, TASK
-	RET
-
-TEXT rtsr(SB), $0
-	MOVW	TASK, AX
-	RET
-
 TEXT _cycles(SB), $0				/* time stamp counter; cycles since power up */
 	RDTSC
 	MOVL	vlong+0(FP), CX			/* &vlong */
@@ -88,13 +69,9 @@ TEXT rdmsr(SB), $0				/* model-specific register */
 	MOVL	DX, 4(CX)			/* hi */
 	RET
 	
+/* Xen doesn't let us do this */
 TEXT wrmsr(SB), $0
-	MOVL	index+0(FP), CX
-	MOVL	lo+4(FP), AX
-	MOVL	hi+8(FP), DX
-/* Xen doesn't let us do this
-	WRMSR
- */
+	MOVL	$-1, AX
 	RET
 
 /*

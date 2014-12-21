@@ -63,67 +63,14 @@
 
 /*
  *  known x86 segments (in GDT) and their selectors
+ *  using the selectors that xen gives us.
  */
-#define	NULLSEG	0	/* null segment */
-#define	KDSEG	1	/* kernel data/stack */
-#define	KESEG	2	/* kernel executable */	
-#define	UDSEG	3	/* user data/stack */
-#define	UESEG	4	/* user executable */
-#define	TSSSEG	5	/* task segment */
-#define	APMCSEG		6	/* APM code segment */
-#define	APMCSEG16	7	/* APM 16-bit code segment */
-#define	APMDSEG		8	/* APM data segment */
-#define	PROCSEG0	11	/* per process descriptor0 */
-#define	NPROCSEG	3	/* number of per process descriptors */
-#define	NGDT		13	/* number of GDT entries required */
-/* #define	APM40SEG	8	/* APM segment 0x40 */
-
-#define	SELGDT	(0<<2)	/* selector is in gdt */
-#define	SELLDT	(1<<2)	/* selector is in ldt */
-
-#define	SELECTOR(i, t, p)	(((i)<<3) | (t) | (p))
-
-#define	NULLSEL	SELECTOR(NULLSEG, SELGDT, 0)
-/* these are replaced by XEN entries */
-#ifdef NOPE  // XXX investigate more
-#define	KDSEL	SELECTOR(KDSEG, SELGDT, 0)
-#define	KESEL	SELECTOR(KESEG, SELGDT, 0)
-#define	UESEL	SELECTOR(UESEG, SELGDT, 3)
-#define	UDSEL	SELECTOR(UDSEG, SELGDT, 3)
-/* comment out to make sure unused ... */
-
-#define	TSSSEL	SELECTOR(TSSSEG, SELGDT, 0)
-#define	APMCSEL 	SELECTOR(APMCSEG, SELGDT, 0)
-#define	APMCSEL16	SELECTOR(APMCSEG16, SELGDT, 0)
-#define	APMDSEL		SELECTOR(APMDSEG, SELGDT, 0)
-/* #define	APM40SEL	SELECTOR(APM40SEG, SELGDT, 0) */
-#else
-/* use the selectors that xen gives us */
 #define KESEL FLAT_KERNEL_CS
 #define KDSEL FLAT_KERNEL_DS
 #define UESEL FLAT_USER_CS
 #define UDSEL FLAT_USER_DS
-#endif
 
-/*
- *  fields in segment descriptors
- */
-#define	SEGDATA	(0x10<<8)	/* data/stack segment */
-#define	SEGEXEC	(0x18<<8)	/* executable segment */
-#define	SEGTSS	(0x9<<8)	/* TSS segment */
-#define	SEGCG	(0x0C<<8)	/* call gate */
-#define	SEGIG	(0x0E<<8)	/* interrupt gate */
-#define	SEGTG	(0x0F<<8)	/* trap gate */
-#define	SEGTYPE	(0x1F<<8)
-
-#define	SEGP	(1<<15)		/* segment present */
-#define	SEGPL(x) ((x)<<13)	/* priority level */
-#define	SEGB	(1<<22)		/* granularity 1==4k (for expand-down) */
-#define	SEGG	(1<<23)		/* granularity 1==4k (for other) */
-#define	SEGE	(1<<10)		/* expand down */
-#define	SEGW	(1<<9)		/* writable (for data/stack) */
-#define	SEGR	(1<<9)		/* readable (for code) */
-#define	SEGD	(1<<22)		/* default 1==32bit (for code) */
+#define	NPROCSEG	1	/* number of per process descriptors */
 
 /*
  *  virtual MMU

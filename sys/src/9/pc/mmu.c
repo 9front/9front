@@ -67,12 +67,6 @@ static void memglobal(void);
 #define	vpd (vpt+VPTX(VPT))
 
 void
-mmuinit0(void)
-{
-	memmove(m->gdt, gdt, sizeof gdt);
-}
-
-void
 mmuinit(void)
 {
 	ulong x, *p;

@@ -625,12 +625,42 @@ Foundapic:
 	mpinit();
 }
 
+static void
+acpireset(void)
+{
+	uchar *p;
+	Tbl *t;
+	int i;
+
+	/* stop application processors */
+	mpshutdown();
+
+	/* locate and write platform reset register */
+	for(i=0; i < ntblmap; i++){
+		t = tblmap[i];
+		if(memcmp(t->sig, "FACP", 4) != 0)
+			continue;
+		if(get32(t->len) <= 128)
+			break;
+		p = (uchar*)t;
+		if((get32(p + 112) & (1<<10)) == 0)
+			break;
+		if(p[116+0] != IoSpace)
+			break;
+		outb(get32(p+116+4), p[128]);
+		break;
+	}
+
+	/* acpi shutdown failed, try generic reset */
+	archreset();
+}
+
 static int identify(void);
 
 PCArch archacpi = {
 .id=		"ACPI",	
 .ident=		identify,
-.reset=		mpshutdown,
+.reset=		acpireset,
 .intrinit=	acpiinit,
 .intrenable=	mpintrenable,
 .intron=	lapicintron,
@@ -886,30 +916,4 @@ void
 amldelay(int us)
 {
 	microdelay(us);
-}
-
-/*
- * reset machine by writing acpi reset register.
- */
-void
-acpireset(void)
-{
-	uchar *p;
-	Tbl *t;
-	int i;
-
-	for(i=0; i < ntblmap; i++){
-		t = tblmap[i];
-		if(memcmp(t->sig, "FACP", 4) != 0)
-			continue;
-		if(get32(t->len) <= 128)
-			break;
-		p = (uchar*)t;
-		if((get32(p + 112) & (1<<10)) == 0)
-			break;
-		if(p[116+0] != IoSpace)
-			break;
-		outb(get32(p+116+4), p[128]);
-		break;
-	}
 }

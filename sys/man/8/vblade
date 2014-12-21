@@ -1,0 +1,85 @@
+.TH VBLADE 8
+.SH NAME
+vblade \- virtual AoE target
+.SH SYNOPSIS
+.B disk/vblade
+[
+.B -ir
+] [
+.B -s
+.I size
+] [
+.B -a
+.I shelf.slot
+] [
+.B -c
+.I config
+]
+.B file
+[
+.B -e
+ether
+]
+.SH DESCRIPTION
+For each
+.I file
+specified,
+.I vblade
+serves it as an AoE (ATA-over-Ethernet) target via
+the specified interfaces.  The default interface is
+.BR /net/ether0 .
+Since AoE uses raw Ethernet frames, the target is
+only visible on the local ethernet segment.
+.PP
+All target-related options are reset for each
+.IR file .
+.SS Options
+.TP \w'\fL-e\ \fIetherXX'u
+.B -i
+Initialize the configuration header in 
+.IR file .
+All previous configuration information is lost.  Without this option,
+configuration is read from
+.I file
+and command like options override previous settings.
+.TP
+.B -r
+Raw.  Do not use a configuration header.  This is useful when
+exporting a device or file not generally exported by
+.IR vblade .
+.TP
+.BI -s " n"
+The exported target will have size
+.IR n ,
+rather than the available space in the target.  A size may end in
+.LR p ,
+.LR t ,
+.LR g ,
+.LR m ,
+or
+.LR k
+to specify a customary
+.I binary
+multiplier.
+.TP
+.BI -a " m.n"
+Specify the shelf and slot (or major and minor) address of the target.
+Valid shelf numbers are between 0 and 65534.  Valid slots are 0-255.
+.TP
+.BI -c " s"
+Set the AoE config string to
+.IR s .
+.TP
+.BI -e " ether"
+Listen to the network port
+.IR ether.
+Multiple ports may be specified.
+.SH SEE ALSO
+.IR aoe (3),
+.IR sdaoe (3),
+.IR http://www.coraid.com/documents/AoEr11.txt .
+.SH SOURCE
+.B /sys/src/cmd/disk/vblade
+.SH BUGS
+Security depends on control of the local Ethernet segment.  It may be
+unwise to serve AoE on a segment bridged to a wireless network.

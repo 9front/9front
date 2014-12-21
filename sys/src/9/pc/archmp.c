@@ -354,12 +354,22 @@ pcmpinit(void)
 	mpinit();
 }
 
+static void
+mpreset(void)
+{
+	/* stop application processors */
+	mpshutdown();
+
+	/* do generic reset */
+	archreset();
+}
+
 static int identify(void);
 
 PCArch archmp = {
 .id=		"_MP_",	
 .ident=		identify,
-.reset=		mpshutdown,
+.reset=		mpreset,
 .intrinit=	pcmpinit,
 .intrenable=	mpintrenable,
 .intron=	lapicintron,

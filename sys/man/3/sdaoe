@@ -68,7 +68,7 @@ over Ethernet interfaces 0 and 1,
 .IP
 .EX
 aoeif=ether0 ether1
-aoedev=e!#æ/aoe/42.0
+aoedev=e!42.0
 .EE
 .SH SOURCE
 .B /sys/src/9/port/sdaoe.c

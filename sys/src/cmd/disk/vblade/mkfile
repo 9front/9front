@@ -1,0 +1,12 @@
+</$objtype/mkfile
+
+TARG=vblade
+
+OFILES=\
+	vblade.$O\
+
+HFILES=aoe.h
+
+BIN=/$objtype/bin/disk
+
+</sys/src/cmd/mkone

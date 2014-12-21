@@ -14,9 +14,6 @@
 #include "../port/netif.h"
 
 extern	char	Echange[];
-extern	char	Enotup[];
-
-#define uprint(...)	snprint(up->genbuf, sizeof up->genbuf, __VA_ARGS__);
 
 enum {
 	Maxpath		= 256,
@@ -302,7 +299,7 @@ loopbio(SDunit *u, int, int write, void *a, long count, uvlong lba)
 
 	if(waserror()){
 		if(strcmp(up->errstr, Echange) == 0 ||
-		    strcmp(up->errstr, Enotup) == 0)
+		    strstr(up->errstr, "device is down") != nil)
 			u->sectors = 0;
 		nexterror();
 	}
