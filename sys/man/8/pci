@@ -5,6 +5,8 @@ pci \- print PCI bus configuration
 .B pci
 [
 .B -bv
+] [
+.B vid/did ...
 ]
 .SH DESCRIPTION
 .I Pci
