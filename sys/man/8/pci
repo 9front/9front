@@ -32,6 +32,14 @@ The
 option adds a second line per device, containing an English description
 obtained from
 .BR /lib/pci .
+.PP
+If any number of 
+.B vid/did
+pairs is specified,
+.I pci
+instead looks up each pair in the database and prints the
+.B vid/did,
+followed by the English description of the vendor and device on a new line if it exists in the database.
 .SH FILES
 .B /lib/pci
 .SH SOURCE
