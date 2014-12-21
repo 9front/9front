@@ -405,7 +405,7 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 if(r->ifc == nil) panic("nil route rfc");
 		if(r->ifc->reassemble){
 			frag = nhgets(h->frag);
-			if(frag) {
+			if(frag & ~IP_DF) {
 				h->tos = 0;
 				if(frag & IP_MF)
 					h->tos = 1;
@@ -424,7 +424,7 @@ if(r->ifc == nil) panic("nil route rfc");
 	}
 
 	frag = nhgets(h->frag);
-	if(frag) {
+	if(frag & ~IP_DF) {
 		h->tos = 0;
 		if(frag & IP_MF)
 			h->tos = 1;
