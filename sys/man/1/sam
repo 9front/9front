@@ -496,10 +496,19 @@ Plan 9 command.
 Send the range to the standard input of the
 Plan 9 command.
 .TP
+.BI ^ " Plan 9-command
+Send the standard output of the Plan 9 command
+to the command window.
+.TP
 .BI | " Plan 9-command
 Send the range to the standard input, and replace it by
 the standard output, of the
 Plan 9 command.
+.TP
+.BI _ " Plan 9-command
+Send the range to the standard input, and send the
+standard output of the Plan 9 command to the command
+window.
 .TP
 .BI \*a! " Plan 9-command
 Run the
@@ -515,6 +524,8 @@ is used.
 In any of
 .BR < ,
 .BR > ,
+.BR ^ ,
+.BR _ ,
 .B |
 or
 .BR ! ,
