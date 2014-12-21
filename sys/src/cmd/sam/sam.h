@@ -361,6 +361,8 @@ extern int	quitok;
 extern Address	addr;
 extern Buffer	snarfbuf;
 extern Buffer	plan9buf;
+extern Buffer	cmdbuf;
+extern int	cmdbufpos;
 extern List	file;
 extern List	tempfile;
 extern File	*cmd;
