@@ -155,7 +155,6 @@ void	procctlreq(Proc*, char*, int);
 int	procctlmemio(Proc*, uintptr, int, void*, int);
 Chan*	proctext(Chan*, Proc*);
 int	procstopped(void*);
-void	mntscan(Mntwalk*, Proc*);
 ulong	procpagecount(Proc *);
 
 static Traceevent *tevents;
@@ -400,6 +399,7 @@ procopen(Chan *c, int omode)
 	case Qkregs:
 	case Qsegment:
 	case Qprofile:
+	case Qns:
 	case Qfd:
 		if(omode != OREAD)
 			error(Eperm);
@@ -426,12 +426,6 @@ procopen(Chan *c, int omode)
 	case Qsyscall:	
 	case Qppid:
 		nonone(p);
-		break;
-
-	case Qns:
-		if(omode != OREAD)
-			error(Eperm);
-		c->aux = smalloc(sizeof(Mntwalk));
 		break;
 
 	case Qnotepg:
@@ -514,103 +508,6 @@ procwstat(Chan *c, uchar *db, int n)
 	return n;
 }
 
-
-static long
-procoffset(long offset, char *va, int *np)
-{
-	if(offset > 0) {
-		offset -= *np;
-		if(offset < 0) {
-			memmove(va, va+*np+offset, -offset);
-			*np = -offset;
-		}
-		else
-			*np = 0;
-	}
-	return offset;
-}
-
-static int
-procqidwidth(Chan *c)
-{
-	char buf[32];
-
-	return sprint(buf, "%lud", c->qid.vers);
-}
-
-int
-procfdprint(Chan *c, int fd, int w, char *s, int ns)
-{
-	int n;
-
-	if(w == 0)
-		w = procqidwidth(c);
-	n = snprint(s, ns, "%3d %.2s %C %4ld (%.16llux %*lud %.2ux) %5ld %8lld %s\n",
-		fd,
-		&"r w rw"[(c->mode&3)<<1],
-		devtab[c->type]->dc, c->dev,
-		c->qid.path, w, c->qid.vers, c->qid.type,
-		c->iounit, c->offset, c->path->s);
-	return n;
-}
-
-static int
-procfds(Proc *p, char *va, int count, long offset)
-{
-	Fgrp *f;
-	Chan *c;
-	char buf[256];
-	int n, i, w, ww;
-	char *a;
-
-	/* print to buf to avoid holding fgrp lock while writing to user space */
-	if(count > sizeof buf)
-		count = sizeof buf;
-	a = buf;
-
-	eqlock(&p->debug);
-	f = p->fgrp;
-	if(f == nil || p->dot == nil){
-		qunlock(&p->debug);
-		return 0;
-	}
-	lock(f);
-	if(waserror()){
-		unlock(f);
-		qunlock(&p->debug);
-		nexterror();
-	}
-
-	n = readstr(0, a, count, p->dot->path->s);
-	n += snprint(a+n, count-n, "\n");
-	offset = procoffset(offset, a, &n);
-	/* compute width of qid.path */
-	w = 0;
-	for(i = 0; i <= f->maxfd; i++) {
-		c = f->fd[i];
-		if(c == nil)
-			continue;
-		ww = procqidwidth(c);
-		if(ww > w)
-			w = ww;
-	}
-	for(i = 0; i <= f->maxfd; i++) {
-		c = f->fd[i];
-		if(c == nil)
-			continue;
-		n += procfdprint(c, i, w, a+n, count-n);
-		offset = procoffset(offset, a, &n);
-	}
-	unlock(f);
-	qunlock(&p->debug);
-	poperror();
-
-	/* copy result to user space, now that locks are released */
-	memmove(va, buf, n);
-
-	return n;
-}
-
 static void
 procclose(Chan *c)
 {
@@ -622,29 +519,6 @@ procclose(Chan *c)
 			proctrace = nil;
 		unlock(&tlock);
 	}
-	if(QID(c->qid) == Qns && c->aux != nil){
-		free(c->aux);
-		c->aux = nil;
-	}
-}
-
-static void
-int2flag(int flag, char *s)
-{
-	if(flag == 0){
-		*s = '\0';
-		return;
-	}
-	*s++ = '-';
-	if(flag & MAFTER)
-		*s++ = 'a';
-	if(flag & MBEFORE)
-		*s++ = 'b';
-	if(flag & MCREATE)
-		*s++ = 'c';
-	if(flag & MCACHE)
-		*s++ = 'C';
-	*s = '\0';
 }
 
 static int
@@ -690,6 +564,127 @@ prochaswaitq(void *x)
 	return p->pid != PID(c->qid) || p->waitq != nil;
 }
 
+static void
+int2flag(int flag, char *s)
+{
+	if(flag == 0){
+		*s = '\0';
+		return;
+	}
+	*s++ = '-';
+	if(flag & MAFTER)
+		*s++ = 'a';
+	if(flag & MBEFORE)
+		*s++ = 'b';
+	if(flag & MCREATE)
+		*s++ = 'c';
+	if(flag & MCACHE)
+		*s++ = 'C';
+	*s = '\0';
+}
+
+static int
+readns1(Chan *c, Proc *p, char *buf, int nbuf)
+{
+	Pgrp *pg;
+	Mount *t, *cm;
+	Mhead *f, *mh;
+	ulong minid, bestmid;
+	char flag[10], *srv;
+	int i;
+
+	pg = p->pgrp;
+	if(pg == nil || p->dot == nil || p->pid != PID(c->qid))
+		error(Eprocdied);
+
+	bestmid = ~0;
+	minid = c->nrock;
+	if(minid == bestmid)
+		return 0;
+
+	rlock(&pg->ns);
+
+	mh = nil;
+	cm = nil;
+	for(i = 0; i < MNTHASH; i++) {
+		for(f = pg->mnthash[i]; f != nil; f = f->hash) {
+			for(t = f->mount; t != nil; t = t->next) {
+				if(t->mountid >= minid && t->mountid < bestmid) {
+					bestmid = t->mountid;
+					cm = t;
+					mh = f;
+				}
+			}
+		}
+	}
+
+	if(bestmid == ~0) {
+		c->nrock = bestmid;
+		i = snprint(buf, nbuf, "cd %s\n", p->dot->path->s);
+	} else {
+		c->nrock = bestmid+1;
+
+		int2flag(cm->mflag, flag);
+		if(strcmp(cm->to->path->s, "#M") == 0){
+			srv = srvname(cm->to->mchan);
+			i = snprint(buf, nbuf, "mount %s %s %s %s\n", flag,
+				srv==nil? cm->to->mchan->path->s : srv,
+				mh->from->path->s, cm->spec? cm->spec : "");
+			free(srv);
+		}else{
+			i = snprint(buf, nbuf, "bind %s %s %s\n", flag,
+				cm->to->path->s, mh->from->path->s);
+		}
+	}
+
+	runlock(&pg->ns);
+
+	return i;
+}
+
+int
+procfdprint(Chan *c, int fd, char *s, int ns)
+{
+	return snprint(s, ns, "%3d %.2s %C %4ld (%.16llux %lud %.2ux) %5ld %8lld %s\n",
+		fd,
+		&"r w rw"[(c->mode&3)<<1],
+		devtab[c->type]->dc, c->dev,
+		c->qid.path, c->qid.vers, c->qid.type,
+		c->iounit, c->offset, c->path->s);
+}
+
+static int
+readfd1(Chan *c, Proc *p, char *buf, int nbuf)
+{
+	Fgrp *fg;
+	int n, i;
+
+	fg = p->fgrp;
+	if(fg == nil || p->dot == nil || p->pid != PID(c->qid))
+		return 0;
+
+	if(c->nrock == 0){
+		c->nrock = 1;
+		return snprint(buf, nbuf, "%s\n", p->dot->path->s);
+	}
+
+	lock(fg);
+	n = 0;
+	for(;;){
+		i = c->nrock-1;
+		if(i < 0 || i > fg->maxfd)
+			break;
+		c->nrock++;
+		if(fg->fd[i] != nil){
+			n = procfdprint(fg->fd[i], i, buf, nbuf);
+			break;
+		}
+	}
+	unlock(fg);
+
+	return n;
+}
+
 /*
  * userspace can't pass negative file offset for a
  * 64 bit kernel address, so we use 63 bit and sign
@@ -706,15 +701,13 @@ off2addr(vlong off)
 static long
 procread(Chan *c, void *va, long n, vlong off)
 {
-	/* NSEG*32 was too small for worst cases */
-	char *a, flag[10], *sps, *srv, statbuf[NSEG*64];
-	int i, j, m, navail, ne, rsize;
+	char *a, *sps, statbuf[1024];
+	int i, j, navail, ne, rsize;
 	long l;
 	uchar *rptr;
 	uintptr addr;
 	ulong offset;
 	Confmem *cm;
-	Mntwalk *mw;
 	Proc *p;
 	Segment *sg, *s;
 	Ureg kur;
@@ -753,14 +746,16 @@ procread(Chan *c, void *va, long n, vlong off)
 	switch(QID(c->qid)){
 	case Qargs:
 		eqlock(&p->debug);
-		j = procargs(p, up->genbuf, sizeof up->genbuf);
+		j = procargs(p, statbuf, sizeof(statbuf));
 		qunlock(&p->debug);
 		if(offset >= j)
 			return 0;
 		if(offset+n > j)
 			n = j-offset;
-		memmove(a, &up->genbuf[offset], n);
+	statbufread:
+		memmove(a, statbuf+offset, n);
 		return n;
+
 	case Qsyscall:
 		eqlock(&p->debug);
 		if(waserror()){
@@ -769,13 +764,12 @@ procread(Chan *c, void *va, long n, vlong off)
 		}
 		if(p->pid != PID(c->qid))
 			error(Eprocdied);
+		j = 0;
 		if(p->syscalltrace != nil)
-			n = readstr(offset, a, n, p->syscalltrace);
-		else
-			n = 0;
+			j = readstr(offset, a, n, p->syscalltrace);
 		qunlock(&p->debug);
 		poperror();
-		return n;
+		return j;
 
 	case Qmem:
 		addr = off2addr(off);
@@ -830,17 +824,15 @@ procread(Chan *c, void *va, long n, vlong off)
 		if(p->nnote == 0)
 			n = 0;
 		else {
-			m = strlen(p->note[0].msg) + 1;
-			if(m > n)
-				m = n;
-			memmove(va, p->note[0].msg, m-1);
-			((char*)va)[m-1] = '\0';
-			p->nnote--;
+			i = strlen(p->note[0].msg) + 1;
+			if(i < n)
+				n = i;
+			memmove(a, p->note[0].msg, n-1);
+			a[n-1] = '\0';
+			if(--p->nnote == 0)
+				p->notepending = 0;
 			memmove(p->note, p->note+1, p->nnote*sizeof(Note));
-			n = m;
 		}
-		if(p->nnote == 0)
-			p->notepending = 0;
 		poperror();
 		qunlock(&p->debug);
 		return n;
@@ -905,8 +897,7 @@ procread(Chan *c, void *va, long n, vlong off)
 		readnum(0, statbuf+j+NUMSIZE*6, NUMSIZE, procpagecount(p)*BY2PG/1024, NUMSIZE);
 		readnum(0, statbuf+j+NUMSIZE*7, NUMSIZE, p->basepri, NUMSIZE);
 		readnum(0, statbuf+j+NUMSIZE*8, NUMSIZE, p->priority, NUMSIZE);
-		memmove(a, statbuf+offset, n);
-		return n;
+		goto statbufread;
 
 	case Qsegment:
 		j = 0;
@@ -924,10 +915,7 @@ procread(Chan *c, void *va, long n, vlong off)
 			return 0;
 		if(offset+n > j)
 			n = j-offset;
-		if(n == 0 && offset == 0)
-			exhausted("segments");
-		memmove(a, &statbuf[offset], n);
-		return n;
+		goto statbufread;
 
 	case Qwait:
 		if(!canqlock(&p->qwaitr))
@@ -959,96 +947,55 @@ procread(Chan *c, void *va, long n, vlong off)
 
 		qunlock(&p->qwaitr);
 		poperror();
-		n = snprint(a, n, "%d %lud %lud %lud %q",
+
+		j = snprint(statbuf, sizeof(statbuf), "%d %lud %lud %lud %q",
 			wq->w.pid,
 			wq->w.time[TUser], wq->w.time[TSys], wq->w.time[TReal],
 			wq->w.msg);
 		free(wq);
-		return n;
+		if(j < n)
+			n = j;
+		offset = 0;
+		goto statbufread;
 
 	case Qns:
+	case Qfd:
 		eqlock(&p->debug);
 		if(waserror()){
 			qunlock(&p->debug);
 			nexterror();
 		}
-		if(p->pgrp == nil || p->dot == nil || p->pid != PID(c->qid))
-			error(Eprocdied);
-		mw = c->aux;
-		if(mw->cddone){
-			qunlock(&p->debug);
-			poperror();
-			return 0;
-		}
-		mntscan(mw, p);
-		if(mw->mh == nil){
-			mw->cddone = 1;
-			i = snprint(a, n, "cd %s\n", p->dot->path->s);
-			qunlock(&p->debug);
-			poperror();
-			return i;
-		}
-		int2flag(mw->cm->mflag, flag);
-		if(strcmp(mw->cm->to->path->s, "#M") == 0){
-			srv = srvname(mw->cm->to->mchan);
-			i = snprint(a, n, "mount %s %s %s %s\n", flag,
-				srv==nil? mw->cm->to->mchan->path->s : srv,
-				mw->mh->from->path->s, mw->cm->spec? mw->cm->spec : "");
-			free(srv);
-		}else
-			i = snprint(a, n, "bind %s %s %s\n", flag,
-				mw->cm->to->path->s, mw->mh->from->path->s);
+		if(offset == 0 || offset != c->mrock)
+			c->nrock = c->mrock = 0;
+		do {
+			if(QID(c->qid) == Qns)
+				j = readns1(c, p, statbuf, sizeof(statbuf));
+			else
+				j = readfd1(c, p, statbuf, sizeof(statbuf));
+			if(j == 0)
+				break;
+			c->mrock += j;
+		} while(c->mrock <= offset);
+		i = c->mrock - offset;
 		qunlock(&p->debug);
 		poperror();
-		return i;
+
+		if(i <= 0)
+			return 0;
+		if(i < n)
+			n = i;
+		offset = j - i;
+		goto statbufread;
 
 	case Qnoteid:
 		return readnum(offset, va, n, p->noteid, NUMSIZE);
+
 	case Qppid:
 		return readnum(offset, va, n, p->parentpid, NUMSIZE);
-	case Qfd:
-		return procfds(p, va, n, offset);
+
 	}
 	error(Egreg);
 	return 0;		/* not reached */
-}
-
-void
-mntscan(Mntwalk *mw, Proc *p)
-{
-	Pgrp *pg;
-	Mount *t;
-	Mhead *f;
-	int nxt, i;
-	ulong last, bestmid;
-
-	pg = p->pgrp;
-	rlock(&pg->ns);
-
-	nxt = 0;
-	bestmid = ~0;
-
-	last = 0;
-	if(mw->mh != nil)
-		last = mw->cm->mountid;
-
-	for(i = 0; i < MNTHASH; i++) {
-		for(f = pg->mnthash[i]; f != nil; f = f->hash) {
-			for(t = f->mount; t != nil; t = t->next) {
-				if(mw->mh == nil ||
-				  (t->mountid > last && t->mountid < bestmid)) {
-					mw->cm = t;
-					mw->mh = f;
-					bestmid = mw->cm->mountid;
-					nxt = 1;
-				}
-			}
-		}
-	}
-	if(nxt == 0)
-		mw->mh = nil;
-
-	runlock(&pg->ns);
 }
 
 static long

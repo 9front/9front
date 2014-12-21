@@ -109,7 +109,7 @@ dupread(Chan *c, void *va, long n, vlong offset)
 	fd = twicefd/2;
 	if(twicefd & 1){
 		c = fdtochan(fd, -1, 0, 1);
-		procfdprint(c, fd, 0, buf, sizeof buf);
+		procfdprint(c, fd, buf, sizeof buf);
 		cclose(c);
 		return readstr((ulong)offset, va, n, buf);
 	}
