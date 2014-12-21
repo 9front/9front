@@ -19,13 +19,13 @@ fn verbose {
 		file="/lib/pci"
 		FS="\t"
 		while(getline <file > 0){
-			if(/^;/) continue
-			if(/^[0-9a-fA-F]/){
-				vid=lower($1)
+			if(/^[#;]/) continue
+			if(/^[0-9A-Fa-f]/){
+				vid=$1 #vid=lower($1)
 				vendor[vid] = $2
 			}
-			if(/^	[0-9a-fA-F]/){
-				did=lower($2)
+			if(/^	[0-9A-Fa-f]/){
+				did=$2 #lower($2)
 				id[vid "/" did] = $3
 			}
 		}
@@ -45,32 +45,27 @@ fn verbose {
 	}
 '
 }
-fn usage {
-	echo usage: $1 '[-bv]' >[1=2]
+
+filter=cat
+flagfmt=v,b
+args='[vid/did ...]'
+if(! ifs=() eval `{aux/getflags $*}){
+	aux/usage
 	exit usage
 }
 
-filter=cat
-bridges=yes
-done=0
-while (~ $done 0 && ! ~ $#* 0 && ~ $1 -*) {
-	if (~ $1 -*b*)
-		bridges=no
-	if (~ $1 -*v*)
-		filter=verbose
-	switch ($1) {
-	case --
-		done = 1		# no break in rc, alas
-	case -*[~bv]*
-		usage $0
-	}
-	shift
+if(! ~ $#* 0){
+	{
+		for(i in `{echo $* | tr 'A-Z' 'a-z'})
+			echo '- - -' $i
+	} | verbose | sed 's:^- - - ::'
+	exit ''
 }
-if (! ~ $#* 0)
-	usage $0
 
-builtin cd '#$/pci' && grep . *ctl | {
-	if (~ $bridges no)
+if(~ $#flagv 1)
+	filter=verbose
+builtin cd '#$/pci' && grep . `{ls -n | grep ctl} | {
+	if (~ $#flagb 1)
 		sed /:06/d
 	if not
 		cat
@@ -86,10 +81,19 @@ builtin cd '#$/pci' && grep . *ctl | {
 	s/:	05/:	mem  05/
 	s/:	06/:	brg  06/
 	s/:	07/:	ser  07/
+	s/:	08/:	base 08/
+	s/:	09/:	inpt 09/
+	s/:	0a/:	dock 0a/
+	s/:	0b/:	proc 0b/
 	s/:	0c\.03/:	usb  0c.03/
 	s/:	0c\.05/:	smb  0c.05/
+	s/:	0c\.07/:	ipmi 0c.07/
 	s/:	0d/:	rad  0d/
+	s/:	0e/:	intl  0e/
+	s/:	0f/:	sat  0f/
 	s/:	10/:	cryp 10/
+	s/:	11/:	sigl 11/
+	s/:	12/:	exl  12/
 	t
 	s/	/	---  /
 ' | $filter
