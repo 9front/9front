@@ -17,7 +17,6 @@ typedef struct Logflag	Logflag;
 typedef struct Mntcache Mntcache;
 typedef struct Mount	Mount;
 typedef struct Mntrpc	Mntrpc;
-typedef struct Mntwalk	Mntwalk;
 typedef struct Mnt	Mnt;
 typedef struct Mhead	Mhead;
 typedef struct Note	Note;
@@ -240,13 +239,6 @@ enum
 	NSMAX	=	1000,
 	NSLOG	=	7,
 	NSCACHE	=	(1<<NSLOG),
-};
-
-struct Mntwalk				/* state for /proc/#/ns */
-{
-	int	cddone;
-	Mhead*	mh;
-	Mount*	cm;
 };
 
 struct Mount

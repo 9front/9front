@@ -271,7 +271,7 @@ Unused.
 .\" .IR vblade (1),
 .IR sd (3),
 .IR sdaoe (3),
-.IR aoesrv (8),
+.IR vblade (8),
 .IR snoopy (8)
 .br
 .BR http://www.coraid.com/documents/AoEr10.txt

@@ -7,6 +7,8 @@ char	errfile[64];
 String	plan9cmd;	/* null terminated */
 Buffer	plan9buf;
 void	checkerrs(void);
+Buffer	cmdbuf;
+int	cmdbufpos;
 
 int
 plan9(File *f, int type, String *s, int nest)
@@ -28,7 +30,7 @@ plan9(File *f, int type, String *s, int nest)
 	}
 	if(type!='!' && pipe(pipe1)==-1)
 		error(Epipe);
-	if(type=='|')
+	if(type=='|' || type=='_')
 		snarf(f, addr.r.p1, addr.r.p2, &plan9buf, 1);
 	if((pid=fork()) == 0){
 		if(downloaded){	/* also put nasty fd's into errfile */
@@ -48,14 +50,14 @@ plan9(File *f, int type, String *s, int nest)
 			}
 		}
 		if(type != '!') {
-			if(type=='<' || type=='|')
-				dup(pipe1[1], 1);
-			else if(type == '>')
+			if(type == '>')
 				dup(pipe1[0], 0);
+			else
+				dup(pipe1[1], 1);
 			close(pipe1[0]);
 			close(pipe1[1]);
 		}
-		if(type == '|'){
+		if(type == '|' || type == '_'){
 			if(pipe(pipe2) == -1)
 				exits("pipe");
 			if((pid = fork())==0){
@@ -87,7 +89,7 @@ plan9(File *f, int type, String *s, int nest)
 			close(pipe2[0]);
 			close(pipe2[1]);
 		}
-		if(type=='<'){
+		if(type=='<' || type=='^'){
 			close(0);	/* so it won't read from terminal */
 			open("/dev/null", 0);
 		}
@@ -115,9 +117,14 @@ plan9(File *f, int type, String *s, int nest)
 		writeio(f);
 		bpipeok = 0;
 		closeio((Posn)-1);
+	}else if(type == '^' || type == '_'){
+		int nulls;
+		close(pipe1[1]);
+		bufload(&cmdbuf, cmdbufpos, pipe1[0], &nulls);
+		close(pipe1[0]);
 	}
 	retmsg = waitfor(pid);
-	if(type=='|' || type=='<')
+	if(type=='|' || type=='<' || type=='_' || type=='^')
 		if(retmsg[0]!=0)
 			warn_s(Wbadstatus, retmsg);
 	if(downloaded)

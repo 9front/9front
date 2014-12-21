@@ -537,8 +537,8 @@ shutdown(int ispanic)
 	once = active.machs & (1<<m->machno);
 	/*
 	 * setting exiting will make hzclock() on each processor call exit(0),
-	 * which calls shutdown(0) and arch->reset(), which on mp systems is
-	 * mpshutdown, from which there is no return: the processor is idled
+	 * which calls shutdown(0) and arch->reset(), which on mp systems calls
+	 * mpshutdown(), from which there is no return: the processor is idled
 	 * or initiates a reboot.  clearing our bit in machs avoids calling
 	 * exit(0) from hzclock() on this processor.
 	 */

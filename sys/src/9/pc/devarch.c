@@ -528,7 +528,7 @@ nop(void)
 {
 }
 
-static void
+void
 archreset(void)
 {
 	i8042reset();
@@ -548,6 +548,7 @@ archreset(void)
 	outb(0xcf9, 0x02);
 	outb(0xcf9, 0x06);
 
+	print("can't reset\n");
 	for(;;)
 		idle();
 }

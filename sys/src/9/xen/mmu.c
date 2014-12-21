@@ -13,35 +13,10 @@ uvlong *xenpdpt;	/* this needs to go in Mach for multiprocessor guest */
 #define MFN(pa)		(patomfn[(pa)>>PGSHIFT])
 #define	MAPPN(x)	(paemode? matopfn[*(uvlong*)(&x)>>PGSHIFT]<<PGSHIFT : matopfn[(x)>>PGSHIFT]<<PGSHIFT)
 
-#define	DATASEGM(p) 	{ 0xFFFF, SEGG|SEGB|(0xF<<16)|SEGP|SEGPL(p)|SEGDATA|SEGW }
-#define	EXECSEGM(p) 	{ 0xFFFF, SEGG|SEGD|(0xF<<16)|SEGP|SEGPL(p)|SEGEXEC|SEGR }
-#define	TSSSEGM(b,p)	{ ((b)<<16)|sizeof(Tss),\
-			  ((b)&0xFF000000)|(((b)>>16)&0xFF)|SEGTSS|SEGPL(p)|SEGP }
-
-Segdesc gdt[NGDT] =
-{
-[NULLSEG]	{ 0, 0},		/* null descriptor */
-[KDSEG]		DATASEGM(0),		/* kernel data/stack */
-[KESEG]		EXECSEGM(0),		/* kernel code */
-[UDSEG]		DATASEGM(3),		/* user data/stack */
-[UESEG]		EXECSEGM(3),		/* user code */
-[TSSSEG]	TSSSEGM(0,0),		/* tss segment */
-};
-
 /* note: pdb must already be pinned */
 static void
 taskswitch(Page *pdb, ulong stack)
 {
-	Tss *tss;
-
-	tss = m->tss;
-	tss->ss0 = KDSEL;
-	tss->esp0 = stack;
-	tss->ss1 = KDSEL;
-	tss->esp1 = stack;
-	tss->ss2 = KDSEL;
-	tss->esp2 = stack;
-	//tss->cr3 = pdb;
 	HYPERVISOR_stack_switch(KDSEL, stack);
 	mmuflushtlb(pdb);
 }
@@ -164,10 +139,7 @@ mmumapcpu0(void)
 void
 mmuinit(void)
 {
-//XXX	ulong x;
-//XXX	ushort ptr[3];
 	ulong *pte, npgs, pa;
-	extern int rtsr(void);
 
 	if(paemode){
 		int i;
@@ -193,39 +165,6 @@ mmuinit(void)
 
 	memglobal();
 
-	m->tss = malloc(sizeof(Tss));
-	memset(m->tss, 0, sizeof(Tss));
-	m->tss->iomap = 0xDFFF<<16;
-
-	/*
-	 * We used to keep the GDT in the Mach structure, but it
-	 * turns out that that slows down access to the rest of the
-	 * page.  Since the Mach structure is accessed quite often,
-	 * it pays off anywhere from a factor of 1.25 to 2 on real
-	 * hardware to separate them (the AMDs are more sensitive
-	 * than Intels in this regard).  Under VMware it pays off
-	 * a factor of about 10 to 100.
-	 */
-
-#ifdef we_dont_set_gdt_or_lidt
-	memmove(m->gdt, gdt, sizeof gdt);
-	x = (ulong)m->tss;
-	m->gdt[TSSSEG].d0 = (x<<16)|sizeof(Tss);
-	m->gdt[TSSSEG].d1 = (x&0xFF000000)|((x>>16)&0xFF)|SEGTSS|SEGPL(0)|SEGP;
-
-	ptr[0] = sizeof(gdt)-1;
-	x = (ulong)m->gdt;
-	ptr[1] = x & 0xFFFF;
-	ptr[2] = (x>>16) & 0xFFFF;
-	lgdt(ptr);
-
-	ptr[0] = sizeof(Segdesc)*256-1;
-	x = IDTADDR;
-	ptr[1] = x & 0xFFFF;
-	ptr[2] = (x>>16) & 0xFFFF;
-	lidt(ptr);
-#endif
-
 #ifdef we_may_eventually_want_this
 	/* make kernel text unwritable */
 	for(x = KTZERO; x < (ulong)etext; x += BY2PG){
@@ -237,9 +176,6 @@ mmuinit(void)
 #endif
 
 	taskswitch(0,  (ulong)m + BY2PG);
-#ifdef we_dont_do_this
-	ltr(TSSSEL);
-#endif
 }
 
 void

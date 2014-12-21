@@ -562,7 +562,6 @@ mpintrenable(Vctl* v)
 	return -1;
 }
 
-
 void
 mpshutdown(void)
 {
@@ -572,7 +571,7 @@ mpshutdown(void)
 	if(m->machno != 0){
 		splhi();
 		arch->introff();
-		idle();
+		for(;;) idle();
 	}
 
 	print("mpshutdown: active = %#8.8ux\n", active.machs);
@@ -585,24 +584,4 @@ mpshutdown(void)
 	lapicicrw(0, 0x000C0000|ApicINIT);
 
 	pcireset();
-	acpireset();
-	i8042reset();
-
-	/*
-	 * Often the BIOS hangs during restart if a conventional 8042
-	 * warm-boot sequence is tried. The following is Intel specific and
-	 * seems to perform a cold-boot, but at least it comes back.
-	 * And sometimes there is no keyboard...
-	 *
-	 * The reset register (0xcf9) is usually in one of the bridge
-	 * chips. The actual location and sequence could be extracted from
-	 * ACPI but why bother, this is the end of the line anyway.
-	 */
-	print("no kbd; trying bios warm boot...");
-	*(ushort*)KADDR(0x472) = 0x1234;	/* BIOS warm-boot flag */
-	outb(0xCF9, 0x02);
-	outb(0xCF9, 0x06);
-
-	print("can't reset\n");
-	idle();
 }

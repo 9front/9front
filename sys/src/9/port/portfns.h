@@ -224,7 +224,7 @@ void		printinit(void);
 ulong		procalarm(ulong);
 void		procctl(void);
 void		procdump(void);
-int		procfdprint(Chan*, int, int, char*, int);
+int		procfdprint(Chan*, int, char*, int);
 void		procflushseg(Segment*);
 int		procindex(ulong);
 void		procinit0(void);
