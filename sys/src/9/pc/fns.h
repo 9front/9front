@@ -83,7 +83,7 @@ ushort	ins(int);
 void	inss(int, void*, int);
 ulong	inl(int);
 void	insl(int, void*, int);
-int	intrdisable(int, void (*)(Ureg *, void *), void*, int, char*);
+void	intrdisable(int, void (*)(Ureg *, void *), void*, int, char*);
 void	intrenable(int, void (*)(Ureg*, void*), void*, int, char*);
 void	introff(void);
 void	intron(void);

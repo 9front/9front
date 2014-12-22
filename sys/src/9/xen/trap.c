@@ -90,36 +90,27 @@ intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 	iunlock(&vctllock);
 }
 
-int
+void
 intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 {
 	Vctl **pv, *v;
 	int vno;
 
-	/*
-	 * For now, none of this will work with the APIC code,
-	 * there is no mapping between irq and vector as the IRQ
-	 * is pretty meaningless.
-	 */
-	if(arch->intrvecno == nil)
-		return -1;
 	vno = arch->intrvecno(irq);
 	ilock(&vctllock);
-	pv = &vctl[vno];
-	while (*pv && 
-		  ((*pv)->irq != irq || (*pv)->tbdf != tbdf || (*pv)->f != f || (*pv)->a != a ||
-		   strcmp((*pv)->name, name)))
-		pv = &((*pv)->next);
-	assert(*pv);
+	for(pv = &vctl[vno]; (v = *pv) != nil; pv = &v->next){
+		if(v->isintr && v->irq == irq
+		&& v->tbdf == tbdf && v->f == f && v->a == a
+		&& strcmp(v->name, name) == 0){
+			*pv = v->next;
+			xfree(v);
 
-	v = *pv;
-	*pv = (*pv)->next;	/* Link out the entry */
-	
-	if(vctl[vno] == nil && arch->intrdisable != nil)
-		arch->intrdisable(irq);
+			if(vctl[vno] == nil && arch->intrdisable != nil)
+				arch->intrdisable(irq);
+			break;
+		}
+	}
 	iunlock(&vctllock);
-	xfree(v);
-	return 0;
 }
 
 static long

@@ -542,8 +542,8 @@ i8250disable(Uart* uart)
 	csr8w(ctlr, Ier, ctlr->sticky[Ier]);
 
 	if(ctlr->iena != 0){
-		if(intrdisable(ctlr->irq, i8250interrupt, uart, ctlr->tbdf, uart->name) == 0)
-			ctlr->iena = 0;
+		ctlr->iena = 0;
+		intrdisable(ctlr->irq, i8250interrupt, uart, ctlr->tbdf, uart->name);
 	}
 }
 

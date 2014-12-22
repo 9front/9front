@@ -76,7 +76,7 @@ intrenable(int irq, void (*f)(Ureg*, void*), void* a, int tbdf, char *name)
 	iunlock(&vctllock);
 }
 
-int
+void
 intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 {
 	Vctl **pv, *v;
@@ -116,7 +116,6 @@ intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 			break;
 	}
 	iunlock(&vctllock);
-	return 0;
 }
 
 static long
