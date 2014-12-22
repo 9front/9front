@@ -123,42 +123,29 @@ intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 }
 
 static long
-irqallocread(Chan*, void *vbuf, long n, vlong offset)
+irqallocread(Chan*, void *a, long n, vlong offset)
 {
-	char *buf, *p, str[2*(11+1)+KNAMELEN+1+1];
-	int m, vno;
-	long oldn;
+	char buf[2*(11+1)+KNAMELEN+1+1];
+	int vno, m;
 	Vctl *v;
 
 	if(n < 0 || offset < 0)
 		error(Ebadarg);
 
-	oldn = n;
-	buf = vbuf;
 	for(vno=0; vno<nelem(vctl); vno++){
 		for(v=vctl[vno]; v; v=v->next){
-			m = snprint(str, sizeof str, "%11d %11d %.*s\n", vno, v->irq, KNAMELEN, v->name);
-			if(m <= offset)	/* if do not want this, skip entry */
-				offset -= m;
-			else{
-				/* skip offset bytes */
-				m -= offset;
-				p = str+offset;
-				offset = 0;
-
-				/* write at most max(n,m) bytes */
-				if(m > n)
-					m = n;
-				memmove(buf, p, m);
-				n -= m;
-				buf += m;
-
-				if(n == 0)
-					return oldn;
-			}	
+			m = snprint(buf, sizeof(buf), "%11d %11d %.*s\n", vno, v->irq, KNAMELEN, v->name);
+			offset -= m;
+			if(offset >= 0)
+				continue;
+			if(n > -offset)
+				n = -offset;
+			offset += m;
+			memmove(a, buf+offset, n);
+			return n;
 		}
 	}
-	return oldn - n;
+	return 0;
 }
 
 void
