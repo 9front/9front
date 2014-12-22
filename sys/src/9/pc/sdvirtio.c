@@ -298,10 +298,34 @@ viodone(void *arg)
 	return ((struct Rock*)arg)->done;
 }
 
+static void
+vqio(Vqueue *q, int head)
+{
+	struct Rock rock;
+
+	rock.done = 0;
+	rock.sleep = &up->sleep;
+	q->rock[head] = &rock;
+	q->availent[q->avail->idx & (q->size-1)] = head;
+	coherence();
+	q->avail->idx++;
+	iunlock(q);
+	if((q->used->flags & 1) == 0)
+		outs(q->dev->port+Qnotify, q->idx);
+	while(!rock.done){
+		while(waserror())
+			;
+		tsleep(rock.sleep, viodone, &rock, 1000);
+		poperror();
+
+		if(!rock.done)
+			vqinterrupt(q);
+	}
+}
+
 static int
 vioblkreq(Vdev *vd, int typ, void *a, long count, long secsize, uvlong lba)
 {
-	struct Rock rock;
 	int free, head;
 	Vqueue *q;
 	Vdesc *d;
@@ -317,9 +341,6 @@ vioblkreq(Vdev *vd, int typ, void *a, long count, long secsize, uvlong lba)
 	req.typ = typ;
 	req.prio = 0;
 	req.lba = lba;
-
-	rock.done = 0;
-	rock.sleep = &up->sleep;
 
 	q = vd->queue[0];
 	ilock(q);
@@ -353,23 +374,8 @@ vioblkreq(Vdev *vd, int typ, void *a, long count, long secsize, uvlong lba)
 	q->free = free;
 	q->nfree -= 3;
 
-	q->rock[head] = &rock;
-
-	coherence();
-	q->availent[q->avail->idx++ & (q->size-1)] = head;
-	coherence();
-	outs(vd->port+Qnotify, q->idx);
-	iunlock(q);
-
-	while(!rock.done){
-		while(waserror())
-			;
-		tsleep(rock.sleep, viodone, &rock, 1000);
-		poperror();
-
-		if(!rock.done)
-			vqinterrupt(q);
-	}
+	/* queue io, unlock and wait for completion */
+	vqio(q, head);
 
 	return status;
 }
@@ -379,7 +385,6 @@ vioscsireq(SDreq *r)
 {
 	u8int resp[4+4+2+2+SENSESIZE];
 	u8int req[8+8+3+CDBSIZE];
-	struct Rock rock;
 	int free, head;
 	u32int len;
 	Vqueue *q;
@@ -401,9 +406,6 @@ vioscsireq(SDreq *r)
 	*(u64int*)(&req[8]) = (uintptr)r;
 
 	memmove(&req[8+8+3], r->cmd, r->clen);
-
-	rock.done = 0;
-	rock.sleep = &up->sleep;
 
 	q = vd->queue[2];
 	ilock(q);
@@ -448,23 +450,8 @@ vioscsireq(SDreq *r)
 	q->free = free;
 	q->nfree -= 2 + (r->dlen > 0);
 
-	q->rock[head] = &rock;
-
-	coherence();
-	q->availent[q->avail->idx++ & (q->size-1)] = head;
-	coherence();
-	outs(vd->port+Qnotify, q->idx);
-	iunlock(q);
-
-	while(!rock.done){
-		while(waserror())
-			;
-		tsleep(rock.sleep, viodone, &rock, 1000);
-		poperror();
-
-		if(!rock.done)
-			vqinterrupt(q);
-	}
+	/* queue io, unlock and wait for completion */
+	vqio(q, head);
 
 	/* response+status */
 	r->status = resp[10];
