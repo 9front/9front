@@ -350,16 +350,11 @@ archclose(Chan*)
 {
 }
 
-enum
-{
-	Linelen= 31,
-};
-
 static long
 archread(Chan *c, void *a, long n, vlong offset)
 {
-	char *buf, *p;
-	int port;
+	char buf[32], *p;
+	int port, i;
 	ushort *sp;
 	ulong *lp;
 	vlong *vp;
@@ -405,36 +400,29 @@ archread(Chan *c, void *a, long n, vlong offset)
 		return n;
 
 	case Qioalloc:
-		break;
+		lock(&iomap);
+		i = 0;
+		for(m = iomap.m; m != nil; m = m->next){
+			i = snprint(buf, sizeof(buf), "%8lux %8lux %-12.12s\n", m->start, m->end-1, m->tag);
+			offset -= i;
+			if(offset < 0)
+				break;
+		}
+		unlock(&iomap);
+		if(offset >= 0)
+			return 0;
+		if(n > -offset)
+			n = -offset;
+		offset += i;
+		memmove(a, buf+offset, n);
+		return n;
 
 	default:
 		if(c->qid.path < narchdir && (fn = readfn[c->qid.path]))
 			return fn(c, a, n, offset);
 		error(Eperm);
-		break;
+		return 0;
 	}
-
-	if((buf = malloc(n)) == nil)
-		error(Enomem);
-	p = buf;
-	n = n/Linelen;
-	offset = offset/Linelen;
-
-	lock(&iomap);
-	for(m = iomap.m; n > 0 && m != nil; m = m->next){
-		if(offset-- > 0)
-			continue;
-		sprint(p, "%8lux %8lux %-12.12s\n", m->start, m->end-1, m->tag);
-		p += Linelen;
-		n--;
-	}
-	unlock(&iomap);
-
-	n = p - buf;
-	memmove(a, buf, n);
-	free(buf);
-
-	return n;
 }
 
 static long
@@ -932,6 +920,7 @@ archctlread(Chan*, void *a, long nn, vlong offset)
 	else
 		p = seprint(p, ep, "0x%p\n", cmpswap);
 	p = seprint(p, ep, "i8253set %s\n", doi8253set ? "on" : "off");
+	p = seprint(p, ep, "arch %s\n", arch->id);
 	n = p - buf;
 	n += mtrrprint(p, ep - p);
 	buf[n] = '\0';
