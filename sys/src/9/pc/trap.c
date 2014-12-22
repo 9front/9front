@@ -82,29 +82,40 @@ intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 	Vctl **pv, *v;
 	int vno;
 
-	/*
-	 * For now, none of this will work with the APIC code,
-	 * there is no mapping between irq and vector as the IRQ
-	 * is pretty meaningless.
-	 */
-	if(arch->intrvecno == nil)
-		return -1;
-	vno = arch->intrvecno(irq);
+	if(arch->intrvecno == nil || (tbdf != BUSUNKNOWN && (irq == 0xff || irq == 0))){
+		/*
+		 * on APIC machine, irq is pretty meaningless
+		 * and disabling a the vector is not implemented.
+		 * however, we still want to remove the matching
+		 * Vctl entry to prevent calling Vctl.f() with a
+		 * stale Vctl.a pointer.
+		 */
+		irq = -1;
+		vno = VectorPIC;
+	} else {
+		vno = arch->intrvecno(irq);
+	}
 	ilock(&vctllock);
-	pv = &vctl[vno];
-	while (*pv &&
-		  ((*pv)->irq != irq || (*pv)->tbdf != tbdf || (*pv)->f != f || (*pv)->a != a ||
-		   strcmp((*pv)->name, name)))
-		pv = &((*pv)->next);
-	assert(*pv);
+	for(; vno <= MaxIrqLAPIC; vno++){
+		for(pv = &vctl[vno]; (v = *pv) != nil; pv = &v->next){
+			if(v->isintr && (v->irq == irq || irq == -1)
+			&& v->tbdf == tbdf && v->f == f && v->a == a
+			&& strcmp(v->name, name) == 0)
+				break;
+		}
+		if(v != nil){
+			*pv = v->next;
+			xfree(v);
 
-	v = *pv;
-	*pv = (*pv)->next;	/* Link out the entry */
-
-	if(vctl[vno] == nil && arch->intrdisable != nil)
-		arch->intrdisable(irq);
+			if(irq == -1)
+				break;
+			if(vctl[vno] == nil && arch->intrdisable != nil)
+				arch->intrdisable(irq);
+		}
+		if(irq != -1)
+			break;
+	}
 	iunlock(&vctllock);
-	xfree(v);
 	return 0;
 }
 
