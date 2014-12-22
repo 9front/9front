@@ -563,11 +563,29 @@ vioverify(SDunit *u)
 
 SDifc sdvirtioifc;
 
-static void
-vdevenable(Vdev *vd)
+static int
+vioenable(SDev *sd)
 {
-	intrenable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, "virtio");
+	char name[32];
+	Vdev *vd;
+
+	vd = sd->ctlr;
+	snprint(name, sizeof(name), "%s (%s)", sd->name, sd->ifc->name);
+	intrenable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, name);
 	outb(vd->port+Status, inb(vd->port+Status) | DriverOk);
+	return 0;
+}
+
+static int
+viodisable(SDev *sd)
+{
+	char name[32];
+	Vdev *vd;
+
+	vd = sd->ctlr;
+	snprint(name, sizeof(name), "%s (%s)", sd->name, sd->ifc->name);
+	intrdisable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, name);
+	return 0;
 }
 
 static SDev*
@@ -583,8 +601,6 @@ viopnp(void)
 	for(vd =  viopnpdevs(TypBlk); vd; vd = vd->next){
 		if(vd->nqueue != 1)
 			continue;
-
-		vdevenable(vd);
 
 		if((s = malloc(sizeof(*s))) == nil)
 			break;
@@ -630,8 +646,6 @@ viopnp(void)
 			continue;
 		}
 		vd->cfg = cfg;
-			
-		vdevenable(vd);
 
 		if((s = malloc(sizeof(*s))) == nil)
 			break;
@@ -654,8 +668,8 @@ SDifc sdvirtioifc = {
 
 	viopnp,				/* pnp */
 	nil,				/* legacy */
-	nil,				/* enable */
-	nil,				/* disable */
+	vioenable,			/* enable */
+	viodisable,			/* disable */
 
 	vioverify,			/* verify */
 	vioonline,			/* online */
