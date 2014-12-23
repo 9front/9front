@@ -175,3 +175,6 @@ exec /rc/bin/rc-httpd/rc-httpd >>[2]/sys/log/www
 .SH "SEE ALSO"
 .IR rc (1),
 .IR listen (8)
+.SH HISTORY
+.I Rc-httpd
+first appeared in 9front (February, 2013).
