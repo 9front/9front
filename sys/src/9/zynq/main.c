@@ -178,6 +178,7 @@ options(void)
 void
 confinit(void)
 {
+	ulong kmem;
 	int i;
 
 	conf.nmach = 1;
@@ -189,7 +190,13 @@ confinit(void)
 	conf.npage = 0;
 	for(i = 0; i < nelem(conf.mem); i++)
 		conf.npage += conf.mem[i].npage = (conf.mem[i].limit - conf.mem[i].base) >> PGSHIFT;
-	conf.upages = conf.npage - 100*1024*1024 / BY2PG;
+	kmem = 100*1024*1024;
+	conf.upages = conf.npage - kmem/BY2PG;
+	kmem -= conf.upages*sizeof(Page)
+		+ conf.nproc*sizeof(Proc)
+		+ conf.nimage*sizeof(Image);
+	mainmem->maxsize = kmem;
+	imagmem->maxsize = kmem - (kmem/10);
 }
 
 static uchar *
