@@ -307,14 +307,6 @@ TEXT fpinit(SB), $0
 	VMSR(0xe, 0, FPSCR)
 	RET
 
-TEXT fpsave(SB), $0
-	VMRS(0xe, FPEXC, 1)
-	VMRS(0xe, FPSCR, 2)
-	MOVM.IA.W [R1-R2], (R0)
-	WORD $0xeca00b20
-	WORD $0xece00b20
-	RET
-
 TEXT fprestore(SB), $0
 	MOVM.IA.W (R0), [R1-R2]
 	VMSR(0xe, 1, FPEXC)
@@ -323,14 +315,17 @@ TEXT fprestore(SB), $0
 	WORD $0xecf00b20
 	RET
 
-TEXT fpoff(SB), $0
-	MOVW $0, R1
-	VMSR(0xe, 1, FPEXC)
-	RET
-
-TEXT fpclear(SB), $0
+TEXT fpsave(SB), $0
 	VMRS(0xe, FPEXC, 1)
-	AND $(3<<30), R1
+	VMRS(0xe, FPSCR, 2)
+	MOVM.IA.W [R1-R2], (R0)
+	WORD $0xeca00b20
+	WORD $0xece00b20
+	/* wet floor */
+
+TEXT fpoff(SB), $0
+TEXT fpclear(SB), $0
+	MOVW $0, R1
 	VMSR(0xe, 1, FPEXC)
 	RET
 
