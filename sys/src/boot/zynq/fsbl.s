@@ -1,0 +1,310 @@
+#include "mem.h"
+
+#define Rb R10
+#define SET(R, V) MOVW $(V), R0 ; MOVW R0, (R)(Rb)
+#define RMW(r, m, v) MOVW (r)(Rb), R0; BIC $(m), R0; ORR $(v), R0; MOVW R0, (r)(Rb)
+
+TEXT _start(SB), $-4
+	WORD $0xea000006
+	MOVW $abort(SB), R15
+	MOVW $abort(SB), R15
+	MOVW $abort(SB), R15
+	MOVW $abort(SB), R15
+	MOVW $abort(SB), R15
+	MOVW $abort(SB), R15
+	MOVW $abort(SB), R15
+
+TEXT reloc(SB), $-4
+	MOVW $(1<<7|1<<6|0x13), R0
+	MOVW R0, CPSR
+	MOVW $STACKTOP, R13
+	MOVW $_start(SB), R0
+	MCR CpMMU, 0, R0, C(12), C(0)
+	MOVW $SLCR_BASE, Rb
+	SET(SLCR_UNLOCK, UNLOCK_KEY)
+	MOVW $0, R0
+	MCR 15, 0, R0, C(8), C(7), 0
+	MCR 15, 0, R0, C(7), C(5), 0
+	MCR 15, 0, R0, C(7), C(5), 6
+	MOVW $0xc5047a, R1
+	MCR 15, 0, R1, C(1), C(0), 0
+	DSB
+	ISB
+	CMP.S $0, R15
+	BL.LT reset(SB)
+	
+	MOVW $0xf, R1
+	MOVW $0xffff0000, R3
+	MOVW $0xe58a1910, R0
+	MOVW R0, (R3)
+	MOVW $0xf57ff04f, R0
+	MOVW R0, 4(R3)
+	MOVW $0xf57ff06f, R0
+	MOVW R0, 8(R3)
+	MOVW $0xe28ef000, R0
+	MOVW R0, 12(R3)
+	MOVW $reset(SB), R14
+	DSB
+	ISB
+	MOVW R3, R15
+
+TEXT reset(SB), $-4
+	BL pllsetup(SB)
+	BL miosetup(SB)
+	BL ddrsetup(SB)
+	BL uartsetup(SB)
+	MOVW $SLCR_BASE, Rb
+	SET(SLCR_LOCK, LOCK_KEY)
+//	BL memtest(SB)
+	MOVW $setR12(SB), R12
+	BL main(SB)
+	B abort(SB)
+
+TEXT pllsetup(SB), $0
+	MOVW $SLCR_BASE, Rb
+	
+	SET(ARM_PLL_CFG, ARM_PLL_CFG_VAL)
+	SET(DDR_PLL_CFG, DDR_PLL_CFG_VAL)
+	SET(IO_PLL_CFG, IO_PLL_CFG_VAL)
+
+	MOVW $(ARM_FDIV | PLL_BYPASS_FORCE), R0
+	MOVW R0, ARM_PLL_CTRL(Rb)
+	ORR $(PLL_RESET), R4
+	MOVW R4, ARM_PLL_CTRL(Rb)
+	MOVW R0, ARM_PLL_CTRL(Rb)
+
+	MOVW $(DDR_FDIV | PLL_BYPASS_FORCE), R0
+	MOVW R0, DDR_PLL_CTRL(Rb)
+	ORR $(PLL_RESET), R4
+	MOVW R4, DDR_PLL_CTRL(Rb)
+	MOVW R0, DDR_PLL_CTRL(Rb)
+
+	MOVW $(IO_FDIV | PLL_BYPASS_FORCE), R0
+	MOVW R0, IO_PLL_CTRL(Rb)
+	ORR $(PLL_RESET), R4
+	MOVW R4, IO_PLL_CTRL(Rb)
+	MOVW R0, IO_PLL_CTRL(Rb)
+
+_pllsetupl:
+	MOVW PLL_STATUS(Rb), R0
+	AND $7, R0
+	CMP.S $7, R0
+	BNE _pllsetupl
+	
+	SET(ARM_PLL_CTRL, ARM_FDIV)
+	SET(DDR_PLL_CTRL, DDR_FDIV)
+	SET(IO_PLL_CTRL, IO_FDIV)
+	
+	SET(ARM_CLK_CTRL, 0x1f << 24 | CPU_DIV << 8)
+	SET(UART_CLK_CTRL, UART_DIV << 8 | 3)
+	SET(DDR_CLK_CTRL, DDR_DIV3 << 20 | DDR_DIV2 << 26 | 3)
+	SET(DCI_CLK_CTRL, DCI_DIV0 << 8 | DCI_DIV1 << 20 | 1)
+	SET(GEM0_RCLK_CTRL, 1)
+	SET(GEM1_RCLK_CTRL, 0)
+	SET(GEM0_CLK_CTRL, ETH_DIV0 << 8 | ETH_DIV1 << 20 | 1)
+	SET(GEM1_CLK_CTRL, 0)
+	SET(GPIOB_CTRL, VREF_SW_EN)
+	SET(APER_CLK_CTRL, LQSPI_CLK_EN | GPIO_CLK_EN | UART0_CLK_EN | UART1_CLK_EN | I2C0_CLK_EN | SDIO1_CLK_EN | GEM0_CLK_EN | USB0_CLK_EN | USB1_CLK_EN | DMA_CLK_EN)
+	SET(SMC_CLK_CTRL, 0x3C20)
+	SET(LQSPI_CLK_CTRL, QSPI_DIV << 8 | 1)
+	SET(SDIO_CLK_CTRL, SDIO_DIV << 8 | 2)
+	SET(SPI_CLK_CTRL, 0x3F00)
+	SET(CAN_CLK_CTRL, 0x501900)
+	SET(PCAP_CLK_CTRL, PCAP_DIV << 8 | 1)
+	RET
+
+TEXT miosetup(SB), $0
+	MOVW $SLCR_BASE, Rb
+	SET(UART_RST_CTRL, 0xf)
+	SET(UART_RST_CTRL, 0)
+
+	MOVW $miodata(SB), R1
+	ADD $MIO_PIN_0, Rb, R2
+	MOVW $54, R3
+	BL copy(SB)
+
+	MOVW $0, R0
+	MOVW R0, MIO_MST_TRI0(Rb)
+	MOVW R0, MIO_MST_TRI1(Rb)
+	RET
+
+TEXT copy(SB), $0
+_copyl:
+	MOVW.P 4(R1), R0
+	MOVW.P R0, 4(R2)
+	SUB.S $1, R3
+	BNE _copyl
+	RET
+
+TEXT ddrsetup(SB), $0
+	MOVW $SLCR_BASE, Rb
+	RMW(DDRIOB_DCI_CTRL, DCI_RESET, DCI_RESET)
+	RMW(DDRIOB_DCI_CTRL, DCI_RESET, 0)
+	RMW(DDRIOB_DCI_CTRL, DDRIOB_DCI_CTRL_MASK, DCI_NREF | DCI_ENABLE | DCI_RESET)
+
+	MOVW $ddriob(SB), R1
+	ADD $DDRIOB_ADDR0, Rb, R2
+	MOVW $12, R3
+	BL copy(SB)
+
+	MOVW $ddrdata(SB), R1
+_ddrl1:
+	MOVW.P 4(R1), R2
+	ORR.S $0, R2
+	BEQ _ddrl2
+	MOVW.P 4(R1), R3
+	MOVW.P 4(R1), R4
+	AND R3, R4
+	MOVW (R2), R0
+	BIC R3, R0
+	ORR R4, R0
+	MOVW R0, (R2)
+	B _ddrl1
+_ddrl2:
+	MOVW DDRIOB_DCI_STATUS(Rb), R0
+	AND.S $(1<<13), R0
+	BEQ _ddrl2
+	MOVW $DDR_BASE, Rb
+	RMW(DDRC_CTRL, 0x1ffff, 0x81)
+_ddrl4:
+	MOVW DDR_MODE_STS(Rb), R0
+	AND.S $7, R0
+	BEQ _ddrl4
+	
+	MOVW $MP_BASE, Rb
+	SET(FILTER_START, 0)
+	RET
+
+TEXT memtest(SB), $0
+	MOVW $0, R0
+	ADD $(1024 * 1024 * 10), R0, R1
+_testl:
+	MOVW R0, (R0)
+	ADD $4, R0
+	CMP.S R0, R1
+	BNE _testl
+	MOVW $0, R0
+_testl2:
+	MOVW (R0), R2
+	CMP.S R0, R2
+	BNE _no
+	ADD $4, R0
+	CMP.S R0, R1
+	BNE _testl2
+	MOVW $'.', R0
+	BL putc(SB)
+	RET
+_no:
+	MOVW $'!', R0
+	BL putc(SB)
+	RET
+
+TEXT uartsetup(SB), $0
+	MOVW $UART1_BASE, Rb
+	SET(UART_CTRL, 0x17)
+	SET(UART_MODE, 0x20)
+	SET(UART_SAMP, 15)
+	SET(UART_BAUD, 14)
+	RET
+
+TEXT putc(SB), $0
+	MOVW $UART1_BASE, Rb
+	CMP.S $10, R0
+	BNE _putcl
+	MOVW R0, R2
+	MOVW $13, R0
+	BL putc(SB)
+	MOVW R2, R0
+_putcl:
+	MOVW UART_STAT(Rb), R1
+	AND.S $0x10, R1
+	BNE _putcl
+	AND $0xFF, R0
+	MOVW R0, UART_DATA(Rb)
+	RET
+	
+TEXT jump(SB), $-4
+	MOVW R0, R15
+
+TEXT abort(SB), $0
+	MOVW $'?', R0
+	BL putc(SB)
+_loop:
+	WFE
+	B _loop
+
+#define TRI 1
+#define LVCMOS18 (1<<9)
+#define LVCMOS25 (2<<9)
+#define LVCMOS33 (3<<9)
+#define HSTL (4<<9)
+#define PULLUP (1<<12)
+#define NORECV (1<<13)
+#define FAST (1<<8)
+#define MUX(a, b, c, d) ((a)<<1 | (b)<<2 | (c)<<3 | (d)<<5)
+
+#define NO (TRI | LVCMOS33)
+#define SPI (MUX(1, 0, 0, 0) | LVCMOS33)
+#define UART (MUX(0, 0, 0, 7) | LVCMOS33)
+#define SD (MUX(0, 0, 0, 4) | LVCMOS33)
+#define ETX (MUX(1, 0, 0, 0) | HSTL | NORECV | PULLUP)
+#define ERX (MUX(1, 0, 0, 0) | HSTL | TRI | PULLUP)
+#define USB (MUX(0, 1, 0, 0) | LVCMOS18)
+#define MDCLK (MUX(0, 0, 0, 4) | HSTL)
+#define MDDATA (MUX(0, 0, 0, 4) | HSTL)
+
+TEXT miodata(SB), $-4
+	WORD $NO // 0
+	WORD $SPI // 1 
+	WORD $SPI // 2 
+	WORD $SPI // 3
+	WORD $SPI // 4
+	WORD $SPI // 5
+	WORD $SPI // 6
+	WORD $NO // 7
+	WORD $UART // 8
+	WORD $(UART|TRI) // 9
+	WORD $SD // 10
+	WORD $SD // 11
+	WORD $SD // 12
+	WORD $SD // 13
+	WORD $SD // 14
+	WORD $SD // 15
+	WORD $ETX // 16
+	WORD $ETX // 17
+	WORD $ETX // 18
+	WORD $ETX // 19
+	WORD $ETX // 20
+	WORD $ETX // 21
+	WORD $ERX // 22
+	WORD $ERX // 23
+	WORD $ERX // 24
+	WORD $ERX // 25
+	WORD $ERX // 26
+	WORD $ERX // 27
+	WORD $USB // 28
+	WORD $USB // 29
+	WORD $USB // 30
+	WORD $USB // 31
+	WORD $USB // 32
+	WORD $USB // 33
+	WORD $USB // 34
+	WORD $USB // 35
+	WORD $USB // 36
+	WORD $USB // 37
+	WORD $USB // 38
+	WORD $USB // 39
+	WORD $USB // 40
+	WORD $USB // 41
+	WORD $USB // 42
+	WORD $USB // 43
+	WORD $USB // 44
+	WORD $USB // 45
+	WORD $USB // 46
+	WORD $USB // 47
+	WORD $USB // 48
+	WORD $USB // 49
+	WORD $USB // 50
+	WORD $USB // 51
+	WORD $MDCLK // 52
+	WORD $MDDATA // 53

@@ -1,0 +1,34 @@
+objtype=arm
+</$objtype/mkfile
+BIN=/arm
+TARG=fsbl fsbl.img
+CLEANFILES=boothead.$cputype
+FSBLFILES=fsbl.$O ddr.$O main.$O net.$O div.$O qspi.$O
+
+all:V: $TARG
+
+clean:V:
+	rm -rf $TARG *.$O
+
+fsbl: $FSBLFILES
+	$LD -o $target -T0xfffc0000 -H6 -R4096 -l -s $prereq
+
+9fsbl: $FSBLFILES
+	$LD -o $target -T0xfffc0000 -l $prereq
+
+fsbl.img:D: fsbl boothead.$cputype
+	boothead.$cputype fsbl >fsbl.img
+
+boothead.$cputype:V: mkfile.boothead
+	@{objtype=$cputype mk -f $prereq all}
+
+div.$O: /sys/src/libc/arm/div.s
+	$AS /sys/src/libc/arm/div.s
+
+%.$O: dat.h fns.h mem.h
+
+%.$O: %.s
+	$AS $stem.s
+
+%.$O: %.c
+	$CC $CFLAGS $stem.c

@@ -1,0 +1,92 @@
+CONF=zynq
+CONFLIST=zynq
+
+#must match mem.h
+KTZERO=0xf0080020
+
+objtype=arm
+</$objtype/mkfile
+p=9
+
+DEVS=`{rc ../port/mkdevlist $CONF}
+
+PORT=\
+	alarm.$O\
+	alloc.$O\
+	allocb.$O\
+	auth.$O\
+	cache.$O\
+	chan.$O\
+	dev.$O\
+	edf.$O\
+	fault.$O\
+	mul64fract.$O\
+	rebootcmd.$O\
+	page.$O\
+	parse.$O\
+	pgrp.$O\
+	portclock.$O\
+	print.$O\
+	proc.$O\
+	qio.$O\
+	qlock.$O\
+	segment.$O\
+	swap.$O\
+	sysfile.$O\
+	sysproc.$O\
+	taslock.$O\
+	tod.$O\
+	xalloc.$O\
+	random.$O\
+	rdb.$O\
+	syscallfmt.$O\
+
+OBJ=\
+	ltrap.$O\
+	l.$O\
+	main.$O\
+	mmu.$O\
+	trap.$O\
+	intr.$O\
+	timer.$O\
+	$CONF.root.$O\
+	$CONF.rootc.$O\
+	$DEVS\
+	$PORT\
+
+
+LIB=\
+	/$objtype/lib/libmemlayer.a\
+	/$objtype/lib/libmemdraw.a\
+	/$objtype/lib/libdraw.a\
+	/$objtype/lib/libip.a\
+	/$objtype/lib/libsec.a\
+	/$objtype/lib/libmp.a\
+	/$objtype/lib/libc.a\
+
+9:V: install # $p$CONF
+
+$p$CONF:D: $CONF.c $OBJ $LIB mkfile
+	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
+	$LD -o $target -T$KTZERO -l $OBJ $CONF.$O $LIB
+
+<../boot/bootmkfile
+<../port/portmkfile
+<|../port/mkbootrules $CONF
+
+init.h:D: ../port/initcode.c init9.s
+	$CC ../port/initcode.c
+	$AS init9.s
+	$LD -l -R1 -s -o init.out init9.$O initcode.$O /arm/lib/libc.a
+	{echo 'uchar initcode[]={'
+	 xd -1x <init.out |
+		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
+	 echo '};'} > init.h
+
+install:V:	$p$CONF
+	cp $p$CONF /$objtype/
+	for(i in $EXTRACOPIES)
+		import $i / /n/$i && cp $p$CONF $p$CONF.gz /n/$i/$objtype/
+
+devusb.$O usbehci.$O usbehcizynq.$O: ../port/usb.h uncached.h
+usbehci.$O usbehcizynq.$O: usbehci.h

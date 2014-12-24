@@ -1,0 +1,25 @@
+#define PS_CLK 33
+
+#define UART_BASE 0xE0001000
+#define USB0_BASE 0xE0002000
+#define USB1_BASE 0xE0003000
+#define ETH0_BASE 0xE000B000
+#define QSPI_BASE 0xE000D000
+#define SLCR_BASE 0xF8000000
+#define DEVC_BASE 0xF8007000
+#define MPCORE_BASE 0xF8F00000
+#define L2_BASE 0xF8F02000
+#define OCM_BASE 0xFFFC0000
+
+#define TIMERIRQ 29
+#define XADCIRQ 39
+#define DEVCIRQ 40
+#define USB0IRQ 53
+#define ETH0IRQ 54
+#define USB1IRQ 76
+#define UART1IRQ 82
+
+#define LEVEL 0
+#define EDGE 1
+
+#define XADCINTERVAL 500

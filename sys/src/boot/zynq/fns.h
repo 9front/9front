@@ -1,0 +1,13 @@
+void	putc(int);
+void	puts(char *);
+int	netboot(void);
+void	puthex(u32int);
+void	memset(void *, char, int);
+void	memcpy(void *, void *, int);
+void	print(char *, ...);
+u32int	u32get(void *);
+void	jump(void *);
+void	sleep(int);
+void	timeren(int);
+int	timertrig(void);
+void	flash(void);
