@@ -349,6 +349,7 @@ isaconfig(char *, int, ISAConf*)
 void
 main(void)
 {
+	active.machs = 1;
 	uartinit();
 	mmuinit();
 	l2init();
