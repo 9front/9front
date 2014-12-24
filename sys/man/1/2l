@@ -102,8 +102,8 @@ and
 .L _traceout
 at function exits.
 .TP
-.B -f
-(ARM only) Generate VFP hardware floating point instructions.
+.B -F
+(ARM only) Don't generate VFP hardware floating point instructions.
 .TP
 .B -s
 Strip the symbol tables from the output file.

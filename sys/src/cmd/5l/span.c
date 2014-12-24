@@ -660,7 +660,7 @@ buildop(void)
 	int i, n, r;
 
 	armv4 = !debug['h'];
-	vfp = debug['f'];
+	vfp = !debug['F'];
 	for(i=0; i<C_GOK; i++)
 		for(n=0; n<C_GOK; n++)
 			xcmp[i][n] = cmp(n, i);
