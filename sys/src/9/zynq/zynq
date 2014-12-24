@@ -26,7 +26,7 @@ link
 	etherzynq
 	ethermedium
 	loopbackmedium
-	usbehci usbehcizynq
+#	usbehci usbehcizynq
 
 misc
 	uartzynq
@@ -45,12 +45,8 @@ ip
 port
 	int cpuserver = 0;
 
-boot boot
-	tcp
-	local
-
 bootdir
-	boot$CONF.out boot
 	/$objtype/bin/paqfs
 	/$objtype/bin/auth/factotum
+	boot
 	bootfs.paq
