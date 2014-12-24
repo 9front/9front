@@ -30,6 +30,9 @@ if(! bind -a '#u' /dev)
 			# HUAWEI E220 modem
 			if(~ $2$3 12d11003)
 				nusb/serial $id
+			# FTDI
+			if(~ $2 0403)
+				nusb/serial $id
 		}
 	}
 	fn detach {

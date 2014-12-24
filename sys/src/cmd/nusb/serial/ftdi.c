@@ -1470,7 +1470,7 @@ ftinit(Serialport *p)
 		ftdiwrite(p, BMMPSSE|0x0b, 0, FTSETBITMODE);
 	}
 	incref(ser->dev);
-	threadcreate(statusreader, p, 8*1024);
+	proccreate(statusreader, p, 8*1024);
 	return 0;
 }
 

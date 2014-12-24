@@ -747,10 +747,10 @@ threadmain(int argc, char* argv[])
 	ser->nifcs = 1;
 
 	/* probe all the drivers */
-	if(plprobe(ser)
-	&& uconsprobe(ser)
+	if(uconsprobe(ser)
 	&& ftprobe(ser)
-	&& slprobe(ser))
+	&& slprobe(ser)
+	&& plprobe(ser))
 		sysfatal("no serial devices found");
 
 	for(i = 0; i < ser->nifcs; i++){
