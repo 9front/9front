@@ -64,8 +64,6 @@ LIB=\
 	/$objtype/lib/libmp.a\
 	/$objtype/lib/libc.a\
 
-9:V: install # $p$CONF
-
 $p$CONF:D: $CONF.c $OBJ $LIB mkfile
 	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
 	$LD -o $target -T$KTZERO -l $OBJ $CONF.$O $LIB
