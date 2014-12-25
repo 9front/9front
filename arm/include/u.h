@@ -21,27 +21,32 @@ typedef unsigned short u16int;
 typedef unsigned int	u32int;
 typedef unsigned long long u64int;
 
-/* FCR */
-#define	FPINEX	(1<<20)
-#define	FPUNFL	(1<<19)
-#define	FPOVFL	(1<<18)
-#define	FPZDIV	(1<<17)
-#define	FPINVAL	(1<<16)
-#define	FPRNR	(0<<0)
-#define	FPRZ	(1<<0)
-#define	FPRPINF	(2<<0)
-#define	FPRNINF	(3<<0)
-#define	FPRMASK	(3<<0)
+/* VFP FPSCR (exceptions) */
+#define	FPINEX		(1<<12)
+#define	FPUNFL		(1<<11)
+#define	FPOVFL		(1<<10)
+#define	FPZDIV		(1<<9)
+#define	FPINVAL		(1<<8)
+
+/* VFP FPSCR (rounding) */
+#define	FPRNR		(0<<22)
+#define	FPRPINF		(1<<22)
+#define	FPRNINF		(2<<22)
+#define	FPRZ		(3<<22)
+
+#define	FPRMASK		(3<<22)
+
+/* VFP FPSCR (status) */
 #define	FPPEXT	0
 #define	FPPSGL	0
 #define	FPPDBL	0
 #define	FPPMASK	0
-/* FSR */
-#define	FPAINEX	(1<<4)
-#define	FPAUNFL	(1<<3)
-#define	FPAOVFL	(1<<2)
-#define	FPAZDIV	(1<<1)
+#define	FPAINEX		(1<<4)
+#define	FPAUNFL		(1<<3)
+#define	FPAOVFL		(1<<2)
+#define	FPAZDIV		(1<<1)
 #define	FPAINVAL	(1<<0)
+
 union FPdbleword
 {
 	double	x;
