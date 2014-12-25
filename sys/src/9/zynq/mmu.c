@@ -100,13 +100,11 @@ upallocl1(void)
 static void
 l2free(Proc *proc)
 {
-	int s;
 	ulong *t;
 	Page *p, **l;
 
 	if(proc->l1 == nil || proc->mmuused == nil)
 		return;
-	s = splhi();
 	l = &proc->mmuused;
 	for(p = *l; p != nil; p = p->next){
 		t = proc->l1->va + p->daddr;
@@ -116,7 +114,6 @@ l2free(Proc *proc)
 		*t = 0;
 		l = &p->next;
 	}
-	splx(s);
 	*l = proc->mmufree;
 	proc->mmufree = proc->mmuused;
 	proc->mmuused = 0;
@@ -143,6 +140,7 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	ulong *l2;
 	PTE old;
 	uintptr l2p;
+	int s;
 
 	if(up->l1 == nil)
 		upallocl1();
@@ -150,11 +148,15 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 		pa |= L2CACHED;
 	e = &up->l1->va[L1RX(va)];
 	if((*e & 3) == 0){
-		if(up->mmufree != nil){
-			p = up->mmufree;
+		p = up->mmufree;
+		if(p != nil)
 			up->mmufree = p->next;
-		}else
+		else
 			p = newpage(0, 0, 0);
+		p->daddr = L1RX(va);
+		p->next = up->mmuused;
+		up->mmuused = p;
+		s = splhi();
 		l2p = p->pa;
 		l2 = tmpmap(l2p);
 		memset(l2, 0, BY2PG);
@@ -164,10 +166,8 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 		e[2] = e[1] + L2SZ;
 		e[3] = e[2] + L2SZ;
 		coherence();
-		p->daddr = L1RX(va);
-		p->next = up->mmuused;
-		up->mmuused = p;
 	}else{
+		s = splhi();
 		l2p = *e & ~(BY2PG - 1);
 		l2 = tmpmap(l2p);
 	}
@@ -175,7 +175,7 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	old = *e;
 	*e = pa | L2VALID | L2USER | L2LOCAL;
 	tmpunmap(l2);
-	coherence();
+	splx(s);
 	if((old & L2VALID) != 0)
 		flushpg((void *) va);
 	if(pg->cachectl[0] == PG_TXTFLUSH){
@@ -274,8 +274,7 @@ KMap *
 kmap(Page *page)
 {
 	ulong *e, *v;
-	int i;
-	ulong s;
+	int i, s;
 
 	if(up == nil)
 		panic("kmap: up=0 pc=%#.8lux", getcallerpc(&page));
@@ -283,23 +282,20 @@ kmap(Page *page)
 		upallocl1();
 	if(up->nkmap < 0)
 		panic("kmap %lud %s: nkmap=%d", up->pid, up->text, up->nkmap);
-	s = splhi();
 	up->nkmap++;
 	e = &up->l1->va[L1X(KMAP)];
 	if((*e & 3) == 0){
 		if(up->kmaptable != nil)
 			panic("kmaptable");
-		spllo();
 		up->kmaptable = newpage(0, 0, 0);
-		splhi();
+		s = splhi();
 		v = tmpmap(up->kmaptable->pa);
 		memset(v, 0, BY2PG);
 		v[0] = page->pa | L2KERRW | L2VALID | L2CACHED | L2LOCAL;
 		v[NKMAP] = up->kmaptable->pa | L2KERRW | L2VALID | L2CACHED | L2LOCAL;
 		tmpunmap(v);
-		coherence();
-		*e = up->kmaptable->pa | L1PT;
 		splx(s);
+		*e = up->kmaptable->pa | L1PT;
 		coherence();
 		return (KMap *) KMAP;
 	}
@@ -309,7 +305,6 @@ kmap(Page *page)
 	for(i = 0; i < NKMAP; i++)
 		if((e[i] & 3) == 0){
 			e[i] = page->pa | L2KERRW | L2VALID | L2CACHED | L2LOCAL;
-			splx(s);
 			coherence();
 			return (KMap *) (KMAP + i * BY2PG);
 		}
@@ -345,6 +340,8 @@ tmpmap(ulong pa)
 	ulong *u, *ub, *ue;
 	void *v;
 
+	if(islo())
+		panic("tmpmap: islow %#p", getcallerpc(&pa));
 	if(cankaddr(pa))
 		return KADDR(pa);
 	ub = (ulong *) TMAPL2(m->machno);
