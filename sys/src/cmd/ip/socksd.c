@@ -299,11 +299,15 @@ main(int argc, char *argv[])
 		alarm(0);
 		break;
 	case 0x02:	/* BIND */
-		snprint(addr, sizeof(addr), "%s/tcp!*!0", outside);
+		if(myipaddr(buf, outside) < 0)
+			break;
+		snprint(addr, sizeof(addr), "%s/tcp!%I!0", outside, buf);
 		fd = announce(addr, dir);
 		break;
 	case 0x03:	/* UDP */
-		snprint(addr, sizeof(addr), "%s/udp!*!0", inside);
+		if(myipaddr(buf, inside) < 0)
+			break;
+		snprint(addr, sizeof(addr), "%s/udp!%I!0", inside, buf);
 		fd = announce(addr, dir);
 		break;
 	}
