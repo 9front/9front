@@ -105,6 +105,8 @@ void vesaddc(void);
 int vbeddcedid(Vbe *vbe, Edid *e);
 void printedid(Edid*);
 void fixbios(Vbe*);
+uchar* vbesetup(Vbe*, Ureg*, int);
+int vbecall(Vbe*, Ureg*);
 
 int
 dbvesa(Vga* vga)
@@ -192,7 +194,7 @@ havemode:
 		*m = *vesamodes[i];
 		break;
 	}
-	if(edid){
+	if(edid != nil){
 		for(l = edid->modelist; l; l = l->next){
 			if(l->x != vm.dx || l->y != vm.dy)
 				continue;
@@ -272,7 +274,7 @@ dump(Vga*, Ctlr*)
 	char did[0x200];
 	uchar *p, *ep;
 
-	if(!vbe){
+	if(vbe == nil){
 		Bprint(&stdout, "no vesa bios\n");
 		return;
 	}
@@ -280,7 +282,7 @@ dump(Vga*, Ctlr*)
 	memset(did, 0, sizeof did);
 	vbeprintinfo(vbe);
 	p = vbemodes(vbe);
-	if(p){
+	if(p != nil){
 		for(ep=p+1024; (p[0]!=0xFF || p[1]!=0xFF) && p<ep; p+=2){
 			vbeprintmodeinfo(vbe, WORD(p), "");
 			if(WORD(p) < nelem(did))
@@ -290,17 +292,48 @@ dump(Vga*, Ctlr*)
 	for(i=0x100; i<0x1FF; i++)
 		if(!did[i])
 			vbeprintmodeinfo(vbe, i, " (unoffered)");
-	if(edid)
+	if(edid != nil)
 		printedid(edid);
 }
 
+static void
+scaling(Vga*, Ctlr* ctlr, char* scaling)
+{
+	Ureg u;
+	int mode;
+
+	if(vbe == nil)
+		error("no vesa bios\n");
+
+	if(strcmp(scaling, "off") == 0)
+		mode = 1;
+	else if(strcmp(scaling, "aspect") == 0)
+		mode = 3;
+	else if(strcmp(scaling, "full") == 0)
+		mode = 0;
+	else{
+		ctlr->flag |= Ferror;
+		fprint(2, "vbescaling: unknown mode %s\n", scaling);
+		return;
+	}
+
+	vbesetup(vbe, &u, 0x4F14);
+	u.bx = 0x102;
+	u.cx = mode;
+	if(vbecall(vbe, &u) < 0){
+		ctlr->flag |= Ferror;
+		fprint(2, "vbescaling: %r\n");
+	}
+}
+
 Ctlr vesa = {
-	"vesa",			/* name */
-	snarf,				/* snarf */
-	options,			/* options */
-	0,				/* init */
-	load,				/* load */
-	dump,				/* dump */
+	"vesa",
+	snarf,
+	options,
+	nil,
+	load,
+	dump,
+	scaling,
 };
 
 Ctlr softhwgc = {

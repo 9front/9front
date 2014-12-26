@@ -149,7 +149,7 @@ chanstr[32+1] = {
 static void
 usage(void)
 {
-	fprint(2, "usage: aux/vga [ -BcdilpvV ] [ -b bios-id ] [ -m monitor ] [ -x db ] [ mode [ virtualsize ] ]\n");
+	fprint(2, "usage: aux/vga [ -BcdilpvV ] [ -b bios-id ] [ -m monitor ] [-s scaling] [ -x db ] [ mode [ virtualsize ] ]\n");
 	exits("usage");
 }
 
@@ -157,7 +157,7 @@ void
 main(int argc, char** argv)
 {
 	char *bios, buf[256], sizeb[256], *p, *vsize, *psize;
-	char *type, *vtype;
+	char *type, *vtype, *scaling;
 	int virtual, len;
 	Ctlr *ctlr;
 	Vga *vga;
@@ -169,6 +169,7 @@ main(int argc, char** argv)
 	if((type = getenv("monitor")) == 0)
 		type = "vga";
 	psize = vsize = "640x480x8";
+	scaling = nil;
 
 	ARGBEGIN{
 	default:
@@ -203,6 +204,9 @@ main(int argc, char** argv)
 		 * rflag > 1 means "leave me alone, I know what I'm doing."
 		 */
 		rflag++;
+		break;
+	case 's':
+		scaling = EARGF(usage());
 		break;
 	case 'v':
 		vflag = 1;
@@ -465,6 +469,11 @@ main(int argc, char** argv)
 			if(pflag)
 				dump(vga);
 		}
+	}
+
+	if(scaling != nil){
+		if(vga->vesa)
+			vesa.scaling(vga, vga->vesa, scaling);
 	}
 
 	trace("main->exits\n");

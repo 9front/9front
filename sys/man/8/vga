@@ -15,6 +15,10 @@ vga \- configure a VGA card
 .I monitor
 ]
 [
+.B -s
+.I scaling
+]
+[
 .B -x
 .I file
 ]
@@ -80,6 +84,16 @@ value.
 is usually set by including it in the
 .B plan9.ini
 file read by the PC boot program.
+.TP
+.B -s
+set scaling mode to either
+.I off
+to disable completely (image will be centered),
+.I full
+to stretch to full screen
+or
+.I aspect
+to stretch while preserving aspect ratio.
 .TP
 .B -p
 print the current or expected register values at appropriate points depending on
