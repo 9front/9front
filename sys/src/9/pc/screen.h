@@ -49,6 +49,15 @@ enum {
 	Pwhite		= 0xFF,
 };
 
+/*
+ * Scaling modes.
+ */
+enum {
+	Soff,
+	Sfull,
+	Saspect,
+};
+
 #define VGAMEM()	0xA0000
 #define vgai(port)		inb(port)
 #define vgao(port, data)	outb(port, data)
@@ -74,6 +83,7 @@ struct VGAdev {
 	void	(*ovlctl)(VGAscr*, Chan*, void*, int);
 	int	(*ovlwrite)(VGAscr*, void*, int, vlong);
 	void (*flush)(VGAscr*, Rectangle);
+	void	(*scaling)(VGAscr*, int);
 };
 
 struct VGAcur {

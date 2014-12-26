@@ -48,6 +48,7 @@ enum {
 	CMunblank,
 	CMsoftscreen,
 	CMpcidev,
+	CMscaling,
 };
 
 static Cmdtab vgactlmsg[] = {
@@ -67,6 +68,7 @@ static Cmdtab vgactlmsg[] = {
 	CMunblank,	"unblank",	1,
 	CMsoftscreen,	"softscreen",	2,
 	CMpcidev,	"pcidev",	2,
+	CMscaling,	"scaling",	2,
 };
 
 static void
@@ -303,6 +305,19 @@ vgactl(Cmdbuf *cb)
 				scr->pci = p;
 		} else
 			error(Ebadarg);
+		return;
+
+	case CMscaling:
+		if(scr != nil && scr->dev != nil){
+			if(scr->dev->scaling == nil)
+				error("scaling not supported");
+			else if(strcmp(cb->f[1], "aspect") == 0)
+				scr->dev->scaling(scr, Saspect);
+			else if(strcmp(cb->f[1], "full") == 0)
+				scr->dev->scaling(scr, Sfull);
+			else if(strcmp(cb->f[1], "off") == 0)
+				scr->dev->scaling(scr, Soff);
+		}
 		return;
 
 	case CMtype:
