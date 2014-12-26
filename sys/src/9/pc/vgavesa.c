@@ -23,6 +23,7 @@ enum {
 	Cdisable = 0,
 	Cenable,
 	Cblank,
+	Cscaling,
 
 	RealModeBuf = 0x9000,
 };
@@ -32,6 +33,7 @@ static Chan *creg, *cmem;
 static QLock vesaq;
 static Rendez vesar;
 static int vesactl;
+static int scaling;
 
 #define WORD(p) ((p)[0] | ((p)[1]<<8))
 #define LONG(p) ((p)[0] | ((p)[1]<<8) | ((p)[2]<<16) | ((p)[3]<<24))
@@ -183,11 +185,17 @@ vesaproc(void*)
 			sleep(&vesar, gotctl, &ctl);
 			ctl = vesactl;
 
-			vbesetup(&u, 0x4f10);
-			if(ctl == Cblank)
-				u.bx = 0x0101;
-			else	
-				u.bx = 0x0001;
+			if(ctl == Cscaling){
+				vbesetup(&u, 0x4f14);
+				u.bx = 0x102;
+				u.cx = scaling;
+			}else{
+				vbesetup(&u, 0x4f10);
+				if(ctl == Cblank)
+					u.bx = 0x0101;
+				else	
+					u.bx = 0x0001;
+			}
 
 			/*
 			 * dont wait forever here. some BIOS get stuck
@@ -253,6 +261,21 @@ vesablank(VGAscr *, int blank)
 }
 
 static void
+vesascaling(VGAscr *, int mode)
+{
+	if(vesactl != Cdisable){
+		vesactl = Cscaling;
+		if(mode == Soff)
+			scaling = 1;
+		else if(mode == Saspect)
+			scaling = 3;
+		else if(mode == Sfull)
+			scaling = 0;
+		wakeup(&vesar);
+	}
+}
+
+static void
 vesadrawinit(VGAscr *scr)
 {
 	scr->blank = vesablank;
@@ -262,7 +285,12 @@ VGAdev vgavesadev = {
 	"vesa",
 	vesaenable,
 	vesadisable,
-	0,
+	nil,
 	vesalinear,
 	vesadrawinit,
+	nil,
+	nil,
+	nil,
+	nil,
+	vesascaling,
 };

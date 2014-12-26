@@ -198,6 +198,17 @@ enable or disable the use of DPMS blanking
 .B blank
 above).
 .TP
+.BI scaling " mode"
+Set the GPU scaling
+.I mode
+to
+.BR off ,
+.B full
+or
+.B aspect
+to either disable scaling, scale to full screen, or
+to scale while preserving aspect ratio.
+.TP
 .BI linear " size align"
 Use a linear screen aperture of size
 .I size
