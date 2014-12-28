@@ -20,6 +20,8 @@ ircrc \- internet relay chat client
 .I nick
 ]
 [
+.B -T
+] [
 .I server
 ]
 .SH DESCRIPTION
@@ -60,6 +62,11 @@ unless they are commands.
 .BI -n " nick
 Change the default nickname
 .RB ( $user ).
+.TP
+.BI -T
+.br
+Use tls through
+.IR tlsclient(8) .
 .SS Commands
 .I Ircrc
 commands begin with a slash.

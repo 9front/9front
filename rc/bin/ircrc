@@ -10,6 +10,7 @@ clonefile=/net/tcp/clone
 netdir=()
 nick=$user
 pass=()
+tls=0
 
 fn sighup {
 	exit 'hang up'
@@ -40,11 +41,8 @@ fn work {
 	}
 	if(~ $target *,*)
 		target = `{echo $target | awk -F',' '{print $NF}'}
-	while () {
-		cmd=`{read}
+	while (cmd=`{read}) {
 		s=$status
-		if(! ~ `{cat $netdir/status} *Established*)
-			exit
 		if(~ $s *eof) {
 			echo  QUIT : Leaving... > $netdir/data
 			exit
@@ -165,12 +163,7 @@ fn privmsg {
 }
 
 fn pretty {
-	while (~ `{cat $netdir/status} *Established*) {
-		if(! line=`{read}) {
-			echo Connection lost
-			date
-			exit
-		}
+	while (line=`{read}) {
 		switch ($line) {
 		case *PRIVMSG*
 			line = `{echo -n $line | privmsg}
@@ -188,10 +181,6 @@ fn pretty {
 			echo `{etime} $line
 	}
 	exit
-}
-
-fn getip {
-	echo $1 ip | ndb/dnsquery | sed 1q | awk '{print $NF}'
 }
 
 fn title {
@@ -217,8 +206,10 @@ while (~ $1 -*) {
 	case -t
 		target=$2
 		shift
+	case -T
+		tls=1
 	case -*
-		echo 'usage: ircrc  [-p port] [-r realname] [-t target] [-n nick]  [server]' >[1=2]
+		echo 'usage: ircrc  [-p port] [-r realname] [-t target] [-n nick] [-T] [server]' >[1=2]
 		exit 'usage'	
 	}
 	shift
@@ -235,12 +226,6 @@ if (~ $#* 1) {
 	}
 }
 
-ip=`{getip $server}
-if (~ $#ip 0) {
-	echo cant translate $server
-	exit 'unknown host'
-}
-
 title
 userpass=`{auth/userpasswd 'server='^$server^' service=irc user='^$nick >[2]/dev/null}
 if(~ $#userpass 2 && ~ $nick $user) {
@@ -248,10 +233,16 @@ if(~ $#userpass 2 && ~ $nick $user) {
 	pass=$userpass(2)
 }
 
-<[4] $clonefile {
-	netdir=`{basename -d $clonefile} ^ / ^  `{cat /fd/4}
-	echo connect $ip!$port >$netdir/ctl || exit 'cannot connect'
-	echo connected to tcp!$ip!$port on $netdir
-	cat $netdir/data | tr -d '\x2\xd\x1f' | pretty & 
-	work
+p='/n/ircrc'
+bind '#|' $p
+echo connecting to tcp!$server!$port...
+if(~ $tls 0){
+	aux/trampoline tcp!$server!$port <>$p/data1 >[1=0] &
 }
+if not {
+	tlsclient tcp!$server!$port <>$p/data1 >[1=0] &
+}
+netdir=$p
+cat $netdir/data | tr -d '\x2\xd\x1f' | pretty &
+work
+
