@@ -49,7 +49,6 @@ typedef struct Ctlr {
 	void	(*init)(Vga*, Ctlr*);
 	void	(*load)(Vga*, Ctlr*);
 	void	(*dump)(Vga*, Ctlr*);
-	void	(*scaling)(Vga*, Ctlr*, char*);
 	char*	type;
 
 	ulong	flag;

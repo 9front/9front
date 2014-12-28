@@ -26,6 +26,7 @@ struct Vbe
 	uchar	*mem;	/* copy of memory; 1MB */
 	uchar	*isvalid;	/* 1byte per 4kB in mem */
 	uchar	*modebuf;
+	void (*scale)(Vga*, Ctlr*);
 };
 
 struct Vmode
@@ -144,9 +145,13 @@ dbvesamode(char *size)
 	Vmode vm;
 	Mode *m;
 	Modelist *l;
-	
+	char *scale;
+
 	if(vbe == nil)
 		return nil;
+
+	if(scale = strchr(size, ','))
+		*scale++ = 0;
 
 	if(strncmp(size, "0x", 2) == 0){
 		if(vbemodeinfo(vbe, strtol(size+2, nil, 16), &vm) == 0)
@@ -216,6 +221,17 @@ havemode:
 	a->next = nil;
 	m->attr = a;
 
+	/* scaling mode */
+	if(scale != nil){
+		a = alloc(sizeof(Attr));
+		a->attr = "scale";
+		a->val = alloc(32);
+		strncpy(a->val, scale, 32);
+
+		a->next = m->attr;
+		m->attr = a;
+	}
+
 	/* account for framebuffer stride */
 	width = vm.bpl * 8 / m->z;
 	if(width > m->x){
@@ -261,6 +277,8 @@ load(Vga* vga, Ctlr* ctlr)
 {
 	if(vbe == nil)
 		error("no vesa bios\n");
+	if(vbe->scale != nil)
+		vbe->scale(vga, ctlr);
 	if(vbesetmode(vbe, atoi(dbattr(vga->mode->attr, "id"))) < 0){
 		ctlr->flag |= Ferror;
 		fprint(2, "vbesetmode: %r\n");
@@ -297,33 +315,63 @@ dump(Vga*, Ctlr*)
 }
 
 static void
-scaling(Vga*, Ctlr* ctlr, char* scaling)
+intelscale(Vga* vga, Ctlr* ctlr)
 {
 	Ureg u;
-	int mode;
+	int cx;
+	char *scale;
 
 	if(vbe == nil)
 		error("no vesa bios\n");
 
-	if(strcmp(scaling, "off") == 0)
-		mode = 1;
-	else if(strcmp(scaling, "aspect") == 0)
-		mode = 3;
-	else if(strcmp(scaling, "full") == 0)
-		mode = 0;
+	/* NOTE: intel doesn't support "aspect" scaling mode :( */
+	scale = dbattr(vga->mode->attr, "scale");
+	if(scale == nil)
+		cx = 0;
+	else if(strcmp(scale, "scalefull") == 0)
+		cx = 4;
 	else{
 		ctlr->flag |= Ferror;
-		fprint(2, "vbescaling: unknown mode %s\n", scaling);
+		fprint(2, "vbescale: unsupported mode %s\n", scale);
+		return;
+	}
+
+	vbesetup(vbe, &u, 0x5F61);
+	u.bx = 0;
+	u.cx = cx; /* horizontal */
+	u.dx = cx; /* vertical */
+	if(vbecall(vbe, &u) < 0 && (u.ax&0xFFFF) != 0x5F)
+		fprint(2, "vbescale: %r\n");
+}
+
+static void
+nvidiascale(Vga* vga, Ctlr* ctlr)
+{
+	Ureg u;
+	int cx;
+	char *scale;
+
+	if(vbe == nil)
+		error("no vesa bios\n");
+
+	scale = dbattr(vga->mode->attr, "scale");
+	if(scale == nil)
+		cx = 1;
+	else if(strcmp(scale, "scaleaspect") == 0)
+		cx = 3;
+	else if(strcmp(scale, "scalefull") == 0)
+		cx = 0;
+	else{
+		ctlr->flag |= Ferror;
+		fprint(2, "vbescale: unsupported mode %s\n", scale);
 		return;
 	}
 
 	vbesetup(vbe, &u, 0x4F14);
 	u.bx = 0x102;
-	u.cx = mode;
-	if(vbecall(vbe, &u) < 0){
-		ctlr->flag |= Ferror;
-		fprint(2, "vbescaling: %r\n");
-	}
+	u.cx = cx;
+	if(vbecall(vbe, &u) < 0)
+		fprint(2, "vbescale: %r\n");
 }
 
 Ctlr vesa = {
@@ -333,7 +381,6 @@ Ctlr vesa = {
 	nil,
 	load,
 	dump,
-	scaling,
 };
 
 Ctlr softhwgc = {
@@ -526,7 +573,7 @@ int
 vbecall(Vbe *vbe, Ureg *u)
 {
 	u->trap = 0x10;
-	
+
 	vbeflush(vbe);
 
 	if(pwrite(vbe->rmfd, u, sizeof *u, 0) != sizeof *u)
@@ -546,6 +593,7 @@ vbecall(Vbe *vbe, Ureg *u)
 int
 vbecheck(Vbe *vbe)
 {
+	char *oem;
 	uchar *p;
 	Ureg u;
 
@@ -561,6 +609,11 @@ vbecheck(Vbe *vbe)
 		werrstr("invalid vesa version: %.4H\n", p+4);
 		return -1;
 	}
+	oem = unfarptr(vbe, p+6);
+	if(memcmp(oem, "Intel", 5) == 0)
+		vbe->scale = intelscale;
+	else if(memcmp(oem, "NVIDIA", 6) == 0)
+		vbe->scale = nvidiascale;
 	return 0;
 }
 
@@ -795,7 +848,7 @@ vbeddcedid(Vbe *vbe, Edid *e)
 {
 	uchar *p;
 	Ureg u;
-	
+
 	p = vbesetup(vbe, &u, 0x4F15);
 	u.bx = 0x0001;
 	if(vbecall(vbe, &u) < 0)
@@ -806,12 +859,12 @@ vbeddcedid(Vbe *vbe, Edid *e)
 	}
 	return 0;
 }
-	
+
 void
 printedid(Edid *e)
 {
 	Modelist *l;
-	
+
 	printitem("edid", "mfr");
 	Bprint(&stdout, "%s\n", e->mfr);
 	printitem("edid", "serialstr");
@@ -838,7 +891,7 @@ printedid(Edid *e)
 	Bprint(&stdout, "%lud\n", e->pclkmax);
 	printitem("edid", "flags");
 	printflags(edidflags, e->flags);
-	
+
 	for(l=e->modelist; l; l=l->next){
 		printitem("edid", l->name);
 		Bprint(&stdout, "\n\t\tclock=%g\n"
@@ -1144,7 +1197,7 @@ parseedid128(Edid *e, void *v)
 	 */
 	estab = (p[0]<<16) | (p[1]<<8) | p[2];
 	p += 3;
-	
+
 	for(i=0, m=1<<23; i<nelem(estabtime); i++, m>>=1)
 		if(estab & m)
 			if(vesalookup(&mode, estabtime[i]) == 0)

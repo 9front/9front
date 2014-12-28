@@ -15,10 +15,6 @@ vga \- configure a VGA card
 .I monitor
 ]
 [
-.B -s
-.I scaling
-]
-[
 .B -x
 .I file
 ]
@@ -85,16 +81,6 @@ is usually set by including it in the
 .B plan9.ini
 file read by the PC boot program.
 .TP
-.B -s
-set scaling mode to either
-.I off
-to disable completely (image will be centered),
-.I full
-to stretch to full screen
-or
-.I aspect
-to stretch while preserving aspect ratio.
-.TP
 .B -p
 print the current or expected register values at appropriate points depending on
 other options.
@@ -113,13 +99,19 @@ as the VGA database rather than
 .PP
 .I Mode
 is of the form
-.IB X x Y x Z
+.IB X x Y x Z ,S
 , where
 .IR X ,
 .IR Y ,
 and
 .I Z
 are numbers specifying the display height, width, and depth respectively.
+.I S
+is scaling mode, either
+.I scalefull
+or
+.IR scaleaspect ;
+not specifying it disables scaling altogether.
 The mode must appear in 
 .B /lib/vgadb
 as a value for one of the monitor entries.
@@ -227,3 +219,7 @@ new VGA controller or monitor setting.
 It is useful in such cases to have
 the above command for setting the controller to a known state
 at your fingertips.
+Scaling modes currently work with Intel and NVIDIA video
+adapters only, using VESA. Intel doesn't support
+.I scaleaspect
+mode.
