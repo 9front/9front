@@ -78,10 +78,10 @@ void	memltorearn(Memimage **ia , int n)
 int	memlorigin(Memimage *i, Point log, Point phys)
 .PP
 .B
-void	memdraw(Image *dst, Rectangle r,
+void	memdraw(Memimage *dst, Rectangle r,
 .br
 .B
-		   Image *src, Point sp, Image *mask, Point mp, Drawop op)
+		   Memimage *src, Point sp, Memimage *mask, Point mp, Drawop op)
 .fi
 .B
 int	memload(Memimage *i, Rectangle r,
