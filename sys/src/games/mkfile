@@ -28,6 +28,7 @@ DIRS=\
 	mahjongg\
 	mines\
 	music\
+	md\
 	nes\
 	snes\
 	sokoban\
