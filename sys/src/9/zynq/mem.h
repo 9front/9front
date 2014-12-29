@@ -40,8 +40,8 @@
 #define MACHSIZE 8192
 #define MACH(n) (KZERO+(n)*MACHSIZE)
 #define MACHP(n) ((Mach *)MACH(n))
-#define CPU0L1 ROUND(MACH(MAXMACH), L1SZ)
-#define VMAPL2 (CPU0L1 + L1SZ)
+#define MACHL1(n) (ROUND(MACH(MAXMACH), L1SZ) + (n)*L1SZ)
+#define VMAPL2 MACHL1(MAXMACH)
 #define VMAPL2SZ (L2SZ * (VMAPSZ / SECSZ))
 #define TMAPL2(n) (VMAPL2 + VMAPL2SZ + (n) * L2SZ)
 #define TMAPL2SZ (MAXMACH * L2SZ)
@@ -80,6 +80,7 @@
 #define DSB WORD $0xf57ff04f
 #define ISB WORD $0xf57ff06f
 #define WFE WORD $0xe320f002
+#define SEV WORD $0xe320f004
 #define CPS(m) WORD $(0xf1000000|(m))
 #define CPSMODE (1<<17)
 #define CPSIE (3<<6|2<<18)
@@ -121,4 +122,4 @@
 #define L2WRITE 0
 #define L2LOCAL (1<<11)
 
-#define TTBATTR (1<<6|1<<3)
+#define TTBATTR (1<<6|1<<3|1<<1)

@@ -44,6 +44,9 @@ intrinit(void)
 	mpcore[ICCICR] = 7;
 	mpcore[ICCBPR] = 3;
 	mpcore[ICCPMR] = 255;
+
+	if(m->machno != 0)
+		return;
 	
 	/* disable all irqs and clear any pending interrupts */
 	for(i = 0; i < NINTR/32; i++){
@@ -66,7 +69,7 @@ intrenable(int irq, void (*f)(Ureg *, void *), void *arg, int type, char *name)
 		panic("intrenable: invalid irq %d", irq);
 	if(type != LEVEL && type != EDGE)
 		panic("intrenable: invalid type %d", type);
-	if(irqs[irq].f != nil)
+	if(irqs[irq].f != nil && irqs[irq].f != f)
 		panic("intrenable: handler already assigned");
 	if(irq >= NPRIVATE){
 		e = &mpcore[ICDIPTR + (irq >> 2)];

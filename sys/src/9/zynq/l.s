@@ -18,7 +18,7 @@ _start0:
 
 	PUTC('l')
 	MOVW $SECSZ, R0
-	MOVW $(CPU0L1-KZERO), R4
+	MOVW $(MACHL1(0)-KZERO), R4
 	MOVW $KZERO, R1
 	ADD R1>>(SECSH-2), R4, R1
 	MOVW $(L1SEC|L1CACHED|L1KERRW), R2
@@ -42,13 +42,20 @@ _start2:
 	BGE _start2
 
 	MOVW $(UART_BASE|L2VALID|L2DEVICE|L2KERRW), R0
-	MOVW $(VMAPL2 - KZERO), R1
+	MOVW $(VMAPL2-KZERO), R1
 	MOVW R0, (R1)
-	
+
 	PUTC('n')
+
+	MOVW $(MACH(0)-KZERO), R(Rmach)
+_start3:
+	/* enable MMU permission checking */
+	MOVW $0x55555555, R0
+	MCR 15, 0, R0, C(3), C(0), 0
+
 	MOVW $0, R0
 	MCR 15, 0, R0, C(8), C(7), 0
-	MOVW $(CPU0L1 - KZERO | TTBATTR), R1
+	ADD $TTBATTR, R4, R1
 	MCR 15, 0, R1, C(2), C(0), 0
 	MOVW $0x20c5047b, R1
 	MOVW $_virt(SB), R2
@@ -59,16 +66,17 @@ _start2:
 TEXT _virt(SB), $-4
 	DSB
 	ISB
-	
-	MOVW $(MACH(0) + MACHSIZE), R13
-	MOVW $(MACH(0) + 12), R0
+
+	ADD $KZERO, R(Rmach)
+	MOVW R(Rmach), R13
+	ADD $MACHSIZE, R13
+
+	MOVW R(Rmach), R0
+	ADD $12, R0
 	BL loadsp(SB)
+
 	MOVW $vectors(SB), R1
 	MCR 15, 0, R1, C(12), C(0)
-	
-	/* enable MMU permission checking */
-	MOVW $0x55555555, R0
-	MCR 15, 0, R0, C(3), C(0), 0
 	
 	/* enable maths coprocessors in CPACR but disable them in FPEXC */
 	MRC 15, 0, R0, C(1), C(0), 2
@@ -96,13 +104,24 @@ TEXT _virt(SB), $-4
 	MOVW $(VMAP+0x30), R8
 	PUTC('9')
 	
+	/* kernel Mach* in TPIDRPRW */
+	MCR 15, 0, R(Rmach), C(13), C(0), 4
+
 	MOVW $setR12(SB), R12
-	MOVW $MACH(0), R(Rmach)
 	MOVW $0, R(Rup)
+
 	BL main(SB)
 	B idlehands(SB)
 
 	BL _div(SB) /* hack to load _div */
+
+TEXT mpbootstrap(SB), $-4
+	MOVW $0xE0001030, R8
+	PUTC('M')
+	PUTC('P')
+	MOVW $(MACH(1)-KZERO), R(Rmach)
+	MOVW $(MACHL1(1)-KZERO), R4
+	B _start3
 
 TEXT touser(SB), $-4
 	CPS(CPSID)
@@ -238,6 +257,10 @@ TEXT idlehands(SB), $0
 	WFE
 	RET
 
+TEXT sendevent(SB), $0
+	SEV
+	RET
+
 TEXT ttbget(SB), $0
 	MRC 15, 0, R0, C(2), C(0), 0
 	BIC $0x7f, R0
@@ -280,6 +303,10 @@ TEXT getdfsr(SB), $0
 
 TEXT setpmcr(SB), $0
 	MCR 15, 0, R0, C(9), C(12), 0
+	RET
+
+TEXT setpmcnten(SB), $0
+	MCR 15, 0, R0, C(9), C(12), 1
 	RET
 
 TEXT perfticks(SB), $0
@@ -453,3 +480,4 @@ TEXT palookur(SB), $0
 	DSB
 	MRC 15, 0, R0, C(7), C(4), 0
 	RET
+
