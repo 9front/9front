@@ -280,8 +280,7 @@ load(Vga* vga, Ctlr* ctlr)
 	if(vbesetmode(vbe, atoi(dbattr(vga->mode->attr, "id"))) < 0){
 		ctlr->flag |= Ferror;
 		fprint(2, "vbesetmode: %r\n");
-	}
-	if(vbe->scale != nil)
+	}else if(vbe->scale != nil)
 		vbe->scale(vga, ctlr);
 }
 
