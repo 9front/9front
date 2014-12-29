@@ -140,7 +140,6 @@ struct Mach
 	Proc*	readied;		/* for runproc */
 	ulong	schedticks;		/* next forced context switch */
 
-	int	cputype;
 	ulong	delayloop;
 
 	/* stats */

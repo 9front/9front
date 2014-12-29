@@ -39,7 +39,8 @@ _exc:
 	SUB $(18*4), R13
 	MOVM.IA [R0-R14], (R13)
 
-	MOVW $MACH(0), R(Rmach) /* FIXME */
+	/* get Mach* from TPIDRPRW */
+	MRC 15, 0, R(Rmach), C(13), C(0), 4
 	MOVW 8(R(Rmach)), R(Rup)
 	MOVW $setR12(SB), R12
 	
@@ -79,7 +80,8 @@ TEXT _vsvc(SB), $-4
 	MOVM.DB.S [R0-R14], (R13)
 	SUB $(15*4), R13
 	
-	MOVW $MACH(0), R(Rmach) /* FIXME */
+	/* get Mach* from TPIDRPRW */
+	MRC 15, 0, R(Rmach), C(13), C(0), 4
 	MOVW 8(R(Rmach)), R(Rup)
 	MOVW $setR12(SB), R12
 	

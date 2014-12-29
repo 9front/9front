@@ -12,10 +12,13 @@ mmuinit(void)
 {
 	m->l1.pa = ttbget();
 	m->l1.va = KADDR(m->l1.pa);
-	mpcore = vmap(MPCORE_BASE, 0x2000);
-	slcr = vmap(SLCR_BASE, 0x1000);
+	memset((uchar*)TMAPL2(m->machno), 0, TMAPL2SZ);
 	m->l1.va[L1X(TMAP)] = PADDR(TMAPL2(m->machno)) | L1PT;
 	incref(&m->l1);
+	if(mpcore != nil)
+		return;
+	mpcore = vmap(MPCORE_BASE, 0x2000);
+	slcr = vmap(SLCR_BASE, 0x1000);
 }
 
 void
@@ -38,29 +41,28 @@ l1alloc(void)
 	int s;
 
 	s = splhi();
-	if(m->l1free != nil){
-		p = m->l1free;
+	p = m->l1free;
+	if(p != nil){
+		m->l1free = p->next;
 		p->next = nil;
-		m->l1free = m->l1free->next;
 		m->nfree--;
 		splx(s);
 		return p;
-	}else{
-		p = smalloc(sizeof(L1));
-		for(;;){
-			p->va = mallocalign(L1SZ, L1SZ, 0, 0);
-			if(p->va != nil)
-				break;
-			if(!waserror()){
-				resrcwait("no memory for L1 table");
-				poperror();
-			}
-		}
-		memmove(p->va, m->l1.va, L1SZ);
-		p->pa = PADDR(p->va);
-		splx(s);
-		return p;
 	}
+	splx(s);
+	p = smalloc(sizeof(L1));
+	for(;;){
+		p->va = mallocalign(L1SZ, L1SZ, 0, 0);
+		if(p->va != nil)
+			break;
+		if(!waserror()){
+			resrcwait("no memory for L1 table");
+			poperror();
+		}
+	}
+	p->pa = PADDR(p->va);
+	memmove(p->va, m->l1.va, L1SZ);
+	return p;
 }
 
 static void
@@ -89,11 +91,9 @@ upallocl1(void)
 	p = l1alloc();
 	s = splhi();
 	if(up->l1 != nil)
-		l1free(p);
-	else{
-		up->l1 = p;
-		l1switch(p, 1);
-	}
+		panic("upalloc1: up->l1 != nil");
+	up->l1 = p;
+	l1switch(p, 1);
 	splx(s);
 }
 
@@ -114,6 +114,7 @@ l2free(Proc *proc)
 		*t = 0;
 		l = &p->next;
 	}
+	proc->l1->va[L1X(TMAP)] = 0;
 	*l = proc->mmufree;
 	proc->mmufree = proc->mmuused;
 	proc->mmuused = 0;
@@ -139,6 +140,7 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	ulong *e;
 	ulong *l2;
 	PTE old;
+	char *ctl;
 	uintptr l2p;
 	int s;
 
@@ -178,17 +180,17 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	splx(s);
 	if((old & L2VALID) != 0)
 		flushpg((void *) va);
-	if(pg->cachectl[0] == PG_TXTFLUSH){
+	ctl = &pg->cachectl[m->machno];
+	if(*ctl == PG_TXTFLUSH){
 		cleandse((void *) va, (void *) (va + BY2PG));
 		invalise((void *) va, (void *) (va + BY2PG));
-		pg->cachectl[0] = PG_NOFLUSH;
+		*ctl = PG_NOFLUSH;
 	}
 }
 
 void
 checkmmu(uintptr, uintptr)
 {
-	print("checkmmu\n");
 }
 
 void
@@ -286,7 +288,7 @@ kmap(Page *page)
 	e = &up->l1->va[L1X(KMAP)];
 	if((*e & 3) == 0){
 		if(up->kmaptable != nil)
-			panic("kmaptable");
+			panic("kmaptable != nil");
 		up->kmaptable = newpage(0, 0, 0);
 		s = splhi();
 		v = tmpmap(up->kmaptable->pa);
@@ -300,7 +302,7 @@ kmap(Page *page)
 		return (KMap *) KMAP;
 	}
 	if(up->kmaptable == nil)
-		panic("kmaptable");
+		panic("kmaptable == nil");
 	e = (ulong *) (KMAP + NKMAP * BY2PG);
 	for(i = 0; i < NKMAP; i++)
 		if((e[i] & 3) == 0){
@@ -338,7 +340,6 @@ void *
 tmpmap(ulong pa)
 {
 	ulong *u, *ub, *ue;
-	void *v;
 
 	if(islo())
 		panic("tmpmap: islow %#p", getcallerpc(&pa));
@@ -349,9 +350,13 @@ tmpmap(ulong pa)
 	for(u = ub; u < ue; u++)
 		if((*u & 3) == 0){
 			*u = pa | L2VALID | L2CACHED | L2KERRW;
+
+			assert(m->l1.va[L1X(TMAP)] != 0);
+			if(up != nil && up->l1 != nil)
+				up->l1->va[L1X(TMAP)] = m->l1.va[L1X(TMAP)];
+
 			coherence();
-			v = (void *) ((u - ub) * BY2PG + TMAP);
-			return v;
+			return (void *) ((u - ub) * BY2PG + TMAP);
 		}
 	panic("tmpmap: full (pa=%#.8lux)", pa);
 	return nil;
@@ -361,7 +366,7 @@ void
 tmpunmap(void *v)
 {
 	ulong *u;
-	
+
 	if(v >= (void*) KZERO)
 		return;
 	if(v < (void*)TMAP || v >= (void*)(TMAP + TMAPSZ))

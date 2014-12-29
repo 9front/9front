@@ -182,9 +182,9 @@ confinit(void)
 	int i;
 
 	conf.nmach = 1;
-	conf.nproc = 100;
+	conf.nproc = 2000;
 	conf.ialloc = 16*1024*1024;
-	conf.nimage = conf.nproc;
+	conf.nimage = 200;
 	conf.mem[0].base = PGROUND((ulong)end - KZERO);
 	conf.mem[0].limit = 1024*1024*1024;
 	conf.npage = 0;
@@ -347,9 +347,63 @@ isaconfig(char *, int, ISAConf*)
 }
 
 void
+cpuidprint(void)
+{
+	print("\ncpu%d: %dMHz ARM Cortex-A9\n", m->machno, m->cpumhz);
+}
+
+void
+mpinit(void)
+{
+	extern void mpbootstrap(void);	/* l.s */
+	Mach *m1;
+	ulong *v;
+	int i;
+
+	if(getconf("*nomp"))
+		return;
+
+	conf.nmach = 2;
+	conf.copymode = 1;
+
+	m1 = MACHP(1);
+	memset(m1, 0, MACHSIZE);
+	m1->machno = 1;
+	m1->l1.pa = MACHL1(m1->machno)-KZERO;
+	m1->l1.va = KADDR(m1->l1.pa);
+
+	memset(m1->l1.va, 0, L1SZ);
+	for(i=0; i<L1X(VMAPSZ); i++)
+		m1->l1.va[L1X(VMAP)+i] = m->l1.va[L1X(VMAP)+i];
+	for(i=0; i<L1X(-KZERO); i++)
+		m1->l1.va[L1X(KZERO)+i] = m->l1.va[L1X(KZERO)+i];
+	coherence();
+	cleandse((uchar*)KZERO, (uchar*)0xFFFFFFFF);
+
+	v = tmpmap(0xFFFFF000);
+	v[0xFF0/4] = PADDR(mpbootstrap);
+	coherence();
+	cleandse(v, (uchar*)v+BY2PG);
+	tmpunmap(v);
+
+	sendevent();
+	synccycles();
+}
+
+void
 main(void)
 {
-	active.machs = 1;
+	active.machs |= (1 << m->machno);
+	if(m->machno != 0){
+		mmuinit();
+		intrinit();
+		timerinit();
+		cpuidprint();
+		synccycles();
+		timersinit();
+		schedinit();
+		return;
+	}
 	uartinit();
 	mmuinit();
 	l2init();
@@ -361,6 +415,7 @@ main(void)
 	xinit();
 	printinit();
 	quotefmtinstall();
+	cpuidprint();
 	sanity();
 	todinit();
 	timersinit();
@@ -376,5 +431,6 @@ main(void)
 	swapinit();
 	screeninit();
 	userinit();
+	mpinit();
 	schedinit();
 }

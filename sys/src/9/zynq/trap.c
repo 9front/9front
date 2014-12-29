@@ -20,7 +20,7 @@ _dumpstack(Ureg *ureg)
 		iprint("dumpstack disabled\n");
 		return;
 	}
-	iprint("dumpstack\n");
+	iprint("cpu%d: dumpstack\n", m->machno);
 
 	x = 0;
 	x += iprint("ktrace /arm/9zynq %.8lux %.8lux %.8lux <<EOF\n", ureg->pc, ureg->sp, ureg->r14);
@@ -57,7 +57,7 @@ faultarm(Ureg *ureg, ulong fsr, uintptr addr)
 {
 	int user, insyscall, read, n;
 	static char buf[ERRMAX];
-	
+
 	read = (fsr & (1<<11)) == 0;
 	user = userureg(ureg);
 	if(!user){
@@ -88,18 +88,24 @@ faultarm(Ureg *ureg, ulong fsr, uintptr addr)
 static void
 mathtrap(Ureg *, ulong)
 {
+	int s;
+
 	if((up->fpstate & FPillegal) != 0){
 		postnote(up, 1, "sys: floating point in note handler", NDebug);
 		return;
 	}
 	switch(up->fpstate){
 	case FPinit:
+		s = splhi();
 		fpinit();
 		up->fpstate = FPactive;
+		splx(s);
 		break;
 	case FPinactive:
+		s = splhi();
 		fprestore(&up->fpsave);
 		up->fpstate = FPactive;
+		splx(s);
 		break;
 	case FPactive:
 		postnote(up, 1, "sys: floating point error", NDebug);
@@ -138,6 +144,7 @@ trap(Ureg *ureg)
 			postnote(up, 1, "sys: trap: invalid opcode", NDebug);
 			break;
 		}
+		dumpregs(ureg);
 		panic("invalid opcode at pc=%#.8lux lr=%#.8lux", ureg->pc, ureg->r14);
 		break;
 	case PsrMiabt:
@@ -153,7 +160,7 @@ trap(Ureg *ureg)
 		intr(ureg);
 		break;
 	default:
-		print("unknown trap type %ulx\n", ureg->type);
+		iprint("cpu%d: unknown trap type %ulx\n", m->machno, ureg->type);
 	}
 	splhi();
 	if(user){
@@ -408,9 +415,17 @@ dumpstack(void)
 }
 
 void
-dumpregs(Ureg *)
+dumpregs(Ureg *ureg)
 {
-	print("dumpregs\n");
+	iprint("trap: %lux psr %8.8lux type %2.2lux pc %8.8lux link %8.8lux\n",
+		ureg->type, ureg->psr, ureg->type, ureg->pc, ureg->link);
+	iprint("R14 %8.8lux R13 %8.8lux R12 %8.8lux R11 %8.8lux R10 %8.8lux\n",
+		ureg->r14, ureg->r13, ureg->r12, ureg->r11, ureg->r10);
+	iprint("R9  %8.8lux R8  %8.8lux R7  %8.8lux R6  %8.8lux R5  %8.8lux\n",
+		ureg->r9, ureg->r8, ureg->r7, ureg->r6, ureg->r5);
+	iprint("R4  %8.8lux R3  %8.8lux R2  %8.8lux R1  %8.8lux R0  %8.8lux\n",
+		ureg->r4, ureg->r3, ureg->r2, ureg->r1, ureg->r0);
+	iprint("pc %#lux link %#lux\n", ureg->pc, ureg->link);
 }
 
 void
@@ -476,7 +491,7 @@ procsave(Proc *p)
 	cycles(&t);
 	p->kentry -= t;
 	p->pcycles += t;
-	
+
 	l1switch(&m->l1, 0);
 }
 

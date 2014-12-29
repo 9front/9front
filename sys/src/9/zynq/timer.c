@@ -80,12 +80,39 @@ timerirq(Ureg *u, void *)
 void
 timerinit(void)
 {
-	int mhz;
-	
-	mhz = PS_CLK * (slcr[ARM_PLL_CTRL] >> 12 & 0x7f) / (slcr[ARM_CLK_CTRL] >> 8 & 0x3f);
-	timerhz = mhz * 500000;
+	m->cpumhz = PS_CLK * (slcr[ARM_PLL_CTRL] >> 12 & 0x7f) / (slcr[ARM_CLK_CTRL] >> 8 & 0x3f);
+	m->cpuhz = m->cpumhz * 1000000;
+	timerhz = m->cpuhz / 2;
 	mpcore[GTIMERCTL] = TIMERDIV - 1 << 8 | 3;
 	mpcore[LTIMERCTL] = LTIMERDIV - 1 << 8 | 4;
 	intrenable(TIMERIRQ, timerirq, nil, EDGE, "clock");
+
+	/* enable and reset cycle counter register */
+	m->cyclefreq = m->cpuhz;
+	setpmcnten((1<<31));
+	coherence();
 	setpmcr(7);
+}
+
+/*
+ * synchronize all cpu's cycle counter registers
+ */
+void
+synccycles(void)
+{
+	static Ref r1, r2;
+	int s;
+
+	s = splhi();
+	r2.ref = 0;
+	incref(&r1);
+	while(r1.ref != conf.nmach)
+		;
+	setpmcr(7);
+	m->cycleshi = MACHP(0)->cycleshi;
+	incref(&r2);
+	while(r2.ref != conf.nmach)
+		;
+	r1.ref = 0;
+	splx(s);
 }
