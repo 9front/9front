@@ -41,6 +41,7 @@ openmemsubfont(char *name)
 		free(fc);
 		goto Err;
 	}
+	close(fd);
 	free(p);
 	return sf;
 Err:

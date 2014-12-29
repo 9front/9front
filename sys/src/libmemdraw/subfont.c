@@ -30,5 +30,6 @@ freememsubfont(Memsubfont *f)
 		return;
 	free(f->info);	/* note: f->info must have been malloc'ed! */
 	freememimage(f->bits);
+	free(f->name);
 	free(f);
 }
