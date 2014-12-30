@@ -405,7 +405,7 @@ struct Buffer {
 	uchar	*red;
 	uchar	*grn;
 	uchar	*blu;
-	uchar	*alpha;
+	uchar	*alpha;	/* is &ones when unused, never nil */
 	uchar	*grey;
 	ulong	*rgba;
 	int	delta;	/* number of bytes to add to pointer to get next pixel to the right */
@@ -1677,7 +1677,7 @@ DBG print("%x\n", w[-1]);
 		b.grey = buf+copyalpha;
 		b.red = b.grn = b.blu = buf+copyalpha;
 		b.delta = copyalpha+1;
-DBG print("alpha %x grey %x\n", b.alpha ? *b.alpha : 0xFF, *b.grey);
+DBG print("alpha %x grey %x\n", *b.alpha, *b.grey);
 	}else{
 		b.blu = buf+copyalpha;
 		b.grn = buf+copyalpha+1;
@@ -1695,7 +1695,7 @@ writebyte(Param *p, uchar *w, Buffer src)
 {
 	Memimage *img;
 	int i, isalpha, isgrey, nb, delta, dx, adelta;
-	uchar ff, *red, *grn, *blu, *grey, *alpha;
+	uchar *red, *grn, *blu, *grey, *alpha;
 	ulong u, mask;
 
 	img = p->img;
@@ -1714,11 +1714,8 @@ writebyte(Param *p, uchar *w, Buffer src)
 	isgrey = img->flags&Fgrey;
 	adelta = src.delta;
 
-	if(isalpha && (alpha == nil || alpha == &ones)){
-		ff = 0xFF;
-		alpha = &ff;
+	if(isalpha && alpha == &ones)
 		adelta = 0;
-	}
 
 	if((img->flags&Fbytes) != 0){
 		int ogry, ored, ogrn, oblu, oalp;
@@ -1829,7 +1826,8 @@ readptr(Param *p, uchar *s, int y)
 	USED(s);
 	q = p->bytermin + y*p->bwidth;
 	b.red = q;	/* ptr to data */
-	b.grn = b.blu = b.grey = b.alpha = nil;
+	b.grn = b.blu = b.grey = nil;
+	b.alpha = &ones;
 	b.rgba = (ulong*)q;
 	b.delta = p->img->depth/8;
 	return b;
@@ -1947,7 +1945,8 @@ genconv(Param *p, uchar *buf, int y)
 	}
 
 	b.red = buf;
-	b.blu = b.grn = b.grey = b.alpha = nil;
+	b.blu = b.grn = b.grey = nil;
+	b.alpha = &ones;
 	b.rgba = (ulong*)buf;
 	b.delta = 0;
 	
