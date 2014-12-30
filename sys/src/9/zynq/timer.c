@@ -49,8 +49,7 @@ fastticks(uvlong *hz)
 ulong
 µs(void)
 {
-	NOPE
-	return 0;
+	return fastticks2us(fastticks(nil));
 }
 
 void
