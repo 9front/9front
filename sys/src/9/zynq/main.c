@@ -112,7 +112,7 @@ l2init(void)
 	l2[CTRL] &= ~1;
 	l2[TAGRAM] = l2[TAGRAM] & ~0x777 | 0x111;
 	l2[DATARAM] = l2[DATARAM] & ~0x777 | 0x121;
-	l2[PREFETCH] |= 3<<28;
+	l2[PREFETCH] |= 3<<28 | 1<<24;
 	l2[AUX] |= 3<<28 | 1<<20;
 	l2[INVWAY] = 0xff;
 	while((l2[INVPA] & 1) != 0)

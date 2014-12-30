@@ -93,14 +93,14 @@ TEXT _virt(SB), $-4
 	MCR 15, 0, R0, C(7), C(5), 6
 	BL l1dclear(SB)
 	MRC 15, 0, R0, C(1), C(0), 1
-	ORR $(1|1<<6), R0
+	ORR $(1|2|1<<6), R0
 	MCR 15, 0, R0, C(1), C(0), 1
 	MRC 15, 0, R0, C(1), C(0), 0
 	ORR $(1<<12|1<<2), R0
 	MCR 15, 0, R0, C(1), C(0), 0
 	DSB
 	ISB
-	
+
 	MOVW $(VMAP+0x30), R8
 	PUTC('9')
 	
