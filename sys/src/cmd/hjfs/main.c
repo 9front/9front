@@ -104,7 +104,7 @@ threadmain(int argc, char **argv)
 	flags = FSNOAUTH;
 	service = "hjfs";
 	file = nil;
-	nbuf = 10;
+	nbuf = 1000;
 	ARGBEGIN {
 	case 'A': flags &= ~FSNOAUTH; break;
 	case 'r': doream++; break;
