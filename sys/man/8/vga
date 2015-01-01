@@ -99,7 +99,7 @@ as the VGA database rather than
 .PP
 .I Mode
 is of the form
-.IB X x Y x Z ,S
+.IB X x Y x Z[,S][,#N]
 , where
 .IR X ,
 .IR Y ,
@@ -112,6 +112,10 @@ is scaling mode, either
 or
 .IR scaleaspect ;
 not specifying it disables scaling altogether.
+.I #N
+is used to switch to a specific display using its index
+.IR N .
+.PP
 The mode must appear in 
 .B /lib/vgadb
 as a value for one of the monitor entries.
@@ -150,7 +154,7 @@ There are no entries for the
 .B vesa
 monitor in 
 .IR vgadb .
-For a list of available VESA modes, use
+For a list of available VESA modes and connected displays, use
 .IP
 .EX
 aux/vga -m vesa -p
@@ -170,6 +174,20 @@ Change the display resolution:
 .IP
 .EX
 aux/vga -l 1600x1200x8
+.EE
+.PP
+Show connected and active displays:
+.IP
+.EX
+aux/vga -m vesa -p | grep dsp
+.EE
+.PP
+Switch to display
+.I 4
+and load a specific mode:
+.IP
+.EX
+aux/vga -m vesa -l '1920x1080x16,#4'
 .EE
 .PP
 Print the current VGA controller registers.
@@ -219,7 +237,11 @@ new VGA controller or monitor setting.
 It is useful in such cases to have
 the above command for setting the controller to a known state
 at your fingertips.
+.PP
 Scaling modes currently work with Intel and NVIDIA video
 adapters only, using VESA. Intel doesn't support
 .I scaleaspect
 mode.
+.PP
+Display switching currently works with Intel video adapters
+only, using VESA.
