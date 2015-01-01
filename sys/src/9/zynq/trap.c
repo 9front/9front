@@ -52,11 +52,27 @@ _dumpstack(Ureg *ureg)
 	iprint("EOF\n");
 }
 
+static char*
+faulterr[0x20] = {
+[0x01]	"alignement fault",
+[0x02]	"debug event",
+[0x04]	"fault on instruction cache maintenance",
+[0x08]	"synchronous external abort",
+[0x0C]	"synchronous external abort on translation table walk L1",
+[0x0E]	"synchronous external abort on translation table walk L2",
+[0x10]	"tlb conflict abort",
+[0x16]	"asynchronous external abort",
+[0x19]	"synchronous parity error on memory access",
+[0x1C]	"synchronous parity error on translation table walk L1",
+[0x1E]	"synchronous parity error on translation table walk L2",
+};
+
 static void
 faultarm(Ureg *ureg, ulong fsr, uintptr addr)
 {
-	int user, insyscall, read, n;
+	int user, insyscall, read;
 	static char buf[ERRMAX];
+	char *err;
 
 	read = (fsr & (1<<11)) == 0;
 	user = userureg(ureg);
@@ -70,16 +86,31 @@ faultarm(Ureg *ureg, ulong fsr, uintptr addr)
 	}
 	if(up == nil)
 		panic("user fault: up=nil pc=%#.8lux addr=%#.8lux fsr=%#.8lux", ureg->pc, addr, fsr);
+
 	insyscall = up->insyscall;
 	up->insyscall = 1;
-	n = fault(addr, read);
-	if(n < 0){
+	switch(fsr & 0x1F){
+	case 0x05:	/* translation fault L1 */
+	case 0x07:	/* translation fault L2 */
+	case 0x03:	/* access flag fault L1 */
+	case 0x06:	/* access flag fault L2 */
+	case 0x09:	/* domain fault L1 */
+	case 0x0B:	/* domain fault L2 */
+	case 0x0D:	/* permission fault L1 */
+	case 0x0F:	/* permission fault L2 */
+		if(fault(addr, read) == 0)
+			break;
+		/* wet floor */
+	default:
+		err = faulterr[fsr & 0x1F];
+		if(err == nil)
+			err = "fault";
 		if(!user){
 			dumpregs(ureg);
 			_dumpstack(ureg);
-			panic("kernel fault: pc=%#.8lux addr=%#.8lux fsr=%#.8lux", ureg->pc, addr, fsr);
+			panic("kernel %s: pc=%#.8lux addr=%#.8lux fsr=%#.8lux", err, ureg->pc, addr, fsr);
 		}
-		sprint(buf, "sys: trap: fault %s addr=%#.8lux", read ? "read" : "write", addr);
+		sprint(buf, "sys: trap: %s %s addr=%#.8lux", err, read ? "read" : "write", addr);
 		postnote(up, 1, buf, NDebug);
 	}
 	up->insyscall = insyscall;
