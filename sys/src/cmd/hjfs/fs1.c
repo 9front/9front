@@ -176,6 +176,7 @@ createroot(Fs *fs)
 		goto error;
 	fs->root = r;
 	c->sb.root = r;
+	c->op |= BDELWRI;
 	putbuf(c);
 }
 
