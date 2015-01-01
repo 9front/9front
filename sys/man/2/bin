@@ -8,11 +8,10 @@ binalloc, bingrow, binfree \- grouped memory allocation
 .br
 .B #include <bin.h>
 .PP
-.ta \w'\fLvoid* 'u
-.PP
 .B
 typedef struct Bin	Bin;
 .PP
+.ta \w'\fLvoid* 'u
 .B
 void	*binalloc(Bin **bp, ulong size, int clr);
 .PP
