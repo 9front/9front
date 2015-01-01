@@ -34,11 +34,11 @@ tcs.$O:			alias.h
 conv%.$O:		conv.h
 conv_ksc.$O:		ksc.h
 
-charsets.txt:
-	hget http://www.iana.org/assignments/character-sets | sed 's///' >$target
+charsets.xml:
+	hget http://www.iana.org/assignments/character-sets/character-sets.xml >$target
 
-alias.h: charsets.awk charsets.txt alias.txt
-	./charsets.awk charsets.txt alias.txt >$target
+alias.h: charsets.awk charsets.xml alias.txt
+	./charsets.awk charsets.xml alias.txt >$target
 
 clean:V:
 	rm -f *.[$OS] [$OS].out y.tab.? y.debug y.output alias.h $TARG
