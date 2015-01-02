@@ -309,6 +309,11 @@ vgactl(Cmdbuf *cb)
 		for(i = 0; vgadev[i]; i++){
 			if(strcmp(cb->f[1], vgadev[i]->name))
 				continue;
+			qlock(&drawlock);
+			if(waserror()){
+				qunlock(&drawlock);
+				nexterror();
+			}
 			if(scr->dev){
 				if(scr->dev->disable)
 					scr->dev->disable(scr);
@@ -319,6 +324,8 @@ vgactl(Cmdbuf *cb)
 			scr->dev = vgadev[i];
 			if(scr->dev->enable)
 				scr->dev->enable(scr);
+			qunlock(&drawlock);
+			poperror();
 			return;
 		}
 		break;

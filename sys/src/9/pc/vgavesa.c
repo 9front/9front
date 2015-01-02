@@ -20,18 +20,11 @@ typedef struct Ureg386 Ureg386;
 #include "screen.h"
 
 enum {
-	Cdisable = 0,
-	Cenable,
-	Cblank,
-
 	RealModeBuf = 0x9000,
 };
 
 static uchar modebuf[0x1000];
 static Chan *creg, *cmem;
-static QLock vesaq;
-static Rendez vesar;
-static int vesactl;
 
 #define WORD(p) ((p)[0] | ((p)[1]<<8))
 #define LONG(p) ((p)[0] | ((p)[1]<<8) | ((p)[2]<<16) | ((p)[3]<<24))
@@ -165,59 +158,9 @@ vesalinear(VGAscr *scr, int, int)
 	scr->softscreen = 1;
 }
 
-static int
-gotctl(void *arg)
-{
-	return vesactl != *((int*)arg);
-}
-
-static void
-vesaproc(void*)
-{
-	Ureg386 u;
-	int ctl;
-
-	ctl = Cenable;
-	while(ctl != Cdisable){
-		if(!waserror()){
-			sleep(&vesar, gotctl, &ctl);
-			ctl = vesactl;
-
-			vbesetup(&u, 0x4f10);
-			if(ctl == Cblank)
-				u.bx = 0x0101;
-			else	
-				u.bx = 0x0001;
-
-			/*
-			 * dont wait forever here. some BIOS get stuck
-			 * in i/o poll loop after blank/unblank for some
-			 * reason. (Thinkpad A22p)
-			 */
-			procalarm(10000);
-			vbecall(&u);
-
-			poperror();
-		}
-		procalarm(0);
-		up->notepending = 0;
-	}
-	cclose(cmem);
-	cclose(creg);
-	cmem = creg = nil;
-	qunlock(&vesaq);
-
-	pexit("", 1);
-}
-
 static void
 vesaenable(VGAscr *)
 {
-	eqlock(&vesaq);
-	if(waserror()){
-		qunlock(&vesaq);
-		nexterror();
-	}
 	cmem = namec("/dev/realmodemem", Aopen, ORDWR, 0);
 	if(waserror()){
 		cclose(cmem);
@@ -226,29 +169,42 @@ vesaenable(VGAscr *)
 	}
 	creg = namec("/dev/realmode", Aopen, ORDWR, 0);
 	poperror();
-	poperror();
-
-	vesactl = Cenable;
-	kproc("vesa", vesaproc, nil);
 }
 
 static void
 vesadisable(VGAscr *)
 {
-	vesactl = Cdisable;
-	wakeup(&vesar);
-
-	/* wait for vesaproc to finish */
-	qlock(&vesaq);
-	qunlock(&vesaq);
+	if(cmem != nil)
+		cclose(cmem);
+	if(creg != nil)
+		cclose(creg);
+	cmem = creg = nil;
 }
 
 static void
 vesablank(VGAscr *, int blank)
 {
-	if(vesactl != Cdisable){
-		vesactl = blank ? Cblank : Cenable;
-		wakeup(&vesar);
+	Ureg386 u;
+
+	vbesetup(&u, 0x4f10);
+	u.bx = blank ? 0x0101 : 0x0001;
+
+	/*
+	 * dont wait forever when called from mouse kproc.
+	 * some BIOS get stuck in i/o poll loop after
+	 * blank/unblank for some reason. (Thinkpad A22p)
+	 */
+	if(up->kp)
+		procalarm(10000);
+
+	if(!waserror()){
+		vbecall(&u);
+		poperror();
+	}
+
+	if(up->kp){
+		procalarm(0);
+		up->notepending = 0;
 	}
 }
 
