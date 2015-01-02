@@ -28,7 +28,7 @@ struct Vbe
 	uchar	*modebuf;
 	int	dspcon;	/* connected displays bitmask */
 	int	dspact;	/* active displays bitmask */
-	void (*scale)(Vga*, Ctlr*, int);
+	void (*scale)(Vga*, Ctlr*);
 };
 
 struct Vmode
@@ -100,7 +100,7 @@ int vbecheck(Vbe*);
 uchar *vbemodes(Vbe*);
 int vbemodeinfo(Vbe*, int, Vmode*);
 int vbegetmode(Vbe*);
-int vbesetmode(Vbe*, int, int);
+int vbesetmode(Vbe*, int);
 void vbeprintinfo(Vbe*);
 void vbeprintmodeinfo(Vbe*, int, char*);
 int vbesnarf(Vbe*, Vga*);
@@ -111,6 +111,7 @@ void fixbios(Vbe*);
 uchar* vbesetup(Vbe*, Ureg*, int);
 int vbecall(Vbe*, Ureg*);
 int setdisplay(Vbe *vbe, int display);
+int getdisplay(Vbe *vbe);
 
 int
 dbvesa(Vga* vga)
@@ -142,30 +143,39 @@ dbvesa(Vga* vga)
 Mode*
 dbvesamode(char *size)
 {
-	int i, width, nargs;
+	int i, width, nargs, display;
+	int oldmode, olddisplay;
 	uchar *p, *ep;
 	Attr *a;
 	Vmode vm;
 	Mode *m;
 	Modelist *l;
-	char *args[4], *scale, *display;
+	char *args[4], *scale;
 
 	if(vbe == nil)
 		return nil;
 
 	scale = nil;
-	display = nil;
+	display = 0;
+	oldmode = olddisplay = 0;
 	nargs = getfields(size, args, 4, 0, ",");
 	if(nargs > 1){
 		if(args[1][0] == '#'){
-			display = &args[1][1];
+			display = atoi(&args[1][1]);
 			if(nargs > 2)
 				scale = args[2];
 		}else if(args[1][0] == 's'){
 			scale = args[1];
 			if(nargs > 2)
-				display = &args[2][1];
+				display = atoi(&args[2][1]);
 		}
+	}
+
+	if(display != 0){
+		olddisplay = getdisplay(vbe);
+		oldmode = vbegetmode(vbe);
+		if(setdisplay(vbe, display) < 0)
+			return nil;
 	}
 
 	if(strncmp(size, "0x", 2) == 0){
@@ -190,10 +200,17 @@ dbvesamode(char *size)
 			}
 		}
 	}
+
+	if(display != 0 && setdisplay(vbe, olddisplay) == 0)
+		vbesetmode(vbe, oldmode);
+
 	werrstr("no such vesa mode");
 	return nil;
 
 havemode:
+	if(display != 0 && setdisplay(vbe, olddisplay) == 0)
+		vbesetmode(vbe, oldmode);
+
 	m = alloc(sizeof(Mode));
 	m->x = vm.dx;
 	m->y = vm.dy;
@@ -248,11 +265,11 @@ havemode:
 	}
 
 	/* display id */
-	if(display != nil){
+	if(display != 0){
 		a = alloc(sizeof(Attr));
 		a->attr = "display";
 		a->val = alloc(2);
-		strncpy(a->val, display, 2);
+		a->val[0] = '0' + display;
 
 		a->next = m->attr;
 		m->attr = a;
@@ -302,6 +319,7 @@ static void
 load(Vga* vga, Ctlr* ctlr)
 {
 	int mode, display;
+	int oldmode, olddisplay;
 	char *ds;
 
 	if(vbe == nil)
@@ -309,16 +327,29 @@ load(Vga* vga, Ctlr* ctlr)
 	mode = atoi(dbattr(vga->mode->attr, "id"));
 	ds = dbattr(vga->mode->attr, "display");
 	display = ds == nil ? 0 : atoi(ds);
+	olddisplay = oldmode = 0;
 
 	/* need to reset scaling before switching displays */
 	if(vbe->scale != nil)
-		vbe->scale(vga, ctlr, 1);
+		vbe->scale(nil, nil);
 
-	if(vbesetmode(vbe, mode, display) < 0){
+	if(display != 0){
+		olddisplay = getdisplay(vbe);
+		oldmode = vbegetmode(vbe);
+	}
+
+	if(setdisplay(vbe, display) < 0){
+		ctlr->flag |= Ferror;
+		fprint(2, "vbesetmode: %r\n");
+	}else if(vbesetmode(vbe, mode) < 0){
+		if(display != 0){
+			setdisplay(vbe, olddisplay);
+			vbesetmode(vbe, oldmode);
+		}
 		ctlr->flag |= Ferror;
 		fprint(2, "vbesetmode: %r\n");
 	}else if(vbe->scale != nil)
-		vbe->scale(vga, ctlr, 0);
+		vbe->scale(vga, ctlr);
 }
 
 static void
@@ -351,7 +382,7 @@ dump(Vga*, Ctlr*)
 }
 
 static void
-intelscale(Vga* vga, Ctlr* ctlr, int reset)
+intelscale(Vga* vga, Ctlr* ctlr)
 {
 	Ureg u;
 	int cx;
@@ -360,31 +391,31 @@ intelscale(Vga* vga, Ctlr* ctlr, int reset)
 	if(vbe == nil)
 		error("no vesa bios\n");
 
-	/* NOTE: intel doesn't support "aspect" scaling mode :( */
-	scale = dbattr(vga->mode->attr, "scale");
-	if(scale == nil)
-		cx = 0;
-	else if(strcmp(scale, "scalefull") == 0)
+	if(vga == nil)
 		cx = 4;
 	else{
-		ctlr->flag |= Ferror;
-		fprint(2, "vbescale: unsupported mode %s\n", scale);
-		return;
+		/* NOTE: intel doesn't support "aspect" scaling mode :( */
+		scale = dbattr(vga->mode->attr, "scale");
+		if(scale == nil)
+			cx = 0;
+		else if(strcmp(scale, "scalefull") == 0)
+			cx = 4;
+		else{
+			ctlr->flag |= Ferror;
+			fprint(2, "vbescale: unsupported mode %s\n", scale);
+			return;
+		}
 	}
-	if(reset)
-		cx = 4;
 
 	vbesetup(vbe, &u, 0x5F61);
 	u.bx = 0;
 	u.cx = cx; /* horizontal */
 	u.dx = cx; /* vertical */
 	vbecall(vbe, &u);
-	if(u.ax != 0x5f)
-		fprint(2, "vbescale: %#.4lux", u.ax);
 }
 
 static void
-nvidiascale(Vga* vga, Ctlr* ctlr, int reset)
+nvidiascale(Vga* vga, Ctlr* ctlr)
 {
 	Ureg u;
 	int cx;
@@ -393,26 +424,26 @@ nvidiascale(Vga* vga, Ctlr* ctlr, int reset)
 	if(vbe == nil)
 		error("no vesa bios\n");
 
-	scale = dbattr(vga->mode->attr, "scale");
-	if(scale == nil)
-		cx = 1;
-	else if(strcmp(scale, "scaleaspect") == 0)
-		cx = 3;
-	else if(strcmp(scale, "scalefull") == 0)
+	if(vga == nil)
 		cx = 0;
 	else{
-		ctlr->flag |= Ferror;
-		fprint(2, "vbescale: unsupported mode %s\n", scale);
-		return;
+		scale = dbattr(vga->mode->attr, "scale");
+		if(scale == nil)
+			cx = 1;
+		else if(strcmp(scale, "scaleaspect") == 0)
+			cx = 3;
+		else if(strcmp(scale, "scalefull") == 0)
+			cx = 0;
+		else{
+			ctlr->flag |= Ferror;
+			fprint(2, "vbescale: unsupported mode %s\n", scale);
+			return;
+		}
 	}
-	if(reset)
-		cx = 0;
 
 	vbesetup(vbe, &u, 0x4F14);
 	u.bx = 0x102;
 	u.cx = cx;
-	if(vbecall(vbe, &u) < 0)
-		fprint(2, "vbescale: %r\n");
 }
 
 Ctlr vesa = {
@@ -864,20 +895,25 @@ int
 vbegetmode(Vbe *vbe)
 {
 	Ureg u;
+	char size[32];
+	Mode *m;
 
-	vbesetup(vbe, &u, 0x4F03);
-	if(vbecall(vbe, &u) < 0)
-		return 0;
-	return u.bx;
+	vbesetup(vbe, &u, 0x5F29);
+	u.bx = 0x8000; /* current mode */
+	vbecall(vbe, &u);
+	if(u.ax != 0x5f)
+		return -1;
+	snprint(size, sizeof(size), "%dx%dx%d",
+		(int)u.bx>>16, (int)u.bx & 0xffff, (int)u.cx & 0xff);
+	m = dbvesamode(size);
+	return m == nil ? -1 : atoi(dbattr(m->attr, "id"));
 }
 
 int
-vbesetmode(Vbe *vbe, int id, int display)
+vbesetmode(Vbe *vbe, int id)
 {
 	Ureg u;
 
-	if(setdisplay(vbe, display) < 0)
-		return -1;
 	vbesetup(vbe, &u, 0x4F02);
 	u.bx = id;
 	if(id != 3)
@@ -895,7 +931,7 @@ vesatextmode(void)
 	}
 	if(vbecheck(vbe) < 0)
 		error("vbecheck: %r\n");
-	if(vbesetmode(vbe, 3, 0) < 0)
+	if(vbesetmode(vbe, 3) < 0)
 		error("vbesetmode: %r\n");
 }
 
@@ -929,6 +965,23 @@ vbeddcedid(Vbe *vbe, Edid *e)
 }
 
 int
+getdisplay(Vbe *vbe)
+{
+	int i;
+
+	for(i = 0; i < 8; i++)
+		if(vbe->dspact & 1<<i)
+			return i+1;
+
+	/* fallback to a connected one */
+	for(i = 0; i < 8; i++)
+		if(vbe->dspcon & 1<<i)
+			return i+1;
+
+	return 0;
+}
+
+int
 setdisplay(Vbe *vbe, int display)
 {
 	Ureg u;
@@ -936,6 +989,9 @@ setdisplay(Vbe *vbe, int display)
 
 	if(display == 0)
 		return 0;
+
+	/* switch to common mode before trying */
+	vbesetmode(vbe, 3);
 
 	cx = 1<<(display-1);
 	if(vbe->dspcon & cx){
