@@ -63,7 +63,6 @@ struct Draw
 	int		softscreen;
 	int		blanked;	/* screen turned off */
 	ulong		blanktime;	/* time of last operation */
-	ulong		savemap[3*256];
 };
 
 struct Client
@@ -1196,7 +1195,6 @@ drawread(Chan *c, void *a, long n, vlong off)
 		break;
 
 	case Qcolormap:
-		drawactive(1);	/* to restore map from backup */
 		p = malloc(4*12*256+1);
 		if(p == 0)
 			error(Enomem);
@@ -1301,7 +1299,6 @@ drawwrite(Chan *c, void *a, long n, vlong)
 		break;
 
 	case Qcolormap:
-		drawactive(1);	/* to restore map from backup */
 		m = n;
 		n = 0;
 		while(m > 0){
@@ -2129,7 +2126,6 @@ drawcmap(void)
 	int num, den;
 	int i, j;
 
-	drawactive(1);	/* to restore map from backup */
 	for(r=0,i=0; r!=4; r++)
 	    for(v=0; v!=4; v++,i+=16){
 		for(g=0,j=v-r; g!=4; g++)
@@ -2156,38 +2152,13 @@ drawcmap(void)
 void
 drawblankscreen(int blank)
 {
-	int i, nc;
-	ulong *p;
-
 	if(blank == sdraw.blanked)
 		return;
-	if(!candlock())
-		return;
-	if(screenimage == nil){
+	if(up != nil && islo() && candlock()){
+		blankscreen(blank);
+		sdraw.blanked = blank;
 		dunlock();
-		return;
 	}
-	p = sdraw.savemap;
-	nc = screenimage->depth > 8 ? 256 : 1<<screenimage->depth;
-
-	/*
-	 * blankscreen uses the hardware to blank the screen
-	 * when possible.  to help in cases when it is not possible,
-	 * we set the color map to be all black.
-	 */
-	if(blank == 0){	/* turn screen on */
-		for(i=0; i<nc; i++, p+=3)
-			setcolor(i, p[0], p[1], p[2]);
-		blankscreen(0);
-	}else{	/* turn screen off */
-		blankscreen(1);
-		for(i=0; i<nc; i++, p+=3){
-			getcolor(i, &p[0], &p[1], &p[2]);
-			setcolor(i, 0, 0, 0);
-		}
-	}
-	sdraw.blanked = blank;
-	dunlock();
 }
 
 /*
