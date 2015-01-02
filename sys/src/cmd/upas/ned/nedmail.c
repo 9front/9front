@@ -1443,7 +1443,7 @@ pcmd(Cmd*, Message *m)
 					else
 						Bprint(&out, "\n--- %s %s/body\n\n",
 							buf, s_to_c(s));
-					pcmd(nil, nm);
+					// pcmd(nil, nm);
 				} else {
 					if(cp->ext != nil)
 						Bprint(&out, "\n!--- %s %s/body.%s\n",
