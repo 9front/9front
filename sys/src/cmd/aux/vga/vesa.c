@@ -990,11 +990,11 @@ setdisplay(Vbe *vbe, int display)
 	if(display == 0)
 		return 0;
 
-	/* switch to common mode before trying */
-	vbesetmode(vbe, 3);
-
 	cx = 1<<(display-1);
 	if(vbe->dspcon & cx){
+		/* switch to common mode before trying */
+		vbesetmode(vbe, 3);
+
 		vbesetup(vbe, &u, 0x5F64);
 		u.bx = 0;
 		u.cx = cx;
