@@ -6,8 +6,6 @@
 #define sign(s)	(1UL<<((s)-1))
 #define mask(s) (sign(s)|(sign(s)-1))
 
-int cputrace;
-
 static void
 push(Iarg *sp, Iarg *a)
 {
