@@ -895,18 +895,11 @@ int
 vbegetmode(Vbe *vbe)
 {
 	Ureg u;
-	char size[32];
-	Mode *m;
 
-	vbesetup(vbe, &u, 0x5F29);
-	u.bx = 0x8000; /* current mode */
-	vbecall(vbe, &u);
-	if(u.ax != 0x5f)
-		return -1;
-	snprint(size, sizeof(size), "%dx%dx%d",
-		(int)u.bx>>16, (int)u.bx & 0xffff, (int)u.cx & 0xff);
-	m = dbvesamode(size);
-	return m == nil ? -1 : atoi(dbattr(m->attr, "id"));
+	vbesetup(vbe, &u, 0x4F03);
+	if(vbecall(vbe, &u) < 0)
+		return 0;
+	return u.bx;
 }
 
 int
