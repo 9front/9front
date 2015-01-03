@@ -567,5 +567,4 @@ savageinit(VGAscr *scr)
 	scr->fill = savagefill;
 	scr->scroll = savagescroll;
 	scr->blank = savageblank;
-	hwblank = 0;
 }

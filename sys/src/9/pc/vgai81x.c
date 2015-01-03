@@ -103,7 +103,6 @@ i81xenable(VGAscr* scr)
 	scr->storage = cursor;
 
 	scr->blank = i81xblank;
-	hwblank = 1;
 }
 
 static void

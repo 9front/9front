@@ -393,8 +393,8 @@ setcursor(Cursor* curs)
 	scr->cur->load(scr, curs);
 }
 
-int hwaccel = 1;
-int hwblank = 0;	/* turned on by drivers that are known good */
+int hwaccel = 0;
+int hwblank = 0;
 int panning = 0;
 
 int
@@ -423,11 +423,9 @@ hwdraw(Memdrawparam *par)
 		if(mask && mask->data->bdata == scrd->bdata)
 			swcursoravoid(par->mr);
 	}
-	if(hwaccel == 0)
+	if(!hwaccel || scr->softscreen)
 		return 0;
 	if(dst->data->bdata != scrd->bdata || src == nil || mask == nil)
-		return 0;
-	if(scr->fill==nil && scr->scroll==nil)
 		return 0;
 
 	/*
@@ -669,9 +667,6 @@ bootscreeninit(void)
 	scr->softscreen = 0;
 	scr->useflush = 0;
 	scr->dev = nil;
-
-	hwblank = 0;
-	hwaccel = 0;
 
 	physgscreenr = gscreen->r;
 

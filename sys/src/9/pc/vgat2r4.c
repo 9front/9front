@@ -499,7 +499,6 @@ t2r4drawinit(VGAscr *scr)
 	scr->fill = t2r4hwfill;
 	scr->scroll = t2r4hwscroll;
 	scr->blank = t2r4blank;
-	hwblank = 1;
 }
 
 VGAdev vgat2r4dev = {

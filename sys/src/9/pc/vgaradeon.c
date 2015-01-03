@@ -450,10 +450,7 @@ radeondrawinit(VGAscr*scr)
 
 	scr->fill = radeonfill;
 	scr->scroll = radeonscroll;
-	hwaccel = 1;
-
 	scr->blank = radeonblank;
-	hwblank = 1;
 }
 
 /* hw overlay */

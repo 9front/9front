@@ -523,7 +523,6 @@ s3drawinit(VGAscr *scr)
 	 * above.
 	 */
 	scr->blank = s3blank;
-	/* hwblank = 1;		not known to work well */
 
 	switch(id){
 	case VIRGE:

@@ -956,7 +956,6 @@ mach64xxdrawinit(VGAscr *scr)
 	case ('L'<<8)|'M':		/* 4C4D: Rage Mobility */
 	case ('L'<<8)|'P':		/* 4C50: Rage 3D LTPro */
 		scr->blank = mach64lcdblank;
-		hwblank = 1;
 		break;
 	}
 }

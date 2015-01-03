@@ -314,6 +314,8 @@ vgactl(Cmdbuf *cb)
 				scr->fill = nil;
 				scr->scroll = nil;
 				scr->blank = nil;
+				hwblank = 0;
+				hwaccel = 0;
 				qunlock(&drawlock);
 				if(scr->dev->disable)
 					scr->dev->disable(scr);
@@ -410,7 +412,7 @@ vgactl(Cmdbuf *cb)
 		if(scr->dev && scr->dev->drawinit)
 			scr->dev->drawinit(scr);
 		hwblank = scr->blank != nil;
-		hwaccel = !scr->softscreen && (scr->scroll || scr->fill);
+		hwaccel = scr->fill != nil || scr->scroll != nil;
 		vgascreenwin(scr);
 		resetscreenimage();
 		cursoron();

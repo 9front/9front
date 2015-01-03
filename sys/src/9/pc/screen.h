@@ -135,9 +135,9 @@ extern void mouseresize(void);
 extern void mouseredraw(void);
 
 /* screen.c */
-extern int		hwaccel;	/* use hw acceleration; default on */
-extern int		hwblank;	/* use hw blanking; default on */
-extern int		panning;	/* use virtual screen panning; default off */
+extern int		hwaccel;	/* use hw acceleration */
+extern int		hwblank;	/* use hw blanking */
+extern int		panning;	/* use virtual screen panning */
 extern void addvgaseg(char*, ulong, ulong);
 extern uchar* attachscreen(Rectangle*, ulong*, int*, int*, int*);
 extern void	flushmemscreen(Rectangle);
