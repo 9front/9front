@@ -2159,8 +2159,10 @@ iapnp(void)
 	while((p = pcimatch(p, 0, 0)) != nil){
 		if((type = didtype(p)) == -1)
 			continue;
-		if(p->mem[Abar].bar == 0)
+		io = p->mem[Abar].bar;
+		if(io == 0 || (io & 1) != 0 || p->mem[Abar].size < 0x180)
 			continue;
+		io &= ~0xf;
 		if(niactlr == NCtlr){
 			print("iapnp: %s: too many controllers\n", tname[type]);
 			break;
@@ -2169,7 +2171,6 @@ iapnp(void)
 		s = sdevs + niactlr;
 		memset(c, 0, sizeof *c);
 		memset(s, 0, sizeof *s);
-		io = p->mem[Abar].bar & ~0xf;
 		c->mmio = vmap(io, p->mem[Abar].size);
 		if(c->mmio == 0){
 			print("%s: address %#p in use did %.4ux\n",
@@ -2208,11 +2209,14 @@ iapnp(void)
 			d->ctlr = c;
 			if((c->hba->pi & 1<<i) == 0)
 				continue;
-			snprint(d->name, sizeof d->name, "iahci%d.%d", niactlr, i);
-			d->port = (Aport*)(c->mmio + 0x80*i + 0x100);
+			io = 0x100 + 0x80*i;
+			if((io + 0x80) > p->mem[Abar].size)
+				continue;
+			d->port = (Aport*)(c->mmio + io);
 			d->portc.p = d->port;
 			d->portc.m = &d->portm;
 			d->driveno = n++;
+			snprint(d->name, sizeof d->name, "iahci%d.%d", niactlr, i);
 			c->drive[d->driveno] = d;
 			iadrive[niadrive + d->driveno] = d;
 		}
