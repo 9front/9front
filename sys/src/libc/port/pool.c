@@ -123,7 +123,7 @@ enum {
 
 static uchar datamagic[] = { 0xFE, 0xF1, 0xF0, 0xFA };
 
-#define	Poison	(void*)0xCafeBabe
+#define Poison	((void*)-0x35014542)	/* cafebabe */
 
 #define _B2D(a)	((void*)((uchar*)a+sizeof(Bhdr)))
 #define _D2B(v)	((Alloc*)((uchar*)v-sizeof(Bhdr)))
@@ -197,12 +197,12 @@ checklist(Free *t)
 	Free *q;
 
 	for(q=t->next; q!=t; q=q->next){
-		assert(q->size == t->size);
-		assert(q->next==nil || q->next->prev==q);
-		assert(q->prev==nil || q->prev->next==q);
-	//	assert(q->left==nil);
-	//	assert(q->right==nil);
 		assert(q->magic==FREE_MAGIC);
+		assert(q->size==t->size);
+		assert(q->left==Poison);
+		assert(q->right==Poison);
+		assert(q->next!=nil && q->next!=Poison && q->next->prev==q);
+		assert(q->prev!=nil && q->prev!=Poison && q->prev->next==q);
 	}
 }
 
@@ -211,8 +211,10 @@ checktree(Free *t, int a, int b)
 {
 	assert(t->magic==FREE_MAGIC);
 	assert(a < t->size && t->size < b);
-	assert(t->next==nil || t->next->prev==t);
-	assert(t->prev==nil || t->prev->next==t);
+	assert(t->left!=Poison);
+	assert(t->right!=Poison);
+	assert(t->next!=nil && t->next!=Poison && t->next->prev==t);
+	assert(t->prev!=nil && t->prev!=Poison && t->prev->next==t);
 	checklist(t);
 	if(t->left)
 		checktree(t->left, a, t->size);
