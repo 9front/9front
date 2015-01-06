@@ -113,13 +113,13 @@ vncsrvhandshake(Vnc *v)
 
 	strecpy(msg, msg+sizeof msg, version);
 	if(verbose)
-		fprint(2, "server version: %s", msg);
+		fprint(2, "server version: %s\n", msg);
 	vncwrbytes(v, msg, VerLen);
 	vncflush(v);
 
 	vncrdbytes(v, msg, VerLen);
 	if(verbose)
-		fprint(2, "client version: %s", msg);
+		fprint(2, "client version: %s\n", msg);
 	return 0;
 }
 
@@ -135,7 +135,7 @@ vnchandshake(Vnc *v)
 		return -1;
 	}
 	if(verbose)
-		fprint(2, "server version: %s", msg);
+		fprint(2, "server version: %s\n", msg);
 	strcpy(msg, version);
 	vncwrbytes(v, msg, VerLen);
 	vncflush(v);
@@ -157,7 +157,7 @@ vncauth(Vnc *v, char *keypattern)
 	default:
 		werrstr("unknown auth type 0x%lux", auth);
 		if(verbose)
-			fprint(2, "unknown auth type 0x%lux", auth);
+			fprint(2, "unknown auth type 0x%lux\n", auth);
 		return -1;
 
 	case AFailed:
@@ -169,7 +169,7 @@ vncauth(Vnc *v, char *keypattern)
 
 	case ANoAuth:
 		if(verbose)
-			fprint(2, "no auth needed");
+			fprint(2, "no auth needed\n");
 		break;
 
 	case AVncAuth:
