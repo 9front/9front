@@ -55,6 +55,7 @@ struct {
 int	shared;
 int	sleeptime = 5;
 int	verbose = 0;
+int	noauth = 0;
 int	kbdin = -1;
 
 char *cert;
@@ -87,7 +88,7 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	int altnet, baseport, cfd, display, exnum, fd, pid, h, killing, w;
+	int baseport, cfd, display, exnum, fd, pid, h, killing, w;
 	char adir[NETPATHLEN], ldir[NETPATHLEN];
 	char net[NETPATHLEN], *p;
 	char *kbdfs[] = { "/bin/aux/kbdfs", "-dq", nil };
@@ -97,7 +98,6 @@ main(int argc, char **argv)
 	fmtinstall('V', vncsfmt);
 	display = -1;
 	killing = 0;
-	altnet = 0;
 	w = 1024;
 	h = 768;
 	baseport = 5900;
@@ -143,7 +143,9 @@ main(int argc, char **argv)
 	case 'x':
 		p = EARGF(usage());
 		setnetmtpt(net, sizeof net, p);
-		altnet = 1;
+		break;
+	case 'A':
+		noauth = 1;
 		break;
 	}ARGEND
 
@@ -151,9 +153,6 @@ main(int argc, char **argv)
 		vnckill(net, display, baseport);
 		exits(nil);
 	}
-
-	if(altnet && cert == nil)
-		sysfatal("announcing on alternate network requires TLS (-c)");
 
 	if(argc == 0)
 		argv = rc;
@@ -573,11 +572,19 @@ vncaccept(Vncs *v)
 		fprint(2, "%V: handshake failed; hanging up\n", v);
 		exits(0);
 	}
-	if(verbose)
-		fprint(2, "%V: auth\n", v);
-	if(vncsrvauth(v) < 0){
-		fprint(2, "%V: auth failed; hanging up\n", v);
-		exits(0);
+
+	if(noauth){
+		if(verbose)
+			fprint(2, "%V: noauth\n", v);
+		vncwrlong(v, ANoAuth);
+		vncflush(v);
+	} else {
+		if(verbose)
+			fprint(2, "%V: auth\n", v);
+		if(vncsrvauth(v) < 0){
+			fprint(2, "%V: auth failed; hanging up\n", v);
+			exits(0);
+		}
 	}
 
 	shared = vncrdchar(v);

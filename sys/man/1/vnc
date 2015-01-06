@@ -130,10 +130,9 @@ print verbose output to standard error.
 .TP
 .B -x \fInet
 announce on an alternate network interface.
-Because of the weak authentication protocol and
-default lack of encryption, this option must
-be accompanied by
-.BR -c .
+.TP
+.B -A
+turn off authentication.
 .PD
 .PP
 The command
