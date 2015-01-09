@@ -434,6 +434,13 @@ ctlr
 	hwgc=geodehwgc
 	ctlr=geode linear=1
 
+ctlr
+	vid=0x8086 did=0x0166	# X230
+	vid=0x8086 did=0x2a42	# X200s
+	link=vga
+	hwgc=igfxhwgc
+	ctlr=igfx linear=1
+
 #
 # mode:
 # These entries specify a monitor operating mode.
@@ -1680,3 +1687,23 @@ s2231wD=1680x1050
 	shb=1728 ehb=1760 vt=1840
 	vrs=1053 vre=1059 vt=1080
 	hsync=+ vsync=-
+
+#
+# Lenovo X230 (LCD) LVDS
+#
+x230=1366x768		# 60Hz
+	clock=75.2
+	shb=1414 ehb=1478 ht=1582
+	vrs=772 vre=779 vt=792
+	hsync=+ vsync=-
+	lcd=1
+
+#
+# Lenovo X200s (LCD) LVDS
+#
+x200s=1280x800		# 60Hz
+	clock=75
+	shb=1296 ehb=1344 ht=1512
+	vrs=802 vre=804 vt=830
+	hsync=- vsync=-
+	lcd=1
