@@ -103,7 +103,7 @@ struct Pipe {
 	Plane	dsp[1];		/* display plane */
 	Plane	cur[1];		/* cursor plane */
 
-	Pfit	*pfit;		/* selected pfit */
+	Pfit	*pfit;		/* selected panel fitter */
 };
 
 typedef struct Igfx Igfx;
@@ -990,7 +990,7 @@ load(Vga* vga, Ctlr* ctlr)
 		loadreg(igfx, igfx->hdmi[x].ctl);
 	}
 
-	/* turn on lcd pfit */
+	/* program lcd power */
 	loadreg(igfx, igfx->ppcontrol);
 
 	ctlr->flag |= Fload;
