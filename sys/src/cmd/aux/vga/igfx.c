@@ -11,6 +11,7 @@ typedef struct Hdmi Hdmi;
 typedef struct Dp Dp;
 typedef struct Fdi Fdi;
 typedef struct Pfit Pfit;
+typedef struct Curs Curs;
 typedef struct Plane Plane;
 typedef struct Trans Trans;
 typedef struct Pipe Pipe;
@@ -93,6 +94,12 @@ struct Plane {
 	Reg	tileoff;	/* DSPxTILEOFF */
 };
 
+struct Curs {
+	Reg	cntr;
+	Reg	base;
+	Reg	pos;
+};
+
 struct Pipe {
 	Trans;
 
@@ -101,7 +108,7 @@ struct Pipe {
 	Fdi	fdi[1];		/* fdi/dp transcoder */
 
 	Plane	dsp[1];		/* display plane */
-	Plane	cur[1];		/* cursor plane */
+	Curs	cur[1];		/* hardware cursor */
 
 	Pfit	*pfit;		/* selected panel fitter */
 };
@@ -266,11 +273,13 @@ snarfpipe(Igfx *igfx, int x)
 	switch(igfx->type){
 	case TypeIVB:
 		p->cur->cntr	= snarfreg(igfx, 0x70080 | x*0x1000);
-		p->cur->surf	= snarfreg(igfx, 0x70084 | x*0x1000);
+		p->cur->base	= snarfreg(igfx, 0x70084 | x*0x1000);
+		p->cur->pos	= snarfreg(igfx, 0x70088 | x*0x1000);
 		break;
 	case TypeG45:
 		p->cur->cntr	= snarfreg(igfx, 0x70080 | x*0x40);
-		p->cur->surf	= snarfreg(igfx, 0x70084 | x*0x40);
+		p->cur->base	= snarfreg(igfx, 0x70084 | x*0x40);
+		p->cur->pos	= snarfreg(igfx, 0x7008C | x*0x40);
 		break;
 	}
 }
@@ -734,8 +743,9 @@ init(Vga* vga, Ctlr* ctlr)
 	p->dsp->tileoff.v = 0;
 
 	/* cursor plane off */
-	p->cur->cntr.v = 0;
-	p->cur->surf.v = 0;
+	p->cur->cntr.v = x<<28;
+	p->cur->pos.v = 0;
+	p->cur->base.v = 0;
 
 	if(initdpll(igfx, x, m->frequency, islvds, 0) < 0)
 		error("%s: frequency %d out of range\n", ctlr->name, m->frequency);
@@ -841,8 +851,10 @@ enablepipe(Igfx *igfx, int x)
 	loadreg(igfx, p->dsp->tileoff);
 	loadreg(igfx, p->dsp->surf);	/* arm */
 
+	/* program cursor */
 	loadreg(igfx, p->cur->cntr);
-	loadreg(igfx, p->cur->surf);	/* arm */
+	loadreg(igfx, p->cur->pos);
+	loadreg(igfx, p->cur->base);	/* arm */
 
 	if(0){
 		/* enable fdi */
@@ -897,8 +909,9 @@ disablepipe(Igfx *igfx, int x)
 	/* planes off */
 	csr(igfx, p->dsp->cntr.a, 1<<31, 0);
 	csr(igfx, p->dsp->surf.a, ~0, 0);	/* arm */
-	csr(igfx, p->cur->cntr.a, 1<<31, 0);
-	csr(igfx, p->cur->surf.a, ~0, 0);	/* arm */
+	/* cursor off */
+	csr(igfx, p->cur->cntr.a, 1<<5 | 7, 0);
+	csr(igfx, p->cur->base.a, ~0, 0);	/* arm */
 
 	/* disable cpu pipe */
 	disabletrans(igfx, p);
@@ -1088,7 +1101,8 @@ dumppipe(Igfx *igfx, int x)
 
 	snprint(name, sizeof(name), "%s cur %c", igfx->ctlr->name, 'a'+x);
 	dumpreg(name, "cntr", p->cur->cntr);
-	dumpreg(name, "surf", p->cur->surf);
+	dumpreg(name, "base", p->cur->base);
+	dumpreg(name, "pos", p->cur->pos);
 }
 
 static void
@@ -1118,24 +1132,24 @@ dump(Vga* vga, Ctlr* ctlr)
 	dumpreg(ctlr->name, "ssc4params", igfx->ssc4params);
 
 	for(x=0; x<nelem(igfx->dp); x++){
-		snprint(name, sizeof(name), "dp %c ctl", 'a'+x);
-		dumpreg(ctlr->name, name, igfx->dp[x].ctl);
+		snprint(name, sizeof(name), "%s dp %c", ctlr->name, 'a'+x);
+		dumpreg(name, "ctl", igfx->dp[x].ctl);
 	}
 	for(x=0; x<nelem(igfx->hdmi); x++){
-		snprint(name, sizeof(name), "hdmi %c ctl ", 'a'+x);
-		dumpreg(ctlr->name, name, igfx->hdmi[x].ctl);
+		snprint(name, sizeof(name), "%s hdmi %c", ctlr->name, 'a'+x);
+		dumpreg(name, "ctl", igfx->hdmi[x].ctl);
 	}
 
 	for(x=0; x<nelem(igfx->pfit); x++){
-		snprint(name, sizeof(name), "pfit %c ctrl", 'a'+x);
-		dumpreg(ctlr->name, name, igfx->pfit[x].ctrl);
-		snprint(name, sizeof(name), "pfit %c winpos", 'a'+x);
-		dumpreg(ctlr->name, name, igfx->pfit[x].winpos);
-		snprint(name, sizeof(name), "pfit %c winsize", 'a'+x);
-		dumpreg(ctlr->name, name, igfx->pfit[x].winsize);
-		snprint(name, sizeof(name), "pfit %c pwrgate", 'a'+x);
-		dumpreg(ctlr->name, name, igfx->pfit[x].pwrgate);
+		snprint(name, sizeof(name), "%s pfit %c", ctlr->name, 'a'+x);
+		dumpreg(name, "ctrl", igfx->pfit[x].ctrl);
+		dumpreg(name, "winpos", igfx->pfit[x].winpos);
+		dumpreg(name, "winsize", igfx->pfit[x].winsize);
+		dumpreg(name, "pwrgate", igfx->pfit[x].pwrgate);
 	}
+
+	dumpreg(ctlr->name, "ppcontrol", igfx->ppcontrol);
+	dumpreg(ctlr->name, "ppstatus", igfx->ppstatus);
 
 	dumpreg(ctlr->name, "adpa", igfx->adpa);
 	dumpreg(ctlr->name, "lvds", igfx->lvds);
@@ -1152,4 +1166,8 @@ Ctlr igfx = {
 	init,			/* init */
 	load,			/* load */
 	dump,			/* dump */
+};
+
+Ctlr igfxhwgc = {
+	"igfxhwgc",
 };

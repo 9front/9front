@@ -311,6 +311,7 @@ extern Ctlr geodehwgc;
 
 /* igfx.c */
 extern Ctlr igfx;
+extern Ctlr igfxhwgc;
 
 /* mach32.c */
 extern Ctlr mach32;

@@ -112,6 +112,7 @@ misc
 #	vgageode	+cur
 #	vgahiqvideo	+cur
 #	vgai81x		+cur
+	vgaigfx		+cur
 #	vgamach64xx	+cur
 #	vgamga2164w	+cur
 #	vgamga4xx	+cur
@@ -124,7 +125,6 @@ misc
 #	vgatvp3020	=cur
 #	vgatvp3026	=cur
 	vgavesa
-	vgaigfx
 #	vgavmware	+cur
 
 ip
