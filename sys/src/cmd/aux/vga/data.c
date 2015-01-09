@@ -87,6 +87,7 @@ Ctlr* ctlrs[] = {
 	&w30c516,				/* ctlr */
 	&mga4xx,
 	&mga4xxhwgc,
+	&igfx,					/* ctlr */
 	0,
 };
 

@@ -62,6 +62,7 @@ OFILES=\
 	vision968.$O\
 	vmware.$O\
 	w30c516.$O\
+	igfx.$O\
 
 HFILES=\
 	pci.h\
@@ -77,4 +78,5 @@ UPDATE=\
 
 </sys/src/cmd/mkone
 
-nvidia.$O:	riva_tbl.h
+geode.$O:	geode_modes.h
+radeon.$O:	radeon.h

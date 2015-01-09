@@ -306,9 +306,11 @@ extern uvlong rdmsr(long);
 extern void wrmsr(long, uvlong);
 
 /* geode.c */
-
 extern Ctlr geode;
 extern Ctlr geodehwgc;
+
+/* igfx.c */
+extern Ctlr igfx;
 
 /* mach32.c */
 extern Ctlr mach32;
