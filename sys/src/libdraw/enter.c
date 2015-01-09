@@ -120,6 +120,7 @@ enter(char *ask, char *buf, int len, Mousectl *mc, Keyboardctl *kc, Screen *scr)
 		}
 		flushimage(display, 1);
 
+nodraw:
 		switch(alt(a)){
 		case -1:
 			done = 1;
@@ -194,7 +195,7 @@ enter(char *ask, char *buf, int len, Mousectl *mc, Keyboardctl *kc, Screen *scr)
 		case 1:
 			if(!ptinrect(m.xy, r)){
 				down = 0;
-				continue;
+				goto nodraw;
 			}
 			if(m.buttons & 7){
 				down = 1;

@@ -111,6 +111,7 @@ eenter(char *ask, char *buf, int len, Mouse *m)
 		sc = b->clipr;
 		replclipr(b, 0, b->r);
 
+nodraw:
 		switch(i){
 		default:
 			done = 1;
@@ -187,7 +188,7 @@ eenter(char *ask, char *buf, int len, Mouse *m)
 			*m = ev.mouse;
 			if(!ptinrect(m->xy, r)){
 				down = 0;
-				continue;
+				goto nodraw;
 			}
 			if(m->buttons & 7){
 				down = 1;
