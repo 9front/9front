@@ -18,6 +18,8 @@ ipconfig, rip, linklocal, ipv6on \- Internet configuration and routing
 .IR mtu ]
 .RB [ -o
 .IR dhcp-opt ]
+.RB [ -f
+.IR dbfile ]
 .RB [ -x
 .IR netmtpt ]
 [
@@ -226,6 +228,10 @@ instead to fork a background process that keeps trying forever.
 disable IPv6 duplicate discovery detection,
 which removes any existing ARP table entry for one of our IPv6 addresses
 before adding new ones.
+.TP
+.B f
+use the ndb database file
+.I dbfile .
 .TP
 .B x
 use the IP stack mounted at

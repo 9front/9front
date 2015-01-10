@@ -149,6 +149,7 @@ Ctl	*firstctl, **ctll;
 Ipifc	*ifc;
 int	ipv6auto = 0;
 int	myifc = -1;
+char	*dbfile;
 char	*ndboptions;
 int	nip;
 int	noconfig;
@@ -226,7 +227,7 @@ usage(void)
 {
 	fprint(2, "usage: %s [-6dDGnNOpPruX][-b baud][-c ctl]* [-g gw]"
 		"[-h host][-m mtu]\n"
-		"\t[-x mtpt][-o dhcpopt] type dev [verb] [laddr [mask "
+		"\t[-f dbfile][-x mtpt][-o dhcpopt] type dev [verb] [laddr [mask "
 		"[raddr [fs [auth]]]]]\n", argv0);
 	exits("usage");
 }
@@ -518,6 +519,9 @@ main(int argc, char **argv)
 		break;
 	case 'D':
 		debug = 1;
+		break;
+	case 'f':
+		dbfile = EARGF(usage());
 		break;
 	case 'g':
 		if (parseip(conf.gaddr, EARGF(usage())) == -1)
@@ -1823,7 +1827,7 @@ ndbconfig(void)
 	Ndb *db;
 	Ndbtuple *t, *nt;
 
-	db = ndbopen(0);
+	db = ndbopen(dbfile);
 	if(db == nil)
 		sysfatal("can't open ndb: %r");
 	if (strcmp(conf.type, "ether") != 0 && strcmp(conf.type, "gbe") != 0 ||
