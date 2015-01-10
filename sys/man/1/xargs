@@ -44,4 +44,4 @@ seq 1 9 | xargs -n 3 echo
 .B /sys/src/cmd/xargs.c
 .SH HISTORY
 .I Xargs
-was rewritten from scratch for 9front (August, 2011).
+was implemented from scratch for 9front (August, 2011).
