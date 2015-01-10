@@ -592,8 +592,11 @@ initdatalinkmn(Trans *t, int freq, int lsclk, int lanes, int tu, int bpp)
 static void
 inittrans(Trans *t, Mode *m)
 {
+	/* clear all but 27:28 frame start delay (initialized by bios) */
+	t->conf.v &= 3<<27;
+
 	/* tans/pipe enable */
-	t->conf.v = 1<<31;
+	t->conf.v |= 1<<31;
 
 	/* trans/pipe timing */
 	t->ht.v = (m->ht - 1)<<16 | (m->x - 1);
@@ -751,14 +754,6 @@ init(Vga* vga, Ctlr* ctlr)
 		error("%s: frequency %d out of range\n", ctlr->name, m->frequency);
 
 	initpipe(p, m);
-
-	/*
-	 * undocumented magic that makes the flickering
-	 * top bar go away on x230 on lcd. found by
-	 * comparing registers set by vesa bios.
-	 */
-	if(igfx->type == TypeIVB && islvds)
-		p->conf.v |= 3<<27;
 
 	ctlr->flag |= Finit;
 }
