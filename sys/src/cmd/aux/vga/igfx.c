@@ -332,14 +332,15 @@ snarf(Vga* vga, Ctlr* ctlr)
 			return;
 		}
 		vgactlpci(igfx->pci);
-		if((igfx->pci->mem[4].bar & 1) == 0)
-			error("%s: no pio bar\n", ctlr->name);
-		igfx->pio = igfx->pci->mem[4].bar & ~1;
 		if(1){
 			vgactlw("type", ctlr->name);
 			igfx->mmio = segattach(0, "igfxmmio", 0, igfx->pci->mem[0].size);
 			if(igfx->mmio == (u32int*)-1)
-				igfx->mmio = nil;	/* use pio */
+				error("%s: attaching mmio: %r\n", ctlr->name);
+		} else {
+			if((igfx->pci->mem[4].bar & 1) == 0)
+				error("%s: no pio bar\n", ctlr->name);
+			igfx->pio = igfx->pci->mem[4].bar & ~1;
 		}
 		vga->private = igfx;
 	}
@@ -362,7 +363,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 
 		for(x=0; x<5; x++)
 			igfx->gmbus[x]	= snarfreg(igfx, 0x5100 + x*4);
-		igfx->gmbus[5]	= snarfreg(igfx, 0x5120);
+		igfx->gmbus[x]	= snarfreg(igfx, 0x5120);
 
 		igfx->pfit[0].ctrl	= snarfreg(igfx, 0x061230);
 		y = (igfx->pfit[0].ctrl.v >> 29) & 3;
@@ -438,6 +439,10 @@ snarf(Vga* vga, Ctlr* ctlr)
 		igfx->hdmi[3].bufctl[1]	= snarfreg(igfx, 0x0FD00C);	/* HTMI_BUF_CTL_9 */
 		igfx->hdmi[3].bufctl[2]	= snarfreg(igfx, 0x0FD018);	/* HTMI_BUF_CTL_10 */
 		igfx->hdmi[3].bufctl[3]	= snarfreg(igfx, 0x0FD024);	/* HTMI_BUF_CTL_11 */
+
+		for(x=0; x<5; x++)
+			igfx->gmbus[x]	= snarfreg(igfx, 0xC5100 + x*4);
+		igfx->gmbus[x]	= snarfreg(igfx, 0xC5120);
 
 		igfx->adpa		= snarfreg(igfx, 0x0E1100);	/* DAC_CTL */
 		igfx->lvds		= snarfreg(igfx, 0x0E1180);	/* LVDS_CTL */
@@ -1241,8 +1246,6 @@ snarfedid(Igfx *igfx)
 {
 	uchar buf[128];
 
-	if(igfx->type != TypeG45)
-		return;
 	if(gmbusread(igfx, 3, 0x50, buf, sizeof(buf)) != sizeof(buf))
 		return;
 	igfx->lvdsedid = malloc(sizeof(Edid));
