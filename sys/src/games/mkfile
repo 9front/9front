@@ -25,6 +25,7 @@ DIRS=\
 	blabs\
 	doom\
 	gb\
+	gba\
 	mahjongg\
 	mines\
 	music\
