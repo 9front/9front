@@ -15,6 +15,7 @@ OFILES=\
 	cyber938x.$O\
 	data.$O\
 	db.$O\
+	edid.$O\
 	error.$O\
 	et4000.$O\
 	et4000hwgc.$O\
@@ -66,7 +67,8 @@ OFILES=\
 
 HFILES=\
 	pci.h\
-	vga.h
+	vga.h\
+	edid.h\
 
 UPDATE=\
 	mkfile\
@@ -74,7 +76,6 @@ UPDATE=\
 	${OFILES:%.$O=%.c}\
 	/lib/vgadb\
 	riva_tbl.h\
-
 
 </sys/src/cmd/mkone
 

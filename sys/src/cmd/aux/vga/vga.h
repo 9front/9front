@@ -112,8 +112,8 @@ typedef struct Mode {
 	int	vrs;			/* Vertical Retrace Start (Crt10) */
 	int	vre;			/* Vertical Retrace End (Crt11) */
 
-	int		vbs;		/* optional Vertical Blank Start */
-	int		vbe;		/* optional Vertical Blank End */
+	int	vbs;			/* optional Vertical Blank Start */
+	int	vbe;			/* optional Vertical Blank End */
 	
 	ulong	videobw;
 
@@ -251,6 +251,9 @@ extern char* dbattr(Attr*, char*);
 extern int dbctlr(char*, Vga*);
 extern Mode* dbmode(char*, char*, char*);
 extern void dbdumpmode(Mode*);
+
+/* edid.c */
+extern Mode* edidmode(uchar *, int);
 
 /* error.c */
 extern void error(char*, ...);
@@ -437,6 +440,9 @@ extern Ctlr softhwgc;	/* has to go somewhere */
 extern int dbvesa(Vga*);
 extern Mode *dbvesamode(char*);
 extern void vesatextmode(void);
+
+/* vesadb.c */
+extern Mode *vesamodes[];
 
 /* virge.c */
 extern Ctlr virge;

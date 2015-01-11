@@ -4,6 +4,7 @@
 
 #include "pci.h"
 #include "vga.h"
+#include "edid.h"
 
 typedef struct Reg Reg;
 typedef struct Dpll Dpll;
@@ -142,12 +143,15 @@ struct Igfx {
 	Reg	ppstatus;
 
 	/* G45 */
+	Reg	gmbus[6];	/* GMBUSx */
+
 	Reg	sdvoc;
 	Reg	sdvob;
 
 	/* common */
 	Reg	adpa;
 	Reg	lvds;
+	Edid	*lvdsedid;
 
 	Reg	vgacntrl;
 };
@@ -305,6 +309,8 @@ devtype(Igfx *igfx)
 	return -1;
 }
 
+static void snarfedid(Igfx*);
+
 static void
 snarf(Vga* vga, Ctlr* ctlr)
 {
@@ -326,16 +332,14 @@ snarf(Vga* vga, Ctlr* ctlr)
 			return;
 		}
 		vgactlpci(igfx->pci);
+		if((igfx->pci->mem[4].bar & 1) == 0)
+			error("%s: no pio bar\n", ctlr->name);
+		igfx->pio = igfx->pci->mem[4].bar & ~1;
 		if(1){
 			vgactlw("type", ctlr->name);
 			igfx->mmio = segattach(0, "igfxmmio", 0, igfx->pci->mem[0].size);
 			if(igfx->mmio == (u32int*)-1)
-				error("%s: segattach mmio failed: %r\n", ctlr->name);
-		} else {
-			if((igfx->pci->mem[4].bar & 1) == 0)
-				error("%s: no pio bar\n", ctlr->name);
-			igfx->pio = igfx->pci->mem[4].bar & ~1;
-			igfx->mmio = nil;
+				igfx->mmio = nil;	/* use pio */
 		}
 		vga->private = igfx;
 	}
@@ -355,6 +359,10 @@ snarf(Vga* vga, Ctlr* ctlr)
 		igfx->lvds		= snarfreg(igfx, 0x061180);
 		igfx->sdvob		= snarfreg(igfx, 0x061140);
 		igfx->sdvoc		= snarfreg(igfx, 0x061160);
+
+		for(x=0; x<5; x++)
+			igfx->gmbus[x]	= snarfreg(igfx, 0x5100 + x*4);
+		igfx->gmbus[5]	= snarfreg(igfx, 0x5120);
 
 		igfx->pfit[0].ctrl	= snarfreg(igfx, 0x061230);
 		y = (igfx->pfit[0].ctrl.v >> 29) & 3;
@@ -440,6 +448,8 @@ snarf(Vga* vga, Ctlr* ctlr)
 
 	for(x=0; x<igfx->npipe; x++)
 		snarfpipe(igfx, x);
+
+	snarfedid(igfx);
 
 	ctlr->flag |= Fsnarf;
 }
@@ -614,7 +624,7 @@ inittrans(Trans *t, Mode *m)
 	/* trans/pipe timing */
 	t->ht.v = (m->ht - 1)<<16 | (m->x - 1);
 	t->hb.v = t->ht.v;
-	t->hs.v = (m->ehs - 1)<<16 | (m->shs - 1);
+	t->hs.v = (m->ehb - 1)<<16 | (m->shb - 1);
 	t->vt.v = (m->vt - 1)<<16 | (m->y - 1);
 	t->vb.v = t->vt.v;
 	t->vs.v = (m->vre - 1)<<16 | (m->vrs - 1);
@@ -1165,6 +1175,81 @@ dump(Vga* vga, Ctlr* ctlr)
 	dumpreg(ctlr->name, "sdvoc", igfx->sdvoc);
 
 	dumpreg(ctlr->name, "vgacntrl", igfx->vgacntrl);
+
+	if(igfx->lvdsedid != nil)
+		printedid(igfx->lvdsedid);
+}
+
+enum {
+	GMBUSCP = 0,	/* Clock/Port selection */
+	GMBUSCS = 1,	/* Command/Status */
+	GMBUSST = 2,	/* Status Register */
+	GMBUSDB	= 3,	/* Data Buffer Register */
+	GMBUSIM = 4,	/* Interrupt Mask */
+	GMBUSIX = 5,	/* Index Register */
+};
+	
+static int
+gmbusread(Igfx *igfx, int portsel, int addr, uchar *data, int len)
+{
+	u32int x, y;
+	int n, t;
+
+	if(igfx->gmbus[GMBUSCP].a == 0)
+		return -1;
+
+	wr(igfx, igfx->gmbus[GMBUSCP].a, portsel);
+	wr(igfx, igfx->gmbus[GMBUSIX].a, 0);
+
+	/* bus cycle without index and stop, byte count, slave address, read */
+	wr(igfx, igfx->gmbus[GMBUSCS].a, 1<<30 | 5<<25 | len<<16 | addr<<1 | 1);
+
+	n = 0;
+	while(len > 0){
+		x = 0;
+		for(t=0; t<100; t++){
+			x = rr(igfx, igfx->gmbus[GMBUSST].a);
+			if(x & (1<<11))
+				break;
+			sleep(5);
+		}
+		if((x & (1<<11)) == 0)
+			return -1;
+
+		t = 4 - (x & 3);
+		if(t > len)
+			t = len;
+		len -= t;
+
+		y = rr(igfx, igfx->gmbus[GMBUSDB].a);
+		switch(t){
+		case 4:
+			data[n++] = y & 0xff, y >>= 8;
+		case 3:
+			data[n++] = y & 0xff, y >>= 8;
+		case 2:
+			data[n++] = y & 0xff, y >>= 8;
+		case 1:
+			data[n++] = y & 0xff;
+		}
+	}
+	return n;
+}
+
+static void
+snarfedid(Igfx *igfx)
+{
+	uchar buf[128];
+
+	if(igfx->type != TypeG45)
+		return;
+	if(gmbusread(igfx, 3, 0x50, buf, sizeof(buf)) != sizeof(buf))
+		return;
+	igfx->lvdsedid = malloc(sizeof(Edid));
+	if(parseedid128(igfx->lvdsedid, buf) != 0){
+		free(igfx->lvdsedid);
+		igfx->lvdsedid = nil;
+	}
 }
 
 Ctlr igfx = {
