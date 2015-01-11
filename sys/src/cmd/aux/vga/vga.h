@@ -252,9 +252,6 @@ extern int dbctlr(char*, Vga*);
 extern Mode* dbmode(char*, char*, char*);
 extern void dbdumpmode(Mode*);
 
-/* edid.c */
-extern Mode* edidmode(uchar *, int);
-
 /* error.c */
 extern void error(char*, ...);
 extern void trace(char*, ...);
