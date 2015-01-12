@@ -16,6 +16,7 @@ typedef struct Curs Curs;
 typedef struct Plane Plane;
 typedef struct Trans Trans;
 typedef struct Pipe Pipe;
+typedef struct Igfx Igfx;
 
 enum {
 	MHz = 1000000,
@@ -114,7 +115,6 @@ struct Pipe {
 	Pfit	*pfit;		/* selected panel fitter */
 };
 
-typedef struct Igfx Igfx;
 struct Igfx {
 	Ctlr	*ctlr;
 	Pcidev	*pci;
@@ -151,9 +151,11 @@ struct Igfx {
 	/* common */
 	Reg	adpa;
 	Reg	lvds;
-	Edid	*lvdsedid;
 
 	Reg	vgacntrl;
+
+	Edid	*adpaedid;
+	Edid	*lvdsedid;
 };
 
 static u32int
@@ -309,7 +311,7 @@ devtype(Igfx *igfx)
 	return -1;
 }
 
-static void snarfedid(Igfx*);
+static Edid* snarfedid(Igfx*, int port, int addr);
 
 static void
 snarf(Vga* vga, Ctlr* ctlr)
@@ -370,6 +372,9 @@ snarf(Vga* vga, Ctlr* ctlr)
 		if(igfx->pipe[y].pfit == nil)
 			igfx->pipe[y].pfit = &igfx->pfit[0];
 
+		igfx->ppstatus		= snarfreg(igfx, 0x61200);
+		igfx->ppcontrol		= snarfreg(igfx, 0x61204);
+
 		igfx->vgacntrl		= snarfreg(igfx, 0x071400);
 		break;
 
@@ -389,7 +394,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 		igfx->rawclkfreq	= snarfreg(igfx, 0xC6204);
 		igfx->ssc4params	= snarfreg(igfx, 0xC6210);
 
-		/* cpu displayport A*/
+		/* cpu displayport A */
 		igfx->dp[0].ctl		= snarfreg(igfx, 0x64000);
 		igfx->dp[0].auxctl	= snarfreg(igfx, 0x64010);
 		igfx->dp[0].auxdat[0]	= snarfreg(igfx, 0x64014);
@@ -454,7 +459,8 @@ snarf(Vga* vga, Ctlr* ctlr)
 	for(x=0; x<igfx->npipe; x++)
 		snarfpipe(igfx, x);
 
-	snarfedid(igfx);
+	igfx->adpaedid = snarfedid(igfx, 2, 0x50);
+	igfx->lvdsedid = snarfedid(igfx, 3, 0x50);
 
 	ctlr->flag |= Fsnarf;
 }
@@ -476,13 +482,16 @@ genpll(int freq, int cref, int P2, int *m1, int *m2, int *n, int *p1)
 	best = -1;
 	for(N=3; N<=8; N++)
 	for(M2=5; M2<=9; M2++)
-	for(M1=10; M1<=20; M1++){
+//	for(M1=10; M1<=20; M1++){
+	for(M1=12; M1<=22; M1++){
 		M = 5*(M1+2) + (M2+2);
-		if(M < 70 || M > 120)
+		if(M < 79 || M > 127)
+//		if(M < 70 || M > 120)
 			continue;
 		for(P1=1; P1<=8; P1++){
 			P = P1 * P2;
-			if(P < 4 || P > 98)
+			if(P < 5 || P > 98)
+//			if(P < 4 || P > 98)
 				continue;
 			a = cref;
 			a *= M;
@@ -507,6 +516,20 @@ genpll(int freq, int cref, int P2, int *m1, int *m2, int *n, int *p1)
 }
 
 static int
+getcref(Igfx *igfx, int x)
+{
+	Dpll *dpll;
+
+	dpll = &igfx->dpll[x];
+	if(igfx->type == TypeG45){
+		if(((dpll->ctrl.v >> 13) & 3) == 3)
+			return 100*MHz;
+		return 96*MHz;
+	}
+	return 120*MHz;
+}
+
+static int
 initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
 {
 	int cref, m1, m2, n, p1, p2;
@@ -517,22 +540,27 @@ initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
 		/* PLL Reference Input Select */
 		dpll = igfx->pipe[x].dpll;
 		dpll->ctrl.v &= ~(3<<13);
-		dpll->ctrl.v |= (islvds ? 2 : 0) << 13;
-		cref = islvds ? 100*MHz : 96*MHz;
+		dpll->ctrl.v |= (islvds ? 3 : 0) << 13;
 		break;
 	case TypeIVB:
 		/* transcoder dpll enable */
 		igfx->dpllsel.v |= 8<<(x*4);
 		/* program rawclock to 125MHz */
 		igfx->rawclkfreq.v = 125;
-		if(islvds){
-			/* 120MHz SSC integrated source enable */
-			igfx->drefctl.v &= ~(3<<11);
-			igfx->drefctl.v |= 2<<11;
 
-			/* 120MHz SSC4 modulation en */	
-			igfx->drefctl.v |= 2;
+		igfx->drefctl.v &= ~(3<<13);
+		igfx->drefctl.v &= ~(3<<11);
+		igfx->drefctl.v &= ~(3<<9);
+		igfx->drefctl.v &= ~(3<<7);
+		igfx->drefctl.v &= ~3;
+
+		if(islvds){
+			igfx->drefctl.v |= 2<<11;
+			igfx->drefctl.v |= 1;
+		} else {
+			igfx->drefctl.v |= 2<<9;
 		}
+
 		/*
 		 * PLL Reference Input Select:
 		 * 000	DREFCLK		(default is 120 MHz) for DAC/HDMI/DVI/DP
@@ -542,11 +570,11 @@ initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
 		dpll = igfx->pipe[x].fdi->dpll;
 		dpll->ctrl.v &= ~(7<<13);
 		dpll->ctrl.v |= (islvds ? 3 : 0) << 13;
-		cref = 120*MHz;
 		break;
 	default:
 		return -1;
 	}
+	cref = getcref(igfx, x);
 
 	/* Dpll Mode select */
 	dpll->ctrl.v &= ~(3<<26);
@@ -603,11 +631,13 @@ initdatalinkmn(Trans *t, int freq, int lsclk, int lanes, int tu, int bpp)
 
 	n = 0x800000;
 	m = (n * ((freq * bpp)/8)) / (lsclk * lanes);
+
 	t->dm[0].v = (tu-1)<<25 | m;
 	t->dn[0].v = n;
 
 	n = 0x80000;
 	m = (n * freq) / lsclk;
+
 	t->lm[0].v = m;
 	t->ln[0].v = n;
 
@@ -628,11 +658,13 @@ inittrans(Trans *t, Mode *m)
 
 	/* trans/pipe timing */
 	t->ht.v = (m->ht - 1)<<16 | (m->x - 1);
-	t->hb.v = t->ht.v;
 	t->hs.v = (m->ehb - 1)<<16 | (m->shb - 1);
 	t->vt.v = (m->vt - 1)<<16 | (m->y - 1);
-	t->vb.v = t->vt.v;
 	t->vs.v = (m->vre - 1)<<16 | (m->vrs - 1);
+
+	t->hb.v = t->ht.v;
+	t->vb.v = t->vt.v;
+
 	t->vss.v = 0;
 }
 
@@ -647,7 +679,7 @@ initpipe(Pipe *p, Mode *m)
 	p->src.v = (m->x - 1)<<16 | (m->y - 1);
 
 	if(p->pfit != nil){
-		/* panel fitter enable, hardcoded coefficients */
+		/* panel fitter on, hardcoded coefficients */
 		p->pfit->ctrl.v = 1<<31 | 1<<23;
 		p->pfit->winpos.v = 0;
 		p->pfit->winsize.v = (m->x << 16) | m->y;
@@ -658,7 +690,7 @@ initpipe(Pipe *p, Mode *m)
 
 	/* default for displayport */
 	tu = 64;
-	bpc = 8;
+	bpc = 6;	/* why */
 	lanes = 1;
 
 	fdi = p->fdi;
@@ -666,29 +698,10 @@ initpipe(Pipe *p, Mode *m)
 		/* enable and set monitor timings for transcoder */
 		inittrans(fdi, m);
 
-		/*
-		 * hack:
-		 * we do not program fdi in load(), so use
-		 * snarfed bios initialized values for now.
-		 */
-		if(fdi->rxctl.v & (1<<31)){
-			tu = 1+(fdi->rxtu[0].v >> 25);
-			bpc = bpctab[(fdi->rxctl.v >> 16) & 3];
-			lanes = 1+((fdi->rxctl.v >> 19) & 7);
-		}
-
-		/* fdi tx enable */
-		fdi->txctl.v |= (1<<31);
 		/* tx port width selection */
 		fdi->txctl.v &= ~(7<<19);
 		fdi->txctl.v |= (lanes-1)<<19;
-		/* tx fdi pll enable */
-		fdi->txctl.v |= (1<<14);
-		/* clear auto training bits */
-		fdi->txctl.v &= ~(7<<8 | 1);
 
-		/* fdi rx enable */
-		fdi->rxctl.v |= (1<<31);
 		/* rx port width selection */
 		fdi->rxctl.v &= ~(7<<19);
 		fdi->rxctl.v |= (lanes-1)<<19;
@@ -702,10 +715,10 @@ initpipe(Pipe *p, Mode *m)
 				break;
 			}
 		}
-		/* rx fdi pll enable */
-		fdi->rxctl.v |= (1<<13);
-		/* rx fdi rawclk to pcdclk selection */
-		fdi->rxctl.v |= (1<<4);
+
+		/* enhanced framing on */
+		fdi->rxctl.v |= (1<<6);
+		fdi->txctl.v |= (1<<18);
 
 		/* tusize 1 and 2 */
 		fdi->rxtu[0].v = (tu-1)<<25;
@@ -742,7 +755,14 @@ init(Vga* vga, Ctlr* ctlr)
 	/* disable vga */
 	igfx->vgacntrl.v |= (1<<31);
 
-	x = 0;
+	/* disable all pipes adpa and lvds */
+	igfx->ppcontrol.v &= 0xFFFF;
+	igfx->ppcontrol.v &= ~5;
+	igfx->lvds.v &= ~(1<<31);
+	igfx->adpa.v &= ~(1<<31);
+	for(x=0; x<igfx->npipe; x++)
+		igfx->pipe[x].conf.v &= ~(1<<31);
+
 	islvds = 0;
 	if((val = dbattr(m->attr, "lcd")) != nil && atoi(val) != 0){
 		islvds = 1;
@@ -752,14 +772,18 @@ init(Vga* vga, Ctlr* ctlr)
 		else
 			x = (igfx->lvds.v >> 30) & 1;
 		igfx->lvds.v |= (1<<31);
-
-		igfx->ppcontrol.v &= ~0xFFFF0000;
 		igfx->ppcontrol.v |= 5;
+	} else {
+		if(igfx->npipe > 2)
+			x = (igfx->adpa.v >> 29) & 3;
+		else
+			x = (igfx->adpa.v >> 30) & 1;
+		igfx->adpa.v |= (1<<31);
 	}
 	p = &igfx->pipe[x];
 
-	/* plane enable, 32bpp and assign pipe */
-	p->dsp->cntr.v = (1<<31) | (6<<26) | (x<<24);
+	/* plane enable, 32bpp */
+	p->dsp->cntr.v = (1<<31) | (6<<26);
 
 	/* stride must be 64 byte aligned */
 	p->dsp->stride.v = m->x * (m->z / 8);
@@ -839,17 +863,25 @@ loadtrans(Igfx *igfx, Trans *t)
 static void
 enablepipe(Igfx *igfx, int x)
 {
+	int i;
 	Pipe *p;
 
 	p = &igfx->pipe[x];
 	if((p->conf.v & (1<<31)) == 0)
 		return;	/* pipe is disabled, done */
 
-	if(0){
+	if(p->fdi->rxctl.a != 0){
 		p->fdi->rxctl.v &= ~(1<<31);
+		p->fdi->rxctl.v &= ~(1<<4);	/* rawclk */
+		p->fdi->rxctl.v |= (1<<13);	/* enable pll */
 		loadreg(igfx, p->fdi->rxctl);
 		sleep(5);
+		p->fdi->rxctl.v |= (1<<4);	/* pcdclk */
+		loadreg(igfx, p->fdi->rxctl);
+		sleep(5);
+		p->fdi->txctl.v &= ~(7<<8 | 1);	/* clear auto training bits */
 		p->fdi->txctl.v &= ~(1<<31);
+		p->fdi->rxctl.v |= (1<<14);	/* enable pll */
 		loadreg(igfx, p->fdi->txctl);
 		sleep(5);
 	}
@@ -879,18 +911,28 @@ enablepipe(Igfx *igfx, int x)
 	loadreg(igfx, p->cur->pos);
 	loadreg(igfx, p->cur->base);	/* arm */
 
-	if(0){
+	if(p->fdi->rxctl.a != 0){
 		/* enable fdi */
 		loadreg(igfx, p->fdi->rxtu[1]);
 		loadreg(igfx, p->fdi->rxtu[0]);
 		loadreg(igfx, p->fdi->rxmisc);
-		p->fdi->rxctl.v &= ~(3<<8 | 1<<10 | 3);
-		p->fdi->rxctl.v |= (1<<31);
+
+		p->fdi->rxctl.v &= ~(3<<8);	/* link train pattern 00 */
+		p->fdi->rxctl.v |= 1<<10;	/* auto train enable */
+		p->fdi->rxctl.v |= 1<<31;	/* enable */
 		loadreg(igfx, p->fdi->rxctl);
 
-		p->fdi->txctl.v &= ~(3<<8 | 1<<10 | 2);
-		p->fdi->txctl.v |= (1<<31);
+		p->fdi->txctl.v &= ~(3<<8);	/* link train pattern 00 */
+		p->fdi->txctl.v |= 1<<10;	/* auto train enable */
+		p->fdi->txctl.v |= 1<<31;	/* enable */
 		loadreg(igfx, p->fdi->txctl);
+
+		/* wait for link training done */
+		for(i=0; i<200; i++){
+			sleep(5);
+			if(rr(igfx, p->fdi->txctl.a) & 2)
+				break;
+		}
 	}
 
 	/* enable the transcoder */
@@ -902,10 +944,6 @@ disabletrans(Igfx *igfx, Trans *t)
 {
 	int i;
 
-	/* the front fell off on x230 */
-	if(igfx->type == TypeIVB && t == &igfx->pipe[0])
-		goto skippipe;
-
 	/* disable transcoder / pipe */
 	csr(igfx, t->conf.a, 1<<31, 0);
 	for(i=0; i<100; i++){
@@ -916,7 +954,6 @@ disabletrans(Igfx *igfx, Trans *t)
 	/* workarround: clear timing override bit */
 	csr(igfx, t->chicken.a, 1<<31, 0);
 
-skippipe:
 	/* disable dpll  */
 	if(t->dpll != nil)
 		csr(igfx, t->dpll->ctrl.a, 1<<31, 0);
@@ -943,11 +980,9 @@ disablepipe(Igfx *igfx, int x)
 	if(p->pfit != nil)
 		csr(igfx, p->pfit->ctrl.a, 1<<31, 0);
 
-	if(0){
-		/* disable fdi transmitter and receiver */
-		csr(igfx, p->fdi->txctl.a, 1<<31 | 1<<10, 0);
-		csr(igfx, p->fdi->rxctl.a, 1<<31 | 1<<10, 0);
-	}
+	/* disable fdi transmitter and receiver */
+	csr(igfx, p->fdi->txctl.a, 1<<31 | 1<<10, 0);
+	csr(igfx, p->fdi->rxctl.a, 1<<31 | 1<<10, 0);
 
 	/* disable displayport transcoder */
 	csr(igfx, p->fdi->dpctl.a, 1<<31, 3<<29);
@@ -1048,7 +1083,7 @@ dumptiming(char *name, Trans *t)
 	int tu, m, n;
 
 	if(t->dm[0].a != 0 && t->dm[0].v != 0){
-		tu = (t->dm[0].v >> 25)+1;
+		tu = 1+((t->dm[0].v >> 25) & 0x3f);
 		printitem(name, "dm1 tu");
 		Bprint(&stdout, " %d\n", tu);
 
@@ -1129,6 +1164,54 @@ dumppipe(Igfx *igfx, int x)
 }
 
 static void
+dumpdpll(Igfx *igfx, int x)
+{
+	int cref, m1, m2, n, p1, p2;
+	uvlong freq;
+	char name[32];
+	Dpll *dpll;
+	u32int m;
+
+	dpll = &igfx->dpll[x];
+	snprint(name, sizeof(name), "%s dpll %c", igfx->ctlr->name, 'a'+x);
+
+	dumpreg(name, "ctrl", dpll->ctrl);
+	dumpreg(name, "fp0", dpll->fp0);
+	dumpreg(name, "fp1", dpll->fp1);
+
+	p2 = ((dpll->ctrl.v >> 13) & 3) == 3 ? 14 : 10;
+	if(((dpll->ctrl.v >> 24) & 3) == 1)
+		p2 >>= 1;
+	m = (dpll->ctrl.v >> 16) & 0xFF;
+	for(p1 = 1; p1 <= 8; p1++)
+		if(m & (1<<(p1-1)))
+			break;
+	printitem(name, "ctrl p1");
+	Bprint(&stdout, " %d\n", p1);
+	printitem(name, "ctrl p2");
+	Bprint(&stdout, " %d\n", p2);
+
+	n = (dpll->fp0.v >> 16) & 0x3f;
+	m1 = (dpll->fp0.v >> 8) & 0x3f;
+	m2 = (dpll->fp0.v >> 0) & 0x3f;
+
+	cref = getcref(igfx, x);
+	freq = ((uvlong)cref * (5*(m1+2) + (m2+2)) / (n+2)) / (p1 * p2);
+
+	printitem(name, "fp0 m1");
+	Bprint(&stdout, " %d\n", m1);
+	printitem(name, "fp0 m2");
+	Bprint(&stdout, " %d\n", m2);
+	printitem(name, "fp0 n");
+	Bprint(&stdout, " %d\n", n);
+
+	printitem(name, "cref");
+	Bprint(&stdout, " %d\n", cref);
+	printitem(name, "fp0 freq");
+	Bprint(&stdout, " %lld\n", freq);
+}
+
+static void
 dump(Vga* vga, Ctlr* ctlr)
 {
 	char name[32];
@@ -1141,12 +1224,8 @@ dump(Vga* vga, Ctlr* ctlr)
 	for(x=0; x<igfx->npipe; x++)
 		dumppipe(igfx, x);
 
-	for(x=0; x<nelem(igfx->dpll); x++){
-		snprint(name, sizeof(name), "%s dpll %c", ctlr->name, 'a'+x);
-		dumpreg(name, "ctrl", igfx->dpll[x].ctrl);
-		dumpreg(name, "fp0", igfx->dpll[x].fp0);
-		dumpreg(name, "fp1", igfx->dpll[x].fp1);
-	}
+	for(x=0; x<nelem(igfx->dpll); x++)
+		dumpdpll(igfx, x);
 
 	dumpreg(ctlr->name, "dpllsel", igfx->dpllsel);
 
@@ -1181,8 +1260,14 @@ dump(Vga* vga, Ctlr* ctlr)
 
 	dumpreg(ctlr->name, "vgacntrl", igfx->vgacntrl);
 
-	if(igfx->lvdsedid != nil)
+	if(igfx->adpaedid != nil){
+		Bprint(&stdout, "edid adpa\n");
+		printedid(igfx->adpaedid);
+	}
+	if(igfx->lvdsedid != nil){
+		Bprint(&stdout, "edid lvds\n");
 		printedid(igfx->lvdsedid);
+	}
 }
 
 enum {
@@ -1195,7 +1280,7 @@ enum {
 };
 	
 static int
-gmbusread(Igfx *igfx, int portsel, int addr, uchar *data, int len)
+gmbusread(Igfx *igfx, int port, int addr, uchar *data, int len)
 {
 	u32int x, y;
 	int n, t;
@@ -1203,7 +1288,7 @@ gmbusread(Igfx *igfx, int portsel, int addr, uchar *data, int len)
 	if(igfx->gmbus[GMBUSCP].a == 0)
 		return -1;
 
-	wr(igfx, igfx->gmbus[GMBUSCP].a, portsel);
+	wr(igfx, igfx->gmbus[GMBUSCP].a, port);
 	wr(igfx, igfx->gmbus[GMBUSIX].a, 0);
 
 	/* bus cycle without index and stop, byte count, slave address, read */
@@ -1238,21 +1323,41 @@ gmbusread(Igfx *igfx, int portsel, int addr, uchar *data, int len)
 			data[n++] = y & 0xff;
 		}
 	}
+
 	return n;
 }
 
-static void
-snarfedid(Igfx *igfx)
+static Edid*
+snarfedid(Igfx *igfx, int port, int addr)
 {
-	uchar buf[128];
+	uchar buf[256], tmp[256];
+	Edid *e;
+	int i;
 
-	if(gmbusread(igfx, 3, 0x50, buf, sizeof(buf)) != sizeof(buf))
-		return;
-	igfx->lvdsedid = malloc(sizeof(Edid));
-	if(parseedid128(igfx->lvdsedid, buf) != 0){
-		free(igfx->lvdsedid);
-		igfx->lvdsedid = nil;
+	/* read twice */
+	if(gmbusread(igfx, port, addr, buf, 128) != 128)
+		return nil;
+	if(gmbusread(igfx, port, addr, buf + 128, 128) != 128)
+		return nil;
+
+	/* shift if neccesary so edid block is at the start */
+	for(i=0; i<256-8; i++){
+		if(buf[i+0] == 0x00 && buf[i+1] == 0xFF && buf[i+2] == 0xFF && buf[i+3] == 0xFF
+		&& buf[i+4] == 0xFF && buf[i+5] == 0xFF && buf[i+6] == 0xFF && buf[i+7] == 0x00){
+			memmove(tmp, buf, i);
+			memmove(buf, buf + i, 256 - i);
+			memmove(buf + (256 - i), tmp, i);
+			break;
+		}
 	}
+
+	e = malloc(sizeof(Edid));
+	if(parseedid128(e, buf) != 0){
+		free(e);
+		return nil;
+	}
+
+	return e;
 }
 
 Ctlr igfx = {

@@ -1707,3 +1707,12 @@ x200s=1280x800		# 60Hz
 	vrs=802 vre=804 vt=830
 	hsync=- vsync=-
 	lcd=1
+
+#
+# LG Flatron L1730P
+#
+l1730p=1280x1024		# 60Hz
+	clock=108
+	shb=1320 ehb=1440 ht=1688
+	vrs=1025 vre=1028 vt=1066
+	hsync=+ vsync=+
