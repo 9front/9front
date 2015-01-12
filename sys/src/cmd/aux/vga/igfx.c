@@ -779,6 +779,19 @@ init(Vga* vga, Ctlr* ctlr)
 		else
 			x = (igfx->adpa.v >> 30) & 1;
 		igfx->adpa.v |= (1<<31);
+		if(igfx->type == TypeG45){
+			igfx->adpa.v &= ~(3<<10);	/* Monitor DPMS */
+
+			igfx->adpa.v &= ~(1<<15);	/* ADPA Polarity Select */
+			if(m->vsync == '+')
+				igfx->adpa.v |= 1<<4;
+			else if(m->vsync == '-')
+				igfx->adpa.v &= ~(1<<14);
+			if(m->hsync == '+')
+				igfx->adpa.v |= 1<<3;
+			else if(m->hsync == '-')
+				igfx->adpa.v &= ~(1<<3);
+		}
 	}
 	p = &igfx->pipe[x];
 
