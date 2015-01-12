@@ -304,8 +304,8 @@ devtype(Igfx *igfx)
 	switch(igfx->pci->did){
 	case 0x0166:	/* X230 */
 		return TypeIVB;
-
-	case 0x2a42:	/* X200s */
+	case 0x27a2:	/* T60 (testing) */
+	case 0x2a42:	/* X200 */
 		return TypeG45;
 	}
 	return -1;
@@ -608,10 +608,6 @@ initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
 	/* VGA Mode Disable */
 	dpll->ctrl.v |= (1<<28);
 
-	/* P1 Post Divisor */
-	dpll->ctrl.v &= ~0xFF00FF;
-	dpll->ctrl.v |= 0x10001<<(p1-1);
-
 	dpll->fp0.v &= ~(0x3f<<16);
 	dpll->fp0.v |= n << 16;
 	dpll->fp0.v &= ~(0x3f<<8);
@@ -619,7 +615,16 @@ initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
 	dpll->fp0.v &= ~(0x3f<<0);
 	dpll->fp0.v |= m2 << 0;
 
-	dpll->fp1.v = dpll->fp0.v;
+	/* FP0 P1 Post Divisor */
+	dpll->ctrl.v &= ~0xFF0000;
+	dpll->ctrl.v |=  0x010000<<(p1-1);
+
+	/* FP1 P1 Post divisor */
+	if(igfx->pci->did != 0x27a2){
+		dpll->ctrl.v &= ~0xFF;
+		dpll->ctrl.v |=  0x01<<(p1-1);
+		dpll->fp1.v = dpll->fp0.v;
+	}
 
 	return 0;
 }
@@ -776,6 +781,19 @@ init(Vga* vga, Ctlr* ctlr)
 			x = (igfx->lvds.v >> 30) & 1;
 		igfx->lvds.v |= (1<<31);
 		igfx->ppcontrol.v |= 5;
+
+		if(igfx->type == TypeG45){
+			igfx->lvds.v &= ~(1<<24);	/* data format select 18/24bpc */
+
+			igfx->lvds.v &= ~(3<<20);
+			if(m->hsync == '-')
+				igfx->lvds.v ^= 1<<20;
+			if(m->vsync == '-')
+				igfx->lvds.v ^= 1<<21;
+
+			igfx->lvds.v |= (1<<15);	/* border enable */
+		}
+
 	} else {
 		if(igfx->npipe > 2)
 			x = (igfx->adpa.v >> 29) & 3;
@@ -786,14 +804,11 @@ init(Vga* vga, Ctlr* ctlr)
 			igfx->adpa.v &= ~(3<<10);	/* Monitor DPMS: on */
 
 			igfx->adpa.v &= ~(1<<15);	/* ADPA Polarity Select */
-			if(m->vsync == '+')
-				igfx->adpa.v |= 1<<4;
-			else if(m->vsync == '-')
-				igfx->adpa.v &= ~(1<<14);
-			if(m->hsync == '+')
-				igfx->adpa.v |= 1<<3;
-			else if(m->hsync == '-')
-				igfx->adpa.v &= ~(1<<3);
+			igfx->adpa.v |= 3<<3;
+			if(m->hsync == '-')
+				igfx->adpa.v ^= 1<<3;
+			if(m->vsync == '-')
+				igfx->adpa.v ^= 1<<4;
 		}
 	}
 	p = &igfx->pipe[x];
