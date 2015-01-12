@@ -1712,6 +1712,16 @@ x200s
 	alias=x200
 
 #
+# Lenovo X301 (LCD) LVDS
+#
+x301=1440x900		# 60Hz
+	clock=102
+	shb=1488 ehb=1520 ht=1836
+	vrs=903 vre=909 vt=926
+	hsync=- vsync=-
+	lcd=1
+
+#
 # LG Flatron L1730P
 #
 l1730p=1280x1024		# 60Hz
