@@ -1004,6 +1004,10 @@ disablepipe(Igfx *igfx, int x)
 	csr(igfx, p->cur->cntr.a, 1<<5 | 7, 0);
 	csr(igfx, p->cur->base.a, ~0, 0);	/* arm */
 
+	/* display/overlay/cursor planes off */
+	if(igfx->type == TypeG45)
+		csr(igfx, p->conf.a, 0, 3<<18);
+
 	/* disable cpu pipe */
 	disabletrans(igfx, p);
 
