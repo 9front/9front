@@ -760,6 +760,9 @@ init(Vga* vga, Ctlr* ctlr)
 	igfx->ppcontrol.v &= ~5;
 	igfx->lvds.v &= ~(1<<31);
 	igfx->adpa.v &= ~(1<<31);
+	if(igfx->type == TypeG45)
+		igfx->adpa.v |= (3<<10);	/* Monitor DPMS: off */
+
 	for(x=0; x<igfx->npipe; x++)
 		igfx->pipe[x].conf.v &= ~(1<<31);
 
@@ -780,7 +783,7 @@ init(Vga* vga, Ctlr* ctlr)
 			x = (igfx->adpa.v >> 30) & 1;
 		igfx->adpa.v |= (1<<31);
 		if(igfx->type == TypeG45){
-			igfx->adpa.v &= ~(3<<10);	/* Monitor DPMS */
+			igfx->adpa.v &= ~(3<<10);	/* Monitor DPMS: on */
 
 			igfx->adpa.v &= ~(1<<15);	/* ADPA Polarity Select */
 			if(m->vsync == '+')
