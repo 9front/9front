@@ -815,6 +815,8 @@ init(Vga* vga, Ctlr* ctlr)
 
 	/* plane enable, 32bpp */
 	p->dsp->cntr.v = (1<<31) | (6<<26);
+	if(igfx->type == TypeG45)
+		p->dsp->cntr.v |= x<<24;	/* pipe assign */
 
 	/* stride must be 64 byte aligned */
 	p->dsp->stride.v = m->x * (m->z / 8);
@@ -829,7 +831,9 @@ init(Vga* vga, Ctlr* ctlr)
 	p->dsp->tileoff.v = 0;
 
 	/* cursor plane off */
-	p->cur->cntr.v = x<<28;
+	p->cur->cntr.v = 0;
+	if(igfx->type == TypeG45)
+		p->cur->cntr.v |= x<<28;	/* pipe assign */
 	p->cur->pos.v = 0;
 	p->cur->base.v = 0;
 
@@ -999,10 +1003,10 @@ disablepipe(Igfx *igfx, int x)
 
 	/* planes off */
 	csr(igfx, p->dsp->cntr.a, 1<<31, 0);
-	csr(igfx, p->dsp->surf.a, ~0, 0);	/* arm */
+	wr(igfx, p->dsp->surf.a, 0);	/* arm */
 	/* cursor off */
 	csr(igfx, p->cur->cntr.a, 1<<5 | 7, 0);
-	csr(igfx, p->cur->base.a, ~0, 0);	/* arm */
+	wr(igfx, p->cur->base.a, 0);	/* arm */
 
 	/* display/overlay/cursor planes off */
 	if(igfx->type == TypeG45)
@@ -1063,6 +1067,16 @@ load(Vga* vga, Ctlr* ctlr)
 	/* turn off all pipes */
 	for(x = 0; x < igfx->npipe; x++)
 		disablepipe(igfx, x);
+
+	if(igfx->type == TypeG45){
+		/* toggle dsp a on and off (from enable sequence) */
+		csr(igfx, igfx->pipe[0].conf.a, 3<<18, 0);
+		csr(igfx, igfx->pipe[0].dsp->cntr.a, 0, 1<<31);
+		wr(igfx, igfx->pipe[0].dsp->surf.a, 0);		/* arm */
+		csr(igfx, igfx->pipe[0].dsp->cntr.a, 1<<31, 0);
+		wr(igfx, igfx->pipe[0].dsp->surf.a, 0);		/* arm */
+		csr(igfx, igfx->pipe[0].conf.a, 0, 3<<18);
+	}
 
 	/* program new clock sources */
 	loadreg(igfx, igfx->rawclkfreq);
