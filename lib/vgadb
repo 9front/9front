@@ -437,6 +437,7 @@ ctlr
 ctlr
 	vid=0x8086 did=0x0166	# X230
 	vid=0x8086 did=0x2a42	# X200
+	vid=0x8086 did=0x27a2	# X60 Tablet
 	link=vga
 	hwgc=igfxhwgc
 	ctlr=igfx linear=1
@@ -1728,4 +1729,96 @@ l1730p=1280x1024		# 60Hz
 	clock=108
 	shb=1320 ehb=1440 ht=1688
 	vrs=1025 vre=1028 vt=1066
+	hsync=+ vsync=+
+
+#
+# Lenovo Thinkpad X60 Tablet (LCD) LVDS
+#
+x60t=640x480		# 60Hz   
+	clock=25.175
+	shb=648 ehb=792 ht=800
+	vrs=490 vre=492 vt=525
+	hsync=- vsync=-
+	lcd=1
+x60t=800x600		# 60Hz   
+	clock=40
+	shb=800 ehb=1056 ht=1056
+	vrs=601 vre=605 vt=628
+	hsync=+ vsync=+
+	lcd=1
+x60t=1024x768		# 60Hz  
+	clock=65
+	shb=1024 ehb=1344 ht=1344
+	vrs=771 vre=777 vt=806
+	hsync=- vsync=-
+	lcd=1
+x60t=1400x1050		# 50Hz
+	clock=84.8
+	shb=1420 ehb=1536 ht=1600
+	vrs=1052 vre=1057 vt=1060
+	hsync=- vsync=-
+	lcd=1
+
+#
+# NEC LCD2190uXp
+#
+lcd2190uxp=640x480		# 60Hz   
+	clock=25.175
+	shb=648 ehb=792 ht=800
+	vrs=490 vre=492 vt=525
+	hsync=- vsync=- 
+lcd2190uxp=640x480		# 73Hz   
+	clock=31.5
+	shb=648 ehb=824 ht=832
+	vrs=489 vre=492 vt=520
+	hsync=- vsync=- 
+lcd2190uxp=640x480		# 75Hz   
+	clock=31.5
+	shb=640 ehb=840 ht=840
+	vrs=481 vre=484 vt=500
+	hsync=- vsync=- 
+lcd2190uxp=800x600		# 56Hz   
+	clock=36
+	shb=800 ehb=1024 ht=1024
+	vrs=601 vre=603 vt=625
+	hsync=+ vsync=+ 
+lcd2190uxp=800x600		# 60Hz   
+	clock=40
+	shb=800 ehb=1056 ht=1056
+	vrs=601 vre=605 vt=628
+	hsync=+ vsync=+ 
+lcd2190uxp=800x600		# 72Hz   
+	clock=50
+	shb=800 ehb=1040 ht=1040
+	vrs=637 vre=643 vt=666
+	hsync=+ vsync=+ 
+lcd2190uxp=800x600		# 75Hz   
+	clock=49.5
+	shb=800 ehb=1056 ht=1056
+	vrs=601 vre=604 vt=625
+	hsync=+ vsync=+ 
+lcd2190uxp=1024x768		# 60Hz  
+	clock=65
+	shb=1024 ehb=1344 ht=1344
+	vrs=771 vre=777 vt=806
+	hsync=- vsync=- 
+lcd2190uxp=1024x768		# 70Hz  
+	clock=75
+	shb=1024 ehb=1328 ht=1328
+	vrs=771 vre=777 vt=806
+	hsync=- vsync=- 
+lcd2190uxp=1024x768		# 75Hz  
+	clock=78.75
+	shb=1024 ehb=1312 ht=1312
+	vrs=769 vre=772 vt=800
+	hsync=+ vsync=+ 
+lcd2190uxp=1280x1024		# 75Hz 
+	clock=135
+	shb=1280 ehb=1688 ht=1688
+	vrs=1025 vre=1028 vt=1066
+	hsync=+ vsync=+ 
+lcd2190uxp=1600x1200		# 60Hz 
+	clock=162
+	shb=1664 ehb=1856 ht=2160
+	vrs=1201 vre=1204 vt=1250
 	hsync=+ vsync=+
