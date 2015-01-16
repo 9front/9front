@@ -349,24 +349,30 @@ expirejar(Jar *jar, int exiting)
 int
 syncjar(Jar *jar)
 {
-	int i, fd;
+	int i, fd, doread, dowrite;
 	char *line;
-	Dir *d;
 	Biobuf *b;
+	Dir *d;
 	Qid q;
 
 	if(jar->file==nil)
 		return 0;
 
-	memset(&q, 0, sizeof q);
-	if((d = dirstat(jar->file)) != nil){
-		q = d->qid;
-		if(d->qid.path != jar->qid.path || d->qid.vers != jar->qid.vers)
-			jar->dirty = 1;
+	doread = 0;
+	dowrite = jar->dirty;
+
+	q = jar->qid;
+	if((d = dirstat(jar->file)) == nil)
+		dowrite = 1;
+	else {
+		if(q.path != d->qid.path || q.vers != d->qid.vers){
+			q = d->qid;
+			doread = 1;
+		}
 		free(d);
 	}
 
-	if(jar->dirty == 0)
+	if(!doread && !dowrite)
 		return 0;
 
 	fd = -1;
@@ -384,52 +390,59 @@ syncjar(Jar *jar)
 		return -1;
 	}
 
-	for(i=0; i<jar->nc; i++)	/* mark is cleared by addcookie */
-		jar->c[i].mark = jar->c[i].ondisk;
+	if(doread){
+		for(i=0; i<jar->nc; i++)	/* mark is cleared by addcookie */
+			jar->c[i].mark = jar->c[i].ondisk;
 
-	if((b = Bopen(jar->file, OREAD)) == nil){
-		if(debug)
-			fprint(2, "Bopen %s: %r", jar->file);
-		werrstr("cannot read cookie file %s: %r", jar->file);
-		close(fd);
-		return -1;
-	}
-	for(; (line = Brdstr(b, '\n', 1)) != nil; free(line)){
-		if(*line == '#')
-			continue;
-		addtojar(jar, line, 1);
-	}
-	Bterm(b);
+		if((b = Bopen(jar->file, OREAD)) == nil){
+			if(debug)
+				fprint(2, "Bopen %s: %r", jar->file);
+			werrstr("cannot read cookie file %s: %r", jar->file);
+			close(fd);
+			return -1;
+		}
+		for(; (line = Brdstr(b, '\n', 1)) != nil; free(line)){
+			if(*line == '#')
+				continue;
+			addtojar(jar, line, 1);
+		}
+		Bterm(b);
 
-	for(i=0; i<jar->nc; i++)
-		if(jar->c[i].mark)
-			delcookie(jar, &jar->c[i]);
+		for(i=0; i<jar->nc; i++)
+			if(jar->c[i].mark)
+				delcookie(jar, &jar->c[i]);
+	}
 
 	purgejar(jar);
 
-	b = Bopen(jar->file, OTRUNC|OWRITE);
-	if(b == nil){
-		if(debug)
-			fprint(2, "Bopen write %s: %r", jar->file);
-		close(fd);
-		return -1;
+	if(dowrite){
+		b = Bopen(jar->file, OTRUNC|OWRITE);
+		if(b == nil){
+			if(debug)
+				fprint(2, "Bopen write %s: %r", jar->file);
+			close(fd);
+			return -1;
+		}
+		Bprint(b, "# webcookies cookie jar\n");
+		Bprint(b, "# comments and non-standard fields will be lost\n");
+		for(i=0; i<jar->nc; i++){
+			if(jar->c[i].expire == ~0)
+				continue;
+			Bprint(b, "%K\n", &jar->c[i]);
+			jar->c[i].ondisk = 1;
+		}
+		Bflush(b);
+		if((d = dirfstat(Bfildes(b))) != nil){
+			q = d->qid;
+			free(d);
+		}
+		Bterm(b);
 	}
-	Bprint(b, "# webcookies cookie jar\n");
-	Bprint(b, "# comments and non-standard fields will be lost\n");
-	for(i=0; i<jar->nc; i++){
-		if(jar->c[i].expire == ~0)
-			continue;
-		Bprint(b, "%K\n", &jar->c[i]);
-		jar->c[i].ondisk = 1;
-	}
-	Bterm(b);
 
+	jar->qid = q;
 	jar->dirty = 0;
+
 	close(fd);
-	if((d = dirstat(jar->file)) != nil){
-		jar->qid = d->qid;
-		free(d);
-	}
 	return 0;
 }
 
@@ -451,7 +464,7 @@ readjar(char *file)
 	p[1] = '.';
 	jar->lockfile = lock;
 	jar->file = file;
-	jar->dirty = 1;
+	jar->dirty = 0;
 
 	if(syncjar(jar) < 0){
 		free(jar->file);
@@ -544,13 +557,16 @@ cookiesearch(Jar *jar, char *dom, char *path, int issecure)
 {
 	int i;
 	Jar *j;
+	Cookie *c;
 	uint now;
 
 	now = time(0);
 	j = newjar();
-	for(i=0; i<jar->nc; i++)
-		if((issecure || !jar->c[i].secure) && iscookiematch(&jar->c[i], dom, path, now))
-			addcookie(j, &jar->c[i]);
+	for(i=0; i<jar->nc; i++){
+		c = &jar->c[i];
+		if(!c->deleted && (issecure || !c->secure) && iscookiematch(c, dom, path, now))
+			addcookie(j, c);
+	}
 	if(j->nc == 0){
 		closejar(j);
 		werrstr("no cookies found");
