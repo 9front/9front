@@ -95,16 +95,16 @@ struct VGAscr {
 	Pcidev*	pci;
 
 	VGAcur*	cur;
-	ulong	storage;
+	uintptr	storage;
 	Cursor;
 
 	int	useflush;
 
-	ulong	paddr;		/* frame buffer */
+	uintptr	paddr;		/* frame buffer */
 	void*	vaddr;
-	int		apsize;
+	int	apsize;
 
-	ulong	io;				/* device specific registers */
+	ulong	io;		/* device specific registers */
 	ulong	*mmio;
 	
 	ulong	colormap[Pcolours][3];
@@ -118,9 +118,9 @@ struct VGAscr {
 	int	(*scroll)(VGAscr*, Rectangle, Rectangle);
 	void	(*blank)(VGAscr*, int);
 	ulong	id;	/* internal identifier for driver use */
-	int isblank;
-	int overlayinit;
-	int softscreen;
+	int	isblank;
+	int	overlayinit;
+	int	softscreen;
 };
 
 extern VGAscr vgascreen[];

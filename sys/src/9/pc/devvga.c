@@ -217,7 +217,7 @@ vgaread(Chan* c, void* a, long n, vlong off)
 		len += snprint(p+len, READSTR-len, "hwaccel %s\n", hwaccel ? "on" : "off");
 		len += snprint(p+len, READSTR-len, "hwblank %s\n", hwblank ? "on" : "off");
 		len += snprint(p+len, READSTR-len, "panning %s\n", panning ? "on" : "off");
-		len += snprint(p+len, READSTR-len, "addr p 0x%lux v 0x%p size 0x%ux\n", scr->paddr, scr->vaddr, scr->apsize);
+		len += snprint(p+len, READSTR-len, "addr p %#p v %#p size %#ux\n", scr->paddr, scr->vaddr, scr->apsize);
 		len += snprint(p+len, READSTR-len, "softscreen %s\n", scr->softscreen ? "on" : "off");
 		USED(len);
 
