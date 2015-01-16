@@ -24,7 +24,7 @@ enum {
 
 enum {
 	TypeG45,
-	TypeIVB,		/* Ivy Bdige */
+	TypeIVB,		/* Ivy Bridge */
 };
 
 struct Reg {
@@ -94,6 +94,9 @@ struct Plane {
 	Reg	stride;		/* DSPxSTRIDE */
 	Reg	surf;		/* DSPxSURF */
 	Reg	tileoff;	/* DSPxTILEOFF */
+
+	Reg	pos;
+	Reg	size;
 };
 
 struct Curs {
@@ -289,6 +292,9 @@ snarfpipe(Igfx *igfx, int x)
 		p->cur->pos	= snarfreg(igfx, 0x70088 | x*0x1000);
 		break;
 	case TypeG45:
+		p->dsp->pos	= snarfreg(igfx, 0x7018C | x*0x1000);
+		p->dsp->size	= snarfreg(igfx, 0x70190 | x*0x1000);
+
 		p->cur->cntr	= snarfreg(igfx, 0x70080 | x*0x40);
 		p->cur->base	= snarfreg(igfx, 0x70084 | x*0x40);
 		p->cur->pos	= snarfreg(igfx, 0x7008C | x*0x40);
@@ -304,7 +310,7 @@ devtype(Igfx *igfx)
 	switch(igfx->pci->did){
 	case 0x0166:	/* X230 */
 		return TypeIVB;
-	case 0x27a2:	/* T60 (testing) */
+	case 0x27a2:	/* X60t */
 	case 0x2a42:	/* X200 */
 		return TypeG45;
 	}
@@ -684,10 +690,10 @@ initpipe(Pipe *p, Mode *m)
 	p->src.v = (m->x - 1)<<16 | (m->y - 1);
 
 	if(p->pfit != nil){
-		/* panel fitter on, hardcoded coefficients */
-		p->pfit->ctrl.v = 1<<31 | 1<<23;
+		/* panel fitter off */
+		p->pfit->ctrl.v &= ~(1<<31);
 		p->pfit->winpos.v = 0;
-		p->pfit->winsize.v = (m->x << 16) | m->y;
+		p->pfit->winsize.v = 0;
 	}
 
 	/* enable and set monitor timings for cpu pipe */
@@ -826,6 +832,10 @@ init(Vga* vga, Ctlr* ctlr)
 	/* virtual width in pixels */
 	vga->virtx = p->dsp->stride.v / (m->z / 8);
 
+	/* plane position and size */
+	p->dsp->pos.v = 0;
+	p->dsp->size.v = (m->y - 1)<<16 | (m->x - 1);	/* sic */
+
 	p->dsp->surf.v = 0;
 	p->dsp->linoff.v = 0;
 	p->dsp->tileoff.v = 0;
@@ -931,6 +941,10 @@ enablepipe(Igfx *igfx, int x)
 		loadreg(igfx, p->pfit->winsize);	/* arm */
 	}
 
+	/* keep planes disabled while pipe comes up */
+	if(igfx->type == TypeG45)
+		p->conf.v |= 3<<18;
+
 	/* enable cpu pipe */
 	loadtrans(igfx, p);
 
@@ -939,12 +953,20 @@ enablepipe(Igfx *igfx, int x)
 	loadreg(igfx, p->dsp->linoff);
 	loadreg(igfx, p->dsp->stride);
 	loadreg(igfx, p->dsp->tileoff);
+	loadreg(igfx, p->dsp->size);
+	loadreg(igfx, p->dsp->pos);
 	loadreg(igfx, p->dsp->surf);	/* arm */
 
 	/* program cursor */
 	loadreg(igfx, p->cur->cntr);
 	loadreg(igfx, p->cur->pos);
 	loadreg(igfx, p->cur->base);	/* arm */
+
+	/* enable planes */
+	if(igfx->type == TypeG45) {
+		p->conf.v &= ~(3<<18);
+		loadreg(igfx, p->conf);
+	}
 
 	if(p->fdi->rxctl.a != 0){
 		/* enable fdi */
@@ -1205,6 +1227,8 @@ dumppipe(Igfx *igfx, int x)
 	dumpreg(name, "stride", p->dsp->stride);
 	dumpreg(name, "surf", p->dsp->surf);
 	dumpreg(name, "tileoff", p->dsp->tileoff);
+	dumpreg(name, "pos", p->dsp->pos);
+	dumpreg(name, "size", p->dsp->size);
 
 	snprint(name, sizeof(name), "%s cur %c", igfx->ctlr->name, 'a'+x);
 	dumpreg(name, "cntr", p->cur->cntr);
