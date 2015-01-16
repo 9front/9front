@@ -483,8 +483,9 @@ closejar(Jar *jar)
 	if(jar == nil)
 		return;
 	expirejar(jar, 0);
-	if(syncjar(jar) < 0)
-		fprint(2, "warning: cannot rewrite cookie jar: %r\n");
+	if(jar->dirty)
+		if(syncjar(jar) < 0)
+			fprint(2, "warning: cannot rewrite cookie jar: %r\n");
 
 	for(i=0; i<jar->nc; i++)
 		freecookie(&jar->c[i]);
@@ -1208,7 +1209,8 @@ fsdestroyfid(Fid *fid)
 				delcookie(jar, &jar->c[i]);
 		break;
 	}
-	syncjar(jar);
+	if(jar->dirty)
+		syncjar(jar);
 	free(a->dom);
 	free(a->path);
 	free(a->inhttp);
