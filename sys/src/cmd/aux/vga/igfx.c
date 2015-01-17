@@ -297,7 +297,7 @@ snarfpipe(Igfx *igfx, int x)
 
 		p->cur->cntr	= snarfreg(igfx, 0x70080 + x*0x40);
 		p->cur->base	= snarfreg(igfx, 0x70084 + x*0x40);
-		p->cur->pos	= snarfreg(igfx, 0x7008C + x*0x40);
+		p->cur->pos	= snarfreg(igfx, 0x70088 + x*0x40);
 		break;
 	}
 }
