@@ -1956,6 +1956,10 @@ iwlctl(Ether *edev, void *buf, long n)
 	Ctlr *ctlr;
 
 	ctlr = edev->ctlr;
+	if(n >= 5 && memcmp(buf, "reset", 5) == 0){
+		ctlr->broken = 1;
+		return n;
+	}
 	if(ctlr->wifi)
 		return wifictl(ctlr->wifi, buf, n);
 	return 0;
