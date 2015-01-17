@@ -437,9 +437,13 @@ ctlr
 ctlr
 	vid=0x8086 did=0x0166	# X230
 	vid=0x8086 did=0x2a42	# X200
-	vid=0x8086 did=0x27a2	# X60 Tablet
 	link=vga
 	hwgc=igfxhwgc
+	ctlr=igfx linear=1
+
+ctlr
+	vid=0x8086 did=0x27a2	# X60 Tablet (hardware cursor broken)
+	link=vga
 	ctlr=igfx linear=1
 
 #
