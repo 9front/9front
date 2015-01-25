@@ -6,6 +6,7 @@
 #include <auth.h>
 
 enum {
+	PMKlen = 256/8,
 	PTKlen = 512/8,
 	GTKlen = 256/8,
 
@@ -51,6 +52,34 @@ struct Cipher
 	int	keylen;
 };
 
+typedef struct Eapconn Eapconn;
+typedef struct TLStunn TLStunn;
+
+struct Eapconn
+{
+	int	fd;
+	int	version;
+
+	uchar	type;
+	uchar	smac[Eaddrlen];
+	uchar	amac[Eaddrlen];
+
+	TLStunn	*tunn;
+
+	void	(*write)(Eapconn*, uchar *data, int datalen);
+};
+
+struct TLStunn
+{
+	int	fd;
+
+	int	clientpid;
+	int	readerpid;
+
+	uchar	id;
+	uchar	tp;
+};
+
 Cipher	tkip = { "tkip", 32 };
 Cipher	ccmp = { "ccmp", 16 };
 
@@ -62,6 +91,7 @@ int	prompt;
 int	debug;
 int	fd, cfd;
 char	*dev;
+int	ispsk;
 char	devdir[40];
 uchar	ptk[PTKlen];
 char	essid[32+1];
@@ -70,6 +100,7 @@ uvlong	lastrepc;
 uchar rsntkipoui[4] = {0x00, 0x0F, 0xAC, 0x02};
 uchar rsnccmpoui[4] = {0x00, 0x0F, 0xAC, 0x04};
 uchar rsnapskoui[4] = {0x00, 0x0F, 0xAC, 0x02};
+uchar rsnawpaoui[4] = {0x00, 0x0F, 0xAC, 0x01};
 
 uchar	rsnie[] = {
 	0x30,			/* RSN */
@@ -98,6 +129,16 @@ uchar	wpaie[] = {
 	0x01, 0x00,		/* authentication suite count 1 */
 	0x00, 0x50, 0xf2, 0x02,	/* authentication suite PSK */
 };
+
+void*
+emalloc(int len)
+{
+	void *v;
+
+	if((v = mallocz(len, 1)) == nil)
+		sysfatal("malloc: %r");
+	return v;
+}
 
 int
 hextob(char *s, char **sp, uchar *b, int n)
@@ -156,7 +197,17 @@ getessid(void)
 }
 
 int
-connected(void)
+getbssid(uchar mac[Eaddrlen])
+{
+	char buf[64];
+
+	if(getifstats("bssid:", buf, sizeof(buf)) != nil)
+		return parseether(mac, buf);
+	return -1;
+}
+
+int
+connected(int assoc)
 {
 	char status[1024];
 
@@ -166,6 +217,10 @@ connected(void)
 		return 0;
 	if(strcmp(status, "unauthenticated") == 0)
 		return 0;
+	if(assoc){
+		if(strcmp(status, "blocked") != 0 && strcmp(status, "associated") != 0)
+			return 0;
+	}
 	if(debug)
 		fprint(2, "status: %s\n", status);
 	return 1;
@@ -287,10 +342,15 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 		if((e - p) < 4)
 			goto trunc;
 
-		/* look for PSK oui */
 		if(rsne[0] == 0x30){
+			/* look for PSK oui */
 			if(memcmp(p, rsnapskoui, 4) == 0)
 				break;
+			/* look for WPA oui */
+			if(memcmp(p, rsnawpaoui, 4) == 0){
+				ispsk = 0;
+				break;
+			}
 		} else {
 			if(memcmp(p, wpaapskoui, 4) == 0)
 				break;
@@ -298,7 +358,7 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 		p += 4;
 	}
 	if(i >= n){
-		sysfatal("auth suite is not PSK; brsne: %s", buf);
+		sysfatal("auth suite is not PSK or WPA; brsne: %s", buf);
 		return 0;
 	}
 
@@ -313,6 +373,96 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 
 	rsne[1] = (w - rsne) - 2;
 	return w - rsne;
+}
+
+char*
+factotumattr(char *attr, char *fmt, ...)
+{
+	char buf[1024];
+	va_list list;
+	AuthRpc *rpc;
+	char *val;
+	Attr *a;
+	int afd;
+
+	if((afd = open("/mnt/factotum/rpc", ORDWR)) < 0)
+		return nil;
+	if((rpc = auth_allocrpc(afd)) == nil){
+		close(afd);
+		return nil;
+	}
+	va_start(list, fmt);
+	vsnprint(buf, sizeof(buf), fmt, list);
+	va_end(list);
+	val = nil;
+	if(auth_rpc(rpc, "start", buf, strlen(buf)) == 0){
+		if((a = auth_attr(rpc)) != nil){
+			if((val = _strfindattr(a, attr)) != nil)
+				val = strdup(val);
+			_freeattr(a);
+		}
+	}
+	auth_freerpc(rpc);
+	close(afd);
+
+	return val;
+}
+
+void
+freeup(UserPasswd *up)
+{
+	memset(up->user, 0, strlen(up->user));
+	memset(up->passwd, 0, strlen(up->passwd));
+	free(up);
+}
+
+char*
+getidentity(void)
+{
+	static char *identity;
+	char *s;
+
+	s = nil;
+	for(;;){
+		if(getessid() == nil)
+			break;
+		if((s = factotumattr("user", "proto=pass service=wpa essid=%q", essid)) != nil)
+			break;
+		if((s = factotumattr("user", "proto=mschapv2 role=client service=wpa essid=%q", essid)) != nil)
+			break;
+		break;
+	}
+	if(s != nil){
+		free(identity);
+		identity = s;
+	} else if(identity == nil)
+		identity = strdup("anonymous");
+	if(debug)
+		fprint(2, "identity: %s\n", identity);
+	return identity;
+}
+
+int
+factotumctl(char *fmt, ...)
+{
+	va_list list;
+	int r, fd;
+
+	if((fd = open("/mnt/factotum/ctl", OWRITE)) < 0)
+		return -1;
+	va_start(list, fmt);
+	r = vfprint(fd, fmt, list);
+	va_end(list);
+	close(fd);
+	return r;
+}
+
+int
+setpmk(uchar pmk[PMKlen])
+{
+	if(getessid() == nil)
+		return -1;
+	return factotumctl("key proto=wpapsk role=client essid=%q !password=%.32H\n", essid, pmk);
 }
 
 int
@@ -495,43 +645,470 @@ checkmic(Keydescr *kd, uchar *msg, int msglen)
 }
 
 void
-reply(int eapver, uchar smac[Eaddrlen], uchar amac[Eaddrlen], int flags, Keydescr *kd, uchar *data, int datalen)
+fdwrite(Eapconn *conn, uchar *data, int len)
 {
-	uchar buf[4096], *m, *p = buf;
+	if(write(conn->fd, data, len) != len)
+		sysfatal("write: %r");
+}
 
-	memmove(p, amac, Eaddrlen); p += Eaddrlen;
-	memmove(p, smac, Eaddrlen); p += Eaddrlen;
+void
+etherwrite(Eapconn *conn, uchar *data, int len)
+{
+	uchar *buf, *p;
+	int n;
+
+	if(debug)
+		fprint(2, "\nreply(v%d,t%d) %E -> %E: ", conn->version, conn->type, conn->smac, conn->amac);
+	n = 2*Eaddrlen + 2 + len;
+	if(n < 60) n = 60;	/* ETHERMINTU */
+	p = buf = emalloc(n);
+	/* ethernet header */
+	memmove(p, conn->amac, Eaddrlen); p += Eaddrlen;
+	memmove(p, conn->smac, Eaddrlen); p += Eaddrlen;
 	*p++ = 0x88;
 	*p++ = 0x8e;
+	/* eapol data */
+	memmove(p, data, len);
+	fdwrite(conn, buf, n);
+	free(buf);
+}
 
-	m = p;
-	*p++ = eapver;
-	*p++ = 0x03;
+void
+eapwrite(Eapconn *conn, uchar *data, int len)
+{
+	uchar *buf, *p;
+
+	p = buf = emalloc(len + 4);
+	/* eapol header */
+	*p++ = conn->version;
+	*p++ = conn->type;
+	*p++ = len >> 8;
+	*p++ = len;
+	/* eap data */
+	memmove(p, data, len); p += len;
+	etherwrite(conn, buf, p - buf);
+	free(buf);
+}
+
+void
+replykey(Eapconn *conn, int flags, Keydescr *kd, uchar *data, int datalen)
+{
+	uchar buf[4096], *p = buf;
+
+	/* eapol hader */
+	*p++ = conn->version;
+	*p++ = conn->type;
 	datalen += Keydescrlen;
 	*p++ = datalen >> 8;
 	*p++ = datalen;
 	datalen -= Keydescrlen;
-
+	/* key header */
 	memmove(p, kd, Keydescrlen);
 	kd = (Keydescr*)p;
 	kd->flags[0] = flags >> 8;
 	kd->flags[1] = flags;
 	kd->datalen[0] = datalen >> 8;
 	kd->datalen[1] = datalen;
+	/* key data */
 	p = kd->data;
 	memmove(p, data, datalen);
 	p += datalen;
-
+	/* mic */
 	memset(kd->mic, 0, MIClen);
 	if(flags & Fmic)
-		calcmic(kd, m, p - m);
-	if(debug != 0){
-		fprint(2, "\nreply(v%d) %E -> %E: ", eapver, smac, amac);
+		calcmic(kd, buf, p - buf);
+	etherwrite(conn, buf, p - buf);
+	if(debug)
 		dumpkeydescr(kd);
+}
+
+void
+eapresp(Eapconn *conn, int code, int id, uchar *data, int len)
+{
+	uchar *buf, *p;
+
+	len += 4;
+	p = buf = emalloc(len);
+	/* eap header */
+	*p++ = code;
+	*p++ = id;
+	*p++ = len >> 8;
+	*p++ = len;
+	memmove(p, data, len-4);
+	(*conn->write)(conn, buf, len);
+	free(buf);
+
+	if(debug)
+		fprint(2, "eapresp(code=%d, id=%d, data=%.*H)\n", code, id, len-4, data);
+}
+
+void
+tlsreader(TLStunn *tunn, Eapconn *conn)
+{
+	enum {
+		Tlshdrsz = 5,
+		TLStunnhdrsz = 6,
+	};
+	uchar *rec, *w, *p;
+	int fd, n, css;
+
+	fd = tunn->fd;
+	rec = nil;
+	css = 0;
+Reset:
+	w = rec;
+	w += TLStunnhdrsz;
+	for(;;w += n){
+		if((p = realloc(rec, (w - rec) + Tlshdrsz)) == nil)
+			break;
+		w = p + (w - rec), rec = p;
+		if(readn(fd, w, Tlshdrsz) != Tlshdrsz)
+			break;
+		n = w[3]<<8 | w[4];
+		if(n < 1)
+			break;
+		if((p = realloc(rec, (w - rec) + Tlshdrsz+n)) == nil)
+			break;
+		w = p + (w - rec), rec = p;
+		if(readn(fd, w+Tlshdrsz, n) != n)
+			break;
+		n += Tlshdrsz;	
+		
+		/* batch records that need to be send together */
+		if(!css){
+			/* Client Certificate */
+			if(w[0] == 22 && w[5] == 11)
+				continue;
+			/* Client Key Exchange */
+			if(w[0] == 22 && w[5] == 16)
+				continue;
+			/* Change Cipher Spec */
+			if(w[0] == 20){
+				css = 1;
+				continue;
+			}
+		}
+
+		/* check if we'r still the tunnel for this connection */
+		if(conn->tunn != tunn)
+			break;
+
+		/* flush records in encapsulation */
+		p = rec + TLStunnhdrsz;
+		w += n;
+		n = w - p;
+		*(--p) = n;
+		*(--p) = n >> 8;
+		*(--p) = n >> 16;
+		*(--p) = n >> 24;
+		*(--p) = 0x80;	/* flags: Length included */
+		*(--p) = tunn->tp;
+
+		eapresp(conn, 2, tunn->id, p, w - p);
+		goto Reset;
 	}
-	datalen = p - buf;
-	if(write(fd, buf, datalen) != datalen)
-		sysfatal("write: %r");
+	free(rec);
+}
+
+void ttlsclient(int);
+void peapclient(int);
+
+void
+eapreset(Eapconn *conn)
+{
+	TLStunn *tunn;
+
+	tunn = conn->tunn;
+	if(tunn == nil)
+		return;
+	if(debug)
+		fprint(2, "eapreset: kill client %d\n", tunn->clientpid);
+	conn->tunn = nil;
+	postnote(PNPROC, tunn->clientpid, "kill");
+}
+
+int
+tlswrap(int fd, char *label)
+{
+	TLSconn *tls;
+
+	tls = emalloc(sizeof(TLSconn));
+	if(debug)
+		tls->trace = print;
+	if(label != nil){
+		/* tls client computes the 1024 bit MSK for us */
+		tls->sessionType = "ttls";
+		tls->sessionConst = label;
+		tls->sessionKeylen = 128;
+		tls->sessionKey = emalloc(tls->sessionKeylen);
+	}
+	if((fd = tlsClient(fd, tls)) < 0)
+		sysfatal("tlsClient: %r");
+	if(label != nil){
+		/*
+		 * PMK is derived from MSK by taking the first 256 bits.
+		 * we store the PMK into factotum with setpmk() associated
+		 * with the current essid.
+		 */
+		if(setpmk(tls->sessionKey) < 0)
+			sysfatal("setpmk: %r");
+	}
+	return fd;
+}
+
+void
+eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
+{
+	TLStunn *tunn;
+	int tp, frag;
+	char *user;
+
+	if(debug)
+		fprint(2, "eapreq(code=%d, id=%d, data=%.*H)\n", code, id, datalen, data);
+
+	switch(code){
+	case 1:	/* Request */
+		break;
+	case 4:	/* NAK */
+	case 3:	/* Success */
+		eapreset(conn);
+		if(code == 4 || debug)
+			fprint(2, "%s: eap code %s\n", argv0, code == 3 ? "Success" : "NAK");
+	default:
+		return;
+	}
+
+	if(datalen < 1)
+		return;
+	tp = data[0];
+	switch(tp){
+	case 1:		/* Identity */
+		user = getidentity();
+		datalen = 1+strlen(user);
+		memmove(data+1, user, datalen-1);
+		eapresp(conn, 2, id, data, datalen);
+		break;
+	case 2:
+		fprint(2, "%s: eap error: %.*s\n", argv0, datalen-1, (char*)data+1);
+		break;
+	case 33:	/* EAP Extensions (AVP) */
+		if(debug)
+			fprint(2, "eap extension: %.*H\n", datalen, data);
+		eapresp(conn, 2, id, data, datalen);
+		break;
+	case 26:	/* MS-CHAP-V2 */
+		data++;
+		datalen--;
+		if(datalen < 1)
+			break;
+
+		/* OpCode */	
+		switch(data[0]){
+		case 1:	/* Challenge */
+			if(datalen > 4) {
+				uchar cid, chal[16], resp[48];
+				char user[256+1];
+				int len;
+
+				cid = data[1];
+				len = data[2]<<8 | data[3];
+				if(data[4] != sizeof(chal))
+					break;
+				if(len > datalen || (5 + data[4]) > len)
+					break;
+				memmove(chal, data+5, sizeof(chal));
+				memset(user, 0, sizeof(user));
+				memset(resp, 0, sizeof(resp));
+				if(auth_respond(chal, sizeof(chal), user, sizeof(user), resp, sizeof(resp), nil,
+					"proto=mschapv2 role=client service=wpa essid=%q", essid) < 0){
+					fprint(2, "%s: eap mschapv2: auth_respond: %r\n", argv0);
+					break;
+				}
+				len = 5 + sizeof(resp) + 1 + strlen(user);
+				data[0] = 2;		/* OpCode - Response */
+				data[1] = cid;		/* Identifier */
+				data[2] = len >> 8;
+				data[3] = len;
+				data[4] = sizeof(resp)+1;	/* ValueSize */
+				memmove(data+5, resp, sizeof(resp));
+				data[5 + sizeof(resp)] = 0;	/* flags */
+				strcpy((char*)&data[5 + sizeof(resp) + 1], user);
+
+				*(--data) = tp, len++;
+				eapresp(conn, 2, id, data, len);
+			}
+			break;
+
+		case 3:	/* Success */
+		case 4:	/* Failure */
+			if(debug || data[0] == 4)
+				fprint(2, "%s: eap mschapv2 %s: %.*s\n", argv0,
+					data[0] == 3 ? "Success" : "Failure",
+					datalen < 4 ? 0 : datalen-4, (char*)data+4);
+			*(--data) = tp;
+			eapresp(conn, 2, id, data, 2);
+			break;
+		}
+		break;
+
+	case 21:	/* EAP-TTLS */
+	case 25:	/* PEAP */
+		if(datalen < 2)
+			break;
+		datalen -= 2;
+		data++;
+		tunn = conn->tunn;
+		if(*data & 0x20){	/* flags: start */
+			int p[2], pid;
+
+			if(tunn != nil){
+				if(tunn->id == id && tunn->tp == tp)
+					break;	/* is retransmit, ignore */
+				eapreset(conn);
+			}
+			if(pipe(p) < 0)
+				sysfatal("pipe: %r");
+			if((pid = fork()) == -1)
+				sysfatal("fork: %r");
+			if(pid == 0){
+				close(p[0]);
+				switch(tp){
+				case 21:
+					ttlsclient(p[1]);
+					break;
+				case 25:
+					peapclient(p[1]);
+					break;
+				}
+				exits(nil);
+			}
+			close(p[1]);
+			tunn = emalloc(sizeof(TLStunn));
+			tunn->tp = tp;
+			tunn->id = id;
+			tunn->fd = p[0];
+			tunn->clientpid = pid;
+			conn->tunn = tunn;
+			if((pid = rfork(RFPROC|RFMEM)) == -1)
+				sysfatal("fork: %r");
+			if(pid == 0){
+				pid = getpid();
+				tunn->readerpid = pid;
+				tlsreader(tunn, conn);
+				if(conn->tunn == tunn)
+					conn->tunn = nil;
+				close(tunn->fd);
+				free(tunn);
+				exits(nil);
+			}
+			break;
+		}
+		if(tunn == nil)
+			break;
+		if(id <= tunn->id || tunn->tp != tp)
+			break;
+		tunn->id = id;
+		frag = *data & 0x40;	/* flags: more fragments */
+		if(*data & 0x80){	/* flags: length included */
+			datalen -= 4;
+			data += 4;
+		}
+		data++;
+		if(datalen <= 0)
+			break;
+		if(write(tunn->fd, data, datalen) != datalen)
+			break;
+		if(frag || (tp == 25 && data[0] == 20)){	/* ack change cipher spec */
+			data -= 2;
+			data[0] = tp;
+			data[1] = 0;
+			eapresp(conn, 2, id, data, 2);
+		}
+		break;
+	}
+}
+
+int
+avp(uchar *p, int code, void *val, int len)
+{
+	int n;
+
+	n = 4 + 4 + len;
+
+	*p++ = code >> 24;
+	*p++ = code >> 16;
+	*p++ = code >> 8;
+	*p++ = code;
+	*p++ = 2;
+
+	*p++ = n >> 16;
+	*p++ = n >> 8;
+	*p++ = n;
+
+	memmove(p, val, len);
+	p += len;
+
+	n = (n + 3) & ~3;
+	memset(p, 0, n - len);
+
+	return n;
+}
+
+enum {
+	/* Avp Code */
+	AvpUserName = 1,
+	AvpUserPass = 2,
+	AvpChapPass = 3,
+	AvpChapChal = 60,
+};
+
+void
+ttlsclient(int fd)
+{
+	uchar buf[4096];
+	UserPasswd *up;
+	int n;
+
+	fd = tlswrap(fd, "ttls keying material");
+
+	/* we should really do challenge response here */
+	if((up = auth_getuserpasswd(nil, "proto=pass service=wpa essid=%q", essid)) == nil)
+		sysfatal("ttlsclient %d: no user/pass for essid=%q", getpid(), essid);
+
+	n = avp(buf, AvpUserName, up->user, strlen(up->user));
+	n += avp(buf+n, AvpUserPass, up->passwd, strlen(up->passwd));
+	freeup(up);
+	if(write(fd, buf, n) != n)
+		sysfatal("ttlsclient write: %r");
+}
+
+void
+peapwrite(Eapconn *conn, uchar *data, int len)
+{
+	fdwrite(conn, data + 4, len - 4);
+}
+
+void
+peapclient(int fd)
+{
+	static Eapconn conn;
+	uchar buf[4096], *p;
+	int n, id, code;
+
+	conn.fd = fd = tlswrap(fd, "client EAP encryption");
+	while((n = read(fd, p = buf, sizeof(buf))) > 0){
+		if(n > 4 && (p[2] << 8 | p[3]) == n && p[4] == 33){
+			code = p[0];
+			id = p[1];
+			p += 4, n -= 4;
+			conn.write = fdwrite;
+		} else {
+			code = 1;
+			id = 0;
+			conn.write = peapwrite;
+		}
+		eapreq(&conn, code, id, p, n);
+	}
 }
 
 void
@@ -544,9 +1121,10 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	uchar mac[Eaddrlen], buf[1024];
+	uchar mac[Eaddrlen], buf[4096];
 	static uchar brsne[258];
-	char addr[128];
+	static Eapconn conn;
+	char addr[128], *s;
 	uchar *rsne;
 	int rsnelen;
 	int n, try;
@@ -608,19 +1186,12 @@ main(int argc, char *argv[])
 			sysfatal("no essid set");
 	}
 
-	if(prompt){
-		char *s;
-
-		s = smprint("proto=wpapsk essid=%q !password?", essid);
-		auth_getkey(s);
-		free(s);
-	}
-
 Connect:
  	/* bss scan might not be complete yet, so check for 10 seconds.	*/
-	for(try = 10; (background || try >= 0) && !connected(); try--)
+	for(try = 10; (background || try >= 0) && !connected(0); try--)
 		sleep(1000);
 
+	ispsk = 1;
 	if(rsnelen <= 0 || rsne == brsne){
 		rsne = brsne;
 		rsnelen = buildrsne(rsne);
@@ -645,6 +1216,27 @@ Connect:
 	if(write(cfd, buf, n) != n)
 		sysfatal("write auth: %r");
 
+	if(prompt){
+		prompt = 0;
+		if(ispsk){
+			s = smprint("proto=wpapsk essid=%q !password?", essid);
+			auth_getkey(s);
+			free(s);
+		} else {
+			UserPasswd *up;
+
+			s = smprint("proto=pass service=wpa essid=%q user? !password?", essid);
+			auth_getkey(s);
+			free(s);
+
+			if((up = auth_getuserpasswd(nil, "proto=pass service=wpa essid=%q", essid)) != nil){
+				factotumctl("key proto=mschapv2 role=client service=wpa essid=%q user=%q !password=%q\n",
+					essid, up->user, up->passwd);
+				freeup(up);
+			}
+		}
+	}
+
 	if(!background){
 		background = 1;
 		if(!debug){
@@ -659,11 +1251,23 @@ Connect:
 			}
 		}
 	}
+
+	/* wait for getting associated before sending start message */
+	for(try = 10; (background || try >= 0) && !connected(1); try--)
+		sleep(500);
+
+	conn.fd = fd;
+	conn.write = eapwrite;
+	conn.type = 1;	/* Start */
+	conn.version = 1;
+	memmove(conn.smac, mac, Eaddrlen);
+	if(getbssid(conn.amac) == 0)
+		eapwrite(&conn, nil, 0);
 	
 	lastrepc = 0ULL;
 	for(;;){
-		uchar smac[Eaddrlen], amac[Eaddrlen], snonce[Noncelen], anonce[Noncelen], *p, *e, *m;
-		int proto, eapver, flags, vers, datalen;
+		uchar snonce[Noncelen], anonce[Noncelen], *p, *e, *m;
+		int proto, flags, vers, datalen;
 		uvlong repc, rsc, tsc;
 		Keydescr *kd;
 
@@ -671,8 +1275,9 @@ Connect:
 			sysfatal("read: %r");
 
 		if(n == 0){
-			if(debug != 0)
+			if(debug)
 				fprint(2, "got deassociation\n");
+			eapreset(&conn);
 			goto Connect;
 		}
 
@@ -680,33 +1285,57 @@ Connect:
 		e = buf+n;
 		if(n < 2*Eaddrlen + 2)
 			continue;
-		memmove(smac, p, Eaddrlen); p += Eaddrlen;
-		memmove(amac, p, Eaddrlen); p += Eaddrlen;
+
+		memmove(conn.smac, p, Eaddrlen); p += Eaddrlen;
+		memmove(conn.amac, p, Eaddrlen); p += Eaddrlen;
 		proto = p[0]<<8 | p[1]; p += 2;
-		if(proto != 0x888e || memcmp(smac, mac, Eaddrlen) != 0)
+
+		if(proto != 0x888e || memcmp(conn.smac, mac, Eaddrlen) != 0)
 			continue;
 
 		m = p;
 		n = e - p;
 		if(n < 4)
 			continue;
-		eapver = p[0];
-		if((eapver != 0x01 && eapver != 0x02) || p[1] != 0x03)
+
+		conn.version = p[0];
+		if(conn.version != 0x01 && conn.version != 0x02)
 			continue;
-
-		if(debug != 0)
-			fprint(2, "\nrecv(v%d) %E <- %E: ", eapver, smac, amac);
-
+		conn.type = p[1];
 		n = p[2]<<8 | p[3];
 		p += 4;
-		if(n < Keydescrlen || p + n > e){
-			if(debug != 0)
+		if(p+n > e)
+			continue;
+		e = p + n;
+
+		if(debug)
+			fprint(2, "\nrecv(v%d,t%d) %E <- %E: ", conn.version, conn.type, conn.smac, conn.amac);
+
+		if(conn.type == 0x00 && !ispsk){
+			uchar code, id;
+
+			if(n < 4)
+				continue;
+			code = p[0];
+			id = p[1];
+			n = p[3] | p[2]<<8;
+			if(n < 4 || p + n > e)
+				continue;
+			p += 4, n -= 4;
+			eapreq(&conn, code, id, p, n);
+			continue;
+		}
+
+		if(conn.type != 0x03)
+			continue;
+
+		if(n < Keydescrlen){
+			if(debug)
 				fprint(2, "bad kd size\n");
 			continue;
 		}
-		e = p + n;
 		kd = (Keydescr*)p;
-		if(debug != 0)
+		if(debug)
 			dumpkeydescr(kd);
 
 		if(kd->type[0] != 0xFE && kd->type[0] != 0x02)
@@ -724,8 +1353,8 @@ Connect:
 
 			memmove(anonce, kd->nonce, sizeof(anonce));
 			genrandom(snonce, sizeof(snonce));
-			if(getptk(smac, amac, snonce, anonce, ptk) != 0){
-				if(debug != 0)
+			if(getptk(conn.smac, conn.amac, snonce, anonce, ptk) != 0){
+				if(debug)
 					fprint(2, "getptk: %r\n");
 				continue;
 			}
@@ -734,13 +1363,13 @@ Connect:
 			memset(kd->rsc, 0, sizeof(kd->rsc));
 			memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 			memmove(kd->nonce, snonce, sizeof(kd->nonce));
-			reply(eapver, smac, amac, (flags & ~(Fack|Fins)) | Fmic, kd, rsne, rsnelen);
+			replykey(&conn, (flags & ~(Fack|Fins)) | Fmic, kd, rsne, rsnelen);
 		} else {
 			uchar gtk[GTKlen];
 			int gtklen, gtkkid;
 
 			if(checkmic(kd, m, e - m) != 0){
-				if(debug != 0)
+				if(debug)
 					fprint(2, "bad mic\n");
 				continue;
 			}
@@ -754,7 +1383,7 @@ Connect:
 				(uvlong)kd->repc[1]<<48 |
 				(uvlong)kd->repc[0]<<56;
 			if(repc <= lastrepc){
-				if(debug != 0)
+				if(debug)
 					fprint(2, "bad repc: %llux <= %llux\n", repc, lastrepc);
 				continue;
 			}
@@ -773,11 +1402,11 @@ Connect:
 				else
 					datalen = aesunwrap(ptk+16, 16, kd->data, datalen);
 				if(datalen <= 0){
-					if(debug != 0)
+					if(debug)
 						fprint(2, "bad keywrap\n");
 					continue;
 				}
-				if(debug != 0)
+				if(debug)
 					fprint(2, "unwraped keydata[%.4x]=%.*H\n", datalen, datalen, kd->data);
 			}
 
@@ -792,7 +1421,7 @@ Connect:
 				for(; p+2 <= e; p = x){
 					if((x = p+2+p[1]) > e)
 						break;
-					if(debug != 0)
+					if(debug)
 						fprint(2, "ie=%.2x data[%.2x]=%.*H\n", p[0], p[1], p[1], p+2);
 					if(p[0] == 0x30){ /* RSN */
 					}
@@ -822,7 +1451,7 @@ Connect:
 					rsc = 0LL;
 				}
 				/* install pairwise receive key */
-				if(fprint(cfd, "rxkey %.*H %s:%.*H@%llux", Eaddrlen, amac,
+				if(fprint(cfd, "rxkey %.*H %s:%.*H@%llux", Eaddrlen, conn.amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write rxkey: %r");
 
@@ -830,11 +1459,11 @@ Connect:
 				memset(kd->rsc, 0, sizeof(kd->rsc));
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
-				reply(eapver, smac, amac, flags & ~(Fack|Fenc|Fins), kd, nil, 0);
+				replykey(&conn, flags & ~(Fack|Fenc|Fins), kd, nil, 0);
 				sleep(100);
 
 				/* install pairwise transmit key */ 
-				if(fprint(cfd, "txkey %.*H %s:%.*H@%llux", Eaddrlen, amac,
+				if(fprint(cfd, "txkey %.*H %s:%.*H@%llux", Eaddrlen, conn.amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write txkey: %r");
 			} else
@@ -853,14 +1482,14 @@ Connect:
 				memset(kd->rsc, 0, sizeof(kd->rsc));
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
-				reply(eapver, smac, amac, flags & ~(Fenc|Fack), kd, nil, 0);
+				replykey(&conn, flags & ~(Fenc|Fack), kd, nil, 0);
 			} else
 				continue;
 
 			if(gtklen >= groupcipher->keylen && gtkkid != -1){
 				/* install group key */
 				if(fprint(cfd, "rxkey%d %.*H %s:%.*H@%llux",
-					gtkkid, Eaddrlen, amac, 
+					gtkkid, Eaddrlen, conn.amac, 
 					groupcipher->name, groupcipher->keylen, gtk, rsc) < 0)
 					sysfatal("write rxkey%d: %r", gtkkid);
 			}
