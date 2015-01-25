@@ -74,7 +74,7 @@ AuthInfo*	auth_userpasswd(char*user, char*password);
 UserPasswd*	auth_getuserpasswd(AuthGetkey *getkey, char*fmt, ...);
 .PP
 .B
-AuthInfo*	auth_getinfo(int fd);
+AuthInfo*	auth_getinfo(AuthRpc*);
 .SH DESCRIPTION
 .PP
 This library, in concert with
@@ -370,7 +370,7 @@ typedef struct UserPasswd {
 reads an
 .B AuthInfo
 message from
-.I fd
+.I rpc
 and converts it into a structure.  It is only
 used by the other routines in this library when
 communicating with
