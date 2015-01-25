@@ -24,6 +24,7 @@ enum {
 	MShashlen = 16,
 	MSchallen = 8,
 	MSresplen = 24,
+	MSchallenv2 = 16,
 
 	Chapreplylen = MD5LEN+1,
 	MSchapreplylen = 24+24,
@@ -86,13 +87,16 @@ chapinit(Proto *p, Fsstate *fss)
 	if((iscli = isclient(_strfindattr(fss->attr, "role"))) < 0)
 		return failure(fss, nil);
 
+	if(!iscli && p == &mschapv2)
+		return failure(fss, "role must be client");
+
 	s = emalloc(sizeof *s);
 	s->nresp = 0;
 	s->nsecret = 0;
 	fss->phasename = phasenames;
 	fss->maxphase = Maxphase;
 	s->asfd = -1;
-	if(p == &mschap || p == &mschap2){
+	if(p == &mschap || p == &mschapv2 || p == &mschap2){
 		s->astype = AuthMSchap;
 	}else {
 		s->astype = AuthChap;
@@ -173,8 +177,35 @@ chapwrite(Fsstate *fss, void *va, uint n)
 				if(dom == nil)
 					dom = "";
 				s->nresp = domschap2(v, user, dom, (uchar*)a, s->resp, sizeof(s->resp));
-			} else
+			}
+			else if(fss->proto == &mschapv2 || n == MSchallenv2){
+				uchar pchal[MSchallenv2];
+				DigestState *ds;
+
+				if(n < MSchallenv2)
+					break;
+				user = _strfindattr(fss->attr, "user");
+				if(user == nil)
+					break;
+
+				memrandom(pchal, MSchallenv2);
+
+				/* ChallengeHash() */
+				ds = sha1(pchal, MSchallenv2, nil, nil);
+				ds = sha1((uchar*)a, MSchallenv2, nil, ds);
+				sha1((uchar*)user, strlen(user), reply, ds);
+
+				s->nresp = domschap(v, reply, s->resp, sizeof(s->resp));
+				if(s->nresp <= 0)
+					break;
+
+				mcr = (MSchapreply*)s->resp;
+				memset(mcr->LMresp, 0, sizeof(mcr->LMresp));
+				memmove(mcr->LMresp, pchal, MSchallenv2);
+			}
+			else {
 				s->nresp = domschap(v, (uchar*)a, s->resp, sizeof(s->resp));
+			}
 			break;
 		case AuthChap:
 			if(n < ChapChallen+1)
@@ -379,8 +410,18 @@ Proto mschap = {
 .keyprompt= "!password?"
 };
 
+Proto mschapv2 = {
+.name=	"mschapv2",
+.init=	chapinit,
+.write=	chapwrite,
+.read=	chapread,
+.close=	chapclose,
+.addkey= replacekey,
+.keyprompt= "user? !password?"
+};
+
 Proto mschap2 = {
-.name=	"mschap2",
+.name=	"mschap2",	/* really NTLMv2 */
 .init=	chapinit,
 .write=	chapwrite,
 .read=	chapread,

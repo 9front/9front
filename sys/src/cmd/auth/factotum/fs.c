@@ -31,6 +31,7 @@ prototab[] =
 	&cram,
 	&httpdigest,
 	&mschap,
+	&mschapv2,
 	&mschap2,
 	&p9any,
 	&p9cr,
