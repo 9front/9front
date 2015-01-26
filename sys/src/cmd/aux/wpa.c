@@ -446,14 +446,22 @@ int
 factotumctl(char *fmt, ...)
 {
 	va_list list;
-	int r, fd;
+	int fd, r, n;
+	char *s;
 
-	if((fd = open("/mnt/factotum/ctl", OWRITE)) < 0)
-		return -1;
-	va_start(list, fmt);
-	r = vfprint(fd, fmt, list);
-	va_end(list);
-	close(fd);
+	r = -1;
+	if((fd = open("/mnt/factotum/ctl", OWRITE)) >= 0){
+		va_start(list, fmt);
+		s = vsmprint(fmt, list);
+		va_end(list);
+		if(s != nil){
+			n = strlen(s);
+			r = write(fd, s, n);
+			memset(s, 0, n);
+			free(s);
+		}
+		close(fd);
+	}
 	return r;
 }
 
@@ -462,7 +470,7 @@ setpmk(uchar pmk[PMKlen])
 {
 	if(getessid() == nil)
 		return -1;
-	return factotumctl("key proto=wpapsk role=client essid=%q !password=%.32H\n", essid, pmk);
+	return factotumctl("key proto=wpapsk role=client essid=%q !password=%.*H\n", essid, PMKlen, pmk);
 }
 
 int
@@ -842,9 +850,10 @@ tlswrap(int fd, char *label)
 		tls->sessionKeylen = 128;
 		tls->sessionKey = emalloc(tls->sessionKeylen);
 	}
-	if((fd = tlsClient(fd, tls)) < 0)
+	fd = tlsClient(fd, tls);
+	if(fd < 0)
 		sysfatal("tlsClient: %r");
-	if(label != nil){
+	if(label != nil && tls->sessionKey != nil){
 		/*
 		 * PMK is derived from MSK by taking the first 256 bits.
 		 * we store the PMK into factotum with setpmk() associated
@@ -852,7 +861,14 @@ tlswrap(int fd, char *label)
 		 */
 		if(setpmk(tls->sessionKey) < 0)
 			sysfatal("setpmk: %r");
+
+		/* destroy session key */
+		memset(tls->sessionKey, 0, tls->sessionKeylen);
 	}
+	free(tls->cert);	/* TODO: check cert */
+	free(tls->sessionID);
+	free(tls->sessionKey);
+	free(tls);
 	return fd;
 }
 
@@ -874,12 +890,16 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 		eapreset(conn);
 		if(code == 4 || debug)
 			fprint(2, "%s: eap code %s\n", argv0, code == 3 ? "Success" : "NAK");
+		return;
 	default:
+	unhandled:
+		if(debug)
+			fprint(2, "unhandled: %.*H\n", datalen < 0 ? 0 : datalen, data);
 		return;
 	}
-
 	if(datalen < 1)
-		return;
+		goto unhandled;
+
 	tp = data[0];
 	switch(tp){
 	case 1:		/* Identity */
@@ -887,15 +907,15 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 		datalen = 1+strlen(user);
 		memmove(data+1, user, datalen-1);
 		eapresp(conn, 2, id, data, datalen);
-		break;
+		return;
 	case 2:
 		fprint(2, "%s: eap error: %.*s\n", argv0, datalen-1, (char*)data+1);
-		break;
+		return;
 	case 33:	/* EAP Extensions (AVP) */
 		if(debug)
 			fprint(2, "eap extension: %.*H\n", datalen, data);
 		eapresp(conn, 2, id, data, datalen);
-		break;
+		return;
 	case 26:	/* MS-CHAP-V2 */
 		data++;
 		datalen--;
@@ -936,6 +956,7 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 
 				*(--data) = tp, len++;
 				eapresp(conn, 2, id, data, len);
+				return;
 			}
 			break;
 
@@ -947,7 +968,7 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 					datalen < 4 ? 0 : datalen-4, (char*)data+4);
 			*(--data) = tp;
 			eapresp(conn, 2, id, data, 2);
-			break;
+			return;
 		}
 		break;
 
@@ -992,8 +1013,7 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 			if((pid = rfork(RFPROC|RFMEM)) == -1)
 				sysfatal("fork: %r");
 			if(pid == 0){
-				pid = getpid();
-				tunn->readerpid = pid;
+				tunn->readerpid = getpid();
 				tlsreader(tunn, conn);
 				if(conn->tunn == tunn)
 					conn->tunn = nil;
@@ -1001,7 +1021,7 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 				free(tunn);
 				exits(nil);
 			}
-			break;
+			return;
 		}
 		if(tunn == nil)
 			break;
@@ -1014,43 +1034,38 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 			data += 4;
 		}
 		data++;
-		if(datalen <= 0)
-			break;
-		if(write(tunn->fd, data, datalen) != datalen)
-			break;
+		if(datalen > 0)
+			write(tunn->fd, data, datalen);
 		if(frag || (tp == 25 && data[0] == 20)){	/* ack change cipher spec */
 			data -= 2;
 			data[0] = tp;
 			data[1] = 0;
 			eapresp(conn, 2, id, data, 2);
 		}
-		break;
+		return;
 	}
+	goto unhandled;
 }
 
 int
-avp(uchar *p, int code, void *val, int len)
+avp(uchar *p, int n, int code, void *val, int len, int pad)
 {
-	int n;
-
-	n = 4 + 4 + len;
-
-	*p++ = code >> 24;
-	*p++ = code >> 16;
-	*p++ = code >> 8;
-	*p++ = code;
-	*p++ = 2;
-
-	*p++ = n >> 16;
-	*p++ = n >> 8;
-	*p++ = n;
-
-	memmove(p, val, len);
-	p += len;
-
-	n = (n + 3) & ~3;
-	memset(p, 0, n - len);
-
+	len += 8;
+	if(len > n){
+		len = n - 8;
+		pad = 0;
+	}
+	p[0] = code >> 24;
+	p[1] = code >> 16;
+	p[2] = code >> 8;
+	p[3] = code;
+	p[4] = 2;
+	p[5] = len >> 16;
+	p[6] = len >> 8;
+	p[7] = len;
+	memmove(p+8, val, len-8);
+	n = (len + pad) & ~pad;
+	memset(p + len, 0, n - len);
 	return n;
 }
 
@@ -1070,21 +1085,19 @@ ttlsclient(int fd)
 	int n;
 
 	fd = tlswrap(fd, "ttls keying material");
-
-	/* we should really do challenge response here */
 	if((up = auth_getuserpasswd(nil, "proto=pass service=wpa essid=%q", essid)) == nil)
-		sysfatal("ttlsclient %d: no user/pass for essid=%q", getpid(), essid);
-
-	n = avp(buf, AvpUserName, up->user, strlen(up->user));
-	n += avp(buf+n, AvpUserPass, up->passwd, strlen(up->passwd));
+		sysfatal("auth_getuserpasswd: %r");
+	n = avp(buf, sizeof(buf), AvpUserName, up->user, strlen(up->user), 3);
+	n += avp(buf+n, sizeof(buf)-n, AvpUserPass, up->passwd, strlen(up->passwd), 15);
 	freeup(up);
-	if(write(fd, buf, n) != n)
-		sysfatal("ttlsclient write: %r");
+	write(fd, buf, n);
+	memset(buf, 0, n);
 }
 
 void
 peapwrite(Eapconn *conn, uchar *data, int len)
 {
+	assert(len >= 4);
 	fdwrite(conn, data + 4, len - 4);
 }
 
