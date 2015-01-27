@@ -774,7 +774,7 @@ mountio(Mnt *m, Mntrpc *r)
 	while(waserror()) {
 		if(m->rip == up)
 			mntgate(m);
-		if(strcmp(up->errstr, Eintr) != 0){
+		if(strcmp(up->errstr, Eintr) != 0 || waserror()){
 			r = mntflushfree(m, r);
 			switch(r->request.type){
 			case Tremove:
@@ -786,6 +786,7 @@ mountio(Mnt *m, Mntrpc *r)
 			nexterror();
 		}
 		r = mntflushalloc(r, m->msize);
+		poperror();
 	}
 
 	lock(m);
