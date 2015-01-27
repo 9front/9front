@@ -797,6 +797,10 @@ Reset:
 			}
 		}
 
+		/* do not forward alert, close connection */
+		if(w[0] == 21)
+			break;
+
 		/* check if we'r still the tunnel for this connection */
 		if(conn->tunn != tunn)
 			break;
