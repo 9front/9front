@@ -117,6 +117,7 @@ uchar	rsnie[] = {
 uchar wpa1oui[4]    = {0x00, 0x50, 0xF2, 0x01};
 uchar wpatkipoui[4] = {0x00, 0x50, 0xF2, 0x02};
 uchar wpaapskoui[4] = {0x00, 0x50, 0xF2, 0x02};
+uchar wpaawpaoui[4] = {0x00, 0x50, 0xF2, 0x01};
 
 uchar	wpaie[] = {
 	0xdd,			/* vendor specific */
@@ -352,8 +353,14 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 				break;
 			}
 		} else {
+			/* look for PSK oui */
 			if(memcmp(p, wpaapskoui, 4) == 0)
 				break;
+			/* look for WPA oui */
+			if(memcmp(p, wpaawpaoui, 4) == 0){
+				ispsk = 0;
+				break;
+			}
 		}
 		p += 4;
 	}
@@ -1054,23 +1061,21 @@ eapreq(Eapconn *conn, int code, int id, uchar *data, int datalen)
 int
 avp(uchar *p, int n, int code, void *val, int len, int pad)
 {
-	len += 8;
-	if(len > n){
-		len = n - 8;
-		pad = 0;
-	}
+	pad = 8 + ((len + pad) & ~pad);	/* header + data + data pad */
+	assert(((pad + 3) & ~3) <= n);
 	p[0] = code >> 24;
 	p[1] = code >> 16;
 	p[2] = code >> 8;
 	p[3] = code;
 	p[4] = 2;
-	p[5] = len >> 16;
-	p[6] = len >> 8;
-	p[7] = len;
-	memmove(p+8, val, len-8);
-	n = (len + pad) & ~pad;
-	memset(p + len, 0, n - len);
-	return n;
+	p[5] = pad >> 16;
+	p[6] = pad >> 8;
+	p[7] = pad;
+	memmove(p+8, val, len);
+	len += 8;
+	pad = (pad + 3) & ~3;	/* packet padding */
+	memset(p+len, 0, pad - len);
+	return pad;
 }
 
 enum {
@@ -1091,7 +1096,7 @@ ttlsclient(int fd)
 	fd = tlswrap(fd, "ttls keying material");
 	if((up = auth_getuserpasswd(nil, "proto=pass service=wpa essid=%q", essid)) == nil)
 		sysfatal("auth_getuserpasswd: %r");
-	n = avp(buf, sizeof(buf), AvpUserName, up->user, strlen(up->user), 3);
+	n = avp(buf, sizeof(buf), AvpUserName, up->user, strlen(up->user), 0);
 	n += avp(buf+n, sizeof(buf)-n, AvpUserPass, up->passwd, strlen(up->passwd), 15);
 	freeup(up);
 	write(fd, buf, n);
