@@ -22,7 +22,7 @@ tftpfs \- trivial file transfer protocol (TFTP) file system
 serves files from a TFTP server as a filesystem. TFTP
 is mostly used by bootloaders to download kernel images for
 network bootstrap (see
-.IR dhcp (8)).
+.IR dhcpd (8)).
 As the protocol has no way of distinguishing files from
 directories, the final path segment needs to conain a dot
 (.) character to be recognized as a file. To access files that
