@@ -121,7 +121,7 @@ the challenge/response protocol also used by POP3 mail servers.
 the challenge/response protocols used by PPP and PPTP.
 .TP
 .B mschap
-a proprietary Microsoft challenge/respone protocol also used by PPP, PPTP and CIFS.
+a proprietary Microsoft challenge/response protocol also used by PPP, PPTP and CIFS.
 .TP
 .B mschapv2
 version two of Microsofts challenge/response protocol used by WPA.
