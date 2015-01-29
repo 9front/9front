@@ -89,7 +89,7 @@ structure is independent of
 any particular authentication protocol.
 .I Factotum
 supports the following protocols:
-.TF mschap
+.TF mschapv2
 .TP
 .B p9any
 a metaprotocol used to negotiate which actual protocol to use.
@@ -121,7 +121,13 @@ the challenge/response protocol also used by POP3 mail servers.
 the challenge/response protocols used by PPP and PPTP.
 .TP
 .B mschap
-a proprietary Microsoft protocol also used by PPP and PPTP.
+a proprietary Microsoft challenge/respone protocol also used by PPP, PPTP and CIFS.
+.TP
+.B mschapv2
+version two of Microsofts challenge/response protocol used by WPA.
+.TP
+.B mschap2
+Microsofts NTLMv2 challenge/response protocol used by CIFS.
 .TP
 .B rsa
 RSA public key decryption, used by SSH and TLS.
@@ -135,6 +141,9 @@ challenge/response.
 .TP
 .B wep
 WEP passwords for wireless ethernet cards.
+.TP
+.B wpapsk
+WPA passwords for wireless ethernet cards.
 .PD
 .PP
 The options are:
