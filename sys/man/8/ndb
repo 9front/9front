@@ -752,7 +752,7 @@ queries A records first and then AAAA records. As with
 .I ndb/dns,
 .B /env/DNSSERVER
 or
-.IR ndb(6)
+.IR ndb (6)
 .B dns
 attributes are used as the DNS server. The
 .I -a
