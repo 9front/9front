@@ -372,10 +372,10 @@ static void
 recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 {
 	static uchar wpa1oui[4] = { 0x00, 0x50, 0xf2, 0x01 };
-	uchar *e, *x, *p;
-	uchar t, m[256/8];
+	uchar *e, *x, *p, t;
 
-	if(len < 8+2+2)
+	len -= 8+2+2;
+	if(len < 0)
 		return;
 
 	d += 8;	/* timestamp */
@@ -384,19 +384,12 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 	wn->cap = d[0] | d[1]<<8;
 	d += 2;
 
-	memset(m, 0, sizeof(m));
 	for(e = d + len; d+2 <= e; d = x){
 		d += 2;
 		x = d + d[-1];
-		if(x > e)
+		if(x > e)			
 			break;	/* truncated */
 		t = d[-2];
-
-		/* skip double entries */
-		if(m[t/8] & 1<<(t%8))
-			continue;
-		m[t/8] |= 1<<(t%8);
-
 		switch(t){
 		case 0:		/* SSID */
 			len = 0;
