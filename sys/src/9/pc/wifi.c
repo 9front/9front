@@ -388,6 +388,8 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 	for(e = d + len; d+2 <= e; d = x){
 		d += 2;
 		x = d + d[-1];
+		if(x > e)
+			break;	/* truncated */
 		t = d[-2];
 
 		/* skip double entries */
