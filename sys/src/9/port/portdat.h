@@ -491,13 +491,13 @@ struct Pallocmem
 struct Palloc
 {
 	Lock;
-	Pallocmem	mem[4];
 	Page	*head;			/* freelist head */
 	ulong	freecount;		/* how many pages on free list now */
 	Page	*pages;			/* array of all pages */
 	ulong	user;			/* how many user pages */
 	Rendez	r;			/* Sleep for free mem */
 	QLock	pwait;			/* Queue of procs waiting for memory */
+	Pallocmem	mem[16];	/* physical user page banks */
 };
 
 struct Waitq
