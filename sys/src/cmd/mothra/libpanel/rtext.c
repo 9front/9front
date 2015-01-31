@@ -65,6 +65,55 @@ int pl_space(int space, int pos, int indent){
 		return ((pos-indent+pl_tabmin)/pl_tabsize+PL_ARG(space))*pl_tabsize+indent-pos;
 	}
 }
+
+static void
+unwrap(Rtext *t)
+{
+	Rtext *w;
+
+	if(t == nil)
+		return;
+	while((w = t->next) != nil){
+		if(PL_OP(w->space) != PL_WRAP)
+			return;
+		t->next = w->next;
+		free(w);
+	}
+}
+
+static void
+wrap(Rtext *t, int x)
+{
+	Rtext *w;
+	char *s;
+	Rune r;
+
+	w = nil;
+	if(t->b){
+		if(PL_OP(t->space) == PL_WRAP)
+			x += PL_ARG(t->space);
+		if(t->b->repl || x >= Dx(t->b->r) || x > PL_ARGMASK)
+			return;
+		plrtbitmap(&w, PL_WRAP|x, 0, t->b, t->flags, t->user);
+	}
+	else if(t->p) {
+		return;
+	}
+	else {
+		s = t->text;
+		while(*s != '\0'){
+			if((t->wid - stringwidth(t->font, s)) >= x)
+				break;
+			s += chartorune(&r, s);
+		}
+		if(*s == '\0')
+			return;
+		plrtstr(&w, PL_WRAP, 0, t->font, s, t->flags, t->user);
+	}
+	w->next = t->next;
+	t->next = w;
+}
+
 /*
  * initialize rectangles & nextlines of text starting at t,
  * galley width is wid.  Returns the total length of the text
@@ -82,18 +131,23 @@ int pl_rtfmt(Rtext *t, int wid){
 		x=0;
 		tp=t;
 		for(;;){
+			unwrap(tp);
 			if(tp->b){
-				a=tp->b->r.max.y-tp->b->r.min.y+BORD;
+				a=Dy(tp->b->r)+BORD;
 				d=BORD;
-				w=tp->b->r.max.x-tp->b->r.min.x+BORD*2;
+				w=Dx(tp->b->r)+BORD*2;
+				if(PL_OP(t->space) == PL_WRAP)
+					w -= PL_ARG(t->space);
+				if(tp->b->repl)
+					w = wid;
 			}
 			else if(tp->p){
 				/* what if plpack fails? */
 				plpack(tp->p, Rect(0,0,wid,wid));
 				plmove(tp->p, subpt(Pt(0,0), tp->p->r.min));
-				a=tp->p->r.max.y-tp->p->r.min.y;
+				a=Dy(tp->p->r);
 				d=0;
-				w=tp->p->r.max.x-tp->p->r.min.x;
+				w=Dx(tp->p->r);
 			}
 			else{
 				a=tp->font->ascent;
@@ -114,6 +168,7 @@ int pl_rtfmt(Rtext *t, int wid){
 		}
 		if(eline==t){	/* No progress!  Force fit the first block! */
 			if(tp==t){
+				wrap(tp, wid - x);
 				if(a>ascent) ascent=a;
 				if(d>descent) descent=d;
 				eline=tp->next;
@@ -128,8 +183,12 @@ int pl_rtfmt(Rtext *t, int wid){
 			t->r.min.x=p.x;
 			if(t->b){
 				t->r.max.y=p.y+BORD;
-				t->r.min.y=p.y-(t->b->r.max.y-t->b->r.min.y)-BORD;
-				p.x+=(t->b->r.max.x-t->b->r.min.x)+BORD*2;
+				t->r.min.y=p.y-Dy(t->b->r)-BORD;
+				p.x+=Dx(t->b->r)+BORD*2;
+				if(PL_OP(t->space) == PL_WRAP)
+					p.x -= PL_ARG(t->space);
+				if(t->b->repl)
+					p.x = wid;
 			}
 			else if(t->p){
 				t->r.max.y=p.y;
@@ -184,7 +243,11 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 		if(dr.max.y>r.min.y
 		&& dr.min.y<r.max.y){
 			if(t->b){
-				draw(b, insetrect(dr, BORD), t->b, 0, t->b->r.min);
+				Point sp;
+				sp = t->b->r.min;
+				if(PL_OP(t->space) == PL_WRAP)
+					sp.x += PL_ARG(t->space);
+				draw(b, insetrect(dr, BORD), t->b, 0, sp);
 				if(t->flags&PL_HOT) border(b, dr, 1, display->black, ZP);
 				if(t->flags&PL_SEL)
 					pl_highlight(b, dr);
@@ -293,13 +356,16 @@ void plrtseltext(Rtext *t, Rtext *s, Rtext *e){
 
 char *plrtsnarftext(Rtext *w){
 	char *b, *p, *e, *t;
-	int n;
+	int n, m;
 
 	b=p=e=0;
 	for(; w; w = w->next){
 		if((w->flags&PL_SEL)==0 || w->text==0)
 			continue;
-		n = strlen(w->text)+64;
+		m = strlen(w->text);
+		if(w->next!=0 && PL_OP(w->next->space)==PL_WRAP && w->next->text>w->text)
+			m -= strlen(w->next->text);
+		n = m+64;
 		if(p+n >= e){
 			n = (p+n+64)-b;
 			t = pl_erealloc(b, n);
@@ -307,12 +373,12 @@ char *plrtsnarftext(Rtext *w){
 			e = t+n;
 			b = t;
 		}
-		if(w->space == 0)
-			p += sprint(p, "%s", w->text);
+		if(w->space == 0 || PL_OP(w->space) == PL_WRAP)
+			p += sprint(p, "%.*s", m, w->text);
 		else if(w->space > 0)
-			p += sprint(p, " %s", w->text);
+			p += sprint(p, " %.*s", m, w->text);
 		else if(PL_OP(w->space) == PL_TAB)
-			p += sprint(p, "\t%s", w->text);
+			p += sprint(p, "\t%.*s", m, w->text);
 		if(w->nextline == w->next)
 			p += sprint(p, "\n");
 	}
