@@ -8,5 +8,4 @@
 #define	PL_OP(t)	((t)&~PL_ARGMASK)
 #define	PL_ARG(t)	((t)&PL_ARGMASK)
 #define	PL_TAB		PL_SPECIAL(0)		/* # of tab stops before text */
-#define	PL_WRAP		PL_SPECIAL(1)
 void pltabsize(int, int);			/* set min tab and tab size */

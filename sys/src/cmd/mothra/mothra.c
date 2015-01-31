@@ -318,11 +318,11 @@ void main(int argc, char *argv[]){
 	plinit(screen->depth);
 	if(debug) notify(dienow);
 	getfonts();
-	hrule=allocimage(display, Rect(0, 0, 1, 5), screen->chan, 1, DWhite);
+	hrule=allocimage(display, Rect(0, 0, 2048, 5), screen->chan, 0, DWhite);
 	if(hrule==0)
 		sysfatal("can't allocimage!");
-	draw(hrule, Rect(0,1,1,3), display->black, 0, ZP);
-	linespace=allocimage(display, Rect(0, 0, 1, 5), screen->chan, 1, DWhite);
+	draw(hrule, Rect(0,1,1280,3), display->black, 0, ZP);
+	linespace=allocimage(display, Rect(0, 0, 2048, 5), screen->chan, 0, DWhite);
 	if(linespace==0)
 		sysfatal("can't allocimage!");
 	bullet=allocimage(display, Rect(0,0,25, 8), screen->chan, 0, DWhite);
