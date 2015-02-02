@@ -82,12 +82,12 @@ enum {					/* flag */
 };
 
 typedef struct Attr Attr;
-typedef struct Attr {
+struct Attr {
 	char*	attr;
 	char*	val;
 
 	Attr*	next;
-} Attr;
+};
 
 typedef struct Mode {
 	char	type[Namelen+1];	/* monitor type e.g. "vs1782" */
@@ -123,6 +123,39 @@ typedef struct Mode {
 
 	Attr*	attr;
 } Mode;
+
+typedef struct Modelist Modelist;
+struct Modelist {
+	Mode;
+	Modelist *next;
+};
+
+typedef struct Edid {
+	char		mfr[4];		/* manufacturer */
+	char		serialstr[16];	/* serial number as string (in extended data) */
+	char		name[16];	/* monitor name as string (in extended data) */
+	ushort		product;	/* product code, 0 = unused */
+	ulong		serial;		/* serial number, 0 = unused */
+	uchar		version;	/* major version number */
+	uchar		revision;	/* minor version number */
+	uchar		mfrweek;	/* week of manufacture, 0 = unused */
+	int		mfryear;	/* year of manufacture, 0 = unused */
+	uchar 		dxcm;		/* horizontal image size in cm. */
+	uchar		dycm;		/* vertical image size in cm. */
+	int		gamma;		/* gamma*100 */
+	int		rrmin;		/* minimum vertical refresh rate */
+	int		rrmax;		/* maximum vertical refresh rate */
+	int		hrmin;		/* minimum horizontal refresh rate */
+	int		hrmax;		/* maximum horizontal refresh rate */
+	ulong		pclkmax;	/* maximum pixel clock */
+	int		flags;
+	Modelist	*modelist;	/* list of supported modes */
+} Edid;
+
+typedef struct Flag {
+	int bit;
+	char *desc;
+} Flag;
 
 /*
  * The sizes of the register sets are large as many SVGA and GUI chips have extras.
@@ -188,10 +221,12 @@ typedef struct Vga {
 	Ctlr*	ramdac;
 	Ctlr*	clock;
 	Ctlr*	hwgc;
-	Ctlr* vesa;
+	Ctlr*	vesa;
 	Ctlr*	link;
 	int	linear;
 	Attr*	attr;
+
+	Edid*	edid[8];		/* edid information for connected monitors */
 
 	void*	private;
 } Vga;
@@ -247,10 +282,25 @@ extern Ctlr *ctlrs[];
 extern ushort dacxreg[4];
 
 /* db.c */
+extern Attr* mkattr(Attr*, char*, char*, ...);
 extern char* dbattr(Attr*, char*);
 extern int dbctlr(char*, Vga*);
 extern Mode* dbmode(char*, char*, char*);
 extern void dbdumpmode(Mode*);
+
+/* edid.c */
+enum {
+	Fdigital	= 1<<0,	/* is a digital display */
+	Fdpmsstandby	= 1<<1,	/* supports DPMS standby mode */
+	Fdpmssuspend	= 1<<2,	/* supports DPMS suspend mode */
+	Fdpmsactiveoff	= 1<<3,	/* supports DPMS active off mode */
+	Fmonochrome	= 1<<4,	/* is a monochrome display */
+	Fgtf		= 1<<5,	/* supports VESA GTF: see /public/doc/vesa/gtf10.pdf */
+};
+extern Flag edidflags[];
+extern void printflags(Flag *f, int b);
+extern Edid* parseedid128(void *v);
+extern void printedid(Edid *e);
 
 /* error.c */
 extern void error(char*, ...);
@@ -435,7 +485,7 @@ extern Ctlr generic;
 extern Ctlr vesa;
 extern Ctlr softhwgc;	/* has to go somewhere */
 extern int dbvesa(Vga*);
-extern Mode *dbvesamode(char*);
+extern Mode *dbvesamode(Vga*,char*);
 extern void vesatextmode(void);
 
 /* vesadb.c */
@@ -466,3 +516,4 @@ extern Ctlr mga4xxhwgc;
 
 #pragma	varargck	argpos	error	1
 #pragma	varargck	argpos	trace	1
+#pragma	varargck	argpos	mkattr	3

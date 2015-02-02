@@ -68,7 +68,6 @@ OFILES=\
 HFILES=\
 	pci.h\
 	vga.h\
-	edid.h\
 
 UPDATE=\
 	mkfile\

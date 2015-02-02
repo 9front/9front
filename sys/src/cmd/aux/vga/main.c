@@ -17,6 +17,7 @@ dump(Vga* vga)
 {
 	Ctlr *ctlr;
 	Attr *attr;
+	int i;
 	
 	if(vga->mode)
 		dbdumpmode(vga->mode);
@@ -37,6 +38,12 @@ dump(Vga* vga)
 		(*ctlr->dump)(vga, ctlr);
 		ctlr->flag |= Fdump;
 	}
+
+	for(i=0; i < nelem(vga->edid); i++){
+		if(vga->edid[i])
+			printedid(vga->edid[i]);
+	}
+
 	Bprint(&stdout, "\n");
 }
 
@@ -133,6 +140,54 @@ linear(Vga* vga)
 	}
 	else
 		vgactlw("linear", "0");
+}
+
+static Mode*
+dbedidmode(Vga *vga, char *type, char *size)
+{
+	char buf[32], *p;
+	int i, x, y, z;
+	Modelist *l;
+	Mode *m;
+
+	z = 32;
+	x = y = 0;
+	snprint(buf, sizeof(buf), "%s", size);
+	if((p = strchr(buf, 'x')) != nil){
+		*p++ = 0;
+		x = atoi(buf);
+		y = atoi(p);
+		if((p = strchr(p, 'x')) != nil){
+			*p++ = 0;
+			z = atoi(p);
+		}
+	}
+
+	for(i=0; i<nelem(vga->edid); i++){
+		if(vga->edid[i] == nil)
+			continue;
+		for(l = vga->edid[i]->modelist; l != nil; l = l->next)
+			if(strcmp(l->name, type) == 0)
+				goto found;
+	}
+	for(i=0; i<nelem(vga->edid); i++){
+		if(vga->edid[i] == nil)
+			continue;
+		for(l = vga->edid[i]->modelist; l != nil; l = l->next)
+			if((x == 0 || l->x == x) && (y == 0 || l->y == y))
+				goto found;
+	}
+	return nil;
+
+found:
+	m = alloc(sizeof(Mode));
+	*m = *((Mode*)l);
+	m->z = z;
+	x = m->x;
+	y = m->y;
+	snprint(m->type, sizeof(m->type), "%s", type);
+	snprint(m->size, sizeof(m->size), "%dx%dx%d", x, y, z);
+	return m;
 }
 
 char*
@@ -291,10 +346,13 @@ main(int argc, char** argv)
 
 		if(vga->vesa){
 			strcpy(monitordb, "vesa bios");
-			vga->mode = dbvesamode(psize);
-		}else
+			vga->mode = dbvesamode(vga, psize);
+		}else {
 			vga->mode = dbmode(monitordb, type, psize);
-		if(vga->mode == 0)
+			if(vga->mode == nil)
+				vga->mode = dbedidmode(vga, type, psize);
+		}
+		if(vga->mode == nil)
 			error("main: %s@%s not in %s\n", type, psize, monitordb);
 
 		if(virtual){

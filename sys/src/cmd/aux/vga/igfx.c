@@ -4,7 +4,6 @@
 
 #include "pci.h"
 #include "vga.h"
-#include "edid.h"
 
 typedef struct Reg Reg;
 typedef struct Dpll Dpll;
@@ -156,9 +155,6 @@ struct Igfx {
 	Reg	lvds;
 
 	Reg	vgacntrl;
-
-	Edid	*adpaedid;
-	Edid	*lvdsedid;
 };
 
 static u32int
@@ -465,8 +461,13 @@ snarf(Vga* vga, Ctlr* ctlr)
 	for(x=0; x<igfx->npipe; x++)
 		snarfpipe(igfx, x);
 
-	igfx->adpaedid = snarfedid(igfx, 2, 0x50);
-	igfx->lvdsedid = snarfedid(igfx, 3, 0x50);
+	vga->edid[0] = snarfedid(igfx, 2, 0x50);
+	vga->edid[1] = snarfedid(igfx, 3, 0x50);
+	if(vga->edid[1] != nil){
+		Modelist *l;
+		for(l = vga->edid[1]->modelist; l != nil; l = l->next)
+			l->attr = mkattr(l->attr, "lcd", "1");
+	}
 
 	ctlr->flag |= Fsnarf;
 }
@@ -1332,15 +1333,6 @@ dump(Vga* vga, Ctlr* ctlr)
 	dumpreg(ctlr->name, "sdvoc", igfx->sdvoc);
 
 	dumpreg(ctlr->name, "vgacntrl", igfx->vgacntrl);
-
-	if(igfx->adpaedid != nil){
-		Bprint(&stdout, "edid adpa\n");
-		printedid(igfx->adpaedid);
-	}
-	if(igfx->lvdsedid != nil){
-		Bprint(&stdout, "edid lvds\n");
-		printedid(igfx->lvdsedid);
-	}
 }
 
 enum {
@@ -1404,7 +1396,6 @@ static Edid*
 snarfedid(Igfx *igfx, int port, int addr)
 {
 	uchar buf[256], tmp[256];
-	Edid *e;
 	int i;
 
 	/* read twice */
@@ -1424,13 +1415,7 @@ snarfedid(Igfx *igfx, int port, int addr)
 		}
 	}
 
-	e = malloc(sizeof(Edid));
-	if(parseedid128(e, buf) != 0){
-		free(e);
-		return nil;
-	}
-
-	return e;
+	return parseedid128(buf);
 }
 
 Ctlr igfx = {

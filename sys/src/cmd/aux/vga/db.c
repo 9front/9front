@@ -16,20 +16,35 @@ dbopen(char* dbname)
 	return db;
 }
 
+Attr*
+mkattr(Attr *tail, char *attr, char *fmt, ...)
+{
+	char val[1024];
+	va_list list;
+	Attr *a;
+
+	va_start(list, fmt);
+	snprint(val, sizeof(val), fmt, list);
+	va_end(list);
+
+	a = alloc(sizeof(Attr));
+	a->attr = alloc(strlen(attr)+1);
+	strcpy(a->attr, attr);
+	a->val = alloc(strlen(val)+1);
+	strcpy(a->val, val);
+	a->next = tail;
+
+	return a;
+}
+
 static void
 addattr(Attr** app, Ndbtuple* t)
 {
-	Attr *attr, *l;
-
-	attr = alloc(sizeof(Attr));
-	attr->attr = alloc(strlen(t->attr)+1);
-	strcpy(attr->attr, t->attr);
-	attr->val = alloc(strlen(t->val)+1);
-	strcpy(attr->val, t->val);
+	Attr *l;
 
 	for(l = *app; l; l = l->next)
 		app = &l->next;
-	*app = attr;
+	*app = mkattr(nil, t->attr, "%s", t->val);
 }
 
 char*
@@ -40,7 +55,6 @@ dbattr(Attr* ap, char* attr)
 			return ap->val;
 		ap = ap->next;
 	}
-
 	return 0;
 }
 

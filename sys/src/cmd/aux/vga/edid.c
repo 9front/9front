@@ -5,7 +5,6 @@
 
 #include "pci.h"
 #include "vga.h"
-#include "edid.h"
 
 static Modelist*
 addmode(Modelist *l, Mode m)
@@ -182,28 +181,31 @@ decodesti(Mode *m, uchar *p)
 	return vesalookup(m, str);
 }
 
-int
-parseedid128(Edid *e, void *v)
+Edid*
+parseedid128(void *v)
 {
 	static uchar magic[8] = { 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00 };
 	uchar *p, *q, sum;
 	int dpms, estab, i, m, vid;
 	Mode mode;
+	Edid *e;
 
-	memset(e, 0, sizeof *e);
+	e = alloc(sizeof(Edid));
 
 	p = (uchar*)v;
 	if(memcmp(p, magic, 8) != 0) {
+		free(e);
 		werrstr("bad edid header");
-		return -1;
+		return nil;
 	}
 
 	sum = 0;
 	for(i=0; i<128; i++) 
 		sum += p[i];
 	if(sum != 0) {
+		free(e);
 		werrstr("bad edid checksum");
-		return -1;
+		return nil;
 	}
 	p += 8;
 
@@ -342,7 +344,7 @@ parseedid128(Edid *e, void *v)
 	}
 
 	assert(p == (uchar*)v+8+10+2+5+10+3+16+72);
-	return 0;
+	return e;
 }
 
 Flag edidflags[] = {

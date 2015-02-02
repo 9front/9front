@@ -6,7 +6,6 @@ typedef struct Ureg Ureg;
 
 #include "pci.h"
 #include "vga.h"
-#include "edid.h"
 
 typedef struct Vbe Vbe;
 typedef struct Vmode Vmode;
@@ -49,7 +48,6 @@ struct Vmode
 #define PLONG(p, v) (p)[0] = (v); (p)[1] = (v)>>8; (p)[2] = (v)>>16; (p)[3] = (v)>>24
 
 static Vbe *vbe;
-static Edid *edid;
 
 static int dspcon;	/* connected displays bitmask */
 static int dspact;	/* active displays bitmask */
@@ -65,7 +63,7 @@ void vbeprintinfo(Vbe*);
 void vbeprintmodeinfo(Vbe*, int, char*);
 int vbesnarf(Vbe*, Vga*);
 void vesaddc(void);
-int vbeddcedid(Vbe *vbe, Edid *e);
+Edid* vbeddcedid(Vbe *vbe);
 uchar* vbesetup(Vbe*, Ureg*, int);
 int vbecall(Vbe*, Ureg*);
 int setdisplay(Vbe *vbe, int display);
@@ -99,25 +97,6 @@ dbvesa(Vga* vga)
 	return 1;
 }
 
-static Attr*
-newattr(Attr *tail, char *attr, char *fmt, ...)
-{
-	va_list list;
-	char *val;
-	Attr *a;
-
-	va_start(list, fmt);
-	val = vsmprint(fmt, list);
-	va_end(list);
-
-	a = alloc(sizeof(Attr));
-	a->attr = attr;
-	a->val = val;
-	a->next = tail;
-
-	return a;
-}
-
 static char*
 cracksize(char *size, char **scale, int *display)
 {
@@ -141,7 +120,7 @@ cracksize(char *size, char **scale, int *display)
 }
 
 Mode*
-dbvesamode(char *size)
+dbvesamode(Vga *vga, char *size)
 {
 	int i, width, display;
 	int oldmode, olddisplay;
@@ -217,8 +196,10 @@ havemode:
 		*m = *vesamodes[i];
 		break;
 	}
-	if(edid != nil){
-		for(l = edid->modelist; l; l = l->next){
+	for(i=0; i<nelem(vga->edid); i++){
+		if(vga->edid[i] == nil)
+			continue;
+		for(l = vga->edid[i]->modelist; l; l = l->next){
 			if(l->x != vm.dx || l->y != vm.dy)
 				continue;
 			*m = *((Mode*)l);
@@ -234,14 +215,14 @@ havemode:
 	/* account for framebuffer stride */
 	width = vm.bpl * 8 / m->z;
 	if(width > m->x)
-		m->attr = newattr(m->attr, "virtx", "%d", width);
+		m->attr = mkattr(m->attr, "virtx", "%d", width);
 
 	if(scale != nil)
-		m->attr = newattr(m->attr, "scale", "%s", scale);
+		m->attr = mkattr(m->attr, "scale", "%s", scale);
 	if(display != 0)
-		m->attr = newattr(m->attr, "display", "%d", display);
+		m->attr = mkattr(m->attr, "display", "%d", display);
 
-	m->attr = newattr(m->attr, "id", "0x%x", vm.id);
+	m->attr = mkattr(m->attr, "id", "0x%x", vm.id);
 
 	return m;
 }
@@ -317,7 +298,7 @@ load(Vga* vga, Ctlr* ctlr)
 }
 
 static void
-dump(Vga*, Ctlr*)
+dump(Vga *, Ctlr*)
 {
 	int i;
 	char did[0x200];
@@ -341,8 +322,6 @@ dump(Vga*, Ctlr*)
 	for(i=0x100; i<0x1FF; i++)
 		if(!did[i])
 			vbeprintmodeinfo(vbe, i, " (unoffered)");
-	if(edid != nil)
-		printedid(edid);
 }
 
 static int
@@ -644,16 +623,11 @@ vbesnarf(Vbe *vbe, Vga *vga)
 		dspact = u.cx;
 
 	}
-	else if(memcmp(oem, "NVIDIA", 6) == 0 && 0)	/* untested */
+	else if(memcmp(oem, "NVIDIA", 6) == 0)
 		setscale = nvidiascale;
 
-	if(edid == nil){
-		edid = alloc(sizeof(Edid));
-		if(vbeddcedid(vbe, edid) < 0){
-			free(edid);
-			edid = nil;
-		}
-	}
+	vga->edid[0] = vbeddcedid(vbe);
+
 	return 0;
 }
 
@@ -864,10 +838,8 @@ vesatextmode(void)
 		error("vbesetmode: %r\n");
 }
 
-int parseedid128(Edid *e, void *v);
-
-int
-vbeddcedid(Vbe *vbe, Edid *e)
+Edid*
+vbeddcedid(Vbe *vbe)
 {
 	uchar *p;
 	Ureg u;
@@ -875,12 +847,8 @@ vbeddcedid(Vbe *vbe, Edid *e)
 	p = vbesetup(vbe, &u, 0x4F15);
 	u.bx = 0x0001;
 	if(vbecall(vbe, &u) < 0)
-		return -1;
-	if(parseedid128(e, p) < 0){
-		werrstr("parseedid128: %r");
-		return -1;
-	}
-	return 0;
+		return nil;
+	return parseedid128(p);
 }
 
 int
