@@ -24,7 +24,7 @@ mkattr(Attr *tail, char *attr, char *fmt, ...)
 	Attr *a;
 
 	va_start(list, fmt);
-	snprint(val, sizeof(val), fmt, list);
+	vsnprint(val, sizeof(val), fmt, list);
 	va_end(list);
 
 	a = alloc(sizeof(Attr));
