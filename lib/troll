@@ -199,3 +199,6 @@ Although I'm only at the exploratory stage, I find 9vx more useful than 9front.
 [9fans] 9p on iOS?
 Are then 9legacy and 9atom too apart to somehow "merge" them?
 For new code - I know openntpd is not new code, but I don't think this approach is popular in general yet - why not switch to Go or (when it's stable) Rust, or even JavaScript or Lua, and end up with essentially zero chance of such bugs being possible, regardless of how carefully or not the code was written, without the need for any privilege separation code?
+I want to develop for Plan9 but I'm a Java person
+When I type "9fs sources" I get a timeout. Is there another way to search for Plan 9 software?
+[9fans] simple cgi and POST for plan9?
