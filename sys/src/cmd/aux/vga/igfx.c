@@ -670,7 +670,7 @@ inittrans(Trans *t, Mode *m)
 
 	/* trans/pipe timing */
 	t->ht.v = (m->ht - 1)<<16 | (m->x - 1);
-	t->hs.v = (m->ehb - 1)<<16 | (m->shb - 1);
+	t->hs.v = (m->ehs - 1)<<16 | (m->shs - 1);
 	t->vt.v = (m->vt - 1)<<16 | (m->y - 1);
 	t->vs.v = (m->vre - 1)<<16 | (m->vrs - 1);
 

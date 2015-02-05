@@ -105,9 +105,6 @@ init(Vga* vga, Ctlr* ctlr)
 	
 	geode = vga->private;
 	m = vga->mode;
-	m->vbs = m->vrs;
-	m->vbe = m->vre;
-	
 	
 	/* there has to be a better solution */
 	if(m->x < 1024) {
@@ -136,7 +133,7 @@ init(Vga* vga, Ctlr* ctlr)
 	geode->regs[DC_H_SYNC_TIMING] = (m->shs - 1) | ((m->ehs - 1) << 16);
 	geode->regs[DC_V_ACTIVE_TIMING] = (m->y - 1) | ((m->vt - 1) << 16);
 	geode->regs[DC_V_BLANK_TIMING] = (m->vrs - 1) | ((m->vre - 1) << 16);
-	geode->regs[DC_V_SYNC_TIMING] = (m->vbs - 1) | ((m->vbe - 1) << 16);
+	geode->regs[DC_V_SYNC_TIMING] = (m->vrs - 1) | ((m->vre - 1) << 16);
 	geode->regs[DC_FB_ACTIVE] = (m->x - 1) | ((m->y - 1) << 16);
 	geode->regs[DC_GFX_PITCH] = geode->regs[DC_LINE_SIZE] = (m->x >> 3) * bpp;
 

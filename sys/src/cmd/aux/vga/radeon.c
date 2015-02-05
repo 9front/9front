@@ -368,11 +368,11 @@ radeon_init_crtc_registers(Radeon*radeon, Mode*mode)
 	radeon->crtc_h_total_disp = ((mode->ht/8 - 1) & 0x3ff) |
 		((mode->x/8 - 1) & 0x1ff) << 16;
 
-	hsync_wid = (mode->ehb - mode->shb) / 8;
+	hsync_wid = (mode->ehs - mode->shs) / 8;
 	if (hsync_wid == 0)
 		hsync_wid = 1;
 
-	hsync_start = mode->shb - 8 + hsync_fudge;
+	hsync_start = mode->shs - 8 + hsync_fudge;
 
 	DBGPRINT("hsync_start=%d hsync_wid=%d hsync_fudge=%d\n",
 		hsync_start, hsync_wid, hsync_fudge);
@@ -383,7 +383,7 @@ radeon_init_crtc_registers(Radeon*radeon, Mode*mode)
 		(mode->y - 1) << 16;
 
 	vsync_wid = mode->vre - mode->vrs;
-	if (!vsync_wid)
+	if (vsync_wid == 0)
 		vsync_wid = 1;
 
 	radeon->crtc_v_sync_strt_wid = (((mode->vrs - 1) & 0xfff) |

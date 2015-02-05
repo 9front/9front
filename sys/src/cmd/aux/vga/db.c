@@ -423,7 +423,7 @@ dbdumpmode(Mode* mode)
 		mode->shs, mode->shs, mode->ehs, mode->ehs);
 	Bprint(&stdout, "vt=%d (0x%X), vrs=%d (0x%X), vre=%d (0x%X)\n",
 		mode->vt, mode->vt, mode->vrs, mode->vrs, mode->vre, mode->vre);
-	Bprint(&stdout, "hsync=%d, vsync=%d, interlace=%d\n",
+	Bprint(&stdout, "hsync=%c, vsync=%c, interlace=%c\n",
 		mode->hsync, mode->vsync, mode->interlace);
 
 	for(attr = mode->attr; attr; attr = attr->next)

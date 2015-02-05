@@ -192,11 +192,7 @@ init(Vga* vga, Ctlr* ctlr)
 	}
 	t2r4->g[CrtHac] = vga->mode->x/crtclocks;
 	t2r4->g[CrtHbl] = (vga->mode->ht-vga->mode->x)/crtclocks;
-	if(vga->mode->shs == 0)
-		vga->mode->shs = vga->mode->shb;
 	t2r4->g[CrtHfp] = (vga->mode->shs-vga->mode->x)/crtclocks;
-	if(vga->mode->ehs == 0)
-		vga->mode->ehs = vga->mode->ehb;
 	t2r4->g[CrtHs] = (vga->mode->ehs-vga->mode->shs)/crtclocks;
 	t2r4->g[CrtVac] = vga->mode->y * zoom;
 	t2r4->g[CrtVbl] = (vga->mode->vt-vga->mode->y) * zoom;

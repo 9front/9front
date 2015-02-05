@@ -282,9 +282,9 @@ init(Vga* vga, Ctlr* ctlr)
 	vga->crt[0x39] = ((vga->mode->shb - vga->virtx)>>3 & 0x40) >>6;
 //	vga->crt[0x39] = (vga->mode->ehb>>9) & 0x01;		//dhog
 		/* Horizontal Sync Start */
-	vga->crt[4] = vga->mode->shb>>3 & 0xFF;
+	vga->crt[4] = vga->mode->shs>>3 & 0xFF;
 		/* Horizontal Sync End */
-	vga->crt[5] |= vga->mode->ehb>>3 & 0x1F;
+	vga->crt[5] |= vga->mode->ehs>>3 & 0x1F;
 		/* Extended Vertical Total (vt) */
 	vga->crt[6] = (vt - 2) & 0xFF;
 	vga->crt[0x30] = (vt - 2)>>8 & 0x0F;

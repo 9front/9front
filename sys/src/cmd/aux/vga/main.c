@@ -355,6 +355,16 @@ main(int argc, char** argv)
 		if(vga->mode == nil)
 			error("main: %s@%s not in %s\n", type, psize, monitordb);
 
+		/*
+		 * because vga programs shb/ehb (Crt02, Crt03) the same as
+		 * shs/ehs (Crt04, Crt05), only shb/ehb is specified in vgadb
+		 * meaning the horizontal sync pulse start and end position.
+		 */
+		if(vga->mode->shs == 0)
+			vga->mode->shs = vga->mode->shb;
+		if(vga->mode->ehs == 0)
+			vga->mode->ehs = vga->mode->ehb;
+
 		if(virtual){
 			if((p = strchr(vsize, 'x')) == nil)
 				error("bad virtual size %s\n", vsize);

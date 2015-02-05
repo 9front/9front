@@ -111,9 +111,6 @@ typedef struct Mode {
 	int	vt;			/* Vertical Total (Crt06) */
 	int	vrs;			/* Vertical Retrace Start (Crt10) */
 	int	vre;			/* Vertical Retrace End (Crt11) */
-
-	int	vbs;			/* optional Vertical Blank Start */
-	int	vbe;			/* optional Vertical Blank End */
 	
 	ulong	videobw;
 

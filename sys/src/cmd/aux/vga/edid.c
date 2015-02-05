@@ -9,22 +9,23 @@
 static Modelist*
 addmode(Modelist *l, Mode m)
 {
+	Modelist *ll;
 	int rr;
-	Modelist **lp;
 
 	rr = (m.frequency+m.ht*m.vt/2)/(m.ht*m.vt);
 	snprint(m.name, sizeof m.name, "%dx%d@%dHz", m.x, m.y, rr);
 
-	for(lp=&l; *lp; lp=&(*lp)->next){
-		if(strcmp((*lp)->name, m.name) == 0){
-			(*lp)->Mode = m;
+	for(ll = l; ll != nil; ll = ll->next){
+		if(strcmp(ll->name, m.name) == 0){
+			ll->Mode = m;
 			return l;
 		}
 	}
 
-	*lp = alloc(sizeof(**lp));
-	(*lp)->Mode = m;
-	return l;
+	ll = alloc(sizeof(Modelist));
+	ll->Mode = m;
+	ll->next = l;
+	return ll;
 }
 
 /*
@@ -296,6 +297,7 @@ parseedid128(void *v)
 	 * Standard Timing Identifications: eight 2-byte selectors
 	 * of more standard timings.
 	 */
+
 	for(i=0; i<8; i++, p+=2)
 		if(decodesti(&mode, p+2*i) == 0)
 			e->modelist = addmode(e->modelist, mode);
@@ -402,13 +404,10 @@ printedid(Edid *e)
 
 	for(l=e->modelist; l; l=l->next){
 		printitem("edid", l->name);
-		Bprint(&stdout, "\n\t\tclock=%g\n"
-			"\t\tshb=%d ehb=%d ht=%d\n"
-			"\t\tvrs=%d vre=%d vt=%d\n"
-			"\t\thsync=%c vsync=%c %s\n",
-			l->frequency/1.e6, 
-			l->shb, l->ehb, l->ht,
-			l->vrs, l->vre, l->vt,
+		Bprint(&stdout, "\n\t\tclock=%g\n", l->frequency/1.e6);
+		Bprint(&stdout, "\t\tshb=%d ehb=%d ht=%d\n", l->shb, l->ehb, l->ht);
+		Bprint(&stdout, "\t\tvrs=%d vre=%d vt=%d\n", l->vrs, l->vre, l->vt);
+		Bprint(&stdout, "\t\thsync=%c vsync=%c %s\n",
 			l->hsync?l->hsync:'?',
 			l->vsync?l->vsync:'?',
 			l->interlace?"interlace=v" : "");

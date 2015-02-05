@@ -249,11 +249,7 @@ init(Vga* vga, Ctlr* ctlr)
 	if(tmp & 0x20)
 		vga->crt[0x05] |= 0x80;
 
-	if(mode->shs == 0)
-		mode->shs = mode->shb;
 	vga->crt[0x04] = mode->shs>>3;
-	if(mode->ehs == 0)
-		mode->ehs = mode->ehb;
 	vga->crt[0x05] |= ((mode->ehs>>3) & 0x1F);
 
 	/*
