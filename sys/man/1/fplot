@@ -29,7 +29,7 @@ option accepts as argument the x and y ranges, in the format
 .LR "xmin:xmax ymin:ymax".
 .PP
 Each function to be plotted may be a combination of the independent variable x, 
-the elementary operations (+, -, *, and /), and the functions described in
+the elementary operations (+, -, *, / and %), and the functions described in
 .IR sin (2)
 and
 .IR exp (2).

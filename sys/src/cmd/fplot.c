@@ -49,6 +49,7 @@ void add(void) { sp--; *sp += *(sp+1); }
 void sub(void) { sp--; *sp -= *(sp+1); }
 void mul(void) { sp--; *sp *= *(sp+1); }
 void div(void) { sp--; *sp /= *(sp+1); }
+void mod(void) { sp--; *sp = fmod(*sp, *(sp+1)); }
 void pot(void) { sp--; *sp = pow(*sp, *(sp+1)); }
 void osin(void) { *sp = sin(*sp); }
 void ocos(void) { *sp = cos(*sp); }
@@ -72,6 +73,7 @@ struct Operator {
 	"-",	OBINARY,	0,	0,	sub,
 	"*",	OBINARY,	0,	100,	mul,
 	"/",	OBINARY,	0,	100,	div,
+	"%",	OBINARY,	0,	100,	mod,
 	"^",	OBINARY,	1,	200,	pot,
 	"sin",	OUNARY,		0,	50,	osin,
 	"cos",	OUNARY,		0,	50,	ocos,
