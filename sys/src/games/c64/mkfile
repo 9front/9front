@@ -1,0 +1,13 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/games
+TARG=2600
+OFILES=\
+	c64.$O\
+	cpu.$O\
+	mem.$O\
+	vic.$O\
+	
+HFILES=dat.h fns.h
+
+</sys/src/cmd/mkone
