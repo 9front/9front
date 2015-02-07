@@ -1,7 +1,7 @@
 </$objtype/mkfile
 
 BIN=/$objtype/bin/games
-TARG=2600
+TARG=c64
 OFILES=\
 	c64.$O\
 	cpu.$O\
