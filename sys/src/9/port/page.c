@@ -86,7 +86,7 @@ freepages(Page *head, Page *tail, int n)
 int
 pagereclaim(Image *i, int min)
 {
-	Page **h, **l, *p;
+	Page **h, **l, **x, *p;
 	Page *fh, *ft;
 	int n;
 
@@ -100,17 +100,18 @@ pagereclaim(Image *i, int min)
 	n = 0;
 	fh = ft = nil;
 	for(h = i->pghash; h < &i->pghash[PGHSIZE]; h++){
-		if((p = *h) == nil)
-			continue;
-		for(l = h; p != nil; p = p->next){
+		l = h;
+		x = nil;
+		for(p = *l; p != nil; p = p->next){
 			if(p->ref == 0)
-				break;
+				x = l;
 			l = &p->next;
 		}
-		if(p == nil)
+		if(x == nil)
 			continue;
 
-		*l = p->next;
+		p = *x;
+		*x = p->next;
 		p->next = nil;
 		p->image = nil;
 		p->daddr = ~0;
@@ -315,15 +316,20 @@ uncachepage(Page *p)
 Page*
 lookpage(Image *i, uintptr daddr)
 {
-	Page *p;
+	Page *p, **h, **l;
 
 	lock(i);
-	for(p = PGHASH(i, daddr); p != nil; p = p->next) {
-		if(p->daddr == daddr) {
+	l = h = &PGHASH(i, daddr);
+	for(p = *l; p != nil; p = p->next){
+		if(p->daddr == daddr){
+			*l = p->next;
+			p->next = *h;
+			*h = p;
 			incref(p);
 			unlock(i);
 			return p;
 		}
+		l = &p->next;
 	}
 	unlock(i);
 
