@@ -435,14 +435,15 @@ ctlr
 	ctlr=geode linear=1
 
 ctlr
-	vid=0x8086 did=0x0166	# X230
-	vid=0x8086 did=0x2a42	# X200
+	vid=0x8086 did=0x0166	# Intel 3rd Gen Core
+	vid=0x8086 did=0x2a42	# Intel 4 Series Mobile
 	link=vga
 	hwgc=igfxhwgc
 	ctlr=igfx linear=1
 
 ctlr
-	vid=0x8086 did=0x27a2	# X60 Tablet (hardware cursor broken)
+	vid=0x8086 did=0x27a2	# Intel GM945/82940GML (hardware cursor broken)
+	vid=0x8086 did=0x2a02	# Intel GM965/GL960/X3100 (hardware cursor broken)
 	link=vga
 	ctlr=igfx linear=1
 
@@ -1704,7 +1705,7 @@ x230=1366x768		# 60Hz
 	lcd=1
 
 #
-# Lenovo X200 (LCD) LVDS
+# Lenovo ThinkPad X200 (LCD) LVDS
 #
 x200=1280x800		# 60Hz
 	clock=75
@@ -1717,7 +1718,7 @@ x200s
 	alias=x200
 
 #
-# Lenovo X301 (LCD) LVDS
+# Lenovo ThinkPad X301 (LCD) LVDS
 #
 x301=1440x900		# 60Hz
 	clock=102
@@ -1736,7 +1737,7 @@ l1730p=1280x1024		# 60Hz
 	hsync=+ vsync=+
 
 #
-# Lenovo Thinkpad X60 Tablet (LCD) LVDS
+# Lenovo ThinkPad X60 Tablet (LCD) LVDS
 #
 x60t=640x480		# 60Hz   
 	clock=25.175
