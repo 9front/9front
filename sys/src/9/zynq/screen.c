@@ -81,7 +81,7 @@ screeninit(void)
 	uchar *fb;
 
 	fb = xspanalloc(Dx(xgscreen.r) * Dy(xgscreen.r) * 3, 64, 0);
-	print("%x\n", PADDR(fb));
+	print("%p\n", PADDR(fb));
 	memsetchan(&xgscreen, BGR24);
 	conf.monitor = 1;
 	xgdata.bdata = fb;
