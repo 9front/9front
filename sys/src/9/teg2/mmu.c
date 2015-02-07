@@ -582,10 +582,9 @@ putmmu(uintptr va, uintptr pa, Page* page)
 	 */
 	l1cache->wb();
 
-	if(page->cachectl[0] == PG_TXTFLUSH){
-		/* pio() sets PG_TXTFLUSH whenever a text pg has been written */
+	if(page->txtflush & (1<<m->machno)){
 		cacheiinv();
-		page->cachectl[0] = PG_NOFLUSH;
+		page->txtflush &= ~(1<<m->machno);
 	}
 	if (Debug)
 		iprint("putmmu %#p %#p %#p\n", va, pa, PPN(pa)|x);

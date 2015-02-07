@@ -145,8 +145,7 @@ newpage(int clear, Segment **s, uintptr va)
 {
 	Page *p, **l;
 	KMap *k;
-	uchar ct;
-	int i, color;
+	int color;
 
 	color = getpgcolor(va);
 	lock(&palloc);
@@ -195,12 +194,9 @@ newpage(int clear, Segment **s, uintptr va)
 		l = &p->next;
 	}
 
-	ct = PG_NOFLUSH;
 	if(p == nil) {
 		l = &palloc.head;
 		p = *l;
-		p->color = color;
-		ct = PG_NEWCOL;
 	}
 
 	*l = p->next;
@@ -211,8 +207,7 @@ newpage(int clear, Segment **s, uintptr va)
 	p->ref = 1;
 	p->va = va;
 	p->modref = 0;
-	for(i = 0; i < MAXMACH; i++)
-		p->cachectl[i] = ct;
+	p->txtflush = 0;
 
 	if(clear) {
 		k = kmap(p);

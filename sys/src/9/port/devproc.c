@@ -1580,12 +1580,12 @@ procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
 		memmove(b, a, n);
 	kunmap(k);
 
-	/* Ensure the process sees text page changes */
-	if(s->flushme)
-		memset(pg->cachectl, PG_TXTFLUSH, sizeof(pg->cachectl));
-
-	if(!read)
+	if(!read){
+		/* Ensure the process sees text page changes */
+		if(s->flushme)
+			pg->txtflush = ~0;
 		p->newtlb = 1;
+	}
 
 	qunlock(s);
 	poperror();

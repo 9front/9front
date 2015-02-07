@@ -669,7 +669,7 @@ pteflush(Pte *pte, int s, int e)
 	for(i = s; i < e; i++) {
 		pg = pte->pages[i];
 		if(!pagedout(pg))
-			memset(pg->cachectl, PG_TXTFLUSH, sizeof(pg->cachectl));
+			pg->txtflush = ~0;
 	}
 }
 

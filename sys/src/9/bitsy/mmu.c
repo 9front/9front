@@ -406,10 +406,9 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	 *  rather than direct mapped.
 	 */
 	cachewb();
-	if(pg->cachectl[0] == PG_TXTFLUSH){
-		/* pio() sets PG_TXTFLUSH whenever a text page has been written */
+	if(pg->txtflush){
 		icacheinvalidate();
-		pg->cachectl[0] = PG_NOFLUSH;
+		pg->txtflush = 0;
 	}
 
 	splx(s);

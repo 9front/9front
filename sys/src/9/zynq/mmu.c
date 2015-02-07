@@ -140,7 +140,6 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	ulong *e;
 	ulong *l2;
 	PTE old;
-	char *ctl;
 	uintptr l2p;
 	int s;
 
@@ -180,11 +179,10 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	splx(s);
 	if((old & L2VALID) != 0)
 		flushpg((void *) va);
-	ctl = &pg->cachectl[m->machno];
-	if(*ctl == PG_TXTFLUSH){
+	if(pg->txtflush & (1<<m->machno)){
 		cleandse((void *) va, (void *) (va + BY2PG));
 		invalise((void *) va, (void *) (va + BY2PG));
-		*ctl = PG_NOFLUSH;
+		pg->txtflush &= ~(1<<m->machno);
 	}
 }
 

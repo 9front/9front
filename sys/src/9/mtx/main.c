@@ -198,7 +198,7 @@ userinit(void)
 	s->flushme++;
 	p->seg[TSEG] = s;
 	pg = newpage(1, 0, UTZERO);
-	memset(pg->cachectl, PG_TXTFLUSH, sizeof(pg->cachectl));
+	pg->txtflush = ~0;
 	segpage(s, pg);
 	k = kmap(s->map[0]->pages[0]);
 	memmove((ulong*)VA(k), initcode, sizeof initcode);

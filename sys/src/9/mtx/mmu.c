@@ -179,7 +179,6 @@ void
 putmmu(uintptr va, uintptr pa, Page *pg)
 {
 	int mp;
-	char *ctl;
 	ulong *p, *ep, *q, pteg;
 	ulong vsid, ptehi, x, hash;
 
@@ -218,19 +217,10 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	q[1] = pa;
 	sync();
 
-	ctl = &pg->cachectl[m->machno];
-	switch(*ctl) {
-	case PG_NEWCOL:
-	default:
-		panic("putmmu: %d\n", *ctl);
-		break;
-	case PG_NOFLUSH:
-		break;
-	case PG_TXTFLUSH:
+	if(pg->txtflush & (1<<m->machno)){
 		dcflush((void*)pg->va, BY2PG);
 		icflush((void*)pg->va, BY2PG);
-		*ctl = PG_NOFLUSH;
-		break;
+		pg->txtflush &= ~(1<<m->machno);
 	}
 }
 

@@ -292,11 +292,6 @@ struct Note
 
 enum
 {
-	PG_NOFLUSH	= 0,
-	PG_TXTFLUSH	= 1,		/* flush dcache and invalidate icache */
-	PG_DATFLUSH	= 2,		/* flush both i & d caches (UNUSED) */
-	PG_NEWCOL	= 3,		/* page has been recolored */
-
 	PG_MOD		= 0x01,		/* software modified bit */
 	PG_REF		= 0x02,		/* software referenced bit */
 };
@@ -309,10 +304,10 @@ struct Page
 	uintptr	va;			/* Virtual address for user */
 	uintptr	daddr;			/* Disc address on swap */
 	Image	*image;			/* Associated text or swap image */
+	ulong	txtflush;		/* Flush icache for putmmu */
 	ushort	refage;			/* Swap reference age */
 	char	modref;			/* Simulated modify/reference bits */
 	char	color;			/* Cache coloring */
-	char	cachectl[MAXMACH];	/* Cache flushing control for putmmu */
 };
 
 struct Swapalloc

@@ -307,7 +307,7 @@ userinit(void)
 	s->flushme++;
 	p->seg[TSEG] = s;
 	pg = newpage(0, 0, UTZERO);
-	memset(pg->cachectl, PG_TXTFLUSH, sizeof(pg->cachectl));
+	pg->txtflush = ~0;
 	segpage(s, pg);
 	v = tmpmap(pg);
 	memset(v, 0, BY2PG);

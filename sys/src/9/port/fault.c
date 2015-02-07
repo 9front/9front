@@ -187,7 +187,7 @@ retry:
 done:
 	putpage(new);
 	if(s->flushme)
-		memset((*p)->cachectl, PG_TXTFLUSH, sizeof((*p)->cachectl));
+		(*p)->txtflush = ~0;
 }
 
 void	(*checkaddr)(uintptr, Segment *, Page *);
@@ -263,6 +263,8 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 			new = newpage(0, &s, addr);
 			if(s == nil)
 				return -1;
+			if(s->flushme)
+				new->txtflush = ~0;
 			*pg = new;
 			copypage(old, *pg);
 			putpage(old);
