@@ -9,7 +9,7 @@ u16int ppux, ppuy, lastx, wrapx, maxy, lvis, rvis, uvis, dvis, picw, pich, lbord
 u16int vc, vcbase, vmli;
 u8int badln, rc, displ, fract, visreg, hbord, vbord, rbord0, lbord0;
 u16int chrp[40];
-u8int pic[400*300*3*3];
+u8int pic[420*263*4*3];
 u64int pxs, npxs, npxs0, opxs;
 u8int fg;
 
@@ -92,20 +92,24 @@ vicreset(void)
 void
 pixeldraw(u64int p, int n)
 {
-	int i;
+	int i, j;
 	static u8int cr[] = {0, 255, 136, 170, 204, 0, 0, 238, 221, 102, 255, 51, 119, 170, 0, 187};
 	static u8int cg[] = {0, 255, 0, 255, 68, 204, 0, 238, 136, 68, 119, 51, 119, 255, 136, 187};
 	static u8int cb[] = {0, 255, 0, 238, 204, 85, 170, 119, 85, 0, 119, 51, 119, 102, 255, 187};
 	u8int *q, c;
 	
-	q = pic + picidx * 4;
+	q = pic + picidx * 4 * scale;
 	for(i = 0; i < n; i++){
 		c = p >> 56;
 		p <<= 8;
 	
-		q[4 * i] = cb[c];
-		q[4 * i + 1] = cg[c];
-		q[4 * i + 2] = cr[c];
+		j = scale;
+		do{
+			*q++ = cb[c];
+			*q++ = cg[c];
+			*q++ = cr[c];
+			q++;
+		}while(--j);
 	}
 	picidx += n;
 }
