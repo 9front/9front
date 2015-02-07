@@ -304,10 +304,11 @@ devtype(Igfx *igfx)
 	if(igfx->pci->vid != 0x8086)
 		return -1;
 	switch(igfx->pci->did){
-	case 0x0166:	/* X230 */
+	case 0x0166:	/* 3rd Gen Core - ThinkPad X230 */
 		return TypeIVB;
-	case 0x27a2:	/* X60t */
-	case 0x2a42:	/* X200 */
+	case 0x27a2:	/* GM945/82940GML - ThinkPad X60 Tablet */
+	case 0x2a02:	/* GM965/GL960/X3100 - ThinkPad X61 Tablet */
+	case 0x2a42:	/* 4 Series Mobile - ThinkPad X200 */
 		return TypeG45;
 	}
 	return -1;
