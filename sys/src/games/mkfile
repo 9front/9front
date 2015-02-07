@@ -23,6 +23,7 @@ BIN=/$objtype/bin/games
 
 DIRS=\
 	blabs\
+	c64\
 	doom\
 	gb\
 	gba\
