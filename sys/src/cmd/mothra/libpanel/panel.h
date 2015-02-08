@@ -86,6 +86,8 @@ struct Panel{
 #define	MAXX	0x1000		/* make x size as big as biggest sibling's */
 #define	MAXY	0x2000		/* make y size as big as biggest sibling's */
 #define	BITMAP	0x4000		/* text argument is a bitmap, not a string */
+/* pldefs.h flags 0x08000-0x40000 */
+#define IGNORE	0x080000	/* ignore this panel totally */
 #define USERFL	0x100000	/* start of user flag */
 
 /*

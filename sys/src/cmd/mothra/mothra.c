@@ -15,6 +15,8 @@
 int debug=0;
 int verbose=0;		/* -v flag causes html errors to be written to file-descriptor 2 */
 int defdisplay=1;	/* is the default (initial) display visible? */
+int visxbar=0;	/* horizontal scrollbar visible? */
+int topxbar=0;	/* horizontal scrollbar at top? */
 Panel *root;	/* the whole display */
 Panel *alt;	/* the alternate display */
 Panel *alttext;	/* the alternate text window */
@@ -152,16 +154,46 @@ void scrolltext(int dy, int whence)
 		s.pos.y = s.size.y+dy;
 		break;
 	}
-	if(s.pos.y < 0)
-		s.pos.y = 0;
 	if(s.pos.y > s.size.y)
 		s.pos.y = s.size.y;
+	if(s.pos.y < 0)
+		s.pos.y = 0;
+	plsetscroll(text, s);
+}
+
+void sidescroll(int dx, int whence)
+{
+	Scroll s;
+
+	s = plgetscroll(text);
+	switch(whence){
+	case 0:
+		s.pos.x = dx;
+		break;
+	case 1:
+		s.pos.x += dx;
+		break;
+	case 2:
+		s.pos.x = s.size.x+dx;
+		break;
+	}
+	if(s.pos.x > s.size.x - text->size.x + 5)
+		s.pos.x = s.size.x - text->size.x + 5;
+	if(s.pos.x < 0)
+		s.pos.x = 0;
 	plsetscroll(text, s);
 }
 
 void mkpanels(void){
-	Panel *p, *bar, *swap;
+	Panel *p, *xbar, *ybar, *swap;
+	int xflags;
 
+	if(topxbar)
+		xflags=PACKN|USERFL;
+	else
+		xflags=PACKS|USERFL;
+	if(!visxbar)
+		xflags|=IGNORE;
 	menu3=plmenu(0, 0, buttons, PACKN|FILLX, hit3);
 	root=plpopup(root, EXPAND, 0, 0, menu3);
 		p=plgroup(root, PACKN|FILLX);
@@ -170,23 +202,24 @@ void mkpanels(void){
 			pllabel(p, PACKW, "Go:");
 			cmd=plentry(p, PACKN|FILLX, 0, "", docmd);
 		p=plgroup(root, PACKN|FILLX);
-			bar=plscrollbar(p, PACKW);
+			ybar=plscrollbar(p, PACKW);
 			list=pllist(p, PACKN|FILLX, genwww, 8, doprev);
-			plscroll(list, 0, bar);
+			plscroll(list, 0, ybar);
 		p=plgroup(root, PACKN|FILLX);
 			pllabel(p, PACKW, "Url:");
 			cururl=pllabel(p, PACKE|EXPAND, "---");
 			plplacelabel(cururl, PLACEW);
 		p=plgroup(root, PACKN|EXPAND);
-			bar=plscrollbar(p, PACKW|USERFL);
+			ybar=plscrollbar(p, PACKW|USERFL);
+			xbar=plscrollbar(p, xflags);
 			text=pltextview(p, PACKE|EXPAND, Pt(0, 0), 0, dolink);
-			plscroll(text, 0, bar);
+			plscroll(text, xbar, ybar);
 	plgrabkb(cmd);
 	alt=plpopup(0, PACKE|EXPAND, 0, 0, menu3);
-		bar=plscrollbar(alt, PACKW|USERFL);
+		ybar=plscrollbar(alt, PACKW|USERFL);
+		xbar=plscrollbar(alt, xflags);
 		alttext=pltextview(alt, PACKE|EXPAND, Pt(0, 0), 0, dolink);
-		plscroll(alttext, 0, bar);
-
+		plscroll(alttext, xbar, ybar);
 	if(!defdisplay){
 		swap=root;
 		root=alt;
@@ -318,11 +351,11 @@ void main(int argc, char *argv[]){
 	plinit(screen->depth);
 	if(debug) notify(dienow);
 	getfonts();
-	hrule=allocimage(display, Rect(0, 0, 2048, 5), screen->chan, 0, DWhite);
+	hrule=allocimage(display, Rect(0, 0, 1, 5), screen->chan, 1, DWhite);
 	if(hrule==0)
 		sysfatal("can't allocimage!");
-	draw(hrule, Rect(0,1,1280,3), display->black, 0, ZP);
-	linespace=allocimage(display, Rect(0, 0, 2048, 5), screen->chan, 0, DWhite);
+	draw(hrule, Rect(0,1,1,3), display->black, 0, ZP);
+	linespace=allocimage(display, Rect(0, 0, 1, 5), screen->chan, 1, DWhite);
 	if(linespace==0)
 		sysfatal("can't allocimage!");
 	bullet=allocimage(display, Rect(0,0,25, 8), screen->chan, 0, DWhite);
@@ -389,6 +422,12 @@ void main(int argc, char *argv[]){
 				break;
 			case Kack:
 				search();
+				break;
+			case Kright:
+				sidescroll(text->size.x/4, 1);
+				break;
+			case Kleft:
+				sidescroll(-text->size.x/4, 1);
 				break;
 			}
 			break;

@@ -243,7 +243,7 @@ void pl_sliderupd(Image *b, Rectangle r1, int dir, int lo, int hi){
 }
 void pl_draw1(Panel *p, Image *b);
 void pl_drawall(Panel *p, Image *b){
-	if(p->flags&INVIS) return;
+	if(p->flags&INVIS || p->flags&IGNORE) return;
 	p->b=b;
 	p->draw(p);
 	for(p=p->child;p;p=p->next) pl_draw1(p, b);

@@ -97,6 +97,7 @@ void pl_setrect(Panel *p, Point ul, Point avail){
 	slack=subpt(space, p->childreq);
 	share=pl_getshare(p->child);
 	for(c=p->child;c;c=c->next){
+		if(c->flags&IGNORE) continue;
 		if(c->flags&EXPAND){
 			switch(c->flags&PACK){
 			case PACKN:

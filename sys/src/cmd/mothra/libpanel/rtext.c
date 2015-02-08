@@ -67,14 +67,16 @@ int pl_space(int space, int pos, int indent){
 }
 /*
  * initialize rectangles & nextlines of text starting at t,
- * galley width is wid.  Returns the total length of the text
+ * galley width is wid.  Returns the total width/height of the text
  */
-int pl_rtfmt(Rtext *t, int wid){
+Point pl_rtfmt(Rtext *t, int wid){
 	Rtext *tp, *eline;
-	int ascent, descent, x, space, a, d, w, topy, indent;
+	int ascent, descent, x, space, a, d, w, topy, indent, maxwid;
 	Point p;
+
 	p=Pt(0,0);
 	eline=t;
+	maxwid=0;
 	while(t){
 		ascent=0;
 		descent=0;
@@ -147,9 +149,10 @@ int pl_rtfmt(Rtext *t, int wid){
 			if(t==eline) break;
 			p.x+=pl_space(t->space, p.x, indent);
 		}
+		if(p.x>maxwid) maxwid=p.x;
 		p.y+=descent+LEAD;
 	}
-	return p.y;
+	return Pt(maxwid, p.y);
 }
 
 /*
@@ -163,9 +166,9 @@ void pl_stuffbitmap(Panel *p, Image *b){
 		pl_stuffbitmap(p, b);
 }
 
-void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
+void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 	static Image *backup;
-	Point offs, lp;
+	Point lp;
 	Rectangle dr;
 	Image *bb;
 
@@ -178,11 +181,13 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, int yoffs){
 		b=backup;
 	pl_clr(b, r);
 	lp=ZP;
-	offs=subpt(r.min, Pt(0, yoffs));
+	offs=subpt(r.min, offs);
 	for(;t;t=t->next) if(!eqrect(t->r, Rect(0,0,0,0))){
 		dr=rectaddpt(t->r, offs);
 		if(dr.max.y>r.min.y
-		&& dr.min.y<r.max.y){
+		&& dr.min.y<r.max.y
+		&& dr.max.x>r.min.x
+		&& dr.min.x<r.max.x){
 			if(t->b){
 				draw(b, insetrect(dr, BORD), t->b, 0, t->b->r.min);
 				if(t->flags&PL_HOT) border(b, dr, 1, display->black, ZP);
@@ -232,30 +237,51 @@ void pl_reposition(Rtext *t, Image *b, Point p, Rectangle r){
  * Rectangle r of Image b contains an image of Rtext t, offset by oldoffs.
  * Redraw the text to have offset yoffs.
  */
-void pl_rtredraw(Image *b, Rectangle r, Rtext *t, int yoffs, int oldoffs){
-	int dy, size;
-	dy=oldoffs-yoffs;
-	size=r.max.y-r.min.y;
-	if(dy>=size || -dy>=size)
-		pl_rtdraw(b, r, t, yoffs);
-	else if(dy<0){
-		pl_reposition(t, b, r.min,
-			Rect(r.min.x, r.min.y-dy, r.max.x, r.max.y));
-		pl_rtdraw(b, Rect(r.min.x, r.max.y+dy, r.max.x, r.max.y),
-			t, yoffs+size+dy);
-	}
-	else if(dy>0){
-		pl_reposition(t, b, Pt(r.min.x, r.min.y+dy),
-			Rect(r.min.x, r.min.y, r.max.x, r.max.y-dy));
-		pl_rtdraw(b, Rect(r.min.x, r.min.y, r.max.x, r.min.y+dy), t, yoffs);
+void pl_rtredraw(Image *b, Rectangle r, Rtext *t, Point offs, Point oldoffs, int dir){
+	int d, size;
+
+	if(dir==VERT){
+		d=oldoffs.y-offs.y;
+		size=r.max.y-r.min.y;
+		if(d>=size || -d>=size) /* move more than screenful */
+			pl_rtdraw(b, r, t, offs);
+		else if(d<0){ /* down */
+			pl_reposition(t, b, r.min,
+				Rect(r.min.x, r.min.y-d, r.max.x, r.max.y));
+			pl_rtdraw(b, Rect(r.min.x, r.max.y+d, r.max.x, r.max.y),
+				t, Pt(offs.x, offs.y+size+d));
+		}
+		else if(d>0){ /* up */
+			pl_reposition(t, b, Pt(r.min.x, r.min.y+d),
+				Rect(r.min.x, r.min.y, r.max.x, r.max.y-d));
+			pl_rtdraw(b, Rect(r.min.x, r.min.y, r.max.x, r.min.y+d),
+				t, offs);
+		}
+	}else{ /* dir==HORIZ */
+		d=oldoffs.x-offs.x;
+		size=r.max.x-r.min.x;
+		if(d>=size || -d>=size) /* move more than screenful */
+			pl_rtdraw(b, r, t, offs);
+		else if(d<0){ /* right */
+			pl_reposition(t, b, r.min,
+				Rect(r.min.x-d, r.min.y, r.max.x, r.max.y));
+			pl_rtdraw(b, Rect(r.max.x+d, r.min.y, r.max.x, r.max.y),
+				t, Pt(offs.x+size+d, offs.y));
+		}
+		else if(d>0){ /* left */
+			pl_reposition(t, b, Pt(r.min.x+d, r.min.y),
+				Rect(r.min.x, r.min.y, r.max.x-d, r.max.y));
+			pl_rtdraw(b, Rect(r.min.x, r.min.y, r.min.x+d, r.max.y),
+				t, offs);
+		}		
 	}
 }
-Rtext *pl_rthit(Rtext *t, int yoffs, Point p, Point ul){
+Rtext *pl_rthit(Rtext *t, Point offs, Point p, Point ul){
 	Rectangle r;
 	Point lp;
 	if(t==0) return 0;
-	p.x-=ul.x;
-	p.y+=yoffs-ul.y;
+	p.x+=offs.x-ul.x;
+	p.y+=offs.y-ul.y;
 	while(t->nextline && t->nextline->topy<=p.y) t=t->nextline;
 	lp=ZP;
 	for(;t!=0;t=t->next){

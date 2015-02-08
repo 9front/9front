@@ -5,10 +5,10 @@
  * Variable-font text routines
  * These could make a separate library.
  */
-int pl_rtfmt(Rtext *, int);
-void pl_rtdraw(Image *, Rectangle, Rtext *, int);
-void pl_rtredraw(Image *, Rectangle, Rtext *, int, int);
-Rtext *pl_rthit(Rtext *, int, Point, Point);
+Point pl_rtfmt(Rtext *, int);
+void pl_rtdraw(Image *, Rectangle, Rtext *, Point);
+void pl_rtredraw(Image *, Rectangle, Rtext *, Point, Point, int);
+Rtext *pl_rthit(Rtext *, Point, Point, Point);
 #define	HITME	0x08000		/* tells ptinpanel not to look at children */
 #define	LEAF	0x10000		/* newpanel will refuse to attach children */
 #define	INVIS	0x20000		/* don't draw this */
