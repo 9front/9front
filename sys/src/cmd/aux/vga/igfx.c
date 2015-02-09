@@ -26,6 +26,15 @@ enum {
 	TypeIVB,		/* Ivy Bridge */
 };
 
+enum {
+	PortVGA	= 0,		/* adpa */
+	PortLCD	= 1,		/* lvds */
+	PortDPA	= 2,
+	PortDPB	= 3,
+	PortDPC	= 4,
+	PortDPD	= 5,
+};
+
 struct Reg {
 	u32int	a;		/* address or 0 when invalid */
 	u32int	v;		/* value */
@@ -54,6 +63,8 @@ struct Trans {
 	Reg	conf;		/* pipe/trans CONF_x */
 	Reg	chicken;	/* workarround register */
 
+	Reg	dpctl;		/* TRANS_DP_CTL_x */
+
 	Dpll	*dpll;		/* this transcoders dpll */
 };
 
@@ -66,6 +77,8 @@ struct Dp {
 	Reg	ctl;
 	Reg	auxctl;
 	Reg	auxdat[5];
+
+	uchar	dpcd[256];
 };
 
 struct Fdi {
@@ -76,8 +89,6 @@ struct Fdi {
 	Reg	rxctl;		/* FDI_RX_CTL */
 	Reg	rxmisc;		/* FDI_RX_MISC */
 	Reg	rxtu[2];	/* FDI_RX_TUSIZE */
-
-	Reg	dpctl;		/* TRANS_DP_CTL_x */
 };
 
 struct Pfit {
@@ -125,6 +136,7 @@ struct Igfx {
 	u32int	*mmio;
 
 	int	type;
+	int	cdclk;		/* core display clock in mhz */
 
 	int	npipe;
 	Pipe	pipe[4];
@@ -314,7 +326,10 @@ devtype(Igfx *igfx)
 	return -1;
 }
 
-static Edid* snarfedid(Igfx*, int port, int addr);
+static Edid* snarfgmedid(Igfx*, int port, int addr);
+static Edid* snarfdpedid(Igfx*, Dp *dp, int addr);
+
+static int enabledp(Igfx*, Dp*);
 
 static void
 snarf(Vga* vga, Ctlr* ctlr)
@@ -353,6 +368,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 	switch(igfx->type){
 	case TypeG45:
 		igfx->npipe = 2;	/* A,B */
+		igfx->cdclk = 200;	/* MHz */
 
 		igfx->dpll[0].ctrl	= snarfreg(igfx, 0x06014);
 		igfx->dpll[0].fp0	= snarfreg(igfx, 0x06040);
@@ -383,6 +399,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 
 	case TypeIVB:
 		igfx->npipe = 3;	/* A,B,C */
+		igfx->cdclk = 400;	/* MHz */
 
 		igfx->dpll[0].ctrl	= snarfreg(igfx, 0xC6014);
 		igfx->dpll[0].fp0	= snarfreg(igfx, 0xC6040);
@@ -462,12 +479,31 @@ snarf(Vga* vga, Ctlr* ctlr)
 	for(x=0; x<igfx->npipe; x++)
 		snarfpipe(igfx, x);
 
-	vga->edid[0] = snarfedid(igfx, 2, 0x50);
-	vga->edid[1] = snarfedid(igfx, 3, 0x50);
-	if(vga->edid[1] != nil){
+	for(x=0; x<nelem(vga->edid); x++){
 		Modelist *l;
-		for(l = vga->edid[1]->modelist; l != nil; l = l->next)
-			l->attr = mkattr(l->attr, "lcd", "1");
+
+		switch(x){
+		case PortVGA:
+			vga->edid[x] = snarfgmedid(igfx, 2, 0x50);
+			break;
+		case PortLCD:
+			vga->edid[x] = snarfgmedid(igfx, 3, 0x50);
+			if(vga->edid[x] == nil)
+				continue;
+			for(l = vga->edid[x]->modelist; l != nil; l = l->next)
+				l->attr = mkattr(l->attr, "lcd", "1");
+			break;
+		case PortDPA:
+		case PortDPB:
+		case PortDPC:
+		case PortDPD:
+			vga->edid[x] = snarfdpedid(igfx, &igfx->dp[x-PortDPA], 0x50);
+			break;
+		}
+		if(vga->edid[x] == nil)
+			continue;
+		for(l = vga->edid[x]->modelist; l != nil; l = l->next)
+			l->attr = mkattr(l->attr, "display", "%d", x+1);
 	}
 
 	ctlr->flag |= Fsnarf;
@@ -538,7 +574,7 @@ getcref(Igfx *igfx, int x)
 }
 
 static int
-initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
+initdpll(Igfx *igfx, int x, int freq, int port)
 {
 	int cref, m1, m2, n, p1, p2;
 	Dpll *dpll;
@@ -548,7 +584,7 @@ initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
 		/* PLL Reference Input Select */
 		dpll = igfx->pipe[x].dpll;
 		dpll->ctrl.v &= ~(3<<13);
-		dpll->ctrl.v |= (islvds ? 3 : 0) << 13;
+		dpll->ctrl.v |= (port == PortLCD ? 3 : 0) << 13;
 		break;
 	case TypeIVB:
 		/* transcoder dpll enable */
@@ -562,7 +598,7 @@ initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
 		igfx->drefctl.v &= ~(3<<7);
 		igfx->drefctl.v &= ~3;
 
-		if(islvds){
+		if(port == PortLCD){
 			igfx->drefctl.v |= 2<<11;
 			igfx->drefctl.v |= 1;
 		} else {
@@ -577,7 +613,7 @@ initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
 		 */
 		dpll = igfx->pipe[x].fdi->dpll;
 		dpll->ctrl.v &= ~(7<<13);
-		dpll->ctrl.v |= (islvds ? 3 : 0) << 13;
+		dpll->ctrl.v |= (port == PortLCD ? 3 : 0) << 13;
 		break;
 	default:
 		return -1;
@@ -586,15 +622,19 @@ initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
 
 	/* Dpll Mode select */
 	dpll->ctrl.v &= ~(3<<26);
-	dpll->ctrl.v |= (islvds ? 2 : 1)<<26;
+	dpll->ctrl.v |= (port == PortLCD ? 2 : 1)<<26;
 
 	/* P2 Clock Divide */
-	dpll->ctrl.v &= ~(3<<24);	
-	if(islvds){
+	dpll->ctrl.v &= ~(3<<24);
+	if(port == PortLCD){
 		p2 = 14;
 		if(genpll(freq, cref, p2, &m1, &m2, &n, &p1) < 0)
 			return -1;
 	} else {
+		/* generate 270MHz clock for displayport */
+		if(port >= PortDPA)
+			freq = 270*MHz;
+
 		p2 = 10;
 		if(freq > 270*MHz){
 			p2 >>= 1;
@@ -608,7 +648,7 @@ initdpll(Igfx *igfx, int x, int freq, int islvds, int ishdmi)
 	dpll->ctrl.v |= (1<<31);
 
 	/* Dpll Serial DVO High Speed IO clock Enable */
-	if(ishdmi)
+	if(port >= PortDPA)
 		dpll->ctrl.v |= (1<<30);
 	else
 		dpll->ctrl.v &= ~(1<<30);
@@ -753,11 +793,12 @@ initpipe(Pipe *p, Mode *m)
 static void
 init(Vga* vga, Ctlr* ctlr)
 {
-	int x, islvds;
+	int x, port;
 	char *val;
 	Igfx *igfx;
 	Pipe *p;
 	Mode *m;
+	Reg *r;
 
 	m = vga->mode;
 	if(m->z != 32)
@@ -768,21 +809,61 @@ init(Vga* vga, Ctlr* ctlr)
 	/* disable vga */
 	igfx->vgacntrl.v |= (1<<31);
 
-	/* disable all pipes adpa and lvds */
+	/* disable all pipes and ports */
 	igfx->ppcontrol.v &= 0xFFFF;
 	igfx->ppcontrol.v &= ~5;
 	igfx->lvds.v &= ~(1<<31);
 	igfx->adpa.v &= ~(1<<31);
 	if(igfx->type == TypeG45)
 		igfx->adpa.v |= (3<<10);	/* Monitor DPMS: off */
-
-	for(x=0; x<igfx->npipe; x++)
+	for(x=0; x<nelem(igfx->dp); x++)
+		igfx->dp[x].ctl.v &= ~(1<<31);
+	for(x=0; x<nelem(igfx->hdmi); x++)
+		igfx->hdmi[x].ctl.v &= ~(1<<31);
+	for(x=0; x<igfx->npipe; x++){
+		/* disable displayport transcoders */
+		igfx->pipe[x].dpctl.v &= ~(1<<31);
+		igfx->pipe[x].dpctl.v |= (3<<29);
+		igfx->pipe[x].fdi->dpctl.v &= ~(1<<31);
+		igfx->pipe[x].fdi->dpctl.v |= (3<<29);
+		/* disable transcoder/pipe */
 		igfx->pipe[x].conf.v &= ~(1<<31);
+	}
 
-	islvds = 0;
-	if((val = dbattr(m->attr, "lcd")) != nil && atoi(val) != 0){
-		islvds = 1;
+	if((val = dbattr(m->attr, "display")) != nil)
+		port = atoi(val)-1;
+	else if(dbattr(m->attr, "lcd") != nil)
+		port = PortLCD;
+	else
+		port = PortVGA;
 
+	trace("%s: display #%d\n", ctlr->name, port+1);
+
+	switch(port){
+	default:
+	Badport:
+		error("%s: display #%d not supported\n", ctlr->name, port+1);
+		break;
+
+	case PortVGA:
+		if(igfx->npipe > 2)
+			x = (igfx->adpa.v >> 29) & 3;
+		else
+			x = (igfx->adpa.v >> 30) & 1;
+		igfx->adpa.v |= (1<<31);
+		if(igfx->type == TypeG45){
+			igfx->adpa.v &= ~(3<<10);	/* Monitor DPMS: on */
+
+			igfx->adpa.v &= ~(1<<15);	/* ADPA Polarity Select */
+			igfx->adpa.v |= 3<<3;
+			if(m->hsync == '-')
+				igfx->adpa.v ^= 1<<3;
+			if(m->vsync == '-')
+				igfx->adpa.v ^= 1<<4;
+		}
+		break;
+
+	case PortLCD:
 		if(igfx->npipe > 2)
 			x = (igfx->lvds.v >> 29) & 3;
 		else
@@ -801,23 +882,53 @@ init(Vga* vga, Ctlr* ctlr)
 
 			igfx->lvds.v |= (1<<15);	/* border enable */
 		}
+		break;
 
-	} else {
-		if(igfx->npipe > 2)
-			x = (igfx->adpa.v >> 29) & 3;
-		else
-			x = (igfx->adpa.v >> 30) & 1;
-		igfx->adpa.v |= (1<<31);
-		if(igfx->type == TypeG45){
-			igfx->adpa.v &= ~(3<<10);	/* Monitor DPMS: on */
+	case PortDPA:
+	case PortDPB:
+	case PortDPC:
+	case PortDPD:
+		r = &igfx->dp[port - PortDPA].ctl;
+		if(r->a == 0)
+			goto Badport;
+		/* port enable */
+		r->v |= 1<<31;
+		/* port width selection: x1 Mode */
+		r->v &= ~(7<<19);
 
-			igfx->adpa.v &= ~(1<<15);	/* ADPA Polarity Select */
-			igfx->adpa.v |= 3<<3;
-			if(m->hsync == '-')
-				igfx->adpa.v ^= 1<<3;
-			if(m->vsync == '-')
-				igfx->adpa.v ^= 1<<4;
+		/* port reversal: off */
+		r->v &= ~(1<<15);
+		/* reserved MBZ */
+		r->v &= ~(15<<11);
+		/* use PIPE_A for displayport */
+		x = 0;
+		/* displayport transcoder */
+		if(port == PortDPA){
+			/* pll frequency: 270mhz */
+			r->v &= ~(3<<16);
+			/* pll enable */
+			r->v |= 1<<14;
+			/* pipe select */
+			r->v &= ~(3<<29);
+			r->v |= x<<29;
+		} else if(igfx->pipe[x].fdi->dpctl.a != 0){
+			/* audio output: disable */
+			r->v &= ~(1<<6);
+			/* transcoder displayport configuration */
+			r = &igfx->pipe[x].fdi->dpctl;
+			/* transcoder enable */
+			r->v |= 1<<31;
+			/* port select: B,C,D */
+			r->v &= ~(3<<29);
+			r->v |= (port-PortDPB)<<29;
 		}
+		/* sync polarity */
+		r->v |= 3<<3;
+		if(m->hsync == '-')
+			r->v ^= 1<<3;
+		if(m->vsync == '-')
+			r->v ^= 1<<4;
+		break;
 	}
 	p = &igfx->pipe[x];
 
@@ -849,7 +960,7 @@ init(Vga* vga, Ctlr* ctlr)
 	p->cur->pos.v = 0;
 	p->cur->base.v = 0;
 
-	if(initdpll(igfx, x, m->frequency, islvds, 0) < 0)
+	if(initdpll(igfx, x, m->frequency, port) < 0)
 		error("%s: frequency %d out of range\n", ctlr->name, m->frequency);
 
 	initpipe(p, m);
@@ -895,6 +1006,9 @@ loadtrans(Igfx *igfx, Trans *t)
 
 	/* workarround: set timing override bit */
 	csr(igfx, t->chicken.a, 0, 1<<31);
+
+	/* enable displayport transcoder */
+	loadreg(igfx, t->dpctl);
 
 	/* enable trans/pipe */
 	t->conf.v |= (1<<31);
@@ -1003,6 +1117,9 @@ disabletrans(Igfx *igfx, Trans *t)
 {
 	int i;
 
+	/* disable displayport transcoder */
+	csr(igfx, t->dpctl.a, 1<<31, 3<<29);
+
 	/* disable transcoder / pipe */
 	csr(igfx, t->conf.a, 1<<31, 0);
 	for(i=0; i<100; i++){
@@ -1046,9 +1163,6 @@ disablepipe(Igfx *igfx, int x)
 	/* disable fdi transmitter and receiver */
 	csr(igfx, p->fdi->txctl.a, 1<<31 | 1<<10, 0);
 	csr(igfx, p->fdi->rxctl.a, 1<<31 | 1<<10, 0);
-
-	/* disable displayport transcoder */
-	csr(igfx, p->fdi->dpctl.a, 1<<31, 3<<29);
 
 	/* disable pch transcoder */
 	disabletrans(igfx, p->fdi);
@@ -1124,14 +1238,9 @@ load(Vga* vga, Ctlr* ctlr)
 	loadreg(igfx, igfx->adpa);
 	loadreg(igfx, igfx->sdvob);
 	loadreg(igfx, igfx->sdvoc);
-	for(x = 0; x < nelem(igfx->dp); x++)
-		loadreg(igfx, igfx->dp[x].ctl);
-	for(x=0; x<nelem(igfx->hdmi); x++){
-		loadreg(igfx, igfx->hdmi[x].bufctl[0]);
-		loadreg(igfx, igfx->hdmi[x].bufctl[1]);
-		loadreg(igfx, igfx->hdmi[x].bufctl[2]);
-		loadreg(igfx, igfx->hdmi[x].bufctl[3]);
-		loadreg(igfx, igfx->hdmi[x].ctl);
+	for(x = 0; x < nelem(igfx->dp); x++){
+		if(enabledp(igfx, &igfx->dp[x]) < 0)
+			ctlr->flag |= Ferror;
 	}
 
 	/* program lcd power */
@@ -1148,6 +1257,23 @@ dumpreg(char *name, char *item, Reg r)
 
 	printitem(name, item);
 	Bprint(&stdout, " [%.8ux] = %.8ux\n", r.a, r.v);
+}
+
+static void
+dumphex(char *name, char *item, uchar *data, int len)
+{
+	int i;
+
+	for(i=0; i<len; i++){
+		if((i & 15) == 0){
+			if(i > 0)
+				Bprint(&stdout, "\n");
+			printitem(name, item);
+			Bprint(&stdout, " [%.2x] =", i);
+		}
+		Bprint(&stdout, " %.2X", data[i]);
+	}
+	Bprint(&stdout, "\n");
 }
 
 static void
@@ -1200,6 +1326,8 @@ dumptrans(char *name, Trans *t)
 	dumpreg(name, "vb", t->vb);
 	dumpreg(name, "vs", t->vs);
 	dumpreg(name, "vss", t->vss);
+
+	dumpreg(name, "dpctl", t->dpctl);
 }
 
 static void
@@ -1221,7 +1349,6 @@ dumppipe(Igfx *igfx, int x)
 	dumpreg(name, "rxmisc", p->fdi->rxmisc);
 	dumpreg(name, "rxtu1", p->fdi->rxtu[0]);
 	dumpreg(name, "rxtu2", p->fdi->rxtu[1]);
-	dumpreg(name, "dpctl", p->fdi->dpctl);
 
 	snprint(name, sizeof(name), "%s dsp %c", igfx->ctlr->name, 'a'+x);
 	dumpreg(name, "cntr", p->dsp->cntr);
@@ -1309,8 +1436,11 @@ dump(Vga* vga, Ctlr* ctlr)
 	dumpreg(ctlr->name, "ssc4params", igfx->ssc4params);
 
 	for(x=0; x<nelem(igfx->dp); x++){
+		if(igfx->dp[x].ctl.a == 0)
+			continue;
 		snprint(name, sizeof(name), "%s dp %c", ctlr->name, 'a'+x);
 		dumpreg(name, "ctl", igfx->dp[x].ctl);
+		dumphex(name, "dpcd", igfx->dp[x].dpcd, sizeof(igfx->dp[x].dpcd));
 	}
 	for(x=0; x<nelem(igfx->hdmi); x++){
 		snprint(name, sizeof(name), "%s hdmi %c", ctlr->name, 'a'+x);
@@ -1334,6 +1464,263 @@ dump(Vga* vga, Ctlr* ctlr)
 	dumpreg(ctlr->name, "sdvoc", igfx->sdvoc);
 
 	dumpreg(ctlr->name, "vgacntrl", igfx->vgacntrl);
+}
+
+static int
+dpauxio(Igfx *igfx, Dp *dp, uchar buf[20], int len)
+{
+	int t, i;
+	u32int w;
+
+	if(dp->auxctl.a == 0){
+		werrstr("not present");
+		return -1;
+	}
+
+	t = 0;
+	while(rr(igfx, dp->auxctl.a) & (1<<31)){
+		if(++t >= 10){
+			werrstr("busy");
+			return -1;
+		}
+		sleep(5);
+	}
+
+	/* clear sticky bits */
+	wr(igfx, dp->auxctl.a, (1<<28) | (1<25) | (1<<30));
+
+	for(i=0; i<nelem(dp->auxdat); i++){
+		w  = buf[i*4+0]<<24;
+		w |= buf[i*4+1]<<16;
+		w |= buf[i*4+2]<<8;
+		w |= buf[i*4+3];
+		wr(igfx, dp->auxdat[i].a, w);
+	}
+
+	/* 2X Bit Clock divider */
+	w = ((dp == &igfx->dp[0]) ? igfx->cdclk : (igfx->rawclkfreq.v & 0x3ff)) >> 1;
+	if(w < 1 || w > 0x3fd){
+		werrstr("bad clock");
+		return -1;
+	}
+
+	/* hack: slow down a bit */
+	w += 2;
+
+	w |= 1<<31;	/* SendBusy */
+	w |= 1<<29;	/* interrupt disabled */
+	w |= 3<<26;	/* timeout 1600µs */
+	w |= len<<20;	/* send bytes */
+	w |= 5<<16;	/* precharge time (5*2 = 10µs) */
+	wr(igfx, dp->auxctl.a, w);
+
+	t = 0;
+	for(;;){
+		w = rr(igfx, dp->auxctl.a);
+		if((w & (1<<30)) != 0)
+			break;
+		if(++t >= 10){
+			werrstr("busy");
+			return -1;
+		}
+		sleep(5);
+	}
+	if(w & (1<28)){
+		werrstr("receive timeout");
+		return -1;
+	}
+	if(w & (1<<25)){
+		werrstr("receive error");
+		return -1;
+	}
+
+	len = (w >> 20) & 0x1f;
+	for(i=0; i<nelem(dp->auxdat); i++){
+		w = rr(igfx, dp->auxdat[i].a);
+		buf[i*4+0] = w>>24;
+		buf[i*4+1] = w>>16;
+		buf[i*4+2] = w>>8;
+		buf[i*4+3] = w;
+	}
+
+	return len;
+}
+
+enum {
+	CmdNative	= 8,
+	CmdMot		= 4,
+	CmdRead		= 1,
+	CmdWrite	= 0,
+};
+
+static int
+dpauxtra(Igfx *igfx, Dp *dp, int cmd, int addr, uchar *data, int len)
+{
+	uchar buf[20];
+	int r;
+
+	assert(len <= 16);
+
+	memset(buf, 0, sizeof(buf));
+	buf[0] = (cmd << 4) | ((addr >> 16) & 0xF);
+	buf[1] = addr >> 8;
+	buf[2] = addr;
+	buf[3] = len-1;
+	r = 3;	
+	if(data != nil && len > 0){
+		if((cmd & CmdRead) == 0)
+			memmove(buf+4, data, len);
+		r = 4 + len;
+	}
+	if((r = dpauxio(igfx, dp, buf, r)) < 0){
+		trace("%s: dpauxio: dp %c, cmd %x, addr %x, len %d: %r\n",
+			igfx->ctlr->name, 'a'+(int)(dp - &igfx->dp[0]), cmd, addr, len);
+		return -1;
+	}
+	if(r == 0 || data == nil || len == 0)
+		return 0;
+	if((cmd & CmdRead) != 0){
+		if(--r < len)
+			len = r;
+		memmove(data, buf+1, len);
+	}
+	return len;
+}
+
+static int
+rdpaux(Igfx *igfx, Dp *dp, int addr)
+{
+	uchar buf[1];
+	if(dpauxtra(igfx, dp, CmdNative|CmdRead, addr, buf, 1) != 1)
+		return -1;
+	return buf[0];
+}
+static int
+wdpaux(Igfx *igfx, Dp *dp, int addr, uchar val)
+{
+	if(dpauxtra(igfx, dp, CmdNative|CmdWrite, addr, &val, 1) != 1)
+		return -1;
+	return 0;
+}
+
+static int
+enabledp(Igfx *igfx, Dp *dp)
+{
+	int try, r;
+
+	if(dp->ctl.a == 0)
+		return 0;
+	if((dp->ctl.v & (1<<31)) == 0)
+		return 0;
+
+	/* Link configuration */
+	wdpaux(igfx, dp, 0x100, 0x0A);	/* 270Mhz */
+	wdpaux(igfx, dp, 0x101, 0x01);	/* one lane */
+
+	r = 0;
+
+	/* Link training pattern 1 */
+	dp->ctl.v &= ~(7<<8);
+	loadreg(igfx, dp->ctl);
+	for(try = 0;;try++){
+		if(try > 5)
+			goto Fail;
+		/* Link training pattern 1 */
+		wdpaux(igfx, dp, 0x102, 0x01);
+		sleep(100);
+		if((r = rdpaux(igfx, dp, 0x202)) < 0)
+			goto Fail;
+		if(r & 1)	/* LANE0_CR_DONE */
+			break;
+	}
+	trace("pattern1 finished: %x\n", r);
+
+	/* Link training pattern 2 */
+	dp->ctl.v &= ~(7<<8);
+	dp->ctl.v |= 1<<8;
+	loadreg(igfx, dp->ctl);
+	for(try = 0;;try++){
+		if(try > 5)
+			goto Fail;
+		/* Link training pattern 2 */
+		wdpaux(igfx, dp, 0x102, 0x02);
+		sleep(100);
+		if((r = rdpaux(igfx, dp, 0x202)) < 0)
+			goto Fail;
+		if((r & 7) == 7)
+			break;
+	}
+	trace("pattern2 finished: %x\n", r);
+
+	/* stop training */
+	dp->ctl.v &= ~(7<<8);
+	dp->ctl.v |= 3<<8;
+	loadreg(igfx, dp->ctl);
+	wdpaux(igfx, dp, 0x102, 0x00);
+	return 1;
+
+Fail:
+	trace("training failed: %x\n", r);
+
+	/* disable port */
+	dp->ctl.v &= ~(1<<31);
+	loadreg(igfx, dp->ctl);
+	wdpaux(igfx, dp, 0x102, 0x00);
+	return -1;
+}
+
+static uchar*
+edidshift(uchar buf[256])
+{
+	uchar tmp[256];
+	int i;
+
+	/* shift if neccesary so edid block is at the start */
+	for(i=0; i<256-8; i++){
+		if(buf[i+0] == 0x00 && buf[i+1] == 0xFF && buf[i+2] == 0xFF && buf[i+3] == 0xFF
+		&& buf[i+4] == 0xFF && buf[i+5] == 0xFF && buf[i+6] == 0xFF && buf[i+7] == 0x00){
+			memmove(tmp, buf, i);
+			memmove(buf, buf + i, 256 - i);
+			memmove(buf + (256 - i), tmp, i);
+			break;
+		}
+	}
+	return buf;
+}
+
+static Edid*
+snarfdpedid(Igfx *igfx, Dp *dp, int addr)
+{
+	uchar buf[256];
+	int i;
+
+	for(i=0; i<sizeof(dp->dpcd); i+=16)
+		if(dpauxtra(igfx, dp, CmdNative|CmdRead, i, dp->dpcd+i, 16) != 16)
+			return nil;
+
+	if(dp->dpcd[0] == 0)	/* nothing there, dont try to get edid */
+		return nil;
+
+	if(dpauxtra(igfx, dp, CmdMot|CmdRead, addr, nil, 0) < 0)
+		return nil;
+
+	for(i=0; i<sizeof(buf); i+=16){
+		if(dpauxtra(igfx, dp, CmdMot|CmdRead, addr, buf+i, 16) == 16)
+			continue;
+		if(dpauxtra(igfx, dp, CmdMot|CmdRead, addr, buf+i, 16) == 16)
+			continue;
+		if(dpauxtra(igfx, dp, CmdMot|CmdRead, addr, buf+i, 16) == 16)
+			continue;
+		if(dpauxtra(igfx, dp, CmdMot|CmdRead, addr, buf+i, 16) == 16)
+			continue;
+		if(dpauxtra(igfx, dp, CmdMot|CmdRead, addr, buf+i, 16) == 16)
+			continue;
+		return nil;
+	}
+
+	dpauxtra(igfx, dp, CmdRead, addr, nil, 0);
+
+	return parseedid128(edidshift(buf));
 }
 
 enum {
@@ -1394,10 +1781,9 @@ gmbusread(Igfx *igfx, int port, int addr, uchar *data, int len)
 }
 
 static Edid*
-snarfedid(Igfx *igfx, int port, int addr)
+snarfgmedid(Igfx *igfx, int port, int addr)
 {
-	uchar buf[256], tmp[256];
-	int i;
+	uchar buf[256];
 
 	/* read twice */
 	if(gmbusread(igfx, port, addr, buf, 128) != 128)
@@ -1405,18 +1791,7 @@ snarfedid(Igfx *igfx, int port, int addr)
 	if(gmbusread(igfx, port, addr, buf + 128, 128) != 128)
 		return nil;
 
-	/* shift if neccesary so edid block is at the start */
-	for(i=0; i<256-8; i++){
-		if(buf[i+0] == 0x00 && buf[i+1] == 0xFF && buf[i+2] == 0xFF && buf[i+3] == 0xFF
-		&& buf[i+4] == 0xFF && buf[i+5] == 0xFF && buf[i+6] == 0xFF && buf[i+7] == 0x00){
-			memmove(tmp, buf, i);
-			memmove(buf, buf + i, 256 - i);
-			memmove(buf + (256 - i), tmp, i);
-			break;
-		}
-	}
-
-	return parseedid128(buf);
+	return parseedid128(edidshift(buf));
 }
 
 Ctlr igfx = {
