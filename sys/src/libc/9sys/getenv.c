@@ -4,33 +4,42 @@
 char*
 getenv(char *name)
 {
-	int r, f;
-	long s;
-	char *ans;
-	char *p, *ep, ename[100];
+	enum { HUNK = 100, };
+	char *s, *p;
+	int f, r, n;
 
-	if(strchr(name, '/') != nil)
+	if(name[0]=='\0' || strcmp(name, ".")==0 || strcmp(name, "..")==0 || strchr(name, '/')!=nil
+	|| strlen(name) >= HUNK-5){
+		werrstr("bad env name: %s", name);
 		return nil;
-	snprint(ename, sizeof ename, "/env/%s", name);
-	if(strcmp(ename+5, name) != 0)
-		return nil;
-	f = open(ename, OREAD);
-	if(f < 0)
-		return 0;
-	s = seek(f, 0, 2);
-	ans = malloc(s+1);
-	if(ans) {
-		setmalloctag(ans, getcallerpc(&name));
-		seek(f, 0, 0);
-		r = read(f, ans, s);
-		if(r >= 0) {
-			ep = ans + s - 1;
-			for(p = ans; p < ep; p++)
-				if(*p == '\0')
-					*p = ' ';
-			ans[s] = '\0';
-		}
 	}
-	close(f);
-	return ans;
+	if((s = malloc(HUNK)) == nil)
+		return nil;
+	snprint(s, HUNK, "/env/%s", name);
+	n = 0;
+	r = -1;
+	if((f = open(s, OREAD)) >= 0){
+		while((r = read(f, s+n, HUNK)) > 0){
+			n += r;
+			r = -1;
+			if((p = realloc(s, n+HUNK)) == nil)
+				break;
+			s = p;
+		}
+		close(f);
+	}
+	if(r < 0 || (p = realloc(s, n+1)) == nil){
+		free(s);
+		return nil;
+	}
+	s = p;
+	setmalloctag(s, getcallerpc(&name));
+	while(n > 0 && s[n-1] == '\0')
+		n--;
+	s[n] = '\0';
+	while(--n >= 0){
+		if(s[n] == '\0')
+			s[n] = ' ';
+	}
+	return s;
 }

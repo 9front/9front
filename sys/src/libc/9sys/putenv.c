@@ -4,20 +4,20 @@
 int
 putenv(char *name, char *val)
 {
-	int f;
 	char ename[100];
-	long s;
+	int f, n;
 
-	if(strchr(name, '/') != nil)
+	if(name[0]=='\0' || strcmp(name, ".")==0 || strcmp(name, "..")==0 || strchr(name, '/')!=nil
+	|| strlen(name) >= sizeof(ename)-5){
+		werrstr("bad env name: %s", name);
 		return -1;
-	snprint(ename, sizeof ename, "/env/%s", name);
-	if(strcmp(ename+5, name) != 0)
-		return -1;
+	}
+	snprint(ename, sizeof(ename), "/env/%s", name);
 	f = create(ename, OWRITE, 0664);
 	if(f < 0)
 		return -1;
-	s = strlen(val);
-	if(write(f, val, s) != s){
+	n = strlen(val);
+	if(write(f, val, n) != n){
 		close(f);
 		return -1;
 	}
