@@ -175,11 +175,6 @@ Join two channels on login:
 .B http://tools.ietf.org/html/rfc2812
 .SH BUGS
 .PP
-.I Auth/userpasswd
-(which is called by
-.IR ircrc )
-isn't compiled by default.
-.PP
 Some fonts do not support the nickname delimiters.
 .PP
 If the connection is lost,
