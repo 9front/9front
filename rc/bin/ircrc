@@ -228,7 +228,7 @@ if (~ $#* 1) {
 
 title
 userpass=`{auth/userpasswd 'server='^$server^' service=irc user='^$nick >[2]/dev/null}
-if(~ $#userpass 2 && ~ $nick $user) {
+if(~ $#userpass 2) {
 	nick=$userpass(1)
 	pass=$userpass(2)
 }
