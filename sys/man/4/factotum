@@ -1,6 +1,6 @@
 .TH FACTOTUM 4
 .SH NAME
-factotum, fgui \- authentication agent
+factotum, fgui, userpasswd \- authentication agent
 .SH SYNOPSIS
 .B auth/factotum
 [
@@ -23,6 +23,9 @@ factotum, fgui \- authentication agent
 .B ...
 .PP
 .B auth/fgui
+.PP
+.B auth/userpasswd
+.I fmt
 .SH DESCRIPTION
 .I Factotum
 is a user-level file system that
@@ -240,6 +243,15 @@ and
 For each requests, it unhides itself and waits for
 user input.
 See the sections on key confirmation and key prompting below.
+.PP
+.I Userpasswd
+queries and prints a cleartext user/password pair from factotum
+for the
+.B proto=pass
+key tuple specified in
+.IR fmt .
+This can be used by shell scripts to do cleartext password
+authentication.
 .SS "Key Tuples
 .PP
 A

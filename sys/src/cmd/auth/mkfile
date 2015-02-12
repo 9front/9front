@@ -33,6 +33,7 @@ TARG=\
 	rsafill\
 	rsagen\
 	uniq\
+	userpasswd\
 	warning\
 	wrkey\
 
