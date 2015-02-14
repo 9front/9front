@@ -6,6 +6,7 @@
 #include "io.h"
 
 ulong *mpcore, *slcr;
+uchar *ocm;
 
 void
 mmuinit(void)
@@ -19,6 +20,7 @@ mmuinit(void)
 		return;
 	mpcore = vmap(MPCORE_BASE, 0x2000);
 	slcr = vmap(SLCR_BASE, 0x1000);
+	ocm = vmap(OCM_BASE, -OCM_BASE);
 }
 
 void
@@ -246,28 +248,36 @@ countpagerefs(ulong *, int)
 	print("countpagerefs\n");
 }
 
-void *
-kaddr(uintptr u)
-{
-	if(u >= (uintptr)-KZERO)
-		panic("kaddr: pa=%#.8lux", u);
-	return (void *)(u + KZERO);	
-}
-
 uintptr
 paddr(void *v)
 {
-	if((uintptr)v < KZERO)
-		panic("paddr: va=%#.8lux", (uintptr) v);
-	return (uintptr)v - KZERO;
+	if((uintptr)v >= KZERO)
+		return (uintptr)v-KZERO;
+	if((uintptr)v >= VMAP)
+		return ((uintptr)v & (BY2PG-1)) | PPN(((ulong*)VMAPL2)[(uintptr)v-VMAP >> PGSHIFT]);
+	panic("paddr: va=%#p pc=%#p", v, getcallerpc(&v));
+	return 0;
+}
+
+void *
+kaddr(uintptr u)
+{
+	if(u < (uintptr)-KZERO)
+		return (void *)(u + KZERO);
+	if(u >= OCM_BASE)
+		return (void *)(ocm + (u - OCM_BASE));
+	panic("kaddr: pa=%#p pc=%#p", u, getcallerpc(&u));
+	return nil;
 }
 
 uintptr
 cankaddr(uintptr u)
 {
-	if(u >= (uintptr)-KZERO)
-		return 0;
-	return -KZERO - u;
+	if(u < (uintptr)-KZERO)
+		return -KZERO - u;
+	if(u >= OCM_BASE)
+		return -u;
+	return 0;
 }
 
 KMap *
@@ -401,22 +411,26 @@ vmap(uintptr pa, ulong sz)
 
 /* nasty things happen when there are cache entries for uncached memory
    so must make sure memory is not mapped ANYWHERE cached */
-uintptr
-ualloc(ulong len, void **va)
+void*
+ucalloc(ulong len)
 {
-	static uintptr free = OCM_BASE;
-	uintptr pa;
-	
+	static uchar *free = nil;
+	static Lock l;
+	uchar *va;
+
 	if(len == 0)
 		panic("ualloc: len == 0");
+
+	ilock(&l);
+	if(free == nil)
+		free = ocm + -OCM_BASE - BY2PG;	/* last page is cpu1 bootstrap */
 	len = PGROUND(len);
-	if(free + len < OCM_BASE)
+	free -= len;
+	if(free < ocm)
 		panic("ualloc: out of uncached memory");
-	pa = free;
-	free += len;
-	if(va != nil){
-		*va = vmap(pa, len);
-		invaldse(*va, (char *) *va + len);
-	}
-	return pa;
+	va = free;
+	iunlock(&l);
+
+	invaldse(va, va + len);
+	return (void*)va;
 }

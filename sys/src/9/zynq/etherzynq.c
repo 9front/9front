@@ -295,7 +295,6 @@ ethinit(Ether *edev)
 {
 	Ctlr *c;
 	int i;
-	uintptr rxrpa, txrpa;
 	
 	c = edev->ctlr;
 	c->r[NET_CTRL] = 0;
@@ -306,9 +305,9 @@ ethinit(Ether *edev)
 	c->r[SPEC_ADDR1_BOT] = edev->ea[0] | edev->ea[1] << 8 | edev->ea[2] << 16 | edev->ea[3] << 24;
 	c->r[SPEC_ADDR1_TOP] = edev->ea[4] | edev->ea[5] << 8;
 	c->r[DMA_CFG] = TXCHKSUMEN | (Rbsz/64) << 16 | 1 << 10 | 3 << 8 | 0x10;
-	
-	rxrpa = ualloc(8 * RXRING, &c->rxr);
-	txrpa = ualloc(8 * TXRING, &c->txr);
+
+	c->rxr = ucalloc(8 * RXRING);
+	c->txr = ucalloc(8 * TXRING);
 	c->rxs = xspanalloc(4 * RXRING, 4, 0);
 	c->txs = xspanalloc(4 * TXRING, 4, 0);
 	for(i = 0; i < 2 * RXRING; ){
@@ -324,8 +323,8 @@ ethinit(Ether *edev)
 		c->txr[i++] = 1<<31;
 	}
 	c->txr[2 * (TXRING - 1)] |= 1<<30;
-	c->r[RX_QBAR] = rxrpa;
-	c->r[TX_QBAR] = txrpa;
+	c->r[RX_QBAR] = PADDR(c->rxr);
+	c->r[TX_QBAR] = PADDR(c->txr);
 	
 	c->r[NET_CTRL] = MDEN | TXEN | RXEN;
 	c->r[INTR_EN] = MGMTDONE | TXUNDER | RXCOMPL | RXUSED | RXOVER;

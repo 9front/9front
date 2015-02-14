@@ -380,11 +380,10 @@ mpinit(void)
 	coherence();
 	cleandse((uchar*)KZERO, (uchar*)0xFFFFFFFF);
 
-	v = tmpmap(0xFFFFF000);
+	v = KADDR(0xFFFFF000);
 	v[0xFF0/4] = PADDR(mpbootstrap);
 	coherence();
 	cleandse(v, (uchar*)v+BY2PG);
-	tmpunmap(v);
 
 	sendevent();
 	synccycles();
