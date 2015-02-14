@@ -178,6 +178,10 @@ reset(Hci *hp)
 		capio->parms & 0x40 ? "explicit" : "automatic",
 		capio->parms & 0x10 ? "" : "no ", hp->nports);
 
+	ctlr->tdalloc = ucallocalign;
+	ctlr->dmaalloc = ucalloc;
+	cltr->dmafree = ucfree;
+
 	ehcireset(ctlr);
 	ehcimeminit(ctlr);
 

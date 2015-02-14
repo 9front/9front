@@ -61,6 +61,47 @@ ehcireset(Ctlr *ctlr)
 	iunlock(ctlr);
 }
 
+enum {
+	Cls = 64,
+};
+
+/* descriptors need to be allocated in uncached memory */
+static void*
+tdalloc(ulong size, int, ulong)
+{
+	return ucalloc(size);
+}
+
+static void*
+dmaalloc(ulong len)
+{
+	return mallocalign(ROUND(len, Cls), Cls, 0, 0);
+}
+static void
+dmafree(void *data)
+{
+	free(data);
+}
+
+static void
+dmaflush(int clean, void *data, ulong len)
+{
+	uintptr va, pa;
+
+	va = (uintptr)data & ~(Cls-1);
+	pa = PADDR(va);
+	len = ROUND(len, Cls);
+	if(clean){
+		/* flush cache before write */
+		cleandse((uchar*)va, (uchar*)va+len);
+		clean2pa(pa, pa+len);
+	} else {
+		/* invalidate cache before read */
+		invaldse((uchar*)va, (uchar*)va+len);
+		inval2pa(pa, pa+len);
+	}
+}
+
 static int
 reset(Hci *hp)
 {
@@ -84,12 +125,17 @@ reset(Hci *hp)
 	ctlr->opio = (Eopio *) ((uchar *) ctlr->r + 0x140);
 	ctlr->capio = (void *) ctlr->base;
 	hp->nports = 1;
-	ctlr->r[USBMODE] |= USBHOST;
-	
+
+	ctlr->tdalloc = tdalloc;
+	ctlr->dmaalloc = dmaalloc;
+	ctlr->dmafree = dmafree;
+	ctlr->dmaflush = dmaflush;
+
 	ehcireset(ctlr);
+	ctlr->r[USBMODE] |= USBHOST;
+	ctlr->r[ULPI] = 1<<30 | 1<<29 | 0x0B << 16 | 3<<5;
 	ehcimeminit(ctlr);
 	ehcilinkage(hp);
-	ctlr->r[ULPI] = 1<<30 | 1<<29 | 0x0B << 16 | 3<<5;
 	if(hp->interrupt != nil)
 		intrenable(hp->irq, hp->interrupt, hp, LEVEL, hp->type);
 	return 0;
@@ -98,6 +144,6 @@ reset(Hci *hp)
 void
 usbehcilink(void)
 {
-	ehcidebug = 2;
+//	ehcidebug = 2;
 	addhcitype("ehci", reset);
 }

@@ -86,5 +86,5 @@ install:V:	$p$CONF
 	for(i in $EXTRACOPIES)
 		import $i / /n/$i && cp $p$CONF $p$CONF.gz /n/$i/$objtype/
 
-devusb.$O usbehci.$O usbehcizynq.$O: ../port/usb.h uncached.h
+devusb.$O usbehci.$O usbehcizynq.$O: ../port/usb.h
 usbehci.$O usbehcizynq.$O: usbehci.h

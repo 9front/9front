@@ -172,6 +172,11 @@ struct Ctlr
 	Ecapio*	capio;		/* Capability i/o regs */
 	Eopio*	opio;		/* Operational i/o regs */
 
+	void*	(*tdalloc)(ulong,int,ulong);
+	void*	(*dmaalloc)(ulong);
+	void	(*dmafree)(void*);
+	void	(*dmaflush)(int,void*,ulong len);
+
 	int	nframes;	/* 1024, 512, or 256 frames in the list */
 	ulong*	frames;		/* periodic frame list (hw) */
 	Qh*	qhs;		/* async Qh circular list for bulk/ctl */

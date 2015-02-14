@@ -26,7 +26,7 @@ link
 	etherzynq
 	ethermedium
 	loopbackmedium
-#	usbehci usbehcizynq
+	usbehci usbehcizynq
 
 misc
 	uartzynq

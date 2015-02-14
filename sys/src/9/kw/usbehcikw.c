@@ -13,7 +13,6 @@
 #include	"../port/error.h"
 #include	"../port/usb.h"
 #include	"usbehci.h"
-//#include	"uncached.h"
 
 #define WINTARG(ctl)	(((ctl) >> 4) & 017)
 #define WINATTR(ctl)	(((ctl) >> 8) & 0377)
@@ -330,6 +329,10 @@ reset(Hci *hp)
 	ddprint("ehci: routing %s, %sport power ctl, %d ports\n",
 		capio->parms & 0x40 ? "explicit" : "automatic",
 		capio->parms & 0x10 ? "" : "no ", hp->nports);
+
+	ctlr->tdalloc = ucallocalign;
+	ctlr->dmaalloc = ucalloc;
+	ctlr->dmafree = ucfree;
 
 	ehcireset(ctlr);
 	ehcimeminit(ctlr);

@@ -127,7 +127,7 @@ ucalloc(usize size)
 }
 
 void*
-ucallocalign(usize size, int align, int span)
+ucallocalign(usize size, int align, usize span)
 {
 	assert(size < ucpool.minarena-128);
 

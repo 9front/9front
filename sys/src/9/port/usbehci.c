@@ -20,7 +20,6 @@
 #include	"../port/error.h"
 #include	"../port/usb.h"
 #include	"usbehci.h"
-#include	"uncached.h"
 
 #define diprint		if(ehcidebug || iso->debug)print
 #define ddiprint	if(ehcidebug>1 || iso->debug>1)print
@@ -399,14 +398,14 @@ ehcirun(Ctlr *ctlr, int on)
 }
 
 static void*
-edalloc(void)
+edalloc(Ctlr *ctlr)
 {
 	Ed *ed, *pool;
 	int i;
 
 	lock(&edpool);
 	if(edpool.free == nil){
-		pool = xspanalloc(Incr*sizeof(Ed), Align, 0);
+		pool = (*ctlr->tdalloc)(Incr*sizeof(Ed), Align, 0);
 		if(pool == nil)
 			panic("edalloc");
 		for(i=Incr; --i>=0;){
@@ -448,53 +447,54 @@ edfree(void *a)
  */
 
 static Itd*
-itdalloc(void)
+itdalloc(Ctlr *ctlr)
 {
 	Itd *td;
 
-	td = edalloc();
+	td = edalloc(ctlr);
 	td->link = Lterm;
 	return td;
 }
 
 static void
-itdfree(Itd *td)
+itdfree(Ctlr*, Itd *td)
 {
 	edfree(td);
 }
 
 static Sitd*
-sitdalloc(void)
+sitdalloc(Ctlr *ctlr)
 {
 	Sitd *td;
 
-	td = edalloc();
+	td = edalloc(ctlr);
 	td->link = td->blink = Lterm;
 	return td;
 }
 
 static void
-sitdfree(Sitd *td)
+sitdfree(Ctlr*, Sitd *td)
 {
 	edfree(td);
 }
 
 static Td*
-tdalloc(void)
+tdalloc(Ctlr *ctlr)
 {
 	Td *td;
 
-	td = edalloc();
+	td = edalloc(ctlr);
 	td->nlink = td->alink = Lterm;
 	return td;
 }
 
 static void
-tdfree(Td *td)
+tdfree(Ctlr *ctlr, Td *td)
 {
 	if(td == nil)
 		return;
-	free(td->buff);
+	if(td->buff != nil)
+		(*ctlr->dmafree)(td->buff);
 	edfree(td);
 }
 
@@ -661,7 +661,7 @@ qhalloc(Ctlr *ctlr, Ep *ep, Qio *io, char* tag)
 	Qh *qh;
 	int ttype;
 
-	qh = edalloc();
+	qh = edalloc(ctlr);
 	qh->nlink = Lterm;
 	qh->alink = Lterm;
 	qh->csw = Tdhalt;
@@ -777,7 +777,7 @@ qhfree(Ctlr *ctlr, Qh *qh)
 
 	while((td = qh->tds) != nil){
 		qh->tds = td->next;
-		tdfree(td);
+		tdfree(ctlr, td);
 	}
 
 	edfree(qh);
@@ -1236,7 +1236,7 @@ isocanwrite(void *a)
 }
 
 static void
-itdinit(Isoio *iso, Itd *td)
+itdinit(Ctlr *ctlr, Isoio *iso, Itd *td)
 {
 	int p, t;
 	ulong pa, tsize, size;
@@ -1248,6 +1248,8 @@ itdinit(Isoio *iso, Itd *td)
 	 */
 	p = 0;
 	size = td->ndata = td->mdata;
+	if(ctlr->dmaflush != nil)
+		(*ctlr->dmaflush)(1, td->data, size);
 	pa = PADDR(td->data);
 	for(t = 0; size > 0 && t < 8; t++){
 		tsize = size;
@@ -1265,8 +1267,10 @@ itdinit(Isoio *iso, Itd *td)
 }
 
 static void
-sitdinit(Isoio *iso, Sitd *td)
+sitdinit(Ctlr *ctlr, Isoio *iso, Sitd *td)
 {
+	if(ctlr->dmaflush != nil)
+		(*ctlr->dmaflush)(1, td->data, td->mdata);
 	td->ndata = td->mdata & Stdlenmask;
 	td->buffer[0] = PADDR(td->data);
 	td->buffer[1] = (td->buffer[0] & ~0xFFF) + 0x1000;
@@ -1379,7 +1383,7 @@ isohsinterrupt(Ctlr *ctlr, Isoio *iso)
 			tdi->ndata = 0;
 		if(tdi->next == iso->tdu || tdi->next->next == iso->tdu){
 			memset(iso->tdu->data, 0, iso->tdu->mdata);
-			itdinit(iso, iso->tdu);
+			itdinit(ctlr, iso, iso->tdu);
 			iso->tdu = iso->tdu->next;
 			iso->nleft = 0;
 		}
@@ -1444,8 +1448,7 @@ isofsinterrupt(Ctlr *ctlr, Isoio *iso)
 
 		if(stdi->next == iso->stdu || stdi->next->next == iso->stdu){
 			memset(iso->stdu->data, 0, iso->stdu->mdata);
-			coherence();
-			sitdinit(iso, iso->stdu);
+			sitdinit(ctlr, iso, iso->stdu);
 			iso->stdu = iso->stdu->next;
 			iso->nleft = 0;
 		}
@@ -1883,6 +1886,8 @@ episohscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
 				ep->dev->nb, ep->nb);
 		else{
 			iunlock(ctlr);		/* We could page fault here */
+			if(ctlr->dmaflush != nil)
+				(*ctlr->dmaflush)(0, tdu->data, tdu->mdata);
 			memmove(b+tot, tdu->data, nr);
 			ilock(ctlr);
 			if(iso->tdu != tdu)
@@ -1893,7 +1898,7 @@ episohscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
 			coherence();
 		}
 		if(tdu->ndata == 0){
-			itdinit(iso, tdu);
+			itdinit(ctlr, iso, tdu);
 			iso->tdu = tdu->next;
 		}
 	}
@@ -1921,6 +1926,8 @@ episofscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
 				ep->dev->nb, ep->nb);
 		else{
 			iunlock(ctlr);		/* We could page fault here */
+			if(ctlr->dmaflush != nil)
+				(*ctlr->dmaflush)(0, stdu->data, stdu->mdata);
 			memmove(b+tot, stdu->data, nr);
 			ilock(ctlr);
 			if(iso->stdu != stdu)
@@ -1932,7 +1939,7 @@ episofscpy(Ctlr *ctlr, Ep *ep, Isoio* iso, uchar *b, long count)
 			coherence();
 		}
 		if(stdu->ndata == 0){
-			sitdinit(iso, stdu);
+			sitdinit(ctlr, iso, stdu);
 			iso->stdu = stdu->next;
 		}
 	}
@@ -2024,7 +2031,7 @@ putsamples(Ctlr *ctlr, Isoio *iso, uchar *b, long count)
 				continue;
 			iso->nleft += n;
 			if(iso->nleft == tdu->mdata){
-				itdinit(iso, tdu);
+				itdinit(ctlr, iso, tdu);
 				iso->tdu = tdu->next;
 				iso->nleft = 0;
 			}
@@ -2039,7 +2046,7 @@ putsamples(Ctlr *ctlr, Isoio *iso, uchar *b, long count)
 				continue;
 			iso->nleft += n;
 			if(iso->nleft == stdu->mdata){
-				sitdinit(iso, stdu);
+				sitdinit(ctlr, iso, stdu);
 				iso->stdu = stdu->next;
 				iso->nleft = 0;
 			}
@@ -2137,7 +2144,7 @@ nexttoggle(int toggle, int count, int maxpkt)
 }
 
 static Td*
-epgettd(Qio *io, int flags, void *a, int count, int maxpkt)
+epgettd(Ctlr *ctlr, Qio *io, int flags, void *a, int count, int maxpkt)
 {
 	Td *td;
 	ulong pa;
@@ -2145,7 +2152,7 @@ epgettd(Qio *io, int flags, void *a, int count, int maxpkt)
 
 	if(count > Tdmaxpkt)
 		panic("ehci: epgettd: too many bytes");
-	td = tdalloc();
+	td = tdalloc(ctlr);
 	td->csw = flags | io->toggle | io->tok | count << Tdlenshift |
 		Tderr2 | Tderr1;
 	coherence();
@@ -2159,12 +2166,16 @@ epgettd(Qio *io, int flags, void *a, int count, int maxpkt)
 		td->data = td->sbuff;
 		td->buff = nil;
 	} else if(count <= 0x4000){
-		td->buff = td->data = smalloc(count);
+		td->buff = td->data = (*ctlr->dmaalloc)(count);
 	} else {
-		td->buff = smalloc(count + 0x1000);
+		td->buff = (*ctlr->dmaalloc)(count+0x1000);
 		td->data = (uchar*)ROUND((uintptr)td->buff, 0x1000);
 	}
-
+	if(a != nil && count > 0){
+		memmove(td->data, a, count);
+		if(ctlr->dmaflush != nil && td->buff != nil)
+			(*ctlr->dmaflush)(1, td->data, count);
+	}
 	pa = PADDR(td->data);
 	for(i = 0; i < nelem(td->buffer); i++){
 		td->buffer[i] = pa;
@@ -2172,8 +2183,6 @@ epgettd(Qio *io, int flags, void *a, int count, int maxpkt)
 		pa += 0x1000;
 	}
 	td->ndata = count;
-	if(a != nil && count > 0)
-		memmove(td->data, a, count);
 	coherence();
 	io->toggle = nexttoggle(io->toggle, count, maxpkt);
 	coherence();
@@ -2386,9 +2395,9 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 		if(count-tot < n)
 			n = count-tot;
 		if(c != nil && io->tok != Tdtokin)
-			td = epgettd(io, Tdactive, c+tot, n, ep->maxpkt);
+			td = epgettd(ctlr, io, Tdactive, c+tot, n, ep->maxpkt);
 		else
-			td = epgettd(io, Tdactive, nil, n, ep->maxpkt);
+			td = epgettd(ctlr, io, Tdactive, nil, n, ep->maxpkt);
 		if(td0 == nil)
 			td0 = td;
 		else
@@ -2452,6 +2461,8 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 				if((tot + n) > count)
 					n = count - tot;
 				if(c != nil && (td->csw & Tdtok) == Tdtokin){
+					if(ctlr->dmaflush != nil && td->buff != nil)
+						(*ctlr->dmaflush)(0, td->data, n);
 					memmove(c, td->data, n);
 					c += n;
 				}
@@ -2459,7 +2470,7 @@ epio(Ep *ep, Qio *io, void *a, long count, int mustlock)
 			}
 		}
 		ntd = td->next;
-		tdfree(td);
+		tdfree(ctlr, td);
 	}
 	if(mustlock){
 		qunlock(io);
@@ -2679,12 +2690,14 @@ isofsinit(Ep *ep, Isoio *iso)
 	Sitd *td, *ltd;
 	int i;
 	ulong frno;
+	Ctlr *ctlr;
 
+	ctlr = ep->hp->aux;
 	left = 0;
 	ltd = nil;
 	frno = iso->td0frno;
 	for(i = 0; i < iso->nframes; i++){
-		td = sitdalloc();
+		td = sitdalloc(ctlr);
 		td->data = iso->data + i * ep->maxpkt;
 		td->epc = ep->dev->port << Stdportshift;
 		td->epc |= ep->dev->hub << Stdhubshift;
@@ -2710,7 +2723,7 @@ isofsinit(Ep *ep, Isoio *iso)
 
 		iso->sitdps[frno] = td;
 		coherence();
-		sitdinit(iso, td);
+		sitdinit(ctlr, iso, td);
 		if(ltd != nil)
 			ltd->next = td;
 		ltd = td;
@@ -2727,16 +2740,18 @@ isohsinit(Ep *ep, Isoio *iso)
 	long left;
 	ulong frno, i, pa;
 	Itd *ltd, *td;
+	Ctlr *ctlr;
 
 	iso->hs = 1;
 	ival = 1;
 	if(ep->pollival > 8)
 		ival = ep->pollival/8;
+	ctlr = ep->hp->aux;
 	left = 0;
 	ltd = nil;
 	frno = iso->td0frno;
 	for(i = 0; i < iso->nframes; i++){
-		td = itdalloc();
+		td = itdalloc(ctlr);
 		td->data = iso->data + i * 8 * iso->maxsize;
 		pa = PADDR(td->data) & ~0xFFF;
 		for(p = 0; p < nelem(td->buffer); p++){
@@ -2761,7 +2776,7 @@ isohsinit(Ep *ep, Isoio *iso)
 		coherence();
 		iso->itdps[frno] = td;
 		coherence();
-		itdinit(iso, td);
+		itdinit(ctlr, iso, td);
 		if(ltd != nil)
 			ltd->next = td;
 		ltd = td;
@@ -2826,8 +2841,8 @@ isoopen(Ctlr *ctlr, Ep *ep)
 	 */
 	assert(ep->maxpkt > 0 && ep->ntds > 0 && ep->ntds < 4);
 	assert(ep->maxpkt <= 1024);
-	iso->tdps = smalloc(sizeof(uintptr) * Nisoframes);
-	iso->data = smalloc(iso->nframes * tpf * ep->ntds * ep->maxpkt);
+	iso->tdps = smalloc(sizeof(void*) * Nisoframes);
+	iso->data = (*ctlr->dmaalloc)(iso->nframes * tpf * ep->ntds * ep->maxpkt);
 	iso->td0frno = TRUNC(ctlr->opio->frno + 10, Nisoframes);
 	/* read: now; write: 1s ahead */
 
@@ -3067,9 +3082,9 @@ cancelisoio(Ctlr *ctlr, Isoio *iso, int pollival, ulong load)
 	frno = iso->td0frno;
 	for(i = 0; i < iso->nframes; i++){
 		if(iso->hs != 0)
-			itdfree(iso->itdps[frno]);
+			itdfree(ctlr, iso->itdps[frno]);
 		else
-			sitdfree(iso->sitdps[frno]);
+			sitdfree(ctlr, iso->sitdps[frno]);
 		iso->tdps[frno] = nil;
 		frno = TRUNC(frno+pollival, Nisoframes);
 	}
@@ -3165,7 +3180,7 @@ mkqhtree(Ctlr *ctlr)
 	if(qt->bw == nil || tree == nil)
 		panic("ehci: mkqhtree: no memory");
 	for(i = 0; i < n; i++){
-		tree[i] = qh = edalloc();
+		tree[i] = qh = edalloc(ctlr);
 		if(qh == nil)
 			panic("ehci: mkqhtree: no memory");
 		qh->nlink = qh->alink = qh->link = Lterm;
@@ -3208,10 +3223,17 @@ ehcimeminit(Ctlr *ctlr)
 	int i, frsize;
 	Eopio *opio;
 
+	if(ctlr->tdalloc == nil)
+		ctlr->tdalloc = xspanalloc;
+	if(ctlr->dmaalloc == nil)
+		ctlr->dmaalloc = smalloc;
+	if(ctlr->dmafree == nil)
+		ctlr->dmafree = free;
+
 	opio = ctlr->opio;
 	frsize = ctlr->nframes * sizeof(ulong);
 	assert((frsize & 0xFFF) == 0);		/* must be 4k aligned */
-	ctlr->frames = xspanalloc(frsize, frsize, 0);
+	ctlr->frames = (*ctlr->tdalloc)(frsize, frsize, 0);
 	if(ctlr->frames == nil)
 		panic("ehci reset: no memory");
 
@@ -3223,7 +3245,7 @@ ehcimeminit(Ctlr *ctlr)
 
 	qhalloc(ctlr, nil, nil, nil);	/* init async list */
 	mkqhtree(ctlr);			/* init sync list */
-	edfree(edalloc());		/* try to get some ones pre-allocated */
+	edfree(edalloc(ctlr));		/* try to get some ones pre-allocated */
 
 	dprint("ehci %#p flb %#lux frno %#lux\n",
 		ctlr->capio, opio->frbase, opio->frno);

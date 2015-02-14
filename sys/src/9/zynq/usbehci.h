@@ -84,16 +84,30 @@ typedef struct Qtree Qtree;
 
 struct Eopio
 {
-	ulong cmd;
-	ulong sts;
-	ulong intr;
-	ulong frno;
-	ulong dummy1[2];
-	ulong frbase;
-	ulong link;
-	ulong dummy2[9];
-	ulong config;
-	ulong portsc[1];
+/*140*/	ulong cmd;
+/*144*/	ulong sts;
+/*148*/	ulong intr;
+/*14c*/	ulong frno;
+
+/*150*/	ulong reserved1;
+
+/*154*/	ulong frbase;
+/*158*/	ulong link;
+
+/*15c*/	ulong _ttctrl;
+/*160*/	ulong _burstsize;
+/*164*/	ulong _txfilltuning;
+/*168*/ ulong _txttfilltuning;
+/*16c*/	ulong _ic_usb;
+/*170*/	ulong _ulpi_viewport;
+
+/*174*/	ulong reserved2;
+
+/*178*/	ulong _endptnak;
+/*17c*/	ulong _endptnaken;
+
+/*180*/	ulong config;
+/*184*/	ulong portsc[1];
 };
 
 struct Poll
@@ -112,6 +126,11 @@ struct Ctlr
 	int	active;		/* in use or not */
 	void*	capio;		/* base address for debug info */
 	Eopio*	opio;		/* Operational i/o regs */
+
+	void*	(*tdalloc)(ulong,int,ulong);
+	void*	(*dmaalloc)(ulong);
+	void	(*dmafree)(void*);
+	void	(*dmaflush)(int,void*,ulong len);
 
 	int	nframes;	/* 1024, 512, or 256 frames in the list */
 	ulong*	frames;		/* periodic frame list (hw) */

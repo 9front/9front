@@ -111,7 +111,7 @@ l.$O rebootcode.$O: cache.v7.s
 main.$O: errstr.h init.h reboot.h
 devdss.$O devmouse.$O mouse.$O screen.$O: screen.h
 devusb.$O: ../port/usb.h
-usbehci.$O usbohci.$O usbuhci.$O: ../port/usb.h usbehci.h uncached.h
+usbehci.$O usbohci.$O usbuhci.$O: ../port/usb.h usbehci.h
 
 init.h:D:	../port/initcode.c init9.s
 	$CC ../port/initcode.c
