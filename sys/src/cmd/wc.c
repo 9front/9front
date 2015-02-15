@@ -9,11 +9,11 @@
 #include <u.h>
 #include <libc.h>
 #define	NBUF	(8*1024)
-uvlong nline, tnline, pline;
-uvlong nword, tnword, pword;
-uvlong nrune, tnrune, prune;
-uvlong nbadr, tnbadr, pbadr;
-uvlong nchar, tnchar, pchar;
+uvlong nline, tnline; int pline;
+uvlong nword, tnword; int pword;
+uvlong nrune, tnrune; int prune;
+uvlong nbadr, tnbadr; int pbadr;
+uvlong nchar, tnchar; int pchar;
 void count(int, char *);
 void report(uvlong, uvlong, uvlong, uvlong, uvlong, char *);
 void
