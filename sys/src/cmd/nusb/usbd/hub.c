@@ -438,10 +438,8 @@ portattach(Hub *h, int p, int sts)
 		if(usbcmd(nd, Rh2d|Rstd|Rdev, Rsetconf, 1, 0, nil, 0) < 0)
 			goto Fail;
 	}
-	dprint(2, "%s: %U", argv0, nd);
 	pp->state = Pconfiged;
-	dprint(2, "%s: %s: port %d: configed: %s\n",
-			argv0, d->dir, p, nd->dir);
+	dprint(2, "%s: %s: port %d: configured: %s\n", argv0, d->dir, p, nd->dir);
 	return pp->dev = nd;
 Fail:
 	pp->state = Pdisabled;
