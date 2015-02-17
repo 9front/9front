@@ -116,8 +116,7 @@ no:
 	if(g) {
 		m1 = mulcon0(v);
 		if(m1) {
-			strcpy(m->code, m1->code);
-			sprint(strchr(m->code, 0), "%c0", g+'a');
+			snprint(m->code, sizeof m->code, "%s%c0", m1->code, g+'a');
 			return m;
 		}
 	}
