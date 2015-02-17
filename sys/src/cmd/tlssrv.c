@@ -30,7 +30,7 @@ reporter(char *fmt, ...)
 void
 usage(void)
 {
-	fprint(2, "usage: tlssrv -c cert [-D] [-l logfile] [-r remotesys] [cmd args...]\n");
+	fprint(2, "usage: tlssrv -c cert [-D] [-l logfile] [-r remotesys] cmd [args...]\n");
 	fprint(2, "  after  auth/secretpem key.pem > /mnt/factotum/ctl\n");
 	exits("usage");
 }
@@ -60,6 +60,9 @@ main(int argc, char *argv[])
 		usage();
 	}ARGEND
 
+	if(*argv == nil)
+		usage();
+
 	if(cert == nil)
 		sysfatal("no certificate specified");
 	conn = (TLSconn*)mallocz(sizeof *conn, 1);
@@ -84,9 +87,6 @@ main(int argc, char *argv[])
 
 	dup(fd, 0);
 	dup(fd, 1);
-
-	if(*argv == nil)
-		*--argv = "/bin/cat";
 
 	exec(*argv, argv);
 	reporter("can't exec %s: %r", *argv);
