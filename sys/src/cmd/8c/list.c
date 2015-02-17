@@ -20,20 +20,18 @@ Bconv(Fmt *fp)
 	Bits bits;
 	int i;
 
-	str[0] = 0;
+	memset(str, 0, sizeof str);
 	bits = va_arg(fp->args, Bits);
 	while(bany(&bits)) {
 		i = bnum(bits);
 		if(str[0])
-			strcat(str, " ");
+			strncat(str, " ", sizeof str - 1);
 		if(var[i].sym == S) {
 			snprint(ss, sizeof(ss), "$%ld", var[i].offset);
 			s = ss;
 		} else
 			s = var[i].sym->name;
-		if(strlen(str) + strlen(s) + 1 >= STRINGSZ)
-			break;
-		strcat(str, s);
+		strncat(str, s, sizeof str - 1);
 		bits.b[i/32] &= ~(1L << (i%32));
 	}
 	return fmtstrcpy(fp, str);
@@ -70,7 +68,7 @@ Aconv(Fmt *fp)
 int
 Dconv(Fmt *fp)
 {
-	char str[40], s[20];
+	char str[40];
 	Adr *a;
 	int i;
 
@@ -105,8 +103,7 @@ Dconv(Fmt *fp)
 		break;
 
 	case D_STATIC:
-		snprint(str, sizeof(str), "%s<>+%ld(SB)", a->sym->name,
-			a->offset);
+		snprint(str, sizeof(str), "%s<>+%ld(SB)", a->sym->name, a->offset);
 		break;
 
 	case D_AUTO:
@@ -141,11 +138,8 @@ Dconv(Fmt *fp)
 		goto conv;
 	}
 brk:
-	if(a->index != D_NONE) {
-		fmtstrcpy(fp, str);
-		snprint(s, sizeof(s), "(%R*%d)", (int)a->index, (int)a->scale);
-		return fmtstrcpy(fp, s);
-	}
+	if(a->index != D_NONE)
+		return fmtprint(fp, "%s(%R*%d)", str, (int)a->index, (int)a->scale);
 conv:
 	return fmtstrcpy(fp, str);
 }

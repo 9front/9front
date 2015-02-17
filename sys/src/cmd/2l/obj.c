@@ -308,11 +308,9 @@ objfile(char *file)
 
 	if(file[0] == '-' && file[1] == 'l') {
 		if(debug['9'])
-			sprint(name, "/%s/lib/lib", thestring);
+			snprint(name, sizeof name, "/%s/lib/lib%s.a", thestring, file+2);
 		else
-			sprint(name, "/usr/%clib/lib", thechar);
-		strcat(name, file+2);
-		strcat(name, ".a");
+			snprint(name, sizeof name, "/usr/%clib/lib%s.a", thechar, file+2);
 		file = name;
 	}
 	if(debug['v'])
@@ -370,7 +368,7 @@ objfile(char *file)
 			s = lookup(e+5, 0);
 			if(s->type != SXREF)
 				continue;
-			sprint(pname, "%s(%s)", file, s->name);
+			snprint(pname, sizeof pname, "%s(%s)", file, s->name);
 			if(debug['v'])
 				Bprint(&bso, "%5.2f library: %s\n", cputime(), pname);
 			Bflush(&bso);
@@ -539,17 +537,17 @@ addlib(char *obj)
 		return;
 
 	if(histfrog[0]->name[1] == '/') {
-		sprint(name, "");
+		name[0] = 0;
 		i = 1;
 	} else
 	if(histfrog[0]->name[1] == '.') {
-		sprint(name, ".");
+		snprint(name, sizeof name, ".");
 		i = 0;
 	} else {
 		if(debug['9'])
-			sprint(name, "/%s/lib", thestring);
+			snprint(name, sizeof name, "/%s/lib", thestring);
 		else
-			sprint(name, "/usr/%clib", thechar);
+			snprint(name, sizeof name, "/usr/%clib", thechar);
 		i = 0;
 	}
 

@@ -16,17 +16,15 @@ static	Prog	*bigP;
 int
 Pconv(Fmt *fp)
 {
-	char str[STRINGSZ], s[20];
+	char str[STRINGSZ];
 	Prog *p;
 
 	p = va_arg(fp->args, Prog*);
 	bigP = p;
-	sprint(str, "(%ld)	%A	%D,%D",
+	snprint(str, sizeof str, "(%ld)	%A	%D,%D",
 		p->line, p->as, &p->from, &p->to);
-	if(p->from.field) {
-		sprint(s, ",%d,%d", p->to.field, p->from.field);
-		strcat(str, s);
-	}
+	if(p->from.field)
+		return fmtprint(fp, "%s,%d,%d", str, p->to.field, p->from.field);
 	bigP = P;
 	return fmtstrcpy(fp, str);
 }
@@ -34,14 +32,13 @@ Pconv(Fmt *fp)
 int
 Aconv(Fmt *fp)
 {
-
 	return fmtstrcpy(fp, anames[va_arg(fp->args, int)]);
 }
 
 int
 Dconv(Fmt *fp)
 {
-	char str[40], s[20];
+	char str[40];
 	Adr *a;
 	int i, j;
 	long d;
@@ -55,23 +52,23 @@ Dconv(Fmt *fp)
 		a->offset = 0;
 		switch(j) {
 		case I_INDINC:
-			sprint(str, "(%D)+", a);
+			snprint(str, sizeof str, "(%D)+", a);
 			break;
 
 		case I_INDDEC:
-			sprint(str, "-(%D)", a);
+			snprint(str, sizeof str, "-(%D)", a);
 			break;
 
 		case I_INDIR:
 			if(d)
-				sprint(str, "%ld(%D)", d, a);
+				snprint(str, sizeof str, "%ld(%D)", d, a);
 			else
-				sprint(str, "(%D)", a);
+				snprint(str, sizeof str, "(%D)", a);
 			break;
 
 		case I_ADDR:
 			a->offset = d;
-			sprint(str, "$%D", a);
+			snprint(str, sizeof str, "$%D", a);
 			break;
 		}
 		a->type = i;
@@ -81,7 +78,7 @@ Dconv(Fmt *fp)
 	switch(i) {
 
 	default:
-		sprint(str, "%R", i);
+		snprint(str, sizeof str, "%R", i);
 		break;
 
 	case D_NONE:
@@ -91,58 +88,56 @@ Dconv(Fmt *fp)
 	case D_BRANCH:
 		if(bigP != P && bigP->pcond != P)
 			if(a->sym != S)
-				sprint(str, "%lux+%s", bigP->pcond->pc,
+				snprint(str, sizeof str, "%lux+%s", bigP->pcond->pc,
 					a->sym->name);
 			else
-				sprint(str, "%lux", bigP->pcond->pc);
+				snprint(str, sizeof str, "%lux", bigP->pcond->pc);
 		else
-			sprint(str, "%ld(PC)", a->offset);
+			snprint(str, sizeof str, "%ld(PC)", a->offset);
 		break;
 
 	case D_EXTERN:
-		sprint(str, "%s+%ld(SB)", a->sym->name, a->offset);
+		snprint(str, sizeof str, "%s+%ld(SB)", a->sym->name, a->offset);
 		break;
 
 	case D_STATIC:
-		sprint(str, "%s<%d>+%ld(SB)", a->sym->name,
+		snprint(str, sizeof str, "%s<%d>+%ld(SB)", a->sym->name,
 			a->sym->version, a->offset);
 		break;
 
 	case D_AUTO:
-		sprint(str, "%s+%ld(SP)", a->sym->name, a->offset);
+		snprint(str, sizeof str, "%s+%ld(SP)", a->sym->name, a->offset);
 		break;
 
 	case D_PARAM:
 		if(a->sym)
-			sprint(str, "%s+%ld(FP)", a->sym->name, a->offset);
+			snprint(str, sizeof str, "%s+%ld(FP)", a->sym->name, a->offset);
 		else
-			sprint(str, "%ld(FP)", a->offset);
+			snprint(str, sizeof str, "%ld(FP)", a->offset);
 		break;
 
 	case D_CONST:
-		sprint(str, "$%ld", a->offset);
+		snprint(str, sizeof str, "$%ld", a->offset);
 		break;
 
 	case D_STACK:
-		sprint(str, "TOS+%ld", a->offset);
+		snprint(str, sizeof str, "TOS+%ld", a->offset);
 		break;
 
 	case D_QUICK:
-		sprint(str, "$Q%ld", a->offset);
+		snprint(str, sizeof str, "$Q%ld", a->offset);
 		break;
 
 	case D_FCONST:
-		sprint(str, "$(%.8lux,%.8lux)", a->ieee.h, a->ieee.l);
+		snprint(str, sizeof str, "$(%.8lux,%.8lux)", a->ieee.h, a->ieee.l);
 		goto out;
 
 	case D_SCONST:
-		sprint(str, "$\"%S\"", a->scon);
+		snprint(str, sizeof str, "$\"%S\"", a->scon);
 		goto out;
 	}
-	if(a->displace) {
-		sprint(s, "/%ld", a->displace);
-		strcat(str, s);
-	}
+	if(a->displace)
+		return fmtprint(fp, "%s/%ld", str, a->displace);
 out:
 	return fmtstrcpy(fp, str);
 }
@@ -155,113 +150,113 @@ Rconv(Fmt *fp)
 
 	r = va_arg(fp->args, int);
 	if(r >= D_R0 && r < D_R0+NREG)
-		sprint(str, "R%d", r-D_R0);
+		snprint(str, sizeof str, "R%d", r-D_R0);
 	else
 	if(r >= D_A0 && r < D_A0+NREG)
-		sprint(str, "A%d", r-D_A0);
+		snprint(str, sizeof str, "A%d", r-D_A0);
 	else
 	if(r >= D_F0 && r < D_F0+NREG)
-		sprint(str, "F%d", r-D_F0);
+		snprint(str, sizeof str, "F%d", r-D_F0);
 	else
 	switch(r) {
 
 	default:
-		sprint(str, "gok(%d)", r);
+		snprint(str, sizeof str, "gok(%d)", r);
 		break;
 
 	case D_NONE:
-		sprint(str, "NONE");
+		snprint(str, sizeof str, "NONE");
 		break;
 
 	case D_TOS:
-		sprint(str, "TOS");
+		snprint(str, sizeof str, "TOS");
 		break;
 
 	case D_CCR:
-		sprint(str, "CCR");
+		snprint(str, sizeof str, "CCR");
 		break;
 
 	case D_SR:
-		sprint(str, "SR");
+		snprint(str, sizeof str, "SR");
 		break;
 
 	case D_SFC:
-		sprint(str, "SFC");
+		snprint(str, sizeof str, "SFC");
 		break;
 
 	case D_DFC:
-		sprint(str, "DFC");
+		snprint(str, sizeof str, "DFC");
 		break;
 
 	case D_CACR:
-		sprint(str, "CACR");
+		snprint(str, sizeof str, "CACR");
 		break;
 
 	case D_USP:
-		sprint(str, "USP");
+		snprint(str, sizeof str, "USP");
 		break;
 
 	case D_VBR:
-		sprint(str, "VBR");
+		snprint(str, sizeof str, "VBR");
 		break;
 
 	case D_CAAR:
-		sprint(str, "CAAR");
+		snprint(str, sizeof str, "CAAR");
 		break;
 
 	case D_MSP:
-		sprint(str, "MSP");
+		snprint(str, sizeof str, "MSP");
 		break;
 
 	case D_ISP:
-		sprint(str, "ISP");
+		snprint(str, sizeof str, "ISP");
 		break;
 
 	case D_FPCR:
-		sprint(str, "FPCR");
+		snprint(str, sizeof str, "FPCR");
 		break;
 
 	case D_FPSR:
-		sprint(str, "FPSR");
+		snprint(str, sizeof str, "FPSR");
 		break;
 
 	case D_FPIAR:
-		sprint(str, "FPIAR");
+		snprint(str, sizeof str, "FPIAR");
 		break;
 
 	case D_TREE:
-		sprint(str, "TREE");
+		snprint(str, sizeof str, "TREE");
 		break;
 
 	case D_TC:
-		sprint(str, "TC");
+		snprint(str, sizeof str, "TC");
 		break;
 
 	case D_ITT0:
-		sprint(str, "ITT0");
+		snprint(str, sizeof str, "ITT0");
 		break;
 
 	case D_ITT1:
-		sprint(str, "ITT1");
+		snprint(str, sizeof str, "ITT1");
 		break;
 
 	case D_DTT0:
-		sprint(str, "DTT0");
+		snprint(str, sizeof str, "DTT0");
 		break;
 
 	case D_DTT1:
-		sprint(str, "DTT1");
+		snprint(str, sizeof str, "DTT1");
 		break;
 
 	case D_MMUSR:
-		sprint(str, "MMUSR");
+		snprint(str, sizeof str, "MMUSR");
 		break;
 	case D_URP:
-		sprint(str, "URP");
+		snprint(str, sizeof str, "URP");
 		break;
 
 	case D_SRP:
-		sprint(str, "SRP");
+		snprint(str, sizeof str, "SRP");
 		break;
 	}
 	return fmtstrcpy(fp, str);

@@ -55,7 +55,7 @@ Aconv(Fmt *fp)
 int
 Dconv(Fmt *fp)
 {
-	char str[STRINGSZ+40], s[20];
+	char str[STRINGSZ+40];
 	Adr *a;
 	int i;
 
@@ -130,10 +130,8 @@ Dconv(Fmt *fp)
 		goto conv;
 	}
 brk:
-	if(a->index != D_NONE) {
-		snprint(s, sizeof(s), "(%R*%d)", a->index, a->scale);
-		strcat(str, s);
-	}
+	if(a->index != D_NONE)
+		return fmtprint(fp, "%s(%R*%d)", str, a->index, a->scale);
 conv:
 	return fmtstrcpy(fp, str);
 }

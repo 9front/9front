@@ -130,9 +130,9 @@ dodata(void)
 				continue;
 			/* size should be 19 max */
 			if(strlen(s->name) >= 10)	/* has loader address */ 
-				sprint(literal, "$%p.%llux", s, p->from.offset);
+				snprint(literal, sizeof literal, "$%p.%llux", s, p->from.offset);
 			else
-				sprint(literal, "$%s.%d.%llux", s->name, s->version, p->from.offset);
+				snprint(literal, sizeof literal, "$%s.%d.%llux", s->name, s->version, p->from.offset);
 		} else {
 			if(p->from.name != D_NONE)
 				continue;
@@ -147,7 +147,7 @@ dodata(void)
 			if (vv <= 0x7FFFFFFFLL && vv >= -0x80000000LL)
 				size = 4;
 			/* size should be 17 max */
-			sprint(literal, "$%llux", vv);
+			snprint(literal, sizeof literal, "$%llux", vv);
 		}
 		s = lookup(literal, 0);
 		if(s->type == 0) {
