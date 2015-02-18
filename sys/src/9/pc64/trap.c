@@ -96,7 +96,7 @@ intrdisable(int irq, void (*f)(Ureg *, void *), void *a, int tbdf, char *name)
 		vno = arch->intrvecno(irq);
 	}
 	ilock(&vctllock);
-	for(; vno <= MaxIrqLAPIC; vno++){
+	for(; vno <= MaxVectorAPIC; vno++){
 		for(pv = &vctl[vno]; (v = *pv) != nil; pv = &v->next){
 			if(v->isintr && (v->irq == irq || irq == -1)
 			&& v->tbdf == tbdf && v->f == f && v->a == a
