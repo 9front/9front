@@ -121,7 +121,17 @@ loop1:
 				r1 = rnops(uniqs(r));
 				if(r1 != R) {
 					p1 = r1->prog;
-					if(p->as == p1->as && p->to.type == p1->from.type){
+					if(p->to.type != p1->from.type)
+						break;
+					if((p->as == AMOVBLZX && p1->as == AMOVBQZX)
+					|| (p->as == AMOVWLZX && p1->as == AMOVWQZX)
+					|| (p->as == AMOVBLSX && p1->as == AMOVBQSX && p1->to.type == p->to.type)
+					|| (p->as == AMOVWLSX && p1->as == AMOVWQSX && p1->to.type == p->to.type)) {
+						p->as = p1->as;
+						p1->as = AMOVQ;
+						t++;
+					} else
+					if(p->as == p1->as) {
 						p1->as = AMOVL;
 						t++;
 					}
@@ -401,10 +411,6 @@ subprop(Reg *r0)
 		case ACWD:
 		case ACDQ:
 		case ACQO:
-
-		case AMOVSL:
-		case AMOVSQ:
-		case AMOVQL:
 			return 0;
 
 		case AORL:
@@ -432,7 +438,23 @@ subprop(Reg *r0)
 			break;
 
 		case AMOVL:
+		case ALEAL:
+		case AMOVSL:
+		case AMOVBLZX:
+		case AMOVBLSX:
+		case AMOVWLZX:
+		case AMOVWLSX:
+		case AMOVQL:
+
 		case AMOVQ:
+		case ALEAQ:
+		case AMOVSQ:
+		case AMOVBQZX:
+		case AMOVBQSX:
+		case AMOVWQZX:
+		case AMOVWQSX:
+		case AMOVLQZX:
+		case AMOVLQSX:
 			if(p->to.type == v1->type)
 				goto gotit;
 			break;
