@@ -25,6 +25,8 @@ pdfdict begin
 % Patch in an obsolete variable used by some third-party software.
 /#? false def
 
+/NoVerifyXref true def
+
 % Test whether the current output device handles pdfmark.
 /.writepdfmarkdict 1 dict dup /pdfmark null put readonly def
 /.writepdfmarks {	% - .writepdfmarks <bool>

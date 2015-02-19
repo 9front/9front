@@ -412,11 +412,10 @@ pdfdict begin
 	(   **** Warning: wrong generation: )
       } ifelse
       2 index =string cvs concatstrings ( ) concatstrings	% put obj #
-      exch =string cvs concatstrings ( R\n) concatstrings	% put gen #
+      1 index =string cvs concatstrings ( R\n) concatstrings	% put gen #
       pdfformaterror			% Output warning message
-    } {					% Else QUIET ...
-      pop				% Pop generation umber
-    } ifelse false			% Return false if gen # not match
+    } if
+    0 eq
   } ifelse
 } bind def
 /R {		% <object#> <generation#> R <object>
