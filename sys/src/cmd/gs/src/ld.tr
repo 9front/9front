@@ -285,6 +285,8 @@
 ./obj/md5.o \
 ./obj/zfarc4.o \
 ./obj/sarc4.o \
+./obj/zfaes.o \
+./obj/saes.o \
 ./obj/zicc.o \
 ./obj/gsicc.o \
 ./obj/icc.o \

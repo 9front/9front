@@ -39,6 +39,12 @@ pdfdict begin
   currentdict end /ArcfourDecode filter
 } bind def
 
+/aesdecodefilter {
+  1 dict begin
+  /Key exch def
+  currentdict end /AESDecode filter
+} bind def
+
 % <ciphertext> <key> arc4decode <plaintext>
 /arc4decode {
   %(key: ) print dup == (ct: ) print 1 index ==
@@ -46,6 +52,22 @@ pdfdict begin
     pop
   } {
     1 index length string 3 1 roll arc4decodefilter exch readstring pop
+  } ifelse
+} bind def
+
+/aesdecode {
+  1 index length 0 eq {
+    pop
+  } {
+    1 index length string 3 1 roll
+
+    % If our second argument is a dictionary, it's the full set
+    % of decoding options (including the key); pass it directly
+    % to the AESDecode filter.  Otherwise, it's just the key, so
+    % call aesdecodefilter to construct the dictionary.
+    dup type /dicttype eq { /AESDecode filter } { aesdecodefilter } ifelse
+
+    exch readstring pop
   } ifelse
 } bind def
 
@@ -294,18 +316,38 @@ def
 % put into a stream dictionary).
 /computeobjkey	% <object#> <generation#> computeobjkey <keystring>
 {
-  exch
-  FileKey length 5 add string
-  dup 0 FileKey putinterval
-  exch
-		% stack:  gen# string obj#
-    2 copy 255 and FileKey length exch put
-    2 copy -8 bitshift 255 and FileKey length 1 add exch put
-    2 copy -16 bitshift 255 and FileKey length 2 add exch put
-  pop exch
-    2 copy 255 and FileKey length 3 add exch put
-    2 copy -8 bitshift 255 and FileKey length 4 add exch put
-  pop md5 0 FileKey length 5 add 2 index length .min getinterval
+  Trailer /Encrypt oget /V oget 5 eq {
+    % Encrypt version 5 doesn't use object keys; everything is
+    % encrypted with the file key.
+    pop pop FileKey
+  } {
+    exch
+    FileKey length 5 add string
+    dup 0 FileKey putinterval
+    exch
+                  % stack:  gen# string obj#
+      2 copy 255 and FileKey length exch put
+      2 copy -8 bitshift 255 and FileKey length 1 add exch put
+      2 copy -16 bitshift 255 and FileKey length 2 add exch put
+    pop exch
+      2 copy 255 and FileKey length 3 add exch put
+      2 copy -8 bitshift 255 and FileKey length 4 add exch put
+    pop
+      % this step is for the AES cipher only
+      Trailer /Encrypt oget
+      dup /StmF knownoget {
+        exch /CF knownoget {
+          exch oget /CFM oget /AESV2 eq {
+            (sAlT) concatstrings
+          } if
+        } {
+          pop
+        } ifelse
+      } {
+        pop
+      } ifelse
+    md5 0 FileKey length 5 add 2 index length .min getinterval
+  } ifelse
 } bind def
 
 % As .pdfrun, but decrypt strings with key <key>.
@@ -351,17 +393,31 @@ def
              {				% R < 4 --> encrypted strings
 	       pop 1 index arc4decode	% Decrypt string
 	       PDFDEBUG { (%Decrypted: ) print dup == flush } if
-             } {			% Else R = 4
-	       /StrF knownoget		% Get StrF (if present)
-	        {			% If StrF is present ...
-		  /Identity eq not	% Check if StrF != Identity
-	  	   { 1 index arc4decode	% Decrypt string
-		     PDFDEBUG { (%Decrypted: ) print dup == flush } if
-		   }
-		  if			% If StrF != identity
-		}
-	       if			% If StrF is known
-      	     }
+             } {			% Else R &gt;= 4
+               /StrF knownoget		% Get StrF (if present)
+                {			% If StrF is present ...
+                  dup /Identity eq not	% Check if StrF != Identity
+                   { /StdCF eq
+                       { Trailer /Encrypt oget /CF knownoget {
+                           /StdCF oget /CFM oget
+                           dup /AESV2 eq exch /AESV3 eq or
+                         } {
+                           //false
+                         } ifelse {     % Decrypt string
+                           1 index aesdecode
+                         } {
+                           1 index arc4decode
+                         } ifelse
+                       }
+                       { 1 index arc4decode }
+                     ifelse		% If StrF != StdCF
+                     PDFDEBUG { (%Decrypted: ) print dup //== exec flush } if
+                   }
+                   { pop }
+                  ifelse		% If StrF != identity
+                }
+               if			% If StrF is known
+             }
 	    ifelse			% Ifelse R < 4
 	  }
 	 if				% If  = stringtype
@@ -384,49 +440,55 @@ def
     2 copy computeobjkey dup 4 1 roll
     PDFfile exch resolveopdict .decpdfrun
     dup dup dup 5 2 roll
-	% stack: object object key object object
+        % stack: object object key object object
     {	% Use loop to provide an exitable context.
       xcheck exch type /dicttype eq and % Check if executable dictionary
       not {				% If object is not ...
         pop pop				% ignore object
         exit				% Exit 'loop' context
       } if				% If not possible stream
-	% Starting with PDF 1.4 (R = 3), there are some extra features
-	% which control encryption of streams.  The EncryptMetadata entry
-	% in the Encrypt dict controls the encryption of metadata streams.
+        % Starting with PDF 1.4 (R = 3), there are some extra features
+        % which control encryption of streams.  The EncryptMetadata entry
+        % in the Encrypt dict controls the encryption of metadata streams.
       Trailer /Encrypt oget		% Get encryption dictionary
       dup /R oget dup 3 lt		% Only PDF 1.4 and higher has options
-      {					% R < 3 --> all streams encrypted
+      {					% R &lt; 3 --&gt; all streams encrypted
         pop pop /StreamKey exch put	% Insert StreamKey in dictionary
-	exit				% Exit 'loop' context
+        exit				% Exit 'loop' context
       } if
-	% Check EncryptMeta.  stack:  object object key Encrypt R
+        % Check EncryptMeta.  stack: object object key Encrypt R
       exch dup /EncryptMetadata knownoget % Get EncryptMetadata (if present)
-      not { true } if			% If not present default = true
+      not { //true } if			% If not present default = true
       not				% Check if EncryptMetadata = false
-      { 				% if false we need to check the stream type
-	3 index /Type knownoget		% Get stream type (if present)
-	not { //null } if		% If type not present use fake name
-	/Metadata eq			% Check if the type is Metadata
-        { pop pop pop pop		% Type == Metadata --> no encryption
-	  exit				% Exit 'loop' context
+      {					% if false we need to check the stream type
+        3 index /Type knownoget		% Get stream type (if present)
+        not { //null } if		% If type not present use fake name
+        /Metadata eq			% Check if the type is Metadata
+        { pop pop pop pop		% Type == Metadata --&gt; no encryption
+          exit				% Exit 'loop' context
         } if
       } if
-    	% PDF 1.5 encryption (R == 4) has selectable encryption handlers.  If
-	% this is not PDF 1.5 encryption (R < 4) then we are done checking and
-	% we need to decrypt the stream.  stack:  object object key R Encrypt
+        % PDF 1.5 encryption (R == 4) has selectable encryption handlers.  If
+        % this is not PDF 1.5 encryption (R &lt; 4) then we are done checking and
+        % we need to decrypt the stream.  stack: object object key R Encrypt
       exch 4 lt				% Check for less than PDF 1.5
       { pop /StreamKey exch put		% Insert StreamKey in dictionary
-	exit				% Exit 'loop' context
+        exit				% Exit 'loop' context
       } if
-	% Check if the stream encryption handler (StmF) == Identity.
+        % Check if the stream encryption handler (StmF) == Identity.
+      PDFDEBUG {
+        Trailer /Encrypt oget /CF knownoget {
+          /StdCF oget /CFM oget
+          (Encrypt StmF is StdCF with CFM ) print =
+        } if
+      } if
       /StmF knownoget			% Get StmF (if present)
       not { /Identity } if		% If StmF not present default = Identity
-      /Identity eq 			% Check if StmF == Identity
-      { pop pop				% Identity --> no encryption
-	exit				% Exit 'loop' context
+      /Identity eq			% Check if StmF == Identity
+      { pop pop				% Identity --&gt; no encryption
+        exit				% Exit 'loop' context
       } if
-      	% If we get here then we need to decrypt the stream.
+        % If we get here then we need to decrypt the stream.
       /StreamKey exch put		% Insert StreamKey into dictionary
       exit				% Exit 'loop' context, never loop
     } loop				% End of loop exitable context
@@ -441,16 +503,22 @@ def
 /pdf_decrypt_stream
  { 3 index /StreamKey known	% Check if the file is encrypted
    {
-      exch 
-	% Stack: readdata? dict parms filternames file/string
-      3 index /Length oget
-      dup 0 eq {
-	% Handle Length=0 case specially to avoid SubFileDecode semantics
-        pop pop ()
-      } {
-        () /SubFileDecode filter
-      } ifelse
-      3 index /StreamKey get arc4decodefilter
+      exch
+        % Stack: readdata? dict parms filternames file/string
+      3 index /StreamKey get
+      Trailer /Encrypt oget
+      dup /StmF knownoget
+       {                        % stack: key Encrypt StmF
+        exch /CF knownoget {
+          exch oget /CFM oget	% stack: key StmF-CFM
+          dup /AESV2 eq exch /AESV3 eq or
+        } { pop //false } ifelse
+         { aesdecodefilter }	% install the requested filter
+         { arc4decodefilter }
+        ifelse
+       }
+       { pop arc4decodefilter }	% fallback for no StmF
+      ifelse
       exch
    } if
  } bind def

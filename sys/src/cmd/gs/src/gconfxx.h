@@ -287,6 +287,7 @@ psfile_("gs_cff.ps",9)
 #ifdef oper_
 oper_(zfmd5_op_defs)
 oper_(zfarc4_op_defs)
+oper_(zfaes_op_defs)
 #endif
 #ifdef psfile_
 psfile_("gs_mgl_e.ps",11)

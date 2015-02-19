@@ -64,7 +64,8 @@ BIN=/$objtype/bin
 TARG=gs
 OFILES=\
 	obj/gs.$O\
-	`{sed 's#^./obj/(.*)\.o .*#obj/\1.$O#' src/ld.tr >[2] /dev/null | sort}
+	`{sed 's#^./obj/(.*)\.o .*#obj/\1.$O#' src/ld.tr >[2] /dev/null | sort} \
+	/$objtype/lib/ape/libcrypto.a
 
 # The first driver is the default.
 DRIVERS=\

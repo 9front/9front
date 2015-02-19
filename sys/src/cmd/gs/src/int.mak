@@ -1289,6 +1289,13 @@ $(PSD)farc4.dev : $(INT_MAK) $(ECHOGS_XE) $(farc4_) $(GLD)sarc4.dev
 	$(ADDMOD) $(PSD)farc4 -include $(GLD)sarc4
 	$(ADDMOD) $(PSD)farc4 -oper zfarc4
 
+# AES cipher filter
+faes4_=$(PSOBJ)zfaes.$(OBJ)
+$(PSD)faes.dev : $(INT_MAK) $(ECHOGS_XE) $(faes_) $(GLD)saes.dev
+	$(SETMOD) $(PSD)faes $(faes_)
+	$(ADDMOD) $(PSD)faes -include $(GLD)saes
+	$(ADDMOD) $(PSD)faes -oper zfaes
+
 $(PSOBJ)zfarc4.$(OBJ) : $(PSSRC)zfarc4.c $(OP) $(memory__h)\
  $(gsstruct_h) $(ialloc_h) $(idict_h) $(ifilter_h)\
  $(sarc4_h) $(stream_h) $(strimpl_h)

@@ -641,7 +641,7 @@ pdfdict begin
 	      	% of the objects in sthe stream and place them into the Objects
 	      	% array.
 		% Stack: savepos objpos obj# objectstream#
-	resolveobjectstream
+        resolveobjectstream
         resolved? {		% If object has already been resolved ...
 	  exch pop		% Remove object pos from stack.
 	} {
