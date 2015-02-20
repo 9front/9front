@@ -1347,7 +1347,8 @@ usbctl(void *a, long n)
 		print("usb: debug %d\n", debug);
 		for(i = 0; i < epmax; i++)
 			if((ep = getep(i)) != nil){
-				ep->hp->debug(ep->hp, debug);
+				if(ep->hp->debug != nil)
+					ep->hp->debug(ep->hp, debug);
 				putep(ep);
 			}
 		break;
