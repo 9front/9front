@@ -421,15 +421,17 @@ dumpeps(void)
 			s = seprint(s, e, "ep%d.%d ", ep->dev->nb, ep->nb);
 			seprintep(s, e, ep, 1);
 			print("%s", buf);
-			ep->hp->seprintep(buf, e, ep);
-			print("%s", buf);
+			if(ep->hp->seprintep != nil){
+				ep->hp->seprintep(buf, e, ep);
+				print("%s", buf);
+			}
 			poperror();
 			putep(ep);
 		}
 	}
 	print("usb dump hcis:\n");
 	for(i = 0; i < Nhcis; i++)
-		if(hcis[i] != nil)
+		if(hcis[i] != nil && hcis[i]->dump != nil)
 			hcis[i]->dump(hcis[i]);
 }
 
