@@ -14,7 +14,7 @@ ed \- text editor
 ]
 .SH DESCRIPTION
 .I Ed
-is a venerable text editor.
+is the standard text editor.
 .PP
 If a
 .I file
