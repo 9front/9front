@@ -49,3 +49,6 @@ and
 .I offset
 parameters is performed whatsoever.
 Odd values may cause the front to fall off.
+.SH HISTORY
+.I Seg
+first appeared in 9front (April, 2011).

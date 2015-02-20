@@ -46,3 +46,6 @@ Access embedded controller space.
 .SH SEE ALSO
 .IR seg (1),
 .IR arch (3)
+.SH HISTORY
+.I Io
+first appeared in 9front (April, 2011).
