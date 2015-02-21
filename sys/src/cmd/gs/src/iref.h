@@ -376,7 +376,7 @@ typedef int (*op_proc_t)(i_ctx_t *i_ctx_p);
 struct tas_s {
 /* type_attrs is a single element for fast dispatching in the interpreter */
     ushort type_attrs;
-    ushort rsize;
+    uint rsize;
 };
 struct ref_s {
 
@@ -560,9 +560,7 @@ struct ref_s {
    (arch_align_ptr_mod - 1)) + 1)
 
 /* Define the maximum size of an array or a string. */
-/* The maximum array size is determined by the fact that */
-/* the allocator cannot allocate a block larger than max_uint. */
-#define max_array_size (max_ushort & (max_uint / (uint)arch_sizeof_ref))
-#define max_string_size max_ushort
+#define max_array_size (16*1024*1024)
+#define max_string_size (16*1024*1024)
 
 #endif /* iref_INCLUDED */
