@@ -820,6 +820,8 @@ main(int argc, char *argv[])
 
 	if(s = getenv("httpproxy")){
 		proxy = saneurl(url(s, 0));
+		if(proxy == nil || strcmp(proxy->scheme, "http") && strcmp(proxy->scheme, "https"))
+			sysfatal("invalid httpproxy url: %s", s);
 		free(s);
 	}
 
