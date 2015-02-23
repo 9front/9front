@@ -632,7 +632,7 @@ baselinescan(Header *h, int colorspace)
 	ss = h->ss;
 	Ns = ss[0];
 	if((Ns!=3 && Ns!=1) || Ns!=h->Nf)
-		jpgerror(h, "ReadJPG: can't handle scan not 3 components");
+		jpgerror(h, "ReadJPG: can't handle scan not 1 or 3 components");
 
 	image = jpgmalloc(h, sizeof(Rawimage), 1);
 	h->image = image;
@@ -843,7 +843,7 @@ progressiveinit(Header *h, int colorspace)
 	ss = h->ss;
 	Ns = ss[0];
 	Nf = h->Nf;
-	if((Ns!=3 && Ns!=1) || Ns!=Nf)
+	if(Ns!=3 && Ns!=1)
 		jpgerror(h, "ReadJPG: image must have 1 or 3 components");
 
 	image = jpgmalloc(h, sizeof(Rawimage), 1);
@@ -897,25 +897,26 @@ progressivedc(Header *h, int comp, int Ah, int Al)
 	int block, t, diff, qt, *dc, bn;
 	Huffman *dcht;
 	uchar *ss;
-	int Td[3], DC[3], blockno[3];
+	int i, Td[3], DC[3], blockno[3];
 
 	ss= h->ss;
 	Ns = ss[0];
-	if(Ns!=h->Nf)
-		jpgerror(h, "ReadJPG: can't handle progressive with Nf!=Ns in DC scan");
+	if(Ns!=1 && Ns!=h->Nf)
+		jpgerror(h, "ReadJPG: can't handle progressive with Ns!=1 and Nf!=Ns in DC scan");
 
 	/* initialize data structures */
 	h->cnt = 0;
 	h->sr = 0;
 	h->peek = -1;
-	for(comp=0; comp<Ns; comp++){
+
+	for(i=0; i<Ns; i++){
 		/*
 		 * JPEG requires scan components to be in same order as in frame,
 		 * so if both have 3 we know scan is Y Cb Cr and there's no need to
 		 * reorder
 		 */
-		nibbles(ss[2+2*comp], &Td[comp], &z);	/* z is ignored */
-		DC[comp] = 0;
+		nibbles(ss[2+2*i], &Td[i], &z);	/* z is ignored */
+		DC[i] = 0;
 	}
 
 	ri = h->ri;
@@ -923,31 +924,33 @@ progressivedc(Header *h, int comp, int Ah, int Al)
 	nmcu = h->nacross*h->ndown;
 	memset(blockno, 0, sizeof blockno);
 	for(mcu=0; mcu<nmcu; ){
-		for(comp=0; comp<Ns; comp++){
-			dcht = &h->dcht[Td[comp]];
+		for(i=0; i<Ns; i++){
+			if(Ns != 1) comp = i;
+
+			dcht = &h->dcht[Td[i]];
 			qt = h->qt[h->comp[comp].Tq][0];
 			dc = h->dccoeff[comp];
-			bn = blockno[comp];
+			bn = blockno[i];
 
 			for(block=0; block<h->nblock[comp]; block++){
 				if(Ah == 0){
 					t = decode(h, dcht);
 					diff = receive(h, t);
-					DC[comp] += diff;
-					dc[bn] = qt*DC[comp]<<Al;
+					DC[i] += diff;
+					dc[bn] = qt*DC[i]<<Al;
 				}else
 					dc[bn] |= qt*receivebit(h)<<Al;
 				bn++;
 			}
-			blockno[comp] = bn;
+			blockno[i] = bn;
 		}
 
 		/* process restart marker, if present */
 		mcu++;
 		if(ri>0 && mcu<nmcu && mcu%ri==0){
 			restart(h, mcu);
-			for(comp=0; comp<Ns; comp++)
-				DC[comp] = 0;
+			for(i=0; i<Ns; i++)
+				DC[i] = 0;
 		}
 	}
 }
