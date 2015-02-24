@@ -9,27 +9,32 @@
 Subfont*
 _getsubfont(Display *d, char *name)
 {
-	int fd;
+	int dolock, fd;
 	Subfont *f;
 
-	fd = open(name, OREAD);
-	if(fd < 0){
-		fprint(2, "getsubfont: can't open %s: %r\n", name);
-		return 0;
-	}
 	/*
 	 * unlock display so i/o happens with display released, unless
 	 * user is doing his own locking, in which case this could break things.
 	 * _getsubfont is called only from string.c and stringwidth.c,
 	 * which are known to be safe to have this done.
 	 */
-	if(d && d->locking == 0)
+	dolock = d != nil && d->locking == 0;
+	if(dolock)
 		unlockdisplay(d);
-	f = readsubfont(d, name, fd, d && d->locking==0);
-	if(d && d->locking == 0)
+
+	fd = open(name, OREAD);
+	if(fd < 0) {
+		fprint(2, "getsubfont: can't open %s: %r\n", name);
+		f = nil;
+	} else {
+		f = readsubfont(d, name, fd, dolock);
+		if(f == nil)
+			fprint(2, "getsubfont: can't read %s: %r\n", name);
+		close(fd);
+	}
+
+	if(dolock)
 		lockdisplay(d);
-	close(fd);
-	if(f == 0)
-		fprint(2, "_getsubfont: can't read %s: %r\n", name);
+
 	return f;
 }
