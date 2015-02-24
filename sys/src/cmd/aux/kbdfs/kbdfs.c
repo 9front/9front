@@ -291,6 +291,10 @@ kbdputsc(Scan *scan, int c)
 	if(c >= Nscan)
 		return;
 
+	/* qemu workarround: emulate e0 for numpad */
+	if(c != 0 && strchr("GHIKMOPQRS", c) != nil)
+		scan->esc1 |= !scan->num;
+
 	if(scan->esc1 && scan->ctl && kbtabctrlesc1[c] != 0)
 		key.r = kbtabctrlesc1[c];
 	else if(scan->esc1 && scan->shift && kbtabshiftesc1[c] != 0)
