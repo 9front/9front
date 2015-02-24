@@ -18,23 +18,22 @@ readsubfonti(Display*d, char *name, int fd, Image *ai, int dolock)
 		if(i == nil)
 			return nil;
 	}
+	p = nil;
 	if(read(fd, hdr, 3*12) != 3*12){
-		if(ai == nil)
-			freeimage(i);
-		werrstr("rdsubfonfile: header read error: %r");
-		return nil;
+		werrstr("readsubfont: header read error: %r");
+		goto Err;
 	}
 	n = atoi(hdr);
+	if(n <= 0 || n > 0x7fff){
+		werrstr("readsubfont: bad fontchar count %d", n);
+		goto Err;
+	}
 	p = malloc(6*(n+1));
 	if(p == nil)
 		goto Err;
 	if(read(fd, p, 6*(n+1)) != 6*(n+1)){
-		werrstr("rdsubfonfile: fontchar read error: %r");
-    Err:
-		if(ai == nil)
-			freeimage(i);
-		free(p);
-		return nil;
+		werrstr("readsubfont: fontchar read error: %r");
+		goto Err;
 	}
 	fc = malloc(sizeof(Fontchar)*(n+1));
 	if(fc == nil)
@@ -51,6 +50,11 @@ readsubfonti(Display*d, char *name, int fd, Image *ai, int dolock)
 	}
 	free(p);
 	return f;
+Err:
+	if(ai == nil)
+		freeimage(i);
+	free(p);
+	return nil;
 }
 
 Subfont*

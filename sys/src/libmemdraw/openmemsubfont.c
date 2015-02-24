@@ -25,6 +25,10 @@ openmemsubfont(char *name)
 		goto Err;
 	}
 	n = atoi(hdr);
+	if(n <= 0 || n > 0x7fff){
+		werrstr("openmemsubfont: bad fontchar count %d", n);
+		goto Err;
+	}
 	p = malloc(6*(n+1));
 	if(p == nil)
 		goto Err;
@@ -46,9 +50,7 @@ openmemsubfont(char *name)
 	return sf;
 Err:
 	close(fd);
-	if (i != nil)
-		freememimage(i);
-	if (p != nil)
-		free(p);
+	free(p);
+	freememimage(i);
 	return nil;
 }
