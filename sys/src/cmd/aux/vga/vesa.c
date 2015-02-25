@@ -291,8 +291,6 @@ load(Vga* vga, Ctlr* ctlr)
 	if(setscale != nil){
 		if((*setscale)(vbe, scale) < 0){
 			fprint(2, "setscale: %r\n");
-			ctlr->flag |= Ferror;
-			return;
 		}
 	}
 }
