@@ -627,9 +627,11 @@ blockgrow(Pool *p, Bhdr *b, ulong nsize)
 		ulong dsize;
 
 		a = (Alloc*)b;
+		p->curalloc -= a->size;
 		dsize = getdsize(a);
 		blocksetsize(a, nsize);
 		trim(p, a, dsize);
+		p->curalloc += a->size;
 	}
 }
 
@@ -1119,6 +1121,7 @@ poolallocalignl(Pool *p, ulong dsize, ulong align, long offset, ulong span)
 	 * or mark it as unavailable.
 	 */
 	b = _D2B(v);
+	p->curalloc -= b->size;
 	b = freefromfront(p, b, skip);
 	v = _B2D(b);
 	skip = c - (char*)v;
@@ -1128,6 +1131,7 @@ poolallocalignl(Pool *p, ulong dsize, ulong align, long offset, ulong span)
 			*u++ = ALIGN_MAGIC;
 	}
 	trim(p, b, skip+dsize);
+	p->curalloc += b->size;
 	assert(D2B(p, c) == b);
 	antagonism { 
 		memset(c, 0xDD, dsize);
