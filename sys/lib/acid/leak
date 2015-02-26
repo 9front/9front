@@ -9,11 +9,20 @@ dumppool(p, sum)
 	complex Pool p;
 	a = p.arenalist;
 
+	allocsize = 0;
+
 	print("A: ", p.arenalist\A, "\n");
 	while a != 0 do {
 		complex Arena a;
 		dumparena(a, sum);
 		a = a.down;
+	}
+	if sum then {
+		emitsum();
+	}
+
+	if allocsize != p.curalloc then {
+		print("found alloc size mismatch ", allocsize, " != ", p.curalloc, "\n");
 	}
 }
 
@@ -91,6 +100,7 @@ dumpblock(addr, sum)
 
 		x = fmt(addr+sizeofBhdr, 'X');
 		if addr.magic == ALLOC_MAGIC then {
+			allocsize = allocsize+a.size;
 			// for mallocalign()
 			while *x == ALIGN_MAGIC do {
 				x = x + 4;
@@ -199,7 +209,6 @@ blocksummary()
 {
 	print("==BLOCK BEGIN==\n");
 	dumppool(*mainmem, 1);
-	emitsum();
 	print("==BLOCK END==\n");
 }
 
