@@ -156,3 +156,9 @@ Where you see a hack I see an elegant design.
 For now you just have to fight the temptation.
 Just for comparison, godoc is 16 MB on my laptop.
 In general, for me, the answer to whether there is a problem depends on how complex the solutions are.
+what's going on with freebsd-386, plan9-386, and plan9-amd64?
+All our arm builders seem to have disappeared.
+Please stop.
+what's going on with freebsd-386, plan9-386, and plan9-amd64?
+All our arm builders seem to have disappeared.
+Please stop.

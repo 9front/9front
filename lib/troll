@@ -202,3 +202,4 @@ For new code - I know openntpd is not new code, but I don't think this approach 
 I want to develop for Plan9 but I'm a Java person
 When I type "9fs sources" I get a timeout. Is there another way to search for Plan 9 software?
 [9fans] simple cgi and POST for plan9?
+one of the first go programs was a primitive lisp
