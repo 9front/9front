@@ -624,11 +624,6 @@ functions for debugging threaded programs.
 .TP
 .B /sys/src/libthread/example.c
 a full example program.
-.TP
-.B /mnt/temp
-a place for
-.I procexec
-to create pipes.
 .SH SOURCE
 .B /sys/src/libthread
 .SH SEE ALSO
