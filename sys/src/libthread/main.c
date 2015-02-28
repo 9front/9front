@@ -114,7 +114,6 @@ efork(Execargs *e)
 	if(buf[0]=='\0')
 		strcpy(buf, "exec failed");
 	write(e->fd[1], buf, strlen(buf));
-	close(e->fd[1]);
 	_exits(buf);
 }
 

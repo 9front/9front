@@ -3,8 +3,6 @@
 #include <thread.h>
 #include "threadimpl.h"
 
-#define PIPEMNT	"/mnt/temp"
-
 void
 procexec(Channel *pidc, char *prog, char *args[])
 {
@@ -36,18 +34,16 @@ procexec(Channel *pidc, char *prog, char *args[])
 	 * then the proc doing the exec sends the errstr down the
 	 * pipe to us.
 	 */
-	if(bind("#|", PIPEMNT, MREPL) < 0)
+	if(pipe(p->exec.fd) < 0)
 		goto Bad;
-	if((p->exec.fd[0] = open(PIPEMNT "/data", OREAD)) < 0){
-		unmount(nil, PIPEMNT);
-		goto Bad;
-	}
-	if((p->exec.fd[1] = open(PIPEMNT "/data1", OWRITE|OCEXEC)) < 0){
+	snprint(p->exitstr, ERRMAX, "/fd/%d", p->exec.fd[1]);
+	if((n = open(p->exitstr, OWRITE|OCEXEC)) < 0){
 		close(p->exec.fd[0]);
-		unmount(nil, PIPEMNT);
+		close(p->exec.fd[1]);
 		goto Bad;
 	}
-	unmount(nil, PIPEMNT);
+	close(p->exec.fd[1]);
+	p->exec.fd[1] = n;
 
 	/* exec in parallel via the scheduler */
 	assert(p->needexec==0);
