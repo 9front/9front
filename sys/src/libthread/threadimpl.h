@@ -159,8 +159,6 @@ struct Iocall
 	char		err[ERRMAX];
 };
 
-void	_freeproc(Proc*);
-void	_freethread(Thread*);
 Proc*	_newproc(void(*)(void*), void*, uint, char*, int, int);
 int	_procsplhi(void);
 void	_procsplx(int);
@@ -183,7 +181,6 @@ void*	_threadmalloc(long, int);
 void	_threadnote(void*, char*);
 void	_threadready(Thread*);
 void*	_threadrendezvous(void*, void*);
-void	_threadsignal(void);
 void	_threadsysfatal(char*, va_list);
 void**	_workerdata(void);
 
