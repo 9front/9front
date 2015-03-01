@@ -29,9 +29,6 @@ struct Mntrpc
 	uchar*	rpc;		/* I/O Data buffer */
 	uint	rpclen;		/* len of buffer */
 	Block*	b;		/* reply blocks */
-	uvlong	stime;		/* start time for mnt statistics */
-	ulong	reqlen;		/* request length for mnt statistics */
-	ulong	replen;		/* reply length for mnt statistics */
 	Mntrpc*	flushed;	/* message this one flushes */
 	char	done;		/* Rpc completed */
 };
@@ -808,8 +805,6 @@ mountio(Mnt *m, Mntrpc *r)
 		
 	if(devtab[m->c->type]->write(m->c, r->rpc, n, 0) != n)
 		error(Emountrpc);
-	r->stime = fastticks(nil);
-	r->reqlen = n;
 
 	/* Gate readers onto the mount point one at a time */
 	for(;;) {
