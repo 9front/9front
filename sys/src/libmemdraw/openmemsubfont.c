@@ -20,7 +20,7 @@ openmemsubfont(char *name)
 	i = readmemimage(fd);
 	if(i == nil)
 		goto Err;
-	if(read(fd, hdr, 3*12) != 3*12){
+	if(readn(fd, hdr, 3*12) != 3*12){
 		werrstr("openmemsubfont: header read error: %r");
 		goto Err;
 	}
@@ -32,7 +32,7 @@ openmemsubfont(char *name)
 	p = malloc(6*(n+1));
 	if(p == nil)
 		goto Err;
-	if(read(fd, p, 6*(n+1)) != 6*(n+1)){
+	if(readn(fd, p, 6*(n+1)) != 6*(n+1)){
 		werrstr("openmemsubfont: fontchar read error: %r");
 		goto Err;
 	}

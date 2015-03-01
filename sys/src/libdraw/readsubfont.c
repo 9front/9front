@@ -19,7 +19,7 @@ readsubfonti(Display*d, char *name, int fd, Image *ai, int dolock)
 			return nil;
 	}
 	p = nil;
-	if(read(fd, hdr, 3*12) != 3*12){
+	if(readn(fd, hdr, 3*12) != 3*12){
 		werrstr("readsubfont: header read error: %r");
 		goto Err;
 	}
@@ -31,7 +31,7 @@ readsubfonti(Display*d, char *name, int fd, Image *ai, int dolock)
 	p = malloc(6*(n+1));
 	if(p == nil)
 		goto Err;
-	if(read(fd, p, 6*(n+1)) != 6*(n+1)){
+	if(readn(fd, p, 6*(n+1)) != 6*(n+1)){
 		werrstr("readsubfont: fontchar read error: %r");
 		goto Err;
 	}
