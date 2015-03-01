@@ -472,11 +472,10 @@ findproto(char *name)
 }
 
 char*
-getnvramkey(int flag, char **secstorepw)
+getnvramkey(int flag)
 {
-	char *s;
 	Nvrsafe safe;
-	char spw[CONFIGLEN+1];
+	char *s;
 	int i;
 
 	memset(&safe, 0, sizeof safe);
@@ -488,15 +487,6 @@ getnvramkey(int flag, char **secstorepw)
 		return nil;
 
 	/*
-	 *  we're using the config area to hold the secstore
-	 *  password.  if there's anything there, return it.
-	 */
-	memmove(spw, safe.config, CONFIGLEN);
-	spw[CONFIGLEN] = 0;
-	if(spw[0] != 0 && secstorepw != nil)
-		*secstorepw = estrdup(spw);
-
-	/*
 	 *  only use nvram key if it is non-zero
 	 */
 	for(i = 0; i < DESKEYLEN; i++)
@@ -505,11 +495,11 @@ getnvramkey(int flag, char **secstorepw)
 	if(i == DESKEYLEN)
 		return nil;
 
-	s = emalloc(512);
 	fmtinstall('H', encodefmt);
-	sprint(s, "key proto=p9sk1 user=%q dom=%q !hex=%.*H !password=______", 
+	s = smprint("key proto=p9sk1 user=%q dom=%q !hex=%.*H !password=______", 
 		safe.authid, safe.authdom, DESKEYLEN, safe.machkey);
 	writehostowner(safe.authid);
+	memset(&safe, 0, sizeof safe);
 
 	return s;
 }

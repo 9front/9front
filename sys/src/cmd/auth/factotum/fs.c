@@ -148,7 +148,7 @@ main(int argc, char **argv)
 	}
 
 	if(sflag){
-		s = getnvramkey(kflag ? NVwrite : NVwriteonerr, nil);
+		s = getnvramkey(kflag ? NVwrite : NVwriteonerr);
 		if(s == nil)
 			fprint(2, "factotum warning: cannot read nvram: %r\n");
 		else if(ctlwrite(s, 0) < 0)

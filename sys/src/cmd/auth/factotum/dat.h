@@ -201,7 +201,7 @@ Keyinfo*	mkkeyinfo(Keyinfo*, Fsstate*, Attr*);
 int		findkey(Key**, Keyinfo*, char*, ...);
 int		findp9authkey(Key**, Fsstate*);
 Proto	*findproto(char*);
-char		*getnvramkey(int, char**);
+char		*getnvramkey(int);
 void		initcap(void);
 int		isclient(char*);
 int		matchattr(Attr*, Attr*, Attr*);
