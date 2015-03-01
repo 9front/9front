@@ -20,6 +20,7 @@ Bconv(Fmt *fp)
 	Bits bits;
 	int i;
 
+	memset(str, 0, sizeof str);
 	bits = va_arg(fp->args, Bits);
 	while(bany(&bits)) {
 		i = bnum(bits);
