@@ -12,8 +12,8 @@ mkfont(Subfont *subfont, Rune min)
 	Cachefont *c;
 
 	font = malloc(sizeof(Font));
-	if(font == 0)
-		return 0;
+	if(font == nil)
+		return nil;
 	memset(font, 0, sizeof(Font));
 	font->display = subfont->bits->display;
 	font->name = strdup("<synthetic>");
@@ -21,7 +21,7 @@ mkfont(Subfont *subfont, Rune min)
 	font->nsubf = NFSUBF;
 	font->cache = malloc(font->ncache * sizeof(font->cache[0]));
 	font->subf = malloc(font->nsubf * sizeof(font->subf[0]));
-	if(font->name==0 || font->cache==0 || font->subf==0){
+	if(font->name==nil || font->cache==nil || font->subf==nil){
     Err:
 		free(font->name);
 		free(font->cache);
@@ -36,18 +36,18 @@ mkfont(Subfont *subfont, Rune min)
 	font->ascent = subfont->ascent;
 	font->age = 1;
 	font->sub = malloc(sizeof(Cachefont*));
-	if(font->sub == 0)
+	if(font->sub == nil)
 		goto Err;
 	c = malloc(sizeof(Cachefont));
-	if(c == 0)
+	if(c == nil)
 		goto Err;
 	font->nsub = 1;
 	font->sub[0] = c;
 	c->min = min;
 	c->max = min+subfont->n-1;
 	c->offset = 0;
-	c->name = 0;	/* noticed by freeup() and agefont() */
-	c->subfontname = 0;
+	c->name = nil;	/* noticed by agefont() */
+	c->subfontname = nil;
 	font->subf[0].age = 0;
 	font->subf[0].cf = c;
 	font->subf[0].f = subfont;

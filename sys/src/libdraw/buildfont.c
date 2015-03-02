@@ -14,7 +14,7 @@ Font*
 buildfont(Display *d, char *buf, char *name)
 {
 	Font *fnt;
-	Cachefont *c;
+	Cachefont *c, **sub;
 	char *s, *t;
 	ulong min, max;
 	int offset;
@@ -22,8 +22,8 @@ buildfont(Display *d, char *buf, char *name)
 
 	s = buf;
 	fnt = malloc(sizeof(Font));
-	if(fnt == 0)
-		return 0;
+	if(fnt == nil)
+		return nil;
 	memset(fnt, 0, sizeof(Font));
 	fnt->display = d;
 	fnt->name = strdup(name);
@@ -31,14 +31,14 @@ buildfont(Display *d, char *buf, char *name)
 	fnt->nsubf = NFSUBF;
 	fnt->cache = malloc(fnt->ncache * sizeof(fnt->cache[0]));
 	fnt->subf = malloc(fnt->nsubf * sizeof(fnt->subf[0]));
-	if(fnt->name==0 || fnt->cache==0 || fnt->subf==0){
+	if(fnt->name==nil || fnt->cache==nil || fnt->subf==nil){
     Err2:
 		free(fnt->name);
 		free(fnt->cache);
 		free(fnt->subf);
 		free(fnt->sub);
 		free(fnt);
-		return 0;
+		return nil;
 	}
 	fnt->height = strtol(s, &s, 0);
 	s = skip(s);
@@ -50,7 +50,7 @@ buildfont(Display *d, char *buf, char *name)
 	}
 	fnt->width = 0;
 	fnt->nsub = 0;
-	fnt->sub = 0;
+	fnt->sub = nil;
 
 	memset(fnt->subf, 0, fnt->nsubf * sizeof(fnt->subf[0]));
 	memset(fnt->cache, 0, fnt->ncache*sizeof(fnt->cache[0]));
@@ -82,16 +82,13 @@ buildfont(Display *d, char *buf, char *name)
 			s = skip(t);
 		else
 			offset = 0;
-		fnt->sub = realloc(fnt->sub, (fnt->nsub+1)*sizeof(Cachefont*));
-		if(fnt->sub == 0){
-			/* realloc manual says fnt->sub may have been destroyed */
-			fnt->nsub = 0;
+		sub = realloc(fnt->sub, (fnt->nsub+1)*sizeof(Cachefont*));
+		if(sub == nil)
 			goto Err3;
-		}
+		fnt->sub = sub;
 		c = malloc(sizeof(Cachefont));
-		if(c == 0)
+		if(c == nil)
 			goto Err3;
-		fnt->sub[fnt->nsub] = c;
 		c->min = min;
 		c->max = max;
 		c->offset = offset;
@@ -99,14 +96,14 @@ buildfont(Display *d, char *buf, char *name)
 		while(*s && *s!=' ' && *s!='\n' && *s!='\t')
 			s++;
 		*s++ = 0;
-		c->subfontname = 0;
+		c->subfontname = nil;
 		c->name = strdup(t);
-		if(c->name == 0){
+		if(c->name == nil){
 			free(c);
 			goto Err3;
 		}
+		sub[fnt->nsub++] = c;
 		s = skip(s);
-		fnt->nsub++;
 	}while(*s);
 	return fnt;
 }
@@ -118,7 +115,7 @@ freefont(Font *f)
 	Cachefont *c;
 	Subfont *s;
 
-	if(f == 0)
+	if(f == nil)
 		return;
 
 	for(i=0; i<f->nsub; i++){
@@ -129,9 +126,10 @@ freefont(Font *f)
 	}
 	for(i=0; i<f->nsubf; i++){
 		s = f->subf[i].f;
-		if(s)
-			if(display == nil || s!=display->defaultsubfont)
+		if(s != nil){
+			if(f->display == nil || s != f->display->defaultsubfont)
 				freesubfont(s);
+		}
 	}
 	freeimage(f->cacheimage);
 	free(f->name);

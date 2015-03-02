@@ -10,8 +10,8 @@ allocsubfont(char *name, int n, int height, int ascent, Fontchar *info, Image *i
 	assert(height != 0 /* allocsubfont */);
 
 	f = malloc(sizeof(Subfont));
-	if(f == 0)
-		return 0;
+	if(f == nil)
+		return nil;
 	f->n = n;
 	f->height = height;
 	f->ascent = ascent;
@@ -20,8 +20,12 @@ allocsubfont(char *name, int n, int height, int ascent, Fontchar *info, Image *i
 	f->ref = 1;
 	if(name){
 		f->name = strdup(name);
+		if(f->name == nil){
+			free(f);
+			return nil;
+		}
 		installsubfont(name, f);
 	}else
-		f->name = 0;
+		f->name = nil;
 	return f;
 }
