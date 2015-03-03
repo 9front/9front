@@ -359,8 +359,6 @@ struct Physseg
 	char	*name;			/* Attach name */
 	uintptr	pa;			/* Physical address */
 	uintptr	size;			/* Maximum segment size in bytes */
-	Page	*(*pgalloc)(Segment*, uintptr);	/* Allocation if we need it */
-	void	(*pgfree)(Page*);
 };
 
 struct Sema

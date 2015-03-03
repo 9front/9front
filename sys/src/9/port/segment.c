@@ -11,9 +11,9 @@ int imagereclaim(int);
  * Attachable segment types
  */
 static Physseg physseg[10] = {
-	{ SG_SHARED,	"shared",	0,	SEGMAXSIZE,	0, 	0 },
-	{ SG_BSS,	"memory",	0,	SEGMAXSIZE,	0,	0 },
-	{ 0,		0,		0,	0,		0,	0 },
+	{ SG_SHARED,	"shared",	0,	SEGMAXSIZE	},
+	{ SG_BSS,	"memory",	0,	SEGMAXSIZE	},
+	{ 0,		0,		0,	0		},
 };
 
 static Lock physseglock;
@@ -459,6 +459,9 @@ mcountseg(Segment *s)
 	int i, j;
 	Page *pg;
 
+	if((s->type&SG_TYPE) == SG_PHYSICAL)
+		return 0;
+
 	pages = 0;
 	for(i = 0; i < s->mapsize; i++){
 		if(s->map[i] == nil)
@@ -481,6 +484,9 @@ mfreeseg(Segment *s, uintptr start, int pages)
 	int i, j, size;
 	uintptr soff;
 	Page *pg;
+
+	if((s->type&SG_TYPE) == SG_PHYSICAL)
+		return;
 
 	/*
 	 * We want to zero s->map[i]->page[j] and putpage(pg),

@@ -384,23 +384,11 @@ ptealloc(void)
 void
 freepte(Segment *s, Pte *p)
 {
-	void (*fn)(Page*);
-	Page **pg, **ptop;
+	Page **pg;
 
 	switch(s->type&SG_TYPE) {
 	case SG_PHYSICAL:
-		fn = s->pseg->pgfree;
-		ptop = &p->pages[PTEPERTAB];
-		if(fn != nil) {
-			for(pg = p->pages; pg < ptop; pg++) {
-				if(*pg == nil)
-					continue;
-				(*fn)(*pg);
-				*pg = nil;
-			}
-			break;
-		}
-		for(pg = p->pages; pg < ptop; pg++) {
+		for(pg = p->first; pg <= p->last; pg++) {
 			if(*pg != nil) {
 				if(decref(*pg) == 0)
 					free(*pg);
@@ -409,11 +397,12 @@ freepte(Segment *s, Pte *p)
 		}
 		break;
 	default:
-		for(pg = p->first; pg <= p->last; pg++)
+		for(pg = p->first; pg <= p->last; pg++) {
 			if(*pg != nil) {
 				putpage(*pg);
 				*pg = nil;
 			}
+		}
 	}
 	free(p);
 }
@@ -483,7 +472,7 @@ portcountpagerefs(ulong *ref, int print)
 		p = proctab(i);
 		for(j=0; j<NSEG; j++){
 			s = p->seg[j];
-			if(s)
+			if(s != nil)
 				s->mark = 0;
 		}
 	}
@@ -492,6 +481,8 @@ portcountpagerefs(ulong *ref, int print)
 		for(j=0; j<NSEG; j++){
 			s = p->seg[j];
 			if(s == nil || s->mark++)
+				continue;
+			if((s->type&SG_TYPE) == SG_PHYSICAL)
 				continue;
 			ns++;
 			for(k=0; k<s->mapsize; k++){
