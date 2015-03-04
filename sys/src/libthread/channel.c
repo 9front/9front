@@ -49,21 +49,6 @@ chanfree(Channel *c)
 	unlock(&chanlock);
 }
 
-int
-chaninit(Channel *c, int elemsize, int elemcnt)
-{
-	if(elemcnt < 0 || elemsize <= 0 || c == nil)
-		return -1;
-	c->f = 0;
-	c->n = 0;
-	c->closed = 0;
-	c->freed = 0;
-	c->e = elemsize;
-	c->s = elemcnt;
-	_threaddebug(DBGCHAN, "chaninit %p", c);
-	return 1;
-}
-
 Channel*
 chancreate(int elemsize, int elemcnt)
 {
