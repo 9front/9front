@@ -28,7 +28,7 @@ mail	d775 upas upas
 	lib	d775
 		*
 	queue	d775
-	tmp	d775
+	tmp	d777
 
 386	d775
 	mkfile
