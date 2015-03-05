@@ -44,6 +44,8 @@ use
 .I col
 to remove reverse line feeds, and 
 paginate the output.
+.SH SOURCE
+.B /sys/src/cmd/col.c
 .SH SEE ALSO
 .IR pr (1)
 .SH BUGS
