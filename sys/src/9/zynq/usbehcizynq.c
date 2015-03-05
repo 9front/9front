@@ -102,6 +102,29 @@ dmaflush(int clean, void *data, ulong len)
 	}
 }
 
+static int (*ehciportstatus)(Hci*,int);
+
+static int
+portstatus(Hci *hp, int port)
+{
+	Ctlr *ctlr;
+	Eopio *opio;
+	int r, sts;
+
+	ctlr = hp->aux;
+	opio = ctlr->opio;
+	r = (*ehciportstatus)(hp, port);
+	if(r & HPpresent){
+		sts = opio->portsc[port-1];
+		r &= ~(HPhigh|HPslow);
+		if(sts & (1<<9))
+			r |= HPhigh;
+		else if(sts & 1<<26)
+			r |= HPslow;
+	}
+	return r;
+}
+
 static int
 reset(Hci *hp)
 {
@@ -124,7 +147,7 @@ reset(Hci *hp)
 	ctlr->r = vmap(ctlr->base, 0x1F0);
 	ctlr->opio = (Eopio *) ((uchar *) ctlr->r + 0x140);
 	ctlr->capio = (void *) ctlr->base;
-	hp->nports = 1;
+	hp->nports = 1;	
 
 	ctlr->tdalloc = tdalloc;
 	ctlr->dmaalloc = dmaalloc;
@@ -136,6 +159,11 @@ reset(Hci *hp)
 	ctlr->r[ULPI] = 1<<30 | 1<<29 | 0x0B << 16 | 3<<5;
 	ehcimeminit(ctlr);
 	ehcilinkage(hp);
+
+	/* hook portstatus */
+	ehciportstatus = hp->portstatus;
+	hp->portstatus = portstatus;
+
 	if(hp->interrupt != nil)
 		intrenable(hp->irq, hp->interrupt, hp, LEVEL, hp->type);
 	return 0;

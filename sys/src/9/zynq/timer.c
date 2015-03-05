@@ -23,13 +23,19 @@ enum {
 uvlong timerhz;
 
 void
-delay(int)
+microdelay(int n)
 {
+	ulong now;
+
+	now = µs();
+	while(µs() - now < n);
 }
 
 void
-microdelay(int)
+delay(int n)
 {
+	while(--n >= 0)
+		microdelay(1000);
 }
 
 uvlong
