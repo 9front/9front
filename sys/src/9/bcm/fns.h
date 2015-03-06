@@ -58,8 +58,6 @@ extern void procsave(Proc*);
 extern void procfork(Proc*);
 extern void procsetup(Proc*);
 extern void screeninit(void);
-#define sdfree(p) free(p)
-#define sdmalloc(n)	mallocalign(n, CACHELINESZ, 0, 0)
 extern void setpower(int, int);
 extern void setr13(int, u32int*);
 extern int splfhi(void);
