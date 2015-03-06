@@ -843,7 +843,7 @@ sdbio(Chan* c, int write, char* a, long len, uvlong off)
 		len = nb*unit->secsize - offset;
 	hard = offset || write && len%unit->secsize;
 
-	if(iskaddr(a) && !hard) {
+	if(iskaddr(a) && ((uintptr)a & (BY2PG-1))==0 && !hard) {
 		b = (uchar*)a;
 		allocd = 0;
 	}else{

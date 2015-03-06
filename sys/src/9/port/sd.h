@@ -145,15 +145,10 @@ enum {
 };
 
 /*
- * Allow the default #defines for sdmalloc & sdfree to be overridden by
- * system-specific versions.  This can be used to avoid extra copying
- * by making sure sd buffers are cache-aligned (some ARM systems) or
- * page-aligned (xen) for DMA.
+ * Avoid extra copying by making sd buffers page-aligned for DMA.
  */
-#ifndef sdmalloc
-#define sdmalloc(n)	malloc(n)
+#define sdmalloc(n)	mallocalign(n, BY2PG, 0, 0)
 #define sdfree(p)	free(p)
-#endif
 
 /*
  * mmc/sd/sdio host controller interface

@@ -16,7 +16,7 @@ dev
 	tls
 	cap
 	kprof
-	fs
+	sd
 	qspi
 	draw screen
 	mouse
@@ -30,6 +30,7 @@ link
 
 misc
 	uartzynq
+	sdmmc		emmc
 
 ip
 	tcp
