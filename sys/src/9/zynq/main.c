@@ -349,7 +349,7 @@ isaconfig(char *, int, ISAConf*)
 void
 cpuidprint(void)
 {
-	print("\ncpu%d: %dMHz ARM Cortex-A9\n", m->machno, m->cpumhz);
+	print("cpu%d: %dMHz ARM Cortex-A9\n", m->machno, m->cpumhz);
 }
 
 void
@@ -394,6 +394,7 @@ main(void)
 {
 	active.machs |= (1 << m->machno);
 	if(m->machno != 0){
+		uartputs("\n", 1);
 		mmuinit();
 		intrinit();
 		timerinit();
@@ -416,6 +417,7 @@ main(void)
 	quotefmtinstall();
 	cpuidprint();
 	sanity();
+	mpinit();
 	todinit();
 	timersinit();
 	procinit0();
@@ -430,6 +432,5 @@ main(void)
 	swapinit();
 	screeninit();
 	userinit();
-	mpinit();
 	schedinit();
 }
