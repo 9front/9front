@@ -823,19 +823,23 @@ syssegfree(va_list list)
 	uintptr from, to;
 
 	from = va_arg(list, uintptr);
+	to = va_arg(list, ulong);
+	to += from;
+	if(to < from)
+		error(Ebadarg);
 	s = seg(up, from, 1);
 	if(s == nil)
 		error(Ebadarg);
-	to = va_arg(list, ulong);
-	to += from;
 	to &= ~(BY2PG-1);
 	from = PGROUND(from);
-
+	if(from >= to) {
+		qunlock(s);
+		return 0;
+	}
 	if(to > s->top) {
 		qunlock(s);
 		error(Ebadarg);
 	}
-
 	mfreeseg(s, from, (to - from) / BY2PG);
 	qunlock(s);
 	flushmmu();

@@ -479,11 +479,14 @@ mcountseg(Segment *s)
  *  called with s locked
  */
 void
-mfreeseg(Segment *s, uintptr start, int pages)
+mfreeseg(Segment *s, uintptr start, ulong pages)
 {
 	int i, j, size;
 	uintptr soff;
 	Page *pg;
+
+	if(pages == 0)
+		return;
 
 	if((s->type&SG_TYPE) == SG_PHYSICAL)
 		return;
@@ -500,12 +503,12 @@ mfreeseg(Segment *s, uintptr start, int pages)
 	j = (soff&(PTEMAPMEM-1))/BY2PG;
 
 	size = s->mapsize;
-	for(i = soff/PTEMAPMEM; i < size; i++) {
-		if(pages <= 0)
-			return;
+	for(i = soff/PTEMAPMEM; i < size; i++, j = 0) {
 		if(s->map[i] == nil) {
-			pages -= PTEPERTAB-j;
-			j = 0;
+			j = PTEPERTAB - j;
+			if(j >= pages)
+				return;
+			pages -= j;
 			continue;
 		}
 		while(j < PTEPERTAB) {
@@ -518,7 +521,6 @@ mfreeseg(Segment *s, uintptr start, int pages)
 				return;
 			j++;
 		}
-		j = 0;
 	}
 }
 
