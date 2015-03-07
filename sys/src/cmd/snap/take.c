@@ -96,47 +96,45 @@ readsection(long pid, char *sec)
 }
 
 static Seg*
-readseg(int fd, vlong off, ulong len, char *name)
+readseg(int fd, uvlong off, uvlong len, char *name)
 {
 	char buf[Pagesize];
+	ulong npg;
 	Page **pg;
-	int npg;
 	Seg *s;
-	ulong i;
 	int n;
 
 	s = emalloc(sizeof(*s));
 	s->name = estrdup(name);
-
 	if(seek(fd, off, 0) < 0) {
 		fprint(2, "seek fails\n");
 		goto Die;
 	}
-
+	s->offset = off;
+	s->len = 0;
 	pg = nil;
 	npg = 0;
-	for(i=0; i<len; ) {
+	while(s->len < len){
 		n = Pagesize;
-		if(n > len-i)
-			n = len-i;
+		if(n > len - s->len)
+			n = len - s->len;
 		if((n = readn(fd, buf, n)) <= 0)
 			break;
-		pg = erealloc(pg, sizeof(*pg)*(npg+1));
+		s->len += n;
+		if((npg & (npg-1)) == 0)
+			pg = erealloc(pg, sizeof(*pg) * (npg==0 | npg*2));
 		pg[npg++] = datapage(buf, n);
-		i += n;
 		if(n != Pagesize)	/* any short read, planned or otherwise */
 			break;
 	}
-
-	if(i==0 && len!=0)
+	if(s->len==0 && len!=0){
+		free(pg);
 		goto Die;
-
-	s->offset = off;
-	s->len = i;
+	}
+	pg = erealloc(pg, sizeof(*pg) * npg);
 	s->pg = pg;
 	s->npg = npg;
 	return s;
-
 Die:
 	free(s->name);
 	free(s);

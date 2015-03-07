@@ -26,9 +26,9 @@ struct Data {
 struct Seg {
 	char*	name;
 	uvlong	offset;
-	uvlong	 len;
+	uvlong	len;
 	Page**	pg;
-	int	npg;
+	ulong	npg;
 };
 
 struct Page {
