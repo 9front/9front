@@ -142,7 +142,7 @@ extern const char *const *const cmd_sub_op_names[16];
 #define cmd_max_intsize(siz)\
   (((siz) * 8 + 6) / 7)
 #define cmd_largest_size\
-  (2 + (1 + cmd_max_dash) * sizeof(float))
+  (2 + (2 + cmd_max_dash) * sizeof(float))
 
 /* ---------------- Command parameters ---------------- */
 
