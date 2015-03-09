@@ -14,7 +14,7 @@ case 0
          exit usage 
 case 1 
          pattern=$1 
-         files=(`{ls *.[bcChlmsy] *.asm *.cpp *.cc *.cs *.lx *.cgi *.pl *.py *.tex *.ms *.java *.xy *.go *.goc >[2]/dev/null}) 
+         files=(`{ls *.[bcChlmsy] *.asm *.awk *.cc *.cgi *.cpp *.cs *.go *.goc *.java *.lx *.ms *.pl *.py *.rc *.tex *.xy >[2]/dev/null}) 
 case * 
          pattern=$1 
          shift 
