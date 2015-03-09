@@ -27,7 +27,8 @@ option. Otherwise, the previously configured essid
 on the interface will be used.
 The
 .B -p
-option will prompt and install the preshared key into
+option will prompt and install the preshared key or
+pap/chap credentials into
 .IR factotum (4),
 otherwise the key has to be already present in
 factotum or an interactive key prompter like
@@ -44,7 +45,7 @@ The optional
 or
 .B -2
 arguments can be used to select between WPA1/TKIP
-(default) or WPA2/CCMP encryption.
+(default) or WPA2/CCMP encryption with WPA PSK.
 .PP
 The
 .B -d
