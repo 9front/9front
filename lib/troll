@@ -203,3 +203,4 @@ I want to develop for Plan9 but I'm a Java person
 When I type "9fs sources" I get a timeout. Is there another way to search for Plan 9 software?
 [9fans] simple cgi and POST for plan9?
 one of the first go programs was a primitive lisp
+On an OSX 10.9.5 host I run Bell Labs Plan 9 in Virtualbox.

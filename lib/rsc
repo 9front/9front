@@ -162,3 +162,7 @@ Please stop.
 what's going on with freebsd-386, plan9-386, and plan9-amd64?
 All our arm builders seem to have disappeared.
 Please stop.
+Yes, it is intentional.
+No, please do NOT do this.
+Why does http://build.golang.org/perf say 'Error: no commits'?
+You're designing a tool. Stop.
