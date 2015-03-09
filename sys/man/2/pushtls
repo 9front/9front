@@ -101,7 +101,7 @@ typedef struct TLSconn {
 	uchar *cert;		/* IN/OUT certificate */
 	uchar *sessionID;	/* IN/OUT session ID */
 	int	certlen, sessionIDlen;
-	void	(*trace)(char*fmt, ...);
+	int	(*trace)(char*fmt, ...);
 	PEMChain *chain;
 	char	*sessionType;	/* opt IN  session type */
 	uchar *sessionKey;	/* opt IN/OUT session key */
