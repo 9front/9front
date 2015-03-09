@@ -25,6 +25,7 @@ struct Hconn
 	int	ctl;
 	int	keep;
 	int	cancel;
+	int	tunnel;
 	int	len;
 	char	addr[128];
 	char	buf[8192+2];
@@ -60,12 +61,40 @@ static Hauth *hauth;
 
 static void hclose(Hconn *h);
 
+static int
+tlstrace(char *fmt, ...)
+{
+	int r;
+	va_list a;
+	va_start(a, fmt);
+	r = vfprint(2, fmt, a);
+	va_end(a);
+	return r;
+}
+
+static int
+tlswrap(int fd)
+{
+	TLSconn conn;
+
+	memset(&conn, 0, sizeof(conn));
+	if(debug)
+		conn.trace = tlstrace;
+	if((fd = tlsClient(fd, &conn)) < 0){
+		if(debug) fprint(2, "tlsClient: %r\n");
+		return -1;
+	}
+	free(conn.cert);
+	free(conn.sessionID);
+	return fd;
+}
+
 static Hconn*
 hdial(Url *u)
 {
 	char addr[128];
 	Hconn *h, *p;
-	int fd, ofd, ctl;
+	int fd, ctl;
 
 	snprint(addr, sizeof(addr), "tcp!%s!%s", u->host, u->port ? u->port : u->scheme);
 
@@ -83,38 +112,42 @@ hdial(Url *u)
 	}
 	hpool.active++;
 	qunlock(&hpool);
+
 	if(debug)
 		fprint(2, "hdial [%d] %s\n", hpool.active, addr);
 
-	if((fd = dial(addr, 0, 0, &ctl)) < 0)
-		return nil;
-	if(strcmp(u->scheme, "https") == 0){
-		char err[ERRMAX];
-		TLSconn conn;
+	if(proxy)
+		snprint(addr, sizeof(addr), "tcp!%s!%s",
+			proxy->host, proxy->port ? proxy->port : proxy->scheme);
 
-		strcpy(err, "tls error");
-		memset(&conn, 0, sizeof(conn));
-		if((fd = tlsClient(ofd = fd, &conn)) < 0)
-			errstr(err, sizeof(err));
-		free(conn.cert);
-		free(conn.sessionID);
-		if(fd < 0){
-			close(ofd);
-			close(ctl);
-			if(debug) fprint(2, "tlsClient: %s\n", err);
-			errstr(err, sizeof(err));
-			return nil;
+	if((fd = dial(addr, 0, 0, &ctl)) >= 0){
+		if(proxy){
+			if(strcmp(proxy->scheme, "https") == 0)
+				fd = tlswrap(fd);
+		} else {
+			if(strcmp(u->scheme, "https") == 0)
+				fd = tlswrap(fd);
 		}
+	}
+	if(fd < 0){
+		close(ctl);
+		return nil;
 	}
 
 	h = emalloc(sizeof(*h));
 	h->next = nil;
 	h->time = 0;
 	h->cancel = 0;
+	h->tunnel = 0;
 	h->keep = 1;
 	h->len = 0;
 	h->fd = fd;
 	h->ctl = ctl;
+
+	if(proxy){
+		h->tunnel = strcmp(u->scheme, "https") == 0;
+		snprint(addr, sizeof(addr), "tcp!%s!%s", u->host, u->port ? u->port : u->scheme);
+	}
 	nstrcpy(h->addr, addr, sizeof(h->addr));
 
 	return h;
@@ -143,7 +176,7 @@ hclose(Hconn *h)
 		return;
 
 	qlock(&hpool);
-	if(h->keep && h->fd >= 0){
+	if(!h->tunnel && h->keep && h->fd >= 0){
 		for(n = 0, i = 0, t = nil, x = hpool.head; x; x = x->next){
 			if(strcmp(x->addr, h->addr) == 0)
 				if(++n > hpool.peer)
@@ -299,9 +332,12 @@ hline(Hconn *h, char *data, int len, int cont)
 				return len;
 			}
 		}
-		if(h->len >= sizeof(h->buf))
+		n = sizeof(h->buf) - h->len;
+		if(n <= 0)
 			return 0;
-		if((n = read(h->fd, h->buf + h->len, sizeof(h->buf) - h->len)) <= 0){
+		if(h->tunnel)
+			n = 1;	/* do not read beyond header */
+		if((n = read(h->fd, h->buf + h->len, n)) <= 0){
 			hhangup(h);
 			return -1;
 		}
@@ -502,6 +538,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		fd = -1;
 
 	h = nil;
+	cfd = -1;
 	pid = 0;
 	host = nil;
 	needlength = 0;
@@ -570,12 +607,12 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		free(host);
 		host = smprint("%H", u->host);
 
-		if(proxy){
+		if(proxy && strcmp(u->scheme, "https") != 0){
 			ru = *u;
 			ru.host = host;
 			ru.fragment = nil;
 		} else {
-			memset(&ru, 0, sizeof(tu));
+			memset(&ru, 0, sizeof(ru));
 			ru.path = Upath(u);
 			ru.query = u->query;
 		}
@@ -587,11 +624,15 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		}
 		if(h == nil){
 			alarm(timeout);
-			if((h = hdial(proxy ? proxy : u)) == nil)
+			if((h = hdial(u)) == nil)
 				break;
 		}
-
-		if((cfd = open("/mnt/webcookies/http", ORDWR)) >= 0){
+		if(h->tunnel){
+			n = snprint(buf, sizeof(buf), "CONNECT %s:%s HTTP/1.1\r\nHost: %s:%s\r\n",
+				host, u->port ? u->port : "443",
+				host, u->port ? u->port : "443");
+		}
+		else if((cfd = open("/mnt/webcookies/http", ORDWR)) >= 0){
 			/* only scheme, host and path are relevant for cookies */
 			memset(&tu, 0, sizeof(tu));
 			tu.scheme = u->scheme;
@@ -617,8 +658,12 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			}
 		}
 
-		for(k = shdr; k; k = k->next)
+		for(k = shdr; k; k = k->next){
+			/* only send proxy headers when establishing tunnel */
+			if(h->tunnel && cistrncmp(k->key, "Proxy-", 6) != 0)
+				continue;
 			n += snprint(buf+n, sizeof(buf)-2 - n, "%s: %s\r\n", k->key, k->val);
+		}
 		n += snprint(buf+n, sizeof(buf)-n, "\r\n");
 		if(debug)
 			fprint(2, "-> %.*s", n, buf);
@@ -628,7 +673,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			goto Retry;
 		}
 
-		if(qpost){
+		if(qpost && !h->tunnel){
 			h->cancel = 0;
 			if((pid = rfork(RFMEM|RFPROC)) <= 0){
 				int ifd;
@@ -832,6 +877,8 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		case 202:	/* Accepted */
 		case 203:	/* Non-Authoritative Information */
 		case 206:	/* Partial Content */
+			if(h->tunnel)
+				break;
 			qbody->url = u; u = nil;
 			qbody->hdr = rhdr; rhdr = nil;
 			if(nobody)
@@ -852,6 +899,19 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		 */
 		shdr = delkey(shdr, "Proxy-Authorization");
 		shdr = delkey(shdr, "Authorization");
+
+		/*
+		 * when 2xx response is given for the CONNECT request
+		 * then the proxy server has established the connection.
+		 */
+		if(h->tunnel && !retry && (i/100) == 2){
+			if((h->fd = tlswrap(h->fd)) < 0)
+				break;
+
+			/* proceed to the original request */
+			h->tunnel = 0;
+			continue;
+		}
 
 		if(!chunked && length == NOLENGTH)
 			h->keep = 0;
