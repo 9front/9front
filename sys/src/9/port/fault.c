@@ -197,17 +197,16 @@ int
 fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 {
 	int type;
-	Pte **p, *etp;
-	uintptr soff, mmuphys=0;
+	Pte **pte, *etp;
+	uintptr soff, mmuphys;
 	Page **pg, *old, *new;
 
 	addr &= ~(BY2PG-1);
 	soff = addr-s->base;
-	p = &s->map[soff/PTEMAPMEM];
-	if(*p == nil)
-		*p = ptealloc();
+	pte = &s->map[soff/PTEMAPMEM];
+	if((etp = *pte) == nil)
+		*pte = etp = ptealloc();
 
-	etp = *p;
 	pg = &etp->pages[(soff&(PTEMAPMEM-1))/BY2PG];
 	type = s->type&SG_TYPE;
 
@@ -219,7 +218,7 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 	switch(type) {
 	default:
 		panic("fault");
-		break;
+		return -1;
 
 	case SG_TEXT: 			/* Demand load */
 		if(pagedout(*pg))

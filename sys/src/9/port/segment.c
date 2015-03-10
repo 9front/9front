@@ -86,7 +86,7 @@ newseg(int type, uintptr base, ulong size)
 void
 putseg(Segment *s)
 {
-	Pte **pp, **emap;
+	Pte **pte, **emap;
 	Image *i;
 
 	if(s == nil)
@@ -107,9 +107,9 @@ putseg(Segment *s)
 		return;
 
 	emap = &s->map[s->mapsize];
-	for(pp = s->map; pp < emap; pp++)
-		if(*pp != nil)
-			freepte(s, *pp);
+	for(pte = s->map; pte < emap; pte++)
+		if(*pte != nil)
+			freepte(s, *pte);
 
 	if(s->map != s->ssegmap)
 		free(s->map);
@@ -122,16 +122,17 @@ putseg(Segment *s)
 void
 relocateseg(Segment *s, uintptr offset)
 {
-	Page **pg, *x;
-	Pte *pte, **p, **endpte;
+	Pte **pte, **emap;
+	Page **pg, **pe;
 
-	endpte = &s->map[s->mapsize];
-	for(p = s->map; p < endpte; p++) {
-		if((pte = *p) == nil)
+	emap = &s->map[s->mapsize];
+	for(pte = s->map; pte < emap; pte++) {
+		if(*pte == nil)
 			continue;
-		for(pg = pte->first; pg <= pte->last; pg++) {
-			if((x = *pg) != nil)
-				x->va += offset;
+		pe = (*pte)->last;
+		for(pg = (*pte)->first; pg <= pe; pg++) {
+			if(!pagedout(*pg))
+				(*pg)->va += offset;
 		}
 	}
 }
@@ -207,24 +208,24 @@ sameseg:
 void
 segpage(Segment *s, Page *p)
 {
-	Pte **pte;
-	uintptr off;
+	Pte **pte, *etp;
+	uintptr soff;
 	Page **pg;
 
 	if(p->va < s->base || p->va >= s->top)
 		panic("segpage");
 
-	off = p->va - s->base;
-	pte = &s->map[off/PTEMAPMEM];
-	if(*pte == nil)
-		*pte = ptealloc();
+	soff = p->va - s->base;
+	pte = &s->map[soff/PTEMAPMEM];
+	if((etp = *pte) == nil)
+		*pte = etp = ptealloc();
 
-	pg = &(*pte)->pages[(off&(PTEMAPMEM-1))/BY2PG];
+	pg = &etp->pages[(soff&(PTEMAPMEM-1))/BY2PG];
 	*pg = p;
-	if(pg < (*pte)->first)
-		(*pte)->first = pg;
-	if(pg > (*pte)->last)
-		(*pte)->last = pg;
+	if(pg < etp->first)
+		etp->first = pg;
+	if(pg > etp->last)
+		etp->last = pg;
 }
 
 Image*
@@ -455,22 +456,22 @@ ibrk(uintptr addr, int seg)
 ulong
 mcountseg(Segment *s)
 {
+	Pte **pte, **emap;
+	Page **pg, **pe;
 	ulong pages;
-	int i, j;
-	Page *pg;
 
 	if((s->type&SG_TYPE) == SG_PHYSICAL)
 		return 0;
 
 	pages = 0;
-	for(i = 0; i < s->mapsize; i++){
-		if(s->map[i] == nil)
+	emap = &s->map[s->mapsize];
+	for(pte = s->map; pte < emap; pte++){
+		if(*pte == nil)
 			continue;
-		for(j = 0; j < PTEPERTAB; j++){
-			pg = s->map[i]->pages[j];
-			if(!pagedout(pg))
+		pe = (*pte)->last;
+		for(pg = (*pte)->first; pg <= pe; pg++)
+			if(!pagedout(*pg))
 				pages++;
-		}
 	}
 	return pages;
 }
@@ -481,9 +482,9 @@ mcountseg(Segment *s)
 void
 mfreeseg(Segment *s, uintptr start, ulong pages)
 {
-	int i, j, size;
-	uintptr soff;
-	Page *pg;
+	uintptr off;
+	Pte **pte, **emap;
+	Page **pg, **pe;
 
 	if(pages == 0)
 		return;
@@ -492,34 +493,31 @@ mfreeseg(Segment *s, uintptr start, ulong pages)
 		return;
 
 	/*
-	 * We want to zero s->map[i]->page[j] and putpage(pg),
-	 * but we have to make sure other processors flush the
+	 * we have to make sure other processors flush the
 	 * entry from their TLBs before the page is freed.
 	 */
 	if(s->ref > 1)
 		procflushseg(s);
 
-	soff = start-s->base;
-	j = (soff&(PTEMAPMEM-1))/BY2PG;
-
-	size = s->mapsize;
-	for(i = soff/PTEMAPMEM; i < size; i++, j = 0) {
-		if(s->map[i] == nil) {
-			j = PTEPERTAB - j;
-			if(j >= pages)
+	off = start-s->base;
+	pte = &s->map[off/PTEMAPMEM];
+	off = (off&(PTEMAPMEM-1))/BY2PG;
+	for(emap = &s->map[s->mapsize]; pte < emap; pte++, off = 0) {
+		if(*pte == nil) {
+			off = PTEPERTAB - off;
+			if(off >= pages)
 				return;
-			pages -= j;
+			pages -= off;
 			continue;
 		}
-		while(j < PTEPERTAB) {
-			pg = s->map[i]->pages[j];
-			if(pg != nil){
-				s->map[i]->pages[j] = nil;
-				putpage(pg);
+		pg = &(*pte)->pages[off];
+		for(pe = &(*pte)->pages[PTEPERTAB]; pg < pe; pg++) {
+			if(*pg != nil){
+				putpage(*pg);
+				*pg = nil;
 			}
 			if(--pages == 0)
 				return;
-			j++;
 		}
 	}
 }
@@ -668,62 +666,49 @@ found:
 	return va;
 }
 
-void
-pteflush(Pte *pte, int s, int e)
-{
-	Page *pg;
-	int i;
-
-	for(i = s; i < e; i++) {
-		pg = pte->pages[i];
-		if(!pagedout(pg))
-			pg->txtflush = ~0;
-	}
-}
-
 uintptr
 syssegflush(va_list list)
 {
+	uintptr from, to, off, len;
 	Segment *s;
-	ulong len, chunk, l;
 	Pte *pte;
-	uintptr ps, pe, addr;
+	Page **pg, **pe;
 
-	addr = va_arg(list, uintptr);
-	len = va_arg(list, ulong);
+	from = va_arg(list, uintptr);
+	to = va_arg(list, ulong);
+	to += from;
 
-	while(len > 0) {
-		s = seg(up, addr, 1);
-		if(s == 0)
+	to = PGROUND(to);
+	from &= ~(BY2PG-1);
+	if(to < from)
+		error(Ebadarg);
+
+	while(from < to) {
+		s = seg(up, from, 1);
+		if(s == nil)
 			error(Ebadarg);
 
 		s->flushme = 1;
 	more:
-		l = len;
-		if(addr+l > s->top)
-			l = s->top - addr;
+		len = (s->top < to ? s->top : to) - from;
+		off = from-s->base;
+		pte = s->map[off/PTEMAPMEM];
+		off &= PTEMAPMEM-1;
+		if(off+len > PTEMAPMEM)
+			len = PTEMAPMEM-off;
 
-		ps = addr-s->base;
-		pte = s->map[ps/PTEMAPMEM];
-		ps &= PTEMAPMEM-1;
-		pe = PTEMAPMEM;
-		if(pe-ps > l){
-			pe = ps + l;
-			pe = PGROUND(pe);
+		if(pte != nil) {
+			pg = &pte->pages[off/BY2PG];
+			pe = pg + len/BY2PG;
+			while(pg < pe) {
+				if(!pagedout(*pg))
+					(*pg)->txtflush = ~0;
+				pg++;
+			}
 		}
-		if(pe == ps) {
-			qunlock(s);
-			error(Ebadarg);
-		}
 
-		if(pte)
-			pteflush(pte, ps/BY2PG, pe/BY2PG);
-
-		chunk = pe-ps;
-		len -= chunk;
-		addr += chunk;
-
-		if(len > 0 && addr < s->top)
+		from += len;
+		if(from < to && from < s->top)
 			goto more;
 
 		qunlock(s);

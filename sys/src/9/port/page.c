@@ -148,7 +148,6 @@ newpage(int clear, Segment **s, uintptr va)
 	KMap *k;
 	int color;
 
-	color = getpgcolor(va);
 	lock(&palloc);
 	for(;;) {
 		if(palloc.freecount > swapalloc.highwater)
@@ -188,6 +187,7 @@ newpage(int clear, Segment **s, uintptr va)
 	}
 
 	/* First try for our colour */
+	color = getpgcolor(va);
 	l = &palloc.head;
 	for(p = *l; p != nil; p = p->next){
 		if(p->color == color)
@@ -384,24 +384,24 @@ ptealloc(void)
 void
 freepte(Segment *s, Pte *p)
 {
-	Page **pg;
+	Page **pg, **pe;
+
+	pg = p->first;
+	pe = p->last;
 
 	switch(s->type&SG_TYPE) {
 	case SG_PHYSICAL:
-		for(pg = p->first; pg <= p->last; pg++) {
-			if(*pg != nil) {
-				if(decref(*pg) == 0)
-					free(*pg);
-				*pg = nil;
-			}
+		while(pg <= pe){
+			if(*pg != nil && decref(*pg) == 0)
+				free(*pg);
+			pg++;
 		}
 		break;
 	default:
-		for(pg = p->first; pg <= p->last; pg++) {
-			if(*pg != nil) {
+		while(pg <= pe){
+			if(*pg != nil)
 				putpage(*pg);
-				*pg = nil;
-			}
+			pg++;
 		}
 	}
 	free(p);
