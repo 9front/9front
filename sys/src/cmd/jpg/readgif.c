@@ -376,7 +376,7 @@ static
 uchar*
 decode(Header *h, Rawimage *i, Entry *tbl)
 {
-	int c, doclip, incode, codesize, CTM, EOD, pici, datai, stacki, nbits, sreg, fc, code, piclen;
+	int c, incode, codesize, CTM, EOD, pici, datai, stacki, nbits, sreg, fc, code, piclen;
 	int csize, nentry, maxentry, first, ocode, ndata, nb;
 	uchar clip, *p, *pic;
 	uchar stack[4096], data[256];
@@ -386,10 +386,6 @@ decode(Header *h, Rawimage *i, Entry *tbl)
 	codesize = h->buf[0];
 	if(codesize>8 || 0>codesize)
 		giferror(h, "ReadGIF: can't handle codesize %d", codesize);
-	doclip = 0;
-	if(i->cmap!=nil && i->cmaplen!=3*(1<<codesize)
-	  && (codesize!=2 || i->cmaplen!=3*2))			/* peculiar GIF bitmap files... */
-		doclip = 1;
 
 	CTM =1<<codesize;
 	EOD = CTM+1;
@@ -490,10 +486,10 @@ decode(Header *h, Rawimage *i, Entry *tbl)
 	}
 
 Return:
-	if(doclip){
-		clip = i->cmaplen/3;
+	if(i->cmap!=nil && i->cmaplen!=3*256){
+		clip = (i->cmaplen/3)-1;
 		for(p = pic; p < pic+piclen; p++)
-			if(*p >= clip)
+			if(*p > clip)
 				*p = clip;
 	}
 	h->pic = nil;
