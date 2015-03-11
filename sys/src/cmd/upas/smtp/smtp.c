@@ -114,6 +114,7 @@ main(int argc, char **argv)
 
 	alarmscale = 60*1000;	/* minutes */
 	quotefmtinstall();
+	fmtinstall('[', encodefmt);
 	errs = malloc(argc*sizeof(char*));
 	reply = s_new();
 	host = 0;
@@ -398,10 +399,10 @@ dotls(char *me)
 static char *
 doauth(char *methods)
 {
-	char *buf, *base64;
+	char *buf, *err;
+	UserPasswd *p;
 	int n;
 	DS ds;
-	UserPasswd *p;
 
 	dial_string_parse(ddomain, &ds);
 
@@ -414,51 +415,44 @@ doauth(char *methods)
 	if (p == nil)
 		return Giveup;
 
+	err = Retry;
 	if (strstr(methods, "LOGIN")){
 		dBprint("AUTH LOGIN\r\n");
 		if (getreply() != 3)
-			return Retry;
+			goto out;
 
-		n = strlen(p->user);
-		base64 = malloc(2*n);
-		if (base64 == nil)
-			return Retry;	/* Out of memory */
-		enc64(base64, 2*n, (uchar *)p->user, n);
-		dBprint("%s\r\n", base64);
+		dBprint("%.*[\r\n", strlen(p->user), p->user);
 		if (getreply() != 3)
-			return Retry;
+			goto out;
 
-		n = strlen(p->passwd);
-		base64 = malloc(2*n);
-		if (base64 == nil)
-			return Retry;	/* Out of memory */
-		enc64(base64, 2*n, (uchar *)p->passwd, n);
-		dBprint("%s\r\n", base64);
+		dBprint("%.*[\r\n", strlen(p->passwd), p->passwd);
 		if (getreply() != 2)
-			return Retry;
+			goto out;
 
-		free(base64);
+		err = nil;
 	}
 	else
 	if (strstr(methods, "PLAIN")){
-		n = strlen(p->user) + strlen(p->passwd) + 3;
-		buf = malloc(n);
-		base64 = malloc(2 * n);
-		if (buf == nil || base64 == nil) {
+		n = strlen(p->user) + strlen(p->passwd) + 2;
+		buf = malloc(n+1);
+		if (buf == nil) {
 			free(buf);
-			return Retry;	/* Out of memory */
+			goto out;	/* Out of memory */
 		}
 		snprint(buf, n, "%c%s%c%s", 0, p->user, 0, p->passwd);
-		enc64(base64, 2 * n, (uchar *)buf, n - 1);
+		dBprint("AUTH PLAIN %.*[\r\n", n, buf);
+		memset(buf, 0, n);
 		free(buf);
-		dBprint("AUTH PLAIN %s\r\n", base64);
-		free(base64);
 		if (getreply() != 2)
-			return Retry;
-	}
-	else
-		return "No supported AUTH method";
-	return(0);
+			goto out;
+		err = nil;
+	} else
+		err = "No supported AUTH method";
+out:
+	memset(p->user, 0, strlen(p->user));
+	memset(p->passwd, 0, strlen(p->passwd));
+	free(p);
+	return err;
 }
 
 char *

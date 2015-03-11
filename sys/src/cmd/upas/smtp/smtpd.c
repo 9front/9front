@@ -120,6 +120,7 @@ main(int argc, char **argv)
 	netdir = nil;
 	quotefmtinstall();
 	fmtinstall('I', eipfmt);
+	fmtinstall('[', encodefmt);
 	starttime = time(0);
 	ARGBEGIN{
 	case 'a':
@@ -1587,7 +1588,7 @@ starttls(void)
 void
 auth(String *mech, String *resp)
 {
-	char *user, *pass, *scratch = nil;
+	char *user, *pass;
 	AuthInfo *ai = nil;
 	Chalstate *chs = nil;
 	String *s_resp1_64 = nil, *s_resp2_64 = nil, *s_resp1 = nil;
@@ -1674,7 +1675,6 @@ windup:
 		goto bomb_out;
 	}
 	else if (cistrcmp(s_to_c(mech), "cram-md5") == 0) {
-		int chal64n;
 		char *resp, *t;
 
 		chs = auth_challenge("proto=cram role=server");
@@ -1683,11 +1683,7 @@ windup:
 			reply("501 5.7.5 Couldn't get CRAM-MD5 challenge\r\n");
 			goto bomb_out;
 		}
-		scratch = malloc(chs->nchal * 2 + 1);
-		chal64n = enc64(scratch, chs->nchal * 2, (uchar *)chs->chal,
-			chs->nchal);
-		scratch[chal64n] = 0;
-		reply("334 %s\r\n", scratch);
+		reply("334 %.*[\r\n", chs->nchal, chs->chal);
 		s_resp1_64 = s_new();
 		if (getcrnl(s_resp1_64, &bin) <= 0)
 			goto bad_sequence;
@@ -1720,8 +1716,6 @@ bomb_out:
 		auth_freeAI(ai);
 	if (chs)
 		auth_freechal(chs);
-	if (scratch)
-		free(scratch);
 	if (s_resp1)
 		s_free(s_resp1);
 	if (s_resp2)
