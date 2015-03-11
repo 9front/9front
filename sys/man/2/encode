@@ -36,7 +36,7 @@ create null terminated strings.  They return the size of the
 encoded string (without the null) or -1 if the encoding fails.
 The encoding fails if
 .IR lim ,
-the length of the output buffer, is too small.
+the length of the output buffer (including null), is too small.
 .PP
 .IR Dec16 ,
 .I dec32
@@ -83,3 +83,5 @@ For example, to display a 15 byte array as hex:
 .B /sys/src/libc/port/u32.c
 .br
 .B /sys/src/libc/port/u64.c
+.br
+.B /sys/src/libc/port/encodefmt.c
