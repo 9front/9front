@@ -48,11 +48,11 @@ main(int argc, char **argv)
 			break;
 		tot += n;
 	}
-	buf[tot] = 0;
-	cbuf = malloc(2*tot);
+	len = 2*tot+3;
+	cbuf = malloc(len);
 	if(cbuf == nil)
 		sysfatal("malloc: %r");
-	len = enc64(cbuf, 2*tot, (uchar*)buf, tot);
+	len = enc64(cbuf, len, (uchar*)buf, tot);
 	print("-----BEGIN %s-----\n", tag);
 	while(len > 0){
 		print("%.64s\n", cbuf);
