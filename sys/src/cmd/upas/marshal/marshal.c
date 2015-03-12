@@ -100,11 +100,8 @@ int pgppid = -1;
 void	Bdrain(Biobuf*);
 void	attachment(Attach*, Biobuf*);
 void	body(Biobuf*, Biobuf*, int);
-int	cistrcmp(char*, char*);
-int	cistrncmp(char*, char*, int);
 int	doublequote(Fmt*);
 void*	emalloc(int);
-int	enc64(char*, int, uchar*, int);
 void*	erealloc(void*, int);
 char*	estrdup(char*);
 Addr*	expand(int, char**);
@@ -666,6 +663,26 @@ body(Biobuf *in, Biobuf *out, int docontenttype)
  *  a single line.  This avoids short lines in the output which is pleasing
  *  but not necessary.
  */
+static int
+enc64x18(char *out, int lim, uchar *in, int n)
+{
+	int m, mm, nn;
+
+	for(nn = 0; n > 0; n -= m, nn += mm){
+		m = 18 * 3;
+		if(m > n)
+			m = n;
+		nn++;	/* \n */
+		assert(nn < lim);
+		mm = enc64(out, lim - nn, in, m);
+		assert(mm > 0);
+		in += m;
+		out += mm;
+		*out++ = '\n';
+	}
+	return nn;
+}
+
 void
 body64(Biobuf *in, Biobuf *out)
 {
@@ -680,7 +697,7 @@ body64(Biobuf *in, Biobuf *out)
 			fatal("input error");
 		if(n == 0)
 			break;
-		m = enc64(obuf, sizeof(obuf), buf, n);
+		m = enc64x18(obuf, sizeof(obuf), buf, n);
 		if(Bwrite(out, obuf, m) < 0)
 			fatal("output error");
 	}
@@ -1223,111 +1240,6 @@ waitforsubprocs(void)
 	if(err)
 		exits(err);
 	return nil;
-}
-
-int
-cistrncmp(char *a, char *b, int n)
-{
-	while(n-- > 0)
-		if(tolower(*a++) != tolower(*b++))
-			return -1;
-	return 0;
-}
-
-int
-cistrcmp(char *a, char *b)
-{
-	for(;;){
-		if(tolower(*a) != tolower(*b++))
-			return -1;
-		if(*a++ == 0)
-			break;
-	}
-	return 0;
-}
-
-static uchar t64d[256];
-static char t64e[64];
-
-static void
-init64(void)
-{
-	int c, i;
-
-	memset(t64d, 255, 256);
-	memset(t64e, '=', 64);
-	i = 0;
-	for(c = 'A'; c <= 'Z'; c++){
-		t64e[i] = c;
-		t64d[c] = i++;
-	}
-	for(c = 'a'; c <= 'z'; c++){
-		t64e[i] = c;
-		t64d[c] = i++;
-	}
-	for(c = '0'; c <= '9'; c++){
-		t64e[i] = c;
-		t64d[c] = i++;
-	}
-	t64e[i] = '+';
-	t64d['+'] = i++;
-	t64e[i] = '/';
-	t64d['/'] = i;
-}
-
-int
-enc64(char *out, int lim, uchar *in, int n)
-{
-	int i;
-	ulong b24;
-	char *start = out;
-	char *e = out + lim;
-
-	if(t64e[0] == 0)
-		init64();
-	for(i = 0; i < n/3; i++){
-		b24 = (*in++)<<16;
-		b24 |= (*in++)<<8;
-		b24 |= *in++;
-		if(out + 5 >= e)
-			goto exhausted;
-		*out++ = t64e[(b24>>18)];
-		*out++ = t64e[(b24>>12)&0x3f];
-		*out++ = t64e[(b24>>6)&0x3f];
-		*out++ = t64e[(b24)&0x3f];
-		if((i%18) == 17)
-			*out++ = '\n';
-	}
-
-	switch(n%3){
-	case 2:
-		b24 = (*in++)<<16;
-		b24 |= (*in)<<8;
-		if(out + 4 >= e)
-			goto exhausted;
-		*out++ = t64e[(b24>>18)];
-		*out++ = t64e[(b24>>12)&0x3f];
-		*out++ = t64e[(b24>>6)&0x3f];
-		break;
-	case 1:
-		b24 = (*in)<<16;
-		if(out + 4 >= e)
-			goto exhausted;
-		*out++ = t64e[(b24>>18)];
-		*out++ = t64e[(b24>>12)&0x3f];
-		*out++ = '=';
-		break;
-	case 0:
-		if((i%18) != 0)
-			*out++ = '\n';
-		*out = 0;
-		return out - start;
-	}
-exhausted:
-	*out++ = '=';
-	*out++ = '\n';
-	*out = 0;
-	return out - start;
 }
 
 void
