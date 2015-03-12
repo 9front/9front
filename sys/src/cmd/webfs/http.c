@@ -357,7 +357,6 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 	pass = u->pass;
 	realm = nonce = opaque = nil;
 	if(!cistrncmp(s, "Basic ", 6)){
-		char cred[128], plain[128];
 		UserPasswd *up;
 
 		s += 6;
@@ -380,19 +379,20 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 			user = up->user;
 			pass = up->passwd;
 		}
-		n = snprint(plain, sizeof(plain), "%s:%s", user ? user : "", pass ? pass : "");
+		fmtstrinit(&fmt);
+		fmtprint(&fmt, "%s:%s", user ? user : "", pass ? pass : "");
 		if(up){
 			memset(up->user, 0, strlen(up->user));
 			memset(up->passwd, 0, strlen(up->passwd));
 			free(up);
 		}
-		n = enc64(cred, sizeof(cred), (uchar*)plain, n);
-		memset(plain, 0, sizeof(plain));
-		if(n == -1)
+		if((s = fmtstrflush(&fmt)) == nil)
 			return -1;
+		n = strlen(s);
 		fmtstrinit(&fmt);
-		fmtprint(&fmt, "Basic %s", cred);
-		memset(cred, 0, sizeof(cred));
+		fmtprint(&fmt, "Basic %.*[", n, s);
+		memset(s, 0, n);
+		free(s);
 		u = saneurl(url(".", u));	/* all uris below the requested one */
 	}else
 	if(!cistrncmp(s, "Digest ", 7)){

@@ -781,6 +781,7 @@ main(int argc, char *argv[])
 	fmtinstall('U', Ufmt);
 	fmtinstall('H', Hfmt);
 	fmtinstall('E', Efmt);
+	fmtinstall('[', encodefmt);
 
 	mtpt = "/mnt/web";
 	user = getuser();
