@@ -130,17 +130,11 @@ cramauth(void)
 	AuthInfo *ai;
 	Chalstate *cs;
 	char *s, *t;
-	int n;
 
 	if((cs = auth_challenge("proto=cram role=server")) == nil)
 		return "couldn't get cram challenge";
 
-	n = cs->nchal;
-	s = binalloc(&parseBin, n * 2, 0);
-	n = enc64(s, n * 2, (uchar*)cs->chal, n);
-	Bprint(&bout, "+ ");
-	Bwrite(&bout, s, n);
-	Bprint(&bout, "\r\n");
+	Bprint(&bout, "+ %.*[\r\n", cs->nchal, cs->chal);
 	if(Bflush(&bout) < 0)
 		writeErr();
 
@@ -172,7 +166,6 @@ passLogin(char *user, char *secret)
 	Chalstate *cs;
 	uchar digest[MD5dlen];
 	char response[2*MD5dlen+1];
-	int i;
 
 	if((cs = auth_challenge("proto=cram role=server")) == nil)
 		return nil;
@@ -180,8 +173,7 @@ passLogin(char *user, char *secret)
 	hmac_md5((uchar*)cs->chal, strlen(cs->chal),
 		(uchar*)secret, strlen(secret), digest,
 		nil);
-	for(i = 0; i < MD5dlen; i++)
-		snprint(response + 2*i, sizeof(response) - 2*i, "%2.2ux", digest[i]);
+	snprint(response, sizeof(response), "%.*H", MD5dlen, digest);
 
 	cs->user = user;
 	cs->resp = response;

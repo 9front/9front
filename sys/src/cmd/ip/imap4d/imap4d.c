@@ -207,6 +207,10 @@ main(int argc, char *argv[])
 	Binit(&bin, 0, OREAD);
 	Binit(&bout, 1, OWRITE);
 
+	/* for auth */
+	fmtinstall('H', encodefmt);
+	fmtinstall('[', encodefmt);
+
 	preauth = 0;
 	allowPass = 0;
 	allowCR = 0;

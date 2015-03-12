@@ -596,17 +596,18 @@ enc64x18(char *out, int lim, uchar *in, int n)
 {
 	int m, mm, nn;
 
-	nn = 0;
-	for(; n > 0; n -= m){
+	for(nn = 0; n > 0; n -= m, nn += mm){
 		m = 18 * 3;
 		if(m > n)
 			m = n;
+		nn += 2;	/* \r\n */
+		assert(nn < lim);
 		mm = enc64(out, lim - nn, in, m);
+		assert(mm > 0);
 		in += m;
 		out += mm;
 		*out++ = '\r';
 		*out++ = '\n';
-		nn += mm + 2;
 	}
 	return nn;
 }
@@ -619,7 +620,7 @@ body64(int in, int out)
 	int m, n;
 
 	for(;;){
-		n = read(in, buf, sizeof(buf));
+		n = readn(in, buf, sizeof(buf));
 		if(n < 0)
 			return;
 		if(n == 0)
