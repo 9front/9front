@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/bin/python
 #
 # An example CGI script to export multiple hgweb repos, edit as necessary
 
