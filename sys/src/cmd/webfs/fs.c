@@ -421,6 +421,11 @@ fsopen(Req *r)
 						u->host = smprint("%H", r);
 						free(r);
 					}
+
+					/* do not send credentials */
+					free(u->user); u->user = nil;
+					free(u->pass); u->pass = nil;
+
 					if(r = smprint("%U", u)){
 						cl->hdr = addkey(cl->hdr, "Referer", r);
 						free(r);
