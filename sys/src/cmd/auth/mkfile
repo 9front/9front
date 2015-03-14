@@ -16,6 +16,7 @@ TARG=\
 	dsa2ssh\
 	dsagen\
 	guard.srv\
+	httpauth\
 	keyfs\
 	login\
 	netkey\
