@@ -1565,7 +1565,7 @@ void G_DoPlayDemo (void)
 	 
     gameaction = ga_nothing; 
     demobuffer = demo_p = W_CacheLumpName (defdemoname, PU_STATIC); 
-    switch (*demo_p++) {
+    switch (*demo_p) {
     case VERSION:
         break;
     default:
@@ -1577,7 +1577,7 @@ void G_DoPlayDemo (void)
         return;
 */
     }
-
+    demo_p++;
     skill = *demo_p++; 
     episode = *demo_p++; 
     map = *demo_p++; 
