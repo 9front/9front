@@ -4,7 +4,7 @@ fn filter_headers{
 	lines=''
 	done=false
 	while(~ $done false){
-		line=`{read}
+		line=`{getline}
 		head=`{echo $line | awk '{print tolower($1)}'}
 		if(~ $head status:*){
 			tmp=`{echo $line | awk '{$1="" ; print}'}

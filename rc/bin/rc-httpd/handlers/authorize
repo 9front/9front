@@ -1,0 +1,6 @@
+#!/bin/rc
+if(~ $REMOTE_USER ''){
+	extra_headers=($extra_headers 'WWW-Authenticate: Basic realm="'$"SERVER_NAME'"')
+	error 401
+	exit
+}

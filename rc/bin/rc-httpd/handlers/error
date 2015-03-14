@@ -19,6 +19,11 @@ fn do_error{
 	'
 }
 
+fn 401{
+	do_error '401 Unauthorized' \
+	'The requested path '^$"location^' requires authorization.'
+}
+
 fn 404{
 	do_error '404 Not Found' \
 	'The requested path '^$"location^' was not found on this server.'

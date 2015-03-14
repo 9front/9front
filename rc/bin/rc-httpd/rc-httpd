@@ -54,9 +54,13 @@ while(~ $"done false){
 		HTTP_USER_AGENT=`{echo $line | sed 's;[^:]+:[ 	]+;;'}
 	case content-length:
 		CONTENT_LENGTH=$line(2)
+	case content-type:
+		CONTENT_TYPE=$line(2)
 	case cookie:
 		cookie=`{echo $line | sed 's;^[^:]+:[ 	]*;;'}
 		HTTP_COOKIE=$"HTTP_COOKIE^$"cookie^'; '
+	case authorization:
+		REMOTE_USER=`{auth/httpauth $line(3)}
 	}
 }
 if(~ $REQUEST_URI http://*){
