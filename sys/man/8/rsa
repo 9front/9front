@@ -224,6 +224,11 @@ Applications that serve TLS-encrypted sessions (for example,
 and
 .IR tlssrv (8))
 expect certificates in ASN.1/DER/PEM format.
+.PP
+The Plan 9 RSA private key needs to be loaded into factotum
+for TLS server applications. It is recommended to put the key into
+.IR secstore (1),
+avoiding it being stored unencrypted on the filesystem.
 .SH EXAMPLES
 Generate a fresh key and use it to start a TLS-enabled web server:
 .IP
