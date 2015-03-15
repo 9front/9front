@@ -23,6 +23,7 @@ Tag tag[]={
 [Tag_code]	"code",		END,
 [Tag_comment]	"!--",		NOEND,
 [Tag_dd]	"dd",		NOEND,	/* OPTEND */
+[Tag_del]	"del",		END,
 [Tag_dfn]	"dfn",		END,
 [Tag_dir]	"dir",		END,
 [Tag_div]	"div",		END,	/* OPTEND */
@@ -47,6 +48,7 @@ Tag tag[]={
 [Tag_iframe]	"iframe",	NOEND,
 [Tag_img]	"img",		NOEND,
 [Tag_input]	"input",	NOEND,
+[Tag_ins]	"ins",		END,
 [Tag_isindex]	"isindex",	NOEND,
 [Tag_kbd]	"kbd",		END,
 [Tag_key]	"key",		END,
@@ -81,5 +83,6 @@ Tag tag[]={
 [Tag_ul]	"ul",		END,
 [Tag_var]	"var",		END,
 [Tag_video]	"video",	NOEND,
+[Tag_wbr]	"wbr",		NOEND,
 [Tag_xmp]	"xmp",		END,
 };

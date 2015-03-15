@@ -880,6 +880,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			break;
 		case Tag_s:
 		case Tag_strike:
+		case Tag_del:
 			g.state->strike=1;
 			break;
 		case Tag_blockquot:
@@ -899,6 +900,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			break;
 		case Tag_div:
 		case Tag_br:
+		case Tag_wbr:
 			g.spacc=0;
 			g.linebrk=1;
 			break;
@@ -944,6 +946,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			break;
 		case Tag_u:
 			htmlerror(g.name, g.lineno, "<u> deprecated");
+		case Tag_ins:
 		case Tag_em:
 		case Tag_i:
 		case Tag_var:

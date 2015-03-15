@@ -146,6 +146,7 @@ enum{
 	Tag_cite,
 	Tag_code,
 	Tag_dd,
+	Tag_del,
 	Tag_div,
 	Tag_dfn,
 	Tag_dir,
@@ -169,6 +170,7 @@ enum{
 	Tag_iframe,
 	Tag_img,
 	Tag_input,
+	Tag_ins,
 	Tag_isindex,
 	Tag_kbd,
 	Tag_key,
@@ -203,6 +205,7 @@ enum{
 	Tag_ul,
 	Tag_var,
 	Tag_video,
+	Tag_wbr,
 	Tag_xmp,
 
 	Tag_end,	/* also used to indicate unrecognized start tag */
