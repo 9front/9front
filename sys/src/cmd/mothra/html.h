@@ -34,6 +34,7 @@ struct Stack{
 	int number;		/* paragraph number */
 	int ismap;		/* flag of <img> */
 	int isscript;		/* inside <script> */
+	int strike;		/* flag of <strike> */
 	int width;		/* size of image */
 	int height;
 	char image[NNAME];	/* arg of <img> */
@@ -183,10 +184,12 @@ enum{
 	Tag_p,
 	Tag_plaintext,
 	Tag_pre,
+	Tag_s,
 	Tag_samp,
 	Tag_script,
 	Tag_select,
 	Tag_span,
+	Tag_strike,
 	Tag_strong,
 	Tag_style,
 	Tag_source,

@@ -168,7 +168,7 @@ void pl_stuffbitmap(Panel *p, Image *b){
 
 void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 	static Image *backup;
-	Point lp;
+	Point lp, sp;
 	Rectangle dr;
 	Image *bb;
 
@@ -181,6 +181,7 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 		b=backup;
 	pl_clr(b, r);
 	lp=ZP;
+	sp=ZP;
 	offs=subpt(r.min, offs);
 	for(;t;t=t->next) if(!eqrect(t->r, Rect(0,0,0,0))){
 		dr=rectaddpt(t->r, offs);
@@ -191,6 +192,14 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 			if(t->b){
 				draw(b, insetrect(dr, BORD), t->b, 0, t->b->r.min);
 				if(t->flags&PL_HOT) border(b, dr, 1, display->black, ZP);
+				if(t->flags&PL_STR) {
+					line(b, Pt(dr.min.x, dr.min.y), Pt(dr.max.x, dr.max.y),
+						Endsquare, Endsquare, 0,
+						display->black, ZP);
+					line(b, Pt(dr.min.x, dr.max.y), Pt(dr.max.x, dr.min.y),
+						Endsquare, Endsquare, 0,
+						display->black, ZP);
+				}
 				if(t->flags&PL_SEL)
 					pl_highlight(b, dr);
 			}
@@ -204,17 +213,30 @@ void pl_rtdraw(Image *b, Rectangle r, Rtext *t, Point offs){
 				string(b, dr.min, display->black, ZP, t->font, t->text);
 				if(t->flags&PL_SEL)
 					pl_highlight(b, dr);
-				if(t->flags&PL_HOT){
-					if(lp.y+1 != dr.max.y)
-						lp = Pt(dr.min.x, dr.max.y-1);
-					line(b, lp, Pt(dr.max.x, dr.max.y-1),
+				if(t->flags&PL_STR){
+					int y = dr.max.y - t->font->height/2;
+					if(sp.y != y)
+						sp = Pt(dr.min.x, y);
+					line(b, sp, Pt(dr.max.x, y),
 						Endsquare, Endsquare, 0,
 						display->black, ZP);
-					lp = Pt(dr.max.x, dr.max.y-1);
-					continue;
-				}
+					sp = Pt(dr.max.x, y);
+				} else
+					sp = ZP;
+				if(t->flags&PL_HOT){
+					int y = dr.max.y - 1;
+					if(lp.y != y)
+						lp = Pt(dr.min.x, y);
+					line(b, lp, Pt(dr.max.x, y),
+						Endsquare, Endsquare, 0,
+						display->black, ZP);
+					lp = Pt(dr.max.x, y);
+				} else
+					lp = ZP;
+				continue;
 			}
-			lp=ZP;
+			lp = ZP;
+			sp = ZP;
 		}
 	}
 	if(b!=bb)

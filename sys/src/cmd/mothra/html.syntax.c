@@ -62,10 +62,12 @@ Tag tag[]={
 [Tag_p]		"p",		NOEND,	/* OPTEND */
 [Tag_plaintext]	"plaintext",	NOEND,
 [Tag_pre]	"pre",		END,
+[Tag_s]		"s",		END,
 [Tag_samp]	"samp",		END,
 [Tag_script]	"script",	END,
 [Tag_select]	"select",	END,
 [Tag_span]	"span",		END,
+[Tag_strike]	"strike",	END,
 [Tag_strong]	"strong",	END,
 [Tag_style]	"style",	END,
 [Tag_source]	"source",	NOEND,

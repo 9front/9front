@@ -104,6 +104,7 @@ struct Panel{
 /* Rtext.flags */
 #define PL_HOT		1
 #define PL_SEL		2
+#define PL_STR		4
 
 Panel *plkbfocus;			/* the panel in keyboard focus */
 

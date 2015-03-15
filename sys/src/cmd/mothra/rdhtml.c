@@ -85,7 +85,7 @@ int strtolength(Hglob *g, int dir, char *str){
 
 void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 	Fontdata *f;
-	int space, indent;
+	int space, indent, flags;
 	Action *ap;
 	if(g->state->tag==Tag_title
 /*	|| g->state->tag==Tag_textarea */
@@ -139,8 +139,12 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 			space=1000000;
 		}
 	}
-	plrtstr(&g->dst->text, space, indent, f->font, strdup(s),
-		g->state->link[0] ? PL_HOT : 0, ap);
+	flags = 0;
+	if(g->state->link[0])
+		flags |= PL_HOT;
+	if(g->state->strike)
+		flags |= PL_STR;
+	plrtstr(&g->dst->text, space, indent, f->font, strdup(s), flags, ap);
 	g->para=0;
 	g->linebrk=0;
 	g->dst->changed=1;
@@ -691,6 +695,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 	g.state->indent=25;
 	g.state->ismap=0;
 	g.state->isscript=0;
+	g.state->strike=0;
 	g.state->width=0;
 	g.state->height=0;
 	g.dst=dst;
@@ -872,6 +877,10 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_b:
 		case Tag_strong:
 			g.state->font=BOLD;
+			break;
+		case Tag_s:
+		case Tag_strike:
+			g.state->strike=1;
 			break;
 		case Tag_blockquot:
 			g.spacc=0;
