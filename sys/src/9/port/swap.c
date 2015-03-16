@@ -7,7 +7,6 @@
 
 static int	canflush(Proc*, Segment*);
 static void	executeio(void);
-static int	needpages(void*);
 static void	pageout(Proc*, Segment*);
 static void	pagepte(int, Page**);
 static void	pager(void*);
@@ -166,24 +165,21 @@ pager(void*)
 		}
 
 		if(swapimage.c == nil || swapalloc.free == 0){
+		Killbig:
 			killbig("out of memory");
 			freebroken();		/* can use the memory */
 			sched();
 			continue;
 		}
 
-		p++;
-		if(p >= ep){
-			p = proctab(0);
-			ageclock++;
-		}
-
-		if(p->state == Dead || p->noswap)
-			continue;
-
-		if(!canqlock(&p->seglock))
-			continue;		/* process changing its segments */
-
+		i = ageclock;
+		do {
+			if(++p >= ep){
+				if(++ageclock == i)
+					goto Killbig;
+				p = proctab(0);
+			}
+		} while(p->state == Dead || p->noswap || !canqlock(&p->seglock));
 		up->psstate = "Pageout";
 		for(i = 0; i < NSEG; i++) {
 			if((s = p->seg[i]) != nil) {
@@ -239,9 +235,9 @@ pageout(Proc *p, Segment *s)
 	size = s->mapsize;
 	for(i = 0; i < size; i++) {
 		l = s->map[i];
-		if(l == 0)
+		if(l == nil)
 			continue;
-		for(pg = l->first; pg < l->last; pg++) {
+		for(pg = l->first; pg <= l->last; pg++) {
 			entry = *pg;
 			if(pagedout(entry))
 				continue;
@@ -389,7 +385,7 @@ executeio(void)
 	ioptr = 0;
 }
 
-static int
+int
 needpages(void*)
 {
 	return palloc.freecount < swapalloc.headroom;
