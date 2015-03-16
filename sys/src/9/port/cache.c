@@ -205,6 +205,11 @@ ccache(Chan *c)
 	return nil;
 }
 
+enum {
+	VABITS	= 8*sizeof(uintptr) - 2*PGSHIFT,
+	VAMASK	= (((uintptr)1 << VABITS)-1) << PGSHIFT,
+};
+
 static Page*
 cpage(Mntcache *m, ulong pn, ulong *po, ulong *pe)
 {
@@ -219,10 +224,17 @@ cpage(Mntcache *m, ulong pn, ulong *po, ulong *pe)
 		m->bitmap[pn/MAPBITS] &= ~b;
 		return nil;
 	}
-	/* see cachedata() below */
-	*po = (ulong)p->va & (BY2PG-1);
-	*pe = (ulong)p->va >> PGSHIFT;
+	*po = p->va & (BY2PG-1);
+	*pe = 1 + (p->va >> (PGSHIFT+VABITS));
+	assert(*po < *pe);
 	return p;
+}
+
+static void
+cpageset(Page *p, ulong po, ulong pe)
+{
+	assert(po < pe);
+	p->va = po | (p->va & VAMASK) | ((uintptr)pe - 1) << (PGSHIFT+VABITS);
 }
 
 int
@@ -253,7 +265,7 @@ cread(Chan *c, uchar *buf, int len, vlong off)
 		p = cpage(m, pn, &po, &pe);
 		if(p == nil)
 			break;
-		if(po >= pe || offset < po || offset >= pe){
+		if(offset < po || offset >= pe){
 			putpage(p);
 			break;
 		}
@@ -326,8 +338,8 @@ cachedata(Mntcache *m, uchar *buf, int len, vlong off)
 			l = len;
 		p = cpage(m, pn, &po, &pe);
 		if(p != nil){
-			if(po >= pe || offset > pe || (offset+l) < po){
-				/* cached range empty or not extendable, set new cached range */
+			if(offset > pe || (offset+l) < po){
+				/* cached range not extendable, set new cached range */
 				po = offset;
 				pe = offset+l;
 			} else {
@@ -338,13 +350,12 @@ cachedata(Mntcache *m, uchar *buf, int len, vlong off)
 					pe = offset+l;
 			}
 		} else {
-			p = auxpage();
-			if(p == nil){
+			if(needpages(nil) || waserror()){
 				invalidate(m, offset + pn*BY2PG, len);
 				break;
 			}
-
-			p->va = 0;
+			p = newpage(0, nil, pn*BY2PG);
+			poperror();
 			p->daddr = cacheaddr(m, pn);
 			cachedel(&fscache, p->daddr);
 			cachepage(p, &fscache);
@@ -353,6 +364,7 @@ cachedata(Mntcache *m, uchar *buf, int len, vlong off)
 			po = offset;
 			pe = offset+l;
 		}
+		cpageset(p, po, pe);
 
 		k = kmap(p);
 		if(waserror()) {
@@ -365,9 +377,6 @@ cachedata(Mntcache *m, uchar *buf, int len, vlong off)
 		memmove((uchar*)VA(k) + offset, buf, l);
 		poperror();
 		kunmap(k);
-
-		/* update cached range */
-		p->va = po | (pe << PGSHIFT);
 		putpage(p);
 
 		offset = 0;

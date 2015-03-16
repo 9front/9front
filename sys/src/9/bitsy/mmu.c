@@ -379,9 +379,9 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 		if(l2pg != nil){
 			up->mmufree = l2pg->next;
 		} else {
-			l2pg = auxpage();
-			if(l2pg == nil)
-				pexit("out of memory", 1);
+			splx(s);
+			l2pg = newpage(0, 0, 0);
+			splhi();
 		}
 		l2pg->va = VA(kmap(l2pg));
 		up->l1page[va>>20] = l2pg;

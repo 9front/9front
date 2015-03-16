@@ -234,26 +234,6 @@ putpage(Page *p)
 		freepages(p, p, 1);
 }
 
-Page*
-auxpage(void)
-{
-	Page *p;
-
-	lock(&palloc);
-	p = palloc.head;
-	if(p == nil || palloc.freecount < swapalloc.highwater) {
-		unlock(&palloc);
-		return nil;
-	}
-	palloc.head = p->next;
-	p->next = nil;
-	palloc.freecount--;
-	unlock(&palloc);
-	p->ref = 1;
-
-	return p;
-}
-
 void
 copypage(Page *f, Page *t)
 {
