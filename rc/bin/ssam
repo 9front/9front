@@ -1,4 +1,5 @@
 #!/bin/rc
+rfork e
 # ssam - stream interface to sam
 
 flagfmt='n,e script,f sfile'
