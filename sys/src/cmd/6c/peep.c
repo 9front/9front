@@ -100,14 +100,27 @@ loop1:
 		case AMOVQ:
 		case AMOVSS:
 		case AMOVSD:
-			if(regtyp(&p->to))
+			if(!regtyp(&p->to))
+				break;
 			if(regtyp(&p->from)) {
 				if(copyprop(r)) {
 					excise(r);
 					t++;
-				} else
+					break;
+				}
 				if(subprop(r) && copyprop(r)) {
 					excise(r);
+					t++;
+					break;
+				}
+			}
+			if(p->as != AMOVL)
+				break;
+			r1 = rnops(uniqs(r));
+			if(r1 != R){
+				p1 = r1->prog;
+				if(p1->as == AMOVLQZX && p1->from.type == p->to.type && p1->to.type == p->to.type){
+					excise(r1);
 					t++;
 				}
 			}
