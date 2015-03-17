@@ -498,7 +498,7 @@ are required to be positive.
 If called with negative arguments, it will
 return a gcd of 0.
 .PP
-.I Mpinverse
+.I Mpinvert
 computes the multiplicative inverse of
 .I b
 .B mod
