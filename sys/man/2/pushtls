@@ -111,7 +111,7 @@ typedef struct TLSconn {
 .EE
 .PP
 defined in
-.IR tls.h .
+.IR libsec.h .
 On input, the caller can provide options such as
 .IR cert ,
 the local certificate, and
@@ -182,7 +182,7 @@ and return a pointer to a linked list of
 .IR malloc ed
 .B PEMChain
 structures, defined in
-.IR tls.h :
+.IR libsec.h :
 .IP
 .EX
 typedef struct PEMChain PEMChain;
