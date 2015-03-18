@@ -1,3 +1,5 @@
+#pragma pack on
+
 struct coffsect
 {
 	char	name[8];
@@ -135,3 +137,5 @@ struct i386exec
 	struct coffsect ibsss;
 	struct coffsect icomments;
 };
+
+#pragma pack off
