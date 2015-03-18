@@ -932,6 +932,10 @@ bootp(Req *rp)
 	} else
 		slowdelay(rp);
 
+	/* ignore file for sgi arcs command bootp(); */
+	if(strcmp(bp->file, ";") == 0)
+		*bp->file = 0;
+
 	/* ignore if we don't know what file to load */
 	if(*bp->file == 0){
 		if(rp->genrequest && *iip->bootf2) /* if not plan 9 & have alternate file... */
