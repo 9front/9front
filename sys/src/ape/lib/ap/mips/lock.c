@@ -127,7 +127,8 @@ retry:
 			}
 		}
 		return 0;
-	}	
+	}
+	return -1;	/* not reached */
 }
 
 void
@@ -167,5 +168,6 @@ retry:
 			}
 		}
 		return 1;
-	}	
+	}
+	return -1;	/* not reached */
 }
