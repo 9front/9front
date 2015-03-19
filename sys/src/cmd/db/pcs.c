@@ -20,7 +20,7 @@ subpcs(int modif)
 	int	n, r;
 	long line, curr;
 	BKPT *bk;
-	char *comptr;
+	Rune *comptr;
 
 	runmode=SINGLE;
 	r = 0;

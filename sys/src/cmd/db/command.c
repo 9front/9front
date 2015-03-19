@@ -23,8 +23,8 @@ WORD	adrval, cntval, loopcnt;
 int	adrflg, cntflg;
 
 /* command decoding */
-
-command(char *buf, int defcom)
+int
+command(Rune *buf, int defcom)
 {
 	char	*reg;
 	char	savc;
@@ -39,7 +39,7 @@ command(char *buf, int defcom)
 		if (*buf==EOR)
 			return(FALSE);
 		clrinp();
-		lp=(Rune*)buf;
+		lp=buf;
 	}
 	do {
 		adrflg=expr(0);		/* first address */

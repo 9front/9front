@@ -8,7 +8,7 @@ void		clrinp(void);
 void		cmdmap(Map*);
 void		cmdsrc(int, Map*);
 void		cmdwrite(int, Map*);
-int		command(char*, int);
+int		command(Rune*, int);
 int		convdig(int);
 void		ctrace(int);
 WORD		defval(WORD);

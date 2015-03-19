@@ -64,7 +64,7 @@ struct bkpt {
 	int	count;
 	int	initcnt;
 	int	flag;
-	char	comm[MAXCOM];
+	Rune	comm[MAXCOM];
 	BKPT	*nxtbkpt;
 };
 

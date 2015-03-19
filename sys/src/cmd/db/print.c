@@ -166,7 +166,7 @@ printtrace(int modif)
 				dprint(buf);
 				if (bk->count != 1)
 					dprint(",%d", bk->count);
-				dprint(":%c %s", bk->flag == BKPTTMP ? 'B' : 'b', bk->comm);
+				dprint(":%c %S", bk->flag == BKPTTMP ? 'B' : 'b', bk->comm);
 			}
 		break;
 
