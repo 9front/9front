@@ -37,8 +37,8 @@ enum
 {
 	Incr		= 64,		/* for Td and Ed pools */
 
-	Align		= 0x20,		/* OHCI only requires 0x10 */
-					/* use always a power of 2 */
+	Edalign		= 0x10,
+	Tdalign		= 0x20,	
 
 	Abortdelay	= 1,		/* delay after cancelling Tds (ms) */
 	Tdatomic		= 8,		/* max nb. of Tds per bulk I/O op. */
@@ -581,19 +581,20 @@ tdtok(Td *td)
 static Td*
 tdalloc(void)
 {
+	uchar *pool;
 	Td *td;
-	Td *pool;
 	int i;
 
 	lock(&tdpool);
 	if(tdpool.free == nil){
 		ddprint("ohci: tdalloc %d Tds\n", Incr);
-		pool = xspanalloc(Incr*sizeof(Td), Align, 0);
+		pool = xspanalloc(Incr*ROUND(sizeof(Td), Tdalign), Tdalign, 0);
 		if(pool == nil)
 			panic("ohci: tdalloc");
 		for(i=Incr; --i>=0;){
-			pool[i].next = tdpool.free;
-			tdpool.free = &pool[i];
+			td = (Td*)(pool + i*ROUND(sizeof(Td), Tdalign));
+			td->next = tdpool.free;
+			tdpool.free = td;
 		}
 		tdpool.nalloc += Incr;
 		tdpool.nfree += Incr;
@@ -602,10 +603,9 @@ tdalloc(void)
 	tdpool.nfree--;
 	td = tdpool.free;
 	tdpool.free = td->next;
-	memset(td, 0, sizeof(Td));
 	unlock(&tdpool);
-
-	assert(((uintptr)td & 0xF) == 0);
+	assert(((uintptr)td & 0x1F) == 0);
+	memset(td, 0, sizeof(Td));
 	return td;
 }
 
@@ -630,18 +630,20 @@ tdfree(Td *td)
 static Ed*
 edalloc(void)
 {
-	Ed *ed, *pool;
+	uchar *pool;
+	Ed *ed;
 	int i;
 
 	lock(&edpool);
 	if(edpool.free == nil){
 		ddprint("ohci: edalloc %d Eds\n", Incr);
-		pool = xspanalloc(Incr*sizeof(Ed), Align, 0);
+		pool = xspanalloc(Incr*ROUND(sizeof(Ed), Edalign), Edalign, 0);
 		if(pool == nil)
 			panic("ohci: edalloc");
 		for(i=Incr; --i>=0;){
-			pool[i].next = edpool.free;
-			edpool.free = &pool[i];
+			ed = (Ed*)(pool + i*ROUND(sizeof(Ed), Edalign));
+			ed->next = edpool.free;
+			edpool.free = ed;
 		}
 		edpool.nalloc += Incr;
 		edpool.nfree += Incr;
@@ -650,9 +652,9 @@ edalloc(void)
 	edpool.nfree--;
 	ed = edpool.free;
 	edpool.free = ed->next;
-	memset(ed, 0, sizeof(Ed));
 	unlock(&edpool);
-
+	assert(((uintptr)ed & 0xF) == 0);
+	memset(ed, 0, sizeof(Ed));
 	return ed;
 }
 
@@ -821,7 +823,7 @@ seprinttd(char *s, char *e, Td *td, int iso)
 
 	if(td == nil)
 		return seprint(s, e, "<nil td>\n");
-	s = seprint(s, e, "%#p ep %#p ctrl %#p", td, td->ep, td->ctrl);
+	s = seprint(s, e, "%#p ep %#p ctrl %#lux", td, td->ep, td->ctrl);
 	s = seprint(s, e, " cc=%#ulx", (td->ctrl >> Tdccshift) & Tdccmask);
 	if(iso == 0){
 		if((td->ctrl & Tdround) != 0)
@@ -836,7 +838,7 @@ seprinttd(char *s, char *e, Td *td, int iso)
 		s = seprint(s, e, " fc=%uld", (td->ctrl >> Tdfcshift) & Tdfcmask);
 		s = seprint(s, e, " sf=%uld", td->ctrl & Tdsfmask);
 	}
-	s = seprint(s, e, " cbp0 %#p cbp %#p next %#p be %#p %s",
+	s = seprint(s, e, " cbp0 %#lux cbp %#lux next %#lux be %#lux %s",
 		td->cbp0, td->cbp, td->nexttd, td->be, td->last ? "last" : "");
 	s = seprint(s, e, "\n\t\t%ld bytes", td->nbytes);
 	if((bp = td->bp) != nil){
@@ -898,7 +900,7 @@ dumped(Ed *ed)
 	if(buf == nil)
 		return;
 	e = buf+512;
-	s = seprint(buf, e, "\ted %#p: ctrl %#p", ed, ed->ctrl);
+	s = seprint(buf, e, "\ted %#p: ctrl %#lux", ed, ed->ctrl);
 	if((ed->ctrl & Edskip) != 0)
 		s = seprint(s, e, " skip");
 	if((ed->ctrl & Ediso) != 0)
@@ -914,7 +916,7 @@ dumped(Ed *ed)
 		s = seprint(s, e, " hlt");
 	s = seprint(s, e, " ep%uld.%uld", (ed->ctrl>>7)&Epmax, ed->ctrl&0x7f);
 	s = seprint(s, e, " maxpkt %uld", (ed->ctrl>>Edmpsshift)&Edmpsmask);
-	seprint(s, e, " tail %#p head %#p next %#p\n",ed->tail,ed->head,ed->nexted);
+	seprint(s, e, " tail %#lux head %#lux next %#lux\n",ed->tail,ed->head,ed->nexted);
 	print("%s", buf);
 	free(buf);
 	if(ed->tds != nil && (ed->ctrl & Ediso) == 0)
