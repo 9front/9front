@@ -75,7 +75,7 @@ link
 	netdevmedium
 	loopbackmedium
 	usbuhci
-#	usbohci
+	usbohci
 	usbehci		usbehcipc
 
 #	audiosb16	dma
