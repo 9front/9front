@@ -284,9 +284,14 @@ sysexec(va_list list)
 		text = l2be(exec.text);
 		entry = l2be(exec.entry);
 		if(n==sizeof(Exec) && (magic == AOUT_MAGIC)){
-			if(magic == S_MAGIC){
+			switch(magic){
+			case S_MAGIC:
 				text += 8;
 				align = 0x200000ull;	/* 2MB segment alignment for amd64 */
+				break;
+			case V_MAGIC:
+				align = 0x4000ull;	/* MIPS has 16K page alignment */
+				break;
 			}
 			if(text >= (USTKTOP-USTKSIZE)-(UTZERO+sizeof(Exec))
 			|| entry < UTZERO+sizeof(Exec)
