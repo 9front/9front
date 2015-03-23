@@ -6,7 +6,6 @@ server=irc.freenode.net
 port=6667
 realname='<nil>'
 target=''
-clonefile=/net/tcp/clone
 netdir=()
 nick=$user
 pass=()
