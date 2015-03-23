@@ -12,7 +12,7 @@ main(int argc, char *argv[])
 
 	fmtinstall('r', errfmt);
 
-	bind("#c", "/dev", MBEFORE);
+	bind("#c", "/dev", MREPL);
 	open("/dev/cons", OREAD);
 	open("/dev/cons", OWRITE);
 	open("/dev/cons", OWRITE);
