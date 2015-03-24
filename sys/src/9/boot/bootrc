@@ -180,8 +180,12 @@ if(~ $#usbwait 1)
 if(~ $#usbwait 0)
 	sleep 2
 
-. /rc/lib/net.rc
-. /rc/lib/local.rc
+# load boot methods
+fn showlocaldevs {}
+fn configlocal {}
+for(i in /rc/lib/*.rc){
+	. $i
+}
 
 # add partitions and binds
 configlocal

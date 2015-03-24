@@ -13,7 +13,12 @@ $BOOTFILES:	$BOOTDIR/boot.h
 boot:	$BOOTFILES
 	$LD -o $target $BOOTFILES
 
-BOOTFSPROTO=$BOOTDIR/bootfs.proto
+# look for proto file in order:
+#	1) $CONF.bootfs.proto		(config specific)
+#	2) bootfs.proto			(kernel specific)
+#	3) $BOOTDIR/bootfs.proto	(default generic)
+#
+BOOTFSPROTO=`{for(i in $CONF.bootfs.proto bootfs.proto $BOOTDIR/bootfs.proto) test -r $i && echo $i && exit}
 
 bootfs.paq:	$BOOTFSPROTO `{disk/mkfs -aos / $BOOTFSPROTO >[2]/dev/null}
 	mkdir -p bootfs
