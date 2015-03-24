@@ -314,7 +314,7 @@ asmb(void)
 		lput(HEADR);
 		lput(0L);
 		lput(HEADR+textsize+datsize+symsize);
-		lput(lcsize);			/* line number size */
+		lput(lcsize & 0xffff);		/* line number size */
 		lput(0x20L);			/* flags */
 
 		strnput(".data", 8);		/* data segment */
@@ -338,7 +338,6 @@ asmb(void)
 		lput(0x80L);			/* flags */
 		break;
 	case 4:
-
 		lput((0x160L<<16)|3L);		/* magic and sections */
 		lput(time(0));			/* time and date */
 		lput(rnd(HEADR+textsize, 4096)+datsize);
@@ -367,7 +366,7 @@ asmb(void)
 		lput(HEADR);
 		lput(0L);
 		lput(HEADR+textsize+datsize+symsize);
-		lput(lcsize);			/* line number size */
+		lput(lcsize & 0xffff);		/* line number size */
 		lput(0x20L);			/* flags */
 
 		strnput(".data", 8);		/* data segment */
