@@ -7,7 +7,7 @@ SFILES=\
 	mpvecsub.s\
 	mpvecdigmuladd.s\
 	mpvecdigmulsub.s\
-	mpdigdiv.s\
+#	mpdigdiv.s\
 
 HFILES=/$objtype/include/u.h /sys/include/mp.h ../port/dat.h
 
