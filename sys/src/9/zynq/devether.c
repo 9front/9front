@@ -435,12 +435,6 @@ etherreset(void)
 	Ether *ether;
 	int cardno, ctlrno;
 
-	for(ctlrno = 0; ctlrno < MaxEther; ctlrno++){
-		if((ether = etherprobe(-1, ctlrno)) == nil)
-			continue;
-		etherxx[ctlrno] = ether;
-	}
-
 	cardno = ctlrno = 0;
 	while(cards[cardno].type != nil && ctlrno < MaxEther){
 		if(etherxx[ctlrno] != nil){
