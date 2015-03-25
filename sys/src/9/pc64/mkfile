@@ -117,7 +117,8 @@ devaoe.$O sdaoe.$O:		../port/aoe.h
 main.$O:			init.h reboot.h
 
 devusb.$O usbuhci.$O usbohci.$O usbehci.$O: ../port/usb.h
-usbehci.$O:			usbehci.h
+usbehci.$O usbehcipc.$O:	usbehci.h
+
 trap.$O:			/sys/include/tos.h
 ethermii.$O:			ethermii.h
 etheriwl.$O:			wifi.h
