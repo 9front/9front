@@ -209,7 +209,7 @@ sampletick(void *)
 	s16int s[2];
 	int i;
 	
-	addevent(&evsamp, sratediv + evsamp.time);
+	addevent(&evsamp, sratediv);
 	
 	if(--envctr == 0){
 		envctr = envrel;

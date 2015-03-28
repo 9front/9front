@@ -733,7 +733,7 @@ hblanktick(void *)
 	stat = reg[DISPSTAT];
 	if(hblank){
 		hblclock = clock + evhblank.time;
-		addevent(&evhblank, 240*4 + evhblank.time);
+		addevent(&evhblank, 240*4);
 		hblank = 0;
 		ppux0 = 0;
 		memset(pixpri, VACANT, sizeof(pixpri));
@@ -755,7 +755,7 @@ hblanktick(void *)
 	}else{
 		syncppu(240);
 		linecopy();
-		addevent(&evhblank, 68*4 + evhblank.time);
+		addevent(&evhblank, 68*4);
 		hblank = 1;
 		if((stat & IRQHBLEN) != 0)
 			setif(IRQHBL);
