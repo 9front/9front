@@ -185,9 +185,11 @@ timertick(void *aux)
 	Timer *t;
 	u32int v;
 	int to;
+	ulong clock0;
 	
 	t = aux;
-	t->clock = clock + t->time & -(1 << t->sh);
+	clock0 = clock + t->time;
+	t->clock = clock0 & -(1 << t->sh);
 	t->val = -t->time >> t->sh;
 	do{
 		to = 0;
@@ -196,7 +198,7 @@ timertick(void *aux)
 			to++;
 		}while(v >= 0x10000);
 		if(t == aux)
-			addevent(t, (0x10000 - t->val << t->sh) + (-clock & (1 << t->sh) - 1));
+			addevent(t, (0x10000 - t->val << t->sh) + (-clock0 & (1 << t->sh) - 1));
 		if((*t->cnt & TIMERIRQ) != 0)
 			setif(IRQTIM0 << t->i);
 		if(t->snd)
