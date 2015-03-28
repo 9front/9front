@@ -110,6 +110,7 @@ struct Ring
 {
 	Rendez;
 	int	size;
+	int	free;
 	uchar*	base;
 	Desc*	head;
 	Desc*	tail;
@@ -119,9 +120,10 @@ enum
 {
 	Eor=	1<<31,		/* end of ring */
 	Eop=	1<<30,
-	Ie=	1<<29,
+	Ioc=	1<<29,		/* interrupt on completion */
 	Busy=	1<<24,
 	Empty=	1<<14,		/* no data here */
+	Done=	1<<15,		/* transmit done */
 };
 
 enum {
@@ -141,6 +143,32 @@ struct Ctlr
 static ulong dummy;
 
 static void
+txintr(Ctlr *ctlr)
+{
+	Hio *io;
+	ulong s;
+	Desc *p;
+
+	io = ctlr->io;
+	s = io->xstat;
+	if((s & Xdma) != 0)
+		return;
+	p = IO(Desc, ctlr->tx.head->next);
+	while((p->count & Busy) != 0){
+		if((p->count & Done) == 0){
+			io->nxbdp = PADDR(p);
+			io->xstat = Xdma;
+			break;
+		}
+		ctlr->tx.head = p;
+		p->count = Eor|Eop;
+		p = IO(Desc, p->next);
+		ctlr->tx.free++;
+	}
+	wakeup(&ctlr->tx);
+}
+
+static void
 interrupt(Ureg *, void *arg)
 {
 	Ether *edev;
@@ -156,6 +184,7 @@ interrupt(Ureg *, void *arg)
 		io->ctl = Cnormal | Cover;
 	if(s & Cint) {
 		io->ctl = Cnormal | Cint;
+		txintr(ctlr);
 		wakeup(&ctlr->rx);
 	}
 }
@@ -164,12 +193,6 @@ static int
 notempty(void *arg)
 {
 	Ctlr *ctlr = arg;
-	Hio *io;
-
-	io = ctlr->io;
-	dummy = io->piocfg;
-	if((io->rstat & Rdma) == 0)
-		return 1;
 	return (IO(Desc, ctlr->rx.head->next)->count & Empty) == 0;
 }
 
@@ -178,7 +201,6 @@ rxproc(void *arg)
 {
 	Ether *edev = arg;
 	Ctlr *ctlr;
-	Hio *io;
 	Block *b;
 	Desc *p;
 	int n;
@@ -187,12 +209,9 @@ rxproc(void *arg)
 		;
 
 	ctlr = edev->ctlr;
-	io = ctlr->io;
 	for(p = IO(Desc, ctlr->rx.head->next);; p = IO(Desc, p->next)){
-		while((p->count & Empty) != 0){
-			io->rstat = Rdma;
-			tsleep(&ctlr->rx, notempty, ctlr, 500);
-		}
+		while((p->count & Empty) != 0)
+			sleep(&ctlr->rx, notempty, ctlr);
 		n = Rbsize - (p->count & 0x3fff)-3;
 		if(n >= ETHERMINTU){
 			if((p->base[n+2] & Rok) != 0){
@@ -203,9 +222,16 @@ rxproc(void *arg)
 			}
 		}
 		p->addr = PADDR(p->base);
-		p->count = Ie|Empty|Rbsize;
+		p->count = Ioc|Empty|Rbsize;
 		ctlr->rx.head = p;
 	}
+}
+
+static int
+notbusy(void *arg)
+{
+	Ctlr *ctlr = arg;
+	return ctlr->tx.free > 0;
 }
 
 static void
@@ -213,40 +239,18 @@ txproc(void *arg)
 {
 	Ether *edev = arg;
 	Ctlr *ctlr;
-	Hio *io;
 	Block *b;
 	Desc *p;
-	int clean, n;
+	int n;
 
 	while(waserror())
 		;
 
 	ctlr = edev->ctlr;
-	io = ctlr->io;
-	clean = ctlr->tx.size / 2;
 	for(p = IO(Desc, ctlr->tx.tail->next); (b = qbread(edev->oq, 1000000)) != nil; p = IO(Desc, p->next)){
-		while(!clean){
-			splhi();
-			p = ctlr->tx.head;
-			dummy = io->piocfg;
-			ctlr->tx.head = IO(Desc, io->nxbdp & ~0xf);
-			spllo();
-			while(p != ctlr->tx.head){
-				if((p->count & Busy) == 0)
-					break;
-				clean++;
-				p->count = Eor|Eop;
-				p = IO(Desc, p->next);
-			}
-
-			p = IO(Desc, ctlr->tx.tail->next);
-			if(clean)
-				break;
-
-			io->xstat = Xdma;
-			tsleep(&ctlr->tx, return0, nil, 10);
-		}
-		clean--;
+		while(ctlr->tx.free == 0)
+			sleep(&ctlr->tx, notbusy, ctlr);
+		ctlr->tx.free--;
 
 		n = BLEN(b);
 		if(n > ETHERMAXTU)
@@ -254,12 +258,14 @@ txproc(void *arg)
 		memmove(p->base, b->rp, n);
 
 		p->addr = PADDR(p->base);
-		p->count = Eor|Eop|Busy|n;
+		p->count = Ioc|Eor|Eop|Busy|n;
 
-		ctlr->tx.tail->count &= ~Eor;
+		ctlr->tx.tail->count &= ~(Ioc|Eor);
 		ctlr->tx.tail = p;
 
-		io->xstat = Xdma;
+		splhi();
+		txintr(ctlr);
+		spllo();
 
 		freeb(b);
 	}
@@ -273,7 +279,8 @@ allocring(Ring *r, int n)
 	int m;
 
 	r->size = n;
-	
+	r->free = n;
+
 	m = n*BY2PG/2;
 	b = xspanalloc(m, BY2PG, 0);
 	dcflush(b, m);
@@ -324,7 +331,7 @@ init(Ether *edev)
 	p = ctlr->rx.head;
 	do {
 		p->addr = PADDR(p->base);
-		p->count = Ie|Empty|Rbsize;
+		p->count = Ioc|Empty|Rbsize;
 		p = IO(Desc, p->next);
 	} while(p != ctlr->rx.head);
 	io->crbdp = PADDR(p);
@@ -336,15 +343,16 @@ init(Ether *edev)
 		p->count = Eor|Eop;
 		p = IO(Desc, p->next);
 	} while(p != ctlr->tx.tail);
-	ctlr->tx.head = IO(Desc, p->next);
 	io->cxbdp = PADDR(p);
 	io->nxbdp = p->next;
 
 	for(i=0; i<6; i++)
 		io->eaddr[i] = edev->ea[i];
 
-	io->csx = 0; /* XIok | XImaxtry | XIcoll | XIunder; -- no interrupts needed */
+	io->csx = XIok | XImaxtry | XIcoll | XIunder;
 	io->csr = Rprom | RIok|RIend|RIshort|RIdrbl|RIcrc;
+
+	io->rstat = Rdma;
 
 	return 0;
 }
