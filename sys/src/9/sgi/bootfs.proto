@@ -1,0 +1,37 @@
+$objtype
+	bin
+		awk
+		auth
+			secstore
+		aux
+			kbdfs
+		bind
+		cat
+		dd
+		echo
+		grep
+		ip
+			ipconfig
+		ls
+		mkdir
+		mntgen
+		mount
+		mv
+		ndb
+			dnsgetip
+		ps
+		rc
+		rm
+		sed
+		sleep
+		srv
+		test
+		unmount
+		xd
+rc
+	lib
+		rcmain
+		net.rc 555 sys sys ../boot/net.rc
+	bin
+		bootrc 555 sys sys ../boot/bootrc
+tmp

@@ -1,0 +1,93 @@
+CONF=indy
+CONFLIST=indy
+
+objtype=mips
+</$objtype/mkfile
+p=9
+# must match mem.h
+# KTZERO=0x88020000
+KTZERO=0x88020000
+# must match mem.h
+UTZERO=0x4020
+
+# CFLAGS=$CFLAGS -DFPEMUDEBUG
+
+DEVS=`{rc ../port/mkdevlist $CONF}
+
+PORT=\
+	alarm.$O\
+	alloc.$O\
+	allocb.$O\
+	auth.$O\
+	cache.$O\
+	chan.$O\
+	clock.$O\
+	dev.$O\
+	edf.$O\
+	fault.$O\
+	fptrap.$O\
+	mul64fract.$O\
+	page.$O\
+	parse.$O\
+	pgrp.$O\
+	portclock.$O\
+	print.$O\
+	proc.$O\
+	qio.$O\
+	qlock.$O\
+	rdb.$O\
+	rebootcmd.$O\
+	segment.$O\
+	swap.$O\
+	syscallfmt.$O\
+	sysfile.$O\
+	sysproc.$O\
+	taslock.$O\
+	tod.$O\
+	xalloc.$O\
+
+OBJ=\
+	l.$O\
+	faultmips.$O\
+	main.$O\
+	mmu.$O\
+	random.$O\
+	trap.$O\
+	$CONF.root.$O\
+	$CONF.rootc.$O\
+	$DEVS\
+	$PORT\
+
+LIB=\
+	/mips/lib/libauth.a\
+	/mips/lib/libsec.a\
+	/mips/lib/libmp.a\
+	/mips/lib/libip.a\
+	/mips/lib/libc.a\
+
+$p$CONF:	$OBJ $CONF.c $LIB
+	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c
+	$LD -o $target -l -R8 -H3 -T$KTZERO $OBJ $CONF.$O $LIB
+	size $target
+
+install:V:	$p$CONF
+	cp $p$CONF /$objtype/
+
+<../boot/bootmkfile
+<../port/portmkfile
+<|../port/mkbootrules $CONF
+
+init.h:	init9.s ../port/initcode.c /sys/src/libc/9syscall/sys.h
+	va init9.s
+	vc ../port/initcode.c
+	vl -T$UTZERO -R4 -o init.out init9.$O initcode.$O
+	{echo 'uchar initcode[]={'
+	 xd -r -1x init.out |
+		sed -e 's/^[0-9a-f]+ //' -e 's/ ([0-9a-f][0-9a-f])/0x\1,/g'
+	 echo '};'} > init.h
+
+faultmips.$O mmu.$O syscall.$O  trap.$O: /$objtype/include/ureg.h
+main.$O:	/$objtype/include/ureg.h errstr.h init.h
+
+%.clean:V:
+	rm -f $stem.c [9bz]$stem [9bz]$stem.gz boot$stem.* init.h
