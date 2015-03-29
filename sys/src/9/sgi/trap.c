@@ -576,22 +576,6 @@ notify(Ureg *ur)
 }
 
 /*
- * Check that status is OK to return from note.
- */
-int
-validstatus(ulong kstatus, ulong ustatus)
-{
-//	if((kstatus & (INTMASK|KX|SX|UX)) != (ustatus & (INTMASK|KX|SX|UX)))
-	if((kstatus & INTMASK) != (ustatus & INTMASK))
-		return 0;
-	if((ustatus&(KSU|ERL|EXL|IE)) != (KUSER|EXL|IE))
-		return 0;
-	if(ustatus & (0xFFFF0000&~CU1))	/* no CU3, CU2, CU0, RP, FR, RE, DS */
-		return 0;
-	return 1;
-}
-
-/*
  * Return user to state before notify(); called from user's handler.
  */
 void
@@ -613,20 +597,13 @@ noted(Ureg *kur, ulong arg0)
 	nur = up->ureg;
 
 	oureg = (ulong)nur;
-	if((oureg & (BY2WD-1))
-	|| !okaddr((ulong)oureg-BY2WD, BY2WD+sizeof(Ureg), 0)){
+	if((oureg & (BY2WD-1)) || !okaddr((ulong)oureg-BY2WD, BY2WD+sizeof(Ureg), 0)){
 		pprint("bad up->ureg in noted or call to noted() when not notified\n");
 		qunlock(&up->debug);
 		pexit("Suicide", 0);
 	}
 
-	if(0 && !validstatus(kur->status, nur->status)) {
-		qunlock(&up->debug);
-		pprint("bad noted ureg status %#lux\n", nur->status);
-		pexit("Suicide", 0);
-	}
-
-	memmove(kur, up->ureg, sizeof(Ureg));
+	setregisters(kur, (char*)kur, (char*)up->ureg, sizeof(Ureg));
 	switch(arg0) {
 	case NCONT:
 	case NRSTR:				/* only used by APE */
@@ -873,10 +850,12 @@ userpc(void)
 void
 setregisters(Ureg *xp, char *pureg, char *uva, int n)
 {
-	ulong status;
+	ulong status, r27;
 
+	r27 = xp->r27;			/* return PC for GEVector() */
 	status = xp->status;
 	memmove(pureg, uva, n);
+	xp->r27 = r27;
 	xp->status = status;
 }
 
