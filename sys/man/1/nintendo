@@ -101,6 +101,8 @@ Display percentage of how fast the system is running relative to a real SNES.
 .SH SOURCE
 .B /sys/src/games/gb
 .br
+.B /sys/src/games/gba
+.br
 .B /sys/src/games/nes
 .br
 .B /sys/src/games/snes
