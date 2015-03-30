@@ -133,14 +133,16 @@ enum {
 struct Ctlr
 {
 	int	attach;
+	char*	txerr;
+	ulong	txwdog;
 
-	Hio	*io;
+	Hio*	io;
 
 	Ring	rx;
 	Ring	tx;
 };
 
-static ulong dummy;
+static int reset(Ether*);
 
 static void
 txintr(Ctlr *ctlr)
@@ -153,17 +155,21 @@ txintr(Ctlr *ctlr)
 	s = io->xstat;
 	if((s & Xdma) != 0)
 		return;
-	p = IO(Desc, ctlr->tx.head->next);
-	while((p->count & Busy) != 0){
+	if((s & Xmaxtry) != 0)
+		ctlr->txerr = "transmission failed";
+	if((s & Xunder) != 0)
+		ctlr->txerr = "transmitter underflowed";
+	for(p = IO(Desc, ctlr->tx.head->next); (p->count & Busy) != 0; p = IO(Desc, p->next)){
 		if((p->count & Done) == 0){
 			io->nxbdp = PADDR(p);
 			io->xstat = Xdma;
+			ctlr->txwdog = MACHP(0)->ticks;
 			break;
 		}
-		ctlr->tx.head = p;
 		p->count = Eor|Eop;
-		p = IO(Desc, p->next);
+		ctlr->tx.head = p;
 		ctlr->tx.free++;
+		ctlr->txwdog = 0;
 	}
 	wakeup(&ctlr->tx);
 }
@@ -180,8 +186,10 @@ interrupt(Ureg *, void *arg)
 	ctlr = edev->ctlr;
 	io = ctlr->io;
 	s = io->ctl;
-	if(s & Cover)
+	if(s & Cover){
 		io->ctl = Cnormal | Cover;
+		edev->overflows++;
+	}
 	if(s & Cint) {
 		io->ctl = Cnormal | Cint;
 		txintr(ctlr);
@@ -193,7 +201,23 @@ static int
 notempty(void *arg)
 {
 	Ctlr *ctlr = arg;
+
 	return (IO(Desc, ctlr->rx.head->next)->count & Empty) == 0;
+}
+
+static char*
+checkerr(Ctlr *ctlr)
+{
+	ulong t;
+
+	if(ctlr->txerr != nil)
+		return ctlr->txerr;
+	t = ctlr->txwdog;
+	if(t != 0 && TK2MS(MACHP(0)->ticks - t) > 1000)
+		return "transmitter dma timeout";
+	if((ctlr->io->rstat & Rdma) == 0)
+		return "recevier dma stopped";
+	return nil;
 }
 
 static void
@@ -201,6 +225,7 @@ rxproc(void *arg)
 {
 	Ether *edev = arg;
 	Ctlr *ctlr;
+	char *err;
 	Block *b;
 	Desc *p;
 	int n;
@@ -210,16 +235,22 @@ rxproc(void *arg)
 
 	ctlr = edev->ctlr;
 	for(p = IO(Desc, ctlr->rx.head->next);; p = IO(Desc, p->next)){
-		while((p->count & Empty) != 0)
-			sleep(&ctlr->rx, notempty, ctlr);
-		n = Rbsize - (p->count & 0x3fff)-3;
-		if(n >= ETHERMINTU){
-			if((p->base[n+2] & Rok) != 0){
-				b = allocb(n);
-				b->wp += n;
-				memmove(b->rp, p->base+2, n);
-				etheriq(edev, b, 1);
+		while((p->count & Empty) != 0){
+			err = checkerr(ctlr);
+			if(err != nil){
+				print("%s: %s; reseting\n", up->text, err);
+				splhi();
+				reset(edev);
+				spllo();
 			}
+			tsleep(&ctlr->rx, notempty, ctlr, 500);
+		}
+		n = Rbsize - (p->count & 0x3fff)-3;
+		if(n >= ETHERMINTU && (p->base[n+2] & Rok) != 0){
+			b = allocb(n);
+			b->wp += n;
+			memmove(b->rp, p->base+2, n);
+			etheriq(edev, b, 1);
 		}
 		p->addr = PADDR(p->base);
 		p->count = Ioc|Empty|Rbsize;
@@ -250,7 +281,6 @@ txproc(void *arg)
 	for(p = IO(Desc, ctlr->tx.tail->next); (b = qbread(edev->oq, 1000000)) != nil; p = IO(Desc, p->next)){
 		while(ctlr->tx.free == 0)
 			sleep(&ctlr->tx, notbusy, ctlr);
-		ctlr->tx.free--;
 
 		n = BLEN(b);
 		if(n > ETHERMAXTU)
@@ -264,6 +294,7 @@ txproc(void *arg)
 		ctlr->tx.tail = p;
 
 		splhi();
+		ctlr->tx.free--;
 		txintr(ctlr);
 		spllo();
 
@@ -303,21 +334,20 @@ allocring(Ring *r, int n)
 }
 
 static int
-init(Ether *edev)
+reset(Ether *edev)
 {
 	Ctlr *ctlr;
 	Desc *p;
 	Hio *io;
 	int i;
 
-	io = IO(Hio, edev->port);
 	ctlr = edev->ctlr;
-	ctlr->io = io;
+	io = ctlr->io;
+
+	ctlr->txerr = nil;
+	ctlr->txwdog = 0;
 
 	io->csx = Xreg0;
-	allocring(&ctlr->rx, 256);
-	allocring(&ctlr->tx, 64);
-
 	io->rstat = 0;
 	io->xstat = 0;
 	io->ctl = Cnormal | Creset | Cint;
@@ -336,15 +366,19 @@ init(Ether *edev)
 	} while(p != ctlr->rx.head);
 	io->crbdp = PADDR(p);
 	io->nrbdp = p->next;
+	ctlr->rx.tail = p;
+	ctlr->rx.free = ctlr->rx.size;
 
 	p = ctlr->tx.tail;
 	do {
-		p->addr = 0;
+		p->addr = PADDR(p->base);
 		p->count = Eor|Eop;
 		p = IO(Desc, p->next);
 	} while(p != ctlr->tx.tail);
 	io->cxbdp = PADDR(p);
 	io->nxbdp = p->next;
+	ctlr->tx.head = p;
+	ctlr->tx.free = ctlr->tx.size;
 
 	for(i=0; i<6; i++)
 		io->eaddr[i] = edev->ea[i];
@@ -354,7 +388,24 @@ init(Ether *edev)
 
 	io->rstat = Rdma;
 
+	wakeup(&ctlr->rx);
+	wakeup(&ctlr->tx);
+
 	return 0;
+
+}
+
+static int
+init(Ether *edev)
+{
+	Ctlr *ctlr;
+
+	ctlr = edev->ctlr;
+	ctlr->io = IO(Hio, edev->port);
+	allocring(&ctlr->rx, 256);
+	allocring(&ctlr->tx, 64);
+
+	return reset(edev);
 }
 
 /*
@@ -379,8 +430,8 @@ attach(Ether *edev)
 	if(ctlr->attach)
 		return;
 	ctlr->attach = 1;
-	kproc("#0rx", rxproc, edev);
-	kproc("#0tx", txproc, edev);
+	kproc("#l0rx", rxproc, edev);
+	kproc("#l0tx", txproc, edev);
 }
 
 static int
