@@ -45,3 +45,5 @@ enum {
 
 #define	MEMCFG0		0x1fa000c4	/* mem. size config. reg. 0 (w, rw) */
 #define	MEMCFG1		0x1fa000cc	/* mem. size config. reg. 1 (w, rw) */
+
+#define GIO_NEWPORT	0x1f0f0000	/* indy */

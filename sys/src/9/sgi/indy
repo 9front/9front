@@ -16,8 +16,8 @@ dev
 	cap
 	kprof
 #	sd
-#	draw screen
-#	mouse
+	draw screen
+	mouse
 	
 link
 	etherseeq

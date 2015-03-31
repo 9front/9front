@@ -173,6 +173,8 @@ main(void)
 	timersinit();
 	fmtinit();
 
+	screeninit();
+
 	ckpagemask(PGSZ, BY2PG);
 	tlbinit();
 	pageinit();
@@ -483,5 +485,6 @@ confinit(void)
 		+ conf.nswap
 		+ conf.nswppo*sizeof(Page*);
 	mainmem->maxsize = kpages;
+	imagmem->maxsize = kpages;
 //	mainmem->flags |= POOL_PARANOIA;
 }

@@ -59,11 +59,14 @@ OBJ=\
 	$PORT\
 
 LIB=\
-	/mips/lib/libauth.a\
-	/mips/lib/libsec.a\
-	/mips/lib/libmp.a\
-	/mips/lib/libip.a\
-	/mips/lib/libc.a\
+	/$objtype/lib/libmemlayer.a\
+	/$objtype/lib/libmemdraw.a\
+	/$objtype/lib/libdraw.a\
+	/$objtype/lib/libauth.a\
+	/$objtype/lib/libsec.a\
+	/$objtype/lib/libmp.a\
+	/$objtype/lib/libip.a\
+	/$objtype/lib/libc.a\
 
 $p$CONF:	$OBJ $CONF.c $LIB
 	$CC $CFLAGS '-DKERNDATE='`{date -n} $CONF.c

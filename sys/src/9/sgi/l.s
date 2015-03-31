@@ -721,6 +721,7 @@ TEXT	fcr31(SB), $0			/* fp csr */
  * Emulate 68020 test and set: load linked / store conditional
  */
 
+TEXT	_tas(SB), $0
 TEXT	tas(SB), $0
 	MOVW	R1, R2		/* address of key */
 tas1:
@@ -804,6 +805,20 @@ dcflush1:			/* primary cache line size is 16 bytes */
 	BGTZ	R9, dcflush1
 	MOVW	R10, M(STATUS)
 	WAIT
+	RETURN
+
+TEXT	outl(SB), $0
+	MOVW	4(FP), R2
+	MOVW	8(FP), R3
+	SLL	$2, R3
+	ADDU	R2, R3
+outl1:
+	BEQ	R2, R3, outl2
+	MOVW	(R2), R4
+	MOVW	R4, (R1)
+	JMP	outl1
+	ADDU	$4, R2
+outl2:
 	RETURN
 
 /*
