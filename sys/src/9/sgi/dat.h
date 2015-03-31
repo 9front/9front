@@ -66,6 +66,7 @@ struct Conf
 	ulong	ialloc;		/* bytes available for interrupt-time allocation */
 	ulong	pipeqsize;	/* size in bytes of pipe queues */
 	int	nuart;		/* number of uart devices */
+	int	monitor;
 };
 
 /*
