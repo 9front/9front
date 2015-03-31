@@ -5,4 +5,4 @@ if not
 	file=$1
 hpost -u http://okturing.com -p / a_body@$file submit:submit fake:fake a_func:add_post url: |
 grep -e '\/body\"' |
-sed 1q | sed 's/^.*href=\"//g; s/body\".*$/body/g; s/^/http:\/\/okturing.com/g'
+sed 1q | sed 's/^.*href=\"//g; s/body\".*$/body/g'
