@@ -3,14 +3,13 @@
 BIN=/$objtype/bin/games
 TARG=gb
 OFILES=\
-	gb.$O\
 	cpu.$O\
 	mem.$O\
-	disasm.$O\
+	gb.$O\
 	ppu.$O\
-	daa.$O\
+	ev.$O\
 	state.$O\
-	audio.$O\
+	apu.$O\
 
 HFILES=dat.h fns.h
 
