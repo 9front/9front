@@ -50,7 +50,6 @@ static Dirtab kbdtab[] = {
 
 static Lock i8042lock;
 static uchar ccc;
-static void kbdputc(int);
 static void (*auxputc)(int, int);
 static int nokbd = 1;			/* flag: no PS/2 keyboard */
 
