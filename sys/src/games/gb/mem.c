@@ -549,7 +549,7 @@ dmastep(void)
 	u16int sa, da;
 	
 	sa = (reg[HDMASL] | reg[HDMASH] << 8) & 0xfff0;
-	da = (reg[HDMADL] | reg[HDMADH] << 8) & 0x0ff0;
+	da = (reg[HDMADL] | reg[HDMADH] << 8) & 0x1ff0 | 0x8000;
 	for(i = 0; i < 16; i++)
 		memwrite(da++, memread(sa++));
 	reg[HDMASL] += 16;
