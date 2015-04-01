@@ -280,8 +280,11 @@ memread(u16int a)
 void
 memwrite(u16int a, u8int v)
 {
-	if(a >> 12 == 13 && !((pla & (HIRAM|LORAM)) == 0 || pla == 1 || (pla & CHAREN) == 0 && (pla & (EXROM|GAME)) != EXROM))
+	if(a >> 12 == 13 && !((pla & (HIRAM|LORAM)) == 0 || pla == 1 || (pla & CHAREN) == 0 && (pla & (EXROM|GAME)) != EXROM)){
 		miowrite(a & 0xfff, v);
+		io();
+		return;
+	}
 	ram[a] = v;
 	if(a == 1)
 		pla = pla & ~7 | v & 7;
