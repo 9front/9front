@@ -22,7 +22,7 @@ extern u8int ppuy, ppustate;
 
 extern u8int mode;
 extern u8int mbc, feat;
-extern int keys;
+extern int keys, scale;
 
 enum {
 	JOYP = 0x00,
