@@ -23,40 +23,6 @@ enum {
 	 Parity=	0x80,
 
 	Cmd=		0x64,		/* command port (write only) */
-
-	Spec=		0xF800,		/* Unicode private space */
-	PF=		Spec|0x20,	/* num pad function key */
-	View=		Spec|0x00,	/* view (shift window up) */
-	KF=		0xF000,		/* function key (begin Unicode private space) */
-	Shift=		Spec|0x60,
-	Break=		Spec|0x61,
-	Ctrl=		Spec|0x62,
-	Latin=		Spec|0x63,
-	Caps=		Spec|0x64,
-	Num=		Spec|0x65,
-	Middle=		Spec|0x66,
-	Altgr=		Spec|0x67,
-	Kmouse=		Spec|0x100,
-	No=		0x00,		/* peter */
-
-	Home=		KF|13,
-	Up=		KF|14,
-	Pgup=		KF|15,
-	Print=		KF|16,
-	Left=		KF|17,
-	Right=		KF|18,
-	End=		KF|24,
-	Down=		View,
-	Pgdown=		KF|19,
-	Ins=		KF|20,
-	Del=		0x7F,
-	Scroll=		KF|21,
-
-	Nscan=	128,
-
-	Int=	0,			/* kbscans indices */
-	Ext,
-	Nscans,
 };
 
 enum
