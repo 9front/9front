@@ -169,7 +169,6 @@ sweep(int wb)
 	if((cnt & 1<<3) != 0)
 		d = -d;
 	fr = sweepfreq + d;
-	print("%d %d %d\n", d, sweepfreq, fr);
 	if(fr > 2047){
 		sndch[0].len = 0;
 		sndch[0].vol = 0;
