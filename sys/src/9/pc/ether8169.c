@@ -706,7 +706,6 @@ rtl8169init(Ether* edev)
 	switch(ctlr->macv){
 	case Macv40:
 	case Macv44:
-	case Macv45:
 		cplusc |= Macstatdis;
 		break;
 	default:
@@ -1057,6 +1056,7 @@ vetmacv(Ctlr *ctlr, uint *macv)
 	case Macv30:
 	case Macv40:
 	case Macv44:
+	case Macv45:
 		break;
 	}
 	return 0;
