@@ -56,7 +56,6 @@ arcsproc(void*)
 	while(waserror())
 		;
 	for(;;){
-		//sched();
 		tsleep(&up->sleep, return0, nil, 50);
 		c = arcsgetc();
 		if(c < 0)

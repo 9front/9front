@@ -446,20 +446,90 @@ Cursor	arrow = {
 
 Memimage *gscreen;
 
+static void 
+vc2set(uchar r, ushort val)
+{
+	regs->dcbmode = NPORT_DMODE_AVC2 | VC2_REGADDR_INDEX |
+		NPORT_DMODE_W3 | NPORT_DMODE_ECINC | VC2_PROTOCOL;
+	regs->dcbdata0 = r << 24 | val << 8;
+}
+
+static ushort
+vc2get(uchar r)
+{
+	regs->dcbmode = NPORT_DMODE_AVC2 | VC2_REGADDR_INDEX |
+		NPORT_DMODE_W1 | NPORT_DMODE_ECINC | VC2_PROTOCOL;
+	regs->dcbdata0 = r << 24;
+	regs->dcbmode = NPORT_DMODE_AVC2 | VC2_REGADDR_IREG |
+		NPORT_DMODE_W2 | NPORT_DMODE_ECINC | VC2_PROTOCOL;
+	return regs->dcbdata0 >> 16;
+}
+
+static Point curoff;
+
 void
 cursoron(void)
 {
+	Point xy;
+	int s;
+
+	xy = addpt(mousexy(), curoff);
+
+	s = splhi();
+	vc2set(VC2_IREG_CURSX, xy.x);
+	vc2set(VC2_IREG_CURSY, xy.y);
+	vc2set(VC2_IREG_CONTROL, vc2get(VC2_IREG_CONTROL) | VC2_CTRL_ECDISP);
+	splx(s);
 }
 
 void
 cursoroff(void)
 {
+	int s;
+
+	s = splhi();
+	vc2set(VC2_IREG_CONTROL, vc2get(VC2_IREG_CONTROL) & ~VC2_CTRL_ECDISP);
+	splx(s);
 }
 
 void
-setcursor(Cursor*)
+setcursor(Cursor *curs)
 {
-}
+	static uchar mem[(2*32*32)/8];
+	uchar *set, *clr;
+	int i, s;
+
+	memset(mem, 0, sizeof(mem));
+
+	/*
+	 * convert to two 32x32 bitmaps
+	 */
+	set = mem;
+	clr = mem + (32*32)/8;
+	for(i=0;i<32;i++) {
+		*set++ = curs->set[i];
+		*clr++ = curs->clr[i];
+		if(i & 1){
+			set += 2;
+			clr += 2;
+		}
+	}
+	curoff = addpt(Pt(30,30), curs->offset);
+
+	/*
+	 * upload two bytes at a time
+	 */
+	s = splhi();
+	vc2set(VC2_IREG_RADDR, vc2get(VC2_IREG_CENTRY));
+	regs->dcbmode = NPORT_DMODE_AVC2 | VC2_REGADDR_RAM |
+		NPORT_DMODE_W2 | VC2_PROTOCOL;
+	for(i = 0; i < sizeof(mem); i += 2){
+		while(regs->stat & NPORT_STAT_BBUSY)
+			;
+		regs->dcbdata0 = *(ushort*)(&mem[i]) << 16;
+	}
+	splx(s);
+}	
 
 static void
 setmode(void)
@@ -486,6 +556,8 @@ setmode(void)
 	regs->drawmode1 = DM1_RGBPLANES | 
 		NPORT_DMODE1_CCLT | NPORT_DMODE1_CCEQ | NPORT_DMODE1_CCGT | NPORT_DMODE1_LOSRC |
 		NPORT_DMODE1_DD24 | NPORT_DMODE1_RGBMD | NPORT_DMODE1_HD32 | NPORT_DMODE1_RWPCKD;
+
+	setcursor(&arrow);
 }
 
 void
@@ -526,13 +598,12 @@ screeninit(void)
 	enum {
 		RGBX32 = CHAN4(CRed, 8, CGreen, 8, CBlue, 8, CIgnore, 8),
 	};
-
-	conf.monitor = 1;
 	memimageinit();
 	gscreen = allocmemimage(Rect(0,0,1280,1024), RGBX32);
 	if(gscreen == nil)
 		panic("screeninit: gscreen == nil");
 	memfillcolor(gscreen, 0xFFFFFFFF);
+	mouseaccelerate(3);
 }
 
 uchar*
@@ -565,4 +636,36 @@ blankscreen(int)
 void
 mousectl(Cmdbuf *)
 {
+}
+
+/*
+ * sgi mouse protocol
+ *	byte 0 -	Y0 X0 Y7 X7  F  M  R  L
+ *	byte 1 -	X7 X6 X5 X4 X3 X2 X1 X0
+ *	byte 2 -	Y7 Y6 Y5 Y4 Y3 Y2 Y1 Y0
+ */
+void
+sgimouseputc(int c)
+{
+	static uchar msg[3];
+	static int nb;
+	int dx, dy, newbuttons;
+	static uchar b[] = { 0, 1, 4, 5, 2, 3, 6, 7 };
+	static ulong lasttick;
+	ulong m;
+
+	/* Resynchronize in stream with timing. */
+	m = MACHP(0)->ticks;
+	if(TK2SEC(m - lasttick) > 2)
+		nb = 0;
+	lasttick = m;
+
+	msg[nb] = c;
+	if(++nb == 3){
+		nb = 0;
+		newbuttons = b[msg[0]&7];
+		dx = (char)msg[1];
+		dy = -(char)msg[2];
+		mousetrack(dx, dy, newbuttons, TK2MS(MACHP(0)->ticks));
+	}
 }

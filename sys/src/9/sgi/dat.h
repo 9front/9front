@@ -67,6 +67,7 @@ struct Conf
 	ulong	pipeqsize;	/* size in bytes of pipe queues */
 	int	nuart;		/* number of uart devices */
 	int	monitor;
+	int	keyboard;
 };
 
 /*

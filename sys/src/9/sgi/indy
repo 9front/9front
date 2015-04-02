@@ -18,6 +18,7 @@ dev
 #	sd
 	draw screen
 	mouse
+	kbd
 	
 link
 	etherseeq

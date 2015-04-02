@@ -154,6 +154,13 @@ meminit(void)
 	}
 }
 
+static int
+havegfx(void)
+{
+	char *s = getconf("ConsoleOut");
+	return s != nil && strstr(s, "video()") != nil;
+}
+
 void
 main(void)
 {
@@ -173,7 +180,10 @@ main(void)
 	timersinit();
 	fmtinit();
 
-	screeninit();
+	if(havegfx()){
+		conf.monitor = 1;
+		screeninit();
+	}
 
 	ckpagemask(PGSZ, BY2PG);
 	tlbinit();
@@ -252,8 +262,6 @@ init0(void)
 			ksetenv("service", "terminal", 0);
 
 		ksetenv("bootargs", "tcp", 0);
-
-		/* make kbdfs attach to /dev/eia0 arcs console */ 
 		ksetenv("console", "0", 0);
 
 		/* no usb */
@@ -264,7 +272,8 @@ init0(void)
 	}
 
 	/* process input for arcs console */
-	kproc("arcs", arcsproc, 0);
+	if(!conf.keyboard)
+		kproc("arcs", arcsproc, 0);
 
 	kproc("alarm", alarmkproc, 0);
 	touser(sp);

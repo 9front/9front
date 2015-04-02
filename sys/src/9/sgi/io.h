@@ -40,10 +40,15 @@ enum {
 
 #define	LIO_0_ISR	(INT2_BASE+0x3)
 #define	LIO_0_MASK	(INT2_BASE+0x7)
+#define	LIO_1_ISR	(INT2_BASE+0xb)
+#define	LIO_1_MASK	(INT2_BASE+0xf)
+#define	LIO_2_ISR	(INT2_BASE+0x13)
+#define	LIO_2_MASK	(INT2_BASE+0x17)
 
-#define HPC3_ETHER	0x1fb80000
+#define	HPC3_ETHER	0x1fb80000
+#define	HPC3_KBDMS	0x1fbd9800
+#define	GIO_NEWPORT	0x1f0f0000	/* indy */
 
 #define	MEMCFG0		0x1fa000c4	/* mem. size config. reg. 0 (w, rw) */
 #define	MEMCFG1		0x1fa000cc	/* mem. size config. reg. 1 (w, rw) */
 
-#define GIO_NEWPORT	0x1f0f0000	/* indy */
