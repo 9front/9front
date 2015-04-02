@@ -23,7 +23,6 @@ int dmastep(void);
 void audioinit(void);
 int audioout(void);
 void sndwrite(u8int, u8int);
-int apuread(void);
 u8int waveread(u8int);
 void wavewrite(u8int, u8int);
 u8int timread(void);

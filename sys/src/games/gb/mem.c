@@ -27,7 +27,7 @@ regread(u8int a)
 
 	switch(a){
 	case JOYP:
-		v = keys & 0x30 | 0xcf;
+		v = reg[a] & 0xff;
 		if((reg[a] & 0x10) == 0)
 			v &= 0xf0 | ~keys;
 		if((reg[a] & 0x20) == 0)
@@ -50,10 +50,13 @@ regread(u8int a)
 	case NR14: case NR24: case NR34: case NR44:
 		return reg[a] | 0xbf;
 	case NR52:
-		return apuread();
+		return apustatus;
+	case NR11: case NR21:
+		return reg[a] | 0x3f;
+	case 0x30: case 0x31: case 0x32: case 0x33: case 0x34: case 0x35: case 0x36: case 0x37:
+	case 0x38: case 0x39: case 0x3a: case 0x3b: case 0x3c: case 0x3d: case 0x3e: case 0x3f:
+		return waveread(a & 0xf);
 	default:
-		if((a & 0xf0) == 0x30)
-			return waveread(a & 0xf);
 		return reg[a];
 	}
 }
@@ -78,6 +81,8 @@ regwrite(u8int a, u8int v)
 	u8int u;
 
 	switch(a){
+	case JOYP: v |= 0xcf; break;
+	case SC: v |= 0x7c; break;
 	case DIV:
 		divclock = clock;
 		v = 0;
@@ -111,13 +116,13 @@ regwrite(u8int a, u8int v)
 		break;
 	case VBK:
 		if((mode & COL) == 0)
-			break;
+			goto ff;
 		vramb = vram + ((v & 1) << 13);
 		v |= 0xfe;
 		break;
 	case SVBK:
 		if((mode & COL) == 0)
-			break;
+			goto ff;
 		v &= 7;
 		wramb = wram + (v + (v - 1 >> 3 & 1) << 12);
 		v |= 0xf8;
@@ -161,29 +166,45 @@ regwrite(u8int a, u8int v)
 			reg[OCPS] = reg[OCPS] + 1 - ((reg[OCPS] & 0x3f) + 1 & 0x40);
 		break;
 	case IF: v |= 0xe0; break;
+	case IE: v &= 0x1f; break;
 	case KEY1: v |= 0x7e; break;
 	case HDMAC:
 		if((mode & COL) == 0)
-			break;
+			goto ff;
 		dma = (v & 0x80) != 0 ? -1 : 1;
 		break;
 	case NR10: v |= 0x80; goto snd;
 	case NR14: case NR24: v |= 0x38; goto snd;
+	case NR30: v |= 0x7f; goto snd;
 	case NR32: v |= 0x9f; goto snd;
 	case NR41: v |= 0xc0; goto snd;
 	case NR44: v |= 0x3f; goto snd;
 	case NR52: v |= 0x70; goto snd;
 	case NR11: case NR12: case NR13:
 	case NR21: case NR22: case NR23:
-	case NR30: case NR31: case NR33: case NR34:
+	case NR31: case NR33: case NR34:
 	case NR42: case NR43:
 	case NR50: case NR51:
 	snd:
 		sndwrite(a, v);
+		return;
+	case SB:
+	case TMA:
 		break;
+	case HDMASL: case HDMASH: case HDMADL: case HDMADH: case RP:
+		if((mode & COL) == 0)
+			goto ff;
+		break;
+	case 0x30: case 0x31: case 0x32: case 0x33: case 0x34: case 0x35: case 0x36: case 0x37:
+	case 0x38: case 0x39: case 0x3a: case 0x3b: case 0x3c: case 0x3d: case 0x3e: case 0x3f:
+		wavewrite(a & 0xf, v);
+		return;
+	default:
+		if(a >= 0x80)
+			break;
+	ff:
+		v = 0xff;
 	}
-	if((a & 0xf0) == 0x30)
-		wavewrite(a, v);
 	reg[a] = v;
 }
 

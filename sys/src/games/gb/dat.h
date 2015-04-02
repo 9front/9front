@@ -20,6 +20,8 @@ extern ulong clock;
 
 extern u8int ppuy, ppustate;
 
+extern u8int apustatus;
+
 extern u8int mode;
 extern u8int mbc, feat;
 extern int keys, scale;
@@ -69,6 +71,7 @@ enum {
 	WX = 0x4B,
 	KEY1 = 0x4D,
 	VBK = 0x4F,
+	RP = 0x56,
 	HDMASH = 0x51,
 	HDMASL = 0x52,
 	HDMADH = 0x53,
@@ -128,6 +131,7 @@ enum {
 	PICH = 144,
 	MILLION = 1000000,
 	BILLION = 1000000000,
+	FREQ = 1<<23
 };
 
 struct Event {
