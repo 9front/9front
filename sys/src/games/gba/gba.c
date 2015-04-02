@@ -317,6 +317,8 @@ flush(void)
 	extern uchar pic[];
 	Mouse m;
 	int x;
+	static vlong old, delta;
+	vlong new, diff;
 
 	if(nbrecvul(mc->resizec) > 0){
 		if(getwindow(display, Refnone) < 0)
@@ -347,7 +349,20 @@ flush(void)
 	flushimage(display, 1);
 	if(profile)
 		timing();
-	audioout();
+	if(audioout() < 0){
+		new = nsec();
+		diff = 0;
+		if(old != 0){
+			diff = BILLION/60 - (new - old) - delta;
+			if(diff >= MILLION)
+				sleep(diff/MILLION);
+		}
+		old = nsec();
+		if(diff != 0){
+			diff = (old - new) - (diff / MILLION) * MILLION;
+			delta += (diff - delta) / 100;
+		}
+	}
 	if(framestep){
 		paused = 1;
 		qlock(&pauselock);

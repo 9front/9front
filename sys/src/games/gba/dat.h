@@ -141,6 +141,8 @@ enum {
 	KB = 1024,
 	BACKTYPELEN = 64,
 	HZ = 16777216,
+	MILLION = 1000000,
+	BILLION = 1000000000,
 };
 
 typedef struct Var Var;

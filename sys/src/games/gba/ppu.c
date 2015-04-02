@@ -754,7 +754,8 @@ hblanktick(void *)
 			setif(IRQVCTR);
 	}else{
 		syncppu(240);
-		linecopy();
+		if(ppuy < 160)
+			linecopy();
 		addevent(&evhblank, 68*4);
 		hblank = 1;
 		if((stat & IRQHBLEN) != 0)
