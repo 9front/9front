@@ -1765,6 +1765,8 @@ hdamatch(Pcidev *p)
 		case (0x1039 << 16) | 0x7502:	/* SIS (untested) */
 		case (0x10b9 << 16) | 0x5461:	/* ULI (untested) */
 
+		case (0x1022 << 16) | 0x780d:	/* AMD FCH Azalia Controller */
+
 		case (0x15ad << 16) | 0x1977:	/* Vmware */
 			return p;
 		}
