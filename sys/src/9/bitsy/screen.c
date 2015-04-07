@@ -110,8 +110,6 @@ struct sa1110regs {
 	ulong	lccr3;
 } *lcd;
 
-Point	ZP = {0, 0};
-
 static Memdata xgdata;
 
 static Memimage xgscreen =
@@ -142,12 +140,10 @@ Memsubfont	*memdefont;
 
 Lock		screenlock;
 
-Point		ZP = {0, 0};
 ushort		*vscreen;	/* virtual screen */
 Rectangle	window;
 Point		curpos;
 int			h, w;
-int			drawdebug;
 
 static	ulong	rep(ulong, int);
 static	void	screenwin(void);
