@@ -443,6 +443,7 @@ enum {
 	i82579,
 	i82580,
 	i82583,
+	i218,
 	i350,
 	Nctlrtype,
 };
@@ -454,6 +455,7 @@ enum {
 	Fpba	= 1<<3,
 	Fflashea= 1<<4,
 	F79phy	= 1<<5,
+	Fnofct	= 1<<6,
 };
 
 typedef struct Ctlrtype Ctlrtype;
@@ -479,10 +481,11 @@ static Ctlrtype cttab[Nctlrtype] = {
 	i82577m,	1514,	Fload|Fert,	"i82577",
 	i82578,		4096,	Fload|Fert,	"i82578",
 	i82578m,	1514,	Fload|Fert,	"i82578",
-	i82579,		9018,	Fload|Fert|F79phy,	"i82579",
+	i82579,		9018,	Fload|Fert|F79phy|Fnofct,	"i82579",
 	i82580,		9728,	F75|F79phy,	"i82580",
 	i82583,		1514,	0,		"i82583",
-	i350,		9728,	F75|F79phy,	"i350",
+	i218,		9728,	F79phy|Fnofct|Fload|Fert,	"i218",
+	i350,		9728,	F75|F79phy|Fnofct,	"i350",
 };
 
 typedef void (*Freefn)(Block*);
@@ -749,6 +752,8 @@ i82563multicast(void *arg, uchar *addr, int on)
 	x = addr[5]>>1;
 	if(ctlr->type == i82566)
 		x &= 31;
+	if(ctlr->type == i218)
+		x &= 15;
 	bit = ((addr[5] & 1)<<4)|(addr[4]>>4);
 	/*
 	 * multiple ether addresses can hash to the same filter bit,
@@ -1668,7 +1673,7 @@ i82563reset(Ctlr *ctlr)
 		csr32w(ctlr, Mta + i*4, 0);
 	csr32w(ctlr, Fcal, 0x00C28001);
 	csr32w(ctlr, Fcah, 0x0100);
-	if(ctlr->type != i82579)
+	if((cttab[ctlr->type].flag & Fnofct) == 0)
 		csr32w(ctlr, Fct, 0x8808);
 	csr32w(ctlr, Fcttv, 0x0100);
 	csr32w(ctlr, Fcrtl, ctlr->fcrtl);
@@ -1839,6 +1844,13 @@ didtype(int d)
 	case 0x1506:		/* v */
 	case 0x150c:		/* untested */
 		return i82583;
+	case 0x1559:		/* i218-v */
+	case 0x155a:		/* i218-lm */
+	case 0x15a0:		/* i218-lm */
+	case 0x15a1:		/* i218-v */
+	case 0x15a2:		/* i218-lm */
+	case 0x15a3:		/* i218-v */
+		return i218;
 	case 0x151f:		/* “powerville” eeprom-less */
 	case 0x1521:		/* copper */
 	case 0x1522:		/* fiber */
@@ -2053,6 +2065,12 @@ i82583pnp(Ether *e)
 }
 
 static int
+i218pnp(Ether *e)
+{
+	return pnp(e, i218);
+}
+
+static int
 i350pnp(Ether *e)
 {
 	return pnp(e, i350);
@@ -2081,6 +2099,7 @@ ether82563link(void)
 	addethercard("i82579", i82579pnp);
 	addethercard("i82580", i82580pnp);
 	addethercard("i82583", i82583pnp);
+	addethercard("i218", i218pnp);
 	addethercard("i350", i350pnp);
 	addethercard("igbepcie", anypnp);
 }
