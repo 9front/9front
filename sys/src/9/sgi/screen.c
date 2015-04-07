@@ -445,6 +445,7 @@ Cursor	arrow = {
 };
 
 Memimage *gscreen;
+static Point curoff;
 
 static void 
 vc2set(uchar r, ushort val)
@@ -465,7 +466,6 @@ vc2get(uchar r)
 	return regs->dcbdata0 >> 16;
 }
 
-static Point curoff;
 
 void
 cursoron(void)
@@ -556,8 +556,15 @@ setmode(void)
 	regs->drawmode1 = DM1_RGBPLANES | 
 		NPORT_DMODE1_CCLT | NPORT_DMODE1_CCEQ | NPORT_DMODE1_CCGT | NPORT_DMODE1_LOSRC |
 		NPORT_DMODE1_DD24 | NPORT_DMODE1_RGBMD | NPORT_DMODE1_HD32 | NPORT_DMODE1_RWPCKD;
+}
 
-	setcursor(&arrow);
+static void
+arcsoff(void)
+{
+	if(consuart != nil && consuart->console && strcmp(consuart->name, "arcs") == 0){
+		consuart = nil;
+		serialoq = nil;
+	}
 }
 
 void
@@ -573,6 +580,7 @@ flushmemscreen(Rectangle r)
 	s = splhi();
 	if(!modeset){
 		modeset = 1;
+		arcsoff();
 		setmode();
 	}
 
@@ -613,7 +621,11 @@ attachscreen(Rectangle *r, ulong *chan, int* d, int *width, int *softscreen)
 	*d = gscreen->depth;
 	*chan = gscreen->chan;
 	*width = gscreen->width;
-	*softscreen = 1;
+
+	/* make devdraw use gscreen->data */
+	*softscreen = 0xa110c;
+	gscreen->data->ref++;
+
 	return gscreen->data->bdata;
 }
 
