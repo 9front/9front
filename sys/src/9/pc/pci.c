@@ -441,10 +441,10 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 				if((hdt & 0x7F) != 0)
 					break;
 				rno = PciBAR0;
-				for(i = 0; i < nelem(p->mem); i++) {
+				for(i = 0; i <= 5; i++) {
 					p->mem[i].bar = pcicfgr32(p, rno);
 					p->mem[i].size = pcibarsize(p, rno);
-					if((p->mem[i].bar & 7) == 4){
+					if((p->mem[i].bar & 7) == 4 && i < 5){
 						ulong hi;
 
 						rno += 4;
