@@ -249,6 +249,7 @@ pcibusmap(Pcidev *root, ulong *pmema, ulong *pioa, int wrreg)
 			if(size == 0)
 				continue;
 
+			p->mem[i].size = size;
 			if(v & 1) {
 				itb->dev = p;
 				itb->bar = i;
@@ -260,9 +261,10 @@ pcibusmap(Pcidev *root, ulong *pmema, ulong *pioa, int wrreg)
 				mtb->bar = i;
 				mtb->siz = size;
 				mtb++;
-			}
 
-			p->mem[i].size = size;
+				if((v & 7) == 4)
+					i++;
+			}
 		}
 	}
 
@@ -438,11 +440,24 @@ pcilscan(int bno, Pcidev** list, Pcidev *parent)
 			case 0x0C:		/* serial bus controllers */
 				if((hdt & 0x7F) != 0)
 					break;
-				rno = PciBAR0 - 4;
+				rno = PciBAR0;
 				for(i = 0; i < nelem(p->mem); i++) {
-					rno += 4;
 					p->mem[i].bar = pcicfgr32(p, rno);
 					p->mem[i].size = pcibarsize(p, rno);
+					if((p->mem[i].bar & 7) == 4){
+						ulong hi;
+
+						rno += 4;
+						hi = pcicfgr32(p, rno);
+						if(hi != 0){
+							print("ignoring 64-bit bar %d: %llux %d from %T\n",
+								i, (uvlong)hi<<32 | p->mem[i].bar, p->mem[i].size, p->tbdf);
+							p->mem[i].bar = 0;
+							p->mem[i].size = 0;
+						}
+						i++;
+					}
+					rno += 4;
 				}
 				break;
 
