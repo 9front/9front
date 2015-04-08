@@ -346,27 +346,6 @@ setleds(Hiddev* f, int, uchar leds)
 	return usbcmd(f->dev, Rh2d|Rclass|Riface, Setreport, Reportout, 0, &leds, 1);
 }
 
-/*
- * Try to recover from a babble error. A port reset is the only way out.
- * BUG: we should be careful not to reset a bundle with several devices.
- */
-static void
-hdrecover(Hiddev *f)
-{
-	int i;
-
-	close(f->dev->dfd);		/* it's for usbd now */
-	devctl(f->dev, "reset");
-	for(i = 0; i < 10; i++){
-		sleep(500);
-		if(opendevdata(f->dev, ORDWR) >= 0){
-			setproto(f, f->ep->id);
-			break;
-		}
-		/* else usbd still working... */
-	}
-}
-
 static void
 hdfree(Hiddev *f)
 {
@@ -392,6 +371,35 @@ hdfatal(Hiddev *f, char *sts)
 		sendul(f->repeatc, Diemsg);
 	hdfree(f);
 	threadexits(sts);
+}
+
+static void
+hdrecover(Hiddev *f)
+{
+	char err[ERRMAX];
+	static QLock l;
+	int i;
+
+	if(canqlock(&l)){
+		close(f->dev->dfd);
+		devctl(f->dev, "reset");
+		for(i=0; i<4; i++){
+			sleep(500);
+			if(opendevdata(f->dev, ORDWR) >= 0)
+				goto Resetdone;
+		}
+		threadexitsall(err);
+	} else {
+		/* wait for reset to complete */
+		qlock(&l);
+	}
+Resetdone:
+	if(setproto(f, f->ep->id) < 0){
+		rerrstr(err, sizeof(err));
+		qunlock(&l);
+		hdfatal(f, err);
+	}
+	qunlock(&l);
 }
 
 static void
@@ -614,10 +622,9 @@ readerproc(void* a)
 				rerrstr(err, sizeof(err));
 			else
 				strcpy(err, "zero read");
-			if(++nerrs < 3){
-				fprint(2, "%s: hid: %s: read: %s\n", argv0, f->ep->dir, err);
-				if(strstr(err, "babble") != 0)
-					hdrecover(f);
+			fprint(2, "%s: hid: %s: read: %s\n", argv0, f->ep->dir, err);
+			if(++nerrs <= 3){
+				hdrecover(f);
 				continue;
 			}
 			hdfatal(f, err);
