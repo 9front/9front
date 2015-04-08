@@ -186,6 +186,9 @@ TEXT mode32bit(SB), $0
 
 	MOVL	$PADDR(CPU0PTE), AX		/* first page of page table */
 	MOVL	$end-KZERO(SB), CX
+
+	ADDL	$(16*1024), CX			/* qemu puts multiboot data after the kernel */
+
 	ADDL	$(BY2XPG-1), CX
 	ANDL	$~(BY2XPG-1), CX		/* round to 4MB */
 	MOVL	CX, MemMin-KZERO(SB)		/* see memory.c */

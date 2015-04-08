@@ -149,6 +149,9 @@ TEXT _warp64<>(SB), 1, $-4
 	 */
 	ADDL	$PDO(KZERO), AX
 	MOVL	$end-KZERO(SB), CX
+
+	ADDL	$(16*1024), CX			/* qemu puts multiboot data after the kernel */
+
 	ADDL	$(PGLSZ(1)-1), CX
 	ANDL	$~(PGLSZ(1)-1), CX
 	MOVL	CX, MemMin-KZERO(SB)		/* see memory.c */
