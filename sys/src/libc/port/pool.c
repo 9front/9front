@@ -520,10 +520,10 @@ freefromfront(Pool *p, Alloc *b, ulong skip)
 	skip = skip&~(p->quantum-1);
 	if(skip >= 0x1000 || (skip >= b->size>>2 && skip >= MINBLOCKSIZE && skip >= p->minblock)){
 		bb = (Alloc*)((uchar*)b+skip);
-		blocksetsize(bb, b->size-skip);
 		bb->magic = UNALLOC_MAGIC;
-		blocksetsize(b, skip);
+		blocksetsize(bb, b->size-skip);
 		b->magic = UNALLOC_MAGIC;
+		blocksetsize(b, skip);
 		pooladd(p, b);
 		return bb;
 	}
