@@ -10,29 +10,7 @@
 #include "io.h"
 #include "../port/error.h"
 
-#define DBG	if(0) pcilog
-
-struct
-{
-	char	output[16384];
-	int	ptr;
-}PCICONS;
-
-int
-pcilog(char *fmt, ...)
-{
-	int n;
-	va_list arg;
-	char buf[PRINTSIZE];
-
-	va_start(arg, fmt);
-	n = vseprint(buf, buf+sizeof(buf), fmt, arg) - buf;
-	va_end(arg);
-
-	memmove(PCICONS.output+PCICONS.ptr, buf, n);
-	PCICONS.ptr += n;
-	return n;
-}
+#define DBG	if(0) print
 
 enum
 {					/* configuration mechanism #1 */
@@ -211,7 +189,7 @@ pcibusmap(Pcidev *root, ulong *pmema, ulong *pioa, int wrreg)
 	for(p = root; p != nil; p = p->link) {
 		if(p->ccrb == 0x06) {
 			if(p->ccru != 0x04 || p->bridge == nil) {
-//				DBG("pci: ignored bridge %T\n", p->tbdf);
+				DBG("pci: ignored bridge %T\n", p->tbdf);
 				continue;
 			}
 
@@ -1068,7 +1046,7 @@ pcicfginit(void)
 		ioa = 0x1000;
 		mema = 0x90000000;
 
-		pcilog("Mask sizes: mem=%lux io=%lux\n", mema, ioa);
+		DBG("Mask sizes: mem=%lux io=%lux\n", mema, ioa);
 
 		pcibusmap(pciroot, &mema, &ioa, 1);
 		DBG("Sizes2: mem=%lux io=%lux\n", mema, ioa);
@@ -1335,7 +1313,6 @@ pcilhinv(Pcidev* p)
 	Pcidev *t;
 
 	if(p == nil) {
-		putstrn(PCICONS.output, PCICONS.ptr);
 		p = pciroot;
 		print("bus dev type vid  did intl memory\n");
 	}
