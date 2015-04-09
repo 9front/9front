@@ -70,8 +70,9 @@ fn main{
 		}
 		if not bootargs=$nobootprompt
 		nobootprompt=()
-		mn=`{echo $bootargs | awk -F! '{print $1}'}
-		ma=`{echo $bootargs | sed 's/[^!]*!?//'}
+		mn=`{echo $bootargs | sed 's,!, ,'}
+		ma=$mn(2-)
+		mn=$mn(1)
 		switch(m$"mn){
 		case $mt
 			mp=m$mn
