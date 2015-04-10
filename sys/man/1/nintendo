@@ -4,7 +4,11 @@ gb, gba, nes, snes \- emulators
 .SH SYNOPSIS
 .B games/gb
 [
-.B -23a
+.B -23acdT
+]
+[
+.B -C
+.I ...
 ]
 .I romfile
 .br
@@ -37,7 +41,7 @@ gb, gba, nes, snes \- emulators
 .I nes
 and
 .I snes
-are emulators for the Nintendo Game Boy (GB), Nintendo Game Boy Advance (GBA), Nintendo Entertainment System (NES) and Super Nintendo Entertainment System (SNES).
+are emulators for the Nintendo Game Boy and Game Boy Color (GB and GBC), Nintendo Game Boy Advance (GBA), Nintendo Entertainment System (NES) and Super Nintendo Entertainment System (SNES).
 They execute the romfile given as an argument.
 The \fBz\fR, \fBx\fR, \fBa\fR, \fBs\fR, return and shift keys correspond to B, A, Y, X, Start and Select, respectively.
 Other keys:
@@ -61,6 +65,21 @@ Scale the screen by the given factor.
 .TP
 .B -a
 Enable audio output.
+.TP
+.B -T
+Display percentage of how fast the emulator is running relative to a real console.
+.PP
+.B gb
+options:
+.TP
+.B -c
+Run GBC roms in GBC mode and DMG (GB) roms in GBC's DMG compatibility mode.
+.TP
+.B -d
+Run GB roms in DMG mode. GBC only roms will not run in this mode; others will run only in black & white.
+.TP
+.BI -C nnnnnn,nnnnnn,nnnnnn,nnnnnn
+Select a color palette. Has no effect on roms in color mode. The syntax is of the form -C ffffff,aaaaaa,555555,000000 (using HTML style rrggbb notation).
 .PP
 .B gba
 options:
@@ -70,9 +89,6 @@ Location of the GBA BIOS file (required to operate the emulator). Default is \fB
 .TP
 .B -s
 Save format used by the original game. Valid formats are: eeprom4, eeprom64, sram256, flash512, flash1024. The number corresponds to the size, in kilobits, of the save file. By default, the emulator attempts to automatically detect the save format, but does not always succeed.
-.TP
-.B -T
-Display percentage of how fast the system is running relative to a real GBA.
 .PP
 .B nes
 options:
@@ -95,9 +111,6 @@ sets HiROM.
 .TP
 .B -m
 Enable mouse emulation using system mouse. Mouse button 1 (left button) engages the SNES left mouse button. Mouse button 3 (right button) engages the SNES right mouse button. Holding down mouse button 2 (middle button) disengages the SNES mouse entirely so that the Plan 9 cursor offset can be adjusted to align with the SNES cursor.
-.TP
-.B -T
-Display percentage of how fast the system is running relative to a real SNES.
 .SH SOURCE
 .B /sys/src/games/gb
 .br
