@@ -456,36 +456,36 @@ enum {
 	Fflashea= 1<<4,
 	F79phy	= 1<<5,
 	Fnofct	= 1<<6,
+	Fbadcsum= 1<<7,
 };
 
 typedef struct Ctlrtype Ctlrtype;
 struct Ctlrtype {
-	int	type;
+	char	*name;
 	int	mtu;
 	int	flag;
-	char	*name;
 };
 
 static Ctlrtype cttab[Nctlrtype] = {
-	i82563,		9014,	Fpba,		"i82563",
-	i82566,		1514,	Fload,		"i82566",
-	i82567,		9234,	Fload,		"i82567",
-	i82567m,	1514,	Fload,		"i82567m",
-	i82571,		9234,	Fpba,		"i82571",
-	i82572,		9234,	Fpba,		"i82572",
-	i82573,		8192,	Fert,		"i82573",		/* terrible perf above 8k */
-	i82574,		9018,	0,		"i82574",
-	i82575,		9728,	F75|Fflashea,	"i82575",
-	i82576,		9728,	F75,		"i82576",
-	i82577,		4096,	Fload|Fert,	"i82577",
-	i82577m,	1514,	Fload|Fert,	"i82577",
-	i82578,		4096,	Fload|Fert,	"i82578",
-	i82578m,	1514,	Fload|Fert,	"i82578",
-	i82579,		9018,	Fload|Fert|F79phy|Fnofct,	"i82579",
-	i82580,		9728,	F75|F79phy,	"i82580",
-	i82583,		1514,	0,		"i82583",
-	i218,		9728,	F79phy|Fnofct|Fload|Fert,	"i218",
-	i350,		9728,	F75|F79phy|Fnofct,	"i350",
+[i82563]	"i82563",	9014,	Fpba,
+[i82566]	"i82566",	1514,	Fload,
+[i82567]	"i82567",	9234,	Fload,
+[i82567m]	"i82567m",	1514,	Fload,
+[i82571]	"i82571",	9234,	Fpba,
+[i82572]	"i82572",	9234,	Fpba,
+[i82573]	"i82573",	8192,	Fert,		/* terrible perf above 8k */
+[i82574]	"i82574",	9018,	0,
+[i82575]	"i82575",	9728,	F75|Fflashea,
+[i82576]	"i82576",	9728,	F75,
+[i82577]	"i82577",	4096,	Fload|Fert,
+[i82577m]	"i82577",	1514,	Fload|Fert,
+[i82578]	"i82578",	4096,	Fload|Fert,
+[i82578m]	"i82578",	1514,	Fload|Fert,
+[i82579]	"i82579",	9018,	Fload|Fert|F79phy|Fnofct,
+[i82580]	"i82580",	9728,	F75|F79phy,
+[i82583]	"i82583",	1514,	0,
+[i218]		"i218",		9728,	Fload|Fert|F79phy|Fnofct|Fbadcsum,
+[i350]		"i350",		9728,	F75|F79phy|Fnofct,
 };
 
 typedef void (*Freefn)(Block*);
@@ -1655,9 +1655,13 @@ i82563reset(Ctlr *ctlr)
 	else
 		r = eeload(ctlr);
 	if(r != 0 && r != 0xbaba){
-		print("%s: bad eeprom checksum - %#.4ux\n",
-			cname(ctlr), r);
-		return -1;
+		print("%s: bad eeprom checksum - %#.4ux", cname(ctlr), r);
+		if(cttab[ctlr->type].flag & Fbadcsum)
+			print("; ignored\n");
+		else {
+			print("\n");
+			return -1;
+		}
 	}
 
 	ra = ctlr->ra;
