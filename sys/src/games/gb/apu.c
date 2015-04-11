@@ -270,8 +270,8 @@ sampletick(void *)
 	s[1] *= 1 + (cntl >> 4 & 7);
 	
 	if(sbufp < sbuf + nelem(sbuf)){
-		sbufp[0] = s[0] * 60;
-		sbufp[1] = s[1] * 60;
+		sbufp[0] = s[0] * 30;
+		sbufp[1] = s[1] * 30;
 		sbufp += 2;
 	}
 }
