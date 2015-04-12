@@ -56,7 +56,7 @@ retrieves and sets the segment's properties.
 There is only one control message, which sets the segment's
 virtual address and length in bytes:
 .EX
-	va \fIaddress length\fP
+	va \fIaddress length type\fP
 .EE
 .I Address
 is automatically rounded down to a page boundary and
@@ -64,6 +64,12 @@ is automatically rounded down to a page boundary and
 is rounded up to end the segment at a page boundary.
 The segment will reside at the same virtual address in
 all processes sharing it.
+Optionally,
+.I type
+can be specified as
+.B fixed
+to create a physically continuous segment with a fixed
+physical base address suitable for hardware DMA access.
 When the segment
 is attached using
 .IR segattach,
@@ -75,7 +81,9 @@ Once the address and length are set, they cannot be reset.
 .PP
 Reading the control file
 returns a message of the same format with the segment's actual
-start address and length.
+start address and length. For
+.B fixed
+segments, the type and physical base address are appended.
 .PP
 Opening
 .B data
