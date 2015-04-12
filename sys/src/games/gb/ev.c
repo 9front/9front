@@ -4,9 +4,9 @@
 #include "dat.h"
 #include "fns.h"
 
-Event evhblank, evtimer, evenv, evwave;
-extern Event evsamp;
-Event *events[NEVENT] = {&evhblank, &evtimer, &evenv, &evsamp, &evwave};
+Event evhblank, evtimer, evenv;
+extern Event evsamp, chev[4];
+Event *events[NEVENT] = {&evhblank, &evtimer, &evenv, &evsamp, &chev[0], &chev[1], &chev[2], &chev[3]};
 Event *elist;
 static int timshtab[4] = {12, 4, 6, 8}, timsh;
 ulong timclock;
@@ -109,11 +109,15 @@ eventinit(void)
 	extern void hblanktick(void *);
 	extern void envtick(void *);
 	extern void wavetick(void *);
+	extern void chantick(void *);
 	
 	evhblank.f = hblanktick;
 	addevent(&evhblank, 240*4);
 	evtimer.f = timertick;
 	evenv.f = envtick;
 	addevent(&evenv, FREQ / 512);
-	evwave.f = wavetick;
+	chev[0].f = chantick;
+	chev[1].f = chantick;
+	chev[2].f = chantick;
+	chev[3].f = chantick;
 }

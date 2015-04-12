@@ -222,6 +222,7 @@ keyproc(void *)
 	static char buf[256];
 	char *s;
 	Rune r;
+	extern double TAU;
 
 	fd = open("/dev/kbd", OREAD);
 	if(fd < 0)
@@ -240,6 +241,10 @@ keyproc(void *)
 			}
 			if(utfrune(buf, 't'))
 				trace = !trace;
+			if(utfrune(buf, KF|9))
+				TAU += 5000;
+			if(utfrune(buf, KF|10))
+				TAU -= 5000;
 		}
 		if(buf[0] != 'k' && buf[0] != 'K')
 			continue;

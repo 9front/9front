@@ -155,6 +155,6 @@ struct Var {
 };
 #define VAR(a) {&a, sizeof(a), 1}
 #define ARR(a) {a, sizeof(*a), nelem(a)}
-enum { NEVENT = 5 };
+enum { NEVENT = 8 };
 extern int (*mapper)(int, int);
 extern u32int moncols[4];
