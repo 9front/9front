@@ -41,7 +41,7 @@ gb, gba, nes, snes \- emulators
 .I nes
 and
 .I snes
-are emulators for the Nintendo Game Boy and Game Boy Color (GB and GBC), Nintendo Game Boy Advance (GBA), Nintendo Entertainment System (NES) and Super Nintendo Entertainment System (SNES).
+are emulators for the Nintendo Game Boy and Game Boy Color (GB and GBC), Nintendo Game Boy Advance (GBA), Nintendo Entertainment System (NES), and Super Nintendo Entertainment System (SNES).
 They execute the romfile given as an argument.
 The \fBz\fR, \fBx\fR, \fBa\fR, \fBs\fR, return and shift keys correspond to B, A, Y, X, Start and Select, respectively.
 Other keys:
@@ -76,7 +76,7 @@ options:
 Run GBC roms in GBC mode and DMG (GB) roms in GBC's DMG compatibility mode.
 .TP
 .B -d
-Run GB roms in DMG mode. GBC only roms will not run in this mode; others will run only in black & white.
+Run GB roms in DMG mode. GBC-only roms will not run in this mode; others will run only in black & white.
 .TP
 .BI -C nnnnnn,nnnnnn,nnnnnn,nnnnnn
 Select a color palette. Has no effect on roms in color mode. The syntax is of the form -C ffffff,aaaaaa,555555,000000 (using HTML style rrggbb notation).
