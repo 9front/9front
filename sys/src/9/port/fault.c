@@ -267,7 +267,6 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 			copypage(old, *pg);
 			putpage(old);
 		}
-	case SG_FIXED:			/* Never paged out */
 		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEVALID;
 		(*pg)->modref = PG_MOD|PG_REF;
 		break;
@@ -280,6 +279,7 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 			new->ref = 1;
 			*pg = new;
 		}
+	case SG_FIXED:			/* Never paged out */
 		if (checkaddr && addr == addr2check)
 			(*checkaddr)(addr, s, *pg);
 		mmuphys = PPN((*pg)->pa) |PTEWRITE|PTEUNCACHED|PTEVALID;
