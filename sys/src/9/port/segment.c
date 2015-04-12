@@ -156,6 +156,7 @@ dupseg(Segment **seg, int segno, int share)
 	case SG_TEXT:		/* New segment shares pte set */
 	case SG_SHARED:
 	case SG_PHYSICAL:
+	case SG_FIXED:
 		goto sameseg;
 
 	case SG_STACK:
@@ -489,8 +490,11 @@ mfreeseg(Segment *s, uintptr start, ulong pages)
 	if(pages == 0)
 		return;
 
-	if((s->type&SG_TYPE) == SG_PHYSICAL)
+	switch(s->type&SG_TYPE){
+	case SG_PHYSICAL:
+	case SG_FIXED:
 		return;
+	}
 
 	/*
 	 * we have to make sure other processors flush the
