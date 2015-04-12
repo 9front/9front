@@ -319,7 +319,7 @@ static long
 segmentread(Chan *c, void *a, long n, vlong voff)
 {
 	Globalseg *g;
-	char buf[32];
+	char buf[128];
 
 	if(c->qid.type == QTDIR)
 		return devdirread(c, a, n, (Dirtab *)0, 0L, segmentgen);
@@ -329,11 +329,11 @@ segmentread(Chan *c, void *a, long n, vlong voff)
 		g = c->aux;
 		if(g->s == nil)
 			error("segment not yet allocated");
-		if(g->s->type&SG_TYPE == SG_FIXED)
-			sprint(buf, "va %#p %#p fixed %#p\n", g->s->base, g->s->top-g->s->base,
+		if((g->s->type&SG_TYPE) == SG_FIXED)
+			snprint(buf, sizeof(buf), "va %#p %#p fixed %#p\n", g->s->base, g->s->top-g->s->base,
 				g->s->map[0]->pages[0]->pa);
 		else
-			sprint(buf, "va %#p %#p\n", g->s->base, g->s->top-g->s->base);
+			snprint(buf, sizeof(buf), "va %#p %#p\n", g->s->base, g->s->top-g->s->base);
 		return readstr(voff, a, n, buf);
 	case Qdata:
 		g = c->aux;

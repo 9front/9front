@@ -21,6 +21,7 @@ dev
 	draw screen
 	mouse
 	usb
+	segment
 	
 link
 	etherzynq
