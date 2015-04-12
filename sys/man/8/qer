@@ -78,7 +78,7 @@ following a
 .B \-f
 flag is copied into the queue directory.  The names
 of the copies differ from the name of the data file
-only in the first character.  The first one is
+only in the first character.  The first one
 starts with 'F', the second 'G', etc.
 .P
 .I Runq
