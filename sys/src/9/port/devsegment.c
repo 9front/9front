@@ -580,8 +580,8 @@ fixedseg(uintptr va, ulong len)
 {
 	KMap *k;
 	Segment *s;
-	Page **f, *p;
-	ulong n, i, j;
+	Page **f, *p, *l, *h;
+	ulong n, i;
 	int color;
 
 	s = newseg(SG_FIXED, va, len);
@@ -591,32 +591,44 @@ fixedseg(uintptr va, ulong len)
 	}
 	lock(&palloc);
 	i = 0;
-	p = palloc.pages;
+	l = palloc.pages;
 	color = getpgcolor(va);
-	for(n = palloc.user; n >= len; n--, p++){
-		if(p->ref != 0 || i != 0 && (p[-1].pa+BY2PG) != p->pa || i == 0 && p->color != color){
+	for(n = palloc.user; n >= len; n--, l++){
+		if(l->ref != 0 || i != 0 && (l[-1].pa+BY2PG) != l->pa || i == 0 && l->color != color){
 		Retry:
 			i = 0;
 			continue;
 		}
 		if(++i < len)
 			continue;
-		for(j = 0; j < i; j++, p--){
-			for(f = &palloc.head; *f != nil; f = &((*f)->next)){
-				if(*f == p){
-					*f = p->next;
-					goto Freed;
-				}
+
+		i = 0;
+		h = nil;
+		f = &palloc.head;
+		while((p = *f) != nil){
+			if(p > &l[-len] && p <= l){
+				*f = p->next;
+				p->next = h;
+				h = p;
+				if(++i < len)
+					continue;
+				break;
 			}
-			while(j-- > 0)
-				pagechainhead(++p);
+			f = &p->next;
+		}
+		palloc.freecount -= i;
+
+		if(i != len){
+			while((p = h) != nil){
+				h = h->next;
+				pagechainhead(p);
+			}
 			goto Retry;
-		Freed:
-			palloc.freecount--;
 		}
 		unlock(&palloc);
 
-		while(i-- > 0){
+		p = &l[-len];
+		do {
 			p++;
 			p->ref = 1;
 			p->va = va;
@@ -629,7 +641,7 @@ fixedseg(uintptr va, ulong len)
 			
 			segpage(s, p);
 			va += BY2PG;
-		}
+		} while(p != l);
 		poperror();
 		return s;
 	}
