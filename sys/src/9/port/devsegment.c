@@ -56,6 +56,7 @@ static	Segment* globalsegattach(Proc *p, char *name);
 static	int	cmddone(void*);
 static	void	segmentkproc(void*);
 static	void	docmd(Globalseg *g, int cmd);
+static	Segment* fixedseg(uintptr va, ulong len);
 
 /*
  *  returns with globalseg incref'd
@@ -98,7 +99,7 @@ segmentgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 {
 	Qid q;
 	Globalseg *g;
-	ulong size;
+	uintptr size;
 
 	switch(TYPE(c)) {
 	case Qtopdir:
@@ -328,7 +329,11 @@ segmentread(Chan *c, void *a, long n, vlong voff)
 		g = c->aux;
 		if(g->s == nil)
 			error("segment not yet allocated");
-		sprint(buf, "va %#lux %#lux\n", g->s->base, g->s->top-g->s->base);
+		if(g->s->type&SG_TYPE == SG_FIXED)
+			sprint(buf, "va %#p %#p fixed %#p\n", g->s->base, g->s->top-g->s->base,
+				g->s->map[0]->pages[0]->pa);
+		else
+			sprint(buf, "va %#p %#p\n", g->s->base, g->s->top-g->s->base);
 		return readstr(voff, a, n, buf);
 	case Qdata:
 		g = c->aux;
@@ -362,7 +367,7 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 {
 	Cmdbuf *cb;
 	Globalseg *g;
-	ulong va, len, top;
+	uintptr va, top, len;
 
 	if(c->qid.type == QTDIR)
 		error(Eperm);
@@ -376,14 +381,19 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 				error("already has a virtual address");
 			if(cb->nf < 3)
 				error(Ebadarg);
-			va = strtoul(cb->f[1], 0, 0);
-			len = strtoul(cb->f[2], 0, 0);
+			va = strtoull(cb->f[1], 0, 0);
+			len = strtoull(cb->f[2], 0, 0);
 			top = PGROUND(va + len);
 			va = va&~(BY2PG-1);
-			len = (top - va) / BY2PG;
-			if(len == 0)
+			if(va == 0 || top > USTKTOP || top <= va)
 				error(Ebadarg);
-			g->s = newseg(SG_SHARED, va, len);
+			len = (top - va) / BY2PG;
+			if(cb->nf >= 4 && strcmp(cb->f[3], "fixed") == 0){
+				if(!iseve())
+					error(Eperm);
+				g->s = fixedseg(va, len);
+			} else
+				g->s = newseg(SG_SHARED, va, len);
 		} else
 			error(Ebadctl);
 		break;
@@ -559,6 +569,73 @@ segmentkproc(void *arg)
 	}
 
 	pexit("done", 1);
+}
+
+/*
+ * allocate a fixed segment with sequential run of of adjacent
+ * user memory pages.
+ */
+static Segment*
+fixedseg(uintptr va, ulong len)
+{
+	KMap *k;
+	Segment *s;
+	Page **f, *p;
+	ulong n, i, j;
+	int color;
+
+	s = newseg(SG_FIXED, va, len);
+	if(waserror()){
+		putseg(s);
+		nexterror();
+	}
+	lock(&palloc);
+	i = 0;
+	p = palloc.pages;
+	color = getpgcolor(va);
+	for(n = palloc.user; n >= len; n--, p++){
+		if(p->ref != 0 || i != 0 && (p[-1].pa+BY2PG) != p->pa || i == 0 && p->color != color){
+		Retry:
+			i = 0;
+			continue;
+		}
+		if(++i < len)
+			continue;
+		for(j = 0; j < i; j++, p--){
+			for(f = &palloc.head; *f != nil; f = &((*f)->next)){
+				if(*f == p){
+					*f = p->next;
+					goto Freed;
+				}
+			}
+			while(j-- > 0)
+				pagechainhead(++p);
+			goto Retry;
+		Freed:
+			palloc.freecount--;
+		}
+		unlock(&palloc);
+
+		while(i-- > 0){
+			p++;
+			p->ref = 1;
+			p->va = va;
+			p->modref = 0;
+			p->txtflush = ~0;
+			
+			k = kmap(p);
+			memset((void*)VA(k), 0, BY2PG);
+			kunmap(k);
+			
+			segpage(s, p);
+			va += BY2PG;
+		}
+		poperror();
+		return s;
+	}
+	unlock(&palloc);
+	error(Enomem);
+	return nil;
 }
 
 Dev segmentdevtab = {

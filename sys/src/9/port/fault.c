@@ -267,6 +267,7 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 			copypage(old, *pg);
 			putpage(old);
 		}
+	case SG_FIXED:			/* Never paged out */
 		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEVALID;
 		(*pg)->modref = PG_MOD|PG_REF;
 		break;

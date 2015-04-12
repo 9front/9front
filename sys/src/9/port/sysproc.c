@@ -751,6 +751,7 @@ syssegbrk(va_list list)
 		case SG_DATA:
 		case SG_STACK:
 		case SG_PHYSICAL:
+		case SG_FIXED:
 			error(Ebadarg);
 		default:
 			return (uintptr)ibrk(va_arg(list, uintptr), i);
