@@ -41,7 +41,7 @@ struct Globalseg
 	Rendez	replywait;	/* where requestor waits */
 	Proc	*kproc;
 	char	*data;
-	long	off;
+	char	*addr;
 	int	dlen;
 	int	cmd;	
 	char	err[64];
@@ -350,7 +350,7 @@ segmentio(Globalseg *g, void *a, long n, vlong off, int wr)
 		qunlock(&g->l);
 		nexterror();
 	}
-	g->off = off + g->s->base;
+	g->addr = (char*)g->s->base + off;
 	g->data = b;
 	g->dlen = n;
 	docmd(g, wr ? Cwrite : Cread);
@@ -571,10 +571,10 @@ segmentkproc(void *arg)
 				done = 1;
 				break;
 			case Cread:
-				memmove(g->data, (char*)g->off, g->dlen);
+				memmove(g->data, g->addr, g->dlen);
 				break;
 			case Cwrite:
-				memmove((char*)g->off, g->data, g->dlen);
+				memmove(g->addr, g->data, g->dlen);
 				break;
 			}
 			poperror();
