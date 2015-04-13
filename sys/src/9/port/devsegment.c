@@ -231,7 +231,7 @@ segmentopen(Chan *c, int omode)
 		if(g->s == nil)
 			error("segment not yet allocated");
 		if(g->kproc == nil){
-			qlock(&g->l);
+			eqlock(&g->l);
 			if(waserror()){
 				qunlock(&g->l);
 				nexterror();
@@ -316,6 +316,57 @@ segmentcreate(Chan *c, char *name, int omode, ulong perm)
 }
 
 static long
+segmentio(Globalseg *g, void *a, long n, vlong off, int wr)
+{
+	uintptr m;
+	void *b;
+
+	m = g->s->top - g->s->base;
+	if(off < 0 || off >= m){
+		if(wr)
+			error(Ebadarg);
+		return 0;
+	}
+	if(off+n > m){
+		if(wr)
+			error(Ebadarg);	
+		n = m - off;
+	}
+
+	if((uintptr)a > KZERO)
+		b = a;
+	else {
+		b = smalloc(n);
+		if(waserror()){
+			free(b);
+			nexterror();
+		}
+		if(wr)
+			memmove(b, a, n);
+	}
+
+	eqlock(&g->l);
+	if(waserror()){
+		qunlock(&g->l);
+		nexterror();
+	}
+	g->off = off + g->s->base;
+	g->data = b;
+	g->dlen = n;
+	docmd(g, wr ? Cwrite : Cread);
+	qunlock(&g->l);
+	poperror();
+
+	if(a != b){
+		if(!wr)
+			memmove(a, b, n);
+		free(b);
+		poperror();
+	}
+	return n;
+}
+
+static long
 segmentread(Chan *c, void *a, long n, vlong voff)
 {
 	Globalseg *g;
@@ -324,9 +375,9 @@ segmentread(Chan *c, void *a, long n, vlong voff)
 	if(c->qid.type == QTDIR)
 		return devdirread(c, a, n, (Dirtab *)0, 0L, segmentgen);
 
+	g = c->aux;
 	switch(TYPE(c)){
 	case Qctl:
-		g = c->aux;
 		if(g->s == nil)
 			error("segment not yet allocated");
 		if((g->s->type&SG_TYPE) == SG_FIXED)
@@ -336,26 +387,7 @@ segmentread(Chan *c, void *a, long n, vlong voff)
 			snprint(buf, sizeof(buf), "va %#p %#p\n", g->s->base, g->s->top-g->s->base);
 		return readstr(voff, a, n, buf);
 	case Qdata:
-		g = c->aux;
-		if(voff > g->s->top - g->s->base)
-			error(Ebadarg);
-		if(voff + n > g->s->top - g->s->base)
-			n = g->s->top - g->s->base - voff;
-		qlock(&g->l);
-		g->off = voff + g->s->base;
-		g->data = smalloc(n);
-		if(waserror()){
-			free(g->data);
-			qunlock(&g->l);
-			nexterror();
-		}
-		g->dlen = n;
-		docmd(g, Cread);
-		memmove(a, g->data, g->dlen);
-		free(g->data);
-		qunlock(&g->l);
-		poperror();
-		return g->dlen;
+		return segmentio(g, a, n, voff, 0);
 	default:
 		panic("segmentread");
 	}
@@ -372,9 +404,9 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 	if(c->qid.type == QTDIR)
 		error(Eperm);
 
+	g = c->aux;
 	switch(TYPE(c)){
 	case Qctl:
-		g = c->aux;
 		cb = parsecmd(a, n);
 		if(strcmp(cb->f[0], "va") == 0){
 			if(g->s != nil)
@@ -398,24 +430,7 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 			error(Ebadctl);
 		break;
 	case Qdata:
-		g = c->aux;
-		if(voff + n > g->s->top - g->s->base)
-			error(Ebadarg);
-		qlock(&g->l);
-		g->off = voff + g->s->base;
-		g->data = smalloc(n);
-		if(waserror()){
-			free(g->data);
-			qunlock(&g->l);
-			nexterror();
-		}
-		g->dlen = n;
-		memmove(g->data, a, g->dlen);
-		docmd(g, Cwrite);
-		free(g->data);
-		qunlock(&g->l);
-		poperror();
-		return g->dlen;
+		return segmentio(g, a, n, voff, 1);
 	default:
 		panic("segmentwrite");
 	}
