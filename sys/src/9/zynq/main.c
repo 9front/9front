@@ -379,11 +379,12 @@ mpinit(void)
 		m1->l1.va[L1X(KZERO)+i] = m->l1.va[L1X(KZERO)+i];
 	coherence();
 	cleandse((uchar*)KZERO, (uchar*)0xFFFFFFFF);
+	invaldse((uchar*)KZERO, (uchar*)0xFFFFFFFF);
 
+	/* ocm is uncached */
 	v = KADDR(0xFFFFF000);
 	v[0xFF0/4] = PADDR(mpbootstrap);
 	coherence();
-	cleandse(v, (uchar*)v+BY2PG);
 
 	sendevent();
 	synccycles();
