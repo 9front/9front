@@ -797,11 +797,11 @@ cmddone(void *arg)
 static void
 docmd(Segio *sio, int cmd)
 {
-	sio->err[0] = 0;
+	sio->err = nil;
 	sio->cmd = cmd;
 	wakeup(&sio->cmdwait);
 	sleep(&sio->replywait, cmddone, sio);
-	if(sio->err[0])
+	if(sio->err != nil)
 		error(sio->err);
 }
 
@@ -838,10 +838,9 @@ segmentioproc(void *arg)
 		;
 	for(done = 0; !done;){
 		sleep(&sio->cmdwait, cmdready, sio);
-		if(waserror()){
-			strncpy(sio->err, up->errstr, sizeof(sio->err)-1);
-			sio->err[sizeof(sio->err)-1] = 0;
-		} else {
+		if(waserror())
+			sio->err = up->errstr;
+		else {
 			if(sio->s != nil && up->seg[sno] != sio->s){
 				putseg(up->seg[sno]);
 				incref(sio->s);

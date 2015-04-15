@@ -406,7 +406,7 @@ struct Segio
 	char	*addr;
 	int	dlen;
 	int	cmd;
-	char	err[64];
+	char	*err;
 };
 
 enum
