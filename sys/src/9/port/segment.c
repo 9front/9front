@@ -670,18 +670,16 @@ found:
 	return va;
 }
 
-uintptr
-syssegflush(va_list list)
+static void
+segflush(void *va, uintptr len)
 {
-	uintptr from, to, off, len;
+	uintptr from, to, off;
 	Segment *s;
 	Pte *pte;
 	Page **pg, **pe;
 
-	from = va_arg(list, uintptr);
-	to = va_arg(list, ulong);
-	to += from;
-
+	from = (uintptr)va;
+	to = from + len;
 	to = PGROUND(to);
 	from &= ~(BY2PG-1);
 	if(to < from)
@@ -717,6 +715,17 @@ syssegflush(va_list list)
 
 		qunlock(s);
 	}
+}
+
+uintptr
+syssegflush(va_list list)
+{
+	void *va;
+	ulong len;
+
+	va = va_arg(list, void*);
+	len = va_arg(list, ulong);
+	segflush(va, len);
 	flushmmu();
 	return 0;
 }
@@ -766,4 +775,163 @@ data2txt(Segment *s)
 	ps->flen = s->flen;
 	ps->flushme = 1;
 	return ps;
+}
+
+
+enum {
+	/* commands to segmentioproc */
+	Cnone=0,
+	Cread,
+	Cwrite,
+	Cdie,
+};
+
+static int
+cmddone(void *arg)
+{
+	Segio *sio = arg;
+
+	return sio->cmd == Cnone;
+}
+
+static void
+docmd(Segio *sio, int cmd)
+{
+	sio->err[0] = 0;
+	sio->cmd = cmd;
+	wakeup(&sio->cmdwait);
+	sleep(&sio->replywait, cmddone, sio);
+	if(sio->err[0])
+		error(sio->err);
+}
+
+static int
+cmdready(void *arg)
+{
+	Segio *sio = arg;
+
+	return sio->cmd != Cnone;
+}
+
+static void
+segmentioproc(void *arg)
+{
+	Segio *sio = arg;
+	int done;
+	int sno;
+
+	for(sno = 0; sno < NSEG; sno++)
+		if(up->seg[sno] == nil && sno != ESEG)
+			break;
+	if(sno == NSEG)
+		panic("segmentkproc");
+
+	sio->p = up;
+	incref(sio->s);
+	up->seg[sno] = sio->s;
+
+	cclose(up->dot);
+	up->dot = up->slash;
+	incref(up->dot);
+
+	while(waserror())
+		;
+	for(done = 0; !done;){
+		sleep(&sio->cmdwait, cmdready, sio);
+		if(waserror()){
+			strncpy(sio->err, up->errstr, sizeof(sio->err)-1);
+			sio->err[sizeof(sio->err)-1] = 0;
+		} else {
+			if(sio->s != nil && up->seg[sno] != sio->s){
+				putseg(up->seg[sno]);
+				incref(sio->s);
+				up->seg[sno] = sio->s;
+				flushmmu();
+			}
+			switch(sio->cmd){
+			case Cread:
+				memmove(sio->data, sio->addr, sio->dlen);
+				break;
+			case Cwrite:
+				memmove(sio->addr, sio->data, sio->dlen);
+				if(sio->s->flushme)
+					segflush(sio->addr, sio->dlen);
+				break;
+			case Cdie:
+				done = 1;
+				break;
+			}
+			poperror();
+		}
+		sio->cmd = Cnone;
+		wakeup(&sio->replywait);
+	}
+
+	pexit("done", 1);
+}
+
+long
+segio(Segio *sio, Segment *s, void *a, long n, vlong off, int read)
+{
+	uintptr m;
+	void *b;
+
+	b = a;
+	if(s != nil){
+		m = s->top - s->base;
+		if(off < 0 || off >= m){
+			if(!read)
+				error(Ebadarg);
+			return 0;
+		}
+		if(off+n > m){
+			if(!read)
+				error(Ebadarg);	
+			n = m - off;
+		}
+
+		if((uintptr)a < KZERO) {
+			b = smalloc(n);
+			if(waserror()){
+				free(b);
+				nexterror();
+			}
+			if(!read)
+				memmove(b, a, n);
+		}
+	}
+
+	eqlock(sio);
+	if(waserror()){
+		qunlock(sio);
+		nexterror();
+	}
+	sio->s = s;
+	if(s == nil){
+		if(sio->p != nil){
+			docmd(sio, Cdie);
+			sio->p = nil;
+		}
+		qunlock(sio);
+		poperror();
+		return 0;
+	}
+	if(sio->p == nil){
+		sio->cmd = Cnone;
+		kproc("segmentio", segmentioproc, sio);
+	}
+	sio->addr = (char*)s->base + off;
+	sio->data = b;
+	sio->dlen = n;
+	docmd(sio, read ? Cread : Cwrite);
+	qunlock(sio);
+	poperror();
+
+	if(a != b){
+		if(read)
+			memmove(a, b, n);
+		free(b);
+		poperror();
+	}
+	return n;
 }

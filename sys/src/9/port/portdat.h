@@ -39,6 +39,7 @@ typedef struct RWlock	RWlock;
 typedef struct Sargs	Sargs;
 typedef struct Schedq	Schedq;
 typedef struct Segment	Segment;
+typedef struct Segio	Segio;
 typedef struct Sema	Sema;
 typedef struct Timer	Timer;
 typedef struct Timers	Timers;
@@ -390,6 +391,22 @@ struct Segment
 	Pte	*ssegmap[SSEGMAPSIZE];
 	Sema	sema;
 	ulong	mark;		/* portcountrefs */
+};
+
+struct Segio
+{
+	QLock;
+	Rendez	cmdwait;
+	Rendez	replywait;
+
+	Proc	*p;		/* segmentio kproc */
+	Segment	*s;
+
+	char	*data;
+	char	*addr;
+	int	dlen;
+	int	cmd;
+	char	err[64];
 };
 
 enum

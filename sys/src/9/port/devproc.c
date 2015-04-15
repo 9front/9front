@@ -152,7 +152,7 @@ static char *sname[]={ "Text", "Data", "Bss", "Stack", "Shared", "Phys", "Fixed"
 #define	NOTEID(q)	((q).vers)
 
 void	procctlreq(Proc*, char*, int);
-int	procctlmemio(Proc*, uintptr, int, void*, int);
+long	procctlmemio(Chan*, Proc*, uintptr, void*, long, int);
 Chan*	proctext(Chan*, Proc*);
 int	procstopped(void*);
 ulong	procpagecount(Proc *);
@@ -511,13 +511,28 @@ procwstat(Chan *c, uchar *db, int n)
 static void
 procclose(Chan *c)
 {
-	if(QID(c->qid) == Qtrace && (c->flag & COPEN) != 0){
+	Segio *sio;
+
+	if((c->flag & COPEN) == 0)
+		return;
+
+	switch(QID(c->qid)){
+	case Qtrace:
 		lock(&tlock);
 		if(topens > 0)
 			topens--;
 		if(topens == 0)
 			proctrace = nil;
 		unlock(&tlock);
+		return;
+	case Qmem:
+		sio = c->aux;
+		if(sio != nil){
+			c->aux = nil;
+			segio(sio, nil, nil, 0, 0, 0);
+			free(sio);
+		}
+		return;
 	}
 }
 
@@ -774,7 +789,7 @@ procread(Chan *c, void *va, long n, vlong off)
 	case Qmem:
 		addr = off2addr(off);
 		if(addr < KZERO)
-			return procctlmemio(p, addr, n, va, 1);
+			return procctlmemio(c, p, addr, va, n, 1);
 
 		if(!iseve())
 			error(Eperm);
@@ -1051,7 +1066,7 @@ procwrite(Chan *c, void *va, long n, vlong off)
 	case Qmem:
 		if(p->state != Stopped)
 			error(Ebadctl);
-		n = procctlmemio(p, off2addr(off), n, va, 0);
+		n = procctlmemio(c, p, off2addr(off), va, n, 0);
 		break;
 
 	case Qregs:
@@ -1163,9 +1178,6 @@ proctext(Chan *c, Proc *p)
 		unlock(i);
 		nexterror();
 	}
-
-	if(i->s != s)
-		error(Eprocdied);
 		
 	tc = i->c;
 	if(tc == nil)
@@ -1476,127 +1488,58 @@ procstopped(void *a)
 	return ((Proc*)a)->state == Stopped;
 }
 
-int
-procctlmemio(Proc *p, uintptr offset, int n, void *va, int read)
+long
+procctlmemio(Chan *c, Proc *p, uintptr offset, void *a, long n, int read)
 {
-	KMap *k;
-	Pte *pte;
-	Page *pg;
+	Segio *sio;
 	Segment *s;
-	uintptr soff;
-	char *a, *b;
-	int i, l;
+	int i;
 
-	/* Only one page at a time */
-	l = BY2PG - (offset&(BY2PG-1));
-	if(n > l)
-		n = l;
-
-	/*
-	 * Make temporary copy to avoid fault while we have
-	 * segment locked as we would deadlock when trying
-	 * to read the calling procs memory.
-	 */
-	a = malloc(n);
-	if(a == nil)
-		error(Enomem);
+	s = seg(p, offset, 0);
+	if(s == nil)
+		error(Ebadarg);
+	eqlock(&p->seglock);
 	if(waserror()) {
-		free(a);
+		qunlock(&p->seglock);
 		nexterror();
 	}
-
-	if(!read)
-		memmove(a, va, n);	/* can fault */
-
-	for(;;) {
-		s = seg(p, offset, 0);
-		if(s == nil)
-			error(Ebadarg);
-
-		eqlock(&p->seglock);
-		if(waserror()) {
-			qunlock(&p->seglock);
-			nexterror();
-		}
-
-		for(i = 0; i < NSEG; i++) {
-			if(p->seg[i] == s)
-				break;
-		}
-		if(i == NSEG)
-			error(Egreg);	/* segment gone */
-
-		eqlock(s);
-		if(waserror()){
-			qunlock(s);
-			nexterror();
-		}
-		if(!read && (s->type&SG_TYPE) == SG_TEXT) {
-			s = txt2data(s);
-			p->seg[i] = s;
-		}
-		incref(s);
-		qunlock(&p->seglock);
-		poperror();
-		poperror();
-		/* segment s still locked, fixfault() unlocks */
-		if(waserror()){
-			putseg(s);
-			nexterror();
-		}
-		if(fixfault(s, offset, read, 0) == 0)
-			break;
-		putseg(s);
-		poperror();
+	sio = c->aux;
+	if(sio == nil){
+		sio = smalloc(sizeof(Segio));
+		c->aux = sio;
 	}
-
-	/*
-	 * Only access the page while segment is locked
-	 * as the proc could segfree or relocate the pte
-	 * concurrently.
-	 */ 
+	for(i = 0; i < NSEG; i++) {
+		if(p->seg[i] == s)
+			break;
+	}
+	if(i == NSEG)
+		error(Egreg);	/* segment gone */
 	eqlock(s);
 	if(waserror()){
 		qunlock(s);
 		nexterror();
 	}
-	if(offset+n >= s->top)
-		n = s->top-offset;
-	soff = offset-s->base;
-	pte = s->map[soff/PTEMAPMEM];
-	if(pte == nil)
-		error(Egreg);	/* page gone, should retry? */
-	pg = pte->pages[(soff&(PTEMAPMEM-1))/BY2PG];
-	if(pagedout(pg))
-		error(Egreg);	/* page gone, should retry?  */
-
-	/* Map and copy the page */
-	k = kmap(pg);
-	b = (char*)VA(k);
-	b += offset&(BY2PG-1);
-	if(read)
-		memmove(a, b, n);
-	else
-		memmove(b, a, n);
-	kunmap(k);
-
-	if(!read){
-		/* Ensure the process sees text page changes */
-		if(s->flushme)
-			pg->txtflush = ~0;
-		p->newtlb = 1;
+	if(!read && (s->type&SG_TYPE) == SG_TEXT) {
+		s = txt2data(s);
+		p->seg[i] = s;
 	}
-
+	offset -= s->base;
+	incref(s);		/* for us while we copy */
 	qunlock(s);
 	poperror();
+	qunlock(&p->seglock);
+	poperror();
+
+	if(waserror()) {
+		putseg(s);
+		nexterror();
+	}
+	n = segio(sio, s, a, n, offset, read);
 	putseg(s);
 	poperror();
 
-	if(read)
-		memmove(va, a, n);	/* can fault */
-
-	free(a);
-	poperror();
+	if(!read)
+		p->newtlb = 1;
 
 	return n;
 }

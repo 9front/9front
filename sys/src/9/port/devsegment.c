@@ -11,13 +11,6 @@ enum
 	Qsegdir,
 	Qctl,
 	Qdata,
-
-	/* commands to kproc */
-	Cnone=0,
-	Cread,
-	Cwrite,
-	Cstart,
-	Cdie,
 };
 
 #define TYPE(x) 	(int)( (c)->qid.path & 0x7 )
@@ -28,23 +21,13 @@ typedef struct Globalseg Globalseg;
 struct Globalseg
 {
 	Ref;
-	Segment	*s;
 
 	char	*name;
 	char	*uid;
 	vlong	length;
 	long	perm;
 
-	/* kproc to do reading and writing */
-	QLock	l;		/* sync kproc access */
-	Rendez	cmdwait;	/* where kproc waits */
-	Rendez	replywait;	/* where requestor waits */
-	Proc	*kproc;
-	char	*data;
-	char	*addr;
-	int	dlen;
-	int	cmd;	
-	char	err[64];
+	Segio;
 };
 
 static Globalseg *globalseg[100];
@@ -53,9 +36,7 @@ static Lock globalseglock;
 
 	Segment* (*_globalsegattach)(Proc*, char*);
 static	Segment* globalsegattach(Proc *p, char *name);
-static	int	cmddone(void*);
-static	void	segmentkproc(void*);
-static	void	docmd(Globalseg *g, int cmd);
+
 static	Segment* fixedseg(uintptr va, ulong len);
 
 /*
@@ -87,8 +68,7 @@ putgseg(Globalseg *g)
 		return;
 	if(g->s != nil)
 		putseg(g->s);
-	if(g->kproc)
-		docmd(g, Cdie);
+	segio(g, nil, nil, 0, 0, 0);
 	free(g->name);
 	free(g->uid);
 	free(g);
@@ -191,14 +171,6 @@ segmentstat(Chan *c, uchar *db, int n)
 	return devstat(c, db, n, 0, 0, segmentgen);
 }
 
-static int
-cmddone(void *arg)
-{
-	Globalseg *g = arg;
-
-	return g->cmd == Cnone;
-}
-
 static Chan*
 segmentopen(Chan *c, int omode)
 {
@@ -230,20 +202,6 @@ segmentopen(Chan *c, int omode)
 		devpermcheck(g->uid, g->perm, omode);
 		if(g->s == nil)
 			error("segment not yet allocated");
-		if(g->kproc == nil){
-			eqlock(&g->l);
-			if(waserror()){
-				qunlock(&g->l);
-				nexterror();
-			}
-			if(g->kproc == nil){
-				g->cmd = Cnone;
-				kproc(g->name, segmentkproc, g);
-				docmd(g, Cstart);
-			}
-			qunlock(&g->l);
-			poperror();
-		}
 		c->aux = g;
 		poperror();
 		c->flag |= COPEN;
@@ -316,57 +274,6 @@ segmentcreate(Chan *c, char *name, int omode, ulong perm)
 }
 
 static long
-segmentio(Globalseg *g, void *a, long n, vlong off, int wr)
-{
-	uintptr m;
-	void *b;
-
-	m = g->s->top - g->s->base;
-	if(off < 0 || off >= m){
-		if(wr)
-			error(Ebadarg);
-		return 0;
-	}
-	if(off+n > m){
-		if(wr)
-			error(Ebadarg);	
-		n = m - off;
-	}
-
-	if((uintptr)a > KZERO)
-		b = a;
-	else {
-		b = smalloc(n);
-		if(waserror()){
-			free(b);
-			nexterror();
-		}
-		if(wr)
-			memmove(b, a, n);
-	}
-
-	eqlock(&g->l);
-	if(waserror()){
-		qunlock(&g->l);
-		nexterror();
-	}
-	g->addr = (char*)g->s->base + off;
-	g->data = b;
-	g->dlen = n;
-	docmd(g, wr ? Cwrite : Cread);
-	qunlock(&g->l);
-	poperror();
-
-	if(a != b){
-		if(!wr)
-			memmove(a, b, n);
-		free(b);
-		poperror();
-	}
-	return n;
-}
-
-static long
 segmentread(Chan *c, void *a, long n, vlong voff)
 {
 	Globalseg *g;
@@ -387,7 +294,7 @@ segmentread(Chan *c, void *a, long n, vlong voff)
 			snprint(buf, sizeof(buf), "va %#p %#p\n", g->s->base, g->s->top-g->s->base);
 		return readstr(voff, a, n, buf);
 	case Qdata:
-		return segmentio(g, a, n, voff, 0);
+		return segio(g, g->s, a, n, voff, 1);
 	default:
 		panic("segmentread");
 	}
@@ -430,7 +337,7 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 			error(Ebadctl);
 		break;
 	case Qdata:
-		return segmentio(g, a, n, voff, 1);
+		return segio(g, g->s, a, n, voff, 0);
 	default:
 		panic("segmentwrite");
 	}
@@ -518,72 +425,6 @@ globalsegattach(Proc *p, char *name)
 	unlock(&globalseglock);
 	poperror();
 	return s;
-}
-
-static void
-docmd(Globalseg *g, int cmd)
-{
-	g->err[0] = 0;
-	g->cmd = cmd;
-	wakeup(&g->cmdwait);
-	sleep(&g->replywait, cmddone, g);
-	if(g->err[0])
-		error(g->err);
-}
-
-static int
-cmdready(void *arg)
-{
-	Globalseg *g = arg;
-
-	return g->cmd != Cnone;
-}
-
-static void
-segmentkproc(void *arg)
-{
-	Globalseg *g = arg;
-	int done;
-	int sno;
-
-	for(sno = 0; sno < NSEG; sno++)
-		if(up->seg[sno] == nil && sno != ESEG)
-			break;
-	if(sno == NSEG)
-		panic("segmentkproc");
-	g->kproc = up;
-
-	incref(g->s);
-	up->seg[sno] = g->s;
-
-	while(waserror())
-		;
-	for(done = 0; !done;){
-		sleep(&g->cmdwait, cmdready, g);
-		if(waserror()){
-			strncpy(g->err, up->errstr, sizeof(g->err)-1);
-			g->err[sizeof(g->err)-1] = 0;
-		} else {
-			switch(g->cmd){
-			case Cstart:
-				break;
-			case Cdie:
-				done = 1;
-				break;
-			case Cread:
-				memmove(g->data, g->addr, g->dlen);
-				break;
-			case Cwrite:
-				memmove(g->addr, g->data, g->dlen);
-				break;
-			}
-			poperror();
-		}
-		g->cmd = Cnone;
-		wakeup(&g->replywait);
-	}
-
-	pexit("done", 1);
 }
 
 /*

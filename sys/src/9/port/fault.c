@@ -40,7 +40,7 @@ fault(uintptr addr, int read)
 			return -1;
 		}
 
-		if(fixfault(s, addr, read, 1) == 0)
+		if(fixfault(s, addr, read) == 0)
 			break;
 
 		splhi();
@@ -58,7 +58,7 @@ fault(uintptr addr, int read)
 }
 
 static void
-faulterror(char *s, Chan *c, int isfatal)
+faulterror(char *s, Chan *c)
 {
 	char buf[ERRMAX];
 
@@ -67,15 +67,14 @@ faulterror(char *s, Chan *c, int isfatal)
 		s = buf;
 	}
 	if(up->nerrlab) {
-		if(isfatal)
-			postnote(up, 1, s, NDebug);
+		postnote(up, 1, s, NDebug);
 		error(s);
 	}
 	pexit(s, 1);
 }
 
 static void
-pio(Segment *s, uintptr addr, uintptr soff, Page **p, int isfatal)
+pio(Segment *s, uintptr addr, uintptr soff, Page **p)
 {
 	Page *new;
 	KMap *k;
@@ -120,11 +119,11 @@ retry:
 	k = kmap(new);
 	kaddr = (char*)VA(k);
 	while(waserror()) {
-		if(isfatal && strcmp(up->errstr, Eintr) == 0)
+		if(strcmp(up->errstr, Eintr) == 0)
 			continue;
 		kunmap(k);
 		putpage(new);
-		faulterror(Eioload, c, isfatal);
+		faulterror(Eioload, c);
 	}
 	n = devtab[c->type]->read(c, kaddr, ask, daddr);
 	if(n != ask)
@@ -194,7 +193,7 @@ void	(*checkaddr)(uintptr, Segment *, Page *);
 uintptr	addr2check;
 
 int
-fixfault(Segment *s, uintptr addr, int read, int doputmmu)
+fixfault(Segment *s, uintptr addr, int read)
 {
 	int type;
 	Pte **pte, *etp;
@@ -222,7 +221,7 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 
 	case SG_TEXT: 			/* Demand load */
 		if(pagedout(*pg))
-			pio(s, addr, soff, pg, doputmmu);
+			pio(s, addr, soff, pg);
 
 		mmuphys = PPN((*pg)->pa) | PTERONLY|PTEVALID;
 		(*pg)->modref = PG_REF;
@@ -242,7 +241,7 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 	case SG_DATA:
 	common:			/* Demand load/pagein/copy on write */
 		if(pagedout(*pg))
-			pio(s, addr, soff, pg, doputmmu);
+			pio(s, addr, soff, pg);
 
 		/*
 		 *  It's only possible to copy on write if
@@ -288,8 +287,7 @@ fixfault(Segment *s, uintptr addr, int read, int doputmmu)
 	}
 	qunlock(s);
 
-	if(doputmmu)
-		putmmu(addr, mmuphys, *pg);
+	putmmu(addr, mmuphys, *pg);
 
 	return 0;
 }
