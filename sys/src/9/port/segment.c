@@ -799,8 +799,11 @@ docmd(Segio *sio, int cmd)
 {
 	sio->err = nil;
 	sio->cmd = cmd;
+	while(waserror())
+		;
 	wakeup(&sio->cmdwait);
 	sleep(&sio->replywait, cmddone, sio);
+	poperror();
 	if(sio->err != nil)
 		error(sio->err);
 }
