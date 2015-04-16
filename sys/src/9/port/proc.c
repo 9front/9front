@@ -1552,11 +1552,17 @@ killbig(char *why)
 	kp->procctl = Proc_exitbig;
 	for(i = 0; i < NSEG; i++) {
 		s = kp->seg[i];
-		if(s != nil) {
-			qlock(s);
-			mfreeseg(s, s->base, (s->top - s->base)/BY2PG);
-			qunlock(s);
+		if(s == nil)
+			continue;
+		switch(s->type & SG_TYPE){
+		case SG_SHARED:
+		case SG_PHYSICAL:
+		case SG_FIXED:
+			continue;
 		}
+		qlock(s);
+		mfreeseg(s, s->base, (s->top - s->base)/BY2PG);
+		qunlock(s);
 	}
 	qunlock(&kp->seglock);
 }
