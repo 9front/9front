@@ -381,8 +381,14 @@ init1(Sym *s, Type *t, long o, int exflag)
 				diag(a, "initialization of incompatible pointers: %s\n%T and %T",
 					s->name, t, a->type);
 			}
-			if(a->op == OADDR)
+			if(a->op == OADDR) {
 				a = a->left;
+				goto gext;
+			}
+			if(a->type->etype == TIND) {
+				diag(a, "initializer is not a constant: %s", s->name);
+				return Z;
+			}
 			goto gext;
 		}
 
