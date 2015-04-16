@@ -67,7 +67,8 @@ faulterror(char *s, Chan *c)
 		s = buf;
 	}
 	if(up->nerrlab) {
-		postnote(up, 1, s, NDebug);
+		if(up->kp == 0)
+			postnote(up, 1, s, NDebug);
 		error(s);
 	}
 	pexit(s, 1);
