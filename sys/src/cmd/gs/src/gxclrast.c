@@ -119,7 +119,7 @@ private void
 set_cb_end(command_buf_t *pcb, const byte *end)
 {
     pcb->end = end;
-    pcb->limit = pcb->data + (pcb->size - cmd_largest_size + 1);
+    pcb->limit = pcb->data + pcb->size - cmd_largest_size + 1;
     if ( pcb->limit > pcb->end )
 	pcb->limit = pcb->end;
 }
