@@ -136,8 +136,7 @@ UPDATE=\
 	$HFILES\
 	${OFILES:%.$O=%.c}\
 
-</sys/src/cmd/mkone
+CFLAGS=$CFLAGS `{~ $objtype mips && echo -D__BIG_ENDIAN__}
 
-d_net.$O : d_net.c
-	$CC -FVw d_net.c
+</sys/src/cmd/mkone
 

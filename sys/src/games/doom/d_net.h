@@ -25,7 +25,6 @@
 
 #include "d_player.h"
 
-
 #ifdef __GNUG__
 #pragma interface
 #endif
