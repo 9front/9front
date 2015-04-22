@@ -60,7 +60,8 @@ loadrevinfo(Revlog *changelog, int rev)
 					}
 				} else {
 					n = ri->why ? strlen(ri->why) : 0;
-					ri->why = realloc(ri->why, n + strlen(buf)+1);
+					ri->why = realloc(ri->why, n + strlen(buf)+2);
+					if(n > 0) ri->why[n++] = '\n';
 					strcpy(ri->why + n, buf);
 				}
 			}
