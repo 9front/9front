@@ -390,7 +390,8 @@ login(char *id, char **dest, int pass_stdin, int pass_nvram)
 	c = emalloc(sizeof(*c));
 	if(pass_nvram){
 		if(readnvram(&nvr, 0) < 0){
-			fprint(2, "secstore: readnvram: %r\n");
+			if(verbose)
+				fprint(2, "secstore: readnvram: %r\n");
 			exits("readnvram failed");
 		}
 		strecpy(c->pass, c->pass+sizeof c->pass, nvr.config);
@@ -417,7 +418,8 @@ login(char *id, char **dest, int pass_stdin, int pass_nvram)
 			if((fd = dial(netmkaddr(*dest, "tcp", "5356"), nil, nil, nil)) >= 0)
 				break;
 			if(dest[1] == nil){
-				fprint(2, "secstore: can't dial %s: %r\n", *dest);
+				if(verbose)
+					fprint(2, "secstore: can't dial %s: %r\n", *dest);
 				exits("dial failed");
 			}
 		}
