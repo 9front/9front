@@ -223,6 +223,12 @@ reads from file descriptor 3.
 .SH SEE ALSO
 .IR factotum (4),
 .IR secstore (8)
+.SH DIAGNOSTICS
+Secstore sets error status on failure but will not print an error
+message when reading NVRAM or dialing the secstore server fails
+unless the
+.B -v
+flag is specified.
 .SH BUGS
 There is deliberately no backup of files on the secstore, so
 .B -r
