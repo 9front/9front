@@ -31,7 +31,7 @@ void*
 erealloc(void *v, int c)
 {
 	v = realloc(v, c);
-	if(v == 0)
+	if(v == 0 && c != 0)
 		sysfatal("realloc: %r");
 	setrealloctag(v, getcallerpc(&c));
 	return v;
