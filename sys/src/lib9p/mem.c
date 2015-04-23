@@ -24,7 +24,7 @@ erealloc9p(void *v, ulong sz)
 {
 	void *nv;
 
-	if((nv = realloc(v, sz)) == nil) {
+	if((nv = realloc(v, sz)) == nil && sz != 0) {
 		fprint(2, "out of memory allocating %lud\n", sz);
 		exits("mem");
 	}
