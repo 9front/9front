@@ -813,7 +813,7 @@ void *
 erealloc(void *p, ulong n)
 {
 	p = realloc(p, n);
-	if(!p)
+	if(!p && n)
 		error("out of memory");
 	return p;
 }
