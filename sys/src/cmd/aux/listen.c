@@ -16,9 +16,10 @@ typedef struct Announce	Announce;
 struct Announce
 {
 	Announce	*next;
-	char	*a;
 	int	announced;
-	int	whined;
+	char	whined;
+	char	mark;
+	char	a[];
 };
 
 int	readstr(char*, char*, char*, int);
@@ -292,65 +293,32 @@ addannounce(char *str)
 	/* look for duplicate */
 	l = &announcements;
 	for(a = announcements; a; a = a->next){
-		if(strcmp(str, a->a) == 0)
+		if(strcmp(str, a->a) == 0){
+			a->mark = 0;
 			return;
+		}
 		l = &a->next;
 	}
 
 	/* accept it */
 	a = mallocz(sizeof(*a) + strlen(str) + 1, 1);
-	if(a == 0)
+	if(a == nil)
 		return;
-	a->a = ((char*)a)+sizeof(*a);
 	strcpy(a->a, str);
-	a->announced = 0;
 	*l = a;
-}
-
-/*
- *  delete a service for announcement list
- */
-void
-delannounce(char *str)
-{
-	Announce *a, **l;
-
-	/* look for service */
-	l = &announcements;
-	for(a = announcements; a; a = a->next){
-		if(strcmp(str, a->a) == 0)
-			break;
-		l = &a->next;
-	}
-	if (a == nil)
-		return;
-	*l = a->next;			/* drop from the list */
-	if (a->announced > 0)
-		postnote(PNPROC, a->announced, "die");
-	a->announced = 0;
-	free(a);
-}
-
-static int
-ignore(char *srvdir, char *name)
-{
-	int rv;
-	char *file = smprint("%s/%s", srvdir, name);
-	Dir *d = dirstat(file);
-
-	rv = !d || d->length <= 0;	/* ignore unless it's non-empty */
-	free(d);
-	free(file);
-	return rv;
 }
 
 void
 scandir(char *proto, char *protodir, char *dname)
 {
+	Announce *a, **l;
 	int fd, i, n, nlen;
 	char *nm;
 	char ds[128];
 	Dir *db;
+
+	for(a = announcements; a != nil; a = a->next)
+		a->mark = 1;
 
 	fd = open(dname, OREAD);
 	if(fd < 0)
@@ -360,20 +328,31 @@ scandir(char *proto, char *protodir, char *dname)
 	while((n=dirread(fd, &db)) > 0){
 		for(i=0; i<n; i++){
 			nm = db[i].name;
-			if(!(db[i].qid.type&QTDIR) &&
-			    strncmp(nm, proto, nlen) == 0) {
-				snprint(ds, sizeof ds, "%s!*!%s", protodir,
-					nm + nlen);
-				if (ignore(dname, nm))
-					delannounce(ds);
-				else
-					addannounce(ds);
-			}
+			if(db[i].qid.type&QTDIR)
+				continue;
+			if(db[i].length <= 0)
+				continue;
+			if(strncmp(nm, proto, nlen) != 0)
+				continue;
+			snprint(ds, sizeof ds, "%s!*!%s", protodir, nm + nlen);
+			addannounce(ds);
 		}
 		free(db);
 	}
 
 	close(fd);
+
+	l = &announcements;
+	while((a = *l) != nil){
+		if(a->mark){
+			*l = a->next;
+			if (a->announced > 0)
+				postnote(PNPROC, a->announced, "die");
+			free(a);
+			continue;
+		}
+		l = &a->next;
+	}
 }
 
 void
