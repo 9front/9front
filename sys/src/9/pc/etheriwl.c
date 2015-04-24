@@ -90,6 +90,7 @@ enum {
 	GpDrv	= 0x050,
 		GpDrvCalV6	= 1<<2,
 		GpDrv1X2	= 1<<3,
+		GpDrvRadioIqInvert	= 1<<7, 
 
 	Led		= 0x094,
 		LedBsmCtrl	= 1<<5,
@@ -366,6 +367,8 @@ struct Ctlr {
 		uchar	version;
 		uchar	type;
 		u16int	volt;
+		u16int	temp;
+		u16int	rawtemp;
 
 		char	regdom[4+1];
 
@@ -397,6 +400,7 @@ enum {
 	Type6000	= 7,
 	Type6050	= 8,
 	Type6005	= 11,
+	Type2030	= 12,
 };
 
 static char *fwname[16] = {
@@ -409,6 +413,7 @@ static char *fwname[16] = {
 	[Type6000] "iwn-6000",
 	[Type6050] "iwn-6050",
 	[Type6005] "iwn-6005",
+	[Type2030] "iwn-2030",
 };
 
 static char *qcmd(Ctlr *ctlr, uint qid, uint code, uchar *data, int size, Block *block);
@@ -855,6 +860,18 @@ iwlinit(Ether *edev)
 	ctlr->eeprom.version = b[0];
 	ctlr->eeprom.type = b[1];
 	ctlr->eeprom.volt = get16(b+2);
+
+	ctlr->eeprom.temp = 0;
+	ctlr->eeprom.rawtemp = 0;
+	if(ctlr->type == Type2030){
+		if ((err = eepromread(ctlr, b, 2, caloff + 0x12a)) != nil)
+			goto Err2;
+		ctlr->eeprom.temp = get16(b);
+		if ((err = eepromread(ctlr, b, 2, caloff + 0x12b)) != nil)
+			goto Err2;
+		ctlr->eeprom.rawtemp = get16(b);
+	}
+
 	if(ctlr->type != Type4965 && ctlr->type != Type5150){
 		if((err = eepromread(ctlr, b, 4, caloff + 0x128)) != nil)
 			goto Err2;
@@ -1166,6 +1183,8 @@ reset(Ctlr *ctlr)
 		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrvCalV6);
 	if(ctlr->type == Type6005)
 		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrv1X2);
+	if (ctlr->type == Type2030)
+		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrvRadioIqInvert);
 	nicunlock(ctlr);
 
 	if((err = niclock(ctlr)) != nil)
@@ -1212,6 +1231,82 @@ reset(Ctlr *ctlr)
 		csr32w(ctlr, ShadowRegCtrl, csr32r(ctlr, ShadowRegCtrl) | 0x800fffff);
 
 	return nil;
+}
+
+static char*
+sendbtcoexadv(Ctlr *ctlr)
+{
+	static u32int btcoex3wire[12] = {
+		0xaaaaaaaa, 0xaaaaaaaa, 0xaaaaaaaa, 0xaaaaaaaa,
+		0xcc00ff28,	0x0000aaaa, 0xcc00aaaa, 0x0000aaaa,
+		0xc0004000, 0x00004000, 0xf0005000, 0xf0005000,
+	};
+
+	uchar c[Tcmdsize], *p;
+	char *err;
+	int i;
+
+	/* set BT config */
+	memset(c, 0, sizeof(c));
+	p = c;
+
+	if(ctlr->type == Type2030){
+		*p++ = 145; /* flags */
+		p++; /* lead time */
+		*p++ = 5; /* max kill */
+		*p++ = 1; /* bt3 t7 timer */
+		put32(p, 0xffff0000); /* kill ack */
+		p += 4;
+		put32(p, 0xffff0000); /* kill cts */
+		p += 4;
+		*p++ = 2; /* sample time */
+		*p++ = 0xc; /* bt3 t2 timer */
+		p += 2; /* bt4 reaction */
+		for (i = 0; i < nelem(btcoex3wire); i++){
+			put32(p, btcoex3wire[i]);
+			p += 4;
+		}
+		p += 2; /* bt4 decision */
+		put16(p, 0xff); /* valid */
+		p += 2;
+		put32(p, 0xf0); /* prio boost */
+		p += 4;
+		p++; /* reserved */
+		p++; /* tx prio boost */
+		p += 2; /* rx prio boost */
+	}
+	if((err = cmd(ctlr, 155, c, p-c)) != nil)
+		return err;
+
+	/* set BT priority */
+	memset(c, 0, sizeof(c));
+	p = c;
+
+	*p++ = 0x6; /* init1 */
+	*p++ = 0x7; /* init2 */
+	*p++ = 0x2; /* periodic low1 */
+	*p++ = 0x3; /* periodic low2 */
+	*p++ = 0x4; /* periodic high1 */
+	*p++ = 0x5; /* periodic high2 */
+	*p++ = 0x6; /* dtim */
+	*p++ = 0x8; /* scan52 */
+	*p++ = 0xa; /* scan24 */
+	p += 7; /* reserved */
+	if((err = cmd(ctlr, 204, c, p-c)) != nil)
+		return err;
+
+	/* force BT state machine change */
+	memset(c, 0, sizeof(c));
+	p = c;
+
+	*p++ = 1; /* open */
+	*p++ = 1; /* type */
+	p += 2; /* reserved */
+	if((err = cmd(ctlr, 205, c, p-c)) != nil)
+		return err;
+
+	c[0] = 0; /* open */
+	return cmd(ctlr, 205, c, p-c);
 }
 
 static char*
@@ -1340,10 +1435,12 @@ postboot(Ctlr *ctlr)
 				Block *b;
 
 				i = cmds[q];
-				if(i == 8 && ctlr->type != Type5150)
+				if(i == 8 && ctlr->type != Type5150 && ctlr->type != Type2030)
 					continue;
-				if(i == 17 && (ctlr->type >= Type6000 || ctlr->type == Type5150))
+				if(i == 17 && (ctlr->type >= Type6000 || ctlr->type == Type5150) &&
+					ctlr->type != Type2030)
 					continue;
+
 				if((b = ctlr->calib.cmd[i]) == nil)
 					continue;
 				b = copyblock(b, BLEN(b));
@@ -1355,8 +1452,9 @@ postboot(Ctlr *ctlr)
 					return err;
 			}
 
-			if(ctlr->type == Type6005){
-				/* temperature sensor offset */
+			/* temperature sensor offset */
+			switch (ctlr->type){
+			case Type6005:
 				memset(c, 0, sizeof(c));
 				c[0] = 18;
 				c[1] = 0;
@@ -1365,6 +1463,25 @@ postboot(Ctlr *ctlr)
 				put16(c + 4, 2700);
 				if((err = cmd(ctlr, 176, c, 4+2+2)) != nil)
 					return err;
+				break;
+
+			case Type2030:
+				memset(c, 0, sizeof(c));
+				c[0] = 18;
+				c[1] = 0;
+				c[2] = 1;
+				c[3] = 1;
+				if(ctlr->eeprom.rawtemp != 0){
+					put16(c + 4, ctlr->eeprom.temp);
+					put16(c + 6, ctlr->eeprom.rawtemp);
+				} else{
+					put16(c + 4, 2700);
+					put16(c + 6, 2700);
+				}
+				put16(c + 8, ctlr->eeprom.volt);
+				if ((err = cmd(ctlr, 176, c, 4+2+2+2+2)) != nil)
+					return err;
+				break;
 			}
 
 			if(ctlr->type == Type6005 || ctlr->type == Type6050){
@@ -1380,6 +1497,9 @@ postboot(Ctlr *ctlr)
 			put32(c, ctlr->rfcfg.txantmask & 7);
 			if((err = cmd(ctlr, 152, c, 4)) != nil)
 				return err;
+
+			if(ctlr->type == Type2030)
+				sendbtcoexadv(ctlr);
 		}
 	}
 
@@ -2077,7 +2197,9 @@ iwlattach(Ether *edev)
 
 		if(ctlr->wifi == nil){
 			ctlr->wifi = wifiattach(edev, transmit);
-			ctlr->wifi->rates = iwlrates;
+			/* tested with 2230, it has transmit issues using higher bit rates */
+			if (ctlr->type != Type2030)
+				ctlr->wifi->rates = iwlrates;
 		}
 
 		if(ctlr->fw == nil){
@@ -2311,6 +2433,8 @@ iwlpci(void)
 		case 0x422b:	/* Centrino Ultimate-N 6300 variant 1 */
 		case 0x4238:	/* Centrino Ultimate-N 6300 variant 2 */
 		case 0x08ae:	/* Centrino Wireless-N 100 */
+		case 0x0887:	/* Centrino Wireless-N 2230 */
+		case 0x0888:	/* Centrino Wireless-N 2230 */
 			break;
 		}
 
