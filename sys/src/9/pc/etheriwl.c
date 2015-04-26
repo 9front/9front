@@ -864,10 +864,10 @@ iwlinit(Ether *edev)
 	ctlr->eeprom.temp = 0;
 	ctlr->eeprom.rawtemp = 0;
 	if(ctlr->type == Type2030){
-		if ((err = eepromread(ctlr, b, 2, caloff + 0x12a)) != nil)
+		if((err = eepromread(ctlr, b, 2, caloff + 0x12a)) != nil)
 			goto Err2;
 		ctlr->eeprom.temp = get16(b);
-		if ((err = eepromread(ctlr, b, 2, caloff + 0x12b)) != nil)
+		if((err = eepromread(ctlr, b, 2, caloff + 0x12b)) != nil)
 			goto Err2;
 		ctlr->eeprom.rawtemp = get16(b);
 	}
@@ -1183,7 +1183,7 @@ reset(Ctlr *ctlr)
 		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrvCalV6);
 	if(ctlr->type == Type6005)
 		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrv1X2);
-	if (ctlr->type == Type2030)
+	if(ctlr->type == Type2030)
 		csr32w(ctlr, GpDrv, csr32r(ctlr, GpDrv) | GpDrvRadioIqInvert);
 	nicunlock(ctlr);
 
@@ -1479,7 +1479,7 @@ postboot(Ctlr *ctlr)
 					put16(c + 6, 2700);
 				}
 				put16(c + 8, ctlr->eeprom.volt);
-				if ((err = cmd(ctlr, 176, c, 4+2+2+2+2)) != nil)
+				if((err = cmd(ctlr, 176, c, 4+2+2+2+2)) != nil)
 					return err;
 				break;
 			}
@@ -1498,8 +1498,10 @@ postboot(Ctlr *ctlr)
 			if((err = cmd(ctlr, 152, c, 4)) != nil)
 				return err;
 
-			if(ctlr->type == Type2030)
-				sendbtcoexadv(ctlr);
+			if(ctlr->type == Type2030){
+				if((err = sendbtcoexadv(ctlr)) != nil)
+					return err;
+			}
 		}
 	}
 
@@ -2198,7 +2200,7 @@ iwlattach(Ether *edev)
 		if(ctlr->wifi == nil){
 			ctlr->wifi = wifiattach(edev, transmit);
 			/* tested with 2230, it has transmit issues using higher bit rates */
-			if (ctlr->type != Type2030)
+			if(ctlr->type != Type2030)
 				ctlr->wifi->rates = iwlrates;
 		}
 
