@@ -1829,7 +1829,7 @@ addnode(Ctlr *ctlr, uchar id, uchar *addr)
 	cmd(ctlr, 24, c, p - c);
 }
 
-void
+static void
 rxon(Ether *edev, Wnode *bss)
 {
 	uchar c[Tcmdsize], *p;
