@@ -63,9 +63,13 @@ void main(int argc, char *argv[])
 	/* options for samterm */
 	case 'a':
 		*ap++ = "-a";
+		if(ap >= termargs+nelem(termargs))
+			usage();
 		break;
 	case 'i':
 		*ap++ = "-i";
+		if(ap >= termargs+nelem(termargs))
+			usage();
 		break;
 	}ARGEND
 	*ap = nil;
