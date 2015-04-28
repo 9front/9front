@@ -99,21 +99,19 @@ threadmain(int argc, char *argv[])
 					}
 				}
 			}else if(mousep->buttons&(1|8)){
-				if(nwhich){
-					if(nwhich!=which)
-						current(nwhich);
-					else if(scr)
-						scroll(which, (mousep->buttons&8) ? 4 : 1);
-					else{
-						t=(Text *)which->user1;
-						if(flselect(which)){
-							outTsl(Tdclick, t->tag, which->p0);
-							t->lock++;
-						}else if(t!=&cmd)
-							outcmd();
-						if(mousep->buttons&1)
-							chord = mousep->buttons;
-					}
+				if(scr)
+					scroll(which, (mousep->buttons&8) ? 4 : 1);
+				else if(nwhich && nwhich!=which)
+					current(nwhich);
+				else{
+					t=(Text *)which->user1;
+					if(flselect(which)){
+						outTsl(Tdclick, t->tag, which->p0);
+						t->lock++;
+					}else if(t!=&cmd)
+						outcmd();
+					if(mousep->buttons&1)
+						chord = mousep->buttons;
 				}
 			}else if((mousep->buttons&2) && which){
 				if(scr)
