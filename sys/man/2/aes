@@ -1,6 +1,6 @@
 .TH AES 2
 .SH NAME
-setupAESstate, aesCBCencrypt, aesCBCdecrypt, aesCTRencrypt, aesCTRdecrypt, setupAESXCBCstate, aesXCBCmac - advanced encryption standard (rijndael)
+setupAESstate, aesCBCencrypt, aesCBCdecrypt, setupAESXCBCstate, aesXCBCmac - advanced encryption standard (rijndael)
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -28,12 +28,6 @@ void	aesCBCencrypt(uchar *p, int len, AESstate *s)
 void	aesCBCdecrypt(uchar *p, int len, AESstate *s)
 .PP
 .B
-void	aesCTRencrypt(uchar *p, int len, AESstate *s)
-.PP
-.B
-void	aesCTRdecrypt(uchar *p, int len, AESstate *s)
-.PP
-.B
 void	setupAESXCBCstate(AESstate *s)
 .PP
 .B
@@ -52,11 +46,6 @@ are the block ciphers, corresponding to
 and
 .I aesCBCdecrypt
 implement cipher-block-chaining encryption.
-.I AesCTRencrypt
-and
-.I aesCTRdecrypt
-implement counter mode, per RFC 3686;
-they are identical operations.
 .I setupAESXCBCstate
 and
 .I aesXCBCmac
@@ -93,8 +82,6 @@ in
 The functions
 .IR aes_encrypt ,
 .IR aes_decrypt ,
-.IR aesCTRencrypt ,
-.IR aesCTRdecrypt ,
 .IR setupAESXCBCstate ,
 and
 .IR aesXCBCmac

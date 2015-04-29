@@ -220,61 +220,6 @@ aesCBCdecrypt(uchar *p, int len, AESstate *s)
 	}
 }
 
-/*
- * AES-CTR mode, per rfc3686.
- * CTRs could be precalculated for efficiency
- * and there would also be less back and forth mp
- */
-
-static void
-incrementCTR(uchar *p, uint ctrsz)
-{
-	int len;
-	uchar *ctr;
-	mpint *mpctr, *mpctrsz;
-
-	ctr = p + AESbsize - ctrsz;
-	mpctr = betomp(ctr, ctrsz, nil);
-	mpctrsz = itomp(1 << (ctrsz*8), nil);
-	mpadd(mpctr, mpone, mpctr);
-	mpmod(mpctr, mpctrsz, mpctr);
-	len = mptobe(mpctr, ctr, ctrsz, nil);
-	assert(len == ctrsz);
-	mpfree(mpctrsz);
-	mpfree(mpctr);
-}
-
-void
-aesCTRencrypt(uchar *p, int len, AESstate *s)
-{
-	uchar q[AESbsize];
-	uchar *ip, *eip, *ctr;
-
-	ctr = s->ivec;
-	for(; len >= AESbsize; len -= AESbsize){
-		ip = q;
-		aes_encrypt(s->ekey, s->rounds, ctr, q);
-		for(eip = p + AESbsize; p < eip; )
-			*p++ ^= *ip++;
-		incrementCTR(ctr, s->ctrsz);
-	}
-
-	if(len > 0){
-		ip = q;
-		aes_encrypt(s->ekey, s->rounds, ctr, q);
-		for(eip = p + len; p < eip; )
-			*p++ ^= *ip++;
-		incrementCTR(ctr, s->ctrsz);
-	}
-}
-
-void
-aesCTRdecrypt(uchar *p, int len, AESstate *s)
-{
-	aesCTRencrypt(p, len, s);
-}
-
-
 /* taken from sha1; TODO: verify suitability (esp. byte order) for aes */
 /*
  *	encodes input (ulong) into output (uchar). Assumes len is

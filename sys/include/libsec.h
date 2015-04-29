@@ -23,7 +23,6 @@ struct AESstate
 	ulong	setup;
 	int	rounds;
 	int	keybytes;
-	uint	ctrsz;
 	uchar	key[AESmaxkey];			/* unexpanded key */
 	ulong	ekey[4*(AESmaxrounds + 1)];	/* encryption key */
 	ulong	dkey[4*(AESmaxrounds + 1)];	/* decryption key */
@@ -38,8 +37,6 @@ void	aes_decrypt(ulong rk[], int Nr, uchar ct[16], uchar pt[16]);
 void	setupAESstate(AESstate *s, uchar key[], int keybytes, uchar *ivec);
 void	aesCBCencrypt(uchar *p, int len, AESstate *s);
 void	aesCBCdecrypt(uchar *p, int len, AESstate *s);
-void	aesCTRdecrypt(uchar *p, int len, AESstate *s);
-void	aesCTRencrypt(uchar *p, int len, AESstate *s);
 
 void	setupAESXCBCstate(AESstate *s);
 uchar*	aesXCBCmac(uchar *p, int len, AESstate *s);
