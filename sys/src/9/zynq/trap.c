@@ -423,6 +423,7 @@ noted(Ureg *ureg, ulong arg0)
 		sp = oureg - 4 * BY2WD - ERRMAX;
 		splhi();
 		ureg->sp = sp;
+		ureg->r0 = (uintptr) oureg;
 		((ulong *) sp)[1] = oureg;
 		((ulong *) sp)[0] = 0;
 		break;

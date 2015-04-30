@@ -78,6 +78,7 @@ noted(Ureg* cur, uintptr arg0)
 		nf->arg0 = &nf->ureg;
 		nf->ip = 0;
 		cur->sp = PTR2UINT(nf);
+		cur->r0 = PTR2UINT(nf->arg0);
 		break;
 	default:
 		up->lastnote.flag = NDebug;
@@ -163,6 +164,8 @@ notify(Ureg* ureg)
 
 	ureg->sp = sp;
 	ureg->pc = PTR2UINT(up->notify);
+	ureg->r0 = PTR2UINT(nf->arg0);
+
 	up->notified = 1;
 	up->nnote--;
 	memmove(&up->lastnote, &up->note[0], sizeof(Note));
