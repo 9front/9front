@@ -98,6 +98,14 @@ but that can be changed via
 or
 .BR -v
 (variable bitrate, VBR).
+.PP
+.I Oggenc
+accepts raw PCM in the same byte order as
+.B /dev/audio
+(little-endian),
+t
+.I mp3enc -r
+expects big-endian.
 .SS Options
 .TF "\fB-b \fP"
 .TP
