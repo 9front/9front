@@ -316,7 +316,7 @@ Encode a
 file as highest-quality MP3.
 .IP
 .EX
-audio/mp3enc -q 0 -b 320
+audio/mp3enc -q 0 -b 320 <foo.wav >foo.mp3
 .EE
 .LP
 Create a fixed 128Kb/s MP3 file from a
