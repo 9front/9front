@@ -29,6 +29,7 @@ static int realmemfd;
 static int cputrace;
 static int porttrace;
 static Pit pit[3];
+static uchar rtcaddr;
 
 static vlong pitclock;
 
@@ -186,6 +187,12 @@ rport(void *, ulong p, int len)
 	case 0x65:	/* A20 gate */
 		w = 1 << 2;
 		break;
+	case 0x70:	/* RTC addr */
+		w = rtcaddr;
+		break;
+	case 0x71:	/* RTC data */
+		w = 0xFF;
+		break;
 	case 0x80:	/* extra dma registers (temp) */
 	case 0x84:
 	case 0x85:
@@ -243,6 +250,11 @@ wport(void *, ulong p, ulong w, int len)
 	case 0x63:
 	case 0x64:	/* KB controller input buffer (ISA, EISA) */
 	case 0x65:	/* A20 gate (bit 2) */
+		break;
+	case 0x70:	/* RTC addr */
+		rtcaddr = w & 0xFF;
+		break;
+	case 0x71:	/* RTC data */
 		break;
 	case 0x80:
 	case 0x84:
