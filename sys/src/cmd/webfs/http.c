@@ -857,7 +857,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				goto Error;
 			if(x = lookkey(shdr, "Proxy-Authorization"))
 				flushauth(proxy, x);
-			if(hauthenticate(u, &ru, method, "Proxy-Authenticate", rhdr) < 0)
+			if(hauthenticate(proxy, proxy, method, "Proxy-Authenticate", rhdr) < 0)
 				goto Error;
 			}
 		case 0:		/* No status */
