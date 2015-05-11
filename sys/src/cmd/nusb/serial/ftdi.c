@@ -1094,6 +1094,9 @@ hasjtag(Usbdev *udev)
 	/* no string, for now, by default we detect no jtag */
 	if(udev->product != nil && cistrstr(udev->product, "jtag") != nil)
 		return 1;
+	/* blank aijuboard has jtag for initial bringup */
+	if(udev->csp == 0xffffff)
+		return 1;
 	return 0;
 }
 
