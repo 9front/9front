@@ -142,7 +142,7 @@ enum {
 	Host2card	= Mwr << 8,
 };
 
-int cmdinfo[64] = {
+static int cmdinfo[64] = {
 [0]  Ixchken,
 [2]  Resp136,
 [3]  Resp48 | Ixchken | Crcchken,

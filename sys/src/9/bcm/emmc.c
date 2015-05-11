@@ -122,7 +122,7 @@ enum {
 	Cmdinhibit	= 1<<0,
 };
 
-int cmdinfo[64] = {
+static int cmdinfo[64] = {
 [0]  Ixchken,
 [2]  Resp136,
 [3]  Resp48 | Ixchken | Crcchken,
@@ -350,7 +350,7 @@ emmccmd(u32int cmd, u32int arg, u32int *resp)
 	return 0;
 }
 
-void
+static void
 emmciosetup(int write, void *buf, int bsize, int bcount)
 {
 	USED(write);
