@@ -64,7 +64,7 @@ errstr.h:	../port/mkerrstr ../port/error.h
 
 alloc.$O:	/sys/include/pool.h
 devmnt.$O:	/sys/include/fcall.h
-proc.$O:	errstr.h
+proc.$O proc.acid:	errstr.h
 devroot.$O:	errstr.h
 devaudio.$O:	../port/audioif.h
 devaoe.$O:	/$objtype/include/ureg.h
