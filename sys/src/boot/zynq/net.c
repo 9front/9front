@@ -191,25 +191,6 @@ ethinit(ulong *r)
 	r[NET_CTRL] |= TXEN | RXEN;
 }
 
-u32int
-u32get(void *pp)
-{
-	uchar *p;
-	
-	p = pp;
-	return p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
-}
-
-uchar *
-u32put(uchar *p, u32int v)
-{
-	p[0] = v >> 24;
-	p[1] = v >> 16;
-	p[2] = v >> 8;
-	p[3] = v;
-	return p + 4;
-}
-
 void
 ethtx(ulong *r, uchar *buf, int len)
 {

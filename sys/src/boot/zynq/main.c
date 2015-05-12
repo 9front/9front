@@ -96,6 +96,25 @@ memcpy(void *d, void *s, int n)
 		*cd++ = *cs++;
 }
 
+u32int
+u32get(void *pp)
+{
+	uchar *p;
+	
+	p = pp;
+	return p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3];
+}
+
+uchar *
+u32put(uchar *p, u32int v)
+{
+	p[0] = v >> 24;
+	p[1] = v >> 16;
+	p[2] = v >> 8;
+	p[3] = v;
+	return p + 4;
+}
+
 void
 run(void)
 {
@@ -178,7 +197,7 @@ void
 main(void)
 {
 	puts("Booting ...\n");
-	if(netboot() > 0)
+	if(mmcboot() > 0 || netboot() > 0)
 		run();
 	print("hjboot: ending\n");
 }

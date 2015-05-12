@@ -3,7 +3,7 @@ objtype=arm
 BIN=/arm
 TARG=fsbl fsbl.img
 CLEANFILES=boothead.$cputype
-FSBLFILES=fsbl.$O ddr.$O main.$O net.$O div.$O qspi.$O
+FSBLFILES=fsbl.$O ddr.$O main.$O mmc.$O net.$O div.$O qspi.$O
 
 all:V: $TARG
 
