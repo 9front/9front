@@ -90,6 +90,9 @@ fn main{
 		}
 		if not
 			x=($x -u)
+		if(~ $autolog true || ~ $autolog yes || ~ $autolog 1)
+			if(! ~ $service cpu)
+				x=($x -T)
 		if(! ~ $#debugfactotum 0)
 			x=($x -p)
 		must $x
@@ -103,6 +106,9 @@ fn main{
 	if(~ $#$x 0) x=auth
 	if(! ~ $#$x 0 && test -x /bin/auth/secstore && test -f /mnt/factotum/ctl){
 		x=(auth/secstore -G factotum -s^$$x)
+		if(~ $autolog true || ~ $autolog yes || ~ $autolog 1)
+			if(! ~ $service cpu)
+				x=($x -n)
 		if(~ $service cpu)
 			$x -n >/mnt/factotum/ctl
 		if(~ $status *readnvram* || ! ~ $service cpu)
@@ -117,7 +123,7 @@ fn main{
 		if(~ $#bootdisk 1 && ~ $#cfs 0)
 			cfs=$bootdisk/cache
 		if(~ $#cfs 1 && ! ~ $cfs off && test -f $cfs){
-			x=(/bin/cfs -s -f $cfs)
+			x=(/bin/cfs -S -s -f $cfs)
 			if(~ -f $ff)
 				x=($x -r)
 			{$x </srv/boot &} | echo 0 >/srv/cfs

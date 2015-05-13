@@ -64,11 +64,17 @@ main(int argc, char **argv)
 	Dir d;
 	Proto *p;
 
+	askforkeys = 1;
 	trysecstore = 1;
 
 	ARGBEGIN{
 	case 'D':
 		chatty9p++;
+		break;
+	case 'T':
+		askforkeys = 1;
+		trysecstore = 1;
+		sflag = 1;
 		break;
 	case 'S':		/* server: read nvram, no prompting for keys */
 		askforkeys = 0;
@@ -179,7 +185,10 @@ main(int argc, char **argv)
 			if((fd = open(smprint("%s/factotum/ctl", mtpt), OWRITE)) < 0)
 				sysfatal("can't open factotum: %r");
 			dup(fd, 1);
-			execl("/bin/auth/secstore", "secstore", "-G", "factotum", nil);
+			if(sflag)
+				execl("/bin/auth/secstore", "secstore", "-n", "-G", "factotum", nil);
+			else
+				execl("/bin/auth/secstore", "secstore", "-G", "factotum", nil);
 			exits(nil);
 		}
 		waitpid();
