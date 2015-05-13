@@ -18,7 +18,7 @@ fsbl: $FSBLFILES
 	$LD -o $target -T$TEXTBASE -l $prereq
 
 fsbl.img:D: fsbl boothead.$cputype
-	boothead.$cputype fsbl >fsbl.img
+	./boothead.$cputype fsbl >fsbl.img
 
 %.$cputype:V: mkfile.port
 	@{objtype=$cputype mk -f $prereq $target}
