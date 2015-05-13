@@ -1,9 +1,0 @@
-</$objtype/mkfile
-
-all:V: boothead.$objtype
-
-boothead.$objtype: boothead.$O
-	$LD $LDFLAGS -o $target $prereq
-
-%.$O:	%.c
-	$CC $CFLAGS $stem.c

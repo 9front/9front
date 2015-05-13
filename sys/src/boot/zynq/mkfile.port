@@ -1,0 +1,14 @@
+</$objtype/mkfile
+
+TARG=boothead.$objtype jtagload.$objtype
+
+all:V:	$TARG
+
+clean:V:
+	rm -f $TARG *.$O
+
+%.$objtype: %.$O
+	$LD $LDFLAGS -o $target $prereq
+
+%.$O:	%.c
+	$CC $CFLAGS $stem.c
