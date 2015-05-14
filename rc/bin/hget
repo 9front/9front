@@ -84,11 +84,11 @@ if(! ~ $s 0)
 		c=`{cat $d/contentencoding >[2]/dev/null}
 		switch($c){
 		case *gzip*
-			exec gunzip
+			~ `{cat $d/contenttype >[2]/dev/null} *gzip* || exec gunzip
 		case *bzip2*
-			exec bunzip2
+			~ `{cat $d/contenttype >[2]/dev/null} *bzip2* || exec bunzip2
 		case *compress*
-			exec uncompress
+			~ `{cat $d/contenttype >[2]/dev/null} *compress* || exec uncompress
 		}
 		exec cat
 	}
