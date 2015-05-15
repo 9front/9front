@@ -82,7 +82,7 @@ function hrsize(size){
 	if(size > 1024) return sprintf("%.1fKB", size/1024)
 	return sprintf("%iB", size)
 }
-/^-/ {
+/^(-|a)/ {
 	print "<tr>"
 	print "<td class=\"size\">"hrsize($6)"</td>"
 	print "<td class=\"month\">"$7"</td>"
