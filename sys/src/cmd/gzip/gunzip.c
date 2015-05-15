@@ -236,9 +236,12 @@ header(Biobuf *bin, GZHead *h)
 	/* OS type */
 	get1(bin);
 
-	if(flag & GZFEXTRA)
-		for(i=get1(bin); i>0; i--)
+	if(flag & GZFEXTRA){
+		i = get1(bin);
+		i |= get1(bin)<<8;
+		for(; i>0; i--)
 			get1(bin);
+	}
 
 	/* name */
 	if(flag & GZFNAME){
