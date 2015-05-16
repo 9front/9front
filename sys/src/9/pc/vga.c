@@ -188,7 +188,7 @@ vgascreenwin(VGAscr* scr)
 	h = scr->memdefont->height;
 	r = scr->gscreen->r;
 
-	if(i = mkcolor(scr->gscreen, 0x444488FF)){
+	if(i = mkcolor(scr->gscreen, 0x0D686BFF)){
 		memimagedraw(scr->gscreen, r, i, ZP, nil, ZP, S);
 		freememimage(i);
 	}
