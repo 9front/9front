@@ -393,7 +393,12 @@ attachdev(Port *p)
 
 	/* assign stable name based on device descriptor */
 	assignhname(d);
-	
+
+	/* set device info for ctl file */
+	devctl(d, "info %s csp %#08lux vid %#.4ux did %#.4ux %q %q %s",
+		classname(Class(d->usb->csp)), d->usb->csp, d->usb->vid, d->usb->did,
+		d->usb->vendor, d->usb->product, d->hname);
+
 	pushevent(d, formatdev(d, 0));
 	return 0;
 }
