@@ -183,6 +183,7 @@ sys	d775
 		listen	a662 sys sys /sys/lib/dist/empty
 
 		mail		a662 sys sys /sys/lib/dist/empty
+		pop3		a662 sys sys /sys/lib/dist/empty
 		runq		a662 sys sys /sys/lib/dist/empty
 		smtp		a662 sys sys /sys/lib/dist/empty
 		smtp.fail	a662 sys sys /sys/lib/dist/empty
