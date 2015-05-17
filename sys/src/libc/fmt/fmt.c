@@ -61,7 +61,7 @@ _fmtinstall(int c, Fmts f)
 {
 	Convfmt *p, *ep;
 
-	if(c<=0 || c>=65536)
+	if(c<=0 || c>Runemax)
 		return -1;
 	if(!f)
 		f = _badfmt;
