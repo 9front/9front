@@ -577,7 +577,7 @@ Forward:
 				else
 					break;
 			} while(--i > 0);
-			if((i == 0 || rr == ';') && r != 0 && r < Runemax)
+			if((i == 0 || rr == ';') && r != 0 && r <= Runemax)
 				goto Forward;
 		} else {
 			if(nextrune(rawchan, &rr))
