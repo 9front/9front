@@ -68,5 +68,7 @@ are taken as synonyms for the current color map stored in the display hardware.
 directory of color map files
 .SH SOURCE
 .B /sys/src/cmd/colors.c
+.br
+.B /sys/src/cmd/getmap.c
 .SH SEE ALSO
 .IR color (6)

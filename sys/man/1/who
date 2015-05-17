@@ -20,3 +20,5 @@ to find out more information about
 .IR person .
 .SH SOURCE
 .B /rc/bin/who
+.br
+.B /rc/bin/whois
