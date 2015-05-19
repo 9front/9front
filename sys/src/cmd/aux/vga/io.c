@@ -12,7 +12,6 @@ static int iowfd = -1;
 static int iolfd = -1;
 static int biosfd = -1;
 static int msrfd = -1;
-static ulong biosoffset = 0;
 
 enum {
 	Nctlchar	= 256,
@@ -243,20 +242,13 @@ setpalette(int p, int r, int g, int b)
 static long
 doreadbios(char* buf, long len, long offset)
 {
-	char file[64];
-
-	if(biosfd == -1){
-		biosfd = open("#v/vgabios", OREAD);
-		biosoffset = 0;
-	}
-	if(biosfd == -1){
-		snprint(file, sizeof file, "#p/%d/mem", getpid());
-		biosfd = devopen(file, OREAD);
-		biosoffset = 0x80000000;
-	}
-	if(biosfd == -1)
+	if(biosfd < 0)
+		biosfd = open("/dev/realmodemem", OREAD);
+	if(biosfd < 0)
+		biosfd = devopen("#v/vgabios", OREAD);
+	if(biosfd < 0)
 		return -1;
-	seek(biosfd, biosoffset+offset, 0);
+	seek(biosfd, offset, 0);
 	return read(biosfd, buf, len);
 }
 
