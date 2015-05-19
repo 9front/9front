@@ -19,7 +19,7 @@ static
 void
 _ioproc(void *arg)
 {
-	int m, n;
+	int m, n, nerr;
 	char buf[20];
 	Rune r;
 	Keyboardctl *kc;
@@ -27,18 +27,27 @@ _ioproc(void *arg)
 	kc = arg;
 	threadsetname("kbdproc");
 	n = 0;
-loop:
+	nerr = 0;
 	while(kc->consfd >= 0){
+		m = read(kc->consfd, buf+n, sizeof buf-n);
+		if(m <= 0){
+			yield();	/* if error is due to exiting, we'll exit here */
+			if(kc->consfd < 0)
+				break;
+			fprint(2, "keyboard: short read: %r\n");
+			if(m<0 || ++nerr>10)
+				threadexits("read error");
+			continue;
+		}
+		nerr = 0;
+		n += m;
 		while(n>0 && fullrune(buf, n)){
 			m = chartorune(&r, buf);
 			n -= m;
 			memmove(buf, buf+m, n);
 			if(send(kc->c, &r) < 0)
-				goto loop;
+				break;
 		}
-		if((m = read(kc->consfd, buf+n, sizeof buf-n)) <= 0)
-			goto loop;
-		n += m;
 	}
 	chanfree(kc->c);
 	free(kc->file);
