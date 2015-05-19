@@ -52,6 +52,7 @@ enum {
 	Namsiz = 100,
 	Maxpfx = 155,		/* from POSIX */
 	Maxname = Namsiz + 1 + Maxpfx,
+	Maxlongname = 65535,
 	Binsize = 0x80,		/* flag in size[0], from gnu: positive binary size */
 	Binnegsz = 0xff,	/* flag in size[0]: negative binary size */
 
@@ -72,7 +73,11 @@ enum {
 	LF_DIR =	'5',
 	LF_FIFO =	'6',
 	LF_CONTIG =	'7',
+
 	/* 'A' - 'Z' are reserved for custom implementations */
+
+	LF_LONGNAME =	'L',		/* GNU extenstion */
+	LF_LONGLINK = 	'K',
 };
 
 #define islink(lf)	(isreallink(lf) || issymlink(lf))
@@ -145,7 +150,7 @@ static Off nexthdr;
 static int nblock = Dblock;
 static int resync;
 static char *usefile, *arname = "archive";
-static char origdir[Maxname*2];
+static char origdir[Maxlongname+1];
 static Hdr *tpblk, *endblk;
 static Hdr *curblk;
 
@@ -934,12 +939,11 @@ replace(char **argv)
 static int
 prefix(char *name, char *pfx)
 {
+	char clpfx[Maxlongname+1];
 	int pfxlen = strlen(pfx);
-	char clpfx[Maxname+1];
 
-	if (pfxlen > Maxname)
-		return 0;
-	strcpy(clpfx, pfx);
+	clpfx[Maxlongname] = '\0';
+	strncpy(clpfx, pfx, Maxlongname);
 	cleanname(clpfx);
 	return strncmp(clpfx, name, pfxlen) == 0 &&
 		(name[pfxlen] == '\0' || name[pfxlen] == '/');
@@ -948,12 +952,13 @@ prefix(char *name, char *pfx)
 static int
 match(char *name, char **argv)
 {
+	char clname[Maxlongname+1];
 	int i;
-	char clname[Maxname+1];
 
 	if (argv[0] == nil)
 		return 1;
-	strcpy(clname, name);
+	clname[Maxlongname] = '\0';
+	strncpy(clname, name, Maxlongname);
 	cleanname(clname);
 	for (i = 0; argv[i] != nil; i++)
 		if (prefix(clname, argv[i]))
@@ -1045,6 +1050,7 @@ openfname(Hdr *hp, char *fname, int dir, int mode)
 	case LF_LINK:
 	case LF_SYMLINK1:
 	case LF_SYMLINK2:
+	case LF_LONGLINK:
 		fprint(2, "%s: can't make (sym)link %s\n",
 			argv0, fname);
 		break;
@@ -1201,6 +1207,46 @@ skip(int ar, Hdr *hp, char *fname)
 	}
 }
 
+static char*
+getname(int ar, Hdr *hp)
+{
+	static char namebuf[Maxlongname+1], *nextname = nil;
+	ulong blksleft, blksread;
+	char *fname, *p;
+	int n;
+
+	if(nextname != nil && nextname[0] != '\0'){
+		fname = nextname, nextname = nil;
+		return fname;
+	}
+	fname = name(hp);
+	if(hp->linkflag == LF_LONGNAME){
+		p = namebuf;
+		for (blksleft = BYTES2TBLKS(arsize(hp)); blksleft > 0;
+		     blksleft -= blksread) {
+			hp = getblkrd(ar, Alldata);
+			if (hp == nil)
+				sysfatal("unexpected EOF on archive reading %s from %s",
+					fname, arname);
+			blksread = gothowmany(blksleft);
+			n = &namebuf[Maxlongname] - p;
+			if(Tblock*blksread < n)
+				n = Tblock*blksread;
+			memmove(p, hp->data, n);
+			p += n;
+			putreadblks(ar, blksread);
+		}
+		*p = '\0';
+		fname = nil;
+		nextname = namebuf;
+	} else {
+		namebuf[Maxlongname] = '\0';
+		strncpy(namebuf, fname, Maxlongname);
+		fname = namebuf;
+	}
+	return fname;
+}
+
 static char *
 extract(char **argv)
 {
@@ -1221,7 +1267,9 @@ extract(char **argv)
 		sysfatal("can't open archive %s: %r", usefile);
 
 	while ((hp = readhdr(ar)) != nil) {
-		longname = name(hp);
+		longname = getname(ar, hp);
+		if(longname == nil)
+			continue;
 		if (match(longname, argv))
 			extract1(ar, hp, longname);
 		else

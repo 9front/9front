@@ -14,6 +14,7 @@ enum {
 	Namsiz = 100,
 	Maxpfx = 155,		/* from POSIX */
 	Maxname = Namsiz + 1 + Maxpfx,
+	Maxlongname = 65535,
 	Binsize = 0x80,		/* flag in size[0], from gnu: positive binary size */
 	Binnegsz = 0xff,	/* flag in size[0]: negative binary size */
 };
@@ -30,7 +31,12 @@ enum {
 	LF_DIR =	'5',
 	LF_FIFO =	'6',
 	LF_CONTIG =	'7',
+
 	/* 'A' - 'Z' are reserved for custom implementations */
+
+	LF_LONGNAME =	'L',		/* GNU extension */
+	LF_LONGLINK =	'K',
+
 };
 
 typedef union {
@@ -106,7 +112,9 @@ tarname(Hdr *hp)
 void
 populate(char *name)
 {
-	long chksum, linkflg;
+	char longname[Maxlongname+1];
+	char *nextname = nil;
+	long chksum, linkflg, namelen;
 	vlong blkno;
 	char *fname;
 	Fileinf f;
@@ -121,7 +129,9 @@ populate(char *name)
 		seek(tapefile, Tblock*blkno, 0);
 		if (readn(tapefile, hp->dummy, sizeof hp->dummy) < sizeof hp->dummy)
 			break;
-		fname = tarname(hp);
+		fname = nextname, nextname = nil;
+		if(fname == nil || fname[0] == '\0')
+			fname = tarname(hp);
 		if (fname[0] == '\0')
 			break;
 
@@ -162,6 +172,16 @@ populate(char *name)
 		if (linkflg) {
 			/*fprint(2, "link %s->%s skipped\n", fname, hp->linkname);*/
 			f.size = 0;
+		} else if (hp->linkflag == LF_LONGLINK) {
+			;
+		} else if (hp->linkflag == LF_LONGNAME) {
+			namelen = Maxlongname;
+			if(f.size < namelen)
+				namelen = f.size;
+			namelen = readn(tapefile, longname, namelen);
+			if(namelen < 0) namelen = 0;
+			longname[namelen] = '\0';
+			nextname = longname;
 		} else {
 			/* accept this file */
 			f.name = fname;
@@ -169,8 +189,8 @@ populate(char *name)
 				fprint(2, "%s: null name skipped\n", argv0);
 			else
 				poppath(f, 1);
-			blkno += (f.size + Tblock - 1)/Tblock;
 		}
+		blkno += (f.size + Tblock - 1)/Tblock;
 	}
 }
 
