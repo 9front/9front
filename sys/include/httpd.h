@@ -265,6 +265,7 @@ int			hungetc(Hio *h);
 char			*hunload(Hio*);
 int			hurlfmt(Fmt*);
 char			*hurlunesc(HConnect *c, char *s);
+int			hvprint(Hio *, char*, va_list);
 int			hwrite(Hio*, void*, int);
 int			hxferenc(Hio*, int);
 
