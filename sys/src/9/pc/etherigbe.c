@@ -1572,6 +1572,12 @@ at93c46io(Ctlr* ctlr, char* op, int data)
 			else
 				r = i;
 			continue;
+		case 'H':
+			eecd |= Do;
+			continue;
+		case 'h':
+			eecd &= ~Do;
+			continue;
 		case 'I':			/* assert data input */
 			eecd |= Di;
 			break;
@@ -1586,7 +1592,10 @@ at93c46io(Ctlr* ctlr, char* op, int data)
 			break;
 		}
 		csr32w(ctlr, Eecd, eecd);
-		microdelay(50);
+		if (eecd & Spi)
+			microdelay(1);
+		else
+			microdelay(50);
 	}
 	if(loop >= 0)
 		return -1;
@@ -1600,17 +1609,8 @@ at93c46r(Ctlr* ctlr)
 	char rop[20];
 	int addr, areq, bits, data, eecd, i;
 
-	eecd = csr32r(ctlr, Eecd);
-	if(eecd & Spi){
-		print("igbe: SPI EEPROM access not implemented\n");
-		return 0;
-	}
-	if(eecd & (Eeszaddr|Eesz256))
-		bits = 8;
-	else
-		bits = 6;
-
 	sum = 0;
+	eecd = csr32r(ctlr, Eecd);
 
 	switch(ctlr->id){
 	default:
@@ -1641,23 +1641,63 @@ at93c46r(Ctlr* ctlr)
 		}
 		break;
 	}
-	snprint(rop, sizeof(rop), "S :%dDCc;", bits+3);
 
-	for(addr = 0; addr < 0x40; addr++){
-		/*
-		 * Read a word at address 'addr' from the Atmel AT93C46
-		 * 3-Wire Serial EEPROM or compatible. The EEPROM access is
-		 * controlled by 4 bits in Eecd. See the AT93C46 datasheet
-		 * for protocol details.
-		 */
-		if(at93c46io(ctlr, rop, (0x06<<bits)|addr) != 0){
-			print("igbe: can't set EEPROM address 0x%2.2X\n", addr);
+	if(eecd & Spi){
+		for(i = 0; i < 1000; i++){
+			at93c46io(ctlr, "H :8HDCc;", 0x05);
+			data = at93c46io(ctlr, "h :8COc;", 0);
+
+			if (!(data & 0x1))
+				break;
+
+			microdelay(5);
+			at93c46io(ctlr, "Ss", 0);
+		}
+		if(i == 1000){
+			print("igbe: SPI EEPROM not ready\n");
 			goto release;
 		}
-		data = at93c46io(ctlr, ":16COc;", 0);
-		at93c46io(ctlr, "sic", 0);
-		ctlr->eeprom[addr] = data;
-		sum += data;
+
+		at93c46io(ctlr, "Ss H :8HDCc;", 0x03);
+
+		if(eecd & Eeszaddr)
+			bits = 16;
+		else
+			bits = 8;
+		snprint(rop, sizeof(rop), "H :%dHDCc;", bits);
+		if(at93c46io(ctlr, rop, 0) != 0){
+			print("igbe: can't set EEPROM address 0x00\n");
+			goto release;
+		}
+
+		for(addr = 0; addr < 0x40; addr++){
+			data = at93c46io(ctlr, "h :16COc;", 0);
+			ctlr->eeprom[addr] = (data >> 8) | (data << 8);
+			sum += ctlr->eeprom[addr];
+		}
+	} else {
+		if(eecd & (Eeszaddr|Eesz256))
+			bits = 8;
+		else
+			bits = 6;
+		snprint(rop, sizeof(rop), "S :%dDCc;", bits+3);
+
+		for(addr = 0; addr < 0x40; addr++){
+			/*
+			 * Read a word at address 'addr' from the Atmel AT93C46
+			 * 3-Wire Serial EEPROM or compatible. The EEPROM access is
+			 * controlled by 4 bits in Eecd. See the AT93C46 datasheet
+			 * for protocol details.
+			 */
+			if(at93c46io(ctlr, rop, (0x06<<bits)|addr) != 0){
+				print("igbe: can't set EEPROM address 0x%2.2X\n", addr);
+				goto release;
+			}
+			data = at93c46io(ctlr, ":16COc;", 0);
+			at93c46io(ctlr, "sic", 0);
+			ctlr->eeprom[addr] = data;
+			sum += data;
+		}
 	}
 
 release:
