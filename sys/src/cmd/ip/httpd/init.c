@@ -15,7 +15,7 @@ usage(void)
 
 char	*netdir;
 char	*webroot;
-char	*HTTPLOG = "httpd/log";
+char	*HTTPLOG = "httpd";
 
 static	HConnect	connect;
 static	HSPriv		priv;

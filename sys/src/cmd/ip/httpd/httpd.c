@@ -15,7 +15,7 @@ struct Strings
 };
 
 char	*netdir;
-char	*HTTPLOG = "httpd/log";
+char	*HTTPLOG = "httpd";
 
 static	char		netdirb[256];
 static	char		*namespace;
