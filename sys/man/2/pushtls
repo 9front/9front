@@ -107,6 +107,7 @@ typedef struct TLSconn {
 	uchar *sessionKey;	/* opt IN/OUT session key */
 	int	sessionKeylen;	/* opt IN  session key length */
 	char	*sessionConst;	/* opt IN  session constant */
+	char	*serverName;	/* opt IN  server name */
 } TLSconn;
 .EE
 .PP

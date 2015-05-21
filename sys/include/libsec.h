@@ -383,6 +383,7 @@ typedef struct TLSconn{
 	uchar	*sessionKey;
 	int	sessionKeylen;
 	char	*sessionConst;
+	char	*serverName;
 } TLSconn;
 
 /* tlshand.c */
