@@ -73,19 +73,22 @@ tlstrace(char *fmt, ...)
 }
 
 static int
-tlswrap(int fd)
+tlswrap(int fd, char *servername)
 {
 	TLSconn conn;
 
 	memset(&conn, 0, sizeof(conn));
 	if(debug)
 		conn.trace = tlstrace;
+	if(servername != nil)
+		conn.serverName = smprint("%H", servername);
 	if((fd = tlsClient(fd, &conn)) < 0){
 		if(debug) fprint(2, "tlsClient: %r\n");
 		return -1;
 	}
 	free(conn.cert);
 	free(conn.sessionID);
+	free(conn.serverName);
 	return fd;
 }
 
@@ -123,10 +126,10 @@ hdial(Url *u)
 	if((fd = dial(addr, 0, 0, &ctl)) >= 0){
 		if(proxy){
 			if(strcmp(proxy->scheme, "https") == 0)
-				fd = tlswrap(fd);
+				fd = tlswrap(fd, proxy->host);
 		} else {
 			if(strcmp(u->scheme, "https") == 0)
-				fd = tlswrap(fd);
+				fd = tlswrap(fd, u->host);
 		}
 	}
 	if(fd < 0){
@@ -905,7 +908,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		 * then the proxy server has established the connection.
 		 */
 		if(h->tunnel && !retry && (i/100) == 2){
-			if((h->fd = tlswrap(h->fd)) < 0)
+			if((h->fd = tlswrap(h->fd, host)) < 0)
 				break;
 
 			/* proceed to the original request */
