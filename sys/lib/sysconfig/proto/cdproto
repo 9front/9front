@@ -177,7 +177,8 @@ sys	d775
 
 		cifsd	a662 sys sys /sys/lib/dist/empty
 		ftp	a662 sys sys /sys/lib/dist/empty
-		httpd	a662 sys sys /sys/lib/dist/empty
+		httpd	d775
+			log	a662 sys sys /sys/lib/dist/empty
 		imap4d	a662 sys sys /sys/lib/dist/empty
 		ipboot	a662 sys sys /sys/lib/dist/empty
 		listen	a662 sys sys /sys/lib/dist/empty
