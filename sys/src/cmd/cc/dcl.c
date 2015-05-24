@@ -1571,8 +1571,6 @@ contig(Sym *s, Node *n, long v)
 		stkoff = maxround(stkoff, autoffset);
 		symadjust(s, n, v - s->offset);
 	}
-	if(w <= ewidth[TIND])
-		goto no;
 	if(n->op == OAS)
 		diag(Z, "oops in contig");
 /*ZZZ this appears incorrect
@@ -1585,8 +1583,58 @@ if not, bail
 		if(n->left->type)
 		if(n->left->type->width == w)
 			goto no;
-	while(w & (ewidth[TIND]-1))
-		w++;
+
+	for(q=n; q->op != ONAME; q=q->left)
+		;
+
+	v = s->offset;
+
+	/* unaligned front */ 
+	while(w > 0 && (v % ewidth[TIND]) != 0){
+		p = new(ONAME, Z, Z);
+		*p = *q;
+
+		if(w >= ewidth[TLONG] && (v % ewidth[TLONG]) == 0)
+			p->type = types[TLONG];
+		else
+			p->type = types[TCHAR];
+
+		p->xoffset = v;
+		v += p->type->width;
+		w -= p->type->width;
+
+		m = new(OCONST, Z, Z);
+		m->vconst = 0;
+		m->type = p->type;
+
+		r = new(OAS, p, m);
+		n = new(OLIST, r, n);
+	}
+
+	/* unaligned (or small) back */
+	while(w > 0 && ((w % ewidth[TIND]) != 0 || w <= 16)){
+		p = new(ONAME, Z, Z);
+		*p = *q;
+
+		if(w >= ewidth[TLONG] && (w % ewidth[TLONG]) == 0)
+			p->type = types[TLONG];
+		else
+			p->type = types[TCHAR];
+
+		w -= p->type->width;
+		p->xoffset = v + w;
+
+		m = new(OCONST, Z, Z);
+		m->vconst = 0;
+		m->type = p->type;
+
+		r = new(OAS, p, m);
+		n = new(OLIST, r, n);
+	}
+
+	if(w == 0)
+		goto no;
+
 /*
  * insert the following code, where long becomes vlong if pointers are fat
  *
@@ -1597,15 +1645,12 @@ if not, bail
 	} while(*(long**)&X);
  */
 
-	for(q=n; q->op != ONAME; q=q->left)
-		;
-
 	zt = ewidth[TIND] > ewidth[TLONG]? types[TVLONG]: types[TLONG];
 
 	p = new(ONAME, Z, Z);
 	*p = *q;
 	p->type = typ(TIND, zt);
-	p->xoffset = s->offset;
+	p->xoffset = v;
 
 	r = new(ONAME, Z, Z);
 	*r = *p;
