@@ -1,9 +1,0 @@
-#!/bin/rc
-
-if(~ $#pkgpath 0)
-	pkgpath=http://9front.org/pkg/$cputype
-
-if(~ $pkgpath ftp* http*)
-	hget $pkgpath | htmlfmt | grep '\.tbz' | sed -e 's/\.tbz.*$//g' | awk '{print $NF}'
-if not
-	ls -p $pkgpath/*.tbz | sed 's/\.tbz.*$//g'
