@@ -1542,6 +1542,48 @@ symadjust(Sym *s, Node *n, long del)
 	}
 }
 
+static int
+covered1(long o, Node *n)
+{
+	if(n->op == OLIST)
+		return covered1(o, n->left) || covered1(o, n->right);
+	if(n->op == OASI)
+		return covered1(o, n->left);
+	if(n->op != ONAME)
+		return 0;
+	return o >= n->xoffset && o < n->xoffset+n->type->width;
+}
+
+static int
+covered(long o, long w, Node *n)
+{
+	while(w > 0 && covered1(o, n)) {
+		o++;
+		w--;
+	}
+	return w == 0;
+}
+
+static Node*
+initz(Node *q, Type *t, long o, Node *n)
+{
+	Node *p;
+
+	if(covered(o, t->width, n))
+		return n;
+
+	p = new(ONAME, Z, Z);
+	*p = *q;
+	p->type = t;
+	p->xoffset = o;
+
+	q = new(OCONST, Z, Z);
+	q->vconst = 0;
+	q->type = t;
+
+	return new(OLIST, new(OASI, p, q), n);
+}
+
 Node*
 contig(Sym *s, Node *n, long v)
 {
@@ -1573,12 +1615,6 @@ contig(Sym *s, Node *n, long v)
 	}
 	if(n->op == OAS)
 		diag(Z, "oops in contig");
-/*ZZZ this appears incorrect
-need to check if the list completely covers the data.
-if not, bail
- */
-	if(n->op == OLIST)
-		goto no;
 	if(n->op == OASI)
 		if(n->left->type)
 		if(n->left->type->width == w)
@@ -1589,47 +1625,29 @@ if not, bail
 
 	v = s->offset;
 
-	/* unaligned front */ 
-	while(w > 0 && (v % ewidth[TIND]) != 0){
-		p = new(ONAME, Z, Z);
-		*p = *q;
-
+	/* unaligned front */
+	while(w > 0 && (v % ewidth[TIND]) != 0) {
+		zt = types[TCHAR];
 		if(w >= ewidth[TLONG] && (v % ewidth[TLONG]) == 0)
-			p->type = types[TLONG];
-		else
-			p->type = types[TCHAR];
+			zt = types[TLONG];
+		n = initz(q, zt, v, n);
+		v += zt->width;
+		w -= zt->width;
+	}
 
-		p->xoffset = v;
-		v += p->type->width;
-		w -= p->type->width;
-
-		m = new(OCONST, Z, Z);
-		m->vconst = 0;
-		m->type = p->type;
-
-		r = new(OAS, p, m);
-		n = new(OLIST, r, n);
+	/* skip initialized words */
+	while(w >= ewidth[TIND] && covered(v, ewidth[TIND], n)) {
+		v += ewidth[TIND];
+		w -= ewidth[TIND];
 	}
 
 	/* unaligned (or small) back */
-	while(w > 0 && ((w % ewidth[TIND]) != 0 || w <= 16)){
-		p = new(ONAME, Z, Z);
-		*p = *q;
-
+	while(w > 0 && ((w % ewidth[TIND]) != 0 || w <= 16)) {
+		zt = types[TCHAR];
 		if(w >= ewidth[TLONG] && (w % ewidth[TLONG]) == 0)
-			p->type = types[TLONG];
-		else
-			p->type = types[TCHAR];
-
-		w -= p->type->width;
-		p->xoffset = v + w;
-
-		m = new(OCONST, Z, Z);
-		m->vconst = 0;
-		m->type = p->type;
-
-		r = new(OAS, p, m);
-		n = new(OLIST, r, n);
+			zt = types[TLONG];
+		w -= zt->width;
+		n = initz(q, zt, v + w, n);
 	}
 
 	if(w == 0)
