@@ -2145,7 +2145,7 @@ asn1toDSApriv(uchar *kd, int kn)
  * Our ASN.1 library doesn't return pointers into the original
  * data array, so we need to do a little hand decoding.
  */
-static void
+static int
 digest_certinfo(Bytes *cert, DigestAlg *da, uchar *digest)
 {
 	uchar *info, *p, *pend;
@@ -2161,19 +2161,20 @@ digest_certinfo(Bytes *cert, DigestAlg *da, uchar *digest)
 	   length_decode(&p, pend, &length) != ASN_OK ||
 	   p+length > pend ||
 	   p+length < p)
-		return;
+		return -1;
 	info = p;
 	if(ber_decode(&p, pend, &elem) != ASN_OK)
-		return;
+		return -1;
 	freevalfields(&elem.val);
 	if(elem.tag.num != SEQUENCE)
-		return;
+		return -1;
 	infolen = p - info;
 	(*da->fun)(info, infolen, digest, nil);
+	return da->len;
 }
 
 static char*
-verify_signature(Bytes* signature, RSApub *pk, uchar *edigest, Elem **psigalg)
+verify_signature(Bytes* signature, RSApub *pk, uchar *edigest, int edigestlen, Elem **psigalg)
 {
 	Elem e;
 	Elist *el;
@@ -2199,24 +2200,26 @@ verify_signature(Bytes* signature, RSApub *pk, uchar *edigest, Elem **psigalg)
 		err = "expected 1";
 		goto end;
 	}
-	buf++;
-	while(buf[0] == 0xff)
-		buf++;
-	if(buf[0] != 0) {
+	buf++, buflen--;
+	while(buflen > 0 && buf[0] == 0xff)
+		buf++, buflen--;
+	if(buflen < 1 || buf[0] != 0) {
 		err = "expected 0";
 		goto end;
 	}
-	buf++;
-	buflen -= buf-pkcs1buf;
+	buf++, buflen--;
 	if(decode(buf, buflen, &e) != ASN_OK || !is_seq(&e, &el) || elistlen(el) != 2 ||
 			!is_octetstring(&el->tl->hd, &digest)) {
 		err = "signature parse error";
 		goto end;
 	}
 	*psigalg = &el->hd;
-	if(memcmp(digest->data, edigest, digest->len) == 0)
+	if(digest->len != edigestlen) {
+		err = "bad digest length";
 		goto end;
-	err = "digests did not match";
+	}
+	if(memcmp(digest->data, edigest, edigestlen) != 0)
+		err = "digests did not match";
 
 end:
 	if(pkcs1 != nil)
@@ -2256,17 +2259,23 @@ X509verify(uchar *cert, int ncert, RSApub *pk)
 	char *e;
 	Bytes *b;
 	CertX509 *c;
-	uchar digest[256];
+	int digestlen;
+	uchar digest[MAXdlen];
 	Elem *sigalg;
 
 	b = makebytes(cert, ncert);
 	c = decode_cert(b);
-	if(c != nil)
-		digest_certinfo(b, digestalg[c->signature_alg], digest);
-	freebytes(b);
-	if(c == nil)
+	if(c == nil){
+		freebytes(b);
 		return "cannot decode cert";
-	e = verify_signature(c->signature, pk, digest, &sigalg);
+	}
+	digestlen = digest_certinfo(b, digestalg[c->signature_alg], digest);
+	freebytes(b);
+	if(digestlen <= 0){
+		freecert(c);
+		return "cannot decode certinfo";
+	}
+	e = verify_signature(c->signature, pk, digest, digestlen, &sigalg);
 	freecert(c);
 	return e;
 }
@@ -2671,7 +2680,7 @@ X509dump(uchar *cert, int ncert)
 	Bytes *b;
 	CertX509 *c;
 	RSApub *pk;
-	DigestAlg *da;
+	int digestlen;
 	uchar digest[MAXdlen];
 	Elem *sigalg;
 
@@ -2680,12 +2689,16 @@ X509dump(uchar *cert, int ncert)
 	c = decode_cert(b);
 	if(c == nil){
 		freebytes(b);
-		print("cannot decode cert");
+		print("cannot decode cert\n");
 		return;
 	}
-	da = digestalg[c->signature_alg];
-	digest_certinfo(b, da, digest);
+	digestlen = digest_certinfo(b, digestalg[c->signature_alg], digest);
 	freebytes(b);
+	if(digestlen <= 0){
+		freecert(c);
+		print("cannot decode certinfo\n");
+		return;
+	}
 
 	print("serial %d\n", c->serial);
 	print("issuer %s\n", c->issuer);
@@ -2694,8 +2707,8 @@ X509dump(uchar *cert, int ncert)
 	pk = decode_rsapubkey(c->publickey);
 	print("pubkey e=%B n(%d)=%B\n", pk->ek, mpsignif(pk->n), pk->n);
 
-	print("sigalg=%d digest=%.*H\n", c->signature_alg, da->len, digest);
-	e = verify_signature(c->signature, pk, digest, &sigalg);
+	print("sigalg=%d digest=%.*H\n", c->signature_alg, digestlen, digest);
+	e = verify_signature(c->signature, pk, digest, digestlen, &sigalg);
 	if(e==nil){
 		e = "nil (meaning ok)";
 		print("sigalg=\n");
