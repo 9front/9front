@@ -1,5 +1,10 @@
 #ifndef __WAIT_H
 #define __WAIT_H
+
+#ifndef __TYPES_H
+#include <sys/types.h>
+#endif
+
 #pragma lib "/$M/lib/ape/libap.a"
 
 /* flag bits for third argument of waitpid */
