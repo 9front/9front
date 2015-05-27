@@ -3,8 +3,6 @@
 #include <mp.h>
 #include <libsec.h>
 
-typedef DigestState*(*DigestFun)(uchar*,ulong,uchar*,DigestState*);
-
 /* ANSI offsetof, backwards. */
 #define	OFFSETOF(a, b)	offsetof(b, a)
 
@@ -1577,37 +1575,95 @@ enum {
 	ALG_md2WithRSAEncryption,
 	ALG_md4WithRSAEncryption,
 	ALG_md5WithRSAEncryption,
+
 	ALG_sha1WithRSAEncryption,
 	ALG_sha1WithRSAEncryptionOiw,
+
 	ALG_sha256WithRSAEncryption,
+	ALG_sha384WithRSAEncryption,
+	ALG_sha512WithRSAEncryption,
+	ALG_sha224WithRSAEncryption,
+
 	ALG_md5,
+	ALG_sha1,
+	ALG_sha256,
+	ALG_sha384,
+	ALG_sha512,
+	ALG_sha224,
+
 	NUMALGS
 };
-typedef struct Ints7 {
+
+typedef struct Ints15 {
 	int		len;
-	int		data[7];
-} Ints7;
-static Ints7 oid_rsaEncryption = {7, 1, 2, 840, 113549, 1, 1, 1 };
-static Ints7 oid_md2WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 2 };
-static Ints7 oid_md4WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 3 };
-static Ints7 oid_md5WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 4 };
-static Ints7 oid_sha1WithRSAEncryption ={7, 1, 2, 840, 113549, 1, 1, 5 };
-static Ints7 oid_sha1WithRSAEncryptionOiw ={6, 1, 3, 14, 3, 2, 29 };
-static Ints7 oid_sha256WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 11 };
-static Ints7 oid_md5 ={6, 1, 2, 840, 113549, 2, 5, 0 };
+	int		data[15];
+} Ints15;
+
+typedef struct DigestAlg {
+	int		alg;
+	DigestState*	(*fun)(uchar*,ulong,uchar*,DigestState*);
+	int		len;
+} DigestAlg;
+
+static DigestAlg alg_md5 = { ALG_md5, md5, MD5dlen};
+static DigestAlg alg_sha1 = { ALG_sha1, sha1, SHA1dlen };
+static DigestAlg alg_sha256 = { ALG_sha256, sha2_256, SHA2_256dlen };
+static DigestAlg alg_sha384 = { ALG_sha384, sha2_384, SHA2_384dlen };
+static DigestAlg alg_sha512 = { ALG_sha512, sha2_512, SHA2_512dlen };
+static DigestAlg alg_sha224 = { ALG_sha224, sha2_224, SHA2_224dlen };
+
+/* maximum length of digest output of the digest algs above */
+enum {
+	MAXdlen = SHA2_512dlen,
+};
+
+static Ints15 oid_rsaEncryption = {7, 1, 2, 840, 113549, 1, 1, 1 };
+static Ints15 oid_md2WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 2 };
+static Ints15 oid_md4WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 3 };
+static Ints15 oid_md5WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 4 };
+static Ints15 oid_sha1WithRSAEncryption ={7, 1, 2, 840, 113549, 1, 1, 5 };
+static Ints15 oid_sha1WithRSAEncryptionOiw ={6, 1, 3, 14, 3, 2, 29 };
+static Ints15 oid_sha256WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 11 };
+static Ints15 oid_sha384WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 12 };
+static Ints15 oid_sha512WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 13 };
+static Ints15 oid_sha224WithRSAEncryption = {7, 1, 2, 840, 113549, 1, 1, 14 };
+
+static Ints15 oid_md5 = {6, 1, 2, 840, 113549, 2, 5 };
+static Ints15 oid_sha1 = {6, 1, 3, 14, 3, 2, 26 };
+static Ints15 oid_sha256= {9, 2, 16, 840, 1, 101, 3, 4, 2, 1 };
+static Ints15 oid_sha384= {9, 2, 16, 840, 1, 101, 3, 4, 2, 2 };
+static Ints15 oid_sha512= {9, 2, 16, 840, 1, 101, 3, 4, 2, 3 };
+static Ints15 oid_sha224= {9, 2, 16, 840, 1, 101, 3, 4, 2, 4 };
+
 static Ints *alg_oid_tab[NUMALGS+1] = {
 	(Ints*)&oid_rsaEncryption,
 	(Ints*)&oid_md2WithRSAEncryption,
 	(Ints*)&oid_md4WithRSAEncryption,
 	(Ints*)&oid_md5WithRSAEncryption,
+
 	(Ints*)&oid_sha1WithRSAEncryption,
 	(Ints*)&oid_sha1WithRSAEncryptionOiw,
+
 	(Ints*)&oid_sha256WithRSAEncryption,
+	(Ints*)&oid_sha384WithRSAEncryption,
+	(Ints*)&oid_sha512WithRSAEncryption,
+	(Ints*)&oid_sha224WithRSAEncryption,
+
 	(Ints*)&oid_md5,
+	(Ints*)&oid_sha1,
+	(Ints*)&oid_sha256,
+	(Ints*)&oid_sha384,
+	(Ints*)&oid_sha512,
+	(Ints*)&oid_sha224,
 	nil
 };
-static DigestFun digestalg[NUMALGS+1] = {
-	md5, md5, md5, md5, sha1, sha1, sha2_256, md5, nil
+
+static DigestAlg *digestalg[NUMALGS+1] = {
+	&alg_md5, &alg_md5, &alg_md5, &alg_md5,
+	&alg_sha1, &alg_sha1,
+	&alg_sha256, &alg_sha384, &alg_sha512, &alg_sha224,
+	&alg_md5, &alg_sha1, &alg_sha256, &alg_sha384, &alg_sha512, &alg_sha224,
+	nil
 };
 
 static void
@@ -2090,7 +2146,7 @@ asn1toDSApriv(uchar *kd, int kn)
  * data array, so we need to do a little hand decoding.
  */
 static void
-digest_certinfo(Bytes *cert, DigestFun digestfun, uchar *digest)
+digest_certinfo(Bytes *cert, DigestAlg *da, uchar *digest)
 {
 	uchar *info, *p, *pend;
 	ulong infolen;
@@ -2113,7 +2169,7 @@ digest_certinfo(Bytes *cert, DigestFun digestfun, uchar *digest)
 	if(elem.tag.num != SEQUENCE)
 		return;
 	infolen = p - info;
-	(*digestfun)(info, infolen, digest, nil);
+	(*da->fun)(info, infolen, digest, nil);
 }
 
 static char*
@@ -2200,7 +2256,7 @@ X509verify(uchar *cert, int ncert, RSApub *pk)
 	char *e;
 	Bytes *b;
 	CertX509 *c;
-	uchar digest[SHA1dlen];
+	uchar digest[256];
 	Elem *sigalg;
 
 	b = makebytes(cert, ncert);
@@ -2395,12 +2451,13 @@ mkDN(char *dn)
 uchar*
 X509gen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 {
-	int serial = 0;
+	int serial = 0, sigalg = ALG_sha256WithRSAEncryption;
 	uchar *cert = nil;
 	RSApub *pk = rsaprivtopub(priv);
 	Bytes *certbytes, *pkbytes, *certinfobytes, *sigbytes;
 	Elem e, certinfo, issuer, subject, pubkey, validity, sig;
-	uchar digest[MD5dlen], *buf;
+	DigestAlg *da;
+	uchar digest[MAXdlen], *buf;
 	int buflen;
 	mpint *pkcs1;
 
@@ -2422,7 +2479,7 @@ X509gen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 		nil)));
 	certinfo = mkseq(
 		mkel(mkint(serial),
-		mkel(mkalg(ALG_md5WithRSAEncryption),
+		mkel(mkalg(sigalg),
 		mkel(issuer,
 		mkel(validity,
 		mkel(subject,
@@ -2430,11 +2487,12 @@ X509gen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 		nil)))))));
 	if(encode(certinfo, &certinfobytes) != ASN_OK)
 		goto errret;
-	md5(certinfobytes->data, certinfobytes->len, digest, 0);
+	da = digestalg[sigalg];
+	(*da->fun)(certinfobytes->data, certinfobytes->len, digest, 0);
 	freebytes(certinfobytes);
 	sig = mkseq(
-		mkel(mkalg(ALG_md5),
-		mkel(mkoctet(digest, MD5dlen),
+		mkel(mkalg(da->alg),
+		mkel(mkoctet(digest, da->len),
 		nil)));
 	if(encode(sig, &sigbytes) != ASN_OK)
 		goto errret;
@@ -2445,7 +2503,7 @@ X509gen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	mpfree(pkcs1);
 	e = mkseq(
 		mkel(certinfo,
-		mkel(mkalg(ALG_md5WithRSAEncryption),
+		mkel(mkalg(sigalg),
 		mkel(mkbits(buf, buflen),
 		nil))));
 	free(buf);
@@ -2463,12 +2521,13 @@ uchar*
 X509req(RSApriv *priv, char *subj, int *certlen)
 {
 	/* RFC 2314, PKCS #10 Certification Request Syntax */
-	int version = 0;
+	int version = 0, sigalg = ALG_sha256WithRSAEncryption;
 	uchar *cert = nil;
 	RSApub *pk = rsaprivtopub(priv);
 	Bytes *certbytes, *pkbytes, *certinfobytes, *sigbytes;
 	Elem e, certinfo, subject, pubkey, sig;
-	uchar digest[MD5dlen], *buf;
+	DigestAlg *da;
+	uchar digest[MAXdlen], *buf;
 	int buflen;
 	mpint *pkcs1;
 
@@ -2490,11 +2549,12 @@ X509req(RSApriv *priv, char *subj, int *certlen)
 		nil))));
 	if(encode(certinfo, &certinfobytes) != ASN_OK)
 		goto errret;
-	md5(certinfobytes->data, certinfobytes->len, digest, 0);
+	da = digestalg[sigalg];
+	(*da->fun)(certinfobytes->data, certinfobytes->len, digest, 0);
 	freebytes(certinfobytes);
 	sig = mkseq(
-		mkel(mkalg(ALG_md5),
-		mkel(mkoctet(digest, MD5dlen),
+		mkel(mkalg(da->alg),
+		mkel(mkoctet(digest, da->len),
 		nil)));
 	if(encode(sig, &sigbytes) != ASN_OK)
 		goto errret;
@@ -2505,7 +2565,7 @@ X509req(RSApriv *priv, char *subj, int *certlen)
 	mpfree(pkcs1);
 	e = mkseq(
 		mkel(certinfo,
-		mkel(mkalg(ALG_md5),
+		mkel(mkalg(sigalg),
 		mkel(mkbits(buf, buflen),
 		nil))));
 	free(buf);
@@ -2611,19 +2671,21 @@ X509dump(uchar *cert, int ncert)
 	Bytes *b;
 	CertX509 *c;
 	RSApub *pk;
-	uchar digest[SHA1dlen];
+	DigestAlg *da;
+	uchar digest[MAXdlen];
 	Elem *sigalg;
 
 	print("begin X509dump\n");
 	b = makebytes(cert, ncert);
 	c = decode_cert(b);
-	if(c != nil)
-		digest_certinfo(b, digestalg[c->signature_alg], digest);
-	freebytes(b);
 	if(c == nil){
+		freebytes(b);
 		print("cannot decode cert");
 		return;
 	}
+	da = digestalg[c->signature_alg];
+	digest_certinfo(b, da, digest);
+	freebytes(b);
 
 	print("serial %d\n", c->serial);
 	print("issuer %s\n", c->issuer);
@@ -2632,7 +2694,7 @@ X509dump(uchar *cert, int ncert)
 	pk = decode_rsapubkey(c->publickey);
 	print("pubkey e=%B n(%d)=%B\n", pk->ek, mpsignif(pk->n), pk->n);
 
-	print("sigalg=%d digest=%.*H\n", c->signature_alg, MD5dlen, digest);
+	print("sigalg=%d digest=%.*H\n", c->signature_alg, da->len, digest);
 	e = verify_signature(c->signature, pk, digest, &sigalg);
 	if(e==nil){
 		e = "nil (meaning ok)";
