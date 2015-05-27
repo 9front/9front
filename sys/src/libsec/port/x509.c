@@ -177,14 +177,13 @@ emalloc(int n)
 static char*
 estrdup(char *s)
 {
-	char *d, *d0;
+	char *d;
+	int n;
 
-	if(!s)
-		return 0;
-	d = d0 = emalloc(strlen(s)+1);
-	while(*d++ = *s++)
-		;
-	return d0;
+	n = strlen(s)+1;
+	d = emalloc(n);
+	memmove(d, s, n);
+	return d;
 }
 
 
@@ -1287,6 +1286,8 @@ newbytes(int len)
 {
 	Bytes* ans;
 
+	if(len < 0)
+		abort();
 	ans = (Bytes*)emalloc(OFFSETOF(data[0], Bytes) + len);
 	ans->len = len;
 	return ans;
@@ -1308,8 +1309,7 @@ makebytes(uchar* buf, int len)
 static void
 freebytes(Bytes* b)
 {
-	if(b != nil)
-		free(b);
+	free(b);
 }
 
 /*
@@ -1347,6 +1347,8 @@ newints(int len)
 {
 	Ints* ans;
 
+	if(len < 0 || len > ((uint)-1>>1)/sizeof(int))
+		abort();
 	ans = (Ints*)emalloc(OFFSETOF(data[0], Ints) + len*sizeof(int));
 	ans->len = len;
 	return ans;
@@ -1358,16 +1360,14 @@ makeints(int* buf, int len)
 	Ints* ans;
 
 	ans = newints(len);
-	if(len > 0)
-		memmove(ans->data, buf, len*sizeof(int));
+	memmove(ans->data, buf, len*sizeof(int));
 	return ans;
 }
 
 static void
 freeints(Ints* b)
 {
-	if(b != nil)
-		free(b);
+	free(b);
 }
 
 /* len is number of bytes */
@@ -1376,6 +1376,8 @@ newbits(int len)
 {
 	Bits* ans;
 
+	if(len < 0)
+		abort();
 	ans = (Bits*)emalloc(OFFSETOF(data[0], Bits) + len);
 	ans->len = len;
 	ans->unusedbits = 0;
@@ -1396,8 +1398,7 @@ makebits(uchar* buf, int len, int unusedbits)
 static void
 freebits(Bits* b)
 {
-	if(b != nil)
-		free(b);
+	free(b);
 }
 
 static Elist*
@@ -1471,15 +1472,13 @@ freevalfields(Value* v)
 		el = v->u.seqval;
 		for(l = el; l != nil; l = l->tl)
 			freevalfields(&l->hd.val);
-		if(el)
-			freeelist(el);
+		freeelist(el);
 		break;
 	case VSet:
 		el = v->u.setval;
 		for(l = el; l != nil; l = l->tl)
 			freevalfields(&l->hd.val);
-		if(el)
-			freeelist(el);
+		freeelist(el);
 		break;
 	}
 }
@@ -1669,15 +1668,12 @@ static DigestAlg *digestalg[NUMALGS+1] = {
 static void
 freecert(CertX509* c)
 {
-	if(!c) return;
-	if(c->issuer != nil)
-		free(c->issuer);
-	if(c->validity_start != nil)
-		free(c->validity_start);
-	if(c->validity_end != nil)
-		free(c->validity_end);
-	if(c->subject != nil)
-		free(c->subject);
+	if(c == nil)
+		return;
+	free(c->issuer);
+	free(c->validity_start);
+	free(c->validity_end);
+	free(c->subject);
 	freebytes(c->publickey);
 	freebytes(c->signature);
 	free(c);
@@ -1925,12 +1921,10 @@ decode_rsapubkey(Bytes* a)
 	if(mp == nil)
 		goto errret;
 
-	if(l != nil)
-		freeelist(l);
+	freeelist(l);
 	return key;
 errret:
-	if(l != nil)
-		freeelist(l);
+	freeelist(l);
 	rsapubfree(key);
 	return nil;
 }
@@ -2222,10 +2216,8 @@ verify_signature(Bytes* signature, RSApub *pk, uchar *edigest, int edigestlen, E
 		err = "digests did not match";
 
 end:
-	if(pkcs1 != nil)
-		mpfree(pkcs1);
-	if(pkcs1buf != nil)
-		free(pkcs1buf);
+	mpfree(pkcs1);
+	free(pkcs1buf);
 	return err;
 }
 
@@ -2366,7 +2358,7 @@ mkutc(long t)
 	e.tag.class = Universal;
 	e.tag.num = UTCTime;
 	e.val.tag = VString;
-	snprint(utc, 50, "%.2d%.2d%.2d%.2d%.2d%.2dZ",
+	snprint(utc, sizeof(utc), "%.2d%.2d%.2d%.2d%.2d%.2dZ",
 		tm->year % 100, tm->mon+1, tm->mday, tm->hour, tm->min, tm->sec);
 	e.val.u.stringval = estrdup(utc);
 	return e;

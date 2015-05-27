@@ -325,7 +325,6 @@ static Bytes* mptobytes(mpint* big);
 static mpint* bytestomp(Bytes* bytes);
 static void freebytes(Bytes* b);
 static Ints* newints(int len);
-static Ints* makeints(int* buf, int len);
 static void freeints(Ints* b);
 
 /* x509.c */
@@ -2228,10 +2227,9 @@ serverMasterSecret(TlsSec *sec, Bytes *epm)
 	// Hence the fprint(2,) can't be replaced by tlsError(), which sends an Alert msg to the client.
 	if(sec->ok < 0 || pm == nil || get16(pm->data) != sec->clientVers){
 		fprint(2, "serverMasterSecret failed ok=%d pm=%p pmvers=%x cvers=%x nepm=%d\n",
-			sec->ok, pm, pm ? get16(pm->data) : -1, sec->clientVers, epm->len);
+			sec->ok, pm, pm != nil ? get16(pm->data) : -1, sec->clientVers, epm->len);
 		sec->ok = -1;
-		if(pm != nil)
-			freebytes(pm);
+		freebytes(pm);
 		pm = newbytes(MasterSecretSize);
 		genrandom(pm->data, MasterSecretSize);
 	}
@@ -2537,6 +2535,8 @@ newbytes(int len)
 {
 	Bytes* ans;
 
+	if(len < 0)
+		abort();
 	ans = (Bytes*)emalloc(OFFSET(data[0], Bytes) + len);
 	ans->len = len;
 	return ans;
@@ -2551,16 +2551,14 @@ makebytes(uchar* buf, int len)
 	Bytes* ans;
 
 	ans = newbytes(len);
-	if(len > 0)
-		memmove(ans->data, buf, len);
+	memmove(ans->data, buf, len);
 	return ans;
 }
 
 static void
 freebytes(Bytes* b)
 {
-	if(b != nil)
-		free(b);
+	free(b);
 }
 
 /* len is number of ints */
@@ -2569,25 +2567,15 @@ newints(int len)
 {
 	Ints* ans;
 
+	if(len < 0 || len > ((uint)-1>>1)/sizeof(int))
+		abort();
 	ans = (Ints*)emalloc(OFFSET(data[0], Ints) + len*sizeof(int));
 	ans->len = len;
-	return ans;
-}
-
-static Ints*
-makeints(int* buf, int len)
-{
-	Ints* ans;
-
-	ans = newints(len);
-	if(len > 0)
-		memmove(ans->data, buf, len*sizeof(int));
 	return ans;
 }
 
 static void
 freeints(Ints* b)
 {
-	if(b != nil)
-		free(b);
+	free(b);
 }
