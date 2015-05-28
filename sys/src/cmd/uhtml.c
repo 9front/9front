@@ -49,7 +49,7 @@ void
 main(int argc, char *argv[])
 {
 	int n, q, pfd[2], pflag = 0;
-	char *arg[4], *s, *e, *p, *g, *a, t;
+	char *arg[4], *s, *g, *e, *p, *a, t;
 	Rune r;
 
 	ARGBEGIN {
@@ -69,79 +69,79 @@ main(int argc, char *argv[])
 			sysfatal("open: %r");
 	}
 	nbuf = 0;
-	p = buf;
-	g = buf;
 	while(nbuf < sizeof(buf)-1){
 		if((n = read(0, buf + nbuf, sizeof(buf)-1-nbuf)) <= 0)
 			break;
 		nbuf += n;
 		buf[nbuf] = 0;
-		if(nbuf == n){
-			if(memcmp(p, "\xEF\xBB\xBF", 3)==0){
-				p += 3;
-				nbuf -= 3;
-				cset = "utf";
-				goto Found;
-			}
-			if(memcmp(p, "\xFE\xFF", 2) == 0){
-				p += 2;
-				nbuf -= 2;
-				cset = "unicode-be";
-				goto Found;
-			}
-			if(memcmp(p, "\xFF\xFE", 2) == 0){
-				p += 2;
-				nbuf -= 2;
-				cset = "unicode-le";
-				goto Found;
-			}
-		}
-		s = g;
-		do {
-			if((s = strchr(s, '<')) == nil)
-				break;
-			q = 0;
-			g = ++s;
-			e = buf+nbuf;
-			while(s < e){
-				if(*s == '=' && q == 0)
-					q = '=';
-				else if(*s == '\'' || *s == '"'){
-					if(q == '=')
-						q = *s;
-					else if(q == *s)
-						q = 0;
-				}
-				else if(*s == '>' && q != '\'' && q != '"'){
-					e = s;
-					break;
-				}
-				else if(q == '=' && strchr(whitespace, *s) == nil)
-					q = 0;
-				s++;
-			}
-			t = *e;
-			*e = 0;
-			if((a = attr(g, "encoding")) || (a = attr(g, "charset"))){
-				*e = t;
-				cset = a;
-				goto Found;
-			}
-			*e = t;
-			s = ++e;
-		} while(t);
 	}
-	if(cset)
+
+	p = buf;
+	if(nbuf >= 3 && memcmp(p, "\xEF\xBB\xBF", 3)==0){
+		p += 3;
+		nbuf -= 3;
+		cset = "utf";
 		goto Found;
+	}
+	if(nbuf >= 2 && memcmp(p, "\xFE\xFF", 2) == 0){
+		p += 2;
+		nbuf -= 2;
+		cset = "unicode-be";
+		goto Found;
+	}
+	if(nbuf >= 2 && memcmp(p, "\xFF\xFE", 2) == 0){
+		p += 2;
+		nbuf -= 2;
+		cset = "unicode-le";
+		goto Found;
+	}
+
+	s = p;
+	do {
+		if((s = strchr(s, '<')) == nil)
+			break;
+		q = 0;
+		g = ++s;
+		e = buf+nbuf;
+		while(s < e){
+			if(*s == '=' && q == 0)
+				q = '=';
+			else if(*s == '\'' || *s == '"'){
+				if(q == '=')
+					q = *s;
+				else if(q == *s)
+					q = 0;
+			}
+			else if(*s == '>' && q != '\'' && q != '"'){
+				e = s;
+				break;
+			}
+			else if(q == '=' && strchr(whitespace, *s) == nil)
+				q = 0;
+			s++;
+		}
+		t = *e;
+		*e = 0;
+		if((a = attr(g, "encoding")) != nil || (a = attr(g, "charset")) != nil){
+			cset = a;
+			*e = t;
+			break;
+		}
+		*e = t;
+		s = ++e;
+	} while(t);
+
 	s = p;
 	while(s+UTFmax < p+nbuf){
 		s += chartorune(&r, s);
 		if(r == Runeerror){
-			cset = "latin1";
+			if(cset == nil)
+				cset = "latin1";
 			goto Found;
 		}
 	}
 	cset = "utf";
+
 Found:
 	if(pflag){
 		print("%s\n", cset);
