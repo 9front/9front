@@ -37,8 +37,8 @@ windows-1258	windows-1258
 	ebcdic
 korean	euc-k
 euc-kr	euc-k
-gb2312	gb
-gb_2312-80	gb
+gb	gb2312
+gb_2312-80	gb2312
 iso-2022-jp	jis-kanji
 koi8-r	koi8
 macintosh	macrom
