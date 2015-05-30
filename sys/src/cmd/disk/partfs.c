@@ -69,6 +69,9 @@ addpart(char *name, vlong start, vlong end)
 	}
 	for (p = tab; p < tab + nelem(tab); p++)
 		if (p->inuse && strcmp(p->name, name) == 0) {
+			/* adding identical partition is no-op */
+			if(p->offset == start && p->length == end - start)
+				return 0;
 			werrstr("partition name already in use");
 			return -1;
 		}
