@@ -242,7 +242,7 @@ Edit edit = {
 void
 usage(void)
 {
-	fprint(2, "usage: disk/gdisk [-abfprw] [-s sectorsize] /dev/sdC0/data\n");
+	fprint(2, "usage: disk/edisk [-abfprw] [-s sectorsize] /dev/sdC0/data\n");
 	exits("usage");
 }
 
