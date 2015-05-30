@@ -1,0 +1,1214 @@
+/*
+ * edisk - edit gpt disk partition table
+ */
+#include <u.h>
+#include <libc.h>
+#include <bio.h>
+#include <ctype.h>
+#include <disk.h>
+#include "edit.h"
+#include <mp.h>
+#include <libsec.h>
+
+#define TB (1024LL*GB)
+#define GB (1024*1024*1024)
+#define MB (1024*1024)
+#define KB (1024)
+
+typedef struct Header Header;
+typedef struct Entry Entry;
+
+typedef struct Type Type;
+typedef struct Flag Flag;
+typedef struct Gptpart Gptpart;
+
+struct Header
+{
+	uchar	sig[8];
+	uchar	rev[4];
+	uchar	hdrsiz[4];
+	uchar	hdrcrc[4];
+	uchar	zero[4];
+	uchar	selflba[8];
+	uchar	backlba[8];
+	uchar	firstlba[8];
+	uchar	lastlba[8];
+	uchar	devid[16];
+	uchar	tablba[8];
+	uchar	entrycount[4];
+	uchar	entrysize[4];
+	uchar	tabcrc[4];
+};
+
+struct Entry
+{
+	uchar	typeid[16];
+	uchar	partid[16];
+	uchar	firstlba[8];
+	uchar	lastlba[8];
+	uchar	attr[8];
+	uchar	name[72];
+};
+
+enum {
+	Headersiz = 92,
+	Entrysiz = 16+16+8+8+8+72,
+};
+
+
+struct Type {
+	uchar	uuid[16];
+	char	*name;
+	char	*desc;
+};
+
+struct Flag {
+	int	s;
+	char	c;
+	char	*desc;
+};
+
+struct Gptpart {
+	Part;
+	Type	*type;	/* nil when not in use */
+	uvlong	attr;
+	uchar	uuid[16];
+	Rune	label[72+1];
+	char	namebuf[8];
+};
+
+static uchar	*pmbr;
+static Header	*phdr;
+static Header	*bhdr;
+
+static vlong	partoff;
+static vlong	partend;
+
+static Gptpart	*parts;
+static int	nparts;
+
+static uchar	devid[16];
+static uchar	zeros[16];
+
+static Type	*type9;
+
+/* RFC4122, but in little endian format */
+#define UU(a,b,c,d,e,f,g,h,i,j) { \
+	(a)&255,((a)>>8)&255,((a)>>16)&255,((a)>>24)&255, \
+	(b)&255,((b)>>8)&255, \
+	(c)&255,((c)>>8)&255, \
+	((d)>>8)&255,(d)&255, \
+	(e)&255,(f)&255,(g)&255,(h)&255,(i)&255,(j)&255}
+
+static Type	types[100] = {
+{UU(0x00000000,0x0000,0x0000,0x0000,0x00,0x00,0x00,0x00,0x00,0x00), "", "Unused entry"},
+{UU(0x024DEE41,0x33E7,0x11D3,0x9D69,0x00,0x08,0xC7,0x81,0xF3,0x9F), "mbr", "MBR partition"},
+{UU(0xC12A7328,0xF81F,0x11D2,0xBA4B,0x00,0xA0,0xC9,0x3E,0xC9,0x3B), "esp", "EFI System Partition"},
+{UU(0x21686148,0x6449,0x6E6F,0x744E,0x65,0x65,0x64,0x45,0x46,0x49), "bios", "BIOS boot partition"},
+{UU(0xD3BFE2DE,0x3DAF,0x11DF,0xBA40,0xE3,0xA5,0x56,0xD8,0x95,0x93), "iffs", "Intel Fast Flash"},
+{UU(0xF4019732,0x066E,0x4E12,0x8273,0x34,0x6C,0x56,0x41,0x49,0x4F), "sony", "Sony boot"},
+{UU(0xBFBFAFE7,0xA34F,0x448A,0x9A5B,0x62,0x13,0xEB,0x73,0x6C,0x22), "lenovo", "Lenovo boot"},
+{UU(0xE3C9E316,0x0B5C,0x4DB8,0x817D,0xF9,0x2D,0xF0,0x02,0x15,0xAE), "msr", "Microsoft Reserved Partition"},
+{UU(0xEBD0A0A2,0xB9E5,0x4433,0x87C0,0x68,0xB6,0xB7,0x26,0x99,0xC7), "dos", "Microsoft Basic data"},
+{UU(0x5808C8AA,0x7E8F,0x42E0,0x85D2,0xE1,0xE9,0x04,0x34,0xCF,0xB3), "ldmm", "Logical Disk Manager metadata"},
+{UU(0xAF9B60A0,0x1431,0x4F62,0xBC68,0x33,0x11,0x71,0x4A,0x69,0xAD), "ldmd", "Logical Disk Manager data"},
+{UU(0xDE94BBA4,0x06D1,0x4D40,0xA16A,0xBF,0xD5,0x01,0x79,0xD6,0xAC), "recovery", "Windows Recovery Environment"},
+{UU(0x37AFFC90,0xEF7D,0x4E96,0x91C3,0x2D,0x7A,0xE0,0x55,0xB1,0x74), "gpfs", "IBM General Parallel File System"},
+{UU(0xE75CAF8F,0xF680,0x4CEE,0xAFA3,0xB0,0x01,0xE5,0x6E,0xFC,0x2D), "storagespaces", "Storage Spaces"},
+{UU(0x75894C1E,0x3AEB,0x11D3,0xB7C1,0x7B,0x03,0xA0,0x00,0x00,0x00), "hpuxdata", "HP-UX Data"},
+{UU(0xE2A1E728,0x32E3,0x11D6,0xA682,0x7B,0x03,0xA0,0x00,0x00,0x00), "hpuxserv", "HP-UX Service"},
+{UU(0x0FC63DAF,0x8483,0x4772,0x8E79,0x3D,0x69,0xD8,0x47,0x7D,0xE4), "linuxdata", "Linux Data"},
+{UU(0xA19D880F,0x05FC,0x4D3B,0xA006,0x74,0x3F,0x0F,0x84,0x91,0x1E), "linuxraid", "Linux RAID"},
+{UU(0x0657FD6D,0xA4AB,0x43C4,0x84E5,0x09,0x33,0xC8,0x4B,0x4F,0x4F), "linuxswap", "Linux Swap"},
+{UU(0xE6D6D379,0xF507,0x44C2,0xA23C,0x23,0x8F,0x2A,0x3D,0xF9,0x28), "linuxlvm", "Linux Logical Volume Manager"},
+{UU(0x933AC7E1,0x2EB4,0x4F13,0xB844,0x0E,0x14,0xE2,0xAE,0xF9,0x15), "linuxhome", "Linux /home"},
+{UU(0x3B8F8425,0x20E0,0x4F3B,0x907F,0x1A,0x25,0xA7,0x6F,0x98,0xE8), "linuxsrv", "Linux /srv"},
+{UU(0x7FFEC5C9,0x2D00,0x49B7,0x8941,0x3E,0xA1,0x0A,0x55,0x86,0xB7), "linuxcrypt", "Linux Plain dm-crypt"},
+{UU(0xCA7D7CCB,0x63ED,0x4C53,0x861C,0x17,0x42,0x53,0x60,0x59,0xCC), "luks", "LUKS"},
+{UU(0x8DA63339,0x0007,0x60C0,0xC436,0x08,0x3A,0xC8,0x23,0x09,0x08), "linuxreserved", "Linux Reserved"},
+{UU(0x83BD6B9D,0x7F41,0x11DC,0xBE0B,0x00,0x15,0x60,0xB8,0x4F,0x0F), "fbsdboot", "FreeBSD Boot"},
+{UU(0x516E7CB4,0x6ECF,0x11D6,0x8FF8,0x00,0x02,0x2D,0x09,0x71,0x2B), "fbsddata", "FreeBSD Data"},
+{UU(0x516E7CB5,0x6ECF,0x11D6,0x8FF8,0x00,0x02,0x2D,0x09,0x71,0x2B), "fbsdswap", "FreeBSD Swap"},
+{UU(0x516E7CB6,0x6ECF,0x11D6,0x8FF8,0x00,0x02,0x2D,0x09,0x71,0x2B), "fbsdufs", "FreeBSD Unix File System"},
+{UU(0x516E7CB8,0x6ECF,0x11D6,0x8FF8,0x00,0x02,0x2D,0x09,0x71,0x2B), "fbsdvvm", "FreeBSD Vinum volume manager"},
+{UU(0x516E7CBA,0x6ECF,0x11D6,0x8FF8,0x00,0x02,0x2D,0x09,0x71,0x2B), "fbsdzfs", "FreeBSD ZFS"},
+{UU(0x48465300,0x0000,0x11AA,0xAA11,0x00,0x30,0x65,0x43,0xEC,0xAC), "applehfs", "Apple HFS+"},
+{UU(0x55465300,0x0000,0x11AA,0xAA11,0x00,0x30,0x65,0x43,0xEC,0xAC), "appleufs", "Apple UFS"},
+{UU(0x6A898CC3,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "applezfs", "Apple ZFS"},
+{UU(0x52414944,0x0000,0x11AA,0xAA11,0x00,0x30,0x65,0x43,0xEC,0xAC), "appleraid", "Apple RAID"},
+{UU(0x52414944,0x5F4F,0x11AA,0xAA11,0x00,0x30,0x65,0x43,0xEC,0xAC), "appleraidoff", "Apple RAID, offline"},
+{UU(0x426F6F74,0x0000,0x11AA,0xAA11,0x00,0x30,0x65,0x43,0xEC,0xAC), "appleboot", "Apple Boot"},
+{UU(0x4C616265,0x6C00,0x11AA,0xAA11,0x00,0x30,0x65,0x43,0xEC,0xAC), "applelabel", "Apple Label"},
+{UU(0x5265636F,0x7665,0x11AA,0xAA11,0x00,0x30,0x65,0x43,0xEC,0xAC), "appletv", "Apple TV Recovery"},
+{UU(0x53746F72,0x6167,0x11AA,0xAA11,0x00,0x30,0x65,0x43,0xEC,0xAC), "applecs", "Apple Core Storage"},
+{UU(0x6A82CB45,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solarisboot", "Solaris Boot"},
+{UU(0x6A85CF4D,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solarisroot", "Solaris Root"},
+{UU(0x6A87C46F,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solarisswap", "Solaris Swap"},
+{UU(0x6A8B642B,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solarisbakup", "Solaris Backup"},
+{UU(0x6A898CC3,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solarisusr", "Solaris /usr"},
+{UU(0x6A8EF2E9,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solarisvar", "Solaris /var"},
+{UU(0x6A90BA39,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solarishome", "Solaris /home"},
+{UU(0x6A9283A5,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solarisalt", "Solaris Alternate sector"},
+{UU(0x6A945A3B,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solaris", "Solaris Reserved"},
+{UU(0x6A9630D1,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solaris", "Solaris Reserved"},
+{UU(0x6A980767,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solaris", "Solaris Reserved"},
+{UU(0x6A96237F,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solaris", "Solaris Reserved"},
+{UU(0x6A8D2AC7,0x1DD2,0x11B2,0x99A6,0x08,0x00,0x20,0x73,0x66,0x31), "solaris", "Solaris Reserved"},
+{UU(0x49F48D32,0xB10E,0x11DC,0xB99B,0x00,0x19,0xD1,0x87,0x96,0x48), "nbsdswap", "NetBSD Swap"},
+{UU(0x49F48D5A,0xB10E,0x11DC,0xB99B,0x00,0x19,0xD1,0x87,0x96,0x48), "nbsdffs", "NetBSD FFS"},
+{UU(0x49F48D82,0xB10E,0x11DC,0xB99B,0x00,0x19,0xD1,0x87,0x96,0x48), "nbsdlfs", "NetBSD LFS"},
+{UU(0x49F48DAA,0xB10E,0x11DC,0xB99B,0x00,0x19,0xD1,0x87,0x96,0x48), "nbsdraid", "NetBSD RAID"},
+{UU(0x2DB519C4,0xB10F,0x11DC,0xB99B,0x00,0x19,0xD1,0x87,0x96,0x48), "nbsdcat", "NetBSD Concatenated"},
+{UU(0x2DB519EC,0xB10F,0x11DC,0xB99B,0x00,0x19,0xD1,0x87,0x96,0x48), "nbsdcrypt", "NetBSD Encrypted"},
+{UU(0xFE3A2A5D,0x4F32,0x41A7,0xB725,0xAC,0xCC,0x32,0x85,0xA3,0x09), "chromeoskern", "ChromeOS kernel"},
+{UU(0x3CB8E202,0x3B7E,0x47DD,0x8A3C,0x7F,0xF2,0xA1,0x3C,0xFC,0xEC), "chromeosroot", "ChromeOS rootfs"},
+{UU(0x2E0A753D,0x9E48,0x43B0,0x8337,0xB1,0x51,0x92,0xCB,0x1B,0x5E), "chromeos", "ChromeOS future use"},
+{UU(0x42465331,0x3BA3,0x10F1,0x802A,0x48,0x61,0x69,0x6B,0x75,0x21), "haikubfs", "Haiku BFS"},
+{UU(0x85D5E45E,0x237C,0x11E1,0xB4B3,0xE8,0x9A,0x8F,0x7F,0xC3,0xA7), "midbsdboot", "MidnightBSD Boot"},
+{UU(0x85D5E45A,0x237C,0x11E1,0xB4B3,0xE8,0x9A,0x8F,0x7F,0xC3,0xA7), "midbsddata", "MidnightBSD Data"},
+{UU(0x85D5E45B,0x237C,0x11E1,0xB4B3,0xE8,0x9A,0x8F,0x7F,0xC3,0xA7), "midbsdswap", "MidnightBSD Swap"},
+{UU(0x0394EF8B,0x237E,0x11E1,0xB4B3,0xE8,0x9A,0x8F,0x7F,0xC3,0xA7), "midbsdufs", "MidnightBSD Unix File System"},
+{UU(0x85D5E45C,0x237C,0x11E1,0xB4B3,0xE8,0x9A,0x8F,0x7F,0xC3,0xA7), "midbsdvvm", "MidnightBSD Vinum volume manager"},
+{UU(0x85D5E45D,0x237C,0x11E1,0xB4B3,0xE8,0x9A,0x8F,0x7F,0xC3,0xA7), "midbsdzfs", "MidnightBSD ZFS"},
+{UU(0x45B0969E,0x9B03,0x4F30,0xB4C6,0xB4,0xB8,0x0C,0xEF,0xF1,0x06), "cephjournal", "Ceph Journal"},
+{UU(0x45B0969E,0x9B03,0x4F30,0xB4C6,0x5E,0xC0,0x0C,0xEF,0xF1,0x06), "cephcrypt", "Ceph dm-crypt Encrypted Journal"},
+{UU(0x4FBD7E29,0x9D25,0x41B8,0xAFD0,0x06,0x2C,0x0C,0xEF,0xF0,0x5D), "cephosd", "Ceph OSD"},
+{UU(0x4FBD7E29,0x9D25,0x41B8,0xAFD0,0x5E,0xC0,0x0C,0xEF,0xF0,0x5D), "cephcryptosd", "Ceph dm-crypt OSD"},
+{UU(0x824CC7A0,0x36A8,0x11E3,0x890A,0x95,0x25,0x19,0xAD,0x3F,0x61), "openbsd", "OpenBSD Data"},
+{UU(0xCEF5A9AD,0x73BC,0x4601,0x89F3,0xCD,0xEE,0xEE,0xE3,0x21,0xA1), "qnx6", "QNX6 Power-safe file system"},
+{UU(0xC91818F9,0x8025,0x47AF,0x89D2,0xF0,0x30,0xD7,0x00,0x0C,0x2C), "plan9", "Plan 9"},
+};
+
+static Flag	flags[] = {
+	{ 0,	'S',	"system" },
+	{ 1,	'E',	"efi-hidden" },
+	{ 2,	'A',	"active" },
+	{ 60,	'R',	"read-only" },
+	{ 62,	'H',	"hidden" },
+	{ 63,	'M',	"nomount" },
+	{ -1,	0,	nil }
+};
+
+static void initcrc32(void);
+static u32int sumcrc32(u32int, uchar *, ulong);
+
+static u32int getle32(void*);
+static void putle32(void*, u32int);
+static u64int getle64(void *);
+static void putle64(void *, u64int);
+
+static void uugen(uchar uuid[16]);
+static Type* gettype(uchar uuid[16], char *name);
+static int uufmt(Fmt*);
+#pragma	varargck	type	"U"	uchar*
+
+static int attrfmt(Fmt*);
+#pragma varargck	type	"A"	uvlong
+
+static void rdpart(Edit*);
+static void autopart(Edit*);
+static void blankpart(Edit*);
+static void cmdnamectl(Edit*);
+
+static int blank;
+static int dowrite;
+static int file;
+static int rdonly;
+static int doauto;
+static int printflag;
+static int written;
+
+static void 	cmdsum(Edit*, Part*, vlong, vlong);
+static char 	*cmdadd(Edit*, char*, vlong, vlong);
+static char 	*cmddel(Edit*, Part*);
+static char 	*cmdext(Edit*, int, char**);
+static char 	*cmdhelp(Edit*);
+static char 	*cmdokname(Edit*, char*);
+static char 	*cmdwrite(Edit*);
+static void	cmdprintctl(Edit*, int);
+
+Edit edit = {
+	.add =		cmdadd,
+	.del =		cmddel,
+	.ext =		cmdext,
+	.help =		cmdhelp,
+	.okname =	cmdokname,
+	.sum =		cmdsum,
+	.write =	cmdwrite,
+	.printctl =	cmdprintctl,
+	.unit =		"sector",
+};
+
+void
+usage(void)
+{
+	fprint(2, "usage: disk/gdisk [-abfprw] [-s sectorsize] /dev/sdC0/data\n");
+	exits("usage");
+}
+
+void
+main(int argc, char **argv)
+{
+	vlong secsize;
+
+	fmtinstall('U', uufmt);
+	fmtinstall('A', attrfmt);
+
+	initcrc32();
+
+	type9 = gettype(nil, "plan9");
+
+	secsize = 0;
+	ARGBEGIN{
+	case 'a':
+		doauto++;
+		break;
+	case 'b':
+		blank++;
+		break;
+	case 'f':
+		file++;
+		break;
+	case 'p':
+		printflag++;
+		break;
+	case 'r':
+		rdonly++;
+		break;
+	case 's':
+		secsize = atoi(ARGF());
+		break;
+	case 'v':
+		break;
+	case 'w':
+		dowrite++;
+		break;
+	}ARGEND;
+
+	if(argc != 1)
+		usage();
+
+	edit.disk = opendisk(argv[0], rdonly, file);
+	if(edit.disk == nil) {
+		fprint(2, "cannot open disk: %r\n");
+		exits("opendisk");
+	}
+
+	if(secsize != 0) {
+		edit.disk->secsize = secsize;
+		edit.disk->secs = edit.disk->size / secsize;
+	}
+	edit.end = edit.disk->secs;
+
+	if(blank)
+		blankpart(&edit);
+	else
+		rdpart(&edit);
+
+	if(doauto)
+		autopart(&edit);
+
+	if(dowrite)
+		runcmd(&edit, "w");
+
+	if(printflag)
+		runcmd(&edit, "P");
+
+	if(dowrite || printflag)
+		exits(0);
+
+	runcmd(&edit, "p");
+	for(;;) {
+		fprint(2, ">>> ");
+		runcmd(&edit, getline(&edit));
+	}
+}
+
+
+typedef struct Block Block;
+struct Block
+{
+	Block	*link;
+	Disk	*disk;
+	uchar	*save;	/* saved backup data */
+	vlong	addr;
+	uchar	data[];
+};
+
+static Block *blocks;
+
+static void*
+getblock(Disk *disk, vlong addr)
+{
+	Block *b;
+
+	if(addr < 0 || addr >= disk->secs)
+		abort();
+
+	for(b = blocks; b != nil; b = b->link){
+		if(b->addr == addr && b->disk == disk)
+			return b->data;
+	}
+	b = malloc(sizeof(Block) + 2*disk->secsize);
+	if(pread(disk->fd, b->data, disk->secsize, disk->secsize*addr) != disk->secsize){
+		sysfatal("getblock %llud: %r", addr);
+		return nil;
+	}
+	b->save = &b->data[disk->secsize];
+	memmove(b->save, b->data, disk->secsize);
+
+	b->addr = addr;
+	b->link = blocks;
+	b->disk = disk;
+	blocks = b;
+	return b->data;
+}
+
+static void
+flushdisk(Disk *disk)
+{
+	Block *b, *r;
+
+	if(disk->wfd < 0)
+		return;
+
+	for(b = blocks; b != nil; b = b->link){
+		if(b->disk != disk || memcmp(b->data, b->save, disk->secsize) == 0)
+			continue;
+		if(pwrite(disk->wfd, b->data, disk->secsize, b->addr*disk->secsize) != disk->secsize){
+			fprint(2, "error writing lba %llud: %r\n", b->addr);
+			goto Recover;
+		}
+	}
+	return;
+
+Recover:
+	for(r = blocks; r != b; r = r->link){
+		if(r->disk != disk || memcmp(r->data, r->save, disk->secsize) == 0)
+			continue;
+		pwrite(disk->wfd, r->save, disk->secsize, r->addr*disk->secsize);
+	}
+	exits("recovered");
+}
+
+
+static u32int crc32tab[256];
+
+static void
+initcrc32(void)
+{
+	u32int c;
+	int n, k;
+
+	for(n = 0; n < 256; n++){
+		c = n;
+		for(k = 0; k < 8; k++)
+			if((c & 1) != 0)
+				c = 0xedb88320 ^ c >> 1;
+			else
+				c >>= 1;
+		crc32tab[n] = c;
+	}
+}
+static u32int
+sumcrc32(u32int c, uchar *buf, ulong len)
+{
+	c = ~c;
+	while(len-- != 0)
+		c = crc32tab[(*buf++ ^ c) & 0xff] ^ c >> 8;
+	return ~c;
+}
+
+
+static u32int
+getle32(void* v)
+{
+	uchar *p;
+
+	p = v;
+	return (p[3]<<24)|(p[2]<<16)|(p[1]<<8)|p[0];
+}
+
+static void
+putle32(void* v, u32int i)
+{
+	uchar *p;
+
+	p = v;
+	p[0] = i;
+	p[1] = i>>8;
+	p[2] = i>>16;
+	p[3] = i>>24;
+}
+
+static u64int
+getle64(void *v)
+{
+	return ((u64int)getle32((uchar*)v + 4) << 32) | getle32(v);
+}
+
+static void
+putle64(void *v, u64int i)
+{
+	putle32(v, i);
+	putle32((uchar*)v + 4, i >> 32);
+}
+
+
+static void
+uugen(uchar uu[16])
+{
+	genrandom(uu, 16);
+	uu[7] = (uu[7] & ~0xF0) | 0x40;
+	uu[8] = (uu[8] & ~0xC0) | 0x80;
+}
+
+static int
+uufmt(Fmt *fmt)
+{
+	uchar *uu = va_arg(fmt->args, uchar*);
+	return fmtprint(fmt,
+		"%.2uX%.2uX%.2uX%.2uX-"
+		"%.2uX%.2uX-"
+		"%.2uX%.2uX-"
+		"%.2uX%.2uX-%.2uX%.2uX%.2uX%.2uX%.2uX%.2uX",
+/* Data1 */	uu[3], uu[2], uu[1], uu[0], 
+/* Data2 */	uu[5], uu[4],
+/* Data3 */	uu[7], uu[6],
+/* Data4 */	uu[8], uu[9], uu[10], uu[11], uu[12], uu[13], uu[14], uu[15]);
+}
+
+
+static int
+attrfmt(Fmt *fmt)
+{
+	uvlong a = va_arg(fmt->args, uvlong);
+	char s[64+1], *p;
+	Flag *f;
+
+	p = s;
+	for(f=flags; f->c != '\0'; f++){
+		if(a & (1ULL<<f->s))
+			*p = f->c;
+		else
+			*p = '-';
+		p++;
+	}
+	*p = '\0';
+	return fmtprint(fmt, "%s", s);
+}
+
+
+static Header*
+readhdr(Disk *disk, vlong lba)
+{
+	Header *hdr;
+	u32int crc;
+	int siz;
+
+	if(lba < 0)
+		lba += disk->secs;
+
+	hdr = getblock(disk, lba);
+	if(memcmp(hdr->sig, "EFI PART", 8) != 0)
+		return nil;
+	if(getle64(hdr->selflba) != lba)
+		return nil;
+	siz = getle32(hdr->hdrsiz);
+	if(siz < Headersiz || siz > disk->secsize)
+		return nil;
+	crc = getle32(hdr->hdrcrc);
+	putle32(hdr->hdrcrc, 0);
+	putle32(hdr->hdrcrc, sumcrc32(0, (uchar*)hdr, siz));
+	if(getle32(hdr->hdrcrc) != crc){
+		putle32(hdr->hdrcrc, crc);
+		return nil;
+	}
+
+	return hdr;
+}
+
+static void
+partname(Edit *, Gptpart *p)
+{
+	snprint(p->namebuf, sizeof(p->namebuf), "p%d", (int)(p - parts)+1);
+	p->name = p->namebuf;
+}
+
+static char*
+readent(Edit *edit, Entry *ent, Gptpart *p)
+{
+	int i;
+
+	memset(p, 0, sizeof(*p));
+	if(memcmp(ent->typeid, zeros, 16) == 0)
+		return nil;
+
+	p->type = gettype(ent->typeid, nil);
+	memmove(p->uuid, ent->partid, 16);
+	p->start = getle64(ent->firstlba);
+	p->end = getle64(ent->lastlba)+1;
+	p->attr = getle64(ent->attr);
+	for(i=0; i<nelem(p->label)-1; i++)
+		p->label[i] = ent->name[i*2] | (Rune)ent->name[i*2+1]<<8;
+	p->label[i] = 0;
+	partname(edit, p);
+
+	return addpart(edit, p);
+}
+
+static Entry*
+getent(Disk *disk, vlong tablba, int entsize, int i)
+{
+	int ent2blk;
+	uchar *blkp;
+
+	ent2blk = disk->secsize / entsize;
+	blkp = getblock(disk, tablba + (i/ent2blk));
+	blkp += entsize * (i%ent2blk);
+	return (Entry*)blkp;
+}
+
+static int
+readtab(Edit *edit, Header *hdr)
+{
+	int entries, entsize, i;
+	vlong tablba;
+	u32int crc;
+	Entry *ent;
+	char *err;
+
+	entries = getle32(hdr->entrycount);
+	entsize = getle32(hdr->entrysize);
+	if(entsize < Entrysiz || entsize > edit->disk->secsize)
+		return -1;
+
+	crc = 0;
+	tablba = getle64(hdr->tablba);
+	for(i=0; i<entries; i++){
+		ent = getent(edit->disk, tablba, entsize, i);
+		crc = sumcrc32(crc, (uchar*)ent, entsize);
+	}
+	if(getle32(hdr->tabcrc) != crc)
+		return -1;
+
+	nparts = entries;
+	parts = emalloc(nparts*sizeof(parts[0]));
+
+	partoff = getle64(hdr->firstlba);
+	partend = getle64(hdr->lastlba)+1;
+
+	edit->dot = partoff;
+	edit->end = partend;
+
+	for(i=0; i<nparts; i++){
+		ent = getent(edit->disk, tablba, entsize, i);
+		if((err = readent(edit, ent, &parts[i])) != nil)
+			fprint(2, "readtab: %s\n", err);
+	}
+
+	return 0;
+}
+
+static Header*
+getbakhdr(Edit *edit, Header *bhdr)
+{
+	vlong lba, blba, tlba;
+	Header *hdr;
+	int siz;
+
+	siz = getle32(bhdr->hdrsiz);
+	lba = getle64(bhdr->backlba);
+	hdr = readhdr(edit->disk, lba);
+	if(hdr != nil)
+		return hdr;
+
+	hdr = getblock(edit->disk, lba);
+	memmove(hdr, bhdr, siz);
+	putle64(hdr->selflba, lba);
+	blba = getle64(bhdr->selflba);
+	putle64(hdr->backlba, blba);
+	if(lba <= blba)
+		tlba = lba+1;
+	else
+		tlba = partend;
+	putle64(hdr->tablba, tlba);
+	edit->changed = 1;
+
+	return hdr;
+}
+
+typedef struct Tentry Tentry;
+struct Tentry {
+	uchar	active;			/* active flag */
+	uchar	starth;			/* starting head */
+	uchar	starts;			/* starting sector */
+	uchar	startc;			/* starting cylinder */
+	uchar	type;			/* partition type */
+	uchar	endh;			/* ending head */
+	uchar	ends;			/* ending sector */
+	uchar	endc;			/* ending cylinder */
+	uchar	lba[4];			/* starting LBA */
+	uchar	size[4];		/* size in sectors */
+};
+
+enum {
+	NTentry = 4,
+	Tentrysiz = 16,
+};
+
+static uchar*
+readmbr(Disk *disk)
+{
+	uchar *mbr, *magic;
+	Tentry *t;
+	int i;
+
+	mbr = getblock(disk, 0);
+	magic = &mbr[disk->secsize - 2];
+	if(magic[0] != 0x55 || magic[1] != 0xAA)
+		sysfatal("did not find master boot record");
+
+	for(i=0; i<NTentry; i++){
+		t = (Tentry*)&mbr[disk->secsize - 2 - (i+1)*Tentrysiz];
+		switch(t->type){
+		case 0xEE:
+		case 0xEF:
+		case 0x00:
+			continue;
+		}
+		sysfatal("dos partition table in use");
+	}
+
+	return mbr;
+}
+
+static void
+rdpart(Edit *edit)
+{
+	pmbr = readmbr(edit->disk);
+	if((phdr = readhdr(edit->disk, 1)) != nil && readtab(edit, phdr) == 0){
+		memmove(devid, phdr->devid, 16);
+		bhdr = getbakhdr(edit, phdr);
+		return;
+	}
+	if((bhdr = readhdr(edit->disk, -1)) != nil && readtab(edit, bhdr) == 0){
+		memmove(devid, bhdr->devid, 16);
+		phdr = getbakhdr(edit, bhdr);
+		return;
+	}
+	sysfatal("did not find partition table");
+}
+
+static Header*
+inithdr(Disk *disk)
+{
+	vlong tabsize, baklba;
+	Header *hdr;
+
+	tabsize = (Entrysiz*nparts + disk->secsize-1) / disk->secsize;
+	if(tabsize < 1)
+		tabsize = 1;
+
+	baklba = disk->secs-1;
+	partend = baklba - tabsize;
+	partoff = 2 + tabsize;
+
+	if(partoff >= partend)
+		sysfatal("disk too small for partition table");
+
+	hdr = getblock(disk, 1);
+	memset(hdr, 0, Headersiz);
+
+	memmove(hdr->sig, "EFI PART", 8);
+	putle32(hdr->rev, 0x10000);
+	putle32(hdr->hdrsiz, Headersiz);
+	putle32(hdr->hdrcrc, 0);
+	putle64(hdr->selflba, 1);
+	putle64(hdr->backlba, baklba);
+	putle64(hdr->firstlba, partoff);
+	putle64(hdr->lastlba, partend-1);
+	memmove(hdr->devid, devid, 16);
+	putle64(hdr->tablba, 2);
+	putle32(hdr->entrycount, nparts);
+	putle32(hdr->entrysize, Entrysiz);
+	putle32(hdr->tabcrc, 0);
+
+	return hdr;
+}
+
+static uchar*
+initmbr(Disk *disk)
+{
+	uchar *mbr, *magic;
+	u32int size;
+	Tentry *t;
+
+	mbr = getblock(disk, 0);
+
+	magic = &mbr[disk->secsize - 2];
+	magic[0] = 0x55;
+	magic[1] = 0xAA;
+
+	t = (Tentry*)&mbr[disk->secsize - 2 - NTentry*Tentrysiz];
+	memset(t, 0, NTentry * Tentrysiz);
+
+	t->type = 0xEE;
+	t->active = 0;
+
+	size = disk->secs > 0xFFFFFFFF ? 0xFFFFFFFF : disk->secs;
+	putle32(t->lba, 0);
+	putle32(t->size, size);
+
+	t->starth = 0;
+	t->startc = 0;
+	t->starts = 0;
+	t->endh = disk->h-1;
+	t->ends = (disk->s & 0x3F) | (((disk->c-1)>>2) & 0xC0);
+	t->endc = disk->c-1;
+
+	return mbr;
+}
+
+static void
+blankpart(Edit *edit)
+{
+	nparts = 128;
+	parts = emalloc(nparts*sizeof(parts[0]));
+
+	uugen(devid);
+	pmbr = initmbr(edit->disk);
+	phdr = inithdr(edit->disk);
+	bhdr = getbakhdr(edit, phdr);
+
+	edit->dot = partoff;
+	edit->end = partend;
+
+	edit->changed = 1;
+}
+
+static void
+writeent(Entry *ent, Gptpart *p)
+{
+	int i;
+
+	if(p->type == nil)
+		return;
+	memmove(ent->typeid, p->type->uuid, 16);
+	memmove(ent->partid, p->uuid, 16);
+	putle64(ent->firstlba, p->start);
+	putle64(ent->lastlba, p->end-1);
+	putle64(ent->attr, p->attr);
+	for(i=0; i<nelem(ent->name)/2; i++){
+		ent->name[i*2] = p->label[i] & 0xFF;
+		ent->name[i*2+1] = p->label[i] >> 8;
+	}
+}
+
+static void
+writetab(Edit *edit, Header *hdr)
+{
+	int hdrsize, entsize, i;
+	vlong tablba;
+	u32int crc;
+	Entry *ent;
+
+	crc = 0;
+	entsize = getle32(hdr->entrysize);
+	tablba = getle64(hdr->tablba);
+	for(i=0; i<nparts; i++){
+		ent = getent(edit->disk, tablba, entsize, i);
+		memset(ent, 0, entsize);
+		writeent(ent, &parts[i]);
+		crc = sumcrc32(crc, (uchar*)ent, entsize);
+	}
+
+	hdrsize = getle32(hdr->hdrsiz);
+	putle32(hdr->tabcrc, crc);
+	putle32(hdr->hdrcrc, 0);
+	putle32(hdr->hdrcrc, sumcrc32(0, (uchar*)hdr, hdrsize));
+}
+
+static char*
+cmdwrite(Edit *edit)
+{
+	writetab(edit, phdr);
+	writetab(edit, bhdr);
+	flushdisk(edit->disk);
+	cmdprintctl(edit, edit->disk->ctlfd);
+	return nil;
+}
+
+static char*
+newpart(Edit *edit, Gptpart *p, vlong start, vlong end, Type *type, uvlong attr)
+{
+	if(end <= partoff || start >= partend)
+		return "partition overlaps partition table";
+
+	if(start < partoff)
+		start = partoff;
+
+	memset(p, 0, sizeof(*p));
+	p->type = type;
+	p->attr = attr;
+	p->start = start;
+	p->end = end;
+	uugen(p->uuid);
+	runesnprint(p->label, nelem(p->label), "%s", p->type->desc);
+	partname(edit, p);
+	return addpart(edit, p);
+}
+
+static void
+autopart(Edit *edit)
+{
+	vlong start, bigstart, bigsize;
+	Gptpart *p;
+	int i;
+
+	bigsize = 0;
+	bigstart = 0;
+	start = partoff;
+	for(i=0; i<edit->npart; i++){
+		p = (Gptpart*)edit->part[i];
+		if(p->type == type9)
+			return;
+		if(p->start > start && (p->start - start) > bigsize){
+			bigsize = p->start - start;
+			bigstart = start;
+		}
+		start = p->end;
+	}
+	if(partend > start && (partend - start) > bigsize){
+		bigsize = partend - start;
+		bigstart = start;
+	}
+	if(bigsize < 1) {
+		fprint(2, "couldn't find space for plan 9 partition\n");
+		return;
+	}
+	for(i=0; i<nparts; i++){
+		p = &parts[i];
+		if(p->type == nil){
+			newpart(edit, p, bigstart, bigstart+bigsize, type9, 0);
+			return;
+		}
+	}
+	fprint(2, "couldn't find free slot for plan 9 partition\n");
+}
+
+typedef struct Name Name;
+struct Name {
+	char *name;
+	Name *link;
+};
+
+static Name *namelist;
+
+static void
+plan9print(Gptpart *p)
+{
+	int i, ok;
+	char *name, *vname;
+	Name *n;
+	char *sep;
+
+	vname = p->type->name;
+	if(vname==nil || strcmp(vname, "")==0) {
+		p->ctlname = "";
+		return;
+	}
+
+	/* avoid names like plan90 */
+	i = strlen(vname) - 1;
+	if(vname[i] >= '0' && vname[i] <= '9')
+		sep = ".";
+	else
+		sep = "";
+
+	i = 0;
+
+	name = emalloc(strlen(vname)+10);
+	sprint(name, "%s", vname);
+	do {
+		ok = 1;
+		for(n=namelist; n; n=n->link) {
+			if(strcmp(name, n->name) == 0) {
+				i++;
+				sprint(name, "%s%s%d", vname, sep, i);
+				ok = 0;
+			}
+		}
+	} while(ok == 0);
+
+	p->ctlname = name;
+
+	n = emalloc(sizeof(*n));
+	n->name = name;
+	n->link = namelist;
+	namelist = n;
+}
+
+static void
+freenamelist(void)
+{
+	Name *n, *next;
+
+	for(n=namelist; n; n=next) {
+		next = n->link;
+		free(n->name);
+		free(n);
+	}
+	namelist = nil;
+}
+
+static void
+cmdprintctl(Edit *edit, int ctlfd)
+{
+	int i;
+
+	freenamelist();
+	for(i=0; i<edit->npart; i++)
+		plan9print((Gptpart*)edit->part[i]);
+	ctldiff(edit, ctlfd);
+}
+
+static char*
+cmdokname(Edit*, char *name)
+{
+	if(name[0] != 'p' || atoi(name+1) <= 0)
+		return "name must be pN";
+	return nil;
+}
+
+static void
+cmdsum(Edit *edit, Part *vp, vlong a, vlong b)
+{
+	char *name, *type, *unit;
+	Rune *label;
+	Gptpart *p;
+	uvlong attr;
+	vlong s, d;
+
+	if((p = (Gptpart*)vp) == nil){
+		if(a < partoff)
+			a = partoff;
+		if(a >= b)
+			return;
+		name = "empty";
+		type = "";
+		attr = 0;
+		label = L"";
+	} else {
+		name = p->name;
+		type = p->type->name;
+		attr = p->attr;
+		label = p->label;
+	}
+
+	s = (b - a)*edit->disk->secsize;
+	if(s >= 1*TB){
+		unit = "TB";
+		d = TB;
+	}else if(s >= 1*GB){
+		unit = "GB";
+		d = GB;
+	}else if(s >= 1*MB){
+		unit = "MB";
+		d = MB;
+	}else if(s >= 1*KB){
+		unit = "KB";
+		d = KB;
+	}else{
+		unit = "B ";
+		d = 1;
+	}
+
+	print("%-6s %*llud %*llud (%lld.%.2d %s) %A %8s \"%S\"\n",
+		name, edit->disk->width, a, edit->disk->width, b,
+		s/d, (int)(((s%d)*100)/d), unit, attr, type, label);
+}
+
+static char*
+cmdadd(Edit *edit, char *name, vlong start, vlong end)
+{
+	int slot;
+
+	slot = atoi(name+1)-1;
+	if(slot < 0 || slot >= nparts)
+		return "partition number out of range";
+	return newpart(edit, &parts[slot], start, end, type9, 0);
+}
+
+static char*
+cmddel(Edit *edit, Part *p)
+{
+	memset((Gptpart*)p, 0, sizeof(Gptpart));
+	return delpart(edit, p);
+}
+
+static char *help = 
+	"t name [type] - set partition type\n"
+	"f name [+-flags] - set partition attributes\n"
+	"l name [label] - set partition label\n";
+
+static char*
+cmdhelp(Edit*)
+{
+	print("%s\n", help);
+	return nil;
+}
+
+static char*
+cmdflag(Edit *edit, int na, char **a)
+{
+	Gptpart *p;
+	char *s, op;
+	Flag *f;
+
+	if(na < 2)
+		return "args";
+
+	if((p = (Gptpart*)findpart(edit, a[1])) == nil)
+		return "unknown partition";
+
+	if(na == 2){
+		for(;;){
+			fprint(2, "set attibutes [? for list]: ");
+			s = getline(edit);
+			if(s[0] != '?')
+				break;
+			for(f = flags; f->c != '\0'; f++)
+				fprint(2, "%.16llux %c - %s\n", 1ULL<<f->s, f->c, f->desc);
+		}
+	} else {
+		s = a[2];
+	}
+
+	op = '+';
+	for(; *s != '\0'; s++){
+		switch(*s){
+		case '+':
+		case '-':
+			op = *s;
+		case ' ':
+			continue;
+		}
+		for(f = flags; f->c != '\0'; f++)
+			if(f->c == *s)
+				break;
+		if(f->c == '\0')
+			return "unknown flag";
+		switch(op){
+		case '+':
+			p->attr |= 1ULL<<f->s;
+			break;
+		case '-':
+			p->attr &= ~(1ULL<<f->s);
+			break;
+		}
+		p->changed = 1;
+		edit->changed = 1;
+	}
+	return nil;
+}
+
+static Type*
+gettype(uchar uuid[16], char *name)
+{
+	Type *t;
+
+	if(name != nil){
+		for(t = types; t->name != nil; t++)
+			if(strcmp(name, t->name) == 0)
+				return t;
+		uugen(uuid);
+	} else {
+		for(t = types; t->name != nil; t++)
+			if(memcmp(t->uuid, uuid, 16) == 0)
+				return t;
+	}
+	if(t >= &types[nelem(types)-1])
+		sysfatal("too many partition types");
+	memmove(t->uuid, uuid, 16);
+	t->name = smprint("type%.2uX%.2uX%.2uX%.2uX", uuid[3], uuid[2], uuid[1], uuid[0]);
+	t->desc = name != nil ? estrdup(name) : "";
+	return t;
+}
+
+static char*
+cmdtype(Edit *edit, int nf, char **f)
+{
+	uchar uuid[16];
+	Gptpart *p;
+	char *q;
+	Type *t;
+
+	if(nf < 2)
+		return "args";
+
+	if((p = (Gptpart*)findpart(edit, f[1])) == nil)
+		return "unknown partition";
+
+	if(nf == 2) {
+		for(;;) {
+			fprint(2, "new partition type [? for list]: ");
+			q = getline(edit);
+			if(q[0] != '?')
+				break;
+			for(t = types+1; t->name != nil; t++)
+				fprint(2, "%U %-15s %s\n", t->uuid, t->name, t->desc);
+		}
+	} else
+		q = f[2];
+
+	if(q[0] == '\0' || (t = gettype(uuid, q)) == p->type)
+		return nil;
+
+	p->type = t;
+	memset(p->label, 0, sizeof(p->label));
+	runesnprint(p->label, nelem(p->label), "%s", t->desc);
+	p->changed = 1;
+	edit->changed = 1;
+	return nil;
+}
+
+static char*
+cmdlabel(Edit *edit, int nf, char **f)
+{
+	Gptpart *p;
+	char *q;
+
+	if(nf < 2)
+		return "args";
+
+	if((p = (Gptpart*)findpart(edit, f[1])) == nil)
+		return "unknown partition";
+
+	if(nf == 2) {
+		fprint(2, "new label: ");
+		q = getline(edit);
+	} else
+		q = f[2];
+
+	memset(p->label, 0, sizeof(p->label));
+	runesnprint(p->label, nelem(p->label), "%s", q);
+	p->changed = 1;
+	edit->changed = 1;
+	return nil;
+}
+
+static char*
+cmdext(Edit *edit, int nf, char **f)
+{
+	switch(f[0][0]) {
+	case 't':
+		return cmdtype(edit, nf, f);
+	case 'f':
+		return cmdflag(edit, nf, f);
+	case 'l':
+		return cmdlabel(edit, nf, f);
+	default:
+		return "unknown command";
+	}
+}

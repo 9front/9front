@@ -1,6 +1,6 @@
 </$objtype/mkfile
 
-TARG=fdisk prep
+TARG=fdisk edisk prep
 
 YFILES=calc.y
 HFILES=edit.h
