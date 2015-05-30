@@ -75,7 +75,11 @@ addpart(Umsc *lun, char *name, vlong start, vlong end, ulong mode)
 		werrstr("bad partition boundaries");
 		return -1;
 	}
-	if(lookpart(lun, name) != nil) {
+	p = lookpart(lun, name);
+	if(p != nil){
+		/* adding identical partition is no-op */
+		if(p->offset == start && p->length == end - start && p->mode == mode)
+			return 0;
 		werrstr("partition name already in use");
 		return -1;
 	}
