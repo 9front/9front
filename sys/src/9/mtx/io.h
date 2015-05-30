@@ -93,7 +93,7 @@ enum {					/* type 0 and type 1 pre-defined header */
 enum {					/* type 0 pre-defined header */
 	PciCIS		= 0x28,		/* cardbus CIS pointer */
 	PciSVID		= 0x2C,		/* subsystem vendor ID */
-	PciSID		= 0x2E,		/* cardbus CIS pointer */
+	PciSID		= 0x2E,		/* subsystem ID */
 	PciEBAR0	= 0x30,		/* expansion ROM base address */
 	PciMGNT		= 0x3E,		/* burst period length */
 	PciMLT		= 0x3F,		/* maximum latency between bursts */
