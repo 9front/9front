@@ -6,25 +6,28 @@ switch($1){
 case ''
 	echo usage: 9fs service '[mountpoint]' >[1=2]
 	exit usage
-case 9fat
+case 9fat esp pidos dos
 	if(~ $#2 1)
 		part=`{ls $2 >[2]/dev/null}
+	if not if(~ $1 pidos)
+		part=`{ls /dev/sdM*/dos >[2]/dev/null}
 	if not
-		part=`{ls /dev/fs/9fat /dev/sd*/9fat >[2]/dev/null}
+		part=`{ls /dev/fs/$1 /dev/sd*/$1 >[2]/dev/null}
 	if(~ $#part 0) {
-		echo 'no 9fat partition found' >[1=2]
-		exit no.9fat
+		echo 'no '$1' partition found' >[1=2]
+		exit no.$1
 	}
-	
 	part=$part(1)
 	
 	if(! test -f /srv/dos)
 		dossrv >/dev/null </dev/null >[2]/dev/null
 	
-	unmount /n/9fat >/dev/null >[2]/dev/null
-	mount -c /srv/dos /n/9fat $part
-	unmount /n/9 >/dev/null >[2]/dev/null
-	mount -c /srv/dos /n/9 $part
+	unmount /n/$1 >/dev/null >[2]/dev/null
+	mount -c /srv/dos /n/$1 $part
+	if(~ $1 9fat){
+		unmount /n/9 >/dev/null >[2]/dev/null
+		mount -c /srv/dos /n/9 $part
+	}
 case kfs
 	if(! test -f /srv/kfs)
 		disk/kfs
@@ -51,14 +54,6 @@ case atom
 	srv -nq tcp!atom.9atom.org atom && mount -nC /srv/atom /n/atom atom
 case atomdump
 	9fs atom && mount -nC /srv/atom /n/atomdump atomdump
-case pidos
-	dossrv >/dev/null >[2]/dev/null
-	part=`{ls /dev/sdM*/dos >[2]/dev/null}
-	if(~ $#part 0) {
-		echo 'no dos partition found' >[1=2]
-		exit no.pidos
-	}
-	mount -c '#s/dos' /n/pidos $part
 # arbitrary venti archives
 case vac:*
 	vacfs <{echo $1}
