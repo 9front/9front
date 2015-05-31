@@ -73,6 +73,7 @@ enum {
 	EInternalError 			= 80,
 	EUserCanceled 			= 90,
 	ENoRenegotiation 		= 100,
+	EUnrecognizedName		= 112,
 
 	EMAX = 256
 };
@@ -850,18 +851,25 @@ if(tr->debug) pdump(unpad_len, p, "decrypted:");
 		/*
 		 * propagate non-fatal alerts to handshaker
 		 */
-		if(p[1] == ECloseNotify) {
+		switch(p[1]){
+		case ECloseNotify:
 			tlsclosed(tr, SRClose);
 			if(tr->opened)
 				error("tls hungup");
 			error("close notify");
-		}
-		if(p[1] == ENoRenegotiation)
+			break;
+		case ENoRenegotiation:
 			alertHand(tr, "no renegotiation");
-		else if(p[1] == EUserCanceled)
+			break;
+		case EUserCanceled:
 			alertHand(tr, "handshake canceled by user");
-		else
+			break;
+		case EUnrecognizedName:
+			/* happens in response to SNI, can be ignored. */
+			break;
+		default:
 			rcvError(tr, EIllegalParameter, "invalid alert code");
+		}
 		break;
 	case RHandshake:
 		/*
