@@ -209,20 +209,36 @@ findgeometry(Disk *disk)
 }
 
 static Disk*
+freedisk(Disk *d)
+{
+	if(d->fd >= 0)
+		close(d->fd);
+	if(d->wfd >= 0)
+		close(d->wfd);
+	if(d->ctlfd >= 0)
+		close(d->ctlfd);
+	free(d);
+	return nil;
+}
+
+static Disk*
 openfile(Disk *disk)
 {
 	Dir *d;
 
-	if((d = dirfstat(disk->fd)) == nil){
-		free(disk);
-		return nil;
-	}
+	if((d = dirfstat(disk->fd)) == nil)
+		return freedisk(disk);
 
 	disk->secsize = 512;
 	disk->size = d->length;
 	disk->secs = disk->size / disk->secsize;
 	disk->offset = 0;
 	free(d);
+
+	if(disk->secs == 0){
+		werrstr("file too small to be a disk");
+		return freedisk(disk);
+	}
 
 	findgeometry(disk);
 	return mkwidth(disk);
@@ -274,6 +290,7 @@ opendisk(char *disk, int rdonly, int noctl)
 {
 	char *p, *q;
 	Disk *d;
+	Dir *s;
 
 	d = mallocz(sizeof(*d), 1);
 	if(d == nil)
@@ -284,10 +301,17 @@ opendisk(char *disk, int rdonly, int noctl)
 
 	d->fd = open(disk, OREAD);
 	if(d->fd < 0) {
-		werrstr("cannot open disk file");
-		free(d);
-		return nil;
+		werrstr("cannot open disk file: %r");
+		return freedisk(d);
 	}
+	if((s = dirfstat(d->fd)) == nil)
+		return freedisk(d);
+	if((s->mode & (DMDIR|DMAPPEND)) != 0){
+		free(s);
+		werrstr("not a disk file: %s", disk);
+		return freedisk(d);
+	}
+	free(s);
 
 	if(rdonly == 0) {
 		d->wfd = open(disk, OWRITE);
@@ -299,12 +323,8 @@ opendisk(char *disk, int rdonly, int noctl)
 		return openfile(d);
 
 	p = malloc(strlen(disk) + 4);	/* 4: slop for "ctl\0" */
-	if(p == nil) {
-		close(d->wfd);
-		close(d->fd);
-		free(d);
-		return nil;
-	}
+	if(p == nil)
+		return freedisk(d);
 	strcpy(p, disk);
 
 	/* check for floppy(3) disk */
@@ -334,12 +354,8 @@ opendisk(char *disk, int rdonly, int noctl)
 		d->type = Tsd;
 		d->part = strdup(disk+(q-p));
 		if(d->part == nil){
-			close(d->ctlfd);
-			close(d->wfd);
-			close(d->fd);
 			free(p);
-			free(d);
-			return nil;
+			return freedisk(d);
 		}
 		return opensd(d);
 	}
