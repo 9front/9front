@@ -16,6 +16,16 @@ prep, fdisk, format, mbr \- prepare disks, floppies and flashes
 ]
 .I plan9partition
 .PP
+.B disk/edisk
+[
+.B -abfprw
+]
+[
+.B -s
+.I sectorsize
+]
+.I disk
+.PP
 .B disk/fdisk
 [
 .B -abfprw
@@ -67,12 +77,17 @@ prep, fdisk, format, mbr \- prepare disks, floppies and flashes
 .SH DESCRIPTION
 A partition table is stored on a hard disk to specify the division of
 the physical disk into a set of logical units.
-On PCs, the partition table is stored at the end of the master boot record
-of the disk.
+On PCs using traditional DOS partition table, the partition entries are stored
+at the end of the master boot record of the disk.
 Partitions of type
 .B 0x39
 are Plan 9 partitions.
-The names of PC partitions are chosen by convention from the type:
+EFI systems use GUID partition table (GPT) format where partition types
+are identied by a 128-bit long identifiers. The randomly
+generated GUID
+.B C91818F9-8025-47AF-89D2-F030D7000C2C
+is used to identify the Plan 9 partition type in this scheme.
+The names of DOS and GPT partitions are chosen by convention from the type:
 .BR dos ,
 .BR plan9 ,
 etc.
@@ -172,7 +187,7 @@ swap partition.
 .PD
 .PP
 .I Fdisk
-edits the PC partition table and is usually
+edits the DOS partition table and is usually
 invoked with a disk like
 .B /dev/sdC0/data
 as its argument, while
@@ -182,14 +197,21 @@ and is usually invoked with a disk partition
 like
 .B /dev/sdC0/plan9
 as its argument.
+.I Edisk
+is similar to
+.I fdisk
+but edits the GPT partition table on EFI systems.
 .I Fdisk
 works in units of disk ``cylinders'': the cylinder
 size in bytes is printed when
 .I fdisk
 starts.
 .I Prep
+and
+.I edisk
 works in units of disk sectors, which are almost always 512 bytes.
-.I Fdisk
+.IR Fdisk ,
+.I edisk
 and
 .I prep
 share most of their options:
@@ -199,6 +221,8 @@ share most of their options:
 .B -a
 Automatically partition the disk.
 .I Fdisk
+and
+.I edisk
 will create a Plan 9
 partition in the largest unused area on the disk,
 doing nothing if a
@@ -237,15 +261,17 @@ will translate the printed sectors by the partition's offset
 within the disk.
 Since
 .I fdisk
-operates on a table of unnamed partitions,
-it assigns names based on the partition type
+and
+.I edisk
+operate on a table of unnamed partitions,
+they assign names based on the partition type
 (e.g.,
 .BR plan9 ,
 .BR dos ,
 .BR ntfs ,
 .BR linux ,
 .BR linuxswap )
-and resolves collisions by appending a numbered suffix.
+and resolve collisions by appending a numbered suffix.
 (e.g.,
 .BR dos ,
 .BR dos.1 ,
@@ -257,7 +283,8 @@ In the absence of the
 and
 .B -w
 flags,
-.I prep
+.IR prep ,
+.I edisk
 and
 .I fdisk
 enter an interactive partition editor;
@@ -268,7 +295,8 @@ flag runs the editor in read-only mode.
 .BI -s " sectorsize"
 Specify the disk's sector size.
 In the absence of this flag,
-.I prep
+.IR prep ,
+.I edisk
 and
 .I fdisk
 look for a disk
@@ -291,12 +319,13 @@ If neither the
 flag nor the
 .B -w
 flag is given,
-.I prep
+.IR prep ,
+.I edisk
 and
 .I fdisk
 enter an interactive partition editor that
 operates on named partitions.
-The PC partition table distinguishes between
+The DOS partition table distinguishes between
 primary partitions, which can be listed in the boot
 sector at the beginning of the disk,
 and secondary (or extended) partitions, arbitrarily
@@ -308,6 +337,12 @@ secondary partitions
 .BR s \fIn\fR.
 The number of primary partitions plus number of contiguous chains of
 secondary partitions cannot exceed four.
+The GPT partition table is a fixed array of partition
+entries (usually 128). Partitions are named
+.BR p \fIn\fR,
+where
+.I n
+indexes the entry in array starting from 1 for the first entry.
 .PP
 The commands are as follows.
 In the descriptions, read ``sector'' as ``cylinder'' when using
@@ -328,16 +363,14 @@ If
 .I start
 or
 .I end
-are omitted,
-.I prep
-and
-.I fdisk
-will prompt for them.
+are omitted, the editor will prompt for them.
 In
-.IR fdisk ,
-the newly created partition has type
-.RB `` PLAN9 ;''
-to set a different type, use the
+.I fdisk
+and
+.I edisk
+the newly created partition is of the
+.B Plan 9
+type; to set a different type, use the
 .B t
 command (q.v.).
 .I Start
@@ -450,10 +483,7 @@ partition table.
 The write will fail if any programs have any
 of the disk's partitions open.
 If the write fails (for this or any other reason),
-.I prep
-and
-.I fdisk
-will attempt to restore the partition table to
+the program will attempt to restore the partition table to
 its former state.
 .TP
 .B q
@@ -474,15 +504,29 @@ Set the named partition active.
 The active partition is the one whose boot block is used
 when booting a PC from disk.
 .TP
-.B e
-Print the names of empty slots in the partition table, i.e., the
-valid names to use when creating a new partition.
-.TP
-.BI t " \fR[\fI type \fR]
+.BI t " name \fR[\fI type \fR]
 Set the partition type.  If it is not given,
 .I fdisk
 will display a list of choices and then prompt for it.
 .PD
+.PP
+.I Edisk
+also has the following commands.
+.TF "t \fR[\fI type \fR]
+.PD
+.TP
+.BI t " name \fR[\fI type \fR]
+Set the partition type; like
+.I fdisk
+above.
+.PD
+.TP
+.BI f " name \fR[\fI +-attr \fR]
+Set or clear partition attributes.
+.PD
+.TP
+.BI l " name \fR[\fI label \fR]
+Set the partition label.
 .PP
 .I Format
 prepares for use the floppy diskette or hard disk partition in the file named
