@@ -239,6 +239,10 @@ enum {
 	TypeDellRecovery= 0xDE,
 	TypeSPEEDSTOR12	= 0xE1,
 	TypeSPEEDSTOR16	= 0xE4,
+
+	TypeGPT		= 0xEE,		/* protective MBR */
+	TypeESP		= 0xEF,		/* EFI system partition */
+
 	TypeLANSTEP	= 0xFE,
 
 	Type9		= 0x39,
@@ -319,6 +323,10 @@ static Type types[256] = {
 	[TypeDellRecovery]	{ "DELLRECOVERY", "dell" },
 	[TypeSPEEDSTOR12]	{ "SPEEDSTOR12", "speedstor" },
 	[TypeSPEEDSTOR16]	{ "SPEEDSTOR16", "speedstor" },
+
+	[TypeGPT]		{ "GPT", "" },
+	[TypeESP]		{ "ESP", "esp" },
+
 	[TypeLANSTEP]		{ "LANSTEP", "lanstep" },
 
 	[Type9]			{ "PLAN9", "plan9" },
@@ -515,6 +523,9 @@ rdpart(Edit *edit, uvlong xbase, uvlong ebrstart, int ebrtype)
 		case TypeLINUXEXT:
 			rdpart(edit, xbase, xbase+getle32(tp->xlba), tp->type);
 			break;
+		case TypeGPT:
+			fprint(2, "disk uses GPT partition format, use disk/edisk\n");
+			exits("gptformat");
 		default:
 			p = mkpart(nil, ebrstart+getle32(tp->xlba), getle32(tp->xsize), tp, ebrstart, ebrtype);
 			if(err = addpart(edit, p))
