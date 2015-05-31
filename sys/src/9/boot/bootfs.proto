@@ -13,6 +13,7 @@ $objtype
 		cryptsetup
 		dd
 		disk
+			edisk
 			fdisk
 			prep
 		dossrv

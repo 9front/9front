@@ -17,7 +17,8 @@ case go
 	for(i in $disks) {
 		desc=`{cat /dev/$i/ctl | sed 1q | sed 's/inquiry //'}
 		echo $i '-' $desc
-		echo e | disk/fdisk -r /dev/$i/data >[2]/dev/null | grep -v '^   mbr'
+		@{disk/edisk -r /dev/$i/data
+		||disk/fdisk -r /dev/$i/data} </dev/null >[2]/dev/null | grep -v '^   mbr'
 		echo
 	}
 	
@@ -44,13 +45,18 @@ case go
 			pickdisk=done
 		}
 	}
+
+	diskedit=disk/fdisk
+	if(disk/edisk -p /dev/$disk/data >/dev/null >[2=1])
+		diskedit=disk/edisk	
+
 	echo
-	echo 'This is disk/fdisk; use it to create a Plan 9 partition.'
+	echo 'This is '$diskedit'; use it to create a Plan 9 partition.'
 	echo 'If there is enough room, a Plan 9 partition will be'
 	echo 'suggested; you can probably just type ''w'' and then ''q''.'
 	echo
-	disk/fdisk -a /dev/$disk/data
-	disk/fdisk -p /dev/$disk/data >/dev/$disk/ctl >[2]/dev/null
+	$diskedit -a /dev/$disk/data
+	$diskedit -p /dev/$disk/data >/dev/$disk/ctl >[2]/dev/null
 	for(i in /dev/sd*/plan9*){
 		if(test -f $i){
 			d=`{basename -d $i}
