@@ -297,32 +297,28 @@ http(Ticketreq *tr)
 	Biobuf *b;
 	int n;
 
+	randombytes((uchar*)key, DESKEYLEN);
+
+	/* use plan9 key when there is any */
+	findkey(KEYDB, tr->uid, key);
+
 	n = strlen(tr->uid);
 	b = Bopen("/sys/lib/httppasswords", OREAD);
-	if(b == nil){
-		replyerror("no password file", raddr);
-		return;
-	}
-
-	/* find key */
-	for(;;){
-		p = Brdline(b, '\n');
-		if(p == nil)
-			break;
-		p[Blinelen(b)-1] = 0;
-		if(strncmp(p, tr->uid, n) == 0)
-		if(p[n] == ' ' || p[n] == '\t'){
-			p += n;
-			break;
+	if(b != nil){
+		for(;;){
+			p = Brdline(b, '\n');
+			if(p == nil)
+				break;
+			p[Blinelen(b)-1] = 0;
+			if(strncmp(p, tr->uid, n) == 0)
+			if(p[n] == ' ' || p[n] == '\t'){
+				p += n;
+				while(*p == ' ' || *p == '\t')
+					p++;
+				passtokey(key, p);
+			}
 		}
-	}
-	Bterm(b);
-	if(p == nil) {
-		randombytes((uchar*)key, DESKEYLEN);
-	} else {
-		while(*p == ' ' || *p == '\t')
-			p++;
-		passtokey(key, p);
+		Bterm(b);
 	}
 
 	/* send back a ticket encrypted with the key */
