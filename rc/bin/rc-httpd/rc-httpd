@@ -32,7 +32,9 @@ REQUEST_METHOD=$request(1)
 REQUEST_URI=$request(2)
 reqlines=''
 HTTP_COOKIE=''
+REMOTE_USER=''
 done=false
+chunked=no
 while(~ $"done false){
 	line=`{getline}
 	if(~ $#line 0)
@@ -44,10 +46,7 @@ while(~ $"done false){
 	case ''
 		done=true
 	case host:
-		tmp=`{echo $line(2) | sed 's/:/ /'}
-		SERVER_NAME=$tmp(1)
-		if(! ~ $#tmp 1)
-			SERVER_PORT=$tmp(2)
+		SERVER_NAME=$line(2)
 	case referer:
 		HTTP_REFERER=$line(2)
 	case user-agent:
@@ -61,14 +60,17 @@ while(~ $"done false){
 		HTTP_COOKIE=$"HTTP_COOKIE^$"cookie^'; '
 	case authorization:
 		REMOTE_USER=`{auth/httpauth $line(3)}
+	case transfer-encoding:
+		~ $line(2) chunked && chunked=yes
 	}
 }
-if(~ $REQUEST_URI http://*){
+if(~ $REQUEST_URI *://* //*){
 	SERVER_NAME=`{echo $REQUEST_URI | sed '
-		s;^http://;;
-		s;/.*;;
-	'}
-	REQUEST_URI=`{echo $REQUEST_URI | sed 's;^http://[^/]+/?;/;'}
+		s;^[^:]+:;;
+		s;^//([^/]+).*;\1;'}
+	REQUEST_URI=`{echo $REQUEST_URI | sed '
+		s;^[^:]+:;;
+		s;^//[^/]+/?;/;'}
 }
 QUERY_STRING=`{echo $REQUEST_URI | sed 's;[^?]*\??;;'}
 params=`{echo $QUERY_STRING | sed 's;\+; ;g'}
@@ -78,11 +80,20 @@ location=`{echo $location | sed '
 	s;/\./;/;g
 	s;//+;/;g
 '}
-if(~ $REQUEST_METHOD POST){
+SERVER_NAME=`{echo $SERVER_NAME | sed 's;^(\[[^\]]+\]|[^:]+)\:([0-9]+)$;\1 \2;'}
+if(~ $#SERVER_NAME 2){
+	SERVER_PORT=$SERVER_NAME(2)
+	SERVER_NAME=$SERVER_NAME(1)
+}
+if(~ $REQUEST_METHOD (PUT POST)){
 	if(! ~ $"CONTENT_LENGTH '')
 		trim_input | exec $rc_httpd_dir/select-handler
 	if not{
-		echo 'POST without content-length, assuming no keep-alive.' >[1=2]
+		if(~ $chunked yes){
+			echo 'HTTP/1.1 411 Length required'^$cr
+			echo $cr
+			exit
+		}
 		exec $rc_httpd_dir/select-handler
 	}
 }
