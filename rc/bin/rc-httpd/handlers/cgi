@@ -1,51 +1,43 @@
 #!/bin/rc
 fn filter_headers{
-	response='HTTP/1.1 200 OK'^$cr
+	response=(200 OK)
 	lines=''
 	done=false
 	while(~ $done false){
 		line=`{getline}
 		head=`{echo $line | awk '{print tolower($1)}'}
-		if(~ $head status:*){
-			tmp=`{echo $line | awk '{$1="" ; print}'}
-			response='HTTP/1.1 '^$"tmp^$cr
-		}
+		if(~ $head status:*)
+			response=`{echo $line | awk '{$1="" ; print}'}
 		if not if(~ $line '')
 			done=true
 		if not
 			lines=$"lines^$"line^$cr^'
 '
 	}
-	echo $response
+	echo 'HTTP/1.1' $"response^$cr
 	echo -n $"lines
+	do_log $response(1)
 }
 
 fn run_cgi {
-	path=$cgi_path exec $"cgi_bin $params
+	path=$cgi_path exec $"cgi_bin $params || echo 'Status: 500'
 }
 
 cgi_bin=$1
-if(! ~ $cgi_bin /*){
-	pwd=`{pwd}
-	cgi_bin=$"pwd ^ / ^ $cgi_bin
-}
-
-cgi_dir=$*($#*)
-if(! test -d $cgi_dir){
-	cgi_dir=`{basename -d $cgi_dir}
+cgi_dir=.
+if(! ~ $#* 1)
+	cgi_dir=$*($#*)
+if not if(~ $"cgi_bin /*){
+	cgi_dir=`{basename -d $"cgi_bin}
 	cgi_dir=$"cgi_dir
 }
+if(! ~ $"cgi_bin */*)
+	cgi_bin=./$"cgi_bin
+if(! builtin cd $"cgi_dir >[2]/dev/null || ! test -x $"cgi_bin){
+	error 500
+	exit
+}
 
-if(! test -d $"cgi_dir){
-	error 500
-	exit
-}
-if(! test -f  $cgi_bin -x $cgi_bin){
-	error 500
-	exit
-}
-do_log 200
-builtin cd $"cgi_dir
 run_cgi | {
 	filter_headers
 	emit_extra_headers
