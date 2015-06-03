@@ -610,6 +610,33 @@ readtab(Edit *edit, Header *hdr)
 	return 0;
 }
 
+static char*
+checkhdr(Header *a, Header *b)
+{
+	if(memcmp(a->sig, b->sig, sizeof(a->sig)) != 0)
+		return "signature";
+	if(memcmp(a->rev, b->rev, sizeof(a->rev)) != 0)
+		return "revision";
+	if(memcmp(a->hdrsiz, b->hdrsiz, sizeof(a->hdrsiz)) != 0)
+		return "header size";
+	if(memcmp(a->selflba, b->backlba, sizeof(a->selflba)) != 0
+	|| memcmp(a->backlba, b->selflba, sizeof(a->backlba)) != 0)
+		return "backup lba/self lba";
+	if(memcmp(a->firstlba, b->firstlba, sizeof(a->firstlba)) != 0)
+		return "first lba";
+	if(memcmp(a->lastlba, b->lastlba, sizeof(a->lastlba)) != 0)
+		return "last lba";
+	if(memcmp(a->devid, b->devid, sizeof(a->devid)) != 0)
+		return "device guid";
+	if(memcmp(a->entrycount, b->entrycount, sizeof(a->entrycount)) != 0)
+		return "entry count";
+	if(memcmp(a->entrysize, b->entrysize, sizeof(a->entrysize)) != 0)
+		return "entry size";
+	if(memcmp(a->tabcrc, b->tabcrc, sizeof(a->tabcrc)) != 0)
+		return "table checksum";
+	return nil;
+}
+
 static Header*
 getbakhdr(Edit *edit, Header *bhdr)
 {
@@ -619,9 +646,17 @@ getbakhdr(Edit *edit, Header *bhdr)
 
 	siz = getle32(bhdr->hdrsiz);
 	lba = getle64(bhdr->backlba);
-	hdr = readhdr(edit->disk, lba);
-	if(hdr != nil)
-		return hdr;
+
+	if(!blank){
+		char *mismatch;
+
+		mismatch = "data";
+		hdr = readhdr(edit->disk, lba);
+		if(hdr != nil && (mismatch = checkhdr(bhdr, hdr)) == nil)
+			return hdr;
+		fprint(2, "backup header at lba %lld has mismatching %s, restoring.\n",
+			lba, mismatch);
+	}
 
 	hdr = getblock(edit->disk, lba);
 	memmove(hdr, bhdr, siz);
@@ -756,13 +791,13 @@ initmbr(Disk *disk)
 	t->type = 0xEE;
 	t->active = 0;
 
-	size = disk->secs > 0xFFFFFFFF ? 0xFFFFFFFF : disk->secs;
-	putle32(t->lba, 0);
+	size = (disk->secs - 1) > 0xFFFFFFFF ? 0xFFFFFFFF : (disk->secs - 1);
+	putle32(t->lba, 1);
 	putle32(t->size, size);
 
 	t->starth = 0;
 	t->startc = 0;
-	t->starts = 0;
+	t->starts = 1;
 	t->endh = disk->h-1;
 	t->ends = (disk->s & 0x3F) | (((disk->c-1)>>2) & 0xC0);
 	t->endc = disk->c-1;
