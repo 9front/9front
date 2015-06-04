@@ -1721,6 +1721,7 @@ puttime(Dosdir *d, long s)
 	PSHORT(d->time, x);
 	x = ((t->year-80)<<9) | ((t->mon+1)<<5) | t->mday;
 	PSHORT(d->date, x);
+	PSHORT(d->adate, x);
 }
 
 long
@@ -1821,34 +1822,40 @@ bootsecdump32(int fd, Xfs *xf, Dosboot32 *b32)
 	bootdump32(fd, b32);
 	res = GSHORT(b32->nresrv);
 	bsec = GSHORT(b32->backupboot);
-	if(bsec < res && bsec != 0){
-		p1 = getsect(xf, bsec);
-		if(p1 == nil)
-			fprint(fd, "\ncouldn't get backup boot sector: %r\n");
-		else{
-			fprint(fd, "\nbackup boot\n");
-			bootdump32(fd, (Dosboot32*)p1->iobuf);
-			putsect(p1);
+	if(bsec != 0 && bsec != 0xffff){
+		if(bsec >= res)
+			fprint(fd, "bad backup boot sector: %d reserved %d\n", bsec, res);
+		else {
+			p1 = getsect(xf, bsec);
+			if(p1 == nil)
+				fprint(fd, "\ncouldn't get backup boot sector: %r\n");
+			else{
+				fprint(fd, "\nbackup boot\n");
+				bootdump32(fd, (Dosboot32*)p1->iobuf);
+				putsect(p1);
+			}
 		}
-	}else if(bsec != 0xffff)
-		fprint(fd, "bad backup boot sector: %d reserved %d\n", bsec, res);
+	}
 	fisec = GSHORT(b32->infospec);
-	if(fisec < res && fisec != 0){
-		p1 = getsect(xf, fisec);
-		if(p1 == nil)
-			fprint(fd, "\ncouldn't get fat info sector: %r\n");
-		else{
-			fprint(fd, "\nfat info %d\n", fisec);
-			fi = (Fatinfo*)p1->iobuf;
-			fprint(fd, "sig1: 0x%lux sb 0x%lux\n", GLONG(fi->sig1), FATINFOSIG1);
-			fprint(fd, "sig: 0x%lux sb 0x%lux\n", GLONG(fi->sig), FATINFOSIG);
-			fprint(fd, "freeclust: %lud\n", GLONG(fi->freeclust));
-			fprint(fd, "nextfree: %lud\n", GLONG(fi->nextfree));
-			fprint(fd, "reserved: %lud %lud %lud\n", GLONG(fi->resrv), GLONG(fi->resrv+4), GLONG(fi->resrv+8));
-			putsect(p1);
+	if(fisec != 0 && fisec != 0xffff){
+		if(fisec >= res)
+			fprint(2, "bad fat info sector: %d reserved %d\n", fisec, res);
+		else {
+			p1 = getsect(xf, fisec);
+			if(p1 == nil)
+				fprint(fd, "\ncouldn't get fat info sector: %r\n");
+			else{
+				fprint(fd, "\nfat info %d\n", fisec);
+				fi = (Fatinfo*)p1->iobuf;
+				fprint(fd, "sig1: 0x%lux sb 0x%lux\n", GLONG(fi->sig1), FATINFOSIG1);
+				fprint(fd, "sig: 0x%lux sb 0x%lux\n", GLONG(fi->sig), FATINFOSIG);
+				fprint(fd, "freeclust: %lud\n", GLONG(fi->freeclust));
+				fprint(fd, "nextfree: %lud\n", GLONG(fi->nextfree));
+				fprint(fd, "reserved: %lud %lud %lud\n", GLONG(fi->resrv), GLONG(fi->resrv+4), GLONG(fi->resrv+8));
+				putsect(p1);
+			}
 		}
-	}else if(fisec != 0xffff)
-		fprint(2, "bad fat info sector: %d reserved %d\n", bsec, res);
+	}
 }
 
 void
@@ -1867,7 +1874,7 @@ dirdump(void *vdbuf)
 	d = vdbuf;
 
 	ebuf = buf + sizeof(buf);
-	if(d->attr == 0xf){
+	if((d->attr & 0xf) == 0xf){
 		dbuf = vdbuf;
 		name = namebuf + DOSNAMELEN;
 		*--name = '\0';
@@ -1884,7 +1891,7 @@ dirdump(void *vdbuf)
 		s = seprint(s, ebuf, " %2.2d.%2.2d.%2.2d", 80+(i>>9), (i>>5)&15, i&31);
 	
 		i = GSHORT(d->ctime);
-		s = seprint(s, ebuf, " %2.2d:%2.2d:%2.2d", i>>11, (i>>5)&63, (i&31)<<1);
+		s = seprint(s, ebuf, " %2.2d:%2.2d:%2.2d+%d", i>>11, (i>>5)&63, (i&31)<<1, (int)d->ctimetenth);
 		i = GSHORT(d->cdate);
 		s = seprint(s, ebuf, " %2.2d.%2.2d.%2.2d", 80+(i>>9), (i>>5)&15, i&31);
 	

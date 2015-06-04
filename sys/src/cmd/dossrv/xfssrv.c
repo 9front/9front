@@ -176,7 +176,7 @@ io(int srvfd)
 		if(write(srvfd, mdata, n) != n)
 			panic("mount write");
 	}
-	chat("server shut down");
+	chat("server shut down\n");
 }
 
 void

@@ -329,6 +329,9 @@ mkdentry(Xfs *xf, Dosptr *ndp, char *name, char *sname, int longtype, int nattr,
 
 	nd->attr = nattr;
 	puttime(nd, 0);
+	PSHORT(nd->cdate, GSHORT(nd->date));
+	PSHORT(nd->ctime, GSHORT(nd->time));
+	nd->ctimetenth = 0;
 	putstart(xf, nd, start);
 	nd->length[0] = length;
 	nd->length[1] = length>>8;
@@ -873,7 +876,8 @@ rwstat(void)
 		 * copy invisible fields
 		 */
 		d = dp->d;
-		for(i = 0; i < 2; i++)
+		d->ctimetenth = od.ctimetenth;
+		for(i = 0; i < nelem(od.ctime); i++)
 			d->ctime[i] = od.ctime[i];
 		for(i = 0; i < nelem(od.cdate); i++)
 			d->cdate[i] = od.cdate[i];

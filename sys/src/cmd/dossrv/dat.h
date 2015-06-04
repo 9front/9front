@@ -150,7 +150,8 @@ struct Dosdir{
 	uchar	ext[3];
 	uchar	attr;
 	uchar	reserved[1];
-	uchar	ctime[3];		/* creation time */
+	uchar	ctimetenth;
+	uchar	ctime[2];		/* creation time */
 	uchar	cdate[2];		/* creation date */
 	uchar	adate[2];		/* last access date */
 	uchar	hstart[2];		/* high bits of start for fat32 */
