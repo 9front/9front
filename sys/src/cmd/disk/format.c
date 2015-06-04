@@ -72,6 +72,24 @@ struct Dosboot32
 	uchar	type[8];
 };
 
+enum
+{
+	FATINFOSIG1	= 0x41615252UL,
+	FATINFOSIG	= 0x61417272UL,
+};
+
+typedef struct Fatinfo Fatinfo;
+struct Fatinfo
+{
+	uchar	sig1[4];
+	uchar	pad[480];
+	uchar	sig[4];
+	uchar	freeclust[4];	/* num frre clusters; -1 is unknown */
+	uchar	nextfree[4];	/* most recently allocated cluster */
+	uchar	resrv[4*3];
+};
+
+
 #define	PUTSHORT(p, v) { (p)[1] = (v)>>8; (p)[0] = (v); }
 #define	PUTLONG(p, v) { PUTSHORT((p), (v)); PUTSHORT((p)+2, (v)>>16); }
 #define	GETSHORT(p)	(((p)[1]<<8)|(p)[0])
@@ -537,6 +555,8 @@ if(chatty) print("clustersize %d\n", clustersize);
 		 */
 		fatbits = 12;
 Tryagain:
+		if(fatbits == 32)
+			nresrv++;	/* for FatInfo */
 		volsecs = length/secsize;
 		/*
 		 * here's a crock inside a crock.  even having fixed fatbits,
@@ -609,6 +629,8 @@ if(chatty) print("try %d fatbits => %d clusters of %d\n", fatbits, clusters, clu
 			bb = (Dosboot32*)buf;
 			PUTLONG(bb->fatsize, fatsecs);
 			PUTLONG(bb->rootclust, 2);
+			PUTSHORT(bb->fsinfo, nresrv-1);
+			PUTSHORT(bb->bootbak, 0);
 			bb->bootsig = 0x29;
 			bb->driveno = (t->media == 0xF8) ? getdriveno(disk) : 0;
 			memmove(bb->label, label, sizeof(bb->label));
@@ -762,6 +784,25 @@ fprint(2, "add %s at clust %lux\n", d->name, x);
 	 *  write the fats and root
 	 */
 	if(commit) {
+		if(fatbits == 32){
+			Fatinfo *fi;
+
+			fi = malloc(secsize);
+			if(fi == nil)
+				fatal("out of memory");
+
+			memset(fi, 0, secsize);
+			PUTLONG(fi->sig1, FATINFOSIG1);
+			PUTLONG(fi->sig, FATINFOSIG);
+			PUTLONG(fi->freeclust, clusters - fatlast);
+			PUTLONG(fi->nextfree, fatlast);
+	
+			if(seek(disk->wfd, (nresrv-1)*secsize, 0) < 0)
+				fatal("seek to fatinfo: %r\n");
+			if(write(disk->wfd, fi, secsize) < 0)
+				fatal("writing fat #1: %r");
+			free(fi);
+		}
 		if(seek(disk->wfd, nresrv*secsize, 0) < 0)
 			fatal("seek to fat #1: %r");
 		if(write(disk->wfd, fat, fatsecs*secsize) < 0)
