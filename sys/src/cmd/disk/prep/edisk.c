@@ -90,8 +90,6 @@ static int	nparts;
 static uchar	devid[16];
 static uchar	zeros[16];
 
-static Type	*type9;
-
 /* RFC4122, but in little endian format */
 #define UU(a,b,c,d,e) { \
 	(a)&255,((a)>>8)&255,((a)>>16)&255,((a)>>24)&255, \
@@ -255,8 +253,6 @@ main(int argc, char **argv)
 	fmtinstall('A', attrfmt);
 
 	initcrc32();
-
-	type9 = gettype(nil, "plan9");
 
 	secsize = 0;
 	ARGBEGIN{
@@ -895,18 +891,20 @@ newpart(Edit *edit, Gptpart *p, vlong start, vlong end, Type *type, uvlong attr)
 }
 
 static void
-autopart(Edit *edit)
+autopart1(Edit *edit, Type *type, uvlong attr, vlong maxsize)
 {
 	vlong start, bigstart, bigsize;
 	Gptpart *p;
 	int i;
+
+	maxsize /= edit->disk->secsize;
 
 	bigsize = 0;
 	bigstart = 0;
 	start = partoff;
 	for(i=0; i<edit->npart; i++){
 		p = (Gptpart*)edit->part[i];
-		if(p->type == type9)
+		if(p->type == type)
 			return;
 		if(p->start > start && (p->start - start) > bigsize){
 			bigsize = p->start - start;
@@ -922,14 +920,23 @@ autopart(Edit *edit)
 		fprint(2, "couldn't find space for plan 9 partition\n");
 		return;
 	}
+	if(maxsize && bigsize > maxsize)
+		bigsize = maxsize;
 	for(i=0; i<nparts; i++){
 		p = &parts[i];
 		if(p->type == nil){
-			newpart(edit, p, bigstart, bigstart+bigsize, type9, 0);
+			newpart(edit, p, bigstart, bigstart+bigsize, type, attr);
 			return;
 		}
 	}
-	fprint(2, "couldn't find free slot for plan 9 partition\n");
+	fprint(2, "couldn't find free slot for %s partition\n", type->name);
+}
+
+static void
+autopart(Edit *edit)
+{
+	autopart1(edit, gettype(nil, "esp"), 4, 550*MB);
+	autopart1(edit, gettype(nil, "plan9"), 0, 0);
 }
 
 typedef struct Name Name;
@@ -1072,7 +1079,7 @@ cmdadd(Edit *edit, char *name, vlong start, vlong end)
 	slot = atoi(name+1)-1;
 	if(slot < 0 || slot >= nparts)
 		return "partition number out of range";
-	return newpart(edit, &parts[slot], start, end, type9, 0);
+	return newpart(edit, &parts[slot], start, end, gettype(nil, "plan9"), 0);
 }
 
 static char*
