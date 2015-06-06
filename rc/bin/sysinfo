@@ -51,7 +51,7 @@ fn post{
 		webfs
 		hpost -u http://sysinfo.9front.org -p / a_body@$file submit:submit fake:fake a_func:add_post url: |
 			grep -e '\/body\"' |
-			sed 1q | sed 's/^.*href=\"//g; s/body\".*$/body/g; s/^/http:\/\/sysinfo.9front.org/g'
+			sed 1q | sed 's/^.*href=\"//g; s/body\".*$/body/g'
 		rm -f $file
 	}
 }
