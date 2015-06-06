@@ -1,6 +1,6 @@
 #!/bin/rc
 
-# desc: create a boot floppy or configure hard disk to boot plan 9
+# desc: configure hard disk to boot plan 9
 # prereq: copydist
 
 fats=()
@@ -73,7 +73,7 @@ case go
 
 	if(~ $need9fatformat yes){
 		log Initializing Plan 9 FAT partition.
-		logprog disk/format -r 2 -d -b /n/newfs/386/pbs $9fat
+		logprog disk/format -r 2 -d -b /n/newfs/386/pbs -l PLAN9 $9fat
 	}
 	if not {
 		log Updating bootsector.

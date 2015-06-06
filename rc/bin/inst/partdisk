@@ -32,23 +32,25 @@ case go
 	prompt $default 'Disk to partition' $disks
 	disk=$rd
 
-	if(! ./hasmbr /dev/$disk/data) {
-		echo 'The disk you selected HAS NO master boot record on its first sector.'
-		echo '(Perhaps it is a completely blank disk.)'
-		echo 'You need a master boot record to use the disk.'
-		echo 'Should we install a default master boot record?'
-		echo
-		prompt 'Install mbr' y n
-		switch($rd) {
-		case y
-			disk/mbr -m /386/mbr /dev/$disk/data
-			pickdisk=done
-		}
-	}
-
 	diskedit=disk/fdisk
 	if(disk/edisk -p /dev/$disk/data >/dev/null >[2=1])
-		diskedit=disk/edisk	
+		diskedit=disk/edisk
+
+	if(~ $diskedit disk/fdisk && ! ./hasmbr /dev/$disk/data) {
+		echo 'The disk you selected HAS NO master boot record on its first sector.'
+		echo '(Perhaps it is a completely blank disk.)'
+		echo 'Shall we create a blank EFI partition table (GPT)'
+		echo 'or install traditional DOS partition table (MBR)?'
+		echo
+		prompt 'Install mbr or gpt' mbr gpt
+		switch($rd) {
+		case mbr
+			disk/mbr -m /386/mbr /dev/$disk/data
+		case gpt
+			disk/edisk -bw /dev/$disk/data
+			diskedit=disk/edisk
+		}
+	}
 
 	echo
 	echo 'This is '$diskedit'; use it to create a Plan 9 partition.'

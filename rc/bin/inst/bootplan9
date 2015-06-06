@@ -1,5 +1,20 @@
 #!/bin/rc
 
+# look for esp and format it when not already done
+esp=`{ls /dev/$disk/esp >[2]/dev/null}
+if(~ $#esp 1 && ! ~ fstype $esp dos){
+	echo
+	echo 'Here appears to be a unformated EFI system partition:'
+	echo '	' $esp
+	echo
+	prompt 'Initialize FAT on EFI system partition' yes no
+	switch($rd) {
+	case yes
+		# 4k clusters to force FAT32
+		disk/format -d -c 8 -l ESP $esp
+	}
+}
+
 # look for plan9 partition in the DOS partition table (if any)
 p9part=`{disk/fdisk /dev/$disk/data >[2]/dev/null </dev/null | grep PLAN9 | sed 1q | sed 's/ *(p.) .*/\1/'}
 if(~ $#p9part 0){
@@ -13,19 +28,15 @@ echo 'or a master boot record from a Unix clone (e.g., LILO or'
 echo 'FreeBSD bootmgr), it is probably safe to continue using'
 echo 'that boot record rather than install the Plan 9 boot record.'
 echo
-prompt 'Install the Plan 9 master boot record' y n 
+prompt 'Install the Plan 9 master boot record' yes no
 switch($rd) {
-case n
-	;
-case y
+case yes
 	disk/mbr -m /386/mbr /dev/$disk/data
 }
 
-prompt 'Mark the Plan 9 partition active' y n
+prompt 'Mark the Plan 9 partition active' yes no
 switch($rd) {
-case n
-	;
-case y
+case yes
 	{ echo 'A '^$p9part; echo w } | disk/fdisk /dev/$disk/data >[2]/dev/null >/dev/null
 	x=$status
 	if(~ $x '' '|'){
