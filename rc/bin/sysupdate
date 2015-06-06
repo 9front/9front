@@ -1,16 +1,17 @@
 #!/bin/rc
-rfork n
+rfork en
+source=https://code.9front.org/hg/plan9front
 cd /
 if(! test -d .hg)
 	bind -ac /dist/plan9front /
 while(! ~ $#* 0){
 	switch($1){
 	case -i
-		hg incoming
+		hg incoming $source
 	case *
 		echo usage: sysupdate '[-i]' >[1=2]
 		exit usage
 	}
 	shift
 }
-hg -v pull -u
+hg -v pull -u $source
