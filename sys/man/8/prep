@@ -227,6 +227,8 @@ will create a Plan 9
 partition in the largest unused area on the disk,
 doing nothing if a
 Plan 9 partition already exists.
+.I Edisk
+also adds a EFI system partition (esp) when not already exists.
 If no other partition on the disk is marked active (i.e. marked as the boot partition),
 .I fdisk
 will mark the new partition active.
