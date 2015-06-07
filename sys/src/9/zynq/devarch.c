@@ -26,10 +26,11 @@ static int narchdir = Qbase;
 int temp = -128;
 ulong *devc;
 int dmadone;
-QLock pllock;
 enum { PLBUFSIZ = 8192 };
 uchar *plbuf;
 Rendez plinitr, pldoner, pldmar;
+QLock plrlock, plwlock;
+Ref plwopen;
 
 enum {
 	DEVCTRL = 0,
@@ -160,7 +161,6 @@ plirq(Ureg *, void *)
 	if((fl & DONE) != 0){
 		slcr[0x900/4] = 0xf;
 		slcr[0x240/4] = 0;
-		print("DONE!\n");
 		devc[DEVMASK] |= DONE;
 		wakeup(&pldoner);
 	}
@@ -195,33 +195,35 @@ plinit(void)
 static void
 plconf(void)
 {
-	if(!canqlock(&pllock))
-		error(Einuse);
 	slcr[0x240/4] = 0xf;
 	slcr[0x900/4] = 0xa;
-	dmadone = 1;
 	devc[DEVISTS] = DONE|INITPE|DMADONE;
 	devc[DEVCTRL] |= PROG;
 	devc[DEVCTRL] &= ~PROG;
 	devc[DEVMASK] &= ~DONE;
 	devc[DEVCTRL] |= PROG;
+
+	while(waserror())
+		;
 	sleep(&plinitr, isplinit, nil);
-	plbuf = smalloc(PLBUFSIZ);
+	poperror();
 }
 
 static long
 plwrite(uintptr pa, long n)
 {
-	long w;
-	
-	w = n >> 2;
-	sleep(&pldmar, isdmadone, nil);
 	dmadone = 0;
 	coherence();
 	devc[DMASRC] = pa;
 	devc[DMADST] = -1;
-	devc[DMASRCL] = w;
+	devc[DMASRCL] = n>>2;
 	devc[DMADSTL] = 0;
+
+	while(waserror())
+		;
+	sleep(&pldmar, isdmadone, nil);
+	poperror();
+
 	return n;
 }
 
@@ -234,6 +236,13 @@ plcopy(uchar *d, long n)
 	
 	if((n & 3) != 0 || n <= 0)
 		error(Eshort);
+
+	eqlock(&plwlock);
+	if(waserror()){
+		qunlock(&plwlock);
+		nexterror();
+	}
+
 	ret = n;
 	pa = PADDR(plbuf);
 	while(n > 0){
@@ -246,43 +255,10 @@ plcopy(uchar *d, long n)
 		clean2pa(pa, pa + nn);
 		n -= plwrite(pa, nn);
 	}
-	return ret;
-}
 
-static long
-userdma(void *a, long n, long (*f)(uintptr, long))
-{
-	ulong s;
-	void *va;
-	uintptr pa;
-	long off, nn, ret;
+	qunlock(&plwlock);
+	poperror();
 
-	evenaddr((uintptr) a);
-	if((n & 3) != 0)
-		error(Eshort);
-	
-	ret = n;
-	while(n > 0){
-		off = (uintptr)a & BY2PG - 1;
-		va = (void *) ((uintptr)a & ~(BY2PG - 1));
-		s = splhi();
-		while(pa = palookur(va), (pa & 1) != 0){
-			splx(s);
-			if(fault(pa, 1) < 0)
-				error(Egreg);
-			s = splhi();
-		}
-		if(off + n >= BY2PG)
-			nn = BY2PG - off;
-		else
-			nn = n;
-		pa = (pa & ~(BY2PG - 1)) + off;
-		cleandse((char *) a + off, (char*) a + off + nn);
-		clean2pa(pa, pa + nn);
-		n -= f(pa, nn);
-		splx(s);
-		a = (char *) va + BY2PG;
-	}
 	return ret;
 }
 
@@ -306,7 +282,14 @@ archread(Chan *c, void *a, long n, vlong offset)
 		snprint(buf, sizeof(buf), "%d.%d\n", temp/10, temp%10);
 		return readstr(offset, a, n, buf);
 	case Qpl:
+		eqlock(&plrlock);
+		if(waserror()){
+			qunlock(&plrlock);
+			nexterror();
+		}
 		sleep(&pldoner, ispldone, nil);
+		qunlock(&plrlock);
+		poperror();
 		return 0;
 	default:
 		error(Egreg);
@@ -315,7 +298,7 @@ archread(Chan *c, void *a, long n, vlong offset)
 }
 
 static long
-archwrite(Chan *c, void *a, long n, vlong offset)
+archwrite(Chan *c, void *a, long n, vlong)
 {
 	switch((ulong)c->qid.path){
 	case Qpl:
@@ -342,23 +325,26 @@ static Chan*
 archopen(Chan* c, int omode)
 {
 	devopen(c, omode, archdir, narchdir, devgen);
-	if((ulong)c->qid.path == Qpl && c->mode == OWRITE)
+	if((ulong)c->qid.path == Qpl && (c->mode == OWRITE || c->mode == ORDWR)){
+		if(incref(&plwopen) != 1){
+			c->flag &= ~COPEN;
+			decref(&plwopen);
+			error(Einuse);
+		}
+		plbuf = smalloc(PLBUFSIZ);
 		plconf();
+	}
 	return c;
 }
 
 static void
 archclose(Chan* c)
 {
-	if((ulong)c->qid.path == Qpl && c->mode == OWRITE){
-	/*	cleandse(plbuf, plbuf + plbufn);
-		clean2pa(PADDR(plbuf), PADDR(plbuf) + plbufn);
-		plwrite(PADDR(plbuf), 4096);
-		plwrite(PADDR(plbuf) + 4096, plbufn - 4096);
-		plbufn = 0;*/
+	if((c->flag & COPEN) != 0)
+	if((ulong)c->qid.path == Qpl && (c->mode == OWRITE || c->mode == ORDWR)){
 		free(plbuf);
 		plbuf = nil;
-		qunlock(&pllock);
+		decref(&plwopen);
 	}
 }
 
