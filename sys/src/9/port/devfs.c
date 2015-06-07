@@ -953,7 +953,7 @@ mopen(Chan *c, int omode)
 	 * but only for its children. Don't use devopen here.
 	 */
 	c->offset = 0;
-	c->mode = openmode(omode & ~OTRUNC);
+	c->mode = openmode(omode);
 	c->flag |= COPEN;
 	return c;
 }
