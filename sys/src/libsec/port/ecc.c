@@ -383,8 +383,8 @@ err:
 	if(rptr)
 		*rptr = s;
 	if(allocd){
-		free(ret->x);
-		free(ret->y);
+		mpfree(ret->x);
+		mpfree(ret->y);
 		free(ret);
 	}
 	return nil;
