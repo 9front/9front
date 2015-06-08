@@ -621,8 +621,10 @@ vbesnarf(Vbe *vbe, Vga *vga)
 		dspact = u.cx;
 
 	}
+/* breaks modeset on 10de/0392 "G73 [GeForce 7600 GS]" -- cinap
 	else if(memcmp(oem, "NVIDIA", 6) == 0)
 		setscale = nvidiascale;
+*/
 
 	vga->edid[0] = vbeddcedid(vbe);
 
