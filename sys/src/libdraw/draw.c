@@ -9,7 +9,7 @@ _setdrawop(Display *d, Drawop op)
 
 	if(op != SoverD){
 		a = bufimage(d, 1+1);
-		if(a == 0)
+		if(a == nil)
 			return;
 		a[0] = 'O';
 		a[1] = op;
@@ -24,7 +24,7 @@ draw1(Image *dst, Rectangle *r, Image *src, Point *p0, Image *mask, Point *p1, D
 	_setdrawop(dst->display, op);
 
 	a = bufimage(dst->display, 1+4+4+4+4*4+2*4+2*4);
-	if(a == 0)
+	if(a == nil)
 		return;
 	if(src == nil)
 		src = dst->display->black;

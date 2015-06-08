@@ -5,10 +5,10 @@
 Image*
 allocimage(Display *d, Rectangle r, ulong chan, int repl, ulong val)
 {
-	Image*	i;
+	Image *i;
 
-	i =  _allocimage(nil, d, r, chan, repl, val, 0, 0);
-	if (i)
+	i = _allocimage(nil, d, r, chan, repl, val, 0, 0);
+	if(i != nil)
 		setmalloctag(i, getcallerpc(&d));
 	return i;
 }
@@ -23,8 +23,8 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong val,
 	int id;
 	int depth;
 
-	err = 0;
-	i = 0;
+	err = nil;
+	i = nil;
 
 	if(badrect(r)){
 		werrstr("bad rectangle");
@@ -39,18 +39,18 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong val,
 	if(depth == 0){
 		err = "bad channel descriptor";
     Error:
-		if(err)
+		if(err != nil)
 			werrstr("allocimage: %s", err);
 		else
 			werrstr("allocimage: %r");
 		free(i);
-		return 0;
+		return nil;
 	}
 
 	/* flush pending data so we don't get error allocating the image */
 	flushimage(d, 0);
 	a = bufimage(d, 1+4+4+1+4+1+4*4+4*4+4);
-	if(a == 0)
+	if(a == nil)
 		goto Error;
 	d->imageid++;
 	id = d->imageid;
@@ -77,13 +77,13 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong val,
 	if(flushimage(d, 0) < 0)
 		goto Error;
 
-	if(ai)
+	if(ai != nil)
 		i = ai;
 	else{
 		i = malloc(sizeof(Image));
 		if(i == nil){
 			a = bufimage(d, 1+4);
-			if(a){
+			if(a != nil){
 				a[0] = 'f';
 				BPLONG(a+1, id);
 				flushimage(d, 0);
@@ -98,8 +98,8 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong val,
 	i->r = r;
 	i->clipr = clipr;
 	i->repl = repl;
-	i->screen = 0;
-	i->next = 0;
+	i->screen = nil;
+	i->next = nil;
 	return i;
 }
 
@@ -112,25 +112,24 @@ namedimage(Display *d, char *name)
 	int id, n;
 	ulong chan;
 
-	err = 0;
-	i = 0;
+	err = nil;
+	i = nil;
 
 	n = strlen(name);
 	if(n >= 256){
 		err = "name too long";
     Error:
-		if(err)
+		if(err != nil)
 			werrstr("namedimage: %s", err);
 		else
 			werrstr("namedimage: %r");
-		if(i)
-			free(i);
-		return 0;
+		free(i);
+		return nil;
 	}
 	/* flush pending data so we don't get error allocating the image */
 	flushimage(d, 0);
 	a = bufimage(d, 1+4+1+n);
-	if(a == 0)
+	if(a == nil)
 		goto Error;
 	d->imageid++;
 	id = d->imageid;
@@ -149,7 +148,7 @@ namedimage(Display *d, char *name)
 	if(i == nil){
 	Error1:
 		a = bufimage(d, 1+4);
-		if(a){
+		if(a != nil){
 			a[0] = 'f';
 			BPLONG(a+1, id);
 			flushimage(d, 0);
@@ -173,8 +172,8 @@ namedimage(Display *d, char *name)
 	i->clipr.min.y = atoi(buf+9*12);
 	i->clipr.max.x = atoi(buf+10*12);
 	i->clipr.max.y = atoi(buf+11*12);
-	i->screen = 0;
-	i->next = 0;
+	i->screen = nil;
+	i->next = nil;
 	return i;
 }
 
@@ -186,7 +185,7 @@ nameimage(Image *i, char *name, int in)
 
 	n = strlen(name);
 	a = bufimage(i->display, 1+4+1+1+n);
-	if(a == 0)
+	if(a == nil)
 		return 0;
 	a[0] = 'N';
 	BPLONG(a+1, i->id);
@@ -205,23 +204,16 @@ _freeimage1(Image *i)
 	Display *d;
 	Image *w;
 
-	if(i == 0 || i->display == 0)
+	if(i == nil || i->display == nil)
 		return 0;
-	/* make sure no refresh events occur on this if we block in the write */
 	d = i->display;
-	/* flush pending data so we don't get error deleting the image */
 	flushimage(d, 0);
-	a = bufimage(d, 1+4);
-	if(a == 0)
-		return -1;
-	a[0] = 'f';
-	BPLONG(a+1, i->id);
-	if(i->screen){
+	if(i->screen != nil){
 		w = d->windows;
 		if(w == i)
 			d->windows = i->next;
 		else
-			while(w){
+			while(w != nil){
 				if(w->next == i){
 					w->next = i->next;
 					break;
@@ -229,7 +221,12 @@ _freeimage1(Image *i)
 				w = w->next;
 			}
 	}
-	if(flushimage(d, i->screen!=0) < 0)
+	a = bufimage(d, 1+4);
+	if(a == nil)
+		return -1;
+	a[0] = 'f';
+	BPLONG(a+1, i->id);
+	if(flushimage(d, i->screen!=nil) < 0)
 		return -1;
 
 	return 0;

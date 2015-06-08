@@ -10,7 +10,7 @@ int	_drawdebug = 0;
 static char deffontname[] = "*default*";
 Screen	*_screen;
 
-int		debuglockdisplay = 0;
+int	debuglockdisplay = 0;
 
 static void _closedisplay(Display*, int);
 
@@ -21,7 +21,7 @@ drawshutdown(void)
 	Display *d;
 
 	d = display;
-	if(d){
+	if(d != nil){
 		display = nil;
 		_closedisplay(d, 1);
 	}
@@ -86,7 +86,7 @@ geninitdraw(char *devdir, void(*error)(Display*, char*), char *fontname, char *l
 	/*
 	 * Write label; ignore errors (we might not be running under rio)
 	 */
-	if(label){
+	if(label != nil){
 		snprint(buf, sizeof buf, "%s/label", display->windir);
 		fd = open(buf, OREAD);
 		if(fd >= 0){
@@ -148,7 +148,7 @@ retry:
 		close(fd);
 		buf[n] = '\0';
 		image = namedimage(d, buf);
-		if(image == 0){
+		if(image == nil){
 			/*
 			 * theres a race where the winname can change after
 			 * we read it, so keep trying as long as the name
@@ -166,7 +166,7 @@ retry:
 			freescreen(*scrp);
 			*scrp = nil;
 		}
-		if(image == 0){
+		if(image == nil){
 			*winp = nil;
 			d->screenimage = nil;
 			return -1;
@@ -221,9 +221,9 @@ initdisplay(char *dev, char *win, void(*error)(Display*, char*))
 
 	fmtinstall('P', Pfmt);
 	fmtinstall('R', Rfmt);
-	if(dev == 0)
+	if(dev == nil)
 		dev = "/dev";
-	if(win == 0)
+	if(win == nil)
 		win = "/dev";
 	if(strlen(dev)>sizeof buf-25 || strlen(win)>sizeof buf-25){
 		werrstr("initdisplay: directory name too long");
@@ -240,7 +240,7 @@ initdisplay(char *dev, char *win, void(*error)(Display*, char*))
     Error1:
 			free(t);
 			werrstr("initdisplay: %s: %r", buf);
-			return 0;
+			return nil;
 		}
 		ctlfd = open(buf, ORDWR|OCEXEC);
 	}
@@ -269,7 +269,7 @@ initdisplay(char *dev, char *win, void(*error)(Display*, char*))
 		goto Error2;
 	}
 	disp = mallocz(sizeof(Display), 1);
-	if(disp == 0){
+	if(disp == nil){
     Error4:
 		close(reffd);
 		goto Error3;
@@ -418,8 +418,8 @@ drawerror(Display *d, char *s)
 {
 	char err[ERRMAX];
 
-	if(d && d->error)
-		d->error(d, s);
+	if(d != nil && d->error != nil)
+		(*d->error)(d, s);
 	else{
 		errstr(err, sizeof err);
 		fprint(2, "draw: %s: %s\n", s, err);
@@ -469,11 +469,11 @@ bufimage(Display *d, int n)
 
 	if(n<0 || n>d->bufsize){
 		werrstr("bad count in bufimage");
-		return 0;
+		return nil;
 	}
 	if(d->bufp+n > d->buf+d->bufsize)
 		if(doflush(d) < 0)
-			return 0;
+			return nil;
 	p = d->bufp;
 	d->bufp += n;
 	return p;

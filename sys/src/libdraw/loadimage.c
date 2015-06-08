@@ -38,7 +38,7 @@ loadimage(Image *i, Rectangle r, uchar *data, int ndata)
 			n = dy*bpl;
 		a = bufimage(i->display, 21+n);
 		if(a == nil){
-			werrstr("bufimage failed");
+			werrstr("loadimage: %r");
 			return -1;
 		}
 		a[0] = 'y';

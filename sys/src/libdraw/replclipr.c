@@ -8,6 +8,10 @@ replclipr(Image *i, int repl, Rectangle clipr)
 	uchar *b;
 
 	b = bufimage(i->display, 22);
+	if(b == nil){
+		fprint(2, "replclipr: %r\n");
+		return;
+	}
 	b[0] = 'c';
 	BPLONG(b+1, i->id);
 	repl = repl!=0;

@@ -54,7 +54,7 @@ creadimage(Display *d, int fd, int dolock)
 		return nil;
 	}
 
-	if(d){
+	if(d != nil){
 		if(dolock)
 			lockdisplay(d);
 		i = allocimage(d, r, chan, 0, 0);
@@ -97,7 +97,7 @@ creadimage(Display *d, int fd, int dolock)
 		}
 		if(readn(fd, buf, nb)!=nb)
 			goto Errout;
-		if(d){
+		if(d != nil){
 			if(dolock)
 				lockdisplay(d);
 			a = bufimage(i->display, 21+nb);

@@ -24,7 +24,7 @@ cachechars(Font *f, char **ss, Rune **rr, ushort *cp, int max, int *wp, char **s
 		rp = *rr;
 	}
 	wid = 0;
-	*subfontname = 0;
+	*subfontname = nil;
 	for(i=0; i<max && (*sp || *rp); sp+=w, rp+=rw){
 		if(ss){
 			r = *(uchar*)sp;
@@ -153,7 +153,7 @@ cf2subfont(Cachefont *cf, Font *f)
 
 	name = cf->subfontname;
 	if(name == nil){
-		if(f->display && f->display->screenimage)
+		if(f->display != nil && f->display->screenimage != nil)
 			depth = f->display->screenimage->depth;
 		else
 			depth = 8;
@@ -298,7 +298,7 @@ loadchar(Font *f, Rune r, Cacheinfo *c, int h, int noflush, char **subfontname)
 		return 1;
 	flushimage(f->display, 0);	/* flush any pending errors */
 	b = bufimage(f->display, 37);
-	if(b == 0)
+	if(b == nil)
 		return 0;
 	b[0] = 'l';
 	BPLONG(b+1, f->cacheimage->id);
@@ -342,7 +342,7 @@ fontresize(Font *f, int wid, int ncache, int depth)
 	}
 	flushimage(d, 0);	/* flush any pending errors */
 	b = bufimage(d, 1+4+4+1);
-	if(b == 0){
+	if(b == nil){
 		freeimage(new);
 		goto Return;
 	}

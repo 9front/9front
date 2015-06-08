@@ -27,7 +27,7 @@ readimage(Display *d, int fd, int dolock)
 		
 	if(readn(fd, hdr+11, 5*12-11) != 5*12-11)
 		return nil;
-	if(d)
+	if(d != nil)
 		chunk = d->bufsize - 32;	/* a little room for header */
 	else
 		chunk = 8192;
@@ -78,7 +78,7 @@ readimage(Display *d, int fd, int dolock)
 	l = bytesperline(r, chantodepth(chan));
 	if(l > chunk)
 		chunk = l;
-	if(d){
+	if(d != nil){
 		if(dolock)
 			lockdisplay(d);
 		i = allocimage(d, r, chan, 0, -1);
@@ -116,7 +116,7 @@ readimage(Display *d, int fd, int dolock)
 			for(j=0; j<chunk; j++)
 				tmp[j] ^= 0xFF;
 
-		if(d){
+		if(d != nil){
 			if(dolock)
 				lockdisplay(d);
 			if(loadimage(i, Rect(r.min.x, miny, r.max.x, miny+dy), tmp, chunk) <= 0)

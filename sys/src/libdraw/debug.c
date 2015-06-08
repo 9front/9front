@@ -7,7 +7,7 @@ drawsetdebug(int v)
 {
 	uchar *a;
 	a = bufimage(display, 1+1);
-	if(a == 0){
+	if(a == nil){
 		fprint(2, "drawsetdebug: %r\n");
 		return;
 	}

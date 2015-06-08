@@ -17,17 +17,17 @@ allocscreen(Image *image, Image *fill, int public)
 	d = image->display;
 	if(d != fill->display){
 		werrstr("allocscreen: image and fill on different displays");
-		return 0;
+		return nil;
 	}
 	s = malloc(sizeof(Screen));
-	if(s == 0)
-		return 0;
+	if(s == nil)
+		return nil;
 	if(!screenid)
 		screenid = getpid();
 	for(try=0; try<25; try++){
 		/* loop until find a free id */
 		a = bufimage(d, 1+4+4+4+1);
-		if(a == 0)
+		if(a == nil)
 			break;
 		id = ++screenid & 0xffff;	/* old devdraw bug */
 		a[0] = 'A';
@@ -39,13 +39,13 @@ allocscreen(Image *image, Image *fill, int public)
 			goto Found;
 	}
 	free(s);
-	return 0;
+	return nil;
 
     Found:
 	s->display = d;
 	s->id = id;
 	s->image = image;
-	assert(s->image && s->image->chan != 0);
+	assert(s->image != nil && s->image->chan != 0);
 
 	s->fill = fill;
 	return s;
@@ -58,13 +58,13 @@ publicscreen(Display *d, int id, ulong chan)
 	Screen *s;
 
 	s = malloc(sizeof(Screen));
-	if(s == 0)
-		return 0;
+	if(s == nil)
+		return nil;
 	a = bufimage(d, 1+4+4);
-	if(a == 0){
-    Error:
+	if(a == nil){
+Error:
 		free(s);
-		return 0;
+		return nil;
 	}
 	a[0] = 'S';
 	BPLONG(a+1, id);
@@ -74,8 +74,8 @@ publicscreen(Display *d, int id, ulong chan)
 
 	s->display = d;
 	s->id = id;
-	s->image = 0;
-	s->fill = 0;
+	s->image = nil;
+	s->fill = nil;
 	return s;
 }
 
@@ -85,12 +85,15 @@ freescreen(Screen *s)
 	uchar *a;
 	Display *d;
 
-	if(s == 0)
+	if(s == nil)
 		return 0;
 	d = s->display;
 	a = bufimage(d, 1+4);
-	if(a == 0)
+	if(a == nil){
+Error:
+		free(s);
 		return -1;
+	}
 	a[0] = 'F';
 	BPLONG(a+1, s->id);
 	/*
@@ -98,7 +101,7 @@ freescreen(Screen *s)
 	 * window, and want it to disappear visually.
 	 */
 	if(flushimage(d, 1) < 0)
-		return -1;
+		goto Error;
 	free(s);
 	return 1;
 }
@@ -116,8 +119,8 @@ _allocwindow(Image *i, Screen *s, Rectangle r, int ref, ulong val)
 
 	d = s->display;
 	i = _allocimage(i, d, r, d->screenimage->chan, 0, val, s->id, ref);
-	if(i == 0)
-		return 0;
+	if(i == nil)
+		return nil;
 	i->screen = s;
 	i->next = s->display->windows;
 	s->display->windows = i;
@@ -157,6 +160,8 @@ topbottom(Image **w, int n, int top)
 	if(n==0)
 		return;
 	b = bufimage(d, 1+1+2+4*n);
+	if(b == nil)
+		return;
 	b[0] = 't';
 	b[1] = top;
 	BPSHORT(b+2, n);
@@ -167,17 +172,15 @@ topbottom(Image **w, int n, int top)
 void
 bottomwindow(Image *w)
 {
-	if(w->screen == 0)
-		return;
-	topbottom(&w, 1, 0);
+	if(w->screen != nil)
+		topbottom(&w, 1, 0);
 }
 
 void
 topwindow(Image *w)
 {
-	if(w->screen == 0)
-		return;
-	topbottom(&w, 1, 1);
+	if(w->screen != nil)
+		topbottom(&w, 1, 1);
 }
 
 void

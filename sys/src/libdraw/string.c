@@ -112,7 +112,7 @@ _string(Image *dst, Point pt, Image *src, Point sp, Font *f, char *s, Rune *r, i
 		if(bg)
 			m += 4+2*4;
 		b = bufimage(dst->display, m);
-		if(b == 0){
+		if(b == nil){
 			fprint(2, "string: %r\n");
 			break;
 		}
