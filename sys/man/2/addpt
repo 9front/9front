@@ -1,6 +1,6 @@
 .TH ADDPT 2
 .SH NAME
-addpt, subpt, mulpt, divpt, rectaddpt, rectsubpt, insetrect, canonrect, eqpt, eqrect, ptinrect, rectinrect, rectXrect, rectclip, combinerect, Dx, Dy, Pt, Rect, Rpt \- arithmetic on points and rectangles
+addpt, subpt, mulpt, divpt, rectaddpt, rectsubpt, insetrect, canonrect, eqpt, eqrect, ptinrect, rectinrect, rectXrect, rectclip, combinerect, badrect, Dx, Dy, Pt, Rect, Rpt \- arithmetic on points and rectangles
 .SH SYNOPSIS
 .B #include <u.h>
 .br
