@@ -54,6 +54,9 @@ int		rectclip(Rectangle *rp, Rectangle b)
 void		combinerect(Rectangle *rp, Rectangle b)
 .PP
 .B
+int		badrect(Rectangle r)
+.PP
+.B
 int		Dx(Rectangle r)
 .PP
 .B
@@ -175,6 +178,12 @@ with the smallest rectangle sufficient to cover all the pixels of
 .B *rp
 and
 .BR b .
+.PP
+.I Badrect
+returns 1 if
+.I r
+is zero, negative size or insanely huge rectangle.
+It returns 0 otherwise.
 .PP
 The functions
 .I Dx
