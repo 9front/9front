@@ -44,9 +44,9 @@ int	eatomouse(Mouse *m, char *buf, int n)
 ulong	estart(ulong key, int fd, int n)
 .PP
 .B
-ulong	estartfn(int id, ulong key, int fd, int n,
+ulong	estartfn(ulong key, int fd, int n,
 .B
-		    int (*fn)(Event*, uchar*, int))
+		    int (*fn)(int, Event*, uchar*, int))
 .PP
 .B
 ulong	etimer(ulong key, int n)
