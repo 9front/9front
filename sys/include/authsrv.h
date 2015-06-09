@@ -126,7 +126,6 @@ extern	void	convM2PR(char*, Passwordreq*, char*);
 /*
  *  convert ascii password to DES key
  */
-extern	int	opasstokey(char*, char*);
 extern	int	passtokey(char*, char*);
 
 /*

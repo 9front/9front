@@ -139,7 +139,6 @@ extern	void	convM2TR(char*, Ticketreq*);
 extern	int	convPR2M(Passwordreq*, char*, char*);
 extern	void	convM2PR(char*, Passwordreq*, char*);
 extern	u_char	nvcsum(void*, int);
-extern	int	opasstokey(char*, char*);
 extern	int	passtokey(char*, char*);
 extern	int	authenticate(int, int);
 extern	int	newns(char*, char*);

@@ -66,7 +66,6 @@ BEGIN {
 	Omittedlib["brk_"] = 1
 	Omittedlib["creadimage"] = 1
 	Omittedlib["main"] = 1
-	Omittedlib["opasstokey"] = 1
 	Omittedlib["oseek"] = 1
 	Omittedlib["sysr1"] = 1
 }
