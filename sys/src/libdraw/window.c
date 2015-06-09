@@ -107,18 +107,18 @@ Error:
 }
 
 Image*
-allocwindow(Screen *s, Rectangle r, int ref, ulong val)
+allocwindow(Screen *s, Rectangle r, int ref, ulong col)
 {
-	return _allocwindow(nil, s, r, ref, val);
+	return _allocwindow(nil, s, r, ref, col);
 }
 
 Image*
-_allocwindow(Image *i, Screen *s, Rectangle r, int ref, ulong val)
+_allocwindow(Image *i, Screen *s, Rectangle r, int ref, ulong col)
 {
 	Display *d;
 
 	d = s->display;
-	i = _allocimage(i, d, r, d->screenimage->chan, 0, val, s->id, ref);
+	i = _allocimage(i, d, r, d->screenimage->chan, 0, col, s->id, ref);
 	if(i == nil)
 		return nil;
 	i->screen = s;

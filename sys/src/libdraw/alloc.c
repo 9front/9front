@@ -3,18 +3,18 @@
 #include <draw.h>
 
 Image*
-allocimage(Display *d, Rectangle r, ulong chan, int repl, ulong val)
+allocimage(Display *d, Rectangle r, ulong chan, int repl, ulong col)
 {
 	Image *i;
 
-	i = _allocimage(nil, d, r, chan, repl, val, 0, 0);
+	i = _allocimage(nil, d, r, chan, repl, col, 0, 0);
 	if(i != nil)
 		setmalloctag(i, getcallerpc(&d));
 	return i;
 }
 
 Image*
-_allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong val, int screenid, int refresh)
+_allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong col, int screenid, int refresh)
 {
 	uchar *a;
 	char *err;
@@ -73,7 +73,7 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong val,
 	BPLONG(a+35, clipr.min.y);
 	BPLONG(a+39, clipr.max.x);
 	BPLONG(a+43, clipr.max.y);
-	BPLONG(a+47, val);
+	BPLONG(a+47, col);
 	if(flushimage(d, 0) < 0)
 		goto Error;
 

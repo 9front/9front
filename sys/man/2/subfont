@@ -22,7 +22,7 @@ void	freesubfont(Subfont *f)
 void	installsubfont(char *name, Subfont *f)
 .PP
 .B
-Subfont*	lookupsubfont(Subfont *f)
+Subfont*	lookupsubfont(Display *d, char *name)
 .PP
 .B
 void	uninstallsubfont(Subfont *f)

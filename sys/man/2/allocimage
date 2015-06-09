@@ -13,10 +13,10 @@ allocimage, allocimagemix, freeimage, nameimage, namedimage, setalpha, loadimage
 .PP
 .ta \w'\fLImage 'u
 .B
-Image	*allocimage(Display *d, Rectangle r, 
+Image	*allocimage(Display *d, Rectangle r,
 .br
 .B
-	ulong chan, int repl, int col)
+	ulong chan, int repl, ulong col)
 .PP
 .B
 Image	*allocimagemix(Display *d, ulong one, ulong three)
@@ -102,7 +102,8 @@ on
 is allocated with
 .BR allocimage ;
 it will have the rectangle, pixel channel format,
-and replication flag
+replication flag,
+and initial fill color
 given by its arguments.
 Convenient pixel channels like
 .BR GREY1 ,

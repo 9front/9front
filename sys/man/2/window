@@ -33,7 +33,7 @@ Screen*	publicscreen(Display *d, int id, ulong chan)
 int	freescreen(Screen *s)
 .PP
 .B
-Image*	allocwindow(Screen *s, Rectangle r, int ref, int val)
+Image*	allocwindow(Screen *s, Rectangle r, int ref, int col)
 .PP
 .B
 void	bottomwindow(Image *w)
@@ -115,7 +115,7 @@ which takes a pointer to the
 upon which to create the window, a rectangle
 .I r
 defining its geometry, an integer pixel value
-.I val
+.I col
 to color the window initially, and a refresh method
 .BR ref .
 The refresh methods are
