@@ -12,10 +12,10 @@ RGB, readcolmap, writecolmap \- access display color map
 .ta \w'\fLvoid 'u
 .PP
 .B
-int	readcolmap(Display *d, RGB *map)
+void	readcolmap(Display *d, RGB *map)
 .PP
 .B
-int	writecolmap(Display *d, RGB *map)
+void	writecolmap(Display *d, RGB *map)
 .fi
 .SH DESCRIPTION
 Colors are described by their red, green, and blue

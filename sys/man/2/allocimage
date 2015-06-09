@@ -22,7 +22,7 @@ Image	*allocimage(Display *d, Rectangle r,
 Image	*allocimagemix(Display *d, ulong one, ulong three)
 .PP
 .B
-void	freeimage(Image *i)
+int	freeimage(Image *i)
 .PP
 .B
 int	nameimage(Image *i, char *name, int in)
