@@ -315,6 +315,10 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 	switch(TYPE(c)){
 	case Qctl:
 		cb = parsecmd(a, n);
+		if(waserror()){
+			free(cb);
+			nexterror();
+		}
 		if(strcmp(cb->f[0], "va") == 0){
 			if(g->s != nil)
 				error("already has a virtual address");
@@ -335,6 +339,8 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 				g->s = newseg(SG_SHARED, va, len);
 		} else
 			error(Ebadctl);
+		free(cb);
+		poperror();
 		break;
 	case Qdata:
 		return segio(g, g->s, a, n, voff, 0);
