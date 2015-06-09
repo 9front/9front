@@ -53,6 +53,8 @@ void intrenable(int, void (*)(Ureg *, void *), void *, int, char *);
 void intrinit(void);
 void intr(Ureg *);
 int uartconsole(void);
+long fbctlread(Chan*,void*,long,vlong);
+long fbctlwrite(Chan*,void*,long,vlong);
 void fpoff(void);
 void fpsave(FPsave *);
 void fprestore(FPsave *);

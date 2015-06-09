@@ -11,6 +11,7 @@ enum {
 	Qdir = 0,
 	Qtemp,
 	Qpl,
+	Qfbctl,
 	Qbase,
 
 	Qmax = 16,
@@ -20,6 +21,7 @@ static Dirtab archdir[Qmax] = {
 	".",		{ Qdir, 0, QTDIR },	0,	0555,
 	"temp",		{ Qtemp, 0},		0,	0440,
 	"pl",		{ Qpl, 0 }, 		0,	0660,
+	"fbctl",	{ Qfbctl, 0 }, 		0,	0660,
 };
 static int narchdir = Qbase;
 
@@ -291,6 +293,8 @@ archread(Chan *c, void *a, long n, vlong offset)
 		qunlock(&plrlock);
 		poperror();
 		return 0;
+	case Qfbctl:
+		return fbctlread(c, a, n, offset);
 	default:
 		error(Egreg);
 		return -1;
@@ -298,11 +302,13 @@ archread(Chan *c, void *a, long n, vlong offset)
 }
 
 static long
-archwrite(Chan *c, void *a, long n, vlong)
+archwrite(Chan *c, void *a, long n, vlong offset)
 {
 	switch((ulong)c->qid.path){
 	case Qpl:
 		return plcopy(a, n);
+	case Qfbctl:
+		return fbctlwrite(c, a, n, offset);
 	default:
 		error(Egreg);
 		return -1;

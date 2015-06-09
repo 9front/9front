@@ -32,6 +32,8 @@ extern void	cursoroff(void);
 extern void	setcursor(Cursor*);
 
 /* devdraw.c */
+extern void	deletescreenimage(void);
+extern void	resetscreenimage(void);
 extern QLock	drawlock;
 
 #define ishwimage(i)	1		/* for ../port/devdraw.c */
