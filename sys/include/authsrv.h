@@ -170,5 +170,3 @@ extern	int	authdial(char *netroot, char *authdom);
  */
 extern	int	_asgetticket(int, char*, char*);
 extern	int	_asrdresp(int, char*, int);
-extern	int	sslnegotiate(int, Ticket*, char**, char**);
-extern	int	srvsslnegotiate(int, Ticket*, char**, char**);
