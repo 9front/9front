@@ -10,7 +10,7 @@ sleep, alarm \- delay, ask for delayed note
 int sleep(long millisecs)
 .PP
 .B
-long alarm(unsigned long millisecs)
+long alarm(ulong millisecs)
 .SH DESCRIPTION
 .I Sleep
 suspends the current process for the number

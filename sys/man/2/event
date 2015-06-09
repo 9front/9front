@@ -73,7 +73,7 @@ int	emenuhit(int but, Mouse *m, Menu *menu)
 int	emoveto(Point p)
 .PP
 .B
-int	esetcursor(Cursor *c)
+void	esetcursor(Cursor *c)
 .PP
 .B
 int	eenter(char *ask, char *buf, int len, Mouse *m)
