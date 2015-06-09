@@ -485,7 +485,6 @@ extern Subfont*	_getsubfont(Display*, char*);
 extern Subfont*	getdefont(Display*);
 extern void		lockdisplay(Display*);
 extern void	unlockdisplay(Display*);
-extern int		drawlsetrefresh(ulong, int, void*, void*);
 
 /*
  * Predefined 

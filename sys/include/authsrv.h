@@ -115,7 +115,6 @@ struct	OMSchapreply
  */
 extern	int	convT2M(Ticket*, char*, char*);
 extern	void	convM2T(char*, Ticket*, char*);
-extern	void	convM2Tnoenc(char*, Ticket*);
 extern	int	convA2M(Authenticator*, char*, char*);
 extern	void	convM2A(char*, Authenticator*, char*);
 extern	int	convTR2M(Ticketreq*, char*);
