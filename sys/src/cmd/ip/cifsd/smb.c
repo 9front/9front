@@ -659,7 +659,7 @@ smbrename(Req *r, uchar *h, uchar *p, uchar *e)
 		r->respond(r, smbmkerror());
 		goto out;
 	}
-	if(!matchattr(d, sattr) || (dosfileattr(d) & ATTR_READONLY)){
+	if(!matchattr(d, sattr)){
 		r->respond(r, STATUS_NO_SUCH_FILE);
 		goto out;
 	}
