@@ -41,7 +41,10 @@ setcursor(Cursor*)
 void
 flushmemscreen(Rectangle r)
 {
-	combinerect(&fbscreen.rect, r);
+	if(badrect(fbscreen.rect))
+		fbscreen.rect = r;
+	else
+		combinerect(&fbscreen.rect, r);
 	wakeup(&fbscreen);
 }
 
@@ -117,7 +120,6 @@ flushproc(void *arg)
 
 	fbscreen.proc = up;
 	if(waserror()){
-		print("flushproc: %s\n", up->errstr);
 		fbscreen.addr = 0;
 		fbscreen.proc = nil;
 		return;
