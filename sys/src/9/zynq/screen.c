@@ -124,7 +124,7 @@ cursorproc(void *arg)
 	if(waserror()){
 		hwcursor.addr = 0;
 		hwcursor.proc = nil;
-		return;
+		pexit("detached", 1);
 	}
 
 	reg = (u32int*)hwcursor.addr;
@@ -204,7 +204,7 @@ screenproc(void *arg)
 	if(waserror()){
 		fbscreen.addr = 0;
 		fbscreen.proc = nil;
-		return;
+		pexit("detached", 1);
 	}
 
 	for(;;){
