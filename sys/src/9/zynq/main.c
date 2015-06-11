@@ -190,7 +190,7 @@ confinit(void)
 	conf.npage = 0;
 	for(i = 0; i < nelem(conf.mem); i++)
 		conf.npage += conf.mem[i].npage = (conf.mem[i].limit - conf.mem[i].base) >> PGSHIFT;
-	kmem = 100*1024*1024;
+	kmem = 200*1024*1024;
 	conf.upages = conf.npage - kmem/BY2PG;
 	kmem -= conf.upages*sizeof(Page)
 		+ conf.nproc*sizeof(Proc)
