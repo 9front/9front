@@ -63,7 +63,7 @@ rogetprintentry(Entry e, int cmd)
 			spc = 0;
 		}
 			
-		if (p < e.end -2 && strncmp(p, "[ ", 4) == 0){		/* twiddle layout */
+		if (p < e.end -2 && strncmp(p, "[ ", 2) == 0){		/* twiddle layout */
 			outchars(" [");
 			continue;
 		}

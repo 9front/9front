@@ -282,7 +282,7 @@ dollar(Exec *e, char *s, int *namelen)
 				return filename(e, e->file);
 			if(memcmp(s, "type", 4) == 0)
 				return nonnil(e->msg->type);
-			if(memcmp(s, "wdir", 3) == 0)
+			if(memcmp(s, "wdir", 4) == 0)
 				return nonnil(e->msg->wdir);
 		}
 	}

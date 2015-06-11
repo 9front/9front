@@ -399,7 +399,7 @@ int MAIN(int argc, char **argv)
 			else
 #endif
 #ifndef OPENSSL_NO_DH
-				if (strncmp("dh:",p,4) == 0)
+				if (strncmp("dh:",p,3) == 0)
 				{
 				pkey_type=TYPE_DH;
 				p+=3;
