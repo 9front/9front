@@ -23,9 +23,19 @@ static struct {
 	uintptr		addr;
 } fbscreen;
 
+static struct {
+	Rendez;
+
+	Cursor;
+
+	Proc		*proc;
+	uintptr		addr;
+} hwcursor;
+
 void
 cursoron(void)
 {
+	wakeup(&hwcursor);
 }
 
 void
@@ -34,8 +44,9 @@ cursoroff(void)
 }
 
 void
-setcursor(Cursor*)
+setcursor(Cursor *curs)
 {
+	hwcursor.Cursor = *curs;
 }
 
 void
@@ -88,9 +99,80 @@ blankscreen(int)
 {
 }
 
-void
-mousectl(Cmdbuf *)
+
+static void
+cursorproc(void *arg)
 {
+	uchar *set, *clr;
+	u32int *reg;
+	Point xy;
+	int i;
+
+	for(i = 0; i < NSEG; i++)
+		if(up->seg[i] == nil && i != ESEG)
+			break;
+	if(i == NSEG)
+		panic(up->text);
+
+	up->seg[i] = arg;
+
+	cclose(up->dot);
+	up->dot = up->slash;
+	incref(up->dot);
+
+	hwcursor.proc = up;
+	if(waserror()){
+		hwcursor.addr = 0;
+		hwcursor.proc = nil;
+		return;
+	}
+
+	reg = (u32int*)hwcursor.addr;
+	for(;;){
+		eqlock(&drawlock);
+		xy = addpt(mousexy(), hwcursor.offset);
+		qunlock(&drawlock);
+
+		set = hwcursor.set;
+		clr = hwcursor.clr;
+		for(i=0; i<8; i++){
+			reg[0x70/4 + i] = clr[i*4]<<24 | clr[i*4+1]<<16 | clr[i*4+2]<<8 | clr[i*4+3];
+			reg[0x90/4 + i] = set[i*4]<<24 | set[i*4+1]<<16 | set[i*4+2]<<8 | set[i*4+3];
+		}
+		reg[0] = (xy.x<<16) | (xy.y&0xFFFF);
+
+		sleep(&hwcursor, return0, nil);
+	}
+}
+
+void
+mousectl(Cmdbuf *cb)
+{
+	Segment *s;
+	uintptr addr;
+
+	if(strcmp(cb->f[0], "addr") == 0 && cb->nf == 2){
+		s = nil;
+		addr = strtoul(cb->f[1], 0, 0);
+		if(addr != 0){
+			if((s = seg(up, addr, 0)) == nil || (s->type&SG_RONLY) != 0
+			|| (addr&3) != 0 || addr+0xB0 > s->top)
+				error(Ebadarg);
+			incref(s);
+		}
+		if(hwcursor.proc != nil){
+			postnote(hwcursor.proc, 0, "die", NUser);
+			while(hwcursor.proc != nil)
+				sched();
+		}
+		if(addr != 0){
+			hwcursor.addr = addr;
+			kproc("cursor", cursorproc, s);
+		}
+		return;
+	}
+
+	error("unknown control message");
 }
 
 static int
@@ -100,7 +182,7 @@ isflush(void *)
 }
 
 static void
-flushproc(void *arg)
+screenproc(void *arg)
 {
 	int sno, n, w;
 	uchar *sp, *dp, *top;
@@ -110,7 +192,7 @@ flushproc(void *arg)
 		if(up->seg[sno] == nil && sno != ESEG)
 			break;
 	if(sno == NSEG)
-		panic("flushproc");
+		panic(up->text);
 
 	up->seg[sno] = arg;
 
@@ -183,23 +265,22 @@ fbctlwrite(Chan*, void *a, long n, vlong)
 	ct = lookupcmd(cb, fbctlmsg, nelem(fbctlmsg));
 	switch(ct->index){
 	case CMaddr:
+		s = nil;
 		addr = strtoul(cb->f[1], 0, 0);
-
-		eqlock(&up->seglock);
-		if((s = seg(up, addr, 0)) == nil || (s->type&SG_RONLY) != 0){
-			qunlock(&up->seglock);
-			error(Ebadarg);
+		if(addr != 0){
+			if((s = seg(up, addr, 0)) == nil || (s->type&SG_RONLY) != 0)
+				error(Ebadarg);
+			incref(s);
 		}
-		incref(s);
-		qunlock(&up->seglock);
-
 		if(fbscreen.proc != nil){
 			postnote(fbscreen.proc, 0, "die", NUser);
 			while(fbscreen.proc != nil)
 				sched();
 		}
-		fbscreen.addr = addr;
-		kproc("fbflush", flushproc, s);
+		if(addr != 0){
+			fbscreen.addr = addr;
+			kproc("screen", screenproc, s);
+		}
 		break;
 
 	case CMsize:
@@ -220,7 +301,6 @@ fbctlwrite(Chan*, void *a, long n, vlong)
 		if(chantodepth(chan) != z)
 			error("depth, channel do not match");
 
-		cursoroff();
 		deletescreenimage();
 		eqlock(&drawlock);
 		if(memimageinit() < 0){
@@ -239,7 +319,6 @@ fbctlwrite(Chan*, void *a, long n, vlong)
 		if(gscreen == nil)
 			error("no framebuffer");
 		resetscreenimage();
-		cursoron();
 		break;
 	}
 	free(cb);
@@ -264,4 +343,3 @@ fbctlread(Chan*, void *a, long n, vlong offset)
 	seprint(p, e, "addr %#p\n", fbscreen.addr);
 	return readstr(offset, a, n, buf);
 }
-
