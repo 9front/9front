@@ -172,7 +172,15 @@ mousectl(Cmdbuf *cb)
 		return;
 	}
 
-	error("unknown control message");
+	if(strcmp(cb->f[0], "linear") == 0){
+		mouseaccelerate(0);
+		return;
+	}
+
+	if(strcmp(cb->f[0], "accelerated") == 0){
+		mouseaccelerate(cb->nf == 1 ? 1 : atoi(cb->f[1]));
+		return;
+	}
 }
 
 static int
