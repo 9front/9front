@@ -1602,14 +1602,14 @@ accounttime(void)
 	n = perfticks();
 	per = n - m->perf.last;
 	m->perf.last = n;
-	per = (m->perf.period*(HZ-1) + per)/HZ;
+	per = ((uvlong)m->perf.period*(HZ-1) + per)/HZ;
 	if(per != 0)
 		m->perf.period = per;
 
-	m->perf.avg_inidle = (m->perf.avg_inidle*(HZ-1)+m->perf.inidle)/HZ;
+	m->perf.avg_inidle = ((uvlong)m->perf.avg_inidle*(HZ-1)+m->perf.inidle)/HZ;
 	m->perf.inidle = 0;
 
-	m->perf.avg_inintr = (m->perf.avg_inintr*(HZ-1)+m->perf.inintr)/HZ;
+	m->perf.avg_inintr = ((uvlong)m->perf.avg_inintr*(HZ-1)+m->perf.inintr)/HZ;
 	m->perf.inintr = 0;
 
 	/* only one processor gets to compute system load averages */
@@ -1627,8 +1627,9 @@ accounttime(void)
 	 */
 	n = nrun;
 	nrun = 0;
-	n = (nrdy+n)*1000;
-	m->load = (m->load*(HZ-1)+n)/HZ;
+	n = (nrdy+n)*1000*100;
+	load = ((uvlong)load*(HZ-1)+n)/HZ;
+	m->load = load/100;
 }
 
 int
