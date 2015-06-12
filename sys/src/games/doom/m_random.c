@@ -60,6 +60,12 @@ int P_Random (void)
     return rndtable[prndindex];
 }
 
+int P_Random2 (void)
+{
+    int tmp = P_Random();
+    return tmp - P_Random();
+}
+
 int M_Random (void)
 {
     rndindex = (rndindex+1)&0xff;

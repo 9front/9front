@@ -789,7 +789,7 @@ void A_FaceTarget (void *_actor, void*)
 				    actor->target->y);
     
     if (actor->target->flags & MF_SHADOW)
-	actor->angle += (P_Random()-P_Random())<<21;
+	actor->angle += P_Random2()<<21;
 }
 
 
@@ -811,7 +811,7 @@ void A_PosAttack (void *_actor, void*)
     slope = P_AimLineAttack (actor, angle, MISSILERANGE);
 
     S_StartSound (actor, sfx_pistol);
-    angle += (P_Random()-P_Random())<<20;
+    angle += P_Random2()<<20;
     damage = ((P_Random()%5)+1)*3;
     P_LineAttack (actor, angle, MISSILERANGE, slope, damage);
 }
@@ -835,7 +835,7 @@ void A_SPosAttack (void *_actor, void*)
 
     for (i=0 ; i<3 ; i++)
     {
-	angle = bangle + ((P_Random()-P_Random())<<20);
+	angle = bangle + (P_Random2()<<20);
 	damage = ((P_Random()%5)+1)*3;
 	P_LineAttack (actor, angle, MISSILERANGE, slope, damage);
     }
@@ -857,7 +857,7 @@ void A_CPosAttack (void *_actor, void*)
     bangle = actor->angle;
     slope = P_AimLineAttack (actor, bangle, MISSILERANGE);
 
-    angle = bangle + ((P_Random()-P_Random())<<20);
+    angle = bangle + (P_Random2()<<20);
     damage = ((P_Random()%5)+1)*3;
     P_LineAttack (actor, angle, MISSILERANGE, slope, damage);
 }
@@ -1908,7 +1908,7 @@ void A_BrainExplode (void *_mo, void*)
     int		z;
     mobj_t*	th;
 	
-    x = mo->x + (P_Random () - P_Random ())*2048;
+    x = mo->x + P_Random2()*2048;
     y = mo->y;
     z = 128 + P_Random()*2*FRACUNIT;
     th = P_SpawnMobj (x,y,z, MT_ROCKET);
