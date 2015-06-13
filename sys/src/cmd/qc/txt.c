@@ -1522,7 +1522,7 @@ gopcode64(int o, Node *f1, Node *f2, Node *t)
 	if(a1 == AGOK || a2 == AGOK)
 		diag(Z, "bad in gopcode64 %O", o);
 	if(f1->op == OCONST) {
-		if(f2 != Z & f2 != t)
+		if(f2 != Z && f2 != t)
 			diag(Z, "bad const in gopcode64 %O", o);
 		gins(a1, nod32const(f1->vconst), t->right);
 		gins(a2, nod32const(f1->vconst>>32), t->left);

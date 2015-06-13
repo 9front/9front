@@ -167,7 +167,7 @@ trap(Ureg *ureg)
 		cycles(&up->kentry);
 		up->dbgreg = ureg;
 	}
-	if(ureg->status & MSR_RI == 0)
+	if((ureg->status & MSR_RI) == 0)
 		print("double fault?: ecode = %d\n", ecode);
 
 	switch(ecode) {
@@ -480,7 +480,7 @@ dumpregs(Ureg *ur)
 
 	if(up) {
 		print("registers for %s %ld\n", up->text, up->pid);
-		if(ur->srr1 & MSR_PR == 0)
+		if((ur->srr1 & MSR_PR) == 0)
 		if(ur->usp < (ulong)up->kstack || ur->usp > (ulong)up->kstack+KSTACK)
 			print("invalid stack ptr\n");
 	}
