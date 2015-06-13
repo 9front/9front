@@ -102,9 +102,9 @@ addforwtarg(char *host)
 static void
 redistrib(uchar *buf, int len)
 {
+	static uchar outpkt[Udphdrsize + Maxudp + 1024];
 	Forwtarg *tp;
 	Udphdr *uh;
-	static uchar outpkt[1500];
 
 	assert(len <= sizeof outpkt);
 	memmove(outpkt, buf, len);
