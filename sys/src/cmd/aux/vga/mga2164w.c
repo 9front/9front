@@ -431,7 +431,7 @@ init(Vga* vga, Ctlr* ctlr)
 
 	/* disable vga load (want to do fields in different order) */
 	for(c = vga->link; c; c = c->link)
-		if(c->name == "vga")
+		if(strncmp(c->name, "vga", 3) == 0)
 			c->load = nil;
 
 	ctlr->flag |= Finit;
