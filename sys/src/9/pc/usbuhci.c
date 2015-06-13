@@ -958,7 +958,7 @@ interrupt(Ureg*, void *a)
 	}
 	OUTS(Status, sts & Sall);
 	cmd = INS(Cmd);
-	if(cmd & Crun == 0){
+	if((cmd & Crun) == 0){
 		iprint("uhci %#ux: not running: uhci bug?\n", ctlr->port);
 		/* BUG: should abort everything in this case */
 	}

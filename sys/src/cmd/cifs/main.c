@@ -550,7 +550,7 @@ smbcreateopen(Aux *a, char *path, int mode, int perm, int is_create,
 		break;
 	}
 
-	if(mode & DMEXCL == 0)
+	if((mode & DMEXCL) == 0)
 		access |= 0x10;
 	else
 		access |= 0x40;

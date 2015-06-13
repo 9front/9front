@@ -398,7 +398,7 @@ serveata(Aoehdr *h, Vblade *vb, int mtu)
 		goto out;
 	}
 
-	if(a->cmdstat&0xf0 == 0x20)
+	if((a->cmdstat&0xf0) == 0x20)
 		lba &= 0xfffffff;
 	switch(a->cmdstat){
 	default:
