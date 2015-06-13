@@ -335,14 +335,8 @@ fswstat(Req *r)
 	}
 
 	if(r->d.mode != ~0){
-		f->mode = (r->d.mode & ~DMDIR) | (f->mode & DMDIR);
-		f->qid.type = 0;
-		if(f->mode & DMDIR)
-			f->qid.type |= QTDIR;
-		if(f->mode & DMAPPEND)
-			f->qid.type |= QTAPPEND;
-		if(f->mode & DMEXCL)
-			f->qid.type |= QTEXCL;
+		f->mode = r->d.mode;
+		f->qid.type = f->mode >> 24;
 	}
 	if(r->d.name[0] != '\0'){
 		free(f->name);

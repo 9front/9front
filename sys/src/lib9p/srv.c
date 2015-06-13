@@ -682,25 +682,32 @@ swstat(Srv *srv, Req *r)
 		respond(r, Ebaddir);
 		return;
 	}
-	if(r->d.type != (ushort)~0){
-		respond(r, "wstat -- attempt to change type");
+	if(r->d.qid.path != ~0 && r->d.qid.path != r->fid->qid.path){
+		respond(r, "wstat -- attempt to change qid.path");
 		return;
 	}
-	if(r->d.dev != ~0){
-		respond(r, "wstat -- attempt to change dev");
+	if(r->d.qid.vers != ~0 && r->d.qid.vers != r->fid->qid.vers){
+		respond(r, "wstat -- attempt to change qid.vers");
 		return;
 	}
-	if(r->d.qid.type != (uchar)~0 || r->d.qid.vers != ~0 || r->d.qid.path != ~0){
-		respond(r, "wstat -- attempt to change qid");
-		return;
-	}
-	if(r->d.muid && r->d.muid[0]){
-		respond(r, "wstat -- attempt to change muid");
-		return;
-	}
-	if(r->d.mode != ~0 && ((r->d.mode&DMDIR)>>24) != (r->fid->qid.type&QTDIR)){
-		respond(r, "wstat -- attempt to change DMDIR bit");
-		return;
+	if(r->d.mode != ~0){
+		if(r->d.mode & ~(DMDIR|DMAPPEND|DMEXCL|DMTMP|0777)){
+			respond(r, "wstat -- unknown bits in mode");
+			return;
+		}
+		if(r->d.qid.type != (uchar)~0 && r->d.qid.type != ((r->d.mode>>24)&0xFF)){
+			respond(r, "wstat -- qid.type/mode mismatch");
+			return;
+		}
+		if(((r->d.mode>>24) ^ r->fid->qid.type) & ~(QTAPPEND|QTEXCL|QTTMP)){
+			respond(r, "wstat -- attempt to change qid.type");
+			return;
+		}
+	} else {
+		if(r->d.qid.type != (uchar)~0 && r->d.qid.type != r->fid->qid.type){
+			respond(r, "wstat -- attempt to change qid.type");
+			return;
+		}
 	}
 	srv->wstat(r);
 }
