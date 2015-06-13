@@ -437,7 +437,11 @@ ibrk(uintptr addr, int seg)
 	}
 	mapsize = ROUND(newsize, PTEPERTAB)/PTEPERTAB;
 	if(mapsize > s->mapsize){
-		map = smalloc(mapsize*sizeof(Pte*));
+		map = malloc(mapsize*sizeof(Pte*));
+		if(map == nil){
+			qunlock(s);
+			error(Enomem);
+		}
 		memmove(map, s->map, s->mapsize*sizeof(Pte*));
 		if(s->map != s->ssegmap)
 			free(s->map);
