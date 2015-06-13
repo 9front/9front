@@ -41,24 +41,28 @@ waitfor(int pid)
 static int
 openlock(char *lock)
 {
-	int lckfd;
+	int lckfd, didwstat = 0;
 	Dir *dir;
 
-	if (lockwait)
-		while ((lckfd = open(lock, ORDWR)) < 0)
-			sleep(1000);
-	else
-		lckfd = open(lock, ORDWR);
+Reopen:
+	while ((lckfd = open(lock, ORDWR)) < 0 && lockwait)
+		sleep(1000);
 	if (lckfd < 0)
 		sysfatal("can't open %s read/write: %r", lock);
 	dir = dirfstat(lckfd);
 	if (dir == nil)
 		sysfatal("can't fstat %s: %r", lock);
 	if (!(dir->mode & DMEXCL)) {
+		if(didwstat++)
+			sysfatal("exclusive bit does not stick for %s", lock);
 		dir->mode |= DMEXCL;
 		dir->qid.type |= QTEXCL;
 		if (dirfwstat(lckfd, dir) < 0)
 			sysfatal("can't make %s exclusive access: %r", lock);
+		/* reopen for lock to be effective */
+		free(dir);
+		close(lckfd);
+		goto Reopen;
 	}
 	free(dir);
 	return lckfd;
