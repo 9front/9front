@@ -688,6 +688,8 @@ chanwstat(Chan *ch, Dir *di)
 	if(willmodify(ch->fs, ch->loc, ch->flags & CHFNOLOCK) < 0)
 		goto error;
 	if(*di->name){
+		FLoc f;
+
 		if(!namevalid(di->name) || ch->loc->next == nil)
 			goto inval;
 		pb = getbuf(ch->fs->d, ch->loc->next->blk, TDENTRY, 0);
@@ -699,9 +701,13 @@ chanwstat(Chan *ch, Dir *di)
 		if((ch->flags & CHFNOPERM) == 0)
 			if(!permcheck(ch->fs, d, ch->uid, OWRITE))
 				goto perm;
-		rc = findentry(ch->fs, ch->loc->next, pb, di->name, nil, ch->flags & CHFDUMP);
-		if(rc > 0)
-			werrstr(Eexists);
+		rc = findentry(ch->fs, ch->loc->next, pb, di->name, &f, ch->flags & CHFDUMP);
+		if(rc > 0){
+			if(f.blk == ch->loc->blk && f.deind == ch->loc->deind)
+				rc = 0;
+			else
+				werrstr(Eexists);
+		}
 		if(rc != 0)
 			goto error;
 	}
@@ -727,17 +733,19 @@ chanwstat(Chan *ch, Dir *di)
 		goto perm;
 	if(di->mode != ~0 && !owner)
 		goto perm;
-	nuid = NOUID;
-	ngid = NOUID;
+	nuid = d->uid;
+	ngid = d->gid;
 	if(*di->uid != 0 && name2uid(ch->fs, di->uid, &nuid) < 0)
 		goto inval;
 	if(*di->gid != 0 && name2uid(ch->fs, di->gid, &ngid) < 0)
 		goto inval;
-	if(nuid != NOUID && (ch->fs->flags & FSCHOWN) == 0)
-		goto inval;
-	if((nuid != NOUID || ngid != NOUID) && !owner)
+	if(nuid != d->uid && (ch->fs->flags & FSCHOWN) == 0)
 		goto perm;
-	if(di->length != ~0 && !isdir){
+	if((nuid != d->uid || ngid != d->gid) && !owner)
+		goto perm;
+	d->uid = nuid;
+	d->gid = ngid;
+	if(di->length != ~0 && di->length != d->size && !isdir){
 		trunc(ch->fs, ch->loc, b, di->length);
 		modified(ch, d);
 	}
@@ -751,10 +759,6 @@ chanwstat(Chan *ch, Dir *di)
 		memset(d->name, 0, NAMELEN);
 		strcpy(d->name, di->name);
 	}
-	if(nuid != NOUID)
-		d->uid = nuid;
-	if(ngid != NOUID)
-		d->gid = ngid;
 	b->op |= BDELWRI;
 	if(pb != nil)
 		putbuf(pb);
