@@ -29,7 +29,7 @@ struct Forwtarg {
 	ulong	lastdial;
 };
 Forwtarg forwtarg[10];
-int currtarg;
+int forwtcount;
 
 static char *hmsg = "headers";
 
@@ -75,11 +75,11 @@ addforwtarg(char *host)
 {
 	Forwtarg *tp;
 
-	if (currtarg >= nelem(forwtarg)) {
+	if (forwtcount >= nelem(forwtarg)) {
 		dnslog("too many forwarding targets");
 		return -1;
 	}
-	tp = forwtarg + currtarg;
+	tp = forwtarg + forwtcount;
 	if (parseip(tp->addr, host) < 0) {
 		dnslog("can't parse ip %s", host);
 		return -1;
@@ -91,7 +91,7 @@ addforwtarg(char *host)
 
 	free(tp->host);
 	tp->host = estrdup(host);
-	currtarg++;
+	forwtcount++;
 	return 0;
 }
 
@@ -102,18 +102,18 @@ addforwtarg(char *host)
 static void
 redistrib(uchar *buf, int len)
 {
-	static uchar outpkt[Udphdrsize + Maxudp + 1024];
+	uchar save[Udphdrsize];
 	Forwtarg *tp;
 	Udphdr *uh;
 
-	assert(len <= sizeof outpkt);
-	memmove(outpkt, buf, len);
-	uh = (Udphdr *)outpkt;
-	for (tp = forwtarg; tp < forwtarg + currtarg; tp++)
+	memmove(save, buf, Udphdrsize);
+
+	uh = (Udphdr *)buf;
+	for (tp = forwtarg; tp < forwtarg + forwtcount; tp++)
 		if (tp->fd > 0) {
-			memmove(outpkt, tp->addr, sizeof tp->addr);
+			memmove(uh->raddr, tp->addr, sizeof tp->addr);
 			hnputs(uh->rport, 53);		/* dns port */
-			if (write(tp->fd, outpkt, len) != len) {
+			if (write(tp->fd, buf, len) != len) {
 				close(tp->fd);
 				tp->fd = -1;
 			}
@@ -121,6 +121,8 @@ redistrib(uchar *buf, int len)
 			tp->lastdial = time(nil);
 			tp->fd = udpport(mntpt);
 		}
+
+	memmove(buf, save, Udphdrsize);
 }
 
 /*
@@ -180,7 +182,8 @@ restart:
 		if(len <= Udphdrsize)
 			goto restart;
 
-		redistrib(buf, len);
+		if(forwtcount > 0)
+			redistrib(buf, len);
 
 		uh = (Udphdr*)buf;
 		len -= Udphdrsize;

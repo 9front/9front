@@ -523,7 +523,6 @@ void	initdnsmsg(DNSmsg *mp, RR *rp, int flags, ushort reqno);
 /* dnserver.c */
 void	dnserver(DNSmsg*, DNSmsg*, Request*, uchar *, int);
 void	dnudpserver(char*);
-void	dntcpserver(char*);
 
 /* dnnotify.c */
 void	dnnotify(DNSmsg*, DNSmsg*, Request*);
