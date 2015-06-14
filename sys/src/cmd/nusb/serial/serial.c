@@ -31,8 +31,6 @@ serialfatal(Serial *ser)
 			chanclose(p->w4data);
 		if(p->gotdata != nil)
 			chanclose(p->gotdata);
-		if(p->readc)
-			chanclose(p->readc);
 	}
 }
 

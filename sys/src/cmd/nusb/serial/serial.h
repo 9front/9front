@@ -62,7 +62,6 @@ struct Serialport {
 
 	Channel *w4data;
 	Channel *gotdata;
-	Channel *readc;		/* to uncouple reads, only used in ftdi... */
 	int	ndata;
 	uchar	data[DataBufSz];
 
