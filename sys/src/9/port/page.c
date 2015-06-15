@@ -78,9 +78,12 @@ freepages(Page *head, Page *tail, int n)
 	tail->next = palloc.head;
 	palloc.head = head;
 	palloc.freecount += n;
-	if(palloc.r.p != nil)
-		wakeup(&palloc.r);
 	unlock(&palloc);
+
+	if(palloc.pwait[0].p != nil && wakeup(&palloc.pwait[0]) != nil)
+		return;
+	if(palloc.pwait[1].p != nil)
+		wakeup(&palloc.pwait[1]);
 }
 
 int
@@ -135,10 +138,10 @@ pagereclaim(Image *i, int min)
 	return n;
 }
 
-int
+static int
 ispages(void*)
 {
-	return palloc.freecount >= swapalloc.highwater;
+	return palloc.freecount > swapalloc.highwater || up->noswap && palloc.freecount > 0;
 }
 
 Page*
@@ -149,26 +152,22 @@ newpage(int clear, Segment **s, uintptr va)
 	int color;
 
 	lock(&palloc);
-	for(;;) {
-		if(palloc.freecount > swapalloc.highwater)
-			break;
-		if(up->kp && palloc.freecount > 0)
-			break;
+	while(!ispages(nil)){
 		unlock(&palloc);
 		if(s != nil)
 			qunlock(*s);
 
 		if(!waserror()){
-			eqlock(&palloc.pwait);	/* Hold memory requesters here */
+			Rendezq *q;
 
+			q = &palloc.pwait[!up->noswap];
+			eqlock(q);	
 			if(!waserror()){
 				kickpager();
-				tsleep(&palloc.r, ispages, 0, 1000);
+				sleep(q, ispages, nil);
 				poperror();
 			}
-
-			qunlock(&palloc.pwait);
-
+			qunlock(q);
 			poperror();
 		}
 
@@ -182,7 +181,6 @@ newpage(int clear, Segment **s, uintptr va)
 			*s = nil;
 			return nil;
 		}
-
 		lock(&palloc);
 	}
 

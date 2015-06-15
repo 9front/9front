@@ -34,6 +34,7 @@ typedef struct QLock	QLock;
 typedef struct Queue	Queue;
 typedef struct Ref	Ref;
 typedef struct Rendez	Rendez;
+typedef struct Rendezq	Rendezq;
 typedef struct Rgrp	Rgrp;
 typedef struct RWlock	RWlock;
 typedef struct Sargs	Sargs;
@@ -75,6 +76,12 @@ struct QLock
 	Proc	*head;		/* next process waiting for object */
 	Proc	*tail;		/* last process waiting for object */
 	int	locked;		/* flag */
+};
+
+struct Rendezq
+{
+	QLock;
+	Rendez;
 };
 
 struct RWlock
@@ -506,8 +513,7 @@ struct Palloc
 	ulong	freecount;		/* how many pages on free list now */
 	Page	*pages;			/* array of all pages */
 	ulong	user;			/* how many user pages */
-	Rendez	r;			/* Sleep for free mem */
-	QLock	pwait;			/* Queue of procs waiting for memory */
+	Rendezq		pwait[2];	/* Queues of procs waiting for memory */
 	Pallocmem	mem[16];	/* physical user page banks */
 };
 

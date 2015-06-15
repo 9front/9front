@@ -159,7 +159,8 @@ pager(void*)
 		up->psstate = "Reclaim";
 		if(reclaim()){
 			up->psstate = "Idle";
-			wakeup(&palloc.r);
+			wakeup(&palloc.pwait[0]);
+			wakeup(&palloc.pwait[1]);
 			sleep(&swapalloc.r, needpages, nil);
 			continue;
 		}

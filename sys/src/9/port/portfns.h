@@ -138,7 +138,6 @@ void		isdir(Chan*);
 int		iseve(void);
 int		islo(void);
 Segment*	isoverlap(Proc*, uintptr, uintptr);
-int		ispages(void*);
 int		isphysseg(char*);
 void		ixsummary(void);
 void		kickpager(void);
