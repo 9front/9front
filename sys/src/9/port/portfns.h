@@ -201,6 +201,7 @@ int		okaddr(uintptr, ulong, int);
 int		openmode(ulong);
 Block*		packblock(Block*);
 Block*		padblock(Block*, int);
+void		pagechaindone(void);
 void		pagechainhead(Page*);
 void		pageinit(void);
 ulong	pagenumber(Page*);

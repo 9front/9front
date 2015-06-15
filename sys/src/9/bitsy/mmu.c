@@ -447,14 +447,14 @@ mmurelease(Proc* p)
 
 	mmuptefree(p);
 
-	for(pg = p->mmufree; pg; pg = next){
+	for(pg = p->mmufree; pg != nil; pg = next){
 		next = pg->next;
 		if(--pg->ref)
 			panic("mmurelease: pg->ref %d\n", pg->ref);
 		pagechainhead(pg);
 	}
-	if(p->mmufree && palloc.r.p)
-		wakeup(&palloc.r);
+	if(p->mmufree != nil)
+		pagechaindone();
 	p->mmufree = nil;
 
 	memset(l1table, 0, sizeof(p->l1table));

@@ -237,8 +237,8 @@ mmurelease(Proc *proc)
 			panic("mmurelease: p->ref %ld", p->ref);
 		pagechainhead(p);
 	}
-	if(proc->mmufree != nil && palloc.r.p != nil)
-		wakeup(&palloc.r);
+	if(proc->mmufree != nil)
+		pagechaindone();
 	proc->mmufree = nil;
 }
 

@@ -110,8 +110,8 @@ mmurelease(Proc *proc)
 			panic("mmurelease: page->ref %d\n", page->ref);
 		pagechainhead(page);
 	}
-	if(proc->mmufree && palloc.r.p)
-		wakeup(&palloc.r);
+	if(proc->mmufree)
+		pagechaindone();
 	proc->mmufree = 0;
 }
 

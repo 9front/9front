@@ -71,6 +71,15 @@ pagechainhead(Page *p)
 	palloc.freecount++;
 }
 
+void
+pagechaindone(void)
+{
+	if(palloc.pwait[0].p != nil && wakeup(&palloc.pwait[0]) != nil)
+		return;
+	if(palloc.pwait[1].p != nil)
+		wakeup(&palloc.pwait[1]);
+}
+
 static void
 freepages(Page *head, Page *tail, int n)
 {
@@ -79,11 +88,7 @@ freepages(Page *head, Page *tail, int n)
 	palloc.head = head;
 	palloc.freecount += n;
 	unlock(&palloc);
-
-	if(palloc.pwait[0].p != nil && wakeup(&palloc.pwait[0]) != nil)
-		return;
-	if(palloc.pwait[1].p != nil)
-		wakeup(&palloc.pwait[1]);
+	pagechaindone();
 }
 
 int
