@@ -11,7 +11,6 @@ typedef struct Notsave	Notsave;
 typedef struct Page	Page;
 typedef struct Proc	Proc;
 typedef struct PMMU	PMMU;
-typedef u32int		PTE;
 typedef struct Ureg	Ureg;
 typedef struct ISAConf	ISAConf;
 typedef uvlong		Tval;

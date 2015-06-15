@@ -141,7 +141,7 @@ putmmu(uintptr va, uintptr pa, Page *pg)
 	Page *p;
 	ulong *e;
 	ulong *l2;
-	PTE old;
+	ulong old;
 	uintptr l2p;
 	int s;
 
