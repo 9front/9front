@@ -698,18 +698,17 @@ chanwstat(Chan *ch, Dir *di)
 		d = getdent(ch->loc->next, pb);
 		if(d == nil)
 			goto error;
-		if((ch->flags & CHFNOPERM) == 0)
-			if(!permcheck(ch->fs, d, ch->uid, OWRITE))
-				goto perm;
 		rc = findentry(ch->fs, ch->loc->next, pb, di->name, &f, ch->flags & CHFDUMP);
-		if(rc > 0){
-			if(f.blk == ch->loc->blk && f.deind == ch->loc->deind)
-				rc = 0;
-			else
-				werrstr(Eexists);
-		}
-		if(rc != 0)
+		if(rc < 0)
 			goto error;
+		else if(rc == 0){
+			if((ch->flags & CHFNOPERM) == 0)
+				if(!permcheck(ch->fs, d, ch->uid, OWRITE))
+					goto perm;
+		} else if(f.blk != ch->loc->blk || f.deind != ch->loc->deind){
+			werrstr(Eexists);
+			goto error;
+		}
 	}
 	b = getbuf(ch->fs->d, ch->loc->blk, TDENTRY, 0);
 	if(b == nil)
