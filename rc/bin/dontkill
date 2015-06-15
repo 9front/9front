@@ -7,8 +7,5 @@ if (! ~ $#* 1) {
 }
 # see /sys/src/9/port/proc.c:/^killbig
 psu | awk '$NF ~ /'$1'/ {
-c="/proc/"$2"/ctl"
-print "chmod +w "c
-print "@{echo noswap >"c"}"
-print "chmod -w "c
+print "@{echo noswap >/proc/"$2"/ctl}"
 }' | rc >/dev/null >[2=1]
