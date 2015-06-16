@@ -68,6 +68,12 @@ total pages of active memory.
 The graph displays the fraction
 of the machine's total memory in use.
 .TP
+.B "k kern
+kernel memory allocation size in bytes.
+.TP
+.B "d draw
+draw memory allocation size in bytes.
+.TP
 .B 
 .B "n etherin,out,err
 number of packets sent and received per second, and total number of errors, displayed as separate graphs.

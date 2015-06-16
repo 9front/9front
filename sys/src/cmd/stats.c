@@ -34,6 +34,11 @@ enum
 	Swap,
 	Maxswap,
 
+	Kern,
+	Maxkern,
+	Draw,
+	Maxdraw,
+
 	/* /dev/sysstats */
 	Procno	= 0,
 	Context,
@@ -66,7 +71,7 @@ struct Machine
 	int		tempfd;
 	int		disable;
 
-	uvlong		devswap[4];
+	uvlong		devswap[8];
 	uvlong		devsysstat[10];
 	uvlong		prevsysstat[10];
 	int		nproc;
@@ -117,6 +122,8 @@ enum Menu2
 	Mload,
 	Mmem,
 	Mswap,
+	Mkern,
+	Mdraw,
 	Msyscall,
 	Mtlbmiss,
 	Mtlbpurge,
@@ -139,6 +146,8 @@ char	*menu2str[Nmenu2+1] = {
 	"add  load    ",
 	"add  mem     ",
 	"add  swap    ",
+	"add  kern    ",
+	"add  draw    ",
 	"add  syscall ",
 	"add  tlbmiss ",
 	"add  tlbpurge",
@@ -160,6 +169,8 @@ void	contextval(Machine*, uvlong*, uvlong*, int),
 	idleval(Machine*, uvlong*, uvlong*, int),
 	memval(Machine*, uvlong*, uvlong*, int),
 	swapval(Machine*, uvlong*, uvlong*, int),
+	kernval(Machine*, uvlong*, uvlong*, int),
+	drawval(Machine*, uvlong*, uvlong*, int),
 	syscallval(Machine*, uvlong*, uvlong*, int),
 	tlbmissval(Machine*, uvlong*, uvlong*, int),
 	tlbpurgeval(Machine*, uvlong*, uvlong*, int),
@@ -183,6 +194,8 @@ void	(*newvaluefn[Nmenu2])(Machine*, uvlong*, uvlong*, int init) = {
 	loadval,
 	memval,
 	swapval,
+	kernval,
+	drawval,
 	syscallval,
 	tlbmissval,
 	tlbpurgeval,
@@ -194,7 +207,7 @@ Image	*cols[Ncolor][3];
 Graph	*graph;
 Machine	*mach;
 char	*mysysname;
-char	argchars[] = "8bceEfiImlnpstwz";
+char	argchars[] = "8bcdeEfiIkmlnpstwz";
 int	pids[NPROC];
 int 	parity;	/* toggled to avoid patterns in textured background */
 int	nmach;
@@ -599,9 +612,35 @@ readswap(Machine *m, uvlong *a)
 		a[1] = a[4];
 		a[2] = a[5];
 		a[3] = a[6];
+
+		a[4] = 0;
+		a[5] = 0;
+		if(m->bufp = strstr(m->buf, "kernel malloc")){
+			while(m->bufp > m->buf && m->bufp[-1] != '\n')
+				m->bufp--;
+			a[4] = strtoull(m->bufp, &m->bufp, 10);
+			while(*m->bufp++ == '/')
+				a[5] = strtoull(m->bufp, &m->bufp, 10);
+		}
+
+		a[6] = 0;
+		a[7] = 0;
+		if(m->bufp = strstr(m->buf, "kernel draw")){
+			while(m->bufp > m->buf && m->bufp[-1] != '\n')
+				m->bufp--;
+			a[6] = strtoull(m->bufp, &m->bufp, 10);
+			while(*m->bufp++ == '/')
+				a[7] = strtoull(m->bufp, &m->bufp, 10);
+		}
+
 		return 1;
 	}
-	return readnums(m, nelem(m->devswap), a, 0);
+
+	a[4] = 0;
+	a[5] = 0;
+	a[6] = 0;
+	a[7] = 0;
+	return readnums(m, 4, a, 0);
 }
 
 char*
@@ -665,10 +704,6 @@ initmach(Machine *m, char *name)
 	m->swapfd = open(buf, OREAD);
 	if(loadbuf(m, &m->swapfd) && readswap(m, a))
 		memmove(m->devswap, a, sizeof m->devswap);
-	else{
-		m->devswap[Maxswap] = 100;
-		m->devswap[Maxmem] = 100;
-	}
 
 	snprint(buf, sizeof buf, "%s/dev/sysstat", mpt);
 	m->statsfd = open(buf, OREAD);
@@ -726,7 +761,7 @@ alarmed(void *a, char *s)
 int
 needswap(int init)
 {
-	return init | present[Mmem] | present[Mswap];
+	return init | present[Mmem] | present[Mswap] | present[Mkern] | present[Mdraw];
 }
 
 
@@ -823,6 +858,8 @@ memval(Machine *m, uvlong *v, uvlong *vmax, int)
 {
 	*v = m->devswap[Mem];
 	*vmax = m->devswap[Maxmem];
+	if(*vmax == 0)
+		*vmax = 1;
 }
 
 void
@@ -830,6 +867,26 @@ swapval(Machine *m, uvlong *v, uvlong *vmax, int)
 {
 	*v = m->devswap[Swap];
 	*vmax = m->devswap[Maxswap];
+	if(*vmax == 0)
+		*vmax = 1;
+}
+
+void
+kernval(Machine *m, uvlong *v, uvlong *vmax, int)
+{
+	*v = m->devswap[Kern];
+	*vmax = m->devswap[Maxkern];
+	if(*vmax == 0)
+		*vmax = 1;
+}
+
+void
+drawval(Machine *m, uvlong *v, uvlong *vmax, int)
+{
+	*v = m->devswap[Draw];
+	*vmax = m->devswap[Maxdraw];
+	if(*vmax == 0)
+		*vmax = 1;
 }
 
 void
@@ -1090,6 +1147,8 @@ labelstrs(Graph *g, char strs[Nlab][Lablen], int *np)
 	uvlong v, vmax;
 
 	g->newvalue(g->mach, &v, &vmax, 1);
+	if(vmax == 0)
+		vmax = 1;
 	if(logscale){
 		for(j=1; j<=2; j++)
 			sprint(strs[j-1], "%g", scale*pow(10., j)*(double)vmax/100.);
@@ -1403,6 +1462,12 @@ main(int argc, char *argv[])
 		break;
 	case 'w':
 		addgraph(Mswap);
+		break;
+	case 'k':
+		addgraph(Mkern);
+		break;
+	case 'd':
+		addgraph(Mdraw);
 		break;
 	case 'z':
 		addgraph(Mtemp);
