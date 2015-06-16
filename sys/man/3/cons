@@ -253,8 +253,8 @@ device holds a text block giving memory usage statistics:
 \fIn\fP kernel
 \fIn\fP/\fIm\fP user
 \fIn\fP/\fIm\fP swap
-\fIn\fP/\fIm\fP kernel malloc
-\fIn\fP/\fIm\fP kernel draw
+\fIa\fP/\fIn\fP/\fIm\fP kernel malloc
+\fIa\fP/\fIn\fP/\fIm\fP kernel draw
 .EE
 .PP
 These are total memory (bytes), system page size (bytes),
@@ -267,6 +267,9 @@ indicates
 used out of
 .I m
 available.
+For kernel malloc and kernel draw,
+.IR a
+indicates the current allocation in bytes.
 These numbers are not blank padded.
 .PP
 To turn on swapping, write to
