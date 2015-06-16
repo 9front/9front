@@ -350,12 +350,11 @@ cachedata(Mntcache *m, uchar *buf, int len, vlong off)
 					pe = offset+l;
 			}
 		} else {
-			if(needpages(nil) || waserror()){
+			if(needpages(nil)){
 				invalidate(m, offset + pn*BY2PG, len);
 				break;
 			}
 			p = newpage(0, nil, pn*BY2PG);
-			poperror();
 			p->daddr = cacheaddr(m, pn);
 			cachedel(&fscache, p->daddr);
 			cachepage(p, &fscache);
