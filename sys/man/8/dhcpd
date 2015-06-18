@@ -117,7 +117,7 @@ the default IP gateway
 the domain name of the system
 .TP
 .B fs
-the default Plan 9 name server
+the default Plan 9 file server
 .TP
 .B auth
 the default Plan 9 authentication server
