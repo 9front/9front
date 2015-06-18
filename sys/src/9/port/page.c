@@ -36,6 +36,8 @@ pageinit(void)
 		for(j=0; j<pm->npage; j++){
 			memset(p, 0, sizeof *p);
 			p->pa = pm->base+j*BY2PG;
+			if(cankaddr(p->pa) && (KADDR(p->pa) == nil || KADDR(p->pa) == (void*)-BY2PG))
+				continue;
 			p->color = color;
 			color = (color+1)%NCOLOR;
 			pagechainhead(p);
