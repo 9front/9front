@@ -286,6 +286,8 @@ kmap(Page *page)
 	ulong *e, *v;
 	int i, s;
 
+	if(cankaddr(page->pa))
+		return (KMap*)KADDR(page->pa);
 	if(up == nil)
 		panic("kmap: up=0 pc=%#.8lux", getcallerpc(&page));
 	if(up->l1 == nil)
@@ -329,6 +331,8 @@ kunmap(KMap *arg)
 	ulong *e;
 	
 	va = (uintptr) arg;
+	if(va >= KZERO)
+		return;
 	if(up->l1 == nil || (up->l1->va[L1X(KMAP)] & 3) == 0)
 		panic("kunmap: no kmaps");
 	if(va < KMAP || va >= KMAP + NKMAP * BY2PG)
