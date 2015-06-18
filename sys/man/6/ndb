@@ -227,7 +227,7 @@ a TCP or UDP port number
 .TP
 .B restricted
 a TCP service that can be called only by ports numbered
-less that 1024
+less than 1024
 .TP
 .B proto
 a protocol supported by a host.
