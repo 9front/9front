@@ -192,8 +192,8 @@ unlock(Lock *l)
 	if(l->p != up)
 		print("unlock: up changed: pc %#p, acquired at pc %#p, lock p %#p, unlock up %#p\n", getcallerpc(&l), l->pc, l->p, up);
 	l->m = nil;
-	l->key = 0;
 	coherence();
+	l->key = 0;
 
 	if(up && --up->nlocks == 0 && up->delaysched && islo()){
 		/*
@@ -231,8 +231,8 @@ iunlock(Lock *l)
 
 	sr = l->sr;
 	l->m = nil;
-	l->key = 0;
 	coherence();
+	l->key = 0;
 	m->ilockdepth--;
 	if(up)
 		up->lastilock = nil;

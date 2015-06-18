@@ -55,7 +55,8 @@ _start3:
 
 	MOVW $0, R0
 	MCR 15, 0, R0, C(8), C(7), 0
-	ADD $TTBATTR, R4, R1
+	DSB
+	ORR $TTBATTR, R4, R1
 	MCR 15, 0, R1, C(2), C(0), 0
 	MOVW $0x20c5047b, R1
 	MOVW $_virt(SB), R2
@@ -236,8 +237,25 @@ TEXT gotolabel(SB), $-4
 	MOVW $1, R0
 	RET
 
-TEXT tas(SB), $0
+TEXT	cas(SB), $0
+	MOVW	ov+4(FP), R1
+	MOVW	nv+8(FP), R2
+spincas:
+	LDREX	(R0), R3
+	CMP.S	R3, R1
+	BNE	fail
+	STREX	R2, (R0), R4
+	CMP.S	$0, R4
+	BNE	spincas
+	MOVW	$1, R0
 	DMB
+	RET
+fail:
+	CLREX
+	MOVW	$0, R0
+	RET
+
+TEXT tas(SB), $0
 	MOVW $0xDEADDEAD, R2
 _tas1:
 	LDREX (R0), R1
@@ -267,7 +285,7 @@ TEXT ttbget(SB), $0
 	RET
 	
 TEXT ttbput(SB), $0
-	ORR $(TTBATTR), R0
+	ORR $TTBATTR, R0
 	MCR 15, 0, R0, C(2), C(0), 0
 	RET
 
@@ -282,6 +300,7 @@ TEXT flushtlb(SB), $0
 	RET
 
 TEXT setasid(SB), $0
+	DSB	/* errata */
 	MCR 15, 0, R0, C(13), C(0), 1
 	RET
 
