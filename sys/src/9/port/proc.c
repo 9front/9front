@@ -1387,7 +1387,7 @@ kproc(char *name, void (*func)(void *), void *arg)
 	p->s = up->s;
 	p->nerrlab = 0;
 	p->slash = up->slash;
-	p->dot = up->dot;
+	p->dot = up->slash;	/* unlike fork, do not inherit the dot for kprocs */
 	if(p->dot != nil)
 		incref(p->dot);
 

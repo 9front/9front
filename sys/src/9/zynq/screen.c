@@ -116,10 +116,6 @@ cursorproc(void *arg)
 
 	up->seg[i] = arg;
 
-	cclose(up->dot);
-	up->dot = up->slash;
-	incref(up->dot);
-
 	hwcursor.proc = up;
 	if(waserror()){
 		hwcursor.addr = 0;
@@ -203,10 +199,6 @@ screenproc(void *arg)
 		panic(up->text);
 
 	up->seg[sno] = arg;
-
-	cclose(up->dot);
-	up->dot = up->slash;
-	incref(up->dot);
 
 	fbscreen.proc = up;
 	if(waserror()){

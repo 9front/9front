@@ -837,10 +837,6 @@ segmentioproc(void *arg)
 	incref(sio->s);
 	up->seg[sno] = sio->s;
 
-	cclose(up->dot);
-	up->dot = up->slash;
-	incref(up->dot);
-
 	while(waserror())
 		;
 	for(done = 0; !done;){

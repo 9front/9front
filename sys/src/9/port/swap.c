@@ -149,10 +149,6 @@ pager(void*)
 	Segment *s;
 	Proc *p, *ep;
 
-	cclose(up->dot);
-	up->dot = up->slash;
-	incref(up->dot);
-
 	p = proctab(0);
 	ep = &p[conf.nproc];
 
