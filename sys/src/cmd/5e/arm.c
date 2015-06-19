@@ -134,6 +134,7 @@ swap(u32int instr)
 	addr = *Rn;
 	if((instr & fB) == 0)
 		addr = evenaddr(addr, 3);
+	clrex();
 	targ = (u32int *) vaddr(addr, 4, &seg);
 	lock(&seg->lock);
 	if(instr & fB) {
@@ -400,8 +401,10 @@ singleex(u32int instr)
 		invalid(instr);
 	addr = evenaddr(*Rn, 3);
 	if(instr & fS) {
+		clrex();
 		targ = vaddr(addr, 4, &seg);
 		lock(&seg->lock);
+		P->excl = seg;
 		*Rd = *targ;
 		segunlock(seg);
 	} else {
@@ -410,14 +413,37 @@ singleex(u32int instr)
 			invalid(instr);
 		targ = vaddr(addr, 4, &seg);
 		if(canlock(&seg->lock)) {
+			unlock(&seg->lock);
+			*Rd = 1;
+		} else if(P->excl != seg) {
 			*Rd = 1;
 		} else {
 			*targ = *Rm;
-			unlock(&seg->lock);
 			*Rd = 0;
 		}
 		segunlock(seg);
+		clrex();
 	}
+}
+
+void
+clrex(void)
+{
+	Segment *seg;
+
+	seg = P->excl;
+	P->excl = nil;
+	if(seg != nil)
+		unlock(&seg->lock);
+}
+
+static void
+barrier(void)
+{
+	static Lock l;
+
+	lock(&l);
+	unlock(&l);
 }
 
 void
@@ -463,7 +489,18 @@ step(void)
 	case 0xC: if((P->CPSR & flZ) || !(P->CPSR & flN) != !(P->CPSR & flV)) return; break;
 	case 0xD: if(!(P->CPSR & flZ) && !(P->CPSR & flN) == !(P->CPSR & flV)) return; break;
 	case 0xE: break;
-	default: sysfatal("condition code %x not implemented", instr >> 28);
+	case 0xF:
+		switch(instr & 0xFFF000F0){
+		case 0xF5700010:	/* CLREX */
+			clrex();
+			return;
+		case 0xF5700040:	/* DSB */
+		case 0xF5700050:	/* DMB */
+		case 0xF5700060:	/* ISB */
+			barrier();
+			return;
+		}
+	default: sysfatal("condition code %x not implemented (instr %ux, ps %ux)", instr >> 28, instr, P->R[15]);
 	}
 	if((instr & 0x0FB00FF0) == 0x01000090)
 		swap(instr);

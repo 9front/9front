@@ -17,6 +17,7 @@ void fddecref(Fd *);
 int iscexec(Fd *, int);
 void setcexec(Fd *, int, int);
 void cleanup(void);
+void clrex(void);
 void segunlock(Segment *);
 void *copyifnec(u32int, int, int *);
 void *bufifnec(u32int, int, int *);

@@ -31,9 +31,10 @@ struct Process {
 	Ref *path;		/* Ref + string data */
 
 	Segment *S[SEGNUM];	/* memory */
+	Segment *excl;		/* recently acquired exclusive access */
 	u32int R[16];		/* general purpose registers / PC (R15) */
 	u32int CPSR;		/* status register */
-	
+
 	u32int FPSR;
 	long double F[Nfpregs];
 

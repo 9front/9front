@@ -378,6 +378,7 @@ donote(char *msg, ulong type)
 	if(P->notehandler == 0)
 		exits(msg);
 
+	clrex();
 	uregp = P->R[13] - 18 * 4;
 	ureg = vaddrnol(uregp, 18 * 4);
 	memcpy(ureg, P->R, 15 * 4);

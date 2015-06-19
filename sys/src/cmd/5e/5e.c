@@ -36,6 +36,7 @@ cleanup(void)
 	if(P == nil)
 		return;
 
+	clrex();
 	remproc(P);
 	decref(&nproc);
 	freesegs();
