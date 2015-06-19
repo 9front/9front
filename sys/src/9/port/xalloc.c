@@ -71,8 +71,10 @@ xinit(void)
 		/* first give to kernel */
 		if(n > 0){
 			m->kbase = (uintptr)KADDR(m->base);
-			m->klimit = (uintptr)KADDR(m->base+size-1)+1;
-			xhole(m->base, size);
+			m->klimit = (uintptr)m->kbase+size;
+			if(m->klimit == 0)
+				m->klimit = (uintptr)-BY2PG;
+			xhole(m->base, m->klimit - m->kbase);
 			kpages -= n;
 		}
 		/* if anything left over, give to user */
