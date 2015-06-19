@@ -246,8 +246,8 @@ mmurelease(Proc* proc)
 			panic("mmurelease: page->ref %d", page->ref);
 		pagechainhead(page);
 	}
-	if(proc->mmul2cache && palloc.r.p)
-		wakeup(&palloc.r);
+	if(proc->mmul2cache != nil)
+		pagechaindone();
 	proc->mmul2cache = nil;
 
 	mmul1empty();

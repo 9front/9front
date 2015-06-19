@@ -14,8 +14,6 @@ extern int _uartprint(char*, ...);
 
 #pragma	varargck argpos	_uartprint 1
 
-extern long ainc(long *);
-extern long adec(long *);
 extern void allcacheinfo(Memcache *);
 extern void allcacheson(void);
 extern int archether(unsigned, Ether *);

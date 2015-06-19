@@ -145,26 +145,6 @@ casfail:
 	MOVW	$0, R0
 	RET
 
-TEXT ainc(SB), $-4
-spinainc:
-	LDREX(0,1)
-	ADD	$1, R1
-	STREX(0,1,2)
-	CMP.S	$0, R2
-	B.NE	spinainc
-	MOVW	R1, R0
-	RET
-
-TEXT adec(SB), $-4
-spinadec:
-	LDREX(0,1)
-	SUB	$1, R1
-	STREX(0,1,2)
-	CMP.S	$0, R2
-	B.NE	spinadec
-	MOVW	R1, R0
-	RET
-
 TEXT setlabel(SB), 1, $-4
 	MOVW	R13, 0(R0)
 	MOVW	R14, 4(R0)

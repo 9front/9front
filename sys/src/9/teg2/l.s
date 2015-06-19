@@ -843,6 +843,25 @@ GLOBL cpus_proceed+0(SB), $4
 
 #include "cache.v7.s"
 
+TEXT	cas+0(SB),0,$12		/* r0 holds p */
+	MOVW	ov+4(FP), R1
+	MOVW	nv+8(FP), R2
+spin:
+/*	LDREX	0(R0),R3	*/
+	LDREX(0,3)
+	CMP.S	R3, R1
+	BNE	fail
+/*	STREX	0(R0),R2,R4	*/
+	STREX(0,2,4)
+	CMP.S	$0, R4
+	BNE	spin
+	MOVW	$1, R0
+	DMB
+	RET
+fail:
+	MOVW	$0, R0
+	RET
+
 TEXT	tas(SB), $-4			/* _tas(ulong *) */
 	/* returns old (R0) after modifying (R0) */
 	MOVW	R0,R5

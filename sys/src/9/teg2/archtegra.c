@@ -198,8 +198,8 @@ enum {
 struct Diag {
 	Cacheline c0;
 	Lock;
-	long	cnt;
-	long	sync;
+	Ref	cnt;
+	Ref	sync;
 	Cacheline c1;
 };
 
@@ -466,10 +466,10 @@ stopcpu(uint cpu)
 }
 
 static void
-synccpus(volatile long *cntp, int n)
+synccpus(Ref *cntp, int n)
 {
-	ainc(cntp);
-	while (*cntp < n)
+	incref(cntp);
+	while (cntp->ref < n)
 		;
 	/* all cpus should now be here */
 }
@@ -482,22 +482,22 @@ pass1(int pass, volatile Diag *dp)
 	if(m->machno == 0)
 		iprint(" %d", pass);
 	for (i = 1000*1000; --i > 0; ) {
-		ainc(&dp->cnt);
-		adec(&dp->cnt);
+		incref(&dp->cnt);
+		incref(&dp->cnt);
 	}
 
 	synccpus(&dp->sync, navailcpus);
 	/* all cpus are now here */
 
 	ilock(dp);
-	if(dp->cnt != 0)
-		panic("cpu%d: diag: failed w count %ld", m->machno, dp->cnt);
+	if(dp->cnt.ref != 0)
+		panic("cpu%d: diag: failed w count %ld", m->machno, dp->cnt.ref);
 	iunlock(dp);
 
 	synccpus(&dp->sync, 2 * navailcpus);
 	/* all cpus are now here */
-	adec(&dp->sync);
-	adec(&dp->sync);
+	decref(&dp->sync);
+	decref(&dp->sync);
 }
 
 /*
@@ -532,8 +532,8 @@ l1diag(void)
 	iunlock(dp);
 
 	synccpus(&dp->sync, 2 * navailcpus);
-	adec(&dp->sync);
-	adec(&dp->sync);
+	decref(&dp->sync);
+	decref(&dp->sync);
 
 	/*
 	 * cpus contend
@@ -546,20 +546,20 @@ l1diag(void)
 	 */
 	synccpus(&dp->sync, navailcpus);
 
-	if(dp->sync < navailcpus || dp->sync >= 2 * navailcpus)
+	if(dp->sync.ref < navailcpus || dp->sync.ref >= 2 * navailcpus)
 		panic("cpu%d: diag: failed w dp->sync %ld", m->machno,
-			dp->sync);
-	if(dp->cnt != 0)
+			dp->sync.ref);
+	if(dp->cnt.ref != 0)
 		panic("cpu%d: diag: failed w dp->cnt %ld", m->machno,
-			dp->cnt);
+			dp->cnt.ref);
 
 	ilock(dp);
 	iprint(" cpu%d ok", m->machno);
 	iunlock(dp);
 
 	synccpus(&dp->sync, 2 * navailcpus);
-	adec(&dp->sync);
-	adec(&dp->sync);
+	decref(&dp->sync);
+	decref(&dp->sync);
 	l1cache->wb();
 
 	/*
