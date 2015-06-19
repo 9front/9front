@@ -175,7 +175,9 @@ of
 followed by a terminating null pointer; and
 the return register (e.g.
 .B R0
-on the 68020) contains the address of the clock information.
+on the 68020) contains the address of the
+.B Tos
+structure.
 .SH SOURCE
 .B /sys/src/libc/9syscall
 .br
