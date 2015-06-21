@@ -533,6 +533,7 @@ wifiproc(void *arg)
 			&& goodbss(wifi, wn)){
 				setstatus(wifi, wn, Sconn);
 				sendauth(wifi, wn);
+				wifi->lastauth = wn->lastsend;
 			}
 			continue;
 		}
@@ -664,9 +665,12 @@ Scan:
 	/* scan for access point */
 	while(wifi->bss == nil){
 		ether->link = 0;
-		wnscan.channel = 1 + wnscan.channel % 11;
+		wnscan.channel = 1 + ((wnscan.channel+4) % 13);
 		wifiprobe(wifi, &wnscan);
-		tsleep(&up->sleep, return0, 0, 1000);
+		do {
+			tsleep(&up->sleep, return0, 0, 200);
+			now = MACHP(0)->ticks;
+		} while(TK2MS(now-wifi->lastauth) < 1000);
 	}
 
 	/* maintain access point */
@@ -715,6 +719,8 @@ wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*))
 
 	wifi->essid[0] = 0;
 	memmove(wifi->bssid, ether->bcast, Eaddrlen);
+
+	wifi->lastauth = MACHP(0)->ticks;
 
 	snprint(name, sizeof(name), "#l%dwifi", ether->ctlrno);
 	kproc(name, wifiproc, wifi);

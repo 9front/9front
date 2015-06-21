@@ -56,6 +56,7 @@ struct Wifi
 
 	Queue	*iq;
 	ulong	watchdog;
+	ulong	lastauth;
 	Ref	txseq;
 	void	(*transmit)(Wifi*, Wnode*, Block*);
 
