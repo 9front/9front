@@ -1,0 +1,23 @@
+#!/bin/rc
+if(! ~ $#* 3){
+	echo usage: approx ratio min max
+	exit usage
+}
+echo $1 $2 $3 | awk '
+{
+	y=$1;
+	min=$2;
+	max=$3;
+	for(i = min; i <= max; i++){
+		k = int(y*i+0.5);
+		z = (k/i/y-1)*100;
+		if(z < 0)
+			z = -z;
+		if(i == min || z < zm){
+			zm = z;
+			printf("%d/%d\t%g\t%.2g%%\n", k, i, k/i, z);
+		}
+	}
+	exit
+}
+'
