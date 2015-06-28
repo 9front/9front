@@ -39,7 +39,7 @@ if(! nusb/usbd)
 					devs=sdU^($1 $5)
 					for(dev in $devs $devs.*) if(test -d $dev) {
 						diskparts $dev
-						for(part in $dev/dos* $dev/9fat) if(test -r $part) {
+						for(part in $dev/dos* $dev/9fat* $dev/data) if(test -r $part && ~ `{fstype $part} dos) {
 							mkdir -m 0700 '#σc/'^$dev || exit
 							{dossrv -s -f $part &} <[0=1] |
 								echo 0 >'#σc/'^$dev/dos
