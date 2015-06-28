@@ -70,6 +70,7 @@ link
 	etheryuk	pci
 	etherwavelan	wavelan devi82365 cis pci
 	etheriwl	pci wifi
+	etherwpi	pci wifi
 	etherrt2860	pci wifi
 	ethervirtio	pci
 	ethermedium
