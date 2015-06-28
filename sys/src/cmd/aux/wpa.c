@@ -481,7 +481,8 @@ setpmk(uchar pmk[PMKlen])
 }
 
 int
-getptk(	uchar smac[Eaddrlen], uchar amac[Eaddrlen], 
+getptk(AuthGetkey *getkey,
+	uchar smac[Eaddrlen], uchar amac[Eaddrlen], 
 	uchar snonce[Noncelen],  uchar anonce[Noncelen], 
 	uchar ptk[PTKlen])
 {
@@ -519,6 +520,14 @@ getptk(	uchar smac[Eaddrlen], uchar amac[Eaddrlen],
 	memmove(ptk, rpc->arg, PTKlen);
 	ret = 0;
 out:
+	if(getkey != nil){
+		switch(ret){
+		case ARneedkey:
+		case ARbadkey:
+			(*getkey)(rpc->arg);
+			break;
+		}
+	}
 	free(s);
 	if(afd >= 0) close(afd);
 	if(rpc != nil) auth_freerpc(rpc);
@@ -1143,10 +1152,10 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	uchar mac[Eaddrlen], buf[4096];
+	uchar mac[Eaddrlen], buf[4096], snonce[Noncelen], anonce[Noncelen];
 	static uchar brsne[258];
 	static Eapconn conn;
-	char addr[128], *s;
+	char addr[128];
 	uchar *rsne;
 	int rsnelen;
 	int n, try;
@@ -1238,20 +1247,24 @@ Connect:
 	if(write(cfd, buf, n) != n)
 		sysfatal("write auth: %r");
 
+	conn.fd = fd;
+	conn.write = eapwrite;
+	conn.type = 1;	/* Start */
+	conn.version = 1;
+	memmove(conn.smac, mac, Eaddrlen);
+	getbssid(conn.amac);
+
 	if(prompt){
 		prompt = 0;
 		if(ispsk){
-			s = smprint("proto=wpapsk essid=%q !password?", essid);
-			auth_getkey(s);
-			free(s);
+			/* dummy to for factotum keyprompt */
+			genrandom(anonce, sizeof(anonce));
+			genrandom(snonce, sizeof(snonce));
+			getptk(auth_getkey, conn.smac, conn.amac, snonce, anonce, ptk);
 		} else {
 			UserPasswd *up;
 
-			s = smprint("proto=pass service=wpa essid=%q user? !password?", essid);
-			auth_getkey(s);
-			free(s);
-
-			if((up = auth_getuserpasswd(nil, "proto=pass service=wpa essid=%q", essid)) != nil){
+			if((up = auth_getuserpasswd(auth_getkey, "proto=pass service=wpa essid=%q", essid)) != nil){
 				factotumctl("key proto=mschapv2 role=client service=wpa essid=%q user=%q !password=%q\n",
 					essid, up->user, up->passwd);
 				freeup(up);
@@ -1277,18 +1290,13 @@ Connect:
 	/* wait for getting associated before sending start message */
 	for(try = 10; (background || try >= 0) && !connected(1); try--)
 		sleep(500);
-
-	conn.fd = fd;
-	conn.write = eapwrite;
-	conn.type = 1;	/* Start */
-	conn.version = 1;
-	memmove(conn.smac, mac, Eaddrlen);
+	
 	if(getbssid(conn.amac) == 0)
 		eapwrite(&conn, nil, 0);
-	
+
 	lastrepc = 0ULL;
 	for(;;){
-		uchar snonce[Noncelen], anonce[Noncelen], *p, *e, *m;
+		uchar *p, *e, *m;
 		int proto, flags, vers, datalen;
 		uvlong repc, rsc, tsc;
 		Keydescr *kd;
@@ -1375,7 +1383,7 @@ Connect:
 
 			memmove(anonce, kd->nonce, sizeof(anonce));
 			genrandom(snonce, sizeof(snonce));
-			if(getptk(conn.smac, conn.amac, snonce, anonce, ptk) != 0){
+			if(getptk(nil, conn.smac, conn.amac, snonce, anonce, ptk) != 0){
 				if(debug)
 					fprint(2, "getptk: %r\n");
 				continue;
