@@ -552,14 +552,10 @@ wpiinit(Ether *edev)
 		g->maxpwr = b[60];
 		g->chan = b[61];
 		g->temp = get16(b+62);
-		print("pwrgroup %d: %d %d %d\n", i, g->chan, g->maxpwr, g->temp);
-		print("samples");
 		for(j = 0; j < 5; j++){
 			g->samples[j].index = b[j*4];
 			g->samples[j].power = b[j*4+1];
-			print(", %d %d", g->samples[j].index, g->samples[j].power);
 		}
-		print("\n");
 	}
 
 	poweroff(ctlr);
@@ -1741,7 +1737,7 @@ wpiinterrupt(Ureg*, void *arg)
 		receive(ctlr);
 	if(isr & Ierr){
 		ctlr->broken = 1;
-		print("#l%d: fatal firmware error, lastcmd %ud\n", edev->ctlrno, ctlr->tx[4].lastcmd);
+		iprint("#l%d: fatal firmware error, lastcmd %ud\n", edev->ctlrno, ctlr->tx[4].lastcmd);
 	}
 	ctlr->wait.m |= isr;
 	if(ctlr->wait.m & ctlr->wait.w)
