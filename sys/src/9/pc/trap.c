@@ -175,7 +175,7 @@ nmienable(void)
 	outb(0x70, 0);
 
 	x = inb(0x61) & 0x07;		/* Enable NMI */
-	outb(0x61, 0x08|x);
+	outb(0x61, 0x0C|x);
 	outb(0x61, x);
 }
 
@@ -422,7 +422,8 @@ trap(Ureg* ureg)
 			 * Don't re-enable, it confuses the crash dumps.
 			nmienable();
 			 */
-			iprint("cpu%d: PC %#8.8lux\n", m->machno, ureg->pc);
+			iprint("cpu%d: nmi PC %#8.8lux, status %ux\n",
+				m->machno, ureg->pc, inb(0x61));
 			while(m->machno != 0)
 				;
 		}
