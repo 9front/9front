@@ -193,7 +193,7 @@ main(int argc, char *argv[])
 		parsedescr(d->usb->ddesc[i]);
 	for(i = 0; i < nelem(d->usb->ep); i++){
 		e = d->usb->ep[i];
-		if(e && e->iface && e->iface->csp == CSP(Claudio, 2, 0)){
+		if(e != nil && e->type == Eiso && e->iface != nil && e->iface->csp == CSP(Claudio, 2, 0)){
 			switch(e->dir){
 			case Ein:
 				if(audioepin != nil)
@@ -214,8 +214,15 @@ main(int argc, char *argv[])
 					audioepout = e;
 				break;
 			}
-			if((ed = setupep(audiodev, e, audiofreq)) == nil)
-				sysfatal("setupep: %r");
+			if((ed = setupep(audiodev, e, audiofreq)) == nil){
+				fprint(2, "setupep: %r\n");
+
+				if(e == audioepin)
+					audioepin = nil;
+				if(e == audioepout)
+					audioepout = nil;
+				continue;
+			}
 			closedev(ed);
 		}
 	}
