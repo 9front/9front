@@ -31,7 +31,10 @@ struct Process {
 	Ref *path;		/* Ref + string data */
 
 	Segment *S[SEGNUM];	/* memory */
-	Segment *excl;		/* recently acquired exclusive access */
+
+	u32int lladdr;		/* LL/SC emulation */
+	u32int llval;
+
 	u32int R[16];		/* general purpose registers / PC (R15) */
 	u32int CPSR;		/* status register */
 
@@ -66,7 +69,6 @@ struct Segment {
 	Ref;
 	int flags;
 	RWLock rw; /* lock for SEGFLLOCK segments */
-	Lock lock; /* atomic accesses */
 	u32int start, size;
 	void *data;
 	Ref *dref;

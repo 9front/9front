@@ -120,10 +120,13 @@ single(u32int instr)
 		*Rn = addr;
 }
 
+/* atomic compare and swap from libc */
+extern int cas(u32int *p, u32int old, u32int new);
+
 static void
 swap(u32int instr)
 {
-	u32int *Rm, *Rn, *Rd, *targ, addr, tmp;
+	u32int *Rm, *Rn, *Rd, *targ, addr, old, new;
 	Segment *seg;
 	
 	Rm = P->R + (instr & 15);
@@ -134,19 +137,21 @@ swap(u32int instr)
 	addr = *Rn;
 	if((instr & fB) == 0)
 		addr = evenaddr(addr, 3);
-	clrex();
-	targ = (u32int *) vaddr(addr, 4, &seg);
-	lock(&seg->lock);
+	targ = (u32int *) vaddr(addr & ~3, 4, &seg);
+	do {
+		old = *targ;
+		new = *Rm;
+		if(instr & fB){
+			new &= 0xFF;
+			new <<= 8*(addr&3);
+			new |= old & ~(0xFF << 8*(addr&3));
+		}
+	} while(!cas(targ, old, new));
 	if(instr & fB) {
-		tmp = *(u8int*) targ;
-		*(u8int*) targ = *Rm;
-		*Rd = tmp;
-	} else {
-		tmp = *targ;
-		*targ = *Rm;
-		*Rd = tmp;
+		old >>= 8*(addr&3);
+		old &= 0xFF;
 	}
-	unlock(&seg->lock);
+	*Rd = old;
 	segunlock(seg);
 }
 
@@ -401,26 +406,24 @@ singleex(u32int instr)
 		invalid(instr);
 	addr = evenaddr(*Rn, 3);
 	if(instr & fS) {
-		clrex();
 		targ = vaddr(addr, 4, &seg);
-		lock(&seg->lock);
-		P->excl = seg;
 		*Rd = *targ;
+		P->lladdr = addr;
+		P->llval = *Rd;
 		segunlock(seg);
 	} else {
 		Rm = P->R + (instr & 15);
 		if(Rm == P->R + 15)
 			invalid(instr);
 		targ = vaddr(addr, 4, &seg);
-		if(canlock(&seg->lock)) {
-			unlock(&seg->lock);
-			*Rd = 1;
-		} else if(P->excl != seg) {
-			*Rd = 1;
-		} else {
-			*targ = *Rm;
-			*Rd = 0;
-		}
+
+		/*
+		 * this is not quite correct as we will succeed even
+		 * if the value was modified and then restored to its
+		 * original value but good enougth approximation for
+		 * libc's _tas(), _cas() and _xinc()/_xdec().
+		 */
+		*Rd = addr != P->lladdr || !cas(targ, P->llval, *Rm);
 		segunlock(seg);
 		clrex();
 	}
@@ -429,12 +432,8 @@ singleex(u32int instr)
 void
 clrex(void)
 {
-	Segment *seg;
-
-	seg = P->excl;
-	P->excl = nil;
-	if(seg != nil)
-		unlock(&seg->lock);
+	P->lladdr = 0;
+	P->llval = 0;
 }
 
 static void
