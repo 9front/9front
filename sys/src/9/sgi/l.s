@@ -721,8 +721,8 @@ TEXT	fcr31(SB), $0			/* fp csr */
  * Emulate 68020 test and set: load linked / store conditional
  */
 
-TEXT	_tas(SB), $0
 TEXT	tas(SB), $0
+TEXT	_tas(SB), $0
 	MOVW	R1, R2		/* address of key */
 tas1:
 	MOVW	$1, R3

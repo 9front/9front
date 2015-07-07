@@ -920,12 +920,6 @@ confinit(void)
 		imagmem->maxsize = kpages;
 }
 
-int
-cmpswap(long *addr, long old, long new)
-{
-	return cas((int *)addr, old, new);
-}
-
 void
 advertwfi(void)			/* advertise my wfi status */
 {

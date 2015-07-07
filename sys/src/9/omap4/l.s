@@ -115,6 +115,7 @@ TEXT islo(SB), 1, $-4
 	RET
 
 TEXT tas(SB), $-4
+TEXT _tas(SB), $-4
 spintas:
 	LDREX(0,1)
 	CMP.S	$0, R1

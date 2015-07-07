@@ -195,28 +195,10 @@ TEXT fpclear(SB), $0				/* clear pending exceptions */
  * Test-And-Set
  */
 TEXT tas(SB), $0
+TEXT _tas(SB), $0
 	MOVL	$0xDEADDEAD, AX
 	MOVL	lock+0(FP), BX
 	XCHGL	AX, (BX)			/* lock->key */
-	RET
-
-TEXT _xinc(SB), $0				/* void _xinc(long*); */
-	MOVL	l+0(FP), AX
-	LOCK;	INCL 0(AX)
-	RET
-
-TEXT _xdec(SB), $0				/* long _xdec(long*); */
-	MOVL	l+0(FP), BX
-	XORL	AX, AX
-	LOCK;	DECL 0(BX)
-	JLT	_xdeclt
-	JGT	_xdecgt
-	RET
-_xdecgt:
-	INCL	AX
-	RET
-_xdeclt:
-	DECL	AX
 	RET
 
 TEXT	getstack(SB), $0

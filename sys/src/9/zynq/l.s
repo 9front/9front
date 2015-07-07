@@ -237,7 +237,8 @@ TEXT gotolabel(SB), $-4
 	MOVW $1, R0
 	RET
 
-TEXT	cas(SB), $0
+TEXT cas(SB), $0
+TEXT cmpswap(SB), $0
 	MOVW	ov+4(FP), R1
 	MOVW	nv+8(FP), R2
 spincas:
@@ -256,6 +257,7 @@ fail:
 	RET
 
 TEXT tas(SB), $0
+TEXT _tas(SB), $0
 	MOVW $0xDEADDEAD, R2
 _tas1:
 	LDREX (R0), R1

@@ -690,6 +690,7 @@ TEXT islo(SB), $0
  * Test-And-Set
  */
 TEXT tas(SB), $0
+TEXT _tas(SB), $0
 	MOVL	$0xDEADDEAD, AX
 	MOVL	lock+0(FP), BX
 	XCHGL	AX, (BX)			/* lock->key */

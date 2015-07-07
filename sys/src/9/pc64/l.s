@@ -520,6 +520,7 @@ TEXT islo(SB), 1, $-4
  * Synchronisation
  */
 TEXT tas(SB), 1, $-4
+TEXT _tas(SB), 1, $-4
 	MOVL	$0xdeaddead, AX
 	XCHGL	AX, (RARG)			/*  */
 	RET

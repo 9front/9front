@@ -70,14 +70,6 @@ procsetup(Proc *p)
 	p->pcycles = -p->kentry;
 }
 
-int
-cmpswap(long *a, long b, long c)
-{
-	extern int cas(int *, int, int);
-
-	return cas((int *) a, b, c);
-}
-
 void
 kexit(Ureg *)
 {

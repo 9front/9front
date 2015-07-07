@@ -266,6 +266,7 @@ dcf1:
 	RETURN
 
 TEXT	tas(SB), $0
+TEXT	_tas(SB), $0
 	SYNC
 	MOVW	R3, R4
 	MOVW	$0xdead,R5
