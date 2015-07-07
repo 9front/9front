@@ -141,9 +141,9 @@ struct PMMU
 	MMU*	mmutail;
 	MMU*	kmaphead;
 	MMU*	kmaptail;
-	int	kmapcount;
-	int	kmapindex;
-	int	mmucount;
+	ulong	kmapcount;
+	ulong	kmapindex;
+	ulong	mmucount;
 };
 
 /*
@@ -182,7 +182,7 @@ struct Mach
 
 	u64int	mmumap[4];		/* bitmap of pml4 entries for zapping */
 	MMU*	mmufree;		/* freelist for MMU structures */
-	int	mmucount;		/* number of MMU structures in freelist */
+	ulong	mmucount;		/* number of MMU structures in freelist */
 
 	ulong	ticks;			/* of the clock since boot time */
 	Label	sched;			/* scheduler wakeup */

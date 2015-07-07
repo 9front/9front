@@ -27,8 +27,8 @@ static struct {
 	Lock;
 	MMU	*free;
 
-	int	nalloc;
-	int	nfree;
+	ulong	nalloc;
+	ulong	nfree;
 } mmupool;
 
 /* level */
