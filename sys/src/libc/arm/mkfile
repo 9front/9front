@@ -23,6 +23,7 @@ CFILES=\
 	cycles.c\
 	notejmp.c\
 	vlrt.c\
+	lock.c\
 
 HFILES=/sys/include/libc.h
 
