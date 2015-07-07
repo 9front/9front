@@ -220,7 +220,7 @@ loadtext(char *file, int argc, char **argv)
 	text = newseg(fp.txtaddr - fp.hdrsz, fp.txtsz + fp.hdrsz, SEGTEXT);
 	data = newseg(fp.dataddr, fp.datsz, SEGDATA);
 	bss = newseg(fp.dataddr + fp.datsz, fp.bsssz, SEGBSS);
-	newseg(mach->utop - STACKSIZE, STACKSIZE, SEGSTACK);
+	newseg((mach->utop & ~7) - STACKSIZE, STACKSIZE, SEGSTACK);
 	seek(fd, fp.txtoff - fp.hdrsz, 0);
 	if(readn(fd, text->data, fp.txtsz + fp.hdrsz) < fp.txtsz + fp.hdrsz)
 		sysfatal("%r");
