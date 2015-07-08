@@ -55,7 +55,7 @@ vfprmtransfer(u32int instr)
 	sz = instr & (1<<8);
 	if((instr & (1<<23)) == 0)
 		off = -off;
-	ea = vaddr(evenaddr(P->R[n] + off, sz ? 7 : 3), 8, &seg);
+	ea = vaddr(evenaddr(P->R[n] + off, 3), sz ? 8 : 4, &seg);
 	switch((instr>>20)&0x3){
 	case 0:
 		if(sz)

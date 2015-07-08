@@ -4,6 +4,7 @@
 #include "dat.h"
 #include "fns.h"
 
+int vfp = 1;
 int nflag, pflag, bflag;
 Ref nproc;
 
@@ -49,7 +50,7 @@ cleanup(void)
 static void
 usage(void)
 {
-	fprint(2, "usage: 5e [-npbf] text [...]\n");
+	fprint(2, "usage: 5e [-npbF] text [...]\n");
 	exits(nil);
 }
 
@@ -105,6 +106,7 @@ main(int argc, char **argv)
 	case 'p': pflag++; break;
 	case 'b': bflag++; break;
 	case 'f': vfp = 1; break;
+	case 'F': vfp = 0; break;
 	default: usage();
 	} ARGEND;
 	if(argc < 1)

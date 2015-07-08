@@ -4,7 +4,7 @@
 .SH SYNOPSIS
 .B 5e
 [
-.B -npb
+.B -npbF
 ]
 .I text
 [
@@ -92,6 +92,9 @@ causes failing processes to call
 instead of
 .I sysfatal.
 See below.
+.TP
+.B -F
+Disable emulation of VFP floating point instructions.
 .SH SOURCE
 .B /sys/src/cmd/5e
 .SH SEE ALSO
@@ -108,13 +111,6 @@ The emulator does not post
 notes.
 
 Obscure opcodes, in particular uncommon operations on R15, are not implemented.
-Careless use of the
-.B LDREX
-and
-.B STREX
-instructions can lead to deadlock, while the
-.I ARM Architecture Reference Manual
-indicates a real processor will exhibit undefined behavior in these cases.
 
 Accesses spanning segment boundaries will be treated as page faults.
 Many syscalls such as
