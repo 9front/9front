@@ -118,25 +118,22 @@ kickpager(void)
 		kproc("pager", pager, 0);
 }
 
-extern int pagereclaim(Image*,int);	/* page.c */
-extern int imagereclaim(int);		/* segment.c */
-
 static int
 reclaim(void)
 {
-	int n;
+	ulong np;
 
 	for(;;){
-		if((n = pagereclaim(&fscache, 1000)) > 0) {
-			if(0) print("reclaim: %d fscache\n", n);
-		} else if((n = pagereclaim(&swapimage, 1000)) > 0) {
-			if(0) print("reclaim: %d swap\n", n);
-		} else if((n = imagereclaim(1000)) > 0) {
-			if(0) print("reclaim: %d image\n", n);
+		if((np = pagereclaim(&fscache, 1000)) > 0) {
+			if(0) print("reclaim: %lud fscache\n", np);
+		} else if((np = pagereclaim(&swapimage, 1000)) > 0) {
+			if(0) print("reclaim: %lud swap\n", np);
+		} else if((np = imagereclaim(1000)) > 0) {
+			if(0) print("reclaim: %lud image\n", np);
 		}
 		if(!needpages(nil))
 			return 1;	/* have pages, done */
-		if(n == 0)
+		if(np == 0)
 			return 0;	/* didnt reclaim, need to swap */
 		sched();
 	}

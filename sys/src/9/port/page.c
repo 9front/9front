@@ -83,22 +83,25 @@ pagechaindone(void)
 }
 
 static void
-freepages(Page *head, Page *tail, int n)
+freepages(Page *head, Page *tail, ulong np)
 {
 	lock(&palloc);
 	tail->next = palloc.head;
 	palloc.head = head;
-	palloc.freecount += n;
-	unlock(&palloc);
+	palloc.freecount += np;
 	pagechaindone();
+	unlock(&palloc);
 }
 
-int
-pagereclaim(Image *i, int min)
+ulong
+pagereclaim(Image *i, ulong pages)
 {
 	Page **h, **l, **x, *p;
 	Page *fh, *ft;
-	int n;
+	ulong np;
+
+	if(pages == 0)
+		return 0;
 
 	lock(i);
 	if(i->pgref == 0){
@@ -107,7 +110,7 @@ pagereclaim(Image *i, int min)
 	}
 	incref(i);
 
-	n = 0;
+	np = 0;
 	fh = ft = nil;
 	for(h = i->pghash; h < &i->pghash[PGHSIZE]; h++){
 		l = h;
@@ -133,16 +136,16 @@ pagereclaim(Image *i, int min)
 		else
 			ft->next = p;
 		ft = p;
-		if(++n >= min)
+		if(++np >= pages)
 			break;
 	}
 	unlock(i);
 	putimage(i);
 
-	if(n > 0)
-		freepages(fh, ft, n);
+	if(np > 0)
+		freepages(fh, ft, np);
 
-	return n;
+	return np;
 }
 
 static int

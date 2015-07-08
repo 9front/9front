@@ -5,8 +5,6 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
-int imagereclaim(int);
-
 /*
  * Attachable segment types
  */
@@ -295,20 +293,22 @@ found:
 	return i;
 }
 
-extern int pagereclaim(Image*, int);	/* page.c */
-
-int
-imagereclaim(int min)
+ulong
+imagereclaim(ulong pages)
 {
 	static Image *i, *ie;
-	int j, n;
+	ulong np;
+	int j;
+
+	if(pages == 0)
+		return 0;
 
 	eqlock(&imagealloc.ireclaim);
 	if(i == nil){
 		i = imagealloc.list;
 		ie = &imagealloc.list[conf.nimage];
 	}
-	n = 0;
+	np = 0;
 	for(j = 0; j < conf.nimage; j++, i++){
 		if(i >= ie)
 			i = imagealloc.list;
@@ -319,14 +319,14 @@ imagereclaim(int min)
 		 * reclaim pages from inactive images.
 		 */
 		if(imagealloc.free != nil || i->ref == i->pgref){
-			n += pagereclaim(i, min - n);
-			if(n >= min)
+			np += pagereclaim(i, pages - np);
+			if(np >= pages)
 				break;
 		}
 	}
 	qunlock(&imagealloc.ireclaim);
 
-	return n;
+	return np;
 }
 
 void
@@ -334,7 +334,7 @@ putimage(Image *i)
 {
 	Image *f, **l;
 	Chan *c;
-	int r;
+	long r;
 
 	if(i->notext){
 		decref(i);
