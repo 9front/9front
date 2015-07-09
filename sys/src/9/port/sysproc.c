@@ -278,19 +278,18 @@ sysexec(va_list list)
 			kstrdup(&elem, up->genbuf);
 
 		n = devtab[tc->type]->read(tc, &exec, sizeof(Exec), 0);
-		if(n < 2)
+		if(n <= 2)
 			error(Ebadexec);
-		magic = l2be(exec.magic);
-		text = l2be(exec.text);
-		entry = l2be(exec.entry);
-		if(n==sizeof(Exec) && (magic == AOUT_MAGIC)){
+		if(n == sizeof(Exec) && (magic = l2be(exec.magic)) == AOUT_MAGIC){
+			text = l2be(exec.text);
+			entry = l2be(exec.entry);
 			switch(magic){
 			case S_MAGIC:
 				text += 8;
-				align = 0x200000ull;	/* 2MB segment alignment for amd64 */
+				align = 0x200000;	/* 2MB segment alignment for amd64 */
 				break;
 			case V_MAGIC:
-				align = 0x4000ull;	/* MIPS has 16K page alignment */
+				align = 0x4000;		/* MIPS has 16K page alignment */
 				break;
 			}
 			if(text >= (USTKTOP-USTKSIZE)-(UTZERO+sizeof(Exec))
@@ -303,18 +302,18 @@ sysexec(va_list list)
 		/*
 		 * Process #! /bin/sh args ...
 		 */
-		memmove(line, &exec, sizeof(Exec));
+		memmove(line, &exec, n);
 		if(indir || line[0]!='#' || line[1]!='!')
 			error(Ebadexec);
 		n = shargs(line, n, progarg);
-		if(n == 0)
+		if(n < 1)
 			error(Ebadexec);
 		indir = 1;
 		/*
 		 * First arg becomes complete file name
 		 */
 		progarg[n++] = file;
-		progarg[n] = 0;
+		progarg[n] = nil;
 		argp0++;
 		file = progarg[0];
 		if(strlen(elem) >= sizeof progelem)
@@ -539,27 +538,28 @@ shargs(char *s, int n, char **ap)
 
 	s += 2;
 	n -= 2;		/* skip #! */
-	for(i=0; s[i]!='\n'; i++)
-		if(i == n-1)
+	for(i=0;; i++){
+		if(i >= n)
 			return 0;
+		if(s[i]=='\n')
+			break;
+	}
 	s[i] = 0;
-	*ap = 0;
+
 	i = 0;
 	for(;;) {
 		while(*s==' ' || *s=='\t')
 			s++;
 		if(*s == 0)
 			break;
-		i++;
-		*ap++ = s;
-		*ap = 0;
+		ap[i++] = s++;
 		while(*s && *s!=' ' && *s!='\t')
 			s++;
 		if(*s == 0)
 			break;
-		else
-			*s++ = 0;
+		*s++ = 0;
 	}
+	ap[i] = nil;
 	return i;
 }
 
