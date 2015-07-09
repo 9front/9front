@@ -280,7 +280,8 @@ sysexec(va_list list)
 		n = devtab[tc->type]->read(tc, &exec, sizeof(Exec), 0);
 		if(n <= 2)
 			error(Ebadexec);
-		if(n == sizeof(Exec) && (magic = l2be(exec.magic)) == AOUT_MAGIC){
+		magic = l2be(exec.magic);
+		if(n == sizeof(Exec) && magic == AOUT_MAGIC){
 			text = l2be(exec.text);
 			entry = l2be(exec.entry);
 			switch(magic){
