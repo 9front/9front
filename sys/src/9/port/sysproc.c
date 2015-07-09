@@ -281,7 +281,7 @@ sysexec(va_list list)
 		if(n <= 2)
 			error(Ebadexec);
 		magic = l2be(exec.magic);
-		if(n == sizeof(Exec) && magic == AOUT_MAGIC){
+		if(n == sizeof(Exec) && (magic == AOUT_MAGIC)){
 			text = l2be(exec.text);
 			entry = l2be(exec.entry);
 			switch(magic){
