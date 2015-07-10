@@ -1426,7 +1426,7 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 		if((w->fc[0] & 0x0c) == 0x08 &&	ctlr->bssnodeid != -1){
 			timeout = 0;
 			nodeid = ctlr->bssnodeid;
-			p = wn->maxrate;
+			p = wn->actrate;
 		}
 	}
 	qunlock(ctlr);
@@ -1631,6 +1631,8 @@ receive(Ctlr *ctlr)
 	rx = &ctlr->rx;
 	if(ctlr->broken || ctlr->shared == nil || rx->b == nil)
 		return;
+
+	bb = nil;
 	for(hw = ctlr->shared->next % Nrx; rx->i != hw; rx->i = (rx->i + 1) % Nrx){
 		uchar type, flags, idx, qid;
 		u32int len;
@@ -1651,14 +1653,15 @@ receive(Ctlr *ctlr)
 
 if(0) iprint("rxdesc[%d] type=%d len=%d idx=%d qid=%d\n", rx->i, type, len, idx, qid);
 
+		if(bb != nil){
+			freeb(bb);
+			bb = nil;
+		}
 		if((qid & 0x80) == 0 && qid < nelem(ctlr->tx)){
 			tx = &ctlr->tx[qid];
 			if(tx->n > 0){
 				bb = tx->b[idx];
-				if(bb != nil){
-					tx->b[idx] = nil;
-					freeb(bb);
-				}
+				tx->b[idx] = nil;
 				tx->n--;
 				wakeup(tx);
 			}
@@ -1697,6 +1700,9 @@ if(0) iprint("rxdesc[%d] type=%d len=%d idx=%d qid=%d\n", rx->i, type, len, idx,
 			continue;
 
 		case 28:	/* tx done */
+			if(len <= 8 || d[8] == 1)
+				break;
+			wifitxfail(ctlr->wifi, bb);
 			break;
 
 		case 130:	/* start scan */
@@ -1710,6 +1716,8 @@ if(0) iprint("rxdesc[%d] type=%d len=%d idx=%d qid=%d\n", rx->i, type, len, idx,
 		}
 	}
 	csr32w(ctlr, FhRxWptr, ((hw+Nrx-1) % Nrx) & ~7);
+	if(bb != nil)
+		freeb(bb);
 }
 
 static void
