@@ -282,15 +282,16 @@ sysexec(va_list list)
 			error(Ebadexec);
 		magic = l2be(exec.magic);
 		if(n == sizeof(Exec) && (magic == AOUT_MAGIC)){
-			text = l2be(exec.text);
 			entry = l2be(exec.entry);
-			switch(magic){
-			case S_MAGIC:
+			text = l2be(exec.text);
+			if(magic & HDR_MAGIC)
 				text += 8;
-				align = 0x200000;	/* 2MB segment alignment for amd64 */
+			switch(magic){
+			case S_MAGIC:	/* 2MB segment alignment for amd64 */
+				align = 0x200000;
 				break;
-			case V_MAGIC:
-				align = 0x4000;		/* MIPS has 16K page alignment */
+			case V_MAGIC:	/* 16K segment alignment for mips */
+				align = 0x4000;
 				break;
 			}
 			if(text >= (USTKTOP-USTKSIZE)-(UTZERO+sizeof(Exec))

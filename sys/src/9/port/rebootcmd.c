@@ -70,14 +70,17 @@ rebootcmd(int argc, char *argv[])
 	text = l2be(exec.text);
 	data = l2be(exec.data);
 
-	if(AOUT_MAGIC == S_MAGIC || AOUT_MAGIC == I_MAGIC){
-		if(magic != S_MAGIC && magic != I_MAGIC)
+	if(!(magic == AOUT_MAGIC)){
+		switch(magic){
+		case I_MAGIC:
+		case S_MAGIC:
+			if((I_MAGIC == AOUT_MAGIC) || (S_MAGIC == AOUT_MAGIC))
+				break;
+		default:
 			error(Ebadexec);
-	} else if(magic != AOUT_MAGIC)
-		error(Ebadexec);
-
-	/* amd64 extra header */
-	if(magic == S_MAGIC)
+		}
+	}
+	if(magic & HDR_MAGIC)
 		readn(c, &exec, 8);
 
 	/* round text out to page boundary */
