@@ -2240,7 +2240,7 @@ static void
 receive(Ctlr *ctlr)
 {
 	Block *b, *bb;
-	uchar *d, *dd, *cc;
+	uchar *d;
 	RXQ *rx;
 	TXQ *tx;
 	uint hw;
@@ -2275,11 +2275,6 @@ receive(Ctlr *ctlr)
 			if(tx->n > 0){
 				bb = tx->b[idx];
 				tx->b[idx] = nil;
-				/* paranoia: clear tx descriptors */
-				dd = tx->d + idx*Tdscsize;
-				cc = tx->c + idx*Tcmdsize;
-				memset(dd, 0, Tdscsize);
-				memset(cc, 0, Tcmdsize);
 				tx->n--;
 
 				wakeup(tx);
@@ -2362,13 +2357,10 @@ receive(Ctlr *ctlr)
 		case 197:	/* rx compressed ba */
 			break;
 		}
-
-		/* paranoia: clear the descriptor */
-		memset(b->rp, 0, Rdscsize);
 	}
+	csr32w(ctlr, FhRxWptr, ((hw+Nrx-1) % Nrx) & ~7);
 	if(bb != nil)
 		freeb(bb);
-	csr32w(ctlr, FhRxWptr, ((hw+Nrx-1) % Nrx) & ~7);
 }
 
 static void
