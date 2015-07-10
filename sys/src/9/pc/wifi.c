@@ -702,7 +702,7 @@ Scan:
 	tmout = 0;
 	while((wn = wifi->bss) != nil){
 		ether->link = (wn->status == Sassoc) || (wn->status == Sblocked);
-		if(ether->link && (rate = wn->maxrate) != nil)
+		if(ether->link && (rate = wn->actrate) != nil)
 			ether->mbps = ((*rate & 0x7f)+1)/2;
 		now = MACHP(0)->ticks;
 		if(wn->status != Sneedauth && TK2SEC(now - wn->lastseen) > 60 || goodbss(wifi, wn) == 0){
