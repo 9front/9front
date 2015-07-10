@@ -156,11 +156,18 @@ wifitx(Wifi *wifi, Wnode *wn, Block *b)
 	w->seq[0] = seq;
 	w->seq[1] = seq>>8;
 
-	if((w->fc[0] & 0x0c) != 0x00)
+	if((w->fc[0] & 0x0c) != 0x00){
 		b = wifiencrypt(wifi, wn, b);
+		if(b == nil)
+			return;
+	}
 
-	if(b != nil)
-		(*wifi->transmit)(wifi, wn, b);
+	if((wn->txcount++ & 255) == 255){
+		if(wn->actrate != nil && wn->actrate < wn->maxrate)
+			wn->actrate++;
+	}
+
+	(*wifi->transmit)(wifi, wn, b);
 }
 
 static Wnode*
@@ -194,6 +201,23 @@ nodelookup(Wifi *wifi, uchar *bssid, int new)
 	memmove(nn->bssid, bssid, Eaddrlen);
 	nn->lastseen = MACHP(0)->ticks;
 	return nn;
+}
+
+void
+wifitxfail(Wifi *wifi, Block *b)
+{
+	Wifipkt *w;
+	Wnode *wn;
+
+	if(b == nil)
+		return;
+	w = (Wifipkt*)b->rp;
+	wn = nodelookup(wifi, w->a1, 0);
+	if(wn == nil)
+		return;
+	wn->txerror++;
+	if(wn->actrate != nil && wn->actrate > wn->minrate)
+		wn->actrate--;
 }
 
 static uchar*
@@ -417,6 +441,7 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 						break;
 					}
 				}
+				wn->actrate = wn->maxrate;
 			}
 			break;
 		case 3:		/* DSPARAMS */

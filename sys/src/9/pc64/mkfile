@@ -86,7 +86,7 @@ install:V:	$p$CONF
 PCHEADERS=wifi.h usbehci.h screen.h etherif.h ethermii.h mp.h io.h ahci.h
 
 REPCH=`{echo $PCHEADERS | sed 's/\.h//g; s/ /|/g'}
-^($REPCH)\.h:R:	'../pc/\1.h'
+^($REPCH)\.h:R:	../pc/\1.h
 	cp $prereq .
 
 REPCC=`{../port/mkfilelist ../pc}
@@ -122,6 +122,7 @@ usbehci.$O usbehcipc.$O:	usbehci.h
 trap.$O:			/sys/include/tos.h
 ethermii.$O:			ethermii.h
 etheriwl.$O:			wifi.h
+etherwpi.$O:			wifi.h
 etherrt2860.$O: 		wifi.h
 wifi.$O:			wifi.h
 

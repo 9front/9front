@@ -2011,7 +2011,7 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 
 		if((w->fc[0] & 0x0c) == 0x08 &&	ctlr->bssnodeid != -1){
 			nodeid = ctlr->bssnodeid;
-			p = wn->maxrate;
+			p = wn->actrate;
 		}
 
 		if(flags & (TFlagNeedRTS|TFlagNeedCTS)){
@@ -2248,6 +2248,8 @@ receive(Ctlr *ctlr)
 	rx = &ctlr->rx;
 	if(ctlr->broken || rx->s == nil || rx->b == nil)
 		return;
+
+	bb = nil;
 	for(hw = get16(rx->s) % Nrx; rx->i != hw; rx->i = (rx->i + 1) % Nrx){
 		uchar type, flags, idx, qid;
 		u32int len;
@@ -2264,14 +2266,15 @@ receive(Ctlr *ctlr)
 		idx = *d++;
 		qid = *d++;
 
+		if(bb != nil){
+			freeb(bb);
+			bb = nil;
+		}
 		if((qid & 0x80) == 0 && qid < nelem(ctlr->tx)){
 			tx = &ctlr->tx[qid];
 			if(tx->n > 0){
 				bb = tx->b[idx];
-				if(bb != nil){
-					tx->b[idx] = nil;
-					freeb(bb);
-				}
+				tx->b[idx] = nil;
 				/* paranoia: clear tx descriptors */
 				dd = tx->d + idx*Tdscsize;
 				cc = tx->c + idx*Tcmdsize;
@@ -2295,6 +2298,14 @@ receive(Ctlr *ctlr)
 		case 24:	/* add node done */
 			break;
 		case 28:	/* tx done */
+			if(ctlr->type == Type4965){
+				if(len <= 20 || d[20] == 1 || d[20] == 2)
+					break;
+			} else {
+				if(len <= 32 || d[32] == 1 || d[32] == 2)
+					break;
+			}
+			wifitxfail(ctlr->wifi, bb);
 			break;
 		case 102:	/* calibration result (Type5000 only) */
 			if(len < 4)
@@ -2351,9 +2362,12 @@ receive(Ctlr *ctlr)
 		case 197:	/* rx compressed ba */
 			break;
 		}
+
 		/* paranoia: clear the descriptor */
 		memset(b->rp, 0, Rdscsize);
 	}
+	if(bb != nil)
+		freeb(bb);
 	csr32w(ctlr, FhRxWptr, ((hw+Nrx-1) % Nrx) & ~7);
 }
 

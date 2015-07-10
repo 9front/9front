@@ -39,6 +39,10 @@ struct Wnode
 
 	uchar	*minrate;	/* pointers into wifi->rates */
 	uchar	*maxrate;
+	uchar	*actrate;
+
+	ulong	txcount;	/* statistics for rate adaption */
+	ulong	txerror;
 
 	/* stuff from beacon */
 	int	ival;
@@ -87,6 +91,7 @@ struct Wifipkt
 Wifi *wifiattach(Ether *ether, void (*transmit)(Wifi*, Wnode*, Block*));
 void wifiiq(Wifi*, Block*);
 int wifihdrlen(Wifipkt*);
+void wifitxfail(Wifi*, Block*);
 
 long wifistat(Wifi*, void*, long, ulong);
 long wifictl(Wifi*, void*, long);
