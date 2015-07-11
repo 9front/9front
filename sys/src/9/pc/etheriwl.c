@@ -2139,6 +2139,11 @@ iwlpromiscuous(void *arg, int on)
 }
 
 static void
+iwlmulticast(void *, uchar*, int)
+{
+}
+
+static void
 iwlrecover(void *arg)
 {
 	Ether *edev;
@@ -2521,7 +2526,7 @@ again:
 	edev->ctl = iwlctl;
 	edev->shutdown = iwlshutdown;
 	edev->promiscuous = iwlpromiscuous;
-	edev->multicast = nil;
+	edev->multicast = iwlmulticast;
 	edev->mbps = 54;
 
 	if(iwlinit(edev) < 0){
