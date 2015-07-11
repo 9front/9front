@@ -1430,6 +1430,11 @@ rt2860promiscuous(void *arg, int on)
 	qunlock(ctlr);
 }
 
+static void
+rt2860multicast(void *, uchar*, int)
+{
+}
+
 static FWImage*
 readfirmware(void){
 	static char name[] = "ral-rt2860";
@@ -3550,7 +3555,7 @@ again:
 	edev->ifstat = rt2860ifstat;
 	edev->ctl = rt2860ctl;
 	edev->promiscuous = rt2860promiscuous;
-	edev->multicast = nil;
+	edev->multicast = rt2860multicast;
 	edev->mbps = 10;
 
 	if(rt2860init(edev) < 0){
