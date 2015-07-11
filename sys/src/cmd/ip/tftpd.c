@@ -301,11 +301,12 @@ options(int fd, char *buf, int bufsz, char *file, ushort oper, char *p, int dlen
 			break;
 		dlen -= vallen;
 
-		nopts++;
 		olen = 0;
 		op = handleopt(fd, p, val);
 		if (op == nil)
 			continue;
+
+		nopts++;
 
 		/* append OACK response to buf */
 		nmlen = emits(p, bp, ep);	/* option name */
