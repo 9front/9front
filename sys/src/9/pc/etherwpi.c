@@ -273,7 +273,7 @@ struct Ctlr {
 		Powergrp pwrgrps[5];
 	} eeprom;
 
-	char maxpwr[255];
+	char maxpwr[256];
 
 	Shared *shared;
 
@@ -535,6 +535,7 @@ wpiinit(Ether *edev)
 		goto Err;
 	memmove(edev->ea, b, Eaddrlen);
 
+	memset(ctlr->maxpwr, 0, sizeof(ctlr->maxpwr));
 	for(i = 0; i < nelem(bands); i++){
 		if((err = eepromread(ctlr, b, 2*bands[i].nchan, bands[i].addr)) != nil)
 			goto Err;
@@ -1348,19 +1349,21 @@ rxon(Ether *edev, Wnode *bss)
 		return;
 	}
 
-	/* tx power */
-	memset(p = c, 0, sizeof(c));
-	*p++ = 1;	/* band (0 = 5ghz) */
-	p++;		/* reserved */
-	put16(p, ctlr->channel), p += 2;
-	for(rate = 0; rate < nelem(ratetab); rate++){
-		idx = pwridx(ctlr, &ctlr->eeprom.pwrgrps[0], ctlr->channel, rate);
-		*p++ = ratetab[rate].plcp;
-		*p++ = rfgain_2ghz[idx];	/* rf_gain */
-		*p++ = dspgain_2ghz[idx];	/* dsp_gain */
-		p++;		/* reservd */
+	if(ctlr->maxpwr[ctlr->channel] != 0){
+		/* tx power */
+		memset(p = c, 0, sizeof(c));
+		*p++ = 1;	/* band (0 = 5ghz) */
+		p++;		/* reserved */
+		put16(p, ctlr->channel), p += 2;
+		for(rate = 0; rate < nelem(ratetab); rate++){
+			idx = pwridx(ctlr, &ctlr->eeprom.pwrgrps[0], ctlr->channel, rate);
+			*p++ = ratetab[rate].plcp;
+			*p++ = rfgain_2ghz[idx];	/* rf_gain */
+			*p++ = dspgain_2ghz[idx];	/* dsp_gain */
+			p++;		/* reservd */
+		}
+		cmd(ctlr, 151, c, p - c);
 	}
-	cmd(ctlr, 151, c, p - c);
 
 	if(ctlr->bcastnodeid == -1){
 		ctlr->bcastnodeid = 24;
@@ -1523,6 +1526,11 @@ wpipromiscuous(void *arg, int on)
 	ctlr->prom = on;
 	rxon(edev, ctlr->wifi->bss);
 	qunlock(ctlr);
+}
+
+static void
+wpimulticast(void *, uchar*, int)
+{
 }
 
 static void
@@ -1846,7 +1854,7 @@ again:
 	edev->ctl = wpictl;
 	edev->shutdown = wpishutdown;
 	edev->promiscuous = wpipromiscuous;
-	edev->multicast = nil;
+	edev->multicast = wpimulticast;
 	edev->mbps = 54;
 
 	if(wpiinit(edev) < 0){
