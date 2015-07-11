@@ -34,6 +34,7 @@ int imode;
 int newwin;
 int rotate;
 int viewgen;
+int forward;	/* read ahead direction: >= 0 forwards, < 0 backwards */
 Point resize, pos;
 Page *root, *current;
 Page lru;
@@ -45,7 +46,7 @@ enum {
 	MiB	= 1024*1024,
 };
 
-ulong imemlimit = 8*MiB;
+ulong imemlimit = 16*MiB;
 ulong imemsize;
 
 Image *frame, *paper, *ground;
@@ -882,17 +883,23 @@ lunlink(Page *p)
 	p->lprev = nil;
 }
 
+static void
+llinkhead(Page *p)
+{
+	lunlink(p);
+	p->lnext = lru.lnext;
+	p->lprev = &lru;
+	p->lnext->lprev = p;
+	p->lprev->lnext = p;
+}
+
 void
 loadpage(Page *p)
 {
 	int fd;
 
 	qlock(&lru);
-	lunlink(p);
-	p->lnext = lru.lnext;
-	p->lprev = &lru;
-	p->lnext->lprev = p;
-	p->lprev->lnext = p;
+	llinkhead(p);
 	qunlock(&lru);
 
 	if(p->open && p->image == nil){
@@ -943,7 +950,7 @@ unloadpages(ulong limit)
 void
 loadpages(Page *p, int oviewgen)
 {
-	while(p && viewgen == oviewgen){
+	while(p != nil && viewgen == oviewgen){
 		qlock(p);
 		loadpage(p);
 		if(viewgen != oviewgen){
@@ -965,9 +972,9 @@ loadpages(Page *p, int oviewgen)
 			unlockdisplay(display);
 		}
 		qunlock(p);
-		if(p != current || imemsize >= imemlimit)
-			break;
-		p = nextpage(p);
+		if(p != current && imemsize >= imemlimit)
+			break;		/* only one page ahead once we reach the limit */
+		p = forward < 0 ? prevpage(p) : nextpage(p);
 	}
 }
 
@@ -1327,8 +1334,7 @@ showpage(Page *p)
 	if(p == nil)
 		return;
 	drawlock(0);
-	if(p->image == nil)
-		unloadpages(imemlimit/2);
+	unloadpages(imemlimit);
 	showpage1(p);
 	drawlock(1);
 }
@@ -1338,6 +1344,7 @@ shownext(void)
 {
 	Page *p;
 
+	forward = 1;
 	for(p = nextpage(current); p; p = nextpage(p))
 		if(p->image || p->open)
 			break;
@@ -1349,6 +1356,7 @@ showprev(void)
 {
 	Page *p;
 
+	forward = -1;
 	for(p = prevpage(current); p; p = prevpage(p))
 		if(p->image || p->open)
 			break;
@@ -1730,6 +1738,7 @@ main(int argc, char *argv[])
 					pagemenu.lasthit = pageindex(current);
 					x = pageat(emenuhit(3, &m, &pagemenu));
 					qunlock(&pagelock);
+					forward = 0;
 					showpage(x);
 				}
 			} else if(m.buttons & 8){
@@ -1767,8 +1776,10 @@ main(int argc, char *argv[])
 				   (e.kbdc & 0xFF00) == Spec)
 					break;
 				snprint(buf, sizeof(buf), "%C", (Rune)e.kbdc);
-				if(eenter("Go to", buf, sizeof(buf), &m) > 0)
+				if(eenter("Go to", buf, sizeof(buf), &m) > 0){
+					forward = 0;
 					showpage(findpage(buf));
+				}
 			}
 			break;
 		case Eplumb:
@@ -1806,6 +1817,7 @@ main(int argc, char *argv[])
 					j = addpage(root, s, popenfile, s, fd);
 					drawlock(1);
 				}
+				forward = 0;
 				showpage(j);
 			}
 		Plumbfree:
