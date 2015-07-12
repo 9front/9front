@@ -749,12 +749,24 @@ i82563multicast(void *arg, uchar *addr, int on)
 	edev = arg;
 	ctlr = edev->ctlr;
 
-	x = addr[5]>>1;
-	if(ctlr->type == i82566)
-		x &= 31;
-	if(ctlr->type == i218)
-		x &= 15;
-	bit = ((addr[5] & 1)<<4)|(addr[4]>>4);
+	switch(ctlr->type){
+	case i82566:
+	case i82567:
+	case i82567m:
+	case i82577:
+	case i82577m:
+	case i82579:
+	case i218:
+		bit = (addr[5]<<2)|(addr[4]>>6);
+		x = (bit>>5) & 31;
+		break;
+	default:
+		bit = (addr[5]<<4)|(addr[4]>>4);
+		x = (bit>>5) & 127;
+		break;
+	}
+	bit &= 31;
+
 	/*
 	 * multiple ether addresses can hash to the same filter bit,
 	 * so it's never safe to clear a filter bit.
@@ -764,8 +776,6 @@ i82563multicast(void *arg, uchar *addr, int on)
 	 */
 	if(on)
 		ctlr->mta[x] |= 1<<bit;
-//	else
-//		ctlr->mta[x] &= ~(1<<bit);
 
 	csr32w(ctlr, Mta+x*4, ctlr->mta[x]);
 }
