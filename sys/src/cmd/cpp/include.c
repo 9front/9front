@@ -47,26 +47,38 @@ doinclude(Tokenrow *trp)
 	if (fname[0]=='/') {
 		fd = open(fname, 0);
 		strcpy(iname, fname);
-	} else for (fd=-1,i=NINCLUDE-1; i>=0; i--) {
-		ip = &includelist[i];
-		if (ip->file==NULL || ip->deleted || (angled && ip->always==0))
-			continue;
-		if (strlen(fname)+strlen(ip->file)+2 > sizeof(iname))
-			continue;
-		strcpy(iname, ip->file);
-		strcat(iname, "/");
-		strcat(iname, fname);
-		if ((fd = open(iname, 0)) >= 0)
-			break;
-	}
-	if(fd < 0) {
-		strcpy(iname, cursource->filename);
-		p = strrchr(iname, '/');
-		if(p != NULL) {
-			*p = '\0';
+	} else {
+		fd = -1;
+		if (!angled) {
+			strcpy(iname, cursource->filename);
+			p = strrchr(iname, '/');
+			if (p != NULL) {
+				*p = '\0';
+				strcat(iname, "/");
+				strcat(iname, fname);
+				fd = open(iname, 0);
+			}
+		}
+		for (i=NINCLUDE-1; fd<0 && i>=0; i--) {
+			ip = &includelist[i];
+			if (ip->file==NULL || ip->deleted || (angled && ip->always==0))
+				continue;
+			if (strlen(fname)+strlen(ip->file)+2 > sizeof(iname))
+				continue;
+			strcpy(iname, ip->file);
 			strcat(iname, "/");
 			strcat(iname, fname);
 			fd = open(iname, 0);
+		}
+		if (fd<0 && angled) {
+			strcpy(iname, cursource->filename);
+			p = strrchr(iname, '/');
+			if(p != NULL) {
+				*p = '\0';
+				strcat(iname, "/");
+				strcat(iname, fname);
+				fd = open(iname, 0);
+			}
 		}
 	}
 	if ( Mflag>1 || !angled&&Mflag==1 ) {
