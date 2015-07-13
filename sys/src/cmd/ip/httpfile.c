@@ -114,11 +114,11 @@ evictblock(Blocklist *cache)
 	for(l=&cache->first; (b=*l) != nil; l=&b->link){
 		if(b->rq != nil)	/* dont touch block when still requests queued */
 			continue;
-		if(b->rq != nil && (oldest == nil || (*oldest)->lastuse > b->lastuse))
+		if(oldest == nil || (*oldest)->lastuse > b->lastuse)
 			oldest = l;
 	}
 
-	if(oldest == nil)
+	if(oldest == nil || *oldest == nil || (*oldest)->rq != nil)
 		return;
 
 	b = *oldest;
@@ -439,8 +439,7 @@ finishthread(void*)
 		b = recvp(finishchan);
 		assert(b == inprogress.first);
 		inprogress.first = b->link;
-		ncache++;
-		if(ncache >= mcache)
+		if(++ncache >= mcache)
 			evictblock(&cache);
 		addblock(&cache, b);
 		while((r = b->rq) != nil){
@@ -448,7 +447,7 @@ finishthread(void*)
 			r->aux = nil;
 			readfrom(r, b);
 		}
-		if(inprogress.first)
+		if(inprogress.first != nil)
 			sendp(httpchan, inprogress.first);
 	}
 }
