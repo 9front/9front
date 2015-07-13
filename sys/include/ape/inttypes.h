@@ -5,19 +5,26 @@
 #ifndef _INTTYPES_H_
 #define _INTTYPES_H_ 1
 
-typedef int _intptr_t;
-typedef unsigned int _uintptr_t;
+#include <stdint.h>
 
+#define PRId8 "d"
+#define PRId16 "d"
+#define PRId32 "d"
+#define PRId64 "lld"
 
-typedef char int8_t;
-typedef short int16_t;
-typedef int int32_t;
-typedef long long int64_t;
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long long uint64_t;
-typedef _intptr_t intptr_t;
-typedef _uintptr_t uintptr_t;
+#define PRIo8 "o"
+#define PRIo16 "o"
+#define PRIo32 "o"
+#define PRIo64 "llo"
+
+#define PRIx8 "x"
+#define PRIx16 "x"
+#define PRIx32 "x"
+#define PRIx64 "llx"
+
+#define PRIu8 "u"
+#define PRIu16 "u"
+#define PRIu32 "u"
+#define PRIu64 "llu"
 
 #endif
