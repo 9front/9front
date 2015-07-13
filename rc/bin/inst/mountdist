@@ -22,7 +22,7 @@ fn havedist {
 fn trycdimage{
 	if(test -f $1){
 		rm -f /srv/9660.dist
-		unmount /n/dist
+		unmount /n/dist >[2]/dev/null
 		9660srv 9660.dist >[2]/dev/null
 		logprog mount /srv/9660.dist /n/dist $1
 		exitifdone
@@ -34,6 +34,7 @@ fn trycdimage{
 
 fn trycdimagebz2 {
 	if(test -f $1){
+		mkdir -p /n/newfs/dist
 		echo -n 'bunzip2 < '^$1^' >/n/newfs/dist/9front.iso'
 		bunzip2 < $1 >/n/newfs/dist/_9front.iso &&
 		mv /n/newfs/dist/_9front.iso /n/newfs/dist/9front.iso

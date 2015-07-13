@@ -18,27 +18,23 @@ case checkready
 	}
 
 case go
-	# BUG make restartable
-	echo 'Downloading distribution package...'
-	baropt='-w 145,129,445,168'
-	if(~ $textinst 1)
-		baropt=-t
-	mkdir -p /n/newfs/dist
-	if(! hget -vo /n/newfs/dist/_9front.iso.bz2 $installurl/9front.iso.bz2 |[2] aux/statusbar $baropt 'downloading '^9front.iso.bz2)
-			exit
-	mv /n/newfs/dist/_9front.iso.bz2 /n/newfs/dist/9front.iso.bz2
+	default=()
+	if(~ $#installurl 1)
+		default=(-d $installurl)
+	prompt $default 'Installation url'
+	installurl=$rd
 
-	echo 'The distribution is downloaded.'
+	if(! test -e /mnt/web/ctl)
+		webfs
 
-	srvmedia=()
-	mountmedia=(mount /srv/cwfs /n/distmedia)
-	distmediadir=/dist
-	export distmediadir mountmedia distmedia
+	srvmedia=(ip/httpfile -s httpdist $installurl/9front.iso)
+	mountmedia=(mount /srv/httpdist /n/distmedia)
+	distmediadir=/
+	export srvmedia mountmedia distmediadir
 	
 case checkdone
-	if(! test -f /n/newfs/dist/9front.iso.bz2) {
+	if(! test -f /n/distmedia/9front.iso) {
 		download=notdone
 		export download
 	}
 }
-
