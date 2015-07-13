@@ -157,6 +157,8 @@ typedef struct {
 	FLAC__StreamMetadata *object;
 } level0_client_data;
 
+FLAC_API FLAC__FileDecoder *FLAC__file_decoder_new(void);
+
 FLAC_API FLAC__bool FLAC__metadata_get_streaminfo(const char *filename, FLAC__StreamMetadata *streaminfo)
 {
 	level0_client_data cd;
@@ -339,7 +341,7 @@ FLAC_API const char * const FLAC__Metadata_SimpleIteratorStatusString[] = {
 };
 
 
-FLAC_API FLAC__Metadata_SimpleIterator *FLAC__metadata_simple_iterator_new()
+FLAC_API FLAC__Metadata_SimpleIterator *FLAC__metadata_simple_iterator_new(void)
 {
 	FLAC__Metadata_SimpleIterator *iterator = (FLAC__Metadata_SimpleIterator*)calloc(1, sizeof(FLAC__Metadata_SimpleIterator));
 
@@ -846,7 +848,7 @@ FLAC_API const char * const FLAC__Metadata_ChainStatusString[] = {
 };
 
 
-static FLAC__Metadata_Node *node_new_()
+static FLAC__Metadata_Node *node_new_(void)
 {
 	return (FLAC__Metadata_Node*)calloc(1, sizeof(FLAC__Metadata_Node));
 }

@@ -267,7 +267,7 @@ static FLAC__bool bitbuffer_read_from_client_(FLAC__BitBuffer *bb, FLAC__bool (*
  *
  ***********************************************************************/
 
-FLAC__BitBuffer *FLAC__bitbuffer_new()
+FLAC__BitBuffer *FLAC__bitbuffer_new(void)
 {
 	FLAC__BitBuffer *bb = (FLAC__BitBuffer*)calloc(1, sizeof(FLAC__BitBuffer));
 

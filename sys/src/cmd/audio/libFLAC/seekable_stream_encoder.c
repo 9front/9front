@@ -103,6 +103,7 @@ FLAC_API const char * const FLAC__SeekableStreamEncoderTellStatusString[] = {
 	"FLAC__SEEKABLE_STREAM_ENCODER_TELL_STATUS_ERROR"
 };
 
+FLAC_API FLAC__StreamEncoder *FLAC__stream_encoder_new(void);
 
 /***********************************************************************
  *
@@ -110,7 +111,7 @@ FLAC_API const char * const FLAC__SeekableStreamEncoderTellStatusString[] = {
  *
  ***********************************************************************/
 
-FLAC_API FLAC__SeekableStreamEncoder *FLAC__seekable_stream_encoder_new()
+FLAC_API FLAC__SeekableStreamEncoder *FLAC__seekable_stream_encoder_new(void)
 {
 	FLAC__SeekableStreamEncoder *encoder;
 

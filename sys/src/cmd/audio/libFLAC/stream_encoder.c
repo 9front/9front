@@ -434,12 +434,14 @@ FLAC_API const char * const FLAC__StreamEncoderWriteStatusString[] = {
 	"FLAC__STREAM_ENCODER_WRITE_STATUS_FATAL_ERROR"
 };
 
+FLAC__BitBuffer *FLAC__bitbuffer_new(void);
+
 /***********************************************************************
  *
  * Class constructor/destructor
  *
  */
-FLAC_API FLAC__StreamEncoder *FLAC__stream_encoder_new()
+FLAC_API FLAC__StreamEncoder *FLAC__stream_encoder_new(void)
 {
 	FLAC__StreamEncoder *encoder;
 	unsigned i;

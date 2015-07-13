@@ -91,6 +91,7 @@ FLAC_API const char * const FLAC__FileEncoderStateString[] = {
 	"FLAC__FILE_ENCODER_UNINITIALIZED"
 };
 
+FLAC_API FLAC__SeekableStreamEncoder *FLAC__seekable_stream_encoder_new(void);
 
 /***********************************************************************
  *

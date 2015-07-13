@@ -174,6 +174,8 @@ FLAC_API const char * const FLAC__StreamDecoderErrorStatusString[] = {
 	"FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH"
 };
 
+FLAC__BitBuffer *FLAC__bitbuffer_new(void);
+
 /***********************************************************************
  *
  * Class constructor/destructor

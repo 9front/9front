@@ -51,7 +51,7 @@
  ***********************************************************************/
 
 static void set_defaults_(FLAC__FileDecoder *decoder);
-static FILE *get_binary_stdin_();
+static FILE *get_binary_stdin_(void);
 static FLAC__SeekableStreamDecoderReadStatus read_callback_(const FLAC__SeekableStreamDecoder *decoder, FLAC__byte buffer[], unsigned *bytes, void *client_data);
 static FLAC__SeekableStreamDecoderSeekStatus seek_callback_(const FLAC__SeekableStreamDecoder *decoder, FLAC__uint64 absolute_byte_offset, void *client_data);
 static FLAC__SeekableStreamDecoderTellStatus tell_callback_(const FLAC__SeekableStreamDecoder *decoder, FLAC__uint64 *absolute_byte_offset, void *client_data);
@@ -95,13 +95,15 @@ FLAC_API const char * const FLAC__FileDecoderStateString[] = {
 	"FLAC__FILE_DECODER_UNINITIALIZED"
 };
 
+FLAC_API FLAC__SeekableStreamDecoder *FLAC__seekable_stream_decoder_new(void);
+
 /***********************************************************************
  *
  * Class constructor/destructor
  *
  ***********************************************************************/
 
-FLAC_API FLAC__FileDecoder *FLAC__file_decoder_new()
+FLAC_API FLAC__FileDecoder *FLAC__file_decoder_new(void)
 {
 	FLAC__FileDecoder *decoder;
 
@@ -567,7 +569,7 @@ void set_defaults_(FLAC__FileDecoder *decoder)
 /*
  * This will forcibly set stdin to binary mode (for OSes that require it)
  */
-FILE *get_binary_stdin_()
+FILE *get_binary_stdin_(void)
 {
 	/* if something breaks here it is probably due to the presence or
 	 * absence of an underscore before the identifiers 'setmode',
