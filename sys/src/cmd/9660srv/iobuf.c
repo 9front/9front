@@ -23,9 +23,8 @@
  * it's worth worrying about.		-rsc
  */
 
-/* trying a larger value to get greater throughput - geoff */
-#define	BUFPERCLUST	256 /* sectors/cluster; was 64, 64*Sectorsize = 128kb */
-#define	NCLUST		16
+#define	BUFPERCLUST	64 /* sectors/cluster; 64*Sectorsize = 128kb */
+#define	NCLUST		64
 
 int nclust = NCLUST;
 
