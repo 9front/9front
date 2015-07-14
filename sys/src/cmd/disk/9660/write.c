@@ -53,6 +53,16 @@ rewritedotdot(Cdimg *cd, Direc *d, Direc *dparent)
 	Cwrite(cd, buf, Blocksize);
 }
 
+static int
+alphacmp(void *va, void *vb)
+{
+	Direc *a, *b;
+
+	a = va;
+	b = vb;
+	return strcmp(a->name, b->name);
+}
+
 /*
  * Write each non-directory file.  We copy the file to
  * the cd image, and then if it turns out that we've
@@ -72,6 +82,9 @@ writefiles(Dump *d, Cdimg *cd, Direc *direc)
 	Dumpdir *dd;
 
 	if(direc->mode & DMDIR) {
+		/* write data in alphabetical order avoiding seeks */
+		qsort(direc->child, direc->nchild, sizeof(direc->child[0]), alphacmp);
+
 		for(i=0; i<direc->nchild; i++)
 			writefiles(d, cd, &direc->child[i]);
 		return;
