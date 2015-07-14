@@ -31,7 +31,7 @@ int nclust = NCLUST;
 static Ioclust*	iohead;
 static Ioclust*	iotail;
 
-static Ioclust*	getclust(Xdata*, long);
+static Ioclust*	getclust(Xdata*, long, ulong);
 static void	putclust(Ioclust*);
 static void	xread(Ioclust*);
 
@@ -53,6 +53,16 @@ iobuf_init(void)
 	for(i=0; i<nclust; i++){
 		c = (Ioclust*)mem;
 		mem += sizeof(Ioclust);
+
+		/*
+		 * on a iso filesystem, data is usually layed out sequentially
+		 * but directory information is at the end of the disk. to avoid
+		 * evicting directory information when reading large sequential
+		 * files, we keep them tagged in the cache. for now, we use
+		 * an 8th of the clusters for meta data.
+		 */
+		c->tag = i <= (nclust/8);
+
 		c->addr = -1;
 		c->prev = iotail;
 		if(iotail)
@@ -87,13 +97,13 @@ purgebuf(Xdata *dev)
 }
 
 static Ioclust*
-getclust(Xdata *dev, long addr)
+getclust(Xdata *dev, long addr, ulong tag)
 {
 	Ioclust *c, *f;
 
 	f = nil;
 	for(c=iohead; c; c=c->next){
-		if(!c->busy)
+		if(!c->busy && c->tag == tag)
 			f = c;
 		if(c->addr == addr && c->dev == dev){
 			c->busy++;
@@ -141,13 +151,13 @@ putclust(Ioclust *c)
 }
 
 Iobuf*
-getbuf(Xdata *dev, ulong addr)
+getbuf(Xdata *dev, ulong addr, ulong tag)
 {
 	int off;
 	Ioclust *c;
 
 	off = addr%BUFPERCLUST;
-	c = getclust(dev, addr - off);
+	c = getclust(dev, addr - off, tag);
 	if(c->nbuf < off){
 		c->busy--;
 		error("I/O read error");

@@ -69,7 +69,7 @@ iattach(Xfile *root)
 	dp = nil;
 	haveplan9 = 0;
 	for(i=VOLDESC;i<VOLDESC+100; i++){	/* +100 for sanity */
-		p = getbuf(cd->d, i);
+		p = getbuf(cd->d, i, 1);
 		v = (Voldesc*)(p->iobuf);
 		if(memcmp(v->byte, "\01CD001\01", 7) == 0){		/* iso */
 			if(dirp)
@@ -372,7 +372,7 @@ iread(Xfile *f, char *buf, vlong offset, long count)
 	while(count > 0){
 		if(n > count)
 			n = count;
-		p = getbuf(f->xf->d, addr);
+		p = getbuf(f->xf->d, addr, 0);
 		memmove(&buf[rcnt], &p->iobuf[o], n);
 		putbuf(p);
 		count -= n;
@@ -499,7 +499,7 @@ getdrec(Xfile *f, void *buf)
 			ip->offset += Sectorsize-boff;
 			continue;
 		}
-		p = getbuf(f->xf->d, addr/Sectorsize);
+		p = getbuf(f->xf->d, addr/Sectorsize, 1);
 		len = p->iobuf[boff];
 		if(len >= 34)
 			break;
@@ -754,7 +754,7 @@ getcontin(Xdata *dev, uchar *p, uchar **s)
 	off = l32(p+12);
 	len = l32(p+20);
 	chat("getcontin %d...", bn);
-	b = getbuf(dev, bn);
+	b = getbuf(dev, bn, 1);
 	if(b == 0){
 		*s = 0;
 		return 0;

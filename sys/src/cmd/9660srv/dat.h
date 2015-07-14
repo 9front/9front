@@ -31,6 +31,7 @@ struct Ioclust
 	int	nbuf;
 	Iobuf*	buf;
 	uchar*	iobuf;
+	ulong	tag;			/* cache tag for eviction: 0 = data, 1 = metadata */
 };
 
 struct Xdata
