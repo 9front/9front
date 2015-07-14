@@ -204,7 +204,7 @@ worker(int fdf, int fdt, char *from, char *to)
 			fprint(2, "reading %s at %lld: %r\n", from, o);
 			_exits("bad");
 		}
-		if(pwrite(fdt, buf, n, o) != n){
+		if(pwrite(fdt, bp, n, o) != n){
 			fprint(2, "writing %s: %r\n", to);
 			_exits("bad");
 		}
