@@ -995,7 +995,7 @@ procread(Chan *c, void *va, long n, vlong off)
 		qunlock(&p->debug);
 		poperror();
 
-		if(i <= 0)
+		if(i <= 0 || i > j)
 			return 0;
 		if(i < n)
 			n = i;
