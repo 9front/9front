@@ -864,7 +864,7 @@ cpuidentify(void)
 	if(m->cpuiddx & Mtrr)
 		mtrrsync();
 
-	if(m->cpuiddx & Fxsr){			/* have sse fp? */
+	if((m->cpuiddx & (Sse|Fxsr)) == (Sse|Fxsr)){			/* have sse fp? */
 		fpsave = fpssesave;
 		fprestore = fpsserestore;
 		putcr4(getcr4() | CR4Osfxsr|CR4Oxmmex);
