@@ -246,6 +246,8 @@ main(int argc, char **argv)
 		}else
 			funcs[i](i);
 	r = cpuid(0x80000000, 0);
+	if(r.ax < 0x80000000)
+		exits(nil);
 	r.ax -= 0x80000000;
 	for(i = 0; i <= r.ax; i++)
 		if(i >= nelem(extfuncs) || extfuncs[i] == nil || rflag){
@@ -253,5 +255,5 @@ main(int argc, char **argv)
 				stdfunc(0x80000000 | i);
 		}else
 			extfuncs[i](0x80000000 | i);
-	Bterm(out);
+	exits(nil);
 }
