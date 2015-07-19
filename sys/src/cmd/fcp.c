@@ -1,8 +1,9 @@
 #include <u.h>
 #include <libc.h>
 #define	DEFB	(8*1024)
-#define	Nwork	16
+#define	Nwork	8
 
+int	buflen;
 int	failed;
 int	gflag;
 int	uflag;
@@ -130,6 +131,11 @@ copy(char *from, char *to, int todir)
 		failed = 1;
 		return;
 	}
+
+	buflen = iounit(fdf);
+	if(buflen <= 0)
+		buflen = DEFB;
+
 	if(copy1(fdf, fdt, from, to)==0 && (xflag || gflag || uflag)){
 		nulldir(&dirt);
 		if(xflag){
@@ -191,11 +197,16 @@ copy1(int fdf, int fdt, char *from, char *to)
 void
 worker(int fdf, int fdt, char *from, char *to)
 {
-	char buf[DEFB], *bp;
+	char *buf, *bp;
 	long len, n;
 	vlong o;
 
-	len = sizeof(buf);
+	len = buflen;
+	buf = malloc(len);
+	if(buf == nil){
+		fprint(2, "out of memory\n");
+		_exits(nil);
+	}
 	bp = buf;
 	o = nextoff();
 
@@ -212,11 +223,13 @@ worker(int fdf, int fdt, char *from, char *to)
 		o += n;
 		len -= n;
 		if(len == 0){
-			len = sizeof buf;
+			len = buflen;
 			bp = buf;
 			o = nextoff();
 		}
 	}
+
+	free(buf);
 	_exits(nil);
 }
 
@@ -227,7 +240,7 @@ nextoff(void)
 
 	qlock(&lk);
 	o = off;
-	off += DEFB;
+	off += buflen;
 	qunlock(&lk);
 
 	return o;
