@@ -634,32 +634,11 @@ static long
 mntread(Chan *c, void *buf, long n, vlong off)
 {
 	uchar *p, *e;
-	int nc, cache, isdir, dirlen;
-
-	isdir = 0;
-	cache = c->flag & CCACHE;
-	if(c->qid.type & QTDIR) {
-		cache = 0;
-		isdir = 1;
-	}
+	int dirlen;
 
 	p = buf;
-	if(cache) {
-		nc = cread(c, buf, n, off);
-		if(nc > 0) {
-			n -= nc;
-			if(n == 0)
-				return nc;
-			p += nc;
-			off += nc;
-		}
-		n = mntrdwr(Tread, c, p, n, off);
-		cupdate(c, p, n, off);
-		return n + nc;
-	}
-
-	n = mntrdwr(Tread, c, buf, n, off);
-	if(isdir) {
+	n = mntrdwr(Tread, c, p, n, off);
+	if(c->qid.type & QTDIR) {
 		for(e = &p[n]; p+BIT16SZ < e; p += dirlen){
 			dirlen = BIT16SZ+GBIT16(p);
 			if(p+dirlen > e)
@@ -695,6 +674,14 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 	if(c->qid.type & QTDIR)
 		cache = 0;
 	for(;;) {
+		if(cache && type == Tread) {
+			nr = cread(c, (uchar*)uba, n, off);
+			if(nr > 0) {
+				nreq = nr;
+				goto Next;
+			}
+		}
+
 		r = mntralloc(c, m->msize);
 		if(waserror()) {
 			mntfree(r);
@@ -714,13 +701,39 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 		if(nr > nreq)
 			nr = nreq;
 
+		if(cache) {
+			/*
+			 * note that we cannot update the cache from uba as
+			 * the user could change its contents from another
+			 * process before the data gets copied to the cached.
+			 */
+			if(type == Tread) {
+				ulong nc, nn;
+				Block *b;
+
+				nc = 0;
+				for(b = r->b; b != nil; b = b->next) {
+					nn = BLEN(b);
+					if(nc+nn > nr)
+						nn = nr - nc;
+					cupdate(c, b->rp, nn, off + nc);
+					nc += nn;
+					if(nc >= nr)
+						break;
+				}
+			} else {
+				if(convM2S(r->rpc, r->rpclen, &r->request) == 0)
+					panic("convM2S");
+				cwrite(c, (uchar*)r->request.data, nr, off);
+			}
+		}
+
 		if(type == Tread)
 			r->b = bl2mem((uchar*)uba, r->b, nr);
-		else if(cache)
-			cwrite(c, (uchar*)uba, nr, off);
-
-		poperror();
 		mntfree(r);
+		poperror();
+
+	Next:
 		off += nr;
 		uba += nr;
 		cnt += nr;
@@ -807,7 +820,6 @@ mountio(Mnt *m, Mntrpc *r)
 			up->text, up->pid, n, r->request.tag, r->request.fid, r->request.type);
 		error(Emountrpc);
 	}
-		
 	if(devtab[m->c->type]->write(m->c, r->rpc, n, 0) != n)
 		error(Emountrpc);
 
