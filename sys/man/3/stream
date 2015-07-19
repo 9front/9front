@@ -34,7 +34,7 @@ return immidiately without waiting for the data to be written
 to the file. A zero-length write can be used to wait for the
 buffered data to drain and return any previous write errors.
 .SH SEE ALSO
-.IR dup (2),
+.IR dup (3),
 .IR pipe (3)
 .SH SOURCE
 .B /sys/src/9/port/devstream.c
