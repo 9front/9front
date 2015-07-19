@@ -3,6 +3,7 @@
 
 #define	DEFB	(8*1024)
 
+int	buflen;
 int	failed;
 int	gflag;
 int	uflag;
@@ -79,7 +80,7 @@ copy(char *from, char *to, int todir)
 {
 	Dir *dirb, dirt;
 	char *name;
-	int fdf, fdt, mode;
+	int fdf, fdt, fds, mode;
 
 	name = nil;
 	if(todir){
@@ -92,7 +93,7 @@ copy(char *from, char *to, int todir)
 		to = name;
 	}
 
-	fdf = fdt = -1;
+	fdf = fdt = fds = -1;
 	if((dirb=dirstat(from))==nil){
 		fprint(2,"cp: can't stat %s: %r\n", from);
 		failed = 1;
@@ -121,25 +122,52 @@ copy(char *from, char *to, int todir)
 		failed = 1;
 		goto out;
 	}
-	if(copy1(fdf, fdt, from, to)==0 && (xflag || gflag || uflag)){
-		nulldir(&dirt);
-		if(xflag){
-			dirt.mtime = dirb->mtime;
-			dirt.mode = dirb->mode;
+
+	buflen = iounit(fdf);
+	if(buflen <= 0)
+		buflen = DEFB;
+
+	if(dirb->length/2 > buflen){
+		char nam[32];
+
+		snprint(nam, sizeof nam, "/fd/%dstream", fdf);
+		fds = open(nam, OREAD);
+		if(fds >= 0){
+			close(fdf);
+			fdf = fds;
 		}
-		if(uflag)
-			dirt.uid = dirb->uid;
-		if(gflag)
-			dirt.gid = dirb->gid;
-		if(dirfwstat(fdt, &dirt) < 0)
-			fprint(2, "cp: warning: can't wstat %s: %r\n", to);
-	}			
+		snprint(nam, sizeof nam, "/fd/%dstream", fdt);
+		fds = open(nam, OWRITE);
+	}
+
+	if(copy1(fdf, fds < 0 ? fdt : fds, from, to)==0){
+		if(fds >= 0 && write(fds, "", 0) < 0){
+			fprint(2, "cp: error writing %s: %r\n", to);
+			failed = 1;
+			goto out;
+		}
+		if(xflag || gflag || uflag){
+			nulldir(&dirt);
+			if(xflag){
+				dirt.mtime = dirb->mtime;
+				dirt.mode = dirb->mode;
+			}
+			if(uflag)
+				dirt.uid = dirb->uid;
+			if(gflag)
+				dirt.gid = dirb->gid;
+			if(dirfwstat(fdt, &dirt) < 0)
+				fprint(2, "cp: warning: can't wstat %s: %r\n", to);
+		}
+	}
 out:
-	free(dirb);
 	if(fdf >= 0)
 		close(fdf);
 	if(fdt >= 0)
 		close(fdt);
+	if(fds >= 0)
+		close(fds);
+	free(dirb);
 	free(name);
 }
 
@@ -151,13 +179,18 @@ copy1(int fdf, int fdt, char *from, char *to)
 	int rv;
 	char err[ERRMAX];
 
-	buf = malloc(DEFB);
+	buf = malloc(buflen);
+	if(buf == nil){
+		fprint(2, "cp: out of memory\n");
+		return -1;
+	}
+
 	/* clear any residual error */
 	err[0] = '\0';
 	errstr(err, ERRMAX);
 	rv = 0;
 	for(rcount=0;; rcount++) {
-		n = read(fdf, buf, DEFB);
+		n = read(fdf, buf, buflen);
 		if(n <= 0)
 			break;
 		n1 = write(fdt, buf, n);
