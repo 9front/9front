@@ -425,7 +425,7 @@ streamdrain(Chan *c)
 		qunlock(&s->wql);
 		nexterror();
 	}
-	while(!streamdrained(s))
+	while(!isdrained(s))
 		sleep(&s->wz, isdrained, s);
 	qunlock(&s->wql);
 	poperror();
