@@ -755,7 +755,11 @@ struct Proc
 	 *  machine specific MMU
 	 */
 	PMMU;
+
 	char	*syscalltrace;	/* syscall trace */
+
+	void	*iocomarg;	/* I/O completion callback for pipelining */
+	void	(*iocomfun)(void*, int);
 };
 
 enum
