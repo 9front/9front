@@ -396,11 +396,13 @@ setswapchan(Chan *c)
 	Dir d;
 	int n;
 
+	if(waserror()){
+		cclose(c);
+		nexterror();
+	}
 	if(swapimage.c != nil) {
-		if(swapalloc.free != conf.nswap){
-			cclose(c);
+		if(swapalloc.free != conf.nswap)
 			error(Einuse);
-		}
 		cclose(swapimage.c);
 		swapimage.c = nil;
 	}
@@ -411,11 +413,10 @@ setswapchan(Chan *c)
 	 */
 	if(devtab[c->type]->dc != L'M'){
 		n = devtab[c->type]->stat(c, dirbuf, sizeof dirbuf);
-		if(n <= 0){
-			cclose(c);
+		if(n <= 0 || convM2D(dirbuf, n, &d, nil) == 0)
 			error("stat failed in setswapchan");
-		}
-		convM2D(dirbuf, n, &d, nil);
+		if(d.length < conf.nswppo*BY2PG)
+			error("swap device too small");
 		if(d.length < conf.nswap*BY2PG){
 			conf.nswap = d.length/BY2PG;
 			swapalloc.top = &swapalloc.swmap[conf.nswap];
@@ -424,4 +425,5 @@ setswapchan(Chan *c)
 	}
 	c->flag &= ~CCACHE;
 	swapimage.c = c;
+	poperror();
 }
