@@ -40,7 +40,7 @@ growfd(Fgrp *f, int fd)	/* fd is always >= 0 */
 		return -1;
 	}
 	newfd = malloc((f->nfd+DELTAFD)*sizeof(Chan*));
-	if(newfd == 0)
+	if(newfd == nil)
 		goto Exhausted;
 	oldfd = f->fd;
 	memmove(newfd, oldfd, f->nfd*sizeof(Chan*));
@@ -64,7 +64,7 @@ findfreefd(Fgrp *f, int start)
 	int fd;
 
 	for(fd=start; fd<f->nfd; fd++)
-		if(f->fd[fd] == 0)
+		if(f->fd[fd] == nil)
 			break;
 	if(fd >= f->nfd && growfd(f, fd) < 0)
 		return -1;
@@ -122,11 +122,11 @@ fdtochan(int fd, int mode, int chkmnt, int iref)
 	Chan *c;
 	Fgrp *f;
 
-	c = 0;
+	c = nil;
 	f = up->fgrp;
 
 	lock(f);
-	if(fd<0 || f->nfd<=fd || (c = f->fd[fd])==0) {
+	if(fd<0 || f->nfd<=fd || (c = f->fd[fd])==nil) {
 		unlock(f);
 		error(Ebadfd);
 	}
@@ -201,10 +201,10 @@ syspipe(va_list list)
 	ufd[0] = ufd[1] = fd[0] = fd[1] = -1;
 	d = devtab[devno('|', 0)];
 	c[0] = namec("#|", Atodir, 0, 0);
-	c[1] = 0;
+	c[1] = nil;
 	if(waserror()){
 		cclose(c[0]);
-		if(c[1])
+		if(c[1] != nil)
 			cclose(c[1]);
 		nexterror();
 	}
@@ -250,7 +250,7 @@ sysdup(va_list list)
 		oc = f->fd[fd];
 		f->fd[fd] = c;
 		unlockfgrp(f);
-		if(oc)
+		if(oc != nil)
 			cclose(oc);
 	}else{
 		if(waserror()) {
@@ -340,7 +340,7 @@ unionread(Chan *c, void *va, long n)
 	nr = 0;
 	while(mount != nil){
 		/* Error causes component of union to be skipped */
-		if(mount->to && !waserror()){
+		if(mount->to != nil && !waserror()){
 			if(c->umc == nil){
 				c->umc = cclone(mount->to);
 				c->umc = devtab[c->umc->type]->open(c->umc, OREAD);
@@ -371,7 +371,7 @@ unionrewind(Chan *c)
 {
 	eqlock(&c->umqlock);
 	c->uri = 0;
-	if(c->umc){
+	if(c->umc != nil){
 		cclose(c->umc);
 		c->umc = nil;
 	}
@@ -563,7 +563,7 @@ mountfix(Chan *c, uchar *op, long n, long maxn)
 			 * If it's a union directory and the original is
 			 * in the union, don't rewrite anything.
 			 */
-			for(m=mh->mount; m; m=m->next)
+			for(m = mh->mount; m != nil; m = m->next)
 				if(eqchantdqid(m->to, d.type, d.dev, d.qid, 1))
 					goto Norewrite;
 
@@ -616,7 +616,7 @@ mountfix(Chan *c, uchar *op, long n, long maxn)
 			putmhead(mh);
 		}
 	}
-	if(buf)
+	if(buf != nil)
 		free(buf);
 
 	if(p != e)
@@ -668,7 +668,7 @@ read(int fd, uchar *p, long n, vlong *offp)
 	if(c->qid.type & QTDIR){
 		if(mountrockread(c, p, n, &nn)){
 			/* do nothing: mountrockread filled buffer */
-		}else if(c->umh)
+		}else if(c->umh != nil)
 			nn = unionread(c, p, n);
 		else{
 			if(off != c->offset)
@@ -932,7 +932,7 @@ pathlast(Path *p)
 	if(p->len == 0)
 		return nil;
 	s = strrchr(p->s, '/');
-	if(s)
+	if(s != nil)
 		return s+1;
 	return p->s;
 }
@@ -981,7 +981,7 @@ sysstat(va_list list)
 	}
 	r = devtab[c->type]->stat(c, s, l);
 	name = pathlast(c->path);
-	if(name)
+	if(name != nil)
 		r = dirsetname(name, strlen(name), s, r, l);
 
 	poperror();
@@ -1032,7 +1032,7 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char
 		ac = nil;
 		bc = fdtochan(fd, ORDWR, 0, 1);
 		if(waserror()) {
-			if(ac)
+			if(ac != nil)
 				cclose(ac);
 			cclose(bc);
 			nexterror();
@@ -1048,11 +1048,11 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char
 		ret = devno('M', 0);
 		c0 = devtab[ret]->attach((char*)&bogus);
 		poperror();	/* ac bc */
-		if(ac)
+		if(ac != nil)
 			cclose(ac);
 		cclose(bc);
 	}else{
-		spec = 0;
+		spec = nil;
 		validaddr((uintptr)arg0, 1, 0);
 		c0 = namec(arg0, Abind, 0, 0);
 	}
@@ -1133,17 +1133,16 @@ sysunmount(va_list list)
 	name = va_arg(list, char*);
 	old = va_arg(list, char*);
 
-	cmounted = 0;
+	cmounted = nil;
 	validaddr((uintptr)old, 1, 0);
 	cmount = namec(old, Amount, 0, 0);
 	if(waserror()) {
 		cclose(cmount);
-		if(cmounted)
+		if(cmounted != nil)
 			cclose(cmounted);
 		nexterror();
 	}
-
-	if(name) {
+	if(name != nil) {
 		/*
 		 * This has to be namec(..., Aopen, ...) because
 		 * if arg[0] is something like /srv/cs or /fd/0,
@@ -1156,7 +1155,7 @@ sysunmount(va_list list)
 	cunmount(cmount, cmounted);
 	poperror();
 	cclose(cmount);
-	if(cmounted)
+	if(cmounted != nil)
 		cclose(cmounted);
 	return 0;
 }
@@ -1315,12 +1314,12 @@ packoldstat(uchar *buf, Dir *d)
 uintptr
 sys_stat(va_list list)
 {
+	static char old[] = "old stat system call - recompile";
 	Chan *c;
 	uint l;
 	uchar *s, buf[128];	/* old DIRLEN plus a little should be plenty */
 	char strs[128], *name;
 	Dir d;
-	char old[] = "old stat system call - recompile";
 
 	name = va_arg(list, char*);
 	s = va_arg(list, uchar*);
@@ -1336,7 +1335,7 @@ sys_stat(va_list list)
 	if(l <= BIT16SZ)	/* buffer too small; time to face reality */
 		error(old);
 	name = pathlast(c->path);
-	if(name)
+	if(name != nil)
 		l = dirsetname(name, strlen(name), buf, l, sizeof buf);
 	l = convM2D(buf, l, &d, strs);
 	if(l == 0)
@@ -1351,13 +1350,13 @@ sys_stat(va_list list)
 uintptr
 sys_fstat(va_list list)
 {
+	static char old[] = "old fstat system call - recompile";
 	Chan *c;
 	char *name;
 	uint l;
 	uchar *s, buf[128];	/* old DIRLEN plus a little should be plenty */
 	char strs[128];
 	Dir d;
-	char old[] = "old fstat system call - recompile";
 	int fd;
 
 	fd = va_arg(list, int);
@@ -1373,7 +1372,7 @@ sys_fstat(va_list list)
 	if(l <= BIT16SZ)	/* buffer too small; time to face reality */
 		error(old);
 	name = pathlast(c->path);
-	if(name)
+	if(name != nil)
 		l = dirsetname(name, strlen(name), buf, l, sizeof buf);
 	l = convM2D(buf, l, &d, strs);
 	if(l == 0)
