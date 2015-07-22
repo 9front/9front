@@ -62,13 +62,14 @@ dumpmount(void)		/* DEBUGGING */
 
 	he = &pg->mnthash[MNTHASH];
 	for(h = pg->mnthash; h < he; h++){
-		for(f = *h; f; f = f->hash){
+		for(f = *h; f != nil; f = f->hash){
 			print("head: %#p: %s %#llux.%lud %C %lud -> \n", f,
 				f->from->path->s, f->from->qid.path,
 				f->from->qid.vers, devtab[f->from->type]->dc,
 				f->from->dev);
-			for(t = f->mount; t; t = t->next)
-				print("\t%#p: %s (umh %#p) (path %#.8llux dev %C %lud)\n", t, t->to->path->s, t->to->umh, t->to->qid.path, devtab[t->to->type]->dc, t->to->dev);
+			for(t = f->mount; t != nil; t = t->next)
+				print("\t%#p: %s (umh %#p) (path %#.8llux dev %C %lud)\n",
+					t, t->to->path->s, t->to->umh, t->to->qid.path, devtab[t->to->type]->dc, t->to->dev);
 		}
 	}
 	poperror();
@@ -503,7 +504,7 @@ closechanq(Chan *c)
 	lock(&clunkq.l);
 	clunkq.nqueued++;
 	c->next = nil;
-	if(clunkq.head)
+	if(clunkq.head != nil)
 		clunkq.tail->next = c;
 	else
 		clunkq.head = c;
@@ -680,12 +681,12 @@ cmount(Chan **newp, Chan *old, int flag, char *spec)
 	if(QTDIR & (old->qid.type^(*newp)->qid.type))
 		error(Emount);
 
-	if(old->umh)
+	if(old->umh != nil)
 		print("cmount: unexpected umh, caller %#p\n", getcallerpc(&newp));
 
 	order = flag&MORDER;
 
-	if((old->qid.type&QTDIR)==0 && order != MREPL)
+	if((old->qid.type&QTDIR) == 0 && order != MREPL)
 		error(Emount);
 
 	new = *newp;
@@ -709,15 +710,15 @@ cmount(Chan **newp, Chan *old, int flag, char *spec)
 	 * This is far more complicated than it should be, but I don't
 	 * see an easier way at the moment.
 	 */
-	if((flag&MCREATE) && mh && mh->mount
-	&& (mh->mount->next || !(mh->mount->mflag&MCREATE)))
+	if((flag&MCREATE) != 0 && mh != nil && mh->mount != nil
+	&& (mh->mount->next != nil || (mh->mount->mflag&MCREATE) == 0))
 		error(Emount);
 
 	pg = up->pgrp;
 	wlock(&pg->ns);
 
 	l = &MOUNTH(pg, old->qid);
-	for(m = *l; m; m = m->hash){
+	for(m = *l; m != nil; m = m->hash){
 		if(eqchan(m->from, old, 1))
 			break;
 		l = &m->hash;
@@ -755,27 +756,27 @@ cmount(Chan **newp, Chan *old, int flag, char *spec)
 			flg = MAFTER;
 		h = &nm->next;
 		um = mh->mount;
-		for(um = um->next; um; um = um->next){
+		for(um = um->next; um != nil; um = um->next){
 			f = newmount(m, um->to, flg, um->spec);
 			*h = f;
 			h = &f->next;
 		}
 	}
 
-	if(m->mount && order == MREPL){
+	if(m->mount != nil && order == MREPL){
 		mountfree(m->mount);
-		m->mount = 0;
+		m->mount = nil;
 	}
 
 	if(flag & MCREATE)
 		nm->mflag |= MCREATE;
 
-	if(m->mount && order == MAFTER){
-		for(f = m->mount; f->next; f = f->next)
+	if(m->mount != nil && order == MAFTER){
+		for(f = m->mount; f->next != nil; f = f->next)
 			;
 		f->next = nm;
 	}else{
-		for(f = nm; f->next; f = f->next)
+		for(f = nm; f->next != nil; f = f->next)
 			;
 		f->next = m->mount;
 		m->mount = nm;
@@ -793,7 +794,7 @@ cunmount(Chan *mnt, Chan *mounted)
 	Mhead *m, **l;
 	Mount *f, **p;
 
-	if(mnt->umh)	/* should not happen */
+	if(mnt->umh != nil)	/* should not happen */
 		print("cunmount newp extra umh %p has %p\n", mnt, mnt->umh);
 
 	/*
@@ -809,19 +810,19 @@ cunmount(Chan *mnt, Chan *mounted)
 	wlock(&pg->ns);
 
 	l = &MOUNTH(pg, mnt->qid);
-	for(m = *l; m; m = m->hash){
+	for(m = *l; m != nil; m = m->hash){
 		if(eqchan(m->from, mnt, 1))
 			break;
 		l = &m->hash;
 	}
 
-	if(m == 0){
+	if(m == nil){
 		wunlock(&pg->ns);
 		error(Eunmount);
 	}
 
 	wlock(&m->lock);
-	if(mounted == 0){
+	if(mounted == nil){
 		*l = m->hash;
 		wunlock(&pg->ns);
 		mountfree(m->mount);
@@ -833,12 +834,12 @@ cunmount(Chan *mnt, Chan *mounted)
 	}
 
 	p = &m->mount;
-	for(f = *p; f; f = f->next){
+	for(f = *p; f != nil; f = f->next){
 		/* BUG: Needs to be 2 pass */
 		if(eqchan(f->to, mounted, 1) ||
-		  (f->to->mchan && eqchan(f->to->mchan, mounted, 1))){
+		  (f->to->mchan != nil && eqchan(f->to->mchan, mounted, 1))){
 			*p = f->next;
-			f->next = 0;
+			f->next = nil;
 			mountfree(f);
 			if(m->mount == nil){
 				*l = m->hash;
@@ -886,7 +887,7 @@ findmount(Chan **cp, Mhead **mp, int type, int dev, Qid qid)
 
 	pg = up->pgrp;
 	rlock(&pg->ns);
-	for(m = MOUNTH(pg, qid); m; m = m->hash){
+	for(m = MOUNTH(pg, qid); m != nil; m = m->hash){
 		rlock(&m->lock);
 		if(m->from == nil){
 			print("m %p m->from 0\n", m);
@@ -1019,7 +1020,7 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 	 */
 	didmount = 0;
 	for(nhave=0; nhave<nnames; nhave+=n){
-		if((c->qid.type&QTDIR)==0){
+		if((c->qid.type&QTDIR) == 0){
 			if(nerror)
 				*nerror = nhave;
 			pathclose(path);
@@ -1052,7 +1053,7 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 
 		if((wq = ewalk(c, nil, names+nhave, ntry)) == nil){
 			/* try a union mount, if any */
-			if(mh && !nomount){
+			if(mh != nil && !nomount){
 				/*
 				 * mh->mount->to == c, so start at mh->mount->next
 				 */
@@ -1102,7 +1103,7 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 				if(wq->clone == nil){
 					cclose(c);
 					pathclose(path);
-					if(wq->nqid==0 || (wq->qid[wq->nqid-1].type&QTDIR)){
+					if(wq->nqid == 0 || (wq->qid[wq->nqid-1].type&QTDIR) != 0){
 						if(nerror)
 							*nerror = nhave+wq->nqid+1;
 						kstrcpy(up->errstr, Edoesnotexist, ERRMAX);
@@ -1174,7 +1175,7 @@ createdir(Chan *c, Mhead *m)
 		runlock(&m->lock);
 		nexterror();
 	}
-	for(f = m->mount; f; f = f->next){
+	for(f = m->mount; f != nil; f = f->next){
 		if(f->to != nil && (f->mflag&MCREATE) != 0){
 			nc = cclone(f->to);
 			runlock(&m->lock);
@@ -1199,7 +1200,7 @@ growparse(Elemlist *e)
 	int *inew;
 	enum { Delta = 8 };
 
-	if(e->nelems % Delta == 0){
+	if((e->nelems % Delta) == 0){
 		new = smalloc((e->nelems+Delta) * sizeof(char*));
 		memmove(new, e->elems, e->nelems*sizeof(char*));
 		free(e->elems);
@@ -1470,10 +1471,10 @@ namec(char *aname, int amode, int omode, ulong perm)
 		nexterror();
 	}
 
-	if(e.mustbedir && !(c->qid.type&QTDIR))
+	if(e.mustbedir && (c->qid.type&QTDIR) == 0)
 		error("not a directory");
 
-	if(amode == Aopen && (omode&3) == OEXEC && (c->qid.type&QTDIR))
+	if(amode == Aopen && (omode&3) == OEXEC && (c->qid.type&QTDIR) != 0)
 		error("cannot exec directory");
 
 	switch(amode){
@@ -1550,7 +1551,7 @@ if(c->umh != nil){
 		 * Directories (e.g. for cd) are left before the mount point,
 		 * so one may mount on / or . and see the effect.
 		 */
-		if(!(c->qid.type & QTDIR))
+		if((c->qid.type&QTDIR) == 0)
 			error(Enotdir);
 		break;
 
