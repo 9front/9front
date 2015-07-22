@@ -309,7 +309,7 @@ srbcleanout(Aoedev *d, Srb *srb)
 	if(srb == d->inprocess)
 		d->inprocess = nil;
 	else
-		for(ll = &d->head; x = *ll; ll = &x->next){
+		for(ll = &d->head; (x = *ll) != nil; ll = &x->next){
 			d->tail = x;
 			if(x == srb)
 				*ll = x->next;
@@ -334,7 +334,7 @@ frameerror(Aoedev *d, Frame *f, char *s)
 	srb = f->srb;
 	f->srb = nil;
 	f->tag = Tfree;		/* don't get fooled by way-slow responses */
-	if(!srb)
+	if(srb == nil)
 		return;
 	srb->nout--;
 	srberror(d, srb, s);
@@ -375,15 +375,15 @@ eventlogread(void *a, long n)
 
 		/* the concern here is page faults in memmove below */
 		if(waserror()){
-			free(buf);
 			qunlock(&events);
+			free(buf);
 			nexterror();
 		}
 		memmove(a, buf, n);
 		poperror();
 	}
-	free(buf);
 	qunlock(&events);
+	free(buf);
 	return n;
 }
 
@@ -502,16 +502,16 @@ pickdevlink(Aoedev *d)
 	for(i = 0; i < d->ndl; i++){
 		n = d->dlidx++ % d->ndl;
 		l = d->dl + n;
-		if(l && l->flag & Dup)
+		if(l->flag & Dup)
 			return l;
 	}
-	return 0;
+	return nil;
 }
 
 static int
 pickea(Devlink *l)
 {
-	if(l == 0)
+	if(l == nil)
 		return -1;
 	if(l->nea == 0)
 		return -1;
@@ -530,7 +530,7 @@ hset(Aoedev *d, Frame *f, Aoehdr *h, int cmd, int new)
 	int i;
 	Devlink *l;
 
-	if(f->srb)
+	if(f->srb != nil)
 	if((long)(Ticks-f->srb->ticksent) > Srbtimeout){
 		eventlog("%æ: srb timeout\n", d);
 		if(cmd == ACata && Nofail(d, s))
@@ -653,7 +653,7 @@ loop:
 	}
 	starttick = Ticks;
 	rlock(&devs);
-	for(d = devs.d; d; d = d->next){
+	for(d = devs.d; d != nil; d = d->next){
 		if(!canqlock(d))
 			continue;
 		if(!UP(d)){
@@ -790,7 +790,7 @@ unitseq(Chan *c, uint unit, Dir *dp)
 	i = 0;
 	rv = -1;
 	rlock(&devs);
-	for(d = devs.d; d; d = d->next)
+	for(d = devs.d; d != nil; d = d->next)
 		if(i++ == unit){
 			mkqid(&q, QID(d->unit, Qunitdir), 0, QTDIR);
 			devdir(c, q, unitname(d), 0, eve, 0555, dp);
@@ -807,7 +807,7 @@ unit2dev(ulong unit)
 	Aoedev *d;
 
 	rlock(&devs);
-	for(d = devs.d; d; d = d->next)
+	for(d = devs.d; d != nil; d = d->next)
 		if(d->unit == unit){
 			runlock(&devs);
 			return d;
@@ -1102,9 +1102,9 @@ aoeerror(Aoehdr *h)
 	};
 
 	if((h->verflag & AFerr) == 0)
-		return 0;
+		return nil;
 	n = h->error;
-	if(n > nelem(errs))
+	if(n >= nelem(errs))
 		n = 0;
 	return errs[n];
 }
@@ -1182,7 +1182,7 @@ strategy(Aoedev *d, Srb *srb)
 	if(!UP(d))
 		error(Eio);
 	srb->next = nil;
-	if(d->tail)
+	if(d->tail != nil)
 		d->tail->next = srb;
 	d->tail = srb;
 	if(d->head == nil)
@@ -1409,7 +1409,7 @@ topctlread(Chan *, void *db, int len, int off)
 
 	for(i = 0; i < Nnetlink; i++){
 		n = netlinks.nl+i;
-		if(n->cc == 0)
+		if(n->cc == nil)
 			continue;
 		p = seprint(p, e, "if%d path: %s\n", i, n->path);
 		p = seprint(p, e, "if%d ea: %E\n", i, n->ea);
@@ -1707,7 +1707,7 @@ addnet(char *path, Chan *cc, Chan *dc, Chan *mtu, uchar *ea)
 	}
 	nl = netlinks.nl;
 	e = nl + nelem(netlinks.nl);
-	for(; nl < e && nl->cc; nl++)
+	for(; nl < e && nl->cc != nil; nl++)
 		continue;
 	if(nl == e)
 		error("out of netlink structures");
@@ -2249,11 +2249,9 @@ getaddr(char *path, uchar *ea)
 		cclose(c);
 		nexterror();
 	}
-	if(c == nil)
-		panic("æ: getaddr: c == nil");
 	n = devtab[c->type]->read(c, buf, sizeof buf-1, 0);
-	poperror();
 	cclose(c);
+	poperror();
 	buf[n] = 0;
 	if(parseether(ea, buf) < 0)
 		error("parseether failure");
@@ -2270,21 +2268,19 @@ netbind(char *path)
 	snprint(addr, sizeof addr, "%s!0x%x", path, Aoetype);
 	dc = chandial(addr, nil, nil, &cc);
 	snprint(addr, sizeof addr, "%s/mtu", path);
-	if(waserror())
-		mtu = nil;
-	else {
+	mtu = nil;
+	if(!waserror()){
 		mtu = namec(addr, Aopen, OREAD, 0);
 		poperror();
 	}
-
 	if(waserror()){
 		cclose(dc);
 		cclose(cc);
-		if(mtu)
+		if(mtu != nil)
 			cclose(mtu);
 		nexterror();
 	}
-	if(dc == nil  || cc == nil)
+	if(dc == nil || cc == nil)
 		error(Enonexist);
 	getaddr(path, ea);
 	nl = addnet(path, cc, dc, mtu, ea);
@@ -2346,7 +2342,7 @@ netunbind(char *path)
 
 	/* reschedule packets. */
 	wlock(&devs);
-	for(d = devs.d; d; d = d->next){
+	for(d = devs.d; d != nil; d = d->next){
 		qlock(d);
 		for(i = 0; i < d->nframes; i++){
 			f = d->frames + i;
@@ -2359,7 +2355,7 @@ netunbind(char *path)
 
 	/* squeeze devlink pool.  (we assert nobody is using them now) */
 	wlock(&devs);
-	for(d = devs.d; d; d = d->next){
+	for(d = devs.d; d != nil; d = d->next){
 		qlock(d);
 		for(i = 0; i < d->ndl; i++){
 			l = d->dl + i;
@@ -2374,7 +2370,7 @@ netunbind(char *path)
 	lock(&netlinks);
 	dc = n->dc;
 	cc = n->cc;
-	if(n->mtu)
+	if(n->mtu != nil)
 		cclose(n->mtu);
 	memset(n, 0, sizeof *n);
 	unlock(&netlinks);
@@ -2384,7 +2380,7 @@ netunbind(char *path)
 
 	/* squeeze orphan devices */
 	wlock(&devs);
-	for(p = d = devs.d; d; d = next){
+	for(p = d = devs.d; d != nil; d = next){
 		next = d->next;
 		if(d->ndl > 0){
 			p = d;
@@ -2413,7 +2409,7 @@ strtoss(char *f, uint *shelf, uint *slot)
 
 	*shelf = 0xffff;
 	*slot = 0xff;
-	if(!f)
+	if(f == nil)
 		return;
 	*shelf = strtol(f, &s, 0);
 	if(s == f || *shelf > 0xffff)
@@ -2444,7 +2440,7 @@ removedev(Aoedev *d)
 	wlock(&devs);
 	p = 0;
 	if(d != devs.d)
-	for(p = devs.d; p; p = p->next)
+	for(p = devs.d; p != nil; p = p->next)
 		if(p->next == d)
 			break;
 	qlock(d);
@@ -2455,7 +2451,7 @@ removedev(Aoedev *d)
 	for(i = 0; i < d->nframes; i++)
 		frameerror(d, d->frames+i, Enotup);
 
-	if(p)
+	if(p != nil)
 		p->next = d->next;
 	else
 		devs.d = d->next;
@@ -2494,7 +2490,7 @@ removestr(char *f)
 
 	strtoss(f, &shelf, &slot);
 	wlock(&devs);
-	for(d = devs.d; d; d = d->next)
+	for(d = devs.d; d != nil; d = d->next)
 		if(shelf == d->major && slot == d->minor){
 			wunlock(&devs);	/* BOTCH */
 			removedev(d);
