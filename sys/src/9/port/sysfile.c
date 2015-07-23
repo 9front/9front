@@ -189,17 +189,15 @@ sysfd2path(va_list list)
 uintptr
 syspipe(va_list list)
 {
+	static char *datastr[] = {"data", "data1"};
 	int fd[2], *ufd;
 	Chan *c[2];
-	Dev *d;
-	static char *datastr[] = {"data", "data1"};
 
 	ufd = va_arg(list, int*);
 	validaddr((uintptr)ufd, sizeof(fd), 1);
 	evenaddr((uintptr)ufd);
 	
 	ufd[0] = ufd[1] = fd[0] = fd[1] = -1;
-	d = devtab[devno('|', 0)];
 	c[0] = namec("#|", Atodir, 0, 0);
 	c[1] = nil;
 	if(waserror()){
@@ -213,8 +211,8 @@ syspipe(va_list list)
 		error(Egreg);
 	if(walk(&c[1], datastr+1, 1, 1, nil) < 0)
 		error(Egreg);
-	c[0] = d->open(c[0], ORDWR);
-	c[1] = d->open(c[1], ORDWR);
+	c[0] = devtab[c[0]->type]->open(c[0], ORDWR);
+	c[1] = devtab[c[1]->type]->open(c[1], ORDWR);
 	if(newfd2(fd, c) < 0)
 		error(Enofd);
 	ufd[0] = fd[0];
