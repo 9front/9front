@@ -294,7 +294,7 @@ fdclose(int fd, int flag)
 	Fgrp *f = up->fgrp;
 
 	lock(f);
-	c = f->fd[fd];
+	c = fd <= f->maxfd ? f->fd[fd] : nil;
 	if(c == nil || (flag != 0 && (c->flag&flag) == 0)){
 		unlock(f);
 		return;
