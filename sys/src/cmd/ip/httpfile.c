@@ -100,6 +100,8 @@ delreq(Block *b, Req *r)
 			*l = r->aux;
 			if(*l == nil)
 				b->erq = l;
+			r->aux = nil;
+			respond(r, "interrupted");
 			return;
 		}
 	}
@@ -205,10 +207,6 @@ getrange(Block *b)
 	int fd, cfd;
 	uchar *data;
 
-	b->len = Blocksize;
-	if(b->off + b->len > size)
-		b->len = size - b->off;
-
 	if(debug)
 		print("getrange: %lld %lld\n", b->off, b->len);
 
@@ -230,6 +228,8 @@ getrange(Block *b)
 		close(fd);
 		return nil;
 	}
+
+	werrstr("bad contentrange header");
 	if(readstring(cfd, buf, sizeof(buf)) <= 0){
 Badrange:
 		close(cfd);
@@ -244,6 +244,7 @@ Badrange:
 
 	/* read body data */
 	data = emalloc9p(b->len);
+	werrstr("body data truncated");
 	if(readfile(fd, (char*)data, b->len) != b->len){
 		close(fd);
 		free(data);
@@ -410,6 +411,9 @@ fileread(Req *r)
 	if((b = findblock(&inprogress, r->ifcall.offset)) == nil){
 		b = emalloc9p(sizeof(Block));
 		b->off = r->ifcall.offset - (r->ifcall.offset % Blocksize);
+		b->len = Blocksize;
+		if(b->off + b->len > size)
+			b->len = size - b->off;
 		addblock(&inprogress, b);
 		if(inprogress.first == b)
 			sendp(httpchan, b);
@@ -467,10 +471,11 @@ fsnetproc(void*)
 		switch(r->ifcall.type){
 		case Tflush:
 			o = r->oldreq;
-			b = findblock(&inprogress, o->ifcall.offset);
-			if(b != nil)
-				delreq(b, o);
-			respond(o, "interrupted");
+			if(o->ifcall.type == Tread){
+				b = findblock(&inprogress, o->ifcall.offset);
+				if(b != nil)
+					delreq(b, o);
+			}
 			respond(r, nil);
 			break;
 		case Tread:
