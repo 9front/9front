@@ -187,3 +187,5 @@ This scenario is definitely confusing.
 It's 2015. Why do terminal programs interpret 1970s escape codes instead of html? You'd think by now 'echo <b>bold</b>' would work.
 What happened to build.golang.org?
 I think I'm missing something.
+The outline below is my attempt at a skeleton for a streamlined version of the proposal proposal.
+I'm not trying to write the last word.
