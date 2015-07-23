@@ -542,7 +542,7 @@ hset(Aoedev *d, Frame *f, Aoehdr *h, int cmd, int new)
 	l = pickdevlink(d);
 	i = pickea(l);
 	if(i == -1){
-		if(!(cmd == ACata && f->srb && Nofail(d, s)))
+		if(!(cmd == ACata && f->srb != nil && Nofail(d, s)))
 			downdev(d, "resend fails; no netlink/ea");
 		return -1;
 	}
@@ -1238,7 +1238,7 @@ rw(Aoedev *d, int write, uchar *db, long len, uvlong off)
 		if(write && !copy)
 			memmove(srb->data, db, n);
 		strategy(d, srb);
-		if(srb->error)
+		if(srb->error != nil)
 			error(srb->error);
 		if(!write && !copy)
 			memmove(db, srb->data, n);
@@ -1970,7 +1970,7 @@ qcfgrsp(Block *b, Netlink *nl)
 		srb = f->srb;
 		f->dp = nil;
 		f->srb = nil;
-		if(srb){
+		if(srb != nil){
 			srb->nout--;
 			srbwakeup(srb);
 			d->nout--;
@@ -2133,7 +2133,7 @@ atarsp(Block *b)
 	if(ahin->cmdstat & 0xa9){
 		eventlog("%æ: ata error cmd %.2ux stat %.2ux\n",
 			d, ahout->cmdstat, ahin->cmdstat);
-		if(srb)
+		if(srb != nil)
 			srb->error = Eio;
 	} else {
 		n = ahout->scnt * Aoesectsz;
@@ -2174,7 +2174,7 @@ atarsp(Block *b)
 	}
 
 	f->srb = nil;
-	if(srb){
+	if(srb != nil){
 		srb->nout--;
 		srbwakeup(srb);
 	}

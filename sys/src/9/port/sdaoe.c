@@ -85,20 +85,16 @@ aoectl(Ctlr *d, char *s)
 {
 	Chan *c;
 
-	c = nil;
-	if(waserror()){
-		if(c)
-			cclose(c);
-		print("sdaoectl: %s\n", up->errstr);
-		nexterror();
-	}
-
 	uprint("%s/ctl", d->path);
 	c = namec(up->genbuf, Aopen, OWRITE, 0);
+	if(waserror()){
+		print("sdaoectl: %s\n", up->errstr);
+		cclose(c);
+		nexterror();
+	}
 	devtab[c->type]->write(c, s, strlen(s), 0);
-
-	poperror();
 	cclose(c);
+	poperror();
 }
 
 /* must call with d qlocked */
@@ -107,20 +103,16 @@ aoeidentify(Ctlr *d, SDunit *u)
 {
 	Chan *c;
 
-	c = nil;
-	if(waserror()){
-		if(c)
-			cclose(c);
-		iprint("aoeidentify: %s\n", up->errstr);
-		nexterror();
-	}
-
 	uprint("%s/ident", d->path);
 	c = namec(up->genbuf, Aopen, OREAD, 0);
+	if(waserror()){
+		iprint("aoeidentify: %s\n", up->errstr);
+		cclose(c);
+		nexterror();
+	}
 	devtab[c->type]->read(c, d->ident, sizeof d->ident, 0);
-
-	poperror();
 	cclose(c);
+	poperror();
 
 	d->feat = 0;
 	identify(d, (ushort*)d->ident);
@@ -140,7 +132,7 @@ ctlrlookup(char *path)
 	Ctlr *c;
 
 	lock(&ctlrlock);
-	for(c = head; c; c = c->next)
+	for(c = head; c != nil; c = c->next)
 		if(strcmp(c->path, path) == 0)
 			break;
 	unlock(&ctlrlock);
@@ -175,15 +167,15 @@ delctlr(Ctlr *c)
 
 	lock(&ctlrlock);
 
-	for(prev = 0, x = head; x; prev = x, x = c->next)
+	for(prev = 0, x = head; x != nil; prev = x, x = c->next)
 		if(strcmp(c->path, x->path) == 0)
 			break;
-	if(x == 0){
+	if(x == nil){
 		unlock(&ctlrlock);
 		error(Enonexist);
 	}
 
-	if(prev)
+	if(prev != nil)
 		prev->next = x->next;
 	else
 		head = x->next;
@@ -191,7 +183,7 @@ delctlr(Ctlr *c)
 		tail = prev;
 	unlock(&ctlrlock);
 
-	if(x->c)
+	if(x->c != nil)
 		cclose(x->c);
 	free(x);
 }
@@ -204,12 +196,11 @@ aoeprobe(char *path, SDev *s)
 	Chan *c;
 	Ctlr *ctlr;
 
-	if((p = strrchr(path, '/')) == 0)
+	if((p = strrchr(path, '/')) == nil)
 		error(Ebadarg);
 	*p = 0;
 	uprint("%s/ctl", path);
 	*p = '/';
-
 	c = namec(up->genbuf, Aopen, OWRITE, 0);
 	if(waserror()) {
 		cclose(c);
@@ -217,8 +208,8 @@ aoeprobe(char *path, SDev *s)
 	}
 	n = uprint("discover %s", p+1);
 	devtab[c->type]->write(c, up->genbuf, n, 0);
-	poperror();
 	cclose(c);
+	poperror();
 
 	for(i = 0;; i += Probeintvl){
 		if(i > Probemax || waserror())
@@ -256,7 +247,7 @@ aoepnp(void)
 	char *p;
 	SDev *h, *t, *s;
 
-	if((p = getconf("aoedev")) == 0)
+	if((p = getconf("aoedev")) == nil)
 		return 0;
 	kstrdup(&probebuf, p);
 	nprobe = tokenize(probebuf, probef, nelem(probef));
