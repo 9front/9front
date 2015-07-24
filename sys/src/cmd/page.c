@@ -176,7 +176,7 @@ resizewin(Point size)
 		return;
 	/* add rio border */
 	size = addpt(size, Pt(Borderwidth*2, Borderwidth*2));
-	if(display->image){
+	if(display->image != nil){
 		Point dsize = subpt(display->image->r.max, display->image->r.min);
 		if(size.x > dsize.x)
 			size.x = dsize.x;
@@ -822,10 +822,10 @@ popenfile(Page *p)
 Page*
 nextpage(Page *p)
 {
-	if(p && p->down)
+	if(p != nil && p->down != nil)
 		return p->down;
-	while(p){
-		if(p->next)
+	while(p != nil){
+		if(p->next != nil)
 			return p->next;
 		p = p->up;
 	}
@@ -837,8 +837,8 @@ prevpage(Page *x)
 {
 	Page *p, *t;
 
-	if(x){
-		for(p = root->down; p; p = t)
+	if(x != nil){
+		for(p = root->down; p != nil; p = t)
 			if((t = nextpage(p)) == x)
 				return p;
 	}
@@ -902,7 +902,7 @@ loadpage(Page *p)
 	llinkhead(p);
 	qunlock(&lru);
 
-	if(p->open && p->image == nil){
+	if(p->open != nil && p->image == nil){
 		fd = openpage(p);
 		if(fd >= 0){
 			if((p->image = readimage(display, fd, 1)) == nil)
@@ -974,7 +974,15 @@ loadpages(Page *p, int oviewgen)
 		qunlock(p);
 		if(p != current && imemsize >= imemlimit)
 			break;		/* only one page ahead once we reach the limit */
-		p = forward < 0 ? prevpage(p) : nextpage(p);
+		if(forward < 0){
+			if(p->up == nil || p->up->down == p)
+				break;
+			p = prevpage(p);
+		} else {
+			if(p->next == nil)
+				break;
+			p = nextpage(p);
+		}
 	}
 }
 
@@ -1092,7 +1100,7 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *b, Image *s, Point sp, int
 	dr = r;
 	for(sp=dr.min; dr.min.x < r.max.x; sp.x++){
 		dr.max.x = dr.min.x+1;
-		if(b) gendrawdiff(d, dr, top, b, sp, nil, ZP, SoverD);
+		if(b != nil) gendrawdiff(d, dr, top, b, sp, nil, ZP, SoverD);
 		gendrawdiff(d, dr, top, t, sp, nil, ZP, SoverD);
 		for(dr.min.x++; ++a.x < f && dr.min.x < r.max.x; dr.min.x++){
 			dr.max.x = dr.min.x+1;
@@ -1106,7 +1114,7 @@ zoomdraw(Image *d, Rectangle r, Rectangle top, Image *b, Image *s, Point sp, int
 Point
 pagesize(Page *p)
 {
-	return p->image ? mulpt(subpt(p->image->r.max, p->image->r.min), zoom) : ZP;
+	return p->image != nil ? mulpt(subpt(p->image->r.max, p->image->r.min), zoom) : ZP;
 }
 
 void
@@ -1123,7 +1131,7 @@ drawpage(Page *p)
 	Rectangle r;
 	Image *i;
 
-	if(i = p->image){
+	if((i = p->image) != nil){
 		r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
 		zoomdraw(screen, r, ZR, paper, i, i->r.min, zoom);
 	} else {
@@ -1143,7 +1151,7 @@ translate(Page *p, Point d)
 	Image *i;
 
 	i = p->image;
-	if(i==0 || d.x==0 && d.y==0)
+	if(i==nil || d.x==0 && d.y==0)
 		return;
 	r = rectaddpt(Rpt(ZP, pagesize(p)), addpt(pos, screen->r.min));
 	pos = addpt(pos, d);
@@ -1187,16 +1195,16 @@ trywalk(char *name, char *addr)
 	pagewalk = nil;
 	memset(buf, 0, sizeof(buf));
 	snprint(buf, sizeof(buf), "%s%s%s",
-		name ? name : "",
-		(name && addr) ? "!" : "", 
-		addr ? addr : "");
+		name != nil ? name : "",
+		(name != nil && addr != nil) ? "!" : "", 
+		addr != nil ? addr : "");
 	pagewalk = buf;
 
 	a = nil;
-	if(root){
+	if(root != nil){
 		p = root->down;
 	Loop:
-		for(; p; p = p->next)
+		for(; p != nil; p = p->next)
 			if(pagewalk1(p)){
 				a = p;
 				p = p->down;
@@ -1218,14 +1226,14 @@ findpage(char *name)
 
 	n = strlen(name);
 	/* look in current document */
-	if(current && current->up){
-		for(p = current->up->down; p; p = p->next)
+	if(current != nil && current->up != nil){
+		for(p = current->up->down; p != nil; p = p->next)
 			if(cistrncmp(p->name, name, n) == 0)
 				return p;
 	}
 	/* look everywhere */
-	if(root){
-		for(p = root->down; p; p = nextpage(p))
+	if(root != nil){
+		for(p = root->down; p != nil; p = nextpage(p))
 			if(cistrncmp(p->name, name, n) == 0)
 				return p;
 	}
@@ -1251,7 +1259,7 @@ pageat(int i)
 {
 	Page *p;
 
-	for(p = root->down; i > 0 && p; p = nextpage(p))
+	for(p = root->down; i > 0 && p != nil; p = nextpage(p))
 		i--;
 	return i ? nil : p;
 }
@@ -1262,7 +1270,7 @@ pageindex(Page *x)
 	Page *p;
 	int i;
 
-	for(i = 0, p = root->down; p && p != x; p = nextpage(p))
+	for(i = 0, p = root->down; p != nil && p != x; p = nextpage(p))
 		i++;
 	return (p == x) ? i : -1;
 }
@@ -1272,7 +1280,7 @@ pagemenugen(int i)
 {
 	Page *p;
 
-	if(p = pageat(i))
+	if((p = pageat(i)) != nil)
 		return shortlabel(p->name);
 	return nil;
 }
@@ -1340,30 +1348,6 @@ showpage(Page *p)
 }
 
 void
-shownext(void)
-{
-	Page *p;
-
-	forward = 1;
-	for(p = nextpage(current); p; p = nextpage(p))
-		if(p->image || p->open)
-			break;
-	showpage(p);
-}
-
-void
-showprev(void)
-{
-	Page *p;
-
-	forward = -1;
-	for(p = prevpage(current); p; p = prevpage(p))
-		if(p->image || p->open)
-			break;
-	showpage(p);
-}
-
-void
 zerox(Page *p)
 {
 	char nam[64], *argv[4];
@@ -1401,7 +1385,7 @@ showext(Page *p)
 		return;
 	snprint(label, sizeof(label), "%s %s", p->ext, p->name);
 	ps = Pt(0, 0);
-	if(p->image)
+	if(p->image != nil)
 		ps = addpt(subpt(p->image->r.max, p->image->r.min), Pt(24, 24));
 	drawlock(0);
 	if((fd = p->fd) < 0){
@@ -1441,7 +1425,7 @@ eresized(int new)
 	drawlock(1);
 	if(new && getwindow(display, Refnone) == -1)
 		sysfatal("getwindow: %r");
-	if(p = current){
+	if((p = current) != nil){
 		if(canqlock(p)){
 			drawpage(p);
 			qunlock(p);
@@ -1532,13 +1516,13 @@ docmd(int i, Mouse *m)
 	case Cwrite:
 		if(current == nil || !canqlock(current))
 			break;
-		if(current->image){
+		if(current->image != nil){
 			s = nil;
-			if(current->up && current->up != root)
+			if(current->up != nil && current->up != root)
 				s = current->up->name;
 			snprint(buf, sizeof(buf), "%s%s%s.bit",
-				s ? s : "",
-				s ? "." : "",
+				s != nil ? s : "",
+				s != nil ? "." : "",
 				current->name);
 			if(eenter("Write", buf, sizeof(buf), m) > 0){
 				if((fd = create(buf, OWRITE, 0666)) < 0){
@@ -1564,10 +1548,12 @@ docmd(int i, Mouse *m)
 		writeaddr(current, "/dev/snarf");
 		break;
 	case Cnext:
-		shownext();
+		forward = 1;
+		showpage(nextpage(current));
 		break;
 	case Cprev:
-		showprev();
+		forward = -1;
+		showpage(prevpage(current));
 		break;
 	case Czerox:
 		zerox(current);
@@ -1588,7 +1574,7 @@ scroll(int y)
 	if(y < 0){
 		if(pos.y >= 0){
 			p = prevpage(current);
-			if(p){
+			if(p != nil){
 				qunlock(current);
 				z = ZP;
 				if(canqlock(p)){
@@ -1599,7 +1585,8 @@ scroll(int y)
 					z.y = Dy(screen->r);
 				if(pos.y+z.y > Dy(screen->r))
 					pos.y = Dy(screen->r) - z.y;
-				showprev();
+				forward = -1;
+				showpage(p);
 				return;
 			}
 			y = 0;
@@ -1608,11 +1595,12 @@ scroll(int y)
 		z = pagesize(current);
 		if(pos.y+z.y <= Dy(screen->r)){
 			p = nextpage(current);
-			if(p){
+			if(p != nil){
 				qunlock(current);
 				if(pos.y < 0)
 					pos.y = 0;
-				shownext();
+				forward = 1;
+				showpage(p);
 				return;
 			}
 			y = 0;
