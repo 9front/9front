@@ -18,7 +18,7 @@ enum {
 	TLSFinishedLen = 12,
 	SSL3FinishedLen = MD5dlen+SHA1dlen,
 	MaxKeyData = 136,	// amount of secret we may need
-	MaxChunk = 1<<14,
+	MaxChunk = 1<<15,
 	RandomSize = 32,
 	SidSize = 32,
 	MasterSecretSize = 48,
