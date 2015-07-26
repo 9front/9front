@@ -895,7 +895,8 @@ mntrahread(Mntrah *rah, Chan *c, uchar *buf, long len, vlong off)
 		return 0;
 	if(off != rah->off){
 		rah->off = off;
-		rah->seq = 0;
+		if(rahfindrpc(rah, off) == nil)
+			rah->seq = 0;
 	}
 	rah->off += len;
 	rah->seq += len;
