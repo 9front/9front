@@ -15,20 +15,30 @@ enum
 	NBITMAP		= (PGROUND(MAXCACHE)/BY2PG + MAPBITS-1) / MAPBITS,
 };
 
+/* devmnt.c: parallel read ahread implementation */
+extern void mntrahinit(Mntrah *rah);
+extern long mntrahread(Mntrah *rah, Chan *c, uchar *buf, long len, vlong off);
+
 typedef struct Mntcache Mntcache;
 struct Mntcache
 {
-	Qid	qid;
-	int	dev;
-	int	type;
+	Qid		qid;
+	int		dev;
+	int		type;
 
 	QLock;
+	Proc		*locked;
+	ulong		nlocked;
+
 	Mntcache	*hash;
 	Mntcache	*prev;
 	Mntcache	*next;
 
 	/* page bitmap of valid pages */
 	ulong		bitmap[NBITMAP];
+
+	/* read ahead state */
+	Mntrah		rah;
 };
 
 typedef struct Cache Cache;
@@ -124,13 +134,66 @@ clookup(Chan *c, int skipvers)
 	return nil;
 }
 
+/*
+ * resursive Mntcache locking. Mntcache.rah is protected by the
+ * same lock and we want to call cupdate() from mntrahread()
+ * while holding the lock.
+ */
+static int
+cancachelock(Mntcache *m)
+{
+	if(m->locked == up || canqlock(m)){
+		m->locked = up;
+		m->nlocked++;
+		return 1;
+	}
+	return 0;
+}
+static void
+cachelock(Mntcache *m)
+{
+	if(m->locked != up){
+		qlock(m);
+		assert(m->nlocked == 0);
+		m->locked = up;
+	}
+	m->nlocked++;
+
+}
+static void
+cacheunlock(Mntcache *m)
+{
+	assert(m->locked == up);
+	if(--m->nlocked == 0){
+		m->locked = nil;
+		qunlock(m);
+	}
+}
+
+/* return locked Mntcache if still valid else reset mcp */
+static Mntcache*
+ccache(Chan *c)
+{
+	Mntcache *m;
+
+	m = c->mcp;
+	if(m != nil) {
+		cachelock(m);
+		if(eqchantdqid(c, m->type, m->dev, m->qid, 0) && c->qid.type == m->qid.type)
+			return m;
+		c->mcp = nil;
+		cacheunlock(m);
+	}
+	return nil;
+}
+
 void
 copen(Chan *c)
 {
 	Mntcache *m, *f, **l;
 
-	/* directories aren't cacheable and append-only files confuse us */
-	if(c->qid.type&(QTDIR|QTAPPEND)){
+	/* directories aren't cacheable */
+	if(c->qid.type&QTDIR){
 		c->mcp = nil;
 		return;
 	}
@@ -156,9 +219,9 @@ copen(Chan *c)
 		l = &f->hash;
 	}
 
-	if(!canqlock(m)){
+	if(!cancachelock(m)){
 		unlock(&cache);
-		qlock(m);
+		cachelock(m);
 		lock(&cache);
 		f = clookup(c, 0);
 		if(f != nil) {
@@ -169,7 +232,7 @@ copen(Chan *c)
 			 */
 			ctail(f);
 			unlock(&cache);
-			qunlock(m);
+			cacheunlock(m);
 			c->mcp = f;
 			return;
 		}
@@ -182,27 +245,16 @@ copen(Chan *c)
 	l = &cache.hash[c->qid.path%NHASH];
 	m->hash = *l;
 	*l = m;
+
 	unlock(&cache);
+
+	m->rah.vers = m->qid.vers;
+	mntrahinit(&m->rah);
 	cnodata(m);
-	qunlock(m);
+
+	cacheunlock(m);
+
 	c->mcp = m;
-}
-
-/* return locked Mntcache if still valid else reset mcp */
-static Mntcache*
-ccache(Chan *c)
-{
-	Mntcache *m;
-
-	m = c->mcp;
-	if(m != nil) {
-		qlock(m);
-		if(eqchantdqid(c, m->type, m->dev, m->qid, 0) && c->qid.type == m->qid.type)
-			return m;
-		c->mcp = nil;
-		qunlock(m);
-	}
-	return nil;
 }
 
 enum {
@@ -243,17 +295,24 @@ cread(Chan *c, uchar *buf, int len, vlong off)
 	KMap *k;
 	Page *p;
 	Mntcache *m;
-	int l, total;
+	int l, tot;
 	ulong offset, pn, po, pe;
 
-	if(off >= MAXCACHE || len <= 0)
+	if(len <= 0)
 		return 0;
 
 	m = ccache(c);
 	if(m == nil)
 		return 0;
 
-	total = 0;
+	if(waserror()){
+		cacheunlock(m);
+		nexterror();
+	}
+
+	tot = 0;
+	if(off >= MAXCACHE)
+		goto Prefetch;
 
 	offset = off;
 	if(offset+len > MAXCACHE)
@@ -277,16 +336,16 @@ cread(Chan *c, uchar *buf, int len, vlong off)
 		if(waserror()) {
 			kunmap(k);
 			putpage(p);
-			qunlock(m);
 			nexterror();
 		}
 		memmove(buf, (uchar*)VA(k) + offset, l);
-		poperror();
 		kunmap(k);
-
 		putpage(p);
+		poperror();
 
-		total += l;
+		tot += l;
+		buf += l;
+		len -= l;
 
 		offset += l;
 		offset &= (BY2PG-1);
@@ -294,12 +353,21 @@ cread(Chan *c, uchar *buf, int len, vlong off)
 			break;
 
 		pn++;
-		buf += l;
-		len -= l;
 	}
-	qunlock(m);
 
-	return total;
+Prefetch:
+	if(len > 0){
+		if(m->rah.vers != m->qid.vers){
+			mntrahinit(&m->rah);
+			m->rah.vers = m->qid.vers;
+		}
+		off += tot;
+		tot += mntrahread(&m->rah, c, buf, len, off);
+	}
+	cacheunlock(m);
+	poperror();
+
+	return tot;
 }
 
 /* invalidate pages in page bitmap */
@@ -322,7 +390,7 @@ cachedata(Mntcache *m, uchar *buf, int len, vlong off)
 	ulong offset, pn, po, pe;
 
 	if(off >= MAXCACHE || len <= 0){
-		qunlock(m);
+		cacheunlock(m);
 		return;
 	}
 
@@ -370,7 +438,7 @@ cachedata(Mntcache *m, uchar *buf, int len, vlong off)
 			kunmap(k);
 			putpage(p);
 			invalidate(m, offset + pn*BY2PG, len);
-			qunlock(m);
+			cacheunlock(m);
 			nexterror();
 		}
 		memmove((uchar*)VA(k) + offset, buf, l);
@@ -383,7 +451,7 @@ cachedata(Mntcache *m, uchar *buf, int len, vlong off)
 		buf += l;
 		len -= l;
 	}
-	qunlock(m);
+	cacheunlock(m);
 }
 
 void
@@ -407,5 +475,22 @@ cwrite(Chan* c, uchar *buf, int len, vlong off)
 		return;
 	m->qid.vers++;
 	c->qid.vers++;
+	if(c->qid.type&QTAPPEND){
+		cacheunlock(m);
+		return;
+	}
 	cachedata(m, buf, len, off);
+}
+
+void
+cclunk(Chan *c)
+{
+	Mntcache *m;
+
+	m = ccache(c);
+	if(m == nil)
+		return;
+	mntrahinit(&m->rah);
+	cacheunlock(m);
+	c->mcp = nil;
 }

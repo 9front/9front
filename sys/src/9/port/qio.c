@@ -906,6 +906,36 @@ qremove(Queue *q)
 
 /*
  *  copy the contents of a string of blocks into
+ *  memory from an offset. blocklist kept unchanged.
+ *  return number of copied bytes.
+ */
+long
+readblist(Block *b, uchar *p, long n, long o)
+{
+	long m, r;
+
+	r = 0;
+	while(n > 0 && b != nil){
+		m = BLEN(b);
+		if(o >= m)
+			o -= m;
+		else {
+			m -= o;
+			if(n < m)
+				m = n;
+			memmove(p, b->rp + o, m);
+			p += m;
+			r += m;
+			n -= m;
+			o = 0;
+		}
+		b = b->next;
+	}
+	return r;
+}
+
+/*
+ *  copy the contents of a string of blocks into
  *  memory.  emptied blocks are freed.  return
  *  pointer to first unconsumed block.
  */
