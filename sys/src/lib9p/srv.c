@@ -558,7 +558,7 @@ swrite(Srv *srv, Req *r)
 	if(srv->write)
 		srv->write(r);
 	else
-		respond(r, "no srv->write");
+		respond(r, Enowrite);
 }
 static void
 rwrite(Req *r, char *error)
