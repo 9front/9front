@@ -48,21 +48,21 @@ static struct Mntalloc
 	Mnt*	list;		/* Mount devices in use */
 	Mnt*	mntfree;	/* Free list */
 	Mntrpc*	rpcfree;
-	int	nrpcfree;
-	int	nrpcused;
+	ulong	nrpcfree;
+	ulong	nrpcused;
 	ulong	id;
 	ulong	tagmask[NMASK];
-}mntalloc;
+} mntalloc;
 
 static Chan*	mntchan(void);
 static Mnt*	mntchk(Chan*);
 static void	mntdirfix(uchar*, Chan*);
-static Mntrpc*	mntflushalloc(Mntrpc*, ulong);
+static Mntrpc*	mntflushalloc(Mntrpc*);
 static Mntrpc*	mntflushfree(Mnt*, Mntrpc*);
 static void	mntfree(Mntrpc*);
 static void	mntgate(Mnt*);
 static void	mntqrm(Mnt*, Mntrpc*);
-static Mntrpc*	mntralloc(Chan*, ulong);
+static Mntrpc*	mntralloc(Chan*);
 static long	mntrdwr(int, Chan*, void*, long, vlong);
 static int	mntrpcread(Mnt*, Mntrpc*);
 static void	mountio(Mnt*, Mntrpc*);
@@ -213,13 +213,14 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	if(m != nil)
 		mntalloc.mntfree = m->list;
 	else {
+		unlock(&mntalloc);
 		m = malloc(sizeof(Mnt));
 		if(m == nil) {
 			qfree(q);
 			free(v);
-			unlock(&mntalloc);
 			exhausted("mount devices");
 		}
+		lock(&mntalloc);
 	}
 	m->list = mntalloc.list;
 	mntalloc.list = m;
@@ -273,7 +274,7 @@ mntauth(Chan *c, char *spec)
 		nexterror();
 	}
 
-	r = mntralloc(0, m->msize);
+	r = mntralloc(c);
 	if(waserror()) {
 		mntfree(r);
 		nexterror();
@@ -290,6 +291,7 @@ mntauth(Chan *c, char *spec)
 	incref(m->c);
 	c->mqid = c->qid;
 	c->mode = ORDWR;
+	c->iounit = m->msize-IOHDRSZ;
 
 	poperror();	/* r */
 	mntfree(r);
@@ -333,8 +335,7 @@ mntattach(char *muxattach)
 		nexterror();
 	}
 
-	r = mntralloc(0, m->msize);
-
+	r = mntralloc(c);
 	if(waserror()) {
 		mntfree(r);
 		nexterror();
@@ -374,7 +375,7 @@ mntchan(void)
 	c->dev = mntalloc.id++;
 	unlock(&mntalloc);
 
-	if(c->mchan)
+	if(c->mchan != nil)
 		panic("mntchan non-zero %p", c->mchan);
 	return c;
 }
@@ -402,7 +403,7 @@ mntwalk(Chan *c, Chan *nc, char **name, int nname)
 
 	alloc = 0;
 	m = mntchk(c);
-	r = mntralloc(c, m->msize);
+	r = mntralloc(c);
 	if(nc == nil){
 		nc = devclone(c);
 		/*
@@ -470,7 +471,7 @@ mntstat(Chan *c, uchar *dp, int n)
 	if(n < BIT16SZ)
 		error(Eshortstat);
 	m = mntchk(c);
-	r = mntralloc(c, m->msize);
+	r = mntralloc(c);
 	if(waserror()) {
 		mntfree(r);
 		nexterror();
@@ -500,7 +501,7 @@ mntopencreate(int type, Chan *c, char *name, int omode, ulong perm)
 	Mntrpc *r;
 
 	m = mntchk(c);
-	r = mntralloc(c, m->msize);
+	r = mntralloc(c);
 	if(waserror()) {
 		mntfree(r);
 		nexterror();
@@ -550,8 +551,8 @@ mntclunk(Chan *c, int t)
 
 	cclunk(c);
 	m = mntchk(c);
-	r = mntralloc(c, m->msize);
-	if(waserror()){
+	r = mntralloc(c);
+	if(waserror()) {
 		mntfree(r);
 		nexterror();
 	}
@@ -611,7 +612,7 @@ mntwstat(Chan *c, uchar *dp, int n)
 	Mntrpc *r;
 
 	m = mntchk(c);
-	r = mntralloc(c, m->msize);
+	r = mntralloc(c);
 	if(waserror()) {
 		mntfree(r);
 		nexterror();
@@ -702,8 +703,8 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 
 	for(;;) {
 		nreq = n;
-		if(nreq > m->msize-IOHDRSZ)
-			nreq = m->msize-IOHDRSZ;
+		if(nreq > c->iounit)
+			nreq = c->iounit;
 
 		if(type == Tread) {
 			nr = cread(c, (uchar*)uba, nreq, off);
@@ -713,7 +714,7 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 			}
 		}
 
-		r = mntralloc(c, m->msize);
+		r = mntralloc(c);
 		if(waserror()) {
 			mntfree(r);
 			nexterror();
@@ -889,7 +890,6 @@ mntrahread(Mntrah *rah, Chan *c, uchar *buf, long len, vlong off)
 	Mntrpc *r, **rr;
 	vlong o, w, e;
 	long n, tot;
-	Mnt *m;
 
 	if(len <= 0)
 		return 0;
@@ -915,8 +915,7 @@ mntrahread(Mntrah *rah, Chan *c, uchar *buf, long len, vlong off)
 				mntfree(r);
 			}
 
-			m = mntchk(c);
-			r = mntralloc(c, m->msize);
+			r = mntralloc(c);
 			r->request.type = Tread;
 			r->request.fid = c->fid;
 			r->request.offset = o;
@@ -972,7 +971,6 @@ mntrahread(Mntrah *rah, Chan *c, uchar *buf, long len, vlong off)
 static void
 mountrpc(Mnt *m, Mntrpc *r)
 {
-	char *sn, *cn;
 	int t;
 
 	r->reply.tag = 0;
@@ -989,14 +987,8 @@ mountrpc(Mnt *m, Mntrpc *r)
 	default:
 		if(t == r->request.type+1)
 			break;
-		sn = "?";
-		if(m->c->path != nil)
-			sn = m->c->path->s;
-		cn = "?";
-		if(r->c != nil && r->c->path != nil)
-			cn = r->c->path->s;
 		print("mnt: proc %s %lud: mismatch from %s %s rep %#p tag %d fid %d T%d R%d rp %d\n",
-			up->text, up->pid, sn, cn,
+			up->text, up->pid, chanpath(m->c), chanpath(r->c),
 			r, r->request.tag, r->request.fid, r->request.type,
 			r->reply.type, r->reply.tag);
 		error(Emountrpc);
@@ -1022,7 +1014,7 @@ mountio(Mnt *m, Mntrpc *r)
 			}
 			nexterror();
 		}
-		r = mntflushalloc(r, m->msize);
+		r = mntflushalloc(r);
 		poperror();
 	}
 
@@ -1037,10 +1029,18 @@ mountio(Mnt *m, Mntrpc *r)
 	unlock(m);
 
 	/* Transmit a file system rpc */
-	if(m->msize == 0)
-		panic("msize");
-	n = convS2M(&r->request, r->rpc, m->msize);
-	if(n <= 0){
+	n = sizeS2M(&r->request);
+	if(n > r->rpclen) {
+		free(r->rpc);
+		r->rpc = mallocz(((uint)n+127) & ~127, 0);
+		if(r->rpc == nil) {
+			r->rpclen = 0;
+			exhausted("mount rpc buffer");
+		}
+		r->rpclen = msize(r->rpc);
+	}
+	n = convS2M(&r->request, r->rpc, r->rpclen);
+	if(n <= 0 || n > m->msize) {
 		print("mountio: proc %s %lud: convS2M returned %d for tag %d fid %d T%d\n",
 			up->text, up->pid, n, r->request.tag, r->request.fid, r->request.type);
 		error(Emountrpc);
@@ -1059,7 +1059,7 @@ mountio(Mnt *m, Mntrpc *r)
 			break;
 		unlock(m);
 		sleep(r->z, rpcattn, r);
-		if(r->done){
+		if(r->done) {
 			poperror();
 			mntflushfree(m, r);
 			return;
@@ -1229,12 +1229,11 @@ mountmux(Mnt *m, Mntrpc *r)
  * requests from it
  */
 static Mntrpc*
-mntflushalloc(Mntrpc *r, ulong iounit)
+mntflushalloc(Mntrpc *r)
 {
 	Mntrpc *fr;
 
-	fr = mntralloc(0, iounit);
-
+	fr = mntralloc(r->c);
 	fr->request.type = Tflush;
 	if(r->request.type == Tflush)
 		fr->request.oldtag = r->request.oldtag;
@@ -1298,45 +1297,28 @@ freetag(int t)
 }
 
 static Mntrpc*
-mntralloc(Chan *c, ulong msize)
+mntralloc(Chan *c)
 {
 	Mntrpc *new;
 
-	lock(&mntalloc);
-	new = mntalloc.rpcfree;
-	if(new == nil){
+	if(mntalloc.nrpcfree == 0) {
+	Alloc:
 		new = malloc(sizeof(Mntrpc));
+		if(new == nil)
+			exhausted("mount rpc header");
+		new->rpc = nil;
+		new->rpclen = 0;
+		lock(&mntalloc);
+		new->request.tag = alloctag();
+	} else {
+		lock(&mntalloc);
+		new = mntalloc.rpcfree;
 		if(new == nil) {
 			unlock(&mntalloc);
-			exhausted("mount rpc header");
+			goto Alloc;
 		}
-		/*
-		 * The header is split from the data buffer as
-		 * mountmux may swap the buffer with another header.
-		 */
-		new->rpc = mallocz(msize, 0);
-		if(new->rpc == nil){
-			free(new);
-			unlock(&mntalloc);
-			exhausted("mount rpc buffer");
-		}
-		new->rpclen = msize;
-		new->request.tag = alloctag();
-	}
-	else {
 		mntalloc.rpcfree = new->list;
 		mntalloc.nrpcfree--;
-		if(new->rpclen < msize){
-			free(new->rpc);
-			new->rpc = mallocz(msize, 0);
-			if(new->rpc == nil){
-				free(new);
-				mntalloc.nrpcused--;
-				unlock(&mntalloc);
-				exhausted("mount rpc buffer");
-			}
-			new->rpclen = msize;
-		}
 	}
 	mntalloc.nrpcused++;
 	unlock(&mntalloc);
@@ -1350,21 +1332,20 @@ mntralloc(Chan *c, ulong msize)
 static void
 mntfree(Mntrpc *r)
 {
-	if(r->b != nil)
-		freeblist(r->b);
+	freeblist(r->b);
 	lock(&mntalloc);
-	if(mntalloc.nrpcfree >= 10){
-		free(r->rpc);
-		freetag(r->request.tag);
-		free(r);
-	}
-	else{
+	mntalloc.nrpcused--;
+	if(mntalloc.nrpcfree < 32) {
 		r->list = mntalloc.rpcfree;
 		mntalloc.rpcfree = r;
 		mntalloc.nrpcfree++;
+		unlock(&mntalloc);
+		return;
 	}
-	mntalloc.nrpcused--;
+	freetag(r->request.tag);
 	unlock(&mntalloc);
+	free(r->rpc);
+	free(r);
 }
 
 static void
@@ -1392,12 +1373,10 @@ mntchk(Chan *c)
 	Mnt *m;
 
 	/* This routine is mostly vestiges of prior lives; now it's just sanity checking */
-
 	if(c->mchan == nil)
 		panic("mntchk 1: nil mchan c %s", chanpath(c));
 
 	m = c->mchan->mux;
-
 	if(m == nil)
 		print("mntchk 2: nil mux c %s c->mchan %s \n", chanpath(c), chanpath(c->mchan));
 
