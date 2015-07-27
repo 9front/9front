@@ -232,6 +232,9 @@ attachimage(int type, Chan *c, uintptr base, ulong len)
 {
 	Image *i, **l;
 
+	c->flag &= ~CCACHE;
+	cclunk(c);
+
 	lock(&imagealloc);
 
 	/*
@@ -272,7 +275,6 @@ found:
 	unlock(&imagealloc);
 	if(i->c == nil){
 		i->c = c;
-		c->flag &= ~CCACHE;
 		incref(c);
 	}
 

@@ -706,7 +706,7 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 		if(nreq > c->iounit)
 			nreq = c->iounit;
 
-		if(type == Tread) {
+		if(type == Tread && (c->flag&CCACHE) != 0) {
 			nr = cread(c, (uchar*)uba, nreq, off);
 			if(nr > 0) {
 				nreq = nr;

@@ -424,6 +424,7 @@ setswapchan(Chan *c)
 		}
 	}
 	c->flag &= ~CCACHE;
+	cclunk(c);
 	swapimage.c = c;
 	poperror();
 }
