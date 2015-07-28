@@ -571,7 +571,10 @@ reset(Ether* ether)
 	switch(x&0xFFFFFFF){
 	case 0x2420003:	/* PCnet/PCI 79C970 */
 	case 0x2621003:	/* PCnet/PCI II 79C970A */
+		ether->mbps = 10;
+		break;
 	case 0x2625003:	/* PCnet-FAST III 79C973 */
+		ether->mbps = 100;
 		break;
 	default:
 		print("#l%d: unknown PCnet card version 0x%.7ux\n",
@@ -612,6 +615,15 @@ reset(Ether* ether)
 		x = ctlr->ior(ctlr, Aprom+4);
 		ether->ea[4] = x;
 		ether->ea[5] = x>>8;
+	}
+
+	/* VMware */
+	x = ether->ea[0]<<16 | ether->ea[1]<<8 | ether->ea[2];
+	switch(x){
+	case 0x0569:
+	case 0x0C29:
+	case 0x5056:
+		ether->mbps = 1000;
 	}
 
 	/*
