@@ -1006,12 +1006,6 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char
 {
 	int ret;
 	Chan *c0, *c1, *ac, *bc;
-	struct{
-		Chan	*chan;
-		Chan	*authchan;
-		char	*spec;
-		int	flags;
-	}bogus;
 
 	if((flag&~MMASK) || (flag&MORDER)==(MBEFORE|MAFTER))
 		error(Ebadarg);
@@ -1039,12 +1033,7 @@ bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char
 		if(afd >= 0)
 			ac = fdtochan(afd, ORDWR, 0, 1);
 
-		bogus.flags = flag & MCACHE;
-		bogus.chan = bc;
-		bogus.authchan = ac;
-		bogus.spec = spec;
-		ret = devno('M', 0);
-		c0 = devtab[ret]->attach((char*)&bogus);
+		c0 = mntattach(bc, ac, spec, flag&MCACHE);
 		poperror();	/* ac bc */
 		if(ac != nil)
 			cclose(ac);

@@ -173,6 +173,7 @@ uvlong		mk64fract(uvlong, uvlong);
 void		mkqid(Qid*, vlong, ulong, int);
 void		mmurelease(Proc*);
 void		mmuswitch(Proc*);
+Chan*		mntattach(Chan*, Chan*, char*, int);
 Chan*		mntauth(Chan*, char*);
 long		mntversion(Chan*, char*, int, int);
 void		mouseresize(void);

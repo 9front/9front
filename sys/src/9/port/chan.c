@@ -1399,8 +1399,6 @@ namec(char *aname, int amode, int omode, ulong perm)
 		 */
 		n = chartorune(&r, up->genbuf+1)+1;
 		/* actually / is caught by parsing earlier */
-		if(utfrune("M", r) != nil)
-			error(Enoattach);
 		if(up->pgrp->noattach && utfrune("|decp", r)==nil)
 			error(Enoattach);
 		t = devno(r, 1);

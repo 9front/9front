@@ -302,21 +302,11 @@ mntauth(Chan *c, char *spec)
 
 }
 
-static Chan*
-mntattach(char *muxattach)
+Chan*
+mntattach(Chan *c, Chan *ac, char *spec, int flags)
 {
 	Mnt *m;
-	Chan *c;
 	Mntrpc *r;
-	struct bogus{
-		Chan	*chan;
-		Chan	*authchan;
-		char	*spec;
-		int	flags;
-	}bogus;
-
-	bogus = *((struct bogus *)muxattach);
-	c = bogus.chan;
 
 	m = c->mux;
 	if(m == nil){
@@ -342,12 +332,12 @@ mntattach(char *muxattach)
 	}
 	r->request.type = Tattach;
 	r->request.fid = c->fid;
-	if(bogus.authchan == nil)
+	if(ac == nil)
 		r->request.afid = NOFID;
 	else
-		r->request.afid = bogus.authchan->fid;
+		r->request.afid = ac->fid;
 	r->request.uname = up->user;
-	r->request.aname = bogus.spec;
+	r->request.aname = spec;
 	mountrpc(m, r);
 
 	c->qid = r->reply.qid;
@@ -360,9 +350,16 @@ mntattach(char *muxattach)
 
 	poperror();	/* c */
 
-	if(bogus.flags&MCACHE)
+	if(flags&MCACHE)
 		c->flag |= CCACHE;
 	return c;
+}
+
+static Chan*
+noattach(char *)
+{
+	error(Enoattach);
+	return nil;
 }
 
 static Chan*
@@ -1422,7 +1419,7 @@ Dev mntdevtab = {
 	mntreset,
 	devinit,
 	devshutdown,
-	mntattach,
+	noattach,
 	mntwalk,
 	mntstat,
 	mntopen,

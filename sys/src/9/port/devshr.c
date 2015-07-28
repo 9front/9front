@@ -724,12 +724,6 @@ shrwrite(Chan *c, void *va, long n, vlong)
 	Chan *bc, *c0;
 	Mhead *h;
 	Mount *m;
-	struct{
-		Chan	*chan;
-		Chan	*authchan;
-		char	*spec;
-		int	flags;
-	}bogus;
 
 	if(up->pgrp->noattach)
 		error(Enoattach);
@@ -758,11 +752,7 @@ shrwrite(Chan *c, void *va, long n, vlong)
 		cclose(bc);
 		nexterror();
 	}
-	bogus.flags = 0;
-	bogus.chan = bc;
-	bogus.authchan = nil;
-	bogus.spec = aname;
-	c0 = devtab[devno('M', 0)]->attach((char*)&bogus);
+	c0 = mntattach(bc, nil, aname, 0);
 	poperror();
 	cclose(bc);
 	poperror();
