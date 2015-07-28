@@ -17,11 +17,21 @@ calloc(ulong m, ulong n)
 }
 
 void*
-realloc(void*, ulong)
+realloc(void *o, ulong n)
 {
-	fprint(2, "realloc called\n");
-	abort();
-	return 0;
+	ulong m;
+	void *a;
+
+	if(n == 0)
+		return nil;
+	if(o == nil)
+		return alloc(n);
+	a = alloc(n);
+	m = (char*)a - (char*)o;
+	if(m < n)
+		n = m;
+	memmove(a, o, n);
+	return a;
 }
 
 void
@@ -43,5 +53,10 @@ mallocz(ulong size, int clr)
 
 void
 setmalloctag(void*, uintptr)
+{
+}
+
+void
+setrealloctag(void*, uintptr)
 {
 }
