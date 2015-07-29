@@ -522,7 +522,7 @@ isdomainmatch(char *name, char *pattern)
 {
 	int lname, lpattern;
 
-	if(cistrcmp(name, pattern)==0)
+	if(cistrcmp(name, pattern + (pattern[0]=='.'))==0)
 		return 1;
 
 	if(strcmp(ipattr(name), "dom")==0 && pattern[0]=='.'){
@@ -589,13 +589,13 @@ isbadcookie(Cookie *c, char *dom, char *path)
 	if(c->explicitdom && c->dom[0] != '.')
 		return "cookie domain doesn't start with dot";
 
-	if(memchr(c->dom+1, '.', strlen(c->dom)-1-1) == nil)
+	if(strlen(c->dom)<=2 || memchr(c->dom+1, '.', strlen(c->dom)-2) == nil)
 		return "cookie domain doesn't have embedded dots";
 
 	if(!isdomainmatch(dom, c->dom))
 		return "request host does not match cookie domain";
 
-	if(strcmp(ipattr(dom), "dom")==0
+	if(strcmp(ipattr(dom), "dom")==0 && strlen(dom)>strlen(c->dom)
 	&& memchr(dom, '.', strlen(dom)-strlen(c->dom)) != nil)
 		return "request host contains dots before cookie domain";
 
@@ -789,6 +789,9 @@ parsehttp(Jar *jar, char *hdr, char *dom, char *path)
 	char *e, *p, *nextp;
 	Cookie c;
 	int isns, n;
+
+	if(debug)
+		fprint(2, "parsehttp dom=%s path=%s\n", dom, path);
 
 	isns = isnetscape(hdr);
 	n = 0;
