@@ -9,7 +9,7 @@ enum {
 Channel *out;
 Channel *quit;
 Channel *forkc;
-int nread = 0;
+int readers = 1;
 
 typedef struct Msg Msg;
 struct Msg {
@@ -36,8 +36,10 @@ die(Reader *r)
 	snprint(s->buf, sizeof(s->buf), " = %r\n");
 	s->pid = r->pid;
 	sendp(quit, s);
-	close(r->tfd);
-	close(r->cfd);
+	if(r->tfd >= 0)
+		close(r->tfd);
+	if(r->cfd >= 0)
+		close(r->cfd);
 	threadexits(nil);
 }
 
@@ -105,13 +107,12 @@ reader(void *v)
 }
 
 void
-writer(void *arg)
+writer(int lastpid)
 {
-	int lastpid;
+	char lastc = -1;
 	Alt a[4];
 	Msg *s;
-
-	lastpid = (int)(uintptr)arg;
+	int n;
 
 	a[0].op = CHANRCV;
 	a[0].c = quit;
@@ -124,20 +125,29 @@ writer(void *arg)
 	a[2].v = nil;
 	a[3].op = CHANEND;
 
-	while(nread > 0){
+	while(readers > 0){
 		switch(alt(a)){
 		case 0:
-			nread--;
+			readers--;
 		case 1:
 			if(s->pid != lastpid){
 				lastpid = s->pid;
-				fprint(2, s->buf[1]=='='? "\n%d ...": "\n", lastpid);
+				if(lastc != '\n'){
+					lastc = '\n';
+					write(2, &lastc, 1);
+				}
+				if(s->buf[1] == '=')
+					fprint(2, "%d ...", lastpid);
 			}
-			write(2, s->buf, strlen(s->buf));
+			n = strlen(s->buf);
+			if(n > 0){
+				write(2, s->buf, n);
+				lastc = s->buf[n-1];
+			}
 			free(s);
 			break;
 		case 2:
-			nread++;
+			readers++;
 			break;
 		}
 	}
@@ -196,7 +206,8 @@ threadmain(int argc, char **argv)
 	out   = chancreate(sizeof(Msg*), 0);
 	quit  = chancreate(sizeof(Msg*), 0);
 	forkc = chancreate(sizeof(void*), 0);
-	nread++;
-	procrfork(writer, (void*)pid, Stacksize, 0);
-	reader((void*)pid);
+	procrfork(reader, (void*)pid, Stacksize, 0);
+
+	writer(pid);
+	threadexits(nil);
 }
