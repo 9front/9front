@@ -4,7 +4,6 @@
 
 enum {
 	Stacksize	= 8*1024,
-	Bufsize		= 8*1024,
 };
 
 Channel *out;
@@ -14,49 +13,63 @@ int nread = 0;
 
 typedef struct Msg Msg;
 struct Msg {
-	char	*buf;
 	int	pid;
+	char	buf[8*1024];
+};
+
+typedef struct Reader Reader;
+struct Reader {
+	int	pid;
+
+	int	tfd;
+	int	cfd;
+
+	Msg*	msg;
 };
 
 void
-die(char *s)
+die(Reader *r)
 {
-	fprint(2, "%s\n", s);
-	exits(s);
+	Msg *s;
+
+	s = r->msg;
+	snprint(s->buf, sizeof(s->buf), " = %r\n");
+	s->pid = r->pid;
+	sendp(quit, s);
+	close(r->tfd);
+	close(r->cfd);
+	threadexits(nil);
 }
 
 void
-cwrite(int fd, char *path, char *cmd, int len)
+cwrite(Reader *r, char *cmd)
 {
-	if (write(fd, cmd, len) < len) {
-		fprint(2, "cwrite: %s: failed %d bytes: %r\n", path, len);
-		sendp(quit, nil);
-		threadexits(nil);
-	}
+	if (write(r->cfd, cmd, strlen(cmd)) < 0)
+		die(r);
 }
 
 void
 reader(void *v)
 {
-	int cfd, tfd, forking = 0, pid, newpid;
-	char *ctl, *truss;
+	int forking = 0, newpid;
+	Reader r;
 	Msg *s;
 
-	pid = (int)(uintptr)v;
-	ctl = smprint("/proc/%d/ctl", pid);
-	if ((cfd = open(ctl, OWRITE)) < 0)
-		die(smprint("%s: %r", ctl));
-	truss = smprint("/proc/%d/syscall", pid);
-	if ((tfd = open(truss, OREAD)) < 0)
-		die(smprint("%s: %r", truss));
+	r.pid = (int)(uintptr)v;
+	r.tfd = r.cfd = -1;
 
-	cwrite(cfd, ctl, "stop", 4);
-	cwrite(cfd, truss, "startsyscall", 12);
+	r.msg = s = mallocz(sizeof(Msg), 1);
+	snprint(s->buf, sizeof(s->buf), "/proc/%d/ctl", r.pid);
+	if ((r.cfd = open(s->buf, OWRITE)) < 0)
+		die(&r);
+	snprint(s->buf, sizeof(s->buf), "/proc/%d/syscall", r.pid);
+	if ((r.tfd = open(s->buf, OREAD)) < 0)
+		die(&r);
 
-	s = mallocz(sizeof(Msg) + Bufsize, 1);
-	s->pid = pid;
-	s->buf = (char *)&s[1];
-	while(pread(tfd, s->buf, Bufsize - 1, 0) > 0){
+	cwrite(&r, "stop");
+	cwrite(&r, "startsyscall");
+
+	while(pread(r.tfd, s->buf, sizeof(s->buf)-1, 0) > 0){
 		if (forking && s->buf[1] == '=' && s->buf[3] != '-') {
 			forking = 0;
 			newpid = strtol(&s->buf[3], 0, 0);
@@ -82,14 +95,13 @@ reader(void *v)
 			}
 			free(rf);
 		}
+		s->pid = r.pid;
 		sendp(out, s);
-		cwrite(cfd, truss, "startsyscall", 12);
-		s = mallocz(sizeof(Msg) + Bufsize, 1);
-		s->pid = pid;
-		s->buf = (char *)&s[1];
+
+		r.msg = s = mallocz(sizeof(Msg), 1);
+		cwrite(&r, "startsyscall");
 	}
-	sendp(quit, nil);
-	threadexitsall(nil);
+	die(&r);
 }
 
 void
@@ -103,7 +115,7 @@ writer(void *arg)
 
 	a[0].op = CHANRCV;
 	a[0].c = quit;
-	a[0].v = nil;
+	a[0].v = &s;
 	a[1].op = CHANRCV;
 	a[1].c = out;
 	a[1].v = &s;
@@ -112,34 +124,30 @@ writer(void *arg)
 	a[2].v = nil;
 	a[3].op = CHANEND;
 
-	for(;;)
+	while(nread > 0){
 		switch(alt(a)){
 		case 0:
 			nread--;
-			if(nread <= 0)
-				goto done;
-			break;
 		case 1:
 			if(s->pid != lastpid){
 				lastpid = s->pid;
 				fprint(2, s->buf[1]=='='? "\n%d ...": "\n", lastpid);
 			}
-			fprint(2, "%s", s->buf);
+			write(2, s->buf, strlen(s->buf));
 			free(s);
 			break;
 		case 2:
 			nread++;
 			break;
 		}
-done:
-	exits(nil);
+	}
 }
 
 void
 usage(void)
 {
 	fprint(2, "Usage: ratrace [-c cmd [arg...]] | [pid]\n");
-	exits("usage");
+	threadexits("usage");
 }
 
 void
@@ -185,9 +193,9 @@ threadmain(int argc, char **argv)
 		pid = atoi(argv[1]);
 	}
 
-	out   = chancreate(sizeof(char*), 0);
-	quit  = chancreate(sizeof(char*), 0);
-	forkc = chancreate(sizeof(ulong *), 0);
+	out   = chancreate(sizeof(Msg*), 0);
+	quit  = chancreate(sizeof(Msg*), 0);
+	forkc = chancreate(sizeof(void*), 0);
 	nread++;
 	procrfork(writer, (void*)pid, Stacksize, 0);
 	reader((void*)pid);
