@@ -64,19 +64,18 @@ void strupr (char* s)
     while (*s) { *s = toupper(*s); s++; }
 }
 
-int filelength (int handle) 
+vlong
+filelength(int fd) 
 {
-	USED(handle);
-	I_Error ("PORTME w_wad.c filelength");
-	return -1;
-/*
-    struct stat	fileinfo;
-    
-    if (fstat (handle,&fileinfo) == -1)
-	I_Error ("Error fstating");
+	vlong l;
+	Dir *d;
 
-    return fileinfo.st_size;
-*/
+	d = dirfstat(fd);
+	if(d == nil)
+		sysfatal("dirfstat: %r");
+	l = d->length;
+	free(d);
+	return l;	/* lump file lenghts in doom are ints */
 }
 
 
