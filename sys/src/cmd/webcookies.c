@@ -790,9 +790,6 @@ parsehttp(Jar *jar, char *hdr, char *dom, char *path)
 	Cookie c;
 	int isns, n;
 
-	if(debug)
-		fprint(2, "parsehttp dom=%s path=%s\n", dom, path);
-
 	isns = isnetscape(hdr);
 	n = 0;
 	for(p=hdr; p; p=nextp){
@@ -976,28 +973,27 @@ parsecookie(Cookie *c, char *p, char **e, int isns, char *dom, char *path)
 	if(c->dom){
 		/* add leading dot for explicit domain */
 		if(c->dom[0] != '.' && strcmp(ipattr(c->dom), "dom") == 0){
-			static char *ddom = nil;
+			static char ddom[1024];
 
-			ddom = realloc(ddom, strlen(c->dom)+2);
-			if(ddom != nil){
-				ddom[0] = '.';
-				strcpy(ddom+1, c->dom);
-				c->dom = ddom;
-			}
+			ddom[0] = '.';
+			ddom[sizeof(ddom)-1] = '\0';
+			strncpy(ddom+1, c->dom, sizeof(ddom)-2);
+			c->dom = ddom;
 		}
 		c->explicitdom = 1;
 	}else
 		c->dom = dom;
 	if(c->path)
 		c->explicitpath = 1;
-	else{
-		c->path = path;
-		if((t = strchr(c->path, '#')) != 0)
-			*t = '\0';
-		if((t = strchr(c->path, '?')) != 0)
-			*t = '\0';
-		if((t = strrchr(c->path, '/')) != 0)
-			*t = '\0';
+	else {
+		static char dpath[1024];
+
+		/* implicit path is "directory" of request-uri's path component */
+		dpath[sizeof(dpath)-1] = '\0';
+		strncpy(dpath, path, sizeof(dpath)-1);
+		if((t = strrchr(dpath, '/')) != nil)
+			t[1] = '\0';
+		c->path = dpath;
 	}
 	c->netscapestyle = isns;
 
@@ -1133,9 +1129,14 @@ fswrite(Req *r)
 			p = strchr(buf+hlen, '/');
 			if(p == nil)
 				a->path = estrdup9p("/");
-			else{
+			else {
 				a->path = estrdup9p(p);
 				*p = '\0';
+
+				if((p = strchr(a->path, '#')) != nil)
+					*p = '\0';
+				if((p = strchr(a->path, '?')) != nil)
+					*p = '\0';
 			}
 			a->dom = estrdup9p(buf+hlen);
 			a->state = HaveUrl;
