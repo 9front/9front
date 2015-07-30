@@ -300,13 +300,11 @@ void M_LoadDefaults (void)
     // check for a custom default file
     i = M_CheckParm ("-config");
     if (i && i<myargc-1)
-    {
 	defaultfile = myargv[i+1];
-	printf ("	default file: %s\n",defaultfile);
-    }
     else
 	defaultfile = basedefault;
-    
+    printf (" default file: %s\n",defaultfile);
+
     // read the file in, overriding any set defaults
     f = fopen (defaultfile, "r");
     if (f)

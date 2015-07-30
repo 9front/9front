@@ -563,7 +563,7 @@ void D_AddFile (char *file)
 //
 void IdentifyVersion (void)
 {
-	char *wadfile;
+	char *wadfile, *slash;
 
 	if (M_CheckParm ("-shdev"))
 	{
@@ -615,35 +615,35 @@ void IdentifyVersion (void)
 		language = french;
 		printf("French version\n");
 		D_AddFile (wadfile);
-		return;
 	} else if ( (wadfile = I_IdentifyWAD("doom2.wad")) ) {
 		gamemode = commercial;
 		D_AddFile (wadfile);
-		return;
 	} else if ( (wadfile = I_IdentifyWAD("plutonia.wad")) ) {
 		gamemode = commercial;
 		D_AddFile (wadfile);
-		return;
 	} else if ( (wadfile = I_IdentifyWAD("tnt.wad")) ) {
 		gamemode = commercial;
 		D_AddFile (wadfile);
-		return;
 	} else if ( (wadfile = I_IdentifyWAD("doomu.wad")) ) {
 		gamemode = retail;
 		D_AddFile (wadfile);
-		return;
 	} else if ( (wadfile = I_IdentifyWAD("doom.wad")) ) {
 		gamemode = registered;
 		D_AddFile (wadfile);
-		return;
 	} else if ( (wadfile = I_IdentifyWAD("doom1.wad")) ) {
 		gamemode = shareware;
 		D_AddFile (wadfile);
-		return;
 	} else {
 		printf("Game mode indeterminate.\n");
 		gamemode = indetermined;
+		return;
 	}
+	strncpy(basedefault, wadfile, sizeof(basedefault)-5);
+	basedefault[sizeof(basedefault)-5] = '\0';
+	slash = strrchr(basedefault, '/');
+	if (slash++ == 0)
+		slash = basedefault;
+	strcpy(slash, "cfg");
 }
 
 //
