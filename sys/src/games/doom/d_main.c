@@ -90,6 +90,9 @@ boolean         drone;
 
 boolean		singletics = false; // debug flag to cancel adaptiveness
 
+/* bug compatibility with various versions of doom */
+boolean		noztele;
+boolean		nobounce;
 
 
 //extern int soundVolume;
@@ -736,6 +739,10 @@ void D_DoomMain (void)
     respawnparm = M_CheckParm ("-respawn");
     fastparm = M_CheckParm ("-fast");
     devparm = M_CheckParm ("-devparm");
+    if (M_CheckParm ("-noztele") && gamemode == commercial)
+	noztele = 1;
+    if (M_CheckParm ("-nobounce") && (gamemode == commercial || gamemode == registered))
+	nobounce = 1;
     if (M_CheckParm ("-altdeath"))
 	deathmatch = 2;
     else if (M_CheckParm ("-deathmatch"))

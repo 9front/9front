@@ -285,10 +285,7 @@ void P_ZMovement (mobj_t* mo)
     {
 	// hit the floor
 
-	// Note (id):
-	//  somebody left this after the setting momz to 0,
-	//  kinda useless there.
-	if (mo->flags & MF_SKULLFLY)
+	if (!nobounce && mo->flags & MF_SKULLFLY)
 	{
 	    // the skull slammed into something
 	    mo->momz = -mo->momz;
@@ -309,6 +306,9 @@ void P_ZMovement (mobj_t* mo)
 	    mo->momz = 0;
 	}
 	mo->z = mo->floorz;
+
+	if (nobounce && mo->flags & MF_SKULLFLY)
+	    mo->momz = -mo->momz;
 
 	if ( (mo->flags & MF_MISSILE)
 	     && !(mo->flags & MF_NOCLIP) )

@@ -60,6 +60,8 @@
 // follow a player exlusively for 3 seconds
 #define	BASETHRESHOLD	 	100
 
+extern	boolean	noztele;
+extern	boolean	nobounce;
 
 
 //
