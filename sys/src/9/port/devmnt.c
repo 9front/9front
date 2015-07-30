@@ -669,8 +669,7 @@ mntcache(Mntrpc *r)
 		m = r->reply.count;
 		if(m > r->request.count)
 			m = r->request.count;
-
-		for(b = r->b; m > 0 && b != nil; b = b->next) {
+		for(b = r->b; m > 0 && b != nil; m -= n, b = b->next) {
 			n = BLEN(b);
 			if(m < n)
 				n = m;
