@@ -24,6 +24,7 @@ enum {
 enum {
 	TypeG45,
 	TypeIVB,		/* Ivy Bridge */
+	TypeSNB,		/* Sandy Bridge (unfinished) */
 };
 
 enum {
@@ -239,6 +240,7 @@ snarftrans(Igfx *igfx, Trans *t, u32int o)
 		}
 		break;
 	case TypeIVB:
+	case TypeSNB:
 		t->dm[0] = snarfreg(igfx, o + 0x30);
 		t->dn[0] = snarfreg(igfx, o + 0x34);
 		t->dm[1] = snarfreg(igfx, o + 0x38);
@@ -264,7 +266,7 @@ snarfpipe(Igfx *igfx, int x)
 
 	p->src = snarfreg(igfx, o + 0x0001C);
 
-	if(igfx->type == TypeIVB) {
+	if(igfx->type == TypeIVB || igfx->type == TypeSNB) {
 		p->fdi->txctl = snarfreg(igfx, o + 0x100);
 
 		o = 0xE0000 | x*0x1000;
@@ -295,6 +297,7 @@ snarfpipe(Igfx *igfx, int x)
 	/* cursor plane */
 	switch(igfx->type){
 	case TypeIVB:
+	case TypeSNB:
 		p->cur->cntr	= snarfreg(igfx, 0x70080 + x*0x1000);
 		p->cur->base	= snarfreg(igfx, 0x70084 + x*0x1000);
 		p->cur->pos	= snarfreg(igfx, 0x70088 + x*0x1000);
@@ -318,6 +321,8 @@ devtype(Igfx *igfx)
 	switch(igfx->pci->did){
 	case 0x0166:	/* 3rd Gen Core - ThinkPad X230 */
 		return TypeIVB;
+	case 0x0126:	/* Thinkpad X220 */
+		return TypeSNB;
 	case 0x27a2:	/* GM945/82940GML - ThinkPad X60 Tablet */
 	case 0x2a02:	/* GM965/GL960/X3100 - ThinkPad X61 Tablet */
 	case 0x2a42:	/* 4 Series Mobile - ThinkPad X200 */
@@ -397,10 +402,16 @@ snarf(Vga* vga, Ctlr* ctlr)
 		igfx->vgacntrl		= snarfreg(igfx, 0x071400);
 		break;
 
+	case TypeSNB:
+		igfx->npipe = 2;	/* A,B */
+		igfx->cdclk = 300;	/* MHz */
+		goto PCHcommon;
+
 	case TypeIVB:
 		igfx->npipe = 3;	/* A,B,C */
 		igfx->cdclk = 400;	/* MHz */
 
+	PCHcommon:
 		igfx->dpll[0].ctrl	= snarfreg(igfx, 0xC6014);
 		igfx->dpll[0].fp0	= snarfreg(igfx, 0xC6040);
 		igfx->dpll[0].fp1	= snarfreg(igfx, 0xC6044);
@@ -434,7 +445,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 			igfx->dp[x].auxdat[4]	= snarfreg(igfx, 0xE4024 + 0x100*x);
 		}
 
-		for(x=0; x<3; x++){
+		for(x=0; x<igfx->npipe; x++){
 			igfx->pfit[x].pwrgate	= snarfreg(igfx, 0x68060 + 0x800*x);
 			igfx->pfit[x].winpos	= snarfreg(igfx, 0x68070 + 0x800*x);
 			igfx->pfit[x].winsize	= snarfreg(igfx, 0x68074 + 0x800*x);
@@ -586,6 +597,7 @@ initdpll(Igfx *igfx, int x, int freq, int port)
 		dpll->ctrl.v &= ~(3<<13);
 		dpll->ctrl.v |= (port == PortLCD ? 3 : 0) << 13;
 		break;
+	case TypeSNB:
 	case TypeIVB:
 		/* transcoder dpll enable */
 		igfx->dpllsel.v |= 8<<(x*4);
