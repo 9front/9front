@@ -6,6 +6,8 @@
 #include <event.h>
 #include <cursor.h>
 
+#include "imagefile.h"
+
 typedef struct Icon Icon;
 struct Icon
 {
@@ -204,27 +206,63 @@ Bgeticon(Biobuf *b, Icon *icon)
 	uchar *buf;
 	uchar *map2map;
 	Memimage *img;
+	uchar magic[4];
 	int ncolor;
 	long chan;
 
-	if(icon->len < 40){
-		werrstr("bad icon header length");
-		return -1;
-	}
 	Bseek(b, icon->offset, 0);
-	buf = malloc(icon->len);
-	if(buf == nil)
-		return -1;
-	if(Bread(b, buf, icon->len) != icon->len){
+	if(Bread(b, magic, 4) != 4){
 		werrstr("unexpected EOF");
 		return -1;
 	}
-	/* this header's info takes precedence over previous one */
-	if(getl(buf) != 40){
-		werrstr("bad icon header");
+	if(magic[0] == 137 && memcmp(magic+1, "PNG", 3) == 0){
+		Rawimage **png;
+
+		Bseek(b, -4, 1);
+		png = Breadpng(b, CRGB);
+		if(png == nil || png[0] == nil)
+			return -1;
+		switch(png[0]->chandesc){
+		case CY:
+			chan = GREY8;
+			break;
+		case CYA16:
+			chan = CHAN2(CGrey, 8, CAlpha, 8);
+			break;
+		case CRGB24:
+			chan = RGB24;
+			break;
+		case CRGBA32:
+			chan = RGBA32;
+			break;
+		default:
+			werrstr("bad icon png channel descriptor");
+			return -1;
+		}
+		icon->mask = nil;
+		icon->img = allocmemimage(png[0]->r, chan);
+		loadmemimage(icon->img, icon->img->r, png[0]->chans[0], png[0]->chanlen);
+		return 0;
+	}
+
+	if(getl(magic) != 40){
+		werrstr("bad icon bmp header");
+		return -1;
+	}
+	if(icon->len < 40){
+		werrstr("bad icon bmp header length");
+		return -1;
+	}
+	buf = malloc(icon->len);
+	if(buf == nil)
+		return -1;
+	memmove(buf, magic, 4);
+	if(Bread(b, buf+4, icon->len-4) != icon->len-4){
+		werrstr("unexpected EOF");
 		return -1;
 	}
 
+	/* this header's info takes precedence over previous one */
 	ncolor = 0;
 	icon->w = getl(buf+4);
 	icon->h = getl(buf+8)>>1;
@@ -390,6 +428,9 @@ domask(Icon *icon)
 	int rv;
 	char file[64];
 	int fd;
+
+	if(icon->mask == nil)
+		return;
 
 	rv = -1;
 	snprint(file, sizeof(file), "%dx%d.mask", icon->w, icon->h);
