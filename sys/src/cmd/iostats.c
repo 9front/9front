@@ -250,7 +250,7 @@ rio(Fcall *fin, Fcall *fout)
 void
 usage(void)
 {
-	fprint(2, "usage: iostats [-d] [-f debugfile] cmds [args ...]\n");
+	fprint(2, "usage: iostats [-dC] [-f debugfile] cmds [args ...]\n");
 	exits("usage");
 }
 
