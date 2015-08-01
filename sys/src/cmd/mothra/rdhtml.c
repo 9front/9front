@@ -884,8 +884,10 @@ void plrdhtml(char *name, int fd, Www *dst){
 			if(str && *str){
 				free(g.state->name);
 				g.state->name = strdup(str);
-			} else
+			} else if(g.state->link)
 				str = g.state->link;
+			else
+				str = "";
 			pl_htmloutput(&g, 0, str, 0);
 			free(g.state->link);
 			g.state->link=0;
