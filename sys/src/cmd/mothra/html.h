@@ -4,7 +4,7 @@
 #define	NSTACK	100	/* html grammar is not recursive, so 30 or so should do */
 #define	NHBUF	8192	/* Input buffer size */
 #define	NPEEKC	3	/* Maximum lookahead */
-#define	NTOKEN	4096	/* Maximum token length */
+#define	NTOKEN	65536	/* Maximum token length */
 #define	NATTR	512	/* Maximum number of attributes of a tag */
 typedef struct Pair Pair;
 typedef struct Tag Tag;
@@ -37,9 +37,9 @@ struct Stack{
 	int strike;		/* flag of <strike> */
 	int width;		/* size of image */
 	int height;
-	char image[NNAME];	/* arg of <img> */
-	char link[NNAME];	/* arg of <a href=...> */
-	char name[NNAME];	/* arg of <a name=...> */
+	char *image;		/* arg of <img> */
+	char *link;		/* arg of <a href=...> */
+	char *name;		/* arg of <a name=...> */
 };
 
 /*
@@ -169,6 +169,7 @@ enum{
 	Tag_i,
 	Tag_iframe,
 	Tag_img,
+	Tag_image,
 	Tag_input,
 	Tag_ins,
 	Tag_isindex,

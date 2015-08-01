@@ -6,6 +6,81 @@
 #include "mothra.h"
 
 static int
+hexdigit(int c)
+{
+	if(c >= '0' && c <= '9')
+		return c-'0';
+	if(c >= 'a' && c <= 'f')
+		return c-'a'+10;
+	if(c >= 'A' && c <= 'F')
+		return c-'A'+10;
+	return -1;
+}
+
+static int
+dechex(uchar *out, int lim, char *in, int n)
+{
+	uchar *start, *end;
+	int c;
+
+	start = out;
+	end = start + lim;
+	while(n-- > 0 && out < end){
+		c = *in++;
+		if(c == 0)
+			break;
+		if(c & 0x80)
+			return -1;
+		if(c == '%'){
+			n -= 2;
+			if(n < 0 || (c = hexdigit(*in++)) == -1)
+				return -1;
+			if((c = (c << 4) | hexdigit(*in++)) == -1)
+				return -1;
+		}
+		*out++ = c;
+	}
+	return out - start;
+}
+
+static int
+dataget(Url *url)
+{
+	int (*decfun)(uchar *, int, char *, int) = dechex;
+	char *s, *p;
+	int fd, n, m;
+
+	s = url->reltext;
+	if(cistrncmp(s, "data:", 5) != 0)
+		return -1;
+	s += 5;
+	if((p = strchr(s, ',')) != nil){
+		*p = 0;
+		if(strstr(s, "base64") != nil)
+			decfun = dec64;
+		*p = ',';
+		s = p+1;
+	} else
+		s = strchr(s, 0);
+	n = strlen(s);
+	m = n+64;
+	p = malloc(m);
+	strcpy(p, "/tmp/duXXXXXXXXXXX");
+	if((fd = create(mktemp(p), ORDWR|ORCLOSE, 0600)) < 0){
+		free(p);
+		return -1;
+	}
+	if((m = (*decfun)((uchar*)p, m, s, n)) < 0 || write(fd, p, m) != m){
+		free(p);
+		close(fd);
+		return -1;
+	}
+	free(p);
+	seek(fd, 0, 0);
+	return fd;
+}
+
+static int
 fileget(Url *url)
 {
 	char *rel, *base, *x;
@@ -109,6 +184,8 @@ urlget(Url *url, int body)
 	int n, fd;
 
 	if(body < 0){
+		if((fd = dataget(url)) >= 0)
+			return fd;
 		if((fd = fileget(url)) >= 0)
 			return fd;
 		if((fd = webclone(url, buf, sizeof(buf))) < 0)

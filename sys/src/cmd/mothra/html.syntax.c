@@ -47,6 +47,7 @@ Tag tag[]={
 [Tag_i]		"i",		END,
 [Tag_iframe]	"iframe",	NOEND,
 [Tag_img]	"img",		NOEND,
+[Tag_image]	"image",	NOEND,
 [Tag_input]	"input",	NOEND,
 [Tag_ins]	"ins",		END,
 [Tag_isindex]	"isindex",	NOEND,

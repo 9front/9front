@@ -636,9 +636,8 @@ char *urltofile(Url *url){
 	char *name, *slash;
 	if(url == nil)
 		return nil;
-	if(url->fullname[0] || url->reltext[0])
-		name = urlstr(url);
-	else
+	name = urlstr(url);
+	if(name == nil || name[0] == 0)
 		name = "/";
 	if(slash = strrchr(name, '/'))
 		name = slash+1;
@@ -945,6 +944,9 @@ urlstr(Url *url){
 }
 Url* selurl(char *urlname){
 	static Url url;
+
+	free(url.reltext);
+	free(url.basename);
 	seturl(&url, urlname, current ? current->url->fullname : "");
 	selection=&url;
 	message("selected: %s", urlstr(selection));
@@ -952,8 +954,8 @@ Url* selurl(char *urlname){
 	return selection;
 }
 void seturl(Url *url, char *urlname, char *base){
-	nstrcpy(url->reltext, urlname, sizeof(url->reltext));
-	nstrcpy(url->basename, base, sizeof(url->basename));
+	url->reltext = strdup(urlname);
+	url->basename = strdup(base);
 	url->fullname[0] = 0;
 	url->tag[0] = 0;
 	url->map = 0;
@@ -962,9 +964,13 @@ Url *copyurl(Url *u){
 	Url *v;
 	v=emalloc(sizeof(Url));
 	*v=*u;
+	v->reltext = strdup(u->reltext);
+	v->basename = strdup(u->basename);
 	return v;
 }
 void freeurl(Url *u){
+	free(u->reltext);
+	free(u->basename);
 	free(u);
 }
 

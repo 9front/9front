@@ -129,7 +129,7 @@ void rdform(Hglob *g){
 			form->method = 0;
 			form->fields = 0;
 			form->efields = 0;
-			if(g->state->link[0])
+			if(g->state->link)
 				form->action = strdup(g->state->link);
 			form->next = g->dst->form;
 			g->dst->form = form;
@@ -172,8 +172,10 @@ void rdform(Hglob *g){
 		else if(cistrcmp(s, "image")==0){
 			f->type=SUBMIT;
 			s=pl_getattr(g->attr, "src");
-			if(s && *s)
-				nstrcpy(g->state->image, s, sizeof(g->state->image));
+			if(s && *s){
+				free(g->state->image);
+				g->state->image = strdup(s);
+			}
 			s=pl_getattr(g->attr, "width");
 			if(s && *s)
 				g->state->width=strtolength(g, HORIZ, s);

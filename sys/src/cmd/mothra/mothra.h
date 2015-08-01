@@ -24,9 +24,9 @@ struct Action{
 	int height;
 };
 struct Url{
+	char *basename;
+	char *reltext;
 	char fullname[NNAME];
-	char basename[NNAME];
-	char reltext[NNAME];
 	char tag[NNAME];
 	int map;		/* is this an image map? */
 };

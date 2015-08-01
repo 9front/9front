@@ -62,7 +62,23 @@ void pl_pushstate(Hglob *g, int t){
 	}
 	g->state[0]=g->state[-1];
 	g->state->tag=t;
+
+	if(g->state->name)
+		g->state->name = strdup(g->state->name);
+	if(g->state->link)
+		g->state->link = strdup(g->state->link);
+	if(g->state->image)
+		g->state->image = strdup(g->state->image);
 }
+void pl_popstate(Stack *state){
+	free(state->name);
+	state->name=0;
+	free(state->link);
+	state->link=0;
+	free(state->image);
+	state->image=0;
+}
+
 void pl_linespace(Hglob *g){
 	plrtbitmap(&g->dst->text, 1000000, 0, linespace, 0, 0);
 	g->para=0;
@@ -110,15 +126,15 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 		space=1000000;
 	else if(nsp<=0)
 		space=0;
-	if(g->state->image[0]==0 && g->state->link[0]==0 && g->state->name[0]==0 && field==0)
+	if(g->state->image==0 && g->state->link==0 && g->state->name==0 && field==0)
 		ap=0;
 	else{
 		ap=emalloc(sizeof(Action));
-		if(g->state->image[0])
+		if(g->state->image)
 			ap->image = strdup(g->state->image);
-		if(g->state->link[0])
+		if(g->state->link)
 			ap->link = strdup(g->state->link);
-		if(g->state->name[0])
+		if(g->state->name)
 			ap->name = strdup(g->state->name);
 		ap->ismap=g->state->ismap;
 		ap->width=g->state->width;
@@ -140,7 +156,7 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 		}
 	}
 	flags = 0;
-	if(g->state->link[0])
+	if(g->state->link)
 		flags |= PL_HOT;
 	if(g->state->strike)
 		flags |= PL_STR;
@@ -652,9 +668,9 @@ void plrdplain(char *name, int fd, Www *dst){
 	g.state->font=CWIDTH;
 	g.state->size=NORMAL;
 	g.state->pre=0;
-	g.state->image[0]=0;
-	g.state->link[0]=0;
-	g.state->name[0]=0;
+	g.state->image=0;
+	g.state->link=0;
+	g.state->name=0;
 	g.state->margin=0;
 	g.state->indent=20;
 	g.state->ismap=0;
@@ -688,9 +704,9 @@ void plrdhtml(char *name, int fd, Www *dst){
 	g.state->font=ROMAN;
 	g.state->size=NORMAL;
 	g.state->pre=0;
-	g.state->image[0]=0;
-	g.state->link[0]=0;
-	g.state->name[0]=0;
+	g.state->image=0;
+	g.state->link=0;
+	g.state->name=0;
 	g.state->margin=0;
 	g.state->indent=25;
 	g.state->ismap=0;
@@ -722,11 +738,13 @@ void plrdhtml(char *name, int fd, Www *dst){
 			if(sp->tag!=g.tag)
 				pl_pushstate(&g, g.tag);
 			else
-				for(;g.state!=sp;--g.state)
+				for(;g.state!=sp;--g.state){
 					if(tag[g.state->tag].action!=OPTEND)
 						htmlerror(g.name, g.lineno,
 							"end tag </%s> missing",
 							tag[g.state->tag].name);
+					pl_popstate(g.state);
+				}
 			break;
 		case END:
 			pl_pushstate(&g, g.tag);
@@ -734,12 +752,12 @@ void plrdhtml(char *name, int fd, Www *dst){
 		}
 		str=pl_getattr(g.attr, "id");
 		if(str && *str){
-			char swap[NNAME];
+			char *swap;
 
-			nstrcpy(swap, g.state->name, sizeof(swap));
-			nstrcpy(g.state->name, str, sizeof(g.state->name));
+			swap = g.state->name;
+			g.state->name = str;
 			pl_htmloutput(&g, 0, "", 0);
-			nstrcpy(g.state->name, swap, sizeof(g.state->name));
+			g.state->name = swap;
 		}
 		switch(g.tag){
 		default:
@@ -749,10 +767,12 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_end:	/* unrecognized start tag */
 			break;
 		case Tag_img:
+		case Tag_image:
 			str=pl_getattr(g.attr, "src");
-			if(str && *str)
-				nstrcpy(g.state->image, str, sizeof(g.state->image));
-			else {
+			if(str && *str){
+				free(g.state->image);
+				g.state->image = strdup(str);
+			} else {
 				Pair *a;
 
 				/*
@@ -764,8 +784,8 @@ void plrdhtml(char *name, int fd, Www *dst){
 					if(strcmp(a->name, "longdesc") == 0)
 						continue;
 					if(str = linkify(a->value)){
-						nstrcpy(g.state->image, str, sizeof(g.state->image));
-						free(str);
+						free(g.state->image);
+						g.state->image = str;
 						break;
 					}
 				}
@@ -779,13 +799,14 @@ void plrdhtml(char *name, int fd, Www *dst){
 				g.state->height=strtolength(&g, VERT, str);
 			str=pl_getattr(g.attr, "alt");
 			if(str==0 || *str == 0){
-				if(g.state->image[0])
+				if(g.state->image)
 					str=g.state->image;
 				else
 					str="[[image]]";
 			}
 			pl_htmloutput(&g, 0, str, 0);
-			g.state->image[0]=0;
+			free(g.state->image);
+			g.state->image=0;
 			g.state->ismap=0;
 			g.state->width=0;
 			g.state->height=0;
@@ -818,12 +839,16 @@ void plrdhtml(char *name, int fd, Www *dst){
 			break;
 		case Tag_a:
 			str=pl_getattr(g.attr, "name");
-			if(str && *str)
-				nstrcpy(g.state->name, str, sizeof(g.state->name));
+			if(str && *str){
+				free(g.state->name);
+				g.state->name = strdup(str);
+			}
 			pl_htmloutput(&g, 0, "", 0);
 			str=pl_getattr(g.attr, "href");
-			if(str && *str)
-				nstrcpy(g.state->link, str, sizeof(g.state->link));
+			if(str && *str){
+				free(g.state->link);
+				g.state->link = strdup(str);
+			}
 			break;
 		case Tag_meta:
 			if((str=pl_getattr(g.attr, "http-equiv"))==0)
@@ -836,9 +861,10 @@ void plrdhtml(char *name, int fd, Www *dst){
 				break;
 			str++;
 			pl_htmloutput(&g, 0, "[refresh: ", 0);
-			str=unquot(g.state->link, str, sizeof(g.state->link));
+			free(g.state->link);
+			g.state->link=unquot(buf, str, sizeof(buf));
 			pl_htmloutput(&g, 0, str, 0);
-			g.state->link[0]=0;
+			g.state->link=0;
 			pl_htmloutput(&g, 0, "]", 0);
 			g.linebrk=1;
 			g.spacc=0;
@@ -852,16 +878,21 @@ void plrdhtml(char *name, int fd, Www *dst){
 			snprint(buf, sizeof(buf), "[%s: ", tag[g.tag].name);
 			pl_htmloutput(&g, 0, buf, 0);
 			str=pl_getattr(g.attr, "src");
-			if(str && *str)
-				nstrcpy(g.state->link, str, sizeof(g.state->link));
+			if(str && *str){
+				free(g.state->link);
+				g.state->link = strdup(str);
+			}
 			str=pl_getattr(g.attr, "name");
-			if(str && *str)
-				nstrcpy(g.state->name, str, sizeof(g.state->name));
-			else
+			if(str && *str){
+				free(g.state->name);
+				g.state->name = strdup(str);
+			} else
 				str = g.state->link;
 			pl_htmloutput(&g, 0, str, 0);
-			g.state->link[0]=0;
-			g.state->name[0]=0;
+			free(g.state->link);
+			g.state->link=0;
+			free(g.state->name);
+			g.state->name=0;
 			pl_htmloutput(&g, 0, "]", 0);
 			g.linebrk=1;
 			g.spacc=0;
@@ -1101,14 +1132,16 @@ void plrdhtml(char *name, int fd, Www *dst){
 						"end tag mismatch <%s>...</%s>, "
 						"intervening tags popped",
 						tag[g.state->tag].name, tag[g.tag].name);
-				g.state=sp-1;
+
+				for(--sp; g.state!=sp; --g.state)
+					pl_popstate(g.state);
 			}
 		}
 		else if(g.state==g.stack)
 			htmlerror(g.name, g.lineno, "end tag </%s> at stack bottom",
 				tag[g.tag].name);
 		else
-			--g.state;
+			pl_popstate(g.state--);
 		switch(g.tag){
 		case Tag_select:
 		case Tag_form:
@@ -1148,19 +1181,22 @@ void plrdhtml(char *name, int fd, Www *dst){
 	case TEXT:
 		if(g.state->isscript)
 			continue;
-		if(g.state->link[0]==0 && (str = linkify(g.token))){
-			nstrcpy(g.state->link, str, sizeof(g.state->link));
+		if(g.state->link==0 && (str = linkify(g.token))){
+			g.state->link=str; 
 			pl_htmloutput(&g, g.nsp, g.token, 0);
-			g.state->link[0] = 0;
-			free(str);
+			free(g.state->link);
+			g.state->link=0;
 		} else
 			pl_htmloutput(&g, g.nsp, g.token, 0);
 		break;
 	case EOF:
-		for(;g.state!=g.stack;--g.state)
+		for(;g.state!=g.stack;--g.state){
 			if(tag[g.state->tag].action!=OPTEND)
 				htmlerror(g.name, g.lineno,
 					"missing </%s> at EOF", tag[g.state->tag].name);
+			pl_popstate(g.state);
+		}
+		pl_popstate(g.state);
 		*g.tp='\0';
 		getpix(dst->text, dst);
 		finish(dst);

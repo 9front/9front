@@ -47,7 +47,7 @@ void getimage(Rtext *t, Www *w){
 		t->text=strdup(err);
 		w->changed=1;
 		close(fd);
-		return;
+		goto Out;
 	}
 	typ = snooptype(fd);
 	if(typ < 0 || typ >= nelem(pixcmd) || pixcmd[typ] == nil){
@@ -81,6 +81,9 @@ void getimage(Rtext *t, Www *w){
 	w->pix=p;
 	t->b=b;
 	w->changed=1;
+Out:
+	free(url.basename);
+	free(url.reltext);
 }
 
 void getpix(Rtext *t, Www *w){
