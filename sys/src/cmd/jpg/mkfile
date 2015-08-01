@@ -62,6 +62,7 @@ $O.totif:	writetif.$O totif.$O
 $O.yuv:		$IMFILES readyuv.$O yuv.$O
 $O.bmp:		$IMFILES readbmp.$O bmp.$O
 $O.v210:	$IMFILES readv210.$O v210.$O
+$O.ico:		readpng.$O ico.$O
 
 torgbv.$O:	ycbcr.h rgbv.h
 
