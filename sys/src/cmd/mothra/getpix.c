@@ -23,7 +23,6 @@ char *pixcmd[]={
 };
 
 void getimage(Rtext *t, Www *w){
-	int pfd[2];
 	Action *ap;
 	Url *url;
 	Image *b;
@@ -64,6 +63,7 @@ void getimage(Rtext *t, Www *w){
 			s += sprint(s, " -x %d", ap->width);
 		if(ap->height>0)
 			s += sprint(s, " -y %d", ap->height);
+		USED(s);
 		if((fd = pipeline(fd, buf)) < 0)
 			goto Err;
 	}

@@ -225,3 +225,7 @@ void endform(Hglob *);
 char *pl_getattr(Pair *, char *);
 int pl_hasattr(Pair *, char *);
 void pl_htmloutput(Hglob *, int, char *, Field *);
+
+#pragma incomplete Form
+#pragma incomplete Field
+

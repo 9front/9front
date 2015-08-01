@@ -297,8 +297,6 @@ void main(int argc, char *argv[]){
 	Event e;
 	enum { Eplumb = 128, Ekick = 256 };
 	Plumbmsg *pm;
-	Www *new;
-	Action *a;
 	char *url;
 	int i;
 
@@ -577,7 +575,7 @@ char *arg(char *s){
 }
 void save(int ifd, char *name){
 	char buf[NNAME+64];
-	int cfd, ofd;
+	int ofd;
 	if(ifd < 0){
 		message("save: %s: %r", name);
 		return;
@@ -972,7 +970,7 @@ Url* selurl(char *urlname){
  * get the file at the given url
  */
 void geturl(char *urlname, int post, int plumb, int map){
-	int i, fd, typ, pfd[2];
+	int i, fd, typ;
 	char cmd[NNAME];
 	ulong n;
 	Www *w;
@@ -1168,7 +1166,6 @@ void paste(Panel *p){
 }
 void hit3(int button, int item){
 	char name[NNAME];
-	char file[128];
 	Panel *swap;
 	int fd;
 	USED(button);

@@ -3,6 +3,7 @@
 #include <draw.h>
 #include <event.h>
 #include <panel.h>
+#include "rtext.h"
 #include "mothra.h"
 #include "html.h"
 
@@ -357,7 +358,7 @@ char *seloption(Field *f){
 }
 void mkfieldpanel(Rtext *t){
 	Action *a;
-	Panel *win, *scrl, *menu, *pop, *button;
+	Panel *win, *scrl;
 	Field *f;
 
 	if((a = t->user) == nil)

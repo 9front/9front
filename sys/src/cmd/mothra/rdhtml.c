@@ -317,10 +317,8 @@ char *linkify(char *s){
  *	This doesn't work if removing an entity reference can lengthen the string!
  *	Fortunately, this doesn't happen.
  */
-void pl_rmentities(Hglob *g, char *s){
+void pl_rmentities(Hglob *, char *s){
 	char *t, *u, c, svc;
-	Entity *ep;
-	Rune r;
 	t=s;
 	do{
 		c=*s++;
@@ -466,7 +464,7 @@ int pl_getcomment(Hglob *g){
 				;
 			if(c==EOF)
 				break;
-			if((c=pl_nextc(g))=='-'){
+			if(pl_nextc(g)=='-'){
 				while((c=pl_nextc(g))=='-')
 					;
 				if(c==ETAG || c==EOF)
@@ -693,7 +691,7 @@ void plrdplain(char *name, int fd, Www *dst){
 	finish(dst);
 }
 void plrdhtml(char *name, int fd, Www *dst){
-	int t, tagerr;
+	int tagerr;
 	Stack *sp;
 	char buf[20];
 	char *str;
