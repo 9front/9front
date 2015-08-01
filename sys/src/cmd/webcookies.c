@@ -377,7 +377,7 @@ syncjar(Jar *jar)
 
 	fd = -1;
 	for(i=0; i<50; i++){
-		if((fd = create(jar->lockfile, OWRITE, DMEXCL|0666)) < 0){
+		if((fd = create(jar->lockfile, OWRITE, DMEXCL|0600)) < 0){
 			sleep(100);
 			continue;
 		}
@@ -416,10 +416,12 @@ syncjar(Jar *jar)
 	purgejar(jar);
 
 	if(dowrite){
-		b = Bopen(jar->file, OTRUNC|OWRITE);
-		if(b == nil){
+		i = create(jar->file, OWRITE, 0600);
+		if(i < 0 || (b = Bfdopen(i, OWRITE)) == nil){
 			if(debug)
 				fprint(2, "Bopen write %s: %r", jar->file);
+			if(i >= 0)
+				close(i);
 			close(fd);
 			return -1;
 		}
@@ -1249,7 +1251,6 @@ void
 main(int argc, char **argv)
 {
 	char *file, *mtpt, *home, *srv;
-	int fd;
 
 	file = nil;
 	srv = nil;
@@ -1289,12 +1290,7 @@ main(int argc, char **argv)
 		strcpy(file, home);
 		strcat(file, "/lib/webcookies");
 	}
-	if(access(file, AEXIST) < 0){
-		if((fd = create(file, OWRITE, 0600)) < 0)
-			sysfatal("create %s: %r", file);
-		close(fd);
-	}
-			
+
 	jar = readjar(file);
 	if(jar == nil)
 		sysfatal("readjar: %r");
