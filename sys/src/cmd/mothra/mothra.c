@@ -942,24 +942,6 @@ urlstr(Url *url){
 		return url->fullname;
 	return url->reltext;
 }
-Url* selurl(char *urlname){
-	static Url url;
-
-	free(url.reltext);
-	free(url.basename);
-	seturl(&url, urlname, current ? current->url->fullname : "");
-	selection=&url;
-	message("selected: %s", urlstr(selection));
-	plgrabkb(cmd);		/* for snarf */
-	return selection;
-}
-void seturl(Url *url, char *urlname, char *base){
-	url->reltext = strdup(urlname);
-	url->basename = strdup(base);
-	url->fullname[0] = 0;
-	url->tag[0] = 0;
-	url->map = 0;
-}
 Url *copyurl(Url *u){
 	Url *v;
 	v=emalloc(sizeof(Url));
@@ -972,6 +954,24 @@ void freeurl(Url *u){
 	free(u->reltext);
 	free(u->basename);
 	free(u);
+}
+void seturl(Url *url, char *urlname, char *base){
+	url->reltext = strdup(urlname);
+	url->basename = strdup(base);
+	url->fullname[0] = 0;
+	url->tag[0] = 0;
+	url->map = 0;
+}
+Url* selurl(char *urlname){
+	Url *last;
+
+	last=selection;
+	selection=emalloc(sizeof(Url));
+	seturl(selection, urlname, current ? current->url->fullname : "");
+	if(last) freeurl(last);
+	message("selected: %s", urlstr(selection));
+	plgrabkb(cmd);		/* for snarf */
+	return selection;
 }
 
 /*
