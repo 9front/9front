@@ -11,7 +11,7 @@ Tag tag[]={
 [Tag_acronym]	"acronym",	END,
 [Tag_address]	"address",	END,
 [Tag_applet]	"applet",	NOEND,
-[Tag_audio]	"audio",	NOEND,
+[Tag_audio]	"audio",	OPTEND,
 [Tag_b]		"b",		END,
 [Tag_base]	"base",		NOEND,
 [Tag_blockquot]	"blockquote",	END,
@@ -83,7 +83,7 @@ Tag tag[]={
 [Tag_u]		"u",		END,
 [Tag_ul]	"ul",		END,
 [Tag_var]	"var",		END,
-[Tag_video]	"video",	NOEND,
+[Tag_video]	"video",	OPTEND,
 [Tag_wbr]	"wbr",		NOEND,
 [Tag_xmp]	"xmp",		END,
 };
