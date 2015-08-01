@@ -155,7 +155,9 @@ and returns
 .IR Bflush 's
 return value.
 If the buffer was allocated by
-.IR Bopen ,
+.IR Bopen
+or
+.IR Bfdopen ,
 the buffer is
 .I freed
 and the file is closed.
