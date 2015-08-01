@@ -800,17 +800,7 @@ void doprev(Panel *p, int buttons, int index){
  * Follow an html link
  */
 void dolink(Panel *p, int buttons, Rtext *word){
-	char *file, mapurl[NNAME];
-	Point coord;
-	int yoffs;
 	Action *a;
-
-	/* really a button, hit it */
-	if(word->p != nil && word->p != p && strcmp(word->p->kind, "button") == 0){
-		extern void pl_buttonhit(Panel *p, int buttons, int check);
-		pl_buttonhit(word->p, buttons, 0);
-		return;
-	}
 
 	a=word->user;
 	if(a == nil || (a->link == nil && a->image == nil))
@@ -819,6 +809,10 @@ void dolink(Panel *p, int buttons, Rtext *word){
 		hiturl(buttons, a->image ? a->image : a->link, 0);
 	else if(a->link){
 		if(a->ismap){
+			char mapurl[NNAME];
+			Point coord;
+			int yoffs;
+
 			yoffs=plgetpostextview(p);
 			coord=subpt(subpt(mouse.xy, word->r.min), p->r.min);
 			snprint(mapurl, sizeof(mapurl), "%s?%d,%d", a->link, coord.x, coord.y+yoffs);
