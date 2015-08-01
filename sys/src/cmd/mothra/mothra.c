@@ -991,7 +991,7 @@ void geturl(char *urlname, int post, int plumb, int map){
 	selurl(urlname);
 	selection->map=map;
 
-	message("getting %s", selection->reltext);
+	message("getting %s", urlstr(selection));
 	esetcursor(&patientcurs);
 	for(;;){
 		if((fd=urlget(selection, post)) < 0){

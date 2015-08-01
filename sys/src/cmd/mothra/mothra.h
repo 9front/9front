@@ -82,6 +82,7 @@ void plrdhtml(char *, int, Www *);
 void plrdplain(char *, int, Www *);
 void htmlerror(char *, int, char *, ...);	/* user-supplied routine */
 void seturl(Url *, char *, char *);
+void freeurl(Url *);
 Url *selurl(char *);
 void getpix(Rtext *, Www *);
 ulong countpix(void *p);
@@ -99,6 +100,7 @@ int filetype(int, char *, int);
 int snooptype(int);
 void mkfieldpanel(Rtext *);
 void geturl(char *, int, int, int);
+char *urlstr(Url *);
 int urlpost(Url*, char*);
 int urlget(Url*, int);
 int urlresolve(Url *);
