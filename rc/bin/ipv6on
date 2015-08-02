@@ -48,8 +48,8 @@ if (! ip/ipconfig -6 $xdir ether $netdir/ether?)
 ip/ipconfig $xdir ether $netdir/ether? ra6 recvra 1
 
 mev6=`{ndb/query -f $ndbf sys $sysname ipv6}
-if (~ $#sysname 0 || ~ $sysname '')
-	mev6=`{ndb/query -f $ndbf sys $sysname ip | grep :}
+if (~ $#mev6 0 || ~ $mev6 '')
+	mev6=`{ndb/query -mf $ndbf sys $sysname ip | grep :}
 # mev4=`{ndb/query -f $ndbf sys $sysname ip | grep -v :}
 
 # for testing
