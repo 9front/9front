@@ -24,7 +24,7 @@ eqlock(QLock *q)
 		print("eqlock: %#p: ilockdepth %d\n", getcallerpc(&q), m->ilockdepth);
 	if(up != nil && up->nlocks)
 		print("eqlock: %#p: nlocks %d\n", getcallerpc(&q), up->nlocks);
-	if(up != nil && up->eql)
+	if(up != nil && up->eql != nil)
 		print("eqlock: %#p: eql %p\n", getcallerpc(&q), up->eql);
 	if(q->use.key == 0x55555555)
 		panic("eqlock: q %#p, key 5*", q);
@@ -36,7 +36,7 @@ eqlock(QLock *q)
 		unlock(&q->use);
 		return;
 	}
-	if(up == 0)
+	if(up == nil)
 		panic("eqlock");
 	if(up->notepending){
 		up->notepending = 0;
@@ -45,22 +45,22 @@ eqlock(QLock *q)
 	}
 	rwstats.qlockq++;
 	p = q->tail;
-	if(p == 0)
+	if(p == nil)
 		q->head = up;
 	else
 		p->qnext = up;
 	q->tail = up;
 	up->eql = q;
-	up->qnext = 0;
+	up->qnext = nil;
 	up->qpc = getcallerpc(&q);
 	up->state = Queueing;
 	unlock(&q->use);
 	sched();
-	if(up->eql == 0){
+	if(up->eql == nil){
 		up->notepending = 0;
 		interrupted();
 	}
-	up->eql = 0;
+	up->eql = nil;
 }
 
 void
@@ -72,7 +72,7 @@ qlock(QLock *q)
 		print("qlock: %#p: ilockdepth %d\n", getcallerpc(&q), m->ilockdepth);
 	if(up != nil && up->nlocks)
 		print("qlock: %#p: nlocks %d\n", getcallerpc(&q), up->nlocks);
-	if(up != nil && up->eql)
+	if(up != nil && up->eql != nil)
 		print("qlock: %#p: eql %p\n", getcallerpc(&q), up->eql);
 	if(q->use.key == 0x55555555)
 		panic("qlock: q %#p, key 5*", q);
@@ -83,17 +83,17 @@ qlock(QLock *q)
 		unlock(&q->use);
 		return;
 	}
-	if(up == 0)
+	if(up == nil)
 		panic("qlock");
 	rwstats.qlockq++;
 	p = q->tail;
-	if(p == 0)
+	if(p == nil)
 		q->head = up;
 	else
 		p->qnext = up;
 	q->tail = up;
-	up->eql = 0;
-	up->qnext = 0;
+	up->eql = nil;
+	up->qnext = nil;
 	up->state = Queueing;
 	up->qpc = getcallerpc(&q);
 	unlock(&q->use);
@@ -124,10 +124,10 @@ qunlock(QLock *q)
 		print("qunlock called with qlock not held, from %#p\n",
 			getcallerpc(&q));
 	p = q->head;
-	if(p){
+	if(p != nil){
 		q->head = p->qnext;
-		if(q->head == 0)
-			q->tail = 0;
+		if(q->head == nil)
+			q->tail = nil;
 		unlock(&q->use);
 		ready(p);
 		return;
@@ -154,12 +154,12 @@ rlock(RWlock *q)
 	p = q->tail;
 	if(up == nil)
 		panic("rlock");
-	if(p == 0)
+	if(p == nil)
 		q->head = up;
 	else
 		p->qnext = up;
 	q->tail = up;
-	up->qnext = 0;
+	up->qnext = nil;
 	up->state = QueueingR;
 	unlock(&q->use);
 	sched();
@@ -181,8 +181,8 @@ runlock(RWlock *q)
 	if(p->state != QueueingW)
 		panic("runlock");
 	q->head = p->qnext;
-	if(q->head == 0)
-		q->tail = 0;
+	if(q->head == nil)
+		q->tail = nil;
 	q->writer = 1;
 	unlock(&q->use);
 	ready(p);
@@ -214,7 +214,7 @@ wlock(RWlock *q)
 	else
 		p->qnext = up;
 	q->tail = up;
-	up->qnext = 0;
+	up->qnext = nil;
 	up->state = QueueingW;
 	unlock(&q->use);
 	sched();
