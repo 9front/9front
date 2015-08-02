@@ -495,7 +495,7 @@ struct Egrp
 {
 	Ref;
 	RWlock;
-	Evalue	**ent;
+	Evalue	*ent;
 	int	nent;
 	int	ment;
 	ulong	path;	/* qid.path of next Evalue to be allocated */
@@ -507,7 +507,6 @@ struct Evalue
 	char	*name;
 	char	*value;
 	int	len;
-	Evalue	*link;
 	Qid	qid;
 };
 
