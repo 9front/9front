@@ -329,6 +329,7 @@ vgactl(Cmdbuf *cb)
 
 	case CMtextmode:
 		screeninit();
+		bootscreenconf(nil);
 		return;
 
 	case CMsize:
@@ -357,6 +358,7 @@ vgactl(Cmdbuf *cb)
 		deletescreenimage();
 		if(screensize(x, y, z, chan))
 			error(Egreg);
+		bootscreenconf(scr);
 		return;
 
 	case CMactualsize:

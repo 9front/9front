@@ -586,7 +586,7 @@ bootmapfb(VGAscr *scr, ulong pa, ulong sz)
 
 /*
  * called early on boot to attach to framebuffer
- * setup by bootloader or firmware.
+ * setup by bootloader/firmware or plan9.
  */
 void
 bootscreeninit(void)
@@ -664,4 +664,24 @@ bootscreeninit(void)
 	scr->cur = &swcursor;
 	scr->cur->enable(scr);
 	cursoron();
+}
+
+/*
+ * called from devvga when the framebuffer is setup
+ * to set *bootscreen= that can be passed on to a
+ * new kernel on reboot.
+ */
+void
+bootscreenconf(VGAscr *scr)
+{
+	char conf[100], chan[30];
+
+	conf[0] = '\0';
+	if(scr != nil && scr->paddr != 0)
+		snprint(conf, sizeof(conf), "%dx%dx%d %s %#p %d\n",
+			scr->gscreen->r.max.x, scr->gscreen->r.max.y,
+			scr->gscreen->depth, chantostr(chan, scr->gscreen->chan),
+			scr->paddr, scr->apsize);
+
+	ksetenv("*bootscreen", conf, 1);
 }

@@ -149,6 +149,9 @@ extern int	screenaperture(int, int);
 extern Rectangle physgscreenr;	/* actual monitor size */
 extern void	blankscreen(int);
 
+extern void	bootscreeninit(void);
+extern void	bootscreenconf(VGAscr*);
+
 extern VGAcur swcursor;
 extern void swcursorinit(void);
 extern void swcursorhide(void);
