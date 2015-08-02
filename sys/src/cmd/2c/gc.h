@@ -216,6 +216,7 @@ EXTERN	long*	idom;
 EXTERN	Reg**	rpo2r;
 EXTERN	long	maxnr;
 EXTERN	Prog	zprog;
+EXTERN	int	suppress;
 
 EXTERN	uchar	regused[NREG];
 EXTERN	uchar	aregused[NREG];

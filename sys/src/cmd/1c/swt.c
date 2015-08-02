@@ -226,6 +226,8 @@ outstring(char *s, long n)
 {
 	long r;
 
+	if(suppress)
+		return nstring;
 	r = nstring;
 	while(n) {
 		string[mnstring] = *s++;
