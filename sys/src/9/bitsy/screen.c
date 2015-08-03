@@ -194,14 +194,14 @@ lcdtweak(Cmdbuf *cmd)
 		return;
 	if(*cmd->f[0] == 'h')
 		lcd->lccr1 = ((Ht-16)<<PPL)
-			| (atoi(cmd->f[1])<<HSW)
-			| (atoi(cmd->f[2])<<ELW)
-			| (atoi(cmd->f[3])<<BLW);
+			| (strtol(cmd->f[1], 0, 0)<<HSW)
+			| (strtol(cmd->f[2], 0, 0)<<ELW)
+			| (strtol(cmd->f[3], 0, 0)<<BLW);
 	if(*cmd->f[0] == 'v')
 		lcd->lccr2 = ((Wid-1)<<LPP)
-			| (atoi(cmd->f[1])<<VSW)
-			| (atoi(cmd->f[2])<<EFW)
-			| (atoi(cmd->f[3])<<BFW);
+			| (strtol(cmd->f[1], 0, 0)<<VSW)
+			| (strtol(cmd->f[2], 0, 0)<<EFW)
+			| (strtol(cmd->f[3], 0, 0)<<BFW);
 }
 
 void

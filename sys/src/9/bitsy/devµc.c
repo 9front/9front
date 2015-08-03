@@ -349,7 +349,7 @@ static long
 	if(cmd->nf > 15)
 		error(Ebadarg);
 	for(i = 0; i < cmd->nf; i++)
-		data[i] = atoi(cmd->f[i]);
+		data[i] = strtol(cmd->f[i], 0, 0);
 
 	switch((ulong)c->qid.path){
 	case Qled:

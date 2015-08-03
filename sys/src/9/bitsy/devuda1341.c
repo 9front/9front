@@ -1326,7 +1326,8 @@ audiowrite(Chan *c, void *vp, long n, vlong)
 			if(strcmp(cb->f[i], "reg") == 0) {
 				if(cb->nf < 3)
 					error(Evolume);
-				setreg(cb->f[1], atoi(cb->f[2]), cb->nf == 4 ? atoi(cb->f[3]):1);
+				setreg(cb->f[1], strtol(cb->f[2], 0, 0),
+					cb->nf == 4 ? strtol(cb->f[3], 0, 0):1);
 				return n0;
 			}
 			error(Evolume);
