@@ -64,7 +64,7 @@ watch(int fd)
 char*
 tversion(Fcall *f, int, char **argv)
 {
-	f->msize = atoi(argv[0]);
+	f->msize = strtol(argv[0], 0, 0);
 	if(f->msize > messagesize)
 		return "message size too big; use -m option on command line";
 	f->version = argv[1];
@@ -74,7 +74,7 @@ tversion(Fcall *f, int, char **argv)
 char*
 tauth(Fcall *f, int, char **argv)
 {
-	f->afid = atoi(argv[0]);
+	f->afid = strtol(argv[0], 0, 0);
 	f->uname = argv[1];
 	f->aname = argv[2];
 	return nil;
@@ -83,15 +83,15 @@ tauth(Fcall *f, int, char **argv)
 char*
 tflush(Fcall *f, int, char **argv)
 {
-	f->oldtag = atoi(argv[0]);
+	f->oldtag = strtol(argv[0], 0, 0);
 	return nil;
 }
 
 char*
 tattach(Fcall *f, int, char **argv)
 {
-	f->fid = atoi(argv[0]);
-	f->afid = atoi(argv[1]);
+	f->fid = strtol(argv[0], 0, 0);
+	f->afid = strtol(argv[1], 0, 0);
 	f->uname = argv[2];
 	f->aname = argv[3];
 	return nil;
@@ -104,8 +104,8 @@ twalk(Fcall *f, int argc, char **argv)
 
 	if(argc < 2)
 		return "usage: Twalk tag fid newfid [name...]";
-	f->fid = atoi(argv[0]);
-	f->newfid = atoi(argv[1]);
+	f->fid = strtol(argv[0], 0, 0);
+	f->newfid = strtol(argv[1], 0, 0);
 	f->nwname = argc-2;
 	if(f->nwname > MAXWELEM)
 		return "too many names";
@@ -117,25 +117,25 @@ twalk(Fcall *f, int argc, char **argv)
 char*
 topen(Fcall *f, int, char **argv)
 {
-	f->fid = atoi(argv[0]);
-	f->mode = atoi(argv[1]);
+	f->fid = strtol(argv[0], 0, 0);
+	f->mode = strtol(argv[1], 0, 0);
 	return nil;
 }
 
 char*
 tcreate(Fcall *f, int, char **argv)
 {
-	f->fid = atoi(argv[0]);
+	f->fid = strtol(argv[0], 0, 0);
 	f->name = argv[1];
 	f->perm = strtoul(argv[2], 0, 8);
-	f->mode = atoi(argv[3]);
+	f->mode = strtol(argv[3], 0, 0);
 	return nil;
 }
 
 char*
 tread(Fcall *f, int, char **argv)
 {
-	f->fid = atoi(argv[0]);
+	f->fid = strtol(argv[0], 0, 0);
 	f->offset = strtoll(argv[1], 0, 0);
 	f->count = strtol(argv[2], 0, 0);
 	return nil;
@@ -144,7 +144,7 @@ tread(Fcall *f, int, char **argv)
 char*
 twrite(Fcall *f, int, char **argv)
 {
-	f->fid = atoi(argv[0]);
+	f->fid = strtol(argv[0], 0, 0);
 	f->offset = strtoll(argv[1], 0, 0);
 	f->data = argv[2];
 	f->count = strlen(argv[2]);
@@ -154,21 +154,21 @@ twrite(Fcall *f, int, char **argv)
 char*
 tclunk(Fcall *f, int, char **argv)
 {
-	f->fid = atoi(argv[0]);
+	f->fid = strtol(argv[0], 0, 0);
 	return nil;
 }
 
 char*
 tremove(Fcall *f, int, char **argv)
 {
-	f->fid = atoi(argv[0]);
+	f->fid = strtol(argv[0], 0, 0);
 	return nil;
 }
 
 char*
 tstat(Fcall *f, int, char **argv)
 {
-	f->fid = atoi(argv[0]);
+	f->fid = strtol(argv[0], 0, 0);
 	return nil;
 }
 
@@ -203,7 +203,7 @@ twstat(Fcall *f, int, char **argv)
 	d.mtime = xstrtoul(argv[5]);
 	d.length = xstrtoull(argv[6]);
 
-	f->fid = atoi(argv[0]);
+	f->fid = strtol(argv[0], 0, 0);
 	f->stat = buf;
 	f->nstat = convD2M(&d, buf, sizeof buf);
 	if(f->nstat < BIT16SZ)
@@ -219,7 +219,7 @@ settag(Fcall*, int, char **argv)
 {
 	static char buf[120];
 
-	taggen = atoi(argv[0])-1;
+	taggen = strtol(argv[0], 0, 0)-1;
 	snprint(buf, sizeof buf, "next tag is %d", taggen+1);
 	return buf;
 }
@@ -319,7 +319,7 @@ main(int argc, char **argv)
 		cmd = 1;
 		break;
 	case 'm':
-		messagesize = atoi(EARGF(usage()));
+		messagesize = strtol(EARGF(usage()), 0, 0);
 		break;
 	case 'n':
 		net = 1;
