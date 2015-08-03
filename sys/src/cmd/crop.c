@@ -27,11 +27,7 @@ getint(char *s)
 {
 	if(s == nil)
 		usage();
-	if(*s == '+')
-		return atoi(s+1);
-	if(*s == '-')
-		return -atoi(s+1);
-	return atoi(s);
+	return strtol(s, 0, 0);
 }
 
 Rectangle
