@@ -238,7 +238,7 @@ menuctl(Control *c, CParse *cp)
 		break;
 	case EFocus:
 		_ctlargcount(m, cp, 2);
-		if(atoi(cp->args[1]) == 0)
+		if(strtol(cp->args[1], 0, 0) == 0)
 			menuhide(m);
 		break;
 	case EFont:
