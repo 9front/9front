@@ -18,7 +18,7 @@ httpunesc(HConnect *cc, char *s)
 	for(t = v; c = *s;){
 		if(c == '&'){
 			if(s[1] == '#' && s[2] && s[3] && s[4] && s[5] == ';'){
-				c = atoi(s+2);
+				c = strtol(s+2, 0, 10);
 				if(c < Runeself){
 					*t++ = c;
 					s += 6;
