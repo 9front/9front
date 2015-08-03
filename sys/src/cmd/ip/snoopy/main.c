@@ -750,7 +750,7 @@ compile_cmp(char *proto, Filter *f, Field *fld)
 			f->subop = fld->subop;
 			switch(fld->ftype){
 			case Fnum:
-				f->ulv = atoi(f->r->s);
+				f->ulv = strtoul(f->r->s, 0, 0);
 				break;
 			case Fether:
 				v = csgetvalue(nil, "sys", (char*)f->r->s,
