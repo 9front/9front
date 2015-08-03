@@ -146,14 +146,14 @@ dbpci(Vga *vga, Ndbtuple *tuple)
 	Pcidev *pci;
 
 	for(t = tuple->entry; t; t = t->entry){
-		if(strcmp(t->attr, "vid") != 0 || (vid=atoi(t->val)) == 0)
+		if(strcmp(t->attr, "vid") != 0 || (vid=strtol(t->val, 0, 0)) == 0)
 			continue;
 		for(td = t->line; td != t; td = td->line){
 			if(strcmp(td->attr, "did") != 0)
 				continue;
 			if(strcmp(td->val, "*") == 0)
 				did = 0;
-			else if((did=atoi(td->val)) == 0)
+			else if((did=strtol(td->val, 0, 0)) == 0)
 				continue;
 			for(pci=nil; pci=pcimatch(pci, vid, did);)
 				if(pci->ccrb == 3)
@@ -273,7 +273,7 @@ dbmonitor(Ndb* db, Mode* mode, char* type, char* size)
 	strcpy(val, buf);
 
 	if(p = ndbgetvalue(db, &s, attr, "", "videobw", nil)){
-		mode->videobw = atol(p)*1000000UL;
+		mode->videobw = strtol(p, 0, 0)*1000000UL;
 		free(p);
 	}
 

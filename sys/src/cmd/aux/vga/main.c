@@ -120,7 +120,7 @@ linear(Vga* vga)
 		 * to set up a new one.
 		 */
 		vgactlr("addr", buf);
-		if(atoi(buf)==0 && (buf[0]!='p' || buf[1]!=' ' || atoi(buf+2)==0)){
+		if(strtoul(buf, 0, 0)==0 && (buf[0]!='p' || buf[1]!=' ' || strtoul(buf+2, 0, 0)==0)){
 			sprint(buf, "0x%lux 0x%lux", vga->apz ? vga->apz : vga->vmz, vga->vma);
 			vgactlw("linear", buf);
 			vgactlr("addr", buf);

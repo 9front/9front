@@ -261,7 +261,7 @@ load(Vga* vga, Ctlr* ctlr)
 
 	if(vbe == nil)
 		error("no vesa bios\n");
-	mode = atoi(dbattr(vga->mode->attr, "id"));
+	mode = strtol(dbattr(vga->mode->attr, "id"), nil, 0);
 	scale = dbattr(vga->mode->attr, "scale");
 	ds = dbattr(vga->mode->attr, "display");
 	display = ds == nil ? 0 : atoi(ds);
