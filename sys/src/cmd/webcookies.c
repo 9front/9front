@@ -722,9 +722,9 @@ strtotime(char *s)
 		return -1;
 	}
 
-	tm.hour = atoi(s);
-	tm.min = atoi(s+3);
-	tm.sec = atoi(s+6);
+	tm.hour = strtol(s, 0, 10);
+	tm.min = strtol(s+3, 0, 10);
+	tm.sec = strtol(s+6, 0 10);
 	if(tm.hour >= 24 || tm.min >= 60 || tm.sec >= 60){
 		if(debug)
 			fprint(2, "invalid time (%s)\n", os);
