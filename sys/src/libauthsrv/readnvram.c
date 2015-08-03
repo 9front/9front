@@ -127,8 +127,8 @@ readcons(char *prompt, char *def, int raw, char *buf, int nbuf)
 
 typedef struct {
 	int	fd;
-	int	safeoff;
 	int	safelen;
+	vlong	safeoff;
 } Nvrwhere;
 
 static char *nvrfile = nil, *cputype = nil;
@@ -138,7 +138,8 @@ static void
 findnvram(Nvrwhere *locp)
 {
 	char *nvrlen, *nvroff, *v[2];
-	int fd, i, safeoff, safelen;
+	int fd, i, safelen;
+	vlong safeoff;
 
 	if (nvrfile == nil)
 		nvrfile = getenv("nvram");
@@ -170,13 +171,13 @@ findnvram(Nvrwhere *locp)
 			safeoff = 0;
 		nvrlen = getenv("nvrlen");
 		if(nvrlen != nil)
-			safelen = atoi(nvrlen);
+			safelen = strtol(nvrlen, 0, 0);
 		nvroff = getenv("nvroff");
 		if(nvroff != nil)
 			if(strcmp(nvroff, "dos") == 0)
 				safeoff = -1;
 			else
-				safeoff = atoi(nvroff);
+				safeoff = strtoll(nvroff, 0, 0);
 		if(safeoff < 0 && fd >= 0){
 			safelen = 512;
 			safeoff = finddosfile(fd, i == 2? v[1]: "plan9.nvr");
@@ -253,7 +254,7 @@ readnvram(Nvrsafe *safep, int flag)
 				if(loc.fd < 0)
 					fprint(2, "can't open %s: %r\n", nvrfile);
 				else if (seek(loc.fd, loc.safeoff, 0) < 0)
-					fprint(2, "can't seek %s to %d: %r\n",
+					fprint(2, "can't seek %s to %lld: %r\n",
 						nvrfile, loc.safeoff);
 				else
 					fprint(2, "can't read %d bytes from %s: %r\n",
