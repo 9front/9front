@@ -356,7 +356,7 @@ whichfw(Pcidev *p)
 
 	print("m10g: %d lanes; ecrc=%d; ", lanes, ecrc);
 	if(s = getconf("myriforce")){
-		i = atoi(s);
+		i = strtol(s, 0, 0);
 		if(i != 4*KiB || i != 2*KiB)
 			i = 2*KiB;
 		print("fw = %d [forced]\n", i);
@@ -390,7 +390,7 @@ parseeprom(Ctlr *c)
 				c->ra[k] = strtoul(s+j+3*k, 0, 16);
 		}else if(strncmp(s+i, "SN=", 3) == 0){
 			bits ^= 2;
-			c->serial = atoi(s+i+3);
+			c->serial = strtoul(s+i+3, 0, 10);
 		}
 		i += l;
 	}

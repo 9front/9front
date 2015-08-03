@@ -261,8 +261,8 @@ mpoverride(uchar** newp, uchar** e)
 	uchar* p;
 	char* s;
 	
-	size = atoi(getconf("*mp"));
-	if(size == 0) panic("mpoverride: invalid size in *mp");
+	size = strtol(getconf("*mp"), 0, 0);
+	if(size <= 0) panic("mpoverride: invalid size in *mp");
 	*newp = p = xalloc(size);
 	if(p == nil) panic("mpoverride: can't allocate memory");
 	*e = p + size;

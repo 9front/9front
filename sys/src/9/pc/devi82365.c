@@ -864,7 +864,7 @@ i82365write(Chan *c, void *a, long n, vlong off)
 
 		/* set vpp on card */
 		if(strncmp(buf, "vpp", 3) == 0)
-			wrreg(pp, Rpc, vcode(atoi(buf+3))|Fautopower|Foutena|Fcardena);
+			wrreg(pp, Rpc, vcode(strtol(buf+3, 0, 0))|Fautopower|Foutena|Fcardena);
 		return n;
 	case Qmem:
 	case Qattr:
