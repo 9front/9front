@@ -4,5 +4,5 @@
 vlong
 atoll(char *s)
 {
-	return strtoll(s, nil, 0);
+	return strtoll(s, nil, 10);
 }

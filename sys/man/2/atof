@@ -135,10 +135,3 @@ Zero is returned if the beginning of the input string is not
 interpretable as a number; even in this case,
 .I rptr
 will be updated.
-.SH BUGS
-.I Atoi,
-.I atol,
-and
-.I atoll
-accept octal and hexadecimal numbers in the style of C,
-contrary to the ANSI specification.
