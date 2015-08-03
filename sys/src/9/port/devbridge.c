@@ -537,7 +537,7 @@ portbind(Bridge *b, int argc, char *argv[])
 		dev2 = argv[4];
 	} else
 		error(usage);
-	ownhash = atoi(argv[2]);
+	ownhash = strtoul(argv[2], 0, 0);
 	dev = argv[3];
 	for(i=0; i<b->nport; i++) {
 		port = b->port[i];
@@ -643,7 +643,7 @@ portunbind(Bridge *b, int argc, char *argv[])
 	} else
 		error(usage);
 	if(argc == 3)
-		ownhash = atoi(argv[2]);
+		ownhash = strtoul(argv[2], 0, 0);
 	else
 		ownhash = 0;
 	for(i=0; i<b->nport; i++) {
