@@ -54,14 +54,13 @@ usage(void)
 int
 getint(char *s, int *percent)
 {
+	int n;
+
 	if(s == nil)
 		usage();
-	*percent = (s[strlen(s)-1] == '%');
-	if(*s == '+')
-		return atoi(s+1);
-	if(*s == '-')
-		return -atoi(s+1);
-	return atoi(s);
+	n = strtol(s, &s, 0);
+	*percent = *s == '%';
+	return n;
 }
 
 void
