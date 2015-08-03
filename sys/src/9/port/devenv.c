@@ -192,27 +192,23 @@ static void
 envremove(Chan *c)
 {
 	Egrp *eg;
-	Evalue *e, *ee;
+	Evalue *e;
 
 	if(c->qid.type & QTDIR || !envwriteable(c))
 		error(Eperm);
 
 	eg = envgrp(c);
 	wlock(eg);
-	e = eg->ent;
-	for(ee = e + eg->nent; e < ee; e++){
-		if(e->qid.path == c->qid.path){
-			free(e->name);
-			free(e->value);
-			*e = ee[-1];
-			eg->nent--;
-			eg->vers++;
-			wunlock(eg);
-			return;
-		}
+	e = envlookup(eg, nil, c->qid.path);
+	if(e == nil){
+		wunlock(eg);
+		error(Enonexist);
 	}
+	free(e->name);
+	free(e->value);
+	*e = eg->ent[--eg->nent];
+	eg->vers++;
 	wunlock(eg);
-	error(Enonexist);
 }
 
 static void
@@ -416,7 +412,7 @@ getconfenv(void)
 	/* determine size */
 	n = 0;
 	e = eg->ent;
-	for(ee = e+eg->nent; e<ee; e++)
+	for(ee = e + eg->nent; e < ee; e++)
 		n += strlen(e->name) + e->len + 2;
 
 	p = malloc(n + 1);
