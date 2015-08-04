@@ -1,3 +1,4 @@
+#define _REENTRANT_SOURCE
 #include <time.h>
 
 /*
@@ -62,12 +63,34 @@ jan1(int yr)
 	return d;
 }
 
+static time_t
+tm2sec(struct tm *t)
+{
+	time_t a;
+	int i;
+
+	a = t->tm_sec;
+	a += 60 * t->tm_min;
+	a += 3600 * t->tm_hour;
+	a += 86400L * t->tm_yday;
+	if(t->tm_year < 70){
+		for(i=t->tm_year; i<70; i++)
+			if((a -= dysize(i)*86400L) < 0)
+				return -1;
+	}else if(t->tm_year > 70){
+		for(i=70; i<t->tm_year; i++)
+			if((a += dysize(i)*86400L) < 0)
+				return -1;
+	}
+	return a;
+}
+
 time_t
 mktime(struct tm *t)
 {
-	time_t a;
-	int i, d;
-	struct tm *ptm;
+	int i;
+	time_t a, b;
+	struct tm tt;
 
 	if(!(reduce(&t->tm_sec, &t->tm_min, 60) &&
 	     reduce(&t->tm_min, &t->tm_hour, 60) &&
@@ -88,35 +111,22 @@ mktime(struct tm *t)
 			t->tm_year++;
 		}
 	}
-	a = t->tm_sec + 60*t->tm_min + 3600*t->tm_hour;
 	t->tm_yday = t->tm_mday-1;
 	for(i=0; i<t->tm_mon; i++)
 		t->tm_yday += dmsize(i, t->tm_year);
-	a += t->tm_yday*86400L;
-	if(t->tm_year < 70){
-		for(i=t->tm_year; i<70; i++)
-			if((a -= dysize(i)*86400L) < 0)
-				return -1;
-	}else if(t->tm_year > 70){
-		for(i=70; i<t->tm_year; i++)
-			if((a += dysize(i)*86400L) < 0)
-				return -1;
-	}
-	/*
-	 * Now a is number of seconds past Jan 1 1970.
-	 * Convert to GMT.
-	 */
-	ptm = gmtime(&a);
-	d = ptm->tm_hour;
-	ptm = localtime(&a);
-	d -= ptm->tm_hour;
-//	if(d < 0)
-//		d += 24;
-	if(t->tm_isdst == 0 && ptm->tm_isdst)
-		d--;
-	if(t->tm_isdst > 0 && !ptm->tm_isdst)
-		d++;
-	a += d*3600;
 	t->tm_wday = (jan1(t->tm_year)+t->tm_yday)%7;
+	if((a = tm2sec(t)) != -1){
+		b = a;
+		localtime_r(&a, &tt);
+		a += (b - tm2sec(&tt));
+		if(t->tm_isdst < 0){
+			localtime_r(&a, &tt);
+			a += (b - tm2sec(&tt));
+		}
+		else if(!t->tm_isdst && tt.tm_isdst)
+			a += 3600;
+		else if(t->tm_isdst && !tt.tm_isdst)
+			a -= 3600;
+	}
 	return a;
 }
