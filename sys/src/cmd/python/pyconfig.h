@@ -691,6 +691,7 @@ typedef unsigned long u_long;
 /* Define to 1 if you don't have `tm_zone' but do have the external array
    `tzname'. */
 #define HAVE_TZNAME 1
+#define HAVE_ALTZONE 1
 
 /* Define this if you have tcl and TCL_UTF_MAX==6 */
 /* #undef HAVE_UCS4_TCL */
