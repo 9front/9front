@@ -67,6 +67,7 @@ extern int nanosleep(const struct timespec *req, struct timespec *rem);
 #ifdef _POSIX_SOURCE
 extern char *tzname[2];
 extern long timezone;
+extern long altzone;
 extern int daylight;
 #endif
 

@@ -12,6 +12,7 @@ char *tzname[2] = {
 	std, dst
 };
 long timezone;
+long altzone;
 int daylight;
 
 void
@@ -38,6 +39,7 @@ tzset(void)
 	*p = 0;
 	strncpy(dst, q, sizeof dst);
 	q = p + 1;
+	altzone = - atoi(q);
 	daylight = 1;
 	free(env);
 	return;
@@ -46,6 +48,7 @@ error:
 	strcpy(std, "GMT0");
 	dst[0] = '\0';
 	timezone = 0;
+	altzone = 0;
 	daylight = 0;
 	if(env != 0)
 		free(env);
@@ -54,6 +57,7 @@ error:
 nodst:
 	dst[0] = '\0';
 	daylight = 0;
+	altzone = timezone;
 	free(env);
 	return;
 }
