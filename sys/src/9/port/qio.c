@@ -1564,9 +1564,3 @@ qfull(Queue *q)
 {
 	return q->state & Qflow;
 }
-
-int
-qstate(Queue *q)
-{
-	return q->state;
-}
