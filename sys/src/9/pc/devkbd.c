@@ -277,6 +277,14 @@ i8042auxenable(void (*putc)(int, int))
 	iunlock(&i8042lock);
 }
 
+static void
+kbdpoll(void)
+{
+	if(nokbd || qlen(kbd.q) > 0)
+		return;
+	i8042intr(0, 0);
+}
+
 static Chan *
 kbdattach(char *spec)
 {
@@ -324,20 +332,22 @@ kbdclose(Chan *c)
 static Block*
 kbdbread(Chan *c, long n, ulong off)
 {
-	if(c->qid.path == Qscancode)
+	if(c->qid.path == Qscancode){
+		kbdpoll();
 		return qbread(kbd.q, n);
-	else
-		return devbread(c, n, off);
+	}
+	return devbread(c, n, off);
 }
 
 static long
 kbdread(Chan *c, void *a, long n, vlong)
 {
-	if(c->qid.path == Qscancode)
+	if(c->qid.path == Qscancode){
+		kbdpoll();
 		return qread(kbd.q, a, n);
+	}
 	if(c->qid.path == Qdir)
 		return devdirread(c, a, n, kbdtab, nelem(kbdtab), devgen);
-
 	error(Egreg);
 	return 0;
 }
