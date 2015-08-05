@@ -721,10 +721,7 @@ rootream(Device *dev, Off addr)
 	strcpy(d->name, "/");
 	d->uid = -1;
 	d->gid = -1;
-	d->mode = DALLOC | DDIR |
-		((DREAD|DEXEC) << 6) |
-		((DREAD|DEXEC) << 3) |
-		((DREAD|DEXEC) << 0);
+	d->mode = DALLOC | DDIR | 0775;
 	d->qid = QID9P1(QPROOT|QPDIR,0);
 	d->atime = time(nil);
 	d->mtime = d->atime;
