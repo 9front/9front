@@ -152,7 +152,8 @@ i8042auxcmd(int cmd)
 	iunlock(&i8042lock);
 
 	if(c != 0xFA){
-		print("i8042: %2.2ux returned to the %2.2ux command (pc=%#p)\n", c, cmd, getcallerpc(&cmd));
+		print("i8042: %2.2ux returned to the %2.2ux command (pc=%#p)\n",
+			c, cmd, getcallerpc(&cmd));
 		return -1;
 	}
 	return 0;
@@ -253,11 +254,12 @@ i8042auxenable(void (*putc)(int, int))
 {
 	char *err = "i8042: aux init failed\n";
 
+	ilock(&i8042lock);
+
 	/* enable kbd/aux xfers and interrupts */
 	ccc &= ~Cauxdis;
 	ccc |= Cauxint;
 
-	ilock(&i8042lock);
 	if(outready() < 0)
 		print(err);
 	outb(Cmd, 0x60);			/* write control register */
@@ -274,6 +276,7 @@ i8042auxenable(void (*putc)(int, int))
 	}
 	auxputc = putc;
 	intrenable(IrqAUX, i8042intr, 0, BUSUNKNOWN, "kbdaux");
+
 	iunlock(&i8042lock);
 }
 
@@ -283,6 +286,20 @@ kbdpoll(void)
 	if(nokbd || qlen(kbd.q) > 0)
 		return;
 	i8042intr(0, 0);
+}
+
+static void
+kbdshutdown(void)
+{
+	if(nokbd)
+		return;
+	ccc &= ~(Ckbdint|Cauxint);
+	ccc |= (Cauxdis|Ckbddis);
+	outready();
+	outb(Cmd, 0x60);
+	outready();
+	outb(Data, ccc);
+	outready();
 }
 
 static Chan *
@@ -371,59 +388,16 @@ kbdwrite(Chan *c, void *a, long n, vlong)
 	return n;
 }
 
-Dev kbddevtab = {
-	L'b',
-	"kbd",
-
-	devreset,
-	devinit,
-	devshutdown,
-	kbdattach,
-	kbdwalk,
-	kbdstat,
-	kbdopen,
-	devcreate,
-	kbdclose,
-	kbdread,
-	kbdbread,
-	kbdwrite,
-	devbwrite,
-	devremove,
-	devwstat,
-};
-
-
-static char *initfailed = "i8042: kbdinit failed\n";
-
-static int
-outbyte(int port, int c)
+static void
+kbdreset(void)
 {
-	outb(port, c);
-	if(outready() < 0) {
-		print(initfailed);
-		return -1;
-	}
-	return 0;
-}
+	static char *initfailed = "i8042: init failed\n";
+	int c, try;
 
-void
-kbdenable(void)
-{
 	kbd.q = qopen(1024, Qcoalesce, 0, 0);
 	if(kbd.q == nil)
-		panic("kbdenable");
+		panic("kbdreset");
 	qnoblock(kbd.q, 1);
-
-	ioalloc(Data, 1, 0, "kbd");
-	ioalloc(Cmd, 1, 0, "kbd");
-
-	intrenable(IrqKBD, i8042intr, 0, BUSUNKNOWN, "kbd");
-}
-
-void
-kbdinit(void)
-{
-	int c, try;
 
 	/* wait for a quiescent controller */
 	try = 1000;
@@ -440,7 +414,7 @@ kbdinit(void)
 	/* get current controller command byte */
 	outb(Cmd, 0x20);
 	if(inready() < 0){
-		print("i8042: kbdinit can't read ccc\n");
+		print("i8042: can't read ccc\n");
 		ccc = 0;
 	} else
 		ccc = inb(Data);
@@ -448,14 +422,44 @@ kbdinit(void)
 	/* enable kbd xfers and interrupts */
 	ccc &= ~Ckbddis;
 	ccc |= Csf | Ckbdint | Cscs1;
+
+	/* disable ps2 mouse */
+	ccc &= ~Cauxint;
+	ccc |= Cauxdis;
+
 	if(outready() < 0) {
 		print(initfailed);
 		return;
 	}
+	outb(Cmd, 0x60);
+	outready();
+	outb(Data, ccc);
+	outready();
 
 	nokbd = 0;
-
-	/* disable mouse */
-	if (outbyte(Cmd, 0x60) < 0 || outbyte(Data, ccc) < 0)
-		print("i8042: kbdinit mouse disable failed\n");
+	ioalloc(Data, 1, 0, "kbd");
+	ioalloc(Cmd, 1, 0, "kbd");
+	intrenable(IrqKBD, i8042intr, 0, BUSUNKNOWN, "kbd");
 }
+
+Dev kbddevtab = {
+	L'b',
+	"kbd",
+
+	kbdreset,
+	devinit,
+	kbdshutdown,
+	kbdattach,
+	kbdwalk,
+	kbdstat,
+	kbdopen,
+	devcreate,
+	kbdclose,
+	kbdread,
+	kbdbread,
+	kbdwrite,
+	devbwrite,
+	devremove,
+	devwstat,
+};
+

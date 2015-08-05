@@ -87,8 +87,6 @@ int	ioreserve(int, int, int, char*);
 int	iprint(char*, ...);
 int	isaconfig(char*, int, ISAConf*);
 void*	kaddr(uintptr);
-void	kbdenable(void);
-void	kbdinit(void);
 KMap*	kmap(Page*);
 void	kunmap(KMap*);
 #define	kmapinval()
