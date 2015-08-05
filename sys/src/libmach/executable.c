@@ -736,7 +736,7 @@ elf32dotout(int fd, Fhdr *fp, ExecHdr *hp)
 		if(ep->ident[DATA] == ELFDATA2LSB){
 			fp->type = FMIPSLE;
 			fp->name = "mips le ELF32 executable";
-		} else if(ep->ident[DATA] == ELFDATA2MSB){
+		} else {
 			fp->type = FMIPS;
 			fp->name = "mips be ELF32 executable";
 		}
