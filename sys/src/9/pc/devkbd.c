@@ -159,24 +159,6 @@ i8042auxcmd(int cmd)
 	return 0;
 }
 
-int
-i8042auxcmds(uchar *cmd, int ncmd)
-{
-	int i;
-
-	ilock(&i8042lock);
-	for(i=0; i<ncmd; i++){
-		if(outready() < 0)
-			break;
-		outb(Cmd, 0xD4);
-		if(outready() < 0)
-			break;
-		outb(Data, cmd[i]);
-	}
-	iunlock(&i8042lock);
-	return i;
-}
-
 /*
  * set keyboard's leds for lock states (scroll, numeric, caps).
  *
@@ -252,7 +234,7 @@ i8042intr(Ureg*, void*)
 void
 i8042auxenable(void (*putc)(int, int))
 {
-	char *err = "i8042: aux init failed\n";
+	static char err[] = "i8042: aux init failed\n";
 
 	ilock(&i8042lock);
 
@@ -293,6 +275,7 @@ kbdshutdown(void)
 {
 	if(nokbd)
 		return;
+	/* disable kbd and aux xfers and interrupts */
 	ccc &= ~(Ckbdint|Cauxint);
 	ccc |= (Cauxdis|Ckbddis);
 	outready();
@@ -391,7 +374,7 @@ kbdwrite(Chan *c, void *a, long n, vlong)
 static void
 kbdreset(void)
 {
-	static char *initfailed = "i8042: init failed\n";
+	static char initfailed[] = "i8042: kbd init failed\n";
 	int c, try;
 
 	kbd.q = qopen(1024, Qcoalesce, 0, 0);
@@ -437,8 +420,8 @@ kbdreset(void)
 	outready();
 
 	nokbd = 0;
-	ioalloc(Data, 1, 0, "kbd");
-	ioalloc(Cmd, 1, 0, "kbd");
+	ioalloc(Cmd, 1, 0, "i8042.cs");
+	ioalloc(Data, 1, 0, "i8042.data");
 	intrenable(IrqKBD, i8042intr, 0, BUSUNKNOWN, "kbd");
 }
 

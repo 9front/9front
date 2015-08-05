@@ -58,7 +58,6 @@ void	guesscpuhz(int);
 void	halt(void);
 void	mwait(void*);
 int	i8042auxcmd(int);
-int	i8042auxcmds(uchar*, int);
 void	i8042auxenable(void (*)(int, int));
 void	i8042reset(void);
 void	i8250console(void);
