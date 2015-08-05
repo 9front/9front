@@ -583,10 +583,7 @@ rootream(Device dev, long addr)
 	strcpy(d->name, "/");
 	d->uid = -1;
 	d->gid = -1;
-	d->mode = DALLOC | DDIR |
-		((DREAD|DWRITE|DEXEC) << 6) |
-		((DREAD|DWRITE|DEXEC) << 3) |
-		((DREAD|DWRITE|DEXEC) << 0);
+	d->mode = DALLOC | DDIR | 0775;
 	d->qid = QID9P1(QPROOT|QPDIR,0);
 	d->atime = time(0);
 	d->mtime = d->atime;
