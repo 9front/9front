@@ -739,9 +739,6 @@ elf32dotout(int fd, Fhdr *fp, ExecHdr *hp)
 		} else if(ep->ident[DATA] == ELFDATA2MSB){
 			fp->type = FMIPS;
 			fp->name = "mips be ELF32 executable";
-		} else {
-			werrstr("bad ELF32 encoding - not big or little endian");
-			return 0;
 		}
 		break;
 	case SPARC64:
