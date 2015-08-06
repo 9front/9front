@@ -1738,7 +1738,7 @@ validname0(char *aname, int slashok, int dup, uintptr pc)
 		ename = memchr(name, 0, (1<<16));
 
 	if(ename==nil || ename-name>=(1<<16))
-		error("name too long");
+		error(Etoolong);
 
 	s = nil;
 	if(dup){
