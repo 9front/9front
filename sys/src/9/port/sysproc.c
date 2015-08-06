@@ -775,7 +775,16 @@ syssegattach(va_list list)
 	name = va_arg(list, char*);
 	va = va_arg(list, uintptr);
 	len = va_arg(list, ulong);
-	return segattach(up, attr, name, va, len);
+	validaddr((uintptr)name, 1, 0);
+	name = validnamedup(name, 1);
+	if(waserror()){
+		free(name);
+		nexterror();
+	}
+	va = segattach(up, attr, name, va, len);
+	free(name);
+	poperror();
+	return va;
 }
 
 uintptr

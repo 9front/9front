@@ -604,9 +604,6 @@ segattach(Proc *p, ulong attr, char *name, uintptr va, uintptr len)
 	if(va != 0 && va >= USTKTOP)
 		error(Ebadarg);
 
-	validaddr((uintptr)name, 1, 0);
-	vmemchr(name, 0, ~0);
-
 	for(sno = 0; sno < NSEG; sno++)
 		if(p->seg[sno] == nil && sno != ESEG)
 			break;
