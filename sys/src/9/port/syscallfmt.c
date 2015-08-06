@@ -44,7 +44,7 @@ fmtuserstring(Fmt* f, char* a, char* suffix)
 		return;
 	}
 	validaddr((uintptr)a, 1, 0);
-	n = ((char*)vmemchr(a, 0, 0x7fffffff) - a) + 1;
+	n = ((char*)vmemchr(a, 0, ~0) - a) + 1;
 	t = smalloc(n+1);
 	memmove(t, a, n);
 	t[n] = 0;

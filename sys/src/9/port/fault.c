@@ -332,18 +332,20 @@ validaddr(uintptr addr, ulong len, int write)
  * &s[0] is known to be a valid address.
  */
 void*
-vmemchr(void *s, int c, int n)
+vmemchr(void *s, int c, ulong n)
 {
-	int m;
 	uintptr a;
+	ulong m;
 	void *t;
 
 	a = (uintptr)s;
-	while(PGROUND(a) != PGROUND(a+n-1)){
-		/* spans pages; handle this page */
+	for(;;){
 		m = BY2PG - (a & (BY2PG-1));
+		if(n <= m)
+			break;
+		/* spans pages; handle this page */
 		t = memchr((void*)a, c, m);
-		if(t)
+		if(t != nil)
 			return t;
 		a += m;
 		n -= m;

@@ -368,7 +368,7 @@ void		validaddr(uintptr, ulong, int);
 void		validname(char*, int);
 char*		validnamedup(char*, int);
 void		validstat(uchar*, int);
-void*		vmemchr(void*, int, int);
+void*		vmemchr(void*, int, ulong);
 Proc*		wakeup(Rendez*);
 int		walk(Chan**, char**, int, int, int*);
 void		wlock(RWlock*);
