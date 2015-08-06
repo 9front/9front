@@ -295,8 +295,13 @@ sysexec(va_list list)
 		free(elem);
 		free(args);
 		/* Disaster after commit */
-		if(!up->seg[SSEG])
+		if(up->seg[SSEG] == nil)
 			pexit(up->errstr, 1);
+		s = up->seg[ESEG];
+		if(s != nil){
+			putseg(s);
+			up->seg[ESEG] = nil;
+		}
 		nexterror();
 	}
 	align = BY2PG;
@@ -438,7 +443,6 @@ sysexec(va_list list)
 
 	argv = (char**)(tstk - ssize);
 	charp = (char*)(tstk - nbytes);
-	a = charp;
 	if(indir)
 		argp = progarg;
 	else
@@ -450,12 +454,22 @@ sysexec(va_list list)
 			argp = argp0;
 		}
 		*argv++ = charp + (USTKTOP-tstk);
-		n = strlen(*argp) + 1;
-		memmove(charp, *argp++, n);
+		a = *argp++;
+		if(indir)
+			e = strchr(a, 0);
+		else {
+			validaddr((uintptr)a, 1, 0);
+			e = vmemchr(a, 0, (char*)tstk - charp);
+			if(e == nil)
+				error(Ebadarg);
+		}
+		n = (e - a) + 1;
+		memmove(charp, a, n);
 		charp += n;
 	}
 
 	/* copy args; easiest from new process's stack */
+	a = (char*)(tstk - nbytes);
 	n = charp - a;
 	if(n > 128)	/* don't waste too much space on huge arg lists */
 		n = 128;
