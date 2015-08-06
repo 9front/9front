@@ -36,15 +36,18 @@ fmtrwdata(Fmt* f, char* a, int n, char* suffix)
 static void
 fmtuserstring(Fmt* f, char* a, char* suffix)
 {
+	char *t, *e;
 	int n;
-	char *t;
 
 	if(a == nil){
 		fmtprint(f, "0/\"\"%s", suffix);
 		return;
 	}
 	validaddr((uintptr)a, 1, 0);
-	n = ((char*)vmemchr(a, 0, ~0) - a) + 1;
+	n = 1<<16;
+	e = vmemchr(a, 0, n);
+	if(e != nil)
+		n = e - a;
 	t = smalloc(n+1);
 	memmove(t, a, n);
 	t[n] = 0;
