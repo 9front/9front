@@ -9,8 +9,6 @@
 
 #include	<a.out.h>
 
-int	shargs(char*, int, char**);
-
 extern void checkpages(void);
 extern void checkpagerefs(void);
 
@@ -222,6 +220,38 @@ sysrfork(va_list list)
 	ready(p);
 	sched();
 	return pid;
+}
+
+static int
+shargs(char *s, int n, char **ap)
+{
+	int i;
+
+	s += 2;
+	n -= 2;		/* skip #! */
+	for(i=0;; i++){
+		if(i >= n)
+			return 0;
+		if(s[i]=='\n')
+			break;
+	}
+	s[i] = 0;
+
+	i = 0;
+	for(;;) {
+		while(*s==' ' || *s=='\t')
+			s++;
+		if(*s == 0)
+			break;
+		ap[i++] = s++;
+		while(*s && *s!=' ' && *s!='\t')
+			s++;
+		if(*s == 0)
+			break;
+		*s++ = 0;
+	}
+	ap[i] = nil;
+	return i;
 }
 
 static ulong
@@ -533,38 +563,6 @@ sysexec(va_list list)
 	if(up->hang)
 		up->procctl = Proc_stopme;
 	return execregs(entry, ssize, nargs);
-}
-
-int
-shargs(char *s, int n, char **ap)
-{
-	int i;
-
-	s += 2;
-	n -= 2;		/* skip #! */
-	for(i=0;; i++){
-		if(i >= n)
-			return 0;
-		if(s[i]=='\n')
-			break;
-	}
-	s[i] = 0;
-
-	i = 0;
-	for(;;) {
-		while(*s==' ' || *s=='\t')
-			s++;
-		if(*s == 0)
-			break;
-		ap[i++] = s++;
-		while(*s && *s!=' ' && *s!='\t')
-			s++;
-		if(*s == 0)
-			break;
-		*s++ = 0;
-	}
-	ap[i] = nil;
-	return i;
 }
 
 int
