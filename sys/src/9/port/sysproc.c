@@ -255,6 +255,10 @@ sysexec(va_list list)
 	file0 = va_arg(list, char*);
 	validaddr((uintptr)file0, 1, 0);
 	argp0 = va_arg(list, char**);
+	evenaddr((uintptr)argp0);
+	validaddr((uintptr)argp0, 2*BY2WD, 0);
+	if(*argp0 == nil)
+		error(Ebadarg);
 	file0 = validnamedup(file0, 1);
 	if(waserror()){
 		free(file0);
@@ -351,9 +355,7 @@ sysexec(va_list list)
 		}
 	}
 	argp = argp0;
-	evenaddr((uintptr)argp);
-	validaddr((uintptr)argp, BY2WD, 0);
-	while(*argp){
+	while(*argp != nil){
 		a = *argp++;
 		if(((uintptr)argp&(BY2PG-1)) < BY2WD)
 			validaddr((uintptr)argp, BY2WD, 0);
