@@ -1758,10 +1758,10 @@ validname0(char *aname, int slashok, int dup, uintptr pc)
 			name += chartorune(&r, name);
 		else{
 			if(isfrog[c])
-				if(!slashok || c!='/'){
-					snprint(up->genbuf, sizeof(up->genbuf), "%s: %q", Ebadchar, aname);
-					free(s);
-					error(up->genbuf);
+			if(!slashok || c!='/'){
+				snprint(up->genbuf, sizeof(up->genbuf), "%s: %q", Ebadchar, aname);
+				free(s);
+				error(up->genbuf);
 			}
 			name++;
 		}
