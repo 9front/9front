@@ -270,7 +270,7 @@ sysexec(va_list list)
 	int i;
 	Chan *tc;
 	char **argv, **argp, **argp0;
-	char *a, *charp, *args, *file, *file0;
+	char *a, *e, *charp, *args, *file, *file0;
 	char *progarg[sizeof(Exec)/2+1], *elem, progelem[64];
 	ulong magic, ssize, nargs, nbytes, n;
 	uintptr t, d, b, entry, bssend, text, data, bss, tstk, align;
@@ -390,7 +390,12 @@ sysexec(va_list list)
 		if(((uintptr)argp&(BY2PG-1)) < BY2WD)
 			validaddr((uintptr)argp, BY2WD, 0);
 		validaddr((uintptr)a, 1, 0);
-		nbytes += ((char*)vmemchr(a, 0, ~0) - a) + 1;
+		e = vmemchr(a, 0, USTKSIZE);
+		if(e == nil)
+			error(Ebadarg);
+		nbytes += (e - a) + 1;
+		if(nbytes >= USTKSIZE)
+			error(Enovmem);
 		nargs++;
 	}
 	ssize = BY2WD*(nargs+1) + ((nbytes+(BY2WD-1)) & ~(BY2WD-1));
@@ -610,7 +615,7 @@ sysexits(va_list list)
 			status = inval;
 		else{
 			validaddr((uintptr)status, 1, 0);
-			if(vmemchr(status, 0, ERRMAX) == 0){
+			if(vmemchr(status, 0, ERRMAX) == nil){
 				memmove(buf, status, ERRMAX);
 				buf[ERRMAX-1] = 0;
 				status = buf;
