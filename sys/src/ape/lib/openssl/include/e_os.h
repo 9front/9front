@@ -71,7 +71,7 @@ extern "C" {
 #endif
 
 #ifdef PLAN9
-#if defined(T386) || defined(Tamd64) || defined(Talpha) || defined(Tarm)
+#if defined(T386) || defined(Tamd64) || defined(Talpha) || defined(Tarm) || defined(Tspim)
 #define L_ENDIAN
 #elif defined(Tmips) || defined(Tsparc) || defined(Tpower)
 #define B_ENDIAN

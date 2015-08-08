@@ -20,6 +20,9 @@ OFILES=errstr.$O\
 
 CFLAGS=-c $CFLAGS -D_POSIX_SOURCE -D_PLAN9_SOURCE
 
+%.0:	mips/%.s
+	$AS $prereq
+
 %.$O:	$objtype/%.s
 	$AS $prereq
 
