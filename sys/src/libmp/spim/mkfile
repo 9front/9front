@@ -1,5 +1,5 @@
 objtype=spim
-</mips/mkfile
+</$objtype/mkfile
 
 LIB=/$objtype/lib/libmp.a
 SFILES=\
