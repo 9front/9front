@@ -119,6 +119,15 @@ mips	d775
 	bin	d775
 		ape	d775
 
+spim	d775
+	mkfile
+	include	d775
+		+
+	lib	d775
+		ape	d775
+	bin	d775
+		ape	d775
+
 $objtype	d775
 	*
 	bin	d775
@@ -150,6 +159,7 @@ acme	d775
 		sparc	d775
 		sparc64	d775
 		mips	d775
+		spim	d775
 		source	d775
 			+
 		dial	d775
@@ -200,7 +210,7 @@ sys	d775
 	doc	d775
 		+
 	src	d775
-		skip=\.(out|([ao]?[12578vqki]?))$
+		skip=\.(out|([ao]?[012578vqki]?))$
 		+
 
 tmp	d555
