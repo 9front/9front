@@ -1,11 +1,11 @@
 syntax: regexp
-^(386|68000|68020|alpha|amd64|arm|mips|power|power64|sparc|sparc64)/(bin|lib)(/|$)
-^(acme|sys/src)/(.*/)?[125678vqki]\..*$
-^(acme|sys/src)/.*\.[ao]?[125678vqki]?$
+^(386|68000|68020|alpha|amd64|arm|mips|power|power64|sparc|sparc64|spim)/(bin|lib)(/|$)
+^(acme|sys/src)/(.*/)?[0125678vqki]\..*$
+^(acme|sys/src)/.*\.[ao]?[0125678vqki]?$
 ^(dev|fd|net.*|srv|shr|env|root|proc|boot|mnt|n|bin|usr|cfg|cron|mail|tmp)(/|$)
 ^386/(9(pc|boot).*|pbs|mbr|init)
 ^amd64/(9pc64|init)
-^acme/bin/(386|68000|68020|alpha|amd64|arm|power|power64|sparc|sparc64)(/|$)
+^acme/bin/(386|68000|68020|alpha|amd64|arm|mips|power|power64|sparc|sparc64|spim)(/|$)
 ^adm/(cache|keys|netkeys|secstore|users|whois|timezone/local)(/|$)
 ^lib/(ndb|audio|firmware)(/|$)
 ^lib/rfc/(drafts|index|rfc.*)(/|$)
