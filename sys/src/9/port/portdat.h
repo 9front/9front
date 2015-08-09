@@ -254,11 +254,11 @@ enum
 struct Mount
 {
 	ulong	mountid;
+	int	mflag;
 	Mount*	next;
 	Mount*	order;
 	Chan*	to;			/* channel replacing channel */
-	int	mflag;
-	char	*spec;
+	char*	spec;
 };
 
 struct Mhead

@@ -1002,7 +1002,7 @@ syschdir(va_list list)
 }
 
 long
-bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, ulong flag, char* spec)
+bindmount(int ismount, int fd, int afd, char* arg0, char* arg1, int flag, char* spec)
 {
 	int ret;
 	Chan *c0, *c1, *ac, *bc;
@@ -1074,11 +1074,11 @@ uintptr
 sysbind(va_list list)
 {
 	char *arg0, *arg1;
-	ulong flag;
+	int flag;
 
 	arg0 = va_arg(list, char*);
 	arg1 = va_arg(list, char*);
-	flag = va_arg(list, ulong);
+	flag = va_arg(list, int);
 	return (uintptr)bindmount(0, -1, -1, arg0, arg1, flag, nil);
 }
 
@@ -1086,13 +1086,13 @@ uintptr
 sysmount(va_list list)
 {
 	char *arg1, *spec;
-	ulong flag;
+	int flag;
 	int fd, afd;
 
 	fd = va_arg(list, int);
 	afd = va_arg(list, int);
 	arg1 = va_arg(list, char*);
-	flag = va_arg(list, ulong);
+	flag = va_arg(list, int);
 	spec = va_arg(list, char*);
 	return (uintptr)bindmount(1, fd, afd, nil, arg1, flag, spec);
 }
@@ -1101,12 +1101,12 @@ uintptr
 sys_mount(va_list list)
 {
 	char *arg1, *spec;
-	ulong flag;
+	int flag;
 	int fd;
 
 	fd = va_arg(list, int);
 	arg1 = va_arg(list, char*);
-	flag = va_arg(list, ulong);
+	flag = va_arg(list, int);
 	spec = va_arg(list, char*);
 	return (uintptr)bindmount(1, fd, -1, nil, arg1, flag, spec);
 }
