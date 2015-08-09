@@ -704,7 +704,7 @@ cmount(Chan **newp, Chan *old, int flag, char *spec)
 		 *  node to the mount chain.
 		 */
 		if(order != MREPL)
-			m->mount = newmount(m, old, 0, 0);
+			m->mount = newmount(old, 0, nil);
 	}
 	wlock(&m->lock);
 	if(waserror()){
@@ -713,7 +713,7 @@ cmount(Chan **newp, Chan *old, int flag, char *spec)
 	}
 	wunlock(&pg->ns);
 
-	nm = newmount(m, new, flag, spec);
+	nm = newmount(new, flag, spec);
 	if(mh != nil && mh->mount != nil){
 		/*
 		 *  copy a union when binding it onto a directory
@@ -724,7 +724,7 @@ cmount(Chan **newp, Chan *old, int flag, char *spec)
 		h = &nm->next;
 		um = mh->mount;
 		for(um = um->next; um != nil; um = um->next){
-			f = newmount(m, um->to, flg, um->spec);
+			f = newmount(um->to, flg, um->spec);
 			*h = f;
 			h = &f->next;
 		}

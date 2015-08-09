@@ -115,11 +115,12 @@ pgrpinsert(Mount **order, Mount *m)
 void
 pgrpcpy(Pgrp *to, Pgrp *from)
 {
-	int i;
 	Mount *n, *m, **link, *order;
 	Mhead *f, **tom, **l, *mh;
+	int i;
 
-	wlock(&from->ns);
+	wlock(&to->ns);
+	rlock(&from->ns);
 	order = nil;
 	tom = to->mnthash;
 	for(i = 0; i < MNTHASH; i++) {
@@ -131,9 +132,14 @@ pgrpcpy(Pgrp *to, Pgrp *from)
 			l = &mh->hash;
 			link = &mh->mount;
 			for(m = f->mount; m != nil; m = m->next) {
-				n = newmount(mh, m->to, m->mflag, m->spec);
-				m->copy = n;
-				pgrpinsert(&order, m);
+				n = smalloc(sizeof(Mount));
+				n->mountid = m->mountid;
+				n->mflag = m->mflag;
+				n->to = m->to;
+				incref(n->to);
+				if(m->spec != nil)
+					kstrdup(&n->spec, m->spec);
+				pgrpinsert(&order, n);
 				*link = n;
 				link = &n->next;
 			}
@@ -144,8 +150,9 @@ pgrpcpy(Pgrp *to, Pgrp *from)
 	 * Allocate mount ids in the same sequence as the parent group
 	 */
 	for(m = order; m != nil; m = m->order)
-		m->copy->mountid = incref(&mountid);
-	wunlock(&from->ns);
+		m->mountid = incref(&mountid);
+	runlock(&from->ns);
+	wunlock(&to->ns);
 }
 
 Fgrp*
@@ -246,12 +253,11 @@ forceclosefgrp(void)
 
 
 Mount*
-newmount(Mhead *mh, Chan *to, int flag, char *spec)
+newmount(Chan *to, int flag, char *spec)
 {
 	Mount *m;
 
 	m = smalloc(sizeof(Mount));
-	m->head = mh;
 	m->to = to;
 	incref(to);
 	m->mountid = incref(&mountid);

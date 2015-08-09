@@ -531,7 +531,6 @@ shrcreate(Chan *c, char *name, int omode, ulong perm)
 
 		incref(mpt);
 		mpt->m.mflag = (h->mount == nil) ? MCREATE : 0;
-		mpt->m.head = h;
 		mpt->m.next = h->mount;
 		h->mount = &mpt->m;
 
@@ -602,7 +601,6 @@ shrremove(Chan *c)
 			if(*ml == m){
 				*ml = m->next;
 				m->next = nil;
-				m->head = nil;
 				putmpt(mpt);
 				break;
 			}

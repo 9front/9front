@@ -255,8 +255,6 @@ struct Mount
 {
 	ulong	mountid;
 	Mount*	next;
-	Mhead*	head;
-	Mount*	copy;
 	Mount*	order;
 	Chan*	to;			/* channel replacing channel */
 	int	mflag;

@@ -190,7 +190,7 @@ int		needpages(void*);
 Chan*		newchan(void);
 int		newfd(Chan*);
 Mhead*		newmhead(Chan*);
-Mount*		newmount(Mhead*, Chan*, int, char*);
+Mount*		newmount(Chan*, int, char*);
 Page*		newpage(int, Segment **, uintptr);
 Path*		newpath(char*);
 Pgrp*		newpgrp(void);
