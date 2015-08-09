@@ -110,7 +110,7 @@ waitbusy(void)
 static ulong
 doread(uvlong addr, void *a, ulong n)
 {
-	ulong d, *aa, nn, ret;
+	ulong d, *aa, ret;
 
 	if(addr >= QSPISIZ)
 		return 0;
@@ -220,8 +220,6 @@ qspiclose(Chan* c)
 static long
 qspiread(Chan *c, void *a, long n, vlong offset)
 {
-	char buf[64];
-
 	switch((ulong)c->qid.path){
 	case Qdir:
 		return devdirread(c, a, n, qspidir, nqspidir, devgen);
