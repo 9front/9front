@@ -651,6 +651,7 @@ struct Proc
 	char	*user;
 	char	*args;
 	int	nargs;		/* number of bytes of args */
+	int	setargs;	/* process changed its args */
 	Proc	*rnext;		/* next process in run queue */
 	Proc	*qnext;		/* next process on queue for a QLock */
 	QLock	*qlock;		/* addr of qlock being queued for DEBUG */
@@ -765,8 +766,6 @@ struct Proc
 
 	uintptr	qpc;		/* pc calling last blocking qlock */
 	QLock	*eql;		/* interruptable eqlock */
-
-	int	setargs;	/* process changed its args */
 
 	void	*ureg;		/* User registers for notes */
 	void	*dbgreg;	/* User registers for devproc */
