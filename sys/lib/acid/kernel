@@ -231,8 +231,8 @@ defn procenv(p) {
 	e = p.egrp;
 	complex Egrp e;
 	i=0; loop 1,e.nent do {
-		v = e.ent[i];
-		i = i+1;
+		v = e.ent + i;
+		i = i+sizeofEvalue;
 		complex Evalue v;
 		print(*(v.name\s), "=");
 		printstringn(v.value, v.len);
