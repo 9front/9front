@@ -2,7 +2,7 @@ objtype=spim
 </$objtype/mkfile
 
 LIB=/$objtype/lib/libc.a
-SFILES=\
+MIPSSFILES=\
 	argv0.s\
 	atom.s\
 	getcallerpc.s\
@@ -19,23 +19,33 @@ SFILES=\
 	strcmp.s\
 	strcpy.s\
 	tas.s\
-	vlop.s\
 
-CFILES=\
+MIPSCFILES=\
 	cycles.c\
 	lock.c\
 	notejmp.c\
+
+SFILES=\
+	vlop.s\
+
+CFILES=\
 	sqrt.c\
 	vlrt.c\
 
 HFILES=/sys/include/libc.h
 
-OFILES=${CFILES:%.c=%.$O} ${SFILES:%.s=%.$O}
+OFILES=\
+	${MIPSSFILES:%.s=%.$O}\
+	${SFILES:%.s=%.$O}\
+	${MIPSCFILES:%.c=%.$O}\
+	${CFILES:%.c=%.$O}\
 
-%.$O:	../mips/%.c
-	$CC -I../mips $CFLAGS ../mips/$stem.c
+MIPSS=`{echo $MIPSSFILES | sed 's/\.s//g; s/ /|/g'}
+^($MIPSS)\.$O:R:	'../mips/\1.s'
+	$AS $AFLAGS ../mips/$stem1.s
 
-%.$O:	../mips/%.s
-	$AS -I../mips $AFLAGS ../mips/$stem.s
+MIPSC=`{echo $MIPSCFILES | sed 's/\.c//g; s/ /|/g'}
+^($MIPSC)\.$O:R:	'../mips/\1.c'
+	$CC $CFLAGS ../mips/$stem1.c
 
 </sys/src/cmd/mksyslib
