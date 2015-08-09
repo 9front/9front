@@ -5,9 +5,6 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
-int chandebug=0;		/* toggled by sysr1 */
-#define DBG if(chandebug)iprint
-
 enum
 {
 	PATHSLOP	= 20,
@@ -37,44 +34,6 @@ struct Elemlist
 };
 
 #define SEP(c) ((c) == 0 || (c) == '/')
-
-static void
-dumpmount(void)		/* DEBUGGING */
-{
-	Pgrp *pg;
-	Mount *t;
-	Mhead **h, **he, *f;
-
-	if(up == nil){
-		print("no process for dumpmount\n");
-		return;
-	}
-	pg = up->pgrp;
-	if(pg == nil){
-		print("no pgrp for dumpmount\n");
-		return;
-	}
-	rlock(&pg->ns);
-	if(waserror()){
-		runlock(&pg->ns);
-		nexterror();
-	}
-
-	he = &pg->mnthash[MNTHASH];
-	for(h = pg->mnthash; h < he; h++){
-		for(f = *h; f != nil; f = f->hash){
-			print("head: %#p: %s %#llux.%lud %C %lud -> \n", f,
-				f->from->path->s, f->from->qid.path,
-				f->from->qid.vers, devtab[f->from->type]->dc,
-				f->from->dev);
-			for(t = f->mount; t != nil; t = t->next)
-				print("\t%#p: %s (umh %#p) (path %#.8llux dev %C %lud)\n",
-					t, t->to->path->s, t->to->umh, t->to->qid.path, devtab[t->to->type]->dc, t->to->dev);
-		}
-	}
-	poperror();
-	runlock(&pg->ns);
-}
 
 char*
 chanpath(Chan *c)
@@ -269,8 +228,6 @@ newchan(void)
 	return c;
 }
 
-Ref npath;
-
 Path*
 newpath(char *s)
 {
@@ -284,7 +241,6 @@ newpath(char *s)
 	p->s = smalloc(p->alen);
 	memmove(p->s, s, i+1);
 	p->ref = 1;
-	incref(&npath);
 
 	/*
 	 * Cannot use newpath for arbitrary names because the mtpt 
@@ -308,8 +264,6 @@ copypath(Path *p)
 	
 	pp = smalloc(sizeof(Path));
 	pp->ref = 1;
-	incref(&npath);
-	DBG("copypath %s %p => %p\n", p->s, p, pp);
 	
 	pp->len = p->len;
 	pp->alen = p->alen;
@@ -332,23 +286,14 @@ void
 pathclose(Path *p)
 {
 	int i;
-	
-	if(p == nil)
-		return;
-//XXX
-	DBG("pathclose %p %s ref=%ld =>", p, p->s, p->ref);
-	for(i=0; i<p->mlen; i++)
-		DBG(" %p", p->mtpt[i]);
-	DBG("\n");
 
-	if(decref(p))
+	if(p == nil || decref(p))
 		return;
-	decref(&npath);
-	free(p->s);
 	for(i=0; i<p->mlen; i++)
 		if(p->mtpt[i] != nil)
 			cclose(p->mtpt[i]);
 	free(p->mtpt);
+	free(p->s);
 	free(p);
 }
 
@@ -406,8 +351,9 @@ addelem(Path *p, char *s, Chan *from)
 	p = uniquepath(p);
 
 	i = strlen(s);
-	if(p->len+1+i+1 > p->alen){
-		a = p->len+1+i+1 + PATHSLOP;
+	a = p->len+1+i+1;
+	if(a > p->alen){
+		a += PATHSLOP;
 		t = smalloc(a);
 		memmove(t, p->s, p->len+1);
 		free(p->s);
@@ -421,7 +367,6 @@ addelem(Path *p, char *s, Chan *from)
 	p->len += i;
 	if(isdotdot(s)){
 		fixdotdotname(p);
-		DBG("addelem %s .. => rm %p\n", p->s, p->mtpt[p->mlen-1]);
 		if(p->mlen > 1 && (c = p->mtpt[--p->mlen]) != nil){
 			p->mtpt[p->mlen] = nil;
 			cclose(c);
@@ -434,7 +379,6 @@ addelem(Path *p, char *s, Chan *from)
 			free(p->mtpt);
 			p->mtpt = tt;
 		}
-		DBG("addelem %s %s => add %p\n", p->s, s, from);
 		p->mtpt[p->mlen++] = from;
 		if(from != nil)
 			incref(from);
@@ -572,8 +516,6 @@ cclose(Chan *c)
 	if(c == nil || c->ref < 1 || c->flag&CFREE)
 		panic("cclose %#p", getcallerpc(&c));
 
-	DBG("cclose %p name=%s ref=%ld\n", c, chanpath(c), c->ref);
-
 	if(decref(c))
 		return;
 
@@ -598,12 +540,8 @@ ccloseq(Chan *c)
 	if(c == nil || c->ref < 1 || c->flag&CFREE)
 		panic("ccloseq %#p", getcallerpc(&c));
 
-	DBG("ccloseq %p name=%s ref=%ld\n", c, chanpath(c), c->ref);
-
-	if(decref(c))
-		return;
-
-	closechanq(c);
+	if(decref(c) == 0)
+		closechanq(c);
 }
 
 /*
@@ -667,6 +605,35 @@ newmhead(Chan *from)
 	mh->from = from;
 	incref(from);
 	return mh;
+}
+
+/*
+ * This is necessary because there are many
+ * pointers to the top of a given mount list:
+ *
+ *	- the mhead in the namespace hash table
+ *	- the mhead in chans returned from findmount:
+ *	  used in namec and then by unionread.
+ *	- the mhead in chans returned from createdir:
+ *	  used in the open/create race protect, which is gone.
+ *
+ * The RWlock in the Mhead protects the mount list it contains.
+ * The mount list is deleted in cunmount() and closepgrp().
+ * The RWlock ensures that nothing is using the mount list at that time.
+ *
+ * It is okay to replace c->mh with whatever you want as 
+ * long as you are sure you have a unique reference to it.
+ *
+ * This comment might belong somewhere else.
+ */
+void
+putmhead(Mhead *m)
+{
+	if(m != nil && decref(m) == 0){
+		assert(m->mount == nil);
+		cclose(m->from);
+		free(m);
+	}
 }
 
 int
@@ -781,7 +748,6 @@ cmount(Chan **newp, Chan *old, int flag, char *spec)
 		f->next = m->mount;
 		m->mount = nm;
 	}
-
 	wunlock(&m->lock);
 	poperror();
 	return nm->mountid;
@@ -822,35 +788,32 @@ cunmount(Chan *mnt, Chan *mounted)
 	}
 
 	wlock(&m->lock);
+	f = m->mount;
 	if(mounted == nil){
 		*l = m->hash;
-		wunlock(&pg->ns);
-		mountfree(m->mount);
 		m->mount = nil;
-		cclose(m->from);
 		wunlock(&m->lock);
+		wunlock(&pg->ns);
+		mountfree(f);
 		putmhead(m);
 		return;
 	}
-
-	p = &m->mount;
-	for(f = *p; f != nil; f = f->next){
-		/* BUG: Needs to be 2 pass */
+	for(p = &m->mount; f != nil; f = f->next){
 		if(eqchan(f->to, mounted, 1) ||
 		  (f->to->mchan != nil && eqchan(f->to->mchan, mounted, 1))){
 			*p = f->next;
 			f->next = nil;
-			mountfree(f);
 			if(m->mount == nil){
 				*l = m->hash;
-				cclose(m->from);
 				wunlock(&m->lock);
 				wunlock(&pg->ns);
+				mountfree(f);
 				putmhead(m);
 				return;
 			}
 			wunlock(&m->lock);
 			wunlock(&pg->ns);
+			mountfree(f);
 			return;
 		}
 		p = &f->next;
@@ -882,36 +845,31 @@ cclone(Chan *c)
 int
 findmount(Chan **cp, Mhead **mp, int type, int dev, Qid qid)
 {
+	Chan *to;
 	Pgrp *pg;
 	Mhead *m;
 
 	pg = up->pgrp;
 	rlock(&pg->ns);
 	for(m = MOUNTH(pg, qid); m != nil; m = m->hash){
-		rlock(&m->lock);
-		if(m->from == nil){
-			print("m %p m->from 0\n", m);
-			runlock(&m->lock);
-			continue;
-		}
 		if(eqchantdqid(m->from, type, dev, qid, 1)){
+			rlock(&m->lock);
 			runlock(&pg->ns);
-			if(mp != nil){
+			if(mp != nil)
 				incref(m);
-				if(*mp != nil)
-					putmhead(*mp);
+			to = m->mount->to;
+			incref(to);
+			runlock(&m->lock);
+			if(mp != nil){
+				putmhead(*mp);
 				*mp = m;
 			}
 			if(*cp != nil)
 				cclose(*cp);
-			incref(m->mount->to);
-			*cp = m->mount->to;
-			runlock(&m->lock);
+			*cp = to;
 			return 1;
 		}
-		runlock(&m->lock);
 	}
-
 	runlock(&pg->ns);
 	return 0;
 }
@@ -922,7 +880,7 @@ findmount(Chan **cp, Mhead **mp, int type, int dev, Qid qid)
 static int
 domount(Chan **cp, Mhead **mp, Path **path)
 {
-	Chan **lc;
+	Chan **lc, *from;
 	Path *p;
 
 	if(findmount(cp, mp, (*cp)->type, (*cp)->dev, (*cp)->qid) == 0)
@@ -934,12 +892,12 @@ domount(Chan **cp, Mhead **mp, Path **path)
 		if(p->mlen <= 0)
 			print("domount: path %s has mlen==%d\n", p->s, p->mlen);
 		else{
+			from = (*mp)->from;
+			incref(from);
 			lc = &p->mtpt[p->mlen-1];
-DBG("domount %p %s => add %p (was %p)\n", p, p->s, (*mp)->from, p->mtpt[p->mlen-1]);
-			incref((*mp)->from);
 			if(*lc != nil)
 				cclose(*lc);
-			*lc = (*mp)->from;
+			*lc = from;
 		}
 		*path = p;
 	}
@@ -961,7 +919,6 @@ undomount(Chan *c, Path *path)
 			path->s, path->ref, path->mlen, getcallerpc(&c));
 
 	if(path->mlen > 0 && (nc = path->mtpt[path->mlen-1]) != nil){
-DBG("undomount %p %s => remove %p\n", path, path->s, nc);
 		cclose(c);
 		path->mtpt[path->mlen-1] = nil;
 		c = nc;
@@ -1026,8 +983,7 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 			pathclose(path);
 			cclose(c);
 			kstrcpy(up->errstr, Enotdir, ERRMAX);
-			if(mh != nil)
-				putmhead(mh);
+			putmhead(mh);
 			return -1;
 		}
 		ntry = nnames - nhave;
@@ -1073,8 +1029,7 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 				pathclose(path);
 				if(nerror)
 					*nerror = nhave+1;
-				if(mh != nil)
-					putmhead(mh);
+				putmhead(mh);
 				return -1;
 			}
 		}
@@ -1113,8 +1068,7 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 						kstrcpy(up->errstr, Enotdir, ERRMAX);
 					}
 					free(wq);
-					if(mh != nil)
-						putmhead(mh);
+					putmhead(mh);
 					return -1;
 				}
 				n = wq->nqid;
@@ -1140,11 +1094,8 @@ walk(Chan **cp, char **names, int nnames, int nomount, int *nerror)
 		mh = nmh;
 		free(wq);
 	}
-
 	putmhead(mh);
-
 	c = cunique(c);
-
 	if(c->umh != nil){	//BUG
 		print("walk umh\n");
 		putmhead(c->umh);
@@ -1176,7 +1127,7 @@ createdir(Chan *c, Mhead *m)
 		nexterror();
 	}
 	for(f = m->mount; f != nil; f = f->next){
-		if(f->to != nil && (f->mflag&MCREATE) != 0){
+		if((f->mflag&MCREATE) != 0){
 			nc = cclone(f->to);
 			runlock(&m->lock);
 			poperror();
@@ -1250,15 +1201,6 @@ parsename(char *aname, Elemlist *e)
 		e->off[e->nelems] = slash - e->name;
 		*slash++ = '\0';
 		name = slash;
-	}
-	
-	if(0 && chandebug){
-		int i;
-		
-		print("parsename %s:", e->name);
-		for(i=0; i<=e->nelems; i++)
-			print(" %d", e->off[i]);
-		print("\n");
 	}
 }
 
@@ -1360,7 +1302,6 @@ namec(char *aname, int amode, int omode, ulong perm)
 		free(aname);
 		nexterror();
 	}
-	DBG("namec %s %d %d\n", aname, amode, omode);
 	name = aname;
 
 	/*
@@ -1432,8 +1373,6 @@ namec(char *aname, int amode, int omode, ulong perm)
 		if(e.off[e.nerror]==0)
 			print("nerror=%d but off=%d\n",
 				e.nerror, e.off[e.nerror]);
-		if(0 && chandebug)
-			print("showing %d+%d/%d (of %d) of %s (%d %d)\n", e.prefix, e.off[e.nerror], e.nerror, e.nelems, aname, e.off[0], e.off[1]);
 		len = e.prefix+e.off[e.nerror];
 		free(e.off);
 		namelenerror(aname, len, tmperrbuf);
@@ -1480,8 +1419,7 @@ namec(char *aname, int amode, int omode, ulong perm)
 		m = nil;
 		if(!nomount)
 			domount(&c, &m, nil);
-		if(c->umh != nil)
-			putmhead(c->umh);
+		putmhead(c->umh);
 		c->umh = m;
 		break;
 
@@ -1519,11 +1457,11 @@ namec(char *aname, int amode, int omode, ulong perm)
 
 		case Aopen:
 		case Acreate:
-if(c->umh != nil){
-	print("cunique umh Open\n");
-	putmhead(c->umh);
-	c->umh = nil;
-}
+			if(c->umh != nil){
+				print("cunique umh Open\n");
+				putmhead(c->umh);
+				c->umh = nil;
+			}
 			/* only save the mount head if it's a multiple element union */
 			if(m != nil && m->mount != nil && m->mount->next != nil)
 				c->umh = m;
@@ -1642,8 +1580,7 @@ if(c->umh != nil){
 				cnew->flag |= CCEXEC;
 			if(omode & ORCLOSE)
 				cnew->flag |= CRCLOSE;
-			if(m != nil)
-				putmhead(m);
+			putmhead(m);
 			cclose(c);
 			c = cnew;
 			c->path = addelem(c->path, e.elems[e.nelems-1], nil);
@@ -1652,8 +1589,7 @@ if(c->umh != nil){
 
 		/* create failed */
 		cclose(cnew);
-		if(m != nil)
-			putmhead(m);
+		putmhead(m);
 		if(omode & OEXCL)
 			nexterror();
 		/* save error */
@@ -1788,32 +1724,3 @@ isdir(Chan *c)
 		return;
 	error(Enotdir);
 }
-
-/*
- * This is necessary because there are many
- * pointers to the top of a given mount list:
- *
- *	- the mhead in the namespace hash table
- *	- the mhead in chans returned from findmount:
- *	  used in namec and then by unionread.
- *	- the mhead in chans returned from createdir:
- *	  used in the open/create race protect, which is gone.
- *
- * The RWlock in the Mhead protects the mount list it contains.
- * The mount list is deleted when we cunmount.
- * The RWlock ensures that nothing is using the mount list at that time.
- *
- * It is okay to replace c->mh with whatever you want as 
- * long as you are sure you have a unique reference to it.
- *
- * This comment might belong somewhere else.
- */
-void
-putmhead(Mhead *m)
-{
-	if(m != nil && decref(m) == 0){
-		m->mount = (Mount*)0xCafeBeef;
-		free(m);
-	}
-}
-

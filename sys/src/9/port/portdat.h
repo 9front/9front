@@ -476,11 +476,9 @@ struct Image
 struct Pgrp
 {
 	Ref;
-	Lock;
+	RWlock	ns;			/* Namespace n read/one write lock */
 	int	noattach;
 	ulong	pgrpid;
-	QLock	debug;			/* single access via devproc.c */
-	RWlock	ns;			/* Namespace n read/one write lock */
 	Mhead	*mnthash[MNTHASH];
 };
 
