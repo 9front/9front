@@ -6,6 +6,11 @@ void	usage(void);
 void	catch(void*, char*);
 
 char *keyspec = "";
+char *spec = "";
+int flag = MREPL;
+int qflag = 0;
+int noauth = 0;
+int asnone = 0;
 
 int
 amount0(int fd, char *mntpt, int flags, char *aname, char *keyspec)
@@ -30,10 +35,6 @@ amount0(int fd, char *mntpt, int flags, char *aname, char *keyspec)
 void
 main(int argc, char *argv[])
 {
-	char *spec;
-	ulong flag = 0;
-	int qflag = 0;
-	int noauth = 0;
 	int fd, rv;
 
 	ARGBEGIN{
@@ -52,6 +53,9 @@ main(int argc, char *argv[])
 	case 'k':
 		keyspec = EARGF(usage());
 		break;
+	case 'N':
+		asnone = 1;
+		/* no break */
 	case 'n':
 		noauth = 1;
 		break;
@@ -62,12 +66,9 @@ main(int argc, char *argv[])
 		usage();
 	}ARGEND
 
-	spec = 0;
-	if(argc == 2)
-		spec = "";
-	else if(argc == 3)
+	if(argc == 3)
 		spec = argv[2];
-	else
+	else if(argc != 2)
 		usage();
 
 	if((flag&MAFTER)&&(flag&MBEFORE))
@@ -79,6 +80,16 @@ main(int argc, char *argv[])
 			exits(0);
 		fprint(2, "%s: can't open %s: %r\n", argv0, argv[0]);
 		exits("open");
+	}
+
+	if(asnone){
+		rv = open("#c/user", OWRITE);
+		if(rv < 0 || write(rv, "none", 4) != 4){
+			if(qflag)
+				exits(0);
+			fprint(2, "%s: can't become none: %r\n", argv0);
+			exits("becomenone");
+		}
 	}
 
 	notify(catch);
@@ -96,16 +107,15 @@ main(int argc, char *argv[])
 }
 
 void
-catch(void *x, char *m)
+catch(void *, char *m)
 {
-	USED(x);
-	fprint(2, "mount: %s\n", m);
+	fprint(2, "%s: %s\n", argv0, m);
 	exits(m);
 }
 
 void
 usage(void)
 {
-	fprint(2, "usage: mount [-a|-b] [-cnq] [-k keypattern] /srv/service dir [spec]\n");
+	fprint(2, "usage: mount [-a|-b] [-cCnNq] [-k keypattern] /srv/service dir [spec]\n");
 	exits("usage");
 }

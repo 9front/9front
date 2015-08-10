@@ -4,7 +4,7 @@ srv, srvold9p, 9fs, srvssh \- start network file service
 .SH SYNOPSIS
 .B srv
 [
-.B -abcCemnq
+.B -abcCemnNq
 ] [
 .B -s
 .I seconds
@@ -114,7 +114,8 @@ The
 .BR c ,
 .BR C ,
 and
-.B n
+.BR n ,
+.B N
 options are used to control the mount flags as in
 .I mount
 (see

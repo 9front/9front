@@ -10,12 +10,13 @@ void	rpc(int, int);
 void	post(char*, int);
 void	mountfs(char*, int);
 int	doauth = 1;
+int	asnone = 0;
 
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-abcCm] [net!]host [srvname [mtpt]]\n", argv0);
-	fprint(2, "    or %s -e [-abcCm] command [srvname [mtpt]]\n", argv0);
+	fprint(2, "usage: %s [-abcCmnNq] [net!]host [srvname [mtpt]]\n", argv0);
+	fprint(2, "    or %s -e [-abcCmnNq] command [srvname [mtpt]]\n", argv0);
 
 	exits("usage");
 }
@@ -106,6 +107,9 @@ main(int argc, char *argv[])
 		domount = 1;
 		reallymount = 1;
 		break;
+	case 'N':
+		asnone = 1;
+		/* no break */
 	case 'n':
 		doauth = 0;
 		break;
@@ -196,6 +200,15 @@ Again:
 Mount:
 	if(domount == 0 || reallymount == 0)
 		exits(0);
+
+	if(asnone){
+		try = open("#c/user", OWRITE);
+		if(try < 0 || write(try, "none", 4) != 4){
+			fprint(2, "srv %s: can't become none: %r\n", dest);
+			exits("becomenone");
+		}
+		try = 0;
+	}
 
 	if((!doauth && mount(fd, -1, mtpt, mountflag, "") < 0)
 	|| (doauth && amount(fd, mtpt, mountflag, "") < 0)){

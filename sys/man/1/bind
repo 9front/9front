@@ -144,7 +144,7 @@ operation fails.
 .PD
 .PP
 .I Mount
-takes two additional options.
+takes three additional options.
 The first,
 .B -k
 .IR keypattern ,
@@ -156,6 +156,11 @@ The second,
 causes
 .I mount
 to skip authentication entirely.
+The third,
+.BR -N ,
+skips authentication and specifies
+.B none
+as the username to the fileserver.
 .PP
 The
 .I spec
