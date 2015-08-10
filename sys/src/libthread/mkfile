@@ -72,10 +72,10 @@ UPDATE=mkfile\
 	$CFILES\
 	$SFILES\
 
+all:V:	$LIB sched.acid channel.acid
+
 spim.$O:	mips.c
 	$CC $CFLAGS -o $target mips.c
-
-all:V:	$LIB sched.acid channel.acid
 
 </sys/src/cmd/mksyslib
 
