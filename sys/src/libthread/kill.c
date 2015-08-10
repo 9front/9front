@@ -79,8 +79,20 @@ threadint(int id)
 static void
 tinterrupt(Proc *p, Thread *t)
 {
+	char buf[64];
+	int fd;
+
 	switch(t->state){
 	case Running:
+		snprint(buf, sizeof(buf), "/proc/%d/ctl", p->pid);
+		fd = open(buf, OWRITE|OCEXEC);
+		if(fd >= 0){
+			if(write(fd, "interrupt", 9) == 9){
+				close(fd);
+				break;
+			}
+			close(fd);
+		}
 		postnote(PNPROC, p->pid, "threadint");
 		break;
 	case Rendezvous:
