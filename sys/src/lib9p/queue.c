@@ -12,10 +12,10 @@ _reqqueueproc(void *v)
 	void (*f)(Req *);
 	int fd;
 	char *buf;
-	
+
 	q = v;
 	rfork(RFNOTEG);
-	
+
 	buf = smprint("/proc/%d/ctl", getpid());
 	fd = open(buf, OWRITE);
 	free(buf);
@@ -48,7 +48,7 @@ reqqueuecreate(void)
 	memset(q, 0, sizeof(*q));
 	q->l = q;
 	q->next = q->prev = q;
-	q->pid = threadpid(proccreate(_reqqueueproc, q, mainstacksize));
+	q->pid = proccreate(_reqqueueproc, q, mainstacksize);
 	return q;
 }
 
@@ -68,17 +68,9 @@ reqqueuepush(Reqqueue *q, Req *r, void (*f)(Req *))
 void
 reqqueueflush(Reqqueue *q, Req *r)
 {
-	char buf[128];
-	int fd;
-
 	qlock(q);
 	if(q->cur == r){
-		sprint(buf, "/proc/%d/ctl", q->pid);
-		fd = open(buf, OWRITE);
-		if(fd >= 0){
-			write(fd, "interrupt", 9);
-			close(fd);
-		}
+		threadint(q->pid);
 		q->flush++;
 		qunlock(q);
 	}else{
