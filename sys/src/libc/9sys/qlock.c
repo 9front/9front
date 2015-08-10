@@ -58,7 +58,6 @@ qlock(QLock *q)
 		return;
 	}
 
-
 	/* chain into waiting list */
 	mp = getqlp();
 	p = q->tail;
@@ -259,17 +258,19 @@ wunlock(RWLock *q)
 	if(p->state != QueuingR)
 		abort();
 
-	/* wake waiting readers */
-	while(q->head != nil && q->head->state == QueuingR){
-		p = q->head;
+	q->writer = 0;
+	do {
+		/* wake waiting readers */
 		q->head = p->next;
+		if(q->head == nil)
+			q->tail = nil;
 		q->readers++;
+		unlock(&q->lock);
 		while((*_rendezvousp)(p, 0) == (void*)~0)
 			;
-	}
-	if(q->head == nil)
-		q->tail = nil;
-	q->writer = 0;
+		lock(&q->lock);
+		p = q->head;
+	} while(p != nil && p->state == QueuingR && q->writer == 0);
 	unlock(&q->lock);
 }
 
