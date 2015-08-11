@@ -81,11 +81,24 @@ givebuf(BufReq req, Buf *b)
 {
 	Buf *c, *l;
 
-	markbusy(b);
+	assert(!b->busy);
 	if(req.d == b->d && req.off == b->off){
+		markbusy(b);
 		send(req.resp, &b);
 		return;
 	}
+	l = &req.d->buf[req.off & BUFHASH];
+	for(c = l->dnext; c != l; c = c->dnext)
+		if(c->off == req.off){
+			if(c->busy){
+				delayreq(req, &c->next, &c->last);
+				return;
+			}
+			markbusy(c);
+			send(req.resp, &c);
+			return;
+		}
+	markbusy(b);
 	if(b->op & BDELWRI){
 		b->op &= ~BDELWRI;
 		b->op |= BWRITE;
@@ -94,10 +107,6 @@ givebuf(BufReq req, Buf *b)
 		work(b->d, b);
 		return;
 	}
-	l = &req.d->buf[req.off & BUFHASH];
-	for(c = l->dnext; c != l; c = c->dnext)
-		if(c->off == req.off)
-			abort();
 	changedev(b, req.d, req.off);
 	b->op &= ~(BWRITE|BDELWRI|BWRIM);
 	if(req.nodata)
@@ -106,6 +115,19 @@ givebuf(BufReq req, Buf *b)
 		b->resp = req.resp;
 		work(b->d, b);
 	}
+}
+
+static void
+handleget(BufReq req)
+{
+	Buf *b;
+	
+	b = bfree.fnext;
+	if(b == &bfree){
+		delayreq(req, &freereq, &freereqlast);
+		return;
+	}
+	givebuf(req, b);
 }
 
 static void
@@ -119,31 +141,6 @@ undelayreq(Buf *b, BufReq **first, BufReq **last)
 		*last = nil;
 	givebuf(*r, b);
 	free(r);
-}
-
-static void
-handleget(BufReq req)
-{
-	Buf *b, *l;
-	Dev *d;
-	
-	d = req.d;
-	l = &d->buf[req.off & BUFHASH];
-	for(b = l->dnext; b != l; b = b->dnext)
-		if(b->off == req.off){
-			if(b->busy){
-				delayreq(req, &b->next, &b->last);
-				return;
-			}
-			givebuf(req, b);
-			return;
-		}
-	if(bfree.fnext == &bfree){
-		delayreq(req, &freereq, &freereqlast);
-		return;
-	}
-	b = bfree.fnext;
-	givebuf(req, b);
 }
 
 static void
