@@ -54,14 +54,26 @@ delayreq(BufReq req, BufReq **first, BufReq **last)
 	BufReq *r;
 
 	r = emalloc(sizeof(*r));
-	memcpy(r, &req, sizeof(*r));
+	*r = req;
 	r->next = nil;
 	if(*first == nil)
-		*first = *last = r;
-	else{
+		*first = r;
+	else
 		(*last)->next = r;
-		*last = r;
-	}
+	*last = r;
+}
+
+static BufReq
+undelayreq(BufReq **first, BufReq **last)
+{
+	BufReq r;
+	
+	r = **first;
+	free(*first);
+	*first = r.next;
+	if(r.next == nil)
+		*last = nil;
+	return r;
 }
 
 static void
@@ -81,7 +93,7 @@ givebuf(BufReq req, Buf *b)
 {
 	Buf *c, *l;
 
-	assert(!b->busy);
+again:
 	if(req.d == b->d && req.off == b->off){
 		markbusy(b);
 		send(req.resp, &b);
@@ -90,19 +102,30 @@ givebuf(BufReq req, Buf *b)
 	l = &req.d->buf[req.off & BUFHASH];
 	for(c = l->dnext; c != l; c = c->dnext)
 		if(c->off == req.off){
-			if(c->busy){
+			if(c->busy)
 				delayreq(req, &c->next, &c->last);
-				return;
+			else{
+				markbusy(c);
+				send(req.resp, &c);
 			}
-			markbusy(c);
-			send(req.resp, &c);
-			return;
+			if(b->next == nil)
+				return;
+			req = undelayreq(&b->next, &b->last);
+			goto again;
 		}
+	if(b->next != nil){
+		givebuf(undelayreq(&b->next, &b->last), b);
+		b = bfree.fnext;
+	}
+	if(b == &bfree){
+		delayreq(req, &freereq, &freereqlast);
+		return;
+	}
 	markbusy(b);
-	if(b->op & BDELWRI){
+	if(b->d != nil && b->op & BDELWRI){
+		delayreq(req, &b->next, &b->last);
 		b->op &= ~BDELWRI;
 		b->op |= BWRITE;
-		delayreq(req, &b->next, &b->last);
 		b->resp = putb;
 		work(b->d, b);
 		return;
@@ -120,27 +143,7 @@ givebuf(BufReq req, Buf *b)
 static void
 handleget(BufReq req)
 {
-	Buf *b;
-	
-	b = bfree.fnext;
-	if(b == &bfree){
-		delayreq(req, &freereq, &freereqlast);
-		return;
-	}
-	givebuf(req, b);
-}
-
-static void
-undelayreq(Buf *b, BufReq **first, BufReq **last)
-{
-	BufReq *r;
-	
-	r = *first;
-	*first = r->next;
-	if(*last == r)
-		*last = nil;
-	givebuf(*r, b);
-	free(r);
+	givebuf(req, bfree.fnext);
 }
 
 static void
@@ -161,9 +164,9 @@ handleput(Buf *b)
 	b->op &= ~BWRITE;
 	markfree(b);
 	if(b->next != nil)
-		undelayreq(b, &b->next, &b->last);
+		givebuf(undelayreq(&b->next, &b->last), b);
 	else if(freereq != nil)
-		undelayreq(b, &freereq, &freereqlast);
+		givebuf(undelayreq(&freereq, &freereqlast), b);
 }
 
 static void
