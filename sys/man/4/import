@@ -85,7 +85,7 @@ backwards mode.
 Run in ``backwards'' mode, described below.
 .TP
 .B -E \fIenc
-Push an authentication protocol on its network connection.
+Push an encryption protocol on its network connection.
 The supported protocols are
 .B clear
 (the default, no protocol)
@@ -95,9 +95,9 @@ There are plans to make
 .B tls
 available.
 .TP
-.B -e '\fIenc auth\fR'
-Specify the encryption and authentication algorithms to use for
-encrypting the wire traffic
+.B -e '\fIenc hash\fR'
+Specify the encryption and hash algorithms to use for
+encrypting and authenticating the wire traffic
 (see
 .IR ssl (3)).
 The defaults are
