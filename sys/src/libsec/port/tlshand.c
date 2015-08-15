@@ -163,10 +163,11 @@ typedef struct TlsSec{
 
 
 enum {
-	TLSVersion = 0x0301,
-	SSL3Version = 0x0300,
-	ProtocolVersion = 0x0301,	// maximum version we speak
-	MinProtoVersion = 0x0300,	// limits on version we accept
+	SSL3Version	= 0x0300,
+	TLS10Version	= 0x0301,
+	TLS11Version	= 0x0302,
+	ProtocolVersion	= TLS11Version,	// maximum version we speak
+	MinProtoVersion	= 0x0300,	// limits on version we accept
 	MaxProtoVersion	= 0x03ff,
 };
 
@@ -591,9 +592,8 @@ tlsServer2(int ctl, int hand, uchar *cert, int certlen, int (*trace)(char*fmt, .
 		tlsError(c, EUnexpectedMessage, "expected a client hello");
 		goto Err;
 	}
-	c->clientVersion = m.u.clientHello.version;
 	if(trace)
-		trace("ClientHello version %x\n", c->clientVersion);
+		trace("ClientHello version %x\n", m.u.clientHello.version);
 	if(setVersion(c, m.u.clientHello.version) < 0) {
 		tlsError(c, EIllegalParameter, "incompatible version");
 		goto Err;
@@ -970,7 +970,6 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 	c->sec = tlsSecInitc(c->clientVersion, c->crandom);
 	if(c->sec == nil)
 		goto Err;
-
 	/* client hello */
 	memset(&m, 0, sizeof(m));
 	m.tag = HClientHello;
@@ -1932,11 +1931,10 @@ setVersion(TlsConnection *c, int version)
 	if(version == SSL3Version) {
 		c->version = version;
 		c->finished.n = SSL3FinishedLen;
-	}else if(version == TLSVersion){
+	}else {
 		c->version = version;
 		c->finished.n = TLSFinishedLen;
-	}else
-		return -1;
+	}
 	c->verset = 1;
 	return fprint(c->ctl, "version 0x%x", version);
 }
@@ -2416,13 +2414,10 @@ setVers(TlsSec *sec, int v)
 		sec->setFinished = sslSetFinished;
 		sec->nfin = SSL3FinishedLen;
 		sec->prf = sslPRF;
-	}else if(v == TLSVersion){
+	}else{
 		sec->setFinished = tlsSetFinished;
 		sec->nfin = TLSFinishedLen;
 		sec->prf = tlsPRF;
-	}else{
-		werrstr("invalid version");
-		return -1;
 	}
 	sec->vers = v;
 	return 0;
