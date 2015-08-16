@@ -73,7 +73,11 @@ void I_ShutdownGraphics(void)
 
 void I_SetPalette(byte *palette)
 {
-	memcpy(cmap, palette, 3*256);
+	uchar *c;
+
+	c = cmap;
+	while(c < cmap+3*256)
+		*c++ = gammatable[usegamma][*palette++];
 }
 
 void I_UpdateNoBlit(void)
