@@ -182,6 +182,7 @@ image_render_interpolate(gx_image_enum * penum, const byte * buffer,
     stream_cursor_write w;
     byte *out = penum->line;
 
+
     if (h != 0) {
 	/* Convert the unpacked data to concrete values in */
 	/* the source buffer. */
@@ -203,7 +204,7 @@ image_render_interpolate(gx_image_enum * penum, const byte * buffer,
 		for (i = 0; i < pss->params.WidthIn; p -= c, q += c, ++i)
 		    memcpy(q, p, c);
 		r.ptr = out - 1;
-		out = q;
+		out += round_up(pss->params.WidthIn * c, align_bitmap_mod);
 	    }
 	} else {
 	    /* Messy case: concretize each sample. */
