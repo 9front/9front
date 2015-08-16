@@ -587,6 +587,7 @@ align(long i, Type *t, int op)
 	case Aaut3:	/* total allign of automatic */
 		o = align(o, t, Ael1);
 		o = align(o, t, Ael2);
+		w = SZ_LONG;
 		break;
 	}
 	o = round(o, w);
