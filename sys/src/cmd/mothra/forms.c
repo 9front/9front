@@ -186,7 +186,8 @@ void rdform(Hglob *g){
 			s=pl_getattr(g->attr, "alt");
 			if(s==0 || *s == 0) s = f->value;
 			pl_htmloutput(g, g->nsp, s, f);
-			g->state->image[0] = 0;
+			free(g->state->image);
+			g->state->image = 0;
 			g->state->width=0;
 			g->state->height=0;
 			break;
