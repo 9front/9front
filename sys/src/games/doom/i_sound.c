@@ -430,6 +430,7 @@ addsfx(int id, int vol, int step, int sep)
 
 	/* Preserve sound SFX id,
 	**  e.g. for avoiding duplicates of chainsaw.
+	*/
 	channelids[slot] = id;
 
 	/* You tell me. */
