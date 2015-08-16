@@ -1417,12 +1417,14 @@ nuxiinit(void)
 		if(i < 1)
 			inuxi1[i] = c;
 		inuxi4[i] = c;
-		inuxi8[i] = c;
-		inuxi8[i+4] = c+4;
 		fnuxi4[i] = c;
 		fnuxi8[i] = c;
 		fnuxi8[i+4] = c+4;
 	}
+
+	for(i=0; i<8; i++)
+		inuxi8[i] = find1v(0x0807060504030201LL, i+1);
+
 	if(debug['v']) {
 		Bprint(&bso, "inuxi = ");
 		for(i=0; i<1; i++)
@@ -1455,6 +1457,19 @@ find1(long l, int c)
 
 	p = (char*)&l;
 	for(i=0; i<4; i++)
+		if(*p++ == c)
+			return i;
+	return 0;
+}
+
+int
+find1v(vlong l, int c)
+{
+	char *p;
+	int i;
+
+	p = (char*)&l;
+	for(i=0; i<8; i++)
 		if(*p++ == c)
 			return i;
 	return 0;

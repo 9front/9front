@@ -354,6 +354,7 @@ vlong	entryvalue(void);
 void	errorexit(void);
 void	export(void);
 int	find1(long, int);
+int	find1v(vlong, int);
 int	find2(long, int);
 void	follow(void);
 void	gethunk(void);
