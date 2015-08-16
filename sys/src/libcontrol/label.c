@@ -65,6 +65,7 @@ labelfree(Control *c)
 	_putctlimage(l->image);
 	_putctlimage(l->textcolor);
 	_putctlimage(l->bordercolor);
+	free(l->text);
 }
 
 
