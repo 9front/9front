@@ -249,6 +249,8 @@ The commands are
 (restore a hidden window),
 .B current
 (make the window the recipient of keyboard and mouse input),
+.B delete
+(close the window and terminate its associated processes)
 and
 .B new
 (make a new window).
