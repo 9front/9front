@@ -592,9 +592,10 @@ tlsServer2(int ctl, int hand, uchar *cert, int certlen, int (*trace)(char*fmt, .
 		tlsError(c, EUnexpectedMessage, "expected a client hello");
 		goto Err;
 	}
+	c->clientVersion = m.u.clientHello.version;
 	if(trace)
-		trace("ClientHello version %x\n", m.u.clientHello.version);
-	if(setVersion(c, m.u.clientHello.version) < 0) {
+		trace("ClientHello version %x\n", c->clientVersion);
+	if(setVersion(c, c->clientVersion) < 0) {
 		tlsError(c, EIllegalParameter, "incompatible version");
 		goto Err;
 	}
