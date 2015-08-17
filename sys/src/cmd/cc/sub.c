@@ -914,6 +914,10 @@ loop:
 	case ONOT:
 	case OADDR:
 	case OIND:
+	case OCOM:
+	case ONEG:
+	case OPOS:
+	case OTST:
 		n = n->left;
 		goto loop;
 
