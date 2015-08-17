@@ -1,3 +1,4 @@
+app
 cloud
 grid
 base
@@ -15,6 +16,7 @@ NoSQL |
 cache
 persistence |
 self-signing |
+deep-learning |
 scripting |
 template
 realtime |
@@ -84,6 +86,7 @@ general-purpose |
 out-scaling |
 generic ^
 mobile ^
+responsive ^
 property |
 secure ^
 overflow-preventing ^
