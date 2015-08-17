@@ -172,7 +172,7 @@ enum {
 	TLS10Version	= 0x0301,
 	TLS11Version	= 0x0302,
 	TLS12Version	= 0x0303,
-	ProtocolVersion	= TLS11Version,	// maximum version we speak (server)
+	ProtocolVersion	= TLS12Version,	// maximum version we speak
 	MinProtoVersion	= 0x0300,	// limits on version we accept
 	MaxProtoVersion	= 0x03ff,
 };
@@ -280,19 +280,18 @@ enum {
 };
 
 static Algs cipherAlgs[] = {
-	{"rc4_128", "md5",	2 * (16 + MD5dlen), TLS_RSA_WITH_RC4_128_MD5},
-	{"rc4_128", "sha1",	2 * (16 + SHA1dlen), TLS_RSA_WITH_RC4_128_SHA},
-	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_RSA_WITH_3DES_EDE_CBC_SHA},
-	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA},
-	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_RSA_WITH_AES_128_CBC_SHA},
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_RSA_WITH_AES_256_CBC_SHA},
-	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_128_CBC_SHA},
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_256_CBC_SHA},
-
-	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA},
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
-	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA},
 	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA},
+	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA},
+	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
+	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA},
+	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_256_CBC_SHA},
+	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_128_CBC_SHA},
+	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_RSA_WITH_AES_256_CBC_SHA},
+	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_RSA_WITH_AES_128_CBC_SHA},
+	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA},
+	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_RSA_WITH_3DES_EDE_CBC_SHA},
+	{"rc4_128", "sha1",	2*(16+SHA1dlen), TLS_RSA_WITH_RC4_128_SHA},
+	{"rc4_128", "md5",	2*(16+MD5dlen), TLS_RSA_WITH_RC4_128_MD5},
 };
 
 static uchar compressors[] = {
@@ -968,10 +967,10 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 		return nil;
 	epm = nil;
 	c = emalloc(sizeof(TlsConnection));
-	c->version = TLS12Version;
+	c->version = ProtocolVersion;
 
 	// client certificate signature not implemented for TLS1.2
-	if(cert != nil && certlen > 0)
+	if(cert != nil && certlen > 0 && c->version >= TLS12Version)
 		c->version = TLS11Version;
 
 	c->ctl = ctl;
