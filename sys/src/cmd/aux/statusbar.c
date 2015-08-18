@@ -204,7 +204,7 @@ main(int argc, char **argv)
 		textmode = 1;
 		rbar = Rect(0, 0, 60, 1);
 	}else{
-		if(initdraw(0, 0, "bar") < 0)
+		if(initdraw(0, 0, title) < 0)
 			exits("initdraw");
 		initcolor();
 		einit(Emouse|Ekeyboard);
