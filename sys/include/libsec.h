@@ -456,3 +456,6 @@ mpint* dh_new(DHstate *dh, mpint *p, mpint *g);
 
 /* calculate shared key: k = pub ^ x % p */
 mpint* dh_finish(DHstate *dh, mpint *pub);
+
+/* password-based key derivation function 2 (RFC 2898) */
+void pbkdf2_hmac_sha1(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen);
