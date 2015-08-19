@@ -208,7 +208,7 @@ apopclose(Fsstate *fss)
 static int
 dochal(State *s)
 {
-	char *dom, *user, trbuf[TICKREQLEN];
+	char *dom, *user;
 	int n;
 
 	s->asfd = -1;
@@ -228,13 +228,11 @@ dochal(State *s)
 		goto err;
 
 	memset(&s->tr, 0, sizeof(s->tr));
-	s->tr.type = s->astype;
 	safecpy(s->tr.authdom, dom, sizeof s->tr.authdom);
 	safecpy(s->tr.hostid, user, sizeof(s->tr.hostid));
-	convTR2M(&s->tr, trbuf);
-
+	s->tr.type = s->astype;
 	alarm(30*1000);
-	if(write(s->asfd, trbuf, TICKREQLEN) != TICKREQLEN){
+	if(_asrequest(s->asfd, &s->tr) < 0){
 		alarm(0);
 		goto err;
 	}
@@ -254,8 +252,6 @@ err:
 static int
 doreply(State *s, char *user, char *response)
 {
-	char ticket[TICKETLEN+AUTHENTLEN];
-	char trbuf[TICKREQLEN];
 	int n;
 	Authenticator a;
 
@@ -267,21 +263,16 @@ doreply(State *s, char *user, char *response)
 
 	memrandom(s->tr.chal, CHALLEN);
 	safecpy(s->tr.uid, user, sizeof(s->tr.uid));
-	convTR2M(&s->tr, trbuf);
 	alarm(30*1000);
-	if((n=write(s->asfd, trbuf, TICKREQLEN)) != TICKREQLEN){
+	if(_asrequest(s->asfd, &s->tr) < 0){
 		alarm(0);
-		if(n >= 0)
-			werrstr("short write to auth server");
 		goto err;
 	}
-	if((n=write(s->asfd, response, MD5dlen*2)) != MD5dlen*2){
+	if(write(s->asfd, response, MD5dlen*2) != MD5dlen*2){
 		alarm(0);
-		if(n >= 0)
-			werrstr("short write to auth server");
 		goto err;
 	}
-	n = _asrdresp(s->asfd, ticket, TICKETLEN+AUTHENTLEN);
+	n = _asgetresp(s->asfd, &s->t, &a, (Authkey*)s->key->priv);
 	alarm(0);
 	if(n < 0){
 		/* leave connection open so we can try again */
@@ -290,7 +281,6 @@ doreply(State *s, char *user, char *response)
 	close(s->asfd);
 	s->asfd = -1;
 
-	convM2T(ticket, &s->t, (char*)s->key->priv);
 	if(s->t.num != AuthTs
 	|| memcmp(s->t.chal, s->tr.chal, sizeof(s->t.chal)) != 0){
 		if(s->key->successes == 0)
@@ -299,14 +289,12 @@ doreply(State *s, char *user, char *response)
 		goto err;
 	}
 	s->key->successes++;
-	convM2A(ticket+TICKETLEN, &a, s->t.key);
 	if(a.num != AuthAc
 	|| memcmp(a.chal, s->tr.chal, sizeof(a.chal)) != 0
 	|| a.id != 0){
 		werrstr(Easproto);
 		goto err;
 	}
-
 	return 0;
 err:
 	if(s->asfd >= 0)

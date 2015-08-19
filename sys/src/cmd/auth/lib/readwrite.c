@@ -33,7 +33,7 @@ writefile(char *file, char *buf, int n)
 }
 
 char*
-findkey(char *db, char *user, char *key)
+finddeskey(char *db, char *user, char *key)
 {
 	int n;
 	char filename[Maxpath];
@@ -44,6 +44,13 @@ findkey(char *db, char *user, char *key)
 		return 0;
 	else
 		return key;
+}
+
+int
+findkey(char *db, char *user, Authkey *key)
+{
+	memset(key, 0, sizeof(Authkey));
+	return finddeskey(db, user, key->des) != nil;
 }
 
 char*
@@ -62,7 +69,7 @@ findsecret(char *db, char *user, char *secret)
 }
 
 char*
-setkey(char *db, char *user, char *key)
+setdeskey(char *db, char *user, char *key)
 {
 	int n;
 	char filename[Maxpath];
@@ -73,6 +80,12 @@ setkey(char *db, char *user, char *key)
 		return 0;
 	else
 		return key;
+}
+
+int
+setkey(char *db, char *user, Authkey *key)
+{
+	return setdeskey(db, user, key->des) != nil;
 }
 
 char*

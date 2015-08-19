@@ -8,16 +8,24 @@
 #define	LONG(x)		VLONG(f->x)
 #define	STRING(x,n)	memmove(f->x, p, n); p += n
 
-void
-convM2A(char *ap, Authenticator *f, char *key)
+int
+convM2A(char *ap, int n, Authenticator *f, Ticket *t)
 {
-	uchar *p;
+	uchar *p, buf[AUTHENTLEN];
 
-	if(key)
-		decrypt(key, ap, AUTHENTLEN);
+	memset(f, 0, sizeof(Authenticator));
+	if(n < AUTHENTLEN)
+		return -AUTHENTLEN;
+
+	if(t) {
+		memmove(buf, ap, AUTHENTLEN);
+		ap = (char*)buf;
+		decrypt(t->key, ap, AUTHENTLEN);
+	}
 	p = (uchar*)ap;
 	CHAR(num);
 	STRING(chal, CHALLEN);
 	LONG(id);
-	USED(p);
+	n = p - (uchar*)ap;
+	return n;
 }

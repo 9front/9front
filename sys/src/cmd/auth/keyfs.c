@@ -13,7 +13,7 @@
 
 #pragma	varargck	type	"W"	char*
 
-char authkey[8];
+Authkey authkey;
 
 typedef struct Fid	Fid;
 typedef struct User	User;
@@ -170,9 +170,9 @@ main(int argc, char *argv[])
 		error("can't make pipe: %r");
 
 	if(usepass) {
-		getpass(authkey, nil, 0, 0);
+		getpass(&authkey, nil, 0, 0);
 	} else {
-		if(!getauthkey(authkey))
+		if(!getauthkey(&authkey))
 			print("keyfs: warning: can't read NVRAM\n");
 	}
 
@@ -690,7 +690,7 @@ passline(Biobuf *b, void *vbuf)
 
 	if(Bread(b, buf, KEYDBLEN) != KEYDBLEN)
 		return 0;
-	decrypt(authkey, buf, KEYDBLEN);
+	decrypt(authkey.des, buf, KEYDBLEN);
 	buf[Namelen-1] = '\0';
 	return 1;
 }
@@ -780,7 +780,7 @@ writeusers(void)
 		}
 
 	/* encrypt */
-	oldCBCencrypt(authkey, buf, p - buf);
+	oldCBCencrypt(authkey.des, buf, p - buf);
 
 	/* write file */
 	fd = create(userkeys, OWRITE, 0660);
@@ -888,7 +888,7 @@ readusers(void)
 
 	/* decrypt */
 	n -= n % KEYDBLEN;
-	oldCBCdecrypt(authkey, buf, n);
+	oldCBCdecrypt(authkey.des, buf, n);
 
 	/* unpack */
 	nu = 0;

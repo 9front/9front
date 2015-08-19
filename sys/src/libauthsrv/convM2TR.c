@@ -8,10 +8,14 @@
 #define	LONG(x)		VLONG(f->x)
 #define	STRING(x,n)	memmove(f->x, p, n); p += n
 
-void
-convM2TR(char *ap, Ticketreq *f)
+int
+convM2TR(char *ap, int n, Ticketreq *f)
 {
 	uchar *p;
+
+	memset(f, 0, sizeof(Ticketreq));
+	if(n < TICKREQLEN)
+		return -TICKREQLEN;
 
 	p = (uchar*)ap;
 	CHAR(type);
@@ -24,5 +28,6 @@ convM2TR(char *ap, Ticketreq *f)
 	f->hostid[ANAMELEN-1] = 0;
 	STRING(uid, ANAMELEN);
 	f->uid[ANAMELEN-1] = 0;
-	USED(p);
+	n = p - (uchar*)ap;
+	return n;
 }

@@ -12,6 +12,8 @@ typedef struct	Passwordreq	Passwordreq;
 typedef struct	OChapreply	OChapreply;
 typedef struct	OMSchapreply	OMSchapreply;
 
+typedef struct	Authkey		Authkey;
+
 enum
 {
 	ANAMELEN=	28,	/* name max size in previous proto */
@@ -110,22 +112,27 @@ struct	OMSchapreply
 };
 #define OMSCHAPREPLYLEN	(ANAMELEN+24+24)
 
+struct	Authkey
+{
+	char	des[DESKEYLEN];
+};
+
 /*
  *  convert to/from wire format
  */
-extern	int	convT2M(Ticket*, char*, char*);
-extern	void	convM2T(char*, Ticket*, char*);
-extern	int	convA2M(Authenticator*, char*, char*);
-extern	void	convM2A(char*, Authenticator*, char*);
-extern	int	convTR2M(Ticketreq*, char*);
-extern	void	convM2TR(char*, Ticketreq*);
-extern	int	convPR2M(Passwordreq*, char*, char*);
-extern	void	convM2PR(char*, Passwordreq*, char*);
+extern	int	convT2M(Ticket*, char*, int, Authkey*);
+extern	int	convM2T(char*, int, Ticket*, Authkey*);
+extern	int	convA2M(Authenticator*, char*, int, Ticket*);
+extern	int	convM2A(char*, int, Authenticator*, Ticket*);
+extern	int	convTR2M(Ticketreq*, char*, int);
+extern	int	convM2TR(char*, int, Ticketreq*);
+extern	int	convPR2M(Passwordreq*, char*, int, Ticket*);
+extern	int	convM2PR(char*, int, Passwordreq*, Ticket*);
 
 /*
  *  convert ascii password to DES key
  */
-extern	int	passtokey(char*, char*);
+extern	int	passtokey(Authkey*, char*);
 
 /*
  *  Nvram interface
@@ -167,5 +174,7 @@ extern	int	authdial(char *netroot, char *authdom);
 /*
  *  exchange messages with auth server
  */
-extern	int	_asgetticket(int, char*, char*);
+extern	int	_asgetticket(int, Ticketreq*, char*, int);
+extern	int	_asrequest(int, Ticketreq*);
+extern	int	_asgetresp(int, Ticket*, Authenticator*, Authkey *);
 extern	int	_asrdresp(int, char*, int);

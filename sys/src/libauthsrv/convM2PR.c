@@ -8,14 +8,21 @@
 #define	LONG(x)		VLONG(f->x)
 #define	STRING(x,n)	memmove(f->x, p, n); p += n
 
-void
-convM2PR(char *ap, Passwordreq *f, char *key)
+int
+convM2PR(char *ap, int n, Passwordreq *f, Ticket *t)
 {
-	uchar *p;
+	uchar *p, buf[PASSREQLEN];
 
+	memset(f, 0, sizeof(Passwordreq));
+	if(n < PASSREQLEN)
+		return -PASSREQLEN;
+
+	if(t){
+		memmove(buf, ap, PASSREQLEN);
+		ap = (char*)buf;
+		decrypt(t->key, ap, PASSREQLEN);
+	}
 	p = (uchar*)ap;
-	if(key)
-		decrypt(key, ap, PASSREQLEN);
 	CHAR(num);
 	STRING(old, ANAMELEN);
 	f->old[ANAMELEN-1] = 0;
@@ -24,5 +31,6 @@ convM2PR(char *ap, Passwordreq *f, char *key)
 	CHAR(changesecret);
 	STRING(secret, SECRETLEN);
 	f->secret[SECRETLEN-1] = 0;
-	USED(p);
+	n = p - (uchar*)ap;
+	return n;
 }

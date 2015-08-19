@@ -5,7 +5,7 @@
 #include "authcmdlib.h"
 
 void
-getpass(char *key, char *pass, int check, int confirm)
+getpass(Authkey *key, char *pass, int check, int confirm)
 {
 	char rpass[32], npass[32];
 	char *err;

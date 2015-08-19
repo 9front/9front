@@ -17,9 +17,10 @@ getkey(char *authkey)
 }
 
 int
-getauthkey(char *authkey)
+getauthkey(Authkey *authkey)
 {
-	if(getkey(authkey) == 0)
+	memset(authkey, 0, sizeof(Authkey));
+	if(getkey(authkey->des) == 0)
 		return 1;
 	print("can't read NVRAM, please enter machine key\n");
 	getpass(authkey, nil, 0, 1);

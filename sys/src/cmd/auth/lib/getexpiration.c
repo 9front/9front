@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <ctype.h>
 #include <bio.h>
+#include <authsrv.h>
 #include "authcmdlib.h"
 
 /*

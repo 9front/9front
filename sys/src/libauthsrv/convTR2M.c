@@ -9,10 +9,12 @@
 #define	STRING(x,n)	memmove(p, f->x, n); p += n
 
 int
-convTR2M(Ticketreq *f, char *ap)
+convTR2M(Ticketreq *f, char *ap, int n)
 {
-	int n;
 	uchar *p;
+
+	if(n < TICKREQLEN)
+		return 0;
 
 	p = (uchar*)ap;
 	CHAR(type);
@@ -24,4 +26,3 @@ convTR2M(Ticketreq *f, char *ap)
 	n = p - (uchar*)ap;
 	return n;
 }
-

@@ -11,13 +11,13 @@
  * this was copied from inet's guard.
  */
 static void
-netresp(char *key, long chal, char *answer)
+netresp(Authkey *key, long chal, char *answer)
 {
 	uchar buf[8];
 
 	memset(buf, 0, sizeof buf);
 	snprint((char *)buf, sizeof buf, "%lud", chal);
-	if(encrypt(key, buf, 8) < 0)
+	if(encrypt(key->des, buf, 8) < 0)
 		abort();
 	sprint(answer, "%.8ux", buf[0]<<24 | buf[1]<<16 | buf[2]<<8 | buf[3]);
 }
@@ -25,7 +25,8 @@ netresp(char *key, long chal, char *answer)
 AuthInfo*
 auth_userpasswd(char *user, char *passwd)
 {
-	char key[DESKEYLEN], resp[16];
+	char resp[16];
+	Authkey key;
 	AuthInfo *ai;
 	Chalstate *ch;
 
@@ -37,9 +38,9 @@ auth_userpasswd(char *user, char *passwd)
 	if((ch = auth_challenge("user=%q proto=p9cr role=server", user)) == nil)
 		return nil;
 
-	passtokey(key, passwd);
-	netresp(key, atol(ch->chal), resp);
-	memset(key, 0, sizeof key);
+	passtokey(&key, passwd);
+	netresp(&key, atol(ch->chal), resp);
+	memset(&key, 0, sizeof(Authkey));
 
 	ch->resp = resp;
 	ch->nresp = strlen(resp);

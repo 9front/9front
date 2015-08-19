@@ -292,11 +292,14 @@ readnvram(Nvrsafe *safep, int flag)
 			readcons("secstore key", nil, 1, safe->config,
 					sizeof safe->config);
 			for(;;){
-				if(readcons("password", nil, 1, in, sizeof in)
-				    == nil)
+				Authkey k;
+
+				if(readcons("password", nil, 1, in, sizeof in) == nil)
 					goto Out;
-				if(passtokey(safe->machkey, in))
+				if(passtokey(&k, in)){
+					memmove(safe->machkey, k.des, DESKEYLEN);
 					break;
+				}
 			}
 		}
 

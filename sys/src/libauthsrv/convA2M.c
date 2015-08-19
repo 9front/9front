@@ -9,17 +9,19 @@
 #define	STRING(x,n)	memmove(p, f->x, n); p += n
 
 int
-convA2M(Authenticator *f, char *ap, char *key)
+convA2M(Authenticator *f, char *ap, int n, Ticket *t)
 {
-	int n;
 	uchar *p;
+
+	if(n < AUTHENTLEN)
+		return 0;
 
 	p = (uchar*)ap;
 	CHAR(num);
 	STRING(chal, CHALLEN);
 	LONG(id);
 	n = p - (uchar*)ap;
-	if(key)
-		encrypt(key, ap, n);
+	if(t)
+		encrypt(t->key, ap, n);
 	return n;
 }

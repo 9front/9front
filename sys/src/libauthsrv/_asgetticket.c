@@ -5,11 +5,13 @@
 static char *pbmsg = "AS protocol botch";
 
 int
-_asgetticket(int fd, char *trbuf, char *tbuf)
+_asgetticket(int fd, Ticketreq *tr, char *tbuf, int tbuflen)
 {
-	if(write(fd, trbuf, TICKREQLEN) < 0){
+	if(_asrequest(fd, tr) < 0){
 		werrstr(pbmsg);
 		return -1;
 	}
-	return _asrdresp(fd, tbuf, 2*TICKETLEN);
+	if(tbuflen > 2*TICKETLEN)
+		tbuflen = 2*TICKETLEN;
+	return _asrdresp(fd, tbuf, tbuflen);
 }

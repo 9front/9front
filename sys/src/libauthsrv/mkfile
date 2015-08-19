@@ -3,6 +3,8 @@
 LIB=/$objtype/lib/libauthsrv.a
 OFILES=\
 	_asgetticket.$O\
+	_asgetresp.$O\
+	_asrequest.$O\
 	_asrdresp.$O\
 	authdial.$O\
 	convA2M.$O\

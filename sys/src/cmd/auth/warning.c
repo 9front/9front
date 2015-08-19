@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <bio.h>
 #include <auth.h>
+#include <authsrv.h>
 #include "authcmdlib.h"
 
 /* working directory */

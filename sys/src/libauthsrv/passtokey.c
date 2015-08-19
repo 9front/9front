@@ -3,7 +3,7 @@
 #include <authsrv.h>
 
 int
-passtokey(char *key, char *p)
+passtokey(Authkey *key, char *p)
 {
 	uchar buf[ANAMELEN], *t;
 	int i, n;
@@ -15,10 +15,10 @@ passtokey(char *key, char *p)
 	t = buf;
 	strncpy((char*)t, p, n);
 	t[n] = 0;
-	memset(key, 0, DESKEYLEN);
+	memset(key, 0, sizeof(Authkey));
 	for(;;){
 		for(i = 0; i < DESKEYLEN; i++)
-			key[i] = (t[i] >> i) + (t[i+1] << (8 - (i+1)));
+			key->des[i] = (t[i] >> i) + (t[i+1] << (8 - (i+1)));
 		if(n <= 8)
 			return 1;
 		n -= 8;
@@ -27,6 +27,6 @@ passtokey(char *key, char *p)
 			t -= 8 - n;
 			n = 8;
 		}
-		encrypt(key, t, 8);
+		encrypt(key->des, t, 8);
 	}
 }

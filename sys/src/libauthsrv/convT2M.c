@@ -9,10 +9,12 @@
 #define	STRING(x,n)	memmove(p, f->x, n); p += n
 
 int
-convT2M(Ticket *f, char *ap, char *key)
+convT2M(Ticket *f, char *ap, int n, Authkey *key)
 {
-	int n;
 	uchar *p;
+
+	if(n < TICKETLEN)
+		return 0;
 
 	p = (uchar*)ap;
 	CHAR(num);
@@ -22,6 +24,6 @@ convT2M(Ticket *f, char *ap, char *key)
 	STRING(key, DESKEYLEN);
 	n = p - (uchar*)ap;
 	if(key)
-		encrypt(key, ap, n);
+		encrypt(key->des, ap, n);
 	return n;
 }

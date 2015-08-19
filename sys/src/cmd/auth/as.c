@@ -8,6 +8,7 @@
 #include <bio.h>
 #include <libsec.h>
 #include <auth.h>
+#include <authsrv.h>
 #include "authcmdlib.h"
 
 int	debug;

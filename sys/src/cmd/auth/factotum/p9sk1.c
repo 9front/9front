@@ -25,7 +25,7 @@ struct State
 	Ticketreq tr;
 	char cchal[CHALLEN];
 	char tbuf[TICKETLEN+AUTHENTLEN];
-	char authkey[DESKEYLEN];
+	int tbuflen;
 	uchar *secret;
 	int speakfor;
 };
@@ -60,7 +60,7 @@ static char *phasenames[Maxphase] =
 [SHaveAuth]		"SHaveAuth",
 };
 
-static int gettickets(State*, char*, char*);
+static int gettickets(State*, Ticketreq *, char*, int);
 
 static int
 p9skinit(Proto *p, Fsstate *fss)
@@ -119,6 +119,8 @@ p9skinit(Proto *p, Fsstate *fss)
 			break;
 		}
 	}
+	s->tbuflen = 0;
+	s->secret = nil;
 	fss->ps = s;
 	return RpcOk;
 }
@@ -147,13 +149,12 @@ p9skread(Fsstate *fss, void *a, uint *n)
 		m = TICKREQLEN;
 		if(*n < m)
 			return toosmall(fss, m);
-		*n = m;
-		convTR2M(&s->tr, a);
+		*n = convTR2M(&s->tr, a, *n);
 		fss->phase = SNeedTicket;
 		return RpcOk;
 
 	case CHaveTicket:
-		m = TICKETLEN+AUTHENTLEN;
+		m = s->tbuflen;
 		if(*n < m)
 			return toosmall(fss, m);
 		*n = m;
@@ -162,11 +163,11 @@ p9skread(Fsstate *fss, void *a, uint *n)
 		return RpcOk;
 
 	case SHaveAuth:
-		m = AUTHENTLEN;
+		m = s->tbuflen;
 		if(*n < m)
 			return toosmall(fss, m);
 		*n = m;
-		memmove(a, s->tbuf+TICKETLEN, m);
+		memmove(a, s->tbuf, m);
 		fss->ai.cuid = s->t.cuid;
 		fss->ai.suid = s->t.suid;
 		s->secret = emalloc(8);
@@ -183,7 +184,7 @@ static int
 p9skwrite(Fsstate *fss, void *a, uint n)
 {
 	int m, ret, sret;
-	char tbuf[2*TICKETLEN], trbuf[TICKREQLEN], *user;
+	char tbuf[2*TICKETLEN], *user;
 	Attr *attr;
 	Authenticator auth;
 	State *s;
@@ -204,12 +205,11 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 		return RpcOk;
 
 	case CNeedTreq:
-		m = TICKREQLEN;
-		if(n < m)
-			return toosmall(fss, m);
+		m = convM2TR(a, n, &s->tr);
+		if(m <= 0)
+			return toosmall(fss, -m);
 
 		/* remember server's chal */
-		convM2TR(a, &s->tr);
 		if(s->vers == 2)
 			memmove(s->cchal, s->tr.chal, CHALLEN);
 
@@ -263,15 +263,14 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 		else
 			safecpy(s->tr.uid, s->tr.hostid, sizeof s->tr.uid);
 
-		convTR2M(&s->tr, trbuf);
-
 		/* get tickets, from auth server or invent if we can */
-		if(gettickets(s, trbuf, tbuf) < 0){
+		ret = gettickets(s, &s->tr, tbuf, sizeof(tbuf));
+		if(ret < 0){
 			_freeattr(attr);
 			return failure(fss, nil);
 		}
 
-		convM2T(tbuf, &s->t, (char*)s->key->priv);
+		m = convM2T(tbuf, ret, &s->t, (Authkey*)s->key->priv);
 		if(s->t.num != AuthTc){
 			if(s->key->successes == 0 && !s->speakfor)
 				disablekey(s->key);
@@ -287,24 +286,27 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 		}
 		s->key->successes++;
 		_freeattr(attr);
-		memmove(s->tbuf, tbuf+TICKETLEN, TICKETLEN);
+		ret -= m;
+		memmove(s->tbuf, tbuf+m, ret);
 
 		auth.num = AuthAc;
 		memmove(auth.chal, s->tr.chal, CHALLEN);
 		auth.id = 0;
-		convA2M(&auth, s->tbuf+TICKETLEN, s->t.key);
+		ret += convA2M(&auth, s->tbuf+ret, sizeof(s->tbuf)-ret, &s->t);
+		s->tbuflen = ret;
 		fss->phase = CHaveTicket;
 		return RpcOk;
 
 	case SNeedTicket:
-		m = TICKETLEN+AUTHENTLEN;
-		if(n < m)
-			return toosmall(fss, m);
-		convM2T(a, &s->t, (char*)s->key->priv);
+		m = convM2T(a, n, &s->t, (Authkey*)s->key->priv);
+		if(m <= 0)
+			return toosmall(fss, -m);
 		if(s->t.num != AuthTs
 		|| memcmp(s->t.chal, s->tr.chal, CHALLEN) != 0)
 			return failure(fss, Easproto);
-		convM2A((char*)a+TICKETLEN, &auth, s->t.key);
+		ret = convM2A((char*)a+m, n-m, &auth, &s->t);
+		if(ret <= 0)
+			return toosmall(fss, -ret + m);
 		if(auth.num != AuthAc
 		|| memcmp(auth.chal, s->tr.chal, CHALLEN) != 0
 		|| auth.id != 0)
@@ -312,15 +314,14 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 		auth.num = AuthAs;
 		memmove(auth.chal, s->cchal, CHALLEN);
 		auth.id = 0;
-		convA2M(&auth, s->tbuf+TICKETLEN, s->t.key);
+		s->tbuflen = convA2M(&auth, s->tbuf, sizeof(s->tbuf), &s->t);
 		fss->phase = SHaveAuth;
 		return RpcOk;
 
 	case CNeedAuth:
-		m = AUTHENTLEN;
-		if(n < m)
-			return toosmall(fss, m);
-		convM2A(a, &auth, s->t.key);
+		m = convM2A(a, n, &auth, &s->t);
+		if(m <= 0)
+			return toosmall(fss, -m);
 		if(auth.num != AuthAs
 		|| memcmp(auth.chal, s->cchal, CHALLEN) != 0
 		|| auth.id != 0)
@@ -384,24 +385,24 @@ hexparse(char *hex, uchar *dat, int ndat)
 static int
 p9skaddkey(Key *k, int before)
 {
+	Authkey *akey;
 	char *s;
 
-	k->priv = emalloc(DESKEYLEN);
+	akey = emalloc(sizeof(Authkey));
 	if(s = _strfindattr(k->privattr, "!hex")){
-		if(hexparse(s, k->priv, 7) < 0){
-			free(k->priv);
-			k->priv = nil;
+		if(hexparse(s, (uchar*)akey->des, DESKEYLEN) < 0){
+			free(akey);
 			werrstr("malformed key data");
 			return -1;
 		}
 	}else if(s = _strfindattr(k->privattr, "!password")){
-		passtokey((char*)k->priv, s);
+		passtokey(akey, s);
 	}else{
 		werrstr("no key data");
-		free(k->priv);
-		k->priv = nil;
+		free(akey);
 		return -1;
 	}
+	k->priv = akey;
 	return replacekey(k, before);
 }
 
@@ -412,7 +413,7 @@ p9skclosekey(Key *k)
 }
 
 static int
-getastickets(State *s, char *trbuf, char *tbuf)
+getastickets(State *s, Ticketreq *tr, char *tbuf, int tbuflen)
 {
 	int asfd, rv;
 	char *dom;
@@ -425,17 +426,18 @@ getastickets(State *s, char *trbuf, char *tbuf)
 	if(asfd < 0)
 		return -1;
 	alarm(30*1000);
-	rv = _asgetticket(asfd, trbuf, tbuf);
+	rv = _asgetticket(asfd, tr, tbuf, tbuflen);
 	alarm(0);
 	close(asfd);
 	return rv;
 }
 
 static int
-mkserverticket(State *s, char *tbuf)
+mkserverticket(State *s, char *tbuf, int tbuflen)
 {
 	Ticketreq *tr = &s->tr;
 	Ticket t;
+	int ret;
 
 	if(strcmp(tr->authid, tr->hostid) != 0)
 		return -1;
@@ -449,22 +451,21 @@ mkserverticket(State *s, char *tbuf)
 	strcpy(t.suid, tr->uid);
 	memrandom(t.key, DESKEYLEN);
 	t.num = AuthTc;
-	convT2M(&t, tbuf, s->key->priv);
+	ret = convT2M(&t, tbuf, tbuflen, (Authkey*)s->key->priv);
 	t.num = AuthTs;
-	convT2M(&t, tbuf+TICKETLEN, s->key->priv);
-	return 0;
+	ret += convT2M(&t, tbuf+ret, tbuflen-ret, (Authkey*)s->key->priv);
+	return ret;
 }
 
 static int
-gettickets(State *s, char *trbuf, char *tbuf)
+gettickets(State *s, Ticketreq *tr, char *tbuf, int tbuflen)
 {
-/*
-	if(mktickets(s, trbuf, tbuf) >= 0)
-		return 0;
-*/
-	if(getastickets(s, trbuf, tbuf) >= 0)
-		return 0;
-	return mkserverticket(s, tbuf);
+	int ret;
+
+	ret = getastickets(s, tr, tbuf, tbuflen);
+	if(ret >= 0)
+		return ret;
+	return mkserverticket(s, tbuf, tbuflen);
 }
 
 Proto p9sk1 = {

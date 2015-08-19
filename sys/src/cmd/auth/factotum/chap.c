@@ -299,8 +299,7 @@ static int
 dochal(State *s)
 {
 	char *dom, *user;
-	char trbuf[TICKREQLEN];
-	int ret;
+	int n;
 
 	s->asfd = -1;
 
@@ -315,20 +314,17 @@ dochal(State *s)
 		goto err;
 	
 	memset(&s->tr, 0, sizeof(s->tr));
-	s->tr.type = s->astype;
 	safecpy(s->tr.authdom, dom, sizeof(s->tr.authdom));
 	safecpy(s->tr.hostid, user, sizeof(s->tr.hostid));
-	convTR2M(&s->tr, trbuf);
-
+	s->tr.type = s->astype;
 	alarm(30*1000);
-	if(write(s->asfd, trbuf, TICKREQLEN) != TICKREQLEN){
+	if(_asrequest(s->asfd, &s->tr) < 0){
 		alarm(0);
 		goto err;
 	}
-	/* readn, not _asrdresp.  needs to match auth.srv.c. */
-	ret = readn(s->asfd, s->chal, sizeof s->chal);
+	n = readn(s->asfd, s->chal, sizeof s->chal);
 	alarm(0);
-	if(ret != sizeof s->chal)
+	if(n != sizeof s->chal)
 		goto err;
 
 	return 0;
@@ -343,18 +339,16 @@ err:
 static int
 doreply(State *s, uchar *reply, int nreply)
 {
-	char ticket[TICKETLEN+AUTHENTLEN];
 	int n;
 	Authenticator a;
 
 	alarm(30*1000);
-	if((n=write(s->asfd, reply, nreply)) != nreply){
+	if(write(s->asfd, reply, nreply) != nreply){
 		alarm(0);
-		if(n >= 0)
-			werrstr("short write to auth server");
 		goto err;
 	}
-	if(_asrdresp(s->asfd, ticket, TICKETLEN+AUTHENTLEN) < 0){
+	n = _asgetresp(s->asfd, &s->t, &a, (Authkey*)s->key->priv);
+	if(n < 0){
 		alarm(0);
 		/* leave connection open so we can try again */
 		return -1;
@@ -365,7 +359,7 @@ doreply(State *s, uchar *reply, int nreply)
 		s->nsecret = 0;
 	close(s->asfd);
 	s->asfd = -1;
-	convM2T(ticket, &s->t, s->key->priv);
+
 	if(s->t.num != AuthTs
 	|| memcmp(s->t.chal, s->tr.chal, sizeof(s->t.chal)) != 0){
 		if(s->key->successes == 0)
@@ -374,14 +368,12 @@ doreply(State *s, uchar *reply, int nreply)
 		return -1;
 	}
 	s->key->successes++;
-	convM2A(ticket+TICKETLEN, &a, s->t.key);
 	if(a.num != AuthAc
 	|| memcmp(a.chal, s->tr.chal, sizeof(a.chal)) != 0
 	|| a.id != 0){
 		werrstr(Easproto);
 		return -1;
 	}
-
 	return 0;
 err:
 	if(s->asfd >= 0)

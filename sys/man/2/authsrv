@@ -1,6 +1,6 @@
 .TH AUTHSRV 2
 .SH NAME
-authdial, passtokey, nvcsum, readnvram, convT2M, convM2T, convTR2M, convM2TR, convA2M, convM2A, convPR2M, convM2PR, _asgetticket, _asrdresp \- routines for communicating with authentication servers
+authdial, passtokey, nvcsum, readnvram, convT2M, convM2T, convTR2M, convM2TR, convA2M, convM2A, convPR2M, convM2PR, _asgetticket, _asrequest, _asgetresp, _asrdresp \- routines for communicating with authentication servers
 .SH SYNOPSIS
 .nf
 .PP
@@ -15,7 +15,7 @@ authdial, passtokey, nvcsum, readnvram, convT2M, convM2T, convTR2M, convM2TR, co
 int	authdial(char *netroot, char *ad);
 .PP
 .B
-int	passtokey(char key[DESKEYLEN], char *password)
+int	passtokey(Authkey *key, char *password)
 .PP
 .B
 uchar	nvcsum(void *mem, int len)
@@ -24,34 +24,40 @@ uchar	nvcsum(void *mem, int len)
 int	readnvram(Nvrsafe *nv, int flag);
 .PPP
 .B
-int	convT2M(Ticket *t, char *msg, char *key)
+int	convT2M(Ticket *t, char *msg, int len, Authkey *key)
 .PP
 .B
-void	convM2T(char *msg, Ticket *t, char *key)
+int	convM2T(char *msg, int len, Ticket *t, Authkey *key)
 .PP
 .B
-int	convA2M(Authenticator *a, char *msg, char *key)
+int	convA2M(Authenticator *a, char *msg, int len, Ticket *t)
 .PP
 .B
-void	convM2A(char *msg, Authenticator *a, char *key)
+int	convM2A(char *msg, int len, Authenticator *a, Ticket *t)
 .PP
 .B
-int	convTR2M(Ticketreq *tr, char *msg)
+int	convTR2M(Ticketreq *tr, char *msg, int len)
 .PP
 .B
-void	convM2TR(char *msg, Ticketreq *tr)
+int	convM2TR(char *msg, int len, Ticketreq *tr)
 .PP
 .B
-int	convPR2M(Passwordreq *pr, char *msg, char *key)
+int	convPR2M(Passwordreq *pr, char *msg, int len, Ticket *t)
 .PP
 .B
-void	convM2PR(char *msg, Passwordreq *pr, char *key)
+int	convM2PR(char *msg, int len, Passwordreq *pr, Ticket *t)
 .PP
 .B
-int	_asgetticket(int fd, char *trbuf, char *tbuf);
+int	_asgetticket(int fd, Ticketreq *tr, char *buf, int len)
 .PP
 .B
-int	_asrdresp(int fd, char *buf, int len);
+int	_asrequest(int fd, Ticketreq *tr)
+.PP
+.B
+int	_asgetresp(int fd, Ticket *t, Authenticator *a, Authkey *key)
+.PP
+.B
+int	_asrdresp(int fd, char *buf, int len)
 .SH DESCRIPTION
 .I Authdial
 dials an authentication server over the
@@ -99,7 +105,9 @@ is used to make the call.
 .I Passtokey
 converts
 .I password
-into a DES key and stores the result in
+into a set of cryptographic keys and stores them in the
+.I Authkey
+structure
 .IR key .
 It returns 0 if
 .I password
@@ -213,18 +221,34 @@ are used to convert them back.
 .I Key
 is used for encrypting the message before transmission and decrypting
 after reception.
-.PP
-The routine
-.I _asgetresp
-receives either a character array or an error string.
-On error, it sets errstr and returns -1.  If successful,
-it returns the number of bytes received.
+.IR ConvA2M ,
+.IR convM2A ,
+.I convPR2M
+and
+.I convM2PR
+encrypt/decrypt the message with the random ticket key.
 .PP
 The routine
 .I _asgetticket
-sends a ticket request message and then uses
+sends a ticket request
+.I tr
+returning the two encrypted tickets in
+.IR buf .
+The routine
+.I _asrequest
+encodes the ticket request
+.I tr
+and sends it not waiting for a response.
+After sending a request,
 .I _asgetresp
-to recieve an answer.
+can be used to receive the response containing a ticket and an optional
+authenticator and decrypts the ticket and authenticator using
+.IR key .
+The routine
+.I _asrdresp
+receives either a character array or an error string.
+On error, it sets errstr and returns -1.  If successful,
+it returns the number of bytes received.
 .SH SOURCE
 .B /sys/src/libauthsrv
 .SH SEE ALSO

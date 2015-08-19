@@ -7,19 +7,19 @@
 #include <bio.h>
 #include "authcmdlib.h"
 
-char	authkey[DESKEYLEN];
+Authkey	authkey;
 int	verb;
 int	usepass;
 
-int	convert(char*, char*, int);
-int	dofcrypt(int, char*, char*, int);
+int	convert(char*, Authkey*, int);
 void	usage(void);
 
 void
 main(int argc, char *argv[])
 {
 	Dir *d;
-	char *p, *file, key[DESKEYLEN];
+	Authkey key;
+	char *p, *file;
 	int fd, len;
 
 	ARGBEGIN{
@@ -40,12 +40,12 @@ main(int argc, char *argv[])
 	/* get original key */
 	if(usepass){
 		print("enter password file is encoded with\n");
-		getpass(authkey, nil, 0, 1);
+		getpass(&authkey, nil, 0, 1);
 	} else
-		getauthkey(authkey);
+		getauthkey(&authkey);
 	if(!verb){
 		print("enter password to reencode with\n");
-		getpass(key, nil, 0, 1);
+		getpass(&key, nil, 0, 1);
 	}
 
 	fd = open(file, ORDWR);
@@ -60,7 +60,7 @@ main(int argc, char *argv[])
 		error("out of memory");
 	if(read(fd, p, len) != len)
 		error("can't read key file: %r\n");
-	len = convert(p, key, len);
+	len = convert(p, &key, len);
 	if(verb)
 		exits(0);
 	if(pwrite(fd, p, len, 0) != len)
@@ -128,7 +128,7 @@ badname(char *s)
 }
 
 int
-convert(char *p, char *key, int len)
+convert(char *p, Authkey *key, int len)
 {
 	int i;
 
@@ -139,7 +139,7 @@ convert(char *p, char *key, int len)
 		len -= len % KEYDBLEN;
 	}
 	len += KEYDBOFF;
-	oldCBCdecrypt(authkey, p, len);
+	oldCBCdecrypt(authkey.des, p, len);
 	for(i = KEYDBOFF; i < len; i += KEYDBLEN)
 		if (badname(&p[i])) {
 			print("bad name %.30s... - aborting\n", &p[i]);
@@ -150,7 +150,7 @@ convert(char *p, char *key, int len)
 			print("%s\n", &p[i]);
 
 	randombytes((uchar*)p, 8);
-	oldCBCencrypt(key, p, len);
+	oldCBCencrypt(key->des, p, len);
 	return len;
 }
 

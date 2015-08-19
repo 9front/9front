@@ -1,52 +1,17 @@
 #include <u.h>
 #include <libc.h>
-#include <authsrv.h>
 #include <bio.h>
+#include <authsrv.h>
 #include "authcmdlib.h"
-
-static char *pbmsg = "AS protocol botch";
-
-int
-asrdresp(int fd, char *buf, int len)
-{
-	char error[AERRLEN];
-
-	if(read(fd, buf, 1) != 1){
-		werrstr(pbmsg);
-		return -1;
-	}
-
-	switch(buf[0]){
-	case AuthOK:
-		if(readn(fd, buf, len) < 0){
-			werrstr(pbmsg);
-			return -1;
-		}
-		break;
-	case AuthErr:
-		if(readn(fd, error, AERRLEN) < 0){
-			werrstr(pbmsg);
-			return -1;
-		}
-		error[AERRLEN-1] = 0;
-		errstr(error, sizeof error);
-		return -1;
-	default:
-		werrstr(pbmsg);
-		return -1;
-	}
-	return 0;
-}
 
 void
 main(int argc, char **argv)
 {
-	int fd;
+	int fd, n;
 	Ticketreq tr;
 	Ticket t;
 	Passwordreq pr;
-	char tbuf[TICKETLEN];
-	char key[DESKEYLEN];
+	Authkey key;
 	char buf[512];
 	char *s, *user;
 
@@ -73,12 +38,8 @@ main(int argc, char **argv)
 	memset(&tr, 0, sizeof(tr));
 	strcpy(tr.uid, user);
 	tr.type = AuthPass;
-	convTR2M(&tr, buf);
-	if(write(fd, buf, TICKREQLEN) != TICKREQLEN)
-		error("protocol botch: %r");
-	if(asrdresp(fd, buf, TICKETLEN) < 0)
+	if(_asrequest(fd, &tr) < 0)
 		error("%r");
-	memmove(tbuf, buf, TICKETLEN);
 
 	/*
 	 *  get a password from the user and try to decrypt the
@@ -86,13 +47,17 @@ main(int argc, char **argv)
 	 *  give up.
 	 */
 	readln("Plan 9 Password: ", pr.old, sizeof pr.old, 1);
-	passtokey(key, pr.old);
-	convM2T(tbuf, &t, key);
-	if(t.num != AuthTp || strcmp(t.cuid, tr.uid))
+	passtokey(&key, pr.old);
+
+	if(_asgetresp(fd, &t, nil, &key) < 0)
+		error("%r");
+
+	if(t.num != AuthTp || strcmp(t.cuid, tr.uid) != 0)
 		error("bad password");
 
 	/* loop trying new passwords */
 	for(;;){
+		memset(&pr, 0, sizeof(pr));
 		pr.changesecret = 0;
 		*pr.new = 0;
 		readln("change Plan 9 Password? (y/n) ", buf, sizeof buf, 0);
@@ -126,10 +91,10 @@ main(int argc, char **argv)
 			}
 		}
 		pr.num = AuthPass;
-		convPR2M(&pr, buf, t.key);
-		if(write(fd, buf, PASSREQLEN) != PASSREQLEN)
+		n = convPR2M(&pr, buf, sizeof(buf), &t);
+		if(write(fd, buf, n) != n)
 			error("AS protocol botch: %r");
-		if(asrdresp(fd, buf, 0) == 0)
+		if(_asrdresp(fd, buf, 0) == 0)
 			break;
 		fprint(2, "passwd: refused: %r\n");
 	}

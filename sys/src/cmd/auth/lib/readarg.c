@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <bio.h>
+#include <authsrv.h>
 #include "authcmdlib.h"
 
 int

@@ -208,9 +208,9 @@ authdialfutz(char *dom, char *user)
 void
 authfutz(char *dom, char *user)
 {
-	int fd, nobootes;
-	char pw[128], prompt[128], key[DESKEYLEN], booteskey[DESKEYLEN], tbuf[2*TICKETLEN],
-		trbuf[TICKREQLEN];
+	int fd, nobootes, n, m;
+	char pw[128], prompt[128], tbuf[2*TICKETLEN];
+	Authkey key, booteskey;
 	Ticket t;
 	Ticketreq tr;
 
@@ -218,7 +218,7 @@ authfutz(char *dom, char *user)
 	readcons(prompt, nil, 1, pw, sizeof pw);
 	if(pw[0] == '\0')
 		return;
-	passtokey(key, pw);
+	passtokey(&key, pw);
 
 	fd = authdial(nil, dom);
 	if(fd < 0){
@@ -227,19 +227,19 @@ authfutz(char *dom, char *user)
 	}
 
 	/* try ticket request using just user key */
+	memset(&tr, 0, sizeof(tr));
 	tr.type = AuthTreq;
 	strecpy(tr.authid, tr.authid+sizeof tr.authid, user);
 	strecpy(tr.authdom, tr.authdom+sizeof tr.authdom, dom);
 	strecpy(tr.hostid, tr.hostid+sizeof tr.hostid, user);
 	strecpy(tr.uid, tr.uid+sizeof tr.uid, user);
 	memset(tr.chal, 0xAA, sizeof tr.chal);
-	convTR2M(&tr, trbuf);
-	if(_asgetticket(fd, trbuf, tbuf) < 0){
-		close(fd);
+	if((n = _asgetticket(fd, &tr, tbuf, sizeof(tbuf))) < 0){
 		print("\t_asgetticket failed: %r\n");
+		close(fd);
 		return;
 	}
-	convM2T(tbuf, &t, key);
+	m = convM2T(tbuf, n, &t, &key);
 	if(t.num != AuthTc){
 		print("\tcannot decrypt ticket1 from auth server (bad t.num=0x%.2ux)\n", t.num);
 		print("\tauth server and you do not agree on key for %s@%s\n", user, dom);
@@ -252,7 +252,7 @@ authfutz(char *dom, char *user)
 		return;
 	}
 
-	convM2T(tbuf+TICKETLEN, &t, key);
+	convM2T(tbuf+m, n-m, &t, &key);
 	if(t.num != AuthTs){
 		print("\tcannot decrypt ticket2 from auth server (bad t.num=0x%.2ux)\n", t.num);
 		print("\tauth server and you do not agree on key for %s@%s\n", user, dom);
@@ -269,13 +269,12 @@ authfutz(char *dom, char *user)
 	/* try ticket request using bootes key */
 	snprint(prompt, sizeof prompt, "\tcpu server owner for domain %s ", dom);
 	readcons(prompt, "glenda", 0, tr.authid, sizeof tr.authid);
-	convTR2M(&tr, trbuf);
-	if(_asgetticket(fd, trbuf, tbuf) < 0){
+	if((n = _asgetticket(fd, &tr, tbuf, sizeof(tbuf))) < 0){
 		close(fd);
 		print("\t_asgetticket failed: %r\n");
 		return;
 	}
-	convM2T(tbuf, &t, key);
+	m = convM2T(tbuf, n, &t, &key);
 	if(t.num != AuthTc){
 		print("\tcannot decrypt ticket1 from auth server (bad t.num=0x%.2ux)\n", t.num);
 		print("\tauth server and you do not agree on key for %s@%s\n", user, dom);
@@ -295,9 +294,9 @@ authfutz(char *dom, char *user)
 		goto Nobootes;
 	}
 	nobootes = 0;
-	passtokey(booteskey, pw);
+	passtokey(&booteskey, pw);
 
-	convM2T(tbuf+TICKETLEN, &t, booteskey);
+	convM2T(tbuf+m, n-m, &t, &booteskey);
 	if(t.num != AuthTs){
 		print("\tcannot decrypt ticket2 from auth server (bad t.num=0x%.2ux)\n", t.num);
 		print("\tauth server and you do not agree on key for %s@%s\n", tr.authid, dom);

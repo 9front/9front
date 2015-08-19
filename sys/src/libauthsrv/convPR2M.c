@@ -9,10 +9,12 @@
 #define	STRING(x,n)	memmove(p, f->x, n); p += n
 
 int
-convPR2M(Passwordreq *f, char *ap, char *key)
+convPR2M(Passwordreq *f, char *ap, int n, Ticket *t)
 {
-	int n;
 	uchar *p;
+
+	if(n < PASSREQLEN)
+		return 0;
 
 	p = (uchar*)ap;
 	CHAR(num);
@@ -21,8 +23,8 @@ convPR2M(Passwordreq *f, char *ap, char *key)
 	CHAR(changesecret);
 	STRING(secret, SECRETLEN);
 	n = p - (uchar*)ap;
-	if(key)
-		encrypt(key, ap, n);
+	if(t)
+		encrypt(t->key, ap, n);
 	return n;
 }
 

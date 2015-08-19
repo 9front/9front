@@ -8,13 +8,20 @@
 #define	LONG(x)		VLONG(f->x)
 #define	STRING(x,n)	memmove(f->x, p, n); p += n
 
-void
-convM2T(char *ap, Ticket *f, char *key)
+int
+convM2T(char *ap, int n, Ticket *f, Authkey *key)
 {
-	uchar *p;
+	uchar *p, buf[TICKETLEN];
 
-	if(key)
-		decrypt(key, ap, TICKETLEN);
+	memset(f, 0, sizeof(Ticket));
+	if(n < TICKETLEN)
+		return -TICKETLEN;
+
+	if(key){
+		memmove(buf, ap, TICKETLEN);
+		ap = (char*)buf;
+		decrypt(key->des, ap, TICKETLEN);
+	}
 	p = (uchar*)ap;
 	CHAR(num);
 	STRING(chal, CHALLEN);
@@ -23,6 +30,6 @@ convM2T(char *ap, Ticket *f, char *key)
 	STRING(suid, ANAMELEN);
 	f->suid[ANAMELEN-1] = 0;
 	STRING(key, DESKEYLEN);
-	USED(p);
+	n = p - (uchar*)ap;
+	return n;
 }
-

@@ -5,7 +5,7 @@
 #include <bio.h>
 #include "authcmdlib.h"
 
-void	install(char*, char*, char*, long, int);
+void	install(char*, char*, Authkey*, long, int);
 int	exists (char*, char*);
 
 void
@@ -18,14 +18,15 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	char *u, key[DESKEYLEN], answer[32], p9pass[32];
+	char *u, answer[32], p9pass[32];
 	int which, i, newkey, newbio, dosecret;
 	long t;
+	Authkey key;
 	Acctbio a;
 	Fs *f;
 
 	srand(getpid()*time(0));
-	fmtinstall('K', keyfmt);
+	fmtinstall('K', deskeyfmt);
 
 	which = 0;
 	ARGBEGIN{
@@ -61,10 +62,10 @@ main(int argc, char *argv[])
 				newkey = 0;
 		}
 		if(newkey)
-			getpass(key, p9pass, 1, 1);
+			getpass(&key, p9pass, 1, 1);
 		dosecret = getsecret(newkey, p9pass);
 		t = getexpiration(f->keys, u);
-		install(f->keys, u, key, t, newkey);
+		install(f->keys, u, &key, t, newkey);
 		if(dosecret && setsecret(KEYDB, u, p9pass) == 0)
 			error("error writing Inferno/pop secret");
 		newbio = querybio(f->who, u, &a);
@@ -83,17 +84,17 @@ main(int argc, char *argv[])
 		}
 		if(newkey)
 			for(i=0; i<DESKEYLEN; i++)
-				key[i] = nrand(256);
+				key.des[i] = nrand(256);
 		if(a.user == 0){
 			t = getexpiration(f->keys, u);
 			newbio = querybio(f->who, u, &a);
 		}
-		install(f->keys, u, key, t, newkey);
+		install(f->keys, u, &key, t, newkey);
 		if(newbio)
 			wrbio(f->who, &a);
-		findkey(f->keys, u, key);
-		print("user %s: SecureNet key: %K\n", u, key);
-		checksum(key, answer);
+		finddeskey(f->keys, u, key.des);
+		print("user %s: SecureNet key: %K\n", u, key.des);
+		checksum(key.des, answer);
 		print("verify with checksum %s\n", answer);
 		print("user %s installed for SecureNet\n", u);
 		syslog(0, AUTHLOG, "user %s installed for securenet", u);
@@ -102,7 +103,7 @@ main(int argc, char *argv[])
 }
 
 void
-install(char *db, char *u, char *key, long t, int newkey)
+install(char *db, char *u, Authkey *key, long t, int newkey)
 {
 	char buf[KEYDBBUF+ANAMELEN+20];
 	int fd;
@@ -118,7 +119,7 @@ install(char *db, char *u, char *key, long t, int newkey)
 	if(newkey){
 		sprint(buf, "%s/%s/key", db, u);
 		fd = open(buf, OWRITE);
-		if(fd < 0 || write(fd, key, DESKEYLEN) != DESKEYLEN)
+		if(fd < 0 || write(fd, key->des, DESKEYLEN) != DESKEYLEN)
 			error("can't set key: %r");
 		close(fd);
 	}

@@ -1,13 +1,14 @@
 #include <u.h>
 #include <libc.h>
 #include <bio.h>
+#include <authsrv.h>
 #include "authcmdlib.h"
 
 /*
  * print a key in des standard form
  */
 int
-keyfmt(Fmt *f)
+deskeyfmt(Fmt *f)
 {
 	uchar key[8];
 	char buf[32];
