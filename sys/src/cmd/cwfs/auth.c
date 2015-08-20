@@ -55,7 +55,7 @@ int
 conslock(void)
 {
 	char *ln;
-	char nkey1[DESKEYLEN];
+	Authkey nkey1;
 	static char zeroes[DESKEYLEN];
 
 	if(memcmp(nvr.machkey, zeroes, DESKEYLEN) == 0) {
@@ -72,9 +72,8 @@ conslock(void)
 		ln[Blinelen(&bin)-1] = '\0';
 
 		/* could turn on echo here */
-		memset(nkey1, 0, DESKEYLEN);
-		passtokey(nkey1, ln);
-		if(memcmp(nkey1, nvr.machkey, DESKEYLEN) == 0) {
+		passtokey(&nkey1, ln);
+		if(memcmp(nkey1.des, nvr.machkey, DESKEYLEN) == 0) {
 			prdate();
 			break;
 		}
