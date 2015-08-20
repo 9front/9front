@@ -8,6 +8,7 @@
 
 int allownone;
 Nvrsafe nvr;
+Authkey authkey; 
 int didread;
 
 /*
@@ -18,8 +19,10 @@ mkchallenge(Chan *cp)
 {
 	int i;
 
-	if(!didread && readnvram(&nvr, 0) >= 0)
+	if(!didread && readnvram(&nvr, 0) >= 0){
+		memmove(authkey.des, nvr.machkey, DESKEYLEN);
 		didread = 1;
+	}
 
 	srand(truerand());
 	for(i = 0; i < CHALLEN; i++)
@@ -58,14 +61,14 @@ authorize(Chan *cp, Oldfcall *in, Oldfcall *ou)
 		return 0;
 
 	/* decrypt and unpack ticket */
-	convM2T(in->ticket, &t, nvr.machkey);
+	convM2T(in->ticket, sizeof(in->ticket), &t, &authkey);
 	if(t.num != AuthTs){
 print("bad AuthTs num\n");
 		return 0;
 	}
 
 	/* decrypt and unpack authenticator */
-	convM2A(in->auth, &a, t.key);
+	convM2A(in->auth, sizeof(in->auth), &a, &t);
 	if(a.num != AuthAc){
 print("bad AuthAc num\n");
 		return 0;
@@ -110,7 +113,7 @@ print("names don't match\n");
 	/* craft a reply */
 	a.num = AuthAs;
 	memmove(a.chal, cp->rchal, CHALLEN);
-	convA2M(&a, ou->rauth, t.key);
+	convA2M(&a, ou->rauth, sizeof(ou->rauth), &t);
 
 	cp->authed = 1;
 	return 1;
