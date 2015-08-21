@@ -10,8 +10,7 @@ enum{
 	/*
 	 * types of destination file sytems
 	 */
-	Kfs = 0,
-	Fs,
+	Fs = 0,
 	Archive,
 };
 
@@ -21,9 +20,7 @@ void	protoenum(char *new, char *old, Dir *d, void *);
 void	arch(Dir*);
 void	copy(Dir*);
 void	error(char *, ...);
-void	kfscmd(char *);
 void	mkdir(Dir*);
-void	mountkfs(char*);
 int	uptodate(Dir*, char*);
 void	usage(void);
 void	warn(char *, ...);
@@ -34,7 +31,6 @@ char	newfile[LEN];
 char	oldfile[LEN];
 char	*proto;
 char	*cputype;
-char	*users;
 char	*oldroot;
 char	*newroot;
 char	*prog = "mkfs";
@@ -48,46 +44,36 @@ int	debug;
 int	xflag;
 int	oflag;
 int	sfd;
-int	fskind;			/* Kfs, Fs, Archive */
+int	fskind;			/* Fs, Archive */
 int	setuid;			/* on Fs: set uid and gid? */
 char	*user;
 
 void
 main(int argc, char **argv)
 {
-	char *name;
 	int i, errs;
 
 	quotefmtinstall();
 	user = getuser();
-	name = "";
 	oldroot = "";
-	newroot = "/n/kfs";
-	users = 0;
-	fskind = Kfs;
+	newroot = "/n/newfs";
+	fskind = Fs;
 	ARGBEGIN{
 	case 'a':
-		if(fskind != Kfs) {
-			fprint(2, "cannot use -a with -d\n");
-			usage();
-		}
 		fskind = Archive;
 		newroot = "";
 		Binits(&bout, 1, OWRITE, boutbuf, sizeof boutbuf);
 		break;
 	case 'd':
-		if(fskind != Kfs) {
+		if(fskind != Fs) {
 			fprint(2, "cannot use -d with -a\n");
 			usage();
 		}
 		fskind = Fs;
-		newroot = ARGF();
+		newroot = EARGF(usage());
 		break;
 	case 'D':
 		debug = 1;
-		break;
-	case 'n':
-		name = EARGF(usage());
 		break;
 	case 'p':
 		modes = 1;
@@ -96,10 +82,7 @@ main(int argc, char **argv)
 		ream = 1;
 		break;
 	case 's':
-		oldroot = ARGF();
-		break;
-	case 'u':
-		users = ARGF();
+		oldroot = EARGF(usage());
 		break;
 	case 'U':
 		setuid = 1;
@@ -114,7 +97,7 @@ main(int argc, char **argv)
 		xflag = 1;
 		break;
 	case 'z':
-		buflen = atoi(ARGF())-8;
+		buflen = atoi(EARGF(usage()))-8;
 		break;
 	default:
 		usage();
@@ -132,8 +115,6 @@ main(int argc, char **argv)
 	zbuf = malloc(buflen);
 	memset(zbuf, 0, buflen);
 
-	mountkfs(name);
-	kfscmd("allow");
 	cputype = getenv("cputype");
 	if(cputype == 0)
 		cputype = "386";
@@ -149,8 +130,6 @@ main(int argc, char **argv)
 		}
 	}
 	fprint(2, "file system made\n");
-	kfscmd("disallow");
-	kfscmd("sync");
 	if(errs)
 		exits("skipped protos");
 	if(fskind == Archive){
@@ -367,61 +346,6 @@ protoenum(char *new, char *old, Dir *d, void *)
 }
 
 void
-mountkfs(char *name)
-{
-	char kname[64];
-
-	if(fskind != Kfs)
-		return;
-	if(name[0])
-		snprint(kname, sizeof kname, "/srv/kfs.%s", name);
-	else
-		strcpy(kname, "/srv/kfs");
-	sfd = open(kname, ORDWR);
-	if(sfd < 0){
-		fprint(2, "can't open %q\n", kname);
-		exits("open /srv/kfs");
-	}
-	if(mount(sfd, -1, "/n/kfs", MREPL|MCREATE, "") < 0){
-		fprint(2, "can't mount kfs on /n/kfs\n");
-		exits("mount kfs");
-	}
-	close(sfd);
-	strcat(kname, ".cmd");
-	sfd = open(kname, ORDWR);
-	if(sfd < 0){
-		fprint(2, "can't open %q\n", kname);
-		exits("open /srv/kfs");
-	}
-}
-
-void
-kfscmd(char *cmd)
-{
-	char buf[4*1024];
-	int n;
-
-	if(fskind != Kfs)
-		return;
-	if(write(sfd, cmd, strlen(cmd)) != strlen(cmd)){
-		fprint(2, "%q: error writing %q: %r", prog, cmd);
-		return;
-	}
-	for(;;){
-		n = read(sfd, buf, sizeof buf - 1);
-		if(n <= 0)
-			return;
-		buf[n] = '\0';
-		if(strcmp(buf, "done") == 0 || strcmp(buf, "success") == 0)
-			return;
-		if(strcmp(buf, "unknown command") == 0){
-			fprint(2, "%q: command %q not recognized\n", prog, cmd);
-			return;
-		}
-	}
-}
-
-void
 error(char *fmt, ...)
 {
 	char buf[1024];
@@ -432,8 +356,6 @@ error(char *fmt, ...)
 	vseprint(buf+strlen(buf), buf+sizeof(buf), fmt, arg);
 	va_end(arg);
 	fprint(2, "%s\n", buf);
-	kfscmd("disallow");
-	kfscmd("sync");
 	exits(0);
 }
 
@@ -453,6 +375,6 @@ warn(char *fmt, ...)
 void
 usage(void)
 {
-	fprint(2, "usage: %q [-adprvoxUD] [-d root] [-n name] [-s source] [-u users] [-z n] proto ...\n", prog);
+	fprint(2, "usage: %q [-adprvoxUD] [-d root] [-s source] [-z n] proto ...\n", prog);
 	exits("usage");
 }
