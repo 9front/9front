@@ -28,9 +28,8 @@ int		doauth = 1;
 int		timedout;
 int		skiptree;
 
-int	connect(char*, char*, int);
+int	connect(char*, char*);
 int	passive(void);
-int	old9p(int);
 void	catcher(void*, char*);
 void	sysfatal(char*, ...);
 void	usage(void);
@@ -94,11 +93,10 @@ void
 main(int argc, char **argv)
 {
 	char *mntpt, *srvpost, srvfile[64];
-	int backwards = 0, fd, mntflags, oldserver;
+	int backwards = 0, fd, mntflags;
 
 	quotefmtinstall();
 	srvpost = nil;
-	oldserver = 0;
 	mntflags = MREPL;
 	ARGBEGIN{
 	case 'A':
@@ -121,10 +119,6 @@ main(int argc, char **argv)
 		break;
 	case 'f':
 		/* ignored but allowed for compatibility */
-		break;
-	case 'O':
-	case 'o':
-		oldserver = 1;
 		break;
 	case 'E':
 		if ((encproto = lookup(EARGF(usage()), encprotos)) < 0)
@@ -188,11 +182,9 @@ main(int argc, char **argv)
 	if (backwards)
 		fd = passive();
 	else
-		fd = connect(argv[0], argv[1], oldserver);
+		fd = connect(argv[0], argv[1]);
 
-	if (!oldserver)
-		fprint(fd, "impo %s %s\n", filterp? "aan": "nofilter",
-			encprotos[encproto]);
+	fprint(fd, "impo %s %s\n", filterp? "aan": "nofilter", encprotos[encproto]);
 
 	if (encproto != Encnone && ealgs && ai) {
 		uchar key[16], digest[SHA1dlen];
@@ -259,50 +251,10 @@ catcher(void*, char *msg)
 }
 
 int
-old9p(int fd)
-{
-	int p[2];
-
-	procsetname("old9p");
-	if(pipe(p) < 0)
-		sysfatal("pipe: %r");
-
-	switch(rfork(RFPROC|RFMEM|RFFDG|RFNAMEG)) {
-	case -1:
-		sysfatal("rfork srvold9p: %r");
-	case 0:
-		if(fd != 1){
-			dup(fd, 1);
-			close(fd);
-		}
-		if(p[0] != 0){
-			dup(p[0], 0);
-			close(p[0]);
-		}
-		close(p[1]);
-		if(0){
-			fd = open("/sys/log/cpu", OWRITE);
-			if(fd != 2){
-				dup(fd, 2);
-				close(fd);
-			}
-			execl("/bin/srvold9p", "srvold9p", "-ds", nil);
-		} else
-			execl("/bin/srvold9p", "srvold9p", "-s", nil);
-		sysfatal("exec srvold9p: %r");
-	default:
-		close(fd);
-		close(p[0]);
-	}
-	return p[1];
-}
-
-int
-connect(char *system, char *tree, int oldserver)
+connect(char *system, char *tree)
 {
 	char buf[ERRMAX], dir[128], *na;
 	int fd, n;
-	char *authp;
 
 	na = netmkaddr(system, 0, "exportfs");
 	procsetname("dial %s", na);
@@ -310,15 +262,8 @@ connect(char *system, char *tree, int oldserver)
 		sysfatal("can't dial %s: %r", system);
 
 	if(doauth){
-		if(oldserver)
-			authp = "p9sk2";
-		else
-			authp = "p9any";
-
-		procsetname("auth_proxy auth_getkey proto=%q role=client %s",
-			authp, keyspec);
-		ai = auth_proxy(fd, auth_getkey, "proto=%q role=client %s",
-			authp, keyspec);
+		procsetname("auth_proxy auth_getkey proto=p9any role=client %s", keyspec);
+		ai = auth_proxy(fd, auth_getkey, "proto=p9any role=client %s", keyspec);
 		if(ai == nil)
 			sysfatal("%r: %s", system);
 	}
@@ -340,9 +285,6 @@ connect(char *system, char *tree, int oldserver)
 			sysfatal("bad remote tree: %s", buf);
 		}
 	}
-
-	if(oldserver)
-		return old9p(fd);
 	return fd;
 }
 

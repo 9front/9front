@@ -36,8 +36,6 @@ cpu \- connection to CPU server
 .I address
 ] [
 .B -R
-|
-.B -O
 ]
 .SH DESCRIPTION
 .I Cpu
@@ -183,21 +181,13 @@ to run the server (remote) side of the protocol.
 It is run from service files such as
 .BR /bin/service/tcp17010 .
 The
-.B -O
-flag is similar but simulates the pre-9P2000 version
-of the 
-.I cpu
-protocol.
-The
 .B -n
 option allows using the
 .B none
 authentication method for incoming connections and must be
 specified before the
 .B -R
-and
-.B -O
-flags.
+flag.
 .PP
 The
 .B -p

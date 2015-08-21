@@ -14,7 +14,7 @@
 #define	Maxfdata 8192
 #define MaxStr 128
 
-void	remoteside(int);
+void	remoteside(void);
 void	fatal(char*, ...);
 void	lclnoteproc(int);
 void	rmtnoteproc(void);
@@ -68,8 +68,6 @@ struct AuthMethod {
 	{ nil,	nil}
 };
 AuthMethod *am = authmethod;	/* default is p9 */
-
-char *p9authproto = "p9any";
 
 int setam(char*);
 
@@ -188,12 +186,8 @@ main(int argc, char **argv)
 	case 'A':
 		anstring = EARGF(usage());
 		break;
-	case 'O':
-		p9authproto = "p9sk2";
-		remoteside(1);				/* From listen */
-		break;
 	case 'R':				/* From listen */
-		remoteside(0);
+		remoteside();
 		break;
 	case 'h':
 		system = EARGF(usage());
@@ -297,47 +291,9 @@ fatal(char *fmt, ...)
 
 char *negstr = "negotiating authentication method";
 
-int
-old9p(int fd)
-{
-	int p[2];
-
-	if(pipe(p) < 0)
-		fatal("pipe: %r");
-
-	switch(rfork(RFPROC|RFMEM|RFFDG|RFNAMEG|RFREND)) {
-	case -1:
-		fatal("rfork srvold9p: %r");
-	case 0:
-		if(fd != 1){
-			dup(fd, 1);
-			close(fd);
-		}
-		if(p[0] != 0){
-			dup(p[0], 0);
-			close(p[0]);
-		}
-		close(p[1]);
-		if(0){
-			fd = open("/sys/log/cpu", OWRITE);
-			if(fd != 2){
-				dup(fd, 2);
-				close(fd);
-			}
-			execl("/bin/srvold9p", "srvold9p", "-ds", nil);
-		} else
-			execl("/bin/srvold9p", "srvold9p", "-s", nil);
-		fatal("exec srvold9p: %r");
-	default:
-		close(fd);
-		close(p[0]);
-	}
-	return p[1];	
-}
-
 /* Invoked with stdin and stdout connected to the network connection */
 void
-remoteside(int old)
+remoteside(void)
 {
 	char user[MaxStr], buf[MaxStr], xdir[MaxStr], cmd[MaxStr];
 	int i, n, fd, badchdir, gotcmd;
@@ -351,7 +307,7 @@ remoteside(int old)
 	if(n < 0)
 		fatal("authenticating: %r");
 	filterp = nil;
-	if(!old && strcmp(cmd, "aan") == 0){
+	if(strcmp(cmd, "aan") == 0){
 		filterp = aan;
 		writestr(fd, "", nil, 1);
 		n = readstr(fd, cmd, sizeof(cmd));
@@ -395,9 +351,6 @@ remoteside(int old)
 	n = read(fd, buf, sizeof(buf));
 	if(n != 2 || buf[0] != 'O' || buf[1] != 'K')
 		exits("remote tree");
-
-	if(old)
-		fd = old9p(fd);
 
 	/* make sure buffers are big by doing fversion explicitly; pick a huge number; other side will trim */
 	strcpy(buf, VERSION9P);
@@ -666,7 +619,7 @@ p9auth(int fd)
 {
 	AuthInfo *ai;
 
-	ai = auth_proxy(fd, auth_getkey, "proto=%q role=client %s", p9authproto, keyspec);
+	ai = auth_proxy(fd, auth_getkey, "proto=p9any role=client %s", keyspec);
 	if(ai == nil)
 		return -1;
 	fd = sslsetup(fd, ai->secret, ai->nsecret, 1);
@@ -695,7 +648,7 @@ srvp9auth(int fd, char *user)
 {
 	AuthInfo *ai;
 
-	ai = auth_proxy(fd, nil, "proto=%q role=server %s", p9authproto, keyspec);
+	ai = auth_proxy(fd, nil, "proto=p9any role=server %s", keyspec);
 	if(ai == nil)
 		return -1;
 	if(auth_chuid(ai, nil) < 0)
