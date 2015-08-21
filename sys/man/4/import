@@ -112,11 +112,6 @@ to select a key to authenticate to the remote side
 (see
 .IR auth (2)).
 .TP
-.B -o -O
-These equivalent flags run
-.I import
-in a pre-9P2000 compatibility mode to import from ancient servers.
-.TP
 .B -p
 Push the
 .IR aan (8)
