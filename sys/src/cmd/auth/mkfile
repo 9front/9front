@@ -8,7 +8,6 @@ TARG=\
 	asn12rsa\
 	authsrv\
 	changeuser\
-	convkeys2\
 	convkeys\
 	cron\
 	debug\
