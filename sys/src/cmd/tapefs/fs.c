@@ -1,6 +1,5 @@
 #include <u.h>
 #include <libc.h>
-#include <authsrv.h>
 #include <fcall.h>
 #include "tapefs.h"
 
@@ -75,7 +74,6 @@ main(int argc, char *argv[])
 	Ram *r;
 	char *defmnt;
 	int p[2];
-	char buf[TICKREQLEN];
 
 	fmtinstall('F', fcallfmt);
 
@@ -142,10 +140,8 @@ main(int argc, char *argv[])
 		break;
 	default:
 		close(p[0]);	/* don't deadlock if child fails */
-		if(mount(p[1], -1, defmnt, MREPL|MCREATE, "") < 0) {
-			sprint(buf, "mount on `%s' failed", defmnt);
-			error(buf);
-		}
+		if(mount(p[1], -1, defmnt, MREPL|MCREATE, "") < 0)
+			error("mount failed");
 	}
 	exits(0);
 }
