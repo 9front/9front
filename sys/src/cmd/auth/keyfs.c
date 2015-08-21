@@ -932,7 +932,7 @@ readusers(void)
 	}
 	free(buf);
 
-	print("%d keys read in %s foarmat\n", nu, keydbaes ? "AES" : "DES");
+	print("%d keys read in %s format\n", nu, keydbaes ? "AES" : "DES");
 	return 1;
 }
 
