@@ -41,7 +41,7 @@ reads and decrypts file
 .I keyfile
 (default
 .BR /adm/keys )
-using the DES key,
+using the DES or AES key,
 which is by default read from
 .B #r/nvram
 (see
@@ -51,13 +51,14 @@ With option
 .I keyfs
 prompts for a password from which the key is derived.
 .I Keyfile
-holds a 41-byte record for each user in the database.
-Each record is encrypted separately
-and contains the user's name,
+holds a 41-byte (57-byte for AES) record for each user in the database.
+Each record contains the user's name,
 DES key,
 status,
-host status,
-and expiration date.
+warning status,
+expiration date,
+secret password
+and AES key.
 The name is a
 null-terminated
 .SM UTF
@@ -67,14 +68,18 @@ bytes long.
 The status is a byte containing
 binary 0 if the account is enabled,
 1 if it is disabled.
-Host status is a byte containing
-binary 1 if the user is a host,
-0 otherwise.
+Warning status is a byte containing
+the number of user expiration notifications.
 The expiration date is four-byte little-endian integer
 which represents the time in seconds since the epoch
 (see
 .IR date (1))
 at which the account will expire.
+The secret password is a null-terminated
+.SM UTF
+string
+.B SECRETLEN
+bytes long.
 If any changes are made to the database that affect the information stored in
 .IR keyfile ,
 a new version of the file is written.
@@ -111,6 +116,8 @@ does not allow duplicate names when creating or renaming user entries.
 .PP
 All files in the user directories except for
 .B key
+and
+.B aeskey
 contain
 .SM UTF
 strings with a trailing newline when read,
@@ -121,6 +128,10 @@ strings with or without a trailing newline.
 contains the
 .BR DESKEYLEN -byte
 encryption key for the user.
+.B Aeskey
+contains the
+.BR AESKEYLEN -byte
+encryption key.
 .PP
 The following files appear in the user directories.
 .TF expire
@@ -132,6 +143,12 @@ reading this file returns an error.
 Writing
 .I key
 changes the key in the database.
+.TP
+.B aeskey
+The AES encryption key for the user.
+.TP
+.B secret
+The secret password.
 .TP
 .B log
 The number of consecutive failed authentication attempts for the user.

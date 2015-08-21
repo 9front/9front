@@ -15,7 +15,7 @@ authdial, passtokey, nvcsum, readnvram, convT2M, convM2T, convTR2M, convM2TR, co
 int	authdial(char *netroot, char *ad);
 .PP
 .B
-int	passtokey(Authkey *key, char *password)
+void	passtokey(Authkey *key, char *password)
 .PP
 .B
 uchar	nvcsum(void *mem, int len)
@@ -109,10 +109,6 @@ into a set of cryptographic keys and stores them in the
 .I Authkey
 structure
 .IR key .
-It returns 0 if
-.I password
-could not be converted,
-and 1 otherwise.
 .PP
 .I Readnvram
 reads authentication information into the structure:

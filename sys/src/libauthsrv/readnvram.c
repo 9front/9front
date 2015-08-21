@@ -268,13 +268,22 @@ readnvram(Nvrsafe *safep, int flag)
 
 			/* verify data read */
 			err |= check(safe->machkey, DESKEYLEN, safe->machsum,
-						"bad nvram key");
-//			err |= check(safe->config, CONFIGLEN, safe->configsum,
-//						"bad secstore key");
+						"bad nvram des key");
 			err |= check(safe->authid, ANAMELEN, safe->authidsum,
 						"bad authentication id");
 			err |= check(safe->authdom, DOMLEN, safe->authdomsum,
 						"bad authentication domain");
+			if(0){
+				err |= check(safe->config, CONFIGLEN, safe->configsum,
+						"bad secstore key");
+				err |= check(safe->aesmachkey, AESKEYLEN, safe->aesmachsum,
+						"bad nvram aes key");
+			} else {
+				if(nvcsum(safe->config, CONFIGLEN) != safe->configsum)
+					memset(safe->config, 0, CONFIGLEN);
+				if(nvcsum(safe->aesmachkey, AESKEYLEN) != safe->aesmachsum)
+					memset(safe->aesmachkey, 0, AESKEYLEN);
+			}
 			if(err == 0)
 				if(safe->authid[0]==0 || safe->authdom[0]==0){
 					fprint(2, "empty nvram authid or authdom\n");
@@ -296,18 +305,19 @@ readnvram(Nvrsafe *safep, int flag)
 
 				if(readcons("password", nil, 1, in, sizeof in) == nil)
 					goto Out;
-				if(passtokey(&k, in)){
-					memmove(safe->machkey, k.des, DESKEYLEN);
-					break;
-				}
+				passtokey(&k, in);
+				memmove(safe->machkey, k.des, DESKEYLEN);
+				memmove(safe->aesmachkey, k.aes, AESKEYLEN);
+				break;
 			}
 		}
 
-		// safe->authsum = nvcsum(safe->authkey, DESKEYLEN);
 		safe->machsum = nvcsum(safe->machkey, DESKEYLEN);
+		// safe->authsum = nvcsum(safe->authkey, DESKEYLEN);
 		safe->configsum = nvcsum(safe->config, CONFIGLEN);
 		safe->authidsum = nvcsum(safe->authid, sizeof safe->authid);
 		safe->authdomsum = nvcsum(safe->authdom, sizeof safe->authdom);
+		safe->aesmachsum = nvcsum(safe->aesmachkey, AESKEYLEN);
 
 		*(Nvrsafe*)buf = *safe;
 		if(loc.fd < 0

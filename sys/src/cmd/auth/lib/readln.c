@@ -22,15 +22,12 @@ getpass(Authkey *key, char *pass, int check, int confirm)
 				continue;
 			}
 		}
-		if(!passtokey(key, pass)){
-			print("bad password, try again\n");
-			continue;
-		}
 		if(check)
 			if(err = okpasswd(pass)){
 				print("%s, try again\n", err);
 				continue;
 			}
+		passtokey(key, pass);
 		break;
 	}
 }

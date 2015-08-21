@@ -7,18 +7,21 @@
 #include <bio.h>
 #include "authcmdlib.h"
 
-Authkey	authkey;
+Authkey	okey, nkey;
+
 int	verb;
 int	usepass;
+int	convaes;
 
-int	convert(char*, Authkey*, int);
+uchar	zeros[16];
+
+int	convert(char**, int);
 void	usage(void);
 
 void
 main(int argc, char *argv[])
 {
 	Dir *d;
-	Authkey key;
 	char *p, *file;
 	int fd, len;
 
@@ -28,6 +31,9 @@ main(int argc, char *argv[])
 		break;
 	case 'v':
 		verb = 1;
+		break;
+	case 'a':
+		convaes = 1;
 		break;
 	default:
 		usage();
@@ -40,12 +46,13 @@ main(int argc, char *argv[])
 	/* get original key */
 	if(usepass){
 		print("enter password file is encoded with\n");
-		getpass(&authkey, nil, 0, 1);
-	} else
-		getauthkey(&authkey);
+		getpass(&okey, nil, 0, 1);
+	} else {
+		getauthkey(&okey);
+	}
 	if(!verb){
 		print("enter password to reencode with\n");
-		getpass(&key, nil, 0, 1);
+		getpass(&nkey, nil, 0, 1);
 	}
 
 	fd = open(file, ORDWR);
@@ -56,17 +63,15 @@ main(int argc, char *argv[])
 		error("can't stat %s: %r\n", file);
 	len = d->length;
 	p = malloc(len);
-	if(!p)
+	if(p == nil)
 		error("out of memory");
 	if(read(fd, p, len) != len)
 		error("can't read key file: %r\n");
-	len = convert(p, &key, len);
-	if(verb)
-		exits(0);
+	len = convert(&p, len);
 	if(pwrite(fd, p, len, 0) != len)
 		error("can't write key file: %r\n");
 	close(fd);
-	exits(0);
+	exits(nil);
 }
 
 void
@@ -76,7 +81,7 @@ randombytes(uchar *p, int len)
 
 	fd = open("/dev/random", OREAD);
 	if(fd < 0){
-		fprint(2, "convkeys: can't open /dev/random, using rand()\n");
+		fprint(2, "%s: can't open /dev/random, using rand()\n", argv0);
 		srand(time(0));
 		for(i = 0; i < len; i++)
 			p[i] = rand();
@@ -86,34 +91,7 @@ randombytes(uchar *p, int len)
 	close(fd);
 }
 
-void
-oldCBCencrypt(char *key7, char *p, int len)
-{
-	uchar ivec[8];
-	uchar key[8];
-	DESstate s;
-
-	memset(ivec, 0, 8);
-	des56to64((uchar*)key7, key);
-	setupDESstate(&s, key, ivec);
-	desCBCencrypt((uchar*)p, len, &s);
-}
-
-void
-oldCBCdecrypt(char *key7, char *p, int len)
-{
-	uchar ivec[8];
-	uchar key[8];
-	DESstate s;
-
-	memset(ivec, 0, 8);
-	des56to64((uchar*)key7, key);
-	setupDESstate(&s, key, ivec);
-	desCBCdecrypt((uchar*)p, len, &s);
-
-}
-
-static int
+int
 badname(char *s)
 {
 	int n;
@@ -128,35 +106,102 @@ badname(char *s)
 }
 
 int
-convert(char *p, Authkey *key, int len)
+convert(char **db, int len)
 {
-	int i;
+	int i, nu, keydblen, keydboff, keydbaes;
+	char *p = *db;
 
-	len -= KEYDBOFF;
-	if(len % KEYDBLEN){
-		fprint(2, "convkeys: file odd length; not converting %d bytes\n",
-			len % KEYDBLEN);
-		len -= len % KEYDBLEN;
+	keydblen = KEYDBLEN;
+	keydboff = KEYDBOFF;
+	keydbaes = len > 24 && memcmp(p, "AES KEYS", 8) == 0;
+	if(keydbaes){
+		keydblen += AESKEYLEN;
+		keydboff = 8+16;		/* signature[8] + iv[16] */
 	}
-	len += KEYDBOFF;
-	oldCBCdecrypt(authkey.des, p, len);
-	for(i = KEYDBOFF; i < len; i += KEYDBLEN)
-		if (badname(&p[i])) {
-			print("bad name %.30s... - aborting\n", &p[i]);
-			return 0;
-		}
-	if(verb)
-		for(i = KEYDBOFF; i < len; i += KEYDBLEN)
-			print("%s\n", &p[i]);
 
-	randombytes((uchar*)p, 8);
-	oldCBCencrypt(key->des, p, len);
+	len -= keydboff;
+	if(len % keydblen){
+		fprint(2, "%s: file odd length; not converting %d bytes\n", argv0, len % keydblen);
+		len -= len % keydblen;
+	}
+	len += keydboff;
+
+	if(keydbaes){
+		AESstate s;
+
+		/* make sure we have aes key for decryption */
+		if(memcmp(okey.aes, zeros, AESKEYLEN) == 0){
+			fprint(2, "%s: no aes key in NVRAM\n", argv0);
+			exits("no aes key");
+		}
+		setupAESstate(&s, okey.aes, AESKEYLEN, zeros);
+		aesCBCdecrypt((uchar*)p+8, len-8, &s);
+	} else {
+		DESstate s;
+		uchar k[8];
+
+		des56to64((uchar*)okey.des, k);
+		setupDESstate(&s, k, zeros);
+		desCBCdecrypt((uchar*)p, len, &s);
+	}
+
+	nu = 0;
+	for(i = keydboff; i < len; i += keydblen) {
+		if (badname(&p[i])) {
+			fprint(2, "%s: bad name %.30s... - aborting\n", argv0, &p[i]);
+			exits("bad name");
+		}
+		nu++;
+	}
+
+	if(verb){
+		for(i = keydboff; i < len; i += keydblen)
+			print("%s\n", &p[i]);
+		exits(nil);
+	}
+
+	if(convaes && !keydbaes){
+		char *s, *d;
+
+		keydboff = 8+16;
+		keydblen += AESKEYLEN;
+		len = keydboff + keydblen*nu;
+		p = realloc(p, len);
+		if(p == nil)
+			error("out of memory");
+		*db = p;
+		s = p + KEYDBOFF + nu*KEYDBLEN;
+		d = p + keydboff + nu*keydblen;
+		for(i=0; i<nu; i++){
+			s -= KEYDBLEN;
+			d -= keydblen;
+			memmove(d, s, KEYDBLEN);
+			memset(d + KEYDBLEN, 0, keydblen-KEYDBLEN);
+		}
+		keydbaes = 1;
+	}
+
+	randombytes((uchar*)p, keydboff);
+	if(keydbaes){
+		AESstate s;
+
+		memmove(p, "AES KEYS", 8);
+		setupAESstate(&s, nkey.aes, AESKEYLEN, zeros);
+		aesCBCencrypt((uchar*)p+8, len-8, &s);
+	} else {
+		DESstate s;
+		uchar k[8];
+
+		des56to64((uchar*)nkey.des, k);
+		setupDESstate(&s, k, zeros);
+		desCBCencrypt((uchar*)p, len, &s);
+	}
 	return len;
 }
 
 void
 usage(void)
 {
-	fprint(2, "usage: convkeys keyfile\n");
+	fprint(2, "usage: %s [-pva] keyfile\n", argv0);
 	exits("usage");
 }

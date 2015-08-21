@@ -14,6 +14,8 @@
 #pragma	varargck	type	"W"	char*
 
 Authkey authkey;
+int	keydbaes;
+uchar	zeros[16];
 
 typedef struct Fid	Fid;
 typedef struct User	User;
@@ -22,6 +24,7 @@ enum {
 	Qroot,
 	Quser,
 	Qkey,
+	Qaeskey,
 	Qsecret,
 	Qlog,
 	Qstatus,
@@ -52,6 +55,7 @@ struct Fid {
 struct User {
 	char	*name;
 	char	key[DESKEYLEN];
+	uchar	aeskey[AESKEYLEN];
 	char	secret[SECRETLEN];
 	ulong	expire;			/* 0 == never */
 	uchar	status;
@@ -68,6 +72,7 @@ char	*qinfo[Qmax] = {
 	[Qroot]		"keys",
 	[Quser]		".",
 	[Qkey]		"key",
+	[Qaeskey]	"aeskey",
 	[Qsecret]	"secret",
 	[Qlog]		"log",
 	[Qexpire]	"expire",
@@ -85,8 +90,7 @@ User	*users[Nuser];
 char	*userkeys;
 int	nuser;
 ulong	uniq = 1;
-Fcall	rhdr,
-	thdr;
+Fcall	rhdr, thdr;
 int	usepass;
 char	*warnarg;
 uchar	mdata[8192 + IOHDRSZ];
@@ -102,6 +106,7 @@ void	insertuser(User*);
 void	writeusers(void);
 void	io(int, int);
 void	*emalloc(ulong);
+char	*estrdup(char*);
 Qid	mkqid(User*, ulong);
 int	dostat(User*, ulong, void*, int);
 int	newkeys(void);
@@ -134,6 +139,12 @@ usage(void)
 {
 	fprint(2, "usage: %s [-p] [-m mtpt] [-w warn] [keyfile]\n", argv0);
 	exits("usage");
+}
+
+static int
+haveaeskey(void)
+{
+	return memcmp(authkey.aes, zeros, 16) != 0;
 }
 
 void
@@ -169,11 +180,22 @@ main(int argc, char *argv[])
 	if(pipe(p) < 0)
 		error("can't make pipe: %r");
 
-	if(usepass) {
+	if(usepass)
 		getpass(&authkey, nil, 0, 0);
-	} else {
+	else {
 		if(!getauthkey(&authkey))
-			print("keyfs: warning: can't read NVRAM\n");
+			fprint(2, "keyfs: warning: can't read NVRAM\n");
+	}
+
+	keydbaes = 0;
+	if(!newkeys() || !readusers()){
+		if(!keydbaes)
+			keydbaes = haveaeskey();
+		else if(!haveaeskey()){
+			fprint(2, "keyfs: no aes key in NVRAM\n");
+			getpass(&authkey, nil, 0, 0);
+			readusers();
+		}
 	}
 
 	switch(rfork(RFPROC|RFNAMEG|RFNOTEG|RFNOWAIT|RFENVG|RFFDG)){
@@ -209,7 +231,7 @@ Attach(Fid *f)
 {
 	if(f->busy)
 		Clunk(f);
-	f->user = 0;
+	f->user = nil;
 	f->qtype = Qroot;
 	f->busy = 1;
 	thdr.qid = mkqid(f->user, f->qtype);
@@ -272,7 +294,7 @@ Walk(Fid *f)
 				if(strcmp(name, "..") == 0)
 					goto Accept;
 				user = finduser(name);
-				if(!user)
+				if(user == nil)
 					goto Out;
 				qtype = Quser;
 
@@ -283,7 +305,7 @@ Walk(Fid *f)
 			case Quser:
 				if(strcmp(name, "..") == 0) {
 					qtype = Qroot;
-					user = 0;
+					user = nil;
 					goto Accept;
 				}
 				max = Qmax;
@@ -314,14 +336,16 @@ Walk(Fid *f)
 	if(rhdr.fid != rhdr.newfid && i == rhdr.nwname){
 		nf->busy = 1;
 		nf->qtype = qtype;
-		if(nf->user = user)
-			nf->user->ref++;
+		nf->user = user;
+		if(user != nil)
+			user->ref++;
 	}else if(nf == nil && rhdr.nwname > 0){	/* walk without clone (rare) */
 		Clunk(f);
 		f->busy = 1;
 		f->qtype = qtype;
-		if(f->user = user)
-			f->user->ref++;
+		f->user = user;
+		if(user != nil)
+			user->ref++;
 	}
 
 	thdr.nwqid = i;
@@ -332,12 +356,12 @@ char *
 Clunk(Fid *f)
 {
 	f->busy = 0;
-	if(f->user && --f->user->ref == 0 && f->user->removed) {
+	if(f->user != nil && --f->user->ref == 0 && f->user->removed) {
 		free(f->user->name);
 		free(f->user);
 	}
-	f->user = 0;
-	return 0;
+	f->user = nil;
+	return nil;
 }
 
 char *
@@ -350,6 +374,8 @@ Open(Fid *f)
 	mode = rhdr.mode;
 	if(f->qtype == Quser && (mode & (OWRITE|OTRUNC)))
 		return "user already exists";
+	if(f->qtype == Qaeskey && !keydbaes)
+		return "keyfile not in aes format";
 	thdr.qid = mkqid(f->user, f->qtype);
 	thdr.iounit = messagesize - IOHDRSZ;
 	return 0;
@@ -364,7 +390,7 @@ Create(Fid *f)
 	if(!f->busy)
 		return "create of unused fid";
 	name = rhdr.name;
-	if(f->user){
+	if(f->user != nil){
 		return "permission denied";
 	}else{
 		perm = rhdr.perm;
@@ -374,7 +400,7 @@ Create(Fid *f)
 			return "empty file name";
 		if(strlen(name) >= Namelen)
 			return "file name too long";
-		if(finduser(name))
+		if(finduser(name) != nil)
 			return "user already exists";
 		f->user = installuser(name);
 		f->user->ref++;
@@ -404,7 +430,7 @@ Read(Fid *f)
 	case Qroot:
 		j = 0;
 		for(i = 0; i < Nuser; i++)
-			for(u = users[i]; u; j += m, u = u->link){
+			for(u = users[i]; u != nil; j += m, u = u->link){
 				m = dostat(u, Quser, data, n);
 				if(m <= BIT16SZ)
 					break;
@@ -431,19 +457,7 @@ Read(Fid *f)
 		thdr.count = data - thdr.data;
 		return 0;
 	case Qkey:
-		if(f->user->status != Sok)
-			return "user disabled";
-		if(f->user->purgatory > time(0))
-			return "user in purgatory";
-		if(f->user->expire != 0 && f->user->expire < time(0))
-			return "user expired";
-		if(off != 0)
-			return 0;
-		if(n > DESKEYLEN)
-			n = DESKEYLEN;
-		memmove(thdr.data, f->user->key, n);
-		thdr.count = n;
-		return 0;
+	case Qaeskey:
 	case Qsecret:
 		if(f->user->status != Sok)
 			return "user disabled";
@@ -451,57 +465,52 @@ Read(Fid *f)
 			return "user in purgatory";
 		if(f->user->expire != 0 && f->user->expire < time(0))
 			return "user expired";
-		if(off != 0)
-			return 0;
-		if(n > strlen(f->user->secret))
-			n = strlen(f->user->secret);
-		memmove(thdr.data, f->user->secret, n);
+		m = 0;
+		switch(f->qtype){
+		case Qkey:
+			data = f->user->key;
+			m = DESKEYLEN;
+			break;
+		case Qaeskey:
+			data = (char*)f->user->aeskey;
+			m = AESKEYLEN;
+			break;
+		case Qsecret:
+			data = f->user->secret;
+	Readstr:
+			m = strlen(data);
+			break;
+		}
+		if(off >= m)
+			n = 0;
+		else {
+			data += off;
+			m -= off;
+			if(n > m)
+				n = m;
+		}
+		if(data != thdr.data)
+			memmove(thdr.data, data, n);
 		thdr.count = n;
 		return 0;
 	case Qstatus:
-		if(off != 0){
-			thdr.count = 0;
-			return 0;
-		}
 		if(f->user->status == Sok && f->user->expire && f->user->expire < time(0))
-			sprint(thdr.data, "expired\n");
+			sprint(data, "expired\n");
 		else
-			sprint(thdr.data, "%s\n", status[f->user->status]);
-		thdr.count = strlen(thdr.data);
-		return 0;
+			sprint(data, "%s\n", status[f->user->status]);
+		goto Readstr;
 	case Qexpire:
-		if(off != 0){
-			thdr.count = 0;
-			return 0;
-		}
 		if(!f->user->expire)
 			strcpy(data, "never\n");
 		else
 			sprint(data, "%lud\n", f->user->expire);
-		if(n > strlen(data))
-			n = strlen(data);
-		thdr.count = n;
-		return 0;
+		goto Readstr;
 	case Qlog:
-		if(off != 0){
-			thdr.count = 0;
-			return 0;
-		}
 		sprint(data, "%lud\n", f->user->bad);
-		if(n > strlen(data))
-			n = strlen(data);
-		thdr.count = n;
-		return 0;
+		goto Readstr;
 	case Qwarnings:
-		if(off != 0){
-			thdr.count = 0;
-			return 0;
-		}
 		sprint(data, "%ud\n", f->user->warnings);
-		if(n > strlen(data))
-			n = strlen(data);
-		thdr.count = n;
-		return 0;
+		goto Readstr;
 	default:
 		return "permission denied: unknown qid";
 	}
@@ -525,11 +534,17 @@ Write(Fid *f)
 		memmove(f->user->key, data, DESKEYLEN);
 		thdr.count = DESKEYLEN;
 		break;
+	case Qaeskey:
+		if(n != AESKEYLEN)
+			return "garbled write data";
+		memmove(f->user->aeskey, data, AESKEYLEN);
+		thdr.count = AESKEYLEN;
+		break;
 	case Qsecret:
 		if(n >= SECRETLEN)
 			return "garbled write data";
 		memmove(f->user->secret, data, n);
-		f->user->secret[n] = 0;
+		f->user->secret[n] = '\0';
 		thdr.count = n;
 		break;
 	case Qstatus:
@@ -639,9 +654,7 @@ Wstat(Fid *f)
 	if(!removeuser(f->user))
 		return "user previously removed";
 	free(f->user->name);
-	f->user->name = strdup(d.name);
-	if(f->user->name == nil)
-		error("wstat: malloc failed: %r");
+	f->user->name = estrdup(d.name);
 	insertuser(f->user);
 	writeusers();
 	return 0;
@@ -683,17 +696,6 @@ dostat(User *user, ulong qtype, void *p, int n)
 	return convD2M(&d, p, n);
 }
 
-int
-passline(Biobuf *b, void *vbuf)
-{
-	char *buf = vbuf;
-
-	if(Bread(b, buf, KEYDBLEN) != KEYDBLEN)
-		return 0;
-	decrypt(authkey.des, buf, KEYDBLEN);
-	buf[Namelen-1] = '\0';
-	return 1;
-}
 
 void
 randombytes(uchar *p, int len)
@@ -713,57 +715,35 @@ randombytes(uchar *p, int len)
 }
 
 void
-oldCBCencrypt(char *key7, uchar *p, int len)
-{
-	uchar ivec[8];
-	uchar key[8];
-	DESstate s;
-
-	memset(ivec, 0, 8);
-	des56to64((uchar*)key7, key);
-	setupDESstate(&s, key, ivec);
-	desCBCencrypt((uchar*)p, len, &s);
-}
-
-void
-oldCBCdecrypt(char *key7, uchar *p, int len)
-{
-	uchar ivec[8];
-	uchar key[8];
-	DESstate s;
-
-	memset(ivec, 0, 8);
-	des56to64((uchar*)key7, key);
-	setupDESstate(&s, key, ivec);
-	desCBCdecrypt((uchar*)p, len, &s);
-
-}
-
-void
 writeusers(void)
 {
+	int keydblen, keydboff;
 	int fd, i, nu;
 	User *u;
 	uchar *p, *buf;
 	ulong expire;
 
+	/* what format to use */
+	keydblen = KEYDBLEN;
+	keydboff = KEYDBOFF;
+	if(keydbaes){
+		keydblen += AESKEYLEN;
+		keydboff = 8+16;	/* segnature[8] + iv[16] */
+	}
+
 	/* count users */
 	nu = 0;
 	for(i = 0; i < Nuser; i++)
-		for(u = users[i]; u; u = u->link)
+		for(u = users[i]; u != nil; u = u->link)
 			nu++;
 
 	/* pack into buffer */
-	buf = malloc(KEYDBOFF + nu*KEYDBLEN);
-	if(buf == 0){
-		fprint(2, "keyfs: can't write keys file, out of memory\n");
-		return;
-	}
+	buf = emalloc(keydboff + nu*keydblen);
 	p = buf;
-	randombytes(p, KEYDBOFF);
-	p += KEYDBOFF;
+	randombytes(p, keydboff);
+	p += keydboff;
 	for(i = 0; i < Nuser; i++)
-		for(u = users[i]; u; u = u->link){
+		for(u = users[i]; u != nil; u = u->link){
 			strncpy((char*)p, u->name, Namelen);
 			p += Namelen;
 			memmove(p, u->key, DESKEYLEN);
@@ -777,10 +757,27 @@ writeusers(void)
 			*p++ = expire >> 24;
 			memmove(p, u->secret, SECRETLEN);
 			p += SECRETLEN;
+			if(keydbaes){
+				memmove(p, u->aeskey, AESKEYLEN);
+				p += AESKEYLEN;
+			}
 		}
 
 	/* encrypt */
-	oldCBCencrypt(authkey.des, buf, p - buf);
+	if(keydbaes){
+		AESstate s;
+
+		memmove(buf, "AES KEYS", 8);
+		setupAESstate(&s, authkey.aes, AESKEYLEN, zeros);
+		aesCBCencrypt(buf+8, (p - (buf+8)), &s);
+	} else {
+		uchar key[8];
+		DESstate s;
+
+		des56to64((uchar*)authkey.des, key);
+		setupDESstate(&s, key, zeros);
+		desCBCencrypt(buf, p - buf, &s);
+	}
 
 	/* write file */
 	fd = create(userkeys, OWRITE, 0660);
@@ -858,6 +855,7 @@ userok(char *user, int nu)
 int
 readusers(void)
 {
+	int keydblen, keydboff;
 	int fd, i, n, nu;
 	uchar *p, *buf, *ep;
 	User *u;
@@ -872,12 +870,7 @@ readusers(void)
 		close(fd);
 		return 0;
 	}
-	buf = malloc(d->length);
-	if(buf == 0){
-		close(fd);
-		free(d);
-		return 0;
-	}
+	buf = emalloc(d->length);
 	n = readn(fd, buf, d->length);
 	close(fd);
 	free(d);
@@ -886,18 +879,41 @@ readusers(void)
 		return 0;
 	}
 
+	keydblen = KEYDBLEN;
+	keydboff = KEYDBOFF;
+	keydbaes = n > 24 && memcmp(buf, "AES KEYS", 8) == 0;
+
 	/* decrypt */
-	n -= n % KEYDBLEN;
-	oldCBCdecrypt(authkey.des, buf, n);
+	if(keydbaes){
+		AESstate s;
+
+		/* make sure we have AES encryption key */
+		if(!haveaeskey()){
+			free(buf);
+			return 0;
+		}
+		keydblen += AESKEYLEN;
+		keydboff = 8+16;	/* signature[8] + iv[16] */
+		setupAESstate(&s, authkey.aes, AESKEYLEN, zeros);
+		aesCBCdecrypt(buf+8, n-8, &s);
+	} else {
+		uchar key[8];
+		DESstate s;
+
+		des56to64((uchar*)authkey.des, key);
+		setupDESstate(&s, key, zeros);
+		desCBCdecrypt(buf, n, &s);
+	}
 
 	/* unpack */
 	nu = 0;
-	for(i = KEYDBOFF; i < n; i += KEYDBLEN){
-		ep = buf + i;
-		if(userok((char*)ep, i/KEYDBLEN) < 0)
+	n = (n - keydboff) / keydblen;
+	ep = buf + keydboff;
+	for(i = 0; i < n; ep += keydblen, i++){
+		if(userok((char*)ep, i) < 0)
 			continue;
 		u = finduser((char*)ep);
-		if(u == 0)
+		if(u == nil)
 			u = installuser((char*)ep);
 		memmove(u->key, ep + Namelen, DESKEYLEN);
 		p = ep + Namelen + DESKEYLEN;
@@ -909,11 +925,14 @@ readusers(void)
 		p += 4;
 		memmove(u->secret, p, SECRETLEN);
 		u->secret[SECRETLEN-1] = 0;
+		p += SECRETLEN;
+		if(keydbaes)
+			memmove(u->aeskey, p, AESKEYLEN);
 		nu++;
 	}
 	free(buf);
 
-	print("%d keys read\n", nu);
+	print("%d keys read in %s foarmat\n", nu, keydbaes ? "AES" : "DES");
 	return 1;
 }
 
@@ -925,9 +944,7 @@ installuser(char *name)
 
 	h = hash(name);
 	u = emalloc(sizeof *u);
-	u->name = strdup(name);
-	if(u->name == nil)
-		error("malloc failed: %r");
+	u->name = estrdup(name);
 	u->removed = 0;
 	u->ref = 0;
 	u->purgatory = 0;
@@ -946,10 +963,10 @@ finduser(char *name)
 {
 	User *u;
 
-	for(u = users[hash(name)]; u; u = u->link)
+	for(u = users[hash(name)]; u != nil; u = u->link)
 		if(strcmp(name, u->name) == 0)
 			return u;
-	return 0;
+	return nil;
 }
 
 int
@@ -961,7 +978,7 @@ removeuser(User *user)
 	user->removed = 1;
 	name = user->name;
 	last = &users[hash(name)];
-	for(u = *last; u; u = *last){
+	for(u = *last; u != nil; u = *last){
 		if(strcmp(name, u->name) == 0){
 			*last = u->link;
 			return 1;
@@ -998,20 +1015,20 @@ findfid(int fid)
 {
 	Fid *f, *ff;
 
-	ff = 0;
-	for(f = fids; f; f = f->next)
+	ff = nil;
+	for(f = fids; f != nil; f = f->next)
 		if(f->fid == fid)
 			return f;
 		else if(!ff && !f->busy)
 			ff = f;
-	if(ff){
+	if(ff != nil){
 		ff->fid = fid;
 		return ff;
 	}
 	f = emalloc(sizeof *f);
 	f->fid = fid;
 	f->busy = 0;
-	f->user = 0;
+	f->user = nil;
 	f->next = fids;
 	fids = f;
 	return f;
@@ -1088,10 +1105,24 @@ emalloc(ulong n)
 {
 	void *p;
 
-	if(p = malloc(n))
+	if((p = malloc(n)) != nil){
+		memset(p, 0, n);
 		return p;
+	}
 	error("out of memory");
-	return 0;		/* not reached */
+	return nil;		/* not reached */
+}
+
+char *
+estrdup(char *s)
+{
+	char *d;
+	int n;
+
+	n = strlen(s)+1;
+	d = emalloc(n);
+	memmove(d, s, n);
+	return d;
 }
 
 void

@@ -20,6 +20,7 @@ enum
 	AERRLEN=	64,	/* errstr max size in previous proto */
 	DOMLEN=		48,	/* authentication domain name length */
 	DESKEYLEN=	7,	/* encrypt/decrypt des key length */
+	AESKEYLEN=	16,
 	CHALLEN=	8,	/* plan9 sk1 challenge length */
 	NETCHLEN=	16,	/* max network challenge length (used in AS protocol) */
 	CONFIGLEN=	14,
@@ -115,6 +116,7 @@ struct	OMSchapreply
 struct	Authkey
 {
 	char	des[DESKEYLEN];
+	uchar	aes[AESKEYLEN];
 };
 
 /*
@@ -132,7 +134,7 @@ extern	int	convM2PR(char*, int, Passwordreq*, Ticket*);
 /*
  *  convert ascii password to DES key
  */
-extern	int	passtokey(Authkey*, char*);
+extern	void	passtokey(Authkey*, char*);
 
 /*
  *  Nvram interface
@@ -147,7 +149,7 @@ enum {
 /* storage layout */
 struct Nvrsafe
 {
-	char	machkey[DESKEYLEN];	/* was file server's authid's des key */
+	char	machkey[DESKEYLEN];	/* file server's authid's des key */
 	uchar	machsum;
 	char	authkey[DESKEYLEN];	/* authid's des key from password */
 	uchar	authsum;
@@ -159,8 +161,11 @@ struct Nvrsafe
 	uchar	configsum;
 	char	authid[ANAMELEN];	/* auth userid, e.g., bootes */
 	uchar	authidsum;
-	char	authdom[DOMLEN]; /* auth domain, e.g., cs.bell-labs.com */
+	char	authdom[DOMLEN];	/* auth domain, e.g., cs.bell-labs.com */
 	uchar	authdomsum;
+
+	uchar	aesmachkey[AESKEYLEN];
+	uchar	aesmachsum;
 };
 
 extern	uchar	nvcsum(void*, int);

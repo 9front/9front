@@ -7,7 +7,7 @@ changeuser, convkeys, convkeys2, printnetkey, status, enable, disable, authsrv, 
 .I user
 .PP
 .B auth/convkeys
-.RB [ -p ]
+.RB [ -pa ]
 .I keyfile
 .PP
 .B auth/convkeys2
@@ -151,6 +151,9 @@ The
 forces
 .I convkeys
 to also prompt for the old password.
+The
+.B -a
+option converts the file into AES format.
 The format of
 .I keyfile
 is described in
