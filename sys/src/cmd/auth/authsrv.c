@@ -1002,6 +1002,7 @@ void
 mkkey(Authkey *k)
 {
 	randombytes((uchar*)k->des, DESKEYLEN);
+	randombytes((uchar*)k->aes, AESKEYLEN);
 }
 
 void
