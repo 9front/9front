@@ -33,7 +33,7 @@ fn showlocaldevs{
 	}
 	for(d in /shr/sd*) if(test -d $d) {
 		echo $d':'
-		for(p in $d/*.^(iso kfs paq)) if(test -f $p){
+		for(p in $d/*.^(iso paq)) if(test -f $p){
 			t=`{fstype $p}
 			~ $#t 0 || showlocaldev $p $t
 		}
@@ -65,8 +65,6 @@ fn connectlocal{
 			bootfs 9660srv $*
 		case dos
 			bootfs dossrv $*
-		case kfs
-			bootfs disk/kfs $*
 		case *
 			bootfs $t $*
 		}
