@@ -11,6 +11,7 @@
 int debug;
 Ndb *db;
 char raddr[128];
+uchar zeros[16];
 
 /* Microsoft auth constants */
 enum {
@@ -31,7 +32,6 @@ int	speaksfor(char*, char*);
 void	replyerror(char*, ...);
 void	getraddr(char*);
 void	mkkey(Authkey*);
-int	samekey(Authkey*, Authkey*);
 void	mkticket(Ticketreq*, Ticket*);
 void	randombytes(uchar*, int);
 void	nthash(uchar hash[MShashlen], char *passwd);
@@ -254,8 +254,12 @@ changepasswd(Ticketreq *tr)
 			exits(0);
 		}
 		passtokey(&nkey, pr.old);
-		if(!samekey(&nkey, &okey)){
+		if(memcmp(nkey.des, okey.des, DESKEYLEN) != 0){
 			replyerror("protocol botch2: %s", raddr);
+			continue;
+		}
+		if(memcmp(okey.aes, zeros, AESKEYLEN) != 0 && memcmp(okey.aes, nkey.aes, AESKEYLEN) != 0){
+			replyerror("protocol botch3: %s", raddr);
 			continue;
 		}
 		if(*pr.new){
@@ -998,12 +1002,6 @@ void
 mkkey(Authkey *k)
 {
 	randombytes((uchar*)k->des, DESKEYLEN);
-}
-
-int
-samekey(Authkey *a, Authkey *b)
-{
-	return memcmp(a->des, b->des, DESKEYLEN) == 0;
 }
 
 void

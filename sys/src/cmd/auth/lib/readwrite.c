@@ -41,7 +41,21 @@ finddeskey(char *db, char *user, char *key)
 	snprint(filename, sizeof filename, "%s/%s/key", db, user);
 	n = readfile(filename, key, DESKEYLEN);
 	if(n != DESKEYLEN)
-		return 0;
+		return nil;
+	else
+		return key;
+}
+
+uchar*
+findaeskey(char *db, char *user, uchar *key)
+{
+	int n;
+	char filename[Maxpath];
+
+	snprint(filename, sizeof filename, "%s/%s/aeskey", db, user);
+	n = readfile(filename, (char*)key, AESKEYLEN);
+	if(n != AESKEYLEN)
+		return nil;
 	else
 		return key;
 }
@@ -49,8 +63,12 @@ finddeskey(char *db, char *user, char *key)
 int
 findkey(char *db, char *user, Authkey *key)
 {
+	int ret;
+
 	memset(key, 0, sizeof(Authkey));
-	return finddeskey(db, user, key->des) != nil;
+	ret = finddeskey(db, user, key->des) != nil;
+	ret |= findaeskey(db, user, key->aes) != nil;
+	return ret;
 }
 
 char*
@@ -63,7 +81,7 @@ findsecret(char *db, char *user, char *secret)
 	n = readfile(filename, secret, SECRETLEN-1);
 	secret[n]=0;
 	if(n <= 0)
-		return 0;
+		return nil;
 	else
 		return secret;
 }
@@ -77,7 +95,21 @@ setdeskey(char *db, char *user, char *key)
 	snprint(filename, sizeof filename, "%s/%s/key", db, user);
 	n = writefile(filename, key, DESKEYLEN);
 	if(n != DESKEYLEN)
-		return 0;
+		return nil;
+	else
+		return key;
+}
+
+uchar*
+setaeskey(char *db, char *user, uchar *key)
+{
+	int n;
+	char filename[Maxpath];
+
+	snprint(filename, sizeof filename, "%s/%s/aeskey", db, user);
+	n = writefile(filename, (char*)key, AESKEYLEN);
+	if(n != AESKEYLEN)
+		return nil;
 	else
 		return key;
 }
@@ -85,7 +117,11 @@ setdeskey(char *db, char *user, char *key)
 int
 setkey(char *db, char *user, Authkey *key)
 {
-	return setdeskey(db, user, key->des) != nil;
+	int ret;
+
+	ret = setdeskey(db, user, key->des) != nil;
+	ret |= setaeskey(db, user, key->aes) != nil;
+	return ret;
 }
 
 char*
@@ -97,7 +133,7 @@ setsecret(char *db, char *user, char *secret)
 	snprint(filename, sizeof filename, "%s/%s/secret", db, user);
 	n = writefile(filename, secret, strlen(secret));
 	if(n != strlen(secret))
-		return 0;
+		return nil;
 	else
 		return secret;
 }
