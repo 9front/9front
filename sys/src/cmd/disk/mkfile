@@ -2,7 +2,6 @@
 
 TARG=exsort\
 	format\
-	kfscmd\
 	mbr\
 	mkext\
 	mkfs\
@@ -10,7 +9,6 @@ TARG=exsort\
 
 DIRS=\
 	9660\
-	kfs\
 	prep\
 	smart\
 #	sacfs\
@@ -29,23 +27,20 @@ UPDATE=\
 
 </sys/src/cmd/mkmany
 
-all:V:	all-kfs
+all:V:	all-dirs
 
-install:V:	install-kfs ksync
+install:V:	install-dirs
 
-clean:V:	clean-kfs
+clean:V:	clean-dirs
 
-nuke:V:		nuke-kfs
+nuke:V:		nuke-dirs
 
-installall:V:	installall-kfs
+installall:V:	installall-dirs
 
-%-kfs:V:
+%-dirs:V:
 	for(i in $DIRS) @{
 		cd $i
 		mk $MKFLAGS $stem
 	}
-
-ksync:
-	touch $BIN/ksync
 
 $O.format: /$objtype/lib/libdisk.a
