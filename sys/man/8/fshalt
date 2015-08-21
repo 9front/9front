@@ -16,11 +16,9 @@ fshalt, scram, reboot \- halt any local file systems and optionally shut down or
 .SH DESCRIPTION
 .I Fshalt
 syncs and halts all local
-.IR cwfs (4),
-.IR hjfs (4),
-.IR venti (8),
+.IR cwfs (4)
 and
-.IR kfs (4)
+.IR hjfs (4)
 servers.
 If given
 .BR -r ,

@@ -22,20 +22,8 @@ unmount /mnt/consoles >[2]/dev/null
 kill consolefs | rc			# don't compete with /mnt/consoles
 sleep 1
 
-k=`{ls /srv/kfs*cmd >[2]/dev/null|sort -r}
 c=`{ls /srv/cwfs*cmd >[2]/dev/null}
 h=`{ls /srv/hjfs*cmd >[2]/dev/null}
-
-for (i in $k){
-	echo -n $i... 
-	switch($i){
-	case /srv/kfs.cmd
-		disk/kfscmd sync
-	case *
-		disk/kfscmd -n `{echo $i | sed -n 's%/srv/kfs.(.*).cmd%\1%p'} sync
-	}
-	sleep 2
-}
 
 # for scram, don't scram other systems
 bind -b '#P' /dev
@@ -49,10 +37,7 @@ if(! ~ $reboot yes){
 # halting (binaries we run can't be on the fs we're halting)
 ramfs
 builtin cd /tmp
-cp /bin/dial/expect /tmp
-cp /bin/disk/kfscmd /tmp
 cp /bin/echo /tmp
-cp /bin/iostats /tmp
 mkdir /tmp/lib
 cp /rc/lib/rcmain /tmp/lib
 cp /bin/ns /tmp
@@ -68,15 +53,6 @@ bind /tmp /bin
 fn x {
 	echo
 	echo -n halting...
-	for (i in $k){
-		echo -n $i... 
-		switch($i){
-		case /srv/kfs.cmd
-			kfscmd halt
-		case *
-			kfscmd -n `{echo $i | sed -n 's%/srv/kfs.(.*).cmd%\1%p'} halt
-		}
-	}
 	for (i in $c){
 		echo -n $i...
 		echo halt >>$i
