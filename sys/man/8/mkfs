@@ -55,9 +55,8 @@ are:
 .TF "s source"
 .TP
 .B a
-Instead of writing to a
-.B kfs
-file system, write an archive file to standard output, suitable for
+Instead of writing to new file system,
+write an archive file to standard output, suitable for
 .IR mkext .
 All files in
 .IR proto ,
