@@ -1,7 +1,6 @@
 /* cached-worm file server */
 #include "all.h"
 #include "io.h"
-#include "9p1.h"
 
 Map *devmap;
 
@@ -466,10 +465,11 @@ serve(void *)
 
 		if (mb->data == nil)
 			panic("serve: nil mb->data");
-		/* better sniffing code in /sys/src/cmd/disk/kfs/9p12.c */
-		if(cp->protocol == nil){
+		if(cp->protocol != nil){
+			/* process the request, generate an answer and reply */
+			cp->protocol(mb);
+		} else {
 			/* do we recognise the protocol in this packet? */
-			/* better sniffing code: /sys/src/cmd/disk/kfs/9p12.c */
 			for(i = 0; fsprotocol[i] != nil; i++)
 				if(fsprotocol[i](mb) != 0) {
 					cp->protocol = fsprotocol[i];
@@ -479,9 +479,7 @@ serve(void *)
 				fprint(2, "no protocol for message\n");
 				hexdump(mb->data, 12);
 			}
-		} else
-			/* process the request, generate an answer and reply */
-			cp->protocol(mb);
+		}
 
 		mbfree(mb);
 		runlock(&mainlock);

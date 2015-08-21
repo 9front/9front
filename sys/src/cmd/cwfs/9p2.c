@@ -110,7 +110,44 @@ mkdir9p2(Dir* dir, Dentry* dentry, void* strs)
 	return p-op;
 }
 
-static int
+/*
+ * buggery to give false qid for
+ * the top 2 levels of the dump fs
+ */
+void
+mkqid(Qid* qid, Dentry *d, int buggery)
+{
+	int c;
+
+	if(buggery && d->qid.path == (QPDIR|QPROOT)){
+		c = d->name[0];
+		if(isascii(c) && isdigit(c)){
+			qid->path = 3;
+			qid->vers = d->qid.version;
+			qid->type = QTDIR;
+
+			c = (c-'0')*10 + (d->name[1]-'0');
+			if(c >= 1 && c <= 12)
+				qid->path = 4;
+			return;
+		}
+	}
+
+	mkqid9p2(qid, &d->qid, d->mode);
+}
+
+int
+mkqidcmp(Qid* qid, Dentry *d)
+{
+	Qid tmp;
+
+	mkqid(&tmp, d, 1);
+	if(qid->path == tmp.path && qid->type == tmp.type)
+		return 0;
+	return Eqid;
+}
+
+int
 version(Chan* chan, Fcall* f, Fcall* r)
 {
 	if(chan->protocol != nil || f->msize < 256)
@@ -237,7 +274,7 @@ authorize(Chan* chan, Fcall* f)
 	return uid;
 }
 
-static int
+int
 attach(Chan* chan, Fcall* f, Fcall* r)
 {
 	char *aname;
@@ -494,7 +531,7 @@ out:
 	return error;
 }
 
-static int
+int
 walk(Chan* chan, Fcall* f, Fcall* r)
 {
 	int error, nwname;
@@ -599,7 +636,7 @@ walk(Chan* chan, Fcall* f, Fcall* r)
 	return error;
 }
 
-static int
+int
 fs_open(Chan* chan, Fcall* f, Fcall* r)
 {
 	Iobuf *p;
@@ -748,7 +785,7 @@ out:
 	return error;
 }
 
-static int
+int
 fs_create(Chan* chan, Fcall* f, Fcall* r)
 {
 	Iobuf *p, *p1;
@@ -946,7 +983,7 @@ out:
 	return error;
 }
 
-static int
+int
 fs_read(Chan* chan, Fcall* f, Fcall* r, uchar* data)
 {
 	Iobuf *p, *p1;
@@ -975,6 +1012,7 @@ fs_read(Chan* chan, Fcall* f, Fcall* r, uchar* data)
 	}
 	iounit = chan->msize-IOHDRSZ;
 	if(count < 0 || count > iounit){
+fprint(2, "fs_read %d %d\n", count, iounit);
 		error = Ecount;
 		goto out;
 	}
@@ -1149,7 +1187,7 @@ out:
 	return error;
 }
 
-static int
+int
 fs_write(Chan* chan, Fcall* f, Fcall* r)
 {
 	Iobuf *p, *p1;
@@ -1263,6 +1301,90 @@ out:
 	return error;
 }
 
+int
+doremove(File *f)
+{
+	Iobuf *p, *p1;
+	Dentry *d, *d1;
+	Off addr;
+	int slot, err;
+
+	p = 0;
+	p1 = 0;
+	if(f->fs->dev->type == Devro) {
+		err = Eronly;
+		goto out;
+	}
+	/*
+	 * check on parent directory of file to be deleted
+	 */
+	if(f->wpath == 0 || f->wpath->addr == f->addr) {
+		err = Ephase;
+		goto out;
+	}
+	p1 = getbuf(f->fs->dev, f->wpath->addr, Brd);
+	d1 = getdir(p1, f->wpath->slot);
+	if(!d1 || checktag(p1, Tdir, QPNONE) || !(d1->mode & DALLOC)) {
+		err = Ephase;
+		goto out;
+	}
+	if(iaccess(f, d1, DWRITE)) {
+		err = Eaccess;
+		goto out;
+	}
+	accessdir(p1, d1, FWRITE, f->uid);
+	putbuf(p1);
+	p1 = 0;
+
+	/*
+	 * check on file to be deleted
+	 */
+	p = getbuf(f->fs->dev, f->addr, Brd);
+	d = getdir(p, f->slot);
+	if(!d || checktag(p, Tdir, QPNONE) || !(d->mode & DALLOC)) {
+		err = Ealloc;
+		goto out;
+	}
+	if(err = mkqidcmp(&f->qid, d))
+		goto out;
+
+	/*
+	 * if deleting a directory, make sure it is empty
+	 */
+	if((d->mode & DDIR))
+	for(addr=0;; addr++) {
+		p1 = dnodebuf(p, d, addr, 0, f->uid);
+		if(!p1)
+			break;
+		if(checktag(p1, Tdir, d->qid.path)) {
+			err = Ephase;
+			goto out;
+		}
+		for(slot=0; slot<DIRPERBUF; slot++) {
+			d1 = getdir(p1, slot);
+			if(!(d1->mode & DALLOC))
+				continue;
+			err = Eempty;
+			goto out;
+		}
+		putbuf(p1);
+	}
+
+	/*
+	 * do it
+	 */
+	dtrunc(p, d, f->uid);
+	memset(d, 0, sizeof(Dentry));
+	settag(p, Tdir, QPNONE);
+
+out:
+	if(p1)
+		putbuf(p1);
+	if(p)
+		putbuf(p);
+	return err;
+}
+
 static int
 _clunk(File* file, int remove)
 {
@@ -1299,7 +1421,7 @@ clunk(Chan* chan, Fcall* f, Fcall*)
 	return 0;
 }
 
-static int
+int
 fs_remove(Chan* chan, Fcall* f, Fcall*)
 {
 	File *file;
@@ -1309,7 +1431,7 @@ fs_remove(Chan* chan, Fcall* f, Fcall*)
 	return _clunk(file, 1);
 }
 
-static int
+int
 fs_stat(Chan* chan, Fcall* f, Fcall* r, uchar* data)
 {
 	Dir dir;

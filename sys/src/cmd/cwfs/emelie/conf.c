@@ -27,7 +27,6 @@ localconfinit(void)
 }
 
 int (*fsprotocol[])(Msgbuf*) = {
-	serve9p1,
 	serve9p2,
 	nil,
 };

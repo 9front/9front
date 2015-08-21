@@ -965,7 +965,6 @@ arginit(void)
 	char word[Maxword+1], *cp;
 	Filsys *fs;
 
-	nvrcheck();
 	if(!setconfig(conf.confdev) && !conf.configfirst)
 		return;
 
