@@ -82,9 +82,11 @@ main(int argc, char *argv[])
 			if(answer[0] != 'y' && answer[0] != 'Y')
 				newkey = 0;
 		}
-		if(newkey)
+		if(newkey){
+			memset(&key, 0, sizeof(key));
 			for(i=0; i<DESKEYLEN; i++)
 				key.des[i] = nrand(256);
+		}
 		if(a.user == 0){
 			t = getexpiration(f->keys, u);
 			newbio = querybio(f->who, u, &a);
@@ -117,11 +119,8 @@ install(char *db, char *u, Authkey *key, long t, int newkey)
 	}
 
 	if(newkey){
-		sprint(buf, "%s/%s/key", db, u);
-		fd = open(buf, OWRITE);
-		if(fd < 0 || write(fd, key->des, DESKEYLEN) != DESKEYLEN)
+		if(!setkey(db, u, key))
 			error("can't set key: %r");
-		close(fd);
 	}
 
 	if(t == -1)
