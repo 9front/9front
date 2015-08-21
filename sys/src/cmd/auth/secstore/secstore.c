@@ -148,16 +148,14 @@ getfile(SConn *conn, char *gf, uchar **buf, ulong *buflen, uchar *key, int nkey)
 static int
 putfile(SConn *conn, char *pf, uchar *buf, ulong len, uchar *key, int nkey)
 {
-	int i, n, fd, ivo, bufi, done;
+	int n, fd, ivo, bufi, done;
 	char s[Maxmsg];
 	uchar skey[SHA1dlen], b[CHK+Maxmsg], IV[AESbsize];
 	AESstate aes;
 	DigestState *sha;
 
 	/* create initialization vector */
-	srand(time(0));			/* doesn't need to be unpredictable */
-	for(i=0; i<AESbsize; i++)
-		IV[i] = 0xff & rand();
+	genrandom(IV, AESbsize);
 	sha = sha1((uchar*)"aescbc file", 11, nil, nil);
 	sha1(key, nkey, skey, sha);
 	setupAESstate(&aes, skey, AESbsize, IV);

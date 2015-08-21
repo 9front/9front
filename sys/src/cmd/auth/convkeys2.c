@@ -12,7 +12,6 @@ int	usepass;
 
 int	convert(char*, char*, Authkey*, int);
 void	usage(void);
-void	randombytes(uchar*, int);
 
 void
 main(int argc, char *argv[])
@@ -101,7 +100,7 @@ convert(char *p, char *np, Authkey *key, int len)
 		if(verb)
 			print("%s\n", &p[off]);
 	}
-	randombytes((uchar*)np, KEYDBOFF);
+	genrandom((uchar*)np, KEYDBOFF);
 	len = (len*KEYDBLEN) + KEYDBOFF;
 	oldCBCencrypt(key->des, np, len);
 	return len;
@@ -112,21 +111,4 @@ usage(void)
 {
 	fprint(2, "usage: convkeys2 keyfile\n");
 	exits("usage");
-}
-
-void
-randombytes(uchar *p, int len)
-{
-	int i, fd;
-
-	fd = open("/dev/random", OREAD);
-	if(fd < 0){
-		fprint(2, "convkeys2: can't open /dev/random, using rand()\n");
-		srand(time(0));
-		for(i = 0; i < len; i++)
-			p[i] = rand();
-		return;
-	}
-	read(fd, p, len);
-	close(fd);
 }

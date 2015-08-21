@@ -203,7 +203,6 @@ char		*getnvramkey(int);
 void		initcap(void);
 int		isclient(char*);
 int		matchattr(Attr*, Attr*, Attr*);
-void 		memrandom(void*, int);
 char 		*mkcap(char*, char*);
 int 		phaseerror(Fsstate*, char*);
 char		*phasename(Fsstate*, int, char*);

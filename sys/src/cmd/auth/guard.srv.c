@@ -6,6 +6,7 @@
 #include <fcall.h>
 #include <bio.h>
 #include <ndb.h>
+#include <libsec.h>
 #include <authsrv.h>
 #include "authcmdlib.h"
 
@@ -57,7 +58,6 @@ main(int argc, char *argv[])
 		getraddr(argv[argc-1]);
 
 	argv0 = "guard";
-	srand((getpid()*1103515245)^time(0));
 	notify(catchalarm);
 
 	/*
@@ -69,7 +69,7 @@ main(int argc, char *argv[])
 	/*
 	 * challenge-response
 	 */
-	chal = lnrand(MAXNETCHAL);
+	chal = nfastrand(MAXNETCHAL);
 	sprint(buf, "challenge: %lud\nresponse: ", chal);
 	n = strlen(buf) + 1;
 	if(write(1, buf, n) != n){

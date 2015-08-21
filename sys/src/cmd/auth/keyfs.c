@@ -696,24 +696,6 @@ dostat(User *user, ulong qtype, void *p, int n)
 	return convD2M(&d, p, n);
 }
 
-
-void
-randombytes(uchar *p, int len)
-{
-	int i, fd;
-
-	fd = open("/dev/random", OREAD);
-	if(fd < 0){
-		fprint(2, "keyfs: can't open /dev/random, using rand()\n");
-		srand(time(0));
-		for(i = 0; i < len; i++)
-			p[i] = rand();
-		return;
-	}
-	read(fd, p, len);
-	close(fd);
-}
-
 void
 writeusers(void)
 {
@@ -740,7 +722,7 @@ writeusers(void)
 	/* pack into buffer */
 	buf = emalloc(keydboff + nu*keydblen);
 	p = buf;
-	randombytes(p, keydboff);
+	genrandom(p, keydboff);
 	p += keydboff;
 	for(i = 0; i < Nuser; i++)
 		for(u = users[i]; u != nil; u = u->link){

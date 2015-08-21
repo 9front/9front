@@ -188,7 +188,7 @@ chapwrite(Fsstate *fss, void *va, uint n)
 				if(user == nil)
 					break;
 
-				memrandom(pchal, MSchallenv2);
+				genrandom((uchar*)pchal, MSchallenv2);
 
 				/* ChallengeHash() */
 				ds = sha1(pchal, MSchallenv2, nil, nil);
@@ -579,7 +579,7 @@ domschap2(char *passwd, char *user, char *dom, uchar chal[MSchallen], uchar *res
 	*p++ = t >> 48;
 	*p++ = t >> 56;
 
-	memrandom(p, 8);
+	genrandom(p, 8);
 	p += 8;			/* 64bit: client nonce */
 
 	*p++ = 0;		/* 32bit: unknown data */
@@ -617,7 +617,7 @@ domschap2(char *passwd, char *user, char *dom, uchar chal[MSchallen], uchar *res
 	 * LmResponse = Cat(HMAC_MD5(LmHash, Cat(SC, CC)), CC)
 	 */
 	s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
-	memrandom((uchar*)r->LMresp+16, 8);
+	genrandom((uchar*)r->LMresp+16, 8);
 	hmac_md5((uchar*)r->LMresp+16, 8, hash, MShashlen, (uchar*)r->LMresp, s);
 
 	/*

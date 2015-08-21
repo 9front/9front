@@ -74,23 +74,6 @@ main(int argc, char *argv[])
 	exits(nil);
 }
 
-void
-randombytes(uchar *p, int len)
-{
-	int i, fd;
-
-	fd = open("/dev/random", OREAD);
-	if(fd < 0){
-		fprint(2, "%s: can't open /dev/random, using rand()\n", argv0);
-		srand(time(0));
-		for(i = 0; i < len; i++)
-			p[i] = rand();
-		return;
-	}
-	read(fd, p, len);
-	close(fd);
-}
-
 int
 badname(char *s)
 {
@@ -181,7 +164,7 @@ convert(char **db, int len)
 		keydbaes = 1;
 	}
 
-	randombytes((uchar*)p, keydboff);
+	genrandom((uchar*)p, keydboff);
 	if(keydbaes){
 		AESstate s;
 

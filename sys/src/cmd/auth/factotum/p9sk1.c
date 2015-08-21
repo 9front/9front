@@ -88,7 +88,7 @@ p9skinit(Proto *p, Fsstate *fss)
 		switch(s->vers){
 		case 1:
 			fss->phase = CHaveChal;
-			memrandom(s->cchal, CHALLEN);
+			genrandom((uchar*)s->cchal, CHALLEN);
 			break;
 		case 2:
 			fss->phase = CNeedTreq;
@@ -108,7 +108,7 @@ p9skinit(Proto *p, Fsstate *fss)
 		safecpy(s->tr.authid, _strfindattr(k->attr, "user"), sizeof(s->tr.authid));
 		safecpy(s->tr.authdom, _strfindattr(k->attr, "dom"), sizeof(s->tr.authdom));
 		s->key = k;
-		memrandom(s->tr.chal, sizeof s->tr.chal);
+		genrandom((uchar*)s->tr.chal, sizeof s->tr.chal);
 		switch(s->vers){
 		case 1:
 			fss->phase = SNeedChal;
@@ -449,7 +449,7 @@ mkserverticket(State *s, char *tbuf, int tbuflen)
 	memmove(t.chal, tr->chal, CHALLEN);
 	strcpy(t.cuid, tr->uid);
 	strcpy(t.suid, tr->uid);
-	memrandom(t.key, DESKEYLEN);
+	genrandom((uchar*)t.key, DESKEYLEN);
 	t.num = AuthTc;
 	ret = convT2M(&t, tbuf, tbuflen, (Authkey*)s->key->priv);
 	t.num = AuthTs;

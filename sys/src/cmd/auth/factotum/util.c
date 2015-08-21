@@ -566,15 +566,6 @@ matchattr(Attr *pat, Attr *a0, Attr *a1)
 	return 1;		
 }
 
-void
-memrandom(void *p, int n)
-{
-	uchar *cp;
-
-	for(cp = (uchar*)p; n > 0; n--)
-		*cp++ = fastrand();
-}
-
 /*
  *  keep caphash fd open since opens of it could be disabled
  */
@@ -608,7 +599,7 @@ mkcap(char *from, char *to)
 	nfrom = strlen(from);
 	cap = emalloc(nfrom+1+nto+1+sizeof(rand)*3+1);
 	sprint(cap, "%s@%s", from, to);
-	memrandom(rand, sizeof(rand));
+	genrandom(rand, sizeof(rand));
 	key = cap+nfrom+1+nto+1;
 	enc64(key, sizeof(rand)*3, rand, sizeof(rand));
 

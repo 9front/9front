@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <libsec.h>
 #include <authsrv.h>
 #include <ctype.h>
 #include <bio.h>
@@ -19,13 +20,12 @@ void
 main(int argc, char *argv[])
 {
 	char *u, answer[32], p9pass[32];
-	int which, i, newkey, newbio, dosecret;
+	int which, newkey, newbio, dosecret;
 	long t;
 	Authkey key;
 	Acctbio a;
 	Fs *f;
 
-	srand(getpid()*time(0));
 	fmtinstall('K', deskeyfmt);
 
 	which = 0;
@@ -84,8 +84,7 @@ main(int argc, char *argv[])
 		}
 		if(newkey){
 			memset(&key, 0, sizeof(key));
-			for(i=0; i<DESKEYLEN; i++)
-				key.des[i] = nrand(256);
+			genrandom((uchar*)key.des, DESKEYLEN);
 		}
 		if(a.user == 0){
 			t = getexpiration(f->keys, u);

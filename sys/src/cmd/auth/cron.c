@@ -191,7 +191,6 @@ main(int argc, char *argv[])
 		fatal("cron already running: %r");
 
 	argv0 = "cron";
-	srand(getpid()*time(0));
 	last = time(0);
 	for(;;){
 		readalljobs();
@@ -656,15 +655,6 @@ qidcmp(Qid a, Qid b)
 	return(a.path != b.path || a.vers != b.vers);
 }
 
-void
-memrandom(void *p, int n)
-{
-	uchar *cp;
-
-	for(cp = (uchar*)p; n > 0; n--)
-		*cp++ = fastrand();
-}
-
 /*
  *  keep caphash fd open since opens of it could be disabled
  */
@@ -699,7 +689,7 @@ mkcap(char *from, char *to)
 	ncap = nfrom + 1 + nto + 1 + sizeof(rand)*3 + 1;
 	cap = emalloc(ncap);
 	snprint(cap, ncap, "%s@%s", from, to);
-	memrandom(rand, sizeof(rand));
+	genrandom(rand, sizeof(rand));
 	key = cap+nfrom+1+nto+1;
 	enc64(key, sizeof(rand)*3, rand, sizeof(rand));
 

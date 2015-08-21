@@ -261,7 +261,7 @@ doreply(State *s, char *user, char *response)
 		goto err;
 	}
 
-	memrandom(s->tr.chal, CHALLEN);
+	genrandom((uchar*)s->tr.chal, CHALLEN);
 	safecpy(s->tr.uid, user, sizeof(s->tr.uid));
 	alarm(30*1000);
 	if(_asrequest(s->asfd, &s->tr) < 0){

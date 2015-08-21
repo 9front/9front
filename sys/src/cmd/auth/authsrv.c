@@ -33,7 +33,6 @@ void	replyerror(char*, ...);
 void	getraddr(char*);
 void	mkkey(Authkey*);
 void	mkticket(Ticketreq*, Ticket*);
-void	randombytes(uchar*, int);
 void	nthash(uchar hash[MShashlen], char *passwd);
 void	lmhash(uchar hash[MShashlen], char *passwd);
 void	ntv2hash(uchar hash[MShashlen], char *passwd, char *user, char *dom);
@@ -64,7 +63,6 @@ main(int argc, char *argv[])
 	if(db == 0)
 		syslog(0, AUTHLOG, "no /lib/ndb/auth");
 
-	srand(time(0)*getpid());
 	for(;;){
 		n = readn(0, buf, sizeof(buf));
 		if(n <= 0 || convM2TR(buf, n, &tr) <= 0)
@@ -167,7 +165,7 @@ challengebox(Ticketreq *tr)
 	netkey = finddeskey(NETKEYDB, tr->uid, nkbuf);
 	if(key == nil && netkey == nil){
 		/* make one up so caller doesn't know it was wrong */
-		randombytes((uchar*)nkbuf, DESKEYLEN);
+		genrandom((uchar*)nkbuf, DESKEYLEN);
 		netkey = nkbuf;
 		if(debug)
 			syslog(0, AUTHLOG, "cr-fail uid %s@%s", tr->uid, raddr);
@@ -185,7 +183,7 @@ challengebox(Ticketreq *tr)
 	 */
 	memset(buf, 0, sizeof(buf));
 	buf[0] = AuthOK;
-	chal = lnrand(MAXNETCHAL);
+	chal = nfastrand(MAXNETCHAL);
 	sprint(buf+1, "%lud", chal);
 	if(write(1, buf, NETCHLEN+1) < 0)
 		exits(0);
@@ -322,7 +320,7 @@ http(Ticketreq *tr)
 
 	/* send back a ticket encrypted with the key */
 	mkticket(tr, &t);
-	randombytes((uchar*)t.chal, CHALLEN);
+	genrandom((uchar*)t.chal, CHALLEN);
 	t.num = AuthHr;
 	n = 0;
 	tbuf[n++] = AuthOK;
@@ -388,7 +386,7 @@ apop(Ticketreq *tr, int type)
 	/*
 	 *  Create a challenge and send it.
 	 */
-	randombytes((uchar*)rb, sizeof(rb));
+	genrandom((uchar*)rb, sizeof(rb));
 	p = chal;
 	p += snprint(p, sizeof(chal), "<%lux%lux.%lux%lux@%s>",
 		rb[0], rb[1], rb[2], rb[3], domainname());
@@ -502,7 +500,7 @@ vnc(Ticketreq *tr)
 	/*
 	 *  Create a challenge and send it.
 	 */
-	randombytes(chal+6, VNCchallen);
+	genrandom(chal+6, VNCchallen);
 	chal[0] = AuthOKvar;
 	sprint((char*)chal+1, "%-5d", VNCchallen);
 	if(write(1, chal, sizeof(chal)) != sizeof(chal))
@@ -514,7 +512,7 @@ vnc(Ticketreq *tr)
 	memset(sbuf, 0, sizeof(sbuf));
 	secret = findsecret(KEYDB, tr->uid, sbuf);
 	if(secret == nil){
-		randombytes((uchar*)sbuf, sizeof(sbuf));
+		genrandom((uchar*)sbuf, sizeof(sbuf));
 		secret = sbuf;
 	}
 	for(i = 0; i < 8; i++)
@@ -565,7 +563,7 @@ chap(Ticketreq *tr)
 	/*
 	 *  Create a challenge and send it.
 	 */
-	randombytes((uchar*)chal, sizeof(chal));
+	genrandom((uchar*)chal, sizeof(chal));
 	write(1, chal, sizeof(chal));
 
 	/*
@@ -682,7 +680,7 @@ mschap(Ticketreq *tr)
 	/*
 	 *  Create a challenge and send it.
 	 */
-	randombytes((uchar*)chal, sizeof(chal));
+	genrandom(chal, sizeof(chal));
 	write(1, chal, sizeof(chal));
 
 	/*
@@ -1001,8 +999,8 @@ getraddr(char *dir)
 void
 mkkey(Authkey *k)
 {
-	randombytes((uchar*)k->des, DESKEYLEN);
-	randombytes((uchar*)k->aes, AESKEYLEN);
+	genrandom((uchar*)k->des, DESKEYLEN);
+	genrandom((uchar*)k->aes, AESKEYLEN);
 }
 
 void
@@ -1012,19 +1010,7 @@ mkticket(Ticketreq *tr, Ticket *t)
 	memmove(t->chal, tr->chal, CHALLEN);
 	safecpy(t->cuid, tr->uid, sizeof(t->cuid));
 	safecpy(t->suid, tr->uid, sizeof(t->suid));
-	randombytes((uchar*)t->key, DESKEYLEN);
-}
-
-void
-randombytes(uchar *buf, int len)
-{
-	int i;
-
-	if(readfile("/dev/random", (char*)buf, len) >= 0)
-		return;
-
-	for(i = 0; i < len; i++)
-		buf[i] = rand();
+	genrandom((uchar*)t->key, DESKEYLEN);
 }
 
 /*
