@@ -28,8 +28,7 @@ compressed
 .IR paqfs (4)
 .TP
 .B kfs
-Plan 9 disk file system (see
-.IR kfs (4))
+old Plan 9 disk file system
 .TP
 .B fs
 32-bit and

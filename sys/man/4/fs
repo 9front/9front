@@ -45,8 +45,8 @@ on a combination of disks and
 write-once-read-many (WORM) magneto-optical disks.
 .TP
 .B other
-is a simple disk-based file system similar to
-.IR kfs (4) .
+is a simple disk-based file system not backed by
+the worm.
 .TP
 .B main
 is a worm-based file system with a disk-based

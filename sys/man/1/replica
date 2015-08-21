@@ -267,9 +267,9 @@ As an example, the Plan 9 distribution replica configuration looks like:
     serverlog=$s/plan9.log
     serverproto=$s/plan9.proto
 
-    fn clientmount { 9fs kfs }
-    clientroot=/n/kfs
-    c=/n/kfs/dist/replica
+    fn clientmount { 9fs boot }
+    clientroot=/n/boot
+    c=/n/boot/dist/replica
     clientlog=$c/client/plan9.log
     clientproto=$c/plan9.proto
     clientdb=$c/client/plan9.db

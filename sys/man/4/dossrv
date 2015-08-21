@@ -162,8 +162,6 @@ If the floppy drive has an ejection motor,
 will spit out the floppy from drive
 .IR n ,
 default 0.
-.SH "SEE ALSO"
-.IR kfs (4)
 .SH SOURCE
 .B /sys/src/cmd/dossrv
 .br

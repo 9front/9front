@@ -28,8 +28,7 @@ the device an error is returned instead.
 .SH SOURCE
 .B /sys/src/cmd/swap.c
 .SH BUGS
-Swapping to a file served by a local user-level process, such as
-.IR kfs (4),
+Swapping to a file served by a local user-level process
 will lead to deadlock if the process isn't made non-swappable
 (see the
 .B noswap

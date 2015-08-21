@@ -225,11 +225,11 @@ echo inter data /dev/fs/m0 /dev/fs/m1 >/dev/fs/ctl
 .EE
 .LP
 Run
-.IR kfs (4)
+.IR hjfs (4)
 on the interleaved device:
 .IP
 .EX
-disk/kfs -f /dev/fs/data
+hjfs -f /dev/fs/data
 .EE
 .LP
 Save the configuration:
