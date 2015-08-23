@@ -21,10 +21,10 @@ probably_prime(mpint *n, int nrep)
 		nrep = 18;
 
 	k = mptoi(n);
-	if(k == 2)		/* 2 is prime */
-		return 1;
 	if(k < 2)		/* 1 is not prime */
 		return 0;
+	if(k == 2 || k == 3)	/* 2, 3 is prime */
+		return 1;
 	if((n->p[0] & 1) == 0)	/* even is not prime */
 		return 0;
 
