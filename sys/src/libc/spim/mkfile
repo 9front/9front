@@ -9,13 +9,9 @@ MIPSSFILES=\
 	getfcr.s\
 	main9.s\
 	main9p.s\
-	memccpy.s\
-	memchr.s\
-	memcmp.s\
 	memmove.s\
 	memset.s\
 	setjmp.s\
-	strchr.s\
 	strcmp.s\
 	strcpy.s\
 	tas.s\
@@ -26,6 +22,10 @@ MIPSCFILES=\
 	notejmp.c\
 
 SFILES=\
+	memccpy.s\
+	memchr.s\
+	memcmp.s\
+	strchr.s\
 	vlop.s\
 
 CFILES=\
