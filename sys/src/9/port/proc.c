@@ -173,9 +173,6 @@ sched(void)
 	up->state = Running;
 	up->mach = MACHP(m->machno);
 	m->proc = up;
-	//print("poolcheck sched %s\n", p->text);
-	//#include <pool.h>
-	//poolcheck(mainmem);
 	mmuswitch(up);
 	gotolabel(&up->sched);
 }

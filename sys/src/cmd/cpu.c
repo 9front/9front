@@ -224,7 +224,7 @@ main(int argc, char **argv)
 	if(system == nil) {
 		p = getenv("cpu");
 		if(p == 0)
-			p = "$cpu";
+			fatal("set $cpu");
 		system = p;
 	}
 

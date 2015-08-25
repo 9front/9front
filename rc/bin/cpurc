@@ -55,22 +55,18 @@ if(test -r /net/ipselftab){
 	}
 }
 
-if(! test -e /net/dns){
-	echo dns...
+if(! test -e /net/dns)
 	ndb/dns -r
-}
 
-echo timesync...
 if(! ps|grep -s timesync){
 	if(~ $#ntp 0)
 		. <{ndb/ipquery sys $sysname ntp | sed 's, +,\n,g'}
 	if(~ $#ntp 0)
 		ntp=pool.ntp.org
-	#aux/timesync -n $ntp
+	aux/timesync -n $ntp
 	sleep 2
 }
 
-echo listen...
 if(~ $#auth 0){
 	auth=`{ndb/query sys $sysname auth}
 	. <{ndb/ipquery sys $sysname auth | sed 's, +,\n,g'}
@@ -93,7 +89,6 @@ case *
 if(test -f /dev/apm)
 	aux/apm
 
-echo cpustart...
 if(test -e /cfg/$sysname/cpustart)
 	. /cfg/$sysname/cpustart
 

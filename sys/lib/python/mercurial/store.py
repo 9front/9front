@@ -246,7 +246,7 @@ class fncache(object):
         '''fill the entries from the fncache file'''
         self.entries = set()
         try:
-            fp = self.opener('fncache', mode='r')
+            fp = self.opener('fncache', mode='rb')
         except IOError:
             # skip nonexistent file
             return

@@ -1,5 +1,5 @@
 enum {
-	Debug = 1,
+	Debug = 0,
 };
 
 extern void	fatal(char*);

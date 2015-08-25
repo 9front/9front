@@ -10,6 +10,7 @@ char *trivial[] = {
 	"change me",
 	"passwd",
 	"no passwd",
+	"anonymous",
 	0
 };
 

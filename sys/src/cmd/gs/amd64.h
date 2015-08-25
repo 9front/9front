@@ -33,13 +33,13 @@
 
 	 /* ---------------- Cache sizes ---------------- */
 
-#define ARCH_CACHE1_SIZE 2097152
+#define ARCH_CACHE1_SIZE 131072
 #define ARCH_CACHE2_SIZE 4194304
 
 	 /* ---------------- Miscellaneous ---------------- */
 
 #define ARCH_IS_BIG_ENDIAN 0
-#define ARCH_PTRS_ARE_SIGNED 1
+#define ARCH_PTRS_ARE_SIGNED 0
 #define ARCH_FLOATS_ARE_IEEE 1
 #define ARCH_ARITH_RSHIFT 2
 #define ARCH_CAN_SHIFT_FULL_LONG 0

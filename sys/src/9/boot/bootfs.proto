@@ -30,15 +30,12 @@ $objtype
 		ndb
 			dnsgetip
 		hjfs
-		p
-		ps
 		rc
 		rm
 		sed
 		sleep
 		srv
 		test
-		tlsclient
 		unmount
 		nusb
 			usbd

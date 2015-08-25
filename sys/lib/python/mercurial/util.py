@@ -763,7 +763,7 @@ def mktempcopy(name, emptyok=False, createmode=None):
         return temp
     try:
         try:
-            ifp = posixfile(name, "r")
+            ifp = posixfile(name, "rb")
         except IOError, inst:
             if inst.errno == errno.ENOENT:
                 return temp

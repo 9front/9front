@@ -825,7 +825,7 @@ if(tr->debug) pdump(unpad_len, p, "decrypted:");
 		(*tr->packMac)(in->sec, in->sec->mackey, seq, header, p, len, hmac);
 		if(unpad_len < in->sec->maclen)
 			rcvError(tr, EBadRecordMac, "short record mac");
-		if(constcmp(hmac, p+len, in->sec->maclen) != 0)
+		if(memcmp(hmac, p+len, in->sec->maclen) != 0)
 			rcvError(tr, EBadRecordMac, "record mac mismatch");
 		b->rp = p;
 		b->wp = p+len;

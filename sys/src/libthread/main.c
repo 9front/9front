@@ -31,7 +31,7 @@ main(int argc, char **argv)
 	if(setjmp(_mainjmp))
 		_schedinit(p);
 
-	//_threaddebuglevel = (DBGSCHED|DBGCHAN|DBGREND);
+//_threaddebuglevel = (DBGSCHED|DBGCHAN|DBGREND)^~0;
 	_systhreadinit();
 	_qlockinit(_threadrendezvous);
 	_sysfatal = _threadsysfatal;

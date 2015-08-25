@@ -71,7 +71,7 @@ threadsetname(char *fmt, ...)
 	va_start(arg, fmt);
 	t->cmdname = vsmprint(fmt, arg);
 	va_end(arg);
-	if(t->cmdname){
+	if(t->cmdname && p->nthreads == 1){
 		snprint(buf, sizeof buf, "#p/%lud/args", _tos->pid); //getpid());
 		if((fd = open(buf, OWRITE)) >= 0){
 			write(fd, t->cmdname, strlen(t->cmdname)+1);

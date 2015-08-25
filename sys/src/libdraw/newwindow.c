@@ -29,3 +29,4 @@ newwindow(char *str)
 		return mount(fd, -1, "/dev", MBEFORE, buf);
 	return bind("/mnt/wsys", "/dev", MBEFORE);
 }
+

@@ -48,12 +48,6 @@ fn connecttcp{
 	fs=$fs(1)
 }
 
-fn connecttcptls{
-	while(! ~ $#fs 0 && ! srv -qe 'tlsclient -t <{echo $fsthumb} tcp!'^$fs(1)^!5564 boot)
-		fs=$fs(2-);
-	fs=$fs(1)
-}
-
 fn connectil{
 	while(! ~ $#fs 0 && ! srv -q il!$fs(1)^!17008 boot)
 		fs=$fs(2-);
@@ -61,7 +55,5 @@ fn connectil{
 }
 
 mtcp=(confignet connecttcp)
-mtcptls=(confignet connecttcptls)
 mil=(confignet connectil)
-mt=(mtcp mtcptls mil $mt)
-
+mt=(mtcp mil $mt)

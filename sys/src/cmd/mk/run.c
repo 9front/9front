@@ -163,7 +163,7 @@ again:		/* rogue processes */
 			uarg = 1;
 		} else {
 			jobs = 0;
-			sysfatal("%s", buf);
+			Exit();
 		}
 	}
 	for(w = j->t; w; w = w->next){
