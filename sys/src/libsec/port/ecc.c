@@ -3,6 +3,76 @@
 #include <libsec.h>
 #include <ctype.h>
 
+ECdomain *
+ecnamedcurve(int id)
+{
+	ECdomain *dom;
+	dom = malloc(sizeof(ECdomain));
+	if(dom == nil)
+		return nil;
+
+	switch(id) {
+	default:
+		free(dom);
+		return nil;
+	case Secp256r1:
+		dom->p = strtomp("FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF", nil, 16, nil);
+		dom->a = strtomp("FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC", nil, 16, nil);
+		dom->b = strtomp("5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B", nil, 16, nil);
+		dom->G = strtoec(dom, "036B17D1F2E12C4247F8BCE6E563A440F277037D812DEB33A0F4A13945D898C296", nil, nil);
+		dom->n = strtomp("FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551", nil, 16, nil);
+		dom->h = uitomp(1, nil);
+		break;
+	}
+
+	if(dom->p == nil || dom->a == nil || dom->b == nil || dom->G == nil || dom->n == nil || dom->h == nil) {
+		ecfreedomain(dom);
+		return nil;
+	}
+
+	return dom;
+}
+
+void
+ecfreepoint(ECpoint *pt)
+{
+	if(pt != nil) {
+		mpfree(pt->x);
+		mpfree(pt->y);
+	}
+
+	free(pt);
+}
+
+void
+ecfreepriv(ECpriv *priv)
+{
+	if(priv != nil) {
+		mpfree(priv->x);
+		mpfree(priv->y);
+		mpfree(priv->d);
+	}
+
+	free(priv);
+}
+
+void
+ecfreedomain(ECdomain *dom)
+{
+	if(dom != nil) {
+		mpfree(dom->p);
+		mpfree(dom->a);
+		mpfree(dom->b);
+		if(dom->G != nil) {
+			ecfreepoint(dom->G);
+		}
+		mpfree(dom->n);
+		mpfree(dom->h);
+	}
+
+	free(dom);
+}
+
 void
 ecassign(ECdomain *, ECpoint *a, ECpoint *b)
 {
@@ -329,6 +399,54 @@ mpsqrt(mpint *n, mpint *p, mpint *r)
 	return 1;
 }
 
+// converts the bytes in buf to an ECpoint x y pair.
+// the domain is used to determine the number of bytes in x and y in the buffer.
+ECpoint*
+betoec(ECdomain *dom, uchar *buf, int blen, ECpoint *ret)
+{
+	int allocd, bytelen;
+
+	allocd = 0;
+	bytelen = (mpsignif(dom->p)+7) >> 3;
+
+	// sanity check arguments
+	if(dom == nil || buf == nil)
+		return nil;
+
+	// check if input is too short for two mpints
+	if(blen != 1+2*bytelen)
+		return nil;
+
+	// check that point is in uncompressed format
+	if(buf[0] != 4)
+		return nil;
+
+	if(ret == nil) {
+		// allocate return pointer and mpints
+		allocd = 1;
+		ret = mallocz(sizeof(*ret), 1);
+		if(ret == nil)
+			return nil;
+		ret->x = mpnew(0);
+		ret->y = mpnew(0);
+	}
+
+	// uncompressed form
+	if(betomp(buf+1, bytelen, ret->x) == nil)
+		goto err;
+	if(betomp(buf+1+bytelen, bytelen, ret->y) == nil)
+		goto err;
+	if(!ecverify(dom, ret))
+		goto err;
+	return ret;
+
+err:
+	if(allocd){
+		ecfreepoint(ret);
+	}
+	return nil;
+}
+
 ECpoint*
 strtoec(ECdomain *dom, char *s, char **rptr, ECpoint *ret)
 {
@@ -382,11 +500,8 @@ strtoec(ECdomain *dom, char *s, char **rptr, ECpoint *ret)
 err:
 	if(rptr)
 		*rptr = s;
-	if(allocd){
-		mpfree(ret->x);
-		mpfree(ret->y);
-		free(ret);
-	}
+	if(allocd)
+		ecfreepoint(ret);
 	return nil;
 }
 

@@ -71,6 +71,12 @@ case *.vac
 	vacfs -m /n/`{basename $1 .vac} `{cat $score}
 case wiki
 	srv -m 'net!plan9.bell-labs.com!wiki' wiki /mnt/wiki
+case ingenic
+	ftpfs -qKm /n/ingenic -a $user@$sysname ftp.ingenic.com
+case kernel
+	ftpfs -qKm /n/kernel -a $user@sysname ftp.kernel.org
+case qrstuv
+	srv -nqmC tcp!fs.9paste.net qrstuv
 case *
 	switch($#*){
 	case 1

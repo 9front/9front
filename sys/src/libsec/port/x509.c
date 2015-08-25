@@ -2212,7 +2212,7 @@ verify_signature(Bytes* signature, RSApub *pk, uchar *edigest, int edigestlen, E
 		err = "bad digest length";
 		goto end;
 	}
-	if(memcmp(digest->data, edigest, edigestlen) != 0)
+	if(constcmp(digest->data, edigest, edigestlen) != 0)
 		err = "digests did not match";
 
 end:

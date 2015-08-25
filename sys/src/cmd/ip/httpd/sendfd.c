@@ -240,10 +240,10 @@ static void
 printtype(Hio *hout, HContent *type, HContent *enc)
 {
 	hprint(hout, "Content-Type: %s/%s", type->generic, type->specific);
-/*
+
 	if(cistrcmp(type->generic, "text") == 0)
 		hprint(hout, ";charset=utf-8");
-*/
+
 	hprint(hout, "\r\n");
 	if(enc != nil)
 		hprint(hout, "Content-Encoding: %s\r\n", enc->generic);
@@ -350,6 +350,8 @@ checkreq(HConnect *c, HContent *type, HContent *enc, long mtime, char *etag)
 		return notaccept(c, type, enc, "Content-Type");
 	if(c->req.vermaj >= 1 && c->req.vermin >= 1 && !hcheckcontent(enc, c->head.okencode, "Content-Encoding", 0))
 		return notaccept(c, type, enc, "Content-Encoding");
+
+	return 1;
 
 	/*
 	 * can use weak match only with get or head;

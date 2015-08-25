@@ -20,4 +20,4 @@ if(~ $force n && test -e $2){
 	exit 'usage'
 }
 
-exec cp -gux $1 $2
+exec cp -R $1 $2

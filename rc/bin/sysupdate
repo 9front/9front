@@ -1,6 +1,6 @@
 #!/bin/rc
 rfork en
-source=https://code.9front.org/hg/plan9front
+
 cd /
 if(! test -d .hg)
 	bind -ac /dist/plan9front /

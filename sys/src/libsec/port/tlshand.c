@@ -854,99 +854,57 @@ ectobytes(int type, ECpoint *p)
 static Bytes*
 tlsSecECDHEc(TlsSec *sec, uchar *srandom, int vers, int curve, Bytes *Ys)
 {
-	Namedcurve *nc, *enc;
 	Bytes *epm;
-	ECdomain dom;
-	ECpoint G, K, Y;
-	ECpriv Q;
+	ECdomain *dom;
+	ECpoint K, *Y;
+	ECpriv *Q;
+
+	epm = nil;
+	Y = nil;
+	Q = nil;
 
 	if(Ys == nil)
 		return nil;
 
-	enc = &namedcurves[nelem(namedcurves)];
-	for(nc = namedcurves; nc != enc; nc++)
-		if(nc->tlsid == curve)
-			break;
-
-	if(nc == enc)
-		return nil;
-		
 	memmove(sec->srandom, srandom, RandomSize);
 	if(setVers(sec, vers) < 0)
 		return nil;
-	
-	epm = nil;
 
-	memset(&dom, 0, sizeof(dom));
-	dom.p = strtomp(nc->p, nil, 16, nil);
-	dom.a = strtomp(nc->a, nil, 16, nil);
-	dom.b = strtomp(nc->b, nil, 16, nil);
-	dom.n = strtomp(nc->n, nil, 16, nil);
-	dom.h = strtomp(nc->h, nil, 16, nil);
+	dom = ecnamedcurve(curve);
+	if(dom == nil)
+		return nil;
 
-	memset(&G, 0, sizeof(G));
-	G.x = mpnew(0);
-	G.y = mpnew(0);
-
-	memset(&Q, 0, sizeof(Q));
-	Q.x = mpnew(0);
-	Q.y = mpnew(0);
-	Q.d = mpnew(0);
 
 	memset(&K, 0, sizeof(K));
 	K.x = mpnew(0);
 	K.y = mpnew(0);
 
-	memset(&Y, 0, sizeof(Y));
-	Y.x = mpnew(0);
-	Y.y = mpnew(0);
-
-	if(dom.p == nil || dom.a == nil || dom.b == nil || dom.n == nil || dom.h == nil)
-		goto Out;
-	if(Q.x == nil || Q.y == nil || Q.d == nil)
-		goto Out;
-	if(G.x == nil || G.y == nil)
-		goto Out;
 	if(K.x == nil || K.y == nil)
 		goto Out;
-	if(Y.x == nil || Y.y == nil)
+
+	Y = betoec(dom, Ys->data, Ys->len, nil);
+	if(Y == nil)
 		goto Out;
 
-	dom.G = strtoec(&dom, nc->G, nil, &G);
-	if(dom.G == nil)
+	Q = ecgen(dom, nil);
+	if(Q == nil)
 		goto Out;
 
-	if(bytestoec(&dom, Ys, &Y) == nil)
-		goto Out;
-
-	if(ecgen(&dom, &Q) == nil)
-		goto Out;
-
-	ecmul(&dom, &Y, Q.d, &K);
+	ecmul(dom, Y, Q->d, &K);
 	setMasterSecret(sec, mptobytes(K.x));
 
 	/* 0x04 = uncompressed public key */
-	epm = ectobytes(0x04, &Q);
+	epm = ectobytes(0x04, Q);
 	
 Out:
-	mpfree(Y.x);
-	mpfree(Y.y);
+	ecfreepriv(Q);
+
+	ecfreepoint(Y);
 
 	mpfree(K.x);
 	mpfree(K.y);
 
-	mpfree(Q.x);
-	mpfree(Q.y);
-	mpfree(Q.d);
-
-	mpfree(G.x);
-	mpfree(G.y);
-
-	mpfree(dom.p);
-	mpfree(dom.a);
-	mpfree(dom.b);
-	mpfree(dom.n);
-	mpfree(dom.h);
+	ecfreedomain(dom);
 
 	return epm;
 }
@@ -1957,7 +1915,7 @@ setVersion(TlsConnection *c, int version)
 static int
 finishedMatch(TlsConnection *c, Finished *f)
 {
-	return memcmp(f->verify, c->finished.verify, f->n) == 0;
+	return constcmp(f->verify, c->finished.verify, f->n) == 0;
 }
 
 // free memory associated with TlsConnection struct

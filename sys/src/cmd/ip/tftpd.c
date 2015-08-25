@@ -54,6 +54,7 @@ enum
 	 */
 	Bandtblksz	= Bandtmtu - 40 - 8,
 	Bcavium		= 1432,		/* cavium's u-boot demands this size */
+	Bci20		= 1468,		/* ci20 u-boot */
 };
 
 typedef struct Opt Opt;
@@ -329,7 +330,7 @@ options(int fd, char *buf, int bufsz, char *file, ushort oper, char *p, int dlen
 			syslog(dbg, flog, "tftpd %d %s tsize is %,lld",
 				pid, file, size);
 		} else if (oper == Tftp_READ && cistrcmp(p, "blksize") == 0 &&
-		    blksize > Bandtblksz && blksize != Bcavium) {
+		    blksize > Bandtblksz && blksize != Bcavium && blksize != Bci20) {
 			*op->valp = blksize = Bandtblksz;
 			olen = emitn(blksize, bp, ep);
 			syslog(dbg, flog, "tftpd %d overriding blksize to %d",

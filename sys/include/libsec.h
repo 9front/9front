@@ -403,6 +403,16 @@ PEMChain*readcertchain(char *filename);
 int aes_xts_encrypt(ulong tweak[], ulong ecb[],  vlong sectorNumber, uchar *input, uchar *output, ulong len) ;
 int aes_xts_decrypt(ulong tweak[], ulong ecb[], vlong sectorNumber, uchar *input, uchar *output, ulong len);
 
+/*
+ * ECC
+ */
+
+/* ids for ecnamedcurve */
+enum
+{
+	Secp256r1	= 23,
+};
+
 typedef struct ECpoint{
 	int inf;
 	mpint *x;
@@ -424,10 +434,15 @@ typedef struct ECdomain{
 	mpint *h;
 } ECdomain;
 
+ECdomain*	ecnamedcurve(int);
+void	ecfreepoint(ECpoint*);
+void	ecfreepriv(ECpriv*);
+void	ecfreedomain(ECdomain*);
 void	ecassign(ECdomain *, ECpoint *old, ECpoint *new);
 void	ecadd(ECdomain *, ECpoint *a, ECpoint *b, ECpoint *s);
 void	ecmul(ECdomain *, ECpoint *a, mpint *k, ECpoint *s);
-ECpoint*	strtoec(ECdomain *, char *, char **, ECpoint *);
+ECpoint*	betoec(ECdomain*, uchar*, int, ECpoint*);
+ECpoint*	strtoec(ECdomain *, char *, char **, ECpoint*);
 ECpriv*	ecgen(ECdomain *, ECpriv*);
 int	ecverify(ECdomain *, ECpoint *);
 int	ecpubverify(ECdomain *, ECpub *);
@@ -456,6 +471,9 @@ mpint* dh_new(DHstate *dh, mpint *p, mpint *g);
 
 /* calculate shared key: k = pub ^ x % p */
 mpint* dh_finish(DHstate *dh, mpint *pub);
+
+/* constant-time comparison similar to memcmp(2) */
+int constcmp(uchar *x, uchar *y, int len);
 
 /* password-based key derivation function 2 (RFC 2898) */
 void pbkdf2_hmac_sha1(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen);

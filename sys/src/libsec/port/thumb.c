@@ -38,7 +38,7 @@ okThumbprint(uchar *sum, Thumbprint *table)
 		return 0;
 	hd = tablehead(sum, table);
 	for(p = hd->next; p; p = p->next){
-		if(memcmp(sum, p->sha1, SHA1dlen) == 0)
+		if(constcmp(sum, p->sha1, SHA1dlen) == 0)
 			return 1;
 		if(p == hd)
 			break;

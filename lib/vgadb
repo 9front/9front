@@ -435,6 +435,7 @@ ctlr
 	ctlr=geode linear=1
 
 ctlr
+	vid=0x8086 did=0x0126	# Intel 2nd Gen Core
 	vid=0x8086 did=0x0166	# Intel 3rd Gen Core
 	vid=0x8086 did=0x2a42	# Intel 4 Series Mobile
 	link=vga
@@ -1693,6 +1694,16 @@ s2231wD=1680x1050
 	shb=1728 ehb=1760 vt=1840
 	vrs=1053 vre=1059 vt=1080
 	hsync=+ vsync=-
+
+#
+# Lenovo T420 (LCD) LVDS
+#
+#t420=1366x768		# 60Hz
+#	clock=69.3
+#	shb=1398 ehb=1430 ht=1470
+#	vrs=771 vre=776 vt=786
+#	hsync=- vsync=- 
+#	lcd=1
 
 #
 # Lenovo X230 (LCD) LVDS

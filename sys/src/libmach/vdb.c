@@ -836,7 +836,10 @@ format(char *mnemonic, Instr *i, char *f)
 			break;
 
 		case 'm':
-			bprint(i, "M(%s)", cop0regs[i->rd]);
+			if(i->function != 0)
+				bprint(i, "M(%s),%d", cop0regs[i->rd], i->function);
+			else
+				bprint(i, "M(%s)", cop0regs[i->rd]);
 			break;
 
 		case 'f':

@@ -1,2 +1,2 @@
 #!/bin/rc
-exec /rc/bin/ape/grep $*
+exec /$objtype/bin/ape/grep -E $*

@@ -164,7 +164,7 @@ controlsetthread(void *v)
 	Rune buf[2][20], *rp;
 
 	cs = v;
-	threadsetname("controlsetthread 0x%p", cs);
+	threadsetname("controlsetthread %#p", cs);
 
 	alts[AKey].c = cs->kbdc;
 	alts[AKey].v = &rp;
@@ -324,6 +324,7 @@ ctlerror(char *fmt, ...)
 	vfprint(2, fmt, arg);
 	va_end(arg);
 	write(2, "\n", 1);
+	abort();
 	threadexitsall(buf);
 }
 
@@ -376,6 +377,8 @@ ctlstrdup(char *s)
 	t = strdup(s);
 	if(t == nil)
 		ctlerror("control strdup(%q) failed: %r", s);
+
+	setmalloctag(t, getcallerpc(&s));
 	return t;
 }
 
