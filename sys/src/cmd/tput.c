@@ -36,6 +36,8 @@ main(int argc, char **argv)
 	bc = 0;
 	sec = 0;
 	buf = sbrk(buflen);
+	if(buf == (void*)-1)
+		sysfatal("out of memory");
 	cpid = rfork(RFPROC | RFMEM);
 	if(cpid == 0) {
 		while(1) {
