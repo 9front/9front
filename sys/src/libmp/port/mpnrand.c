@@ -13,16 +13,11 @@ mpnrand(mpint *n, void (*gen)(uchar*, int), mpint *b)
 	/* m = 2^bits - 1 */
 	bits = mpsignif(n);
 	m = mpnew(bits+1);
-	if(m == nil)
-		sysfatal("mpnrand: %r");
 	mpleft(mpone, bits, m);
 	mpsub(m, mpone, m);
 
-	if(b == nil){
+	if(b == nil)
 		b = mpnew(bits);
-		if(b == nil)
-			sysfatal("mpnrand: %r");
-	}
 
 	/* m = m - (m % n) */
 	mpmod(m, n, b);
