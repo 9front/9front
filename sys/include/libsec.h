@@ -447,15 +447,16 @@ struct DHstate
 {
 	mpint	*g;	/* base g */
 	mpint	*p;	/* large prime */
+	mpint	*q;	/* subgroup prime */
 	mpint	*x;	/* random secret */
-	mpint	*y;	/* public key y = g ^ x % p */
+	mpint	*y;	/* public key y = g**x % p */
 };
 
-/* generate new public key: y = g ^ x % p */
-mpint* dh_new(DHstate *dh, mpint *p, mpint *g);
+/* generate new public key: y = g**x % p */
+mpint* dh_new(DHstate *dh, mpint *p, mpint *q, mpint *g);
 
-/* calculate shared key: k = pub ^ x % p */
-mpint* dh_finish(DHstate *dh, mpint *pub);
+/* calculate shared key: k = y**x % p */
+mpint* dh_finish(DHstate *dh, mpint *y);
 
 /* password-based key derivation function 2 (RFC 2898) */
 void pbkdf2_hmac_sha1(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen);

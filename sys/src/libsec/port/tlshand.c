@@ -797,7 +797,7 @@ tlsSecDHEc(TlsSec *sec, uchar *srandom, int vers,
 	Y = bytestomp(Ys);
 	K = nil;
 
-	if(P == nil || G == nil || Y == nil || dh_new(&dh, P, G) == nil)
+	if(P == nil || G == nil || Y == nil || dh_new(&dh, P, nil, G) == nil)
 		goto Out;
 	epm = mptobytes(dh.y);
 	K = dh_finish(&dh, Y);
