@@ -8,11 +8,14 @@ _asgetresp(int fd, Ticket *t, Authenticator *a, Authkey *k)
 	char tbuf[TICKETLEN+AUTHENTLEN];
 	int n, m;
 
+	m = TICKETLEN;
 	memset(t, 0, sizeof(Ticket));
-	if(a != nil)
+	if(a != nil){
+		m += AUTHENTLEN;
 		memset(a, 0, sizeof(Authenticator));
+	}
 
-	n = _asrdresp(fd, tbuf, sizeof(tbuf));
+	n = _asrdresp(fd, tbuf, m);
 	if(n <= 0)
 		return -1;
 
