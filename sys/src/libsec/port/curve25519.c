@@ -235,6 +235,7 @@ fmul(felem *output, felem *in, felem *in2) {
 }
 
 static void fsquare_inner(felem *output, felem *in) {
+  felem tmp;
   output[0] =      in[0] * in[0];
   output[1] =  2 * in[0] * in[1];
   output[2] =  2 * (in[1] * in[1] +
@@ -255,21 +256,21 @@ static void fsquare_inner(felem *output, felem *in) {
                     in[2] * in[5] +
                     in[1] * in[6] +
                     in[0] * in[7]);
+  tmp = in[1] * in[7] + in[3] * in[5];
   output[8] =      in[4] * in[4] +
                2 * (in[2] * in[6] +
                     in[0] * in[8] +
-                2 * (in[1] * in[7] +
-                     in[3] * in[5]));
+                        2 * tmp);
   output[9] =  2 * (in[4] * in[5] +
                     in[3] * in[6] +
                     in[2] * in[7] +
                     in[1] * in[8] +
                     in[0] * in[9]);
+  tmp = in[3] * in[7] + in[1] * in[9];
   output[10] = 2 * (in[5] * in[5] +
                    in[4] * in[6] +
                    in[2] * in[8] +
-                2 * (in[3] * in[7] +
-                     in[1] * in[9]));
+                       2 * tmp);
   output[11] = 2 * (in[5] * in[6] +
                     in[4] * in[7] +
                     in[3] * in[8] +
