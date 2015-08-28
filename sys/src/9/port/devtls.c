@@ -21,12 +21,13 @@ enum {
 	MaxRecLen	= 1<<14,	/* max payload length of a record layer message */
 	MaxCipherRecLen	= MaxRecLen + 2048,
 	RecHdrLen	= 5,
-	MaxMacLen	= SHA1dlen,
+	MaxMacLen	= SHA2_256dlen,
 
 	/* protocol versions we can accept */
 	SSL3Version	= 0x0300,
 	TLS10Version	= 0x0301,
 	TLS11Version	= 0x0302,
+	TLS12Version	= 0x0303,
 	MinProtoVersion	= 0x0300,	/* limits on version we accept */
 	MaxProtoVersion	= 0x03ff,
 
@@ -1417,11 +1418,25 @@ initsha1key(Hashalg *ha, int version, Secret *s, uchar *p)
 	memmove(s->mackey, p, ha->maclen);
 }
 
+static void
+initsha2_256key(Hashalg *ha, int version, Secret *s, uchar *p)
+{
+	s->maclen = ha->maclen;
+
+	/* only TLS 1.2 has SHA256. */
+	if(version != TLS12Version)
+		error("sha256 is TLS 1.2 only");
+
+	s->mac = hmac_sha2_256;
+	memmove(s->mackey, p, ha->maclen);
+}
+
 static Hashalg hashtab[] =
 {
-	{ "clear", 0, initclearmac, },
-	{ "md5", MD5dlen, initmd5key, },
-	{ "sha1", SHA1dlen, initsha1key, },
+	{ "clear",	0,		initclearmac, },
+	{ "md5",	MD5dlen,	initmd5key, },
+	{ "sha1",	SHA1dlen,	initsha1key, },
+	{ "sha256",	SHA2_256dlen,	initsha2_256key, },
 	{ 0 }
 };
 
