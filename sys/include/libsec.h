@@ -460,3 +460,6 @@ mpint* dh_finish(DHstate *dh, mpint *y);
 
 /* password-based key derivation function 2 (RFC 2898) */
 void pbkdf2_hmac_sha1(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen);
+
+/* Curve25519 elliptic curve, public key function */
+void curve25519(uchar mypublic[32], uchar secret[32], uchar basepoint[32]);
