@@ -3,9 +3,9 @@
 md4, md5,
 sha1, sha2_224, sha2_256, sha2_384, sha2_512,
 ripemd160,
-aes, hmac_x, hmac_md5,
+hmac_x, hmac_md5,
 hmac_sha1, hmac_sha2_224, hmac_sha2_256, hmac_sha2_384, hmac_sha2_512,
-hmac_aes, md5pickle, md5unpickle,
+md5pickle, md5unpickle,
 sha1pickle, sha1unpickle \- cryptographically secure hashes
 .SH SYNOPSIS
 .nr Wd \w'\fLDS* \fP'u
@@ -58,8 +58,6 @@ DS*	sha2_512(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
 DS*	ripemd160(uchar *data, ulong dlen, uchar *digest, DS *state)
 .Ti
-DS*	aes(uchar *data, ulong dlen, uchar *digest, DS *state)
-.Ti
 DS*	hmac_x(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DS *s, DS*(*x)(uchar*, ulong, uchar*, DS*), int xlen)
 .Ti
 DS*	hmac_md5(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
@@ -73,8 +71,6 @@ DS*	hmac_sha2_256(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest
 DS*	hmac_sha2_384(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
 .Ti
 DS*	hmac_sha2_512(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
-.Ti
-DS*	hmac_aes(uchar *data, ulong dlen, uchar *key, ulong klen, uchar *digest, DS *state)
 .SH DESCRIPTION
 .DT
 We support several secure hash functions.  The output of a
@@ -96,15 +92,13 @@ The routines
 .IR sha2_384 ,
 .IR sha2_512 ,
 .IR ripemd160 ,
-.IR aes ,
 .IR hmac_md5 ,
 .IR hmac_sha1 ,
 .IR hmac_sha2_224 ,
 .IR hmac_sha2_256 ,
 .IR hmac_sha2_384 ,
-.IR hmac_sha2_512 ,
 and
-.I hmac_aes
+.IR hmac_sha2_512
 differ only in the length of the resulting digest
 and in the security of the hash.
 .I Sha2_*
@@ -143,9 +137,8 @@ define the lengths of the digests.
 .IR hmac_sha2_224 ,
 .IR hmac_sha2_256 ,
 .IR hmac_sha2_384 ,
-.IR hmac_sha2_512 ,
 and
-.I hmac_aes
+.IR hmac_sha2_512
 are used slightly differently.  These hash algorithms are keyed and require
 a key to be specified on every call.
 The digest lengths for these hashes are the obvious ones from
@@ -194,7 +187,6 @@ md5("drowssap ym", 11, digest, s);
 .SH SOURCE
 .B /sys/src/libsec
 .SH SEE ALSO
-.IR aes (2),
 .IR blowfish (2),
 .IR des (2),
 .IR elgamal (2),

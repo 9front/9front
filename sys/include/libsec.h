@@ -141,7 +141,6 @@ enum
 	SHA2_512dlen=	64,	/* SHA-512 digest length */
 	MD4dlen=	16,	/* MD4 digest length */
 	MD5dlen=	16,	/* MD5 digest length */
-	AESdlen=	16,	/* TODO: see rfc */
 
 	Hmacblksz	= 64,	/* in bytes; from rfc2104 */
 };
@@ -167,7 +166,6 @@ typedef struct DigestState SHA2_384state;
 typedef struct DigestState SHA2_512state;
 typedef struct DigestState MD5state;
 typedef struct DigestState MD4state;
-typedef struct DigestState AEShstate;
 
 DigestState*	md4(uchar*, ulong, uchar*, DigestState*);
 DigestState*	md5(uchar*, ulong, uchar*, DigestState*);
@@ -176,7 +174,6 @@ DigestState*	sha2_224(uchar*, ulong, uchar*, DigestState*);
 DigestState*	sha2_256(uchar*, ulong, uchar*, DigestState*);
 DigestState*	sha2_384(uchar*, ulong, uchar*, DigestState*);
 DigestState*	sha2_512(uchar*, ulong, uchar*, DigestState*);
-DigestState*	aes(uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_x(uchar *p, ulong len, uchar *key, ulong klen,
 			uchar *digest, DigestState *s,
 			DigestState*(*x)(uchar*, ulong, uchar*, DigestState*),
@@ -187,7 +184,6 @@ DigestState*	hmac_sha2_224(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_256(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_384(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 DigestState*	hmac_sha2_512(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
-DigestState*	hmac_aes(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 char*		md5pickle(MD5state*);
 MD5state*	md5unpickle(char*);
 char*		sha1pickle(SHA1state*);

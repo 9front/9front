@@ -59,7 +59,7 @@ static uchar basekey[3][16] = {
 	},
 };
 
-int aes_setupEnc(ulong rk[/*4*(Nr + 1)*/], const uchar cipherKey[],
+static int aes_setupEnc(ulong rk[/*4*(Nr + 1)*/], const uchar cipherKey[],
 		int keyBits);
 static int aes_setupDec(ulong rk[/*4*(Nr + 1)*/], const uchar cipherKey[],
 		int keyBits);
@@ -219,140 +219,6 @@ aesCBCdecrypt(uchar *p, int len, AESstate *s)
 			*p++ ^= *ip++;
 	}
 }
-
-/* taken from sha1; TODO: verify suitability (esp. byte order) for aes */
-/*
- *	encodes input (ulong) into output (uchar). Assumes len is
- *	a multiple of 4.
- */
-static void
-encode(uchar *output, ulong *input, ulong len)
-{
-	ulong x;
-	uchar *e;
-
-	for(e = output + len; output < e;) {
-		x = *input++;
-		*output++ = x >> 24;
-		*output++ = x >> 16;
-		*output++ = x >> 8;
-		*output++ = x;
-	}
-}
-
-/* TODO: verify use of aes_encrypt here */
-AEShstate*
-aes(uchar *p, ulong len, uchar *digest, AEShstate *s)
-{
-	uchar buf[128];
-	ulong x[16];
-	int i;
-	uchar *e;
-
-	if(s == nil){
-		s = malloc(sizeof(*s));
-		if(s == nil)
-			return nil;
-		memset(s, 0, sizeof(*s));
-		s->malloced = 1;
-	}
-
-	if(s->seeded == 0){
-		/* seed the state, these constants would look nicer big-endian */
-		s->state[0] = 0x67452301;
-		s->state[1] = 0xefcdab89;
-		s->state[2] = 0x98badcfe;
-		s->state[3] = 0x10325476;
-		/* in sha1 (20-byte digest), but not md5 (16 bytes)*/
-		s->state[4] = 0xc3d2e1f0;
-		s->seeded = 1;
-	}
-
-	/* fill out the partial 64 byte block from previous calls */
-	if(s->blen){
-		i = 64 - s->blen;
-		if(len < i)
-			i = len;
-		memmove(s->buf + s->blen, p, i);
-		len -= i;
-		s->blen += i;
-		p += i;
-		if(s->blen == 64){
-			/* encrypt s->buf into s->state */
-			// _sha1block(s->buf, s->blen, s->state);
-			aes_encrypt((ulong *)s->buf, 1, s->buf, (uchar *)s->state);
-			s->len += s->blen;
-			s->blen = 0;
-		}
-	}
-
-	/* do 64 byte blocks */
-	i = len & ~0x3f;
-	if(i){
-		/* encrypt p into s->state */
-		// _sha1block(p, i, s->state);
-		aes_encrypt((ulong *)s->buf, 1, p, (uchar *)s->state);
-		s->len += i;
-		len -= i;
-		p += i;
-	}
-
-	/* save the left overs if not last call */
-	if(digest == 0){
-		if(len){
-			memmove(s->buf, p, len);
-			s->blen += len;
-		}
-		return s;
-	}
-
-	/*
-	 *  this is the last time through, pad what's left with 0x80,
-	 *  0's, and the input count to create a multiple of 64 bytes
-	 */
-	if(s->blen){
-		p = s->buf;
-		len = s->blen;
-	} else {
-		memmove(buf, p, len);
-		p = buf;
-	}
-	s->len += len;
-	e = p + len;
-	if(len < 56)
-		i = 56 - len;
-	else
-		i = 120 - len;
-	memset(e, 0, i);
-	*e = 0x80;
-	len += i;
-
-	/* append the count */
-	x[0] = s->len>>29;		/* byte-order dependent */
-	x[1] = s->len<<3;
-	encode(p+len, x, 8);
-
-	/* digest the last part */
-	/* encrypt p into s->state */
-	// _sha1block(p, len+8, s->state);
-	aes_encrypt((ulong *)s->buf, 1, p, (uchar *)s->state);
-	s->len += len+8;		/* sha1: +8 */
-
-	/* return result and free state */
-	encode((uchar *)digest, (ulong *)s->state, AESdlen);
-	if(s->malloced == 1)
-		free(s);
-	return nil;
-}
-
-DigestState*
-hmac_aes(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest,
-	DigestState *s)
-{
-	return hmac_x(p, len, key, klen, digest, s, aes, AESdlen);
-}
-
-
 
 /*
  * this function has been changed for plan 9.

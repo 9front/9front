@@ -162,7 +162,6 @@ static	void desespinit(Espcb *ecb, char *name, uchar *k, unsigned n);
 
 static	void nullahinit(Espcb*, char*, uchar *key, unsigned keylen);
 static	void shaahinit(Espcb*, char*, uchar *key, unsigned keylen);
-static	void aesahinit(Espcb*, char*, uchar *key, unsigned keylen);
 static	void md5ahinit(Espcb*, char*, uchar *key, unsigned keylen);
 
 static Algorithm espalg[] =
@@ -172,8 +171,6 @@ static Algorithm espalg[] =
 	"aes_128_cbc",	128,	aescbcespinit,	/* new rfc3602 */
 	"aes_ctr",	128,	aesctrespinit,	/* new rfc3686 */
 	"des_56_cbc",	64,	desespinit,	/* rfc2405, deprecated */
-	/* rc4 was never required, was used in original bandt */
-//	"rc4_128",	128,	rc4espinit,
 	nil,		0,	nil,
 };
 
@@ -181,7 +178,6 @@ static Algorithm ahalg[] =
 {
 	"null",		0,	nullahinit,
 	"hmac_sha1_96",	128,	shaahinit,	/* rfc2404 */
-	"aes_xcbc_mac_96", 128,	aesahinit,	/* new rfc3566 */
 	"hmac_md5_96",	128,	md5ahinit,	/* rfc2403 */
 	nil,		0,	nil,
 };
@@ -803,37 +799,6 @@ shaahinit(Espcb *ecb, char *name, uchar *key, unsigned klen)
 /*
  * aes
  */
-
-/* ah_aes_xcbc_mac_96, rfc3566 */
-static int
-aesahauth(Espcb *ecb, uchar *t, int tlen, uchar *auth)
-{
-	int r;
-	uchar hash[AESdlen];
-
-	memset(hash, 0, AESdlen);
-	ecb->ds = hmac_aes(t, tlen, (uchar*)ecb->ahstate, BITS2BYTES(96), hash,
-		ecb->ds);
-	r = memcmp(auth, hash, ecb->ahlen) == 0;
-	memmove(auth, hash, ecb->ahlen);
-	return r;
-}
-
-static void
-aesahinit(Espcb *ecb, char *name, uchar *key, unsigned klen)
-{
-	if(klen != 128)
-		panic("aesahinit: keylen not 128");
-	klen /= BI2BY;
-
-	ecb->ahalg = name;
-	ecb->ahblklen = 1;
-	ecb->ahlen = BITS2BYTES(96);
-	ecb->auth = aesahauth;
-	ecb->ahstate = smalloc(klen);
-	memmove(ecb->ahstate, key, klen);
-}
-
 static int
 aescbccipher(Espcb *ecb, uchar *p, int n)	/* 128-bit blocks */
 {
