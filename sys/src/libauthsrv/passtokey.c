@@ -36,7 +36,7 @@ static void
 passtoaeskey(uchar *key, char *p)
 {
 	static char salt[] = "Plan 9 key derivation";
-	pbkdf2_hmac_sha1((uchar*)p, strlen(p), (uchar*)salt, sizeof(salt)-1, 9001, key, AESKEYLEN);
+	pbkdf2_x((uchar*)p, strlen(p), (uchar*)salt, sizeof(salt)-1, 9001, key, AESKEYLEN, hmac_sha1, SHA1dlen);
 }
 
 void

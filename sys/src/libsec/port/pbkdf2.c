@@ -2,28 +2,34 @@
 #include <mp.h>
 #include <libsec.h>
 
+/* rfc2898 */
 void
-pbkdf2_hmac_sha1(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen)
+pbkdf2_x(p, plen, s, slen, rounds, d, dlen, x, xlen)
+	uchar *p, *s, *d;
+	ulong plen, slen, dlen, rounds;
+	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
+	int xlen;
 {
-	uchar block[SHA1dlen], tmp[SHA1dlen], tmp2[SHA1dlen];
+	uchar block[256], tmp[256];
 	ulong i, j, k, n;
 	DigestState *ds;
+
+	assert(xlen <= sizeof(tmp));
 
 	for(i = 1; dlen > 0; i++, d += n, dlen -= n){
 		tmp[3] = i;
 		tmp[2] = i >> 8;
 		tmp[1] = i >> 16;
 		tmp[0] = i >> 24;
-		ds = hmac_sha1(s, slen, p, plen, nil, nil);
-		hmac_sha1(tmp, 4, p, plen, block, ds);
-		memmove(tmp, block, sizeof(tmp));
+		ds = (*x)(s, slen, p, plen, nil, nil);
+		(*x)(tmp, 4, p, plen, block, ds);
+		memmove(tmp, block, xlen);
 		for(j = 1; j < rounds; j++){
-			hmac_sha1(tmp, sizeof(tmp), p, plen, tmp2, nil);
-			memmove(tmp, tmp2, sizeof(tmp));
-			for(k=0; k<sizeof(tmp); k++)
+			(*x)(tmp, xlen, p, plen, tmp, nil);
+			for(k=0; k<xlen; k++)
 				block[k] ^= tmp[k];
 		}
-		n = dlen > sizeof(block) ? sizeof(block) : dlen;
+		n = dlen > xlen ? xlen : dlen;
 		memmove(d, block, n); 
 	}
 }

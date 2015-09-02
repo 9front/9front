@@ -63,7 +63,7 @@ pass2pmk(char *pass, char *ssid, uchar pmk[PMKlen])
 {
 	if(hextob(pass, nil, pmk, PMKlen) == PMKlen)
 		return;
-	pbkdf2_hmac_sha1((uchar*)pass, strlen(pass), (uchar*)ssid, strlen(ssid), 4096, pmk, PMKlen);
+	pbkdf2_x((uchar*)pass, strlen(pass), (uchar*)ssid, strlen(ssid), 4096, pmk, PMKlen, hmac_sha1, SHA1dlen);
 }
 
 static void
