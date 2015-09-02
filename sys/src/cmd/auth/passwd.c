@@ -32,23 +32,24 @@ main(int argc, char **argv)
 
 	fd = authdial(nil, s);
 	if(fd < 0)
-		error("protocol botch: %r");
-
-	/* send ticket request to AS */
-	memset(&tr, 0, sizeof(tr));
-	strcpy(tr.uid, user);
-	tr.type = AuthPass;
-	if(_asrequest(fd, &tr) < 0)
-		error("%r");
+		error("authdial: %r");
 
 	/*
 	 *  get a password from the user and try to decrypt the
 	 *  ticket.  If it doesn't work we've got a bad password,
 	 *  give up.
 	 */
+	memset(&pr, 0, sizeof(pr));
 	readln("Plan 9 Password: ", pr.old, sizeof pr.old, 1);
 	passtokey(&key, pr.old);
 
+	memset(&tr, 0, sizeof(tr));
+	strcpy(tr.uid, user);
+	tr.type = AuthPass;
+
+	/* send ticket request to AS */
+	if(_asrequest(fd, &tr) < 0)
+		error("%r");
 	if(_asgetresp(fd, &t, nil, &key) < 0)
 		error("%r");
 
@@ -57,7 +58,6 @@ main(int argc, char **argv)
 
 	/* loop trying new passwords */
 	for(;;){
-		memset(&pr, 0, sizeof(pr));
 		pr.changesecret = 0;
 		*pr.new = 0;
 		readln("change Plan 9 Password? (y/n) ", buf, sizeof buf, 0);
