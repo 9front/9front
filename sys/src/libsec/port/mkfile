@@ -21,9 +21,10 @@ CFILES = des.c desmodes.c desECB.c desCBC.c des3ECB.c des3CBC.c\
 	ecc.c\
 	ripemd.c\
 	dh.c\
-	pbkdf2.c\
 	curve25519.c\
 	curve25519_dh.c\
+	pbkdf2.c\
+	hkdf.c\
 
 ALLOFILES=${CFILES:%.c=%.$O}
 

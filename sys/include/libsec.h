@@ -464,3 +464,8 @@ void curve25519_dh_finish(uchar x[32], uchar y[32], uchar z[32]);
 /* password-based key derivation function 2 (rfc2898) */
 void pbkdf2_x(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen,
 	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen);
+
+/* hmac-based key derivation function (rfc5869) */
+void hkdf_x(uchar *salt, ulong nsalt, uchar *info, ulong ninfo, uchar *key, ulong nkey, uchar *d, ulong dlen,
+	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen);
+
