@@ -217,6 +217,71 @@ onb(Text *text, Tag *tag)
 	fontstyle(text, "B");
 }
 
+void onsmall(Text *text, Tag *tag);
+void onsup(Text *text, Tag *tag);
+
+void
+onsub(Text *text, Tag *tag)
+{
+	emit(text, "\\v\'0.5\'");
+	if(cistrcmp(tag->tag, "sub") == 0){
+		emit(text, "\\x\'0.5\'");
+		onsmall(text, tag);
+	} else
+		restorefontsize(text, tag);
+	tag->close = onsup;
+}
+
+void
+onsup(Text *text, Tag *tag)
+{
+	emit(text, "\\v\'-0.5\'");
+	if(cistrcmp(tag->tag, "sup") == 0){
+		emit(text, "\\x\'-0.5\'");
+		onsmall(text, tag);
+	}else
+		restorefontsize(text, tag);
+	tag->close = onsub;
+}
+
+/*
+ * this is poor mans CSS handler.
+ */
+void
+onspan(Text *text, Tag *tag)
+{
+	Attr *a;
+
+	if(!tag->opening)
+		return;
+
+	for(a=tag->attr; a < tag->attr+tag->nattr; a++){
+		if(cistrcmp(a->attr, "class") != 0)
+			continue;
+
+		if(cistrcmp(a->val, "bold") == 0){
+			onb(text, tag);
+			return;
+		}
+		if(cistrcmp(a->val, "italic") == 0){
+			oni(text, tag);
+			return;
+		}
+		if(cistrcmp(a->val, "subscript") == 0){
+			strcpy(tag->tag, "sub");
+			onsub(text, tag);
+			strcpy(tag->tag, "span");
+			return;
+		}
+		if(cistrcmp(a->val, "superscript") == 0){
+			strcpy(tag->tag, "sup");
+			onsup(text, tag);
+			strcpy(tag->tag, "span");
+			return;
+		}
+	}
+}
+
 void
 ontt(Text *text, Tag *tag)
 {
@@ -510,6 +575,9 @@ struct {
 	"td",		oncell,
 	"th",		oncell,
 	"tr",		oncell,
+	"sub",		onsub,
+	"sup",		onsup,
+	"span",		onspan,
 	"tt",		ontt,
 	"var",		oni,
 };
