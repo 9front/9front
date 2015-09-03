@@ -13,6 +13,7 @@ struct Rtext{
 	void *user;		/* user data */
 	int space;		/* how much space before, if no break */
 	int indent;		/* how much space before, after a break */
+	int voff;		/* vertical offset (for subscripts and superscripts) */
 	Image *b;		/* what to display, if nonzero */
 	Panel *p;		/* what to display, if nonzero and b==0 */
 	Font *font;		/* font in which to draw text */
@@ -173,9 +174,9 @@ void plinittextview(Panel *, int, Point, Rtext *, void (*)(Panel *, int, Rtext *
 /*
  * Rtext constructors & destructor
  */
-Rtext *plrtstr(Rtext **, int, int, Font *, char *, int, void *);
-Rtext *plrtbitmap(Rtext **, int, int, Image *, int, void *);
-Rtext *plrtpanel(Rtext **, int, int, Panel *, void *);
+Rtext *plrtstr(Rtext **, int, int, int, Font *, char *, int, void *);
+Rtext *plrtbitmap(Rtext **, int, int, int, Image *, int, void *);
+Rtext *plrtpanel(Rtext **, int, int, int, Panel *, void *);
 void plrtfree(Rtext *);
 void plrtseltext(Rtext *, Rtext *, Rtext *);
 char *plrtsnarftext(Rtext *);

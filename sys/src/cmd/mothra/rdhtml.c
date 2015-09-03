@@ -33,7 +33,8 @@ struct Fontdata{
 	"terminus/unicode.16", 0, 0,
 	"terminus/unicode.18", 0, 0,
 };
-Fontdata *pl_whichfont(int f, int s){
+
+Font *pl_whichfont(int f, int s, int *space){
 	char name[NNAME];
 
 	assert(f >= 0 && f < 4);
@@ -45,14 +46,16 @@ Fontdata *pl_whichfont(int f, int s){
 		if(fontlist[f][s].font==0) fontlist[f][s].font=font;
 		fontlist[f][s].space=stringwidth(fontlist[f][s].font, "0");
 	}
-	return &fontlist[f][s];
-	
+	if(space)
+		*space = fontlist[f][s].space;
+	return fontlist[f][s].font;
 }
+
 void getfonts(void){
 	int f, s;
 	for(f=0;f!=4;f++)
 		for(s=0;s!=4;s++)
-			pl_whichfont(f, s);
+			pl_whichfont(f, s, nil);
 }
 void pl_pushstate(Hglob *g, int t){
 	++g->state;
@@ -80,7 +83,7 @@ void pl_popstate(Stack *state){
 }
 
 void pl_linespace(Hglob *g){
-	plrtbitmap(&g->dst->text, 1000000, 0, linespace, 0, 0);
+	plrtbitmap(&g->dst->text, 1000000, 0, 0, linespace, 0, 0);
 	g->para=0;
 	g->linebrk=0;
 }
@@ -93,15 +96,15 @@ int strtolength(Hglob *g, int dir, char *str){
 	if(cistrstr(str, "%"))
 		return 0;
 	if(cistrstr(str, "em")){
-		p=stringsize(pl_whichfont(g->state->font, g->state->size)->font, "M");
+		p=stringsize(pl_whichfont(g->state->font, g->state->size, nil), "M");
 		return floor(f*((dir==HORIZ) ? p.x : p.y));
 	}
 	return floor(f);
 }
 
 void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
-	Fontdata *f;
-	int space, indent, flags;
+	Font *f;
+	int space, indent, flags, voff;
 	Action *ap;
 	if(g->state->tag==Tag_title
 /*	|| g->state->tag==Tag_textarea */
@@ -115,8 +118,13 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 		}
 		return;
 	}
-	f=pl_whichfont(g->state->font, g->state->size);
-	space=f->space;
+	voff = 0;
+	f=pl_whichfont(g->state->font, g->state->size, &space);
+	if(g->state->sub){
+		voff = g->state->sub * f->ascent / 2;
+		g->state->size = SMALL;
+		f=pl_whichfont(g->state->font, g->state->size, &space);
+	}
 	indent=g->state->margin;
 	if(g->para){
 		space=1000000;
@@ -160,7 +168,7 @@ void pl_htmloutput(Hglob *g, int nsp, char *s, Field *field){
 		flags |= PL_HOT;
 	if(g->state->strike)
 		flags |= PL_STR;
-	plrtstr(&g->dst->text, space, indent, f->font, strdup(s), flags, ap);
+	plrtstr(&g->dst->text, space, indent, voff, f, strdup(s), flags, ap);
 	g->para=0;
 	g->linebrk=0;
 	g->dst->changed=1;
@@ -636,6 +644,7 @@ void plaintext(Hglob *g){
 	int c;
 	g->state->font=CWIDTH;
 	g->state->size=NORMAL;
+	g->state->sub = 0;
 	elp=&line[NLINE-UTFmax-1];
 	lp=line;
 	for(;;){
@@ -665,6 +674,7 @@ void plrdplain(char *name, int fd, Www *dst){
 	g.state->tag=Tag_html;
 	g.state->font=CWIDTH;
 	g.state->size=NORMAL;
+	g.state->sub=0;
 	g.state->pre=0;
 	g.state->image=0;
 	g.state->link=0;
@@ -701,6 +711,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 	g.state->tag=Tag_html;
 	g.state->font=ROMAN;
 	g.state->size=NORMAL;
+	g.state->sub=0;
 	g.state->pre=0;
 	g.state->image=0;
 	g.state->link=0;
@@ -914,6 +925,12 @@ void plrdhtml(char *name, int fd, Www *dst){
 		case Tag_del:
 			g.state->strike=1;
 			break;
+		case Tag_sub:
+			g.state->sub++;
+			break;
+		case Tag_sup:
+			g.state->sub--;
+			break;
 		case Tag_blockquot:
 			g.spacc=0;
 			g.linebrk=1;
@@ -1026,7 +1043,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 			break;
 		case Tag_hr:
 			g.spacc=0;
-			plrtbitmap(&g.dst->text, 1000000, g.state->margin, hrule, 0, 0);
+			plrtbitmap(&g.dst->text, 1000000, g.state->margin, 0, hrule, 0, 0);
 			break;
 		case Tag_key:
 			htmlerror(g.name, g.lineno, "<key> deprecated");
@@ -1063,7 +1080,7 @@ void plrdhtml(char *name, int fd, Www *dst){
 				g.linebrk=0;
 				g.spacc=-1;
 				plrtbitmap(&g.dst->text, 100000,
-					g.state->margin+g.state->indent, bullet, 0, 0);
+					g.state->margin+g.state->indent, 0, bullet, 0, 0);
 				break;
 			}
 			break;

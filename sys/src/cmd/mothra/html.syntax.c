@@ -73,6 +73,8 @@ Tag tag[]={
 [Tag_strike]	"strike",	END,
 [Tag_strong]	"strong",	END,
 [Tag_style]	"style",	END,
+[Tag_sub]	"sub",		END,
+[Tag_sup]	"sup",		END,
 [Tag_source]	"source",	NOEND,
 [Tag_table]	"table",	END,
 [Tag_td]	"td",		END,

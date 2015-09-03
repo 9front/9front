@@ -13,13 +13,14 @@
 #define LEAD	4	/* extra space between lines */
 #define BORD	2	/* extra border for images */
 
-Rtext *pl_rtnew(Rtext **t, int space, int indent, Image *b, Panel *p, Font *f, char *s, int flags, void *user){
+Rtext *pl_rtnew(Rtext **t, int space, int indent, int voff, Image *b, Panel *p, Font *f, char *s, int flags, void *user){
 	Rtext *new;
 	new=pl_emalloc(sizeof(Rtext));
 	new->flags=flags;
 	new->user=user;
 	new->space=space;
 	new->indent=indent;
+	new->voff=voff;
 	new->b=b;
 	new->p=p;
 	new->font=f;
@@ -34,14 +35,14 @@ Rtext *pl_rtnew(Rtext **t, int space, int indent, Image *b, Panel *p, Font *f, c
 	(*t)->last=new;
 	return new;
 }
-Rtext *plrtpanel(Rtext **t, int space, int indent, Panel *p, void *user){
-	return pl_rtnew(t, space, indent, 0, p, 0, 0, 1, user);
+Rtext *plrtpanel(Rtext **t, int space, int indent, int voff, Panel *p, void *user){
+	return pl_rtnew(t, space, indent, voff, 0, p, 0, 0, 1, user);
 }
-Rtext *plrtstr(Rtext **t, int space, int indent, Font *f, char *s, int flags, void *user){
-	return pl_rtnew(t, space, indent, 0, 0, f, s, flags, user);
+Rtext *plrtstr(Rtext **t, int space, int indent, int voff, Font *f, char *s, int flags, void *user){
+	return pl_rtnew(t, space, indent, voff, 0, 0, f, s, flags, user);
 }
-Rtext *plrtbitmap(Rtext **t, int space, int indent, Image *b, int flags, void *user){
-	return pl_rtnew(t, space, indent, b, 0, 0, 0, flags, user);
+Rtext *plrtbitmap(Rtext **t, int space, int indent, int voff, Image *b, int flags, void *user){
+	return pl_rtnew(t, space, indent, voff, b, 0, 0, 0, flags, user);
 }
 void plrtfree(Rtext *t){
 	Rtext *next;
@@ -102,6 +103,7 @@ Point pl_rtfmt(Rtext *t, int wid){
 				d=tp->font->height-a;
 				w=tp->wid=stringwidth(tp->font, tp->text);
 			}
+			a-=tp->voff,d+=tp->voff;
 			if(x+w+space>wid) break;
 			if(a>ascent) ascent=a;
 			if(d>descent) descent=d;
@@ -128,6 +130,7 @@ Point pl_rtfmt(Rtext *t, int wid){
 		for(;;){
 			t->topy=topy;
 			t->r.min.x=p.x;
+			p.y+=t->voff;
 			if(t->b){
 				t->r.max.y=p.y+BORD;
 				t->r.min.y=p.y-(t->b->r.max.y-t->b->r.min.y)-BORD;
@@ -143,6 +146,7 @@ Point pl_rtfmt(Rtext *t, int wid){
 				t->r.max.y=t->r.min.y+t->font->height;
 				p.x+=t->wid;
 			}
+			p.y-=t->voff;
 			t->r.max.x=p.x;
 			t->nextline=eline;
 			t=t->next;

@@ -29,6 +29,7 @@ struct Stack{
 	int pre;		/* in preformatted text? */
 	int font;		/* typeface */
 	int size;		/* point size of text */
+	int sub;		/* < 0 superscript, > 0 subscript */
 	int margin;		/* left margin position */
 	int indent;		/* extra indent at paragraph start */
 	int number;		/* paragraph number */
@@ -195,6 +196,8 @@ enum{
 	Tag_strike,
 	Tag_strong,
 	Tag_style,
+	Tag_sub,
+	Tag_sup,
 	Tag_source,
 	Tag_table,	/* rm 3.8.00 */
 	Tag_td,
