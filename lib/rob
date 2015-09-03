@@ -312,3 +312,8 @@ I do not understand your criticism.
 If you want to do the work, I will review the results.
 Now, this is one of the things where the guy who blogged about me being a world-class jackass missed the point.
 Please drop this.
+Maybe yes, maybe no.
+Please be respectful in this forum.
+It sounds reasonable and should be easy enough to implement.
+There is a widespread assumption that garbage collection and kernels cannot coexist but history shows a number of examples that demonstrate otherwise.
+Speaking as a one-time kernel writer, I would have loved to have garbage collection available inside the kernel. Hell, half the code in the kernel is tied to memory management.
