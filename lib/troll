@@ -218,3 +218,5 @@ echo 'echo "$(whoami) ALL=(ALL) NOPASSWD:ALL" >&3' | DYLD_PRINT_TO_FILE=/etc/sud
 [go-nuts] f*ck you, golang
 [go-nuts] Broken dependancies - are they a problem?
 [go-nuts] Turbo pascal IDE
+[9fans] sources down?
+does anyone run harvey on bare metal, any test boxes or something setup?

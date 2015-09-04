@@ -5168,3 +5168,10 @@ We optimized search on Ello for hashtags too! For example, when you search “#a
 Subject: Your join request for go9p has succeeded but is pending approval.
 Remember: we're a bunch of mads trying to show how could be computing world. Perhaps how it should be. We walk over the work of giants. What means we must not to forget from where we come. Change all of that is needed, abandon all of that don't . Keep the ideas and general form of Plan 9. It's our way: we'll never renegade of Plan 9. We just like write some code and bring it to these times. Living with world, inside the world, but avoiding historical errors, respecting authors' ideas, working for the better way.
 Ask HN: I will help your startup in exchange of food and a place to stay
+NO_CONTENT_IN_FEATURE
+Many people use that GNU's true.c as an example of bloated, but, if you actually look at the code, most of it is just comments.
+I already approached the OpenBSD guys, but one of them referred me to a Linux team, and the others never replied.
+News flash: you're wrong.
+commit: tapefs: remove dependency to <authsrv.h>
+I wouldn't say you even need to pay attention, all you need is to be informed.
+[harvey-commits] [PATCH] Add names to .json files that do not have them
