@@ -351,8 +351,13 @@ emmciosetup(int write, void *buf, int bsize, int bcount)
 
 	pa = PADDR(buf);
 	if(write){
+		/* flush cache before write */
 		cleandse((uchar*)buf, (uchar*)buf+len);
 		clean2pa(pa, pa+len);
+	} else {
+		/* invalidate cache before read */
+		invaldse((uchar*)buf, (uchar*)buf+len);
+		inval2pa(pa, pa+len);
 	}
 
 	r = emmc.regs;
@@ -362,7 +367,7 @@ emmciosetup(int write, void *buf, int bsize, int bcount)
 }
 
 static void
-emmcio(int write, uchar *buf, int len)
+emmcio(int write, uchar *, int)
 {
 	u32int *r;
 	int i;
@@ -387,12 +392,6 @@ emmcio(int write, uchar *buf, int len)
 	}
 	if(i)
 		r[Interrupt] = i;
-
-	if(!write){
-		uintptr pa = PADDR(buf);
-		invaldse((uchar*)buf, (uchar*)buf+len);
-		inval2pa(pa, pa+len);
-	}
 }
 
 SDio sdio = {
