@@ -213,7 +213,7 @@ qspiopen(Chan* c, int omode)
 static void
 qspiclose(Chan* c)
 {
-	if(c->qid.path == Qboot)
+	if(c->qid.path == Qboot && (c->flag & COPEN) != 0)
 		qunlock(&qspil);
 }
 
