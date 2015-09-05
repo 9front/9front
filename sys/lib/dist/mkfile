@@ -2,15 +2,61 @@ proto=/n/src9/sys/lib/sysconfig/proto/cdproto
 iso=/tmp/9front.iso
 
 cd:V:	$iso
-	
 
-%.iso:  $proto
-	@{rfork n
+binds:V:
 	bind cfg /n/src9/cfg
 	bind mail/lib /n/src9/mail/lib
 	bind ndb /n/src9/lib/ndb
 	bind -a adm/timezone /n/src9/adm/timezone
 	bind usr /n/src9/usr
 	bind /n/src9 /n/src9/dist/plan9front
+
+%.iso:  $proto
+	@{rfork n
+	mk binds
 	disk/mk9660 -c9j -B 386/9bootiso -E 386/efiboot.fat -p $proto -s /n/src9 -v 'Plan 9 Front' $target
+	}
+
+%.zynq.img:
+	@{
+	objtype=arm
+	kernel=/n/src9/$objtype/9zynq
+	echo 'bootfile='^`{basename $kernel} > /env/plan9.ini
+	fatfiles=(/env/plan9.ini $kernel)
+	mb=1919	# storage vendors idea of 2GB
+	mk $target.$pid.disk
+	mv $target.$pid.disk $target
+	}
+
+%.disk:D:	$proto $fatfiles
+	@{rfork n
+	mk binds
+	rm -f $target
+	dd -if /dev/zero -of $target -bs 1048576 -oseek $mb -count 1
+	s=`{basename $target}
+	disk/partfs -m /n/$s $target
+	d=/n/$s/sdXX
+	disk/mbr $d/data
+	disk/fdisk -baw $d/data
+	disk/prep -bw -a^(9fat nvram fs) $d/plan9
+	disk/format -d -r 2 $d/9fat $fatfiles
+	hjfs -f $d/fs -n $s -S -r
+	{
+		echo echo on
+		echo create /dist sys sys 775 d
+		echo create /usr sys sys 775 d
+		user=glenda
+		echo newuser $user
+		echo newuser adm +$user
+		echo newuser sys +$user
+		echo newuser upas +$user
+		echo echo off
+		sleep 1
+	} >> /srv/$s.cmd
+	mount -N -c /srv/$s /n/newfs
+	disk/mkfs -z 4096 -U -s /n/src9 -d /n/newfs $proto
+	echo sync >> /srv/$s.cmd
+	echo halt >> /srv/$s.cmd
+	while(test -e /srv/$s.cmd) sleep 1
+	exit ''
 	}
