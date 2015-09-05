@@ -2171,11 +2171,10 @@ epgettd(Ctlr *ctlr, Qio *io, int flags, void *a, int count, int maxpkt)
 		td->buff = (*ctlr->dmaalloc)(count+0x1000);
 		td->data = (uchar*)ROUND((uintptr)td->buff, 0x1000);
 	}
-	if(a != nil && count > 0){
+	if(a != nil && count > 0)
 		memmove(td->data, a, count);
-		if(ctlr->dmaflush != nil && td->buff != nil)
-			(*ctlr->dmaflush)(1, td->data, count);
-	}
+	if(ctlr->dmaflush != nil && td->buff != nil)
+		(*ctlr->dmaflush)(1, td->data, count);
 	pa = PADDR(td->data);
 	for(i = 0; i < nelem(td->buffer); i++){
 		td->buffer[i] = pa;
