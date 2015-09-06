@@ -474,7 +474,6 @@ extern	void	rsleep(Rendez*);	/* unlocks r->l, sleeps, locks r->l again */
 extern	int	rwakeup(Rendez*);
 extern	int	rwakeupall(Rendez*);
 extern	void**	privalloc(void);
-extern	void	privfree(void**);
 
 /*
  *  network dialing
