@@ -682,6 +682,10 @@ void plrdplain(char *name, int fd, Www *dst){
 	g.state->margin=0;
 	g.state->indent=20;
 	g.state->ismap=0;
+	g.state->isscript=0;
+	g.state->strike=0;
+	g.state->width=0;
+	g.state->height=0;
 	g.dst=dst;
 	g.hfd=fd;
 	g.name=name;
