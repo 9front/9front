@@ -89,51 +89,11 @@ threadgetname(void)
 void**
 threaddata(void)
 {
-	return &_threadgetproc()->thread->udata[0];
-}
-
-void**
-_workerdata(void)
-{
-	return &_threadgetproc()->wdata;
+	return &_threadgetproc()->thread->udata;
 }
 
 void**
 procdata(void)
 {
 	return &_threadgetproc()->udata;
-}
-
-static Lock privlock;
-static int privmask = 1;
-
-int
-tprivalloc(void)
-{
-	int i;
-
-	lock(&privlock);
-	for(i=0; i<NPRIV; i++)
-		if(!(privmask&(1<<i))){
-			privmask |= 1<<i;
-			unlock(&privlock);
-			return i;
-		}
-	unlock(&privlock);
-	return -1;
-}
-
-void
-tprivfree(int i)
-{
-	if(i < 0 || i >= NPRIV)
-		abort();
-	lock(&privlock);
-	privmask &= ~(1<<i);
-}
-
-void**
-tprivaddr(int i)
-{
-	return &_threadgetproc()->thread->udata[i];
 }

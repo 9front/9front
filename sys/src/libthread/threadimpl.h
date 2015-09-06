@@ -48,7 +48,6 @@ enum
 {
 	RENDHASH = 13,
 	Printsize = 2048,
-	NPRIV = 8,
 };
 
 struct Rgrp
@@ -92,7 +91,7 @@ struct Thread
 	Chanstate	chan;		/* which channel operation is current */
 	Alt		*alt;		/* pointer to current alt structure (debugging) */
 
-	void*	udata[NPRIV];	/* User per-thread data pointer */
+	void*		udata;		/* User per-thread data pointer */
 };
 
 struct Execargs
@@ -131,7 +130,6 @@ struct Proc
 	void		*arg;			/* passed between shared and unshared stk */
 	char		str[ERRMAX];		/* used by threadexits to avoid malloc */
 
-	void*		wdata;			/* Lib(worker) per-proc data pointer */
 	void*		udata;			/* User per-proc data pointer */
 	char		threadint;		/* tag for threadexitsall() */
 };
