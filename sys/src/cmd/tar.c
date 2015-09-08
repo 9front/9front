@@ -882,9 +882,9 @@ replace(char **argv)
 	Compress *comp = nil;
 	Pushstate ps;
 
-	if (usefile && docreate) {
+	if (usefile && docreate)
 		ar = create(usefile, OWRITE, 0666);
-	} else if (usefile)
+	else if (usefile)
 		ar = open(usefile, ORDWR);
 	else
 		ar = Stdout;
