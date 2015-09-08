@@ -78,6 +78,7 @@ Tag tag[]={
 [Tag_source]	"source",	NOEND,
 [Tag_table]	"table",	END,
 [Tag_td]	"td",		END,
+[Tag_th]	"th",		END,
 [Tag_textarea]	"textarea",	END,
 [Tag_title]	"title",	END,
 [Tag_tr]	"tr",		END,

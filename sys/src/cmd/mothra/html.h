@@ -201,6 +201,7 @@ enum{
 	Tag_source,
 	Tag_table,	/* rm 3.8.00 */
 	Tag_td,
+	Tag_th,
 	Tag_textarea,
 	Tag_title,
 	Tag_tr,

@@ -838,6 +838,8 @@ void plrdhtml(char *name, int fd, Www *dst){
 			g.spacc=0;
 			g.linebrk=1;
 			break;
+		case Tag_th:
+			g.state->font=BOLD;
 		case Tag_td:
 			g.spacc++;
 			break;
