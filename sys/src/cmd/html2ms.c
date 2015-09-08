@@ -33,7 +33,6 @@ struct Text {
 	int	pos;
 	int	space;
 	int	output;
-	int	aftertag;
 
 	char	*bp;
 	char	*wp;
@@ -327,8 +326,6 @@ onquote(Text *text, Tag *tag)
 typedef struct Table Table;
 struct Table
 {
-	char	*fmt;
-
 	char	*bp;
 	int	nb;
 
@@ -336,6 +333,8 @@ struct Table
 	Table	*prev;
 	int	enclose;
 	int	brk;
+
+	char	fmt[4];
 
 	Text	save;
 };
@@ -414,7 +413,7 @@ endtable(Text *text, Tag *tag)
 		if(t->brk){
 			while(i < cols){
 				s = mallocz(sizeof(Table), 1);
-				s->fmt = "L";
+				strcpy(s->fmt, "L");
 				s->brk = t->brk;
 				t->brk = 0;
 				s->next = t->next;
@@ -497,9 +496,11 @@ endcell(Text *text, Tag *tag)
 			t->enclose = 1;
 		}
 		if(gotstyle(tag, "text-align", "center") || gotstyle(tt, "text-align", "center"))
-			t->fmt = "c";
+			strcpy(t->fmt, "C");
 		else
-			t->fmt = "L";
+			strcpy(t->fmt, "L");
+		if(strcmp(tag->tag, "th") == 0)
+			strcpy(t->fmt+1, "B");
 		t->prev = tt->aux;
 		tt->aux = t;
 		*text = t->save;
@@ -884,7 +885,6 @@ parsetext(Text *text, Tag *tag)
 			if(c == '<'){
 				memset(&t, 0, sizeof(t));
 				if(parsetag(&t)){
-					text->aftertag = 1;
 					if(t.opening){
 						t.up = tag;
 						parsetext(text, &t);
@@ -912,8 +912,6 @@ parsetext(Text *text, Tag *tag)
 			switch(r){
 			case '\n':
 			case '\r':
-				if(text->pre == 0 && text->aftertag)
-					break;
 			case ' ':
 			case '\t':
 				if(text->pre == 0){
@@ -934,7 +932,6 @@ parsetext(Text *text, Tag *tag)
 				if(r == 0xA0)
 					r = ' ';
 				emitrune(text, r);
-				text->aftertag = 0;
 				text->space = 0;
 			}
 		}
