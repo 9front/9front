@@ -222,16 +222,20 @@ ewrite(char *name, int fd, void *buf, long len)
 static Compress *
 compmethod(char *name)
 {
-	int i, nmlen = strlen(name), sfxlen;
-	Compress *cp;
+	if (name) {
+		int i, nmlen, sfxlen;
+		Compress *cp;
 
-	for (cp = comps; cp < comps + nelem(comps); cp++)
-		for (i = 0; i < nelem(cp->sfx) && cp->sfx[i]; i++) {
-			sfxlen = strlen(cp->sfx[i]);
-			if (nmlen > sfxlen &&
-			    strcmp(cp->sfx[i], name + nmlen - sfxlen) == 0)
-				return cp;
+		nmlen = strlen(name);
+		for (cp = comps; cp < comps + nelem(comps); cp++) {
+			for (i = 0; i < nelem(cp->sfx) && cp->sfx[i]; i++) {
+				sfxlen = strlen(cp->sfx[i]);
+				if (nmlen > sfxlen &&
+				    strcmp(cp->sfx[i], name + nmlen - sfxlen) == 0)
+					return cp;
+			}
 		}
+	}
 	return docompress? comps: nil;
 }
 
@@ -880,14 +884,15 @@ replace(char **argv)
 
 	if (usefile && docreate) {
 		ar = create(usefile, OWRITE, 0666);
-		if (docompress)
-			comp = compmethod(usefile);
 	} else if (usefile)
 		ar = open(usefile, ORDWR);
 	else
 		ar = Stdout;
-	if (comp)
-		ar = push(ar, comp->comp, Output, &ps);
+	if (docreate && docompress) {
+		comp = compmethod(usefile);
+		if (comp)
+			ar = push(ar, comp->comp, Output, &ps);
+	}
 	if (ar < 0)
 		sysfatal("can't open archive %s: %r", usefile);
 
@@ -1253,14 +1258,14 @@ extract(char **argv)
 	int ar;
 	char *longname;
 	Hdr *hp;
-	Compress *comp = nil;
+	Compress *comp;
 	Pushstate ps;
 
-	if (usefile) {
+	if (usefile)
 		ar = open(usefile, OREAD);
-		comp = compmethod(usefile);
-	} else
+	else
 		ar = Stdin;
+	comp = compmethod(usefile);
 	if (comp)
 		ar = push(ar, comp->decomp, Input, &ps);
 	if (ar < 0)
