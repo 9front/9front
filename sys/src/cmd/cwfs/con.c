@@ -7,6 +7,7 @@ static	int	whoflag;
 
 static	void	consserve1(void *);
 static	void	installcmds(void);
+static	void	tzinit(char*);
 
 void
 consserve(void)
@@ -599,6 +600,7 @@ cmd_remove(int argc, char *argv[])
 static void
 cmd_version(int, char *[])
 {
+	tzinit("/adm/timezone/local");
 	print("%d-bit %s as of %T\n", sizeof(Off)*8 - 1, service, fs_mktime);
 	print("\tlast boot %T\n", boottime);
 }
@@ -678,6 +680,28 @@ cmd_prof(int argc, char *argv[])
 		return;
 	}
 }
+
+static void
+tzinit(char *file)
+{
+	char buf[1024];
+	Off o;
+	int f, n;
+
+	f = create("#e/timezone", OEXCL|OWRITE, 0666);
+	if(f < 0)
+		return;
+	if(walkto(file) || con_open(FID2, 0)) {
+		print("tzinit: cannot access %s\n", file);
+		close(f);
+		remove("#e/timezone");
+		return;
+	}
+	for(o = 0; (n = con_read(FID2, buf, o, sizeof(buf))) > 0; o += n)
+		write(f, buf, n);
+	close(f);
+}
+
 
 static void
 cmd_time(int argc, char *argv[])
