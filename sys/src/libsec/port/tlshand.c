@@ -1614,6 +1614,19 @@ msgRecv(TlsConnection *c, Msg *m)
 		m->u.certificateRequest.types = makebytes(p, nn);
 		p += nn;
 		n -= nn;
+		if(c->version >= TLS12Version){
+			/* skip supported_signature_algorithms */
+			if(n < 2)
+				goto Short;
+			nn = get16(p);
+			p += 2;
+			n -= 2;
+			if(nn > n)
+				goto Short;
+			p += nn;
+			n -= nn;
+
+		}
 		if(n < 2)
 			goto Short;
 		nn = get16(p);
