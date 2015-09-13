@@ -141,6 +141,7 @@ typedef struct Msg{
 			Bytes *dh_g;
 			Bytes *dh_Ys;
 			Bytes *dh_signature;
+			int sigalg;
 			int curve;
 		} serverKeyExchange;
 		struct {
@@ -283,16 +284,16 @@ enum {
 };
 
 static Algs cipherAlgs[] = {
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA},
 	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA},
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
+	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA},
 	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA},
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_256_CBC_SHA},
+	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
 	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_128_CBC_SHA},
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_RSA_WITH_AES_256_CBC_SHA},
-	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_RSA_WITH_AES_128_CBC_SHA},
+	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_256_CBC_SHA},
 	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_RSA_WITH_AES_128_CBC_SHA256},
 	{"aes_256_cbc", "sha256", 2*(32+16+SHA2_256dlen), TLS_RSA_WITH_AES_256_CBC_SHA256},
+	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_RSA_WITH_AES_128_CBC_SHA},
+	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_RSA_WITH_AES_256_CBC_SHA},
 	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA},
 	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_RSA_WITH_3DES_EDE_CBC_SHA},
 	{"rc4_128", "sha1",	2*(16+SHA1dlen), TLS_RSA_WITH_RC4_128_SHA},
@@ -315,6 +316,18 @@ static Namedcurve namedcurves[] = {
 
 static uchar pointformats[] = {
 	CompressionNull /* support of uncompressed point format is mandatory */
+};
+
+// signature algorithms
+static int sigalgs[] = {
+	0x0601,		/* SHA512 RSA */
+	0x0501,		/* SHA384 RSA */
+	0x0401,		/* SHA256 RSA */
+	0x0201,		/* SHA1 RSA */
+	0x0603,		/* SHA512 ECDSA */
+	0x0503,		/* SHA384 ECDSA */
+	0x0403,		/* SHA256 ECDSA */
+	0x0203,		/* SHA1 ECDSA */
 };
 
 static TlsConnection *tlsServer2(int ctl, int hand, uchar *cert, int certlen, int (*trace)(char*fmt, ...), PEMChain *chain);
@@ -488,6 +501,23 @@ tlsClientExtensions(TLSconn *conn, int *plen)
 		*p++ = n;			/* EC point formats Length */
 		for(i=0; i < n; i++)		/* Elliptic curves point formats */
 			*p++ = pointformats[i];
+	}
+
+	// signature algorithms
+	if(ProtocolVersion >= TLS12Version){
+		n = nelem(sigalgs);
+
+		m = p - b;
+		b = erealloc(b, m + 2+2+2+n*2);
+		p = b + m;
+
+		put16(p, 0x000d), p += 2;
+		put16(p, n*2 + 2), p += 2;
+		put16(p, n*2), p += 2;
+		for(i=0; i < n; i++){
+			put16(p, sigalgs[i]);
+			p += 2;
+		}
 	}
 	
 	*plen = p - b;
@@ -1703,8 +1733,9 @@ msgRecv(TlsConnection *c, Msg *m)
 			break;
 		}
 		if(n >= 2){
+			m->u.serverKeyExchange.sigalg = 0;
 			if(c->version >= TLS12Version){
-				/* signature hash algorithm */
+				m->u.serverKeyExchange.sigalg = get16(p);
 				p += 2, n -= 2;
 				if(n < 2)
 					goto Short;
@@ -1916,6 +1947,8 @@ msgPrint(char *buf, int n, Msg *m)
 			bs = bytesPrint(bs, be, "\tdh_g: ", m->u.serverKeyExchange.dh_g, "\n");
 		}
 		bs = bytesPrint(bs, be, "\tdh_Ys: ", m->u.serverKeyExchange.dh_Ys, "\n");
+		if(m->u.serverKeyExchange.sigalg != 0)
+			bs = seprint(bs, be, "\tsigalg: %.4x\n", m->u.serverKeyExchange.sigalg);
 		bs = bytesPrint(bs, be, "\tdh_signature: ", m->u.serverKeyExchange.dh_signature, "\n");
 		break;
 	case HClientKeyExchange:
