@@ -432,7 +432,7 @@ rwfis(Sfis *f, uchar *c, int rw, int nsect, uvlong lba)
 
 	c[Flba24] = lba >> 24;
 	c[Flba32] = lba >> 32;
-	c[Flba40] = lba >> 48;
+	c[Flba40] = lba >> 40;
 	c[Ffeat8] = 0;
 
 	c[Fsc] = nsect;
