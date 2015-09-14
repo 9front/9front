@@ -2028,7 +2028,7 @@ tlsConnectionFree(TlsConnection *c)
 
 //================= cipher choices ========================
 
-static int weakCipher[] =
+static char weakCipher[] =
 {
 [TLS_NULL_WITH_NULL_NULL]		1,
 [TLS_RSA_WITH_NULL_MD5]			1,
