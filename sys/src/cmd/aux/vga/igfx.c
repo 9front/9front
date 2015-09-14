@@ -1499,7 +1499,7 @@ dpauxio(Igfx *igfx, Dp *dp, uchar buf[20], int len)
 	}
 
 	/* clear sticky bits */
-	wr(igfx, dp->auxctl.a, (1<<28) | (1<25) | (1<<30));
+	wr(igfx, dp->auxctl.a, (1<<28) | (1<<25) | (1<<30));
 
 	for(i=0; i<nelem(dp->auxdat); i++){
 		w  = buf[i*4+0]<<24;
@@ -1537,7 +1537,7 @@ dpauxio(Igfx *igfx, Dp *dp, uchar buf[20], int len)
 		}
 		sleep(5);
 	}
-	if(w & (1<28)){
+	if(w & (1<<28)){
 		werrstr("receive timeout");
 		return -1;
 	}
