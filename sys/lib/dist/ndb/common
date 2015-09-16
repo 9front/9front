@@ -391,5 +391,5 @@ auth=9grid.net authdom=9grid.net
 # for sape
 auth=130.89.145.31 authdom=cs.utwente.nl
 
-# for 9front.org
-auth=fs.stanleylieber.com authdom=inri
+# for sl
+auth=auth.stanleylieber.com authdom=inri
