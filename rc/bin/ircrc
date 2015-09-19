@@ -10,6 +10,7 @@ netdir=()
 nick=$user
 pass=()
 tls=0
+serverpass=()
 
 fn sighup {
 	exit 'hang up'
@@ -30,6 +31,8 @@ fn etime {
 }
 
 fn work {
+        if(~ $#serverpass 1)
+                echo PASS $serverpass > $netdir/data
 	echo USER $user foo bar :$realname > $netdir/data
 	echo NICK $nick > $netdir/data
 	if (~ $#pass 1)
@@ -199,6 +202,9 @@ while (~ $1 -*) {
 	case -p
 		port=$2
 		shift
+        case -P
+                serverpass=$2
+                shift
 	case -r
 		realname=$2
 		shift
@@ -208,7 +214,7 @@ while (~ $1 -*) {
 	case -T
 		tls=1
 	case -*
-		echo 'usage: ircrc  [-p port] [-r realname] [-t target] [-n nick] [-T] [server]' >[1=2]
+		echo 'usage: ircrc  [-p port] [-P server password] [-r realname] [-t target] [-n nick] [-T] [server]' >[1=2]
 		exit 'usage'	
 	}
 	shift

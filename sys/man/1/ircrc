@@ -8,6 +8,10 @@ ircrc \- internet relay chat client
 .I port
 ]
 [
+.B -P
+.I server password
+]
+[
 .B -r
 .I realname
 ]
@@ -45,6 +49,9 @@ The options are:
 .BI -p " port
 Change the default port
 .RB ( 6667 ).
+.TP
+.BI -P " server password
+Specify a password for the remote server.
 .TP
 .BI -r " realname
 Change the default name
