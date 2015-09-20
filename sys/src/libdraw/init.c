@@ -228,8 +228,6 @@ initdisplay(char *dev, char *win, void(*error)(Display*, char*))
 		werrstr("initdisplay: %s: %r", buf);
 		return nil;
 	}
-	if(ctlfd < 0)
-		goto Error1;
 	if((n=read(ctlfd, info, sizeof info)) < 12){
     Error2:
 		close(ctlfd);
