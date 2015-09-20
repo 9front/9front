@@ -110,7 +110,6 @@ struct SDreq {
 	int	dlen;
 
 	int	flags;
-	ulong	timeout;		/* in ticks */
 
 	int	status;
 	long	rlen;

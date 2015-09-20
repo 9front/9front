@@ -1310,7 +1310,6 @@ sdread(Chan *c, void *a, long n, vlong off)
 		if(unit->state == Rawdata){
 			unit->state = Rawstatus;
 			r = unit->req;
-			r->timeout = 0;
 			i = sdrio(r, a, n);
 		}
 		else if(unit->state == Rawstatus){
