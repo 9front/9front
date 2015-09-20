@@ -297,9 +297,17 @@ mmcbio(SDunit *unit, int lun, int write, void *data, long nb, uvlong bno)
 }
 
 static int
-mmcrio(SDreq*)
+mmcrio(SDreq *r)
 {
-	return -1;
+	int i, rw, count;
+	uvlong lba;
+
+	if((i = sdfakescsi(r)) != SDnostatus)
+		return r->status = i;
+	if((i = sdfakescsirw(r, &lba, &count, &rw)) != SDnostatus)
+		return i;
+	r->rlen = mmcbio(r->unit, r->lun, rw == SDwrite, r->data, count, lba);
+	return r->status = SDok;
 }
 
 SDifc sdmmcifc = {
