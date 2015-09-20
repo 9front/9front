@@ -99,10 +99,6 @@ initmouse(char *file, Image *i)
 		file = "/dev/mouse";
 	mc->file = strdup(file);
 	mc->mfd = open(file, ORDWR|OCEXEC);
-	if(mc->mfd<0 && strcmp(file, "/dev/mouse")==0){
-		bind("#m", "/dev", MAFTER);
-		mc->mfd = open(file, ORDWR|OCEXEC);
-	}
 	if(mc->mfd < 0){
 		free(mc);
 		return nil;

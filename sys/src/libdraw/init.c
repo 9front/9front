@@ -44,7 +44,6 @@ geninitdraw(char *devdir, void(*error)(Display*, char*), char *fontname, char *l
 	df = getdefont(display);
 	display->defaultsubfont = df;
 	if(df == nil){
-		fprint(2, "imageinit: can't open default subfont: %r\n");
     Error:
 		closedisplay(display);
 		display = nil;
@@ -70,16 +69,12 @@ geninitdraw(char *devdir, void(*error)(Display*, char*), char *fontname, char *l
 			df->n-1, deffontname);
 //BUG: Need something better for this	installsubfont("*default*", df);
 		font = buildfont(display, buf, deffontname);
-		if(font == nil){
-			fprint(2, "imageinit: can't open default font: %r\n");
+		if(font == nil)
 			goto Error;
-		}
 	}else{
 		font = openfont(display, fontname);	/* BUG: grey fonts */
-		if(font == nil){
-			fprint(2, "imageinit: can't open font %s: %r\n", fontname);
+		if(font == nil)
 			goto Error;
-		}
 	}
 	display->defaultfont = font;
 
@@ -110,14 +105,10 @@ geninitdraw(char *devdir, void(*error)(Display*, char*), char *fontname, char *l
 }
 
 int
-initdraw(void(*error)(Display*, char*), char *fontname , char *label)
+initdraw(void(*error)(Display*, char*), char *fontname, char *label)
 {
-	char *dev = "/dev";
+	static char dev[] = "/dev";
 
-	if(access("/dev/draw/new", AEXIST)<0 && bind("#i", "/dev", MAFTER)<0){
-		fprint(2, "imageinit: can't bind /dev/draw: %r\n");
-		return -1;
-	}
 	return geninitdraw(dev, error, fontname, label, dev, Refnone);
 }
 
@@ -138,7 +129,6 @@ retry:
 	fd = open(winname, OREAD);
 	if(fd<0 || (n=read(fd, buf, sizeof buf-1))<=0){
 		if((image=d->image) == nil){
-			fprint(2, "gengetwindow: %r\n");
 			*winp = nil;
 			d->screenimage = nil;
 			return -1;
@@ -158,7 +148,6 @@ retry:
 				strcpy(obuf, buf);
 				goto retry;
 			}
-			fprint(2, "namedimage %s failed: %r\n", buf);
 		}
 		if(*winp != nil){
 			_freeimage1(*winp);
@@ -171,7 +160,6 @@ retry:
 			d->screenimage = nil;
 			return -1;
 		}
-		assert(image->chan != 0);
 	}
 
 	d->screenimage = image;
@@ -194,7 +182,6 @@ retry:
 		freeimage(image);
 		return -1;
 	}
-	assert((*winp)->chan != 0);
 	d->screenimage = *winp;
 	return 1;
 }
@@ -236,13 +223,10 @@ initdisplay(char *dev, char *win, void(*error)(Display*, char*))
 	sprint(buf, "%s/draw/new", dev);
 	ctlfd = open(buf, ORDWR|OCEXEC);
 	if(ctlfd < 0){
-		if(bind("#i", dev, MAFTER) < 0){
     Error1:
-			free(t);
-			werrstr("initdisplay: %s: %r", buf);
-			return nil;
-		}
-		ctlfd = open(buf, ORDWR|OCEXEC);
+		free(t);
+		werrstr("initdisplay: %s: %r", buf);
+		return nil;
 	}
 	if(ctlfd < 0)
 		goto Error1;
@@ -399,10 +383,8 @@ lockdisplay(Display *disp)
 {
 	if(debuglockdisplay){
 		/* avoid busy looping; it's rare we collide anyway */
-		while(!canqlock(&disp->qlock)){
-			fprint(1, "proc %d waiting for display lock...\n", getpid());
+		while(!canqlock(&disp->qlock))
 			sleep(1000);
-		}
 	}else
 		qlock(&disp->qlock);
 }

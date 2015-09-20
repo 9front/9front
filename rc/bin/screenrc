@@ -35,7 +35,13 @@ if(test -f /dev/vgactl){
 	}
 }
 
-if(test -f /dev/mousectl && test -f '#i/winname'){
+if(! test -d /dev/draw)
+	bind -a '#i' /dev
+
+if(! test -f /dev/mouse)
+	bind -a '#m' /dev
+
+if(test -f /dev/mousectl && test -f /dev/winname){
 	ask mouseport ' is (ps2, ps2intellimouse, 0, 1, 2)' ps2
 	switch($mouseport){
 	case ps2 ps2intellimouse 0 1 2
