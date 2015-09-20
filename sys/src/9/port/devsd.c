@@ -1116,6 +1116,11 @@ sdfakescsi(SDreq *r)
 		*p++ = len;
 		r->rlen = p - (uchar*)r->data;
 		return sdsetsense(r, SDok, 0, 0, 0);
+
+	case 0x35:	/* synchronize cache */
+	case 0x91:
+		return sdsetsense(r, SDok, 0, 0, 0);
+
 	case 0x08:	/* read6 */
 	case 0x0a:	/* write6 */
 	case 0x28:	/* read10 */
