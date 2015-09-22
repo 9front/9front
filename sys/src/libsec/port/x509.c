@@ -2213,6 +2213,7 @@ verify_digestinfo(uchar *sig, int siglen, RSApub *pk, uchar *pdigest, int *psiga
 	char *err;
 
 	el = nil;
+	memset(&e, 0, sizeof(e));
 	buflen = pkcs1decryptsignature(sig, siglen, pk, &buf);
 	if(buflen < 0 || decode(buf, buflen, &e) != ASN_OK || !is_seq(&e, &el) || elistlen(el) != 2 ||
 			!is_octetstring(&el->tl->hd, &digest)) {
