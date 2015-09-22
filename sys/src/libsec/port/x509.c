@@ -2167,58 +2167,106 @@ digest_certinfo(Bytes *cert, DigestAlg *da, uchar *digest)
 	return da->len;
 }
 
-static char*
-verify_signature(Bytes* signature, RSApub *pk, uchar *edigest, int edigestlen, Elem **psigalg)
+int
+pkcs1decryptsignature(uchar *sig, int siglen, RSApub *pk, uchar **pbuf)
 {
-	Elem e;
-	Elist *el;
-	Bytes *digest;
-	uchar *pkcs1buf, *buf;
-	int buflen;
+	int nlen, buflen;
 	mpint *pkcs1;
-	int nlen;
-	char *err;
+	uchar *buf;
 
-	err = nil;
-	pkcs1buf = nil;
+	*pbuf = nil;
 
 	/* one less than the byte length of the modulus */
 	nlen = (mpsignif(pk->n)-1)/8;
 
 	/* see 9.2.1 of rfc2437 */
-	pkcs1 = betomp(signature->data, signature->len, nil);
+	pkcs1 = betomp(sig, siglen, nil);
 	mpexp(pkcs1, pk->ek, pk->n, pkcs1);
-	buflen = mptobe(pkcs1, nil, 0, &pkcs1buf);
-	buf = pkcs1buf;
-	if(buflen != nlen || buf[0] != 1) {
-		err = "expected 1";
-		goto end;
-	}
+	buflen = mptobe(pkcs1, nil, 0, pbuf);
+	mpfree(pkcs1);
+
+	buf = *pbuf;
+	if(buflen != nlen || buf[0] != 1)
+		goto bad;
 	buf++, buflen--;
 	while(buflen > 0 && buf[0] == 0xff)
 		buf++, buflen--;
-	if(buflen < 1 || buf[0] != 0) {
-		err = "expected 0";
-		goto end;
-	}
+	if(buflen < 1 || buf[0] != 0)
+		goto bad;
 	buf++, buflen--;
-	if(decode(buf, buflen, &e) != ASN_OK || !is_seq(&e, &el) || elistlen(el) != 2 ||
+	memmove(*pbuf, buf, buflen);
+	return buflen;
+bad:
+	free(*pbuf);
+	*pbuf = nil;
+	return -1;
+}
+
+static char*
+verify_digestinfo(uchar *sig, int siglen, RSApub *pk, uchar *pdigest, int *psigalg)
+{
+	Elem e;
+	Elist *el;
+	Bytes *digest;
+	uchar *buf;
+	int buflen;
+	char *err;
+
+	el = nil;
+	buflen = pkcs1decryptsignature(sig, siglen, pk, &buf);
+	if(buflen < 0 || decode(buf, buflen, &e) != ASN_OK || !is_seq(&e, &el) || elistlen(el) != 2 ||
 			!is_octetstring(&el->tl->hd, &digest)) {
 		err = "signature parse error";
 		goto end;
 	}
-	*psigalg = &el->hd;
-	if(digest->len != edigestlen) {
+	*psigalg = parse_alg(&el->hd);
+	if(*psigalg < 0){
+		err = "unknown signature algorithm";
+		goto end;
+	}
+	if(digest->len != digestalg[*psigalg]->len){
 		err = "bad digest length";
 		goto end;
 	}
-	if(memcmp(digest->data, edigest, edigestlen) != 0)
-		err = "digests did not match";
-
+	memmove(pdigest, digest->data, digest->len);
+	err = nil;
 end:
-	mpfree(pkcs1);
-	free(pkcs1buf);
+	freevalfields(&e.val);
+	free(buf);
 	return err;
+}
+
+char*
+X509verifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub *pk)
+{
+	uchar digest[MAXdlen];
+	int sigalg;
+	char *e;
+
+	e = verify_digestinfo(sig, siglen, pk, digest, &sigalg);
+	if(e != nil)
+		return e;
+	if(digestalg[sigalg]->len != edigestlen)
+		return "bad digest length";
+	if(memcmp(digest, edigest, edigestlen) != 0)
+		return "digests did not match";
+	return nil;
+}
+
+char*
+X509verifydata(uchar *sig, int siglen, uchar *data, int datalen, RSApub *pk)
+{
+	uchar digest[MAXdlen], edigest[MAXdlen];
+	int sigalg;
+	char *e;
+
+	e = verify_digestinfo(sig, siglen, pk, digest, &sigalg);
+	if(e != nil)
+		return e;
+	(*digestalg[sigalg]->fun)(data, datalen, edigest, nil);
+	if(memcmp(digest, edigest, digestalg[sigalg]->len) != 0)
+		return "digests did not match";
+	return nil;
 }
 
 RSApub*
@@ -2253,7 +2301,6 @@ X509verify(uchar *cert, int ncert, RSApub *pk)
 	CertX509 *c;
 	int digestlen;
 	uchar digest[MAXdlen];
-	Elem *sigalg;
 
 	b = makebytes(cert, ncert);
 	c = decode_cert(b);
@@ -2267,7 +2314,7 @@ X509verify(uchar *cert, int ncert, RSApub *pk)
 		freecert(c);
 		return "cannot decode certinfo";
 	}
-	e = verify_signature(c->signature, pk, digest, digestlen, &sigalg);
+	e = X509verifydigest(c->signature->data, c->signature->len, digest, digestlen, pk);
 	freecert(c);
 	return e;
 }
@@ -2674,7 +2721,6 @@ X509dump(uchar *cert, int ncert)
 	RSApub *pk;
 	int digestlen;
 	uchar digest[MAXdlen];
-	Elem *sigalg;
 
 	print("begin X509dump\n");
 	b = makebytes(cert, ncert);
@@ -2700,14 +2746,10 @@ X509dump(uchar *cert, int ncert)
 	print("pubkey e=%B n(%d)=%B\n", pk->ek, mpsignif(pk->n), pk->n);
 
 	print("sigalg=%d digest=%.*H\n", c->signature_alg, digestlen, digest);
-	e = verify_signature(c->signature, pk, digest, digestlen, &sigalg);
-	if(e==nil){
+	e = X509verifydigest(c->signature->data, c->signature->len, digest, digestlen, pk);
+	if(e==nil)
 		e = "nil (meaning ok)";
-		print("sigalg=\n");
-		if(sigalg)
-			edump(*sigalg);
-	}
-	print("self-signed verify_signature returns: %s\n", e);
+	print("self-signed X509verifydigest returns: %s\n", e);
 
 	rsapubfree(pk);
 	freecert(c);

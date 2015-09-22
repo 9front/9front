@@ -140,6 +140,7 @@ typedef struct Msg{
 			Bytes *dh_p;
 			Bytes *dh_g;
 			Bytes *dh_Ys;
+			Bytes *dh_parameters;
 			Bytes *dh_signature;
 			int sigalg;
 			int curve;
@@ -267,11 +268,9 @@ enum {
 	TLS_DH_anon_WITH_AES_256_CBC_SHA	= 0X003A,
 	TLS_RSA_WITH_AES_128_CBC_SHA256		= 0X003C,
 	TLS_RSA_WITH_AES_256_CBC_SHA256		= 0X003D,
-	TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA	= 0XC009,
-	TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA	= 0XC00A,
+	TLS_DHE_RSA_WITH_AES_128_CBC_SHA256	= 0X0067,
 	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA	= 0XC013,
 	TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA	= 0XC014,
-	TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256	= 0XC023,
 	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256	= 0xC027,
 };
 
@@ -282,12 +281,10 @@ enum {
 };
 
 static Algs cipherAlgs[] = {
-	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256},
-	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA},
-	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA},
 	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256},
 	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA},
 	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
+	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_DHE_RSA_WITH_AES_128_CBC_SHA256},
 	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_128_CBC_SHA},
 	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_DHE_RSA_WITH_AES_256_CBC_SHA},
 	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_RSA_WITH_AES_128_CBC_SHA256},
@@ -318,16 +315,12 @@ static uchar pointformats[] = {
 	CompressionNull /* support of uncompressed point format is mandatory */
 };
 
-// signature algorithms
+// signature algorithms (only RSA at the moment)
 static int sigalgs[] = {
 	0x0601,		/* SHA512 RSA */
 	0x0501,		/* SHA384 RSA */
 	0x0401,		/* SHA256 RSA */
 	0x0201,		/* SHA1 RSA */
-	0x0603,		/* SHA512 ECDSA */
-	0x0503,		/* SHA384 ECDSA */
-	0x0403,		/* SHA256 ECDSA */
-	0x0203,		/* SHA1 ECDSA */
 };
 
 static TlsConnection *tlsServer2(int ctl, int hand, uchar *cert, int certlen, int (*trace)(char*fmt, ...), PEMChain *chain);
@@ -392,7 +385,8 @@ static Ints* newints(int len);
 static void freeints(Ints* b);
 
 /* x509.c */
-extern mpint* pkcs1padbuf(uchar *buf, int len, mpint *modulus);
+extern mpint*	pkcs1padbuf(uchar *buf, int len, mpint *modulus);
+extern int	pkcs1decryptsignature(uchar *sig, int siglen, RSApub *pk, uchar **pbuf);
 
 //================= client/server ========================
 
@@ -783,16 +777,10 @@ static int
 isDHE(int tlsid)
 {
 	switch(tlsid){
-	case TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA:
-	case TLS_DHE_DSS_WITH_DES_CBC_SHA:
-	case TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA:
-	case TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA:
-	case TLS_DHE_RSA_WITH_DES_CBC_SHA:
-	case TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA:
-	case TLS_DHE_DSS_WITH_AES_128_CBC_SHA:
-	case TLS_DHE_RSA_WITH_AES_128_CBC_SHA:
-	case TLS_DHE_DSS_WITH_AES_256_CBC_SHA:
-	case TLS_DHE_RSA_WITH_AES_256_CBC_SHA:
+ 	case TLS_DHE_RSA_WITH_AES_128_CBC_SHA256:
+ 	case TLS_DHE_RSA_WITH_AES_128_CBC_SHA:
+ 	case TLS_DHE_RSA_WITH_AES_256_CBC_SHA:
+ 	case TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA:
 		return 1;
 	}
 	return 0;
@@ -805,9 +793,6 @@ isECDHE(int tlsid)
 	case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
 	case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:
 	case TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:
-	case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:
-	case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA:
-	case TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA:
 		return 1;
 	}
 	return 0;
@@ -988,6 +973,45 @@ Out:
 	return epm;
 }
 
+static char*
+verifyDHparams(TlsConnection *c, Bytes *par, Bytes *sig, int sigalg)
+{
+	uchar hashes[MD5dlen+SHA1dlen], *buf;
+	Bytes *blob;
+	RSApub *pk;
+	char *err;
+
+	pk = X509toRSApub(c->cert->data, c->cert->len, nil, 0);
+	if(pk == nil)
+		return "bad certificate";
+
+	blob = newbytes(2*RandomSize + par->len);
+	memmove(blob->data+0*RandomSize, c->crandom, RandomSize);
+	memmove(blob->data+1*RandomSize, c->srandom, RandomSize);
+	memmove(blob->data+2*RandomSize, par->data, par->len);
+	if(c->version >= TLS12Version) {
+		if((sigalg & 0xFF) == 1)
+			err = X509verifydata(sig->data, sig->len, blob->data, blob->len, pk);
+		else
+			err = "signaure algorithm not RSA";
+	} else {
+		err = nil;
+		if(pkcs1decryptsignature(sig->data, sig->len, pk, &buf) != sizeof(hashes))
+			err = "bad signature";
+		else {
+			md5(blob->data, blob->len, hashes, nil);
+			sha1(blob->data, blob->len, hashes+MD5dlen, nil);
+			if(memcmp(buf, hashes, sizeof(hashes)) != 0)
+				err = "digests did not match";
+		}
+		free(buf);
+	}
+	freebytes(blob);
+	rsapubfree(pk);
+
+	return err;
+}
+
 static TlsConnection *
 tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, uchar *ext, int extlen,
 	int (*trace)(char*fmt, ...))
@@ -1077,8 +1101,18 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 	if(!msgRecv(c, &m))
 		goto Err;
 	if(m.tag == HServerKeyExchange) {
+		char *err;
+
 		if(!dhx){
 			tlsError(c, EUnexpectedMessage, "got an server key exchange");
+			goto Err;
+		}
+		err = verifyDHparams(c,
+			m.u.serverKeyExchange.dh_parameters,
+			m.u.serverKeyExchange.dh_signature,
+			m.u.serverKeyExchange.sigalg);
+		if(err != nil){
+			tlsError(c, EBadCertificate, "can't verify dh parameters: %s", err);
 			goto Err;
 		}
 		if(isECDHE(cipher))
@@ -1447,7 +1481,7 @@ tlsReadN(TlsConnection *c, int n)
 static int
 msgRecv(TlsConnection *c, Msg *m)
 {
-	uchar *p;
+	uchar *p, *s;
 	int type, n, nn, i, nsid, nrandom, nciph;
 
 	for(;;) {
@@ -1691,6 +1725,7 @@ msgRecv(TlsConnection *c, Msg *m)
 	case HServerKeyExchange:
 		if(n < 2)
 			goto Short;
+		s = p;
 		if(isECDHE(c->cipher)){
 			nn = *p;
 			p++, n--;
@@ -1734,6 +1769,7 @@ msgRecv(TlsConnection *c, Msg *m)
 			/* should not happen */
 			break;
 		}
+		m->u.serverKeyExchange.dh_parameters = makebytes(s, p - s);
 		if(n >= 2){
 			m->u.serverKeyExchange.sigalg = 0;
 			if(c->version >= TLS12Version){
@@ -1835,6 +1871,7 @@ msgClear(Msg *m)
 		freebytes(m->u.serverKeyExchange.dh_p);
 		freebytes(m->u.serverKeyExchange.dh_g);
 		freebytes(m->u.serverKeyExchange.dh_Ys);
+		freebytes(m->u.serverKeyExchange.dh_parameters);
 		freebytes(m->u.serverKeyExchange.dh_signature);
 		break;
 	case HClientKeyExchange:
@@ -1951,6 +1988,7 @@ msgPrint(char *buf, int n, Msg *m)
 		bs = bytesPrint(bs, be, "\tdh_Ys: ", m->u.serverKeyExchange.dh_Ys, "\n");
 		if(m->u.serverKeyExchange.sigalg != 0)
 			bs = seprint(bs, be, "\tsigalg: %.4x\n", m->u.serverKeyExchange.sigalg);
+		bs = bytesPrint(bs, be, "\tdh_parameters: ", m->u.serverKeyExchange.dh_parameters, "\n");
 		bs = bytesPrint(bs, be, "\tdh_signature: ", m->u.serverKeyExchange.dh_signature, "\n");
 		break;
 	case HClientKeyExchange:

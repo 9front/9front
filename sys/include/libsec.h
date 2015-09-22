@@ -274,6 +274,8 @@ uchar*		decodePEM(char *s, char *type, int *len, char **new_s);
 PEMChain*	decodepemchain(char *s, char *type);
 uchar*		X509gen(RSApriv *priv, char *subj, ulong valid[2], int *certlen);
 uchar*		X509req(RSApriv *priv, char *subj, int *certlen);
+char*		X509verifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub *pk);
+char*		X509verifydata(uchar *sig, int siglen, uchar *data, int datalen, RSApub *pk);
 char*		X509verify(uchar *cert, int ncert, RSApub *pk);
 void		X509dump(uchar *cert, int ncert);
 
