@@ -88,7 +88,7 @@ Point pl_rtfmt(Rtext *t, int wid){
 			if(tp->b){
 				a=tp->b->r.max.y-tp->b->r.min.y+BORD;
 				d=BORD;
-				w=tp->b->r.max.x-tp->b->r.min.x+BORD*2;
+				w=tp->b->repl?wid-x:tp->b->r.max.x-tp->b->r.min.x+BORD*2;
 			}
 			else if(tp->p){
 				/* what if plpack fails? */
@@ -134,7 +134,7 @@ Point pl_rtfmt(Rtext *t, int wid){
 			if(t->b){
 				t->r.max.y=p.y+BORD;
 				t->r.min.y=p.y-(t->b->r.max.y-t->b->r.min.y)-BORD;
-				p.x+=(t->b->r.max.x-t->b->r.min.x)+BORD*2;
+				p.x+=t->b->repl?wid-p.x:(t->b->r.max.x-t->b->r.min.x)+BORD*2;
 			}
 			else if(t->p){
 				t->r.max.y=p.y;
