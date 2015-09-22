@@ -123,6 +123,7 @@ ecmul(ECdomain *dom, ECpoint *a, mpint *k, ECpoint *s)
 	mpfree(ns.y);
 	mpfree(na.x);
 	mpfree(na.y);
+	mpfree(l);
 }
 
 int
