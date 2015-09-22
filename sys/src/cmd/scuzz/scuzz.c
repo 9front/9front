@@ -1669,9 +1669,9 @@ static ScsiCmd scsicmd[] = {
 	{ "blank",	cmdblank,	1,		/*[0xA1]*/
 	  "blank [track/LBA [type]]",
 	},
-//	{ "synccache",	cmdsynccache,	1,		/*[0x35]*/
-//	  "synccache",
-//	},
+	{ "synccache",	cmdsynccache,	1,		/*[0x35]*/
+	  "synccache",
+	},
 	{ "rtoc",	cmdrtoc,	1,		/*[0x43]*/
 	  "rtoc [track/session-number [format]]",
 	},
