@@ -981,6 +981,9 @@ verifyDHparams(TlsConnection *c, Bytes *par, Bytes *sig, int sigalg)
 	RSApub *pk;
 	char *err;
 
+	if(sig == nil || sig->len <= 0)
+		return "no signature";
+
 	pk = X509toRSApub(c->cert->data, c->cert->len, nil, 0);
 	if(pk == nil)
 		return "bad certificate";
@@ -1767,7 +1770,7 @@ msgRecv(TlsConnection *c, Msg *m)
 			p += nn, n -= nn;
 		} else {
 			/* should not happen */
-			break;
+			goto Short;
 		}
 		m->u.serverKeyExchange.dh_parameters = makebytes(s, p - s);
 		if(n >= 2){
