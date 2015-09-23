@@ -3,6 +3,8 @@
 #include <draw.h>
 #include <memdraw.h>
 
+int nflag;
+
 static void
 resample(Memimage *dst, Rectangle r, Memimage *src, Rectangle sr)
 {
@@ -29,6 +31,8 @@ resample(Memimage *dst, Rectangle r, Memimage *src, Rectangle sr)
 	for(dp.y=0; dp.y<=dsize.y; dp.y++){
 		sp.y = _sp.y>>12;
 		ty = _sp.y&0xFFF;
+		if(nflag)
+			ty = ty << 1 & 0x1000;
 		pdst = pdst0;
 		sp.x = sr.min.x;
 		psrc0 = byteaddr(src, sp);
@@ -36,6 +40,8 @@ resample(Memimage *dst, Rectangle r, Memimage *src, Rectangle sr)
 		for(dp.x=0; dp.x<=dsize.x; dp.x++){
 			sp.x = _sp.x>>12;
 			tx = _sp.x&0xFFF;
+			if(nflag)
+				tx = tx << 1 & 0x1000;
 			psrc = psrc0 + sp.x*bpp;
 			s00 = (0x1000-tx)*(0x1000-ty);
 			s01 = tx*(0x1000-ty);
@@ -108,6 +114,9 @@ main(int argc, char **argv)
 		break;
 	case 'y':
 		ysize = getsize(EARGF(usage()));
+		break;
+	case 'n':
+		nflag++;
 		break;
 	default:
 		usage();
