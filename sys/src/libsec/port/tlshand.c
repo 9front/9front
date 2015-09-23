@@ -130,6 +130,7 @@ typedef struct Msg{
 		} certificate;
 		struct {
 			Bytes *types;
+			Ints *sigalgs;
 			int nca;
 			Bytes **cas;
 		} certificateRequest;
@@ -146,6 +147,7 @@ typedef struct Msg{
 			int curve;
 		} serverKeyExchange;
 		struct {
+			int sigalg;
 			Bytes *signature;
 		} certificateVerify;		
 		Finished finished;
@@ -387,6 +389,7 @@ static void freeints(Ints* b);
 /* x509.c */
 extern mpint*	pkcs1padbuf(uchar *buf, int len, mpint *modulus);
 extern int	pkcs1decryptsignature(uchar *sig, int siglen, RSApub *pk, uchar **pbuf);
+extern int	X509encodesignature_sha256(uchar digest[SHA2_256dlen], uchar *buf, int len);
 
 //================= client/server ========================
 
@@ -1024,7 +1027,6 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 	uchar kd[MaxKeyData];
 	char *secrets;
 	int creq, dhx, rv, cipher;
-	mpint *signedMP, *paddedHashes;
 	Bytes *epm;
 
 	if(!initCiphers())
@@ -1032,10 +1034,6 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 	epm = nil;
 	c = emalloc(sizeof(TlsConnection));
 	c->version = ProtocolVersion;
-
-	// client certificate signature not implemented for TLS1.2
-	if(cert != nil && certlen > 0 && c->version >= TLS12Version)
-		c->version = TLS11Version;
 
 	c->ctl = ctl;
 	c->hand = hand;
@@ -1201,14 +1199,10 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 
 	/* certificate verify */
 	if(creq && cert != nil && certlen > 0) {
-		uchar hshashes[MD5dlen+SHA1dlen]; /* content of signature */
+		mpint *signedMP, *paddedHashes;
 		HandshakeHash hsave;
-
-		/* save the state for the Finish message */
-		hsave = c->handhash;
-		md5(nil, 0, hshashes, &c->handhash.md5);
-		sha1(nil, 0, hshashes+MD5dlen, &c->handhash.sha1);
-		c->handhash = hsave;
+		uchar buf[512];
+		int buflen;
 
 		c->sec->rpc = factotum_rsa_open(cert, certlen);
 		if(c->sec->rpc == nil){
@@ -1221,7 +1215,22 @@ tlsClient2(int ctl, int hand, uchar *csid, int ncsid, uchar *cert, int certlen, 
 			goto Err;
 		}
 
-		paddedHashes = pkcs1padbuf(hshashes, MD5dlen+SHA1dlen, c->sec->rsapub->n);
+		/* save the state for the Finish message */
+		hsave = c->handhash;
+		if(c->version >= TLS12Version){
+			uchar digest[SHA2_256dlen];
+
+			m.u.certificateVerify.sigalg = 0x0401;	/* RSA SHA256 */
+			sha2_256(nil, 0, digest, &c->handhash.sha2_256);
+			buflen = X509encodesignature_sha256(digest, buf, sizeof(buf));
+		} else {
+			md5(nil, 0, buf, &c->handhash.md5);
+			sha1(nil, 0, buf+MD5dlen, &c->handhash.sha1);
+			buflen = MD5dlen+SHA1dlen;
+		}
+		c->handhash = hsave;
+		
+		paddedHashes = pkcs1padbuf(buf, buflen, c->sec->rsapub->n);
 		signedMP = factotum_rsa_decrypt(c->sec->rpc, paddedHashes);
 		if(signedMP == nil){
 			tlsError(c, EHandshakeFailure, "factotum_rsa_decrypt: %r");
@@ -1410,6 +1419,10 @@ msgSend(TlsConnection *c, Msg *m, int act)
 		}
 		break;
 	case HCertificateVerify:
+		if(m->u.certificateVerify.sigalg != 0){
+			put16(p, m->u.certificateVerify.sigalg);
+			p += 2;
+		}
 		put16(p, m->u.certificateVerify.signature->len);
 		p += 2;
 		memmove(p, m->u.certificateVerify.signature->data, m->u.certificateVerify.signature->len);
@@ -1684,14 +1697,16 @@ msgRecv(TlsConnection *c, Msg *m)
 		p += nn;
 		n -= nn;
 		if(c->version >= TLS12Version){
-			/* skip supported_signature_algorithms */
 			if(n < 2)
 				goto Short;
 			nn = get16(p);
 			p += 2;
 			n -= 2;
-			if(nn > n)
+			if(nn & 1)
 				goto Short;
+			m->u.certificateRequest.sigalgs = newints(nn>>1);
+			for(i = 0; i < nn; i += 2)
+				m->u.certificateRequest.sigalgs->data[i >> 1] = get16(&p[i]);
 			p += nn;
 			n -= nn;
 
@@ -1861,6 +1876,7 @@ msgClear(Msg *m)
 		break;
 	case HCertificateRequest:
 		freebytes(m->u.certificateRequest.types);
+		freeints(m->u.certificateRequest.sigalgs);
 		for(i=0; i<m->u.certificateRequest.nca; i++)
 			freebytes(m->u.certificateRequest.cas[i]);
 		free(m->u.certificateRequest.cas);
@@ -1969,12 +1985,16 @@ msgPrint(char *buf, int n, Msg *m)
 	case HCertificateRequest:
 		bs = seprint(bs, be, "CertificateRequest\n");
 		bs = bytesPrint(bs, be, "\ttypes: ", m->u.certificateRequest.types, "\n");
+		if(m->u.certificateRequest.sigalgs != nil)
+			bs = intsPrint(bs, be, "\tsigalgs: ", m->u.certificateRequest.sigalgs, "\n");
 		bs = seprint(bs, be, "\tcertificateauthorities\n");
 		for(i=0; i<m->u.certificateRequest.nca; i++)
 			bs = bytesPrint(bs, be, "\t\t", m->u.certificateRequest.cas[i], "\n");
 		break;
 	case HCertificateVerify:
 		bs = seprint(bs, be, "HCertificateVerify\n");
+		if(m->u.certificateVerify.sigalg != 0)
+			bs = seprint(bs, be, "\tsigalg: %.4x\n", m->u.certificateVerify.sigalg);
 		bs = bytesPrint(bs, be, "\tsignature: ", m->u.certificateVerify.signature,"\n");
 		break;	
 	case HServerHelloDone:

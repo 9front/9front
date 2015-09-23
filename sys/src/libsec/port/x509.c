@@ -2496,6 +2496,31 @@ mkDN(char *dn)
 	return mkseq(el);
 }
 
+int
+X509encodesignature_sha256(uchar digest[SHA2_256dlen], uchar *buf, int len)
+{
+	Bytes *sigbytes;
+	Elem sig;
+	int err;
+
+	sig = mkseq(
+		mkel(mkalg(ALG_sha256),
+		mkel(mkoctet(digest, SHA2_256dlen),
+		nil)));
+	err = encode(sig, &sigbytes);
+	freevalfields(&sig.val);
+	if(err != ASN_OK)
+		return -1;
+	if(len < sigbytes->len){
+		freebytes(sigbytes);
+		return -1;
+	}
+	len = sigbytes->len;
+	memmove(buf, sigbytes->data, len);
+	freebytes(sigbytes);
+
+	return len;
+}
 
 uchar*
 X509gen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
