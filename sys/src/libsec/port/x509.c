@@ -2529,47 +2529,46 @@ X509gen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	uchar *cert = nil;
 	RSApub *pk = rsaprivtopub(priv);
 	Bytes *certbytes, *pkbytes, *certinfobytes, *sigbytes;
-	Elem e, certinfo, issuer, subject, pubkey, validity, sig;
+	Elem e, certinfo;
 	DigestAlg *da;
 	uchar digest[MAXdlen], *buf;
 	int buflen;
 	mpint *pkcs1;
 
-	e.val.tag = VInt;  /* so freevalfields at errret is no-op */
-	issuer = mkDN(subj);
-	subject = mkDN(subj);
-	pubkey = mkseq(mkel(mkbigint(pk->n),mkel(mkint(mptoi(pk->ek)),nil)));
-	if(encode(pubkey, &pkbytes) != ASN_OK)
+	e = mkseq(mkel(mkbigint(pk->n),mkel(mkint(mptoi(pk->ek)),nil)));
+	if(encode(e, &pkbytes) != ASN_OK)
 		goto errret;
-	freevalfields(&pubkey.val);
-	pubkey = mkseq(
-		mkel(mkalg(ALG_rsaEncryption),
-		mkel(mkbits(pkbytes->data, pkbytes->len),
-		nil)));
-	freebytes(pkbytes);
-	validity = mkseq(
-		mkel(mkutc(valid[0]),
-		mkel(mkutc(valid[1]),
-		nil)));
-	certinfo = mkseq(
+	freevalfields(&e.val);
+	e = mkseq(
 		mkel(mkint(serial),
 		mkel(mkalg(sigalg),
-		mkel(issuer,
-		mkel(validity,
-		mkel(subject,
-		mkel(pubkey,
+		mkel(mkDN(subj),
+		mkel(mkseq(
+			mkel(mkutc(valid[0]),
+			mkel(mkutc(valid[1]),
+			nil))),
+		mkel(mkDN(subj),
+		mkel(mkseq(
+			mkel(mkalg(ALG_rsaEncryption),
+			mkel(mkbits(pkbytes->data, pkbytes->len),
+			nil))),
 		nil)))))));
-	if(encode(certinfo, &certinfobytes) != ASN_OK)
+	freebytes(pkbytes);
+	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
 	da = digestalg[sigalg];
 	(*da->fun)(certinfobytes->data, certinfobytes->len, digest, 0);
 	freebytes(certinfobytes);
-	sig = mkseq(
+	certinfo = e;
+	e = mkseq(
 		mkel(mkalg(da->alg),
 		mkel(mkoctet(digest, da->len),
 		nil)));
-	if(encode(sig, &sigbytes) != ASN_OK)
+	if(encode(e, &sigbytes) != ASN_OK){
+		freevalfields(&certinfo.val);
 		goto errret;
+	}
+	freevalfields(&e.val);
 	pkcs1 = pkcs1pad(sigbytes, pk->n);
 	freebytes(sigbytes);
 	rsadecrypt(priv, pkcs1, pkcs1);
@@ -2585,7 +2584,10 @@ X509gen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 		goto errret;
 	if(certlen)
 		*certlen = certbytes->len;
-	cert = certbytes->data;
+	cert = malloc(certbytes->len);
+	if(cert != nil)
+		memmove(cert, certbytes->data, certbytes->len);
+	freebytes(certbytes);
 errret:
 	freevalfields(&e.val);
 	return cert;
@@ -2599,39 +2601,39 @@ X509req(RSApriv *priv, char *subj, int *certlen)
 	uchar *cert = nil;
 	RSApub *pk = rsaprivtopub(priv);
 	Bytes *certbytes, *pkbytes, *certinfobytes, *sigbytes;
-	Elem e, certinfo, subject, pubkey, sig;
+	Elem e, certinfo;
 	DigestAlg *da;
 	uchar digest[MAXdlen], *buf;
 	int buflen;
 	mpint *pkcs1;
 
-	e.val.tag = VInt;  /* so freevalfields at errret is no-op */
-	subject = mkDN(subj);
-	pubkey = mkseq(mkel(mkbigint(pk->n),mkel(mkint(mptoi(pk->ek)),nil)));
-	if(encode(pubkey, &pkbytes) != ASN_OK)
+	e = mkseq(mkel(mkbigint(pk->n),mkel(mkint(mptoi(pk->ek)),nil)));
+	if(encode(e, &pkbytes) != ASN_OK)
 		goto errret;
-	freevalfields(&pubkey.val);
-	pubkey = mkseq(
-		mkel(mkalg(ALG_rsaEncryption),
-		mkel(mkbits(pkbytes->data, pkbytes->len),
-		nil)));
-	freebytes(pkbytes);
-	certinfo = mkseq(
+	freevalfields(&e.val);
+	e = mkseq(
 		mkel(mkint(version),
-		mkel(subject,
-		mkel(pubkey,
+		mkel(mkDN(subj),
+		mkel(mkseq(
+			mkel(mkalg(ALG_rsaEncryption),
+			mkel(mkbits(pkbytes->data, pkbytes->len),
+			nil))),
 		nil))));
-	if(encode(certinfo, &certinfobytes) != ASN_OK)
+	freebytes(pkbytes);
+	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
 	da = digestalg[sigalg];
 	(*da->fun)(certinfobytes->data, certinfobytes->len, digest, 0);
 	freebytes(certinfobytes);
-	sig = mkseq(
+	certinfo = e;
+	e = mkseq(
 		mkel(mkalg(da->alg),
 		mkel(mkoctet(digest, da->len),
 		nil)));
-	if(encode(sig, &sigbytes) != ASN_OK)
+	if(encode(e, &sigbytes) != ASN_OK){
+		freevalfields(&certinfo.val);
 		goto errret;
+	}
 	pkcs1 = pkcs1pad(sigbytes, pk->n);
 	freebytes(sigbytes);
 	rsadecrypt(priv, pkcs1, pkcs1);
@@ -2647,7 +2649,10 @@ X509req(RSApriv *priv, char *subj, int *certlen)
 		goto errret;
 	if(certlen)
 		*certlen = certbytes->len;
-	cert = certbytes->data;
+	cert = malloc(certbytes->len);
+	if(cert != nil)
+		memmove(cert, certbytes->data, certbytes->len);
+	freebytes(certbytes);
 errret:
 	freevalfields(&e.val);
 	return cert;
