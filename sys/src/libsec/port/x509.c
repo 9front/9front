@@ -3,9 +3,6 @@
 #include <mp.h>
 #include <libsec.h>
 
-/* ANSI offsetof, backwards. */
-#define	OFFSETOF(a, b)	offsetof(b, a)
-
 /*=============================================================*/
 /*  general ASN1 declarations and parsing
  *
@@ -61,13 +58,13 @@ struct Bytes {
 
 struct Ints {
 	int	len;
-	int	data[1];
+	int	data[];
 };
 
 struct Bits {
 	int	len;		/* number of bytes */
 	int	unusedbits;	/* unused bits in last byte */
-	uchar	data[1];	/* most-significant bit first */
+	uchar	data[];		/* most-significant bit first */
 };
 
 struct Tag {
@@ -1288,7 +1285,7 @@ newbytes(int len)
 
 	if(len < 0)
 		abort();
-	ans = (Bytes*)emalloc(OFFSETOF(data[0], Bytes) + len);
+	ans = emalloc(sizeof(Bytes) + len);
 	ans->len = len;
 	return ans;
 }
@@ -1349,7 +1346,7 @@ newints(int len)
 
 	if(len < 0 || len > ((uint)-1>>1)/sizeof(int))
 		abort();
-	ans = (Ints*)emalloc(OFFSETOF(data[0], Ints) + len*sizeof(int));
+	ans = emalloc(sizeof(Ints) + len*sizeof(int));
 	ans->len = len;
 	return ans;
 }
@@ -1378,7 +1375,7 @@ newbits(int len)
 
 	if(len < 0)
 		abort();
-	ans = (Bits*)emalloc(OFFSETOF(data[0], Bits) + len);
+	ans = emalloc(sizeof(Bits) + len);
 	ans->len = len;
 	ans->unusedbits = 0;
 	return ans;

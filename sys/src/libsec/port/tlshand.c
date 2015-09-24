@@ -2948,8 +2948,6 @@ get16(uchar *p)
 	return (p[0]<<8)|p[1];
 }
 
-#define OFFSET(x, s) offsetof(s, x)
-
 static Bytes*
 newbytes(int len)
 {
@@ -2957,7 +2955,7 @@ newbytes(int len)
 
 	if(len < 0)
 		abort();
-	ans = (Bytes*)emalloc(OFFSET(data[0], Bytes) + len);
+	ans = emalloc(sizeof(Bytes) + len);
 	ans->len = len;
 	return ans;
 }
@@ -2989,7 +2987,7 @@ newints(int len)
 
 	if(len < 0 || len > ((uint)-1>>1)/sizeof(int))
 		abort();
-	ans = (Ints*)emalloc(OFFSET(data[0], Ints) + len*sizeof(int));
+	ans = emalloc(sizeof(Ints) + len*sizeof(int));
 	ans->len = len;
 	return ans;
 }
