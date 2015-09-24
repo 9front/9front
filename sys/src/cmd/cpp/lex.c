@@ -42,7 +42,7 @@ enum state {
 	CC1, CC2, WS1, PLUS1, MINUS1, STAR1, SLASH1, PCT1, SHARP1,
 	CIRC1, GT1, GT2, LT1, LT2, OR1, AND1, ASG1, NOT1, DOTS1,
 	S_SELF=MAXSTATE, S_SELFB, S_EOF, S_NL, S_EOFSTR,
-	S_STNL, S_COMNL, S_EOFCOM, S_COMMENT, S_EOB, S_WS, S_NAME
+	S_STNL, S_COMNL, S_EOFCOM, S_COMMENT, S_WS, S_NAME
 };
 
 int	tottok;
@@ -271,7 +271,7 @@ expandlex(void)
 			}
 		}
 	}
-	/* install special cases for ? (trigraphs),  \ (splicing), runes, and EOB */
+	/* install special cases for ? (trigraphs),  \ (splicing), runes */
 	for (i=0; i<MAXSTATE; i++) {
 		for (j=0; j<0xFF; j++)
 			if (j=='?' || j=='\\' || UTF2(j) || UTF3(j)) {
@@ -279,7 +279,6 @@ expandlex(void)
 					bigfsm[j][i] = ~bigfsm[j][i];
 				bigfsm[j][i] &= ~QBSBIT;
 			}
-		bigfsm[EOB][i] = ~S_EOB;
 		if (bigfsm[EOFC][i]>=0)
 			bigfsm[EOFC][i] = ~S_EOF;
 	}
@@ -313,18 +312,8 @@ gettokens(Tokenrow *trp, int reset)
 
 	tp = trp->lp;
 	ip = s->inp;
-	if (reset) {
+	if (reset)
 		s->lineinc = 0;
-		if (ip>=s->inl) {		/* nothing in buffer */
-			s->inl = s->inb;
-			fillbuf(s);
-			ip = s->inp = s->inb;
-		} else if (ip >= s->inb+(3*s->ins/4)) {
-			memmove(s->inb, ip, 4+s->inl-ip);
-			s->inl = s->inb+(s->inl-ip);
-			ip = s->inp = s->inb;
-		}
-	}
 	maxp = &trp->bp[trp->max];
 	runelen = 1;
 	for (;;) {
@@ -409,12 +398,6 @@ gettokens(Tokenrow *trp, int reset)
 				runelen = 1;
 				continue;
 
-			case S_EOB:
-				s->inp = ip;
-				fillbuf(cursource);
-				state = oldstate;
-				continue;
-
 			case S_EOF:
 				tp->type = END;
 				tp->len = 0;
@@ -445,12 +428,7 @@ gettokens(Tokenrow *trp, int reset)
 				state = COM2;
 				ip += runelen;
 				runelen = 1;
- 				if (ip >= s->inb+(7*s->ins/8)) { /* very long comment */
-					memmove(tp->t, ip, 4+s->inl-ip);
-					s->inl -= ip-tp->t;
-					ip = tp->t+1;
-				}
-				continue;
+ 				continue;
 
 			case S_EOFCOM:
 				error(WARNING, "EOF inside comment");
@@ -478,8 +456,6 @@ trigraph(Source *s)
 {
 	int c;
 
-	while (s->inp+2 >= s->inl && fillbuf(s)!=EOF)
-		;
 	if (s->inp[1]!='?')
 		return 0;
 	c = 0;
@@ -517,8 +493,6 @@ foldline(Source *s)
 	int ncr = 0;
 
 recheck:
-	while (s->inp+1 >= s->inl && fillbuf(s)!=EOF)
-		;
 	if (s->inp[ncr+1] == '\r') {	/* nonstandardly, ignore CR before line-folding */
 		ncr++;
 		goto recheck;
@@ -527,37 +501,6 @@ recheck:
 		memmove(s->inp, s->inp+2+ncr, s->inl-s->inp+3-ncr);
 		s->inl -= 2+ncr;
 		return 1;
-	}
-	return 0;
-}
-
-int
-fillbuf(Source *s)
-{
-	int n;
-
-	while((char *)s->inl+s->ins/8 > (char *)s->inb+s->ins) {
-		int l = s->inl - s->inb;
-		int p = s->inp - s->inb;
-		if(l < 0) 
-			error(FATAL, "negative end of input!?");
-		if(p < 0)
-			error(FATAL, "negative input pointer!?");
-		/* double the buffer size and try again */
-		s->ins *= 2;
-		s->inb = dorealloc(s->inb, s->ins);
-		s->inl = s->inb + l;
-		s->inp = s->inb + p;
-	}
-	if (s->fd<0 || (n=read(s->fd, (char *)s->inl, s->ins/8)) <= 0)
-		n = 0;
-	if ((*s->inp&0xff) == EOB) /* sentinel character appears in input */
-		*s->inp = EOFC;
-	s->inl += n;
-	s->inl[0] = s->inl[1]= s->inl[2]= s->inl[3] = EOB;
-	if (n==0) {
-		s->inl[0] = s->inl[1]= s->inl[2]= s->inl[3] = EOFC;
-		return EOF;
 	}
 	return 0;
 }
@@ -571,7 +514,7 @@ Source *
 setsource(char *name, int fd, char *str)
 {
 	Source *s = new(Source);
-	int len;
+	int n, len;
 
 	s->line = 1;
 	s->lineinc = 0;
@@ -580,32 +523,25 @@ setsource(char *name, int fd, char *str)
 	s->next = cursource;
 	s->ifdepth = 0;
 	cursource = s;
-	/* slop at right for EOB */
+	/* slop at right for EOFC */
 	if (str) {
 		len = strlen(str);
 		s->inb = domalloc(len+4);
-		s->inp = s->inb;
-		strncpy((char *)s->inp, str, len);
+		strncpy((char *)s->inb, str, len);
 	} else {
-		Dir *d;
-		int junk;
-		ulong length = 0;
-		d = dirfstat(fd);
-		if (d != nil) {
-			length = d->length;
-			free(d);
-		}
-		junk = length;
-		if (junk<INS)
-			junk = INS;
-		s->inb = domalloc((junk)+4);
-		s->inp = s->inb;
 		len = 0;
+		s->inb = nil;
+		for(;;){
+			s->inb = dorealloc(s->inb, len + INS);
+			if (s->fd<0 || (n=read(s->fd, (char *)s->inb + len, INS)) <= 0)
+				break;
+			len += n;
+		}
+		s->inb = dorealloc(s->inb, len + 4);
 	}
-
-	s->ins = INS;	
+	s->inp = s->inb;
 	s->inl = s->inp+len;
-	s->inl[0] = s->inl[1] = EOB;
+	s->inl[0] = s->inl[1] = s->inl[2] = s->inl[3] = EOFC;
 	return s;
 }
 

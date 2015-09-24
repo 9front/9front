@@ -29,7 +29,6 @@ enum kwtype { KIF, KIFDEF, KIFNDEF, KELIF, KELSE, KENDIF, KINCLUDE, KDEFINE,
 #define	ISMAC		010	/* builtin macro, e.g. __LINE__ */
 #define	ISVARMAC	020	/* variadic macro */
 
-#define	EOB	0xFE		/* sentinel for end of input buffer */
 #define	EOFC	0xFD		/* sentinel for end of input file */
 #define	XPWS	1		/* token flag: white space to assure token sep. */
 
@@ -58,7 +57,6 @@ typedef struct source {
 	uchar	*inb;		/* input buffer */
 	uchar	*inp;		/* input pointer */
 	uchar	*inl;		/* end of input */
-	int 	ins;		/* input buffer size */
 	int	fd;		/* input source */
 	int	ifdepth;	/* conditional nesting in include */
 	struct	source *next;	/* stack for #include */
@@ -102,7 +100,6 @@ void	*domalloc(int);
 void	dofree(void *);
 void	error(enum errtype, char *, ...);
 void	flushout(void);
-int	fillbuf(Source *);
 int	trigraph(Source *);
 int	foldline(Source *);
 Nlist	*lookup(Token *, int);
