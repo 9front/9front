@@ -205,7 +205,7 @@ by an entry such as
 .IP
 .EX
 0,10,20,30,40,50 * * * * kremvax
-        runq -a /mail/queue /mail/lib/remotemail
+        /bin/upas/runq -a /mail/queue /mail/lib/remotemail
 .EE
 .LP
 The entry must be a single line; it is folded here only so it fits on the page.
