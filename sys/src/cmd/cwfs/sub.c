@@ -46,7 +46,7 @@ fs_chaninit(int count, int data)
 		chans = cp;
 		cp->chan = cons.chano;
 		cons.chano++;
-		strncpy(cp->whoname, "<none>", sizeof cp->whoname);
+		snprint(cp->whoname, sizeof(cp->whoname), "<none>");
 		wlock(&cp->reflock);
 		wunlock(&cp->reflock);
 		rlock(&cp->reflock);
