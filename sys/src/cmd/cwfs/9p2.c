@@ -93,7 +93,9 @@ mkdir9p2(Dir* dir, Dentry* dentry, void* strs)
 
 	op = p = strs;
 	dir->name = p;
-	p += sprint(p, "%s", dentry->name)+1;
+	strncpy(p, dentry->name, NAMELEN);
+	p[NAMELEN-1] = 0;
+	p += strlen(p)+1;
 
 	dir->uid = p;
 	uidtostr(p, dentry->uid, 1);
