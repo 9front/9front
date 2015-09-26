@@ -14,7 +14,7 @@ consserve(void)
 {
 	int i;
 
-	strncpy(cons.chan->whochan, "console", sizeof(cons.chan->whochan));
+	snprint(cons.chan->whochan, sizeof(cons.chan->whochan), "console");
 	installcmds();
 	con_session();
 	cmd_exec("cfs");
@@ -312,8 +312,7 @@ cmd_who(int argc, char *argv[])
 				continue;
 			}
 		}
-		print("%3d: %10s %24s", cp->chan,
-			cp->whoname? cp->whoname: "<nowhoname>", cp->whochan);
+		print("%3d: %10s %24s", cp->chan, cp->whoname, cp->whochan);
 		if(cp->whoprint)
 			cp->whoprint(cp);
 		print("\n");

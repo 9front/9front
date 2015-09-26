@@ -348,7 +348,7 @@ attach(Chan* chan, Fcall* f, Fcall* r)
 
 	r->qid = file->qid;
 
-	strncpy(chan->whoname, f->uname, sizeof(chan->whoname));
+	snprint(chan->whoname, sizeof(chan->whoname), "%s", f->uname);
 	chan->whotime = time(nil);
 out:
 	if(p != nil)
@@ -913,7 +913,7 @@ fs_create(Chan* chan, Fcall* f, Fcall* r)
 		goto phase;
 	}
 
-	strncpy(d1->name, f->name, sizeof(d1->name));
+	strncpy(d1->name, f->name, NAMELEN);
 	if(chan == cons.chan){
 		d1->uid = cons.uid;
 		d1->gid = cons.gid;
@@ -1014,7 +1014,6 @@ fs_read(Chan* chan, Fcall* f, Fcall* r, uchar* data)
 	}
 	iounit = chan->msize-IOHDRSZ;
 	if(count < 0 || count > iounit){
-fprint(2, "fs_read %d %d\n", count, iounit);
 		error = Ecount;
 		goto out;
 	}
@@ -1786,7 +1785,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 		}
 		d->size = dir.length;
 		if(dir.name != d->name)
-			strncpy(d->name, dir.name, sizeof(d->name));
+			strncpy(d->name, dir.name, NAMELEN);
 		d->uid = uid;
 		d->gid = gid;
 		d->muid = muid;
