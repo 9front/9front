@@ -220,3 +220,4 @@ echo 'echo "$(whoami) ALL=(ALL) NOPASSWD:ALL" >&3' | DYLD_PRINT_TO_FILE=/etc/sud
 [go-nuts] Turbo pascal IDE
 [9fans] sources down?
 does anyone run harvey on bare metal, any test boxes or something setup?
+How do I submit a patch?  I see forks on github, but no one merging back to 9fans.
