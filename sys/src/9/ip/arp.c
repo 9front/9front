@@ -165,7 +165,7 @@ newarp6(Arp *arp, uchar *ip, Ipifc *ifc, int addrxt)
 
 /* called with arp qlocked */
 
-void
+static void
 cleanarpent(Arp *arp, Arpent *a)
 {
 	Arpent *f, **l;
