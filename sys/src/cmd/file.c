@@ -865,6 +865,7 @@ struct	FILE_STRING
 	"BEGIN:VCARD\r\n",	"vCard",		13,	"text/directory;profile=vcard",
 	"BEGIN:VCARD\n",	"vCard",		12,	"text/directory;profile=vcard",
 	"AT&T",			"DjVu document",	4,	"image/vnd.djvu",
+	"Extended module: ",	"XM audio",		17,	"audio/xm",
 	0,0,0,0
 };
 
@@ -902,6 +903,7 @@ struct offstr
 	struct FILE_STRING;
 } offstrs[] = {
 	32*1024, "\001CD001\001",	"ISO9660 CD image",	7,	"application/x-iso9660-image",
+	32*4, "DICM",	"DICOM medical imaging data",	4,	"application/dicom",
 	0, 0, 0, 0, 0
 };
 
