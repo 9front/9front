@@ -23,7 +23,7 @@ ifs='
 '{
 	files=`{echo $*}
 }
-grep -h '\$LIST|\|reference|Jp|^\.(EQ|TS|\[|PS|IS|GS|G1|GD|PP|BM|LP|BP|PI|cstart|begin|TH...)|^\.P$' $* |
+grep -h '\$LIST|\|reference|Jp|^\.(EQ|TS|\[|TPS|PS|IS|GS|G1|GD|PP|BM|LP|BP|PI|cstart|begin|TH...)|^\.P$' $* |
 sort -u |
 awk '
 BEGIN	{ files = "'$files'" }
@@ -33,6 +33,7 @@ BEGIN	{ files = "'$files'" }
 /^\.EQ/	{ eqn++ }
 /^\.TS/	{ tbl++ }
 /^\.PS/	{ pic++ }
+/^\.TPS/ { tpic++; pic++ }
 /^\.IS/	{ ideal++ }
 /^\.GS/ { tped++ }
 /^\.G1/ { grap++; pic++ }
@@ -55,6 +56,7 @@ END {
 		files = ""
 	}
 	else if (prefer) { x = "cat " files "| '$prefer'| "; files = "" }
+	if (tpic) { x = x "timepic " files " | "; files = "" }
 	if (tped)  { x = x "tped " files " | "; files = "" }
 	if (dag)  { x = x "dag " files " | "; files = "" }
 	if (ideal) { x = x "ideal -q " files " | "; files = "" }
