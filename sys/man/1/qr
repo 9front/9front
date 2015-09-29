@@ -1,0 +1,56 @@
+.TH QR 1
+.SH NAME
+qr \- generate QR code
+.SH SYNOPSYS
+.B qr
+[
+.B -LMQHna
+]
+[
+.B -v
+.I version
+]
+.SH DESCRIPTION
+.I Qr
+generates a QR code from the data it reads on standard input.
+The QR code is generated as an
+.IR image (6)
+on standard output.
+.PP
+The
+.B -LMQH
+options set the level of error correction.
+.B -L
+is the lowest and
+.B -H
+is the highest level.
+The default is
+.BR -M .
+.PP
+The QR standard defines different sizes labelled version 1 to version 40.
+By default the smallest possible is chosen automatically.
+The
+.B -v
+option forces the use of a particular version.
+.PP
+By default bytes are encoded directly with no translation.
+Coding efficiency can be increased by reducing the set of legitimate characters using the 
+.B -an
+options.
+The 
+.B -n
+option supports only numbers and the
+.B -a
+option supports letters, numbers, spaces and the symbols 
+.LR $%*+-./: .
+Note that all letters are converted to upper case.
+Both options ignore any characters they do not recognize.
+.SH SOURCE
+.B /sys/src/cmd/qr.c
+.SH "SEE ALSO"
+International Standard ISO/IEC 18004.
+.SH BUGS
+The standard specifies the use of JIS-8 encoding in the default mode, however rumour has it that readers recognize UTF-8.
+.PP
+The more advanced coding features (Kanji mode, extended modes, switching modes midstream) are not supported.
+

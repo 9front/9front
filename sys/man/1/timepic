@@ -1,0 +1,114 @@
+.TH TIMEPIC 1
+.SH NAME
+timepic \- troff preprocessor for drawing timing diagrams
+.SH SYNOPSYS
+.B timepic
+[
+.I files
+]
+.SH DESCRIPTION
+.I Timepic
+is a 
+.IR pic (1)
+and
+.IR troff (1)
+preprocessor for drawing timing diagrams.
+.I Timepic
+code is contained between
+.B .TPS
+and
+.B .TPE
+lines:
+.IP
+.EX
+\&.TPS \f2width\fP \f2row-height\fP
+\f2statement-list\fP
+\&.TPE
+.EE
+.PP
+There are two types of
+.I timepic
+statements: variable definitions and signal definitions.
+Variables are defined with the syntax
+.IP
+.EX
+\f2var\fP = \f2expr\fP;
+.EE
+.PP
+where 
+.I expr
+is an arithmetic expression involving floating-point constants and previously defined variables.
+Currently only basic arithmetic (\fB+\fR, \fB-\fR, \fB*\fR and \fB/\fR) is supported.
+Signals are defined with the syntax
+.IP
+.EX
+\f2name\fP \f2events\fP ;
+.EE
+.PP
+where
+.I name
+is a name that must be quoted unless it's a valid symbol.
+\f2Events\fR is a list consisting of the following things:
+.TP
+\(bu
+The current time can be set using an arithmetic expression, that may be followed by a symbol interpreted as a unit.
+For instance if you defined 
+.B "μs = 1000;"
+then 
+.B 1μs
+and
+.B "(x+2)*3μs"
+are both valid time expressions.
+Note that
+.B x+2μs
+is interpreted as 
+.B (x+2)μs
+which may or may not be intended behaviour.
+.IP
+A time expression can be preceded by \fP+\fR to mark it as relative to the previous time.
+The first time is zero.
+.IP
+A time expression can be followed by a symbol name in square brackets.
+The symbol is then defined with the time.
+.TP
+\(bu
+An expression of the form \fP:\fIname\fR creates an `event' at the current time, changing the value of the signal to \fIname\fR.
+\fIname\fR can be a symbol (which is not evaluated), a numerical constant or a string in single quotes.
+The values
+.BR 0 ,
+.BR 1 ,
+.BR x
+and
+.B z
+have special meaning, unless they are quoted.
+.TP
+\(bu
+A pipe symbol
+.B |
+draws a vertical dashed line at the next event.
+.TP
+\(bu
+An expression of the form
+.IB expr { events }
+evaluates the expression, rounded to the nearest integer, and then repeats the events the specified number of times.
+It is illegal if the expression evaluates to a negative number.
+It is also illegal to use absolute times in the events list.
+It is however legal to nest this construct.
+.SH EXAMPLES
+.IP
+.EX
+\&.TPS 6 0.4
+c=5;
+clk +5{:1 +.5c:0 +.5c};
+data :x 2.3c:DQ 4c|:x;
+valid :0 2.3c:1 4c:0;
+ready :0 3.6c:1 4c:0;
+\&.TPE
+.EE
+.SH FILES
+.B /sys/src/cmd/timepic.c
+.SH "SEE ALSO"
+.IR troff (1),
+.IR pic (1)
+.SH BUGS
+Yes.
