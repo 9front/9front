@@ -55,6 +55,7 @@ enum {
 	SYM = -2,
 	NUM = -3,
 	EOF = -4,
+	STR = -5,
 };
 
 static int
@@ -71,6 +72,7 @@ Tfmt(Fmt *f)
 		case SYM: return fmtprint(f, "'%s'", sname);
 		case NUM: return fmtprint(f, "%g", sval);
 		case EOF: return fmtprint(f, "EOF");
+		case STR: return fmtprint(f, "%#q", sname);
 		default: return fmtprint(f, "%d", n);
 		}
 }
@@ -210,6 +212,14 @@ lex(void)
 		*p = 0;
 		return SYM;
 	}
+	if(c == '\''){
+		for(p = sname; c = Bgetc(bp), c != '\'' || Bgetc(bp) == '\''; )
+			if(p < sname + sizeof(sname) - 1)
+				*p++ = c;
+		Bungetc(bp);
+		*p = 0;
+		return STR;
+	}
 	return c;
 }
 
@@ -336,6 +346,9 @@ parseval(Event *e)
 		if(sval == 1)
 			return VH;
 		e->data = smprint("%g", sval);
+		return VMULT;
+	case STR:
+		e->data = strdup(sname);
 		return VMULT;
 	default:
 		error(lineno, "unexpected %T", t);
@@ -651,6 +664,9 @@ diagram(char *l)
 			else
 				signal(s->name);
 			break;
+		case STR:
+			signal(sname);
+			break;
 		case CMD:
 			if(strcmp(sname, "TPE") == 0)
 				goto end;
@@ -714,6 +730,7 @@ main(int argc, char **argv)
 	int i;
 
 	fmtinstall('T', Tfmt);
+	quotefmtinstall();
 
 	ARGBEGIN {
 	default: usage();
