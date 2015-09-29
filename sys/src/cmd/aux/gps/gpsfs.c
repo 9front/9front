@@ -218,7 +218,7 @@ threadmain(int argc, char*argv[])
 
 	ARGBEGIN {
 	default:
-		fprint(2, "usage: %s [-b baud] [-d device] [-l logfile] [-m mntpt] [-r] [-s postname]\n", argv0);
+		fprint(2, "usage: %s [-b baud] [-d device] [-m mntpt] [-r] [-s srvname]\n", argv0);
 		exits("usage");
 	case 'D':
 		debug++;
