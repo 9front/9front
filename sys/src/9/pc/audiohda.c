@@ -1748,6 +1748,7 @@ hdamatch(Pcidev *p)
 		case (0x8086 << 16) | 0x1e20:	/* Intel (Thinkpad x230t) */
 		case (0x8086 << 16) | 0x8c20:	/* Intel 8 Series/C220 Series */
 		case (0x8086 << 16) | 0x9c20:	/* Intel 8 Series Lynx Point */
+		case (0x8086 << 16) | 0x9ca0:	/* Intel Wildcat Point */
 
 		case (0x10de << 16) | 0x026c:	/* NVidia MCP51 (untested) */
 		case (0x10de << 16) | 0x0371:	/* NVidia MCP55 (untested) */
@@ -1869,6 +1870,7 @@ Found:
 		case 0x080a:
 		case 0x8c20:
 		case 0x9c20:
+		case 0x9ca0:
 			pcicfgw16(p, 0x78, pcicfgr16(p, 0x78) & ~0x800);
 		}
 	}
