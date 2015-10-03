@@ -1575,6 +1575,13 @@ cgen64(Node *n, Node *nn)
 	cmp = 0;
 	sh = 0;
 
+	if(nn != Z && nn->complex >= FNX){
+		reglcgen(&nod1, nn, Z);
+		m = cgen64(n, &nod1);
+		regfree(&nod1);
+		return m;
+	}
+
 	switch(n->op) {
 	case ONEG:
 		d = regpair(nn, n);
