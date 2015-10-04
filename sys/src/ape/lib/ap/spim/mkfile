@@ -1,30 +1,45 @@
 APE=/sys/src/ape
 <$APE/config
 LIB=/$objtype/lib/ape/libap.a
+
+MIPSSFILES=\
+	getfcr.s\
+	main9.s\
+	main9p.s\
+	memmove.s\
+	memset.s\
+	setjmp.s\
+	strcmp.s\
+	strcpy.s\
+	tas.s\
+
+MIPSCFILES=\
+	cycles.c\
+	lock.c\
+	notetramp.c\
+
+SFILES=\
+	memchr.s\
+	memcmp.s\
+	strchr.s\
+	vlop.s\
+
+CFILES=\
+	vlrt.c\
+
 OFILES=\
-	cycles.$O\
-	getfcr.$O\
-	lock.$O\
-	main9.$O\
-	main9p.$O\
-	memchr.$O\
-	memcmp.$O\
-	memmove.$O\
-	memset.$O\
-	notetramp.$O\
-	setjmp.$O\
-	strchr.$O\
-	strcmp.$O\
-	strcpy.$O\
-	tas.$O\
-	vlop.$O\
-	vlrt.$O\
+	${MIPSSFILES:%.s=%.$O}\
+	${SFILES:%.s=%.$O}\
+	${MIPSCFILES:%.c=%.$O}\
+	${CFILES:%.c=%.$O}\
 
-%.$O:	../mips/%.c
-	$CC -I../mips $CFLAGS ../mips/$stem.c
+MIPSS=`{echo $MIPSSFILES | sed 's/\.s//g; s/ /|/g'}
+^($MIPSS)\.$O:R:	'../mips/\1.s'
+	$AS $AFLAGS ../mips/$stem1.s
 
-%.$O:	../mips/%.s
-	$AS -I../mips $AFLAGS ../mips/$stem.s
+MIPSC=`{echo $MIPSCFILES | sed 's/\.c//g; s/ /|/g'}
+^($MIPSC)\.$O:R:	'../mips/\1.c'
+	$CC $CFLAGS ../mips/$stem1.c
 
 </sys/src/cmd/mksyslib
 
