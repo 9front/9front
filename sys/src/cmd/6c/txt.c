@@ -677,14 +677,10 @@ gmove(Node *f, Node *t)
 			return;
 		}
 	case TUVLONG:
-		a = AMOVQ;
-		goto ld;
 	case TIND:
 		a = AMOVQ;
-
 	ld:
 		regalloc(&nod, f, t);
-		nod.type = t64? types[TVLONG]: types[TINT];
 		gins(a, f, &nod);
 		gmove(&nod, t);
 		regfree(&nod);
@@ -692,19 +688,10 @@ gmove(Node *f, Node *t)
 
 	case TFLOAT:
 		a = AMOVSS;
-		goto fld;
+		goto ld;
 	case TDOUBLE:
 		a = AMOVSD;
-	fld:
-		regalloc(&nod, f, t);
-		if(tt != TDOUBLE && tt != TFLOAT){	/* TO DO: why is this here */
-			prtree(f, "odd tree");
-			nod.type = t64? types[TVLONG]: types[TINT];
-		}
-		gins(a, f, &nod);
-		gmove(&nod, t);
-		regfree(&nod);
-		return;
+		goto ld;
 	}
 
 /*
@@ -1077,7 +1064,7 @@ gmove(Node *f, Node *t)
 	case CASE(	TUSHORT,TFLOAT):
 	case CASE(	TINT,	TFLOAT):
 	case CASE(	TLONG,	TFLOAT):
-	case	CASE(	TVLONG,	TFLOAT):
+	case CASE(	TVLONG,	TFLOAT):
 	case CASE(	TIND,	TFLOAT):
 
 	case CASE(	TCHAR,	TDOUBLE):
