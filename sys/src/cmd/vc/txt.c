@@ -557,6 +557,9 @@ gmove(Node *f, Node *t)
 
 	ft = f->type->etype;
 	tt = t->type->etype;
+	if(debug['M'])
+		print("gop: %O %O[%s],%O[%s]\n", OAS,
+			f->op, tnames[ft], t->op, tnames[tt]);
 
 	if(ft == TDOUBLE && f->op == OCONST) {
 		d = f->fconst;

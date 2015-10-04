@@ -1,5 +1,7 @@
 #include "gc.h"
 
+static void genasop(int, Node*, Node*, Node*);
+
 void
 cgen(Node *n, Node *nn)
 {
@@ -208,7 +210,7 @@ cgen(Node *n, Node *nn)
 				nod2 = *l;
 			regalloc(&nod, r, nn);
 			gopcode(OAS, &nod2, Z, &nod);
-			gopcode(o, r, Z, &nod);
+			gopcode(o, l, Z, &nod);
 			gopcode(OAS, &nod, Z, &nod2);
 	
 			regfree(&nod);
@@ -216,6 +218,8 @@ cgen(Node *n, Node *nn)
 				regfree(&nod2);
 			break;
 		}
+		genasop(o, l, r, nn);
+		break;
 
 	case OASLMUL:
 	case OASLDIV:
@@ -225,32 +229,7 @@ cgen(Node *n, Node *nn)
 	case OASMOD:
 		if(l->op == OBIT)
 			goto asbitop;
-		if(l->complex >= r->complex) {
-			if(l->addable < INDEXED)
-				reglcgen(&nod2, l, Z);
-			else
-				nod2 = *l;
-			regalloc(&nod1, r, Z);
-			cgen(r, &nod1);
-		} else {
-			regalloc(&nod1, r, Z);
-			cgen(r, &nod1);
-			if(l->addable < INDEXED)
-				reglcgen(&nod2, l, Z);
-			else
-				nod2 = *l;
-		}
-
-		regalloc(&nod, n, nn);
-		gmove(&nod2, &nod);
-		gopcode(o, &nod1, Z, &nod);
-		gmove(&nod, &nod2);
-		if(nn != Z)
-			gopcode(OAS, &nod, Z, nn);
-		regfree(&nod);
-		regfree(&nod1);
-		if(l->addable < INDEXED)
-			regfree(&nod2);
+		genasop(o, l, r, nn);
 		break;
 
 	asbitop:
@@ -519,6 +498,43 @@ cgen(Node *n, Node *nn)
 		break;
 	}
 	cursafe = curs;
+}
+
+static void
+genasop(int o, Node *l, Node *r, Node *nn)
+{
+	Node nod, nod1, nod2;
+	int hardleft;
+
+	hardleft = l->addable < INDEXED || l->complex >= FNX;
+	if(l->complex >= r->complex) {
+		if(hardleft)
+			reglcgen(&nod2, l, Z);
+		else
+			nod2 = *l;
+		regalloc(&nod1, r, Z);
+		cgen(r, &nod1);
+	} else {
+		regalloc(&nod1, r, Z);
+		cgen(r, &nod1);
+		if(hardleft)
+			reglcgen(&nod2, l, Z);
+		else
+			nod2 = *l;
+	}
+	if(nod1.type == nod2.type || !typefd[nod1.type->etype])
+		regalloc(&nod, &nod2, nn);
+	else
+		regalloc(&nod, &nod1, Z);
+	gmove(&nod2, &nod);
+	gopcode(o, &nod1, Z, &nod);
+	gmove(&nod, &nod2);
+	if(nn != Z)
+		gmove(&nod, nn);
+	regfree(&nod);
+	regfree(&nod1);
+	if(hardleft)
+		regfree(&nod2);
 }
 
 void
