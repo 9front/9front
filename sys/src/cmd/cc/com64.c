@@ -49,6 +49,8 @@ Node*	noduc2v;
 
 Node*	nodv2f;
 Node*	nodv2d;
+Node*	noduv2f;
+Node*	noduv2d;
 Node*	nodv2ui;
 Node*	nodv2si;
 Node*	nodv2ul;
@@ -62,6 +64,11 @@ Node*	nodvpp;
 Node*	nodppv;
 Node*	nodvmm;
 Node*	nodmmv;
+
+Node*	nodaddd;
+Node*	nodsubd;
+Node*	nodmuld;
+Node*	noddivd;
 
 Node*	nodvasop;
 
@@ -146,6 +153,8 @@ com64init(void)
 
 	nodv2f = fvn("_v2f", TFLOAT);
 	nodv2d = fvn("_v2d", TDOUBLE);
+	noduv2f = fvn("_uv2f", TFLOAT);
+	noduv2d = fvn("_uv2d", TDOUBLE);
 	nodv2sl = fvn("_v2sl", TLONG);
 	nodv2ul = fvn("_v2ul", TULONG);
 	nodv2si = fvn("_v2si", TINT);
@@ -159,6 +168,11 @@ com64init(void)
 	nodppv = fvn("_ppv", TVLONG);
 	nodvmm = fvn("_vmm", TVLONG);
 	nodmmv = fvn("_mmv", TVLONG);
+
+	nodaddd = fvn("_vasaddd", TVLONG);
+	nodsubd = fvn("_vassubd", TVLONG);
+	nodmuld = fvn("_vasmuld", TVLONG);
+	noddivd = fvn("_vasdivd", TVLONG);
 
 	nodvasop = fvn("_vasop", TVLONG);
 
@@ -416,38 +430,22 @@ com64(Node *n)
 		}
 	}
 
-	if(typefd[n->type->etype] && l && l->op == OFUNC) {
-		switch(n->op) {
-		case OASADD:
-		case OASSUB:
-		case OASMUL:
-		case OASLMUL:
-		case OASDIV:
-		case OASLDIV:
-		case OASMOD:
-		case OASLMOD:
-		case OASASHL:
-		case OASASHR:
-		case OASLSHR:
-		case OASAND:
-		case OASOR:
-		case OASXOR:
-			if(l->right && typev[l->right->etype]) {
-				diag(n, "sorry float <asop> vlong not implemented\n");
-			}
-		}
-	}
-
 	if(n->op == OCAST) {
 		if(l->type && typev[l->type->etype]) {
 			if(machcap(n))
 				return 1;
 			switch(n->type->etype) {
 			case TDOUBLE:
-				a = nodv2d;
+				if(l->type->etype == TUVLONG)
+					a = noduv2d;
+				else
+					a = nodv2d;
 				goto setfnx;
 			case TFLOAT:
-				a = nodv2f;
+				if(l->type->etype == TUVLONG)
+					a = noduv2f;
+				else
+					a = nodv2f;
 				goto setfnx;
 			case TLONG:
 				a = nodv2sl;
@@ -524,9 +522,43 @@ setbool:
 	return 1;
 
 setasop:
-	if(l->op == OFUNC) {
+	while(l->op == OFUNC)
 		l = l->right;
-		goto setasop;
+
+	if(mixedasop(n->left->type, n->right->type)) {
+		if(n->right->type->etype != TDOUBLE) {
+			r = new(OCAST, r, 0);
+			r->type = types[TDOUBLE];
+		}
+
+		if(l->type->etype == TUVLONG)
+			a = noduv2d;
+		else
+			a = nodv2d;
+
+		t = new(OADDR, a, 0);
+		t->type = typ(TIND, a->type);
+		r = new(OLIST, t, r);
+
+		t = new(OADDR, l, 0);
+		t->type = typ(TIND, l->type);
+		t->complex = l->complex;
+		r = new(OLIST, t, r);
+
+		switch(n->op){
+		default:	diag(n, "mixed vlong/double %O not implemented", n->op);
+		case OASADD:	a = nodaddd; break;
+		case OASSUB:	a = nodsubd; break;
+		case OASMUL:	a = nodmuld; break;
+		case OASDIV:	a = noddivd; break;
+		}
+
+		n->left = a;
+		n->right = r;
+		n->complex = FNX;
+		n->op = OFUNC;
+
+		return 1;
 	}
 
 	t = new(OCONST, 0, 0);
