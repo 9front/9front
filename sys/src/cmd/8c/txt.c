@@ -621,20 +621,18 @@ gmove(Node *f, Node *t)
 		a = AMOVWLZX;
 		goto ld;
 	case TINT:
-	case TUINT:
 	case TLONG:
-	case TULONG:
-	case TIND:
 		if(typefd[tt]) {
 			gins(AFMOVL, f, &fregnode0);
 			gmove(&fregnode0, t);
 			return;
 		}
+	case TUINT:
+	case TULONG:
+	case TIND:
 		a = AMOVL;
-
 	ld:
 		regalloc(&nod, f, t);
-		nod.type = types[TLONG];
 		gins(a, f, &nod);
 		gmove(&nod, t);
 		regfree(&nod);
