@@ -28,6 +28,8 @@ struct	Vlong
 
 void	abort(void);
 
+/* needed by profiler; can't be profiled */
+#pragma profile off
 void
 _addv(Vlong *r, Vlong a, Vlong b)
 {
@@ -53,6 +55,8 @@ _subv(Vlong *r, Vlong a, Vlong b)
 	r->lo = lo;
 	r->hi = hi;
 }
+
+#pragma profile on
 
 void
 _d2v(Vlong *y, double d)
@@ -135,6 +139,43 @@ float
 _v2f(Vlong x)
 {
 	return _v2d(x);
+}
+
+double
+_uv2d(Vlong x)
+{
+	return x.hi*4294967296. + x.lo;
+}
+
+float
+_uv2f(Vlong x)
+{
+	return _uv2d(x);
+}
+
+void
+_vasaddd(Vlong *ret, Vlong *lv, double v2d(Vlong), double rv)
+{
+	_d2v(lv, v2d(*lv)+rv);
+	*ret = *lv;
+}
+void
+_vassubd(Vlong *ret, Vlong *lv, double v2d(Vlong), double rv)
+{
+	_d2v(lv, v2d(*lv)-rv);
+	*ret = *lv;
+}
+void
+_vasmuld(Vlong *ret, Vlong *lv, double v2d(Vlong), double rv)
+{
+	_d2v(lv, v2d(*lv)*rv);
+	*ret = *lv;
+}
+void
+_vasdivd(Vlong *ret, Vlong *lv, double v2d(Vlong), double rv)
+{
+	_d2v(lv, v2d(*lv)/rv);
+	*ret = *lv;
 }
 
 static void
