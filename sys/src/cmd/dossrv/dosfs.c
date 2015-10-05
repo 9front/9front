@@ -305,7 +305,7 @@ mk8dot3name(Xfile *f, Dosptr *ndp, char *name, char *sname)
  * fill in a directory entry for a new file
  */
 static int
-mkdentry(Xfs *xf, Dosptr *ndp, char *name, char *sname, int longtype, int nattr, long start, long length)
+mkdentry(Xfs *xf, Dosptr *ndp, char *name, char *sname, int longtype, int nattr, long start, ulong length)
 {
 	Dosdir *nd;
 
@@ -333,10 +333,7 @@ mkdentry(Xfs *xf, Dosptr *ndp, char *name, char *sname, int longtype, int nattr,
 	PSHORT(nd->ctime, GSHORT(nd->time));
 	nd->ctimetenth = 0;
 	putstart(xf, nd, start);
-	nd->length[0] = length;
-	nd->length[1] = length>>8;
-	nd->length[2] = length>>16;
-	nd->length[3] = length>>24;
+	PLONG(nd->length, length);
 
 	ndp->p->flags |= BMOD;
 
@@ -506,16 +503,13 @@ rread(void)
 	if (!(f=xfile(req->fid, Asis)) || !(f->flags&Oread))
 		goto error;
 	if(req->count > sizeof repdata)
-		req->count = sizeof repdata;
-	if(f->qid.type & QTDIR){
-		if(getfile(f) < 0)
-			goto error;
+		req->count = sizeof repdata;		
+	if(getfile(f) < 0)
+		goto error;
+	if(f->qid.type & QTDIR)
 		r = readdir(f, repdata, req->offset, req->count);
-	}else{
-		if(getfile(f) < 0)
-			goto error;
+	else
 		r = readfile(f, repdata, req->offset, req->count);
-	}
 	putfile(f);
 	if(r < 0){
 error:
@@ -711,8 +705,8 @@ rwstat(void)
 	Iosect *parp;
 	Dosdir *pard, *d, od;
 	char sname[13];
-	ulong oaddr, ooffset;
-	long start, length;
+	ulong oaddr, ooffset, length;
+	long start;
 	int i, longtype, changes, attr;
 
 	f = xfile(req->fid, Asis);

@@ -142,7 +142,8 @@ enum
 	DOSDIRSIZE	= 32,
 	DOSEMPTY	= 0xe5,			/* first char in name if entry is unused */
 	DOSRUNE		= 13,			/* runes per dosdir in a long file name */
-	DOSNAMELEN	= 261			/* max dos file name length */
+	DOSNAMELEN	= 261,			/* max dos file name length */
+	MAXFILELEN	= 0xFFFFFFFFUL,
 };
 
 struct Dosdir{

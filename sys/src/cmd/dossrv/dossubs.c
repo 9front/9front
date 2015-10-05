@@ -674,7 +674,7 @@ emptydir(Xfile *f)
 }
 
 long
-readdir(Xfile *f, void *vbuf, long offset, long count)
+readdir(Xfile *f, void *vbuf, vlong offset, long count)
 {
 	Xfs *xf;
 	Dosbpb *bp;
@@ -921,7 +921,7 @@ error:
 }
 
 long
-readfile(Xfile *f, void *vbuf, long offset, long count)
+readfile(Xfile *f, void *vbuf, vlong offset, long count)
 {
 	Xfs *xf = f->xf;
 	Dosbpb *bp = xf->ptr;
@@ -930,7 +930,12 @@ readfile(Xfile *f, void *vbuf, long offset, long count)
 	int isect, addr, o, c;
 	Iosect *p;
 	uchar *buf;
-	long length, rcnt;
+	ulong length, rcnt;
+
+	if(offset >= MAXFILELEN)
+		return 0;
+	if(offset+count > MAXFILELEN)
+		count = MAXFILELEN - offset;
 
 	rcnt = 0;
 	length = GLONG(d->length);
@@ -961,17 +966,24 @@ readfile(Xfile *f, void *vbuf, long offset, long count)
 }
 
 long
-writefile(Xfile *f, void *vbuf, long offset, long count)
+writefile(Xfile *f, void *vbuf, vlong offset, long count)
 {
 	Xfs *xf = f->xf;
 	Dosbpb *bp = xf->ptr;
 	Dosptr *dp = f->ptr;
 	Dosdir *d = dp->d;
-	int isect, addr = 0, o, c;
+	int isect, addr, o, c;
 	Iosect *p;
 	uchar *buf;
-	long length, rcnt = 0, dlen;
+	ulong length, rcnt, dlen;
 
+	if(offset >= MAXFILELEN)
+		return 0;
+	if(offset+count > MAXFILELEN)
+		count = MAXFILELEN - offset;
+
+	rcnt = 0;
+	addr = 0;
 	buf = vbuf;
 	isect = offset/bp->sectsize;
 	o = offset%bp->sectsize;
@@ -997,7 +1009,7 @@ writefile(Xfile *f, void *vbuf, long offset, long count)
 		rcnt += c;
 		o = 0;
 	}
-	if(rcnt <= 0 && addr < 0)
+	if(addr < 0)
 		return -1;
 	length = 0;
 	dlen = GLONG(d->length);
@@ -1016,13 +1028,17 @@ writefile(Xfile *f, void *vbuf, long offset, long count)
 }
 
 int
-truncfile(Xfile *f, long length)
+truncfile(Xfile *f, vlong length)
 {
 	Xfs *xf = f->xf;
 	Dosbpb *bp = xf->ptr;
 	Dosptr *dp = f->ptr;
 	Dosdir *d = dp->d;
-	long clust, next, n;
+	long clust, next;
+	vlong n;
+
+	if(length > MAXFILELEN)
+		return -1;
 
 	mlock(bp);
 	clust = getstart(f->xf, d);
@@ -1093,7 +1109,7 @@ getdir(Xfs *xfs, Dir *dp, Dosdir *d, int addr, int offset)
 		dp->mode |= DMDIR|0111;
 		dp->length = 0;
 	}else
-		dp->length = GLONG(d->length);
+		dp->length = (ulong)GLONG(d->length);
 	if(d->attr & DSYSTEM){
 		dp->mode |= DMEXCL;
 		if(iscontig(xfs, d))
@@ -1898,7 +1914,7 @@ dirdump(void *vdbuf)
 		i = GSHORT(d->adate);
 		s = seprint(s, ebuf, " %2.2d.%2.2d.%2.2d", 80+(i>>9), (i>>5)&15, i&31);
 
-		seprint(s, ebuf, " %d %d", GSHORT(d->start), GSHORT(d->length));
+		seprint(s, ebuf, " %d %lud", GSHORT(d->start), (ulong)GLONG(d->length));
 	}
 	chat("%s\n", buf);
 }
