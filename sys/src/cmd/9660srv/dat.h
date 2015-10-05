@@ -54,7 +54,7 @@ struct Xfsub
 	void	(*walk)(Xfile*, char*);
 	void	(*open)(Xfile*, int);
 	void	(*create)(Xfile*, char*, long, int);
-	long	(*readdir)(Xfile*, uchar*, long, long);
+	long	(*readdir)(Xfile*, uchar*, vlong, long);
 	long	(*read)(Xfile*, char*, vlong, long);
 	long	(*write)(Xfile*, char*, vlong, long);
 	void	(*clunk)(Xfile*);

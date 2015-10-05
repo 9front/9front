@@ -13,7 +13,7 @@ static void	iwalkup(Xfile*);
 static void	iwalk(Xfile*, char*);
 static void	iopen(Xfile*, int);
 static void	icreate(Xfile*, char*, long, int);
-static long	ireaddir(Xfile*, uchar*, long, long);
+static long	ireaddir(Xfile*, uchar*, vlong, long);
 static long	iread(Xfile*, char*, vlong, long);
 static long	iwrite(Xfile*, char*, vlong, long);
 static void	iclunk(Xfile*);
@@ -314,7 +314,7 @@ icreate(Xfile *f, char *name, long perm, int mode)
 }
 
 static long
-ireaddir(Xfile *f, uchar *buf, long offset, long count)
+ireaddir(Xfile *f, uchar *buf, vlong offset, long count)
 {
 	Isofile *ip = f->ptr;
 	Dir d;
