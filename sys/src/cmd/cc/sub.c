@@ -950,6 +950,8 @@ loop:
 	case OOROR:
 	case OCOMMA:
 	case ODOT:
+	case OFAS:
+	case OINDEX:
 		if(side(n->left))
 			break;
 		n = n->right;
@@ -961,6 +963,10 @@ loop:
 	case OSTRING:
 	case OLSTRING:
 	case ONAME:
+	case OREGPAIR:
+	case OEXREG:
+	case OREGISTER:
+	case OINDREG:
 		return 0;
 	}
 	return 1;

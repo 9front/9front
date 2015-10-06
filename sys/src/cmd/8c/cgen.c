@@ -1606,6 +1606,7 @@ sugen(Node *n, Node *nn, long w)
 		} else
 			nn = nn->left;
 		n = new(OFUNC, n->left, new(OLIST, nn, n->right));
+		n->complex = FNX;
 		n->type = types[TVOID];
 		n->left->type = types[TVOID];
 		cgen(n, Z);

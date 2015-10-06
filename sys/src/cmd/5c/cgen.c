@@ -298,6 +298,7 @@ cgenrel(Node *n, Node *nn, int inrel)
 		break;
 
 	case OFUNC:
+		l = uncomma(l);
 		if(l->complex >= FNX) {
 			if(l->op != OIND)
 				diag(n, "bad function call");
@@ -573,7 +574,7 @@ genasop(int o, Node *l, Node *r, Node *nn)
 	gopcode(o, &nod1, Z, &nod);
 	gmove(&nod, &nod2);
 	if(nn != Z)
-		gmove(&nod, nn);
+		gmove(&nod2, nn);
 	regfree(&nod);
 	regfree(&nod1);
 	if(hardleft)
@@ -931,12 +932,12 @@ sugen(Node *n, Node *nn, long w)
 
 	case OSTRUCT:
 		/*
-		 * rewrite so lhs has no fn call
+		 * rewrite so lhs has no side effects
 		 */
-		if(nn != Z && nn->complex >= FNX) {
+		if(nn != Z && side(nn)) {
 			nod1 = *n;
 			nod1.type = typ(TIND, n->type);
-			regret(&nod2, &nod1);
+			regalloc(&nod2, &nod1, Z);
 			lcgen(nn, &nod2);
 			regsalloc(&nod0, &nod1);
 			gopcode(OAS, &nod2, Z, &nod0);
@@ -1026,6 +1027,7 @@ sugen(Node *n, Node *nn, long w)
 		} else
 			nn = nn->left;
 		n = new(OFUNC, n->left, new(OLIST, nn, n->right));
+		n->complex = FNX;
 		n->type = types[TVOID];
 		n->left->type = types[TVOID];
 		cgen(n, Z);
