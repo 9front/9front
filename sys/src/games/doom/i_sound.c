@@ -135,17 +135,20 @@ void I_InitSound(void)
 	/* Initialize external data (all sounds) at start, keep static. */
 	for (i=1 ; i<NUMSFX ; i++)
 	{
-		/* Alias? Example is the chaingun sound linked to pistol. */
 		if (!S_sfx[i].link)
 		{
 			/* Load data from WAD file. */
 			S_sfx[i].data = getsfx( S_sfx[i].name, &lengths[i] );
 		}
-		else
+	}
+	/* Alias? Example is the chaingun sound linked to pistol. */
+	for (i=1 ; i<NUMSFX ; i++)
+	{
+		if (S_sfx[i].link)
 		{
 			/* Previously loaded already? */
 			S_sfx[i].data = S_sfx[i].link->data;
-			lengths[i] = lengths[(S_sfx[i].link - S_sfx)/sizeof(sfxinfo_t)];
+			lengths[i] = lengths[S_sfx[i].link - S_sfx];
 		}
 	}
 
