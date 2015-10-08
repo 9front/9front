@@ -806,7 +806,7 @@ mntdefer(void (*f)(Mntrpc*, void*), Mntrpc *r, void *a)
 		if(p->m == nil){
 			p->m = m;
 			unlock(m);
-			kproc("mntporc", mntproc, p);
+			kproc("mntproc", mntproc, p);
 		} else {
 			unlock(m);
 			wakeup(p);
