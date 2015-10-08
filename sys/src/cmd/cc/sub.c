@@ -961,6 +961,10 @@ loop:
 	case OSTRING:
 	case OLSTRING:
 	case ONAME:
+	case OREGPAIR:
+	case OEXREG:
+	case OREGISTER:
+	case OINDREG:
 		return 0;
 	}
 	return 1;
