@@ -10,7 +10,7 @@ char *nsfile;
 void
 usage(void)
 {
-	fprint(2, "usage: listen1 [-tv] [-p maxprocs] address cmd args...\n");
+	fprint(2, "usage: listen1 [-tv] [-p maxprocs] [-n namespace] address cmd args...\n");
 	exits("usage");
 }
 
