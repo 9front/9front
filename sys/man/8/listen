@@ -20,6 +20,8 @@ listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp22, tcp23, tcp25, tcp53, tcp110, t
 ]
 .RB [ -p
 .IR maxprocs ]
+.RB [ -n
+.IR namespace ]
 .I addr
 .I cmd
 [

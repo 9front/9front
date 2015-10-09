@@ -5,6 +5,7 @@
 int maxprocs;
 int verbose;
 int trusted;
+char *nsfile;
 
 void
 usage(void)
@@ -22,7 +23,7 @@ becomenone(void)
 	if(fd < 0 || write(fd, "none", strlen("none")) < 0)
 		sysfatal("can't become none: %r");
 	close(fd);
-	if(newns("none", nil) < 0)
+	if(newns("none", nsfile) < 0)
 		sysfatal("can't build namespace: %r");
 }
 
@@ -68,6 +69,9 @@ main(int argc, char **argv)
 		break;
 	case 'p':
 		maxprocs = atoi(EARGF(usage()));
+		break;
+	case 'n':
+		nsfile = EARGF(usage());
 		break;
 	}ARGEND
 
