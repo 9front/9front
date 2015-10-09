@@ -95,3 +95,4 @@ void wifitxfail(Wifi*, Block*);
 
 long wifistat(Wifi*, void*, long, ulong);
 long wifictl(Wifi*, void*, long);
+void wificfg(Wifi*, char*);

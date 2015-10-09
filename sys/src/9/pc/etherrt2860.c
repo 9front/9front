@@ -1306,19 +1306,11 @@ static void
 setoptions(Ether *edev)
 {
 	Ctlr *ctlr;
-	char buf[64];
 	int i;
 
 	ctlr = edev->ctlr;
-	for(i = 0; i < edev->nopt; i++){
-		if(strncmp(edev->opt[i], "essid=", 6) == 0){
-			snprint(buf, sizeof(buf), "essid %s", edev->opt[i]+6);
-			if(!waserror()){
-				wifictl(ctlr->wifi, buf, strlen(buf));
-				poperror();
-			}
-		}
-	}
+	for(i = 0; i < edev->nopt; i++)
+		wificfg(ctlr->wifi, edev->opt[i]);
 }
 
 static void

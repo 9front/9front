@@ -814,6 +814,25 @@ parsekey(Wkey *k, char *s)
 	return 0;
 }
 
+void
+wificfg(Wifi *wifi, char *opt)
+{
+	char *p, buf[64];
+	int n;
+
+	if(strncmp(opt, "debug=", 6))
+	if(strncmp(opt, "essid=", 6))
+	if(strncmp(opt, "bssid=", 6))
+		return;
+	if((p = strchr(opt, '=')) == nil)
+		return;
+	if(waserror())
+		return;
+	n = snprint(buf, sizeof(buf), "%.*s %q", (int)(p - opt), opt, p+1);
+	wifictl(wifi, buf, n);
+	poperror();
+}
+
 enum {
 	CMdebug,
 	CMessid,
