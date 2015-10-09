@@ -295,8 +295,6 @@ static Algs cipherAlgs[] = {
 	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_RSA_WITH_AES_256_CBC_SHA},
 	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA},
 	{"3des_ede_cbc","sha1",	2*(4*8+SHA1dlen), TLS_RSA_WITH_3DES_EDE_CBC_SHA},
-	{"rc4_128", "sha1",	2*(16+SHA1dlen), TLS_RSA_WITH_RC4_128_SHA},
-	{"rc4_128", "md5",	2*(16+MD5dlen), TLS_RSA_WITH_RC4_128_MD5},
 };
 
 static uchar compressors[] = {
@@ -2095,8 +2093,8 @@ static char weakCipher[] =
 [TLS_RSA_WITH_NULL_MD5]			1,
 [TLS_RSA_WITH_NULL_SHA]			1,
 [TLS_RSA_EXPORT_WITH_RC4_40_MD5]	1,
-[TLS_RSA_WITH_RC4_128_MD5]		0,
-[TLS_RSA_WITH_RC4_128_SHA]		0,
+[TLS_RSA_WITH_RC4_128_MD5]		1,
+[TLS_RSA_WITH_RC4_128_SHA]		1,
 [TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5]	1,
 [TLS_RSA_WITH_IDEA_CBC_SHA]		0,
 [TLS_RSA_EXPORT_WITH_DES40_CBC_SHA]	1,
