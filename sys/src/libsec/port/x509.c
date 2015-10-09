@@ -2358,12 +2358,12 @@ mkbigint(mpint *p)
 }
 
 static Elem
-mkstring(char *s)
+mkstring(char *s, int t)
 {
 	Elem e;
 
 	e.tag.class = Universal;
-	e.tag.num = IA5String;
+	e.tag.num = t;
 	e.val.tag = VString;
 	e.val.u.stringval = estrdup(s);
 	return e;
@@ -2451,25 +2451,44 @@ mkalg(int alg)
 	return mkseq(mkel(mkoid(alg_oid_tab[alg]), mkel(Null(), nil)));
 }
 
+static int
+printable(char *s)
+{
+	int c;
+
+	while((c = (uchar)*s++) != 0){
+		if((c >= 'a' && c <= 'z')
+		|| (c >= 'A' && c <= 'Z')
+		|| (c >= '0' && c <= '9')
+		|| strchr("'=()+,-./:? ", c) != nil)
+			continue;
+		return 0;
+	}
+	return 1;
+}
+
 typedef struct Ints7pref {
-	int		len;
-	int		data[7];
+	int	len;
+	int	data[7];
 	char	prefix[4];
+	int	stype;
 } Ints7pref;
 Ints7pref DN_oid[] = {
-	{4, 2, 5, 4, 6, 0, 0, 0,  "C="},
-	{4, 2, 5, 4, 8, 0, 0, 0,  "ST="},
-	{4, 2, 5, 4, 7, 0, 0, 0,  "L="},
-	{4, 2, 5, 4, 10, 0, 0, 0, "O="},
-	{4, 2, 5, 4, 11, 0, 0, 0, "OU="},
-	{4, 2, 5, 4, 3, 0, 0, 0,  "CN="},
- 	{7, 1,2,840,113549,1,9,1, "E="},
+	{4, 2, 5, 4, 6, 0, 0, 0,        "C=", PrintableString},
+	{4, 2, 5, 4, 8, 0, 0, 0,        "ST=" },
+	{4, 2, 5, 4, 7, 0, 0, 0,        "L="  },
+	{4, 2, 5, 4, 10, 0, 0, 0,       "O="  },
+	{4, 2, 5, 4, 11, 0, 0, 0,       "OU=" },
+	{4, 2, 5, 4, 3, 0, 0, 0,        "CN=" },
+	{7, 1,2,840,113549,1,9,1,       "E=", IA5String},
+	{7, 0,9,2342,19200300,100,1,25,	"DC=",IA5String},
 };
 
 static Elem
 mkname(Ints7pref *oid, char *subj)
 {
-	return mkset(mkel(mkseq(mkel(mkoid((Ints*)oid), mkel(mkstring(subj), nil))), nil));
+	int stype = oid->stype ? oid->stype : (printable(subj) ? PrintableString : UTF8String);
+	return mkset(mkel(mkseq(mkel(mkoid((Ints*)oid), mkel(mkstring(subj, stype), nil))), nil));
 }
 
 static Elem
