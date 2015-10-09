@@ -1789,6 +1789,7 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 		d->uid = uid;
 		d->gid = gid;
 		d->muid = muid;
+		p->flags |= Bmod;
 	}
 	if(!tsync)
 		accessdir(p, d, FREAD, file->uid);
