@@ -35,8 +35,14 @@ _reqqueueproc(void *v)
 		memset(&r->qu, 0, sizeof(r->qu));
 		q->cur = r;
 		qunlock(q);
+		if(f == nil)
+			break;
 		f(r);
 	}
+
+	free(r);
+	free(q);
+	threadexits(nil);
 }
 
 Reqqueue *
@@ -82,4 +88,15 @@ reqqueueflush(Reqqueue *q, Req *r)
 		qunlock(q);
 		respond(r, "interrupted");
 	}
+}
+
+void
+reqqueuefree(Reqqueue *q)
+{
+	Req *r;
+
+	if(q == nil)
+		return;
+	r = emalloc9p(sizeof(Req));
+	reqqueuepush(q, r, nil);
 }
