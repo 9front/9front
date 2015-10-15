@@ -29,6 +29,7 @@ struct Reqqueue
 Reqqueue*	reqqueuecreate(void);
 void		reqqueuepush(Reqqueue *q, Req *r, void (*f)(Req *));
 void		reqqueueflush(Reqqueue *q, Req *r);
+void		reqqueuefree(Reqqueue *q);
 .fi
 .SH DESCRIPTION
 .I Reqqueue
@@ -55,6 +56,10 @@ by
 which will remove the request immediately if processing has
 not started. If processing has been started, the process
 will be interrupted.
+.PP
+.I Reqqueuefree
+frees a queue.
+No new requests should be send to the queue and it will be freed once all requests in it have been processed.
 .SH SOURCE
 .B /sys/src/lib9p/queue.c
 .SH SEE ALSO

@@ -287,3 +287,4 @@ void		srvrelease(Srv *);
 Reqqueue*	reqqueuecreate(void);
 void		reqqueuepush(Reqqueue*, Req*, void (*)(Req *));
 void		reqqueueflush(Reqqueue*, Req*);
+void		reqqueuefree(Reqqueue*);
