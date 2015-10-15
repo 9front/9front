@@ -233,8 +233,10 @@ struct Srv {
 	char*	addr;
 
 	QLock	slock;
-	Ref	sref;
-	Ref	rref;
+	Ref	sref;	/* srvwork procs */
+	Ref	rref;	/* requests in flight */
+
+	void	(*free)(Srv*);
 };
 
 void		srv(Srv*);

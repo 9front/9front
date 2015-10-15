@@ -167,7 +167,7 @@ walkandclone(Req *r, char *(*walk1)(Fid*, char*, void*), char *(*clone)(Fid*, Fi
 static void
 sversion(Srv *srv, Req *r)
 {
-	if(srv->rref.ref != 2){
+	if(srv->rref.ref != 1){
 		respond(r, Ebotch);
 		return;
 	}
@@ -724,8 +724,6 @@ srvwork(void *v)
 	Srv *srv = v;
 	Req *r;
 
-	incref(&srv->rref);
-	incref(&srv->sref);
 	while(r = getreq(srv)){
 		incref(&srv->rref);
 		if(r->error){
@@ -753,14 +751,17 @@ srvwork(void *v)
 		}
 		qunlock(&srv->slock);
 	}
-	decref(&srv->sref);
-	srvclose(srv);
+
+	if(srv->end && srv->sref.ref == 1)
+		srv->end(srv);
+	if(decref(&srv->sref) == 0)
+		srvclose(srv);
 }
 
 static void
 srvclose(Srv *srv)
 {
-	if(decref(&srv->rref))
+	if(srv->rref.ref || srv->sref.ref)
 		return;
 
 	if(chatty9p)
@@ -776,8 +777,8 @@ srvclose(Srv *srv)
 	freereqpool(srv->rpool);
 	srv->rpool = nil;
 
-	if(srv->end)
-		srv->end(srv);
+	if(srv->free)
+		srv->free(srv);
 }
 
 void
@@ -790,8 +791,10 @@ srvacquire(Srv *srv)
 void
 srvrelease(Srv *srv)
 {
-	if(decref(&srv->sref) == 0)
+	if(decref(&srv->sref) == 0){
+		incref(&srv->sref);
 		_forker(srvwork, srv, 0);
+	}
 	qunlock(&srv->slock);
 }
 
@@ -819,6 +822,7 @@ srv(Srv *srv)
 	if(srv->start)
 		srv->start(srv);
 
+	incref(&srv->sref);
 	srvwork(srv);
 }
 
@@ -896,7 +900,8 @@ if(chatty9p)
 	else
 		free(r);
 
-	srvclose(srv);
+	if(decref(&srv->rref) == 0)
+		srvclose(srv);
 }
 
 void
