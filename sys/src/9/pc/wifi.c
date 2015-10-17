@@ -397,6 +397,7 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 {
 	static uchar wpa1oui[4] = { 0x00, 0x50, 0xf2, 0x01 };
 	uchar *e, *x, *p, t;
+	int rsnset;
 
 	len -= 8+2+2;
 	if(len < 0)
@@ -408,6 +409,7 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 	wn->cap = d[0] | d[1]<<8;
 	d += 2;
 
+	rsnset = 0;
 	for(e = d + len; d+2 <= e; d = x){
 		d += 2;
 		x = d + d[-1];
@@ -450,13 +452,14 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 			break;
 		case 221:	/* vendor specific */
 			len = x - d;
-			if(len < sizeof(wpa1oui) || memcmp(d, wpa1oui, sizeof(wpa1oui)) != 0)
+			if(rsnset || len < sizeof(wpa1oui) || memcmp(d, wpa1oui, sizeof(wpa1oui)) != 0)
 				break;
 			/* no break */
 		case 48:	/* RSN information */
 			len = x - &d[-2];
 			memmove(wn->brsne, &d[-2], len);
 			wn->brsnelen = len;
+			rsnset = 1;
 			break;
 		}
 	}
