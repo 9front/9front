@@ -41,8 +41,7 @@ dumparena(arena, sum)
 		if nb == b then {
 			print("B2NB(", b\A, ") = b\n");
 			b = atail;	// end loop
-		}
-		if nb > atail then {
+		} else if nb > atail then {
 			b = (Bhdr)(b+4);
 			print("lost at block ", (b-4)\A, ", scanning forward\n");
 			while b < atail && b.magic != ALLOC_MAGIC && b.magic != FREE_MAGIC do

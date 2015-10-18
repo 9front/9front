@@ -206,18 +206,19 @@ checkblock(addr)
 defn
 checkarena(arena)
 {
-	local atail, b;
+	local atail, b, nb;
 
 	atail = A2TB(arena);
 	complex Bhdr arena;
 	b = arena;
 	while b.magic != ARENATAIL_MAGIC && b < atail do {
 		checkblock(b);
-		if B2NB(b) == b then {
+		nb = B2NB(b);
+		if nb == b then {
 			print("B2NB(", b\X, ") = b\n");
 			b = atail;	// end loop
-		}
-		b = B2NB(b);
+		} else
+			b = nb;
 	}
 
 	checkblock(b);
