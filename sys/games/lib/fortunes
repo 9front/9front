@@ -5180,3 +5180,10 @@ I use word sometimes 12 or more hours a day and am looking to get a setup to mit
 Subject: Robotic Process Automation Brings New Opportunities for Skills Pivot
 Google's frontend servers do a lot more than terminate connections for browsers these days
 There is now a commercial product called WWB based on the old software, but running as plugins to MS Word.
+Is the original plan9 boot process broken? Is it insecure? Is it hard to port to amd64?
+Maybe a git branch can help here?
+It would help a lot in my code reviews to understand what we are trying to achieve and why, so please take the time to explain it here (or even better in the related issue or in a wiki page).
+(#plan9) anth_x → is there a web interface to sourcesdump?
+Unix has errno, an int. Plan 9 has an errstr, a string. Akaros has both.
+No. -- Dave Sim
+Now I'm heading a project that uses a RoR application to control a large series of sensors and controls in a manufacturing process.
