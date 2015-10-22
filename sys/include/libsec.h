@@ -71,6 +71,37 @@ void	bfECBencrypt(uchar*, int, BFstate*);
 void	bfECBdecrypt(uchar*, int, BFstate*);
 
 /*
+ * Chacha definitions
+ */
+
+enum
+{
+	ChachaBsize=	64,
+	ChachaKeylen=	256/8,
+	ChachaIVlen=	96/8,
+};
+
+typedef struct Chachastate Chachastate;
+struct Chachastate
+{
+	union{
+		u32int	input[16];
+		struct {
+			u32int	constant[4];
+			u32int	key[8];
+			u32int	counter;
+			u32int	iv[3];
+		};
+	};
+	int	rounds;
+};
+
+void	setupChachastate(Chachastate*, uchar*, ulong, uchar*, int);
+void	chacha_setblock(Chachastate*, u32int);
+void	chacha_encrypt(uchar*, ulong, Chachastate*);
+void	chacha_encrypt2(uchar*, uchar*, ulong, Chachastate*);
+
+/*
  * DES definitions
  */
 
