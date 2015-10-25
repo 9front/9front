@@ -153,10 +153,13 @@ wscroll(Window *w, int but)
 			readmouse(&w->mc);
 			continue;
 		}
-		if(but == 1 || but == 4)
-			p0 = wbacknl(w, w->org, (my-s.min.y)/w->font->height);
-		else
-			p0 = w->org+frcharofpt(w, Pt(s.max.x, my));
+		if(but == 1 || but == 4){
+			y = max(1, (my-s.min.y)/w->font->height);
+			p0 = wbacknl(w, w->org, y);
+		}else{
+			y = max(my, s.min.y+w->font->height);
+			p0 = w->org+frcharofpt(w, Pt(s.max.x, y));
+		}
 		if(oldp0 != p0)
 			wsetorigin(w, p0, TRUE);
 		oldp0 = p0;
