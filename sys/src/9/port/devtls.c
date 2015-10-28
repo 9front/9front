@@ -1421,12 +1421,9 @@ initsha1key(Hashalg *ha, int version, Secret *s, uchar *p)
 static void
 initsha2_256key(Hashalg *ha, int version, Secret *s, uchar *p)
 {
+	if(version == SSL3Version)
+		error("sha256 cannot be used with SSL");
 	s->maclen = ha->maclen;
-
-	/* only TLS 1.2 has SHA256. */
-	if(version != TLS12Version)
-		error("sha256 is TLS 1.2 only");
-
 	s->mac = hmac_sha2_256;
 	memmove(s->mackey, p, ha->maclen);
 }
