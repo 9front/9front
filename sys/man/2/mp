@@ -34,7 +34,7 @@ void	mpassign(mpint *old, mpint *new)
 mpint*	mprand(int bits, void (*gen)(uchar*, int), mpint *b)
 .PP
 .B
-mpint*	mnprand(mpint *n, void (*gen)(uchar*, int), mpint *b)
+mpint*	mpnrand(mpint *n, void (*gen)(uchar*, int), mpint *b)
 .PP
 .B
 mpint*	strtomp(char *buf, char **rptr, int base, mpint *b)
