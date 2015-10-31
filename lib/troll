@@ -223,3 +223,4 @@ does anyone run harvey on bare metal, any test boxes or something setup?
 How do I submit a patch?  I see forks on github, but no one merging back to 9fans.
 is there someone else interested in write a git tool for plan 9 ?
 Subject: [golang-dev] vendoring the stdlib
+[9fans] FUSE on Plan9

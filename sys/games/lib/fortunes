@@ -5187,3 +5187,5 @@ It would help a lot in my code reviews to understand what we are trying to achie
 Unix has errno, an int. Plan 9 has an errstr, a string. Akaros has both.
 No. -- Dave Sim
 Now I'm heading a project that uses a RoR application to control a large series of sensors and controls in a manufacturing process.
+I can't read it because Google thinks I'm a robot and won't perform the search for me.
+Seibel: For you, what about the relation between research and actually programming?  Peyton Jones: Oh, they interact a lot.
