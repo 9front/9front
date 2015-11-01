@@ -2,12 +2,14 @@ objtype=arm
 </$objtype/mkfile
 
 LIB=/$objtype/lib/libmp.a
-OFILES=	\
+SFILES=mpvecdigmuladd.s mpvecdigmulsub.s
 
 HFILES=/$objtype/include/u.h /sys/include/mp.h ../port/dat.h
 
-UPDATE=\
-	mkfile\
+OFILES=${SFILES:%.s=%.$O}
+
+UPDATE=mkfile\
 	$HFILES\
+	$SFILES\
 
 </sys/src/cmd/mksyslib

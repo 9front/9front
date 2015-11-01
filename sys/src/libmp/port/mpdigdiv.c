@@ -21,6 +21,19 @@ mpdigdiv(mpdigit *dividend, mpdigit divisor, mpdigit *quotient)
 		return;
 	}
 
+	// very common case
+	if(~divisor == 0){
+		lo += hi;
+		if(lo < hi){
+			hi++;
+			lo++;
+		}
+		if(lo+1 == 0)
+			hi++;
+		*quotient = hi;
+		return;
+	}
+
 	// at this point we know that hi < divisor
 	// just shift and subtract till we're done
 	q = 0;
