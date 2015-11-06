@@ -237,10 +237,8 @@ fixfault(Segment *s, uintptr addr, int read)
 				return -1;
 			*pg = new;
 		}
-		goto common;
-
-	case SG_DATA:
-	common:			/* Demand load/pagein/copy on write */
+		/* wet floor */
+	case SG_DATA:			/* Demand load/pagein/copy on write */
 		if(pagedout(*pg))
 			pio(s, addr, soff, pg);
 
@@ -279,6 +277,7 @@ fixfault(Segment *s, uintptr addr, int read)
 			new->ref = 1;
 			*pg = new;
 		}
+		/* wet floor */
 	case SG_FIXED:			/* Never paged out */
 		if (checkaddr && addr == addr2check)
 			(*checkaddr)(addr, s, *pg);
@@ -301,7 +300,7 @@ okaddr(uintptr addr, ulong len, int write)
 {
 	Segment *s;
 
-	if((long)len >= 0 && addr+len >= addr) {
+	if((long)len >= 0 && len <= -addr) {
 		for(;;) {
 			s = seg(up, addr, 0);
 			if(s == nil || (write && (s->type&SG_RONLY)))
