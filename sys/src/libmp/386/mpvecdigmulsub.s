@@ -33,21 +33,15 @@ _mulsubloop:
 	MOVL	(SI)(BP*4),AX		/* lo = b[i] */
 	MULL	BX			/* hi, lo = b[i] * m */
 	ADDL	0(SP),AX		/* lo += oldhi */
-	JCC	_mulsubnocarry1
-	INCL	DX			/* hi += carry */
-_mulsubnocarry1:
+	ADCL	$0, DX			/* hi += carry */
 	SUBL	AX,(DI)(BP*4)
-	JCC	_mulsubnocarry2
-	INCL	DX			/* hi += carry */
-_mulsubnocarry2:
+	ADCL	$0, DX			/* hi += carry */
 	MOVL	DX,0(SP)
 	INCL	BP
 	LOOP	_mulsubloop
-	MOVL	0(SP),AX
-	SUBL	AX,(DI)(BP*4)
-	JCC	_mulsubnocarry3
-	MOVL	$-1,AX
-	RET
-_mulsubnocarry3:
-	MOVL	$1,AX
+	MOVL	CX, AX
+	MOVL	0(SP),BX
+	SUBL	BX,(DI)(BP*4)
+	SBBL	CX, AX
+	ORL	$1, AX
 	RET

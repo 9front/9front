@@ -35,11 +35,8 @@ _add1:
 
 	/* sum[alen] = carry */
 _addend:
-	JC	_addcarry
-	MOVL	$0,(DI)(BP*4)
-	RET
-_addcarry:
-	MOVL	$1,(DI)(BP*4)
+	ADCL	$0, CX
+	MOVL	CX, (DI)(BP*4)
 	RET
 
 	/* sum[blen:alen-1],carry = a[blen:alen-1] + 0 */

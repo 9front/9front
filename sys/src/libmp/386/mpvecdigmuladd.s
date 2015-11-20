@@ -36,13 +36,9 @@ _muladdloop:
 	MOVL	(SI)(BP*4),AX	/* lo = b[i] */
 	MULL	BX		/* hi, lo = b[i] * m */
 	ADDL	CX,AX		/* lo += oldhi */
-	JCC	_muladdnocarry1
-	INCL	DX		/* hi += carry */
-_muladdnocarry1:
+	ADCL	$0, DX		/* hi += carry */
 	ADDL	AX,(DI)(BP*4)	/* p[i] += lo */
-	JCC	_muladdnocarry2
-	INCL	DX		/* hi += carry */
-_muladdnocarry2:
+	ADCL	$0, DX		/* hi += carry */
 	MOVL	DX,CX		/* oldhi = hi */
 	INCL	BP		/* i++ */
 	JNZ	_muladdloop

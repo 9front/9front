@@ -9,7 +9,6 @@ TEXT	mpvecadd(SB),$0
 
 	MOVL	alen+8(FP),DX
 	MOVL	blen+24(FP),CX
-/*	MOVL	a+0(FP),SI */
 	MOVQ	RARG, SI
 	MOVQ	b+16(FP),BX
 	SUBL	CX,DX
@@ -35,12 +34,10 @@ _add1:
 	LOOP	_addloop2
 
 	/* sum[alen] = carry */
+
 _addend:
-	JC	_addcarry
-	MOVL	$0,(DI)(BP*4)
-	RET
-_addcarry:
-	MOVL	$1,(DI)(BP*4)
+	ADCL	$0, CX
+	MOVL	CX,(DI)(BP*4)
 	RET
 
 	/* sum[blen:alen-1],carry = a[blen:alen-1] + 0 */
