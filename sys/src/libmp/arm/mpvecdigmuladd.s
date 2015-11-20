@@ -5,12 +5,12 @@ TEXT mpvecdigmuladd(SB),$0
 	MOVW	$0, R2
 _muladdloop:
 	MOVW	$0, R1
-	MOVW.W.P 4(R0), R3
+	MOVW.WP	4(R0), R3
 	MULALU	R3, R5, (R1, R2)
  	MOVW	(R6), R7
 	ADD.S	R2, R7
 	ADC	$0, R1, R2
-	MOVW.W.P R7, 4(R6)
+	MOVW.WP	R7, 4(R6)
 	SUB.S	$1, R4
 	B.NE	_muladdloop
 	MOVW	(R6), R7

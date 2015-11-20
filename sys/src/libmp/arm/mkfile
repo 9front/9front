@@ -2,7 +2,7 @@ objtype=arm
 </$objtype/mkfile
 
 LIB=/$objtype/lib/libmp.a
-SFILES=mpvecdigmuladd.s mpvecdigmulsub.s
+SFILES=mpvecdigmuladd.s mpvecdigmulsub.s mpvecadd.s mpvecsub.s
 
 HFILES=/$objtype/include/u.h /sys/include/mp.h ../port/dat.h
 

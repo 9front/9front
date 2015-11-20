@@ -5,13 +5,13 @@ TEXT mpvecdigmulsub(SB),$0
 	MOVW	$0, R2
 _mulsubloop:
 	MOVW	$0, R1
-	MOVW.W.P 4(R0), R3
+	MOVW.WP	4(R0), R3
 	MULALU	R3, R5, (R1, R2)
  	MOVW	(R6), R7
 	SUB.S	R2, R7
 	ADD.CC	$1, R1
 	MOVW	R1, R2
-	MOVW.W.P R7, 4(R6)
+	MOVW.WP	R7, 4(R6)
 	SUB.S	$1, R4
 	B.NE	_mulsubloop
 	MOVW	(R6), R7
