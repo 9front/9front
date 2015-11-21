@@ -22,6 +22,10 @@ mpexp(mpint *b, mpint *e, mpint *m, mpint *res)
 	mpdigit d, bit;
 	int i, j;
 
+	assert(m->flags & MPnorm);
+	assert((e->flags & MPtimesafe) == 0);
+	res->flags |= b->flags & MPtimesafe;
+
 	i = mpcmp(e,mpzero);
 	if(i==0){
 		mpassign(mpone, res);

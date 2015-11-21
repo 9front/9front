@@ -15,8 +15,8 @@ mpleft(mpint *b, int shift, mpint *res)
 		return;
 	}
 
-	// a negative left shift is a right shift
-	if(shift < 0){
+	// a zero or negative left shift is a right shift
+	if(shift <= 0){
 		mpright(b, -shift, res);
 		return;
 	}
@@ -46,7 +46,6 @@ mpleft(mpint *b, int shift, mpint *res)
 	for(i = 0; i < d; i++)
 		res->p[i] = 0;
 
-	// normalize
-	while(res->top > 0 && res->p[res->top-1] == 0)
-		res->top--;
+	res->flags |= b->flags & MPtimesafe;
+	mpnorm(res);
 }

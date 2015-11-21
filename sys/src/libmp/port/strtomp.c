@@ -50,7 +50,6 @@ from16(char *a, mpint *b)
 	int i;
 	mpdigit x;
 
-	b->top = 0;
 	for(p = a; *p; p++)
 		if(tab.t16[*(uchar*)p] == INVAL)
 			break;
@@ -157,8 +156,10 @@ strtomp(char *a, char **pp, int base, mpint *b)
 	int sign;
 	char *e;
 
-	if(b == nil)
+	if(b == nil){
 		b = mpnew(0);
+		setmalloctag(b, getcallerpc(&a));
+	}
 
 	if(tab.inited == 0)
 		init();
@@ -196,10 +197,9 @@ strtomp(char *a, char **pp, int base, mpint *b)
 	if(e == a)
 		return nil;
 
-	mpnorm(b);
-	b->sign = sign;
 	if(pp != nil)
 		*pp = e;
 
-	return b;
+	b->sign = sign;
+	return mpnorm(b);
 }

@@ -1,6 +1,6 @@
 .TH MP 2
 .SH NAME
-mpsetminbits, mpnew, mpfree, mpbits, mpnorm, mpcopy, mpassign, mprand, mpnrand, strtomp, mpfmt,mptoa, betomp, mptobe, letomp, mptole, mptoui, uitomp, mptoi, itomp, uvtomp, mptouv, vtomp, mptov, mpdigdiv, mpadd, mpsub, mpleft, mpright, mpmul, mpexp, mpmod, mpdiv, mpcmp, mpextendedgcd, mpinvert, mpsignif, mplowbits0, mpvecdigmuladd, mpvecdigmulsub, mpvecadd, mpvecsub, mpveccmp, mpvecmul, mpmagcmp, mpmagadd, mpmagsub, crtpre, crtin, crtout, crtprefree, crtresfree \- extended precision arithmetic
+mpsetminbits, mpnew, mpfree, mpbits, mpnorm, mpcopy, mpassign, mprand, mpnrand, strtomp, mpfmt,mptoa, betomp, mptobe, mptober, letomp, mptole, mptolel, mptoui, uitomp, mptoi, itomp, uvtomp, mptouv, vtomp, mptov, mpdigdiv, mpadd, mpsub, mpleft, mpright, mpmul, mpexp, mpmod, mpmodadd, mpmodsub, mpmodmul, mpdiv, mpcmp, mpsel, mpextendedgcd, mpinvert, mpsignif, mplowbits0, mpvecdigmuladd, mpvecdigmulsub, mpvecadd, mpvecsub, mpveccmp, mpvecmul, mpmagcmp, mpmagadd, mpmagsub, crtpre, crtin, crtout, crtprefree, crtresfree \- extended precision arithmetic
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -22,7 +22,7 @@ void	mpsetminbits(int n)
 void	mpbits(mpint *b, int n)
 .PP
 .B
-void	mpnorm(mpint *b)
+mpint*	mpnorm(mpint *b)
 .PP
 .B
 mpint*	mpcopy(mpint *b)
@@ -52,10 +52,16 @@ mpint*	betomp(uchar *buf, uint blen, mpint *b)
 int	mptobe(mpint *b, uchar *buf, uint blen, uchar **bufp)
 .PP
 .B
+void	mptober(mpint *b, uchar *buf, int blen)
+.PP
+.B
 mpint*	letomp(uchar *buf, uint blen, mpint *b)
 .PP
 .B
 int	mptole(mpint *b, uchar *buf, uint blen, uchar **bufp)
+.PP
+.B
+void	mptolel(mpint *b, uchar *buf, int blen)
 .PP
 .B
 uint	mptoui(mpint*)
@@ -115,10 +121,22 @@ void	mpdiv(mpint *dividend, mpint *divisor,  mpint *quotient,
 	mpint *remainder)
 .PP
 .B
+void	mpmodadd(mpint *b1, mpint *b2, mpint *m, mpint *sum)
+.PP
+.B
+void	mpmodsub(mpint *b1, mpint *b2, mpint *m, mpint *diff)
+.PP
+.B
+void	mpmodmul(mpint *b1, mpint *b2, mpint *m, mpint *prod)
+.PP
+.B
 int	mpcmp(mpint *b1, mpint *b2)
 .PP
 .B
 int	mpmagcmp(mpint *b1, mpint *b2)
+.PP
+.B
+void	mpsel(int s, mpint *b1, mpint *b2, mpint *res)
 .PP
 .B
 void	mpextendedgcd(mpint *a, mpint *b, mpint *d, mpint *x,
@@ -383,6 +401,24 @@ deposited in the location pointed to by
 Sign is ignored in these conversions, i.e., the byte
 array version is always positive.
 .PP
+.I Mptober
+and
+.I mptolel
+fill
+.I blen
+lower bytes of an
+.I mpint
+into a fixed length byte array.
+.I Mptober
+fills the bytes right adjusted in big endian order so that the least
+significant byte is at
+.I buf[blen-1]
+while
+.I mptolel
+fills in little endian order; left adjusted; so that the least
+significat byte is filled into
+.IR buf[0] .
+.PP
 .IR Betomp ,
 and
 .I letomp
@@ -486,6 +522,31 @@ is less than, equal to, or greater than
 the same as
 .I mpcmp
 but ignores the sign and just compares magnitudes.
+.TP
+.I mpsel
+assigns
+.I b1
+to
+.I res
+when
+.I s
+is not zero, otherwise
+.I b2
+is assigned to
+.IR res .
+.PD
+.PP
+Modular arithmetic:
+.TF mpmodmul_
+.TP
+.I mpmodadd	
+.BR "sum = b1+b2 mod m" .
+.TP
+.I mpmodsub	
+.BR "diff = b1-b2 mod m" .
+.TP
+.I mpmodmul	
+.BR "prod = b1*b2 mod m" .
 .PD
 .PP
 .I Mpextendedgcd
@@ -564,8 +625,8 @@ We assume p has room for n+1 digits.  It returns +1 is the result is positive an
 -1 if negative.
 .TP
 .I mpvecmul
-.BR "p[0:alen*blen] = a[0:alen-1] * b[0:blen-1]" .
-We assume that p has room for alen*blen+1 digits.
+.BR "p[0:alen+blen] = a[0:alen-1] * b[0:blen-1]" .
+We assume that p has room for alen+blen+1 digits.
 .TP
 .I mpveccmp
 This returns -1, 0, or +1 as a - b is negative, 0, or positive.
@@ -576,6 +637,17 @@ This returns -1, 0, or +1 as a - b is negative, 0, or positive.
 and
 .I mpzero
 are the constants 2, 1 and 0.  These cannot be freed.
+.SS "Time invariant computation"
+.PP
+In the field of cryptography, it is sometimes neccesary to implement
+algorithms such that the runtime of the algorithm is not depdenent on
+the input data. This library provides partial support for time
+invariant computation with the
+.I MPtimesafe
+flag that can be set on input or destination operands to request timing
+safe operation. The result of a timing safe operation will also have the
+.I MPtimesafe
+flag set and is not normalized.
 .SS "Chinese remainder theorem
 .PP
 When computing in a non-prime modulus, 

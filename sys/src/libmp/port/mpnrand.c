@@ -16,8 +16,10 @@ mpnrand(mpint *n, void (*gen)(uchar*, int), mpint *b)
 	mpleft(mpone, bits, m);
 	mpsub(m, mpone, m);
 
-	if(b == nil)
+	if(b == nil){
 		b = mpnew(bits);
+		setmalloctag(b, getcallerpc(&n));
+	}
 
 	/* m = m - (m % n) */
 	mpmod(m, n, b);

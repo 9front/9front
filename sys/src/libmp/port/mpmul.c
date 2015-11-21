@@ -113,10 +113,6 @@ mpvecmul(mpdigit *a, int alen, mpdigit *b, int blen, mpdigit *p)
 		a = b;
 		b = t;
 	}
-	if(blen == 0){
-		memset(p, 0, Dbytes*(alen+blen));
-		return;
-	}
 
 	if(alen >= KARATSUBAMIN && blen > 1){
 		// O(n^1.585)
@@ -132,24 +128,48 @@ mpvecmul(mpdigit *a, int alen, mpdigit *b, int blen, mpdigit *p)
 }
 
 void
+mpvectsmul(mpdigit *a, int alen, mpdigit *b, int blen, mpdigit *p)
+{
+	int i;
+	mpdigit *t;
+
+	if(alen < blen){
+		i = alen;
+		alen = blen;
+		blen = i;
+		t = a;
+		a = b;
+		b = t;
+	}
+	if(blen == 0)
+		return;
+	for(i = 0; i < blen; i++)
+		mpvecdigmuladd(a, alen, b[i], &p[i]);
+}
+
+void
 mpmul(mpint *b1, mpint *b2, mpint *prod)
 {
 	mpint *oprod;
 
-	oprod = nil;
+	oprod = prod;
 	if(prod == b1 || prod == b2){
-		oprod = prod;
 		prod = mpnew(0);
+		prod->flags = oprod->flags;
 	}
+	prod->flags |= (b1->flags | b2->flags) & MPtimesafe;
 
 	prod->top = 0;
 	mpbits(prod, (b1->top+b2->top+1)*Dbits);
-	mpvecmul(b1->p, b1->top, b2->p, b2->top, prod->p);
+	if(prod->flags & MPtimesafe)
+		mpvectsmul(b1->p, b1->top, b2->p, b2->top, prod->p);
+	else
+		mpvecmul(b1->p, b1->top, b2->p, b2->top, prod->p);
 	prod->top = b1->top+b2->top+1;
 	prod->sign = b1->sign*b2->sign;
 	mpnorm(prod);
 
-	if(oprod != nil){
+	if(oprod != prod){
 		mpassign(prod, oprod);
 		mpfree(prod);
 	}

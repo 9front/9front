@@ -102,6 +102,7 @@ to10(mpint *b, char *buf, int len)
 		return -1;
 
 	d = mpcopy(b);
+	mpnorm(d);
 	r = mpnew(0);
 	billion = uitomp(1000000000, nil);
 	out = buf+len;
@@ -128,14 +129,19 @@ int
 mpfmt(Fmt *fmt)
 {
 	mpint *b;
-	char *p;
+	char *p, f;
 
 	b = va_arg(fmt->args, mpint*);
 	if(b == nil)
 		return fmtstrcpy(fmt, "*");
-	
+
+	f = b->flags;
+	b->flags &= ~MPtimesafe;
+
 	p = mptoa(b, fmt->prec, nil, 0);
 	fmt->flags &= ~FmtPrec;
+
+	b->flags = f;
 
 	if(p == nil)
 		return fmtstrcpy(fmt, "*");

@@ -13,9 +13,28 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 	mpdigit qd, *up, *vp, *qp;
 	mpint *u, *v, *t;
 
+	assert(quotient != remainder);
+	assert(divisor->flags & MPnorm);
+
 	// divide bv zero
 	if(divisor->top == 0)
 		abort();
+
+	// division by one or small powers of two
+	if(divisor->top == 1 && (divisor->p[0] & divisor->p[0]-1) == 0){
+		vlong r = (vlong)dividend->sign * (dividend->p[0] & divisor->p[0]-1);
+		if(quotient != nil){
+			for(s = 0; ((divisor->p[0] >> s) & 1) == 0; s++)
+				;
+			mpright(dividend, s, quotient);
+		}
+		if(remainder != nil){
+			remainder->flags |= dividend->flags & MPtimesafe;
+			vtomp(r, remainder);
+		}
+		return;
+	}
+	assert((dividend->flags & MPtimesafe) == 0);
 
 	// quick check
 	if(mpmagcmp(dividend, divisor) < 0){
@@ -95,12 +114,14 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 		*up-- = 0;
 	}
 	if(qp != nil){
+		assert((quotient->flags & MPtimesafe) == 0);
 		mpnorm(quotient);
 		if(dividend->sign != divisor->sign)
 			quotient->sign = -1;
 	}
 
 	if(remainder != nil){
+		assert((remainder->flags & MPtimesafe) == 0);
 		mpright(u, s, remainder);	// u is the remainder shifted
 		remainder->sign = dividend->sign;
 	}

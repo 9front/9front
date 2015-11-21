@@ -5,7 +5,7 @@
 
 // extended binary gcd
 //
-// For a anv b it solves, v = gcd(a,b) and finds x and y s.t.
+// For a and b it solves, v = gcd(a,b) and finds x and y s.t.
 // ax + by = v
 //
 // Handbook of Applied Cryptography, Menezes et al, 1997, pg 608.  
@@ -14,6 +14,9 @@ mpextendedgcd(mpint *a, mpint *b, mpint *v, mpint *x, mpint *y)
 {
 	mpint *u, *A, *B, *C, *D;
 	int g;
+
+	assert((a->flags&b->flags) & MPnorm);
+	assert(((a->flags|b->flags|v->flags|x->flags|y->flags) & MPtimesafe) == 0);
 
 	if(a->sign < 0 || b->sign < 0){
 		mpassign(mpzero, v);
