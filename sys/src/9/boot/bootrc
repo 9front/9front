@@ -175,12 +175,6 @@ if(test -x /bin/aux/kbdfs){
 if(test -x /bin/nusbrc && ! test -e /env/nousbrc)
 	nusbrc
 
-# wait for devices to settle down
-if(~ $#usbwait 1)
-	sleep $usbwait
-if(~ $#usbwait 0)
-	sleep 2
-
 # load boot methods
 fn showlocaldevs {}
 fn configlocal {}
