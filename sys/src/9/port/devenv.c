@@ -132,8 +132,10 @@ envopen(Chan *c, int omode)
 			runlock(eg);
 	}
 	c->mode = openmode(omode);
-	c->flag |= COPEN;
+	incref(eg);
+	c->aux = eg;
 	c->offset = 0;
+	c->flag |= COPEN;
 	return c;
 }
 
@@ -181,7 +183,8 @@ envcreate(Chan *c, char *name, int omode, ulong)
 
 	wunlock(eg);
 	poperror();
-
+	incref(eg);
+	c->aux = eg;
 	c->offset = 0;
 	c->mode = omode;
 	c->flag |= COPEN;
@@ -214,13 +217,19 @@ envremove(Chan *c)
 static void
 envclose(Chan *c)
 {
-	/*
-	 * cclose can't fail, so errors from remove will be ignored.
-	 * since permissions aren't checked,
-	 * envremove can't not remove it if its there.
-	 */
-	if(c->flag & CRCLOSE)
-		envremove(c);
+	if(c->flag & COPEN){
+		/*
+		 * cclose can't fail, so errors from remove will be ignored.
+		 * since permissions aren't checked,
+		 * envremove can't not remove it if its there.
+		 */
+		if(c->flag & CRCLOSE && !waserror()){
+			envremove(c);
+			poperror();
+		}
+		closeegrp((Egrp*)c->aux);
+		c->aux = nil;
+	}
 }
 
 static long
@@ -350,7 +359,7 @@ closeegrp(Egrp *eg)
 {
 	Evalue *e, *ee;
 
-	if(decref(eg) == 0){
+	if(decref(eg) == 0 && eg != &confegrp){
 		e = eg->ent;
 		for(ee = e + eg->nent; e < ee; e++){
 			free(e->name);
