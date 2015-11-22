@@ -33,7 +33,7 @@ if(! nusb/usbd)
 				# CDC ethernet
 				nusb/ether $etherargs $id
 			case *08
-				if(nusb/disk $id) {@{
+				if(nusb/disk $id) @{
 					rfork ne
 					cd '#σ/usb'
 					devs=sdU^($1 $5)
@@ -46,7 +46,7 @@ if(! nusb/usbd)
 							exit
 						}
 					}
-				}&}
+				}
 			case *
 				# Raspberry Pi ethernet will always appear as /net/etherU0
 				if(~ $2 0424)
@@ -60,6 +60,10 @@ if(! nusb/usbd)
 	}
 	rc < '#σ/usb/usbevent' &
 }
+
+# usbd removes this file once all devices have been enumerated
+while(test -e /env/usbbusy)
+	sleep 1
 
 bind -a '#σ/usb' /dev
 bind -a '#σ/usbnet' /net

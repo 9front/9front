@@ -692,6 +692,7 @@ Again:
 					goto Again;
 				}
 		qunlock(&hublock);
+		checkidle();
 		sleep(pollms);
 		if(mustdump)
 			dump();

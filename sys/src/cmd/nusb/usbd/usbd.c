@@ -146,15 +146,17 @@ dirgen(int n, Dir *d, void *)
 		return -1;
 	d->qid.path = n + 1;
 	d->qid.vers = 0;
-	if(n >= 0)
+	if(n >= 0){
 		d->qid.type = 0;
-	else
+		d->mode = 0444;
+	}else{
 		d->qid.type = QTDIR;
+		d->mode = 0555 | DMDIR;
+	}
 	d->uid = estrdup9p(getuser());
 	d->gid = estrdup9p(d->uid);
 	d->muid = estrdup9p(d->uid);
 	d->name = estrdup9p(names[n+1]);
-	d->mode = 0555 | (d->qid.type << 24);
 	d->atime = d->mtime = time(0);
 	d->length = 0;
 	return 0;
@@ -413,6 +415,23 @@ detachdev(Port *p)
 	pushevent(d, formatdev(d, 1));
 }
 
+/*
+ * we create /env/usbbusy on startup and once all devices have been
+ * enumerated and readers have consumed all the events, we remove the
+ * file so nusbrc can continue.
+ */
+static int busyfd = -1;
+
+void
+checkidle(void)
+{
+	if(busyfd < 0 || reqlast == nil || evlast == nil || evlast->prev > 0)
+		return;
+
+	close(busyfd);
+	busyfd = -1;
+}
+
 void
 main(int argc, char **argv)
 {
@@ -428,6 +447,7 @@ main(int argc, char **argv)
 		break;
 	} ARGEND;
 
+	busyfd = create("/env/usbbusy", ORCLOSE, 0600);
 	quotefmtinstall();
 	initevent();
 	rfork(RFNOTEG);
