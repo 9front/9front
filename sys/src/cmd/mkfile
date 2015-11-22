@@ -108,7 +108,7 @@ installall:V:
 %.acid: %.$O $HFILES
 	$CC $CFLAGS -a $stem.c >$target
 
-(bc|units).c:R:	\1.tab.c
+(bc|units|mpc).c:R:	\1.tab.c
 	mv $stem1.tab.c $stem1.c
 
 $BIN/init:	$O.init

@@ -1,0 +1,155 @@
+.TH MPC 1 
+.SH NAME
+mpc \- extended precision arithmetic code generator
+.SH SYNOPSIS
+.B mpc
+[
+.I file ...
+]
+.SH DESCRIPTION
+.I Mpc
+generates C functions from a simple language that operates on
+extended precision integers using the
+.IR mp (2)
+library.
+.SH LANGUAGE
+The language consists of a series of function definitions of the form:
+.IP
+.I name
+(
+.I "parameter list"
+) {
+.I statements
+}
+.PP
+All variables and parameters are extended precision integers and are
+passed by reference. Statements are separated by semicolon and the
+following statemens are defined:
+.IP
+.I name
+.B =
+.I expression
+.IP
+.B if
+(
+.I condition
+) {
+.I statements
+}
+.B "else if"
+(
+.I condition
+) {
+.I statements
+}
+.B else
+{
+.I statements
+}
+.IP
+.B while
+(
+.I condition
+) {
+.I statements
+}
+.IP
+.B break
+.IP
+.I
+name
+(
+.I "parameter list"
+)
+.IP
+.B
+mod
+(
+.I modulus
+) {
+.I statements
+}
+.PP
+There is no distinction between input and output parameters, but
+conventionally, the outputs are put at the end of the
+.I "parameter list"
+and the language allows one to write
+.IP
+.I F
+(
+.IR X ,
+.IR Y ,
+.I Z
+)
+as
+.IR Y ,
+.I Z
+.B =
+.I F
+(
+.I X
+)
+.PP
+Expressions are composed out of the following arithmetic operations:
+.RS
+.TF _____________
+.TP
+.B +
+addition.
+.TP
+.B -
+subtraction.
+.TP
+.B *
+multiplication.
+.TP
+.B /
+division, or multiplicative inverse when enclosed in
+.B mod
+block.
+.TP
+.B %
+division remainder.
+.TP
+.B ^
+exponentiation.
+.TP
+.BI >> constant
+right shift by a constant.
+.TP
+.BI << constant
+left shift by a constant.
+.TP
+.IB condition ? a : b
+pick
+.I a
+when
+.I condition is true, otherwise
+.I b
+when false.
+.RE
+.PD
+.PP
+Conditions can use the following operations:
+.RS
+.TF _____________
+.TP
+.B ==
+equality.
+.TP
+.B !=
+inequality.
+.TP
+.B >
+bigger than.
+.TP
+.B <
+smaller than.
+.TP
+.BI ! condition
+negation.
+.RE
+.SH SOURCE
+.B /sys/src/cmd/mpc.y
+.SH "SEE ALSO"
+.IR mp (2)
