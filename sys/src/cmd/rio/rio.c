@@ -361,29 +361,6 @@ keyboardthread(void*)
 	}
 }
 
-/*
- * Used by /dev/kbdin
- */
-void
-keyboardsend(char *s, int cnt)
-{
-	if(cnt <= 0)
-		return;
-	if(s[cnt-1] == 0)
-		chanprint(kbdchan, "%s", s);
-	else {
-		Rune r;
-		int nb;
-
-		nb = 0;
-		while(fullrune(s+nb, cnt-nb)){
-			nb += chartorune(&r, s+nb);
-			if(r != 0)
-				chanprint(kbdchan, "c%C", r);
-		}
-	}
-}
-
 int
 portion(int x, int lo, int hi)
 {

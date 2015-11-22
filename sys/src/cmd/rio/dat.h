@@ -7,7 +7,6 @@ enum
 	Qwdir,
 	Qwinid,
 	Qwinname,
-	Qkbdin,
 	Qlabel,
 	Qkbd,
 	Qmouse,

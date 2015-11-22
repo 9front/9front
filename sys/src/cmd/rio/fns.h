@@ -1,4 +1,3 @@
-void	keyboardsend(char*, int);
 int	whide(Window*);
 int	wunhide(Window*);
 void	freescrtemps(void);

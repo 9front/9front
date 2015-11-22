@@ -27,7 +27,6 @@ Dirtab dirtab[]=
 	{ "consctl",	QTFILE,	Qconsctl,		0200 },
 	{ "winid",		QTFILE,	Qwinid,		0400 },
 	{ "winname",	QTFILE,	Qwinname,	0400 },
-	{ "kbdin",		QTFILE,	Qkbdin,		0200 },
 	{ "label",		QTFILE,	Qlabel,		0600 },
 	{ "kbd",	QTFILE,	Qkbd,		0600 },
 	{ "mouse",	QTFILE,	Qmouse,		0600 },

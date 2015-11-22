@@ -257,12 +257,6 @@ xfidopen(Xfid *x)
 		}
 		w->ctlopen = TRUE;
 		break;
-	case Qkbdin:
-		if(w != wkeyboard){
-			filsysrespond(x->fs, x, &t, Eperm);
-			return;
-		}
-		break;
 	case Qkbd:
 		if(w->kbdopen){
 			filsysrespond(x->fs, x, &t, Einuse);
@@ -559,10 +553,6 @@ xfidwrite(Xfid *x)
 		}
 		free(w->dir);
 		w->dir = cleanname(p);
-		break;
-
-	case Qkbdin:
-		keyboardsend(x->data, cnt);
 		break;
 
 	case Qwctl:
