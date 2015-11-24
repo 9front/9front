@@ -20,8 +20,7 @@ enum
 {
 	LOGBLKSZ = 13,
 	BLKSZ = 1<<LOGBLKSZ,	/* 8192 */
-	LOGNPTR = LOGBLKSZ-2,	/* assume sizeof(void*) == 4 */
-	NPTR = 1<<LOGNPTR,
+	NPTR = BLKSZ/sizeof(void*),
 };
 static uchar zero[BLKSZ];
 
@@ -251,12 +250,12 @@ getblock(vlong addr, int alloc)
 
 	addr >>= LOGBLKSZ;
 	oaddr = addr<<LOGBLKSZ;
-	i0 = addr & (NPTR-1);
-	addr >>= LOGNPTR;
-	i1 = addr & (NPTR-1);
-	addr >>= LOGNPTR;
-	i2 = addr & (NPTR-1);
-	addr >>= LOGNPTR;
+	i0 = addr % NPTR;
+	addr /= NPTR;
+	i1 = addr % NPTR;
+	addr /= NPTR;
+	i2 = addr % NPTR;
+	addr /= NPTR;
 	assert(addr == 0);
 
 	if((p2 = trip.dbl[i2]) == 0){
@@ -633,8 +632,6 @@ main(int argc, char **argv)
 	file = nil;
 	quotefmtinstall();
 	time0 = time(0);
-	if(NPTR != BLKSZ/sizeof(void*))
-		sysfatal("unexpected pointer size");
 
 	ARGBEGIN{
 	case 'D':
