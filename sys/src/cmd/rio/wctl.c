@@ -360,22 +360,29 @@ wctlcmd(Window *w, Rectangle r, int cmd, char *err)
 		r = rectonscreen(r);
 		/* fall through */
 	case Resize:
-		if(eqrect(r, w->screenr))
-			return 1;
 		if(!goodrect(r)){
 			strcpy(err, Ebadwr);
 			return -1;
 		}
-		if(w != input){
-			strcpy(err, "window not current");
-			return -1;
+		if(Dx(w->screenr) > 0){
+			if(eqrect(r, w->screenr))
+				return 1;
+			if(w != input){
+				strcpy(err, "window not current");
+				return -1;
+			}
+			i = allocwindow(wscreen, r, Refbackup, DNofill);
+		} else { /* hidden */
+			if(eqrect(r, w->i->r))
+				return 1;
+			i = allocimage(display, r, w->i->chan, 0, DNofill);
+			r = ZR;
 		}
-		i = allocwindow(wscreen, r, Refbackup, DNofill);
 		if(i == nil){
 			strcpy(err, Ewalloc);
 			return -1;
 		}
-		wsendctlmesg(w, Reshaped, i->r, i);
+		wsendctlmesg(w, Reshaped, r, i);
 		return 1;
 	case Scroll:
 		w->scrolling = 1;
@@ -393,6 +400,10 @@ wctlcmd(Window *w, Rectangle r, int cmd, char *err)
 		wbottomme(w);
 		return 1;
 	case Current:
+		if(Dx(w->screenr)<=0){
+			strcpy(err, "window is hidden");
+			return -1;
+		}
 		wtopme(w);
 		wcurrent(w);
 		return 1;

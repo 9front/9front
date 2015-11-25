@@ -258,14 +258,13 @@ The
 .B top
 and
 .B bottom
-commands do not change whether the window is current or not;
-the others always make the affected window current.
-.IP
+commands do not change whether the window is current or not.
 Neither
 .B top
 nor
 .B bottom
 has any options.
+.IP
 The
 .BR resize ,
 .BR move ,
