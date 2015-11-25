@@ -796,11 +796,11 @@ xfidread(Xfid *x)
 
 	case Qwindow:
 		i = w->i;
-		r = w->screenr;
-		if(i == nil || Dx(r)<=0){
+		if(i == nil){
 			filsysrespond(x->fs, x, &fc, Enowindow);
 			return;
 		}
+		r = i->r;
 		goto caseImage;
 
 	case Qscreen:
