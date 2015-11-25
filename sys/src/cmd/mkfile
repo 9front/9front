@@ -82,7 +82,7 @@ nuke:V:		cleanfiles nuke.directories
 directories:V:	install.directories
 
 cleanfiles:V:
-	rm -f [$OS].out *.[$OS] y.tab.? y.debug y.output [$OS].$TARG [$OS].units.tab $TARG bc.c bc.tab.h units.tab.h units.c [$OS]._cp
+	rm -f [$OS].out *.[$OS] y.tab.? y.debug y.output [$OS].$TARG [$OS].units.tab $TARG bc.c bc.tab.h units.tab.h units.c mpc.c [$OS]._cp
 
 %.clean:V:
 	rm -f [$OS].$stem $stem.[$OS]
@@ -103,7 +103,7 @@ installall:V:
 		mk $stem.install &
 	}
 	wait
-	rm -f $stem.[$OS] y.tab.? $stem.tab.? y.debug y.output [$OS].$stem bc.c bc.tab.h units.c
+	rm -f $stem.[$OS] y.tab.? $stem.tab.? y.debug y.output [$OS].$stem bc.c bc.tab.h units.c mpc.c
 
 %.acid: %.$O $HFILES
 	$CC $CFLAGS -a $stem.c >$target
