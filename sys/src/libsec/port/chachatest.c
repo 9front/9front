@@ -31,7 +31,7 @@ u32int	rfccount = 1;
 char	rfctext[] = "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, "
 	"sunscreen would be it.";
 uchar	rfcout[3*ChachaBsize];
-uchar	rfcref[3*ChachaBsize] = {
+uchar	rfcref[] = {
 	0x6e, 0x2e, 0x35, 0x9a, 0x25, 0x68, 0xf9, 0x80, 0x41, 0xba, 0x07, 0x28, 0xdd, 0x0d, 0x69, 0x81,
 	0xe9, 0x7e, 0x7a, 0xec, 0x1d, 0x43, 0x60, 0xc2, 0x0a, 0x27, 0xaf, 0xcc, 0xfd, 0x9f, 0xae, 0x0b,
 	0xf9, 0x1b, 0x65, 0xc5, 0x52, 0x47, 0x33, 0xab, 0x8f, 0x59, 0x3d, 0xab, 0xcd, 0x62, 0xb3, 0x57,
@@ -42,10 +42,26 @@ uchar	rfcref[3*ChachaBsize] = {
 	0x87, 0x4d
 };
 
+uchar	ccpaad[] = {
+	0x50, 0x51, 0x52, 0x53, 0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
+};
+uchar	ccpkey[] = {
+	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
+	0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f,
+};
+uchar	ccpiv[] = {
+	0x07, 0x00, 0x00, 0x00,  
+	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
+};
+uchar	ccptag[] = {
+	0x1a, 0xe1, 0x0b, 0x59, 0x4f, 0x09, 0xe2, 0x6a, 0x7e, 0x90, 0x2e, 0xcb, 0xd0, 0x60, 0x06, 0x91,
+};
+
 void
 main(int argc, char **argv)
 {
 	Chachastate s;
+	uchar tag[16];
 	int n;
 
 	ARGBEGIN{
@@ -54,17 +70,51 @@ main(int argc, char **argv)
 	print("key:\n");
 	printblock(rfckey, sizeof(rfckey));
 	n = strlen(rfctext);
-	setupChachastate(&s, rfckey, sizeof(rfckey), rfcnonce, 0);
+	setupChachastate(&s, rfckey, sizeof(rfckey), rfcnonce, sizeof(rfcnonce), 0);
 	chacha_setblock(&s, rfccount);
 	print("rfc in:\n");
 	printblock((uchar*)rfctext, n);
 	chacha_encrypt2((uchar*)rfctext, rfcout, n, &s);
 	print("rfc out:\n");
 	printblock(rfcout, n);
-	if(memcmp(rfcout, rfcref, sizeof(rfcout)) != 0){
+	if(memcmp(rfcout, rfcref, sizeof(rfcref)) != 0){
 		print("failure of vision\n");
 		exits("wrong");
 	}
+	print("\n");
+
+	print("ccpoly key:\n");
+	printblock(ccpkey, sizeof(ccpkey));
+
+	print("ccpoly iv:\n");
+	printblock(ccpiv, sizeof(ccpiv));
+
+	setupChachastate(&s, ccpkey, sizeof(ccpkey), ccpiv, sizeof(ccpiv), 20);
+
+	memmove(rfcout, rfctext, sizeof(rfctext)-1);
+	ccpoly_encrypt(rfcout, sizeof(rfctext)-1, ccpaad, sizeof(ccpaad), tag, &s);
+
+	print("ccpoly cipher:\n");
+	printblock(rfcout, sizeof(rfctext)-1);
+
+	print("ccpoly tag:\n");
+	printblock(tag, sizeof(tag));
+
+	if(memcmp(tag, ccptag, sizeof(tag)) != 0){
+		print("bad ccpoly tag\n");
+		exits("wrong");
+	}
+
+	if(ccpoly_decrypt(rfcout, sizeof(rfctext)-1, ccpaad, sizeof(ccpaad), tag, &s) != 0){
+		print("ccpoly decryption failed\n");
+		exits("wrong");
+	}
+
+	if(memcmp(rfcout, rfctext, sizeof(rfctext)-1) != 0){
+		print("ccpoly bad decryption\n");
+		exits("wrong");
+	}
+
 	print("passed\n");
 	exits(nil);
 }

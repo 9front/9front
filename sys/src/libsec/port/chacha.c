@@ -54,10 +54,12 @@ load(u32int *d, uchar *s, int nw)
 }
 
 void
-setupChachastate(Chachastate *s, uchar *key, ulong keylen, uchar *iv, int rounds)
+setupChachastate(Chachastate *s, uchar *key, ulong keylen, uchar *iv, ulong ivlen, int rounds)
 {
 	if(keylen != 256/8 && keylen != 128/8)
 		sysfatal("invalid chacha key length");
+	if(ivlen != 96/8 && ivlen != 64/8)
+		sysfatal("invalid chacha iv length");
 	if(rounds == 0)
 		rounds = 20;
 	s->rounds = rounds;
@@ -69,19 +71,28 @@ setupChachastate(Chachastate *s, uchar *key, ulong keylen, uchar *iv, int rounds
 		load(&s->input[4], key, 4);
 		load(&s->input[8], key, 4);
 	}
+	s->ivwords = ivlen/sizeof(u32int);
 	s->input[12] = 0;
+	s->input[13] = 0;
 	if(iv == nil){
-		s->input[13] = 0;
 		s->input[14] = 0;
 		s->input[15] = 0;
 	}else
-		load(&s->input[13], iv, 3);
+		chacha_setiv(s, iv);
 }
 
 void
-chacha_setblock(Chachastate *s, u32int blockno)
+chacha_setiv(Chachastate *s, uchar *iv)
+{
+	load(&s->input[16 - s->ivwords], iv, s->ivwords);
+}
+
+void
+chacha_setblock(Chachastate *s, u64int blockno)
 {
 	s->input[12] = blockno;
+	if(s->ivwords == 2)
+		s->input[13] = blockno>>32;
 }
 
 static void
@@ -148,7 +159,8 @@ encryptblock(Chachastate *s, uchar *src, uchar *dst)
 	}
 #endif
 
-	s->input[12]++;
+	if(++s->input[12] == 0 && s->ivwords == 2)
+		s->input[13]++;
 }
 
 void

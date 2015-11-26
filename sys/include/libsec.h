@@ -94,12 +94,17 @@ struct Chachastate
 		};
 	};
 	int	rounds;
+	int	ivwords;
 };
 
-void	setupChachastate(Chachastate*, uchar*, ulong, uchar*, int);
-void	chacha_setblock(Chachastate*, u32int);
+void	setupChachastate(Chachastate*, uchar*, ulong, uchar*, ulong, int);
+void	chacha_setiv(Chachastate *, uchar*);
+void	chacha_setblock(Chachastate*, u64int);
 void	chacha_encrypt(uchar*, ulong, Chachastate*);
 void	chacha_encrypt2(uchar*, uchar*, ulong, Chachastate*);
+
+void	ccpoly_encrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], Chachastate *cs);
+int	ccpoly_decrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], Chachastate *cs);
 
 /*
  * DES definitions
@@ -505,3 +510,5 @@ void pbkdf2_x(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d
 void hkdf_x(uchar *salt, ulong nsalt, uchar *info, ulong ninfo, uchar *key, ulong nkey, uchar *d, ulong dlen,
 	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen);
 
+/* timing safe memcmp() */
+int tsmemcmp(void*, void*, ulong);
