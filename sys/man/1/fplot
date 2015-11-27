@@ -1,4 +1,4 @@
-.TH FPLOT 1
+b.TH FPLOT 1
 .SH NAME
 fplot \- plot elementary function
 .SH SYNOPSYS
@@ -54,6 +54,10 @@ fplot -c -s 400x400 'sqrt(x*x)' 'x^3' | page
 either exits with
 .LR "syntax error"
 or an empty status.
+.SH BUGS
+Parentheses after unary operators are not special, e.g. sin(x)/2 is parsed as sin x/2 = sin(x/2) and not (sin x)/2.
+.PP
+There is no unary plus or minus.
 .SH HISTORY
 .I Fplot
 first appeared in 9front (July, 2011).
