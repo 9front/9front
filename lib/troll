@@ -224,3 +224,8 @@ How do I submit a patch?  I see forks on github, but no one merging back to 9fan
 is there someone else interested in write a git tool for plan 9 ?
 Subject: [golang-dev] vendoring the stdlib
 [9fans] FUSE on Plan9
+[9fans] The 9legacy website looks bad on a mobile phone
+[harvey] How to run fossil
+[harvey-commits] [PATCH 2/2] Compile Harvey in C11 mode.
+[harvey] we need to bring sam back
+[harvey] booting a disk
