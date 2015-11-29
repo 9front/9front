@@ -1,4 +1,4 @@
-b.TH FPLOT 1
+.TH FPLOT 1
 .SH NAME
 fplot \- plot elementary function
 .SH SYNOPSYS
