@@ -17,7 +17,7 @@ $O.out:	$OFILES $LIB
 %.$O:	%.s
 	$AS $AFLAGS $stem.s
 
-y.tab.h y.tab.c:	$YFILES
+y.tab.h y.tab.c:D:	$YFILES
 	$YACC $YFLAGS $prereq
 
 lex.yy.c:	$LFILES
