@@ -78,24 +78,10 @@ uciallocb(int size)
 	Block *b;
 	static int m1, m2, mp;
 
-	if(0 && ucialloc.bytes > conf.ialloc){
-		if((m1++%10000)==0){
-			if(mp++ > 1000){
-				active.exiting = 1;
-				exit(0);
-			}
-			iprint("uciallocb: limited %lud/%lud\n",
-				ucialloc.bytes, conf.ialloc);
-		}
-		return nil;
-	}
-
 	if((b = _ucallocb(size)) == nil){
 		if(0 && (m2++%10000)==0){
-			if(mp++ > 1000){
-				active.exiting = 1;
-				exit(0);
-			}
+			if(mp++ > 1000)
+				panic("uciallocb: out of memory");
 			iprint("uciallocb: no memory %lud/%lud\n",
 				ucialloc.bytes, conf.ialloc);
 		}

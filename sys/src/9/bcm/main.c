@@ -522,39 +522,13 @@ confinit(void)
 
 }
 
-static void
-shutdown(int ispanic)
-{
-	int ms, once;
-
-	lock(&active);
-	if(ispanic)
-		active.ispanic = ispanic;
-	else if(m->machno == 0 && (active.machs & (1<<m->machno)) == 0)
-		active.ispanic = 0;
-	once = active.machs & (1<<m->machno);
-	active.machs &= ~(1<<m->machno);
-	active.exiting = 1;
-	unlock(&active);
-
-	if(once)
-		iprint("cpu%d: exiting\n", m->machno);
-	spllo();
-	for(ms = 5*1000; ms > 0; ms -= TK2MS(2)){
-		delay(TK2MS(2));
-		if(active.machs == 0 && consactive() == 0)
-			break;
-	}
-	delay(1000);
-}
-
 /*
  *  exit kernel either on a panic or user request
  */
 void
-exit(int code)
+exit(int)
 {
-	shutdown(code);
+	cpushutdown();
 	splfhi();
 	archreboot();
 }
@@ -579,17 +553,8 @@ reboot(void *entry, void *code, ulong size)
 {
 	void (*f)(ulong, ulong, ulong);
 
-	print("starting reboot...");
 	writeconf();
-	shutdown(0);
-
-	/*
-	 * should be the only processor running now
-	 */
-
-	print("reboot entry %#lux code %#lux size %ld\n",
-		PADDR(entry), PADDR(code), size);
-	delay(100);
+	cpushutdown();
 
 	/* turn off buffered serial console */
 	serialoq = nil;
@@ -612,10 +577,6 @@ reboot(void *entry, void *code, ulong size)
 
 	/* off we go - never to return */
 	(*f)(PADDR(entry), PADDR(code), size);
-
-	iprint("loaded kernel returned!\n");
-	delay(1000);
-	archreboot();
 }
 
 int

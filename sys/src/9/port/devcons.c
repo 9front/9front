@@ -260,9 +260,15 @@ panic(char *fmt, ...)
 	splx(s);
 	prflush();
 	dumpstack();
-	if(!cpuserver)
-		for(;;);
-	exit(1);
+
+	/* reboot cpu servers and headless machines when not debugging */
+	if(getconf("*debug") == nil)
+	if(cpuserver || !conf.monitor)
+		exit(1);
+
+	/* otherwise, just hang */
+	while(islo()) idlehands();
+	for(;;);
 }
 
 /* libmp at least contains a few calls to sysfatal; simulate with panic */
@@ -1037,4 +1043,27 @@ writebintime(char *buf, int n)
 		break;
 	}
 	return n;
+}
+
+void
+cpushutdown(void)
+{
+	int ms, once;
+
+	lock(&active);
+	once = active.machs & (1<<m->machno);
+	active.machs &= ~(1<<m->machno);
+	active.exiting = 1;
+	unlock(&active);
+
+	if(once)
+		iprint("cpu%d: exiting\n", m->machno);
+
+	/* wait for any other processors to shutdown */
+	spllo();
+	for(ms = 5*1000; ms > 0; ms -= TK2MS(2)){
+		delay(TK2MS(2));
+		if(active.machs == 0 && consactive() == 0)
+			break;
+	}
 }

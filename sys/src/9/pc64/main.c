@@ -512,7 +512,6 @@ main()
 		pcimatch(0, 0, 0);
 	}else
 		links();
-	conf.monitor = 1;
 	chandevreset();
 	preallocpages();
 	pageinit();
@@ -522,54 +521,10 @@ main()
 	schedinit();
 }
 
-static void
-shutdown(int ispanic)
-{
-	int ms, once;
-
-	lock(&active);
-	if(ispanic)
-		active.ispanic = ispanic;
-	else if(m->machno == 0 && (active.machs & (1<<m->machno)) == 0)
-		active.ispanic = 0;
-	once = active.machs & (1<<m->machno);
-	/*
-	 * setting exiting will make hzclock() on each processor call exit(0),
-	 * which calls shutdown(0) and arch->reset(), which on mp systems calls
-	 * mpshutdown(), from which there is no return: the processor is idled
-	 * or initiates a reboot.  clearing our bit in machs avoids calling
-	 * exit(0) from hzclock() on this processor.
-	 */
-	active.machs &= ~(1<<m->machno);
-	active.exiting = 1;
-	unlock(&active);
-
-	if(once)
-		iprint("cpu%d: exiting\n", m->machno);
-
-	/* wait for any other processors to shutdown */
-	spllo();
-	for(ms = 5*1000; ms > 0; ms -= TK2MS(2)){
-		delay(TK2MS(2));
-		if(active.machs == 0 && consactive() == 0)
-			break;
-	}
-
-	if(active.ispanic){
-		if(!cpuserver)
-			for(;;)
-				halt();
-		if(getconf("*debug"))
-			delay(5*60*1000);
-		else
-			delay(10000);
-	}
-}
-
 void
-exit(int ispanic)
+exit(int)
 {
-	shutdown(ispanic);
+	cpushutdown();
 	arch->reset();
 }
 
@@ -590,10 +545,7 @@ reboot(void *entry, void *code, ulong size)
 		procwired(up, 0);
 		sched();
 	}
-	shutdown(0);
-
-	iprint("shutting down...\n");
-	delay(200);
+	cpushutdown();
 
 	splhi();
 

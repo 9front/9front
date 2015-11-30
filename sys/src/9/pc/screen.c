@@ -664,6 +664,8 @@ bootscreeninit(void)
 	scr->cur = &swcursor;
 	scr->cur->enable(scr);
 	cursoron();
+
+	conf.monitor = 1;
 }
 
 /*

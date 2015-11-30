@@ -225,7 +225,6 @@ struct
 	Lock;
 	int	machs;			/* bitmap of active CPUs */
 	int	exiting;		/* shutdown */
-	int	ispanic;		/* shutdown in response to a panic */
 }active;
 
 extern register Mach* m;			/* R10 */

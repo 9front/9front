@@ -235,7 +235,6 @@ struct
 	Lock;
 	int	machs;			/* bitmap of active CPUs */
 	int	exiting;		/* shutdown */
-	int	ispanic;		/* shutdown in response to a panic */
 	int	thunderbirdsarego;	/* lets the added processors continue to schedinit */
 }active;
 

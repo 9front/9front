@@ -21,13 +21,13 @@ int nconf;
 void
 exit(int)
 {
-	NOPE
+	cpushutdown();
+	for(;;) idlehands();
 }
 
 void
 reboot(void *, void *, ulong)
 {
-	NOPE
 }
 
 void

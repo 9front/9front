@@ -180,7 +180,6 @@ struct
 	Lock;
 	int	machs;			/* bitmap of active CPUs */
 	int	exiting;		/* shutdown */
-	int	ispanic;		/* shutdown in response to a panic */
 }active;
 
 #define	MACHP(n)	((Mach *)(MACHADDR+(n)*BY2PG))

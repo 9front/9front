@@ -206,7 +206,6 @@ struct
 	Lock;
 	long	machs;		/* bitmap of processors */
 	short	exiting;
-	int	ispanic;
 }active;
 
 extern register Mach	*m;

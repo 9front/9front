@@ -41,6 +41,7 @@ int		cmount(Chan**, Chan*, int, char*);
 void		confinit(void);
 int		consactive(void);
 void		(*consdebug)(void);
+void		cpushutdown(void);
 void		copen(Chan*);
 void		cclunk(Chan*);
 Block*		concatblock(Block*);

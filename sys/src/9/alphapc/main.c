@@ -308,123 +308,21 @@ setupboot(int halt)
 	cpu->state |= (halt? Cpuhaltstayhalted: Cpuhaltwarmboot);
 }
 
-/* from ../pc */
-static void
-shutdown(int ispanic)
-{
-	int ms, once;
-
-	lock(&active);
-	if(ispanic)
-		active.ispanic = ispanic;
-	else if(m->machno == 0 && (active.machs & (1<<m->machno)) == 0)
-		active.ispanic = 0;
-	once = active.machs & (1<<m->machno);
-	active.machs &= ~(1<<m->machno);
-	active.exiting = 1;
-	unlock(&active);
-
-	if(once)
-		print("cpu%d: exiting\n", m->machno);
-	spllo();
-	for(ms = 5*1000; ms > 0; ms -= TK2MS(2)){
-		delay(TK2MS(2));
-		if(active.machs == 0 && consactive() == 0)
-			break;
-	}
-
-	if(active.ispanic && m->machno == 0) {
-		if(cpuserver)
-			delay(10000);
-		else
-			for (;;)
-				continue;
-	} else
-		delay(1000);
-}
-
-/* from ../pc: */
 void
-reboot(void *entry, void *code, ulong size)
+reboot(void *, void *, ulong)
 {
-	// writeconf();		// pass kernel environment to next kernel
-	shutdown(0);
-
-	/*
-	 * should be the only processor running now
-	 */
-	print("shutting down...\n");
-	delay(200);
-
-	splhi();
-
-	/* turn off buffered serial console */
-	serialoq = nil;
-
-	/* shutdown devices */
-	chandevshutdown();
-
-#ifdef FUTURE
-{
-	ulong *pdb;
-	/*
-	 * Modify the machine page table to directly map the low 4MB of memory
-	 * This allows the reboot code to turn off the page mapping
-	 */
-	pdb = m->pdb;
-	pdb[PDX(0)] = pdb[PDX(KZERO)];
-	mmuflushtlb(PADDR(pdb));
-}
-	/* setup reboot trampoline function */
-{
-	void (*f)(ulong, ulong, ulong) = (void*)REBOOTADDR;
-
-	memmove(f, rebootcode, sizeof(rebootcode));
-#else
-	USED(entry, code, size);
-#endif
-
-	print("rebooting...\n");
-#ifdef FUTURE
-	/* off we go - never to return */
-	(*f)(PADDR(entry), PADDR(code), size);
-}
-#endif
-	setupboot(0);		// reboot, don't halt
-	exit(0);
 }
 
 void
-exit(int ispanic)
+exit(int)
 {
-	canlock(&active);
-	active.machs &= ~(1<<m->machno);
-	active.exiting = 1;
-	unlock(&active);
-
-	spllo();
-	print("cpu %d exiting\n", m->machno);
-	do
-		delay(100);
-	while(consactive());
-
+	cpushutdown();
 	splhi();
-	delay(1000);	/* give serial fifo time to finish flushing */
-	if (getconf("*debug") != nil) {
-		USED(ispanic);
-		delay(60*1000);		/* give us time to read the screen */
-	}
 	if(arch->coredetach)
 		arch->coredetach();
 	setupboot(1);			// set up to halt
-	for (; ; )
+	for (;;)
 		firmware();
-
-	// on PC is just:
-	//if (0) {
-	//	shutdown(ispanic);
-	//	arch->reset();
-	//}
 }
 
 void

@@ -644,58 +644,13 @@ procsave(Proc *p)
 	mmuflushtlb(0);
 }
 
-static void
-shutdown(int ispanic)
-{
-	int ms, once;
-
-	lock(&active);
-	if(ispanic)
-		active.ispanic = ispanic;
-	else if(m->machno == 0 && (active.machs & (1<<m->machno)) == 0)
-		active.ispanic = 0;
-	once = active.machs & (1<<m->machno);
-	active.machs &= ~(1<<m->machno);
-	active.exiting = 1;
-	unlock(&active);
-
-	if(once)
-		print("cpu%d: exiting\n", m->machno);
-	//spllo();
-	for(ms = 5*1000; ms > 0; ms -= TK2MS(2)){
-		delay(TK2MS(2));
-		if(active.machs == 0 && consactive() == 0)
-			break;
-	}
-
-	if(getconf("*debug"))
-		delay(5*60*1000);
-
-	if(active.ispanic){
-		if(!cpuserver)
-			for(;;)
-				halt();
-		delay(10000);
-	}else
-		delay(1000);
-}
-
 void
 reboot(void *entry, void *code, ulong size)
 {
 	void (*f)(ulong, ulong, ulong);
-	//ulong *pdb;
 
 	writeconf();
-
-	shutdown(0);
-
-	/*
-	 * should be the only processor running now
-	 */
-
-	print("shutting down...\n");
-	delay(200);
+	cpushutdown();
 
 	splhi();
 
@@ -709,28 +664,19 @@ reboot(void *entry, void *code, ulong size)
 	if(entry == 0)
 		HYPERVISOR_shutdown(0);
 
-	/*
-	 * Modify the machine page table to directly map the low 4MB of memory
-	 * This allows the reboot code to turn off the page mapping
-	 */
-	//pdb = m->pdb;
-	//pdb[PDX(0)] = pdb[PDX(KZERO)];
 	mmuflushtlb(0);
 
 	/* setup reboot trampoline function */
 	f = (void*)REBOOTADDR;
 	memmove(f, rebootcode, sizeof(rebootcode));
 
-	print("rebooting...\n");
-
 	/* off we go - never to return */
 	(*f)(PADDR(entry), PADDR(code), size);
 }
 
-
 void
-exit(int ispanic)
+exit(int)
 {
-	shutdown(ispanic);
+	cpushutdown();
 	arch->reset();
 }

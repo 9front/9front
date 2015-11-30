@@ -186,7 +186,6 @@ struct
 	Lock;
 	short	machs;
 	short	exiting;
-	short	ispanic;
 }active;
 
 /*

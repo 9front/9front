@@ -103,6 +103,5 @@ rebootcmd(int argc, char *argv[])
 	setbootcmd(argc-1, argv+1);
 
 	reboot((void*)entry, p, size);
-
-	panic("return from reboot!");
+	error(Egreg);
 }

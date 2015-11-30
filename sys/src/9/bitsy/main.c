@@ -56,7 +56,6 @@ main(void)
 void
 reboot(void*, void*, ulong)
 {
-	exit(0);
 }
 
 
@@ -64,13 +63,12 @@ reboot(void*, void*, ulong)
  *  exit kernel either on a panic or user request
  */
 void
-exit(int ispanic)
+exit(int)
 {
 	void (*f)(void);
 
-	USED(ispanic);
-	delay(1000);
-
+	cpushutdown();
+	splhi();
 	iprint("it's a wonderful day to die\n");
 	cacheflush();
 	mmuinvalidate();

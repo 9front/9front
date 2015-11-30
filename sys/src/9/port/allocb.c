@@ -86,10 +86,8 @@ iallocb(int size)
 
 	if(ialloc.bytes > conf.ialloc){
 		if((m1++%10000)==0){
-			if(mp++ > 1000){
-				active.exiting = 1;
-				exit(0);
-			}
+			if(mp++ > 1000)
+				panic("iallocb: out of memory");
 			iprint("iallocb: limited %lud/%lud\n",
 				ialloc.bytes, conf.ialloc);
 		}
@@ -98,10 +96,8 @@ iallocb(int size)
 
 	if((b = _allocb(size)) == nil){
 		if((m2++%10000)==0){
-			if(mp++ > 1000){
-				active.exiting = 1;
-				exit(0);
-			}
+			if(mp++ > 1000)
+				panic("iallocb: out of memory");
 			iprint("iallocb: no memory %lud/%lud\n",
 				ialloc.bytes, conf.ialloc);
 		}

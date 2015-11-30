@@ -480,51 +480,13 @@ main(void)
 	panic("cpu%d: schedinit returned", m->machno);
 }
 
-static void
-shutdown(int ispanic)
-{
-	int ms, once;
-
-	lock(&active);
-	if(ispanic)
-		active.ispanic = ispanic;
-	else if(m->machno == 0 && (active.machs & (1<<m->machno)) == 0)
-		active.ispanic = 0;
-	once = active.machs & (1<<m->machno);
-	/*
-	 * setting exiting will make hzclock() on each processor call exit(0),
-	 * which calls shutdown(0) and idles non-bootstrap cpus and returns
-	 * on bootstrap processors (to permit a reboot).  clearing our bit
-	 * in machs avoids calling exit(0) from hzclock() on this processor.
-	 */
-	active.machs &= ~(1<<m->machno);
-	active.exiting = 1;
-	unlock(&active);
-
-	if(once) {
-		delay(m->machno*1000);		/* stagger them */
-		iprint("cpu%d: exiting\n", m->machno);
-	}
-	spllo();
-	if (m->machno == 0)
-		ms = 5*1000;
-	else
-		ms = 2*1000;
-	for(; ms > 0; ms -= TK2MS(2)){
-		delay(TK2MS(2));
-		if(active.machs == 0 && consactive() == 0)
-			break;
-	}
-	delay(500);
-}
-
 /*
  *  exit kernel either on a panic or user request
  */
 void
-exit(int code)
+exit(int)
 {
-	shutdown(code);
+	cpushutdown();
 	splhi();
 	if (m->machno == 0)
 		archreboot();
@@ -576,10 +538,8 @@ isaconfig(char *class, int ctlrno, ISAConf *isa)
 void
 reboot(void *entry, void *code, ulong size)
 {
-	int cpu, nmach, want, ms;
 	void (*f)(ulong, ulong, ulong);
 
-	nmach = conf.nmach;
 	writeconf();
 
 	/*
@@ -590,33 +550,12 @@ reboot(void *entry, void *code, ulong size)
 		procwired(up, 0);
 		sched();
 	}
-	if (m->machno != 0)
-		print("on cpu%d (not 0)!\n", m->machno);
-
-	/*
-	 * the other cpus could be holding locks that will never get
-	 * released (e.g., in the print path) if we put them into
-	 * reset now, so force them to shutdown gracefully first.
-	 */
-	for (want = 0, cpu = 1; cpu < navailcpus; cpu++)
-		want |= 1 << cpu;
-	active.stopped = 0;
-	shutdown(0);
-	for (ms = 15*1000; ms > 0 && active.stopped != want; ms -= 10)
-		delay(10);
-	delay(20);
-	if (active.stopped != want) {
-		for (cpu = 1; cpu < nmach; cpu++)
-			stopcpu(cpu);		/* make really sure */
-		delay(20);
-	}
+	cpushutdown();
 
 	/*
 	 * should be the only processor running now
 	 */
 	pcireset();
-//	print("reboot entry %#lux code %#lux size %ld\n",
-//		PADDR(entry), PADDR(code), size);
 
 	/* turn off buffered serial console */
 	serialoq = nil;
@@ -642,9 +581,6 @@ reboot(void *entry, void *code, ulong size)
 
 	/* off we go - never to return */
 	(*f)(PADDR(entry), PADDR(code), size);
-
-	iprint("loaded kernel returned!\n");
-	archreboot();
 }
 
 /*

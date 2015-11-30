@@ -372,10 +372,10 @@ userinit(void)
 }
 
 void
-exit(int ispanic)
+exit(int)
 {
+	cpushutdown();
 	splhi();
-	while(ispanic);
 	arcs(0x18);	/* reboot */
 }
 
