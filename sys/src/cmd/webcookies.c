@@ -448,35 +448,6 @@ syncjar(Jar *jar)
 	return 0;
 }
 
-Jar*
-readjar(char *file)
-{
-	char *lock, *p;
-	Jar *jar;
-
-	jar = newjar();
-	lock = emalloc9p(strlen(file)+10);
-	strcpy(lock, file);
-	if((p = strrchr(lock, '/')) != nil)
-		p++;
-	else
-		p = lock;
-	memmove(p+2, p, strlen(p)+1);
-	p[0] = 'L';
-	p[1] = '.';
-	jar->lockfile = lock;
-	jar->file = file;
-	jar->dirty = 0;
-
-	if(syncjar(jar) < 0){
-		free(jar->file);
-		free(jar->lockfile);
-		free(jar);
-		return nil;
-	}
-	return jar;
-}
-
 void
 closejar(Jar *jar)
 {
@@ -492,10 +463,40 @@ closejar(Jar *jar)
 	for(i=0; i<jar->nc; i++)
 		freecookie(&jar->c[i]);
 
+	free(jar->lockfile);
 	free(jar->file);
 	free(jar->c);
 	free(jar);	
 }
+
+Jar*
+readjar(char *file)
+{
+	char *lock, *p;
+	Jar *jar;
+
+	jar = newjar();
+	file = estrdup9p(file);
+	lock = emalloc9p(strlen(file)+10);
+	strcpy(lock, file);
+	if((p = strrchr(lock, '/')) != nil)
+		p++;
+	else
+		p = lock;
+	memmove(p+2, p, strlen(p)+1);
+	p[0] = 'L';
+	p[1] = '.';
+	jar->lockfile = lock;
+	jar->file = file;
+	jar->dirty = 0;
+
+	if(syncjar(jar) < 0){
+		closejar(jar);
+		return nil;
+	}
+	return jar;
+}
+
 
 /*
  * Domain name matching is per RFC2109, section 2:
@@ -1152,8 +1153,7 @@ fswrite(Req *r)
 				}
 			}
 			snprint(a->outhttp, AuxBuf, "%J", j);
-			if(j)
-				closejar(j);
+			closejar(j);
 		}else{
 			if(strlen(a->inhttp)+r->ifcall.count >= AuxBuf){
 				respond(r, "http headers too large");
