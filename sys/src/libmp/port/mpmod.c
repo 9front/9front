@@ -42,7 +42,7 @@ mpmod(mpint *x, mpint *n, mpint *r)
 			c = mpnew(0);
 			p = mpnew(0);
 		}
-		mpleft(p, s, m);
+		mpleft(n, s, m);
 		mpleft(mpone, k*Dbits, c);
 		mpsub(c, m, c);
 		if(c->top >= k){
