@@ -13,7 +13,7 @@ mpmod(mpint *x, mpint *n, mpint *r)
 	sign = x->sign;
 
 	assert(n->flags & MPnorm);
-	if(n->top < 2 || n->top > nelem(q) || (x->top-n->top) > nelem(q))
+	if(n->top <= 2 || n->top > nelem(q) || (x->top-n->top) > nelem(q))
 		goto hard;
 
 	/*
@@ -42,11 +42,15 @@ mpmod(mpint *x, mpint *n, mpint *r)
 			c = mpnew(0);
 			p = mpnew(0);
 		}
-		mpassign(n, p);
-
-		mpleft(n, s, m);
+		mpleft(p, s, m);
 		mpleft(mpone, k*Dbits, c);
 		mpsub(c, m, c);
+		if(c->top >= k){
+			mpassign(mpzero, p);
+			busy = 0;
+			goto hard;
+		}
+		mpassign(n, p);
 	}
 
 	mpleft(x, s, r);
