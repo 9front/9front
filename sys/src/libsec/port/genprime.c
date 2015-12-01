@@ -17,6 +17,7 @@ genprime(mpint *p, int n, int accuracy)
 	p->p[p->top-1] &= (x-1);
 	p->p[p->top-1] |= x;
 	p->p[0] |= 1;
+	mpnorm(p);
 
 	// keep icrementing till it looks prime
 	for(;;){
