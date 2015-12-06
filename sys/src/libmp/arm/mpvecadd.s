@@ -9,22 +9,22 @@ TEXT mpvecadd(SB),$0
 	B.EQ	_add1
 	SUB	R6, R4, R4
 _addloop1:
-	MOVW.WP	4(R0), R1
-	MOVW.WP	4(R5), R2
+	MOVW.P	4(R0), R1
+	MOVW.P	4(R5), R2
 	CMP	$1, R3
 	ADC.S	R2, R1
 	ADC	R8, R8, R3
-	MOVW.WP	R1, 4(R7)
+	MOVW.P	R1, 4(R7)
 	SUB.S	$1, R6
 	B.NE	_addloop1
 _add1:
 	CMP	R8, R4
 	B.EQ	_addend
 _addloop2:
-	MOVW.WP	4(R0), R1
+	MOVW.P	4(R0), R1
 	ADD.S	R3, R1
 	ADC	R8, R8, R3
-	MOVW.WP	R1, 4(R7)
+	MOVW.P	R1, 4(R7)
 	SUB.S	$1, R4
 	B.NE	_addloop2
 _addend:
