@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <draw.h>
+#include <cursor.h>
 #include <event.h>
 #include <regexp.h>
 #include <keyboard.h>
@@ -267,6 +268,53 @@ click(Mouse m)
 	return 1;
 }
 
+Cursor crosscursor = {
+	{-7, -7},
+	{0x03, 0xC0, 0x03, 0xC0, 0x03, 0xC0, 0x03, 0xC0,
+	 0x03, 0xC0, 0x03, 0xC0, 0xFF, 0xFF, 0xFF, 0xFF,
+	 0xFF, 0xFF, 0xFF, 0xFF, 0x03, 0xC0, 0x03, 0xC0,
+	 0x03, 0xC0, 0x03, 0xC0, 0x03, 0xC0, 0x03, 0xC0, },
+	{0x00, 0x00, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80,
+	 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x7F, 0xFE,
+	 0x7F, 0xFE, 0x01, 0x80, 0x01, 0x80, 0x01, 0x80,
+	 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x00, 0x00, }
+};
+
+void
+chlabel(void)
+{
+	Mouse m;
+	char buf[512], fname[128];
+	int i, n, fd;
+
+	esetcursor(&crosscursor);
+	do
+		m = emouse();
+	while((m.buttons & 7) == 0);
+	do
+		m = emouse();
+	while((m.buttons & 7) == 1);
+	esetcursor(nil);
+	if((m.buttons & 7) != 0)
+		return;
+	for(i=0; i<nwin; i++)
+		if(ptinrect(m.xy, win[i].r))
+			break;
+	if(i == nwin)
+		return;
+	buf[0] = 0;
+	n = eenter("label?", buf, sizeof(buf), &m);
+	if(n <= 0)
+		return;
+	sprint(fname, "/dev/wsys/%d/label", win[i].n);
+	if((fd = open(fname, OWRITE)) < 0)
+		return;
+	write(fd, buf, n);
+	close(fd);
+	refreshwin();
+	redraw(screen, 1);
+}
+
 void
 usage(void)
 {
@@ -321,6 +369,8 @@ main(int argc, char **argv)
 		case Ekeyboard:
 			if(e.kbdc==Kdel || e.kbdc=='q')
 				exits(0);
+			if(e.kbdc == 'l')
+				chlabel();
 			break;
 		case Emouse:
 			if(click(e.mouse) == 0)
