@@ -22,6 +22,9 @@ or
 DEL
 quits
 .IR winwatch .
+Typing
+.B l
+and selecting a window by left click prompts for a new label.
 .PP
 If the
 .B -e
