@@ -153,6 +153,10 @@ Directory of shell libraries.
 Startup code for
 .IR rc (1).
 .TP
+.B /rc/lib/rcmain.local
+Site local startup code for
+.IR rc (1).
+.TP
 .B /lib
 Collections of data, generally not parts of programs.
 .TP

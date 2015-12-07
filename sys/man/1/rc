@@ -973,6 +973,19 @@ as they are executed).
 .PD
 .SH SOURCE
 .B /sys/src/cmd/rc
+.SH FILES
+.TF $home/lib/profile
+.TP
+.B $home/lib/profile
+the user's local rc start script
+.TF /rc/lib/rcmain
+.TP
+.B /rc/lib/rcmain
+System rc start script
+.TF /rc/lib/rcmain.local
+.TP
+.B /rc/lib/rcmain.local
+Site specific system rc start script
 .SH "SEE ALSO"
 Tom Duff,
 ``Rc \- The Plan 9 Shell''.
