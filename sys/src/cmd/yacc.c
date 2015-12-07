@@ -474,6 +474,7 @@ others(void)
 	Bprint(ftable, "%4d\n};\n", 0);
 
 	/* copy parser text */
+	Bprint(ftable, "\n#line\t1\t\"%s\"\n", parser);
 	while((c=Bgetrune(finput)) != Beof) {
 		if(c == '$') {
 			if((c = Bgetrune(finput)) != 'A')
