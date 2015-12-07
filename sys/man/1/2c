@@ -42,7 +42,7 @@ little-endian ARM
 AMD64 and compatibles (e.g., Intel EM64T)
 .TP
 .B "7c alpha
-Digital Alpha APX
+Digital Alpha AXP
 .TP
 .B "8c 386
 Intel i386, i486, Pentium, etc.
