@@ -76,6 +76,15 @@ void	mpmul(mpint *b1, mpint *b2, mpint *prod);	/* prod = b1*b2 */
 void	mpexp(mpint *b, mpint *e, mpint *m, mpint *res);	/* res = b**e mod m */
 void	mpmod(mpint *b, mpint *m, mpint *remainder);	/* remainder = b mod m */
 
+/* logical operations */
+void	mpand(mpint *b1, mpint *b2, mpint *res);
+void	mpbic(mpint *b1, mpint *b2, mpint *res);
+void	mpor(mpint *b1, mpint *b2, mpint *res);
+void	mpnot(mpint *b, mpint *res);
+void	mpxor(mpint *b1, mpint *b2, mpint *res);
+void	mptrunc(mpint *b, int n, mpint *res);
+void	mpxtend(mpint *b, int n, mpint *res);
+
 /* modular arithmetic, time invariant when 0≤b1≤m-1 and 0≤b2≤m-1 */
 void	mpmodadd(mpint *b1, mpint *b2, mpint *m, mpint *sum);	/* sum = b1+b2 % m */
 void	mpmodsub(mpint *b1, mpint *b2, mpint *m, mpint *diff);	/* diff = b1-b2 % m */

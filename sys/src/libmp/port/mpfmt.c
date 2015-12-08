@@ -146,7 +146,13 @@ mpfmt(Fmt *fmt)
 	if(p == nil)
 		return fmtstrcpy(fmt, "*");
 	else{
-		fmtstrcpy(fmt, p);
+		if((fmt->flags & FmtSharp) != 0 && fmt->prec!=10 && fmt->prec!=32 && fmt->prec!=64)
+			if(*p == '-')
+				fmtprint(fmt, "-0x%s", p + 1);
+			else
+				fmtprint(fmt, "0x%s", p);
+		else
+			fmtstrcpy(fmt, p);
 		free(p);
 		return 0;
 	}
