@@ -138,7 +138,6 @@ mptrunc(mpint *b, int n, mpint *r)
 	r->top = DIGITS(n);
 	d = n / Dbits;
 	m = n % Dbits;
-	r->sign = 1;
 	if(b->sign == -1){
 		c = 1;
 		for(i = 0; i <= r->top; i++){
@@ -162,6 +161,7 @@ mptrunc(mpint *b, int n, mpint *r)
 		if(m != 0)
 			r->p[d] = b->p[d] & (1<<m)-1;
 	}
+	r->sign = 1;
 	mpnorm(r);
 }
 
