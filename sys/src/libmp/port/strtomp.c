@@ -44,21 +44,23 @@ init(void)
 }
 
 static char*
-from16(char *a, mpint *b)
+frompow2(char *a, mpint *b, int s)
 {
 	char *p, *next;
 	int i;
 	mpdigit x;
+	int sn;
 
+	sn = 1<<s;
 	for(p = a; *p; p++)
-		if(tab.t16[*(uchar*)p] == INVAL)
+		if((uchar)tab.t16[*(uchar*)p] >= sn)
 			break;
 	mpbits(b, (p-a)*4);
 	b->top = 0;
 	next = p;
 	while(p > a){
 		x = 0;
-		for(i = 0; i < Dbits; i += 4){
+		for(i = 0; i < Dbits; i += s){
 			if(p <= a)
 				break;
 			x |= tab.t16[*(uchar*)--p]<<i;
@@ -178,12 +180,21 @@ strtomp(char *a, char **pp, int base, mpint *b)
 	}
 
 	switch(base){
+	case 2:
+		e = frompow2(a, b, 1);
+		break;
+	case 4:
+		e = frompow2(a, b, 2);
+		break;
+	case 8:
+		e = frompow2(a, b, 3);
+		break;
 	case 10:
 		e = from10(a, b);
 		break;
 	default:
 	case 16:
-		e = from16(a, b);
+		e = frompow2(a, b, 4);
 		break;
 	case 32:
 		e = from32(a, b);
