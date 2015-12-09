@@ -393,3 +393,4 @@ auth=130.89.145.31 authdom=cs.utwente.nl
 
 # for sl
 auth=auth.stanleylieber.com authdom=inri
+auth=cb.inri.net authdom=nyc
