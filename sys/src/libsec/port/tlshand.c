@@ -901,7 +901,7 @@ tlsSecECDHEc(TlsSec *sec, uchar *srandom, int vers, int curve, Bytes *Ys)
 	epm = nil;
 
 	memset(&dom, 0, sizeof(dom));
-	dom.p = strtomp(nc->p, nil, 16, nil);
+	dom.p = mpfield(strtomp(nc->p, nil, 16, nil));
 	dom.a = strtomp(nc->a, nil, 16, nil);
 	dom.b = strtomp(nc->b, nil, 16, nil);
 	dom.n = strtomp(nc->n, nil, 16, nil);
@@ -925,14 +925,6 @@ tlsSecECDHEc(TlsSec *sec, uchar *srandom, int vers, int curve, Bytes *Ys)
 	Y.y = mpnew(0);
 
 	if(dom.p == nil || dom.a == nil || dom.b == nil || dom.n == nil || dom.h == nil)
-		goto Out;
-	if(Q.x == nil || Q.y == nil || Q.d == nil)
-		goto Out;
-	if(G.x == nil || G.y == nil)
-		goto Out;
-	if(K.x == nil || K.y == nil)
-		goto Out;
-	if(Y.x == nil || Y.y == nil)
 		goto Out;
 
 	dom.G = strtoec(&dom, nc->G, nil, &G);
@@ -1005,7 +997,7 @@ verifyDHparams(TlsConnection *c, Bytes *par, Bytes *sig, int sigalg)
 		else {
 			md5(blob->data, blob->len, hashes, nil);
 			sha1(blob->data, blob->len, hashes+MD5dlen, nil);
-			if(memcmp(buf, hashes, sizeof(hashes)) != 0)
+			if(tsmemcmp(buf, hashes, sizeof(hashes)) != 0)
 				err = "digests did not match";
 		}
 		free(buf);
@@ -2069,7 +2061,7 @@ setVersion(TlsConnection *c, int version)
 static int
 finishedMatch(TlsConnection *c, Finished *f)
 {
-	return memcmp(f->verify, c->finished.verify, f->n) == 0;
+	return tsmemcmp(f->verify, c->finished.verify, f->n) == 0;
 }
 
 // free memory associated with TlsConnection struct
@@ -2767,7 +2759,7 @@ mptobytes(mpint* big)
 	n = (mpsignif(big)+7)/8;
 	if(n == 0) n = 1;
 	ans = newbytes(n);
-	ans->len = mptobe(big, ans->data, n, nil);
+	mptober(big, ans->data, ans->len);
 	return ans;
 }
 

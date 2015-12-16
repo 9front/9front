@@ -2246,7 +2246,7 @@ X509verifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub 
 		return e;
 	if(digestalg[sigalg]->len != edigestlen)
 		return "bad digest length";
-	if(memcmp(digest, edigest, edigestlen) != 0)
+	if(tsmemcmp(digest, edigest, edigestlen) != 0)
 		return "digests did not match";
 	return nil;
 }
@@ -2262,7 +2262,7 @@ X509verifydata(uchar *sig, int siglen, uchar *data, int datalen, RSApub *pk)
 	if(e != nil)
 		return e;
 	(*digestalg[sigalg]->fun)(data, datalen, edigest, nil);
-	if(memcmp(digest, edigest, digestalg[sigalg]->len) != 0)
+	if(tsmemcmp(digest, edigest, digestalg[sigalg]->len) != 0)
 		return "digests did not match";
 	return nil;
 }

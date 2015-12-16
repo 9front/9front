@@ -517,7 +517,6 @@ base58dec(char *src, uchar *dst, int len)
 {
 	mpint *n, *b, *r;
 	char *t;
-	int l;
 	
 	n = mpnew(0);
 	r = mpnew(0);
@@ -535,9 +534,7 @@ base58dec(char *src, uchar *dst, int len)
 		mpmul(n, b, n);
 		mpadd(n, r, n);
 	}
-	memset(dst, 0, len);
-	l = (mpsignif(n) + 7) / 8;
-	mptobe(n, dst + (len - l), l, nil);
+	mptober(n, dst, len);
 	mpfree(n);
 	mpfree(r);
 	mpfree(b);
