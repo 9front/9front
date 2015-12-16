@@ -192,8 +192,9 @@ main(int argc, char **argv)
 		char fromserversecret[21];
 		int i;
 
-		assert(ai->nsecret <= sizeof(key)-4);
-		memmove(key+4, ai->secret, ai->nsecret);
+		if(ai->nsecret < 8)
+			sysfatal("secret too small to ssl");
+		memmove(key+4, ai->secret, 8);
 
 		/* exchange random numbers */
 		srand(truerand());
