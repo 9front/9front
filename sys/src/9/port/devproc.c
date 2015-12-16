@@ -163,8 +163,6 @@ static int topens;
 static int tproduced, tconsumed;
 void (*proctrace)(Proc*, int, vlong);
 
-extern int unfair;
-
 static void
 profclock(Ureg *ur, Timer *)
 {
