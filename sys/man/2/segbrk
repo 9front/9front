@@ -24,8 +24,8 @@ A call to
 .I segbrk
 with a zero
 .I addr
-argument returns the address
-of the top of bss.
+argument returns the base address of the segment without
+altering its size.
 .PP
 The system will prevent segments from overlapping and will not allow the
 length of the
@@ -46,13 +46,6 @@ returns
 .B (void*)-1
 on error.
 .SH BUGS
-.I Segbrk
-is not fully defined or implemented.
-In particular,
-it cannot always return the top of bss
-when called with a zero
-.I addr
-argument.
 The
 .I segbrk
 system call may go away or be re-implemented

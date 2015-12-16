@@ -376,7 +376,7 @@ putimage(Image *i)
 		ccloseq(c);	/* does not block */
 }
 
-long
+uintptr
 ibrk(uintptr addr, int seg)
 {
 	Segment *s, *ns;
