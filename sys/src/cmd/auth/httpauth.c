@@ -1,36 +1,6 @@
 #include <u.h>
 #include <libc.h>
-#include <authsrv.h>
-
-int
-httpauth(char *name, char *password)
-{
-	int afd;
-	Ticketreq tr;
-	Ticket	t;
-	Authkey key;
-
-	afd = authdial(nil, nil);
-	if(afd < 0)
-		return -1;
-
-	passtokey(&key, password);
-
-	/* send ticket request to AS */
-	memset(&tr, 0, sizeof(tr));
-	strcpy(tr.uid, name);
-	tr.type = AuthHttp;
-	if(_asrequest(afd, &tr) < 0){
-		close(afd);
-		return -1;
-	}
-	_asgetresp(afd, &t, nil, &key);
-	close(afd);
-	if(t.num != AuthHr || strcmp(t.cuid, tr.uid) != 0)
-		return -1;
-
-	return 0;
-}
+#include <auth.h>
 
 void
 usage(void)
@@ -73,7 +43,7 @@ main(int argc, char *argv[])
 	}
 	if(*s == '\0')
 		sysfatal("empty username");
-	if(httpauth(s, a))
+	if(auth_userpasswd(s, a) == nil)
 		sysfatal("bad password");
 	print("%s\n", s);
 	exits(nil);
