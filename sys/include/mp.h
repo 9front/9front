@@ -8,7 +8,6 @@
  * mpdigit must be an atomic type.  mpdigit is defined
  * in the architecture specific u.h
  */
-
 typedef struct mpint mpint;
 
 struct mpint
@@ -25,6 +24,7 @@ enum
 	MPstatic=	0x01,	/* static constant */
 	MPnorm=		0x02,	/* normalization status */
 	MPtimesafe=	0x04,	/* request time invariant computation */
+	MPfield=	0x08,	/* this mpint is a field modulus */
 
 	Dbytes=		sizeof(mpdigit),	/* bytes per digit */
 	Dbits=		Dbytes*8		/* bits per digit */
@@ -165,5 +165,18 @@ void	crtout(CRTpre*, CRTres*, mpint*);	/* convert residues to mpint */
 void	crtprefree(CRTpre*);
 void	crtresfree(CRTres*);
 
+/* fast field arithmetic */
+typedef struct Mfield	Mfield;
+
+struct Mfield
+{
+	mpint;
+	int	(*reduce)(Mfield*, mpint*, mpint*);
+};
+
+mpint *mpfield(mpint*);
+
+Mfield *gmfield(mpint*);
+Mfield *cnfield(mpint*);
 
 #pragma	varargck	type	"B"	mpint*
