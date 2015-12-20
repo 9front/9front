@@ -44,21 +44,22 @@ to32(mpint *b, char *buf, int len)
 static char set16[] = "0123456789ABCDEF";
 
 static int
-to16(mpint *b, char *buf, int len)
+topow2(mpint *b, char *buf, int len, int s)
 {
 	mpdigit *p, x;
-	int i, j;
+	int i, j, sn;
 	char *out, *eout;
 
 	if(len < 1)
 		return -1;
 
+	sn = 1<<s;
 	out = buf;
 	eout = buf+len;
 	for(p = &b->p[b->top-1]; p >= b->p; p--){
 		x = *p;
-		for(i = Dbits-4; i >= 0; i -= 4){
-			j = 0xf & (x>>i);
+		for(i = Dbits-s; i >= 0; i -= s){
+			j = x >> i & sn - 1;
 			if(j != 0 || out != buf){
 				if(out >= eout)
 					return -1;
@@ -190,10 +191,16 @@ mptoa(mpint *b, int base, char *buf, int len)
 		break;
 	default:
 	case 16:
-		rv = to16(b, out, len);
+		rv = topow2(b, out, len, 4);
 		break;
 	case 10:
 		rv = to10(b, out, len);
+		break;
+	case 4:
+		rv = topow2(b, out, len, 2);
+		break;
+	case 2:
+		rv = topow2(b, out, len, 1);
 		break;
 	}
 	if(rv < 0){
