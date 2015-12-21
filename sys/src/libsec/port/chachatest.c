@@ -57,6 +57,26 @@ uchar	ccptag[] = {
 	0x1a, 0xe1, 0x0b, 0x59, 0x4f, 0x09, 0xe2, 0x6a, 0x7e, 0x90, 0x2e, 0xcb, 0xd0, 0x60, 0x06, 0x91,
 };
 
+uchar	ccp64aad[] = {
+	0x87, 0xe2, 0x29, 0xd4, 0x50, 0x08, 0x45, 0xa0, 0x79, 0xc0,
+};
+uchar	ccp64key[] = {
+	0x42, 0x90, 0xbc, 0xb1, 0x54, 0x17, 0x35, 0x31, 0xf3, 0x14, 0xaf, 0x57, 0xf3, 0xbe, 0x3b, 0x50,
+	0x06, 0xda, 0x37, 0x1e, 0xce, 0x27, 0x2a, 0xfa, 0x1b, 0x5d, 0xbd, 0xd1, 0x10, 0x0a, 0x10, 0x07,
+};
+uchar	ccp64iv[] = {
+	0xcd, 0x7c, 0xf6, 0x7b, 0xe3, 0x9c, 0x79, 0x4a,
+};
+uchar	ccp64inp[] = {
+	0x86, 0xd0, 0x99, 0x74, 0x84, 0x0b, 0xde, 0xd2, 0xa5, 0xca, 
+};
+uchar	ccp64out[] = {
+	0xe3, 0xe4, 0x46, 0xf7, 0xed, 0xe9, 0xa1, 0x9b, 0x62, 0xa4,
+};
+uchar	ccp64tag[] = {
+	0x67, 0x7d, 0xab, 0xf4, 0xe3, 0xd2, 0x4b, 0x87, 0x6b, 0xb2, 0x84, 0x75, 0x38, 0x96, 0xe1, 0xd6,
+};
+
 void
 main(int argc, char **argv)
 {
@@ -112,6 +132,42 @@ main(int argc, char **argv)
 
 	if(memcmp(rfcout, rfctext, sizeof(rfctext)-1) != 0){
 		print("ccpoly bad decryption\n");
+		exits("wrong");
+	}
+	print("\n");
+
+	print("ccpoly64 key:\n");
+	printblock(ccp64key, sizeof(ccp64key));
+
+	print("ccpoly64 iv:\n");
+	printblock(ccp64iv, sizeof(ccp64iv));
+
+	setupChachastate(&s, ccp64key, sizeof(ccp64key), ccp64iv, sizeof(ccp64iv), 20);
+
+	memmove(rfcout, ccp64inp, sizeof(ccp64inp));
+	ccpoly_encrypt(rfcout, sizeof(ccp64inp), ccp64aad, sizeof(ccp64aad), tag, &s);
+
+	print("ccpoly64 cipher:\n");
+	printblock(rfcout, sizeof(ccp64inp));
+
+	print("ccpoly64 tag:\n");
+	printblock(tag, sizeof(tag));
+
+	if(memcmp(rfcout, ccp64out, sizeof(ccp64out)) != 0){
+		print("ccpoly64 bad ciphertext\n");
+		exits("wrong");
+	}
+	if(memcmp(tag, ccp64tag, sizeof(ccp64tag)) != 0){
+		print("ccpoly64 bad encryption tag\n");
+		exits("wrong");
+	}
+
+	if(ccpoly_decrypt(rfcout, sizeof(ccp64inp), ccp64aad, sizeof(ccp64aad), tag, &s) != 0){
+		print("ccpoly64 decryption failed\n");
+		exits("wrong");
+	}
+	if(memcmp(rfcout, ccp64inp, sizeof(ccp64inp)) != 0){
+		print("ccpoly64 bad decryption\n");
 		exits("wrong");
 	}
 

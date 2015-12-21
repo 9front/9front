@@ -283,6 +283,10 @@ enum {
 };
 
 static Algs cipherAlgs[] = {
+	{"ccpoly96_aead", "clear", 2*(32+12), 0xCCA8},	// TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 (IETF)
+	{"ccpoly96_aead", "clear", 2*(32+12), 0xCCAA},	// TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256 (IETF)
+	{"ccpoly64_aead", "clear", 2*32, 0xCC13},	// TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 (draft)
+	{"ccpoly64_aead", "clear", 2*32, 0xCC15},	// TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256 (draft)
 	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256},
 	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA},
 	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
@@ -778,10 +782,11 @@ static int
 isDHE(int tlsid)
 {
 	switch(tlsid){
- 	case TLS_DHE_RSA_WITH_AES_128_CBC_SHA256:
+	case TLS_DHE_RSA_WITH_AES_128_CBC_SHA256:
  	case TLS_DHE_RSA_WITH_AES_128_CBC_SHA:
  	case TLS_DHE_RSA_WITH_AES_256_CBC_SHA:
  	case TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA:
+ 	case 0xCCAA: case 0xCC15:	// TLS_DHE_RSA_WITH_CHACHA20_POLY1305_SHA256
 		return 1;
 	}
 	return 0;
@@ -794,6 +799,7 @@ isECDHE(int tlsid)
 	case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
 	case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:
 	case TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:
+	case 0xCCA8: case 0xCC13:	// TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
 		return 1;
 	}
 	return 0;

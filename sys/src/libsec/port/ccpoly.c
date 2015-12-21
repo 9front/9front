@@ -15,7 +15,7 @@ ccpolyotk(Chachastate *cs, DigestState *ds)
 }
 
 static void
-ccpolymac(uchar *buf, ulong nbuf, DigestState *ds)
+ccpolypad(uchar *buf, ulong nbuf, DigestState *ds)
 {
 	static uchar zeros[16] = {0};
 	ulong npad;
@@ -30,29 +30,19 @@ ccpolymac(uchar *buf, ulong nbuf, DigestState *ds)
 }
 
 static void
-ccpolytag(ulong ndat, ulong naad, uchar tag[16], DigestState *ds)
+ccpolylen(ulong n, uchar tag[16], DigestState *ds)
 {
-	uchar info[16];
+	uchar info[8];
 
-	info[0] = naad;
-	info[1] = naad>>8;
-	info[2] = naad>>16;
-	info[3] = naad>>24;
+	info[0] = n;
+	info[1] = n>>8;
+	info[2] = n>>16;
+	info[3] = n>>24;
 	info[4] = 0;
 	info[5] = 0;
 	info[6] = 0;
 	info[7] = 0;
-
-	info[8]  = ndat;
-	info[9]  = ndat>>8;
-	info[10] = ndat>>16;
-	info[11] = ndat>>24;
-	info[12] = 0;
-	info[13] = 0;
-	info[14] = 0;
-	info[15] = 0;
-
-	poly1305(info, 16, nil, 0, tag, ds);
+	poly1305(info, 8, nil, 0, tag, ds);
 }
 
 void
@@ -61,10 +51,19 @@ ccpoly_encrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], Ch
 	DigestState ds;
 
 	ccpolyotk(cs, &ds);
-	ccpolymac(aad, naad, &ds);
-	chacha_encrypt(dat, ndat, cs);
-	ccpolymac(dat, ndat, &ds);
-	ccpolytag(ndat, naad, tag, &ds);
+	if(cs->ivwords == 2){
+		poly1305(aad, naad, nil, 0, nil, &ds);
+		ccpolylen(naad, nil, &ds);
+		chacha_encrypt(dat, ndat, cs);
+		poly1305(dat, ndat, nil, 0, nil, &ds);
+		ccpolylen(ndat, tag, &ds);
+	} else {
+		ccpolypad(aad, naad, &ds);
+		chacha_encrypt(dat, ndat, cs);
+		ccpolypad(dat, ndat, &ds);
+		ccpolylen(naad, nil, &ds);
+		ccpolylen(ndat, tag, &ds);
+	}
 }
 
 int
@@ -74,9 +73,17 @@ ccpoly_decrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], Ch
 	uchar tmp[16];
 
 	ccpolyotk(cs, &ds);
-	ccpolymac(aad, naad, &ds);
-	ccpolymac(dat, ndat, &ds);
-	ccpolytag(ndat, naad, tmp, &ds);
+	if(cs->ivwords == 2){
+		poly1305(aad, naad, nil, 0, nil, &ds);
+		ccpolylen(naad, nil, &ds);
+		poly1305(dat, ndat, nil, 0, nil, &ds);
+		ccpolylen(ndat, tmp, &ds);
+	} else {
+		ccpolypad(aad, naad, &ds);
+		ccpolypad(dat, ndat, &ds);
+		ccpolylen(naad, nil, &ds);
+		ccpolylen(ndat, tmp, &ds);
+	}
 	if(tsmemcmp(tag, tmp, 16) != 0)
 		return -1;
 	chacha_encrypt(dat, ndat, cs);

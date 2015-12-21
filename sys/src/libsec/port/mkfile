@@ -47,3 +47,6 @@ UPDATE=mkfile\
 
 $O.rsatest: rsatest.$O
 	$LD -o $target $prereq
+
+$O.chachatest: chachatest.$O
+	$LD -o $target $prereq

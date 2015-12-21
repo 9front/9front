@@ -87,17 +87,21 @@ struct Secret
 	int		(*dec)(Secret*, uchar*, int);
 	int		(*unpad)(uchar*, int, int);
 	DigestState	*(*mac)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
+
+	int		(*aead_enc)(Secret*, uchar*, int, uchar*, int);
+	int		(*aead_dec)(Secret*, uchar*, int, uchar*, int);
+
 	int		block;		/* encryption block len, 0 if none */
 	int		maclen;
 	void		*enckey;
-	uchar	mackey[MaxMacLen];
+	uchar		mackey[MaxMacLen];
 };
 
 struct OneWay
 {
 	QLock		io;		/* locks io access */
 	QLock		seclock;	/* locks secret paramaters */
-	ulong		seq;
+	u64int		seq;
 	Secret		*sec;		/* cipher in use */
 	Secret		*new;		/* cipher waiting for enable */
 };
@@ -119,8 +123,11 @@ struct TlsRec
 	int		state;
 	int		debug;
 
-	/* record layer mac functions for different protocol versions */
-	void		(*packMac)(Secret*, uchar*, uchar*, uchar*, uchar*, int, uchar*);
+	/*
+	 * function to genrate authenticated data blob for different
+	 * protocol versions
+	 */
+	int		(*packAAD)(u64int, uchar*, uchar*);
 
 	/* input side -- protected by in.io */
 	OneWay		in;
@@ -221,9 +228,10 @@ static TlsRec	*mktlsrec(void);
 static DigestState*sslmac_md5(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DigestState *s);
 static DigestState*sslmac_sha1(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DigestState *s);
 static DigestState*nomac(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DigestState *s);
-static void	sslPackMac(Secret *sec, uchar *mackey, uchar *seq, uchar *header, uchar *body, int len, uchar *mac);
-static void	tlsPackMac(Secret *sec, uchar *mackey, uchar *seq, uchar *header, uchar *body, int len, uchar *mac);
-static void	put64(uchar *p, vlong x);
+static int	sslPackAAD(u64int, uchar*, uchar*);
+static int	tlsPackAAD(u64int, uchar*, uchar*);
+static void	packMac(Secret*, uchar*, int, uchar*, int, uchar*);
+static void	put64(uchar *p, u64int);
 static void	put32(uchar *p, u32int);
 static void	put24(uchar *p, int);
 static void	put16(uchar *p, int);
@@ -238,6 +246,8 @@ static int	des3enc(Secret *sec, uchar *buf, int n);
 static int	des3dec(Secret *sec, uchar *buf, int n);
 static int	aesenc(Secret *sec, uchar *buf, int n);
 static int	aesdec(Secret *sec, uchar *buf, int n);
+static int	ccpoly_aead_enc(Secret *sec, uchar *aad, int aadlen, uchar *data, int len);
+static int	ccpoly_aead_dec(Secret *sec, uchar *aad, int aadlen, uchar *data, int len);
 static int	noenc(Secret *sec, uchar *buf, int n);
 static int	sslunpad(uchar *buf, int n, int block);
 static int	tlsunpad(uchar *buf, int n, int block);
@@ -734,9 +744,10 @@ tlsrecread(TlsRec *tr)
 {
 	OneWay *volatile in;
 	Block *volatile b;
-	uchar *p, seq[8], header[RecHdrLen], hmac[MaxMacLen];
+	uchar *p, aad[8+RecHdrLen], header[RecHdrLen], hmac[MaxMacLen];
 	int volatile nconsumed;
-	int len, type, ver, unpad_len;
+	int len, type, ver, unpad_len, aadlen, ivlen;
+	Secret *sec;
 
 	nconsumed = 0;
 	if(waserror()){
@@ -798,36 +809,44 @@ if(tr->debug) pprint("consumed unprocessed %d\n", len);
 	}
 	qlock(&in->seclock);
 	p = b->rp;
-	if(in->sec != nil) {
+	sec = in->sec;
+	if(sec != nil) {
 		/* to avoid Canvel-Hiltgen-Vaudenay-Vuagnoux attack, all errors here
 		        should look alike, including timing of the response. */
-		unpad_len = (*in->sec->dec)(in->sec, p, len);
-
-		/* excplicit iv */
-		if(tr->version >= TLS11Version){
-			len -= in->sec->block;
-			if(len < 0)
-				rcvError(tr, EDecodeError, "runt record message");
-
-			unpad_len -= in->sec->block;
-			p += in->sec->block;
-		}
-
-		if(unpad_len >= in->sec->maclen)
-			len = unpad_len - in->sec->maclen;
-
+		if(sec->aead_dec != nil)
+			unpad_len = len;
+		else {
+			unpad_len = (*sec->dec)(sec, p, len);
 if(tr->debug) pprint("decrypted %d\n", unpad_len);
 if(tr->debug) pdump(unpad_len, p, "decrypted:");
+		}
+
+		if(tr->version >= TLS11Version){
+			ivlen = sec->block;
+			len -= ivlen;
+			if(len < 0)
+				rcvError(tr, EDecodeError, "runt record message");
+			unpad_len -= ivlen;
+			p += ivlen;
+		}
+
+		if(unpad_len >= sec->maclen)
+			len = unpad_len - sec->maclen;
 
 		/* update length */
 		put16(header+3, len);
-		put64(seq, in->seq);
-		in->seq++;
-		(*tr->packMac)(in->sec, in->sec->mackey, seq, header, p, len, hmac);
-		if(unpad_len < in->sec->maclen)
-			rcvError(tr, EBadRecordMac, "short record mac");
-		if(memcmp(hmac, p+len, in->sec->maclen) != 0)
-			rcvError(tr, EBadRecordMac, "record mac mismatch");
+		aadlen = (*tr->packAAD)(in->seq++, header, aad);
+		if(sec->aead_dec != nil) {
+			len = (*sec->aead_dec)(sec, aad, aadlen, p, unpad_len);
+			if(len < 0)
+				rcvError(tr, EBadRecordMac, "record mac mismatch");
+		} else {
+			packMac(sec, aad, aadlen, p, len, hmac);
+			if(unpad_len < sec->maclen)
+				rcvError(tr, EBadRecordMac, "short record mac");
+			if(tsmemcmp(hmac, p + len, sec->maclen) != 0)
+				rcvError(tr, EBadRecordMac, "record mac mismatch");
+		}
 		b->rp = p;
 		b->wp = p+len;
 	}
@@ -1239,9 +1258,10 @@ tlsrecwrite(TlsRec *tr, int type, Block *b)
 {
 	Block *volatile bb;
 	Block *nb;
-	uchar *p, seq[8];
+	uchar *p, aad[8+RecHdrLen];
 	OneWay *volatile out;
-	int n, ivlen, maclen, pad, ok;
+	int n, ivlen, maclen, aadlen, pad, ok;
+	Secret *sec;
 
 	out = &tr->out;
 	bb = b;
@@ -1275,11 +1295,12 @@ if(tr->debug)pdump(BLEN(b), b->rp, "sent:");
 		maclen = 0;
 		pad = 0;
 		ivlen = 0;
-		if(out->sec != nil){
-			maclen = out->sec->maclen;
-			pad = maclen + out->sec->block;
+		sec = out->sec;
+		if(sec != nil){
+			maclen = sec->maclen;
+			pad = maclen + sec->block;
 			if(tr->version >= TLS11Version)
-				ivlen = out->sec->block;
+				ivlen = sec->block;
 		}
 		n = BLEN(bb);
 		if(n > MaxRecLen){
@@ -1304,20 +1325,16 @@ if(tr->debug)pdump(BLEN(b), b->rp, "sent:");
 		put16(p+1, tr->version);
 		put16(p+3, n);
 
-		if(out->sec != nil){
-			put64(seq, out->seq);
-			out->seq++;
-			(*tr->packMac)(out->sec, out->sec->mackey, seq, p, p + RecHdrLen + ivlen, n, p + RecHdrLen + ivlen + n);
-			n += maclen;
-
-			/* explicit iv */
-			if(ivlen > 0){
+		if(sec != nil){
+			if(ivlen > 0)
 				randfill(p + RecHdrLen, ivlen);
-				n += ivlen;
+			aadlen = (*tr->packAAD)(out->seq++, p, aad);
+			if(sec->aead_enc != nil)
+				n = (*sec->aead_enc)(sec, aad, aadlen, p + RecHdrLen + ivlen, n) + ivlen;
+			else {
+				packMac(sec, aad, aadlen, p + RecHdrLen + ivlen, n, p + RecHdrLen + ivlen + n);
+				n = (*sec->enc)(sec, p + RecHdrLen, ivlen + n + maclen);
 			}
-
-			/* encrypt */
-			n = (*out->sec->enc)(out->sec, p + RecHdrLen, n);
 			nb->wp = p + RecHdrLen + n;
 
 			/* update length */
@@ -1489,6 +1506,27 @@ initAESkey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 }
 
 static void
+initccpolykey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
+{
+	s->enckey = smalloc(sizeof(Chachastate));
+	s->enc = noenc;
+	s->dec = noenc;
+	s->mac = nomac;
+	s->aead_enc = ccpoly_aead_enc;
+	s->aead_dec = ccpoly_aead_dec;
+	s->block = 0;
+	s->maclen = Poly1305dlen;
+	if(ea->ivlen == 0) {
+		/* older draft version, iv is 64-bit sequence number */
+		setupChachastate(s->enckey, p, ea->keylen, nil, 64/8, 20);
+	} else {
+		/* IETF standard, 96-bit iv xored with sequence number */
+		memmove(s->mackey, iv, ea->ivlen);
+		setupChachastate(s->enckey, p, ea->keylen, iv, ea->ivlen, 20);
+	}
+}
+
+static void
 initclearenc(Encalg *, Secret *s, uchar *, uchar *)
 {
 	s->enc = noenc;
@@ -1503,6 +1541,8 @@ static Encalg encrypttab[] =
 	{ "3des_ede_cbc", 3 * 8, 8, initDES3key },
 	{ "aes_128_cbc", 128/8, 16, initAESkey },
 	{ "aes_256_cbc", 256/8, 16, initAESkey },
+	{ "ccpoly64_aead", 256/8, 0, initccpolykey },
+	{ "ccpoly96_aead", 256/8, 96/8, initccpolykey },
 	{ 0 }
 };
 
@@ -1607,9 +1647,9 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 		if(m < MinProtoVersion || m > MaxProtoVersion)
 			error("unsupported version");
 		if(m == SSL3Version)
-			tr->packMac = sslPackMac;
+			tr->packAAD = sslPackAAD;
 		else
-			tr->packMac = tlsPackMac;
+			tr->packAAD = tlsPackAAD;
 		tr->verset = 1;
 		tr->version = m;
 	}else if(strcmp(cb->f[0], "secret") == 0){
@@ -2094,6 +2134,46 @@ aesdec(Secret *sec, uchar *buf, int n)
 	return (*sec->unpad)(buf, n, 16);
 }
 
+static void
+ccpoly_aead_setiv(Secret *sec, uchar seq[8])
+{
+	uchar iv[ChachaIVlen];
+	Chachastate *cs;
+	int i;
+
+	cs = (Chachastate*)sec->enckey;
+	if(cs->ivwords == 2){
+		chacha_setiv(cs, seq);
+		return;
+	}
+
+	memmove(iv, sec->mackey, ChachaIVlen);
+	for(i=0; i<8; i++)
+		iv[i+(ChachaIVlen-8)] ^= seq[i];
+
+	chacha_setiv(cs, iv);
+}
+
+static int
+ccpoly_aead_enc(Secret *sec, uchar *aad, int aadlen, uchar *data, int len)
+{
+	ccpoly_aead_setiv(sec, aad);
+	ccpoly_encrypt(data, len, aad, aadlen, data+len, sec->enckey);
+	return len + sec->maclen;
+}
+
+static int
+ccpoly_aead_dec(Secret *sec, uchar *aad, int aadlen, uchar *data, int len)
+{
+	len -= sec->maclen;
+	if(len < 0)
+		return -1;
+	ccpoly_aead_setiv(sec, aad);
+	if(ccpoly_decrypt(data, len, aad, aadlen, data+len, sec->enckey) != 0)
+		return -1;
+	return len;
+}
+
 static DigestState*
 nomac(uchar *, ulong, uchar *, ulong, uchar *, DigestState *)
 {
@@ -2153,32 +2233,35 @@ sslmac_md5(uchar *p, ulong len, uchar *key, ulong klen, uchar *digest, DigestSta
 	return sslmac_x(p, len, key, klen, digest, s, md5, MD5dlen, 48);
 }
 
-static void
-sslPackMac(Secret *sec, uchar *mackey, uchar *seq, uchar *header, uchar *body, int len, uchar *mac)
+static int
+sslPackAAD(u64int seq, uchar *hdr, uchar *aad)
 {
-	DigestState *s;
-	uchar buf[11];
+	put64(aad, seq);
+	aad[8] = hdr[0];
+	aad[9] = hdr[3];
+	aad[10] = hdr[4];
+	return 11;
+}
 
-	memmove(buf, seq, 8);
-	buf[8] = header[0];
-	buf[9] = header[3];
-	buf[10] = header[4];
-
-	s = (*sec->mac)(buf, 11, mackey, sec->maclen, 0, 0);
-	(*sec->mac)(body, len, mackey, sec->maclen, mac, s);
+static int
+tlsPackAAD(u64int seq, uchar *hdr, uchar *aad)
+{
+	put64(aad, seq);
+	aad[8] = hdr[0];
+	aad[9] = hdr[1];
+	aad[10] = hdr[2];
+	aad[11] = hdr[3];
+	aad[12] = hdr[4];
+	return 13;
 }
 
 static void
-tlsPackMac(Secret *sec, uchar *mackey, uchar *seq, uchar *header, uchar *body, int len, uchar *mac)
+packMac(Secret *sec, uchar *aad, int aadlen, uchar *body, int bodylen, uchar *mac)
 {
 	DigestState *s;
-	uchar buf[13];
 
-	memmove(buf, seq, 8);
-	memmove(&buf[8], header, 5);
-
-	s = (*sec->mac)(buf, 13, mackey, sec->maclen, 0, 0);
-	(*sec->mac)(body, len, mackey, sec->maclen, mac, s);
+	s = (*sec->mac)(aad, aadlen, sec->mackey, sec->maclen, nil, nil);
+	(*sec->mac)(body, bodylen, sec->mackey, sec->maclen, mac, s);
 }
 
 static void
@@ -2191,10 +2274,10 @@ put32(uchar *p, u32int x)
 }
 
 static void
-put64(uchar *p, vlong x)
+put64(uchar *p, u64int x)
 {
-	put32(p, (u32int)(x >> 32));
-	put32(p+4, (u32int)x);
+	put32(p, x >> 32);
+	put32(p+4, x);
 }
 
 static void

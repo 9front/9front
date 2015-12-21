@@ -63,6 +63,10 @@ poly1305(uchar *m, ulong len, uchar *key, ulong klen, uchar *digest, DigestState
 		if(s->blen == 16){
 			s->blen = 0;
 			poly1305(s->buf, 16, key, klen, nil, s);
+		} else if(len == 0){
+			m = s->buf;
+			len = s->blen;
+			s->blen = 0;
 		}
 	}
 
