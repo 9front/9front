@@ -129,7 +129,7 @@ long		hostownerwrite(char*, int);
 void		hzsched(void);
 Block*		iallocb(int);
 void		iallocsummary(void);
-long		ibrk(uintptr, int);
+uintptr		ibrk(uintptr, int);
 void		ilock(Lock*);
 void		interrupted(void);
 void		iunlock(Lock*);

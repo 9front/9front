@@ -775,7 +775,7 @@ syssegbrk(va_list list)
 		case SG_FIXED:
 			error(Ebadarg);
 		default:
-			return (uintptr)ibrk(va_arg(list, uintptr), i);
+			return ibrk(va_arg(list, uintptr), i);
 		}
 	}
 	error(Ebadarg);
@@ -886,7 +886,7 @@ syssegfree(va_list list)
 uintptr
 sysbrk_(va_list list)
 {
-	return (uintptr)ibrk(va_arg(list, uintptr), BSEG);
+	return ibrk(va_arg(list, uintptr), BSEG);
 }
 
 uintptr
