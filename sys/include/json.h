@@ -4,6 +4,8 @@
 typedef struct JSONEl JSONEl;
 typedef struct JSON JSON;
 
+#pragma varargck type "J" JSON*
+
 enum {
 	JSONNull,
 	JSONBool,
@@ -33,3 +35,5 @@ JSON*	jsonparse(char *);
 void	jsonfree(JSON *);
 JSON*	jsonbyname(JSON *, char *);
 char*	jsonstr(JSON *);
+int	JSONfmt(Fmt*);
+void	JSONfmtinstall(void);

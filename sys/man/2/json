@@ -40,10 +40,12 @@ struct JSON
 	};
 };
 
-JSON*	jsonparse(char *);
-void	jsonfree(JSON *);
-JSON*	jsonbyname(JSON *, char *);
-char*	jsonstr(JSON *);
+JSON*	jsonparse(char *s);
+void	jsonfree(JSON *j);
+JSON*	jsonbyname(JSON *j, char *s);
+char*	jsonstr(JSON *j);
+int	JSONfmt(Fmt *f)
+void	JSONfmtinstall(void);
 .EE
 .SH DESCRIPTION
 The
@@ -76,7 +78,7 @@ Dictionary objects have the
 member set to the key of the association.
 .P
 A json object is parsed by calling
-.B jsonparse
+.I jsonparse
 with a
 .B UTF-8
 string of the json encoded data. On success, a non-nil pointer to a
@@ -84,26 +86,41 @@ newly allocated
 .B JSON
 structure is returned.
 To free the parsed objects,
-.B jsonfree
+.I jsonfree
 has to be called.
 .P
 The
-.B jsonbyname
+.I jsonbyname
 function returns the associated value of a dictionary item.
 .P
 The function
-.B jsonstr
+.I jsonstr
 returns the string value of a json object or
 .B nil
 for any other object type.
+.P
+.I JSONfmt
+is a
+.IR print (2)
+formatting routine that prints a well-formatted JSON structure.
+It can be installed by hand but
+.I JSONfmtinstall
+installs it under the standard format character J. The header
+.B <json.h>
+contains a #pragma statement so the compiler can
+type-check uses of
+.B %J
+in
+.IR print (2)
+format strings.
 .SH SOURCE
 .B /sys/src/libjson
 .SH DIAGNOSTICS
 The functions
-.IB jsonparse ,
-.B jsonbyname
+.I jsonparse,
+.I jsonbyname
 and
-.B jsonstr
+.I jsonstr
 return
 .B nil
 on error and set an error string (see
