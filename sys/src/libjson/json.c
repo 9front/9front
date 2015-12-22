@@ -22,8 +22,6 @@ struct Lex
 	double n;
 	char *buf;
 	Rune peeked;
-	jmp_buf jmp;
-	int canjmp;
 };
 
 static Rune
@@ -48,6 +46,20 @@ peekch(Lex *l)
 	if(!l->peeked)
 		l->peeked = getch(l);
 	return l->peeked;
+}
+
+static Rune
+peeknonspace(Lex *l)
+{
+	Rune r;
+
+	for(;;){
+		r = peekch(l);
+		if(r != 0x20 && r != 0x09 && r != 0x0A && r != 0x0D)
+			break;
+		getch(l);
+	}
+	return r;
 }
 
 static int
@@ -81,16 +93,8 @@ lex(Lex *l)
 	int i;
 	char c;
 
-	for(;;){
-		r = peekch(l);
-		if(r != 0x20 && r != 0x09 && r != 0x0A && r != 0x0D)
-			break;
-		getch(l);
-	}
+	peeknonspace(l);
 	r = getch(l);
-	if(r == ']' && l->canjmp)
-		longjmp(l->jmp, 1);
-	l->canjmp = 0;
 	if(r == 0 || r == '{' || r == '[' || r == ']' || r == '}' || r == ':' || r == ','){
 		l->t = r;
 		return 0;
@@ -241,7 +245,6 @@ error:
 	case '[':
 		obj = l->t == '{';
 		ln = &j->first;
-		e = nil;
 		if(obj){
 			j->t = JSONObject;
 			if(lex(l) < 0)
@@ -251,9 +254,8 @@ error:
 			goto firstobj;
 		}else{
 			j->t = JSONArray;
-			l->canjmp = 1;
-			if(setjmp(l->jmp) > 0){
-				free(e);
+			if(peeknonspace(l) == ']'){
+				getch(l);
 				return j;
 			}
 		}
