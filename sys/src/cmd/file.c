@@ -674,6 +674,7 @@ Fileoffmag longofftab[] = {
 	128*1024, 0x89ae7637, 0xFFFFFFFF, "fossil write buffer", OCTET,
 	4,	  0x31647542, 0xFFFFFFFF, "OS X finder properties", OCTET,
 	0x100,	  0x41474553, 0xFFFFFFFF, "SEGA ROM", OCTET,
+	0x1fc,	  0xAA550000, 0xFFFF0000, "bootable disk image", OCTET,
 };
 
 int
