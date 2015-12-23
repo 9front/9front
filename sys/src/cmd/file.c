@@ -628,6 +628,11 @@ Filemagic long0tab[] = {
 	0xad4e5cd1,	0xFFFFFFFF,	"venti arena", OCTET,
 	0x2bb19a52,	0xFFFFFFFF,	"paq archive", OCTET,
 	0x1a53454e,	0xFFFFFFFF,	"NES ROM", OCTET,
+	/* tcpdump pcap file */
+	0xa1b2c3d4,	0xFFFFFFFF,	"pcap file",	"application/vnd.tcpdump.pcap",
+	0xd4c3b2a1,	0xFFFFFFFF,	"pcap file",	"application/vnd.tcpdump.pcap",
+	0xa1b23c4d,	0xFFFFFFFF,	"pcap file",	"application/vnd.tcpdump.pcap",
+	0x4d3cb2a1,	0xFFFFFFFF,	"pcap file",	"application/vnd.tcpdump.pcap",
 };
 
 int
