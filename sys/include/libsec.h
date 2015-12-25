@@ -412,8 +412,10 @@ typedef struct TLSconn{
 	char	dir[40];	/* connection directory */
 	uchar	*cert;	/* certificate (local on input, remote on output) */
 	uchar	*sessionID;
+	uchar	*psk;
 	int	certlen;
 	int	sessionIDlen;
+	int	psklen;
 	int	(*trace)(char*fmt, ...);
 	PEMChain*chain;	/* optional extra certificate evidence for servers to present */
 	char	*sessionType;
@@ -421,6 +423,7 @@ typedef struct TLSconn{
 	int	sessionKeylen;
 	char	*sessionConst;
 	char	*serverName;
+	char	*pskID;
 } TLSconn;
 
 /* tlshand.c */

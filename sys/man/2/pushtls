@@ -100,7 +100,8 @@ typedef struct TLSconn {
 	char	dir[40];		/* OUT    connection directory */
 	uchar *cert;		/* IN/OUT certificate */
 	uchar *sessionID;	/* IN/OUT session ID */
-	int	certlen, sessionIDlen;
+	uchar *psk;		/* opt IN pre-shared key */
+	int	certlen, sessionIDlen, psklen;
 	int	(*trace)(char*fmt, ...);
 	PEMChain *chain;
 	char	*sessionType;	/* opt IN  session type */
@@ -108,6 +109,7 @@ typedef struct TLSconn {
 	int	sessionKeylen;	/* opt IN  session key length */
 	char	*sessionConst;	/* opt IN  session constant */
 	char	*serverName;	/* opt IN  server name */
+	char	*pskID;		/* opt IN  pre-shared key ID */
 } TLSconn;
 .EE
 .PP
