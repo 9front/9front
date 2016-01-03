@@ -337,13 +337,22 @@ convert between
 and
 .B mpint
 representations using the base indicated.
-Only the bases 10, 16, 32, and 64 are
-supported.  Anything else defaults to 16.
+Only the bases 2, 4, 8, 10, 16, 32, and 64 are
+supported.  Base 0 defaults to 16.
 .IR Strtomp
 skips any leading spaces or tabs.
 .IR Strtomp 's
 scan stops when encountering a digit not valid in the
 base.  If
+.I base
+is zero then C-style prefixes are interpreted to
+find the base:
+.B 0x
+for hexadecimal,
+.B 0b
+for binary and
+.B 0
+for octal. Otherwise decimal is assumed.
 .I rptr
 is not zero,
 .I *rptr

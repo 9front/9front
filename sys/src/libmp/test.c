@@ -30,34 +30,34 @@ prng(uchar *p, int n)
 void
 testconv(char *str)
 {
+	int i, base[] = {2,8,10,16,32,64};
 	mpint *b;
 	char *p;
 
+	print("testconv \"%s\":\n", str);
 	b = strtomp(str, nil, 16, nil);
 
-	p = mptoa(b, 10, nil, 0);
-	print("%s = ", p);
-	strtomp(p, nil, 10, b);
-	free(p);
-	print("%B\n", b);
+	for(i=0; i<nelem(base); i++){
+		p = mptoa(b, base[i], nil, 0);
+		print("base%d: %s = ", base[i], p);
+		strtomp(p, nil, base[i], b);
+		free(p);
+		print("%B\n", b, base[i], b);
 
-	p = mptoa(b, 16, nil, 0);
-	print("%s = ", p);
-	strtomp(p, nil, 16, b);
-	free(p);
-	print("%B\n", b);
+		switch(base[i]){
+		case 2:
+		case 8:
+		case 10:
+		case 16:
+			p = smprint("%#.*B", base[i], b);
+			print("# %s = ", p);
+			strtomp(p, nil, 0, b);
+			free(p);
+			print("%#.*B\n", base[i], b);
+			break;
+		}
 
-	p = mptoa(b, 32, nil, 0);
-	print("%s = ", p);
-	strtomp(p, nil, 32, b);
-	free(p);
-	print("%B\n", b);
-
-	p = mptoa(b, 64, nil, 0);
-	print("%s = ", p);
-	strtomp(p, nil, 64, b);
-	free(p);
-	print("%B\n", b);
+	}
 
 	mpfree(b);
 }
@@ -419,6 +419,11 @@ main(int argc, char **argv)
 	testconv("0");
 	testconv("-abc0123456789abcedf");
 	testconv("abc0123456789abcedf");
+	testconv("ffffffff");
+	testconv("aaaaaaaaaaaaaaaaa");
+	testconv("1111111111111111");
+	testconv("33333333333333333333333333333333");
+
 	testvecdigmulsub("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 2);
 	testsub1("1FFFFFFFE00000000", "FFFFFFFE00000001");
 	testmul1("ffffffff", "f");
