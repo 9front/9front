@@ -579,7 +579,9 @@ ecom(Node *f, Node *t)
 		return nil;
 
 	if(f->c == NUM){
-		m = strtomp(f->s->n, nil, 10, nil);
+		m = strtomp(f->s->n, nil, 0, nil);
+		if(m == nil)
+			diag(f, "bad constant");
 		if(mpcmp(m, mpzero) == 0){
 			f->c = NAME;
 			f->s = sym("mpzero");
@@ -643,7 +645,9 @@ ecom(Node *f, Node *t)
 
 	switch(f->c){
 	case NUM:
-		m = strtomp(f->s->n, nil, 10, nil);
+		m = strtomp(f->s->n, nil, 0, nil);
+		if(m == nil)
+			diag(f, "bad constant");
 		if(mpsignif(m) <= 32)
 			cprint("uitomp(%udUL, %N);\n", mptoui(m), t);
 		else if(mpsignif(m) <= 64)
