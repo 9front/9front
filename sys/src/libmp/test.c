@@ -40,7 +40,8 @@ testconv(char *str)
 	for(i=0; i<nelem(base); i++){
 		p = mptoa(b, base[i], nil, 0);
 		print("base%d: %s = ", base[i], p);
-		strtomp(p, nil, base[i], b);
+		if(strtomp(p, nil, base[i], b) == nil)
+			abort();
 		free(p);
 		print("%B\n", b, base[i], b);
 
@@ -51,7 +52,8 @@ testconv(char *str)
 		case 16:
 			p = smprint("%#.*B", base[i], b);
 			print("# %s = ", p);
-			strtomp(p, nil, 0, b);
+			if(strtomp(p, nil, 0, b) == nil)
+				abort();
 			free(p);
 			print("%#.*B\n", base[i], b);
 			break;
