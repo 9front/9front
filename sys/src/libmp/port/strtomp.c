@@ -199,18 +199,19 @@ strtomp(char *a, char **pp, int base, mpint *b)
 	}
 
 	if(base == 0){
-		if(*a == '0'){
-			a++;
-			if(*a == 'x' || *a == 'X') {
-				a++;
+		base = 10;
+		if(a[0] == '0'){
+			if(a[1] == 'x' || a[1] == 'X') {
+				a += 2;
 				base = 16;
-			} else if(*a == 'b' || *a == 'B') {
-				a++;
+			} else if(a[1] == 'b' || a[1] == 'B') {
+				a += 2;
 				base = 2;
-			} else
+			} else if(a[1] >= '0' && a[1] <= '7') {
+				a++;
 				base = 8;
-		} else
-			base = 10;
+			}
+		}
 	}
 
 	switch(base){
