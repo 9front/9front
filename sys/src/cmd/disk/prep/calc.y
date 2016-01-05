@@ -79,7 +79,7 @@ mkOP(int ty, Exp *e1, Exp *e2)
 
 static char *inp;
 static jmp_buf jmp;
-static vlong dot, size, dollar;
+static vlong dot, size, dollar, unit;
 static char** errp;
 
 static int
@@ -110,7 +110,8 @@ yylex(void)
 			n *= 1024;
 			/* fall through */
 		case 'k':
-			n *= 2;
+			n *= 1024;
+			n /= unit;		/* convert to sectors */
 			break;
 		default:
 			--inp;
@@ -164,7 +165,7 @@ eval(Exp *e)
 int yyparse(void);
 
 char*
-parseexpr(char *s, vlong xdot, vlong xdollar, vlong xsize, vlong *result)
+parseexpr(char *s, vlong xdot, vlong xdollar, vlong xsize, vlong xunit, vlong *result)
 {
 	char *err;
 
@@ -176,6 +177,7 @@ parseexpr(char *s, vlong xdot, vlong xdollar, vlong xsize, vlong *result)
 	dot = xdot;
 	size = xsize;
 	dollar = xdollar;
+	unit = xunit;
 	yyparse();
 	if(yyexp == nil)
 		return "nil yylval?";

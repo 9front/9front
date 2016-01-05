@@ -36,6 +36,7 @@ struct Edit {
 	void *aux;
 	vlong dot;
 	vlong end;
+	vlong unitsz;
 
 	/* do not use fields below this line */
 	int changed;
@@ -48,7 +49,7 @@ void	runcmd(Edit*, char*);
 Part	*findpart(Edit*, char*);
 char	*addpart(Edit*, Part*);
 char	*delpart(Edit*, Part*);
-char *parseexpr(char *s, vlong xdot, vlong xdollar, vlong xsize, vlong *result);
+char *parseexpr(char *s, vlong xdot, vlong xdollar, vlong xsize, vlong xunit, vlong *result);
 int	ctldiff(Edit *edit, int ctlfd);
 void *emalloc(ulong);
 char *estrdup(char*);

@@ -129,7 +129,7 @@ editdot(Edit *edit, int argc, char **argv)
 	if(argc > 2)
 		return "args";
 
-	if(err = parseexpr(argv[1], edit->dot, edit->end, edit->end, &ndot))
+	if(err = parseexpr(argv[1], edit->dot, edit->end, edit->end, edit->unitsz, &ndot))
 		return err;
 
 	edit->dot = ndot;
@@ -157,7 +157,7 @@ editadd(Edit *edit, int argc, char **argv)
 		fprint(2, "start %s: ", edit->unit);
 		q = getline(edit);
 	}
-	if(err = parseexpr(q, edit->dot, edit->end, edit->end, &start))
+	if(err = parseexpr(q, edit->dot, edit->end, edit->end, edit->unitsz, &start))
 		return err;
 
 	if(start < 0 || start >= edit->end)
@@ -181,7 +181,7 @@ editadd(Edit *edit, int argc, char **argv)
 		fprint(2, "end [%lld..%lld] ", start, maxend);
 		q = getline(edit);
 	}
-	if(err = parseexpr(q, edit->dot, maxend, edit->end, &end))
+	if(err = parseexpr(q, edit->dot, maxend, edit->end, edit->unitsz, &end))
 		return err;
 
 	if(start == end)

@@ -294,6 +294,7 @@ main(int argc, char **argv)
 		edit.disk->secsize = secsize;
 		edit.disk->secs = edit.disk->size / secsize;
 	}
+	edit.unitsz = edit.disk->secsize;
 	edit.end = edit.disk->secs;
 
 	if(blank)

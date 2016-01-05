@@ -160,6 +160,7 @@ main(int argc, char **argv)
 		disk->secsize = secsize;
 		disk->secs = disk->size / secsize;
 	}
+	edit.unitsz = disk->secsize;
 	edit.end = disk->secs;
 
 	checkfat(disk);

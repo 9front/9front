@@ -141,8 +141,8 @@ main(int argc, char **argv)
 		edit.disk->secsize = secsize;
 		edit.disk->secs = edit.disk->size / secsize;
 	}
-
 	sec2cyl = edit.disk->h * edit.disk->s;
+	edit.unitsz = sec2cyl * edit.disk->secsize;
 	edit.end = edit.disk->secs / sec2cyl;
 
 	findmbr(&edit);
@@ -164,7 +164,7 @@ main(int argc, char **argv)
 	if(dowrite || printflag)
 		exits(0);
 
-	fprint(2, "cylinder = %lld bytes\n", sec2cyl*edit.disk->secsize);
+	fprint(2, "%s = %lld bytes\n", edit.unit, edit.unitsz);
 	runcmd(&edit, "p");
 	for(;;) {
 		fprint(2, ">>> ");
