@@ -246,7 +246,7 @@ typedef void		KMap;
 struct
 {
 	Lock;
-	int	machs;			/* bitmap of active CPUs */
+	char	machs[MAXMACH];		/* active CPUs */
 	int	wfi;			/* bitmap of CPUs in WFI state */
 	int	stopped;		/* bitmap of CPUs stopped */
 	int	exiting;		/* shutdown */

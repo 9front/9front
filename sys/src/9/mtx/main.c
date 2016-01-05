@@ -59,7 +59,7 @@ machinit(void)
 	/* turn on caches */
 	puthid0(gethid0() | BIT(16) | BIT(17));
 
-	active.machs = 1;
+	active.machs[0] = 1;
 	active.exiting = 0;
 }
 

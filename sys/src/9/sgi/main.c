@@ -172,7 +172,7 @@ main(void)
 	confinit();
 	machinit();			/* calls clockinit */
 	active.exiting = 0;
-	active.machs = 1;
+	active.machs[0] = 1;
 	print("\nPlan 9\n");
 
 	kmapinit();

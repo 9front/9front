@@ -326,7 +326,7 @@ mach0init(void)
 
 	machinit();
 
-	active.machs = 1;
+	active.machs[0] = 1;
 	active.exiting = 0;
 }
 

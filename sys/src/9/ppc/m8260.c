@@ -214,7 +214,7 @@ machinit(void)
 	vco		198
 */
 
-	active.machs = 1;
+	active.machs[0] = 1;
 	active.exiting = 0;
 
 	putmsr(getmsr() | MSR_ME);

@@ -145,7 +145,7 @@ hzclock(Ureg *ur)
 	if(kproftimer != nil)
 		kproftimer(ur->pc);
 
-	if((active.machs&(1<<m->machno)) == 0)
+	if(active.machs[m->machno] == 0)
 		return;
 
 	if(active.exiting)

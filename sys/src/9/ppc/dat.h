@@ -189,8 +189,8 @@ struct Mach
 struct
 {
 	Lock;
-	short	machs;
-	short	exiting;
+	char	machs[MAXMACH];
+	int	exiting;
 }active;
 
 /*

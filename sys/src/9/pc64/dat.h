@@ -233,7 +233,7 @@ typedef void KMap;
 struct
 {
 	Lock;
-	int	machs;			/* bitmap of active CPUs */
+	char	machs[MAXMACH];		/* bitmap of active CPUs */
 	int	exiting;		/* shutdown */
 	int	thunderbirdsarego;	/* lets the added processors continue to schedinit */
 }active;

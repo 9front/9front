@@ -175,7 +175,7 @@ struct ISAConf
 struct
 {
 	Lock;
-	int	machs;			/* bitmap of active CPUs */
+	char	machs[MAXMACH];		/* active CPUs */
 	int	exiting;		/* shutdown */
 }active;
 

@@ -140,7 +140,7 @@ machinit(void)
 		m->cpuhz = 200000000;		/* 750FX? */
 	m->cyclefreq = m->bushz / 4;
 
-	active.machs = 1;
+	active.machs[0] = 1;
 	active.exiting = 0;
 
 	putmsr(getmsr() | MSR_ME);

@@ -261,8 +261,8 @@ intr(Ureg *ur)
 		 */
 		iprint("cpu%d: spurious interrupt %d, last %d",
 			m->machno, vno-VectorPIC, m->lastintr);
-		for(i = 0; i < 32; i++){
-			if(!(active.machs & (1<<i)))
+		for(i = 0; i < MAXMACH; i++){
+			if(active.machs[i] == 0)
 				continue;
 			mach = MACHP(i);
 			if(m->machno == mach->machno)

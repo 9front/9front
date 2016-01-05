@@ -676,7 +676,7 @@ cpustart(void)
 	Power *pwr;
 
 	up = nil;
-	if (active.machs & (1<<m->machno)) {
+	if (active.machs[m->machno]) {
 		serialputc('?');
 		serialputc('r');
 		panic("cpu%d: resetting after start", m->machno);

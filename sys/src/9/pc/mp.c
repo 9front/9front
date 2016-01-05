@@ -198,6 +198,8 @@ mpinit(void)
 	for(i=0; i<nelem(mpapic); i++){
 		if((apic = mpapic[i]) == nil)
 			continue;
+		if(apic->machno >= MAXMACH)
+			continue;
 		if(ncpu <= 1)
 			break;
 		if((apic->flags & (PcmpBP|PcmpEN)) == PcmpEN){
@@ -574,7 +576,7 @@ mpshutdown(void)
 		for(;;) idle();
 	}
 
-	print("mpshutdown: active = %#8.8ux\n", active.machs);
+	print("mpshutdown\n");
 	delay(1000);
 	splhi();
 

@@ -156,7 +156,7 @@ machinit(void)
 	m->machno = n;
 
 	active.exiting = 0;
-	active.machs = 1;
+	active.machs[0] = 1;
 
 	cpu = (Hwcpu*) ((ulong)hwrpb + hwrpb->cpuoff + n*hwrpb->cpulen);
 	cpu->state &= ~Cpubootinprog;

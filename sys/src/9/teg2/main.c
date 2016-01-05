@@ -208,13 +208,10 @@ getenv(char* name, char* buf, int n)
 void
 machon(uint cpu)
 {
-	ulong cpubit;
-
-	cpubit = 1 << cpu;
 	lock(&active);
-	if ((active.machs & cpubit) == 0) {	/* currently off? */
+	if (active.machs[cpu] == 0) {	/* currently off? */
+		active.machs[cpu] = 1;
 		conf.nmach++;
-		active.machs |= cpubit;
 	}
 	unlock(&active);
 }
@@ -223,13 +220,10 @@ machon(uint cpu)
 void
 machoff(uint cpu)
 {
-	ulong cpubit;
-
-	cpubit = 1 << cpu;
 	lock(&active);
-	if (active.machs & cpubit) {		/* currently on? */
+	if (active.machs[cpu]) {		/* currently on? */
+		active.machs[cpu] = 0;
 		conf.nmach--;
-		active.machs &= ~cpubit;
 	}
 	unlock(&active);
 }

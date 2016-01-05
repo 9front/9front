@@ -568,8 +568,8 @@ consread(Chan *c, void *buf, long n, vlong off)
 	case Qsysstat:
 		b = smalloc(conf.nmach*(NUMSIZE*11+1) + 1);	/* +1 for NUL */
 		bp = b;
-		for(id = 0; id < 32; id++) {
-			if(active.machs & (1<<id)) {
+		for(id = 0; id < MAXMACH; id++) {
+			if(active.machs[id]) {
 				mp = MACHP(id);
 				readnum(0, bp, NUMSIZE, id, NUMSIZE);
 				bp += NUMSIZE;
@@ -767,8 +767,8 @@ conswrite(Chan *c, void *va, long n, vlong off)
 		break;
 
 	case Qsysstat:
-		for(id = 0; id < 32; id++) {
-			if(active.machs & (1<<id)) {
+		for(id = 0; id < MAXMACH; id++) {
+			if(active.machs[id]) {
 				mp = MACHP(id);
 				mp->cs = 0;
 				mp->intr = 0;
@@ -1051,8 +1051,8 @@ cpushutdown(void)
 	int ms, once;
 
 	lock(&active);
-	once = active.machs & (1<<m->machno);
-	active.machs &= ~(1<<m->machno);
+	once = active.machs[m->machno];
+	active.machs[m->machno] = 0;
 	active.exiting = 1;
 	unlock(&active);
 
@@ -1063,7 +1063,7 @@ cpushutdown(void)
 	spllo();
 	for(ms = 5*1000; ms > 0; ms -= TK2MS(2)){
 		delay(TK2MS(2));
-		if(active.machs == 0 && consactive() == 0)
+		if(memchr(active.machs, 1, MAXMACH) == nil && consactive() == 0)
 			break;
 	}
 }

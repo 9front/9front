@@ -204,7 +204,7 @@ struct Softtlb
 struct
 {
 	Lock;
-	long	machs;		/* bitmap of processors */
+	char	machs[MAXMACH];		/* active cpus */
 	short	exiting;
 }active;
 

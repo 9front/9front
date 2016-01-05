@@ -26,7 +26,7 @@ main(void)
 	memset(m, 0, sizeof(Mach));
 	m->ticks = 1;
 
-	active.machs = 1;
+	active.machs[0] = 1;
 
 	rs232power(1);
 	quotefmtinstall();

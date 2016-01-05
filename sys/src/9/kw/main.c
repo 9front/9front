@@ -349,7 +349,7 @@ machinit(void)
 
 	conf.nmach = 1;
 
-	active.machs = 1;
+	active.machs[0] = 1;
 	active.exiting = 0;
 
 	up = nil;

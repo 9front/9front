@@ -385,7 +385,7 @@ mpinit(void)
 void
 main(void)
 {
-	active.machs |= (1 << m->machno);
+	active.machs[m->machno] = 1;
 	if(m->machno != 0){
 		uartputs("\n", 1);
 		mmuinit();

@@ -24,7 +24,7 @@ squidboy(Apic* apic)
 	timersinit();
 
 	lock(&active);
-	active.machs |= 1<<m->machno;
+	active.machs[m->machno] = 1;
 	unlock(&active);
 
 	while(!active.thunderbirdsarego)
