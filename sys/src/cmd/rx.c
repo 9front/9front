@@ -59,14 +59,9 @@ main(int argc, char *argv[])
 	host = argv[0];
 	args = buildargs(&argv[1]);
 
-	/* try rexexec p9any then dial again with p9sk2 */
 	fd = call(0, host, "rexexec", &addr);
 	if(fd >= 0)
 		rex(fd, args, "p9any");
-	close(fd);
-	fd = call(0, host, "rexexec", &addr);
-	if(fd >= 0)
-		rex(fd, args, "p9sk2");
 	close(fd);
 
 	/* if there's an ssh port, try that */
