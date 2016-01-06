@@ -130,8 +130,6 @@ static int	is_oid(Elem* pe, Ints** poid);
 static int	is_string(Elem* pe, char** pstring);
 static int	is_time(Elem* pe, char** ptime);
 static int	decode(uchar* a, int alen, Elem* pelem);
-static int	decode_seq(uchar* a, int alen, Elist** pelist);
-static int	decode_value(uchar* a, int alen, int kind, int isconstr, Value* pval);
 static int	encode(Elem e, Bytes** pbytes);
 static int	oid_lookup(Ints* o, Ints** tab);
 static void	freevalfields(Value* v);
@@ -194,37 +192,12 @@ static int
 decode(uchar* a, int alen, Elem* pelem)
 {
 	uchar* p = a;
+	int err;
 
-	return  ber_decode(&p, &a[alen], pelem);
-}
-
-/*
- * Like decode, but continue decoding after first element
- * of array ends.
- */
-static int
-decode_seq(uchar* a, int alen, Elist** pelist)
-{
-	uchar* p = a;
-
-	return seq_decode(&p, &a[alen], -1, 1, pelist);
-}
-
-/*
- * Decode the whole array as a BER encoding of an ASN1 value,
- * (i.e., the part after the tag and length).
- * Assume the value is encoded as universal tag "kind".
- * The constr arg is 1 if the value is constructed, 0 if primitive.
- * If there's an error, the return string will contain the error.
- * Depending on the error, the returned value may or may not
- * be nil.
- */
-static int
-decode_value(uchar* a, int alen, int kind, int isconstr, Value* pval)
-{
-	uchar* p = a;
-
-	return value_decode(&p, &a[alen], alen, kind, isconstr, pval);
+	err = ber_decode(&p, &a[alen], pelem);
+	if(err == ASN_OK && p != &a[alen])
+		err = ASN_EVALLEN;
+	return err;
 }
 
 /*
@@ -2025,12 +1998,9 @@ decode_dsaprivkey(Bytes* a)
 		goto errret;
 	if(!is_seq(&e, &el) || elistlen(el) != 6)
 		goto errret;
-version = -1;
+	version = -1;
 	if(!is_int(&el->hd, &version) || version != 0)
-{
-fprint(2, "version %d\n", version);
 		goto errret;
-}
 
 	el = el->tl;
 	key->pub.p = mp = asn1mpint(&el->hd);
@@ -2212,8 +2182,8 @@ verify_digestinfo(uchar *sig, int siglen, RSApub *pk, uchar *pdigest, int *psiga
 	el = nil;
 	memset(&e, 0, sizeof(e));
 	buflen = pkcs1decryptsignature(sig, siglen, pk, &buf);
-	if(buflen < 0 || decode(buf, buflen, &e) != ASN_OK || !is_seq(&e, &el) || elistlen(el) != 2 ||
-			!is_octetstring(&el->tl->hd, &digest)) {
+	if(buflen < 0 || decode(buf, buflen, &e) != ASN_OK
+	|| !is_seq(&e, &el) || elistlen(el) != 2 || !is_octetstring(&el->tl->hd, &digest)) {
 		err = "signature parse error";
 		goto end;
 	}
