@@ -88,7 +88,7 @@ from8(char *a, mpint *b)
 	next = p;
 
 	i = 0;
-	x = 0;
+	x = y = 0;
 	while(p > a){
 		y = tab.t10[*(uchar*)--p];
 		x |= y << i;
