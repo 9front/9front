@@ -291,7 +291,7 @@ and
 .I Kc
 where equivalent to the password derived 56-bit DES keys, which
 made the encrypted tickets subject to offline dictionary attacks
-and provides a too small key space against brute force attacks
+and provided too small a key space against brute force attacks
 on current hardware.
 .PP
 The
