@@ -116,8 +116,8 @@ readcons(char *prompt, char *def, int raw, char *buf, int nbuf)
 	}
 }
 
-void authdialfutz(char*, char*);
-void authfutz(char*, char*);
+void authdialfutz(char*, char*, char*);
+void authfutz(char*, char*, char*);
 
 /* scan factotum for p9sk1 keys; check them */
 void
@@ -143,7 +143,7 @@ debugfactotumkeys(void)
 		a = _parseattr(s+4);
 		free(s);
 		proto = _strfindattr(a, "proto");
-		if(proto==nil || strcmp(proto, "p9sk1")!=0)
+		if(proto==nil || (strcmp(proto, "p9sk1")!=0 && strcmp(proto, "dp9ik")!=0))
 			continue;
 		dom = _strfindattr(a, "dom");
 		if(dom == nil){
@@ -157,17 +157,17 @@ debugfactotumkeys(void)
 			_freeattr(a);
 			continue;
 		}
-		print("p9sk1 key: %A\n", a);
+		print("key: %A\n", a);
 		found = 1;
-		authdialfutz(dom, user);
+		authdialfutz(dom, user, proto);
 		_freeattr(a);
 	}
 	if(!found)
-		print("no p9sk1 keys found in factotum\n");
+		print("no p9sk1/dp9ik keys found in factotum\n");
 }
 
 void
-authdialfutz(char *dom, char *user)
+authdialfutz(char *dom, char *user, char *proto)
 {
 	int fd;
 	char *server;
@@ -177,7 +177,7 @@ authdialfutz(char *dom, char *user)
 	if(fd >= 0){
 		print("\tsuccessfully dialed auth server\n");
 		close(fd);
-		authfutz(dom, user);
+		authfutz(dom, user, proto);
 		return;
 	}
 	print("\tcannot dial auth server: %r\n");
@@ -205,11 +205,44 @@ authdialfutz(char *dom, char *user)
 	print("\tdial %s failed: %r\n", addr);
 }
 
+int
+getpakkeys(int fd, Ticketreq *tr, Authkey *akey, Authkey *hkey)
+{
+	uchar y[PAKYLEN];
+	PAKpriv p;
+	int ret, type;
+
+	ret = -1;
+	type = tr->type;
+	tr->type = AuthPAK;
+	if(_asrequest(fd, tr) < 0 || _asrdresp(fd, (char*)y, 0) < 0)
+		goto out;
+
+	authpak_hash(akey, tr->authid);
+	authpak_new(&p, akey, y, 1);
+	if(write(fd, y, PAKYLEN) != PAKYLEN
+	|| readn(fd, y, PAKYLEN) != PAKYLEN
+	|| authpak_finish(&p, akey, y))
+		goto out;
+
+	authpak_hash(hkey, tr->hostid);
+	authpak_new(&p, hkey, y, 1);
+	if(write(fd, y, PAKYLEN) != PAKYLEN
+	|| readn(fd, y, PAKYLEN) != PAKYLEN
+	|| authpak_finish(&p, hkey, y))
+		goto out;
+
+	ret = 0;
+out:
+	tr->type = type;
+	return ret;
+}
+
 void
-authfutz(char *dom, char *user)
+authfutz(char *dom, char *user, char *proto)
 {
 	int fd, nobootes, n, m;
-	char pw[128], prompt[128], tbuf[2*TICKETLEN];
+	char pw[128], prompt[128], tbuf[2*MAXTICKETLEN];
 	Authkey key, booteskey;
 	Ticket t;
 	Ticketreq tr;
@@ -219,6 +252,7 @@ authfutz(char *dom, char *user)
 	if(pw[0] == '\0')
 		return;
 	passtokey(&key, pw);
+	booteskey = key;
 
 	fd = authdial(nil, dom);
 	if(fd < 0){
@@ -234,6 +268,13 @@ authfutz(char *dom, char *user)
 	strecpy(tr.hostid, tr.hostid+sizeof tr.hostid, user);
 	strecpy(tr.uid, tr.uid+sizeof tr.uid, user);
 	memset(tr.chal, 0xAA, sizeof tr.chal);
+
+	if(strcmp(proto, "dp9ik") == 0 && getpakkeys(fd, &tr, &booteskey, &key) < 0){
+		print("\tgetpakkeys failed: %r\n");
+		close(fd);
+		return;
+	}
+
 	if((n = _asgetticket(fd, &tr, tbuf, sizeof(tbuf))) < 0){
 		print("\t_asgetticket failed: %r\n");
 		close(fd);
@@ -252,7 +293,7 @@ authfutz(char *dom, char *user)
 		return;
 	}
 
-	convM2T(tbuf+m, n-m, &t, &key);
+	convM2T(tbuf+m, n-m, &t, &booteskey);
 	if(t.num != AuthTs){
 		print("\tcannot decrypt ticket2 from auth server (bad t.num=0x%.2ux)\n", t.num);
 		print("\tauth server and you do not agree on key for %s@%s\n", user, dom);
@@ -269,9 +310,24 @@ authfutz(char *dom, char *user)
 	/* try ticket request using bootes key */
 	snprint(prompt, sizeof prompt, "\tcpu server owner for domain %s ", dom);
 	readcons(prompt, "glenda", 0, tr.authid, sizeof tr.authid);
-	if((n = _asgetticket(fd, &tr, tbuf, sizeof(tbuf))) < 0){
+	snprint(prompt, sizeof prompt, "\tpassword for %s@%s [hit enter to skip test]", tr.authid, dom);
+	readcons(prompt, nil, 1, pw, sizeof pw);
+	if(pw[0] == '\0'){
+		nobootes=1;
+		goto Nobootes;
+	}
+	nobootes = 0;
+	passtokey(&booteskey, pw);
+
+	if(strcmp(proto, "dp9ik") == 0 && getpakkeys(fd, &tr, &booteskey, &key) < 0){
+		print("\tgetpakkeys failed: %r\n");
 		close(fd);
+		return;
+	}
+
+	if((n = _asgetticket(fd, &tr, tbuf, sizeof(tbuf))) < 0){
 		print("\t_asgetticket failed: %r\n");
+		close(fd);
 		return;
 	}
 	m = convM2T(tbuf, n, &t, &key);
@@ -286,16 +342,7 @@ authfutz(char *dom, char *user)
 		print("\tauth server is rogue\n");
 		return;
 	}
-
-	snprint(prompt, sizeof prompt, "\tpassword for %s@%s [hit enter to skip test]", tr.authid, dom);
-	readcons(prompt, nil, 1, pw, sizeof pw);
-	if(pw[0] == '\0'){
-		nobootes=1;
-		goto Nobootes;
-	}
-	nobootes = 0;
-	passtokey(&booteskey, pw);
-
+	
 	convM2T(tbuf+m, n-m, &t, &booteskey);
 	if(t.num != AuthTs){
 		print("\tcannot decrypt ticket2 from auth server (bad t.num=0x%.2ux)\n", t.num);
@@ -321,7 +368,6 @@ Nobootes:;
 	 * auth server (assumes running cpu service)
 	 * to test that bootes key is right over there
 	 */
-
 }
 
 void

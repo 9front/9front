@@ -3,8 +3,8 @@
 #include <authsrv.h>
 #include <libsec.h>
 
-static void
-passtodeskey(char *key, char *p)
+void
+passtodeskey(char key[DESKEYLEN], char *p)
 {
 	uchar buf[ANAMELEN], *t;
 	int i, n;
@@ -32,17 +32,17 @@ passtodeskey(char *key, char *p)
 	}
 }
 
-static void
-passtoaeskey(uchar *key, char *p)
+void
+passtoaeskey(uchar key[AESKEYLEN], char *p)
 {
 	static char salt[] = "Plan 9 key derivation";
 	pbkdf2_x((uchar*)p, strlen(p), (uchar*)salt, sizeof(salt)-1, 9001, key, AESKEYLEN, hmac_sha1, SHA1dlen);
 }
 
 void
-passtokey(Authkey *key, char *p)
+passtokey(Authkey *key, char *pw)
 {
 	memset(key, 0, sizeof(Authkey));
-	passtodeskey(key->des, p);
-	passtoaeskey(key->aes, p);
+	passtodeskey(key->des, pw);
+	passtoaeskey(key->aes, pw);
 }

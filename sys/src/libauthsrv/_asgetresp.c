@@ -5,28 +5,40 @@
 int
 _asgetresp(int fd, Ticket *t, Authenticator *a, Authkey *k)
 {
-	char tbuf[TICKETLEN+AUTHENTLEN];
+	char buf[MAXTICKETLEN+MAXAUTHENTLEN], err[ERRMAX];
 	int n, m;
 
-	m = TICKETLEN;
 	memset(t, 0, sizeof(Ticket));
-	if(a != nil){
-		m += AUTHENTLEN;
+	if(a != nil)
 		memset(a, 0, sizeof(Authenticator));
-	}
 
-	n = _asrdresp(fd, tbuf, m);
-	if(n <= 0)
+	strcpy(err, "AS protocol botch");
+	errstr(err, ERRMAX);
+
+	if(_asrdresp(fd, buf, 0) < 0)
 		return -1;
 
-	m = convM2T(tbuf, n, t, k);
-	if(m <= 0)
-		return -1;
-
-	if(a != nil){
-		if(convM2A(tbuf+m, n-m, a, t) <= 0)
+	for(n = 0; (m = convM2T(buf, n, t, k)) <= 0; n += m){
+		m = -m;
+		if(m <= n || m > sizeof(buf))
+			return -1;
+		m -= n;
+		if(readn(fd, buf+n, m) != m)
 			return -1;
 	}
+
+	if(a != nil){
+		for(n = 0; (m = convM2A(buf, n, a, t)) <= 0; n += m){
+			m = -m;
+			if(m <= n || m > sizeof(buf))
+				return -1;
+			m -= n;
+			if(readn(fd, buf+n, m) != m)
+				return -1;
+		}
+	}
+
+	errstr(err, ERRMAX);
 
 	return 0;
 }

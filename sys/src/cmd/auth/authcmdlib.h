@@ -53,6 +53,7 @@ int	netcheck(void*, long, char*);
 char*	netdecimal(char*);
 char*	netresp(char*, long, char*);
 char*	okpasswd(char*);
+void	private(void);
 int	querybio(char*, char*, Acctbio*);
 void	rdbio(char*, char*, Acctbio*);
 int	readarg(int, char*, int);

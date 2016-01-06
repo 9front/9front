@@ -2,10 +2,12 @@
 
 LIB=/$objtype/lib/libauthsrv.a
 OFILES=\
+	_asgetpakkey.$O\
 	_asgetticket.$O\
 	_asgetresp.$O\
 	_asrequest.$O\
 	_asrdresp.$O\
+	authpak.$O\
 	authdial.$O\
 	convA2M.$O\
 	convM2A.$O\
@@ -15,17 +17,35 @@ OFILES=\
 	convPR2M.$O\
 	convT2M.$O\
 	convTR2M.$O\
+	form1.$O\
 	nvcsum.$O\
 	passtokey.$O\
 	readnvram.$O\
 
 HFILES=\
-	/sys/include/authsrv.h\
+	/sys/include/authsrv.h
+
+MPCFILES=\
+	msqrt.mpc\
+	decaf.mpc\
+	edwards.mpc\
+	elligator2.mpc\
+	spake2ee.mpc\
+	ed448.mpc\
 
 UPDATE=\
 	mkfile\
 	$HFILES\
 	${OFILES:%.$O=%.c}\
+	${MPCFILES:.mpc=%.mp}\
 	${LIB:/$objtype/%=/386/%}\
 
+
+CLEANFILES=$MPCFILES
+
 </sys/src/cmd/mksyslib
+
+authpak.$O: $MPCFILES
+
+%.mpc:	%.mp
+	mpc $stem.mp > $target

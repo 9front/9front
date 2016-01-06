@@ -15,8 +15,7 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	Authkey key;
-	char buf[32], pass[32];
+	char buf[32], pass[32], key[DESKEYLEN];
 	char *s;
 	int n;
 
@@ -34,7 +33,7 @@ main(int argc, char *argv[])
 	}
 
 	readln("Password: ", pass, sizeof pass, 1);
-	passtokey(&key, pass);
+	passtodeskey(key, pass);
 
 	for(;;){
 		print("challenge: ");
@@ -44,7 +43,7 @@ main(int argc, char *argv[])
 		buf[n] = '\0';
 		n = strtol(buf, 0, 10);
 		sprint(buf, "%d", n);
-		netcrypt(key.des, buf);
+		netcrypt(key, buf);
 		print("response: %s\n", buf);
 	}
 }

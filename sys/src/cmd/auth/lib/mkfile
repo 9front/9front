@@ -6,6 +6,7 @@ OFILES=\
 	keyfmt.$O\
 	netcheck.$O\
 	okpasswd.$O\
+	private.$O\
 	readwrite.$O\
 	readarg.$O\
 	readln.$O\

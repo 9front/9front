@@ -1,6 +1,6 @@
 .TH AUTHSRV 6
 .SH NAME
-authsrv, p9any, p9sk1, p9sk2 \- authentication protocols
+authsrv, p9any, p9sk1, dp9ik \- authentication protocols
 .SH DESCRIPTION
 This manual page describes
 the protocols used to authorize connections, confirm the identities
@@ -14,8 +14,9 @@ The network database
 holds for each public machine, such as a CPU server or
 file server, the name of the authentication server that machine uses.
 .PP
-Each machine contains three values important to authentication; a 56-bit DES
-key, a 28-byte authentication ID, and a 48-byte authentication domain name.
+Each machine contains four values important to authentication; a 56-bit DES
+key, a 128-bit AES key, a 28-byte authentication ID, and a 48-byte authentication
+domain name.
 The ID is a user name and identifies who is currently responsible for the
 kernel running on that machine.
 The domain name identifies the machines across which the ID is valid.
@@ -29,7 +30,7 @@ The password is converted using
 .I passtokey
 (see
 .IR authsrv (2))
-into a 56-bit DES key and saved in memory.
+into a 56-bit DES and 128-bit AES keys and saved in memory.
 The authentication domain is set to the null string.
 If possible,
 .I factotum
@@ -60,7 +61,7 @@ client's host ID's key
 a nonce key created for a ticket
 .RB ( key )
 .TP
-.IR K { m }
+.I K{m}
 message
 .I m
 encrypted with key
@@ -91,6 +92,24 @@ client's ID
 client's desired ID on server
 .RB ( uid ,
 .BR suid )
+.TP
+.I YAc
+client \(-> AS DH public key
+.TP
+.I YBc
+AS \(-> client DH public key
+.TP
+.I YAs
+server \(-> AS DH public key
+.TP
+.I YBs
+AS \(-> server DH public key
+.TP
+.I RNc
+client's 32-byte random string
+.TP
+.I RNs
+server's 32-byte random string
 .PD
 .PP
 The parenthesized names are the ones used in the
@@ -112,8 +131,9 @@ The message type constants
 .IR AuthChap ,
 .IR AuthMSchap ,
 .IR AuthCram ,
+.IR AuthVNC ,
 and
-.IR AuthVNC
+.IR AuthPAK
 .RB ( type )
 are defined in
 .BR <authsrv.h> ,
@@ -142,7 +162,6 @@ The protocol to obtain a ticket pair is:
 .IR CHs ,
 .IR IDc ,
 .IR IDr
-.sp -\n(PDu
 .TP
 .IR A \(-> C
 .IR AuthOK ,
@@ -265,16 +284,254 @@ proving to the client that it also knows
 .I Kn
 and therefore 
 .I Ks .
-.PD
+.SS "Password authenticated key exchange"
+Initially, the server and client keys
+.I Ks
+and
+.I Kc
+where equivalent to the password derived 56-bit DES keys, which
+made the encrypted tickets subject to offline dictionary attacks
+and provides a too small key space against brute force attacks
+on current hardware.
 .PP
-.I P9sk2
-is an older variant of 
+The
+.I AuthPAK
+protocol is used to establish new 256-bit random keys with the
+AS for
+.I Ks
+and
+.I Kc
+before each ticket request on the connection.
+.PP
+The protocol is based on SPAKE2EE, where a hash of the user's secret
+is used to encypt the public keys of a Elliptic-Curve Diffie-Hellman
+key exchange. The user's
+.I ID
+and 128-bit AES key is hashed and mapped (using Elligator2)
+into two curve points
+.I PM
+and
+.IR PN ,
+called the
+.IR pakhash .
+Both sides generate a random number
+.IR xa / xb
+and make the public keys
+.IR YA / YB
+as:
+.IR YA = xa*G+PM ,
+.IR YB = xb*G+PN .
+After the public keys have been exchanged, each side calculates the
+shared secret as:
+.IR Z = xa*(YB-PN) = xb*(YA-PM) .
+The shared secret
+.I Z
+is then hashed with the transmitted public keys
+.IR YA | YB
+producing the 256-bit
+.IR pakkey .
+.PP
+The
+.I pakkey
+is then used in place of
+.I Ks
+and
+.I Kc
+to authenticate and encrypt tickets from the AS using
+Chacha20/Poly1305 AEAD for the next following
+request made on the connection.
+.PP
+The protocol (for
+.IR AuthTreq )
+to establish keys
+.I Ks
+and
+.I Kc
+with the AS for
+.I IDs
+and
+.I IDc
+is:
+.TP
+.IR C \(-> A
+.IR AuthPAK ,
+.IR IDs ,
+.IR DN ,
+.IR CHs ,
+.IR IDc ,
+.IR IDr ,
+.IR YAs ,
+.I YAc
+.TP
+.IR A \(-> C
+.IR AuthOK ,
+.IR YBs ,
+.I YBc
+.PP
+The protocol (for
+.IR AuthApop ,
+.IR AuthChap ...)
+to establish a single server key
+.I Ks
+for
+.IR IDs :
+.TP
+.IR C \(-> A
+.IR AuthPAK ,
+.IR \- ,
+.IR DN ,
+.IR CHs ,
+.IR IDs ,
+.IR IDc ,
+.I YAs
+.TP
+.IR A \(-> C
+.IR AuthOK ,
+.I YBs
+.PP
+The protocol (for
+.IR AuthPass )
+to establish a single client key
+.I Kc
+for
+.IR IDc :
+.TP
+.IR C \(-> A
+.IR AuthPAK ,
+.IR \- ,
+.IR \- ,
+.IR CHc ,
+.IR \- ,
+.IR IDc ,
+.I YAc
+.TP
+.IR A \(-> C
+.IR AuthOK ,
+.I YBc
+.SS "Dp9ik"
+The
+.I dp9ik
+protocol is an extended version of
 .I p9sk1
-used only when connecting to pre-9P2000 remote
-execution services.
-It omits the first message and last 
-messages and therefore does not
-authenticate the server to the client.
+that adds the random strings
+.I RNc
+and
+.I RNs
+in the
+.I authenticator
+messages for the session key derivation and uses the
+password authenticated key exchange as described above
+to derive the ticket encryption keys
+.I Ks
+and
+.IR Kc :
+.TP
+.IR C \(-> S
+.I CHc
+.br
+The client starts by sending a random challenge to the server.
+.TP
+.IR S \(-> C
+.IR AuthPAK ,
+.IR IDs ,
+.IR DN ,
+.IR CHs ,
+.IR \- ,
+.IR \- ,
+.IR YAs
+.br
+The server generates a new public key
+.I YAs
+and replies with a
+.I AuthPAK
+request giving its
+.I IDs
+and authentication domain
+.I DNs
+along with its own random challenge
+.I CHs
+and its public key
+.IR YAs .
+.TP
+.IR C \(-> S
+.IR YBs ,
+.IR Ks { AuthTs ,
+.IR CHs ,
+.IR IDc ,
+.IR IDr ,
+.IR Kn },
+.IR Kn { AuthAc ,
+.IR CHs ,
+.IR RNc }
+.br
+The client generates its own public key
+.I YAc
+and adds it along with 
+.I IDc
+and
+.I IDr
+to the
+.I AuthPAK
+request and obtains the public keys
+.I YBs
+and
+.I YBc
+from the AS response. At this point, client and AS
+have completed ther authenticated key exchange and
+derive
+.I Kc
+as described above.
+Then the client requests a ticket pair using the same
+message but with
+.I AuthPAK
+type changed to
+.IR AuthTreq .
+It decrypts his ticket with
+.I Kc
+extracting the shared secret
+.IR Kn .
+The client relays the server's
+.I YBs
+and ticket along with an
+.IR authenticator ,
+the
+.I AuthAc
+message.
+The server finishes his authenticated key exchange
+using
+.I YBs
+and derives
+.I Ks
+to decrypt his ticket to extract the shared secret
+.IR Kn .
+When the decryption of the clients authenticator using
+.I Kn
+is successfull then this proves to the server that the
+client knows
+.I Kn
+and is therefore allowed to authenticate as
+.IR IDr .
+The random string
+.I RNc
+is used in the derivation of the session secret.
+.TP
+.IR S \(-> C
+.IR Kn { AuthAs ,
+.IR CHc ,
+.IR RNs }
+.br
+The server replies with its own authenticator,
+proving to the client that it also knows
+.I Kn
+and contributes its random string
+.IR RNs
+for the session secret.
+.PP
+The 2048-bit session secret is derived with a PRF hashing the
+concatenated random strings
+.IR RNc | RNs
+with the the shared secret key
+.IR Kn .
 .SS "P9any
 .I P9any
 is the standard Plan 9 authentication protocol.
@@ -288,12 +545,10 @@ The negotiation protocol is:
 .IB proto@authdom
 .IB proto@authdom
 .I ...
-.sp -\n(PDu
 .TP
 .IR C \(-> S
 .I proto
 .I dom
-.sp -\n(PDu
 .TP
 .IR S \(-> C
 .B OK
@@ -349,10 +604,10 @@ The protocol is:
 .TP
 .IR C \(-> A
 .IR AuthPass ,
-.IR IDc ,
-.IR DN ,
+.IR \- ,
+.IR \- ,
 .IR CHc ,
-.IR IDc ,
+.IR \- ,
 .IR IDc
 .br
 The client sends a password change ticket request.
@@ -471,39 +726,34 @@ message is expected, a
 .I AuthErr
 message may be substituted.
 .de Ok
-.sp -\n(PDu
 .TP
 .IR A \(-> S
 .IR AuthOK ,
-.IR Ks { \\$1 ,
-.IR IDs ,
-.IR DN ,
+.IR Ks { AuthTs ,
 .IR CHs ,
-.IR IDs ,
+.IR IDc ,
 .IR IDc ,
 .IR Kn },
-.IR Kn { AuthTs ,
+.IR Kn { AuthAc ,
 .IR CHs }
 ..
 .PP
 .TP
 .IR S \(-> A
 .IR AuthChal ,
-.IR IDs ,
+.IR \- ,
 .IR DN ,
 .IR CHs ,
 .IR IDs ,
 .IR IDc
-.sp -\n(PDu
 .TP
 .IR A \(-> S
 .IR AuthOK ,
 .IR challenge
-.sp -\n(PDu
 .TP
 .IR S \(-> A
 .IR response
-.Ok AuthChal
+.Ok
 .IP
 This protocol allows the use of 
 handheld authenticators such as SecureNet
@@ -562,28 +812,26 @@ Users not listed are assumed to have the
 same id in both places.
 .TP
 .IR S \(-> A
-AuthApop ,
-.IR IDs ,
+.IR AuthApop ,
+.IR \- ,
 .IR DN ,
 .IR CHs ,
-.IR \- ,
+.IR IDs ,
 .IR \-
-.sp -\n(PDu
 .TP
 .IR A \(-> S
 .IR AuthOKvar ,
 .IR challenge
-.sp -\n(PDu
 .TP
 .IR S \(-> A 
-AuthApop ,
-.IR IDs ,
+.IR AuthApop ,
+.IR \- ,
 .IR DN ,
 .IR CHs ,
-.IR IDc ,
+.IR IDs ,
 .IR IDc ;
 hexadecimal MD5 checksum
-.Ok AuthApop
+.Ok
 .IP
 This protocol implements APOP authentication
 (see
@@ -616,22 +864,20 @@ in
 .TP
 .IR S \(-> A
 .IR AuthChap ,
-.IR IDs ,
+.IR \- ,
 .IR DN ,
 .IR CHs ,
-.IR \- ,
+.IR IDs ,
 .IR \-
-.sp -\n(PDu
 .TP
 .IR A \(-> S
 .I challenge
-.sp -\n(PDu
 .TP
 .IR S \(-> A
 .IR pktid ,
 .IR IDc ,
 .IR response
-.Ok AuthChap
+.Ok
 .IP
 This protocol implements CHAP authentication
 (see
@@ -648,22 +894,20 @@ in
 .TP
 .IR S \(-> A
 .IR AuthMSchap ,
-.IR IDs ,
+.IR \- ,
 .IR DN ,
 .IR CHs ,
-.IR \- ,
+.IR IDs ,
 .IR \-
-.sp -\n(PDu
 .TP
 .IR A \(-> S
 .I challenge
-.sp -\n(PDu
 .TP
 .IR S \(-> A
 .IR IDc ,
 .IR lm-response ,
 .IR nt-response
-.Ok AuthMschap
+.Ok
 .IP
 This protocol implements Microsoft's MS-CHAP
 authentication
@@ -682,17 +926,15 @@ in
 .TP
 .IR S \(-> A
 .IR AuthVNC ,
-.IR IDs ,
+.IR \- ,
 .IR DN ,
 .IR CHs ,
 .IR IDs ,
 .IR IDc
-.sp -\n(PDu
 .TP
 .IR A \(-> S
 .IR AuthOKvar ,
 .I challenge
-.sp -\n(PDu
 .TP
 .IR S \(-> A
 .I response

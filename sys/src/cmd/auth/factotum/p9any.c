@@ -13,7 +13,8 @@
 #include "dat.h"
 
 static Proto *negotiable[] = {
-	&p9sk1,
+	&p9sk1,			/* has to be first because of drawterm bug */
+	&dp9ik,
 };
 
 struct State
@@ -98,6 +99,7 @@ setupfss(Fsstate *fss, State *s, Key *k)
 	fss->attr = setattr(fss->attr, "proto=%q", s->subproto->name);
 	fss->attr = setattr(fss->attr, "dom=%q", _strfindattr(k->attr, "dom"));
 	s->subfss.attr = fss->attr;
+	s->subfss.proto = s->subproto;
 	s->subfss.phase = Notstarted;
 	s->subfss.sysuser = fss->sysuser;
 	s->subfss.seqnum = fss->seqnum;
@@ -229,8 +231,8 @@ getdom(char *p)
 	return p+1;
 }
 
-static Proto*
-findneg(char *name)
+static int
+findprotox(char *name)
 {
 	int i, len;
 	char *p;
@@ -239,11 +241,25 @@ findneg(char *name)
 		len = p-name;
 	else
 		len = strlen(name);
-
 	for(i=0; i<nelem(negotiable); i++)
 		if(strncmp(negotiable[i]->name, name, len) == 0 && negotiable[i]->name[len] == 0)
-			return negotiable[i];
+			return i;
+	return -1;
+}
+
+static Proto*
+findneg(char *name)
+{
+	int x = findprotox(name);
+	if(x >= 0)
+		return negotiable[x];
 	return nil;
+}
+
+static int
+protopref(void *a, void *b)
+{
+	return findprotox(*(char**)b) - findprotox(*(char**)a);
 }
 
 static int
@@ -274,7 +290,11 @@ p9anywrite(Fsstate *fss, void *va, uint n)
 				free(a);
 				return failure(fss, "unknown version of p9any");
 			}
+			if(--m > 0)
+				memmove(token, token+1, m*sizeof(token[0]));
 		}
+		/* put prefered protocols first */
+		qsort(token, m, sizeof(token[0]), protopref);
 	
 		/*
 		 * look for a key
@@ -285,7 +305,7 @@ p9anywrite(Fsstate *fss, void *va, uint n)
 		k = nil;
 		p = nil;
 		dom = nil;
-		for(i=(s->version==1?0:1); i<m; i++){
+		for(i=0; i<m; i++){
 			p = findneg(token[i]);
 			if(p == nil)
 				continue;

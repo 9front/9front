@@ -20,16 +20,27 @@ enum
 	AERRLEN=	64,	/* errstr max size in previous proto */
 	DOMLEN=		48,	/* authentication domain name length */
 	DESKEYLEN=	7,	/* encrypt/decrypt des key length */
-	AESKEYLEN=	16,
+	AESKEYLEN=	16,	/* encrypt/decrypt aes key length */
+
 	CHALLEN=	8,	/* plan9 sk1 challenge length */
 	NETCHLEN=	16,	/* max network challenge length (used in AS protocol) */
 	CONFIGLEN=	14,
 	SECRETLEN=	32,	/* secret max size */
 
+	NONCELEN=	32,
+
 	KEYDBOFF=	8,	/* bytes of random data at key file's start */
 	OKEYDBLEN=	ANAMELEN+DESKEYLEN+4+2,	/* old key file entry length */
 	KEYDBLEN=	OKEYDBLEN+SECRETLEN,	/* key file entry length */
 	OMD5LEN=	16,
+
+	/* AuthPAK constants */
+	PAKKEYLEN=	32,
+	PAKSLEN=	(448+7)/8,	/* ed448 scalar */
+	PAKPLEN=	4*PAKSLEN,	/* point in extended format X,Y,Z,T */
+	PAKHASHLEN=	2*PAKPLEN,	/* hashed points PM,PN */
+	PAKXLEN=	PAKSLEN,	/* random scalar secret key */ 
+	PAKYLEN=	PAKSLEN,	/* decaf encoded public key */
 };
 
 /* encryption numberings (anti-replay) */
@@ -48,8 +59,7 @@ enum
 	AuthCram=12,	/* CRAM verification for IMAP (RFC2195 & rfc2104) */
 	AuthHttp=13,	/* http domain login */
 	AuthVNC=14,	/* VNC server login (deprecated) */
-
-
+	AuthPAK=19,	/* authenticated diffie hellman key agreement */
 	AuthTs=64,	/* ticket encrypted with server's key */
 	AuthTc,		/* ticket encrypted with client's key */
 	AuthAs,		/* server generated authenticator */
@@ -75,17 +85,19 @@ struct Ticket
 	char	chal[CHALLEN];		/* server challenge */
 	char	cuid[ANAMELEN];		/* uid on client */
 	char	suid[ANAMELEN];		/* uid on server */
-	char	key[DESKEYLEN];		/* nonce DES key */
+	uchar	key[NONCELEN];		/* nonce key */
+
+	char	form;			/* (not transmitted) format (0 = des, 1 = ccpoly) */
 };
-#define	TICKETLEN	(CHALLEN+2*ANAMELEN+DESKEYLEN+1)
+#define	MAXTICKETLEN	(12+CHALLEN+2*ANAMELEN+NONCELEN+16)
 
 struct Authenticator
 {
 	char	num;			/* replay protection */
-	char	chal[CHALLEN];
-	ulong	id;			/* authenticator id, ++'d with each auth */
+	char	chal[CHALLEN];		/* server/client challenge */
+	uchar	rand[NONCELEN];		/* server/client nonce */
 };
-#define	AUTHENTLEN	(CHALLEN+4+1)
+#define	MAXAUTHENTLEN	(12+CHALLEN+NONCELEN+16)
 
 struct Passwordreq
 {
@@ -95,7 +107,7 @@ struct Passwordreq
 	char	changesecret;
 	char	secret[SECRETLEN];	/* new secret */
 };
-#define	PASSREQLEN	(2*ANAMELEN+1+1+SECRETLEN)
+#define	MAXPASSREQLEN	(12+2*ANAMELEN+1+SECRETLEN+16)
 
 struct	OChapreply
 {
@@ -115,8 +127,10 @@ struct	OMSchapreply
 
 struct	Authkey
 {
-	char	des[DESKEYLEN];
-	uchar	aes[AESKEYLEN];
+	char	des[DESKEYLEN];		/* DES key from password */
+	uchar	aes[AESKEYLEN];		/* AES key from password */
+	uchar	pakkey[PAKKEYLEN];	/* shared key from AuthPAK exchange (see authpak_finish()) */
+	uchar	pakhash[PAKHASHLEN];	/* secret hash from AES key and user name (see authpak_hash()) */
 };
 
 /*
@@ -132,9 +146,12 @@ extern	int	convPR2M(Passwordreq*, char*, int, Ticket*);
 extern	int	convM2PR(char*, int, Passwordreq*, Ticket*);
 
 /*
- *  convert ascii password to DES key
+ *  convert ascii password to auth key
  */
 extern	void	passtokey(Authkey*, char*);
+
+extern	void	passtodeskey(char key[DESKEYLEN], char *p);
+extern	void	passtoaeskey(uchar key[AESKEYLEN], char *p);
 
 /*
  *  Nvram interface
@@ -169,7 +186,7 @@ struct Nvrsafe
 };
 
 extern	uchar	nvcsum(void*, int);
-extern int	readnvram(Nvrsafe*, int);
+extern	int	readnvram(Nvrsafe*, int);
 
 /*
  *  call up auth server
@@ -179,7 +196,23 @@ extern	int	authdial(char *netroot, char *authdom);
 /*
  *  exchange messages with auth server
  */
+extern	int	_asgetpakkey(int, Ticketreq*, Authkey*);
 extern	int	_asgetticket(int, Ticketreq*, char*, int);
 extern	int	_asrequest(int, Ticketreq*);
 extern	int	_asgetresp(int, Ticket*, Authenticator*, Authkey *);
 extern	int	_asrdresp(int, char*, int);
+
+/*
+ *  AuthPAK protocol
+ */
+typedef struct PAKpriv PAKpriv;
+struct PAKpriv
+{
+	int	isclient;
+	uchar	x[PAKXLEN];
+	uchar	y[PAKYLEN];
+};
+
+extern	void	authpak_hash(Authkey *k, char *u);
+extern	void	authpak_new(PAKpriv *p, Authkey *k, uchar y[PAKYLEN], int isclient);
+extern	int	authpak_finish(PAKpriv *p, Authkey *k, uchar y[PAKYLEN]);

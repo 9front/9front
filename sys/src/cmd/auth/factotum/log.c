@@ -1,6 +1,6 @@
 #include "dat.h"
 
-void
+static void
 logbufproc(Logbuf *lb)
 {
 	char *s;
@@ -43,12 +43,14 @@ logbufproc(Logbuf *lb)
 void
 logbufread(Logbuf *lb, Req *r)
 {
+	qlock(lb);
 	if(lb->waitlast == nil)
 		lb->waitlast = &lb->wait;
 	*(lb->waitlast) = r;
 	lb->waitlast = &r->aux;
 	r->aux = nil;
 	logbufproc(lb);
+	qunlock(lb);
 }
 
 void
@@ -56,6 +58,7 @@ logbufflush(Logbuf *lb, Req *r)
 {
 	Req **l;
 
+	qlock(lb);
 	for(l=&lb->wait; *l; l=&(*l)->aux){
 		if(*l == r){
 			*l = r->aux;
@@ -66,6 +69,7 @@ logbufflush(Logbuf *lb, Req *r)
 			break;
 		}
 	}
+	qunlock(lb);
 }
 
 void
@@ -74,12 +78,14 @@ logbufappend(Logbuf *lb, char *buf)
 	if(debug)
 		fprint(2, "%s\n", buf);
 
+	qlock(lb);
 	if(lb->msg[lb->wp])
 		free(lb->msg[lb->wp]);
 	lb->msg[lb->wp] = estrdup9p(buf);
 	if(++lb->wp == nelem(lb->msg))
 		lb->wp = 0;
 	logbufproc(lb);
+	qunlock(lb);
 }
 
 Logbuf logbuf;

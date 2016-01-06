@@ -45,6 +45,7 @@ typedef struct State State;
 
 struct Fsstate
 {
+	QLock;
 	char *sysuser;	/* user according to system */
 
 	/* keylist, protolist */
@@ -76,7 +77,8 @@ struct Fsstate
 
 struct Key
 {
-	int ref;
+	Ref;
+
 	Attr *attr;
 	Attr *privattr;	/* private attributes, like *data */
 	Proto *proto;
@@ -97,12 +99,16 @@ struct Keyinfo	/* for findkey */
 
 struct Keyring
 {
+	QLock;
+
 	Key **key;
 	int nkey;
 };
 
 struct Logbuf
 {
+	QLock;
+
 	Req *wait;
 	Req **waitlast;
 	int rp;
@@ -133,11 +139,11 @@ extern char Etoolarge[];
 /* confirm.c */
 void confirmread(Req*);
 void confirmflush(Req*);
-int confirmwrite(char*);
+int confirmwrite(Srv*, char*);
 void confirmqueue(Req*, Fsstate*);
 void needkeyread(Req*);
 void needkeyflush(Req*);
-int needkeywrite(char*);
+int needkeywrite(Srv*, char*);
 int needkeyqueue(Req*, Fsstate*);
 
 /* fs.c */
@@ -162,12 +168,7 @@ void logread(Req*);
 void logflush(Req*);
 void logbufflush(Logbuf*, Req*);
 void logbufread(Logbuf*, Req*);
-void logbufproc(Logbuf*);
 void logbufappend(Logbuf*, char*);
-void needkeyread(Req*);
-void needkeyflush(Req*);
-int needkeywrite(char*);
-int needkeyqueue(Req*, Fsstate*);
 
 /* rpc.c */
 int ctlwrite(char*, int);
@@ -185,7 +186,8 @@ void retrpc(Req*, int, Fsstate*);
 #pragma varargck argpos findkey 3
 #pragma varargck argpos setattr 2
 
-int		_authdial(char*, char*);
+int		_authdial(char*);
+int		_authreq(Ticketreq *, Authkey *);
 void		askuser(char*);
 int		attrnamefmt(Fmt *fmt);
 int		canusekey(Fsstate*, Key*);
@@ -199,7 +201,7 @@ Keyinfo*	mkkeyinfo(Keyinfo*, Fsstate*, Attr*);
 int		findkey(Key**, Keyinfo*, char*, ...);
 int		findp9authkey(Key**, Fsstate*);
 Proto	*findproto(char*);
-char		*getnvramkey(int);
+int		getnvramkey(int);
 void		initcap(void);
 int		isclient(char*);
 int		matchattr(Attr*, Attr*, Attr*);
@@ -221,7 +223,7 @@ void		writehostowner(char*);
 
 /* protocols */
 extern Proto apop, cram;		/* apop.c */
-extern Proto p9any, p9sk1, p9sk2;	/* p9sk.c */
+extern Proto p9any, p9sk1, dp9ik;	/* p9sk.c */
 extern Proto chap, mschap, mschapv2, mschap2;	/* chap.c */
 extern Proto p9cr, vnc;			/* p9cr.c */
 extern Proto pass;			/* pass.c */
@@ -231,4 +233,3 @@ extern Proto wep;			/* wep.c */
 extern Proto httpdigest;		/* httpdigest.c */
 extern Proto ecdsa;			/* ecdsa.c */
 extern Proto wpapsk;			/* wpapsk.c */
-

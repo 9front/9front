@@ -24,6 +24,7 @@ struct State
 	Key	*key;
 	int	astype;
 	int	asfd;
+	Authkey	k;
 	Ticket	t;
 	Ticketreq tr;
 	char	chal[Maxchal];
@@ -165,18 +166,14 @@ p9crread(Fsstate *fss, void *va, uint *n)
 static int
 p9response(Fsstate *fss, State *s)
 {
-	Authkey key;
+	Authkey *akey;
 	uchar buf[8];
 	ulong chal;
-	char *pw;
 
-	pw = _strfindattr(s->key->privattr, "!password");
-	if(pw == nil)
-		return failure(fss, "vncresponse cannot happen");
-	passtokey(&key, pw);
 	memset(buf, 0, 8);
 	sprint((char*)buf, "%d", atoi(s->chal));
-	if(encrypt(key.des, buf, 8) < 0)
+	akey = (Authkey*)s->key->priv;
+	if(encrypt(akey->des, buf, 8) < 0)
 		return failure(fss, "can't encrypt response");
 	chal = (buf[0]<<24)+(buf[1]<<16)+(buf[2]<<8)+buf[3];
 	s->resplen = snprint(s->resp, sizeof s->resp, "%.8lux", chal);
@@ -287,7 +284,7 @@ p9crwrite(Fsstate *fss, void *va, uint n)
 			return failure(fss, Easproto);
 		}
 		/* get ticket plus authenticator from auth server */
-		ret = _asgetresp(s->asfd, &s->t, &a, (Authkey*)s->key->priv);
+		ret = _asgetresp(s->asfd, &s->t, &a, &s->k);
 		alarm(0);
 
 		if(ret < 0)
@@ -295,15 +292,14 @@ p9crwrite(Fsstate *fss, void *va, uint n)
 
 		/* check ticket */
 		if(s->t.num != AuthTs
-		|| memcmp(s->t.chal, s->tr.chal, sizeof(s->t.chal)) != 0){
+		|| tsmemcmp(s->t.chal, s->tr.chal, sizeof(s->t.chal)) != 0){
 			if (s->key->successes == 0)
 				disablekey(s->key);
 			return failure(fss, Easproto);
 		}
 		s->key->successes++;
 		if(a.num != AuthAc
-		|| memcmp(a.chal, s->tr.chal, sizeof(a.chal)) != 0
-		|| a.id != 0)
+		|| tsmemcmp(a.chal, s->tr.chal, sizeof(a.chal)) != 0)
 			return failure(fss, Easproto);
 
 		fss->haveai = 1;
@@ -321,19 +317,16 @@ getchal(State *s, Fsstate *fss)
 {
 	int n;
 
+	memmove(&s->k, s->key->priv, sizeof(Authkey));
+
 	safecpy(s->tr.hostid, _strfindattr(s->key->attr, "user"), sizeof(s->tr.hostid));
 	safecpy(s->tr.authdom, _strfindattr(s->key->attr, "dom"), sizeof(s->tr.authdom));
 	s->tr.type = s->astype;
 
-	/* get challenge from auth server */
-	s->asfd = _authdial(nil, _strfindattr(s->key->attr, "dom"));
+	s->asfd = _authreq(&s->tr, &s->k);
 	if(s->asfd < 0)
 		return failure(fss, Easproto);
 	alarm(30*1000);
-	if(_asrequest(s->asfd, &s->tr) < 0){
-		alarm(0);
-		return failure(fss, Easproto);
-	}
 	n = _asrdresp(s->asfd, s->chal, s->challen);
 	alarm(0);
 	if(n <= 0){

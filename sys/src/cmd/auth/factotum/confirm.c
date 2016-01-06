@@ -16,16 +16,19 @@ confirmflush(Req *r)
 {
 	Req **l;
 
+	qlock(&confbuf);
 	for(l=&cusewait; *l; l=&(*l)->aux){
 		if(*l == r){
 			*l = r->aux;
 			if(r->aux == nil)
 				cuselast = l;
 			r->aux = nil;
+			qunlock(&confbuf);
 			respond(r, "interrupted");
 			return;
 		}
 	}
+	qunlock(&confbuf);
 	logbufflush(&confbuf, r);
 }
 
@@ -43,7 +46,7 @@ hastag(Fsstate *fss, int tag, int *tagoff)
 }
 
 int
-confirmwrite(char *s)
+confirmwrite(Srv *srv, char *s)
 {
 	char *t, *ans;
 	int allow, tagoff;
@@ -54,15 +57,18 @@ confirmwrite(char *s)
 
 	a = _parseattr(s);
 	if(a == nil){
+		_freeattr(a);
 		werrstr("empty write");
 		return -1;
 	}
 	if((t = _strfindattr(a, "tag")) == nil){
+		_freeattr(a);
 		werrstr("no tag");
 		return -1;
 	}
 	tag = strtoul(t, 0, 0);
 	if((ans = _strfindattr(a, "answer")) == nil){
+		_freeattr(a);
 		werrstr("no answer");
 		return -1;
 	}
@@ -71,14 +77,18 @@ confirmwrite(char *s)
 	else if(strcmp(ans, "no") == 0)
 		allow = 0;
 	else{
+		_freeattr(a);
 		werrstr("bad answer");
 		return -1;
 	}
-	r = nil;
+	_freeattr(a);
+	srvrelease(srv);
+	qlock(&confbuf);
+	fss = nil;
 	tagoff = -1;
-	for(l=&cusewait; *l; l=&(*l)->aux){
-		r = *l;
-		if(hastag(r->fid->aux, tag, &tagoff)){
+	for(l=&cusewait; (r = *l) != nil; l=&(*l)->aux){
+		fss = r->fid->aux;
+		if(hastag(fss, tag, &tagoff)){
 			*l = r->aux;
 			if(r->aux == nil)
 				cuselast = l;
@@ -86,13 +96,17 @@ confirmwrite(char *s)
 			break;
 		}
 	}
+	qunlock(&confbuf);
 	if(r == nil || tagoff == -1){
+		srvacquire(srv);
 		werrstr("tag not found");
 		return -1;
 	}
-	fss = r->fid->aux;
+	qlock(fss);
 	fss->conf[tagoff].canuse = allow;
 	rpcread(r);
+	qunlock(fss);
+	srvacquire(srv);
 	return 0;
 }
 
@@ -118,9 +132,11 @@ confirmqueue(Req *r, Fsstate *fss)
 		respond(r, "no confirmations to wait for (bug)");
 		return;
 	}
-	*cuselast = r;
+	qlock(&confbuf);
 	r->aux = nil;
+	*cuselast = r;
 	cuselast = &r->aux;
+	qunlock(&confbuf);
 }
 
 /* Yes, I am unhappy that the code below is a copy of the code above. */
@@ -140,38 +156,45 @@ needkeyflush(Req *r)
 {
 	Req **l;
 
+	qlock(&needkeybuf);
 	for(l=&needwait; *l; l=&(*l)->aux){
 		if(*l == r){
 			*l = r->aux;
 			if(r->aux == nil)
 				needlast = l;
 			r->aux = nil;
+			qunlock(&needkeybuf);
 			respond(r, "interrupted");
 			return;
 		}
 	}
+	qunlock(&needkeybuf);
 	logbufflush(&needkeybuf, r);
 }
 
 int
-needkeywrite(char *s)
+needkeywrite(Srv *srv, char *s)
 {
 	char *t;
 	ulong tag;
 	Attr *a;
 	Req *r, **l;
+	Fsstate *fss;
 
 	a = _parseattr(s);
 	if(a == nil){
+		_freeattr(a);
 		werrstr("empty write");
 		return -1;
 	}
 	if((t = _strfindattr(a, "tag")) == nil){
+		_freeattr(a);
 		werrstr("no tag");
 		return -1;
 	}
 	tag = strtoul(t, 0, 0);
 	r = nil;
+	qlock(&needkeybuf);
 	for(l=&needwait; *l; l=&(*l)->aux){
 		r = *l;
 		if(r->tag == tag){
@@ -182,15 +205,23 @@ needkeywrite(char *s)
 			break;
 		}
 	}
+	qunlock(&needkeybuf);
 	if(r == nil){
+		_freeattr(a);
 		werrstr("tag not found");
 		return -1;
 	}
+	fss = r->fid->aux;
+	srvrelease(srv);
+	qlock(fss);
 	if(s = _strfindattr(a, "error")){
 		werrstr("%s", s);
-		retrpc(r, RpcErrstr, (Fsstate*)r->fid->aux);
+		retrpc(r, RpcErrstr, fss);
 	}else
 		rpcread(r);
+	_freeattr(a);
+	qunlock(fss);
+	srvacquire(srv);
 	return 0;
 }
 
@@ -204,9 +235,13 @@ needkeyqueue(Req *r, Fsstate *fss)
 
 	snprint(msg, sizeof msg, "needkey tag=%lud %s", r->tag, fss->keyinfo);
 	logbufappend(&needkeybuf, msg);
-	*needlast = r;
+
+	qlock(&needkeybuf);
 	r->aux = nil;
+	*needlast = r;
 	needlast = &r->aux;
+	qunlock(&needkeybuf);
+
 	return 0;
 }
 

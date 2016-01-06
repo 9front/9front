@@ -1,30 +1,38 @@
 /*
- * p9sk1, p9sk2 - Plan 9 secret (private) key authentication.
- * p9sk2 is an incomplete flawed variant of p9sk1.
+ * p9sk1, dp9ik - Plan 9 secret (private) key authentication.
+ * dp9ik uses AuthPAK diffie hellman key exchange with the
+ * auth server to protect the password derived key from offline
+ * dictionary attacks.
  *
  * Client protocol:
- *	write challenge[challen]	(p9sk1 only)
- *	read tickreq[tickreqlen]
- *	write ticket[ticketlen]
- *	read authenticator[authentlen]
+ *	write challenge[challen]
+ *	 read pakreq[ticketreqlen + pakylen]	(dp9ik only)
+ *	  write paky[pakylen]
+ *	 read tickreq[tickreqlen]		(p9sk1 only)
+ *	write ticket + authenticator
+ *	read authenticator
  *
  * Server protocol:
- * 	read challenge[challen]	(p9sk1 only)
- *	write tickreq[tickreqlen]
- *	read ticket[ticketlen]
- *	write authenticator[authentlen]
+ * 	read challenge[challen]
+ *	 write pakreq[ticketreqlen + pakylen]	(dp9ik only)
+ *	  read paky[pakylen]
+ *	 write tickreq[tickreqlen]		(p9sk1 only)
+ *	read ticket + authenticator
+ *	write authenticator
  */
 
 #include "dat.h"
 
 struct State
 {
-	int vers;
 	Key *key;
 	Ticket t;
 	Ticketreq tr;
+	Authkey k;
+	PAKpriv p;
 	char cchal[CHALLEN];
-	char tbuf[TICKETLEN+AUTHENTLEN];
+	uchar y[PAKYLEN], rand[2*NONCELEN];
+	char tbuf[MAXTICKETLEN + MAXAUTHENTLEN];
 	int tbuflen;
 	uchar *secret;
 	int speakfor;
@@ -34,33 +42,41 @@ enum
 {
 	/* client phases */
 	CHaveChal,
-	CNeedTreq,
+	 CNeedPAKreq,	/* dp9ik only */
+	 CHavePAKy,
+	 CNeedTreq,	/* p9sk1 only */
 	CHaveTicket,
 	CNeedAuth,
 
 	/* server phases */
 	SNeedChal,
-	SHaveTreq,
+	 SHavePAKreq,	/* dp9ik only */
+	 SNeedPAKy,
+	 SHaveTreq,	/* p9sk1 only */
 	SNeedTicket,
 	SHaveAuth,
-
+	
 	Maxphase,
 };
 
 static char *phasenames[Maxphase] =
 {
 [CHaveChal]		"CHaveChal",
+[CNeedPAKreq]		"CNeedPAKreq",
+[CHavePAKy]		"CHavePAKy",
 [CNeedTreq]		"CNeedTreq",
 [CHaveTicket]		"CHaveTicket",
 [CNeedAuth]		"CNeedAuth",
 
 [SNeedChal]		"SNeedChal",
+[SHavePAKreq]		"SHavePAKreq",
+[SNeedPAKy]		"SNeedPAKy",
 [SHaveTreq]		"SHaveTreq",
 [SNeedTicket]		"SNeedTicket",
 [SHaveAuth]		"SHaveAuth",
 };
 
-static int gettickets(State*, Ticketreq *, char*, int);
+static int gettickets(State*, Ticketreq*, uchar*, char*, int);
 
 static int
 p9skinit(Proto *p, Fsstate *fss)
@@ -78,25 +94,13 @@ p9skinit(Proto *p, Fsstate *fss)
 	fss = fss;
 	fss->phasename = phasenames;
 	fss->maxphase = Maxphase;
-	if(p == &p9sk1)
-		s->vers = 1;
-	else if(p == &p9sk2)
-		s->vers = 2;
-	else
-		abort();
+	fss->proto = p;
 	if(iscli){
-		switch(s->vers){
-		case 1:
-			fss->phase = CHaveChal;
-			genrandom((uchar*)s->cchal, CHALLEN);
-			break;
-		case 2:
-			fss->phase = CNeedTreq;
-			break;
-		}
+		fss->phase = CHaveChal;
+		genrandom((uchar*)s->cchal, CHALLEN);
 	}else{
 		s->tr.type = AuthTreq;
-		attr = setattr(_copyattr(fss->attr), "proto=p9sk1");
+		attr = setattr(_copyattr(fss->attr), "proto=%q", p->name);
 		mkkeyinfo(&ki, fss, attr);
 		ki.user = nil;
 		ret = findkey(&k, &ki, "user? dom?");
@@ -108,20 +112,46 @@ p9skinit(Proto *p, Fsstate *fss)
 		safecpy(s->tr.authid, _strfindattr(k->attr, "user"), sizeof(s->tr.authid));
 		safecpy(s->tr.authdom, _strfindattr(k->attr, "dom"), sizeof(s->tr.authdom));
 		s->key = k;
+		memmove(&s->k, k->priv, sizeof(Authkey));
 		genrandom((uchar*)s->tr.chal, sizeof s->tr.chal);
-		switch(s->vers){
-		case 1:
-			fss->phase = SNeedChal;
-			break;
-		case 2:
-			fss->phase = SHaveTreq;
-			memmove(s->cchal, s->tr.chal, CHALLEN);
-			break;
-		}
+		fss->phase = SNeedChal;
 	}
 	s->tbuflen = 0;
 	s->secret = nil;
 	fss->ps = s;
+	return RpcOk;
+}
+
+static int
+establish(Fsstate *fss)
+{
+	AuthInfo *ai;
+	State *s;
+
+	s = fss->ps;
+	ai = &fss->ai;
+
+	ai->cuid = s->t.cuid;
+	ai->suid = s->t.suid;
+	if(fss->proto == &dp9ik){
+		static char info[] = "Plan 9 session secret";
+
+		ai->nsecret = 256;
+		ai->secret = emalloc(ai->nsecret);
+		hkdf_x(	s->rand, 2*NONCELEN,
+			(uchar*)info, sizeof(info)-1,
+			s->t.key, NONCELEN,
+			ai->secret, ai->nsecret,
+			hmac_sha2_256, SHA2_256dlen);
+	} else {
+		ai->nsecret = 8;
+		ai->secret = emalloc(ai->nsecret);
+		des56to64((uchar*)s->t.key, ai->secret);
+	}
+	s->secret = ai->secret;
+
+	fss->haveai = 1;
+	fss->phase = Established;
 	return RpcOk;
 }
 
@@ -142,13 +172,37 @@ p9skread(Fsstate *fss, void *a, uint *n)
 			return toosmall(fss, m);
 		*n = m;
 		memmove(a, s->cchal, m);
-		fss->phase = CNeedTreq;
+		if(fss->proto == &dp9ik)
+			fss->phase = CNeedPAKreq;
+		else
+			fss->phase = CNeedTreq;
+		return RpcOk;
+
+	case SHavePAKreq:
+		m = TICKREQLEN + PAKYLEN;
+		if(*n < m)
+			return toosmall(fss, m);
+		s->tr.type = AuthPAK;
+		*n = convTR2M(&s->tr, a, *n);
+		authpak_new(&s->p, &s->k, (uchar*)a + *n, 1);
+		*n += PAKYLEN;
+		fss->phase = SNeedPAKy;
+		return RpcOk;
+
+	case CHavePAKy:
+		m = PAKYLEN;
+		if(*n < m)
+			return toosmall(fss, m);
+		*n = m;
+		memmove(a, s->y, m);
+		fss->phase = CHaveTicket;
 		return RpcOk;
 
 	case SHaveTreq:
 		m = TICKREQLEN;
 		if(*n < m)
 			return toosmall(fss, m);
+		s->tr.type = AuthTreq;
 		*n = convTR2M(&s->tr, a, *n);
 		fss->phase = SNeedTicket;
 		return RpcOk;
@@ -168,15 +222,7 @@ p9skread(Fsstate *fss, void *a, uint *n)
 			return toosmall(fss, m);
 		*n = m;
 		memmove(a, s->tbuf, m);
-		fss->ai.cuid = s->t.cuid;
-		fss->ai.suid = s->t.suid;
-		s->secret = emalloc(8);
-		des56to64((uchar*)s->t.key, s->secret);
-		fss->ai.secret = s->secret;
-		fss->ai.nsecret = 8;
-		fss->haveai = 1;
-		fss->phase = Established;
-		return RpcOk;
+		return establish(fss);
 	}
 }
 
@@ -184,12 +230,12 @@ static int
 p9skwrite(Fsstate *fss, void *a, uint n)
 {
 	int m, ret, sret;
-	char tbuf[2*TICKETLEN], *user;
+	char tbuf[2*PAKYLEN+2*MAXTICKETLEN], *user;
 	Attr *attr;
-	Authenticator auth;
 	State *s;
 	Key *srvkey;
 	Keyinfo ki;
+	Authenticator auth;
 
 	s = fss->ps;
 	switch(fss->phase){
@@ -201,24 +247,32 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 		if(n < m)
 			return toosmall(fss, m);
 		memmove(s->cchal, a, m);
-		fss->phase = SHaveTreq;
+		if(fss->proto == &dp9ik)
+			fss->phase = SHavePAKreq;
+		else
+			fss->phase = SHaveTreq;
 		return RpcOk;
 
+	case CNeedPAKreq:
+		m = TICKREQLEN+PAKYLEN;
+		if(n < m)
+			return toosmall(fss, m);
 	case CNeedTreq:
-		m = convM2TR(a, n, &s->tr);
-		if(m <= 0)
-			return toosmall(fss, -m);
+		m = TICKREQLEN;
+		if(n < m)
+			return toosmall(fss, m);
 
-		/* remember server's chal */
-		if(s->vers == 2)
-			memmove(s->cchal, s->tr.chal, CHALLEN);
+		m = convM2TR(a, n, &s->tr);
+		if(m <= 0 || s->tr.type != (fss->phase==CNeedPAKreq ? AuthPAK : AuthTreq))
+			return failure(fss, Easproto);
 
 		if(s->key != nil)
 			closekey(s->key);
 
 		attr = _delattr(_delattr(_copyattr(fss->attr), "role"), "user");
-		attr = setattr(attr, "proto=p9sk1");
+		attr = setattr(attr, "proto=%q", fss->proto->name);
 		user = _strfindattr(fss->attr, "user");
+
 		/*
 		 * If our client is the user who started factotum (client==owner), then
 		 * he can use whatever keys we have to speak as whoever he pleases.
@@ -241,7 +295,7 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 			attr = setattr(attr, "user=%q", user);
 		mkkeyinfo(&ki, fss, attr);
 		ret = findkey(&s->key, &ki,
-			"role=client dom=%q %s", s->tr.authdom, p9sk1.keyprompt);
+			"role=client dom=%q %s", s->tr.authdom, fss->proto->keyprompt);
 		if(ret == RpcOk)
 			closekey(srvkey);
 		else if(sret == RpcOk){
@@ -256,27 +310,32 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 		}
 
 		/* fill in the rest of the request */
-		s->tr.type = AuthTreq;
 		safecpy(s->tr.hostid, _strfindattr(s->key->attr, "user"), sizeof s->tr.hostid);
 		if(s->speakfor)
 			safecpy(s->tr.uid, fss->sysuser, sizeof s->tr.uid);
 		else
 			safecpy(s->tr.uid, s->tr.hostid, sizeof s->tr.uid);
 
-		/* get tickets, from auth server or invent if we can */
-		ret = gettickets(s, &s->tr, tbuf, sizeof(tbuf));
-		if(ret < 0){
+		/* get tickets from authserver or invent if we can */
+		if(fss->phase == CNeedPAKreq)
+			ret = gettickets(s, &s->tr, (uchar*)a + m, tbuf, sizeof(tbuf));
+		else
+			ret = gettickets(s, &s->tr, nil, tbuf, sizeof(tbuf));
+		if(ret <= 0){
 			_freeattr(attr);
 			return failure(fss, nil);
 		}
-
-		m = convM2T(tbuf, ret, &s->t, (Authkey*)s->key->priv);
+		m = convM2T(tbuf, ret, &s->t, &s->k);
+		if(m <= 0 || (fss->proto == &dp9ik && s->t.form == 0)){
+			_freeattr(attr);
+			return failure(fss, Easproto);
+		}
 		if(s->t.num != AuthTc){
 			if(s->key->successes == 0 && !s->speakfor)
 				disablekey(s->key);
 			if(askforkeys && !s->speakfor){
 				snprint(fss->keyinfo, sizeof fss->keyinfo,
-					"%A %s", attr, p9sk1.keyprompt);
+					"%A %s", attr, fss->proto->keyprompt);
 				_freeattr(attr);
 				return RpcNeedkey;
 			}else{
@@ -288,32 +347,44 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 		_freeattr(attr);
 		ret -= m;
 		memmove(s->tbuf, tbuf+m, ret);
-
+		genrandom(s->rand, NONCELEN);
 		auth.num = AuthAc;
 		memmove(auth.chal, s->tr.chal, CHALLEN);
-		auth.id = 0;
+		memmove(auth.rand, s->rand, NONCELEN);
 		ret += convA2M(&auth, s->tbuf+ret, sizeof(s->tbuf)-ret, &s->t);
 		s->tbuflen = ret;
-		fss->phase = CHaveTicket;
+		if(fss->phase == CNeedPAKreq)
+			fss->phase = CHavePAKy;
+		else
+			fss->phase = CHaveTicket;
+		return RpcOk;
+
+	case SNeedPAKy:
+		m = PAKYLEN;
+		if(n < m)
+			return toosmall(fss, m);
+		if(authpak_finish(&s->p, &s->k, (uchar*)a))
+			return failure(fss, Easproto);
+		fss->phase = SNeedTicket;
 		return RpcOk;
 
 	case SNeedTicket:
-		m = convM2T(a, n, &s->t, (Authkey*)s->key->priv);
-		if(m <= 0)
-			return toosmall(fss, -m);
+		m = convM2T(a, n, &s->t, &s->k);
+		if(m <= 0 || convM2A((char*)a+m, n-m, &auth, &s->t) <= 0)
+			return toosmall(fss, MAXTICKETLEN + MAXAUTHENTLEN);
+		if(fss->proto == &dp9ik && s->t.form == 0)
+			return failure(fss, Easproto);
 		if(s->t.num != AuthTs
-		|| memcmp(s->t.chal, s->tr.chal, CHALLEN) != 0)
+		|| tsmemcmp(s->t.chal, s->tr.chal, CHALLEN) != 0)
 			return failure(fss, Easproto);
-		ret = convM2A((char*)a+m, n-m, &auth, &s->t);
-		if(ret <= 0)
-			return toosmall(fss, -ret + m);
 		if(auth.num != AuthAc
-		|| memcmp(auth.chal, s->tr.chal, CHALLEN) != 0
-		|| auth.id != 0)
+		|| tsmemcmp(auth.chal, s->tr.chal, CHALLEN) != 0)
 			return failure(fss, Easproto);
+		memmove(s->rand, auth.rand, NONCELEN);
+		genrandom(s->rand + NONCELEN, NONCELEN);
 		auth.num = AuthAs;
 		memmove(auth.chal, s->cchal, CHALLEN);
-		auth.id = 0;
+		memmove(auth.rand, s->rand + NONCELEN, NONCELEN);
 		s->tbuflen = convA2M(&auth, s->tbuf, sizeof(s->tbuf), &s->t);
 		fss->phase = SHaveAuth;
 		return RpcOk;
@@ -323,18 +394,10 @@ p9skwrite(Fsstate *fss, void *a, uint n)
 		if(m <= 0)
 			return toosmall(fss, -m);
 		if(auth.num != AuthAs
-		|| memcmp(auth.chal, s->cchal, CHALLEN) != 0
-		|| auth.id != 0)
+		|| tsmemcmp(auth.chal, s->cchal, CHALLEN) != 0)
 			return failure(fss, Easproto);
-		fss->ai.cuid = s->t.cuid;
-		fss->ai.suid = s->t.suid;
-		s->secret = emalloc(8);
-		des56to64((uchar*)s->t.key, s->secret);
-		fss->ai.secret = s->secret;
-		fss->ai.nsecret = 8;
-		fss->haveai = 1;
-		fss->phase = Established;
-		return RpcOk;
+		memmove(s->rand+NONCELEN, auth.rand, NONCELEN);
+		return establish(fss);
 	}
 }
 
@@ -352,6 +415,7 @@ p9skclose(Fsstate *fss)
 		closekey(s->key);
 		s->key = nil;
 	}
+	memset(s, 0, sizeof(State));
 	free(s);
 }
 
@@ -386,14 +450,27 @@ static int
 p9skaddkey(Key *k, int before)
 {
 	Authkey *akey;
-	char *s;
+	char *s, *u;
 
+	u = _strfindattr(k->attr, "user");
+	if(u == nil){
+		werrstr("no user attribute");
+		return -1;
+	}
 	akey = emalloc(sizeof(Authkey));
 	if(s = _strfindattr(k->privattr, "!hex")){
-		if(hexparse(s, (uchar*)akey->des, DESKEYLEN) < 0){
-			free(akey);
-			werrstr("malformed key data");
-			return -1;
+		if(k->proto == &dp9ik){
+			if(hexparse(s, akey->aes, AESKEYLEN) < 0){
+				free(akey);
+				werrstr("malformed key data");
+				return -1;
+			}
+		} else {
+			if(hexparse(s, (uchar*)akey->des, DESKEYLEN) < 0){
+				free(akey);
+				werrstr("malformed key data");
+				return -1;
+			}
 		}
 	}else if(s = _strfindattr(k->privattr, "!password")){
 		passtokey(akey, s);
@@ -402,6 +479,10 @@ p9skaddkey(Key *k, int before)
 		free(akey);
 		return -1;
 	}
+	if(k->proto == &dp9ik)
+		authpak_hash(akey, u);
+	else
+		memset(akey->aes, 0, AESKEYLEN);	/* don't attempt AuthPAK for p9sk1 key */
 	k->priv = akey;
 	return replacekey(k, before);
 }
@@ -409,31 +490,12 @@ p9skaddkey(Key *k, int before)
 static void
 p9skclosekey(Key *k)
 {
+	memset(k->priv, 0, sizeof(Authkey));
 	free(k->priv);
 }
 
 static int
-getastickets(State *s, Ticketreq *tr, char *tbuf, int tbuflen)
-{
-	int asfd, rv;
-	char *dom;
-
-	if((dom = _strfindattr(s->key->attr, "dom")) == nil){
-		werrstr("auth key has no domain");
-		return -1;
-	}
-	asfd = _authdial(nil, dom);
-	if(asfd < 0)
-		return -1;
-	alarm(30*1000);
-	rv = _asgetticket(asfd, tr, tbuf, tbuflen);
-	alarm(0);
-	close(asfd);
-	return rv;
-}
-
-static int
-mkserverticket(State *s, char *tbuf, int tbuflen)
+mkservertickets(State *s, uchar *y, char *tbuf, int tbuflen)
 {
 	Ticketreq *tr = &s->tr;
 	Ticket t;
@@ -446,31 +508,86 @@ mkserverticket(State *s, char *tbuf, int tbuflen)
 		return -1;
 */
 	memset(&t, 0, sizeof(t));
+	ret = 0;
+	if(y != nil){
+		t.form = 1;
+		authpak_new(&s->p, &s->k, s->y, 0);
+		authpak_finish(&s->p, &s->k, y);
+	}
 	memmove(t.chal, tr->chal, CHALLEN);
 	strcpy(t.cuid, tr->uid);
 	strcpy(t.suid, tr->uid);
-	genrandom((uchar*)t.key, DESKEYLEN);
+	genrandom((uchar*)t.key, sizeof(t.key));
 	t.num = AuthTc;
-	ret = convT2M(&t, tbuf, tbuflen, (Authkey*)s->key->priv);
+	ret += convT2M(&t, tbuf+ret, tbuflen-ret, &s->k);
 	t.num = AuthTs;
-	ret += convT2M(&t, tbuf+ret, tbuflen-ret, (Authkey*)s->key->priv);
+	ret += convT2M(&t, tbuf+ret, tbuflen-ret, &s->k);
+	memset(&t, 0, sizeof(t));
+
 	return ret;
 }
 
 static int
-gettickets(State *s, Ticketreq *tr, char *tbuf, int tbuflen)
+getastickets(State *s, Ticketreq *tr, uchar *y, char *tbuf, int tbuflen)
+{
+	int asfd, rv;
+	char *dom;
+
+	if((dom = _strfindattr(s->key->attr, "dom")) == nil){
+		werrstr("auth key has no domain");
+		return -1;
+	}
+	asfd = _authdial(dom);
+	if(asfd < 0)
+		return -1;
+	alarm(30*1000);
+	if(y != nil){
+		rv = -1;
+		s->tr.type = AuthPAK;
+		if(_asrequest(asfd, tr) != 0 || write(asfd, y, PAKYLEN) != PAKYLEN)
+			goto Out;
+
+		authpak_new(&s->p, &s->k, (uchar*)tbuf, 1);
+		if(write(asfd, tbuf, PAKYLEN) != PAKYLEN)
+			goto Out;
+
+		if(_asrdresp(asfd, tbuf, 2*PAKYLEN) != 2*PAKYLEN)
+			goto Out;
+	
+		memmove(s->y, tbuf, PAKYLEN);
+		if(authpak_finish(&s->p, &s->k, (uchar*)tbuf+PAKYLEN))
+			goto Out;
+	}
+	s->tr.type = AuthTreq;
+	rv = _asgetticket(asfd, tr, tbuf, tbuflen);
+Out:
+	alarm(0);
+	close(asfd);
+	return rv;
+}
+
+static int
+gettickets(State *s, Ticketreq *tr, uchar *y, char *tbuf, int tbuflen)
 {
 	int ret;
 
-	ret = getastickets(s, tr, tbuf, tbuflen);
-	if(ret >= 0)
+	if(tr->authdom[0] == 0
+	|| tr->authid[0] == 0
+	|| tr->hostid[0] == 0
+	|| tr->uid[0] == 0){
+		werrstr("bad ticket request");
+		return -1;
+	}
+	memmove(&s->k, s->key->priv, sizeof(Authkey));
+	ret = getastickets(s, tr, y, tbuf, tbuflen);
+	if(ret > 0)
 		return ret;
-	return mkserverticket(s, tbuf, tbuflen);
+	return mkservertickets(s, y, tbuf, tbuflen);
 }
 
 Proto p9sk1 = {
 .name=	"p9sk1",
-.init=		p9skinit,
+.init=	p9skinit,
 .write=	p9skwrite,
 .read=	p9skread,
 .close=	p9skclose,
@@ -479,11 +596,13 @@ Proto p9sk1 = {
 .keyprompt=	"user? !password?"
 };
 
-Proto p9sk2 = {
-.name=	"p9sk2",
-.init=		p9skinit,
+Proto dp9ik = {
+.name=	"dp9ik",
+.init=	p9skinit,
 .write=	p9skwrite,
 .read=	p9skread,
 .close=	p9skclose,
+.addkey=	p9skaddkey,
+.closekey=	p9skclosekey,
+.keyprompt=	"user? !password?"
 };
-

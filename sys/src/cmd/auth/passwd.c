@@ -7,7 +7,7 @@
 void
 main(int argc, char **argv)
 {
-	int fd, n;
+	int fd, n, try;
 	Ticketreq tr;
 	Ticket t;
 	Passwordreq pr;
@@ -19,6 +19,8 @@ main(int argc, char **argv)
 
 	ARGBEGIN{
 	}ARGEND
+
+	private();
 
 	s = nil;
 	if(argc > 0){
@@ -34,6 +36,10 @@ main(int argc, char **argv)
 	if(fd < 0)
 		error("authdial: %r");
 
+	memset(&tr, 0, sizeof(tr));
+	strncpy(tr.uid, user, sizeof(tr.uid)-1);
+	tr.type = AuthPass;
+
 	/*
 	 *  get a password from the user and try to decrypt the
 	 *  ticket.  If it doesn't work we've got a bad password,
@@ -43,18 +49,31 @@ main(int argc, char **argv)
 	readln("Plan 9 Password: ", pr.old, sizeof pr.old, 1);
 	passtokey(&key, pr.old);
 
-	memset(&tr, 0, sizeof(tr));
-	strcpy(tr.uid, user);
-	tr.type = AuthPass;
-
+	/*
+	 *  negotiate PAK key. we need to retry in case the AS does
+	 *  not support the AuthPAK request or when the user has
+	 *  not yet setup a new key and the AS made one up.
+	 */
+	try = 0;
+	authpak_hash(&key, tr.uid);
+	if(_asgetpakkey(fd, &tr, &key) < 0){
+Retry:
+		try++;
+		close(fd);
+		fd = authdial(nil, s);
+		if(fd < 0)
+			error("authdial: %r");
+	}
 	/* send ticket request to AS */
 	if(_asrequest(fd, &tr) < 0)
 		error("%r");
 	if(_asgetresp(fd, &t, nil, &key) < 0)
 		error("%r");
-
-	if(t.num != AuthTp || strcmp(t.cuid, tr.uid) != 0)
+	if(t.num != AuthTp || strcmp(t.cuid, tr.uid) != 0){
+		if(try == 0)
+			goto Retry;
 		error("bad password");
+	}
 
 	/* loop trying new passwords */
 	for(;;){
@@ -62,8 +81,7 @@ main(int argc, char **argv)
 		*pr.new = 0;
 		readln("change Plan 9 Password? (y/n) ", buf, sizeof buf, 0);
 		if(*buf == 'y' || *buf == 'Y'){
-			readln("Password(8 to 31 characters): ", pr.new,
-				sizeof pr.new, 1);
+			readln("Password: ", pr.new, sizeof pr.new, 1);
 			readln("Confirm: ", buf, sizeof buf, 1);
 			if(strcmp(pr.new, buf)){
 				print("!mismatch\n");
@@ -81,8 +99,7 @@ main(int argc, char **argv)
 				else
 					strcpy(pr.secret, pr.new);
 			} else {
-				readln("Secret(0 to 256 characters): ", pr.secret,
-					sizeof pr.secret, 1);
+				readln("Secret: ", pr.secret, sizeof pr.secret, 1);
 				readln("Confirm: ", buf, sizeof buf, 1);
 				if(strcmp(pr.secret, buf)){
 					print("!mismatch\n");

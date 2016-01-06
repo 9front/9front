@@ -25,6 +25,7 @@ enum {
 	Quser,
 	Qkey,
 	Qaeskey,
+	Qpakhash,
 	Qsecret,
 	Qlog,
 	Qstatus,
@@ -54,8 +55,7 @@ struct Fid {
 
 struct User {
 	char	*name;
-	char	key[DESKEYLEN];
-	uchar	aeskey[AESKEYLEN];
+	Authkey	key;
 	char	secret[SECRETLEN];
 	ulong	expire;			/* 0 == never */
 	uchar	status;
@@ -73,6 +73,7 @@ char	*qinfo[Qmax] = {
 	[Quser]		".",
 	[Qkey]		"key",
 	[Qaeskey]	"aeskey",
+	[Qpakhash]	"pakhash",
 	[Qsecret]	"secret",
 	[Qlog]		"log",
 	[Qexpire]	"expire",
@@ -180,6 +181,7 @@ main(int argc, char *argv[])
 	if(pipe(p) < 0)
 		error("can't make pipe: %r");
 
+	private();
 	if(usepass)
 		getpass(&authkey, nil, 0, 0);
 	else {
@@ -374,7 +376,7 @@ Open(Fid *f)
 	mode = rhdr.mode;
 	if(f->qtype == Quser && (mode & (OWRITE|OTRUNC)))
 		return "user already exists";
-	if(f->qtype == Qaeskey && !keydbaes)
+	if((f->qtype == Qaeskey || f->qtype == Qpakhash) && !keydbaes)
 		return "keyfile not in aes format";
 	thdr.qid = mkqid(f->user, f->qtype);
 	thdr.iounit = messagesize - IOHDRSZ;
@@ -458,6 +460,7 @@ Read(Fid *f)
 		return 0;
 	case Qkey:
 	case Qaeskey:
+	case Qpakhash:
 	case Qsecret:
 		if(f->user->status != Sok)
 			return "user disabled";
@@ -468,12 +471,16 @@ Read(Fid *f)
 		m = 0;
 		switch(f->qtype){
 		case Qkey:
-			data = f->user->key;
+			data = (char*)f->user->key.des;
 			m = DESKEYLEN;
 			break;
 		case Qaeskey:
-			data = (char*)f->user->aeskey;
+			data = (char*)f->user->key.aes;
 			m = AESKEYLEN;
+			break;
+		case Qpakhash:
+			data = (char*)f->user->key.pakhash;
+			m = PAKHASHLEN;
 			break;
 		case Qsecret:
 			data = f->user->secret;
@@ -531,14 +538,15 @@ Write(Fid *f)
 	case Qkey:
 		if(n != DESKEYLEN)
 			return "garbled write data";
-		memmove(f->user->key, data, DESKEYLEN);
-		thdr.count = DESKEYLEN;
+		memmove(f->user->key.des, data, n);
+		thdr.count = n;
 		break;
 	case Qaeskey:
 		if(n != AESKEYLEN)
 			return "garbled write data";
-		memmove(f->user->aeskey, data, AESKEYLEN);
-		thdr.count = AESKEYLEN;
+		memmove(f->user->key.aes, data, n);
+		authpak_hash(&f->user->key, f->user->name);
+		thdr.count = n;
 		break;
 	case Qsecret:
 		if(n >= SECRETLEN)
@@ -728,7 +736,7 @@ writeusers(void)
 		for(u = users[i]; u != nil; u = u->link){
 			strncpy((char*)p, u->name, Namelen);
 			p += Namelen;
-			memmove(p, u->key, DESKEYLEN);
+			memmove(p, u->key.des, DESKEYLEN);
 			p += DESKEYLEN;
 			*p++ = u->status;
 			*p++ = u->warnings;
@@ -740,7 +748,7 @@ writeusers(void)
 			memmove(p, u->secret, SECRETLEN);
 			p += SECRETLEN;
 			if(keydbaes){
-				memmove(p, u->aeskey, AESKEYLEN);
+				memmove(p, u->key.aes, AESKEYLEN);
 				p += AESKEYLEN;
 			}
 		}
@@ -773,6 +781,8 @@ writeusers(void)
 
 	free(buf);
 	close(fd);
+
+	newkeys();
 }
 
 int
@@ -897,7 +907,7 @@ readusers(void)
 		u = finduser((char*)ep);
 		if(u == nil)
 			u = installuser((char*)ep);
-		memmove(u->key, ep + Namelen, DESKEYLEN);
+		memmove(u->key.des, ep + Namelen, DESKEYLEN);
 		p = ep + Namelen + DESKEYLEN;
 		u->status = *p++;
 		u->warnings = *p++;
@@ -908,8 +918,10 @@ readusers(void)
 		memmove(u->secret, p, SECRETLEN);
 		u->secret[SECRETLEN-1] = 0;
 		p += SECRETLEN;
-		if(keydbaes)
-			memmove(u->aeskey, p, AESKEYLEN);
+		if(keydbaes){
+			memmove(u->key.aes, p, AESKEYLEN);
+			authpak_hash(&u->key, u->name);
+		}
 		nu++;
 	}
 	free(buf);

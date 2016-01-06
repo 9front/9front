@@ -66,8 +66,14 @@ findkey(char *db, char *user, Authkey *key)
 	int ret;
 
 	memset(key, 0, sizeof(Authkey));
-	ret = finddeskey(db, user, key->des) != nil;
-	ret |= findaeskey(db, user, key->aes) != nil;
+	ret = findaeskey(db, user, key->aes) != nil;
+	if(ret){
+		char filename[Maxpath];
+		snprint(filename, sizeof filename, "%s/%s/pakhash", db, user);
+		if(readfile(filename, (char*)key->pakhash, PAKHASHLEN) != PAKHASHLEN)
+			authpak_hash(key, user);
+	}
+	ret |= finddeskey(db, user, key->des) != nil;
 	return ret;
 }
 

@@ -43,6 +43,8 @@ main(int argc, char *argv[])
 		usage();
 	file = argv[0];
 
+	private();
+
 	/* get original key */
 	if(usepass){
 		print("enter password file is encoded with\n");

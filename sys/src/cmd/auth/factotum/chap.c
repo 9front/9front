@@ -41,6 +41,7 @@ struct State
 	int astype;
 	int asfd;
 	Key *key;
+	Authkey k;
 	Ticket t;
 	Ticketreq tr;
 	char chal[ChapChallen];
@@ -309,19 +310,18 @@ dochal(State *s)
 		werrstr("chap/dochal cannot happen");
 		goto err;
 	}
-	s->asfd = _authdial(nil, dom);
-	if(s->asfd < 0)
-		goto err;
-	
+	memmove(&s->k, s->key->priv, sizeof(Authkey));
+
 	memset(&s->tr, 0, sizeof(s->tr));
 	safecpy(s->tr.authdom, dom, sizeof(s->tr.authdom));
 	safecpy(s->tr.hostid, user, sizeof(s->tr.hostid));
 	s->tr.type = s->astype;
-	alarm(30*1000);
-	if(_asrequest(s->asfd, &s->tr) < 0){
-		alarm(0);
+
+	s->asfd = _authreq(&s->tr, &s->k);
+	if(s->asfd < 0)
 		goto err;
-	}
+	
+	alarm(30*1000);
 	n = readn(s->asfd, s->chal, sizeof s->chal);
 	alarm(0);
 	if(n != sizeof s->chal)
@@ -347,7 +347,7 @@ doreply(State *s, uchar *reply, int nreply)
 		alarm(0);
 		goto err;
 	}
-	n = _asgetresp(s->asfd, &s->t, &a, (Authkey*)s->key->priv);
+	n = _asgetresp(s->asfd, &s->t, &a, &s->k);
 	if(n < 0){
 		alarm(0);
 		/* leave connection open so we can try again */
@@ -361,7 +361,7 @@ doreply(State *s, uchar *reply, int nreply)
 	s->asfd = -1;
 
 	if(s->t.num != AuthTs
-	|| memcmp(s->t.chal, s->tr.chal, sizeof(s->t.chal)) != 0){
+	|| tsmemcmp(s->t.chal, s->tr.chal, sizeof(s->t.chal)) != 0){
 		if(s->key->successes == 0)
 			disablekey(s->key);
 		werrstr(Easproto);
@@ -369,8 +369,7 @@ doreply(State *s, uchar *reply, int nreply)
 	}
 	s->key->successes++;
 	if(a.num != AuthAc
-	|| memcmp(a.chal, s->tr.chal, sizeof(a.chal)) != 0
-	|| a.id != 0){
+	|| tsmemcmp(a.chal, s->tr.chal, sizeof(a.chal)) != 0){
 		werrstr(Easproto);
 		return -1;
 	}

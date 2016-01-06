@@ -429,15 +429,20 @@ ctlwrite(char *a, int atzero)
 				return -1;
 			}
 		}
-		for(i=0; i<ring->nkey; ){
-			if(matchattr(attr, ring->key[i]->attr, ring->key[i]->privattr)){
+	Again:
+		qlock(ring);
+		for(i=0; i<ring->nkey; i++){
+			k = ring->key[i];
+			if(matchattr(attr, k->attr, k->privattr)){
 				nmatch++;
-				closekey(ring->key[i]);
 				ring->nkey--;
 				memmove(&ring->key[i], &ring->key[i+1], (ring->nkey-i)*sizeof(ring->key[0]));
-			}else
-				i++;
+				qunlock(ring);
+				closekey(k);
+				goto Again;
+			}
 		}
+		qunlock(ring);
 		_freeattr(attr);
 		if(nmatch == 0){
 			werrstr("found no keys to delete");

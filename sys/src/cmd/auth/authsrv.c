@@ -8,10 +8,20 @@
 #include <authsrv.h>
 #include "authcmdlib.h"
 
-int debug;
 Ndb *db;
 char raddr[128];
 uchar zeros[16];
+
+typedef struct Keyslot Keyslot;
+struct Keyslot
+{
+	Authkey;
+	char	id[ANAMELEN];
+};
+Keyslot hkey, akey, ukey;
+uchar keyseed[SHA2_256dlen];
+
+char ticketform;
 
 /* Microsoft auth constants */
 enum {
@@ -20,25 +30,26 @@ enum {
 	MSresplen = 24,
 };
 
-int	ticketrequest(Ticketreq*);
+void	pak(Ticketreq*);
+void	ticketrequest(Ticketreq*);
 void	challengebox(Ticketreq*);
 void	changepasswd(Ticketreq*);
 void	apop(Ticketreq*, int);
 void	chap(Ticketreq*);
 void	mschap(Ticketreq*);
-void	http(Ticketreq*);
 void	vnc(Ticketreq*);
 int	speaksfor(char*, char*);
 void	replyerror(char*, ...);
 void	getraddr(char*);
-void	mkkey(Authkey*);
+void	initkeyseed(void);
+void	mkkey(Keyslot*);
 void	mkticket(Ticketreq*, Ticket*);
 void	nthash(uchar hash[MShashlen], char *passwd);
 void	lmhash(uchar hash[MShashlen], char *passwd);
 void	ntv2hash(uchar hash[MShashlen], char *passwd, char *user, char *dom);
 void	mschalresp(uchar resp[MSresplen], uchar hash[MShashlen], uchar chal[MSchallen]);
 void	desencrypt(uchar data[8], uchar key[7]);
-int	tickauthreply(Ticketreq*, Authkey*);
+void	tickauthreply(Ticketreq*, Authkey*);
 void	safecpy(char*, char*, int);
 
 void
@@ -49,8 +60,9 @@ main(int argc, char *argv[])
 	int n;
 
 	ARGBEGIN{
-	case 'd':
-		debug++;
+	case 'N':
+		ticketform = 1;
+		break;
 	}ARGEND
 
 	strcpy(raddr, "unknown");
@@ -58,6 +70,9 @@ main(int argc, char *argv[])
 		getraddr(argv[argc-1]);
 
 	alarm(10*60*1000);	/* kill a connection after 10 minutes */
+
+	private();
+	initkeyseed();
 
 	db = ndbopen("/lib/ndb/auth");
 	if(db == 0)
@@ -89,48 +104,114 @@ main(int argc, char *argv[])
 		case AuthCram:
 			apop(&tr, AuthCram);
 			break;
-		case AuthHttp:
-			http(&tr);
-			break;
 		case AuthVNC:
 			vnc(&tr);
 			break;
+		case AuthPAK:
+			pak(&tr);
+			continue;
 		default:
 			syslog(0, AUTHLOG, "unknown ticket request type: %d", tr.type);
 			exits(0);
 		}
+		/* invalidate pak keys */
+		akey.id[0] = 0;
+		hkey.id[0] = 0;
+		ukey.id[0] = 0;
 	}
 	/* not reached */
 }
 
+void
+pak1(char *u, Keyslot *k)
+{
+	uchar y[PAKYLEN];
+	PAKpriv p;
+
+	safecpy(k->id, u, sizeof(k->id));
+	if(!findkey(KEYDB, k->id, k) || tsmemcmp(k->aes, zeros, AESKEYLEN) == 0) {
+		/* make one up so caller doesn't know it was wrong */
+		mkkey(k);
+		authpak_hash(k, k->id);
+	}
+	authpak_new(&p, k, y, 0);
+	if(write(1, y, PAKYLEN) != PAKYLEN)
+		exits(0);
+	if(readn(0, y, PAKYLEN) != PAKYLEN)
+		exits(0);
+	if(authpak_finish(&p, k, y))
+		exits(0);
+}
+
+void
+pak(Ticketreq *tr)
+{
+	static uchar ok[1] = {AuthOK};
+
+	if(write(1, ok, 1) != 1)
+		exits(0);
+
+	/* invalidate pak keys */
+	akey.id[0] = 0;
+	hkey.id[0] = 0;
+	ukey.id[0] = 0;
+
+	if(tr->hostid[0]) {
+		if(tr->authid[0])
+			pak1(tr->authid, &akey);
+		pak1(tr->hostid, &hkey);
+	} else if(tr->uid[0]) {
+		pak1(tr->uid, &ukey);
+	}
+
+	ticketform = 1;
+}
+
 int
+getkey(char *u, Keyslot *k)
+{
+	/* empty user id is an error */
+	if(*u == 0)
+		exits(0);
+
+	if(k == &hkey && strcmp(u, k->id) == 0)
+		return 1;
+	if(k == &akey && strcmp(u, k->id) == 0)
+		return 1;
+	if(k == &ukey && strcmp(u, k->id) == 0)
+		return 1;
+
+	if(ticketform != 0)
+		exits(0);
+
+	return findkey(KEYDB, u, k);
+}
+
+void
 ticketrequest(Ticketreq *tr)
 {
-	Authkey akey, hkey;
-	char tbuf[2*TICKETLEN+1];
+	char tbuf[2*MAXTICKETLEN+1];
 	Ticket t;
 	int n;
 
-	if(!findkey(KEYDB, tr->authid, &akey)){
+	if(tr->uid[0] == 0)
+		exits(0);
+	if(!getkey(tr->authid, &akey)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&akey);
-		if(debug)
-			syslog(0, AUTHLOG, "tr-fail authid %s", raddr);
+		syslog(0, AUTHLOG, "tr-fail authid %s", tr->authid);
 	}
-	if(!findkey(KEYDB, tr->hostid, &hkey)){
+	if(!getkey(tr->hostid, &hkey)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&hkey);
-		if(debug)
-			syslog(0, AUTHLOG, "tr-fail hostid %s(%s)", tr->hostid, raddr);
+		syslog(0, AUTHLOG, "tr-fail hostid %s(%s)", tr->hostid, raddr);
 	}
-
 	mkticket(tr, &t);
 	if(!speaksfor(tr->hostid, tr->uid)){
 		mkkey(&akey);
 		mkkey(&hkey);
-		if(debug)
-			syslog(0, AUTHLOG, "tr-fail %s@%s(%s) -> %s@%s no speaks for",
-				tr->uid, tr->hostid, raddr, tr->uid, tr->authid);
+		syslog(0, AUTHLOG, "tr-fail %s@%s(%s) -> %s@%s no speaks for",
+			tr->uid, tr->hostid, raddr, tr->uid, tr->authid);
 	}
 	n = 0;
 	tbuf[n++] = AuthOK;
@@ -138,44 +219,34 @@ ticketrequest(Ticketreq *tr)
 	n += convT2M(&t, tbuf+n, sizeof(tbuf)-n, &hkey);
 	t.num = AuthTs;
 	n += convT2M(&t, tbuf+n, sizeof(tbuf)-n, &akey);
-	if(write(1, tbuf, n) < 0){
-		if(debug)
-			syslog(0, AUTHLOG, "tr-fail %s@%s(%s): hangup",
-				tr->uid, tr->hostid, raddr);
+	if(write(1, tbuf, n) != n)
 		exits(0);
-	}
-	if(debug)
-		syslog(0, AUTHLOG, "tr-ok %s@%s(%s) -> %s@%s",
-			tr->uid, tr->hostid, raddr, tr->uid, tr->authid);
 
-	return 0;
+	syslog(0, AUTHLOG, "tr-ok %s@%s(%s) -> %s@%s", tr->uid, tr->hostid, raddr, tr->uid, tr->authid);
 }
 
 void
 challengebox(Ticketreq *tr)
 {
+	char kbuf[DESKEYLEN], nkbuf[DESKEYLEN], buf[NETCHLEN+1];
+	char *key, *netkey, *err;
 	long chal;
-	char *key, *netkey;
-	Authkey hkey;
-	char kbuf[DESKEYLEN], nkbuf[DESKEYLEN];
-	char buf[NETCHLEN+1];
-	char *err;
 
+	if(tr->uid[0] == 0)
+		exits(0);
 	key = finddeskey(KEYDB, tr->uid, kbuf);
 	netkey = finddeskey(NETKEYDB, tr->uid, nkbuf);
 	if(key == nil && netkey == nil){
 		/* make one up so caller doesn't know it was wrong */
 		genrandom((uchar*)nkbuf, DESKEYLEN);
 		netkey = nkbuf;
-		if(debug)
-			syslog(0, AUTHLOG, "cr-fail uid %s@%s", tr->uid, raddr);
+		syslog(0, AUTHLOG, "cr-fail uid %s@%s", tr->uid, raddr);
 	}
-	if(!findkey(KEYDB, tr->hostid, &hkey)){
+
+	if(!getkey(tr->hostid, &hkey)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&hkey);
-		if(debug)
-			syslog(0, AUTHLOG, "cr-fail hostid %s %s@%s", tr->hostid,
-				tr->uid, raddr);
+		syslog(0, AUTHLOG, "cr-fail hostid %s %s@%s", tr->hostid, tr->uid, raddr);
 	}
 
 	/*
@@ -185,18 +256,15 @@ challengebox(Ticketreq *tr)
 	buf[0] = AuthOK;
 	chal = nfastrand(MAXNETCHAL);
 	sprint(buf+1, "%lud", chal);
-	if(write(1, buf, NETCHLEN+1) < 0)
+	if(write(1, buf, NETCHLEN+1) != NETCHLEN+1)
 		exits(0);
-	if(readn(0, buf, NETCHLEN) < 0)
+	if(readn(0, buf, NETCHLEN) != NETCHLEN)
 		exits(0);
 	if(!(key != nil && netcheck(key, chal, buf))
 	&& !(netkey != nil && netcheck(netkey, chal, buf))
 	&& (err = secureidcheck(tr->uid, buf)) != nil){
 		replyerror("cr-fail %s %s %s", err, tr->uid, raddr);
 		logfail(tr->uid);
-		if(debug)
-			syslog(0, AUTHLOG, "cr-fail %s@%s(%s): bad resp",
-				tr->uid, tr->hostid, raddr);
 		return;
 	}
 	succeed(tr->uid);
@@ -204,33 +272,24 @@ challengebox(Ticketreq *tr)
 	/*
 	 *  reply with ticket & authenticator
 	 */
-	if(tickauthreply(tr, &hkey) < 0){
-		if(debug)
-			syslog(0, AUTHLOG, "cr-fail %s@%s(%s): hangup",
-				tr->uid, tr->hostid, raddr);
-		exits(0);
-	}
+	tickauthreply(tr, &hkey);
 
-	if(debug)
-		syslog(0, AUTHLOG, "cr-ok %s@%s(%s)",
-			tr->uid, tr->hostid, raddr);
+	syslog(0, AUTHLOG, "cr-ok %s@%s(%s)", tr->uid, tr->hostid, raddr);
 }
 
 void
 changepasswd(Ticketreq *tr)
 {
-	Ticket t;
-	char tbuf[TICKETLEN+1];
-	char prbuf[PASSREQLEN];
+	char tbuf[MAXTICKETLEN+1], prbuf[MAXPASSREQLEN], *err;
 	Passwordreq pr;
-	Authkey okey, nkey;
-	char *err;
-	int n;
+	Authkey nkey;
+	Ticket t;
+	int n, m;
 
-	if(!findkey(KEYDB, tr->uid, &okey)){
+	if(!getkey(tr->uid, &ukey)){
 		/* make one up so caller doesn't know it was wrong */
-		mkkey(&okey);
-		syslog(0, AUTHLOG, "cp-fail uid %s", raddr);
+		mkkey(&ukey);
+		syslog(0, AUTHLOG, "cp-fail uid %s@%s", tr->uid, raddr);
 	}
 
 	/* send back a ticket with a new key */
@@ -238,25 +297,30 @@ changepasswd(Ticketreq *tr)
 	t.num = AuthTp;
 	n = 0;
 	tbuf[n++] = AuthOK;
-	n += convT2M(&t, tbuf+n, sizeof(tbuf)-n, &okey);
+	n += convT2M(&t, tbuf+n, sizeof(tbuf)-n, &ukey);
 	if(write(1, tbuf, n) != n)
 		exits(0);
 
 	/* loop trying passwords out */
 	for(;;){
-		n = readn(0, prbuf, sizeof(prbuf));
-		if(n <= 0 || convM2PR(prbuf, n, &pr, &t) <= 0)
-			exits(0);
+		for(n=0; (m = convM2PR(prbuf, n, &pr, &t)) <= 0; n += m){
+			m = -m;
+			if(m <= n || m > sizeof(prbuf))
+				exits(0);
+			m -= n;
+			if(readn(0, prbuf+n, m) != m)
+				exits(0);
+		}
 		if(pr.num != AuthPass){
 			replyerror("protocol botch1: %s", raddr);
 			exits(0);
 		}
 		passtokey(&nkey, pr.old);
-		if(memcmp(nkey.des, okey.des, DESKEYLEN) != 0){
+		if(tsmemcmp(ukey.des, nkey.des, DESKEYLEN) != 0){
 			replyerror("protocol botch2: %s", raddr);
 			continue;
 		}
-		if(memcmp(okey.aes, zeros, AESKEYLEN) != 0 && memcmp(okey.aes, nkey.aes, AESKEYLEN) != 0){
+		if(tsmemcmp(ukey.aes, zeros, AESKEYLEN) != 0 && tsmemcmp(ukey.aes, nkey.aes, AESKEYLEN) != 0){
 			replyerror("protocol botch3: %s", raddr);
 			continue;
 		}
@@ -276,56 +340,15 @@ changepasswd(Ticketreq *tr)
 			replyerror("can't write key %s", raddr);
 			continue;
 		}
+		memmove(ukey.des, nkey.des, DESKEYLEN);
+		memmove(ukey.aes, nkey.aes, AESKEYLEN);
 		break;
 	}
+	succeed(tr->uid);
 
 	prbuf[0] = AuthOK;
-	write(1, prbuf, 1);
-	succeed(tr->uid);
-	return;
-}
-
-void
-http(Ticketreq *tr)
-{
-	Ticket t;
-	char tbuf[TICKETLEN+1];
-	Authkey key;
-	char *p;
-	Biobuf *b;
-	int n;
-
-	/* use plan9 key when there is any */
-	if(!findkey(KEYDB, tr->uid, &key))
-		mkkey(&key);
-
-	n = strlen(tr->uid);
-	b = Bopen("/sys/lib/httppasswords", OREAD);
-	if(b != nil){
-		for(;;){
-			p = Brdline(b, '\n');
-			if(p == nil)
-				break;
-			p[Blinelen(b)-1] = 0;
-			if(strncmp(p, tr->uid, n) == 0)
-			if(p[n] == ' ' || p[n] == '\t'){
-				p += n;
-				while(*p == ' ' || *p == '\t')
-					p++;
-				passtokey(&key, p);
-			}
-		}
-		Bterm(b);
-	}
-
-	/* send back a ticket encrypted with the key */
-	mkticket(tr, &t);
-	genrandom((uchar*)t.chal, CHALLEN);
-	t.num = AuthHr;
-	n = 0;
-	tbuf[n++] = AuthOK;
-	n += convT2M(&t, tbuf+n, sizeof(tbuf)-n, &key);
-	write(1, tbuf, n);
+	if(write(1, prbuf, 1) != 1)
+		exits(0);
 }
 
 static char*
@@ -371,7 +394,6 @@ apop(Ticketreq *tr, int type)
 {
 	int challen, i, n, tries;
 	char *secret, *p;
-	Authkey hkey;
 	Ticketreq treq;
 	DigestState *s;
 	char sbuf[SECRETLEN];
@@ -402,7 +424,7 @@ apop(Ticketreq *tr, int type)
 		if(n <= 0 || convM2TR(trbuf, n, &treq) <= 0)
 			exits(0);
 		tr = &treq;
-		if(tr->type != type)
+		if(tr->type != type || tr->uid[0] == 0)
 			exits(0);
 
 		/*
@@ -417,11 +439,11 @@ apop(Ticketreq *tr, int type)
 		 * lookup
 		 */
 		secret = findsecret(KEYDB, tr->uid, sbuf);
-		if(!findkey(KEYDB, tr->hostid, &hkey) || secret == nil){
+		if(!getkey(tr->hostid, &hkey) || secret == nil){
 			replyerror("apop-fail bad response %s", raddr);
 			logfail(tr->uid);
 			if(tries > 5)
-				return;
+				exits(0);
 			continue;
 		}
 
@@ -436,11 +458,11 @@ apop(Ticketreq *tr, int type)
 			s = md5((uchar*)chal, challen, 0, 0);
 			md5((uchar*)secret, strlen(secret), digest, s);
 		}
-		if(memcmp(digest, resp, MD5dlen) != 0){
+		if(tsmemcmp(digest, resp, MD5dlen) != 0){
 			replyerror("apop-fail bad response %s", raddr);
 			logfail(tr->uid);
 			if(tries > 5)
-				return;
+				exits(0);
 			continue;
 		}
 		break;
@@ -451,15 +473,12 @@ apop(Ticketreq *tr, int type)
 	/*
 	 *  reply with ticket & authenticator
 	 */
-	if(tickauthreply(tr, &hkey) < 0)
-		exits(0);
+	tickauthreply(tr, &hkey);
 
-	if(debug){
-		if(type == AuthCram)
-			syslog(0, AUTHLOG, "cram-ok %s %s", tr->uid, raddr);
-		else
-			syslog(0, AUTHLOG, "apop-ok %s %s", tr->uid, raddr);
-	}
+	if(type == AuthCram)
+		syslog(0, AUTHLOG, "cram-ok %s %s", tr->uid, raddr);
+	else
+		syslog(0, AUTHLOG, "apop-ok %s %s", tr->uid, raddr);
 }
 
 enum {
@@ -489,13 +508,15 @@ uchar swizzletab[256] = {
 void
 vnc(Ticketreq *tr)
 {
-	char *secret;
-	Authkey hkey;
 	uchar chal[VNCchallen+6];
 	uchar reply[VNCchallen];
 	char sbuf[SECRETLEN];
+	char *secret;
 	DESstate s;
 	int i;
+
+	if(tr->uid[0] == 0)
+		exits(0);
 
 	/*
 	 *  Create a challenge and send it.
@@ -504,35 +525,33 @@ vnc(Ticketreq *tr)
 	chal[0] = AuthOKvar;
 	sprint((char*)chal+1, "%-5d", VNCchallen);
 	if(write(1, chal, sizeof(chal)) != sizeof(chal))
-		return;
+		exits(0);
 
 	/*
 	 *  lookup keys (and swizzle bits)
 	 */
 	memset(sbuf, 0, sizeof(sbuf));
 	secret = findsecret(KEYDB, tr->uid, sbuf);
-	if(secret == nil){
+	if(!getkey(tr->hostid, &hkey) || secret == nil){
+		mkkey(&hkey);
 		genrandom((uchar*)sbuf, sizeof(sbuf));
 		secret = sbuf;
 	}
 	for(i = 0; i < 8; i++)
 		secret[i] = swizzletab[(uchar)secret[i]];
 
-	if(!findkey(KEYDB, tr->hostid, &hkey))
-		mkkey(&hkey);
-
 	/*
 	 *  get response
 	 */
 	if(readn(0, reply, sizeof(reply)) != sizeof(reply))
-		return;
+		exits(0);
 
 	/*
 	 *  decrypt response and compare
 	 */
 	setupDESstate(&s, (uchar*)secret, nil);
 	desECBdecrypt(reply, sizeof(reply), &s);
-	if(memcmp(reply, chal+6, VNCchallen) != 0){
+	if(tsmemcmp(reply, chal+6, VNCchallen) != 0){
 		replyerror("vnc-fail bad response %s", raddr);
 		logfail(tr->uid);
 		return;
@@ -542,18 +561,15 @@ vnc(Ticketreq *tr)
 	/*
 	 *  reply with ticket & authenticator
 	 */
-	if(tickauthreply(tr, &hkey) < 0)
-		exits(0);
+	tickauthreply(tr, &hkey);
 
-	if(debug)
-		syslog(0, AUTHLOG, "vnc-ok %s %s", tr->uid, raddr);
+	syslog(0, AUTHLOG, "vnc-ok %s %s", tr->uid, raddr);
 }
 
 void
 chap(Ticketreq *tr)
 {
 	char *secret;
-	Authkey hkey;
 	DigestState *s;
 	char sbuf[SECRETLEN];
 	uchar digest[MD5dlen];
@@ -564,7 +580,8 @@ chap(Ticketreq *tr)
 	 *  Create a challenge and send it.
 	 */
 	genrandom((uchar*)chal, sizeof(chal));
-	write(1, chal, sizeof(chal));
+	if(write(1, chal, sizeof(chal)) != sizeof(chal))
+		exits(0);
 
 	/*
 	 *  get chap reply
@@ -572,15 +589,17 @@ chap(Ticketreq *tr)
 	if(readn(0, &reply, sizeof(reply)) < 0)
 		exits(0);
 	safecpy(tr->uid, reply.uid, sizeof(tr->uid));
+	if(tr->uid[0] == 0)
+		exits(0);
 
 	/*
 	 * lookup
 	 */
 	secret = findsecret(KEYDB, tr->uid, sbuf);
-	if(!findkey(KEYDB, tr->hostid, &hkey) || secret == nil){
+	if(!getkey(tr->hostid, &hkey) || secret == nil){
 		replyerror("chap-fail bad response %s", raddr);
 		logfail(tr->uid);
-		exits(0);
+		return;
 	}
 
 	/*
@@ -590,10 +609,10 @@ chap(Ticketreq *tr)
 	md5((uchar*)secret, strlen(secret), 0, s);
 	md5((uchar*)chal, sizeof(chal), digest, s);
 
-	if(memcmp(digest, reply.resp, MD5dlen) != 0){
+	if(tsmemcmp(digest, reply.resp, MD5dlen) != 0){
 		replyerror("chap-fail bad response %s", raddr);
 		logfail(tr->uid);
-		exits(0);
+		return;
 	}
 
 	succeed(tr->uid);
@@ -601,23 +620,9 @@ chap(Ticketreq *tr)
 	/*
 	 *  reply with ticket & authenticator
 	 */
-	if(tickauthreply(tr, &hkey) < 0)
-		exits(0);
+	tickauthreply(tr, &hkey);
 
-	if(debug)
-		syslog(0, AUTHLOG, "chap-ok %s %s", tr->uid, raddr);
-}
-
-void
-printresp(uchar resp[MSresplen])
-{
-	char buf[200], *p;
-	int i;
-
-	p = buf;
-	for(i=0; i<MSresplen; i++)
-		p += sprint(p, "%.2ux ", resp[i]);
-	syslog(0, AUTHLOG, "resp = %s", buf);
+	syslog(0, AUTHLOG, "chap-ok %s %s", tr->uid, raddr);
 }
 
 enum {
@@ -666,7 +671,6 @@ void
 mschap(Ticketreq *tr)
 {
 	char *secret;
-	Authkey hkey;
 	char sbuf[SECRETLEN], windom[128];
 	uchar chal[CHALLEN], ntblob[1024];
 	uchar hash[MShashlen];
@@ -681,7 +685,8 @@ mschap(Ticketreq *tr)
 	 *  Create a challenge and send it.
 	 */
 	genrandom(chal, sizeof(chal));
-	write(1, chal, sizeof(chal));
+	if(write(1, chal, sizeof(chal)) != sizeof(chal))
+		exits(0);
 
 	/*
 	 *  get chap reply
@@ -734,15 +739,17 @@ mschap(Ticketreq *tr)
 	}
 
 	safecpy(tr->uid, reply.uid, sizeof(tr->uid));
+	if(tr->uid[0] == 0)
+		exits(0);
+
 	/*
 	 * lookup
 	 */
 	secret = findsecret(KEYDB, tr->uid, sbuf);
-	if(!findkey(KEYDB, tr->hostid, &hkey) || secret == nil){
-		replyerror("mschap-fail bad response %s/%s(%s)",
-			tr->uid, tr->hostid, raddr);
+	if(!getkey(tr->hostid, &hkey) || secret == nil){
+		replyerror("mschap-fail bad response %s/%s(%s)", tr->uid, tr->hostid, raddr);
 		logfail(tr->uid);
-		exits(0);
+		return;
 	}
 
 	if(ntbloblen > 0){
@@ -756,14 +763,14 @@ mschap(Ticketreq *tr)
 			 */
 			s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
 			hmac_md5((uchar*)reply.LMresp+16, 8, hash, MShashlen, resp, s);
-			lmok = memcmp(resp, reply.LMresp, 16) == 0;
+			lmok = tsmemcmp(resp, reply.LMresp, 16) == 0;
 
 			/*
 			 * NtResponse = Cat(HMAC_MD5(NtHash, Cat(SC, NtBlob)), NtBlob)
 			 */
 			s = hmac_md5(chal, 8, hash, MShashlen, nil, nil);
 			hmac_md5(ntblob, ntbloblen, hash, MShashlen, resp, s);
-			ntok = memcmp(resp, reply.NTresp, 16) == 0;
+			ntok = tsmemcmp(resp, reply.NTresp, 16) == 0;
 
 			if(lmok || ntok || windom[0] == '\0')
 				break;
@@ -774,11 +781,11 @@ mschap(Ticketreq *tr)
 	} else {
 		lmhash(hash, secret);
 		mschalresp(resp, hash, chal);
-		lmok = memcmp(resp, reply.LMresp, MSresplen) == 0;
+		lmok = tsmemcmp(resp, reply.LMresp, MSresplen) == 0;
 		nthash(hash, secret);
 		mschalresp(resp, hash, chal);
-		ntok = memcmp(resp, reply.NTresp, MSresplen) == 0;
-		dupe = memcmp(reply.LMresp, reply.NTresp, MSresplen) == 0;
+		ntok = tsmemcmp(resp, reply.NTresp, MSresplen) == 0;
+		dupe = tsmemcmp(reply.LMresp, reply.NTresp, MSresplen) == 0;
 	}
 
 	/*
@@ -795,10 +802,9 @@ mschap(Ticketreq *tr)
 	 * windows clients don't seem to use the feature.
 	 */
 	if((!ntok && !lmok) || ((!ntok || !lmok) && !dupe)){
-		replyerror("mschap-fail bad response %s/%s(%s) %d,%d,%d",
-			tr->uid, tr->hostid, raddr, dupe, lmok, ntok);
+		replyerror("mschap-fail bad response %s/%s(%s)", tr->uid, tr->hostid, raddr);
 		logfail(tr->uid);
-		exits(0);
+		return;
 	}
 
 	succeed(tr->uid);
@@ -806,11 +812,9 @@ mschap(Ticketreq *tr)
 	/*
 	 *  reply with ticket & authenticator
 	 */
-	if(tickauthreply(tr, &hkey) < 0)
-		exits(0);
+	tickauthreply(tr, &hkey);
 
-	if(debug)
-		replyerror("mschap-ok %s/%s(%s)", tr->uid, tr->hostid, raddr);
+	syslog(0, AUTHLOG, "mschap-ok %s/%s(%s)", tr->uid, tr->hostid, raddr);
 
 	nthash(hash, secret);
 	md4(hash, 16, hash2, 0);
@@ -818,7 +822,7 @@ mschap(Ticketreq *tr)
 	sha1(hash2, 16, 0, s);
 	sha1(chal, 8, digest, s);
 
-	if(write(1, digest, 16) < 0)
+	if(write(1, digest, 16) != 16)
 		exits(0);
 }
 
@@ -997,10 +1001,35 @@ getraddr(char *dir)
 }
 
 void
-mkkey(Authkey *k)
+initkeyseed(void)
 {
-	genrandom((uchar*)k->des, DESKEYLEN);
-	genrandom((uchar*)k->aes, AESKEYLEN);
+	static char info[] = "PRF key for generation of dummy user keys";
+	char k[DESKEYLEN], *u;
+
+	u = getuser();
+	if(!finddeskey(KEYDB, u, k)){
+		syslog(0, AUTHLOG, "user %s not in keydb", u);
+		exits(0);
+	}
+	hmac_sha2_256((uchar*)info, sizeof(info)-1, (uchar*)k, sizeof(k), keyseed, nil);
+	memset(k, 0, sizeof(k));
+}
+
+void
+mkkey(Keyslot *k)
+{
+	uchar h[SHA2_256dlen];
+	Authkey *a = k;
+
+	genrandom((uchar*)a, sizeof(Authkey));
+
+	/*
+	 * the DES key has to be constant for a user in each response,
+	 * so we make one up pseudo randomly from a keyseed and user name.
+	 */
+	hmac_sha2_256((uchar*)k->id, strlen(k->id), keyseed, sizeof(keyseed), h, nil);
+	memmove(a->des, h, DESKEYLEN);
+	memset(h, 0, sizeof(h));
 }
 
 void
@@ -1008,35 +1037,35 @@ mkticket(Ticketreq *tr, Ticket *t)
 {
 	memset(t, 0, sizeof(Ticket));
 	memmove(t->chal, tr->chal, CHALLEN);
-	safecpy(t->cuid, tr->uid, sizeof(t->cuid));
-	safecpy(t->suid, tr->uid, sizeof(t->suid));
-	genrandom((uchar*)t->key, DESKEYLEN);
+	safecpy(t->cuid, tr->uid, ANAMELEN);
+	safecpy(t->suid, tr->uid, ANAMELEN);
+	genrandom(t->key, NONCELEN);
+	t->form = ticketform;
 }
 
 /*
  *  reply with ticket and authenticator
  */
-int
-tickauthreply(Ticketreq *tr, Authkey *hkey)
+void
+tickauthreply(Ticketreq *tr, Authkey *key)
 {
 	Ticket t;
 	Authenticator a;
-	char buf[TICKETLEN+AUTHENTLEN+1];
+	char buf[MAXTICKETLEN+MAXAUTHENTLEN+1];
 	int n;
 
 	mkticket(tr, &t);
 	t.num = AuthTs;
 	n = 0;
 	buf[n++] = AuthOK;
-	n += convT2M(&t, buf+n, sizeof(buf)-n, hkey);
+	n += convT2M(&t, buf+n, sizeof(buf)-n, key);
 	memset(&a, 0, sizeof(a));
 	memmove(a.chal, t.chal, CHALLEN);
+	genrandom(a.rand, NONCELEN);
 	a.num = AuthAc;
-	a.id = 0;
 	n += convA2M(&a, buf+n, sizeof(buf)-n, &t);
 	if(write(1, buf, n) != n)
-		return -1;
-	return 0;
+		exits(0);
 }
 
 void
