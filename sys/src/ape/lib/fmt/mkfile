@@ -53,7 +53,7 @@ $NAN.$O: nan.h
 strtod.$O: nan.h
 
 test: $LIB test.$O
-	$CC -o test test.$O $LIB -L$PLAN9/lib -lutf
+	$CC -o test test.$O $LIB -lutf
 
 
 CFLAGS=-c -D_POSIX_SOURCE -D_PLAN9_SOURCE -D_BSD_EXTENSION

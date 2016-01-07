@@ -348,7 +348,11 @@ __ifmt(Fmt *f)
 		break;
 	}
 	if(f->r == 'p'){
-		u = (ulong)va_arg(f->args, void*);
+		if(sizeof(void*) == sizeof(uvlong)){
+			isv = 1;
+			vu = (uvlong)va_arg(f->args, void*);
+		} else
+			u = (ulong)va_arg(f->args, void*);
 		f->r = 'x';
 		fl |= FmtUnsigned;
 	}else if(fl & FmtVLong){
@@ -537,6 +541,11 @@ __flagfmt(Fmt *f)
 		if(f->flags & FmtLong)
 			f->flags |= FmtVLong;
 		f->flags |= FmtLong;
+		break;
+	case 'z':
+		f->flags |= FmtLong;
+		if(sizeof(void*) == sizeof(vlong))
+			f->flags |= FmtVLong;
 		break;
 	}
 	return 1;

@@ -35,5 +35,7 @@ main(int argc, char *argv[])
 	print("%f\n", 3.1415927/4);
 	print("%d\n", 23);
 	print("%i\n", 23);
+	print("%p\n", argv);
+	print("%zd\n", &argv[1] - &argv[0]);
 	return 0;
 }
