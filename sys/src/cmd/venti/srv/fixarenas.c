@@ -612,7 +612,7 @@ showdiffs(uchar *want, uchar *have, int len, Info *info)
 					info->name, u32(want), u32(have));
 				break;
 			case Z|4:
-				print("\t%s: correct=%z disk=%z\n",
+				print("\t%s: correct=%Z disk=%Z\n",
 					info->name, (uvlong)u32(want), (uvlong)u32(have));
 				break;
 			case D|8:
@@ -620,7 +620,7 @@ showdiffs(uchar *want, uchar *have, int len, Info *info)
 					info->name, u64(want), u64(have));
 				break;
 			case Z|8:
-				print("\t%s: correct=%z disk=%z\n",
+				print("\t%s: correct=%Z disk=%Z\n",
 					info->name, u64(want), u64(have));
 				break;
 			case S|ANameSize:
@@ -727,9 +727,9 @@ guessgeometry(void)
 				n = 0;
 			}
 		}
-		print("arena size likely %z (%d of %d)\n", bestdiff, bestn, ndiff);
+		print("arena size likely %Z (%d of %d)\n", bestdiff, bestn, ndiff);
 		if(arenasize != 0 && arenasize != bestdiff)
-			print("using user-specified size %z instead\n", arenasize);
+			print("using user-specified size %Z instead\n", arenasize);
 		else
 			arenasize = bestdiff;
 
@@ -763,9 +763,9 @@ guessgeometry(void)
 				n = 0;
 			}
 		}
-		print("block size likely %z (%d of %d)\n", bestdiff, bestn, ndiff);
+		print("block size likely %Z (%d of %d)\n", bestdiff, bestn, ndiff);
 		if(ap.blocksize != 0 && ap.blocksize != bestdiff)
-			print("using user-specified size %z instead\n", (vlong)ap.blocksize);
+			print("using user-specified size %Z instead\n", (vlong)ap.blocksize);
 		else
 			ap.blocksize = bestdiff;
 		if(ap.blocksize == 0 || ap.blocksize&(ap.blocksize-1))
@@ -816,7 +816,7 @@ guessgeometry(void)
 		}
 	}
 	p = pagein(ap.arenabase, Block);
-	print("arena base likely %z%s\n", (vlong)ap.arenabase, 
+	print("arena base likely %Z%s\n", (vlong)ap.arenabase, 
 		u32(p)!=ArenaHeadMagic ? " (but no arena head there)" : "");
 
 	ap.tabsize = ap.arenabase - ap.tabbase;
@@ -1714,7 +1714,7 @@ checkarena(vlong offset, int anum)
 	guessarena(offset, anum, &head, &arena, oldscore, score);
 
 	if(verbose){
-		print("#\tversion=%d name=%s blocksize=%d size=%z",
+		print("#\tversion=%d name=%s blocksize=%d size=%Z",
 			head.version, head.name, head.blocksize, head.size);
 		if(head.clumpmagic)
 			print(" clumpmagic=%#.8ux", head.clumpmagic);
@@ -1833,7 +1833,7 @@ checkmap(void)
 	s = fmtstrflush(&fmt);
 	len = strlen(s);
 	if(len > ap.tabsize){
-		print("arena partition map too long: need %z bytes have %z\n",
+		print("arena partition map too long: need %Z bytes have %Z\n",
 			(vlong)len, (vlong)ap.tabsize);
 		len = ap.tabsize;
 	}
