@@ -9,5 +9,5 @@ if(~ $#_x 0) {
 }
 
 echo '	' $_x
-_x=`{ echo -n 'eval '; echo $_x | sed 's/^'$PROMPT'//'}
+_x=`{ echo -n 'eval '''; echo $_x | sed 's/^'$PROMPT'//; s/''/''''/g; s/$/''/'}
 rc -c $"_x
