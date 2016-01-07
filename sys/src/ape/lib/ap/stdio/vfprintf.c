@@ -188,6 +188,10 @@ vfprintf(FILE *f, const char *s, va_list args)
 		}
 		else
 			precision = -1;
+
+		if(sizeof(void*) == sizeof(long long))
+			tflag['z'] = VLONG;
+
 		while(tfl = tflag[*s&_IO_CHMASK]){
 			if(tfl == LONG && (flags & LONG)){
 				flags &= ~LONG;
