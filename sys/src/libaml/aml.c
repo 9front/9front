@@ -833,9 +833,9 @@ Vfmt(Fmt *f)
 		r = p;
 		e = r->ref;
 		if(c == 'A')
-			return fmtprint(f, "Arg%ld=%V", r->ptr - e->arg, *r->ptr);
+			return fmtprint(f, "Arg%zd=%V", r->ptr - e->arg, *r->ptr);
 		if(c == 'L')
-			return fmtprint(f, "Local%ld=%V", r->ptr - e->loc, *r->ptr);
+			return fmtprint(f, "Local%zd=%V", r->ptr - e->loc, *r->ptr);
 	case 'n':
 		return fmtprint(f, "%s", (char*)p);
 	case 's':
@@ -901,7 +901,7 @@ dumpregs(void)
 	print("\n*** dumpregs: PC=%p FP=%p\n", PC, FP);
 	e = nil;
 	for(f = FP; f >= FB; f--){
-		print("%.8p.%.2lx: %-8s %N\t", f->start, f-FB, f->phase, f->dot);
+		print("%.8p.%.2zx: %-8s %N\t", f->start, f-FB, f->phase, f->dot);
 		if(f->op)
 			print("%s", f->op->name);
 		print("(");
@@ -950,7 +950,7 @@ xec(uchar *pc, uchar *end, Name *dot, Env *env, void **pret)
 		if((++loop & 127) == 0)
 			gc();
 		if(amldebug)
-			print("\n%.8p.%.2lx %-8s\t%N\t", PC, FP - FB, FP->phase, FP->dot);
+			print("\n%.8p.%.2zx %-8s\t%N\t", PC, FP - FB, FP->phase, FP->dot);
 		r = nil;
 		c = *FP->phase++;
 		switch(c){

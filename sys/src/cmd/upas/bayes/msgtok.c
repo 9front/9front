@@ -117,7 +117,7 @@ main(int argc, char **argv)
 			n = m[2];
 		if(n <= 0){
 fprint(2, "«%s» %.2ux", p, p[0]);
-			sysfatal("no regexps matched at %ld", off + (p-msg));
+			sysfatal("no regexps matched at %zd", off + (p-msg));
 		}
 
 		if(m[0] >= m[1] && m[0] >= m[2]){

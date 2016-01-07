@@ -304,7 +304,7 @@ Bgeticon(Biobuf *b, Icon *icon)
 		xor += 4*ncolor;
 	end = xor + icon->h*4*((icon->bits*icon->w+31)/32);
 	if(end < buf || end > buf+icon->len){
-		werrstr("bad icon length %lux != %lux", end - buf, icon->len);
+		werrstr("bad icon length %zux != %lux", end - buf, icon->len);
 		return -1;
 	}
 

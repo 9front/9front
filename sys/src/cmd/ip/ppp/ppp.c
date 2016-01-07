@@ -473,7 +473,7 @@ getframe(PPP *ppp, int *protop)
 			if(ppp->ctcp)
 				compress_error(ppp->ctcp);
 			ppp->in.discards++;
-			netlog("ppp: discard len %ld/%ld cksum %ux (%ux %ux %ux %ux)\n",
+			netlog("ppp: discard len %zd/%zd cksum %ux (%ux %ux %ux %ux)\n",
 				BLEN(b), BLEN(buf), fcs, b->rptr[0],
 				b->rptr[1], b->rptr[2], b->rptr[3]);
 		}
@@ -506,7 +506,7 @@ putframe(PPP *ppp, int proto, Block *b)
 		b->rptr += 4;
 	}
 
-	netlog("ppp: putframe 0x%ux %ld\n", proto, b->wptr-b->rptr);
+	netlog("ppp: putframe 0x%ux %zd\n", proto, BLEN(b));
 
 	/* add in the protocol and address, we'd better have left room */
 	from = b->rptr;
@@ -2272,7 +2272,7 @@ getpap(PPP *ppp, Block *b)
 	m = (Lcpmsg*)b->rptr;
 	len = 4;
 	if(BLEN(b) < 4 || BLEN(b) < (len = nhgets(m->len))){
-		syslog(0, LOG, "short pap message (%ld < %d)", BLEN(b), len);
+		syslog(0, LOG, "short pap message (%zd < %d)", BLEN(b), len);
 		freeb(b);
 		return;
 	}

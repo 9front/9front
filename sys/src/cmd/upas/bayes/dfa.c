@@ -688,13 +688,13 @@ Bprintdfa(Biobuf *b, Dreprog *p)
 	nc = 0;
 	for(i=0; i<p->ninst; i++)
 		nc += p->inst[i].nc;
-	Bprint(b, "%d %d %ld %ld %ld %ld\n", p->ninst, nc,
+	Bprint(b, "%d %d %zd %zd %zd %zd\n", p->ninst, nc,
 		p->start[0]-p->inst, p->start[1]-p->inst,
 		p->start[2]-p->inst, p->start[3]-p->inst);
 	for(i=0; i<p->ninst; i++){
 		Bprint(b, "%d %d %d", p->inst[i].isfinal, p->inst[i].isloop, p->inst[i].nc);
 		for(j=0; j<p->inst[i].nc; j++)
-			Bprint(b, " %d %ld", p->inst[i].c[j].start, p->inst[i].c[j].next-p->inst);
+			Bprint(b, " %d %zd", p->inst[i].c[j].start, p->inst[i].c[j].next-p->inst);
 		Bprint(b, "\n");
 	}
 }

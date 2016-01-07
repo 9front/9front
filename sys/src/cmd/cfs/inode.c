@@ -225,7 +225,7 @@ iget(Icache *ic, Qid qid)
 	/*
 	 *  init inode and write to disk
 	 */
-	DPRINT(2, "new file %llud.%ld ino %ld\n",
+	DPRINT(2, "new file %llud.%ld ino %zd\n",
 		qid.path, qid.vers, m - ic->map);
 	b = ialloc(ic, m - ic->map);
 	b->inode.inuse = m->inuse = 1;

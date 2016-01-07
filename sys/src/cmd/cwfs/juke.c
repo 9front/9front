@@ -212,7 +212,7 @@ wormunit(Device *d)			/* d is l0 or r2 (e.g.) */
 			delay(100);
 		}
 		if(chatty)
-			fprint(2, "\tload   r%ld drive %Z\n", v-w->side, w->drive[drive]);
+			fprint(2, "\tload   r%zd drive %Z\n", v-w->side, w->drive[drive]);
 		if(mmove(w, w->mt0, v->elem, w->dt0+drive, v->rot)) {
 			qunlock(w);
 			goto sbad;
@@ -398,7 +398,7 @@ loop:
 				goto loop;
 			}
 			if(chatty)
-				fprint(2, "\tunload r%ld drive %Z\n",
+				fprint(2, "\tunload r%zd drive %Z\n",
 					v-w->side, w->drive[drive]);
 			if(mmove(w, w->mt0, w->dt0+drive, v->elem, v->rot)) {
 				qunlock(v);
@@ -1319,7 +1319,7 @@ wormprobe(void)
 			if(v->status == Sstart && t > v->time) {
 				drive = v->drive;
 				if(chatty)
-					fprint(2, "\ttime   r%ld drive %Z\n",
+					fprint(2, "\ttime   r%zd drive %Z\n",
 						v-w->side, w->drive[drive]);
 				mmove(w, w->mt0, w->dt0+drive, v->elem, v->rot);
 				v->status = Sunload;

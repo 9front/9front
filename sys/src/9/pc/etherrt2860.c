@@ -2658,7 +2658,7 @@ transmit(Wifi *wifi, Wnode *wn, Block *b)
 	p = pool->p + pool->i * TxwiDmaSz;
 	w = (Wifipkt*)(p + Txwisize);
 	if(ctlr->wifi->debug){
-		print("transmit: %E->%E,%E nodeid=%x txq[%d]=%d size=%ld\n", w->a2, w->a1, w->a3, nodeid, qid, ctlr->tx[qid].i, BLEN(outb));
+		print("transmit: %E->%E,%E nodeid=%x txq[%d]=%d size=%zd\n", w->a2, w->a1, w->a3, nodeid, qid, ctlr->tx[qid].i, BLEN(outb));
 	}
 
 	tx->i = (tx->i + 1) % Ntx;

@@ -130,7 +130,7 @@ newfid(Session *s)
 		*(f->owner) = 0;
 		f->owner = 0;
 	}
-	chat("%ld...", f - s->fids);
+	chat("%zd...", f - s->fids);
 	f->tstale = nfstime + staletime;
 	return f;
 }
@@ -153,7 +153,7 @@ setfid(Session *s, Fid *f)
 void
 putfid(Session *s, Fid *f)
 {
-	chat("putfid %ld...", f-s->fids);
+	chat("putfid %zd...", f-s->fids);
 	if(s == 0 || f == 0){
 		clog("putfid(0x%p, 0x%p) %s", s, f, (s ? s->service : "?"));
 		return;

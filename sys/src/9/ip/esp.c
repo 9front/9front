@@ -511,7 +511,7 @@ print("esp: bad auth %I -> %I!%ld\n", vers.raddr, vers.laddr, vers.spi);
 	payload = BLEN(bp) - vers.hdrlen - ecb->ahlen;
 	if(payload <= 0 || payload % 4 != 0 || payload % ecb->espblklen != 0) {
 		qunlock(c);
-		netlog(f, Logesp, "esp: bad length %I -> %I!%lud payload=%d BLEN=%lud\n",
+		netlog(f, Logesp, "esp: bad length %I -> %I!%lud payload=%d BLEN=%zd\n",
 			vers.raddr, vers.laddr, vers.spi, payload, BLEN(bp));
 		freeb(bp);
 		return;

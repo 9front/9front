@@ -156,7 +156,7 @@ ctlstring(Umsc *lun)
 
 	fmtstrinit(&fmt);
 	fmtprint(&fmt, "dev %s\n", dev->dir);
-	fmtprint(&fmt, "lun %ld\n", lun - &ums->lun[0]);
+	fmtprint(&fmt, "lun %zd\n", lun - &ums->lun[0]);
 	if(lun->flags & Finqok)
 		fmtprint(&fmt, "inquiry %s\n", lun->inq);
 	if(lun->blocks > 0)

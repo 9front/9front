@@ -255,7 +255,7 @@ rdcpline(Biobuf *b, Cpline *cpl)
 
 	cpl->dlen = cpl->bytes[0];
 	if(cpl->dlen + 5 != up - cpl->bytes){
-		fprint(2, "%d %ld\n", cpl->dlen + 5, up - cpl->bytes);
+		fprint(2, "%d %zd\n", cpl->dlen + 5, up - cpl->bytes);
 		return "bad data length";
 	}
 

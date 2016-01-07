@@ -102,7 +102,7 @@ allocmsg(Conn *c, int type, int len)
 void
 unrecvmsg(Conn *c, Msg *m)
 {
-	debug(DBG_PROTO, "unreceived %s len %ld\n", msgnames[m->type], m->ep - m->rp);
+	debug(DBG_PROTO, "unreceived %s len %zd\n", msgnames[m->type], m->ep - m->rp);
 	free(c->unget);
 	c->unget = m;
 }
@@ -171,7 +171,7 @@ recvmsg(Conn *c, int type)
 	Msg *m;
 
 	while((m = recvmsg0(c)) != nil){
-		debug(DBG_PROTO, "received %s len %ld\n", msgnames[m->type], m->ep - m->rp);
+		debug(DBG_PROTO, "received %s len %zd\n", msgnames[m->type], m->ep - m->rp);
 		if(m->type != SSH_MSG_DEBUG && m->type != SSH_MSG_IGNORE)
 			break;
 		if(m->type == SSH_MSG_DEBUG)

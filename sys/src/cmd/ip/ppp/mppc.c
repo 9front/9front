@@ -851,7 +851,7 @@ netlog("***** unknown protocol\n");
 			return;
 		}
 		p += 2;
-netlog("off = %ld ", p-s->his);
+netlog("off = %zd ", p-s->his);
 		iph = (Iphdr*)p;
 		len = nhgets(iph->length);
 		ipcheck(p, len);

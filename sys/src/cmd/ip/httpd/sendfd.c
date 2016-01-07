@@ -324,7 +324,7 @@ notaccept(HConnect *c, HContent *type, HContent *enc, char *which)
 	hprint(hout, "Server: Plan9\r\n");
 	hprint(hout, "Date: %D\r\n", time(nil));
 	hprint(hout, "Content-Type: text/html\r\n");
-	hprint(hout, "Content-Length: %lud\r\n", s - c->xferbuf);
+	hprint(hout, "Content-Length: %zud\r\n", s - c->xferbuf);
 	if(c->head.closeit)
 		hprint(hout, "Connection: close\r\n");
 	else if(!http11(c))

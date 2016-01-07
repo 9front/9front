@@ -156,7 +156,8 @@ unwhack(Unwhack *uw, uchar *dst, int ndst, uchar *src, int nsrc)
 		off++;
 
 		if(off > d - dst){
-			snprint(uw->err, WhackErrLen, "offset out of range: off=%d d=%ld len=%d nbits=%d", off, d - dst, len, uwnbits);
+			snprint(uw->err, WhackErrLen, "offset out of range: off=%d d=%zd len=%d nbits=%d",
+				off, d - dst, len, uwnbits);
 			return -1;
 		}
 		if(d + len > dmax){

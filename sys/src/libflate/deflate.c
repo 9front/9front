@@ -478,7 +478,7 @@ deflateb(LZstate *lz, LZblock *lzb, void *rr, int (*r)(void*, void*, int))
 	lzput(lz, lz->eof && !lz->avail, 1);
 
 	if(lz->debug){
-		fprint(2, "block: bytes=%lud entries=%ld extra bits=%d\n\tuncompressed=%lud fixed=%lud dynamic=%lud huffman=%lud\n",
+		fprint(2, "block: bytes=%lud entries=%zd extra bits=%d\n\tuncompressed=%lud fixed=%lud dynamic=%lud huffman=%lud\n",
 			nunc, lzb->eparse - lzb->parse, lzb->excost, (nunc + 4) * 8, nfix, ndyn, nhuff);
 		fprint(2, "\tnlit=%lud matches=%lud eof=%d\n", nlits, nmatches, lz->eof && !lz->avail);
 	}

@@ -1362,7 +1362,7 @@ scheddump(void)
 	for(rq = &runq[Nrq-1]; rq >= runq; rq--){
 		if(rq->head == nil)
 			continue;
-		print("rq%ld:", rq-runq);
+		print("rq%zd:", rq-runq);
 		for(p = rq->head; p != nil; p = p->rnext)
 			print(" %lud(%lud)", p->pid, m->ticks - p->readytime);
 		print("\n");

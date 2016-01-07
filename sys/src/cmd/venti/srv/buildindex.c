@@ -736,7 +736,7 @@ sortminibuffer(ISect *is, Minibuf *mb, uchar *buf, u32int nbuf, u32int bufsize)
 		zerorange(part, bucket2offset(is, lastb+1), bucket2offset(is, is->stop - is->start));
 
 	if(n != mb->nwentry)
-		fprint(2, "sortminibuffer bug: n=%ud nwentry=%ud have=%ld\n", n, mb->nwentry, (ep-buf)/IEntrySize);
+		fprint(2, "sortminibuffer bug: n=%ud nwentry=%ud have=%zd\n", n, mb->nwentry, (ep-buf)/IEntrySize);
 
 	free(buckdata);
 }

@@ -564,7 +564,7 @@ process(Biobuf *fd){
 		case TEXT:	strarg();   text(argstr); pplots=0; break;
 		case VEC:	numargs(2); vec(x[0], x[1]); break;
 		default:
-			sysfatal("%s:%d: plot: missing case %ld\n", fsp->name, fsp->lineno, pplots-plots);
+			sysfatal("%s:%d: plot: missing case %zd\n", fsp->name, fsp->lineno, pplots-plots);
 		}
 	}
 	return 1;

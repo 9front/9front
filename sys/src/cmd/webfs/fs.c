@@ -84,7 +84,7 @@ static char *agent;
 static Client client[64];
 static int nclient;
 
-#define	CLIENTID(c)	(((Client*)(c)) - client)
+#define	CLIENTID(c)	((int)(((Client*)(c)) - client))
 
 Client*
 newclient(void)
@@ -222,7 +222,7 @@ fsmkdir(Dir *d, int level, void *aux)
 		d->length = strlen(((Key*)aux)->val);
 		break;
 	case Qclient:
-		snprint(buf, sizeof(buf), "%ld", CLIENTID(aux));
+		snprint(buf, sizeof(buf), "%d", CLIENTID(aux));
 		d->name = estrdup(buf);
 		break;
 	case Qctl:
@@ -530,7 +530,7 @@ fsread(Req *r)
 		respond(r, nil);
 		return;
 	case Qctl:
-		snprint(buf, sizeof(buf), "%ld\n", CLIENTID(f->client));
+		snprint(buf, sizeof(buf), "%d\n", CLIENTID(f->client));
 		goto String;
 	case Qheader:
 		snprint(buf, sizeof(buf), "%s", f->key->val);

@@ -310,7 +310,7 @@ pcmpinit(void)
 	 */
 	while(p < e) switch(*p){
 	default:
-		print("pcmpinit: unknown PCMP type 0x%uX (e-p 0x%luX)\n",
+		print("pcmpinit: unknown PCMP type 0x%uX (e-p 0x%zuX)\n",
 			*p, e-p);
 		while(p < e){
 			print("%uX ", *p);

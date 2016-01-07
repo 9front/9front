@@ -1382,7 +1382,7 @@ mailplumb(Mailbox *mb, Message *m, int delete)
 	else
 		date = "";
 
-	sprint(lenstr, "%ld", m->end-m->start);
+	sprint(lenstr, "%zd", m->end-m->start);
 
 	if(biffing && !delete)
 		print("[ %s / %s / %s ]\n", from, subject, lenstr);

@@ -2141,7 +2141,7 @@ atarsp(Block *b)
 		case Crd:
 		case Crdext:
 			if(BLEN(b) - (Aoehsz + Aoeatasz) != n){
-				eventlog("%æ: misread blen %ld expect %d\n",
+				eventlog("%æ: misread blen %zd expect %d\n",
 					d, BLEN(b), n);
 				goto bail;
 			}
@@ -2159,7 +2159,7 @@ atarsp(Block *b)
 			break;
 		case Cid:
 			if(BLEN(b) - (Aoehsz + Aoeatasz) < 512){
-				eventlog("%æ: runt identify blen %ld expect %d\n",
+				eventlog("%æ: runt identify blen %zd expect %d\n",
 					d, BLEN(b), 512 + Aoehsz + Aoeatasz);
 				goto bail;
 			}

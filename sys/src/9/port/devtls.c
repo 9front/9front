@@ -1115,7 +1115,7 @@ tlsbread(Chan *c, long n, ulong offset)
 
 		/* return at most what was asked for */
 		b = qgrab(&tr->processed, n);
-if(tr->debug) pprint("consumed processed %ld\n", BLEN(b));
+if(tr->debug) pprint("consumed processed %zd\n", BLEN(b));
 if(tr->debug) pdump(BLEN(b), b->rp, "consumed:");
 		qunlock(&tr->in.io);
 		poperror();
@@ -1272,7 +1272,7 @@ tlsrecwrite(TlsRec *tr, int type, Block *b)
 		nexterror();
 	}
 	qlock(&out->io);
-if(tr->debug)pprint("send %ld\n", BLEN(b));
+if(tr->debug)pprint("send %zd\n", BLEN(b));
 if(tr->debug)pdump(BLEN(b), b->rp, "sent:");
 
 
