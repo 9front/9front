@@ -575,8 +575,6 @@ mpshutdown(void)
 		arch->introff();
 		for(;;) idle();
 	}
-
-	print("mpshutdown\n");
 	delay(1000);
 	splhi();
 
