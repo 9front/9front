@@ -17,8 +17,8 @@
 
 #define ROUNDUP(x,n)		(((x)+(n)-1)&~((n)-1))
 
-#pragma varargck type "z" uvlong
-#pragma varargck type "z" vlong
+#pragma varargck type "Z" uvlong
+#pragma varargck type "Z" vlong
 #pragma varargck type "t" uint
 
 enum
@@ -61,7 +61,7 @@ usage(void)
  * Format number in simplest way that is okay with unittoull.
  */
 static int
-zfmt(Fmt *fmt)
+Zfmt(Fmt *fmt)
 {
 	vlong x;
 	
@@ -1894,7 +1894,7 @@ threadmain(int argc, char **argv)
 	file = argv[0];
 	
 	ventifmtinstall();
-	fmtinstall('z', zfmt);
+	fmtinstall('Z', Zfmt);
 	fmtinstall('t', tfmt);
 	quotefmtinstall();
 	
