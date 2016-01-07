@@ -194,6 +194,14 @@ extern	Rune*	runefmtstrflush(Fmt*);
 #pragma	varargck	type	"lo"	ulong
 #pragma	varargck	type	"lx"	ulong
 #pragma	varargck	type	"lb"	ulong
+#pragma varargck	type	"zd"	intptr
+#pragma varargck	type	"zo"	intptr
+#pragma varargck	type	"zx"	intptr
+#pragma varargck	type	"zb"	intptr
+#pragma varargck	type	"zd"	uintptr
+#pragma varargck	type	"zo"	uintptr
+#pragma varargck	type	"zx"	uintptr
+#pragma varargck	type	"zb"	uintptr
 #pragma	varargck	type	"d"	int
 #pragma	varargck	type	"o"	int
 #pragma	varargck	type	"x"	int

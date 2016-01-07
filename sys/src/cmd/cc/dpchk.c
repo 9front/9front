@@ -165,6 +165,7 @@ arginit(void)
 
 	argflag('*', Fstar);
 	argflag('l', Fl);
+	argflag('z', ewidth[TVLONG]==ewidth[TIND] ? Fvl : Fl);
 
 	argflag('o', Fverb);
 	flagbits['x'] = flagbits['o'];
