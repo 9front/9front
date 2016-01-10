@@ -47,5 +47,5 @@ CLEANFILES=$MPCFILES
 
 authpak.$O: $MPCFILES
 
-%.mpc:	%.mp
+%.mpc:D:	%.mp
 	mpc $stem.mp > $target
