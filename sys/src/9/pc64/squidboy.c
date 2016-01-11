@@ -15,6 +15,7 @@ squidboy(Apic* apic)
 	mmuinit();
 	cpuidentify();
 	cpuidprint();
+
 	apic->online = 1;
 	coherence();
 
@@ -28,7 +29,7 @@ squidboy(Apic* apic)
 	unlock(&active);
 
 	while(!active.thunderbirdsarego)
-		microdelay(100);
+		idlehands();
 
 	schedinit();
 }

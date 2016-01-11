@@ -783,7 +783,6 @@ cpuidentify(void)
 			wrmsr(0x10, 0);
 	}
 
-
 	/*
 	 *  use i8253 to guess our cpu speed
 	 */

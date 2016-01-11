@@ -28,7 +28,7 @@
 #define	BLOCKALIGN	8
 #define	FPalign		16
 
-#define	MAXMACH		64			/* max # cpus system can run */
+#define	MAXMACH		128			/* max # cpus system can run */
 
 #define KSTACK		(16*KiB)		/* Size of Proc kernel stack */
 
