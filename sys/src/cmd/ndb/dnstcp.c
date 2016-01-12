@@ -68,16 +68,17 @@ main(int argc, char *argv[])
 		break;
 	}ARGEND
 
-	if(debug < 2)
-		debug = 0;
-
 	if(argc > 0)
 		getcaller(argv[0]);
 
 	cfg.inside = 1;
 	dninit();
 
-	snprint(mntpt, sizeof mntpt, "/net%s", ext);
+	if(*ext == '/')
+		snprint(mntpt, sizeof mntpt, "%s", ext);
+	else
+		snprint(mntpt, sizeof mntpt, "/net%s", ext);
+
 	if(myipaddr(ipaddr, mntpt) < 0)
 		sysfatal("can't read my ip address");
 	dnslog("dnstcp call from %s to %I", caller, ipaddr);
