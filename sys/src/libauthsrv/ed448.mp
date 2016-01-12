@@ -1,7 +1,7 @@
 # Edwards Curve Ed448-Goldilocks
 
 # x^2+y^2 = 1-39081x^2y^2
-# modulo p = 2^448 - 1^224 - 1
+# modulo p = 2^448 - 2^224 - 1
 ed448_curve(p,a,d,x,y) {
 	p = (1<<448) - (1<<224) - 1;
 	a = 1;
