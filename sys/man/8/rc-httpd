@@ -138,8 +138,7 @@ if(~ $location /v8.tar.bz2){
 .I Rc-httpd
 is run from a file in the directory scanned by
 .IR listen (8),
-or called as an argument to
-.IR listen1 (8).
+or called as an argument to aux/listen1.
 The program's standard error may be captured to a log file:
 .RS
 .EX

@@ -64,7 +64,7 @@ Count frequency of words read from standard input.
 .SH SEE ALSO
 .IR sed (1), 
 .IR sam (1),
-.IR regexp (7)
+.IR regexp (6)
 .PP
 Rob Pike,
 ``The text editor sam''.

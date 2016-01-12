@@ -115,7 +115,7 @@ After configuring a device, other endpoints may be created
 as dictated by the device to perform actual I/O.
 .SS Operation
 Bus enumeration and device configuration is performed by
-.IR usbd 
+.I usbd 
 and not by this driver.
 The driver provides an interface
 to access existing endpoints (initially those for the built-in root hubs),
@@ -212,7 +212,7 @@ storage csp 0x500608 vid 0x951 did 0x1613 Kingston 'DT 101 II'
 .LP
 The first line contains status information.
 The rest is information supplied by
-.IR usbd
+.I usbd
 as an aid to locate devices.
 The status information includes:
 .TF "\fREndpoint mode
@@ -346,7 +346,7 @@ USB class, subclass and proto codes can be found at
 Endpoint control files accept the following requests.
 In most cases
 the driver does not issue them, leaving the task to either
-.IR usbd
+.I usbd
 or the usb driver library documented in
 .IR nusb (2).
 .TF "\fLsamplehz\fI n
@@ -408,7 +408,7 @@ Replaces description information in
 .B ctl
 with
 .IR string .
-.IR Usbd (4)
+.I Usbd
 uses this to add device descriptions.
 .TP
 .B address

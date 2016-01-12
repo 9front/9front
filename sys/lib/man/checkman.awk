@@ -84,9 +84,8 @@ FNR==1	{
 			name = substr(FILENAME, seclen+2, n-seclen-1)
 			if($1 != ".TH" || NF != 3)
 				print "First line of", FILENAME, "not a proper .TH"
-			else if($2 != toupper(name) || substr($3, 1, seclen) != section){
-				if($2!="INTRO" || name!="0intro")
-					print ".TH of", FILENAME, "doesn't match filename"
+			else if(($2!="INTRO" || name!="0intro") && ($2 != toupper(name) || substr($3, 1, seclen) != section)){
+				print ".TH of", FILENAME, "doesn't match filename"
 			}else
 				Pages[section "/" $2] = 1
 		}
@@ -177,7 +176,7 @@ END {
 	for (i in Refs) {
 		if (!(i in Pages)){
 			split(tolower(i), a, "/")
-			print "grep -n " a[2] ".*" a[1] " ?/* # Need " tolower(i)
+			print "grep -in '" a[2] "[ 	]*\\(" a[1] "' ?/* # Need " tolower(i)
 		}
 	}
 	print ""

@@ -185,8 +185,6 @@ Pass type signatures on all external and global entities.
 The signature is based on the C
 .B signof
 operator.
-See
-.IR dynld (2).
 .TP
 .B -V
 By default, the compilers are non-standardly lax about type equality between

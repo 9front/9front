@@ -135,7 +135,7 @@ for a description of the interfaces provided for that purpose.
 Usb drivers rely on
 .IR usb (3)
 to perform I/O through USB as well as on
-.IR usbd
+.I usbd
 to perform the initial configuration for the device's setup endpoint.
 The rest of the work is up to the driver and is where this library may help.
 .PP
@@ -152,7 +152,7 @@ Functions creating
 .B Devs
 adjust the number of references to one, initially.
 The driver is free to call
-.IR incref
+.I incref
 (in
 .IR lock (2))
 to add references and

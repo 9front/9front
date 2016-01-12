@@ -32,7 +32,7 @@ to contain exactly
 .I nsect
 sectors.
 .SH SOURCE
-.B /sys/src/cmd/aux/flashfs/mkflashfs.c
+.B /sys/src/cmd/aux/flashfs/mkfs.c
 .SH "SEE ALSO"
 .IR flashfs (4),
 .IR paqfs (4),

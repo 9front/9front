@@ -158,9 +158,7 @@ A
 worm filesystem.
 .TP
 .B fs
-A
-.IR kfs (4)
-file system.
+A kfs file system.
 .TP
 .B fscfg
 A one-sector partition used to store an

@@ -40,7 +40,7 @@ The Plan 9 file servers (like
 remove the file immediately: attempts to use the other fids
 will yield a
 ``phase error.''
-.IR U9fs (4)
+.I U9fs
 follows the semantics of the underlying Unix file system,
 so other fids typically remain usable.
 .SH ENTRY POINTS

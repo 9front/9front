@@ -42,9 +42,7 @@ For example,
 .IR vac (1)
 uses a
 .B vac:
-prefix, while
-.IR vbackup (8)
-uses prefixes corresponding to the file system
+prefix, while vbackup uses prefixes corresponding to the file system
 types: 
 .BR ext2: ,
 .BR ffs: ,

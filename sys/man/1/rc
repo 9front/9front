@@ -971,8 +971,6 @@ Print each simple command before executing it.
 Print debugging information (internal form of commands
 as they are executed).
 .PD
-.SH SOURCE
-.B /sys/src/cmd/rc
 .SH FILES
 .TF $home/lib/profile
 .TP
@@ -986,6 +984,8 @@ System rc start script
 .TP
 .B /rc/lib/rcmain.local
 Site specific system rc start script
+.SH SOURCE
+.B /sys/src/cmd/rc
 .SH "SEE ALSO"
 Tom Duff,
 ``Rc \- The Plan 9 Shell''.

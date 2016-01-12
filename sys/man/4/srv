@@ -162,7 +162,7 @@ command that
 connects to a remote Unix system via 
 .IR ssh (1)
 and starts
-.IR u9fs (4).
+.BR u9fs .
 The
 .B -u
 option specifies the path to the
@@ -191,7 +191,7 @@ and
 .EE
 .PP
 To connect to an instance of the Unix server
-.IR u9fs (4)
+.I u9fs
 started via
 .IR ssh (1):
 .IP
@@ -220,7 +220,6 @@ and
 .IR exportfs (4),
 .IR import (4),
 .IR ftpfs (4),
-.IR u9fs (4)
 .SH BUGS
 .I Srv
 does not explicitly report failures of

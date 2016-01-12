@@ -28,11 +28,10 @@ on the interface will be used.
 The
 .B -p
 option will prompt and install the preshared key or
-pap/chap credentials into
-.IR factotum (4),
-otherwise the key has to be already present in
-factotum or an interactive key prompter like
-.IR fgui (4)
+pap/chap credentials into factotum, otherwise the key has to be
+already present in factotum or an interactive key prompter like
+auth/fgui (see
+.IR factotum (4))
 needs to provide it.
 .PP
 The authentication protocol is initiated by the

@@ -30,8 +30,7 @@ will connect to a newly executed instance of
 .IR cmd .
 .SH EXAMPLE
 .I Execnet
-can be used to connect to instances of
-.IR u9fs (4)
+can be used to connect to instances of u9fs
 running on other hosts:
 .EX
     g% execnet
@@ -52,15 +51,11 @@ For example, it might be:
     u9fs -na none -u $USER -l $HOME/tmp/u9fs.log
     ny%
 .EE
-See the 
-.IR u9fs (4)
-man page for more information.
 .SH SOURCE
 .B /sys/src/cmd/execnet
 .SH "SEE ALSO
 .IR dial (2),
 .IR ip (3),
-.IR u9fs (4)
 .SH BUGS
 Almost certainly:
 .IR execnet

@@ -20,12 +20,6 @@ Both NOR and NAND flash is supported.
 For both types of flash,
 the driver gives a read/write/erase interface to the raw flash device,
 which can impose constraints on operations beyond those imposed by the driver.
-Other drivers such as
-.IR ftl (3)
-or
-.IR logfs (3)
-implement any higher-level format required,
-including ECC for NAND flash, for instance.
 .PP
 The top level directory contains a single directory named
 .B flash
@@ -157,9 +151,7 @@ The syntax of all numbers is that of
 .IR atof (2));
 the default base is 10.
 .SH SOURCE
-.B /sys/src/*/devflash.c
-.br
-.B /sys/src/*/flash*.c
+.B /sys/src/9/*/devflash.c
 .SH SEE ALSO
 .IR flashfs (4),
 .IR paqfs (4)

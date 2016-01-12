@@ -22,8 +22,8 @@ and
 .IR exec (2),
 which allows for the execution of threaded programs (e.g.,
 .IR rio (1)
-or
-.IR catclock (1)).
+or catclock (see
+.IR games (1)).
 .PP
 .I 5e
 executes the specified binary
@@ -113,8 +113,8 @@ notes.
 Obscure opcodes, in particular uncommon operations on R15, are not implemented.
 
 Accesses spanning segment boundaries will be treated as page faults.
-Many syscalls such as
-.IR pread (2)
+Many syscalls such as pread (see
+.IR read (2))
 will shuffle data around (in most cases unnecessarily) if invoked on potentially shared segments of variable length, in particular the bss segment.
 
 FPA emulation leaves much to be desired, rounding modes are ignored, all calculations are performed at extended precision.

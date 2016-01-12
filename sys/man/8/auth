@@ -260,7 +260,7 @@ This only works for the hostowner and only if
 .L #¤/caphash
 still exists.
 .SH FILES
-.TF /sys/lib/httppasswords
+.TF /adm/netkeys.who
 .TP
 .B /lib/ndb/auth
 Speaksfor relationships and mappings for
@@ -271,9 +271,6 @@ List of users in the Plan 9 database.
 .TP
 .B /adm/netkeys.who
 List of users in the SecureNet database.
-.TP
-.B /sys/lib/httppasswords
-List of realms and passwords for HTTP access.
 .SH SOURCE
 .B /sys/src/cmd/auth
 .SH "SEE ALSO"
