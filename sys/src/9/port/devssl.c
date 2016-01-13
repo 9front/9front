@@ -1439,7 +1439,7 @@ checkdigestb(Dstate *s, Block *bin)
 	*p = n;
 	(*s->hf)(msgid, 4, digest, &ss);
 
-	if(memcmp(digest, bin->rp, s->diglen) != 0)
+	if(tsmemcmp(digest, bin->rp, s->diglen) != 0)
 		error("bad digest");
 }
 
