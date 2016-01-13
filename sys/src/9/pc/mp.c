@@ -196,7 +196,9 @@ mpinit(void)
 		ncpu = MAXMACH;
 	memmove((void*)APBOOTSTRAP, apbootstrap, sizeof(apbootstrap));
 	for(i=0; i<nelem(mpapic); i++){
-		if((apic = mpapic[i]) == nil || apic->machno == 0 || apic->machno >= MAXMACH)
+		if((apic = mpapic[i]) == nil)
+			continue;
+		if(apic->machno >= MAXMACH)
 			continue;
 		if(ncpu <= 1)
 			break;
@@ -204,17 +206,6 @@ mpinit(void)
 			mpstartap(apic);
 			conf.nmach++;
 			ncpu--;
-
-			if(!apic->online){
-				print("LAPIC%d: cpu%d did not startup\n", i, apic->machno);
-				continue;
-			}
-
-			/* update tscticks for ap's syncclock() */
-			while(!active.machs[apic->machno]){
-				if(arch->fastclock == tscticks)
-					cycles(&m->tscticks);
-			}
 		}
 	}
 

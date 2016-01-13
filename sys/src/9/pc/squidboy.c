@@ -34,7 +34,7 @@ squidboy(Apic* apic)
 	unlock(&active);
 
 	while(!active.thunderbirdsarego)
-		idlehands();
+		microdelay(100);
 
 	schedinit();
 }
