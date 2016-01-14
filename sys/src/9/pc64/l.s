@@ -235,6 +235,16 @@ _clearbss:
 	CALL	main(SB)
 
 /*
+ * Park a processor. Should never fall through a return from main to here,
+ * should only be called by application processors when shutting down.
+ */
+TEXT idle(SB), 1, $-4
+_idle:
+	STI
+	HLT
+	JMP	_idle
+
+/*
  * The CPUID instruction is always supported on the amd64.
  */
 TEXT cpuid(SB), $-4
@@ -390,16 +400,6 @@ TEXT mb586(SB), 1, $-4
 	XORL	AX, AX
 	CPUID
 	RET
-
-/*
- * Park a processor. Should never fall through a return from main to here,
- * should only be called by application processors when shutting down.
- */
-TEXT idle(SB), 1, $-4
-_idle:
-	STI
-	HLT
-	JMP	_idle
 
 /*
  * BIOS32.
