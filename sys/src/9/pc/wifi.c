@@ -1429,8 +1429,7 @@ tkipdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
 		(ulong)b->wp[2]<<16 |
 		(ulong)b->wp[3]<<24;
 	crc = ~crc;
-	if(ethercrc(b->rp, BLEN(b)) != crc)
-		return -1;
+	crc ^= ethercrc(b->rp, BLEN(b));
 
 	b->wp -= 8;
 	micsetup(&ms, k->key+16);
@@ -1440,7 +1439,7 @@ tkipdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
 	micupdate(&ms, b->rp, BLEN(b));
 	micfinish(&ms, mic);
 
-	return memcmp(b->wp, mic, 8) != 0;
+	return tsmemcmp(b->wp, mic, 8) | crc;
 }
 
 static uchar*
@@ -1561,7 +1560,7 @@ aesCCMdecrypt(int L, int M, uchar *N /* N[15-L] */,
 	for(p = sblock(L, N, 0, b, s), x = t; p < &b[M]; x++, p++)
 		*x ^= *p;
 
-	return memcmp(m, t, M) != 0;
+	return tsmemcmp(m, t, M);
 }
 
 static int
