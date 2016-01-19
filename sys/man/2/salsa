@@ -41,15 +41,15 @@ structure, a
 of
 .I keylen
 bytes, which should normally be
-.BR SalsaKeylen (32),
+.BR SalsaKeylen = 32 ,
 a
 .I iv
 or nonce of
 .I ivlen
 bytes (can be
-.BR SalsaIVlen (8)
+.BR SalsaIVlen = 8
 or
-.BR XSalsaIVlen (24)),
+.BR XSalsaIVlen = 24 ,
 set to all zeros if the
 .I iv
 argument is nil),
