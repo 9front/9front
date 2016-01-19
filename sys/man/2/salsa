@@ -95,7 +95,7 @@ is a key expansion function that takes a 128 or
 256-bit key and a 128-bit nonce and produces a new
 256-bit key.
 .SH SOURCE
-.B /sys/src/libsec/salsa.c
+.B /sys/src/libsec/port/salsa.c
 .SH SEE ALSO
 .IR chacha (2)
 .br
