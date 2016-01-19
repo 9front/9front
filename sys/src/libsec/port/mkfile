@@ -10,6 +10,7 @@ CFILES = des.c desmodes.c desECB.c desCBC.c des3ECB.c des3CBC.c\
 	poly1305.c\
 	rc4.c\
 	chacha.c\
+	salsa.c\
 	genrandom.c prng.c fastrand.c nfastrand.c\
 	probably_prime.c smallprimetest.c genprime.c dsaprimes.c\
 	gensafeprime.c genstrongprime.c\

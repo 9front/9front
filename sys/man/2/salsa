@@ -1,0 +1,102 @@
+.TH SALSA 2
+.SH NAME
+setupSalsastate, salsa_setblock, salsa_setiv, salsa_encrypt, salsa_encrypt2, hsalsa
+\- salsa20 encryption
+.SH SYNOPSIS
+.B #include <u.h>
+.br
+.B #include <libc.h>
+.br
+.B #include <libsec.h>
+.PP
+.B
+void setupSalsastate(Salsastate *s, uchar key[], ulong keylen, uchar *iv, ulong ivlen, int rounds)
+.PP
+.B
+void salsa_encrypt(uchar *data, ulong len, Salsastate *s)
+.PP
+.B
+void salsa_encrypt2(uchar *src, uchar *dst, ulong len, Salsastate *s)
+.PP
+.B
+void salsa_setblock(Salsastate *s, u64int blockno)
+.PP
+.B
+void salsa_setiv(Salsastate *s, uchar *iv);
+.PP
+.B
+void hsalsa(uchar h[32], uchar *key, ulong keylen, uchar nonce[16], int rounds);
+.SH DESCRIPTION
+.PP
+Salsa20 is a stream cipher designed by D J Berstein. It has an underlying block size of 64 bytes
+(named as constant
+.BR SalsaBsize ).
+It supports key sizes of 128 and 256-bit (recommended).
+.PP
+.I SetupSalsastate
+takes a reference to a
+.B Salsastate
+structure, a
+.I key
+of
+.I keylen
+bytes, which should normally be
+.BR SalsaKeylen (32),
+a
+.I iv
+or nonce of
+.I ivlen
+bytes (can be
+.BR SalsaIVlen (8)
+or
+.BR XSalsaIVlen (24)),
+set to all zeros if the
+.I iv
+argument is nil),
+and the number of
+.I rounds
+(set to the default of 20 if the argument is zero).
+.PP
+.I Salsa_encrypt
+encrypts
+.I len
+bytes of
+.I buf
+in place using the
+.B Salsastate
+in
+.IR s .
+.I Len
+can be any byte length.
+Encryption and decryption are the same operation given the same starting state
+.IR s .
+.PP
+.I Salsa_encrypt2
+is similar, but encrypts
+.I len
+bytes of
+.I src
+into
+.I dst
+without modifying
+.IR src .
+.PP
+.I Salsa_setblock
+sets the Salsa block counter for the next encryption to
+.IR blockno ,
+allowing seeking in an encrypted stream.
+.PP
+.I Salsa_setiv
+sets the the initialization vector (nonce) to
+.IR iv .
+.PP
+.I Hsalsa
+is a key expansion function that takes a 128 or
+256-bit key and a 128-bit nonce and produces a new
+256-bit key.
+.SH SOURCE
+.B /sys/src/libsec/salsa.c
+.SH SEE ALSO
+.IR chacha (2)
+.br
+.B http://cr.yp.to/snuffle.html#specification

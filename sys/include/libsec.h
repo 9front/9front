@@ -107,6 +107,34 @@ void	ccpoly_encrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16
 int	ccpoly_decrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], Chachastate *cs);
 
 /*
+ * Salsa definitions
+ */
+enum
+{
+	SalsaBsize=	64,
+	SalsaKeylen=	256/8,
+	SalsaIVlen=	64/8,
+	XSalsaIVlen=	192/8,
+};
+
+typedef struct Salsastate Salsastate;
+struct Salsastate
+{
+	u32int	input[16];
+	u32int	key[8];
+	int	rounds;
+	int	ivwords;
+};
+
+void	setupSalsastate(Salsastate*, uchar*, ulong, uchar*, ulong, int);
+void	salsa_setiv(Salsastate*, uchar*);
+void	salsa_setblock(Salsastate*, u64int);
+void	salsa_encrypt(uchar*, ulong, Salsastate*);
+void	salsa_encrypt2(uchar*, uchar*, ulong, Salsastate*);
+
+void	hsalsa(uchar h[32], uchar *key, ulong keylen, uchar nonce[16], int rounds);
+
+/*
  * DES definitions
  */
 
