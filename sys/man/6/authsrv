@@ -94,16 +94,16 @@ client's desired ID on server
 .BR suid )
 .TP
 .I YAc
-client \(-> AS DH public key
+client → AS DH public key
 .TP
 .I YBc
-AS \(-> client DH public key
+AS → client DH public key
 .TP
 .I YAs
-server \(-> AS DH public key
+server → AS DH public key
 .TP
 .I YBs
-AS \(-> server DH public key
+AS → server DH public key
 .TP
 .I RNc
 client's 32-byte random string
@@ -155,7 +155,7 @@ is the client's responsibility.
 .PP
 The protocol to obtain a ticket pair is:
 .TP
-.IR C \(-> A
+.I C→A:
 .IR AuthTreq ,
 .IR IDs ,
 .IR DN ,
@@ -163,7 +163,7 @@ The protocol to obtain a ticket pair is:
 .IR IDc ,
 .IR IDr
 .TP
-.IR A \(-> C
+.I A→C:
 .IR AuthOK ,
 .IR Kc { AuthTc ,
 .IR CHs ,
@@ -228,12 +228,12 @@ The Plan 9 shared key protocol
 allows a client and server to authenticate each other.
 The protocol is:
 .TP
-.IR C \(-> S
+.I C→S:
 .I CHc
 .br
 The client starts by sending a random challenge to the server.
 .TP
-.IR S \(-> C
+.I S→C:
 .IR AuthTreq ,
 .IR IDs ,
 .IR DN ,
@@ -245,7 +245,7 @@ The server replies with a ticket request giving its
 id and authentication domain along with its own 
 random challenge.
 .TP
-.IR C \(-> S
+.I C→S:
 .IR Ks { AuthTs ,
 .IR CHs ,
 .IR IDc ,
@@ -275,7 +275,7 @@ and is therefore allowed to authenticate as
 .IR CHs
 in the authenticator avoids replay attacks.)
 .TP
-.IR S \(-> C
+.I S→C:
 .IR Kn { AuthAs ,
 .IR CHc }
 .br
@@ -353,7 +353,7 @@ and
 .I IDc
 is:
 .TP
-.IR C \(-> A
+.I C→A:
 .IR AuthPAK ,
 .IR IDs ,
 .IR DN ,
@@ -363,7 +363,7 @@ is:
 .IR YAs ,
 .I YAc
 .TP
-.IR A \(-> C
+.I A→C:
 .IR AuthOK ,
 .IR YBs ,
 .I YBc
@@ -376,7 +376,7 @@ to establish a single server key
 for
 .IR IDs :
 .TP
-.IR C \(-> A
+.I C→A:
 .IR AuthPAK ,
 .IR \- ,
 .IR DN ,
@@ -385,7 +385,7 @@ for
 .IR IDc ,
 .I YAs
 .TP
-.IR A \(-> C
+.I A→C:
 .IR AuthOK ,
 .I YBs
 .PP
@@ -396,7 +396,7 @@ to establish a single client key
 for
 .IR IDc :
 .TP
-.IR C \(-> A
+.I C→A:
 .IR AuthPAK ,
 .IR \- ,
 .IR \- ,
@@ -405,7 +405,7 @@ for
 .IR IDc ,
 .I YAc
 .TP
-.IR A \(-> C
+.I A→C:
 .IR AuthOK ,
 .I YBc
 .SS "Dp9ik"
@@ -426,12 +426,12 @@ to derive the ticket encryption keys
 and
 .IR Kc :
 .TP
-.IR C \(-> S
+.I C→S:
 .I CHc
 .br
 The client starts by sending a random challenge to the server.
 .TP
-.IR S \(-> C
+.I S→C:
 .IR AuthPAK ,
 .IR IDs ,
 .IR DN ,
@@ -453,7 +453,7 @@ along with its own random challenge
 and its public key
 .IR YAs .
 .TP
-.IR C \(-> S
+.I C→S:
 .IR YBs ,
 .IR Ks { AuthTs ,
 .IR CHs ,
@@ -515,7 +515,7 @@ The random string
 .I RNc
 is used in the derivation of the session secret.
 .TP
-.IR S \(-> C
+.I S→C:
 .IR Kn { AuthAs ,
 .IR CHc ,
 .IR RNs }
@@ -540,17 +540,17 @@ protocol, followed by the agreed-upon protocol.
 .PP
 The negotiation protocol is:
 .TP
-.IR S \(-> C
+.I S→C:
 .B v.2
 .IB proto@authdom
 .IB proto@authdom
 .I ...
 .TP
-.IR C \(-> S
+.I C→S:
 .I proto
 .I dom
 .TP
-.IR S \(-> C
+.I S→C:
 .B OK
 .PP
 Each message is a NUL-terminated UTF string.
@@ -602,7 +602,7 @@ Users connect directly to the AS
 to change their passwords.
 The protocol is:
 .TP
-.IR C \(-> A
+.I C→A:
 .IR AuthPass ,
 .IR \- ,
 .IR \- ,
@@ -612,7 +612,7 @@ The protocol is:
 .br
 The client sends a password change ticket request.
 .TP
-.IR A \(-> C
+.I A→C:
 .IR Kc { AuthTp ,
 .IR CHc ,
 .IR IDc ,
@@ -624,7 +624,7 @@ The server responds with a ticket containing the key
 encrypted with the client's key
 .IR Kc
 .TP
-.IR C \(-> A
+.I C→A:
 .IR Kn { AuthPass ,
 .IR old ,
 .IR new ,
@@ -643,7 +643,7 @@ the user's
 .IR secret ,
 the password used for non-Plan 9 authentications.
 .TP
-.IR A \(-> C
+.I A→C:
 .I AuthOK
 or
 .IR AuthErr ,
@@ -727,7 +727,7 @@ message is expected, a
 message may be substituted.
 .de Ok
 .TP
-.IR A \(-> S
+.I A→S:
 .IR AuthOK ,
 .IR Ks { AuthTs ,
 .IR CHs ,
@@ -739,7 +739,7 @@ message may be substituted.
 ..
 .PP
 .TP
-.IR S \(-> A
+.I S→A:
 .IR AuthChal ,
 .IR \- ,
 .IR DN ,
@@ -747,11 +747,11 @@ message may be substituted.
 .IR IDs ,
 .IR IDc
 .TP
-.IR A \(-> S
+.I A→S:
 .IR AuthOK ,
 .IR challenge
 .TP
-.IR S \(-> A
+.I S→A:
 .IR response
 .Ok
 .IP
@@ -811,7 +811,7 @@ lines map from Plan 9 user ids to RADIUS ids.
 Users not listed are assumed to have the
 same id in both places.
 .TP
-.IR S \(-> A
+.I S→A:
 .IR AuthApop ,
 .IR \- ,
 .IR DN ,
@@ -819,11 +819,11 @@ same id in both places.
 .IR IDs ,
 .IR \-
 .TP
-.IR A \(-> S
+.I A→S:
 .IR AuthOKvar ,
 .IR challenge
 .TP
-.IR S \(-> A 
+.I S→A:
 .IR AuthApop ,
 .IR \- ,
 .IR DN ,
@@ -862,7 +862,7 @@ is the keyed MD5 hash using the user's secret as the key
 in
 .IR sechash (2)).
 .TP
-.IR S \(-> A
+.I S→A:
 .IR AuthChap ,
 .IR \- ,
 .IR DN ,
@@ -870,10 +870,10 @@ in
 .IR IDs ,
 .IR \-
 .TP
-.IR A \(-> S
+.I A→S:
 .I challenge
 .TP
-.IR S \(-> A
+.I S→A:
 .IR pktid ,
 .IR IDc ,
 .IR response
@@ -892,7 +892,7 @@ The reply packet is defined as
 in
 .BR <authsrv.h> .
 .TP
-.IR S \(-> A
+.I S→A:
 .IR AuthMSchap ,
 .IR \- ,
 .IR DN ,
@@ -900,10 +900,10 @@ in
 .IR IDs ,
 .IR \-
 .TP
-.IR A \(-> S
+.I A→S:
 .I challenge
 .TP
-.IR S \(-> A
+.I S→A:
 .IR IDc ,
 .IR lm-response ,
 .IR nt-response
@@ -924,7 +924,7 @@ The reply packet is defined as
 in
 .BR <authsrv.h> .
 .TP
-.IR S \(-> A
+.I S→A:
 .IR AuthVNC ,
 .IR \- ,
 .IR DN ,
@@ -932,11 +932,11 @@ in
 .IR IDs ,
 .IR IDc
 .TP
-.IR A \(-> S
+.I A→S:
 .IR AuthOKvar ,
 .I challenge
 .TP
-.IR S \(-> A
+.I S→A:
 .I response
 .Ok
 .IP
