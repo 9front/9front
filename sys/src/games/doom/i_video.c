@@ -46,13 +46,13 @@ void I_InitGraphics(void)
 	center = addpt(screen->r.min, Pt(Dx(screen->r)/2, Dy(screen->r)/2));
 	grabout = insetrect(screen->r, Dx(screen->r)/8);
 
-	if((pid = rfork(RFPROC|RFMEM|RFFDG)) == 0){
+	if((pid = rfork(RFPROC|RFMEM)) == 0){
 		kbdproc();
 		exits(nil);
 	}
 	kbdpid = pid;
 
-	if((pid = rfork(RFPROC|RFMEM|RFFDG)) == 0){
+	if((pid = rfork(RFPROC|RFMEM)) == 0){
 		mouseproc();
 		exits(nil);
 	}
@@ -300,7 +300,6 @@ kbdproc(void)
 		}
 		strcpy(buf2, buf);
 	}
-	close(kfd);
 }
 
 static void
@@ -356,6 +355,5 @@ mouseproc(void)
 			break;
 		}
 	}
-	close(fd);
 }
 
