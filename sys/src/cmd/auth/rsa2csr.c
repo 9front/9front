@@ -34,7 +34,7 @@ main(int argc, char **argv)
 	if((key = getkey(argc-1, argv+1, 1, nil)) == nil)
 		sysfatal("%r");
 
-	cert = X509req(key, argv[0], &len);
+	cert = X509rsareq(key, argv[0], &len);
 	if(cert == nil)
 		sysfatal("X509req: %r");
 

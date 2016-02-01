@@ -12,8 +12,9 @@ rsaprivtopub,
 rsapuballoc,
 rsapubfree,
 X509toRSApub,
-X509gen,
-X509verify \- RSA encryption algorithm
+X509rsagen,
+X509rsareq,
+X509rsaverify \- RSA encryption algorithm
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -61,13 +62,13 @@ void		asn1dump(uchar *der, int len)
 uchar*	decodePEM(char *s, char *type, int *len, char **new_s)
 .PP
 .B
-uchar*	X509gen(RSApriv *priv, char *subj, ulong valid[2], int *certlen);
+uchar*	X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen);
 .PP
 .B
-uchar*	X509req(RSApriv *priv, char *subj, int *certlen);
+uchar*	X509rsareq(RSApriv *priv, char *subj, int *certlen);
 .PP
 .B
-char*	X509verify(uchar *cert, int ncert, RSApub *pk)
+char*	X509rsaverify(uchar *cert, int ncert, RSApub *pk)
 .DT
 .SH DESCRIPTION
 RSA is a public key encryption algorithm.  The owner of a key publishes
@@ -147,12 +148,12 @@ to convert to binary before computing the fingerprint or calling
 For the special case of
 certificates signed by a known trusted key
 (in a single step, without certificate chains),
-.I X509verify
+.I X509rsaverify
 checks the signature on
 .IR cert .
 It returns nil if successful, else an error string.
 .PP
-.I X509gen
+.I X509rsagen
 creates a self-signed X.509 certificate, given an RSA keypair
 .IR priv ,
 a issuer/subject string

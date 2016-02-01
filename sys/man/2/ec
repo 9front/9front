@@ -19,6 +19,12 @@ ecdsaverify \- elliptic curve cryptography
 .B #include <libsec.h>
 .PP
 .B
+void	ecdominit(ECdomain *dom, void (*init)(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h));
+.PP
+.B
+void	ecdomfree(ECdomain *dom);
+.PP
+.B
 void	ecassign(ECdomain *dom, ECpoint *old, ECpoint *new);
 .PP
 .B
@@ -53,6 +59,19 @@ struct.
 Points on the curve are represented by 
 .B ECpoint
 structs.
+.PP
+.B ecdominit
+initializes a
+.B ECdomain
+struct and calls the
+.B init
+function such as
+.B secp256r1
+which fills in the parameters of the curve.
+.PP
+.B ecdomfree
+frees the parameters of the curve and zeros the struct. It does
+not free the memory of the struct itself.
 .PP
 .BR ecassign ", " ecadd " and " ecmul
 are analogous to their counterparts in

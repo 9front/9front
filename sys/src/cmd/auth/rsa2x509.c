@@ -41,7 +41,7 @@ main(int argc, char **argv)
 	if((key = getkey(argc-1, argv+1, 1, nil)) == nil)
 		sysfatal("%r");
 
-	cert = X509gen(key, argv[0], valid, &len);
+	cert = X509rsagen(key, argv[0], valid, &len);
 	if(cert == nil)
 		sysfatal("X509gen: %r");
 

@@ -42,7 +42,7 @@ decryptkey(Fsstate *fss, char *key, char *password)
 	st->p.d = betomp(keyenc + 1, 32, nil);
 	st->p.x = mpnew(0);
 	st->p.y = mpnew(0);
-	ecmul(&dom, dom.G, st->p.d, &st->p);
+	ecmul(&dom, &dom.G, st->p.d, &st->p);
 	return RpcOk;
 }
 
@@ -56,14 +56,8 @@ ecdsainit(Proto *, Fsstate *fss)
 	char *key, *password;
 	Attr *attr;
 
-	if(dom.p == nil){
-		dom.p = strtomp("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", nil, 16, nil);
-		dom.a = uitomp(0, nil);
-		dom.b = uitomp(7, nil);
-		dom.n = strtomp("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", nil, 16, nil);
-		dom.h = uitomp(1, nil);
-		dom.G = strtoec(&dom, "0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798", nil, nil);
-	}
+	if(dom.p == nil)
+		ecdominit(&dom, secp256k1);
 	fss->ps = nil;
 	if((iscli = isclient(_strfindattr(fss->attr, "role"))) < 0)
 		return failure(fss, nil);

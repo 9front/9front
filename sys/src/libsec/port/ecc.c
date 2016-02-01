@@ -407,7 +407,7 @@ ecgen(ECdomain *dom, ECpriv *p)
 		if(mpcmp(p->d, mpzero) > 0 && mpcmp(p->d, dom->n) < 0)
 			break;
 	}
-	ecmul(dom, dom->G, p->d, p);
+	ecmul(dom, &dom->G, p->d, p);
 	return p;
 }
 
@@ -468,7 +468,7 @@ ecdsaverify(ECdomain *dom, ECpub *pub, uchar *dig, int len, mpint *r, mpint *s)
 	mpmod(u1, dom->n, u1);
 	mpmul(r, t, u2);
 	mpmod(u2, dom->n, u2);
-	ecmul(dom, dom->G, u1, &R);
+	ecmul(dom, &dom->G, u1, &R);
 	ecmul(dom, pub, u2, &S);
 	ecadd(dom, &R, &S, &R);
 	ret = 0;
@@ -539,4 +539,80 @@ base58dec(char *src, uchar *dst, int len)
 	mpfree(r);
 	mpfree(b);
 	return 0;
+}
+
+void
+ecdominit(ECdomain *dom, void (*init)(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h))
+{
+	memset(dom, 0, sizeof(*dom));
+	dom->p = mpnew(0);
+	dom->a = mpnew(0);
+	dom->b = mpnew(0);
+	dom->G.x = mpnew(0);
+	dom->G.y = mpnew(0);
+	dom->n = mpnew(0);
+	dom->h = mpnew(0);
+	if(init){
+		(*init)(dom->p, dom->a, dom->b, dom->G.x, dom->G.y, dom->n, dom->h);
+		dom->p = mpfield(dom->p);
+	}
+}
+
+void
+ecdomfree(ECdomain *dom)
+{
+	mpfree(dom->p);
+	mpfree(dom->a);
+	mpfree(dom->b);
+	mpfree(dom->G.x);
+	mpfree(dom->G.y);
+	mpfree(dom->n);
+	mpfree(dom->h);
+	memset(dom, 0, sizeof(*dom));
+}
+
+int
+ecencodepub(ECdomain *dom, ECpub *pub, uchar *data, int len)
+{
+	int n;
+
+	n = (mpsignif(dom->p)+7)/8;
+	if(len < 1 + 2*n)
+		return 0;
+	len = 1 + 2*n;
+	data[0] = 0x04;
+	mptober(pub->x, data+1, n);
+	mptober(pub->y, data+1+n, n);
+	return len;
+}
+
+ECpub*
+ecdecodepub(ECdomain *dom, uchar *data, int len)
+{
+	ECpub *pub;
+	int n;
+
+	n = (mpsignif(dom->p)+7)/8;
+	if(len != 1 + 2*n || data[0] != 0x04)
+		return nil;
+	pub = mallocz(sizeof(*pub), 1);
+	if(pub == nil)
+		return nil;
+	pub->x = betomp(data+1, n, nil);
+	pub->y = betomp(data+1+n, n, nil);
+	if(!ecpubverify(dom, pub)){
+		ecpubfree(pub);
+		pub = nil;
+	}
+	return pub;
+}
+
+void
+ecpubfree(ECpub *p)
+{
+	if(p == nil)
+		return;
+	mpfree(p->x);
+	mpfree(p->y);
+	free(p);
 }

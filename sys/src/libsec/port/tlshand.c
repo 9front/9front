@@ -19,6 +19,7 @@ enum {
 	SSL3FinishedLen = MD5dlen+SHA1dlen,
 	MaxKeyData = 160,	// amount of secret we may need
 	MaxChunk = 1<<15,
+	MAXdlen = SHA2_512dlen,
 	RandomSize = 32,
 	SidSize = 32,
 	MasterSecretSize = 48,
@@ -48,14 +49,7 @@ typedef struct Algs{
 
 typedef struct Namedcurve{
 	int tlsid;
-	char *name;
-
-	char *p;
-	char *a;
-	char *b;
-	char *G;
-	char *n;
-	char *h;
+	void (*init)(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h);
 } Namedcurve;
 
 typedef struct Finished{
@@ -279,12 +273,15 @@ enum {
 	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA	= 0XC013,
 	TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA	= 0XC014,
 	TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256	= 0xC027,
+	TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256	= 0xC023,
 
 	TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305	= 0xCCA8,
+	TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305	= 0xCCA9,
 	TLS_DHE_RSA_WITH_CHACHA20_POLY1305	= 0xCCAA,
 
-	GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305	= 0xCC13,
-	GOOGLE_DHE_RSA_WITH_CHACHA20_POLY1305	= 0xCC15,
+	GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305		= 0xCC13,
+	GOOGLE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305	= 0xCC14,
+	GOOGLE_DHE_RSA_WITH_CHACHA20_POLY1305		= 0xCC15,
 
 	TLS_PSK_WITH_CHACHA20_POLY1305		= 0xCCAB,
 	TLS_PSK_WITH_AES_128_CBC_SHA256		= 0x00AE,
@@ -299,11 +296,14 @@ enum {
 
 static Algs cipherAlgs[] = {
 	{"ccpoly96_aead", "clear", 2*(32+12), TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305},
+	{"ccpoly96_aead", "clear", 2*(32+12), TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305},
 	{"ccpoly96_aead", "clear", 2*(32+12), TLS_DHE_RSA_WITH_CHACHA20_POLY1305},
 
 	{"ccpoly64_aead", "clear", 2*32, GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305},
+	{"ccpoly64_aead", "clear", 2*32, GOOGLE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305},
 	{"ccpoly64_aead", "clear", 2*32, GOOGLE_DHE_RSA_WITH_CHACHA20_POLY1305},
 
+	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256},
 	{"aes_128_cbc", "sha256", 2*(16+16+SHA2_256dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256},
 	{"aes_128_cbc", "sha1", 2*(16+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA},
 	{"aes_256_cbc", "sha1", 2*(32+16+SHA1dlen), TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
@@ -328,21 +328,32 @@ static uchar compressors[] = {
 };
 
 static Namedcurve namedcurves[] = {
-{0x0017, "secp256r1",
-	"FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF",
-	"FFFFFFFF00000001000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFC",
-	"5AC635D8AA3A93E7B3EBBD55769886BC651D06B0CC53B0F63BCE3C3E27D2604B",
-	"046B17D1F2E12C4247F8BCE6E563A440F277037D812DEB33A0F4A13945D898C2964FE342E2FE1A7F9B8EE7EB4A7C0F9E162BCE33576B315ECECBB6406837BF51F5",
-	"FFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551",
-	"1"}
+	0x0017, secp256r1,
 };
 
 static uchar pointformats[] = {
 	CompressionNull /* support of uncompressed point format is mandatory */
 };
 
-// signature algorithms (only RSA at the moment)
+static struct {
+	DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*);
+	int len;
+} hashfun[] = {
+	[0x01]	{md5,		MD5dlen},
+	[0x02]	{sha1,		SHA1dlen},
+	[0x03]	{sha2_224,	SHA2_224dlen},
+	[0x04]	{sha2_256,	SHA2_256dlen},
+	[0x05]	{sha2_384,	SHA2_384dlen},
+	[0x06]	{sha2_512,	SHA2_512dlen},
+};
+
+// signature algorithms (only RSA and ECDSA at the moment)
 static int sigalgs[] = {
+	0x0603,		/* SHA512 ECDSA */
+	0x0503,		/* SHA384 ECDSA */
+	0x0403,		/* SHA256 ECDSA */
+	0x0203,		/* SHA1 ECDSA */
+
 	0x0601,		/* SHA512 RSA */
 	0x0501,		/* SHA384 RSA */
 	0x0401,		/* SHA256 RSA */
@@ -421,7 +432,6 @@ static void freeints(Ints* b);
 
 /* x509.c */
 extern mpint*	pkcs1padbuf(uchar *buf, int len, mpint *modulus);
-extern int	pkcs1decryptsignature(uchar *sig, int siglen, RSApub *pk, uchar **pbuf);
 extern int	X509encodesignature_sha256(uchar digest[SHA2_256dlen], uchar *buf, int len);
 
 //================= client/server ========================
@@ -869,11 +879,16 @@ static int
 isECDHE(int tlsid)
 {
 	switch(tlsid){
+	case TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
+	case TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305:
+
+	case GOOGLE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
+	case GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305:
+
+	case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:
 	case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
 	case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:
 	case TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:
-	case TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305:
-	case GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305:
 		return 1;
 	}
 	return 0;
@@ -932,47 +947,14 @@ Out:
 	return epm;
 }
 
-static ECpoint*
-bytestoec(ECdomain *dom, Bytes *bp, ECpoint *ret)
-{
-	char *hex = "0123456789ABCDEF";
-	char *s;
-	int i;
-
-	s = emalloc(2*bp->len + 1);
-	for(i=0; i < bp->len; i++){
-		s[2*i] = hex[bp->data[i]>>4 & 15];
-		s[2*i+1] = hex[bp->data[i] & 15];
-	}
-	s[2*bp->len] = '\0';
-	ret = strtoec(dom, s, nil, ret);
-	free(s);
-	return ret;
-}
-
-static Bytes*
-ectobytes(int type, ECpoint *p)
-{
-	Bytes *bx, *by, *bp;
-
-	bx = mptobytes(p->x);
-	by = mptobytes(p->y);
-	bp = newbytes(bx->len + by->len + 1);
-	bp->data[0] =  type;
-	memmove(bp->data+1, bx->data, bx->len);
-	memmove(bp->data+1+bx->len, by->data, by->len);
-	freebytes(bx);
-	freebytes(by);
-	return bp;
-}
-
 static Bytes*
 tlsSecECDHEc(TlsSec *sec, uchar *srandom, int vers, int curve, Bytes *Ys)
 {
 	Namedcurve *nc, *enc;
 	Bytes *epm;
 	ECdomain dom;
-	ECpoint G, K, Y;
+	ECpub *pub;
+	ECpoint K;
 	ECpriv Q;
 
 	if(Ys == nil)
@@ -990,18 +972,12 @@ tlsSecECDHEc(TlsSec *sec, uchar *srandom, int vers, int curve, Bytes *Ys)
 	if(setVers(sec, vers) < 0)
 		return nil;
 	
-	epm = nil;
-
-	memset(&dom, 0, sizeof(dom));
-	dom.p = mpfield(strtomp(nc->p, nil, 16, nil));
-	dom.a = strtomp(nc->a, nil, 16, nil);
-	dom.b = strtomp(nc->b, nil, 16, nil);
-	dom.n = strtomp(nc->n, nil, 16, nil);
-	dom.h = strtomp(nc->h, nil, 16, nil);
-
-	memset(&G, 0, sizeof(G));
-	G.x = mpnew(0);
-	G.y = mpnew(0);
+	ecdominit(&dom, nc->init);
+	pub = ecdecodepub(&dom, Ys->data, Ys->len);
+	if(pub == nil){
+		ecdomfree(&dom);
+		return nil;
+	}
 
 	memset(&Q, 0, sizeof(Q));
 	Q.x = mpnew(0);
@@ -1012,48 +988,22 @@ tlsSecECDHEc(TlsSec *sec, uchar *srandom, int vers, int curve, Bytes *Ys)
 	K.x = mpnew(0);
 	K.y = mpnew(0);
 
-	memset(&Y, 0, sizeof(Y));
-	Y.x = mpnew(0);
-	Y.y = mpnew(0);
-
-	if(dom.p == nil || dom.a == nil || dom.b == nil || dom.n == nil || dom.h == nil)
-		goto Out;
-
-	dom.G = strtoec(&dom, nc->G, nil, &G);
-	if(dom.G == nil)
-		goto Out;
-
-	if(bytestoec(&dom, Ys, &Y) == nil)
-		goto Out;
-
-	if(ecgen(&dom, &Q) == nil)
-		goto Out;
-
-	ecmul(&dom, &Y, Q.d, &K);
-	setMasterSecret(sec, mptobytes(K.x));
-
-	/* 0x04 = uncompressed public key */
-	epm = ectobytes(0x04, &Q);
-	
-Out:
-	mpfree(Y.x);
-	mpfree(Y.y);
+	epm = nil;
+	if(ecgen(&dom, &Q) != nil){
+		ecmul(&dom, pub, Q.d, &K);
+		setMasterSecret(sec, mptobytes(K.x));
+		epm = newbytes(1 + 2*((mpsignif(dom.p)+7)/8));
+		epm->len = ecencodepub(&dom, &Q, epm->data, epm->len);
+	}
 
 	mpfree(K.x);
 	mpfree(K.y);
-
 	mpfree(Q.x);
 	mpfree(Q.y);
 	mpfree(Q.d);
 
-	mpfree(G.x);
-	mpfree(G.y);
-
-	mpfree(dom.p);
-	mpfree(dom.a);
-	mpfree(dom.b);
-	mpfree(dom.n);
-	mpfree(dom.h);
+	ecpubfree(pub);
+	ecdomfree(&dom);
 
 	return epm;
 }
@@ -1061,9 +1011,12 @@ Out:
 static char*
 verifyDHparams(TlsConnection *c, Bytes *par, Bytes *sig, int sigalg)
 {
-	uchar hashes[MD5dlen+SHA1dlen], *buf;
+	uchar digest[MAXdlen];
+	int digestlen;
+	ECdomain dom;
+	ECpub *ecpk;
+	RSApub *rsapk;
 	Bytes *blob;
-	RSApub *pk;
 	char *err;
 
 	if(par == nil || par->len <= 0)
@@ -1072,40 +1025,52 @@ verifyDHparams(TlsConnection *c, Bytes *par, Bytes *sig, int sigalg)
 	if(sig == nil || sig->len <= 0){
 		if(c->sec->psklen > 0)
 			return nil;
-
 		return "no signature";
 	}
 
 	if(c->cert == nil)
 		return "no certificate";
 
-	pk = X509toRSApub(c->cert->data, c->cert->len, nil, 0);
-	if(pk == nil)
-		return "bad certificate";
-
 	blob = newbytes(2*RandomSize + par->len);
 	memmove(blob->data+0*RandomSize, c->crandom, RandomSize);
 	memmove(blob->data+1*RandomSize, c->srandom, RandomSize);
 	memmove(blob->data+2*RandomSize, par->data, par->len);
-	if(c->version >= TLS12Version) {
-		if((sigalg & 0xFF) == 1)
-			err = X509verifydata(sig->data, sig->len, blob->data, blob->len, pk);
-		else
-			err = "signaure algorithm not RSA";
+	if(c->version < TLS12Version){
+		digestlen = MD5dlen + SHA1dlen;
+		md5(blob->data, blob->len, digest, nil);
+		sha1(blob->data, blob->len, digest+MD5dlen, nil);
 	} else {
-		err = nil;
-		if(pkcs1decryptsignature(sig->data, sig->len, pk, &buf) != sizeof(hashes))
-			err = "bad signature";
-		else {
-			md5(blob->data, blob->len, hashes, nil);
-			sha1(blob->data, blob->len, hashes+MD5dlen, nil);
-			if(tsmemcmp(buf, hashes, sizeof(hashes)) != 0)
-				err = "digests did not match";
+		int hashalg = (sigalg>>8) & 0xFF;
+		digestlen = -1;
+		if(hashalg < nelem(hashfun) && hashfun[hashalg].fun != nil){
+			digestlen = hashfun[hashalg].len;
+			(*hashfun[hashalg].fun)(blob->data, blob->len, digest, nil);
 		}
-		free(buf);
 	}
 	freebytes(blob);
-	rsapubfree(pk);
+
+	if(digestlen <= 0)
+		return "unknown signature digest algorithm";
+	
+	switch(sigalg & 0xFF){
+	case 0x01:
+		rsapk = X509toRSApub(c->cert->data, c->cert->len, nil, 0);
+		if(rsapk == nil)
+			return "bad certificate";
+		err = X509rsaverifydigest(sig->data, sig->len, digest, digestlen, rsapk);
+		rsapubfree(rsapk);
+		break;
+	case 0x03:
+		ecpk = X509toECpub(c->cert->data, c->cert->len, &dom);
+		if(ecpk == nil)
+			return "bad certificate";
+		err = X509ecdsaverifydigest(sig->data, sig->len, digest, digestlen, &dom, ecpk);
+		ecdomfree(&dom);
+		ecpubfree(ecpk);
+		break;
+	default:
+		err = "signaure algorithm not RSA or ECDSA";
+	}
 
 	return err;
 }

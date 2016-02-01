@@ -339,11 +339,11 @@ RSApriv*	asn1toRSApriv(uchar*, int);
 void		asn1dump(uchar *der, int len);
 uchar*		decodePEM(char *s, char *type, int *len, char **new_s);
 PEMChain*	decodepemchain(char *s, char *type);
-uchar*		X509gen(RSApriv *priv, char *subj, ulong valid[2], int *certlen);
-uchar*		X509req(RSApriv *priv, char *subj, int *certlen);
-char*		X509verifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub *pk);
-char*		X509verifydata(uchar *sig, int siglen, uchar *data, int datalen, RSApub *pk);
-char*		X509verify(uchar *cert, int ncert, RSApub *pk);
+uchar*		X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen);
+uchar*		X509rsareq(RSApriv *priv, char *subj, int *certlen);
+char*		X509rsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub *pk);
+char*		X509rsaverify(uchar *cert, int ncert, RSApub *pk);
+
 void		X509dump(uchar *cert, int ncert);
 
 /*
@@ -487,10 +487,13 @@ typedef struct ECdomain{
 	mpint *p;
 	mpint *a;
 	mpint *b;
-	ECpoint *G;
+	ECpoint G;
 	mpint *n;
 	mpint *h;
 } ECdomain;
+
+void	ecdominit(ECdomain *, void (*init)(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h));
+void	ecdomfree(ECdomain *);
 
 void	ecassign(ECdomain *, ECpoint *old, ECpoint *new);
 void	ecadd(ECdomain *, ECpoint *a, ECpoint *b, ECpoint *s);
@@ -503,6 +506,18 @@ void	ecdsasign(ECdomain *, ECpriv *, uchar *, int, mpint *, mpint *);
 int	ecdsaverify(ECdomain *, ECpub *, uchar *, int, mpint *, mpint *);
 void	base58enc(uchar *, char *, int);
 int	base58dec(char *, uchar *, int);
+
+ECpub*	ecdecodepub(ECdomain *dom, uchar *, int);
+int	ecencodepub(ECdomain *dom, ECpub *, uchar *, int);
+void	ecpubfree(ECpub *);
+
+ECpub*	X509toECpub(uchar *cert, int ncert, ECdomain *dom);
+char*	X509ecdsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, ECdomain *dom, ECpub *pub);
+char*	X509ecdsaverify(uchar *sig, int siglen, ECdomain *dom, ECpub *pub);
+
+/* curves */
+void	secp256r1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h);
+void	secp256k1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h);
 
 DigestState*	ripemd160(uchar *, ulong, uchar *, DigestState *);
 

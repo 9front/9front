@@ -30,6 +30,10 @@ CFILES = des.c desmodes.c desECB.c desCBC.c des3ECB.c des3CBC.c\
 	hkdf.c\
 	ccpoly.c\
 	tsmemcmp.c\
+	secp256r1.c\
+	secp256k1.c\
+
+CLEANFILES=secp256r1.c secp256k1.c
 
 ALLOFILES=${CFILES:%.c=%.$O}
 
@@ -46,6 +50,12 @@ UPDATE=mkfile\
 
 </sys/src/cmd/mksyslib
 
+%.c:D:	%.mp
+	echo '#include <u.h>' > $target
+	echo '#include <libc.h>' >> $target
+	echo '#include <mp.h>' >> $target
+	mpc $prereq >> $target
+	
 $O.rsatest: rsatest.$O
 	$LD -o $target $prereq
 
