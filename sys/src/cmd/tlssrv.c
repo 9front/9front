@@ -3,10 +3,12 @@
 #include <bio.h>
 #include <mp.h>
 #include <libsec.h>
+#include <auth.h>
 
+int debug, auth;
+char *keyspec = "";
 char *remotesys = "";
 char *logfile = nil;
-int debug = 0;
 
 static int
 reporter(char *fmt, ...)
@@ -30,7 +32,7 @@ reporter(char *fmt, ...)
 void
 usage(void)
 {
-	fprint(2, "usage: tlssrv -c cert [-D] [-l logfile] [-r remotesys] cmd [args...]\n");
+	fprint(2, "usage: tlssrv [-a [-k keyspec]] [-c cert] [-D] [-l logfile] [-r remotesys] cmd [args...]\n");
 	fprint(2, "  after  auth/secretpem key.pem > /mnt/factotum/ctl\n");
 	exits("usage");
 }
@@ -46,6 +48,12 @@ main(int argc, char *argv[])
 	ARGBEGIN{
 	case 'D':
 		debug++;
+		break;
+	case 'a':
+		auth++;
+		break;
+	case 'k':
+		keyspec = EARGF(usage());
 		break;
 	case 'c':
 		cert = EARGF(usage());
@@ -63,21 +71,41 @@ main(int argc, char *argv[])
 	if(*argv == nil)
 		usage();
 
-	if(cert == nil)
-		sysfatal("no certificate specified");
 	conn = (TLSconn*)mallocz(sizeof *conn, 1);
 	if(conn == nil)
 		sysfatal("out of memory");
-	conn->chain = readcertchain(cert);
-	if(conn->chain == nil)
-		sysfatal("%r");
-	conn->cert = conn->chain->pem;
-	conn->certlen = conn->chain->pemlen;
-	conn->chain = conn->chain->next;
+
+	if(auth){
+		AuthInfo *ai;
+
+		ai = auth_proxy(0, nil, "proto=p9any role=server %s", keyspec);
+		if(ai == nil)
+			sysfatal("auth_proxy: %r");
+
+		if(auth_chuid(ai, nil) < 0)
+			sysfatal("auth_chuid: %r");
+
+		conn->pskID = "p9secret";
+		conn->psk = ai->secret;
+		conn->psklen = ai->nsecret;
+	}
+
+	if(cert){
+		conn->chain = readcertchain(cert);
+		if(conn->chain == nil)
+			sysfatal("%r");
+		conn->cert = conn->chain->pem;
+		conn->certlen = conn->chain->pemlen;
+		conn->chain = conn->chain->next;
+	}
+
+	if(conn->cert == nil && conn->psklen == 0)
+		sysfatal("no certificate or shared secret");
+
 	if(debug)
 		conn->trace = reporter;
 
-	fd = tlsServer(1, conn);
+	fd = tlsServer(0, conn);
 	if(fd < 0){
 		reporter("failed: %r");
 		exits(0);
@@ -87,6 +115,8 @@ main(int argc, char *argv[])
 
 	dup(fd, 0);
 	dup(fd, 1);
+	if(fd > 1)
+		close(fd);
 
 	exec(*argv, argv);
 	reporter("can't exec %s: %r", *argv);

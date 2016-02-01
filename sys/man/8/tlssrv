@@ -5,6 +5,16 @@ tlssrv, tlsclient, tlssrvtunnel, tlsclienttunnel \- TLS server and client
 .PP
 .B tlssrv
 [
+.B -D
+]
+[
+.B -a
+[
+.B -k
+.I keyspec
+]
+]
+[
 .B -c
 .I cert.pem
 ]
@@ -27,6 +37,13 @@ logfile
 .B -D
 ]
 [
+.B -a
+[
+.B -k
+.I keyspec
+]
+]
+[
 .B -c
 .I cert.pem
 ]
@@ -37,6 +54,10 @@ logfile
 [
 .B -x
 .I excludedkeys
+]
+[
+.B -n
+.I servername
 ]
 .I address
 .PP
@@ -66,6 +87,14 @@ The specified
 is by convention the same as for the target server.
 .I Remotesys
 is mainly used for logging.
+If the
+.B -a
+flag is specified,
+.B p9any
+authentication is run before the TLS handshake and the resulting
+plan9 session secret is used as a pre-shared key for TLS encryption.
+This enables the use of TLS without certificates and also runs
+the server command as the authorized user.
 .PP
 .I Tlsclient
 is the reverse of
@@ -98,7 +127,12 @@ but not in the file
 .IR excludedkeys .
 See
 .IR thumbprint (6)
-for more information.
+for more information. The
+.B -n
+option passes the string
+.I servername
+in the TLS hello message (Server Name Idenfitication)
+which is usefull when talking to webservers.
 .PP
 .I Tlssrvtunnel
 and
