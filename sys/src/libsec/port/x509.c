@@ -1896,7 +1896,7 @@ errret:
 }
 
 /*
- *	RSAPublickKey :: SEQUENCE {
+ *	RSAPublickKey ::= SEQUENCE {
  *		modulus INTEGER,
  *		publicExponent INTEGER
  *	}
@@ -2552,30 +2552,52 @@ mkDN(char *dn)
 	return mkseq(el);
 }
 
-int
-X509encodesignature_sha256(uchar digest[SHA2_256dlen], uchar *buf, int len)
+/*
+ * DigestInfo ::= SEQUENCE {
+ *	digestAlgorithm AlgorithmIdentifier,
+ *	digest OCTET STRING }
+ */
+static Bytes*
+encode_digest(DigestAlg *da, uchar *digest)
 {
-	Bytes *sigbytes;
-	Elem sig;
+	Bytes *ans;
 	int err;
+	Elem e;
 
-	sig = mkseq(
-		mkel(mkalg(ALG_sha256),
-		mkel(mkoctet(digest, SHA2_256dlen),
+	e = mkseq(
+		mkel(mkalg(da->alg),
+		mkel(mkoctet(digest, da->len),
 		nil)));
-	err = encode(sig, &sigbytes);
-	freevalfields(&sig.val);
+	err = encode(e, &ans);
+	freevalfields(&e.val);
 	if(err != ASN_OK)
-		return -1;
-	if(len < sigbytes->len){
-		freebytes(sigbytes);
-		return -1;
-	}
-	len = sigbytes->len;
-	memmove(buf, sigbytes->data, len);
-	freebytes(sigbytes);
+		return nil;
 
-	return len;
+	return ans;
+}
+
+int
+asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar *digest, uchar *buf, int len)
+{
+	Bytes *bytes;
+	DigestAlg **dp;
+
+	for(dp = digestalg; *dp != nil; dp++){
+		if((*dp)->fun != fun)
+			continue;
+		bytes = encode_digest(*dp, digest);
+		if(bytes == nil)
+			break;
+		if(bytes->len > len){
+			freebytes(bytes);
+			break;
+		}
+		len = bytes->len;
+		memmove(buf, bytes->data, len);
+		freebytes(bytes);
+		return len;
+	}
+	return -1;
 }
 
 uchar*
@@ -2612,21 +2634,18 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	freebytes(pkbytes);
 	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
+
 	da = digestalg[sigalg];
 	(*da->fun)(certinfobytes->data, certinfobytes->len, digest, 0);
 	freebytes(certinfobytes);
 	certinfo = e;
-	e = mkseq(
-		mkel(mkalg(da->alg),
-		mkel(mkoctet(digest, da->len),
-		nil)));
-	if(encode(e, &sigbytes) != ASN_OK){
-		freevalfields(&certinfo.val);
+
+	sigbytes = encode_digest(da, digest);
+	if(sigbytes == nil)
 		goto errret;
-	}
-	freevalfields(&e.val);
 	pkcs1 = pkcs1pad(sigbytes, pk->n);
 	freebytes(sigbytes);
+
 	rsadecrypt(priv, pkcs1, pkcs1);
 	buflen = mptobe(pkcs1, nil, 0, &buf);
 	mpfree(pkcs1);
@@ -2682,16 +2701,13 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 	(*da->fun)(certinfobytes->data, certinfobytes->len, digest, 0);
 	freebytes(certinfobytes);
 	certinfo = e;
-	e = mkseq(
-		mkel(mkalg(da->alg),
-		mkel(mkoctet(digest, da->len),
-		nil)));
-	if(encode(e, &sigbytes) != ASN_OK){
-		freevalfields(&certinfo.val);
+
+	sigbytes = encode_digest(da, digest);
+	if(sigbytes == nil)
 		goto errret;
-	}
 	pkcs1 = pkcs1pad(sigbytes, pk->n);
 	freebytes(sigbytes);
+
 	rsadecrypt(priv, pkcs1, pkcs1);
 	buflen = mptobe(pkcs1, nil, 0, &buf);
 	mpfree(pkcs1);

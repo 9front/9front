@@ -432,7 +432,7 @@ static void freeints(Ints* b);
 
 /* x509.c */
 extern mpint*	pkcs1padbuf(uchar *buf, int len, mpint *modulus);
-extern int	X509encodesignature_sha256(uchar digest[SHA2_256dlen], uchar *buf, int len);
+extern int	asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar *digest, uchar *buf, int len);
 
 //================= client/server ========================
 
@@ -1298,13 +1298,18 @@ tlsClient2(int ctl, int hand,
 
 			m.u.certificateVerify.sigalg = 0x0401;	/* RSA SHA256 */
 			sha2_256(nil, 0, digest, &c->handhash.sha2_256);
-			buflen = X509encodesignature_sha256(digest, buf, sizeof(buf));
+			buflen = asn1encodedigest(sha2_256, digest, buf, sizeof(buf));
 		} else {
 			md5(nil, 0, buf, &c->handhash.md5);
 			sha1(nil, 0, buf+MD5dlen, &c->handhash.sha1);
 			buflen = MD5dlen+SHA1dlen;
 		}
 		c->handhash = hsave;
+
+		if(buflen <= 0){
+			tlsError(c, EInternalError, "can't encode handshake hashes");
+			goto Err;
+		}
 		
 		paddedHashes = pkcs1padbuf(buf, buflen, c->sec->rsapub->n);
 		signedMP = factotum_rsa_decrypt(c->sec->rpc, paddedHashes);

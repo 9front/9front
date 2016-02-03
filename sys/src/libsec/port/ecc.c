@@ -476,6 +476,7 @@ ecdsaverify(ECdomain *dom, ECpub *pub, uchar *dig, int len, mpint *r, mpint *s)
 		mpmod(R.x, dom->n, t);
 		ret = mpcmp(r, t) == 0;
 	}
+	mpfree(E);
 	mpfree(t);
 	mpfree(u1);
 	mpfree(u2);
