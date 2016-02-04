@@ -96,6 +96,9 @@ gmfield(mpint *N)
 	M = mpcopy(N);
 	C = malloc(sizeof(int)*(d+1));
 	X = malloc(sizeof(int)*(d*d));
+	if(C == nil || X == nil)
+		goto out;
+
 	for(i=0; i<=d; i++){
 		if((M->p[i]>>8) != 0 && (~M->p[i]>>8) != 0)
 			goto out;
