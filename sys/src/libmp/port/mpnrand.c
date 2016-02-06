@@ -1,6 +1,5 @@
 #include "os.h"
 #include <mp.h>
-#include <libsec.h>
 #include "dat.h"
 
 /* return uniform random [0..n-1] */
