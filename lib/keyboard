@@ -560,6 +560,8 @@
 266d  Mb          ♭	music flat
 266e  M#          ♮	music natural
 266f  Ms          ♯	music sharp
+27e8  d<          ⟨	mathematical left angle bracket
+27e9  d>          ⟩	mathematical right angle bracket
 F015  ZA          	raw alt (plan 9 specific)
 F016  ZS          	raw shift (plan 9 specific)
 F017  ZC          	raw ctl (plan 9 specific)
