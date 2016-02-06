@@ -1133,7 +1133,7 @@ tlsClient2(int ctl, int hand,
 		goto Err;
 	}
 	if(setVersion(c, m.u.serverHello.version) < 0) {
-		tlsError(c, EIllegalParameter, "incompatible version %r");
+		tlsError(c, EIllegalParameter, "incompatible version: %r");
 		goto Err;
 	}
 	memmove(c->srandom, m.u.serverHello.random, RandomSize);
@@ -2321,13 +2321,13 @@ initCiphers(void)
 	j = open("#a/tls/encalgs", OREAD);
 	if(j < 0){
 		werrstr("can't open #a/tls/encalgs: %r");
-		return 0;
+		goto out;
 	}
 	n = read(j, s, MaxAlgF-1);
 	close(j);
 	if(n <= 0){
 		werrstr("nothing in #a/tls/encalgs: %r");
-		return 0;
+		goto out;
 	}
 	s[n] = 0;
 	n = getfields(s, flds, MaxAlgs, 1, " \t\r\n");
@@ -2345,13 +2345,13 @@ initCiphers(void)
 	j = open("#a/tls/hashalgs", OREAD);
 	if(j < 0){
 		werrstr("can't open #a/tls/hashalgs: %r");
-		return 0;
+		goto out;
 	}
 	n = read(j, s, MaxAlgF-1);
 	close(j);
 	if(n <= 0){
 		werrstr("nothing in #a/tls/hashalgs: %r");
-		return 0;
+		goto out;
 	}
 	s[n] = 0;
 	n = getfields(s, flds, MaxAlgs, 1, " \t\r\n");
@@ -2367,6 +2367,7 @@ initCiphers(void)
 		if(cipherAlgs[i].ok)
 			nciphers++;
 	}
+out:
 	unlock(&ciphLock);
 	return nciphers;
 }
