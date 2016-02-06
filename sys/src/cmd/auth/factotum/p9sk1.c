@@ -490,6 +490,8 @@ p9skaddkey(Key *k, int before)
 static void
 p9skclosekey(Key *k)
 {
+	if(k->priv == nil)
+		return;
 	memset(k->priv, 0, sizeof(Authkey));
 	free(k->priv);
 }
