@@ -9,7 +9,7 @@ main(void)
 	mpint *m, *gamma, *delta, *in, *out;
 	int plen, shift;
 
-	fmtinstall('B', mpconv);
+	fmtinstall('B', mpfmt);
 
 	sk = egprivalloc();
 	sk->pub.p = uitomp(2357, nil);
