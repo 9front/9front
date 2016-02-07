@@ -385,6 +385,8 @@
 044E  @yu         ю	cyrillic small letter iu
 044F  @ya         я	cyrillic small letter ia
 0451  @yo         ё	cyrillic small letter io
+2013  en          –	en dash
+2014  em          —	em dash
 2018  l'          ‘	single turned comma quotation mark
 2019  r'          ’	single comma quotation mark
 201C  l"          “	double turned comma quotation mark
@@ -409,8 +411,6 @@
 207D  s(          ⁽	superscript opening parenthesis
 207E  s)          ⁾	superscript closing parenthesis
 207F  sn          ⁿ	superscript latin small letter n
-2013  en          –	en dash
-2014  em          —	em dash
 2080  b0          ₀	subscript digit zero
 2081  b1          ₁	subscript digit one
 2082  b2          ₂	subscript digit two
@@ -541,6 +541,10 @@
 22E7  >!~         ⋧	greater than but not equivalent to
 22EF  el          ⋯	midline horizontal ellipsis
 2423              ␣	open box, visible space
+2605  P*          ★	pentagram
+2620  X(          ☠	skull face
+2622  TF          ☢	trefoil
+262D  SU          ☭	hammer and sickle
 2639  :(          ☹ sad face
 263A  :)          ☺ smiley face
 2654  wk          ♔	white chess king
@@ -555,6 +559,7 @@
 265D  bb          ♝	black chess bishop
 265E  bn          ♞	black chess knight
 265F  bp          ♟	black chess pawn
+2665  <3          ♥	heart
 2669  M4          ♩	music quarter note
 266a  M8          ♪	music eighth note
 266d  Mb          ♭	music flat
