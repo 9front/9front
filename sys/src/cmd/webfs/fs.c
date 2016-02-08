@@ -756,6 +756,13 @@ fsstart(Srv*)
 		unmount(nil, mtpt);
 }
 
+static void
+fsend(Srv*)
+{
+	postnote(PNGROUP, getpid(), "shutdown");
+	exits(nil);
+}
+
 Srv fs = 
 {
 	.start=fsstart,
@@ -768,6 +775,7 @@ Srv fs =
 	.write=fswrite,
 	.flush=fsflush,
 	.destroyfid=fsdestroyfid,
+	.end=fsend,
 };
 
 void
@@ -832,5 +840,5 @@ main(int argc, char *argv[])
 	}
 
 	postmountsrv(&fs, service, mtpt, MREPL);
-	exits(0);
+	exits(nil);
 }

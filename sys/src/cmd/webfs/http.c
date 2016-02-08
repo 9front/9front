@@ -240,7 +240,7 @@ hclose(Hconn *h)
 					/* free the tail */
 					hcloseall(x);
 				} while(i);
-				exits(0);
+				exits(nil);
 			}
 			return;
 		}
@@ -492,7 +492,7 @@ Again:
 static void
 catch(void *, char *msg)
 {
-	if(strstr("alarm", msg) || strstr("die", msg))
+	if(strstr("alarm", msg) != nil)
 		noted(NCONT);
 	else
 		noted(NDFLT);
@@ -710,7 +710,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				}else
 					h->keep = 0;
 				if(pid == 0)
-					exits(0);
+					exits(nil);
 			}
 			/* no timeout when posting */
 			alarm(0);
@@ -1000,5 +1000,5 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		shdr = k->next;
 		free(k);
 	}
-	exits(0);
+	exits(nil);
 }
