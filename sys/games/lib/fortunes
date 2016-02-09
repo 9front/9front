@@ -5197,3 +5197,17 @@ It would be a cute trick to set up some sort of temporary compiler environment w
 I did take a look at rewriting the CoC in Basic English and found it way too restrictive. -- Andrew Gerrand
 [#OpenBSD] Carefully explaining your problem is half the solution.
 If you get this, delete it. - Sorry! -- Tim Berners-Lee, www-talk, Mon, 28 Oct 91 14:34:12 GMT+0100
+Why are you wasting my life? -- Jeff Bezos
+All operating systems are bullshit. -- Ted Unangst
+If you want to get started with autotools, try to build yourself a minimal autotools project. Once you have a working stub, you already took the biggest hurdle. -- Hacker News comment
+Please, excuse me the outflow.
+uriel, what you say would make sense if the "jokes" didn't include putting mein kampf in /lib. -- erik quanstrom
+ISIS Influence on Web Prompts Second Thoughts on First Amendment
+Whenever possible, you should use the 'cat' command line tool for this. Here's an example in Go:
+GCC 6 Will Warn You About Misleading Code Indentations
+Subject: [FD] Apple WatchOS v2.1 - Denial of Service Vulnerability
+Any objections to me rewriting rc in go without all known bugs? -- brucee
+One way that I was able to get this working was forking 9front and adding a clunk callback to Srv structure.
+Your Go installation is broken. -- Brad Fitzpatrick
+./configure CFLAGS="-I$HOME/source/harvey/ape/amd64/include -I$HOME/source/harvey/ape/include -mno-red-zone -ffreestanding -fno-builtin -nostdlib -trigraphs -D_SUSV2_SOURCE -D_POSIX_SOURCE -D_LIMITS_EXTENSION -D_BSD_SOURCE -D_BSD_EXTENSION -DHAVE_SOCK_OPTS -DHARVEY -DPlan9" LDFLAGS="-static $HOME/source/harvey/ape/amd64/lib/crt1.o $HOME/source/harvey/ape/amd64/lib/crti.o $HOME/source/harvey/ape/amd64/lib/crtn.o -L$HOME/source/harvey/ape/amd64/lib -L$HOME/source/harvey/amd64/lib" LIBS="-lbsd -lap -lc" LIBM="" --prefix=$HOME/source/harvey/ape/ports *--host=x86_64-linux-gnu --build=x86_64-harvey *--enable-shared=no
+Apache is less magical than it was in the 90's. -- Brad Fitzpatrick

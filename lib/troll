@@ -229,3 +229,15 @@ Subject: [golang-dev] vendoring the stdlib
 [harvey-commits] [PATCH 2/2] Compile Harvey in C11 mode.
 [harvey] we need to bring sam back
 [harvey] booting a disk
+[Harvey] Harvey broken for me
+[harvey] Cannot boot with QEMU
+[harvey] we don't have a repeatable build process
+[harvey] Git clone not working
+[harvey] today's broken build
+[9fans] need a REAL WORKING iso
+[harvey] There is interest in harvey here at the riscv workshop
+[harvey] gerrit hell
+[harvey] Harvey fails to boot in qemu
+[golang-dev] godoc.org is down
+[harvey-commits] chdir regression test
+[harvey] FOSDEM
