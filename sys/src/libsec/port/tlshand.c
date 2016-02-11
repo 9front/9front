@@ -3008,9 +3008,9 @@ pkcs1_decrypt(TlsSec *sec, Bytes *cipher)
 		for(i = 2; i < eb->len; i++)
 			if(eb->data[i] == 0)
 				break;
-		if(i < eb->len - 1){
-			eb->len -= i+1;
-			memmove(eb->data, eb->data+i+1, eb->len);
+		if(++i < eb->len){
+			eb->len -= i;
+			memmove(eb->data, eb->data+i, eb->len);
 			return eb;
 		}
 	}
