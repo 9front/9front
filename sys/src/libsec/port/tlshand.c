@@ -398,9 +398,7 @@ static void	tlsSecOk(TlsSec *sec);
 static void	tlsSecKill(TlsSec *sec);
 static void	tlsSecClose(TlsSec *sec);
 static void	setMasterSecret(TlsSec *sec, Bytes *pm);
-static void	serverMasterSecret(TlsSec *sec, Bytes *epm);
 static void	setSecrets(TlsSec *sec, uchar *kd, int nkd);
-static Bytes*	clientMasterSecret(TlsSec *sec, RSApub *pub);
 static Bytes*	pkcs1_encrypt(Bytes* data, RSApub* key, int blocktype);
 static Bytes*	pkcs1_decrypt(TlsSec *sec, Bytes *cipher);
 static void	tls10SetFinished(TlsSec *sec, HandshakeHash hsh, uchar *finished, int isClient);
@@ -2452,9 +2450,9 @@ factotum_rsa_decrypt(AuthRpc *rpc, mpint *cipher)
 }
 
 static void
-factotum_rsa_close(AuthRpc*rpc)
+factotum_rsa_close(AuthRpc *rpc)
 {
-	if(!rpc)
+	if(rpc == nil)
 		return;
 	close(rpc->afd);
 	auth_freerpc(rpc);
@@ -2605,14 +2603,27 @@ tlsSecInits(int cvers, uchar *csid, int ncsid, uchar *crandom, uchar *ssid, int 
 static int
 tlsSecRSAs(TlsSec *sec, int vers, Bytes *epm)
 {
-	if(epm != nil){
-		if(setVers(sec, vers) < 0)
-			goto Err;
-		serverMasterSecret(sec, epm);
-	}else if(sec->vers != vers){
-		werrstr("mismatched session versions");
+	Bytes *pm;
+
+	if(setVers(sec, vers) < 0)
+		goto Err;
+	if(epm == nil){
+		werrstr("no encrypted premaster secret");
 		goto Err;
 	}
+	// if the client messed up, just continue as if everything is ok,
+	// to prevent attacks to check for correctly formatted messages.
+	// Hence the fprint(2,) can't be replaced by tlsError(), which sends an Alert msg to the client.
+	pm = pkcs1_decrypt(sec, epm);
+	if(sec->ok < 0 || pm == nil || pm->len != MasterSecretSize || get16(pm->data) != sec->clientVers){
+		fprint(2, "tlsSecRSAs failed ok=%d pm=%p pmvers=%x cvers=%x nepm=%d\n",
+			sec->ok, pm, pm != nil ? get16(pm->data) : -1, sec->clientVers, epm->len);
+		sec->ok = -1;
+		freebytes(pm);
+		pm = newbytes(MasterSecretSize);
+		genrandom(pm->data, MasterSecretSize);
+	}
+	setMasterSecret(sec, pm);
 	return 0;
 Err:
 	sec->ok = -1;
@@ -2657,7 +2668,7 @@ static Bytes*
 tlsSecRSAc(TlsSec *sec, uchar *sid, int nsid, uchar *srandom, uchar *cert, int ncert, int vers)
 {
 	RSApub *pub;
-	Bytes *epm;
+	Bytes *pm, *epm;
 
 	USED(sid);
 	USED(nsid);
@@ -2670,7 +2681,11 @@ tlsSecRSAc(TlsSec *sec, uchar *sid, int nsid, uchar *srandom, uchar *cert, int n
 		werrstr("invalid x509/rsa certificate");
 		goto Err;
 	}
-	epm = clientMasterSecret(sec, pub);
+	pm = newbytes(MasterSecretSize);
+	put16(pm->data, sec->clientVers);
+	genrandom(pm->data+2, MasterSecretSize - 2);
+	epm = pkcs1_encrypt(pm, pub, 2);
+	setMasterSecret(sec, pm);
 	rsapubfree(pub);
 	if(epm != nil)
 		return epm;
@@ -2713,7 +2728,7 @@ tlsSecKill(TlsSec *sec)
 static void
 tlsSecClose(TlsSec *sec)
 {
-	if(!sec)
+	if(sec == nil)
 		return;
 	factotum_rsa_close(sec->rpc);
 	free(sec->server);
@@ -2782,41 +2797,6 @@ setMasterSecret(TlsSec *sec, Bytes *pm)
 
 	memset(pm->data, 0, pm->len);	
 	freebytes(pm);
-}
-
-static void
-serverMasterSecret(TlsSec *sec, Bytes *epm)
-{
-	Bytes *pm;
-
-	pm = pkcs1_decrypt(sec, epm);
-
-	// if the client messed up, just continue as if everything is ok,
-	// to prevent attacks to check for correctly formatted messages.
-	// Hence the fprint(2,) can't be replaced by tlsError(), which sends an Alert msg to the client.
-	if(sec->ok < 0 || pm == nil || get16(pm->data) != sec->clientVers){
-		fprint(2, "serverMasterSecret failed ok=%d pm=%p pmvers=%x cvers=%x nepm=%d\n",
-			sec->ok, pm, pm != nil ? get16(pm->data) : -1, sec->clientVers, epm->len);
-		sec->ok = -1;
-		freebytes(pm);
-		pm = newbytes(MasterSecretSize);
-		genrandom(pm->data, MasterSecretSize);
-	}
-	assert(pm->len == MasterSecretSize);
-	setMasterSecret(sec, pm);
-}
-
-static Bytes*
-clientMasterSecret(TlsSec *sec, RSApub *pub)
-{
-	Bytes *pm, *epm;
-
-	pm = newbytes(MasterSecretSize);
-	put16(pm->data, sec->clientVers);
-	genrandom(pm->data+2, MasterSecretSize - 2);
-	epm = pkcs1_encrypt(pm, pub, 2);
-	setMasterSecret(sec, pm);
-	return epm;
 }
 
 static void
@@ -3010,7 +2990,7 @@ pkcs1_encrypt(Bytes* data, RSApub* key, int blocktype)
 static Bytes*
 pkcs1_decrypt(TlsSec *sec, Bytes *cipher)
 {
-	Bytes *eb, *ans = nil;
+	Bytes *eb;
 	int i, modlen;
 	mpint *x, *y;
 
@@ -3021,24 +3001,21 @@ pkcs1_decrypt(TlsSec *sec, Bytes *cipher)
 	y = factotum_rsa_decrypt(sec->rpc, x);
 	if(y == nil)
 		return nil;
-	eb = mptobytes(y);
+	eb = newbytes(modlen);
+	mptober(y, eb->data, eb->len);
 	mpfree(y);
-	if(eb->len < modlen){ // pad on left with zeros
-		ans = newbytes(modlen);
-		memset(ans->data, 0, modlen-eb->len);
-		memmove(ans->data+modlen-eb->len, eb->data, eb->len);
-		freebytes(eb);
-		eb = ans;
-	}
 	if(eb->data[0] == 0 && eb->data[1] == 2) {
-		for(i = 2; i < modlen; i++)
+		for(i = 2; i < eb->len; i++)
 			if(eb->data[i] == 0)
 				break;
-		if(i < modlen - 1)
-			ans = makebytes(eb->data+i+1, modlen-(i+1));
+		if(i < eb->len - 1){
+			eb->len -= i+1;
+			memmove(eb->data, eb->data+i+1, eb->len);
+			return eb;
+		}
 	}
 	freebytes(eb);
-	return ans;
+	return nil;
 }
 
 
