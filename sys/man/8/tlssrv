@@ -8,7 +8,7 @@ tlssrv, tlsclient, tlssrvtunnel, tlsclienttunnel \- TLS server and client
 .B -D
 ]
 [
-.B -a
+.BR - [ aA ]
 [
 .B -k
 .I keyspec
@@ -89,12 +89,16 @@ is by convention the same as for the target server.
 is mainly used for logging.
 If the
 .B -a
+or
+.B -A
 flag is specified,
 .B p9any
 authentication is run before the TLS handshake and the resulting
 plan9 session secret is used as a pre-shared key for TLS encryption.
 This enables the use of TLS without certificates and also runs
-the server command as the authorized user.
+the server command as the authorized user when the
+.B -a
+flag was specified.
 .PP
 .I Tlsclient
 is the reverse of

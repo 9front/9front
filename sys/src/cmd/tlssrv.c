@@ -32,7 +32,7 @@ reporter(char *fmt, ...)
 void
 usage(void)
 {
-	fprint(2, "usage: tlssrv [-a [-k keyspec]] [-c cert] [-D] [-l logfile] [-r remotesys] cmd [args...]\n");
+	fprint(2, "usage: tlssrv [-D] -[aA] [-k keyspec]] [-c cert] [-l logfile] [-r remotesys] cmd [args...]\n");
 	fprint(2, "  after  auth/secretpem key.pem > /mnt/factotum/ctl\n");
 	exits("usage");
 }
@@ -50,7 +50,10 @@ main(int argc, char *argv[])
 		debug++;
 		break;
 	case 'a':
-		auth++;
+		auth = 1;
+		break;
+	case 'A':
+		auth = -1;	/* authenticate, but dont change user */
 		break;
 	case 'k':
 		keyspec = EARGF(usage());
@@ -82,6 +85,7 @@ main(int argc, char *argv[])
 		if(ai == nil)
 			sysfatal("auth_proxy: %r");
 
+		if(auth == 1)
 		if(auth_chuid(ai, nil) < 0)
 			sysfatal("auth_chuid: %r");
 
