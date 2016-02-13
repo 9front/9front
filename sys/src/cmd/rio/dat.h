@@ -60,7 +60,6 @@ enum	/* control messages */
 {
 	Wakeup,
 	Reshaped,
-	Moved,
 	Topped,
 	Repaint,
 	Refresh,
@@ -210,9 +209,9 @@ void		wmovemouse(Window*, Point);
 void		wpaste(Window*);
 void		wplumb(Window*);
 void		wlook(Window*);
-void		wrefresh(Window*, Rectangle);
+void		wrefresh(Window*);
 void		wrepaint(Window*);
-void		wresize(Window*, Image*, int);
+void		wresize(Window*, Image*);
 void		wscrdraw(Window*);
 void		wscroll(Window*, int);
 void		wselect(Window*);

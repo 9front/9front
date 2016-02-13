@@ -28,8 +28,7 @@ void		unhide(int);
 void		newtile(int);
 Image	*sweep(void);
 Image	*bandsize(Window*);
-Image*	drag(Window*, Rectangle*);
-void		refresh(Rectangle);
+Image*	drag(Window*);
 void		resized(void);
 Channel	*exitchan;	/* chan(int) */
 Channel	*winclosechan; /* chan(Window*); */
@@ -457,7 +456,6 @@ mousethread(void*)
 	int sending, inside, scrolling, moving, band;
 	Window *w, *winput;
 	Image *i;
-	Rectangle r;
 	Point xy;
 	Mouse tmp;
 	enum {
@@ -546,13 +544,10 @@ mousethread(void*)
 				if(band)
 					i = bandsize(winput);
 				else
-					i = drag(winput, &r);
+					i = drag(winput);
 				sweeping = 0;
 				if(i != nil){
-					if(band)
-						wsendctlmesg(winput, Reshaped, i->r, i);
-					else
-						wsendctlmesg(winput, Moved, r, i);
+					wsendctlmesg(winput, Reshaped, i->r, i);
 					cornercursor(winput, mouse->xy, 1);
 				}
 				if(wclose(winput) == 0)
@@ -931,7 +926,7 @@ drawborder(Rectangle r, int show)
 }
 
 Image*
-drag(Window *w, Rectangle *rp)
+drag(Window *w)
 {
 	Point p, op, d, dm, om;
 	Rectangle r;
@@ -964,7 +959,6 @@ drag(Window *w, Rectangle *rp)
 			readmouse(mousectl);
 		return nil;
 	}
-	*rp = r;
 	return allocwindow(wscreen, r, Refbackup, DNofill);
 }
 
@@ -1135,15 +1129,14 @@ move(void)
 {
 	Window *w;
 	Image *i;
-	Rectangle r;
 
 	w = pointto(FALSE);
 	if(w == nil)
 		return;
 	incref(w);
-	i = drag(w, &r);
+	i = drag(w);
 	if(i)
-		wsendctlmesg(w, Moved, r, i);
+		wsendctlmesg(w, Reshaped, i->r, i);
 	cornercursor(w, mouse->xy, 1);
 	wclose(w);
 }

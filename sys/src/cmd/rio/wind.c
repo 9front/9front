@@ -87,13 +87,10 @@ wsetname(Window *w)
 }
 
 void
-wresize(Window *w, Image *i, int move)
+wresize(Window *w, Image *i)
 {
-	Rectangle r, or;
+	Rectangle r;
 
-	or = w->i->r;
-	if(move || (Dx(or)==Dx(i->r) && Dy(or)==Dy(i->r)))
-		draw(i, i->r, w->i, nil, w->i->r.min);
 	freeimage(w->i);
 	w->i = i;
 	w->mc.image = i;
@@ -102,19 +99,15 @@ wresize(Window *w, Image *i, int move)
 	w->scrollr.max.x = r.min.x+Scrollwid;
 	w->lastsr = ZR;
 	r.min.x += Scrollwid+Scrollgap;
-	if(move)
-		frsetrects(w, r, w->i);
-	else{
-		frclear(w, FALSE);
-		frinit(w, r, w->font, w->i, cols);
-		wsetcols(w, 1);
-		w->maxtab = maxtab*stringwidth(w->font, "0");
-		r = insetrect(w->i->r, Selborder);
-		draw(w->i, r, cols[BACK], nil, w->entire.min);
-		wfill(w);
-		wsetselect(w, w->q0, w->q1);
-		wscrdraw(w);
-	}
+	frclear(w, FALSE);
+	frinit(w, r, w->font, w->i, cols);
+	wsetcols(w, 1);
+	w->maxtab = maxtab*stringwidth(w->font, "0");
+	r = insetrect(w->i->r, Selborder);
+	draw(w->i, r, cols[BACK], nil, w->entire.min);
+	wfill(w);
+	wsetselect(w, w->q0, w->q1);
+	wscrdraw(w);
 	wborder(w, Selborder);
 	wsetname(w);
 	w->topped = ++topped;
@@ -124,9 +117,10 @@ wresize(Window *w, Image *i, int move)
 }
 
 void
-wrefresh(Window *w, Rectangle r)
+wrefresh(Window *w)
 {
-	/* BUG: rectangle is ignored */
+	Rectangle r;
+
 	if(w == input)
 		wborder(w, Selborder);
 	else
@@ -1127,7 +1121,6 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		if(p!=nil)
 			sendp((Channel*)p, w);
 		break;
-	case Moved:
 	case Reshaped:
 		if(w->deleted){
 			freeimage(i);
@@ -1135,7 +1128,7 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		}
 		w->screenr = r;
 		strcpy(buf, w->name);
-		wresize(w, i, m==Moved);
+		wresize(w, i);
 		proccreate(deletetimeoutproc, estrdup(buf), 4096);
 		flushimage(display, 1);
 		if(Dx(r)<=0){	/* window got hidden, if we had the input, drop it */
@@ -1189,9 +1182,9 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		flushimage(display, 1);
 		break;
 	case Refresh:
-		if(w->i==nil || Dx(w->screenr)<=0 || !rectclip(&r, w->i->r) || w->mouseopen)
+		if(w->i==nil || Dx(w->screenr)<=0 || w->mouseopen)
 			break;
-		wrefresh(w, r);
+		wrefresh(w);
 		flushimage(display, 1);
 		break;
 	case Movemouse:
