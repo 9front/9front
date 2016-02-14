@@ -19,9 +19,6 @@ auth/cron -c
 cat > lib/profile <<!
 bind -qa $x^home/bin/rc /bin
 bind -qa $x^home/bin/$x^cputype /bin
-mount -qC /srv/boot /n/other other
-bind -qc /n/other/usr/$x^user/tmp $x^home/tmp
-bind -c $x^home/tmp /tmp
 font=/lib/font/bit/vga/unicode.font
 switch($x^service){
 case terminal
