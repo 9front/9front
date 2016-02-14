@@ -59,7 +59,16 @@ logfile
 .B -n
 .I servername
 ]
+[
+.B -o
+]
 .I address
+[
+.I cmd
+[
+.I args ...
+]
+]
 .PP
 .B tlssrvtunnel
 .I plain-addr
@@ -103,12 +112,14 @@ flag was specified.
 .I Tlsclient
 is the reverse of
 .IR tlssrv :
-it dials
+it connects to
 .IR address ,
 starts TLS,
 and then relays 
 between the network connection
-and standard input and output.
+and standard input and output or executes
+.I cmd args
+with standard input and output redirected to the connection.
 The
 .B -D
 flag enables some debug output.
@@ -137,6 +148,12 @@ option passes the string
 .I servername
 in the TLS hello message (Server Name Idenfitication)
 which is usefull when talking to webservers.
+When the
+.B -o
+option was specified,
+.I address
+is interpreted as a filename to be opend read-write instead of
+a dial string.
 .PP
 .I Tlssrvtunnel
 and

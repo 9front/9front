@@ -4,14 +4,14 @@
 #include <libsec.h>
 #include <auth.h>
 
-int debug, auth;
+int debug, auth, dialfile;
 char *keyspec = "";
 char *servername, *file, *filex, *ccert;
 
 void
 usage(void)
 {
-	fprint(2, "usage: tlsclient [-D] [-a [-k keyspec] ] [-c lib/tls/clientcert] [-t /sys/lib/tls/xxx] [-x /sys/lib/tls/xxx.exclude] [-n servername] dialstring [cmd [args...]]\n");
+	fprint(2, "usage: tlsclient [-D] [-a [-k keyspec] ] [-c lib/tls/clientcert] [-t /sys/lib/tls/xxx] [-x /sys/lib/tls/xxx.exclude] [-n servername] [-o] dialstring [cmd [args...]]\n");
 	exits("usage");
 }
 
@@ -47,6 +47,7 @@ main(int argc, char **argv)
 	char *addr;
 	TLSconn *conn;
 	Thumbprint *thumb;
+	AuthInfo *ai = nil;
 
 	fmtinstall('H', encodefmt);
 
@@ -72,6 +73,9 @@ main(int argc, char **argv)
 	case 'n':
 		servername = EARGF(usage());
 		break;
+	case 'o':
+		dialfile = 1;
+		break;
 	default:
 		usage();
 	}ARGEND
@@ -90,7 +94,7 @@ main(int argc, char **argv)
 		thumb = nil;
 
 	addr = *argv++;
-	if((fd = dial(addr, 0, 0, 0)) < 0)
+	if((fd = dialfile? open(addr, ORDWR): dial(addr, 0, 0, 0)) < 0)
 		sysfatal("dial %s: %r", addr);
 
 	conn = (TLSconn*)mallocz(sizeof *conn, 1);
@@ -102,8 +106,6 @@ main(int argc, char **argv)
 	}
 
 	if(auth){
-		AuthInfo *ai;
-
 		ai = auth_proxy(fd, auth_getkey, "proto=p9any role=client %s", keyspec);
 		if(ai == nil)
 			sysfatal("auth_proxy: %r");
@@ -128,7 +130,14 @@ main(int argc, char **argv)
 		sha1(conn->cert, conn->certlen, digest, nil);
 		if(!okThumbprint(digest, thumb))
 			sysfatal("server certificate %.*H not recognized", SHA1dlen, digest);
+		freeThumbprints(thumb);
 	}
+
+	free(conn->cert);
+	free(conn->sessionID);
+	free(conn);
+	if(ai != nil)
+		auth_freeAI(ai);
 
 	if(*argv){
 		dup(fd, 0);
