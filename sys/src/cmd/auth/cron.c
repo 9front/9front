@@ -500,23 +500,6 @@ gettok(int min, int max)
 	}
 }
 
-int
-call(char *host)
-{
-	char *na, *p;
-
-	na = netmkaddr(host, 0, "rexexec");
-	p = utfrune(na, L'!');
-	if(!p)
-		return -1;
-	p = utfrune(p+1, L'!');
-	if(!p)
-		return -1;
-	if(strcmp(p, "!rexexec") != 0)
-		return -2;
-	return dial(na, 0, 0, 0);
-}
-
 /*
  * convert command to run properly on the remote machine
  * need to escape the quotes so they don't get stripped
@@ -553,8 +536,6 @@ void
 rexec(User *user, Job *j)
 {
 	char buf[8*1024];
-	int n, fd;
-	AuthInfo *ai;
 
 	switch(rfork(RFPROC|RFNOWAIT|RFNAMEG|RFENVG|RFFDG)){
 	case 0:
@@ -570,54 +551,29 @@ rexec(User *user, Job *j)
 		_exits(0);
 	}
 
-	/*
-	 * local call, auth, cmd with no i/o
-	 */
-	if(strcmp(j->host, "local") == 0){
-		if(becomeuser(user->name) < 0){
-			clog("%s: can't change uid for %s on %s: %r",
-				user->name, j->cmd, j->host);
-			_exits(0);
-		}
-		putenv("service", "rx");
-		clog("%s: ran '%s' on %s", user->name, j->cmd, j->host);
-		execl("/bin/rc", "rc", "-lc", buf, nil);
-		clog("%s: exec failed for %s on %s: %r",
-			user->name, j->cmd, j->host);
-		_exits(0);
-	}
-
-	/*
-	 * remote call, auth, cmd with no i/o
-	 * give it 2 min to complete
-	 */
-	alarm(2*Minute*1000);
-	fd = call(j->host);
-	if(fd < 0){
-		if(fd == -2)
-			clog("%s: dangerous host %s", user->name, j->host);
-		clog("%s: can't call %s: %r", user->name, j->host);
-		_exits(0);
-	}
-	clog("%s: called %s on %s", user->name, j->cmd, j->host);
 	if(becomeuser(user->name) < 0){
 		clog("%s: can't change uid for %s on %s: %r",
 			user->name, j->cmd, j->host);
 		_exits(0);
 	}
-	ai = auth_proxy(fd, nil, "proto=p9any role=client");
-	if(ai == nil){
-		clog("%s: can't authenticate for %s on %s: %r",
-			user->name, j->cmd, j->host);
-		_exits(0);
+
+	clog("%s: ran '%s' on %s", user->name, j->cmd, j->host);
+
+	close(0);
+	close(1);
+	close(2);
+	open("/dev/null", OREAD);
+	open("/dev/null", OWRITE);
+	open("/dev/null", OWRITE);
+
+	if(strcmp(j->host, "local") == 0){
+		putenv("service", "rx");
+		execl("/bin/rc", "rc", "-lc", buf, nil);
+	} else {
+		execl("/bin/rx", "rx", j->host, buf, nil);
 	}
-	clog("%s: authenticated %s on %s", user->name, j->cmd, j->host);
-	write(fd, buf, strlen(buf)+1);
-	write(fd, buf, 0);
-	while((n = read(fd, buf, sizeof(buf)-1)) > 0){
-		buf[n] = 0;
-		clog("%s: %s\n", j->cmd, buf);
-	}
+
+	clog("%s: exec failed for %s on %s: %r", user->name, j->cmd, j->host);
 	_exits(0);
 }
 
