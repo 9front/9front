@@ -1,0 +1,83 @@
+#!/bin/rc
+rfork e
+
+argv0=$0
+fn usage {
+	echo 'usage:' $argv0 '[-p] [-h host] [-u user] [-k keypattern] [-P patternfile] [-c cmd arg ...]' >[1=2]
+	exit 'usage'
+}
+
+fn server {
+	mount -nc /fd/0 /mnt/term || exit
+	bind -q /mnt/term/dev/cons /dev/cons
+	</mnt/term/fd/10 >/mnt/term/fd/11 >[2]/mnt/term/fd/12 {
+		~ $#dir 0 || cd $"dir || echo 'can''t change directory: '^$"dir >[1=2]
+		switch($#cmd){
+		case 0;	cmd=(rc -li)
+		case 1; cmd=(rc -lc $cmd)
+		case *; cmd=(rc -lc '$*' $cmd)
+		}
+	 	rm -f /env/^(cmd dir 'fn#server')
+	 	service=cpu exec $cmd
+	} &
+	if(test -d /mnt/term/mnt/cpunote) {
+		rfork e
+		mainproc=$apid
+		exec cat </mnt/term/mnt/cpunote/data >/proc/$mainproc/notepg &
+		noteproc=$apid
+		wait $mainproc
+		echo -n $status >/mnt/term/env/rstatus >[2]/dev/null
+		echo -n kill >/proc/$noteproc/note
+	}
+}
+
+fn client {
+	echo -n >/env/rstatus
+	rfork n
+	bind '#|' /mnt/cpunote || exit
+	</fd/0 exec $exportfs -r / &
+	</dev/null >/mnt/cpunote/data1 {
+		fn sigkill { echo -n kill >/mnt/cpunote/data1 }
+		fn sighup { echo -n hangup >/mnt/cpunote/data1 }
+		fn sigint { status=interrupted }
+		wait
+		while(~ $status interrupted) {
+			echo -n interrupt
+			wait
+		}
+		status=`{cat /env/rstatus}
+		exit $"status
+	}
+}
+
+cmd=()
+host='$cpu'
+exportfs=/bin/exportfs
+connect=/bin/rconnect
+
+while(~ $1 -*){
+	switch($1){
+	case -p; connect=($connect $1)
+	case *
+		~ $#* 1 && usage
+		switch($1){
+		case -P; exportfs=($exportfs $1 $2)
+		case -[uk]; connect=($connect $1 $2)
+		case -h; host=$2
+		case -c; cmd=$*(2-); *=()
+		case *; usage
+		}
+		shift
+	}
+	shift
+}
+~ $#* 0 || usage
+
+fn pvar {
+	while(! ~ $#* 0){
+		~ $#$1 0 || path=/dev/null builtin whatis $1
+		shift
+	}
+}
+
+exec $connect $host <{dir=`{pwd} pvar dir cmd; builtin whatis server; echo server} client <[10=0] >[11=1] >[12=2]

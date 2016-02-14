@@ -1,0 +1,8 @@
+#!/bin/rc
+netdir=$3
+remote=$2!`{cat $3/remote}
+fn server {
+	echo -n $netdir $remote >/proc/$pid/args
+	. <{n=`{read} && ! ~ $#n 0 && read -c $n} >[2=1]
+}
+exec tlssrv -a /bin/rc -c server

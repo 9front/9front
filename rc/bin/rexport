@@ -1,0 +1,57 @@
+#!/bin/rc
+rfork e
+
+argv0=$0
+fn usage {
+	echo 'usage:' $argv0 '[options] [-s remotesrv] [-m remotemtpt] tree host [remotecmd [args ...]]' >[1=2]
+	exit 'usage'
+}
+
+fn domount {
+	if(~ $#sname 1){
+		rm -f /srv/$sname
+		echo -n 0 >/srv/$sname
+	}
+	~ $#mtpt 0 || mount -n $mopt /fd/0 $mtpt || exit
+	~ $#cmd 0 || service=import exec $cmd </dev/null >/dev/null >[2=1]
+}
+
+sname=()
+mopt=()
+mtpt=()
+exportfs=/bin/exportfs
+connect=/bin/rconnect
+
+while(~ $1 -*){
+	switch($1){
+	case -p; connect=($connect $1)
+	case -[abcCnq]*; mopt=($mopt $1)
+	case *
+		~ $#* 1 && usage
+		switch($1){
+		case -P; exportfs=($exportfs $1 $2)
+		case -[uk]; connect=($connect $1 $2)
+		case -s; sname=`{basename $2}
+		case -m; mtpt=$2
+		case *; usage
+		}
+		shift
+	}
+	shift
+}
+~ $#* 0 1 && usage
+
+exportfs=($exportfs -r $1)
+shift
+host=$1
+shift
+cmd=$*
+
+fn pvar {
+	while(! ~ $#* 0){
+		~ $#$1 0 || path=/dev/null builtin whatis $1
+		shift
+	}
+}
+
+exec $connect $host <{pvar sname mtpt mopt cmd; builtin whatis domount; echo domount} exec $exportfs
