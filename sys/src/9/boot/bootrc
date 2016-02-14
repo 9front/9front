@@ -1,6 +1,10 @@
 #!/bin/rc
 
-mntgen -s slash /mnt
+# mount points
+mntgen -s slashn /n && chmod 666 /srv/slashn
+mntgen -s slashmnt /mnt && chmod 666 /srv/slashmnt
+mntgen -s mntexport /mnt/exportfs && chmod 666 /srv/mntexport
+
 bind /root /mnt/broot
 unmount /root
 
@@ -229,5 +233,5 @@ while(){
 
 	# cleanup so it can be restarted
 	nobootprompt=()
-	rm -f /srv/^(cfs boot slashn cs dns)
+	rm -f /srv/^(cfs boot cs dns)
 } </dev/cons

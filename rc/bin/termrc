@@ -9,10 +9,11 @@ rm -f /env/i
 
 mount -qb /srv/cons /dev
 
-# mount points 
-mntgen -s slashn && chmod 666 /srv/slashn
+# mount points (if not done by bootrc already)
+>[2]/dev/null {
+mntgen -s slashn /n && chmod 666 /srv/slashn
 mntgen -s slashmnt /mnt && chmod 666 /srv/slashmnt
-mntgen -s mntexport /mnt/exportfs && chmod 666 /srv/mntexport
+mntgen -s mntexport /mnt/exportfs && chmod 666 /srv/mntexport}
 
 # move factotum from /mnt to /mnt/factotum
 mount /srv/factotum /mnt/temp

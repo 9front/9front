@@ -101,6 +101,7 @@ rootreset(void)
 	addrootdir("env");
 	addrootdir("fd");
 	addrootdir("mnt");
+	addrootdir("n");
 	addrootdir("net");
 	addrootdir("net.alt");
 	addrootdir("proc");

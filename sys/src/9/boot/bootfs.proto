@@ -10,6 +10,7 @@ $objtype
 		bind
 		cat
 		cfs
+		chmod
 		cryptsetup
 		dd
 		disk

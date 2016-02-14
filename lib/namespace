@@ -31,8 +31,8 @@ mount -a /srv/cs /net
 mount -a /srv/dns /net
 mount -a /srv/net /net
 
-mount -qC /srv/boot /n/other other
-bind -qc /n/other/usr/$user/tmp /usr/$user/tmp
+mount -C /srv/boot /n/other other
+bind -c /n/other/usr/$user/tmp /usr/$user/tmp
 
 bind -c /usr/$user/tmp /tmp
 cd /usr/$user
