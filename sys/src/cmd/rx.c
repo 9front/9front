@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <auth.h>
+#include <libsec.h>
 
 int	eof;		/* send an eof if true */
 int	crtonl;		/* convert all received \r to \n */
@@ -9,7 +10,8 @@ char	*note = "die: yankee dog";
 char	*ruser;		/* for BSD authentication */
 char *key;
 
-void	rex(int, char*, char*);
+void	rex(int, char*);
+void	rcpu(int, char*);
 void	tcpexec(int, char*, char*);
 int	call(char *, char*, char*, char**);
 char	*buildargs(char*[]);
@@ -29,6 +31,8 @@ main(int argc, char *argv[])
 {
 	char *host, *addr, *args;
 	int fd;
+
+	quotefmtinstall();
 
 	key = "";
 	eof = 1;
@@ -59,9 +63,12 @@ main(int argc, char *argv[])
 	host = argv[0];
 	args = buildargs(&argv[1]);
 
+	fd = call(0, host, "rcpu", &addr);
+	if(fd >= 0)
+		rcpu(fd, args);
 	fd = call(0, host, "rexexec", &addr);
 	if(fd >= 0)
-		rex(fd, args, "p9any");
+		rex(fd, args);
 	close(fd);
 
 	/* if there's an ssh port, try that */
@@ -89,18 +96,53 @@ call(char *net, char *host, char *service, char **na)
 }
 
 void
-rex(int fd, char *cmd, char *proto)
+rcpu(int fd, char *cmd)
+{
+	char buf[4096];
+	int kid, n;
+	TLSconn *conn;
+	AuthInfo *ai;
+
+	ai = auth_proxy(fd, auth_getkey, "proto=p9any role=client %s", key);
+	if(ai == nil)
+		error("auth_proxy", nil);
+
+	conn = (TLSconn*)mallocz(sizeof *conn, 1);
+	conn->pskID = "p9secret";
+	conn->psk = ai->secret;
+	conn->psklen = ai->nsecret;
+	fd = tlsClient(fd, conn);
+	if(fd < 0)
+		error("tlsClient", nil);
+
+	auth_freeAI(ai);
+
+	cmd = smprint("service=rx exec rc -lc %q\n", cmd);
+	if(fprint(fd, "%7ld\n%s", strlen(cmd), cmd) < 0)
+		error("write", nil);
+	free(cmd);
+	
+	kid = send(fd);
+	while((n=read(fd, buf, sizeof buf))>0)
+		if(write(1, buf, n)!=n)
+			error("write error", 0);
+	sleep(250);
+	postnote(PNPROC, kid, note);/**/
+	exits(0);
+}
+
+void
+rex(int fd, char *cmd)
 {
 	char buf[4096];
 	int kid, n;
 	AuthInfo *ai;
 
-	ai = auth_proxy(fd, auth_getkey, "proto=%s role=client %s", proto, key);
-	if(ai == nil){
-		if(strcmp(proto, "p9any") == 0)
-			return;
+	ai = auth_proxy(fd, auth_getkey, "proto=p9any role=client %s", key);
+	if(ai == nil)
 		error("auth_proxy", nil);
-	}
+	auth_freeAI(ai);
+
 	write(fd, cmd, strlen(cmd)+1);
 
 	kid = send(fd);
@@ -222,7 +264,7 @@ send(int fd)
 void
 error(char *s, char *z)
 {
-	if(z == 0)
+	if(z == nil)
 		fprint(2, "%s: %s: %r\n", argv0, s);
 	else
 		fprint(2, "%s: %s %s: %r\n", argv0, s, z);
