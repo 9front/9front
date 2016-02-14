@@ -249,8 +249,15 @@ main(int argc, char **argv)
 	}
 	else if(srv != nil) {
 		if(chdir(srv) < 0) {
+			ebuf[0] = '\0';
 			errstr(ebuf, sizeof ebuf);
-			fprint(0, "chdir(\"%s\"): %s\n", srv, ebuf);
+			r = getsbuf();
+			r->work.tag = NOTAG;
+			r->work.fid = NOFID;
+			r->work.type = Rerror;
+			r->work.ename = ebuf;
+			n = convS2M(&r->work, r->buf, messagesize);
+			write(0, r->buf, n);
 			DEBUG(DFD, "chdir(\"%s\"): %s\n", srv, ebuf);
 			exits(ebuf);
 		}
