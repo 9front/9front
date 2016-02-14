@@ -639,6 +639,8 @@ openmount(int sfd)
 	arg[3] = nil;
 
 	exec(arg[0], arg);
+	arg[0] = "/bin/exportfs";
+	exec(arg[0], arg);
 	_exits("whoops: exec failed");	
 	return -1;
 }
