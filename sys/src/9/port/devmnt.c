@@ -164,7 +164,6 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	unlock(c);
 
 	l = devtab[c->type]->write(c, msg, k, oo);
-
 	if(l < k){
 		lock(c);
 		c->offset -= k - l;
@@ -173,13 +172,14 @@ mntversion(Chan *c, char *version, int msize, int returnlen)
 	}
 
 	/* message sent; receive and decode reply */
-	k = devtab[c->type]->read(c, msg, 8192+IOHDRSZ, c->offset);
-	if(k <= 0)
-		error("EOF receiving fversion reply");
-
-	lock(c);
-	c->offset += k;
-	unlock(c);
+	for(k = 0; k < BIT32SZ || (k < GBIT32(msg) && k < 8192+IOHDRSZ); k += l){
+		l = devtab[c->type]->read(c, msg+k, 8192+IOHDRSZ-k, c->offset);
+		if(l <= 0)
+			error("EOF receiving fversion reply");
+		lock(c);
+		c->offset += l;
+		unlock(c);
+	}
 
 	l = convM2S(msg, k, &f);
 	if(l != k)
