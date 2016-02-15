@@ -3,7 +3,7 @@ rfork e
 
 argv0=$0
 fn usage {
-	echo 'usage:' $argv0 '[-p] [-u user] [-k keyspec] host remotescript localcommand ...' >[1=2]
+	echo 'usage:' $argv0 '[-u user] [-k keypattern] [-p] host remotescript localcommand arg ...' >[1=2]
 	exit 'usage'
 }
 

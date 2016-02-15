@@ -3,7 +3,7 @@ rfork e
 
 argv0=$0
 fn usage {
-	echo 'usage:' $argv0 '[-p] [-h host] [-u user] [-k keypattern] [-P patternfile] [-c cmd arg ...]' >[1=2]
+	echo 'usage:' $argv0 '[-u user] [-k keypattern] [-P patternfile] [-p] [-h host] [-c cmd arg ...]' >[1=2]
 	exit 'usage'
 }
 

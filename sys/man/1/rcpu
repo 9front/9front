@@ -1,0 +1,206 @@
+.TH RCPU 1
+.SH NAME
+rcpu, rimport, rexport, rconnect \- connection to CPU server
+.SH SYNOPSIS
+.B rcpu
+[
+.B -u
+.I user
+] [
+.B -k
+.I keypattern
+] [
+.B -P
+.I patternfile
+] [
+.B -p
+] [
+.B -h
+.I host
+] [
+.B -c
+.I cmd arg ...
+]
+.PP
+.B rimport
+[
+.B -abcCnq
+] [
+.B -s
+.I name
+] [
+.B -u
+.I user
+] [
+.B -k
+.I keypattern
+] [
+.B -p
+]
+.I host
+.I tree
+[
+.I mountpoint
+]
+.PP
+.B rexport
+[
+.B -abcCnq
+] [
+.B -s
+.I remotename
+] [
+.B -m
+.I remotemtpt
+] [
+.B -u
+.I user
+] [
+.B -k
+.I keypattern
+] [
+.B -P
+.I patternfile
+] [
+.B -p
+]
+.I tree
+.I host
+[
+.I remotecmd arg ...
+]
+.PP
+.B rconnect
+[
+.B -u
+.I user
+] [
+.B -k
+.I keypattern
+] [
+.B -p
+]
+.I host
+.I remotescript
+.I localcommand arg ...
+.SH DESCRIPTION
+.I Rcpu
+runs commands from
+.IR rc (1)
+on a cpu server with the local namespace exported to
+the remote side under
+.BR /mnt/term .
+The current directory, interrupt notes, standard file descriptors 0,1,2
+and
+.B /dev/cons
+are passed to the remote side. The command to run can be passed
+with
+.B -c
+.IR "cmd arg ..." ,
+otherwise a interactive shell is started. The user's profile
+is run before the command with
+.B $service
+set to
+.B cpu
+to allow further customization of the environment (see
+.IR rc (1)
+for more information).
+.PP
+.I Rimport
+mounts a remote directory
+.I tree
+from a cpu server
+.I host
+into the local namespace at
+.IR mountpoint .
+When
+.I mountpoint
+is omitted, it is set the same as
+.IR tree .
+When the
+.B -s
+.I name
+option is present, the service is also posted to
+.BI /srv/ name
+allowing it to be mounted in other namespaces.
+.PP
+.I Rexport
+is the reverse of
+.IR rimport ,
+exporting a local directory
+.I tree
+to the server
+.I host
+and optionally executing
+.I remotecmd arg
+on the server side after posting the service to
+.BI /srv/ remotename
+or mounting it at
+.IR remotemtpt .
+.PP
+.I Rconnect
+is a helper program handling client side connection setup for
+the commands listed above. The rcpu protocol starts by setting up a mutual
+authenticated and encrypted TLS connection using
+.IR tlssrv (8)
+followed by the client sending a 
+.IR rc (1)
+.I remotescript
+file to the server which gets executed under the authenticated user
+with file descriptors 0,1,2 cross connected to file descriptors 0,1
+of the client side running
+.I localcommand
+over the encrypted connection.
+.PP
+The common options are:
+.PD
+.TP
+.B -a -b -c -C -n -q
+Specifies the
+.I mount
+options (see
+.IR bind (1))
+for
+.I rimport
+and
+.IR rexport .
+.TP
+.B -P \fIpatternfile
+Restricts the set of exported files (see
+.I exportfs (4))
+for
+.I rcpu
+and
+.IR rexport .
+.TP
+.B -u \fIuser
+Remote user id to authenticate as.
+.TP
+.B -k \fIkeypattern
+Use
+.I keypattern
+to select a key to authenticate to the remote side (see
+.IR auth (2)).
+.TP
+.B -p
+Protect the connection against connection resets by establishing
+.IR aan (8)
+tunnel.
+.SH FILES
+.B /rc/bin/service/tcp17019
+.SH SOURCE
+.B /rc/bin/rcpu
+.br
+.B /rc/bin/rimport
+.br
+.B /rc/bin/rexport
+.br
+.B /rc/bin/rconnect
+.SH "SEE ALSO"
+.IR rc (1) ,
+.IR cpu (1) ,
+.IR con (1) ,
+.IR import (4) ,
+.IR exportfs (4) ,
+.IR tlssrv (8) ,
+.IR aan (8)

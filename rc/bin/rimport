@@ -3,7 +3,7 @@ rfork e
 
 argv0=$0
 fn usage {
-	echo 'usage:' $argv0 '[options] host tree [mountpoint]' >[1=2]
+	echo 'usage:' $argv0 '[-abcCnq] [-s name] [-u user] [-k keypattern] [-p] host tree [mountpoint]' >[1=2]
 	exit 'usage'
 }
 

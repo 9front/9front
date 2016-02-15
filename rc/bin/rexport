@@ -3,7 +3,7 @@ rfork e
 
 argv0=$0
 fn usage {
-	echo 'usage:' $argv0 '[options] [-s remotesrv] [-m remotemtpt] tree host [remotecmd [args ...]]' >[1=2]
+	echo 'usage:' $argv0 '[-abcCnq] [-s remotename] [-m remotemtpt] [-u user] [-k keypattern] [-P patternfile] [-p] tree host [remotecmd [args ...]]' >[1=2]
 	exit 'usage'
 }
 
