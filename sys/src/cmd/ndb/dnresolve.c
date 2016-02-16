@@ -20,7 +20,6 @@ enum
 
 	Maxdest=	24,	/* maximum destinations for a request message */
 	Maxoutstanding=	15,	/* max. outstanding queries per domain name */
-	Remntretry=	15,	/* min. sec.s between /net.alt remount tries */
 
 	/*
 	 * these are the old values; we're trying longer timeouts now
@@ -1427,31 +1426,6 @@ queryns(Query *qp, int depth, uchar *ibuf, uchar *obuf, ulong waitms, int inns)
 	return Answnone;
 }
 
-/*
- *  run a command with a supplied fd as standard input
- */
-char *
-system(int fd, char *cmd)
-{
-	int pid, p, i;
-	static Waitmsg msg;
-
-	if((pid = fork()) == -1)
-		sysfatal("fork failed: %r");
-	else if(pid == 0){
-		dup(fd, 0);
-		close(fd);
-		for (i = 3; i < 200; i++)
-			close(i);		/* don't leak fds */
-		execl("/bin/rc", "rc", "-c", cmd, nil);
-		sysfatal("exec rc: %r");
-	}
-	for(p = waitpid(); p >= 0; p = waitpid())
-		if(p == pid)
-			return msg.msg;
-	return "lost child";
-}
-
 /* compute wait, weighted by probability of success, with bounds */
 static ulong
 weight(ulong ms, unsigned pcntprob)
@@ -1475,13 +1449,9 @@ static int
 udpquery(Query *qp, char *mntpt, int depth, int patient, int inns)
 {
 	int fd, rv;
-	long now;
 	ulong pcntprob;
 	uvlong wait, reqtm;
-	char *msg;
 	uchar *obuf, *ibuf;
-	static QLock mntlck;
-	static ulong lastmount;
 
 	rv = -1;
 
@@ -1490,29 +1460,6 @@ udpquery(Query *qp, char *mntpt, int depth, int patient, int inns)
 	obuf = emalloc(Maxudp+Udphdrsize);
 
 	fd = udpport(mntpt);
-	while (fd < 0 && cfg.straddle && strcmp(mntpt, "/net.alt") == 0) {
-		/* HACK: remount /net.alt */
-		now = time(nil);
-		if (now < lastmount + Remntretry)
-			sleep(S2MS(lastmount + Remntretry - now));
-		qlock(&mntlck);
-		fd = udpport(mntpt);	/* try again under lock */
-		if (fd < 0) {
-			dnslog("[%d] remounting /net.alt", getpid());
-			unmount(nil, "/net.alt");
-
-			msg = system(open("/dev/null", ORDWR), "outside");
-
-			lastmount = time(nil);
-			if (msg && *msg) {
-				dnslog("[%d] can't remount /net.alt: %s",
-					getpid(), msg);
-				sleep(10*1000);	/* don't spin remounting */
-			} else
-				fd = udpport(mntpt);
-		}
-		qunlock(&mntlck);
-	}
 	if (fd < 0) {
 		dnslog("can't get udpport for %s query of name %s: %r",
 			mntpt, qp->dp->name);
