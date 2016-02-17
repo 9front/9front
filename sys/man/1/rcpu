@@ -97,7 +97,7 @@ are passed to the remote side. The command to run can be passed
 with
 .B -c
 .IR "cmd arg ..." ,
-otherwise a interactive shell is started. The user's profile
+otherwise an interactive shell is started. The user's profile
 is run before the command with
 .B $service
 set to
@@ -143,7 +143,7 @@ is a helper program handling client side connection setup for
 the commands listed above. The rcpu protocol starts by setting up a mutual
 authenticated and encrypted TLS connection using
 .IR tlssrv (8)
-followed by the client sending a 
+followed by the client sending an 
 .IR rc (1)
 .I remotescript
 file to the server which gets executed under the authenticated user
