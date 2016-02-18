@@ -1,6 +1,5 @@
 #include <u.h>
 #include <libc.h>
-#include <bio.h>
 #include <auth.h>
 #include <mp.h>
 #include <libsec.h>
@@ -2203,7 +2202,7 @@ tlsConnectionFree(TlsConnection *c)
 	tlsSecClose(c->sec);
 	freebytes(c->sid);
 	freebytes(c->cert);
-	memset(c, 0, sizeof(c));
+	memset(c, 0, sizeof(*c));
 	free(c);
 }
 
