@@ -394,7 +394,6 @@ static Bytes*	tlsSecDHEc(TlsSec *sec, uchar *srandom, int vers, Bytes *p, Bytes 
 static Bytes*	tlsSecECDHEc(TlsSec *sec, uchar *srandom, int vers, int curve, Bytes *Ys);
 static int	tlsSecFinished(TlsSec *sec, HandshakeHash hsh, uchar *fin, int nfin, int isclient);
 static void	tlsSecOk(TlsSec *sec);
-static void	tlsSecKill(TlsSec *sec);
 static void	tlsSecClose(TlsSec *sec);
 static void	setMasterSecret(TlsSec *sec, Bytes *pm);
 static void	setSecrets(TlsSec *sec, uchar *kd, int nkd);
@@ -2713,15 +2712,6 @@ tlsSecOk(TlsSec *sec)
 {
 	if(sec->ok == 0)
 		sec->ok = 1;
-}
-
-static void
-tlsSecKill(TlsSec *sec)
-{
-	if(!sec)
-		return;
-	factotum_rsa_close(sec->rpc);
-	sec->ok = -1;
 }
 
 static void
