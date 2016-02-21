@@ -51,7 +51,6 @@ int	encproto = Encnone;
 int	readonly;
 
 static void mksecret(char *, uchar *);
-static int localread9pmsg(int, void *, uint, void *);
 static char *anstring  = "tcp!*!0";
 
 char *netdir = "", *local = "", *remote = "";
@@ -391,60 +390,37 @@ main(int argc, char **argv)
 	if(ai != nil)
 		auth_freeAI(ai);
 
+	if(ini != nil){
+		r = getsbuf();
+		memmove(r->buf, ini, BIT32SZ);
+		n = GBIT32(r->buf);
+		if(n <= BIT32SZ || n > messagesize)
+			fatal("bad length in 9P2000 message header");
+		n -= BIT32SZ;
+		if(readn(0, r->buf+BIT32SZ, n) != n)
+			fatal(nil);
+		n += BIT32SZ;
+		goto Message;
+	}
+
 	/*
 	 * Start serving file requests from the network
 	 */
 	for(;;) {
 		r = getsbuf();
-		while((n = localread9pmsg(0, r->buf, messagesize, ini)) == 0)
+		while((n = read9pmsg(0, r->buf, messagesize)) == 0)
 			;
-		if(n < 0)
+		if(n <= 0)
 			fatal(nil);
+	Message:
 		if(convM2S(r->buf, n, &r->work) == 0)
 			fatal("convM2S format error");
 
 		DEBUG(DFD, "%F\n", &r->work);
 		(fcalls[r->work.type])(r);
-		ini = nil;
 	}
 }
 
-/*
- * WARNING: Replace this with the original version as soon as all 
- * _old_ imports have been replaced with negotiating imports.  Also
- * cpu relies on this (which needs to be fixed!) -- pb.
- */
-static int
-localread9pmsg(int fd, void *abuf, uint n, void *ini)
-{
-	int m, len;
-	uchar *buf;
-
-	buf = abuf;
-
-	/* read count */
-	if(ini != nil)
-		memcpy(buf, ini, BIT32SZ);
-	else {
-		m = readn(fd, buf, BIT32SZ);
-		if(m != BIT32SZ){
-			if(m < 0)
-				return -1;
-			return 0;
-		}
-	}
-
-	len = GBIT32(buf);
-	if(len <= BIT32SZ || len > n){
-		werrstr("bad length in 9P2000 message header");
-		return -1;
-	}
-	len -= BIT32SZ;
-	m = readn(fd, buf+BIT32SZ, len);
-	if(m < len)
-		return 0;
-	return BIT32SZ+m;
-}
 void
 reply(Fcall *r, Fcall *t, char *err)
 {
