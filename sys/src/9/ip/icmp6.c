@@ -432,23 +432,19 @@ icmphostunr(Fs *f, Ipifc *ifc, Block *bp, int code, int free)
 	p = (Ip6hdr *)bp->rp;
 
 	if(isv6mcast(p->src))
-		goto clean;
+		goto freebl;
 
 	nbp = newIPICMP(sz);
 	np = (IPICMP *)nbp->rp;
 
 	rlock(ifc);
 	if(ipv6anylocal(ifc, np->src))
-		netlog(f, Logicmp, "send icmphostunr -> src %I dst %I\n",
-			p->src, p->dst);
+		netlog(f, Logicmp, "send icmphostunr -> src %I dst %I\n", p->src, p->dst);
 	else {
-		netlog(f, Logicmp, "icmphostunr fail -> src %I dst %I\n",
-			p->src, p->dst);
+		netlog(f, Logicmp, "icmphostunr fail -> src %I dst %I\n", p->src, p->dst);
+		runlock(ifc);
 		freeblist(nbp);
-		if(free)
-			goto clean;
-		else
-			return;
+		goto freebl;
 	}
 
 	memmove(np->dst, p->src, IPaddrlen);
@@ -462,14 +458,12 @@ icmphostunr(Fs *f, Ipifc *ifc, Block *bp, int code, int free)
 
 	if(free)
 		ipiput6(f, ifc, nbp);
-	else {
+	else 
 		ipoput6(f, nbp, 0, MAXTTL, DFLTTOS, nil);
-		return;
-	}
-
-clean:
 	runlock(ifc);
-	freeblist(bp);
+freebl:
+	if(free)
+		freeblist(bp);
 }
 
 extern void
