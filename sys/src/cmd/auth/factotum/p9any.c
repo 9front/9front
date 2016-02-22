@@ -318,7 +318,7 @@ p9anywrite(Fsstate *fss, void *va, uint n)
 				ret = findkey(&k, &ki, "proto=%q dom=%q role=speakfor %s",
 						p->name, dom, p->keyprompt);
 			}
-			if(ret == RpcFailure){
+			if(ret != RpcOk && ret != RpcConfirm){
 				ki.attr = anew;
 				ki.user = fss->sysuser;
 				ret = findkey(&k, &ki,
@@ -327,6 +327,8 @@ p9anywrite(Fsstate *fss, void *va, uint n)
 			}
 			if(ret == RpcConfirm){
 				free(a);
+				_freeattr(anew);
+				_freeattr(anewsf);
 				return ret;
 			}
 			if(ret == RpcOk)
