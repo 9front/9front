@@ -167,7 +167,7 @@ and
 .TP
 .B -P \fIpatternfile
 Restricts the set of exported files (see
-.I exportfs (4))
+.IR exportfs (4))
 for
 .I rcpu
 and
