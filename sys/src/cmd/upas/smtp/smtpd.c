@@ -447,7 +447,6 @@ void
 sender(String *path)
 {
 	String *s;
-	static char *lastsender;
 
 	if(rejectcheck())
 		return;
@@ -477,23 +476,6 @@ sender(String *path)
 		reply("501 5.1.3 Bad character in sender address %s.\r\n",
 			s_to_c(path));
 		return;
-	}
-
-	/*
-	 * if the last sender address resulted in a rejection because the sending
-	 * domain didn't exist and this sender has the same domain, reject
-	 * immediately.
-	 */
-	if(lastsender){
-		if (strncmp(lastsender, s_to_c(path), strlen(lastsender)) == 0){
-			filterstate = REFUSED;
-			rejectcount++;
-			reply("554 5.1.8 Sender domain must exist: %s\r\n",
-				s_to_c(path));
-			return;
-		}
-		free(lastsender);	/* different sender domain */
-		lastsender = 0;
 	}
 
 	/*
