@@ -288,14 +288,14 @@ idfeat(Sfis *f, ushort *id)
 		if(i != 0 && i >> 12 == 1 && j != 0){
 			j >>= 1;
 			f->speeds = j & 7;
-			i = gbit16(id + 78) & gbit16(id + 79);
 			/*
 			 * not acceptable for comreset to
 			 * wipe out device configuration.
 			 * reject drive.
-			 */
+			i = gbit16(id + 78) & gbit16(id + 79);
 			if((i & 1<<6) == 0)
 				return -1;
+			 */
 		}
 	}
 	if(gbit16(id + 206) & 1)
