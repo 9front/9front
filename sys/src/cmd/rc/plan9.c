@@ -305,72 +305,36 @@ Updenv(void)
 
 /* not used on plan 9 */
 int
-ForkExecute(char *file, char **argv, int sin, int sout, int serr)
+ForkExecute(char *, char **, int, int, int)
 {
-	int pid;
-
-	if(access(file, 1) != 0)
-		return -1;
-	switch(pid = fork()){
-	case -1:
-		return -1;
-	case 0:
-		if(sin >= 0)
-			dup(sin, 0);
-		else
-			close(0);
-		if(sout >= 0)
-			dup(sout, 1);
-		else
-			close(1);
-		if(serr >= 0)
-			dup(serr, 2);
-		else
-			close(2);
-		exec(file, argv);
-		exits(file);
-	}
-	return pid;
+	return -1;
 }
 
 void
 Execute(word *args, word *path)
 {
 	char **argv = mkargv(args);
-	char file[1024], errstr[1024];
-	int nc;
+	char file[1024];
+	int nc, mc;
 
 	Updenv();
-	errstr[0] = '\0';
+	mc = strlen(argv[1])+1;
 	for(;path;path = path->next){
 		nc = strlen(path->word);
-		if(nc < sizeof file - 1){	/* 1 for / */
-			strcpy(file, path->word);
-			if(file[0]){
-				strcat(file, "/");
-				nc++;
-			}
-			if(nc + strlen(argv[1]) < sizeof file){
-				strcat(file, argv[1]);
-				exec(file, argv+1);
-				rerrstr(errstr, sizeof errstr);
-				/*
-				 * if file exists and is executable, exec should
-				 * have worked, unless it's a directory or an
-				 * executable for another architecture.  in
-				 * particular, if it failed due to lack of
-				 * swap/vm (e.g., arg. list too long) or other
-				 * allocation failure, stop searching and print
-				 * the reason for failure.
-				 */
-				if (strstr(errstr, " allocat") != nil ||
-				    strstr(errstr, " full") != nil)
-					break;
-			}
-			else werrstr("command name too long");
+		if(nc + mc >= sizeof file - 1){	/* 1 for / */
+			werrstr("command path name too long");
+			continue;
 		}
+		if(nc > 0){
+			memmove(file, path->word, nc);
+			file[nc++] = '/';
+		}
+		memmove(file+nc, argv[1], mc);
+		exec(file, argv+1);
 	}
-	pfmt(err, "%s: %s\n", argv[1], errstr);
+	rerrstr(file, sizeof file);
+	setstatus(file);
+	pfmt(err, "%s: %s\n", argv[1], file);
 	efree((char *)argv);
 }
 #define	NDIR	256		/* shoud be a better way */
@@ -464,7 +428,7 @@ Again:
 	}
 	if(dir[f].i == dir[f].n)
 		return 0;
-	strcpy(p, dir[f].dbuf[dir[f].i].name);
+	strncpy((char*)p, dir[f].dbuf[dir[f].i].name, NDIR);
 	dir[f].i++;
 	return 1;
 }

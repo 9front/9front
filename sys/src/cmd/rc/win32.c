@@ -299,6 +299,7 @@ Execute(word *args, word *path)
 		}
 	}
 	rerrstr(file, sizeof file);
+	setstatus(file);
 	pfmt(err, "%s: %s\n", argv[1], file);
 	efree((char *)argv);
 }
@@ -393,7 +394,7 @@ Again:
 	}
 	if(dir[f].i == dir[f].n)
 		return 0;
-	strcpy(p, dir[f].dbuf[dir[f].i].name);
+	strncpy(p, dir[f].dbuf[dir[f].i].name, NDIR);
 	dir[f].i++;
 	return 1;
 }

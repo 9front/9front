@@ -9,15 +9,14 @@ emalloc(long n)
 	void *p = Malloc(n);
 	if(p==0)
 		panic("Can't malloc %d bytes", n);
-/*	if(err){ pfmt(err, "malloc %d->%p\n", n, p); flush(err); } /**/
 	return p;
 }
 
 void*
 erealloc(void *p, long n)
 {
-	p = Realloc(p, n);		/* botch, should be Realloc */
-	if(p==0)
+	p = Realloc(p, n);
+	if(p==0 && n!=0)
 		panic("Can't realloc %d bytes\n", n);
 	return p;
 }
@@ -25,7 +24,6 @@ erealloc(void *p, long n)
 void
 efree(void *p)
 {
-/*	pfmt(err, "free %p\n", p); flush(err); /**/
 	if(p)
 		free(p);
 	else pfmt(err, "free 0\n");

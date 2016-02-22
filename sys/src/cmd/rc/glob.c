@@ -101,7 +101,7 @@ glob(void *ap)
 		return;
 	}
 	globname = emalloc(globlen);
-	globname[0]='\0';
+	memset(globname, 0, globlen);
 	globdir(p, (uchar *)globname);
 	efree(globname);
 	if(svglobv==globv){

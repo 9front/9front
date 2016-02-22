@@ -55,7 +55,6 @@ Xsimple(void)
 			/* fork and wait is redundant */
 			pushword("exec");
 			execexec();
-			Xexit();
 		}
 		else{
 			flush(err);
@@ -120,6 +119,7 @@ execexec(void)
 	doredir(runq->redir);
 	Execute(runq->argv->words, searchpath(runq->argv->words->word));
 	poplist();
+	Xexit();
 }
 
 void

@@ -275,6 +275,7 @@ register struct word *args, *path;
 		}
 	}
 Bad:
+	setstatus(msg);
 	pfmt(err, "%s: %s\n", argv[1], msg);
 	efree((char *)env);
 	efree((char *)argv);
@@ -319,7 +320,7 @@ int onlydirs;		/* ignored, just advisory */
 	struct direct *dp = readdir(dirlist[f]);
 	if(dp==0)
 		return 0;
-	strcpy(p, dp->d_name);
+	strncpy(p, dp->d_name, NDIR);
 	return 1;
 }
 Closedir(f){
