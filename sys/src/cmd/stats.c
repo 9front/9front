@@ -1,8 +1,6 @@
 #include <u.h>
 #include <libc.h>
 #include <ctype.h>
-#include <auth.h>
-#include <fcall.h>
 #include <draw.h>
 #include <event.h>
 #include <keyboard.h>
@@ -215,7 +213,6 @@ int	ngraph;	/* totaly number is ngraph*nmach */
 double	scale = 1.0;
 int	logscale = 0;
 int	ylabels = 0;
-int	oldsystem = 0;
 int 	sleeptime = 1000;
 
 char	*procnames[NPROC] = {"main", "input"};
@@ -465,142 +462,6 @@ readnums(Machine *m, int n, uvlong *a, int spanlines)
 	return i == n;
 }
 
-/* Network on fd1, mount driver on fd0 */
-static int
-filter(int fd)
-{
-	int p[2];
-
-	if(pipe(p) < 0){
-		fprint(2, "stats: can't pipe: %r\n");
-		killall("pipe");
-	}
-
-	switch(rfork(RFNOWAIT|RFPROC|RFFDG)) {
-	case -1:
-		sysfatal("rfork record module");
-	case 0:
-		dup(fd, 1);
-		close(fd);
-		dup(p[0], 0);
-		close(p[0]);
-		close(p[1]);
-		execl("/bin/aux/fcall", "fcall", nil);
-		fprint(2, "stats: can't exec fcall: %r\n");
-		killall("fcall");
-	default:
-		close(fd);
-		close(p[0]);
-	}
-	return p[1];
-}
-
-/*
- * 9fs
- */
-int
-connect9fs(char *addr)
-{
-	char dir[256], *na;
-	int fd;
-
-	fprint(2, "connect9fs...");
-	na = netmkaddr(addr, 0, "9fs");
-
-	fprint(2, "dial %s...", na);
-	if((fd = dial(na, 0, dir, 0)) < 0)
-		return -1;
-
-	fprint(2, "dir %s...", dir);
-//	if(strstr(dir, "tcp"))
-//		fd = filter(fd);
-	return fd;
-}
-
-int
-old9p(int fd)
-{
-	int p[2];
-
-	if(pipe(p) < 0)
-		return -1;
-
-	switch(rfork(RFPROC|RFFDG|RFNAMEG)) {
-	case -1:
-		return -1;
-	case 0:
-		if(fd != 1){
-			dup(fd, 1);
-			close(fd);
-		}
-		if(p[0] != 0){
-			dup(p[0], 0);
-			close(p[0]);
-		}
-		close(p[1]);
-		if(0){
-			fd = open("/sys/log/cpu", OWRITE);
-			if(fd != 2){
-				dup(fd, 2);
-				close(fd);
-			}
-			execl("/bin/srvold9p", "srvold9p", "-ds", nil);
-		} else
-			execl("/bin/srvold9p", "srvold9p", "-s", nil);
-		return -1;
-	default:
-		close(fd);
-		close(p[0]);
-	}
-	return p[1];
-}
-
-
-/*
- * exportfs
- */
-int
-connectexportfs(char *addr)
-{
-	char buf[ERRMAX], dir[256], *na;
-	int fd, n;
-	char *tree;
-	AuthInfo *ai;
-
-	tree = "/";
-	na = netmkaddr(addr, 0, "exportfs");
-	if((fd = dial(na, 0, dir, 0)) < 0)
-		return -1;
-
-	ai = auth_proxy(fd, auth_getkey, "proto=p9any role=client");
-	if(ai == nil)
-		return -1;
-	auth_freeAI(ai);
-
-	n = write(fd, tree, strlen(tree));
-	if(n < 0){
-		close(fd);
-		return -1;
-	}
-
-	strcpy(buf, "can't read tree");
-	n = read(fd, buf, sizeof buf - 1);
-	if(n!=2 || buf[0]!='O' || buf[1]!='K'){
-		buf[sizeof buf - 1] = '\0';
-		werrstr("bad remote tree: %s\n", buf);
-		close(fd);
-		return -1;
-	}
-
-//	if(strstr(dir, "tcp"))
-//		fd = filter(fd);
-
-	if(oldsystem)
-		return old9p(fd);
-
-	return fd;
-}
-
 int
 readswap(Machine *m, uvlong *a)
 {
@@ -668,7 +529,7 @@ ilog10(uvlong j)
 int
 initmach(Machine *m, char *name)
 {
-	int n, fd;
+	int n;
 	uvlong a[MAXNUM];
 	char *p, mpt[256], buf[256];
 
@@ -683,21 +544,28 @@ initmach(Machine *m, char *name)
 	if(m->remote == 0)
 		strcpy(mpt, "");
 	else{
+		Waitmsg *w;
+		int pid;
+
 		snprint(mpt, sizeof mpt, "/n/%s", p);
-		fd = connectexportfs(name);
-		if(fd < 0){
-			fprint(2, "can't connect to %s: %r\n", name);
+		snprint(buf, sizeof buf, "rimport %q / %q || import %q / %q", name, mpt, name, mpt);
+
+		pid = fork();
+		switch(pid){
+		case -1:
+			fprint(2, "can't fork: %r\n");
+			return 0;
+		case 0:
+			execl("/bin/rc", "rc", "-c", buf, nil);
+			fprint(2, "can't exec: %r\n");
+			exits("exec");
+		}
+		w = wait();
+		if(w == nil || w->pid != pid || w->msg[0] != '\0'){
+			free(w);
 			return 0;
 		}
-		/* BUG? need to use amount() now? */
-		if(mount(fd, -1, mpt, MREPL, "") < 0){
-			fprint(2, "stats: mount %s on %s failed (%r); trying /n/sid\n", name, mpt);
-			strcpy(mpt, "/n/sid");
-			if(mount(fd, -1, mpt, MREPL, "") < 0){
-				fprint(2, "stats: mount %s on %s failed: %r\n", name, mpt);
-				return 0;
-			}
-		}
+		free(w);
 	}
 
 	snprint(buf, sizeof buf, "%s/dev/swap", mpt);
@@ -1360,6 +1228,8 @@ main(int argc, char *argv[])
 	uvlong v, vmax, nargs;
 	char args[100];
 
+	quotefmtinstall();
+
 	nmach = 1;
 	mysysname = getenv("sysname");
 	if(mysysname == nil){
@@ -1386,7 +1256,6 @@ main(int argc, char *argv[])
 		ylabels++;
 		break;
 	case 'O':
-		oldsystem = 1;
 		break;
 	default:
 		if(nargs>=sizeof args || strchr(argchars, ARGC())==nil)
@@ -1399,6 +1268,7 @@ main(int argc, char *argv[])
 		initmach(&mach[0], mysysname);
 		readmach(&mach[0], 1);
 	}else{
+		rfork(RFNAMEG);
 		for(i=j=0; i<argc; i++){
 			if (addmachine(argv[i]))
 				readmach(&mach[j++], 1);
