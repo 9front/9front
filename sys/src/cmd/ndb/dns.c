@@ -320,7 +320,10 @@ newfid(int fid, int needunused)
 		}
 	mf = emalloc(sizeof(*mf));
 	mf->fid = fid;
-	mf->user = estrdup("dummy");
+	mf->qid.vers = vers;
+	mf->qid.type = QTDIR;
+	mf->qid.path = 0LL;
+	mf->user = estrdup("none");
 	mf->next = mfalloc.inuse;
 	mfalloc.inuse = mf;
 	unlock(&mfalloc);
@@ -355,7 +358,7 @@ copyfid(Mfile *mf, int fid)
 	if(nmf == nil)
 		return nil;
 	nmf->fid = fid;
-	free(nmf->user);			/* estrdup("dummy") */
+	free(nmf->user);			/* estrdup("none") */
 	nmf->user = estrdup(mf->user);
 	nmf->qid.type = mf->qid.type;
 	nmf->qid.path = mf->qid.path;
