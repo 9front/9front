@@ -89,16 +89,20 @@ char Ewalk[] = "walk in non directory";
 char Ephase[] = "the front fell off";
 char Eintr[] = "interrupted";
 
-int scanfd;
-int ledsfd;
-int consfd;
-int mctlfd;
-int msinfd;
-int notefd;
+int kbdifd = -1;
+int scanfd = -1;
+int ledsfd = -1;
+int consfd = -1;
+int mctlfd = -1;
+int msinfd = -1;
+int notefd = -1;
+int killfd = -1;
 
 int kbdopen;
 int consctlopen;
 int quiet = 0;
+char *sname = nil;
+char *mntpt = "/dev";
 
 int debug;
 
@@ -260,7 +264,49 @@ Rune kbtabctl[Nscan] =
 [0x78]	0,	'', 	0,	'\b',	0,	0,	0,	0,
 };
 
-void reboot(void);
+char*
+dev(char *file)
+{
+	static char *buf = nil;
+	free(buf);
+	buf = smprint("%s/%s", mntpt, file);
+	return buf;
+}
+
+int
+eopen(char *name, int mode)
+{
+	int fd;
+
+	fd = open(name, mode);
+	if(fd < 0 && !quiet)
+		fprint(2, "%s: warning: can't open %s: %r\n", argv0, name);
+	return fd;
+}
+
+void
+reboot(void)
+{
+	int fd;
+
+	if(debug)
+		return;
+
+	if((fd = eopen(dev("reboot"), OWRITE)) < 0)
+		return;
+	fprint(fd, "reboot\n");
+	close(fd);
+}
+
+void
+shutdown(void)
+{
+	if(notefd >= 0)
+		write(notefd, "hangup", 6);
+	if(killfd >= 0)
+		write(killfd, "hangup", 6);
+	threadexitsall(nil);
+}
 
 /*
  * Scan code processing
@@ -347,6 +393,83 @@ kbdputsc(Scan *scan, int c)
 	scan->esc1 = 0;
 }
 
+static void
+kbdin(Scan *a, char *p, int n)
+{
+	char *s;
+	Key k;
+	int i;
+
+	if(n > 0 && p[n-1] != 0){
+		/*
+		 * old format as used by bitsy keyboard:
+		 * just a string of characters, no keyup
+		 * information.
+		 */
+		s = emalloc9p(n+1);
+		memmove(s, p, n);
+		s[n] = 0;
+		p = s;
+		while(*p){
+			p += chartorune(&k.r, p);
+			if(k.r)
+				send(rawchan, &k.r);
+		}
+		free(s);
+		return;
+	} else if(n < 2)
+		return;
+	switch(p[0]){
+	case 'R':
+	case 'r':
+		/* rune up/down */
+		chartorune(&k.r, p+1);
+		if(k.r == 0)
+			break;
+		k.b = k.r;
+		k.down = (p[0] == 'r');
+		/*
+		 * handle ^X forms according to keymap and
+		 * assign button.
+		 */
+		for(i=0; i<Nscan; i++){
+			if((a->shift && kbtabshift[i] == k.r) || (kbtab[i] == k.r)){
+				if(kbtab[i])
+					k.b = kbtab[i];
+				if(a->shift)
+					k.r = kbtabshift[i];
+				else if(a->altgr)
+					k.r = kbtabaltgr[i];
+				else if(a->ctl)
+					k.r = kbtabctl[i];
+				break;
+			}
+		}
+		if(k.b)
+			send(keychan, &k);
+		if(k.r == Kshift)
+			a->shift = k.down;
+		else if(k.r == Kaltgr)
+			a->altgr = k.down;
+		else if(k.r == Kctl)
+			a->ctl = k.down;
+		break;
+
+	case 'c':
+		chartorune(&k.r, p+1);
+		nbsend(runechan, &k.r);
+		break;
+
+	default:
+		if(!kbdopen)
+			break;
+		s = emalloc9p(n);
+		memmove(s, p, n);
+		if(nbsendp(kbdchan, s) <= 0)
+			free(s);
+	}
+}
+
 void
 setleds(Scan *scan, int leds)
 {
@@ -378,6 +501,24 @@ scanproc(void *)
 			kbdputsc(&scan, buf[i]);
 		setleds(&scan, (scan.num<<1) | (scan.caps<<2));
 	}
+
+	shutdown();
+}
+
+void
+kbdiproc(void *)
+{
+	char buf[1024];
+	Scan scan;
+	int n;
+
+	threadsetname("kbdiproc");
+
+	memset(&scan, 0, sizeof scan);
+	while((n = read(kbdifd, buf, sizeof buf)) > 0)
+		kbdin(&scan, buf, n);
+
+	shutdown();
 }
 
 char*
@@ -492,6 +633,8 @@ consproc(void *)
 		memmove(buf, p, n);
 		p = buf + n;
 	}
+
+	shutdown();
 }
 
 static int
@@ -782,6 +925,8 @@ ctlproc(void *)
 
 	threadsetname("ctlproc");
 
+	if(kbdifd >= 0)
+		proccreate(kbdiproc, nil, STACK);	/* kbdifd -> kbdin() */
 	if(scanfd >= 0)
 		proccreate(scanproc, nil, STACK);	/* scanfd -> keychan */
 	if(consfd >= 0)
@@ -1164,29 +1309,25 @@ static void
 fswrite(Req *r)
 {
 	Fid *f;
-	Scan *a;
-	char *p, *s;
+	char *p;
 	int n, i;
-	Key k;
 
 	f = r->fid;
+	p = r->ifcall.data;
+	n = r->ifcall.count;
 	switch((ulong)f->qid.path){
 	default:
 		respond(r, Ephase);
 		return;
 
 	case Qcons:
-		n = r->ifcall.count;
-		if(write(1, r->ifcall.data, n) != n){
+		if(write(1, p, n) != n){
 			responderror(r);
 			return;
 		}
-		r->ofcall.count = n;
 		break;
 
 	case Qconsctl:
-		p = r->ifcall.data;
-		n = r->ifcall.count;
 		if(n >= 5 && memcmp(p, "rawon", 5) == 0)
 			sendul(ctlchan, Rawon);
 		else if(n >= 6 && memcmp(p, "rawoff", 6) == 0)
@@ -1195,91 +1336,22 @@ fswrite(Req *r)
 			respond(r, Ebadarg);
 			return;
 		}
-		r->ofcall.count = n;
-		break;
-
-	case Qkbdin:
-		p = r->ifcall.data;
-		n = r->ifcall.count;
-		r->ofcall.count = n;
-		if(n == 0)
-			break;
-		if(p[n-1] != 0){
-			/*
-			 * old format as used by bitsy keyboard:
-			 * just a string of characters, no keyup
-			 * information.
-			 */
-			s = emalloc9p(n+1);
-			memmove(s, p, n);
-			s[n] = 0;
-			p = s;
-			while(*p){
-				p += chartorune(&k.r, p);
-				if(k.r)
-					send(rawchan, &k.r);
-			}
-			free(s);
-			break;
-		}
-		switch(p[0]){
-		case 'R':
-		case 'r':
-			/* rune up/down */
-			chartorune(&k.r, p+1);
-			if(k.r == 0)
-				break;
-			k.b = k.r;
-			k.down = (p[0] == 'r');
-			if(f->aux == nil){
-				f->aux = emalloc9p(sizeof(Scan));
-				memset(f->aux, 0, sizeof(Scan));
-			}
-			a = f->aux;
-			/*
-			 * handle ^X forms according to keymap and
-			 * assign button.
-			 */
-			for(i=0; i<Nscan; i++){
-				if((a->shift && kbtabshift[i] == k.r) || (kbtab[i] == k.r)){
-					if(kbtab[i])
-						k.b = kbtab[i];
-					if(a->shift)
-						k.r = kbtabshift[i];
-					else if(a->altgr)
-						k.r = kbtabaltgr[i];
-					else if(a->ctl)
-						k.r = kbtabctl[i];
-					break;
-				}
-			}
-			if(k.b)
-				send(keychan, &k);
-			if(k.r == Kshift)
-				a->shift = k.down;
-			else if(k.r == Kaltgr)
-				a->altgr = k.down;
-			else if(k.r == Kctl)
-				a->ctl = k.down;
-			break;
-		default:
-			if(!kbdopen)
-				break;
-			s = emalloc9p(n);
-			memmove(s, p, n);
-			if(nbsendp(kbdchan, s) <= 0)
-				free(s);
-		}
 		break;
 
 	case Qkbin:
+	case Qkbdin:
+		if(n == 0)
+			break;
 		if(f->aux == nil){
 			f->aux = emalloc9p(sizeof(Scan));
 			memset(f->aux, 0, sizeof(Scan));
 		}
-		for(i=0; i<r->ifcall.count; i++)
-			kbdputsc((Scan*)f->aux, (uchar)r->ifcall.data[i]);
-		r->ofcall.count = i;
+		if(f->qid.path == Qkbin){
+			for(i=0; i<n; i++)
+				kbdputsc((Scan*)f->aux, (uchar)p[i]);
+		} else {
+			kbdin((Scan*)f->aux, p, n);
+		}
 		break;
 
 	case Qkbmap:
@@ -1287,6 +1359,7 @@ fswrite(Req *r)
 		return;
 
 	}
+	r->ofcall.count = n;
 	respond(r, nil);
 }
 
@@ -1329,50 +1402,7 @@ fsdestroyfid(Fid *f)
 		}
 }
 
-static void
-fsend(Srv*)
-{
-	threadexitsall(nil);
-}
-
-Srv fs = {
-	.attach=			fsattach,
-	.walk1=			fswalk1,
-	.open=			fsopen,
-	.read=			fsread,
-	.write=			fswrite,
-	.stat=			fsstat,
-	.flush=			fsflush,
-	.destroyfid=		fsdestroyfid,
-	.end=			fsend,
-};
-
-int
-eopen(char *name, int mode)
-{
-	int fd;
-
-	fd = open(name, mode);
-	if(fd < 0 && !quiet)
-		fprint(2, "%s: warning: can't open %s: %r\n", argv0, name);
-	return fd;
-}
-
-void
-reboot(void)
-{
-	int fd;
-
-	if(debug)
-		return;
-
-	if((fd = eopen("/dev/reboot", OWRITE)) < 0)
-		return;
-	fprint(fd, "reboot\n");
-	close(fd);
-}
-
-int
+static int
 procopen(int pid, char *name, int mode)
 {
 	char buf[128];
@@ -1381,7 +1411,7 @@ procopen(int pid, char *name, int mode)
 	return eopen(buf, mode);
 }
 
-void
+static void
 elevate(void)
 {
 	Dir *d, nd;
@@ -1410,21 +1440,43 @@ elevate(void)
 	close(fd);
 }
 
+static void
+fsstart(Srv*)
+{
+	killfd = procopen(getpid(), "notepg", OWRITE);
+	elevate();
+	proccreate(ctlproc, nil, STACK);
+}
+
+static void
+fsend(Srv*)
+{
+	shutdown();
+}
+
+Srv fs = {
+	.start=			fsstart,
+	.attach=		fsattach,
+	.walk1=			fswalk1,
+	.open=			fsopen,
+	.read=			fsread,
+	.write=			fswrite,
+	.stat=			fsstat,
+	.flush=			fsflush,
+	.destroyfid=		fsdestroyfid,
+	.end=			fsend,
+};
+
 void
 usage(void)
 {
-	fprint(2, "usage: %s [ -qdD ] [ -s srv ] [ -m mntpnt ] [ file ]\n", argv0);
+	fprint(2, "usage: %s [ -qdD ] [ -s sname ] [ -m mntpnt ] [ file ]\n", argv0);
 	exits("usage");
 }
 
 void
 threadmain(int argc, char** argv)
 {
-	char *mtpt = "/dev";
-	char *srv = nil;
-
-	consfd = -1;
-
 	ARGBEGIN{
 	case 'd':
 		debug++;
@@ -1433,10 +1485,10 @@ threadmain(int argc, char** argv)
 		chatty9p++;
 		break;
 	case 's':
-		srv = EARGF(usage());
+		sname = EARGF(usage());
 		break;
 	case 'm':
-		mtpt = EARGF(usage());
+		mntpt = EARGF(usage());
 		break;
 	case 'q':
 		quiet++;
@@ -1445,15 +1497,18 @@ threadmain(int argc, char** argv)
 		usage();
 	}ARGEND
 
-	notefd = procopen(getpid(), "notepg", OWRITE);
-
-	scanfd = eopen("/dev/scancode", OREAD);
-	ledsfd = eopen("/dev/leds", OWRITE);
-	mctlfd = eopen("/dev/mousectl", OWRITE);
-	msinfd = eopen("/dev/mousein", OWRITE);
-
 	if(*argv)
 		consfd = eopen(*argv, OREAD);
+
+	kbdifd = open(dev("kbd"), OREAD);
+	if(kbdifd < 0){
+		scanfd = eopen(dev("scancode"), OREAD);
+		ledsfd = eopen(dev("leds"), OWRITE);
+		mctlfd = eopen(dev("mousectl"), OWRITE);
+		msinfd = eopen(dev("mousein"), OWRITE);
+	}
+
+	notefd = procopen(getpid(), "notepg", OWRITE);
 
 	consreqchan = chancreate(sizeof(Req*), 0);
 	kbdreqchan = chancreate(sizeof(Req*), 0);
@@ -1466,8 +1521,6 @@ threadmain(int argc, char** argv)
 	kbdchan = chancreate(sizeof(char*), 16);
 	intchan = chancreate(sizeof(int), 0);
 
-	elevate();
-	procrfork(ctlproc, nil, STACK, RFNAMEG|RFNOTEG);
-	threadpostmountsrv(&fs, srv, mtpt, MBEFORE);
+	threadpostmountsrv(&fs, sname, mntpt, MBEFORE);
 	threadexits(0);
 }
