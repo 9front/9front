@@ -23,11 +23,11 @@ fn server {
 	if(test -d /mnt/term/mnt/cpunote) {
 		rfork e
 		mainproc=$apid
-		exec cat </mnt/term/mnt/cpunote/data >/proc/$mainproc/notepg &
+		{cat; echo -n hangup} </mnt/term/mnt/cpunote/data >/proc/$mainproc/notepg &
 		noteproc=$apid
 		wait $mainproc
 		echo -n $status >/mnt/term/env/rstatus >[2]/dev/null
-		echo -n kill >/proc/$noteproc/note
+		echo -n hangup >/proc/$noteproc/notepg
 	}
 }
 
