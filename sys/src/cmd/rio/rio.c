@@ -194,6 +194,11 @@ threadmain(int argc, char *argv[])
 		exits("display open");
 	}
 	iconinit();
+
+	exitchan = chancreate(sizeof(int), 0);
+	winclosechan = chancreate(sizeof(Window*), 0);
+	deletechan = chancreate(sizeof(char*), 0);
+
 	view = screen;
 	viewr = view->r;
 	mousectl = initmouse(nil, screen);
@@ -208,10 +213,6 @@ threadmain(int argc, char *argv[])
 		error("can't allocate screen");
 	draw(view, viewr, background, nil, ZP);
 	flushimage(display, 1);
-
-	exitchan = chancreate(sizeof(int), 0);
-	winclosechan = chancreate(sizeof(Window*), 0);
-	deletechan = chancreate(sizeof(char*), 0);
 
 	timerinit();
 	threadcreate(keyboardthread, nil, STACK);
@@ -1316,7 +1317,6 @@ kbdproc(void *arg)
 		/* read kbd state */
 		while((n = read(kfd, buf, sizeof(buf))) > 0)
 			chanprint(c, "%.*s", n, buf);
-		close(kfd);
 	} else {
 		/* read single characters */
 		p = buf;
@@ -1337,6 +1337,7 @@ kbdproc(void *arg)
 			p = buf + n;
 		}
 	}
+	send(exitchan, nil);
 }
 
 Channel*
