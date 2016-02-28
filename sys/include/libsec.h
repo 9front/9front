@@ -215,7 +215,7 @@ struct DigestState
 {
 	uvlong	len;
 	union {
-		u32int	state[8];
+		u32int	state[16];
 		u64int	bstate[8];
 	};
 	uchar	buf[256];
