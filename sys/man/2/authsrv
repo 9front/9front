@@ -1,6 +1,6 @@
 .TH AUTHSRV 2
 .SH NAME
-authdial, passtokey, nvcsum, readnvram, convT2M, convM2T, convTR2M, convM2TR, convA2M, convM2A, convPR2M, convM2PR, _asgetticket, _asrequest, _asgetresp, _asrdresp \- routines for communicating with authentication servers
+authdial, passtokey, nvcsum, readnvram, convT2M, convM2T, convTR2M, convM2TR, convA2M, convM2A, convPR2M, convM2PR, _asgetticket, _asrequest, _asgetresp, _asrdresp, _asgetpakkey, authpak_hash, authpak_new, authpak_finish \- routines for communicating with authentication servers
 .SH SYNOPSIS
 .nf
 .PP
@@ -58,6 +58,18 @@ int	_asgetresp(int fd, Ticket *t, Authenticator *a, Authkey *key)
 .PP
 .B
 int	_asrdresp(int fd, char *buf, int len)
+.PP
+.B
+int	_asgetpakkey(int fd, Ticketreq *tr, Authkey *a)
+.PP
+.B
+void	authpak_hash(Authkey *k, char *u)
+.PP
+.B
+void	authpak_new(PAKpriv *p, Authkey *k, uchar y[PAKYLEN], int isclient)
+.PP
+.B
+int	authpak_finish(PAKpriv *p, Authkey *k, uchar y[PAKYLEN])
 .SH DESCRIPTION
 .I Authdial
 dials an authentication server over the
@@ -245,6 +257,64 @@ The routine
 receives either a character array or an error string.
 On error, it sets errstr and returns -1.  If successful,
 it returns the number of bytes received.
+.PP
+.I Authpak_hash
+prepares a
+.I Authkey
+structure for a password authenticated key exchange (see
+.IR authsrv (6))
+by calculating the pakhash from a user's aeskey and id
+.IR u .
+The fuction hashes the password derived aeskey and user id together
+using hmac_sha256 and maps the result into two elliptic curve points
+PN/PM on the Ed448-goldielocks curve using elligator2.
+.PP
+.I Authpak_new
+generates a new elliptic curve diffie-hellman key pair for a password
+authenticated key exchange from a previously hashed
+.I Authkey
+structure
+.IR k .
+The randomly generated private key is returned in the
+.I PAKpriv
+structure passed in
+.IR p ,
+while the pakhash encrytped public key is returned in
+.IR y .
+.PP
+.I Authpak_finish
+completes a password authenticated key exchange, taking the other
+sides pakhash encrypted public key
+.I y
+and our private key
+.I p
+returning the shared secret pakkey in the
+.I Authkey
+structure
+.IR k .
+The function returns zero on success or non-zero on failure (malformed
+public key).
+.PP
+The function
+.I _asgetpakkey
+establishes a new shared pakkey between the us and the authentication server
+for ticket encryption; using the functions above; taking a previously hashed
+.I Authkey
+.I a
+and
+.I Ticketreq
+.I tr
+and returns the shared pakkey in the
+.I Authkey
+structure. It is usually called before
+.I _asrequest
+right after
+.IR authdial
+to negotiate bruteforce resistant ticket encryption for the
+ticket request that follows (see
+.IR authsrv (6)).
+Returns zero on success, or non-zero on error (authenticatoin
+server does not support the AuthPAK request or when we got a malformed public key).
 .SH SOURCE
 .B /sys/src/libauthsrv
 .SH SEE ALSO
