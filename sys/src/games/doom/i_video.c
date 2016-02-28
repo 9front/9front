@@ -96,7 +96,7 @@ void I_FinishUpdate(void)
 	if(resized){
 		resized = 0;
 		if(getwindow(display, Refnone) < 0)
-			sysfatal("getwindow failed: %r");
+			sysfatal("getwindow: %r");
 
 		/* make black background */
 		draw(screen, screen->r, display->black, nil, ZP);
@@ -117,6 +117,8 @@ void I_FinishUpdate(void)
 
 	/* the row image, y-axis gets scaled with repl flag */
 	rowimg = allocimage(display, Rect(0, 0, scale*SCREENWIDTH, 1), RGB24, 1, DNofill);
+	if(rowimg == nil)
+		sysfatal("allocimage: %r");
 
 	s = screens[0];
 	for(y = 0; y < SCREENHEIGHT; y++){
