@@ -1,8 +1,5 @@
 bind -a $home/bin/rc /bin
 bind -a $home/bin/$cputype /bin
-mount -qC /srv/boot /n/other other
-bind -qc /n/other/usr/$user/tmp $home/tmp
-bind -c $home/tmp /tmp
 if(! syscall create /tmp/xxx 1 0666 >[2]/dev/null)
 	ramfs	# in case we're running off a cd
 font=/lib/font/bit/vga/unicode.font
