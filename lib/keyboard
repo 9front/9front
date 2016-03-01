@@ -394,9 +394,9 @@
 2020  dg          †	dagger
 2021  dd          ‡	double dagger
 2022  bu          •	bullet
-2024  1.          ․ one dot leader
-2025  2.          ‥ two dot leader
-2026  3.          … horizontal ellipsis
+2024  1.          ․	one dot leader
+2025  2.          ‥	two dot leader
+2026  3.          …	horizontal ellipsis
 203D  !? ?!       ‽	interrobang
 2070  s0          ⁰	superscript digit zero
 2074  s4          ⁴	superscript digit four
@@ -482,7 +482,7 @@
 2211  su          ∑	n-ary summation
 2213  -+          ∓	minus-or-plus sign
 2217  **          ∗	asterisk operator
-2219  bo          ∙ bullet operator
+2219  bo          ∙	bullet operator
 221A  sr          √	square root
 221D  pt          ∝	proportional to
 221E  if          ∞	infinity
@@ -546,8 +546,8 @@
 2620  X(          ☠	skull face
 2622  TF          ☢	trefoil
 262D  SU          ☭	hammer and sickle
-2639  :(          ☹ sad face
-263A  :)          ☺ smiley face
+2639  :(          ☹	sad face
+263A  :)          ☺	smiley face
 2654  wk          ♔	white chess king
 2655  wq          ♕	white chess queen
 2656  wr          ♖	white chess rook
@@ -566,7 +566,7 @@
 266d  Mb          ♭	music flat
 266e  M#          ♮	music natural
 266f  Ms          ♯	music sharp
-2713  cm          ✓ check mark
+2713  cm          ✓	check mark
 27e8  d<          ⟨	mathematical left angle bracket
 27e9  d>          ⟩	mathematical right angle bracket
 F015  ZA          	raw alt (plan 9 specific)
