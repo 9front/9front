@@ -96,7 +96,7 @@ Whenever
 returns nil, it sets the system error string.
 .PP
 .I Respondcmderror
-resoponds to request
+responds to request
 .I r
 with an error of the form
 `\fIfmt\fB:\fI cmd\fR,'

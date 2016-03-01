@@ -279,7 +279,7 @@ does not change the hardware color map, which
 should be set externally to a grey scale; try the command
 .B getmap gamma
 (see
-.IR getmap (9.1))
+.IR colors (1))
 on an 8-bit color-mapped display.
 .PD
 .SH EXAMPLES
