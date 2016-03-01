@@ -482,6 +482,7 @@
 2211  su          ∑	n-ary summation
 2213  -+          ∓	minus-or-plus sign
 2217  **          ∗	asterisk operator
+2219  bo          ∙ bullet operator
 221A  sr          √	square root
 221D  pt          ∝	proportional to
 221E  if          ∞	infinity
@@ -565,6 +566,7 @@
 266d  Mb          ♭	music flat
 266e  M#          ♮	music natural
 266f  Ms          ♯	music sharp
+2713  cm          ✓ check mark
 27e8  d<          ⟨	mathematical left angle bracket
 27e9  d>          ⟩	mathematical right angle bracket
 F015  ZA          	raw alt (plan 9 specific)
