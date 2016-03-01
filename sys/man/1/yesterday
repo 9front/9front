@@ -154,3 +154,5 @@ diffy -r /sys/src
 .IR fs (4).
 .SH BUGS
 It's hard to use this command without singing.
+.PP
+Doesn't work on January 1st.
