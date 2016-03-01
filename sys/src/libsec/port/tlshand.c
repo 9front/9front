@@ -1035,6 +1035,7 @@ verifyDHparams(TlsConnection *c, Bytes *par, Bytes *sig, int sigalg)
 		digestlen = MD5dlen + SHA1dlen;
 		md5(blob->data, blob->len, digest, nil);
 		sha1(blob->data, blob->len, digest+MD5dlen, nil);
+		sigalg = 1; // only RSA signatures supported for version <= TLS1.1
 	} else {
 		int hashalg = (sigalg>>8) & 0xFF;
 		digestlen = -1;
