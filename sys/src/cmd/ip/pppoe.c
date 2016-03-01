@@ -358,6 +358,7 @@ wantoffer(uchar *pkt)
 	acname = copy(s, len);
 	if(wantac && strcmp(acname, wantac) != 0){
 		free(acname);
+		acname = nil;
 		return bad("wrong ac name");
 	}
 
