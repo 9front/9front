@@ -7,30 +7,32 @@
 
 /*
  * known debug flags
- *	-a		acid declaration output
+ *	-.		Inhibit search for includes in source directory
+
  *	-A		!B
  *	-B		non ANSI
- *	-d		print declarations
  *	-D name		define
  *	-F		format specification check
- *	-i		print initialization
  *	-I path		include
- *	-l		generate little-endian code
  *	-L		print every NAME symbol
  *	-M		constant multiplication
+ *	-S		print assembly
+ *	-V		enable void* conversion warnings
+ *	-X		abort on error
+
+ *	-a		acid declaration output
+ *	-d		print declarations
+ *	-i		print initialization
+ *	-l		generate little-endian code
  *	-m		print add/sub/mul trees
  *	-n		print acid to file (%.c=%.acid) (with -a or -aa)
  *	-o file		output file
  *	-p		use standard cpp ANSI preprocessor (not on windows)
  *	-r		print registerization
  *	-s		print structure offsets (with -a or -aa)
- *	-S		print assembly
  *	-t		print type trees
- *	-V		enable void* conversion warnings
  *	-v		verbose printing
  *	-w		print warnings
- *	-X		abort on error
- *	-.		Inhibit search for includes in source directory
  */
 
 void
