@@ -498,16 +498,6 @@ acomp(Rune *s, Rune *t)
 }
 
 /*
- * Copy null terminated Runes from 'from' to 'to'.
- */
-void
-runescpy(Rune *to, Rune *from)
-{
-	while((*to++ = *from++) != 0)
-		continue;
-}
-
-/*
  * Conversion of unsigned number to long, no overflow detection
  */
 long

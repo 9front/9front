@@ -109,7 +109,6 @@ void	outchar(int);
 void	outchars(char *);
 void	outnl(int);
 void	outpiece(char *, char *);
-void	runescpy(Rune*, Rune*);
 long	runetol(Rune*);
 
 long	oednextoff(long);
