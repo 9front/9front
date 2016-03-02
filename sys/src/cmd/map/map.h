@@ -7,8 +7,6 @@
 
 #define TWOPI (2*PI)
 #define RAD (PI/180)
-double	hypot(double, double);	/* sqrt(a*a+b*b) */
-double	tan(double);		/* not in K&R library */
 
 #define ECC .08227185422	/* eccentricity of earth */
 #define EC2 .006768657997
