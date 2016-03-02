@@ -4,7 +4,7 @@ vt \- emulate a VT-100 or VT-220 terminal
 .SH SYNOPSIS
 .B vt
 [
-.B -2abcx
+.B -2abcrx
 ]
 [
 .B -f
@@ -52,6 +52,9 @@ sets the
 names a
 .I log
 file for the session.
+.TP
+.B r
+start in raw mode.
 .SS Menus
 The right button has a menu with the following entries to provide
 the sort of character processing expected by non-Plan 9 systems:

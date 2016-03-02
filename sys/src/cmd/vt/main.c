@@ -135,13 +135,14 @@ main(int argc, char **argv)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-2abcx] [-f font] [-l logfile]\n", argv0);
+	fprint(2, "usage: %s [-2abcrx] [-f font] [-l logfile]\n", argv0);
 	exits("usage");
 }
 
 void
 initialize(int argc, char **argv)
 {
+	int rflag;
 	int i, blkbg;
 	char *fontname, *p;
 
@@ -151,6 +152,7 @@ initialize(int argc, char **argv)
 	term = "vt100";
 	fk = vt100fk;
 	blkbg = nocolor = 0;
+	rflag = 0;
 	ARGBEGIN{
 	case '2':
 		term = "vt220";
@@ -179,6 +181,9 @@ initialize(int argc, char **argv)
 		fk = xtermfk;
 		term = "xterm";
 		break;
+	case 'r':
+		rflag = 1;
+		break;
 	default:
 		usage();
 		break;
@@ -195,6 +200,7 @@ initialize(int argc, char **argv)
 	werrstr("");		/* clear spurious error messages */
 	ebegin(Ehost);
 
+	cs->raw = rflag;
 	histp = hist;
 	menu2.item = menutext2;
 	menu3.item = menutext3;
