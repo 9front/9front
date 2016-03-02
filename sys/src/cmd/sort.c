@@ -108,6 +108,8 @@ void	dokey_gn(Key*, uchar*, uchar*, Field*);
 void	dokey_m(Key*, uchar*, uchar*, Field*);
 void	dokey_r(Key*, uchar*, uchar*, Field*);
 void	done(char*);
+void*	emalloc(ulong);
+void*	erealloc(void*, ulong);
 int	kcmp(Key*, Key*);
 void	makemapd(Field*);
 void	makemapm(Field*);
@@ -115,7 +117,6 @@ void	mergefiles(int, int, Biobuf*);
 void	mergeout(Biobuf*);
 void	newfield(void);
 Line*	newline(Biobuf*);
-void	nomem(void);
 void	notifyf(void*, char*);
 void	printargs(void);
 void	printout(Biobuf*);
@@ -139,8 +140,7 @@ main(int argc, char *argv[])
 		printargs();
 
 	for(i=1; i<argc; i++) {
-		s = argv[i];
-		if(s == 0)
+		if((s = argv[i]) == nil)
 			continue;
 		if(strcmp(s, "-") == 0) {
 			Binit(&bbuf, 0, OREAD);
@@ -164,7 +164,7 @@ main(int argc, char *argv[])
 		Bterm(&bbuf);
 	}
 	if(args.cflag)
-		done(0);
+		done(nil);
 	if(args.vflag)
 		fprint(2, "=========\n");
 
@@ -185,7 +185,7 @@ main(int argc, char *argv[])
 		printout(&bbuf);
 	}
 	Bterm(&bbuf);
-	done(0);
+	done(nil);
 }
 
 void
@@ -195,12 +195,10 @@ dofile(Biobuf *b)
 	int n;
 
 	if(args.cflag) {
-		ol = newline(b);
-		if(ol == 0)
+		if((ol = newline(b)) == nil)
 			return;
 		for(;;) {
-			l = newline(b);
-			if(l == 0)
+			if((l = newline(b)) == nil)
 				break;
 			n = kcmp(ol->key, l->key);
 			if(n > 0 || (n == 0 && args.uflag)) {
@@ -214,14 +212,10 @@ dofile(Biobuf *b)
 		return;
 	}
 
-	if(args.linep == 0) {
-		args.linep = malloc(args.mline * sizeof(args.linep));
-		if(args.linep == 0)
-			nomem();
-	}
+	if(args.linep == nil)
+		args.linep = emalloc(args.mline * sizeof(args.linep));
 	for(;;) {
-		l = newline(b);
-		if(l == 0)
+		if((l = newline(b)) == nil)
 			break;
 		if(args.nline >= args.mline)
 			tempout();
@@ -236,13 +230,13 @@ notifyf(void*, char *s)
 {
 
 	if(strcmp(s, "interrupt") == 0)
-		done(0);
+		done(nil);
 	if(strcmp(s, "hangup") == 0)
-		done(0);
+		done(nil);
 	if(strcmp(s, "kill") == 0)
-		done(0);
+		done(nil);
 	if(strncmp(s, "sys: write on closed pipe", 25) == 0)
-		done(0);
+		done(nil);
 	fprint(2, "sort: note: %s\n", s);
 	abort();
 }
@@ -256,22 +250,21 @@ newline(Biobuf *b)
 
 	p = Brdline(b, '\n');
 	n = Blinelen(b);
-	if(p == 0) {
+	if(p == nil) {
 		if(n == 0)
 			return 0;
-		l = 0;
+		l = nil;
 		for(n=0;;) {
-			if((n & 31) == 0) {
-				l = realloc(l, sizeof(Line) +
+			if((n & 31) == 0)
+				l = erealloc(l, sizeof(Line) +
 					(n+31)*sizeof(l->line[0]));
-				if(l == 0)
-					nomem();
-			}
 			c = Bgetc(b);
 			if(c < 0) {
 				fprint(2, "sort: newline added\n");
 				c = '\n';
 			}
+			if(l == nil)
+				sysfatal("bug: l == nil");
 			l->line[n++] = c;
 			if(c == '\n')
 				break;
@@ -280,10 +273,7 @@ newline(Biobuf *b)
 		buildkey(l);
 		return l;
 	}
-	l = malloc(sizeof(Line) +
-		(n-1)*sizeof(l->line[0]));
-	if(l == 0)
-		nomem();
+	l = emalloc(sizeof(Line) + (n-1)*sizeof(l->line[0]));
 	l->llen = n;
 	memmove(l->line, p, n);
 	buildkey(l);
@@ -342,11 +332,29 @@ done(char *xs)
 	exits(xs);
 }
 
-void
-nomem(void)
+void*
+erealloc(void *v, ulong n)
 {
-	fprint(2, "sort: out of memory\n");
-	done("mem");
+	if((v = realloc(v, n)) == nil && n != 0){
+		fprint(2, "realloc: %r\n");
+		done("realloc");
+	}
+
+	return v;
+}
+
+void*
+emalloc(ulong n)
+{
+	void *v;
+
+	if((v = malloc(n)) == nil){
+		fprint(2, "malloc: %r\n");
+		done("malloc");
+	}
+	memset(v, 0, n);
+
+	return v;
 }
 
 char*
@@ -373,7 +381,7 @@ tempfile(int n)
 		}
 	}
 
-	sprint(file, "%s/sort.%.4d.%.4d", dir, pid%10000, n);
+	snprint(file, sizeof(file), "%s/sort.%.4d.%.4d", dir, pid%10000, n);
 	return file;
 }
 
@@ -415,10 +423,8 @@ mergefiles(int t, int n, Biobuf *b)
 	char *tf;
 	int i, f, nn;
 
-	mmp = malloc(n*sizeof(*mmp));
-	mp = malloc(n*sizeof(*mp));
-	if(mmp == 0 || mp == 0)
-		nomem();
+	mmp = emalloc(n*sizeof(*mmp));
+	mp = emalloc(n*sizeof(*mp));
 
 	nn = 0;
 	m = mp;
@@ -433,8 +439,7 @@ mergefiles(int t, int n, Biobuf *b)
 		Binit(&m->b, f, OREAD);
 		mmp[nn] = m;
 
-		l = newline(&m->b);
-		if(l == 0)
+		if((l = newline(&m->b)) == nil)
 			continue;
 		nn++;
 		m->line = l;
@@ -461,7 +466,7 @@ mergefiles(int t, int n, Biobuf *b)
 			}
 
 			l = newline(&m->b);
-			if(l == 0) {
+			if(l == nil) {
 				nn--;
 				mmp[0] = mmp[nn];
 				break;
@@ -741,7 +746,7 @@ doargs(int argc, char *argv[])
 				s = strchr(s, 0);
 				break;
 			case 'k':	/* posix key (what were they thinking?) */
-				p = 0;
+				p = nil;
 				if(*s == 0) {
 					i++;
 					if(i < argc) {
@@ -751,12 +756,12 @@ doargs(int argc, char *argv[])
 				} else
 					p = s;
 				s = strchr(s, 0);
-				if(p == 0)
+				if(p == nil)
 					break;
 
 				newfield();
 				q = strchr(p, ',');
-				if(q)
+				if(q != nil)
 					*q++ = 0;
 				f = &args.field[args.nfield];
 				dofield(p, &f->beg1, &f->beg2, 1, 1);
@@ -764,7 +769,7 @@ doargs(int argc, char *argv[])
 					f->flags |= B1flag;
 					f->flags &= ~Bflag;
 				}
-				if(q) {
+				if(q != nil) {
 					dofield(q, &f->end1, &f->end2, 1, 0);
 					if(f->end2 <= 0)
 						f->end1++;
@@ -1388,21 +1393,17 @@ buildkey(Line *l)
 
 	for(i=1; i<=args.nfield; i++) {
 		f = &args.field[i];
-		lp = skip(l->line, f->beg1, f->beg2, f->flags&B1flag, 0);
-		if(lp == 0)
+		if((lp = skip(l->line, f->beg1, f->beg2, f->flags&B1flag, 0)) == nil)
 			lp = l->line + ll;
-		lpe = skip(l->line, f->end1, f->end2, f->flags&Bflag, 1);
-		if(lpe == 0)
+		if((lpe = skip(l->line, f->end1, f->end2, f->flags&Bflag, 1)) == nil)
 			lpe = l->line + ll;
 		n = (lpe - lp) + 1;
 		if(n <= 0)
 			n = 1;
 		if(cl+(n+4) > kl) {
 			kl = cl+(n+4);
-			k = realloc(k, sizeof(Key) +
+			k = erealloc(k, sizeof(Key) +
 				(kl-1)*sizeof(k->key[0]));
-			if(k == 0)
-				nomem();
 		}
 		k->klen = cl;
 		(*f->dokey)(k, lp, lpe, f);
@@ -1416,10 +1417,8 @@ buildkey(Line *l)
 		f = &args.field[0];
 		if(cl+(ll+4) > kl) {
 			kl = cl+(ll+4);
-			k = realloc(k, sizeof(Key) +
+			k = erealloc(k, sizeof(Key) +
 				(kl-1)*sizeof(k->key[0]));
-			if(k == 0)
-				nomem();
 		}
 		k->klen = cl;
 		(*f->dokey)(k, l->line, l->line+ll, f);
