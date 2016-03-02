@@ -7,7 +7,7 @@
 void
 usage(void)
 {
-	fprint(2, "auth/pemdecode section [file]\n");
+	fprint(2, "auth/pemencode section [file]\n");
 	exits("usage");
 }
 
