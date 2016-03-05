@@ -1,5 +1,5 @@
 /* libFLAC - Free Lossless Audio Codec library
- * Copyright (C) 2000,2001,2002,2003,2004  Josh Coalson
+ * Copyright (C) 2013-2014  Xiph.org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,13 +29,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FLAC__PROTECTED__FILE_DECODER_H
-#define FLAC__PROTECTED__FILE_DECODER_H
+#ifndef FLAC__SHARE__PRIVATE_H
+#define FLAC__SHARE__PRIVATE_H
 
-#include "FLAC/file_decoder.h"
+/*
+ * Unpublished debug routines from libFLAC> This should not be used from any
+ * client code other than code shipped with the FLAC sources.
+ */
+FLAC_API FLAC__bool FLAC__stream_encoder_disable_constant_subframes(FLAC__StreamEncoder *encoder, FLAC__bool value);
+FLAC_API FLAC__bool FLAC__stream_encoder_disable_fixed_subframes(FLAC__StreamEncoder *encoder, FLAC__bool value);
+FLAC_API FLAC__bool FLAC__stream_encoder_disable_verbatim_subframes(FLAC__StreamEncoder *encoder, FLAC__bool value);
+FLAC_API FLAC__bool FLAC__stream_encoder_set_do_md5(FLAC__StreamEncoder *encoder, FLAC__bool value);
+FLAC_API FLAC__bool FLAC__stream_encoder_get_do_md5(const FLAC__StreamEncoder *encoder);
 
-typedef struct FLAC__FileDecoderProtected {
-	FLAC__FileDecoderState state;
-} FLAC__FileDecoderProtected;
-
-#endif
+#endif /* FLAC__SHARE__PRIVATE_H */

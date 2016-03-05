@@ -3,26 +3,29 @@
 LIB=libFLAC.a$O
 
 OFILES=\
-	bitbuffer.$O\
 	bitmath.$O\
+	bitreader.$O\
+	bitwriter.$O\
 	cpu.$O\
 	crc.$O\
 	fixed.$O\
+	float.$O\
 	format.$O\
 	lpc.$O\
 	md5.$O\
 	memory.$O\
 	metadata_iterators.$O\
 	metadata_object.$O\
-	file_encoder.$O\
-	file_decoder.$O\
-	seekable_stream_encoder.$O\
-	seekable_stream_decoder.$O\
-	stream_encoder.$O\
+	ogg_decoder_aspect.$O\
+	ogg_encoder_aspect.$O\
+	ogg_helper.$O\
+	ogg_mapping.$O\
 	stream_decoder.$O\
+	stream_encoder.$O\
 	stream_encoder_framing.$O\
+	window.$O\
 
 CC=pcc
-CFLAGS=-I. -DVERSION="1.1.1" -DPlan9 -DFLAC__NO_NASM -DFLAC__ALIGN_MALLOC_DATA -D_BSD_EXTENSION -D_POSIX_SOURCE -c
+CFLAGS=-I. -I../libogg -DVERSION="1.3.1" -DPlan9 -DFLAC__HAS_OGG -DFLAC__ALIGN_MALLOC_DATA -D_C99_SNPRINTF_EXTENSION -D_BSD_EXTENSION -D_POSIX_SOURCE -c
 
 </sys/src/cmd/mklib

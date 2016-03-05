@@ -1,5 +1,6 @@
 /* libFLAC - Free Lossless Audio Codec library
- * Copyright (C) 2004  Josh Coalson
+ * Copyright (C) 2004-2009  Josh Coalson
+ * Copyright (C) 2011-2014  Xiph.Org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,7 +69,7 @@
  *  stdio streams to implement the callbacks, you can pass fread, fwrite, and
  *  fclose anywhere a FLAC__IOCallback_Read, FLAC__IOCallback_Write, or
  *  FLAC__IOCallback_Close is required, and a FILE* anywhere a FLAC__IOHandle
- *  is required.  \warning You generally can NOT directly use fseek or ftell
+ *  is required.  \warning You generally CANNOT directly use fseek or ftell
  *  for FLAC__IOCallback_Seek or FLAC__IOCallback_Tell since on most systems
  *  these use 32-bit offsets and FLAC requires 64-bit offsets to deal with
  *  large files.  You will have to find an equivalent function (e.g. ftello),
@@ -82,6 +83,9 @@
 extern "C" {
 #endif
 
+/** This is the opaque handle type used by the callbacks.  Typically
+ *  this is a \c FILE* or address of a file descriptor.
+ */
 typedef void* FLAC__IOHandle;
 
 /** Signature for the read callback.

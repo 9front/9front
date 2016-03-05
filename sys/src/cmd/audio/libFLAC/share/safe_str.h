@@ -1,6 +1,5 @@
 /* libFLAC - Free Lossless Audio Codec library
- * Copyright (C) 2002-2009  Josh Coalson
- * Copyright (C) 2011-2014  Xiph.Org Foundation
+ * Copyright (C) 2013-2014  Xiph.org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,17 +29,41 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FLAC__PRIVATE__METADATA_H
-#define FLAC__PRIVATE__METADATA_H
-
-#include "FLAC/metadata.h"
-
-/* WATCHOUT: all malloc()ed data in the block is free()ed; this may not
- * be a consistent state (e.g. PICTURE) or equivalent to the initial
- * state after FLAC__metadata_object_new()
+/* Safe string handling functions to replace things like strcpy, strncpy,
+ * strcat, strncat etc.
+ * All of these functions guarantee a correctly NUL terminated string but
+ * the string may be truncated if the destination buffer was too short.
  */
-void FLAC__metadata_object_delete_data(FLAC__StreamMetadata *object);
 
-void FLAC__metadata_object_cuesheet_track_delete_data(FLAC__StreamMetadata_CueSheet_Track *object);
+#ifndef FLAC__SHARE_SAFE_STR_H
+#define FLAC__SHARE_SAFE_STR_H
 
-#endif
+static inline char *
+safe_strncat(char *dest, const char *src, size_t dest_size)
+{
+	char * ret;
+
+	if (dest_size < 1)
+		return dest;
+
+	ret = strncat(dest, src, dest_size - strlen (dest));
+	dest [dest_size - 1] = 0;
+
+	return ret;
+}
+
+static inline char *
+safe_strncpy(char *dest, const char *src, size_t dest_size)
+{
+	char * ret;
+
+	if (dest_size < 1)
+		return dest;
+
+	ret = strncpy(dest, src, dest_size);
+	dest [dest_size - 1] = 0;
+
+	return ret;
+}
+
+#endif /* FLAC__SHARE_SAFE_STR_H */

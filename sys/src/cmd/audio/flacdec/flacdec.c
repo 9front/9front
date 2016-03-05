@@ -8,18 +8,18 @@ static int ifd = -1;
 static int sts;
 
 static FLAC__StreamDecoderReadStatus
-decinput(FLAC__StreamDecoder *dec, FLAC__byte buffer[], unsigned *bytes, void *client_data)
+decinput(FLAC__StreamDecoder *dec, FLAC__byte buffer[], size_t *bytes, void *client_data)
 {
 	int n = *bytes;
 
-	n = fread(buffer,1,n,stdin);
-	if(n <= 0){
-		*bytes = 0;
+	n = fread(buffer, 1, n, stdin);
+	if(n < 0)
+		return FLAC__STREAM_DECODER_READ_STATUS_ABORT;
+	if(n == 0)
 		return FLAC__STREAM_DECODER_READ_STATUS_END_OF_STREAM;
-	} else {
-		*bytes = n;
-		return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;
-	}
+
+	*bytes = n;
+	return FLAC__STREAM_DECODER_READ_STATUS_CONTINUE;
 }
 
 static FLAC__StreamDecoderWriteStatus
@@ -111,22 +111,13 @@ decerror(FLAC__StreamDecoder *dec, FLAC__StreamDecoderErrorStatus status, void *
 {
 }
 
-static void
-decmeta(FLAC__StreamDecoder *dec, FLAC__StreamMetadata *metadata, void *client_data)
-{
-}
-
 int main(int argc, char *argv[])
 {
 	FLAC__bool ok = true;
 	FLAC__StreamDecoder *dec = 0;
 
 	dec = FLAC__stream_decoder_new();
-	FLAC__stream_decoder_set_read_callback(dec, decinput);
-	FLAC__stream_decoder_set_write_callback(dec, decoutput);
-	FLAC__stream_decoder_set_error_callback(dec, decerror);
-	FLAC__stream_decoder_set_metadata_callback(dec, decmeta);
-	FLAC__stream_decoder_init(dec);
+	FLAC__stream_decoder_init_stream(dec, decinput, NULL, NULL, NULL, NULL, decoutput, NULL, decerror, NULL);
 	FLAC__stream_decoder_process_until_end_of_stream(dec);
 	FLAC__stream_decoder_finish(dec);
 

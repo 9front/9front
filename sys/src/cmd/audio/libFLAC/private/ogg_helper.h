@@ -1,5 +1,6 @@
-/* libFLAC - Free Lossless Audio Codec library
- * Copyright (C) 2001,2002,2003,2004  Josh Coalson
+/* libFLAC - Free Lossless Audio Codec
+ * Copyright (C) 2004-2009  Josh Coalson
+ * Copyright (C) 2011-2014  Xiph.Org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,13 +30,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FLAC__PROTECTED__FILE_ENCODER_H
-#define FLAC__PROTECTED__FILE_ENCODER_H
+#ifndef FLAC__PRIVATE__OGG_HELPER_H
+#define FLAC__PRIVATE__OGG_HELPER_H
 
-#include "FLAC/file_encoder.h"
+#include <ogg/ogg.h>
+#include "FLAC/stream_encoder.h" /* for FLAC__StreamEncoder */
 
-typedef struct FLAC__FileEncoderProtected {
-	FLAC__FileEncoderState state;
-} FLAC__FileEncoderProtected;
+void simple_ogg_page__init(ogg_page *page);
+void simple_ogg_page__clear(ogg_page *page);
+FLAC__bool simple_ogg_page__get_at(FLAC__StreamEncoder *encoder, FLAC__uint64 position, ogg_page *page, FLAC__StreamEncoderSeekCallback seek_callback, FLAC__StreamEncoderReadCallback read_callback, void *client_data);
+FLAC__bool simple_ogg_page__set_at(FLAC__StreamEncoder *encoder, FLAC__uint64 position, ogg_page *page, FLAC__StreamEncoderSeekCallback seek_callback, FLAC__StreamEncoderWriteCallback write_callback, void *client_data);
 
 #endif

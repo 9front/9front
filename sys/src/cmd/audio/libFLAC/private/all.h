@@ -1,5 +1,6 @@
 /* libFLAC - Free Lossless Audio Codec library
- * Copyright (C) 2000,2001,2002,2003,2004  Josh Coalson
+ * Copyright (C) 2000-2009  Josh Coalson
+ * Copyright (C) 2011-2014  Xiph.Org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,11 +33,13 @@
 #ifndef FLAC__PRIVATE__ALL_H
 #define FLAC__PRIVATE__ALL_H
 
-#include "bitbuffer.h"
 #include "bitmath.h"
+#include "bitreader.h"
+#include "bitwriter.h"
 #include "cpu.h"
 #include "crc.h"
 #include "fixed.h"
+#include "float.h"
 #include "format.h"
 #include "lpc.h"
 #include "md5.h"

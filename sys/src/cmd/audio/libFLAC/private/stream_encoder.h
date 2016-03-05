@@ -1,5 +1,5 @@
 /* libFLAC - Free Lossless Audio Codec library
- * Copyright (C) 2002-2009  Josh Coalson
+ * Copyright (C) 2000-2009  Josh Coalson
  * Copyright (C) 2011-2014  Xiph.Org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,17 +30,38 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FLAC__PRIVATE__METADATA_H
-#define FLAC__PRIVATE__METADATA_H
+#ifndef FLAC__PRIVATE__STREAM_ENCODER_H
+#define FLAC__PRIVATE__STREAM_ENCODER_H
 
-#include "FLAC/metadata.h"
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
-/* WATCHOUT: all malloc()ed data in the block is free()ed; this may not
- * be a consistent state (e.g. PICTURE) or equivalent to the initial
- * state after FLAC__metadata_object_new()
+/*
+ * This is used to avoid overflow with unusual signals in 32-bit
+ * accumulator in the *precompute_partition_info_sums_* functions.
  */
-void FLAC__metadata_object_delete_data(FLAC__StreamMetadata *object);
+#define FLAC__MAX_EXTRA_RESIDUAL_BPS 4
 
-void FLAC__metadata_object_cuesheet_track_delete_data(FLAC__StreamMetadata_CueSheet_Track *object);
+#if (defined FLAC__CPU_IA32 || defined FLAC__CPU_X86_64) && defined FLAC__HAS_X86INTRIN
+#include "private/cpu.h"
+#include "FLAC/format.h"
+
+#ifdef FLAC__SSE2_SUPPORTED
+extern void FLAC__precompute_partition_info_sums_intrin_sse2(const FLAC__int32 residual[], FLAC__uint64 abs_residual_partition_sums[],
+			unsigned residual_samples, unsigned predictor_order, unsigned min_partition_order, unsigned max_partition_order, unsigned bps);
+#endif
+
+#ifdef FLAC__SSSE3_SUPPORTED
+extern void FLAC__precompute_partition_info_sums_intrin_ssse3(const FLAC__int32 residual[], FLAC__uint64 abs_residual_partition_sums[],
+			unsigned residual_samples, unsigned predictor_order, unsigned min_partition_order, unsigned max_partition_order, unsigned bps);
+#endif
+
+#ifdef FLAC__AVX2_SUPPORTED
+extern void FLAC__precompute_partition_info_sums_intrin_avx2(const FLAC__int32 residual[], FLAC__uint64 abs_residual_partition_sums[],
+			unsigned residual_samples, unsigned predictor_order, unsigned min_partition_order, unsigned max_partition_order, unsigned bps);
+#endif
+
+#endif
 
 #endif

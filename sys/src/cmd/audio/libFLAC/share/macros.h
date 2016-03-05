@@ -1,6 +1,5 @@
 /* libFLAC - Free Lossless Audio Codec library
- * Copyright (C) 2002-2009  Josh Coalson
- * Copyright (C) 2011-2014  Xiph.Org Foundation
+ * Copyright (C) 2013-2014  Xiph.org Foundation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,17 +29,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FLAC__PRIVATE__METADATA_H
-#define FLAC__PRIVATE__METADATA_H
+#include <errno.h>
 
-#include "FLAC/metadata.h"
-
-/* WATCHOUT: all malloc()ed data in the block is free()ed; this may not
- * be a consistent state (e.g. PICTURE) or equivalent to the initial
- * state after FLAC__metadata_object_new()
+/* FLAC_CHECK_RETURN : Check the return value of of the provided function and
+ * print and error message if it fails (ie returns a value < 0).
  */
-void FLAC__metadata_object_delete_data(FLAC__StreamMetadata *object);
 
-void FLAC__metadata_object_cuesheet_track_delete_data(FLAC__StreamMetadata_CueSheet_Track *object);
-
-#endif
+#define FLAC_CHECK_RETURN(x) \
+			{	if ((x) < 0) \
+					printf ("%s : %s\n", #x, strerror (errno)) ; \
+			}
