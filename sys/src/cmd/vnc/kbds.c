@@ -21,7 +21,7 @@ static Rune vnckeys[] =
 [0x38]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x40]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x48]	0,	0,	0,	0,	0,	0,	0,	0,
-[0x50]	Khome,	Kleft,	Kup,	Kright,	Kdown,	Kpgup,	Kpgdown,0,
+[0x50]	Khome,	Kleft,	Kup,	Kright,	Kdown,	Kpgup,	Kpgdown,Kend,
 [0x58]	0,	0,	0,	0,	0,	0,	0,	0,
 [0x60]	0,	Kprint,	0,	Kins,	0,	0,	0,	0,
 [0x68]	0,	0,	0,	Kbreak,	0,	0,	0,	0,
