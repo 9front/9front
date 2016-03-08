@@ -96,7 +96,6 @@ frselect(Frame *f, Mousectl *mc)	/* when called, button 1 is down */
 		}
 		if(scrled)
 			(*f->scroll)(f, 0);
-		flushimage(f->display, 1);
 		if(!scrled)
 			readmouse(mc);
 		mp = mc->xy;

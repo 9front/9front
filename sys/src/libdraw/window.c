@@ -201,7 +201,6 @@ originwindow(Image *w, Point log, Point scr)
 	uchar *b;
 	Point delta;
 
-	flushimage(w->display, 0);
 	b = bufimage(w->display, 1+4+2*4+2*4);
 	if(b == nil)
 		return 0;
@@ -211,8 +210,6 @@ originwindow(Image *w, Point log, Point scr)
 	BPLONG(b+9, log.y);
 	BPLONG(b+13, scr.x);
 	BPLONG(b+17, scr.y);
-	if(flushimage(w->display, 1) < 0)
-		return -1;
 	delta = subpt(log, w->r.min);
 	w->r = rectaddpt(w->r, delta);
 	w->clipr = rectaddpt(w->clipr, delta);

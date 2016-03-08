@@ -421,6 +421,7 @@ deletethread(void*)
 			originwindow(i, i->r.min, view->r.max);
 		}
 		freeimage(i);
+		flushimage(display, 1);
 		free(s);
 	}
 }
@@ -850,9 +851,6 @@ sweep(void)
 	r.max = p;
 	oi = nil;
 	while(mouse->buttons == 4){
-		readmouse(mousectl);
-		if(mouse->buttons != 4 && mouse->buttons != 0)
-			break;
 		if(!eqpt(mouse->xy, p)){
 			p = onscreen(mouse->xy);
 			r = canonrect(Rpt(p0, p));
@@ -864,9 +862,9 @@ sweep(void)
 				oi = i;
 				border(i, r, Selborder, sizecol, ZP);
 				draw(i, insetrect(r, Selborder), cols[BACK], nil, ZP);
-				flushimage(display, 1);
 			}
 		}
+		readmouse(mousectl);
 	}
 	if(mouse->buttons != 0)
 		goto Rescue;
@@ -939,12 +937,10 @@ drag(Window *w)
 	d = subpt(w->screenr.max, w->screenr.min);
 	op = subpt(mouse->xy, dm);
 	drawborder(Rect(op.x, op.y, op.x+d.x, op.y+d.y), 1);
-	flushimage(display, 1);
 	while(mouse->buttons==4){
 		p = subpt(mouse->xy, dm);
 		if(!eqpt(p, op)){
 			drawborder(Rect(p.x, p.y, p.x+d.x, p.y+d.y), 1);
-			flushimage(display, 1);
 			op = p;
 		}
 		readmouse(mousectl);
@@ -954,7 +950,6 @@ drag(Window *w)
 	cornercursor(w, mouse->xy, 1);
 	moveto(mousectl, mouse->xy);	/* force cursor update; ugly */
 	menuing = FALSE;
-	flushimage(display, 1);
 	if(mouse->buttons!=0 || !goodrect(r)){
 		while(mouse->buttons)
 			readmouse(mousectl);
@@ -1050,14 +1045,12 @@ bandsize(Window *w)
 		r = whichrect(w->screenr, p, which);
 		if(!eqrect(r, or) && goodrect(r)){
 			drawborder(r, 1);
-			flushimage(display, 1);
 			or = r;
 		}
 		readmouse(mousectl);
 	}
 	p = mouse->xy;
 	drawborder(or, 0);
-	flushimage(display, 1);
 	wsetcursor(w, 1);
 	if(mouse->buttons!=0 || !goodrect(or)){
 		while(mouse->buttons)

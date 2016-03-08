@@ -47,8 +47,6 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong col,
 		return nil;
 	}
 
-	/* flush pending data so we don't get error allocating the image */
-	flushimage(d, 0);
 	a = bufimage(d, 1+4+4+1+4+1+4*4+4*4+4);
 	if(a == nil)
 		goto Error;
@@ -74,8 +72,6 @@ _allocimage(Image *ai, Display *d, Rectangle r, ulong chan, int repl, ulong col,
 	BPLONG(a+39, clipr.max.x);
 	BPLONG(a+43, clipr.max.y);
 	BPLONG(a+47, col);
-	if(flushimage(d, 0) < 0)
-		goto Error;
 
 	if(ai != nil)
 		i = ai;
@@ -207,7 +203,6 @@ _freeimage1(Image *i)
 	if(i == nil || i->display == nil)
 		return 0;
 	d = i->display;
-	flushimage(d, 0);
 	if(i->screen != nil){
 		w = d->windows;
 		if(w == i)
@@ -226,9 +221,6 @@ _freeimage1(Image *i)
 		return -1;
 	a[0] = 'f';
 	BPLONG(a+1, i->id);
-	if(flushimage(d, i->screen!=nil) < 0)
-		return -1;
-
 	return 0;
 }
 

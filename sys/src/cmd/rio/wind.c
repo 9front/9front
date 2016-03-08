@@ -174,7 +174,7 @@ winctl(void *arg)
 	Stringpair pair;
 	Wctlmesg wcm;
 	Completion *cr;
-	char *kbdq[8], *kbds;
+	char *kbdq[32], *kbds;
 	int kbdqr, kbdqw;
 
 	w = arg;
@@ -1032,7 +1032,6 @@ wselect(Window *w)
 	if(q0==q1 && selectq==w->q0){
 		wdoubleclick(w, &q0, &q1);
 		wsetselect(w, q0, q1);
-		flushimage(display, 1);
 		x = w->mc.xy.x;
 		y = w->mc.xy.y;
 		/* stay here until something interesting happens */
@@ -1072,7 +1071,6 @@ wselect(Window *w)
 	}else
 		clickwin = nil;
 	wsetselect(w, q0, q1);
-	flushimage(display, 1);
 	while(w->mc.buttons){
 		w->mc.msec = 0;
 		b = w->mc.buttons;
@@ -1089,7 +1087,6 @@ wselect(Window *w)
 			}
 		}
 		wscrdraw(w);
-		flushimage(display, 1);
 		while(w->mc.buttons == b)
 			readmouse(&w->mc);
 		clickwin = nil;
@@ -1414,6 +1411,7 @@ wclosewin(Window *w)
 		/* move it off-screen to hide it, in case client is slow in letting it go */
 		MOVEIT originwindow(i, i->r.min, view->r.max);
 		freeimage(i);
+		flushimage(display, 1);
 	}
 }
 
