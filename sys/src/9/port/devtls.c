@@ -499,7 +499,7 @@ tlsopen(Chan *c, int omode)
 	c->mode = openmode(omode);
 	c->flag |= COPEN;
 	c->offset = 0;
-	c->iounit = qiomaxatomic;
+	c->iounit = MaxRecLen;
 	return c;
 }
 
@@ -1584,8 +1584,8 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 		e = p + n;
 		do{
 			m = e - p;
-			if(m > MaxRecLen)
-				m = MaxRecLen;
+			if(m > c->iounit)
+				m = c->iounit;
 
 			b = allocb(m);
 			if(waserror()){
