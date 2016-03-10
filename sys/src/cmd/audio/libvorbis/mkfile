@@ -5,28 +5,28 @@ CFLAGS=-I. -I../libogg -c
 LIB=libvorbis.a$O
 
 OFILES=\
-	mdct.$O\
-	smallft.$O\
-	block.$O\
-	envelope.$O\
-	window.$O\
-	lsp.$O\
-	lpc.$O\
 	analysis.$O\
-	synthesis.$O\
-	psy.$O\
-	info.$O\
-	floor1.$O\
-	floor0.$O\
-	res0.$O\
-	mapping0.$O\
-	registry.$O\
-	codebook.$O\
-	sharedbook.$O\
-	lookup.$O\
 	bitrate.$O\
-	vorbisfile.$O\
+	block.$O\
+	codebook.$O\
+	envelope.$O\
+	floor0.$O\
+	floor1.$O\
+	info.$O\
+	lookup.$O\
+	lpc.$O\
+	lsp.$O\
+	mapping0.$O\
+	mdct.$O\
+	psy.$O\
+	registry.$O\
+	res0.$O\
+	sharedbook.$O\
+	smallft.$O\
+	synthesis.$O\
 	vorbisenc.$O\
+	vorbisfile.$O\
+	window.$O\
 
 HFILES=\
 
