@@ -150,7 +150,7 @@ putstrn0(char *str, int n, int usewrite)
 
 	while(n > 0) {
 		t = memchr(str, '\n', n);
-		if(t) {
+		if(t != nil) {
 			m = t-str;
 			if(usewrite){
 				qwrite(serialoq, str, m);
@@ -302,7 +302,7 @@ pprint(char *fmt, ...)
 		return 0;
 
 	c = up->fgrp->fd[2];
-	if(c==0 || (c->mode!=OWRITE && c->mode!=ORDWR))
+	if(c==nil || (c->mode!=OWRITE && c->mode!=ORDWR))
 		return 0;
 	n = snprint(buf, sizeof buf, "%s %lud: ", up->text, up->pid);
 	va_start(arg, fmt);
