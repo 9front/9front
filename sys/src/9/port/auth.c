@@ -22,18 +22,17 @@ iseve(void)
 uintptr
 sysfversion(va_list list)
 {
-	uint msize, arglen;
+	int msize, arglen, fd;
 	char *vers;
 	Chan *c;
-	int fd;
 
 	fd = va_arg(list, int);
-	msize = va_arg(list, uint);
+	msize = va_arg(list, int);
 	vers = va_arg(list, char*);
-	arglen = va_arg(list, uint);
+	arglen = va_arg(list, int);
 	validaddr((uintptr)vers, arglen, 1);
 	/* check there's a NUL in the version string */
-	if(arglen==0 || memchr(vers, 0, arglen)==0)
+	if(arglen <= 0 || memchr(vers, 0, arglen) == nil)
 		error(Ebadarg);
 	c = fdtochan(fd, ORDWR, 0, 1);
 	if(waserror()){

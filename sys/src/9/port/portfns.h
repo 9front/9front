@@ -176,7 +176,7 @@ void		mmurelease(Proc*);
 void		mmuswitch(Proc*);
 Chan*		mntattach(Chan*, Chan*, char*, int);
 Chan*		mntauth(Chan*, char*);
-long		mntversion(Chan*, char*, int, int);
+int		mntversion(Chan*, char*, int, int);
 void		mouseresize(void);
 void		mountfree(Mount*);
 ulong		ms2tk(ulong);

@@ -90,7 +90,7 @@ mntreset(void)
 /*
  * Version is not multiplexed: message sent only once per connection.
  */
-long
+int
 mntversion(Chan *c, char *version, int msize, int returnlen)
 {
 	Fcall f;
@@ -259,7 +259,7 @@ mntauth(Chan *c, char *spec)
 
 	m = c->mux;
 	if(m == nil){
-		mntversion(c, VERSION9P, MAXRPC, 0);
+		mntversion(c, nil, 0, 0);
 		m = c->mux;
 		if(m == nil)
 			error(Enoversion);
