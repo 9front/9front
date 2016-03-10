@@ -178,7 +178,7 @@ Restart:
 	failed = 0;
 	lostsync = 0;
 	while (!done) {
-		if (failed) {
+		if (netfd < 0 || failed) {
 			// Wait for the netreader to die.
 			while (netfd >= 0) {
 				dmessage(1, "main; waiting for netreader to die\n");
@@ -208,7 +208,7 @@ Restart:
 			}
 
 			if(++lostsync > 2){
-				dmessage(2, "main; lost sync\n");
+				syslog(0, Logname, "connection seems hung up...");
 				failed = 1;
 				continue;
 			}
@@ -217,6 +217,9 @@ Restart:
 
 		case Unsent:
 			sendp(unacked, b);
+
+			if (netfd < 0)
+				break;
 
 			PBIT32(b->hdr.acked, inmsg);
 
