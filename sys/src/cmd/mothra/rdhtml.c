@@ -268,8 +268,9 @@ int pl_nextc(Hglob *g){
 	return c;
 }
 
-char *unquot(char *dst, char *src, int len){
-	char *e;
+char *unquot(char *src){
+	char *e, *dst;
+	int len;
 
 	e=0;
 	while(*src && strchr(" \t\r\n", *src))
@@ -279,10 +280,9 @@ char *unquot(char *dst, char *src, int len){
 		src++;
 	}
 	if(e==0) e=strchr(src, 0);
-	len--;
-	if((e - src) < len)
-		len=e-src;
-	if(len>0) memmove(dst, src, len);
+	len=e-src;
+	dst = emalloc(len+1);
+	memmove(dst, src, len);
 	dst[len]=0;
 	return dst;
 }
@@ -877,8 +877,9 @@ void plrdhtml(char *name, int fd, Www *dst){
 			str++;
 			pl_htmloutput(&g, 0, "[refresh: ", 0);
 			free(g.state->link);
-			g.state->link=unquot(buf, str, sizeof(buf));
-			pl_htmloutput(&g, 0, str, 0);
+			g.state->link=unquot(str);
+			pl_htmloutput(&g, 0, g.state->link, 0);
+			free(g.state->link);
 			g.state->link=0;
 			pl_htmloutput(&g, 0, "]", 0);
 			g.linebrk=1;
