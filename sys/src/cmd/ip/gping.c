@@ -1018,10 +1018,10 @@ main(int argc, char *argv[])
 		fprint(2, "%s: initdraw failed: %r\n", argv0);
 		exits("initdraw");
 	}
+	display->locking = 1;	/* tell library we're using the display lock */
 	colinit();
 	einit(Emouse);
 	startproc(mouseproc, 0);
-	display->locking = 1;	/* tell library we're using the display lock */
 
 	resize();
 
