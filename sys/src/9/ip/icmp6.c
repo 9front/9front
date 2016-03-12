@@ -224,6 +224,8 @@ icmpadvise6(Proto *icmp, Block *bp, char *msg)
 	for(c = icmp->conv; *c; c++) {
 		s = *c;
 		if(s->lport == recid && ipcmp(s->raddr, p->dst) == 0){
+			if(s->ignoreadvice)
+				break;
 			qhangup(s->rq, msg);
 			qhangup(s->wq, msg);
 			break;

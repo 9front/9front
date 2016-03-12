@@ -1334,6 +1334,8 @@ iladvise(Proto *il, Block *bp, char *msg)
 		if(s->lport == psource)
 		if(ipcmp(s->laddr, source) == 0)
 		if(ipcmp(s->raddr, dest) == 0){
+			if(s->ignoreadvice)
+				break;
 			qunlock(il);
 			ic = (Ilcb*)s->ptcl;
 			switch(ic->state){

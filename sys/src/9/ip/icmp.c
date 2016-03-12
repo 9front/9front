@@ -449,6 +449,8 @@ icmpadvise(Proto *icmp, Block *bp, char *msg)
 		s = *c;
 		if(s->lport == recid)
 		if(ipcmp(s->raddr, dst) == 0){
+			if(s->ignoreadvice)
+				break;
 			qhangup(s->rq, msg);
 			qhangup(s->wq, msg);
 			break;

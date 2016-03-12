@@ -3254,6 +3254,8 @@ tcpadvise(Proto *tcp, Block *bp, char *msg)
 		if(tcb->state != Closed)
 		if(ipcmp(s->raddr, dest) == 0)
 		if(ipcmp(s->laddr, source) == 0){
+			if(s->ignoreadvice)
+				break;
 			qlock(s);
 			qunlock(tcp);
 			switch(tcb->state){

@@ -595,7 +595,7 @@ espadvise(Proto *esp, Block *bp, char *msg)
 
 	qlock(esp);
 	c = convlookup(esp, vers.spi);
-	if(c != nil) {
+	if(c != nil && !c->ignoreadvice) {
 		qhangup(c->rq, msg);
 		qhangup(c->wq, msg);
 	}

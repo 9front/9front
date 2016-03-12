@@ -648,6 +648,8 @@ rudpadvise(Proto *rudp, Block *bp, char *msg)
 		if(s->lport == psource)
 		if(ipcmp(s->raddr, dest) == 0)
 		if(ipcmp(s->laddr, source) == 0){
+			if(s->ignoreadvice)
+				break;
 			qhangup(s->rq, msg);
 			qhangup(s->wq, msg);
 			break;
