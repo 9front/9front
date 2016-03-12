@@ -26,8 +26,11 @@ closemouse(Mousectl *mc)
 int
 readmouse(Mousectl *mc)
 {
-	if(mc->image)
-		flushimage(mc->image->display, 1);
+	if(mc->image){
+		Display *d = mc->image->display;
+		if(d->bufp > d->buf)
+			flushimage(d, 1);
+	}
 	if(recv(mc->c, &mc->Mouse) < 0){
 		fprint(2, "readmouse: %r\n");
 		return -1;
