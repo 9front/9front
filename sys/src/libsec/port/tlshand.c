@@ -694,11 +694,7 @@ tlsServer2(int ctl, int hand,
 	memmove(c->crandom, m.u.clientHello.random, RandomSize);
 	cipher = okCipher(m.u.clientHello.ciphers, psklen > 0);
 	if(cipher < 0) {
-		// reply with EInsufficientSecurity if we know that's the case
-		if(cipher == -2)
-			tlsError(c, EInsufficientSecurity, "cipher suites too weak");
-		else
-			tlsError(c, EHandshakeFailure, "no matching cipher suite");
+		tlsError(c, EHandshakeFailure, "no matching cipher suite");
 		goto Err;
 	}
 	if(!setAlgs(c, cipher)){
@@ -2209,38 +2205,6 @@ tlsConnectionFree(TlsConnection *c)
 
 //================= cipher choices ========================
 
-static char weakCipher[] =
-{
-[TLS_NULL_WITH_NULL_NULL]		1,
-[TLS_RSA_WITH_NULL_MD5]			1,
-[TLS_RSA_WITH_NULL_SHA]			1,
-[TLS_RSA_EXPORT_WITH_RC4_40_MD5]	1,
-[TLS_RSA_WITH_RC4_128_MD5]		1,
-[TLS_RSA_WITH_RC4_128_SHA]		1,
-[TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5]	1,
-[TLS_RSA_WITH_IDEA_CBC_SHA]		0,
-[TLS_RSA_EXPORT_WITH_DES40_CBC_SHA]	1,
-[TLS_RSA_WITH_DES_CBC_SHA]		0,
-[TLS_RSA_WITH_3DES_EDE_CBC_SHA]		0,
-[TLS_DH_DSS_EXPORT_WITH_DES40_CBC_SHA]	1,
-[TLS_DH_DSS_WITH_DES_CBC_SHA]		0,
-[TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA]	0,
-[TLS_DH_RSA_EXPORT_WITH_DES40_CBC_SHA]	1,
-[TLS_DH_RSA_WITH_DES_CBC_SHA]		0,
-[TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA]	0,
-[TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA]	1,
-[TLS_DHE_DSS_WITH_DES_CBC_SHA]		0,
-[TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA]	0,
-[TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA]	1,
-[TLS_DHE_RSA_WITH_DES_CBC_SHA]		0,
-[TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA]	0,
-[TLS_DH_anon_EXPORT_WITH_RC4_40_MD5]	1,
-[TLS_DH_anon_WITH_RC4_128_MD5]		1,
-[TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA]	1,
-[TLS_DH_anon_WITH_DES_CBC_SHA]		1,
-[TLS_DH_anon_WITH_3DES_EDE_CBC_SHA]	1,
-};
-
 static int
 setAlgs(TlsConnection *c, int a)
 {
@@ -2263,25 +2227,16 @@ setAlgs(TlsConnection *c, int a)
 static int
 okCipher(Ints *cv, int ispsk)
 {
-	int weak, i, j, c;
+	int i, j, c;
 
-	weak = 1;
 	for(i = 0; i < cv->len; i++) {
 		c = cv->data[i];
-		if(c >= nelem(weakCipher))
-			weak = 0;
-		else
-			weak &= weakCipher[c];
-		if(isPSK(c) != ispsk)
-			continue;
-		if(isDHE(c) || isECDHE(c))
+		if(isDHE(c) || isECDHE(c) || isPSK(c) != ispsk)
 			continue;	/* TODO: not implemented for server */
 		for(j = 0; j < nelem(cipherAlgs); j++)
 			if(cipherAlgs[j].ok && cipherAlgs[j].tlsid == c)
 				return c;
 	}
-	if(weak)
-		return -2;
 	return -1;
 }
 
