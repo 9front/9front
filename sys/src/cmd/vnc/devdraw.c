@@ -1349,7 +1349,7 @@ drawmesg(Client *client, void *av, int n)
 			if(n < m)
 				error(Eshortdraw);
 			dstid = BGLONG(a+1);
-			scrnid = BGSHORT(a+5);
+			scrnid = BGLONG(a+5);
 			refresh = a[9];
 			chan = BGLONG(a+10);
 			repl = a[14];
