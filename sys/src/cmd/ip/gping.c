@@ -205,26 +205,6 @@ colinit(void)
 	cols[5][2] = allocimage(display, Rect(0,0,1,1), CMAP8, 1, 0x888888FF);
 }
 
-int
-loadbuf(Machine *m, int *fd)
-{
-	int n;
-
-
-	if(*fd < 0)
-		return 0;
-	seek(*fd, 0, 0);
-	n = read(*fd, m->buf, sizeof m->buf);
-	if(n <= 0){
-		close(*fd);
-		*fd = -1;
-		return 0;
-	}
-	m->bufp = m->buf;
-	m->ebufp = m->buf+n;
-	return 1;
-}
-
 void
 label(Point p, int dy, char *text)
 {
@@ -516,34 +496,31 @@ pingsend(Machine *m)
 void
 pingrcv(void *arg)
 {
-	int i, n, fd;
+	int i, n;
 	uchar buf[512];
 	ushort x;
-	vlong now;
 	Icmphdr *ip;
 	Ip4hdr *ip4;
 	Machine *m = arg;
 
 	ip4 = (Ip4hdr *)buf;
 	ip = (Icmphdr *)(buf + IPV4HDR_LEN);
-	fd = dup(m->pingfd, -1);
 	for(;;){
-		n = read(fd, buf, sizeof(buf));
-		now = nsec();
+		n = read(m->pingfd, buf, sizeof(buf));
 		if(n <= 0)
+			break;
+		if(n < MSGLEN)
 			continue;
-		if(n < MSGLEN){
-			print("bad len %d/%d\n", n, MSGLEN);
-			continue;
-		}
 		for(i = 32; i < MSGLEN; i++)
 			if(buf[i] != (i&0xff))
-				continue;
+				break;
+		if(i != MSGLEN)
+			continue;
 		x = (ip->seq[1]<<8) | ip->seq[0];
 		if(ip->type != EchoReply || ip->code != 0)
 			continue;
 		lock(m);
-		pingclean(m, x, now, ip4->ttl);
+		pingclean(m, x, nsec(), ip4->ttl);
 		unlock(m);
 	}
 }
@@ -551,6 +528,7 @@ pingrcv(void *arg)
 void
 initmach(Machine *m, char *name)
 {
+	int cfd = -1;
 	char *p;
 
 	srand(time(0));
@@ -563,9 +541,11 @@ initmach(Machine *m, char *name)
 
 	m->name = estrdup(p);
 	m->nproc = 1;
-	m->pingfd = dial(netmkaddr(m->name, "icmp", "1"), 0, 0, 0);
+	m->pingfd = dial(netmkaddr(m->name, "icmp", "1"), nil, nil, &cfd);
 	if(m->pingfd < 0)
 		sysfatal("dialing %s: %r", m->name);
+	write(cfd, "ignoreadvice", 12);
+	close(cfd);
 	startproc(pingrcv, m);
 }
 
