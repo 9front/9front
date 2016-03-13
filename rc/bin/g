@@ -1,5 +1,5 @@
 #!/bin/rc 
-
+rfork e
 flags=() 
 while(! ~ $#* 1 && ~ $1 -* && ! ~ $1 --){ 
          flags=($flags $1); 
