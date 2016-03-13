@@ -122,7 +122,8 @@ main(int argc, char *argv[])
 		}
 		t = *e;
 		*e = 0;
-		if((a = attr(g, "encoding")) != nil || (a = attr(g, "charset")) != nil){
+		if((a = attr(g, "encoding")) != nil || (a = attr(g, "charset")) != nil)
+		if(cistrcmp(a, "utf") != 0 && cistrcmp(a, "utf-8") != 0){
 			cset = a;
 			*e = t;
 			break;
