@@ -243,12 +243,21 @@ setphase(PPP *ppp, int phase)
 		}
 		break;
 	case Pauth:
-		if(server)
+		if(server) {
 			chapinit(ppp);
-		else if(ppp->chap->proto == APpasswd)
-			papinit(ppp);
-		else
-			setphase(ppp, Pnet);
+		} else {
+			switch (ppp->chap->proto) {
+			case APpasswd:
+				papinit(ppp);
+				break;
+			case APmd5:
+			case APmschap:
+				break;
+			default:
+				setphase(ppp, Pnet);
+				break;
+			}
+		}
 		break;
 	case Pnet:
 		pinit(ppp, ppp->ccp);
@@ -276,7 +285,14 @@ pinit(PPP *ppp, Pstate *p)
 		ppp->rctlmap = 0;
 		ppp->ipcp->state = Sclosed;
 		ppp->ipcp->optmask = 0xffffffff;
-
+		if(noipcompress) {
+			p->optmask &= ~Fac;
+			ppp->ipcp->optmask &= ~Fipaddrs;
+		}
+		if(nocompress) {
+			p->optmask &= ~Fpc;
+			ppp->ipcp->optmask &= ~Fipcompress;
+		}
 		p->echotimeout = 0;
 
 		/* quality goo */
