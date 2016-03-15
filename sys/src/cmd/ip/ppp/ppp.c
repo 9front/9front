@@ -709,10 +709,10 @@ config(PPP *ppp, Pstate *p, int newid)
 		}
 		break;
 	case Pipcp:
-		if(p->optmask & Fipaddr)
-{syslog(0, "ppp", "requesting %I", ppp->local);
+		if(p->optmask & Fipaddr){
+			syslog(0, "ppp", "requesting %I", ppp->local);
 			putv4o(b, Oipaddr, ppp->local);
-}
+		}
 		if(primary && (p->optmask & Fipdns))
 			putv4o(b, Oipdns, ppp->dns[0]);
 		if(primary && (p->optmask & Fipdns2))
@@ -1366,7 +1366,7 @@ rcv(PPP *ppp, Pstate *p, Block *b)
 		break;
 	case Lprotorej:
 		proto = nhgets(m->data);
-		netlog("ppp: proto reject %ux", proto);
+		netlog("ppp: proto reject %ux\n", proto);
 		if(proto == Pccp)
 			newstate(ppp, ppp->ccp, Sclosed);
 		break;
