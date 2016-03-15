@@ -34,7 +34,7 @@ ppp, pppoe, pptp, pptpd \- point-to-point protocol
 .PP
 .B ip/pppoe
 [
-.B -Pd
+.B -PdcC
 ]
 [
 .B -A
