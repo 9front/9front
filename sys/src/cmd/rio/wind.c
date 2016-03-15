@@ -109,6 +109,7 @@ wresize(Window *w, Image *i)
 	wsetselect(w, w->q0, w->q1);
 	wscrdraw(w);
 	wborder(w, Selborder);
+	flushimage(display, 1);
 	wsetname(w);
 	w->topped = ++topped;
 	w->resized = TRUE;
@@ -1126,7 +1127,6 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		w->screenr = r;
 		strcpy(buf, w->name);
 		wresize(w, i);
-		flushimage(display, 1);
 		proccreate(deletetimeoutproc, estrdup(buf), 4096);
 		if(Dx(r)<=0){	/* window got hidden, if we had the input, drop it */
 			if(w==input)

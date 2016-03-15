@@ -419,9 +419,9 @@ deletethread(void*)
 		if(i != nil){
 			/* move it off-screen to hide it, since client is slow in letting it go */
 			originwindow(i, i->r.min, view->r.max);
+			freeimage(i);
+			flushimage(display, 1);
 		}
-		freeimage(i);
-		flushimage(display, 1);
 		free(s);
 	}
 }
