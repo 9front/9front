@@ -133,7 +133,6 @@ wscroll(Window *w, int but)
 	oldp0 = ~0;
 	first = TRUE;
 	do{
-		flushimage(display, 1);
 		my = w->mc.xy.y;
 		if(my < s.min.y)
 			my = s.min.y;
@@ -165,7 +164,8 @@ wscroll(Window *w, int but)
 		oldp0 = p0;
 		/* debounce */
 		if(first){
-			flushimage(display, 1);
+			if(display->bufp > display->buf)
+				flushimage(display, 1);
 			if(but > 3)
 				return;
 			sleep(200);

@@ -432,7 +432,7 @@ winctl(void *arg)
 			freecompletion(cr);
 			break;
 		}
-		if(w->i!=nil && Dx(w->screenr) > 0)
+		if(w->i!=nil && Dx(w->screenr) > 0 && display->bufp > display->buf)
 			flushimage(display, 1);
 	}
 }
@@ -1126,8 +1126,8 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		w->screenr = r;
 		strcpy(buf, w->name);
 		wresize(w, i);
-		proccreate(deletetimeoutproc, estrdup(buf), 4096);
 		flushimage(display, 1);
+		proccreate(deletetimeoutproc, estrdup(buf), 4096);
 		if(Dx(r)<=0){	/* window got hidden, if we had the input, drop it */
 			if(w==input)
 				input = nil;

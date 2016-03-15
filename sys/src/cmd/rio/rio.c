@@ -820,7 +820,6 @@ button2menu(Window *w)
 		break;
 	}
 	wsendctlmesg(w, Wakeup, ZR, nil);
-	flushimage(display, 1);
 }
 
 Point
