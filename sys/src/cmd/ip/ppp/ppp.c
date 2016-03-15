@@ -2103,12 +2103,15 @@ getchap(PPP *ppp, Block *b)
 		default:
 			abort();
 		case APmd5:
+			n = strlen(ppp->secret);
+			if(n + vlen + 1 > sizeof(md5buf)) {
+				netlog("PPP: chap: bad challenge len\n");
+				goto end;
+			}
 			md5buf[0] = m->id;
-			strcpy(md5buf+1, ppp->secret);
-			n = strlen(ppp->secret) + 1;
-			memmove(md5buf+n, m->data+1, vlen);
-			n += vlen;
-			md5((uchar*)md5buf, n, digest, nil);
+			memcpy(md5buf+1, ppp->secret, n);
+			memcpy(md5buf+1+n, m->data+1, vlen);
+			md5((uchar*)md5buf, n + vlen + 1, digest, nil);
 			resp = digest;
 			nresp = 16;
 			break;
@@ -2229,14 +2232,17 @@ getchap(PPP *ppp, Block *b)
 		break;
 	case Csuccess:
 		netlog("ppp: chap succeeded\n");
+		setphase(ppp, Pnet);
 		break;
 	case Cfailure:
 		netlog("ppp: chap failed\n");
+		terminate(ppp, 0);
 		break;
 	default:
 		syslog(0, LOG, "chap code %d?", m->code);
 		break;
 	}
+end:
 	qunlock(ppp);
 	freeb(b);
 }
