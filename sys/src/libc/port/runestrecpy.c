@@ -9,9 +9,9 @@ runestrecpy(Rune *s1, Rune *es1, Rune *s2)
 
 	while(*s1++ = *s2++){
 		if(s1 == es1){
-			*--s1 = '\0';
+			s1[-1] = '\0';
 			break;
 		}
 	}
-	return s1;
+	return s1-1;
 }
