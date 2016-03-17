@@ -127,19 +127,6 @@ copy(char *from, char *to, int todir)
 	if(buflen <= 0)
 		buflen = DEFB;
 
-	if(dirb->length/2 > buflen){
-		char nam[32];
-
-		snprint(nam, sizeof nam, "/fd/%dstream", fdf);
-		fds = open(nam, OREAD);
-		if(fds >= 0){
-			close(fdf);
-			fdf = fds;
-		}
-		snprint(nam, sizeof nam, "/fd/%dstream", fdt);
-		fds = open(nam, OWRITE);
-	}
-
 	if(copy1(fdf, fds < 0 ? fdt : fds, from, to)==0){
 		if(fds >= 0 && write(fds, "", 0) < 0){
 			fprint(2, "cp: error writing %s: %r\n", to);

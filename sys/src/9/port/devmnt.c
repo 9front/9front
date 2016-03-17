@@ -30,8 +30,6 @@ struct Mntrpc
 	uint	rpclen;		/* len of buffer */
 	Block*	b;		/* reply blocks */
 	Mntrpc*	flushed;	/* message this one flushes */
-	void	*iocomarg;	/* Rpc completion callback for pipelining */
-	void	(*iocomfun)(void*, int);
 	char	done;		/* Rpc completed */
 };
 
@@ -1017,9 +1015,6 @@ mountio(Mnt *m, Mntrpc *r)
 	lock(m);
 	r->z = &up->sleep;
 	r->m = m;
-	r->iocomarg = up->iocomarg;
-	r->iocomfun = up->iocomfun;
-	up->iocomfun = nil;
 	r->list = m->queue;
 	m->queue = r;
 	unlock(m);
@@ -1043,10 +1038,6 @@ mountio(Mnt *m, Mntrpc *r)
 	}
 	if(devtab[m->c->type]->write(m->c, r->rpc, n, 0) != n)
 		error(Emountrpc);
-
-	/* Rpc commited */
-	if(r->iocomfun != nil)
-		(*r->iocomfun)(r->iocomarg, 0);
 
 	/* Gate readers onto the mount point one at a time */
 	for(;;) {
@@ -1190,11 +1181,6 @@ mountmux(Mnt *m, Mntrpc *r)
 		/* look for a reply to a message */
 		if(q->request.tag == r->reply.tag) {
 			*l = q->list;
-
-			/* Rpc completed */
-			if(q->iocomfun != nil)
-				(*q->iocomfun)(q->iocomarg, 1);
-
 			if(q == r) {
 				q->done = 1;
 				unlock(m);
