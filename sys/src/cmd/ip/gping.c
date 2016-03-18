@@ -971,6 +971,8 @@ main(int argc, char *argv[])
 	}ARGEND
 	*f = 0;
 
+	pids[npid++] = getpid();
+
 	for(i=0; i<argc; i++)
 		addmachine(argv[i]);
 
