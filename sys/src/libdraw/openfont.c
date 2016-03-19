@@ -37,8 +37,10 @@ openfont(Display *d, char *name)
 	Font *fnt;
 	char *buf;
 
-	if((buf = readfile(name)) == nil)
+	if((buf = readfile(name)) == nil){
+		werrstr("openfont: %r");
 		return nil;
+	}
 	fnt = buildfont(d, buf, name);
 	free(buf);
 	return fnt;
