@@ -235,7 +235,6 @@ createfile(File *fp, char *name, char *uid, ulong perm, void *aux)
 	if(perm & DMEXCL)
 		f->qid.type |= QTEXCL;
 
-	f->mode = perm;
 	f->atime = f->mtime = time(0);
 	f->length = 0;
 	f->parent = fp;
