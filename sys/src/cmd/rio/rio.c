@@ -26,20 +26,20 @@ void		delete(void);
 void		hide(void);
 void		unhide(int);
 void		newtile(int);
-Image	*sweep(void);
-Image	*bandsize(Window*);
+Image*	sweep(void);
+Image*	bandsize(Window*);
 Image*	drag(Window*);
 void		resized(void);
 Channel	*exitchan;	/* chan(int) */
 Channel	*winclosechan; /* chan(Window*); */
-Channel *kbdchan;	/* chan(char*); */
+Channel	*kbdchan;	/* chan(char*); */
 Rectangle	viewr;
 int		threadrforkflag = 0;	/* should be RFENVG but that hides rio from plumber */
 
 void	mousethread(void*);
 void	keyboardthread(void*);
-void winclosethread(void*);
-void deletethread(void*);
+void	winclosethread(void*);
+void	deletethread(void*);
 void	initcmd(void*);
 Channel* initkbd(void);
 
@@ -138,20 +138,17 @@ threadmain(int argc, char *argv[])
 		reverse = ~0xFF;
 		break;
 	case 'f':
-		fontname = ARGF();
-		if(fontname == nil)
+		fontname = EARGF(usage());
 			usage();
 		break;
 	case 'i':
-		initstr = ARGF();
-		if(initstr == nil)
+		initstr = EARGF(usage());
 			usage();
 		break;
 	case 'k':
 		if(kbdin != nil)
 			usage();
-		kbdin = ARGF();
-		if(kbdin == nil)
+		kbdin = EARGF(usage());
 			usage();
 		break;
 	case 's':
