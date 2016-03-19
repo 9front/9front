@@ -53,7 +53,7 @@ cleanname(char *name)
 	if(q == name)	/* empty string is really ``.'' */
 		*q++ = '.';
 	*q = '\0';
-	if(erasedprefix && name[0] == '#'){	
+	if(erasedprefix && name[0] == '#'){
 		/* this was not a #x device path originally - make it not one now */
 		memmove(name+2, name, strlen(name)+1);
 		name[0] = '.';

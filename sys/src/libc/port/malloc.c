@@ -135,7 +135,7 @@ pprint(Pool *p, char *fmt, ...)
 
 static char panicbuf[256];
 static void
-ppanic(Pool *p, char *fmt, ...) 
+ppanic(Pool *p, char *fmt, ...)
 {
 	va_list v;
 	int n;
@@ -170,7 +170,7 @@ ppanic(Pool *p, char *fmt, ...)
 /* - except the code for malloc(), which alternately doesn't clear or does. - */
 
 /*
- * Npadlong is the number of ulongs's to leave at the beginning of 
+ * Npadlong is the number of ulongs's to leave at the beginning of
  * each allocated buffer for our own bookkeeping.  We return to the callers
  * a pointer that points immediately after our bookkeeping area.  Incoming pointers
  * must be decremented by that much, and outgoing pointers incremented.
@@ -269,7 +269,7 @@ realloc(void *v, ulong size)
 		setrealloctag(nv, getcallerpc(&v));
 		if(v == nil)
 			setmalloctag(nv, getcallerpc(&v));
-	}		
+	}
 	return nv;
 }
 

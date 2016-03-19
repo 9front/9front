@@ -27,7 +27,7 @@ _balign:
 	MOVB	R2, (R6)
 	ADDL	$-1, R7, R7
 	JMP	_balign
-	
+
 _baligned:
 	AND	$(QUAD-1), R7, R1	/* is the source quad-aligned */
 	BNE	R1, _bunaligned

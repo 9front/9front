@@ -1,7 +1,7 @@
 /*
  * This allocator takes blocks from a coarser allocator (p->alloc) and
  * uses them as arenas.
- * 
+ *
  * An arena is split into a sequence of blocks of variable size.  The
  * blocks begin with a Bhdr that denotes the length (including the Bhdr)
  * of the block.  An arena begins with an Arena header block (Arena,
@@ -9,17 +9,17 @@
  * size 0.  Intermediate blocks are either allocated or free.  At the end
  * of each intermediate block is a Btail, which contains information
  * about where the block starts.  This is useful for walking backwards.
- * 
+ *
  * Free blocks (Free*) have a magic value of FREE_MAGIC in their Bhdr
  * headers.  They are kept in a binary tree (p->freeroot) traversible by
  * walking ->left and ->right.  Each node of the binary tree is a pointer
  * to a circular doubly-linked list (next, prev) of blocks of identical
  * size.  Blocks are added to this ``tree of lists'' by pooladd(), and
  * removed by pooldel().
- * 
+ *
  * When freed, adjacent blocks are coalesced to create larger blocks when
  * possible.
- * 
+ *
  * Allocated blocks (Alloc*) have one of two magic values: ALLOC_MAGIC or
  * UNALLOC_MAGIC.  When blocks are released from the pool, they have
  * magic value UNALLOC_MAGIC.  Once the block has been trimmed by trim()
@@ -27,11 +27,11 @@
  * datasize field of the tail, the magic value is changed to ALLOC_MAGIC.
  * All blocks returned to callers should be of type ALLOC_MAGIC, as
  * should all blocks passed to us by callers.  The amount of data the user
- * asked us for can be found by subtracting the short in tail->datasize 
+ * asked us for can be found by subtracting the short in tail->datasize
  * from header->size.  Further, the up to at most four bytes between the
  * end of the user-requested data block and the actual Btail structure are
  * marked with a magic value, which is checked to detect user overflow.
- * 
+ *
  * The arenas returned by p->alloc are kept in a doubly-linked list
  * (p->arenalist) running through the arena headers, sorted by descending
  * base address (prev, next).  When a new arena is allocated, we attempt
@@ -159,12 +159,12 @@ static Free*	treesplay(Free*, ulong);
 
 /*
  * Debugging
- * 
+ *
  * Antagonism causes blocks to always be filled with garbage if their
  * contents are undefined.  This tickles both programs and the library.
  * It's a linear time hit but not so noticeable during nondegenerate use.
  * It would be worth leaving in except that it negates the benefits of the
- * kernel's demand-paging.  The tail magic and end-of-data magic 
+ * kernel's demand-paging.  The tail magic and end-of-data magic
  * provide most of the user-visible benefit that antagonism does anyway.
  *
  * Paranoia causes the library to recheck the entire pool on each lock
@@ -220,7 +220,7 @@ checktree(Free *t, int a, int b)
 		checktree(t->left, a, t->size);
 	if(t->right)
 		checktree(t->right, t->size, b);
-	
+
 }
 
 /* treelookupgt: find smallest node in tree with size >= size */
@@ -379,7 +379,7 @@ pooldel(Pool *p, Free *node)
 }
 
 /*
- * Block maintenance 
+ * Block maintenance
  */
 /* block allocation */
 static ulong
@@ -527,7 +527,7 @@ freefromfront(Pool *p, Alloc *b, ulong skip)
 		pooladd(p, b);
 		return bb;
 	}
-	return b;	
+	return b;
 }
 
 /*
@@ -656,7 +656,7 @@ arenamerge(Pool *p, Arena *bot, Arena *top)
 		bot->aup->down = bot;
 	else
 		p->arenalist = bot;
-	
+
 	/* save ptrs to last block in bot, first block in top */
 	t = B2PT(A2TB(bot));
 	bbot = T2HDR(t);
@@ -848,7 +848,7 @@ arenacompact(Pool *p, Arena *a)
 		pooladd(p, (Alloc*)wb);
 	}
 
-	return compacted;		
+	return compacted;
 }
 
 /*
@@ -1033,7 +1033,7 @@ poolreallocl(Pool *p, void *v, ulong ndsize)
 
 	/* enough cleverness */
 	memmove(nv, v, odsize);
-	antagonism { 
+	antagonism {
 		memset((char*)nv+odsize, 0xDE, ndsize-odsize);
 	}
 	poolfreel(p, v);
@@ -1078,7 +1078,7 @@ poolallocalignl(Pool *p, ulong dsize, ulong align, long offset, ulong span)
 	 *
 	 * to satisfy alignment, just allocate an extra
 	 * align bytes and then shift appropriately.
-	 * 
+	 *
 	 * to satisfy span, try once and see if we're
 	 * lucky.  the second time, allocate 2x asize
 	 * so that we definitely get one not crossing
@@ -1133,7 +1133,7 @@ poolallocalignl(Pool *p, ulong dsize, ulong align, long offset, ulong span)
 	trim(p, b, skip+dsize);
 	p->curalloc += b->size;
 	assert(D2B(p, c) == b);
-	antagonism { 
+	antagonism {
 		memset(c, 0xDD, dsize);
 	}
 	return c;
@@ -1159,7 +1159,7 @@ poolfreel(Pool *p, void *v)
 		n = getdsize(ab)-8;
 		if(n > 0)
 			memset((uchar*)v+8, 0xDA, n);
-		return;	
+		return;
 	}
 
 	p->nfree++;
@@ -1297,7 +1297,7 @@ poolfree(Pool *p, void *v)
 }
 
 /*
- * Return the real size of a block, and let the user use it. 
+ * Return the real size of a block, and let the user use it.
  */
 ulong
 poolmsize(Pool *p, void *v)
@@ -1333,7 +1333,7 @@ poolmsize(Pool *p, void *v)
 }
 
 /*
- * Debugging 
+ * Debugging
  */
 
 static void

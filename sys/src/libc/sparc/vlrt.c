@@ -705,55 +705,55 @@ _nev(Vlong lv, Vlong rv)
 int
 _ltv(Vlong lv, Vlong rv)
 {
-	return (long)lv.hi < (long)rv.hi || 
+	return (long)lv.hi < (long)rv.hi ||
 		(lv.hi == rv.hi && lv.lo < rv.lo);
 }
 
 int
 _lev(Vlong lv, Vlong rv)
 {
-	return (long)lv.hi < (long)rv.hi || 
+	return (long)lv.hi < (long)rv.hi ||
 		(lv.hi == rv.hi && lv.lo <= rv.lo);
 }
 
 int
 _gtv(Vlong lv, Vlong rv)
 {
-	return (long)lv.hi > (long)rv.hi || 
+	return (long)lv.hi > (long)rv.hi ||
 		(lv.hi == rv.hi && lv.lo > rv.lo);
 }
 
 int
 _gev(Vlong lv, Vlong rv)
 {
-	return (long)lv.hi > (long)rv.hi || 
+	return (long)lv.hi > (long)rv.hi ||
 		(lv.hi == rv.hi && lv.lo >= rv.lo);
 }
 
 int
 _lov(Vlong lv, Vlong rv)
 {
-	return lv.hi < rv.hi || 
+	return lv.hi < rv.hi ||
 		(lv.hi == rv.hi && lv.lo < rv.lo);
 }
 
 int
 _lsv(Vlong lv, Vlong rv)
 {
-	return lv.hi < rv.hi || 
+	return lv.hi < rv.hi ||
 		(lv.hi == rv.hi && lv.lo <= rv.lo);
 }
 
 int
 _hiv(Vlong lv, Vlong rv)
 {
-	return lv.hi > rv.hi || 
+	return lv.hi > rv.hi ||
 		(lv.hi == rv.hi && lv.lo > rv.lo);
 }
 
 int
 _hsv(Vlong lv, Vlong rv)
 {
-	return lv.hi > rv.hi || 
+	return lv.hi > rv.hi ||
 		(lv.hi == rv.hi && lv.lo >= rv.lo);
 }

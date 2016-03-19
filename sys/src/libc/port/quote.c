@@ -91,7 +91,7 @@ quotestrdup(char *s)
 
 	if(_needsquotes(s, &quotelen) == 0)
 		return strdup(s);
-	
+
 	ret = malloc(quotelen+1);
 	if(ret == nil)
 		return nil;
@@ -117,7 +117,7 @@ quoterunestrdup(Rune *s)
 
 	if(_runeneedsquotes(s, &quotelen) == 0)
 		return runestrdup(s);
-	
+
 	ret = malloc((quotelen+1)*sizeof(Rune));
 	if(ret == nil)
 		return nil;

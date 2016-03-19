@@ -109,4 +109,4 @@ nomul1:
 nomul2:
 
 	MOVW	R9, 0(R7)
-	RETURN	
+	RETURN
