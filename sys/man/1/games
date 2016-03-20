@@ -137,31 +137,31 @@ Move tiles left or right by moving the mouse.
 Rotate tiles with buttons 1 and 3.
 Drop tiles for more points with button 2 or the space bar.
 Keys
-.LR a
+.L a
 and 
-.LR j
+.L j
 move left,
-.LR s
+.L s
 and 
-.LR k
+.L k
 rotate left,
-.LR d
+.L d
 and 
-.LR l
+.L l
 rotate right,
-.LR f
+.L f
 and 
-.LR ;
+.L ;
 move right.
 .LR z ,
-.LR p
+.L p
 and
-.LR Esc
+.L Esc
 toggle suspend/resume.
 .LR q ,
-.LR Del
+.L Del
 and
-.LR control-D
+.L control-D
 quit.
 .TP
 .B doom
@@ -217,11 +217,11 @@ are not blocked by others. A blocked tile is one that is partially or
 fully covered on top or has neighbouring tiles to the left and right.
 The game finishes when either all tiles are gone or there are no
 more moves left. The arguments are for changing background
-.RB (-b),
+.RB ( -b ),
 tile
-.RB (-t)
+.RB ( -t )
 and layout
-.RB (-l)
+.RB ( -l )
 images;
 .RB -c
 selects a true-color buffer image, for use with
@@ -229,22 +229,22 @@ drawterm or in case selecting a tile obscures it completely;
 .RB -f
 causes mahjongg to indicate non-blocked tiles on mouse-over.
 The 
-.LR N
+.L N
 key will generate a new level, 
-.LR R
+.L R
 restarts the current one. 
-.LR Q
+.L Q
 and 
-.LR Del
+.L Del
 quit, 
-.LR H
+.L H
 gives a hint, either trying to match the currently selected tile, or if no tile is
 selected finding out the first available tile.
-.LR U
+.L U
 and
-.LR Bksp
+.L Bksp
 undo the last move,
-.LR C
+.L C
 tries to solve the level.
 .TP
 .B memo
@@ -266,16 +266,16 @@ the pebbles in.  Your goal is to arrange all pebbles into holes by
 pushing them around, but you can only push a pebble if there is no
 wall or another pebble blocking the way.
 Arrow keys move Glenda up-down-left-right.  
-.LR N 
+.L N 
 and 
-.LR P 
+.L P 
 keys switch between
 the next and previous levels, 
-.LR R
+.L R
 restarts the current level.  
-.LR Del 
+.L Del 
 and
-.LR Q
+.L Q
 quit.  Button 3 invokes a menu to restart the current level, load different level sets, and en- and disable animation of multi-step moves.
 Button 2 lets you change between levels. 
 Button 1 lets you do multi-step moves and pushes,
