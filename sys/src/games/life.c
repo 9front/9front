@@ -32,9 +32,10 @@ char	action[18];		/* index by cell contents to find action */
 char	*adjust[NADJUST];
 
 Point	cen;
-Image	*box;
+Image	*bg, *box;
 int	i0, i1, j0, j1;
 int	needresize;
+int reverse;
 
 void	birth(int, int);
 void	centerlife(void);
@@ -65,7 +66,7 @@ clrbox(int i, int j)
 	Point loc;
 
 	loc = Pt(cen.x + j*PX, cen.y + i*PX);
-	draw(screen, Rpt(loc, addpt(loc, Pt(BX, BX))), display->white, nil, ZP);
+	draw(screen, Rpt(loc, addpt(loc, Pt(BX, BX))), bg, nil, ZP);
 }
 
 void
@@ -89,7 +90,7 @@ g9err(Display *, char *err)
 void
 usage(void)
 {
-	fprint(2, "Usage: %s [-3o] [-r rules] file\n", argv0);
+	fprint(2, "Usage: %s [-3bo] [-d delay] [-r rules] file\n", argv0);
 	exits("usage");
 }
 
@@ -117,6 +118,14 @@ main(int argc, char *argv[])
 	case '3':
 		setrules(".d.d.db.b..d.d.d.d");
 		break;					/* 34-life */
+	case 'b':
+		reverse = ~0xff;
+		break;
+	case 'd':
+		delay = atoi(EARGF(usage()));
+		if(delay < 0)
+			sysfatal("invalid delay: %d", delay);
+		break;
 	case 'o':
 		setrules(".d.d.db.b.b..d.d.d");
 		break;					/* lineosc? */
@@ -134,8 +143,13 @@ main(int argc, char *argv[])
 
 	cen = divpt(subpt(addpt(screen->r.min, screen->r.max),
 		Pt(NLIFE * PX, NLIFE * PX)), 2);
-	box  = allocimage(display, Rect(0, 0, BX, BX), RGB24, 1, DBlack);
-	assert(box != nil);
+
+	bg = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DWhite^reverse);
+	if(bg == nil)
+		sysfatal("allocimage: %r");
+	box = allocimage(display, Rect(0,0,BX,BX), screen->chan, 1, DBlack^reverse);
+	if(box == nil)
+		sysfatal("allocimage: %r");
 
 	redraw();
 	readlife(argv[0]);
@@ -296,7 +310,7 @@ readlife(char *filename)
 		if ((bp = Bopen(name, OREAD)) == nil)
 			sysfatal("can't read %s: %r", name);
 	}
-	draw(screen, screen->r, display->white, nil, ZP);
+	draw(screen, screen->r, bg, nil, ZP);
 	for (i = 0; i != NLIFE; i++) {
 		row[i] = col[i] = 0;
 		for (j = 0; j != NLIFE; j++)
@@ -373,7 +387,7 @@ redraw(void)
 	int i, j;
 
 	window();
-	draw(screen, screen->r, display->white, nil, ZP);
+	draw(screen, screen->r, bg, nil, ZP);
 	for (i = i0; i <= i1; i++)
 		for (j = j0; j <= j1; j++)
 			if (life[i][j] & 1)

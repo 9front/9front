@@ -63,6 +63,19 @@
 .I pattern
 .br
 .B games/life
+[
+.B -3
+] [
+.B -o
+] [
+.B -d
+.I delay
+] [
+.B -r
+.I rules
+] [
+.B -b
+]
 .I startfile
 .br
 .B games/mandel
@@ -209,6 +222,20 @@ There is a library of interesting initial positions;
 the library is consulted if
 .I startfile
 cannot be found.
+The
+.B -3
+and
+.B -o
+options select between rules known as
+.IR 34-life " and " lineosc ,
+while
+.B -o
+allows specifying the rules explicitly as an argument.
+The
+.B -d
+option allows specifying the delay in milliseconds between steps, and
+.B -b
+reverses the color scheme.
 .TP
 .B mahjongg
 Remove all tiles
