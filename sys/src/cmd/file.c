@@ -266,7 +266,7 @@ type(char *file, int nlen)
 	}
 	fname = file;
 	if ((fd = open(file, OREAD)) < 0) {
-		print("cannot open: %r\n");
+		fprint(2, "cannot open: %r\n");
 		return;
 	}
 	filetype(fd);
@@ -345,7 +345,7 @@ filetype(int fd)
 	free(mbuf);
 	mbuf = dirfstat(fd);
 	if(mbuf == nil){
-		print("cannot stat: %r\n");
+		fprint(2, "cannot stat: %r\n");
 		return;
 	}
 	if(mbuf->mode & DMDIR) {
@@ -362,7 +362,7 @@ filetype(int fd)
 	/* may be reading a pipe on standard input */
 	nbuf = readn(fd, buf, sizeof(buf)-1);
 	if(nbuf < 0) {
-		print("cannot read: %r\n");
+		fprint(2, "cannot read: %r\n");
 		return;
 	}
 	if(nbuf == 0) {
@@ -798,11 +798,11 @@ struct	FILE_STRING
 	"\x1f\x9d",		"compressed",			2,	"application/x-compress",
 	"\x1f\x8b",		"gzip compressed",		2,	"application/x-gzip",
 	"BZh",			"bzip2 compressed",		3,	"application/x-bzip2",
-	"!<arch>\n__.SYMDEF",	"archive random library",	16,	"application/octet-stream",
-	"!<arch>\n",		"archive",			8,	"application/octet-stream",
-	"070707",		"cpio archive - ascii header",	6,	"application/octet-stream",
-	"#!/bin/rc",		"rc executable file",		9,	"text/plain",
-	"#!/bin/sh",		"sh executable file",		9,	"text/plain",
+	"!<arch>\n__.SYMDEF",	"archive random library",	16,	OCTET,
+	"!<arch>\n",		"archive",			8,	OCTET,
+	"070707",		"cpio archive - ascii header",	6,	OCTET,
+	"#!/bin/rc",		"rc executable file",		9,	PLAIN,
+	"#!/bin/sh",		"sh executable file",		9,	PLAIN,
 	"%!",			"postscript",			2,	"application/postscript",
 	"\004%!",		"postscript",			3,	"application/postscript",
 	"x T post",		"troff output for post",	8,	"application/troff",
@@ -829,20 +829,20 @@ struct	FILE_STRING
 	"BM",			"bmp",				2,	"image/bmp", 
 	"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1",	"microsoft office document",	8,	"application/doc",
 	"<MakerFile ",		"FrameMaker file",		11,	"application/framemaker",
-	"\033E\033",	"HP PCL printer data",		3,	OCTET,
-	"\033&",	"HP PCL printer data",		2,	OCTET,
-	"\033%-12345X",	"HPJCL file",		9,	"application/hpjcl",
+	"\033E\033",		"HP PCL printer data",		3,	OCTET,
+	"\033&",		"HP PCL printer data",		2,	OCTET,
+	"\033%-12345X",		"HPJCL file",		9,	"application/hpjcl",
 	"\033Lua",		"Lua bytecode",		4,	OCTET,
 	"ID3",			"mp3 audio with id3",	3,	"audio/mpeg",
 	"OggS",			"ogg audio",		4,	"audio/ogg",
 	".snd",			"sun audio",		4,	"audio/basic",
 	"\211PNG",		"PNG image",		4,	"image/png",
-	"P1\n",			"ppm",				3,	"image/ppm",
-	"P2\n",			"ppm",				3,	"image/ppm",
-	"P3\n",			"ppm",				3,	"image/ppm",
-	"P4\n",			"ppm",				3,	"image/ppm",
-	"P5\n",			"ppm",				3,	"image/ppm",
-	"P6\n",			"ppm",				3,	"image/ppm",
+	"P1\n",			"ppm",			3,	"image/ppm",
+	"P2\n",			"ppm",			3,	"image/ppm",
+	"P3\n",			"ppm",			3,	"image/ppm",
+	"P4\n",			"ppm",			3,	"image/ppm",
+	"P5\n",			"ppm",			3,	"image/ppm",
+	"P6\n",			"ppm",			3,	"image/ppm",
 	"/* XPM */\n",	"xbm",				10,	"image/xbm",
 	".HTML ",		"troff -ms input",	6,	"text/troff",
 	".LP",			"troff -ms input",	3,	"text/troff",
@@ -856,14 +856,14 @@ struct	FILE_STRING
 	".if",			"troff input",		3,	"text/troff",
 	".nr",			"troff input",		3,	"text/troff",
 	".tr",			"troff input",		3,	"text/troff",
-	"vac:",			"venti score",		4,	"text/plain",
+	"vac:",			"venti score",		4,	PLAIN,
 	"-----BEGIN CERTIFICATE-----\n",
-				"pem certificate",	-1,	"text/plain",
+				"pem certificate",	-1,	PLAIN,
 	"-----BEGIN TRUSTED CERTIFICATE-----\n",
-				"pem trusted certificate", -1,	"text/plain",
+				"pem trusted certificate", -1,	PLAIN,
 	"-----BEGIN X509 CERTIFICATE-----\n",
-				"pem x.509 certificate", -1,	"text/plain",
-	"subject=/C=",		"pem certificate with header", -1, "text/plain",
+				"pem x.509 certificate", -1,	PLAIN,
+	"subject=/C=",		"pem certificate with header", -1, PLAIN,
 	"process snapshot ",	"process snapshot",	-1,	"application/snapfs",
 	"d8:announce",		"torrent file",		11,	"application/x-bittorrent",
 	"[playlist]",		"playlist",		10,	"application/x-scpls",
@@ -949,7 +949,7 @@ iff(void)
 		else if (strncmp((char*)buf+8, "AVI ", 4) == 0)
 			print("%s\n", mime? "video/avi": "avi video");
 		else
-			print("%s\n", mime? "application/octet-stream": "riff file");
+			print("%s\n", mime? OCTET : "riff file");
 		return 1;
 	}
 	return 0;
@@ -1073,7 +1073,7 @@ ismbox(void)
 		return 0;
 	*q = 0;
 	if(strncmp(p, "From ", 5) == 0 && strstr(p, " remote from ") == nil){
-		print("%s\n", mime ? "text/plain" : "mail box");
+		print("%s\n", mime ? PLAIN : "mail box");
 		return 1;
 	}
 	*q = '\n';
@@ -1497,7 +1497,7 @@ isp9font(void)
 		}
 	}
 	if (i) {
-		print(mime ? "text/plain\n" : "font file\n");
+		print("%s\n", mime ? PLAIN : "font file");
 		return 1;
 	}
 	return 0;
