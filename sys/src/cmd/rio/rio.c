@@ -139,17 +139,14 @@ threadmain(int argc, char *argv[])
 		break;
 	case 'f':
 		fontname = EARGF(usage());
-			usage();
 		break;
 	case 'i':
 		initstr = EARGF(usage());
-			usage();
 		break;
 	case 'k':
 		if(kbdin != nil)
 			usage();
 		kbdin = EARGF(usage());
-			usage();
 		break;
 	case 's':
 		scrolling = TRUE;
