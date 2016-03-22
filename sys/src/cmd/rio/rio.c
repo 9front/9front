@@ -813,6 +813,7 @@ button2menu(Window *w)
 			wshow(w, w->nr);
 		break;
 	}
+	flushimage(display, 1);
 	wsendctlmesg(w, Wakeup, ZR, nil);
 }
 
