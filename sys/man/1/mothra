@@ -22,7 +22,7 @@ Web names, called URLs, have a peculiar syntax:
 .IP
 .EX
 http://9front.org/
-https://code.9front.org/plan9front/
+https://code.9front.org/hg/plan9front/
 http://cat-v.org/
 .EE
 .PP
