@@ -1,6 +1,6 @@
 .TH AES 2
 .SH NAME
-setupAESstate, aesCBCencrypt, aesCBCdecrypt, setupAESXCBCstate, aesXCBCmac - advanced encryption standard (rijndael)
+setupAESstate, aesCBCencrypt, aesCBCdecrypt, setupAESXCBCstate, aesXCBCmac, setupAESGCMstate - advanced encryption standard (rijndael)
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -32,6 +32,18 @@ void	setupAESXCBCstate(AESstate *s)
 .PP
 .B
 void	aesXCBCmac(uchar *p, int len, AESstate *s)
+.PP
+.B
+void	setupAESGCMstate(AESGCMstate *s, uchar *key, int keylen, uchar *iv, int ivlen)
+.PP
+.B
+void	aesgcm_setiv(AESGCMstate *s, uchar *iv, int ivlen)
+.PP
+.B
+void	aesgcm_encrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], AESGCMstate *s)
+.PP
+.B
+int	aesgcm_decrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], AESGCMstate *s)
 .SH DESCRIPTION
 AES (a.k.a. Rijndael) has replaced DES as the preferred
 block cipher.
@@ -46,10 +58,27 @@ are the block ciphers, corresponding to
 and
 .I aesCBCdecrypt
 implement cipher-block-chaining encryption.
-.I setupAESXCBCstate
+.I SetupAESXCBCstate
 and
 .I aesXCBCmac
 implement AES XCBC message authentication, per RFC 3566.
+.IR SetupAESGCMstate ,
+.IR aesgcm_setiv ,
+.I aesgcm_encrypt
+and
+.I aesgcm_decrypt
+implement Galois/Counter Mode (GCM) authenticated encryption with associated data (AEAD).
+Before encryption or decryption, a new initialization vector (nonce) has to be set with
+.I aesgcm_setiv
+or by calling
+.I setupAESGCMstate
+with non-zero
+.I iv
+and
+.I ivlen
+arguments.
+Aesgcm_decrypt returns zero when authentication and decryption where successfull and
+non-zero otherwise.
 All ciphering is performed in place.
 .I Keybytes
 should be 16, 24, or 32.
