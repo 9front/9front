@@ -1,5 +1,5 @@
 /*
- *  devtls - record layer for transport layer security 1.0 and secure sockets layer 3.0
+ *  devtls - record layer for transport layer security 1.2 and secure sockets layer 3.0
  */
 #include	"u.h"
 #include	"../port/lib.h"
@@ -83,17 +83,18 @@ struct Secret
 {
 	char		*encalg;	/* name of encryption alg */
 	char		*hashalg;	/* name of hash alg */
-	int		(*enc)(Secret*, uchar*, int);
-	int		(*dec)(Secret*, uchar*, int);
-	int		(*unpad)(uchar*, int, int);
-	DigestState	*(*mac)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
 
 	int		(*aead_enc)(Secret*, uchar*, int, uchar*, uchar*, int);
 	int		(*aead_dec)(Secret*, uchar*, int, uchar*, uchar*, int);
 
+	int		(*enc)(Secret*, uchar*, int);
+	int		(*dec)(Secret*, uchar*, int);
+	int		(*unpad)(uchar*, int, int);
+	DigestState*	(*mac)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*);
+
 	int		block;		/* encryption block len, 0 if none */
-	int		maclen;
-	int		recivlen;
+	int		maclen;		/* # bytes of record mac / authentication tag */
+	int		recivlen;	/* # bytes of record iv for AEAD ciphers */
 	void		*enckey;
 	uchar		mackey[MaxMacLen];
 };
@@ -1428,7 +1429,6 @@ initmd5key(Hashalg *ha, int version, Secret *s, uchar *p)
 static void
 initclearmac(Hashalg *, int, Secret *s, uchar *)
 {
-	s->maclen = 0;
 	s->mac = nomac;
 }
 
@@ -1489,7 +1489,6 @@ initRC4key(Encalg *ea, Secret *s, uchar *p, uchar *)
 	s->enckey = smalloc(sizeof(RC4state));
 	s->enc = rc4enc;
 	s->dec = rc4enc;
-	s->block = 0;
 	setupRC4state(s->enckey, p, ea->keylen);
 }
 
@@ -1517,12 +1516,8 @@ static void
 initccpolykey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 {
 	s->enckey = smalloc(sizeof(Chachastate));
-	s->enc = noenc;
-	s->dec = noenc;
-	s->mac = nomac;
 	s->aead_enc = ccpoly_aead_enc;
 	s->aead_dec = ccpoly_aead_dec;
-	s->block = 0;
 	s->maclen = Poly1305dlen;
 	if(ea->ivlen == 0) {
 		/* older draft version, iv is 64-bit sequence number */
@@ -1538,12 +1533,8 @@ static void
 initaesgcmkey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 {
 	s->enckey = smalloc(sizeof(AESGCMstate));
-	s->enc = noenc;
-	s->dec = noenc;
-	s->mac = nomac;
 	s->aead_enc = aesgcm_aead_enc;
 	s->aead_dec = aesgcm_aead_dec;
-	s->block = 0;
 	s->maclen = 16;
 	s->recivlen = 8;
 	memmove(s->mackey, iv, ea->ivlen);
@@ -1556,7 +1547,6 @@ initclearenc(Encalg *, Secret *s, uchar *, uchar *)
 {
 	s->enc = noenc;
 	s->dec = noenc;
-	s->block = 0;
 }
 
 static Encalg encrypttab[] =
@@ -1700,30 +1690,30 @@ tlswrite(Chan *c, void *a, long n, vlong off)
 		p = cb->f[4];
 		m = (strlen(p)*3)/2;
 		x = smalloc(m);
-		tos = nil;
-		toc = nil;
+		tos = smalloc(sizeof(Secret));
+		toc = smalloc(sizeof(Secret));
 		if(waserror()){
 			freeSec(tos);
 			freeSec(toc);
 			free(x);
 			nexterror();
 		}
+
 		m = dec64(x, m, p, strlen(p));
 		if(m < 2 * ha->maclen + 2 * ea->keylen + 2 * ea->ivlen)
 			error("not enough secret data provided");
 
-		tos = smalloc(sizeof(Secret));
-		toc = smalloc(sizeof(Secret));
 		if(!ha->initkey || !ea->initkey)
 			error("misimplemented secret algorithm");
+
 		(*ha->initkey)(ha, tr->version, tos, &x[0]);
 		(*ha->initkey)(ha, tr->version, toc, &x[ha->maclen]);
 		(*ea->initkey)(ea, tos, &x[2 * ha->maclen], &x[2 * ha->maclen + 2 * ea->keylen]);
 		(*ea->initkey)(ea, toc, &x[2 * ha->maclen + ea->keylen], &x[2 * ha->maclen + 2 * ea->keylen + ea->ivlen]);
 
-		if(!tos->mac || !tos->enc || !tos->dec
-		|| !toc->mac || !toc->enc || !toc->dec)
-			error("missing algorithm implementations");
+		if(!tos->aead_enc || !tos->aead_dec || !toc->aead_enc || !toc->aead_dec)
+			if(!tos->mac || !tos->enc || !tos->dec || !toc->mac || !toc->enc || !toc->dec)
+				error("missing algorithm implementations");
 
 		if(strtol(cb->f[3], nil, 0) == 0){
 			tr->in.new = tos;
@@ -2073,10 +2063,17 @@ tlsstate(int s)
 static void
 freeSec(Secret *s)
 {
-	if(s != nil){
-		free(s->enckey);
-		free(s);
+	void *k;
+
+	if(s == nil)
+		return;
+	k = s->enckey;
+	if(k != nil){
+		memset(k, 0, msize(k));
+		free(k);
 	}
+	memset(s, 0, sizeof(*s));
+	free(s);
 }
 
 static int
