@@ -97,6 +97,8 @@ wscrsleep(Window *w, uint dt)
 	int y, b;
 	static Alt alts[3];
 
+	if(display->bufp > display->buf)
+		flushimage(display, 1);
 	timer = timerstart(dt);
 	y = w->mc.xy.y;
 	b = w->mc.buttons;
