@@ -1355,11 +1355,11 @@ main(int argc, char *argv[])
 		fprint(2, "stats: initdraw failed: %r\n");
 		exits("initdraw");
 	}
+	display->locking = 1;	/* tell library we're using the display lock */
 	colinit();
 	einit(Emouse|Ekeyboard);
 	startproc(inputproc, Inputproc);
 	pids[Mainproc] = getpid();
-	display->locking = 1;	/* tell library we're using the display lock */
 
 	resize();
 
