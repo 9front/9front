@@ -822,24 +822,37 @@ tfn(void *arg)
 	return up->trend == nil || up->tfn(arg);
 }
 
-void
+static void
 twakeup(Ureg*, Timer *t)
 {
 	Proc *p;
 	Rendez *trend;
 
+	ilock(t);
 	p = t->ta;
 	trend = p->trend;
-	p->trend = nil;
-	if(trend != nil)
+	if(trend != nil){
 		wakeup(trend);
+		p->trend = nil;
+	}
+	iunlock(t);
+}
+
+static void
+stoptimer(void)
+{
+	if(up->trend != nil){
+		up->trend = nil;
+		timerdel(up);
+	}
 }
 
 void
 tsleep(Rendez *r, int (*fn)(void*), void *arg, ulong ms)
 {
 	if(up->tt != nil){
-		print("tsleep: timer active: mode %d, tf %#p\n", up->tmode, up->tf);
+		print("%s %lux: tsleep timer active: mode %d, tf %#p, pc %#p\n",
+			up->text, up->pid, up->tmode, up->tf, getcallerpc(&r));
 		timerdel(up);
 	}
 	up->tns = MS2NS(ms);
@@ -851,13 +864,11 @@ tsleep(Rendez *r, int (*fn)(void*), void *arg, ulong ms)
 	timeradd(up);
 
 	if(waserror()){
-		timerdel(up);
+		stoptimer();
 		nexterror();
 	}
 	sleep(r, tfn, arg);
-	if(up->tt != nil)
-		timerdel(up);
-	up->twhen = 0;
+	stoptimer();
 	poperror();
 }
 
