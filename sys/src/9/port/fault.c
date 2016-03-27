@@ -10,7 +10,7 @@ fault(uintptr addr, int read)
 {
 	Segment *s;
 	char *sps;
-	int pnd;
+	int pnd, attr;
 
 	if(up == nil)
 		panic("fault: nil up");
@@ -34,7 +34,10 @@ fault(uintptr addr, int read)
 			return -1;
 		}
 
-		if(!read && (s->type&SG_RONLY)) {
+		attr = s->type;
+		if((attr & SG_TYPE) == SG_PHYSICAL)
+			attr |= s->pseg->attr;
+		if((attr & SG_FAULT) != 0 || !read && (attr & SG_RONLY) != 0) {
 			qunlock(s);
 			up->psstate = sps;
 			return -1;
@@ -62,15 +65,16 @@ faulterror(char *s, Chan *c)
 {
 	char buf[ERRMAX];
 
-	if(c != nil && c->path != nil){
-		snprint(buf, sizeof buf, "%s accessing %s: %s", s, c->path->s, up->errstr);
-		s = buf;
-	}
+	if(c != nil)
+		snprint(buf, sizeof buf, "sys: %s accessing %s: %s", s, chanpath(c), up->errstr);
+	else
+		snprint(buf, sizeof buf, "sys: %s", s);
 	if(up->nerrlab) {
 		if(up->kp == 0)
-			postnote(up, 1, s, NDebug);
+			postnote(up, 1, buf, NDebug);
 		error(s);
 	}
+	pprint("suicide: %s\n", buf);
 	pexit(s, 1);
 }
 
@@ -208,13 +212,12 @@ fixfault(Segment *s, uintptr addr, int read)
 		*pte = etp = ptealloc();
 
 	pg = &etp->pages[(soff&(PTEMAPMEM-1))/BY2PG];
-	type = s->type&SG_TYPE;
-
 	if(pg < etp->first)
 		etp->first = pg;
 	if(pg > etp->last)
 		etp->last = pg;
 
+	type = s->type & SG_TYPE;
 	switch(type) {
 	default:
 		panic("fault");

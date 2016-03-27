@@ -445,7 +445,7 @@ addseg(char *name, ulong start, ulong length)
 	kstrdup(&segbuf.name, name);
 	segbuf.pa = start;
 	segbuf.size = length;
-	if (addphysseg(&segbuf) == -1) {
+	if (addphysseg(&segbuf) == nil) {
 		print("addphysseg: %s\n", name);
 		return;
 	}

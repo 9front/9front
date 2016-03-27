@@ -179,7 +179,7 @@ lmlreset(void)
 		kstrdup(&segbuf.name, name);
 		segbuf.pa = PADDR(lml->codedata);
 		segbuf.size = Codedatasize;
-		if(addphysseg(&segbuf) == -1){
+		if(addphysseg(&segbuf) == nil){
 			print("lml: physsegment: %s\n", name);
 			return;
 		}
@@ -190,7 +190,7 @@ lmlreset(void)
 		kstrdup(&segbuf.name, name);
 		segbuf.pa = (ulong)regpa;
 		segbuf.size = pcidev->mem[0].size;
-		if(addphysseg(&segbuf) == -1){
+		if(addphysseg(&segbuf) == nil){
 			print("lml: physsegment: %s\n", name);
 			return;
 		}

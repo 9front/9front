@@ -551,7 +551,7 @@ isoverlap(Proc *p, uintptr va, uintptr len)
 	return nil;
 }
 
-int
+Physseg*
 addphysseg(Physseg* new)
 {
 	Physseg *ps;
@@ -564,34 +564,29 @@ addphysseg(Physseg* new)
 	for(ps = physseg; ps->name; ps++){
 		if(strcmp(ps->name, new->name) == 0){
 			unlock(&physseglock);
-			return -1;
+			return nil;
 		}
 	}
 	if(ps-physseg >= nelem(physseg)-2){
 		unlock(&physseglock);
-		return -1;
+		return nil;
 	}
 	*ps = *new;
 	unlock(&physseglock);
 
-	return 0;
+	return ps;
 }
 
-int
-isphysseg(char *name)
+Physseg*
+findphysseg(char *name)
 {
 	Physseg *ps;
-	int rv = 0;
 
-	lock(&physseglock);
-	for(ps = physseg; ps->name; ps++){
-		if(strcmp(ps->name, name) == 0){
-			rv = 1;
-			break;
-		}
-	}
-	unlock(&physseglock);
-	return rv;
+	for(ps = physseg; ps->name; ps++)
+		if(strcmp(ps->name, name) == 0)
+			return ps;
+
+	return nil;
 }
 
 uintptr
@@ -654,12 +649,10 @@ segattach(Proc *p, ulong attr, char *name, uintptr va, uintptr len)
 	if(isoverlap(p, va, len) != nil)
 		error(Esoverlap);
 
-	for(ps = physseg; ps->name; ps++)
-		if(strcmp(name, ps->name) == 0)
-			goto found;
+	ps = findphysseg(name);
+	if(ps == nil)
+		error(Ebadarg);
 
-	error(Ebadarg);
-found:
 	if(len > ps->size)
 		error(Enovmem);
 

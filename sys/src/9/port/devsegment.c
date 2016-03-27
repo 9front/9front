@@ -232,7 +232,7 @@ segmentcreate(Chan *c, char *name, int omode, ulong perm)
 	if(TYPE(c) != Qtopdir)
 		error(Eperm);
 
-	if(isphysseg(name))
+	if(findphysseg(name) != nil)
 		error(Eexist);
 
 	if((perm & DMDIR) == 0)

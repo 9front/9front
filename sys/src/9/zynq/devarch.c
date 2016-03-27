@@ -25,14 +25,15 @@ static Dirtab archdir[Qmax] = {
 };
 static int narchdir = Qbase;
 
-int temp = -128;
-ulong *devc;
-int dmadone;
+static int temp = -128;
+static ulong *devc;
+static int dmadone;
 enum { PLBUFSIZ = 8192 };
-uchar *plbuf;
-Rendez plinitr, pldoner, pldmar;
-QLock plrlock, plwlock;
-Ref plwopen;
+static uchar *plbuf;
+static Rendez plinitr, pldoner, pldmar;
+static QLock plrlock, plwlock;
+static Ref plwopen;
+static Physseg *axi;
 
 enum {
 	DEVCTRL = 0,
@@ -164,6 +165,8 @@ plirq(Ureg *, void *)
 		slcr[0x900/4] = 0xf;
 		slcr[0x240/4] = 0;
 		devc[DEVMASK] |= DONE;
+		if(axi != nil)
+			axi->attr &= ~SG_FAULT;
 		wakeup(&pldoner);
 	}
 	if((fl & DMADONE) != 0){
@@ -187,16 +190,21 @@ plinit(void)
 	slcr[FPGA0_CLK_CTRL] = 1<<20 | 10<<8;
 
 	memset(&seg, 0, sizeof seg);
-	seg.attr = SG_PHYSICAL;
+	seg.attr = SG_PHYSICAL | SG_FAULT;
 	seg.name = "axi";
 	seg.pa = 0x40000000;
 	seg.size = 0x8000000;
-	addphysseg(&seg);
+	axi = addphysseg(&seg);
 }
 
 static void
 plconf(void)
 {
+	if(axi != nil){
+		axi->attr |= SG_FAULT;
+		procflushpseg(axi);
+	}
+
 	slcr[0x240/4] = 0xf;
 	slcr[0x900/4] = 0xa;
 	devc[DEVISTS] = DONE|INITPE|DMADONE;

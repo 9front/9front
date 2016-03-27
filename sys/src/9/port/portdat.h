@@ -377,6 +377,7 @@ enum
 
 	SG_RONLY	= 0040,		/* Segment is read only */
 	SG_CEXEC	= 0100,		/* Detach at exec */
+	SG_FAULT	= 0200,		/* Fault on access */
 };
 
 #define PG_ONSWAP	1

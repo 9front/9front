@@ -1321,35 +1321,30 @@ procdump(void)
 }
 
 /*
- *  wait till all processes have flushed their mmu
- *  state about segement s
+ *  wait till all matching processes have flushed their mmu
  */
-void
-procflushseg(Segment *s)
+static void
+procflushmmu(int (*match)(Proc*, void*), void *a)
 {
-	int i, ns, nm, nwait;
+	int i, nm, nwait;
 	Proc *p;
 
 	/*
-	 *  tell all processes with this
-	 *  segment to flush their mmu's
+	 *  tell all matching processes to flush their mmu's
 	 */
 	nwait = 0;
 	for(i=0; i<conf.nproc; i++) {
 		p = &procalloc.arena[i];
-		if(p->state == Dead)
-			continue;
-		for(ns = 0; ns < NSEG; ns++)
-			if(p->seg[ns] == s){
-				p->newtlb = 1;
-				for(nm = 0; nm < conf.nmach; nm++){
-					if(MACHP(nm)->proc == p){
-						MACHP(nm)->flushmmu = 1;
-						nwait++;
-					}
+		if(p->state != Dead && (*match)(p, a)){
+			p->newtlb = 1;
+			for(nm = 0; nm < conf.nmach; nm++){
+				if(MACHP(nm)->proc == p){
+					MACHP(nm)->flushmmu = 1;
+					nwait++;
 				}
-				break;
 			}
+			break;
+		}
 	}
 
 	if(nwait == 0)
@@ -1362,6 +1357,42 @@ procflushseg(Segment *s)
 	for(nm = 0; nm < conf.nmach; nm++)
 		while(m->machno != nm && MACHP(nm)->flushmmu)
 			sched();
+}
+
+static int
+matchseg(Proc *p, void *a)
+{
+	int ns;
+
+	for(ns = 0; ns < NSEG; ns++){
+		if(p->seg[ns] == a)
+			return 1;
+	}
+	return 0;
+}
+void
+procflushseg(Segment *s)
+{
+	procflushmmu(matchseg, s);
+}
+
+static int
+matchpseg(Proc *p, void *a)
+{
+	Segment *s;
+	int ns;
+
+	for(ns = 0; ns < NSEG; ns++){
+		s = p->seg[ns];
+		if(s != nil && s->pseg == a)
+			return 1;
+	}
+	return 0;
+}
+void
+procflushpseg(Physseg *ps)
+{
+	procflushmmu(matchpseg, ps);
 }
 
 void
