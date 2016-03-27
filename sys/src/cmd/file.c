@@ -167,7 +167,7 @@ int	longoff(void);
 int	istar(void);
 int	isface(void);
 int	isexec(void);
-int	p9bitnum(uchar*);
+int	p9bitnum(char*, int*);
 int	p9subfont(uchar*);
 void	print_utf(void);
 void	type(char*, int);
@@ -1310,28 +1310,18 @@ isenglish(void)
  */
 #define	P9BITLEN	12
 int
-p9bitnum(uchar *bp)
+p9bitnum(char *s, int *v)
 {
-	int n, c, len;
+	char *es;
 
-	len = P9BITLEN;
-	while(*bp == ' ') {
-		bp++;
-		len--;
-		if(len <= 0)
-			return -1;
-	}
-	n = 0;
-	while(len > 1) {
-		c = *bp++;
-		if(!isdigit(c))
-			return -1;
-		n = n*10 + c-'0';
-		len--;
-	}
-	if(*bp != ' ')
+	if(s[P9BITLEN-1] != ' ')
 		return -1;
-	return n;
+	s[P9BITLEN-1] = '\0';
+	*v = strtol(s, &es, 10);
+	s[P9BITLEN-1] = ' ';
+	if(es != &s[P9BITLEN-1])
+		return -1;
+	return 0;
 }
 
 int
@@ -1347,13 +1337,18 @@ depthof(char *s, int *newp)
 	if(s == es)
 		return -1;
 	if('0'<=*s && *s<='9')
-		return 1<<strtol(s, 0, 0);
+		return 1<<strtol(s, nil, 0);
 
 	*newp = 1;
 	d = 0;
 	while(s<es && *s!=' '){
-		s++;			/* skip letter */
-		d += strtoul(s, &s, 10);
+		if(strchr("rgbkamx", *s) == nil)
+			return -1;
+		s++;
+		if('0'<=*s && *s<='9')
+			d += strtoul(s, &s, 10);
+		else
+			return -1;
 	}
 
 	if(d % 8 == 0 || 8 % d == 0)
@@ -1366,43 +1361,41 @@ int
 isp9bit(void)
 {
 	int dep, lox, loy, hix, hiy, px, new, cmpr;
-	ulong t;
 	long len;
 	char *newlabel;
 	uchar *cp;
 
 	cp = buf;
 	cmpr = 0;
-	newlabel = "old ";
-
 	if(memcmp(cp, "compressed\n", 11) == 0) {
 		cmpr = 1;
 		cp = buf + 11;
 	}
 
-	dep = depthof((char*)cp + 0*P9BITLEN, &new);
-	if(new)
-		newlabel = "";
-	lox = p9bitnum(cp + 1*P9BITLEN);
-	loy = p9bitnum(cp + 2*P9BITLEN);
-	hix = p9bitnum(cp + 3*P9BITLEN);
-	hiy = p9bitnum(cp + 4*P9BITLEN);
-	if(dep < 0 || lox < 0 || loy < 0 || hix < 0 || hiy < 0)
+	if((dep = depthof((char*)cp + 0*P9BITLEN, &new)) < 0)
+		return 0;
+	newlabel = new ? "" : "old ";
+	if(p9bitnum((char*)cp + 1*P9BITLEN, &lox) < 0)
+		return 0;
+	if(p9bitnum((char*)cp + 2*P9BITLEN, &loy) < 0)
+		return 0;
+	if(p9bitnum((char*)cp + 3*P9BITLEN, &hix) < 0)
+		return 0;
+	if(p9bitnum((char*)cp + 4*P9BITLEN, &hiy) < 0)
+		return 0;
+
+	hix -= lox;
+	hiy -= loy;
+	if(hix <= 0 || hiy <= 0)
 		return 0;
 
 	if(dep < 8){
 		px = 8/dep;		/* pixels per byte */
 		/* set l to number of bytes of data per scan line */
-		if(lox >= 0)
-			len = (hix+px-1)/px - lox/px;
-		else{			/* make positive before divide */
-			t = (-lox)+px-1;
-			t = (t/px)*px;
-			len = (t+hix+px-1)/px;
-		}
+		len = (hix+px-1)/px;
 	}else
-		len = (hix-lox)*dep/8;
-	len *= hiy - loy;		/* col length */
+		len = hix*dep/8;
+	len *= hiy;			/* col length */
 	len += 5 * P9BITLEN;		/* size of initial ascii */
 
 	/*
@@ -1412,8 +1405,8 @@ isp9bit(void)
 	 * for subfont, the subfont header should follow immediately.
 	 */
 	if (cmpr) {
-		print(mime ? "image/p9bit\n" : "Compressed %splan 9 image or subfont, depth %d\n",
-			newlabel, dep);
+		print(mime ? "image/p9bit\n" : "Compressed %splan 9 image or subfont, depth %d, size %dx%d\n",
+			newlabel, dep, hix, hiy);
 		return 1;
 	}
 	/*
@@ -1422,11 +1415,13 @@ isp9bit(void)
 	 */
 	if (len != 0 && (mbuf->length == 0 || mbuf->length == len ||
 	    mbuf->length > len && mbuf->length < len+P9BITLEN)) {
-		print(mime ? "image/p9bit\n" : "%splan 9 image, depth %d\n", newlabel, dep);
+		print(mime ? "image/p9bit\n" : "%splan 9 image, depth %d, size %dx%d\n",
+			newlabel, dep, hix, hiy);
 		return 1;
 	}
 	if (p9subfont(buf+len)) {
-		print(mime ? "image/p9bit\n" : "%ssubfont file, depth %d\n", newlabel, dep);
+		print(mime ? "image/p9bit\n" : "%ssubfont file, depth %d, size %dx%d\n",
+			newlabel, dep, hix, hiy);
 		return 1;
 	}
 	return 0;
@@ -1441,16 +1436,15 @@ p9subfont(uchar *p)
 	if (p+3*P9BITLEN > buf+sizeof(buf))
 		return 1;
 
-	n = p9bitnum(p + 0*P9BITLEN);	/* char count */
-	if (n < 0)
+	if (p9bitnum((char*)p + 0*P9BITLEN, &n) < 0)	/* char count */
 		return 0;
-	h = p9bitnum(p + 1*P9BITLEN);	/* height */
-	if (h < 0)
+	if (p9bitnum((char*)p + 1*P9BITLEN, &h) < 0)	/* height */
 		return 0;
-	a = p9bitnum(p + 2*P9BITLEN);	/* ascent */
-	if (a < 0)
+	if (p9bitnum((char*)p + 2*P9BITLEN, &a) < 0)	/* ascent */
 		return 0;
-	return 1;
+	if(n > 0 && h > 0 && a >= 0)
+		return 1;
+	return 0;
 }
 
 #define	WHITESPACE(c)		((c) == ' ' || (c) == '\t' || (c) == '\n')
