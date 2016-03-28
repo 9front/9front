@@ -1197,7 +1197,9 @@ tlsread(Chan *c, void *a, long n, vlong off)
 		if(tr->out.sec != nil)
 			s = seprint(s, e, "EncOut: %s\nHashOut: %s\n", tr->out.sec->encalg, tr->out.sec->hashalg);
 		if(tr->out.new != nil)
-			seprint(s, e, "NewEncOut: %s\nNewHashOut: %s\n", tr->out.new->encalg, tr->out.new->hashalg);
+			s = seprint(s, e, "NewEncOut: %s\nNewHashOut: %s\n", tr->out.new->encalg, tr->out.new->hashalg);
+		if(tr->c != nil)
+			seprint(s, e, "Chan: %s\n", chanpath(tr->c));
 		qunlock(&tr->in.seclock);
 		qunlock(&tr->out.seclock);
 		n = readstr(offset, a, n, buf);
