@@ -150,7 +150,7 @@ udpannounce(Conv *c, char** argv, int argc)
 static void
 udpcreate(Conv *c)
 {
-	c->rq = qopen(128*1024, Qmsg, 0, 0);
+	c->rq = qopen(512*1024, Qmsg, 0, 0);
 	c->wq = qbypass(udpkick, c);
 }
 
