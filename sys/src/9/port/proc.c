@@ -851,7 +851,7 @@ void
 tsleep(Rendez *r, int (*fn)(void*), void *arg, ulong ms)
 {
 	if(up->tt != nil){
-		print("%s %lux: tsleep timer active: mode %d, tf %#p, pc %#p\n",
+		print("%s %lud: tsleep timer active: mode %d, tf %#p, pc %#p\n",
 			up->text, up->pid, up->tmode, up->tf, getcallerpc(&r));
 		timerdel(up);
 	}
