@@ -1343,7 +1343,6 @@ procflushmmu(int (*match)(Proc*, void*), void *a)
 					nwait++;
 				}
 			}
-			break;
 		}
 	}
 
