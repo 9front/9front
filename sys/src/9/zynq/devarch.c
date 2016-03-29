@@ -165,8 +165,7 @@ plirq(Ureg *, void *)
 		slcr[0x900/4] = 0xf;
 		slcr[0x240/4] = 0;
 		devc[DEVMASK] |= DONE;
-		if(axi != nil)
-			axi->attr &= ~SG_FAULT;
+		axi->attr &= ~SG_FAULT;
 		wakeup(&pldoner);
 	}
 	if((fl & DMADONE) != 0){
@@ -181,6 +180,13 @@ plinit(void)
 {
 	Physseg seg;
 
+	memset(&seg, 0, sizeof seg);
+	seg.attr = SG_PHYSICAL | SG_FAULT;
+	seg.name = "axi";
+	seg.pa = 0x40000000;
+	seg.size = 0x8000000;
+	axi = addphysseg(&seg);
+
 	devc[DEVCTRL] &= ~(PROG|1<<25);
 	devc[DEVCTRL] |= 3<<26|PROG;
 	devc[DEVISTS] = -1;
@@ -188,22 +194,14 @@ plinit(void)
 	intrenable(DEVCIRQ, plirq, nil, LEVEL, "pl");
 	
 	slcr[FPGA0_CLK_CTRL] = 1<<20 | 10<<8;
-
-	memset(&seg, 0, sizeof seg);
-	seg.attr = SG_PHYSICAL | SG_FAULT;
-	seg.name = "axi";
-	seg.pa = 0x40000000;
-	seg.size = 0x8000000;
-	axi = addphysseg(&seg);
 }
 
 static void
 plconf(void)
 {
-	if(axi != nil){
-		axi->attr |= SG_FAULT;
-		procflushpseg(axi);
-	}
+	axi->attr |= SG_FAULT;
+	procflushpseg(axi);
+	flushmmu();
 
 	slcr[0x240/4] = 0xf;
 	slcr[0x900/4] = 0xa;
