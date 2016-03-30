@@ -27,7 +27,7 @@ static struct Imagealloc
 	QLock	ireclaim;	/* mutex on reclaiming free images */
 }imagealloc;
 
-Segment* (*_globalsegattach)(Proc*, char*);
+Segment* (*_globalsegattach)(char*);
 
 void
 initseg(void)
@@ -533,7 +533,7 @@ mfreeseg(Segment *s, uintptr start, ulong pages)
 }
 
 Segment*
-isoverlap(Proc *p, uintptr va, uintptr len)
+isoverlap(uintptr va, uintptr len)
 {
 	int i;
 	Segment *ns;
@@ -541,7 +541,7 @@ isoverlap(Proc *p, uintptr va, uintptr len)
 
 	newtop = va+len;
 	for(i = 0; i < NSEG; i++) {
-		ns = p->seg[i];
+		ns = up->seg[i];
 		if(ns == nil)
 			continue;
 		if((newtop > ns->base && newtop <= ns->top) ||
@@ -590,7 +590,7 @@ findphysseg(char *name)
 }
 
 uintptr
-segattach(Proc *p, ulong attr, char *name, uintptr va, uintptr len)
+segattach(int attr, char *name, uintptr va, uintptr len)
 {
 	int sno;
 	Segment *s, *os;
@@ -600,7 +600,7 @@ segattach(Proc *p, ulong attr, char *name, uintptr va, uintptr len)
 		error(Ebadarg);
 
 	for(sno = 0; sno < NSEG; sno++)
-		if(p->seg[sno] == nil && sno != ESEG)
+		if(up->seg[sno] == nil && sno != ESEG)
 			break;
 
 	if(sno == NSEG)
@@ -611,9 +611,13 @@ segattach(Proc *p, ulong attr, char *name, uintptr va, uintptr len)
 	 *  same name
 	 */
 	if(_globalsegattach != nil){
-		s = (*_globalsegattach)(p, name);
+		s = (*_globalsegattach)(name);
 		if(s != nil){
-			p->seg[sno] = s;
+			if(isoverlap(s->base, s->top - s->base) != nil){
+				putseg(s);
+				error(Esoverlap);
+			}
+			up->seg[sno] = s;
 			return s->base;
 		}
 	}
@@ -634,7 +638,7 @@ segattach(Proc *p, ulong attr, char *name, uintptr va, uintptr len)
 	 * map the zero page.
 	 */
 	if(va == 0) {
-		for (os = p->seg[SSEG]; os != nil; os = isoverlap(p, va, len)) {
+		for (os = up->seg[SSEG]; os != nil; os = isoverlap(va, len)) {
 			va = os->base;
 			if(len >= va)
 				error(Enovmem);
@@ -646,7 +650,7 @@ segattach(Proc *p, ulong attr, char *name, uintptr va, uintptr len)
 	if(va == 0 || (va+len) > USTKTOP || (va+len) < va)
 		error(Ebadarg);
 
-	if(isoverlap(p, va, len) != nil)
+	if(isoverlap(va, len) != nil)
 		error(Esoverlap);
 
 	ps = findphysseg(name);
@@ -661,7 +665,7 @@ segattach(Proc *p, ulong attr, char *name, uintptr va, uintptr len)
 
 	s = newseg(attr, va, len/BY2PG);
 	s->pseg = ps;
-	p->seg[sno] = s;
+	up->seg[sno] = s;
 
 	return va;
 }

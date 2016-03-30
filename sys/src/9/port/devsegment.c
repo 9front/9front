@@ -34,8 +34,8 @@ static Globalseg *globalseg[100];
 static Lock globalseglock;
 
 
-	Segment* (*_globalsegattach)(Proc*, char*);
-static	Segment* globalsegattach(Proc *p, char *name);
+	Segment* (*_globalsegattach)(char*);
+static	Segment* globalsegattach(char *name);
 
 static	Segment* fixedseg(uintptr va, ulong len);
 
@@ -64,7 +64,7 @@ getgseg(Chan *c)
 static void
 putgseg(Globalseg *g)
 {
-	if(decref(g) > 0)
+	if(g == nil || decref(g))
 		return;
 	if(g->s != nil)
 		putseg(g->s);
@@ -103,9 +103,9 @@ segmentgen(Chan *c, char*, Dirtab*, int, int s, Dir *dp)
 		q.vers = 0;
 		q.path = PATH(s, Qsegdir);
 		q.type = QTDIR;
-		devdir(c, q, g->name, 0, g->uid, DMDIR|0777, dp);
+		kstrcpy(up->genbuf, g->name, sizeof up->genbuf);
+		devdir(c, q, up->genbuf, 0, g->uid, DMDIR|0777, dp);
 		unlock(&globalseglock);
-
 		break;
 	case Qsegdir:
 		if(s == DEVDOTDOT){
@@ -183,16 +183,6 @@ segmentopen(Chan *c, int omode)
 			error(Eisdir);
 		break;
 	case Qctl:
-		g = getgseg(c);
-		if(waserror()){
-			putgseg(g);
-			nexterror();
-		}
-		devpermcheck(g->uid, g->perm, omode);
-		c->aux = g;
-		poperror();
-		c->flag |= COPEN;
-		break;
 	case Qdata:
 		g = getgseg(c);
 		if(waserror()){
@@ -200,27 +190,31 @@ segmentopen(Chan *c, int omode)
 			nexterror();
 		}
 		devpermcheck(g->uid, g->perm, omode);
-		if(g->s == nil)
+		if(TYPE(c) == Qdata && g->s == nil)
 			error("segment not yet allocated");
 		c->aux = g;
 		poperror();
-		c->flag |= COPEN;
 		break;
 	default:
 		panic("segmentopen");
 	}
 	c->mode = openmode(omode);
 	c->offset = 0;
+	c->flag |= COPEN;
 	return c;
 }
 
 static void
 segmentclose(Chan *c)
 {
-	if(TYPE(c) == Qtopdir)
-		return;
-	if(c->flag & COPEN)
-		putgseg(c->aux);
+	switch(TYPE(c)){
+	case Qctl:
+	case Qdata:
+		if(c->flag & COPEN){
+			putgseg(c->aux);
+			c->aux = nil;
+		}
+	}
 }
 
 static Chan*
@@ -232,8 +226,11 @@ segmentcreate(Chan *c, char *name, int omode, ulong perm)
 	if(TYPE(c) != Qtopdir)
 		error(Eperm);
 
+	if(strlen(name) >= sizeof(up->genbuf))
+		error(Etoolong);
+
 	if(findphysseg(name) != nil)
-		error(Eexist);
+		error("name collision with physical segment");
 
 	if((perm & DMDIR) == 0)
 		error(Ebadarg);
@@ -249,10 +246,8 @@ segmentcreate(Chan *c, char *name, int omode, ulong perm)
 		if(g == nil){
 			if(xfree < 0)
 				xfree = x;
-		} else {
-			if(strcmp(g->name, name) == 0)
-				error(Eexist);
-		}
+		} else if(strcmp(g->name, name) == 0)
+			error(Eexist);
 	}
 	if(xfree < 0)
 		error("too many global segments");
@@ -269,7 +264,6 @@ segmentcreate(Chan *c, char *name, int omode, ulong perm)
 	c->qid.type = QTDIR;
 	c->qid.vers = 0;
 	c->mode = openmode(omode);
-	c->mode = OWRITE;
 	return c;
 }
 
@@ -330,13 +324,15 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 			va = va&~(BY2PG-1);
 			if(va == 0 || top > USTKTOP || top <= va)
 				error(Ebadarg);
-			len = (top - va) / BY2PG;
+			len = top - va;
+			if(len > SEGMAXSIZE)
+				error(Enovmem);
 			if(cb->nf >= 4 && strcmp(cb->f[3], "fixed") == 0){
 				if(!iseve())
 					error(Eperm);
-				g->s = fixedseg(va, len);
+				g->s = fixedseg(va, len/BY2PG);
 			} else
-				g->s = newseg(SG_SHARED, va, len);
+				g->s = newseg(SG_SHARED, va, len/BY2PG);
 		} else
 			error(Ebadctl);
 		free(cb);
@@ -359,22 +355,27 @@ segmentwstat(Chan *c, uchar *dp, int n)
 	if(c->qid.type == QTDIR)
 		error(Eperm);
 
+	d = nil;
 	g = getgseg(c);
 	if(waserror()){
+		free(d);
 		putgseg(g);
 		nexterror();
 	}
-
 	if(strcmp(g->uid, up->user) && !iseve())
 		error(Eperm);
 	d = smalloc(sizeof(Dir)+n);
 	n = convM2D(dp, n, &d[0], (char*)&d[1]);
-	g->perm = d->mode & 0777;
-
+	if(n == 0)
+		error(Eshortstat);
+	if(!emptystr(d->uid))
+		kstrdup(&g->uid, d->uid);
+	if(d->mode != ~0UL)
+		g->perm = d->mode&0777;
+	free(d);
 	putgseg(g);
 	poperror();
 
-	free(d);
 	return n;
 }
 
@@ -399,13 +400,12 @@ segmentremove(Chan *c)
  *  called by segattach()
  */
 static Segment*
-globalsegattach(Proc *p, char *name)
+globalsegattach(char *name)
 {
 	int x;
 	Globalseg *g;
 	Segment *s;
 
-	g = nil;
 	if(waserror()){
 		unlock(&globalseglock);
 		nexterror();
@@ -414,19 +414,16 @@ globalsegattach(Proc *p, char *name)
 	for(x = 0; x < nelem(globalseg); x++){
 		g = globalseg[x];
 		if(g != nil && strcmp(g->name, name) == 0)
-			break;
+			goto Found;
 	}
-	if(x == nelem(globalseg)){
-		unlock(&globalseglock);
-		poperror();
-		return nil;
-	}
+	unlock(&globalseglock);
+	poperror();
+	return nil;
+Found:
 	devpermcheck(g->uid, g->perm, ORDWR);
 	s = g->s;
 	if(s == nil)
 		error("global segment not assigned a virtual address");
-	if(isoverlap(p, s->base, s->top - s->base) != nil)
-		error("overlaps existing segment");
 	incref(s);
 	unlock(&globalseglock);
 	poperror();

@@ -429,7 +429,7 @@ sysexec(va_list list)
 		tstk = s->base;
 		if(tstk <= USTKSIZE)
 			error(Enovmem);
-	} while((s = isoverlap(up, tstk-USTKSIZE, USTKSIZE)) != nil);
+	} while((s = isoverlap(tstk-USTKSIZE, USTKSIZE)) != nil);
 	up->seg[ESEG] = newseg(SG_STACK, tstk-USTKSIZE, USTKSIZE/BY2PG);
 
 	/*
@@ -785,12 +785,12 @@ syssegbrk(va_list list)
 uintptr
 syssegattach(va_list list)
 {
-	ulong attr;
+	int attr;
 	char *name;
 	uintptr va;
 	ulong len;
 
-	attr = va_arg(list, ulong);
+	attr = va_arg(list, int);
 	name = va_arg(list, char*);
 	va = va_arg(list, uintptr);
 	len = va_arg(list, ulong);
@@ -800,7 +800,7 @@ syssegattach(va_list list)
 		free(name);
 		nexterror();
 	}
-	va = segattach(up, attr, name, va, len);
+	va = segattach(attr, name, va, len);
 	free(name);
 	poperror();
 	return va;

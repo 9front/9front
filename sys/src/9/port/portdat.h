@@ -389,7 +389,7 @@ enum
 
 struct Physseg
 {
-	ulong	attr;			/* Segment attributes */
+	int	attr;			/* Segment attributes */
 	char	*name;			/* Attach name */
 	uintptr	pa;			/* Physical address */
 	uintptr	size;			/* Maximum segment size in bytes */
