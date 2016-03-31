@@ -244,13 +244,6 @@ struct Walkqid
 	Qid	qid[1];
 };
 
-enum
-{
-	NSMAX	=	1000,
-	NSLOG	=	7,
-	NSCACHE	=	(1<<NSLOG),
-};
-
 struct Mount
 {
 	ulong	mountid;
