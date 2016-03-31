@@ -5211,3 +5211,9 @@ One way that I was able to get this working was forking 9front and adding a clun
 Your Go installation is broken. -- Brad Fitzpatrick
 ./configure CFLAGS="-I$HOME/source/harvey/ape/amd64/include -I$HOME/source/harvey/ape/include -mno-red-zone -ffreestanding -fno-builtin -nostdlib -trigraphs -D_SUSV2_SOURCE -D_POSIX_SOURCE -D_LIMITS_EXTENSION -D_BSD_SOURCE -D_BSD_EXTENSION -DHAVE_SOCK_OPTS -DHARVEY -DPlan9" LDFLAGS="-static $HOME/source/harvey/ape/amd64/lib/crt1.o $HOME/source/harvey/ape/amd64/lib/crti.o $HOME/source/harvey/ape/amd64/lib/crtn.o -L$HOME/source/harvey/ape/amd64/lib -L$HOME/source/harvey/amd64/lib" LIBS="-lbsd -lap -lc" LIBM="" --prefix=$HOME/source/harvey/ape/ports *--host=x86_64-linux-gnu --build=x86_64-harvey *--enable-shared=no
 Apache is less magical than it was in the 90's. -- Brad Fitzpatrick
+What Can JavaScript Do? A Non-Technical Overview
+VMware is like being taken off of our land and moved onto a reservation.  In this case, however, it will not stand. -- Terry
+The muscott icon of it! Why devil?
+I write a good bit of C code but all things being equal I would be programming in Oberon. -- Brantley Coile
+Kubrick is trying to tell us something…Something involving rainbows.
+Both gg and sjw are leftist movements.

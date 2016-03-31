@@ -241,3 +241,7 @@ Subject: [golang-dev] vendoring the stdlib
 [golang-dev] godoc.org is down
 [harvey-commits] chdir regression test
 [harvey] FOSDEM
+[harvey-commits] [PATCH 1/2] Added sam into the build
+[harvey-commits] [PATCH] Fixing broken build.
+[harvey] Cannot get Harvey to run on qemu
+[harvey] Running mahjongg game panics kernel (#88)
