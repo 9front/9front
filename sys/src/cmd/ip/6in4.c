@@ -71,7 +71,7 @@ static void	tunnel2ip(int, int);
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-ag] [-x mtpt] [-o mtpt] [local6[/mask]] [remote4 [remote6]]\n",
+	fprint(2, "usage: %s [-ag] [-x mtpt] [-o mtpt] [-i local4] [local6[/mask]] [remote4 [remote6]]\n",
 		argv0);
 	exits("Usage");
 }
@@ -261,11 +261,14 @@ main(int argc, char **argv)
 	case 'o':
 		outside = EARGF(usage());
 		break;
+	case 'i':
+		parseip(myip, EARGF(usage()));
+		break;
 	default:
 		usage();
 	} ARGEND
 
-	if (myipaddr(myip, outside) < 0)
+	if (ipcmp(myip, IPnoaddr) == 0 && myipaddr(myip, outside) < 0)
 		sysfatal("can't find my ipv4 address on %s", outside);
 	if (!isv4(myip))
 		sysfatal("my ip, %I, is not a v4 address", myip);

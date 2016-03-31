@@ -11,6 +11,9 @@
 ] [
 .B -o
 .I outnetmtpt
+]  [
+.B -i
+.I local4
 ] [
 .IB local6 [ /mask ]
 [
@@ -91,6 +94,12 @@ for
 .IR 6in4 ,
 permit any remote IPv4 address as the far end of a tunnel.
 This is likely to be useful for the server side of a tunnel.
+.TP
+.B -i
+for
+.IR 6in4 ,
+define what is the local IPv4 address, otherwise it takes the first
+non-loopback address of the outside IP stack.
 .TP
 .B -g
 use the tunnel as the default route for global IPv6 addresses
