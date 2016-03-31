@@ -381,7 +381,6 @@ tunnel2ip(int in, int out)
 {
 	int n, m;
 	char buf[64*1024];
-	uchar a[IPaddrlen];
 	Ip6hdr *op;
 	Iphdr *ip;
 
@@ -419,14 +418,10 @@ tunnel2ip(int in, int out)
 		op = (Ip6hdr*)(buf + IPaddrlen + STFHDR);
 		n -= STFHDR;
 
-		/*
-		 * don't relay: just accept packets for local host/subnet
-		 * (this blocks link-local and multicast addresses as well)
-		 */
-		maskip(op->dst, localmask, a);
-		if (!equivip6(a, localnet)) {
-			syslog(0, "6in4", "ingress filtered %I -> %I; "
-				"dst not on local net", op->src, op->dst);
+		/* filter multicast and link-local, but allow relay traffic */
+		if (badipv6(op->src) || badipv6(op->dst)) {
+			syslog(0, "6in4", "ingress filtered %I -> %I; bad src/dst",
+				op->src, op->dst);
 			continue;
 		}
 		if (debug > 1)
