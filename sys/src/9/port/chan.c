@@ -520,7 +520,7 @@ cclose(Chan *c)
 		return;
 
 	if(devtab[c->type]->dc == L'M')
-	if((c->flag&(CRCLOSE|CCACHE)) == CCACHE)
+	if((c->flag&COPEN) == 0 || (c->flag&(CRCLOSE|CCACHE)) == CCACHE)
 	if((c->qid.type&(QTEXCL|QTMOUNT|QTAUTH)) == 0)
 	if((clunkq.nqueued - clunkq.nclosed) < 64){
 		closechanq(c);
