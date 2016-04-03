@@ -239,7 +239,7 @@ static struct flist *decode(const char *bin, int len)
 	char decode[12]; /* for dealing with alignment issues */
 
 	/* assume worst case size, we won't have many of these lists */
-	l = lalloc(len / 12);
+	l = lalloc(len / 12 + 1);
 	if (!l)
 		return NULL;
 
@@ -250,7 +250,7 @@ static struct flist *decode(const char *bin, int len)
 		lt->start = ntohl(*(uint32_t *)decode);
 		lt->end = ntohl(*(uint32_t *)(decode + 4));
 		lt->len = ntohl(*(uint32_t *)(decode + 8));
-		if (lt->start > lt->end)
+		if (lt->start > lt->end || lt->len < 0)
 			break; /* sanity check */
 		bin = data + lt->len;
 		if (bin < data)
