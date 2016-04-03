@@ -180,7 +180,7 @@ screenproc(void *)
 void
 keyproc(void *)
 {
-	int fd, k;
+	int fd, n, k;
 	static char buf[256];
 	char *s;
 	Rune r;
@@ -189,8 +189,17 @@ keyproc(void *)
 	if(fd < 0)
 		sysfatal("open: %r");
 	for(;;){
-		if(read(fd, buf, sizeof(buf) - 1) <= 0)
-			sysfatal("read /dev/kbd: %r");
+		if(buf[0] != 0){
+			n = strlen(buf)+1;
+			memmove(buf, buf+n, sizeof(buf)-n);
+		}
+		if(buf[0] == 0){
+			n = read(fd, buf, sizeof(buf)-1);
+			if(n <= 0)
+				sysfatal("read /dev/kbd: %r");
+			buf[n-1] = 0;
+			buf[n] = 0;
+		}
 		if(buf[0] == 'c'){
 			if(utfrune(buf, Kdel)){
 				close(fd);

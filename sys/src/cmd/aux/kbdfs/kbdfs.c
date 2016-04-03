@@ -417,7 +417,9 @@ kbdin(Scan *a, char *p, int n)
 		}
 		free(s);
 		return;
-	} else if(n < 2)
+	}
+Nextmsg:
+	if(n < 2)
 		return;
 	switch(p[0]){
 	case 'R':
@@ -429,24 +431,16 @@ kbdin(Scan *a, char *p, int n)
 		k.b = k.r;
 		k.down = (p[0] == 'r');
 		/*
-		 * handle ^X forms according to keymap and
-		 * assign button.
+		 * assign button according to keymap.
 		 */
 		for(i=0; i<Nscan; i++){
 			if((a->shift && kbtabshift[i] == k.r) || (kbtab[i] == k.r)){
 				if(kbtab[i])
 					k.b = kbtab[i];
-				if(a->shift)
-					k.r = kbtabshift[i];
-				else if(a->altgr)
-					k.r = kbtabaltgr[i];
-				else if(a->ctl)
-					k.r = kbtabctl[i];
 				break;
 			}
 		}
-		if(k.b)
-			send(keychan, &k);
+		send(keychan, &k);
 		if(k.r == Kshift)
 			a->shift = k.down;
 		else if(k.r == Kaltgr)
@@ -463,11 +457,15 @@ kbdin(Scan *a, char *p, int n)
 	default:
 		if(!kbdopen)
 			break;
-		s = emalloc9p(n);
-		memmove(s, p, n);
+		i = strlen(p)+1;
+		s = emalloc9p(i);
+		memmove(s, p, i);
 		if(nbsendp(kbdchan, s) <= 0)
 			free(s);
 	}
+	i = strlen(p)+1;
+	n -= i, p += i;
+	goto Nextmsg;
 }
 
 void
@@ -831,10 +829,11 @@ reqproc(void *aux)
 	Channel **ac;
 	Req *r, *q, **qq;
 	char *s, *p, *e;
-	int n;
+	int n, m;
 
 	threadsetname("reqproc");
 
+	e = nil;
 	s = nil;
 	p = nil;
 
@@ -852,7 +851,7 @@ reqproc(void *aux)
 	a[AEND].op = CHANEND;
 
 	for(;;){
-		a[ASTR].op = s ? CHANNOP : CHANRCV;
+		a[ASTR].op = s != nil ? CHANNOP : CHANRCV;
 
 		switch(alt(a)){
 		case AREQ:
@@ -883,27 +882,38 @@ reqproc(void *aux)
 				p = s;
 			}
 
-			while(s && q){
+			while(s != nil && q != nil){
 				r = q;
 				if((q = q->aux) == nil)
 					qq = &q;
-
-				e = s + strlen(s);
-				if(p == s && r->fid->qid.path == Qkbd)
-					e++; /* send terminating \0 if its kbd file */
+				r->ofcall.count = 0;
+				if(s == p){
+				More:
+					e = s + strlen(s);
+					if(r->fid->qid.path == Qkbd)
+						e++; /* send terminating \0 if its kbd file */
+				}
 				n = e - p;
-				if(n > r->ifcall.count)
-					n = r->ifcall.count;
-
-				r->ofcall.count = n;
-				memmove(r->ofcall.data, p, n);
-				respond(r, nil);
-
+				m = r->ifcall.count - r->ofcall.count;
+				if(n > m){
+					if(r->ofcall.count > 0){
+						respond(r, nil);
+						continue;
+					}
+					n = m;
+				}
+				memmove((char*)r->ofcall.data + r->ofcall.count, p, n);
+				r->ofcall.count += n;
 				p += n;
 				if(p >= e){
 					free(s);
-					s = nil;
+					s = nbrecvp(a[ASTR].c);
+					if(s != nil){
+						p = s;
+						goto More;
+					}
 				}
+				respond(r, nil);
 			}
 		}
 	}

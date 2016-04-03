@@ -257,8 +257,19 @@ kbdproc(void)
 
 	buf2[0] = 0;
 	buf2[1] = 0;
-	while((n = read(kfd, buf, sizeof(buf))) > 0){
-		buf[n-1] = 0;
+	buf[0] = 0;
+	for(;;){
+		if(buf[0] != 0){
+			n = strlen(buf)+1;
+			memmove(buf, buf+n, sizeof(buf)-n);
+		}
+		if(buf[0] == 0){
+			n = read(kfd, buf, sizeof(buf)-1);
+			if(n <= 0)
+				break;
+			buf[n-1] = 0;
+			buf[n] = 0;
+		}
 
 		e.data1 = -1;
 		e.data2 = -1;

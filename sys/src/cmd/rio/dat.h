@@ -95,11 +95,6 @@ struct Mousereadmesg
 	Channel	*cm;		/* chan(Mouse) */
 };
 
-struct Kbdreadmesg
-{
-	Channel *ck;		/* chan(char*) */
-};
-
 struct Stringpair	/* rune and nrune or byte and nbyte */
 {
 	void		*s;
@@ -137,7 +132,7 @@ struct Window
 	Channel		*consread;	/* chan(Consreadmesg) */
 	Channel		*mouseread;	/* chan(Mousereadmesg) */
 	Channel		*wctlread;	/* chan(Consreadmesg) */
-	Channel		*kbdread;	/* chan(Kbdreadmesg) */
+	Channel		*kbdread;	/* chan(Consreadmesg) */
 	Channel		*complete;	/* chan(Completion*) */
 	Channel		*gone;		/* chan(char*) */
 	uint			nr;			/* number of runes in window */

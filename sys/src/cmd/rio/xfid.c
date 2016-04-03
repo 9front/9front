@@ -614,13 +614,9 @@ xfidread(Xfid *x)
 	Channel *c1, *c2;	/* chan (tuple(char*, int)) */
 	Consreadmesg crm;
 	Mousereadmesg mrm;
-	Consreadmesg cwrm;
-	Kbdreadmesg krm;
 	Stringpair pair;
-	enum { CRdata, CRgone, CRflush, NCR };
-	enum { MRdata, MRgone, MRflush, NMR };
-	enum { WCRdata, WCRgone, WCRflush, NWCR };
-	Alt alts[NCR+1];
+	enum { Adata, Agone, Aflush, Aend };
+	Alt alts[Aend+1];
 
 	w = x->f->w;
 	if(w->deleted){
@@ -631,29 +627,42 @@ xfidread(Xfid *x)
 	off = x->offset;
 	cnt = x->count;
 	switch(qid){
+	case Qwctl:
+		if(cnt < 4*12){
+			filsysrespond(x->fs, x, &fc, Etooshort);
+			break;
+		}
+		alts[Adata].c = w->wctlread;
+		goto Consmesg;
+
+	case Qkbd:
+		alts[Adata].c = w->kbdread;
+		goto Consmesg;
+
 	case Qcons:
-		alts[CRdata].c = w->consread;
-		alts[CRdata].v = &crm;
-		alts[CRdata].op = CHANRCV;
-		alts[CRgone].c = w->gone;
-		alts[CRgone].v = nil;
-		alts[CRgone].op = CHANRCV;
-		alts[CRflush].c = x->flushc;
-		alts[CRflush].v = nil;
-		alts[CRflush].op = CHANRCV;
-		alts[NCR].op = CHANEND;
+		alts[Adata].c = w->consread;
+
+	Consmesg:
+		alts[Adata].v = &crm;
+		alts[Adata].op = CHANRCV;
+		alts[Agone].c = w->gone;
+		alts[Agone].v = nil;
+		alts[Agone].op = CHANRCV;
+		alts[Aflush].c = x->flushc;
+		alts[Aflush].v = nil;
+		alts[Aflush].op = CHANRCV;
+		alts[Aend].op = CHANEND;
 
 		switch(alt(alts)){
-		case CRdata:
+		case Adata:
 			break;
-		case CRgone:
+		case Agone:
 			filsysrespond(x->fs, x, &fc, Edeleted);
 			return;
-		case CRflush:
+		case Aflush:
 			filsyscancel(x);
 			return;
 		}
-
 		c1 = crm.c1;
 		c2 = crm.c2;
 		t = malloc(cnt+UTFmax+1);	/* room to unpack partial rune plus */
@@ -679,24 +688,24 @@ xfidread(Xfid *x)
 		break;
 
 	case Qmouse:
-		alts[MRdata].c = w->mouseread;
-		alts[MRdata].v = &mrm;
-		alts[MRdata].op = CHANRCV;
-		alts[MRgone].c = w->gone;
-		alts[MRgone].v = nil;
-		alts[MRgone].op = CHANRCV;
-		alts[MRflush].c = x->flushc;
-		alts[MRflush].v = nil;
-		alts[MRflush].op = CHANRCV;
-		alts[NMR].op = CHANEND;
+		alts[Adata].c = w->mouseread;
+		alts[Adata].v = &mrm;
+		alts[Adata].op = CHANRCV;
+		alts[Agone].c = w->gone;
+		alts[Agone].v = nil;
+		alts[Agone].op = CHANRCV;
+		alts[Aflush].c = x->flushc;
+		alts[Aflush].v = nil;
+		alts[Aflush].op = CHANRCV;
+		alts[Aend].op = CHANEND;
 
 		switch(alt(alts)){
-		case MRdata:
+		case Adata:
 			break;
-		case MRgone:
+		case Agone:
 			filsysrespond(x->fs, x, &fc, Edeleted);
 			return;
-		case MRflush:
+		case Aflush:
 			filsyscancel(x);
 			return;
 		}
@@ -710,36 +719,6 @@ xfidread(Xfid *x)
 		fc.data = buf;
 		fc.count = min(n, cnt);
 		filsysrespond(x->fs, x, &fc, nil);
-		break;
-
-	case Qkbd:
-		alts[MRdata].c = w->kbdread;
-		alts[MRdata].v = &krm;
-		alts[MRdata].op = CHANRCV;
-		alts[MRgone].c = w->gone;
-		alts[MRgone].v = nil;
-		alts[MRgone].op = CHANRCV;
-		alts[MRflush].c = x->flushc;
-		alts[MRflush].v = nil;
-		alts[MRflush].op = CHANRCV;
-		alts[NMR].op = CHANEND;
-
-		switch(alt(alts)){
-		case MRdata:
-			break;
-		case MRgone:
-			filsysrespond(x->fs, x, &fc, Edeleted);
-			return;
-		case MRflush:
-			filsyscancel(x);
-			return;
-		}
-
-		t = recvp(krm.ck);
-		fc.data = t;
-		fc.count = strlen(t)+1;
-		filsysrespond(x->fs, x, &fc, nil);
-		free(t);
 		break;
 
 	case Qcursor:
@@ -832,49 +811,6 @@ xfidread(Xfid *x)
 		}
 		free(t);
 		return;
-
-	case Qwctl:	/* read returns rectangle, hangs if not resized */
-		if(cnt < 4*12){
-			filsysrespond(x->fs, x, &fc, Etooshort);
-			break;
-		}
-
-		alts[WCRdata].c = w->wctlread;
-		alts[WCRdata].v = &cwrm;
-		alts[WCRdata].op = CHANRCV;
-		alts[WCRgone].c = w->gone;
-		alts[WCRgone].v = nil;
-		alts[WCRgone].op = CHANRCV;
-		alts[WCRflush].c = x->flushc;
-		alts[WCRflush].v = nil;
-		alts[WCRflush].op = CHANRCV;
-		alts[NWCR].op = CHANEND;
-
-		switch(alt(alts)){
-		case WCRdata:
-			break;
-		case WCRgone:
-			filsysrespond(x->fs, x, &fc, Edeleted);
-			return;
-		case WCRflush:
-			filsyscancel(x);
-			return;
-		}
-
-		c1 = cwrm.c1;
-		c2 = cwrm.c2;
-		t = malloc(cnt+1);	/* be sure to have room for NUL */
-		pair.s = t;
-		pair.ns = cnt+1;
-		send(c1, &pair);
-		recv(c2, &pair);
-		fc.data = pair.s;
-		if(pair.ns > cnt)
-			pair.ns = cnt;
-		fc.count = pair.ns;
-		filsysrespond(x->fs, x, &fc, nil);
-		free(t);
-		break;
 
 	default:
 		fprint(2, "unknown qid %d in read\n", qid);

@@ -41,7 +41,7 @@ wmk(Image *i, Mousectl *mc, Channel *ck, Channel *cctl, int scrolling)
 	w->cursorp = nil;
 	w->conswrite = chancreate(sizeof(Conswritemesg), 0);
 	w->consread =  chancreate(sizeof(Consreadmesg), 0);
-	w->kbdread =  chancreate(sizeof(Kbdreadmesg), 0);
+	w->kbdread =  chancreate(sizeof(Consreadmesg), 0);
 	w->mouseread =  chancreate(sizeof(Mousereadmesg), 0);
 	w->wctlread =  chancreate(sizeof(Consreadmesg), 0);
 	w->complete = chancreate(sizeof(Completion*), 0);
@@ -167,11 +167,9 @@ winctl(void *arg)
 	Mousestate *mp, m;
 	enum { WKbd, WKbdread, WMouse, WMouseread, WCtl, WCwrite, WCread, WWread, WComplete, Wgone, NWALT };
 	Alt alts[NWALT+1];
-	Mousereadmesg mrm;
-	Kbdreadmesg krm;
-	Conswritemesg cwm;
 	Consreadmesg crm;
-	Consreadmesg cwrm;
+	Mousereadmesg mrm;
+	Conswritemesg cwm;
 	Stringpair pair;
 	Wctlmesg wcm;
 	Completion *cr;
@@ -182,18 +180,15 @@ winctl(void *arg)
 	threadsetname("winctl-id%d", w->id);
 
 	mrm.cm = chancreate(sizeof(Mouse), 0);
-	krm.ck = chancreate(sizeof(char*), 0);
-	cwm.cw = chancreate(sizeof(Stringpair), 0);
 	crm.c1 = chancreate(sizeof(Stringpair), 0);
 	crm.c2 = chancreate(sizeof(Stringpair), 0);
-	cwrm.c1 = chancreate(sizeof(Stringpair), 0);
-	cwrm.c2 = chancreate(sizeof(Stringpair), 0);
+	cwm.cw = chancreate(sizeof(Stringpair), 0);
 	
 	alts[WKbd].c = w->ck;
 	alts[WKbd].v = &kbds;
 	alts[WKbd].op = CHANRCV;
 	alts[WKbdread].c = w->kbdread;
-	alts[WKbdread].v = &krm;
+	alts[WKbdread].v = &crm;
 	alts[WKbdread].op = CHANSND;
 	alts[WMouse].c = w->mc.c;
 	alts[WMouse].v = &w->mc.Mouse;
@@ -211,7 +206,7 @@ winctl(void *arg)
 	alts[WCread].v = &crm;
 	alts[WCread].op = CHANSND;
 	alts[WWread].c = w->wctlread;
-	alts[WWread].v = &cwrm;
+	alts[WWread].v = &crm;
 	alts[WWread].op = CHANSND;
 	alts[WComplete].c = w->complete;
 	alts[WComplete].v = &cr;
@@ -279,14 +274,27 @@ winctl(void *arg)
 			break;
 
 		case WKbdread:
-			i = (kbdqr+1) % nelem(kbdq);
-			if(kbdqr != kbdqw)
-				kbdqr = i;
-			if(kbdq[i]){
-				sendp(krm.ck, kbdq[i]);
+			recv(crm.c1, &pair);
+			nb = pair.ns;
+			pair.ns = 0;
+			t = pair.s;
+			while(kbdqr != kbdqw){
+				int m;
+
+				i = (kbdqr+1) % nelem(kbdq);
+				if(kbdq[i] == nil)
+					break;
+				m = strlen(kbdq[i])+1;
+				nb -= m;
+				if(nb < 0)
+					break;
+				memmove(t, kbdq[i], m);
+				t += m, pair.ns += m;
+				free(kbdq[i]);
 				kbdq[i] = nil;
-			}else
-				sendp(krm.ck, strdup("K"));
+				kbdqr = i;
+			}
+			send(crm.c2, &pair);
 			continue;
 
 		case WMouse:
@@ -329,10 +337,7 @@ winctl(void *arg)
 				chanfree(crm.c1);
 				chanfree(crm.c2);
 				chanfree(mrm.cm);
-				chanfree(krm.ck);
 				chanfree(cwm.cw);
-				chanfree(cwrm.c1);
-				chanfree(cwrm.c2);
 				threadexits(nil);
 			}
 			continue;
@@ -406,14 +411,14 @@ winctl(void *arg)
 			continue;
 		case WWread:
 			w->wctlready = 0;
-			recv(cwrm.c1, &pair);
+			recv(crm.c1, &pair);
 			s = Dx(w->screenr) > 0 ? "visible" : "hidden";
 			t = "notcurrent";
 			if(w == input)
 				t = "current";
 			pair.ns = snprint(pair.s, pair.ns, "%11d %11d %11d %11d %s %s ",
 				w->i->r.min.x, w->i->r.min.y, w->i->r.max.x, w->i->r.max.y, t, s);
-			send(cwrm.c2, &pair);
+			send(crm.c2, &pair);
 			continue;
 		case WComplete:
 			if(w->i!=nil){

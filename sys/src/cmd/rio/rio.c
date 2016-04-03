@@ -1302,8 +1302,13 @@ kbdproc(void *arg)
 		servekbd = 1;
 
 		/* read kbd state */
-		while((n = read(kfd, buf, sizeof(buf))) > 0)
-			chanprint(c, "%.*s", n, buf);
+		while((n = read(kfd, buf, sizeof(buf)-1)) > 0){
+			e = buf+n;
+			e[-1] = 0;
+			e[0] = 0;
+			for(p = buf; p < e; p += strlen(p)+1)
+				chanprint(c, "%s", p);
+		}
 	} else {
 		/* read single characters */
 		p = buf;
