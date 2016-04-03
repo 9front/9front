@@ -185,10 +185,10 @@ on the
 file instead. The
 .B c
 message will be resent at the keyboard repeat rate.
-Each
+A single
 .IR read (2)
-will return a single message or block until there are new messages
-available. Opening the
+can return multiple concatenated messages at once (delimited by the null byte)
+or block when there are no messages queued. Opening the
 .BR kbd
 file disables input processing on the
 .BR cons
