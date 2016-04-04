@@ -630,7 +630,7 @@ xfidread(Xfid *x)
 	case Qwctl:
 		if(cnt < 4*12){
 			filsysrespond(x->fs, x, &fc, Etooshort);
-			break;
+			return;
 		}
 		alts[Adata].c = w->wctlread;
 		goto Consmesg;
@@ -665,13 +665,13 @@ xfidread(Xfid *x)
 		}
 		c1 = crm.c1;
 		c2 = crm.c2;
-		t = malloc(cnt+UTFmax+1);	/* room to unpack partial rune plus */
+		t = emalloc(cnt+UTFmax+1);	/* room to unpack partial rune plus */
 		pair.s = t;
 		pair.ns = cnt;
 		send(c1, &pair);
 		recv(c2, &pair);
 		fc.data = pair.s;
-		fc.count = pair.ns;
+		fc.count = min(cnt, pair.ns);
 		filsysrespond(x->fs, x, &fc, nil);
 		free(t);
 		break;

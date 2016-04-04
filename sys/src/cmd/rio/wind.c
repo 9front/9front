@@ -159,7 +159,7 @@ showcandidates(Window *, Completion *);
 void
 winctl(void *arg)
 {
-	Rune *rp, *up;
+	Rune *rp, *up, r;
 	uint qh, q0;
 	int nr, nb, c, wid, i, npart, initial, lastb;
 	char *s, *t, part[3];
@@ -174,7 +174,7 @@ winctl(void *arg)
 	Wctlmesg wcm;
 	Completion *cr;
 	char *kbdq[32], *kbds;
-	int kbdqr, kbdqw;
+	uint kbdqr, kbdqw;
 
 	w = arg;
 	threadsetname("winctl-id%d", w->id);
@@ -216,7 +216,6 @@ winctl(void *arg)
 	alts[Wgone].op = CHANNOP;
 	alts[NWALT].op = CHANEND;
 
-	memset(kbdq, 0, sizeof(kbdq));
 	kbdqr = kbdqw = 0;
 	npart = 0;
 	lastb = -1;
@@ -258,45 +257,38 @@ winctl(void *arg)
 		}
 		switch(alt(alts)){
 		case WKbd:
-			if(w->kbdopen){
-				i = (kbdqw+1) % nelem(kbdq);
-				if(i != kbdqr)
-					kbdqw = i;
-			} else if(*kbds == 'c'){
-				Rune r;
-
-				chartorune(&r, kbds+1);
-				if(r)
-					wkeyctl(w, r);
+			if(kbdqw - kbdqr < nelem(kbdq))
+				kbdq[kbdqw++ % nelem(kbdq)] = kbds;
+			else
+				free(kbds);
+			if(w->kbdopen)
+				continue;
+			while(kbdqr != kbdqw){
+				kbds = kbdq[kbdqr++ % nelem(kbdq)];
+				if(*kbds == 'c'){
+					chartorune(&r, kbds+1);
+					if(r)
+						wkeyctl(w, r);
+				}
+				free(kbds);
 			}
-			free(kbdq[kbdqw]);
-			kbdq[kbdqw] = kbds;
 			break;
-
 		case WKbdread:
 			recv(crm.c1, &pair);
-			nb = pair.ns;
-			pair.ns = 0;
-			t = pair.s;
+			nb = 0;
 			while(kbdqr != kbdqw){
-				int m;
-
-				i = (kbdqr+1) % nelem(kbdq);
-				if(kbdq[i] == nil)
+				kbds = kbdq[kbdqr % nelem(kbdq)];
+				i = strlen(kbds)+1;
+				if(nb+i > pair.ns)
 					break;
-				m = strlen(kbdq[i])+1;
-				nb -= m;
-				if(nb < 0)
-					break;
-				memmove(t, kbdq[i], m);
-				t += m, pair.ns += m;
-				free(kbdq[i]);
-				kbdq[i] = nil;
-				kbdqr = i;
+				memmove((char*)pair.s + nb, kbds, i);
+				free(kbds);
+				nb += i;
+				kbdqr++;
 			}
+			pair.ns = nb;
 			send(crm.c2, &pair);
 			continue;
-
 		case WMouse:
 			if(w->mouseopen) {
 				w->mouse.counter++;
@@ -332,8 +324,8 @@ winctl(void *arg)
 			continue;
 		case WCtl:
 			if(wctlmesg(w, wcm.type, wcm.r, wcm.p) == Exited){
-				for(i=0; i<nelem(kbdq); i++)
-					free(kbdq[i]);
+				while(kbdqr != kbdqw)
+					free(kbdq[kbdqr++ % nelem(kbdq)]);
 				chanfree(crm.c1);
 				chanfree(crm.c2);
 				chanfree(mrm.cm);
