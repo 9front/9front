@@ -1,2 +1,2 @@
 #!/bin/rc
-/bin/auth/authsrv -d $3
+exec /bin/auth/authsrv -N $3
