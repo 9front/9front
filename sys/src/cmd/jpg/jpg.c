@@ -125,7 +125,7 @@ main(int argc, char *argv[])
 
 	if(yflag==0 && dflag==0 && colorspace==CYCbCr){	/* see if we should convert right to RGB */
 		fd = open("/dev/screen", OREAD);
-		if(fd > 0){
+		if(fd >= 0){
 			buf[12] = '\0';
 			if(read(fd, buf, 12)==12 && chantodepth(strtochan(buf))>8)
 				colorspace = CRGB;
