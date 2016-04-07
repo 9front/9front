@@ -444,6 +444,7 @@ enum {
 	i82580,
 	i82583,
 	i210,
+	i217,
 	i218,
 	i350,
 	Nctlrtype,
@@ -486,6 +487,7 @@ static Ctlrtype cttab[Nctlrtype] = {
 [i82580]	"i82580",	9728,	F75|F79phy,
 [i82583]	"i82583",	1514,	0,
 [i210]		"i210",		9728,	F75|Fnofct|Fert,
+[i217]		"i217",		9728,	Fload|Fnofct|Fert|Fbadcsum,
 [i218]		"i218",		9728,	Fload|Fert|F79phy|Fnofct|Fbadcsum,
 [i350]		"i350",		9728,	F75|F79phy|Fnofct,
 };
@@ -759,6 +761,7 @@ i82563multicast(void *arg, uchar *addr, int on)
 	case i82577m:
 	case i82579:
 	case i210:
+	case i217:
 	case i218:
 		bit = (addr[5]<<2)|(addr[4]>>6);
 		x = (bit>>5) & 31;
@@ -1863,6 +1866,10 @@ didtype(int d)
 		return i82583;
 	case 0x1533:		/* copper */
 		return i210;
+	case 0x153a:		/* i217-lm */
+	case 0x153b:		/* i217-v */
+		return i217;
+		break;
 	case 0x1559:		/* i218-v */
 	case 0x155a:		/* i218-lm */
 	case 0x15a0:		/* i218-lm */
@@ -2090,6 +2097,12 @@ i210pnp(Ether *e)
 }
 
 static int
+i217pnp(Ether *e)
+{
+	return pnp(e, i217);
+}
+
+static int
 i218pnp(Ether *e)
 {
 	return pnp(e, i218);
@@ -2125,6 +2138,7 @@ ether82563link(void)
 	addethercard("i82580", i82580pnp);
 	addethercard("i82583", i82583pnp);
 	addethercard("i210", i210pnp);
+	addethercard("i217", i217pnp);
 	addethercard("i218", i218pnp);
 	addethercard("i350", i350pnp);
 	addethercard("igbepcie", anypnp);
