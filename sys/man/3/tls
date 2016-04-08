@@ -1,6 +1,6 @@
 .TH TLS 3 
 .SH NAME
-tls \- TLS1 and SSL3 record layer
+tls \- TLS and SSL3 record layer
 .SH SYNOPSIS
 .nf
 .B bind -a #a /net
@@ -17,7 +17,7 @@ tls \- TLS1 and SSL3 record layer
 .fi
 .SH DESCRIPTION
 The TLS device implements the record layer protocols
-of Transport Layer Security version 1.0 and Secure Sockets Layer version 3.0.
+of Transport Layer Security version 1.0-1.2 and Secure Sockets Layer version 3.0.
 It does not implement the handshake protocols, which are responsible for
 mutual authentication and key exchange.
 The
@@ -55,8 +55,11 @@ format records, but incoming messages of either version are accepted.
 Valid versions are
 .B 0x300
 for SSLv3.0 and
-.B 0x301
-for TLSv1.0 (which could be known as SSLv3.01.)
+.BR 0x301 ,
+.B 0x302
+and
+.B 0x303
+for TLSv1.0 (which could be known as SSLv3.01), TLSv1.1 and TLSv1.2.
 This command must be issued before any other command
 and before reading or writing any messages;
 it may only be executed once.
@@ -118,7 +121,7 @@ command.
 .BI alert \ alertno
 Send an alert message.
 .I Alertno
-may be a valid alert code for either SSLv3.0 or TLSv1.0,
+may be a valid alert code for either SSLv3.0 or TLS,
 and is mapped to an appropriate code for the protocol in use.
 If it is a fatal alert, the filter is set into an error state.
 .PP
@@ -257,16 +260,26 @@ will give the space-separated list of algorithms implemented.
 This will always include
 .BR clear ,
 meaning no encryption or digesting.
-Currently implemented encryption algorithms are
-.B 'rc4_128',
-.BR '3des_ede_cbc',
-.BR 'aes_128_cbc',
+Currently implemented encryption algorithms for use with TLSv1.0 and TLSv1.1 are:
+.BR rc4_128 ,
+.BR 3des_ede_cbc ,
+.B aes_128_cbc
 and
-.BR 'aes_256_cbc'.
-Currently implemented hashing algorithms are
-.B 'md5'
+.BR aes_256_cbc .
+For TLSv1.2, which adds support for authenticated encryption with
+associated data (AEAD), the following ciphers are supported:
+.BR ccpoly64_aead ,
+.BR ccpoly96_aead ,
+.B aes_128_gcm_aead
 and
-.BR 'sha1' .
+.BR aes_256_gcm_aead .
+Currently implemented hashing algorithms are:
+.BR md5 ,
+.B sha1
+and
+.BR sha256 .
+For an AEAD cipher, the hashing algorithm should be set to
+.BR clear .
 .SH "SEE ALSO"
 .IR listen (8),
 .IR dial (2),
