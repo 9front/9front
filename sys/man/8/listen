@@ -136,6 +136,7 @@ server for old
 command for compatibility with old clients.
 .TP
 .B tcp17019
+server for
 .IR rcpu (1),
 replaces
 .IR rx ,
@@ -158,6 +159,7 @@ service.
 FTP daemon
 .TP
 .B tcp22
+server for
 .IR ssh (1)
 `secure shell' encrypted terminal connection or file transfer.
 .TP
