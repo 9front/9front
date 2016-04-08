@@ -135,6 +135,15 @@ server for old
 .IR cpu (1)
 command for compatibility with old clients.
 .TP
+.B tcp17019
+.IR rcpu (1),
+replaces
+.IR rx ,
+.IR import (4)
+and
+.IR cpu (1)
+using TLS for encryption. 
+.TP
 .B tcp7
 echo any bytes received (bit mirror)
 .TP
