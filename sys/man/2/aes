@@ -115,3 +115,9 @@ The functions
 and
 .IR aesXCBCmac
 have not yet been verified by running test vectors through them.
+.PP
+Because of the way that non-multiple-of-16 buffers are handled,
+.I aesCBCdecrypt
+must be fed buffers of the same size as the
+.I aesCBCencrypt
+calls that encrypted it.
