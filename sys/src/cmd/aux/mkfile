@@ -58,7 +58,9 @@ UPDATE=\
 
 </sys/src/cmd/mkmany
 
-DIRS=mnihongo\
+DIRS=\
+	antiword\
+	mnihongo\
 	flashfs\
 	gps\
 	kbdfs\
