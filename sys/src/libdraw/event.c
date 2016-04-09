@@ -369,7 +369,7 @@ ekill(void)
 
 	pid = getpid();
 	for(i=0; i<nslave; i++){
-		if(pid == eslave[i].pid)
+		if(eslave[i].pid == 0 || pid == eslave[i].pid)
 			continue;	/* don't kill myself */
 		postnote(PNPROC, eslave[i].pid, "die");
 	}
