@@ -51,8 +51,7 @@ UPDATE=mkfile\
 </sys/src/cmd/mksyslib
 
 %.c:D:	%.mp
-	echo '#include <u.h>' > $target
-	echo '#include <libc.h>' >> $target
+	echo '#include "os.h"' > $target
 	echo '#include <mp.h>' >> $target
 	mpc $prereq >> $target
 	

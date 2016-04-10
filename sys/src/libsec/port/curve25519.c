@@ -45,8 +45,7 @@
  * uses many of the tricks described therein. Only the crecip function is taken
  * from the sample implementation.
  */
-#include <u.h>
-#include <libc.h>
+#include "os.h"
 #include <libsec.h>
 
 typedef vlong felem;

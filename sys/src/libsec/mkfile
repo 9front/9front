@@ -33,9 +33,9 @@ installall:V:
 	for(objtype in $CPUS) mk $MKFLAGS install
 
 everything:V:
-	rm -f */*.[012456789kqv]
+	rm -f */*.[$OS]
 	for(objtype in $CPUS)@{
 		echo $objtype
 		mk $MKFLAGS install
 	}
-	rm -f */*.[012456789kqv]
+	rm -f */*.[$OS]

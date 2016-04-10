@@ -1,7 +1,6 @@
 // Author Taru Karttunen <taruti@taruti.net>
 // This file can be used as both Public Domain or Creative Commons CC0.
-#include <u.h>
-#include <libc.h>
+#include "os.h"
 #include <libsec.h>
 
 #define AesBlockSize 16

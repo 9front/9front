@@ -1,6 +1,5 @@
-#include	<u.h>
-#include	<libc.h>
-#include	<libsec.h>
+#include "os.h"
+#include <libsec.h>
 
 /* 
  *  use the X917 random number generator to create random

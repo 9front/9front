@@ -1,7 +1,4 @@
-#include <u.h>
-#include <libc.h>
-#include <auth.h>
-#include <mp.h>
+#include "os.h"
 #include <libsec.h>
 
 static char*

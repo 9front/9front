@@ -1,6 +1,4 @@
-#include <u.h>
-#include <libc.h>
-#include <mp.h>
+#include "os.h"
 #include <libsec.h>
 
 #define STRLEN(s)	(sizeof(s)-1)

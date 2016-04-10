@@ -2563,7 +2563,7 @@ tlsSecInits(int cvers, uchar *csid, int ncsid, uchar *crandom, uchar *ssid, int 
 	memmove(sec->crandom, crandom, RandomSize);
 	sec->clientVers = cvers;
 
-	put32(sec->srandom, time(0));
+	put32(sec->srandom, time(nil));
 	genrandom(sec->srandom+4, RandomSize-4);
 	memmove(srandom, sec->srandom, RandomSize);
 
@@ -2626,7 +2626,7 @@ tlsSecInitc(int cvers, uchar *crandom)
 {
 	TlsSec *sec = emalloc(sizeof(*sec));
 	sec->clientVers = cvers;
-	put32(sec->crandom, time(0));
+	put32(sec->crandom, time(nil));
 	genrandom(sec->crandom+4, RandomSize-4);
 	memmove(crandom, sec->crandom, RandomSize);
 	return sec;

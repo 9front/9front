@@ -1,7 +1,7 @@
 #include <u.h>
 #include <libc.h>
-#include <libsec.h>
 #include <mp.h>
+#include <libsec.h>
 
 typedef struct Test Test;
 struct Test

@@ -1,8 +1,5 @@
-#include <u.h>
-#include <libc.h>
+#include "os.h"
 #include <bio.h>
-#include <auth.h>
-#include <mp.h>
 #include <libsec.h>
 
 enum{ ThumbTab = 1<<10 };

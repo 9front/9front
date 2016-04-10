@@ -7,8 +7,7 @@ modified for use in Plan 9 and Inferno (no algorithmic changes),
 and including the changes to block number and nonce defined in RFC7539
 */
 
-#include <u.h>
-#include <libc.h>
+#include "os.h"
 #include <libsec.h>
 
 enum{
