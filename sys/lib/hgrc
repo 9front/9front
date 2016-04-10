@@ -1,0 +1,4 @@
+[extensions]
+# always use hgwebfs extension so we can use HTTPS without
+# openssl and keep keys in factotum
+hgwebfs=
