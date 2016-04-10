@@ -26,12 +26,12 @@ installall:V:
 	for(objtype in $CPUS) mk $MKFLAGS install
 
 everything:V:
-	rm -f */*.[012456789kvx]
+	rm -f */*.[$OS]
 	for(objtype in 386)@{
 		echo $objtype
 		mk $MKFLAGS install
 	}
-	rm -f */*.[012456789kvx]
+	rm -f */*.[$OS]
 
 test.$O: test.c /$objtype/include/u.h /sys/include/mp.h port/dat.h
 	$CC -Iport test.c
@@ -46,9 +46,9 @@ $O.bigtest: bigtest.$O /$objtype/lib/libmp.a
 	$LD -o $O.bigtest bigtest.$O
 
 allout:
+	objtype=arm; mk; mk 5.test 5.bigtest
+	objtype=amd64; mk; mk 6.test 6.bigtest
 	objtype=386; mk; mk 8.test 8.bigtest
-	objtype=power; mk; mk q.test q.bigtest
-	objtype=mips; mk; mk v.test v.bigtest
 
 cleanout:
-	rm -f [qv8].* *.[qv8]
+	rm -f [568].* *.[568]

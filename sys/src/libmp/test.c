@@ -5,26 +5,11 @@
 
 int loops = 1;
 
-long randomreg;
-
-void
-srand(long seed)
-{
-	randomreg = seed;
-}
-
-long
-lrand(void)
-{
-	randomreg = randomreg*104381 + 81761;
-	return randomreg;
-}
-
 void
 prng(uchar *p, int n)
 {
 	while(n-- > 0)
-		*p++ = lrand();
+		*p++ = rand();
 }
 
 void
