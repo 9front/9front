@@ -81,4 +81,5 @@ class Webopener:
 def webopener(ui, authinfo=None):
 	return Webopener();
 
+mercurial.url.has_https = 1
 mercurial.url.opener = webopener
