@@ -45,7 +45,9 @@ FILES=\
 
 ALLOFILES=${FILES:%=%.$O}
 # cull things in the per-machine directories from this list
-OFILES=	`{rc ./reduce $O $objtype $ALLOFILES}
+OFILES=	`{rfork e; \
+	if(~ $objtype spim) objtype=mips; \
+	rc ./reduce $O $objtype $ALLOFILES}
 
 HFILES=\
 	/$objtype/include/u.h\
