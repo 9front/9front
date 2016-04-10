@@ -2,17 +2,9 @@ objtype=spim
 </$objtype/mkfile
 
 LIB=/$objtype/lib/libsec.a
-FILES=\
-	md5block\
-	sha1block\
 
 HFILES=/sys/include/libsec.h
 
-SFILES=${FILES:%=%.s}
-
-OFILES=${FILES:%=%.$O}
-
-%.$O:	../mips/%.s
-	$AS -I../mips $AFLAGS ../mips/$stem.s
+OFILES=\
 
 </sys/src/cmd/mksyslib
