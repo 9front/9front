@@ -1,4 +1,6 @@
+#include <stdint.h>
+
 void
-setmalloctag(void*, unsigned long)
+setmalloctag(void*, uintptr_t)
 {
 }

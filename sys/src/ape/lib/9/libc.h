@@ -1,6 +1,7 @@
 #define _LOCK_EXTENSION
 #define _QLOCK_EXTENSION
 #define _BSD_EXTENSION
+#include <stdint.h>
 #include <sys/types.h>
 #include <lock.h>
 #include <qlock.h>
@@ -14,6 +15,8 @@
 #include <utf.h>
 #include <fmt.h>
 #include <signal.h>
+
+#define	nelem(x)	(sizeof(x)/sizeof((x)[0]))
 
 typedef
 struct Qid
@@ -97,10 +100,11 @@ extern	int	_STAT(const char*, unsigned char*, int);
 extern	Waitmsg*	_WAIT(void);
 extern	long	_WRITE(int, const void*, long);
 extern	int	_WSTAT(const char*, unsigned char*, int);
-extern 	void *_MALLOCZ(int, int);
+extern 	void*	_MALLOCZ(int, int);
 extern	int	_WERRSTR(char*, ...);
 extern	long	_READN(int, void*, long);
 extern	int	_IOUNIT(int);
+extern	vlong	_NSEC(void);
 
 #define dirstat _dirstat
 #define dirfstat _dirfstat
@@ -115,23 +119,35 @@ extern	int	_IOUNIT(int);
 #define AEXEC 1
 #define AEXIST 0
 
-#define open _OPEN
-#define close _CLOSE
-#define read _READ
-#define write _WRITE
 #define _exits(s) _exit(s && *(char*)s ? 1 : 0)
 #define exits(s) exit(s && *(char*)s ? 1 : 0)
-#define create _CREATE
-#define pread _PREAD
+
+#define create(file, omode, perm) open(file, (omode) |O_CREAT | O_TRUNC, perm)
+#define seek(fd, off, dir) lseek(fd, off, dir)
+
 #define readn _READN
+#define pread _PREAD
+#define pwrite _PWRITE
 #define mallocz _MALLOCZ
+#define nsec	_NSEC
 #define iounit	_IOUNIT
 
-/* assume being called as in event.c */
-#define postnote(x, pid, msg) kill(pid, SIGTERM)
-#define atnotify(x, y) signal(SIGTERM, ekill)
+#define postnote(who,pid,note)	kill(pid,SIGTERM)
+#define atnotify(func,in)
 
 #define ERRMAX 128
 
-extern	void	setmalloctag(void*, ulong);
-extern	ulong	getcallerpc(void*);
+extern	void		setmalloctag(void*, uintptr_t);
+extern	void		setrealloctag(void*, uintptr_t);
+extern	uintptr_t	getcallerpc(void*);
+
+extern int  dec16(uchar *, int, char *, int);
+extern int  enc16(char *, int, uchar *, int);
+extern int  dec32(uchar *, int, char *, int);
+extern int  enc32(char *, int, uchar *, int);
+extern int  dec64(uchar *, int, char *, int);
+extern int  enc64(char *, int, uchar *, int);
+
+extern	int tokenize(char*, char**, int);
+extern void sysfatal(char*, ...);
+extern	ulong truerand(void); /* uses /dev/random */
