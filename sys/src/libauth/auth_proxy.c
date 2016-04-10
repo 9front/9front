@@ -128,8 +128,8 @@ fauth_proxy(int fd, AuthRpc *rpc, AuthGetkey *getkey, char *params)
 		return nil;
 	}
 
-	rerrstr(oerr, sizeof oerr);
-	werrstr("UNKNOWN AUTH ERROR");
+	strcpy(oerr, "UNKNOWN AUTH ERROR");
+	errstr(oerr, sizeof oerr);
 
 	if(dorpc(rpc, "start", params, strlen(params), getkey) != ARok){
 		werrstr("fauth_proxy start: %r");
