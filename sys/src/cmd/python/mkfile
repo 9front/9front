@@ -14,8 +14,6 @@ OFILES=\
 
 LIB= \
 	/$objtype/lib/ape/libpython.a\
-	/$objtype/lib/ape/libssl.a\
-	/$objtype/lib/ape/libcrypto.a
 
 LIBDIRS=Modules Objects Parser Python
 

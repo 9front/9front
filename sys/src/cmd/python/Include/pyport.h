@@ -765,7 +765,7 @@ typedef	struct fd_set {
 #endif
 
 #ifndef Py_ULL
-#define Py_ULL(x) Py_LL(x##U)
+#define Py_ULL(x) x##ULL
 #endif
 
 #endif /* Py_PYPORT_H */
