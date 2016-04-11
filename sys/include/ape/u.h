@@ -16,4 +16,9 @@ typedef	uint		Rune;
 typedef 	union FPdbleword FPdbleword;
 typedef	char*	p9va_list;
 
+typedef uchar	u8int;
+typedef ushort	u16int;
+typedef ulong	u32int;
+typedef uvlong	u64int;
+
 #endif

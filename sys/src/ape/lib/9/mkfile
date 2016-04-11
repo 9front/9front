@@ -2,11 +2,15 @@ APE=/sys/src/ape
 <$APE/config
 
 LIB=/$objtype/lib/ape/lib9.a
-OFILES=argv0.$O\
-	errstr.$O\
+OFILES=\
+	argv0.$O\
 	bind.$O\
+	crypt.$O\
+	ctime.$O\
+	errstr.$O\
 	getcallerpc.$O\
 	getfcr.$O\
+	getfields.$O\
 	mount.$O\
 	rendezvous.$O\
 	rfork.$O\
@@ -40,8 +44,14 @@ CFLAGS=-c $CFLAGS -D_POSIX_SOURCE -D_PLAN9_SOURCE
 sysfatal.$O: ../../../libc/9sys/sysfatal.c
 	$CC $CFLAGS -I. ../../../libc/9sys/sysfatal.c
 
+getfields.$O: ../../../libc/port/getfields.c
+	$CC $CFLAGS -I. ../../../libc/port/getfields.c
+
 tokenize.$O: ../../../libc/port/tokenize.c
 	$CC $CFLAGS -I. ../../../libc/port/tokenize.c
+
+crypt.$O: ../../../libc/port/crypt.c
+	$CC $CFLAGS -I. ../../../libc/port/crypt.c
 
 truerand.$O: ../../../libc/9sys/truerand.c
 	$CC $CFLAGS -I. ../../../libc/9sys/truerand.c

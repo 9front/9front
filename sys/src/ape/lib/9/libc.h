@@ -1,6 +1,11 @@
 #define _LOCK_EXTENSION
 #define _QLOCK_EXTENSION
 #define _BSD_EXTENSION
+
+#ifdef _NET_EXTENSION
+#include <libnet.h>
+#endif
+
 #include <stdint.h>
 #include <sys/types.h>
 #include <lock.h>
@@ -15,6 +20,7 @@
 #include <utf.h>
 #include <fmt.h>
 #include <signal.h>
+#include <time.h>
 
 #define	nelem(x)	(sizeof(x)/sizeof((x)[0]))
 
@@ -54,6 +60,17 @@ long _dirreadall(int, Dir**);
 void _nulldir(Dir*);
 uint _sizeD2M(Dir*);
 
+#define convM2D	_convM2D
+#define convD2M	_convD2M
+#define dirstat _dirstat
+#define dirwstat _dirwstat
+#define dirfstat _dirfstat
+#define dirfwstat _dirfwstat
+#define dirread _dirread
+#define dirreadall _dirreadall
+#define nulldir _nulldir
+#define sizeD2M _sizeD2M
+
 typedef
 struct Waitmsg
 {
@@ -61,7 +78,6 @@ struct Waitmsg
 	unsigned long time[3];	/* of loved one & descendants */
 	char	*msg;
 } Waitmsg;
-
 
 extern	int	_AWAIT(char*, int);
 extern	int	_ALARM(unsigned long);
@@ -106,13 +122,14 @@ extern	long	_READN(int, void*, long);
 extern	int	_IOUNIT(int);
 extern	vlong	_NSEC(void);
 
-#define dirstat _dirstat
-#define dirfstat _dirfstat
-
 #define OREAD 0
 #define OWRITE 1
 #define ORDWR 2
-#define OCEXEC 32
+#define	OEXEC	3	/* execute, == read but check execute permission */
+#define	OTRUNC	16	/* or'ed in (except for exec), truncate file first */
+#define	OCEXEC	32	/* or'ed in, close on exec */
+#define	ORCLOSE	64	/* or'ed in, remove on close */
+#define	OEXCL	0x1000	/* or'ed in, exclusive use (create only) */
 
 #define AREAD 4
 #define AWRITE 2
@@ -125,6 +142,8 @@ extern	vlong	_NSEC(void);
 #define create(file, omode, perm) open(file, (omode) |O_CREAT | O_TRUNC, perm)
 #define seek(fd, off, dir) lseek(fd, off, dir)
 
+#define fauth _FAUTH
+#define wait _WAIT
 #define readn _READN
 #define pread _PREAD
 #define pwrite _PWRITE
@@ -132,10 +151,14 @@ extern	vlong	_NSEC(void);
 #define nsec	_NSEC
 #define iounit	_IOUNIT
 
+#define getwd(buf,len)	getcwd(buf,len)
 #define postnote(who,pid,note)	kill(pid,SIGTERM)
 #define atnotify(func,in)
 
 #define ERRMAX 128
+
+int errstr(char*, unsigned int);
+extern void sysfatal(char*, ...);
 
 extern	void		setmalloctag(void*, uintptr_t);
 extern	void		setrealloctag(void*, uintptr_t);
@@ -148,6 +171,29 @@ extern int  enc32(char *, int, uchar *, int);
 extern int  dec64(uchar *, int, char *, int);
 extern int  enc64(char *, int, uchar *, int);
 
-extern	int tokenize(char*, char**, int);
-extern void sysfatal(char*, ...);
-extern	ulong truerand(void); /* uses /dev/random */
+extern int tokenize(char*, char**, int);
+extern int getfields(char*, char**, int, int, char*);
+extern int gettokens(char*, char**, int, char*);
+
+extern ulong truerand(void); /* uses /dev/random */
+
+extern int encrypt(void*, void*, int len);
+extern int decrypt(void*, void*, int len);
+
+typedef
+struct Tm
+{
+	int	sec;
+	int	min;
+	int	hour;
+	int	mday;
+	int	mon;
+	int	year;
+	int	wday;
+	int	yday;
+	char	zone[4];
+	int	tzoff;
+} Tm;
+
+Tm* _gmtime(time_t);
+#define gmtime _gmtime

@@ -1,0 +1,38 @@
+APE=/sys/src/ape
+<$APE/config
+
+LIB=/$objtype/lib/ape/libbio.a
+OFILES=\
+	bbuffered.$O\
+	bfildes.$O\
+	bflush.$O\
+	bgetrune.$O\
+	bgetc.$O\
+#	bgetd.$O\
+	binit.$O\
+	blethal.$O\
+	boffset.$O\
+	bprint.$O\
+	bputrune.$O\
+	bputc.$O\
+	brdline.$O\
+	brdstr.$O\
+	bread.$O\
+	bseek.$O\
+	bwrite.$O\
+	bvprint.$O\
+
+HFILES=/sys/include/ape/bio.h
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+	${LIB:/$objtype/%=/386/%}\
+
+</sys/src/cmd/mksyslib
+
+CFLAGS=-TVwc -D_PLAN9_SOURCE -D_POSIX_SOURCE -I. -I../9
+
+%.$O:	/sys/src/libbio/%.c
+	$CC $CFLAGS /sys/src/libbio/$stem.c

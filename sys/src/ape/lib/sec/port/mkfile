@@ -1,0 +1,72 @@
+APE=/sys/src/ape
+<$APE/config
+
+LIB=/$objtype/lib/ape/libsec.a
+
+CFILES = des.c desmodes.c desECB.c desCBC.c des3ECB.c des3CBC.c\
+	aes.c aes_gcm.c blowfish.c \
+	hmac.c md5.c md5block.c md4.c sha1.c sha1block.c\
+	sha2_64.c sha2_128.c sha2block64.c sha2block128.c\
+	sha1pickle.c md5pickle.c\
+	poly1305.c\
+	rc4.c\
+	chacha.c\
+	salsa.c\
+	genrandom.c prng.c fastrand.c nfastrand.c\
+	probably_prime.c smallprimetest.c genprime.c dsaprimes.c\
+	gensafeprime.c genstrongprime.c\
+	rsagen.c rsafill.c rsaencrypt.c rsadecrypt.c rsaalloc.c \
+	rsaprivtopub.c \
+	x509.c \
+	decodepem.c \
+	eggen.c egencrypt.c egdecrypt.c egalloc.c egprivtopub.c \
+	egsign.c egverify.c \
+	dsagen.c dsaalloc.c dsaprivtopub.c dsasign.c dsaverify.c \
+	tlshand.c \
+	thumb.c readcert.c \
+	aes_xts.c  \
+	ecc.c\
+	ripemd.c\
+	dh.c\
+	curve25519.c\
+	curve25519_dh.c\
+	pbkdf2.c\
+	hkdf.c\
+	ccpoly.c\
+	tsmemcmp.c\
+	secp256r1.c\
+	secp256k1.c\
+
+CLEANFILES=secp256r1.c secp256k1.c
+
+ALLOFILES=${CFILES:%.c=%.$O}
+
+# cull things in the per-machine directories from this list
+OFILES=	`{rfork n; \
+	bind -a ../../../../libsec/$objtype ../$objtype; \
+	rc ../../../../libsec/port/reduce $O $objtype $ALLOFILES}
+
+HFILES=/sys/include/ape/libsec.h
+
+UPDATE=mkfile\
+	$HFILES\
+	$CFILES\
+
+</sys/src/cmd/mksyslib
+
+CFLAGS=-TVwc -+ -D_POSIX_SOURCE -D_PLAN9_SOURCE -I. -I../../9 -I../../../../libmp/port
+
+../../../../libsec/port/%.c:D:	../../../../libsec/port/%.mp
+	@{cd ../../../../libsec/port && mk $stem.c}
+
+%.$O:	../../../../libsec/port/%.c
+	$CC $CFLAGS ../../../../libsec/port/$stem.c
+	
+$O.rsatest: rsatest.$O
+	$LD -o $target $prereq
+
+$O.chachatest: chachatest.$O
+	$LD -o $target $prereq
+
+$O.aesgcmtest: aesgcmtest.$O
+	$LD -o $target $prereq

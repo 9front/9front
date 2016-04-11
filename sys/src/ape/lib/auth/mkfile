@@ -1,0 +1,43 @@
+APE=/sys/src/ape
+<$APE/config
+
+LIB=/$objtype/lib/ape/libauth.a
+OFILES=\
+	amount.$O\
+	amount_getkey.$O\
+	attr.$O\
+	auth_attr.$O\
+	auth_challenge.$O\
+	auth_chuid.$O\
+	auth_getkey.$O\
+	auth_getuserpasswd.$O\
+	auth_proxy.$O\
+	auth_respond.$O\
+	auth_rpc.$O\
+	auth_userpasswd.$O\
+	auth_wep.$O\
+	login.$O\
+	newns.$O\
+	noworld.$O\
+	passtokey.$O\
+
+HFILES=\
+	/sys/include/ape/auth.h\
+	/sys/src/libauth/authlocal.h\
+	../9/libc.h
+
+UPDATE=\
+	mkfile\
+	$HFILES\
+	${OFILES:%.$O=%.c}\
+	${LIB:/$objtype/%=/386/%}\
+
+</sys/src/cmd/mksyslib
+
+CFLAGS=-TVwc -D_POSIX_SOURCE -D_PLAN9_SOURCE -D_NET_EXTENSION -I. -I../9 -I/sys/src/libauth
+
+%.$O:	/sys/src/libauth/%.c
+	$CC $CFLAGS /sys/src/libauth/$stem.c
+
+passtokey.$O:	/sys/src/libauthsrv/passtokey.c
+	$CC $CFLAGS /sys/src/libauthsrv/passtokey.c
