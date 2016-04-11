@@ -102,19 +102,20 @@ s_aes_process(stream_state * ss, stream_cursor_read * pr,
     if (state->keylength < 1 || state->keylength > SAES_MAX_KEYLENGTH)
         return ERRC;
     if (!state->initialized) {
-        memset(&state->aes, 0, sizeof(state->aes));
-        AES_set_decrypt_key(state->key, state->keylength*8, &state->aes);
+        if (in_size < 16) return 0; /* get more data */
 
         /* read the initialization vector from the first 16 bytes */
-        if (in_size < 16) return 0; /* get more data */
         memcpy(state->iv, pr->ptr + 1, 16);
-        state->initialized = 1;
         pr->ptr += 16;
+
+        setupAESstate(&state->aes, state->key, state->keylength, state->iv);
+        state->initialized = 1;
     }
 
     /* decrypt available blocks */
     while (pr->ptr + 16 <= limit) {
-      AES_cbc_encrypt(pr->ptr + 1, temp, 16, &state->aes, state->iv, AES_DECRYPT);
+      memcpy(temp, pr->ptr + 1, 16);
+      aesCBCdecrypt(temp, 16, &state->aes);
       pr->ptr += 16;
       if (last && pr->ptr == pr->limit) {
         /* we're on the last block; unpad if necessary */

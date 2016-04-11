@@ -21,7 +21,9 @@
 #  define saes_INCLUDED
 
 #include "scommon.h"
-#include <openssl/aes.h>
+
+#define _PLAN9_SOURCE
+#include <libsec.h>
 
 /* maximum supported key length in bytes */
 #define SAES_MAX_KEYLENGTH 32
@@ -36,7 +38,7 @@ struct stream_aes_state_s
     unsigned char iv[16];	/* CBC initialization vector */
     int initialized;		/* whether we're set up */
     int use_padding;		/* are we using RFC 1423-style padding? */
-    AES_KEY aes;
+    AESstate aes;
 };
 
 #ifndef stream_aes_state_DEFINED
