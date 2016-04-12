@@ -512,10 +512,10 @@ extern	int	_cursorfd;
 extern	int	_drawdebug;	/* set to 1 to see errors from flushimage */
 extern	void	_setdrawop(Display*, Drawop);
 
-#define	BGSHORT(p)		(((p)[0]<<0) | ((p)[1]<<8))
-#define	BGLONG(p)		((BGSHORT(p)<<0) | (BGSHORT(p+2)<<16))
-#define	BPSHORT(p, v)		((p)[0]=(v), (p)[1]=((v)>>8))
-#define	BPLONG(p, v)		(BPSHORT(p, (v)), BPSHORT(p+2, (v)>>16))
+#define	BGSHORT(p)	((p)[0]|((p)[1]<<8))
+#define	BGLONG(p)	((p)[0]|((p)[1]<<8)|((p)[2]<<16)|((p)[3]<<24))
+#define BPSHORT(p,v)	do{ushort _v_=(v);(p)[0]=_v_;(p)[1]=_v_>>8;}while(0)
+#define BPLONG(p,v)	do{ulong _v_=(v);(p)[0]=_v_;(p)[1]=_v_>>8;(p)[2]=_v_>>16;(p)[3]=_v_>>24;}while(0)
 
 /*
  * Compressed image file parameters and helper routines

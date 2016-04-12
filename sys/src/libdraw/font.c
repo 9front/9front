@@ -10,7 +10,7 @@ static int	fontresize(Font*, int, int, int);
 int
 cachechars(Font *f, char **ss, Rune **rr, ushort *cp, int max, int *wp, char **subfontname)
 {
-	int i, j, th, sh, h, w, rw, wid, nc;
+	int i, j, h, w, rw, wid, nc;
 	char *sp;
 	Rune r, *rp, vr;
 	ulong a;
@@ -41,32 +41,24 @@ cachechars(Font *f, char **ss, Rune **rr, ushort *cp, int max, int *wp, char **s
 			rw = 1;
 		}
 
-		sh = (17 * (uint)r) & (f->ncache-NFLOOK-1);
-		c = &f->cache[sh];
+		a = ~0;
+		h = (17 * (uint)r) & (f->ncache-NFLOOK-1);
+		c = &f->cache[h];
+		tc = c;
 		ec = c+NFLOOK;
-		h = sh;
 		while(c < ec){
 			if(c->value==r && c->age)
 				goto Found;
+			if(c->age < a){
+				a = c->age;
+				tc = c;
+			}
 			c++;
 			h++;
 		}
-	
-		/*
-		 * Not found; toss out oldest entry
-		 */
-		a = ~0;
-		th = sh;
-		tc = &f->cache[th];
-		while(tc < ec){
-			if(tc->age < a){
-				a = tc->age;
-				h = th;
-				c = tc;
-			}
-			tc++;
-			th++;
-		}
+		/* Not found; use oldest entry */
+		c = tc;
+		h = tc - f->cache;
 
 		if(a && (f->age-a)<500){	/* kicking out too recent; resize */
 			nc = 2*(f->ncache-NFLOOK) + NFLOOK;
@@ -287,8 +279,6 @@ loadchar(Font *f, Rune r, Cacheinfo *c, int h, int noflush, char **subfontname)
 		/* c is still valid as didn't reallocate f->cache */
 	}
 	c->value = r;
-	top = fi->top + (f->ascent-subf->f->ascent);
-	bottom = fi->bottom + (f->ascent-subf->f->ascent);
 	c->width = fi->width;
 	c->x = h*f->width;
 	c->left = fi->left;
@@ -297,13 +287,15 @@ loadchar(Font *f, Rune r, Cacheinfo *c, int h, int noflush, char **subfontname)
 	b = bufimage(f->display, 37);
 	if(b == nil)
 		return 0;
+	top = fi->top + (f->ascent-subf->f->ascent);
+	bottom = fi->bottom + (f->ascent-subf->f->ascent);
 	b[0] = 'l';
 	BPLONG(b+1, f->cacheimage->id);
 	BPLONG(b+5, subf->f->bits->id);
-	BPSHORT(b+9, c-f->cache);
+	BPSHORT(b+9, h);
 	BPLONG(b+11, c->x);
 	BPLONG(b+15, top);
-	BPLONG(b+19, c->x+((fi+1)->x-fi->x));
+	BPLONG(b+19, c->x+wid);
 	BPLONG(b+23, bottom);
 	BPLONG(b+27, fi->x);
 	BPLONG(b+31, fi->top);
