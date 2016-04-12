@@ -379,6 +379,11 @@ getval(uvlong a)
 			return 0;
 		buf[n] = '\0';
 		r = strtoull(buf, 0, 16);
+		switch(fhdr.magic){
+		case S_MAGIC:
+			r = (long)r;	// sign extend
+			break;
+		}
 	}else{
 		r = 0;
 		for(i=0; i<naddr; i++)
