@@ -264,6 +264,26 @@ Rune kbtabctl[Nscan] =
 [0x78]	0,	'', 	0,	'\b',	0,	0,	0,	0,
 };
 
+Rune kbtabshiftaltgr[Nscan] =
+{
+[0x00]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x08]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x10]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x18]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x20]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x28]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x30]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x38]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x40]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x48]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x50]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x58]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x60]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x68]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x70]	0,	0,	0,	0,	0,	0,	0,	0,
+[0x78]	0,	0,	0,	0,	0,	0,	0,	0,
+};
+
 char*
 dev(char *file)
 {
@@ -347,6 +367,8 @@ kbdputsc(Scan *scan, int c)
 		key.r = kbtabshiftesc1[c];
 	else if(scan->esc1)
 		key.r = kbtabesc1[c];
+	else if(scan->shift && scan->altgr && kbtabshiftaltgr[c] != 0)
+		key.r = kbtabshiftaltgr[c];
 	else if(scan->shift)
 		key.r = kbtabshift[c];
 	else if(scan->altgr)
@@ -1011,26 +1033,19 @@ ctlproc(void *)
 Rune*
 kbmapent(int t, int sc)
 {
-	if(sc < 0 || sc >= Nscan)
-		return nil;
-	switch(t){
-	default:
-		return nil;
-	case 0:
-		return &kbtab[sc];
-	case 1:
-		return &kbtabshift[sc];
-	case 2:
-		return &kbtabesc1[sc];
-	case 3:
-		return &kbtabaltgr[sc];
-	case 4:
-		return &kbtabctl[sc];
-	case 5:	
-		return &kbtabctrlesc1[sc];
-	case 6:	
-		return &kbtabshiftesc1[sc];
-	}
+	static Rune *tabs[] = {	
+	/* 0 */	kbtab,
+	/* 1 */	kbtabshift,
+	/* 2 */	kbtabesc1,
+	/* 3 */	kbtabaltgr,
+	/* 4 */	kbtabctl,
+	/* 5 */	kbtabctrlesc1,
+	/* 6 */	kbtabshiftesc1,
+	/* 7 */	kbtabshiftaltgr,
+	};
+	if(t >= 0 && t < nelem(tabs) && sc >= 0 && sc < Nscan)
+		return &tabs[t][sc];
+	return nil;
 }
 
 void
