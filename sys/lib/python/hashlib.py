@@ -51,14 +51,22 @@ More condensed:
 
 """
 
-import _sechash
-
-md5 = _sechash.md5
-sha1 = _sechash.sha1
-sha224 = _sechash.sha224
-sha256 = _sechash.sha256
-sha384 = _sechash.sha384
-sha512 = _sechash.sha512
+try:
+	import _sechash
+	md5 = _sechash.md5
+	sha1 = _sechash.sha1
+	sha224 = _sechash.sha224
+	sha256 = _sechash.sha256
+	sha384 = _sechash.sha384
+	sha512 = _sechash.sha512
+except ImportError:
+	import _hashlib
+	md5 = _hashlib.openssl_md5
+	sha1 = _hashlib.openssl_sha1
+	sha224 = _hashlib.openssl_sha224
+	sha256 = _hashlib.openssl_sha256
+	sha384 = _hashlib.openssl_sha384
+	sha512 = _hashlib.openssl_sha512
 
 algs = dict()
 for a in [md5, sha1, sha224, sha256, sha384, sha512]:
