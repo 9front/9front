@@ -69,7 +69,7 @@ Efmt(Fmt *f)
 }
 
 int
-Hfmt(Fmt *f)
+Nfmt(Fmt *f)
 {
 	char *d, *s;
 

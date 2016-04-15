@@ -14,9 +14,10 @@ char*	unquote(char *s, char **ps);
 /* url */
 #pragma	varargck type "U" Url*
 #pragma varargck type "E" Str2
+#pragma varargck type "N" char*
 
 int	Efmt(Fmt*);
-int	Hfmt(Fmt*);
+int	Nfmt(Fmt*);
 int	Ufmt(Fmt*);
 char*	Upath(Url *);
 Url*	url(char *s, Url *b);

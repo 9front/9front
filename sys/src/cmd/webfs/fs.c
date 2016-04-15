@@ -418,7 +418,7 @@ fsopen(Req *r)
 				 */
 				if(u = url("/", cl->url)){
 					if(r = u->host){
-						u->host = smprint("%H", r);
+						u->host = smprint("%N", r);
 						free(r);
 					}
 
@@ -792,9 +792,10 @@ main(int argc, char *argv[])
 
 	quotefmtinstall();
 	fmtinstall('U', Ufmt);
-	fmtinstall('H', Hfmt);
+	fmtinstall('N', Nfmt);
 	fmtinstall('E', Efmt);
 	fmtinstall('[', encodefmt);
+	fmtinstall('H', encodefmt);
 
 	mtpt = "/mnt/web";
 	user = getuser();

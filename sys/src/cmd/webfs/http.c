@@ -81,7 +81,7 @@ tlswrap(int fd, char *servername)
 	if(debug)
 		conn.trace = tlstrace;
 	if(servername != nil)
-		conn.serverName = smprint("%H", servername);
+		conn.serverName = smprint("%N", servername);
 	if((fd = tlsClient(fd, &conn)) < 0){
 		if(debug) fprint(2, "tlsClient: %r\n");
 		return -1;
@@ -428,7 +428,7 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 		fmtprint(&fmt, "Digest ");
 		fmtprint(&fmt, "username=\"%s\", ", ouser);
 		fmtprint(&fmt, "realm=\"%s\", ", realm);
-		fmtprint(&fmt, "host=\"%H\", ", u->host);
+		fmtprint(&fmt, "host=\"%N\", ", u->host);
 		fmtprint(&fmt, "uri=\"%U\", ", ru);
 		fmtprint(&fmt, "nonce=\"%s\", ", nonce);
 		fmtprint(&fmt, "response=\"%s\"", resp);
@@ -608,7 +608,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 
 		/* http requires ascii encoding of host */
 		free(host);
-		host = smprint("%H", u->host);
+		host = smprint("%N", u->host);
 
 		if(proxy && strcmp(u->scheme, "https") != 0){
 			ru = *u;
