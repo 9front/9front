@@ -478,6 +478,7 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 			pval->u.setval = vl;
 		}
 		break;
+
 	case UTF8String:
 	case NumericString:
 	case PrintableString:
@@ -491,13 +492,64 @@ value_decode(uchar** pp, uchar* pend, int length, int kind, int isconstr, Value*
 	case GeneralString:
 	case UniversalString:
 	case BMPString:
-		/* TODO: figure out when character set conversion is necessary */
 		err = octet_decode(&p, pend, length, isconstr, &va);
 		if(err == ASN_OK) {
-			pval->tag = VString;
-			pval->u.stringval = (char*)emalloc(va->len+1);
-			memmove(pval->u.stringval, va->data, va->len);
-			pval->u.stringval[va->len] = 0;
+			uchar *s;
+			char *d;
+			Rune r;
+			int n;
+
+			switch(kind){
+			case UniversalString:
+				n = va->len / 4;
+				d = emalloc(n*UTFmax+1);
+				pval->u.stringval = d;
+				s = va->data;
+				while(n > 0){
+					r = s[0]<<24 | s[1]<<16 | s[2]<<8 | s[3];
+					if(r == 0)
+						break;
+					n--;
+					s += 4;
+					d += runetochar(d, &r);
+				}
+				*d = 0;
+				break;
+			case BMPString:
+				n = va->len / 2;
+				d = emalloc(n*UTFmax+1);
+				pval->u.stringval = d;
+				s = va->data;
+				while(n > 0){
+					r = s[0]<<8 | s[1];
+					if(r == 0)
+						break;
+					n--;
+					s += 2;
+					d += runetochar(d, &r);
+				}
+				*d = 0;
+				break;
+			default:
+				n = va->len;
+				d = emalloc(n+1);
+				pval->u.stringval = d;
+				s = va->data;
+				while(n > 0){
+					if((*d = *s) == 0)
+						break;
+					n--;
+					s++;
+					d++;
+				}
+				*d = 0;
+				break;
+			}
+			if(n != 0){
+				err = ASN_EINVAL;
+				free(pval->u.stringval);
+			} else 
+				pval->tag = VString;
 			free(va);
 		}
 		break;
