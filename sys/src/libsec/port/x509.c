@@ -1960,16 +1960,19 @@ decode_rsapubkey(Bytes* a)
 	Elist *el;
 	RSApub* key;
 
-	key = rsapuballoc();
+	key = nil;
 	if(decode(a->data, a->len, &e) != ASN_OK)
 		goto errret;
 	if(!is_seq(&e, &el) || elistlen(el) != 2)
 		goto errret;
+
+	key = rsapuballoc();
 	if((key->n = asn1mpint(&el->hd)) == nil)
 		goto errret;
 	el = el->tl;
 	if((key->ek = asn1mpint(&el->hd)) == nil)
 		goto errret;
+
 	freevalfields(&e.val);
 	return key;
 errret:
@@ -1998,14 +2001,27 @@ decode_rsaprivkey(Bytes* a)
 	Elist *el;
 	RSApriv* key;
 
-	key = rsaprivalloc();
+	key = nil;
 	if(decode(a->data, a->len, &e) != ASN_OK)
 		goto errret;
-	if(!is_seq(&e, &el) || elistlen(el) != 9)
+	if(!is_seq(&e, &el))
 		goto errret;
+
 	if(!is_int(&el->hd, &version) || version != 0)
 		goto errret;
 
+	if(elistlen(el) != 9){
+		if(elistlen(el) == 3
+		&& parse_alg(&el->tl->hd) == ALG_rsaEncryption
+		&& is_octetstring(&el->tl->tl->hd, &a)){
+			key = decode_rsaprivkey(a);
+			if(key != nil)
+				goto done;
+		}
+		goto errret;
+	}
+
+	key = rsaprivalloc();
 	el = el->tl;
 	if((key->pub.n = asn1mpint(&el->hd)) == nil)
 		goto errret;
@@ -2038,6 +2054,7 @@ decode_rsaprivkey(Bytes* a)
 	if((key->c2 = asn1mpint(&el->hd)) == nil)
 		goto errret;
 
+done:
 	freevalfields(&e.val);
 	return key;
 errret:
@@ -2361,6 +2378,9 @@ X509toRSApub(uchar *cert, int ncert, char *name, int nname)
 	Bytes *b;
 	CertX509 *c;
 	RSApub *pub;
+
+	if(name != nil)
+		memset(name, 0, nname);
 
 	b = makebytes(cert, ncert);
 	c = decode_cert(b);
