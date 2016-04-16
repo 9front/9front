@@ -72,7 +72,7 @@ typedef struct TlsConnection{
 	int ver2hi;		// server got a version 2 hello
 	int isClient;	// is this the client or server?
 	Bytes *sid;		// SessionID
-	Bytes *cert;	// only last - no chain
+	Bytes *cert;	// server certificate; only last - no chain
 
 	Lock statelk;
 	int state;		// must be set using setstate
@@ -428,9 +428,9 @@ static void	sslPRF(uchar *buf, int nbuf, uchar *key, int nkey, char *label,
 			uchar *seed0, int nseed0, uchar *seed1, int nseed1);
 static int setVers(TlsSec *sec, int version);
 
-static AuthRpc* factotum_rsa_open(uchar *cert, int certlen);
+static AuthRpc* factotum_rsa_open(RSApub *rsapub);
 static mpint* factotum_rsa_decrypt(AuthRpc *rpc, mpint *cipher);
-static void factotum_rsa_close(AuthRpc*rpc);
+static void factotum_rsa_close(AuthRpc *rpc);
 
 static void* emalloc(int);
 static void* erealloc(void*, int);
@@ -715,11 +715,7 @@ tlsServer2(int ctl, int hand,
 
 	memmove(c->crandom, m.u.clientHello.random, RandomSize);
 	cipher = okCipher(m.u.clientHello.ciphers, psklen > 0);
-	if(cipher < 0) {
-		tlsError(c, EHandshakeFailure, "no matching cipher suite");
-		goto Err;
-	}
-	if(!setAlgs(c, cipher)){
+	if(cipher < 0 || !setAlgs(c, cipher)) {
 		tlsError(c, EHandshakeFailure, "no matching cipher suite");
 		goto Err;
 	}
@@ -733,23 +729,20 @@ tlsServer2(int ctl, int hand,
 	if(trace)
 		trace("  cipher %x, compressor %x, csidlen %d\n", cipher, compressor, csid->len);
 	c->sec = tlsSecInits(c->clientVersion, csid->data, csid->len, c->crandom, sid, &nsid, c->srandom);
-	if(c->sec == nil){
-		tlsError(c, EHandshakeFailure, "can't initialize security: %r");
-		goto Err;
-	}
 	if(psklen > 0){
 		c->sec->psk = psk;
 		c->sec->psklen = psklen;
 	}
 	if(certlen > 0){
-		c->sec->rpc = factotum_rsa_open(cert, certlen);
-		if(c->sec->rpc == nil){
-			tlsError(c, EHandshakeFailure, "factotum_rsa_open: %r");
-			goto Err;
-		}
+		/* server certificate */
 		c->sec->rsapub = X509toRSApub(cert, certlen, nil, 0);
 		if(c->sec->rsapub == nil){
 			tlsError(c, EHandshakeFailure, "invalid X509/rsa certificate");
+			goto Err;
+		}
+		c->sec->rpc = factotum_rsa_open(c->sec->rsapub);
+		if(c->sec->rpc == nil){
+			tlsError(c, EHandshakeFailure, "factotum_rsa_open: %r");
 			goto Err;
 		}
 	}
@@ -1123,12 +1116,22 @@ tlsClient2(int ctl, int hand,
 	c->cert = nil;
 
 	c->sec = tlsSecInitc(c->clientVersion, c->crandom);
-	if(c->sec == nil)
-		goto Err;
-
 	if(psklen > 0){
 		c->sec->psk = psk;
 		c->sec->psklen = psklen;
+	}
+	if(certlen > 0){
+		/* client certificate */
+		c->sec->rsapub = X509toRSApub(cert, certlen, nil, 0);
+		if(c->sec->rsapub == nil){
+			tlsError(c, EHandshakeFailure, "invalid X509/rsa certificate");
+			goto Err;
+		}
+		c->sec->rpc = factotum_rsa_open(c->sec->rsapub);
+		if(c->sec->rpc == nil){
+			tlsError(c, EHandshakeFailure, "factotum_rsa_open: %r");
+			goto Err;
+		}
 	}
 
 	/* client hello */
@@ -1267,7 +1270,7 @@ tlsClient2(int ctl, int hand,
 	}
 
 	if(creq) {
-		if(cert != nil && certlen > 0){
+		if(certlen > 0){
 			m.u.certificate.ncert = 1;
 			m.u.certificate.certs = emalloc(m.u.certificate.ncert * sizeof(Bytes*));
 			m.u.certificate.certs[0] = makebytes(cert, certlen);
@@ -1293,22 +1296,11 @@ tlsClient2(int ctl, int hand,
 	msgClear(&m);
 
 	/* certificate verify */
-	if(creq && cert != nil && certlen > 0) {
+	if(creq && certlen > 0) {
 		mpint *signedMP, *paddedHashes;
 		HandshakeHash hsave;
 		uchar buf[512];
 		int buflen;
-
-		c->sec->rpc = factotum_rsa_open(cert, certlen);
-		if(c->sec->rpc == nil){
-			tlsError(c, EHandshakeFailure, "factotum_rsa_open: %r");
-			goto Err;
-		}
-		c->sec->rsapub = X509toRSApub(cert, certlen, nil, 0);
-		if(c->sec->rsapub == nil){
-			tlsError(c, EHandshakeFailure, "invalid X509/rsa certificate");
-			goto Err;
-		}
 
 		/* save the state for the Finish message */
 		hsave = c->handhash;
@@ -1396,7 +1388,7 @@ Err:
 	free(epm);
 	msgClear(&m);
 	tlsConnectionFree(c);
-	return 0;
+	return nil;
 }
 
 
@@ -2369,15 +2361,14 @@ makeciphers(int ispsk)
 
 //================= security functions ========================
 
-// given X.509 certificate, set up connection to factotum
-//	for using corresponding private key
+// given a public key, set up connection to factotum
+// for using corresponding private key
 static AuthRpc*
-factotum_rsa_open(uchar *cert, int certlen)
+factotum_rsa_open(RSApub *rsapub)
 {
 	int afd;
 	char *s;
-	mpint *pub = nil;
-	RSApub *rsapub;
+	mpint *n;
 	AuthRpc *rpc;
 
 	// start talking to factotum
@@ -2388,28 +2379,20 @@ factotum_rsa_open(uchar *cert, int certlen)
 		return nil;
 	}
 	s = "proto=rsa service=tls role=client";
-	if(auth_rpc(rpc, "start", s, strlen(s)) != ARok){
-		factotum_rsa_close(rpc);
-		return nil;
-	}
-
-	// roll factotum keyring around to match certificate
-	rsapub = X509toRSApub(cert, certlen, nil, 0);
-	while(1){
-		if(auth_rpc(rpc, "read", nil, 0) != ARok){
-			factotum_rsa_close(rpc);
-			rpc = nil;
-			goto done;
+	if(auth_rpc(rpc, "start", s, strlen(s)) == ARok){
+		// roll factotum keyring around to match public key
+		n = mpnew(0);
+		while(auth_rpc(rpc, "read", nil, 0) == ARok){
+			if(strtomp(rpc->arg, nil, 16, n) != nil
+			&& mpcmp(n, rsapub->n) == 0){
+				mpfree(n);
+				return rpc;
+			}
 		}
-		pub = strtomp(rpc->arg, nil, 16, nil);
-		assert(pub != nil);
-		if(mpcmp(pub,rsapub->n) == 0)
-			break;
+		mpfree(n);
 	}
-done:
-	mpfree(pub);
-	rsapubfree(rsapub);
-	return rpc;
+	factotum_rsa_close(rpc);
+	return nil;
 }
 
 static mpint*
@@ -2593,15 +2576,12 @@ tlsSecRSAs(TlsSec *sec, int vers, Bytes *epm)
 	}
 	// if the client messed up, just continue as if everything is ok,
 	// to prevent attacks to check for correctly formatted messages.
-	// Hence the fprint(2,) can't be replaced by tlsError(), which sends an Alert msg to the client.
 	pm = pkcs1_decrypt(sec, epm);
 	if(sec->ok < 0 || pm == nil || pm->len != MasterSecretSize || get16(pm->data) != sec->clientVers){
-		fprint(2, "tlsSecRSAs failed ok=%d pm=%p pmvers=%x cvers=%x nepm=%d\n",
-			sec->ok, pm, pm != nil ? get16(pm->data) : -1, sec->clientVers, epm->len);
 		sec->ok = -1;
 		freebytes(pm);
 		pm = newbytes(MasterSecretSize);
-		genrandom(pm->data, MasterSecretSize);
+		genrandom(pm->data, pm->len);
 	}
 	setMasterSecret(sec, pm);
 	return 0;
@@ -2702,6 +2682,7 @@ tlsSecClose(TlsSec *sec)
 	if(sec == nil)
 		return;
 	factotum_rsa_close(sec->rpc);
+	rsapubfree(sec->rsapub);
 	free(sec->server);
 	free(sec);
 }
