@@ -84,7 +84,6 @@ tlswrap(int fd, char *servername)
 		conn.serverName = smprint("%N", servername);
 	if((fd = tlsClient(fd, &conn)) < 0){
 		if(debug) fprint(2, "tlsClient: %r\n");
-		return -1;
 	}
 	free(conn.cert);
 	free(conn.sessionID);
