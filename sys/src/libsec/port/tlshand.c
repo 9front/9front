@@ -69,6 +69,14 @@ struct TlsSec {
 	uchar sec[MasterSecretSize];	// master secret
 	uchar crandom[RandomSize];	// client random
 	uchar srandom[RandomSize];	// server random
+
+	// diffie hellman state
+	DHstate dh;
+	struct {
+		ECdomain dom;
+		ECpriv Q;
+	} ec;
+
 	// byte generation and handshake checksum
 	void (*prf)(uchar*, int, uchar*, int, char*, uchar*, int, uchar*, int);
 	void (*setFinished)(TlsSec*, HandshakeHash, uchar*, int);
@@ -86,7 +94,7 @@ typedef struct TlsConnection{
 	int cipher;
 	int nsecret;	// amount of secret data to init keys
 	char *digest;	// name of digest algorithm to use
-	char *enc;		// name of encryption algorithm to use
+	char *enc;	// name of encryption algorithm to use
 
 	// for finished messages
 	HandshakeHash	handhash;
@@ -345,6 +353,7 @@ static struct {
 	DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*);
 	int len;
 } hashfun[] = {
+/*	[0x00]  is reserved for MD5+SHA1 for < TLS1.2 */
 	[0x01]	{md5,		MD5dlen},
 	[0x02]	{sha1,		SHA1dlen},
 	[0x03]	{sha2_224,	SHA2_224dlen},
@@ -385,29 +394,38 @@ static int setSecrets(TlsConnection *c, int isclient);
 static int finishedMatch(TlsConnection *c, Finished *f);
 static void tlsConnectionFree(TlsConnection *c);
 
+static int isDHE(int tlsid);
+static int isECDHE(int tlsid);
+static int isPSK(int tlsid);
+static int isECDSA(int tlsid);
+
 static int setAlgs(TlsConnection *c, int a);
 static int okCipher(Ints *cv, int ispsk);
 static int okCompression(Bytes *cv);
 static int initCiphers(void);
 static Ints* makeciphers(int ispsk);
 
+static AuthRpc* factotum_rsa_open(RSApub *rsapub);
+static mpint* factotum_rsa_decrypt(AuthRpc *rpc, mpint *cipher);
+static void factotum_rsa_close(AuthRpc *rpc);
+
 static void	tlsSecInits(TlsSec *sec, int cvers, uchar *crandom);
 static int	tlsSecRSAs(TlsSec *sec, Bytes *epm);
-static void	tlsSecPSKs(TlsSec *sec);
+static Bytes*	tlsSecECDHEs1(TlsSec *sec, Namedcurve *nc);
+static int	tlsSecECDHEs2(TlsSec *sec, Bytes *Yc);
 static void	tlsSecInitc(TlsSec *sec, int cvers);
 static Bytes*	tlsSecRSAc(TlsSec *sec, uchar *cert, int ncert);
-static void	tlsSecPSKc(TlsSec *sec);
 static Bytes*	tlsSecDHEc(TlsSec *sec, Bytes *p, Bytes *g, Bytes *Ys);
 static Bytes*	tlsSecECDHEc(TlsSec *sec, int curve, Bytes *Ys);
 static void	tlsSecVers(TlsSec *sec, int v);
 static int	tlsSecFinished(TlsSec *sec, HandshakeHash hsh, uchar *fin, int nfin, int isclient);
 static void	setMasterSecret(TlsSec *sec, Bytes *pm);
+static int	digestDHparams(TlsSec *sec, Bytes *par, uchar digest[MAXdlen], int sigalg);
+static char*	verifyDHparams(TlsSec *sec, Bytes *par, Bytes *cert, Bytes *sig, int sigalg);
+
 static Bytes*	pkcs1_encrypt(Bytes* data, RSApub* key, int blocktype);
 static Bytes*	pkcs1_decrypt(TlsSec *sec, Bytes *cipher);
-
-static AuthRpc* factotum_rsa_open(RSApub *rsapub);
-static mpint* factotum_rsa_decrypt(AuthRpc *rpc, mpint *cipher);
-static void factotum_rsa_close(AuthRpc *rpc);
+static Bytes*	pkcs1_sign(TlsSec *sec, uchar *digest, int digestlen, int sigalg);
 
 static void* emalloc(int);
 static void* erealloc(void*, int);
@@ -520,7 +538,7 @@ tlsClientExtensions(TLSconn *conn, int *plen)
 	}
 
 	// ECDHE
-	if(1){
+	if(ProtocolVersion >= TLS10Version){
 		m = p - b;
 		b = erealloc(b, m + 2+2+2+nelem(namedcurves)*2 + 2+2+1+nelem(pointformats));
 		p = b + m;
@@ -655,9 +673,9 @@ tlsServer2(int ctl, int hand,
 	char *pskid, uchar *psk, int psklen,
 	int (*trace)(char*fmt, ...), PEMChain *chp)
 {
+	int cipher, compressor, numcerts, i;
 	TlsConnection *c;
 	Msg m;
-	int cipher, compressor, numcerts, i;
 
 	if(trace)
 		trace("tlsServer2\n");
@@ -742,6 +760,36 @@ tlsServer2(int ctl, int hand,
 			goto Err;
 	}
 
+	if(isECDHE(cipher)){
+		Namedcurve *nc = &namedcurves[0];	/* secp256r1 */
+
+		m.tag = HServerKeyExchange;
+		m.u.serverKeyExchange.curve = nc->tlsid;
+		m.u.serverKeyExchange.dh_parameters = tlsSecECDHEs1(c->sec, nc);
+		if(m.u.serverKeyExchange.dh_parameters == nil){
+			tlsError(c, EInternalError, "can't set DH parameters");
+			goto Err;
+		}
+
+		/* sign the DH parameters */
+		if(certlen > 0){
+			uchar digest[MAXdlen];
+			int digestlen;
+
+			if(c->version >= TLS12Version)
+				m.u.serverKeyExchange.sigalg = 0x0401;	/* RSA SHA256 */
+			digestlen = digestDHparams(c->sec, m.u.serverKeyExchange.dh_parameters,
+				digest, m.u.serverKeyExchange.sigalg);
+			if((m.u.serverKeyExchange.dh_signature = pkcs1_sign(c->sec, digest, digestlen,
+				m.u.serverKeyExchange.sigalg)) == nil){
+				tlsError(c, EHandshakeFailure, "pkcs1_sign: %r");
+				goto Err;
+			}
+		}
+		if(!msgSend(c, &m, AQueue))
+			goto Err;
+	}
+
 	m.tag = HServerHelloDone;
 	if(!msgSend(c, &m, AFlush))
 		goto Err;
@@ -760,13 +808,18 @@ tlsServer2(int ctl, int hand,
 			goto Err;
 		}
 	}
-	if(certlen > 0){
+	if(isECDHE(cipher)){
+		if(tlsSecECDHEs2(c->sec, m.u.clientKeyExchange.key) < 0){
+			tlsError(c, EHandshakeFailure, "couldn't set keys: %r");
+			goto Err;
+		}
+	} else if(certlen > 0){
 		if(tlsSecRSAs(c->sec, m.u.clientKeyExchange.key) < 0){
 			tlsError(c, EHandshakeFailure, "couldn't set keys: %r");
 			goto Err;
 		}
 	} else if(psklen > 0){
-		tlsSecPSKs(c->sec);
+		setMasterSecret(c->sec, newbytes(psklen));
 	} else {
 		tlsError(c, EInternalError, "no psk or certificate");
 		goto Err;
@@ -823,79 +876,29 @@ Err:
 	return nil;
 }
 
-static int
-isDHE(int tlsid)
-{
-	switch(tlsid){
-	case TLS_DHE_RSA_WITH_AES_128_GCM_SHA256:
-	case TLS_DHE_RSA_WITH_AES_128_CBC_SHA256:
- 	case TLS_DHE_RSA_WITH_AES_128_CBC_SHA:
- 	case TLS_DHE_RSA_WITH_AES_256_CBC_SHA:
- 	case TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA:
-	case TLS_DHE_RSA_WITH_CHACHA20_POLY1305:
-	case GOOGLE_DHE_RSA_WITH_CHACHA20_POLY1305:
-		return 1;
-	}
-	return 0;
-}
-
-static int
-isECDHE(int tlsid)
-{
-	switch(tlsid){
-	case TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
-	case TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305:
-
-	case GOOGLE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
-	case GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305:
-
-	case TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:
-	case TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:
-
-	case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:
-	case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
-	case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:
-	case TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:
-		return 1;
-	}
-	return 0;
-}
-
-static int
-isPSK(int tlsid)
-{
-	switch(tlsid){
-	case TLS_PSK_WITH_CHACHA20_POLY1305:
-	case TLS_PSK_WITH_AES_128_CBC_SHA256:
-	case TLS_PSK_WITH_AES_128_CBC_SHA:
-		return 1;
-	}
-	return 0;
-}
-
 static Bytes*
 tlsSecDHEc(TlsSec *sec, Bytes *p, Bytes *g, Bytes *Ys)
 {
+	DHstate *dh = &sec->dh;
 	mpint *G, *P, *Y, *K;
-	Bytes *epm;
-	DHstate dh;
+	Bytes *Yc;
 
 	if(p == nil || g == nil || Ys == nil)
 		return nil;
 
-	epm = nil;
+	Yc = nil;
 	P = bytestomp(p);
 	G = bytestomp(g);
 	Y = bytestomp(Ys);
 	K = nil;
 
-	if(P == nil || G == nil || Y == nil || dh_new(&dh, P, nil, G) == nil)
+	if(dh_new(dh, P, nil, G) == nil)
 		goto Out;
-	epm = mptobytes(dh.y);
-	K = dh_finish(&dh, Y);
+	Yc = mptobytes(dh->y);
+	K = dh_finish(dh, Y);	/* zeros dh */
 	if(K == nil){
-		freebytes(epm);
-		epm = nil;
+		freebytes(Yc);
+		Yc = nil;
 		goto Out;
 	}
 	setMasterSecret(sec, mptobytes(K));
@@ -906,132 +909,53 @@ Out:
 	mpfree(G);
 	mpfree(P);
 
-	return epm;
+	return Yc;
 }
 
 static Bytes*
 tlsSecECDHEc(TlsSec *sec, int curve, Bytes *Ys)
 {
-	Namedcurve *nc, *enc;
-	Bytes *epm;
-	ECdomain dom;
+	ECdomain *dom = &sec->ec.dom;
+	ECpriv *Q = &sec->ec.Q;
+	Namedcurve *nc;
 	ECpub *pub;
 	ECpoint K;
-	ECpriv Q;
+	Bytes *Yc;
 
 	if(Ys == nil)
 		return nil;
-
-	enc = &namedcurves[nelem(namedcurves)];
-	for(nc = namedcurves; nc != enc; nc++)
+	for(nc = namedcurves; nc != &namedcurves[nelem(namedcurves)]; nc++)
 		if(nc->tlsid == curve)
-			break;
+			goto Found;
+	return nil;
 
-	if(nc == enc)
+Found:
+	ecdominit(dom, nc->init);
+	pub = ecdecodepub(dom, Ys->data, Ys->len);
+	if(pub == nil)
 		return nil;
-	
-	ecdominit(&dom, nc->init);
-	pub = ecdecodepub(&dom, Ys->data, Ys->len);
-	if(pub == nil){
-		ecdomfree(&dom);
-		return nil;
-	}
 
-	memset(&Q, 0, sizeof(Q));
-	Q.x = mpnew(0);
-	Q.y = mpnew(0);
-	Q.d = mpnew(0);
+	memset(Q, 0, sizeof(*Q));
+	Q->x = mpnew(0);
+	Q->y = mpnew(0);
+	Q->d = mpnew(0);
 
 	memset(&K, 0, sizeof(K));
 	K.x = mpnew(0);
 	K.y = mpnew(0);
 
-	epm = nil;
-	if(ecgen(&dom, &Q) != nil){
-		ecmul(&dom, pub, Q.d, &K);
-		setMasterSecret(sec, mptobytes(K.x));
-		epm = newbytes(1 + 2*((mpsignif(dom.p)+7)/8));
-		epm->len = ecencodepub(&dom, &Q, epm->data, epm->len);
-	}
+	ecgen(dom, Q);
+	ecmul(dom, pub, Q->d, &K);
+	setMasterSecret(sec, mptobytes(K.x));
+	Yc = newbytes(1 + 2*((mpsignif(dom->p)+7)/8));
+	Yc->len = ecencodepub(dom, Q, Yc->data, Yc->len);
 
 	mpfree(K.x);
 	mpfree(K.y);
-	mpfree(Q.x);
-	mpfree(Q.y);
-	mpfree(Q.d);
 
 	ecpubfree(pub);
-	ecdomfree(&dom);
 
-	return epm;
-}
-
-static char*
-verifyDHparams(TlsConnection *c, Bytes *par, Bytes *sig, int sigalg)
-{
-	uchar digest[MAXdlen];
-	int digestlen;
-	ECdomain dom;
-	ECpub *ecpk;
-	RSApub *rsapk;
-	Bytes *blob;
-	char *err;
-
-	if(par == nil || par->len <= 0)
-		return "no DH parameters";
-
-	if(sig == nil || sig->len <= 0){
-		if(c->sec->psklen > 0)
-			return nil;
-		return "no signature";
-	}
-
-	if(c->cert == nil)
-		return "no certificate";
-
-	blob = newbytes(2*RandomSize + par->len);
-	memmove(blob->data+0*RandomSize, c->sec->crandom, RandomSize);
-	memmove(blob->data+1*RandomSize, c->sec->srandom, RandomSize);
-	memmove(blob->data+2*RandomSize, par->data, par->len);
-	if(c->version < TLS12Version){
-		digestlen = MD5dlen + SHA1dlen;
-		md5(blob->data, blob->len, digest, nil);
-		sha1(blob->data, blob->len, digest+MD5dlen, nil);
-		sigalg = 1; // only RSA signatures supported for version <= TLS1.1
-	} else {
-		int hashalg = (sigalg>>8) & 0xFF;
-		digestlen = -1;
-		if(hashalg < nelem(hashfun) && hashfun[hashalg].fun != nil){
-			digestlen = hashfun[hashalg].len;
-			(*hashfun[hashalg].fun)(blob->data, blob->len, digest, nil);
-		}
-	}
-	freebytes(blob);
-
-	if(digestlen <= 0)
-		return "unknown signature digest algorithm";
-	
-	switch(sigalg & 0xFF){
-	case 0x01:
-		rsapk = X509toRSApub(c->cert->data, c->cert->len, nil, 0);
-		if(rsapk == nil)
-			return "bad certificate";
-		err = X509rsaverifydigest(sig->data, sig->len, digest, digestlen, rsapk);
-		rsapubfree(rsapk);
-		break;
-	case 0x03:
-		ecpk = X509toECpub(c->cert->data, c->cert->len, &dom);
-		if(ecpk == nil)
-			return "bad certificate";
-		err = X509ecdsaverifydigest(sig->data, sig->len, digest, digestlen, &dom, ecpk);
-		ecdomfree(&dom);
-		ecpubfree(ecpk);
-		break;
-	default:
-		err = "signaure algorithm not RSA or ECDSA";
-	}
-
-	return err;
+	return Yc;
 }
 
 static TlsConnection *
@@ -1041,10 +965,10 @@ tlsClient2(int ctl, int hand,
 	uchar *ext, int extlen,
 	int (*trace)(char*fmt, ...))
 {
-	TlsConnection *c;
-	Msg m;
 	int creq, dhx, cipher;
+	TlsConnection *c;
 	Bytes *epm;
+	Msg m;
 
 	if(!initCiphers())
 		return nil;
@@ -1130,10 +1054,11 @@ tlsClient2(int ctl, int hand,
 	}
 	if(m.tag == HServerKeyExchange) {
 		if(dhx){
-			char *err = verifyDHparams(c,
+			char *err = verifyDHparams(c->sec,
 				m.u.serverKeyExchange.dh_parameters,
+				c->cert,
 				m.u.serverKeyExchange.dh_signature,
-				m.u.serverKeyExchange.sigalg);
+				c->version<TLS12Version ? 0x01 : m.u.serverKeyExchange.sigalg);
 			if(err != nil){
 				tlsError(c, EBadCertificate, "can't verify DH parameters: %s", err);
 				goto Err;
@@ -1184,7 +1109,7 @@ tlsClient2(int ctl, int hand,
 				goto Err;
 			}
 		} else if(psklen > 0){
-			tlsSecPSKc(c->sec);
+			setMasterSecret(c->sec, newbytes(psklen));
 		} else {
 			tlsError(c, EInternalError, "no psk or certificate");
 			goto Err;
@@ -1224,39 +1149,28 @@ tlsClient2(int ctl, int hand,
 
 	/* certificate verify */
 	if(creq && certlen > 0) {
-		mpint *signedMP, *paddedHashes;
 		HandshakeHash hsave;
-		uchar buf[512];
-		int buflen;
+		uchar digest[MAXdlen];
+		int digestlen;
 
 		/* save the state for the Finish message */
 		hsave = c->handhash;
-		if(c->version >= TLS12Version){
-			uchar digest[SHA2_256dlen];
-
+		if(c->version < TLS12Version){
+			md5(nil, 0, digest, &c->handhash.md5);
+			sha1(nil, 0, digest+MD5dlen, &c->handhash.sha1);
+			digestlen = MD5dlen+SHA1dlen;
+		} else {
 			m.u.certificateVerify.sigalg = 0x0401;	/* RSA SHA256 */
 			sha2_256(nil, 0, digest, &c->handhash.sha2_256);
-			buflen = asn1encodedigest(sha2_256, digest, buf, sizeof(buf));
-		} else {
-			md5(nil, 0, buf, &c->handhash.md5);
-			sha1(nil, 0, buf+MD5dlen, &c->handhash.sha1);
-			buflen = MD5dlen+SHA1dlen;
+			digestlen = SHA2_256dlen;
 		}
 		c->handhash = hsave;
 
-		if(buflen <= 0){
-			tlsError(c, EInternalError, "can't encode handshake hashes");
+		if((m.u.certificateVerify.signature = pkcs1_sign(c->sec, digest, digestlen,
+			m.u.certificateVerify.sigalg)) == nil){
+			tlsError(c, EHandshakeFailure, "pkcs1_sign: %r");
 			goto Err;
 		}
-		
-		paddedHashes = pkcs1padbuf(buf, buflen, c->sec->rsapub->n);
-		signedMP = factotum_rsa_decrypt(c->sec->rpc, paddedHashes);
-		if(signedMP == nil){
-			tlsError(c, EHandshakeFailure, "factotum_rsa_decrypt: %r");
-			goto Err;
-		}
-		m.u.certificateVerify.signature = mptobytes(signedMP);
-		mpfree(signedMP);
 
 		m.tag = HCertificateVerify;
 		if(!msgSend(c, &m, AFlush))
@@ -1439,6 +1353,30 @@ msgSend(TlsConnection *c, Msg *m, int act)
 		p += 2;
 		memmove(p, m->u.certificateVerify.signature->data, m->u.certificateVerify.signature->len);
 		p += m->u.certificateVerify.signature->len;
+		break;
+	case HServerKeyExchange:
+		if(m->u.serverKeyExchange.pskid != nil){
+			n = m->u.serverKeyExchange.pskid->len;
+			put16(p, n);
+			p += 2;
+			memmove(p, m->u.serverKeyExchange.pskid->data, n);
+			p += n;
+		}
+		if(m->u.serverKeyExchange.dh_parameters == nil)
+			break;
+		n = m->u.serverKeyExchange.dh_parameters->len;
+		memmove(p, m->u.serverKeyExchange.dh_parameters->data, n);
+		p += n;
+		if(m->u.serverKeyExchange.dh_signature == nil)
+			break;
+		if(c->version >= TLS12Version){
+			put16(p, m->u.serverKeyExchange.sigalg);
+			p += 2;
+		}
+		n = m->u.serverKeyExchange.dh_signature->len;
+		put16(p, n), p += 2;
+		memmove(p, m->u.serverKeyExchange.dh_signature->data, n);
+		p += n;
 		break;
 	case HClientKeyExchange:
 		if(m->u.clientKeyExchange.pskid != nil){
@@ -1823,10 +1761,6 @@ msgRecv(TlsConnection *c, Msg *m)
 		}
 		break;		
 	case HClientKeyExchange:
-		/*
-		 * this message depends upon the encryption selected
-		 * assume rsa.
-		 */
 		if(isPSK(c->cipher)){
 			if(n < 2)
 				goto Short;
@@ -1844,8 +1778,12 @@ msgRecv(TlsConnection *c, Msg *m)
 		else{
 			if(n < 2)
 				goto Short;
-			nn = get16(p);
-			p += 2, n -= 2;
+			if(isECDHE(c->cipher))
+				nn = *p++, n--;
+			else {
+				nn = get16(p);
+				p += 2, n -= 2;
+			}
 		}
 		if(n < nn)
 			goto Short;
@@ -1941,11 +1879,11 @@ bytesPrint(char *bs, char *be, char *s0, Bytes *b, char *s1)
 	if(b == nil)
 		bs = seprint(bs, be, "nil");
 	else {
-		bs = seprint(bs, be, "<%d> [", b->len);
+		bs = seprint(bs, be, "<%d> [ ", b->len);
 		for(i=0; i<b->len; i++)
 			bs = seprint(bs, be, "%.2x ", b->data[i]);
+		bs = seprint(bs, be, "]");
 	}
-	bs = seprint(bs, be, "]");
 	if(s1)
 		bs = seprint(bs, be, "%s", s1);
 	return bs;
@@ -1958,13 +1896,14 @@ intsPrint(char *bs, char *be, char *s0, Ints *b, char *s1)
 
 	if(s0)
 		bs = seprint(bs, be, "%s", s0);
-	bs = seprint(bs, be, "[");
 	if(b == nil)
 		bs = seprint(bs, be, "nil");
-	else
+	else {
+		bs = seprint(bs, be, "[ ");
 		for(i=0; i<b->len; i++)
 			bs = seprint(bs, be, "%x ", b->data[i]);
-	bs = seprint(bs, be, "]");
+		bs = seprint(bs, be, "]");
+	}
 	if(s1)
 		bs = seprint(bs, be, "%s", s1);
 	return bs;
@@ -2116,15 +2055,87 @@ tlsConnectionFree(TlsConnection *c)
 {
 	if(c == nil)
 		return;
+
+	dh_finish(&c->sec->dh, nil);
+
+	mpfree(c->sec->ec.Q.x);
+	mpfree(c->sec->ec.Q.y);
+	mpfree(c->sec->ec.Q.d);
+	ecdomfree(&c->sec->ec.dom);
+
 	factotum_rsa_close(c->sec->rpc);
 	rsapubfree(c->sec->rsapub);
 	freebytes(c->cert);
+
 	memset(c, 0, sizeof(*c));
 	free(c);
 }
 
 
 //================= cipher choices ========================
+
+static int
+isDHE(int tlsid)
+{
+	switch(tlsid){
+	case TLS_DHE_RSA_WITH_AES_128_GCM_SHA256:
+	case TLS_DHE_RSA_WITH_AES_128_CBC_SHA256:
+ 	case TLS_DHE_RSA_WITH_AES_128_CBC_SHA:
+ 	case TLS_DHE_RSA_WITH_AES_256_CBC_SHA:
+ 	case TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA:
+	case TLS_DHE_RSA_WITH_CHACHA20_POLY1305:
+	case GOOGLE_DHE_RSA_WITH_CHACHA20_POLY1305:
+		return 1;
+	}
+	return 0;
+}
+
+static int
+isECDHE(int tlsid)
+{
+	switch(tlsid){
+	case TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
+	case TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305:
+
+	case GOOGLE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
+	case GOOGLE_ECDHE_RSA_WITH_CHACHA20_POLY1305:
+
+	case TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:
+	case TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:
+
+	case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:
+	case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
+	case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA:
+	case TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA:
+		return 1;
+	}
+	return 0;
+}
+
+static int
+isPSK(int tlsid)
+{
+	switch(tlsid){
+	case TLS_PSK_WITH_CHACHA20_POLY1305:
+	case TLS_PSK_WITH_AES_128_CBC_SHA256:
+	case TLS_PSK_WITH_AES_128_CBC_SHA:
+		return 1;
+	}
+	return 0;
+}
+
+static int
+isECDSA(int tlsid)
+{
+	switch(tlsid){
+	case TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
+	case GOOGLE_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
+	case TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:
+	case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256:
+		return 1;
+	}
+	return 0;
+}
 
 static int
 setAlgs(TlsConnection *c, int a)
@@ -2152,8 +2163,8 @@ okCipher(Ints *cv, int ispsk)
 
 	for(i = 0; i < cv->len; i++) {
 		c = cv->data[i];
-		if(isDHE(c) || isECDHE(c) || isPSK(c) != ispsk)
-			continue;	/* TODO: not implemented for server */
+		if(isECDSA(c) || isDHE(c) || isPSK(c) != ispsk)
+			continue;	/* not implemented for server */
 		for(j = 0; j < nelem(cipherAlgs); j++)
 			if(cipherAlgs[j].ok && cipherAlgs[j].tlsid == c)
 				return c;
@@ -2259,7 +2270,6 @@ makeciphers(int ispsk)
 	is->len = j;
 	return is;
 }
-
 
 
 //================= security functions ========================
@@ -2528,8 +2538,6 @@ tls12SetFinished(TlsSec *sec, HandshakeHash hsh, uchar *finished, int isclient)
 	p_sha256(finished, TLSFinishedLen, sec->sec, MasterSecretSize, (uchar*)label, strlen(label), seed, SHA2_256dlen);
 }
 
-/* the keys are verified to have the same public components
- * and to function correctly with pkcs 1 encryption and decryption. */
 static void
 tlsSecInits(TlsSec *sec, int cvers, uchar *crandom)
 {
@@ -2562,10 +2570,62 @@ tlsSecRSAs(TlsSec *sec, Bytes *epm)
 	return 0;
 }
 
-static void
-tlsSecPSKs(TlsSec *sec)
+static Bytes*
+tlsSecECDHEs1(TlsSec *sec, Namedcurve *nc)
 {
-	setMasterSecret(sec, newbytes(sec->psklen));
+	ECdomain *dom = &sec->ec.dom;
+	ECpriv *Q = &sec->ec.Q;
+	Bytes *par;
+	int n;
+
+	ecdominit(dom, nc->init);
+	memset(Q, 0, sizeof(*Q));
+	Q->x = mpnew(0);
+	Q->y = mpnew(0);
+	Q->d = mpnew(0);
+	ecgen(dom, Q);
+	n = 1 + 2*((mpsignif(dom->p)+7)/8);
+	par = newbytes(1+2+1+n);
+	par->data[0] = 3;
+	put16(par->data+1, nc->tlsid);
+	n = ecencodepub(dom, Q, par->data+4, par->len-4);
+	par->data[3] = n;
+	par->len = 1+2+1+n;
+
+	return par;
+}
+
+static int
+tlsSecECDHEs2(TlsSec *sec, Bytes *Yc)
+{
+	ECdomain *dom = &sec->ec.dom;
+	ECpriv *Q = &sec->ec.Q;
+	ECpoint K;
+	ECpub *Y;
+
+	if(Yc == nil){
+		werrstr("no public key");
+		return -1;
+	}
+
+	if((Y = ecdecodepub(dom, Yc->data, Yc->len)) == nil){
+		werrstr("bad public key");
+		return -1;
+	}
+
+	memset(&K, 0, sizeof(K));
+	K.x = mpnew(0);
+	K.y = mpnew(0);
+
+	ecmul(dom, Y, Q->d, &K);
+	setMasterSecret(sec, mptobytes(K.x));
+
+	mpfree(K.x);
+	mpfree(K.y);
+
+	ecpubfree(Y);
+
+	return 0;
 }
 
 static void
@@ -2575,12 +2635,6 @@ tlsSecInitc(TlsSec *sec, int cvers)
 	sec->clientVers = cvers;
 	put32(sec->crandom, time(nil));
 	genrandom(sec->crandom+4, RandomSize-4);
-}
-
-static void
-tlsSecPSKc(TlsSec *sec)
-{
-	setMasterSecret(sec, newbytes(sec->psklen));
 }
 
 static Bytes*
@@ -2695,27 +2749,81 @@ setMasterSecret(TlsSec *sec, Bytes *pm)
 	freebytes(pm);
 }
 
-static mpint*
-bytestomp(Bytes* bytes)
+static int
+digestDHparams(TlsSec *sec, Bytes *par, uchar digest[MAXdlen], int sigalg)
 {
-	return betomp(bytes->data, bytes->len, nil);
+	int hashalg = (sigalg>>8) & 0xFF;
+	int digestlen;
+	Bytes *blob;
+
+	blob = newbytes(2*RandomSize + par->len);
+	memmove(blob->data+0*RandomSize, sec->crandom, RandomSize);
+	memmove(blob->data+1*RandomSize, sec->srandom, RandomSize);
+	memmove(blob->data+2*RandomSize, par->data, par->len);
+	if(hashalg == 0){
+		digestlen = MD5dlen+SHA1dlen;
+		md5(blob->data, blob->len, digest, nil);
+		sha1(blob->data, blob->len, digest+MD5dlen, nil);
+	} else {
+		digestlen = -1;
+		if(hashalg < nelem(hashfun) && hashfun[hashalg].fun != nil){
+			digestlen = hashfun[hashalg].len;
+			(*hashfun[hashalg].fun)(blob->data, blob->len, digest, nil);
+		}
+	}
+	freebytes(blob);
+	return digestlen;
 }
 
-/*
- * Convert mpint* to Bytes, putting high order byte first.
- */
-static Bytes*
-mptobytes(mpint* big)
+static char*
+verifyDHparams(TlsSec *sec, Bytes *par, Bytes *cert, Bytes *sig, int sigalg)
 {
-	Bytes* ans;
-	int n;
+	uchar digest[MAXdlen];
+	int digestlen;
+	ECdomain dom;
+	ECpub *ecpk;
+	RSApub *rsapk;
+	char *err;
 
-	n = (mpsignif(big)+7)/8;
-	if(n == 0) n = 1;
-	ans = newbytes(n);
-	mptober(big, ans->data, ans->len);
-	return ans;
+	if(par == nil || par->len <= 0)
+		return "no DH parameters";
+
+	if(sig == nil || sig->len <= 0){
+		if(sec->psklen > 0)
+			return nil;
+		return "no signature";
+	}
+
+	if(cert == nil)
+		return "no certificate";
+
+	digestlen = digestDHparams(sec, par, digest, sigalg);
+	if(digestlen <= 0)
+		return "unknown signature digest algorithm";
+	
+	switch(sigalg & 0xFF){
+	case 0x01:
+		rsapk = X509toRSApub(cert->data, cert->len, nil, 0);
+		if(rsapk == nil)
+			return "bad certificate";
+		err = X509rsaverifydigest(sig->data, sig->len, digest, digestlen, rsapk);
+		rsapubfree(rsapk);
+		break;
+	case 0x03:
+		ecpk = X509toECpub(cert->data, cert->len, &dom);
+		if(ecpk == nil)
+			return "bad certificate";
+		err = X509ecdsaverifydigest(sig->data, sig->len, digest, digestlen, &dom, ecpk);
+		ecdomfree(&dom);
+		ecpubfree(ecpk);
+		break;
+	default:
+		err = "signaure algorithm not RSA or ECDSA";
+	}
+
+	return err;
 }
+
 
 // Do RSA computation on block according to key, and pad
 // result on left with zeros to make it modlen long.
@@ -2815,6 +2923,32 @@ pkcs1_decrypt(TlsSec *sec, Bytes *cipher)
 	}
 	freebytes(eb);
 	return nil;
+}
+
+static Bytes*
+pkcs1_sign(TlsSec *sec, uchar *digest, int digestlen, int sigalg)
+{
+	int hashalg = (sigalg>>8)&0xFF;
+	mpint *signedMP;
+	Bytes *signature;
+	uchar buf[128];
+
+	if(hashalg > 0 && hashalg < nelem(hashfun) && hashfun[hashalg].len == digestlen)
+		digestlen = asn1encodedigest(hashfun[hashalg].fun, digest, buf, sizeof(buf));
+	else if(digestlen == MD5dlen+SHA1dlen)
+		memmove(buf, digest, digestlen);
+	else
+		digestlen = -1;
+	if(digestlen <= 0){
+		werrstr("bad digest algorithm");
+		return nil;
+	}
+	signedMP = factotum_rsa_decrypt(sec->rpc, pkcs1padbuf(buf, digestlen, sec->rsapub->n));
+	if(signedMP == nil)
+		return nil;
+	signature = mptobytes(signedMP);
+	mpfree(signedMP);
+	return signature;
 }
 
 
@@ -2918,6 +3052,28 @@ static void
 freebytes(Bytes* b)
 {
 	free(b);
+}
+
+static mpint*
+bytestomp(Bytes* bytes)
+{
+	return betomp(bytes->data, bytes->len, nil);
+}
+
+/*
+ * Convert mpint* to Bytes, putting high order byte first.
+ */
+static Bytes*
+mptobytes(mpint* big)
+{
+	Bytes* ans;
+	int n;
+
+	n = (mpsignif(big)+7)/8;
+	if(n == 0) n = 1;
+	ans = newbytes(n);
+	mptober(big, ans->data, ans->len);
+	return ans;
 }
 
 /* len is number of ints */
