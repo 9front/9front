@@ -60,9 +60,9 @@ if(~ $filter aan){
 			rfork n
 			fn server {
 				echo -n aanserver $netdir >/proc/$pid/args
+				rm -f /env/^('fn#server' 'fn#aanserver')
 				. <{n=`{read} && ! ~ $#n 0 && read -c $n} >[2=1]
 			}
-			rm -f /env/^'fn#aanserver'
 			exec tlssrv -A /bin/rc -c server
 			exit
 		}
