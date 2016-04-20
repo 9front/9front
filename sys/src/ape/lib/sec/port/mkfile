@@ -26,6 +26,7 @@ CFILES = des.c desmodes.c desECB.c desCBC.c des3ECB.c des3CBC.c\
 	thumb.c readcert.c \
 	aes_xts.c  \
 	ecc.c\
+	jacobian.c\
 	ripemd.c\
 	dh.c\
 	curve25519.c\
@@ -37,7 +38,7 @@ CFILES = des.c desmodes.c desECB.c desCBC.c des3ECB.c des3CBC.c\
 	secp256r1.c\
 	secp256k1.c\
 
-CLEANFILES=secp256r1.c secp256k1.c
+CLEANFILES=secp256r1.c secp256k1.c jacobian.c
 
 ALLOFILES=${CFILES:%.c=%.$O}
 

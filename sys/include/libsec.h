@@ -489,6 +489,7 @@ typedef struct ECpoint{
 	int inf;
 	mpint *x;
 	mpint *y;
+	mpint *z;	/* nil when using affine coordinates */
 } ECpoint;
 
 typedef ECpoint ECpub;
