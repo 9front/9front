@@ -118,7 +118,7 @@ whose
 .B n
 has exactly
 .I nbits
-(default 1024)
+(default 2048)
 significant bits.
 If
 .I tag

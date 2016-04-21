@@ -18,7 +18,7 @@ main(int argc, char **argv)
 	char *tag;
 	RSApriv *key;
 
-	bits = 1024;
+	bits = 2048;
 	tag = nil;
 	key = nil;
 	fmtinstall('B', mpfmt);
