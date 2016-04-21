@@ -35,8 +35,6 @@ ecassign(ECdomain *dom, ECpoint *a, ECpoint *b)
 void
 ecadd(ECdomain *dom, ECpoint *a, ECpoint *b, ECpoint *s)
 {
-	mpint *l, *k, *sx, *sy;
-
 	if(a->inf && b->inf){
 		s->inf = 1;
 		return;
@@ -50,81 +48,26 @@ ecadd(ECdomain *dom, ECpoint *a, ECpoint *b, ECpoint *s)
 		return;
 	}
 
-	if(s->z != nil){
-		if(a == b)
-			jacobian_dbl(dom->p, dom->a,
-				a->x, a->y, a->z != nil ? a->z : mpone,
-				s->x, s->y, s->z);
-		else
-			jacobian_add(dom->p, dom->a,
-				a->x, a->y, a->z != nil ? a->z : mpone,
-				b->x, b->y, b->z != nil ? b->z : mpone,
-				s->x, s->y, s->z);
-		s->inf = mpcmp(s->z, mpzero) == 0;
+	if(s->z == nil){
+		s->z = mpcopy(mpone);
+		ecadd(dom, a, b, s);
+		if(!s->inf)
+			jacobian_affine(dom->p, s->x, s->y, s->z);
+		mpfree(s->z);
+		s->z = nil;
 		return;
 	}
 
-	if(mpcmp(a->x, b->x) == 0 && (mpcmp(a->y, mpzero) == 0 || mpcmp(a->y, b->y) != 0)){
-		s->inf = 1;
-		return;
-	}
-	s->inf = 0;
-	l = mpnew(0);
-	k = mpnew(0);
-	sx = mpnew(0);
-	sy = mpnew(0);
-	if(mpcmp(a->x, b->x) == 0 && mpcmp(a->y, b->y) == 0){
-		mpadd(mpone, mptwo, k);
-		mpmul(a->x, a->x, l);
-		mpmul(l, k, l);
-		mpadd(l, dom->a, l);
-		mpleft(a->y, 1, k);
-		mpmod(k, dom->p, k);
-		mpinvert(k, dom->p, k);
-		mpmul(k, l, l);
-		mpmod(l, dom->p, l);
-
-		mpleft(a->x, 1, k);
-		mpmul(l, l, sx);
-		mpsub(sx, k, sx);
-		mpmod(sx, dom->p, sx);
-
-		mpsub(a->x, sx, sy);
-		mpmul(l, sy, sy);
-		mpsub(sy, a->y, sy);
-		mpmod(sy, dom->p, sy);
-		mpassign(sx, s->x);
-		mpassign(sy, s->y);
-		mpfree(sx);
-		mpfree(sy);
-		mpfree(l);
-		mpfree(k);
-		return;
-	}
-	mpsub(b->y, a->y, l);
-	mpmod(l, dom->p, l);
-	mpsub(b->x, a->x, k);
-	mpmod(k, dom->p, k);
-	mpinvert(k, dom->p, k);
-	mpmul(k, l, l);
-	mpmod(l, dom->p, l);
-	
-	mpmul(l, l, sx);
-	mpsub(sx, a->x, sx);
-	mpsub(sx, b->x, sx);
-	mpmod(sx, dom->p, sx);
-	
-	mpsub(a->x, sx, sy);
-	mpmul(sy, l, sy);
-	mpsub(sy, a->y, sy);
-	mpmod(sy, dom->p, sy);
-	
-	mpassign(sx, s->x);
-	mpassign(sy, s->y);
-	mpfree(sx);
-	mpfree(sy);
-	mpfree(l);
-	mpfree(k);
+	if(a == b)
+		jacobian_dbl(dom->p, dom->a,
+			a->x, a->y, a->z != nil ? a->z : mpone,
+			s->x, s->y, s->z);
+	else
+		jacobian_add(dom->p, dom->a,
+			a->x, a->y, a->z != nil ? a->z : mpone,
+			b->x, b->y, b->z != nil ? b->z : mpone,
+			s->x, s->y, s->z);
+	s->inf = mpcmp(s->z, mpzero) == 0;
 }
 
 void
@@ -173,10 +116,10 @@ ecverify(ECdomain *dom, ECpoint *a)
 	mpint *p, *q;
 	int r;
 
-	assert(a->z == nil);	/* need affine coordinates */
 	if(a->inf)
 		return 1;
 
+	assert(a->z == nil);	/* need affine coordinates */
 	p = mpnew(0);
 	q = mpnew(0);
 	mpmodmul(a->y, a->y, dom->p, p);
