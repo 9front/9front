@@ -211,6 +211,7 @@ enum {
 	EProtocolVersion = 70,
 	EInsufficientSecurity = 71,
 	EInternalError = 80,
+	EInappropriateFallback = 86,
 	EUserCanceled = 90,
 	ENoRenegotiation = 100,
 	EUnknownPSKidentity = 115,
@@ -295,6 +296,8 @@ enum {
 	TLS_PSK_WITH_CHACHA20_POLY1305		= 0xCCAB,
 	TLS_PSK_WITH_AES_128_CBC_SHA256		= 0x00AE,
 	TLS_PSK_WITH_AES_128_CBC_SHA		= 0x008C,
+
+	TLS_FALLBACK_SCSV = 0x5600,
 };
 
 // compression methods
@@ -446,6 +449,7 @@ static mpint* bytestomp(Bytes* bytes);
 static void freebytes(Bytes* b);
 static Ints* newints(int len);
 static void freeints(Ints* b);
+static int lookupid(Ints* b, int id);
 
 /* x509.c */
 extern mpint*	pkcs1padbuf(uchar *buf, int len, mpint *modulus);
@@ -708,7 +712,11 @@ tlsServer2(int ctl, int hand,
 		tlsError(c, EIllegalParameter, "incompatible version");
 		goto Err;
 	}
-
+	if(c->version < ProtocolVersion
+	&& lookupid(m.u.clientHello.ciphers, TLS_FALLBACK_SCSV) >= 0){
+		tlsError(c, EInappropriateFallback, "inappropriate fallback");
+		goto Err;
+	}
 	cipher = okCipher(m.u.clientHello.ciphers, psklen > 0);
 	if(cipher < 0 || !setAlgs(c, cipher)) {
 		tlsError(c, EHandshakeFailure, "no matching cipher suite");
@@ -2019,10 +2027,10 @@ tlsError(TlsConnection *c, int err, char *fmt, ...)
 	va_end(arg);
 	if(c->trace)
 		c->trace("tlsError: %s\n", msg);
-	else if(c->erred)
+	if(c->erred)
 		fprint(2, "double error: %r, %s", msg);
 	else
-		werrstr("tls: local %s", msg);
+		errstr(msg, sizeof(msg));
 	c->erred = 1;
 	fprint(c->ctl, "alert %d", err);
 }
@@ -2163,15 +2171,14 @@ setAlgs(TlsConnection *c, int a)
 static int
 okCipher(Ints *cv, int ispsk)
 {
-	int i, j, c;
+	int i, c;
 
 	for(i = 0; i < nelem(cipherAlgs); i++) {
 		c = cipherAlgs[i].tlsid;
 		if(!cipherAlgs[i].ok || isECDSA(c) || isDHE(c) || isPSK(c) != ispsk)
 			continue;
-		for(j = 0; j < cv->len; j++)
-			if(cv->data[j] == c)
-				return c;
+		if(lookupid(cv, c) >= 0)
+			return c;
 	}
 	return -1;
 }
@@ -2179,13 +2186,12 @@ okCipher(Ints *cv, int ispsk)
 static int
 okCompression(Bytes *cv)
 {
-	int i, j, c;
+	int i, c;
 
 	for(i = 0; i < nelem(compressors); i++) {
 		c = compressors[i];
-		for(j = 0; j < cv->len; j++)
-			if(cv->data[j] == c)
-				return c;
+		if(memchr(cv->data, c, cv->len) != nil)
+			return c;
 	}
 	return -1;
 }
@@ -3096,4 +3102,15 @@ static void
 freeints(Ints* b)
 {
 	free(b);
+}
+
+static int
+lookupid(Ints* b, int id)
+{
+	int i;
+
+	for(i=0; i<b->len; i++)
+		if(b->data[i] == id)
+			return i;
+	return -1;
 }
