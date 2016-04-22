@@ -38,12 +38,12 @@ main(int argc, char **argv)
 	if(argc != 1 && argc != 2)
 		usage();
 
-	if((key = getkey(argc-1, argv+1, 1, nil)) == nil)
+	if((key = getrsakey(argc-1, argv+1, 1, nil)) == nil)
 		sysfatal("%r");
 
 	cert = X509rsagen(key, argv[0], valid, &len);
 	if(cert == nil)
-		sysfatal("X509gen: %r");
+		sysfatal("X509rsagen: %r");
 
 	write(1, cert, len);
 	exits(0);

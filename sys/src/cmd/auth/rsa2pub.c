@@ -31,7 +31,7 @@ main(int argc, char **argv)
 	if(argc > 1)
 		usage();
 
-	if((key = getkey(argc, argv, 0, &a)) == nil)
+	if((key = getrsakey(argc, argv, 0, &a)) == nil)
 		sysfatal("%r");
 
 	s = smprint("key %A size=%d ek=%B n=%B\n",

@@ -1,6 +1,6 @@
 .TH RSA 8
 .SH NAME
-rsagen, rsafill, asn12rsa, rsa2pub, rsa2ssh, rsa2x509 \- generate and format rsa keys
+rsagen, rsafill, asn12rsa, rsa2pub, rsa2ssh, rsa2x509, rsa2csr \- generate and format rsa keys
 .SH SYNOPSIS
 .B rsagen
 [
@@ -49,6 +49,12 @@ rsagen, rsafill, asn12rsa, rsa2pub, rsa2ssh, rsa2x509 \- generate and format rsa
 .I expiretime
 ]
 .I certinfo
+[
+.I file
+]
+.PP
+.B rsa2csr
+.I subject
 [
 .I file
 ]
@@ -229,6 +235,11 @@ The Plan 9 RSA private key needs to be loaded into factotum
 for TLS server applications. It is recommended to put the key into
 .IR secstore (1),
 avoiding it being stored unencrypted on the filesystem.
+.PP
+.I Rsa2csr
+takes the
+.I subject
+and a RSA private key and outputs a signing request in ASN.1 format.
 .SH EXAMPLES
 Generate a fresh key and use it to start a TLS-enabled web server:
 .IP
@@ -256,6 +267,13 @@ and load it into factotum:
 .EX
 auth/pemdecode 'PRIVATE KEY' key.pem | 
 	auth/asn12rsa -t 'service=tls' >/mnt/factotum/ctl
+.EE
+.PP
+Generate a certificate signing request (CSR) in PEM format:
+.IP
+.EX
+auth/rsa2csr 'CN=example.com' key |
+	auth/pemencode 'CERTIFICATE REQUEST'
 .EE
 .SH SOURCE
 .B /sys/src/cmd/auth

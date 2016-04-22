@@ -39,7 +39,7 @@ main(int argc, char **argv)
 	if(argc > 1)
 		usage();
 
-	if((k = getkey(argc, argv, 0, nil)) == nil)
+	if((k = getrsakey(argc, argv, 0, nil)) == nil)
 		sysfatal("%r");
 
 	if(ssh2) {

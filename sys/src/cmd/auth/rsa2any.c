@@ -7,7 +7,7 @@
 #include "rsa2any.h"
 
 RSApriv*
-getkey(int argc, char **argv, int needprivate, Attr **pa)
+getrsakey(int argc, char **argv, int needprivate, Attr **pa)
 {
 	char *file, *s, *p;
 	int sz;
