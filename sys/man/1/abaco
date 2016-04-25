@@ -1,6 +1,6 @@
 .TH ABACO 1
 .SH NAME
-abaco, readweb \- browse the World-Wide Web
+abaco \- browse the World-Wide Web
 .SH SYNOPSIS
 .B abaco
 [
@@ -15,11 +15,6 @@ abaco, readweb \- browse the World-Wide Web
 .B -t
 .I charset
 ] [
-.I url
-]
-.PP
-.B readweb
-[
 .I url
 ]
 .SH DESCRIPTION
@@ -45,16 +40,6 @@ Normally the standard error of subshells is closed,
 but
 .B -p
 prevents this.
-.PP
-.I Readweb
-imports the outside network, if necessary,
-starts
-.I webfs
-and
-.I webcookies
-and finally
-.IR abaco .
-.\" .SH EXAMPLES
 .SH FILES
 .TP 15
 .B /mnt/web
@@ -63,12 +48,9 @@ default
 mount point
 .SH SOURCE
 .B /sys/src/cmd/abaco
-.br
-.B /rc/bin/readweb
 .SH SEE ALSO
-.IR vnc (1),
-.IR webcookies (4),
-.IR webfs (4),
+.IR mothra (1),
+.IR webfs (4)
 .SH BUGS
 .I Abaco
 is a work in progress;
