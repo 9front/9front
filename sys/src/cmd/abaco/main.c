@@ -50,7 +50,7 @@ derror(Display *, char *s)
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-c ncol] [-m mtpt] [-t charset] [url...]\n",
+	fprint(2, "usage: %s [-c ncol] [-m mtpt] [-t charset] [-f font] [url...]\n",
 		argv0);
 	exits("usage");
 }
@@ -61,6 +61,7 @@ threadmain(int argc, char *argv[])
 	Column *c;
 	char buf[256];
 	int i, ncol;
+	char *tfnt = nil;
 
 	rfork(RFENVG|RFNAMEG);
 
@@ -80,6 +81,8 @@ threadmain(int argc, char *argv[])
 	case 't':
 		charset = EARGF(usage());
 		break;
+	case 'f':
+		tfnt = EARGF(usage());
 	default:
 		usage();
 		break;
@@ -91,6 +94,12 @@ threadmain(int argc, char *argv[])
 		sysfatal("can't initialize webfs: %r");
 
 	snarffd = open("/dev/snarf", OREAD|OCEXEC);
+
+	if(tfnt == nil){
+		tfnt = getenv("font");
+		if(tfnt != nil)
+			fontnames[0] = tfnt;
+	}
 
 	if(initdraw(derror, fontnames[0], "abaco") < 0)
 		sysfatal("can't open display: %r");
