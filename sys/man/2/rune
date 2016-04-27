@@ -191,3 +191,13 @@ returns
 .SH SEE ALSO
 .IR utf (6),
 .IR tcs (1)
+.SH BUGS
+When re-encoding UTF strings with
+.I chartorune
+and
+.I runetochar
+one has to consider that encoding a
+.I Runeerror
+(0xFFFD)
+that resulted from invalid encoded input can yield
+a longer UTF sequence on the output.
