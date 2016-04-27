@@ -2,8 +2,8 @@
 #include <libc.h>
 #include <bin.h>
 #include <bio.h>
-#include <regexp.h>
-#include "/sys/src/libregexp/regcomp.h"
+#include "regexp.h"
+#include "regcomp.h"
 #include "dfa.h"
 
 void rdump(Reprog*);

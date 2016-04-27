@@ -1,212 +1,189 @@
 #include <u.h>
 #include <libc.h>
-#include "regexp.h"
-#include "regcomp.h"
+#include <regexp.h>
+#include "regimpl.h"
 
-/*
- *  return	0 if no match
- *		>0 if a match
- *		<0 if we ran out of _relist space
- */
-static int
-rregexec1(Reprog *progp,	/* program to run */
-	Rune *bol,		/* string to run machine on */
-	Resub *mp,		/* subexpression elements */
-	int ms,			/* number of elements at mp */
-	Reljunk *j)
+typedef struct RethreadQ RethreadQ;
+struct RethreadQ
 {
-	int flag=0;
-	Reinst *inst;
-	Relist *tlp;
-	Rune *s;
-	int i, checkstart;
-	Rune r, *rp, *ep;
-	Relist* tl;		/* This list, next list */
-	Relist* nl;
-	Relist* tle;		/* ends of this and next list */
-	Relist* nle;
-	int match;
-	Rune *p;
+	Rethread *head;
+	Rethread **tail;
+};
 
-	match = 0;
-	checkstart = j->startchar;
-	if(mp)
-		for(i=0; i<ms; i++) {
-			mp[i].rsp = 0;
-			mp[i].rep = 0;
+int
+rregexec(Reprog *prog, Rune *str, Resub *sem, int msize)
+{
+	RethreadQ lists[2], *clist, *nlist, *tmp;
+	Rethread *t, *nextthr, **availthr;
+	Reinst *curinst;
+	Rune *rsp, *rep, endr, last;
+	int i, match, first, gen, pri, matchpri;
+
+	if(msize > NSUBEXPM)
+		msize = NSUBEXPM;
+
+	if(prog->startinst->gen != 0) {
+		for(curinst = prog->startinst; curinst < prog->startinst + prog->len; curinst++)
+			curinst->gen = 0;
+	}
+
+	clist = lists;
+	clist->head = nil;
+	clist->tail = &clist->head;
+	nlist = lists + 1;
+	nlist->head = nil;
+	nlist->tail = &nlist->head;
+
+	for(i = 0; i < prog->nthr; i++)
+		prog->thrpool[i] = prog->threads + i;
+	availthr = prog->thrpool + prog->nthr;
+
+	pri = matchpri = gen = match = 0;
+	rsp = str;
+	rep = nil;
+	endr = L'\0';
+	if(sem != nil && msize > 0) {
+		if(sem->rsp != nil)
+			rsp = sem->rsp;
+		if(sem->rep != nil && *sem->rep != L'\0') {
+			rep = sem->rep;
+			endr = *sem->rep;
+			*sem->rep = '\0';
 		}
-	j->relist[0][0].inst = 0;
-	j->relist[1][0].inst = 0;
-
-	/* Execute machine once for each character, including terminal NUL */
-	s = j->rstarts;
-	do{
-		/* fast check for first char */
-		if(checkstart) {
-			switch(j->starttype) {
-			case RUNE:
-				p = runestrchr(s, j->startchar);
-				if(p == 0 || s == j->reol)
-					return match;
-				s = p;
+	}
+	last = 1;
+	for(; last != L'\0'; rsp++) {
+		gen++;
+		last = *rsp;
+		first = 1;
+		t = clist->head;
+		if(t == nil)
+			goto Start;
+		curinst = t->pc;
+Again:
+		if(curinst->gen == gen)
+			goto Done;
+		curinst->gen = gen;
+		switch(curinst->op) {
+		case ORUNE:
+			if(*rsp != curinst->r)
+				goto Done;
+		case OANY: /* fallthrough */
+		Any:
+			nextthr = t->next;
+			t->pc = curinst + 1;
+			t->next = nil;
+			*nlist->tail = t;
+			nlist->tail = &t->next;
+			if(nextthr == nil)
 				break;
-			case BOL:
-				if(s == bol)
-					break;
-				p = runestrchr(s, '\n');
-				if(p == 0 || s == j->reol)
-					return match;
-				s = p+1;
-				break;
+			t = nextthr;
+			curinst = t->pc;
+			goto Again;
+		case OCLASS:
+		Class:
+			if(*rsp < curinst->r)
+				goto Done;
+			if(*rsp > curinst->r1) {
+				curinst++;
+				goto Class;
 			}
-		}
-
-		r = *s;
-
-		/* switch run lists */
-		tl = j->relist[flag];
-		tle = j->reliste[flag];
-		nl = j->relist[flag^=1];
-		nle = j->reliste[flag];
-		nl->inst = 0;
-
-		/* Add first instruction to current list */
-		_rrenewemptythread(tl, progp->startinst, ms, s);
-
-		/* Execute machine until current list is empty */
-		for(tlp=tl; tlp->inst; tlp++){
-			for(inst=tlp->inst; ; inst = inst->next){
-				switch(inst->type){
-				case RUNE:	/* regular character */
-					if(inst->r == r)
-						if(_renewthread(nl, inst->next, ms, &tlp->se)==nle)
-							return -1;
-					break;
-				case LBRA:
-					tlp->se.m[inst->subid].rsp = s;
-					continue;
-				case RBRA:
-					tlp->se.m[inst->subid].rep = s;
-					continue;
-				case ANY:
-					if(r != '\n')
-						if(_renewthread(nl, inst->next, ms, &tlp->se)==nle)
-							return -1;
-					break;
-				case ANYNL:
-					if(_renewthread(nl, inst->next, ms, &tlp->se)==nle)
-							return -1;
-					break;
-				case BOL:
-					if(s == bol || *(s-1) == '\n')
-						continue;
-					break;
-				case EOL:
-					if(s == j->reol || r == 0 || r == '\n')
-						continue;
-					break;
-				case CCLASS:
-					ep = inst->cp->end;
-					for(rp = inst->cp->spans; rp < ep; rp += 2)
-						if(r >= rp[0] && r <= rp[1]){
-							if(_renewthread(nl, inst->next, ms, &tlp->se)==nle)
-								return -1;
-							break;
-						}
-					break;
-				case NCCLASS:
-					ep = inst->cp->end;
-					for(rp = inst->cp->spans; rp < ep; rp += 2)
-						if(r >= rp[0] && r <= rp[1])
-							break;
-					if(rp == ep)
-						if(_renewthread(nl, inst->next, ms, &tlp->se)==nle)
-							return -1;
-					break;
-				case OR:
-					/* evaluate right choice later */
-					if(_renewthread(tlp, inst->right, ms, &tlp->se) == tle)
-						return -1;
-					/* efficiency: advance and re-evaluate */
-					continue;
-				case END:	/* Match! */
-					match = 1;
-					tlp->se.m[0].rep = s;
-					if(mp != 0)
-						_renewmatch(mp, ms, &tlp->se);
-					break;
+			nextthr = t->next;
+			t->pc = curinst->a;
+			t->next = nil;
+			*nlist->tail = t;
+			nlist->tail = &t->next;
+			if(nextthr == nil)
+				break;
+			t = nextthr;
+			curinst = t->pc;
+			goto Again;
+		case ONOTNL:
+			if(*rsp != L'\n') {
+				curinst++;
+				goto Again;
+			}
+			goto Done;
+		case OBOL:
+			if(rsp == str || rsp[-1] == L'\n') {
+				curinst++;
+				goto Again;
+			}
+			goto Done;
+		case OEOL:
+			if(*rsp == L'\0' && rep == nil) {
+				curinst++;
+				goto Again;
+			}
+			if(*rsp == '\n')
+				goto Any;
+			goto Done;
+		case OJMP:
+			curinst = curinst->a;
+			goto Again;
+		case OSPLIT:
+			nextthr = *--availthr;
+			nextthr->pc = curinst->b;
+			if(msize > 0)
+				memcpy(nextthr->sem, t->sem, sizeof(Resub)*msize);
+			nextthr->pri = t->pri;
+			nextthr->next = t->next;
+			t->next = nextthr;
+			curinst = curinst->a;
+			goto Again;
+		case OSAVE:
+			if(curinst->sub < msize)
+				t->sem[curinst->sub].rsp = rsp;
+			curinst++;
+			goto Again;
+		case OUNSAVE:
+			if(curinst->sub == 0) {
+				/* "Highest" priority is the left-most longest. */
+				if (t->pri > matchpri)
+					goto Done;
+				match = 1;
+				matchpri = t->pri;
+				if(sem != nil && msize > 0) {
+					memcpy(sem, t->sem, sizeof(Resub)*msize);
+					sem->rep = rsp;
 				}
-				break;
+				goto Done;
 			}
+			if(curinst->sub < msize)
+				t->sem[curinst->sub].rep = rsp;
+			curinst++;
+			goto Again;
+		Done:
+			*availthr++ = t;
+			t = t->next;
+			if(t == nil)
+				break;
+			curinst = t->pc;
+			goto Again;
 		}
-		if(s == j->reol)
+Start:
+		/* Start again once if we haven't found anything. */
+		if(first == 1 && match == 0) {
+			first = 0;
+			t = *--availthr;
+			if(msize > 0)
+				memset(t->sem, 0, sizeof(Resub)*msize);
+			/* "Lower" priority thread */
+			t->pri = matchpri = pri++;
+			t->next = nil;
+			curinst = prog->startinst;
+			goto Again;
+		}
+		/* If we have a match and no extant threads, we are done. */
+		if(match == 1 && nlist->head == nil)
 			break;
-		checkstart = j->startchar && nl->inst==0;
-		s++;
-	}while(r);
+		tmp = clist;
+		clist = nlist;
+		nlist = tmp;
+		nlist->head = nil;
+		nlist->tail = &nlist->head;
+	}
+	if(rep != nil)
+		*rep = endr;
 	return match;
-}
-
-static int
-rregexec2(Reprog *progp,	/* program to run */
-	Rune *bol,	/* string to run machine on */
-	Resub *mp,	/* subexpression elements */
-	int ms,		/* number of elements at mp */
-	Reljunk *j
-)
-{
-	Relist relist0[5*LISTSIZE], relist1[5*LISTSIZE];
-
-	/* mark space */
-	j->relist[0] = relist0;
-	j->relist[1] = relist1;
-	j->reliste[0] = relist0 + nelem(relist0) - 2;
-	j->reliste[1] = relist1 + nelem(relist1) - 2;
-
-	return rregexec1(progp, bol, mp, ms, j);
-}
-
-extern int
-rregexec(Reprog *progp,	/* program to run */
-	Rune *bol,	/* string to run machine on */
-	Resub *mp,	/* subexpression elements */
-	int ms)		/* number of elements at mp */
-{
-	Reljunk j;
-	Relist relist0[LISTSIZE], relist1[LISTSIZE];
-	int rv;
-
-	/*
- 	 *  use user-specified starting/ending location if specified
-	 */
-	j.rstarts = bol;
-	j.reol = 0;
-	if(mp && ms>0){
-		if(mp->sp)
-			j.rstarts = mp->rsp;
-		if(mp->ep)
-			j.reol = mp->rep;
-	}
-	j.starttype = 0;
-	j.startchar = 0;
-	if(progp->startinst->type == RUNE && progp->startinst->r < Runeself) {
-		j.starttype = RUNE;
-		j.startchar = progp->startinst->r;
-	}
-	if(progp->startinst->type == BOL)
-		j.starttype = BOL;
-
-	/* mark space */
-	j.relist[0] = relist0;
-	j.relist[1] = relist1;
-	j.reliste[0] = relist0 + nelem(relist0) - 2;
-	j.reliste[1] = relist1 + nelem(relist1) - 2;
-
-	rv = rregexec1(progp, bol, mp, ms, &j);
-	if(rv >= 0)
-		return rv;
-	rv = rregexec2(progp, bol, mp, ms, &j);
-	if(rv >= 0)
-		return rv;
-	return -1;
 }

@@ -22,12 +22,10 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ****************************************************************/
 
-#define	DEBUG
-#include <stdio.h>
-#include <math.h>
+#include <u.h>
+#include <libc.h>
 #include <ctype.h>
-#include <string.h>
-#include <stdlib.h>
+#include <bio.h>
 #include "awk.h"
 #include "y.tab.h"
 
@@ -46,7 +44,7 @@ Awkfloat *NF;		/* number of fields in current record */
 Awkfloat *NR;		/* number of current record */
 Awkfloat *FNR;		/* number of current record in current file */
 char	**FILENAME;	/* current filename argument */
-Awkfloat *ARGC;		/* number of arguments from command line */
+Awkfloat *AARGC;		/* number of arguments from command line */
 char	**SUBSEP;	/* subscript separator for a[i,j,k]; default \034 */
 Awkfloat *RSTART;	/* start of re matched with ~; origin 1 (!) */
 Awkfloat *RLENGTH;	/* length of same */
@@ -101,12 +99,12 @@ void arginit(int ac, char **av)	/* set up ARGV and ARGC */
 	int i;
 	char temp[50];
 
-	ARGC = &setsymtab("ARGC", "", (Awkfloat) ac, NUM, symtab)->fval;
+	AARGC = &setsymtab("ARGC", "", (Awkfloat) ac, NUM, symtab)->fval;
 	cp = setsymtab("ARGV", "", 0.0, ARR, symtab);
 	ARGVtab = makesymtab(NSYMTAB);	/* could be (int) ARGC as well */
 	cp->sval = (char *) ARGVtab;
 	for (i = 0; i < ac; i++) {
-		sprintf(temp, "%d", i);
+		sprint(temp, "%d", i);
 		if (is_number(*av))
 			setsymtab(temp, *av, atof(*av), STR|NUM, ARGVtab);
 		else
@@ -124,7 +122,7 @@ void envinit(char **envp)	/* set up ENVIRON variable */
 	ENVtab = makesymtab(NSYMTAB);
 	cp->sval = (char *) ENVtab;
 	for ( ; *envp; envp++) {
-		if ((p = strchr(*envp, '=')) == NULL)
+		if ((p = strchr(*envp, '=')) == nil)
 			continue;
 		*p++ = 0;	/* split into two strings at = */
 		if (is_number(p))
@@ -142,9 +140,9 @@ Array *makesymtab(int n)	/* make a new symbol table */
 
 	ap = (Array *) malloc(sizeof(Array));
 	tp = (Cell **) calloc(n, sizeof(Cell *));
-	if (ap == NULL || tp == NULL)
+	if (ap == nil || tp == nil)
 		FATAL("out of space in makesymtab");
-	ap->nelem = 0;
+	ap->nelemt = 0;
 	ap->size = n;
 	ap->tab = tp;
 	return(ap);
@@ -159,10 +157,10 @@ void freesymtab(Cell *ap)	/* free a symbol table */
 	if (!isarr(ap))
 		return;
 	tp = (Array *) ap->sval;
-	if (tp == NULL)
+	if (tp == nil)
 		return;
 	for (i = 0; i < tp->size; i++) {
-		for (cp = tp->tab[i]; cp != NULL; cp = temp) {
+		for (cp = tp->tab[i]; cp != nil; cp = temp) {
 			xfree(cp->nval);
 			if (freeable(cp))
 				xfree(cp->sval);
@@ -178,14 +176,14 @@ void freesymtab(Cell *ap)	/* free a symbol table */
 void freeelem(Cell *ap, char *s)	/* free elem s from ap (i.e., ap["s"] */
 {
 	Array *tp;
-	Cell *p, *prev = NULL;
+	Cell *p, *prev = nil;
 	int h;
 	
 	tp = (Array *) ap->sval;
 	h = hash(s, tp->size);
-	for (p = tp->tab[h]; p != NULL; prev = p, p = p->cnext)
+	for (p = tp->tab[h]; p != nil; prev = p, p = p->cnext)
 		if (strcmp(s, p->nval) == 0) {
-			if (prev == NULL)	/* 1st one */
+			if (prev == nil)	/* 1st one */
 				tp->tab[h] = p->cnext;
 			else			/* middle somewhere */
 				prev->cnext = p->cnext;
@@ -193,7 +191,7 @@ void freeelem(Cell *ap, char *s)	/* free elem s from ap (i.e., ap["s"] */
 				xfree(p->sval);
 			free(p->nval);
 			free(p);
-			tp->nelem--;
+			tp->nelemt--;
 			return;
 		}
 }
@@ -203,13 +201,13 @@ Cell *setsymtab(char *n, char *s, Awkfloat f, unsigned t, Array *tp)
 	int h;
 	Cell *p;
 
-	if (n != NULL && (p = lookup(n, tp)) != NULL) {
-		   dprintf( ("setsymtab found %p: n=%s s=\"%s\" f=%g t=%o\n",
+	if (n != nil && (p = lookup(n, tp)) != nil) {
+		   dprint( ("setsymtab found %p: n=%s s=\"%s\" f=%g t=%o\n",
 			p, p->nval, p->sval, p->fval, p->tval) );
 		return(p);
 	}
 	p = (Cell *) malloc(sizeof(Cell));
-	if (p == NULL)
+	if (p == nil)
 		FATAL("out of space for symbol table at %s", n);
 	p->nval = tostring(n);
 	p->sval = s ? tostring(s) : tostring("");
@@ -217,13 +215,13 @@ Cell *setsymtab(char *n, char *s, Awkfloat f, unsigned t, Array *tp)
 	p->tval = t;
 	p->csub = CUNK;
 	p->ctype = OCELL;
-	tp->nelem++;
-	if (tp->nelem > FULLTAB * tp->size)
+	tp->nelemt++;
+	if (tp->nelemt > FULLTAB * tp->size)
 		rehash(tp);
 	h = hash(n, tp->size);
 	p->cnext = tp->tab[h];
 	tp->tab[h] = p;
-	   dprintf( ("setsymtab set %p: n=%s s=\"%s\" f=%g t=%o\n",
+	   dprint( ("setsymtab set %p: n=%s s=\"%s\" f=%g t=%o\n",
 		p, p->nval, p->sval, p->fval, p->tval) );
 	return(p);
 }
@@ -244,7 +242,7 @@ void rehash(Array *tp)	/* rehash items in small table into big one */
 
 	nsz = GROWTAB * tp->size;
 	np = (Cell **) calloc(nsz, sizeof(Cell *));
-	if (np == NULL)		/* can't do it, but can keep running. */
+	if (np == nil)		/* can't do it, but can keep running. */
 		return;		/* someone else will run out later. */
 	for (i = 0; i < tp->size; i++) {
 		for (cp = tp->tab[i]; cp; cp = op) {
@@ -265,10 +263,10 @@ Cell *lookup(char *s, Array *tp)	/* look for s in tp */
 	int h;
 
 	h = hash(s, tp->size);
-	for (p = tp->tab[h]; p != NULL; p = p->cnext)
+	for (p = tp->tab[h]; p != nil; p = p->cnext)
 		if (strcmp(s, p->nval) == 0)
 			return(p);	/* found it */
-	return(NULL);			/* not found */
+	return(nil);			/* not found */
 }
 
 Awkfloat setfval(Cell *vp, Awkfloat f)	/* set float val of a Cell */
@@ -282,7 +280,7 @@ Awkfloat setfval(Cell *vp, Awkfloat f)	/* set float val of a Cell */
 		fldno = atoi(vp->nval);
 		if (fldno > *NF)
 			newfld(fldno);
-		   dprintf( ("setting field %d to %g\n", fldno, f) );
+		   dprint( ("setting field %d to %g\n", fldno, f) );
 	} else if (isrec(vp)) {
 		donefld = 0;	/* mark $1... invalid */
 		donerec = 1;
@@ -291,7 +289,7 @@ Awkfloat setfval(Cell *vp, Awkfloat f)	/* set float val of a Cell */
 		xfree(vp->sval); /* free any previous string */
 	vp->tval &= ~STR;	/* mark string invalid */
 	vp->tval |= NUM;	/* mark number ok */
-	   dprintf( ("setfval %p: %s = %g, t=%o\n", vp, vp->nval, f, vp->tval) );
+	   dprint( ("setfval %p: %s = %g, t=%o\n", vp, vp->nval, f, vp->tval) );
 	return vp->fval = f;
 }
 
@@ -310,7 +308,7 @@ char *setsval(Cell *vp, char *s)	/* set string val of a Cell */
 	char *t;
 	int fldno;
 
-	   dprintf( ("starting setsval %p: %s = \"%s\", t=%o\n", vp, vp->nval, s, vp->tval) );
+	   dprint( ("starting setsval %p: %s = \"%s\", t=%o\n", vp, vp->nval, s, vp->tval) );
 	if ((vp->tval & (NUM | STR)) == 0)
 		funnyvar(vp, "assign to");
 	if (isfld(vp)) {
@@ -318,7 +316,7 @@ char *setsval(Cell *vp, char *s)	/* set string val of a Cell */
 		fldno = atoi(vp->nval);
 		if (fldno > *NF)
 			newfld(fldno);
-		   dprintf( ("setting field %d to %s (%p)\n", fldno, s, s) );
+		   dprint( ("setting field %d to %s (%p)\n", fldno, s, s) );
 	} else if (isrec(vp)) {
 		donefld = 0;	/* mark $1... invalid */
 		donerec = 1;
@@ -329,7 +327,7 @@ char *setsval(Cell *vp, char *s)	/* set string val of a Cell */
 	if (freeable(vp))
 		xfree(vp->sval);
 	vp->tval &= ~DONTFREE;
-	   dprintf( ("setsval %p: %s = \"%s (%p)\", t=%o\n", vp, vp->nval, t,t, vp->tval) );
+	   dprint( ("setsval %p: %s = \"%s (%p)\", t=%o\n", vp, vp->nval, t,t, vp->tval) );
 	return(vp->sval = t);
 }
 
@@ -346,7 +344,7 @@ Awkfloat getfval(Cell *vp)	/* get float val of a Cell */
 		if (is_number(vp->sval) && !(vp->tval&CON))
 			vp->tval |= NUM;	/* make NUM only sparingly */
 	}
-	   dprintf( ("getfval %p: %s = %g, t=%o\n", vp, vp->nval, vp->fval, vp->tval) );
+	   dprint( ("getfval %p: %s = %g, t=%o\n", vp, vp->nval, vp->fval, vp->tval) );
 	return(vp->fval);
 }
 
@@ -365,14 +363,14 @@ char *getsval(Cell *vp)	/* get string val of a Cell */
 		if (freeable(vp))
 			xfree(vp->sval);
 		if (modf(vp->fval, &dtemp) == 0)	/* it's integral */
-			sprintf(s, "%.30g", vp->fval);
+			sprint(s, "%.30g", vp->fval);
 		else
-			sprintf(s, *CONVFMT, vp->fval);
+			sprint(s, *CONVFMT, vp->fval);
 		vp->sval = tostring(s);
 		vp->tval &= ~DONTFREE;
 		vp->tval |= STR;
 	}
-	   dprintf( ("getsval %p: %s = \"%s (%p)\", t=%o\n", vp, vp->nval, vp->sval, vp->sval, vp->tval) );
+	   dprint( ("getsval %p: %s = \"%s (%p)\", t=%o\n", vp, vp->nval, vp->sval, vp->sval, vp->tval) );
 	return(vp->sval);
 }
 
@@ -381,7 +379,7 @@ char *tostring(char *s)	/* make a copy of string s */
 	char *p;
 
 	p = (char *) malloc(strlen(s)+1);
-	if (p == NULL)
+	if (p == nil)
 		FATAL("out of space in tostring on %s", s);
 	strcpy(p, s);
 	return(p);
@@ -393,7 +391,7 @@ char *qstring(char *s, int delim)	/* collect string up to next delim */
 	int c, n;
 	char *buf, *bp;
 
-	if ((buf = (char *) malloc(strlen(s)+3)) == NULL)
+	if ((buf = (char *) malloc(strlen(s)+3)) == nil)
 		FATAL( "out of space in qstring(%s)", s);
 	for (bp = buf; (c = *s) != delim; s++) {
 		if (c == '\n')
@@ -429,6 +427,6 @@ char *qstring(char *s, int delim)	/* collect string up to next delim */
 			}
 		}
 	}
-	*bp++ = 0;
+	*bp = 0;
 	return buf;
 }

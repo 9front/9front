@@ -6,12 +6,12 @@ OFILES=\
 	regerror.$O\
 	regexec.$O\
 	regsub.$O\
-	regaux.$O\
 	rregexec.$O\
 	rregsub.$O\
+	regprint.$O\
 
 HFILES=/sys/include/regexp.h\
-	regcomp.h\
+	regimpl.h\
 
 UPDATE=\
 	mkfile\
@@ -21,8 +21,8 @@ UPDATE=\
 
 </sys/src/cmd/mksyslib
 
-test: test.$O $OFILES
-	$LD -o test $prereq
+$O.regextest: tests/regextest.$O $LIB
+	$LD -o $target regextest.$O
 
-test2: test2.$O $OFILES
-	$LD -o test2 $prereq
+$O.sysregextest: tests/sysregextest.$O
+	$LD -o $target sysregextest.$O
