@@ -177,14 +177,14 @@ int pgetc(void)		/* get 1 character from awk program */
 	for (;;) {
 		if (yyin == nil) {
 			if (curpfile >= npfile)
-				return EOF;
+				return Beof;
 			if (strcmp(pfile[curpfile], "-") == 0)
 				yyin = &stdin;
 			else if ((yyin = Bopen(pfile[curpfile], OREAD)) == nil)
 				FATAL("can't open file %s", pfile[curpfile]);
 			lineno = 1;
 		}
-		if ((c = Bgetc(yyin)) != EOF)
+		if ((c = Bgetc(yyin)) != Beof)
 			return c;
 		if (yyin != &stdin)
 			Bterm(yyin);

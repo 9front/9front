@@ -18,8 +18,6 @@ typedef double	Awkfloat;
 
 #define	FOPEN_MAX	40	/* max number of open files */
 
-#define EOF	-1
-
 extern	char	errbuf[];
 
 extern int	compile_time;	/* 1 if compiling, 0 if running */

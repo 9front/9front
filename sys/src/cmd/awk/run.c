@@ -1618,7 +1618,7 @@ Cell *bltin(Node **a, int)	/* builtin functions. a[0] is type, a[1] is arg list 
 			flush_all();	/* fflush() or fflush("") -> all */
 			u = 0;
 		} else if ((fp = openfile(FFLUSH, getsval(x))) == nil)
-			u = EOF;
+			u = Beof;
 		else
 			u = Bflush(fp);
 		break;
@@ -1783,7 +1783,7 @@ Cell *closefile(Node **a, int)
 				stat = pclose(files[i].fp);
 			else
 				stat = Bterm(files[i].fp);
-			if (stat == EOF)
+			if (stat == Beof)
 				WARNING( "i/o error occurred closing %s", files[i].fname );
 			if (i > 2)	/* don't do /dev/std... */
 				xfree(files[i].fname);

@@ -541,7 +541,7 @@ int input(void)	/* get next lexical input character */
 		c = pgetc();
 	if (c == '\n')
 		lineno++;
-	else if (c == EOF)
+	else if (c == Beof)
 		c = 0;
 	if (ep >= ebuf + sizeof ebuf)
 		ep = ebuf;

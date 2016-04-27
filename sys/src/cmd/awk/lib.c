@@ -154,7 +154,7 @@ int getrec(char **pbuf, int *pbufsize, int isrecord)	/* get next input record */
 			*pbufsize = bufsize;
 			return 1;
 		}
-		/* EOF arrived on this file; set up next */
+		/* Beof arrived on this file; set up next */
 		if (infile != &stdin)
 			Bterm(infile);
 		infile = nil;
@@ -184,21 +184,21 @@ int readrec(char **pbuf, int *pbufsize, Biobuf *inf)	/* read one record into buf
 	strcpy(inputFS, *FS);	/* for subsequent field splitting */
 	if ((sep = **RS) == 0) {
 		sep = '\n';
-		while ((c=Bgetc(inf)) == '\n' && c != EOF)	/* skip leading \n's */
+		while ((c=Bgetc(inf)) == '\n' && c != Beof)	/* skip leading \n's */
 			;
-		if (c != EOF)
+		if (c != Beof)
 			Bungetc(inf);
 	}
 	for (rr = buf; ; ) {
-		for (; (c=Bgetc(inf)) != sep && c != EOF; ) {
+		for (; (c=Bgetc(inf)) != sep && c != Beof; ) {
 			if (rr-buf+1 > bufsize)
 				if (!adjbuf(&buf, &bufsize, 1+rr-buf, recsize, &rr, "readrec 1"))
 					FATAL("input record `%.30s...' too long", buf);
 			*rr++ = c;
 		}
-		if (**RS == sep || c == EOF)
+		if (**RS == sep || c == Beof)
 			break;
-		if ((c = Bgetc(inf)) == '\n' || c == EOF) /* 2 in a row */
+		if ((c = Bgetc(inf)) == '\n' || c == Beof) /* 2 in a row */
 			break;
 		if (!adjbuf(&buf, &bufsize, 2+rr-buf, recsize, &rr, "readrec 2"))
 			FATAL("input record `%.30s...' too long", buf);
@@ -208,10 +208,10 @@ int readrec(char **pbuf, int *pbufsize, Biobuf *inf)	/* read one record into buf
 	if (!adjbuf(&buf, &bufsize, 1+rr-buf, recsize, &rr, "readrec 3"))
 		FATAL("input record `%.30s...' too long", buf);
 	*rr = 0;
-	   dprint( ("readrec saw <%s>, returns %d\n", buf, c == EOF && rr == buf ? 0 : 1) );
+	   dprint( ("readrec saw <%s>, returns %d\n", buf, c == Beof && rr == buf ? 0 : 1) );
 	*pbuf = buf;
 	*pbufsize = bufsize;
-	return c == EOF && rr == buf ? 0 : 1;
+	return c == Beof && rr == buf ? 0 : 1;
 }
 
 char *getargv(int n)	/* get ARGV[n] */
@@ -512,7 +512,7 @@ void bracecheck(void)
 
 	if (beenhere++)
 		return;
-	while ((c = input()) != EOF && c != '\0')
+	while ((c = input()) != Beof && c != '\0')
 		bclass(c);
 	bcheck2(bracecnt, '{', '}');
 	bcheck2(brackcnt, '[', ']');
@@ -618,7 +618,7 @@ void eprint(void)	/* try to print context around error */
 			Bputc(&stderr, *p);
 	Bprint(&stderr, " <<< ");
 	if (*ep)
-		while ((c = input()) != '\n' && c != '\0' && c != EOF) {
+		while ((c = input()) != '\n' && c != '\0' && c != Beof) {
 			Bputc(&stderr, c);
 			bclass(c);
 		}
