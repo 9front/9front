@@ -190,13 +190,11 @@ regcomp1(char *regstr, int nl, int lit)
 //	prtree(parsetr, 0, 1);
 	reprog = malloc(sizeof(Reprog) +
 	                sizeof(Reinst) * plex.instrs +
-	                sizeof(Rethread) * maxthr +
-	                sizeof(Rethread*) * maxthr);
+	                sizeof(Rethread) * maxthr);
 	reprog->len = plex.instrs;
 	reprog->nthr = maxthr;
 	reprog->startinst = compile(parsetr, reprog, nl);
 	reprog->threads = (Rethread*)(reprog->startinst + reprog->len);
-	reprog->thrpool = (Rethread**)(reprog->threads + reprog->nthr);
 	reprog->regstr = regstr;
 
 	free(plex.nodes);

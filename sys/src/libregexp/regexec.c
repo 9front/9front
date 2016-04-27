@@ -14,7 +14,7 @@ int
 regexec(Reprog *prog, char *str, Resub *sem, int msize)
 {
 	RethreadQ lists[2], *clist, *nlist, *tmp;
-	Rethread *t, *nextthr, **availthr;
+	Rethread *t, *next, *pooltop, *avail;
 	Reinst *curinst;
 	Rune r;
 	char *sp, *ep, endc;
@@ -35,9 +35,8 @@ regexec(Reprog *prog, char *str, Resub *sem, int msize)
 	nlist->head = nil;
 	nlist->tail = &nlist->head;
 
-	for(i = 0; i < prog->nthr; i++)
-		prog->thrpool[i] = prog->threads + i;
-	availthr = prog->thrpool + prog->nthr;
+	pooltop = prog->threads + prog->nthr;
+	avail = nil;
 
 	pri = matchpri = gen = match = 0;
 	sp = str;
@@ -71,14 +70,14 @@ Again:
 				goto Done;
 		case OANY: /* fallthrough */
 		Any:
-			nextthr = t->next;
+			next = t->next;
 			t->pc = curinst + 1;
 			t->next = nil;
 			*nlist->tail = t;
 			nlist->tail = &t->next;
-			if(nextthr == nil)
+			if(next == nil)
 				break;
-			t = nextthr;
+			t = next;
 			curinst = t->pc;
 			goto Again;
 		case OCLASS:
@@ -89,14 +88,14 @@ Again:
 				curinst++;
 				goto Class;
 			}
-			nextthr = t->next;
+			next = t->next;
 			t->pc = curinst->a;
 			t->next = nil;
 			*nlist->tail = t;
 			nlist->tail = &t->next;
-			if(nextthr == nil)
+			if(next == nil)
 				break;
-			t = nextthr;
+			t = next;
 			curinst = t->pc;
 			goto Again;
 		case ONOTNL:
@@ -123,13 +122,18 @@ Again:
 			curinst = curinst->a;
 			goto Again;
 		case OSPLIT:
-			nextthr = *--availthr;
-			nextthr->pc = curinst->b;
+			if(avail == nil)
+				next = --pooltop;
+			else {
+				next = avail;
+				avail = avail->next;
+			}
+			next->pc = curinst->b;
 			if(msize > 0)
-				memcpy(nextthr->sem, t->sem, sizeof(Resub)*msize);
-			nextthr->pri = t->pri;
-			nextthr->next = t->next;
-			t->next = nextthr;
+				memcpy(next->sem, t->sem, sizeof(Resub)*msize);
+			next->pri = t->pri;
+			next->next = t->next;
+			t->next = next;
 			curinst = curinst->a;
 			goto Again;
 		case OSAVE:
@@ -155,10 +159,12 @@ Again:
 			curinst++;
 			goto Again;
 		Done:
-			*availthr++ = t;
-			t = t->next;
-			if(t == nil)
+			next = t->next;
+			t->next = avail;
+			avail = t;
+			if(next == nil)
 				break;
+			t = next;
 			curinst = t->pc;
 			goto Again;
 		}
@@ -166,7 +172,12 @@ Start:
 		/* Start again once if we haven't found anything. */
 		if(first == 1 && match == 0) {
 			first = 0;
-			t = *--availthr;
+			if(avail == nil)
+				t = --pooltop;
+			else {
+				t = avail;
+				avail = avail->next;
+			}
 			if(msize > 0)
 				memset(t->sem, 0, sizeof(Resub)*msize);
 			/* "Lower" priority thread */

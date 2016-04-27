@@ -20,9 +20,3 @@ UPDATE=\
 	${LIB:/$objtype/%=/386/%}\
 
 </sys/src/cmd/mksyslib
-
-$O.regextest: tests/regextest.$O $LIB
-	$LD -o $target regextest.$O
-
-$O.sysregextest: tests/sysregextest.$O
-	$LD -o $target sysregextest.$O

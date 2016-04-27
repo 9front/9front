@@ -39,7 +39,6 @@ struct Reprog
 {
 	Reinst *startinst;
 	Rethread *threads;
-	Rethread **thrpool;
 	char *regstr;
 	int len;
 	int nthr;
