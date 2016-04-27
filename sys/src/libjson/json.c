@@ -323,7 +323,7 @@ jsonparse(char *s)
 	memset(&l, 0, sizeof(l));
 	l.s = s;
 	l.slen = strlen(s);
-	if((l.buf = mallocz(l.slen+1, 1)) == nil)
+	if((l.buf = mallocz(l.slen+UTFmax+1, 1)) == nil)
 		return nil;
 
 	j = jsonobj(&l);
@@ -336,6 +336,8 @@ jsonfree(JSON *j)
 {
 	JSONEl *e, *f;
 
+	if(j == nil)
+		return;
 	switch(j->t){
 	case JSONString:
 		if(j->s)
