@@ -184,12 +184,10 @@ regcomp1(char *regstr, int nl, int lit)
 		return nil;
 	}
 
+	maxthr = regstrlen;
 	parsetr = node(&plex, TSUB, e0(&plex), nil);
-	maxthr = maxthreads(parsetr);
-	if(maxthr == -1)
-		maxthr = regstrlen;
 
-	prtree(parsetr, 0, 1);
+//	prtree(parsetr, 0, 1);
 	reprog = malloc(sizeof(Reprog) +
 	                sizeof(Reinst) * plex.instrs +
 	                sizeof(Rethread) * maxthr +
