@@ -188,7 +188,6 @@ regcomp1(char *regstr, int nl, int lit)
 	parsetr = node(&plex, TSUB, e0(&plex), nil);
 
 //	prtree(parsetr, 0, 1);
-//	fprint(2, "Program size %ld\n", sizeof(Reprog) + sizeof(Reinst) * plex.instrs + sizeof(Rethread) * maxthr);
 	reprog = malloc(sizeof(Reprog) +
 	                sizeof(Reinst) * plex.instrs +
 	                sizeof(Rethread) * maxthr);
