@@ -6,19 +6,17 @@ Copyright (c) Lucent Technologies 1997
 
 typedef double	Awkfloat;
 
-/* unsigned char is more trouble than it's worth */
-
-typedef	unsigned char uschar;
-
-#define	xfree(a)	{ if ((a) != NULL) { free((char *) a); a = NULL; } }
+#define	xfree(a)	{ if ((a) != nil) { free((a)); (a) = nil; } }
 
 #define	DEBUG
 #ifdef	DEBUG
 			/* uses have to be doubly parenthesized */
-#	define	dprintf(x)	if (dbg) printf x
+#	define	dprint(x)	if (dbg) print x
 #else
-#	define	dprintf(x)
+#	define	dprint(x)
 #endif
+
+#define	FOPEN_MAX	40	/* max number of open files */
 
 extern	char	errbuf[];
 
@@ -27,6 +25,10 @@ extern int	safe;		/* 0 => unsafe, 1 => safe */
 
 #define	RECSIZE	(8 * 1024)	/* sets limit on records, fields, etc., etc. */
 extern int	recsize;	/* size of current record, orig RECSIZE */
+
+extern Biobuf stdin;
+extern Biobuf stdout;
+extern Biobuf stderr;
 
 extern char	**FS;
 extern char	**RS;
@@ -56,8 +58,8 @@ extern	int	patlen;		/* length of pattern matched.  set in b.c */
 /* Cell:  all information about a variable or constant */
 
 typedef struct Cell {
-	uschar	ctype;		/* OCELL, OBOOL, OJUMP, etc. */
-	uschar	csub;		/* CCON, CTEMP, CFLD, etc. */
+	uchar	ctype;		/* OCELL, OBOOL, OJUMP, etc. */
+	uchar	csub;		/* CCON, CTEMP, CFLD, etc. */
 	char	*nval;		/* name, for variables only */
 	char	*sval;		/* string value */
 	Awkfloat fval;		/* value as number */
@@ -66,7 +68,7 @@ typedef struct Cell {
 } Cell;
 
 typedef struct Array {		/* symbol table array */
-	int	nelem;		/* elements in table right now */
+	int	nelemt;		/* elements in table right now */
 	int	size;		/* size of tab */
 	Cell	**tab;		/* hash table pointers */
 } Array;

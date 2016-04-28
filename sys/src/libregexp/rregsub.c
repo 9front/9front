@@ -1,64 +1,66 @@
 #include <u.h>
 #include <libc.h>
-#include "regexp.h"
+#include <regexp.h>
 
-/* substitute into one string using the matches from the last regexec() */
-extern	void
-rregsub(Rune *sp,	/* source string */
-	Rune *dp,	/* destination string */
-	int dlen,
-	Resub *mp,	/* subexpression elements */
-	int ms)		/* number of elements pointed to by mp */
+void
+rregsub(Rune *src, Rune *dst, int dlen, Resub *match, int msize)
 {
-	Rune *ssp, *ep;
 	int i;
+	Rune *ep, r;
 
-	ep = dp+(dlen/sizeof(Rune))-1;
-	while(*sp != '\0'){
-		if(*sp == '\\'){
-			switch(*++sp){
-			case '0':
-			case '1':
-			case '2':
-			case '3':
-			case '4':
-			case '5':
-			case '6':
-			case '7':
-			case '8':
-			case '9':
-				i = *sp-'0';
-				if(mp[i].rsp != 0 && mp!=0 && ms>i)
-					for(ssp = mp[i].rsp;
-					     ssp < mp[i].rep;
-					     ssp++)
-						if(dp < ep)
-							*dp++ = *ssp;
-				break;
-			case '\\':
-				if(dp < ep)
-					*dp++ = '\\';
-				break;
-			case '\0':
-				sp--;
-				break;
-			default:
-				if(dp < ep)
-					*dp++ = *sp;
-				break;
+	ep = dst + dlen-1;
+	for(;*src != L'\0'; src++) switch(*src) {
+	case L'\\':
+		switch(*++src) {
+		case L'0':
+		case L'1':
+		case L'2':
+		case L'3':
+		case L'4':
+		case L'5':
+		case L'6':
+		case L'7':
+		case L'8':
+		case L'9':
+			i = *src - L'0';
+			if(match != nil && i < msize && match[i].rsp != nil) {
+				r = *match[i].rep;
+				*match[i].rep = L'\0';
+				dst = runestrecpy(dst, ep+1, match[i].rsp);
+				*match[i].rep = r;
 			}
-		}else if(*sp == '&'){				
-			if(mp[0].rsp != 0 && mp!=0 && ms>0)
-			if(mp[0].rsp != 0)
-				for(ssp = mp[0].rsp;
-				     ssp < mp[0].rep; ssp++)
-					if(dp < ep)
-						*dp++ = *ssp;
-		}else{
-			if(dp < ep)
-				*dp++ = *sp;
+			break;
+		case L'\\':
+			if(dst < ep)
+				*dst++ = L'\\';
+			else
+				goto End;
+			break;
+		case L'\0':
+			goto End;
+		default:
+			if(dst < ep)
+				*dst++ = *src;
+			else
+				goto End;
+			break;
 		}
-		sp++;
+		break;
+	case L'&':
+		if(match != nil && msize > 0 && match[0].rsp != nil) {
+			r = *match[0].rep;
+			*match[0].rep = L'\0';
+			dst = runestrecpy(dst, ep+1, match[0].rsp);
+			*match[0].rep = r;
+		}
+		break;
+	default:
+		if(dst < ep)
+			*dst++ = *src;
+		else
+			goto End;
+		break;
 	}
-	*dp = '\0';
+End:
+	*dst = L'\0';
 }

@@ -1,567 +1,576 @@
 #include <u.h>
 #include <libc.h>
-#include "regexp.h"
-#include "regcomp.h"
+#include <regexp.h>
+#include "regimpl.h"
 
-#define	TRUE	1
-#define	FALSE	0
+int instrcnt[] = {
+	[TANY]    2,
+	[TBOL]    1,
+	[TCAT]    0,
+	[TCLASS]  1,
+	[TEOL]    1,
+	[TNOTNL]  1,
+	[TOR]     2,
+	[TPLUS]   1,
+	[TQUES]   1,
+	[TRUNE]   1,
+	[TSTAR]   2,
+	[TSUB]    2
+};
 
-/*
- * Parser Information
- */
-typedef
-struct Node
+static Renode*
+node(Parselex *plex, int op, Renode *l, Renode *r)
 {
-	Reinst*	first;
-	Reinst*	last;
-}Node;
+	Renode *n;
 
-/* max character classes per program is nelem(reprog->class) */
-static Reprog	*reprog;
-
-/* max rune ranges per character class is nelem(classp->spans)/2 */
-#define NCCRUNE	nelem(classp->spans)
-
-#define	NSTACK	20
-static	Node	andstack[NSTACK];
-static	Node	*andp;
-static	int	atorstack[NSTACK];
-static	int*	atorp;
-static	int	cursubid;		/* id of current subexpression */
-static	int	subidstack[NSTACK];	/* parallel to atorstack */
-static	int*	subidp;
-static	int	lastwasand;	/* Last token was operand */
-static	int	nbra;
-static	char*	exprp;		/* pointer to next character in source expression */
-static	int	lexdone;
-static	int	nclass;
-static	Reclass*classp;
-static	Reinst*	freep;
-static	int	errors;
-static	Rune	yyrune;		/* last lex'd rune */
-static	Reclass*yyclassp;	/* last lex'd class */
-
-/* predeclared crap */
-static	void	operator(int);
-static	void	pushand(Reinst*, Reinst*);
-static	void	pushator(int);
-static	void	evaluntil(int);
-static	int	bldcclass(void);
-
-static jmp_buf regkaboom;
-
-static	void
-rcerror(char *s)
-{
-	errors++;
-	regerror(s);
-	longjmp(regkaboom, 1);
+	plex->instrs += instrcnt[op];
+	n = plex->next++;
+	n->op = op;
+	n->left = l;
+	n->right = r;
+	return n;
 }
 
-static	Reinst*
-newinst(int t)
+static Renode*
+e3(Parselex *plex)
 {
-	freep->type = t;
-	freep->left = 0;
-	freep->right = 0;
-	return freep++;
-}
+	char error[128];
+	Renode *n;
 
-static	void
-operand(int t)
-{
-	Reinst *i;
-
-	if(lastwasand)
-		operator(CAT);	/* catenate is implicit */
-	i = newinst(t);
-
-	if(t == CCLASS || t == NCCLASS)
-		i->cp = yyclassp;
-	if(t == RUNE)
-		i->r = yyrune;
-
-	pushand(i, i);
-	lastwasand = TRUE;
-}
-
-static	void
-operator(int t)
-{
-	if(t==RBRA && --nbra<0)
-		rcerror("unmatched right paren");
-	if(t==LBRA){
-		if(++cursubid >= NSUBEXP)
-			rcerror ("too many subexpressions");
-		nbra++;
-		if(lastwasand)
-			operator(CAT);
-	} else
-		evaluntil(t);
-	if(t != RBRA)
-		pushator(t);
-	lastwasand = FALSE;
-	if(t==STAR || t==QUEST || t==PLUS || t==RBRA)
-		lastwasand = TRUE;	/* these look like operands */
-}
-
-static	void
-regerr2(char *s, int c)
-{
-	char buf[100];
-	char *cp = buf;
-	while(*s)
-		*cp++ = *s++;
-	*cp++ = c;
-	*cp = '\0'; 
-	rcerror(buf);
-}
-
-static	void
-cant(char *s)
-{
-	char buf[100];
-	strcpy(buf, "can't happen: ");
-	strcat(buf, s);
-	rcerror(buf);
-}
-
-static	void
-pushand(Reinst *f, Reinst *l)
-{
-	if(andp >= &andstack[NSTACK])
-		cant("operand stack overflow");
-	andp->first = f;
-	andp->last = l;
-	andp++;
-}
-
-static	void
-pushator(int t)
-{
-	if(atorp >= &atorstack[NSTACK])
-		cant("operator stack overflow");
-	*atorp++ = t;
-	*subidp++ = cursubid;
-}
-
-static	Node*
-popand(int op)
-{
-	Reinst *inst;
-
-	if(andp <= &andstack[0]){
-		regerr2("missing operand for ", op);
-		inst = newinst(NOP);
-		pushand(inst,inst);
+	switch(lex(plex)) {
+	case LANY:
+		return node(plex, TANY, nil, nil);
+	case LBOL:
+		return node(plex, TBOL, nil, nil);
+	case LEOL:
+		return node(plex, TEOL, nil, nil);
+	case LRUNE:
+		n = node(plex, TRUNE, nil, nil);
+		n->r = plex->rune;
+		return n;
+	case LCLASS:
+		if(plex->nc)
+			return buildclassn(plex);
+		return buildclass(plex);
+	case LLPAR:
+		n = e0(plex);
+		n = node(plex, TSUB, n, nil);
+		if(lex(plex) != LRPAR) {
+			snprint(error, sizeof(error), "regexp %s: no matching parenthesis", plex->orig);
+			regerror(error);
+			longjmp(plex->exitenv, 1);
+		}
+		return n;
+	default:
+		if(plex->rune)
+			snprint(error, sizeof(error), "regexp %s: syntax error: %C", plex->orig, plex->rune);
+		else
+			snprint(error, sizeof(error), "regexp %s: parsing error", plex->orig);
+		regerror(error);
+		longjmp(plex->exitenv, 1);
 	}
-	return --andp;
+	return nil;
 }
 
-static	int
-popator(void)
+static Renode*
+e2(Parselex *plex)
 {
-	if(atorp <= &atorstack[0])
-		cant("operator stack underflow");
-	--subidp;
-	return *--atorp;
-}
+	Renode *n;
 
-static	void
-evaluntil(int pri)
-{
-	Node *op1, *op2;
-	Reinst *inst1, *inst2;
-
-	while(pri==RBRA || atorp[-1]>=pri){
-		switch(popator()){
-		default:
-			rcerror("unknown operator in evaluntil");
-			break;
-		case LBRA:		/* must have been RBRA */
-			op1 = popand('(');
-			inst2 = newinst(RBRA);
-			inst2->subid = *subidp;
-			op1->last->next = inst2;
-			inst1 = newinst(LBRA);
-			inst1->subid = *subidp;
-			inst1->next = op1->first;
-			pushand(inst1, inst2);
-			return;
-		case OR:
-			op2 = popand('|');
-			op1 = popand('|');
-			inst2 = newinst(NOP);
-			op2->last->next = inst2;
-			op1->last->next = inst2;
-			inst1 = newinst(OR);
-			inst1->right = op1->first;
-			inst1->left = op2->first;
-			pushand(inst1, inst2);
-			break;
-		case CAT:
-			op2 = popand(0);
-			op1 = popand(0);
-			op1->last->next = op2->first;
-			pushand(op1->first, op2->last);
-			break;
-		case STAR:
-			op2 = popand('*');
-			inst1 = newinst(OR);
-			op2->last->next = inst1;
-			inst1->right = op2->first;
-			pushand(inst1, inst1);
-			break;
-		case PLUS:
-			op2 = popand('+');
-			inst1 = newinst(OR);
-			op2->last->next = inst1;
-			inst1->right = op2->first;
-			pushand(op2->first, inst1);
-			break;
-		case QUEST:
-			op2 = popand('?');
-			inst1 = newinst(OR);
-			inst2 = newinst(NOP);
-			inst1->left = inst2;
-			inst1->right = op2->first;
-			op2->last->next = inst2;
-			pushand(inst1, inst2);
-			break;
+	n = e3(plex);
+	if(lex(plex) == LREP) {
+		switch(plex->rune) {
+		case L'*':
+			return node(plex, TSTAR, n, nil);
+		case L'+':
+			return node(plex, TPLUS, n, nil);
+		case L'?':
+			return node(plex, TQUES, n, nil);
 		}
 	}
+	plex->peek = 1;
+	return n;
 }
 
-static	Reprog*
-optimize(Reprog *pp)
+static Renode*
+invert(Renode *n)
 {
-	Reinst *inst, *target;
-	int size;
-	Reprog *npp;
-	Reclass *cl;
-	int diff;
+	Renode *n1;
 
-	/*
-	 *  get rid of NOOP chains
-	 */
-	for(inst=pp->firstinst; inst->type!=END; inst++){
-		target = inst->next;
-		while(target->type == NOP)
-			target = target->next;
-		inst->next = target;
+	if(n->op != TCAT)
+		return n;
+	while(n->left->op == TCAT) {
+		n1 = n->left;
+		n->left = n1->right;
+		n1->right = n;
+		n = n1;
 	}
+	return n;
+}
 
-	/*
-	 *  The original allocation is for an area larger than
-	 *  necessary.  Reallocate to the actual space used
-	 *  and then relocate the code.
-	 */
-	size = sizeof(Reprog) + (freep - pp->firstinst)*sizeof(Reinst);
-	npp = realloc(pp, size);
-	if(npp==0 || npp==pp)
-		return pp;
-	diff = (char *)npp - (char *)pp;
-	freep = (Reinst *)((char *)freep + diff);
-	for(inst=npp->firstinst; inst<freep; inst++){
-		switch(inst->type){
-		case OR:
-		case STAR:
-		case PLUS:
-		case QUEST:
-			*(char **)&inst->right += diff;
+static Renode*
+e1(Parselex *plex)
+{
+	Renode *n;
+	int sym;
+
+	n = e2(plex);
+	for(;;) {
+		sym = lex(plex);
+		if(sym == LEND || sym == LOR || sym == LRPAR)
 			break;
-		case CCLASS:
-		case NCCLASS:
-			*(char **)&inst->right += diff;
-			cl = inst->cp;
-			*(char **)&cl->end += diff;
+		plex->peek = 1;
+		n = node(plex, TCAT, n, e2(plex));
+	}
+	plex->peek = 1;
+	return invert(n);
+}
+
+static Renode*
+e0(Parselex *plex)
+{
+	Renode *n;
+
+	n = e1(plex);
+	for(;;) {
+		if(lex(plex) != LOR)
 			break;
-		}
-		*(char **)&inst->left += diff;
+		n = node(plex, TOR, n, e1(plex));
 	}
-	*(char **)&npp->startinst += diff;
-	return npp;
+	plex->peek = 1;
+	return n;
 }
 
-#ifdef	DEBUG
-static	void
-dumpstack(void){
-	Node *stk;
-	int *ip;
-
-	print("operators\n");
-	for(ip=atorstack; ip<atorp; ip++)
-		print("0%o\n", *ip);
-	print("operands\n");
-	for(stk=andstack; stk<andp; stk++)
-		print("0%o\t0%o\n", stk->first->type, stk->last->type);
-}
-
-static	void
-dump(Reprog *pp)
+static Parselex*
+initplex(Parselex *plex, char *regstr, int lit)
 {
-	Reinst *l;
-	Rune *p;
-
-	l = pp->firstinst;
-	do{
-		print("%d:\t0%o\t%d\t%d", l-pp->firstinst, l->type,
-			l->left-pp->firstinst, l->right-pp->firstinst);
-		if(l->type == RUNE)
-			print("\t%C\n", l->r);
-		else if(l->type == CCLASS || l->type == NCCLASS){
-			print("\t[");
-			if(l->type == NCCLASS)
-				print("^");
-			for(p = l->cp->spans; p < l->cp->end; p += 2)
-				if(p[0] == p[1])
-					print("%C", p[0]);
-				else
-					print("%C-%C", p[0], p[1]);
-			print("]\n");
-		} else
-			print("\n");
-	}while(l++->type);
-}
-#endif
-
-static	Reclass*
-newclass(void)
-{
-	if(nclass >= nelem(reprog->class))
-		rcerror("too many character classes; increase Reprog.class size");
-	return &(classp[nclass++]);
-}
-
-static	int
-nextc(Rune *rp)
-{
-	if(lexdone){
-		*rp = 0;
-		return 1;
-	}
-	exprp += chartorune(rp, exprp);
-	if(*rp == L'\\'){
-		exprp += chartorune(rp, exprp);
-		return 1;
-	}
-	if(*rp == 0)
-		lexdone = 1;
-	return 0;
-}
-
-static	int
-lex(int literal, int dot_type)
-{
-	int quoted;
-
-	quoted = nextc(&yyrune);
-	if(literal || quoted){
-		if(yyrune == 0)
-			return END;
-		return RUNE;
-	}
-
-	switch(yyrune){
-	case 0:
-		return END;
-	case L'*':
-		return STAR;
-	case L'?':
-		return QUEST;
-	case L'+':
-		return PLUS;
-	case L'|':
-		return OR;
-	case L'.':
-		return dot_type;
-	case L'(':
-		return LBRA;
-	case L')':
-		return RBRA;
-	case L'^':
-		return BOL;
-	case L'$':
-		return EOL;
-	case L'[':
-		return bldcclass();
-	}
-	return RUNE;
+	plex->getnextr = lit ? getnextrlit : getnextr;
+	plex->rawexp = plex->orig = regstr;
+	plex->sub = 0;
+	plex->instrs = 0;
+	plex->peek = 0;
+	plex->done = 0;
+	return plex;
 }
 
 static int
-bldcclass(void)
+maxthreads(Renode *tree)
 {
-	int type;
-	Rune r[NCCRUNE];
-	Rune *p, *ep, *np;
-	Rune rune;
-	int quoted;
+	tree = tree->left;
+	if(tree->op == TCAT)
+		tree = tree->left;
+	if(tree->op == TBOL)
+		return 2;
+	return -1;
+}
 
-	/* we have already seen the '[' */
-	type = CCLASS;
-	yyclassp = newclass();
+static Reprog*
+regcomp1(char *regstr, int nl, int lit)
+{
+	Reprog *reprog;
+	Parselex plex;
+	Renode *parsetr;
+	int regstrlen, maxthr;
 
-	/* look ahead for negation */
-	/* SPECIAL CASE!!! negated classes don't match \n */
-	ep = r;
-	quoted = nextc(&rune);
-	if(!quoted && rune == L'^'){
-		type = NCCLASS;
-		quoted = nextc(&rune);
-		*ep++ = L'\n';
-		*ep++ = L'\n';
+	regstrlen = utflen(regstr);
+	initplex(&plex, regstr, lit);
+	plex.nodes = calloc(sizeof(*plex.nodes), regstrlen*2);
+	if(plex.nodes == nil)
+		return nil;
+	plex.next = plex.nodes;
+
+	if(setjmp(plex.exitenv) != 0) {
+		free(plex.nodes);
+		return nil;
 	}
 
-	/* parse class into a set of spans */
-	while(ep < &r[NCCRUNE-1]){
-		if(rune == 0){
-			rcerror("malformed '[]'");
-			return 0;
-		}
-		if(!quoted && rune == L']')
+	maxthr = regstrlen;
+	parsetr = node(&plex, TSUB, e0(&plex), nil);
+
+//	prtree(parsetr, 0, 1);
+	reprog = malloc(sizeof(Reprog) +
+	                sizeof(Reinst) * plex.instrs +
+	                sizeof(Rethread) * maxthr);
+	reprog->len = plex.instrs;
+	reprog->nthr = maxthr;
+	reprog->startinst = compile(parsetr, reprog, nl);
+	reprog->threads = (Rethread*)(reprog->startinst + reprog->len);
+	reprog->regstr = regstr;
+
+	free(plex.nodes);
+	return reprog;
+}
+
+Reprog*
+regcomp(char *str)
+{
+	return regcomp1(str, 0, 0);
+}
+
+Reprog*
+regcomplit(char *str)
+{
+	return regcomp1(str, 0, 1);
+}
+
+Reprog*
+regcompnl(char *str)
+{
+	return regcomp1(str, 1, 0);
+}
+
+static Reinst*
+compile1(Renode *renode, Reinst *reinst, int *sub, int nl)
+{
+	Reinst *i;
+	int s;
+
+Tailcall:
+	if(renode == nil)
+		return reinst;
+	switch(renode->op) {
+	case TCLASS:
+		reinst->op = OCLASS;
+		reinst->r = renode->r;
+		reinst->r1 = renode->r1;
+		reinst->a = reinst + 1 + renode->nclass;
+		renode = renode->left;
+		reinst++;
+		goto Tailcall;
+	case TCAT:
+		reinst = compile1(renode->left, reinst, sub, nl);
+		renode = renode->right;
+		goto Tailcall;
+	case TOR:
+		reinst->op = OSPLIT;
+		reinst->a = reinst + 1;
+		i = compile1(renode->left, reinst->a, sub, nl);
+		reinst->b = i + 1;
+		i->op = OJMP;
+		i->a = compile1(renode->right, reinst->b, sub, nl);
+		return i->a;
+	case TSTAR:
+		reinst->op = OSPLIT;
+		reinst->a = reinst + 1;
+		i = compile1(renode->left, reinst->a, sub, nl);
+		reinst->b = i + 1;
+		i->op = OJMP;
+		i->a = reinst;
+		return reinst->b;
+	case TPLUS:
+		i = reinst;
+		reinst = compile1(renode->left, reinst, sub, nl);
+		reinst->op = OSPLIT;
+		reinst->a = i;
+		reinst->b = reinst + 1;
+		return reinst->b;
+	case TQUES:
+		reinst->op = OSPLIT;
+		reinst->a = reinst + 1;
+		reinst->b = compile1(renode->left, reinst->a, sub, nl);
+		return reinst->b;
+	case TSUB:
+		reinst->op = OSAVE;
+		reinst->sub = s = (*sub)++;
+		reinst = compile1(renode->left, reinst+1, sub, nl);
+		reinst->op = OUNSAVE;
+		reinst->sub = s;
+		return reinst + 1;
+	case TANY:
+		if(nl == 0)
+			reinst++->op = ONOTNL;
+		reinst->op = OANY;
+		return reinst + 1;
+	case TRUNE:
+		reinst->op = ORUNE;
+		reinst->r = renode->r;
+		return reinst + 1;
+	case TNOTNL:
+		reinst->op = ONOTNL;
+		return reinst + 1;
+	case TEOL:
+		reinst->op = OEOL;
+		return reinst + 1;
+	case TBOL:
+		reinst->op = OBOL;
+		return reinst + 1;
+	}
+	return nil;
+}
+
+static Reinst*
+compile(Renode *parsetr, Reprog *reprog, int nl)
+{
+	Reinst *reinst;
+	int sub;
+
+	sub = 0;
+	reinst = (Reinst*)(reprog+1);
+	compile1(parsetr, reinst, &sub, nl);
+	return reinst;
+}
+
+static void
+getnextr(Parselex *l)
+{
+	l->literal = 0;
+	if(l->done) {
+		l->rune = 0;
+		return;
+	}
+	l->rawexp += chartorune(&l->rune, l->rawexp);
+	if(l->rune == L'\\') {
+		l->rawexp += chartorune(&l->rune, l->rawexp);
+		l->literal = 1;
+	}
+	if(*l->rawexp == 0)
+		l->done = 1;
+	return;
+}
+
+static void
+getnextrlit(Parselex *l)
+{
+	l->literal = 1;
+	if(l->done) {
+		l->literal = 0;
+		l->rune = 0;
+		return;
+	}
+	l->rawexp += chartorune(&l->rune, l->rawexp);
+	if(*l->rawexp == 0)
+		l->done = 1;
+	return;
+}
+
+static int
+lex(Parselex *l)
+{
+	if(l->peek) {
+		l->peek = 0;
+		return l->peeklex;
+	}
+	l->getnextr(l);
+	if(l->literal)
+		return l->peeklex = LRUNE;
+	switch(l->rune){
+	case 0:
+		return l->peeklex = LEND;
+	case L'*':
+	case L'?':
+	case L'+':
+		return l->peeklex = LREP;
+	case L'|':
+		return l->peeklex = LOR;
+	case L'.':
+		return l->peeklex = LANY;
+	case L'(':
+		return l->peeklex = LLPAR;
+	case L')':
+		return l->peeklex = LRPAR;
+	case L'^':
+		return l->peeklex = LBOL;
+	case L'$':
+		return l->peeklex = LEOL;
+	case L'[':
+		getclass(l);
+		return l->peeklex = LCLASS;
+	}
+	return l->peeklex = LRUNE;
+}
+
+static int
+pcmp(void *va, void *vb)
+{
+	vlong n;
+	Rune *a, *b;
+
+	a = va;
+	b = vb;
+
+	n = (vlong)b[0] - (vlong)a[0];
+	if(n)
+		return n;
+	return (vlong)b[1] - (vlong)a[1];
+}
+
+static void
+getclass(Parselex *l)
+{
+	Rune *p, *q, t;
+
+	l->nc = 0;
+	getnextrlit(l);
+	if(l->rune == L'^') {
+		l->nc = 1;
+		getnextrlit(l);
+	}
+	p = l->cpairs;
+	for(;;) {
+		*p = l->rune;
+		if(l->rune == L']')
 			break;
-		if(!quoted && rune == L'-'){
-			if(ep == r){
-				rcerror("malformed '[]'");
-				return 0;
-			}
-			quoted = nextc(&rune);
-			if((!quoted && rune == L']') || rune == 0){
-				rcerror("malformed '[]'");
-				return 0;
-			}
-			*(ep-1) = rune;
-		} else {
-			*ep++ = rune;
-			*ep++ = rune;
+		if(l->rune == L'-') {
+			regerror("Malformed class");
+			longjmp(l->exitenv, 1);
 		}
-		quoted = nextc(&rune);
-	}
-	if(ep >= &r[NCCRUNE-1]) {
-		rcerror("char class too large; increase Reclass.spans size");
-		return 0;
-	}
-
-	/* sort on span start */
-	for(p = r; p < ep; p += 2){
-		for(np = p; np < ep; np += 2)
-			if(*np < *p){
-				rune = np[0];
-				np[0] = p[0];
-				p[0] = rune;
-				rune = np[1];
-				np[1] = p[1];
-				p[1] = rune;
+		if(l->rune == '\\') {
+			getnextrlit(l);
+			*p = l->rune;
+		}
+		if(l->rune == 0) {
+			regerror("No closing ] for class");
+			longjmp(l->exitenv, 1);
+		}
+		getnextrlit(l);
+		if(l->rune == L'-') {
+			getnextrlit(l);
+			if(l->rune == L']') {
+				regerror("Malformed class");
+				longjmp(l->exitenv, 1);
 			}
-	}
-
-	/* merge spans */
-	np = yyclassp->spans;
-	p = r;
-	if(r == ep)
-		yyclassp->end = np;
-	else {
-		np[0] = *p++;
-		np[1] = *p++;
-		for(; p < ep; p += 2)
-			/* overlapping or adjacent ranges? */
-			if(p[0] <= np[1] + 1){
-				if(p[1] >= np[1])
-					np[1] = p[1];	/* coalesce */
-			} else {
-				np += 2;
-				np[0] = p[0];
-				np[1] = p[1];
+			if(l->rune == L'-') {
+				regerror("Malformed class");
+				longjmp(l->exitenv, 1);
 			}
-		yyclassp->end = np+2;
+			if(l->rune == L'\\')
+				getnextrlit(l);
+			p[1] = l->rune;
+			if(p[0] > p[1]) {
+				t = p[0];
+				p[0] = p[1];
+				p[1] = t;
+			}
+			getnextrlit(l);
+		} else
+			p[1] = p[0];
+		if(p >= l->cpairs + nelem(l->cpairs) - 2) {
+			regerror("Class too big\n");
+			longjmp(l->exitenv, 1);
+		}
+		p += 2;
 	}
-
-	return type;
+	*p = L'\0';
+	qsort(l->cpairs, (p - l->cpairs)/2, 2*sizeof(*l->cpairs), pcmp);
+	q = l->cpairs;
+	for(p = l->cpairs+2; *p != 0; p += 2) {
+		if(p[1] < q[0] - 1) {
+			q[2] = p[0];
+			q[3] = p[1];
+			q += 2;
+			continue;
+		}
+		q[0] = p[0];
+		if(p[1] > q[1])
+			q[1] = p[1];
+	}
+	q[2] = 0;
 }
 
-static	Reprog*
-regcomp1(char *s, int literal, int dot_type)
+/* classes are in descending order */
+static Renode*
+buildclassn(Parselex *l)
 {
-	int token;
-	Reprog *pp;
+	Renode *n;
+	Rune *p;
+	int i;
 
-	/* get memory for the program */
-	pp = malloc(sizeof(Reprog) + 6*sizeof(Reinst)*strlen(s));
-	if(pp == 0){
-		regerror("out of memory");
-		return 0;
+	i = 0;
+	p = l->cpairs;
+	n = node(l, TCLASS, nil, nil);
+	n->r = p[1] + 1;
+	n->r1 = Runemax;
+	n->nclass = i++;
+
+	for(; *p != 0; p += 2) {
+		n = node(l, TCLASS, n, nil);
+		n->r = p[3] + 1;
+		n->r1 = p[0] - 1;
+		n->nclass = i++;
 	}
-	freep = pp->firstinst;
-	classp = pp->class;
-	errors = 0;
-
-	if(setjmp(regkaboom))
-		goto out;
-
-	/* go compile the sucker */
-	lexdone = 0;
-	exprp = s;
-	nclass = 0;
-	nbra = 0;
-	atorp = atorstack;
-	andp = andstack;
-	subidp = subidstack;
-	lastwasand = FALSE;
-	cursubid = 0;
-
-	/* Start with a low priority operator to prime parser */
-	pushator(START-1);
-	while((token = lex(literal, dot_type)) != END){
-		if((token&0300) == OPERATOR)
-			operator(token);
-		else
-			operand(token);
-	}
-
-	/* Close with a low priority operator */
-	evaluntil(START);
-
-	/* Force END */
-	operand(END);
-	evaluntil(START);
-#ifdef DEBUG
-	dumpstack();
-#endif
-	if(nbra)
-		rcerror("unmatched left paren");
-	--andp;	/* points to first and only operand */
-	pp->startinst = andp->first;
-#ifdef DEBUG
-	dump(pp);
-#endif
-	pp = optimize(pp);
-#ifdef DEBUG
-	print("start: %d\n", andp->first-pp->firstinst);
-	dump(pp);
-#endif
-out:
-	if(errors){
-		free(pp);
-		pp = 0;
-	}
-	return pp;
+	n->r = 0;
+	return node(l, TCAT, node(l, TNOTNL, nil, nil), n);
 }
 
-extern	Reprog*
-regcomp(char *s)
+static Renode*
+buildclass(Parselex *l)
 {
-	return regcomp1(s, 0, ANY);
+	Renode *n;
+	Rune *p;
+	int i;
+
+	i = 0;
+	n = node(l, TCLASS, nil, nil);
+	n->r = Runemax + 1;
+	n->nclass = i++;
+
+	for(p = l->cpairs; *p != 0; p += 2) {
+		n = node(l, TCLASS, n, nil);
+		n->r = p[0];
+		n->r1 = p[1];
+		n->nclass = i++;
+	}
+	return n;
 }
 
-extern	Reprog*
-regcomplit(char *s)
+static void
+prtree(Renode *tree, int d, int f)
 {
-	return regcomp1(s, 1, ANY);
-}
+	int i;
 
-extern	Reprog*
-regcompnl(char *s)
-{
-	return regcomp1(s, 0, ANYNL);
+	if(tree == nil)
+		return;
+	if(f)
+	for(i = 0; i < d; i++)
+		print("\t");
+	switch(tree->op) {
+	case TCAT:
+		prtree(tree->left, d, 0);
+		prtree(tree->right, d, 1);
+		break;
+	case TOR:
+		print("TOR\n");
+		prtree(tree->left, d+1, 1);
+		for(i = 0; i < d; i++)
+			print("\t");
+		print("|\n");
+		prtree(tree->right, d+1, 1);
+		break;
+	case TSTAR:
+		print("*\n");
+		prtree(tree->left, d+1, 1);
+		break;
+	case TPLUS:
+		print("+\n");
+		prtree(tree->left, d+1, 1);
+		break;
+	case TQUES:
+		print("?\n");
+		prtree(tree->left, d+1, 1);
+		break;
+	case TANY:
+		print(".\n");
+		prtree(tree->left, d+1, 1);
+		break;
+	case TBOL:
+		print("^\n");
+		break;
+	case TEOL:
+		print("$\n");
+		break;
+	case TSUB:
+		print("TSUB\n");
+		prtree(tree->left, d+1, 1);
+		break;
+	case TRUNE:
+		print("TRUNE: %C\n", tree->r);
+		break;
+	case TNOTNL:
+		print("TNOTNL: !\\n\n");
+		break;
+	case TCLASS:
+		print("CLASS: %C-%C\n", tree->r, tree->r1);
+		prtree(tree->left, d, 1);
+		break;
+	}
 }

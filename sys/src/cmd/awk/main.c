@@ -24,21 +24,21 @@ THIS SOFTWARE.
 
 char	*version = "version 19990602";
 
-#define DEBUG
-#include <stdio.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
+#include <u.h>
+#include <libc.h>
+#include <bio.h>
 #include "awk.h"
 #include "y.tab.h"
 
-extern	char	**environ;
 extern	int	nfields;
+
+Biobuf stdin;
+Biobuf stdout;
+Biobuf stderr;
 
 int	dbg	= 0;
 char	*cmdname;	/* gets argv[0] for error messages */
-extern	FILE	*yyin;	/* lex input file */
+extern	Biobuf	*yyin;	/* lex input file */
 char	*lexprog;	/* points to program argument if it exists */
 extern	int errorflag;	/* non-zero if any syntax errors; set by yyerror */
 int	compile_time = 2;	/* for error printing: */
@@ -50,18 +50,23 @@ int	curpfile = 0;	/* current filename */
 
 int	safe	= 0;	/* 1 => "safe" mode */
 
-int main(int argc, char *argv[])
+void main(int argc, char *argv[])
 {
-	char *fs = NULL, *marg;
+	char *fs = nil, *marg;
 	int temp;
+
+	Binit(&stdin, 0, OREAD);
+	Binit(&stdout, 1, OWRITE);
+	Binit(&stderr, 2, OWRITE);
 
 	cmdname = argv[0];
 	if (argc == 1) {
-		fprintf(stderr, "Usage: %s [-F fieldsep] [-mf n] [-mr n] [-v var=value] [-f programfile | 'program'] [file ...]\n", cmdname);
-		exit(1);
+		Bprint(&stderr, "Usage: %s [-F fieldsep] [-mf n] [-mr n] [-v var=value] [-f programfile | 'program'] [file ...]\n", cmdname);
+		exits("usage");
 	}
-	signal(SIGFPE, fpecatch);
-	yyin = NULL;
+
+	atnotify(handler, 1);
+	yyin = nil;
 	symtab = makesymtab(NSYMTAB);
 	while (argc > 1 && argv[1][0] == '-' && argv[1][1] != '\0') {
 		if (strcmp(argv[1], "--") == 0) {	/* explicit end of args */
@@ -94,7 +99,7 @@ int main(int argc, char *argv[])
 				else if (argc > 1 && argv[1][0] != 0)
 					fs = &argv[1][0];
 			}
-			if (fs == NULL || *fs == '\0')
+			if (fs == nil || *fs == '\0')
 				WARNING("field separator FS is empty");
 			break;
 		case 'v':	/* -v a=1 to be done NOW.  one -v for each */
@@ -120,11 +125,11 @@ int main(int argc, char *argv[])
 			dbg = atoi(&argv[1][2]);
 			if (dbg == 0)
 				dbg = 1;
-			printf("awk %s\n", version);
+			print("awk %s\n", version);
 			break;
 		case 'V':	/* added for exptools "standard" */
-			printf("awk %s\n", version);
-			exit(0);
+			print("awk %s\n", version);
+			exits(0);
 			break;
 		default:
 			WARNING("unknown option %s ignored", argv[1]);
@@ -137,10 +142,10 @@ int main(int argc, char *argv[])
 	if (npfile == 0) {	/* no -f; first argument is program */
 		if (argc <= 1) {
 			if (dbg)
-				exit(0);
+				exits(0);
 			FATAL("no program given");
 		}
-		   dprintf( ("program = |%s|\n", argv[1]) );
+		   dprint( ("program = |%s|\n", argv[1]) );
 		lexprog = argv[1];
 		argc--;
 		argv++;
@@ -149,20 +154,20 @@ int main(int argc, char *argv[])
 	syminit();
 	compile_time = 1;
 	argv[0] = cmdname;	/* put prog name at front of arglist */
-	   dprintf( ("argc=%d, argv[0]=%s\n", argc, argv[0]) );
+	   dprint( ("argc=%d, argv[0]=%s\n", argc, argv[0]) );
 	arginit(argc, argv);
-	if (!safe)
-		envinit(environ);
 	yyparse();
 	if (fs)
 		*FS = qstring(fs, '\0');
-	   dprintf( ("errorflag=%d\n", errorflag) );
+	   dprint( ("errorflag=%d\n", errorflag) );
 	if (errorflag == 0) {
 		compile_time = 0;
 		run(winner);
 	} else
 		bracecheck();
-	return(errorflag);
+	if(errorflag)
+		exits("error");
+	exits(0);
 }
 
 int pgetc(void)		/* get 1 character from awk program */
@@ -170,20 +175,20 @@ int pgetc(void)		/* get 1 character from awk program */
 	int c;
 
 	for (;;) {
-		if (yyin == NULL) {
+		if (yyin == nil) {
 			if (curpfile >= npfile)
-				return EOF;
+				return Beof;
 			if (strcmp(pfile[curpfile], "-") == 0)
-				yyin = stdin;
-			else if ((yyin = fopen(pfile[curpfile], "r")) == NULL)
+				yyin = &stdin;
+			else if ((yyin = Bopen(pfile[curpfile], OREAD)) == nil)
 				FATAL("can't open file %s", pfile[curpfile]);
 			lineno = 1;
 		}
-		if ((c = getc(yyin)) != EOF)
+		if ((c = Bgetc(yyin)) != Beof)
 			return c;
-		if (yyin != stdin)
-			fclose(yyin);
-		yyin = NULL;
+		if (yyin != &stdin)
+			Bterm(yyin);
+		yyin = nil;
 		curpfile++;
 	}
 }
@@ -193,5 +198,5 @@ char *cursource(void)	/* current source file name */
 	if (npfile > 0)
 		return pfile[curpfile];
 	else
-		return NULL;
+		return nil;
 }

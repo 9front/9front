@@ -22,10 +22,10 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ****************************************************************/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <u.h>
+#include <libc.h>
 #include <ctype.h>
+#include <bio.h>
 #include "awk.h"
 #include "y.tab.h"
 
@@ -90,9 +90,8 @@ Keyword keywords[] ={	/* keep sorted: binary searched */
 	{ "while",	WHILE,		WHILE },
 };
 
-#define DEBUG
 #ifdef	DEBUG
-#define	RET(x)	{ if(dbg)printf("lex %s\n", tokname(x)); return(x); }
+#define	RET(x)	{ if(dbg)print("lex %s\n", tokname(x)); return(x); }
 #else
 #define	RET(x)	return(x)
 #endif
@@ -170,7 +169,7 @@ int yylex(void)
 	static char *buf = 0;
 	static int bufsize = 500;
 
-	if (buf == 0 && (buf = (char *) malloc(bufsize)) == NULL)
+	if (buf == 0 && (buf = (char *) malloc(bufsize)) == nil)
 		FATAL( "out of space in yylex" );
 	if (sc) {
 		sc = 0;
@@ -353,7 +352,7 @@ int string(void)
 	static char *buf = 0;
 	static int bufsz = 500;
 
-	if (buf == 0 && (buf = (char *) malloc(bufsz)) == NULL)
+	if (buf == 0 && (buf = (char *) malloc(bufsz)) == nil)
 		FATAL("out of space for strings");
 	for (bp = buf; (c = input()) != '"'; ) {
 		if (!adjbuf(&buf, &bufsz, bp-buf+2, 500, &bp, 0))
@@ -401,7 +400,7 @@ int string(void)
 				}
 				*px = 0;
 				unput(c);
-	  			sscanf(xbuf, "%x", &n);
+				n = strtol(xbuf, nil, 16);
 				*bp++ = n;
 				break;
 			    }
@@ -497,7 +496,7 @@ int regexpr(void)
 	static int bufsz = 500;
 	char *bp;
 
-	if (buf == 0 && (buf = (char *) malloc(bufsz)) == NULL)
+	if (buf == 0 && (buf = (char *) malloc(bufsz)) == nil)
 		FATAL("out of space for rex expr");
 	bp = buf;
 	for ( ; (c = input()) != '/' && c != 0; ) {
@@ -526,7 +525,7 @@ char	ebuf[300];
 char	*ep = ebuf;
 char	yysbuf[100];	/* pushback buffer */
 char	*yysptr = yysbuf;
-FILE	*yyin = 0;
+Biobuf	*yyin;
 
 int input(void)	/* get next lexical input character */
 {
@@ -535,14 +534,14 @@ int input(void)	/* get next lexical input character */
 
 	if (yysptr > yysbuf)
 		c = *--yysptr;
-	else if (lexprog != NULL) {	/* awk '...' */
+	else if (lexprog != nil) {	/* awk '...' */
 		if ((c = *lexprog) != 0)
 			lexprog++;
 	} else				/* awk -f ... */
 		c = pgetc();
 	if (c == '\n')
 		lineno++;
-	else if (c == EOF)
+	else if (c == Beof)
 		c = 0;
 	if (ep >= ebuf + sizeof ebuf)
 		ep = ebuf;

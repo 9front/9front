@@ -4,7 +4,7 @@
 #include <u.h>
 #include <libc.h>
 #include "regexp.h"
-#include "/sys/src/libregexp/regcomp.h"
+#include "regcomp.h"
 
 #define	TRUE	1
 #define	FALSE	0
