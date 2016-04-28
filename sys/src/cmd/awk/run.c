@@ -903,8 +903,9 @@ int format(char **pbuf, int *pbufsize, char *s, Node *a)	/* printf-like conversi
 			break;
 		case 'u':
 			flag = *(s-1) == 'l' ? 2 : 3;
-			*t = 'd';
-			*++t = '\0';
+			*t++ = 'u';
+			*t++ = 'd';
+			*t = '\0';
 			break;				
 		case 'o': case 'x': case 'X':
 			flag = *(s-1) == 'l' ? 2 : 3;
