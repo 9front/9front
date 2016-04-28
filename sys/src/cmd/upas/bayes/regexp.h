@@ -1,6 +1,3 @@
-#pragma	src	"/sys/src/oldlibregexp"
-#pragma	lib	"oldlibregexp.a"
-
 typedef struct Resub		Resub;
 typedef struct Reclass		Reclass;
 typedef struct Reinst		Reinst;
