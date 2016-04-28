@@ -961,8 +961,9 @@ int format(char **pbuf, int *pbufsize, char *s, Node *a)	/* printf-like conversi
 					*p = '\0';
 				}
 			} else {
-				*p++ = getsval(x)[0];
-				*p = 0;
+				if((*p = getsval(x)[0]) != '\0')
+					p++;
+				*p = '\0';
 			}
 			break;
 		}
