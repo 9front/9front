@@ -19,15 +19,7 @@ clean:V:
 	}
 
 nuke:V: clean
-	rm -f /$objtype/lib/libsec.a
-
-update:V:
-	for(i in $DIRS)@{
-		echo $i
-		cd $i
-		mk $MKFLAGS update
-	}
-	update $UPDATEFLAGS /386/lib/libsec.a
+	rm -f /$objtype/lib/ape/libsec.a
 
 installall:V:
 	for(objtype in $CPUS) mk $MKFLAGS install
