@@ -696,7 +696,7 @@ int is_number(char *s)
 	}
 
 	r = strtod(s, &ep);
-	if (ep == s || isInf(r, 1) || isInf(r, -1))
+	if (ep == s || isInf(r, 1) || isInf(r, -1) || isNaN(r))
 		return 0;
 	while (*ep == ' ' || *ep == '\t' || *ep == '\n')
 		ep++;
