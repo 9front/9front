@@ -55,6 +55,8 @@ void main(int argc, char *argv[])
 	char *fs = nil, *marg;
 	int temp;
 
+	setfcr(getfcr() & ~FPINVAL);
+
 	Binit(&stdin, 0, OREAD);
 	Binit(&stdout, 1, OWRITE);
 	Binit(&stderr, 2, OWRITE);
