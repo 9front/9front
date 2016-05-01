@@ -68,7 +68,6 @@ Again:
 			if(*rsp != curinst->r)
 				goto Done;
 		case OANY: /* fallthrough */
-		Any:
 			next = t->next;
 			t->pc = curinst + 1;
 			t->next = nil;
@@ -110,12 +109,10 @@ Again:
 			}
 			goto Done;
 		case OEOL:
-			if(*rsp == L'\0' && rep == nil) {
+			if(*rsp == '\n' || *rsp == L'\0' && rep == nil) {
 				curinst++;
 				goto Again;
 			}
-			if(*rsp == '\n')
-				goto Any;
 			goto Done;
 		case OJMP:
 			curinst = curinst->a;
