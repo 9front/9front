@@ -213,17 +213,24 @@ bool(Node *n)
 void
 convflt(Node *r, char *flt)
 {
-	char c;
+	char *s;
 
-	c = flt[0];
-	if(('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) {
+	while(*flt == ' ')
+		flt++;
+
+	s = flt;
+	if(*s == '-' || *s == '+')
+		s++;
+	if(*s == '.')
+		s++;
+
+	if(*s >= '0' && *s <= '9'){	
+		r->type = TFLOAT;
+		r->fval = atof(flt);
+	} else {
 		r->type = TSTRING;
 		r->fmt = 's';
 		r->string = strnode(flt);
-	}
-	else {
-		r->type = TFLOAT;
-		r->fval = atof(flt);
 	}
 }
 
