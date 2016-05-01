@@ -35,7 +35,6 @@ int	ecread(uchar addr);
 int	ecwrite(uchar addr, uchar val);
 #define	evenaddr(x)				/* x86 doesn't care */
 void	fpclear(void);
-void	fpenv(FPsave*);
 void	fpinit(void);
 void	fpoff(void);
 void	(*fprestore)(FPsave*);
@@ -44,7 +43,6 @@ void	fpsserestore(FPsave*);
 void	fpsserestore0(FPsave*);
 void	fpssesave(FPsave*);
 void	fpssesave0(FPsave*);
-ulong	fpstatus(void);
 void	fpx87restore(FPsave*);
 void	fpx87restore0(FPsave*);
 void	fpx87save(FPsave*);

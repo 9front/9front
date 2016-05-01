@@ -612,15 +612,6 @@ TEXT fpx87restore0(SB), $0			/* enable and restore state */
 	WAIT
 	RET
 
-TEXT fpstatus(SB), $0				/* get floating point status */
-	FSTSW	AX
-	RET
-
-TEXT fpenv(SB), $0				/* save state without waiting */
-	MOVL	p+0(FP), AX
-	FSTENV	0(AX)
-	RET
-
 TEXT fpclear(SB), $0				/* clear pending exceptions */
 	FPON
 	FCLEX					/* no WAIT */

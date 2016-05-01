@@ -706,8 +706,9 @@ matherror(Ureg*, void*)
 	/*
 	 *  get floating point state to check out error
 	 */
-	fpenv(&up->fpsave);
-	mathnote(up->fpsave.status, up->fpsave.pc);
+	fpsave(&up->fpsave);
+	up->fpstate = FPinactive;
+	mathnote(up->fpsave.fsw, up->fpsave.fpuip);
 }
 
 /*
