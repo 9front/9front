@@ -77,7 +77,7 @@ extern	Node	*itonp(int);
 
 extern	void	syminit(void);
 extern	void	arginit(int, char **);
-extern	void	envinit(char **);
+extern	void	envinit(void);
 extern	Array	*makesymtab(int);
 extern	void	freesymtab(Cell *);
 extern	void	freeelem(Cell *, char *);

@@ -113,24 +113,35 @@ void arginit(int ac, char **av)	/* set up ARGV and ARGC */
 	}
 }
 
-void envinit(char **envp)	/* set up ENVIRON variable */
+void envinit(void)	/* set up ENVIRON variable */
 {
-	Cell *cp;
-	char *p;
+	int	fd, i, n;
+	char	*k, *v;
+	Dir	*buf;
 
-	cp = setsymtab("ENVIRON", "", 0.0, ARR, symtab);
 	ENVtab = makesymtab(NSYMTAB);
-	cp->sval = (char *) ENVtab;
-	for ( ; *envp; envp++) {
-		if ((p = strchr(*envp, '=')) == nil)
-			continue;
-		*p++ = 0;	/* split into two strings at = */
-		if (is_number(p))
-			setsymtab(*envp, p, atof(p), STR|NUM, ENVtab);
-		else
-			setsymtab(*envp, p, 0.0, STR, ENVtab);
-		p[-1] = '=';	/* restore in case env is passed down to a shell */
+	if ((fd = open("/env", OREAD)) < 0)
+		return;
+
+	buf = nil;
+	while((n = dirread(fd, &buf)) > 0) {
+		for (i = 0; i < n; i++) {
+			k = buf[i].name;
+			if(strncmp(k, "fn#", 3) == 0)
+				continue;
+			if ((v = getenv(k)) == nil)
+				continue;
+			if (is_number(v))
+				setsymtab(k, v, atof(v), STR|NUM, ENVtab);
+			else
+				setsymtab(k, v, 0.0, STR, ENVtab);
+			free(v);
+		}
+		free(buf);
+		buf = nil;
 	}
+
+	close(fd);
 }
 
 Array *makesymtab(int n)	/* make a new symbol table */
@@ -210,9 +221,15 @@ Cell *setsymtab(char *n, char *s, Awkfloat f, unsigned t, Array *tp)
 	if (p == nil)
 		FATAL("out of space for symbol table at %s", n);
 	p->nval = tostring(n);
-	p->sval = s ? tostring(s) : tostring("");
 	p->fval = f;
-	p->tval = t;
+	if(tp == symtab && strcmp(n, "ENVIRON") == 0 && !safe) {
+		envinit();
+		p->sval = (char *) ENVtab;
+		p->tval = ARR;
+	} else {
+		p->sval = s ? tostring(s) : tostring("");
+		p->tval = t;
+	}
 	p->csub = CUNK;
 	p->ctype = OCELL;
 	tp->nelemt++;
