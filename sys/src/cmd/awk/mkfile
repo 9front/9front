@@ -1,7 +1,5 @@
 </$objtype/mkfile
 
-cpuobjtype=`{sed -n 's/^O=//p' /$cputype/mkfile}
-
 TARG=awk
 OFILES=re.$O\
 	lex.$O\
@@ -36,17 +34,16 @@ y.tab.h awkgram.c:	$YFILES
 	$YACC -o awkgram.c $YFLAGS $prereq
 
 clean:V:
-	rm -f *.[$OS] [$OS].out [$OS].maketab y.tab.? y.debug y.output $TARG
+	rm -f *.[$OS] [$OS].out *.maketab y.tab.? y.debug y.output $TARG
 
 nuke:V:
-	rm -f *.[$OS] [$OS].out [$OS].maketab y.tab.? y.debug y.output awkgram.c proctab.c $TARG
+	rm -f *.[$OS] [$OS].out *.maketab y.tab.? y.debug y.output awkgram.c proctab.c $TARG
 
-proctab.c:	$cpuobjtype.maketab
-	./$cpuobjtype.maketab >proctab.c
+proctab.c:	$cputype.maketab
+	./$cputype.maketab >proctab.c
 
-$cpuobjtype.maketab:	y.tab.h maketab.c
-	objtype=$cputype
-	mk maketab.$cputype
+$cputype.maketab:	y.tab.h maketab.c
+	objtype=$cputype mk maketab.$cputype
 
-maketab.$cputype:V:	y.tab.h maketab.$O
-	$LD -o $O.maketab maketab.$O
+maketab.$objtype:V:	y.tab.h maketab.$O
+	$LD -o $objtype.maketab maketab.$O
