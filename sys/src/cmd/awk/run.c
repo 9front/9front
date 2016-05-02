@@ -63,7 +63,7 @@ int
 system(const char *s)
 {
 	char status[512], *statfld[5];
-	int w, pid;
+	int n, pid;
 
 	if(!s)
 		return 1; /* a command interpreter is available */
@@ -76,8 +76,9 @@ system(const char *s)
 		return -1;
 	}
 	for(;;) {
-		w = await(status, sizeof(status) - 1);
-		if(w == -1)
+		n = await(status, sizeof(status) - 1);
+		status[n] = '\0';
+		if(n == -1)
 			return -1;
 		tokenize(status, statfld, nelem(statfld));
 		if(strtol(statfld[0], nil, 0) == pid)
