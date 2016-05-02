@@ -64,17 +64,12 @@ system(const char *s)
 {
 	char status[512], *statfld[5];
 	int w, pid;
-	char cmd[30], *oty;
 
-	oty = getenv("cputype");
-	if(!oty)
-		return -1;
 	if(!s)
 		return 1; /* a command interpreter is available */
 	pid = fork();
-	snprint(cmd, sizeof cmd, "/%s/bin/ape/sh", oty);
 	if(pid == 0) {
-		execl(cmd, "sh", "-c", s, nil);
+		execl("/bin/rc", "rc", "-c", s, nil);
 		exits("exec");
 	}
 	if(pid < 0){

@@ -13,7 +13,7 @@ NOMK=$NOTSYS
 
 cpuobjtype=`{sed -n 's/^O=//p' /$cputype/mkfile}
 DIRS=`{echo */mkfile | sed 's,/mkfile *,\n,g' | grep -v '^('$NOMK')$'}
-APEDIRS=awk bzip2 compress cvs eqn grap gs links-ape lp pic postscript spin \
+APEDIRS=bzip2 compress cvs eqn grap gs links-ape lp pic postscript spin \
 	tex troff
 
 none:VQ:
