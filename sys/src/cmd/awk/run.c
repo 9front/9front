@@ -62,11 +62,11 @@ Node	*curnode = nil;	/* the node being executed, for debugging */
 int
 system(const char *s)
 {
-	char status[512], *statfld[5];
-	int n, pid;
+	Waitmsg *status;
+	int pid;
 
-	if(!s)
-		return 1; /* a command interpreter is available */
+	if(s == nil)
+		return 1;
 	pid = fork();
 	if(pid == 0) {
 		execl("/bin/rc", "rc", "-c", s, nil);
@@ -76,17 +76,19 @@ system(const char *s)
 		return -1;
 	}
 	for(;;) {
-		n = await(status, sizeof(status) - 1);
-		status[n] = '\0';
-		if(n == -1)
-			return -1;
-		tokenize(status, statfld, nelem(statfld));
-		if(strtol(statfld[0], nil, 0) == pid)
+		status = wait();
+		if(status == nil)
+			FATAL("Out of memory");
+		if(status->pid == pid)
 			break;
+		free(status);
 	}
 
-	if(*statfld[4] != '\0')
+	if(status->msg[0] != '\0') {
+		free(status);
 		return 1;
+	}
+	free(status);
 	return 0;
 }
 
@@ -1582,7 +1584,7 @@ Cell *bltin(Node **a, int)	/* builtin functions. a[0] is type, a[1] is arg list 
 		break;
 	case FSYSTEM:
 		Bflush(&stdout);		/* in case something is buffered already */
-		u = (Awkfloat) system(getsval(x)) / 256;   /* 256 is unix-dep */
+		u = (Awkfloat) system(getsval(x));
 		break;
 	case FRAND:
 		/* in principle, rand() returns something in 0..RAND_MAX */
