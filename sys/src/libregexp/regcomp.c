@@ -78,14 +78,14 @@ e2(Parselex *plex)
 	Renode *n;
 
 	n = e3(plex);
-	if(lex(plex) == LREP) {
+	while(lex(plex) == LREP) {
 		switch(plex->rune) {
 		case L'*':
-			return node(plex, TSTAR, n, nil);
+			n = node(plex, TSTAR, n, nil);
 		case L'+':
-			return node(plex, TPLUS, n, nil);
+			n = node(plex, TPLUS, n, nil);
 		case L'?':
-			return node(plex, TQUES, n, nil);
+			n = node(plex, TQUES, n, nil);
 		}
 	}
 	plex->peek = 1;
