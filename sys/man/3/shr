@@ -61,6 +61,15 @@ Creating shares and mounts requires read-write access in the share
 directory. The special user
 .B none
 is prohibited from these operations.
+.SH EXAMPLES
+To mount a 9p service from
+.IR srv (1)
+to the shr device
+.IP
+.EX
+mkdir '#σc'/myshare
+echo 3 > '#σc'/myshare/myserv <>[3]/srv/myserv
+.EE
 .SH SOURCE
 .B /sys/src/9/port/devshr.c
 .SH HISTORY
