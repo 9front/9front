@@ -3,7 +3,13 @@
 #include <draw.h>
 #include <event.h>
 
-int N = 20, refresh = 0;
+enum {
+	Kdel = 0x7f
+};
+
+int N = 49,
+	pathlen = 1000,
+	nosnake;
 
 double dt = 0.01,
 	xmin = -40,
@@ -11,7 +17,7 @@ double dt = 0.01,
 	ymin = -40,
 	ymax = 40,
 	v0 = 0.1;
-	
+
 #define mini(a,b) (((a)<(b))?(a):(b))
 
 typedef struct Particle Particle;
@@ -21,6 +27,11 @@ struct Particle {
 	double ax, ay;
 	double prevx, prevy;
 	Image* col;
+};
+
+typedef struct Path Path;
+struct Path {
+	int *x, *y;
 };
 
 int colors[] = {
@@ -47,8 +58,9 @@ int colors[] = {
               DPurpleblue
 };
 
-Particle *A, *B;
-Particle *prev, *cur;
+Particle	*A, *B;
+Particle	*prev, *cur;
+Path		*paths;
 
 void
 reset(void)
@@ -70,17 +82,53 @@ reset(void)
 }
 
 void
+reverse(void)
+{
+	Particle *p, *q;
+	Path *pa;
+	int i;
+
+	draw(screen, screen->r, display->white, 0, ZP);
+	for(i=0;i<N;i++){
+		pa=paths+i;
+		memset(pa->x, 0, sizeof(int) * pathlen);
+		memset(pa->y, 0, sizeof(int) * pathlen);
+		p=prev+i;
+		q=cur+i;
+		p->vx = -q->vx;
+		p->vy = -q->vy;
+		p->prevx = p->x;
+		p->prevy = p->y;
+		p->x = q->x;
+		p->y = q->y;
+	}
+}
+
+void
+drawpath(Path *p, Image *col, int i)
+{
+	int j;
+
+	if((j = i+1) == pathlen)
+		j = 0;
+	draw(screen, Rect(p->x[i], p->y[i], p->x[i]+1, p->y[i]+1), col, 0, ZP);
+	if(nosnake)
+		return;
+	draw(screen, Rect(p->x[j], p->y[j], p->x[j]+1, p->y[j]+1), display->white, 0, ZP);
+}
+
+void
 usage(void)
 {
 	print("USAGE: mole options\n");
-	print(" -N number of particles [20]\n");
+	print(" -N number of particles [49]\n");
 	print(" -x left boundary [-40]\n");
 	print(" -X right boundary [40]\n");
 	print(" -y top boundary [-40]\n");
 	print(" -Y bottom boundary [40]\n");
 	print(" -t time step [0.01]\n");
 	print(" -v maximum start velocity [0.1]\n");
-	print(" -F clear every <n> frames (0:off) [0]\n");	
+	print(" -P path length [1000]\n");	
 	exits("usage");
 }
 
@@ -89,13 +137,14 @@ main(int argc, char** argv)
 {
 	int i, j;
 	Particle *p, *q;
+	Path *pa;
 	double dx, dx1, dx2, dy, dy1, dy2, R, F;
 	char* f;
 	
 	#define FARG(c, v) case c: if(!(f=ARGF())) usage(); v = atof(f); break;
 	ARGBEGIN {
 	case 'N': if(!(f=ARGF())) usage(); N = atoi(f); break;
-	case 'F': if(!(f=ARGF())) usage(); refresh = atoi(f); break;
+	case 'P': if(!(f=ARGF())) usage(); pathlen = atoi(f); break;
 	FARG('v', v0);
 	FARG('x', xmin);
 	FARG('X', xmax);
@@ -105,8 +154,17 @@ main(int argc, char** argv)
 	default: usage();
 	} ARGEND;
 	
+	if(pathlen == 0) {
+		nosnake = 1;
+		pathlen = 1000;
+	}
 	A = calloc(sizeof(Particle), N);
 	B = calloc(sizeof(Particle), N);
+	paths = calloc(sizeof(Path), N);
+	for(pa=paths;pa<paths+N;pa++){
+		pa->x = calloc(sizeof(int), pathlen);
+		pa->y = calloc(sizeof(int), pathlen);
+	}
 	prev = A;
 	cur = B;
 	srand(time(0));
@@ -114,9 +172,9 @@ main(int argc, char** argv)
 	einit(Emouse | Ekeyboard);
 	reset();
 
-	i=0;
-	while(1) {
-		if(refresh && ((++i)%refresh)==0) draw(screen, screen->r, display->white, 0, ZP);
+	for(i=0;; i++) {
+		if(i == pathlen)
+			i = 0;
 		memset(cur, 0, sizeof(Particle) * N);
 		for(p=prev;p<prev+N;p++) {
 			for(q=prev;q<p;q++) {
@@ -148,7 +206,7 @@ main(int argc, char** argv)
 			}
 		}
 		for(j=0;j<N;j++) {
-			int x, y;
+			pa = paths+j;
 			p = prev+j;
 			q = cur+j;
 			q->x = 2*p->x - p->prevx + q->ax * dt*dt;
@@ -162,9 +220,9 @@ main(int argc, char** argv)
 			if(q->y > ymax) {q->y -= ymax - ymin; q->prevy -= ymax - ymin;}
 			if(q->y < ymin) {q->y += ymax - ymin; q->prevy += ymax - ymin;}
 			q->col = p->col;
-			x = (screen->r.max.x - screen->r.min.x) * (q->x - xmin) / (xmax - xmin) + screen->r.min.x;
-			y = (screen->r.max.y - screen->r.min.y) * (q->y - ymin) / (ymax - ymin) + screen->r.min.y;
-			draw(screen, Rect(x, y, x+1, y+1), p->col, 0, ZP);
+			pa->x[i] = (screen->r.max.x - screen->r.min.x) * (q->x - xmin) / (xmax - xmin) + screen->r.min.x;
+			pa->y[i] = (screen->r.max.y - screen->r.min.y) * (q->y - ymin) / (ymax - ymin) + screen->r.min.y;
+			drawpath(pa, p->col, i);
 		}
 
 		Particle* tmp = prev;
@@ -175,8 +233,9 @@ main(int argc, char** argv)
 		
 		if(ecankbd()) {
 			switch(ekbd()) {
-				case 'q': exits(0); break;
+				case 'q': case Kdel: exits(0); break;
 				case 'r': reset(); break;
+				case 'R': reverse(); break;
 				case 'f': draw(screen, screen->r, display->white, 0, ZP); break;
 			}
 		}
