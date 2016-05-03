@@ -2,20 +2,23 @@
 
 GLOBL	_tos(SB), $4
 GLOBL	_errnoloc(SB), $4
+GLOBL	_plan9err(SB), $4
 GLOBL	_privates(SB), $4
 GLOBL	_nprivates(SB), $4
 
-TEXT	_mainp(SB), 1, $(16+NPRIVATES*4)
+TEXT	_mainp(SB), 1, $(16+4+128+NPRIVATES*4)
 	MOVW	$setR30(SB), R30
 
 	/* _tos = arg */
 	MOVW	R1, _tos(SB)
 
-	MOVW	$p-68(SP), R1
+	MOVW	$16(R29), R1
 	MOVW	R1, _errnoloc(SB)
 	ADDU	$4, R1
+	MOVW	R1, _plan9err(SB)
+	ADDU	$128, R1
 	MOVW	R1, _privates(SB)
-	MOVW	$(NPRIVATES-1), R1
+	MOVW	$NPRIVATES, R1
 	MOVW	R1, _nprivates(SB)
 
 	/* _profmain(); */

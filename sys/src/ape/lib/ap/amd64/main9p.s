@@ -1,14 +1,21 @@
 #define NPRIVATES	16
 
 GLOBL	_tos(SB), $8
+GLOBL	_errnoloc(SB), $8
+GLOBL	_plan9err(SB), $8
 GLOBL	_privates(SB), $8
 GLOBL	_nprivates(SB), $8
 
-TEXT	_mainp(SB), 1, $(3*8+NPRIVATES*8)
+TEXT	_mainp(SB), 1, $(24+8+128+NPRIVATES*8)
 
 	/* _tos = arg */
 	MOVQ	AX, _tos(SB)
-	LEAQ	8(SP), AX
+
+	LEAQ	24(SP), AX
+	MOVQ	AX, _errnoloc(SB)
+	ADDQ	$8, AX
+	MOVQ	AX, _plan9err(SB)
+	ADDQ	$128, AX
 	MOVQ	AX, _privates(SB)
 	MOVQ	$NPRIVATES, _nprivates(SB)
 

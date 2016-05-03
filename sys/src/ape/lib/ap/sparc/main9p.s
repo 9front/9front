@@ -17,12 +17,14 @@ TEXT	_mainp(SB), 1, $(16+NPRIVATES*4)
 	FADDD	F26, F26, F28
 	FADDD	F28, F28, F30
 */
-	MOVW	$12(SP), R1
-	MOVW	R1, _errnoloc(SB)
-	MOVW	$16(SP), R1
-	MOVW	R1, _privates(SB)
-	MOVW	$NPRIVATES, R1
-	MOVW	R1, _nprivates(SB)
+	MOVW	$12(R1), R7
+	MOVW	R7, _errnoloc(SB)
+	ADD	$4, R7
+	MOVW	R7, _plan9err(SB)
+	ADD	$128, R7
+	MOVW	R7, _privates(SB)
+	MOVW	$NPRIVATES, R7
+	MOVW	R7, _nprivates(SB)
 
 	/* _profmain(); */
 	JMPL	_profmain(SB)
@@ -38,6 +40,7 @@ TEXT	_mainp(SB), 1, $(16+NPRIVATES*4)
 	MOVW	inargc-4(FP), R7
 	MOVW	$inargv+0(FP), R8
 	MOVW	environ(SB), R9
+	MOVW	R7, 4(R1)
 	MOVW	R8, 8(R1)
 	MOVW	R9, 12(R1)
 	JMPL	main(SB)

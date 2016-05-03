@@ -2,29 +2,33 @@
 
 GLOBL	_tos(SB), $4
 GLOBL	_errnoloc(SB), $4
+GLOBL	_plan9err(SB), $4
 GLOBL	_privates(SB), $4
 GLOBL	_nprivates(SB), $4
 
-TEXT	_mainp(SB), 1, $(16+NPRIVATES*4)
+TEXT	_mainp(SB), 1, $(12+4+128+NPRIVATES*4)
 
 	MOVW	$setSB(SB), R2
 
 	/* _tos = arg */
 	MOVW	R3, _tos(SB)
-	MOVW	$12(SP), R1
-	MOVW	R1, _errnoloc(SB)
-	MOVW	$16(SP), R1
-	MOVW	R1, _privates(SB)
-	MOVW	$NPRIVATES, R1
-	MOVW	R1, _nprivates(SB)
+
+	MOVW	$12(R1), R3
+	MOVW	R3, _errnoloc(SB)
+	ADD	$4, R3
+	MOVW	R3, _plan9err(SB)
+	ADD	$128, R3
+	MOVW	R3, _privates(SB)
+	MOVW	$NPRIVATES, R3
+	MOVW	R3, _nprivates(SB)
 
 	/* _profmain(); */
 	BL	_envsetup(SB)
 
 	/* _tos->prof.pp = _tos->prof.next; */
-	MOVW	_tos+0(SB),R1
-	MOVW	4(R1),R2
-	MOVW	R2,(R1)
+	MOVW	_tos+0(SB),R3
+	MOVW	4(R3),R2
+	MOVW	R2,(R3)
 
 	/* main(argc, argv, environ); */
 	MOVW	inargc-4(FP), R3

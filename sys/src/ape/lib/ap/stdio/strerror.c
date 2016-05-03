@@ -81,7 +81,7 @@ char *sys_errlist[] = {
 };
 #define	_IO_nerr	(sizeof sys_errlist/sizeof sys_errlist[0])
 int sys_nerr = _IO_nerr;
-extern char _plan9err[];
+extern char *_plan9err;
 
 char *
 strerror(int n)
