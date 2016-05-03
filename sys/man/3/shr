@@ -63,7 +63,7 @@ directory. The special user
 is prohibited from these operations.
 .SH EXAMPLES
 To mount a 9p service from
-.IR srv (1)
+.IR srv (3)
 to the shr device
 .IP
 .EX
