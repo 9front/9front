@@ -2,16 +2,19 @@
 
 GLOBL	_tos(SB), $4
 GLOBL	_errnoloc(SB), $4
+GLOBL	_plan9err(SB), $4
 GLOBL	_privates(SB), $4
 GLOBL	_nprivates(SB), $4
 
-TEXT	_main(SB), 1, $(16+NPRIVATES*4)
+TEXT	_main(SB), 1, $(12+4+128+NPRIVATES*4)
 
 	/* _tos = arg */
 	MOVL	AX, _tos(SB)
 	LEAL	12(SP), AX
 	MOVL	AX, _errnoloc(SB)
-	LEAL	16(SP), AX
+	ADDL	$4, AX
+	MOVL	AX, _plan9err(SB)
+	ADDL	$128, AX
 	MOVL	AX, _privates(SB)
 	MOVL	$NPRIVATES, _nprivates(SB)
 

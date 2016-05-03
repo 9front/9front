@@ -6,18 +6,22 @@ sb=12
 
 GLOBL	_tos(SB), $4
 GLOBL	_errnoloc(SB), $4
+GLOBL	_plan9err(SB), $4
 GLOBL	_privates(SB), $4
 GLOBL	_nprivates(SB), $4
 
-TEXT	_main(SB), 1, $(16+NPRIVATES*4)
+TEXT	_main(SB), 1, $(16+4+128+NPRIVATES*4)
 
 	MOVW	$setR12(SB), R(sb)
 
 	/* _tos = arg */
 	MOVW	R(arg), _tos(SB)
-	MOVW	$errno-68(SP), R1
+
+	MOVW	$16(R(sp)), R1
 	MOVW	R1, _errnoloc(SB)
-	MOVW	$private-64(SP), R1
+	ADD	$4, R1
+	MOVW	R1, _plan9err(SB)
+	ADD	$128, R1
 	MOVW	R1, _privates(SB)
 	MOVW	$NPRIVATES, R1
 	MOVW	R1, _nprivates(SB)
