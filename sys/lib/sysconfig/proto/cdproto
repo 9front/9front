@@ -54,14 +54,6 @@ mail	d775 upas upas
 		ape	d775
 	bin	d775
 		ape	d775
-alpha	d775
-	mkfile
-	include	d775
-		+
-	lib	d775
-		ape	d775
-	bin	d775
-		ape	d775
 amd64	d775
 	mkfile
 	include	d775
@@ -118,7 +110,6 @@ mips	d775
 		ape	d775
 	bin	d775
 		ape	d775
-
 spim	d775
 	mkfile
 	include	d775
@@ -151,7 +142,6 @@ acme	d775
 		386	d775
 		68000	d775
 		68020	d775
-		alpha	d775
 		amd64	d775
 		arm	d775
 		power	d775
