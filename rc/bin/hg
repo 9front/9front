@@ -22,12 +22,17 @@ import mercurial.util
 import mercurial.dispatch
 
 if sys.platform == 'plan9':
+    import os
+
+    home = os.environ['home']
+    if not 'HOME' in os.environ:
+        os.environ['HOME'] = home
+
     def p9sys_rcpath():
         return ['/sys/lib/hgrc']
 
     def p9usr_rcpath():
-        import os
-        return [os.environ['home']+'/lib/hgrc']
+        return [home+'/lib/hgrc']
 
     import mercurial.posix
     mercurial.posix.system_rcpath = p9sys_rcpath
