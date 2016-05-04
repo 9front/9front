@@ -58,7 +58,7 @@ case 9pio
 	srv -nq tcp!9p.io 9pio && mount -nC /srv/9pio /n/9pio
 case 9front
 	9fs 9front.org
-	for(i in 9front extra fqa hardware iso lists pkg)
+	for(i in 9front extra fqa hardware iso lists pkg sites)
 		bind /n/9front.org/$i /n/$i
 	9fs tcp!9front.org!7734
 	bind -b /n/9front.org!7734 /n/lists
