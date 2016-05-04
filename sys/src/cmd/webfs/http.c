@@ -122,14 +122,15 @@ hdial(Url *u)
 		snprint(addr, sizeof(addr), "tcp!%s!%s",
 			proxy->host, proxy->port ? proxy->port : proxy->scheme);
 
-	if((fd = dial(addr, 0, 0, &ctl)) >= 0){
-		if(proxy){
-			if(strcmp(proxy->scheme, "https") == 0)
-				fd = tlswrap(fd, proxy->host);
-		} else {
-			if(strcmp(u->scheme, "https") == 0)
-				fd = tlswrap(fd, u->host);
-		}
+	if((fd = dial(addr, 0, 0, &ctl)) < 0)
+		return nil;
+
+	if(proxy){
+		if(strcmp(proxy->scheme, "https") == 0)
+			fd = tlswrap(fd, proxy->host);
+	} else {
+		if(strcmp(u->scheme, "https") == 0)
+			fd = tlswrap(fd, u->host);
 	}
 	if(fd < 0){
 		close(ctl);
