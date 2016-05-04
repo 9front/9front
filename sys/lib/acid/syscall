@@ -160,8 +160,6 @@ defn UPCSPRET() {
 		return { code(*(*PC-4) & 0xffff), code(*SP+4), code(*R1) };
 	if objtype == "arm" then
 		return { code(*(*PC-4) & 0xffff), code(*SP+4), code(*R0) };	// untested
-	if objtype == "alpha" then
-		return { code(*(*PC-4) & 0xffff), code(*SP+4), code(*R0) };	// untested
 }
 
 defn trapoffset() {
@@ -171,7 +169,6 @@ defn trapoffset() {
 	if objtype == "mips" then return 8;
 	if objtype == "mips2" then return 8;
 	if objtype == "arm" then return 8;	// untested
-	if objtype == "alpha" then return 8;	// untested
 }	
 
 defn trapreason() {
@@ -181,7 +178,6 @@ defn trapreason() {
 	if objtype == "mips" then return reason(*CAUSE);
 	if objtype == "mips2" then return reason(*CAUSE);
 	if objtype == "arm" then return "unknown trap";	// untested
-	if objtype == "alpha" then return reason(cause);	// untested
 }
 
 

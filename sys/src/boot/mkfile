@@ -1,7 +1,8 @@
 ARCH=\
-	alphapc\
 	bitsy\
+	efi\
 	pc\
+	zynq\
 
 all:V:
 	for(i in $ARCH)@{

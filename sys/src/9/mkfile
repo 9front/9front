@@ -1,5 +1,4 @@
 ARCH=\
-	alphapc\
 	bcm\
 	bitsy\
 	kw\

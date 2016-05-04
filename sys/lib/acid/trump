@@ -116,11 +116,11 @@ defn trumpfninfo() {
 }
 
 defn trumpretval() {
-	if objtype=="386" then
+	if objtype=="386" || objtype=="amd64" then
 		return *AX;
 	if objtype=="mips" then
 		return *R1;
-	if objtype=="power" || objtype=="alpha" then
+	if objtype=="power" || objtype=="arm" then
 		return *R0;
 }
 

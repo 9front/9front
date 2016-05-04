@@ -14,7 +14,7 @@ defn labsp(l)
 
 defn labstk(l)
 {
-	_stk(labpc(l), labsp(l), 0, 0);
+	_stk(labpc(l), labsp(l), 0, 1);
 }
 
 defn lablstk(l)
@@ -250,7 +250,7 @@ defn threadstks(P){
 	ign = stkignore;
 	stkignore = {
 		"^/sys/src/libthread/",
-		"^/sys/src/libc/(386|arm|alpha|sparc|power|mips)/"
+		"^/sys/src/libc/(386|arm|sparc|power|mips)/"
 	};
 	setproc(P.pid);
 	Tq = (Tqueue)P.threads;
@@ -315,7 +315,7 @@ defn threadstk(T){
 	setproc(P.pid);
 
 	if T.state == Running then{
-		stk();
+		lstk();
 	} else {
 		labstk(T.sched);
 	}

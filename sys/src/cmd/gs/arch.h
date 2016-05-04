@@ -8,8 +8,6 @@
 #include "spim.h"
 #elif Tpower
 #include "mips.h"
-#elif Talpha
-#include "alpha.h"
 #elif Tarm
 #include "arm.h"
 #elif Tamd64

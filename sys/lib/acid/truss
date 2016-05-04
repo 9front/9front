@@ -160,7 +160,7 @@ defn addressof(pattern) {
 	// translate to ape system calls if we have an ape binary
 	if _addressof("_EXITS") != 0 then
 		pattern = trussapecalls[match(pattern, trusscalls)];
-	if regexp("(seek|_SEEK)", pattern) && (objtype=="amd64" || objtype == "power64" || objtype == "alpha") then
+	if regexp("(seek|_SEEK)", pattern) && (objtype=="amd64" || objtype == "power64") then
 		pattern = "_" + pattern;
 	return _addressof(pattern);
 }
