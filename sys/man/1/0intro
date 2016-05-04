@@ -107,7 +107,6 @@ for details, but some important aspects of the initial name space are:
 The environment variable
 .B $cputype
 is set to the name of the kernel's CPU's architecture: one of
-.BR alpha ,
 .BR mips ,
 .BR sparc ,
 .B power
@@ -127,11 +126,7 @@ such as
 .BR "generic pc" .
 Sometimes the middle word of
 .B $terminal
-encodes the file from which the kernel is booted;
-e.g.
-.B "alpha apc axp
-is bootstrapped from
-.BR /alpha/bapc .
+encodes the file from which the kernel is booted.
 .IP \(bu
 The environment variable
 .B $service
