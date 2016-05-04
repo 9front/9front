@@ -45,14 +45,6 @@ Bind
 on
 .IR old .
 .TP
-.BR import \ [ -abc ]\ \fIhost\fR\ "[\fIremotepath\fR\^\^] \fImountpoint\fR
-Import
-.I remotepath
-from machine
-.I server
-and attach it to
-.IR mountpoint .
-.TP
 .BI cd \ dir
 Change the working directory to
 .IR dir .
@@ -81,14 +73,11 @@ must be present in the name space being built.
 .PD
 .PP
 The options for
-.IR bind ,
-.IR mount ,
+.I bind
 and
-.I import
+.I mount
 are interpreted as in
-.IR bind (1)
-and
-.IR import (4).
+.IR bind (1).
 .SH "SEE ALSO"
 .IR bind (1),
 .IR namespace (4),

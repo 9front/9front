@@ -16,7 +16,6 @@ static char	*expandarg(char*, char*);
 static int	splitargs(char*, char*[], char*, int);
 static int	nsfile(char*, Biobuf *, AuthRpc *);
 static int	nsop(char*, int, char*[], AuthRpc*);
-static int	callexport(char*, char*);
 static int	catch(void*, char*);
 
 int newnsdebug;
@@ -202,13 +201,6 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 				fprint(2, "%s: mount: %s %s %s: %r\n", fn, argv[0], argv[1], argv[2]);
 		}
 		close(fd);
-	}else if(strcmp(argv0, "import") == 0){
-		fd = callexport(argv[0], argv[1]);
-		if(argc == 2)
-			famount(fd, rpc, argv[1], flags, "");
-		else if(argc == 3)
-			famount(fd, rpc, argv[2], flags, "");
-		close(fd);
 	}else if(strcmp(argv0, "cd") == 0 && argc == 1){
 		if(chdir(argv[0]) == 0 && *argv[0] == '/')
 			cdroot = 1;
@@ -223,27 +215,6 @@ catch(void *x, char *m)
 {
 	USED(x);
 	return strncmp(m, wocp, strlen(wocp)) == 0;
-}
-
-static int
-callexport(char *sys, char *tree)
-{
-	char *na, buf[3];
-	int fd;
-	AuthInfo *ai;
-
-	na = netmkaddr(sys, 0, "exportfs");
-	if((fd = dial(na, 0, 0, 0)) < 0)
-		return -1;
-	if((ai = auth_proxy(fd, auth_getkey, "proto=p9any role=client")) == nil
-	|| write(fd, tree, strlen(tree)) < 0
-	|| read(fd, buf, 3) != 2 || buf[0]!='O' || buf[1]!= 'K'){
-		close(fd);
-		auth_freeAI(ai);
-		return -1;
-	}
-	auth_freeAI(ai);
-	return fd;
 }
 
 static char*
