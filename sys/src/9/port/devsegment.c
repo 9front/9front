@@ -313,7 +313,7 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 			free(cb);
 			nexterror();
 		}
-		if(strcmp(cb->f[0], "va") == 0){
+		if(cb->nf > 0 && strcmp(cb->f[0], "va") == 0){
 			if(g->s != nil)
 				error("already has a virtual address");
 			if(cb->nf < 3)

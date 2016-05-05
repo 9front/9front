@@ -53,7 +53,7 @@ ledw(Ledport *p, Chan*, void *a, long n, vlong)
 	Cmdbuf *cb;
 
 	cb = parsecmd(a, n);
-	i = name2led(cb->f[0]);
+	i = cb->nf < 1 ? -1 : name2led(cb->f[0]);
 	free(cb);
 	if(i == -1)
 		error(Ebadarg);

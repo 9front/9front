@@ -797,7 +797,8 @@ routewrite(Fs *f, Chan *c, char *p, int n)
 		free(cb);
 		nexterror();
 	}
-
+	if(cb->nf < 1)
+		error("short control request");
 	if(strcmp(cb->f[0], "flush") == 0){
 		tag = cb->f[1];
 		for(h = 0; h < nelem(f->v4root); h++)
@@ -846,7 +847,8 @@ routewrite(Fs *f, Chan *c, char *p, int n)
 		na = newipaux(a->owner, cb->f[1]);
 		c->aux = na;
 		free(a);
-	}
+	} else
+		error(Ebadctl);
 
 	poperror();
 	free(cb);

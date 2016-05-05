@@ -1124,8 +1124,6 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 		nexterror();
 	}
 	ct = lookupcmd(cb, epctls, nelem(epctls));
-	if(ct == nil)
-		error(Ebadctl);
 	i = ct->index;
 	if(i == CMnew || i == CMspeed || i == CMhub || i == CMpreset)
 		if(ep != ep->ep0)
