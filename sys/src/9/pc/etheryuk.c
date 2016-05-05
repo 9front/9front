@@ -1207,11 +1207,11 @@ rxscrew(Ether *e, Sring *r, Status *t, uint wp)
 
 	c = e->ctlr;
 	if((int)(wp - r->rp) >= r->cnt){
-		print("rxscrew1 wp %ud(%ud) rp %ud %lud\n", wp, r->wp, r->rp, t-r->r);
+		print("rxscrew1 wp %ud(%ud) rp %ud %zd\n", wp, r->wp, r->rp, t-r->r);
 		return -1;
 	}
 	if(c->rbring[t - r->r]){
-		print("rxscrew2 wp %ud rp %ud %lud\n", wp, r->rp, t-r->r);
+		print("rxscrew2 wp %ud rp %ud %zd\n", wp, r->rp, t-r->r);
 		descriptorfu(e, Qr);
 		return -1;
 	}
@@ -2229,7 +2229,7 @@ pnp(Ether *e)
 		c = ctlrtab[i];
 		if(c == nil || c->flag&Fprobe)
 			continue;
-		if(e->port != 0 && e->port != (ulong)c->reg)
+		if(e->port != 0 && e->port != (ulong)(uintptr)c->reg)
 			continue;
 		c->flag |= Fprobe;
 		if(setup(c) != 0)
