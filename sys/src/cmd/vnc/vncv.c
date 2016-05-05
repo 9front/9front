@@ -43,13 +43,10 @@ shutdown(void)
 }
 
 char*
-netmkvncaddr(char *inserver)
+netmkvncaddr(char *server)
 {
-	char *p, portstr[NETPATHLEN], *server;
+	char *p, portstr[NETPATHLEN];
 	int port;
-
-	server = strdup(inserver);
-	assert(server != nil);
 
 	port = 5900;
 	if(tls)
@@ -58,11 +55,8 @@ netmkvncaddr(char *inserver)
 		*p++ = '\0';
 		port += atoi(p);
 	}
-
 	snprint(portstr, sizeof portstr, "%d", port);
-	p = netmkaddr(server, "tcp", portstr);
-	free(server);
-	return p;
+	return netmkaddr(server, "tcp", portstr);
 }
 
 void
@@ -82,7 +76,7 @@ void
 main(int argc, char **argv)
 {
 	int p, dfd, cfd, shared;
-	char *keypattern, *addr, *label;
+	char *keypattern, *label;
 	Point d;
 
 	keypattern = nil;
@@ -116,11 +110,10 @@ main(int argc, char **argv)
 	if(argc != 1)
 		usage();
 
-	addr = netmkvncaddr(argv[0]);
-	serveraddr = argv[0];
-	dfd = dial(addr, nil, nil, &cfd);
+	serveraddr = strdup(argv[0]);
+	dfd = dial(netmkvncaddr(argv[0]), nil, nil, &cfd);
 	if(dfd < 0)
-		sysfatal("cannot dial %s: %r", addr);
+		sysfatal("cannot dial %s: %r", serveraddr);
 	if(tls){
 		TLSconn conn;
 
