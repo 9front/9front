@@ -3,7 +3,6 @@ ARCH=\
 	kw\
 	mtx\
 	omap\
-	omap4\
 	pc\
 	pc64\
 	ppc\
