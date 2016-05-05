@@ -740,6 +740,7 @@ static Chipid idtab[] = {
 static Vtab vtab[] = {
 	0x11ab,	0x4354,	1514,	"88e8040",	/* unsure on mtu */
 	0x11ab,	0x4362,	1514,	"88e8053",
+	0x11ab, 0x4363, 1514,	"88e8055",
 	0x11ab,	0x4364,	1514,	"88e8056",
 	0x11ab,	0x4380,	1514,	"88e8057",
 	0x11ab,	0x436b,	1514,	"88e8071",	/* unsure on mtu */
