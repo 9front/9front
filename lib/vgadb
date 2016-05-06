@@ -1827,3 +1827,14 @@ lcd2190uxp=1600x1200		# 60Hz
 	shb=1664 ehb=1856 ht=2160
 	vrs=1201 vre=1204 vt=1250
 	hsync=+ vsync=+
+
+#
+# Panasonic CF-R7 LCD panel
+#
+cfr7=1024x768
+	lcd=1
+	defaultclock=75
+	shb=1096 ehb=1232 ht=1344
+	shs=1072
+	vrs=771 vre=777 vt=806
+	hsync=- vsync=-
