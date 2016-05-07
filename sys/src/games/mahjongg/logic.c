@@ -77,7 +77,7 @@ bmatch(Click c)
 {
 	Click lc;
 
-	lc = cmatch(c, Depth);
+	lc = cmatch(c, Depth - 1);
 	if(lc.d == -1)
 		return nil;
 	else

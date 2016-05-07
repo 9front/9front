@@ -135,7 +135,7 @@ void
 hint(void)
 {
 	int d = 0, x = 0, y = 0;
-	Brick *b = nil;
+	Brick *a, *b = nil;
 
 	if(level.c.d != -1) {
 		if((b = bmatch(level.c)) != nil) {
@@ -154,24 +154,32 @@ hint(void)
 Matched:
 	if (b == nil)
 		return;
-	level.board[d][x][y].clicked = 1;
+
+	a = &level.board[d][x][y];
+	a->clicked = 1;
+	a->redraw = 1;
 	b->clicked = 1;
 	b->redraw = 1;
 	updatelevel();
-	sleep(500);
-	if(level.c.d == -1)
-		level.board[d][x][y].clicked = 0;
+	sleep(100);
+	if(level.c.d == -1){
+		a->clicked = 0;
+		a->redraw = 1;
+	}
 	b->clicked = 0;
 	b->redraw = 1;
 	updatelevel();
-	sleep(500);
-	level.board[d][x][y].clicked = 1;
+	sleep(100);
+	a->clicked = 1;
+	a->redraw = 1;
 	b->clicked = 1;
 	b->redraw = 1;
 	updatelevel();
-	sleep(500);
-	if(level.c.d == -1)
-		level.board[d][x][y].clicked = 0;
+	sleep(100);
+	if(level.c.d == -1){
+		a->clicked = 0;
+		a->redraw = 1;
+	}
 	b->clicked = 0;
 	b->redraw = 1;
 	updatelevel();
