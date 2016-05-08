@@ -14,11 +14,6 @@ pppbinddev(void)
 	Waitmsg *w;
 
 	/* ppp does the binding */
-
-	/* start with an empty config file */
-	if(nip == 0)
-		writendb("", 0, 0);
-
 	switch(pid = rfork(RFPROC|RFFDG|RFMEM)){
 	case -1:
 		sysfatal("can't start ppp: %r");
@@ -55,6 +50,5 @@ pppbinddev(void)
 
 	/* ppp sets up the configuration itself */
 	noconfig = 1;
-	getndb();
 }
 

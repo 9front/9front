@@ -108,7 +108,6 @@ void	dhcpwatch(int);
 void	doadd(int);
 void	doremove(void);
 void	dounbind(void);
-int	getndb(void);
 int	ipconfig4(void);
 int	ipconfig6(int);
 long	jitter(void);
@@ -134,11 +133,9 @@ int	parseverb(char*);
 void	procsetname(char *fmt, ...);
 void	putndb(void);
 ulong	randint(ulong low, ulong hi);
-void	tweakservers(void);
 void	usage(void);
 int	validip(uchar*);
 void	warning(char *fmt, ...);
-void	writendb(char*, int, int);
 
 /*
  * IPv6

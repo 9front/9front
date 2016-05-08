@@ -2847,10 +2847,9 @@ main(int argc, char **argv)
 	/* wait until ip is configured */
 	rendezvous((void*)Rmagic, 0);
 
-	if(primary){
-		/* create a /net/ndb entry */
+	/* create a /net/ndb entry */
+	if(primary)
 		putndb(ppp, net);
-	}
 
 	exits(0);
 }
@@ -2917,15 +2916,16 @@ nipifcs(char *net)
 static void
 putndb(PPP *ppp, char *net)
 {
-	char buf[1024];
-	char file[64];
-	char *p, *e;
+	static char buf[16*1024];
+	char file[64], *p, *e;
+	Ndbtuple *t, *nt;
+	Ndb *db;
 	int fd;
 
 	e = buf + sizeof(buf);
 	p = buf;
-	p = seprint(p, e, "ip=%I ipmask=255.255.255.255 ipgw=%I\n", ppp->local,
-			ppp->remote);
+	p = seprint(p, e, "ip=%I ipmask=255.255.255.255 ipgw=%I\n",
+		ppp->local, ppp->remote);
 	if(validv4(ppp->dns[0]))
 		p = seprint(p, e, "\tdns=%I\n", ppp->dns[0]);
 	if(validv4(ppp->dns[1]))
@@ -2934,20 +2934,41 @@ putndb(PPP *ppp, char *net)
 		p = seprint(p, e, "\twins=%I\n", ppp->wins[0]);
 	if(validv4(ppp->wins[1]))
 		p = seprint(p, e, "\twins=%I\n", ppp->wins[1]);
-	seprint(file, file+sizeof file, "%s/ndb", net);
-	fd = open(file, OWRITE);
-	if(fd < 0)
+
+	/* append preexisting entries not matching our ip */
+	snprint(file, sizeof file, "%s/ndb", net);
+	db = ndbopen(file);
+	if(db != nil ){
+		while((t = ndbparse(db)) != nil){
+			uchar ip[IPaddrlen];
+
+			if((nt = ndbfindattr(t, t, "ip")) == nil
+			|| parseip(ip, nt->val) < 0 || ipcmp(ip, ppp->local) != 0){
+				p = seprint(p, e, "\n");
+				for(nt = t; nt != nil; nt = nt->entry)
+					p = seprint(p, e, "%s=%s%s", nt->attr, nt->val,
+						nt->entry==nil? "\n": nt->line!=nt->entry? "\n\t": " ");
+			}
+			ndbfree(t);
+		}
+		ndbclose(db);
+	}
+
+	if((fd = open(file, OWRITE|OTRUNC)) < 0)
 		return;
 	write(fd, buf, p-buf);
 	close(fd);
-	seprint(file, file+sizeof file, "%s/cs", net);
-	fd = open(file, OWRITE);
-	write(fd, "refresh", 7);
-	close(fd);
-	seprint(file, file+sizeof file, "%s/dns", net);
-	fd = open(file, OWRITE);
-	write(fd, "refresh", 7);
-	close(fd);
+
+	snprint(file, sizeof file, "%s/cs", net);
+	if((fd = open(file, OWRITE)) >= 0){
+		write(fd, "refresh", 7);
+		close(fd);
+	}
+	snprint(file, sizeof file, "%s/dns", net);
+	if((fd = open(file, OWRITE)) >= 0){
+		write(fd, "refresh", 7);
+		close(fd);
+	}
 }
 
 static void

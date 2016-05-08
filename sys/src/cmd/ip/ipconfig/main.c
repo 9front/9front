@@ -188,7 +188,6 @@ void	dhcpwatch(int);
 void	doadd(int);
 void	doremove(void);
 void	dounbind(void);
-int	getndb(void);
 void	getoptions(uchar*);
 int	ip4cfg(void);
 int	ip6cfg(int a);
@@ -217,10 +216,8 @@ int	parseoptions(uchar *p, int n);
 int	parseverb(char*);
 void	pppbinddev(void);
 void	putndb(void);
-void	tweakservers(void);
 void	usage(void);
 int	validip(uchar*);
-void	writendb(char*, int, int);
 
 void
 usage(void)
@@ -593,23 +590,6 @@ main(int argc, char **argv)
 	exits(0);
 }
 
-int
-havendb(char *net)
-{
-	Dir *d;
-	char buf[128];
-
-	snprint(buf, sizeof buf, "%s/ndb", net);
-	if((d = dirstat(buf)) == nil)
-		return 0;
-	if(d->length == 0){
-		free(d);
-		return 0;
-	}
-	free(d);
-	return 1;
-}
-
 void
 doadd(int retry)
 {
@@ -619,7 +599,7 @@ doadd(int retry)
 
 	/* get number of preexisting interfaces */
 	nip = nipifcs(conf.mpoint);
-	if(beprimary == -1 && (nip == 0 || !havendb(conf.mpoint)))
+	if(beprimary == -1 && nip == 0)
 		beprimary = 1;
 
 	/* get ipifc into name space and condition device for ip */
@@ -659,17 +639,17 @@ doadd(int retry)
 		} else
 			sysfatal("no success with DHCP");
 
-	if(!noconfig)
-		if(ip4cfg() < 0)
-			sysfatal("can't start ip");
-		else if(dodhcp && conf.lease != Lforever)
-			dhcpwatch(0);
+	if(noconfig)
+		return;
+
+	if(ip4cfg() < 0)
+		sysfatal("can't start ip");
+	else if(dodhcp && conf.lease != Lforever)
+		dhcpwatch(0);
 
 	/* leave everything we've learned somewhere other procs can find it */
-	if(beprimary == 1){
+	if(beprimary)
 		putndb();
-		tweakservers();
-	}
 }
 
 void
@@ -893,10 +873,6 @@ ipunconfig(void)
 	ipmove(conf.laddr, IPnoaddr);
 	ipmove(conf.raddr, IPnoaddr);
 	ipmove(conf.mask, IPnoaddr);
-
-	/* forget configuration info */
-	if(beprimary==1)
-		writendb("", 0, 0);
 }
 
 void
@@ -1015,10 +991,8 @@ dhcpwatch(int needconfig)
 			 * leave everything we've learned somewhere that
 			 * other procs can find it.
 			 */
-			if(beprimary==1){
+			if(beprimary)
 				putndb();
-				tweakservers();
-			}
 		}
 	}
 }
@@ -1656,23 +1630,6 @@ parsebootp(uchar *p, int n)
 	return bp;
 }
 
-/* write out an ndb entry */
-void
-writendb(char *s, int n, int append)
-{
-	char file[64];
-	int fd;
-
-	snprint(file, sizeof file, "%s/ndb", conf.mpoint);
-	if(append){
-		fd = open(file, OWRITE);
-		seek(fd, 0, 2);
-	} else
-		fd = open(file, OWRITE|OTRUNC);
-	write(fd, s, n);
-	close(fd);
-}
-
 /* put server addresses into the ndb entry */
 char*
 putaddrs(char *p, char *e, char *attr, uchar *a, int len)
@@ -1688,19 +1645,16 @@ putaddrs(char *p, char *e, char *attr, uchar *a, int len)
 void
 putndb(void)
 {
-	int append;
-	char buf[1024];
-	char *p, *e, *np;
+	static char buf[16*1024];
+	char file[64], *p, *e, *np;
+	Ndbtuple *t, *nt;
+	Ndb *db;
+	int fd;
 
 	p = buf;
 	e = buf + sizeof buf;
-	if(getndb() == 0)
-		append = 1;
-	else {
-		append = 0;
-		p = seprint(p, e, "ip=%I ipmask=%M ipgw=%I\n",
-			conf.laddr, conf.mask, conf.gaddr);
-	}
+	p = seprint(p, e, "ip=%I ipmask=%M ipgw=%I\n",
+		conf.laddr, conf.mask, conf.gaddr);
 	if(np = strchr(conf.hostname, '.')){
 		if(*conf.domainname == 0)
 			strcpy(conf.domainname, np+1);
@@ -1721,54 +1675,41 @@ putndb(void)
 		p = putaddrs(p, e, "\tntp", conf.ntp, sizeof conf.ntp);
 	if(ndboptions)
 		p = seprint(p, e, "%s\n", ndboptions);
-	if(p > buf)
-		writendb(buf, p-buf, append);
-}
 
-/* get an ndb entry someone else wrote */
-int
-getndb(void)
-{
-	char buf[1024];
-	int fd, n;
-	char *p;
+	/* append preexisting entries not matching our ip */
+	snprint(file, sizeof file, "%s/ndb", conf.mpoint);
+	db = ndbopen(file);
+	if(db != nil ){
+		while((t = ndbparse(db)) != nil){
+			uchar ip[IPaddrlen];
 
-	snprint(buf, sizeof buf, "%s/ndb", conf.mpoint);
-	fd = open(buf, OREAD);
-	n = read(fd, buf, sizeof buf-1);
-	close(fd);
-	if(n <= 0)
-		return -1;
-	buf[n] = 0;
-	p = strstr(buf, "ip=");
-	if(p == nil)
-		return -1;
-	if (parseip(conf.laddr, p+3) == -1)
-		fprint(2, "%s: bad address %s\n", argv0, p+3);
-	return 0;
-}
+			if((nt = ndbfindattr(t, t, "ip")) == nil
+			|| parseip(ip, nt->val) < 0 || ipcmp(ip, conf.laddr) != 0){
+				p = seprint(p, e, "\n");
+				for(nt = t; nt != nil; nt = nt->entry)
+					p = seprint(p, e, "%s=%s%s", nt->attr, nt->val,
+						nt->entry==nil? "\n": nt->line!=nt->entry? "\n\t": " ");
+			}
+			ndbfree(t);
+		}
+		ndbclose(db);
+	}
 
-/* tell a server to refresh */
-void
-tweakserver(char *server)
-{
-	int fd;
-	char file[64];
-
-	snprint(file, sizeof file, "%s/%s", conf.mpoint, server);
-	fd = open(file, ORDWR);
-	if(fd < 0)
+	if((fd = open(file, OWRITE|OTRUNC)) < 0)
 		return;
-	fprint(fd, "refresh");
+	write(fd, buf, p-buf);
 	close(fd);
-}
 
-/* tell all servers to refresh their information */
-void
-tweakservers(void)
-{
-	tweakserver("dns");
-	tweakserver("cs");
+	snprint(file, sizeof file, "%s/cs", conf.mpoint);
+	if((fd = open(file, OWRITE)) >= 0){
+		write(fd, "refresh", 7);
+		close(fd);
+	}
+	snprint(file, sizeof file, "%s/dns", conf.mpoint);
+	if((fd = open(file, OWRITE)) >= 0){
+		write(fd, "refresh", 7);
+		close(fd);
+	}
 }
 
 /* return number of networks */
