@@ -424,21 +424,7 @@ static Chan*
 tlsopen(Chan *c, int omode)
 {
 	TlsRec *tr, **pp;
-	int t, perm;
-
-	perm = 0;
-	omode &= 3;
-	switch(omode) {
-	case OREAD:
-		perm = 4;
-		break;
-	case OWRITE:
-		perm = 2;
-		break;
-	case ORDWR:
-		perm = 6;
-		break;
-	}
+	int t;
 
 	t = TYPE(c->qid);
 	switch(t) {
@@ -471,10 +457,7 @@ tlsopen(Chan *c, int omode)
 		tr = *pp;
 		if(tr == nil)
 			error("must open connection using clone");
-		if((perm & (tr->perm>>6)) != perm
-		&& (strcmp(up->user, tr->user) != 0
-		    || (perm & tr->perm) != perm))
-			error(Eperm);
+		devpermcheck(tr->user, tr->perm, omode);
 		if(t == Qhand){
 			if(waserror()){
 				unlock(&tr->hqlock);

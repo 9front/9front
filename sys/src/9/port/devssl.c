@@ -263,22 +263,7 @@ static Chan*
 sslopen(Chan *c, int omode)
 {
 	Dstate *s, **pp;
-	int perm;
 	int ft;
-
-	perm = 0;
-	omode &= 3;
-	switch(omode) {
-	case OREAD:
-		perm = 4;
-		break;
-	case OWRITE:
-		perm = 2;
-		break;
-	case ORDWR:
-		perm = 6;
-		break;
-	}
 
 	ft = TYPE(c->qid);
 	switch(ft) {
@@ -309,11 +294,7 @@ sslopen(Chan *c, int omode)
 		if(s == 0)
 			dsnew(c, pp);
 		else {
-			if((perm & (s->perm>>6)) != perm
-			   && (strcmp(up->user, s->user) != 0
-			     || (perm & s->perm) != perm))
-				error(Eperm);
-
+			devpermcheck(s->user, s->perm, omode);
 			s->ref++;
 		}
 		unlock(&dslock);
