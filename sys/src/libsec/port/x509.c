@@ -1882,7 +1882,7 @@ decode_cert(Bytes* a)
  	esubj = &el->hd;
  	el = el->tl;
  	epubkey = &el->hd;
- 	if(!is_int(eserial, &c->serial)) {
+	if(!is_int(eserial, &c->serial)) {
 		if(!is_bigint(eserial, &b))
 			goto errret;
 		c->serial = -1;	/* else we have to change cert struct */
@@ -2672,6 +2672,102 @@ asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar
 	return -1;
 }
 
+static Elem
+mkaltname(char *s)
+{
+	Elem e;
+	int i;
+
+	for(i=0; i<nelem(DN_oid); i++){
+		if(strstr(s, DN_oid[i].prefix) != nil){
+			e = mkseq(mkel(mkDN(s),nil));
+			e.tag.class = Context;
+			e.tag.num = 4;	/* DN */
+			return e;
+		}
+	}
+	e = mkstring(s, IA5String);
+	e.tag.class = Context;
+	e.tag.num = strchr(s, '@') != nil ? 1 : 2;	/* email : DNS */
+	return e;
+}
+
+static Elist*
+mkaltnames(char *alts)
+{
+	Elist *el;
+	char *s, *p;
+
+	if(alts == nil)
+		return nil;
+
+	el = nil;
+	alts = estrdup(alts);
+	for(s = alts; s != nil; s = p){
+		while(*s == ' ')
+			s++;
+		if(*s == '\0')
+			break;
+		if((p = strchr(s, ',')) != nil)
+			*p++ = 0;
+		el = mkel(mkaltname(s), el);
+	}
+	free(alts);
+	return el;
+}
+
+static Elist*
+mkextel(Elem e, Ints *oid, Elist *el)
+{
+	Bytes *b = nil;
+
+	if(encode(e, &b) == ASN_OK){
+		el = mkel(mkseq(
+			mkel(mkoid(oid),
+			mkel(mkoctet(b->data, b->len),
+			nil))), el);
+		freebytes(b);
+	}
+	freevalfields(&e.val);
+	return el;
+}
+
+static Ints15 oid_subjectAltName = {4, 2, 5, 29, 17 };
+
+static Elist*
+mkextensions(char *alts)
+{
+	Elist *sl, *xl;
+	Elem e;
+
+	xl = nil;
+	if((sl = mkaltnames(alts)) != nil)
+		xl = mkextel(mkseq(sl), (Ints*)&oid_subjectAltName, xl);
+	if(xl != nil){
+		e = mkseq(mkel(mkseq(xl), nil));
+		e.tag.class = Context;
+		e.tag.num = 3;	/* Extensions */
+		return mkel(e, nil);
+	}
+	return nil;
+}
+
+static char*
+splitalts(char *s)
+{
+	int q;
+
+	for(q = 0; *s != '\0'; s++){
+		if(*s == '\'')
+			q ^= 1;
+		else if(q == 0 && *s == ','){
+			*s++ = 0;
+			return s;
+		}
+	}
+	return nil;
+}
+
 uchar*
 X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 {
@@ -2684,11 +2780,16 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	uchar digest[MAXdlen], *buf;
 	int buflen;
 	mpint *pkcs1;
+	char *alts;
+
+	subj = estrdup(subj);
+	alts = splitalts(subj);
 
 	e = mkseq(mkel(mkbigint(pk->n),mkel(mkint(mptoi(pk->ek)),nil)));
 	if(encode(e, &pkbytes) != ASN_OK)
 		goto errret;
 	freevalfields(&e.val);
+
 	e = mkseq(
 		mkel(mkint(serial),
 		mkel(mkalg(sigalg),
@@ -2702,7 +2803,7 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 			mkel(mkalg(ALG_rsaEncryption),
 			mkel(mkbits(pkbytes->data, pkbytes->len),
 			nil))),
-		nil)))))));
+		mkextensions(alts))))))));
 	freebytes(pkbytes);
 	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
@@ -2737,6 +2838,7 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	freebytes(certbytes);
 errret:
 	freevalfields(&e.val);
+	free(subj);
 	return cert;
 }
 
@@ -2753,6 +2855,10 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 	uchar digest[MAXdlen], *buf;
 	int buflen;
 	mpint *pkcs1;
+	char *alts;
+
+	subj = estrdup(subj);
+	alts = splitalts(subj);
 
 	e = mkseq(mkel(mkbigint(pk->n),mkel(mkint(mptoi(pk->ek)),nil)));
 	if(encode(e, &pkbytes) != ASN_OK)
@@ -2765,7 +2871,7 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 			mkel(mkalg(ALG_rsaEncryption),
 			mkel(mkbits(pkbytes->data, pkbytes->len),
 			nil))),
-		nil))));
+		mkextensions(alts)))));
 	freebytes(pkbytes);
 	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
@@ -2799,14 +2905,19 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 	freebytes(certbytes);
 errret:
 	freevalfields(&e.val);
+	free(subj);
 	return cert;
 }
 
 static char*
 tagdump(Tag tag)
 {
-	if(tag.class != Universal)
-		return smprint("class%d,num%d", tag.class, tag.num);
+	static char buf[32];
+
+	if(tag.class != Universal){
+		snprint(buf, sizeof(buf), "class%d,num%d", tag.class, tag.num);
+		return buf;
+	}
 	switch(tag.num){
 	case BOOLEAN: return "BOOLEAN";
 	case INTEGER: return "INTEGER";
@@ -2835,7 +2946,8 @@ tagdump(Tag tag)
 	case UniversalString: return "UniversalString";
 	case BMPString: return "BMPString";
 	default:
-		return smprint("Universal,num%d", tag.num);
+		snprint(buf, sizeof(buf), "Universal,num%d", tag.num);
+		return buf;
 	}
 }
 
@@ -2855,7 +2967,7 @@ edump(Elem e)
 	case VBigInt: print("BigInt[%d] %.2x%.2x...",v.u.bigintval->len,v.u.bigintval->data[0],v.u.bigintval->data[1]); break;
 	case VReal: print("Real..."); break;
 	case VOther: print("Other..."); break;
-	case VBitString: print("BitString..."); break;
+	case VBitString: print("BitString[%d]...", v.u.bitstringval->len*8 - v.u.bitstringval->unusedbits); break;
 	case VNull: print("Null"); break;
 	case VEOC: print("EOC..."); break;
 	case VObjId: print("ObjId");
@@ -2919,7 +3031,6 @@ X509dump(uchar *cert, int ncert)
 	print("issuer %s\n", c->issuer);
 	print("validity %s %s\n", c->validity_start, c->validity_end);
 	print("subject %s\n", c->subject);
-
 	print("sigalg=%d digest=%.*H\n", c->signature_alg, digestlen, digest);
 	print("publickey_alg=%d pubkey[%d] %.*H\n", c->publickey_alg, c->publickey->len,
 		c->publickey->len, c->publickey->data);

@@ -213,6 +213,10 @@ This info is typically in the form:
 C=US ST=NJ L=07974 O=Lucent OU='Bell Labs' CN=G.R.Emlin
 .EE
 .LP
+One can append further Distinguished Names, DNS Names and
+E-Mail addresses as a ``Subject Alternative Name'' separated
+with a comma after the main subject.
+.LP
 The X.509 ASN.1/DER format is often encoded in text using a PEM section
 labeled as a
 .RB `` CERTIFICATE .''
