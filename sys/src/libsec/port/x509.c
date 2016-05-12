@@ -2673,22 +2673,27 @@ asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar
 }
 
 static Elem
+mkcont(Elem e, int num)
+{
+	e = mkseq(mkel(e, nil));
+	e.tag.class = Context;
+	e.tag.num = num;
+	return e;
+}
+
+static Elem
 mkaltname(char *s)
 {
 	Elem e;
 	int i;
 
 	for(i=0; i<nelem(DN_oid); i++){
-		if(strstr(s, DN_oid[i].prefix) != nil){
-			e = mkseq(mkel(mkDN(s),nil));
-			e.tag.class = Context;
-			e.tag.num = 4;	/* DN */
-			return e;
-		}
+		if(strstr(s, DN_oid[i].prefix) != nil)
+			return mkcont(mkDN(s), 4); /* DN */
 	}
 	e = mkstring(s, IA5String);
 	e.tag.class = Context;
-	e.tag.num = strchr(s, '@') != nil ? 1 : 2;	/* email : DNS */
+	e.tag.num = strchr(s, '@') != nil ? 1 : 2; /* email : DNS */
 	return e;
 }
 
@@ -2738,17 +2743,12 @@ static Elist*
 mkextensions(char *alts)
 {
 	Elist *sl, *xl;
-	Elem e;
 
 	xl = nil;
 	if((sl = mkaltnames(alts)) != nil)
 		xl = mkextel(mkseq(sl), (Ints*)&oid_subjectAltName, xl);
-	if(xl != nil){
-		e = mkseq(mkel(mkseq(xl), nil));
-		e.tag.class = Context;
-		e.tag.num = 3;	/* Extensions */
-		return mkel(e, nil);
-	}
+	if(xl != nil)
+		return mkel(mkcont(mkseq(xl), 3), nil);
 	return nil;
 }
 
@@ -2791,6 +2791,7 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	freevalfields(&e.val);
 
 	e = mkseq(
+		mkel(mkcont(mkint(2), 0),
 		mkel(mkint(serial),
 		mkel(mkalg(sigalg),
 		mkel(mkDN(subj),
@@ -2803,7 +2804,7 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 			mkel(mkalg(ALG_rsaEncryption),
 			mkel(mkbits(pkbytes->data, pkbytes->len),
 			nil))),
-		mkextensions(alts))))))));
+		mkextensions(alts)))))))));
 	freebytes(pkbytes);
 	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
