@@ -172,7 +172,6 @@ struct Window
 	char			*dir;
 };
 
-int		winborder(Window*, Point);
 void		winctl(void*);
 void		winshell(void*);
 Window*	wlookid(int);
