@@ -1847,9 +1847,14 @@ hard:
 char*
 hdrval(char *p)
 {
+	char *e;
+
 	p = strchr(p, ':') + 1;
 	while(*p == ' ' || *p == '\t')
 		p++;
+	e = strchr(p, 0) - 1;
+	while(e >= p && (*e == ' ' || *e == '\t'))
+		*e-- = 0;
 	return p;
 }
 
