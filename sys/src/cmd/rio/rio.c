@@ -356,10 +356,50 @@ keyboardthread(void*)
 }
 
 int
+inborder(Rectangle r, Point xy)
+{
+	return ptinrect(xy, r) && !ptinrect(xy, insetrect(r, Selborder));
+}
+
+Rectangle
+whichrect(Rectangle r, Point p, int which)
+{
+	switch(which){
+	case 0:	/* top left */
+		r = Rect(p.x, p.y, r.max.x, r.max.y);
+		break;
+	case 2:	/* top right */
+		r = Rect(r.min.x, p.y, p.x+1, r.max.y);
+		break;
+	case 6:	/* bottom left */
+		r = Rect(p.x, r.min.y, r.max.x, p.y+1);
+		break;
+	case 8:	/* bottom right */
+		r = Rect(r.min.x, r.min.y, p.x+1, p.y+1);
+		break;
+	case 1:	/* top edge */
+		r = Rect(r.min.x, p.y, r.max.x, r.max.y);
+		break;
+	case 5:	/* right edge */
+		r = Rect(r.min.x, r.min.y, p.x+1, r.max.y);
+		break;
+	case 7:	/* bottom edge */
+		r = Rect(r.min.x, r.min.y, r.max.x, p.y+1);
+		break;
+	case 3:		/* left edge */
+		r = Rect(p.x, r.min.y, r.max.x, r.max.y);
+		break;
+	}
+	return canonrect(r);
+}
+
+int
 portion(int x, int lo, int hi)
 {
 	x -= lo;
 	hi -= lo;
+	if(hi < 20)
+		return x > 0 ? 2 : 0;
 	if(x < 20)
 		return 0;
 	if(x > hi-20)
@@ -368,22 +408,13 @@ portion(int x, int lo, int hi)
 }
 
 int
-whichcorner(Window *w, Point p)
+whichcorner(Rectangle r, Point p)
 {
 	int i, j;
 	
-	i = portion(p.x, w->screenr.min.x, w->screenr.max.x);
-	j = portion(p.y, w->screenr.min.y, w->screenr.max.y);
+	i = portion(p.x, r.min.x, r.max.x);
+	j = portion(p.y, r.min.y, r.max.y);
 	return 3*j+i;
-}
-
-void
-cornercursor(Window *w, Point p, int force)
-{
-	if(w!=nil && winborder(w, p))
-		riosetcursor(corners[whichcorner(w, p)], force);
-	else
-		wsetcursor(w, force);
 }
 
 /* thread to allow fsysproc to synchronize window closing with main proc */
@@ -449,7 +480,7 @@ keyboardhide(void)
 void
 mousethread(void*)
 {
-	int sending, inside, scrolling, moving, band;
+	int sending, inside, scrolling, moving;
 	Window *w, *winput;
 	Image *i;
 	Point xy;
@@ -464,7 +495,6 @@ mousethread(void*)
 	threadsetname("mousethread");
 	sending = FALSE;
 	scrolling = FALSE;
-	moving = FALSE;
 
 	alts[MReshape].c = mousectl->resizec;
 	alts[MReshape].v = nil;
@@ -485,6 +515,7 @@ mousethread(void*)
 				break;
 			}
 		Again:
+			moving = FALSE;
 			winput = input;
 			/* override everything for the keyboard window */
 			if(wkeyboard!=nil && ptinrect(mouse->xy, wkeyboard->screenr)){
@@ -509,50 +540,40 @@ mousethread(void*)
 				else
 					scrolling = mouse->buttons && ptinrect(xy, winput->scrollr);
 				/* topped will be zero or less if window has been bottomed */
-				if(sending == FALSE && !scrolling && winborder(winput, mouse->xy) && winput->topped>0){
+				if(sending == FALSE && !scrolling && inborder(winput->screenr, mouse->xy) && winput->topped>0)
 					moving = TRUE;
-				}else if(inside && (scrolling || winput->mouseopen || (mouse->buttons&1)))
+				else if(inside && (scrolling || winput->mouseopen || (mouse->buttons&1)))
 					sending = TRUE;
 			}else
 				sending = FALSE;
 			if(sending){
 			Sending:
-				if(mouse->buttons == 0){
-					cornercursor(winput, mouse->xy, 0);
+				wsetcursor(winput, FALSE);
+				if(mouse->buttons == 0)
 					sending = FALSE;
-				}else
-					wsetcursor(winput, 0);
 				tmp = mousectl->Mouse;
 				tmp.xy = xy;
 				send(winput->mc.c, &tmp);
 				continue;
 			}
-			w = wpointto(mouse->xy);
-			/* change cursor if over anyone's border */
-			if(w != nil)
-				cornercursor(w, mouse->xy, 0);
-			else
-				riosetcursor(nil, 0);
 			if(moving && (mouse->buttons&7)){
 				incref(winput);
-				band = mouse->buttons & 3;
-				sweeping = 1;
-				if(band)
+				sweeping = TRUE;
+				if(mouse->buttons & 3)
 					i = bandsize(winput);
 				else
 					i = drag(winput);
-				sweeping = 0;
-				if(i != nil){
+				sweeping = FALSE;
+				if(i != nil)
 					wsendctlmesg(winput, Reshaped, i->r, i);
-					cornercursor(winput, mouse->xy, 1);
-				}
-				if(wclose(winput) == 0)
-					w = winput;
-				else {
-					riosetcursor(nil, 0);
-					w = winput = nil;
-				}
+				wclose(winput);
+				continue;
 			}
+			w = wpointto(mouse->xy);
+			if(w!=nil && inborder(w->screenr, mouse->xy))
+				riosetcursor(corners[whichcorner(w->screenr, mouse->xy)]);
+			else
+				wsetcursor(w, FALSE);
 			/* we're not sending the event, but if button is down maybe we should */
 			if(mouse->buttons){
 				/* w->topped will be zero or less if window has been bottomed */
@@ -570,19 +591,17 @@ mousethread(void*)
 				}else{
 					/* if button 1 event in the window, top the window and wait for button up. */
 					/* otherwise, top the window and pass the event on */
-					if(wtop(mouse->xy) && (mouse->buttons!=1 || winborder(w, mouse->xy)))
+					if(wtop(mouse->xy) && (mouse->buttons!=1 || inborder(w->screenr, mouse->xy)))
 						goto Again;
 					goto Drain;
 				}
 			}
-			moving = FALSE;
 			break;
 
 		Drain:
 			do
 				readmouse(mousectl);
 			while(mousectl->buttons);
-			moving = FALSE;
 			goto Again;	/* recalculate mouse position, cursor */
 		}
 }
@@ -726,7 +745,7 @@ button3menu(void)
 		free(menu3str[i]);
 		menu3str[i] = nil;
 	}
-	sweeping = 1;
+	sweeping = TRUE;
 	switch(i = menuhit(3, mousectl, &menu3, wscreen)){
 	case -1:
 		break;
@@ -755,7 +774,7 @@ button3menu(void)
 		unhide(i);
 		break;
 	}
-	sweeping = 0;
+	sweeping = FALSE;
 }
 
 void
@@ -836,7 +855,7 @@ sweep(void)
 
 	i = nil;
 	menuing = TRUE;
-	riosetcursor(&crosscursor, 1);
+	riosetcursor(&crosscursor);
 	while(mouse->buttons == 0)
 		readmouse(mousectl);
 	p0 = onscreen(mouse->xy);
@@ -848,6 +867,7 @@ sweep(void)
 		if(!eqpt(mouse->xy, p)){
 			p = onscreen(mouse->xy);
 			r = canonrect(Rpt(p0, p));
+			r = whichrect(r, p, whichcorner(r, p));
 			if(Dx(r)>5 && Dy(r)>5){
 				i = allocwindow(wscreen, r, Refnone, DNofill);
 				freeimage(oi);
@@ -869,18 +889,18 @@ sweep(void)
 	freeimage(oi);
 	if(i == nil)
 		goto Rescue;
-	cornercursor(input, mouse->xy, 1);
+	riosetcursor(corners[whichcorner(i->r, mouse->xy)]);
 	goto Return;
 
  Rescue:
+	riosetcursor(nil);
 	freeimage(i);
 	i = nil;
-	cornercursor(input, mouse->xy, 1);
+	flushimage(display, 1);
 	while(mouse->buttons)
 		readmouse(mousectl);
 
  Return:
-	moveto(mousectl, mouse->xy);	/* force cursor update; ugly */
 	menuing = FALSE;
 	return i;
 }
@@ -925,11 +945,11 @@ drag(Window *w)
 	Rectangle r;
 
 	menuing = TRUE;
+	riosetcursor(&boxcursor);
 	om = mouse->xy;
-	riosetcursor(&boxcursor, 1);
-	dm = subpt(mouse->xy, w->screenr.min);
+	dm = subpt(om, w->screenr.min);
 	d = subpt(w->screenr.max, w->screenr.min);
-	op = subpt(mouse->xy, dm);
+	op = subpt(om, dm);
 	drawborder(Rect(op.x, op.y, op.x+d.x, op.y+d.y), 1);
 	while(mouse->buttons==4){
 		p = subpt(mouse->xy, dm);
@@ -941,79 +961,16 @@ drag(Window *w)
 	}
 	r = Rect(op.x, op.y, op.x+d.x, op.y+d.y);
 	drawborder(r, 0);
-	cornercursor(w, mouse->xy, 1);
-	moveto(mousectl, mouse->xy);	/* force cursor update; ugly */
+	p = mouse->xy;
+	riosetcursor(inborder(r, p) ? corners[whichcorner(r, p)] : nil);
 	menuing = FALSE;
-	if(mouse->buttons!=0 || !goodrect(r)){
+	if(mouse->buttons!=0 || !goodrect(r) || eqrect(r, screen->r)){
+		flushimage(display, 1);
 		while(mouse->buttons)
 			readmouse(mousectl);
 		return nil;
 	}
 	return allocwindow(wscreen, r, Refbackup, DNofill);
-}
-
-Point
-cornerpt(Rectangle r, Point p, int which)
-{
-	switch(which){
-	case 0:	/* top left */
-		p = Pt(r.min.x, r.min.y);
-		break;
-	case 2:	/* top right */
-		p = Pt(r.max.x,r.min.y);
-		break;
-	case 6:	/* bottom left */
-		p = Pt(r.min.x, r.max.y);
-		break;
-	case 8:	/* bottom right */
-		p = Pt(r.max.x, r.max.y);
-		break;
-	case 1:	/* top edge */
-		p = Pt(p.x,r.min.y);
-		break;
-	case 5:	/* right edge */
-		p = Pt(r.max.x, p.y);
-		break;
-	case 7:	/* bottom edge */
-		p = Pt(p.x, r.max.y);
-		break;
-	case 3:		/* left edge */
-		p = Pt(r.min.x, p.y);
-		break;
-	}
-	return p;
-}
-
-Rectangle
-whichrect(Rectangle r, Point p, int which)
-{
-	switch(which){
-	case 0:	/* top left */
-		r = Rect(p.x, p.y, r.max.x, r.max.y);
-		break;
-	case 2:	/* top right */
-		r = Rect(r.min.x, p.y, p.x, r.max.y);
-		break;
-	case 6:	/* bottom left */
-		r = Rect(p.x, r.min.y, r.max.x, p.y);
-		break;
-	case 8:	/* bottom right */
-		r = Rect(r.min.x, r.min.y, p.x, p.y);
-		break;
-	case 1:	/* top edge */
-		r = Rect(r.min.x, p.y, r.max.x, r.max.y);
-		break;
-	case 5:	/* right edge */
-		r = Rect(r.min.x, r.min.y, p.x, r.max.y);
-		break;
-	case 7:	/* bottom edge */
-		r = Rect(r.min.x, r.min.y, r.max.x, p.y);
-		break;
-	case 3:		/* left edge */
-		r = Rect(p.x, r.min.y, r.max.x, r.max.y);
-		break;
-	}
-	return canonrect(r);
 }
 
 Image*
@@ -1025,10 +982,8 @@ bandsize(Window *w)
 
 	p = mouse->xy;
 	but = mouse->buttons;
-	which = whichcorner(w, p);
-	p = cornerpt(w->screenr, p, which);
-	wmovemouse(w, p);
-	readmouse(mousectl);
+	which = whichcorner(w->screenr, p);
+	riosetcursor(corners[which]);
 	r = whichrect(w->screenr, p, which);
 	drawborder(r, 1);
 	or = r;
@@ -1045,14 +1000,13 @@ bandsize(Window *w)
 	}
 	p = mouse->xy;
 	drawborder(or, 0);
-	wsetcursor(w, 1);
-	if(mouse->buttons!=0 || !goodrect(or)){
+	if(mouse->buttons!=0 || !goodrect(or) || eqrect(or, w->screenr)
+	|| abs(p.x-startp.x)+abs(p.y-startp.y) <= 1){
+		flushimage(display, 1);
 		while(mouse->buttons)
 			readmouse(mousectl);
 		return nil;
 	}
-	if(abs(p.x-startp.x)+abs(p.y-startp.y) <= 1)
-		return nil;
 	return allocwindow(wscreen, or, Refbackup, DNofill);
 }
 
@@ -1062,7 +1016,7 @@ pointto(int wait)
 	Window *w;
 
 	menuing = TRUE;
-	riosetcursor(&sightcursor, 1);
+	riosetcursor(&sightcursor);
 	while(mouse->buttons == 0)
 		readmouse(mousectl);
 	if(mouse->buttons == 4)
@@ -1072,7 +1026,7 @@ pointto(int wait)
 	if(wait){
 		while(mouse->buttons){
 			if(mouse->buttons!=4 && w !=nil){	/* cancel */
-				cornercursor(input, mouse->xy, 0);
+				riosetcursor(nil);
 				w = nil;
 			}
 			readmouse(mousectl);
@@ -1080,8 +1034,7 @@ pointto(int wait)
 		if(w != nil && wpointto(mouse->xy) != w)
 			w = nil;
 	}
-	cornercursor(input, mouse->xy, 0);
-	moveto(mousectl, mouse->xy);	/* force cursor update; ugly */
+	riosetcursor(nil);
 	menuing = FALSE;
 	return w;
 }
@@ -1125,7 +1078,6 @@ move(void)
 	i = drag(w);
 	if(i)
 		wsendctlmesg(w, Reshaped, i->r, i);
-	cornercursor(w, mouse->xy, 1);
 	wclose(w);
 }
 
