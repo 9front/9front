@@ -687,7 +687,7 @@ wkeyctl(Window *w, Rune r)
 			--w->holding;
 		else
 			w->holding++;
-		wsetcursor(w, FALSE);
+		wsetcursor(w, 0);
 		wrepaint(w);
 		if(r == Kesc)
 			return;
@@ -871,9 +871,9 @@ wplumb(Window *w)
 	m->data = runetobyte(w->r+p0, p1-p0, &m->ndata);
 	if(plumbsend(fd, m) < 0){
 		c = lastcursor;
-		riosetcursor(&query);
+		riosetcursor(&query, 1);
 		sleep(300);
-		riosetcursor(c);
+		riosetcursor(c, 1);
 	}
 	plumbfree(m);
 }
@@ -901,6 +901,12 @@ wlook(Window *w)
 
 	wsetselect(w, i, i+n);
 	wshow(w, i);
+}
+
+int
+winborder(Window *w, Point xy)
+{
+	return ptinrect(xy, w->screenr) && !ptinrect(xy, insetrect(w->screenr, Selborder));
 }
 
 void
@@ -1193,7 +1199,7 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		if(w->i==nil)
 			break;
 		if(w==input)
-			wsetcursor(w, FALSE);
+			wsetcursor(w, 0);
 		wrepaint(w);
 		flushimage(display, 1);
 		break;
@@ -1293,8 +1299,6 @@ wsetcursor(Window *w, int force)
 {
 	Cursor *p;
 
-	if(menuing || sweeping)
-		return;
 	if(w==nil || w->i==nil || Dx(w->screenr)<=0)
 		p = nil;
 	else if(wpointto(mouse->xy) == w){
@@ -1303,19 +1307,19 @@ wsetcursor(Window *w, int force)
 			p = &whitearrow;
 	}else
 		p = nil;
-	if(force)	/* force cursor reload */
-		lastcursor = nil;
-	riosetcursor(p);
+	if(!menuing)
+		riosetcursor(p, force && !menuing);
 }
 
 void
-riosetcursor(Cursor *p)
+riosetcursor(Cursor *p, int force)
 {
-	if(p==lastcursor)
+	if(!force && p==lastcursor)
 		return;
 	setcursor(mousectl, p);
 	lastcursor = p;
 }
+
 
 void
 wtopme(Window *w)
@@ -1373,7 +1377,7 @@ wclunk(Window *w)
 	w->deleted = TRUE;
 	if(w == input){
 		input = nil;
-		wsetcursor(w, FALSE);
+		wsetcursor(w, 0);
 	}
 	if(w == wkeyboard)
 		wkeyboard = nil;

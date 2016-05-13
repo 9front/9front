@@ -478,7 +478,7 @@ xfidwrite(Xfid *x)
 			memmove(w->cursor.clr, x->data+2*4, 2*2*16);
 			w->cursorp = &w->cursor;
 		}
-		wsetcursor(w, !sweeping && !menuing);
+		wsetcursor(w, !sweeping);
 		break;
 
 	case Qlabel:
