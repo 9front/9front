@@ -964,7 +964,7 @@ drag(Window *w)
 	p = mouse->xy;
 	riosetcursor(inborder(r, p) ? corners[whichcorner(r, p)] : nil);
 	menuing = FALSE;
-	if(mouse->buttons!=0 || !goodrect(r) || eqrect(r, screen->r)){
+	if(mouse->buttons!=0 || !goodrect(r) || eqrect(r, w->screenr)){
 		flushimage(display, 1);
 		while(mouse->buttons)
 			readmouse(mousectl);

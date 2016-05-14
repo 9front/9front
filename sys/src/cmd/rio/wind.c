@@ -1099,7 +1099,7 @@ wsendctlmesg(Window *w, int type, Rectangle r, void *p)
 int
 wctlmesg(Window *w, int m, Rectangle r, void *p)
 {
-	char buf[64];
+	char *oldname;
 	Image *i = p;
 
 	switch(m){
@@ -1115,10 +1115,10 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 			freeimage(i);
 			break;
 		}
+		oldname = estrdup(w->name);
 		w->screenr = r;
-		strcpy(buf, w->name);
 		wresize(w, i);
-		proccreate(deletetimeoutproc, estrdup(buf), 4096);
+		proccreate(deletetimeoutproc, oldname, 4096);
 		if(Dx(r)<=0){	/* window got hidden, if we had the input, drop it */
 			if(w==input)
 				input = nil;
@@ -1157,8 +1157,10 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 				wsendctlmesg(oi, Repaint, ZR, nil);
 			}
 			wclose(oi);
-		} else
+		} else {
 			input = w;
+			wsetcursor(w, FALSE);
+		}
 		w->wctlready = 1;
 		if(m!=Topped && w==input)
 			break;
@@ -1295,16 +1297,15 @@ wsetcursor(Window *w, int force)
 
 	if(menuing || sweeping)
 		return;
-	if(w==nil || w->i==nil || Dx(w->screenr)<=0)
+	if(w==nil || Dx(w->screenr)<=0 || wpointto(mouse->xy)!=w)
 		p = nil;
-	else if(wpointto(mouse->xy) == w){
+	else {
 		p = w->cursorp;
 		if(p==nil && w->holding)
 			p = &whitearrow;
-	}else
-		p = nil;
-	if(force)	/* force cursor reload */
-		lastcursor = (void*)~0;
+	}
+	if(p && force)	/* force cursor reload */
+		lastcursor = nil;
 	riosetcursor(p);
 }
 
@@ -1373,7 +1374,7 @@ wclunk(Window *w)
 	w->deleted = TRUE;
 	if(w == input){
 		input = nil;
-		wsetcursor(w, FALSE);
+		riosetcursor(nil);
 	}
 	if(w == wkeyboard)
 		wkeyboard = nil;
