@@ -4,8 +4,6 @@
 #include "io.h"
 #include "fns.h"
 
-int havefork = 1;
-
 void
 Xasync(void)
 {

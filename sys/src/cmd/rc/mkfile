@@ -1,7 +1,7 @@
 </$objtype/mkfile
 
 TARG=rc
-COMMONOFILES=\
+OFILES=\
 	code.$O\
 	exec.$O\
 	getflags.$O\
@@ -17,12 +17,8 @@ COMMONOFILES=\
 	tree.$O\
 	var.$O\
 	havefork.$O\
-
-PLAN9OFILES=plan9.$O\
-
-UNIXOFILES=unix.$O\
-
-OFILES=$COMMONOFILES $PLAN9OFILES y.tab.$O
+	plan9.$O\
+	y.tab.$O\
 
 HFILES=rc.h\
 	x.tab.h\
@@ -38,9 +34,7 @@ BIN=/$objtype/bin
 UPDATE=\
 	mkfile\
 	$HFILES\
-	${COMMONOFILES:%.$O=%.c}\
-	${UNIXOFILES:%.$O=%.c}\
-	${PLAN9OFILES:%.$O=%.c}\
+	${OFILES:%.$O=%.c}\
 	$YFILES\
 	${TARG:%=/386/bin/%}\
 
@@ -51,13 +45,3 @@ x.tab.h: y.tab.h
 
 clean:V:
 	rm -f [$OS].out *.[$OS] [xy].tab.? y.debug $TARG
-
-regress: $O.out
-	cd test
-	mk
-
-unregress:V:
-	for(test in test/*.test) rc $test >$test.out
-
-listing:
-	pr mkfile $HFILES $FILES $FILES9 $FILESUNIX $YFILES|lp -du
