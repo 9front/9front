@@ -235,8 +235,8 @@ execshift(void)
 	star = vlook("*");
 	for(;star->val;--n){
 		a = star->val->next;
-		efree(star->val->word);
-		efree(star->val);
+		free(star->val->word);
+		free(star->val);
 		star->val = a;
 		star->changed = 1;
 	}
@@ -295,7 +295,7 @@ execeval(void)
 	cmdline[len] = '\n';
 	poplist();
 	execcmds(opencore(cmdline, len+1));
-	efree(cmdline);
+	free(cmdline);
 }
 union code dotcmds[14];
 
@@ -376,7 +376,7 @@ execdot(void)
 	/* free caller's copy of $* */
 	av = p->argv;
 	p->argv = av->next;
-	efree(av);
+	free(av);
 	/* push $0 value */
 	pushlist();
 	pushword(zero);

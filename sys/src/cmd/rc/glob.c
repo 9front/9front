@@ -36,7 +36,7 @@ globsort(word *left, word *right)
 	for(a = left,n = 0;a!=right;a = a->next,n++) list[n] = a->word;
 	qsort((void *)list, n, sizeof(void *), globcmp);
 	for(a = left,n = 0;a!=right;a = a->next,n++) a->word = list[n];
-	efree((char *)list);
+	free(list);
 }
 
 /*
@@ -112,15 +112,15 @@ globword(word *w)
 	memset(name, 0, w->glob);
 	right = w->next;
 	left = globdir(right, w->word, name, name);
-	efree(name);
+	free(name);
 	if(left == right) {
 		deglob(w->word);
 		w->glob = 0;
 	} else {
-		efree(w->word);
+		free(w->word);
 		globsort(left, right);
 		*w = *left;
-		efree(left);
+		free(left);
 	}
 }
 

@@ -68,8 +68,8 @@ popword(void)
 	if(p==0)
 		panic("popword but no word!", 0);
 	runq->argv->words = p->next;
-	efree(p->word);
-	efree((char *)p);
+	free(p->word);
+	free(p);
 }
 
 void
@@ -78,8 +78,8 @@ freelist(word *w)
 	word *nw;
 	while(w){
 		nw = w->next;
-		efree(w->word);
-		efree((char *)w);
+		free(w->word);
+		free(w);
 		w = nw;
 	}
 }
@@ -101,7 +101,7 @@ poplist(void)
 		panic("poplist but no argv", 0);
 	freelist(p->words);
 	runq->argv = p->next;
-	efree((char *)p);
+	free(p);
 }
 
 int
@@ -433,7 +433,7 @@ Xpopredir(void)
 	runq->redir = rp->next;
 	if(rp->type==ROPEN)
 		close(rp->from);
-	efree((char *)rp);
+	free(rp);
 }
 
 void
@@ -444,7 +444,7 @@ Xreturn(void)
 	while(p->argv) poplist();
 	codefree(p->code);
 	runq = p->ret;
-	efree((char *)p);
+	free(p);
 	if(runq==0)
 		Exit(getstatus());
 }
@@ -541,7 +541,7 @@ Xmatch(void)
 			setstatus("");
 			break;
 		}
-	efree(subject);
+	free(subject);
 	poplist();
 	poplist();
 }
@@ -559,7 +559,7 @@ Xcase(void)
 			break;
 		}
 	}
-	efree(s);
+	free(s);
 	if(ok)
 		runq->pc++;
 	else
@@ -576,8 +576,8 @@ conclist(word *lp, word *rp, word *tail)
 	for(end = &v;;){
 		ln = strlen(lp->word), rn = strlen(rp->word);
 		p = Newword(emalloc(ln+rn+1), (word *)0);
-		Memcpy(p->word, lp->word, ln);
-		Memcpy(p->word+ln, rp->word, rn+1);
+		memmove(p->word, lp->word, ln);
+		memmove(p->word+ln, rp->word, rn+1);
 		if(lp->glob || rp->glob)
 			p->glob = Globsize(p->word);
 		*end = p, end = &p->next;
@@ -811,9 +811,9 @@ Xunlocal(void)
 	runq->local = v->next;
 	hid = vlook(v->name);
 	hid->changed = 1;
-	efree(v->name);
+	free(v->name);
 	freewords(v->val);
-	efree((char *)v);
+	free(v);
 }
 
 void
@@ -821,9 +821,9 @@ freewords(word *w)
 {
 	word *nw;
 	while(w){
-		efree(w->word);
+		free(w->word);
 		nw = w->next;
-		efree((char *)w);
+		free(w);
 		w = nw;
 	}
 }
@@ -911,7 +911,7 @@ Xrdcmds(void)
 	if(yyparse()){
 		if(!p->iflag || p->eof && !Eintr()){
 			if(p->cmdfile)
-				efree(p->cmdfile);
+				free(p->cmdfile);
 			closeio(p->cmdfd);
 			Xreturn();	/* should this be omitted? */
 		}

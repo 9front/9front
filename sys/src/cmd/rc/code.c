@@ -43,7 +43,7 @@ compile(tree *t)
 	emiti(0);			/* reference count */
 	outcode(t, flag['e']?1:0);
 	if(nerror){
-		efree((char *)codebuf);
+		free(codebuf);
 		return 0;
 	}
 	readhere();
@@ -484,12 +484,12 @@ codefree(code *cp)
 		|| p->f==Xsubshell || p->f==Xtrue) p++;
 		else if(p->f==Xdup || p->f==Xpipefd) p+=2;
 		else if(p->f==Xpipe) p+=4;
-		else if(p->f==Xglobs) efree(p[1].s), p+=2;
-		else if(p->f==Xword || p->f==Xdelhere) efree((++p)->s);
+		else if(p->f==Xglobs) free(p[1].s), p+=2;
+		else if(p->f==Xword || p->f==Xdelhere) free((++p)->s);
 		else if(p->f==Xfn){
-			efree(p[2].s);
+			free(p[2].s);
 			p+=2;
 		}
 	}
-	efree((char *)cp);
+	free(cp);
 }

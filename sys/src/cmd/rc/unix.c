@@ -277,8 +277,8 @@ register struct word *args, *path;
 Bad:
 	setstatus(msg);
 	pfmt(err, "%s: %s\n", argv[1], msg);
-	efree(env);
-	efree(argv);
+	free(env);
+	free(argv);
 }
 #define	NDIR	14		/* should get this from param.h */
 Globsize(p)
@@ -463,22 +463,4 @@ execumask(){		/* wrong -- should fork before writing */
 	}
 	setstatus("");
 	poplist();
-}
-Memcpy(a, b, n)
-void *a, *b;
-long n;
-{
-	memmove(a, b, n);
-}
-
-void*
-Malloc(n)
-{
-	return (void *)malloc(n);
-}
-
-void*
-Realloc(void *p, ulong n)
-{
-	return realloc(p, n);
 }

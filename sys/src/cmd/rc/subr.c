@@ -6,7 +6,7 @@
 void *
 emalloc(long n)
 {
-	void *p = Malloc(n);
+	void *p = malloc(n);
 	if(p==0)
 		panic("Can't malloc %d bytes", n);
 	return p;
@@ -15,18 +15,10 @@ emalloc(long n)
 void*
 erealloc(void *p, long n)
 {
-	p = Realloc(p, n);
+	p = realloc(p, n);
 	if(p==0 && n!=0)
 		panic("Can't realloc %d bytes\n", n);
 	return p;
-}
-
-void
-efree(void *p)
-{
-	if(p)
-		free(p);
-	else pfmt(err, "free 0\n");
 }
 
 char*
@@ -37,7 +29,7 @@ estrdup(char *s)
 
 	n = strlen(s)+1;
 	d = emalloc(n);
-	Memcpy(d, s, n);
+	memmove(d, s, n);
 	return d;
 }
 

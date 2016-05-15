@@ -230,7 +230,7 @@ opencore(char *s, int len)
 	f->fd = -1 /*open("/dev/null", 0)*/;
 	f->bufp = f->strp = buf;
 	f->ebuf = buf+len;
-	Memcpy(buf, s, len);
+	memmove(buf, s, len);
 	return f;
 }
 
@@ -251,8 +251,8 @@ closeio(io *io)
 	if(io->fd>=0)
 		close(io->fd);
 	if(io->strp)
-		efree(io->strp);
-	efree(io);
+		free(io->strp);
+	free(io);
 }
 
 int

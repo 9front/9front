@@ -81,7 +81,7 @@ readhere(void)
 		closeio(f);
 		cleanhere(h->name);
 		nexth = h->next;
-		efree((char *)h);
+		free(h);
 	}
 	here = 0;
 	doprompt = 1;

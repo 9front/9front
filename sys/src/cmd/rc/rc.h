@@ -97,12 +97,8 @@ var *gvar[NVAR];				/* hash for globals */
 
 #define	new(type)	((type *)emalloc(sizeof(type)))
 
-void *Malloc(ulong);
-void *Realloc(void *, ulong);
-
 void *emalloc(long);
 void *erealloc(void *, long);
-void efree(void *);
 char *estrdup(char*);
 
 #define	NOFILE	128		/* should come from <param.h> */

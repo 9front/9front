@@ -10,7 +10,6 @@ void	Exit(char*);
 int	ForkExecute(char*, char**, int, int, int);
 int	Globsize(char*);
 int	Isatty(int);
-void	Memcpy(void*, void*, long);
 void	Noerror(void);
 int	Opendir(char*);
 long	Read(int, void*, long);

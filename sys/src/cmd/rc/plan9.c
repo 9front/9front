@@ -144,7 +144,7 @@ Vinit(void)
 					setvar(ent[i].name, val);
 					vlook(ent[i].name)->changed = 0;
 					close(f);
-					efree(buf);
+					free(buf);
 				}
 			}
 		}
@@ -335,7 +335,7 @@ Execute(word *args, word *path)
 	rerrstr(file, sizeof file);
 	setstatus(file);
 	pfmt(err, "%s: %s\n", argv[1], file);
-	efree((char *)argv);
+	free(argv);
 }
 #define	NDIR	256		/* shoud be a better way */
 
@@ -572,24 +572,6 @@ Abort(void)
 	pfmt(err, "aborting\n");
 	flush(err);
 	Exit("aborting");
-}
-
-void
-Memcpy(void *a, void *b, long n)
-{
-	memmove(a, b, n);
-}
-
-void*
-Malloc(ulong n)
-{
-	return malloc(n);
-}
-
-void*
-Realloc(void *p, ulong n)
-{
-	return realloc(p, n);
 }
 
 int *waitpids;
