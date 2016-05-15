@@ -233,7 +233,7 @@ execshift(void)
 		break;
 	}
 	star = vlook("*");
-	for(;star->val;--n){
+	for(;n>0 && star->val;--n){
 		a = star->val->next;
 		free(star->val->word);
 		free(star->val);
