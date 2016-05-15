@@ -50,7 +50,6 @@ struct{
 	Xglobs, "Xglobs",
 	Xrdfn, "Xrdfn",
 	Xsimple, "Xsimple",
-	Xrdfn, "Xrdfn",
 	Xqdol, "Xqdol",
 0};
 
