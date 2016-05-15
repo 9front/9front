@@ -274,8 +274,19 @@ outcode(tree *t, int eflag)
 		emitf(Xunlocal);
 		break;
 	case WORD:
-		emitf(Xword);
-		emits(estrdup(t->str));
+		if(t->quoted){
+			emitf(Xword);
+			emits(estrdup(t->str));
+		} else {
+			if((q = Globsize(t->str)) > 0){
+				emitf(Xglobs);
+				emits(estrdup(t->str));
+				emiti(q);
+			} else {
+				emitf(Xword);
+				emits(deglob(estrdup(t->str)));
+			}
+		}
 		break;
 	case DUP:
 		if(t->rtype==DUPFD){
@@ -473,6 +484,7 @@ codefree(code *cp)
 		|| p->f==Xsubshell || p->f==Xtrue) p++;
 		else if(p->f==Xdup || p->f==Xpipefd) p+=2;
 		else if(p->f==Xpipe) p+=4;
+		else if(p->f==Xglobs) efree(p[1].s), p+=2;
 		else if(p->f==Xword || p->f==Xdelhere) efree((++p)->s);
 		else if(p->f==Xfn){
 			efree(p[2].s);

@@ -277,8 +277,8 @@ register struct word *args, *path;
 Bad:
 	setstatus(msg);
 	pfmt(err, "%s: %s\n", argv[1], msg);
-	efree((char *)env);
-	efree((char *)argv);
+	efree(env);
+	efree(argv);
 }
 #define	NDIR	14		/* should get this from param.h */
 Globsize(p)
@@ -431,6 +431,14 @@ Isatty(fd){
 }
 Abort(){
 	abort();
+}
+static int
+octal(char *s)
+{
+	int n = 0;
+	while(*s==' ' || *s=='\t' || *s=='\n') s++;
+	while('0'<=*s && *s<='7') n = n*8+*s++-'0';
+	return n;
 }
 execumask(){		/* wrong -- should fork before writing */
 	int m;

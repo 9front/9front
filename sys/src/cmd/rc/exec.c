@@ -33,14 +33,18 @@ Newword(char *wd, word *next)
 	word *p = new(word);
 	p->word = wd;
 	p->next = next;
+	p->glob = 0;
 	return p;
 }
-void
+word*
 Pushword(char *wd)
 {
+	word *w;
 	if(runq->argv==0)
 		panic("pushword but no argv!", 0);
-	runq->argv->words = Newword(wd, runq->argv->words);
+	w = Newword(wd, runq->argv->words);
+	runq->argv->words = w;
+	return w;
 }
 
 word*
@@ -48,10 +52,10 @@ newword(char *wd, word *next)
 {
 	return Newword(estrdup(wd), next);
 }
-void
+word*
 pushword(char *wd)
 {
-	Pushword(estrdup(wd));
+	return Pushword(estrdup(wd));
 }
 
 void
@@ -220,6 +224,7 @@ main(int argc, char *argv[])
  * Xfalse{...}				execute {} if false
  * Xfn(name){... Xreturn}			define function
  * Xfor(var, list){... Xreturn}		for loop
+ * Xglobs[string globsize]		push globbing string
  * Xjump[addr]				goto
  * Xlocal(name, val)			create local variable, assign value
  * Xmark				mark stack
@@ -472,6 +477,13 @@ Xword(void)
 }
 
 void
+Xglobs(void)
+{
+	word *w = pushword(runq->code[runq->pc++].s);
+	w->glob = runq->code[runq->pc++].i;
+}
+
+void
 Xwrite(void)
 {
 	char *file;
@@ -566,6 +578,8 @@ conclist(word *lp, word *rp, word *tail)
 		p = Newword(emalloc(ln+rn+1), (word *)0);
 		Memcpy(p->word, lp->word, ln);
 		Memcpy(p->word+ln, rp->word, rn+1);
+		if(lp->glob || rp->glob)
+			p->glob = Globsize(p->word);
 		*end = p, end = &p->next;
 		if(lp->next == 0 && rp->next == 0)
 			break;
@@ -599,6 +613,17 @@ Xconc(void)
 	runq->argv->words = vp;
 }
 
+char*
+Str(word *a)
+{
+	char *s = a->word;
+	if(a->glob){
+		a->glob = 0;
+		deglob(s);
+	}
+	return s;
+}
+
 void
 Xassign(void)
 {
@@ -607,12 +632,10 @@ Xassign(void)
 		Xerror1("variable name not singleton!");
 		return;
 	}
-	deglob(runq->argv->words->word);
-	v = vlook(runq->argv->words->word);
+	v = vlook(Str(runq->argv->words));
 	poplist();
-	globlist();
 	freewords(v->val);
-	v->val = runq->argv->words;
+	v->val = globlist(runq->argv->words);
 	v->changed = 1;
 	runq->argv->words = 0;
 	poplist();
@@ -641,8 +664,7 @@ Xdol(void)
 		Xerror1("variable name not singleton!");
 		return;
 	}
-	s = runq->argv->words->word;
-	deglob(s);
+	s = Str(runq->argv->words);
 	n = 0;
 	for(t = s;'0'<=*t && *t<='9';t++) n = n*10+*t-'0';
 	a = runq->argv->next->words;
@@ -668,8 +690,7 @@ Xqdol(void)
 		Xerror1("variable name not singleton!");
 		return;
 	}
-	s = runq->argv->words->word;
-	deglob(s);
+	s = Str(runq->argv->words);
 	a = vlook(s)->val;
 	poplist();
 	Pushword(list2str(a));
@@ -699,8 +720,7 @@ subwords(word *val, int len, word *sub, word *a)
 	if(!sub)
 		return a;
 	a = subwords(val, len, sub->next, a);
-	s = sub->word;
-	deglob(s);
+	s = Str(sub);
 	m = 0;
 	n = 0;
 	while('0'<=*s && *s<='9')
@@ -732,8 +752,7 @@ Xsub(void)
 		Xerror1("variable name not singleton!");
 		return;
 	}
-	s = runq->argv->next->words->word;
-	deglob(s);
+	s = Str(runq->argv->next->words);
 	a = runq->argv->next->next->words;
 	v = vlook(s)->val;
 	a = subwords(v, count(v), runq->argv->words, a);
@@ -753,8 +772,7 @@ Xcount(void)
 		Xerror1("variable name not singleton!");
 		return;
 	}
-	s = runq->argv->words->word;
-	deglob(s);
+	s = Str(runq->argv->words);
 	n = 0;
 	for(t = s;'0'<=*t && *t<='9';t++) n = n*10+*t-'0';
 	if(n==0 || *t){
@@ -776,11 +794,9 @@ Xlocal(void)
 		Xerror1("variable name must be singleton\n");
 		return;
 	}
-	deglob(runq->argv->words->word);
-	runq->local = newvar(runq->argv->words->word, runq->local);
+	runq->local = newvar(Str(runq->argv->words), runq->local);
 	poplist();
-	globlist();
-	runq->local->val = runq->argv->words;
+	runq->local->val = globlist(runq->argv->words);
 	runq->local->changed = 1;
 	runq->argv->words = 0;
 	poplist();
@@ -819,8 +835,7 @@ Xfn(void)
 	word *a;
 	int end;
 	end = runq->code[runq->pc].i;
-	globlist();
-	for(a = runq->argv->words;a;a = a->next){
+	for(a = globlist(runq->argv->words);a;a = a->next){
 		v = gvlook(a->word);
 		if(v->fn)
 			codefree(v->fn);
@@ -989,5 +1004,5 @@ Xfor(void)
 void
 Xglob(void)
 {
-	globlist();
+	globlist(runq->argv->words);
 }

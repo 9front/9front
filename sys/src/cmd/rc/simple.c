@@ -20,18 +20,17 @@ void
 Xsimple(void)
 {
 	word *a;
-	thread *p = runq;
 	var *v;
 	struct builtin *bp;
 	int pid;
-	globlist();
-	a = runq->argv->words;
+
+	a = globlist(runq->argv->words);
 	if(a==0){
 		Xerror1("empty argument list");
 		return;
 	}
 	if(flag['x'])
-		pfmt(err, "%v\n", p->argv->words); /* wrong, should do redirs */
+		pfmt(err, "%v\n", a); /* wrong, should do redirs */
 	v = gvlook(a->word);
 	if(v->fn)
 		execfunc(v);
@@ -140,9 +139,9 @@ int
 dochdir(char *word)
 {
 	/* report to /dev/wdir if it exists and we're interactive */
-	static int wdirfd = -2;
 	if(chdir(word)<0) return -1;
 	if(flag['i']!=0){
+		static int wdirfd = -2;
 		if(wdirfd==-2)	/* try only once */
 			wdirfd = open("/dev/wdir", OWRITE|OCEXEC);
 		if(wdirfd>=0)
@@ -234,24 +233,15 @@ execshift(void)
 		break;
 	}
 	star = vlook("*");
-	for(;n && star->val;--n){
+	for(;star->val;--n){
 		a = star->val->next;
 		efree(star->val->word);
-		efree((char *)star->val);
+		efree(star->val);
 		star->val = a;
 		star->changed = 1;
 	}
 	setstatus("");
 	poplist();
-}
-
-int
-octal(char *s)
-{
-	int n = 0;
-	while(*s==' ' || *s=='\t' || *s=='\n') s++;
-	while('0'<=*s && *s<='7') n = n*8+*s++-'0';
-	return n;
 }
 
 int
@@ -293,25 +283,18 @@ execcmds(io *f)
 void
 execeval(void)
 {
-	char *cmdline, *s, *t;
-	int len = 0;
-	word *ap;
+	char *cmdline;
+	int len;
 	if(count(runq->argv->words)<=1){
 		Xerror1("Usage: eval cmd ...");
 		return;
 	}
 	eflagok = 1;
-	for(ap = runq->argv->words->next;ap;ap = ap->next)
-		len+=1+strlen(ap->word);
-	cmdline = emalloc(len);
-	s = cmdline;
-	for(ap = runq->argv->words->next;ap;ap = ap->next){
-		for(t = ap->word;*t;) *s++=*t++;
-		*s++=' ';
-	}
-	s[-1]='\n';
+	cmdline = list2str(runq->argv->words->next);
+	len = strlen(cmdline);
+	cmdline[len] = '\n';
 	poplist();
-	execcmds(opencore(cmdline, len));
+	execcmds(opencore(cmdline, len+1));
 	efree(cmdline);
 }
 union code dotcmds[14];
@@ -393,7 +376,7 @@ execdot(void)
 	/* free caller's copy of $* */
 	av = p->argv;
 	p->argv = av->next;
-	efree((char *)av);
+	efree(av);
 	/* push $0 value */
 	pushlist();
 	pushword(zero);

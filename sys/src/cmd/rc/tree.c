@@ -28,7 +28,7 @@ freenodes(void)
 		u = t->next;
 		if(t->str)
 			efree(t->str);
-		efree((char *)t);
+		efree(t);
 	}
 	treenodes = 0;
 }
@@ -144,5 +144,5 @@ freetree(tree *p)
 	freetree(p->child[2]);
 	if(p->str)
 		efree(p->str);
-	efree((char *)p);
+	efree(p);
 }

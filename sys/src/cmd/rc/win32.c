@@ -301,7 +301,7 @@ Execute(word *args, word *path)
 	rerrstr(file, sizeof file);
 	setstatus(file);
 	pfmt(err, "%s: %s\n", argv[1], file);
-	efree((char *)argv);
+	efree(argv);
 }
 #define	NDIR	256		/* shoud be a better way */
 
