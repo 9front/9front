@@ -226,9 +226,9 @@ jpgerror(Header *h, char *fmt, ...)
 	va_start(arg, fmt);
 	vseprint(h->err, h->err+sizeof h->err, fmt, arg);
 	va_end(arg);
-
+	if(h->image != nil)
+		fprint(2, "jpg: partial image: %s\n", h->err);
 	werrstr("%s", h->err);
-	jpgfreeall(h, 1);
 	longjmp(h->errlab, 1);
 }
 
@@ -258,7 +258,7 @@ Breadjpg(Biobuf *b, int colorspace)
 	h->fd = b;
 	errstr(buf, sizeof buf);	/* throw it away */
 	if(setjmp(h->errlab))
-		r = nil;
+		r = h->image;
 	else
 		r = readslave(h, colorspace);
 	jpgfreeall(h, 0);
