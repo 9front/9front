@@ -477,7 +477,7 @@ slave(Fsrpc *f)
 			putsbuf(f);
 			return;
 		case Topen:
-		  	if((f->work.mode&3) == OWRITE || (f->work.mode&OTRUNC)){
+		  	if((f->work.mode&3) == OWRITE || (f->work.mode&(OTRUNC|ORCLOSE))){
 				reply(&f->work, &rhdr, Ereadonly);
 				putsbuf(f);
 				return;
