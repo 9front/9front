@@ -27,6 +27,7 @@ $objtype
 		sleep
 		srv
 		test
+		tlsclient
 		unmount
 		xd
 rc
@@ -34,5 +35,6 @@ rc
 		rcmain
 		net.rc 555 sys sys ../boot/net.rc
 	bin
+		srvtls
 		bootrc 555 sys sys ../boot/bootrc
 tmp

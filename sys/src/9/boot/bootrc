@@ -70,7 +70,7 @@ fn main{
 		if(~ $#nobootprompt 0){
 			echo
 			showlocaldevs
-			ask bootargs ' is (tcp, il, local!device)' $"bootargs
+			ask bootargs ' is (tcp, tls, il, local!device)' $"bootargs
 		}
 		if not bootargs=$nobootprompt
 		nobootprompt=()

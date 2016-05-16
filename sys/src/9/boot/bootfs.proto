@@ -37,6 +37,7 @@ $objtype
 		sleep
 		srv
 		test
+		tlsclient
 		unmount
 		nusb
 			usbd
@@ -52,6 +53,7 @@ rc
 	bin
 		fstype
 		diskparts
+		srvtls
 		nusbrc 555 sys sys ../boot/nusbrc
 		bootrc 555 sys sys ../boot/bootrc
 tmp

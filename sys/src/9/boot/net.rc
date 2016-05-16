@@ -48,6 +48,12 @@ fn connecttcp{
 	fs=$fs(1)
 }
 
+fn connecttls{
+	while(! ~ $#fs 0 && ! srvtls -q tcp!$fs(1)^!17020 boot)
+		fs=$fs(2-);
+	fs=$fs(1)
+}
+
 fn connectil{
 	while(! ~ $#fs 0 && ! srv -q il!$fs(1)^!17008 boot)
 		fs=$fs(2-);
@@ -55,5 +61,7 @@ fn connectil{
 }
 
 mtcp=(confignet connecttcp)
+mtls=(confignet connecttls)
 mil=(confignet connectil)
-mt=(mtcp mil $mt)
+
+mt=(mtcp mtls mil $mt)
