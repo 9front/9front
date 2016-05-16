@@ -273,12 +273,10 @@ addenv(var *v)
 		if((f = Creat(envname))<0)
 			pfmt(err, "rc: can't open %s: %r\n", envname);
 		else{
-			if(v->fn){
-				fd = openfd(f);
+			fd = openfd(f);
+			if(v->fn)
 				pfmt(fd, "fn %q %s\n", v->name, v->fn[v->pc-1].s);
-				closeio(fd);
-			}
-			close(f);
+			closeio(fd);
 		}
 	}
 }
