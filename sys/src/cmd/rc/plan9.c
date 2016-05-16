@@ -152,42 +152,20 @@ Vinit(void)
 	}
 	close(dir);
 }
-int envdir;
 
 void
 Xrdfn(void)
 {
-	int f, len;
-	Dir *e;
-	char envname[Maxenvname];
-	static Dir *ent, *allocent;
-	static int nent;
-
-	for(;;){
-		if(nent == 0){
-			free(allocent);
-			nent = dirread(envdir, &allocent);
-			ent = allocent;
-		}
-		if(nent <= 0)
-			break;
-		while(nent){
-			e = ent++;
-			nent--;
-			len = e->length;
-			if(len && strncmp(e->name, "fn#", 3)==0){
-				snprint(envname, sizeof envname, "/env/%s", e->name);
-				if((f = open(envname, 0))>=0){
-					execcmds(openfd(f));
-					return;
-				}
-			}
-		}
+	if(runq->argv->words == 0)
+		poplist();
+	else {
+		int f = open(runq->argv->words->word, 0);
+		popword();
+		runq->pc--;
+		if(f>=0) execcmds(openfd(f));
 	}
-	close(envdir);
-	Xreturn();
 }
-union code rdfns[4];
+union code rdfns[8];
 
 void
 execfinit(void)
@@ -195,17 +173,15 @@ execfinit(void)
 	static int first = 1;
 	if(first){
 		rdfns[0].i = 1;
-		rdfns[1].f = Xrdfn;
-		rdfns[2].f = Xjump;
-		rdfns[3].i = 1;
+		rdfns[1].f = Xmark;
+		rdfns[2].f = Xglobs;
+		rdfns[4].i = Globsize(rdfns[3].s = "/env/fn#\001*");
+		rdfns[5].f = Xglob;
+		rdfns[6].f = Xrdfn;
+		rdfns[7].f = Xreturn;
 		first = 0;
 	}
-	Xpopm();
-	envdir = open("/env", 0);
-	if(envdir<0){
-		pfmt(err, "rc: can't open /env: %r\n");
-		return;
-	}
+	poplist();
 	start(rdfns, 1, runq->local);
 }
 
