@@ -1,0 +1,45 @@
+#!/bin/rc
+rfork e
+
+fn usage {
+	echo 'usage: srvtls [ -abcCnq ] [ -k keyspec ]  [net!]system[!service] [ srvname [ mtpt ] ]' >[1=2]
+	exit usage
+}
+
+mopt=()
+mtpt=()
+client=(/bin/tlsclient -a)
+
+while(~ $1 -*){
+	switch($1){
+	case -[abcCnq]*; mopt=($mopt $1)
+	case *
+		~ $#* 1 && usage
+		switch($1){
+		case -k; client=($client $1 $2)
+		case *; usage
+		}
+		shift
+	}
+	shift
+}
+
+switch($#*){
+case 1;	srv=/srv/$1
+case 2;	srv=/srv/$2
+case 3;	srv=/srv/$2; mtpt=$3
+case *;	usage
+}
+
+switch($1){
+case *!*!*; host=$1
+case *!*; host=$1!t9fs
+case *; host=net!$1!t9fs
+}
+
+fn post {
+	echo 0 >$srv
+}
+if(test -f $srv || $client $host /bin/rc -c post){
+	~ $#mtpt 0 || mount $mopt $srv $mtpt
+}

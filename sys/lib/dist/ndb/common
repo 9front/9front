@@ -286,7 +286,7 @@ tcp=rexexec port=17009
 tcp=ncpu port=17010
 tcp=cpu port=17013
 tcp=rcpu port=17019
-tcp=glenglenda1 port=17020
+tcp=t9fs port=17020
 tcp=glenglenda2 port=17021
 tcp=glenglenda3 port=17022
 tcp=glenglenda4 port=17023

@@ -1,6 +1,6 @@
 .TH SRV 4 
 .SH NAME
-srv, srvssh, 9fs \- start network file service
+srv, srvtls, srvssh, 9fs \- start network file service
 .SH SYNOPSIS
 .B srv
 [
@@ -8,6 +8,21 @@ srv, srvssh, 9fs \- start network file service
 ] [
 .B -s
 .I seconds
+]
+.RI [ net !] system\c
+.RI [! service ]
+[
+.I srvname
+[
+.I mtpt
+] ]
+.PP
+.B srvtls
+[
+.B -abcCnq
+] [
+.B -k
+.I keyspec
 ]
 .RI [ net !] system\c
 .RI [! service ]
@@ -154,6 +169,18 @@ to make the dump file system available on
 is an
 .IR rc (1)
 script; examine it to see what local conventions apply.
+.PP
+.I Srvtls
+is an
+.IR rc (1)
+command that uses
+.I tlsclient
+(see
+.IR tlssrv (8))
+to establish an mutual authenticated and encrypted connection
+to the
+.I t9fs
+service which by default listens on tcp port 17020.
 .PP
 .I Srvssh
 is an
