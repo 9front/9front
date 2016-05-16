@@ -427,7 +427,7 @@ ibrk(uintptr addr, int seg)
 		ns = up->seg[i];
 		if(ns == nil || ns == s)
 			continue;
-		if(newtop >= ns->base && newtop < ns->top) {
+		if(newtop > ns->base && s->base < ns->top) {
 			qunlock(s);
 			error(Esoverlap);
 		}
@@ -544,8 +544,7 @@ isoverlap(uintptr va, uintptr len)
 		ns = up->seg[i];
 		if(ns == nil)
 			continue;
-		if((newtop > ns->base && newtop <= ns->top) ||
-		   (va >= ns->base && va < ns->top))
+		if(newtop > ns->base && va < ns->top)
 			return ns;
 	}
 	return nil;
