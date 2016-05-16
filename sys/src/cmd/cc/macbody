@@ -27,7 +27,7 @@ nextsym(int c)
 	for(cp = symb;;) {
 		if(c >= Runeself) {
 			for(c1=0;;) {
-				if(cp <= symb+NSYMB-4)
+				if(cp <= symb+NSYMB-UTFmax)
 					cp[c1++] = c;
 				if(fullrune(cp, c1))
 					break;
@@ -35,7 +35,7 @@ nextsym(int c)
 			}
 			cp += c1;
 		}else
-			if(cp <= symb+NSYMB-4)
+			if(cp <= symb+NSYMB-UTFmax)
 				*cp++ = c;
 		c = getc();
 		if(c >= Runeself || isalnum(c) || c == '_')
@@ -44,7 +44,7 @@ nextsym(int c)
 		break;
 	}
 	*cp = 0;
-	if(cp > symb+NSYMB-4)
+	if(cp > symb+NSYMB-UTFmax)
 		yyerror("symbol too large: %s", symb);
 }
 
@@ -402,7 +402,7 @@ macexpand(Sym *s, char *b)
 		unget(c);
 		l = 0;
 		cp = buf;
-		ecp = cp + sizeof(buf)-4;
+		ecp = cp + sizeof(buf)-UTFmax;
 		arg[n++] = cp;
 		for(;;) {
 			if(cp >= ecp)
