@@ -13,7 +13,7 @@ authdial(char *netroot, char *dom)
 
 	if(dom == nil)
 		/* look for one relative to my machine */
-		return dial(netmkaddr("$auth", netroot, "ticket"), 0, 0, 0);
+		return dial(netmkaddr("$auth", nil, "ticket"), nil, nil, nil);
 
 	/* look up an auth server in an authentication domain */
 	p = csgetvalue(netroot, "authdom", dom, "auth", &t);
@@ -39,8 +39,7 @@ authdial(char *netroot, char *dom)
 	rv = -1;
 	for(nt = t; nt != nil; nt = nt->entry) {
 		if(strcmp(nt->attr, "auth") == 0) {
-			p = netmkaddr(nt->val, netroot, "ticket");
-			rv = dial(p, 0, 0, 0);
+			rv = dial(netmkaddr(nt->val, nil, "ticket"), nil, nil, nil);
 			if(rv >= 0)
 				break;
 		}
