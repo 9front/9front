@@ -39,6 +39,23 @@ struct Dir
 
 int readsect(ulong drive, ulong lba, void *buf);
 
+#ifdef FAT
+int
+readsect4(ulong drive, ulong lba, void *buf)
+{
+	int i;
+
+	lba *= Sectsz/512;
+	for(i = 0; i<Sectsz/512; i++){
+		if(readsect(drive, lba++, buf))
+			return -1;
+		buf = (uchar*)buf + 512;
+	}
+	return 0;
+}
+#define readsect readsect4
+#endif
+
 void
 unload(void)
 {
@@ -145,6 +162,7 @@ start(void *sp)
 	/* drive passed in DL */
 	drive = ((ushort*)sp)[5] & 0xFF;
 
+#ifndef FAT
 	/*
 	 * load full bootblock as only the frist 2K get
 	 * loaded from bios. the code is specially arranged
@@ -159,6 +177,7 @@ start(void *sp)
 	}
 	readn(&ex, origin, ex.len);
 	close(&ex);
+#endif
 
 	if(isowalk(f = &ex, drive, "/cfg/plan9.ini")){
 		print("no config\n");

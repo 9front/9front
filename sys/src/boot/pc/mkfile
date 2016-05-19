@@ -2,11 +2,11 @@ objtype=386
 </$objtype/mkfile
 BIN=/386
 
-TARG=9bootiso 9bootpxe 9bootfat mbr pbs
+TARG=9bootiso 9bootpxe 9bootfat 9boothyb mbr pbs
 
 HFILES=mem.h fns.h x16.h
 
-all: 9bootiso 9bootpxe 9bootfat mbr pbs
+all: 9bootiso 9bootpxe 9bootfat 9boothyb mbr pbs
 	
 clean:V:
 	rm -rf $TARG *.$O test.* tmp
@@ -19,6 +19,12 @@ lpxe.$O: l.s
 
 lfat.$O: l.s
 	$AS -DFAT -o $target l.s
+
+lhyb.$O: l.s
+	$AS -DFAT -o $target l.s
+
+hyb.$O: iso.c
+	$CC $CFLAGS -DFAT -o $target iso.c
 
 %.$O:	%.s
 	$AS $stem.s
@@ -50,8 +56,7 @@ install:V:
 $BIN/%:	%
 	cp $stem $BIN/$stem
 
-
-test.iso: 9bootiso
+test.iso: 9bootiso 9boothyb 9bootfat mbr pbs
 	rm -fr tmp $target
 	mkdir tmp
 	mkdir tmp/386
@@ -60,7 +65,20 @@ test.iso: 9bootiso
 	cp /386/9pcf tmp/386
 	cp /sys/lib/dist/cfg/plan9.ini tmp/cfg/plan9.ini
 	echo wait >>tmp/cfg/plan9.ini
-	disk/mk9660 -B 386/9bootiso -p /sys/lib/sysconfig/proto/allproto -s tmp $target
+	disk/mk9660 -B 386/9bootiso -p <{echo +} -s tmp $target
+	@{rfork n
+		bind 9boothyb 9bootfat
+		dd -if /dev/zero -bs 512 -count 4096 >> $target
+		disk/partfs -m /n/partfs $target
+		disk=/n/partfs/sdXX
+		disk/mbr -m mbr $disk/data
+		@{echo a p1 '$-1' '$'
+			echo t p1 FAT16
+			echo A p1
+			echo w
+			echo q} | disk/fdisk -b $disk/data
+		disk/format -b pbs -d -r 1 $disk/dos 9bootfat
+	}
 	rm -fr tmp
 
 test.dsk: 9bootfat mbr pbs test.iso
