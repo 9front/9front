@@ -1,6 +1,6 @@
 .TH 9BOOT 8
 .SH NAME
-9bootfat, 9bootiso, 9bootpxe, bootia32.efi, bootx64.efi, efiboot.fat \- PC bootloader for FAT, ISO and PXE network booting
+9bootfat, 9bootiso, 9boothyb, 9bootpxe, bootia32.efi, bootx64.efi, efiboot.fat \- PC bootloader for FAT, ISO and PXE network booting
 .SH SYNOPSIS
 Started by PC BIOS/EFI or chainloaded by partition bootsector
 .SH DESCRIPTION
@@ -73,6 +73,16 @@ in
 .IR mk9660 (8)).
 Boot parameters are read from
 .BR /cfg/plan9.ini .
+.SH ISO HYBRID BOOTING
+With the
+.I 9boothyb
+loader, a ISO image can be made into a bootable disk by
+creating a MBR and appending a bootable DOS partition containing
+.I 9boothyb
+renamed to
+.IR 9bootfat .
+The loader will read the ISO filesystem as it where stored
+on a CD-ROM drive.
 .SH NETWORK BOOTING
 With a PXE capable BIOS and network card one can download
 .IR 9bootpxe
@@ -141,6 +151,8 @@ loaders.
 .B /386/9bootfat
 .br
 .B /386/9bootiso
+.br
+.B /386/9boothyb
 .br
 .B /386/9bootpxe
 .br
