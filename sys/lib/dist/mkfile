@@ -15,7 +15,18 @@ binds:V:
 	@{rfork n
 	mk binds
 	disk/mk9660 -c9j -B 386/9bootiso -E 386/efiboot.fat -p $proto -s /n/src9 -v 'Plan 9 Front' $target
-	}
+	if(bind -q /n/src9/386/9boothyb /n/src9/386/9bootfat){
+		dd -if /dev/zero -bs 512 -count 4096 >> $target
+		disk/partfs -m /n/partfs $target
+		disk=/n/partfs/sdXX
+		disk/mbr -m /n/src9/386/mbr $disk/data
+		@{echo a p1 '$-1' '$'
+			echo t p1 FAT16
+			echo A p1
+			echo w
+			echo q} | disk/fdisk -b $disk/data
+		disk/format -b /n/src9/386/pbs -d -r 1 $disk/dos /n/src9/386/9bootfat
+	}}
 
 %.zynq.img:
 	@{
