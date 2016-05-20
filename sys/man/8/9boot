@@ -76,12 +76,12 @@ Boot parameters are read from
 .SH ISO HYBRID BOOTING
 With the
 .I 9boothyb
-loader, a ISO image can be made into a bootable disk by
+loader, an ISO image can be made into a bootable disk by
 creating a MBR and appending a bootable DOS partition containing
 .I 9boothyb
 renamed to
 .IR 9bootfat .
-The loader will read the ISO filesystem as it were stored
+The loader will read the ISO filesystem as if it were stored
 on a CD-ROM drive.
 .SH NETWORK BOOTING
 With a PXE capable BIOS and network card one can download
@@ -114,7 +114,7 @@ For local disk media, these files are located in the directory
 .B /efi/boot
 of the 
 .B FAT
-formated boot partition.
+formatted boot partition.
 For 
 .B CD-ROM
 media, the boot partition is provided
