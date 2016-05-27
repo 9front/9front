@@ -1018,18 +1018,10 @@ Cell *awkprintf(Node **a, int)		/* printf */
 		FATAL("printf string %.30s... too long.  can't happen.", buf);
 	if (istemp(x))
 		tfree(x);
-	if (a[1] == nil) {
-		/* fputs(buf, stdout); */
-		if (Bwrite(&stdout, buf, len) < 0)
-			FATAL("write error on stdout");
-		Bflush(&stdout);
-	} else {
-		fp = redirect(ptoi(a[1]), a[2]);
-		/* fputs(buf, fp); */
-		if(Bwrite(fp, buf, len) < 0)
-			FATAL("write error on %s", filename(fp));
-		Bflush(fp);
-	}
+	fp = a[1]? redirect(ptoi(a[1]), a[2]): &stdout;
+	if(Bwrite(fp, buf, len) < 0)
+		FATAL("write error on %s", filename(fp));
+	if(fp != &stdout) Bflush(fp);
 	free(buf);
 	return(True);
 }
