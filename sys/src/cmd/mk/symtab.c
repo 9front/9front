@@ -4,18 +4,6 @@
 #define	HASHMUL	79L	/* this is a good value */
 static Symtab *hash[NHASH];
 
-void
-syminit(void)
-{
-	Symtab **s, *ss;
-
-	for(s = hash; s < &hash[NHASH]; s++){
-		for(ss = *s; ss; ss = ss->next)
-			free((char *)ss);
-		*s = 0;
-	}
-}
-
 Symtab *
 symlook(char *sym, int space, void *install)
 {
