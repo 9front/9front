@@ -144,11 +144,12 @@ enum {
 	Oadd, Osub, Omod, Omul, Odiv, Oshl, Oshr, Oand, Onand, Oor,
 	Onor, Oxor, Onot, Olbit, Orbit, Oinc, Odec,
 	Oland, Olor, Olnot, Oleq, Olgt, Ollt,
-	Oindex, Omutex, Oevent,
+	Oindex, Omatch, Omutex, Oevent,
 	Ocfld, Ocfld0, Ocfld1, Ocfld2, Ocfld4, Ocfld8,
 	Oif, Oelse, Owhile, Obreak, Oret, Ocall, 
 	Ostore, Oderef, Osize, Oref, Ocref, Ocat,
 	Oacq, Orel, Ostall, Osleep, Oload, Ounload,
+	Otoint,
 };
 
 static Op optab[];
@@ -1155,7 +1156,7 @@ evalconst(void)
 	case 0x01:
 		return mki(1);
 	case 0xFF:
-		return mki(-1);
+		return mki(~0ULL);
 	}
 	return nil;
 }
@@ -1442,14 +1443,12 @@ evalcond(void)
 	return nil;
 }
 
-static void*
-evalcmp(void)
+static vlong
+cmp1(void *a, void *b)
 {
-	void *a, *b;
-	int tag, c;
+	vlong c;
+	int tag;
 
-	a = FP->arg[0];
-	b = FP->arg[1];
 	if(a == nil || TAG(a) == 'i'){
 		c = ival(a) - ival(b);
 	} else {
@@ -1457,20 +1456,27 @@ evalcmp(void)
 		if(b == nil || TAG(b) != tag)
 			b = copy(tag, b);
 		if(TAG(b) != tag)
-			return nil;	/* botch */
+			return -1;	/* botch */
 		switch(tag){
 		default:
-			return nil;	/* botch */
+			return -1;	/* botch */
 		case 's':
 			c = strcmp((char*)a, (char*)b);
 			break;
 		case 'b':
-			if((c = SIZE(a) - SIZE(b)) == 0)
+			c = SIZE(a) - SIZE(b);
+			if(c == 0)
 				c = memcmp(a, b, SIZE(a));
 			break;
 		}
 	}
+	return c;
+}
 
+static void*
+evalcmp(void)
+{
+	vlong c = cmp1(FP->arg[0], FP->arg[1]);
 	switch(FP->op - optab){
 	case Oleq:
 		if(c == 0) return mki(1);
@@ -1613,7 +1619,7 @@ evalindex(void)
 	Field *f;
 	void *p;
 	Ref *r;
-	int x;
+	uvlong x;
 
 	x = ival(FP->arg[1]);
 	if(p = deref(FP->arg[0])) switch(TAG(p)){
@@ -1622,7 +1628,7 @@ evalindex(void)
 			break;
 		/* no break */
 	case 'b':
-		if(x < 0 || x >= SIZE(p))
+		if(x >= SIZE(p))
 			break;
 		f = mk('u', sizeof(Field));
 		f->reg = p;
@@ -1631,7 +1637,7 @@ evalindex(void)
 		store(f, FP->arg[2]);
 		return f;
 	case 'p':
-		if(x < 0 || x >= (SIZE(p)/sizeof(void*)))
+		if(x >= (SIZE(p)/sizeof(void*)))
 			break;
 		if(TAG(FP->arg[0]) == 'A' || TAG(FP->arg[0]) == 'L')
 			r = mk(TAG(FP->arg[0]), sizeof(Ref));
@@ -1643,6 +1649,37 @@ evalindex(void)
 		return r;
 	}
 	return nil;
+}
+
+static int
+match1(int op, void *a, void *b)
+{
+	vlong c = cmp1(a, b);
+	switch(op){
+	case 0:	return 1;
+	case 1:	return c == 0;
+	case 2: return c <= 0;
+	case 3: return c < 0;
+	case 4: return c >= 0;
+	case 5: return c > 0;
+	}
+	return 0;
+}
+
+static void*
+evalmatch(void)
+{
+	void **p = FP->arg[0];
+	if(p != nil && TAG(p) == 'p'){
+		uvlong i, n = SIZE(p)/sizeof(void*);
+		int o1 = ival(FP->arg[1]), o2 = ival(FP->arg[3]);
+		for(i=ival(FP->arg[5]); i<n; i++){
+			void *a = deref(p[i]);
+			if(match1(o1, a, FP->arg[2]) && match1(o2, a, FP->arg[4]))
+				return mki(i);
+		}
+	}
+	return mki(~0ULL);
 }
 
 static void*
@@ -1835,6 +1872,24 @@ evalsleep(void)
 	return nil;
 }
 
+static void*
+evalconv(void)
+{
+	void *r;
+
+	r = nil;
+	switch(FP->op - optab){
+	case Otoint:
+		if(FP->arg[0] != nil && TAG(FP->arg[0]) == 's')
+			r = mki(strtoull((char*)FP->arg[0], 0, 0));
+		else
+			r = mki(ival(FP->arg[0]));
+		break;
+	}
+	store(r, FP->arg[1]);
+	return r;
+}
+
 static Op optab[] = {
 	[Obad]		"",			"",		evalbad,
 	[Onop]		"Noop",			"",		evalnop,
@@ -1914,6 +1969,7 @@ static Op optab[] = {
 
 	[Ostore]	"Store",		"*@",		evalstore,
 	[Oindex]	"Index",		"@i@",		evalindex,
+	[Omatch]	"Match",		"*1*1*i",	evalmatch,
 	[Osize]		"SizeOf",		"*",		evalsize,
 	[Oref]		"RefOf",		"@",		evaliarg0,
 	[Ocref]		"CondRefOf",		"@@",		evalcondref,
@@ -1926,6 +1982,8 @@ static Op optab[] = {
 	[Osleep]	"Sleep",		"i",		evalsleep,
 	[Oload] 	"Load", 		"*@}", 		evalload,
 	[Ounload]	"Unload",		"@",		evalnop,
+
+	[Otoint]	"ToInteger",		"*@",		evalconv,
 };
 
 static uchar octab1[] = {
@@ -1946,9 +2004,9 @@ static uchar octab1[] = {
 /* 70 */	Ostore,	Oref,	Oadd,	Ocat,	Osub,	Oinc,	Odec,	Omul,
 /* 78 */	Odiv,	Oshl,	Oshr,	Oand,	Onand,	Oor,	Onor,	Oxor,
 /* 80 */	Onot,	Olbit,	Orbit,	Oderef,	Obad,	Omod,	Obad,	Osize,
-/* 88 */	Oindex,	Obad,	Ocfld4,	Ocfld2,	Ocfld1,	Ocfld0,	Obad,	Ocfld8,
+/* 88 */	Oindex,	Omatch,	Ocfld4,	Ocfld2,	Ocfld1,	Ocfld0,	Obad,	Ocfld8,
 /* 90 */	Oland,	Olor,	Olnot,	Oleq,	Olgt,	Ollt,	Obad,	Obad,
-/* 98 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
+/* 98 */	Obad,	Otoint,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* A0 */	Oif,	Oelse,	Owhile,	Onop,	Oret,	Obreak,	Obad,	Obad,
 /* A8 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* B0 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
