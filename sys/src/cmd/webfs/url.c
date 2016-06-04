@@ -8,6 +8,8 @@
 #include "dat.h"
 #include "fns.h"
 
+static char reserved[] = "%:/?#[]@!$&'()*+,;=";
+
 static int
 dhex(char c)
 {
@@ -31,7 +33,7 @@ unescape(char *s, char *spec)
 	for(r=w=s; x = *r; r++){
 		if(x == '%' && isxdigit(r[1]) && isxdigit(r[2])){
 			x = (dhex(r[1])<<4)|dhex(r[2]);
-			if(x == 0 || x == '%' || (x > 0x1F && x < 0x7F && strchr(spec, x))){
+			if(spec && strchr(spec, x)){
 				*w++ = '%';
 				*w++ = toupper(r[1]);
 				*w++ = toupper(r[2]);
@@ -328,11 +330,11 @@ Out:
 		free(t);
 	}
 
-	unescape(u->user, "");
-	unescape(u->pass, "");
-	unescape(u->path, "/");
-	unescape(u->query, "&;=/?#");
-	unescape(u->fragment, "");
+	unescape(u->user, nil);
+	unescape(u->pass, nil);
+	unescape(u->path, reserved);
+	unescape(u->query, reserved);
+	unescape(u->fragment, reserved);
 	mklowcase(u->scheme);
 	mklowcase(u->host);
 	mklowcase(u->port);
