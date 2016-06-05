@@ -36,6 +36,7 @@ void		amldrop(void *);
 
 void*		amlroot;
 int		amldebug;
+uvlong		amlintmask;
 
 #pragma	varargck	type	"V"	void*
 #pragma	varargck	type	"N"	void*

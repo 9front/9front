@@ -296,7 +296,7 @@ mki(uvlong i)
 	uvlong *v;
 
 	v = mk('i', sizeof(uvlong));
-	*v = i;
+	*v = i & amlintmask;
 	return v;
 }
 
@@ -2138,6 +2138,9 @@ amlinit(void)
 
 	fmtinstall('V', Vfmt);
 	fmtinstall('N', Nfmt);
+
+	if(!amlintmask)
+		amlintmask = ~0ULL;
 
 	n = mk('N', sizeof(Name));
 	n->up = n;

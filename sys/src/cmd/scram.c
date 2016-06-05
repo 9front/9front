@@ -69,8 +69,10 @@ loadacpi(void)
 		t = realloc(t, sizeof(*t) + l);
 		if(readn(fd, t->data, l) != l)
 			return -1;
-		if(memcmp("DSDT", t->sig, 4) == 0)
+		if(memcmp("DSDT", t->sig, 4) == 0){
+			amlintmask = (~0ULL) >> (t->rev <= 1)*32;
 			amlload(t->data, l);
+		}
 		else if(memcmp("SSDT", t->sig, 4) == 0)
 			amlload(t->data, l);
 		else if(memcmp("FACP", t->sig, 4) == 0){

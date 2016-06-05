@@ -495,6 +495,7 @@ acpiinit(void)
 	for(i=0; i<ntblmap; i++){
 		t = tblmap[i];
 		if(memcmp(t->sig, "DSDT", 4) == 0){
+			amlintmask = (~0ULL) >> (t->rev <= 1)*32;
 			amlload(t->data, tbldlen(t));
 			break;
 		}
