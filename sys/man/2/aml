@@ -29,6 +29,7 @@ void	amldrop(void *);
 
 void*	amlroot;
 int	amldebug;
+uvlong	amlintmask;
 .EE
 .SH DESCRIPTION
 The aml library implements an interpreter for the ACPI machine language
@@ -44,6 +45,13 @@ The runtime state consists of objects organized in a global
 namespace. The name object referred to by
 .I amlroot
 is the root of that namespace.
+.PP
+The width of integers is defined by the global variable
+.IR amlintmask ,
+which should be initialized to 0xFFFFFFFF for
+.B DSDT
+revision <= 1 or 0xFFFFFFFFFFFFFFFF for
+revision >= 2.
 .TP
 .BI amlload( data , len )
 .I Amlload
