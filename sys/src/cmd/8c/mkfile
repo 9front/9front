@@ -27,10 +27,9 @@ LIB=../cc/cc.a$O
 BIN=/$objtype/bin
 </sys/src/cmd/mkone
 
-$LIB:
+$LIB:	../cc/cc.h
 	cd ../cc
 	mk install
-	mk clean
 
 
 %.$O: ../cc/%.c
