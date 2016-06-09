@@ -264,9 +264,6 @@ subprop(Reg *r0)
 			break;
 		p = r->prog;
 		switch(p->as) {
-		case ACALL:
-			return 0;
-
 		case AIMULL:
 		case AIMULW:
 			if(p->to.type != D_NONE)
@@ -282,6 +279,23 @@ subprop(Reg *r0)
 		case AMULB:
 		case AMULL:
 		case AMULW:
+
+		case AREP:
+		case AREPN:
+		case ALOOP:
+		case ALOOPNE:
+
+		case ACWD:
+		case ACDQ:
+
+		case ASTOSB:
+		case ASTOSL:
+		case AMOVSB:
+		case AMOVSL:
+		case AFSTSW:
+
+		case ACALL:
+			return 0;
 
 		case AROLB:
 		case AROLL:
@@ -301,19 +315,9 @@ subprop(Reg *r0)
 		case ASHRB:
 		case ASHRL:
 		case ASHRW:
-
-		case AREP:
-		case AREPN:
-
-		case ACWD:
-		case ACDQ:
-
-		case ASTOSB:
-		case ASTOSL:
-		case AMOVSB:
-		case AMOVSL:
-		case AFSTSW:
-			return 0;
+			if(p->from.type == D_CX && v1->type == D_CX)
+				return 0;
+			break;
 
 		case AORL:
 		case AANDL:

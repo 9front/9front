@@ -120,7 +120,6 @@ xcom(Node *n)
 				*l = *(n->left);
 				l->xoffset += r->vconst;
 				n->left = l;
-				r = n->right;
 				goto brk;
 			}
 			break;
@@ -212,7 +211,6 @@ xcom(Node *n)
 		if(g >= 0) {
 			n->left = r;
 			n->right = l;
-			l = r;
 			r = n->right;
 		}
 		g = vlog(r);
@@ -288,6 +286,12 @@ xcom(Node *n)
 		indexshift(n);
 		break;
 
+	case OOR:
+		xcom(l);
+		xcom(r);
+		rolor(n);
+		break;
+
 	default:
 		if(l != Z)
 			xcom(l);
@@ -298,6 +302,8 @@ xcom(Node *n)
 brk:
 	if(n->addable >= 10)
 		return;
+	l = n->left;
+	r = n->right;
 	if(l != Z)
 		n->complex = l->complex;
 	if(r != Z) {
@@ -344,6 +350,7 @@ brk:
 		}
 		break;
 
+	case OROL:
 	case OLSHR:
 	case OASHL:
 	case OASHR:

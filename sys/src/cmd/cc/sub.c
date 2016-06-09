@@ -903,6 +903,46 @@ if(debug['<'])prtree(n, "rewrite2");
 	n->left->op = o;
 }
 
+/*
+ * replace shift/or with rotate left
+ */
+void
+rolor(Node *n)
+{
+	Node *l, *r;
+
+	if(!typeu[n->type->etype])
+		return;
+
+	l = n->left;
+	r = n->right;
+	switch(l->op){
+	case OASHL:
+		if(r->op == OLSHR)
+			break;
+		return;
+	case OLSHR:
+		if(r->op == OASHL){
+			r = l;
+			l = n->right;
+			break;
+		}
+	default:
+		return;
+	}
+	if(l->right->op != OCONST || r->right->op != OCONST)
+		return;
+	if(vconst(l->right) + vconst(r->right) != ewidth[n->type->etype]*8)
+		return;
+	if(l->left->type != n->type || r->left->type != n->type)
+		return;
+	if(l->left->op != ONAME || r->left->op != ONAME || l->left->sym != r->left->sym)
+		return;
+
+	*n = *l;
+	n->op = OROL;
+}
+
 int
 side(Node *n)
 {
@@ -1473,6 +1513,7 @@ Init	onamesinit[] =
 	OPROTO,		0,	"PROTO",
 	OREGISTER,	0,	"REGISTER",
 	ORETURN,	0,	"RETURN",
+	OROL,		0,	"ROL",
 	OSET,		0,	"SET",
 	OSIGN,		0,	"SIGN",
 	OSIZE,		0,	"SIZE",

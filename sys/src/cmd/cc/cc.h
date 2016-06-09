@@ -273,6 +273,7 @@ enum
 	OPROTO,
 	OREGISTER,
 	ORETURN,
+	OROL,
 	OSET,
 	OSIGN,
 	OSIZE,
@@ -694,6 +695,7 @@ int	log2(uvlong);
 int	vlog(Node*);
 int	topbit(ulong);
 void	simplifyshift(Node*);
+void	rolor(Node*);
 long	typebitor(long, long);
 void	diag(Node*, char*, ...);
 void	warn(Node*, char*, ...);

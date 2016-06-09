@@ -159,6 +159,7 @@ cgen(Node *n, Node *nn)
 		regfree(&nod);
 		break;
 
+	case OROL:
 	case OLSHR:
 	case OASHL:
 	case OASHR:
