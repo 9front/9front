@@ -105,6 +105,8 @@ jpg, gif, png, tif, ppm, bmp, v210, yuv, ico, tga, tojpg, togeordi, togif, toppm
 .I msec
 ]
 .I file ...
+|
+.B -E
 ]
 .br
 .B toppm
@@ -351,6 +353,11 @@ By default, the images are displayed as fast as they can be rendered.
 This option specifies the time, in milliseconds, to pause while
 displaying the next named
 .IR file .
+.TP
+.B -E
+Specifying this option instead of a list of files will read the frames from a pipe on fd 0.
+Each frame is terminated with EOF.
+End of the animation is specified by an extra EOF.
 .PP
 .I Gif
 translates files that contain a `transparency' index by attaching

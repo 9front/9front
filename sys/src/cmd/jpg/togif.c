@@ -9,7 +9,7 @@
 void
 usage(void)
 {
-	fprint(2, "usage: togif [-l loopcount] [-c 'comment'] [-d Δt (ms)] [-t transparency-index] [file ... [-d Δt] file ...]\n");
+	fprint(2, "usage: togif [-l loopcount] [-c 'comment'] [-d Δt (ms)] [-t transparency-index] [file ... [-d Δt] file ... | -E]\n");
 	exits("usage");
 }
 
@@ -20,7 +20,7 @@ main(int argc, char *argv[])
 {
 	Biobuf bout;
 	Memimage *i, *ni;
-	int fd, j, dt, trans, loop;
+	int fd, j, dt, trans, loop, eof;
 	char buf[256];
 	char *err, *comment, *s;
 
@@ -28,6 +28,7 @@ main(int argc, char *argv[])
 	dt = -1;
 	trans = -1;
 	loop = UNSET;
+	eof = 0;
 	ARGBEGIN{
 	case 'l':
 		s = ARGF();
@@ -54,6 +55,9 @@ main(int argc, char *argv[])
 		if(trans > 255)
 			usage();
 		break;
+	case 'E':
+		eof++;
+		break;
 	default:
 		usage();
 	}ARGEND
@@ -65,7 +69,34 @@ main(int argc, char *argv[])
 
 	err = nil;
 
-	if(argc == 0){
+	if(eof){
+		if(argc != 0) usage();
+		for(j = 0;;j++){
+			i = readmemimage(0);
+			if(i == nil) break;
+			ni = memonechan(i);
+			if(ni == nil)
+				sysfatal("converting image to RGBV: %r");
+			if(i != nil){
+				freememimage(i);
+				i = ni;
+			}
+			if(j == 0){
+				err = memstartgif(&bout, i, loop);
+				if(err != nil)
+					break;
+			}
+			if(comment)
+				err = memwritegif(&bout, i, comment, dt, trans);
+			else{
+				snprint(buf, sizeof buf, "Converted by Plan 9 from <stdin>");
+				err = memwritegif(&bout, i, buf, dt, trans);
+			}
+			if(err != nil) break;
+			freememimage(i);
+			comment = nil;
+		}
+	}else if(argc == 0){
 		i = readmemimage(0);
 		if(i == nil)
 			sysfatal("reading input: %r");
