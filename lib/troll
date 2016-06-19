@@ -245,3 +245,8 @@ Subject: [golang-dev] vendoring the stdlib
 [harvey-commits] [PATCH] Fixing broken build.
 [harvey] Cannot get Harvey to run on qemu
 [harvey] Running mahjongg game panics kernel (#88)
+[Harvey-OS/harvey] Change chdir system call # to match linux (#120)
+Nix as OS X Package Manager
+[Harvey-OS/harvey] build: make it emacs friendly
+[Harvey-OS/harvey] add acme back.
+[Harvey-OS/harvey] Up/down keys now move cursor up/down one line
