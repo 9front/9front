@@ -7,6 +7,15 @@
 static int ifd = -1;
 static int sts;
 
+static void
+flushout(void)
+{
+	if(ifd >= 0){
+		close(ifd);
+		wait(&sts);
+	}
+}
+
 static FLAC__StreamDecoderReadStatus
 decinput(FLAC__StreamDecoder *dec, FLAC__byte buffer[], size_t *bytes, void *client_data)
 {
@@ -44,10 +53,7 @@ decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], v
 		bits = frame->header.bits_per_sample;
 		sprintf(fmt, "s%dr%dc%d", bits, rate, chans);
 
-		if(ifd >= 0){
-			close(ifd);
-			wait(&sts);
-		}
+		flushout();
 		if(pipe(pfd) < 0){
 			fprintf(stderr, "Error creating pipe\n");
 			exit(1);
@@ -67,6 +73,7 @@ decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], v
 		}
 		close(pfd[1]);
 		ifd = pfd[0];
+		atexit(flushout);
 	}
 	len = frame->header.blocksize;
 	b = (bits+7)/8;
@@ -109,6 +116,8 @@ decoutput(FLAC__StreamDecoder *dec, FLAC__Frame *frame, FLAC__int32 *buffer[], v
 static void
 decerror(FLAC__StreamDecoder *dec, FLAC__StreamDecoderErrorStatus status, void *client_data)
 {
+	fprintf(stderr, "decode error: %s (%d)\n", FLAC__StreamDecoderErrorStatusString[status], status);
+	exit(1);
 }
 
 int main(int argc, char *argv[])
@@ -120,11 +129,5 @@ int main(int argc, char *argv[])
 	FLAC__stream_decoder_init_stream(dec, decinput, NULL, NULL, NULL, NULL, decoutput, NULL, decerror, NULL);
 	FLAC__stream_decoder_process_until_end_of_stream(dec);
 	FLAC__stream_decoder_finish(dec);
-
-	if(ifd >= 0){
-		close(ifd);
-		wait(&sts);
-	}
-
 	return 0;
 }
