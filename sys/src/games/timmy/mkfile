@@ -1,0 +1,14 @@
+</$objtype/mkfile
+
+BIN=/$objtype/bin/games
+TARG=timmy
+OFILES=\
+	timmy.$O\
+	simple.$O\
+	poly.$O\
+	util.$O\
+	phys.$O\
+
+HFILES=dat.h fns.h
+
+</sys/src/cmd/mkone

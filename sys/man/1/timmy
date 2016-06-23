@@ -1,0 +1,51 @@
+.TH TIMMY 1
+.SH NAME
+timmy \- physics sandbox
+.SH SYNOPSIS
+.B games/timmy
+[
+.B -s 
+.I steps-per-frame
+]
+.SH DESCRIPTION
+.I Timmy
+is a simple 2D physics sandbox.
+.PP
+To pick up an object click on it with the LMB.
+New objects can be created by picking up their archetypes in the gray area on the bottom (the "tray").
+To place an object in the working area click at the desired position with the LMB;
+.I timmy
+will refuse to place the object if it would collide with an existing one.
+To abort the process \(em deleting the carried object \(em click anywhere with the RMB.
+Picking up an object in the working area with the RMB will duplicate the object.
+.PP
+The following operations can be performed with the keyboard.
+.IP w
+Rotate carried object by 15° to the left.
+.IP e
+Rotate carried object by 15° to the right.
+.IP space
+Start or stop the simulation.
+.IP del
+Exit timmy.
+.PP
+The small circles on some objects are "hinges".
+Two hinges can be connected by placing them on top of each other.
+Their relative position will not change during the simulation; objects are however free to rotate around them.
+To undo a hinge, pick up either of the objects.
+.PP
+The
+.B -s
+option adjusts the speed of the simulation; only integer values are permitted.
+It does not compromise accuracy.
+.SH SOURCE
+.B /sys/src/games/timmy
+.SH BUGS
+.IR Timmy 's
+physics may occasionally appear to originate from another universe.
+.PP
+.B -s
+is a hack.
+.SH HISTORY
+.I Timmy
+first appeared in 9front (June, 2016).
