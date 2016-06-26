@@ -15,37 +15,6 @@ struct	Vlong
 
 void	abort(void);
 
-/* needed by profiler; can't be profiled */
-#pragma profile off
-
-void
-_addv(Vlong *r, Vlong a, Vlong b)
-{
-	ulong lo, hi;
-
-	lo = a.lo + b.lo;
-	hi = a.hi + b.hi;
-	if(lo < a.lo)
-		hi++;
-	r->lo = lo;
-	r->hi = hi;
-}
-
-void
-_subv(Vlong *r, Vlong a, Vlong b)
-{
-	ulong lo, hi;
-
-	lo = a.lo - b.lo;
-	hi = a.hi - b.hi;
-	if(lo > a.lo)
-		hi--;
-	r->lo = lo;
-	r->hi = hi;
-}
-
-#pragma profile on
-
 void
 _d2v(Vlong *y, double d)
 {
