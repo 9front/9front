@@ -923,6 +923,10 @@ cgen64(Node *n, Node *nn)
 		return 0;
 
 	case OCAST:
+		if(nn == Z){
+			nullwarn(l, Z);
+			goto Out;
+		}
 		if(typeilp[n->type->etype] && typev[l->type->etype]){
 			if(l->op == ONAME || l->op == OINDREG)
 				nod0 = *l;
@@ -1004,6 +1008,10 @@ cgen64(Node *n, Node *nn)
 		goto Out;
 
 	case OASHL:
+		if(nn == Z){
+			nullwarn(l, Z);
+			goto Out;
+		}
 		cgen(l, nn);
 		assert(r->op == OCONST);
 		a = r->vconst & 63;
@@ -1033,6 +1041,10 @@ cgen64(Node *n, Node *nn)
 
 	case OLSHR:
 	case OASHR:
+		if(nn == Z){
+			nullwarn(l, Z);
+			goto Out;
+		}
 		cgen(l, nn);
 		assert(r->op == OCONST);
 		a = r->vconst & 63;
@@ -1062,6 +1074,10 @@ cgen64(Node *n, Node *nn)
 	case OAND:
 	case OXOR:
 	case OOR:
+		if(nn == Z){
+			nullwarn(l, r);
+			goto Out;
+		}
 		ml = o == OADD && l->op == OLMUL && machcap(l);
 		mr = o == OADD && r->op == OLMUL && machcap(r);
 		if(ml && !mr){
@@ -1133,6 +1149,10 @@ cgen64(Node *n, Node *nn)
 		break;
 	}
 
+	if(nn == Z){
+		nullwarn(l, r);
+		goto Out;
+	}
 	if(r->complex > l->complex) {
 		l = r;
 		r = n->left;
