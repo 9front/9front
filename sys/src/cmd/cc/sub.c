@@ -981,6 +981,7 @@ loop:
 	case OLSHR:
 	case OASHL:
 	case OASHR:
+	case OROL:
 	case OAND:
 	case OOR:
 	case OXOR:
