@@ -1,7 +1,6 @@
 #include <u.h>
 #include <libc.h>
 #include <ip.h>
-#include <pool.h>
 #include <ctype.h>
 #include "dns.h"
 
@@ -702,14 +701,9 @@ putactivity(int recursive)
 	}
 	unlock(&dnvars);
 
-	dncheck();
-
 	db2cache(needrefresh);
-	dncheck();
 
 	dnageall(0);
-
-	dncheck();
 
 	/* let others back in */
 	lastclean = now;
@@ -1546,39 +1540,6 @@ slave(Request *req)
 		alarm(0);
 		longjmp(req->mret, 1);
 	}
-}
-
-/*
- *  chasing down double free's
- */
-void
-dncheck(void)
-{
-	int i;
-	DN *dp;
-	RR *rp;
-
-	if(!testing)
-		return;
-
-	lock(&dnlock);
-	poolcheck(mainmem);
-	for(i = 0; i < HTLEN; i++)
-		for(dp = ht[i]; dp; dp = dp->next){
-			assert(dp->magic == DNmagic);
-			for(rp = dp->rr; rp; rp = rp->next){
-				assert(rp->magic == RRmagic);
-				assert(rp->cached);
-				assert(rp->owner == dp);
-				/* also check for duplicate rrs */
-				if (rronlist(rp, rp->next)) {
-					dnslog("%R duplicates its next chain "
-						"(%R); aborting", rp, rp->next);
-					abort();
-				}
-			}
-		}
-	unlock(&dnlock);
 }
 
 static int

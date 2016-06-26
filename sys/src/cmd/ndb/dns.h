@@ -448,7 +448,6 @@ void	dnageall(int);
 void	dnagedb(void);
 void	dnagenever(DN *);
 void	dnauthdb(void);
-void	dncheck(void);
 void	dndump(char*);
 void	dnget(void);
 void	dninit(void);

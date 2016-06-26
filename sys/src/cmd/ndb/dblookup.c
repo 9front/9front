@@ -579,23 +579,6 @@ doaxfr(Ndb *db, char *name)
 	return 0;
 }
 
-
-/*
- *  read the all the soa's from the database to determine area's.
- *  this is only used when we're not caching the database.
- */
-static void
-dbfile2area(Ndb *db)
-{
-	Ndbtuple *t;
-
-	if(debug)
-		dnslog("rereading %s", db->file);
-	Bseek(&db->b, 0, 0);
-	while(t = ndbparse(db))
-		ndbfree(t);
-}
-
 /*
  *  read the database into the cache
  */
@@ -750,23 +733,23 @@ db2cache(int doit)
 		/* reload straddle-server configuration */
 		loaddomsrvs();
 
-		if(cfg.cachedb){
-			/* mark all db records as timed out */
-			dnagedb();
+		/* mark all db records as timed out */
+		dnagedb();
 
+		if(cfg.cachedb){
 			/* read in new entries */
 			for(ndb = db; ndb; ndb = ndb->next)
 				dbfile2cache(ndb);
+		}
 
-			/* mark as authoritative anything in our domain */
-			dnauthdb();
+		/*
+		 * mark as authoritative anything in our domain,
+		 * delete timed out db records
+		 */
+		dnauthdb();
 
-			/* remove old entries */
-			dnageall(1);
-		} else
-			/* read all the soa's to get database defaults */
-			for(ndb = db; ndb; ndb = ndb->next)
-				dbfile2area(ndb);
+		/* remove old entries */
+		dnageall(1);
 
 		doit = 0;
 		lastyoungest = youngest;

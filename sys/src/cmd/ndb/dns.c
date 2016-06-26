@@ -4,7 +4,6 @@
 #include <fcall.h>
 #include <bio.h>
 #include <ip.h>
-#include <pool.h>
 #include "dns.h"
 
 enum
@@ -69,7 +68,6 @@ int	needrefresh;
 ulong	now;
 vlong	nowns;
 int	sendnotifies;
-int	testing;
 char	*trace;
 int	traceactivity;
 char	*zonerefreshprogram;
@@ -107,7 +105,7 @@ static char *respond(Job*, Mfile*, RR*, char*, int, int);
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-FnorRst] [-a maxage] [-f ndb-file] [-N target] "
+	fprint(2, "usage: %s [-FnorRs] [-a maxage] [-f ndb-file] [-N target] "
 		"[-T forwip] [-x netmtpt] [-z refreshprog]\n", argv0);
 	exits("usage");
 }
@@ -158,9 +156,6 @@ main(int argc, char *argv[])
 		cfg.serve = 1;		/* serve network */
 		cfg.cachedb = 1;
 		break;
-	case 't':
-		testing = 1;
-		break;
 	case 'T':
 		addforwtarg(EARGF(usage()));
 		break;
@@ -178,9 +173,6 @@ main(int argc, char *argv[])
 	if(argc != 0)
 		usage();
 
-	if(testing)
-		mainmem->flags |= POOL_NOREUSE | POOL_ANTAGONISM;
-	mainmem->flags |= POOL_ANTAGONISM;
 	rfork(RFREND|RFNOTEG);
 
 	cfg.inside = (*mntpt == '\0' || strcmp(mntpt, "/net") == 0);
@@ -206,9 +198,6 @@ main(int argc, char *argv[])
 		sysfatal("%s exists; another dns instance is running",
 			servefile);
 	free(dir);
-//	unmount(servefile, mntpt);
-//	remove(servefile);
-
 	mountinit(servefile, mntpt);	/* forks, parent exits */
 
 	srand(now*getpid());
@@ -733,12 +722,8 @@ rwrite(Job *job, Mfile *mf, Request *req)
 	send = 1;
 	if(strcmp(job->request.data, "debug")==0)
 		debug ^= 1;
-	else if(strcmp(job->request.data, "testing")==0)
-		testing ^= 1;
 	else if(strcmp(job->request.data, "dump")==0)
 		dndump("/lib/ndb/dnsdump");
-	else if(strcmp(job->request.data, "poolcheck")==0)
-		poolcheck(mainmem);
 	else if(strcmp(job->request.data, "refresh")==0)
 		needrefresh = 1;
 	else if(strcmp(job->request.data, "restart")==0)
