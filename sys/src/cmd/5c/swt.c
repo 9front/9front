@@ -523,6 +523,10 @@ zaddr(char *bp, Adr *a, int s)
 	case D_PSR:
 		break;
 
+	case D_REGREG:
+		*bp++ = a->offset;
+		break;
+
 	case D_OREG:
 	case D_CONST:
 	case D_BRANCH:

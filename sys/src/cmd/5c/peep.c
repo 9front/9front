@@ -249,7 +249,6 @@ uniqs(Reg *r)
 int
 regtyp(Adr *a)
 {
-
 	if(a->type == D_REG)
 		return 1;
 	if(a->type == D_FREG)
@@ -302,6 +301,7 @@ subprop(Reg *r0)
 		case ASLL:
 		case ASRL:
 		case ASRA:
+		case AROR:
 		case AORR:
 		case AAND:
 		case AEOR:
@@ -888,6 +888,25 @@ copyu(Prog *p, Adr *v, Adr *s)
 			print(" (???)");
 		return 2;
 
+	case AMULL:
+	case AMULAL:
+	case AMULLU:
+	case AMULALU:
+		if(v->type != D_REG)
+			return 0;
+		if(copyau(&p->to, v))
+			return (p->as == AMULAL || p->as == AMULALU) ? 2 : 3;
+		if(p->from.reg == v->reg || p->reg == v->reg){
+			if(s != A && !copyau(&p->to, s) && p->from.reg != s->reg && p->reg != s->reg){
+				if(p->from.reg == v->reg)
+					p->from.reg = s->reg;
+				if(p->reg == v->reg)
+					p->reg = s->reg;
+			}
+			return 1;
+		}
+		return 0;
+
 	case AMOVM:
 		if(v->type != D_REG)
 			return 0;
@@ -974,6 +993,7 @@ copyu(Prog *p, Adr *v, Adr *s)
 	case ASLL:
 	case ASRL:
 	case ASRA:
+	case AROR:
 	case AORR:
 	case AAND:
 	case AEOR:
@@ -1110,6 +1130,7 @@ a2type(Prog *p)
 	case ASLL:
 	case ASRL:
 	case ASRA:
+	case AROR:
 	case AORR:
 	case AAND:
 	case AEOR:
@@ -1170,12 +1191,15 @@ copyau(Adr *a, Adr *v)
 		return 1;
 	if(v->type == D_REG) {
 		if(a->type == D_OREG) {
-			if(v->reg == a->reg)
+			if(a->reg == v->reg)
 				return 1;
 		} else if(a->type == D_SHIFT) {
 			if((a->offset&0xf) == v->reg)
 				return 1;
 			if((a->offset&(1<<4)) && (a->offset>>8) == v->reg)
+				return 1;
+		} else if(a->type == D_REGREG) {
+			if(a->reg == v->reg || a->offset == v->reg)
 				return 1;
 		}
 	}
@@ -1212,7 +1236,12 @@ copysub(Adr *a, Adr *v, Adr *s, int f)
 				a->offset = (a->offset&~0xf)|s->reg;
 			if((a->offset&(1<<4)) && (a->offset>>8) == v->reg)
 				a->offset = (a->offset&~(0xf<<8))|(s->reg<<8);
-		} else
+		} else if(a->type == D_REGREG) {
+			if(a->offset == v->reg)
+				a->offset = s->reg;
+			if(a->reg == v->reg)
+				a->reg = s->reg;
+		} else 
 			a->reg = s->reg;
 	}
 	return 0;

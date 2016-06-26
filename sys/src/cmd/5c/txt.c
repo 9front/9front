@@ -297,6 +297,7 @@ regalloc(Node *n, Node *tn, Node *o)
 				j = REGRET+1;
 			if(reg[j] == 0 && resvreg[j] == 0) {
 				i = j;
+				lasti = (i - REGRET) % 3;
 				goto out;
 			}
 			j++;
@@ -306,7 +307,6 @@ regalloc(Node *n, Node *tn, Node *o)
 
 	case TFLOAT:
 	case TDOUBLE:
-	case TVLONG:
 		if(o != Z && o->op == OREGISTER) {
 			i = o->reg;
 			if(i >= NREG && i < NREG+NFREG)
@@ -324,6 +324,32 @@ regalloc(Node *n, Node *tn, Node *o)
 		}
 		diag(tn, "out of float registers");
 		goto err;
+
+	case TVLONG:
+	case TUVLONG:
+		n->op = OREGPAIR;
+		n->complex = 0;	/* already in registers */
+		n->addable = 11;
+		n->type = tn->type;
+		n->lineno = nearln;
+		n->left = alloc(sizeof(Node));
+		n->right = alloc(sizeof(Node));
+		if(o != Z && o->op == OREGPAIR) {
+			regalloc(n->left, &regnode, o->left);
+			regalloc(n->right, &regnode, o->right);
+		} else {
+			regalloc(n->left, &regnode, Z);
+			regalloc(n->right, &regnode, Z);
+		}
+		if(n->left->reg > n->right->reg){
+			j = n->left->reg;
+			n->left->reg = n->right->reg;
+			n->right->reg = j;
+		}
+		n->right->type = types[TULONG];
+		if(tn->type->etype == TUVLONG)
+			n->left->type = types[TULONG];
+		return;
 	}
 	diag(tn, "unknown type in regalloc: %T", tn->type);
 err:
@@ -331,9 +357,6 @@ err:
 	return;
 out:
 	reg[i]++;
-	lasti++;
-	if(lasti >= 5)
-		lasti = 0;
 	nodreg(n, tn, i);
 }
 
@@ -352,6 +375,11 @@ regfree(Node *n)
 {
 	int i;
 
+	if(n->op == OREGPAIR) {
+		regfree(n->left);
+		regfree(n->right);
+		return;
+	}
 	i = 0;
 	if(n->op != OREGISTER && n->op != OINDREG)
 		goto err;
@@ -604,11 +632,30 @@ gmove(Node *f, Node *t)
 			a = AMOVHU;
 			break;
 		}
-		if(typechlp[ft] && typeilp[tt])
-			regalloc(&nod, t, t);
-		else
-			regalloc(&nod, f, t);
-		gins(a, f, &nod);
+		if(typev[ft]) {
+			if(typev[tt]) {
+				nod1 = *f;
+				regalloc(&nod, f, t);
+				if(f->op == OINDREG && f->xoffset == 0 && nod.left->reg < nod.right->reg) {
+					gmovm(&nod1, nodconst((1<<nod.left->reg)|(1<<nod.right->reg)), 0);
+				} else {
+					/* low order first, because its value will be used first */
+					gins(AMOVW, &nod1, nod.left);
+					nod1.xoffset += SZ_LONG;
+					gins(AMOVW, &nod1, nod.right);
+				}
+			} else {
+				/* assumed not float or double */
+				regalloc(&nod, &regnode, t);
+				gins(AMOVW, f, &nod);
+			}
+		} else {
+			if(typechlp[ft] && typeilp[tt])
+				regalloc(&nod, t, t);
+			else
+				regalloc(&nod, f, t);
+			gins(a, f, &nod);
+		}
 		gmove(&nod, t);
 		regfree(&nod);
 		return;
@@ -639,7 +686,6 @@ gmove(Node *f, Node *t)
 		case TFLOAT:
 			a = AMOVF;
 			break;
-		case TVLONG:
 		case TDOUBLE:
 			a = AMOVD;
 			break;
@@ -649,7 +695,17 @@ gmove(Node *f, Node *t)
 		else
 			regalloc(&nod, t, Z);
 		gmove(f, &nod);
-		gins(a, &nod, t);
+		if(typev[tt]) {
+			nod1 = *t;
+			if(t->op == OINDREG && t->xoffset == 0 && nod.left->reg < nod.right->reg){
+				gmovm(nodconst((1<<nod.left->reg)|(1<<nod.right->reg)), &nod1, 0);
+			} else {
+				gins(a, nod.left, &nod1);
+				nod1.xoffset += SZ_LONG;
+				gins(a, nod.right, &nod1);
+			}
+		} else
+			gins(a, &nod, t);
 		regfree(&nod);
 		return;
 	}
@@ -660,7 +716,6 @@ gmove(Node *f, Node *t)
 	a = AGOK;
 	switch(ft) {
 	case TDOUBLE:
-	case TVLONG:
 	case TFLOAT:
 		switch(tt) {
 		case TDOUBLE:
@@ -876,13 +931,28 @@ gmove(Node *f, Node *t)
 			break;
 		}
 		break;
+	case TVLONG:
+	case TUVLONG:
+		switch(tt) {
+		case TVLONG:
+		case TUVLONG:
+			a = AMOVW;
+			break;
+		}
+		break;
 	}
 	if(a == AGOK)
 		diag(Z, "bad opcode in gmove %T -> %T", f->type, t->type);
 	if(a == AMOVW || a == AMOVF || a == AMOVD)
 	if(samaddr(f, t))
 		return;
-	gins(a, f, t);
+	if(typev[ft]) {
+		if(f->op != OREGPAIR || t->op != OREGPAIR)
+			diag(Z, "bad vlong in gmove (%O->%O)", f->op, t->op);
+		gins(a, f->left, t->left);
+		gins(a, f->right, t->right);
+	} else
+		gins(a, f, t);
 }
 
 void
@@ -1000,6 +1070,12 @@ gopcode(int o, Node *f1, Node *f2, Node *t)
 	case OASASHL:
 	case OASHL:
 		a = ASLL;
+		break;
+
+	case OROL:
+		assert(f1->op == OCONST);
+		f1->vconst = 32-f1->vconst;
+		a = AROR;
 		break;
 
 	case OFUNC:
@@ -1151,6 +1227,9 @@ samaddr(Node *f, Node *t)
 		if(f->reg != t->reg)
 			break;
 		return 1;
+
+	case OREGPAIR:
+		return samaddr(f->left, t->left) && samaddr(f->right, t->right);
 	}
 	return 0;
 }

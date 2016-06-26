@@ -64,6 +64,9 @@ Pconv(Fmt *fp)
 		strcat(sc, ".W");
 	if(s & C_UBIT)		/* ambiguous with FBIT */
 		strcat(sc, ".U");
+	if(a == AMULL || a == AMULAL || a == AMULLU || a == AMULALU)
+		snprint(str, sizeof str, "	%A%s	%D,R%d,%D", a, sc, &p->from, p->reg, &p->to);
+	else
 	if(a == AMOVM) {
 		if(p->from.type == D_CONST)
 			snprint(str, sizeof str, "	%A%s	%R,%D", a, sc, &p->from, &p->to);
@@ -146,6 +149,10 @@ Dconv(Fmt *fp)
 			snprint(str, sizeof str, "%N(R%d)", a, a->reg);
 		else
 			snprint(str, sizeof str, "%N", a);
+		break;
+
+	case D_REGREG:
+		snprint(str, sizeof str, "(R%d,R%d)", a->reg, (char)a->offset);
 		break;
 
 	case D_REG:

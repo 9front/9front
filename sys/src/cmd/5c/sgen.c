@@ -109,6 +109,25 @@ xcom(Node *n)
 
 	case OMUL:
 	case OLMUL:
+		if(typev[n->type->etype]){
+			/* try to lift 32->64 bit cast */
+			if(typev[l->type->etype] && l->op == OCAST && typeil[l->left->type->etype]
+			&& typeu[n->type->etype] == typeu[l->left->type->etype])
+				l = l->left;
+			if(typev[r->type->etype] && r->op == OCAST && typeil[r->left->type->etype]
+			&& typeu[n->type->etype] == typeu[r->left->type->etype])
+				r = r->left;
+
+			if(typeil[l->type->etype] && typeil[r->type->etype]){
+				n->left = l;
+				n->right = r;
+				xcom(l);
+				xcom(r);
+				break;
+			}
+			l = n->left;
+			r = n->right;
+		}
 		xcom(l);
 		xcom(r);
 		t = vlog(r);
@@ -123,7 +142,6 @@ xcom(Node *n)
 			n->left = r;
 			n->right = l;
 			r = l;
-			l = n->left;
 			r->vconst = t;
 			r->type = types[TINT];
 		}
@@ -171,6 +189,13 @@ xcom(Node *n)
 		}
 		break;
 
+	case OOR:
+		xcom(l);
+		xcom(r);
+		if(typeil[n->type->etype])
+			rolor(n);
+		break;
+
 	default:
 		if(l != Z)
 			xcom(l);
@@ -180,7 +205,8 @@ xcom(Node *n)
 	}
 	if(n->addable >= 10)
 		return;
-
+	l = n->left;
+	r = n->right;
 	if(l != Z)
 		n->complex = l->complex;
 	if(r != Z) {

@@ -158,6 +158,8 @@ enum	as
 
 	ACLREX,
 
+	AROR,
+
 	ALAST,
 };
 

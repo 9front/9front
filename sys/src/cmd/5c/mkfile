@@ -13,6 +13,7 @@ OFILES=\
 	sgen.$O\
 	swt.$O\
 	txt.$O\
+	machcap.$O\
 
 HFILES=\
 	gc.h\

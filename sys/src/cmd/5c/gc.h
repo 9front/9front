@@ -226,6 +226,7 @@ void	bcgen(Node*, int);
 void	boolgen(Node*, int, Node*);
 void	sugen(Node*, Node*, long);
 void	layout(Node*, Node*, int, int, Node*);
+int	cgen64(Node*, Node*);
 
 /*
  * txt.c
