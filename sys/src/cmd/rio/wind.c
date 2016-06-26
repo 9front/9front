@@ -1194,8 +1194,7 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 	case Holdoff:
 		if(w->i==nil)
 			break;
-		if(w==input)
-			wsetcursor(w, FALSE);
+		wsetcursor(w, FALSE);
 		wrepaint(w);
 		flushimage(display, 1);
 		break;
@@ -1295,9 +1294,9 @@ wsetcursor(Window *w, int force)
 {
 	Cursor *p;
 
-	if(menuing || sweeping)
+	if(menuing || sweeping || (w!=input && wpointto(mouse->xy)!=w))
 		return;
-	if(w==nil || Dx(w->screenr)<=0 || wpointto(mouse->xy)!=w)
+	if(w==nil)
 		p = nil;
 	else {
 		p = w->cursorp;

@@ -333,8 +333,7 @@ xfidclose(Xfid *x)
 		break;
 	case Qcursor:
 		w->cursorp = nil;
-		if(w==input)
-			wsetcursor(w, FALSE);
+		wsetcursor(w, FALSE);
 		break;
 	case Qkbd:
 		w->kbdopen = FALSE;
@@ -479,8 +478,7 @@ xfidwrite(Xfid *x)
 			memmove(w->cursor.clr, x->data+2*4, 2*2*16);
 			w->cursorp = &w->cursor;
 		}
-		if(w==input)
-			wsetcursor(w, TRUE);
+		wsetcursor(w, TRUE);
 		break;
 
 	case Qlabel:
