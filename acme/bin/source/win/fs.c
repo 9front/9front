@@ -8,7 +8,7 @@
 Channel *fschan;
 Channel *writechan;
 
-static File *devcons, *devnew;
+static File *devcons, *devnew, *devwdir;
 
 static void
 fsread(Req *r)
@@ -25,7 +25,12 @@ fsread(Req *r)
 		return;
 	}
 
-	assert(r->fid->file == devcons);
+	if(r->fid->file == devwdir){
+		readstr(r, wdir);
+		respond(r, nil);
+		return;
+	}
+
 	e.type = 'r';
 	e.r = r;
 	send(fschan, &e);
@@ -68,6 +73,23 @@ fswrite(Req *r)
 		sprint(s, "%lud", (ulong)nb);
 		r->fid->aux = s;
 		r->ofcall.count = r->ifcall.count;
+		respond(r, nil);
+		return;
+	}
+
+	if(r->fid->file == devwdir){
+		s = emalloc(r->ifcall.count+1);
+		memmove(s, r->ifcall.data, r->ifcall.count);
+		s[r->ifcall.count] = 0;
+		if(s[0] == '#' || s[0] == '/'){
+			free(wdir);
+			wdir = s;
+		} else {
+			wdir = eappend(wdir, "/", s);
+			free(s);
+		}
+		cleanname(wdir);
+		winsetdir(win, wdir, wname);
 		respond(r, nil);
 		return;
 	}
@@ -161,5 +183,8 @@ mountcons(void)
 	devnew = createfile(fs.tree->root, "wnew", "win", 0666, nil);
 	if(devnew == nil)
 		sysfatal("creating /dev/wnew: %r");
+	devwdir = createfile(fs.tree->root, "wdir", "win", 0666, nil);
+	if(devwdir == nil)
+		sysfatal("creating /dev/wdir: %r");
 	threadpostmountsrv(&fs, nil, "/dev", MBEFORE);
 }

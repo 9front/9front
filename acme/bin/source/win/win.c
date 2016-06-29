@@ -34,6 +34,15 @@ winsetdump(Window *w, char *dir, char *cmd)
 }
 
 void
+winsetdir(Window *w, char *dir, char *name)
+{
+	ctlprint(w->ctl, "dumpdir %s\n", dir);
+	if(strcmp(dir, "/")==0)
+		dir++;
+	ctlprint(w->ctl, "name %s/-%s\n", dir, name);
+}
+
+void
 wineventproc(void *v)
 {
 	Window *w;

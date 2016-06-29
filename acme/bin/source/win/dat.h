@@ -66,6 +66,7 @@ extern	int		winselect(Window*, char*, int);
 extern	int		winsetaddr(Window*, char*, int);
 extern	void		windormant(Window*);
 extern	void		winsetdump(Window*, char*, char*);
+extern	void		winsetdir(Window*, char*, char*);
 
 extern	void		ctlprint(int, char*, ...);
 extern	void*	emalloc(uint);
@@ -90,6 +91,8 @@ extern	void		pipectl(void*);
 #pragma	varargck	argpos	error	1
 #pragma	varargck	argpos	ctlprint	2
 
+extern	char *wname;
+extern	char *wdir;
 extern	Window	*win;
 extern	Channel	*fschan, *writechan;
 

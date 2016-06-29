@@ -16,6 +16,8 @@ int	notepg;
 int	eraseinput;
 int	dirty = 0;
 
+char *wname;
+char *wdir;
 Window *win;		/* the main window */
 
 void
@@ -29,7 +31,6 @@ void
 threadmain(int argc, char *argv[])
 {
 	int i, j;
-	char *dir, *tag, *name;
 	char buf[1024], **av;
 
 	quotefmtinstall();
@@ -52,27 +53,23 @@ threadmain(int argc, char *argv[])
 		av = emalloc(3*sizeof(char*));
 		av[0] = "rc";
 		av[1] = "-i";
-		name = getenv("sysname");
 	}else{
 		av = argv;
-		name = utfrrune(av[0], '/');
-		if(name)
-			name++;
-		else
-			name = av[0];
 	}
-
-	if(getwd(buf, sizeof buf) == 0)
-		dir = "/";
+	wname = utfrrune(av[0], '/');
+	if(wname)
+		wname++;
 	else
-		dir = buf;
-	dir = estrdup(dir);
-	tag = estrdup(dir);
-	tag = eappend(estrdup(tag), "/-", name);
+		wname = av[0];
+	if(getwd(buf, sizeof buf) == 0)
+		wdir = "/";
+	else
+		wdir = buf;
+	wdir = estrdup(wdir);
 	win = newwindow();
 	snprint(buf, sizeof buf, "%d", win->id);
 	putenv("winid", buf);
-	winname(win, tag);
+	winsetdir(win, wdir, wname);
 	wintagwrite(win, "Send Noscroll", 5+8);
 	threadcreate(mainctl, win, STACK);
 	mountcons();
@@ -89,7 +86,7 @@ threadmain(int argc, char *argv[])
 	}
 
 	ctlprint(win->ctl, "scroll");
-	winsetdump(win, dir, buf);
+	winsetdump(win, wdir, buf);
 }
 
 int
