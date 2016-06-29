@@ -1,6 +1,6 @@
 .TH ACME 1
 .SH NAME
-acme, win, awd \- interactive text windows
+acme, win \- interactive text windows
 .SH SYNOPSIS
 .B acme
 [
@@ -28,11 +28,6 @@ acme, win, awd \- interactive text windows
 .B win
 [
 .I command
-]
-.LP
-.B awd
-[
-.I label
 ]
 .SH DESCRIPTION
 .I Acme
@@ -624,21 +619,6 @@ Executing text in a
 window with button
 2 is similar to using
 .BR Send .
-.PP
-.I Awd
-loads the tag line of its window with the directory in which it's running, suffixed
-.BI - label
-(default
-.BR rc );
-it is
-intended to be executed by a
-.B cd
-function for use in
-.I win
-windows.  An example definition is
-.EX
-	fn cd { builtin cd $1 && awd $sysname }
-.EE
 .SS "Applications and guide files
 In the directory
 .B /acme
@@ -677,8 +657,6 @@ when it starts; this is where
 .IR acme -specific
 programs such as
 .I win
-and
-.I awd
 reside.
 .SH FILES
 .TF $home/acme.dump
@@ -707,8 +685,6 @@ MIPS-specific binaries for applications
 .B /sys/src/cmd/acme
 .br
 .B /acme/bin/source/win
-.br
-.B /sys/src/cmd/awd.c
 .SH SEE ALSO
 .IR acme (4)
 .br
