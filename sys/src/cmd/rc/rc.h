@@ -65,6 +65,7 @@ union code{
 	char	*s;
 };
 
+int newwdir;
 char *promptstr;
 int doprompt;
 

@@ -139,14 +139,9 @@ int
 dochdir(char *word)
 {
 	/* report to /dev/wdir if it exists and we're interactive */
-	if(chdir(word)<0) return -1;
-	if(flag['i']!=0){
-		static int wdirfd = -2;
-		if(wdirfd==-2)	/* try only once */
-			wdirfd = open("/dev/wdir", OWRITE|OCEXEC);
-		if(wdirfd>=0)
-			write(wdirfd, word, strlen(word));
-	}
+	if(chdir(word)<0)
+		return -1;
+	newwdir = 1;
 	return 1;
 }
 

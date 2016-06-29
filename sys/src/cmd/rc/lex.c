@@ -92,6 +92,16 @@ pprompt(void)
 	if(runq->iflag){
 		pstr(err, promptstr);
 		flush(err);
+		if(newwdir){
+			char dir[4096];
+			int fd;
+			if((fd=open("/dev/wdir", OWRITE))>=0){
+				getwd(dir, sizeof(dir));
+				write(fd, dir, strlen(dir));
+				close(fd);
+			}
+			newwdir = 0;
+		}
 		prompt = vlook("prompt");
 		if(prompt->val && prompt->val->next)
 			promptstr = prompt->val->next->word;
