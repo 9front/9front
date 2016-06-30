@@ -830,15 +830,12 @@ rtl8169link(Ether* edev)
 
 	ctlr = edev->ctlr;
 
+	r = csr8r(ctlr, Phystatus);
 	/*
 	 * Maybe the link changed - do we care very much?
 	 * Could stall transmits if no link, maybe?
 	 */
-	if(!((r = csr8r(ctlr, Phystatus)) & Linksts)){
-		edev->link = 0;
-		return;
-	}
-	edev->link = 1;
+	edev->link = (r & Linksts) != 0;
 
 	limit = 256*1024;
 	if(r & Speed10){
