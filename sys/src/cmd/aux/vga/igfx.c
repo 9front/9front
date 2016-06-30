@@ -692,16 +692,16 @@ initdpll(Igfx *igfx, int x, int freq, int port)
 static void
 initdatalinkmn(Trans *t, int freq, int lsclk, int lanes, int tu, int bpp)
 {
-	uvlong m, n;
+	u32int m, n;
 
 	n = 0x800000;
-	m = (n * ((freq * bpp)/8)) / (lsclk * lanes);
+	m = (n * (((uvlong)freq * bpp)/8)) / ((uvlong)lsclk * lanes);
 
 	t->dm[0].v = (tu-1)<<25 | m;
 	t->dn[0].v = n;
 
 	n = 0x80000;
-	m = (n * freq) / lsclk;
+	m = ((uvlong)n * freq) / lsclk;
 
 	t->lm[0].v = m;
 	t->ln[0].v = n;
