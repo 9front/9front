@@ -222,6 +222,8 @@ runetokey(Rune r)
 		return KEY_BACKSPACE;
 	case '\n':
 		return KEY_ENTER;
+	case Kprint:
+		return KEY_PAUSE;
 
 	case KF|1:
 	case KF|2:
