@@ -125,9 +125,19 @@ outcode(tree *t, int eflag)
 		emitf(Xconc);
 		break;
 	case '`':
+		emitf(Xmark);
+		if(c0){
+			outcode(c0, 0);
+			emitf(Xglob);
+		} else {
+			emitf(Xmark);
+			emitf(Xword);
+			emits(estrdup("ifs"));
+			emitf(Xdol);
+		}
 		emitf(Xbackq);
 		p = emiti(0);
-		outcode(c0, 0);
+		outcode(c1, 0);
 		emitf(Xexit);
 		stuffdot(p);
 		break;
