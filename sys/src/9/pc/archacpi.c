@@ -260,7 +260,10 @@ pcibusno(void *dot)
 	if((x = amlwalk(dot, "^_BBN")) == nil)
 		if((x = amlwalk(dot, "^_ADR")) == nil)
 			return -1;
-	adr = amlint(amlval(x));
+	p = nil;
+	if(amleval(x, "", &p) < 0)
+		return -1;
+	adr = amlint(p);
 	/* if root bridge, then we are done here */
 	if(id != nil && (strcmp(id, "PNP0A03")==0 || strcmp(id, "PNP0A08")==0))
 		return adr;
@@ -282,7 +285,7 @@ static int
 pciaddr(void *dot)
 {
 	int adr, bno;
-	void *x;
+	void *x, *p;
 
 	for(;;){
 		if((x = amlwalk(dot, "_ADR")) == nil){
@@ -294,9 +297,10 @@ pciaddr(void *dot)
 		}
 		if((bno = pcibusno(x)) < 0)
 			break;
-		if((x = amlval(x)) == nil)
+		p = nil;
+		if(amleval(x, "", &p) < 0)
 			break;
-		adr = amlint(x);
+		adr = amlint(p);
 		return MKBUS(BusPCI, bno, adr>>16, adr&0xFFFF);
 	}
 	return -1;
