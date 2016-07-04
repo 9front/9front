@@ -210,3 +210,7 @@ if
 is not matched.
 .SH BUGS
 There is no way to specify or match a NUL character; NULs terminate patterns and strings.
+.SH HISTORY
+.IR Regexp (2)
+first appeared in Plan 9 from Bell Labs. This implementation was written from
+scratch for 9front (May, 2016).
