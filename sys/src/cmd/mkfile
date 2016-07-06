@@ -82,7 +82,7 @@ nuke:V:		cleanfiles nuke.directories
 directories:V:	install.directories
 
 cleanfiles:V:
-	rm -f [$OS].out *.[$OS] y.tab.? y.debug y.output [$OS].$TARG [$OS].units.tab $TARG bc.c bc.tab.h units.tab.h units.c mpc.c [$OS]._cp
+	rm -f [$OS].out *.[$OS] y.tab.? y.debug y.output [$OS].$TARG [$OS].units.tab $TARG bc.c bc.tab.h units.tab.h units.c mpc.c mpc.tab.h [$OS]._cp
 
 %.clean:V:
 	rm -f [$OS].$stem $stem.[$OS]
