@@ -432,6 +432,11 @@ autoxpart(Edit *edit)
 	}
 
 	s = 0;
+	if(autox[0].alloc == 0){
+		/* if no 9fat, reserve space for plan9 partition table */ 
+		s = 2;
+		if((s + pa) % stride) s += stride - (s + pa) % stride;
+	}
 	secs = edit->disk->secs;
 	for(i=0; i<nelem(autox); i++){
 		if(autox[i].alloc == 0)
