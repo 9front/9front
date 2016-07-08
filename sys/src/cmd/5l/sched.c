@@ -288,6 +288,7 @@ regused(Sch *s, Prog *realp)
 	case ASLL:
 	case ASRA:
 	case ASRL:
+	case AROR:
 	case ASUB:
 	case AEOR:
 

@@ -726,6 +726,7 @@ buildop(void)
 		case ASLL:
 			oprange[ASRL] = oprange[r];
 			oprange[ASRA] = oprange[r];
+			oprange[AROR] = oprange[r];
 			break;
 		case AMUL:
 			oprange[AMULU] = oprange[r];

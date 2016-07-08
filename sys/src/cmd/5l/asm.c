@@ -1522,6 +1522,7 @@ oprrr(int a, int sc)
 	case ASLL:	return o | (0xd<<21) | (0<<5);
 	case ASRL:	return o | (0xd<<21) | (1<<5);
 	case ASRA:	return o | (0xd<<21) | (2<<5);
+	case AROR:	return o | (0xd<<21) | (3<<5);
 	case ASWI:	return o | (0xf<<24);
 
 	/* old arm 7500 fp using coproc 1 (1<<8) */
