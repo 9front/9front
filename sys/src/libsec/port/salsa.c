@@ -1,13 +1,9 @@
 #include "os.h"
 #include <libsec.h>
 
-enum{
-	Blockwords=	SalsaBsize/sizeof(u32int)
-};
-
 /* little-endian data order */
-#define GET4(p)	((((((p)[3]<<8) | (p)[2])<<8) | (p)[1])<<8 | (p)[0])
-#define PUT4(p, v)	(((p)[0]=v), (v>>=8), ((p)[1]=v), (v>>=8), ((p)[2]=v), (v>>=8), ((p)[3]=v))
+#define	GET4(p)		((p)[0]|((p)[1]<<8)|((p)[2]<<16)|((p)[3]<<24))
+#define	PUT4(p,v)	(p)[0]=(v);(p)[1]=(v)>>8;(p)[2]=(v)>>16;(p)[3]=(v)>>24
 
 #define ROTATE(v,c) (t = v, (u32int)(t << (c)) | (t >> (32 - (c))))
 
@@ -78,30 +74,11 @@ setupSalsastate(Salsastate *s, uchar *key, ulong keylen, uchar *iv, ulong ivlen,
 }
 
 static void
-hsalsablock(uchar h[32], Salsastate *s)
+dorounds(u32int x[16], int rounds)
 {
-	u32int x[Blockwords], t;
-	int i, rounds;
+	u32int t;
 
-	rounds = s->rounds;
-	x[0] = s->input[0];
-	x[1] = s->input[1];
-	x[2] = s->input[2];
-	x[3] = s->input[3];
-	x[4] = s->input[4];
-	x[5] = s->input[5];
-	x[6] = s->input[6];
-	x[7] = s->input[7];
-	x[8] = s->input[8];
-	x[9] = s->input[9];
-	x[10] = s->input[10];
-	x[11] = s->input[11];
-	x[12] = s->input[12];
-	x[13] = s->input[13];
-	x[14] = s->input[14];
-	x[15] = s->input[15];
-
-	for(i = rounds; i > 0; i -= 2) {
+	for(; rounds > 0; rounds -= 2) {
 	     x[4] ^= ROTATE( x[0]+x[12], 7);
 	     x[8] ^= ROTATE( x[4]+ x[0], 9);
 	    x[12] ^= ROTATE( x[8]+ x[4],13);
@@ -135,6 +112,31 @@ hsalsablock(uchar h[32], Salsastate *s)
 	    x[14] ^= ROTATE(x[13]+x[12],13);
 	    x[15] ^= ROTATE(x[14]+x[13],18);
 	}
+}
+
+static void
+hsalsablock(uchar h[32], Salsastate *s)
+{
+	u32int x[16];
+
+	x[0] = s->input[0];
+	x[1] = s->input[1];
+	x[2] = s->input[2];
+	x[3] = s->input[3];
+	x[4] = s->input[4];
+	x[5] = s->input[5];
+	x[6] = s->input[6];
+	x[7] = s->input[7];
+	x[8] = s->input[8];
+	x[9] = s->input[9];
+	x[10] = s->input[10];
+	x[11] = s->input[11];
+	x[12] = s->input[12];
+	x[13] = s->input[13];
+	x[14] = s->input[14];
+	x[15] = s->input[15];
+
+	dorounds(x, s->rounds);
 
 	PUT4(h+0*4, x[0]);
 	PUT4(h+1*4, x[5]);
@@ -197,10 +199,9 @@ salsa_setblock(Salsastate *s, u64int blockno)
 static void
 encryptblock(Salsastate *s, uchar *src, uchar *dst)
 {
-	u32int x[Blockwords], t;
-	int i, rounds;
+	u32int x[16];
+	int i;
 
-	rounds = s->rounds;
 	x[0] = s->input[0];
 	x[1] = s->input[1];
 	x[2] = s->input[2];
@@ -218,59 +219,8 @@ encryptblock(Salsastate *s, uchar *src, uchar *dst)
 	x[14] = s->input[14];
 	x[15] = s->input[15];
 
-	for(i = rounds; i > 0; i -= 2) {
-	     x[4] ^= ROTATE( x[0]+x[12], 7);
-	     x[8] ^= ROTATE( x[4]+ x[0], 9);
-	    x[12] ^= ROTATE( x[8]+ x[4],13);
-	     x[0] ^= ROTATE(x[12]+ x[8],18);
-	     x[9] ^= ROTATE( x[5]+ x[1], 7);
-	    x[13] ^= ROTATE( x[9]+ x[5], 9);
-	     x[1] ^= ROTATE(x[13]+ x[9],13);
-	     x[5] ^= ROTATE( x[1]+x[13],18);
-	    x[14] ^= ROTATE(x[10]+ x[6], 7);
-	     x[2] ^= ROTATE(x[14]+x[10], 9);
-	     x[6] ^= ROTATE( x[2]+x[14],13);
-	    x[10] ^= ROTATE( x[6]+ x[2],18);
-	     x[3] ^= ROTATE(x[15]+x[11], 7);
-	     x[7] ^= ROTATE( x[3]+x[15], 9);
-	    x[11] ^= ROTATE( x[7]+ x[3],13);
-	    x[15] ^= ROTATE(x[11]+ x[7],18);
-	     x[1] ^= ROTATE( x[0]+ x[3], 7);
-	     x[2] ^= ROTATE( x[1]+ x[0], 9);
-	     x[3] ^= ROTATE( x[2]+ x[1],13);
-	     x[0] ^= ROTATE( x[3]+ x[2],18);
-	     x[6] ^= ROTATE( x[5]+ x[4], 7);
-	     x[7] ^= ROTATE( x[6]+ x[5], 9);
-	     x[4] ^= ROTATE( x[7]+ x[6],13);
-	     x[5] ^= ROTATE( x[4]+ x[7],18);
-	    x[11] ^= ROTATE(x[10]+ x[9], 7);
-	     x[8] ^= ROTATE(x[11]+x[10], 9);
-	     x[9] ^= ROTATE( x[8]+x[11],13);
-	    x[10] ^= ROTATE( x[9]+ x[8],18);
-	    x[12] ^= ROTATE(x[15]+x[14], 7);
-	    x[13] ^= ROTATE(x[12]+x[15], 9);
-	    x[14] ^= ROTATE(x[13]+x[12],13);
-	    x[15] ^= ROTATE(x[14]+x[13],18);
-	}
+	dorounds(x, s->rounds);
 
-#ifdef FULL_UNROLL
-	ENCRYPT(src+0*4, x[0], s->input[0], dst+0*4);
-	ENCRYPT(src+1*4, x[1], s->input[1], dst+1*4);
-	ENCRYPT(src+2*4, x[2], s->input[2], dst+2*4);
-	ENCRYPT(src+3*4, x[3], s->input[3], dst+3*4);
-	ENCRYPT(src+4*4, x[4], s->input[4], dst+4*4);
-	ENCRYPT(src+5*4, x[5], s->input[5], dst+5*4);
-	ENCRYPT(src+6*4, x[6], s->input[6], dst+6*4);
-	ENCRYPT(src+7*4, x[7], s->input[7], dst+7*4);
-	ENCRYPT(src+8*4, x[8], s->input[8], dst+8*4);
-	ENCRYPT(src+9*4, x[9], s->input[9], dst+9*4);
-	ENCRYPT(src+10*4, x[10], s->input[10], dst+10*4);
-	ENCRYPT(src+11*4, x[11], s->input[11], dst+11*4);
-	ENCRYPT(src+12*4, x[12], s->input[12], dst+12*4);
-	ENCRYPT(src+13*4, x[13], s->input[13], dst+13*4);
-	ENCRYPT(src+14*4, x[14], s->input[14], dst+14*4);
-	ENCRYPT(src+15*4, x[15], s->input[15], dst+15*4);
-#else
 	for(i=0; i<nelem(x); i+=4){
 		ENCRYPT(src, x[i], s->input[i], dst);
 		ENCRYPT(src+4, x[i+1], s->input[i+1], dst+4);
@@ -279,7 +229,6 @@ encryptblock(Salsastate *s, uchar *src, uchar *dst)
 		src += 16;
 		dst += 16;
 	}
-#endif
 
 	if(++s->input[8] == 0)
 		s->input[9]++;
@@ -306,6 +255,48 @@ void
 salsa_encrypt(uchar *buf, ulong bytes, Salsastate *s)
 {
 	salsa_encrypt2(buf, buf, bytes, s);
+}
+
+void
+salsa_core(u32int in[16], u32int out[16], int rounds)
+{
+	u32int x[16];
+
+	x[0] = in[0];
+	x[1] = in[1];
+	x[2] = in[2];
+	x[3] = in[3];
+	x[4] = in[4];
+	x[5] = in[5];
+	x[6] = in[6];
+	x[7] = in[7];
+	x[8] = in[8];
+	x[9] = in[9];
+	x[10] = in[10];
+	x[11] = in[11];
+	x[12] = in[12];
+	x[13] = in[13];
+	x[14] = in[14];
+	x[15] = in[15];
+
+	dorounds(x, rounds);
+
+	out[0] = x[0] + in[0];
+	out[1] = x[1] + in[1];
+	out[2] = x[2] + in[2];
+	out[3] = x[3] + in[3];
+	out[4] = x[4] + in[4];
+	out[5] = x[5] + in[5];
+	out[6] = x[6] + in[6];
+	out[7] = x[7] + in[7];
+	out[8] = x[8] + in[8];
+	out[9] = x[9] + in[9];
+	out[10] = x[10] + in[10];
+	out[11] = x[11] + in[11];
+	out[12] = x[12] + in[12];
+	out[13] = x[13] + in[13];
+	out[14] = x[14] + in[14];
+	out[15] = x[15] + in[15];
 }
 
 void

@@ -154,6 +154,8 @@ void	salsa_setblock(Salsastate*, u64int);
 void	salsa_encrypt(uchar*, ulong, Salsastate*);
 void	salsa_encrypt2(uchar*, uchar*, ulong, Salsastate*);
 
+void	salsa_core(u32int in[16], u32int out[16], int rounds);
+
 void	hsalsa(uchar h[32], uchar *key, ulong keylen, uchar nonce[16], int rounds);
 
 /*
@@ -574,6 +576,11 @@ void curve25519_dh_finish(uchar x[32], uchar y[32], uchar z[32]);
 /* password-based key derivation function 2 (rfc2898) */
 void pbkdf2_x(uchar *p, ulong plen, uchar *s, ulong slen, ulong rounds, uchar *d, ulong dlen,
 	DigestState* (*x)(uchar*, ulong, uchar*, ulong, uchar*, DigestState*), int xlen);
+
+/* scrypt password-based key derivation function */
+char* scrypt(uchar *p, ulong plen, uchar *s, ulong slen,
+	ulong N, ulong R, ulong P,
+	uchar *d, ulong dlen);
 
 /* hmac-based key derivation function (rfc5869) */
 void hkdf_x(uchar *salt, ulong nsalt, uchar *info, ulong ninfo, uchar *key, ulong nkey, uchar *d, ulong dlen,
