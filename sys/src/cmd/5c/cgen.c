@@ -961,7 +961,7 @@ cgen64(Node *n, Node *nn)
 			reg[nn->right->reg] = 0;
 			cgen(l, &nod1);
 			reg[nn->right->reg] = a;
-			if(typeu[n->type->etype] || typeu[l->type->etype])
+			if(typeu[l->type->etype])
 				gmove(nodconst(0), nn->right);
 			else
 				gopcode(OASHR, nodconst(31), &nod1, nn->right);
