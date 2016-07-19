@@ -302,7 +302,7 @@ pprint(char *fmt, ...)
 		return 0;
 
 	c = up->fgrp->fd[2];
-	if(c==nil || (c->mode!=OWRITE && c->mode!=ORDWR))
+	if(c==nil || (c->flag&CMSG)!=0 || (c->mode!=OWRITE && c->mode!=ORDWR))
 		return 0;
 	n = snprint(buf, sizeof buf, "%s %lud: ", up->text, up->pid);
 	va_start(arg, fmt);
