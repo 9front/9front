@@ -1165,23 +1165,11 @@ io(void)
 		}
 	}
 
-	for(;;){
-		/*
-		 * reading from a pipe or a network device
-		 * will give an error after a few eof reads
-		 * however, we cannot tell the difference
-		 * between a zero-length read and an interrupt
-		 * on the processes writing to us,
-		 * so we wait for the error
-		 */
-		checkmboxrefs();
-		n = read9pmsg(mfd[0], mdata, messagesize);
-		if(n == 0)
-			continue;
+	while((n = read9pmsg(mfd[0], mdata, messagesize)) != 0){
 		if(n < 0)
-			return;
-		if(convM2S(mdata, n, &thdr) == 0)
-			continue;
+			error("mount read");
+		if(convM2S(mdata, n, &thdr) != n)
+ 			error("convM2S format error");
 
 		if(debug)
 			fprint(2, "%s:<-%F\n", argv0, &thdr);
@@ -1614,25 +1602,6 @@ hashmboxrefs(Mailbox *mb)
 	}
 	qunlock(&hashlock);
 	return refs;
-}
-
-void
-checkmboxrefs(void)
-{
-	int f, refs;
-	Mailbox *mb;
-
-	qlock(&mbllock);
-	for(mb=mbl; mb; mb=mb->next){
-		qlock(mb);
-		refs = (f=fidmboxrefs(mb))+1;
-		if(refs != mb->refs){
-			fprint(2, "mbox %s %s ref mismatch actual %d (%d+1) expected %d\n", mb->name, mb->path, refs, f, mb->refs);
-			abort();
-		}
-		qunlock(mb);
-	}
-	qunlock(&mbllock);
 }
 
 void
