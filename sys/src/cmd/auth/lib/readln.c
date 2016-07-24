@@ -49,8 +49,7 @@ getsecret(int passvalid, char *p9pass)
 	}
 
 	for(;;){
-		readln("Secret(0 to 256 characters): ", p9pass,
-			sizeof answer, 1);
+		readln("Secret: ", p9pass, sizeof answer, 1);
 		readln("Confirm: ", answer, sizeof answer, 1);
 		if(strcmp(p9pass, answer) == 0)
 			break;
