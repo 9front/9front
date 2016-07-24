@@ -25,8 +25,6 @@ typedef struct Network	Network;
 
 int vers;		/* incremented each clone/attach */
 
-static volatile int stop;
-
 /* holds data to be returned via read of /net/dns, perhaps multiple reads */
 struct Mfile
 {
@@ -113,7 +111,6 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	int kid, pid;
 	char servefile[Maxpath], ext[Maxpath];
 	Dir *dir;
 
@@ -205,32 +202,14 @@ main(int argc, char *argv[])
 
 	if (cfg.straddle && !seerootns())
 		dnslog("straddle server misconfigured; can't see root name servers");
-	/*
-	 * fork without sharing heap.
-	 * parent waits around for child to die, then forks & restarts.
-	 * child may spawn udp server, notify procs, etc.; when it gets too
-	 * big, it kills itself and any children.
-	 * /srv/dns and /net/dns remain open and valid.
-	 */
-	for (;;) {
-		kid = rfork(RFPROC|RFFDG|RFNOTEG);
-		switch (kid) {
-		case -1:
-			sysfatal("fork failed: %r");
-		case 0:
-			if(cfg.serve)
-				dnudpserver(mntpt);
-			if(sendnotifies)
-				notifyproc();
-			io();
-			_exits("restart");
-		default:
-			while ((pid = waitpid()) != kid && pid != -1)
-				continue;
-			break;
-		}
-		dnslog("dns restarting");
-	}
+
+	if(cfg.serve)
+		dnudpserver(mntpt);
+	if(sendnotifies)
+		notifyproc();
+
+	io();
+	_exits(0);
 }
 
 /*
@@ -275,9 +254,9 @@ mountinit(char *service, char *mntpt)
 
 	/* copy namespace to avoid a deadlock */
 	switch(rfork(RFFDG|RFPROC|RFNAMEG)){
-	case 0:			/* child: hang around and (re)start main proc */
+	case 0:			/* child: start main proc */
 		close(p[1]);
-		procsetname("%s restarter", mntpt);
+		procsetname("%s", mntpt);
 		break;
 	case -1:
 		sysfatal("fork failed: %r");
@@ -417,23 +396,19 @@ io(void)
 	if(setjmp(req.mret))
 		putactivity(0);
 	req.isslave = 0;
-	stop = 0;
-	while(!stop){
-		procsetname("%d %s/dns Twrites of %d 9p rpcs read; %d alarms",
-			stats.qrecvd9p, mntpt, stats.qrecvd9prpc, stats.alarms);
-		while((n = read9pmsg(mfd[0], mdata, sizeof mdata)) == 0)
-			;
+	while((n = read9pmsg(mfd[0], mdata, sizeof mdata)) != 0){
 		if(n < 0){
 			dnslog("error reading 9P from %s: %r", mntpt);
-			sleep(2000);	/* don't thrash after read error */
-			return;
+			break;
 		}
 
 		stats.qrecvd9prpc++;
 		job = newjob();
 		if(convM2S(mdata, n, &job->request) != n){
+			dnslog("format error %ux %ux %ux %ux %ux",
+				mdata[0], mdata[1], mdata[2], mdata[3], mdata[4]);
 			freejob(job);
-			continue;
+			break;
 		}
 		mf = newfid(job->request.fid, 0);
 		if(debug)
@@ -501,9 +476,6 @@ io(void)
 
 		putactivity(0);
 	}
-	/* kill any udp server, notifier, etc. processes */
-	postnote(PNGROUP, getpid(), "die");
-	sleep(1000);
 }
 
 void
@@ -726,8 +698,6 @@ rwrite(Job *job, Mfile *mf, Request *req)
 		dndump("/lib/ndb/dnsdump");
 	else if(strcmp(job->request.data, "refresh")==0)
 		needrefresh = 1;
-	else if(strcmp(job->request.data, "restart")==0)
-		stop = 1;
 	else if(strcmp(job->request.data, "stats")==0)
 		dnstats("/lib/ndb/dnsstats");
 	else if(strncmp(job->request.data, "target ", 7)==0){
