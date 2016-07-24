@@ -59,9 +59,8 @@ getreq(Srv *s)
 	Req *r;
 
 	qlock(&s->rlock);
-	while((n = read9pmsg(s->infd, s->rbuf, s->msize)) == 0)
-		;
-	if(n < 0){
+	n = read9pmsg(s->infd, s->rbuf, s->msize);
+	if(n <= 0){
 		qunlock(&s->rlock);
 		return nil;
 	}

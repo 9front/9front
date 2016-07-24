@@ -491,35 +491,15 @@ void
 io(void)
 {
 	char *err;
-	int n, nerr;
-	char buf[ERRMAX];
+	int n;
 
-	errstr(buf, sizeof buf);
-	for(nerr=0, buf[0]='\0'; nerr<100; nerr++){
-		/*
-		 * reading from a pipe or a network device
-		 * will give an error after a few eof reads
-		 * however, we cannot tell the difference
-		 * between a zero-length read and an interrupt
-		 * on the processes writing to us,
-		 * so we wait for the error
-		 */
-		n = read9pmsg(mfd[0], mdata, sizeof mdata);
-		if(n==0)
-			continue;
-		if(n < 0){
-			if(buf[0]=='\0')
-				errstr(buf, sizeof buf);
-			continue;
-		}
-		nerr = 0;
-		buf[0] = '\0';
+	while((n = read9pmsg(mfd[0], mdata, sizeof mdata)) != 0){
+		if(n < 0)
+			error("mount read");
 		if(convM2S(mdata, n, &rhdr) != n)
 			error("convert error in convM2S");
-
 		if(verbose)
 			fprint(2, "tapefs: <=%F\n", &rhdr);/**/
-
 		thdr.data = (char*)mdata + IOHDRSZ;
 		thdr.stat = mdata + IOHDRSZ;
 		if(!fcalls[rhdr.type])
@@ -542,10 +522,6 @@ io(void)
 		if(write(mfd[1], mdata, n) != n)
 			error("mount write");
 	}
-	if(buf[0]=='\0' || strstr(buf, "hungup"))
-		exits("");
-	fprint(2, "%s: mount read: %s\n", argv0, buf);
-	exits(buf);
 }
 
 int

@@ -1038,14 +1038,11 @@ io(int in, int out)
 	/* after restart, let the system settle for 5 mins before warning */
 	lastwarning = time(0) - 24*60*60 + 5*60;
 
-	for(;;){
-		n = read9pmsg(in, mdata, messagesize);
-		if(n == 0)
-			continue;
+	while((n = read9pmsg(in, mdata, messagesize)) != 0){
 		if(n < 0)
-			error("mount read %d", n);
-		if(convM2S(mdata, n, &rhdr) == 0)
-			continue;
+			error("mount read: %r");
+		if(convM2S(mdata, n, &rhdr) != n)
+			error("convM2S format error: %r");
 
 		if(newkeys())
 			readusers();

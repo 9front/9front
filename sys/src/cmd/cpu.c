@@ -1028,14 +1028,7 @@ notefs(int fd)
 	ncpunote = 0;
 	for(;;){
 		n = read9pmsg(fd, buf, sizeof(buf));
-		if(n < 0){
-			if(dbg)
-				fprint(2, "read9pmsg(%d) returns %d: %r\n", fd, n);
-			break;
-		}
-		if(n == 0)
-			continue;
-		if(convM2S(buf, n, &f) <= BIT16SZ)
+		if(n <= 0 || convM2S(buf, n, &f) != n)
 			break;
 		if(dbg)
 			fprint(2, "notefs: ->%F\n", &f);

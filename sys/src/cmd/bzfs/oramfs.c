@@ -743,22 +743,11 @@ io(void)
 
 	pid = getpid();
 
-	for(;;){
-		/*
-		 * reading from a pipe or a network device
-		 * will give an error after a few eof reads.
-		 * however, we cannot tell the difference
-		 * between a zero-length read and an interrupt
-		 * on the processes writing to us,
-		 * so we wait for the error.
-		 */
-		n = read9pmsg(mfd[0], mdata, messagesize);
+	while((n = read9pmsg(mfd[0], mdata, messagesize)) != 0){
 		if(n < 0)
 			error("mount read: %r");
-		if(n == 0)
-			continue;
-		if(convM2S(mdata, n, &thdr) == 0)
-			continue;
+		if(convM2S(mdata, n, &thdr) != n)
+			error("convM2S format error: %r");
 
 		if(debug)
 			fprint(2, "ramfs %d:<-%F\n", pid, &thdr);

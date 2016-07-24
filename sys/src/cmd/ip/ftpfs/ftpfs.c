@@ -255,23 +255,19 @@ kaproc(void)
 void
 io(void)
 {
-	char *err, buf[ERRMAX];
+	char *err;
 	int n;
 
 	kapid = kaproc();
 
 	while(!dying){
 		n = read9pmsg(mfd, mdata, messagesize);
-		if(n < 0){
-			errstr(buf, sizeof buf);
-			if(buf[0]=='\0' || strstr(buf, "hungup"))
-				exits("");
-			fatal("mount read: %s\n", buf);
-		}
 		if(n == 0)
-			continue;
-		if(convM2S(mdata, n, &thdr) == 0)
-			continue;
+			break;
+		if(n < 0)
+			fatal("mount read: %r");
+		if(convM2S(mdata, n, &thdr) != n)
+			fatal("convM2S format error: %r");
 
 		if(debug)
 			fprint(2, "<-%F\n", &thdr);/**/

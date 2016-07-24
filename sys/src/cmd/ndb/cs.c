@@ -321,14 +321,14 @@ mountinit(char *service, char *mntpt)
 		procsetname("%s", mntpt);
 		break;
 	case -1:
-		error("fork failed\n");
+		error("fork failed");
 	default:
 		/*
 		 *  put ourselves into the file system
 		 */
 		close(p[0]);
 		if(mount(p[1], -1, mntpt, MAFTER, "") < 0)
-			error("mount failed\n");
+			error("mount failed");
 		_exits(0);
 	}
 	mfd[0] = mfd[1] = p[0];
@@ -447,13 +447,13 @@ io(void)
 		if(n < 0)
 			error("mount read");
 		if(n == 0)
-			continue;
+			break;
 		job = newjob();
 		if(convM2S(mdata, n, &job->request) != n){
 			syslog(1, logfile, "format error %ux %ux %ux %ux %ux",
 				mdata[0], mdata[1], mdata[2], mdata[3], mdata[4]);
 			freejob(job);
-			continue;
+			break;
 		}
 		qlock(&dblock);
 		mf = newfid(job->request.fid);

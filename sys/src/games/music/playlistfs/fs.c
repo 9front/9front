@@ -725,7 +725,6 @@ allocwork(Req *r)
 void
 srvio(void *arg)
 {
-	char e[32];
 	int n;
 	Req *r;
 	Channel *dispatchc;
@@ -734,34 +733,25 @@ srvio(void *arg)
 	dispatchc = arg;
 
 	r = reqalloc();
-	for(;;){
-		/*
-		 * reading from a pipe or a network device
-		 * will give an error after a few eof reads
-		 * however, we cannot tell the difference
-		 * between a zero-length read and an interrupt
-		 * on the processes writing to us,
-		 * so we wait for the error
-		 */
-		n = read9pmsg(srvfd[0], r->indata, messagesize);
-		if(n == 0)
-			continue;
+	while((n = read9pmsg(srvfd[0], r->indata, messagesize)) != 0){
 		if(n < 0){
+			char e[32];
 			rerrstr(e, sizeof e);
 			if (strcmp(e, "interrupted") == 0){
 				if (debug & DbgFs) fprint(2, "read9pmsg interrupted\n");
 				continue;
 			}
-			sysfatal("srvio: %s", e);
+			sysfatal("srvio: read: %s", e);
 		}
-		if(convM2S(r->indata, n, &r->ifcall) == 0)
-			continue;
+		if(convM2S(r->indata, n, &r->ifcall) != n)
+			sysfatal("srvio: convM2S: %r");
 
 		if(debug & DbgFs)
 			fprint(2, "io:<-%F\n", &r->ifcall);
 		sendp(dispatchc, r);
 		r = reqalloc();
 	}
+	threadexitsall(nil);
 }
 
 char *

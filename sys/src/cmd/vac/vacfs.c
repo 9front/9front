@@ -704,12 +704,9 @@ io(void)
 	char *err;
 	int n;
 
-	for(;;){
-		n = read9pmsg(mfd[0], mdata, sizeof mdata);
+	while((n = read9pmsg(mfd[0], mdata, sizeof mdata)) != 0){
 		if(n < 0)
-			break;
-		if(n == 0)
-			continue;
+			sysfatal("mount read: %r");
 		if(convM2Su(mdata, n, &rhdr, dotu) != n)
 			sysfatal("convM2S conversion error");
 
@@ -733,7 +730,7 @@ io(void)
 			fprint(2, "vacfs:->%F\n", &thdr);
 		n = convS2Mu(&thdr, mdata, messagesize, dotu);
 		if(n <= BIT16SZ)
-			sysfatal("convS2Mu conversion error");
+			sysfatal("convS2M conversion error");
 		if(err)
 			vtfree(err);
 

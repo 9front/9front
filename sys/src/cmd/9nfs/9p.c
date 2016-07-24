@@ -40,13 +40,13 @@ xmesg(Session *s, int t)
 	}
 again:
 	n = read9pmsg(s->fd, s->data, messagesize);
+	if(n == 0)
+		return -1;
 	if(n < 0){
 		clog("xmesg read error: %r\n");
 		return -1;
 	}
-	if(n == 0)
-		goto again;
-	if(convM2S(s->data, n, &s->f) <= 0){
+	if(convM2S(s->data, n, &s->f) != n){
 		clog("xmesg bad convM2S %d %.2x %.2x %.2x %.2x\n",
 			n, ((uchar*)s->data)[0], ((uchar*)s->data)[1],
 			((uchar*)s->data)[2], ((uchar*)s->data)[3]);

@@ -408,12 +408,11 @@ main(int argc, char **argv)
 	 */
 	for(;;) {
 		r = getsbuf();
-		while((n = read9pmsg(0, r->buf, messagesize)) == 0)
-			;
+		n = read9pmsg(0, r->buf, messagesize);
 		if(n <= 0)
 			fatal(nil);
 	Message:
-		if(convM2S(r->buf, n, &r->work) == 0)
+		if(convM2S(r->buf, n, &r->work) != n)
 			fatal("convM2S format error");
 
 		DEBUG(DFD, "%F\n", &r->work);

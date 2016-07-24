@@ -592,26 +592,12 @@ fsrun(Fs *fs, int fd)
 	int n;
 
 	buf = emalloc(messagesize);
-	for(;;){
-		/*
-		 * reading from a pipe or a network device
-		 * will give an error after a few eof reads
-		 * however, we cannot tell the difference
-		 * between a zero-length read and an interrupt
-		 * on the processes writing to us,
-		 * so we wait for the error
-		 */
-		n = read9pmsg(fd, buf, messagesize);
-		if(n == 0)
-			continue;
+	while((n = read9pmsg(fd, buf, messagesize)) != 0){
 		if(n < 0)
-			fatal("mount read");
-
+			fatal("mount read: %r");
 		rpc.data = (char*)buf + IOHDRSZ;
-		if(convM2S(buf, n, &rpc) == 0)
-			continue;
-		// fprint(2, "recv: %F\n", &rpc);
-
+		if(convM2S(buf, n, &rpc) != n)
+			fatal("convM2S format error: %r");
 
 		/*
 		 * flushes are way too hard.

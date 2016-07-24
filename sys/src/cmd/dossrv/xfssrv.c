@@ -135,22 +135,11 @@ io(int srvfd)
 	pid = getpid();
 
 	fmtinstall('F', fcallfmt);
-	for(;;){
-		/*
-		 * reading from a pipe or a network device
-		 * will give an error after a few eof reads.
-		 * however, we cannot tell the difference
-		 * between a zero-length read and an interrupt
-		 * on the processes writing to us,
-		 * so we wait for the error.
-		 */
-		n = read9pmsg(srvfd, mdata, sizeof mdata);
+	while((n = read9pmsg(srvfd, mdata, sizeof mdata)) != 0){
 		if(n < 0)
-			break;
-		if(n == 0)
-			continue;
-		if(convM2S(mdata, n, req) == 0)
-			continue;
+			panic("mount read");
+		if(convM2S(mdata, n, req) != n)
+			panic("convM2S format error");
 
 		if(chatty)
 			fprint(2, "dossrv %d:<-%F\n", pid, req);

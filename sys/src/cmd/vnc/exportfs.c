@@ -149,10 +149,9 @@ exportproc(Export *fs)
 		errdepth(ed);
 		q = smalloc(sizeof(Exq));
 
-		while((n = read9pmsg(fs->io, q->buf, Maxrpc)) == 0)
-			;
-		if(n < 0 || convM2S(q->buf, n, &q->rpc) != n)
-			goto bad;
+		n = read9pmsg(fs->io, q->buf, Maxrpc);
+		if(n <= 0 || convM2S(q->buf, n, &q->rpc) != n)
+			break;
 
 		if(exdebug)
 			print("export %d <- %F\n", getpid(), &q->rpc);
@@ -181,7 +180,6 @@ exportproc(Export *fs)
 			kproc("exportfs", exslave, nil);
 		rendwakeup(&exq.rwait);
 	}
-bad:
 	free(q);
 	if(exdebug)
 		fprint(2, "export proc shutting down: %r\n");

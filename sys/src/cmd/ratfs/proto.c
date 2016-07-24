@@ -56,16 +56,14 @@ io(void)
 	Fcall	rhdr;
 	int n;
 	
-	for(;;){
-		n = read9pmsg(srvfd, rbuf, sizeof rbuf-1);
-		if(n <= 0)
-			fatal("mount read");
-		if(convM2S(rbuf, n, &rhdr) == 0){
+	while((n = read9pmsg(srvfd, rbuf, sizeof rbuf-1)) != 0){
+		if(n < 0)
+			fatal("mount read: %r");
+		if(convM2S(rbuf, n, &rhdr) != n){
 			if(debugfd >= 0)
 				fprint(2, "%s: malformed message\n", argv0);
-			continue;
+			fatal("convM2S format error: %r");
 		}
-		
 		if(debugfd >= 0)
 			fprint(debugfd, "<-%F\n", &rhdr);/**/
 
@@ -94,9 +92,9 @@ reply(Fcall *r, char *error)
 		fprint(debugfd, "->%F\n", r);/**/
 	n = convS2M(r, rbuf, sizeof rbuf);
 	if(n == 0)
-		sysfatal("convS2M: %r");
+		fatal("convS2M: %r");
 	if(write(srvfd, rbuf, n) < 0)
-		sysfatal("reply: %r");
+		fatal("reply: %r");
 }
 
 

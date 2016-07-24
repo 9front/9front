@@ -914,18 +914,7 @@ io(void)
 	char *err;
 	int n;
 
-	for(;;){
-		/*
-		 * reading from a pipe or a network device
-		 * will give an error after a few eof reads
-		 * however, we cannot tell the difference
-		 * between a zero-length read and an interrupt
-		 * on the processes writing to us,
-		 * so we wait for the error
-		 */
-		n = read9pmsg(mfd[0], mdata, messagesize);
-		if(n == 0)
-			continue;
+	while((n = read9pmsg(mfd[0], mdata, messagesize)) != 0){
 		if(n < 0)
 			error("mount read");
 		if(convM2S(mdata, n, &thdr) != n)

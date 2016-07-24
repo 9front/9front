@@ -812,14 +812,11 @@ io(int fd)
 
 	pid = getpid();
 
-	for(;;){
-		n = read9pmsg(fd, mdata, mesgsize);
+	while((n = read9pmsg(fd, mdata, mesgsize)) != 0){
 		if(n < 0)
-			sysfatal("mount read");
-		if(n == 0)
-			continue;
-		if(convM2S(mdata, n, &rhdr) == 0)
-			continue;
+			sysfatal("mount read: %r");
+		if(convM2S(mdata, n, &rhdr) != n)
+			sysfatal("convM2S format error: %r");
 
 		if(debug)
 			fprint(2, "paqfs %d:<-%F\n", pid, &rhdr);

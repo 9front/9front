@@ -684,35 +684,25 @@ newfid(int fid)
 void
 io(void *)
 {
-	char *err, e[32];
+	char *err;
 	int n;
 	extern int p[];
 	Fid *f;
 
 	threadsetname("file server");
 	close(p[1]);
-	for(;;){
-		/*
-		 * reading from a pipe or a network device
-		 * will give an error after a few eof reads
-		 * however, we cannot tell the difference
-		 * between a zero-length read and an interrupt
-		 * on the processes writing to us,
-		 * so we wait for the error
-		 */
-		n = read9pmsg(mfd[0], mdata, messagesize);
-		if(n == 0)
-			continue;
+	while((n = read9pmsg(mfd[0], mdata, messagesize)) != 0){
 		if(n < 0){
+			char e[32];
 			rerrstr(e, sizeof e);
 			if (strcmp(e, "interrupted") == 0){
 				if (debug & DbgFs) fprint(2, "read9pmsg interrupted\n");
 				continue;
 			}
-			return;
+			sysfatal("mount read: %s", e);
 		}
-		if(convM2S(mdata, n, &thdr) == 0)
-			continue;
+		if(convM2S(mdata, n, &thdr) != n)
+			sysfatal("convM2S format error: %r");
 
 		if(debug & DbgFs)
 			fprint(2, "io:<-%F\n", &thdr);

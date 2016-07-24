@@ -148,8 +148,7 @@ fsysproc(void *)
 	x = nil;
 	for(;;){
 		buf = emalloc(messagesize+UTFmax);	/* overflow for appending partial rune in xfidwrite */
-		while((n = read9pmsg(sfd, buf, messagesize)) == 0 && !closing)
-			;
+		n = read9pmsg(sfd, buf, messagesize);
 		if(n <= 0){
 			if(closing)
 				break;

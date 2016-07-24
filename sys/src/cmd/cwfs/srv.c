@@ -104,8 +104,9 @@ srvi(void *aux)
 	Msgbuf *mb, *ms;
 	uchar *b, *p, *e;
 	int n, m;
-	char buf[ERRMAX];
+	char err[ERRMAX];
 
+	err[0] = 0;
 	chan = aux;
 	srv = chan->pdata;
 
@@ -116,13 +117,13 @@ srvi(void *aux)
 	e = b + mb->count;
 
 Read:
-	while((n = read(srv->fd, p, e - p)) >= 0){
+	while((n = read(srv->fd, p, e - p)) > 0){
 		p += n;
 		while((p - b) >= BIT32SZ){
 			m = GBIT32(b);
 			if((m < BIT32SZ) || (m > mb->count)){
-				werrstr("bad length in 9P2000 message header");
-				goto Error;
+				strcpy(err, "bad length in 9P2000 message header");
+				goto Hangup;
 			}
 			if((n = (p - b) - m) < 0){
 				e = b + m;
@@ -149,12 +150,11 @@ Read:
 		e = b + mb->count;
 	}
 
-Error:
-	rerrstr(buf, sizeof(buf));
-	if(strstr(buf, "interrupt"))
-		goto Read;
+	if(n < 0)
+		errstr(err, sizeof(err));
 
-	chanhangup(chan, buf);
+Hangup:
+	chanhangup(chan, err);
 	srvput(srv);
 
 	mbfree(mb);

@@ -49,7 +49,7 @@ watch(int fd)
 		sysfatal("out of memory");
 
 	while((n = read9pmsg(fd, buf, messagesize)) > 0){
-		if(convM2S(buf, n, &f) == 0){
+		if(convM2S(buf, n, &f) != n){
 			print("convM2S: %r\n");
 			continue;
 		}

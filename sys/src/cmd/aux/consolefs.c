@@ -681,18 +681,13 @@ fsrun(void *v)
 		}
 		free(d);
 		r = allocreq(fs, messagesize);
-		while((n = read9pmsg(fs->fd, r->buf, messagesize)) == 0)
-			;
+		n = read9pmsg(fs->fd, r->buf, messagesize);
+		if(n == 0)
+			threadexitsall("unmounted");
 		if(n < 0)
-			fatal("unmounted");
-
-		if(convM2S(r->buf, n, &r->f) == 0){
-			fprint(2, "can't convert %ux %ux %ux\n", r->buf[0],
-				r->buf[1], r->buf[2]);
-			free(r);
-			continue;
-		}
-
+			fatal("mount read: %r");
+		if(convM2S(r->buf, n, &r->f) != n)
+			fatal("convM2S format error: %r");
 
 		f = fsgetfid(fs, r->f.fid);
 		r->fid = f;
