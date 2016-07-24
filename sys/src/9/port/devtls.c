@@ -1872,7 +1872,7 @@ buftochan(char *p)
 	fd = strtoul(p, 0, 0);
 	if(fd < 0)
 		error(Ebadarg);
-	c = fdtochan(fd, -1, 0, 1);	/* error check and inc ref */
+	c = fdtochan(fd, ORDWR, 1, 1);	/* error check and inc ref */
 	return c;
 }
 
