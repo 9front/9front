@@ -53,78 +53,6 @@ static struct {
 	"debug", "/tmp/nvram", 0, sizeof(Nvrsafe),
 };
 
-static char*
-readcons(char *prompt, char *def, int raw, char *buf, int nbuf)
-{
-	int fdin, fdout, ctl, n, m;
-	char line[10];
-
-	fdin = open("/dev/cons", OREAD);
-	if(fdin < 0)
-		fdin = 0;
-	fdout = open("/dev/cons", OWRITE);
-	if(fdout < 0)
-		fdout = 1;
-	if(def != nil)
-		fprint(fdout, "%s[%s]: ", prompt, def);
-	else
-		fprint(fdout, "%s: ", prompt);
-	if(raw){
-		ctl = open("/dev/consctl", OWRITE);
-		if(ctl >= 0)
-			write(ctl, "rawon", 5);
-	} else
-		ctl = -1;
-
-	m = 0;
-	for(;;){
-		n = read(fdin, line, 1);
-		if(n == 0){
-			close(ctl);
-			werrstr("readcons: EOF");
-			return nil;
-		}
-		if(n < 0){
-			close(ctl);
-			werrstr("can't read cons");
-			return nil;
-		}
-		if(line[0] == 0x7f)
-			exits(0);
-		if(n == 0 || line[0] == '\n' || line[0] == '\r'){
-			if(raw){
-				write(ctl, "rawoff", 6);
-				write(fdout, "\n", 1);
-				close(ctl);
-			}
-			buf[m] = '\0';
-			if(buf[0]=='\0' && def)
-				strcpy(buf, def);
-			return buf;
-		}
-		if(line[0] == '\b'){
-			if(m > 0)
-				m--;
-		}else if(line[0] == 0x15){	/* ^U: line kill */
-			m = 0;
-			if(def != nil)
-				fprint(fdout, "%s[%s]: ", prompt, def);
-			else
-				fprint(fdout, "%s: ", prompt);
-		}else{
-			if(m >= nbuf-1){
-				fprint(fdout, "line too long\n");
-				m = 0;
-				if(def != nil)
-					fprint(fdout, "%s[%s]: ", prompt, def);
-				else
-					fprint(fdout, "%s: ", prompt);
-			}else
-				buf[m++] = line[0];
-		}
-	}
-}
-
 typedef struct {
 	int	fd;
 	int	safelen;
@@ -211,6 +139,29 @@ findnvram(Nvrwhere *locp)
 	locp->safeoff = safeoff;
 }
 
+static int
+ask(char *prompt, char *buf, int len, int raw)
+{
+	char *s;
+	int n;
+
+	memset(buf, 0, len);
+	for(;;){
+		if((s = readcons(prompt, nil, raw)) == nil)
+			return -1;
+		if((n = strlen(s)) >= len)
+			fprint(2, "%s longer than %d characters; try again\n", prompt, len-1);
+		else {
+			memmove(buf, s, n);
+			memset(s, 0, n);
+			free(s);
+			return 0;
+		}
+		memset(s, 0, n);
+		free(s);
+	}
+}
+
 /*
  *  get key info out of nvram.  since there isn't room in the PC's nvram use
  *  a disk partition there.
@@ -219,7 +170,7 @@ int
 readnvram(Nvrsafe *safep, int flag)
 {
 	int err;
-	char buf[512], in[128];		/* 512 for floppy i/o */
+	char buf[512];		/* 512 for floppy i/o */
 	Nvrsafe *safe;
 	Nvrwhere loc;
 
@@ -294,22 +245,22 @@ readnvram(Nvrsafe *safep, int flag)
 
 	if((flag&(NVwrite|NVwritemem)) || (err && (flag&NVwriteonerr))){
 		if (!(flag&NVwritemem)) {
-			readcons("authid", nil, 0, safe->authid,
-					sizeof safe->authid);
-			readcons("authdom", nil, 0, safe->authdom,
-					sizeof safe->authdom);
-			readcons("secstore key", nil, 1, safe->config,
-					sizeof safe->config);
-			for(;;){
-				Authkey k;
+			char pass[PASSWDLEN];
+			Authkey k;
 
-				if(readcons("password", nil, 1, in, sizeof in) == nil)
-					goto Out;
-				passtokey(&k, in);
-				memmove(safe->machkey, k.des, DESKEYLEN);
-				memmove(safe->aesmachkey, k.aes, AESKEYLEN);
-				break;
-			}
+			if(ask("authid", safe->authid, sizeof safe->authid, 0))
+				goto Out;
+			if(ask("authdom", safe->authdom, sizeof safe->authdom, 0))
+				goto Out;
+			if(ask("secstore key", safe->config, sizeof safe->config, 1))
+				goto Out;
+			if(ask("password", pass, sizeof pass, 1))
+				goto Out;
+			passtokey(&k, pass);
+			memset(pass, 0, sizeof pass);
+			memmove(safe->machkey, k.des, DESKEYLEN);
+			memmove(safe->aesmachkey, k.aes, AESKEYLEN);
+			memset(&k, 0, sizeof k);
 		}
 
 		safe->machsum = nvcsum(safe->machkey, DESKEYLEN);

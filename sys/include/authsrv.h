@@ -26,6 +26,7 @@ enum
 	NETCHLEN=	16,	/* max network challenge length (used in AS protocol) */
 	CONFIGLEN=	14,
 	SECRETLEN=	32,	/* secret max size */
+	PASSWDLEN=	28,	/* password max size */
 
 	NONCELEN=	32,
 
@@ -102,8 +103,8 @@ struct Authenticator
 struct Passwordreq
 {
 	char	num;
-	char	old[ANAMELEN];
-	char	new[ANAMELEN];
+	char	old[PASSWDLEN];
+	char	new[PASSWDLEN];
 	char	changesecret;
 	char	secret[SECRETLEN];	/* new secret */
 };
@@ -187,6 +188,7 @@ struct Nvrsafe
 
 extern	uchar	nvcsum(void*, int);
 extern	int	readnvram(Nvrsafe*, int);
+extern	char*	readcons(char*, char*, int);
 
 /*
  *  call up auth server

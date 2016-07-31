@@ -21,6 +21,7 @@ OFILES=\
 	nvcsum.$O\
 	passtokey.$O\
 	readnvram.$O\
+	readcons.$O\
 
 HFILES=\
 	/sys/include/authsrv.h

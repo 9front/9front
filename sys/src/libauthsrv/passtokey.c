@@ -6,12 +6,12 @@
 void
 passtodeskey(char key[DESKEYLEN], char *p)
 {
-	uchar buf[ANAMELEN], *t;
+	uchar buf[PASSWDLEN], *t;
 	int i, n;
 
 	n = strlen(p);
-	if(n >= ANAMELEN)
-		n = ANAMELEN-1;
+	if(n >= PASSWDLEN)
+		n = PASSWDLEN-1;
 	memset(buf, ' ', 8);
 	t = buf;
 	strncpy((char*)t, p, n);
