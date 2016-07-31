@@ -12,12 +12,11 @@
 /* RFC2138 */
 #include <u.h>
 #include <libc.h>
-#include <ip.h>
 #include <ctype.h>
-#include <mp.h>
-#include <libsec.h>
 #include <bio.h>
+#include <ip.h>
 #include <ndb.h>
+#include <libsec.h>
 
 #define AUTHLOG "auth"
 

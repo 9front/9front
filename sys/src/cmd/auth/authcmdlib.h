@@ -1,7 +1,6 @@
 #pragma lib "./lib.$O.a"
 
 enum{
-	PASSLEN		= 10,
 	MAXNETCHAL	= 100000,		/* max securenet challenge */
 	Maxpath		= 256,
 };
@@ -36,6 +35,7 @@ typedef struct {
 
 extern Fs fs[3];
 
+int	answer(char*);
 void	checksum(char*, char*);
 void	error(char*, ...);
 void	fail(char*);
@@ -46,7 +46,6 @@ char*	findsecret(char*, char*, char*);
 int	getauthkey(Authkey*);
 long	getexpiration(char *db, char *u);
 void	getpass(Authkey*, char*, int, int);
-int	getsecret(int, char*);
 int	deskeyfmt(Fmt*);
 void	logfail(char*);
 int	netcheck(void*, long, char*);
@@ -58,8 +57,6 @@ int	querybio(char*, char*, Acctbio*);
 void	rdbio(char*, char*, Acctbio*);
 int	readarg(int, char*, int);
 int	readfile(char*, char*, int);
-void	readln(char*, char*, int, int);
-long	readn(int, void*, long);
 char*	secureidcheck(char*, char*);
 int	setkey(char*, char*, Authkey*);
 char*	setdeskey(char*, char*, char*);

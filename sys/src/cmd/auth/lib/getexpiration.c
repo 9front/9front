@@ -31,8 +31,7 @@ long
 getexpiration(char *db, char *u)
 {
 	char buf[Maxpath];
-	char prompt[128];
-	char cdate[32];
+	char *cdate;
 	Tm date;
 	ulong secs, now;
 	int n, fd;
@@ -57,20 +56,24 @@ getexpiration(char *db, char *u)
 			buf[5] = 0;
 	} else
 		strcpy(buf, "never");
-	sprint(prompt, "Expiration date (YYYYMMDD or never)[return = %s]: ", buf);
 
-	now = time(0);
-	for(;;){
-		readln(prompt, cdate, sizeof cdate, 0);
-		if(*cdate == 0)
-			return -1;
-		if(strcmp(cdate, "never") == 0)
-			return 0;
+	for(;;free(cdate)){
+		cdate = readcons("Expiration date (YYYYMMDD or never)", buf, 0);
+		if(cdate == nil || *cdate == 0){
+			secs = -1;
+			break;
+		}
+		if(strcmp(cdate, "never") == 0){
+			secs = 0;
+			break;
+		}
 		date = getdate(cdate);
 		secs = tm2sec(&date);
+		now = time(0);
 		if(secs > now && secs < now + 2*365*24*60*60)
 			break;
 		print("expiration time must fall between now and 2 years from now\n");
 	}
+	free(cdate);
 	return secs;
 }

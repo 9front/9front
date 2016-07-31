@@ -1,13 +1,12 @@
 #include <u.h>
 #include <libc.h>
+#include <bio.h>
 #include <libsec.h>
 #include <authsrv.h>
-#include <ctype.h>
-#include <bio.h>
 #include "authcmdlib.h"
 
 void	install(char*, char*, Authkey*, long, int);
-int	exists (char*, char*);
+int	exists(char*, char*);
 
 void
 usage(void)
@@ -19,7 +18,7 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	char *u, answer[32], p9pass[32];
+	char *u, pass[32];
 	int which, newkey, newbio, dosecret;
 	long t;
 	Authkey key;
@@ -50,42 +49,34 @@ main(int argc, char *argv[])
 	if(!which)
 		which = Plan9;
 
+	private();
 	newbio = 0;
 	t = 0;
 	a.user = 0;
+	memset(&key, 0, sizeof(key));
 	if(which & Plan9){
 		f = &fs[Plan9];
-		newkey = 1;
-		if(exists(f->keys, u)){
-			readln("assign new password? [y/n]: ", answer, sizeof answer, 0);
-			if(answer[0] != 'y' && answer[0] != 'Y')
-				newkey = 0;
-		}
+		newkey = !exists(f->keys, u) || answer("assign new Plan 9 password?");
 		if(newkey)
-			getpass(&key, p9pass, 1, 1);
-		dosecret = getsecret(newkey, p9pass);
+			getpass(&key, pass, 1, 1);
+		dosecret = answer("assign new Inferno/POP secret?");
+		if(dosecret)
+			if(!newkey || !answer("make it the same as Plan 9 password?"))
+				getpass(nil, pass, 0, 1);
 		t = getexpiration(f->keys, u);
 		install(f->keys, u, &key, t, newkey);
-		if(dosecret && setsecret(KEYDB, u, p9pass) == 0)
-			error("error writing Inferno/pop secret");
-		newbio = querybio(f->who, u, &a);
-		if(newbio)
+		if(dosecret && setsecret(KEYDB, u, pass) == 0)
+			error("error writing Inferno/POP secret");
+		if(querybio(f->who, u, &a))
 			wrbio(f->who, &a);
 		print("user %s installed for Plan 9\n", u);
 		syslog(0, AUTHLOG, "user %s installed for plan 9", u);
 	}
 	if(which & Securenet){
 		f = &fs[Securenet];
-		newkey = 1;
-		if(exists(f->keys, u)){
-			readln("assign new key? [y/n]: ", answer, sizeof answer, 0);
-			if(answer[0] != 'y' && answer[0] != 'Y')
-				newkey = 0;
-		}
-		if(newkey){
-			memset(&key, 0, sizeof(key));
+		newkey = !exists(f->keys, u) || answer("assign new Securenet key?");
+		if(newkey)
 			genrandom((uchar*)key.des, DESKEYLEN);
-		}
 		if(a.user == 0){
 			t = getexpiration(f->keys, u);
 			newbio = querybio(f->who, u, &a);
@@ -93,10 +84,11 @@ main(int argc, char *argv[])
 		install(f->keys, u, &key, t, newkey);
 		if(newbio)
 			wrbio(f->who, &a);
-		finddeskey(f->keys, u, key.des);
+		if(!finddeskey(f->keys, u, key.des))
+			error("error reading Securenet key");
 		print("user %s: SecureNet key: %K\n", u, key.des);
-		checksum(key.des, answer);
-		print("verify with checksum %s\n", answer);
+		checksum(key.des, pass);
+		print("verify with checksum %s\n", pass);
 		print("user %s installed for SecureNet\n", u);
 		syslog(0, AUTHLOG, "user %s installed for securenet", u);
 	}
@@ -110,21 +102,19 @@ install(char *db, char *u, Authkey *key, long t, int newkey)
 	int fd;
 
 	if(!exists(db, u)){
-		sprint(buf, "%s/%s", db, u);
+		snprint(buf, sizeof(buf), "%s/%s", db, u);
 		fd = create(buf, OREAD, 0777|DMDIR);
 		if(fd < 0)
 			error("can't create user %s: %r", u);
 		close(fd);
 	}
 
-	if(newkey){
-		if(!setkey(db, u, key))
-			error("can't set key: %r");
-	}
+	if(newkey && !setkey(db, u, key))
+		error("can't set key: %r");
 
 	if(t == -1)
 		return;
-	sprint(buf, "%s/%s/expire", db, u);
+	snprint(buf, sizeof(buf), "%s/%s/expire", db, u);
 	fd = open(buf, OWRITE);
 	if(fd < 0 || fprint(fd, "%ld", t) < 0)
 		error("can't write expiration time");
@@ -136,7 +126,7 @@ exists(char *db, char *u)
 {
 	char buf[KEYDBBUF+ANAMELEN+6];
 
-	sprint(buf, "%s/%s/expire", db, u);
+	snprint(buf, sizeof(buf), "%s/%s/expire", db, u);
 	if(access(buf, 0) < 0)
 		return 0;
 	return 1;

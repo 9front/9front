@@ -89,7 +89,6 @@ main(int argc, char *argv[])
 	alarm(0);
 
 	/* remove password login from guard.research.bell-labs.com, sucre, etc. */
-//	if(!findkey(KEYDB,    user, ukey) || !netcheck(ukey, chal, resp))
 	if(!finddeskey(NETKEYDB, user, ukey) || !netcheck(ukey, chal, resp))
 	if((err = secureidcheck(user, resp)) != nil){
 		print("NO %s", err);

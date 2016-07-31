@@ -5,42 +5,31 @@
 #include <authsrv.h>
 #include "authcmdlib.h"
 
-
-#define TABLEN 8
-
-static char*
-defreadln(char *prompt, char *def, int must, int *changed)
+static void
+ask(char *prompt, char **sp, int must, int *changed)
 {
-	char pr[512];
-	char reply[256];
+	char pr[128], *def, *ans;
 
-	do {
-		if(def && *def){
-			if(must)
-				snprint(pr, sizeof pr, "%s[return = %s]: ", prompt, def);
-			else
-				snprint(pr, sizeof pr, "%s[return = %s, space = none]: ", prompt, def);
-		} else
-			snprint(pr, sizeof pr, "%s: ", prompt);
-		readln(pr, reply, sizeof(reply), 0);
-		switch(*reply){
-		case ' ':
-			break;
-		case 0:
-			return def;
-		default:
-			*changed = 1;
-			if(def)
-				free(def);
-			return strdup(reply);
-		}
-	} while(must);
-
-	if(def){
-		*changed = 1;
-		free(def);
+	def = *sp;
+	if(def && *def){
+		if(must)
+			snprint(pr, sizeof pr, "%s[return = %s]", prompt, def);
+		else
+			snprint(pr, sizeof pr, "%s[return = %s, space = none]", prompt, def);
+	} else
+		snprint(pr, sizeof pr, "%s", prompt);
+	ans = readcons(pr, nil, 0);
+	if(ans == nil || *ans == 0){
+		free(ans);
+		return;
 	}
-	return 0;
+	if(*ans == ' ' && !must){
+		free(ans);
+		ans = nil;
+	}
+	*sp = ans;
+	*changed = 1;
+	free(def);
 }
 
 /*
@@ -53,15 +42,15 @@ querybio(char *file, char *user, Acctbio *a)
 	int changed;
 
 	rdbio(file, user, a);
-	a->postid = defreadln("Post id", a->postid, 0, &changed);
-	a->name = defreadln("User's full name", a->name, 1, &changed);
-	a->dept = defreadln("Department #", a->dept, 1, &changed);
-	a->email[0] = defreadln("User's email address", a->email[0], 1, &changed);
-	a->email[1] = defreadln("Sponsor's email address", a->email[1], 0, &changed);
+	ask("Post id", &a->postid, 0, &changed);
+	ask("User's full name", &a->name, 1, &changed);
+	ask("Department #", &a->dept, 1, &changed);
+	ask("User's email address", &a->email[0], 1, &changed);
+	ask("Sponsor's email address", &a->email[1], 0, &changed);
 	for(i = 2; i < Nemail; i++){
 		if(a->email[i-1] == 0)
 			break;
-		a->email[i] = defreadln("other email address", a->email[i], 0, &changed);
+		ask("other email address", &a->email[i], 0, &changed);
 	}
 	return changed;
 }

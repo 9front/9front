@@ -3,7 +3,6 @@
 #include <bio.h>
 #include <ndb.h>
 #include <regexp.h>
-#include <mp.h>
 #include <libsec.h>
 #include <authsrv.h>
 #include "authcmdlib.h"

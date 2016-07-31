@@ -44,78 +44,6 @@ usage(void)
 	exits("usage");
 }
 
-static char*
-readcons(char *prompt, char *def, int raw, char *buf, int nbuf)
-{
-	int fdin, fdout, ctl, n, m;
-	char line[10];
-
-	fdin = open("/dev/cons", OREAD);
-	if(fdin < 0)
-		fdin = 0;
-	fdout = open("/dev/cons", OWRITE);
-	if(fdout < 0)
-		fdout = 1;
-	if(def != nil)
-		fprint(fdout, "%s[%s]: ", prompt, def);
-	else
-		fprint(fdout, "%s: ", prompt);
-	if(raw){
-		ctl = open("/dev/consctl", OWRITE);
-		if(ctl >= 0)
-			write(ctl, "rawon", 5);
-	} else
-		ctl = -1;
-
-	m = 0;
-	for(;;){
-		n = read(fdin, line, 1);
-		if(n == 0){
-			close(ctl);
-			werrstr("readcons: EOF");
-			return nil;
-		}
-		if(n < 0){
-			close(ctl);
-			werrstr("can't read cons");
-			return nil;
-		}
-		if(line[0] == 0x7f)
-			exits(0);
-		if(n == 0 || line[0] == '\n' || line[0] == '\r'){
-			if(raw){
-				write(ctl, "rawoff", 6);
-				write(fdout, "\n", 1);
-				close(ctl);
-			}
-			buf[m] = '\0';
-			if(buf[0]=='\0' && def)
-				strcpy(buf, def);
-			return buf;
-		}
-		if(line[0] == '\b'){
-			if(m > 0)
-				m--;
-		}else if(line[0] == 0x15){	/* ^U: line kill */
-			m = 0;
-			if(def != nil)
-				fprint(fdout, "%s[%s]: ", prompt, def);
-			else
-				fprint(fdout, "%s: ", prompt);
-		}else{
-			if(m >= nbuf-1){
-				fprint(fdout, "line too long\n");
-				m = 0;
-				if(def != nil)
-					fprint(fdout, "%s[%s]: ", prompt, def);
-				else
-					fprint(fdout, "%s: ", prompt);
-			}else
-				buf[m++] = line[0];
-		}
-	}
-}
-
 void authdialfutz(char*, char*, char*);
 void authfutz(char*, char*, char*);
 
@@ -241,18 +169,22 @@ out:
 void
 authfutz(char *dom, char *user, char *proto)
 {
-	int fd, nobootes, n, m;
-	char pw[128], prompt[128], tbuf[2*MAXTICKETLEN];
+	int fd, n, m;
+	char prompt[128], tbuf[2*MAXTICKETLEN], *pass;
 	Authkey key, booteskey;
 	Ticket t;
 	Ticketreq tr;
 
 	snprint(prompt, sizeof prompt, "\tpassword for %s@%s [hit enter to skip test]", user, dom);
-	readcons(prompt, nil, 1, pw, sizeof pw);
-	if(pw[0] == '\0')
+	pass = readcons(prompt, nil, 1);
+	if(pass == nil || *pass == 0){
+		free(pass);
 		return;
-	passtokey(&key, pw);
+	}
+	passtokey(&key, pass);
 	booteskey = key;
+	memset(pass, 0, strlen(pass));
+	free(pass);
 
 	fd = authdial(nil, dom);
 	if(fd < 0){
@@ -309,15 +241,22 @@ authfutz(char *dom, char *user, char *proto)
 
 	/* try ticket request using bootes key */
 	snprint(prompt, sizeof prompt, "\tcpu server owner for domain %s ", dom);
-	readcons(prompt, "glenda", 0, tr.authid, sizeof tr.authid);
-	snprint(prompt, sizeof prompt, "\tpassword for %s@%s [hit enter to skip test]", tr.authid, dom);
-	readcons(prompt, nil, 1, pw, sizeof pw);
-	if(pw[0] == '\0'){
-		nobootes=1;
+	user = readcons(prompt, "glenda", 0);
+	if(user == nil || *user == '\0'){
+		free(user);
 		goto Nobootes;
 	}
-	nobootes = 0;
-	passtokey(&booteskey, pw);
+	strecpy(tr.authid, tr.authid+sizeof tr.authid, user);
+	free(user);
+	snprint(prompt, sizeof prompt, "\tpassword for %s@%s [hit enter to skip test]", tr.authid, dom);
+	pass = readcons(prompt, nil, 1);
+	if(pass == nil || *pass == '\0'){
+		free(pass);
+		goto Nobootes;
+	}
+	passtokey(&booteskey, pass);
+	memset(pass, 0, strlen(pass));
+	free(pass);
 
 	if(strcmp(proto, "dp9ik") == 0 && getpakkeys(fd, &tr, &booteskey, &key) < 0){
 		print("\tgetpakkeys failed: %r\n");
@@ -333,7 +272,7 @@ authfutz(char *dom, char *user, char *proto)
 	m = convM2T(tbuf, n, &t, &key);
 	if(t.num != AuthTc){
 		print("\tcannot decrypt ticket1 from auth server (bad t.num=0x%.2ux)\n", t.num);
-		print("\tauth server and you do not agree on key for %s@%s\n", user, dom);
+		print("\tauth server and you do not agree on key for %s@%s\n", tr.hostid, dom);
 		return;
 	}
 	if(memcmp(t.chal, tr.chal, sizeof tr.chal) != 0){
@@ -358,8 +297,6 @@ authfutz(char *dom, char *user, char *proto)
 	print("\tticket request using %s@%s key succeeded\n", tr.authid, dom);
 
 Nobootes:;
-	USED(nobootes);
-
 	/* try p9sk1 exchange with local factotum to test that key is right */
 
 

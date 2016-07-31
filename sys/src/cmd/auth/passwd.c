@@ -15,11 +15,11 @@ main(int argc, char **argv)
 	char buf[512];
 	char *s, *user;
 
-	user = getuser();
-
 	ARGBEGIN{
 	}ARGEND
 
+	argv0 = "passwd";
+	user = getuser();
 	private();
 
 	s = nil;
@@ -46,8 +46,7 @@ main(int argc, char **argv)
 	 *  give up.
 	 */
 	memset(&pr, 0, sizeof(pr));
-	readln("Plan 9 Password: ", pr.old, sizeof pr.old, 1);
-	passtokey(&key, pr.old);
+	getpass(&key, pr.old, 0, 0);
 
 	/*
 	 *  negotiate PAK key. we need to retry in case the AS does
@@ -77,34 +76,18 @@ Retry:
 
 	/* loop trying new passwords */
 	for(;;){
-		pr.changesecret = 0;
-		*pr.new = 0;
-		readln("change Plan 9 Password? (y/n) ", buf, sizeof buf, 0);
-		if(*buf == 'y' || *buf == 'Y'){
-			readln("Password: ", pr.new, sizeof pr.new, 1);
-			readln("Confirm: ", buf, sizeof buf, 1);
-			if(strcmp(pr.new, buf)){
-				print("!mismatch\n");
-				continue;
-			}
-		}
-		readln("change Inferno/POP password? (y/n) ", buf, sizeof buf, 0);
-		if(*buf == 'y' || *buf == 'Y'){
-			pr.changesecret = 1;
-			readln("make it the same as your plan 9 password? (y/n) ",
-				buf, sizeof buf, 0);
-			if(*buf == 'y' || *buf == 'Y'){
-				if(*pr.new == 0)
-					strcpy(pr.secret, pr.old);
-				else
+		memset(pr.new, 0, sizeof(pr.new));
+		if(answer("change Plan 9 Password?"))
+			getpass(nil, pr.new, 0, 1);
+		pr.changesecret = answer("change Inferno/POP secret?");
+		if(pr.changesecret){
+			if(answer("make it the same as your plan 9 password?")){
+				if(*pr.new)
 					strcpy(pr.secret, pr.new);
+				else
+					strcpy(pr.secret, pr.old);
 			} else {
-				readln("Secret: ", pr.secret, sizeof pr.secret, 1);
-				readln("Confirm: ", buf, sizeof buf, 1);
-				if(strcmp(pr.secret, buf)){
-					print("!mismatch\n");
-					continue;
-				}
+				getpass(nil, pr.secret, 0, 1);
 			}
 		}
 		pr.num = AuthPass;

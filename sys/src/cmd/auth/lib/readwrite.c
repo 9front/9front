@@ -1,8 +1,11 @@
 #include <u.h>
 #include <libc.h>
-#include <authsrv.h>
 #include <bio.h>
+#include <libsec.h>
+#include <authsrv.h>
 #include "authcmdlib.h"
+
+static uchar zeros[16];
 
 int
 readfile(char *file, char *buf, int n)
@@ -35,29 +38,23 @@ writefile(char *file, char *buf, int n)
 char*
 finddeskey(char *db, char *user, char *key)
 {
-	int n;
 	char filename[Maxpath];
 
 	snprint(filename, sizeof filename, "%s/%s/key", db, user);
-	n = readfile(filename, key, DESKEYLEN);
-	if(n != DESKEYLEN)
+	if(readfile(filename, key, DESKEYLEN) != DESKEYLEN)
 		return nil;
-	else
-		return key;
+	return key;
 }
 
 uchar*
 findaeskey(char *db, char *user, uchar *key)
 {
-	int n;
 	char filename[Maxpath];
 
 	snprint(filename, sizeof filename, "%s/%s/aeskey", db, user);
-	n = readfile(filename, (char*)key, AESKEYLEN);
-	if(n != AESKEYLEN)
+	if(readfile(filename, (char*)key, AESKEYLEN) != AESKEYLEN)
 		return nil;
-	else
-		return key;
+	return key;
 }
 
 int
@@ -67,8 +64,9 @@ findkey(char *db, char *user, Authkey *key)
 
 	memset(key, 0, sizeof(Authkey));
 	ret = findaeskey(db, user, key->aes) != nil;
-	if(ret){
+	if(ret && tsmemcmp(key->aes, zeros, AESKEYLEN) != 0){
 		char filename[Maxpath];
+
 		snprint(filename, sizeof filename, "%s/%s/pakhash", db, user);
 		if(readfile(filename, (char*)key->pakhash, PAKHASHLEN) != PAKHASHLEN)
 			authpak_hash(key, user);
@@ -84,40 +82,32 @@ findsecret(char *db, char *user, char *secret)
 	char filename[Maxpath];
 
 	snprint(filename, sizeof filename, "%s/%s/secret", db, user);
-	n = readfile(filename, secret, SECRETLEN-1);
-	secret[n]=0;
-	if(n <= 0)
+	if((n = readfile(filename, secret, SECRETLEN-1)) <= 0)
 		return nil;
-	else
-		return secret;
+	secret[n]=0;
+	return secret;
 }
 
 char*
 setdeskey(char *db, char *user, char *key)
 {
-	int n;
 	char filename[Maxpath];
 
 	snprint(filename, sizeof filename, "%s/%s/key", db, user);
-	n = writefile(filename, key, DESKEYLEN);
-	if(n != DESKEYLEN)
+	if(writefile(filename, key, DESKEYLEN) != DESKEYLEN)
 		return nil;
-	else
-		return key;
+	return key;
 }
 
 uchar*
 setaeskey(char *db, char *user, uchar *key)
 {
-	int n;
 	char filename[Maxpath];
 
 	snprint(filename, sizeof filename, "%s/%s/aeskey", db, user);
-	n = writefile(filename, (char*)key, AESKEYLEN);
-	if(n != AESKEYLEN)
+	if(writefile(filename, (char*)key, AESKEYLEN) != AESKEYLEN)
 		return nil;
-	else
-		return key;
+	return key;
 }
 
 int
@@ -126,20 +116,18 @@ setkey(char *db, char *user, Authkey *key)
 	int ret;
 
 	ret = setdeskey(db, user, key->des) != nil;
-	ret |= setaeskey(db, user, key->aes) != nil;
+	if(tsmemcmp(key->aes, zeros, AESKEYLEN) != 0)
+		ret |= setaeskey(db, user, key->aes) != nil;
 	return ret;
 }
 
 char*
 setsecret(char *db, char *user, char *secret)
 {
-	int n;
 	char filename[Maxpath];
 
 	snprint(filename, sizeof filename, "%s/%s/secret", db, user);
-	n = writefile(filename, secret, strlen(secret));
-	if(n != strlen(secret))
+	if(writefile(filename, secret, strlen(secret)) != strlen(secret))
 		return nil;
-	else
-		return secret;
+	return secret;
 }

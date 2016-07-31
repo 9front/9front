@@ -4,7 +4,6 @@
 #include <bio.h>
 #include "authcmdlib.h"
 
-
 void
 usage(void)
 {
@@ -15,7 +14,7 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	char buf[32], pass[32], key[DESKEYLEN];
+	char buf[32], key[DESKEYLEN], *pass;
 	char *s;
 	int n;
 
@@ -27,13 +26,18 @@ main(int argc, char *argv[])
 		usage();
 
 	s = getenv("service");
-	if(s && strcmp(s, "cpu") == 0){
+	if(s != nil && strcmp(s, "cpu") == 0){
 		fprint(2, "netkey must not be run on the cpu server\n");
 		exits("boofhead");
 	}
+	private();
 
-	readln("Password: ", pass, sizeof pass, 1);
+	pass = readcons("Password", nil, 1);
+	if(pass == nil)
+		exits("no password");
 	passtodeskey(key, pass);
+	memset(pass, 0, strlen(pass));
+	free(pass);
 
 	for(;;){
 		print("challenge: ");

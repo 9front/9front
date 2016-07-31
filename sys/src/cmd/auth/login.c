@@ -8,65 +8,6 @@
 char *authdom;
 
 void
-readln(char *prompt, char *line, int len, int raw)
-{
-	char *p;
-	int fdin, fdout, ctl, n, nr;
-
-	fdin = open("/dev/cons", OREAD);
-	fdout = open("/dev/cons", OWRITE);
-	fprint(fdout, "%s", prompt);
-	if(raw){
-		ctl = open("/dev/consctl", OWRITE);
-		if(ctl < 0){
-			fprint(2, "login: couldn't set raw mode");
-			exits("readln");
-		}
-		write(ctl, "rawon", 5);
-	} else
-		ctl = -1;
-	nr = 0;
-	p = line;
-	for(;;){
-		n = read(fdin, p, 1);
-		if(n < 0){
-			close(ctl);
-			close(fdin);
-			close(fdout);
-			fprint(2, "login: can't read cons");
-			exits("readln");
-		}
-		if(*p == 0x7f)
-			exits(0);
-		if(n == 0 || *p == '\n' || *p == '\r'){
-			*p = '\0';
-			if(raw){
-				write(ctl, "rawoff", 6);
-				write(fdout, "\n", 1);
-			}
-			close(ctl);
-			close(fdin);
-			close(fdout);
-			return;
-		}
-		if(*p == '\b'){
-			if(nr > 0){
-				nr--;
-				p--;
-			}
-		}else{
-			nr++;
-			p++;
-		}
-		if(nr == len){
-			fprint(fdout, "line too long; try again\n");
-			nr = 0;
-			p = line;
-		}
-	}
-}
-
-void
 setenv(char *var, char *val)
 {
 	int fd;
@@ -188,11 +129,10 @@ usage(void)
 void
 main(int argc, char *argv[])
 {
-	char pass[ANAMELEN];
 	char buf[2*ANAMELEN];
 	char home[2*ANAMELEN];
 	char srvname[2*ANAMELEN];
-	char *user, *sysname, *tz, *cputype, *service;
+	char *user, *pass, *sysname, *tz, *cputype, *service;
 	AuthInfo *ai;
 
 	ARGBEGIN{
@@ -217,8 +157,9 @@ main(int argc, char *argv[])
 		exits("usage");
 	}
 	user = argv[0];
-	memset(pass, 0, sizeof(pass));
-	readln("Password: ", pass, sizeof(pass), 1);
+	pass = readcons("Password", nil, 1);
+	if(pass == nil)
+		exits("no password");
 
 	/* authenticate */
 	ai = auth_userpasswd(user, pass);
@@ -230,6 +171,9 @@ main(int argc, char *argv[])
 
 	/* start a new factotum and hand it a new key */
 	startfactotum(user, pass, srvname);
+
+	memset(pass, 0, strlen(pass));
+	free(pass);
 
 	/* set up new namespace */
 	newns(ai->cuid, nil);
