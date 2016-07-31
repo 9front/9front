@@ -25,7 +25,7 @@ UPDATE=\
 
 default:V: all
 
-$O.aescbc: aescbc.$O util.$O
+$O.aescbc: aescbc.$O
 	$LD -o $target $prereq
 $O.descbc: descbc.$O util.$O
 	$LD -o $target $prereq

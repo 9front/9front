@@ -2,6 +2,7 @@
 #include <libc.h>
 #include <mp.h>
 #include <libsec.h>
+#include <authsrv.h>
 #include "SConn.h"
 #include "secstore.h"
 
@@ -71,28 +72,29 @@ main(int argc, char **argv)
 	/* get main password for id */
 	for(;;){
 		if(isnew)
-			snprint(prompt, sizeof(prompt), "%s password: ", id);
+			snprint(prompt, sizeof(prompt), "%s password", id);
 		else
-			snprint(prompt, sizeof(prompt), "%s password [default = don't change]: ", id);
-		pass = getpassm(prompt);
+			snprint(prompt, sizeof(prompt), "%s password [default = don't change]", id);
+		pass = readcons(prompt, nil, 1);
 		if(pass == nil)
-			sysfatal("getpassm failed");
+			sysfatal("password input aborted");
 		if(verbose)
 			print("%ld characters\n", strlen(pass));
 		if(pass[0] == '\0' && isnew == 0)
 			break;
 		if(strlen(pass) >= 7)
 			break;
+		memset(pass, 0, strlen(pass));
+		free(pass);
 		print("password must be at least 7 characters\n");
 	}
 
 	if(pass[0] != '\0'){
-		snprint(prompt, sizeof(prompt), "retype password: ");
 		if(verbose)
 			print("confirming...\n");
-		passck = getpassm(prompt);
+		passck = readcons("retype password", nil, 1);
 		if(passck == nil)
-			sysfatal("getpassm failed");
+			sysfatal("password input aborted");
 		if(strcmp(pass, passck) != 0)
 			sysfatal("passwords didn't match");
 		memset(passck, 0, strlen(passck));

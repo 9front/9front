@@ -7,11 +7,8 @@
 #include <u.h>
 #include <libc.h>
 #include <bio.h>
-#include <mp.h>
 #include <libsec.h>
 #include <authsrv.h>
-
-extern char* getpassm(char*);
 
 enum{ CHK = 16, BUF = 4096 };
 
@@ -43,7 +40,6 @@ main(int argc, char **argv)
 	uchar buf[BUF+SHA1dlen];    /* assumption: CHK <= SHA1dlen */
 	AESstate aes;
 	DigestState *dstate;
-	Nvrsafe nvr;
 
 	ARGBEGIN{
 	case 'e':
@@ -67,20 +63,25 @@ main(int argc, char **argv)
 	if(pass_stdin){
 		n = readn(3, buf, (sizeof buf)-1);
 		if(n < 1)
-			exits("usage: echo password |[3=1] auth/aescbc -i ...");
+			sysfatal("usage: echo password |[3=1] auth/aescbc -i ...");
 		buf[n] = 0;
 		while(buf[n-1] == '\n')
 			buf[--n] = 0;
 	}else if(pass_nvram){
+		Nvrsafe nvr;
+
 		if(readnvram(&nvr, 0) < 0)
-			exits("readnvram: %r");
+			sysfatal("readnvram: %r");
 		strecpy((char*)buf, (char*)buf+sizeof buf, (char*)nvr.config);
+		memset(&nvr, 0, sizeof nvr);
 		n = strlen((char*)buf);
 	}else{
-		pass = getpassm("aescbc key:");
+		pass = readcons("aescbc key", nil, 1);
+		if(pass == nil)
+			sysfatal("key input aborted");
 		n = strlen(pass);
 		if(n >= BUF)
-			exits("key too long");
+			sysfatal("key too long");
 		strcpy((char*)buf, pass);
 		memset(pass, 0, n);
 		free(pass);

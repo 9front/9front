@@ -16,7 +16,6 @@ typedef struct AuthConn{
 } AuthConn;
 
 int verbose;
-Nvrsafe nvr;
 
 void
 usage(void)
@@ -311,29 +310,32 @@ chpasswd(AuthConn *c, char *id)
 	Hi = mpnew(0);
 	/* changing our password is vulnerable to connection failure */
 	for(;;){
-		snprint(prompt, sizeof(prompt), "new password for %s: ", id);
-		newpass = getpassm(prompt);
+		snprint(prompt, sizeof(prompt), "new password for %s", id);
+		newpass = readcons(prompt, nil, 1);
 		if(newpass == nil)
 			goto Out;
-		if(strlen(newpass) >= 7)
+		newpasslen = strlen(newpass);
+		if(newpasslen >= 7)
 			break;
-		else if(strlen(newpass) == 0){
+		else if(newpasslen == 0){
 			fprint(2, "!password change aborted\n");
 			goto Out;
 		}
 		print("!password must be at least 7 characters\n");
 	}
-	newpasslen = strlen(newpass);
-	snprint(prompt, sizeof(prompt), "retype password: ");
-	passck = getpassm(prompt);
+	passck = readcons("retype password", nil, 1);
 	if(passck == nil){
-		fprint(2, "secstore: getpassm failed\n");
+		fprint(2, "secstore: input aborted\n");
 		goto Out;
 	}
 	if(strcmp(passck, newpass) != 0){
 		fprint(2, "secstore: passwords didn't match\n");
+		memset(passck, 0, strlen(passck));
+		free(passck);
 		goto Out;
 	}
+	memset(passck, 0, newpasslen);
+	free(passck);
 
 	c->conn->write(c->conn, (uchar*)"CHPASS", strlen("CHPASS"));
 	hexHi = PAK_Hi(id, newpass, H, Hi);
@@ -387,12 +389,15 @@ login(char *id, char **dest, int pass_stdin, int pass_nvram)
 		sysfatal("tried to login with nil dest");
 	c = emalloc(sizeof(*c));
 	if(pass_nvram){
+		Nvrsafe nvr;
+
 		if(readnvram(&nvr, 0) < 0){
 			if(verbose)
 				fprint(2, "secstore: readnvram: %r\n");
 			exits("readnvram failed");
 		}
 		strecpy(c->pass, c->pass+sizeof c->pass, nvr.config);
+		memset(&nvr, 0, sizeof nvr);
 	}
 	if(pass_stdin){
 		n = readn(0, s, Maxmsg-2);	/* so len(PINSTA)<Maxmsg-3 */
@@ -424,7 +429,11 @@ login(char *id, char **dest, int pass_stdin, int pass_nvram)
 		c->conn = newSConn(fd);
 		ntry++;
 		if(!pass_stdin && !pass_nvram){
-			pass = getpassm("secstore password: ");
+			pass = readcons("secstore password", nil, 1);
+			if(pass == nil){
+				fprint(2, "secstore: password input aborted\n");
+				exits("password input aborted");
+			}
 			if(strlen(pass) >= sizeof c->pass){
 				fprint(2, "secstore: password too long, skipping secstore login\n");
 				exits("password too long");
@@ -466,7 +475,7 @@ login(char *id, char **dest, int pass_stdin, int pass_nvram)
 				exits("missing PIN+SecureID on standard input");
 			free(PINSTA);
 		}else{
-			pass = getpassm("STA PIN+SecureID: ");
+			pass = readcons("STA PIN+SecureID", nil, 1);
 			strncpy(s+3, pass, sizeof s - 4);
 			memset(pass, 0, strlen(pass));
 			free(pass);

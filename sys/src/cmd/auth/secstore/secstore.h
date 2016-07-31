@@ -22,7 +22,6 @@ typedef struct PW {
 
 void	freePW(PW*);
 PW	*getPW(char*, int);
-char	*getpassm(char*);
 int	putPW(PW*);
 char	*validatefile(char*f);
 
