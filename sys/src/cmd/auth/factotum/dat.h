@@ -194,8 +194,6 @@ int		canusekey(Fsstate*, Key*);
 void		closekey(Key*);
 uchar	*convAI2M(AuthInfo*, uchar*, int);
 void		disablekey(Key*);
-char		*estrappend(char*, char*, ...);
-#pragma varargck argpos estrappend 2
 int		failure(Fsstate*, char*, ...);
 Keyinfo*	mkkeyinfo(Keyinfo*, Fsstate*, Attr*);
 int		findkey(Key**, Keyinfo*, char*, ...);
@@ -209,7 +207,6 @@ char 		*mkcap(char*, char*);
 int 		phaseerror(Fsstate*, char*);
 char		*phasename(Fsstate*, int, char*);
 void 		promptforhostowner(void);
-char		*readcons(char*, char*, int);
 int		replacekey(Key*, int before);
 char		*safecpy(char*, char*, int);
 Attr		*setattr(Attr*, char*, ...);
