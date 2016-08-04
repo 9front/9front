@@ -9,6 +9,7 @@ enum
 	CHALLEN=	8,	/* plan9 sk1 challenge length */
 	NETCHLEN=	16,	/* max network challenge length (used in AS protocol) */
 	CONFIGLEN=	14,
+	PASSWDLEN=	28,
 	SECRETLEN=	32,	/* secret max size */
 
 	NONCELEN=	32,
