@@ -80,7 +80,6 @@ getauthdom(void)
 			break;
 		}
 	ndbfree(t);
-fprint(2, "authdom=%s\n", authdom);
 	return authdom;
 }
 
@@ -103,10 +102,7 @@ startfactotum(char *user, char *password, char *srvname)
 		sysfatal("starting factotum: %r");
 		break;
 	}
-
-	/* wait for agent to really be there */
-	while(access(srvname, 0) < 0)
-		sleep(250);
+	waitpid();
 
 	/* mount it */
 	mountfactotum(srvname);
@@ -115,7 +111,8 @@ startfactotum(char *user, char *password, char *srvname)
 	fd = open("/mnt/factotum/ctl", ORDWR);
 	if(fd < 0)
 		sysfatal("opening factotum: %r");
-	fprint(fd, "key proto=p9sk1 dom=%s user=%q !password=%q", getauthdom(), user, password);
+	fprint(fd, "key proto=dp9ik dom=%s user=%q !password=%q\n", getauthdom(), user, password);
+	fprint(fd, "key proto=p9sk1 dom=%s user=%q !password=%q\n", getauthdom(), user, password);
 	close(fd);
 }
 
@@ -182,6 +179,9 @@ main(int argc, char *argv[])
 	/* remount the factotum */
 	mountfactotum(srvname);
 
+	/* get rid of srvname */
+	remove(srvname);
+
 	/* set up a new environment */
 	cputype = getenv("cputype");
 	sysname = getenv("sysname");
@@ -205,5 +205,5 @@ main(int argc, char *argv[])
 
 	/* read profile and start interactive rc */
 	execl("/bin/rc", "rc", "-li", nil);
-	exits(0);
+	exits(nil);
 }
