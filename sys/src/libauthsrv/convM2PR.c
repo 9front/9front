@@ -12,13 +12,13 @@ convM2PR(char *ap, int n, Passwordreq *f, Ticket *t)
 
 	memset(f, 0, sizeof(Passwordreq));
 	if(t->form == 0){
-		m = 1+2*ANAMELEN+1+SECRETLEN;
+		m = 1+2*PASSWDLEN+1+SECRETLEN;
 		if(n < m)
 			return -m;
 		memmove(buf, ap, m);
 		decrypt(t->key, buf, m);
 	} else {
-		m = 12+2*ANAMELEN+1+SECRETLEN+16;
+		m = 12+2*PASSWDLEN+1+SECRETLEN+16;
 		if(n < m)
 			return -m;
 		memmove(buf, ap, m);
@@ -27,12 +27,12 @@ convM2PR(char *ap, int n, Passwordreq *f, Ticket *t)
 	}
 	p = buf;
 	f->num = *p++;
-	memmove(f->old, p, ANAMELEN), p += ANAMELEN;
-	memmove(f->new, p, ANAMELEN), p += ANAMELEN;
+	memmove(f->old, p, PASSWDLEN), p += PASSWDLEN;
+	memmove(f->new, p, PASSWDLEN), p += PASSWDLEN;
 	f->changesecret = *p++;
 	memmove(f->secret, p, SECRETLEN);
-	f->old[ANAMELEN-1] = 0;
-	f->new[ANAMELEN-1] = 0;
+	f->old[PASSWDLEN-1] = 0;
+	f->new[PASSWDLEN-1] = 0;
 	f->secret[SECRETLEN-1] = 0;
 
 	return m;

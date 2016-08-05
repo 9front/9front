@@ -108,7 +108,7 @@ struct Passwordreq
 	char	changesecret;
 	char	secret[SECRETLEN];	/* new secret */
 };
-#define	MAXPASSREQLEN	(12+2*ANAMELEN+1+SECRETLEN+16)
+#define	MAXPASSREQLEN	(12+2*PASSWDLEN+1+SECRETLEN+16)
 
 struct	OChapreply
 {
