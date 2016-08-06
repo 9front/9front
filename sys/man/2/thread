@@ -91,7 +91,7 @@ void	threadexitsall(char *status)
 void	yield(void)
 .XX
 int	threadid(void)
-int	threadgrp(void)
+int	threadgetgrp(void)
 int	threadsetgrp(int group)
 int	threadpid(int id)
 .XX
@@ -271,7 +271,7 @@ Each thread also has a thread group id.
 The initial thread has a group id of zero.
 Each new thread inherits the group id of
 the thread that created it.
-.I Threadgrp
+.I Threadgetgrp
 returns the group id for the current thread;
 .I threadsetgrp
 sets it.
