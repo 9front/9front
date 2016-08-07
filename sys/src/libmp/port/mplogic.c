@@ -153,6 +153,7 @@ mptrunc(mpint *b, int n, mpint *r)
 	}else if(b->sign == 1){
 		if(d >= b->top){
 			mpassign(b, r);
+			mpnorm(r);
 			return;
 		}
 		if(b != r)
