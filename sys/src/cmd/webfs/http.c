@@ -348,13 +348,25 @@ hline(Hconn *h, char *data, int len, int cont)
 	}
 }
 
+static int
+hauthgetkey(char *params)
+{
+	if(debug)
+		fprint(2, "hauthgetkey %s\n", params);
+	werrstr("needkey %s", params);
+	return -1;
+}
+
 int
 authenticate(Url *u, Url *ru, char *method, char *s)
 {
-	char *user, *pass, *realm, *nonce, *opaque, *x;
+	char oerr[ERRMAX], *user, *pass, *realm, *nonce, *opaque, *x;
 	Hauth *a;
 	Fmt fmt;
 	int n;
+
+	snprint(oerr, sizeof(oerr), "authentification failed");
+	errstr(oerr, sizeof(oerr));
 
 	user = u->user;
 	pass = u->pass;
@@ -375,7 +387,8 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 				fmtprint(&fmt, " user=%q", user);
 			if((s = fmtstrflush(&fmt)) == nil)
 				return -1;
-			up = auth_getuserpasswd(nil, "proto=pass service=http server=%q%s", u->host, s);
+			up = auth_getuserpasswd(hauthgetkey,
+				"proto=pass service=http server=%q%s", u->host, s);
 			free(s);
 			if(up == nil)
 				return -1;
@@ -418,7 +431,7 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 		if((s = fmtstrflush(&fmt)) == nil)
 			return -1;
 		nchal = snprint(chal, sizeof(chal), "%s %s %U", nonce, method, ru);
-		n = auth_respond(chal, nchal, ouser, sizeof ouser, resp, sizeof resp, nil,
+		n = auth_respond(chal, nchal, ouser, sizeof ouser, resp, sizeof resp, hauthgetkey,
 			"proto=httpdigest role=client server=%q%s", u->host, s);
 		memset(chal, 0, sizeof(chal));
 		free(s);
@@ -445,6 +458,7 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 		free(s);
 		return -1;
 	}
+
 	a = emalloc(sizeof(*a));
 	a->url = u;
 	a->auth = s;
@@ -453,6 +467,7 @@ authenticate(Url *u, Url *ru, char *method, char *s)
 	hauth = a;
 	qunlock(&authlk);
 
+	errstr(oerr, sizeof(oerr));
 	return 0;
 }
 
@@ -847,22 +862,28 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 				goto Error;
 			freeurl(u);
 			u = nu;
-			if(0){
+		if(0){
 		case 401:	/* Unauthorized */
 			if(x = lookkey(shdr, "Authorization"))
 				flushauth(nil, x);
-			if(hauthenticate(u, &ru, method, "WWW-Authenticate", rhdr) < 0)
-				goto Error;
+			if(hauthenticate(u, &ru, method, "WWW-Authenticate", rhdr) < 0){
+			Autherror:
+				h->cancel = 1;
+				snprint(buf, sizeof(buf), "%s %r", status);
+				buclose(qbody, buf);
+				buclose(qpost, buf);
+				break;
 			}
-			if(0){
+		}
+		if(0){
 		case 407:	/* Proxy Auth */
 			if(proxy == nil)
 				goto Error;
 			if(x = lookkey(shdr, "Proxy-Authorization"))
 				flushauth(proxy, x);
 			if(hauthenticate(proxy, proxy, method, "Proxy-Authenticate", rhdr) < 0)
-				goto Error;
-			}
+				goto Autherror;
+		}
 		case 0:		/* No status */
 			if(qpost && fd < 0){
 				if(i > 0)
