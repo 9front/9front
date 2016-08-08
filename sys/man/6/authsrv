@@ -284,6 +284,10 @@ proving to the client that it also knows
 .I Kn
 and therefore 
 .I Ks .
+.PP
+The 64-bit shared secret
+.I Kn
+is used as the session secret.
 .SS "Password authenticated key exchange"
 Initially, the server and client keys
 .I Ks
@@ -527,7 +531,7 @@ and contributes its random string
 .IR RNs
 for the session secret.
 .PP
-The 2048-bit session secret is derived with a PRF hashing the
+The 2048-bit session secret is derived with HKDF-SHA256 hashing the
 concatenated random strings
 .IR RNc | RNs
 with the the shared secret key
@@ -586,16 +590,16 @@ authentication files
 and
 .IR attach (5)).
 Other services, such as
-.IR cpu (1)
+.IR cpu (1),
+.IR exportfs (4)
 and
-.IR exportfs (4),
+.IR tlssrv (8)
 run
 .I p9any
-over the network and then 
-use
-.I Kn
-to derive an
+over the network and then use the session secret to derive an
 .IR ssl (3)
+or
+.IR tls (3)
 key to encrypt the rest of their communications.
 .SS "Password Change
 Users connect directly to the AS
