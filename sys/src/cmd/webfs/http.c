@@ -518,7 +518,7 @@ catch(void *, char *msg)
 void
 http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 {
-	int i, l, n, try, pid, fd, cfd, needlength, chunked, retry, nobody;
+	int i, l, n, try, pid, fd, cfd, needlength, chunked, retry, nobody, badauth;
 	char *s, *x, buf[8192+2], status[256], method[16], *host;
 	vlong length, offset;
 	Url ru, tu, *nu;
@@ -560,6 +560,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 	pid = 0;
 	host = nil;
 	needlength = 0;
+	badauth = 0;
 	for(try = 0; try < 12; try++){
 		strcpy(status, "0 No status");
 		if(u == nil || (strcmp(u->scheme, "http") && strcmp(u->scheme, "https"))){
@@ -864,8 +865,11 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			u = nu;
 		if(0){
 		case 401:	/* Unauthorized */
-			if(x = lookkey(shdr, "Authorization"))
+			if(x = lookkey(shdr, "Authorization")){
 				flushauth(nil, x);
+				if(badauth++)
+					goto Error;
+			}
 			if(hauthenticate(u, &ru, method, "WWW-Authenticate", rhdr) < 0){
 			Autherror:
 				h->cancel = 1;
@@ -879,8 +883,11 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		case 407:	/* Proxy Auth */
 			if(proxy == nil)
 				goto Error;
-			if(x = lookkey(shdr, "Proxy-Authorization"))
+			if(x = lookkey(shdr, "Proxy-Authorization")){
 				flushauth(proxy, x);
+				if(badauth++)
+					goto Error;
+			}
 			if(hauthenticate(proxy, proxy, method, "Proxy-Authenticate", rhdr) < 0)
 				goto Autherror;
 		}
