@@ -141,13 +141,47 @@ entrysetpoint(Entry *e, Point cp)
 }
 
 static void
+entrycut(Entry *e)
+{
+	_ctlputsnarf(e->text);
+	e->cursor = 0;
+	e->ntext = 0;
+	e->text[0] = L'\0';
+}
+
+static void
+entrypaste(Entry *e)
+{
+	Rune *s;
+	int n;
+
+	s = _ctlgetsnarf();
+	if(s == nil)
+		return;
+	n = runestrlen(s);
+	e->text = ctlrealloc(e->text, (e->ntext+n+1)*sizeof(Rune));
+	memmove(e->text+e->cursor+n, e->text+e->cursor,
+		(e->ntext+1-e->cursor)*sizeof(Rune));
+	memmove(e->text+e->cursor, s, n*sizeof(Rune));
+	e->cursor += n;
+	e->ntext += n;
+}
+
+static void
 entrymouse(Control *c, Mouse *m)
 {
 	Entry *e;
 
 	e = (Entry*)c;
-	if(m->buttons==1 && e->lastbut==0)
+	if(m->buttons==1 && e->lastbut==0){
 		entrysetpoint(e, m->xy);
+	} else if(m->buttons==3 && e->lastbut!=3){
+		entrycut(e);
+		entryshow(e);
+	} else if(m->buttons==5 && e->lastbut!=5){
+		entrypaste(e);
+		entryshow(e);
+	}
 	e->lastbut = m->buttons;
 }
 
@@ -261,8 +295,6 @@ entryctl(Control *c, CParse *cp)
 static void
 entrykey(Entry *e, Rune r)
 {
-	Rune *s;
-	int n;
 	char *p;
 
 	switch(r){
@@ -305,16 +337,7 @@ entrykey(Entry *e, Rune r)
 		e->ntext = 0;
 		break;
 	case 0x16:	/* control V: paste (append snarf buffer) */
-		s = _ctlgetsnarf();
-		if(s != nil){
-			n = runestrlen(s);
-			e->text = ctlrealloc(e->text, (e->ntext+n+1)*sizeof(Rune));
-			memmove(e->text+e->cursor+n, e->text+e->cursor,
-				(e->ntext+1-e->cursor)*sizeof(Rune));
-			memmove(e->text+e->cursor, s, n*sizeof(Rune));
-			e->cursor += n;
-			e->ntext += n;
-		}
+		entrypaste(e);
 		break;
 	}
 	e->text[e->ntext] = L'\0';
