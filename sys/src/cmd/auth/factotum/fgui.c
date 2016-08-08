@@ -573,7 +573,7 @@ setupneedkey(Request *r)
 		snprint(cn, sizeof cn, "name_%d", i);
 		if(entry[i].a->name == nil){
 			entry[i].name = createentry(cs, cn);
-			chanprint(cs->ctl, "%s image yellow", cn);
+			chanprint(cs->ctl, "%s image paleyellow", cn);
 			chanprint(cs->ctl, "%s border 1", cn);
 		} else {
 			entry[i].name = createtext(cs, cn);
@@ -585,7 +585,7 @@ setupneedkey(Request *r)
 		snprint(cn, sizeof cn, "val_%d", i);
 		if(a->type == AttrQuery){
 			entry[i].val = createentry(cs, cn);
-			chanprint(cs->ctl, "%s image yellow", cn);
+			chanprint(cs->ctl, "%s image paleyellow", cn);
 			chanprint(cs->ctl, "%s border 1", cn);
 			if(a->name != nil){
 				if(strcmp(a->name, "user") == 0)
@@ -609,8 +609,8 @@ setupneedkey(Request *r)
 	chanprint(cs->ctl, "b_done border 1");
 	chanprint(cs->ctl, "b_done align center");
 	chanprint(cs->ctl, "b_done text Done");
-	chanprint(cs->ctl, "b_done image green");
-	chanprint(cs->ctl, "b_done light green");
+	chanprint(cs->ctl, "b_done image palegreen");
+	chanprint(cs->ctl, "b_done light palegreen");
 
 	b_cancel = createtextbutton(cs, "b_cancel");
 	chanprint(cs->ctl, "b_cancel border 1");
