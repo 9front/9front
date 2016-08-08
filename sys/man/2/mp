@@ -106,6 +106,27 @@ void	mpleft(mpint *b, int shift, mpint *res)
 void	mpright(mpint *b, int shift, mpint *res)
 .PP
 .B
+void	mpand(mpint *b1, mpint *b2, mpint *res)
+.PP
+.B
+void	mpbic(mpint *b1, mpint *b2, mpint *res)
+.PP
+.B
+void	mpor(mpint *b1, mpint *b2, mpint *res)
+.PP
+.B
+void	mpnot(mpint *b, mpint *res)
+.PP
+.B
+void	mpxor(mpint *b1, mpint *b2, mpint *res)
+.PP
+.B
+void	mptrunc(mpint *b, int n, mpint *res)
+.PP
+.B
+void	mpxtend(mpint *b, int n, mpint *res)
+.PP
+.B
 void	mpmul(mpint *b1, mpint *b2, mpint *prod)
 .PP
 .B
@@ -542,6 +563,42 @@ when
 is not zero, otherwise
 .I b2
 is assigned to
+.IR res .
+.PD
+.PP
+Logical operations (treating negative numbers using two's complement):
+.TF mpxtend_
+.TP
+.I mpand
+.BR "res = b1 & b2" .
+.TP
+.I mpbic
+.BR "res = b1 & ~b2" .
+.TP
+.I mpor
+.BR "res = b1 | b2" .
+.TP
+.I mpxor
+.BR "res = b1 ^ b2" .
+.TP
+.I mpnot
+.BR "res = ~b1" .
+.TP
+.I mptrunc
+truncates
+.I b
+to 
+.I n
+bits and stores the result in
+.IR res .
+The result is never negative.
+.TP
+.I mpxtend
+truncates
+.I b
+to
+.I n
+bits, sign extends the MSB and stores the result in
 .IR res .
 .PD
 .PP
