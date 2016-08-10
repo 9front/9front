@@ -192,6 +192,7 @@ threadmain(int argc, char **argv)
 		if (pid < 0)
 			sysfatal("fork failed: %r");
 		if(pid == 0) {
+			write(open(smprint("/proc/%d/ctl", getpid()), OWRITE|OCEXEC), "hang", 4);
 			exec(cmd, args);
 			if(cmd[0] != '/')
 				exec(smprint("/bin/%s", cmd), args);
