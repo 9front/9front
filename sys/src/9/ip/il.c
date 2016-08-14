@@ -251,6 +251,9 @@ ilconnect(Conv *c, char **argv, int argc)
 	e = Fsstdconnect(c, argv, argc);
 	if(e != nil)
 		return e;
+	if(c->ipversion != V4)
+		return "only IP version 4 supported";
+		
 	return ilstart(c, IL_CONNECT, fast);
 }
 
@@ -548,6 +551,9 @@ iliput(Proto *il, Ipifc*, Block *bp)
 
 	ih = (Ilhdr *)bp->rp;
 	plen = blocklen(bp);
+	if(plen > 0 && (ih->vihl&0xF0)!=IP_VER4)
+		goto raise;	/* ignore non V4 packets */
+
 	if(plen < IL_IPSIZE+IL_HDRSIZE){
 		netlog(il->f, Logil, "il: hlenerr\n");
 		ipriv->stats[HlenErrs]++;
