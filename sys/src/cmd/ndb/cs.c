@@ -135,16 +135,16 @@ char	netndb[Maxpath];
 /*
  *  Network specific translators
  */
-Ndbtuple*	iplookup(Network*, char*, char*, int);
+Ndbtuple*	iplookup(Network*, char*, char*);
 char*		iptrans(Ndbtuple*, Network*, char*, char*, int);
-Ndbtuple*	telcolookup(Network*, char*, char*, int);
+Ndbtuple*	telcolookup(Network*, char*, char*);
 char*		telcotrans(Ndbtuple*, Network*, char*, char*, int);
-Ndbtuple*	dnsiplookup(char*, Ndbs*);
+Ndbtuple*	dnsiplookup(char*, Ndbs*, int);
 
 struct Network
 {
 	char		*net;
-	Ndbtuple	*(*lookup)(Network*, char*, char*, int);
+	Ndbtuple	*(*lookup)(Network*, char*, char*);
 	char		*(*trans)(Ndbtuple*, Network*, char*, char*, int);
 	int		considered;		/* flag: ignored for "net!"? */
 	int		fasttimeouthack;	/* flag. was for IL */
@@ -341,7 +341,7 @@ ndbinit(void)
 	if(db == nil)
 		error("can't open network database");
 
-	for(netdb = db; netdb; netdb = netdb->next)
+	for(netdb = db; netdb != nil; netdb = netdb->next)
 		if(strcmp(netdb->file, netndb) == 0)
 			return;
 
@@ -358,13 +358,13 @@ newfid(int fid)
 	Mlist *f, *ff;
 	Mfile *mf;
 
-	ff = 0;
-	for(f = mlist; f; f = f->next)
+	ff = nil;
+	for(f = mlist; f != nil; f = f->next)
 		if(f->mf.busy && f->mf.fid == fid)
 			return &f->mf;
-		else if(!ff && !f->mf.busy && !f->mf.ref)
+		else if(ff == nil && !f->mf.busy && !f->mf.ref)
 			ff = f;
-	if(ff == 0){
+	if(ff == nil){
 		ff = emalloc(sizeof *f);
 		ff->next = mlist;
 		mlist = ff;
@@ -395,7 +395,7 @@ freejob(Job *job)
 	Job **l;
 
 	qlock(&joblock);
-	for(l = &joblist; *l; l = &(*l)->next){
+	for(l = &joblist; *l != nil; l = &(*l)->next){
 		if((*l) == job){
 			*l = job->next;
 			break;
@@ -411,7 +411,7 @@ flushjob(int tag)
 	Job *job;
 
 	qlock(&joblock);
-	for(job = joblist; job; job = job->next){
+	for(job = joblist; job != nil; job = job->next){
 		if(job->request.tag == tag && job->request.type != Tflush){
 			job->flushed = 1;
 			break;
@@ -531,7 +531,7 @@ rversion(Job *job)
 		sendmsg(job, "unknown 9P version");
 	else{
 		job->reply.version = "9P2000";
-		sendmsg(job, 0);
+		sendmsg(job, nil);
 	}
 }
 
@@ -548,7 +548,7 @@ void
 rflush(Job *job)
 {
 	flushjob(job->request.oldtag);
-	sendmsg(job, 0);
+	sendmsg(job, nil);
 }
 
 void
@@ -562,7 +562,7 @@ rattach(Job *job, Mfile *mf)
 	mf->qid.type = QTDIR;
 	mf->qid.path = 0LL;
 	job->reply.qid = mf->qid;
-	sendmsg(job, 0);
+	sendmsg(job, nil);
 }
 
 
@@ -576,7 +576,7 @@ rwalk(Job *job, Mfile *mf)
 	Mfile *nmf;
 	Qid qid;
 
-	err = 0;
+	err = nil;
 	nmf = nil;
 	elems = job->request.wname;
 	nelems = job->request.nwname;
@@ -628,7 +628,7 @@ rwalk(Job *job, Mfile *mf)
 	if(nmf != nil && (err!=nil || job->reply.nwqid<nelems)){
 		cleanmf(nmf);
 		free(nmf->user);
-		nmf->user = 0;
+		nmf->user = nil;
 		nmf->busy = 0;
 		nmf->fid = 0;
 	}
@@ -644,7 +644,7 @@ ropen(Job *job, Mfile *mf)
 	int mode;
 	char *err;
 
-	err = 0;
+	err = nil;
 	mode = job->request.mode;
 	if(mf->qid.type & QTDIR){
 		if(mode)
@@ -672,7 +672,7 @@ rread(Job *job, Mfile *mf)
 	char *err;
 
 	n = 0;
-	err = 0;
+	err = nil;
 	off = job->request.offset;
 	cnt = job->request.count;
 	mf->ref++;
@@ -701,7 +701,7 @@ rread(Job *job, Mfile *mf)
 	for(;;){
 		/* look for an answer at the right offset */
 		toff = 0;
-		for(i = 0; mf->reply[i] && i < mf->nreply; i++){
+		for(i = 0; mf->reply[i] != nil && i < mf->nreply; i++){
 			n = mf->replylen[i];
 			if(off < toff + n)
 				break;
@@ -771,7 +771,7 @@ rwrite(Job *job, Mfile *mf)
 	char *field[4];
 	char curerr[64];
 
-	err = 0;
+	err = nil;
 	cnt = job->request.count;
 	if(mf->qid.type & QTDIR){
 		err = "can't write directory";
@@ -898,10 +898,10 @@ rclunk(Job *job, Mfile *mf)
 	if(mf->ref == 0)
 		cleanmf(mf);
 	free(mf->user);
-	mf->user = 0;
+	mf->user = nil;
 	mf->fid = 0;
 	mf->busy = 0;
-	sendmsg(job, 0);
+	sendmsg(job, nil);
 }
 
 void
@@ -933,7 +933,7 @@ rstat(Job *job, Mfile *mf)
 	dir.atime = dir.mtime = time(0);
 	job->reply.nstat = convD2M(&dir, buf, sizeof buf);
 	job->reply.stat = buf;
-	sendmsg(job, 0);
+	sendmsg(job, nil);
 }
 
 void
@@ -1023,7 +1023,7 @@ ipid(void)
 	char buf[Maxpath];
 
 	/* use environment, ether addr, or ipaddr to get system name */
-	if(mysysname == 0){
+	if(mysysname == nil){
 		/*
 		 *  environment has priority.
 		 *
@@ -1032,7 +1032,7 @@ ipid(void)
 		 *
 		 */
 		p = getenv("sysname");
-		if(p && *p){
+		if(p != nil && *p){
 			attr = ipattr(p);
 			if(strcmp(attr, "ip") != 0)
 				mysysname = estrdup(p);
@@ -1043,7 +1043,7 @@ ipid(void)
 		 *  figured out from DHCP.  use that name if
 		 *  there is one.
 		 */
-		if(mysysname == 0 && netdb != nil){
+		if(mysysname == nil && netdb != nil){
 			ndbreopen(netdb);
 			for(tt = t = ndbparse(netdb); t != nil; t = t->entry){
 				if(strcmp(t->attr, "sys") == 0){
@@ -1055,7 +1055,7 @@ ipid(void)
 		}
 
 		/* next network database, ip address, and ether address to find a name */
-		if(mysysname == 0){
+		if(mysysname == nil){
 			t = nil;
 			if(isvalidip(ipa))
 				free(ndbgetvalue(db, &s, "ip", ipaddr, "sys", &t));
@@ -1090,12 +1090,12 @@ ipid(void)
 		}
 
 		/* nothing else worked, use the ip address */
-		if(mysysname == 0 && isvalidip(ipa))
+		if(mysysname == nil && isvalidip(ipa))
 			mysysname = estrdup(ipaddr);
 
 
 		/* set /dev/sysname if we now know it */
-		if(mysysname){
+		if(mysysname != nil){
 			f = open("/dev/sysname", OWRITE);
 			if(f >= 0){
 				write(f, mysysname, strlen(mysysname));
@@ -1127,18 +1127,18 @@ netinit(int background)
 	}
 
 	/* add the mounted networks to the default list */
-	for(np = network; np->net; np++){
+	for(np = network; np->net != nil; np++){
 		if(np->considered)
 			continue;
 		snprint(clone, sizeof(clone), "%s/%s/clone", mntpt, np->net);
 		if(access(clone, AEXIST) < 0)
 			continue;
-		if(netlist)
+		if(netlist != nil)
 			last->next = np;
 		else
 			netlist = np;
 		last = np;
-		np->next = 0;
+		np->next = nil;
 		np->considered = 1;
 	}
 
@@ -1170,17 +1170,17 @@ netadd(char *p)
 
 	n = getfields(p, field, 12, 1, " ");
 	for(i = 0; i < n; i++){
-		for(np = network; np->net; np++){
+		for(np = network; np->net != nil; np++){
 			if(strcmp(field[i], np->net) != 0)
 				continue;
 			if(np->considered)
 				break;
-			if(netlist)
+			if(netlist != nil)
 				last->next = np;
 			else
 				netlist = np;
 			last = np;
-			np->next = 0;
+			np->next = nil;
 			np->considered = 1;
 		}
 	}
@@ -1210,28 +1210,27 @@ lookup(Mfile *mf)
 	int hack;
 
 	/* open up the standard db files */
-	if(db == 0)
+	if(db == nil)
 		ndbinit();
-	if(db == 0)
+	if(db == nil)
 		error("can't open mf->network database\n");
-
-	rv = 0;
 
 	if(mf->net == nil)
 		return 0;	/* must have been a genquery */
 
+	rv = 0;
 	if(strcmp(mf->net, "net") == 0){
 		/*
 		 *  go through set of default nets
 		 */
-		for(np = mf->nextnet; np; np = np->next){
-			nt = (*np->lookup)(np, mf->host, mf->serv, 1);
+		for(np = mf->nextnet; np != nil && rv == 0; np = np->next){
+			nt = (*np->lookup)(np, mf->host, mf->serv);
 			if(nt == nil)
 				continue;
 			hack = np->fasttimeouthack && !lookforproto(nt, np->net);
-			for(t = nt; mf->nreply < Nreply && t; t = t->entry){
+			for(t = nt; mf->nreply < Nreply && t != nil; t = t->entry){
 				cp = (*np->trans)(t, np, mf->serv, mf->rem, hack);
-				if(cp){
+				if(cp != nil){
 					/* avoid duplicates */
 					for(i = 0; i < mf->nreply; i++)
 						if(strcmp(mf->reply[i], cp) == 0)
@@ -1246,8 +1245,6 @@ lookup(Mfile *mf)
 				}
 			}
 			ndbfree(nt);
-			np = np->next;
-			break;
 		}
 		mf->nextnet = np;
 		return rv;
@@ -1258,24 +1255,25 @@ lookup(Mfile *mf)
 	 */
 	if(mf->nreply != 0)
 		return 0;
+
 	/*
 	 *  look for a specific network
 	 */
-	for(np = netlist; np && np->net != nil; np++){
+	for(np = network; np->net != nil; np++){
 		if(np->fasttimeouthack)
 			continue;
 		if(strcmp(np->net, mf->net) == 0)
 			break;
 	}
 
-	if(np && np->net != nil){
+	if(np->net != nil){
 		/*
 		 *  known network
 		 */
-		nt = (*np->lookup)(np, mf->host, mf->serv, 1);
-		for(t = nt; mf->nreply < Nreply && t; t = t->entry){
+		nt = (*np->lookup)(np, mf->host, mf->serv);
+		for(t = nt; mf->nreply < Nreply && t != nil; t = t->entry){
 			cp = (*np->trans)(t, np, mf->serv, mf->rem, 0);
-			if(cp){
+			if(cp != nil){
 				mf->replylen[mf->nreply] = strlen(cp);
 				mf->reply[mf->nreply++] = cp;
 				rv++;
@@ -1287,7 +1285,7 @@ lookup(Mfile *mf)
 		/*
 		 *  not a known network, don't translate host or service
 		 */
-		if(mf->serv)
+		if(mf->serv != nil)
 			snprint(reply, sizeof(reply), "%s/%s/clone %s!%s",
 				mntpt, mf->net, mf->host, mf->serv);
 		else
@@ -1317,7 +1315,7 @@ ipserv(Network *np, char *name, char *buf, int blen)
 	Ndbs s;
 
 	/* '*' means any service */
-	if(strcmp(name, "*")==0){
+	if(strcmp(name, "*") == 0){
 		nstrcpy(buf, name, blen);
 		return buf;
 	}
@@ -1330,14 +1328,14 @@ ipserv(Network *np, char *name, char *buf, int blen)
 		else if(isalpha(*p) || *p == '-' || *p == '$')
 			alpha = 1;
 		else
-			return 0;
+			return nil;
 	}
 	t = nil;
 	p = nil;
 	if(alpha){
 		p = ndbgetvalue(db, &s, np->net, name, "port", &t);
 		if(p == nil)
-			return 0;
+			return nil;
 	} else {
 		/* look up only for tcp ports < 1024 to get the restricted
 		 * attribute
@@ -1349,7 +1347,7 @@ ipserv(Network *np, char *name, char *buf, int blen)
 	}
 
 	if(t){
-		for(nt = t; nt; nt = nt->entry)
+		for(nt = t; nt != nil; nt = nt->entry)
 			if(strcmp(nt->attr, "restricted") == 0)
 				restr = 1;
 		ndbfree(t);
@@ -1391,7 +1389,7 @@ ipattrlookup(Ndb *db, char *ipa, char *attr, char *val, int vlen)
  *  lookup (and translate) an ip destination
  */
 Ndbtuple*
-iplookup(Network *np, char *host, char *serv, int nolookup)
+iplookup(Network *np, char *host, char *serv)
 {
 	char *attr, *dnsname;
 	Ndbtuple *t, *nt;
@@ -1403,17 +1401,16 @@ iplookup(Network *np, char *host, char *serv, int nolookup)
 	uchar tnet[IPaddrlen];
 	Ipifc *ifc;
 	Iplifc *lifc;
-
-	USED(nolookup);
+	int v6;
 
 	/*
 	 *  start with the service since it's the most likely to fail
 	 *  and costs the least
 	 */
 	werrstr("can't translate address");
-	if(serv==0 || ipserv(np, serv, ts, sizeof ts) == 0){
+	if(serv == nil || ipserv(np, serv, ts, sizeof ts) == nil){
 		werrstr("can't translate service");
-		return 0;
+		return nil;
 	}
 
 	/* for dial strings with no host */
@@ -1463,21 +1460,22 @@ iplookup(Network *np, char *host, char *serv, int nolookup)
 	 */
 	t = 0;
 	werrstr("can't translate address");
+	v6 = strcmp(np->net, "il") != 0;
 	if(strcmp(attr, "dom") == 0)
-		t = dnsiplookup(host, &s);
-	if(t == 0)
+		t = dnsiplookup(host, &s, v6);
+	if(t == nil)
 		free(ndbgetvalue(db, &s, attr, host, "ip", &t));
-	if(t == 0){
+	if(t == nil){
 		dnsname = ndbgetvalue(db, &s, attr, host, "dom", nil);
 		if(dnsname){
-			t = dnsiplookup(dnsname, &s);
+			t = dnsiplookup(dnsname, &s, v6);
 			free(dnsname);
 		}
 	}
-	if(t == 0)
-		t = dnsiplookup(host, &s);
-	if(t == 0)
-		return 0;
+	if(t == nil)
+		t = dnsiplookup(host, &s, v6);
+	if(t == nil)
+		return nil;
 
 	/*
 	 *  reorder the tuple to have the matched line first and
@@ -1510,6 +1508,13 @@ iplookup(Network *np, char *host, char *serv, int nolookup)
 	return t;
 }
 
+static int
+isv4str(char *s)
+{
+	uchar ip[IPaddrlen];
+	return parseip(ip, s) != -1 && isv4(ip);
+}
+
 /*
  *  translate an ip address
  */
@@ -1521,11 +1526,11 @@ iptrans(Ndbtuple *t, Network *np, char *serv, char *rem, int hack)
 	char x[Maxservice];
 
 	if(strcmp(t->attr, "ip") != 0)
-		return 0;
+		return nil;
 
-	if(serv == 0 || ipserv(np, serv, ts, sizeof ts) == 0){
+	if(serv == nil || ipserv(np, serv, ts, sizeof ts) == nil){
 		werrstr("can't translate service");
-		return 0;
+		return nil;
 	}
 	if(rem != nil)
 		snprint(x, sizeof(x), "!%s", rem);
@@ -1535,9 +1540,14 @@ iptrans(Ndbtuple *t, Network *np, char *serv, char *rem, int hack)
 	if(*t->val == '*')
 		snprint(reply, sizeof(reply), "%s/%s/clone %s%s",
 			mntpt, np->net, ts, x);
-	else
+	else {
+		/* il only supports ipv4 addresses */
+		if(strcmp(np->net, "il") == 0 && !isv4str(t->val))
+			return nil;
+
 		snprint(reply, sizeof(reply), "%s/%s/clone %s!%s%s%s",
 			mntpt, np->net, t->val, ts, x, hack? "!fasttimeout": "");
+	}
 
 	return estrdup(reply);
 }
@@ -1546,16 +1556,16 @@ iptrans(Ndbtuple *t, Network *np, char *serv, char *rem, int hack)
  *  lookup a telephone number
  */
 Ndbtuple*
-telcolookup(Network *np, char *host, char *serv, int nolookup)
+telcolookup(Network *np, char *host, char *serv)
 {
 	Ndbtuple *t;
 	Ndbs s;
 
-	USED(np, nolookup, serv);
+	USED(np, serv);
 
 	werrstr("can't translate address");
 	free(ndbgetvalue(db, &s, "sys", host, "telco", &t));
-	if(t == 0)
+	if(t == nil)
 		return ndbnew("telco", host);
 
 	return reorder(t, s.t);
@@ -1571,13 +1581,13 @@ telcotrans(Ndbtuple *t, Network *np, char *serv, char *rem, int)
 	char x[Maxservice];
 
 	if(strcmp(t->attr, "telco") != 0)
-		return 0;
+		return nil;
 
 	if(rem != nil)
 		snprint(x, sizeof(x), "!%s", rem);
 	else
 		*x = 0;
-	if(serv)
+	if(serv != nil)
 		snprint(reply, sizeof(reply), "%s/%s/clone %s!%s%s", mntpt, np->net,
 			t->val, serv, x);
 	else
@@ -1605,10 +1615,10 @@ reorder(Ndbtuple *t, Ndbtuple *x)
 	/* remove this line and everything after it from the entry */
 	for(nt = t; nt->entry != line; nt = nt->entry)
 		;
-	nt->entry = 0;
+	nt->entry = nil;
 
 	/* make that the start of the entry */
-	for(nt = line; nt->entry; nt = nt->entry)
+	for(nt = line; nt->entry != nil; nt = nt->entry)
 		;
 	nt->entry = t;
 	return line;
@@ -1671,7 +1681,7 @@ dnsip6lookup(char *mntpt, char *buf, Ndbtuple *t)
  *  call the dns process and have it try to translate a name
  */
 Ndbtuple*
-dnsiplookup(char *host, Ndbs *s)
+dnsiplookup(char *host, Ndbs *s, int v6)
 {
 	char buf[Maxreply];
 	Ndbtuple *t;
@@ -1689,16 +1699,16 @@ dnsiplookup(char *host, Ndbs *s)
 	else {
 		t = dnsquery(mntpt, host, "ip");
 		/* special case: query ipv6 (AAAA dns RR) too */
-		if (ipv6lookups)
+		if (v6 && ipv6lookups)
 			t = dnsip6lookup(mntpt, host, t);
 	}
 	s->t = t;
 
 	if(t == nil){
 		rerrstr(buf, sizeof buf);
-		if(strstr(buf, "exist"))
+		if(strstr(buf, "exist") != nil)
 			werrstr("can't translate address: %s", buf);
-		else if(strstr(buf, "dns failure"))
+		else if(strstr(buf, "dns failure") != nil)
 			werrstr("temporary problem: %s", buf);
 	}
 
@@ -1714,7 +1724,7 @@ qmatch(Ndbtuple *t, char **attr, char **val, int n)
 
 	for(i = 1; i < n; i++){
 		found = 0;
-		for(nt = t; nt; nt = nt->entry)
+		for(nt = t; nt != nil; nt = nt->entry)
 			if(strcmp(attr[i], nt->attr) == 0)
 				if(strcmp(val[i], "*") == 0
 				|| strcmp(val[i], nt->val) == 0){
@@ -1734,7 +1744,7 @@ qreply(Mfile *mf, Ndbtuple *t)
 	String *s;
 
 	s = s_new();
-	for(nt = t; mf->nreply < Nreply && nt; nt = nt->entry){
+	for(nt = t; mf->nreply < Nreply && nt != nil; nt = nt->entry){
 		s_append(s, nt->attr);
 		s_append(s, "=");
 		s_append(s, nt->val);
@@ -1787,7 +1797,7 @@ genquery(Mfile *mf, char *query)
 	/* parse pairs */
 	for(i = 0; i < n; i++){
 		p = strchr(attr[i], '=');
-		if(p == 0)
+		if(p == nil)
 			return "bad query";
 		*p++ = 0;
 		val[i] = p;
@@ -1795,12 +1805,12 @@ genquery(Mfile *mf, char *query)
 
 	/* give dns a chance */
 	if((strcmp(attr[0], "dom") == 0 || strcmp(attr[0], "ip") == 0) && val[0]){
-		t = dnsiplookup(val[0], &s);
-		if(t){
+		t = dnsiplookup(val[0], &s, 1);
+		if(t != nil){
 			if(qmatch(t, attr, val, n)){
 				qreply(mf, t);
 				ndbfree(t);
-				return 0;
+				return nil;
 			}
 			ndbfree(t);
 		}
@@ -1810,11 +1820,11 @@ genquery(Mfile *mf, char *query)
 	t = ndbsearch(db, &s, attr[0], val[0]);
 
 	/* search is the and of all the pairs */
-	while(t){
+	while(t != nil){
 		if(qmatch(t, attr, val, n)){
 			qreply(mf, t);
 			ndbfree(t);
-			return 0;
+			return nil;
 		}
 
 		ndbfree(t);
@@ -1832,7 +1842,7 @@ ipresolve(char *attr, char *host)
 {
 	Ndbtuple *t, *nt, **l;
 
-	t = iplookup(&network[Ntcp], host, "*", 0);
+	t = iplookup(&network[Ntcp], host, "*");
 	for(l = &t; *l != nil; ){
 		nt = *l;
 		if(strcmp(nt->attr, "ip") != 0){
