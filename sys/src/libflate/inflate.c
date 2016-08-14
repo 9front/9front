@@ -48,6 +48,7 @@ struct Huff
 	ulong	maxcode[MaxHuffBits];
 	ulong	last[MaxHuffBits];
 	ulong	decode[MaxLeaf];
+	int	maxleaf;
 };
 
 /* litlen code words 257-285 extra bits */
@@ -565,14 +566,16 @@ hufftab(Huff *h, char *hb, int maxleaf, int flatbits)
 				maxbits = b;
 		}
 	}
-
-	h->maxbits = maxbits;
 	if(maxbits <= 0){
 		h->maxbits = 0;
 		h->minbits = 0;
 		h->flatmask = 0;
+		h->maxleaf = 0;
 		return 1;
 	}
+	h->maxbits = maxbits;
+	if(maxbits >= MaxHuffBits || minbits <= 0)
+		return 0;
 	code = 0;
 	c = 0;
 	for(b = 0; b <= maxbits; b++){
@@ -613,6 +616,7 @@ hufftab(Huff *h, char *hb, int maxleaf, int flatbits)
 			h->flat[revcode(mincode, flatbits)] = (b << 8) | 0xff;
 	}
 
+	h->maxleaf = maxleaf;
 	for(i = 0; i < maxleaf; i++){
 		b = hb[i];
 		if(b <= 0)
@@ -639,7 +643,7 @@ hufftab(Huff *h, char *hb, int maxleaf, int flatbits)
 static int
 hdecsym(Input *in, Huff *h, int nb)
 {
-	long c;
+	ulong c;
 
 	if((nb & 0xff) == 0xff)
 		nb = nb >> 8;
@@ -652,9 +656,12 @@ hdecsym(Input *in, Huff *h, int nb)
 		c |= revtab[(in->sreg>>8)&0xff];
 		c >>= (16-nb);
 		if(c <= h->maxcode[nb]){
+			c = h->last[nb] - c;
+			if(c >= h->maxleaf)
+				break;
 			in->sreg >>= nb;
 			in->nbits -= nb;
-			return h->decode[h->last[nb] - c];
+			return h->decode[c];
 		}
 	}
 	in->error = FlateCorrupted;
