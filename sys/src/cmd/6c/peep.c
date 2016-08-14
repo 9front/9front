@@ -440,6 +440,11 @@ subprop(Reg *r0)
 		case AADDQ:
 		case AADCL:
 		case AADCQ:
+
+		case AADDSS:
+		case AADDSD:
+		case AMULSS:
+		case AMULSD:
 			/*
 			 * can swap when:
 			 *  ADD R2, R1
@@ -472,6 +477,9 @@ subprop(Reg *r0)
 		case AMOVWQSX:
 		case AMOVLQZX:
 		case AMOVLQSX:
+
+		case AMOVSS:
+		case AMOVSD:
 			if(p->to.type == v1->type)
 				goto gotit;
 			break;
