@@ -145,7 +145,7 @@ frtick(Frame *f, Point pt, int ticked)
 {
 	Rectangle r;
 
-	if(f->ticked==ticked || f->tick==0 || !ptinrect(pt, f->r))
+	if(f->ticked==ticked || f->tick==nil || !ptinrect(pt, f->r))
 		return;
 	pt.x--;	/* looks best just left of where requested */
 	r = Rect(pt.x, pt.y, pt.x+FRTICKW, pt.y+f->font->height);

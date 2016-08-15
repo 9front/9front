@@ -17,12 +17,12 @@ frinit(Frame *f, Rectangle r, Font *ft, Image *b, Image *cols[NCOL])
 	f->nlines = 0;
 	f->p0 = 0;
 	f->p1 = 0;
-	f->box = 0;
+	f->box = nil;
 	f->lastlinefull = 0;
-	if(cols != 0)
+	if(cols != nil)
 		memmove(f->cols, cols, sizeof f->cols);
 	frsetrects(f, r, b);
-	if(f->tick==nil && f->cols[BACK]!=0)
+	if(f->tick==nil && f->cols[BACK]!=nil)
 		frinittick(f);
 }
 
@@ -34,7 +34,7 @@ frinittick(Frame *f)
 
 	b = f->display->screenimage;
 	ft = f->font;
-	if(f->tick)
+	if(f->tick != nil)
 		freeimage(f->tick);
 	f->tick = allocimage(f->display, Rect(0, 0, FRTICKW, ft->height), b->chan, 0, DWhite);
 	if(f->tick == nil)
@@ -42,9 +42,9 @@ frinittick(Frame *f)
 	if(f->tickback)
 		freeimage(f->tickback);
 	f->tickback = allocimage(f->display, f->tick->r, b->chan, 0, DWhite);
-	if(f->tickback == 0){
+	if(f->tickback == nil){
 		freeimage(f->tick);
-		f->tick = 0;
+		f->tick = nil;
 		return;
 	}
 	/* background color */
@@ -71,14 +71,14 @@ frclear(Frame *f, int freeall)
 {
 	if(f->nbox)
 		_frdelbox(f, 0, f->nbox-1);
-	if(f->box)
+	if(f->box != nil)
 		free(f->box);
 	if(freeall){
 		freeimage(f->tick);
 		freeimage(f->tickback);
-		f->tick = 0;
-		f->tickback = 0;
+		f->tick = nil;
+		f->tickback = nil;
 	}
-	f->box = 0;
+	f->box = nil;
 	f->ticked = 0;
 }
