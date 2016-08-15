@@ -873,7 +873,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 			if(hauthenticate(u, &ru, method, "WWW-Authenticate", rhdr) < 0){
 			Autherror:
 				h->cancel = 1;
-				snprint(buf, sizeof(buf), "%s %r", status);
+				rerrstr(buf, sizeof(buf));
 				buclose(qbody, buf);
 				buclose(qpost, buf);
 				break;
