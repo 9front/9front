@@ -897,7 +897,7 @@ mntrahread(Mntrah *rah, Chan *c, uchar *buf, long len, vlong off)
 	if(rah->seq >= 2*c->iounit){
 		w = (off / c->iounit) * c->iounit;
 		e = w + rah->seq;
-		for(o = w; w < e; o += c->iounit){
+		for(o = w; o < e; o += c->iounit){
 			if(rahfindrpc(rah, o) != nil)
 				continue;
 
