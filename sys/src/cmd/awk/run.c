@@ -895,18 +895,21 @@ int format(char **pbuf, int *pbufsize, char *s, Node *a)	/* printf-like conversi
 		case 'd': case 'i':
 			flag = 2;
 			if(*(s-1) == 'l') break;
-			*(t-1) = 'l';
+			t[-1] = 'l';
 			*t = 'd';
 			*++t = '\0';
 			break;
 		case 'u':
 			flag = *(s-1) == 'l' ? 2 : 3;
-			*t++ = 'u';
+			t[-1] = 'u';
 			*t++ = 'd';
 			*t = '\0';
 			break;				
 		case 'o': case 'x': case 'X':
 			flag = *(s-1) == 'l' ? 2 : 3;
+			t[-1] = 'u';
+			*t++ = *s;
+			*t = '\0';
 			break;
 		case 's':
 			flag = 4;
@@ -939,7 +942,7 @@ int format(char **pbuf, int *pbufsize, char *s, Node *a)	/* printf-like conversi
 			break;
 		case 1:	sprint(p, fmt, getfval(x)); break;
 		case 2:	sprint(p, fmt, (long) getfval(x)); break;
-		case 3:	sprint(p, fmt, (int) getfval(x)); break;
+		case 3: sprint(p, fmt, (int) getfval(x)); break;
 		case 4:
 			t = getsval(x);
 			n = strlen(t);
