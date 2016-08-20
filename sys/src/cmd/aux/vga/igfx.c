@@ -89,6 +89,8 @@ struct Fdi {
 
 	Reg	rxctl;		/* FDI_RX_CTL */
 	Reg	rxmisc;		/* FDI_RX_MISC */
+	Reg	rxiir;		/* FDI_RX_IIR */
+	Reg	rximr;		/* FDI_RX_IMR */
 	Reg	rxtu[2];	/* FDI_RX_TUSIZE */
 };
 
@@ -276,6 +278,10 @@ snarfpipe(Igfx *igfx, int x)
 
 		p->fdi->rxctl = snarfreg(igfx, o + 0x1000c);
 		p->fdi->rxmisc = snarfreg(igfx, o + 0x10010);
+
+		p->fdi->rxiir = snarfreg(igfx, o + 0x10014);
+		p->fdi->rximr = snarfreg(igfx, o + 0x10018);
+
 		p->fdi->rxtu[0] = snarfreg(igfx, o + 0x10030);
 		p->fdi->rxtu[1] = snarfreg(igfx, o + 0x10038);
 
@@ -297,7 +303,6 @@ snarfpipe(Igfx *igfx, int x)
 	/* cursor plane */
 	switch(igfx->type){
 	case TypeIVB:
-	case TypeSNB:
 		p->cur->cntr	= snarfreg(igfx, 0x70080 + x*0x1000);
 		p->cur->base	= snarfreg(igfx, 0x70084 + x*0x1000);
 		p->cur->pos	= snarfreg(igfx, 0x70088 + x*0x1000);
@@ -305,7 +310,8 @@ snarfpipe(Igfx *igfx, int x)
 	case TypeG45:
 		p->dsp->pos	= snarfreg(igfx, 0x7018C + x*0x1000);
 		p->dsp->size	= snarfreg(igfx, 0x70190 + x*0x1000);
-
+		/* wet floor */
+	case TypeSNB:
 		p->cur->cntr	= snarfreg(igfx, 0x70080 + x*0x40);
 		p->cur->base	= snarfreg(igfx, 0x70084 + x*0x40);
 		p->cur->pos	= snarfreg(igfx, 0x70088 + x*0x40);
@@ -320,10 +326,13 @@ devtype(Igfx *igfx)
 		return -1;
 	switch(igfx->pci->did){
 	case 0x0166:	/* 3rd Gen Core - ThinkPad X230 */
+	case 0x0152:	/* 2nd/3rd Gen Core - Core-i3 */
 		return TypeIVB;
+	case 0x0102:	/* Dell Optiplex 790 */
 	case 0x0126:	/* Thinkpad X220 */
 		return TypeSNB;
 	case 0x27a2:	/* GM945/82940GML - ThinkPad X60 Tablet */
+	case 0x29a2:	/* 82P965/G965 HECI desktop */
 	case 0x2a02:	/* GM965/GL960/X3100 - ThinkPad X61 Tablet */
 	case 0x2a42:	/* 4 Series Mobile - ThinkPad X200 */
 		return TypeG45;
@@ -689,6 +698,18 @@ initdpll(Igfx *igfx, int x, int freq, int port)
 	return 0;
 }
 
+static int
+needlanes(int freq, int lsclk, int bpp)
+{
+	vlong v;
+	int n;
+
+	v = ((vlong)freq * bpp) / 8;
+	for(n=1; n<4 && v>lsclk; n<<=1, v>>=1)
+		;
+	return n;
+}
+
 static void
 initdatalinkmn(Trans *t, int freq, int lsclk, int lanes, int tu, int bpp)
 {
@@ -734,10 +755,10 @@ inittrans(Trans *t, Mode *m)
 }
 
 static void
-initpipe(Pipe *p, Mode *m)
+initpipe(Pipe *p, Mode *m, int bpc)
 {
 	static uchar bpctab[4] = { 8, 10, 6, 12 };
-	int i, tu, bpc, lanes;
+	int i, tu, lanes;
 	Fdi *fdi;
 
 	/* source image size */
@@ -754,9 +775,8 @@ initpipe(Pipe *p, Mode *m)
 	inittrans(p, m);
 
 	/* default for displayport */
+	lanes = needlanes(m->frequency, 270*MHz, 3*bpc);
 	tu = 64;
-	bpc = 6;	/* why */
-	lanes = 1;
 
 	fdi = p->fdi;
 	if(fdi->rxctl.a != 0){
@@ -805,7 +825,7 @@ initpipe(Pipe *p, Mode *m)
 static void
 init(Vga* vga, Ctlr* ctlr)
 {
-	int x, port;
+	int x, port, bpc;
 	char *val;
 	Igfx *igfx;
 	Pipe *p;
@@ -815,6 +835,8 @@ init(Vga* vga, Ctlr* ctlr)
 	m = vga->mode;
 	if(m->z != 32)
 		error("%s: unsupported color depth %d\n", ctlr->name, m->z);
+
+	bpc = 8;	/* bits per color channel */
 
 	igfx = vga->private;
 
@@ -858,10 +880,10 @@ init(Vga* vga, Ctlr* ctlr)
 		break;
 
 	case PortVGA:
-		if(igfx->npipe > 2)
-			x = (igfx->adpa.v >> 29) & 3;
-		else
+		if(igfx->type == TypeG45)
 			x = (igfx->adpa.v >> 30) & 1;
+		else
+			x = (igfx->adpa.v >> 29) & 3;
 		igfx->adpa.v |= (1<<31);
 		if(igfx->type == TypeG45){
 			igfx->adpa.v &= ~(3<<10);	/* Monitor DPMS: on */
@@ -876,10 +898,10 @@ init(Vga* vga, Ctlr* ctlr)
 		break;
 
 	case PortLCD:
-		if(igfx->npipe > 2)
-			x = (igfx->lvds.v >> 29) & 3;
-		else
+		if(igfx->type == TypeG45)
 			x = (igfx->lvds.v >> 30) & 1;
+		else
+			x = (igfx->lvds.v >> 29) & 3;
 		igfx->lvds.v |= (1<<31);
 		igfx->ppcontrol.v |= 5;
 
@@ -905,8 +927,9 @@ init(Vga* vga, Ctlr* ctlr)
 			goto Badport;
 		/* port enable */
 		r->v |= 1<<31;
-		/* port width selection: x1 Mode */
+		/* port width selection */
 		r->v &= ~(7<<19);
+		r->v |= needlanes(m->frequency, 270*MHz, 3*bpc)-1 << 19;
 
 		/* port reversal: off */
 		r->v &= ~(1<<15);
@@ -975,7 +998,7 @@ init(Vga* vga, Ctlr* ctlr)
 	if(initdpll(igfx, x, m->frequency, port) < 0)
 		error("%s: frequency %d out of range\n", ctlr->name, m->frequency);
 
-	initpipe(p, m);
+	initpipe(p, m, bpc);
 
 	ctlr->flag |= Finit;
 }
@@ -1053,8 +1076,8 @@ enablepipe(Igfx *igfx, int x)
 		loadreg(igfx, p->fdi->rxctl);
 		sleep(5);
 		p->fdi->txctl.v &= ~(7<<8 | 1);	/* clear auto training bits */
-		p->fdi->txctl.v &= ~(1<<31);
-		p->fdi->rxctl.v |= (1<<14);	/* enable pll */
+		p->fdi->txctl.v &= ~(1<<31);	/* disable */
+		p->fdi->txctl.v |= (1<<14);	/* enable pll */
 		loadreg(igfx, p->fdi->txctl);
 		sleep(5);
 	}
@@ -1102,21 +1125,61 @@ enablepipe(Igfx *igfx, int x)
 		loadreg(igfx, p->fdi->rxtu[0]);
 		loadreg(igfx, p->fdi->rxmisc);
 
-		p->fdi->rxctl.v &= ~(3<<8);	/* link train pattern 00 */
-		p->fdi->rxctl.v |= 1<<10;	/* auto train enable */
-		p->fdi->rxctl.v |= 1<<31;	/* enable */
-		loadreg(igfx, p->fdi->rxctl);
+		if(igfx->type == TypeSNB){
+			/* unmask bit lock and symbol lock bits */
+			csr(igfx, p->fdi->rximr.a, 3<<8, 0);
 
-		p->fdi->txctl.v &= ~(3<<8);	/* link train pattern 00 */
-		p->fdi->txctl.v |= 1<<10;	/* auto train enable */
-		p->fdi->txctl.v |= 1<<31;	/* enable */
-		loadreg(igfx, p->fdi->txctl);
+			p->fdi->rxctl.v &= ~(3<<8);	/* link train pattern1 */
+			p->fdi->rxctl.v |= 1<<31;	/* enable */
+			loadreg(igfx, p->fdi->rxctl);
 
-		/* wait for link training done */
-		for(i=0; i<200; i++){
+			p->fdi->txctl.v &= ~(3<<8);	/* link train pattern1 */
+			p->fdi->txctl.v |= 1<<31;	/* enable */
+			loadreg(igfx, p->fdi->txctl);
+
+			/* wait for bit lock */
+			for(i=0; i<10; i++){
+				sleep(1);
+				if(rr(igfx, p->fdi->rxiir.a) & (1<<8))
+					break;
+			}
+			csr(igfx, p->fdi->rxiir.a, 0, 1<<8);
+	
+			/* switch to link train pattern2 */
+			csr(igfx, p->fdi->rxctl.a, 3<<8, 1<<8);
+			csr(igfx, p->fdi->txctl.a, 3<<8, 1<<8);
+
+			/* wait for symbol lock */
+			for(i=0; i<10; i++){
+				sleep(1);
+				if(rr(igfx, p->fdi->rxiir.a) & (1<<9))
+					break;
+			}
+			csr(igfx, p->fdi->rxiir.a, 0, 1<<9);
+
+			/* switch to link train normal */
+			csr(igfx, p->fdi->rxctl.a, 0, 3<<8);
+			csr(igfx, p->fdi->txctl.a, 0, 3<<8);
+
+			/* wait idle pattern time */
 			sleep(5);
-			if(rr(igfx, p->fdi->txctl.a) & 2)
-				break;
+		} else {
+			p->fdi->rxctl.v &= ~(3<<8);	/* link train pattern 00 */
+			p->fdi->rxctl.v |= 1<<10;	/* auto train enable */
+			p->fdi->rxctl.v |= 1<<31;	/* enable */
+			loadreg(igfx, p->fdi->rxctl);
+
+			p->fdi->txctl.v &= ~(3<<8);	/* link train pattern 00 */
+			p->fdi->txctl.v |= 1<<10;	/* auto train enable */
+			p->fdi->txctl.v |= 1<<31;	/* enable */
+			loadreg(igfx, p->fdi->txctl);
+
+			/* wait for link training done */
+			for(i=0; i<200; i++){
+				sleep(5);
+				if(rr(igfx, p->fdi->txctl.a) & 2)
+					break;
+			}
 		}
 	}
 
@@ -1626,8 +1689,8 @@ enabledp(Igfx *igfx, Dp *dp)
 		return 0;
 
 	/* Link configuration */
-	wdpaux(igfx, dp, 0x100, 0x0A);	/* 270Mhz */
-	wdpaux(igfx, dp, 0x101, 0x01);	/* one lane */
+	wdpaux(igfx, dp, 0x100, (270*MHz) / 27000000);
+	wdpaux(igfx, dp, 0x101, ((dp->ctl.v>>19)&7)+1);
 
 	r = 0;
 
