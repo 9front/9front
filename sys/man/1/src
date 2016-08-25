@@ -1,6 +1,6 @@
 .TH SRC 1 
 .SH NAME
-src  \- find source code for executable
+src, Bfn  \- find source code for executable
 .SH SYNOPSIS
 .B src
 [
@@ -12,6 +12,9 @@ src  \- find source code for executable
 ]
 .I file
 .B ...
+.PP
+.B Bfn
+.I fn
 .SH DESCRIPTION
 .I Src
 examines the named
@@ -59,6 +62,19 @@ flag identifies a
 other than
 .B main
 to locate.
+.PP
+.I Bfn
+finds the definition of all C functions named
+.I fn
+by searching the
+.B .c
+files in the current directory.
+It prints the file name and line number of each match found and submits the match to the
+.IR plumber (4)
+if it is unique.
+.I Fn
+can be a
+.IR regexp (6).
 .SH EXAMPLES
 Find the source to the
 .B main
@@ -81,3 +97,7 @@ src -s strcmp rc
 .IR db (1),
 .IR plumb (1),
 .IR sam (1).
+.SH BUGS
+.I Bfn
+requires the source code to follow
+.IR style (6).
