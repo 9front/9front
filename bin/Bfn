@@ -1,0 +1,16 @@
+#!/bin/rc
+if(! ~ $#* 1){
+	echo usage: $0 fn >[2=1]
+	exit usage
+}
+res=`{grep -n '^'$1'\(' *.c | sed -n 's/^([^:]*:[^:]*).*$/\1/gp' }
+ifs='
+'
+for(i in $res)
+	echo $i
+switch($#res){
+case 0
+	echo $1: not found >[2=1]
+case 1
+	plumb $res
+}
