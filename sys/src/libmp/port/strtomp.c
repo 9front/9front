@@ -82,7 +82,7 @@ from8(char *a, mpint *b)
 		if(tab.t10[*(uchar*)p] >= 8)
 			break;
 
-	mpbits(b, (a-p)*3);
+	mpbits(b, (p-a)*3);
 	b->top = 0;
 	next = p;
 
