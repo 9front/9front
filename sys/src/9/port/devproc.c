@@ -9,6 +9,8 @@
 #include	"ureg.h"
 #include	"edf.h"
 
+#include	<pool.h>
+
 enum
 {
 	Qdir,
@@ -789,7 +791,7 @@ procread(Chan *c, void *va, long n, vlong off)
 		if(addr < KZERO)
 			return procctlmemio(c, p, addr, va, n, 1);
 
-		if(!iseve())
+		if(!iseve() || poolisoverlap(secrmem, (uchar*)addr, n))
 			error(Eperm);
 
 		/* validate kernel addresses */

@@ -872,6 +872,11 @@ cpuidentify(void)
 		fprestore = fpx87restore;
 	}
 
+	if(strcmp(m->cpuidid, "GenuineIntel") == 0 && (m->cpuidcx & Rdrnd) != 0)
+		hwrandbuf = rdrandbuf;
+	else
+		hwrandbuf = nil;
+
 	cputype = t;
 	return t->family;
 }

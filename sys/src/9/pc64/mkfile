@@ -29,6 +29,7 @@ PORT=\
 	proc.$O\
 	qio.$O\
 	qlock.$O\
+	random.$O\
 	rdb.$O\
 	rebootcmd.$O\
 	segment.$O\
@@ -49,7 +50,6 @@ OBJ=\
 	memory.$O\
 	mmu.$O\
 	trap.$O\
-	pcrandom.$O\
 	$CONF.root.$O\
 	$CONF.rootc.$O\
 	$DEVS\

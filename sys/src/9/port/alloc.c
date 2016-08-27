@@ -53,8 +53,27 @@ static Pool pimagmem = {
 	.private=	&pimagpriv,
 };
 
+static Private psecrpriv;
+static Pool psecrmem = {
+	.name=	"Secrets",
+	.maxsize=	16*1024*1024,
+	.minarena=	64*1024,
+	.quantum=	32,
+	.alloc=	xalloc,
+	.merge=	xmerge,
+	.flags=	POOL_ANTAGONISM,
+
+	.lock=	plock,
+	.unlock=	punlock,
+	.print=	poolprint,
+	.panic=	ppanic,
+
+	.private=	&psecrpriv,
+};
+
 Pool*	mainmem = &pmainmem;
 Pool*	imagmem = &pimagmem;
+Pool*	secrmem = &psecrmem;
 
 /*
  * because we can't print while we're holding the locks, 
@@ -129,6 +148,7 @@ mallocsummary(void)
 {
 	poolsummary(mainmem);
 	poolsummary(imagmem);
+	poolsummary(secrmem);
 }
 
 /* everything from here down should be the same in libc, libdebugmalloc, and the kernel */
@@ -171,12 +191,9 @@ smalloc(ulong size)
 {
 	void *v;
 
-	for(;;) {
-		v = poolalloc(mainmem, size+Npadlong*sizeof(ulong));
-		if(v != nil)
-			break;
+	while((v = poolalloc(mainmem, size+Npadlong*sizeof(ulong))) == nil){
 		if(!waserror()){
-			resrcwait(0);
+			resrcwait(nil);
 			poperror();
 		}
 	}
@@ -276,6 +293,34 @@ calloc(ulong n, ulong szelem)
 	if(v = mallocz(n*szelem, 1))
 		setmalloctag(v, getcallerpc(&n));
 	return v;
+}
+
+/* secret memory, used to back cryptographic keys and cipher states */
+void*
+secalloc(ulong size)
+{
+	void *v;
+
+	while((v = poolalloc(secrmem, size+Npadlong*sizeof(ulong))) == nil){
+		if(!waserror()){
+			resrcwait(nil);
+			poperror();
+		}
+	}
+	if(Npadlong){
+		v = (ulong*)v+Npadlong;
+		setmalloctag(v, getcallerpc(&size));
+		setrealloctag(v, 0);
+	}
+	memset(v, 0, size);
+	return v;
+}
+
+void
+secfree(void *v)
+{
+	if(v != nil)
+		poolfree(secrmem, (ulong*)v-Npadlong);
 }
 
 void

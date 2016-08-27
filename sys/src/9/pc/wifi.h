@@ -15,10 +15,10 @@ enum {
 
 struct Wkey
 {
-	int	cipher;
-	int	len;
-	uchar	key[32];
-	uvlong	tsc;
+	int		cipher;
+	int		len;
+	uvlong		tsc;
+	uchar		key[];
 };
 
 struct Wnode
@@ -30,8 +30,8 @@ struct Wnode
 
 	int	rsnelen;
 	uchar	rsne[258];
-	Wkey	txkey[1];
-	Wkey	rxkey[5];
+	Wkey	*txkey[1];
+	Wkey	*rxkey[5];
 
 	int	aid;		/* association id */
 	ulong	lastsend;
@@ -58,6 +58,7 @@ struct Wifi
 
 	int	debug;
 
+	RWlock	crypt;
 	Queue	*iq;
 	ulong	watchdog;
 	ulong	lastauth;

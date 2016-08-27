@@ -35,6 +35,7 @@ extern void*	poolalloc(Pool*, ulong);
 extern void*	poolallocalign(Pool*, ulong, ulong, long, ulong);
 extern void	poolfree(Pool*, void*);
 extern ulong	poolmsize(Pool*, void*);
+extern int	poolisoverlap(Pool*, void*, ulong);
 extern void*	poolrealloc(Pool*, void*, ulong);
 extern void	poolcheck(Pool*);
 extern int	poolcompact(Pool*);
@@ -43,6 +44,7 @@ extern void	pooldump(Pool*);
 
 extern Pool*	mainmem;
 extern Pool*	imagmem;
+extern Pool*	secrmem;
 
 enum {	/* flags */
 	POOL_ANTAGONISM	= 1<<0,
