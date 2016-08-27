@@ -1332,6 +1332,19 @@ poolmsize(Pool *p, void *v)
 	return dsize;
 }
 
+int
+poolisoverlap(Pool *p, void *v, ulong n)
+{
+	Arena *a;
+
+	p->lock(p);
+	for(a = p->arenalist; a != nil; a = a->down)
+		if((uchar*)v+n > (uchar*)a && (uchar*)v < (uchar*)a+a->asize)
+			break;
+	p->unlock(p);
+	return a != nil;
+}
+
 /*
  * Debugging
  */

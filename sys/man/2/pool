@@ -1,6 +1,6 @@
 .TH POOL 2
 .SH NAME
-poolalloc, poolallocalign, poolfree, poolmsize, poolrealloc, poolcompact, poolcheck, poolblockcheck,
+poolalloc, poolallocalign, poolfree, poolmsize, poolisoverlap, poolrealloc, poolcompact, poolcheck, poolblockcheck,
 pooldump \- general memory management routines
 .SH SYNOPSIS
 .B #include <u.h>
@@ -23,6 +23,9 @@ void	poolfree(Pool* pool, void* ptr)
 .PP
 .B
 ulong	poolmsize(Pool* pool, void* ptr)
+.PP
+.B
+int	poolisoverlap(Pool* pool, void* ptr, ulong len)
 .PP
 .B
 void*	poolrealloc(Pool* pool, void* ptr, ulong size)
@@ -108,6 +111,13 @@ When blocks are allocated, there is often some extra space left at the end
 that would usually go unused.
 .IR Poolmsize
 grows the block to encompass this extra space and returns the new size.
+.PP
+.I Poolisoverlap
+checks if the byte span
+.BR [ptr , ptr + len)
+overlaps the arenas of the specified
+.BR pool ,
+returning non-zero when there is overlap or zero if none.
 .PP
 The 
 .I poolblockcheck
