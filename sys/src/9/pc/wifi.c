@@ -48,6 +48,7 @@ static uchar basicrates[] = {
 
 static Block* wifidecrypt(Wifi *, Wnode *, Block *);
 static Block* wifiencrypt(Wifi *, Wnode *, Block *);
+static void freewifikeys(Wifi *, Wnode *);
 
 static uchar*
 srcaddr(Wifipkt *w)
@@ -197,6 +198,7 @@ nodelookup(Wifi *wifi, uchar *bssid, int new)
 	}
 	if(!new)
 		return nil;
+	freewifikeys(wifi, nn);
 	memset(nn, 0, sizeof(Wnode));
 	memmove(nn->bssid, bssid, Eaddrlen);
 	nn->lastseen = MACHP(0)->ticks;
@@ -466,6 +468,23 @@ recvbeacon(Wifi *wifi, Wnode *wn, uchar *d, int len)
 }
 
 static void
+freewifikeys(Wifi *wifi, Wnode *wn)
+{
+	int i;
+
+	wlock(&wifi->crypt);
+	for(i=0; i<nelem(wn->rxkey); i++){
+		secfree(wn->rxkey[i]);
+		wn->rxkey[i] = nil;
+	}
+	for(i=0; i<nelem(wn->txkey); i++){
+		secfree(wn->txkey[i]);
+		wn->txkey[i] = nil;
+	}
+	wunlock(&wifi->crypt);
+}
+
+static void
 wifideauth(Wifi *wifi, Wnode *wn)
 {
 	Ether *ether;
@@ -474,8 +493,7 @@ wifideauth(Wifi *wifi, Wnode *wn)
 
 	/* deassociate node, clear keys */
 	setstatus(wifi, wn, Sunauth);
-	memset(wn->rxkey, 0, sizeof(wn->rxkey));
-	memset(wn->txkey, 0, sizeof(wn->txkey));
+	freewifikeys(wifi, wn);
 	wn->aid = 0;
 
 	if(wn == wifi->bss){
@@ -789,11 +807,13 @@ static char *ciphers[] = {
 	[CCMP]	"ccmp",
 };
 
-static int
-parsekey(Wkey *k, char *s)
+static Wkey*
+parsekey(char *s)
 {
 	char buf[256], *p;
-	int i;
+	uchar key[32];
+	int i, n;
+	Wkey *k;
 
 	strncpy(buf, s, sizeof(buf)-1);
 	buf[sizeof(buf)-1] = 0;
@@ -801,20 +821,35 @@ parsekey(Wkey *k, char *s)
 		*p++ = 0;
 	else
 		p = buf;
-	for(i=0; i<nelem(ciphers); i++){
-		if(ciphers[i] == nil)
-			continue;
+	n = hextob(p, &p, key, sizeof(key));
+	for(i=0; i<nelem(ciphers); i++)
 		if(strcmp(ciphers[i], buf) == 0)
 			break;
+	switch(i){
+	case 0:
+		k = secalloc(sizeof(Wkey));
+		break;
+	case TKIP:
+		if(n != 32)
+			return nil;	
+		k = secalloc(sizeof(Wkey) + n);
+		memmove(k->key, key, n);
+		break;
+	case CCMP:
+		if(n != 16)
+			return nil;
+		k = secalloc(sizeof(Wkey) + sizeof(AESstate));
+		setupAESstate((AESstate*)k->key, key, n, nil);
+		break;
+	default:
+		return nil;
 	}
-	if(i >= nelem(ciphers))
-		return -1;
-	memset(k, 0, sizeof(Wkey));
-	k->len = hextob(p, &p, k->key, sizeof(k->key));
+	memset(key, 0, sizeof(key));
 	if(*p == '@')
 		k->tsc = strtoull(++p, nil, 16);
+	k->len = n;
 	k->cipher = i;
-	return 0;
+	return k;
 }
 
 void
@@ -874,7 +909,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 	Cmdbuf *cb;
 	Cmdtab *ct;
 	Wnode *wn;
-	Wkey *k;
+	Wkey *k, **kk;
 
 	cb = nil;
 	if(waserror()){
@@ -931,8 +966,7 @@ wifictl(Wifi *wifi, void *buf, long n)
 		memmove(wifi->bssid, addr, Eaddrlen);
 		goto Findbss;
 	case CMauth:
-		memset(wn->rxkey, 0, sizeof(wn->rxkey));
-		memset(wn->txkey, 0, sizeof(wn->txkey));
+		freewifikeys(wifi, wn);
 		if(cb->f[1] == nil)
 			wn->rsnelen = 0;
 		else
@@ -947,12 +981,24 @@ wifictl(Wifi *wifi, void *buf, long n)
 		break;
 	case CMrxkey0: case CMrxkey1: case CMrxkey2: case CMrxkey3: case CMrxkey4:
 	case CMtxkey0:
-		if(ct->index < CMtxkey0)
-			k = &wn->rxkey[ct->index - CMrxkey0];
-		else
-			k = &wn->txkey[ct->index - CMtxkey0];
-		if(cb->f[1] == nil || parsekey(k, cb->f[1]) != 0)
+		if(cb->f[1] == nil)
+			error(Ebadarg);
+		k = parsekey(cb->f[1]);
+		if(k == nil)
 			error("bad key");
+		memset(cb->f[1], 0, strlen(cb->f[1]));
+		if(k->cipher == 0){
+			secfree(k);
+			k = nil;
+		}
+		if(ct->index < CMtxkey0)
+			kk = &wn->rxkey[ct->index - CMrxkey0];
+		else
+			kk = &wn->txkey[ct->index - CMtxkey0];
+		wlock(&wifi->crypt);
+		secfree(*kk);
+		*kk = k;
+		wunlock(&wifi->crypt);
 		if(ct->index >= CMtxkey0 && wn->status == Sblocked)
 			setstatus(wifi, wn, Sassoc);
 		break;
@@ -968,6 +1014,7 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 	static uchar zeros[Eaddrlen];
 	char *s, *p, *e;
 	Wnode *wn;
+	Wkey *k;
 	long now;
 	int i;
 
@@ -982,12 +1029,18 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 		p = seprint(p, e, "channel: %.2d\n", wn->channel);
 
 		/* only print key ciphers and key length */
-		for(i = 0; i<nelem(wn->rxkey); i++)
-			p = seprint(p, e, "rxkey%d: %s:[%d]\n", i,
-				ciphers[wn->rxkey[i].cipher], wn->rxkey[i].len);
-		for(i = 0; i<nelem(wn->txkey); i++)
-			p = seprint(p, e, "txkey%d: %s:[%d]\n", i,
-				ciphers[wn->txkey[i].cipher], wn->txkey[i].len);
+		rlock(&wifi->crypt);
+		for(i = 0; i<nelem(wn->rxkey); i++){
+			if((k = wn->rxkey[i]) != nil)
+				p = seprint(p, e, "rxkey%d: %s:[%d]\n", i,
+					ciphers[k->cipher], k->len);
+		}
+		for(i = 0; i<nelem(wn->txkey); i++){
+			if((k = wn->txkey[i]) != nil)
+				p = seprint(p, e, "txkey%d: %s:[%d]\n", i,
+					ciphers[k->cipher], k->len);
+		}
+		runlock(&wifi->crypt);
 
 		if(wn->brsnelen > 0){
 			p = seprint(p, e, "brsne: ");
@@ -1018,17 +1071,21 @@ static void ccmpencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc);
 static int ccmpdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc);
 
 static Block*
-wifiencrypt(Wifi *, Wnode *wn, Block *b)
+wifiencrypt(Wifi *wifi, Wnode *wn, Block *b)
 {
 	uvlong tsc;
 	int n, kid;
 	Wifipkt *w;
 	Wkey *k;
 
+	rlock(&wifi->crypt);
+
 	kid = 0;
-	k = &wn->txkey[kid];
-	if(k->cipher == 0)
+	k = wn->txkey[kid];
+	if(k == nil){
+		runlock(&wifi->crypt);
 		return b;
+	}
 
 	n = wifihdrlen((Wifipkt*)b->rp);
 
@@ -1052,8 +1109,6 @@ wifiencrypt(Wifi *, Wnode *wn, Block *b)
 		b->rp[6] = tsc>>32;
 		b->rp[7] = tsc>>40;
 		b->rp += 8;
-		if(k->len != 32)
-			goto drop;
 		tkipencrypt(k, w, b, tsc);
 		break;
 	case CCMP:
@@ -1066,15 +1121,10 @@ wifiencrypt(Wifi *, Wnode *wn, Block *b)
 		b->rp[6] = tsc>>32;
 		b->rp[7] = tsc>>40;
 		b->rp += 8;
-		if(k->len != 16)
-			goto drop;
 		ccmpencrypt(k, w, b, tsc);
 		break;
-	default:
-	drop:
-		free(b);
-		return nil;
 	}
+	runlock(&wifi->crypt);
 
 	b->rp = (uchar*)w;
 	w->fc[1] |= 0x40;
@@ -1082,12 +1132,14 @@ wifiencrypt(Wifi *, Wnode *wn, Block *b)
 }
 
 static Block*
-wifidecrypt(Wifi *, Wnode *wn, Block *b)
+wifidecrypt(Wifi *wifi, Wnode *wn, Block *b)
 {
 	uvlong tsc;
 	int n, kid;
 	Wifipkt *w;
 	Wkey *k;
+
+	rlock(&wifi->crypt);
 
 	w = (Wifipkt*)b->rp;
 	n = wifihdrlen(w);
@@ -1101,7 +1153,9 @@ wifidecrypt(Wifi *, Wnode *wn, Block *b)
 	if((w->a1[0] & 1) == 0)
 		kid = 4;	/* use peerwise key for non-unicast */
 
-	k = &wn->rxkey[kid];
+	k = wn->rxkey[kid];
+	if(k == nil)
+		goto drop;
 	switch(k->cipher){
 	case TKIP:
 		tsc =	(uvlong)b->rp[7]<<40 |
@@ -1111,7 +1165,7 @@ wifidecrypt(Wifi *, Wnode *wn, Block *b)
 			(uvlong)b->rp[0]<<8 |
 			(uvlong)b->rp[2];
 		b->rp += 8;
-		if(tsc <= k->tsc || k->len != 32)
+		if(tsc <= k->tsc)
 			goto drop;
 		if(tkipdecrypt(k, w, b, tsc) != 0)
 			goto drop;
@@ -1124,16 +1178,18 @@ wifidecrypt(Wifi *, Wnode *wn, Block *b)
 			(uvlong)b->rp[1]<<8 |
 			(uvlong)b->rp[0];
 		b->rp += 8;
-		if(tsc <= k->tsc || k->len != 16)
+		if(tsc <= k->tsc)
 			goto drop;
 		if(ccmpdecrypt(k, w, b, tsc) != 0)
 			goto drop;
 		break;
 	default:
 	drop:
+		runlock(&wifi->crypt);
 		freeb(b);
 		return nil;
 	}
+	runlock(&wifi->crypt);
 
 	k->tsc = tsc;
 	b->rp -= n;
@@ -1564,11 +1620,9 @@ aesCCMdecrypt(int L, int M, uchar *N /* N[15-L] */,
 }
 
 static int
-setupCCMP(Wkey *k, Wifipkt *w, uvlong tsc, uchar nonce[13], uchar auth[32], AESstate *as)
+setupCCMP(Wifipkt *w, uvlong tsc, uchar nonce[13], uchar auth[32])
 {
 	uchar *p;
-
-	setupAESstate(as, k->key, k->len, nil);
 
 	nonce[0] = ((w->fc[0] & 0x0c) == 0x00) << 4;
 	memmove(&nonce[1], w->a2, Eaddrlen);
@@ -1599,11 +1653,10 @@ static void
 ccmpencrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
 {
 	uchar auth[32], nonce[13];
-	AESstate as;
 
 	aesCCMencrypt(2, 8, nonce, auth,
-		setupCCMP(k, w, tsc, nonce, auth, &as),
-		b->rp, BLEN(b), &as);
+		setupCCMP(w, tsc, nonce, auth),
+		b->rp, BLEN(b), (AESstate*)k->key);
 	b->wp += 8;
 }
 
@@ -1611,13 +1664,12 @@ static int
 ccmpdecrypt(Wkey *k, Wifipkt *w, Block *b, uvlong tsc)
 {
 	uchar auth[32], nonce[13];
-	AESstate as;
 
 	if(BLEN(b) < 8)
 		return -1;
 
 	b->wp -= 8;
 	return aesCCMdecrypt(2, 8, nonce, auth,
-		setupCCMP(k, w, tsc, nonce, auth, &as),
-		b->rp, BLEN(b), &as);
+		setupCCMP(w, tsc, nonce, auth),
+		b->rp, BLEN(b), (AESstate*)k->key);
 }
