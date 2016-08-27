@@ -308,6 +308,8 @@ void		sched(void);
 void		scheddump(void);
 void		schedinit(void);
 void		(*screenputs)(char*, int);
+void*		secalloc(ulong);
+void		secfree(void*);
 long		seconds(void);
 uintptr		segattach(int, char *, uintptr, uintptr);
 void		segclock(uintptr);
