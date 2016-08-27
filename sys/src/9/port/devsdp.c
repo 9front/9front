@@ -1056,10 +1056,8 @@ onewaycleanup(OneWay *ow)
 {
 	if(ow->controlpkt)
 		freeb(ow->controlpkt);
-	if(ow->authstate)
-		free(ow->authstate);
-	if(ow->cipherstate)
-		free(ow->cipherstate);
+	secfree(ow->authstate);
+	secfree(ow->cipherstate);
 	if(ow->compstate)
 		free(ow->compstate);
 	memset(ow, 0, sizeof(OneWay));
@@ -1920,14 +1918,10 @@ cipherfree(Conv *c)
 static void
 authfree(Conv *c)
 {
-	if(c->in.authstate) {
-		free(c->in.authstate);
-		c->in.authstate = nil;
-	}
-	if(c->out.authstate) {
-		free(c->out.authstate);
-		c->out.authstate = nil;
-	}
+	secfree(c->in.authstate);
+	secfree(c->out.authstate);
+	c->in.authstate = nil;
+	c->out.authstate = nil;
 	c->in.auth = nil;
 	c->in.authlen = 0;
 	c->out.authlen = 0;
@@ -2019,7 +2013,7 @@ descipherinit(Conv *c)
 	c->in.cipherblklen = 8;
 	c->in.cipherivlen = 8;
 	c->in.cipher = desdecrypt;
-	c->in.cipherstate = smalloc(sizeof(DESstate));
+	c->in.cipherstate = secalloc(sizeof(DESstate));
 	setupDESstate(c->in.cipherstate, key, ivec);
 	
 	/* out */
@@ -2030,7 +2024,7 @@ descipherinit(Conv *c)
 	c->out.cipherblklen = 8;
 	c->out.cipherivlen = 8;
 	c->out.cipher = desencrypt;
-	c->out.cipherstate = smalloc(sizeof(DESstate));
+	c->out.cipherstate = secalloc(sizeof(DESstate));
 	setupDESstate(c->out.cipherstate, key, ivec);
 }
 
@@ -2129,7 +2123,7 @@ rc4cipherinit(Conv *c)
 	c->in.cipherblklen = 1;
 	c->in.cipherivlen = 4;
 	c->in.cipher = rc4decrypt;
-	cr = smalloc(sizeof(CipherRc4));
+	cr = secalloc(sizeof(CipherRc4));
 	memset(cr, 0, sizeof(*cr));
 	setupRC4state(&cr->current, key, n);
 	c->in.cipherstate = cr;
@@ -2140,7 +2134,7 @@ rc4cipherinit(Conv *c)
 	c->out.cipherblklen = 1;
 	c->out.cipherivlen = 4;
 	c->out.cipher = rc4encrypt;
-	cr = smalloc(sizeof(CipherRc4));
+	cr = secalloc(sizeof(CipherRc4));
 	memset(cr, 0, sizeof(*cr));
 	setupRC4state(&cr->current, key, n);
 	c->out.cipherstate = cr;
@@ -2195,7 +2189,7 @@ md5auth(OneWay *ow, uchar *t, int tlen)
 
 	memset(hash, 0, MD5dlen);
 	seanq_hmac_md5(hash, ow->seqwrap, t, tlen, (uchar*)ow->authstate, 16);
-	r = memcmp(t+tlen, hash, ow->authlen) == 0;
+	r = tsmemcmp(t+tlen, hash, ow->authlen) == 0;
 	memmove(t+tlen, hash, ow->authlen);
 	return r;
 }
@@ -2212,14 +2206,14 @@ md5authinit(Conv *c)
 		keylen = 16;
 
 	/* in */
-	c->in.authstate = smalloc(16);
+	c->in.authstate = secalloc(16);
 	memset(c->in.authstate, 0, 16);
 	setkey(c->in.authstate, keylen, &c->in, "auth");
 	c->in.authlen = 12;
 	c->in.auth = md5auth;
 	
 	/* out */
-	c->out.authstate = smalloc(16);
+	c->out.authstate = secalloc(16);
 	memset(c->out.authstate, 0, 16);
 	setkey(c->out.authstate, keylen, &c->out, "auth");
 	c->out.authlen = 12;
