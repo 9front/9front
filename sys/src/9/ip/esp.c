@@ -261,8 +261,8 @@ espclose(Conv *c)
 	ipmove(c->raddr, IPnoaddr);
 
 	ecb = (Espcb*)c->ptcl;
-	free(ecb->espstate);
-	free(ecb->ahstate);
+	secfree(ecb->espstate);
+	secfree(ecb->ahstate);
 	memset(ecb, 0, sizeof(Espcb));
 }
 
@@ -694,16 +694,16 @@ setalg(Espcb *ecb, char **f, int n, Algorithm *alg)
 			return "non-hex character in key";
 	}
 	/* collapse hex digits into complete bytes in reverse order in key */
-	key = smalloc(nbyte);
+	key = secalloc(nbyte);
 	for(i = 0; i < nchar && i/2 < nbyte; i++) {
 		c = f[2][nchar-i-1];
 		if(i&1)
 			c <<= 4;
 		key[i/2] |= c;
 	}
-
+	memset(f[2], 0, nchar);
 	alg->init(ecb, alg->name, key, alg->keylen);
-	free(key);
+	secfree(key);
 	return nil;
 }
 
@@ -791,7 +791,7 @@ shaahinit(Espcb *ecb, char *name, uchar *key, unsigned klen)
 	ecb->ahblklen = 1;
 	ecb->ahlen = BITS2BYTES(96);
 	ecb->auth = shaauth;
-	ecb->ahstate = smalloc(klen);
+	ecb->ahstate = secalloc(klen);
 	memmove(ecb->ahstate, key, klen);
 }
 
@@ -853,8 +853,10 @@ aescbcespinit(Espcb *ecb, char *name, uchar *k, unsigned n)
 	ecb->espblklen = Aesblk;
 	ecb->espivlen = Aesblk;
 	ecb->cipher = aescbccipher;
-	ecb->espstate = smalloc(sizeof(AESstate));
+	ecb->espstate = secalloc(sizeof(AESstate));
 	setupAESstate(ecb->espstate, key, n /* keybytes */, ivec);
+	memset(ivec, 0, sizeof(ivec));
+	memset(key, 0, sizeof(key));
 }
 
 static int
@@ -911,8 +913,10 @@ aesctrespinit(Espcb *ecb, char *name, uchar *k, unsigned n)
 	ecb->espblklen = Aesblk;
 	ecb->espivlen = Aesblk;
 	ecb->cipher = aesctrcipher;
-	ecb->espstate = smalloc(sizeof(AESstate));
+	ecb->espstate = secalloc(sizeof(AESstate));
 	setupAESstate(ecb->espstate, key, n /* keybytes */, ivec);
+	memset(ivec, 0, sizeof(ivec));
+	memset(key, 0, sizeof(key));
 }
 
 
@@ -963,7 +967,7 @@ md5ahinit(Espcb *ecb, char *name, uchar *key, unsigned klen)
 	ecb->ahblklen = 1;
 	ecb->ahlen = BITS2BYTES(96);
 	ecb->auth = md5auth;
-	ecb->ahstate = smalloc(klen);
+	ecb->ahstate = secalloc(klen);
 	memmove(ecb->ahstate, key, klen);
 }
 
@@ -1020,8 +1024,10 @@ desespinit(Espcb *ecb, char *name, uchar *k, unsigned n)
 	ecb->espivlen = Desblk;
 
 	ecb->cipher = descipher;
-	ecb->espstate = smalloc(sizeof(DESstate));
+	ecb->espstate = secalloc(sizeof(DESstate));
 	setupDESstate(ecb->espstate, key, ivec);
+	memset(ivec, 0, sizeof(ivec));
+	memset(key, 0, sizeof(key));
 }
 
 static void
@@ -1042,8 +1048,10 @@ des3espinit(Espcb *ecb, char *name, uchar *k, unsigned n)
 	ecb->espivlen = Desblk;
 
 	ecb->cipher = des3cipher;
-	ecb->espstate = smalloc(sizeof(DES3state));
+	ecb->espstate = secalloc(sizeof(DES3state));
 	setupDES3state(ecb->espstate, key, ivec);
+	memset(ivec, 0, sizeof(ivec));
+	memset(key, 0, sizeof(key));
 }
 
 
