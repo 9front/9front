@@ -240,12 +240,12 @@ strtomp(char *a, char **pp, int base, mpint *b)
 		return nil;
 	}
 
+	if(pp != nil)
+		*pp = e;
+
 	// if no characters parsed, there wasn't a number to convert
 	if(e == a)
 		return nil;
-
-	if(pp != nil)
-		*pp = e;
 
 	b->sign = sign;
 	return mpnorm(b);
