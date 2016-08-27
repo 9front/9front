@@ -109,10 +109,6 @@ starting state.
 .I Truerand
 returns a random unsigned long read from
 .BR /dev/random .
-Due to the nature of
-.BR /dev/random ,
-truerand can only return a few hundred bits a
-second.
 .PP
 .I Ntruerand
 returns a uniform random integer
