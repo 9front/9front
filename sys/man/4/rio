@@ -196,7 +196,8 @@ managing its own.
 .TP
 .B text
 returns the full contents of the window.
-It may not be written.
+Write appends to the window. Truncating
+clears the windows contents.
 .TP
 .B wctl
 may be read or written.
