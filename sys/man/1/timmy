@@ -11,13 +11,13 @@ timmy \- physics sandbox
 .I Timmy
 is a simple 2D physics sandbox.
 .PP
-To pick up an object click on it with the LMB.
+To pick up an object click on it with mouse button 1.
 New objects can be created by picking up their archetypes in the gray area on the bottom (the "tray").
-To place an object in the working area click at the desired position with the LMB;
+To place an object in the working area click at the desired position with mouse button 1;
 .I timmy
 will refuse to place the object if it would collide with an existing one.
-To abort the process \(em deleting the carried object \(em click anywhere with the RMB.
-Picking up an object in the working area with the RMB will duplicate the object.
+To abort the process \(em deleting the carried object \(em click anywhere with mouse button 3.
+Picking up an object in the working area with mouse button 3 will duplicate the object.
 .PP
 The following operations can be performed with the keyboard.
 .IP w
