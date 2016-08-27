@@ -4,8 +4,8 @@
 #include	"dat.h"
 #include	"fns.h"
 #include	"../port/error.h"
-#include	"pool.h"
 
+#include	<pool.h>
 #include	<authsrv.h>
 
 void	(*consdebug)(void) = nil;
@@ -21,7 +21,6 @@ int	panicking;
 char	*sysname;
 vlong	fasthz;
 
-static void	seedrand(void);
 static int	readtime(ulong, char*, int);
 static int	readbintime(char*, int);
 static int	writetime(char*, int);
@@ -616,7 +615,8 @@ consread(Chan *c, void *buf, long n, vlong off)
 			"%lud/%lud user\n"
 			"%lud/%lud swap\n"
 			"%llud/%llud/%llud kernel malloc\n"
-			"%llud/%llud/%llud kernel draw\n",
+			"%llud/%llud/%llud kernel draw\n"
+			"%llud/%llud/%llud kernel secret\n",
 			(uvlong)conf.npage*BY2PG,
 			(uvlong)BY2PG,
 			conf.npage-conf.upages,
@@ -627,7 +627,10 @@ consread(Chan *c, void *buf, long n, vlong off)
 			(uvlong)mainmem->maxsize,
 			(uvlong)imagmem->curalloc,
 			(uvlong)imagmem->cursize,
-			(uvlong)imagmem->maxsize);
+			(uvlong)imagmem->maxsize,
+			(uvlong)secrmem->curalloc,
+			(uvlong)secrmem->cursize,
+			(uvlong)secrmem->maxsize);
 
 		return readstr((ulong)offset, buf, n, tmp);
 
@@ -845,29 +848,20 @@ Dev consdevtab = {
 
 static	ulong	randn;
 
-static void
-seedrand(void)
+int
+rand(void)
 {
-	if(!waserror()){
+	if(randn == 0)
 		randomread((void*)&randn, sizeof(randn));
-		poperror();
-	}
+	randn = randn*1103515245 + 12345 + MACHP(0)->ticks;
+	return randn;
 }
 
 int
 nrand(int n)
 {
-	if(randn == 0)
-		seedrand();
-	randn = randn*1103515245 + 12345 + MACHP(0)->ticks;
+	rand();
 	return (randn>>16) % n;
-}
-
-int
-rand(void)
-{
-	nrand(1);
-	return randn;
 }
 
 static uvlong uvorder = 0x0001020304050607ULL;

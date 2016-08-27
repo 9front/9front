@@ -126,6 +126,7 @@ void		gotolabel(Label*);
 char*		getconfenv(void);
 long		hostdomainwrite(char*, int);
 long		hostownerwrite(char*, int);
+void 		(*hwrandbuf)(void*, ulong);
 void		hzsched(void);
 Block*		iallocb(int);
 void		iallocsummary(void);
