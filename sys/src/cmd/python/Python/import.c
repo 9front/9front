@@ -88,16 +88,11 @@ struct filedescr * _PyImport_Filetab = NULL;
 #ifdef RISCOS
 static const struct filedescr _PyImport_StandardFiletab[] = {
 	{"/py", "U", PY_SOURCE},
-	{"/pyc", "rb", PY_COMPILED},
 	{0, 0}
 };
 #else
 static const struct filedescr _PyImport_StandardFiletab[] = {
 	{".py", "U", PY_SOURCE},
-#ifdef MS_WINDOWS
-	{".pyw", "U", PY_SOURCE},
-#endif
-	{".pyc", "rb", PY_COMPILED},
 	{0, 0}
 };
 #endif
@@ -688,69 +683,6 @@ PyImport_ExecCodeModuleEx(char *name, PyObject *co, char *pathname)
 }
 
 
-/* Given a pathname for a Python source file, fill a buffer with the
-   pathname for the corresponding compiled file.  Return the pathname
-   for the compiled file, or NULL if there's no space in the buffer.
-   Doesn't set an exception. */
-
-static char *
-make_compiled_pathname(char *pathname, char *buf, size_t buflen)
-{
-	size_t len = strlen(pathname);
-	if (len+2 > buflen)
-		return NULL;
-
-#ifdef MS_WINDOWS
-	/* Treat .pyw as if it were .py.  The case of ".pyw" must match
-	   that used in _PyImport_StandardFiletab. */
-	if (len >= 4 && strcmp(&pathname[len-4], ".pyw") == 0)
-		--len;	/* pretend 'w' isn't there */
-#endif
-	memcpy(buf, pathname, len);
-	buf[len] = Py_OptimizeFlag ? 'o' : 'c';
-	buf[len+1] = '\0';
-
-	return buf;
-}
-
-
-/* Given a pathname for a Python source file, its time of last
-   modification, and a pathname for a compiled file, check whether the
-   compiled file represents the same version of the source.  If so,
-   return a FILE pointer for the compiled file, positioned just after
-   the header; if not, return NULL.
-   Doesn't set an exception. */
-
-static FILE *
-check_compiled_module(char *pathname, time_t mtime, char *cpathname)
-{
-	FILE *fp;
-	long magic;
-	long pyc_mtime;
-
-	fp = fopen(cpathname, "rb");
-	if (fp == NULL)
-		return NULL;
-	magic = PyMarshal_ReadLongFromFile(fp);
-	if (magic != pyc_magic) {
-		if (Py_VerboseFlag)
-			PySys_WriteStderr("# %s has bad magic\n", cpathname);
-		fclose(fp);
-		return NULL;
-	}
-	pyc_mtime = PyMarshal_ReadLongFromFile(fp);
-	if (pyc_mtime != mtime) {
-		if (Py_VerboseFlag)
-			PySys_WriteStderr("# %s has bad mtime\n", cpathname);
-		fclose(fp);
-		return NULL;
-	}
-	if (Py_VerboseFlag)
-		PySys_WriteStderr("# %s matches %s\n", cpathname, pathname);
-	return fp;
-}
-
-
 /* Read a code object from a file and check it for validity */
 
 static PyCodeObject *
@@ -854,47 +786,6 @@ open_exclusive(char *filename)
 #endif
 }
 
-
-/* Write a compiled module to a file, placing the time of last
-   modification of its source into the header.
-   Errors are ignored, if a write error occurs an attempt is made to
-   remove the file. */
-
-static void
-write_compiled_module(PyCodeObject *co, char *cpathname, time_t mtime)
-{
-	FILE *fp;
-
-	fp = open_exclusive(cpathname);
-	if (fp == NULL) {
-		if (Py_VerboseFlag)
-			PySys_WriteStderr(
-				"# can't create %s\n", cpathname);
-		return;
-	}
-	PyMarshal_WriteLongToFile(pyc_magic, fp, Py_MARSHAL_VERSION);
-	/* First write a 0 for mtime */
-	PyMarshal_WriteLongToFile(0L, fp, Py_MARSHAL_VERSION);
-	PyMarshal_WriteObjectToFile((PyObject *)co, fp, Py_MARSHAL_VERSION);
-	if (fflush(fp) != 0 || ferror(fp)) {
-		if (Py_VerboseFlag)
-			PySys_WriteStderr("# can't write %s\n", cpathname);
-		/* Don't keep partial file */
-		fclose(fp);
-		(void) unlink(cpathname);
-		return;
-	}
-	/* Now write the true mtime */
-	fseek(fp, 4L, 0);
-	assert(mtime < LONG_MAX);
-	PyMarshal_WriteLongToFile((long)mtime, fp, Py_MARSHAL_VERSION);
-	fflush(fp);
-	fclose(fp);
-	if (Py_VerboseFlag)
-		PySys_WriteStderr("# wrote %s\n", cpathname);
-}
-
-
 /* Load a source module from a given file and return its module
    object WITH INCREMENTED REFERENCE COUNT.  If there's a matching
    byte-compiled file, use that instead. */
@@ -905,7 +796,6 @@ load_source_module(char *name, char *pathname, FILE *fp)
 	time_t mtime;
 	FILE *fpc;
 	char buf[MAXPATHLEN+1];
-	char *cpathname;
 	PyCodeObject *co;
 	PyObject *m;
 
@@ -927,31 +817,12 @@ load_source_module(char *name, char *pathname, FILE *fp)
 		return NULL;
 	}
 #endif
-	cpathname = make_compiled_pathname(pathname, buf,
-					   (size_t)MAXPATHLEN + 1);
-	if (cpathname != NULL &&
-	    (fpc = check_compiled_module(pathname, mtime, cpathname))) {
-		co = read_compiled_module(cpathname, fpc);
-		fclose(fpc);
-		if (co == NULL)
-			return NULL;
-		if (Py_VerboseFlag)
-			PySys_WriteStderr("import %s # precompiled from %s\n",
-				name, cpathname);
-		pathname = cpathname;
-	}
-	else {
-		co = parse_source_module(pathname, fp);
-		if (co == NULL)
-			return NULL;
-		if (Py_VerboseFlag)
-			PySys_WriteStderr("import %s # from %s\n",
-				name, pathname);
-
-		if(0)	/* disabled this for now -- cinap */
-		if (cpathname)
-			write_compiled_module(co, cpathname, mtime);
-	}
+	co = parse_source_module(pathname, fp);
+	if (co == NULL)
+		return NULL;
+	if (Py_VerboseFlag)
+		PySys_WriteStderr("import %s # from %s\n",
+			name, pathname);
 	m = PyImport_ExecCodeModuleEx(name, (PyObject *)co, pathname);
 	Py_DECREF(co);
 
