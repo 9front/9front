@@ -24,10 +24,11 @@ mpdiv(mpint *dividend, mpint *divisor, mpint *quotient, mpint *remainder)
 	if(divisor->top == 1 && (divisor->p[0] & divisor->p[0]-1) == 0){
 		vlong r = (vlong)dividend->sign * (dividend->p[0] & divisor->p[0]-1);
 		if(quotient != nil){
+			sign = divisor->sign;
 			for(s = 0; ((divisor->p[0] >> s) & 1) == 0; s++)
 				;
 			mpright(dividend, s, quotient);
-			if(divisor->sign < 0)
+			if(sign < 0)
 				quotient->sign ^= (-mpmagcmp(quotient, mpzero) >> 31) << 1;
 		}
 		if(remainder != nil){
