@@ -1,6 +1,11 @@
 #ifndef	__DIRENT_H
 #define	__DIRENT_H
 #pragma lib "/$M/lib/ape/libap.a"
+
+#ifndef __STAT_H
+#include <sys/stat.h>
+#endif
+
 /*
  * this must be a power of 2 and a multiple of all the ones in the system
  */
@@ -8,6 +13,7 @@
 
 struct	dirent {
 	char	d_name[MAXNAMLEN + 1];
+	struct stat d_stat;
 };
 
 typedef struct _dirdesc {

@@ -13,30 +13,31 @@
 DIR *
 opendir(const char *filename)
 {
-	int f;
+	int f, n;
 	DIR *d;
-	struct stat sb;
-	Dir *d9;
+	char *s;
 
-	if((d9 = _dirstat(filename)) == nil){
-		_syserrno();
-		return NULL;
-	}
-	_dirtostat(&sb, d9, 0);
-	free(d9);
-	if(S_ISDIR(sb.st_mode) == 0) {
-		errno = ENOTDIR;
-		return NULL;
-	}
-
-	f = open(filename, O_RDONLY);
+	n = strlen(filename);
+	if(n > 0 && filename[n-1] != '/'){
+		s = malloc(n+2);
+		if(s == NULL)
+			goto Nomem;
+		memcpy(s, filename, n);
+		s[n++] = '/';
+		s[n] = 0;
+	} else
+		s = filename;
+	f = open(s, O_RDONLY);
+	if(s != filename)
+		free(s);
 	if(f < 0){
 		_syserrno();
 		return NULL;
 	}
 	_fdinfo[f].flags |= FD_CLOEXEC;
 	d = (DIR *)malloc(sizeof(DIR) + DBLOCKSIZE*sizeof(struct dirent));
-	if(!d){
+	if(d == NULL){
+Nomem:
 		errno = ENOMEM;
 		return NULL;
 	}
@@ -44,7 +45,7 @@ opendir(const char *filename)
 	d->dd_fd = f;
 	d->dd_loc = 0;
 	d->dd_size = 0;
-	d->dirs = nil;
+	d->dirs = NULL;
 	d->dirsize = 0;
 	d->dirloc = 0;
 	return d;
@@ -53,28 +54,29 @@ opendir(const char *filename)
 int
 closedir(DIR *d)
 {
-	if(!d){
+	int fd;
+
+	if(d == NULL){
 		errno = EBADF;
 		return -1;
 	}
-	if(close(d->dd_fd) < 0)
-		return -1;
+	fd = d->dd_fd;
 	free(d->dirs);
 	free(d);
-	return 0;
+	return close(fd);
 }
 
 void
 rewinddir(DIR *d)
 {
-	if(!d)
+	if(d == NULL)
 		return;
 	d->dd_loc = 0;
 	d->dd_size = 0;
 	d->dirsize = 0;
 	d->dirloc = 0;
 	free(d->dirs);
-	d->dirs = nil;
+	d->dirs = NULL;
 	if(_SEEK(d->dd_fd, 0, 0) < 0){
 		_syserrno();
 		return;
@@ -86,9 +88,9 @@ readdir(DIR *d)
 {
 	int i;
 	struct dirent *dr;
-	Dir *dirs;
+	Dir *dirs, *dir;
 
-	if(!d){
+	if(d == NULL){
 		errno = EBADF;
 		return NULL;
 	}
@@ -109,8 +111,10 @@ readdir(DIR *d)
 		dr = (struct dirent *)d->dd_buf;
 		dirs = d->dirs;
 		for(i=0; i<DBLOCKSIZE && d->dirloc < d->dirsize; i++){
-			strncpy(dr[i].d_name, dirs[d->dirloc++].name, MAXNAMLEN);
+			dir = &dirs[d->dirloc++];
+			strncpy(dr[i].d_name, dir->name, MAXNAMLEN);
 			dr[i].d_name[MAXNAMLEN] = 0;
+			_dirtostat(&dr[i].d_stat, dir, NULL);
 		}
 		d->dd_loc = 0;
 		d->dd_size = i*sizeof(struct dirent);
