@@ -6,30 +6,18 @@
 mpint*
 mpnrand(mpint *n, void (*gen)(uchar*, int), mpint *b)
 {
-	mpint *m;
 	int bits;
 
-	/* m = 2^bits - 1 */
 	bits = mpsignif(n);
-	m = mpnew(bits+1);
-	mpleft(mpone, bits, m);
-	mpsub(m, mpone, m);
-
+	if(bits == 0)
+		abort();
 	if(b == nil){
 		b = mpnew(bits);
 		setmalloctag(b, getcallerpc(&n));
 	}
-
-	/* m = m - (m % n) */
-	mpmod(m, n, b);
-	mpsub(m, b, m);
-
 	do {
 		mprand(bits, gen, b);
-	} while(mpcmp(b, m) >= 0);
-
-	mpmod(b, n, b);
-	mpfree(m);
+	} while(mpmagcmp(b, n) >= 0);
 
 	return b;
 }
