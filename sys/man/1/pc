@@ -16,6 +16,11 @@ Multiple statements in one line can be separated by semicolons.
 .I Pc
 prints the value of all expressions that are not terminated by a semicolon.
 .PP
+.I Pc
+can be run non-interactively by using the
+.B -n
+switch. In this case no input prompt is printed.
+.PP
 Expressions can use the C-like operators
 .TP
 .B + - * ** \fR(exponentiation\fR)
