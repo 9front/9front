@@ -127,6 +127,9 @@ void	mptrunc(mpint *b, int n, mpint *res)
 void	mpxtend(mpint *b, int n, mpint *res)
 .PP
 .B
+void	mpasr(mpint *b, int n, mpint *res)
+.PP
+.B
 void	mpmul(mpint *b1, mpint *b2, mpint *prod)
 .PP
 .B
@@ -583,6 +586,12 @@ Logical operations (treating negative numbers using two's complement):
 .TP
 .I mpnot
 .BR "res = ~b1" .
+.TP
+.I mpasr
+.BR "res = b>>shift"
+(\fImpasr\fR, unlike
+.IR mpright ,
+uses two's complement).
 .TP
 .I mptrunc
 truncates

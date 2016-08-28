@@ -85,7 +85,8 @@ void
 mpnot(mpint *b, mpint *r)
 {
 	mpadd(b, mpone, r);
-	r->sign ^= -2;
+	if(r->top != 0)
+		r->sign ^= -2;
 }
 
 void
@@ -192,4 +193,16 @@ mpxtend(mpint *b, int n, mpint *r)
 			c = 0;
 	}
 	mpnorm(r);
+}
+
+void
+mpasr(mpint *b, int n, mpint *r)
+{
+	if(b->sign > 0 || n <= 0){
+		mpright(b, n, r);
+		return;
+	}
+	mpadd(b, mpone, r);
+	mpright(r, n, r);
+	mpsub(r, mpone, r);
 }
