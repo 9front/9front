@@ -84,6 +84,7 @@ void	mpnot(mpint *b, mpint *res);
 void	mpxor(mpint *b1, mpint *b2, mpint *res);
 void	mptrunc(mpint *b, int n, mpint *res);
 void	mpxtend(mpint *b, int n, mpint *res);
+void	mpasr(mpint *b, int shift, mpint *res);
 
 /* modular arithmetic, time invariant when 0≤b1≤m-1 and 0≤b2≤m-1 */
 void	mpmodadd(mpint *b1, mpint *b2, mpint *m, mpint *sum);	/* sum = b1+b2 % m */
