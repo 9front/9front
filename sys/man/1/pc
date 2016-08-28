@@ -1,7 +1,7 @@
 .TH PC 1
 .SH NAME
 pc \- programmer's calculator
-.SH SYNOPSYS
+.SH SYNOPSIS
 .B pc
 [
 .B -n
