@@ -15,10 +15,10 @@ vtomp(vlong v, mpint *b)
 	uvlong uv;
 
 	if(b == nil){
-		b = mpnew(VLDIGITS*sizeof(mpdigit));
+		b = mpnew(VLDIGITS*Dbits);
 		setmalloctag(b, getcallerpc(&v));
 	}else
-		mpbits(b, VLDIGITS*sizeof(mpdigit));
+		mpbits(b, VLDIGITS*Dbits);
 	b->sign = (v >> (sizeof(v)*8 - 1)) | 1;
 	uv = v * b->sign;
 	for(s = 0; s < VLDIGITS; s++){
