@@ -318,6 +318,9 @@ static PyObject *_listdir(char *path, int pathlen, int keepstat, char *skip)
 
 		kind = entkind(ent);
 		if (kind == -1 || keepstat) {
+#ifdef PLAN9APE
+			st = ent->d_stat;
+#else
 #ifdef AT_SYMLINK_NOFOLLOW
 			err = fstatat(dfd, ent->d_name, &st,
 				      AT_SYMLINK_NOFOLLOW);
@@ -335,6 +338,7 @@ static PyObject *_listdir(char *path, int pathlen, int keepstat, char *skip)
 							       fullpath);
 				goto error;
 			}
+#endif
 			kind = st.st_mode & S_IFMT;
 		}
 
