@@ -48,7 +48,7 @@ all:V:	$PROGS dirs
 &:n:	$O.&
 	mv $O.$stem $stem
 
-%.tab.h %.tab.c:	%.y
+%.tab.h %.tab.c:D:	%.y
 	$YACC $YFLAGS -s $stem $prereq
 
 %.install:V: $BIN/%
@@ -108,7 +108,7 @@ installall:V:
 %.acid: %.$O $HFILES
 	$CC $CFLAGS -a $stem.c >$target
 
-(bc|units|mpc).c:R:	\1.tab.c
+(bc|units|mpc|pc).c:R:	\1.tab.c
 	mv $stem1.tab.c $stem1.c
 
 $BIN/init:	$O.init

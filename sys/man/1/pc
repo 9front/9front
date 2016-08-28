@@ -1,0 +1,132 @@
+.TH PC 1
+.SH NAME
+pc \- programmer's calculator
+.SH SYNOPSYS
+.B pc
+[
+.B -n
+]
+.SH DESCRIPTION
+.I Pc
+is an arbitrary precision calculator with a special emphasis on supporting two's complement bit operations and working with different number bases.
+.PP
+.I Pc
+reads input statements which are either expressions or control statements.
+Multiple statements in one line can be separated by semicolons.
+.I Pc
+prints the value of all expressions that are not terminated by a semicolon.
+.PP
+Expressions can use the C-like operators
+.TP
+.B + - * ** \fR(exponentiation\fR)
+.TP
+.B / % \fR(Euclidean division, by default\fR)
+.TP
+.B "& | ^ ~ ! << >>"
+.TP
+.B "&& || \fR(returning the second argument, if appropriate)"
+.TP
+.B < >= < <= == !=
+.PP
+Variables can be defined using
+.BR = .
+The builtin variable
+.B @
+always refers to the last printed result.
+.PP
+Numbers can use the prefixes
+.B 0b
+(binary), 
+.B 0
+(octal),
+.B 0d
+(decimal) and
+.B 0x
+(hexadecimal).
+.B _
+in numbers can be added for readability and is ignored.
+.SS Builtin functions
+.TF xtend(n,m)
+.TP
+.I bin(n)
+Display \fIn\fR in binary.
+.TP
+.I oct(n)
+Display \fIn\fR in octal.
+.TP
+.I dec(n)
+Display \fIn\fR in decimal.
+.TP
+.I hex(n)
+Display \fIn\fR in hexadecimal.
+.TP
+.I abs(n)
+Absolute value of \fIn\fR.
+.TP
+.I round(n,m)
+\fIn\fR rounded to the nearest multiple of \fIm\fR.
+Numbers exactly halfway between are rounded to the next even multiple.
+.TP
+.I floor(n,m)
+\fIn\fR rounded down to the next multiple of \fIm\fR.
+.TP
+.I ceil(n,m)
+\fIn\fR rounded up to the next multiple of \fIm\fR.
+.TP
+.I trunc(n,m)
+\fIn\fR truncated to \fIm\fR bits.
+.TP
+.I xtend(n,m)
+\fIn\fR truncated to \fIm\fR bits, with the highest bit interpreted as a sign bit.
+.TP
+.I ubits(n)
+The minimum number of bits required to represent \fIn\fR as an unsigned number.
+.TP
+.I sbits(n)
+The minimum number of bits required to represent \fIn\fR as an signed number.
+.SS Control statements
+.PP
+Control statements are always evaluated with default input base 10.
+.TP
+\fL_\fR \fIn\fR
+If \fIn\fR ≠ 0, insert 
+.B _
+in all printed numbers, every
+.I n
+digits.
+.TP
+\fL<\fR \fIn\fR
+Set the default input base to \fIn\fR (default 10).
+The input base can always be overriden by the base prefixes defined above.
+.TP
+\fL>\fR \fIn\fR
+Set the output base to \fIn\fR.
+If \fIn\fR = 0 (default), print each number in the base it was input in.
+.TP
+\fL/\fR 0
+Use Euclidean division (default).
+\fIa\fR / \fIb\fR is rounded towards ±∞ (opposite sign as \fIb\fR).
+\fIa\fR % \fIb\fR is always non-negative.
+.TP
+\fL/\fR 1
+Use truncating division (same as C).
+\fIa\fR / \fIb\fR is rounded towards zero.
+\fIa\fR % \fIb\fR can be negative.
+.SH SOURCE
+.B /sys/src/cmd/pc.y
+.SH "SEE ALSO"
+.IR bc (1),
+.IR hoc (1)
+.SH BUGS
+With the input base set to 16, terms such as
+.B ABC
+are ambiguous.
+They are interpreted as numbers only if there is no function or variable of the same name.
+To force interpretation as a number, use the \fL0x\fR prefix.
+.PP
+Arbitrary bases should be supported, but are not supported by the
+.IR mp (2)
+string functions.
+.SH HISTORY
+.I Pc
+first appeared in 9front (August, 2016).
