@@ -89,6 +89,15 @@ The minimum number of bits required to represent \fIn\fR as an unsigned number.
 .TP
 .I sbits(n)
 The minimum number of bits required to represent \fIn\fR as an signed number.
+.TP
+.I gcd(n,m)
+The greatest common divisor of \fIn\fR and \fIm\fR.
+.TP
+.I minv(n,m)
+The inverse of \fIn\fR mod \fIm\fR.
+.TP
+.I rand(n)
+A random number satisfying 0 ≤ \fIrand(n)\fR < \fIn\fR.
 .SS Control statements
 .PP
 Control statements are always evaluated with default input base 10.

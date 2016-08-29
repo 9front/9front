@@ -4,8 +4,8 @@
 #include <bio.h>
 #include <ctype.h>
 #include <mp.h>
-#include <pool.h>
 #include <thread.h>
+#include <libsec.h>
 
 int inbase = 10, outbase, divmode, sep, fail, prompt;
 enum { MAXARGS = 16 };
@@ -175,12 +175,12 @@ numbin(int op, Num *a, Num *b)
 		}else
 			mpasr(a, mptoi(b), a);
 		break;
-	case '<': itomp(mpcmp(a, b) < 0, a); break;
-	case '>': itomp(mpcmp(a, b) > 0, a); break;
-	case LOLE: itomp(mpcmp(a, b) <= 0, a); break;
-	case LOGE: itomp(mpcmp(a, b) >= 0, a); break;
-	case LOEQ: itomp(mpcmp(a, b) == 0, a); break;
-	case LONE: itomp(mpcmp(a, b) != 0, a); break;
+	case '<': itomp(mpcmp(a, b) < 0, a); a->b = 0; break;
+	case '>': itomp(mpcmp(a, b) > 0, a); a->b = 0; break;
+	case LOLE: itomp(mpcmp(a, b) <= 0, a); a->b = 0; break;
+	case LOGE: itomp(mpcmp(a, b) >= 0, a); a->b = 0; break;
+	case LOEQ: itomp(mpcmp(a, b) == 0, a); a->b = 0; break;
+	case LONE: itomp(mpcmp(a, b) != 0, a); a->b = 0; break;
 	case LOLAND:
 		a->b = b->b;
 		if(mpcmp(a, mpzero) == 0)
@@ -435,7 +435,7 @@ expr: LNUM
 	| '+' expr %prec unary { $$ = $2; }
 	| '-' expr %prec unary { $$ = nummod($2); if($$ != nil) mpsub(mpzero, $$, $$); }
 	| '~' expr %prec unary { $$ = nummod($2); if($$ != nil) mpnot($$, $$); }
-	| '!' expr %prec unary { $$ = nummod($2); if($$ != nil) itomp(mpcmp($$, mpzero) == 0, $$); }
+	| '!' expr %prec unary { $$ = nummod($2); if($$ != nil) {itomp(mpcmp($$, mpzero) == 0, $$); $$->b = 0; } }
 	| expr '?' expr ':' expr %prec '?' {
 		if($1 == nil || mpcmp($1, mpzero) != 0){
 			$$ = $3;
@@ -752,7 +752,7 @@ fnubits(int, Num **a)
 	}
 	a[0] = nummod(a[0]);
 	itomp(mpsignif(a[0]), a[0]);
-	a[0]->b = 10;
+	a[0]->b = 0;
 	return a[0];
 }
 
@@ -762,11 +762,47 @@ fnsbits(int, Num **a)
 	a[0] = nummod(a[0]);
 	if(a[0]->sign < 0) mpadd(a[0], mpone, a[0]);
 	itomp(mpsignif(a[0]) + 1, a[0]);
-	a[0]->b = 10;
+	a[0]->b = 0;
 	return a[0];
 }
 
+Num *
+fngcd(int, Num **a)
+{
+	a[0] = nummod(a[0]);
+	a[0]->b = basemax(a[0]->b, a[1]->b);
+	mpextendedgcd(a[0], a[1], a[0], nil, nil);
+	return a[0];
+}
 
+Num *
+fnrand(int, Num **a)
+{
+	Num *n;
+
+	n = numalloc();
+	n->b = a[0]->b;
+	mpnrand(a[0], genrandom, n);
+	numdecref(a[0]);
+	return n;
+}
+
+Num *
+fnminv(int, Num **a)
+{
+	mpint *x;
+
+	a[0] = nummod(a[0]);
+	x = mpnew(0);
+	mpextendedgcd(a[0], a[1], x, a[0], nil);
+	if(mpcmp(x, mpone) != 0)
+		error("no modular inverse");
+	else
+		mpmod(a[0], a[1], a[0]);
+	mpfree(x);
+	numdecref(a[1]);
+	return a[0];
+}
 
 void
 main(int argc, char **argv)
@@ -791,6 +827,9 @@ main(int argc, char **argv)
 	regfunc("xtend", fnxtend, 2);
 	regfunc("ubits", fnubits, 1);
 	regfunc("sbits", fnsbits, 1);
+	regfunc("gcd", fngcd, 2);
+	regfunc("minv", fnminv, 2);
+	regfunc("rand", fnrand, 1);
 
 	prompt = 1;
 	ARGBEGIN{
