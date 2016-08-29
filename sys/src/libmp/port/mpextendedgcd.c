@@ -15,8 +15,16 @@ mpextendedgcd(mpint *a, mpint *b, mpint *v, mpint *x, mpint *y)
 	mpint *u, *A, *B, *C, *D;
 	int g;
 
+	if(v == nil){
+		v = mpnew(0);
+		mpextendedgcd(a, b, v, x, y);
+		mpfree(v);
+		return;
+	}
+	assert(x == nil || (x->flags & MPtimesafe) == 0);
+	assert(y == nil || (y->flags & MPtimesafe) == 0);
 	assert((a->flags&b->flags) & MPnorm);
-	assert(((a->flags|b->flags|v->flags|x->flags|y->flags) & MPtimesafe) == 0);
+	assert(((a->flags|b->flags|v->flags) & MPtimesafe) == 0);
 
 	if(a->sign < 0 || b->sign < 0){
 		mpassign(mpzero, v);
@@ -104,6 +112,4 @@ mpextendedgcd(mpint *a, mpint *b, mpint *v, mpint *x, mpint *y)
 	mpfree(u);
 	mpfree(a);
 	mpfree(b);
-
-	return;
 }
