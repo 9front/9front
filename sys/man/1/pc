@@ -84,6 +84,9 @@ Numbers exactly halfway between are rounded to the next even multiple.
 .I xtend(n,m)
 \fIn\fR truncated to \fIm\fR bits, with the highest bit interpreted as a sign bit.
 .TP
+.I rev(n,m)
+\fIn\fR truncated to \fIm\fR bits, with the order of bits reversed.
+.TP
 .I ubits(n)
 The minimum number of bits required to represent \fIn\fR as an unsigned number.
 .TP

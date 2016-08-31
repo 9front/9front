@@ -804,6 +804,38 @@ fnminv(int, Num **a)
 	return a[0];
 }
 
+Num *
+fnrev(int, Num **a)
+{
+	mpdigit v, m;
+	int i, j, n;
+	
+	if(toint(a[1], &n, 1)){
+		numdecref(a[0]);
+		numdecref(a[1]);
+		return nil;
+	}
+	a[0] = nummod(a[0]);
+	mptrunc(a[0], n, a[0]);
+	for(i = 0; i < a[0]->top; i++){
+		v = a[0]->p[i];
+		m = -1;
+		for(j = sizeof(mpdigit) * 8; j >>= 1; ){
+			m ^= m << j;
+			v = v >> j & m | v << j & ~m;
+		}
+		a[0]->p[i] = v;
+	}
+	for(i = 0; i < a[0]->top / 2; i++){
+		v = a[0]->p[i];
+		a[0]->p[i] = a[0]->p[a[0]->top - 1 - i];
+		a[0]->p[a[0]->top - 1 - i] = v;
+	}
+	mpleft(a[0], n - a[0]->top * sizeof(mpdigit) * 8, a[0]);
+	numdecref(a[1]);
+	return a[0];
+}
+
 void
 main(int argc, char **argv)
 {
@@ -830,6 +862,7 @@ main(int argc, char **argv)
 	regfunc("gcd", fngcd, 2);
 	regfunc("minv", fnminv, 2);
 	regfunc("rand", fnrand, 1);
+	regfunc("rev", fnrev, 2);
 
 	prompt = 1;
 	ARGBEGIN{
