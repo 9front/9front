@@ -836,6 +836,36 @@ fnrev(int, Num **a)
 	return a[0];
 }
 
+Num *
+fncat(int n, Num **a)
+{
+	int i, w;
+	Num *r;
+
+	if(n % 2 != 0){
+		error("cat: odd number of arguments");
+		i = 0;
+	fail:
+		for(; i < n; i++)
+			numdecref(a[i]);
+		return nil;
+	}
+	r = numalloc();
+	for(i = 0; i < n; i += 2){
+		if(toint(a[i+1], &w, 1)) goto fail;
+		mpleft(r, w, r);
+		if(a[i]->sign < 0 || mpsignif(a[i]) > w){
+			a[i] = nummod(a[i]);
+			mptrunc(a[i], w, a[i]);
+		}
+		r->b = basemax(r->b, a[i]->b);
+		mpor(r, a[i], r);
+		numdecref(a[i]);
+		numdecref(a[i+1]);
+	}
+	return r;
+}
+
 void
 main(int argc, char **argv)
 {
@@ -863,6 +893,7 @@ main(int argc, char **argv)
 	regfunc("minv", fnminv, 2);
 	regfunc("rand", fnrand, 1);
 	regfunc("rev", fnrev, 2);
+	regfunc("cat", fncat, -1);
 
 	prompt = 1;
 	ARGBEGIN{

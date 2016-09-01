@@ -93,6 +93,9 @@ The minimum number of bits required to represent \fIn\fR as an unsigned number.
 .I sbits(n)
 The minimum number of bits required to represent \fIn\fR as an signed number.
 .TP
+.I cat(a0,n0,...,aN,nN)
+Truncate each of the \fIa\fR arguments to \fIn\fR bits and concatenate their binary representation.
+.TP
 .I gcd(n,m)
 The greatest common divisor of \fIn\fR and \fIm\fR.
 .TP
