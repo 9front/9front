@@ -141,7 +141,7 @@ mptrunc(mpint *b, int n, mpint *r)
 	m = n % Dbits;
 	if(b->sign == -1){
 		c = 1;
-		for(i = 0; i <= r->top; i++){
+		for(i = 0; i < r->top; i++){
 			if(i < b->top)
 				r->p[i] = ~(b->p[i] - c);
 			else
