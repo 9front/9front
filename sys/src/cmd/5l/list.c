@@ -143,8 +143,12 @@ Dconv(Fmt *fp)
 		op = "<<>>->@>" + (((v>>5) & 3) << 1);
 		if(v & (1<<4))
 			snprint(str, sizeof str, "R%ld%c%cR%ld", v&15, op[0], op[1], (v>>8)&15);
-		else
-			snprint(str, sizeof str, "R%ld%c%c%ld", v&15, op[0], op[1], (v>>7)&31);
+		else {
+			long sh = (v>>7)&31;
+			if(sh == 0 && (v & (3<<5)) != 0)
+				sh = 32;
+			snprint(str, sizeof str, "R%ld%c%c%ld", v&15, op[0], op[1], sh);
+		}
 		if(a->reg != NREG)
 			snprint(str+strlen(str), sizeof(str)-strlen(str), "(R%d)", a->reg);
 		break;
