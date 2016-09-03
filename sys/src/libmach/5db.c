@@ -185,7 +185,7 @@ armclass(long w)
 		if(w & (1<<4))
 			op += 32;
 		else
-		if((w & (31<<7)) || (w & (1<<5)))
+		if(w & (31<<7 | 3<<5))
 			op += 16;
 		break;
 	case 1:	/* data processing i,r,r */
@@ -680,11 +680,11 @@ armshiftval(Map *map, Rgetter rget, Instr *i)
 			}
 			return ROR(v, s);
 		case 7:					/* RORREG */
-			sprint(buf, "R%ld", (s>>1)&0xF);
-			s = rget(map, buf);
-			if(s == 0 || (s & 0xF) == 0)
+			sprint(buf, "R%ld", s >> 1);
+			s = rget(map, buf) & 0x1F;
+			if(s == 0)
 				return v;
-			return ROR(v, s & 0xF);
+			return ROR(v, s);
 		}
 	}
 }
@@ -1088,7 +1088,10 @@ format(char *mnemonic, Instr *i, char *f)
 			break;
 				
 		case 'm':
-			bprint(i, "%lud", (i->w>>7) & 0x1f);
+			n = (i->w>>7) & 0x1f;
+			if (n == 0 && (i->w & (3<<5)) != 0)
+				n = 32;
+			bprint(i, "%d", n);
 			break;
 
 		case 'h':
