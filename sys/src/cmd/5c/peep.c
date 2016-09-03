@@ -45,7 +45,7 @@ loop1:
 	t = 0;
 	for(r=firstr; r!=R; r=r->link) {
 		p = r->prog;
-		if(p->as == ASLL || p->as == ASRL || p->as == ASRA) {
+		if(p->as == ASLL || p->as == ASRL || p->as == ASRA || p->as == AROR) {
 			/*
 			 * elide shift into D_SHIFT operand of subsequent instruction
 			 */
@@ -668,6 +668,9 @@ shiftprop(Reg *r)
 		break;
 	case ASRA:
 		o |= 2<<5;
+		break;
+	case AROR:
+		o |= 3<<5;
 		break;
 	}
 	p2->from.offset = o;
