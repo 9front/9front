@@ -469,27 +469,34 @@ regreg:
 shift:
 	spreg '<' '<' rcon
 	{
+	nullshift:
 		$$ = nullgen;
 		$$.type = D_SHIFT;
-		$$.offset = $1 | $4 | (0 << 5);
+		$$.offset = $1 | ($4 & ~(32<<7)) | (0 << 5);
 	}
 |	spreg '>' '>' rcon
 	{
+		if($4 == 0)
+			goto nullshift;
 		$$ = nullgen;
 		$$.type = D_SHIFT;
-		$$.offset = $1 | $4 | (1 << 5);
+		$$.offset = $1 | ($4 & ~(32<<7)) | (1 << 5);
 	}
 |	spreg '-' '>' rcon
 	{
+		if($4 == 0)
+			goto nullshift;
 		$$ = nullgen;
 		$$.type = D_SHIFT;
-		$$.offset = $1 | $4 | (2 << 5);
+		$$.offset = $1 | ($4 & ~(32<<7)) | (2 << 5);
 	}
 |	spreg LAT '>' rcon
 	{
+		if($4 == 0)
+			goto nullshift;
 		$$ = nullgen;
 		$$.type = D_SHIFT;
-		$$.offset = $1 | $4 | (3 << 5);
+		$$.offset = $1 | ($4 & ~(32<<7)) | (3 << 5);
 	}
 
 rcon:
@@ -497,13 +504,13 @@ rcon:
 	{
 		if($$ < 0 || $$ >= 16)
 			print("register value out of range\n");
-		$$ = (($1&15) << 8) | (1 << 4);
+		$$ = ($1 << 8) | (1 << 4);
 	}
 |	con
 	{
-		if($$ < 0 || $$ >= 32)
+		if($$ < 0 || $$ > 32)
 			print("shift value out of range\n");
-		$$ = ($1&31) << 7;
+		$$ = ($1 << 7);
 	}
 
 sreg:
