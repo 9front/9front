@@ -388,7 +388,7 @@ stat: { last = nil; }
 		save = outbase;
 		if(!fail) 
 			outbase = mptoi($3);
-		if(outbase != 2 && outbase != 8 && outbase != 10 && outbase != 16){
+		if(outbase != 0 && outbase != 2 && outbase != 8 && outbase != 10 && outbase != 16){
 			error("no.");
 			outbase = save;
 		}
