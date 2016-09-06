@@ -718,7 +718,7 @@ procread(Chan *c, void *va, long n, vlong off)
 {
 	char *a, *sps, statbuf[1024];
 	int i, j, navail, ne, rsize;
-	long l;
+	ulong l;
 	uchar *rptr;
 	uintptr addr;
 	ulong offset;
