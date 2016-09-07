@@ -905,8 +905,7 @@ procread(Chan *c, void *va, long n, vlong off)
 			l = p->time[i];
 			if(i == TReal)
 				l = MACHP(0)->ticks - l;
-			l = TK2MS(l);
-			readnum(0, statbuf+j+NUMSIZE*i, NUMSIZE, l, NUMSIZE);
+			readnum(0, statbuf+j+NUMSIZE*i, NUMSIZE, tk2ms(l), NUMSIZE);
 		}
 
 		readnum(0, statbuf+j+NUMSIZE*6, NUMSIZE, procpagecount(p)*BY2PG/1024, NUMSIZE);

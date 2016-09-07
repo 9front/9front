@@ -509,8 +509,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 			l = up->time[i];
 			if(i == TReal)
 				l = MACHP(0)->ticks - l;
-			l = TK2MS(l);
-			readnum(0, tmp+NUMSIZE*i, NUMSIZE, l, NUMSIZE);
+			readnum(0, tmp+NUMSIZE*i, NUMSIZE, tk2ms(l), NUMSIZE);
 		}
 		memmove(buf, tmp+k, n);
 		return n;
