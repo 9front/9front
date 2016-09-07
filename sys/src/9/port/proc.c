@@ -201,7 +201,7 @@ hzsched(void)
 
 	/* unless preempted, get to run for at least 100ms */
 	if(anyhigher()
-	|| (!up->fixedpri && m->ticks > m->schedticks && anyready())){
+	|| (!up->fixedpri && (long)(m->ticks - m->schedticks) > 0 && anyready())){
 		m->readied = nil;	/* avoid cooperative scheduling */
 		up->delaysched++;
 	}
@@ -271,18 +271,18 @@ preempted(void)
 void
 updatecpu(Proc *p)
 {
-	int n, t, ocpu;
-	int D = schedgain*HZ*Scaling;
+	ulong t, ocpu, n, D;
 
 	if(p->edf != nil)
 		return;
 
 	t = MACHP(0)->ticks*Scaling + Scaling/2;
 	n = t - p->lastupdate;
-	p->lastupdate = t;
-
 	if(n == 0)
 		return;
+	p->lastupdate = t;
+
+	D = schedgain*HZ*Scaling;
 	if(n > D)
 		n = D;
 
@@ -294,8 +294,7 @@ updatecpu(Proc *p)
 		t = (t*(D-n))/D;
 		p->cpu = 1000 - t;
 	}
-
-//iprint("pid %d %s for %d cpu %d -> %d\n", p->pid,p==up?"active":"inactive",n, ocpu,p->cpu);
+//iprint("pid %lud %s for %lud cpu %lud -> %lud\n", p->pid,p==up?"active":"inactive",n, ocpu,p->cpu);
 }
 
 /*
@@ -463,9 +462,10 @@ ulong balancetime;
 static void
 rebalance(void)
 {
-	int pri, npri, t, x;
+	int pri, npri, x;
 	Schedq *rq;
 	Proc *p;
+	ulong t;
 
 	t = m->ticks;
 	if(t - balancetime < HZ)
