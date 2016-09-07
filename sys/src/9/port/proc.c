@@ -329,7 +329,7 @@ reprioritize(Proc *p)
 		ratio = p->basepri;
 	if(ratio < 0)
 		panic("reprioritize");
-//iprint("pid %d cpu %d load %d fair %d pri %d\n", p->pid, p->cpu, load, fairshare, ratio);
+//iprint("pid %lud cpu %lud load %d fair %d pri %d\n", p->pid, p->cpu, load, fairshare, ratio);
 	return ratio;
 }
 
@@ -1092,7 +1092,7 @@ pexit(char *exitstr, int freemem)
 {
 	Proc *p;
 	Segment **s, **es;
-	long utime, stime;
+	ulong utime, stime;
 	Waitq *wq;
 	Fgrp *fgrp;
 	Egrp *egrp;
