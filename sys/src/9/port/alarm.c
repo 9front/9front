@@ -63,14 +63,20 @@ procalarm(ulong time)
 	Proc **l, *f;
 	ulong when, old;
 
+	when = MACHP(0)->ticks;
 	old = up->alarm;
-	if(old)
-		old = tk2ms(old - MACHP(0)->ticks);
+	if(old) {
+		old -= when;
+		if((long)old > 0)
+			old = tk2ms(old);
+		else
+			old = 0;
+	}
 	if(time == 0) {
 		up->alarm = 0;
 		return old;
 	}
-	when = ms2tk(time)+MACHP(0)->ticks;
+	when += ms2tk(time);
 	if(when == 0)
 		when = 1;
 
