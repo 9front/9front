@@ -1126,7 +1126,7 @@ static int
 tsemacquire(Segment *s, long *addr, ulong ms)
 {
 	int acquired, timedout;
-	ulong t, elms;
+	ulong t;
 	Sema phore;
 
 	if(canacquire(addr))
@@ -1144,15 +1144,15 @@ tsemacquire(Segment *s, long *addr, ulong ms)
 		}
 		if(waserror())
 			break;
-		t = m->ticks;
+		t = MACHP(0)->ticks;
 		tsleep(&phore, semawoke, &phore, ms);
-		elms = TK2MS(m->ticks - t);
+		t = TK2MS(MACHP(0)->ticks - t);
 		poperror();
-		if(elms >= ms){
+		if(t >= ms){
 			timedout = 1;
 			break;
 		}
-		ms -= elms;
+		ms -= t;
 	}
 	semdequeue(s, &phore);
 	coherence();	/* not strictly necessary due to lock in semdequeue */
