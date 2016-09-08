@@ -143,6 +143,9 @@ struct Nvrsafe
 	uchar	authidsum;
 	char	authdom[DOMLEN]; /* auth domain, e.g., cs.bell-labs.com */
 	uchar	authdomsum;
+
+	uchar	aesmachkey[AESKEYLEN];
+	uchar	aesmachsum;
 };
 .EE
 .PP
