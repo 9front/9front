@@ -250,3 +250,6 @@ Nix as OS X Package Manager
 [Harvey-OS/harvey] build: make it emacs friendly
 [Harvey-OS/harvey] add acme back.
 [Harvey-OS/harvey] Up/down keys now move cursor up/down one line
+[Harvey-OS/harvey] Tar is broken (#267)
+yesterday I noticed that suddenly gmail has begun to mark all the recent 9fans messages as spam.
+The 9fans mailing list was down from approximately June 1 to July 25.
