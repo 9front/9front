@@ -15,7 +15,7 @@
 
 #include	"ip.h"
 #include	"ipv6.h"
-#include	"libsec.h"
+#include	<libsec.h>
 
 #define BITS2BYTES(bi) (((bi) + BI2BY - 1) / BI2BY)
 #define BYTES2BITS(by)  ((by) * BI2BY)
@@ -840,15 +840,13 @@ static void
 aescbcespinit(Espcb *ecb, char *name, uchar *k, unsigned n)
 {
 	uchar key[Aeskeysz], ivec[Aeskeysz];
-	int i;
 
 	n = BITS2BYTES(n);
 	if(n > Aeskeysz)
 		n = Aeskeysz;
 	memset(key, 0, sizeof(key));
 	memmove(key, k, n);
-	for(i = 0; i < Aeskeysz; i++)
-		ivec[i] = nrand(256);
+	prng(ivec, Aeskeysz);
 	ecb->espalg = name;
 	ecb->espblklen = Aesblk;
 	ecb->espivlen = Aesblk;
@@ -900,15 +898,13 @@ static void
 aesctrespinit(Espcb *ecb, char *name, uchar *k, unsigned n)
 {
 	uchar key[Aesblk], ivec[Aesblk];
-	int i;
 
 	n = BITS2BYTES(n);
 	if(n > Aeskeysz)
 		n = Aeskeysz;
 	memset(key, 0, sizeof(key));
 	memmove(key, k, n);
-	for(i = 0; i < Aesblk; i++)
-		ivec[i] = nrand(256);
+	prng(ivec, Aesblk);
 	ecb->espalg = name;
 	ecb->espblklen = Aesblk;
 	ecb->espivlen = Aesblk;
@@ -1010,15 +1006,13 @@ static void
 desespinit(Espcb *ecb, char *name, uchar *k, unsigned n)
 {
 	uchar key[Desblk], ivec[Desblk];
-	int i;
 
 	n = BITS2BYTES(n);
 	if(n > Desblk)
 		n = Desblk;
 	memset(key, 0, sizeof(key));
 	memmove(key, k, n);
-	for(i = 0; i < Desblk; i++)
-		ivec[i] = nrand(256);
+	prng(ivec, Desblk);
 	ecb->espalg = name;
 	ecb->espblklen = Desblk;
 	ecb->espivlen = Desblk;
@@ -1034,15 +1028,13 @@ static void
 des3espinit(Espcb *ecb, char *name, uchar *k, unsigned n)
 {
 	uchar key[3][Desblk], ivec[Desblk];
-	int i;
 
 	n = BITS2BYTES(n);
 	if(n > Des3keysz)
 		n = Des3keysz;
 	memset(key, 0, sizeof(key));
 	memmove(key, k, n);
-	for(i = 0; i < Desblk; i++)
-		ivec[i] = nrand(256);
+	prng(ivec, Desblk);
 	ecb->espalg = name;
 	ecb->espblklen = Desblk;
 	ecb->espivlen = Desblk;

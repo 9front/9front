@@ -1998,7 +1998,6 @@ descipherinit(Conv *c)
 {
 	uchar key[8];
 	uchar ivec[8];
-	int i;
 	int n = c->cipher->keylen;
 
 	cipherfree(c);
@@ -2019,8 +2018,7 @@ descipherinit(Conv *c)
 	/* out */
 	memset(key, 0, sizeof(key));
 	setkey(key, n, &c->out, "cipher");
-	for(i=0; i<8; i++)
-		ivec[i] = nrand(256);
+	prng(ivec, 8);
 	c->out.cipherblklen = 8;
 	c->out.cipherivlen = 8;
 	c->out.cipher = desencrypt;

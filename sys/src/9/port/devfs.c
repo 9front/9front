@@ -21,7 +21,7 @@
 #include "io.h"
 #include "ureg.h"
 #include "../port/error.h"
-#include "libsec.h"
+#include <libsec.h>
 
 int  dec16(uchar *out, int lim, char *in, int n);
 

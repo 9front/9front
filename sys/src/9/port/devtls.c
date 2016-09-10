@@ -1234,13 +1234,6 @@ tlsread(Chan *c, void *a, long n, vlong off)
 	return n;
 }
 
-static void
-randfill(uchar *buf, int len)
-{
-	while(len-- > 0)
-		*buf++ = nrand(256);
-}
-
 /*
  *  write a block in tls records
  */
@@ -1325,7 +1318,7 @@ if(tr->debug)pdump(BLEN(b), b->rp, "sent:");
 				n = (*sec->aead_enc)(sec, aad, aadlen, p + RecHdrLen, p + RecHdrLen + ivlen, n) + ivlen;
 			else {
 				if(ivlen > 0)
-					randfill(p + RecHdrLen, ivlen);
+					prng(p + RecHdrLen, ivlen);
 				packMac(sec, aad, aadlen, p + RecHdrLen + ivlen, n, p + RecHdrLen + ivlen + n);
 				n = (*sec->enc)(sec, p + RecHdrLen, ivlen + n + maclen);
 			}
@@ -1523,7 +1516,7 @@ initaesgcmkey(Encalg *ea, Secret *s, uchar *p, uchar *iv)
 	s->maclen = 16;
 	s->recivlen = 8;
 	memmove(s->mackey, iv, ea->ivlen);
-	randfill(s->mackey + ea->ivlen, s->recivlen);
+	prng(s->mackey + ea->ivlen, s->recivlen);
 	setupAESGCMstate(s->enckey, p, ea->keylen, nil, 0);
 }
 
