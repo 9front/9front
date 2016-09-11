@@ -52,6 +52,14 @@ extern	int	utflen(char*);
 extern	int	utfnlen(char*, long);
 extern	int	runelen(long);
 
+/*
+ * random number
+ */
+extern	int	rand(void);
+extern	int	nrand(int);
+extern	long	lrand(void);
+extern	long	lnrand(long);
+
 extern	int	abs(int);
 
 /*

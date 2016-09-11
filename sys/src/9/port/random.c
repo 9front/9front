@@ -120,3 +120,28 @@ genrandom(uchar *p, int n)
 {
 	randomread(p, n);
 }
+
+/* used by rand(),nrand() */
+long
+lrand(void)
+{
+	/* xoroshiro128+ algorithm */
+	static int seeded = 0;
+	static uvlong s[2];
+	static Lock lk;
+	ulong r;
+
+	if(seeded == 0){
+		randomread(s, sizeof(s));
+		seeded = (s[0] | s[1]) != 0;
+	}
+
+	lock(&lk);
+	r = (s[0] + s[1]) >> 33;
+	s[1] ^= s[0];
+ 	s[0] = (s[0] << 55 | s[0] >> 9) ^ s[1] ^ (s[1] << 14);
+ 	s[1] = (s[1] << 36 | s[1] >> 28);
+	unlock(&lk);
+
+ 	return r;
+}

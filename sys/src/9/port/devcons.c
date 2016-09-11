@@ -845,24 +845,6 @@ Dev consdevtab = {
 	devwstat,
 };
 
-static	ulong	randn;
-
-int
-rand(void)
-{
-	if(randn == 0)
-		randomread((void*)&randn, sizeof(randn));
-	randn = randn*1103515245 + 12345 + MACHP(0)->ticks;
-	return randn;
-}
-
-int
-nrand(int n)
-{
-	rand();
-	return (randn>>16) % n;
-}
-
 static uvlong uvorder = 0x0001020304050607ULL;
 
 static uchar*
