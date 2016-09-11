@@ -96,9 +96,10 @@ randomread(void *p, ulong n)
 	if(hwrandbuf != nil)
 		(*hwrandbuf)(p, n);
 
-	/* copy chacha state and increment iv */
+	/* copy chacha state, rekey and increment iv */
 	qlock(rs);
 	c = *rs;
+	chacha_encrypt((uchar*)&rs->input[4], 32, &c);
 	if(++rs->input[13] == 0)
 		if(++rs->input[14] == 0)
 			++rs->input[15];
