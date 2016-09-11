@@ -89,7 +89,6 @@ ulong
 randomread(void *p, ulong n)
 {
 	Chachastate c;
-	ulong b;
 
 	if(n == 0)
 		return 0;
@@ -97,12 +96,12 @@ randomread(void *p, ulong n)
 	if(hwrandbuf != nil)
 		(*hwrandbuf)(p, n);
 
-	/* copy chacha state and advance block counter */
+	/* copy chacha state and increment iv */
 	qlock(rs);
 	c = *rs;
-	b = rs->input[12];
-	rs->input[12] += (n + ChachaBsize-1)/ChachaBsize;
-	if(rs->input[12] < b) rs->input[13]++;
+	if(++rs->input[13] == 0)
+		if(++rs->input[14] == 0)
+			++rs->input[15];
 	qunlock(rs);
 
 	/* encrypt the buffer, can fault */
