@@ -86,22 +86,37 @@ randominit(void)
 }
 
 ulong
-randomread(void *xp, ulong n)
+randomread(void *p, ulong n)
 {
+	Chachastate c;
+	ulong b;
+
 	if(n == 0)
 		return 0;
 
 	if(hwrandbuf != nil)
-		(*hwrandbuf)(xp, n);
+		(*hwrandbuf)(p, n);
 
-	if(waserror()){
-		qunlock(rs);
-		nexterror();
-	}
+	/* copy chacha state and advance block counter */
 	qlock(rs);
-	chacha_encrypt((uchar*)xp, n, rs);
+	c = *rs;
+	b = rs->input[12];
+	rs->input[12] += (n + ChachaBsize-1)/ChachaBsize;
+	if(rs->input[12] < b) rs->input[13]++;
 	qunlock(rs);
-	poperror();
+
+	/* encrypt the buffer, can fault */
+	chacha_encrypt((uchar*)p, n, &c);
+
+	/* prevent state leakage */
+	memset(&c, 0, sizeof(c));
 
 	return n;
+}
+
+/* used by fastrand() */
+void
+genrandom(uchar *p, int n)
+{
+	randomread(p, n);
 }
