@@ -28,7 +28,6 @@ static int	writebintime(char*, int);
 
 enum
 {
-	CMhalt,
 	CMreboot,
 	CMpanic,
 	CMrdb,
@@ -36,7 +35,6 @@ enum
 
 Cmdtab rebootmsg[] =
 {
-	CMhalt,		"halt",		1,
 	CMreboot,	"reboot",	0,
 	CMpanic,	"panic",	0,
 	CMrdb,		"rdb",		0,
@@ -749,9 +747,6 @@ conswrite(Chan *c, void *va, long n, vlong off)
 		}
 		ct = lookupcmd(cb, rebootmsg, nelem(rebootmsg));
 		switch(ct->index) {
-		case CMhalt:
-			reboot(nil, 0, 0);
-			break;
 		case CMreboot:
 			rebootcmd(cb->nf-1, cb->f+1);
 			break;
