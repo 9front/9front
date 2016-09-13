@@ -12,6 +12,7 @@
  * OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
  */
 #include <stdarg.h>
+#include <stddef.h>
 #include <utf.h>
 #include "fmt.h"
 
@@ -36,6 +37,6 @@ main(int argc, char *argv[])
 	print("%d\n", 23);
 	print("%i\n", 23);
 	print("%p\n", argv);
-	print("%zd\n", &argv[1] - &argv[0]);
+	print("%zd\n", (size_t)-1);
 	return 0;
 }

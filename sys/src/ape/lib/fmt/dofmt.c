@@ -544,7 +544,7 @@ __flagfmt(Fmt *f)
 		break;
 	case 'z':
 		f->flags |= FmtLong;
-		if(sizeof(void*) == sizeof(vlong))
+		if(sizeof(size_t) == sizeof(vlong))
 			f->flags |= FmtVLong;
 		break;
 	}
