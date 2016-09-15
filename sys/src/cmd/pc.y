@@ -527,7 +527,7 @@ yylex(void)
 	if(c == '\n') prompted = 0;
 	if(isdigit(c)){
 		for(p = buf, *p++ = c; c = Bgetc(in), isalnum(c) || c == '_'; )
-			if(p < buf + sizeof(buf) - 1)
+			if(p < buf + sizeof(buf) - 1 && c != '_')
 				*p++ = c;
 		*p = 0;
 		Bungetc(in);
