@@ -767,6 +767,28 @@ fnsbits(int, Num **a)
 }
 
 Num *
+fnnsa(int, Num **a)
+{
+	int n, i;
+	mpdigit d;
+
+	a[0] = nummod(a[0]);
+	if(a[0]->sign < 0){
+		numdecref(a[0]);
+		return error("invalid argument");
+	}
+	n = 0;
+	for(i = 0; i < a[0]->top; i++){
+		d = a[0]->p[i];
+		for(; d != 0; d &= d-1)
+			n++;
+	}
+	itomp(n, a[0]);
+	a[0]->b = 0;
+	return a[0];
+}
+
+Num *
 fngcd(int, Num **a)
 {
 	a[0] = nummod(a[0]);
@@ -889,6 +911,7 @@ main(int argc, char **argv)
 	regfunc("xtend", fnxtend, 2);
 	regfunc("ubits", fnubits, 1);
 	regfunc("sbits", fnsbits, 1);
+	regfunc("nsa", fnnsa, 1);
 	regfunc("gcd", fngcd, 2);
 	regfunc("minv", fnminv, 2);
 	regfunc("rand", fnrand, 1);

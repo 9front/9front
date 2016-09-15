@@ -93,6 +93,9 @@ The minimum number of bits required to represent \fIn\fR as an unsigned number.
 .I sbits(n)
 The minimum number of bits required to represent \fIn\fR as an signed number.
 .TP
+.I nsa(n)
+The number of bits set in \fIn\fR.
+.TP
 .I cat(a\d\s70\s0\u,n\d\s70\s0\u,...,a\d\s7N\s0\u,n\d\s7N\s0\u)
 Truncate each of the \fIa\d\s7i\s0\u\fR arguments to \fIn\d\s7i\s0\u\fR bits and concatenate their binary representation.
 .TP
