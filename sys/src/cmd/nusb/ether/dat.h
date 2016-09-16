@@ -44,7 +44,13 @@ int setmac;
 /* to be filled in by *init() */
 uchar macaddr[6];
 
+int nprom;
+int nmulti;
+uchar multiaddr[32][6];
+
 void	etheriq(Block*, int wire);
 
 int	(*epreceive)(Dev*);
 void	(*eptransmit)(Dev*, Block*);
+int 	(*eppromiscuous)(Dev*, int);
+int	(*epmulticast)(Dev*, uchar*, int);

@@ -252,6 +252,32 @@ smsctransmit(Dev *ep, Block *b)
 	freeb(b);
 }
 
+static int
+smscpromiscuous(Dev *d, int on)
+{
+	int rxctl;
+
+	rxctl = rr(d, Maccr);
+	if(on)
+		rxctl |= Prms;
+	else
+		rxctl &= ~Prms;
+	return wr(d, Maccr, rxctl);
+}
+
+static int
+smscmulticast(Dev *d, uchar *, int)
+{
+	int rxctl;
+
+	rxctl = rr(d, Maccr);
+	if(nmulti != 0)
+		rxctl |= Mcpas;
+	else
+		rxctl &= ~Mcpas;
+	return wr(d, Maccr, rxctl);
+}
+
 int
 smscinit(Dev *d)
 {
@@ -289,5 +315,8 @@ smscinit(Dev *d)
 
 	eptransmit = smsctransmit;
 	epreceive = smscreceive;
+	eppromiscuous = smscpromiscuous;
+	epmulticast = smscmulticast;
+
 	return 0;
 }

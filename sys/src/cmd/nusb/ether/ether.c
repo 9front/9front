@@ -82,6 +82,10 @@ Stats stats;
 Conn conn[32];
 int nconn = 0;
 
+int nprom = 0;
+int nmulti = 0;
+
+Dev *epctl;
 Dev *epin;
 Dev *epout;
 
@@ -401,9 +405,37 @@ fswrite(Req *r)
 	case Qctl:
 		n = r->ifcall.count;
 		p = (char*)r->ifcall.data;
-		if((n == 11) && memcmp(p, "promiscuous", 11)==0)
-			conn[NUM(path)].prom = 1;
-		if((n > 8) && memcmp(p, "connect ", 8)==0){
+		if(n == 11 && memcmp(p, "promiscuous", 11)==0){
+			if(conn[NUM(path)].prom == 0){
+				conn[NUM(path)].prom = 1;
+				if(nprom++ == 0 && eppromiscuous != nil)
+					(*eppromiscuous)(epctl, 1);
+			}
+		} else if(n >= 9+12 && (memcmp(p, "addmulti ", 9)==0 || memcmp(p, "remmulti ", 9)==0)){
+			uchar ea[6];
+			int i;
+
+			if(parseether(ea, p+9) < 0){
+				respond(r, "bad ether address");
+				return;
+			}
+			for(i=0; i<nmulti; i++)
+				if(memcmp(ea, multiaddr[i], 6) == 0)
+					break;
+			if(i < nmulti){
+				if(*p == 'r'){
+					memmove(multiaddr[i], multiaddr[--nmulti], 6);
+					if(epmulticast != nil)
+						(*epmulticast)(epctl, ea, 0);
+				}
+			} else if(nmulti < nelem(multiaddr)){
+				if(*p == 'a'){
+					memmove(multiaddr[nmulti++], ea, 6);
+					if(epmulticast != nil)
+						(*epmulticast)(epctl, ea, 1);
+				}
+			}
+		} else if(n > 8 && memcmp(p, "connect ", 8)==0){
 			char x[12];
 
 			if(n - 8 >= sizeof(x)){
@@ -546,8 +578,13 @@ fsdestroyfid(Fid *fid)
 			}
 			free(d);
 		}
-		if(TYPE(fid->qid.path) == Qctl)
-			c->prom = 0;
+		if(TYPE(fid->qid.path) == Qctl){
+			if(c->prom){
+				c->prom = 0;
+				if(--nprom == 0 && eppromiscuous != nil)
+					(*eppromiscuous)(epctl, 0);
+			}
+		}
 		c->used--;
 		qunlock(c);
 	}
@@ -783,7 +820,6 @@ threadmain(int argc, char **argv)
 {
 	char s[64], *t;
 	int et, ei, eo;
-	Dev *d;
 
 	fmtinstall('E', eipfmt);
 
@@ -819,25 +855,25 @@ threadmain(int argc, char **argv)
 	if(argc != 1)
 		usage();
 
-	if((d = getdev(*argv)) == nil)
+	if((epctl = getdev(*argv)) == nil)
 		sysfatal("getdev: %r");
-	if(findendpoints(d, &ei, &eo) < 0)
+	if(findendpoints(epctl, &ei, &eo) < 0)
 		sysfatal("no endpoints found");
 
 	werrstr("");
-	if((*ethertype[et].init)(d) < 0)
+	if((*ethertype[et].init)(epctl) < 0)
 		sysfatal("%s init failed: %r", ethertype[et].name);
 	if(epreceive == nil || eptransmit == nil)
 		sysfatal("bug in init");
 
-	if((epin = openep(d, ei)) == nil)
+	if((epin = openep(epctl, ei)) == nil)
 		sysfatal("openep: %r");
 	if(ei == eo){
 		incref(epin);
 		epout = epin;
 		opendevdata(epin, ORDWR);
 	} else {
-		if((epout = openep(d, eo)) == nil)
+		if((epout = openep(epctl, eo)) == nil)
 			sysfatal("openep: %r");
 		opendevdata(epin, OREAD);
 		opendevdata(epout, OWRITE);
@@ -847,9 +883,9 @@ threadmain(int argc, char **argv)
 
 	atnotify(inote, 1);
 	time0 = time(0);
-	tab[Qiface].name = smprint("etherU%s", d->hname);
-	snprint(s, sizeof(s), "%d.ether", d->id);
-	closedev(d);
+	tab[Qiface].name = smprint("etherU%s", epctl->hname);
+	snprint(s, sizeof(s), "%d.ether", epctl->id);
+
 	threadpostsharesrv(&fs, nil, "usbnet", s);
 
 	threadexits(0);
