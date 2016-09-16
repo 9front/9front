@@ -262,10 +262,23 @@ asixpromiscuous(Dev *d, int on)
 	int rxctl;
 
 	rxctl = getrxctl(d);
-	if(on != 0)
+	if(on)
 		rxctl |= Rxctlprom;
 	else
 		rxctl &= ~Rxctlprom;
+	return asixset(d, Cwrxctl, rxctl);
+}
+
+static int
+asixmulticast(Dev *d, uchar*, int)
+{
+	int rxctl;
+
+	rxctl = getrxctl(d);
+	if(nmulti != 0)
+		rxctl |= Rxctlamall;
+	else
+		rxctl &= ~Rxctlamall;
 	return asixset(d, Cwrxctl, rxctl);
 }
 
@@ -316,6 +329,9 @@ a88178init(Dev *d)
 
 	epreceive = asixreceive;
 	eptransmit = asixtransmit;
+	eppromiscuous = asixpromiscuous;
+	epmulticast = asixmulticast;
+
 	return 0;
 }
 
@@ -373,5 +389,8 @@ a88772init(Dev *d)
 
 	epreceive = asixreceive;
 	eptransmit = asixtransmit;
+	eppromiscuous = asixpromiscuous;
+	epmulticast = asixmulticast;
+
 	return 0;
 }
