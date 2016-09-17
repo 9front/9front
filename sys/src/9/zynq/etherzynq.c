@@ -62,6 +62,9 @@ enum {
 	/* NET_CFG */
 	SPEED = 1<<0,
 	FDEN = 1<<1,
+	COPYALLEN = 1<<4,
+	MCASTHASHEN = 1<<6,
+	UCASTHASHEN = 1<<7,
 	RX1536EN = 1<<8,
 	GIGE_EN = 1<<10,
 	RXCHKSUMEN = 1<<24,
@@ -290,6 +293,48 @@ ethirq(Ureg *, void *arg)
 		print("eth: RX overrun, shouldn't happen\n");
 }
 
+static void
+ethprom(void *arg, int on)
+{
+	Ether *edev;
+	Ctlr *c;
+
+	edev = arg;
+	c = edev->ctlr;
+	if(on)
+		c->r[NET_CFG] |= COPYALLEN;
+	else
+		c->r[NET_CFG] &= ~COPYALLEN;
+}
+
+static void
+ethmcast(void *arg, uchar *ea, int on)
+{
+	Ether *edev;
+	Ctlr *c;
+	u64int a;
+	uchar x;
+
+	edev = arg;
+	c = edev->ctlr;
+	if(edev->nmaddr == 0){
+		c->r[NET_CFG] &= ~MCASTHASHEN;
+		c->r[HASH_BOT] = 0;
+		c->r[HASH_TOP] = 0;
+	}
+	if(!on)
+		return;
+	a = (u64int)ea[0]     | (u64int)ea[1]<<8  | (u64int)ea[2]<<16 |
+	    (u64int)ea[3]<<24 | (u64int)ea[4]<<32 | (u64int)ea[5]<<40;
+	x = a ^ (a>>6) ^ (a>>12) ^ (a>>18) ^ (a>>24) ^ (a>>30) ^ (a>>36) ^ (a>>42);
+	x &= 63;
+	if(x < 32)
+		c->r[HASH_BOT] |= 1<<x;
+	else
+		c->r[HASH_TOP] |= 1<<(x-32);
+	c->r[NET_CFG] |= MCASTHASHEN;
+}
+
 static int
 ethinit(Ether *edev)
 {
@@ -362,6 +407,8 @@ etherpnp(Ether *edev)
 	edev->interrupt = ethirq;
 	edev->transmit = ethtx;
 	edev->attach = ethattach;
+	edev->promiscuous = ethprom;
+	edev->multicast = ethmcast;
 	edev->arg = edev;
 	edev->mbps = 1000;
 	
