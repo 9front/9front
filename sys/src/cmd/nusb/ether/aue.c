@@ -202,6 +202,32 @@ auetransmit(Dev *ep, Block *b)
 	freeb(b);
 }
 
+static int
+auepromiscuous(Dev *d, int on)
+{
+	int r;
+
+	r = csr8r(d, Ctl2);
+	if(on)
+		r |= C2prom;
+	else
+		r &= ~C2prom;
+	return csr8w(d, Ctl2, r);
+}
+
+static int
+auemulticast(Dev *d, uchar*, int)
+{
+	int r;
+
+	r = csr8r(d, Ctl0);
+	if(nmulti)
+		r |= C0allmulti;
+	else
+		r &= ~C0allmulti;
+	return csr8w(d, Ctl0, r);
+}
+
 int
 aueinit(Dev *d)
 {
@@ -219,7 +245,11 @@ aueinit(Dev *d)
 	csr8w(d, Ctl0, C0rxstatappend|C0rxen);
 	csr8w(d, Ctl0, csr8r(d, Ctl0)|C0txen);
 	csr8w(d, Ctl2, csr8r(d, Ctl2)|C2ep3clr);
+
 	epreceive = auereceive;
 	eptransmit = auetransmit;
+	eppromiscuous = auepromiscuous;
+	epmulticast = auemulticast;
+
 	return 0;
 }
