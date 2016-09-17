@@ -300,6 +300,37 @@ urltransmit(Dev *ep, Block *b)
 	freeb(b);
 }
 
+static int
+urlpromiscuous(Dev *d, int on)
+{
+	int r;
+
+	r = csr16r(d, Rcr);
+	if(on)
+		r |= Aam|Aap;
+	else {
+		r &= ~Aap;
+		if(nmulti == 0)
+			r &= ~Aam;
+	}
+	return csr16w(d, Rcr, r);
+}
+
+static int
+urlmulticast(Dev *d, uchar*, int)
+{
+	int r;
+
+	r = csr16r(d, Rcr);
+	if(nmulti)
+		r |= Aam;
+	else {
+		if(nprom == 0)
+			r &= ~Aam;
+	}
+	return csr16w(d, Rcr, r);
+}
+
 int
 urlinit(Dev *d)
 {
@@ -325,5 +356,8 @@ urlinit(Dev *d)
 
 	epreceive = urlreceive;
 	eptransmit = urltransmit;
+	eppromiscuous = urlpromiscuous;
+	epmulticast = urlmulticast;
+
 	return 0;
 }
