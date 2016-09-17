@@ -28,7 +28,6 @@ if not {
 	xsfx=(-x `{echo $netdir | sed 's;^/net;;'})
 	xdir=(-x $netdir)
 }
-
 fn nonnil {		# variable
 	if (~ $#$1 0) {
 		echo no ip for $1
@@ -39,53 +38,64 @@ fn nonnil {		# variable
 		exit multiple-ips
 	}
 }
+devdir=`{awk '/^device/{print $2}' $netdir/ipifc/*/status | grep -v /dev/null}
+nonnil devdir
+devtype=pkt
+if(~ $devdir *ether*)
+	devtype=ether
 
 #
 # configure v6 for link-local addresses (fe80::) & multicast (ff02::)
 #
-if (! ip/ipconfig -6 $xdir ether $netdir/ether?)
+if (! ip/ipconfig -6 $xdir $devtype $devdir)
 	exit 'ipconfig -6 failed'
-ip/ipconfig $xdir ether $netdir/ether? ra6 recvra 1
+ip/ipconfig $xdir $devtype $devdir ra6 recvra 1
 
-mev6=`{ndb/query -f $ndbf sys $sysname ipv6}
-if (~ $#mev6 0 || ~ $mev6 '')
+mev6=`{ndb/query -f $ndbf sys $sysname ipv6 | grep :}
+if (~ $#mev6 0)
 	mev6=`{ndb/query -mf $ndbf sys $sysname ip | grep :}
 # mev4=`{ndb/query -f $ndbf sys $sysname ip | grep -v :}
 
 # for testing
-mylnk=`{ip/linklocal `{cat $netdir/ether?/addr}}
-nonnil mylnk
+if(~ $devtype ether){
+	mylnk=`{ip/linklocal `{cat $devdir/addr}}
+	nonnil mylnk
+}
 
 if (~ $#gw 1) {
 	if (~ $gw [0-9]*.[0-9]*.[0-9]*.[0-9]*)
-		gwv4 = $gw
-	if (~ $#gwv4 0 || ~ $gwv4 '')		# assume namev6 and name
-		gwv4=`{ndb/query -f $ndbf sys $gw ip}
-	gwv6=`{ndb/query -f $ndbf sys $gw ipv6}
+		gwv4=$gw
+	if (~ $#gwv4 0)
+		gwv4=`{ndb/query -f $ndbf sys $gw ip | grep -v :}
+	if (~ $gw *:*)
+		gwv6=$gw
+	if (~ $#gwv6 0)
+		gwv6=`{ndb/query -f $ndbf sys $gw ipv6 | grep :}
+	if (~ $#gwv6 0)
+		gwv6=`{ndb/query -f $ndbf sys $gw ip | grep :}
+	if (~ $#gwv6 0) {
+		if (~ $#gwv4 1) {
+			# echo ping gw $gwv4...
+			# load arp cache with gw mac
+			ip/ping -qn 3 $netdir/icmp!$gwv4 >/dev/null >[2=1] &
+			sleep 1					# wait for ping
 
-	if (! ~ $#gwv4 0) {
-		# echo ping gw $gwv4...
-		# load arp cache with gw mac
-		ip/ping -qn 3 $netdir/icmp!$gwv4 >/dev/null >[2=1] &
-		sleep 1					# wait for ping
-
-		gweth=`{grep '* '^$gwv4^' ' $netdir/arp | awk '{print $4}' }
-		nonnil gweth
-		gwlnk=`{ip/linklocal $gweth}
-		nonnil gwlnk
+			gweth=`{grep '* '^$gwv4^' ' $netdir/arp | awk '{print $4}' }
+			nonnil gweth
+			gwlnk=`{ip/linklocal $gweth}
+			nonnil gwlnk
+			gwv6=$gwlnk
+		}
 	}
 }
 nonnil mev6
 #
 # configure my global v6 addresses
 #
-ip/ipconfig $xdir ether $netdir/ether?	add $mev6 /64
+ip/ipconfig $xdir $devtype $devdir	add $mev6 /64
 ip/ipconfig $xdir loopback /dev/null	add $mev6 /128
 
-if (~ $#gw 1) {
-	if (~ $#gwv6 0 || ~ $gwv6 '')
-		gwv6=`{ip/linklocal $gweth}
-	nonnil gwv6
+if (~ $#gwv6 1) {
 	#
 	# add default v6 route to v6 addr of v4 gw
 	#
