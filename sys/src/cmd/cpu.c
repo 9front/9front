@@ -198,7 +198,7 @@ main(int argc, char **argv)
 		*s++ = '!';
 		*s = 0;
 		while(p = ARGF())
-			s = seprint(s, cmd+sizeof(cmd), " %s", p);
+			s = seprint(s, cmd+sizeof(cmd), " %q", p);
 		break;
 	case 'k':
 		keyspec = smprint("%s %s", keyspec, EARGF(usage()));
@@ -783,10 +783,8 @@ rmtnoteproc(void)
 		_exits(0);
 	case 0:
 		fd = open(rmtnotefile, OREAD);
-		if(fd < 0){
-			syslog(0, "cpu", "cpu -R: can't open %s", rmtnotefile);
+		if(fd < 0)
 			_exits(0);
-		}
 	
 		for(;;){
 			n = read(fd, buf, sizeof(buf)-1);
