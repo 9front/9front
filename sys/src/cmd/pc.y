@@ -7,7 +7,7 @@
 #include <thread.h>
 #include <libsec.h>
 
-int inbase = 10, outbase, divmode, sep, fail, prompt;
+int inbase = 10, outbase, divmode, sep, heads, fail, prompt;
 enum { MAXARGS = 16 };
 
 typedef struct Num Num;
@@ -228,11 +228,38 @@ getsym(char *n, int mk)
 	return *p;
 }
 
+static void
+printhead(int n, int s, int sp, char *t)
+{
+	char *q;
+	int i, j, k;
+	
+	for(i = 1; i < n; i *= 10)
+		;
+	while(i /= 10, i != 0){
+		q = t;
+		*--q = 0;
+		for(j = 0, k = 0; j < n; j += s, k++){
+			if(k == sep && sep != 0){
+				*--q = ' ';
+				k = 0;
+			}
+			if(j >= i || j == 0 && i == 1)
+				*--q = '0' + j / i % 10;
+			else
+				*--q = ' ';
+		}
+		for(j = 0; j < sp; j++)
+			*--q = ' ';
+		print("%s\n", q);
+	}
+}
+
 void
 numprint(Num *n)
 {
 	int b;
-	int l, i;
+	int l, i, st, sp;
 	char *s, *t, *p, *q;
 
 	if(n == nil) return;
@@ -246,6 +273,18 @@ numprint(Num *n)
 	l = strlen(s);
 	t = emalloc(l * 2 + 4);
 	q = t + l * 2 + 4;
+	if(heads){
+		switch(b){
+		case 16: st = 4; sp = 2; break;
+		case 8: st = 3; sp = 1; break;
+		case 2: st = 1; sp = 2; break;
+		default: st = 0; sp = 0;
+		}
+		if(n->sign < 0)
+			sp++;
+		if(st != 0)
+			printhead(mpsignif(n), st, sp, q);
+	}
 	*--q = 0;
 	for(p = s + l - 1, i = 0; p >= s && *p != '-'; p--, i++){
 		if(sep != 0 && i == sep){
@@ -404,6 +443,19 @@ stat: { last = nil; }
 		if(divmode != 0 && divmode != 1){
 			error("no.");
 			divmode = save;
+		}
+		numdecref($3);
+		numdecref(last);
+		last = nil;
+	}
+	| '\'' { save = inbase; inbase = 10; } expr {
+		inbase = save;
+		save = heads;
+		if(!fail) 
+			heads = mptoi($3);
+		if(heads != 0 && heads != 1){
+			error("no.");
+			heads = save;
 		}
 		numdecref($3);
 		numdecref(last);
@@ -635,6 +687,30 @@ fnbin(int, Num **a)
 	
 	r = nummod(a[0]);
 	r->b = STRONG | 2;
+	return r;
+}
+
+Num *
+fnpb(int, Num **a)
+{
+	Num *r;
+	int b;
+	
+	if(toint(a[1], &b, 1)){
+	out:
+		numdecref(a[0]);
+		numdecref(a[1]);
+		return nil;
+	}
+	if(b != 0 && b != 2 && b != 8 && b != 10 && b != 16){
+		error("unsupported base");
+		goto out;
+	}
+	r = nummod(a[0]);
+	if(b == 0)
+		r->b = 0;
+	else
+		r->b = STRONG | b;
 	return r;
 }
 
@@ -903,6 +979,7 @@ main(int argc, char **argv)
 	regfunc("dec", fndec, 1);
 	regfunc("oct", fnoct, 1);
 	regfunc("bin", fnbin, 1);
+	regfunc("pb", fnpb, 2);
 	regfunc("abs", fnabs, 1);
 	regfunc("round", fnround, 2);
 	regfunc("floor", fnfloor, 2);
