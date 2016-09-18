@@ -364,6 +364,8 @@ inborder(Rectangle r, Point xy)
 Rectangle
 whichrect(Rectangle r, Point p, int which)
 {
+	p.x = min(p.x, screen->clipr.max.x-1);
+	p.y = min(p.y, screen->clipr.max.y-1);
 	switch(which){
 	case 0:	/* top left */
 		r = Rect(p.x, p.y, r.max.x, r.max.y);
@@ -386,7 +388,7 @@ whichrect(Rectangle r, Point p, int which)
 	case 7:	/* bottom edge */
 		r = Rect(r.min.x, r.min.y, r.max.x, p.y+1);
 		break;
-	case 3:		/* left edge */
+	case 3:	/* left edge */
 		r = Rect(p.x, r.min.y, r.max.x, r.max.y);
 		break;
 	}
@@ -978,27 +980,27 @@ bandsize(Window *w)
 {
 	Rectangle r, or;
 	Point p, startp;
-	int which, but;
+	int which, owhich, but;
 
-	p = mouse->xy;
+	owhich = -1;
+	or = w->screenr;
 	but = mouse->buttons;
-	which = whichcorner(w->screenr, p);
-	riosetcursor(corners[which]);
-	r = whichrect(w->screenr, p, which);
-	drawborder(r, 1);
-	or = r;
-	startp = p;
-	
-	while(mouse->buttons==but){
+	startp = onscreen(mouse->xy);
+	drawborder(or, 1);
+	while(mouse->buttons == but) {
 		p = onscreen(mouse->xy);
-		r = whichrect(w->screenr, p, which);
+		which = whichcorner(or, p);
+		if(which != owhich && which != 4 && (owhich|~which) & 1){
+			owhich = which;
+			riosetcursor(corners[which]);
+		}
+		r = whichrect(or, p, owhich);
 		if(!eqrect(r, or) && goodrect(r)){
-			drawborder(r, 1);
 			or = r;
+			drawborder(r, 1);
 		}
 		readmouse(mousectl);
 	}
-	p = mouse->xy;
 	drawborder(or, 0);
 	if(mouse->buttons!=0 || !goodrect(or) || eqrect(or, w->screenr)
 	|| abs(p.x-startp.x)+abs(p.y-startp.y) <= 1){
