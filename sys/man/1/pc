@@ -65,6 +65,9 @@ Display \fIn\fR in decimal.
 .I hex(n)
 Display \fIn\fR in hexadecimal.
 .TP
+.I pb(n, b)
+Display \fIn\fR in base \fIb\fR (currently must be one of 0, 2, 8, 10, 16; 0 uses the defined output base).
+.TP
 .I abs(n)
 Absolute value of \fIn\fR.
 .TP
@@ -135,6 +138,10 @@ Use Euclidean division (default).
 Use truncating division (same as C).
 \fIa\fR / \fIb\fR is rounded towards zero.
 \fIa\fR % \fIb\fR can be negative.
+.TP
+\fL\'\fR 1
+Enable numbering bits (disable with 0).
+If the base is a power of two, print the number of the corresponding bit above each digit.
 .SH SOURCE
 .B /sys/src/cmd/pc.y
 .SH "SEE ALSO"
