@@ -299,7 +299,7 @@ numprint(Num *n)
 	if(mpcmp(n, mpzero) != 0)
 		switch(b){
 		case 16: *--q = 'x'; *--q = '0'; break;
-		case 10: if(outbase != 0 && outbase != 10) {*--q = 'd'; *--q = '0';} break;
+		case 10: if(outbase != 0 && outbase != 10 || inbase != 10) {*--q = 'd'; *--q = '0';} break;
 		case 8: *--q = '0'; break;
 		case 2: *--q = 'b'; *--q = '0'; break;
 		}
