@@ -645,7 +645,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		}
 		if(h == nil){
 			alarm(timeout);
-			if((h = hdial(u, qpost!=nil)) == nil)
+			if((h = hdial(u, qpost==nil)) == nil)
 				break;
 		}
 		if(h->tunnel){
