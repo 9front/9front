@@ -100,8 +100,8 @@ hdial(Url *u, int cached)
 
 	snprint(addr, sizeof(addr), "tcp!%s!%s", u->host, u->port ? u->port : u->scheme);
 
+	qlock(&hpool);
 	if(cached){
-		qlock(&hpool);
 		for(p = nil, h = hpool.head; h; p = h, h = h->next){
 			if(strcmp(h->addr, addr) == 0){
 				if(p)
@@ -113,9 +113,9 @@ hdial(Url *u, int cached)
 				return h;
 			}
 		}
-		hpool.active++;
-		qunlock(&hpool);
 	}
+	hpool.active++;
+	qunlock(&hpool);
 
 	if(debug)
 		fprint(2, "hdial [%d] %s\n", hpool.active, addr);
