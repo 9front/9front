@@ -139,6 +139,8 @@ typedef long	DAngle;	/* on disk: in units of milliarcsec */
 typedef short	Mag;	/* multiplied by 10 */
 typedef long	Key;	/* known to be 4 bytes, unfortunately */
 
+#pragma pack on
+
 /*
  * All integers are stored in little-endian order.
  */
@@ -222,6 +224,8 @@ struct Bayerec{
 	char	name[3];
 	char	pad;
 };
+
+#pragma pack off
 
 /*
  * Internal form
