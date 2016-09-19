@@ -92,7 +92,7 @@ tlswrap(int fd, char *servername)
 }
 
 static Hconn*
-hdial(Url *u)
+hdial(Url *u, int cached)
 {
 	char addr[128];
 	Hconn *h, *p;
@@ -100,20 +100,22 @@ hdial(Url *u)
 
 	snprint(addr, sizeof(addr), "tcp!%s!%s", u->host, u->port ? u->port : u->scheme);
 
-	qlock(&hpool);
-	for(p = nil, h = hpool.head; h; p = h, h = h->next){
-		if(strcmp(h->addr, addr) == 0){
-			if(p)
-				p->next = h->next;
-			else
-				hpool.head = h->next;
-			h->next = nil;
-			qunlock(&hpool);
-			return h;
+	if(cached){
+		qlock(&hpool);
+		for(p = nil, h = hpool.head; h; p = h, h = h->next){
+			if(strcmp(h->addr, addr) == 0){
+				if(p)
+					p->next = h->next;
+				else
+					hpool.head = h->next;
+				h->next = nil;
+				qunlock(&hpool);
+				return h;
+			}
 		}
+		hpool.active++;
+		qunlock(&hpool);
 	}
-	hpool.active++;
-	qunlock(&hpool);
 
 	if(debug)
 		fprint(2, "hdial [%d] %s\n", hpool.active, addr);
@@ -142,7 +144,7 @@ hdial(Url *u)
 	h->time = 0;
 	h->cancel = 0;
 	h->tunnel = 0;
-	h->keep = 1;
+	h->keep = cached;
 	h->len = 0;
 	h->fd = fd;
 	h->ctl = ctl;
@@ -643,7 +645,7 @@ http(char *m, Url *u, Key *shdr, Buq *qbody, Buq *qpost)
 		}
 		if(h == nil){
 			alarm(timeout);
-			if((h = hdial(u)) == nil)
+			if((h = hdial(u, qpost!=nil)) == nil)
 				break;
 		}
 		if(h->tunnel){
