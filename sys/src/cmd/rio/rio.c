@@ -364,8 +364,6 @@ inborder(Rectangle r, Point xy)
 Rectangle
 whichrect(Rectangle r, Point p, int which)
 {
-	p.x = min(p.x, screen->clipr.max.x-1);
-	p.y = min(p.y, screen->clipr.max.y-1);
 	switch(which){
 	case 0:	/* top left */
 		r = Rect(p.x, p.y, r.max.x, r.max.y);
@@ -842,9 +840,9 @@ Point
 onscreen(Point p)
 {
 	p.x = max(screen->clipr.min.x, p.x);
-	p.x = min(screen->clipr.max.x, p.x);
+	p.x = min(screen->clipr.max.x-1, p.x);
 	p.y = max(screen->clipr.min.y, p.y);
-	p.y = min(screen->clipr.max.y, p.y);
+	p.y = min(screen->clipr.max.y-1, p.y);
 	return p;
 }
 
