@@ -330,12 +330,12 @@ Zero means the router is not to be used as a default router.
 .PP
 Reading the interface's
 .I status
-file returns information about the interface, one line for each
-local address on that interface.  The first line
-has 9 white-space-separated fields: device, mtu, local address,
-mask, remote or network address, packets in, packets out, input errors,
-output errors.  Each subsequent line contains all but the device and mtu.
-See
+file returns information about the interface. The first line
+is composed of white-space-separated fields, the first two
+fields are: device and maxmtu. Subsequent lines list the
+ip addresses assigned to that inferface. The colums are:
+ip address, network mask, network address and valid/prefered
+life times in milliseconds. See
 .I readipifc
 in
 .IR ip (2).
