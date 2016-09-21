@@ -334,7 +334,7 @@ file returns information about the interface. The first line
 is composed of white-space-separated fields, the first two
 fields are: device and maxmtu. Subsequent lines list the
 ip addresses assigned to that inferface. The colums are:
-ip address, network mask, network address and valid/prefered
+ip address, network mask, network address and valid/preferred
 life times in milliseconds. See
 .I readipifc
 in
