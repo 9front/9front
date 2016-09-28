@@ -234,8 +234,7 @@ repparse1(uchar *d, uchar *e, int g[], int l[], int c,
 					for(i=l[UsagMin]; i<=l[UsagMax] && l[UsgCnt] < Nu; i++)
 						l[Nl + l[UsgCnt]++] = i;
 				for(i=0; i<g[RepCnt]; i++){
-					if(i < l[UsgCnt])
-						l[Usage] = l[Nl + i];
+					l[Usage] = i < l[UsgCnt] ? l[Nl + i] : 0;
 					(*f)(t, v, g, l, c, a);
 				}
 				break;
