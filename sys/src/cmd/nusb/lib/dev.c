@@ -54,8 +54,10 @@ openep(Dev *d, int id)
 	if(access(name, AEXIST) == 0){
 		dprint(2, "%s: %s already exists; trying to open\n", argv0, name);
 		epd = opendev(name);
-		if(epd != nil)
+		if(epd != nil){
+			epd->id = id;
 			epd->maxpkt = ep->maxpkt;	/* guess */
+		}
 		return epd;
 	}
 	if(devctl(d, "new %d %d %s", id, ep->type, mode) < 0){
