@@ -1,8 +1,11 @@
 #!/bin/rc
 # iwhois [-n] domain - print registration data for domain
 rfork e
-if (~ $#* 1 && ~ $1 -n)
+noboiler=()
+if (! ~ $#* 0 && ~ $1 -n){
 	noboiler=yes
+	shift
+}
 person=`{echo $1|sed s/@.*//}
 fn boilerplate { sed -n '/^[	 ]*[A-Za-z][A-Za-z]*:$/,$p' $* }
 
@@ -38,8 +41,8 @@ case *.dk
 	machine=whois.dk-hostmaster.dk
 	fn boilerplate { grep -v '^#' $* }
 case *.es
-	echo no known whois server for .es
-	exit
+	echo no known whois server for .es >[1=2]
+	exit '.es not supported'
 case *.fr
 	machine=whois.nic.fr
 	fn boilerplate { grep -v '^%%' $* }
@@ -50,6 +53,9 @@ case *.jp
 	machine=whois.jprs.jp
 	person=$person^'/e'
 	fn boilerplate { cat $* }
+case *.org
+	machine=whois.pir.org
+	fn boilerplate { sed '/^>>> Last update of WHOIS database/,$d' $* }
 case *.se
 	machine=whois.nic-se.se
 	fn boilerplate { grep -v '^#' $* | uniq }
@@ -60,9 +66,9 @@ case *
 	machine=whois.internic.net	# alternate: whois.networksolutions.com
 	fn boilerplate { cat $* }
 }
-if (~ $noboiler yes)
+if(! ~ $#noboiler 0)
 	fn boilerplate { cat $* }
-file=/tmp/iwhois$pid
+file=/tmp/iwhois.$pid
 fn sigexit {
 	rm -f $file
 }
@@ -84,4 +90,3 @@ if (test ! -s $file) {
 	exit broken
 }
 boilerplate $file
-rm $file
