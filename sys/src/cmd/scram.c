@@ -6,6 +6,7 @@
 int fd, iofd;
 struct Ureg u;
 ulong PM1a_CNT_BLK, PM1b_CNT_BLK, SLP_TYPa, SLP_TYPb;
+ulong GPE0_BLK, GPE1_BLK, GPE0_BLK_LEN, GPE1_BLK_LEN;
 enum {
 	SLP_EN = 0x2000,
 	SLP_TM = 0x1c00,
@@ -78,6 +79,10 @@ loadacpi(void)
 		else if(memcmp("FACP", t->sig, 4) == 0){
 			PM1a_CNT_BLK = get32(((uchar*)t) + 64);
 			PM1b_CNT_BLK = get32(((uchar*)t) + 68);
+			GPE0_BLK = get32(((uchar*)t) + 80);
+			GPE1_BLK = get32(((uchar*)t) + 84);
+			GPE0_BLK_LEN = *(((uchar*)t) + 92);
+			GPE1_BLK_LEN = *(((uchar*)t) + 93);
 		}
 	}
 	if(amleval(amlwalk(amlroot, "_S5"), "", &r) < 0)
@@ -121,6 +126,8 @@ wirecpu0(void)
 void
 main()
 {
+	int n;
+
 	wirecpu0();
 
 	if((fd = open("/dev/apm", ORDWR)) < 0)
@@ -145,6 +152,19 @@ tryacpi:
 			goto fail;
 	if(loadacpi() < 0)
 		goto fail;
+
+	/* prepare for sleep */
+	amleval(amlwalk(amlroot, "_PTS"), "i", 5, nil);
+
+	/* disable GPEs */
+	for(n = 0; GPE0_BLK > 0 && n < GPE0_BLK_LEN/2; n += 2){
+		outw(GPE0_BLK + GPE0_BLK_LEN/2 + n, 0); /* EN */
+		outw(GPE0_BLK + n, 0xff); /* STS */
+	}
+	for(n = 0; GPE1_BLK > 0 && n < GPE1_BLK_LEN/2; n += 2){
+		outw(GPE1_BLK + GPE1_BLK_LEN/2 + n, 0); /* EN */
+		outw(GPE1_BLK + n, 0xff); /* STS */
+	}
 
 	outw(PM1a_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
 	outw(PM1b_CNT_BLK, ((SLP_TYPb << 10) & SLP_TM) | SLP_EN);
