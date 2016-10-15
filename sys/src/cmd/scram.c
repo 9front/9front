@@ -153,9 +153,6 @@ tryacpi:
 	if(loadacpi() < 0)
 		goto fail;
 
-	/* prepare for sleep */
-	amleval(amlwalk(amlroot, "_PTS"), "i", 5, nil);
-
 	/* disable GPEs */
 	for(n = 0; GPE0_BLK > 0 && n < GPE0_BLK_LEN/2; n += 2){
 		outw(GPE0_BLK + GPE0_BLK_LEN/2 + n, 0); /* EN */
