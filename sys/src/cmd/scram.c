@@ -159,11 +159,11 @@ tryacpi:
 	/* disable GPEs */
 	for(n = 0; GPE0_BLK > 0 && n < GPE0_BLK_LEN/2; n += 2){
 		outw(GPE0_BLK + GPE0_BLK_LEN/2 + n, 0); /* EN */
-		outw(GPE0_BLK + n, 0xff); /* STS */
+		outw(GPE0_BLK + n, 0xffff); /* STS */
 	}
 	for(n = 0; GPE1_BLK > 0 && n < GPE1_BLK_LEN/2; n += 2){
 		outw(GPE1_BLK + GPE1_BLK_LEN/2 + n, 0); /* EN */
-		outw(GPE1_BLK + n, 0xff); /* STS */
+		outw(GPE1_BLK + n, 0xffff); /* STS */
 	}
 
 	outw(PM1a_CNT_BLK, ((SLP_TYPa << 10) & SLP_TM) | SLP_EN);
