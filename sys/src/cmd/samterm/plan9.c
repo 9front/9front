@@ -214,10 +214,10 @@ plumbformat(int i)
 			s = strstr(s, ".\n");
 			if(s == nil)
 				break;
-			if(s[-1] != '\n')
+			s += 2;
+			if(s[-3] != '\n')
 				continue;
 			s[0] = '';
-			s += 2;
 			replaced = 1;
 		}
 		n += sprint(data+n, ".\n");
