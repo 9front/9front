@@ -9,8 +9,14 @@
 
 #include <aml.h>
 
+typedef struct Memreg Memreg;
 typedef struct Rsd Rsd;
 typedef struct Tbl Tbl;
+
+struct Memreg {
+	uintptr	addr;
+	int		size;
+};
 
 struct Rsd {
 	uchar	sig[8];
@@ -50,6 +56,9 @@ static uintptr tblpa[64];
 /* successfully mapped tables */
 static int ntblmap;
 static Tbl *tblmap[64];
+
+static int nmemregs;
+static Memreg memregs[16];
 
 static ushort
 get16(uchar *p){
@@ -458,6 +467,29 @@ enumprt(void *dot, void *)
 }
 
 static int
+enumini(void *dot, void *)
+{
+	void *p, *r;
+	int s;
+
+	/*
+	 * If there is no _STA (or it fails), device should be
+	 * considered present and enabled.
+	 */
+	s = 0xff;
+	if((p = amlwalk(dot, "^_STA")) != nil){
+		if(amleval(p, "", &r) >= 0)
+			s = amlint(r);
+		if((s & 1) == 0) /* return if not present */
+				return 1;
+	}
+	if(s & 1) /* initialize everything present */
+		amleval(dot, "", nil);
+	/* recurse if present, enabled and "ok" */
+	return (s & 11) == 11 ? 0 : 1;
+}
+
+static int
 enumec(void *dot, void *)
 {
 	int cmdport, dataport;
@@ -477,8 +509,60 @@ enumec(void *dot, void *)
 		return 1;
 	dataport = b[0+2] | b[0+3]<<8;
 	cmdport = b[8+2] | b[8+3]<<8;
+	if((x = amlwalk(dot, "^_REG")) != nil)
+		amleval(x, "ii", 3, 1, nil);
 	ecinit(cmdport, dataport);
 	return 1;
+}
+
+static long
+readmem(Chan*, void *v, long n, vlong o)
+{
+	int i;
+	uchar *t;
+	uintptr start, end;
+	Memreg *mr;
+
+	start = o;
+	end = start + n;
+	for(i = 0; n > 0 && i < nmemregs; i++){
+		mr = &memregs[i];
+		if(start >= mr->addr && start < mr->addr+mr->size){
+			if(end > mr->addr+mr->size)
+				end = mr->addr+mr->size;
+			n = end - start;
+			t = vmap(mr->addr, n);
+			memmove(v, start - mr->addr + t, n);
+			vunmap(t, n);
+			return n;
+		}
+	}
+	return 0;
+}
+
+static long
+writemem(Chan*, void *v, long n, vlong o)
+{
+	int i;
+	uchar *t;
+	uintptr start, end;
+	Memreg *mr;
+
+	start = o;
+	end = start + n;
+	for(i = 0; n > 0 && i < nmemregs; i++){
+		mr = &memregs[i];
+		if(start >= mr->addr && start < mr->addr+mr->size){
+			if(end > mr->addr+mr->size)
+				end = mr->addr+mr->size;
+			n = end - start;
+			t = vmap(mr->addr, n);
+			memmove(start - mr->addr + t, v, n);
+			vunmap(t, n);
+			return n;
+		}
+	}
+	return 0;
 }
 
 static void
@@ -494,6 +578,9 @@ acpiinit(void)
 	maptables();
 
 	amlinit();
+
+	if(getconf("*acpimem") != nil)
+		addarchfile("acpimem", 0660, readmem, writemem);
 
 	/* load DSDT */
 	for(i=0; i<ntblmap; i++){
@@ -611,15 +698,18 @@ Foundapic:
 		}
 	}
 
+	/* find embedded controller */
+	amlenum(amlroot, "_HID", enumec, nil);
+
+	/* init */
+	amlenum(amlroot, "_INI", enumini, nil);
+
 	/* look for PCI interrupt mappings */
 	amlenum(amlroot, "_PRT", enumprt, nil);
 
 	/* add identity mapped legacy isa interrupts */
 	for(i=0; i<16; i++)
 		addirq(i, BusISA, 0, i, 0);
-
-	/* find embedded controller */
-	amlenum(amlroot, "_HID", enumec, nil);
 
 	/* free the AML interpreter */
 	amlexit();
@@ -767,6 +857,42 @@ readpcicfg(Amlio *io, void *data, int n, int offset)
 }
 
 static int
+readec(Amlio *io, void *data, int n, int off)
+{
+	int port, v;
+	uchar *p;
+
+	USED(io);
+	if(off < 0 || off >= 256)
+		return 0;
+	if(off+n > 256)
+		n = 256 - off;
+	p = data;
+	for(port = off; port < off+n; port++){
+		if((v = ecread(port)) < 0)
+			break;
+		*p++ = v;
+	}
+	return n;
+}
+
+static int
+writeec(Amlio *io, void *data, int n, int off)
+{
+	int port;
+	uchar *p;
+
+	USED(io);
+	if(off < 0 || off+n > 256)
+		return -1;
+	p = data;
+	for(port = off; port < off+n; port++)
+		if(ecwrite(port, *p++) < 0)
+			break;
+	return n;
+}
+
+static int
 writepcicfg(Amlio *io, void *data, int n, int offset)
 {
 	ulong r, x;
@@ -861,6 +987,11 @@ amlmapio(Amlio *io)
 			print("amlmapio: vmap failed\n");
 			break;
 		}
+		if(nmemregs < nelem(memregs)){
+			memregs[nmemregs].addr = io->off;
+			memregs[nmemregs].size = io->len;
+			nmemregs++;
+		}
 		return 0;
 	case IoSpace:
 		snprint(buf, sizeof(buf), "%N", io->name);
@@ -883,6 +1014,10 @@ amlmapio(Amlio *io)
 		io->aux = pdev;
 		io->read = readpcicfg;
 		io->write = writepcicfg;
+		return 0;
+	case EbctlSpace:
+		io->read = readec;
+		io->write = writeec;
 		return 0;
 	}
 	print("amlmapio: mapping %N failed\n", io->name);
