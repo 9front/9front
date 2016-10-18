@@ -205,19 +205,18 @@ plumbformat(int i)
 			n += sprint(data+n, "f %s\n", addr);
 		n += sprint(data+n, "c\n");
 		s = memmove(data+n, m->data, m->ndata);
+		s--;
 		n += m->ndata;
 		if(data[n-1] != '\n')
 			data[n++] = '\n';
 		data[n] = 0;
 		replaced = 0;
 		for(;;){
-			s = strstr(s, ".\n");
+			s = strstr(s, "\n.\n");
 			if(s == nil)
 				break;
+			s[1] = '';
 			s += 2;
-			if(s[-3] != '\n')
-				continue;
-			s[0] = '';
 			replaced = 1;
 		}
 		n += sprint(data+n, ".\n");
