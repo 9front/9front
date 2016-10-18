@@ -5,6 +5,7 @@ TARG=\
 	9pcon\
 	accupoint\
 	acidleak\
+	acpi\
 	apm\
 	astarld\
 	bflz\
