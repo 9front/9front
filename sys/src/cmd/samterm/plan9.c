@@ -184,8 +184,8 @@ int
 plumbformat(int i)
 {
 	Plumbmsg *m;
-	char *addr, *data, *act;
-	int n;
+	char *addr, *data, *act, *s;
+	int n, replaced;
 
 	data = (char*)plumbbuf[i].data;
 	m = plumbunpack(data, plumbbuf[i].n);
@@ -197,6 +197,37 @@ plumbformat(int i)
 		return 0;
 	}
 	act = plumblookup(m->attr, "action");
+
+	if(act != nil && strcmp(act, "showdata") == 0){
+		addr = plumblookup(m->attr, "filename");
+		n = sprint(data, "B \n");
+		if(addr != nil)
+			n += sprint(data+n, "f %s\n", addr);
+		n += sprint(data+n, "c\n");
+		s = memmove(data+n, m->data, m->ndata);
+		n += m->ndata;
+		if(data[n-1] != '\n')
+			data[n++] = '\n';
+		data[n] = 0;
+		replaced = 0;
+		for(;;){
+			s = strstr(s, ".\n");
+			if(s == nil)
+				break;
+			if(s[-1] != '\n')
+				continue;
+			s[0] = '';
+			s += 2;
+			replaced = 1;
+		}
+		n += sprint(data+n, ".\n");
+		if(replaced)
+			n += sprint(data+n, ",s/^$/./g\n");
+		plumbbuf[i].n = n;
+		plumbfree(m);
+		return 1;
+	}
+
 	if(act!=nil && strcmp(act, "showfile")!=0){
 		/* can't handle other cases yet */
 		plumbfree(m);
