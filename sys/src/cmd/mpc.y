@@ -64,7 +64,6 @@ void	fcom(Node*,Node*,Node*);
 {
 	Sym*	sval;
 	Node*	node;
-	long	lval;
 }
 
 %type	<node>	name num args expr bool block elif stmnt stmnts
@@ -80,7 +79,7 @@ void	fcom(Node*,Node*,Node*);
 %left	'^'
 %right	'('
 
-%token	<lval>	MOD IF ELSE WHILE BREAK 
+%token	MOD IF ELSE WHILE BREAK 
 %token	<sval>	NAME NUM
 
 %%
