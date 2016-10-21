@@ -380,21 +380,22 @@ emouse(void)
 {
 	Mouse m;
 	Ebuf *eb;
-	static but[2];
+	static int lastb;
 	int b;
 
 	if(Smouse < 0)
 		drawerror(display, "events: mouse not initialized");
 	for(;;){
 		eb = ebread(&eslave[Smouse]);
-		if(!ecanmouse())
+		b = atoi((char*)eb->buf+1+2*12);
+		if(b != lastb || !ecanmouse())
 			break;
 		free(eb);	/* drop queued mouse events */
 	}
+	lastb = b;
+	m.buttons = b;
 	m.xy.x = atoi((char*)eb->buf+1+0*12);
 	m.xy.y = atoi((char*)eb->buf+1+1*12);
-	b = atoi((char*)eb->buf+1+2*12);
-	m.buttons = b;
 	m.msec = atoi((char*)eb->buf+1+3*12);
 	if (logfid)
 		fprint(logfid, "b: %d xy: %P\n", m.buttons, m.xy);
