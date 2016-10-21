@@ -55,7 +55,7 @@ Rawimage**	readpng(int, int);
 Rawimage**	Breadpng(Biobuf*, int);
 Rawimage**	readtif(int, int);
 Rawimage**	Breadtif(Biobuf*, int);
-Rawimage**	readgif(int, int);
+Rawimage**	readgif(int, int, int);
 Rawimage**	readpixmap(int, int);
 Rawimage*	torgbv(Rawimage*, int);
 Rawimage*	totruecolor(Rawimage*, int);

@@ -288,7 +288,7 @@ show(int fd, char *name)
 	char buf[32];
 
 	err = nil;
-	images = readgif(fd, CRGB);
+	images = readgif(fd, CRGB, dflag);
 	if(images == nil){
 		fprint(2, "gif: decode %s failed: %r\n", name);
 		return "decode";

@@ -39,7 +39,7 @@ static char		readerr[] = "ReadGIF: read error: %r";
 static char		extreaderr[] = "ReadGIF: can't read extension: %r";
 static char		memerr[] = "ReadGIF: malloc failed: %r";
 
-static Rawimage**	readarray(Header*);
+static Rawimage**	readarray(Header*, int);
 static Rawimage*	readone(Header*);
 static void			readheader(Header*);
 static void			skipextension(Header*);
@@ -100,7 +100,7 @@ giferror(Header *h, char *fmt, ...)
 
 
 Rawimage**
-readgif(int fd, int colorspace)
+readgif(int fd, int colorspace, int justone)
 {
 	Rawimage **a;
 	Biobuf b;
@@ -122,7 +122,7 @@ readgif(int fd, int colorspace)
 	if(setjmp(h->errlab))
 		a = nil;
 	else
-		a = readarray(h);
+		a = readarray(h, justone);
 	giffreeall(h, 0);
 	free(h);
 	return a;
@@ -144,7 +144,7 @@ inittbl(Header *h)
 
 static
 Rawimage**
-readarray(Header *h)
+readarray(Header *h, int justone)
 {
 	Entry *tbl;
 	Rawimage *new, **array;
@@ -202,6 +202,8 @@ readarray(Header *h)
 			array[nimages] = nil;
 			h->array = array;
 			h->new = nil;
+			if(justone)
+				goto Return;
 			break;
 
 		case 0x3B:	/* Trailer */
