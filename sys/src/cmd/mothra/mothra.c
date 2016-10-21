@@ -381,7 +381,6 @@ void main(int argc, char *argv[]){
 			}
 		}
 
-		flushimage(display, 1);
 		drawlock(0);
 		i=event(&e);
 		drawlock(1);
@@ -545,7 +544,6 @@ void scrollto(char *tag){
 		}
 	}
 	plsetpostextview(text, current->yoffs);
-	flushimage(display, 1);
 }
 
 /*

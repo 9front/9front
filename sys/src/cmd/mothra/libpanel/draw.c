@@ -254,7 +254,6 @@ void pl_draw1(Panel *p, Image *b){
 }
 void pldraw(Panel *p, Image *b){
 	pl_draw1(p, b);
-	flushimage(display, 1);
 }
 void pl_invis(Panel *p, int v){
 	for(;p;p=p->next){

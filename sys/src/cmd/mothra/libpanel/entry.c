@@ -73,6 +73,8 @@ int pl_hitentry(Panel *p, Mouse *m){
 		while(m->buttons&1){
 			int old;
 			old=m->buttons;
+			if(display->bufp > display->buf)
+				flushimage(display, 1);
 			*m=emouse();
 			if((old&7)==1){
 				if((m->buttons&7)==3){
