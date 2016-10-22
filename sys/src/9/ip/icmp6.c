@@ -312,9 +312,7 @@ goticmpkt6(Proto *icmp, Block *bp, int muxkey)
 	for(c = icmp->conv; *c; c++){
 		s = *c;
 		if(s->lport == recid && ipcmp(s->raddr, addr) == 0){
-			bp = concatblock(bp);
-			if(bp != nil)
-				qpass(s->rq, bp);
+			qpass(s->rq, concatblock(bp));
 			return;
 		}
 	}
@@ -328,6 +326,8 @@ mkechoreply6(Block *bp, Ipifc *ifc)
 	uchar addr[IPaddrlen];
 	IPICMP *p = (IPICMP *)(bp->rp);
 
+	if(isv6mcast(p->src))
+		return nil;
 	ipmove(addr, p->src);
 	if(!isv6mcast(p->dst))
 		ipmove(p->src, p->dst);
@@ -730,7 +730,9 @@ icmpiput6(Proto *icmp, Ipifc *ipifc, Block *bp)
 
 	switch(p->type) {
 	case EchoRequestV6:
-		r = mkechoreply6(concatblock(bp), ipifc);
+		if(bp->next)
+			bp = concatblock(bp);
+		r = mkechoreply6(bp, ipifc);
 		if(r == nil)
 			goto raise;
 		ipriv->out[EchoReply]++;
@@ -866,10 +868,6 @@ icmpstats6(Proto *icmp6, char *buf, int len)
 		if(icmpnames6[i])
 			p = seprint(p, e, "%s: %lud %lud\n", icmpnames6[i],
 				priv->in[i], priv->out[i]);
-/*		else
-			p = seprint(p, e, "%d: %lud %lud\n", i, priv->in[i],
-				priv->out[i]);
- */
 	return p - buf;
 }
 

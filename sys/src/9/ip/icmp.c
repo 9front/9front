@@ -190,6 +190,30 @@ icmpkick(void *x, Block *bp)
 	ipoput4(c->p->f, bp, 0, c->ttl, c->tos, nil);
 }
 
+static int
+ip4reply(Fs *f, uchar ip4[4])
+{
+	uchar addr[IPaddrlen];
+	int i;
+
+	v4tov6(addr, ip4);
+	if(ipismulticast(addr))
+		return 0;
+	i = ipforme(f, addr);
+	return i == 0 || (i & Runi) != 0;
+}
+
+static int
+ip4me(Fs *f, uchar ip4[4])
+{
+	uchar addr[IPaddrlen];
+
+	v4tov6(addr, ip4);
+	if(ipismulticast(addr))
+		return 0;
+	return (ipforme(f, addr) & Runi) != 0;
+}
+
 extern void
 icmpttlexceeded(Fs *f, uchar *ia, Block *bp)
 {
@@ -197,6 +221,8 @@ icmpttlexceeded(Fs *f, uchar *ia, Block *bp)
 	Icmp	*p, *np;
 
 	p = (Icmp *)bp->rp;
+	if(!ip4reply(f, p->src))
+		return;
 
 	netlog(f, Logicmp, "sending icmpttlexceeded -> %V\n", p->src);
 	nbp = allocb(ICMP_IPSIZE + ICMP_HDRSIZE + ICMP_IPSIZE + 8);
@@ -214,7 +240,6 @@ icmpttlexceeded(Fs *f, uchar *ia, Block *bp)
 	memset(np->cksum, 0, sizeof(np->cksum));
 	hnputs(np->cksum, ptclcsum(nbp, ICMP_IPSIZE, blocklen(nbp) - ICMP_IPSIZE));
 	ipoput4(f, nbp, 0, MAXTTL, DFLTTOS, nil);
-
 }
 
 static void
@@ -222,19 +247,9 @@ icmpunreachable(Fs *f, Block *bp, int code, int seq)
 {
 	Block	*nbp;
 	Icmp	*p, *np;
-	int	i;
-	uchar	addr[IPaddrlen];
 
 	p = (Icmp *)bp->rp;
-
-	/* only do this for unicast sources and destinations */
-	v4tov6(addr, p->dst);
-	i = ipforme(f, addr);
-	if((i&Runi) == 0)
-		return;
-	v4tov6(addr, p->src);
-	i = ipforme(f, addr);
-	if(i != 0 && (i&Runi) == 0)
+	if(!ip4me(f, p->dst) || !ip4reply(f, p->src))
 		return;
 
 	netlog(f, Logicmp, "sending icmpnoconv -> %V\n", p->src);
@@ -283,9 +298,7 @@ goticmpkt(Proto *icmp, Block *bp)
 		s = *c;
 		if(s->lport == recid)
 		if(ipcmp(s->raddr, dst) == 0){
-			bp = concatblock(bp);
-			if(bp != nil)
-				qpass(s->rq, bp);
+			qpass(s->rq, concatblock(bp));
 			return;
 		}
 	}
@@ -293,12 +306,14 @@ goticmpkt(Proto *icmp, Block *bp)
 }
 
 static Block *
-mkechoreply(Block *bp)
+mkechoreply(Block *bp, Fs *f)
 {
 	Icmp	*q;
 	uchar	ip[4];
 
 	q = (Icmp *)bp->rp;
+	if(!ip4me(f, q->dst) || !ip4reply(f, q->src))
+		return nil;
 	q->vihl = IP_VER4;
 	memmove(ip, q->src, sizeof(q->dst));
 	memmove(q->src, q->dst, sizeof(q->src));
@@ -376,7 +391,11 @@ icmpiput(Proto *icmp, Ipifc*, Block *bp)
 	case EchoRequest:
 		if (iplen < n)
 			bp = trimblock(bp, 0, iplen);
-		r = mkechoreply(concatblock(bp));
+		if(bp->next)
+			bp = concatblock(bp);
+		r = mkechoreply(bp, icmp->f);
+		if(r == nil)
+			goto raise;
 		ipriv->out[EchoReply]++;
 		ipoput4(icmp->f, r, 0, MAXTTL, DFLTTOS, nil);
 		break;
