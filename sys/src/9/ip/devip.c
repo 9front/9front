@@ -1185,7 +1185,6 @@ ipbwrite(Chan* ch, Block* bp, ulong offset)
 	Conv *c;
 	Proto *x;
 	Fs *f;
-	int n;
 
 	switch(TYPE(ch->qid)){
 	case Qdata:
@@ -1198,9 +1197,8 @@ ipbwrite(Chan* ch, Block* bp, ulong offset)
 
 		if(bp->next)
 			bp = concatblock(bp);
-		n = BLEN(bp);
-		qbwrite(c->wq, bp);
-		return n;
+		
+		return qbwrite(c->wq, bp);
 	default:
 		return devbwrite(ch, bp, offset);
 	}
