@@ -647,17 +647,7 @@ greiput(Proto *proto, Ipifc *, Block *bp)
 		return;
 	}
 
-	/*
-	 *  Can't delimit packet so pull it all into one block.
-	 */
-	if(qlen(c->rq) > GREqlen)
-		freeb(bp);
-	else{
-		bp = concatblock(bp);
-		if(bp == 0)
-			panic("greiput");
-		qpass(c->rq, bp);
-	}
+	qpass(c->rq, bp);
 }
 
 int

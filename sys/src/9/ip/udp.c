@@ -495,18 +495,15 @@ udpiput(Proto *udp, Ipifc *ifc, Block *bp)
 		break;
 	}
 
-	if(bp->next)
-		bp = concatblock(bp);
-
 	if(qfull(c->rq)){
-		qunlock(c);
 		netlog(f, Logudp, "udp: qfull %I.%d -> %I.%d\n", raddr, rport,
 		       laddr, lport);
 		freeblist(bp);
-		return;
+	} else {
+		if(bp->next)
+			bp = concatblock(bp);
+		qpass(c->rq, bp);
 	}
-
-	qpass(c->rq, bp);
 	qunlock(c);
 
 }

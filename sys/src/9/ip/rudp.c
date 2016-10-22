@@ -574,17 +574,16 @@ rudpiput(Proto *rudp, Ipifc *ifc, Block *bp)
 		}
 		break;
 	}
-	if(bp->next)
-		bp = concatblock(bp);
 
 	if(qfull(c->rq)) {
 		netlog(f, Logrudp, "rudp: qfull %I.%d -> %I.%d\n", raddr, rport,
 			laddr, lport);
 		freeblist(bp);
-	}
-	else
+	} else {
+		if(bp->next)
+			bp = concatblock(bp);
 		qpass(c->rq, bp);
-	
+	}
 	qunlock(ucb);
 }
 

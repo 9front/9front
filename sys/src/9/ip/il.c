@@ -923,17 +923,12 @@ ilpullup(Conv *s)
 		bp->list = nil;
 		dlen = nhgets(oh->illen)-IL_HDRSIZE;
 		bp = trimblock(bp, IL_IPSIZE+IL_HDRSIZE, dlen);
+			
 		/*
 		 * Upper levels don't know about multiple-block
 		 * messages so copy all into one (yick).
 		 */
-		bp = concatblock(bp);
-		if(bp == 0)
-			panic("ilpullup");
-		bp = packblock(bp);
-		if(bp == 0)
-			panic("ilpullup2");
-		qpass(s->rq, bp);
+		qpass(s->rq, packblock(concatblock(bp)));
 	}
 	qunlock(&ic->outo);
 }

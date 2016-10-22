@@ -745,10 +745,7 @@ yes:
 		/* tack on interface address */
 		bp = padblock(bp, IPaddrlen);
 		ipmove(bp->rp, ifc->lifc->local);
-		bp = concatblock(bp);
-		if(bp != nil)
-			if(qpass(c->rq, bp) < 0)
-				print("Q");
+		qpass(c->rq, concatblock(bp));
 		return;
 	}
 
