@@ -491,6 +491,10 @@ fsrpcio(Req *r)
 
 	fss = r->fid->aux;
 	srv = r->srv;
+	if(srv->sref.ref == 1 && srv->rref.ref > 16){
+		respond(r, "too much activity");
+		return;
+	}
 	srvrelease(srv);
 	qlock(fss);
 	if(r->ifcall.type == Tread)
