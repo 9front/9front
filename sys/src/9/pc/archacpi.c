@@ -4,19 +4,14 @@
 #include "dat.h"
 #include "fns.h"
 #include "io.h"
+#include "../port/error.h"
 
 #include "mp.h"
 
 #include <aml.h>
 
-typedef struct Memreg Memreg;
 typedef struct Rsd Rsd;
 typedef struct Tbl Tbl;
-
-struct Memreg {
-	uintptr	addr;
-	int		size;
-};
 
 struct Rsd {
 	uchar	sig[8];
@@ -57,9 +52,6 @@ static uintptr tblpa[64];
 static int ntblmap;
 static Tbl *tblmap[64];
 
-static int nmemregs;
-static Memreg memregs[16];
-
 static ushort
 get16(uchar *p){
 	return p[1]<<8 | p[0];
@@ -81,6 +73,34 @@ get64(uchar *p){
 static uint
 tbldlen(Tbl *t){
 	return get32(t->len) - Tblsz;
+}
+
+static long
+memcheck(uintptr pa, long len)
+{
+	int i;
+	uintptr pe;
+	Confmem *cm;
+
+	if(len <= 0)
+		return len;
+	pe = pa + len-1;
+	if(pe < pa){
+		len = -pa;
+		pe = pa + len-1;
+	}
+	if(pa < PADDR(CPU0END))
+		return 0;
+	if(pe >= PADDR(KTZERO) && pa < PADDR(end))
+		return PADDR(KTZERO) - pa;
+	for(i=0; i<nelem(conf.mem); i++){
+		cm = &conf.mem[i];
+		if(cm->npage == 0)
+			continue;
+		if(pe >= cm->base && pa <= cm->base + cm->npage*BY2PG - 1)
+			return cm->base - pa;
+	}
+	return len;
 }
 
 static void
@@ -111,7 +131,14 @@ maptable(uvlong xpa)
 		vunmap(t, 8);
 		return;
 	}
+	if(memcheck(pa, l) != l){
+		print("maptable: ignoring %.4s at [%#p-%#p); overlaps usable memory\n",
+			(char*)t->sig, pa, pa+l);
+		vunmap(t, 8);
+		return;
+	}
 	vunmap(t, 8);
+
 	if((t = vmap(pa, l)) == nil)
 		return;
 	if(checksum(t, l)){
@@ -467,29 +494,6 @@ enumprt(void *dot, void *)
 }
 
 static int
-enumini(void *dot, void *)
-{
-	void *p, *r;
-	int s;
-
-	/*
-	 * If there is no _STA (or it fails), device should be
-	 * considered present and enabled.
-	 */
-	s = 0xff;
-	if((p = amlwalk(dot, "^_STA")) != nil){
-		if(amleval(p, "", &r) >= 0)
-			s = amlint(r);
-		if((s & 1) == 0) /* return if not present */
-				return 1;
-	}
-	if(s & 1) /* initialize everything present */
-		amleval(dot, "", nil);
-	/* recurse if present, enabled and "ok" */
-	return (s & 11) == 11 ? 0 : 1;
-}
-
-static int
 enumec(void *dot, void *)
 {
 	int cmdport, dataport;
@@ -509,8 +513,6 @@ enumec(void *dot, void *)
 		return 1;
 	dataport = b[0+2] | b[0+3]<<8;
 	cmdport = b[8+2] | b[8+3]<<8;
-	if((x = amlwalk(dot, "^_REG")) != nil)
-		amleval(x, "ii", 3, 1, nil);
 	ecinit(cmdport, dataport);
 	return 1;
 }
@@ -518,51 +520,41 @@ enumec(void *dot, void *)
 static long
 readmem(Chan*, void *v, long n, vlong o)
 {
-	int i;
-	uchar *t;
-	uintptr start, end;
-	Memreg *mr;
+	uintptr pa = (uintptr)o;
+	void *t;
 
-	start = o;
-	end = start + n;
-	for(i = 0; n > 0 && i < nmemregs; i++){
-		mr = &memregs[i];
-		if(start >= mr->addr && start < mr->addr+mr->size){
-			if(end > mr->addr+mr->size)
-				end = mr->addr+mr->size;
-			n = end - start;
-			t = vmap(mr->addr, n);
-			memmove(v, start - mr->addr + t, n);
-			vunmap(t, n);
-			return n;
-		}
+	if((n = memcheck(pa, n)) <= 0)
+		return 0;
+	if((t = vmap(pa, n)) == nil)
+		error(Enovmem);
+	if(waserror()){
+		vunmap(t, n);
+		nexterror();
 	}
-	return 0;
+	memmove(v, t, n);
+	vunmap(t, n);
+	poperror();
+	return n;
 }
 
 static long
 writemem(Chan*, void *v, long n, vlong o)
 {
-	int i;
-	uchar *t;
-	uintptr start, end;
-	Memreg *mr;
+	uintptr pa = (uintptr)o;
+	void *t;
 
-	start = o;
-	end = start + n;
-	for(i = 0; n > 0 && i < nmemregs; i++){
-		mr = &memregs[i];
-		if(start >= mr->addr && start < mr->addr+mr->size){
-			if(end > mr->addr+mr->size)
-				end = mr->addr+mr->size;
-			n = end - start;
-			t = vmap(mr->addr, n);
-			memmove(start - mr->addr + t, v, n);
-			vunmap(t, n);
-			return n;
-		}
+	if(memcheck(pa, n) != n)
+		error(Eio);
+	if((t = vmap(pa, n)) == nil)
+		error(Enovmem);
+	if(waserror()){
+		vunmap(t, n);
+		nexterror();
 	}
-	return 0;
+	memmove(t, v, n);
+	vunmap(t, n);
+	poperror();
+	return n;
 }
 
 static void
@@ -578,9 +570,6 @@ acpiinit(void)
 	maptables();
 
 	amlinit();
-
-	if(getconf("*acpimem") != nil)
-		addarchfile("acpimem", 0660, readmem, writemem);
 
 	/* load DSDT */
 	for(i=0; i<ntblmap; i++){
@@ -701,9 +690,6 @@ Foundapic:
 	/* find embedded controller */
 	amlenum(amlroot, "_HID", enumec, nil);
 
-	/* init */
-	amlenum(amlroot, "_INI", enumini, nil);
-
 	/* look for PCI interrupt mappings */
 	amlenum(amlroot, "_PRT", enumprt, nil);
 
@@ -810,6 +796,7 @@ identify(void)
 	if(checksum(rsd, 20) && checksum(rsd, 36))
 		return 1;
 	addarchfile("acpitbls", 0444, readtbls, nil);
+	addarchfile("acpimem", 0600, readmem, writemem);
 	if(strcmp(cp, "0") == 0)
 		return 1;
 	if((cp = getconf("*nomp")) != nil && strcmp(cp, "0") != 0)
@@ -983,14 +970,14 @@ amlmapio(Amlio *io)
 		print("amlmapio: address space %x not implemented\n", io->space);
 		break;
 	case MemSpace:
+		if(memcheck(io->off, io->len) != io->len){
+			print("amlmapio: [%#p-%#p) overlaps usable memory\n",
+				(uintptr)io->off, (uintptr)io->off+io->len);
+			break;
+		}
 		if((io->va = vmap(io->off, io->len)) == nil){
 			print("amlmapio: vmap failed\n");
 			break;
-		}
-		if(nmemregs < nelem(memregs)){
-			memregs[nmemregs].addr = io->off;
-			memregs[nmemregs].size = io->len;
-			nmemregs++;
 		}
 		return 0;
 	case IoSpace:
