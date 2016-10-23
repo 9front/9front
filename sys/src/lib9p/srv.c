@@ -748,6 +748,11 @@ srvwork(void *v)
 		case Tstat:	sstat(srv, r);	break;
 		case Twstat:	swstat(srv, r);	break;
 		}
+		if(srv->sref.ref > 8 && srv->spid != getpid()){
+			decref(&srv->sref);
+			qunlock(&srv->slock);
+			return;
+		}
 		qunlock(&srv->slock);
 	}
 
@@ -803,6 +808,7 @@ srv(Srv *srv)
 	fmtinstall('D', dirfmt);
 	fmtinstall('F', fcallfmt);
 
+	srv->spid = getpid();
 	srv->sref.ref = 0;
 	srv->rref.ref = 0;
 

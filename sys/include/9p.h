@@ -236,6 +236,8 @@ struct Srv {
 	Ref	sref;	/* srvwork procs */
 	Ref	rref;	/* requests in flight */
 
+	int	spid;	/* pid of srv() caller */
+
 	void	(*free)(Srv*);
 };
 
