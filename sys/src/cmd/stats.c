@@ -598,6 +598,10 @@ initmach(Machine *m, char *name)
 
 	snprint(buf, sizeof buf, "%s/mnt/apm/battery", mpt);
 	m->batteryfd = open(buf, OREAD);
+	if(m->batteryfd < 0){
+		snprint(buf, sizeof buf, "%s/mnt/acpi/battery", mpt);
+		m->batteryfd = open(buf, OREAD);
+	}
 	m->bitsybatfd = -1;
 	if(m->batteryfd >= 0){
 		if(loadbuf(m, &m->batteryfd) && readnums(m, nelem(m->batterystats), a, 0))
@@ -610,6 +614,10 @@ initmach(Machine *m, char *name)
 	}
 	snprint(buf, sizeof buf, "%s/dev/cputemp", mpt);
 	m->tempfd = open(buf, OREAD);
+	if(m->tempfd < 0){
+		snprint(buf, sizeof buf, "%s/mnt/acpi/cputemp", mpt);
+		m->tempfd = open(buf, OREAD);
+	}
 	if(loadbuf(m, &m->tempfd))
 		for(n=0; n < nelem(m->temp) && readnums(m, 2, a, 0); n++)
 			 m->temp[n] = a[0];
