@@ -21,7 +21,6 @@ struct Batstat {
 struct Battery {
 	char *unit;
 	void *bst;
-	int id;
 	int fullcharge;
 	int capacity;
 	int capacitywarn;
@@ -117,7 +116,6 @@ enumbat(void *dot, void *)
 	b->voltage = amlint(rr[4]);
 	b->capacitywarn = amlint(rr[5]);
 	b->capacitylow = amlint(rr[6]);
-	b->id = amlint(amlwalk(dot, "^_UID"));
 	b->bst = amlwalk(dot, "^_BST");
 	if(b->bst != nil){
 		amltake(b->bst);
@@ -213,8 +211,8 @@ batteryread(Req *r)
 			s -= 60*(s/60);
 		}
 		x = bats[n].fullcharge > 0 ? st.capacity * 100 / bats[n].fullcharge : -1;
-		p += snprint(p, ep-p, "%d %d %s %d %d %d %d %d %s %d %d %02d:%02d:%02d %s\n",
-			n, x,
+		p += snprint(p, ep-p, "%d %s %d %d %d %d %d %s %d %d %02d:%02d:%02d %s\n",
+			x,
 			bats[n].unit, st.capacity, b->fullcharge, b->capacity, b->capacitywarn, b->capacitylow,
 			"mV", st.voltage, b->voltage,
 			h, m, s,
@@ -231,7 +229,7 @@ tmpread(Req *r)
 {
 	char buf[32], *ep, *p;
 	void *er;
-	int n, t, cpu;
+	int n, t;
 
 	p = buf;
 	ep = buf + sizeof(buf);
@@ -240,10 +238,7 @@ tmpread(Req *r)
 		t = 0;
 		if(amleval(therms[n].tmp, "", &er) >= 0)
 			t = amlint(er);
-		for(cpu = 0; cpu < 32; cpu++){
-			if(therms[n].cpus & (1<<cpu))
-				p += snprint(p, ep-p, "%d %d\n", cpu, (t - 2732)/10);
-		}
+			p += snprint(p, ep-p, "%d\n", (t - 2732)/10);
 	}
 
 	readstr(r, buf);
