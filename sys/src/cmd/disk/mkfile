@@ -6,6 +6,7 @@ TARG=exsort\
 	mkext\
 	mkfs\
 	partfs\
+	cryptsetup\
 
 DIRS=\
 	9660\

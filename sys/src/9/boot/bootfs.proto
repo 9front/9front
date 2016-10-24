@@ -11,9 +11,9 @@ $objtype
 		cat
 		cfs
 		chmod
-		cryptsetup
 		dd
 		disk
+			cryptsetup
 			edisk
 			fdisk
 			prep

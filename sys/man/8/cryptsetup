@@ -2,15 +2,15 @@
 .SH NAME
 cryptsetup \- setup encrypted partition
 .SH SYNOPSIS
-.B cryptsetup
+.B disk/cryptsetup
 .B -f
 .I files ...
 .br
-.B cryptsetup
+.B disk/cryptsetup
 .B -o
 .I files ...
 .br
-.B cryptsetup
+.B disk/cryptsetup
 .B -i
 .I files ...
 .SH DESCRIPTION
@@ -49,7 +49,7 @@ is the last path element of the
 .I files
 argument.
 .SH SOURCE
-.B /sys/src/cmd/cryptsetup
+.B /sys/src/cmd/disk/cryptsetup.c
 .SH SEE ALSO
 .IR aes (2) ,
 .IR fs (3)

@@ -90,7 +90,7 @@ struct Fsdev
 	vlong	start;		/* start address (for Fpart) */
 	uint	ndevs;		/* number of inner devices */
 	Inner	*inner[Ndevs];	/* inner devices */
-	void *extra;                /* extra state for the device */
+	Key	*key;		/* crypt key */
 };
 
 struct Tree
@@ -351,6 +351,7 @@ mdeldev(Fsdev *mp)
 		}
 	wunlock(&lck);
 
+	secfree(mp->key);
 	free(mp->name);
 	for(i = 0; i < mp->ndevs; i++){
 		in = mp->inner[i];
@@ -359,8 +360,6 @@ mdeldev(Fsdev *mp)
 		free(in->iname);
 		free(in);
 	}
-	if(debug)
-		memset(mp, 9, sizeof *mp);	/* poison */
 	free(mp);
 }
 
@@ -553,7 +552,7 @@ mconfig(char* a, long n)
 	vlong	size, start;
 	vlong	*ilen;
 	char	*tname, *dname, *fakef[4];
-	uchar key[32];
+	uchar	key[32];
 	Chan	**idev;
 	Cmdbuf	*cb;
 	Cmdtab	*ct;
@@ -601,7 +600,8 @@ mconfig(char* a, long n)
 		mdelctl("*", "*");		/* del everything */
 		return;
 	case Fcrypt:
-		dec16(key, 32, cb->f[2], 64);
+		if(dec16(key, 32, cb->f[2], strlen(cb->f[2])) != 32)
+			error("bad hexkey");
 		cb->nf -= 1;
 		break;
 	case Fpart:
@@ -693,13 +693,11 @@ Fail:
 		mp->size = size * sectorsz;
 	}
 	if(mp->type == Fcrypt) {
-		Key *k = mallocz(sizeof(Key), 1);
-		if(k == nil)
-			error(Enomem);
+		Key *k = secalloc(sizeof(Key));
 		setupAESstate(&k->tweak, &key[0], 16, nil);
 		setupAESstate(&k->ecb, &key[16], 16, nil);
 		memset(key, 0, 32);
-		mp->extra = k;
+		mp->key = k;
 	}
 	for(i = 1; i < cb->nf; i++){
 		inprv = mp->inner[i-1] = mallocz(sizeof(Inner), 1);
@@ -711,8 +709,6 @@ Fail:
 		idev[i-1] = nil;
 	}
 	setdsize(mp, ilen);
-
-
 
 	poperror();
 	wunlock(&lck);
@@ -1033,7 +1029,7 @@ cryptio(Fsdev *mp, int isread, uchar *a, long l, vlong off)
 	if(off < 0 || l <= 0 || ((off|l) & (Sectsz-1)))
 		error(Ebadarg);
 
-	k = mp->extra;
+	k = mp->key;
 	in = mp->inner[0];
 	mc = in->idev;
 	if(mc == nil)
