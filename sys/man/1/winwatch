@@ -16,6 +16,8 @@ displays the labels of all current
 .IR rio (4)
 windows, refreshing the display every five seconds.
 Right clicking a window's label unhides, raises and gives focus to that window.
+Right clicking a window again hides the window.
+Middle clicking a window's label prompts for a new label.
 Typing
 .B q
 or
@@ -24,7 +26,7 @@ quits
 .IR winwatch .
 Typing
 .B l
-and selecting a window by left click prompts for a new label.
+and selecting a window by a click also prompts for a new label.
 .PP
 If the
 .B -e

@@ -236,12 +236,52 @@ eresized(int new)
 }
 
 int
-click(Mouse m)
+label(Win w, Mouse m)
+{
+	char buf[512], fname[128];
+	int n, fd;
+
+	buf[0] = 0;
+	n = eenter("label?", buf, sizeof(buf), &m);
+	if(n <= 0)
+		return 0;
+	sprint(fname, "/dev/wsys/%d/label", w.n);
+	if((fd = open(fname, OWRITE)) < 0)
+		return 0;
+	write(fd, buf, n);
+	close(fd);
+	refreshwin();
+	redraw(screen, 1);
+	return 1;
+}
+
+int
+unhide(Win w)
 {
 	char buf[128];
-	int fd, i;	
+	int fd;
 
-	if((m.buttons & 7) != 4)
+	sprint(buf, "/dev/wsys/%d/wctl", w.n);
+	if((fd = open(buf, OWRITE)) < 0)
+		return 0;
+	if(w.state == (CURRENT|VISIBLE))
+		write(fd, "hide\n", 5);
+	else {
+		write(fd, "unhide\n", 7);
+		write(fd, "top\n", 4);
+		write(fd, "current\n", 8);
+	}
+	close(fd);
+	return 1;
+}
+
+int
+click(Mouse m)
+{
+	int i, b;
+
+	b = m.buttons & 7;
+	if(b != 2 && b != 4)
 		return 0;
 	for(i=0; i<nwin; i++)
 		if(ptinrect(m.xy, win[i].r))
@@ -250,21 +290,16 @@ click(Mouse m)
 		return 0;
 	do
 		m = emouse();
-	while((m.buttons & 7) == 4);
+	while((m.buttons & 7) == b);
 	if((m.buttons & 7) || !ptinrect(m.xy, win[i].r))
 		return 0;
 
-	sprint(buf, "/dev/wsys/%d/wctl", win[i].n);
-	if((fd = open(buf, OWRITE)) < 0)
-		return 0;
-	if(win[i].state == (CURRENT|VISIBLE))
-		write(fd, "hide\n", 5);
-	else {
-		write(fd, "unhide\n", 7);
-		write(fd, "top\n", 4);
-		write(fd, "current\n", 8);
+	switch(b) {
+	case 2:
+		return label(win[i], m);
+	case 4:
+		return unhide(win[i]);
 	}
-	close(fd);
 	return 1;
 }
 
@@ -281,11 +316,10 @@ Cursor crosscursor = {
 };
 
 void
-chlabel(void)
+kbdlabel(void)
 {
 	Mouse m;
-	char buf[512], fname[128];
-	int i, n, fd;
+	int i;
 
 	esetcursor(&crosscursor);
 	do
@@ -302,17 +336,7 @@ chlabel(void)
 			break;
 	if(i == nwin)
 		return;
-	buf[0] = 0;
-	n = eenter("label?", buf, sizeof(buf), &m);
-	if(n <= 0)
-		return;
-	sprint(fname, "/dev/wsys/%d/label", win[i].n);
-	if((fd = open(fname, OWRITE)) < 0)
-		return;
-	write(fd, buf, n);
-	close(fd);
-	refreshwin();
-	redraw(screen, 1);
+	label(win[i], m);
 }
 
 void
@@ -370,7 +394,7 @@ main(int argc, char **argv)
 			if(e.kbdc==Kdel || e.kbdc=='q')
 				exits(0);
 			if(e.kbdc == 'l')
-				chlabel();
+				kbdlabel();
 			break;
 		case Emouse:
 			if(click(e.mouse) == 0)
