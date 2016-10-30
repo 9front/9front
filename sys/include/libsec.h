@@ -535,6 +535,7 @@ char*	X509ecdsaverify(uchar *sig, int siglen, ECdomain *dom, ECpub *pub);
 /* curves */
 void	secp256r1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h);
 void	secp256k1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h);
+void	secp384r1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h);
 
 DigestState*	ripemd160(uchar *, ulong, uchar *, DigestState *);
 

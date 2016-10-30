@@ -1696,13 +1696,16 @@ static DigestAlg *digestalg[NUMALGS+1] = {
 };
 
 static Ints15 oid_secp256r1 = {7, 1, 2, 840, 10045, 3, 1, 7};
+static Ints15 oid_secp384r1 = {5, 1, 3, 132, 0, 34};
 
 static Ints *namedcurves_oid_tab[] = {
 	(Ints*)&oid_secp256r1,
+	(Ints*)&oid_secp384r1,
 	nil,
 };
 static void (*namedcurves[])(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h) = {
 	secp256r1,
+	secp384r1,
 	nil,
 };
 

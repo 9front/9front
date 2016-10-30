@@ -350,6 +350,7 @@ static uchar compressors[] = {
 
 static Namedcurve namedcurves[] = {
 	0x0017, secp256r1,
+	0x0018, secp384r1,
 };
 
 static uchar pointformats[] = {
