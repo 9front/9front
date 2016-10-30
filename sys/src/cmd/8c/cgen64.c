@@ -1577,9 +1577,9 @@ cgen64(Node *n, Node *nn)
 
 	if(nn != Z && nn->complex >= FNX){
 		reglcgen(&nod1, nn, Z);
-		m = cgen64(n, &nod1);
+		cgen(n, &nod1);
 		regfree(&nod1);
-		return m;
+		return 1;
 	}
 
 	switch(n->op) {
