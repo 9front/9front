@@ -241,8 +241,8 @@ label(Win w, Mouse m)
 	char buf[512], fname[128];
 	int n, fd;
 
-	buf[0] = 0;
-	n = eenter("label?", buf, sizeof(buf), &m);
+	snprint(buf, sizeof(buf), "%s", w.label);
+	n = eenter(nil, buf, sizeof(buf), &m);
 	if(n <= 0)
 		return 0;
 	sprint(fname, "/dev/wsys/%d/label", w.n);
