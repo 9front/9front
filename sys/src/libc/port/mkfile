@@ -12,6 +12,7 @@ CFILES=\
 	atof.c\
 	atol.c\
 	atoll.c\
+	calloc.c\
 	cistrcmp.c\
 	cistrncmp.c\
 	cistrstr.c\

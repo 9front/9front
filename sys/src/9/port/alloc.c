@@ -286,15 +286,6 @@ msize(void *v)
 	return poolmsize(mainmem, (ulong*)v-Npadlong)-Npadlong*sizeof(ulong);
 }
 
-void*
-calloc(ulong n, ulong szelem)
-{
-	void *v;
-	if(v = mallocz(n*szelem, 1))
-		setmalloctag(v, getcallerpc(&n));
-	return v;
-}
-
 /* secret memory, used to back cryptographic keys and cipher states */
 void*
 secalloc(ulong size)
