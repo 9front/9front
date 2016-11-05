@@ -84,7 +84,7 @@ iallocb(int size)
 			if(nerr > 10000000){
 				xsummary();
 				mallocsummary();
-				panic("iallocb: out of memory")
+				panic("iallocb: out of memory");
 			}
 			iprint("iallocb: no memory for %d bytes\n", size);
 		}
