@@ -972,7 +972,7 @@ amlmapio(Amlio *io)
 	case MemSpace:
 		if(memcheck(io->off, io->len) != io->len){
 			print("amlmapio: [%#p-%#p) overlaps usable memory\n",
-				(uintptr)io->off, (uintptr)io->off+io->len);
+				(uintptr)io->off, (uintptr)(io->off+io->len));
 			break;
 		}
 		if((io->va = vmap(io->off, io->len)) == nil){
