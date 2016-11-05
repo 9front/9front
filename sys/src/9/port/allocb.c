@@ -8,14 +8,9 @@
 enum
 {
 	Hdrspc		= 64,		/* leave room for high-level headers */
+	Tlrspc		= 16,		/* extra room at the end for pad/crc/mac */
 	Bdead		= 0x51494F42,	/* "QIOB" */
 };
-
-struct
-{
-	Lock;
-	ulong	bytes;
-} ialloc;
 
 static Block*
 _allocb(int size)
@@ -23,6 +18,7 @@ _allocb(int size)
 	Block *b;
 	uintptr addr;
 
+	size += Tlrspc;
 	if((b = mallocz(sizeof(Block)+size+Hdrspc, 0)) == nil)
 		return nil;
 
@@ -58,7 +54,6 @@ allocb(int size)
 
 	/*
 	 * Check in a process and wait until successful.
-	 * Can still error out of here, though.
 	 */
 	if(up == nil)
 		panic("allocb without up: %#p", getcallerpc(&size));
@@ -82,33 +77,21 @@ Block*
 iallocb(int size)
 {
 	Block *b;
-	static int m1, m2, mp;
-
-	if(ialloc.bytes > conf.ialloc){
-		if((m1++%10000)==0){
-			if(mp++ > 1000)
-				panic("iallocb: out of memory");
-			iprint("iallocb: limited %lud/%lud\n",
-				ialloc.bytes, conf.ialloc);
-		}
-		return nil;
-	}
 
 	if((b = _allocb(size)) == nil){
-		if((m2++%10000)==0){
-			if(mp++ > 1000)
-				panic("iallocb: out of memory");
-			iprint("iallocb: no memory %lud/%lud\n",
-				ialloc.bytes, conf.ialloc);
+		static ulong nerr;
+		if((nerr++%10000)==0){
+			if(nerr > 10000000){
+				xsummary();
+				mallocsummary();
+				panic("iallocb: out of memory")
+			}
+			iprint("iallocb: no memory for %d bytes\n", size);
 		}
 		return nil;
 	}
 	setmalloctag(b, getcallerpc(&size));
 	b->flag = BINTR;
-
-	ilock(&ialloc);
-	ialloc.bytes += b->lim - b->base;
-	iunlock(&ialloc);
 
 	return b;
 }
@@ -128,11 +111,6 @@ freeb(Block *b)
 	if(b->free != nil) {
 		b->free(b);
 		return;
-	}
-	if(b->flag & BINTR) {
-		ilock(&ialloc);
-		ialloc.bytes -= b->lim - b->base;
-		iunlock(&ialloc);
 	}
 
 	/* poison the block in case someone is still holding onto it */
@@ -170,10 +148,4 @@ checkb(Block *b, char *msg)
 		panic("checkb 3 %s %#p %#p", msg, b->rp, b->lim);
 	if(b->wp > b->lim)
 		panic("checkb 4 %s %#p %#p", msg, b->wp, b->lim);
-}
-
-void
-iallocsummary(void)
-{
-	print("ialloc %lud/%lud\n", ialloc.bytes, conf.ialloc);
 }

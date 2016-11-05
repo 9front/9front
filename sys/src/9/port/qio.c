@@ -13,8 +13,6 @@ static ulong consumecnt;
 static ulong producecnt;
 static ulong qcopycnt;
 
-static int debugging;
-
 #define QDEBUG	if(0)
 
 /*
@@ -55,17 +53,6 @@ enum
 };
 
 uint	qiomaxatomic = Maxatomic;
-
-void
-ixsummary(void)
-{
-	debugging ^= 1;
-	iallocsummary();
-	print("pad %lud, concat %lud, pullup %lud, copy %lud\n",
-		padblockcnt, concatblockcnt, pullupblockcnt, copyblockcnt);
-	print("consume %lud, produce %lud, qcopy %lud\n",
-		consumecnt, producecnt, qcopycnt);
-}
 
 /*
  *  free a list of blocks

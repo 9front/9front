@@ -55,6 +55,16 @@ defn imagecache() {
 	}
 }
 
+defn qiostats() {
+	print ("padblockcnt=", *padblockcnt\D, "\n");
+	print ("concatblockcnt=", *concatblockcnt\D, "\n");
+	print ("pullupblockcnt=", *pullupblockcnt\D, "\n");
+	print ("copyblockcnt=", *copyblockcnt\D, "\n");
+	print ("consumecnt=", *consumecnt\D, "\n");
+	print ("producecnt=", *producecnt\D, "\n");
+	print ("qcopycnt=", *qcopycnt\D, "\n");
+}
+
 // dump channels
 defn chan(c) {
 	local d, q;
