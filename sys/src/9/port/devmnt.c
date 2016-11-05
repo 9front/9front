@@ -26,8 +26,7 @@ struct Mntrpc
 	Fcall 	reply;		/* Incoming reply */
 	Mnt*	m;		/* Mount device during rpc */
 	Rendez*	z;		/* Place to hang out */
-	uchar*	rpc;		/* I/O Data buffer */
-	uint	rpclen;		/* len of buffer */
+	Block*	w;		/* copy of write rpc for cache */
 	Block*	b;		/* reply blocks */
 	Mntrpc*	flushed;	/* message this one flushes */
 	char	done;		/* Rpc completed */
@@ -67,6 +66,8 @@ static void	mountio(Mnt*, Mntrpc*);
 static void	mountmux(Mnt*, Mntrpc*);
 static void	mountrpc(Mnt*, Mntrpc*);
 static int	rpcattn(void*);
+
+#define cachedchan(c) (((c)->flag & CCACHE) != 0 && (c)->mcp != nil)
 
 char	Esbadstat[] = "invalid directory entry received from server";
 char	Enoversion[] = "version not established for mount channel";
@@ -659,7 +660,7 @@ mntcache(Mntrpc *r)
 	Chan *c;
 
 	c = r->c;
-	if((c->flag & CCACHE) == 0 || c->mcp == nil)
+	if(!cachedchan(c))
 		return;
 	off = r->request.offset;
 	switch(r->reply.type){
@@ -676,9 +677,13 @@ mntcache(Mntrpc *r)
 		}
 		break;
 	case Rwrite:
-		if(convM2S(r->rpc, r->rpclen, &r->request) == 0)
+		b = r->w;
+		if(convM2S(b->rp, BLEN(b), &r->request) == 0)
 			panic("convM2S");
-		cwrite(c, (uchar*)r->request.data, r->request.count, off);
+		m = r->reply.count;
+		if(m > r->request.count)
+			m = r->request.count;
+		cwrite(c, (uchar*)r->request.data, m, off);
 		break;
 	}
 }
@@ -700,7 +705,7 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 		if(nreq > c->iounit)
 			nreq = c->iounit;
 
-		if(type == Tread && (c->flag&CCACHE) != 0) {
+		if(type == Tread && cachedchan(c)) {
 			nr = cread(c, (uchar*)uba, nreq, off);
 			if(nr > 0) {
 				nreq = nr;
@@ -992,6 +997,7 @@ mountrpc(Mnt *m, Mntrpc *r)
 static void
 mountio(Mnt *m, Mntrpc *r)
 {
+	Block *b;
 	int n;
 
 	while(waserror()) {
@@ -1021,23 +1027,22 @@ mountio(Mnt *m, Mntrpc *r)
 
 	/* Transmit a file system rpc */
 	n = sizeS2M(&r->request);
-	if(n > r->rpclen) {
-		free(r->rpc);
-		r->rpc = mallocz(((uint)n+127) & ~127, 0);
-		if(r->rpc == nil) {
-			r->rpclen = 0;
-			exhausted("mount rpc buffer");
-		}
-		r->rpclen = msize(r->rpc);
+	b = allocb(n);
+	if(waserror()){
+		freeb(b);
+		nexterror();
 	}
-	n = convS2M(&r->request, r->rpc, r->rpclen);
+	n = convS2M(&r->request, b->wp, n);
 	if(n <= 0 || n > m->msize) {
 		print("mountio: proc %s %lud: convS2M returned %d for tag %d fid %d T%d\n",
 			up->text, up->pid, n, r->request.tag, r->request.fid, r->request.type);
 		error(Emountrpc);
 	}
-	if(devtab[m->c->type]->write(m->c, r->rpc, n, 0) != n)
-		error(Emountrpc);
+	b->wp += n;
+	if(r->request.type == Twrite && cachedchan(r->c))
+		r->w = copyblock(b, n);
+	poperror();
+	devtab[m->c->type]->bwrite(m->c, b, 0);
 
 	/* Gate readers onto the mount point one at a time */
 	for(;;) {
@@ -1288,8 +1293,6 @@ mntralloc(Chan *c)
 		new = malloc(sizeof(Mntrpc));
 		if(new == nil)
 			exhausted("mount rpc header");
-		new->rpc = nil;
-		new->rpclen = 0;
 		lock(&mntalloc);
 		new->request.tag = alloctag();
 	} else {
@@ -1308,12 +1311,14 @@ mntralloc(Chan *c)
 	new->done = 0;
 	new->flushed = nil;
 	new->b = nil;
+	new->w = nil;
 	return new;
 }
 
 static void
 mntfree(Mntrpc *r)
 {
+	freeb(r->w);
 	freeblist(r->b);
 	lock(&mntalloc);
 	mntalloc.nrpcused--;
@@ -1326,7 +1331,6 @@ mntfree(Mntrpc *r)
 	}
 	freetag(r->request.tag);
 	unlock(&mntalloc);
-	free(r->rpc);
 	free(r);
 }
 
