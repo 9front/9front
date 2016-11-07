@@ -1034,14 +1034,10 @@ htontcp6(Tcp *tcph, Block *data, Tcp6hdr *ph, Tcpctl *tcb)
 	if(data) {
 		dlen = blocklen(data);
 		data = padblock(data, hdrlen + TCP6_PKT);
-		if(data == nil)
-			return nil;
 	}
 	else {
 		dlen = 0;
 		data = allocb(hdrlen + TCP6_PKT + 64);	/* the 64 pad is to meet mintu's */
-		if(data == nil)
-			return nil;
 		data->wp += hdrlen + TCP6_PKT;
 	}
 
