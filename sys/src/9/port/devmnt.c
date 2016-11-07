@@ -729,7 +729,7 @@ mntrdwr(int type, Chan *c, void *buf, long n, vlong off)
 		if(nr > nreq)
 			nr = nreq;
 		if(type == Tread)
-			r->b = bl2mem((uchar*)uba, r->b, nr);
+			nr = readblist(r->b, (uchar*)uba, nr, 0);
 		mntfree(r);
 		poperror();
 
@@ -1076,13 +1076,8 @@ doread(Mnt *m, int len)
 
 	while(qlen(m->q) < len){
 		b = devtab[m->c->type]->bread(m->c, m->msize, 0);
-		if(b == nil)
+		if(b == nil || qaddlist(m->q, b) == 0)
 			return -1;
-		if(blocklen(b) == 0){
-			freeblist(b);
-			return -1;
-		}
-		qaddlist(m->q, b);
 	}
 	return 0;
 }
