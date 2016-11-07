@@ -19,8 +19,9 @@ nullunbind(Ipifc*)
 }
 
 static void
-nullbwrite(Ipifc*, Block*, int, uchar*)
+nullbwrite(Ipifc*, Block *bp, int, uchar*)
 {
+	freeb(bp);
 	error("nullbwrite");
 }
 
