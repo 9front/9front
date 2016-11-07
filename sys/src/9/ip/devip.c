@@ -1195,9 +1195,6 @@ ipbwrite(Chan* ch, Block* bp, ulong offset)
 		if(c->wq == nil)
 			error(Eperm);
 
-		if(bp->next)
-			bp = concatblock(bp);
-		
 		return qbwrite(c->wq, bp);
 	default:
 		return devbwrite(ch, bp, offset);

@@ -86,8 +86,6 @@ netdevbwrite(Ipifc *ifc, Block *bp, int, uchar*)
 {
 	Netdevrock *er = ifc->arg;
 
-	if(bp->next)
-		bp = concatblock(bp);
 	if(BLEN(bp) < ifc->mintu)
 		bp = adjustblock(bp, ifc->mintu);
 

@@ -208,7 +208,7 @@ ipoput4(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
 		eh->cksum[0] = 0;
 		eh->cksum[1] = 0;
 		hnputs(eh->cksum, ipcsum(&eh->vihl));
-		ifc->m->bwrite(ifc, bp, V4, gate);
+		ifc->m->bwrite(ifc, concatblock(bp), V4, gate);
 		runlock(ifc);
 		poperror();
 		return 0;
@@ -240,7 +240,7 @@ if((eh->frag[0] & (IP_DF>>8)) && !gating) print("%V: DF set\n", eh->dst);
 		lid = incref(&ip->id4);
 
 	offset = IP4HDR;
-	while(xp != nil && offset && offset >= BLEN(xp)) {
+	while(offset && offset >= BLEN(xp)) {
 		offset -= BLEN(xp);
 		xp = xp->next;
 	}

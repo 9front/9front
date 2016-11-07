@@ -375,7 +375,7 @@ arpenter(Fs *fs, int version, uchar *ip, uchar *mac, int n, int refresh)
 				}
 				rlock(ifc);
 				if(ifc->m != nil)
-					ifc->m->bwrite(ifc, bp, version, ip);
+					ifc->m->bwrite(ifc, concatblock(bp), version, ip);
 				else
 					freeblist(bp);
 				runlock(ifc);

@@ -118,7 +118,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
 	medialen = ifc->maxtu - ifc->m->hsize;
 	if(len <= medialen) {
 		hnputs(eh->ploadlen, len - IP6HDR);
-		ifc->m->bwrite(ifc, bp, V6, gate);
+		ifc->m->bwrite(ifc, concatblock(bp), V6, gate);
 		runlock(ifc);
 		poperror();
 		return 0;
@@ -161,7 +161,7 @@ ipoput6(Fs *f, Block *bp, int gating, int ttl, int tos, Conv *c)
 
 	xp = bp;
 	offset = uflen;
-	while (xp && offset && offset >= BLEN(xp)) {
+	while (offset && offset >= BLEN(xp)) {
 		offset -= BLEN(xp);
 		xp = xp->next;
 	}

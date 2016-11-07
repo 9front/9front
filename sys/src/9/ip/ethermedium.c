@@ -298,8 +298,6 @@ etherbwrite(Ipifc *ifc, Block *bp, int version, uchar *ip)
 
 	/* make it a single block with space for the ether header */
 	bp = padblock(bp, ifc->m->hsize);
-	if(bp->next)
-		bp = concatblock(bp);
 	if(BLEN(bp) < ifc->mintu)
 		bp = adjustblock(bp, ifc->mintu);
 	eh = (Etherhdr*)bp->rp;
