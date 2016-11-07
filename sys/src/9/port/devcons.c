@@ -114,9 +114,7 @@ putstrn0(char *str, int n, int usewrite)
 {
 	int m;
 	char *t;
-
-	if(!islo())
-		usewrite = 0;
+	int (*wq)(Queue*, void*, int);
 
 	/*
 	 *  how many different output devices do we need?
@@ -132,12 +130,10 @@ putstrn0(char *str, int n, int usewrite)
 	 *  if there's a serial line being used as a console,
 	 *  put the message there.
 	 */
-	if(kprintoq != nil && !qisclosed(kprintoq)){
-		if(usewrite)
-			qwrite(kprintoq, str, n);
-		else
-			qiwrite(kprintoq, str, n);
-	}else if(screenputs != nil)
+	wq = usewrite && islo() ? qwrite : qiwrite;
+	if(kprintoq != nil && !qisclosed(kprintoq))
+		(*wq)(kprintoq, str, n);
+	else if(screenputs != nil)
 		screenputs(str, n);
 
 	if(serialoq == nil){
@@ -149,20 +145,12 @@ putstrn0(char *str, int n, int usewrite)
 		t = memchr(str, '\n', n);
 		if(t != nil) {
 			m = t-str;
-			if(usewrite){
-				qwrite(serialoq, str, m);
-				qwrite(serialoq, "\r\n", 2);
-			} else {
-				qiwrite(serialoq, str, m);
-				qiwrite(serialoq, "\r\n", 2);
-			}
+			(*wq)(serialoq, str, m);
+			(*wq)(serialoq, "\r\n", 2);
 			n -= m+1;
 			str = t+1;
 		} else {
-			if(usewrite)
-				qwrite(serialoq, str, n);
-			else
-				qiwrite(serialoq, str, n);
+			(*wq)(serialoq, str, n);
 			break;
 		}
 	}
