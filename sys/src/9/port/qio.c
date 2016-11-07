@@ -1192,7 +1192,6 @@ qwrite(Queue *q, void *vp, int len)
 			n = Maxatomic;
 
 		b = allocb(n);
-		setmalloctag(b, (up->text[0]<<24)|(up->text[1]<<16)|(up->text[2]<<8)|up->text[3]);
 		if(waserror()){
 			freeb(b);
 			nexterror();
@@ -1201,9 +1200,7 @@ qwrite(Queue *q, void *vp, int len)
 		poperror();
 		b->wp += n;
 
-		qbwrite(q, b);
-
-		sofar += n;
+		sofar += qbwrite(q, b);
 	} while(sofar < len && (q->state & Qmsg) == 0);
 
 	return len;
@@ -1212,9 +1209,6 @@ qwrite(Queue *q, void *vp, int len)
 /*
  *  used by print() to write to a queue.  Since we may be splhi or not in
  *  a process, don't qlock.
- *
- *  this routine merges adjacent blocks if block n+1 will fit into
- *  the free space of block n.
  */
 int
 qiwrite(Queue *q, void *vp, int len)
@@ -1242,7 +1236,7 @@ qiwrite(Queue *q, void *vp, int len)
 		/* we use an artificially high limit for kernel prints since anything
 		 * over the limit gets dropped
 		 */
-		if(q->dlen >= 16*1024){
+		if((q->state & Qclosed) != 0 || q->len/2 >= q->limit){
 			iunlock(q);
 			freeb(b);
 			break;
@@ -1424,7 +1418,7 @@ qflush(Queue *q)
 	/* free queued blocks */
 	freeblist(bfirst);
 
-	/* wake up readers/writers */
+	/* wake up writers */
 	wakeup(&q->wr);
 }
 
