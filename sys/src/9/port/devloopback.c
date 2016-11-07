@@ -549,23 +549,13 @@ loopbackwrite(Chan *c, void *va, long n, vlong off)
 }
 
 static long
-loopoput(Loop *lb, Link *link, Block *volatile bp)
+loopoput(Loop *lb, Link *link, Block *bp)
 {
-	long n;
+	long n = BLEN(bp);
 
-	n = BLEN(bp);
-
-	/* make it a single block with space for the loopback timing header */
-	if(waserror()){
-		freeb(bp);
-		nexterror();
-	}
 	bp = padblock(bp, Tmsize);
-	if(bp->next)
-		bp = concatblock(bp);
 	if(BLEN(bp) < lb->minmtu)
 		bp = adjustblock(bp, lb->minmtu);
-	poperror();
 	ptime(bp->rp, todget(nil));
 
 	link->packets++;
