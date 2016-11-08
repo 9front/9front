@@ -78,16 +78,12 @@ padblock(Block *bp, int size)
 	int n;
 	Block *nbp;
 
-	if(bp->next != nil)
-		panic("padblock %#p", getcallerpc(&bp));
-
-	QDEBUG checkb(bp, "padblock 1");
+	QDEBUG checkb(bp, "padblock 0");
 	if(size >= 0){
 		if(bp->rp - bp->base >= size){
 			bp->rp -= size;
 			return bp;
 		}
-
 		n = BLEN(bp);
 		nbp = allocb(size+n);
 		nbp->rp += size;
@@ -99,12 +95,12 @@ padblock(Block *bp, int size)
 		size = -size;
 		if(bp->lim - bp->wp >= size)
 			return bp;
-
 		n = BLEN(bp);
-		nbp = allocb(size+n);
+		nbp = allocb(n+size);
 		memmove(nbp->wp, bp->rp, n);
 		nbp->wp += n;
 	}
+	nbp->next = bp->next;
 	freeb(bp);
 	padblockcnt++;
 	QDEBUG checkb(nbp, "padblock 1");
