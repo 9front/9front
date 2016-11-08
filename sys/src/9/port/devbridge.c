@@ -848,7 +848,7 @@ ethermultiwrite(Bridge *b, Block *bp, Port *port)
 		// delay one so that the last write does not copy
 		if(oport != nil) {
 			b->copy++;
-			etherwrite(oport, copyblock(bp, blocklen(bp)));
+			etherwrite(oport, copyblock(bp, BLEN(bp)));
 		}
 		oport = b->port[i];
 	}
@@ -972,7 +972,7 @@ etherread(void *a)
 		qlock(b);
 		if(bp == nil)
 			break;
-		n = blocklen(bp);
+		n = BLEN(bp);
 		if(port->closed || n < ETHERMINTU){
 			freeb(bp);
 			continue;
@@ -1055,13 +1055,13 @@ etherwrite(Port *port, Block *bp)
 {
 	Iphdr *eh, *feh;
 	Etherpkt *epkt;
-	int n, lid, len, seglen, chunk, dlen, blklen, offset, mf;
-	Block *xp, *nb;
+	int n, lid, len, seglen, dlen, blklen, mf;
+	Block *nb;
 	ushort fragoff, frag;
 
 	port->out++;
+	n = BLEN(bp);
 	epkt = (Etherpkt*)bp->rp;
-	n = blocklen(bp);
 	if(port->type != Ttun || !fragment(epkt, n)) {
 		if(!waserror()){
 			devtab[port->data[1]->type]->bwrite(port->data[1], bp, 0);
@@ -1071,7 +1071,7 @@ etherwrite(Port *port, Block *bp)
 	}
 	port->outfrag++;
 	if(waserror()){
-		freeblist(bp);	
+		freeb(bp);	
 		return;
 	}
 
@@ -1082,14 +1082,8 @@ etherwrite(Port *port, Block *bp)
 	mf = frag & IP_MF;
 	frag <<= 3;
 	dlen = len - IPHDR;
-	xp = bp;
 	lid = nhgets(eh->id);
-	offset = ETHERHDRSIZE+IPHDR;
-	while(xp != nil && offset && offset >= BLEN(xp)) {
-		offset -= BLEN(xp);
-		xp = xp->next;
-	}
-	xp->rp += offset;
+	bp->rp += ETHERHDRSIZE+IPHDR;
 	
 	if(0)
 		print("seglen=%d, dlen=%d, mf=%x, frag=%d\n",
@@ -1112,19 +1106,14 @@ etherwrite(Port *port, Block *bp)
 		hnputs(feh->length, seglen + IPHDR);
 		hnputs(feh->id, lid);
 
-		/* Copy up the data area */
-		chunk = seglen;
-		while(chunk) {
-			blklen = chunk;
-			if(BLEN(xp) < chunk)
-				blklen = BLEN(xp);
-			memmove(nb->wp, xp->rp, blklen);
+		if(seglen){
+			blklen = BLEN(bp);
+			if(seglen < blklen)
+				blklen = seglen;
+			memmove(nb->wp, bp->rp, blklen);
 			nb->wp += blklen;
-			xp->rp += blklen;
-			chunk -= blklen;
-			if(xp->rp == xp->wp)
-				xp = xp->next;
-		} 
+			bp->rp += blklen;
+		}
 
 		feh->cksum[0] = 0;
 		feh->cksum[1] = 0;
@@ -1132,11 +1121,11 @@ etherwrite(Port *port, Block *bp)
 	
 		/* don't generate small packets */
 		if(BLEN(nb) < ETHERMINTU)
-			nb->wp = nb->rp + ETHERMINTU;
+			nb = adjustblock(nb, ETHERMINTU);
 		devtab[port->data[1]->type]->bwrite(port->data[1], nb, 0);
 	}
 	poperror();
-	freeblist(bp);	
+	freeb(bp);	
 }
 
 // hold b lock
