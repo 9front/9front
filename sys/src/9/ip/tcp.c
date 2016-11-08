@@ -1114,14 +1114,10 @@ htontcp4(Tcp *tcph, Block *data, Tcp4hdr *ph, Tcpctl *tcb)
 	if(data) {
 		dlen = blocklen(data);
 		data = padblock(data, hdrlen + TCP4_PKT);
-		if(data == nil)
-			return nil;
 	}
 	else {
 		dlen = 0;
 		data = allocb(hdrlen + TCP4_PKT + 64);	/* the 64 pad is to meet mintu's */
-		if(data == nil)
-			return nil;
 		data->wp += hdrlen + TCP4_PKT;
 	}
 

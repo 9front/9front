@@ -90,8 +90,6 @@ igmpsendreport(Medium *m, uchar *addr)
 	Block *bp;
 
 	bp = allocb(sizeof(IGMPpkt));
-	if(bp == nil)
-		return;
 	p = (IGMPpkt*)bp->wp;
 	p->vihl = IP_VER4;
 	bp->wp += IGMPPKTSZ;

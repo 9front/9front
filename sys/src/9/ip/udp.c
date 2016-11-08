@@ -242,9 +242,6 @@ udpkick(void *x, Block *bp)
 	switch(version){
 	case V4:
 		bp = padblock(bp, UDP4_IPHDR_SZ+UDP_UDPHDR_SZ);
-		if(bp == nil)
-			return;
-
 		uh4 = (Udp4hdr *)(bp->rp);
 		ptcllen = dlen + UDP_UDPHDR_SZ;
 		uh4->Unused = 0;
@@ -276,14 +273,11 @@ udpkick(void *x, Block *bp)
 		break;
 
 	case V6:
-		bp = padblock(bp, UDP6_IPHDR_SZ+UDP_UDPHDR_SZ);
-		if(bp == nil)
-			return;
-
 		/*
 		 * using the v6 ip header to create pseudo header
 		 * first then reset it to the normal ip header
 		 */
+		bp = padblock(bp, UDP6_IPHDR_SZ+UDP_UDPHDR_SZ);
 		uh6 = (Udp6hdr *)(bp->rp);
 		memset(uh6, 0, 8);
 		ptcllen = dlen + UDP_UDPHDR_SZ;

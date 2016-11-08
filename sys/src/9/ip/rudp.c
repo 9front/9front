@@ -384,9 +384,6 @@ rudpkick(void *x)
 
 	/* Make space to fit rudp & ip header */
 	bp = padblock(bp, UDP_IPHDR+UDP_RHDRSIZE);
-	if(bp == nil)
-		return;
-
 	uh = (Udphdr *)(bp->rp);
 	uh->vihl = IP_VER4;
 
@@ -955,8 +952,6 @@ relsendack(Conv *c, Reliable *r, int hangup)
 	Fs *f;
 
 	bp = allocb(UDP_IPHDR + UDP_RHDRSIZE);
-	if(bp == nil)
-		return;
 	bp->wp += UDP_IPHDR + UDP_RHDRSIZE;
 	f = c->p->f;
 	uh = (Udphdr *)(bp->rp);

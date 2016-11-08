@@ -297,13 +297,9 @@ grekick(void *x, Block *bp)
 
 	/* Make space to fit ip header (gre header already there) */
 	bp = padblock(bp, GRE_IPONLY);
-	if(bp == nil)
-		return;
 
 	/* make sure the message has a GRE header */
 	bp = pullupblock(bp, GRE_IPONLY+GRE_IPPLUSGRE);
-	if(bp == nil)
-		return;
 
 	gre = (GREhdr *)bp->rp;
 	gre->vihl = IP_VER4;
