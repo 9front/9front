@@ -402,7 +402,7 @@ ipiput4(Fs *f, Ipifc *ifc, Block *bp)
 		}
 
 		/* reassemble if the interface expects it */
-if(r->ifc == nil) panic("nil route rfc");
+if(r->ifc == nil) panic("nil route ifc");
 		if(r->ifc->reassemble){
 			frag = nhgets(h->frag);
 			if(frag & ~IP_DF) {
