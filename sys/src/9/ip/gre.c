@@ -300,6 +300,8 @@ grekick(void *x, Block *bp)
 
 	/* make sure the message has a GRE header */
 	bp = pullupblock(bp, GRE_IPONLY+GRE_IPPLUSGRE);
+	if(bp == nil)
+		return;
 
 	gre = (GREhdr *)bp->rp;
 	gre->vihl = IP_VER4;
@@ -528,11 +530,8 @@ greiput(Proto *proto, Ipifc *, Block *bp)
 	 * that when the block is forwarded, devether.c puts the block into
 	 * a queue that also uses ->next.  Just do not use ->next here!
 	 */
-	if(bp->next){
-		len = blocklen(bp);
-		bp  = pullupblock(bp, len);
-		assert(BLEN(bp) == len && bp->next == nil);
-	}
+	if(bp->next != nil)
+		bp = pullupblock(bp, blocklen(bp));
 
 	gre = (GREhdr *)bp->rp;
 	if(BLEN(bp) < sizeof(GREhdr) || gre->proto != IP_GREPROTO){
