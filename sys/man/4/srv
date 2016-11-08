@@ -177,8 +177,8 @@ command that uses
 .I tlsclient
 (see
 .IR tlssrv (8))
-to establish an mutual authenticated and encrypted connection
-to the
+to establish an mutual authenticated and encrypted 9P
+connection to the
 .I t9fs
 service which by default listens on tcp port 17020.
 .PP
@@ -237,6 +237,8 @@ and
 .B /sys/src/cmd/srv.c
 .br
 .B /rc/bin/9fs
+.br
+.B /rc/bin/srvtls
 .br
 .B /rc/bin/srvssh
 .SH "SEE ALSO"
