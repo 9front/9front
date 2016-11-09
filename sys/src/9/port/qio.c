@@ -140,29 +140,19 @@ blockalloclen(Block *bp)
 }
 
 /*
- *  copy the  string of blocks into
+ *  copy the string of blocks into
  *  a single block and free the string
  */
 Block*
 concatblock(Block *bp)
 {
-	Block *nb, *next;
 	int len;
 
 	if(bp->next == nil)
 		return bp;
-
-	nb = allocb(blocklen(bp));
-	for(; bp != nil; bp = next) {
-		next = bp->next;
-		len = BLEN(bp);
-		memmove(nb->wp, bp->rp, len);
-		nb->wp += len;
-		freeb(bp);
-	}
-	concatblockcnt += BLEN(nb);
-	QDEBUG checkb(nb, "concatblock 1");
-	return nb;
+	len = blocklen(bp);
+	concatblockcnt += len;
+	return pullupblock(bp, len);
 }
 
 /*
