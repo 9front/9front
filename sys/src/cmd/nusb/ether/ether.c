@@ -69,6 +69,8 @@ struct Conn
 	int		used;
 	int		type;
 	int		prom;
+	int		bridge;
+
 	Dq		*dq;
 };
 
@@ -405,7 +407,9 @@ fswrite(Req *r)
 	case Qctl:
 		n = r->ifcall.count;
 		p = (char*)r->ifcall.data;
-		if(n == 11 && memcmp(p, "promiscuous", 11)==0){
+		if(n >= 6 && memcmp(p, "bridge", 6)==0){
+			conn[NUM(path)].bridge = 1;
+		} else if(n >= 11 && memcmp(p, "promiscuous", 11)==0){
 			if(conn[NUM(path)].prom == 0){
 				conn[NUM(path)].prom = 1;
 				if(nprom++ == 0 && eppromiscuous != nil)
@@ -513,6 +517,7 @@ fsopen(Req *r)
 		if(c->used++ == 0){
 			c->type = 0;
 			c->prom = 0;
+			c->bridge = 0;
 		}
 		if(d != nil){
 			d->next = c->dq;
@@ -692,7 +697,7 @@ inote(void *, char *msg)
 void
 etheriq(Block *b, int wire)
 {
-	int i, t;
+	int i, t, tome, fromme, multi;
 	Block *q;
 	Conn *c;
 	Dq *d;
@@ -706,17 +711,21 @@ etheriq(Block *b, int wire)
 	h = (Ehdr*)b->rp;
 	t = (h->type[0]<<8)|h->type[1];
 
+	multi = h->d[0]&1;
+	tome = memcmp(h->d, macaddr, sizeof(macaddr)) == 0;
+	fromme = memcmp(h->s, macaddr, sizeof(macaddr)) == 0;
+
 	for(i=0; i<nconn; i++){
 		c = &conn[i];
 		qlock(c);
 		if(!c->used)
 			goto next;
-		if(c->type > 0)
-			if(c->type != t)
-				goto next;
-		if(!c->prom && !(h->d[0]&1))
-			if(memcmp(h->d, macaddr, sizeof(macaddr)))
-				goto next;
+		if(c->bridge && !wire && !fromme)
+			goto next;
+		if(c->type > 0 && c->type != t)
+			goto next;
+		if(!c->prom && !multi && !tome)
+			goto next;
 		for(d=c->dq; d; d=d->next){
 			if(d->size > 100000)
 				continue;
