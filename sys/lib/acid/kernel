@@ -62,7 +62,6 @@ defn qiostats() {
 	print ("copyblockcnt=", *copyblockcnt\D, "\n");
 	print ("consumecnt=", *consumecnt\D, "\n");
 	print ("producecnt=", *producecnt\D, "\n");
-	print ("qcopycnt=", *qcopycnt\D, "\n");
 }
 
 // dump channels

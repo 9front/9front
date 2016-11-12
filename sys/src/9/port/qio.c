@@ -11,7 +11,6 @@ static ulong pullupblockcnt;
 static ulong copyblockcnt;
 static ulong consumecnt;
 static ulong producecnt;
-static ulong qcopycnt;
 
 #define QDEBUG	if(0)
 
