@@ -816,9 +816,9 @@ qremove(Queue *q)
  *  return number of copied bytes.
  */
 long
-readblist(Block *b, uchar *p, long n, long o)
+readblist(Block *b, uchar *p, long n, ulong o)
 {
-	long m, r;
+	ulong m, r;
 
 	r = 0;
 	while(n > 0 && b != nil){

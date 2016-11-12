@@ -283,7 +283,7 @@ void		qnoblock(Queue*, int);
 void		randominit(void);
 ulong		randomread(void*, ulong);
 void		rdb(void);
-long		readblist(Block *, uchar *, long, long);
+long		readblist(Block*, uchar*, long, ulong);
 int		readnum(ulong, char*, ulong, ulong, int);
 int		readstr(ulong, char*, ulong, char*);
 void		ready(Proc*);
