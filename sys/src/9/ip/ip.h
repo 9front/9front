@@ -721,8 +721,7 @@ extern int	ipstats(Fs*, char*, int);
 extern ushort	ptclbsum(uchar*, int);
 extern ushort	ptclcsum(Block*, int, int);
 extern void	ip_init(Fs*);
-extern void	update_mtucache(uchar*, ulong);
-extern ulong	restrict_mtu(uchar*, ulong);
+
 /*
  * bootp.c
  */
