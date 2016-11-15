@@ -864,13 +864,14 @@ tcpmtu(Route *r, int version, uint *scale)
 	 * otherwise, we use the default MSS which assumes a
 	 * safe minimum MTU of 1280 bytes for V6.
 	 */  
-	if(r != nil && (version == V4 || (r->type & (Rifc|Runi)) != 0)){
+	if(r != nil){
 		ifc = r->ifc;
 		mtu = ifc->maxtu - ifc->m->hsize;
-		if(version == V6)
-			return mtu - (TCP6_PKT + TCP6_HDRSIZE);
-		else
+		if(version == V4)
 			return mtu - (TCP4_PKT + TCP4_HDRSIZE);
+		mtu -= TCP6_PKT + TCP6_HDRSIZE;
+		if((r->type & (Rifc|Runi)) != 0 || mtu <= DEF_MSS6)
+			return mtu;
 	}
 	if(version == V6)
 		return DEF_MSS6;
