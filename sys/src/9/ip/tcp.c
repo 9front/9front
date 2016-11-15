@@ -47,7 +47,7 @@ enum
 	MSL2		= 10,
 	MSPTICK		= 50,		/* Milliseconds per timer tick */
 	DEF_MSS		= 1460,		/* Default maximum segment */
-	DEF_MSS6	= 1280,		/* Default maximum segment (min) for v6 */
+	DEF_MSS6	= 1220,		/* Default maximum segment (min) for v6 */
 	DEF_RTT		= 500,		/* Default round trip */
 	DEF_KAT		= 120000,	/* Default time (ms) between keep alives */
 	TCP_LISTEN	= 0,		/* Listen connection */
@@ -846,32 +846,36 @@ localclose(Conv *s, char *reason)	/* called with tcb locked */
 
 /* mtu (- TCP + IP hdr len) of 1st hop */
 static int
-tcpmtu(Proto *tcp, uchar *addr, int version, uint *scale)
+tcpmtu(Route *r, int version, uint *scale)
 {
 	Ipifc *ifc;
 	int mtu;
 
-	ifc = findipifc(tcp->f, addr, 0);
-	switch(version){
-	default:
-	case V4:
-		mtu = DEF_MSS;
-		if(ifc != nil)
-			mtu = ifc->maxtu - ifc->m->hsize - (TCP4_PKT + TCP4_HDRSIZE);
-		break;
-	case V6:
-		mtu = DEF_MSS6;
-		if(ifc != nil)
-			mtu = ifc->maxtu - ifc->m->hsize - (TCP6_PKT + TCP6_HDRSIZE);
-		break;
-	}
 	/*
 	 * set the ws.  it doesn't commit us to anything.
 	 * ws is the ultimate limit to the bandwidth-delay product.
 	 */
 	*scale = Defadvscale;
 
-	return mtu;
+	/*
+	 * currently we do not implement path MTU discovery
+	 * so use interface MTU *only* if directly reachable
+	 * or when we use V4 which allows routers to fragment.
+	 * otherwise, we use the default MSS which assumes a
+	 * safe minimum MTU of 1280 bytes for V6.
+	 */  
+	if(r != nil && (version == V4 || (r->type & (Rifc|Runi)) != 0)){
+		ifc = r->ifc;
+		mtu = ifc->maxtu - ifc->m->hsize;
+		if(version == V6)
+			return mtu - (TCP6_PKT + TCP6_HDRSIZE);
+		else
+			return mtu - (TCP4_PKT + TCP4_HDRSIZE);
+	}
+	if(version == V6)
+		return DEF_MSS6;
+	else
+		return DEF_MSS;
 }
 
 static void
@@ -1309,7 +1313,7 @@ tcpsndsyn(Conv *s, Tcpctl *tcb)
 	tcb->sndsyntime = NOW;
 
 	/* set desired mss and scale */
-	tcb->mss = tcpmtu(s->p, s->laddr, s->ipversion, &tcb->scale);
+	tcb->mss = tcpmtu(v6lookup(s->p->f, s->raddr, s), s->ipversion, &tcb->scale);
 	tpriv = s->p->priv;
 	tpriv->stats[Mss] = tcb->mss;
 }
@@ -1487,7 +1491,7 @@ sndsynack(Proto *tcp, Limbo *lp)
 	seg.ack = lp->irs+1;
 	seg.flags = SYN|ACK;
 	seg.urg = 0;
-	seg.mss = tcpmtu(tcp, lp->laddr, lp->version, &scale);
+	seg.mss = tcpmtu(v6lookup(tcp->f, lp->raddr, nil), lp->version, &scale);
 	seg.wnd = QMAX;
 
 	/* if the other side set scale, we should too */
@@ -1763,7 +1767,7 @@ tcpincoming(Conv *s, Tcp *segp, uchar *src, uchar *dst, uchar version)
 	tcb->flags |= SYNACK;
 
 	/* set desired mss and scale */
-	tcb->mss = tcpmtu(s->p, dst, s->ipversion, &tcb->scale);
+	tcb->mss = tcpmtu(v6lookup(s->p->f, src, s), version, &tcb->scale);
 
 	/* our sending max segment size cannot be bigger than what he asked for */
 	if(lp->mss != 0 && lp->mss < tcb->mss)
