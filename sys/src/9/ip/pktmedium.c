@@ -16,7 +16,7 @@ static void	pktin(Fs*, Ipifc*, Block*);
 Medium pktmedium =
 {
 .name=		"pkt",
-.hsize=		14,
+.hsize=		0,
 .mintu=		40,
 .maxtu=		4*1024,
 .maclen=	6,
@@ -27,7 +27,7 @@ Medium pktmedium =
 };
 
 /*
- *  called to bind an IP ifc to an ethernet device
+ *  called to bind an IP ifc to an packet device
  *  called with ifc wlock'd
  */
 static void
