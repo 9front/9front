@@ -27,18 +27,6 @@ static	void	xscan(Memimage *dst, Seg **seg, Seg *segtab, int nseg, int wind, Mem
 static	void	yscan(Memimage *dst, Seg **seg, Seg *segtab, int nseg, int wind, Memimage *src, Point sp, int, int);
 
 static void
-fillcolor(Memimage *dst, int left, int right, int y, Memimage *src, Point p)
-{
-	int srcval;
-
-	USED(src);
-	srcval = p.x;
-	p.x = left;
-	p.y = y;
-	memset(byteaddr(dst, p), srcval, right-left);
-}
-
-static void
 fillline(Memimage *dst, int left, int right, int y, Memimage *src, Point p, int op)
 {
 	Rectangle r;
@@ -165,25 +153,8 @@ xscan(Memimage *dst, Seg **seg, Seg *segtab, int nseg, int wind, Memimage *src, 
 	Seg **ep, **next, **p, **q, *s;
 	long n, i, iy, cnt, ix, ix2, minx, maxx;
 	Point pt;
-	void	(*fill)(Memimage*, int, int, int, Memimage*, Point, int);
 
-	fill = fillline;
-/*
- * This can only work on 8-bit destinations, since fillcolor is
- * just using memset on sp.x.
- *
- * I'd rather not even enable it then, since then if the general
- * code is too slow, someone will come up with a better improvement
- * than this sleazy hack.	-rsc
- *
-	if(clipped && (src->flags&Frepl) && src->depth==8 && Dx(src->r)==1 && Dy(src->r)==1) {
-		fill = fillcolor;
-		sp.x = membyteval(src);
-	}
- *
- */
 	USED(clipped);
-
 
 	for(i=0, s=segtab, p=seg; i<nseg; i++, s++) {
 		*p = s;
@@ -300,7 +271,7 @@ xscan(Memimage *dst, Seg **seg, Seg *segtab, int nseg, int wind, Memimage *src, 
 				ix = (x + x2) >> (fixshift+1);
 				ix2 = ix+1;
 			}
-			(*fill)(dst, ix, ix2, iy, src, sp, op);
+			fillline(dst, ix, ix2, iy, src, sp, op);
 		}
 		y += (1<<fixshift);
 		iy++;
