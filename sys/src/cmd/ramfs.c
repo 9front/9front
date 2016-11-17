@@ -455,10 +455,8 @@ main(int argc, char **argv)
 	char *srvname = nil;
 	char *mtpt = "/tmp";
 	int mountflags;
-	Qid q;
 
 	fs.tree = alloctree(nil, nil, DMDIR|0777, fsdestroyfile);
-	q = fs.tree->root->qid;
 
 	mountflags = 0;
 	ARGBEGIN{
