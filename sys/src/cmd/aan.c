@@ -58,7 +58,6 @@ static void		fromnet(void*);
 static void		fromclient(void*);
 static int		reconnect(int);
 static void		synchronize(void);
-static int 		sendcommand(ulong, ulong);
 static void		showmsg(int, char *, Buf *);
 static int		writen(int, uchar *, int);
 static void		dmessage(int, char *, ...);
