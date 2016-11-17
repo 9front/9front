@@ -156,6 +156,17 @@ initplex(Parselex *plex, char *regstr, int lit)
 	return plex;
 }
 
+static int
+maxthreads(Renode *tree)
+{
+	tree = tree->left;
+	if(tree->op == TCAT)
+		tree = tree->left;
+	if(tree->op == TBOL)
+		return 2;
+	return -1;
+}
+
 static Reprog*
 regcomp1(char *regstr, int nl, int lit)
 {
@@ -179,6 +190,7 @@ regcomp1(char *regstr, int nl, int lit)
 	maxthr = regstrlen;
 	parsetr = node(&plex, TSUB, e0(&plex), nil);
 
+//	prtree(parsetr, 0, 1);
 	reprog = malloc(sizeof(Reprog) +
 	                sizeof(Reinst) * plex.instrs +
 	                sizeof(Rethread) * maxthr);
@@ -502,4 +514,66 @@ buildclass(Parselex *l)
 		n->nclass = i++;
 	}
 	return n;
+}
+
+static void
+prtree(Renode *tree, int d, int f)
+{
+	int i;
+
+	if(tree == nil)
+		return;
+	if(f)
+	for(i = 0; i < d; i++)
+		print("\t");
+	switch(tree->op) {
+	case TCAT:
+		prtree(tree->left, d, 0);
+		prtree(tree->right, d, 1);
+		break;
+	case TOR:
+		print("TOR\n");
+		prtree(tree->left, d+1, 1);
+		for(i = 0; i < d; i++)
+			print("\t");
+		print("|\n");
+		prtree(tree->right, d+1, 1);
+		break;
+	case TSTAR:
+		print("*\n");
+		prtree(tree->left, d+1, 1);
+		break;
+	case TPLUS:
+		print("+\n");
+		prtree(tree->left, d+1, 1);
+		break;
+	case TQUES:
+		print("?\n");
+		prtree(tree->left, d+1, 1);
+		break;
+	case TANY:
+		print(".\n");
+		prtree(tree->left, d+1, 1);
+		break;
+	case TBOL:
+		print("^\n");
+		break;
+	case TEOL:
+		print("$\n");
+		break;
+	case TSUB:
+		print("TSUB\n");
+		prtree(tree->left, d+1, 1);
+		break;
+	case TRUNE:
+		print("TRUNE: %C\n", tree->r);
+		break;
+	case TNOTNL:
+		print("TNOTNL: !\\n\n");
+		break;
+	case TCLASS:
+		print("CLASS: %C-%C\n", tree->r, tree->r1);
+		prtree(tree->left, d, 1);
+		break;
+	}
 }
