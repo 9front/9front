@@ -31,12 +31,6 @@ int setvbuf(FILE *f, char *buf, int mode, long size){
 	f->state=RDWR;
 	return 0;
 }
-int _IO_setvbuf(FILE *f){
-	static int isatty(int);
-	if(f==stderr || (f==stdout && isatty(1)))
-		return setvbuf(f, (char *)0, _IOLBF, BUFSIZ);
-	else return setvbuf(f, (char *)0, _IOFBF, BUFSIZ);
-}
 static int
 isatty(int fd)
 {
@@ -47,4 +41,9 @@ isatty(int fd)
 
 	/* might be /mnt/term/dev/cons */
 	return strlen(buf) >= 9 && strcmp(buf+strlen(buf)-9, "/dev/cons") == 0;
+}
+int _IO_setvbuf(FILE *f){
+	if(f==stderr || (f==stdout && isatty(1)))
+		return setvbuf(f, (char *)0, _IOLBF, BUFSIZ);
+	else return setvbuf(f, (char *)0, _IOFBF, BUFSIZ);
 }

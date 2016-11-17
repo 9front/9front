@@ -94,7 +94,7 @@ static int
 m68020ufix(Map *map)
 {
 	struct ftype *ft;
-	int i, size, vec;
+	int i, vec;
 	ulong efl[2];
 	uchar *ef=(uchar*)efl;
 	ulong l;
@@ -110,11 +110,6 @@ m68020ufix(Map *map)
 
 	if (get4(map, mach->kbase, (&l)) < 0)
 		return -1;
-	if ((l&0xfc000000) == 0x04000000)	/* if NeXT */
-		size = 30*2;
-	else
-		size = 46*2;			/* 68020 */
-	USED(size);
 
 	stktop = mach->kbase+mach->pgsize;
 	for(i=3; i<100; i++){

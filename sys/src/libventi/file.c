@@ -503,7 +503,6 @@ blockwalk(VtBlock *p, int index, VtCache *c, int mode, VtEntry *e)
 	VtBlock *b;
 	int type;
 	uchar *score;
-	VtEntry oe;
 
 	switch(p->type){
 	case VtDataType:
@@ -531,8 +530,6 @@ blockwalk(VtBlock *p, int index, VtCache *c, int mode, VtEntry *e)
 
 	if(vtglobaltolocal(b->score) != NilBlock)
 		return b;
-
-	oe = *e;
 
 	/*
 	 * Copy on write.
@@ -600,7 +597,6 @@ static int
 shrinkdepth(VtFile *r, VtBlock *p, VtEntry *e, int depth)
 {
 	VtBlock *b, *nb, *ob, *rb;
-	VtEntry oe;
 
 	assert(ISLOCKED(r));
 	assert(depth <= VtPointerDepth);
@@ -608,12 +604,6 @@ shrinkdepth(VtFile *r, VtBlock *p, VtEntry *e, int depth)
 	rb = vtcacheglobal(r->c, e->score, e->type);
 	if(rb == nil)
 		return -1;
-
-	/*
-	 * Walk down to the new root block.
-	 * We may stop early, but something is better than nothing.
-	 */
-	oe = *e;
 
 	ob = nil;
 	b = rb;

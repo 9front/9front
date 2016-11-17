@@ -275,7 +275,7 @@ static Anchor*		newanchor(int index, Rune* name, Rune* href, int target, Anchor*
 static Area*		newarea(int shape, Rune* href, int target, Area* link);
 static DestAnchor*	newdestanchor(int index, Rune* name, Item* item, DestAnchor* link);
 static Docinfo*		newdocinfo(void);
-static Genattr*		newgenattr(Rune* id, Rune* class, Rune* style, Rune* title, Attr* events);
+static Genattr*		newgenattr(Rune* id, Rune* class, Rune* style, Rune* title, SEvent* events);
 static Form*		newform(int formid, Rune* name, Rune* action,
 					int target, int method, Form* link);
 static Formfield*	newformfield(int ftype, int fieldid, Form* form, Rune* name,

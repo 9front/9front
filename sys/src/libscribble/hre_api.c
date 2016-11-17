@@ -71,10 +71,8 @@ static char rif_name[] = "__recognizer_internal_finalize";  */
 
 /*Local functions*/
 
-static char* shared_library_name(char* directory,char* locale,char* name);
 static rec_info* make_rec_info(char* directory,char* name,char** subset);
 static void delete_rec_info(rec_info* ri);
-static int check_for_user_home(void);
 static void intl_initialize(void);
 
 static void cleanup_rec_element(rec_element* re,bool delete_points_p);
@@ -165,21 +163,6 @@ recognizer_load(char* directory, char* name, char** subset)
     /*Set the rec_info structure.*/
 
     rec->recognizer_info = rinf;
-
-    /*Check whether home directory is there for recognizer info.*/
-
-/*
- *  ari -- don't bother.  We're not going to load from each user's
- *  home directory at this point.  Instead, we'll use a stupid
- *  little a-b-c file because it loads FAST.
- *
- *    if( check_for_user_home() < 0 ) {
- *	recognizer_unload(rec);
- *	return((recognizer)nil);
- *   }
- */
-    /*We got it!*/
-/* fprint(2, "Done.\n"); */
 
     return(rec);
 }
@@ -616,46 +599,6 @@ recognizer_train_gestures(recognizer rec,char* name,xgesture fn,void* wsinfo)
 */
 
 /*
- * shared_library_name-Get the full pathname to the shared library,
- *    based on the recognizer name and the environment.
-*/
-
-
-static char* shared_library_name(char* directory,char* locale,char* name)
-{
-    char* ret;
-    int len = strlen(name);
-
-    /*If directory is there, it takes precedence.*/
-
-    if( directory != nil ) {
-		ret = (char*)safe_malloc(strlen(directory) + len + 2);
-		strcpy(ret,directory);
-		strcat(ret,"/");
-		strcat(ret,name);
-    } else {
-		char* dir;
-	
-		/*First try the environment variable.*/
-	
-		if( (dir = getenv(RECHOME)) == nil ) {
-		    dir = "REC_DEFAULT_HOME_DIR";
-	
-		  }
-	
-		ret = (char*)safe_malloc(strlen(dir) + strlen(locale) + len + 3);
-		/*Form the pathname.*/
-		strcpy(ret,dir);
-		strcat(ret,"/");
-		strcat(ret,locale);
-		strcat(ret,"/");
-		strcat(ret,name);
-	}
-
-    return(ret);
-}
-
-/*
  * intl_initialize-Initialize the internationaliztion of messages for
  * the recognition manager.
 */
@@ -755,49 +698,6 @@ static void delete_rec_info(rec_info* ri)
 	}
 	free(ri);
     }
-}
-
-/*check_for_user_home-Check whether USERRECHOME has been created.*/
-
-static int check_for_user_home()
-{
-	char* homedir = getenv(HOME);
-	char* rechome;
-	Dir *dir;
-
-	if( homedir == nil ) {
-		the_last_error = "Home environment variable HOME not set.";
-		return(-1);
-	}
-
-    rechome = (char*)safe_malloc(strlen(homedir) + strlen(USERRECHOME) + 2);
-
-    /*Form name.*/
-
-    strcpy(rechome,homedir);
-    strcat(rechome,"/");
-    strcat(rechome,USERRECHOME);
-
-    /*Create directory.*/
-
-    dir = dirstat(rechome);
-    if (dir != nil) {
-		if (dir->mode & DMDIR) {
-			free(dir);
-			free(rechome);
-			return 0;
-		}
-		free(dir);
-	} else {
-		int fd;
-		if ((fd = create(rechome, OREAD, DMDIR|0755)) >= 0) {
-			close(fd);
-    		free(rechome);
-    		return(0);
-		}
-    }
-	free(rechome);
-	return(-1);
 }
 
 /*
