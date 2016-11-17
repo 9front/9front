@@ -1217,7 +1217,6 @@ trywalk(char *name, char *addr)
 Page*
 findpage(char *name)
 {
-	static char buf[NPATH], *f[32];
 	Page *p;
 	int n;
 
