@@ -10,7 +10,6 @@ char lastload[NFONT][20];	/* last file name prefix loaded for this font */
 Font	*fonttab[NFONT][NSIZE];	/* pointers to fonts */
 int	fmap[NFONT];		/* what map to use with this font */
 
-static void	bufchar(Point, Subfont *, uchar *);
 static void	loadfont(int, int);
 static void	fontlookup(int, char *);
 static void	buildxheight(Biobuf*);

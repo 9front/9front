@@ -548,19 +548,6 @@ static Rune left1[] =  { L'{', L'[', L'(', L'<', L'«', 0 };
 static Rune right1[] = { L'}', L']', L')', L'>', L'»', 0 };
 static Rune left2[] =  { L'\'', L'"', L'`', 0 };
 
-static
-Rune *left[] = {
-	left1,
-	left2,
-	nil
-};
-static
-Rune *right[] = {
-	right1,
-	left2,
-	nil
-};
-
 void
 pagedoubleclick(Page *p)
 {

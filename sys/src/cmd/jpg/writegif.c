@@ -41,7 +41,6 @@ static int		colormapsize[] = { 2, 4, 16, 256, 256 };	/* 2 for zero is an odd pro
 static void		writeheader(Biobuf*, Rectangle, int, ulong, int);
 static void		writedescriptor(Biobuf*, Rectangle);
 static char*	writedata(Biobuf*, Image*, Memimage*);
-static void		writetrailer(Biobuf *fd);
 static void		writecomment(Biobuf *fd, char*);
 static void		writegraphiccontrol(Biobuf *fd, int, int);
 static void*	gifmalloc(ulong);

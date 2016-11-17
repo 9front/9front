@@ -1511,25 +1511,6 @@ special(char *s, Dev *d, Req *r)
 	return -1;
 }
 
-static char *regtab[] = {
-	"Ftype",
-	"Fflags",
-	"Fcmd",
-	"Ffeat",
-	"Flba0",
-	"Flba8",
-	"Flba16",
-	"Fdev",
-	"Flba24",
-	"Flba32",
-	"Flba40",
-	"Ffeat8",
-	"Fsc",
-	"Fsc8",
-	"Fr",
-	"Fcontrol",
-};
-
 void
 setreg(Req *r, uint reg, uvlong v)
 {
@@ -1540,7 +1521,6 @@ setreg(Req *r, uint reg, uvlong v)
 	case 0:
 		r->fisbits |= 1 << reg;
 		r->cmd.fis[reg] = v;
-//	print("%s: %.2ux\n", regtab[reg], (uchar)v);
 		break;
 	case Sbase:
 	case Sbase | Pbase:

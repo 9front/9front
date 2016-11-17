@@ -199,14 +199,12 @@ pagescroll(Page *p, int but, int horizontal)
 {
 	uint oldp0, p0;
 	Rectangle s;
-	Point mxy;
-	int i, m, om, first, d, size;
+	int m, om, first, d, size;
 	int smin, smax, ss, *pos;
 
 	if(horizontal){
 		s = insetrect(p->hscrollr, 1);
 		ss = s.max.x - s.min.x;
-		i = (s.min.y+s.max.y)/2;
 		d = Dx(p->r);
 		size = Dx(p->lay->r);
 		p0 = p->pos.x;
@@ -217,7 +215,6 @@ pagescroll(Page *p, int but, int horizontal)
 	}else{
 		s = insetrect(p->vscrollr, 1);
 		ss = s.max.y-s.min.y;
-		i = (s.min.x+s.max.x)/2;
 		d = Dy(p->r);
 		size = Dy(p->lay->r);
 		p0 = p->pos.y;
@@ -248,10 +245,6 @@ pagescroll(Page *p, int but, int horizontal)
 			m = smax;
 
 		om = m;
-		if(horizontal)
-			mxy = Pt(m, i);
-		else
-			mxy = Pt(i, m);
 		if(but == 2){
 			p0 = muldiv(m-smin, size, ss);
 			p0 = max(p0, 0);

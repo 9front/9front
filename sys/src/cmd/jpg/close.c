@@ -14,7 +14,6 @@ closest(int Y, int Cb, int Cr)
 	double r, g, b;
 	double diff, min;
 	int rgb, R, G, B, v, i;
-	int y1, cb1, cr1;
 
 	Cb -= 128;
 	Cr -= 128;

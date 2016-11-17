@@ -309,7 +309,6 @@ gettokens(Tokenrow *trp, int reset)
 	int runelen;
 	Source *s = cursource;
 	int nmac = 0;
-	extern char outbuf[];
 
 	tp = trp->lp;
 	ip = s->inp;

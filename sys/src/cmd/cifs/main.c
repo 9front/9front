@@ -1145,7 +1145,6 @@ main(int argc, char **argv)
 	long svrtime;
 	char windom[64], cname[64];
 	char *method, *sysname, *keyp, *mtpt, *svs;
-	static char *sh[1024];
 
 	*cname = 0;
 	keyp = "";

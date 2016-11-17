@@ -144,7 +144,7 @@ char*
 getline(void)
 {
 	static int n = 0;
-	static char *s, *incl;
+	static char *s;
 	int c, i;
 
 	i = 0;

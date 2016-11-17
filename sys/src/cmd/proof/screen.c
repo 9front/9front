@@ -123,14 +123,6 @@ getkbdstr(int c0)
 
 #define	butcvt(b)	(1 << ((b) - 1))
 
-static int buttondown(void)	/* report state of buttons, if any */
-{
-	if (!ecanmouse())	/* no event pending */
-		return 0;
-	mouse = emouse();	/* something, but it could be motion */
-	return mouse.buttons & 7;
-}
-
 int waitdown(void)	/* wait until some button is down */
 {
 	while (!(mouse.buttons & 7))

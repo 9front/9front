@@ -46,27 +46,6 @@ gcarray(uchar *p, uchar *ep, uchar **s, int *np)
 	return p;
 }
 
-static uchar*
-convM2AI(uchar *p, int n, AuthInfo **aip)
-{
-	uchar *e = p+n;
-	AuthInfo *ai;
-
-	ai = mallocz(sizeof(*ai), 1);
-	if(ai == nil)
-		return nil;
-
-	p = gstring(p, e, &ai->cuid);
-	p = gstring(p, e, &ai->suid);
-	p = gstring(p, e, &ai->cap);
-	p = gcarray(p, e, &ai->secret, &ai->nsecret);
-	if(p == nil)
-		auth_freeAI(ai);
-	else
-		*aip = ai;
-	return p;
-}
-
 static int
 dorpc(AuthRpc *rpc, char *verb, char *val, int len, AuthGetkey *getkey)
 {

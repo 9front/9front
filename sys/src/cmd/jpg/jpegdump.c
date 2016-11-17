@@ -90,7 +90,7 @@ int get2 (void) {
 }
 
 void eatmarker (int kind) {
-	int l, c;
+	int l;
 	l = get2();
 	printf ("%02x len=%d\n", kind, l);
 	for (l -= 2; l > 0; l--)
@@ -211,7 +211,7 @@ void get_dqt (int kind) {
 }
 
 int get1dht (void) {
-	int l, tcth, p, i, j, v[16], vv[16][256];
+	int l, tcth, i, j, v[16], vv[16][256];
 	tcth = get1();
 	printf ("DHT:\tclass = %d, table = %d\n", tcth >> 4, tcth & 0xf);
 	for (i = 0; i < 16; i++)

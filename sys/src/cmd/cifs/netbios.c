@@ -68,19 +68,6 @@ Gmem(uchar **p, void *v, int n)
 		*str++ = *(*p)++;
 }
 
-
-static ulong
-GB32(uchar **p)
-{
-	ulong n;
-
-	n  = *(*p)++ << 24;
-	n |= *(*p)++ << 16;
-	n |= *(*p)++ << 8;
-	n |= *(*p)++;
-	return n;
-}
-
 static ushort
 GB16(uchar **p)
 {

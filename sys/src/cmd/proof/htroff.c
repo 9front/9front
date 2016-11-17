@@ -44,7 +44,6 @@ static void	eatline(void);
 static int	getn(void);
 static int	botpage(int);
 static void	getstr(char *);
-static void	getutf(char *);
 
 #define Do screen->r.min
 #define Dc screen->r.max
@@ -450,24 +449,6 @@ getstr(char *is)
 		;
 	ungetc();
 	*s = 0;
-}
-
-static void
-getutf(char *s)		/* get next utf char, as bytes */
-{
-	int c, i;
-
-	for (i=0;;) {
-		c = getc();
-		if (c < 0)
-			return;
-		s[i++] = c;
-
-		if (fullrune(s, i)) {
-			s[i] = 0;
-			return;
-		}
-	}
 }
 
 static void

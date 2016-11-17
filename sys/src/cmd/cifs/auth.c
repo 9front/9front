@@ -23,6 +23,7 @@ static enum {
 	MACoff		= 14,	/* sign. offset from start of SMB (not netbios) pkt */
 };
 
+#ifdef DEBUG_MAC
 static void
 dmp(char *s, int seq, void *buf, int n)
 {
@@ -38,6 +39,7 @@ dmp(char *s, int seq, void *buf, int n)
 	}
 	print("\n");
 }
+#endif
 
 static Auth *
 auth_plain(char *windom, char *keyp, uchar *chal, int len)

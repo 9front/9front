@@ -1196,7 +1196,6 @@ runproc(void *argvp)
 	int ac, w, inarg, i, n, fd, nincl, winid;
 	int pipechar;
 	char buf[512];
-	static void *parg[2];
 	void **argv;
 
 	argv = argvp;

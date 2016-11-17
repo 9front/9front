@@ -73,15 +73,6 @@ bige(void *p)
 	return (a[0]<<24)|(a[1]<<16)|(a[2]<<8)|(a[3]<<0);
 }
 
-static ushort
-biges(void *p)
-{
-	uchar *a;
-
-	a = p;
-	return (a[0]<<8) | a[1];
-}
-
 ulong
 getnwa(Drive *drive)
 {
@@ -89,22 +80,6 @@ getnwa(Drive *drive)
 
 	aux = drive->aux;
 	return aux->mmcnwa;
-}
-
-static void
-hexdump(void *v, int n)
-{
-	int i;
-	uchar *p;
-
-	p = v;
-	for(i=0; i<n; i++){
-		print("%.2ux ", p[i]);
-		if((i%8) == 7)
-			print("\n");
-	}
-	if(i%8)
-		print("\n");
 }
 
 static void
@@ -220,17 +195,7 @@ mmcsetpage10(Drive *drive, int page, void *v)
 	cmd[1] = 0x10;			/* format not vendor-specific */
 	cmd[8] = len;
 
-//	print("set: sending cmd\n");
-//	hexdump(cmd, 10);
-//	print("parameter list header\n");
-//	hexdump(p, Mode10parmhdrlen);
-//	print("page\n");
-//	hexdump(p + Mode10parmhdrlen, len - Mode10parmhdrlen);
-
 	n = scsi(drive, cmd, sizeof(cmd), p, len, Swrite);
-
-//	print("set: got cmd\n");
-//	hexdump(cmd, 10);
 
 	free(p);
 	if(n < len)
@@ -413,9 +378,6 @@ mmcprobe(Scsi *scsi)
 		cap |= Cwrite;
 	if(buf[Capmisc] & Capcdda)	/* CD-DA commands supported? */
 		cap |= Ccdda;		/* not used anywhere else */
-
-//	print("read %d max %d\n", biges(buf+14), biges(buf+8));
-//	print("write %d max %d\n", biges(buf+20), biges(buf+18));
 
 	/* cache optional page 05 (write parameter page) */
 	if(/* (cap & Cwrite) && */
@@ -1255,9 +1217,6 @@ format(Drive *drive)
 
 	PUTBELONG(fmtdesc, nblks);
 	PUTBE24(fmtdesc + 5, blksize);
-
-//	print("format parameters:\n");
-//	hexdump(parms, sizeof parms);
 
 	if(vflag)
 		print("%lld ns: format\n", nsec());

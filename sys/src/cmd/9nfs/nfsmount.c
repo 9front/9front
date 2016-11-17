@@ -182,18 +182,6 @@ mntnull(int n, Rpccall *cmd, Rpccall *reply)
 	return 0;
 }
 
-static char*
-Str2str(String s, char *buf, int nbuf)
-{
-	int i;
-	i = s.n;
-	if(i >= nbuf)
-		i = nbuf-1;
-	memmove(buf, s.s, i);
-	buf[i] = 0;
-	return buf;
-}
-
 static int
 mntmnt(int n, Rpccall *cmd, Rpccall *reply)
 {

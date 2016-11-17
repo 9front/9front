@@ -162,17 +162,6 @@ static Fld flds[] = {
 	[Tcolor] {0x0140, Tshort}
 };
 
-/*
-* imported from libdraw/arith.c to permit
-* extern log2 function
-*/
-static int log2[] = {
-	-1, 0, 1, -1, 2, -1, -1, -1, 3,
-	-1, -1, -1, -1, -1, -1, -1, 4,
-	-1, -1, -1, -1, -1, -1, -1, 4 /* BUG */,
-	-1, -1, -1, -1, -1, -1, -1, 5
-};
-
 static Tab faxwhite[Nfaxtab] = {
 	{8, 0x35, 0}, /* 0011 0101 */
 	{6, 0x7, 1}, /* 0001 11 */

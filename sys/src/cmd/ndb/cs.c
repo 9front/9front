@@ -985,19 +985,6 @@ isvalidip(uchar *ip)
 	return ipcmp(ip, IPnoaddr) != 0 && ipcmp(ip, v4prefix) != 0;
 }
 
-static uchar loopbacknet[IPaddrlen] = {
-	0, 0, 0, 0,
-	0, 0, 0, 0,
-	0, 0, 0xff, 0xff,
-	127, 0, 0, 0
-};
-static uchar loopbackmask[IPaddrlen] = {
-	0xff, 0xff, 0xff, 0xff,
-	0xff, 0xff, 0xff, 0xff,
-	0xff, 0xff, 0xff, 0xff,
-	0xff, 0, 0, 0
-};
-
 void
 readipinterfaces(void)
 {
@@ -1114,7 +1101,6 @@ netinit(int background)
 {
 	char clone[Maxpath];
 	Network *np;
-	static int working;
 
 	if(background){
 		switch(rfork(RFPROC|RFNOTEG|RFMEM|RFNOWAIT)){
@@ -1310,7 +1296,6 @@ ipserv(Network *np, char *name, char *buf, int blen)
 	char *p;
 	int alpha = 0;
 	int restr = 0;
-	char port[10];
 	Ndbtuple *t, *nt;
 	Ndbs s;
 
@@ -1321,7 +1306,6 @@ ipserv(Network *np, char *name, char *buf, int blen)
 	}
 
 	/*  see if it's numeric or symbolic */
-	port[0] = 0;
 	for(p = name; *p; p++){
 		if(isdigit(*p))
 			{}

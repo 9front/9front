@@ -672,8 +672,6 @@ getactivity(Request *req, int recursive)
 void
 putactivity(int recursive)
 {
-	static ulong lastclean;
-
 	if(traceactivity)
 		dnslog("put: %d active by pid %d",
 			dnvars.active, getpid());
@@ -706,7 +704,6 @@ putactivity(int recursive)
 	dnageall(0);
 
 	/* let others back in */
-	lastclean = now;
 	needrefresh = 0;
 	dnvars.mutex = 0;
 }

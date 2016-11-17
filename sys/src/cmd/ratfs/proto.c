@@ -11,10 +11,10 @@ enum {
 	RNONE,
 };
 
-static void	rflush(Fcall*),		rnop(Fcall*),
+static void	rflush(Fcall*),
 		rauth(Fcall*),	rattach(Fcall*),
 		rclone(Fcall*),		rwalk(Fcall*),
-		rclwalk(Fcall*),	ropen(Fcall*),
+		ropen(Fcall*),
 		rcreate(Fcall*),	rread(Fcall*),
 		rwrite(Fcall*),		rclunk(Fcall*),
 		rremove(Fcall*),	rstat(Fcall*),

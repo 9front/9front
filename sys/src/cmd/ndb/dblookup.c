@@ -561,16 +561,6 @@ look(Ndbtuple *entry, Ndbtuple *line, char *attr)
 	return 0;
 }
 
-static RR**
-linkrr(RR *rp, DN *dp, RR **l)
-{
-	rp->owner = dp;
-	rp->auth = 1;
-	rp->db = 1;
-	*l = rp;
-	return &rp->next;
-}
-
 /* these are answered specially by the tcp version */
 static RR*
 doaxfr(Ndb *db, char *name)

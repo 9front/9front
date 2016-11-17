@@ -58,7 +58,6 @@ threadmain(int argc, char *argv[])
 	Column *c;
 	int ncol;
 	Display *d;
-	static void *arg[1];
 
 	rfork(RFENVG|RFNAMEG);
 

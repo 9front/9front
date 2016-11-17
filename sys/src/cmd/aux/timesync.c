@@ -663,19 +663,6 @@ vlong2be(uchar *t, vlong from)
 static long order = 0x00010203;
 
 static uchar*
-be2long(long *to, uchar *f)
-{
-	uchar *t, *o;
-	int i;
-
-	t = (uchar*)to;
-	o = (uchar*)&order;
-	for(i = 0; i < sizeof(long); i++)
-		t[o[i]] = f[i];
-	return f+sizeof(long);
-}
-
-static uchar*
 long2be(uchar *t, long from)
 {
 	uchar *f, *o;

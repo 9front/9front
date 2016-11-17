@@ -4,7 +4,6 @@
 static int	alarmflag;
 
 static int	Iconv(Fmt*);
-static void	openudp(int);
 static void	cachereply(Rpccall*, void*, int);
 static int	replycache(int, Rpccall*, long (*)(int, void*, long));
 static void	udpserver(int, Progmap*);
@@ -441,12 +440,6 @@ domlookupl(void *name, int len)
 		}
 	}
 	return nil;
-}
-
-static Namecache*
-domlookup(void *name)
-{
-	return domlookupl(name, strlen(name));
 }
 
 static Namecache*
