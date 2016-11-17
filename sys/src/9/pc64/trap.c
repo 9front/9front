@@ -14,7 +14,7 @@ static int trapinited;
 void	noted(Ureg*, ulong);
 
 static void debugbpt(Ureg*, void*);
-static void fault386(Ureg*, void*);
+static void faultamd64(Ureg*, void*);
 static void doublefault(Ureg*, void*);
 static void unexpected(Ureg*, void*);
 static void _dumpstack(Ureg*);
@@ -225,7 +225,7 @@ trapinit(void)
 	 * Syscall() is called directly without going through trap().
 	 */
 	trapenable(VectorBPT, debugbpt, 0, "debugpt");
-	trapenable(VectorPF, fault386, 0, "fault386");
+	trapenable(VectorPF, faultamd64, 0, "faultamd64");
 	trapenable(Vector2F, doublefault, 0, "doublefault");
 	trapenable(Vector15, unexpected, 0, "unexpected");
 	nmienable();
@@ -315,9 +315,9 @@ trap(Ureg *ureg)
 	Mach *mach;
 
 	if(!trapinited){
-		/* fault386 can give a better error message */
+		/* faultamd64 can give a better error message */
 		if(ureg->type == VectorPF)
-			fault386(ureg, nil);
+			faultamd64(ureg, nil);
 		panic("trap %llud: not ready", ureg->type);
 	}
 
@@ -614,7 +614,7 @@ unexpected(Ureg* ureg, void*)
 
 extern void checkpages(void);
 static void
-fault386(Ureg* ureg, void*)
+faultamd64(Ureg* ureg, void*)
 {
 	uintptr addr;
 	int read, user, n, insyscall;
@@ -624,8 +624,6 @@ fault386(Ureg* ureg, void*)
 	read = !(ureg->error & 2);
 	user = userureg(ureg);
 	if(!user){
-		if(vmapsync(addr))
-			return;
 		if(addr >= USTKTOP)
 			panic("kernel fault: bad address pc=%#p addr=%#p", ureg->pc, addr);
 		if(up == nil)

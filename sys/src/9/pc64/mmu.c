@@ -506,6 +506,9 @@ kunmap(KMap *k)
 
 /*
  * Add a device mapping to the vmap range.
+ * note that the VMAP and KZERO PDPs are shared
+ * between processors (see mpstartap) so no
+ * synchronization is being done.
  */
 void*
 vmap(uintptr pa, int size)
@@ -513,6 +516,8 @@ vmap(uintptr pa, int size)
 	uintptr va;
 	int o;
 
+	if(pa+size > VMAPSIZE)
+		return 0;
 	va = pa+VMAP;
 	/*
 	 * might be asking for less than a page.
@@ -529,31 +534,4 @@ void
 vunmap(void *v, int)
 {
 	paddr(v);	/* will panic on error */
-}
-
-/*
- * vmapsync() is currently unused as the VMAP and KZERO PDPs
- * are shared between processors. (see mpstartap)
- */
-int
-vmapsync(uintptr va)
-{
-	uintptr *pte1, *pte2;
-	int level;
-
-	if(va < VMAP || m->machno == 0)
-		return 0;
-
-	for(level=0; level<2; level++){
-		pte1 = mmuwalk(MACHP(0)->pml4, va, level, 0);
-		if(pte1 && *pte1 & PTEVALID){
-			pte2 = mmuwalk(m->pml4, va, level, 1);
-			if(pte2 == 0)
-				break;
-			if(pte1 != pte2)
-				*pte2 = *pte1;
-			return 1;
-		}
-	}
-	return 0;
 }

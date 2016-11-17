@@ -180,7 +180,6 @@ void	upafree(uintptr, int);
 void	upareserve(uintptr, int);
 void	vectortable(void);
 void*	vmap(uintptr, int);
-int	vmapsync(uintptr);
 void	vunmap(void*, int);
 void	wbinvd(void);
 int	wrmsr(int, vlong);
