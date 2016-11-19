@@ -24,6 +24,7 @@ link
 	etherseeq
 	ethermedium
 	loopbackmedium
+	netdevmedium
 
 misc
 	uartarcs

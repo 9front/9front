@@ -23,6 +23,8 @@ dev
 
 link
 	ethermedium
+	loopbackmedium
+	netdevmedium
 	archbcm
 	usbdwc
 
