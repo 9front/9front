@@ -18,7 +18,8 @@ int _IO_putc(int c, FILE *f){
 	case CLOSED:
 		return EOF;
 	case OPEN:
-		_IO_setvbuf(f);
+		if(_IO_setvbuf(f)!=0)
+			return EOF;
 		/* fall through */
 	case RDWR:
 	case END:
@@ -38,18 +39,20 @@ int _IO_putc(int c, FILE *f){
 	if(f->flags&STRING){
 		f->rp=f->buf+f->bufl;
 		if(f->wp==f->rp){
-			if(f->flags&BALLOC)
-				f->buf=realloc(f->buf, f->bufl+BUFSIZ);
-			else{
+			if(f->flags&BALLOC){
+				char *t = realloc(f->buf, f->bufl+BUFSIZ);
+				if(t==NULL){
+					f->state=ERR;
+					return EOF;
+				}
+				f->buf=t;
+				f->wp=t+f->bufl;
+				f->bufl+=BUFSIZ;
+				f->rp=t+f->bufl;
+			}else{
 				f->state=ERR;
 				return EOF;
 			}
-			if(f->buf==NULL){
-				f->state=ERR;
-				return EOF;
-			}
-			f->rp=f->buf+f->bufl;
-			f->bufl+=BUFSIZ;
 		}
 		*f->wp++=c;
 	}
