@@ -33,20 +33,19 @@ struct Mouseinfo
 {
 	Lock;
 	Mousestate;
+	int	inbuttons;	/* buttons from /dev/mousein */
 	int	redraw;		/* update cursor on screen */
 	Rendez	redrawr;	/* wait for cursor screen updates */
 	ulong	lastcounter;	/* value when /dev/mouse read */
-	ulong	lastresize;
-	ulong	resize;
+	int	resize;		/* generate resize event */
 	Rendez	r;
 	Ref;
 	int	open;
 	int	acceleration;
 	int	maxacc;
 	Mousestate	queue[16];	/* circular buffer of click events */
-	int	ri;		/* read index into queue */
-	int	wi;		/* write index into queue */
-	uchar	qfull;		/* queue is full */
+	ulong	ri;		/* read index into queue */
+	ulong	wi;		/* write index into queue */
 };
 
 enum
@@ -69,9 +68,7 @@ static Cmdtab mousectlmsg[] =
 
 Mouseinfo	mouse;
 Cursorinfo	cursor;
-int		mouseshifted;
 Cursor		curs;
-int		mouseinbuttons;
 
 void	Cursortocursor(Cursor*);
 int	mousechanged(void*);
@@ -164,16 +161,11 @@ mouseattach(char *spec)
 static Walkqid*
 mousewalk(Chan *c, Chan *nc, char **name, int nname)
 {
-	Walkqid *wq;
-
 	/*
 	 * We use devgen() and not mousedevgen() here
 	 * see "Ugly problem" in dev.c/devwalk()
 	 */
-	wq = devwalk(c, nc, name, nname, mousedir, nelem(mousedir), devgen);
-	if(wq != nil && wq->clone != c && wq->clone != nil && (wq->clone->qid.type&QTDIR)==0)
-		incref(&mouse);
-	return wq;
+	return devwalk(c, nc, name, nname, mousedir, nelem(mousedir), devgen);
 }
 
 static int
@@ -193,17 +185,6 @@ mouseopen(Chan *c, int omode)
 		if(omode != OREAD)
 			error(Eperm);
 		break;
-	case Qmouse:
-		lock(&mouse);
-		if(mouse.open){
-			unlock(&mouse);
-			error(Einuse);
-		}
-		mouse.open = 1;
-		mouse.ref++;
-		mouse.lastresize = mouse.resize;
-		unlock(&mouse);
-		break;
 	case Qmousein:
 		if(!iseve())
 			error(Eperm);
@@ -211,7 +192,13 @@ mouseopen(Chan *c, int omode)
 		if(c->aux == nil)
 			error(Enomem);
 		break;
-	default:
+	case Qmouse:
+		if(tas(&mouse.open) != 0)
+			error(Einuse);
+		mouse.lastcounter = mouse.counter;
+		mouse.resize = 0;
+		/* wet floor */
+	case Qcursor:
 		incref(&mouse);
 	}
 	c->mode = mode;
@@ -220,34 +207,23 @@ mouseopen(Chan *c, int omode)
 	return c;
 }
 
-static Chan*
-mousecreate(Chan*, char*, int, ulong)
-{
-	if(!conf.monitor)
-		error(Egreg);
-	error(Eperm);
-	return 0;
-}
-
 static void
 mouseclose(Chan *c)
 {
-	if((c->qid.type&QTDIR)==0 && (c->flag&COPEN)){
-		lock(&mouse);
-		if(c->qid.path == Qmouse)
-			mouse.open = 0;
-		else if(c->qid.path == Qmousein){
-			unlock(&mouse);
-			mouseinbuttons &= ~((Mousestate*)c->aux)->buttons;
-			free(c->aux);	/* Mousestate */
-			c->aux = nil;
+	if((c->qid.type&QTDIR)!=0 || (c->flag&COPEN)==0)
+		return;
+	switch((ulong)c->qid.path){
+	case Qmousein:
+		mouse.inbuttons &= ~((Mousestate*)c->aux)->buttons;
+		free(c->aux);	/* Mousestate */
+		c->aux = nil;
+		return;
+	case Qmouse:
+		mouse.open = 0;
+		/* wet floor */
+	case Qcursor:
+		if(decref(&mouse) != 0)
 			return;
-		}
-		if(--mouse.ref != 0){
-			unlock(&mouse);
-			return;
-		}
-		unlock(&mouse);
 		cursoroff();
 		curs = arrow;
 		Cursortocursor(&arrow);
@@ -277,40 +253,23 @@ mouseread(Chan *c, void *va, long n, vlong off)
 		if(n < 2*4+2*2*16)
 			error(Eshort);
 		n = 2*4+2*2*16;
-		lock(&cursor);
 		BPLONG(p+0, curs.offset.x);
 		BPLONG(p+4, curs.offset.y);
 		memmove(p+8, curs.clr, 2*16);
 		memmove(p+40, curs.set, 2*16);
-		unlock(&cursor);
 		return n;
 
 	case Qmouse:
 		while(mousechanged(0) == 0)
 			sleep(&mouse.r, mousechanged, 0);
-
-		mouse.qfull = 0;
 		mousetime = seconds();
 
-		/*
-		 * No lock of the indices is necessary here, because ri is only
-		 * updated by us, and there is only one mouse reader
-		 * at a time.  I suppose that more than one process
-		 * could try to read the fd at one time, but such behavior
-		 * is degenerate and already violates the calling
-		 * conventions for sleep above.
-		 */
-		if(mouse.ri != mouse.wi) {
-			m = mouse.queue[mouse.ri];
-			if(++mouse.ri == nelem(mouse.queue))
-				mouse.ri = 0;
-		} else {
-			while(!canlock(&cursor))
-				tsleep(&up->sleep, return0, 0, TK2MS(1));
-
+		ilock(&mouse);
+		if(mouse.ri != mouse.wi)
+			m = mouse.queue[mouse.ri++ % nelem(mouse.queue)];
+		else
 			m = mouse.Mousestate;
-			unlock(&cursor);
-		}
+		iunlock(&mouse);
 
 		b = buttonmap[m.buttons&7];
 		/* put buttons 4 and 5 back in */
@@ -321,16 +280,16 @@ mouseread(Chan *c, void *va, long n, vlong off)
 			else if (b == 16)
 				b = 8;
 		sprint(buf, "m%11d %11d %11d %11lud ",
-			m.xy.x, m.xy.y,
-			b,
-			m.msec);
+			m.xy.x, m.xy.y, b, m.msec);
+
 		mouse.lastcounter = m.counter;
-		if(n > 1+4*12)
-			n = 1+4*12;
-		if(mouse.lastresize != mouse.resize){
-			mouse.lastresize = mouse.resize;
+		if(mouse.resize){
+			mouse.resize = 0;
 			buf[0] = 'r';
 		}
+
+		if(n > 1+4*12)
+			n = 1+4*12;
 		memmove(va, buf, n);
 		return n;
 	}
@@ -459,7 +418,7 @@ mousewrite(Chan *c, void *va, long n, vlong)
 			n = sizeof buf -1;
 		memmove(buf, va, n);
 		buf[n] = 0;
-		p = 0;
+
 		pt.x = strtol(buf+1, &p, 0);
 		if(*p == 0)
 			error(Eshort);
@@ -467,7 +426,7 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		if(*p == 0)
 			error(Eshort);
 		b = strtol(p, &p, 0);
-		msec = strtol(p, &p, 0);
+		msec = strtol(p, 0, 0);
 		if(msec == 0)
 			msec = TK2MS(MACHP(0)->ticks);
 
@@ -480,7 +439,7 @@ mousewrite(Chan *c, void *va, long n, vlong)
 		m->msec = msec;
 		b ^= m->buttons;
 		m->buttons ^= b;
-		mouseinbuttons = (m->buttons & b) | (mouseinbuttons & ~b);
+		mouse.inbuttons = (m->buttons & b) | (mouse.inbuttons & ~b);
 		b = mouse.buttons & ~b;
 
 		/* include wheel */
@@ -498,15 +457,12 @@ mousewrite(Chan *c, void *va, long n, vlong)
 			n = sizeof buf -1;
 		memmove(buf, va, n);
 		buf[n] = 0;
-		p = 0;
-		pt.x = strtoul(buf+1, &p, 0);
-		if(p == 0)
+
+		pt.x = strtol(buf+1, &p, 0);
+		if(*p == 0)
 			error(Eshort);
-		pt.y = strtoul(p, 0, 0);
-		if(gscreen != nil && ptinrect(pt, gscreen->r)){
-			mouse.xy = pt;
-			mousetrack(0, 0, mouse.buttons, TK2MS(MACHP(0)->ticks));
-		}
+		pt.y = strtol(p, 0, 0);
+		absmousetrack(pt.x, pt.y, mouse.buttons, TK2MS(MACHP(0)->ticks));
 		return n;
 	}
 
@@ -525,7 +481,7 @@ Dev mousedevtab = {
 	mousewalk,
 	mousestat,
 	mouseopen,
-	mousecreate,
+	devcreate,
 	mouseclose,
 	mouseread,
 	devbread,
@@ -631,34 +587,44 @@ absmousetrack(int x, int y, int b, int msec)
 	if(x < gscreen->clipr.min.x)
 		x = gscreen->clipr.min.x;
 	if(x >= gscreen->clipr.max.x)
-		x = gscreen->clipr.max.x;
+		x = gscreen->clipr.max.x-1;
 	if(y < gscreen->clipr.min.y)
 		y = gscreen->clipr.min.y;
 	if(y >= gscreen->clipr.max.y)
-		y = gscreen->clipr.max.y;
+		y = gscreen->clipr.max.y-1;
 
-	b |= mouseinbuttons;
 
-	lastb = mouse.buttons;
+	ilock(&mouse);
 	mouse.xy = Pt(x, y);
+	lastb = mouse.buttons;
+	b |= mouse.inbuttons;
 	mouse.buttons = b;
-	mouse.counter++;
 	mouse.msec = msec;
+	mouse.counter++;
 
 	/*
-	 * if the queue fills, we discard the entire queue and don't
-	 * queue any more events until a reader polls the mouse.
+	 * if the queue fills, don't queue any more events until a
+	 * reader polls the mouse.
 	 */
-	if(!mouse.qfull && lastb != b) {	/* add to ring */
-		mouse.queue[mouse.wi] = mouse.Mousestate;
-		if(++mouse.wi == nelem(mouse.queue))
-			mouse.wi = 0;
-		if(mouse.wi == mouse.ri)
-			mouse.qfull = 1;
-	}
+	if(b != lastb && (mouse.wi-mouse.ri) < nelem(mouse.queue))
+		mouse.queue[mouse.wi++ % nelem(mouse.queue)] = mouse.Mousestate;
+	iunlock(&mouse);
+
 	wakeup(&mouse.r);
 
 	mouseredraw();
+}
+
+static ulong
+lastms(void)
+{
+	static ulong lasttick;
+	ulong t, d;
+
+	t = MACHP(0)->ticks;
+	d = t - lasttick;
+	lasttick = t;
+	return TK2MS(d);
 }
 
 /*
@@ -680,16 +646,11 @@ m3mouseputc(Queue*, int c)
 	static uchar b[] = { 0, 4, 1, 5, 0, 2, 1, 3 };
 	short x;
 	int dx, dy, newbuttons;
-	static ulong lasttick;
-	ulong m;
 
-	/* Resynchronize in stream with timing. */
-	m = MACHP(0)->ticks;
-	if(TK2SEC(m - lasttick) > 2)
+	if(lastms() > 500)
 		nb = 0;
-	lasttick = m;
-
-	if(nb==0){
+	if(nb == 3){
+		nb = 0;
 		/*
 		 * an extra byte comes for middle button motion.
 		 * only two possible values for the extra byte.
@@ -704,8 +665,7 @@ m3mouseputc(Queue*, int c)
 	}
 	msg[nb] = c;
 	if(++nb == 3){
-		nb = 0;
-		newbuttons = middle | b[(msg[0]>>4)&3 | (mouseshifted ? 4 : 0)];
+		newbuttons = middle | b[(msg[0]>>4)&3];
 		x = (msg[0]&0x3)<<14;
 		dx = (x>>8) | msg[1];
 		x = (msg[0]&0xc)<<12;
@@ -732,30 +692,24 @@ m3mouseputc(Queue*, int c)
 int
 m5mouseputc(Queue*, int c)
 {
-	static uchar msg[3];
+	static uchar msg[4];
 	static int nb;
-	static ulong lasttick;
-	ulong m;
 
-	/* Resynchronize in stream with timing. */
-	m = MACHP(0)->ticks;
-	if(TK2SEC(m - lasttick) > 2)
+	if(lastms() > 500)
 		nb = 0;
-	lasttick = m;
-
-	msg[nb++] = c & 0x7f;
-	if (nb == 4) {
+	msg[nb] = c & 0x7f;
+	if(++nb == 4){
+		nb = 0;
 		schar dx,dy,newbuttons;
 		dx = msg[1] | (msg[0] & 0x3) << 6;
 		dy = msg[2] | (msg[0] & 0xc) << 4;
 		newbuttons =
-			(msg[0] & 0x10) >> (mouseshifted ? 3 : 2)
+			(msg[0] & 0x10) >> 2
 			| (msg[0] & 0x20) >> 5
 			| ( msg[3] == 0x10 ? 0x02 :
 			    msg[3] == 0x0f ? ScrollUp :
 			    msg[3] == 0x01 ? ScrollDown : 0 );
 		mousetrack(dx, dy, newbuttons, TK2MS(MACHP(0)->ticks));
-		nb = 0;
 	}
 	return 0;
 }
@@ -772,26 +726,18 @@ mouseputc(Queue*, int c)
 	static int nb;
 	static uchar b[] = {0, 4, 2, 6, 1, 5, 3, 7, 0, 2, 2, 6, 1, 3, 3, 7};
 	int dx, dy, newbuttons;
-	static ulong lasttick;
-	ulong m;
 
-	/* Resynchronize in stream with timing. */
-	m = MACHP(0)->ticks;
-	if(TK2SEC(m - lasttick) > 2)
+	if(lastms() > 500 || (c&0xF0) == 0x80)
 		nb = 0;
-	lasttick = m;
-
-	if((c&0xF0) == 0x80)
-		nb=0;
 	msg[nb] = c;
 	if(c & 0x80)
 		msg[nb] |= ~0xFF;	/* sign extend */
 	if(++nb == 5){
-		newbuttons = b[((msg[0]&7)^7) | (mouseshifted ? 8 : 0)];
+		nb = 0;
+		newbuttons = b[((msg[0]&7)^7)];
 		dx = msg[1]+msg[3];
 		dy = -(msg[2]+msg[4]);
 		mousetrack(dx, dy, newbuttons, TK2MS(MACHP(0)->ticks));
-		nb = 0;
 	}
 	return 0;
 }
@@ -799,8 +745,7 @@ mouseputc(Queue*, int c)
 int
 mousechanged(void*)
 {
-	return mouse.lastcounter != mouse.counter ||
-		mouse.lastresize != mouse.resize;
+	return mouse.lastcounter != mouse.counter || mouse.resize != 0;
 }
 
 Point
@@ -825,7 +770,7 @@ mouseaccelerate(int x)
 void
 mouseresize(void)
 {
-	mouse.resize++;
+	mouse.resize = 1;
 	wakeup(&mouse.r);
 }
 
