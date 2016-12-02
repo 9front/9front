@@ -1,8 +1,10 @@
 #!/bin/rc
-netdir=$3
-remote=$2!`{cat $3/remote}
+if(~ $#* 3){
+	netdir=$3
+	remote=$2!`{cat $3/remote}
+}
 fn server {
-	echo -n $netdir $remote >/proc/$pid/args
+	~ $#remote 0 || echo -n $netdir $remote >/proc/$pid/args
 	rm -f /env/'fn#server'
 	. <{n=`{read} && ! ~ $#n 0 && read -c $n} >[2=1]
 }
