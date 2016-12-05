@@ -50,6 +50,9 @@ struct Ctlr {
 
 	ulong port;
 	ulong mixport;
+	uchar *mmreg;
+	uchar *mmmix;
+	int ismmio;
 
 	Ring inring, micring, outring;
 
@@ -60,9 +63,6 @@ struct Ctlr {
 	Pcidev *pcidev;
 	Ctlr *next;
 };
-
-#define iorl(c, r)	(inl((c)->port+(r)))
-#define iowl(c, r, l)	(outl((c)->port+(r), (ulong)(l)))
 
 enum {
 	In = 0x00,
@@ -192,12 +192,50 @@ writering(Ring *r, uchar *p, long n)
 	return n0 - n;
 }
 
-#define csr8r(c, r)	(inb((c)->port+(r)))
-#define csr16r(c, r)	(ins((c)->port+(r)))
-#define csr32r(c, r)	(inl((c)->port+(r)))
-#define csr8w(c, r, b)	(outb((c)->port+(r), (int)(b)))
-#define csr16w(c, r, w)	(outs((c)->port+(r), (ushort)(w)))
-#define csr32w(c, r, w)	(outl((c)->port+(r), (ulong)(w)))
+static uchar
+csr8r(Ctlr *c, int r){
+	if(c->ismmio)
+		return *(uchar*)(c->mmreg+r);		
+	return inb(c->port+r);
+}
+
+static ushort
+csr16r(Ctlr *c, int r){
+	if(c->ismmio)
+		return *(ushort*)(c->mmreg+r);		
+	return ins(c->port+r);
+}
+
+static ulong
+csr32r(Ctlr *c, int r){
+	if(c->ismmio)
+		return *(ulong*)(c->mmreg+r);		
+	return inl(c->port+r);
+}
+
+static void
+csr8w(Ctlr *c, int r, uchar v){
+	if(c->ismmio)
+		*(uchar*)(c->mmreg+r) = v;
+	else
+		outb(c->port+r, (int)v);
+}
+
+static void
+csr16w(Ctlr *c, int r, ushort v){
+	if(c->ismmio)
+		*(ushort*)(c->mmreg+r) = v;
+	else
+		outs(c->port+r, v);
+}
+
+static void
+csr32w(Ctlr *c, int r, ulong v){
+	if(c->ismmio)
+		*(ulong*)(c->mmreg+r) = v;
+	else
+		outl(c->port+r, v);
+}
 
 /* audioac97mix */
 extern void ac97mixreset(Audio *,
@@ -210,13 +248,12 @@ ac97waitcodec(Audio *adev)
 	Ctlr *ctlr;
 	int i;
 	ctlr = adev->ctlr;
-	for(i = 0; i < Maxbusywait/10; i++){
+	for(i = 0; i <= Maxbusywait/10; i++){
 		if((csr8r(ctlr, Cas) & Casp) == 0)
-			break;
+			return;
 		microdelay(10);
 	}
-	if(i == Maxbusywait)
-		print("#A%d: ac97 exhausted waiting codec access\n", adev->ctlrno);
+	print("#A%d: ac97 exhausted waiting codec access\n", adev->ctlrno);
 }
 
 static void
@@ -225,7 +262,10 @@ ac97mixw(Audio *adev, int port, ushort val)
 	Ctlr *ctlr;
 	ac97waitcodec(adev);
 	ctlr = adev->ctlr;
-	outs(ctlr->mixport+port, val);
+	if(ctlr->ismmio)
+		*(ushort*)(ctlr->mmmix+port) = val;
+	else
+		outs(ctlr->mixport+port, val);
 }
 
 static ushort
@@ -234,6 +274,8 @@ ac97mixr(Audio *adev, int port)
 	Ctlr *ctlr;
 	ac97waitcodec(adev);
 	ctlr = adev->ctlr;
+	if(ctlr->ismmio)
+		return *(ushort*)(ctlr->mmmix+port);
 	return ins(ctlr->mixport+port);
 }
 
@@ -471,27 +513,44 @@ Found:
 	adev->ctlr = ctlr;
 	ctlr->adev = adev;
 
-	if((p->mem[0].bar & 1) == 0 || (p->mem[1].bar & 1) == 0){
-		print("ac97: not i/o regions 0x%04lux 0x%04lux\n", p->mem[0].bar, p->mem[1].bar);
-		return -1;
-	}
+	/* ICH4 through ICH7 may use memory-type base address registers */
+	if(p->vid == 0x8086 &&
+	  (p->did == 0x24c5 || p->did == 0x24d5 || p->did == 0x266e || p->did == 0x27de) &&
+	  (p->mem[2].bar != 0 && p->mem[3].bar != 0) &&
+	  ((p->mem[2].bar & 1) == 0 && (p->mem[3].bar & 1) == 0)){
+		ctlr->mmmix = vmap(p->mem[2].bar & ~0xf, p->mem[2].size);
+		if(ctlr->mmmix == nil){
+			print("ac97: vmap failed for mmmix 0x%08lux\n", p->mem[2].bar);
+			return -1;
+		}
+		ctlr->mmreg = vmap(p->mem[3].bar & ~0xf, p->mem[3].size);
+		if(ctlr->mmreg == nil){
+			print("ac97: vmap failed for mmreg 0x%08lux\n", p->mem[3].bar);
+			vunmap(ctlr->mmmix, p->mem[2].size);
+			return -1;
+		}
+		ctlr->ismmio = 1;
+	}else{
+		if((p->mem[0].bar & 1) == 0 || (p->mem[1].bar & 1) == 0){
+			print("ac97: not i/o regions 0x%04lux 0x%04lux\n", p->mem[0].bar, p->mem[1].bar);
+			return -1;
+		}
 
-	i = 1;
-	if(p->vid == 0x1039 && p->did == 0x7012){
-		ctlr->sis7012 = 1;
-		//i = 0;	i/o bars swaped?
-	}
-	ctlr->port = p->mem[i].bar & ~3;
-	if(ioalloc(ctlr->port, p->mem[i].size, 0, "ac97") < 0){
-		print("ac97: ioalloc failed for port 0x%04lux\n", ctlr->port);
-		return -1;
-	}
-	i = (i+1) & 1;
-	ctlr->mixport = p->mem[i].bar & ~3;
-	if(ioalloc(ctlr->mixport, p->mem[i].size, 0, "ac97mix") < 0){
-		print("ac97: ioalloc failed for mixport 0x%04lux\n", ctlr->mixport);
-		iofree(ctlr->port);
-		return -1;
+		if(p->vid == 0x1039 && p->did == 0x7012){
+			ctlr->sis7012 = 1;	/* i/o bars swapped? */
+		}
+
+		ctlr->port = p->mem[1].bar & ~3;
+		if(ioalloc(ctlr->port, p->mem[1].size, 0, "ac97") < 0){
+			print("ac97: ioalloc failed for port 0x%04lux\n", ctlr->port);
+			return -1;
+		}
+		ctlr->mixport = p->mem[0].bar & ~3;
+		if(ioalloc(ctlr->mixport, p->mem[0].size, 0, "ac97mix") < 0){
+			print("ac97: ioalloc failed for mixport 0x%04lux\n", ctlr->mixport);
+			iofree(ctlr->port);
+			return -1;
+		}
 	}
 
 	irq = p->intl;
