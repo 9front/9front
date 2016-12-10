@@ -14,8 +14,8 @@ extern Cursor	arrow;
 extern Cursorinfo cursor;
 
 /* devmouse.c */
-extern void mousetrack(int, int, int, int);
-extern void absmousetrack(int, int, int, int);
+extern void mousetrack(int, int, int, ulong);
+extern void absmousetrack(int, int, int, ulong);
 extern Point mousexy(void);
 
 extern void	mouseaccelerate(int);

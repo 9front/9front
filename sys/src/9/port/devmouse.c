@@ -567,7 +567,7 @@ scale(int x)
  *  awaken any waiting procs.
  */
 void
-mousetrack(int dx, int dy, int b, int msec)
+mousetrack(int dx, int dy, int b, ulong msec)
 {
 	if(mouse.acceleration){
 		dx = scale(dx);
@@ -577,7 +577,7 @@ mousetrack(int dx, int dy, int b, int msec)
 }
 
 void
-absmousetrack(int x, int y, int b, int msec)
+absmousetrack(int x, int y, int b, ulong msec)
 {
 	int lastb;
 
