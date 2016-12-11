@@ -12,8 +12,8 @@ extern int		cursorver;
 extern Point		cursorpos;
 
 Point 		mousexy(void);
-int		cursoron(int);
-void		cursoroff(int);
+void		cursoron(void);
+void		cursoroff(void);
 void		setcursor(Cursor*);
 void		flushmemscreen(Rectangle r);
 Rectangle	cursorrect(void);
@@ -28,7 +28,7 @@ int		setcolor(ulong, ulong, ulong, ulong);
 #define		TK2SEC(x)	0
 extern void	blankscreen(int);
 void		screeninit(int x, int y, char *chanstr);
-void		mousetrack(int x, int y, int b, int msec);
+void		absmousetrack(int x, int y, int b, ulong msec);
 uchar		*attachscreen(Rectangle*, ulong*, int*, int*, int*);
 
 void		fsinit(char *mntpt, int x, int y, char *chanstr);

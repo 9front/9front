@@ -802,7 +802,7 @@ clientreadproc(Vncs *v)
 			buttons = vncrdchar(v);
 			x = vncrdshort(v);
 			y = vncrdshort(v);
-			mousetrack(x, y, buttons, nsec()/(1000*1000LL));
+			absmousetrack(x, y, buttons, nsec()/(1000*1000LL));
 			break;
 
 		/* send cut text */
