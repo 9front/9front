@@ -237,7 +237,6 @@ mouseread(Chan *c, void *va, long n, vlong off)
 {
 	char buf[1+4*12+1];
 	uchar *p;
-	static int map[8] = {0, 4, 2, 6, 1, 5, 3, 7 };
 	ulong offset = off;
 	Mousestate m;
 	int b;
