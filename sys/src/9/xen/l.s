@@ -296,6 +296,38 @@ TEXT mul64fract(SB), $0
 	ADCL	BX, 4(CX)			/* r2 += carry */
 	RET
 
+#define RDRANDAX	BYTE $0x0f; BYTE $0xc7; BYTE $0xf0
+
+TEXT rdrand32(SB), $-4
+_rloop32:
+	RDRANDAX
+	JCC	_rloop32
+	RET
+
+TEXT rdrandbuf(SB), $0
+	MOVL	buf+0(FP), DI
+	MOVL	cnt+4(FP), CX
+	CLD
+	MOVL	CX, DX
+	SHRL	$2, CX
+	CMPL	CX, $0
+	JE	_rndleft
+_rnddwords:
+	CALL	rdrand32(SB)
+	STOSL
+	LOOP _rnddwords
+_rndleft:
+	MOVL	DX, CX
+	ANDL	$3, CX
+	CMPL	CX, $0
+	JE	_rnddone
+_rndbytes:
+	CALL rdrand32(SB)
+	STOSB
+	LOOP _rndbytes
+_rnddone:
+	RET
+
 /*
  *  label consists of a stack pointer and a PC
  */
