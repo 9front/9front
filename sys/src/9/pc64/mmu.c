@@ -31,13 +31,16 @@ static struct {
 	ulong	nfree;
 } mmupool;
 
-/* level */
 enum {
+	/* level */
 	PML4E	= 2,
 	PDPE	= 1,
 	PDE	= 0,
 
 	MAPBITS	= 8*sizeof(m->mmumap[0]),
+
+	/* PAT entry used for write combining */
+	PATWC	= 7,
 };
 
 static void
@@ -130,6 +133,12 @@ mmuinit(void)
 
 	/* SYSCALL flags mask */
 	wrmsr(0xc0000084, 0x200);
+
+	/* IA32_PAT write combining */
+	rdmsr(0x277, &v);
+	v &= ~(255LL<<(PATWC*8));
+	v |= 1LL<<(PATWC*8);	/* WC */
+	wrmsr(0x277, v);
 }
 
 /*
@@ -534,4 +543,29 @@ void
 vunmap(void *v, int)
 {
 	paddr(v);	/* will panic on error */
+}
+
+/*
+ * mark pages as write combining (used for framebuffer)
+ */
+void
+patwc(void *v, int n)
+{
+	uintptr *pte, mask, attr, va;
+	int z, l;
+
+	/* set the bits for all pages in range */
+	for(va = (uintptr)v; n > 0; n -= z, va += z){
+		l = 0;
+		pte = mmuwalk(m->pml4, va, l, 0);
+		if(pte == 0)
+			pte = mmuwalk(m->pml4, va, ++l, 0);
+		if(pte == 0 || (*pte & PTEVALID) == 0)
+			panic("patwc: va=%#p", va);
+		z = PGLSZ(l);
+		z -= va & (z-1);
+		mask = l == 0 ? 3<<3 | 1<<7 : 3<<3 | 1<<12;
+		attr = (((PATWC&3)<<3) | ((PATWC&4)<<5) | ((PATWC&4)<<10));
+		*pte = (*pte & ~mask) | (attr & mask);
+	}
 }

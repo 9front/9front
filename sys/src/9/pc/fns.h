@@ -123,6 +123,7 @@ void	outss(int, void*, int);
 void	outl(int, ulong);
 void	outsl(int, void*, int);
 ulong	paddr(void*);
+void	patwc(void*, int);
 ulong	pcibarsize(Pcidev*, int);
 void	pcibussize(Pcidev*, ulong*, ulong*);
 int	pcicfgr8(Pcidev*, int);

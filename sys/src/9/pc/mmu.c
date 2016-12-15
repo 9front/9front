@@ -1065,3 +1065,7 @@ cankaddr(ulong pa)
 	return -KZERO - pa;
 }
 
+void
+patwc(void *, int)
+{
+}

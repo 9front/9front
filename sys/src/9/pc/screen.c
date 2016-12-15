@@ -492,6 +492,9 @@ vgalinearaddr0(VGAscr *scr, ulong paddr, int size)
 	scr->vaddr = vmap(npaddr, nsize);
 	if(scr->vaddr == 0)
 		return "cannot allocate vga frame buffer";
+
+	patwc(scr->vaddr, nsize);
+
 	scr->vaddr = (char*)scr->vaddr+x;
 	scr->paddr = paddr;
 	scr->apsize = nsize;
