@@ -31,3 +31,4 @@ lex.$O:		y.tab.h
 util.$O:	y.tab.h
 builtin.$O:	y.tab.h
 main.$O:	y.tab.h
+proc.$O:	y.tab.h
