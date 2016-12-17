@@ -135,10 +135,12 @@ mmuinit(void)
 	wrmsr(0xc0000084, 0x200);
 
 	/* IA32_PAT write combining */
-	rdmsr(0x277, &v);
-	v &= ~(255LL<<(PATWC*8));
-	v |= 1LL<<(PATWC*8);	/* WC */
-	wrmsr(0x277, v);
+	if((MACHP(0)->cpuiddx & Pat) != 0
+	&& rdmsr(0x277, &v) != -1){
+		v &= ~(255LL<<(PATWC*8));
+		v |= 1LL<<(PATWC*8);	/* WC */
+		wrmsr(0x277, v);
+	}
 }
 
 /*
@@ -549,13 +551,20 @@ vunmap(void *v, int)
  * mark pages as write combining (used for framebuffer)
  */
 void
-patwc(void *v, int n)
+patwc(void *a, int n)
 {
 	uintptr *pte, mask, attr, va;
 	int z, l;
+	vlong v;
+
+	/* check if pat is usable */
+	if((MACHP(0)->cpuiddx & Pat) == 0
+	|| rdmsr(0x277, &v) == -1
+	|| ((v >> PATWC*8) & 7) != 1)
+		return;
 
 	/* set the bits for all pages in range */
-	for(va = (uintptr)v; n > 0; n -= z, va += z){
+	for(va = (uintptr)a; n > 0; n -= z, va += z){
 		l = 0;
 		pte = mmuwalk(m->pml4, va, l, 0);
 		if(pte == 0)

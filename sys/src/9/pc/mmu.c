@@ -66,11 +66,17 @@ static void memglobal(void);
 #define	VPTX(va)		(((ulong)(va))>>12)
 #define	vpd (vpt+VPTX(VPT))
 
+enum {
+	/* PAT entry used for write combining */
+	PATWC	= 7,
+};
+
 void
 mmuinit(void)
 {
 	ulong x, *p;
 	ushort ptr[3];
+	vlong v;
 
 	if(0) print("vpt=%#.8ux vpd=%#p kmap=%#.8ux\n",
 		VPT, vpd, KMAP);
@@ -119,6 +125,14 @@ mmuinit(void)
 
 	taskswitch(PADDR(m->pdb),  (ulong)m + BY2PG);
 	ltr(TSSSEL);
+
+	/* IA32_PAT write combining */
+	if((MACHP(0)->cpuiddx & Pat) != 0
+	&& rdmsr(0x277, &v) != -1){
+		v &= ~(255LL<<(PATWC*8));
+		v |= 1LL<<(PATWC*8);	/* WC */
+		wrmsr(0x277, v);
+	}
 }
 
 /* 
@@ -1065,7 +1079,36 @@ cankaddr(ulong pa)
 	return -KZERO - pa;
 }
 
+/*
+ * mark pages as write combining (used for framebuffer)
+ */
 void
-patwc(void *, int)
+patwc(void *a, int n)
 {
+	ulong *pte, mask, attr, va;
+	vlong v;
+	int z;
+
+	/* check if pat is usable */
+	if((MACHP(0)->cpuiddx & Pat) == 0
+	|| rdmsr(0x277, &v) == -1
+	|| ((v >> PATWC*8) & 7) != 1)
+		return;
+
+	/* set the bits for all pages in range */
+	for(va = (ulong)a; n > 0; n -= z, va += z){
+		pte = mmuwalk(m->pdb, va, 1, 0);
+		if(pte && (*pte & (PTEVALID|PTESIZE)) == (PTEVALID|PTESIZE)){
+			z = 4*MB - (va & (4*MB-1));
+			mask = 3<<3 | 1<<12;
+		} else {
+			pte = mmuwalk(m->pdb, va, 2, 0);
+			if(pte == 0 || (*pte & PTEVALID) == 0)
+				panic("patwc: va=%#p", va);
+			z = BY2PG - (va & (BY2PG-1));
+			mask = 3<<3 | 1<<7;
+		}
+		attr = (((PATWC&3)<<3) | ((PATWC&4)<<5) | ((PATWC&4)<<10));
+		*pte = (*pte & ~mask) | (attr & mask);
+	}
 }

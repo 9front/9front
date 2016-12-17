@@ -316,6 +316,7 @@ enum {
 	Mtrr	= 1<<12,	/* memory-type range regs.  */
 	Pge	= 1<<13,	/* page global extension */
 	Mca	= 1<<14,	/* machine-check architecture */
+	Pat	= 1<<16,	/* page attribute table */
 	Pse2	= 1<<17,	/* more page size extensions */
 	Clflush = 1<<19,
 	Acpif	= 1<<22,	/* therm control msr */
