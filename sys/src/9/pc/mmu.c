@@ -1097,12 +1097,12 @@ patwc(void *a, int n)
 
 	/* set the bits for all pages in range */
 	for(va = (ulong)a; n > 0; n -= z, va += z){
-		pte = mmuwalk(m->pdb, va, 1, 0);
+		pte = mmuwalk(MACHP(0)->pdb, va, 1, 0);
 		if(pte && (*pte & (PTEVALID|PTESIZE)) == (PTEVALID|PTESIZE)){
 			z = 4*MB - (va & (4*MB-1));
 			mask = 3<<3 | 1<<12;
 		} else {
-			pte = mmuwalk(m->pdb, va, 2, 0);
+			pte = mmuwalk(MACHP(0)->pdb, va, 2, 0);
 			if(pte == 0 || (*pte & PTEVALID) == 0)
 				panic("patwc: va=%#p", va);
 			z = BY2PG - (va & (BY2PG-1));
