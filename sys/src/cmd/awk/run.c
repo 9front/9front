@@ -29,10 +29,6 @@ THIS SOFTWARE.
 #include "awk.h"
 #include "y.tab.h"
 
-#ifndef RAND_MAX
-#define RAND_MAX	32767	/* all that ansi guarantees */
-#endif
-
 jmp_buf env;
 extern	int	pairstack[];
 
@@ -1582,12 +1578,11 @@ Cell *bltin(Node **a, int)	/* builtin functions. a[0] is type, a[1] is arg list 
 		u = (Awkfloat) system(getsval(x));
 		break;
 	case FRAND:
-		/* in principle, rand() returns something in 0..RAND_MAX */
-		u = (Awkfloat) (rand() % RAND_MAX) / RAND_MAX;
+		u = frand();
 		break;
 	case FSRAND:
 		if (isrec(x))	/* no argument provided */
-			u = time(nil);
+			u = (Awkfloat) (truerand() >> 1);
 		else
 			u = getfval(x);
 		srand((unsigned int) u);
