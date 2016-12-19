@@ -80,4 +80,9 @@ fn pvar {
 	}
 }
 
-exec $connect $host <{dir=`{pwd} pvar dir cmd; builtin whatis server; echo server} client <[10=0] >[11=1] >[12=2]
+>/env/rscript {
+	dir=`{pwd} pvar dir cmd
+	builtin whatis server
+	echo server
+}
+exec $connect $host /env/rscript client <[10=0] >[11=1] >[12=2]
