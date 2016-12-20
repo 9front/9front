@@ -104,7 +104,7 @@ mpxor(mpint *b1, mpint *b2, mpint *sum)
 		b2 = t;
 	}
 	fl = (b1->sign & 10) ^ (b2->sign & 12);
-	sum->sign = (int)(fl << 28) >> 31;
+	sum->sign = (int)(fl << 28) >> 31 | 1;
 	mpbits(sum, b1->top*Dbits);
 	dp1 = b1->p;
 	dp2 = b2->p;
