@@ -152,7 +152,7 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 	cdroot = 0;
 	flags = 0;
 	argv0 = 0;
-	if (newnsdebug){
+	if(newnsdebug){
 		for (i = 0; i < argc; i++)
 			fprint(2, "%s ", argv[i]);
 		fprint(2, "\n");
@@ -181,9 +181,9 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 			return 0;
 		cdroot |= nsfile(fn, b, rpc);
 		Bterm(b);
-	}else if(strcmp(argv0, "clear") == 0 && argc == 0)
+	}else if(strcmp(argv0, "clear") == 0 && argc == 0){
 		rfork(RFCNAMEG);
-	else if(strcmp(argv0, "bind") == 0 && argc == 2){
+	}else if(strcmp(argv0, "bind") == 0 && argc == 2){
 		if(bind(argv[0], argv[1], flags) < 0 && newnsdebug)
 			fprint(2, "%s: bind: %s %s: %r\n", fn, argv[0], argv[1]);
 	}else if(strcmp(argv0, "unmount") == 0){
@@ -193,6 +193,11 @@ nsop(char *fn, int argc, char *argv[], AuthRpc *rpc)
 			unmount(argv[0], argv[1]);
 	}else if(strcmp(argv0, "mount") == 0){
 		fd = open(argv[0], ORDWR);
+		if(fd < 0){
+			if(newnsdebug)
+				fprint(2, "%s: mount: %s: %r\n", fn, argv[0]);
+			return 0;
+		}
 		if(argc == 2){
 			if(famount(fd, rpc, argv[1], flags, "") < 0 && newnsdebug)
 				fprint(2, "%s: mount: %s %s: %r\n", fn, argv[0], argv[1]);
