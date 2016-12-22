@@ -17,7 +17,6 @@ char	*defargv[] = { "/bin/rc", "-i", nil };
 char	*namespace = nil;
 
 int	becomeuser(char*);
-void	initcap(void);
 
 void
 usage(void)
@@ -56,7 +55,6 @@ main(int argc, char *argv[])
 	if(argc == 0)
 		usage();
 
-	initcap();
 	if(becomeuser(argv[0]) < 0)
 		sysfatal("can't change uid for %s: %r", argv[0]);
 	if(newns(argv[0], namespace) < 0)
@@ -70,19 +68,6 @@ main(int argc, char *argv[])
 }
 
 /*
- *  keep caphash fd open since opens of it could be disabled
- */
-static int caphashfd;
-
-void
-initcap(void)
-{
-	caphashfd = open("#¤/caphash", OCEXEC|OWRITE);
-	if(caphashfd < 0)
-		fprint(2, "%s: opening #¤/caphash: %r", argv0);
-}
-
-/*
  *  create a change uid capability 
  */
 char*
@@ -93,8 +78,10 @@ mkcap(char *from, char *to)
 	char *key;
 	int nfrom, nto;
 	uchar hash[SHA1dlen];
+	int fd;
 
-	if(caphashfd < 0)
+	fd = open("#¤/caphash", OCEXEC|OWRITE);
+	if(fd < 0)
 		return nil;
 
 	/* create the capability */
@@ -113,10 +100,12 @@ mkcap(char *from, char *to)
 
 	/* give the kernel the hash */
 	key[-1] = '@';
-	if(write(caphashfd, hash, SHA1dlen) < 0){
+	if(write(fd, hash, SHA1dlen) < 0){
+		close(fd);
 		free(cap);
 		return nil;
 	}
+	close(fd);
 
 	return cap;
 }
