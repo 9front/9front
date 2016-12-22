@@ -2,22 +2,40 @@
 #include <libc.h>
 #include <auth.h>
 
-char *namespace;
+extern int newnsdebug;
+
+char	*defargv[] = { "/bin/rc", "-i", nil };
+char	*namespace = nil;
 
 void
 usage(void)
 {
-	fprint(2, "usage: auth/none [-n namespace] [cmd ...]\n");
+	fprint(2, "usage: %s [-d] [-n namespace] [cmd [args...]]\n", argv0);
 	exits("usage");
+}
+
+void
+run(char **a)
+{
+	exec(a[0], a);
+
+	if(a[0][0] != '/' && a[0][0] != '#' &&
+	  (a[0][0] != '.' || (a[0][1] != '/' &&
+		             (a[0][1] != '.' ||  a[0][2] != '/'))))
+		exec(smprint("/bin/%s", a[0]), a);
+
+	sysfatal("exec: %s: %r", a[0]);
 }
 
 void
 main(int argc, char *argv[])
 {
-	char cmd[256];
 	int fd;
 
 	ARGBEGIN{
+	case 'd':
+		newnsdebug = 1;
+		break;
 	case 'n':
 		namespace = EARGF(usage());
 		break;
@@ -25,31 +43,18 @@ main(int argc, char *argv[])
 		usage();
 	}ARGEND
 
-	if (rfork(RFENVG|RFNAMEG) < 0)
-		sysfatal("can't make new pgrp");
-
 	fd = open("#c/user", OWRITE);
-	if (fd < 0)
-		sysfatal("can't open #c/user");
-	if (write(fd, "none", strlen("none")) < 0)
-		sysfatal("can't become none");
+	if(fd < 0)
+		sysfatal("can't open #c/user: %r");
+	if(write(fd, "none", strlen("none")) < 0)
+		sysfatal("can't become none: %r");
 	close(fd);
 
-	if (newns("none", namespace) < 0)
-		sysfatal("can't build namespace");
+	if(newns("none", namespace) < 0)
+		sysfatal("can't build namespace: %r");
 
-	if (argc > 0) {
-		strecpy(cmd, cmd+sizeof cmd, argv[0]);
-		exec(cmd, &argv[0]);
-		if (strncmp(cmd, "/", 1) != 0
-		&& strncmp(cmd, "./", 2) != 0
-		&& strncmp(cmd, "../", 3) != 0) {
-			snprint(cmd, sizeof cmd, "/bin/%s", argv[0]);
-			exec(cmd, &argv[0]);
-		}
-	} else {
-		strcpy(cmd, "/bin/rc");
-		execl(cmd, cmd, nil);
-	}
-	sysfatal(cmd);
+	if(argc == 0)
+		argv = defargv;
+
+	run(argv);
 }

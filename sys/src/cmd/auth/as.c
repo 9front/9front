@@ -11,88 +11,62 @@
 #include <authsrv.h>
 #include "authcmdlib.h"
 
-int	debug;
+extern int newnsdebug;
+
+char	*defargv[] = { "/bin/rc", "-i", nil };
+char	*namespace = nil;
 
 int	becomeuser(char*);
-void	createuser(void);
-void	*emalloc(ulong);
-void	*erealloc(void*, ulong);
 void	initcap(void);
-int	mkcmd(char*, char*, int);
-int	myauth(int, char*);
-int	qidcmp(Qid, Qid);
-void	runas(char *, char *);
-void	usage(void);
 
-#pragma varargck	argpos clog 1
-#pragma varargck	argpos fatal 1
-
-static void
-fatal(char *fmt, ...)
+void
+usage(void)
 {
-	char msg[256];
-	va_list arg;
+	fprint(2, "usage: %s [-d] [-n namespace] user [cmd [args...]]\n", argv0);
+	exits("usage");
+}
 
-	va_start(arg, fmt);
-	vseprint(msg, msg + sizeof msg, fmt, arg);
-	va_end(arg);
-	error("%s", msg);
+void
+run(char **a)
+{
+	exec(a[0], a);
+
+	if(a[0][0] != '/' && a[0][0] != '#' &&
+	  (a[0][0] != '.' || (a[0][1] != '/' &&
+		             (a[0][1] != '.' ||  a[0][2] != '/'))))
+		exec(smprint("/bin/%s", a[0]), a);
+
+	sysfatal("exec: %s: %r", a[0]);
 }
 
 void
 main(int argc, char *argv[])
 {
-	debug = 0;
 	ARGBEGIN{
 	case 'd':
-		debug = 1;
+		newnsdebug = 1;
+		break;
+	case 'n':
+		namespace = EARGF(usage());
 		break;
 	default:
 		usage();
 	}ARGEND
 
-	initcap();
-	if(argc >= 2)
-		runas(argv[0], argv[1]);
-	else
+	if(argc == 0)
 		usage();
-}
 
-void
-runas(char *user, char *cmd)
-{
-	if(becomeuser(user) < 0)
-		sysfatal("can't change uid for %s: %r", user);
-	putenv("service", "rx");
-	execl("/bin/rc", "rc", "-lc", cmd, nil);
-	sysfatal("exec /bin/rc: %r");
-}
+	initcap();
+	if(becomeuser(argv[0]) < 0)
+		sysfatal("can't change uid for %s: %r", argv[0]);
+	if(newns(argv[0], namespace) < 0)
+		sysfatal("can't build namespace: %r");
 
-void *
-emalloc(ulong n)
-{
-	void *p;
+	argv++;
+	if(--argc == 0)
+		argv = defargv;
 
-	if(p = mallocz(n, 1))
-		return p;
-	fatal("out of memory");
-	return 0;
-}
-
-void *
-erealloc(void *p, ulong n)
-{
-	if(p = realloc(p, n))
-		return p;
-	fatal("out of memory");
-	return 0;
-}
-
-void
-usage(void)
-{
-	fprint(2, "usage: %s [-c] [user] [command]\n", argv0);
-	exits("usage");
+	run(argv);
 }
 
 /*
@@ -105,7 +79,7 @@ initcap(void)
 {
 	caphashfd = open("#¤/caphash", OCEXEC|OWRITE);
 	if(caphashfd < 0)
-		fprint(2, "%s: opening #¤/caphash: %r\n", argv0);
+		fprint(2, "%s: opening #¤/caphash: %r", argv0);
 }
 
 /*
@@ -126,7 +100,9 @@ mkcap(char *from, char *to)
 	/* create the capability */
 	nto = strlen(to);
 	nfrom = strlen(from);
-	cap = emalloc(nfrom+1+nto+1+sizeof(rand)*3+1);
+	cap = malloc(nfrom+1+nto+1+sizeof(rand)*3+1);
+	if(cap == nil)
+		sysfatal("malloc: %r");
 	sprint(cap, "%s@%s", from, to);
 	genrandom(rand, sizeof(rand));
 	key = cap+nfrom+1+nto+1;
@@ -169,7 +145,5 @@ becomeuser(char *new)
 		return -1;
 	rv = usecap(cap);
 	free(cap);
-
-	newns(new, nil);
 	return rv;
 }

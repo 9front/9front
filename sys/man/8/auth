@@ -50,6 +50,8 @@ changeuser, convkeys, printnetkey, status, enable, disable, authsrv, guard.srv, 
 .PP
 .B auth/none
 [
+.B -d
+] [
 .B -n
 .I namespace
 ]
@@ -58,8 +60,16 @@ changeuser, convkeys, printnetkey, status, enable, disable, authsrv, guard.srv, 
 \&...
 .PP
 .B auth/as
+[
+.B -d
+] [
+.B -n
+.I namespace
+]
 .I user
 .I command
+.I arg
+\&...
 .SH DESCRIPTION
 These administrative commands run only on the authentication server.
 .IR Changeuser

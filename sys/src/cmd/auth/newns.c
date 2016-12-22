@@ -2,36 +2,35 @@
 #include <libc.h>
 #include <auth.h>
 
+extern int newnsdebug;
+
+char	*defargv[] = { "/bin/rc", "-i", nil };
+char	*namespace = "/lib/namespace";
+int	add = 0;
+
 void
 usage(void)
 {
-	fprint(2, "usage: newns [-ad] [-n namespace] [cmd [args...]]\n");
+	fprint(2, "usage: %s [-ad] [-n namespace] [cmd [args...]]\n", argv0);
 	exits("usage");
 }
 
-static int
-rooted(char *s)
+void
+run(char **a)
 {
-	if(s[0] == '/')
-		return 1;
-	if(s[0] == '.' && s[1] == '/')
-		return 1;
-	if(s[0] == '.' && s[1] == '.' && s[2] == '/')
-		return 1;
-	return 0;
+	exec(a[0], a);
+
+	if(a[0][0] != '/' && a[0][0] != '#' &&
+	  (a[0][0] != '.' || (a[0][1] != '/' &&
+		             (a[0][1] != '.' ||  a[0][2] != '/'))))
+		exec(smprint("/bin/%s", a[0]), a);
+
+	sysfatal("exec: %s: %r", a[0]);
 }
 
 void
 main(int argc, char **argv)
 {
-	extern int newnsdebug;
-	char *defargv[] = { "/bin/rc", "-i", nil };
-	char *nsfile, err[ERRMAX];
-	int add;
-
-	rfork(RFNAMEG);
-	add = 0;
-	nsfile = "/lib/namespace";
 	ARGBEGIN{
 	case 'a':
 		add = 1;
@@ -40,23 +39,21 @@ main(int argc, char **argv)
 		newnsdebug = 1;
 		break;
 	case 'n':
-		nsfile = ARGF();
+		namespace = EARGF(usage());
 		break;
 	default:
 		usage();
 		break;
 	}ARGEND
+
+	if(add){
+		rfork(RFNAMEG);
+		addns(getuser(), namespace);
+	}else
+		newns(getuser(), namespace);
+
 	if(argc == 0)
 		argv = defargv;
-	if (add)
-		addns(getuser(), nsfile);
-	else
-		newns(getuser(), nsfile);
-	exec(argv[0], argv);
-	if(!rooted(argv[0])){
-		rerrstr(err, sizeof err);
-		exec(smprint("/bin/%s", argv[0]), argv);
-		errstr(err, sizeof err);
-	}
-	sysfatal("exec: %s: %r", argv[0]);
+
+	run(argv);
 }	
