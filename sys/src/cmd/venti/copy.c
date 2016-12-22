@@ -19,7 +19,7 @@ uchar zeroscore[VtScoreSize];	/* all zeros */
 typedef struct ScoreTree ScoreTree;
 struct ScoreTree
 {
-	Avl avl;
+	Avl;
 	uchar score[VtScoreSize];
 	int type;
 };
@@ -51,21 +51,20 @@ havevisited(uchar score[VtScoreSize], int type)
 		return 0;
 	memmove(a.score, score, VtScoreSize);
 	a.type = type;
-	return lookupavl(scoretree, &a.avl) != nil;
+	return avllookup(scoretree, &a) != nil;
 }
 
 static void
 markvisited(uchar score[VtScoreSize], int type)
 {
 	ScoreTree *a;
-	Avl *old;
 
 	if(scoretree == nil)
 		return;
 	a = binalloc(&scorebin, sizeof *a, 1);
 	memmove(a->score, score, VtScoreSize);
 	a->type = type;
-	insertavl(scoretree, &a->avl, &old);
+	avlinsert(scoretree, a);
 }
 
 void
@@ -196,7 +195,7 @@ main(int argc, char *argv[])
 		ignoreerrors = 1;
 		break;
 	case 'm':
-		scoretree = mkavltree(scoretreecmp);
+		scoretree = avlcreate(scoretreecmp);
 		break;
 	case 'r':
 		if(ignoreerrors)

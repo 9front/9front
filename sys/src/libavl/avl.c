@@ -1,436 +1,306 @@
 #include <u.h>
 #include <libc.h>
-#include <bio.h>
 #include <avl.h>
 
-/*
- * In-memory database stored as self-balancing AVL tree.
- * See Lewis & Denenberg, Data Structures and Their Algorithms.
- */
+/* See Knuth Volume 3, 6.2.3 */
 
-static void
-singleleft(Avl **tp, Avl *p)
-{
-	int l, r2;
-	Avl *a, *c;
-
-	a = *tp;
-	c = a->n[1];
-
-	r2 = c->bal;
-	l = (r2 > 0? r2: 0)+1 - a->bal;
-
-	if((a->n[1] = c->n[0]) != nil)
-		a->n[1]->p = a;
-
-	if((c->n[0] = a) != nil)
-		c->n[0]->p = c;
-
-	if((*tp = c) != nil)
-		(*tp)->p = p;
-
-	a->bal = -l;
-	c->bal = r2 - ((l > 0? l: 0)+1);
-
-}
-
-static void
-singleright(Avl **tp, Avl *p)
-{
-	int l2, r;
-	Avl *a, *c;
-
-	a = *tp;
-	c = a->n[0];
-	l2 = - c->bal;
-	r = a->bal + ((l2 > 0? l2: 0)+1);
-
-	if((a->n[0] = c->n[1]) != nil)
-		a->n[0]->p = a;
-
-	if((c->n[1] = a) != nil)
-		c->n[1]->p = c;
-
-	if((*tp = c) != nil)
-		(*tp)->p = p;
-
-	a->bal = r;
-	c->bal = ((r > 0? r: 0)+1) - l2;
-}
-
-static void
-doublerightleft(Avl **tp, Avl *p)
-{
-	singleright(&(*tp)->n[1], *tp);
-	singleleft(tp, p);
-}
-
-static void
-doubleleftright(Avl **tp, Avl *p)
-{
-	singleleft(&(*tp)->n[0], *tp);
-	singleright(tp, p);
-}
-
-static void
-balance(Avl **tp, Avl *p)
-{
-	switch((*tp)->bal){
-	case -2:
-		if((*tp)->n[0]->bal <= 0)
-			singleright(tp, p);
-		else if((*tp)->n[0]->bal == 1)
-			doubleleftright(tp, p);
-		else
-			assert(0);
-		break;
-
-	case 2:
-		if((*tp)->n[1]->bal >= 0)
-			singleleft(tp, p);
-		else if((*tp)->n[1]->bal == -1)
-			doublerightleft(tp, p);
-		else
-			assert(0);
-		break;
-	}
-}
-
-static int
-canoncmp(int cmp)
-{
-	if(cmp < 0)
-		return -1;
-	else if(cmp > 0)
-		return 1;
-	return 0;
-}
-
-static int
-_insertavl(Avl **tp, Avl *p, Avl *r, int (*cmp)(Avl*,Avl*), Avl **rfree)
-{
-	int i, ob;
-
-	if(*tp == nil){
-		r->bal = 0;
-		r->n[0] = nil;
-		r->n[1] = nil;
-		r->p = p;
-		*tp = r;
-		return 1;
-	}
-	ob = (*tp)->bal;
-	if((i = canoncmp(cmp(r, *tp))) != 0){
-		(*tp)->bal += i * _insertavl(&(*tp)->n[(i+1)/2], *tp, r, cmp,
-			rfree);
-		balance(tp, p);
-		return ob == 0 && (*tp)->bal != 0;
-	}
-
-	/* install new entry */
-	*rfree = *tp;		/* save old node for freeing */
-	*tp = r;		/* insert new node */
-	**tp = **rfree;		/* copy old node's Avl contents */
-	if(r->n[0])		/* fix node's children's parent pointers */
-		r->n[0]->p = r;
-	if(r->n[1])
-		r->n[1]->p = r;
-
-	return 0;
-}
-
-static int
-successor(Avl **tp, Avl *p, Avl **r)
-{
-	int ob;
-
-	if((*tp)->n[0] == nil){
-		*r = *tp;
-		*tp = (*r)->n[1];
-		if(*tp)
-			(*tp)->p = p;
-		return -1;
-	}
-	ob = (*tp)->bal;
-	(*tp)->bal -= successor(&(*tp)->n[0], *tp, r);
-	balance(tp, p);
-	return -(ob != 0 && (*tp)->bal == 0);
-}
-
-static int
-_deleteavl(Avl **tp, Avl *p, Avl *rx, int(*cmp)(Avl*,Avl*), Avl **del,
-	void (*predel)(Avl*, void*), void *arg)
-{
-	int i, ob;
-	Avl *r, *or;
-
-	if(*tp == nil)
-		return 0;
-
-	ob = (*tp)->bal;
-	if((i=canoncmp(cmp(rx, *tp))) != 0){
-		(*tp)->bal += i * _deleteavl(&(*tp)->n[(i+1)/2], *tp, rx, cmp,
-			del, predel, arg);
-		balance(tp, p);
-		return -(ob != 0 && (*tp)->bal == 0);
-	}
-
-	if(predel)
-		(*predel)(*tp, arg);
-
-	or = *tp;
-	if(or->n[i=0] == nil || or->n[i=1] == nil){
-		*tp = or->n[1-i];
-		if(*tp)
-			(*tp)->p = p;
-		*del = or;
-		return -1;
-	}
-
-	/* deleting node with two kids, find successor */
-	or->bal += successor(&or->n[1], or, &r);
-	r->bal = or->bal;
-	r->n[0] = or->n[0];
-	r->n[1] = or->n[1];
-	*tp = r;
-	(*tp)->p = p;
-	/* node has changed; fix children's parent pointers */
-	if(r->n[0])
-		r->n[0]->p = r;
-	if(r->n[1])
-		r->n[1]->p = r;
-	*del = or;
-	balance(tp, p);
-	return -(ob != 0 && (*tp)->bal == 0);
-}
-
-static void
-checkparents(Avl *a, Avl *p)
-{
-	if(a == nil)
-		return;
-	if(a->p != p)
-		print("bad parent\n");
-	checkparents(a->n[0], a);
-	checkparents(a->n[1], a);
-}
-
-struct Avltree
-{
-	Avl	*root;
-	int	(*cmp)(Avl*, Avl*);
-	Avlwalk	*walks;
-};
-struct Avlwalk
-{
-	int	started;
-	int	moved;
-	Avlwalk	*next;
-	Avltree	*tree;
-	Avl	*node;
-};
+Avl *avllookup(Avltree*, Avl*);
+Avl *avldelete(Avltree*, Avl*);
+Avl *avlinsert(Avltree*, Avl*);
 
 Avltree*
-mkavltree(int (*cmp)(Avl*, Avl*))
+avlcreate(int (*cmp)(Avl*, Avl*))
 {
 	Avltree *t;
 
-	t = malloc(sizeof *t);
+	t = malloc(sizeof(*t));
 	if(t == nil)
 		return nil;
-	memset(t, 0, sizeof *t);
+
 	t->cmp = cmp;
+	t->root = nil;
 	return t;
 }
 
-void
-insertavl(Avltree *t, Avl *new, Avl **oldp)
+Avl*
+avllookup(Avltree *t, Avl *k)
 {
-	*oldp = nil;
-	_insertavl(&t->root, nil, new, t->cmp, oldp);
-}
+	Avl *h;
+	int c;
 
-static Avl*
-findpredecessor(Avl *a)
-{
-	if(a == nil)
-		return nil;
-
-	if(a->n[0] != nil){
-		/* predecessor is rightmost descendant of left child */
-		for(a = a->n[0]; a->n[1]; a = a->n[1])
-			;
-		return a;
-	}else{
-		/* we're at a leaf, successor is a parent we enter from the right */
-		while(a->p && a->p->n[0] == a)
-			a = a->p;
-		return a->p;
+	h = t->root;
+	while(h != nil){
+		c = (t->cmp)(k, h);
+		if(c < 0){
+			h = h->c[0];
+			continue;
+		}
+		if(c > 0){
+			h = h->c[1];
+			continue;
+		}
+		return h;
 	}
+	return nil;
 }
 
-static Avl*
-findsuccessor(Avl *a)
-{
-	if(a == nil)
-		return nil;
+static int insert(int (*)(Avl*, Avl*), Avl*, Avl**, Avl*, Avl**);
 
-	if(a->n[1] != nil){
-		/* successor is leftmost descendant of right child */
-		for(a = a->n[1]; a->n[0]; a = a->n[0])
-			;
-		return a;
-	}else{
-		/* we're at a leaf, successor is a parent we enter from the left going up */
-		while(a->p && a->p->n[1] == a)
-			a = a->p;
-		return a->p;
+Avl*
+avlinsert(Avltree *t, Avl *k)
+{
+	Avl *old;
+
+	old = nil;
+	insert(t->cmp, nil, &t->root, k, &old);
+	return old;
+}
+
+static int insertfix(int, Avl**);
+
+static int
+insert(int (*cmp)(Avl*, Avl*), Avl *p, Avl **qp, Avl *k, Avl **oldp)
+{
+	Avl *q;
+	int fix, c;
+
+	q = *qp;
+	if(q == nil) {
+		k->c[0] = nil;
+		k->c[1] = nil;
+		k->balance = 0;
+		k->p = p;
+		*qp = k;
+		return 1;
 	}
+
+	c = cmp(k, q);
+	c = c > 0 ? 1 : c < 0 ? -1: 0;
+	if(c == 0) {
+		*oldp = q;
+		*k = *q;
+		if(q->c[0] != nil)
+			q->c[0]->p = k;
+		if(q->c[1] != nil)
+			q->c[1]->p = k;
+		*qp = k;
+		return 0;
+	}
+	fix = insert(cmp, q, q->c + (c+1)/2, k, oldp);
+	if(fix)
+		return insertfix(c, qp);
+	return 0;
+}
+
+static Avl *singlerot(int, Avl*);
+static Avl *doublerot(int, Avl*);
+
+static int
+insertfix(int c, Avl **t)
+{
+	Avl *s;
+
+	s = *t;
+	if(s->balance == 0) {
+		s->balance = c;
+		return 1;
+	}
+	if(s->balance == -c) {
+		s->balance = 0;
+		return 0;
+	}
+	if(s->c[(c+1)/2]->balance == c)
+		s = singlerot(c, s);
+	else
+		s = doublerot(c, s);
+	*t = s;
+	return 0;
+}
+
+static int delete(int (*cmp)(Avl*, Avl*), Avl**, Avl*, Avl**);
+static int deletemin(Avl**, Avl**);
+static int deletefix(int, Avl**);
+
+Avl*
+avldelete(Avltree *t, Avl *k)
+{
+	Avl *old;
+
+	if(t->root == nil)
+		return nil;
+	old = nil;
+	delete(t->cmp, &t->root, k, &old);
+	return old;
+}
+
+static int
+delete(int (*cmp)(Avl*, Avl*), Avl **qp, Avl *k, Avl **oldp)
+{
+	Avl *q, *e;
+	int c, fix;
+
+	q = *qp;
+	if(q == nil)
+		return 0;
+
+	c = cmp(k, q);
+	c = c > 0 ? 1 : c < 0 ? -1: 0;
+	if(c == 0) {
+		*oldp = q;
+		if(q->c[1] == nil) {
+			*qp = q->c[0];
+			if(*qp != nil)
+				(*qp)->p = q->p;
+			return 1;
+		}
+		fix = deletemin(q->c+1, &e);
+		*e = *q;
+		if(q->c[0] != nil)
+			q->c[0]->p = e;
+		if(q->c[1] != nil)
+			q->c[1]->p = e;
+		*qp = e;
+		if(fix)
+			return deletefix(-1, qp);
+		return 0;
+	}
+	fix = delete(cmp, q->c + (c+1)/2, k, oldp);
+	if(fix)
+		return deletefix(-c, qp);
+	return 0;
+}
+
+static int
+deletemin(Avl **qp, Avl **oldp)
+{
+	Avl *q;
+	int fix;
+
+	q = *qp;
+	if(q->c[0] == nil) {
+		*oldp = q;
+		*qp = q->c[1];
+		if(*qp != nil)
+			(*qp)->p = q->p;
+		return 1;
+	}
+	fix = deletemin(q->c, oldp);
+	if(fix)
+		return deletefix(1, qp);
+	return 0;
+}
+
+static Avl *rotate(int, Avl*);
+
+static int
+deletefix(int c, Avl **t)
+{
+	Avl *s;
+	int a;
+
+	s = *t;
+	if(s->balance == 0) {
+		s->balance = c;
+		return 0;
+	}
+	if(s->balance == -c) {
+		s->balance = 0;
+		return 1;
+	}
+	a = (c+1)/2;
+	if(s->c[a]->balance == 0) {
+		s = rotate(c, s);
+		s->balance = -c;
+		*t = s;
+		return 0;
+	}
+	if(s->c[a]->balance == c)
+		s = singlerot(c, s);
+	else
+		s = doublerot(c, s);
+	*t = s;
+	return 1;
 }
 
 static Avl*
-_lookupavl(Avl *t, Avl *r, int (*cmp)(Avl*,Avl*), int neighbor)
+singlerot(int c, Avl *s)
 {
-	int i;
+	s->balance = 0;
+	s = rotate(c, s);
+	s->balance = 0;
+	return s;
+}
+
+static Avl*
+doublerot(int c, Avl *s)
+{
+	Avl *r, *p;
+	int a;
+
+	a = (c+1)/2;
+	r = s->c[a];
+	s->c[a] = rotate(-c, s->c[a]);
+	p = rotate(c, s);
+	assert(r->p == p);
+	assert(s->p == p);
+
+	if(p->balance == c) {
+		s->balance = -c;
+		r->balance = 0;
+	} else if(p->balance == -c) {
+		s->balance = 0;
+		r->balance = c;
+	} else
+		s->balance = r->balance = 0;
+	p->balance = 0;
+	return p;
+}
+
+static Avl*
+rotate(int c, Avl *s)
+{
+	Avl *r, *n;
+	int a;
+
+	a = (c+1)/2;
+	r = s->c[a];
+	s->c[a] = n = r->c[a^1];
+	if(n != nil)
+		n->p = s;
+	r->c[a^1] = s;
+	r->p = s->p;
+	s->p = r;
+	return r;
+}
+
+static Avl *walk1(int, Avl*);
+
+Avl*
+avlprev(Avl *q)
+{
+	return walk1(0, q);
+}
+
+Avl*
+avlnext(Avl *q)
+{
+	return walk1(1, q);
+}
+
+static Avl*
+walk1(int a, Avl *q)
+{
 	Avl *p;
 
-	p = nil;
-	if(t == nil)
+	if(q == nil)
 		return nil;
-	do{
-		assert(t->p == p);
-		if((i = canoncmp(cmp(r, t))) == 0)
-			return t;
-		p = t;
-		t = t->n[(i+1)/2];
-	}while(t);
-	if(neighbor == 0)
-		return nil;
-	if(neighbor < 0)
-		return i > 0 ? p : findpredecessor(p);
-	return i < 0 ? p : findsuccessor(p);
-}
 
-Avl*
-searchavl(Avltree *t, Avl *key, int neighbor)
-{
-	return _lookupavl(t->root, key, t->cmp, neighbor);
-}
-
-Avl*
-lookupavl(Avltree *t, Avl *key)
-{
-	return _lookupavl(t->root, key, t->cmp, 0);
-}
-
-static void
-walkdel(Avl *a, void *v)
-{
-	Avl *p;
-	Avlwalk *w;
-	Avltree *t;
-
-	if(a == nil)
-		return;
-
-	p = findpredecessor(a);
-	t = v;
-	for(w = t->walks; w; w = w->next){
-		if(w->node == a){
-			/* back pointer to predecessor; not perfect but adequate */
-			w->moved = 1;
-			w->node = p;
-			if(p == nil)
-				w->started = 0;
-		}
-	}
-}
-
-void
-deleteavl(Avltree *t, Avl *key, Avl **oldp)
-{
-	*oldp = nil;
-	_deleteavl(&t->root, nil, key, t->cmp, oldp, walkdel, t);
-}
-
-Avlwalk*
-avlwalk(Avltree *t)
-{
-	Avlwalk *w;
-
-	w = malloc(sizeof *w);
-	if(w == nil)
-		return nil;
-	memset(w, 0, sizeof *w);
-	w->tree = t;
-	w->next = t->walks;
-	t->walks = w;
-	return w;
-}
-
-Avl*
-avlnext(Avlwalk *w)
-{
-	Avl *a;
-
-	if(w->started==0){
-		for(a = w->tree->root; a && a->n[0]; a = a->n[0])
+	if(q->c[a] != nil){
+		for(q = q->c[a]; q->c[a^1] != nil; q = q->c[a^1])
 			;
-		w->node = a;
-		w->started = 1;
-	}else{
-		a = findsuccessor(w->node);
-		if(a == w->node)
-			abort();
-		w->node = a;
+		return q;
 	}
-	return w->node;
-}
-
-Avl*
-avlprev(Avlwalk *w)
-{
-	Avl *a;
-
-	if(w->started == 0){
-		for(a = w->tree->root; a && a->n[1]; a = a->n[1])
-			;
-		w->node = a;
-		w->started = 1;
-	}else if(w->moved){
-		w->moved = 0;
-		return w->node;
-	}else{
-		a = findpredecessor(w->node);
-		if(a == w->node)
-			abort();
-		w->node = a;
-	}
-	return w->node;
-}
-
-void
-endwalk(Avlwalk *w)
-{
-	Avltree *t;
-	Avlwalk **l;
-
-	t = w->tree;
-	for(l = &t->walks; *l; l = &(*l)->next){
-		if(*l == w){
-			*l = w->next;
-			break;
-		}
-	}
-	free(w);
-}
-
-static void
-walkavl(Avl *t, void (*f)(Avl*, void*), void *v)
-{
-	if(t == nil)
-		return;
-	walkavl(t->n[0], f, v);
-	f(t, v);
-	walkavl(t->n[1], f, v);
+	for(p = q->p; p != nil && p->c[a] == q; p = p->p)
+		q = p;
+	return p;
 }
