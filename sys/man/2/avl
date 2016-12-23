@@ -95,12 +95,12 @@ nodecmp(Avl *la, Avl *lb)
 }
 
 int
-get(char *key)
+get(Avltree *t, char *key)
 {
 	Node *h, n;
 
 	n.key = key;
-	h = (Node*)avllookup(&n);
+	h = (Node*)avllookup(t, &n);
 	return h ? h->val : -1;
 }
 \fI\&...\fP
