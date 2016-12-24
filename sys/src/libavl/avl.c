@@ -75,7 +75,6 @@ insert(int (*cmp)(Avl*, Avl*), Avl *p, Avl **qp, Avl *k, Avl **oldp)
 	}
 
 	c = cmp(k, q);
-	c = c > 0 ? 1 : c < 0 ? -1: 0;
 	if(c == 0) {
 		*oldp = q;
 		*k = *q;
@@ -86,6 +85,7 @@ insert(int (*cmp)(Avl*, Avl*), Avl *p, Avl **qp, Avl *k, Avl **oldp)
 		*qp = k;
 		return 0;
 	}
+	c = c > 0 ? 1 : -1;
 	fix = insert(cmp, q, q->c + (c+1)/2, k, oldp);
 	if(fix)
 		return insertfix(c, qp);

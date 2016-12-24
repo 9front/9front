@@ -104,7 +104,7 @@ get(Avltree *t, char *key)
 	return h ? h->val : -1;
 }
 \fI\&...\fP
-	Avltree *t = avlcreate(AVL, nodecmp);
+	Avltree *t = avlcreate(nodecmp);
 
 .EE
 .SH SOURCE
