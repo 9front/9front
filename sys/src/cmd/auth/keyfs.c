@@ -771,15 +771,14 @@ writeusers(void)
 	/* write file */
 	fd = create(userkeys, OWRITE, 0660);
 	if(fd < 0){
+		fprint(2, "keyfs: can't write %s: %r\n", userkeys);
 		free(buf);
-		fprint(2, "keyfs: can't write keys file\n");
 		return;
 	}
 	if(write(fd, buf, p - buf) != (p - buf))
-		fprint(2, "keyfs: can't write keys file\n");
-
-	free(buf);
+		fprint(2, "keyfs: can't write %s: %r\n", userkeys);
 	close(fd);
+	free(buf);
 
 	newkeys();
 }
@@ -854,8 +853,10 @@ readusers(void)
 
 	/* read file into an array */
 	fd = open(userkeys, OREAD);
-	if(fd < 0)
+	if(fd < 0){
+		fprint(2, "keyfs: can't read %s: %r\n", userkeys);
 		return 0;
+	}
 	d = dirfstat(fd);
 	if(d == nil){
 		close(fd);
