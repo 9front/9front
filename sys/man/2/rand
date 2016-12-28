@@ -31,8 +31,6 @@ ulong	truerand(void)
 .B
 ulong	ntruerand(ulong val)
 .sp
-.B #include <mp.h>
-.br
 .B #include <libsec.h>
 .PP
 .B
@@ -117,10 +115,9 @@ returns a uniform random integer
 .if n 0≤ x < val ≤ 2^32-1.
 .PP
 .I Genrandom
-fills a buffer with bytes from the X9.17 pseudo-random
-number generator.  The X9.17 generator is seeded by 24
-truly random bytes read from
-.BR /dev/random .
+fills a buffer with bytes from the cryptographic pseudo-random
+number generator. The generator is automatically seeded by
+.IR truerand .
 .PP
 .I Prng
 uses the native
