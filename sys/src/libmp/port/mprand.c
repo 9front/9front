@@ -6,31 +6,20 @@ mpint*
 mprand(int bits, void (*gen)(uchar*, int), mpint *b)
 {
 	mpdigit mask;
-	int n, m;
-	uchar *p;
 
-	n = DIGITS(bits);
 	if(b == nil){
 		b = mpnew(bits);
 		setmalloctag(b, getcallerpc(&bits));
 	}else
 		mpbits(b, bits);
 
-	p = malloc(n*Dbytes);
-	if(p == nil)
-		sysfatal("mprand: %r");
-	(*gen)(p, n*Dbytes);
-	betomp(p, n*Dbytes, b);
-	free(p);
+	b->sign = 1;
+	b->top = DIGITS(bits);
+	(*gen)((uchar*)b->p, b->top*Dbytes);
 
-	// make sure we don't give too many bits
-	m = bits%Dbits;
-	if(m == 0)
-		return b;
+	mask = ((mpdigit)1 << (bits%Dbits))-1;
+	if(mask != 0)
+		b->p[b->top-1] &= mask;
 
-	mask = 1;
-	mask <<= m;
-	mask--;
-	b->p[n-1] &= mask;
 	return mpnorm(b);
 }
