@@ -432,7 +432,7 @@ zoom(void)
 	
 	m.buttons = 7;
 	r = egetrect(1, &m);
-	if(r.min.x == 0 && r.min.y == 0 && r.max.x == 0 && r.max.y == 0)
+	if(Dx(r) < 1 || Dy(r) < 1)
 		return;
 	xmin_ = convx(&screen->r, r.min.x);
 	xmax_ = convx(&screen->r, r.max.x);
