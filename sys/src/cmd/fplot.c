@@ -466,16 +466,16 @@ parsefns(int n, char **s)
 void
 parserange(char *s)
 {
-	while(*s && !isdigit(*s)) s++;
+	while(*s && !isdigit(*s) && *s != '-') s++;
 	if(*s == 0) return;
 	xmin = strtod(s, &s);
-	while(*s && !isdigit(*s)) s++;
+	while(*s && !isdigit(*s) && *s != '-') s++;
 	if(*s == 0) return;
 	xmax = strtod(s, &s);
-	while(*s && !isdigit(*s)) s++;
+	while(*s && !isdigit(*s) && *s != '-') s++;
 	if(*s == 0) return;
 	ymin = strtod(s, &s);
-	while(*s && !isdigit(*s)) s++;
+	while(*s && !isdigit(*s) && *s != '-') s++;
 	if(*s == 0) return;
 	ymax = strtod(s, &s);
 }
