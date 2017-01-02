@@ -1687,11 +1687,10 @@ copy:
 
 	x = 0;
 	v = w == 8;
+	c = cursafe;
 	if(v) {
-		c = cursafe;
 		if(n->left != Z && n->left->complex >= FNX
 		&& n->right != Z && n->right->complex >= FNX) {
-//			warn(n, "toughie");
 			regsalloc(&nod1, n->right);
 			cgen(n->right, &nod1);
 			nod2 = *n;
@@ -1708,14 +1707,10 @@ copy:
 			n = n->left;
 			x = 1;
 		}
-	}
 
-	/* botch, need to save in .safe */
-	c = 0;
-	if(n->complex > nn->complex) {
-		t = n->type;
-		n->type = types[TLONG];
-		if(v) {
+		if(n->complex > nn->complex){
+			t = n->type;
+			n->type = types[TLONG];
 			regalloc(&nod0, n, Z);
 			if(!vaddr(n, 0)) {
 				reglcgen(&nod1, n, Z);
@@ -1724,21 +1719,9 @@ copy:
 			}
 			else
 				n->type = t;
-		}
-		else {
-			nodreg(&nod1, n, D_SI);
-			if(reg[D_SI]) {
-				gins(APUSHL, &nod1, Z);
-				c |= 1;
-				reg[D_SI]++;
-			}
-			lcgen(n, &nod1);
-			n->type = t;
-		}
 
-		t = nn->type;
-		nn->type = types[TLONG];
-		if(v) {
+			t = nn->type;
+			nn->type = types[TLONG];
 			if(!vaddr(nn, 0)) {
 				reglcgen(&nod2, nn, Z);
 				nn->type = t;
@@ -1746,21 +1729,9 @@ copy:
 			}
 			else
 				nn->type = t;
-		}
-		else {
-			nodreg(&nod2, nn, D_DI);
-			if(reg[D_DI]) {
-				gins(APUSHL, &nod2, Z);
-				c |= 2;
-				reg[D_DI]++;
-			}
-			lcgen(nn, &nod2);
-			nn->type = t;
-		}
-	} else {
-		t = nn->type;
-		nn->type = types[TLONG];
-		if(v) {
+		} else {
+			t = nn->type;
+			nn->type = types[TLONG];
 			regalloc(&nod0, nn, Z);
 			if(!vaddr(nn, 0)) {
 				reglcgen(&nod2, nn, Z);
@@ -1769,21 +1740,9 @@ copy:
 			}
 			else
 				nn->type = t;
-		}
-		else {
-			nodreg(&nod2, nn, D_DI);
-			if(reg[D_DI]) {
-				gins(APUSHL, &nod2, Z);
-				c |= 2;
-				reg[D_DI]++;
-			}
-			lcgen(nn, &nod2);
-			nn->type = t;
-		}
 
-		t = n->type;
-		n->type = types[TLONG];
-		if(v) {
+			t = n->type;
+			n->type = types[TLONG];
 			if(!vaddr(n, 0)) {
 				reglcgen(&nod1, n, Z);
 				n->type = t;
@@ -1792,18 +1751,6 @@ copy:
 			else
 				n->type = t;
 		}
-		else {
-			nodreg(&nod1, n, D_SI);
-			if(reg[D_SI]) {
-				gins(APUSHL, &nod1, Z);
-				c |= 1;
-				reg[D_SI]++;
-			}
-			lcgen(n, &nod1);
-			n->type = t;
-		}
-	}
-	if(v) {
 		gins(AMOVL, n, &nod0);
 		if(x)
 			gins(ANOTL, Z, &nod0);
@@ -1823,12 +1770,71 @@ copy:
 		regfree(&nod0);
 		return;
 	}
-	nodreg(&nod3, n, D_CX);
-	if(reg[D_CX]) {
-		gins(APUSHL, &nod3, Z);
-		c |= 4;
-		reg[D_CX]++;
+
+	t = n->type;
+	if(t != types[TIND]){
+		n->type = types[TIND];
+		sugen(n, nn, w);
+		n->type = t;
+		return;
 	}
+	t = nn->type;
+	if(t != types[TIND]){
+		nn->type = types[TIND];
+		sugen(n, nn, w);
+		nn->type = t;
+		return;
+	}
+
+	if(nodreg(&nod1, n, D_SI)) {
+		regsalloc(&nod4, &nod1);
+		gmove(&nod1, &nod4);
+		v = reg[D_SI];
+		reg[D_SI] = 0;
+		sugen(n, nn, w);
+		reg[D_SI] = v;
+		gmove(&nod4, &nod1);
+		cursafe = c;
+		return;
+	}
+	if(nodreg(&nod2, nn, D_DI)) {
+		regsalloc(&nod4, &nod2);
+		gmove(&nod2, &nod4);
+		v = reg[D_DI];
+		reg[D_DI] = 0;
+		sugen(n, nn, w);
+		reg[D_DI] = v;
+		gmove(&nod4, &nod2);
+		cursafe = c;
+		return;
+	}
+	if(nodreg(&nod3, Z, D_CX)) {
+		regsalloc(&nod4, &nod3);
+		gmove(&nod3, &nod4);
+		v = reg[D_CX];
+		reg[D_CX] = 0;
+		sugen(n, nn, w);
+		reg[D_CX] = v;
+		gmove(&nod4, &nod3);
+		cursafe = c;
+		return;
+	}
+
+	if(n->complex > nn->complex){
+		reg[nod1.reg]++;
+		lcgen(n, &nod1);
+
+		reg[nod2.reg]++;
+		lcgen(nn, &nod2);
+	} else {
+		reg[nod2.reg]++;
+		lcgen(nn, &nod2);
+
+		reg[nod1.reg]++;
+		lcgen(n, &nod1);
+	}
+	reg[nod3.reg]++;
+
 	gins(AMOVL, nodconst(w/SZ_LONG), &nod3);
 	gins(ACLD, Z, Z);
 	gins(AREP, Z, Z);
@@ -1839,16 +1845,8 @@ copy:
 		gins(AREP, Z, Z);
 		gins(AMOVSB, Z, Z);
 	}
-	if(c & 4) {
-		gins(APOPL, Z, &nod3);
-		reg[D_CX]--;
-	}
-	if(c & 2) {
-		gins(APOPL, Z, &nod2);
-		reg[nod2.reg]--;
-	}
-	if(c & 1) {
-		gins(APOPL, Z, &nod1);
-		reg[nod1.reg]--;
-	}
+
+	reg[nod3.reg]--;
+	reg[nod2.reg]--;
+	reg[nod1.reg]--;
 }

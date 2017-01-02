@@ -1396,7 +1396,7 @@ sugen(Node *n, Node *nn, long w)
 	Prog *p1;
 	Node nod0, nod1, nod2, nod3, nod4, *l, *r;
 	Type *t;
-	int c, mt, mo;
+	int v, c, mt, mo;
 	vlong o0, o1;
 
 	if(n == Z || n->type == T)
@@ -1615,8 +1615,8 @@ copy:
 		return;
 	}
 
+	c = cursafe;
 	if(w <= 32) {
-		c = cursafe;
 		if(n->left != Z && n->left->complex >= FNX
 		&& n->right != Z && n->right->complex >= FNX) {
 			regsalloc(&nod1, n->right);
@@ -1696,77 +1696,84 @@ copy:
 		return;
 	}
 
-	/* botch, need to save in .safe */
-	c = 0;
-	if(n->complex > nn->complex) {
-		t = n->type;
+	t = n->type;
+	if(t != types[TIND]){
 		n->type = types[TIND];
-		nodreg(&nod1, n, D_SI);
-		if(reg[D_SI]) {
-			gins(APUSHQ, &nod1, Z);
-			c |= 1;
-			reg[D_SI]++;
-		}
-		lcgen(n, &nod1);
+		sugen(n, nn, w);
 		n->type = t;
-
-		t = nn->type;
+		return;
+	}
+	t = nn->type;
+	if(t != types[TIND]){
 		nn->type = types[TIND];
-		nodreg(&nod2, nn, D_DI);
-		if(reg[D_DI]) {
-warn(Z, "DI botch");
-			gins(APUSHQ, &nod2, Z);
-			c |= 2;
-			reg[D_DI]++;
-		}
-		lcgen(nn, &nod2);
+		sugen(n, nn, w);
 		nn->type = t;
+		return;
+	}
+
+	if(nodreg(&nod1, n, D_SI)) {
+		regsalloc(&nod4, &nod1);
+		gmove(&nod1, &nod4);
+		v = reg[D_SI];
+		reg[D_SI] = 0;
+		sugen(n, nn, w);
+		reg[D_SI] = v;
+		gmove(&nod4, &nod1);
+		cursafe = c;
+		return;
+	}
+	if(nodreg(&nod2, nn, D_DI)) {
+		regsalloc(&nod4, &nod2);
+		gmove(&nod2, &nod4);
+		v = reg[D_DI];
+		reg[D_DI] = 0;
+		sugen(n, nn, w);
+		reg[D_DI] = v;
+		gmove(&nod4, &nod2);
+		cursafe = c;
+		return;
+	}
+	if(nodreg(&nod3, Z, D_CX)) {
+		regsalloc(&nod4, &nod3);
+		gmove(&nod3, &nod4);
+		v = reg[D_CX];
+		reg[D_CX] = 0;
+		sugen(n, nn, w);
+		reg[D_CX] = v;
+		gmove(&nod4, &nod3);
+		cursafe = c;
+		return;
+	}
+
+	if(n->complex > nn->complex){
+		reg[nod1.reg]++;
+		lcgen(n, &nod1);
+
+		reg[nod2.reg]++;
+		lcgen(nn, &nod2);
 	} else {
-		t = nn->type;
-		nn->type = types[TIND];
-		nodreg(&nod2, nn, D_DI);
-		if(reg[D_DI]) {
-warn(Z, "DI botch");
-			gins(APUSHQ, &nod2, Z);
-			c |= 2;
-			reg[D_DI]++;
-		}
+		reg[nod2.reg]++;
 		lcgen(nn, &nod2);
-		nn->type = t;
 
-		t = n->type;
-		n->type = types[TIND];
-		nodreg(&nod1, n, D_SI);
-		if(reg[D_SI]) {
-			gins(APUSHQ, &nod1, Z);
-			c |= 1;
-			reg[D_SI]++;
-		}
+		reg[nod1.reg]++;
 		lcgen(n, &nod1);
-		n->type = t;
 	}
-	nodreg(&nod3, n, D_CX);
-	if(reg[D_CX]) {
-		gins(APUSHQ, &nod3, Z);
-		c |= 4;
-		reg[D_CX]++;
-	}
-	gins(AMOVL, nodconst(w/SZ_INT), &nod3);
+	reg[nod3.reg]++;
+
+	gins(AMOVL, nodconst(w/SZ_LONG), &nod3);
 	gins(ACLD, Z, Z);
 	gins(AREP, Z, Z);
 	gins(AMOVSL, Z, Z);
-	if(c & 4) {
-		gins(APOPQ, Z, &nod3);
-		reg[D_CX]--;
+	if(w & (SZ_LONG-1)) {
+		/* odd length of packed structure */
+		gins(AMOVL, nodconst(w & (SZ_LONG-1)), &nod3);
+		gins(AREP, Z, Z);
+		gins(AMOVSB, Z, Z);
 	}
-	if(c & 2) {
-		gins(APOPQ, Z, &nod2);
-		reg[nod2.reg]--;
-	}
-	if(c & 1) {
-		gins(APOPQ, Z, &nod1);
-		reg[nod1.reg]--;
-	}
+
+	reg[nod3.reg]--;
+	reg[nod2.reg]--;
+	reg[nod1.reg]--;
 }
 
 /*
