@@ -438,10 +438,11 @@ ropen(Mfile *mf)
 			sendreply("does not exist");
 			return;
 		}
+		genstats();
+		ctlqid.vers++;
 		c.rhdr.qid = ctlqid;
 		c.rhdr.iounit = 0;
 		sendreply(0);
-		genstats();
 		return;
 	}
 	if(delegate() == 0){
@@ -650,7 +651,6 @@ rstat(Mfile *mf)
 	Dir d;
 
 	if(statson && ctltest(mf)){
-		genstats();
 		d.qid = ctlqid;
 		d.mode = 0444;
 		d.length = statlen;	/* would be nice to do better */
