@@ -7,7 +7,7 @@ main(int argc, char *argv[])
 {
 	Biobuf bin, bout;
 	long len, slen;
-	int c;
+	int c, x;
 
 	if(argc != 2){
 		fprint(2, "usage: data2s name\n");
@@ -15,15 +15,24 @@ main(int argc, char *argv[])
 	}
 	Binit(&bin, 0, OREAD);
 	Binit(&bout, 1, OWRITE);
+	Bprint(&bout, "#define D(o,s) DATA %scode+o(SB)/8, $s\n", argv[1]);
 	for(len=0; (c=Bgetc(&bin))!=Beof; len++){
 		if((len&7) == 0)
-			Bprint(&bout, "DATA %scode+%ld(SB)/8, $\"", argv[1], len);
-		if(c)
-			Bprint(&bout, "\\%uo", c);
-		else
-			Bprint(&bout, "\\z");
+			Bprint(&bout, "D(%ld,\"", len);
+		if(c>=0x20 && c<=0x7E){
+			if(c == '\\' || c == '"')
+				Bprint(&bout, "\\");
+			Bprint(&bout, "%c", c);
+		}else{
+			if((x=Bgetc(&bin))!=Beof)
+				Bungetc(&bin);
+			if(x>='0' && x<='7')
+				Bprint(&bout, "\\%.3uo", c);
+			else
+				Bprint(&bout, "\\%uo", c);
+		}
 		if((len&7) == 7)
-			Bprint(&bout, "\"\n");
+			Bprint(&bout, "\")\n");
 	}
 	slen = len;
 	if(len & 7){
@@ -31,8 +40,9 @@ main(int argc, char *argv[])
 			Bprint(&bout, "\\z");
 			len++;
 		}
-		Bprint(&bout, "\"\n");
+		Bprint(&bout, "\")\n");
 	}
+	Bprint(&bout, "#undef D\n");
 	Bprint(&bout, "GLOBL %scode+0(SB), $%ld\n", argv[1], len);
 	Bprint(&bout, "GLOBL %slen+0(SB), $4\n", argv[1]);
 	Bprint(&bout, "DATA %slen+0(SB)/4, $%ld\n", argv[1], slen);
