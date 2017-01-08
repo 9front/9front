@@ -343,9 +343,12 @@ regalloc(Node *n, Node *tn, Node *o)
 			if(i >= D_AX && i <= D_R15)
 				goto out;
 		}
-		for(i=D_AX; i<=D_R15; i++)
+		for(i=D_AX; i<=D_R15; i++){
+			i ^= 7;
 			if(reg[i] == 0 && !resvreg[i])
 				goto out;
+			i ^= 7;
+		}
 		diag(tn, "out of fixed registers");
 		goto err;
 
