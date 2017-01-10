@@ -1,0 +1,114 @@
+.TH MIX 1
+.SH NAME
+mix \- 
+.B MIX
+assembler and emulator
+.SH SYNOPSIS
+.B games/mix
+[
+.I file ...
+]
+.SH DESCRIPTION
+.I Mix
+is an assembler and emulator for Donald Knuth's
+fictitious
+.B MIX 
+architecture. The command assembles the named 
+.B MIXAL
+files into memory and then presents a command
+prompt to control an emulated
+.B MIX
+machine.
+.PP
+The following commands are accepted:
+.TP
+.B addr[(a:b)]
+Print the value at
+.I addr.
+An optional field specification is given by
+.I (a:b).
+.TP
+.B a [< file]
+Start the MIXAL assembler. The assembler will begin
+assembling at the address after the last assembled
+instruction. If no file is given, the assembler will
+accept instructions from the console.
+.TP
+.B b addr
+Set or unset a breakpoint at
+.I addr.
+.TP
+.B c
+Resets the
+.B MIX
+machine to a fresh state by clearing all memory
+and registers.
+.TP
+.B d addr
+Disassemble the instruction at
+.I addr.
+.TP
+.B o addr
+Print the alphanumeric
+.B MIX
+word at
+.I addr.
+.TP
+.B o(addr, d)
+Print
+.I d
+alphanumeric mix words starting at
+.I addr.
+.TP
+.B r*[(a:b)]
+Print the value in register
+.I r*
+where * is one of a, x, ax, j, or 1-6. An optional
+field specification is given by
+.I (a:b).
+.TP
+.B s
+Step through one instruction of the emulated
+.B MIX
+machine.
+.TP
+.B g
+Start the emulated
+.B MIX
+machine at the instruction specified by the
+.B END
+pseudo-instruction.
+.TP
+.B x
+Quit the emulator/assembler.
+.PP
+The
+.I addr
+field of the above instructions must be an integer between 0 and 3999
+inclusive. A number-sign (#) starts a comment which extends to the end
+of the line.
+.SH SOURCE
+.B /sys/src/cmd/games/mix
+.SH "SEE ALSO"
+.nf
+Donald Knuth, ``The Art of Computer Programming'', Volume 1. Section 1.3
+.PP
+.B /sys/src/cmd/games/mix/examples
+.SH BUGS
+As opposed to Knuth's specification,
+the
+.B ALF
+pseudo-instruction takes as argument five
+.B MIX
+characters surrounded by quotation marks.
+Unresolved forward references are assembled
+to 0 instead of to a location determined by
+the
+.B END
+psuedo-instruction.
+.PP
+The magnetic tapes and drum units are not
+implemented.
+.PP
+Comments are handled as described above and not
+as Knuth specifies.
