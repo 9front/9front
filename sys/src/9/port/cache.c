@@ -187,7 +187,7 @@ ccache(Chan *c)
 	return nil;
 }
 
-void
+int
 copen(Chan *c)
 {
 	Mntcache *m, *f, **l;
@@ -195,19 +195,20 @@ copen(Chan *c)
 	/* directories aren't cacheable */
 	if(c->qid.type&QTDIR){
 		c->mcp = nil;
-		return;
+		return 0;
 	}
 
 	lock(&cache);
-	m = clookup(c, 1);
-	if(m == nil)
-		m = cache.head;
-	else if(m->qid.vers == c->qid.vers) {
+	m = clookup(c, 0);
+	if(m != nil){
 		ctail(m);
 		unlock(&cache);
 		c->mcp = m;
-		return;
+		return 1;
 	}
+	m = clookup(c, 1);
+	if(m == nil)
+		m = cache.head;
 	ctail(m);
 
 	l = &cache.hash[m->qid.path%NHASH];
@@ -234,7 +235,7 @@ copen(Chan *c)
 			unlock(&cache);
 			cacheunlock(m);
 			c->mcp = f;
-			return;
+			return 1;
 		}
 	}
 
@@ -251,10 +252,9 @@ copen(Chan *c)
 	m->rah.vers = m->qid.vers;
 	mntrahinit(&m->rah);
 	cnodata(m);
-
 	cacheunlock(m);
-
 	c->mcp = m;
+	return 0;
 }
 
 enum {
@@ -480,6 +480,31 @@ cwrite(Chan* c, uchar *buf, int len, vlong off)
 		return;
 	}
 	cachedata(m, buf, len, off);
+}
+
+void
+ctrunc(Chan *c)
+{
+	Mntcache *m;
+
+	if(c->qid.type&QTDIR)
+		return;
+
+	if((c->flag&COPEN) == 0){
+		lock(&cache);
+		c->mcp = clookup(c, 0);
+		unlock(&cache);
+	}
+
+	m = ccache(c);
+	if(m == nil)
+		return;
+	mntrahinit(&m->rah);
+	cnodata(m);
+	cacheunlock(m);
+
+	if((c->flag&COPEN) == 0)
+		c->mcp = nil;
 }
 
 void

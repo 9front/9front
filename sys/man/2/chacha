@@ -1,6 +1,6 @@
 .TH CHACHA 2
 .SH NAME
-setupChachastate, chacha_setblock, chacha_setiv, chacha_encrypt, chacha_encrypt2, ccpoly_encrypt, ccpoly_decrypt \- chacha encryption
+setupChachastate, chacha_setblock, chacha_setiv, chacha_encrypt, chacha_encrypt2, hchacha, ccpoly_encrypt, ccpoly_decrypt \- chacha encryption
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -22,6 +22,9 @@ void chacha_setblock(Chachastate *s, u64int blockno)
 .PP
 .B
 void chacha_setiv(Chachastate *s, uchar *iv);
+.PP
+.B
+void hchacha(uchar h[32], uchar *key, ulong keylen, uchar nonce[16], int rounds);
 .PP
 .B
 void ccpoly_encrypt(uchar *dat, ulong ndat, uchar *aad, ulong naad, uchar tag[16], Chachastate *cs);
@@ -49,8 +52,11 @@ a
 or nonce of
 .I ivlen
 bytes (can be
-.BR ChachaIVlen =12
-or 8, set to all zeros if the
+.BR ChachaIVlen =12 ,
+.B 8
+or
+.BR XChachaIVlen =24 ;
+set to all zeros if the
 .I iv
 argument is nil),
 and the number of
@@ -93,6 +99,10 @@ allowing seeking in an encrypted stream.
 .I Chacha_setiv
 sets the the initialization vector (nonce) to
 .IR iv .
+.PP
+.I Hchacha
+is a key expansion function that takes a 128 or 256-bit key 
+and a 128-bit nonce and produces a new 256-bit key.
 .PP
 .I Ccpoly_encrypt
 and

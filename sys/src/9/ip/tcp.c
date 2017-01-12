@@ -3282,6 +3282,8 @@ tcpporthogdefensectl(char *val)
 static char*
 tcpctl(Conv* c, char** f, int n)
 {
+	if(n == 1 && strcmp(f[0], "close") == 0)
+		return tcpclose(c), nil;
 	if(n == 1 && strcmp(f[0], "hangup") == 0)
 		return tcphangup(c);
 	if(n >= 1 && strcmp(f[0], "keepalive") == 0)
