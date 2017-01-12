@@ -34,7 +34,8 @@ setupSalsastate(Salsastate *s, uchar *key, ulong keylen, uchar *iv, ulong ivlen,
 {
 	if(keylen != 256/8 && keylen != 128/8)
 		sysfatal("invalid salsa key length");
-	if(ivlen != 64/8 && ivlen != 128/8 && ivlen != 192/8)
+	if(ivlen != 64/8
+	&& ivlen != 128/8 && ivlen != 192/8)	/* hsalsa, xsalsa */
 		sysfatal("invalid salsa iv length");
 	if(rounds == 0)
 		rounds = 20;
@@ -54,14 +55,14 @@ setupSalsastate(Salsastate *s, uchar *key, ulong keylen, uchar *iv, ulong ivlen,
 		load(&s->input[11], key, 4);
 		load(&s->input[15], tau +4*3, 1);
 	}
-	s->key[0] = s->input[1];
-	s->key[1] = s->input[2];
-	s->key[2] = s->input[3];
-	s->key[3] = s->input[4];
-	s->key[4] = s->input[11];
-	s->key[5] = s->input[12];
-	s->key[6] = s->input[13];
-	s->key[7] = s->input[14];
+	s->xkey[0] = s->input[1];
+	s->xkey[1] = s->input[2];
+	s->xkey[2] = s->input[3];
+	s->xkey[3] = s->input[4];
+	s->xkey[4] = s->input[11];
+	s->xkey[5] = s->input[12];
+	s->xkey[6] = s->input[13];
+	s->xkey[7] = s->input[14];
 
 	s->ivwords = ivlen/4;
 	s->input[8] = 0;
@@ -152,7 +153,7 @@ void
 salsa_setiv(Salsastate *s, uchar *iv)
 {
 	if(s->ivwords == 128/32){
-		/* hsalsa 128-bit iv */
+		/* hsalsa with 128-bit iv */
 		load(&s->input[6], iv, 4);
 		return;
 	}
@@ -164,14 +165,14 @@ salsa_setiv(Salsastate *s, uchar *iv)
 		counter[0] = s->input[8];
 		counter[1] = s->input[9];
 
-		s->input[1] = s->key[0];
-		s->input[2] = s->key[1];
-		s->input[3] = s->key[2];
-		s->input[4] = s->key[3];
-		s->input[11] = s->key[4];
-		s->input[12] = s->key[5];
-		s->input[13] = s->key[6];
-		s->input[14] = s->key[7];
+		s->input[1] = s->xkey[0];
+		s->input[2] = s->xkey[1];
+		s->input[3] = s->xkey[2];
+		s->input[4] = s->xkey[3];
+		s->input[11] = s->xkey[4];
+		s->input[12] = s->xkey[5];
+		s->input[13] = s->xkey[6];
+		s->input[14] = s->xkey[7];
 
 		load(&s->input[6], iv, 4);
 
