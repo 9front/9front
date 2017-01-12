@@ -521,8 +521,11 @@ mntopencreate(int type, Chan *c, char *name, int omode, ulong perm)
 	poperror();
 	mntfree(r);
 
-	if(c->flag & CCACHE)
-		copen(c);
+	if(c->flag & CCACHE){
+		if(copen(c))
+		if(type == Tcreate || (omode&OTRUNC) != 0)
+			ctrunc(c);
+	}
 
 	return c;
 }
@@ -620,6 +623,11 @@ mntwstat(Chan *c, uchar *dp, int n)
 	mountrpc(m, r);
 	poperror();
 	mntfree(r);
+
+	if(c->flag & CCACHE)
+	if(GBIT64(&dp[STATFIXLEN-4*BIT16SZ-BIT64SZ]) != ~0ULL)
+		ctrunc(c);
+
 	return n;
 }
 
