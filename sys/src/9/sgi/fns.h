@@ -50,7 +50,7 @@ void	setpagemask(ulong);
 void	setwired(ulong);
 ulong	stlbhash(ulong);
 void	syscall(Ureg*);
-int	tas(ulong*);
+int	tas(void*);
 void	tlbinit(void);
 ulong	tlbvirt(void);
 void	touser(void*);
