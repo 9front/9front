@@ -290,7 +290,6 @@ do each stage of a pipeline on a different machine.
 for all other commands
 .SH SEE ALSO
 .IR cpu (1),
-.IR ssh (1),
 .IR telco (4)
 .SH BUGS
 .I Con
