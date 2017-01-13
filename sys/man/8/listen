@@ -160,7 +160,6 @@ FTP daemon
 .TP
 .B tcp22
 server for
-.IR ssh (1)
 `secure shell' encrypted terminal connection or file transfer.
 .TP
 .B tcp23
