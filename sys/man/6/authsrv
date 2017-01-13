@@ -763,7 +763,7 @@ This protocol allows the use of
 handheld authenticators such as SecureNet
 keys and SecureID tokens
 in programs such as
-.IR ssh (1)
+.I telnetd
 and
 .I ftpd
 (see
