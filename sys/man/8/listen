@@ -1,6 +1,6 @@
 .TH LISTEN 8
 .SH NAME
-listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp22, tcp23, tcp25, tcp53, tcp110, tcp113, tcp143, tcp445, tcp513, tcp515, tcp564, tcp565, tcp566, tcp567, tcp993, tcp995, tcp1723, tcp17007, tcp17008, tcp17009, tcp17010, tcp17013 \- listen for calls on a network device
+listen, listen1, tcp7, tcp9, tcp19, tcp21, tcp23, tcp25, tcp53, tcp110, tcp113, tcp143, tcp445, tcp513, tcp515, tcp564, tcp565, tcp566, tcp567, tcp993, tcp995, tcp1723, tcp17007, tcp17008, tcp17009, tcp17010, tcp17013 \- listen for calls on a network device
 .SH SYNOPSIS
 .B aux/listen
 .RB [ -iq ]
@@ -157,10 +157,6 @@ service.
 .TP
 .B tcp21
 FTP daemon
-.TP
-.B tcp22
-server for
-`secure shell' encrypted terminal connection or file transfer.
 .TP
 .B tcp23
 .B telnet
