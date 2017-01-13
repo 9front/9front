@@ -798,12 +798,6 @@ option to increment
 and
 .B /sys/src/lib9p/ramfs.c
 are good examples of simple single-threaded file servers.
-.IR Webfs (4)
-and
-.I sshnet
-(see
-.IR ssh (1))
-are good examples of multithreaded file servers.
 .PP
 In general, the
 .B File
