@@ -32,4 +32,4 @@ will connect to a newly executed instance of
 .B /sys/src/cmd/execnet
 .SH "SEE ALSO
 .IR dial (2),
-.IR ip (3),
+.IR ip (3)
