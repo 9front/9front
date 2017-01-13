@@ -187,7 +187,7 @@ and
 .IR auth (2),
 .IR dial (2),
 .IR srv (3),
-.IR tlssrv (4),
+.IR tlssrv (8),
 .IR exportfs (4).
 .SH BUGS
 .I Srv
