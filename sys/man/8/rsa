@@ -284,6 +284,5 @@ auth/rsa2csr 'CN=example.com' key |
 .SH "SEE ALSO
 .IR factotum (4),
 .IR pem (8),
-.IR ssh (1)
 .SH BUGS
 There are too many key formats.
