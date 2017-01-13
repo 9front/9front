@@ -25,6 +25,11 @@ import \- import a name space from a remote system
 ]
 ]
 .SH DESCRIPTION
+This tool is deprecated and has been replaced by
+.I rimport
+(see
+.IR rcpu (1)).
+.PP
 .I Import
 allows an arbitrary
 .I file
@@ -204,6 +209,7 @@ to restart
 .SH SOURCE
 .B /sys/src/cmd/import.c
 .SH SEE ALSO
+.IR rcpu (1),
 .IR bind (1),
 .IR ssl (3),
 .IR exportfs (4),

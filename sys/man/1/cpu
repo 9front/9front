@@ -38,6 +38,9 @@ cpu \- connection to CPU server
 .B -R
 ]
 .SH DESCRIPTION
+This tool is deprecated and has been replaced by
+.IR rcpu (1).
+.PP
 .I Cpu
 starts an
 .IR rc (1)
@@ -216,6 +219,7 @@ are bound to their standard locations from there.
 .SH SOURCE
 .B /sys/src/cmd/cpu.c
 .SH SEE ALSO
+.IR rcpu (1) ,
 .IR rc (1) ,
 .IR rio (1) ,
 .IR exportfs (4) ,
