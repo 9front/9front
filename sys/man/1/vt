@@ -130,9 +130,6 @@ This program is used only for communicating with foreign systems,
 so it is not
 as rich an emulation as its equivalent in other environments.
 .PP
-Use care in setting raw and newline modes when connecting to Unix systems
-via
-.IR con (1)
-or
-.IR ssh (1).
+Use care in setting raw and newline modes when connecting to Unix systems via
+.IR con (1).
 It may also be necessary to set the emulator into raw mode.
