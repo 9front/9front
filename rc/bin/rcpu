@@ -52,6 +52,7 @@ fn client {
 
 cmd=()
 host='$cpu'
+if(~ $#cpu 1) host=$cpu
 exportfs=/bin/exportfs
 connect=/bin/rconnect
 

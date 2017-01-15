@@ -105,6 +105,13 @@ set to
 to allow further customization of the environment (see
 .IR rc (1)
 for more information).
+The cpu server can be specified with
+.B -h
+.IR host ,
+otherwise it defaults to the environment variable
+.B $cpu
+or is looked up from
+.IR ndb (6).
 .PP
 .I Rimport
 mounts a remote directory
