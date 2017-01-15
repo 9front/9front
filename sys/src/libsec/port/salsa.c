@@ -9,12 +9,9 @@
 
 #define ENCRYPT(s, x, y, d) {\
 	u32int v; \
-	uchar *sp, *dp; \
-	sp = (s); \
-	v = GET4(sp); \
+	v = GET4(s); \
 	v ^= (x)+(y); \
-	dp = (d); \
-	PUT4(dp, v); \
+	PUT4(d, v); \
 }
 
 static uchar sigma[16] = "expand 32-byte k";
