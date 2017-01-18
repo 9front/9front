@@ -211,7 +211,7 @@ repl(int go)
 
 	Binit(&bin, 0, OREAD);
 
-	if(go) {
+	if(go && vmstart != -1) {
 		once = 0;
 		goto Go;
 	}
@@ -277,6 +277,8 @@ repl(int go)
 				vmstart = mixvm(vmstart, once);
 			else
 				break;
+			if(go)
+				exits(nil);
 			if(vmstart == -1)
 				print("halted\n");
 			else

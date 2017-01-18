@@ -6,6 +6,9 @@ assembler and emulator
 .SH SYNOPSIS
 .B games/mix
 [
+.B -g
+]
+[
 .I file ...
 ]
 .SH DESCRIPTION
@@ -18,7 +21,11 @@ architecture. The command assembles the named
 files into memory and then presents a command
 prompt to control an emulated
 .B MIX
-machine.
+machine. The
+.B -g
+option causes the emulator immediately to run a complete assembled
+.B MIX
+program and exits the emulator when the emulator halts. 
 .PP
 The following commands are accepted:
 .TP
