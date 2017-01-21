@@ -419,6 +419,8 @@ findkey(Key **ret, Keyinfo *ki, char *fmt, ...)
 				case -1:
 					qunlock(ring);
 					_freeattr(attr1);
+					_freeattr(attr2);
+					_freeattr(attr3);
 					return RpcConfirm;
 				case 0:
 					continue;
