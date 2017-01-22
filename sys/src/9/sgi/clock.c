@@ -83,7 +83,8 @@ clockinit(void)
 
 	m->maxperiod = Basetickfreq / HZ;
 	m->minperiod = Basetickfreq / (100*HZ);
-	wrcompare(rdcount()+m->maxperiod);
+	m->lastcount = rdcount();
+	wrcompare(m->lastcount+m->maxperiod);
 
 	intron(INTR7);
 }
@@ -128,12 +129,7 @@ fastticks(uvlong *hz)
 	/* avoid reentry on interrupt or trap, to prevent recursion */
 	x = splhi();
 	count = rdcount();
-	if(rdcompare() - count > m->maxperiod)
-		wrcompare(count+m->maxperiod);
-	if (count < m->lastcount)		/* wrapped around? */
-		delta = count + ((1ull<<32) - m->lastcount);
-	else
-		delta = count - m->lastcount;
+	delta = count - m->lastcount;
 	m->lastcount = count;
 	m->fastticks += delta;
 	splx(x);
@@ -150,18 +146,16 @@ perfticks(void)
 void
 timerset(Tval next)
 {
-	int x;
 	long period;
 
 	if(next == 0)
-		return;
-	x = splhi();			/* don't let us get scheduled */
-	period = next - fastticks(nil);
-	if(period > m->maxperiod - m->minperiod)
 		period = m->maxperiod;
-	else if(period < m->minperiod)
-		period = m->minperiod;
+	else {
+		period = next - fastticks(nil);
+		if(period > m->maxperiod)
+			period = m->maxperiod;
+		else if(period < m->minperiod)
+			period = m->minperiod;
+	}
 	wrcompare(rdcount()+period);
-	splx(x);
-
 }
