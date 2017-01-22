@@ -148,14 +148,10 @@ timerset(Tval next)
 {
 	long period;
 
-	if(next == 0)
+	period = next - fastticks(nil);
+	if(period < m->minperiod)
+		period = m->minperiod;
+	else if(period > m->maxperiod - m->minperiod)
 		period = m->maxperiod;
-	else {
-		period = next - fastticks(nil);
-		if(period > m->maxperiod)
-			period = m->maxperiod;
-		else if(period < m->minperiod)
-			period = m->minperiod;
-	}
 	wrcompare(rdcount()+period);
 }
