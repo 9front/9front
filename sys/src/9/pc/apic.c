@@ -396,15 +396,12 @@ lapictimerset(uvlong next)
 	Apictimer *a;
 
 	a = &lapictimer[m->machno];
-	period = a->max;
-	if(next != 0){
-		period = next - fastticks(nil);
-		period /= a->div;
-		if(period < a->min)
-			period = a->min;
-		else if(period > a->max - a->min)
-			period = a->max;
-	}
+	period = next - fastticks(nil);
+	period /= a->div;
+	if(period < a->min)
+		period = a->min;
+	else if(period > a->max - a->min)
+		period = a->max;
 	lapicw(LapicTICR, period);
 }
 

@@ -69,8 +69,6 @@ int narchdir = Qbase;
 int (*_pcmspecial)(char*, ISAConf*);
 void (*_pcmspecialclose)(int);
 
-static int doi8253set = 1;
-
 /*
  * Add a file to the #P listing.  Once added, you can't delete it.
  * You can't add a file with the same name as one already there,
@@ -923,7 +921,6 @@ archctlread(Chan*, void *a, long nn, vlong offset)
 		p = seprint(p, ep, "cmpswap486\n");
 	else
 		p = seprint(p, ep, "0x%p\n", cmpswap);
-	p = seprint(p, ep, "i8253set %s\n", doi8253set ? "on" : "off");
 	p = seprint(p, ep, "arch %s\n", arch->id);
 	n = p - buf;
 	n += mtrrprint(p, ep - p);
@@ -938,7 +935,6 @@ enum
 {
 	CMpge,
 	CMcoherence,
-	CMi8253set,
 	CMcache,
 };
 
@@ -946,7 +942,6 @@ static Cmdtab archctlmsg[] =
 {
 	CMpge,		"pge",		2,
 	CMcoherence,	"coherence",	2,
-	CMi8253set,	"i8253set",	2,
 	CMcache,	"cache",	4,
 };
 
@@ -993,15 +988,6 @@ archctlwrite(Chan*, void *a, long n, vlong)
 			coherence = nop;
 		}else
 			cmderror(cb, "invalid coherence ctl");
-		break;
-	case CMi8253set:
-		if(strcmp(cb->f[1], "on") == 0)
-			doi8253set = 1;
-		else if(strcmp(cb->f[1], "off") == 0){
-			doi8253set = 0;
-			(*arch->timerset)(0);
-		}else
-			cmderror(cb, "invalid i2853set ctl");
 		break;
 	case CMcache:
 		base = strtoull(cb->f[1], &ep, 0);
@@ -1144,8 +1130,7 @@ ulong
 void
 timerset(Tval x)
 {
-	if(doi8253set)
-		(*arch->timerset)(x);
+	(*arch->timerset)(x);
 }
 
 /*

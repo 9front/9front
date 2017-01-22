@@ -199,17 +199,14 @@ i8253timerset(uvlong next)
 	ulong want;
 	ulong now;
 
-	period = MaxPeriod;
-	if(next != 0){
-		want = next>>Tickshift;
-		now = i8253.ticks;	/* assuming whomever called us just did fastticks() */
+	want = next>>Tickshift;
+	now = i8253.ticks;	/* assuming whomever called us just did fastticks() */
 
-		period = want - now;
-		if(period < MinPeriod)
-			period = MinPeriod;
-		else if(period > MaxPeriod)
-			period = MaxPeriod;
-	}
+	period = want - now;
+	if(period < MinPeriod)
+		period = MinPeriod;
+	else if(period > MaxPeriod)
+		period = MaxPeriod;
 
 	/* hysteresis */
 	if(i8253.period != period){
