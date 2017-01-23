@@ -288,7 +288,7 @@ Ifmt(Fmt *f)
 			break;
 	}
 	UNF(a, b, fpart);
-	if(res[i+1].c != opc)
+	if(res[i+1].c != opc || opc == 56)
 		return fmtprint(f, "%s\t%d,%d(%d | %d:%d)", res[i].name, apart, ipart, fpart, a, b);
 	while(res[i].c == opc && i < nelem(res)) {
 		if(res[i].f == fpart)
@@ -1018,7 +1018,7 @@ mixvm(int ip, int once)
 			cells[m] = mixst(cells[m], r, f);
 			break;
 		case 33:
-			cells[m] = 0; /* STZ */
+			cells[m] = mixst(cells[m], 0, f);
 			break;
 		case 34:
 			curpc = mixjbus(m, f, curpc);
