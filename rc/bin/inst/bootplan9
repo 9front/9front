@@ -2,7 +2,7 @@
 
 # look for esp and format it when not already done
 esp=`{ls /dev/$disk/esp >[2]/dev/null}
-if(~ $#esp 1 && ! ~ fstype $esp dos){
+if(~ $#esp 1 && ! ~ `{fstype $esp} dos){
 	echo
 	echo 'Here appears to be a unformated EFI system partition:'
 	echo '	' $esp
