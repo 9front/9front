@@ -49,7 +49,7 @@ getexpiration(char *db, char *u)
 
 	if(buf[0]){
 		if(strncmp(buf, "never", 5)){
-			secs = atoi(buf);
+			secs = strtoul(buf, nil, 10);
 			memmove(&date, localtime(secs), sizeof(date));
 			sprint(buf, "%4.4d%2.2d%2.2d", date.year+1900, date.mon+1, date.mday);
 		} else

@@ -62,7 +62,7 @@ struct User {
 	int	ref;
 	char	removed;
 	uchar	warnings;
-	long	purgatory;		/* time purgatory ends */
+	ulong	purgatory;		/* time purgatory ends */
 	ulong	uniq;
 	User	*link;
 };
@@ -463,9 +463,9 @@ Read(Fid *f)
 	case Qsecret:
 		if(f->user->status != Sok)
 			return "user disabled";
-		if(f->user->purgatory > time(0))
+		if(f->user->purgatory > (ulong)time(0))
 			return "user in purgatory";
-		if(f->user->expire != 0 && f->user->expire < time(0))
+		if(f->user->expire != 0 && f->user->expire < (ulong)time(0))
 			return "user expired";
 		m = 0;
 		switch(f->qtype){
@@ -500,7 +500,7 @@ Read(Fid *f)
 		thdr.count = n;
 		return 0;
 	case Qstatus:
-		if(f->user->status == Sok && f->user->expire && f->user->expire < time(0))
+		if(f->user->status == Sok && f->user->expire && f->user->expire < (ulong)time(0))
 			sprint(data, "expired\n");
 		else
 			sprint(data, "%s\n", status[f->user->status]);
@@ -592,11 +592,11 @@ Write(Fid *f)
 		else
 			f->user->bad++;
 		if(f->user->bad && ((f->user->bad)%MAXBAD) == 0)
-			f->user->purgatory = time(0) + f->user->bad;
+			f->user->purgatory = (ulong)time(0) + f->user->bad;
 		return 0;
 	case Qwarnings:
 		data[n] = '\0';
-		f->user->warnings = strtoul(data, 0, 10);
+		f->user->warnings = strtoul(data, nil, 10);
 		thdr.count = n;
 		break;
 	case Qroot:
@@ -1033,10 +1033,10 @@ io(int in, int out)
 {
 	char *err;
 	int n;
-	long now, lastwarning;
+	ulong now, lastwarning;
 
 	/* after restart, let the system settle for 5 mins before warning */
-	lastwarning = time(0) - 24*60*60 + 5*60;
+	lastwarning = (ulong)time(0) - 24*60*60 + 5*60;
 
 	while((n = read9pmsg(in, mdata, messagesize)) != 0){
 		if(n < 0)
@@ -1064,7 +1064,7 @@ io(int in, int out)
 			error("mount write");
 
 		now = time(0);
-		if(warnarg && (now - lastwarning > 24*60*60)){
+		if(warnarg && (long)(now - lastwarning) > 24*60*60){
 			syslog(0, "auth", "keyfs starting warnings: %lux %lux",
 				now, lastwarning);
 			warning();
@@ -1077,7 +1077,7 @@ int
 newkeys(void)
 {
 	Dir *d;
-	static long ftime;
+	static ulong ftime;
 
 	d = dirstat(userkeys);
 	if(d == nil)
