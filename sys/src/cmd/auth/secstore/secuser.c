@@ -32,7 +32,7 @@ main(int argc, char **argv)
 	int isnew;
 	char *id, buf[Maxmsg], home[Maxmsg], prompt[100], *hexHi;
 	char *pass, *passck;
-	long expsecs;
+	ulong expsecs;
 	mpint *H = mpnew(0), *Hi = mpnew(0);
 	PW *pw;
 	Tm *tm;
@@ -109,7 +109,7 @@ main(int argc, char **argv)
 
 	/* get expiration time (midnight of date specified) */
 	if(isnew)
-		expsecs = time(0) + 365*24*60*60;
+		expsecs = (ulong)time(0) + 365*24*60*60;
 	else
 		expsecs = pw->expire;
 
