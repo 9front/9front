@@ -2269,7 +2269,8 @@ cmd_cwcmd(int argc, char *argv[])
 	} else if(strcmp(arg, "startdump") == 0) {
 		if(argc > 2)
 			cw->nodump = number(argv[2], 0, 10);
-		cw->nodump = !cw->nodump;
+		else
+			cw->nodump = !cw->nodump;
 		if(cw->nodump)
 			print("dump stopped\n");
 		else
