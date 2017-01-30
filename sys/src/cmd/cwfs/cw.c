@@ -55,6 +55,7 @@ struct	Cw
  * following are cached variables for dumps
  */
 	Off	fsize;
+	Off	wsize;
 	Off	ndump;
 	int	depth;
 	int	all;		/* local flag to recur on modified dirs */
@@ -440,6 +441,7 @@ cwinit(Device *dev)
 		h->wsize = l;
 		cb->flags |= Bmod;
 	}
+	cw->wsize = l;
 
 	for(m=0; m<h->msize; m++) {
 		p = getbuf(cw->cdev, h->maddr + m/BKPERBLK, Brd);
@@ -768,8 +770,10 @@ cwgrow(Device *dev, Superb *sb, int)
 	h = (Cache*)cb->iobuf;
 	ws = h->wsize;
 	fs = h->fsize;
-	if(fs >= ws)
+	if(fs >= ws){
+		putbuf(cb);
 		return 0;
+	}
 	nfs = fs + ADDFREE;
 	if(nfs >= ws)
 		nfs = ws;
@@ -1259,6 +1263,10 @@ split(Cw *cw, Iobuf *p, Off addr)
 
 	case Cdump1:
 	case Cwrite:
+		/* worm full */
+		if(cw->fsize >= cw->wsize)
+			break;
+
 		/*
 		 * botch.. could be done by relabeling
 		 */
@@ -1269,9 +1277,7 @@ split(Cw *cw, Iobuf *p, Off addr)
 				break;
 			}
 		}
-
-		na = cw->fsize;
-		cw->fsize = na+1;
+		na = cw->fsize++;
 		cwio(cw->dev, na, 0, Ogrow);
 		cwio(cw->dev, na, p->iobuf, Owrite);
 		cwio(cw->dev, na, 0, Odump);
@@ -1523,6 +1529,11 @@ cfsdump(Filsys *fs)
 	h->cwraddr = rba;
 	putbuf(p);
 
+	if(cw->fsize+50 > cw->wsize){
+		fprint(2, "dump: worm full after dump\n");
+		goto done;
+	}
+
 	/*
 	 * ro root
 	 */
@@ -1642,8 +1653,7 @@ found:
 	s = (Superb*)p->iobuf;
 	s->last = a;
 	sba = s->next;
-	s->next = cw->fsize;
-	cw->fsize++;
+	s->next = cw->fsize++;
 	s->fsize = cw->fsize;
 	s->roraddr = roa;
 
@@ -1667,6 +1677,7 @@ found:
 	h->sbaddr = sba;
 	putbuf(p);
 
+done:
 	rewalk(cw);
 	sync("all done");
 
