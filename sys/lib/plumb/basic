@@ -39,7 +39,7 @@ data matches '[a-zA-Z¡-￿0-9_\-.,/]+'
 data matches '([a-zA-Z¡-￿0-9_\-.,/]+)\.(mp3|ogg|flac|m3u|pls)'
 arg isfile	$0
 plumb to audio
-plumb start window play $0
+plumb start window -scroll play $file
 
 # image files go to page
 type is text
