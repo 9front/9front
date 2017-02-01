@@ -117,7 +117,6 @@ static void
 decerror(FLAC__StreamDecoder *dec, FLAC__StreamDecoderErrorStatus status, void *client_data)
 {
 	fprintf(stderr, "decode error: %s (%d)\n", FLAC__StreamDecoderErrorStatusString[status], status);
-	exit(1);
 }
 
 int main(int argc, char *argv[])
