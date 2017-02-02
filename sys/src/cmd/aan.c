@@ -310,14 +310,11 @@ fromnet(void*)
 			len, n, m, acked, lastacked);
 
 		if (n == 0) {
-			if (m >= 0) {
-				dmessage(1, "fromnet; network closed\n");
-				break;
-			}
-			continue;
-		}
-
-		if (n > Bufsize) {
+			if (m < 0)
+				continue;
+			dmessage(1, "fromnet; network closed\n");
+			break;
+		} else if (n < 0 || n > Bufsize) {
 			dmessage(1, "fromnet; message too big %d > %d\n", n, Bufsize);
 			break;
 		}
@@ -337,6 +334,7 @@ fromnet(void*)
 			dmessage(1, "fromnet; skipping message %d, currently at %d\n", m, inmsg);
 			continue;
 		}			
+		inmsg++;
 
 		// Process the acked list.
 		while(lastacked != acked) {
@@ -352,7 +350,6 @@ fromnet(void*)
 			sendp(empty, rb);
 			lastacked++;
 		} 
-		inmsg++;
 
 		showmsg(1, "fromnet", b);
 
