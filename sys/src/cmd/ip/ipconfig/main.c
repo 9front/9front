@@ -648,7 +648,7 @@ doadd(int retry)
 		dhcpwatch(0);
 
 	/* leave everything we've learned somewhere other procs can find it */
-	if(beprimary)
+	if(beprimary && !dondbconfig)
 		putndb();
 }
 
