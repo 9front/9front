@@ -156,17 +156,6 @@ initplex(Parselex *plex, char *regstr, int lit)
 	return plex;
 }
 
-static int
-maxthreads(Renode *tree)
-{
-	tree = tree->left;
-	if(tree->op == TCAT)
-		tree = tree->left;
-	if(tree->op == TBOL)
-		return 2;
-	return -1;
-}
-
 static Reprog*
 regcomp1(char *regstr, int nl, int lit)
 {
@@ -187,7 +176,7 @@ regcomp1(char *regstr, int nl, int lit)
 		return nil;
 	}
 
-	maxthr = regstrlen;
+	maxthr = regstrlen + 1;
 	parsetr = node(&plex, TSUB, e0(&plex), nil);
 
 //	prtree(parsetr, 0, 1);
@@ -304,12 +293,13 @@ Tailcall:
 static Reinst*
 compile(Renode *parsetr, Reprog *reprog, int nl)
 {
-	Reinst *reinst;
+	Reinst *reinst, *end;
 	int sub;
 
 	sub = 0;
 	reinst = (Reinst*)(reprog+1);
-	compile1(parsetr, reinst, &sub, nl);
+	end = compile1(parsetr, reinst, &sub, nl);
+	assert(reinst + reprog->len == end);
 	return reinst;
 }
 

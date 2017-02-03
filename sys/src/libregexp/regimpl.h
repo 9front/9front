@@ -1,5 +1,4 @@
-enum
-{
+enum {
 	LANY = 0,
 	LBOL,
 	LCLASS,
@@ -30,8 +29,7 @@ enum
 typedef struct Parselex Parselex;
 typedef struct Renode Renode;
 
-struct Parselex
-{
+struct Parselex {
 	/* Parse */
 	Renode *next;
 	Renode *nodes;
@@ -50,8 +48,8 @@ struct Parselex
 	Rune cpairs[400+2];
 	int nc;
 };
-struct Renode
-{
+
+struct Renode {
 	int op;
 	Renode *left;
 	Rune r;
@@ -63,15 +61,15 @@ struct Renode
 	};
 	int nclass;
 };
-struct Rethread
-{
-	Reinst *pc;
+
+struct Rethread {
+	Reinst *i;
 	Resub sem[NSUBEXPM];
-	int pri;
 	Rethread *next;
+	int gen;
 };
-struct Reinst
-{
+
+struct Reinst {
 	char op;
 	int gen;
 	Reinst *a;
