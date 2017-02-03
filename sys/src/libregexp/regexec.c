@@ -19,15 +19,13 @@ regexec(Reprog *p, char *str, Resub *sem, int msize)
 	char *sp, *ep, endc;
 	int i, matchgen, gen;
 
+	memset(p->threads, 0, sizeof(Rethread)*p->nthr);
 	if(msize > NSUBEXPM)
 		msize = NSUBEXPM;
-
 	if(p->startinst->gen != 0) {
 		for(ci = p->startinst; ci < p->startinst + p->len; ci++)
 			ci->gen = 0;
 	}
-
-	memset(p->threads, 0, sizeof(Rethread)*p->nthr);
 
 	clist = lists;
 	clist->head = nil;
@@ -38,8 +36,8 @@ regexec(Reprog *p, char *str, Resub *sem, int msize)
 
 	pool = p->threads;
 	avail = nil;
-
 	gen = matchgen = 0;
+
 	sp = str;
 	ep = nil;
 	endc = '\0';
@@ -52,7 +50,8 @@ regexec(Reprog *p, char *str, Resub *sem, int msize)
 			*sem->ep = '\0';
 		}
 	}
-	for(r = 1; r != L'\0'; sp += i) {
+
+	for(r = L'☺'; r != L'\0'; sp += i) {
 		i = chartorune(&r, sp);
 		gen++;
 		if(matchgen == 0) {
@@ -76,7 +75,7 @@ regexec(Reprog *p, char *str, Resub *sem, int msize)
 			break;
 		ci = t->i;
 Again:
-		if(ci->gen == gen || matchgen && t->gen > matchgen)
+		if(ci->gen == gen)
 			goto Done;
 		ci->gen = gen;
 		switch(ci->op) {
@@ -89,11 +88,7 @@ Again:
 			t->next = nil;
 			*nlist->tail = t;
 			nlist->tail = &t->next;
-			if(next == nil)
-				break;
-			t = next;
-			ci = t->i;
-			goto Again;
+			goto Next;
 		case OCLASS:
 		Class:
 			if(r < ci->r)
@@ -107,11 +102,7 @@ Again:
 			t->next = nil;
 			*nlist->tail = t;
 			nlist->tail = &t->next;
-			if(next == nil)
-				break;
-			t = next;
-			ci = t->i;
-			goto Again;
+			goto Next;
 		case ONOTNL:
 			if(r != L'\n') {
 				ci++;
@@ -171,8 +162,14 @@ Again:
 			next = t->next;
 			t->next = avail;
 			avail = t;
+		Next:
 			if(next == nil)
 				break;
+			if(matchgen && next->gen > matchgen) {
+				*clist->tail = avail;
+				avail = next;
+				break;
+			}
 			t = next;
 			ci = t->i;
 			goto Again;
