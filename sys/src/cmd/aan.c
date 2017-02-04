@@ -36,7 +36,8 @@ static Channel	*unsent;
 static Channel	*unacked;
 static Channel	*empty;
 static int	netfd;
-static int	inmsg;
+static ulong	inmsg;
+static ulong	outmsg;
 static char	*devdir;
 static int	debug;
 static int	done;
@@ -58,9 +59,7 @@ static void		fromnet(void*);
 static void		fromclient(void*);
 static int		reconnect(int);
 static void		synchronize(void);
-static void		showmsg(int, char *, Buf *);
 static int		writen(int, uchar *, int);
-static void		dmessage(int, char *, ...);
 static void		timerproc(void *);
 
 static void
@@ -84,13 +83,13 @@ catch(void *, char *s)
 static void*
 emalloc(int n)
 {
-	ulong pc;
+	uintptr pc;
 	void *v;
 
 	pc = getcallerpc(&n);
 	v = malloc(n);
 	if(v == nil)
-		sysfatal("Cannot allocate memory; pc=%lux", pc);
+		sysfatal("Cannot allocate memory; pc=%#p", pc);
 	setmalloctag(v, pc);
 	return v;
 }
@@ -180,7 +179,7 @@ Restart:
 		if (netfd < 0 || failed) {
 			// Wait for the netreader to die.
 			while (netfd >= 0) {
-				dmessage(1, "main; waiting for netreader to die\n");
+				if(debug) fprint(2, "main; waiting for netreader to die\n");
 				threadint(reader);
 				sleep(1000);
 			}
@@ -201,7 +200,6 @@ Restart:
 			PBIT32(hdr.msg, -1);
 
 			if (writen(netfd, (uchar *)&hdr, Hdrsz) < 0) {
-				dmessage(2, "main; writen failed; %r\n");
 				failed = 1;
 				continue;
 			}
@@ -222,19 +220,15 @@ Restart:
 
 			PBIT32(b->hdr.acked, inmsg);
 
-			if (writen(netfd, (uchar *)&b->hdr, Hdrsz) < 0) {
-				dmessage(2, "main; writen failed; %r\n");
+			if (writen(netfd, (uchar *)&b->hdr, Hdrsz) < 0)
 				failed = 1;
+			else {
+				n = GBIT32(b->hdr.nb);
+				if (writen(netfd, b->buf, n) < 0)
+					failed = 1;
+				if (n == 0)
+					done = 1;
 			}
-
-			n = GBIT32(b->hdr.nb);
-			if (writen(netfd, b->buf, n) < 0) {
-				dmessage(2, "main; writen failed; %r\n");
-				failed = 1;
-			}
-
-			if (n == 0)
-				done = 1;
 			break;
 		}
 	}
@@ -246,7 +240,6 @@ Restart:
 static void
 fromclient(void*)
 {
-	static int outmsg;
 	int n;
 	Buf *b;
 
@@ -255,16 +248,10 @@ fromclient(void*)
 	do {
 		b = recvp(empty);
 		n = read(0, b->buf, Bufsize);
-		if (n <= 0) {
-			if (n < 0)
-				dmessage(2, "fromclient; Cannot read 9P message; %r\n");
-			else
-				dmessage(2, "fromclient; Client terminated\n");
+		if (n < 0)
 			n = 0;
-		}
 		PBIT32(b->hdr.nb, n);
 		PBIT32(b->hdr.msg, outmsg);
-		showmsg(1, "fromclient", b);
 		sendp(unsent, b);
 		outmsg++;
 	} while(n > 0);
@@ -274,8 +261,8 @@ static void
 fromnet(void*)
 {
 	extern void _threadnote(void *, char *);
-	static int lastacked;
-	int n, m, len, acked;
+	ulong m, acked, lastacked = 0;
+	int n, len;
 	Buf *b;
 
 	notify(_threadnote);
@@ -287,17 +274,19 @@ fromnet(void*)
 		while (netfd < 0) {
 			if(done)
 				return;
-			dmessage(1, "fromnet; waiting for connection... (inmsg %d)\n", inmsg);
+			if(debug) fprint(2, "fromnet; waiting for connection... (inmsg %lud)\n", inmsg);
 			sleep(1000);
 		}
 
 		// Read the header.
 		len = readn(netfd, (uchar *)&b->hdr, Hdrsz);
 		if (len <= 0) {
-			if (len < 0)
-				dmessage(1, "fromnet; (hdr) network failure; %r\n");
-			else
-				dmessage(1, "fromnet; (hdr) network closed\n");
+			if (debug) {
+				if (len < 0)
+					fprint(2, "fromnet; (hdr) network failure; %r\n");
+				else
+					fprint(2, "fromnet; (hdr) network closed\n");
+			}
 			close(netfd);
 			netfd = -1;
 			continue;
@@ -306,52 +295,48 @@ fromnet(void*)
 		n = GBIT32(b->hdr.nb);
 		m = GBIT32(b->hdr.msg);
 		acked = GBIT32(b->hdr.acked);
-		dmessage(2, "fromnet: Got message, size %d, nb %d, msg %d, acked %d, lastacked %d\n",
-			len, n, m, acked, lastacked);
-
 		if (n == 0) {
-			if (m < 0)
+			if (m == (ulong)-1)
 				continue;
-			dmessage(1, "fromnet; network closed\n");
+			if(debug) fprint(2, "fromnet; network closed\n");
 			break;
 		} else if (n < 0 || n > Bufsize) {
-			dmessage(1, "fromnet; message too big %d > %d\n", n, Bufsize);
+			if(debug) fprint(2, "fromnet; message too big %d > %d\n", n, Bufsize);
 			break;
 		}
 
 		len = readn(netfd, b->buf, n);
 		if (len <= 0 || len != n) {
 			if (len == 0)
-				dmessage(1, "fromnet; network closed\n");
+				if(debug) fprint(2, "fromnet; network closed\n");
 			else
-				dmessage(1, "fromnet; network failure; %r\n");
+				if(debug) fprint(2, "fromnet; network failure; %r\n");
 			close(netfd);
 			netfd = -1;
 			continue;
 		}
 
-		if (m < inmsg) {
-			dmessage(1, "fromnet; skipping message %d, currently at %d\n", m, inmsg);
+		if (m != inmsg) {
+			if(debug) fprint(2, "fromnet; skipping message %lud, currently at %lud\n", m, inmsg);
 			continue;
 		}			
 		inmsg++;
 
 		// Process the acked list.
-		while(lastacked != acked) {
+		while((long)(acked - lastacked) > 0) {
 			Buf *rb;
 
-			rb = recvp(unacked);
+			if((rb = recvp(unacked)) == nil)
+				break;
 			m = GBIT32(rb->hdr.msg);
 			if (m != lastacked) {
-				dmessage(1, "fromnet; rb %p, msg %d, lastacked %d\n", rb, m, lastacked);
+				if(debug) fprint(2, "fromnet; rb %p, msg %lud, lastacked %lud\n", rb, m, lastacked);
 				sysfatal("fromnet; bug");
 			}
 			PBIT32(rb->hdr.msg, -1);
 			sendp(empty, rb);
 			lastacked++;
 		} 
-
-		showmsg(1, "fromnet", b);
 
 		if (writen(1, b->buf, len) < 0) 
 			sysfatal("fromnet; cannot write to client; %r");
@@ -375,10 +360,10 @@ reconnect(int secs)
 			err[0] = '\0';
 			errstr(err, sizeof err);
 			if (strstr(err, "connection refused")) {
-				dmessage(1, "reconnect; server died...\n");
+				if(debug) fprint(2, "reconnect; server died...\n");
 				threadexitsall("server died...");
 			}
-			dmessage(1, "reconnect: dialed %s; %s\n", dialstring, err);
+			if(debug) fprint(2, "reconnect: dialed %s; %s\n", dialstring, err);
 			sleep(1000);
 		}
 		alarm(0);
@@ -427,22 +412,6 @@ synchronize(void)
 	unacked = tmp;
 }
 
-static void
-showmsg(int level, char *s, Buf *b)
-{
-	int n;
-
-	if (b == nil) {
-		dmessage(level, "%s; b == nil\n", s);
-		return;
-	}
-	n = GBIT32(b->hdr.nb);
-	dmessage(level, "%s;  (len %d) %X %X %X %X %X %X %X %X %X (%p)\n", s, n, 
-		  	b->buf[0], b->buf[1], b->buf[2],
-		  	b->buf[3], b->buf[4], b->buf[5],
-		  	b->buf[6], b->buf[7], b->buf[8], b);
-}
-
 static int
 writen(int fd, uchar *buf, int nb)
 {
@@ -455,10 +424,9 @@ writen(int fd, uchar *buf, int nb)
 			return -1;
 
 		if ((n = write(fd, buf, nb)) < 0) {
-			dmessage(1, "writen; Write failed; %r\n");
+			if(debug) fprint(2, "writen; Write failed; %r\n");
 			return -1;
 		}
-		dmessage(2, "writen: wrote %d bytes\n", n);
 
 		buf += n;
 		nb -= n;
@@ -477,17 +445,4 @@ timerproc(void *x)
 		sleep((Synctime / MS(1)) >> 1);
 		sendp(timer, "timer");
 	}
-}
-
-static void
-dmessage(int level, char *fmt, ...)
-{
-	va_list arg; 
-
-	if (level > debug) 
-		return;
-
-	va_start(arg, fmt);
-	vfprint(2, fmt, arg);
-	va_end(arg);
 }
