@@ -92,7 +92,8 @@ Quit the emulator/assembler.
 The
 .I addr
 field of the above instructions must be an integer between 0 and 3999
-inclusive. A number-sign (#) starts a comment which extends to the end
+inclusive. A number-sign (#) or an asterisk (*) at the beginning of
+a line starts a comment which extends to the end
 of the line.
 .SH SOURCE
 .B /sys/src/games/mix
@@ -118,4 +119,4 @@ The magnetic tapes and drum units are not
 implemented.
 .PP
 Comments are handled as described above and not
-as Knuth specifies.
+exactly as Knuth specifies.

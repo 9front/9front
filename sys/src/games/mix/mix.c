@@ -298,10 +298,33 @@ Ifmt(Fmt *f)
 	return fmtprint(f, "%d\t%d,%d(%d | %d:%d)", opc, apart, ipart, fpart, a, b);
 }
 
+Rune
+getr(void)
+{
+	static int bol = 1;
+	Rune r;
+
+	r = Bgetrune(&bin);
+	switch(r) {
+	case '*':
+		if(!bol)
+			break;
+	case '#':
+		skipto('\n');
+	case '\n':
+		line++;
+		bol = 1;
+		return '\n';
+	}
+	bol = 0;
+	return r;
+}
+
 long
 yylex(void)
 {
 	static Rune buf[11];
+	static int bol;
 	Rune r, *bp, *ep;
 	static char cbuf[100];
 	int isnum;
@@ -310,7 +333,7 @@ yylex(void)
 		return -1;
 
 Loop:
-	r = Bgetrune(&bin);
+	r = getr();
 	switch(r) {
 	case Beof:
 		return -1;
@@ -318,35 +341,32 @@ Loop:
 	case ' ':
 		goto Loop;
 	case '\n':
-		line++;
+	case '*':
 	case '+':
 	case '-':
-	case '*':
 	case ':':
 	case ',':
 	case '(':
 	case ')':
 	case '=':
+		bol = 0;
 		return r;
 	case '/':
-		r = Bgetrune(&bin);
-		if(r == '/')
+		r = getr();
+		if(r == '/') {
+			bol = 0;
 			return LSS;
-		else
+		} else
 			Bungetrune(&bin);
 		return '/';
 	case '"':
 		for(bp = buf; bp < buf+5; bp++) {
-			*bp = Bgetrune(&bin);
+			*bp = getr();
 		}
-		if(Bgetrune(&bin) != '"')
+		if(getr() != '"')
 			yyerror("Bad string literal\n");
 		yylval.rbuf = buf;
 		return LSTR;
-	case '#':
-		skipto('\n');
-		line++;
-		return '\n';
 	}
 	bp = buf;
 	ep = buf+nelem(buf)-1;
@@ -359,7 +379,7 @@ Loop:
 		*bp++ = r;
 		if(isnum && (r >= Runeself || !isdigit(r)))
 			isnum = 0;
-		r = Bgetrune(&bin);
+		r = getr();
 		switch(r) {
 		case Beof:
 		case '\t':
