@@ -135,8 +135,6 @@ threadmain(int argc, char **argv)
 		dup(fd, 2);
 	}
 
-	fmtinstall('F', fcallfmt);
-
 	atnotify(catch, 1);
 
 	/*
