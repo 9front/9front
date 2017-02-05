@@ -39,6 +39,8 @@ rsagen(int nlen, int elen, int rounds)
 			break;
 		mpadd(mpone, e, e);
 	}
+	if(d->sign < 0)
+		mpadd(phi, d, d);
 	mpfree(t1);
 	mpfree(t2);
 
