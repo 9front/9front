@@ -2741,17 +2741,22 @@ mkextel(Elem e, Ints *oid, Elist *el)
 }
 
 static Ints15 oid_subjectAltName = {4, 2, 5, 29, 17 };
+static Ints15 oid_extensionRequest = { 7, 1, 2, 840, 113549, 1, 9, 14};
 
 static Elist*
-mkextensions(char *alts)
+mkextensions(char *alts, int req)
 {
 	Elist *sl, *xl;
 
 	xl = nil;
 	if((sl = mkaltnames(alts)) != nil)
 		xl = mkextel(mkseq(sl), (Ints*)&oid_subjectAltName, xl);
-	if(xl != nil)
+	if(xl != nil){
+		if(req) return mkel(mkcont(mkseq(
+			mkel(mkoid((Ints*)&oid_extensionRequest),
+			mkel(mkset(mkel(mkseq(xl), nil)), nil))), 0), nil);
 		return mkel(mkcont(mkseq(xl), 3), nil);
+	}
 	return nil;
 }
 
@@ -2807,7 +2812,7 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 			mkel(mkalg(ALG_rsaEncryption),
 			mkel(mkbits(pkbytes->data, pkbytes->len),
 			nil))),
-		mkextensions(alts)))))))));
+		mkextensions(alts, 0)))))))));
 	freebytes(pkbytes);
 	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
@@ -2875,7 +2880,7 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 			mkel(mkalg(ALG_rsaEncryption),
 			mkel(mkbits(pkbytes->data, pkbytes->len),
 			nil))),
-		mkextensions(alts)))));
+		mkextensions(alts, 1)))));
 	freebytes(pkbytes);
 	if(encode(e, &certinfobytes) != ASN_OK)
 		goto errret;
