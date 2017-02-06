@@ -2143,6 +2143,10 @@ pkcs1padbuf(uchar *buf, int len, mpint *modulus)
 	mpint *mp;
 
 	pm1 = n - 1 - len;
+	if(pm1 <= 2){
+		werrstr("pkcs1padbuf: modulus too small");
+		return nil;
+	}
 	p = (uchar*)emalloc(n);
 	p[0] = 0;
 	p[1] = 1;
@@ -2827,6 +2831,8 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 		goto errret;
 	pkcs1 = pkcs1pad(sigbytes, pk->n);
 	freebytes(sigbytes);
+	if(pkcs1 == nil)
+		goto errret;
 
 	rsadecrypt(priv, pkcs1, pkcs1);
 	buflen = mptobe(pkcs1, nil, 0, &buf);
@@ -2894,6 +2900,8 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 		goto errret;
 	pkcs1 = pkcs1pad(sigbytes, pk->n);
 	freebytes(sigbytes);
+	if(pkcs1 == nil)
+		goto errret;
 
 	rsadecrypt(priv, pkcs1, pkcs1);
 	buflen = mptobe(pkcs1, nil, 0, &buf);
