@@ -132,6 +132,7 @@ int	parseoptions(uchar *p, int n);
 int	parseverb(char*);
 void	procsetname(char *fmt, ...);
 void	putndb(void);
+void	refresh(void);
 ulong	randint(ulong low, ulong hi);
 void	usage(void);
 int	validip(uchar*);

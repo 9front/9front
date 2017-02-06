@@ -648,8 +648,11 @@ doadd(int retry)
 		dhcpwatch(0);
 
 	/* leave everything we've learned somewhere other procs can find it */
-	if(beprimary && !dondbconfig)
-		putndb();
+	if(beprimary){
+		if(!dondbconfig)
+			putndb();
+		refresh();
+	}
 }
 
 void
@@ -991,8 +994,10 @@ dhcpwatch(int needconfig)
 			 * leave everything we've learned somewhere that
 			 * other procs can find it.
 			 */
-			if(beprimary)
+			if(beprimary){
 				putndb();
+				refresh();
+			}
 		}
 	}
 }
@@ -1641,6 +1646,24 @@ putaddrs(char *p, char *e, char *attr, uchar *a, int len)
 	return p;
 }
 
+void
+refresh(void)
+{
+	char file[64];
+	int fd;
+
+	snprint(file, sizeof file, "%s/cs", conf.mpoint);
+	if((fd = open(file, OWRITE)) >= 0){
+		write(fd, "refresh", 7);
+		close(fd);
+	}
+	snprint(file, sizeof file, "%s/dns", conf.mpoint);
+	if((fd = open(file, OWRITE)) >= 0){
+		write(fd, "refresh", 7);
+		close(fd);
+	}
+}
+
 /* make an ndb entry and put it into /net/ndb for the servers to see */
 void
 putndb(void)
@@ -1699,17 +1722,6 @@ putndb(void)
 		return;
 	write(fd, buf, p-buf);
 	close(fd);
-
-	snprint(file, sizeof file, "%s/cs", conf.mpoint);
-	if((fd = open(file, OWRITE)) >= 0){
-		write(fd, "refresh", 7);
-		close(fd);
-	}
-	snprint(file, sizeof file, "%s/dns", conf.mpoint);
-	if((fd = open(file, OWRITE)) >= 0){
-		write(fd, "refresh", 7);
-		close(fd);
-	}
 }
 
 /* return number of networks */
