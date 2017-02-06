@@ -2129,8 +2129,12 @@ asn1mpint(Elem *e)
 
 	if(is_int(e, &v))
 		return itomp(v, nil);
-	if(is_bigint(e, &b))
-		return betomp(b->data, b->len, nil);
+	if(is_bigint(e, &b)){
+		mpint *s = betomp(b->data, b->len, nil);
+		if(b->len > 0 && (b->data[0] & 0x80) != 0)
+			mpxtend(s, b->len*8, s);
+		return s;
+	}
 	return nil;
 }
 
@@ -2466,7 +2470,15 @@ mkbigint(mpint *p)
 	e.tag.num = INTEGER;
 	e.val.tag = VBigInt;
 	e.val.u.bigintval = newbytes((mpsignif(p)+8)/8);
-	mptober(p, e.val.u.bigintval->data, e.val.u.bigintval->len);
+	if(p->sign < 0){
+		mpint *s = mpnew(e.val.u.bigintval->len*8+1);
+		mpleft(mpone, e.val.u.bigintval->len*8, s);
+		mpadd(p, s, s);
+		mptober(s, e.val.u.bigintval->data, e.val.u.bigintval->len);
+		mpfree(s);
+	} else {
+		mptober(p, e.val.u.bigintval->data, e.val.u.bigintval->len);
+	}
 	return e;
 }
 
