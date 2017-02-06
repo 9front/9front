@@ -26,9 +26,13 @@ rsagen(int nlen, int elen, int rounds)
 	// find an e relatively prime to phi
 	t1 = mpnew(0);
 	t2 = mpnew(0);
-	mprand(elen, genrandom, e);
-	if(mpcmp(e,mptwo) <= 0)
-		itomp(3, e);
+	if(elen == 0)
+		itomp(65537, e);
+	else {
+		mprand(elen, genrandom, e);
+		if(mpcmp(e,mptwo) <= 0)
+			itomp(3, e);
+	}
 	// See Menezes et al. p.291 "8.8 Note (selecting primes)" for discussion
 	// of the merits of various choices of primes and exponents.  e=3 is a
 	// common and recommended exponent, but doesn't necessarily work here
