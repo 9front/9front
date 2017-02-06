@@ -2461,15 +2461,12 @@ static Elem
 mkbigint(mpint *p)
 {
 	Elem e;
-	uchar *buf;
-	int buflen;
 
 	e.tag.class = Universal;
 	e.tag.num = INTEGER;
 	e.val.tag = VBigInt;
-	buflen = mptobe(p, nil, 0, &buf);
-	e.val.u.bigintval = makebytes(buf, buflen);
-	free(buf);
+	e.val.u.bigintval = newbytes((mpsignif(p)+8)/8);
+	mptober(p, e.val.u.bigintval->data, e.val.u.bigintval->len);
 	return e;
 }
 
