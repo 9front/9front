@@ -219,6 +219,8 @@ rsawrite(Fsstate *fss, void *va, uint n)
 			dlen = SHA1dlen;
 		else if(strcmp(hash, "md5") == 0)
 			dlen = MD5dlen;
+		else if(strcmp(hash, "sha256") == 0)
+			dlen = SHA2_256dlen;
 		else
 			return failure(fss, "unknown hash function %s", hash);
 		if(n != dlen)
@@ -299,6 +301,7 @@ Proto rsa = {
  *
  * SHA1 = 1.3.14.3.2.26
  * MDx = 1.2.840.113549.2.x
+ * SHA256 = 2.16.840.1.101.3.4.2.1
  */
 #define O0(a,b)	((a)*40+(b))
 #define O2(x)	\
@@ -309,9 +312,8 @@ Proto rsa = {
 	(((x)>> 7)&0x7F)|0x80, \
 	((x)&0x7F)
 uchar oidsha1[] = { O0(1, 3), 14, 3, 2, 26 };
-uchar oidmd2[] = { O0(1, 2), O2(840), O3(113549), 2, 2 };
 uchar oidmd5[] = { O0(1, 2), O2(840), O3(113549), 2, 5 };
-
+uchar oidsha256[] = { O0(2, 16), O2(840), 1, 101, 3, 4, 2, 1 };
 /*
  *	DigestInfo ::= SEQUENCE {
  *		digestAlgorithm AlgorithmIdentifier,
@@ -339,6 +341,9 @@ mkasn1(uchar *asn1, char *alg, uchar *d, uint dlen)
 	}else if(strcmp(alg, "md5") == 0){
 		obj = oidmd5;
 		olen = sizeof(oidmd5);
+	}else if(strcmp(alg, "sha256") == 0){
+		obj = oidsha256;
+		olen = sizeof(oidsha256);
 	}else{
 		sysfatal("bad alg in mkasn1");
 		return -1;
