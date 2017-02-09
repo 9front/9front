@@ -431,8 +431,8 @@ static void	setMasterSecret(TlsSec *sec, Bytes *pm);
 static int	digestDHparams(TlsSec *sec, Bytes *par, uchar digest[MAXdlen], int sigalg);
 static char*	verifyDHparams(TlsSec *sec, Bytes *par, Bytes *cert, Bytes *sig, int sigalg);
 
-static Bytes*	pkcs1_encrypt(Bytes* data, RSApub* key, int blocktype);
-static Bytes*	pkcs1_decrypt(TlsSec *sec, Bytes *cipher);
+static Bytes*	pkcs1_encrypt(Bytes* data, RSApub* key);
+static Bytes*	pkcs1_decrypt(TlsSec *sec, Bytes *data);
 static Bytes*	pkcs1_sign(TlsSec *sec, uchar *digest, int digestlen, int sigalg);
 
 static void* emalloc(int);
@@ -452,7 +452,8 @@ static void freeints(Ints* b);
 static int lookupid(Ints* b, int id);
 
 /* x509.c */
-extern mpint*	pkcs1padbuf(uchar *buf, int len, mpint *modulus);
+extern mpint*	pkcs1padbuf(uchar *buf, int len, mpint *modulus, int blocktype);
+extern int	pkcs1unpadbuf(uchar *buf, int len, mpint *modulus, int blocktype);
 extern int	asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar *digest, uchar *buf, int len);
 
 //================= client/server ========================
@@ -2323,6 +2324,8 @@ factotum_rsa_decrypt(AuthRpc *rpc, mpint *cipher)
 	char *p;
 	int rv;
 
+	if(cipher == nil)
+		return nil;
 	p = mptoa(cipher, 16, nil, 0);
 	mpfree(cipher);
 	if(p == nil)
@@ -2660,7 +2663,7 @@ tlsSecRSAc(TlsSec *sec, uchar *cert, int ncert)
 	pm = newbytes(MasterSecretSize);
 	put16(pm->data, sec->clientVers);
 	genrandom(pm->data+2, MasterSecretSize - 2);
-	epm = pkcs1_encrypt(pm, pub, 2);
+	epm = pkcs1_encrypt(pm, pub);
 	setMasterSecret(sec, pm);
 	rsapubfree(pub);
 	return epm;
@@ -2833,105 +2836,40 @@ verifyDHparams(TlsSec *sec, Bytes *par, Bytes *cert, Bytes *sig, int sigalg)
 	return err;
 }
 
-
-// Do RSA computation on block according to key, and pad
-// result on left with zeros to make it modlen long.
-static Bytes*
-rsacomp(Bytes* block, RSApub* key, int modlen)
-{
-	mpint *x, *y;
-	Bytes *a, *ybytes;
-	int ylen;
-
-	x = bytestomp(block);
-	y = rsaencrypt(key, x, nil);
-	mpfree(x);
-	ybytes = mptobytes(y);
-	ylen = ybytes->len;
-	mpfree(y);
-
-	if(ylen < modlen) {
-		a = newbytes(modlen);
-		memset(a->data, 0, modlen-ylen);
-		memmove(a->data+modlen-ylen, ybytes->data, ylen);
-		freebytes(ybytes);
-		ybytes = a;
-	}
-	else if(ylen > modlen) {
-		// assume it has leading zeros (mod should make it so)
-		a = newbytes(modlen);
-		memmove(a->data, ybytes->data, modlen);
-		freebytes(ybytes);
-		ybytes = a;
-	}
-	return ybytes;
-}
-
 // encrypt data according to PKCS#1, /lib/rfc/rfc2437 9.1.2.1
 static Bytes*
-pkcs1_encrypt(Bytes* data, RSApub* key, int blocktype)
+pkcs1_encrypt(Bytes* data, RSApub* key)
 {
-	Bytes *pad, *eb, *ans;
-	int i, dlen, padlen, modlen;
+	mpint *x, *y;
 
-	modlen = (mpsignif(key->n)+7)/8;
-	dlen = data->len;
-	if(modlen < 12 || dlen > modlen - 11)
+	x = pkcs1padbuf(data->data, data->len, key->n, 2);
+	if(x == nil)
 		return nil;
-	padlen = modlen - 3 - dlen;
-	pad = newbytes(padlen);
-	genrandom(pad->data, padlen);
-	for(i = 0; i < padlen; i++) {
-		if(blocktype == 0)
-			pad->data[i] = 0;
-		else if(blocktype == 1)
-			pad->data[i] = 255;
-		else if(pad->data[i] == 0)
-			pad->data[i] = 1;
-	}
-	eb = newbytes(modlen);
-	eb->data[0] = 0;
-	eb->data[1] = blocktype;
-	memmove(eb->data+2, pad->data, padlen);
-	eb->data[padlen+2] = 0;
-	memmove(eb->data+padlen+3, data->data, dlen);
-	ans = rsacomp(eb, key, modlen);
-	freebytes(eb);
-	freebytes(pad);
-	return ans;
+	y = rsaencrypt(key, x, nil);
+	mpfree(x);
+	data = newbytes((mpsignif(key->n)+7)/8);
+	mptober(y, data->data, data->len);
+	mpfree(y);
+	return data;
 }
 
 // decrypt data according to PKCS#1, with given key.
-// expect a block type of 2.
 static Bytes*
-pkcs1_decrypt(TlsSec *sec, Bytes *cipher)
+pkcs1_decrypt(TlsSec *sec, Bytes *data)
 {
-	Bytes *eb;
-	int i, modlen;
-	mpint *x, *y;
+	mpint *y;
 
-	modlen = (mpsignif(sec->rsapub->n)+7)/8;
-	if(cipher->len != modlen)
+	if(data->len != (mpsignif(sec->rsapub->n)+7)/8)
 		return nil;
-	x = bytestomp(cipher);
-	y = factotum_rsa_decrypt(sec->rpc, x);
+	y = factotum_rsa_decrypt(sec->rpc, bytestomp(data));
 	if(y == nil)
 		return nil;
-	eb = newbytes(modlen);
-	mptober(y, eb->data, eb->len);
-	mpfree(y);
-	if(eb->data[0] == 0 && eb->data[1] == 2) {
-		for(i = 2; i < eb->len; i++)
-			if(eb->data[i] == 0)
-				break;
-		if(++i < eb->len){
-			eb->len -= i;
-			memmove(eb->data, eb->data+i, eb->len);
-			return eb;
-		}
+	data = mptobytes(y);
+	if((data->len = pkcs1unpadbuf(data->data, data->len, sec->rsapub->n, 2)) < 0){
+		freebytes(data);
+		return nil;
 	}
-	freebytes(eb);
-	return nil;
+	return data;
 }
 
 static Bytes*
@@ -2952,7 +2890,7 @@ pkcs1_sign(TlsSec *sec, uchar *digest, int digestlen, int sigalg)
 		werrstr("bad digest algorithm");
 		return nil;
 	}
-	signedMP = factotum_rsa_decrypt(sec->rpc, pkcs1padbuf(buf, digestlen, sec->rsapub->n));
+	signedMP = factotum_rsa_decrypt(sec->rpc, pkcs1padbuf(buf, digestlen, sec->rsapub->n, 1));
 	if(signedMP == nil)
 		return nil;
 	signature = mptobytes(signedMP);

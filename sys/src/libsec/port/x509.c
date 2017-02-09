@@ -1492,6 +1492,19 @@ freevalfields(Value* v)
 	}
 }
 
+static mpint*
+asn1mpint(Elem *e)
+{
+	Bytes *b;
+	int v;
+
+	if(is_int(e, &v))
+		return itomp(v, nil);
+	if(is_bigint(e, &b))
+		return betomp(b->data, b->len, nil);
+	return nil;
+}
+
 /* end of general ASN1 functions */
 
 
@@ -1694,6 +1707,8 @@ static DigestAlg *digestalg[NUMALGS+1] = {
 	&alg_md5, &alg_sha1, &alg_sha256, &alg_sha384, &alg_sha512, &alg_sha224,
 	nil
 };
+
+static Bytes* encode_digest(DigestAlg *da, uchar *digest);
 
 static Ints15 oid_secp256r1 = {7, 1, 2, 840, 10045, 3, 1, 7};
 static Ints15 oid_secp384r1 = {5, 1, 3, 132, 0, 34};
@@ -2121,54 +2136,6 @@ errret:
 	return nil;
 }
 
-static mpint*
-asn1mpint(Elem *e)
-{
-	Bytes *b;
-	int v;
-
-	if(is_int(e, &v))
-		return itomp(v, nil);
-	if(is_bigint(e, &b)){
-		mpint *s = betomp(b->data, b->len, nil);
-		if(b->len > 0 && (b->data[0] & 0x80) != 0)
-			mpxtend(s, b->len*8, s);
-		return s;
-	}
-	return nil;
-}
-
-mpint*
-pkcs1padbuf(uchar *buf, int len, mpint *modulus)
-{
-	int n = (mpsignif(modulus)+7)/8;
-	int pm1, i;
-	uchar *p;
-	mpint *mp;
-
-	pm1 = n - 1 - len;
-	if(pm1 <= 2){
-		werrstr("pkcs1padbuf: modulus too small");
-		return nil;
-	}
-	p = (uchar*)emalloc(n);
-	p[0] = 0;
-	p[1] = 1;
-	for(i = 2; i < pm1; i++)
-		p[i] = 0xFF;
-	p[pm1] = 0;
-	memcpy(&p[pm1+1], buf, len);
-	mp = betomp(p, n, nil);
-	free(p);
-	return mp;
-}
-
-static mpint*
-pkcs1pad(Bytes *b, mpint *modulus)
-{
-	return pkcs1padbuf(b->data, b->len, modulus);
-}
-
 RSApriv*
 asn1toRSApriv(uchar *kd, int kn)
 {
@@ -2226,79 +2193,92 @@ digest_certinfo(Bytes *cert, DigestAlg *da, uchar *digest)
 	return da->len;
 }
 
-static int
-pkcs1decryptsignature(uchar *sig, int siglen, RSApub *pk, uchar **pbuf)
+mpint*
+pkcs1padbuf(uchar *buf, int len, mpint *modulus, int blocktype)
 {
-	int nlen, buflen;
-	mpint *pkcs1;
-	uchar *buf;
+	int i, n = (mpsignif(modulus)-1)/8;
+	int pad = n - 2 - len;
+	uchar *p;
+	mpint *mp;
 
-	*pbuf = nil;
-
-	/* one less than the byte length of the modulus */
-	nlen = (mpsignif(pk->n)-1)/8;
-
-	/* see 9.2.1 of rfc2437 */
-	pkcs1 = betomp(sig, siglen, nil);
-	mpexp(pkcs1, pk->ek, pk->n, pkcs1);
-	buflen = mptobe(pkcs1, nil, 0, pbuf);
-	mpfree(pkcs1);
-
-	buf = *pbuf;
-	if(buflen != nlen || buf[0] != 1)
-		goto bad;
-	buf++, buflen--;
-	while(buflen > 0 && buf[0] == 0xff)
-		buf++, buflen--;
-	if(buflen < 1 || buf[0] != 0)
-		goto bad;
-	buf++, buflen--;
-	memmove(*pbuf, buf, buflen);
-	return buflen;
-bad:
-	free(*pbuf);
-	*pbuf = nil;
-	return -1;
+	if(pad < 8){
+		werrstr("rsa modulus too small");
+		return nil;
+	}
+	if((p = malloc(n)) == nil)
+		return nil;
+	p[0] = blocktype;
+	switch(blocktype){
+	default:
+	case 1:
+		memset(p+1, 0xFF, pad);
+		break;
+	case 2:
+		for(i=1; i <= pad; i++)
+			p[i] = 1 + nfastrand(255);
+		break;
+	}
+	p[1+pad] = 0;
+	memmove(p+2+pad, buf, len);
+	mp = betomp(p, n, nil);
+	free(p);
+	return mp;
 }
+
+int
+pkcs1unpadbuf(uchar *buf, int len, mpint *modulus, int blocktype)
+{
+	uchar *p = buf + 1, *e = buf + len;
+
+	if(len < 1 || len != (mpsignif(modulus)-1)/8 || buf[0] != blocktype)
+		return -1;
+	switch(blocktype){
+	default:
+	case 1:
+		while(p < e && *p == 0xFF)
+			p++;
+		break;
+	case 2:
+		while(p < e && *p != 0x00)
+			p++;
+		break;
+	}
+	if(p - buf <= 8 || p >= e || *p++ != 0x00)
+		return -1;
+	memmove(buf, p, len = e - p);
+	return len;
+}
+
+static char Ebadsig[] = "bad signature";
 
 char*
 X509rsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub *pk)
 {
-	Elem e;
-	Elist *el;
+	mpint *x, *y;
+	DigestAlg **dp;
 	Bytes *digest;
 	uchar *buf;
-	int alg, buflen;
+	int len;
 	char *err;
 
-	buflen = pkcs1decryptsignature(sig, siglen, pk, &buf);
-	if(buflen == edigestlen && tsmemcmp(buf, edigest, edigestlen) == 0){
-		free(buf);
-		return nil;
+	x = betomp(sig, siglen, nil);
+	y = rsaencrypt(pk, x, nil);
+	mpfree(x);
+	len = mptobe(y, nil, 0, &buf);
+	mpfree(y);	
+
+	err = Ebadsig;
+	len = pkcs1unpadbuf(buf, len, pk->n, 1);
+	if(len == edigestlen && tsmemcmp(buf, edigest, edigestlen) == 0)
+		err = nil;
+	for(dp = digestalg; err != nil && *dp != nil; dp++){
+		if((*dp)->len != edigestlen)
+			continue;
+		digest = encode_digest(*dp, edigest);
+		if(digest->len == len && tsmemcmp(digest->data, buf, len) == 0)
+			err = nil;
+		freebytes(digest);
 	}
-	el = nil;
-	memset(&e, 0, sizeof(e));
-	if(buflen < 0 || decode(buf, buflen, &e) != ASN_OK
-	|| !is_seq(&e, &el) || elistlen(el) != 2 || !is_octetstring(&el->tl->hd, &digest)) {
-		err = "signature parse error";
-		goto end;
-	}
-	alg = parse_alg(&el->hd);
-	if(alg < 0){
-		err = "unknown signature algorithm";
-		goto end;
-	}
-	if(digest->len != edigestlen || digest->len != digestalg[alg]->len){
-		err = "bad digest length";
-		goto end;
-	}
-	if(tsmemcmp(digest->data, edigest, edigestlen) != 0){
-		err = "digest did not match";
-		goto end;
-	}
-	err = nil;
-end:
-	freevalfields(&e.val);
 	free(buf);
 	return err;
 }
@@ -2312,7 +2292,7 @@ X509ecdsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, EC
 	char *err;
 
 	r = s = nil;
-	err = "bad signature";
+	err = Ebadsig;
 	if(decode(sig, siglen, &e) != ASN_OK)
 		goto end;
 	if(!is_seq(&e, &el) || elistlen(el) != 2)
@@ -2838,7 +2818,7 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	sigbytes = encode_digest(da, digest);
 	if(sigbytes == nil)
 		goto errret;
-	pkcs1 = pkcs1pad(sigbytes, pk->n);
+	pkcs1 = pkcs1padbuf(sigbytes->data, sigbytes->len, pk->n, 1);
 	freebytes(sigbytes);
 	if(pkcs1 == nil)
 		goto errret;
@@ -2907,7 +2887,7 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 	sigbytes = encode_digest(da, digest);
 	if(sigbytes == nil)
 		goto errret;
-	pkcs1 = pkcs1pad(sigbytes, pk->n);
+	pkcs1 = pkcs1padbuf(sigbytes->data, sigbytes->len, pk->n, 1);
 	freebytes(sigbytes);
 	if(pkcs1 == nil)
 		goto errret;
