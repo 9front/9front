@@ -2320,6 +2320,9 @@ X509toECpub(uchar *cert, int ncert, char *name, int nname, ECdomain *dom)
 	ECpub *pub;
 	Bytes *b;
 
+	if(name != nil)
+		memset(name, 0, nname);
+
 	b = makebytes(cert, ncert);
 	c = decode_cert(b);
 	freebytes(b);
