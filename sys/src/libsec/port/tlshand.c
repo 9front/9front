@@ -2822,7 +2822,7 @@ verifyDHparams(TlsSec *sec, Bytes *par, Bytes *cert, Bytes *sig, int sigalg)
 		rsapubfree(rsapk);
 		break;
 	case 0x03:
-		ecpk = X509toECpub(cert->data, cert->len, &dom);
+		ecpk = X509toECpub(cert->data, cert->len, nil, 0, &dom);
 		if(ecpk == nil)
 			return "bad certificate";
 		err = X509ecdsaverifydigest(sig->data, sig->len, digest, digestlen, &dom, ecpk);

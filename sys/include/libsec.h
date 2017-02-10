@@ -361,8 +361,8 @@ uchar*		decodePEM(char *s, char *type, int *len, char **new_s);
 PEMChain*	decodepemchain(char *s, char *type);
 uchar*		X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen);
 uchar*		X509rsareq(RSApriv *priv, char *subj, int *certlen);
-char*		X509rsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub *pk);
 char*		X509rsaverify(uchar *cert, int ncert, RSApub *pk);
+char*		X509rsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub *pk);
 
 void		X509dump(uchar *cert, int ncert);
 
@@ -532,9 +532,9 @@ ECpub*	ecdecodepub(ECdomain *dom, uchar *, int);
 int	ecencodepub(ECdomain *dom, ECpub *, uchar *, int);
 void	ecpubfree(ECpub *);
 
-ECpub*	X509toECpub(uchar *cert, int ncert, ECdomain *dom);
-char*	X509ecdsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, ECdomain *dom, ECpub *pub);
+ECpub*	X509toECpub(uchar *cert, int ncert, char*, int, ECdomain *dom);
 char*	X509ecdsaverify(uchar *sig, int siglen, ECdomain *dom, ECpub *pub);
+char*	X509ecdsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, ECdomain *dom, ECpub *pub);
 
 /* curves */
 void	secp256r1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h);
