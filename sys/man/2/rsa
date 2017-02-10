@@ -5,6 +5,7 @@ asn1toRSApriv,
 decodePEM,
 rsadecrypt,
 rsaencrypt,
+rsafill,
 rsagen,
 rsaprivalloc,
 rsaprivfree,
@@ -27,6 +28,10 @@ X509rsaverify \- RSA encryption algorithm
 .ta +\w'\fLRSApriv* \fP'u
 .B
 RSApriv*	rsagen(int nlen, int elen, int nrep)
+.PP
+.ta +\w'\fLRSApriv* \fP'u
+.B
+RSApriv*	rsafill(mpint *n, mpint *e, mpint *d, mpint *p, mpint *q)
 .PP
 .B
 mpint*	rsaencrypt(RSApub *k, mpint *in, mpint *out)
@@ -114,6 +119,12 @@ of rounds.
 .I Rsagen
 returns a newly allocated structure containing both
 public and private keys.
+.I Rsafill
+returns a newly allocated private key by recomputing
+.IR kp ,
+.IR kq ,
+and
+.IR c2 .
 .I Rsaprivtopub
 returns a newly allocated copy of the public key
 corresponding to the private key.
