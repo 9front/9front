@@ -540,8 +540,8 @@ ECpub*	ecdecodepub(ECdomain *dom, uchar *, int);
 int	ecencodepub(ECdomain *dom, ECpub *, uchar *, int);
 void	ecpubfree(ECpub *);
 
-ECpub*	X509toECpub(uchar *cert, int ncert, char*, int, ECdomain *dom);
-char*	X509ecdsaverify(uchar *sig, int siglen, ECdomain *dom, ECpub *pub);
+ECpub*	X509toECpub(uchar *cert, int ncert, char *name, int nname, ECdomain *dom);
+char*	X509ecdsaverify(uchar *cert, int ncert, ECdomain *dom, ECpub *pub);
 char*	X509ecdsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, ECdomain *dom, ECpub *pub);
 
 /* curves */

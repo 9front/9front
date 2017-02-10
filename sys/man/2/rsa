@@ -15,7 +15,8 @@ rsapubfree,
 X509toRSApub,
 X509rsagen,
 X509rsareq,
-X509rsaverify \- RSA encryption algorithm
+X509rsaverify,
+X509rsaverifydigest \- RSA encryption algorithm
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -74,6 +75,9 @@ uchar*	X509rsareq(RSApriv *priv, char *subj, int *certlen);
 .PP
 .B
 char*	X509rsaverify(uchar *cert, int ncert, RSApub *pk)
+.PP
+.B
+char*	X509rsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestlen, RSApub *pk)
 .DT
 .SH DESCRIPTION
 RSA is a public key encryption algorithm.  The owner of a key publishes
@@ -145,7 +149,9 @@ the routine
 .I X509toRSApub
 returns the public key and, if
 .I name
-is not nil, the CN part of the Distinguished Name of the
+is not
+.BR nil ,
+the CN part of the Distinguished Name of the
 certificate's Subject.
 (This is conventionally a userid or a host DNS name.)
 No verification is done of the certificate signature;  the
@@ -162,7 +168,19 @@ certificates signed by a known trusted key
 .I X509rsaverify
 checks the signature on
 .IR cert .
-It returns nil if successful, else an error string.
+It returns
+.B nil
+if successful, else an error string.
+.PP
+.I X509rsaverifydigest
+takes a encoded PKCS #1 signature as used in X.509 as
+.IR sig [ siglen ]
+and verifies it against the expected cryptographic hash 
+.IR edigest [ edigestlen ]
+of the signed data;
+returning
+.B nil
+on success or an error string.
 .PP
 .I X509rsagen
 creates a self-signed X.509 certificate, given an RSA keypair
@@ -210,7 +228,8 @@ Otherwise
 is returned and
 .BI * len
 is undefined.
-If not nil,
+If not
+.BR nil ,
 .I new_s
 is set to the first character beyond the
 .I type
