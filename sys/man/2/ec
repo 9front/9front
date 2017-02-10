@@ -1,5 +1,10 @@
 .TH EC 2
 .SH NAME
+secp256r1,
+secp256k1,
+secp384r1,
+ecdominit,
+ecdomfree,
 ecassign,
 ecadd,
 ecmul,
@@ -8,7 +13,10 @@ ecgen,
 ecverify,
 ecpubverify,
 ecdsasign,
-ecdsaverify \- elliptic curve cryptography
+ecdsaverify,
+ecencodepub,
+ecdecodepub,
+ecpubfree \- elliptic curve cryptography
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -19,37 +27,55 @@ ecdsaverify \- elliptic curve cryptography
 .B #include <libsec.h>
 .PP
 .B
-void	ecdominit(ECdomain *dom, void (*init)(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h));
+void	secp256r1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h)
 .PP
 .B
-void	ecdomfree(ECdomain *dom);
+void	secp256k1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h)
 .PP
 .B
-void	ecassign(ECdomain *dom, ECpoint *old, ECpoint *new);
+void	secp384r1(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h)
 .PP
 .B
-void	ecadd(ECdomain *dom, ECpoint *a, ECpoint *b, ECpoint *s);
+void	ecdominit(ECdomain *dom, void (*init)(mpint *p, mpint *a, mpint *b, mpint *x, mpint *y, mpint *n, mpint *h))
 .PP
 .B
-void	ecmul(ECdomain *dom, ECpoint *a, mpint *k, ECpoint *s);
+void	ecdomfree(ECdomain *dom)
 .PP
 .B
-ECpoint*	strtoec(ECdomain *dom, char *s, char **rptr, ECpoint *p);
+void	ecassign(ECdomain *dom, ECpoint *old, ECpoint *new)
 .PP
 .B
-ECpriv*	ecgen(ECdomain *dom, ECpriv *p);
+void	ecadd(ECdomain *dom, ECpoint *a, ECpoint *b, ECpoint *s)
 .PP
 .B
-int	ecverify(ECdomain *dom, ECpoint *p);
+void	ecmul(ECdomain *dom, ECpoint *a, mpint *k, ECpoint *s)
 .PP
 .B
-int	ecpubverify(ECdomain *dom, ECpub *p);
+ECpoint*	strtoec(ECdomain *dom, char *s, char **rptr, ECpoint *p)
 .PP
 .B
-void	ecdsasign(ECdomain *dom, ECpriv *priv, uchar *dig, int dlen, mpint *r, mpint *s);
+ECpriv*	ecgen(ECdomain *dom, ECpriv *p)
 .PP
 .B
-int	ecdsaverify(ECdomain *dom, ECpub *pub, uchar *dig, int dlen, mpint *r, mpint *s);
+int	ecverify(ECdomain *dom, ECpoint *p)
+.PP
+.B
+int	ecpubverify(ECdomain *dom, ECpub *p)
+.PP
+.B
+void	ecdsasign(ECdomain *dom, ECpriv *priv, uchar *dig, int dlen, mpint *r, mpint *s)
+.PP
+.B
+int	ecdsaverify(ECdomain *dom, ECpub *pub, uchar *dig, int dlen, mpint *r, mpint *s)
+.PP
+.B
+int	ecencodepub(ECdomain *dom, ECpub *pub, uchar *data, int len)
+.PP
+.B
+ECpub*	ecdecodepub(ECdomain *dom, uchar *data, int len)
+.PP
+.B
+void	ecpubfree(ECpub *p);
 .DT
 .SH DESCRIPTION
 These functions implement elliptic curve cryptography.
@@ -115,6 +141,19 @@ is a cryptographic hash to the message.
 writes the signature to
 .BR r " and " s
 which are assumed to be allocated properly.
+.PP
+.B ecencodepub
+and
+.B ecdecodepub
+handle encoding and decoding of public keys in uncompressed format.
+Note that
+.B ecdecodepub
+also verifies that the public key is valid in the specified domain.
+.PP
+.B ecpubfree
+frees a
+.B ECpub
+structure and its associated members.
 .SH RETURN VALUE
 .B *verify
 functions return
