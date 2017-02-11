@@ -40,7 +40,7 @@ writeback(void)
 }
 
 void
-timerload(char *buf)
+timerload(uchar *buf)
 {
 	timer.ns = buf[0] | buf[1] << 8 | buf[2] << 16 | buf[3] << 24 | (uvlong)buf[4] << 32 | (uvlong)buf[5] << 40 | (uvlong)buf[6] << 48LL | (uvlong)buf[7] << 56LL;
 	timer.sec = buf[8];
@@ -56,7 +56,7 @@ timerload(char *buf)
 }
 
 void
-timersave(char *buf)
+timersave(uchar *buf)
 {
 	buf[0] = timer.ns;
 	buf[1] = timer.ns >> 8;
@@ -81,7 +81,7 @@ timersave(char *buf)
 void
 flushback(void)
 {
-	char buf[TIMERSIZ];
+	uchar buf[TIMERSIZ];
 
 	if(savefd >= 0){
 		pwrite(savefd, back, nback, 0);
@@ -95,7 +95,7 @@ void
 loadsave(char *file)
 {
 	char *buf, *p;
-	char tim[TIMERSIZ];
+	uchar tim[TIMERSIZ];
 
 	buf = emalloc(strlen(file) + 4);
 	strcpy(buf, file);
