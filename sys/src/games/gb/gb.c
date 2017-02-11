@@ -127,7 +127,7 @@ loadsave(char *file)
 	readn(savefd, back, nback);
 	if((feat & FEATTIM) != 0){
 		readn(savefd, tim, TIMERSIZ);
-		timerload(buf);
+		timerload(tim);
 	}
 	atexit(flushback);
 	free(buf);
