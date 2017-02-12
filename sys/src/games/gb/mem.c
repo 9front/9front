@@ -384,7 +384,7 @@ mbc3(int a, int v)
 		b0 %= nrom >> 14;
 		romb = rom + (b0 << 14);
 		return 0;
-	case 2: b1 = v & 15; b1 %= nbackbank; break;
+	case 2: b1 = v & 15; break;
 	case 3:
 		if(latch == 0 && v == 1){
 			timerl = timer;
@@ -404,7 +404,7 @@ mbc3(int a, int v)
 		}
 		return 0;
 	}
-	eramb = ramen && b1 < 4 ? back + (b1 << 13) : nil;
+	eramb = ramen && b1 < nbackbank ? back + (b1 << 13) : nil;
 	return 0;
 }
 
