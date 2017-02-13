@@ -1318,10 +1318,12 @@ rxon(Ether *edev, Wnode *bss)
 {
 	u32int tmp;
 	Ctlr *ctlr;
+	int cap;
 
 	ctlr = edev->ctlr;
 
 	if(bss != nil){
+		cap = bss->cap;
 		ctlr->channel = bss->channel;
 		memmove(ctlr->bssid, bss->bssid, Eaddrlen);
 		ctlr->aid = bss->aid;
@@ -1332,6 +1334,7 @@ rxon(Ether *edev, Wnode *bss)
 		}else
 			ctlr->bcastnodeid = -1;
 	}else{
+		cap = 0;
 		memmove(ctlr->bssid, edev->bcast, Eaddrlen);
 		ctlr->aid = 0;
 		ctlr->bcastnodeid = -1;
@@ -1377,14 +1380,13 @@ rxon(Ether *edev, Wnode *bss)
 	/* update slot */
 	tmp = csr32r(ctlr, BkoffSlotCfg);
 	tmp &= ~0xff;
-	tmp |= /* (ic->ic_flags & IEEE80211_F_SHSLOT) ? 9 : */ 20;
+	tmp |= (cap & (1<<10)) ? 9 : 20;
 	csr32w(ctlr, BkoffSlotCfg, tmp);
 	
 	/* set TX preamble */
 	tmp = csr32r(ctlr, AutoRspCfg);
 	tmp &= ~CckShortEn;
-/*	if(sc->sc_ic.ic_flags & IEEE80211_F_SHPREAMBLE)
-		tmp |= CckShortEn; */
+	if(cap & (1<<5)) tmp |= CckShortEn;	
 	csr32w(ctlr, AutoRspCfg, tmp);
 
 	/* set basic rates */
