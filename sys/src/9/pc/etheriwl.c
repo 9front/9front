@@ -1845,7 +1845,12 @@ rxon(Ether *edev, Wnode *bss)
 			ctlr->channel = bss->channel;
 		bss = nil;
 	}
+	flags = RFlagTSF | RFlagCTSToSelf | RFlag24Ghz | RFlagAuto;
 	if(bss != nil){
+		if(bss->cap & (1<<5))
+			flags |= RFlagShPreamble;
+		if(bss->cap & (1<<10))
+			flags |= RFlagShSlot;
 		ctlr->channel = bss->channel;
 		memmove(ctlr->bssid, bss->bssid, Eaddrlen);
 		ctlr->aid = bss->aid;
@@ -1861,7 +1866,6 @@ rxon(Ether *edev, Wnode *bss)
 		ctlr->bcastnodeid = -1;
 		ctlr->bssnodeid = -1;
 	}
-	flags = RFlagTSF | RFlagCTSToSelf | RFlag24Ghz | RFlagAuto;
 
 	if(ctlr->aid != 0)
 		setled(ctlr, 2, 0, 1);		/* on when associated */

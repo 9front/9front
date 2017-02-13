@@ -320,7 +320,7 @@ sendassoc(Wifi *wifi, Wnode *bss)
 	Wifipkt *w;
 	Block *b;
 	uchar *p;
-	int n;
+	int cap, n;
 
 	b = allocb(WIFIHDRSIZE + 512);
 	w = (Wifipkt*)b->wp;
@@ -331,9 +331,16 @@ sendassoc(Wifi *wifi, Wnode *bss)
 	memmove(w->a3, bss->bssid, Eaddrlen);
 	b->wp += WIFIHDRSIZE;
 	p = b->wp;
-	*p++ = 1;	/* capinfo */
-	*p++ = 0;
-	*p++ = 16;	/* interval */
+
+	/* capinfo */
+	cap = 1;				// ESS
+	cap |= (1<<5);				// Short Preamble
+	cap |= (1<<10) & bss->cap;		// Short Slot Time
+	*p++ = cap;
+	*p++ = cap>>8;
+
+	/* interval */
+	*p++ = 16;
 	*p++ = 16>>8;
 
 	n = strlen(bss->ssid);
