@@ -356,7 +356,7 @@ playinit(void)
 	for(i = 0; i < NSparebuf; i++)
 		sendp(spare, malloc(sizeof(Pacbuf)));
 
-	playc = chancreate(sizeof(Pmsg), 1);
+	playc = chancreate(sizeof(ulong), 1);
 	procrfork(decproc, nil, 32*1024, RFFDG);
 	procrfork(pcmproc, nil, 32*1024, RFFDG);
 }
