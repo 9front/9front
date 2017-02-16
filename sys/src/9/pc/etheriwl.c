@@ -399,11 +399,11 @@ enum {
 	Type1000	= 6,
 	Type6000	= 7,
 	Type6050	= 8,
-	Type6005	= 11,
+	Type6005	= 11,	/* also Centrino Advanced-N 6030, 6235 */
 	Type2030	= 12,
 };
 
-static char *fwname[16] = {
+static char *fwname[32] = {
 	[Type4965] "iwn-4965",
 	[Type5300] "iwn-5000",
 	[Type5350] "iwn-5000",
@@ -412,7 +412,7 @@ static char *fwname[16] = {
 	[Type1000] "iwn-1000",
 	[Type6000] "iwn-6000",
 	[Type6050] "iwn-6050",
-	[Type6005] "iwn-6005",
+	[Type6005] "iwn-6005", /* see in iwlattach() below */
 	[Type2030] "iwn-2030",
 };
 
@@ -2199,10 +2199,19 @@ iwlattach(Ether *edev)
 		}
 
 		if(ctlr->fw == nil){
-			fw = readfirmware(fwname[ctlr->type]);
+			char *fn = fwname[ctlr->type];
+			if(ctlr->type == Type6005){
+				switch(ctlr->pdev->did){
+				case 0x0082:	/* Centrino Advanced-N 6205 */
+				case 0x0085:	/* Centrino Advanced-N 6205 */
+					break;
+				default:	/* Centrino Advanced-N 6030, 6235 */
+					fn = "iwn-6030";
+				}
+			}
+			fw = readfirmware(fn);
 			print("#l%d: firmware: %s, rev %ux, build %ud, size %ux+%ux+%ux+%ux+%ux\n",
-				edev->ctlrno,
-				fwname[ctlr->type],
+				edev->ctlrno, fn,
 				fw->rev, fw->build,
 				fw->main.text.size, fw->main.data.size,
 				fw->init.text.size, fw->init.data.size,
@@ -2440,6 +2449,10 @@ iwlpci(void)
 		case 0x0083:	/* Centrino Wireless-N 1000 */
 		case 0x0887:	/* Centrino Wireless-N 2230 */
 		case 0x0888:	/* Centrino Wireless-N 2230 */
+		case 0x0090:	/* Centrino Advanced-N 6030 */
+		case 0x0091:	/* Centrino Advanced-N 6030 */
+		case 0x088e:	/* Centrino Advanced-N 6235 */
+		case 0x088f:	/* Centrino Advanced-N 6235 */
 			break;
 		}
 
@@ -2470,7 +2483,7 @@ iwlpci(void)
 		}
 		ctlr->nic = mem;
 		ctlr->pdev = pdev;
-		ctlr->type = (csr32r(ctlr, Rev) >> 4) & 0xF;
+		ctlr->type = (csr32r(ctlr, Rev) >> 4) & 0x1F;
 
 		if(fwname[ctlr->type] == nil){
 			print("iwl: unsupported controller type %d\n", ctlr->type);
