@@ -208,7 +208,7 @@ getbssid(uchar mac[Eaddrlen])
 }
 
 int
-connected(int assoc)
+connected(void)
 {
 	char status[1024];
 
@@ -218,10 +218,6 @@ connected(int assoc)
 		return 0;
 	if(strcmp(status, "unauthenticated") == 0)
 		return 0;
-	if(assoc){
-		if(strcmp(status, "blocked") != 0 && strcmp(status, "associated") != 0)
-			return 0;
-	}
 	if(debug)
 		fprint(2, "status: %s\n", status);
 	return 1;
@@ -1219,8 +1215,8 @@ main(int argc, char *argv[])
 
 Connect:
  	/* bss scan might not be complete yet, so check for 10 seconds.	*/
-	for(try = 10; (background || try >= 0) && !connected(0); try--)
-		sleep(1000);
+	for(try = 100; (background || try >= 0) && !connected(); try--)
+		sleep(100);
 
 	ispsk = 1;
 	if(rsnelen <= 0 || rsne == brsne){
@@ -1286,13 +1282,6 @@ Connect:
 			}
 		}
 	}
-
-	/* wait for getting associated before sending start message */
-	for(try = 10; (background || try >= 0) && !connected(1); try--)
-		sleep(500);
-	
-	if(getbssid(conn.amac) == 0)
-		eapwrite(&conn, nil, 0);
 
 	lastrepc = 0ULL;
 	for(;;){
