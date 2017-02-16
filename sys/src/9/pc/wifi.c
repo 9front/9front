@@ -369,9 +369,10 @@ setstatus(Wifi *wifi, Wnode *wn, char *new)
 	old = wn->status;
 	wn->status = new;
 	if(wifi->debug && new != old)
-		print("#l%d: status %E: %s -> %s (from pc=%#p)\n",
+		print("#l%d: status %E: %.12ld %.12ld: %s -> %s (from pc=%#p)\n",
 			wifi->ether->ctlrno, 
 			wn->bssid, 
+			TK2MS(MACHP(0)->ticks), TK2MS(MACHP(0)->ticks - wn->lastsend),
 			old, new,
 			getcallerpc(&wifi));
 }
@@ -507,14 +508,16 @@ wifideauth(Wifi *wifi, Wnode *wn)
 		/* notify driver about node aid association */
 		(*wifi->transmit)(wifi, wn, nil);
 
-		/* notify aux/wpa with a zero length write that we got deassociated from the ap */
+		/* notify aux/wpa with a zero length packet that we got deassociated from the ap */
 		ether = wifi->ether;
 		for(i=0; i<ether->nfile; i++){
 			f = ether->f[i];
 			if(f == nil || f->in == nil || f->inuse == 0 || f->type != 0x888e)
 				continue;
+			qflush(f->in);
 			qwrite(f->in, 0, 0);
 		}
+		qflush(ether->oq);
 	}
 }
 
@@ -733,13 +736,13 @@ Scan:
 		if(ether->link && (rate = wn->actrate) != nil)
 			ether->mbps = ((*rate & 0x7f)+1)/2;
 		now = MACHP(0)->ticks;
-		if(wn->status != Sneedauth && TK2SEC(now - wn->lastseen) > 60 || goodbss(wifi, wn) == 0){
+		if(wn->status != Sneedauth && TK2SEC(now - wn->lastseen) > 20 || goodbss(wifi, wn) == 0){
 			wifideauth(wifi, wn);
 			wifi->bss = nil;
 			break;
 		}
 		if(TK2MS(now - wn->lastsend) > 1000){
-			if(wn->status == Sauth && (++tmout & 7) == 0)
+			if((wn->status == Sauth || wn->status == Sblocked) && (++tmout & 7) == 0)
 				wifideauth(wifi, wn);	/* stuck in auth, start over */
 			if(wn->status == Sconn || wn->status == Sunauth)
 				sendauth(wifi, wn);
@@ -1019,6 +1022,7 @@ long
 wifistat(Wifi *wifi, void *buf, long n, ulong off)
 {
 	static uchar zeros[Eaddrlen];
+	char essid[Essidlen+1];
 	char *s, *p, *e;
 	Wnode *wn;
 	Wkey *k;
@@ -1030,7 +1034,9 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 
 	wn = wifi->bss;
 	if(wn != nil){
-		p = seprint(p, e, "essid: %s\n", wn->ssid);
+		strncpy(essid, wn->ssid, Essidlen);
+		essid[Essidlen] = 0;
+		p = seprint(p, e, "essid: %s\n", essid);
 		p = seprint(p, e, "bssid: %E\n", wn->bssid);
 		p = seprint(p, e, "status: %s\n", wn->status);
 		p = seprint(p, e, "channel: %.2d\n", wn->channel);
@@ -1064,8 +1070,10 @@ wifistat(Wifi *wifi, void *buf, long n, ulong off)
 	for(wn = wifi->node; wn != &wifi->node[nelem(wifi->node)]; wn++){
 		if(wn->lastseen == 0)
 			continue;
+		strncpy(essid, wn->ssid, Essidlen);
+		essid[Essidlen] = 0;
 		p = seprint(p, e, "node: %E %.4x %-11ld %.2d %s\n",
-			wn->bssid, wn->cap, TK2MS(now - wn->lastseen), wn->channel, wn->ssid);
+			wn->bssid, wn->cap, TK2MS(now - wn->lastseen), wn->channel, essid);
 	}
 	n = readstr(off, buf, n, s);
 	free(s);
