@@ -324,7 +324,6 @@ long
 yylex(void)
 {
 	static Rune buf[11];
-	static int bol;
 	Rune r, *bp, *ep;
 	static char cbuf[100];
 	int isnum;
@@ -349,12 +348,10 @@ Loop:
 	case '(':
 	case ')':
 	case '=':
-		bol = 0;
 		return r;
 	case '/':
 		r = getr();
 		if(r == '/') {
-			bol = 0;
 			return LSS;
 		} else
 			Bungetrune(&bin);
