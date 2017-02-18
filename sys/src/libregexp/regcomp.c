@@ -299,7 +299,7 @@ compile(Renode *parsetr, Reprog *reprog, int nl)
 	sub = 0;
 	reinst = (Reinst*)(reprog+1);
 	end = compile1(parsetr, reinst, &sub, nl);
-	assert(reinst + reprog->len == end);
+	assert(end <= reinst + reprog->len);
 	return reinst;
 }
 
