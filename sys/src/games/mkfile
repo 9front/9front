@@ -25,6 +25,7 @@ DIRS=\
 	blabs\
 	c64\
 	doom\
+	galaxy\
 	gb\
 	gba\
 	mahjongg\

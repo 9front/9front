@@ -1,0 +1,41 @@
+.TH GALAXY 6
+.SH NAME
+galaxy \- representations of n-body simulations
+.SH DESCRIPTION
+Files of this format are interpreted by
+.IR galaxy (1)
+as describing the inital condition of n-body simulations
+or the saved state of simulation in progress.
+A galaxy file is a UTF stream of instruction lines. The
+instruction is given by the first space delimited word. The
+following instructions are accepted.
+.TP
+.B MKBODY
+The rest of the line must contain 5 white space delimited
+double-precision floating point numbers. They represent a
+body's x coordinate, y coordinate, x velocity component,
+y velocity component, and size respectively.
+.TP
+.B ORIG
+The rest of the line must contain 2 white space delimited
+double-precision floating point numbers. They represent
+the current location of the origin with respect to the
+view window of
+.IR galaxy (1).
+.TP
+.B DT
+The rest of the line must contain a double-precision
+floating point number which determines the time-scale
+of the simulation.
+.TP
+.B SCALE
+The rest of the line must contain a double-precision
+floating point number which determines the scale
+of the view of the simulation.
+.TP
+.B GRAV
+The rest of the line must contain a double-precision
+floating point number which determines the gravitational
+constant of the simulation.
+.SH SEE ALSO
+.IR galaxy (1)
