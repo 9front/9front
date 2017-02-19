@@ -446,6 +446,7 @@ enum {
 	i210,
 	i217,
 	i218,
+	i219,
 	i350,
 	Nctlrtype,
 };
@@ -489,6 +490,7 @@ static Ctlrtype cttab[Nctlrtype] = {
 [i210]		"i210",		9728,	F75|Fnofct|Fert,
 [i217]		"i217",		9728,	Fload|Fnofct|Fert|Fbadcsum,
 [i218]		"i218",		9728,	Fload|Fert|F79phy|Fnofct|Fbadcsum,
+[i219]		"i219",		9728,	Fload|Fert|F79phy|Fnofct,
 [i350]		"i350",		9728,	F75|F79phy|Fnofct,
 };
 
@@ -708,13 +710,13 @@ i82563ifstat(Ether *edev, void *a, long n, ulong offset)
 		ctlr->speeds[0], ctlr->speeds[1], ctlr->speeds[2], ctlr->speeds[3]);
 	p = seprint(p, e, "type: %s\n", cname(ctlr));
 
-//	p = seprint(p, e, "eeprom:");
-//	for(i = 0; i < 0x40; i++){
-//		if(i && ((i & 7) == 0))
-//			p = seprint(p, e, "\n       ");
-//		p = seprint(p, e, " %4.4ux", ctlr->eeprom[i]);
-//	}
-//	p = seprint(p, e, "\n");
+	p = seprint(p, e, "eeprom:");
+	for(i = 0; i < 0x40; i++){
+		if(i && ((i & 7) == 0))
+			p = seprint(p, e, "\n       ");
+		p = seprint(p, e, " %4.4ux", ctlr->eeprom[i]);
+	}
+	p = seprint(p, e, "\n");
 
 	USED(p);
 	n = readstr(offset, a, n, s);
@@ -763,6 +765,7 @@ i82563multicast(void *arg, uchar *addr, int on)
 	case i210:
 	case i217:
 	case i218:
+	case i219:
 		bit = (addr[5]<<2)|(addr[4]>>6);
 		x = (bit>>5) & 31;
 		break;
@@ -1558,33 +1561,24 @@ eeload(Ctlr *ctlr)
 }
 
 static int
-fcycle(Ctlr *, Flash *f)
-{
-	u16int s;
-	int i;
-
-	s = f->reg[Fsts];
-	if((s&Fvalid) == 0)
-		return -1;
-	f->reg[Fsts] |= Fcerr | Ael;
-	for(i = 0; i < 10; i++){
-		if((s&Scip) == 0)
-			return 0;
-		delay(1);
-		s = f->reg[Fsts];
-	}
-	return -1;
-}
-
-static int
-fread(Ctlr *c, Flash *f, int ladr)
+fread16(Ctlr *c, Flash *f, int ladr)
 {
 	u16int s;
 	int timeout;
 
 	delay(1);
-	if(fcycle(c, f) == -1)
+	s = f->reg[Fsts];
+	if((s&Fvalid) == 0)
 		return -1;
+	f->reg[Fsts] |= Fcerr | Ael;
+	for(timeout = 0; timeout < 10; timeout++){
+		if((s&Scip) == 0)
+			goto done;
+		delay(1);
+		s = f->reg[Fsts];
+	}
+	return -1;
+done:
 	f->reg[Fsts] |= Fdone;
 	f->reg32[Faddr] = ladr;
 
@@ -1604,12 +1598,81 @@ fread(Ctlr *c, Flash *f, int ladr)
 }
 
 static int
+fread32(Ctlr *c, Flash *f, int ladr, u32int *data)
+{
+	u32int s;
+	int timeout;
+
+	delay(1);
+	s = f->reg32[Fsts/2];
+	if((s&Fvalid) == 0)
+		return -1;
+	f->reg32[Fsts/2] |= Fcerr | Ael;
+	for(timeout = 0; timeout < 10; timeout++){
+		if((s&Scip) == 0)
+			goto done;
+		delay(1);
+		s = f->reg32[Fsts/2];
+	}
+	return -1;
+done:
+	f->reg32[Fsts/2] |= Fdone;
+	f->reg32[Faddr] = ladr;
+
+	/* setup flash control register */
+	s = (f->reg32[Fctl/2] >> 16) & ~0x3ff;
+	f->reg32[Fctl/2] = (s | 3<<8 | Fgo) << 16;	/* 4 byte read */
+	timeout = 1000;
+	while((f->reg32[Fsts/2] & Fdone) == 0 && timeout--)
+		microdelay(5);
+	if(timeout < 0){
+		print("%s: fread timeout\n", cname(c));
+		return -1;
+	}
+	if(f->reg32[Fsts/2] & (Fcerr|Ael))
+		return -1;
+	*data = f->reg32[Fdata];
+	return 0;
+}
+
+static int
+fload32(Ctlr *c)
+{
+	int r, adr;
+	u16int sum;
+	u32int w;
+	Flash f;
+
+	f.reg32 = &c->nic[0xe000/4];
+	f.reg = nil;
+	f.base = 0;
+	f.lim = (((csr32r(c, 0xC) >> 1) & 0x1F) + 1) << 12;
+	r = f.lim >> 1;
+	if(fread32(c, &f, r + 0x24, &w) == -1  || (w & 0xC000) != 0x8000)
+		r = 0;
+	sum = 0;
+	for(adr = 0; adr < 0x20; adr++) {
+		if(fread32(c, &f, r + adr*4, &w) == -1)
+			return -1;
+		c->eeprom[adr*2+0] = w;
+		c->eeprom[adr*2+1] = w>>16;
+		sum += w & 0xFFFF;
+		sum += w >> 16;
+	}
+	return sum;
+}
+
+static int
 fload(Ctlr *c)
 {
 	int data, r, adr;
 	u16int sum;
 	void *va;
 	Flash f;
+
+	memset(c->eeprom, 0xFF, sizeof(c->eeprom));
+	if(c->pcidev->mem[1].bar == 0)
+		return fload32(c);	/* i219 */
 
 	va = vmap(c->pcidev->mem[1].bar & ~0x0f, c->pcidev->mem[1].size);
 	if(va == nil)
@@ -1623,12 +1686,13 @@ fload(Ctlr *c)
 	r = f.base << 12;
 	sum = 0;
 	for(adr = 0; adr < 0x40; adr++) {
-		data = fread(c, &f, r + adr*2);
+		data = fread16(c, &f, r + adr*2);
 		if(data == -1)
-			return -1;
+			goto out;
 		c->eeprom[adr] = data;
 		sum += data;
 	}
+out:
 	vunmap(va, c->pcidev->mem[1].size);
 	return sum;
 }
@@ -1869,7 +1933,6 @@ didtype(int d)
 	case 0x153a:		/* i217-lm */
 	case 0x153b:		/* i217-v */
 		return i217;
-		break;
 	case 0x1559:		/* i218-v */
 	case 0x155a:		/* i218-lm */
 	case 0x15a0:		/* i218-lm */
@@ -1877,6 +1940,16 @@ didtype(int d)
 	case 0x15a2:		/* i218-lm */
 	case 0x15a3:		/* i218-v */
 		return i218;
+	case 0x156f:		/* i219-lm */
+	case 0x15b7:		/* i219-lm */
+	case 0x1570:		/* i219-v */
+	case 0x15b8:		/* i219-v */
+	case 0x15b9:		/* i219-lm */
+	case 0x15d6:		/* i219-v */
+	case 0x15d7:		/* i219-lm */
+	case 0x15d8:		/* i219-v */
+	case 0x15e3:		/* i219-lm */
+		return i219;
 	case 0x151f:		/* “powerville” eeprom-less */
 	case 0x1521:		/* copper */
 	case 0x1522:		/* fiber */
@@ -2109,6 +2182,12 @@ i218pnp(Ether *e)
 }
 
 static int
+i219pnp(Ether *e)
+{
+	return pnp(e, i219);
+}
+
+static int
 i350pnp(Ether *e)
 {
 	return pnp(e, i350);
@@ -2140,6 +2219,7 @@ ether82563link(void)
 	addethercard("i210", i210pnp);
 	addethercard("i217", i217pnp);
 	addethercard("i218", i218pnp);
+	addethercard("i219", i219pnp);
 	addethercard("i350", i350pnp);
 	addethercard("igbepcie", anypnp);
 }
