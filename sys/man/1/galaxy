@@ -211,11 +211,13 @@ Two rotating circles destroy each other:
 games/mkgalaxy -av 100 -d 60±50 -v 10 2000 |
 games/mkgalaxy -i -av -70 -d 80±50 -v 10 -o 6000,2000 -gv -80,40 3000 |
 games/galaxy -i
+.EE
 .PP
 Cool patterns made by a square galaxy:
 .IP
 .EX
 games/mkgalaxy -sq -av 20 5000 | games/galaxy -i
+.EE
 .SH SOURCE
 .B /sys/src/games/galaxy
 .SH SEE ALSO
