@@ -464,14 +464,12 @@ kbdthread(void*)
 	for(;;) {
 		recv(realkc->c, &r);
 		if(r == Kdel) {
-			closedisplay(display);
 			threadexitsall(nil);
 		}
 		if(kc.c != nil)
 			send(kc.c, &r);
 		else switch(r) {
 		case 'q':
-			closedisplay(display);
 			threadexitsall(nil);
 			break;
 		case 's':
