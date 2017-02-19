@@ -47,7 +47,6 @@ struct Req
 {
 	int	seq;	/* sequence number */
 	vlong	time;	/* time sent */
-//	int	rtt;
 	Req	*next;
 };
 
@@ -68,13 +67,7 @@ struct Machine
 	int	unreachable;
 
 	ushort	seq;
-	Req	*first;
-	Req	*last;
-	Req	*rcvd;
-
-	char	buf[1024];
-	char	*bufp;
-	char	*ebufp;
+	Req	*list;
 };
 
 enum
@@ -436,7 +429,7 @@ pingclean(Machine *m, ushort seq, vlong now, int)
 	vlong x, y;
 
 	y = 10LL*1000000000LL;
-	for(l = &m->first; *l; ){
+	for(l = &m->list; *l; ){
 		r = *l;
 		x = now - r->time;
 		if(x > y || r->seq == seq){
@@ -474,15 +467,11 @@ pingsend(Machine *m)
 	ip->seq[0] = m->seq;
 	ip->seq[1] = m->seq>>8;
 	r->seq = m->seq;
-	r->next = nil;
-	lock(m);
-	pingclean(m, -1, nsec(), 0);
-	if(m->first == nil)
-		m->first = r;
-	else
-		m->last->next = r;
-	m->last = r;
 	r->time = nsec();
+	lock(m);
+	pingclean(m, -1, r->time, 0);
+	r->next = m->list;
+	m->list = r;
 	unlock(m);
 	if(write(m->pingfd, buf, MSGLEN) < MSGLEN){
 		errstr(err, sizeof err);
