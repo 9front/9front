@@ -1404,7 +1404,7 @@ optaddstr(uchar *p, int op, char *v)
 {
 	int n;
 
-	n = strlen(v)+1;	/* microsoft leaves on the NUL, so we do too */
+	n = strlen(v);
 	p[0] = op;
 	p[1] = n;
 	memmove(p+2, v, n);
