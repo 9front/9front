@@ -1180,6 +1180,15 @@ phyprobe(Ctlr *c, uint mask)
 }
 
 static void
+lsleep(Ctlr *c, uint m)
+{
+	c->lim = 0;
+	i82563im(c, m);
+	c->lsleep++;
+	sleep(&c->lrendez, i82563lim, c);
+}
+
+static void
 phyl79proc(void *v)
 {
 	uint a, i, r, phy, phyno;
@@ -1188,15 +1197,12 @@ phyl79proc(void *v)
 
 	e = v;
 	c = e->ctlr;
-
-	phyno = phyprobe(c, 3<<1);
-	if(phyno == ~0){
-		print("%s: no phy, exiting\n", up->text);
-		pexit("no phy", 1);
-	}
-
 	while(waserror())
 		;
+
+	while((phyno = phyprobe(c, 3<<1)) == ~0)
+		lsleep(c, Lsc);
+
 	for(;;){
 		phy = phyread(c, phyno, Phystat);
 		if(phy == ~0){
@@ -1216,10 +1222,7 @@ next:
 			i = 3;
 		c->speeds[i]++;
 		e->mbps = speedtab[i];
-		c->lim = 0;
-		i82563im(c, Lsc);
-		c->lsleep++;
-		sleep(&c->lrendez, i82563lim, c);
+		lsleep(c, Lsc);
 	}
 }
 
@@ -1232,18 +1235,15 @@ phylproc(void *v)
 
 	e = v;
 	c = e->ctlr;
+	while(waserror())
+		;
 
-	phyno = phyprobe(c, 3<<1);
-	if(phyno == ~0){
-		print("%s: no phy, exiting\n", up->text);
-		pexit("no phy", 1);
-	}
+	while((phyno = phyprobe(c, 3<<1)) == ~0)
+		lsleep(c, Lsc);
 
 	if(c->type == i82573 && (phy = phyread(c, phyno, Phyier)) != ~0)
 		phywrite(c, phyno, Phyier, phy | Lscie | Ancie | Spdie | Panie);
 
-	while(waserror())
-		;
 	for(;;){
 		phy = phyread(c, phyno, Physsr);
 		if(phy == ~0){
@@ -1280,10 +1280,7 @@ next:
 		e->mbps = speedtab[i];
 		if(c->type == i82563)
 			phyerrata(e, c, phyno);
-		c->lim = 0;
-		i82563im(c, Lsc);
-		c->lsleep++;
-		sleep(&c->lrendez, i82563lim, c);
+		lsleep(c, Lsc);
 	}
 }
 
@@ -1296,11 +1293,11 @@ pcslproc(void *v)
 
 	e = v;
 	c = e->ctlr;
+	while(waserror())
+		;
 
 	if(c->type == i82575 || c->type == i82576)
 		csr32w(c, Connsw, Enrgirq);
-	while(waserror())
-		;
 	for(;;){
 		phy = csr32r(c, Pcsstat);
 		e->link = phy & Linkok;
@@ -1311,10 +1308,7 @@ pcslproc(void *v)
 			csr32w(c, Pcsctl, csr32r(c, Pcsctl) | Pan | Prestart);
 		c->speeds[i]++;
 		e->mbps = speedtab[i];
-		c->lim = 0;
-		i82563im(c, Lsc | Omed);
-		c->lsleep++;
-		sleep(&c->lrendez, i82563lim, c);
+		lsleep(c, Lsc | Omed);
 	}
 }
 
@@ -1327,7 +1321,6 @@ serdeslproc(void *v)
 
 	e = v;
 	c = e->ctlr;
-
 	while(waserror())
 		;
 	for(;;){
@@ -1341,10 +1334,7 @@ serdeslproc(void *v)
 			i = 2;
 		c->speeds[i]++;
 		e->mbps = speedtab[i];
-		c->lim = 0;
-		i82563im(c, Lsc);
-		c->lsleep++;
-		sleep(&c->lrendez, i82563lim, c);
+		lsleep(c, Lsc);
 	}
 }
 
