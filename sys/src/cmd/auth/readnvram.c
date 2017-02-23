@@ -7,12 +7,12 @@
 void
 main(int, char **)
 {
-	int i;
-	Nvrsafe safe;
+	static uchar zeros[16];
+	static Nvrsafe safe;
+	int printed = 0;
 
 	quotefmtinstall();
 
-	memset(&safe, 0, sizeof safe);
 	/*
 	 * readnvram can return -1 meaning nvram wasn't written,
 	 * but safe still holds good data.
@@ -20,17 +20,20 @@ main(int, char **)
 	if(readnvram(&safe, 0) < 0 && safe.authid[0] == '\0') 
 		sysfatal("readnvram: %r");
 
-	/*
-	 *  only use nvram key if it is non-zero
-	 */
-	for(i = 0; i < DESKEYLEN; i++)
-		if(safe.machkey[i] != 0)
-			break;
-	if(i == DESKEYLEN)
-		sysfatal("bad key");
-
 	fmtinstall('H', encodefmt);
-	print("key proto=p9sk1 user=%q dom=%q !hex=%.*H !password=______\n", 
-		safe.authid, safe.authdom, DESKEYLEN, safe.machkey);
+
+	if(memcmp(safe.machkey, zeros, DESKEYLEN) != 0){
+		print("key proto=p9sk1 user=%q dom=%q !hex=%.*H !password=______\n", 
+			safe.authid, safe.authdom, DESKEYLEN, safe.machkey);
+		printed++;
+	}
+	if(memcmp(safe.aesmachkey, zeros, AESKEYLEN) != 0){
+		print("key proto=dp9ik user=%q dom=%q !hex=%.*H !password=______\n", 
+			safe.authid, safe.authdom, AESKEYLEN, safe.aesmachkey);
+		printed++;
+	}
+	if(!printed)
+		sysfatal("no keys");
+
 	exits(0);
 }
