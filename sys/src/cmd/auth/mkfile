@@ -4,6 +4,7 @@
 #
 TARG=\
 	as\
+	asaudit\
 	asn12dsa\
 	asn12rsa\
 	authsrv\
