@@ -17,7 +17,7 @@ typedef struct Op Op;
 
 struct Heap {
 	Heap	*link;
-	short	size;
+	int	size;
 	uchar	mark;
 	char	tag;
 };
@@ -139,7 +139,7 @@ enum {
 	Obad, Onop, Odebug,
 	Ostr, Obyte, Oword, Odword, Oqword, Oconst,
 	Onamec, Oname, Oscope, Oalias,
-	Oreg, Ofld, Oxfld, Opkg, Ovpkg, Oenv, Obuf, Omet, 
+	Oreg, Ofld, Oxfld, Obfld, Opkg, Ovpkg, Oenv, Obuf, Omet, 
 	Odev, Ocpu, Othz, Oprc,
 	Oadd, Osub, Omod, Omul, Odiv, Oshl, Oshr, Oand, Onand, Oor,
 	Onor, Oxor, Onot, Olbit, Orbit, Oinc, Odec,
@@ -282,6 +282,7 @@ mk(int tag, int size)
 	int a;
 
 	a = sizeof(Heap) + size;
+	assert(a >= 0);
 	h = amlalloc(a);
 	h->size = size;
 	h->tag = tag;
@@ -392,6 +393,9 @@ getname(Name *dot, char *path, int new)
 	char seg[4];
 	int i, s;
 	Name *x;
+
+	if(dot == nil)
+		return nil;
 
 	s = !new;
 	if(*path == '\\'){
@@ -1335,6 +1339,12 @@ evalfield(void)
 			goto Out;
 		flags = ival(FP->arg[2]);
 		break;
+	case Obfld:
+		df = deref(FP->arg[1]);
+		if(df == nil || TAG(df) != 'f')
+			goto Out;
+		flags = ival(FP->arg[3]);
+		break;
 	}
 	p = PC;
 	if(p >= FP->end)
@@ -1373,6 +1383,12 @@ evalfield(void)
 			f->bitoff = df->bitoff + (bitoff % (wa*8));
 			f->indexv = mki((bitoff/(wa*8))*wa);
 			f->index = FP->arg[0];
+			break;
+		case Obfld:
+			f->reg = FP->arg[0];
+			f->bitoff = bitoff;
+			f->indexv = FP->arg[2];
+			f->index = df;
 			break;
 		}
 		bitoff += n;
@@ -1916,6 +1932,7 @@ static Op optab[] = {
 	[Oreg]		"OperationRegion",	"N1ii",		evalreg,
 	[Ofld]		"Field",		"{n1",		evalfield,
 	[Oxfld]		"IndexField",		"{nn1",		evalfield,
+	[Obfld]		"BankField",		"{nni1",	evalfield,
 
 	[Ocfld]		"CreateField",		"*iiN",		evalcfield,
 	[Ocfld0]	"CreateBitField",	"*iN",		evalcfield,
@@ -2038,7 +2055,7 @@ static uchar octab2[] = {
 /* 68 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 70 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 78 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
-/* 80 */	Oreg,	Ofld,	Odev,	Ocpu,	Oprc,	Othz,	Oxfld,	Obad,
+/* 80 */	Oreg,	Ofld,	Odev,	Ocpu,	Oprc,	Othz,	Oxfld,	Obfld,
 /* 88 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 90 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
 /* 98 */	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,	Obad,
