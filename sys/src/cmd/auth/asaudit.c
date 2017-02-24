@@ -27,7 +27,7 @@ ndb(void)
 {
 	db = ndbopen(nil);
 	if(db == nil){
-		print("ndbopen: %r");
+		print("ndbopen: %r\n");
 		return;
 	}
 }
@@ -79,12 +79,12 @@ keyfs(void)
 	buf = smprint("/mnt/keys/%s/aeskey", nvr.authid);
 	fd = open(buf, OREAD);
 	if(fd < 0){
-		print("can't get key from keyfs: %r");
+		print("can't get key from keyfs: %r\n");
 		return;
 	}
 	werrstr("short read");
 	if(read(fd, aes, sizeof(aes)) < sizeof(aes)){
-		print("read: %r");
+		print("read: %r\n");
 		close(fd);
 		return;
 	}
