@@ -14,6 +14,9 @@ keyfs, warning \- authentication database files
 .BI -m mntpt
 ]
 [
+.B -r
+]
+[
 .I keyfile
 ]
 .PP
@@ -83,6 +86,10 @@ bytes long.
 If any changes are made to the database that affect the information stored in
 .IR keyfile ,
 a new version of the file is written.
+.PP
+If the
+.B -r
+option is given, the database is mounted `read-only' and no changes are permitted.
 .PP
 There are two authentication databases,
 one for Plan 9 user information,

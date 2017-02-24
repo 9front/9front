@@ -92,6 +92,7 @@ int	nuser;
 ulong	uniq = 1;
 Fcall	rhdr, thdr;
 int	usepass;
+int	readonly;
 char	*warnarg;
 uchar	mdata[8192 + IOHDRSZ];
 int	messagesize = sizeof mdata;
@@ -137,7 +138,7 @@ char 	*(*fcalls[])(Fid*) = {
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-p] [-m mtpt] [-w warn] [keyfile]\n", argv0);
+	fprint(2, "usage: %s [-p] [-r] [-m mtpt] [-w warn] [keyfile]\n", argv0);
 	exits("usage");
 }
 
@@ -164,6 +165,9 @@ main(int argc, char *argv[])
 		break;
 	case 'w':
 		warnarg = EARGF(usage());
+		break;
+	case 'r':
+		readonly = 1;
 		break;
 	default:
 		usage();
@@ -390,6 +394,8 @@ Create(Fid *f)
 
 	if(!f->busy)
 		return "create of unused fid";
+	if(readonly)
+		return "mounted read-only";
 	name = rhdr.name;
 	if(f->user != nil){
 		return "permission denied";
@@ -531,6 +537,8 @@ Write(Fid *f)
 
 	if(!f->busy)
 		return "permission denied";
+	if(readonly)
+		return "mounted read-only";
 	n = rhdr.count;
 	data = rhdr.data;
 	switch(f->qtype){
@@ -613,6 +621,10 @@ Remove(Fid *f)
 {
 	if(!f->busy)
 		return "permission denied";
+	if(readonly){
+		Clunk(f);
+		return "mounted read-only";
+	}
 	if(f->qtype == Qwarnings)
 		f->user->warnings = 0;
 	else if(f->qtype == Quser)
@@ -649,6 +661,8 @@ Wstat(Fid *f)
 
 	if(!f->busy || f->qtype != Quser)
 		return "permission denied";
+	if(readonly)
+		return "mounted read-only";
 	if(rhdr.nstat > sizeof buf)
 		return "wstat buffer too big";
 	if(convM2D(rhdr.stat, rhdr.nstat, &d, buf) == 0)
@@ -711,6 +725,11 @@ writeusers(void)
 	User *u;
 	uchar *p, *buf;
 	ulong expire;
+
+	if(readonly){
+		fprint(2, "writeusers called while read-only; shouldn't happen\n");
+		return;
+	}
 
 	/* what format to use */
 	keydblen = KEYDBLEN;
