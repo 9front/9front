@@ -481,7 +481,7 @@ request and obtains the public keys
 and
 .I YBc
 from the AS response. At this point, client and AS
-have completed ther authenticated key exchange and
+have completed their authenticated key exchange and
 derive
 .I Kc
 as described above.
