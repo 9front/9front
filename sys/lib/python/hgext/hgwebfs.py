@@ -47,6 +47,7 @@ class Webconn:
 				data = req.get_data()
 				post = open(self.dir+'/postbody', 'w', 0);
 				try:
+					data.seek(0)
 					while True:
 						buf = data.read(4096)
 						if len(buf) == 0:
