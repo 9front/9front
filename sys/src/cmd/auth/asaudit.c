@@ -167,7 +167,7 @@ trykey(int keyfs)
 	rpc = auth_allocrpc(fd);
 	if(rpc == nil){ print("auth_allocrpc: %r\n"); return -1; }
 	
-	s = smprint("proto=dp9ik dom=%s user=%s role=server", nvr.authdom, nvr.authid);
+	s = smprint("proto=dp9ik dom=%q user=%q role=server", nvr.authdom, nvr.authid);
 	if(auth_rpc(rpc, "start", s, strlen(s)) != ARok){ print("auth_rpc start: %r\n"); goto err; } 
 	free(s);
 	
