@@ -100,6 +100,7 @@ fn checkauth {
 			echo '	someone is listening on port 567'
 			echo '	run auth/debug to test the auth server'
 		}
+		echo '	run auth/asaudit to verify auth server configuration'
 	}
 
 }
