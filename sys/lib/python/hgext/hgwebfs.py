@@ -6,20 +6,22 @@ import os
 
 class Webconn:
 	def __init__(self, mnt, req):
-		try:
-			self.open(mnt, req)
-		except IOError, e:
+		loop = True
+		while loop:
+			loop = False
 			try:
-				errstr = e.strerror
-				params = errstr[errstr.index("needkey ")+8:]
-				if params.find("!password?") < 0:
-					raise e
-				if os.spawnl(os.P_WAIT, "/boot/factotum", "getkey", "-g", params) != 0:
-					raise e
 				self.open(mnt, req)
-				return
-			except:
-				raise e
+			except IOError, e:
+				try:
+					errstr = e.strerror
+					params = errstr[errstr.index("needkey ")+8:]
+					if params.find("!password?") < 0:
+						raise e
+					if os.spawnl(os.P_WAIT, "/boot/factotum", "getkey", "-g", params) != 0:
+						raise e
+					loop = True
+				except:
+					raise e
 
 	def open(self, mnt, req):
 		if type(req) == str:
