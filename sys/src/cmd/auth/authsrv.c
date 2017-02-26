@@ -1005,36 +1005,18 @@ getraddr(char *dir)
 void
 initkeyseed(void)
 {
-	static char info[] = "PRF key for generation of dummy user keys";
-	char k[DESKEYLEN], *u;
 	int fd;
 
 	genrandom(keyseed, sizeof(keyseed));
-
-	u = getuser();
-	if(!finddeskey(KEYDB, u, k)){
-		syslog(0, AUTHLOG, "initkeyseed: user %s not in keydb", u);
-		return;
-	}
-
 	if((fd = create("/adm/keyseed", OWRITE|OEXCL, 0600)) >= 0){
 		write(fd, keyseed, sizeof(keyseed));
 	} else if((fd = open("/adm/keyseed", OREAD)) >= 0){
 		read(fd, keyseed, sizeof(keyseed));
 	} else{
 		syslog(0, AUTHLOG, "initkeyseed: no seed file: %r");
-		memset(k, 0, sizeof(k));
 		return;
 	}
 	close(fd);
-
-	hkdf_x(	keyseed, sizeof(keyseed),
-		(uchar*)info, sizeof(info)-1,
-		(uchar*)k, sizeof(k),
-		keyseed, sizeof(keyseed),
-		hmac_sha2_256, SHA2_256dlen);
-
-	memset(k, 0, sizeof(k));
 }
 
 void
