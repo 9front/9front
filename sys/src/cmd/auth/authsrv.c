@@ -41,7 +41,7 @@ int	speaksfor(char*, char*);
 void	replyerror(char*, ...);
 void	getraddr(char*);
 void	initkeyseed(void);
-void	mkkey(Keyslot*);
+void	mkkey(char*, Authkey*);
 void	mkticket(Ticketreq*, Ticket*);
 void	nthash(uchar hash[MShashlen], char *passwd);
 void	lmhash(uchar hash[MShashlen], char *passwd);
@@ -130,7 +130,7 @@ pak1(char *u, Keyslot *k)
 	safecpy(k->id, u, sizeof(k->id));
 	if(!findkey(KEYDB, k->id, k) || tsmemcmp(k->aes, zeros, AESKEYLEN) == 0) {
 		/* make one up so caller doesn't know it was wrong */
-		mkkey(k);
+		mkkey(k->id, k);
 		authpak_hash(k, k->id);
 	}
 	authpak_new(&p, k, y, 0);
@@ -200,18 +200,18 @@ ticketrequest(Ticketreq *tr)
 		exits(0);
 	if(!getkey(tr->authid, &akey)){
 		/* make one up so caller doesn't know it was wrong */
-		mkkey(&akey);
+		mkkey(tr->authid, &akey);
 		syslog(0, AUTHLOG, "tr-fail authid %s", tr->authid);
 	}
 	if(!getkey(tr->hostid, &hkey)){
 		/* make one up so caller doesn't know it was wrong */
-		mkkey(&hkey);
+		mkkey(tr->hostid, &hkey);
 		syslog(0, AUTHLOG, "tr-fail hostid %s(%s)", tr->hostid, raddr);
 	}
 	mkticket(tr, &t);
 	if(!speaksfor(tr->hostid, tr->uid)){
-		mkkey(&akey);
-		mkkey(&hkey);
+		mkkey(tr->authid, &akey);
+		mkkey(tr->hostid, &hkey);
 		syslog(0, AUTHLOG, "tr-fail %s@%s(%s) -> %s@%s no speaks for",
 			tr->uid, tr->hostid, raddr, tr->uid, tr->authid);
 	}
@@ -247,7 +247,7 @@ challengebox(Ticketreq *tr)
 
 	if(!getkey(tr->hostid, &hkey)){
 		/* make one up so caller doesn't know it was wrong */
-		mkkey(&hkey);
+		mkkey(tr->hostid, &hkey);
 		syslog(0, AUTHLOG, "cr-fail hostid %s %s@%s", tr->hostid, tr->uid, raddr);
 	}
 
@@ -290,7 +290,7 @@ changepasswd(Ticketreq *tr)
 
 	if(!getkey(tr->uid, &ukey)){
 		/* make one up so caller doesn't know it was wrong */
-		mkkey(&ukey);
+		mkkey(tr->uid, &ukey);
 		syslog(0, AUTHLOG, "cp-fail uid %s@%s", tr->uid, raddr);
 	}
 
@@ -541,7 +541,7 @@ vnc(Ticketreq *tr)
 	memset(sbuf, 0, sizeof(sbuf));
 	secret = findsecret(KEYDB, tr->uid, sbuf);
 	if(!getkey(tr->hostid, &hkey) || secret == nil){
-		mkkey(&hkey);
+		mkkey(tr->hostid, &hkey);
 		genrandom((uchar*)sbuf, sizeof(sbuf));
 		secret = sbuf;
 	}
@@ -1018,10 +1018,9 @@ initkeyseed(void)
 }
 
 void
-mkkey(Keyslot *k)
+mkkey(char *id, Authkey *a)
 {
 	uchar h[SHA2_256dlen];
-	Authkey *a = k;
 
 	genrandom((uchar*)a, sizeof(Authkey));
 
@@ -1029,7 +1028,7 @@ mkkey(Keyslot *k)
 	 * the DES key has to be constant for a user in each response,
 	 * so we make one up pseudo randomly from a keyseed and user name.
 	 */
-	hmac_sha2_256((uchar*)k->id, strlen(k->id), keyseed, sizeof(keyseed), h, nil);
+	hmac_sha2_256((uchar*)id, strlen(id), keyseed, sizeof(keyseed), h, nil);
 	memmove(a->des, h, DESKEYLEN);
 	memset(h, 0, sizeof(h));
 }
