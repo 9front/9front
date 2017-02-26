@@ -16,6 +16,7 @@ typedef struct Tracker Tracker;
 int fd, ofd, div, tempo = 500000, ntrack;
 uvlong T;
 int freq[128];
+uchar out[8192], *outp = out;
 
 void *
 emallocz(int size)
@@ -110,8 +111,7 @@ tconv(int n)
 void
 run(uvlong n)
 {
-	int samp, j, k, l, no[128];
-	uchar *s;
+	int samp, j, k, no[128];
 	int t, f;
 	short u;
 	Tracker *x;
@@ -127,20 +127,22 @@ run(uvlong n)
 			for(k = 0; k < 128; k++)
 				no[k] += x->notes[j][k];
 	}
-	s = emallocz(samp * 4);
-	for(l = 0; l < samp; l++){
+	while(samp--){
 		t = 0;
 		for(k = 0; k < 128; k++){
 			f = (T % freq[k]) >= freq[k]/2 ? 1 : 0;
 			t += f * no[k];
 		}
 		u = t*10;
-		s[4 * l] = s[4 * l + 2] = u;
-		s[4 * l + 1] = s[4 * l + 3] = u >> 8;
+		outp[0] = outp[2] = u;
+		outp[1] = outp[3] = u >> 8;
+		outp += 4;
+		if(outp == out + sizeof out){
+			write(ofd, out, sizeof out);
+			outp = out;
+		}
 		T++;
 	}
-	write(ofd, s, samp * 4);
-	free(s);
 }
 
 void
@@ -175,6 +177,9 @@ readevent(Tracker *src)
 	case 0xC:
 		get8(src);
 		break;
+	case 0xE:
+		get16(src);
+		break;
 	case 0xF:
 		t = get8(src);
 		n = get8(src);
@@ -187,11 +192,11 @@ readevent(Tracker *src)
 			tempo |= get8(src);
 			break;
 		case 5:
-			write(1, src->data, n);
+			write(2, src->data, n);
 			skip(src, n);
 			break;
 		default:
-			print("unknown meta event type %.2x\n", t);
+			fprint(2, "unknown meta event type %.2x\n", t);
 		case 3: case 1: case 2: case 0x58: case 0x59: case 0x21:
 			skip(src, n);
 		}
@@ -208,14 +213,17 @@ main(int argc, char **argv)
 	uvlong t, mint;
 	Tracker *x, *minx;
 
-	if(argc != 2)
-		sysfatal("invalid arguments");
-	fd = open(argv[1], OREAD);
-	if(fd < 0)
+	ARGBEGIN{
+	case 'c':
+		ofd = 1;
+		break;
+	}ARGEND;
+	if(*argv != nil)
+		fd = open(*argv, OREAD);
+	if(ofd == 0)
+		ofd = open("/dev/audio", OWRITE);
+	if(fd < 0 || ofd < 0)
 		sysfatal("open: %r");
-	ofd = open("/dev/audio", OWRITE);
-	if(ofd < 0)
-		sysfatal("ofd: %r");
 	if(get32(nil) != 0x4D546864 || get32(nil) != 6)
 		sysfatal("invalid file header");
 	get16(nil);
@@ -227,7 +235,7 @@ main(int argc, char **argv)
 			sysfatal("invalid track header");
 		size = get32(nil);
 		tr[i].data = emallocz(size);
-		read(fd, tr[i].data, size);
+		readn(fd, tr[i].data, size);
 	}
 	for(i = 0; i < 128; i++)
 		freq[i] = SAMPLE / (440 * pow(1.05946, i - 69));
@@ -243,8 +251,10 @@ main(int argc, char **argv)
 				minx = x;
 			}
 		}
-		if(minx == nil)
+		if(minx == nil){
+			write(ofd, out, outp - out);
 			exits(nil);
+		}
 		readevent(minx);
 	}
 }
