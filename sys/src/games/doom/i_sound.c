@@ -461,7 +461,7 @@ void I_PlaySong(musicinfo_t *m, int loop)
 		break;
 	case 0:
 		dup(mpfd[1], 1);
-		for(n=2; n<20; n++) close(n);
+		for(n=3; n<20; n++) close(n);
 		close(0);
 		snprint(name, sizeof(name), "/tmp/%s.mus", m->name);
 		if(create(name, ORDWR, 0666) != 0)
