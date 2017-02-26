@@ -167,7 +167,7 @@ pak(Ticketreq *tr)
 }
 
 int
-getkey(char *u, Keyslot *k)
+getkey(char *u, Keyslot *k, int canreply)
 {
 	/* empty user id is an error */
 	if(*u == 0)
@@ -180,8 +180,11 @@ getkey(char *u, Keyslot *k)
 	if(k == &ukey && strcmp(u, k->id) == 0)
 		return 1;
 
-	if(ticketform != 0)
+	if(ticketform != 0){
+		syslog(0, AUTHLOG, "need DES key for %s, but DES is disabled", u);
+		if(canreply) replyerror("DES is disabled");
 		exits(0);
+	}
 
 	return findkey(KEYDB, u, k);
 }
@@ -195,12 +198,12 @@ ticketrequest(Ticketreq *tr)
 
 	if(tr->uid[0] == 0)
 		exits(0);
-	if(!getkey(tr->authid, &akey)){
+	if(!getkey(tr->authid, &akey, 1)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&akey);
 		syslog(0, AUTHLOG, "tr-fail authid %s", tr->authid);
 	}
-	if(!getkey(tr->hostid, &hkey)){
+	if(!getkey(tr->hostid, &hkey, 1)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&hkey);
 		syslog(0, AUTHLOG, "tr-fail hostid %s(%s)", tr->hostid, raddr);
@@ -242,7 +245,7 @@ challengebox(Ticketreq *tr)
 		syslog(0, AUTHLOG, "cr-fail uid %s@%s", tr->uid, raddr);
 	}
 
-	if(!getkey(tr->hostid, &hkey)){
+	if(!getkey(tr->hostid, &hkey, 1)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&hkey);
 		syslog(0, AUTHLOG, "cr-fail hostid %s %s@%s", tr->hostid, tr->uid, raddr);
@@ -285,7 +288,7 @@ changepasswd(Ticketreq *tr)
 	Ticket t;
 	int n, m;
 
-	if(!getkey(tr->uid, &ukey)){
+	if(!getkey(tr->uid, &ukey, 1)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&ukey);
 		syslog(0, AUTHLOG, "cp-fail uid %s@%s", tr->uid, raddr);
@@ -438,7 +441,7 @@ apop(Ticketreq *tr, int type)
 		 * lookup
 		 */
 		secret = findsecret(KEYDB, tr->uid, sbuf);
-		if(!getkey(tr->hostid, &hkey) || secret == nil){
+		if(!getkey(tr->hostid, &hkey, 1) || secret == nil){
 			replyerror("apop-fail bad response %s", raddr);
 			logfail(tr->uid);
 			if(tries > 5)
@@ -531,7 +534,7 @@ vnc(Ticketreq *tr)
 	 */
 	memset(sbuf, 0, sizeof(sbuf));
 	secret = findsecret(KEYDB, tr->uid, sbuf);
-	if(!getkey(tr->hostid, &hkey) || secret == nil){
+	if(!getkey(tr->hostid, &hkey, 0) || secret == nil){
 		mkkey(&hkey);
 		genrandom((uchar*)sbuf, sizeof(sbuf));
 		secret = sbuf;
@@ -595,7 +598,7 @@ chap(Ticketreq *tr)
 	 * lookup
 	 */
 	secret = findsecret(KEYDB, tr->uid, sbuf);
-	if(!getkey(tr->hostid, &hkey) || secret == nil){
+	if(!getkey(tr->hostid, &hkey, 1) || secret == nil){
 		replyerror("chap-fail bad response %s", raddr);
 		logfail(tr->uid);
 		return;
@@ -745,7 +748,7 @@ mschap(Ticketreq *tr)
 	 * lookup
 	 */
 	secret = findsecret(KEYDB, tr->uid, sbuf);
-	if(!getkey(tr->hostid, &hkey) || secret == nil){
+	if(!getkey(tr->hostid, &hkey, 1) || secret == nil){
 		replyerror("mschap-fail bad response %s/%s(%s)", tr->uid, tr->hostid, raddr);
 		logfail(tr->uid);
 		return;
@@ -1007,7 +1010,7 @@ initkeyseed(void)
 
 	u = getuser();
 	if(!finddeskey(KEYDB, u, k)){
-		syslog(0, AUTHLOG, "user %s not in keydb", u);
+		syslog(0, AUTHLOG, "can't generate keyseed: user %s not in keydb", u);
 		exits(0);
 	}
 	hmac_sha2_256((uchar*)info, sizeof(info)-1, (uchar*)k, sizeof(k), keyseed, nil);
