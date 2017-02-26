@@ -872,6 +872,8 @@ struct	FILE_STRING
 	"BEGIN:VCARD\n",	"vCard",		12,	"text/directory;profile=vcard",
 	"AT&T",			"DjVu document",	4,	"image/vnd.djvu",
 	"Extended module: ",	"XM audio",		17,	"audio/xm",
+	"MThd",			"midi audio",		4,	"audio/midi",
+	"MUS\x1a",		"mus audio",		4,	"audio/mus",
 	0,0,0,0
 };
 
@@ -1653,4 +1655,3 @@ isface(void)
 		print("face image depth %d\n", ldepth);
 	return 1;
 }
-

@@ -54,6 +54,10 @@ fn play1 {
 			audio/flacdec
 		case *audio/basic*
 			audio/sundec
+		case *audio/midi*
+			games/midi -c
+		case *audio/mus*
+			games/mus | games/midi -c
 		case *pls*
 			awk 'BEGIN {FS="="} /^File/{print $2}' | play1 list plain
 		case *
@@ -68,6 +72,8 @@ fn play1 {
 				audio/flacdec
 			case *.au *.AU
 				audio/sundec
+			case *.mid *.MID
+				games/midi -c
 			case *
 				echo $argv0: $1: unknown format: $2 >[1=2]
 			}
