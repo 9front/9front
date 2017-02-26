@@ -167,7 +167,7 @@ pak(Ticketreq *tr)
 }
 
 int
-getkey(char *u, Keyslot *k, int canreply)
+getkey(char *u, Keyslot *k)
 {
 	/* empty user id is an error */
 	if(*u == 0)
@@ -182,7 +182,7 @@ getkey(char *u, Keyslot *k, int canreply)
 
 	if(ticketform != 0){
 		syslog(0, AUTHLOG, "need DES key for %s, but DES is disabled", u);
-		if(canreply) replyerror("DES is disabled");
+		replyerror("DES is disabled");
 		exits(0);
 	}
 
@@ -198,12 +198,12 @@ ticketrequest(Ticketreq *tr)
 
 	if(tr->uid[0] == 0)
 		exits(0);
-	if(!getkey(tr->authid, &akey, 1)){
+	if(!getkey(tr->authid, &akey)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&akey);
 		syslog(0, AUTHLOG, "tr-fail authid %s", tr->authid);
 	}
-	if(!getkey(tr->hostid, &hkey, 1)){
+	if(!getkey(tr->hostid, &hkey)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&hkey);
 		syslog(0, AUTHLOG, "tr-fail hostid %s(%s)", tr->hostid, raddr);
@@ -245,7 +245,7 @@ challengebox(Ticketreq *tr)
 		syslog(0, AUTHLOG, "cr-fail uid %s@%s", tr->uid, raddr);
 	}
 
-	if(!getkey(tr->hostid, &hkey, 1)){
+	if(!getkey(tr->hostid, &hkey)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&hkey);
 		syslog(0, AUTHLOG, "cr-fail hostid %s %s@%s", tr->hostid, tr->uid, raddr);
@@ -288,7 +288,7 @@ changepasswd(Ticketreq *tr)
 	Ticket t;
 	int n, m;
 
-	if(!getkey(tr->uid, &ukey, 1)){
+	if(!getkey(tr->uid, &ukey)){
 		/* make one up so caller doesn't know it was wrong */
 		mkkey(&ukey);
 		syslog(0, AUTHLOG, "cp-fail uid %s@%s", tr->uid, raddr);
@@ -441,7 +441,7 @@ apop(Ticketreq *tr, int type)
 		 * lookup
 		 */
 		secret = findsecret(KEYDB, tr->uid, sbuf);
-		if(!getkey(tr->hostid, &hkey, 1) || secret == nil){
+		if(!getkey(tr->hostid, &hkey) || secret == nil){
 			replyerror("apop-fail bad response %s", raddr);
 			logfail(tr->uid);
 			if(tries > 5)
@@ -530,23 +530,23 @@ vnc(Ticketreq *tr)
 		exits(0);
 
 	/*
+	 *  get response
+	 */
+	if(readn(0, reply, sizeof(reply)) != sizeof(reply))
+		exits(0);
+
+	/*
 	 *  lookup keys (and swizzle bits)
 	 */
 	memset(sbuf, 0, sizeof(sbuf));
 	secret = findsecret(KEYDB, tr->uid, sbuf);
-	if(!getkey(tr->hostid, &hkey, 0) || secret == nil){
+	if(!getkey(tr->hostid, &hkey) || secret == nil){
 		mkkey(&hkey);
 		genrandom((uchar*)sbuf, sizeof(sbuf));
 		secret = sbuf;
 	}
 	for(i = 0; i < 8; i++)
 		secret[i] = swizzletab[(uchar)secret[i]];
-
-	/*
-	 *  get response
-	 */
-	if(readn(0, reply, sizeof(reply)) != sizeof(reply))
-		exits(0);
 
 	/*
 	 *  decrypt response and compare
@@ -598,7 +598,7 @@ chap(Ticketreq *tr)
 	 * lookup
 	 */
 	secret = findsecret(KEYDB, tr->uid, sbuf);
-	if(!getkey(tr->hostid, &hkey, 1) || secret == nil){
+	if(!getkey(tr->hostid, &hkey) || secret == nil){
 		replyerror("chap-fail bad response %s", raddr);
 		logfail(tr->uid);
 		return;
@@ -748,7 +748,7 @@ mschap(Ticketreq *tr)
 	 * lookup
 	 */
 	secret = findsecret(KEYDB, tr->uid, sbuf);
-	if(!getkey(tr->hostid, &hkey, 1) || secret == nil){
+	if(!getkey(tr->hostid, &hkey) || secret == nil){
 		replyerror("mschap-fail bad response %s/%s(%s)", tr->uid, tr->hostid, raddr);
 		logfail(tr->uid);
 		return;
