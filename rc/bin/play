@@ -74,6 +74,8 @@ fn play1 {
 				audio/sundec
 			case *.mid *.MID
 				games/midi -c
+			case *.mus *.MUS
+				games/mus | games/midi -c
 			case *
 				echo $argv0: $1: unknown format: $2 >[1=2]
 			}
