@@ -326,6 +326,7 @@ void D_Display (void)
     if (!wipe)
     {
 	I_FinishUpdate ();              // page flip or blit buffer
+	I_UpdateSound ();
 	return;
     }
     
@@ -347,6 +348,8 @@ void D_Display (void)
 	I_UpdateNoBlit ();
 	M_Drawer ();                            // menu is drawn even on top of wipes
 	I_FinishUpdate ();                      // page flip or blit buffer
+	if (!done)
+		I_UpdateSound ();
     } while (!done);
 }
 
@@ -397,12 +400,6 @@ void D_DoomLoop (void)
 
 	// Update display, next frame, with current state.
 	D_Display ();
-
-	// Sound mixing for the buffer is snychronous.
-	I_UpdateSound();
-
-	// Update sound output.
-	I_SubmitSound();
     }
 }
 

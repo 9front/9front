@@ -113,10 +113,10 @@ int 		snd_MusicVolume = 15;
 
 
 // whether songs are mus_paused
-static boolean		mus_paused;	
+boolean		mus_paused;	
 
 // music currently being played
-static musicinfo_t*	mus_playing=0;
+musicinfo_t*	mus_playing=0;
 
 // following is set
 //  by the defaults code in M_misc:
@@ -548,7 +548,6 @@ void S_SetMusicVolume(int volume)
 		volume);
     }    
 
-    I_SetMusicVolume(127);
     I_SetMusicVolume(volume);
     snd_MusicVolume = volume;
 }
@@ -605,10 +604,10 @@ S_ChangeMusic
 
     // load & register it
     music->data = (void *) W_CacheLumpNum(music->lumpnum, PU_MUSIC);
-    music->handle = I_RegisterSong(music->data);
+    music->handle = 0;
 
     // play it
-    I_PlaySong(music->handle, looping);
+    I_PlaySong(music, looping);
 
     mus_playing = music;
 }
@@ -622,7 +621,6 @@ void S_StopMusic(void)
 	    I_ResumeSong(mus_playing->handle);
 
 	I_StopSong(mus_playing->handle);
-	I_UnRegisterSong(mus_playing->handle);
 	Z_ChangeTag(mus_playing->data, PU_CACHE);
 	
 	mus_playing->data = 0;

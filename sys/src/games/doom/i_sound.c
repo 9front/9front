@@ -4,6 +4,7 @@
 #include "i_sound.h"
 #include "w_wad.h"	// W_GetNumForName()
 #include "z_zone.h"
+#include "m_argv.h"
 
 /* The number of internal mixing channels,
 **  the samples calculated for each mixing step,
@@ -12,21 +13,23 @@
 */
 
 /* Needed for calling the actual sound output. */
-#define	SAMPLECOUNT	(512<<2)
+#define	AUDFREQ		44100
+#define	SFXFREQ		11025
+#define	SAMPLECOUNT	(AUDFREQ/TICRATE)
 #define	NUM_CHANNELS	8
 
 /* The actual lengths of all sound effects. */
 int	lengths[NUMSFX];
 
 /* The actual output device. */
-static int audio_fd;
+static int audio_fd = -1;
 
 /* The global mixing buffer.
 ** Basically, samples from all active internal channels
 **  are modified and added, and stored in the buffer
 **  that is submitted to the audio device.
 */
-signed short	mixbuffer[SAMPLECOUNT*2];
+uchar mixbuf[SAMPLECOUNT*4];
 
 /* The channel step amount... */
 uint	channelstep[NUM_CHANNELS];
@@ -66,6 +69,10 @@ int	vol_lookup[128*256];
 /* Hardware left and right channel volume lookup. */
 int*	channelleftvol_lookup[NUM_CHANNELS];
 int*	channelrightvol_lookup[NUM_CHANNELS];
+
+extern boolean mus_paused;
+
+static int mpfd[2] = {-1, -1};
 
 static void* getsfx(char *sfxname, int *len)
 {
@@ -129,9 +136,11 @@ void I_InitSound(void)
 	int i;
 
 	audio_fd = open("/dev/audio", OWRITE);
-	if(audio_fd < 0) 
-		printf("WARN Failed to open /dev/audio, sound disabled\n");
-
+	if(audio_fd < 0){
+		fprint(2, "I_InitSound: disabling sound: %r\n");
+		return;
+	}
+	I_InitMusic();
 	/* Initialize external data (all sounds) at start, keep static. */
 	for (i=1 ; i<NUMSFX ; i++)
 	{
@@ -151,9 +160,6 @@ void I_InitSound(void)
 			lengths[i] = lengths[S_sfx[i].link - S_sfx];
 		}
 	}
-
-	/* Now initialize mixbuffer with zero. */
-	memset(mixbuffer, 0, sizeof mixbuffer);
 }
 
 /* This function loops all active (internal) sound
@@ -170,112 +176,56 @@ void I_InitSound(void)
 */
 void I_UpdateSound(void)
 {
-	/* Mix current sound data.
-	** Data, from raw sound, for right and left.
-	*/
-	register uint	sample;
-	register int	dl;
-	register int	dr;
+	int l, r, i, v;
+	uchar *p;
 
-	/* Pointers in global mixbuffer, left, right, end. */
-	signed short	*leftout;
-	signed short	*rightout;
-	signed short	*leftend;
-	/* Step in mixbuffer, left and right, thus two. */
-	int		step;
-
-	/* Mixing channel index. */
-	int		chan;
-
-	/* Left and right channel
-	**  are in global mixbuffer, alternating. */
-	leftout = mixbuffer;
-	rightout = mixbuffer+1;
-	step = 2;
-
-	/* Determine end, for left channel only
-	**  (right channel is implicit). */
-	leftend = mixbuffer + SAMPLECOUNT*step;
-
-	/* Mix sounds into the mixing buffer.
-	** Loop over step*SAMPLECOUNT
-	**   that is 512 values for two channels.
-	*/
-	while (leftout != leftend)
-	{
-		/* Reset left/right value. */
-		dl = 0;
-		dr = 0;
-
-		/* Love thy L2 cache - made this a loop.
-		** Now more channels could be set at compile time
-		**  as well. Thus loop those channels.
-		*/
-		for(chan=0; chan < NUM_CHANNELS; chan++)
-		{
-			/* Check channel, if active. */
-			if(channels[ chan ])
-			{
-				/* Get the raw data from the channel. */
-				sample = *channels[ chan ];
-				/* Add left and right part
-				**  for this channel (sound)
-				**  to the current data.
-				** Adjust volume accordingly.
-				*/
-				dl += channelleftvol_lookup[ chan ][sample];
-				dr += channelrightvol_lookup[ chan ][sample];
-				/* Increment index ??? */
-				channelstepremainder[ chan ] += channelstep[ chan ];
-				/* MSB is next sample??? */
-				channels[ chan ] += channelstepremainder[ chan ] >> 16;
-				/* Limit to LSB??? */
-				channelstepremainder[ chan ] &= 65536-1;
-
-				/* Check whether we are done. */
-				if (channels[ chan ] >= channelsend[ chan ])
-					channels[ chan ] = 0;
-			}
-		}
-
-		/* Clamp to range. */
-		if (dl > 0x7fff)
-			dl = 0x7fff;
-		else if (dl < -0x8000)
-			dl = -0x8000;
-		if (dr > 0x7fff)
-			dr = 0x7fff;
-		else if (dr < -0x8000)
-			dr = -0x8000;
-
-		*leftout = dl;
-		*rightout = dr;
-
-		/* Increment current pointers in mixbuffer. */
-		leftout += step;
-		rightout += step;
-
-		*leftout = dl;
-		*rightout = dr;
-		leftout += step;
-		rightout += step;
-
-		*leftout = dl;
-		*rightout = dr;
-		leftout += step;
-		rightout += step;
-
-		*leftout = dl;
-		*rightout = dr;
-		leftout += step;
-		rightout += step;
+	if(audio_fd < 0)
+		return;
+	memset(mixbuf, 0, sizeof mixbuf);
+	if(mpfd[0]>=0 && !mus_paused && readn(mpfd[0], mixbuf, sizeof mixbuf) < 0){
+		fprint(2, "I_UpdateSound: disabling music: %r\n");
+		I_ShutdownMusic();
 	}
-}
+	p = mixbuf;
+	while(p < mixbuf + sizeof mixbuf){
+		l = 0;
+		r = 0;
+		for(i=0; i<NUM_CHANNELS; i++){
+			if(channels[i] == nil)
+				continue;
+			v = *channels[i];
+			l += channelleftvol_lookup[i][v];
+			r += channelrightvol_lookup[i][v];
+			channelstepremainder[i] += channelstep[i];
+			channels[i] += channelstepremainder[i] >> 16;
+			channelstepremainder[i] &= 0xffff;
+			if(channels[i] >= channelsend[i])
+				channels[i] = 0;
+		}
+		for(i=0; i<AUDFREQ/SFXFREQ; i++, p+=4){
+			v = (short)(p[1] << 8 | p[0]);
+			v = v * snd_MusicVolume / 15;
+			v += l;
+			if(v > 0x7fff)
+				v = 0x7fff;
+			else if(v < -0x8000)
+				v = -0x8000;
+			p[0] = v;
+			p[1] = v >> 8;
 
-void I_SubmitSound(void)
-{
-	if(audio_fd >= 0)
-		write(audio_fd, mixbuffer, sizeof mixbuffer);
+			v = (short)(p[3] << 8 | p[2]);
+			v = v * snd_MusicVolume / 15;
+			v += r;
+			if(v > 0x7fff)
+				v = 0x7fff;
+			else if(v < -0x8000)
+				v = -0x8000;
+			p[2] = v;
+			p[3] = v >> 8;
+		}
+	}
+	if(snd_SfxVolume|snd_MusicVolume)
+		write(audio_fd, mixbuf, sizeof mixbuf);
 }
 
 void I_ShutdownSound(void)
@@ -440,9 +390,10 @@ addsfx(int id, int vol, int step, int sep)
 	return rc;
 }
 
-int I_StartSound(int id, int vol, int sep, int pitch, int priority)
+int I_StartSound(int id, int vol, int sep, int pitch, int)
 {
-	USED(priority);
+	if(audio_fd < 0)
+		return -1;
 	id = addsfx(id, vol, steptable[pitch], sep);
 	return id;
 }
@@ -471,53 +422,71 @@ void I_UpdateSoundParams(int handle, int vol, int sep, int pitch)
 
 void I_InitMusic(void)
 {
-//	printf("PORTME i_sound.c I_InitMusic\n");
 }
 
 void I_ShutdownMusic(void)
 {
-//	printf("PORTME i_sound.c I_ShutdownMusic\n");
+	if(mpfd[0] >= 0){
+		close(mpfd[0]);
+		mpfd[0] = -1;
+		waitpid();
+	}
 }
 
-void I_SetMusicVolume(int volume)
+void I_SetMusicVolume(int)
 {
-	USED(volume);
-//	printf("PORTME i_sound.c I_SetMusicVolume\n");
 }
 
-void I_PauseSong(int handle)
+void I_PauseSong(int)
 {
-	USED(handle);
-//	printf("PORTME i_sound.c I_PauseSong\n");
 }
 
-void I_ResumeSong(int handle)
+void I_ResumeSong(int)
 {
-	USED(handle);
-//	printf("PORTME i_sound.c I_ResumeSong\n");
 }
 
-int I_RegisterSong(void *data)
+void I_PlaySong(musicinfo_t *m, int loop)
 {
-	USED(data);
-//	printf("PORTME i_sound.c I_RegisterSong\n");
-	return 0;
+	char name[64];
+	int n;
+
+	if(M_CheckParm("-nomusic"))
+		return;
+	I_ShutdownMusic();
+	if(pipe(mpfd) < 0)
+		return;
+	switch(rfork(RFPROC|RFFDG|RFNAMEG)){
+	case -1:
+		fprint(2, "I_PlaySong: %r\n");
+		break;
+	case 0:
+		dup(mpfd[1], 1);
+		close(mpfd[1]);
+		close(mpfd[0]);
+		close(0);
+		snprint(name, sizeof(name), "/tmp/%s.mus", m->name);
+		if(create(name, ORDWR, 0666) != 0)
+			sysfatal("create: %r");
+		n = W_LumpLength(m->lumpnum);
+		if(write(0, m->data, n) != n)
+			sysfatal("write: %r");
+		if(seek(0, 0, 0) != 0)
+			sysfatal("seek: %r");
+		if(bind("/fd/1", "/dev/audio", MREPL) < 0)
+			sysfatal("bind: %r");
+		while(loop && fork() > 0){
+			if(waitpid() < 0 || write(1, "", 0) < 0)
+				exits(nil);
+		}
+		execl("/bin/dmus", "dmus", name, m->name, nil);
+		execl("/bin/play", "play", name, nil);
+		sysfatal("execl: %r");
+	default:
+		close(mpfd[1]);
+	}
 }
 
-void I_PlaySong(int handle, int looping)
+void I_StopSong(int)
 {
-	USED(handle, looping);
-//	printf("PORTME i_sound.c I_PlaySong\n");
-}
-
-void I_StopSong(int handle)
-{
-	USED(handle);
-//	printf("PORTME i_sound.c I_StopSong\n");
-}
-
-void I_UnRegisterSong(int handle)
-{
-	USED(handle);
-//	printf("PORTME i_sound.c I_UnregisterSong\n");
+	I_ShutdownMusic();
 }
