@@ -1008,14 +1008,20 @@ initkeyseed(void)
 	int fd;
 
 	genrandom(keyseed, sizeof(keyseed));
-	if((fd = create("/adm/keyseed", OWRITE|OEXCL, 0600)) >= 0){
-		write(fd, keyseed, sizeof(keyseed));
-	} else if((fd = open("/adm/keyseed", OREAD)) >= 0){
-		read(fd, keyseed, sizeof(keyseed));
-	} else{
-		syslog(0, AUTHLOG, "initkeyseed: no seed file: %r");
+	if((fd = open("/adm/keyseed", OREAD)) >= 0){
+		werrstr("file truncated");
+		if(read(fd, keyseed, sizeof(keyseed)) == sizeof(keyseed)){
+			close(fd);
+			return;
+		}
+		close(fd);
+	}
+	syslog(0, AUTHLOG, "initkeyseed: no keyseed: %r");
+	if((fd = create("/adm/keyseed", OWRITE, 0600)) < 0){
+		syslog(0, AUTHLOG, "initkeyseed: can't create: %r");
 		return;
 	}
+	write(fd, keyseed, sizeof(keyseed));
 	close(fd);
 }
 
