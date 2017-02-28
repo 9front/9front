@@ -57,7 +57,7 @@ double
 	LIM = 10,
 	dt²;
 char *file;
-int showv, showa, throttle, paused;
+int showv, showa, throttle, moving;
 
 char *menustr[] = {
 	[SAVE]	"save",
@@ -106,26 +106,28 @@ randcol(void)
 }
 
 void
-pause(int p, int pri)
+pause(int p, int id)
 {
-	static int paused, ppri;
+	static int paused, pid = -1;
 
 	switch(p) {
 	default:
 		sysfatal("invalid pause value %d:", p);
 		break;
 	case 0:
-		if(pri > ppri)
-			ppri = pri;
+		if(pid != -1 && pid != id)
+			break;
+		pid = id;
 		if(paused)
 			break;
 		paused = 1;
 		qlock(&glxy);
 		break;
 	case 1:
-		if(!paused || pri < ppri)
+		if(!paused || pid != id)
 			break;
-		paused = ppri = 0;
+		pid = -1;
+		paused = 0;
 		qunlock(&glxy);
 		break;
 	}
@@ -321,10 +323,12 @@ move(void)
 			if(mc->buttons & 1)
 				break;
 			if(mc->buttons & 4) {
+				moving = 0;
 				setcursor(mc, cursor);
 				return;
 			}
 		}
+		moving = 1;
 		od = subpt(orig, mc->xy);
 		for(;;) {
 			readmouse(mc);
@@ -456,9 +460,11 @@ kbdthread(void*)
 {
 	Keyboardctl *realkc;
 	Rune r;
+	static int paused;
 
 	threadsetname("keyboard");
-	if(realkc = initkeyboard(nil), realkc == nil)
+	realkc = initkeyboard(nil);
+	if(realkc == nil)
 		sysfatal("kbdthread: could not initkeyboard: %r");
 
 	for(;;) {
@@ -482,6 +488,8 @@ kbdthread(void*)
 			showa ^= 1;
 			break;
 		case ' ':
+			if(moving)
+				break;
 			paused ^= 1;
 			if(paused) {
 				cursor = &pausecursor;
