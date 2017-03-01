@@ -35,8 +35,7 @@ Cursor pausecursor={
 
 enum {
 	STK = 8192,
-	MOVE = 0,
-	ZOOM,
+	ZOOM = 0,
 	SPEED,
 	GRAV,
 	SAVE,
@@ -57,7 +56,7 @@ double
 	LIM = 10,
 	dt²;
 char *file;
-int showv, showa, throttle, moving;
+int showv, showa, throttle;
 
 char *menustr[] = {
 	[SAVE]	"save",
@@ -65,7 +64,6 @@ char *menustr[] = {
 	[ZOOM]	"zoom",
 	[SPEED]	"speed",
 	[GRAV]	"gravity",
-	[MOVE]	"move",
 	[EXIT]	"exit",
 	[MEND]	nil
 };
@@ -313,31 +311,24 @@ getinput(char *info, char *sug)
 }
 
 void
-move(void)
+domove(void)
 {
-	Point od;
+	Point oldp, off;
+
 	setcursor(mc, &crosscursor);
+	pause(0, 0);
+	oldp = mc->xy;
 	for(;;) {
-		for(;;) {
-			readmouse(mc);
-			if(mc->buttons & 1)
-				break;
-			if(mc->buttons & 4) {
-				moving = 0;
-				setcursor(mc, cursor);
-				return;
-			}
-		}
-		moving = 1;
-		od = subpt(orig, mc->xy);
-		for(;;) {
-			readmouse(mc);
-			if(!(mc->buttons & 1))
-				break;
-			orig = addpt(od, mc->xy);
-			drawglxy();
-		}
+		readmouse(mc);
+		if(mc->buttons != 2)
+			break;
+		off = subpt(mc->xy, oldp);
+		oldp = mc->xy;
+		orig = addpt(orig, off);
+		drawglxy();
 	}
+	setcursor(mc, cursor);
+	pause(1, 0);
 }
 
 void
@@ -413,9 +404,6 @@ domenu(void)
 			break;
 		G *= z;
 		break;
-	case MOVE:
-		move();
-		break;
 	case EXIT:
 		threadexitsall(nil);
 		break;
@@ -433,6 +421,9 @@ mousethread(void*)
 		switch(mc->buttons) {
 		case 1:
 			dobody();
+			break;
+		case 2:
+			domove();
 			break;
 		case 4:
 			domenu();
@@ -488,8 +479,6 @@ kbdthread(void*)
 			showa ^= 1;
 			break;
 		case ' ':
-			if(moving)
-				break;
 			paused ^= 1;
 			if(paused) {
 				cursor = &pausecursor;
@@ -537,7 +526,7 @@ Again:
 			b->a.y = b->newa.y;
 			b->newa.x = b->newa.y = 0;
 			STATS(calcs = 0;)
-			quadcalc(space, b, LIM);
+			quadcalc(b, space, LIM);
 			STATS(avgcalcs += calcs;)
 		}
 		STATS(avgcalcs /= glxy.l;)

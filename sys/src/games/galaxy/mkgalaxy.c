@@ -12,7 +12,7 @@ double
 	av, avrand;
 int new, c = 1;
 
-void quadcalc(QB, Body*, double){}
+void quadcalc(Body*, QB, double){}
 Image *randcol(void){ return nil; }
 
 void

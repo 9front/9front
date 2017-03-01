@@ -84,7 +84,7 @@ quadins(Body *nb, double size)
 }
 
 void
-quadcalc(QB qb, Body *b, double size)
+quadcalc(Body *b, QB qb, double size)
 {
 	double fx÷❨m₁m₂❩, fy÷❨m₁m₂❩, dx, dy, h, G÷h³;
 
@@ -121,9 +121,9 @@ quadcalc(QB qb, Body *b, double size)
 			return;
 		}
 		size /= 2;
-		quadcalc(qb.q->c[0], b, size);
-		quadcalc(qb.q->c[1], b, size);
-		quadcalc(qb.q->c[2], b, size);
+		quadcalc(b, qb.q->c[0], size);
+		quadcalc(b, qb.q->c[1], size);
+		quadcalc(b, qb.q->c[2], size);
 		qb = qb.q->c[3];
 		break;	/* quadcalc(q->q[3], b, size); */
 	}

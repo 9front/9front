@@ -64,7 +64,7 @@ void readglxy(int);
 void writeglxy(int);
 int Bfmt(Fmt*);
 
-void quadcalc(QB, Body*, double);
+void quadcalc(Body*, QB, double);
 int quadins(Body*, double);
 void growquads(void);
 void quadsinit(void);

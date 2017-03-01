@@ -45,14 +45,11 @@ of the body. Holding a button 1-3 chord
 changes the initial velocity of the body. Releasing button 1
 restarts the simulator with the new body in motion. When new
 bodies are created, the simulator maintains the Galilean (inertial)
-reference frame.
+reference frame where the center of mass of the galaxy is at rest.
+.PP
+Mouse button 2 repositions the visible region of the galaxy by dragging.
 .PP
 Mouse button 3 opens a menu with the following options:
-.TP
-.B move
-Change the visible region of the simulation
-by holding button 1 and dragging. Any other mouse
-button restarts the simulation.
 .TP
 .B zoom
 Prompts for a floating point value to change the scale of the
