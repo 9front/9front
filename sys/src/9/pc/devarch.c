@@ -36,7 +36,7 @@ enum {
 	Qmsr,
 	Qbase,
 
-	Qmax = 16,
+	Qmax = 32,
 };
 
 enum {
