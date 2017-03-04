@@ -8,12 +8,37 @@ adm	d775 adm adm
 	timezone	d775
 		*
 cfg	d775
-	+
+	plan9.ini
+	pxe	d775
 cron	d775
-fd	d775
 lib	d775
-	+
+	*
+	audio	d775
+		icon	d775
+			*
+	cmap	d775
+		*
+	dict	d775
+		*
+	face	d775
+		+
+	firmware	d775
+	font	d775
+		bit	d775
+			+
+	legal	d775
+		*
+	map	d775
+		README
+	ndb	d775
+		*
+	rfc	d775
+		grabrfc
+	sky	d775
+		*
+	tftpd	d775
 rc	d775
+	skip=\.local$
 	+
 mail	d775 upas upas
 	uid=upas
@@ -303,6 +328,7 @@ acme	d775
 	wiki	d775
 		+
 	bin	d775
+		skip=\.(out|orig|([ao]?[0125678vqki]?))$
 		*
 		386	d775
 		68000	d775
@@ -322,15 +348,14 @@ acme	d775
 		$objtype	d775
 			+
 
-mnt	d775
-n	d775
 sys	d775
 	games	d775
-		+
+		lib	d775
+			+
 	include	d775
 		+
 	lib	d775
-		skip=\.(pyo|pyc)$
+		skip=\.(pyo|pyc|orig)$
 		+
 	log	d775
 		auth	a662 sys sys /sys/lib/dist/empty
@@ -361,11 +386,12 @@ sys	d775
 		www	a662 sys sys /sys/lib/dist/empty
 		
 	man	d775
+		skip=\.(pdf|ps|orig)$
 		+
 	doc	d775
 		+
 	src	d775
-		skip=\.(out|([ao]?[012578vqki]?))$
+		skip=\.(out|orig|([ao]?[0125678vqki]?))$
 		+
 
 tmp	d555

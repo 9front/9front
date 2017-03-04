@@ -4,12 +4,12 @@ iso=/tmp/9front.iso
 cd:V:	$iso
 
 binds:V:
+	test -d /n/src9/.hg && bind /n/src9 /n/src9/dist/plan9front
 	bind cfg /n/src9/cfg
 	bind mail/lib /n/src9/mail/lib
 	bind ndb /n/src9/lib/ndb
 	bind -a adm/timezone /n/src9/adm/timezone
 	bind usr /n/src9/usr
-	bind /n/src9 /n/src9/dist/plan9front
 
 %.iso:  $proto
 	@{rfork n
