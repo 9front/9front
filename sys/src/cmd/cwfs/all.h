@@ -25,13 +25,6 @@ enum {
 	QPROOT		= 1,
 	QPSUPER		= 2,
 
-	/*
-	 * perm argument in 9P create
-	 */
-	PDIR		= 1L<<31,	/* is a directory */
-	PAPND		= 1L<<30,	/* is append only */
-	PLOCK		= 1L<<29,	/* is locked on open */
-
 	FID1		= 1,
 	FID2		= 2,
 

@@ -435,11 +435,13 @@ cmd_create(int argc, char *argv[])
 
 	if(argc > 5) {
 		if(strchr(argv[5], 'l'))
-			perm |= PLOCK;
+			perm |= DMEXCL;
 		if(strchr(argv[5], 'a'))
-			perm |= PAPND;
+			perm |= DMAPPEND;
 		if(strchr(argv[5], 'd'))
-			perm |= PDIR;
+			perm |= DMDIR;
+		if(strchr(argv[5], 't'))
+			perm |= DMTMP;
 	}
 
 	if(con_create(FID2, elem, uid, gid, perm, 0))

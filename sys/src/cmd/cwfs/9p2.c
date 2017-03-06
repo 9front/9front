@@ -894,8 +894,8 @@ fs_create(Chan* chan, Fcall* f, Fcall* r)
 		error = Emode;
 		goto out;
 	}
-	if(f->perm & PDIR)
-		if((f->mode & OTRUNC) || (f->perm & PAPND) || (fmod & FWRITE))
+	if(f->perm & DMDIR)
+		if((f->mode & OTRUNC) || (f->perm & DMAPPEND) || (fmod & FWRITE))
 			goto badaccess;
 	/*
 	 * do it
@@ -921,20 +921,22 @@ fs_create(Chan* chan, Fcall* f, Fcall* r)
 		d1->uid = file->uid;
 		d1->gid = d->gid;
 		f->perm &= d->mode | ~0666;
-		if(f->perm & PDIR)
+		if(f->perm & DMDIR)
 			f->perm &= d->mode | ~0777;
 	}
 	d1->qid.path = path;
 	d1->qid.version = 0;
 	d1->mode = DALLOC | (f->perm & 0777);
-	if(f->perm & PDIR) {
+	if(f->perm & DMDIR) {
 		d1->mode |= DDIR;
 		d1->qid.path |= QPDIR;
 	}
-	if(f->perm & PAPND)
+	if(f->perm & DMAPPEND)
 		d1->mode |= DAPND;
+	if(f->perm & DMTMP)
+		d1->mode |= DTMP;
 	t = nil;
-	if(f->perm & PLOCK){
+	if(f->perm & DMEXCL){
 		d1->mode |= DLOCK;
 		t = tlocked(p1, d1);
 		/* if nil, out of tlock structures */
