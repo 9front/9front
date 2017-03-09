@@ -1,6 +1,11 @@
-The Plan 9 software is provided under the terms of the
-Lucent Public License, Version 1.02, reproduced in the
-file /lib/legal/lpl, with the following notable exceptions:
+Plan 9 from Bell Labs is provided under the terms of the Lucent Public License,
+Version 1.02, reproduced in the file /lib/legal/lpl.
+
+Any additions or changes (as recorded in Mercurial history) made by 9front are provided
+under the terms of the MIT License, reproduced in the file /lib/legal/mit, unless
+otherwise indicated.
+
+The following exceptions apply:
 
 1. No right is granted to create derivative works of or
    to redistribute (other than with the Plan 9 Operating System)
@@ -11,11 +16,19 @@ file /lib/legal/lpl, with the following notable exceptions:
    These directories contain material copyrights by B&H Inc. and Y&Y Inc.
 
 2. The printer fonts identified in subdirectory /sys/lib/ghostscript/font
-   are subject to the GNU GPL, reproduced in the file /lib/legal/gpl.
+   are subject to the GNU GPL, version 2, reproduced in the file /lib/legal/gpl.
 
 3. The ghostscript program in the subdirectory /sys/src/cmd/gs is
    covered by the Aladdin Free Public License, reproduced in the file
    /lib/legal/afpl.
+
+4. The Python programming language in the subdirectories /sys/src/cmd/python and
+   /sys/lib/python is covered by the Python Software Foundation License, reproduced
+   in the file /sys/src/cmd/python/LICENSE.
+
+5. The Mercurial version control system in the subdirectories /sys/src/cmd/hg and
+   /sys/lib/mercurial is covered by the GNU GPL, version 2, reproduced in
+   the file /lib/legal/gpl.
 
 Other, less notable exceptions are marked in the file tree with
 COPYING, COPYRIGHT, or LICENSE files.
