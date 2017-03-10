@@ -20,6 +20,18 @@ Cursor crosscursor = {
 	 0x01, 0x80, 0x01, 0x80, 0x01, 0x80, 0x00, 0x00, }
 };
 
+Cursor zoomcursor = {
+	{-7, -7},
+	{0x1F, 0xF8, 0x3F, 0xFC, 0x7F, 0xFE, 0xFB, 0xDF,
+	 0xF3, 0xCF, 0xE3, 0xC7, 0xFF, 0xFF, 0xFF, 0xFF,
+	 0xFF, 0xFF, 0xFF, 0xFF, 0xE3, 0xC7, 0xF3, 0xCF,
+	 0x7B, 0xDF, 0x7F, 0xFE, 0x3F, 0xFC, 0x1F, 0xF8, },
+	{0x00, 0x00, 0x0F, 0xF0, 0x31, 0x8C, 0x21, 0x84,
+	 0x41, 0x82, 0x41, 0x82, 0x41, 0x82, 0x7F, 0xFE,
+	 0x7F, 0xFE, 0x41, 0x82, 0x41, 0x82, 0x41, 0x82,
+	 0x21, 0x84, 0x31, 0x8C, 0x0F, 0xF0, 0x00, 0x00, }
+};
+
 Cursor pausecursor={
 	0, 0,
 	0x01, 0x80, 0x03, 0xC0, 0x07, 0xE0, 0x07, 0xe0,
@@ -35,7 +47,7 @@ Cursor pausecursor={
 
 enum {
 	STK = 8192,
-	ZOOM = 0,
+	DOBODY = 0,
 	SPEED,
 	GRAV,
 	SAVE,
@@ -56,12 +68,12 @@ double
 	LIM = 10,
 	dt²;
 char *file;
-int showv, showa, throttle;
+int showv, showa, throttle, paused;
 
 char *menustr[] = {
+	[DOBODY]	"new body",
 	[SAVE]	"save",
 	[LOAD]	"load",
-	[ZOOM]	"zoom",
 	[SPEED]	"speed",
 	[GRAV]	"gravity",
 	[EXIT]	"exit",
@@ -106,7 +118,7 @@ randcol(void)
 void
 pause(int p, int id)
 {
-	static int paused, pid = -1;
+	static int pid = -1;
 
 	switch(p) {
 	default:
@@ -253,7 +265,15 @@ dobody(void)
 	double f;
 	Body *b;
 
-	pause(0, 0);
+	for(;;) {
+		readmouse(mc);
+		if(mc->buttons == 0)
+			continue;
+		if(mc->buttons == 1)
+			break;
+		return;
+	}
+
 	b = body();
 	setpos(b);
 	setvel(b);
@@ -278,8 +298,6 @@ dobody(void)
 	gc = center();
 	orig.x += gc.x / scale;
 	orig.y += gc.y / scale;
-
-	pause(1, 0);
 }
 
 char*
@@ -316,19 +334,55 @@ domove(void)
 	Point oldp, off;
 
 	setcursor(mc, &crosscursor);
-	pause(0, 0);
 	oldp = mc->xy;
 	for(;;) {
 		readmouse(mc);
-		if(mc->buttons != 2)
+		if(mc->buttons != 1)
 			break;
 		off = subpt(mc->xy, oldp);
 		oldp = mc->xy;
+		pause(0, 0);
 		orig = addpt(orig, off);
 		drawglxy();
+		pause(1, 0);
 	}
 	setcursor(mc, cursor);
-	pause(1, 0);
+}
+
+void
+dozoom(void)
+{
+	Point z, d;
+	double f, olds;
+
+	setcursor(mc, &zoomcursor);
+	for(;;) {
+		for(;;) {
+			readmouse(mc);
+			if(mc->buttons == 0)
+				continue;
+			if(mc->buttons != 2)
+				goto End;
+			break;
+		}
+		z = mc->xy;
+		olds = scale;
+		pause(0, 0);
+		for(;;) {
+			readmouse(mc);
+			if(mc->buttons != 2)
+				break;
+			drawglxy();
+			line(screen, z, (Point){z.x, mc->xy.y}, Enddisc, Enddisc, 0, display->white, ZP);
+			d = subpt(mc->xy, z);
+			f = tanh((double)d.y/200) + 1;
+			scale = f*olds;
+		}
+		pause(1, 0);
+	}
+
+End:
+	setcursor(mc, cursor);
 }
 
 void
@@ -349,6 +403,9 @@ domenu(void)
 
 	pause(0, 0);
 	switch(menuhit(3, mc, &menu, nil)) {
+	case DOBODY:
+		dobody();
+		break;
 	case SAVE:
 		s = getinput("Enter file:", file);
 		if(s == nil || *s == '\0')
@@ -372,16 +429,6 @@ domenu(void)
 			sysfatal("domenu: could not open file %s: %r", file);
 		load(fd);
 		close(fd);
-		break;
-	case ZOOM:
-		s = getinput("Zoom multiplier:", nil);
-		if(s == nil || *s == '\0')
-			break;
-		z = strtod(s, nil);
-		free(s);
-		if(z <= 0)
-			break;
-		scale /= z;
 		break;
 	case SPEED:
 		s = getinput("Speed multiplier:", nil);
@@ -420,10 +467,10 @@ mousethread(void*)
 		readmouse(mc);
 		switch(mc->buttons) {
 		case 1:
-			dobody();
+			domove();
 			break;
 		case 2:
-			domove();
+			dozoom();
 			break;
 		case 4:
 			domenu();
@@ -451,7 +498,6 @@ kbdthread(void*)
 {
 	Keyboardctl *realkc;
 	Rune r;
-	static int paused;
 
 	threadsetname("keyboard");
 	realkc = initkeyboard(nil);
@@ -479,16 +525,16 @@ kbdthread(void*)
 			showa ^= 1;
 			break;
 		case ' ':
-			paused ^= 1;
 			if(paused) {
-				cursor = &pausecursor;
-				pause(0, 1);
-			} else {
 				cursor = nil;
 				pause(1, 1);
+			} else {
+				cursor = &pausecursor;
+				pause(0, 1);
 			}
 			setcursor(mc, cursor);
 		}
+		drawglxy();
 	}
 }
 
