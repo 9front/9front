@@ -356,33 +356,23 @@ dozoom(void)
 	double f, olds;
 
 	setcursor(mc, &zoomcursor);
+
+	z = mc->xy;
+	olds = scale;
 	for(;;) {
-		for(;;) {
-			readmouse(mc);
-			if(mc->buttons == 0)
-				continue;
-			if(mc->buttons != 2)
-				goto End;
+		readmouse(mc);
+		if(mc->buttons != 2)
 			break;
-		}
-		z = mc->xy;
-		olds = scale;
+		d = subpt(mc->xy, z);
+		f = tanh((double)d.y/200) + 1;
 		pause(0, 0);
-		for(;;) {
-			readmouse(mc);
-			if(mc->buttons != 2)
-				break;
-			drawglxy();
-			line(screen, z, (Point){z.x, mc->xy.y}, Enddisc, Enddisc, 0, display->white, ZP);
-			d = subpt(mc->xy, z);
-			f = tanh((double)d.y/200) + 1;
-			scale = f*olds;
-		}
+		scale = f*olds;
+		drawglxy();
 		pause(1, 0);
 	}
 
-End:
 	setcursor(mc, cursor);
+	pause(1, 0);
 }
 
 void
