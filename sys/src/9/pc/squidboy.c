@@ -12,30 +12,17 @@ static void
 squidboy(Apic* apic)
 {
 //	iprint("Hello Squidboy\n");
-
 	machinit();
 	mmuinit();
-
 	cpuidentify();
 	cpuidprint();
-
+	syncclock();
+	active.machs[m->machno] = 1;
 	apic->online = 1;
-	coherence();
-
 	lapicinit(apic);
 	lapiconline();
-	syncclock();
 	timersinit();
-
 	fpoff();
-
-	lock(&active);
-	active.machs[m->machno] = 1;
-	unlock(&active);
-
-	while(!active.thunderbirdsarego)
-		microdelay(100);
-
 	schedinit();
 }
 
@@ -107,10 +94,12 @@ mpstartap(Apic* apic)
 
 	nvramwrite(0x0F, 0x0A);		/* shutdown code: warm reset upon init ipi */
 	lapicstartap(apic, PADDR(APBOOTSTRAP));
-	for(i = 0; i < 1000; i++){
+	for(i = 0; i < 100000; i++){
+		if(arch->fastclock == tscticks)
+			cycles(&m->tscticks);	/* for ap's syncclock(); */
 		if(apic->online)
 			break;
-		delay(10);
+		delay(1);
 	}
 	nvramwrite(0x0F, 0x00);
 }
