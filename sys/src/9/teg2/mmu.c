@@ -484,7 +484,7 @@ mmurelease(Proc* proc)
 	for(page = proc->mmul2cache; page != nil; page = next){
 		next = page->next;
 		if(--page->ref)
-			panic("mmurelease: page->ref %d", page->ref);
+			panic("mmurelease: page->ref %ld", page->ref);
 		pagechainhead(page);
 	}
 	if(proc->mmul2cache != nil)
