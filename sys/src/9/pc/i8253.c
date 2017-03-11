@@ -130,6 +130,13 @@ guesscpuhz(int aalcycles)
 	int loops, x, y;
 	uvlong a, b, cpufreq;
 
+	if(m->machno != 0){
+		m->cpuhz = MACHP(0)->cpuhz;
+		m->cpumhz = MACHP(0)->cpumhz;
+		m->loopconst = MACHP(0)->loopconst;
+		return;
+	}
+
 	ilock(&i8253);
 	for(loops = 1000;;loops += 1000) {
 		/*
