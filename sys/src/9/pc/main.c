@@ -426,6 +426,7 @@ confinit(void)
 		if(userpcnt < 10)
 			userpcnt = 70;
 		kpages = conf.npage - (conf.npage*userpcnt)/100;
+		conf.nimage = conf.nproc;
 
 		/*
 		 * Hack for the big boys. Only good while physmem < 4GB.
@@ -438,7 +439,6 @@ confinit(void)
 		if(getconf("*imagemaxmb") == 0)
 		if(kpages > (64*MB + conf.npage*sizeof(Page))/BY2PG){
 			kpages = (64*MB + conf.npage*sizeof(Page))/BY2PG;
-			conf.nimage = 2000;
 			kpages += (conf.nproc*KSTACK)/BY2PG;
 		}
 	} else {
