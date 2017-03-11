@@ -250,7 +250,6 @@ struct
 	int	wfi;			/* bitmap of CPUs in WFI state */
 	int	stopped;		/* bitmap of CPUs stopped */
 	int	exiting;		/* shutdown */
-	int	thunderbirdsarego;	/* lets the added processors continue to schedinit */
 }active;
 
 extern register Mach* m;			/* R10 */

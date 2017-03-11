@@ -203,7 +203,6 @@ struct Softtlb
 
 struct
 {
-	Lock;
 	char	machs[MAXMACH];		/* active cpus */
 	short	exiting;
 }active;

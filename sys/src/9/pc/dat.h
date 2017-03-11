@@ -269,10 +269,8 @@ void	kunmap(KMap*);
 
 struct
 {
-	Lock;
 	char	machs[MAXMACH];		/* active CPUs */
 	int	exiting;		/* shutdown */
-	int	thunderbirdsarego;	/* lets the added processors continue to schedinit */
 }active;
 
 /*

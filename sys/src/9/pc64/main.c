@@ -518,7 +518,6 @@ main()
 	pageinit();
 	swapinit();
 	userinit();
-	active.thunderbirdsarego = 1;
 	schedinit();
 }
 

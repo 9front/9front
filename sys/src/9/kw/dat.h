@@ -193,7 +193,6 @@ typedef void		KMap;
 
 struct
 {
-	Lock;
 	char	machs[MAXMACH];		/* active CPUs */
 	int	exiting;		/* shutdown */
 }active;
