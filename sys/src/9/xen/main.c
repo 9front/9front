@@ -106,7 +106,6 @@ main(void)
 
 	swapinit();
 	userinit();
-	active.thunderbirdsarego = 1;
 	schedinit();
 }
 

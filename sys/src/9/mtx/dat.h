@@ -180,7 +180,6 @@ struct Mach
 
 struct
 {
-	Lock;
 	char	machs[MAXMACH];
 	int	exiting;
 }active;

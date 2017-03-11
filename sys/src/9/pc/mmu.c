@@ -679,7 +679,7 @@ vunmap(void *v, int size)
 	 * boot. In that case it suffices to flush the MACH(0) TLB
 	 * and return.
 	 */
-	if(!active.thunderbirdsarego){
+	if(up == nil){
 		putcr3(PADDR(MACHP(0)->pdb));
 		return;
 	}

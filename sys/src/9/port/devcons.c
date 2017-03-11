@@ -1008,11 +1008,9 @@ cpushutdown(void)
 {
 	int ms, once;
 
-	lock(&active);
 	once = active.machs[m->machno];
 	active.machs[m->machno] = 0;
 	active.exiting = 1;
-	unlock(&active);
 
 	if(once)
 		iprint("cpu%d: exiting\n", m->machno);

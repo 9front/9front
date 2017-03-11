@@ -200,6 +200,7 @@ confinit(void)
 		if(userpcnt < 10)
 			userpcnt = 70;
 		kpages = conf.npage - (conf.npage*userpcnt)/100;
+		conf.nimage = conf.nproc;
 	} else {
 		if(userpcnt < 10) {
 			if(conf.npage*BY2PG < 16*MB)
@@ -517,7 +518,6 @@ main()
 	pageinit();
 	swapinit();
 	userinit();
-	active.thunderbirdsarego = 1;
 	schedinit();
 }
 

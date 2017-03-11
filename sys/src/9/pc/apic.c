@@ -141,7 +141,7 @@ lapiconline(void)
 }
 
 /*
- *  use the i8253 clock to figure out our lapic timer rate.
+ *  use the i8253/tsc clock to figure out our lapic timer rate.
  */
 static void
 lapictimerinit(void)
@@ -149,6 +149,11 @@ lapictimerinit(void)
 	uvlong x, v, hz;
 	Apictimer *a;
 	int s;
+
+	if(m->machno != 0){
+		lapictimer[m->machno] = lapictimer[0];
+		return;
+	}
 
 	s = splhi();
 	a = &lapictimer[m->machno];
