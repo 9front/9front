@@ -22,14 +22,15 @@ int	logged;
 int	rejectcount;
 int	hardreject;
 
-ulong	starttime;
-
 Biobuf	bin;
 
 int	debug;
 int	Dflag;
+int	Eflag;
+int	eflag;
 int	fflag;
 int	gflag;
+int	qflag;
 int	rflag;
 int	sflag;
 int	authenticate;
@@ -50,48 +51,35 @@ int	pipemsg(int*);
 int	rejectcheck(void);
 String*	startcmd(void);
 
-static void	logmsg(char *action);
-
 static int
-catchalarm(void *a, char *msg)
+catchalarm(void*, char *msg)
 {
-	int rv;
+	int ign;
+	static int chattycathy;
 
-	USED(a);
-
-	/* log alarms but continue */
-	if(strstr(msg, "alarm") != nil){
-		if(senders.first && senders.first->p &&
-		    rcvers.first && rcvers.first->p)
+	ign = strstr(msg, "closed pipe") != nil;
+	if(ign)
+		return 0;
+	if(chattycathy++ < 5){
+		if(senders.first && rcvers.first)
 			syslog(0, "smtpd", "note: %s->%s: %s",
 				s_to_c(senders.first->p),
 				s_to_c(rcvers.first->p), msg);
 		else
 			syslog(0, "smtpd", "note: %s", msg);
-		rv = Atnoterecog;
-	} else
-		rv = Atnoteunknown;
-	if (debug) {
-		seek(2, 0, 2);
-		fprint(2, "caught note: %s\n", msg);
 	}
-
-	/* kill the children if there are any */
-	if(pp && pp->pid > 0) {
-		syskillpg(pp->pid);
-		/* none can't syskillpg, so try a variant */
-		sleep(500);
+	if(pp){
 		syskill(pp->pid);
+	//	pp = 0;
 	}
-
-	return rv;
+	return strstr(msg, "alarm") != nil;
 }
 
 /* override string error functions to do something reasonable */
 void
 s_error(char *f, char *status)
 {
-	char errbuf[Errlen];
+	char errbuf[ERRMAX];
 
 	errbuf[0] = 0;
 	rerrstr(errbuf, sizeof(errbuf));
@@ -106,8 +94,7 @@ s_error(char *f, char *status)
 static void
 usage(void)
 {
-	fprint(2,
-	  "usage: smtpd [-adDfghprs] [-c cert] [-k ip] [-m mailer] [-n net]\n");
+	fprint(2, "usage: smtpd [-DEadefghpqrs] [-c cert] [-k ip] [-m mailer] [-n net]\n");
 	exits("usage");
 }
 
@@ -121,7 +108,6 @@ main(int argc, char **argv)
 	quotefmtinstall();
 	fmtinstall('I', eipfmt);
 	fmtinstall('[', encodefmt);
-	starttime = time(0);
 	ARGBEGIN{
 	case 'a':
 		authenticate = 1;
@@ -134,6 +120,12 @@ main(int argc, char **argv)
 		break;
 	case 'd':
 		debug++;
+		break;
+	case 'E':
+		Eflag = 1;
+		break;			/* if you fail extra helo checks, you must authenticate */
+	case 'e':
+		eflag = 1;		/* disable extra helo checks */
 		break;
 	case 'f':				/* disallow relaying */
 		fflag = 1;
@@ -156,16 +148,14 @@ main(int argc, char **argv)
 	case 'p':
 		passwordinclear = 1;
 		break;
+	case 'q':
+		qflag = 1;		/* don't log invalid hello */
+		break;
 	case 'r':
 		rflag = 1;			/* verify sender's domain */
 		break;
 	case 's':				/* save blocked messages */
 		sflag = 1;
-		break;
-	case 't':
-		fprint(2, "%s: the -t option is no longer supported, see -c\n",
-			argv0);
-		tlscert = "/sys/lib/ssl/smtpd-cert.pem";
 		break;
 	default:
 		usage();
@@ -173,24 +163,24 @@ main(int argc, char **argv)
 
 	nci = getnetconninfo(netdir, 0);
 	if(nci == nil)
-		sysfatal("can't get remote system's address: %r");
+		sysfatal("can't get remote system's address");
 	parseip(rsysip, nci->rsys);
 
 	if(mailer == nil)
 		mailer = mailerpath("send");
 
 	if(debug){
-		snprint(buf, sizeof buf, "%s/smtpdb/%ld", UPASLOG, time(0));
 		close(2);
-		if (create(buf, OWRITE | OEXCL, 0662) >= 0) {
+		snprint(buf, sizeof(buf), "%s/smtpd.db", UPASLOG);
+		if (open(buf, OWRITE) >= 0) {
 			seek(2, 0, 2);
 			fprint(2, "%d smtpd %s\n", getpid(), thedate());
 		} else
 			debug = 0;
 	}
 	getconf();
-	if (isbadguy())
-		exits("banned");
+	if(isbadguy())
+		exits("");
 	Binit(&bin, 0, OREAD);
 
 	if (chdir(UPASLOG) < 0)
@@ -239,32 +229,20 @@ listadd(List *l, String *path)
 	l->last = lp;
 }
 
-void
-stamp(void)
-{
-	if(debug) {
-		seek(2, 0, 2);
-		fprint(2, "%3lud ", time(0) - starttime);
-	}
-}
-
-#define	SIZE	4096
-
 int
 reply(char *fmt, ...)
 {
-	long n;
-	char buf[SIZE], *out;
+	char buf[4096], *out;
+	int n;
 	va_list arg;
 
 	va_start(arg, fmt);
-	out = vseprint(buf, buf+SIZE, fmt, arg);
+	out = vseprint(buf, buf + 4096, fmt, arg);
 	va_end(arg);
 
 	n = out - buf;
 	if(debug) {
 		seek(2, 0, 2);
-		stamp();
 		write(2, buf, n);
 	}
 	write(1, buf, n);
@@ -289,6 +267,36 @@ void
 sayhi(void)
 {
 	reply("220 %s ESMTP\r\n", dom);
+}
+
+Ndbtuple*
+rquery(char *d)
+{
+	Ndbtuple *t, *p;
+
+	t = dnsquery(nci->root, nci->rsys, "ptr");
+	for(p = t; p != nil; p = p->entry)
+		if(strcmp(p->attr, "dom") == 0
+		&& strcmp(p->val, d) == 0){
+			syslog(0, "smtpd", "ptr only from %s as %s",
+				nci->rsys, d);
+			return t;
+		}
+	ndbfree(t);
+	return nil;
+}
+
+int
+dnsexists(char *d)
+{
+	int r;
+	Ndbtuple *t;
+
+	r = -1;
+	if((t = dnsquery(nci->root, d, "any")) != nil || (t = rquery(d)) != nil)
+		r = 0;
+	ndbfree(t);
+	return r;
 }
 
 /*
@@ -324,102 +332,153 @@ static char netaspam[256] = {
 static int
 delaysecs(void)
 {
-	if (trusted)
+	if (netaspam[rsysip[0]])
+		return 60;
+	return 15;
+}
+
+static char *badtld[] = {
+	"localdomain",
+	"localhost",
+	"local",
+	"example",
+	"invalid",
+	"lan",
+	"test",
+};
+
+static char *bad2ld[] = {
+	"example.com",
+	"example.net",
+	"example.org"
+};
+
+int
+badname(void)
+{
+	char *p;
+
+	/*
+	 * similarly, if the claimed domain is not an address-literal,
+	 * require at least one letter, which there will be in
+	 * at least the last component (e.g., .com, .net) if it's real.
+	 * this rejects non-address-literal IP addresses,
+	 * among other bogosities.
+	 */
+	for (p = him; *p; p++)
+		if(isascii(*p) && isalpha(*p))
+			return 0;
+	return -1;
+}
+
+int
+ckhello(void)
+{
+	char *ldot, *rdot;
+	int i;
+
+	/*
+	 * it is unacceptable to claim any string that doesn't look like
+	 * a domain name (e.g., has at least one dot in it), but
+	 * Microsoft mail client software gets this wrong, so let trusted
+	 * (local) clients omit the dot.
+	 */
+	rdot = strrchr(him, '.');
+	if(rdot && rdot[1] == '\0') {
+		*rdot = '\0';			/* clobber trailing dot */
+		rdot = strrchr(him, '.');	/* try again */
+	}
+	if(rdot == nil)
+		return -1;
+	/*
+	 * Reject obviously bogus domains and those reserved by RFC 2606.
+	 */
+	if(rdot == nil)
+		rdot = him;
+	else
+		rdot++;
+	for(i = 0; i < nelem(badtld); i++)
+		if(!cistrcmp(rdot, badtld[i]))
+			return -1;
+	/* check second-level RFC 2606 domains: example\.(com|net|org) */
+	if(rdot != him)
+		*--rdot = '\0';
+	ldot = strrchr(him, '.');
+	if(rdot != him)
+		*rdot = '.';
+	if(ldot == nil)
+		ldot = him;
+	else
+		ldot++;
+	for(i = 0; i < nelem(bad2ld); i++)
+		if(!cistrcmp(ldot, bad2ld[i]))
+			return -1;
+	if(badname() == -1)
+		return -1;
+	if(dnsexists(him) == -1)
+		return -1;
+	return 0;
+}
+
+int
+heloclaims(void)
+{
+	char **s;
+
+	/*
+	 * We don't care if he lies about who he is, but it is
+	 * not okay to pretend to be us.  Many viruses do this,
+	 * just parroting back what we say in the greeting.
+	 */
+	if(strcmp(nci->rsys, nci->lsys) == 0)
 		return 0;
-	if (0 && netaspam[rsysip[0]])
-		return 20;
-	return 12;
+	if(strcmp(him, dom) == 0)
+		return -1;
+	for(s = sysnames_read(); s && *s; s++)
+		if(cistrcmp(*s, him) == 0)
+			return -1;
+	if(him[0] != '[' && badname() == -1)
+		return -1;
+
+	return 0;
 }
 
 void
 hello(String *himp, int extended)
 {
-	char **mynames;
-	char *ldot, *rdot;
-	char *p;
+	int ck;
 
 	him = s_to_c(himp);
-	syslog(0, "smtpd", "%s from %s as %s", extended? "ehlo": "helo",
-		nci->rsys, him);
+	if(!qflag)
+		syslog(0, "smtpd", "%s from %s as %s", extended? "ehlo": "helo",
+			nci->rsys, him);
 	if(rejectcheck())
 		return;
 
-	if (him[0] == '[') {
-		/*
-		 * reject literal ip addresses when not trusted.
-		 */
-		if (!trusted)
-			goto Liarliar;
-		him = nci->rsys;
-	} else {
-		if (!trusted && fflag && nci && strcmp(nci->rsys, nci->lsys) != 0){
-			/*
-			 * We don't care if he lies about who he is, but it is
-			 * not okay to pretend to be us.  Many viruses do this,
-			 * just parroting back what we say in the greeting.
-			 */
-			if(cistrcmp(him, dom) == 0)
-				goto Liarliar;
-			for(mynames = sysnames_read(); mynames && *mynames; mynames++)
-				if(cistrcmp(*mynames, him) == 0)
-					goto Liarliar;
-		}
-
-		/*
-		 * require at least one letter, which there will be in
-		 * at least the last component (e.g., .com, .net) if it's real.
-		 * this rejects non-address-literal IP addresses,
-		 * among other bogosities.
-		 */
-		for (p = him; *p != '\0'; p++)
-			if (isascii(*p) && isalpha(*p))
-				break;
-		if (*p == '\0')
-			goto Liarliar;
-
-		/*
-		 * it is unacceptable to claim any string that doesn't look like
-		 * a domain name (e.g., has at least one dot in it), but
-		 * Microsoft mail client software gets this wrong, so let trusted
-		 * (local) clients omit the dot.
-		 */
-		rdot = strrchr(him, '.');
-		if (rdot && rdot[1] == '\0') {
-			*rdot = '\0';			/* clobber trailing dot */
-			rdot = strrchr(him, '.');	/* try again */
-		}
-		if (!trusted && rdot == nil)
-			goto Liarliar;
-
-		/*
-		 * Reject obviously bogus domains and those reserved by RFC 2606.
-		 */
-		if (rdot == nil)
-			rdot = him;
-		else
-			rdot++;
-		if (cistrcmp(rdot, "localdomain") == 0 ||
-		    cistrcmp(rdot, "localhost") == 0 ||
-		    cistrcmp(rdot, "example") == 0 ||
-		    cistrcmp(rdot, "invalid") == 0 ||
-		    cistrcmp(rdot, "test") == 0)
-			goto Liarliar;			/* bad top-level domain */
-		/* check second-level RFC 2606 domains: example\.(com|net|org) */
-		if (rdot != him)
-			*--rdot = '\0';
-		ldot = strrchr(him, '.');
-		if (rdot != him)
-			*rdot = '.';
-		if (ldot == nil)
-			ldot = him;
-		else
-			ldot++;
-		if (cistrcmp(ldot, "example.com") == 0 ||
-		    cistrcmp(ldot, "example.net") == 0 ||
-		    cistrcmp(ldot, "example.org") == 0)
-			goto Liarliar;
+	ck = -1;
+	if(!trusted && nci)
+	if(heloclaims() || (!eflag && (ck = ckhello())))
+	if(ck && Eflag){
+		reply("250-you lie.  authentication required.\r\n");
+		authenticate = 1;
+	}else{
+		if(Dflag)
+			sleep(delaysecs()*1000);
+		if(!qflag)
+			syslog(0, "smtpd", "Hung up on %s; claimed to be %s",
+				nci->rsys, him);
+		rejectcount++;
+		reply("554 5.7.0 Liar!\r\n");
+		exits("client pretended to be us");
+		return;
 	}
 
+	if(strchr(him, '.') == 0 && nci != nil && strchr(nci->rsys, '.') != nil)
+		him = nci->rsys;
+
+	if(qflag)
+		syslog(0, "smtpd", "%s from %s as %s", extended? "ehlo": "helo",
+			nci->rsys, him);
 	if(Dflag)
 		sleep(delaysecs()*1000);
 	reply("250%c%s you are %s\r\n", extended ? '-' : ' ', dom, him);
@@ -432,15 +491,6 @@ hello(String *himp, int extended)
 		else
 			reply("250 AUTH CRAM-MD5\r\n");
 	}
-	return;
-
-Liarliar:
-	syslog(0, "smtpd", "Hung up on %s; claimed to be %s",
-		nci->rsys, him);
-	if(Dflag)
-		sleep(delaysecs()*1000);
-	reply("554 5.7.0 Liar!\r\n");
-	exits("client pretended to be us");
 }
 
 void
@@ -481,33 +531,9 @@ sender(String *path)
 	/*
 	 * see if this ip address, domain name, user name or account is blocked
 	 */
-	logged = 0;
 	filterstate = blocked(path);
-	/*
-	 * permanently reject what we can before trying smtp ping, which
-	 * often leads to merely temporary rejections.
-	 */
-	switch (filterstate){
-	case DENIED:
-		syslog(0, "smtpd", "Denied %s (%s/%s)",
-			s_to_c(path), him, nci->rsys);
-		rejectcount++;
-		logged++;
-		reply("554-5.7.1 We don't accept mail from %s.\r\n",
-			s_to_c(path));
-		reply("554 5.7.1 Contact postmaster@%s for more information.\r\n",
-			dom);
-		return;
-	case REFUSED:
-		syslog(0, "smtpd", "Refused %s (%s/%s)",
-			s_to_c(path), him, nci->rsys);
-		rejectcount++;
-		logged++;
-		reply("554 5.7.1 Sender domain must exist: %s\r\n",
-			s_to_c(path));
-		return;
-	}
 
+	logged = 0;
 	listadd(&senders, path);
 	reply("250 2.0.0 sender is %s\r\n", s_to_c(path));
 }
@@ -642,7 +668,7 @@ receiver(String *path)
 	if(!recipok(s_to_c(path))){
 		rejectcount++;
 		syslog(0, "smtpd",
-		 "Disallowed %s (%s/%s) to blocked, unknown or invalid name %s",
+		 "Disallowed %s (%s/%s) to blocked name %s",
 			sender, him, nci->rsys, s_to_c(path));
 		reply("550 5.1.1 %s ... user unknown\r\n", s_to_c(path));
 		return;
@@ -660,11 +686,9 @@ receiver(String *path)
 
 	/* forwarding() can modify 'path' on loopback request */
 	if(filterstate == ACCEPT && fflag && !authenticated && forwarding(path)) {
-		syslog(0, "smtpd", "Bad Forward %s (%s/%s) (%s)",
-			senders.last && senders.last->p?
-				s_to_c(senders.last->p): sender,
-			him, nci->rsys, path? s_to_c(path): rcpt);
 		rejectcount++;
+		syslog(0, "smtpd", "Bad Forward %s (%s/%s) (%s)",
+			sender, him, nci->rsys, rcpt);
 		reply("550 5.7.1 we don't relay.  send to your-path@[] for "
 			"loopback.\r\n");
 		return;
@@ -677,12 +701,6 @@ void
 quit(void)
 {
 	reply("221 2.0.0 Successful termination\r\n");
-	if(debug){
-		seek(2, 0, 2);
-		stamp();
-		fprint(2, "# %d sent 221 reply to QUIT %s\n",
-			getpid(), thedate());
-	}
 	close(0);
 	exits(0);
 }
@@ -710,10 +728,14 @@ verify(String *path)
 {
 	char *p, *q;
 	char *av[4];
+	static uint nverify;
 
 	if(rejectcheck())
 		return;
+	if(nverify++ >= 2)
+		sleep(1000 * (4 << nverify - 2));
 	if(shellchars(s_to_c(path))){
+		rejectcount++;
 		reply("503 5.1.3 Bad character in address %s.\r\n", s_to_c(path));
 		return;
 	}
@@ -722,7 +744,7 @@ verify(String *path)
 	av[2] = s_to_c(path);
 	av[3] = 0;
 
-	pp = noshell_proc_start(av, (stream *)0, outstream(),  (stream *)0, 1, 0);
+	pp = noshell_proc_start(av, 0, outstream(), 0, 1, 0);
 	if (pp == 0) {
 		reply("450 4.3.2 We're busy right now, try later\r\n");
 		return;
@@ -732,13 +754,13 @@ verify(String *path)
 	if(p == 0){
 		reply("550 5.1.0 String does not match anything.\r\n");
 	} else {
-		p[Blinelen(pp->std[1]->fp)-1] = 0;
+		p[Blinelen(pp->std[1]->fp) - 1] = 0;
 		if(strchr(p, ':'))
 			reply("550 5.1.0  String does not match anything.\r\n");
 		else{
 			q = strrchr(p, '!');
 			if(q)
-				p = q+1;
+				p = q + 1;
 			reply("250 2.0.0 %s <%s@%s>\r\n", s_to_c(path), p, dom);
 		}
 	}
@@ -765,6 +787,7 @@ getcrnl(String *s, Biobuf *fp)
 		}
 		switch(c){
 		case 0:
+			/* idiot html email! */
 			break;
 		case -1:
 			goto out;
@@ -774,7 +797,6 @@ getcrnl(String *s, Biobuf *fp)
 				if(debug) {
 					seek(2, 0, 2);
 					fprint(2, "%c", c);
-					stamp();
 				}
 				s_putc(s, '\n');
 				goto out;
@@ -912,15 +934,14 @@ startcmd(void)
 			dom);
 		return 0;
 	case ACCEPT:
+	case TRUSTED:
 		/*
 		 * now that all other filters have been passed,
 		 * do grey-list processing.
 		 */
 		if(gflag)
 			vfysenderhostok();
-		/* fall through */
 
-	case TRUSTED:
 		/*
 		 *  set up mail command
 		 */
@@ -962,34 +983,24 @@ startcmd(void)
  *  address@him
  */
 char*
-bprintnode(Biobuf *b, Node *p, int *cntp)
+bprintnode(Biobuf *b, Node *p, int *nbytes)
 {
-	int len;
+	int n, m;
 
-	*cntp = 0;
 	if(p->s){
-		if(p->addr && strchr(s_to_c(p->s), '@') == nil){
-			if(Bprint(b, "%s@%s", s_to_c(p->s), him) < 0)
-				return nil;
-			*cntp += s_len(p->s) + 1 + strlen(him);
-		} else {
-			len = s_len(p->s);
-			if(Bwrite(b, s_to_c(p->s), len) < 0)
-				return nil;
-			*cntp += len;
-		}
-	}else{
-		if(Bputc(b, p->c) < 0)
-			return nil;
-		++*cntp;
-	}
-	if(p->white) {
-		len = s_len(p->white);
-		if(Bwrite(b, s_to_c(p->white), len) < 0)
-			return nil;
-		*cntp += len;
-	}
-	return p->end+1;
+		if(p->addr && strchr(s_to_c(p->s), '@') == nil)
+			n = Bprint(b, "%s@%s", s_to_c(p->s), him);
+		else
+			n = Bwrite(b, s_to_c(p->s), s_len(p->s));
+	}else
+		n = Bputc(b, p->c) == -1? -1: 1;
+	m = 0;
+	if(n != -1 && p->white)
+		m = Bwrite(b, s_to_c(p->white), s_len(p->white));
+	if(n == -1 || m == -1)
+		return nil;
+	*nbytes += n + m;
+	return p->end + 1;
 }
 
 static String*
@@ -1017,8 +1028,7 @@ forgedheaderwarnings(void)
 	nbytes = 0;
 
 	/* warn about envelope sender */
-	if(senders.last != nil && senders.last->p != nil &&
-	    strcmp(s_to_c(senders.last->p), "/dev/null") != 0 &&
+	if(strcmp(s_to_c(senders.last->p), "/dev/null") != 0 &&
 	    masquerade(senders.last->p, nil))
 		nbytes += Bprint(pp->std[0]->fp,
 			"X-warning: suspect envelope domain\n");
@@ -1044,68 +1054,16 @@ forgedheaderwarnings(void)
 	return nbytes;
 }
 
-/*
- *  pipe message to mailer with the following transformations:
- *	- change \r\n into \n.
- *	- add sender's domain to any addrs with no domain
- *	- add a From: if none of From:, Sender:, or Replyto: exists
- *	- add a Received: line
- */
-int
-pipemsg(int *byteswritten)
+static int
+parseheader(String *hdr, int *nbytesp, int *status)
 {
-	int n, nbytes, sawdot, status, nonhdr, bpr;
 	char *cp;
+	int nbytes, n;
 	Field *f;
 	Link *l;
 	Node *p;
-	String *hdr, *line;
 
-	pipesig(&status);	/* set status to 1 on write to closed pipe */
-	sawdot = 0;
-	status = 0;
-
-	/*
-	 *  add a 'From ' line as envelope
-	 */
-	nbytes = 0;
-	nbytes += Bprint(pp->std[0]->fp, "From %s %s remote from \n",
-		s_to_c(senders.first->p), thedate());
-
-	/*
-	 *  add our own Received: stamp
-	 */
-	nbytes += Bprint(pp->std[0]->fp, "Received: from %s ", him);
-	if(nci->rsys)
-		nbytes += Bprint(pp->std[0]->fp, "([%s]) ", nci->rsys);
-	nbytes += Bprint(pp->std[0]->fp, "by %s; %s\n", me, thedate());
-
-	/*
-	 *  read first 16k obeying '.' escape.  we're assuming
-	 *  the header will all be there.
-	 */
-	line = s_new();
-	hdr = s_new();
-	while(sawdot == 0 && s_len(hdr) < 16*1024){
-		n = getcrnl(s_reset(line), &bin);
-
-		/* eof or error ends the message */
-		if(n <= 0)
-			break;
-
-		/* a line with only a '.' ends the message */
-		cp = s_to_c(line);
-		if(n == 2 && *cp == '.' && *(cp+1) == '\n'){
-			sawdot = 1;
-			break;
-		}
-
-		s_append(hdr, *cp == '.' ? cp+1 : cp);
-	}
-
-	/*
-	 *  parse header
-	 */
+	nbytes = *nbytesp;
 	yyinit(s_to_c(hdr), s_len(hdr));
 	yyparse();
 
@@ -1120,9 +1078,8 @@ pipemsg(int *byteswritten)
 	 *  add an orginator and/or destination if either is missing
 	 */
 	if(originator == 0){
-		if(senders.last == nil || senders.last->p == nil)
-			nbytes += Bprint(pp->std[0]->fp, "From: /dev/null@%s\n",
-				him);
+		if(senders.last == nil)
+			nbytes += Bprint(pp->std[0]->fp, "From: /dev/null@%s\n", him);
 		else
 			nbytes += Bprint(pp->std[0]->fp, "From: %s\n",
 				s_to_c(senders.last->p));
@@ -1143,45 +1100,152 @@ pipemsg(int *byteswritten)
 	 */
 	cp = s_to_c(hdr);
 	for(f = firstfield; cp != nil && f; f = f->next){
-		for(p = f->node; cp != 0 && p; p = p->next) {
-			bpr = 0;
-			cp = bprintnode(pp->std[0]->fp, p, &bpr);
-			nbytes += bpr;
-		}
-		if(status == 0 && Bprint(pp->std[0]->fp, "\n") < 0){
+		for(p = f->node; cp != 0 && p; p = p->next)
+			cp = bprintnode(pp->std[0]->fp, p, &nbytes);
+		if(*status == 0 && Bprint(pp->std[0]->fp, "\n") < 0){
 			piperror = "write error";
-			status = 1;
+			*status = 1;
 		}
-		nbytes++;		/* for newline */
+		nbytes++;
 	}
 	if(cp == nil){
 		piperror = "sender domain";
-		status = 1;
+		*status = 1;
+	}
+	/* write anything we read following the header */
+	if(*status == 0){
+		n = Bwrite(pp->std[0]->fp, cp, s_to_c(hdr) + s_len(hdr) - cp);
+		if(n == -1){
+			piperror = "write error 2";
+			*status = 1;
+		}
+		nbytes += n;
 	}
 
-	/* write anything we read following the header */
-	nonhdr = s_to_c(hdr) + s_len(hdr) - cp;
-	if(status == 0 && Bwrite(pp->std[0]->fp, cp, nonhdr) < 0){
-		piperror = "write error 2";
-		status = 1;
+	*nbytesp = nbytes;
+	return *status;
+}
+
+static int
+chkhdr(char *s, int n)
+{
+	int i;
+	Rune r;
+
+	for(i = 0; i < n; ){
+		if(!fullrune(s + i, n - i))
+			return -1;
+		i += chartorune(&r, s + i);
+		if(r == Runeerror)
+			return -1;
 	}
-	nbytes += nonhdr;
+	return 0;
+}
+
+static void
+fancymsg(int status)
+{
+	static char msg[2*ERRMAX], *p, *e;
+
+	if(!status)
+		return;
+
+	p = seprint(msg, msg+ERRMAX, "%s: ", piperror);
+	rerrstr(p, ERRMAX);
+	piperror = msg;
+}
+
+/*
+ *  pipe message to mailer with the following transformations:
+ *	- change \r\n into \n.
+ *	- add sender's domain to any addrs with no domain
+ *	- add a From: if none of From:, Sender:, or Replyto: exists
+ *	- add a Received: line
+ *	- elide leading dot
+ */
+int
+pipemsg(int *byteswritten)
+{
+	char *cp;
+	int n, nbytes, sawdot, status;
+	String *hdr, *line;
+
+	pipesig(&status);	/* set status to 1 on write to closed pipe */
+	sawdot = 0;
+	status = 0;
+	werrstr("");
+	piperror = nil;
+
+	/*
+	 *  add a 'From ' line as envelope and Received: stamp
+	 */
+	nbytes = 0;
+	nbytes += Bprint(pp->std[0]->fp, "From %s %s remote from \n",
+		s_to_c(senders.first->p), thedate());
+	nbytes += Bprint(pp->std[0]->fp, "Received: from %s ", him);
+	if(nci->rsys)
+		nbytes += Bprint(pp->std[0]->fp, "([%s]) ", nci->rsys);
+	nbytes += Bprint(pp->std[0]->fp, "by %s; %s\n", me, thedate());
+
+	/*
+	 *  read first 16k obeying '.' escape.  we're assuming
+	 *  the header will all be there.
+	 */
+	line = s_new();
+	hdr = s_new();
+	while(s_len(hdr) < 16*1024){
+		n = getcrnl(s_reset(line), &bin);
+
+		/* eof or error ends the message */
+		if(n <= 0){
+			piperror = "header read error";
+			status = 1;
+			break;
+		}
+
+		cp = s_to_c(line);
+		if(chkhdr(cp, s_len(line)) == -1){
+			status = 1;
+			piperror = "mail refused: illegal header chars";
+			break;
+		}
+
+		/* a line with only a '.' ends the message */
+		if(cp[0] == '.' && cp[1] == '\n'){
+			sawdot = 1;
+			break;
+		}
+		if(cp[0] == '.'){
+			cp++;
+			n--;
+		}
+		s_append(hdr, cp);
+		nbytes += n;
+		if(*cp == '\n')
+			break;
+	}
+	if(status == 0)
+		parseheader(hdr, &nbytes, &status);
 	s_free(hdr);
 
 	/*
 	 *  pass rest of message to mailer.  take care of '.'
 	 *  escapes.
 	 */
-	while(sawdot == 0){
+	for(;;){
 		n = getcrnl(s_reset(line), &bin);
 
 		/* eof or error ends the message */
+		if(n < 0){
+			piperror = "body read error";
+			status = 1;
+		}
 		if(n <= 0)
 			break;
 
 		/* a line with only a '.' ends the message */
 		cp = s_to_c(line);
-		if(n == 2 && *cp == '.' && *(cp+1) == '\n'){
+		if(cp[0] == '.' && cp[1] == '\n'){
 			sawdot = 1;
 			break;
 		}
@@ -1193,37 +1257,29 @@ pipemsg(int *byteswritten)
 		if(status == 0 && Bwrite(pp->std[0]->fp, cp, n) < 0){
 			piperror = "write error 3";
 			status = 1;
+			break;
 		}
 	}
 	s_free(line);
-	if(sawdot == 0){
+	if(status == 0 && sawdot == 0){
 		/* message did not terminate normally */
-		snprint(pipbuf, sizeof pipbuf, "network eof: %r");
+		snprint(pipbuf, sizeof pipbuf, "network eof no dot: %r");
 		piperror = pipbuf;
-		if (pp->pid > 0) {
-			syskillpg(pp->pid);
-			/* none can't syskillpg, so try a variant */
-			sleep(500);
-			syskill(pp->pid);
-		}
 		status = 1;
 	}
-
 	if(status == 0 && Bflush(pp->std[0]->fp) < 0){
 		piperror = "write error 4";
 		status = 1;
 	}
-	if (debug) {
-		stamp();
-		fprint(2, "at end of message; %s .\n",
-			(sawdot? "saw": "didn't see"));
-	}
+	if(status != 0)
+		syskill(pp->pid);
 	stream_free(pp->std[0]);
 	pp->std[0] = 0;
 	*byteswritten = nbytes;
 	pipesigoff();
-	if(status && !piperror)
+	if(status && piperror == nil)
 		piperror = "write on closed pipe";
+	fancymsg(status);
 	return status;
 }
 
@@ -1233,8 +1289,8 @@ firstline(char *x)
 	char *p;
 	static char buf[128];
 
-	strncpy(buf, x, sizeof(buf));
-	buf[sizeof(buf)-1] = 0;
+	strncpy(buf, x, sizeof buf);
+	buf[sizeof buf - 1] = 0;
 	p = strchr(buf, '\n');
 	if(p)
 		*p = 0;
@@ -1248,6 +1304,7 @@ sendermxcheck(void)
 	char *cp, *senddom, *user, *who;
 	Waitmsg *w;
 
+	senddom = 0;
 	who = s_to_c(senders.first->p);
 	if(strcmp(who, "/dev/null") == 0){
 		/* /dev/null can only send to one rcpt at a time */
@@ -1256,13 +1313,14 @@ sendermxcheck(void)
 				"recipients");
 			return -1;
 		}
-		return 0;
+		/* 4408 spf §2.2 notes that 2821 says /dev/null == postmaster@domain */
+		senddom = smprint("%s!postmaster", him);
 	}
 
 	if(access("/mail/lib/validatesender", AEXEC) < 0)
 		return 0;
-
-	senddom = strdup(who);
+	if(!senddom)
+		senddom = strdup(who);
 	if((cp = strchr(senddom, '!')) == nil){
 		werrstr("rejected: domainless sender %s", who);
 		free(senddom);
@@ -1270,6 +1328,12 @@ sendermxcheck(void)
 	}
 	*cp++ = 0;
 	user = cp;
+	/* shellchars isn't restrictive.  should probablly disallow specialchars */
+	if(shellchars(senddom) || shellchars(user) || shellchars(him)){
+		werrstr("rejected: evil sender/domain/helo");
+		free(senddom);
+		return -1;
+	}
 
 	switch(pid = fork()){
 	case -1:
@@ -1281,7 +1345,7 @@ sendermxcheck(void)
 		 * to allow validatesender to implement SPF eventually.
 		 */
 		execl("/mail/lib/validatesender", "validatesender",
-			"-n", nci->root, senddom, user, nil);
+			"-n", nci->root, senddom, user, nci->rsys, him, nil);
 		_exits("exec validatesender: %r");
 	default:
 		break;
@@ -1307,20 +1371,42 @@ sendermxcheck(void)
 	 * skip over validatesender 143123132: prefix from rc.
 	 */
 	cp = strchr(w->msg, ':');
-	if(cp && *(cp+1) == ' ')
-		werrstr("%s", cp+2);
+	if(cp && cp[1] == ' ')
+		werrstr("%s", cp + 2);
 	else
 		werrstr("%s", w->msg);
 	free(w);
 	return -1;
 }
 
+int
+refused(char *e)
+{
+	return e && strstr(e, "mail refused") != nil;
+}
+
+/*
+ * if a message appeared on stderr, despite good status,
+ * log it.  this can happen if rewrite.in contains a bad
+ * r.e., for example.
+ */
+void
+logerrors(String *err)
+{
+	char *s;
+
+	s = s_to_c(err);
+	if(*s == 0)
+		return;
+	syslog(0, "smtpd", "%s returned good status, but said: %s",
+		s_to_c(mailer), s);
+}
+
 void
 data(void)
 {
+	char *cp, *ep, *e, buf[ERRMAX];
 	int status, nbytes;
-	char *cp, *ep;
-	char errx[ERRMAX];
 	Link *l;
 	String *cmd, *err;
 
@@ -1337,122 +1423,82 @@ data(void)
 		return;
 	}
 	if(!trusted && sendermxcheck()){
-		rerrstr(errx, sizeof errx);
-		if(strncmp(errx, "rejected:", 9) == 0)
-			reply("554 5.7.1 %s\r\n", errx);
+		rerrstr(buf, sizeof buf);
+		if(strncmp(buf, "rejected:", 9) == 0)
+			reply("554 5.7.1 %s\r\n", buf);
 		else
-			reply("450 4.7.0 %s\r\n", errx);
+			reply("450 4.7.0 %s\r\n", buf);
 		for(l=rcvers.first; l; l=l->next)
 			syslog(0, "smtpd", "[%s/%s] %s -> %s sendercheck: %s",
 				him, nci->rsys, s_to_c(senders.first->p),
-				s_to_c(l->p), errx);
+				s_to_c(l->p), buf);
 		rejectcount++;
 		return;
 	}
 
-	cmd = startcmd();
-	if(cmd == 0)
-		return;
-
-	reply("354 Input message; end with <CRLF>.<CRLF>\r\n");
-	if(debug){
-		seek(2, 0, 2);
-		stamp();
-		fprint(2, "# sent 354; accepting DATA %s\n", thedate());
-	}
-
-
 	/*
 	 *  allow 145 more minutes to move the data
 	 */
+	cmd = startcmd();
+	if(cmd == 0)
+		return;
+	reply("354 Input message; end with <CRLF>.<CRLF>\r\n");
 	alarm(145*60*1000);
-
+	piperror = nil;
 	status = pipemsg(&nbytes);
-
-	/*
-	 *  read any error messages
-	 */
 	err = s_new();
-	if (debug) {
-		stamp();
-		fprint(2, "waiting for upas/send to close stderr\n");
-	}
 	while(s_read_line(pp->std[2]->fp, err))
 		;
-
 	alarm(0);
 	atnotify(catchalarm, 0);
 
-	if (debug) {
-		stamp();
-		fprint(2, "waiting for upas/send to exit\n");
-	}
 	status |= proc_wait(pp);
 	if(debug){
 		seek(2, 0, 2);
-		stamp();
-		fprint(2, "# %d upas/send status %#ux at %s\n",
-			getpid(), status, thedate());
+		fprint(2, "%d status %ux\n", getpid(), status);
 		if(*s_to_c(err))
-			fprint(2, "# %d error %s\n", getpid(), s_to_c(err));
+			fprint(2, "%d error %s\n", getpid(), s_to_c(err));
 	}
 
 	/*
 	 *  if process terminated abnormally, send back error message
 	 */
+	if(status && (refused(piperror) || refused(s_to_c(err)))){
+		filterstate = BLOCKED;
+		status = 0;
+	}
 	if(status){
-		int code;
-		char *ecode;
-
-		if(strstr(s_to_c(err), "mail refused")){
-			syslog(0, "smtpd", "++[%s/%s] %s %s refused: %s",
-				him, nci->rsys, s_to_c(senders.first->p),
-				s_to_c(cmd), firstline(s_to_c(err)));
-			code = 554;
-			ecode = "5.0.0";
-		} else {
-			syslog(0, "smtpd", "++[%s/%s] %s %s %s%s%sreturned %#q %s",
-				him, nci->rsys,
-				s_to_c(senders.first->p), s_to_c(cmd),
-				piperror? "error during pipemsg: ": "",
-				piperror? piperror: "",
-				piperror? "; ": "",
-				pp->waitmsg->msg, firstline(s_to_c(err)));
-			code = 450;
-			ecode = "4.0.0";
-		}
+		buf[0] = 0;
+		if(piperror != nil)
+			snprint(buf, sizeof buf, "pipemesg: %s; ", piperror);
+		syslog(0, "smtpd", "++[%s/%s] %s %s %sreturned %#q %s",
+			him, nci->rsys, s_to_c(senders.first->p),
+			s_to_c(cmd), buf,
+			pp->waitmsg->msg, firstline(s_to_c(err)));
 		for(cp = s_to_c(err); ep = strchr(cp, '\n'); cp = ep){
 			*ep++ = 0;
-			reply("%d-%s %s\r\n", code, ecode, cp);
+			reply("450-4.0.0 %s\r\n", cp);
 		}
-		reply("%d %s mail process terminated abnormally\r\n",
-			code, ecode);
+		reply("450 4.0.0 mail process terminated abnormally\r\n");
+		rejectcount++;
 	} else {
-		/*
-		 * if a message appeared on stderr, despite good status,
-		 * log it.  this can happen if rewrite.in contains a bad
-		 * r.e., for example.
-		 */
-		if(*s_to_c(err))
-			syslog(0, "smtpd",
-				"%s returned good status, but said: %s",
-				s_to_c(mailer), s_to_c(err));
-
-		if(filterstate == BLOCKED)
-			reply("554 5.7.1 we believe this is spam.  "
-				"we don't accept it.\r\n");
-		else if(filterstate == DELAY)
+		if(filterstate == BLOCKED){
+			e = firstline(s_to_c(err));
+			if(e[0] == 0)
+				e = piperror;
+			if(e == nil)
+				e = "we believe this is spam.";
+			syslog(0, "smtpd", "++[%s/%s] blocked: %s", him, nci->rsys, e);
+			reply("554 5.7.1 %s\r\n", e);
+			rejectcount++;
+		}else if(filterstate == DELAY){
+			logerrors(err);
 			reply("450 4.3.0 There will be a delay in delivery "
 				"of this message.\r\n");
-		else {
+		}else{
+			logerrors(err);
 			reply("250 2.5.0 sent\r\n");
 			logcall(nbytes);
-			if(debug){
-				seek(2, 0, 2);
-				stamp();
-				fprint(2, "# %d sent 250 reply %s\n",
-					getpid(), thedate());
-			}
 		}
 	}
 	proc_free(pp);
@@ -1475,6 +1521,8 @@ data(void)
 int
 rejectcheck(void)
 {
+	if(rejectcount)
+		sleep(1000 * (4<<rejectcount));
 	if(rejectcount > MAXREJECTS){
 		syslog(0, "smtpd", "Rejected (%s/%s)", him, nci->rsys);
 		reply("554 5.5.0 too many errors.  transaction failed.\r\n");
@@ -1518,9 +1566,9 @@ s_dec64(String *sin)
 	 * if the string is coming from smtpd.y, it will have no nl.
 	 * if it is coming from getcrnl below, it will have an nl.
 	 */
-	if (*(s_to_c(sin)+lin-1) == '\n')
+	if (*(s_to_c(sin) + lin - 1) == '\n')
 		lin--;
-	sout = s_newalloc(lin+1);
+	sout = s_newalloc(lin + 1);
 	lout = dec64((uchar *)s_to_c(sout), lin, s_to_c(sin), lin);
 	if (lout < 0) {
 		s_free(sout);
@@ -1567,6 +1615,32 @@ starttls(void)
 	syslog(0, "smtpd", "started TLS with %s", him);
 }
 
+int
+passauth(char *u, char *secret)
+{
+	char response[2*MD5dlen + 1];
+	uchar digest[MD5dlen];
+	int i;
+	AuthInfo *ai;
+	Chalstate *cs;
+
+	if((cs = auth_challenge("proto=cram role=server")) == nil)
+		return -1;
+	hmac_md5((uchar*)cs->chal, strlen(cs->chal),
+		(uchar*)secret, strlen(secret), digest, nil);
+	for(i = 0; i < MD5dlen; i++)
+		snprint(response + 2*i, sizeof response - 2*i, "%2.2ux", digest[i]);
+	cs->user = u;
+	cs->resp = response;
+	cs->nresp = strlen(response);
+	ai = auth_response(cs);
+	if(ai == nil)
+		return -1;
+	auth_freechal(cs);
+	auth_freeAI(ai);
+	return 0;
+}
+
 void
 auth(String *mech, String *resp)
 {
@@ -1576,19 +1650,19 @@ auth(String *mech, String *resp)
 	String *s_resp1_64 = nil, *s_resp2_64 = nil, *s_resp1 = nil;
 	String *s_resp2 = nil;
 
-	if (rejectcheck())
+	if(rejectcheck())
 		goto bomb_out;
 
 	syslog(0, "smtpd", "auth(%s, %s) from %s", s_to_c(mech),
 		"(protected)", him);
 
-	if (authenticated) {
+	if(authenticated) {
 	bad_sequence:
 		rejectcount++;
 		reply("503 5.5.2 Bad sequence of commands\r\n");
 		goto bomb_out;
 	}
-	if (cistrcmp(s_to_c(mech), "plain") == 0) {
+	if(cistrcmp(s_to_c(mech), "plain") == 0){
 		if (!passwordinclear) {
 			rejectcount++;
 			reply("538 5.7.1 Encryption required for requested "
@@ -1611,12 +1685,13 @@ auth(String *mech, String *resp)
 		memset(s_to_c(s_resp1_64), 'X', s_len(s_resp1_64));
 		user = s_to_c(s_resp1) + strlen(s_to_c(s_resp1)) + 1;
 		pass = user + strlen(user) + 1;
-		ai = auth_userpasswd(user, pass);
-		authenticated = ai != nil;
+//		ai = auth_userpasswd(user, pass);
+//		authenticated = ai != nil;
+authenticated = passauth(user, pass) != -1;
 		memset(pass, 'X', strlen(pass));
 		goto windup;
 	}
-	else if (cistrcmp(s_to_c(mech), "login") == 0) {
+	else if(cistrcmp(s_to_c(mech), "login") == 0){
 		if (!passwordinclear) {
 			rejectcount++;
 			reply("538 5.7.1 Encryption required for requested "
@@ -1628,7 +1703,8 @@ auth(String *mech, String *resp)
 			s_resp1_64 = s_new();
 			if (getcrnl(s_resp1_64, &bin) <= 0)
 				goto bad_sequence;
-		}
+		}else
+			s_resp1_64 = resp;
 		reply("334 UGFzc3dvcmQ6\r\n");
 		s_resp2_64 = s_new();
 		if (getcrnl(s_resp2_64, &bin) <= 0)
@@ -1656,7 +1732,7 @@ windup:
 		}
 		goto bomb_out;
 	}
-	else if (cistrcmp(s_to_c(mech), "cram-md5") == 0) {
+	else if(cistrcmp(s_to_c(mech), "cram-md5") == 0){
 		char *resp, *t;
 
 		chs = auth_challenge("proto=cram role=server");

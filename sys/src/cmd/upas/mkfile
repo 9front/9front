@@ -1,7 +1,27 @@
 </$objtype/mkfile
 
 LIBS=common
-PROGS=smtp alias fs ned misc q send scanmail pop3 ml marshal vf filterkit unesc bayes
+PROGS=\
+	Mail\
+	alias\
+	bayes\
+	binscripts\
+	filterkit\
+	fs\
+	imap4d\
+	marshal\
+	misc\
+	ml\
+	ned\
+	pop3\
+	q\
+	scanmail\
+	send\
+	smtp\
+	spf\
+	unesc\
+	vf\
+
 #libs must be made first
 DIRS=$LIBS $PROGS
 

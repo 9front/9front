@@ -1,16 +1,89 @@
 #include "common.h"
 #include "dat.h"
 
-Biobuf in;
+Biobuf	in;
+Addr	*al;
+int	na;
+String	*from;
+String	*sender;
 
-Addr *al;
-int na;
-String *from;
-String *sender;
+char*
+trim(char *s)
+{
+	while(*s == ' ' || *s == '\t')
+		s++;
+	return s;
+}
 
-void printmsg(int fd, String *msg, char *replyto, char *listname);
-void appendtoarchive(char* listname, String *firstline, String *msg);
-void printsubject(int fd, Field *f, char *listname);
+/* add the listname to the subject */
+void
+printsubject(int fd, Field *f, char *listname)
+{
+	char *s, *e, *ln;
+	Node *p;
+
+	if(f == nil || f->node == nil){
+		fprint(fd, "Subject: [%s]\n", listname);
+		return;
+	}
+	s = e = f->node->end + 1;
+	for(p = f->node; p; p = p->next)
+		e = p->end;
+	*e = 0;
+	ln = smprint("[%s]", listname);
+	if(ln != nil && strstr(s, ln) == nil)
+		fprint(fd, "Subject: %s %s\n", ln, trim(s));
+	else
+		fprint(fd, "Subject: %s\n", trim(s));
+	free(ln);
+	*e = '\n';
+}
+
+/* send message filtering Reply-to out of messages */
+void
+printmsg(int fd, String *msg, char *replyto, char *listname)
+{
+	Field *f, *subject;
+	Node *p;
+	char *cp, *ocp;
+
+	subject = nil;
+	cp = s_to_c(msg);
+	for(f = firstfield; f; f = f->next){
+		ocp = cp;
+		for(p = f->node; p; p = p->next)
+			cp = p->end+1;
+		switch(f->node->c){
+		case SUBJECT:
+			subject = f;
+		case REPLY_TO:
+		case PRECEDENCE:
+			continue;
+		}
+		write(fd, ocp, cp-ocp);
+	}
+	printsubject(fd, subject, listname);
+	fprint(fd, "Reply-To: %s\nPrecedence: bulk\n", replyto);
+	write(fd, cp, s_len(msg) - (cp - s_to_c(msg)));
+}
+
+/* if the mailbox exists, cat the mail to the end of it */
+void
+appendtoarchive(char* listname, String *firstline, String *msg)
+{
+	char *f;
+	Biobuf *b;
+
+	f = foldername(nil, listname, "mbox");
+	if(access(f, 0) < 0)
+		return;
+	if((b = openfolder(f, time(0))) == nil)
+		return;
+	Bwrite(b, s_to_c(firstline), s_len(firstline));
+	Bwrite(b, s_to_c(msg), s_len(msg));
+	Bwrite(b, "\n", 1);
+	closefolder(b);
+}
 
 void
 usage(void)
@@ -22,16 +95,21 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	String *msg;
-	String *firstline;
-	char *listname, *alfile;
+	char *listname, *alfile, *replytoname;
+	int fd, private;
+	String *msg, *firstline;
 	Waitmsg *w;
-	int fd;
-	char *replytoname = nil;
 
+	private = 0;
+	replytoname = nil;
 	ARGBEGIN{
+	default:
+		usage();
+	case 'p':
+		private = 1;
+		break;
 	case 'r':
-		replytoname = ARGF();
+		replytoname = EARGF(usage());
 		break;
 	}ARGEND;
 
@@ -56,8 +134,10 @@ main(int argc, char **argv)
 	if(s_read_line(&in, firstline) == nil)
 		sysfatal("reading input: %r");
 
-	/* read up to the first 128k of the message.  more is ridiculous. 
-	     Not if word documents are distributed.  Upped it to 2MB (pb) */
+	/*
+	 * read up to the first 128k of the message.  more is ridiculous. 
+	 *   Not if word documents are distributed.  Upped it to 2MB (pb)
+	 */
 	if(s_read(&in, msg, 2*1024*1024) <= 0)
 		sysfatal("reading input: %r");
 
@@ -73,7 +153,8 @@ main(int argc, char **argv)
 		sysfatal("message must contain From: or Sender:");
 	if(strcmp(listname, s_to_c(from)) == 0)
 		sysfatal("can't remail messages from myself");
-	addaddr(s_to_c(from));
+	if(addaddr(s_to_c(from)) != 0 && private)
+		sysfatal("not a list member");
 
 	/* start the mailer up and return a pipe to it */
 	fd = startmailer(listname);
@@ -92,76 +173,4 @@ main(int argc, char **argv)
 	/* if the mailbox exists, cat the mail to the end of it */
 	appendtoarchive(listname, firstline, msg);
 	exits(0);
-}
-
-/* send message filtering Reply-to out of messages */
-void
-printmsg(int fd, String *msg, char *replyto, char *listname)
-{
-	Field *f, *subject;
-	Node *p;
-	char *cp, *ocp;
-
-	subject = nil;
-	cp = s_to_c(msg);
-	for(f = firstfield; f; f = f->next){
-		ocp = cp;
-		for(p = f->node; p; p = p->next)
-			cp = p->end+1;
-		if(f->node->c == REPLY_TO)
-			continue;
-		if(f->node->c == PRECEDENCE)
-			continue;
-		if(f->node->c == SUBJECT){
-			subject = f;
-			continue;
-		}
-		write(fd, ocp, cp-ocp);
-	}
-	printsubject(fd, subject, listname);
-	fprint(fd, "Reply-To: %s\nPrecedence: bulk\n", replyto);
-	write(fd, cp, s_len(msg) - (cp - s_to_c(msg)));
-}
-
-/* if the mailbox exists, cat the mail to the end of it */
-void
-appendtoarchive(char* listname, String *firstline, String *msg)
-{
-	String *mbox;
-	int fd;
-
-	mbox = s_new();
-	mboxpath("mbox", listname, mbox, 0);
-	if(access(s_to_c(mbox), 0) < 0)
-		return;
-	fd = open(s_to_c(mbox), OWRITE);
-	if(fd < 0)
-		return;
-	s_append(msg, "\n");
-	write(fd, s_to_c(firstline), s_len(firstline));
-	write(fd, s_to_c(msg), s_len(msg));
-}
-
-/* add the listname to the subject */
-void
-printsubject(int fd, Field *f, char *listname)
-{
-	char *s, *e;
-	Node *p;
-	char *ln;
-
-	if(f == nil || f->node == nil){
-		fprint(fd, "Subject: [%s]\n", listname);
-		return;
-	}
-	s = e = f->node->end + 1;
-	for(p = f->node; p; p = p->next)
-		e = p->end;
-	*e = 0;
-	ln = smprint("[%s]", listname);
-	if(ln != nil && strstr(s, ln) == nil)
-		fprint(fd, "Subject: %s%s\n", ln, s);
-	else
-		fprint(fd, "Subject:%s\n", s);
-	free(ln);
 }

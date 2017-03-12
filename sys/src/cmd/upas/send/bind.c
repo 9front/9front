@@ -1,20 +1,34 @@
 #include "common.h"
 #include "send.h"
 
-static int forward_loop(char *, char *);
+/* Return TRUE if a forwarding loop exists, i.e., the String `system'
+ * is found more than 4 times in the return address.
+ */
+static int
+forward_loop(char *addr, char *system)
+{
+	int len, found;
+
+	found = 0;
+	len = strlen(system);
+	while(addr = strchr(addr, '!'))
+		if (!strncmp(++addr, system, len)
+		 && addr[len] == '!' && ++found == 4)
+			return 1;
+	return 0;
+}
+
 
 /* bind the destinations to the commands to be executed */
-extern dest *
+dest *
 up_bind(dest *destp, message *mp, int checkforward)
 {
-	dest *list[2];		/* lists of unbound destinations */
-	int li;			/* index into list[2] */
-	dest *bound=0;	/* bound destinations */
-	dest *dp;
-	int i;
+	int i, li;
+	dest *list[2], *bound, *dp;
 
+	bound = nil;
 	list[0] = destp;
-	list[1] = 0;
+	list[1] = nil;
 
 	/*
 	 *  loop once to check for:
@@ -24,7 +38,7 @@ up_bind(dest *destp, message *mp, int checkforward)
 	 *	- characters that need escaping
 	 */
 	for (dp = d_rm(&list[0]); dp != 0; dp = d_rm(&list[0])) {
-		if (!checkforward)
+		if(!checkforward)
 			dp->authorized = 1;
 		dp->addr = escapespecial(dp->addr);
 		if (forward_loop(s_to_c(dp->addr), thissys)) {
@@ -115,19 +129,3 @@ up_bind(dest *destp, message *mp, int checkforward)
 
 	return bound;
 }
-
-/* Return TRUE if a forwarding loop exists, i.e., the String `system'
- * is found more than 4 times in the return address.
- */
-static int
-forward_loop(char *addr, char *system)
-{
-	int len = strlen(system), found = 0;
-
-	while (addr = strchr(addr, '!'))
-		if (!strncmp(++addr, system, len)
-		 && addr[len] == '!' && ++found == 4)
-			return 1;
-	return 0;
-}
-

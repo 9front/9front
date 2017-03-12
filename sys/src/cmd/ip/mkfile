@@ -27,7 +27,7 @@ TARG = 	6in4\
 	socksd\
 	wol\
 
-DIRS=ftpfs cifsd dhcpd httpd ipconfig ppp imap4d snoopy
+DIRS=ftpfs cifsd dhcpd httpd ipconfig ppp snoopy
 
 BIN=/$objtype/bin/ip
 HFILES=dhcp.h arp.h glob.h icmp.h telnet.h

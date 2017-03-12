@@ -196,7 +196,8 @@ main(int argc, char **argv)
 	Addr *to, *cc, *bcc;
 	Attach *first, **l, *a;
 	Biobuf in, out, *b;
-	String *file, *hdrstring;
+	String *hdrstring;
+	char file[Pathlen];
 
 	noinput = 0;
 	subject = nil;
@@ -343,10 +344,8 @@ main(int argc, char **argv)
 		bwritesfree(&out, &hdrstring);
 
 	/* read user's standard headers */
-	file = s_new();
-	mboxpath("headers", user, file, 0);
-	b = Bopen(s_to_c(file), OREAD);
-	if(b != nil){
+	mboxpathbuf(file, sizeof file, user, "headers");
+	if(b = Bopen(file, OREAD)){
 		if (readheaders(b, &flags, &hdrstring, nil, nil, nil, nil, 0) == Error)
 			fatal("reading");
 		Bterm(b);
@@ -1034,68 +1033,14 @@ special(String *s)
 	return 0;
 }
 
-/* open the folder using the recipients account name */
-static int
-openfolder(char *rcvr)
-{
-	int c, fd, scarey;
-	char *p;
-	Dir *d;
-	String *file;
-
-	file = s_new();
-	mboxpath("f", user, file, 0);
-
-	/* if $mail/f exists, store there, otherwise in $mail */
-	d = dirstat(s_to_c(file));
-	if(d == nil || d->qid.type != QTDIR){
-		scarey = 1;
-		file->ptr -= 1;
-	} else {
-		s_putc(file, '/');
-		scarey = 0;
-	}
-	free(d);
-
-	p = strrchr(rcvr, '!');
-	if(p != nil)
-		rcvr = p+1;
-
-	while(*rcvr && *rcvr != '@'){
-		c = *rcvr++;
-		if(c == '/')
-			c = '_';
-		s_putc(file, c);
-	}
-	s_terminate(file);
-
-	if(scarey && special(file)){
-		fprint(2, "%s: won't overwrite %s\n", argv0, s_to_c(file));
-		s_free(file);
-		return -1;
-	}
-
-	fd = open(s_to_c(file), OWRITE);
-	if(fd < 0)
-		fd = create(s_to_c(file), OWRITE, 0660);
-
-	s_free(file);
-	return fd;
-}
-
 /* start up sendmail and return an fd to talk to it with */
 int
 sendmail(Addr *to, Addr *cc, Addr *bcc, int *pid, char *rcvr)
 {
-	int ac, fd;
-	int pfd[2];
-	char **av, **v;
+	int ac, fd, pfd[2];
+	char **v, cmd[Pathlen];
 	Addr *a;
-	String *cmd;
-
-	fd = -1;
-	if(rcvr != nil)
-		fd = openfolder(rcvr);
+	Biobuf *b;
 
 	ac = 0;
 	for(a = to; a != nil; a = a->next)
@@ -1104,7 +1049,7 @@ sendmail(Addr *to, Addr *cc, Addr *bcc, int *pid, char *rcvr)
 		ac++;
 	for(a = bcc; a != nil; a = a->next)
 		ac++;
-	v = av = emalloc(sizeof(char*)*(ac+20));
+	v = emalloc(sizeof(char*)*(ac+20));
 	ac = 0;
 	v[ac++] = "sendmail";
 	if(xflag)
@@ -1145,13 +1090,17 @@ sendmail(Addr *to, Addr *cc, Addr *bcc, int *pid, char *rcvr)
 				break;
 			case 0:
 				close(pfd[0]);
-				seek(fd, 0, 2);
+				b = 0;
+				/* BOTCH; "From " time gets changed */
+				if(rcvr)
+					b = openfolder(foldername(nil, user, rcvr), time(0));
+				fd = b? Bfildes(b): -1;
 				printunixfrom(fd);
 				tee(0, pfd[1], fd);
 				write(fd, "\n", 1);
+				closefolder(b);
 				exits(0);
 			default:
-				close(fd);
 				close(pfd[1]);
 				dup(pfd[0], 0);
 				break;
@@ -1160,16 +1109,14 @@ sendmail(Addr *to, Addr *cc, Addr *bcc, int *pid, char *rcvr)
 
 		if(replymsg != nil)
 			putenv("replymsg", replymsg);
-
-		cmd = mboxpath("pipefrom", login, s_new(), 0);
-		exec(s_to_c(cmd), av);
-		exec("/bin/myupassend", av);
-		exec("/bin/upas/send", av);
+		mboxpathbuf(cmd, sizeof cmd, login, "pipefrom");
+		exec(cmd, v);
+		exec("/bin/myupassend", v);
+		exec("/bin/upas/send", v);
 		fatal("execing: %r");
 		break;
 	default:
-		if(rcvr != nil)
-			close(fd);
+		free(v);
 		close(pfd[0]);
 		break;
 	}
@@ -1267,20 +1214,20 @@ freealiases(Alias *a)
 Alias*
 readaliases(void)
 {
+	char file[Pathlen];
 	Addr *addr, **al;
 	Alias *a, **l, *first;
 	Sinstack *sp;
-	String *file, *line, *token;
+	String *line, *token;
 	static int already;
 
 	first = nil;
-	file = s_new();
 	line = s_new();
 	token = s_new();
 
 	/* open and get length */
-	mboxpath("names", login, file, 0);
-	sp = s_allocinstack(s_to_c(file));
+	mboxpathbuf(file, Pathlen, login, "names");
+	sp = s_allocinstack(file);
 	if(sp == nil)
 		goto out;
 
@@ -1308,7 +1255,6 @@ readaliases(void)
 	}
 	s_freeinstack(sp);
 out:
-	s_free(file);
 	s_free(line);
 	s_free(token);
 	return first;

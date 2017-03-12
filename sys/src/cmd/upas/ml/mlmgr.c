@@ -1,11 +1,63 @@
 #include "common.h"
 #include "dat.h"
 
-int cflag;
-int aflag;
-int rflag;
+enum {
+	Bounces,
+	Owner,
+	List,
+	Nboxes,
+};
 
-int createpipeto(char *alfile, char *user, char *listname, int owner);
+char *suffix[Nboxes] = {
+[Bounces]	"-bounces",
+[Owner]		"-owner",
+[List]		"",
+};
+
+int
+createpipeto(char *alfile, char *user, char *listname, char *dom, int which)
+{
+	char buf[Pathlen], rflag[64];
+	int fd;
+	Dir *d;
+
+	mboxpathbuf(buf, sizeof buf, user, "pipeto");
+
+	fprint(2, "creating new pipeto: %s\n", buf);
+	fd = create(buf, OWRITE, 0775);
+	if(fd < 0)
+		return -1;
+	d = dirfstat(fd);
+	if(d == nil){
+		fprint(fd, "Couldn't stat %s: %r\n", buf);
+		return -1;
+	}
+	d->mode |= 0775;
+	if(dirfwstat(fd, d) < 0)
+		fprint(fd, "Couldn't wstat %s: %r\n", buf);
+	free(d);
+
+	if(dom != nil)
+		snprint(rflag, sizeof rflag, "-r%s@%s ", listname, dom);
+	else
+		rflag[0] = 0;
+
+	fprint(fd, "#!/bin/rc\n");
+	switch(which){
+	case Owner:
+		fprint(fd, "/bin/upas/mlowner %s %s\n", alfile, listname);
+		break;
+	case List:
+		fprint(fd, "/bin/upas/ml %s%s %s\n", rflag, alfile, user);
+		break;
+	case Bounces:
+		fprint(fd, "exit ''\n");
+		break;
+	}
+	close(fd);
+
+	return 0;
+}
 
 void
 usage(void)
@@ -18,24 +70,24 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	char *listname, *addr;
-	String *owner, *alfile;
+	char *listname, *dom, *addr, alfile[Pathlen], buf[64], flag[127];
+	int i;
+
 
 	rfork(RFENVG|RFREND);
 
+	memset(flag, 0, sizeof flag);
 	ARGBEGIN{
 	case 'c':
-		cflag = 1;
-		break;
 	case 'r':
-		rflag = 1;
-		break;
 	case 'a':
-		aflag = 1;
+		flag[ARGC()] = 1;
 		break;
+	default:
+		usage();
 	}ARGEND;
 
-	if(aflag + rflag + cflag > 1){
+	if(flag['a'] + flag['r'] + flag['c'] > 1){
 		fprint(2, "%s: -a, -r, and -c are mutually exclusive\n", argv0);
 		exits("usage");
 	}
@@ -44,67 +96,31 @@ main(int argc, char **argv)
 		usage();
 
 	listname = argv[0];
-	alfile = s_new();
-	mboxpath("address-list", listname, alfile, 0);
+	if((dom = strchr(listname, '@')) != nil)
+		*dom++ = 0;
+	mboxpathbuf(alfile, sizeof alfile, listname, "address-list");
 
-	if(cflag){
-		owner = s_copy(listname);
-		s_append(owner, "-owner");
-		if(creatembox(listname, nil) < 0)
-			sysfatal("creating %s's mbox: %r", listname);
-		if(creatembox(s_to_c(owner), nil) < 0)
-			sysfatal("creating %s's mbox: %r", s_to_c(owner));
-		if(createpipeto(s_to_c(alfile), listname, listname, 0) < 0)
-			sysfatal("creating %s's pipeto: %r", s_to_c(owner));
-		if(createpipeto(s_to_c(alfile), s_to_c(owner), listname, 1) < 0)
-			sysfatal("creating %s's pipeto: %r", s_to_c(owner));
-		writeaddr(s_to_c(alfile), "# mlmgr c flag", 0, listname);
-	} else if(rflag){
+	if(flag['c']){
+		for(i = 0; i < Nboxes; i++){
+			snprint(buf, sizeof buf, "%s%s", listname, suffix[i]);
+			if(creatembox(buf, nil) < 0)
+				sysfatal("creating %s's mbox: %r", buf);
+			if(createpipeto(alfile, buf, listname, dom, i) < 0)
+				sysfatal("creating %s's pipeto: %r", buf);
+		}
+		writeaddr(alfile, "# mlmgr c flag", 0, listname);
+	} else if(flag['r']){
 		if(argc != 2)
 			usage();
 		addr = argv[1];
-		writeaddr(s_to_c(alfile), "# mlmgr r flag", 0, listname);
-		writeaddr(s_to_c(alfile), addr, 1, listname);
-	} else if(aflag){
+		writeaddr(alfile, "# mlmgr r flag", 0, listname);
+		writeaddr(alfile, addr, 1, listname);
+	} else if(flag['a']){
 		if(argc != 2)
 			usage();
 		addr = argv[1];
-		writeaddr(s_to_c(alfile), "# mlmgr a flag", 0, listname);
-		writeaddr(s_to_c(alfile), addr, 0, listname);
-	} else
-		usage();
-	exits(0);
-}
-
-int
-createpipeto(char *alfile, char *user, char *listname, int owner)
-{
-	String *f;
-	int fd;
-	Dir *d;
-
-	f = s_new();
-	mboxpath("pipeto", user, f, 0);
-	fprint(2, "creating new pipeto: %s\n", s_to_c(f));
-	fd = create(s_to_c(f), OWRITE, 0775);
-	if(fd < 0)
-		return -1;
-	d = dirfstat(fd);
-	if(d == nil){
-		fprint(fd, "Couldn't stat %s: %r\n", s_to_c(f));
-		return -1;
+		writeaddr(alfile, "# mlmgr a flag", 0, listname);
+		writeaddr(alfile, addr, 0, listname);
 	}
-	d->mode |= 0775;
-	if(dirfwstat(fd, d) < 0)
-		fprint(fd, "Couldn't wstat %s: %r\n", s_to_c(f));
-	free(d);
-
-	fprint(fd, "#!/bin/rc\n");
-	if(owner)
-		fprint(fd, "/bin/upas/mlowner %s %s\n", alfile, listname);
-	else
-		fprint(fd, "/bin/upas/ml %s %s\n", alfile, user);
-	close(fd);
-
-	return 0;
+	exits(0);
 }

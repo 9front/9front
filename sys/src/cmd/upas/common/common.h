@@ -1,80 +1,79 @@
-#include "sys.h"
-
-/* format of REMOTE FROM lines */
-extern char *REMFROMRE;
-extern int REMSENDERMATCH;
-extern int REMDATEMATCH;
-extern int REMSYSMATCH;
-
-/* format of mailbox FROM lines */
-#define IS_HEADER(p) ((p)[0]=='F'&&(p)[1]=='r'&&(p)[2]=='o'&&(p)[3]=='m'&&(p)[4]==' ')
-#define IS_TRAILER(p) ((p)[0]=='m'&&(p)[1]=='o'&&(p)[2]=='r'&&(p)[3]=='F'&&(p)[4]=='\n')
-extern char *FROMRE;
-extern int SENDERMATCH;
-extern int DATEMATCH;
-
 enum
 {
-	Elemlen= 28,
-	Errlen=	ERRMAX,
-	Pathlen= 256,
+	Elemlen	= 56,
+	Pathlen	= 256,
 };
-enum { Atnoteunknown, Atnoterecog };
+
+#include "sys.h"
+#include <String.h>
+
+enum{
+	Fields	= 18,
+
+	/* flags */
+	Fanswered	= 1<<0, /* a */
+	Fdeleted		= 1<<1, /* D */
+	Fdraft		= 1<<2, /* d */
+	Fflagged		= 1<<3, /* f */
+	Frecent		= 1<<4, /* r	we are the first fs to see this */
+	Fseen		= 1<<5, /* s */
+	Fstored		= 1<<6, /* S */
+	Nflags		= 7,
+};
 
 /*
- *  routines in mail.c
+ * flag.c
  */
-extern int	print_header(Biobuf*, char*, char*);
-extern int	print_remote_header(Biobuf*, char*, char*, char*);
-extern int	parse_header(char*, String*, String*);
+char	*flagbuf(char*, int);
+int	buftoflags(char*);
+char	*txflags(char*, uchar*);
 
 /*
  *  routines in aux.c
  */
-extern String	*abspath(char*, char*, String*);
-extern String	*mboxpath(char*, char*, String*, int);
-extern char	*basename(char*);
-extern int	delivery_status(String*);
-extern void	append_match(Resub*, String*, int);
-extern int	shellchars(char*);
-extern String*	escapespecial(String*);
-extern String*	unescapespecial(String*);
-extern int	returnable(char*);
+char	*mboxpathbuf(char*, int, char*, char*);
+char	*basename(char*);
+int	shellchars(char*);
+String	*escapespecial(String*);
+String	*unescapespecial(String*);
+int	returnable(char*);
 
-/* in copymessage */
-extern int	appendfiletombox(int, int);
-extern int	appendfiletofile(int, int);
+/* folder.c */
+Biobuf	*openfolder(char*, long);
+int	closefolder(Biobuf*);
+int	appendfolder(Biobuf*, char*, long*, int);
+int	fappendfolder(char*, long, char *, int);
+int	fappendfile(char*, char*, int);
+char*	foldername(char*, char*, char*);
+char*	ffoldername(char*, char*, char*);
 
-/* mailbox types */
-#define MF_NORMAL 0
-#define MF_PIPE 1
-#define MF_FORWARD 2
-#define MF_NOMBOX 3
-#define MF_NOTMBOX 4
+/* fmt.c */
+void	mailfmtinstall(void);	/* 'U' = 2047fmt */
+#pragma varargck	type	"U"	char*
+
+/* totm.c */
+int	fromtotm(char*, Tm*);
 
 /* a pipe between parent and child*/
-typedef struct {
+typedef struct{
 	Biobuf	bb;
 	Biobuf	*fp;	/* parent process end*/
 	int	fd;	/* child process end*/
 } stream;
 
 /* a child process*/
-typedef struct process{
+typedef struct{
 	stream	*std[3];	/* standard fd's*/
 	int	pid;		/* process identifier*/
 	int	status;		/* exit status*/
 	Waitmsg	*waitmsg;
 } process;
 
-extern stream	*instream(void);
-extern stream	*outstream(void);
-extern void	stream_free(stream*);
-extern process	*noshell_proc_start(char**, stream*, stream*, stream*, int, char*);
-extern process	*proc_start(char*, stream*, stream*, stream*, int, char*);
-extern int	proc_wait(process*);
-extern int	proc_free(process*);
-extern int	proc_kill(process*);
-
-/* tell compiler we're using a value so it won't complain */
-#define USE(x)	if(x)
+stream	*instream(void);
+stream	*outstream(void);
+void	stream_free(stream*);
+process	*noshell_proc_start(char**, stream*, stream*, stream*, int, char*);
+process	*proc_start(char*, stream*, stream*, stream*, int, char*);
+int	proc_wait(process*);
+int	proc_free(process*);
+//int	proc_kill(process*);

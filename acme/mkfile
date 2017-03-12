@@ -5,6 +5,5 @@ none:VQ:
 
 all install clean nuke installall update:V:
 	@{cd bin/source; mk $target}
-	@{cd mail/src; mk $target}
 	@{cd news/src; mk $target}
 	@{cd wiki/src; mk $target}

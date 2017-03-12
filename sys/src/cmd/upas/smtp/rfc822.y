@@ -3,8 +3,6 @@
 #include "smtp.h"
 #include <ctype.h>
 
-#define YYMAXDEPTH	500		/* was default 150 */
-
 char	*yylp;		/* next character to be lex'd */
 int	yydone;		/* tell yylex to give up */
 char	*yybuffer;	/* first parsed character */
@@ -54,10 +52,11 @@ int	messageid;
 msg		: fields
 		| unixfrom '\n' fields
 		;
-fields		: '\n'
+fields		: fieldlist '\n'
 			{ yydone = 1; }
-		| field '\n'
-		| field '\n' fields
+		;
+fieldlist		: field '\n'
+		| fieldlist field '\n'
 		;
 field		: dates
 			{ date = 1; }
@@ -304,14 +303,12 @@ Keyword key[] = {
  */
 yylex(void)
 {
-	String *t;
-	int quoting;
-	int escaping;
 	char *start;
+	int quoting, escaping, c, d;
+	String *t;
 	Keyword *kp;
-	int c, d;
 
-/*	print("lexing\n"); /**/
+//	print("lexing\n");
 	if(yylp >= yyend)
 		return 0;
 	if(yydone)
@@ -331,15 +328,15 @@ yylex(void)
 		if(c == 0)
 			continue;
 
-		if(escaping) {
+		if(escaping)
 			escaping = 0;
-		} else if(quoting) {
+		else if(quoting){
 			switch(c){
 			case '\\':
 				escaping = 1;
 				break;
 			case '\n':
-				d = (*(yylp+1))&0xff;
+				d = yylp[1] & 0xff;
 				if(d != ' ' && d != '\t'){
 					quoting = 0;
 					yylp--;
@@ -350,7 +347,7 @@ yylex(void)
 				quoting = 0;
 				break;
 			}
-		} else {
+		}else{
 			switch(c){
 			case '\\':
 				escaping = 1;
@@ -363,7 +360,7 @@ yylex(void)
 			case '\n':
 				if(yylp == start){
 					yylp++;
-/*					print("lex(c %c)\n", c); /**/
+//					print("lex(c %c)\n", c);
 					yylval->end = yylp;
 					return yylval->c = c;
 				}
@@ -377,7 +374,7 @@ yylex(void)
 				if(yylp == start){
 					yylp++;
 					yylval->white = yywhite();
-/*					print("lex(c %c)\n", c); /**/
+//					print("lex(c %c)\n", c);
 					yylval->end = yylp;
 					return yylval->c = c;
 				}
@@ -395,25 +392,23 @@ yylex(void)
 	}
 out:
 	yylval->white = yywhite();
-	if(t) {
+	if(t)
 		s_terminate(t);
-	} else				/* message begins with white-space! */
+	else				/* message begins with white-space! */
 		return yylval->c = '\n';
 	yylval->s = t;
 	for(kp = key; kp->val != WORD; kp++)
-		if(cistrcmp(s_to_c(t), kp->rep)==0)
+		if(cistrcmp(s_to_c(t), kp->rep) == 0)
 			break;
-/*	print("lex(%d) %s\n", kp->val-WORD, s_to_c(t)); /**/
+//	print("lex(%d) %s\n", kp->val - WORD, s_to_c(t));
 	yylval->end = yylp;
 	return yylval->c = kp->val;
 }
 
 void
-yyerror(char *x)
+yyerror(char*)
 {
-	USED(x);
-
-	/*fprint(2, "parse err: %s\n", x);/**/
+//	fprint(2, "parse err: %s\n", x);
 }
 
 /*
@@ -423,9 +418,7 @@ String *
 yywhite(void)
 {
 	String *w;
-	int clevel;
-	int c;
-	int escaping;
+	int clevel, c, escaping;
 
 	escaping = clevel = 0;
 	for(w = 0; yylp < yyend; yylp++){
@@ -435,15 +428,15 @@ yywhite(void)
 		if(c == 0)
 			continue;
 
-		if(escaping){
+		if(escaping)
 			escaping = 0;
-		} else if(clevel) {
+		else if(clevel){
 			switch(c){
 			case '\n':
 				/*
 				 *  look for multiline fields
 				 */
-				if(*(yylp+1)==' ' || *(yylp+1)=='\t')
+				if(yylp[1] == ' ' || yylp[1] == '\t')
 					break;
 				else
 					goto out;
@@ -473,7 +466,7 @@ yywhite(void)
 				/*
 				 *  look for multiline fields
 				 */
-				if(*(yylp+1)==' ' || *(yylp+1)=='\t')
+				if(yylp[1] == ' ' || yylp[1] == '\t')
 					break;
 				else
 					goto out;
@@ -533,7 +526,7 @@ colon(Node *p1, Node *p2)
 	if(p1->white){
 		if(p2->white)
 			s_append(p1->white, s_to_c(p2->white));
-	} else {
+	}else{
 		p1->white = p2->white;
 		p2->white = 0;
 	}
@@ -573,7 +566,7 @@ concat(Node *p1, Node *p2)
 
 	if(p2->s)
 		s_append(p1->s, s_to_c(p2->s));
-	else {
+	else{
 		buf[0] = p2->c;
 		buf[1] = 0;
 		s_append(p1->s, buf);
@@ -607,23 +600,6 @@ address(Node *p)
 {
 	p->addr = 1;
 	return p;
-}
-
-/*
- *  case independent string compare
- */
-int
-cistrcmp(char *s1, char *s2)
-{
-	int c1, c2;
-
-	for(; *s1; s1++, s2++){
-		c1 = isupper(*s1) ? tolower(*s1) : *s1;
-		c2 = isupper(*s2) ? tolower(*s2) : *s2;
-		if (c1 != c2)
-			return -1;
-	}
-	return *s2;
 }
 
 /*
@@ -673,10 +649,10 @@ missing(Node *p)
 	start = yybuffer;
 	if(lastfield != nil){
 		for(np = lastfield->node; np; np = np->next)
-			start = np->end+1;
+			start = np->end + 1;
 	}
 
-	end = p->start-1;
+	end = p->start - 1;
 
 	if(end <= start)
 		return;
@@ -689,7 +665,7 @@ missing(Node *p)
 	np->end = end;
 	np->white = nil;
 	s = s_copy("BadHeader: ");
-	np->s = s_nappend(s, start, end-start);
+	np->s = s_nappend(s, start, end - start);
 	np->next = nil;
 
 	f = malloc(sizeof(Field));

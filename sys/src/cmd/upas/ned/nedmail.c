@@ -1,22 +1,21 @@
 #include "common.h"
 #include <ctype.h>
 #include <plumb.h>
+#include <regexp.h>
 
-typedef struct Message Message;
-typedef struct Ctype Ctype;
 typedef struct Cmd Cmd;
+typedef struct Ctype Ctype;
+typedef struct Dirstats Dirstats;
+typedef struct Message Message;
+typedef Message* (Mfn)(Cmd*,Message*);
 
-char	root[Pathlen];
-char	mbname[Elemlen];
-int	rootlen;
-int	didopen;
-char	*user;
-char	wd[2048];
-String	*mbpath;
-int	natural;
-int	doflush;
+enum{
+	/* nflags */
+	Nmissing	= 1<<0,
+	Nnoflags	= 1<<1,
 
-int interrupted;
+	Narg	= 32,
+};
 
 struct Message {
 	Message	*next;
@@ -24,11 +23,11 @@ struct Message {
 	Message	*cmd;
 	Message	*child;
 	Message	*parent;
-	String	*path;
+	char	*path;
 	int	id;
 	int	len;
-	int	fileno;	// number of directory
-	String	*info;
+	int	fileno;	/* number of directory */
+	char	*info;
 	char	*from;
 	char	*to;
 	char	*cc;
@@ -38,151 +37,281 @@ struct Message {
 	char	*type;
 	char	*disposition;
 	char	*filename;
-	char	deleted;
-	char	stored;
+	uchar	flags;
+	uchar	nflags;
 };
+#pragma varargck	type	"D"	Message*
 
-Message top;
+enum{
+	Display	= 1<<0,
+	Rechk	= 1<<1,	/* always use file to check content type */
+};
 
 struct Ctype {
 	char	*type;
 	char 	*ext;
-	int	display;
+	uchar	flag;
 	char	*plumbdest;
 	Ctype	*next;
 };
 
+/* first element is the default return value */
 Ctype ctype[] = {
-	{ "text/plain",			"txt",	1,	0	},
-	{ "text/html",			"htm",	1,	0	},
-	{ "text/html",			"html",	1,	0	},
-	{ "text/tab-separated-values",	"tsv",	1,	0	},
-	{ "text/richtext",		"rtx",	1,	0	},
-	{ "text/rtf",			"rtf",	1,	0	},
-	{ "text",			"txt",	1,	0	},
+	{ "application/octet-stream", 	"bin", 	Rechk, 	0,	0,	},
+	{ "text/plain",			"txt",	Display,	0	},
+	{ "text/html",			"htm",	Display,	0	},
+	{ "text/html",			"html",	Display,	0	},
+	{ "text/tab-separated-values",	"tsv",	Display,	0	},
+	{ "text/richtext",			"rtx",	Display,	0	},
+	{ "text/rtf",			"rtf",	Display,	0	},
+	{ "text",				"txt",	Display,	0	},
 	{ "message/rfc822",		"msg",	0,	0	},
 	{ "image/bmp",			"bmp",	0,	"image"	},
 	{ "image/jpg",			"jpg",	0,	"image"	},
 	{ "image/jpeg",			"jpg",	0,	"image"	},
 	{ "image/gif",			"gif",	0,	"image"	},
 	{ "image/png",			"png",	0,	"image"	},
+	{ "image/x-png",			"png",	0,	"image"	},
+	{ "image/tiff",			"tif",	0,	"image"	},
 	{ "application/pdf",		"pdf",	0,	"postscript"	},
-	{ "application/postscript",	"ps",	0,	"postscript"	},
-	{ "application/",		0,	0,	0	},
+	{ "application/postscript",		"ps",	0,	"postscript"	},
+	{ "application/vnd.openxmlformats-officedocument.wordprocessingml.document",		"docx",	0,	"docx"	},
+	{ "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",		"xlsx",	0,	"xlsx"	},
+	{ "application/",			0,	0,	0	},
 	{ "image/",			0,	0,	0	},
 	{ "multipart/",			"mul",	0,	0	},
 
 };
 
-Message*	acmd(Cmd*, Message*);
-Message*	bcmd(Cmd*, Message*);
-Message*	dcmd(Cmd*, Message*);
-Message*	eqcmd(Cmd*, Message*);
-Message*	hcmd(Cmd*, Message*);
-Message*	Hcmd(Cmd*, Message*);
-Message*	helpcmd(Cmd*, Message*);
-Message*	icmd(Cmd*, Message*);
-Message*	pcmd(Cmd*, Message*);
-Message*	qcmd(Cmd*, Message*);
-Message*	rcmd(Cmd*, Message*);
-Message*	scmd(Cmd*, Message*);
-Message*	ucmd(Cmd*, Message*);
-Message*	wcmd(Cmd*, Message*);
-Message*	xcmd(Cmd*, Message*);
-Message*	ycmd(Cmd*, Message*);
-Message*	pipecmd(Cmd*, Message*);
-Message*	rpipecmd(Cmd*, Message*);
-Message*	bangcmd(Cmd*, Message*);
-Message*	Pcmd(Cmd*, Message*);
-Message*	mcmd(Cmd*, Message*);
-Message*	fcmd(Cmd*, Message*);
-Message*	quotecmd(Cmd*, Message*);
-
-struct {
-	char		*cmd;
-	int		args;
-	Message*	(*f)(Cmd*, Message*);
-	char		*help;
-} cmdtab[] = {
-	{ "a",	1,	acmd,	"a        reply to sender and recipients" },
-	{ "A",	1,	acmd,	"A        reply to sender and recipients with copy" },
-	{ "b",	0,	bcmd,	"b        print the next 10 headers" },
-	{ "d",	0,	dcmd,	"d        mark for deletion" },
-	{ "f",	0,	fcmd,	"f        file message by from address" },
-	{ "h",	0,	hcmd,	"h        print elided message summary (,h for all)" },
-	{ "help", 0,	helpcmd, "help     print this info" },
-	{ "H",	0,	Hcmd,	"H        print message's MIME structure " },
-	{ "i",	0,	icmd,	"i        incorporate new mail" },
-	{ "m",	1,	mcmd,	"m addr   forward mail" },
-	{ "M",	1,	mcmd,	"M addr   forward mail with message" },
-	{ "p",	0,	pcmd,	"p        print the processed message" },
-	{ "P",	0,	Pcmd,	"P        print the raw message" },
-	{ "\"",	0,	quotecmd, "\"        print a quoted version of msg" },
-	{ "q",	0,	qcmd,	"q        exit and remove all deleted mail" },
-	{ "r",	1,	rcmd,	"r [addr] reply to sender plus any addrs specified" },
-	{ "rf",	1,	rcmd,	"rf [addr]file message and reply" },
-	{ "R",	1,	rcmd,	"R [addr] reply including copy of message" },
-	{ "Rf",	1,	rcmd,	"Rf [addr]file message and reply with copy" },
-	{ "s",	1,	scmd,	"s file   append raw message to file" },
-	{ "u",	0,	ucmd,	"u        remove deletion mark" },
-	{ "w",	1,	wcmd,	"w file   store message contents as file" },
-	{ "x",	0,	xcmd,	"x        exit without flushing deleted messages" },
-	{ "y",	0,	ycmd,	"y        synchronize with mail box" },
-	{ "=",	1,	eqcmd,	"=        print current message number" },
-	{ "|",	1,	pipecmd, "|cmd     pipe message body to a command" },
-	{ "||",	1,	rpipecmd, "||cmd     pipe raw message to a command" },
-	{ "!",	1,	bangcmd, "!cmd     run a command" },
-	{ nil,	0,	nil, 	nil },
+struct Dirstats {
+	int	new;
+	int	del;
+	int	old;
+	int	unread;
 };
 
-enum
-{
-	NARG=	32,
+Mfn	acmd;
+Mfn	bangcmd;
+Mfn	bcmd;
+Mfn	dcmd;
+Mfn	eqcmd;
+Mfn	Fcmd;
+Mfn	fcmd;
+Mfn	fqcmd;
+Mfn	Hcmd;
+Mfn	hcmd;
+Mfn	helpcmd;
+Mfn	icmd;
+Mfn	Kcmd;
+Mfn	kcmd;
+Mfn	mbcmd;
+Mfn	mcmd;
+Mfn	Pcmd;
+Mfn	pcmd;
+Mfn	pipecmd;
+Mfn	qcmd;
+Mfn	quotecmd;
+Mfn	rcmd;
+Mfn	rpipecmd;
+Mfn	scmd;
+Mfn	tcmd;
+Mfn	ucmd;
+Mfn	wcmd;
+Mfn	xcmd;
+Mfn	ycmd;
+
+struct {
+	char	*cmd;
+	int	args;
+	int	addr;
+	Mfn	*f;
+	char	*help;
+} cmdtab[] = {
+	{ "a",	1, 1,	acmd,	"a\t"		"reply to sender and recipients" },
+	{ "A",	1, 0,	acmd,	"A\t"		"reply to sender and recipients with copy" },
+	{ "b",	0, 0,	bcmd,	"b\t"		"print the next 10 headers" },
+	{ "d",	0, 1,	dcmd,	"d\t"		"mark for deletion" },
+	{ "F",	1, 1,	Fcmd,	"f\t"		"set message flags [+-][aDdfrSs]" },
+	{ "f",	0, 1,	fcmd,	"f\t"		"file message by from address" },
+	{ "fq",	0, 1,	fqcmd,	"fq\t"		"print mailbox f appends" },
+	{ "H",	0, 0,	Hcmd,	"H\t"		"print message's MIME structure" },
+	{ "h",	0, 0,	hcmd,	"h\t"		"print message summary (,h for all)" },
+	{ "help", 0, 0,	helpcmd, "help\t"		"print this info" },
+	{ "i",	0, 0,	icmd,	"i\t"		"incorporate new mail" },
+	{ "k",	1, 1,	kcmd,	"k [flags]\t"	"mark mail" },
+	{ "K",	1, 1,	Kcmd,	"K [flags]\t"	"unmark mail" },
+	{ "m",	1, 1,	mcmd,	"m addr\t"	"forward mail" },
+	{ "M",	1, 0,	mcmd,	"M addr\t"	"forward mail with message" },
+	{ "mb",	1, 0,	mbcmd,	"mb mbox\t"	"switch mailboxes" },
+	{ "p",	1, 0,	pcmd,	"p\t"		"print the processed message" },
+	{ "P",	0, 0,	Pcmd,	"P\t"		"print the raw message" },
+	{ "\"",	0, 0,	quotecmd, "\"\t"		"print a quoted version of msg" },
+	{ "\"\"",	0, 0,	quotecmd, "\"\"\t"		"format and quote message" },
+	{ "q",	0, 0,	qcmd,	"q\t"		"exit and remove all deleted mail" },
+	{ "r",	1, 1,	rcmd,	"r [addr]\t"	"reply to sender plus any addrs specified" },
+	{ "rf",	1, 0,	rcmd,	"rf [addr]\t"	"file message and reply" },
+	{ "R",	1, 0,	rcmd,	"R [addr]\t"	"reply including copy of message" },
+	{ "Rf",	1, 0,	rcmd,	"Rf [addr]\t"	"file message and reply with copy" },
+	{ "s",	1, 1,	scmd,	"s file\t"		"append raw message to file" },
+	{ "t",	1, 0,	tcmd,	"t\t"		"text formatter" },
+	{ "u",	0, 0,	ucmd,	"u\t"		"remove deletion mark" },
+	{ "w",	1, 1,	wcmd,	"w file\t"		"store message contents as file" },
+	{ "x",	0, 0,	xcmd,	"x\t"		"exit without flushing deleted messages" },
+	{ "y",	0, 0,	ycmd,	"y\t"		"synchronize with mail box" },
+	{ "=",	1, 0,	eqcmd,	"=\t"		"print current message number" },
+	{ "|",	1, 1,	pipecmd, "|cmd\t"		"pipe message body to a command" },
+	{ "||",	1, 1,	rpipecmd, "||cmd\t"	"pipe raw message to a command" },
+	{ "!",	1, 0,	bangcmd, "!cmd\t"		"run a command" },
 };
 
 struct Cmd {
 	Message	*msgs;
-	Message	*(*f)(Cmd*, Message*);
+	Mfn	*f;
 	int	an;
-	char	*av[NARG];
+	char	*av[Narg];
+	char	cmdline[2*1024];
 	int	delete;
 };
 
-Biobuf out;
-int startedfs;
-int reverse;
-int longestfrom = 12;
-
-String*		file2string(String*, char*);
-int		dir2message(Message*, int);
-int		filelen(String*, char*);
-String*		extendpath(String*, char*);
-void		snprintheader(char*, int, Message*);
-void		cracktime(char*, char*, int);
-int		cistrncmp(char*, char*, int);
-int		cistrcmp(char*, char*);
-Reprog*		parsesearch(char**);
-char*		parseaddr(char**, Message*, Message*, Message*, Message**);
+int		dir2message(Message*, int, Dirstats*);
+int		mdir2message(Message*);
+char*		extendp(char*, char*);
 char*		parsecmd(char*, Cmd*, Message*, Message*);
-char*		readline(char*, char*, int);
-void		messagecount(Message*);
 void		system(char*, char**, int);
-void		mkid(String*, Message*);
-int		switchmb(char*, char*);
+int		switchmb(char *, int);
 void		closemb(void);
-int		lineize(char*, char**, int);
-int		rawsearch(Message*, Reprog*);
 Message*	dosingleton(Message*, char*);
-String*		rooted(String*);
+char*		rooted(char*);
 int		plumb(Message*, Ctype*);
-String*		addrecolon(char*);
 void		exitfs(char*);
 Message*	flushdeleted(Message*);
+
+int	didopen;
+int	doflush;
+int	interrupted;
+int	longestfrom = 12;
+int	longestto = 12;
+int	hcmdfmt;
+Qid	mbqid;
+int	mbvers;
+char	mbname[Pathlen];
+char	mbpath[Pathlen];
+int	natural;
+Biobuf	out;
+int	reverse;
+char	root[Pathlen];
+int	rootlen;
+int	startedfs;
+Message	top;
+char	*user;
+char	homewd[Pathlen];
+char	wd[Pathlen];
+char	textfmt[Pathlen];
+
+char*
+idfmt(char *p, char *e, Message *m)
+{
+	char buf[32];
+	int sz, l;
+
+	for(; (sz = e - p) > 0; ){
+		l = snprint(buf, sizeof buf, "%d", m->id);
+		if(l + 1 > sz)
+			return "*GOK*";
+		e -= l;
+		memcpy(e, buf, l);
+		if((m = m->parent) == &top)
+			break;
+		e--;
+		*e = '.';
+	}
+	return e;
+}
+
+int
+eprint(char *fmt, ...)
+{
+	int n;
+	va_list args;
+
+	Bflush(&out);
+
+	va_start(args, fmt);
+	n = vfprint(2, fmt, args);
+	va_end(args);
+	return n;
+}
+
+void
+dissappeared(void)
+{
+	char buf[ERRMAX];
+
+	rerrstr(buf, sizeof buf);
+	if(strstr(buf, "hungup channel")){
+		eprint("\n!she's dead, jim\n");
+		exits(buf);
+	}
+	eprint("!message dissappeared\n");
+}
+
+int
+Dfmt(Fmt *f)
+{
+	char *e, buf[128];
+	Message *m;
+
+	m = va_arg(f->args, Message*);
+	if(m == nil)
+		return fmtstrcpy(f, "*GOK*");
+	if(m == &top)
+		return 0;
+	e = buf + sizeof buf - 1;
+	*e = 0;
+	return fmtstrcpy(f, idfmt(buf, e, m));
+}
+
+char*
+readline(char *prompt, char *line, int len)
+{
+	char *p, *e, *q;
+	int n, dump;
+
+	e = line + len;
+retry:
+	dump = 0;
+	interrupted = 0;
+	eprint("%s", prompt);
+	for(p = line;; p += n){
+		if(p == e){
+			dump = 1;
+			p = line;
+		}
+		n = read(0, p, e - p);
+		if(n < 0){
+			if(interrupted)
+				goto retry;
+			return nil;
+		}
+		if(n == 0)
+			return nil;
+		if(q = memchr(p, '\n', n)){
+			if(dump){
+				eprint("!line too long\n");
+				goto retry;
+			}
+			p = q;
+			break;
+		}
+	}
+	*p = 0;
+	return line;
+}
 
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-nr] [-f mailfile] [-s mailfile]\n", argv0);
+	fprint(2, "usage: %s [-nrt] [-f mailfile] [-s mailfile]\n", argv0);
 	fprint(2, "       %s -c dir\n", argv0);
 	exits("usage");
 }
@@ -197,43 +326,37 @@ catchnote(void*, char *note)
 	noted(NDFLT);
 }
 
-char *
+char*
 plural(int n)
 {
 	if (n == 1)
 		return "";
-
-	return "s";		
+	return "s";	
 }
 
 void
 main(int argc, char **argv)
 {
-	Message *cur, *m, *x;
-	char cmdline[4*1024];
+	char cmdline[2*1024], prompt[64], *err, *av[4], *mb;
+	int n, cflag, singleton;
 	Cmd cmd;
 	Ctype *cp;
-	char *err;
-	int n, cflag;
-	char *av[4];
-	String *prompt;
-	char *file, *singleton;
+	Message *cur, *m, *x;
 
 	Binit(&out, 1, OWRITE);
 
-	file = nil;
-	singleton = nil;
+	mb = nil;
+	singleton = 0;
 	reverse = 1;
 	cflag = 0;
 	ARGBEGIN {
 	case 'c':
 		cflag = 1;
 		break;
-	case 'f':
-		file = EARGF(usage());
-		break;
 	case 's':
-		singleton = EARGF(usage());
+		singleton = 1;
+	case 'f':
+		mb = EARGF(usage());
 		break;
 	case 'r':
 		reverse = 0;
@@ -242,21 +365,28 @@ main(int argc, char **argv)
 		natural = 1;
 		reverse = 0;
 		break;
+	case 't':
+		hcmdfmt = 1;
+		break;
 	default:
 		usage();
 		break;
 	} ARGEND;
 
+	fmtinstall('D', Dfmt);
+	quotefmtinstall();
+	doquote = needsrcquote;
+	getwd(homewd, sizeof homewd);
 	user = getlog();
 	if(user == nil || *user == 0)
 		sysfatal("can't read user name");
 
 	if(cflag){
 		if(argc > 0)
-			creatembox(user, argv[0]);
+			n = creatembox(user, argv[0]);
 		else
-			creatembox(user, nil);
-		exits(0);
+			n = creatembox(user, nil);
+		exits(n? 0: "fail");
 	}
 
 	if(argc)
@@ -270,82 +400,73 @@ main(int argc, char **argv)
 		system("/bin/upas/fs", av, -1);
 	}
 
-	switchmb(file, singleton);
+	switchmb(mb, singleton);
+	top.path = strdup(root);
+	for(cp = ctype; cp < ctype + nelem(ctype) - 1; cp++)
+		cp->next = cp + 1;
 
-	top.path = s_copy(root);
-
-	for(cp = ctype; cp < ctype+nelem(ctype)-1; cp++)
-		cp->next = cp+1;
-
-	if(singleton != nil){
-		cur = dosingleton(&top, singleton);
+	if(singleton){
+		cur = dosingleton(&top, mb);
 		if(cur == nil){
-			Bprint(&out, "no message\n");
+			eprint("no message\n");
 			exitfs(0);
 		}
 		pcmd(nil, cur);
 	} else {
 		cur = &top;
-		n = dir2message(&top, reverse);
-		if(n < 0)
-			sysfatal("can't read %s", s_to_c(top.path));
-		Bprint(&out, "%d message%s\n", n, plural(n));
+		if(icmd(nil, cur) == nil)
+			sysfatal("can't read %s", top.path);
 	}
 
-
 	notify(catchnote);
-	prompt = s_new();
 	for(;;){
-		s_reset(prompt);
-		if(cur == &top)
-			s_append(prompt, ": ");
-		else {
-			mkid(prompt, cur);
-			s_append(prompt, ": ");
-		}
+		snprint(prompt, sizeof prompt, "%D: ", cur);
 
-		// leave space at the end of cmd line in case parsecmd needs to
-		// add a space after a '|' or '!'
-		if(readline(s_to_c(prompt), cmdline, sizeof(cmdline)-1) == nil)
+		/*
+		 * leave space at the end of cmd line in case parsecmd needs to
+		 * add a space after a '|' or '!'
+		 */
+		if(readline(prompt, cmdline, sizeof cmdline - 1) == nil)
 			break;
 		err = parsecmd(cmdline, &cmd, top.child, cur);
 		if(err != nil){
-			Bprint(&out, "!%s\n", err);
+			eprint("!%s\n", err);
 			continue;
 		}
-		if(singleton != nil && cmd.f == icmd){
-			Bprint(&out, "!illegal command\n");
+		if(singleton && (cmd.f == icmd || cmd.f == ycmd)){
+			eprint("!illegal command\n");
 			continue;
 		}
 		interrupted = 0;
 		if(cmd.msgs == nil || cmd.msgs == &top){
-			x = (*cmd.f)(&cmd, &top);
-			if(x != nil)
+			if(x = cmd.f(&cmd, &top))
 				cur = x;
 		} else for(m = cmd.msgs; m != nil; m = m->cmd){
 			x = m;
 			if(cmd.delete){
 				dcmd(&cmd, x);
 
-				// dp acts differently than all other commands
-				// since its an old lesk idiom that people love.
-				// it deletes the current message, moves the current
-				// pointer ahead one and prints.
+				/*
+				 * dp acts differently than all other commands
+				 * since its an old lesk idiom that people love.
+				 * it deletes the current message, moves the current
+				 * pointer ahead one and prints.
+				 */
 				if(cmd.f == pcmd){
 					if(x->next == nil){
-						Bprint(&out, "!address\n");
+						eprint("!address\n");
 						cur = x;
 						break;
 					} else
 						x = x->next;
 				}
 			}
-			x = (*cmd.f)(&cmd, x);
+			x = cmd.f(&cmd, x);
 			if(x != nil)
 				cur = x;
 			if(interrupted)
 				break;
-			if(singleton != nil && (cmd.delete || cmd.f == dcmd))
+			if(singleton && (cmd.delete || cmd.f == dcmd))
 				qcmd(nil, nil);
 		}
 		if(doflush)
@@ -354,23 +475,76 @@ main(int argc, char **argv)
 	qcmd(nil, nil);
 }
 
-//
-// read the message info
-//
+char*
+file2string(char *dir, char *file)
+{
+	int fd, n;
+	char *s, *p, *e;
+
+	p = s = malloc(512);
+	e = p + 511;
+
+	fd = open(extendp(dir, file), OREAD);
+	while((n = read(fd, p, e - p)) > 0){
+		p += n;
+		if(p == e){
+			s = realloc(s, (n = p - s) + 512 + 1);
+			if(s == nil)
+				sysfatal("malloc: %r");
+			p = s + n;
+			e = p + 512;
+		}
+	}
+	close(fd);
+	*p = 0;
+	return s;
+}
+
+#define Fields 		18			/* terrible hack; worth 10% */
+#define Minfields	17
+
+void
+updateinfo(Message *m)
+{
+	char *s, *f[Fields + 1];
+	int i, n, sticky;
+
+	s = file2string(m->path, "info");
+	if(s == nil)
+		return;
+	if((n = getfields(s, f, nelem(f), 0, "\n")) < Minfields){
+		for(i = 0; i < n; i++)
+			fprint(2, "info: %s\n", f[i]);
+		sysfatal("info file invalid %s %D: %d fields", m->path, m, n);
+	}
+	if((m->nflags & Nnoflags) == 0){
+		sticky = m->flags & Fdeleted;
+		m->flags = buftoflags(f[17]) | sticky;
+	}
+	m->nflags &= ~Nmissing;
+	free(s);
+}
+
 Message*
 file2message(Message *parent, char *name)
 {
+	char *path, *f[Fields + 1];
+	int i, n;
 	Message *m;
-	String *path;
-	char *f[10];
 
-	m = mallocz(sizeof(Message), 1);
+	m = mallocz(sizeof *m, 1);
 	if(m == nil)
 		return nil;
-	m->path = path = extendpath(parent->path, name);
+	m->path = path = strdup(extendp(parent->path, name));
 	m->fileno = atoi(name);
 	m->info = file2string(path, "info");
-	lineize(s_to_c(m->info), f, nelem(f));
+	m->parent = parent;
+	n = getfields(m->info, f, nelem(f), 0, "\n");
+	if(n < Minfields){
+		for(i = 0; i < n; i++)
+			fprint(2, "info: [%s]\n", f[i]);
+		sysfatal("info file invalid %s %D: %d fields", path, m, n);
+	}
 	m->from = f[0];
 	m->to = f[1];
 	m->cc = f[2];
@@ -380,11 +554,15 @@ file2message(Message *parent, char *name)
 	m->type = f[6];
 	m->disposition = f[7];
 	m->filename = f[8];
-	m->len = filelen(path, "raw");
-	if(strstr(m->type, "multipart") != nil || strcmp(m->type, "message/rfc822") == 0)
-		dir2message(m, 0);
-	m->parent = parent;
+	m->len = strtoul(f[16], 0, 0);
+	if(n > 17)
+		m->flags = buftoflags(f[17]);
+	else
+		m->nflags |= Nnoflags;
 
+	if(m->type)
+	if(strstr(m->type, "multipart") != nil || strcmp(m->type, "message/rfc822") == 0)
+		mdir2message(m);
 	return m;
 }
 
@@ -397,26 +575,27 @@ freemessage(Message *m)
 		next = nm->next;
 		freemessage(nm);
 	}
-	s_free(m->path);
-	s_free(m->info);
+	free(m->path);
+	free(m->info);
 	free(m);
 }
 
-//
-//  read a directory into a list of messages
-//
+/*
+ * read a directory into a list of messages.  at the top level, there may be
+ * large gaps in message numbers.  so we need to read the whole directory.
+ * and pick out the messages we're interested in.  within a message, subparts
+ * are contiguous and if we don't read the header/body/rawbody, we can avoid forcing
+ * upas/fs to read the whole message.
+ */
 int
-dir2message(Message *parent, int reverse)
+mdir2message(Message *parent)
 {
-	int i, n, fd, highest, newmsgs;
+	char buf[Pathlen];
+	int i, highest, newmsgs;
 	Dir *d;
 	Message *first, *last, *m;
 
-	fd = open(s_to_c(parent->path), OREAD);
-	if(fd < 0)
-		return -1;
-
-	// count current entries
+	/* count current entries */
 	first = parent->child;
 	highest = newmsgs = 0;
 	for(last = parent->child; last != nil && last->next != nil; last = last->next)
@@ -425,63 +604,171 @@ dir2message(Message *parent, int reverse)
 	if(last != nil)
 		if(last->fileno > highest)
 			highest = last->fileno;
-
-	n = dirreadall(fd, &d);
-	for(i = 0; i < n; i++){
-		if((d[i].qid.type & QTDIR) == 0)
+	for(i = highest + 1;; i++){
+		snprint(buf, sizeof buf, "%s/%d", parent->path, i);
+		if((d = dirstat(buf)) == nil)
+			break;
+		if((d->qid.type & QTDIR) == 0){
+			free(d);
 			continue;
-		if(atoi(d[i].name) <= highest)
-			continue;
-		m = file2message(parent, d[i].name);
+		}
+		free(d);
+		snprint(buf, sizeof buf, "%d", i);
+		m = file2message(parent, buf);
 		if(m == nil)
 			break;
+		m->id = m->fileno;
 		newmsgs++;
-		if(reverse){
-			m->next = first;
-			if(first != nil)
-				first->prev = m;
+		if(first == nil)
 			first = m;
-		} else {
-			if(first == nil)
-				first = m;
-			else
-				last->next = m;
-			m->prev = last;
-			last = m;
+		else
+			last->next = m;
+		m->prev = last;
+		last = m;
+	}
+	parent->child = first;
+	return newmsgs;
+}
+
+/*
+ * 99.9% of the time, we don't need to sort this list.
+ * however, sometimes email is added to a mailbox
+ * out of order.  or, sape copies it back in from the
+ * dump.  in this case, we've got to sort.
+ *
+ * BOTCH.  we're not observing any sort of stable
+ * order.  if an old message comes in while upas/fs
+ * is running, it will appear out of order.  restarting
+ * upas/fs will reorder things.
+ */
+int
+dcmp(Dir *a, Dir *b)
+{
+	return atoi(a->name) - atoi(b->name);
+}
+
+void
+itsallsapesfault(Dir *d, int n)
+{
+	int c, i, r, t;
+
+	/* evade qsort suck */
+	r = -1;
+	for(i = 0; i < n; i++){
+		t = atol(d[i].name);
+		if(t > r){
+			c = d[i].name[0];
+			if(c >= '0' && c <= 9)
+				break;
 		}
+		r = t;
+	}
+	if(i != n)
+		qsort(d, n, sizeof *d, (int (*)(void*, void*))dcmp);
+}
+
+int
+dir2message(Message *parent, int reverse, Dirstats *s)
+{
+	int i, c, n, fd;
+	Dir *d;
+	Message *first, *last, *m, **ll;
+
+	memset(s, 0, sizeof *s);
+	fd = open(parent->path, OREAD);
+	if(fd < 0)
+		return -1;
+	first = parent->child;
+	last = nil;
+	if(first)
+		for(last = first; last->next; last = last->next)
+			;
+	n = dirreadall(fd, &d);
+	itsallsapesfault(d, n);
+	if(reverse)
+		ll = &last;
+	else
+		ll = &parent->child;
+	for(i = 0; *ll || i < n; ){
+		if(i < n && (d[i].qid.type & QTDIR) == 0){
+			i++;
+			continue;
+		}
+		c = -1;
+		if(i >= n)
+			c = 1;
+		else if(*ll)
+			c = atoi(d[i].name) - (*ll)->fileno;
+		if(c < 0){
+			m = file2message(parent, d[i].name);
+			if(m == nil)
+				break;
+			if(reverse){
+				m->next = first;
+				if(first != nil)
+					first->prev = m;
+				first = m;
+			}else{
+				if(first == nil)
+					first = m;
+				else
+					last->next = m;
+				m->prev = last;
+				last = m;
+			}
+			*ll = m;
+			s->new++;
+			s->unread += (m->flags & Fseen) == 0;
+			i++;
+		}else if(c > 0){
+			(*ll)->nflags |= Nmissing;
+			s->del++;
+		}else{
+			updateinfo(*ll);
+			s->old++;
+			i++;
+		}
+
+		if(reverse)
+			ll = &(*ll)->prev;
+		else
+			ll = &(*ll)->next;
 	}
 	free(d);
 	close(fd);
 	parent->child = first;
 
-	// renumber and file longest from
+	/* renumber and file longest from */
 	i = 1;
 	longestfrom = 12;
+	longestto = 12;
 	for(m = first; m != nil; m = m->next){
 		m->id = natural ? m->fileno : i++;
 		n = strlen(m->from);
 		if(n > longestfrom)
 			longestfrom = n;
+		n = strlen(m->to);
+		if(n > longestto)
+			longestto = n;
 	}
-
-	return newmsgs;
+	return 0;
 }
 
-//
-//  point directly to a message
-//
+/*
+ *   point directly to a message
+ */
 Message*
 dosingleton(Message *parent, char *path)
 {
 	char *p, *np;
 	Message *m;
 
-	// walk down to message and read it
+	/* walk down to message and read it */
 	if(strlen(path) < rootlen)
 		return nil;
 	if(path[rootlen] != '/')
 		return nil;
-	p = path+rootlen+1;
+	p = path + rootlen + 1;
 	np = strchr(p, '/');
 	if(np != nil)
 		*np = 0;
@@ -491,14 +778,14 @@ dosingleton(Message *parent, char *path)
 	parent->child = m;
 	m->id = 1;
 
-	// walk down to requested component
+	/* walk down to requested component */
 	while(np != nil){
 		*np = '/';
-		np = strchr(np+1, '/');
+		np = strchr(np + 1, '/');
 		if(np != nil)
 			*np = 0;
 		for(m = m->child; m != nil; m = m->next)
-			if(strcmp(path, s_to_c(m->path)) == 0)
+			if(strcmp(path, m->path) == 0)
 				return m;
 		if(m == nil)
 			return nil;
@@ -506,101 +793,19 @@ dosingleton(Message *parent, char *path)
 	return m;
 }
 
-//
-//  read a file into a string
-//
-String*
-file2string(String *dir, char *file)
+/*
+ *   walk the path name an element
+ */
+char*
+extendp(char *dir, char *name)
 {
-	String *s;
-	int fd, n, m;
+	static char buf[Pathlen];
 
-	s = extendpath(dir, file);
-	fd = open(s_to_c(s), OREAD);
-	s_grow(s, 512);			/* avoid multiple reads on info files */
-	s_reset(s);
-	if(fd < 0)
-		return s;
-
-	for(;;){
-		n = s->end - s->ptr;
-		if(n == 0){
-			s_grow(s, 128);
-			continue;
-		}
-		m = read(fd, s->ptr, n);
-		if(m <= 0)
-			break;
-		s->ptr += m;
-		if(m < n)
-			break;
-	}
-	s_terminate(s);
-	close(fd);
-
-	return s;
-}
-
-//
-//  get the length of a file
-//
-int
-filelen(String *dir, char *file)
-{
-	String *path;
-	Dir *d;
-	int rv;
-
-	path = extendpath(dir, file);
-	d = dirstat(s_to_c(path));
-	if(d == nil){
-		s_free(path);
-		return -1;
-	}
-	s_free(path);
-	rv = d->length;
-	free(d);
-	return rv;
-}
-
-//
-//  walk the path name an element
-//
-String*
-extendpath(String *dir, char *name)
-{
-	String *path;
-
-	if(strcmp(s_to_c(dir), ".") == 0)
-		path = s_new();
-	else {
-		path = s_copy(s_to_c(dir));
-		s_append(path, "/");
-	}
-	s_append(path, name);
-	return path;
-}
-
-int
-cistrncmp(char *a, char *b, int n)
-{
-	while(n-- > 0){
-		if(tolower(*a++) != tolower(*b++))
-			return -1;
-	}
-	return 0;
-}
-
-int
-cistrcmp(char *a, char *b)
-{
-	for(;;){
-		if(tolower(*a) != tolower(*b++))
-			return -1;
-		if(*a++ == 0)
-			break;
-	}
-	return 0;
+	if(strcmp(dir, ".") == 0)
+		snprint(buf, sizeof buf, "%s", name);
+	else
+		snprint(buf, sizeof buf, "%s/%s", dir, name);
+	return buf;
 }
 
 char*
@@ -611,7 +816,7 @@ nosecs(char *t)
 	p = strchr(t, ':');
 	if(p == nil)
 		return t;
-	p = strchr(p+1, ':');
+	p = strchr(p + 1, ':');
 	if(p != nil)
 		*p = 0;
 	return t;
@@ -630,47 +835,45 @@ month(char *m)
 
 	for(i = 0; i < 12; i++)
 		if(cistrcmp(m, months[i]) == 0)
-			return i+1;
+			return i + 1;
 	return 1;
 }
 
 enum
 {
-	Yearsecs= 365*24*60*60
+	Yearsecs	= 365*24*60*60,
 };
 
 void
 cracktime(char *d, char *out, int len)
 {
-	char in[64];
-	char *f[6];
+	char in[64], *f[6], *dtime;
 	int n;
-	Tm tm;
 	long now, then;
-	char *dtime;
+	Tm tm;
 
 	*out = 0;
 	if(d == nil)
 		return;
-	strncpy(in, d, sizeof(in));
-	in[sizeof(in)-1] = 0;
+	strncpy(in, d, sizeof in);
+	in[sizeof in - 1] = 0;
 	n = getfields(in, f, 6, 1, " \t\r\n");
 	if(n != 6){
-		// unknown style
+		/* unknown style */
 		snprint(out, 16, "%10.10s", d);
 		return;
 	}
 	now = time(0);
 	memset(&tm, 0, sizeof tm);
 	if(strchr(f[0], ',') != nil && strchr(f[4], ':') != nil){
-		// 822 style
+		/* 822 style */
 		tm.year = atoi(f[3])-1900;
 		tm.mon = month(f[2]);
 		tm.mday = atoi(f[1]);
 		dtime = nosecs(f[4]);
 		then = tm2sec(&tm);
 	} else if(strchr(f[3], ':') != nil){
-		// unix style
+		/* unix style */
 		tm.year = atoi(f[5])-1900;
 		tm.mon = month(f[1]);
 		tm.mday = atoi(f[2]);
@@ -685,31 +888,31 @@ cracktime(char *d, char *out, int len)
 	if(now - then < Yearsecs/2)
 		snprint(out, len, "%2d/%2.2d %s", tm.mon, tm.mday, dtime);
 	else
-		snprint(out, len, "%2d/%2.2d  %4d", tm.mon, tm.mday, tm.year+1900);
+		snprint(out, len, "%2d/%2.2d  %4d", tm.mon, tm.mday, tm.year + 1900);
+}
+
+int
+matchtype(char *s, Ctype *t)
+{
+	return strncmp(t->type, s, strlen(t->type)) == 0;
 }
 
 Ctype*
 findctype(Message *m)
 {
-	char *p;
-	char ftype[128];
+	char *p, ftype[256];
 	int n, pfd[2];
 	Ctype *a, *cp;
-	static Ctype nulltype	= { "", 0, 0, 0 };
-	static Ctype bintype 	= { "application/octet-stream", "bin", 0, 0 };
 
 	for(cp = ctype; cp; cp = cp->next)
-		if(strncmp(cp->type, m->type, strlen(cp->type)) == 0)
-			return cp;
+		if(matchtype(m->type, cp))
+			if((cp->flag & Rechk) == 0)
+				return cp;
+			else
+				break;
 
-/*	use file(1) for any unknown mimetypes
- *
- *	if (strcmp(m->type, bintype.type) != 0)
- *		return &nulltype;
- */
 	if(pipe(pfd) < 0)
-		return &bintype;
-
+		return ctype;
 	*ftype = 0;
 	switch(fork()){
 	case -1:
@@ -720,112 +923,102 @@ findctype(Message *m)
 		dup(pfd[0], 0);
 		close(1);
 		dup(pfd[0], 1);
-		execl("/bin/file", "file", "-m", s_to_c(extendpath(m->path, "body")), nil);
+		execl("/bin/file", "file", "-m", extendp(m->path, "body"), nil);
 		exits(0);
 	default:
 		close(pfd[0]);
-		n = read(pfd[1], ftype, sizeof(ftype));
-		if(n > 0)
-			ftype[n] = 0;
+		n = read(pfd[1], ftype, sizeof ftype - 1);
+		while(n > 0 && isspace(ftype[n - 1]))
+			n--;
+		ftype[n] = 0;
 		close(pfd[1]);
 		waitpid();
 		break;
 	}
-
-	if (*ftype=='\0' || (p = strchr(ftype, '/')) == nil)
-		return &bintype;
+	for(cp = ctype; cp; cp = cp->next)
+		if(matchtype(ftype, cp))
+			return cp;
+	if(*ftype == 0 || (p = strchr(ftype, '/')) == nil)
+		return ctype;
 	*p++ = 0;
 
-	a = mallocz(sizeof(Ctype), 1);
+	a = mallocz(sizeof *a, 1);
 	a->type = strdup(ftype);
 	a->ext = strdup(p);
-	a->display = 0;
+	a->flag = 0;
 	a->plumbdest = strdup(ftype);
 	for(cp = ctype; cp->next; cp = cp->next)
-		continue;
+		;
 	cp->next = a;
 	a->next = nil;
 	return a;
 }
 
+/*
+ * traditional
+ */
 void
-mkid(String *s, Message *m)
+hds(char *buf, Message *m)
 {
-	char buf[32];
-
-	if(m->parent != &top){
-		mkid(s, m->parent);
-		s_append(s, ".");
-	}
-	sprint(buf, "%d", m->id);
-	s_append(s, buf);
+	buf[0] = m->child? 'H': ' ';
+	buf[1] = m->flags & Fdeleted ? 'd' : ' ';
+	buf[2] = m->flags & Fstored? 's': ' ';
+	buf[3] = m->flags & Fseen? ' ': '*';
+	if(m->flags & Fanswered)
+		buf[3] = 'a';
+	if(m->flags & Fflagged)
+		buf[3] = '\'';
+	buf[4] = 0;
 }
 
 void
-snprintheader(char *buf, int len, Message *m)
+pheader0(char *buf, int len, Message *m)
 {
-	char timebuf[32];
-	String *id;
-	char *p, *q;
+	char *f, *p, *q, frombuf[40], timebuf[32], h[5];
+	int max;
 
-	// create id
-	id = s_new();
-	mkid(id, m);
+	hds(h, m);
+	if(hcmdfmt == 0){
+		f = m->from;
+		max = longestfrom;
+	}else{
+		snprint(frombuf, sizeof frombuf-5, "%s", m->to);
+		p = strchr(frombuf, ' ');
+		if(p != nil)
+			snprint(p, 5, " ...");
+		f = frombuf;
+		max = longestto;
+		if(max > sizeof frombuf)
+			max = sizeof frombuf;
+	}
 
-	if(*m->from == 0){
-		// no from
-		snprint(buf, len, "%-3s    %s %6d  %s",
-			s_to_c(id),
-			m->type,
-			m->len,
-			m->filename);
-	} else if(*m->subject){
+	if(*f == 0)
+		snprint(buf, len, "%3D    %s %6d  %s",
+			m, m->type, m->len, m->filename);
+	else if(*m->subject){
 		q = p = strdup(m->subject);
 		while(*p == ' ')
 			p++;
 		if(strlen(p) > 50)
 			p[50] = 0;
-		cracktime(m->date, timebuf, sizeof(timebuf));
-		snprint(buf, len, "%-3s %c%c%c %6d  %11.11s %-*.*s %s",
-			s_to_c(id),
-			m->child ? 'H' : ' ',
-			m->deleted ? 'd' : ' ',
-			m->stored ? 's' : ' ',
-			m->len,
-			timebuf,
-			longestfrom, longestfrom, m->from,
-			p);
+		cracktime(m->date, timebuf, sizeof timebuf);
+		snprint(buf, len, "%3D %s %6d  %11.11s %-*.*s %s",
+			m, h, m->len, timebuf, max, max, f, p);
 		free(q);
 	} else {
-		cracktime(m->date, timebuf, sizeof(timebuf));
-		snprint(buf, len, "%-3s %c%c%c %6d  %11.11s %s",
-			s_to_c(id),
-			m->child ? 'H' : ' ',
-			m->deleted ? 'd' : ' ',
-			m->stored ? 's' : ' ',
-			m->len,
-			timebuf,
-			m->from);
+		cracktime(m->date, timebuf, sizeof timebuf);
+		snprint(buf, len, "%3D %s %6d  %11.11s %s",
+			m, h, m->len, timebuf, f);
 	}
-	s_free(id);
 }
 
-char *spaces = "                                                                    ";
-
 void
-snprintHeader(char *buf, int len, int indent, Message *m)
+pheader(char *buf, int len, int indent, Message *m)
 {
-	String *id;
-	char typeid[64];
-	char *p, *e;
-
-	// create id
-	id = s_new();
-	mkid(id, m);
+	char *p, *e, typeid[80];
 
 	e = buf + len;
-
-	snprint(typeid, sizeof typeid, "%s    %s", s_to_c(id), m->type);
+	snprint(typeid, sizeof typeid, "%D    %s", m, m->type);
 	if(indent < 6)
 		p = seprint(buf, e, "%-32s %-6d ", typeid, m->len);
 	else
@@ -836,32 +1029,55 @@ snprintHeader(char *buf, int len, int indent, Message *m)
 		p = seprint(p, e, "(from,%s)", m->from);
 	if(m->subject && *m->subject)
 		seprint(p, e, "(subj,%s)", m->subject);
-
-	s_free(id);
 }
 
 char sstring[256];
 
-//	cmd := range cmd ' ' arg-list ; 
-//	range := address
-//		| address ',' address
-//		| 'g' search ;
-//	address := msgno
-//		| search ;
-//	msgno := number
-//		| number '/' msgno ;
-//	search := '/' string '/'
-//		| '%' string '%' ;
-//
-Reprog*
-parsesearch(char **pp)
+/*
+ * 	cmd := range cmd ' ' arg-list ;
+ * 	range := address
+ * 		| address ',' address
+ * 		| 'g' search ;
+ * 	address := msgno
+ * 		| search ;
+ * 	msgno := number
+ * 		| number '/' msgno ;
+ * 	search := '/' string '/'
+ * 		| '%' string '%'
+ *		| '#' (field '#')? re '#'
+ *
+ */
+static char*
+qstrchr(char *s, int c)
 {
-	char *p, *np;
+	for(;; s++){
+		if(*s == '\\')
+			s++;
+		else if(*s == c)
+			return s;
+		if(*s == 0)
+			return nil;
+	}
+}
+
+Reprog*
+parsesearch(char **pp, char *buf, int bufl)
+{
+	char *p, *np, *e;
 	int c, n;
 
+	buf[0] = 0;
 	p = *pp;
 	c = *p++;
-	np = strchr(p, c);
+	if(c == '#')
+		snprint(buf, bufl, "from");
+	np = qstrchr(p, c);
+	if(c == '#' && np)
+	if(e = qstrchr(np + 1, c)){
+		snprint(buf, bufl, "%.*s", (int)(np - p), p);
+		p = np + 1;
+		np = e;
+	}
 	if(np != nil){
 		*np++ = 0;
 		*pp = np;
@@ -872,57 +1088,94 @@ parsesearch(char **pp)
 	if(*p == 0)
 		p = sstring;
 	else{
-		strncpy(sstring, p, sizeof(sstring));
-		sstring[sizeof(sstring)-1] = 0;
+		strncpy(sstring, p, sizeof sstring);
+		sstring[sizeof sstring - 1] = 0;
 	}
 	return regcomp(p);
 }
 
-static char *
-num2msg(Message **mp, int sign, int n, Message *first, Message *cur)
-{
-	Message *m;
+enum{
+	Comma = 1,
+};
 
-	m = nil;
-	switch(sign){
-	case 0:
-		for(m = first; m != nil; m = m->next)
-			if(m->id == n)
-				break;
-		break;
-	case -1:
-		if(cur != &top)
-			for(m = cur; m != nil && n > 0; n--)
-				m = m->prev;
-		break;
-	case 1:
-		if(cur == &top){
-			n--;
-			cur = first;
+/*
+ *   search a message for a regular expression match
+ */
+int
+fsearch(Message *m, Reprog *prog, char *field)
+{
+	char buf[4096 + 1];
+	int i, fd, rv;
+	uvlong o;
+
+	rv = 0;
+	fd = open(extendp(m->path, field), OREAD);
+	/*
+	 *  march through raw message 4096 bytes at a time
+	 *  with a 128 byte overlap to chain the re search.
+	 */
+	for(o = 0;; o += i - 128){
+		i = pread(fd, buf, sizeof buf - 1, o);
+		if(i <= 0)
+			break;
+		buf[i] = 0;
+		if(regexec(prog, buf, nil, 0)){
+			rv = 1;
+			break;
 		}
-		for(m = cur; m != nil && n > 0; n--)
-			m = m->next;
-		break;
+		if(i < sizeof buf - 1)
+			break;
 	}
-	if(m == nil)
-		return "address";
-	*mp = m;
-	return nil;
+	close(fd);
+	return rv;
+}
+
+int
+rsearch(Message *m, Reprog *prog, char*)
+{
+	return fsearch(m, prog, "raw");
+}
+
+int
+hsearch(Message *m, Reprog *prog, char*)
+{
+	char buf[256];
+
+	pheader0(buf, sizeof buf, m);
+	return regexec(prog, buf, nil, 0);
+}
+
+/*
+ * ack: returns int (*)(Message*, Reprog*, char*)
+ */
+int (*
+chartosearch(int c))(Message*, Reprog*, char*)
+{
+	switch(c){
+	case '%':
+		return rsearch;
+	case '/':
+	case '?':
+		return hsearch;
+	case '#':
+		return fsearch;
+	}
+	return 0;
 }
 
 char*
-parseaddr(char **pp, Message *first, Message *cur, Message *unspec, Message **mp)
+parseaddr(char **pp, Message *first, Message *cur, Message *unspec, Message **mp, int f)
 {
-	int n;
-	Message *m;
-	char *p, *err;
+	char *p, buf[256];
+	int n, c, sign;
+	Message *m, *m0;
 	Reprog *prog;
-	int c, sign;
-	char buf[256];
+	int (*fn)(Message*, Reprog*, char*);
 
 	*mp = nil;
 	p = *pp;
 
+	sign = 0;
 	if(*p == '+'){
 		sign = 1;
 		p++;
@@ -931,18 +1184,6 @@ parseaddr(char **pp, Message *first, Message *cur, Message *unspec, Message **mp
 		sign = -1;
 		p++;
 		*pp = p;
-	} else
-		sign = 0;
-
-	/*
-	 * TODO: verify & install this.
-	 * make + and - mean +1 and -1, as in ed.  then -,.d won't
-	 * delete all messages up to the current one.  - geoff
-	 */
-	if(sign && (!isascii(*p) || !isdigit(*p))) {
-		err = num2msg(mp, sign, 1, first, cur);
-		if (err != nil)
-			return err;
 	}
 
 	switch(*p){
@@ -952,7 +1193,7 @@ parseaddr(char **pp, Message *first, Message *cur, Message *unspec, Message **mp
 			goto number;
 		}
 		*mp = unspec;
-		break;	
+		break;
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
 		n = strtoul(p, pp, 10);
@@ -963,41 +1204,53 @@ parseaddr(char **pp, Message *first, Message *cur, Message *unspec, Message **mp
 				*mp = &top;
 			break;
 		}
-		/* fall through */
 	number:
-		err = num2msg(mp, sign, n, first, cur);
-		if (err != nil)
-			return err;
+		m0 = m = nil;
+		switch(sign){
+		case 0:
+			for(m = first; m != nil; m0 = m, m = m->next)
+				if(m->id == n)
+					break;
+			break;
+		case -1:
+			if(cur != &top)
+				for(m = cur; m0 = m, m != nil && n > 0; n--)
+					m = m->prev;
+			break;
+		case 1:
+			if(cur == &top){
+				n--;
+				cur = first;
+			}
+			for(m = cur; m != nil && n > 0; m0 = m, n--)
+				m = m->next;
+			break;
+		}
+		if(m == nil && f&Comma)
+			m = m0;
+		if(m == nil)
+			return "address";
+		*mp = m;
 		break;
+	case '?':
+		/* legacy behavior.  no longer needed */
+		sign = -1;
 	case '%':
 	case '/':
-	case '?':
+	case '#':
 		c = *p;
-		prog = parsesearch(pp);
+		fn= chartosearch(c);
+		prog = parsesearch(pp, buf, sizeof buf);
 		if(prog == nil)
 			return "badly formed regular expression";
-		m = nil;
-		switch(c){
-		case '%':
-			for(m = cur == &top ? first : cur->next; m != nil; m = m->next){
-				if(rawsearch(m, prog))
+		if(sign == -1){
+			for(m = cur == &top ? nil : cur->prev; m; m = m->prev)
+				if(fn(m, prog, buf))
 					break;
-			}
-			break;
-		case '/':
-			for(m = cur == &top ? first : cur->next; m != nil; m = m->next){
-				snprintheader(buf, sizeof(buf), m);
-				if(regexec(prog, buf, nil, 0))
+		}else{
+			for(m = cur == &top ? first : cur->next; m; m = m->next)
+				if(fn(m, prog, buf))
 					break;
-			}
-			break;
-		case '?':
-			for(m = cur == &top ? nil : cur->prev; m != nil; m = m->prev){
-				snprintheader(buf, sizeof(buf), m);
-				if(regexec(prog, buf, nil, 0))
-					break;
-			}
-			break;
 		}
 		if(m == nil)
 			return "search";
@@ -1008,96 +1261,54 @@ parseaddr(char **pp, Message *first, Message *cur, Message *unspec, Message **mp
 		for(m = first; m != nil && m->next != nil; m = m->next)
 			;
 		*mp = m;
-		*pp = p+1;
+		*pp = p + 1;
 		break;
 	case '.':
 		*mp = cur;
-		*pp = p+1;
+		*pp = p + 1;
 		break;
 	case ',':
-		if (*mp == nil)
-			*mp = first;
+		*mp = first;
 		*pp = p;
 		break;
 	}
 
 	if(*mp != nil && **pp == '.'){
 		(*pp)++;
-		if((*mp)->child == nil)
+		if((m = (*mp)->child) == nil)
 			return "no sub parts";
-		return parseaddr(pp, (*mp)->child, (*mp)->child, (*mp)->child, mp);
+		return parseaddr(pp, m, m, m, mp, 0);
 	}
-	if(**pp == '+' || **pp == '-' || **pp == '/' || **pp == '%')
-		return parseaddr(pp, first, *mp, *mp, mp);
+	c = **pp;
+	if(c == '+' || c == '-' || c == '/' || c == '%' || c == '#')
+		return parseaddr(pp, first, *mp, *mp, mp, 0);
 
 	return nil;
 }
 
-//
-//  search a message for a regular expression match
-//
-int
-rawsearch(Message *m, Reprog *prog)
-{
-	char buf[4096+1];
-	int i, fd, rv;
-	String *path;
-
-	path = extendpath(m->path, "raw");
-	fd = open(s_to_c(path), OREAD);
-	if(fd < 0)
-		return 0;
-
-	// march through raw message 4096 bytes at a time
-	// with a 128 byte overlap to chain the re search.
-	rv = 0;
-	for(;;){
-		i = read(fd, buf, sizeof(buf)-1);
-		if(i <= 0)
-			break;
-		buf[i] = 0;
-		if(regexec(prog, buf, nil, 0)){
-			rv = 1;
-			break;
-		}
-		if(i < sizeof(buf)-1)
-			break;
-		if(seek(fd, -128LL, 1) < 0)
-			break;
-	}
-
-	close(fd);
-	s_free(path);
-	return rv;
-}
-
-
 char*
 parsecmd(char *p, Cmd *cmd, Message *first, Message *cur)
 {
+	char buf[256], *err;
+	int i, c, r;
 	Reprog *prog;
 	Message *m, *s, *e, **l, *last;
-	char buf[256];
-	char *err;
-	int i, c;
-	char *q;
-	static char errbuf[Errlen];
+	int (*f)(Message*, Reprog*, char*);
+	static char errbuf[ERRMAX];
 
 	cmd->delete = 0;
 	l = &cmd->msgs;
 	*l = nil;
 
-	// eat white space
-	while(*p == ' ')
+	while(*p == ' ' || *p == '\t')
 		p++;
 
-	// null command is a special case (advance and print)
+	/* null command is a special case (advance and print) */
 	if(*p == 0){
-		if(cur == &top){
-			// special case
+		if(cur == &top)
 			m = first;
-		} else {
-			// walk to the next message even if we have to go up
+		else {
+			/* walk to the next message even if we have to go up */
 			m = cur->next;
 			while(m == nil && cur->parent != nil){
 				cur = cur->parent;
@@ -1113,73 +1324,76 @@ parsecmd(char *p, Cmd *cmd, Message *first, Message *cur)
 		return nil;
 	}
 
-	// global search ?
+	/* global search ? */
 	if(*p == 'g'){
 		p++;
 
-		// no search string means all messages
-		if(*p != '/' && *p != '%'){
+		/* no search string means all messages */
+		if(*p == 'k'){
+			for(m = first; m != nil; m = m->next)
+			if(m->flags & Fflagged){
+				*l = m;
+				l = &m->cmd;
+				*l = nil;
+			}
+			p++;
+		}else if(*p != '/' && *p != '%' && *p != '#'){
 			for(m = first; m != nil; m = m->next){
 				*l = m;
 				l = &m->cmd;
 				*l = nil;
 			}
-		} else {
-			// mark all messages matching this search string
+		}else{
+			/* mark all messages matching this search string */
 			c = *p;
-			prog = parsesearch(&p);
+			f = chartosearch(c);
+			prog = parsesearch(&p, buf, sizeof buf);
 			if(prog == nil)
 				return "badly formed regular expression";
-			if(c == '%'){
-				for(m = first; m != nil; m = m->next){
-					if(rawsearch(m, prog)){
-						*l = m;
-						l = &m->cmd;
-						*l = nil;
-					}
-				}
-			} else {
-				for(m = first; m != nil; m = m->next){
-					snprintheader(buf, sizeof(buf), m);
-					if(regexec(prog, buf, nil, 0)){
-						*l = m;
-						l = &m->cmd;
-						*l = nil;
-					}
+			for(m = first; m != nil; m = m->next){
+				if(f(m, prog, buf)){
+					*l = m;
+					l = &m->cmd;
+					*l = nil;
 				}
 			}
 			free(prog);
 		}
-	} else {
-	
-		// parse an address
+	}else{
+		/* parse an address */
 		s = e = nil;
-		err = parseaddr(&p, first, cur, cur, &s);
+		err = parseaddr(&p, first, cur, cur, &s, 0);
 		if(err != nil)
 			return err;
 		if(*p == ','){
-			// this is an address range
+			/* this is an address range */
 			if(s == &top)
 				s = first;
 			p++;
 			for(last = s; last != nil && last->next != nil; last = last->next)
 				;
-			err = parseaddr(&p, first, cur, last, &e);
+			err = parseaddr(&p, first, cur, last, &e, Comma);
 			if(err != nil)
 				return err;
-
-			// select all messages in the range
-			for(; s != nil; s = s->next){
+			/* select all messages in the range */
+			r = 0;
+			if(s != nil && e != nil && s->id > e->id)
+				r = 1;
+			while(s != nil){
 				*l = s;
 				l = &s->cmd;
 				*l = nil;
 				if(s == e)
 					break;
+				if(r)
+					s = s->prev;
+				else
+					s = s->next;
 			}
 			if(s == nil)
 				return "null address range";
 		} else {
-			// single address
+			/* single address */
 			if(s != &top){
 				*l = s;
 				s->cmd = nil;
@@ -1187,92 +1401,49 @@ parsecmd(char *p, Cmd *cmd, Message *first, Message *cur)
 		}
 	}
 
-	// insert a space after '!'s and '|'s
-	for(q = p; *q; q++)
-		if(*q != '!' && *q != '|')
-			break;
-	if(q != p && *q != ' '){
-		memmove(q+1, q, strlen(q)+1);
-		*q = ' ';
+	while(*p == ' ' || *p == '\t')
+		p++;
+	/* hack to allow all messages to start with 'd' */
+	if(*p == 'd' && p[1]){
+		cmd->delete = 1;
+		p++;
 	}
-
-	cmd->an = getfields(p, cmd->av, nelem(cmd->av) - 1, 1, " \t\r\n");
-	if(cmd->an == 0 || *cmd->av[0] == 0)
-		cmd->f = pcmd;
-	else {
-		// hack to allow all messages to start with 'd'
-		if(*(cmd->av[0]) == 'd' && *(cmd->av[0]+1) != 0){
-			cmd->delete = 1;
-			cmd->av[0]++;
-		}
-
-		// search command table
-		for(i = 0; cmdtab[i].cmd != nil; i++)
-			if(strcmp(cmd->av[0], cmdtab[i].cmd) == 0)
-				break;
-		if(cmdtab[i].cmd == nil)
-			return "illegal command";
-		if(cmdtab[i].args == 0 && cmd->an > 1){
-			snprint(errbuf, sizeof(errbuf), "%s doesn't take an argument", cmdtab[i].cmd);
-			return errbuf;
-		}
-		cmd->f = cmdtab[i].f;
+	while(*p == ' ' || *p == '\t')
+		p++;
+	if(*p == 0)
+		p = "p";
+	for(i = nelem(cmdtab) - 1; i >= 0; i--)
+		if(strncmp(p, cmdtab[i].cmd, strlen(cmdtab[i].cmd)) == 0)
+			goto found;
+	return "illegal command";
+found:
+	p += strlen(cmdtab[i].cmd);
+	snprint(cmd->cmdline, sizeof cmd->cmdline, "%s", p);
+	cmd->av[0] = cmdtab[i].cmd;
+	cmd->an = 1 + tokenize(p, cmd->av + 1, nelem(cmd->av) - 2);
+	if(cmdtab[i].args == 0 && cmd->an > 1){
+		snprint(errbuf, sizeof errbuf, "%s doesn't take an argument", cmdtab[i].cmd);
+		return errbuf;
 	}
-	return nil; 
-}
+	cmd->f = cmdtab[i].f;
 
-// inefficient read from standard input
-char*
-readline(char *prompt, char *line, int len)
-{
-	char *p, *e;
-	int n;
-
-retry:
-	interrupted = 0;
-	Bprint(&out, "%s", prompt);
-	Bflush(&out);
-	e = line + len;
-	for(p = line; p < e; p++){
-		n = read(0, p, 1);
-		if(n < 0){
-			if(interrupted)
-				goto retry;
-			return nil;
-		}
-		if(n == 0)
-			return nil;
-		if(*p == '\n')
-			break;
-	}
-	*p = 0;
-	return line;
-}
-
-void
-messagecount(Message *m)
-{
-	int i;
-
-	i = 0;
-	for(; m != nil; m = m->next)
-		i++;
-	Bprint(&out, "%d message%s\n", i, plural(i));
+	if(cmdtab[i].addr && (cmd->msgs == nil || cmd->msgs == &top)){
+		snprint(errbuf, sizeof errbuf, "%s requires an address", cmdtab[i].cmd);
+		return errbuf;
+ 	}
+	return nil;
 }
 
 Message*
 aichcmd(Message *m, int indent)
 {
-	char	hdr[256];
+	char hdr[256];
 
-	if(m == &top)
-		return nil;
-
-	snprintHeader(hdr, sizeof(hdr), indent, m);
+	pheader(hdr, sizeof hdr, indent, m);
 	Bprint(&out, "%s\n", hdr);
 	for(m = m->child; m != nil; m = m->next)
-		aichcmd(m, indent+1);
-	return nil;
+		aichcmd(m, indent + 1);
+	return m;
 }
 
 Message*
@@ -1280,29 +1451,28 @@ Hcmd(Cmd*, Message *m)
 {
 	if(m == &top)
 		return nil;
-	aichcmd(m, 0);
-	return nil;
+	return aichcmd(m, 0);
 }
 
 Message*
 hcmd(Cmd*, Message *m)
 {
-	char	hdr[256];
+	char hdr[256];
 
 	if(m == &top)
 		return nil;
-
-	snprintheader(hdr, sizeof(hdr), m);
+	pheader0(hdr, sizeof hdr, m);
 	Bprint(&out, "%s\n", hdr);
-	return nil;
+	return m;
 }
 
 Message*
 bcmd(Cmd*, Message *m)
 {
 	int i;
-	Message *om = m;
+	Message *om;
 
+	om = m;
 	if(m == &top)
 		m = top.child;
 	for(i = 0; i < 10 && m != nil; i++){
@@ -1311,7 +1481,7 @@ bcmd(Cmd*, Message *m)
 		m = m->next;
 	}
 
-	return om;
+	return m != nil? m: om;
 }
 
 Message*
@@ -1323,21 +1493,54 @@ ncmd(Cmd*, Message *m)
 }
 
 int
-printpart(String *s, char *part)
+writepart(char *m, char *part, char *s)
+{
+	char *e;
+	int fd, n;
+
+	fd = open(extendp(m, part), OWRITE);
+	if(fd < 0){
+		dissappeared();
+		return -1;
+	}
+	for(e = s + strlen(s); e - s > 0; s += n){
+		if((n = write(fd, s, e - s)) <= 0){
+			eprint("!writepart:%s: %r\n", part);
+			break;
+		}
+		if(interrupted)
+			break;
+	}
+	close(fd);
+	return s == e? 0: -1;
+}
+
+Message	*xpipecmd(Cmd*, Message*, char*);
+
+Message*
+printfmt(Message *m, char *part, char *cmd)
+{
+	Cmd c;
+
+	c.an = 2;
+	snprint(c.cmdline, sizeof c.cmdline, "%s", cmd);
+	Bflush(&out);
+	return xpipecmd(&c, m, part);
+}
+
+int
+printpart0(Message *m, char *part)
 {
 	char buf[4096];
 	int n, fd, tot;
-	String *path;
 
-	path = extendpath(s, part);
-	fd = open(s_to_c(path), OREAD);
-	s_free(path);
+	fd = open(extendp(m->path, part), OREAD);
 	if(fd < 0){
-		fprint(2, "!message disappeared\n");
+		dissappeared();
 		return 0;
 	}
 	tot = 0;
-	while((n = read(fd, buf, sizeof(buf))) > 0){
+	while((n = read(fd, buf, sizeof buf)) > 0){
 		if(interrupted)
 			break;
 		if(Bwrite(&out, buf, n) <= 0)
@@ -1349,15 +1552,23 @@ printpart(String *s, char *part)
 }
 
 int
+printpart(Message *m, char *part, char *cmd)
+{
+	if(cmd == nil || cmd[0] == 0)
+		return printpart0(m, part);
+	printfmt(m, part, cmd);
+	return 1;
+}
+
+int
 printhtml(Message *m)
 {
 	Cmd c;
 
+	memset(&c, 0, sizeof c);
 	c.an = 3;
-	c.av[1] = "/bin/htmlfmt";
-	c.av[2] = "-l 40 -cutf-8";
-	Bprint(&out, "!%s\n", c.av[1]);
-	Bflush(&out);
+	snprint(c.cmdline, sizeof c.cmdline, "/bin/htmlfmt -l60 -cutf8");
+	eprint("!/bin/htmlfmt\n");
 	pipecmd(&c, m);
 	return 0;
 }
@@ -1368,8 +1579,8 @@ Pcmd(Cmd*, Message *m)
 	if(m == &top)
 		return &top;
 	if(m->parent == &top)
-		printpart(m->path, "unixheader");
-	printpart(m->path, "raw");
+		printpart(m, "unixheader", nil);
+	printpart(m, "raw", nil);
 	return m;
 }
 
@@ -1389,27 +1600,101 @@ compress(char *p)
 	*np = 0;
 }
 
-Message*
-pcmd(Cmd*, Message *m)
+void
+setflags(Message *m, char *f)
 {
-	Message *nm;
+	uchar f0;
+
+	f0 = m->flags;
+	txflags(f, &m->flags);
+	if(f0 != m->flags)
+		if((m->nflags & Nnoflags) == 0)
+			writepart(m->path, "flags", f);
+}
+
+Message*
+Fcmd(Cmd *c, Message *m)
+{
+	int i;
+
+	for(i = 1; i < c->an; i++)
+		setflags(m, c->av[i]);
+	return m;
+}
+
+void
+seen(Message *m)
+{
+	setflags(m, "s");
+}
+
+/*
+ * sleeze
+ */
+int
+magicpart(Message *m, char *s, char *part)
+{
+	char buf[4096];
+	int n, fd, c;
+
+	fd = open(extendp(s, part), OREAD);
+	if(fd < 0){
+		if(strcmp(part, "id") == 0)
+			Bprint(&out, "%D ", m);
+		else if(strcmp(part, "fpath") == 0)
+			Bprint(&out, "%s ", rooted(m->path));
+		else
+			Bprint(&out, "%s ", part);
+		return 0;
+	}
+
+	c = 0;
+	while((n = read(fd, buf, sizeof buf)) > 0){
+		c = -1;
+		if(interrupted)
+			break;
+		if(Bwrite(&out, buf, n) <= 0)
+			break;
+		c = buf[n - 1];
+	}
+	close(fd);
+	if(!interrupted && n != -1 && c != -1)
+	if(strstr(part, "body") != nil || strcmp(part, "rawunix") == 0)
+		seen(m);
+	return c;
+}
+
+Message*
+pcmd0(Cmd *c, Message *m, int mayplumb, char *tfmt)
+{
+	char *s, buf[128];
+	int i, ch;
 	Ctype *cp;
-	String *s;
-	char buf[128];
+	Message *nm;
 
 	if(m == &top)
 		return &top;
-	if(m->parent == &top)
-		printpart(m->path, "unixheader");
-	if(printpart(m->path, "header") > 0)
+	if(c && c->an >= 2){
+		ch = 0;
+		for(i = 1; i < c->an; i++)
+			ch = magicpart(m, m->path, c->av[i]);
+		if(ch != '\n')
+			Bprint(&out, "\n");
+		return m;
+	}
+	if(m->parent == &top){
+		seen(m);
+		printpart(m, "unixheader", nil);
+	}
+	if(printpart(m, "header", nil) > 0)
 		Bprint(&out, "\n");
 	cp = findctype(m);
-	if(cp->display){
+	if(cp->flag & Display){
 		if(strcmp(m->type, "text/html") == 0)
 			printhtml(m);
 		else
-			printpart(m->path, "body");
-	} else if(strcmp(m->type, "multipart/alternative") == 0){
+			printpart(m, "body", tfmt);
+	}else if(strcmp(m->type, "multipart/alternative") == 0){
 		for(nm = m->child; nm != nil; nm = nm->next){
 			cp = findctype(nm);
 			if(cp->ext != nil && strncmp(cp->ext, "txt", 3) == 0)
@@ -1418,67 +1703,91 @@ pcmd(Cmd*, Message *m)
 		if(nm == nil)
 			for(nm = m->child; nm != nil; nm = nm->next){
 				cp = findctype(nm);
-				if(cp->display)
+				if(cp->flag & Display)
 					break;
 			}
 		if(nm != nil)
-			pcmd(nil, nm);
+			pcmd0(nil, nm, mayplumb, tfmt);
 		else
 			hcmd(nil, m);
-	} else if(strncmp(m->type, "multipart/", 10) == 0){
+	}else if(strncmp(m->type, "multipart/", 10) == 0){
 		nm = m->child;
 		if(nm != nil){
-			// always print first part
-			pcmd(nil, nm);
+			/* always print first part */
+			pcmd0(nil, nm, mayplumb, tfmt);
 
 			for(nm = nm->next; nm != nil; nm = nm->next){
-				s = rooted(s_clone(nm->path));
+				s = rooted(nm->path);
 				cp = findctype(nm);
-				snprintHeader(buf, sizeof buf, -1, nm);
+				pheader(buf, sizeof buf, -1, nm);
 				compress(buf);
 				if(strcmp(nm->disposition, "inline") == 0){
 					if(cp->ext != nil)
 						Bprint(&out, "\n--- %s %s/body.%s\n\n",
-							buf, s_to_c(s), cp->ext);
+							buf, s, cp->ext);
 					else
 						Bprint(&out, "\n--- %s %s/body\n\n",
-							buf, s_to_c(s));
-					// pcmd(nil, nm);
+							buf, s);
+					pcmd0(nil, nm, 0, tfmt);
 				} else {
 					if(cp->ext != nil)
 						Bprint(&out, "\n!--- %s %s/body.%s\n",
-							buf, s_to_c(s), cp->ext);
+							buf, s, cp->ext);
 					else
 						Bprint(&out, "\n!--- %s %s/body\n",
-							buf, s_to_c(s));
+							buf, s);
 				}
-				s_free(s);
 			}
 		} else {
 			hcmd(nil, m);
 		}
-	} else if(strcmp(m->type, "message/rfc822") == 0){
+	}else if(strcmp(m->type, "message/rfc822") == 0)
 		pcmd(nil, m->child);
-	} else if(plumb(m, cp) >= 0)
-		Bprint(&out, "\n!--- using plumber to display message of type %s\n", m->type);
-	else
-		Bprint(&out, "\n!--- cannot display messages of type %s\n", m->type);
-		
+	else if(!mayplumb){
+	}else if(plumb(m, cp) >= 0){
+		Bprint(&out, "\n!--- using plumber to type %s", cp->type);
+		if(strcmp(cp->type, m->type) != 0)
+			Bprint(&out, " (was %s)", m->type);
+		Bprint(&out, "\n");
+	}else
+		Bprint(&out, "\n!--- cannot display %s\n", cp->type);
+
+	return m;
+}
+
+Message*
+pcmd(Cmd *c, Message *m)
+{
+	return pcmd0(c, m, 1, textfmt);
+}
+
+Message*
+tcmd(Cmd *c, Message *m)
+{
+	switch(c->an){
+	case 1:
+		if(textfmt[0] != 0)
+			textfmt[0] = 0;
+		else
+			snprint(textfmt, sizeof textfmt, "%s", "upas/tfmt");
+		break;
+	default:
+		snprint(textfmt, sizeof textfmt, "%s", c->cmdline);
+		break;
+	}
+	eprint("!textfmt %s\n", textfmt);
 	return m;
 }
 
 void
-printpartindented(String *s, char *part, char *indent)
+printpartindented(char *s, char *part, char *indent)
 {
 	char *p;
-	String *path;
 	Biobuf *b;
 
-	path = extendpath(s, part);
-	b = Bopen(s_to_c(path), OREAD);
-	s_free(path);
+	b = Bopen(extendp(s, part), OREAD);
 	if(b == nil){
-		fprint(2, "!message disappeared\n");
+		dissappeared();
 		return;
 	}
 	while((p = Brdline(b, '\n')) != nil){
@@ -1492,11 +1801,23 @@ printpartindented(String *s, char *part, char *indent)
 	Bterm(b);
 }
 
-Message*
-quotecmd(Cmd*, Message *m)
+void
+printpartindent2(char *s, char *part, char *indent)
 {
-	Message *nm;
+	Cmd c;
+
+	memset(&c, 0, sizeof c);
+	snprint(c.cmdline, sizeof c.cmdline, "fmt -q '> ' %s | sed 's/^/%s/g' ",
+		rooted(extendp(s, part)), indent);
+	Bflush(&out);
+	bangcmd(&c, nil);
+}
+
+Message*
+quotecmd0(Cmd *c, Message *m, void (*p)(char*, char*, char*))
+{
 	Ctype *cp;
+	Message *nm;
 
 	if(m == &top)
 		return &top;
@@ -1504,9 +1825,9 @@ quotecmd(Cmd*, Message *m)
 	if(m->from != nil && *m->from)
 		Bprint(&out, "On %s, %s wrote:\n", m->date, m->from);
 	cp = findctype(m);
-	if(cp->display){
-		printpartindented(m->path, "body", "> ");
-	} else if(strcmp(m->type, "multipart/alternative") == 0){
+	if(cp->flag & Display)
+		p(m->path, "body", "> ");
+	else if(strcmp(m->type, "multipart/alternative") == 0){
 		for(nm = m->child; nm != nil; nm = nm->next){
 			cp = findctype(nm);
 			if(cp->ext != nil && strncmp(cp->ext, "txt", 3) == 0)
@@ -1515,88 +1836,102 @@ quotecmd(Cmd*, Message *m)
 		if(nm == nil)
 			for(nm = m->child; nm != nil; nm = nm->next){
 				cp = findctype(nm);
-				if(cp->display)
+				if(cp->flag & Display)
 					break;
 			}
 		if(nm != nil)
-			quotecmd(nil, nm);
-	} else if(strncmp(m->type, "multipart/", 10) == 0){
+			quotecmd(c, nm);
+	}else if(strncmp(m->type, "multipart/", 10) == 0){
 		nm = m->child;
 		if(nm != nil){
 			cp = findctype(nm);
-			if(cp->display || strncmp(m->type, "multipart/", 10) == 0)
-				quotecmd(nil, nm);
+			if(cp->flag & Display || strncmp(m->type, "multipart/", 10) == 0)
+				quotecmd(c, nm);
 		}
 	}
 	return m;
 }
 
-// really delete messages
+Message*
+quotecmd(Cmd *c, Message *m)
+{
+	void (*p)(char*, char*, char*);
+
+	p = printpartindented;
+	if(strstr(c->av[0], "\"\"") != nil)
+		p = printpartindent2;
+	return quotecmd0(c, m, p);
+}
+
+
+/* really delete messages */
 Message*
 flushdeleted(Message *cur)
 {
-	Message *m, **l;
 	char buf[1024], *p, *e, *msg;
-	int deld, n, fd;
-	int i;
+	int i, deld, n, fd;
+	Message *m, **l;
 
 	doflush = 0;
 	deld = 0;
 
 	fd = open("/mail/fs/ctl", ORDWR);
 	if(fd < 0){
-		fprint(2, "!can't delete mail, opening /mail/fs/ctl: %r\n");
+		eprint("!can't delete mail, opening /mail/fs/ctl: %r\n");
 		exitfs(0);
 	}
-	e = &buf[sizeof(buf)];
+	e = buf + sizeof buf;
 	p = seprint(buf, e, "delete %s", mbname);
 	n = 0;
 	for(l = &top.child; *l != nil;){
 		m = *l;
-		if(!m->deleted){
+		if((m->nflags & Nmissing) == 0)
+		if((m->flags & Fdeleted) == 0){
 			l = &(*l)->next;
 			continue;
 		}
 
-		// don't return a pointer to a deleted message
+		/* don't return a pointer to a deleted message */
 		if(m == cur)
 			cur = m->next;
-
 		deld++;
-		msg = strrchr(s_to_c(m->path), '/');
-		if(msg == nil)
-			msg = s_to_c(m->path);
-		else
-			msg++;
-		if(e-p < 10){
-			write(fd, buf, p-buf);
-			n = 0;
-			p = seprint(buf, e, "delete %s", mbname);
+		if(m->flags & Fdeleted){
+			msg = strrchr(m->path, '/');
+			if(msg == nil)
+				msg = m->path;
+			else
+				msg++;
+			if(e - p < 10){
+				write(fd, buf, p - buf);
+				n = 0;
+				p = seprint(buf, e, "delete %s", mbname);
+			}
+			p = seprint(p, e, " %s", msg);
+			n++;
 		}
-		p = seprint(p, e, " %s", msg);
-		n++;
-
-		// unchain and free
+		/* unchain and free */
 		*l = m->next;
 		if(m->next)
 			m->next->prev = m->prev;
 		freemessage(m);
 	}
 	if(n)
-		write(fd, buf, p-buf);
+		write(fd, buf, p - buf);
 
 	close(fd);
 
 	if(deld)
 		Bprint(&out, "!%d message%s deleted\n", deld, plural(deld));
 
-	// renumber
+	/* renumber */
 	i = 1;
 	for(m = top.child; m != nil; m = m->next)
 		m->id = natural ? m->fileno : i++;
 
-	// if we're out of messages, go back to first
-	// if no first, return the fake first
+	/*
+	 *  if we're out of messages, go back to first
+	 *  if no first, return the fake first
+	 */
 	if(cur == nil){
 		if(top.child)
 			return top.child;
@@ -1607,53 +1942,82 @@ flushdeleted(Message *cur)
 }
 
 Message*
-qcmd(Cmd*, Message*)
+mbcmd(Cmd *c, Message*)
 {
-	flushdeleted(nil);
+	char *mb, oldmb[Pathlen];
+	Message *m, **l;
 
-	if(didopen)
-		closemb();
-	Bflush(&out);
+	switch(c->an){
+	case 1:
+		mb = "mbox";
+		break;
+	case 2:
+		mb = c->av[1];
+		break;
+	default:
+		eprint("!usage: mbcmd [mbox]\n");
+		return nil;	
+	}
 
-	exitfs(0);
-	return nil;	// not reached
+	/* flushdeleted(nil); ? */
+	for(l = &top.child; *l; ){
+		m = *l;
+		*l = m->next;
+		freemessage(m);
+	}
+	top.child = nil;
+
+	strcpy(oldmb, mbpath);
+	if(switchmb(mb, 0) < 0){
+		eprint("!no mb\n");
+		if(switchmb(oldmb, 0) < 0){
+			eprint("!mb disappeared\n");
+			exits("fail");
+		}
+	}
+	icmd(nil, nil);
+	interrupted = 1;	/* no looping */
+	return &top;
 }
 
 Message*
-ycmd(Cmd*, Message *m)
+qcmd(Cmd*, Message*)
+{
+	flushdeleted(nil);
+	if(didopen)
+		closemb();
+	Bflush(&out);
+	exitfs(0);
+	return nil;
+}
+
+Message*
+ycmd(Cmd *c, Message *m)
 {
 	doflush = 1;
-
-	return icmd(nil, m);
+	return icmd(c, m);
 }
 
 Message*
 xcmd(Cmd*, Message*)
 {
 	exitfs(0);
-	return nil;	// not reached
+	return nil;
 }
 
 Message*
 eqcmd(Cmd*, Message *m)
 {
-	if(m == &top)
-		Bprint(&out, "0\n");
-	else
-		Bprint(&out, "%d\n", m->id);
-	return nil;
+	Bprint(&out, "%D\n", m);
+	return m;
 }
 
 Message*
 dcmd(Cmd*, Message *m)
 {
-	if(m == &top){
-		Bprint(&out, "!address\n");
-		return nil;
-	}
 	while(m->parent != &top)
 		m = m->parent;
-	m->deleted = 1;
+	m->flags |= Fdeleted;
 	return m;
 }
 
@@ -1664,22 +2028,96 @@ ucmd(Cmd*, Message *m)
 		return nil;
 	while(m->parent != &top)
 		m = m->parent;
-	if(m->deleted < 0)
-		Bprint(&out, "!can't undelete, already flushed\n");
-	m->deleted = 0;
+	m->flags &= ~Fdeleted;
 	return m;
 }
 
+int
+skipscan(void)
+{
+	int r;
+	Dir *d;
+	static int lastvers = -1;
+
+	d = dirstat(top.path);
+	r = d && d->qid.path == mbqid.path && d->qid.vers == mbqid.vers;
+	r = r && mbvers == lastvers;
+	if(d != nil){
+		mbqid = d->qid;
+		lastvers = mbvers;
+	}
+	free(d);
+	return r;
+}
 
 Message*
-icmd(Cmd*, Message *m)
+icmd(Cmd *c, Message *m)
 {
-	int n;
+	char buf[128], *p, *e;
+	Dirstats s;
 
-	n = dir2message(&top, reverse);
-	if(n > 0)
-		Bprint(&out, "%d new message%s\n", n, plural(n));
+	if(skipscan())
+		return m;
+	if(dir2message(&top, reverse, &s) < 0)
+		return nil;
+	p = buf;
+	e = buf + sizeof buf;
+	if(s.new > 0 && c == nil){
+		p = seprint(p, e, "%d message%s", s.new, plural(s.new));
+		if(s.unread > 0)
+			p = seprint(p, e, ", %d unread", s.unread);
+	}
+	else if(s.new > 0)
+		Bprint(&out, "%d new message%s", s.new, plural(s.new));
+	if(s.new && s.del)
+		p = seprint(p, e, "; ");
+	if(s.del > 0)
+		p = seprint(p, e, "%d deleted message%s", s.del, plural(s.del));
+	if(s.new + s.del)
+		p = seprint(p, e, "\n");
+	if(p > buf){
+		Bflush(&out);
+		eprint("%s", buf);
+	}
 	return m;
+}
+
+Message*
+kcmd0(Cmd *c, Message *m)
+{
+	char *f, *s;
+	int sticky;
+
+	if(c->an > 2){
+		eprint("!usage k [flags]\n");
+		return nil;
+	}
+	if(c->f == kcmd)
+		f = "f";
+	else
+		f = "-f";
+	if(c->an == 2)
+		f = c->av[1];
+	setflags(m, f);
+	if(c->an == 2 && (m->nflags & Nnoflags) == 0){
+		sticky = m->flags & Fdeleted;
+		s = file2string(m->path, "flags");
+		m->flags = buftoflags(s) | sticky;
+		free(s);
+	}
+	return m;
+}
+
+Message*
+kcmd(Cmd *c, Message *m)
+{
+	return kcmd0(c, m);
+}
+
+Message*
+Kcmd(Cmd *c, Message *m)
+{
+	return kcmd0(c, m);
 }
 
 Message*
@@ -1690,38 +2128,50 @@ helpcmd(Cmd*, Message *m)
 	Bprint(&out, "Commands are of the form [<range>] <command> [args]\n");
 	Bprint(&out, "<range> := <addr> | <addr>','<addr>| 'g'<search>\n");
 	Bprint(&out, "<addr> := '.' | '$' | '^' | <number> | <search> | <addr>'+'<addr> | <addr>'-'<addr>\n");
-	Bprint(&out, "<search> := '/'<regexp>'/' | '?'<regexp>'?' | '%%'<regexp>'%%'\n");
+	Bprint(&out, "<search> := 'k' | '/'<re>'/' | '?'<re>'?' | '%%'<re>'%%' | '#' <field> '#' <re> '#' \n");
 	Bprint(&out, "<command> :=\n");
-	for(i = 0; cmdtab[i].cmd != nil; i++)
+	for(i = 0; i < nelem(cmdtab); i++)
 		Bprint(&out, "%s\n", cmdtab[i].help);
 	return m;
+}
+
+/* ed thinks this is a good idea */
+void
+marshal(char **path, char **argv0)
+{
+	char *s;
+
+	s = getenv("marshal");
+	if(s == nil || *s == 0)
+		s = "/bin/upas/marshal";
+	*path = s;
+	*argv0 = strrchr(s, '/') + 1;
+	if(*argv0 == (char*)1)
+		*argv0 = s;
 }
 
 int
 tomailer(char **av)
 {
-	Waitmsg *w;
 	int pid, i;
+	char *p, *a;
+	Waitmsg *w;
 
-	// start the mailer and get out of the way
 	switch(pid = fork()){
 	case -1:
-		fprint(2, "can't fork: %r\n");
+		eprint("can't fork: %r\n");
 		return -1;
 	case 0:
-		Bprint(&out, "!/bin/upas/marshal");
-		for(i = 1; av[i]; i++){
-			if(strchr(av[i], ' ') != nil)
-				Bprint(&out, " '%s'", av[i]);
-			else
-				Bprint(&out, " %s", av[i]);
-		}
+		marshal(&p, &a);
+		Bprint(&out, "!%s", p);
+		for(i = 1; av[i]; i++)
+			Bprint(&out, " %q", av[i]);
 		Bprint(&out, "\n");
 		Bflush(&out);
-		av[0] = "marshal";
+		av[0] = a;
 		chdir(wd);
-		exec("/bin/upas/marshal", av);
-		fprint(2, "couldn't exec /bin/upas/marshal\n");
+		exec(p, av);
+		eprint("couldn't exec %s\n", p);
 		exits(0);
 	default:
 		w = wait();
@@ -1732,28 +2182,28 @@ tomailer(char **av)
 			return -1;
 		}
 		if(w->msg[0]){
-			fprint(2, "mailer failed: %s\n", w->msg);
+			eprint("mailer failed: %s\n", w->msg);
 			free(w);
 			return -1;
 		}
 		free(w);
-		Bprint(&out, "!\n");
+//		Bprint(&out, "!\n");
 		break;
 	}
 	return 0;
 }
 
-//
-// like tokenize but obey "" quoting
-//
+/*
+ *  like tokenize but obey "" quoting
+ */
 int
 tokenize822(char *str, char **args, int max)
 {
-	int na;
-	int intok = 0, inquote = 0;
+	int na, intok, inquote;
 
 	if(max <= 0)
-		return 0;	
+		return 0;
+	intok = inquote = 0;
 	for(na=0; ;str++)
 		switch(*str) {
 		case ' ':
@@ -1783,56 +2233,59 @@ tokenize822(char *str, char **args, int max)
 		}
 }
 
-/* return reply-to address & set *nmp to corresponding Message */
-static char *
-getreplyto(Message *m, Message **nmp)
-{
-	Message *nm;
+static char *rec[] = {"Re: ", "AW:", };
+static char *fwc[] = {"Fwd: ", };
 
-	for(nm = m; nm != &top; nm = nm->parent)
- 		if(*nm->replyto != 0)
+char*
+addrecolon(char **tab, int n, char *s)
+{
+	char *prefix;
+	int i;
+
+	prefix = "";
+	for(i = 0; i < n; i++)
+		if(cistrncmp(s, tab[i], strlen(tab[i]) - 1) == 0)
 			break;
-	*nmp = nm;
-	return nm? nm->replyto: nil;
+	if(i == n)
+		prefix = tab[0];
+	return smprint("%s%s", prefix, s);
 }
 
 Message*
 rcmd(Cmd *c, Message *m)
 {
-	char *addr;
-	char *av[128];
-	int i, ai = 1;
-	String *from, *rpath, *path = nil, *subject = nil;
+	char *from, *path, *subject, *rpath, *addr, *av[128];
+	int i, ai;
 	Message *nm;
 
-	if(m == &top){
-		Bprint(&out, "!address\n");
+	ai = 1;
+	av[ai++] = "-8";
+	addr = path = subject = nil;
+	for(nm = m; nm != &top; nm = nm->parent)
+ 		if(*nm->replyto != 0){
+			addr = nm->replyto;
+			break;
+		}
+	if(addr == nil){
+		eprint("!no reply address\n");
 		return nil;
 	}
 
-	addr = getreplyto(m, &nm);
-	if(addr == nil){
-		Bprint(&out, "!no reply address\n");
-		return nil;
-	}
 	if(nm == &top){
 		print("!noone to reply to\n");
 		return nil;
 	}
 
-	av[ai++] = "-8";
-	for(nm = m; nm != &top; nm = nm->parent){
+	for(nm = m; nm != &top; nm = nm->parent)
 		if(*nm->subject){
 			av[ai++] = "-s";
-			subject = addrecolon(nm->subject);
-			av[ai++] = s_to_c(subject);
+			subject = addrecolon(rec, nelem(rec), nm->subject);
+			av[ai++] = subject;
 			break;
 		}
-	}
 
 	av[ai++] = "-R";
-	rpath = rooted(s_clone(m->path));
-	av[ai++] = s_to_c(rpath);
+	av[ai++] = rpath = strdup(rooted(m->path));
 
 	if(strchr(c->av[0], 'f') != nil){
 		fcmd(c, m);
@@ -1843,39 +2296,44 @@ rcmd(Cmd *c, Message *m)
 		av[ai++] = "-t";
 		av[ai++] = "message/rfc822";
 		av[ai++] = "-A";
-		path = rooted(extendpath(m->path, "raw"));
-		av[ai++] = s_to_c(path);
+		path = strdup(rooted(extendp(m->path, "raw")));
+		av[ai++] = path;
 	}
 
 	for(i = 1; i < c->an && ai < nelem(av)-1; i++)
 		av[ai++] = c->av[i];
-	from = s_copy(addr);
-	ai += tokenize822(s_to_c(from), &av[ai], nelem(av) - ai);
+	ai += tokenize822(from = strdup(addr), &av[ai], nelem(av) - ai);
 	av[ai] = 0;
-	if(tomailer(av) < 0)
+	if(tomailer(av) == -1)
 		m = nil;
-	s_free(path);
-	s_free(rpath);
-	s_free(subject);
-	s_free(from);
+	else
+		m->flags |= Fanswered;
+	free(path);
+	free(rpath);
+	free(subject);
+	free(from);
 	return m;
 }
 
 Message*
 mcmd(Cmd *c, Message *m)
 {
-	char *av[128];
-	int i, ai = 1;
-	String *path;
+	char *subject, *av[128];
+	int i, ai;
 
-	if(m == &top){
-		Bprint(&out, "!address\n");
+	if(c->an < 2){
+		eprint("!usage: M list-of addresses\n");
 		return nil;
 	}
 
-	if(c->an < 2){
-		fprint(2, "!usage: M list-of addresses\n");
-		return nil;
+	ai = 1;
+	av[ai++] = "-8";
+
+	subject = nil;
+	if(m->subject){
+		av[ai++] = "-s";
+		subject = addrecolon(fwc, nelem(fwc), m->subject);
+		av[ai++] = subject;
 	}
 
 	av[ai++] = "-t";
@@ -1885,154 +2343,103 @@ mcmd(Cmd *c, Message *m)
 		av[ai++] = "mime";
 
 	av[ai++] = "-A";
-	path = rooted(extendpath(m->path, "raw"));
-	av[ai++] = s_to_c(path);
-
+	av[ai++] = rooted(extendp(m->path, "raw"));
 	if(strchr(c->av[0], 'M') == nil)
 		av[ai++] = "-n";
-	else
-		av[ai++] = "-8";
-
 	for(i = 1; i < c->an && ai < nelem(av)-1; i++)
 		av[ai++] = c->av[i];
 	av[ai] = 0;
 
-	if(tomailer(av) < 0)
+	if(tomailer(av) == -1)
 		m = nil;
-	if(path != nil)
-		s_free(path);
+	else
+		m->flags |= Fanswered;
+	free(subject);
 	return m;
 }
 
 Message*
 acmd(Cmd *c, Message *m)
 {
-	char *av[128];
-	int i, ai = 1;
-	String *from, *rpath, *path = nil, *subject = nil;
-	String *to, *cc;
+	char *av[128], *rpath, *subject, *from, *to, *cc;
+	int i, ai;
 
-	if(m == &top){
-		Bprint(&out, "!address\n");
+	if(m->from == nil || m->to == nil || m->cc == nil){
+		eprint("!bad message\n");
 		return nil;
 	}
 
+	ai = 1;
 	av[ai++] = "-8";
-
-	if(*m->subject){
-		av[ai++] = "-s";
-		subject = addrecolon(m->subject);
-		av[ai++] = s_to_c(subject);
-	}
-
 	av[ai++] = "-R";
-	rpath = rooted(s_clone(m->path));
-	av[ai++] = s_to_c(rpath);
+	av[ai++] = rpath = strdup(rooted(m->path));
+
+	subject = nil;
+	if(m->subject && *m->subject){
+		av[ai++] = "-s";
+		subject = addrecolon(rec, nelem(rec), m->subject);
+		av[ai++] = subject;
+	}
 
 	if(strchr(c->av[0], 'A') != nil){
 		av[ai++] = "-t";
 		av[ai++] = "message/rfc822";
 		av[ai++] = "-A";
-		path = rooted(extendpath(m->path, "raw"));
-		av[ai++] = s_to_c(path);
+		av[ai++] = rooted(extendp(m->path, "raw"));
 	}
 
 	for(i = 1; i < c->an && ai < nelem(av)-1; i++)
 		av[ai++] = c->av[i];
-	from = s_copy(m->from);
-	ai += tokenize822(s_to_c(from), &av[ai], nelem(av) - ai);
-	to = s_copy(m->to);
-	ai += tokenize822(s_to_c(to), &av[ai], nelem(av) - ai);
-	cc = s_copy(m->cc);
-	ai += tokenize822(s_to_c(cc), &av[ai], nelem(av) - ai);
+	ai += tokenize822(from = strdup(m->from), &av[ai], nelem(av) - ai);
+	ai += tokenize822(to = strdup(m->to), &av[ai], nelem(av) - ai);
+	ai += tokenize822(cc = strdup(m->cc), &av[ai], nelem(av) - ai);
 	av[ai] = 0;
-	if(tomailer(av) < 0)
+	if(tomailer(av) == -1)
 		m = nil;
-	s_free(path);
-	s_free(rpath);
-	s_free(subject);
-	s_free(from);
-	s_free(to);
-	s_free(cc);
+	else
+		m->flags |= Fanswered;
+	free(from);
+	free(to);
+	free(cc);
+	free(subject);
+	free(rpath);
 	return m;
 }
 
-String *
-relpath(char *path, String *to)
-{
-	if (*path=='/' || strncmp(path, "./", 2) == 0
-			      || strncmp(path, "../", 3) == 0) {
-		to = s_append(to, path);
-	} else if(mbpath) {
-		to = s_append(to, s_to_c(mbpath));
-		to->ptr = strrchr(to->base, '/')+1;
-		s_append(to, path);
-	}
-	return to;
-}
-
 int
-appendtofile(Message *m, char *part, char *base, int mbox)
+appendtofile(Message *m, char *part, char *base, int mbox, int f)
 {
-	String *file, *h;
-	int in, out, rv;
+	char *folder, path[Pathlen];
+	int in, rv, rp;
 
-	file = extendpath(m->path, part);
-	in = open(s_to_c(file), OREAD);
-	if(in < 0){
-		fprint(2, "!message disappeared\n");
+	in = open(extendp(m->path, part), OREAD);
+	if(in == -1){
+		dissappeared();
 		return -1;
 	}
-
-	s_reset(file);
-
-	relpath(base, file);
-	if(sysisdir(s_to_c(file))){
-		s_append(file, "/");
-		if(m->filename && strchr(m->filename, '/') == nil)
-			s_append(file, m->filename);
-		else {
-			s_append(file, "att.XXXXXXXXXXX");
-			mktemp(s_to_c(file));
-		}
-	}
-	if(mbox)
-		out = open(s_to_c(file), OWRITE);
+	rp = 0;
+	if(*base == '/')
+		folder = base;
+	else if(!mbox){
+		snprint(path, sizeof path, "%s/%s", wd, base);
+		folder = path;
+		rp = 1;
+	}else if(f)
+		folder = ffoldername(mbpath, user, base);
 	else
-		out = open(s_to_c(file), OWRITE|OTRUNC);
-	if(out < 0){
-		out = create(s_to_c(file), OWRITE, 0666);
-		if(out < 0){
-			fprint(2, "!can't open %s: %r\n", s_to_c(file));
-			close(in);
-			s_free(file);
-			return -1;
-		}
-	}
+		folder = foldername(mbpath, user, base);
+	if(folder == nil)
+		return -1;
 	if(mbox)
-		seek(out, 0, 2);
-
-	// put on a 'From ' line
-	if(mbox){
-		while(m->parent != &top)
-			m = m->parent;
-		h = file2string(m->path, "unixheader");
-		fprint(out, "%s", s_to_c(h));
-		s_free(h);
-	}
-
-	// copy the message escaping what we have to ad adding newlines if we have to
-	if(mbox)
-		rv = appendfiletombox(in, out);
+		rv = fappendfolder(0, 0, folder, in);
 	else
-		rv = appendfiletofile(in, out);
-
+		rv = fappendfile(m->from, folder, in);
 	close(in);
-	close(out);
-
-	if(rv >= 0)
-		print("!saved in %s\n", s_to_c(file));
-	s_free(file);
+	if(rv >= 0){
+		eprint("!saved in %s\n", rp? base: folder);
+		setflags(m, "S");
+	}else
+		eprint("!error %r\n");
 	return rv;
 }
 
@@ -2040,11 +2447,6 @@ Message*
 scmd(Cmd *c, Message *m)
 {
 	char *file;
-
-	if(m == &top){
-		Bprint(&out, "!address\n");
-		return nil;
-	}
 
 	switch(c->an){
 	case 1:
@@ -2054,14 +2456,12 @@ scmd(Cmd *c, Message *m)
 		file = c->av[1];
 		break;
 	default:
-		fprint(2, "!usage: s filename\n");
+		eprint("!usage: s filename\n");
 		return nil;
 	}
 
-	if(appendtofile(m, "raw", file, 1) < 0)
+	if(appendtofile(m, "rawunix", file, 1, 0) < 0)
 		return nil;
-
-	m->stored = 1;
 	return m;
 }
 
@@ -2070,18 +2470,13 @@ wcmd(Cmd *c, Message *m)
 {
 	char *file;
 
-	if(m == &top){
-		Bprint(&out, "!address\n");
-		return nil;
-	}
-
 	switch(c->an){
 	case 2:
 		file = c->av[1];
 		break;
 	case 1:
 		if(*m->filename == 0){
-			fprint(2, "!usage: w filename\n");
+			eprint("!usage: w filename\n");
 			return nil;
 		}
 		file = strrchr(m->filename, '/');
@@ -2091,114 +2486,107 @@ wcmd(Cmd *c, Message *m)
 			file = m->filename;
 		break;
 	default:
-		fprint(2, "!usage: w filename\n");
+		eprint("!usage: w filename\n");
 		return nil;
 	}
 
-	if(appendtofile(m, "body", file, 0) < 0)
+	if(appendtofile(m, "body", file, 0, 0) < 0)
 		return nil;
-	m->stored = 1;
 	return m;
 }
 
-char *specialfile[] =
-{
-	"pipeto",
-	"pipefrom",
-	"L.mbox",
-	"forward",
-	"names"
+typedef struct Xtab Xtab;
+struct Xtab {
+	char	*a;
+	char	*b;
 };
+Xtab	*xtab;
+int	nxtab;
 
-// return 1 if this is a special file
-static int
-special(String *s)
+void
+loadxfrom(int fd)
 {
-	char *p;
-	int i;
+	char *f[3], *s, *p;
+	int n, a, inc;
+	Biobuf b;
+	Xtab *x;
 
-	p = strrchr(s_to_c(s), '/');
-	if(p == nil)
-		p = s_to_c(s);
-	else
-		p++;
-	for(i = 0; i < nelem(specialfile); i++)
-		if(strcmp(p, specialfile[i]) == 0)
-			return 1;
-	return 0;
+	Binit(&b, fd, OREAD);
+	a = 0;
+	inc = 100;
+	for(; s = Brdstr(&b, '\n', 1);){
+		if(p = strchr(s, '#'))
+			*p = 0;
+		n = tokenize(s, f, nelem(f));
+		if(n != 2){
+			free(s);
+			continue;
+		}
+		if(nxtab == a){
+			a += inc;
+			xtab = realloc(xtab, a*sizeof *xtab);
+			if(xtab == nil)
+				sysfatal("realloc: %r");
+			inc *= 2;
+		}
+		for(x = xtab+nxtab; x > xtab && strcmp(x[-1].a, f[0]) > 0; x--)
+			x[0] = x[-1];
+		x->a = f[0];
+		x->b = f[1];
+		nxtab++;
+	}
 }
 
-// open the folder using the recipients account name
-static String*
-foldername(char *rcvr)
+char*
+frombox(char *from)
 {
-	char *p;
-	int c;
-	String *file;
-	Dir *d;
-	int scarey;
+	char *s;
+	int n, m, fd;
+	Xtab *t, *p;
+	static int once;
 
-	file = s_new();
-	mboxpath("f", user, file, 0);
-	d = dirstat(s_to_c(file));
-
-	// if $mail/f exists, store there, otherwise in $mail
-	s_restart(file);
-	if(d && d->qid.type == QTDIR){
-		scarey = 0;
-		s_append(file, "f/");
-	} else {
-		scarey = 1;
+	if(once == 0){
+		once = 1;
+		s = foldername(mbpath, user, "fromtab-");
+		fd = open(s, OREAD);
+		if(fd != -1)
+			loadxfrom(fd);
+		close(fd);
 	}
-	free(d);
-
-	p = strrchr(rcvr, '!');
-	if(p != nil)
-		rcvr = p+1;
-
-	while(*rcvr && *rcvr != '@'){
-		c = *rcvr++;
-		if(c == '/')
-			c = '_';
-		s_putc(file, c);
+	t = xtab;
+	n = nxtab;
+	while(n > 1) {
+		m = n/2;
+		p = t + m;
+		if(strcmp(from, p->a) > 0){
+			t = p;
+			n = n - m;
+		} else
+			n = m;
 	}
-	s_terminate(file);
-
-	if(scarey && special(file)){
-		fprint(2, "!won't overwrite %s\n", s_to_c(file));
-		s_free(file);
-		return nil;
-	}
-
-	return file;
+	if(n && strcmp(from, t->a) == 0)
+		return t->b;
+	return from;
 }
 
 Message*
-fcmd(Cmd *c, Message *m)
+fcmd(Cmd*, Message *m)
 {
-	String *folder;
+	char *f;
 
-	if(c->an > 1){
-		fprint(2, "!usage: f takes no arguments\n");
+	f = frombox(m->from);
+	if(appendtofile(m, "rawunix", f, 1, 1) < 0)
 		return nil;
-	}
+	return m;
+}
 
-	if(m == &top){
-		Bprint(&out, "!address\n");
-		return nil;
-	}
+Message*
+fqcmd(Cmd*, Message *m)
+{
+	char *f;
 
-	folder = foldername(m->from);
-	if(folder == nil)
-		return nil;
-
-	if(appendtofile(m, "raw", s_to_c(folder), 1) < 0){
-		s_free(folder);
-		return nil;
-	}
-	s_free(folder);
-
-	m->stored = 1;
+	f = frombox(m->from);
+	Bprint(&out, "! %s\n", f);
 	return m;
 }
 
@@ -2219,7 +2607,7 @@ system(char *cmd, char **av, int in)
 		if(wd[0] != 0)
 			chdir(wd);
 		exec(cmd, av);
-		fprint(2, "!couldn't exec %s\n", cmd);
+		eprint("!couldn't exec %s\n", cmd);
 		exits(0);
 	default:
 		if(in >= 0)
@@ -2237,68 +2625,40 @@ system(char *cmd, char **av, int in)
 Message*
 bangcmd(Cmd *c, Message *m)
 {
-	char cmd[4*1024];
-	char *p, *e;
 	char *av[4];
-	int i;
 
-	cmd[0] = 0;
-	p = cmd;
-	e = cmd+sizeof(cmd);
-	for(i = 1; i < c->an; i++)
-		p = seprint(p, e, "%s ", c->av[i]);
 	av[0] = "rc";
 	av[1] = "-c";
-	av[2] = cmd;
+	av[2] = c->cmdline;
 	av[3] = 0;
 	system("/bin/rc", av, -1);
-	Bprint(&out, "!\n");
+//	Bprint(&out, "!\n");
 	return m;
 }
 
 Message*
 xpipecmd(Cmd *c, Message *m, char *part)
 {
-	char cmd[128];
-	char *p, *e;
 	char *av[4];
-	String *path;
-	int i, fd;
+	int fd;
 
 	if(c->an < 2){
-		Bprint(&out, "!usage: | cmd\n");
+		eprint("!usage: | cmd\n");
 		return nil;
 	}
 
-	if(m == &top){
-		Bprint(&out, "!address\n");
-		return nil;
-	}
-
-	path = extendpath(m->path, part);
-	fd = open(s_to_c(path), OREAD);
-	s_free(path);
-	if(fd < 0){	// compatibility with older upas/fs
-		path = extendpath(m->path, "raw");
-		fd = open(s_to_c(path), OREAD);
-		s_free(path);
-	}
+	fd = open(extendp(m->path, part), OREAD);
 	if(fd < 0){
-		fprint(2, "!message disappeared\n");
+		dissappeared();
 		return nil;
 	}
 
-	p = cmd;
-	e = cmd+sizeof(cmd);
-	cmd[0] = 0;
-	for(i = 1; i < c->an; i++)
-		p = seprint(p, e, "%s ", c->av[i]);
 	av[0] = "rc";
 	av[1] = "-c";
-	av[2] = cmd;
+	av[2] = c->cmdline;
 	av[3] = 0;
 	system("/bin/rc", av, fd);	/* system closes fd */
-	Bprint(&out, "!\n");
+//	Bprint(&out, "!\n");
 	return m;
 }
 
@@ -2323,172 +2683,128 @@ closemb(void)
 	if(fd < 0)
 		sysfatal("can't open /mail/fs/ctl: %r");
 
-	// close current mailbox
+	/* close current mailbox */
 	if(*mbname && strcmp(mbname, "mbox") != 0)
-		fprint(fd, "close %s", mbname);
+	if(fprint(fd, "close %q", mbname) == -1)
+		eprint("!close %q: %r", mbname);
 
 	close(fd);
 }
 
-int
-switchmb(char *file, char *singleton)
+static char*
+chop(char *s, int c)
 {
 	char *p;
-	int n, fd;
-	String *path;
-	char buf[256];
 
-	// if the user didn't say anything and there
-	// is an mbox mounted already, use that one
-	// so that the upas/fs -fdefault default is honored.
-	if(file 
-	|| (singleton && access(singleton, 0)<0)
-	|| (!singleton && access("/mail/fs/mbox", 0)<0)){
-		if(file == nil)
-			file = "mbox";
-
-		// close current mailbox
-		closemb();
-		didopen = 1;
-
-		fd = open("/mail/fs/ctl", ORDWR);
-		if(fd < 0)
-			sysfatal("can't open /mail/fs/ctl: %r");
-	
-		path = s_new();
-	
-		// get an absolute path to the mail box
-		if(strncmp(file, "./", 2) == 0){
-			// resolve path here since upas/fs doesn't know
-			// our working directory
-			if(getwd(buf, sizeof(buf)-strlen(file)) == nil){
-				fprint(2, "!can't get working directory: %s\n", buf);
-				return -1;
-			}
-			s_append(path, buf);
-			s_append(path, file+1);
-		} else {
-			mboxpath(file, user, path, 0);
-		}
-	
-		// make up a handle to use when talking to fs
-		p = strrchr(file, '/');
-		if(p == nil){
-			// if its in the mailbox directory, just use the name
-			strncpy(mbname, file, sizeof(mbname));
-			mbname[sizeof(mbname)-1] = 0;
-		} else {
-			// make up a mailbox name
-			p = strrchr(s_to_c(path), '/');
-			p++;
-			if(*p == 0){
-				fprint(2, "!bad mbox name");
-				return -1;
-			}
-			strncpy(mbname, p, sizeof(mbname));
-			mbname[sizeof(mbname)-1] = 0;
-			n = strlen(mbname);
-			if(n > Elemlen-12)
-				n = Elemlen-12;
-			sprint(mbname+n, "%ld", time(0));
-		}
-
-		if(fprint(fd, "open %s %s", s_to_c(path), mbname) < 0){
-			fprint(2, "!can't 'open %s %s': %r\n", file, mbname);
-			s_free(path);
-			return -1;
-		}
-		close(fd);
-	}else
-	if (singleton && access(singleton, 0)==0
-	    && strncmp(singleton, "/mail/fs/", 9) == 0){
-		if ((p = strchr(singleton +10, '/')) == nil){
-			fprint(2, "!bad mbox name");
-			return -1;
-		}
-		n = p-(singleton+9);
-		strncpy(mbname, singleton+9, n);
-		mbname[n+1] = 0;
-		path = s_reset(nil);
-		mboxpath(mbname, user, path, 0);
-	}else{
-		path = s_reset(nil);
-		mboxpath("mbox", user, path, 0);
-		strcpy(mbname, "mbox");
+	p = strrchr(s, c);
+	if(p != nil && p > s) {
+		*p = 0;
+		return p - 1;
 	}
-
-	snprint(root, sizeof root, "/mail/fs/%s", mbname);
-	if(getwd(wd, sizeof(wd)) == 0)
-		wd[0] = 0;
-	if(singleton == nil && chdir(root) >= 0)
-		strcpy(root, ".");
-	rootlen = strlen(root);
-
-	if(mbpath != nil)
-		s_free(mbpath);
-	mbpath = path;
 	return 0;
 }
 
-// like tokenize but for into lines
+/* sometimes opens the file (or open mbox) intended. */
 int
-lineize(char *s, char **f, int n)
+switchmb(char *mb, int singleton)
 {
-	int i;
+	char *p, *e, pbuf[Pathlen], buf[Pathlen], file[Pathlen];
+	int fd, abs;
 
-	for(i = 0; *s && i < n; i++){
-		f[i] = s;
-		s = strchr(s, '\n');
-		if(s == nil)
-			break;
-		*s++ = 0;
+	closemb();
+	abs = 0;
+	if(mb == nil)
+		mb = "mbox";
+	if(strcmp(mb, ".") == 0)	/* botch */
+		mb = homewd;
+	if(*mb == '/' || strncmp(mb, "./", 2) == 0 || strncmp(mb, "../", 3) == 0){
+		snprint(file, sizeof file, "%s", mb);
+		abs = 1;
+	}else
+		snprint(file, sizeof file, "/mail/fs/%s", mb);
+	if(singleton){
+		if(chop(file, '/') == nil || (p = strrchr(file, '/')) == nil || p - file < 2){
+			eprint("!bad mbox name\n");
+			return -1;
+		}
+		mboxpathbuf(pbuf, sizeof pbuf, user, "mbox");
+		snprint(mbname, sizeof mbname, "%s", p + 1);
+	}else if(abs || access(file, 0) < 0){
+		fd = open("/mail/fs/ctl", ORDWR);
+		if(fd < 0)
+			sysfatal("can't open /mail/fs/ctl: %r");
+		p = pbuf;
+		e = pbuf + sizeof pbuf;
+		if(abs && *file != '/')
+			seprint(p, e, "%s/%s", getwd(buf, sizeof buf), mb);
+		else if(abs)
+			seprint(p, e, "%s", mb);
+		else
+			mboxpathbuf(pbuf, sizeof pbuf, user, mb);
+		/* make up a handle to use when talking to fs */
+		if((p = strrchr(mb, '/')) == nil)
+			p = mb - 1;
+		snprint(mbname, sizeof mbname, "%s%ld", p + 1, time(0));
+		if(fprint(fd, "open %q %q", pbuf, mbname) < 0){
+			eprint("!can't open %q %q: %r\n", pbuf, mbname);
+			return -1;
+		}
+		close(fd);
+		didopen = 1;
+	}else{
+		mboxpathbuf(pbuf, sizeof pbuf, user, mb);
+		strcpy(mbname, mb);
 	}
-	return i;
+
+	snprint(root, sizeof root, "/mail/fs/%s", mbname);
+	if(getwd(wd, sizeof wd) == nil)
+		wd[0] = 0;
+	if(!singleton && chdir(root) >= 0)
+		strcpy(root, ".");
+	rootlen = strlen(root);
+	snprint(mbpath, sizeof mbpath, "%s", pbuf);
+	memset(&mbqid, 0, sizeof mbqid);
+	mbvers++;
+
+	return 0;
 }
 
-
-
-String*
-rooted(String *s)
+char*
+rooted(char *s)
 {
-	static char buf[256];
+	static char buf[Pathlen];
 
 	if(strcmp(root, ".") != 0)
 		return s;
-	snprint(buf, sizeof(buf), "/mail/fs/%s/%s", mbname, s_to_c(s));
-	s_free(s);
-	return s_copy(buf);
+	snprint(buf, sizeof buf, "/mail/fs/%s/%s", mbname, s);
+	return buf;
 }
 
 int
 plumb(Message *m, Ctype *cp)
 {
-	String *s;
+	char *s;
 	Plumbmsg *pm;
 	static int fd = -2;
 
 	if(cp->plumbdest == nil)
 		return -1;
-
 	if(fd < -1)
 		fd = plumbopen("send", OWRITE);
 	if(fd < 0)
 		return -1;
 
-	pm = mallocz(sizeof(Plumbmsg), 1);
+	pm = mallocz(sizeof *pm, 1);
 	pm->src = strdup("mail");
 	if(*cp->plumbdest)
 		pm->dst = strdup(cp->plumbdest);
-	pm->wdir = nil;
 	pm->type = strdup("text");
 	pm->ndata = -1;
-	s = rooted(extendpath(m->path, "body"));
-	if(cp->ext != nil){
-		s_append(s, ".");
-		s_append(s, cp->ext);
-	}
-	pm->data = strdup(s_to_c(s));
-	s_free(s);
+	s = rooted(extendp(m->path, "body"));
+	if(cp->ext != nil)
+		pm->data  = smprint("%s.%s", s, cp->ext);
+	else
+		pm->data  = strdup(s);
 	plumbsend(fd, pm);
 	plumbfree(pm);
 	return 0;
@@ -2499,24 +2815,11 @@ regerror(char*)
 {
 }
 
-String*
-addrecolon(char *s)
-{
-	String *str;
-
-	if(cistrncmp(s, "re:", 3) != 0){
-		str = s_copy("Re: ");
-		s_append(str, s);
-	} else
-		str = s_copy(s);
-	return str;
-}
-
 void
 exitfs(char *rv)
 {
 	if(startedfs)
 		unmount(nil, "/mail/fs");
-	chdir("/sys/src/cmd/upas/ned");		/* for profiling? */
+	chdir(homewd);			/* prof */
 	exits(rv);
 }

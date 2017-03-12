@@ -1,21 +1,17 @@
 #include "common.h"
 #include "send.h"
 
-static String* s_parseq(String*, String*);
-
 /* exports */
 dest *dlist;
 
-extern dest*
+dest*
 d_new(String *addr)
 {
 	dest *dp;
 
 	dp = (dest *)mallocz(sizeof(dest), 1);
-	if (dp == 0) {
-		perror("d_new");
-		exit(1);
-	}
+	if (dp == 0)
+		sysfatal("malloc: %r");
 	dp->same = dp;
 	dp->nsame = 1;
 	dp->nchar = 0;
@@ -27,7 +23,7 @@ d_new(String *addr)
 	return dp;
 }
 
-extern void
+void
 d_free(dest *dp)
 {
 	if (dp != 0) {
@@ -46,7 +42,7 @@ d_free(dest *dp)
  */
 
 /*  Get first element from a circular list linked via 'next'. */
-extern dest *
+dest*
 d_rm(dest **listp)
 {
 	dest *dp;
@@ -63,7 +59,7 @@ d_rm(dest **listp)
 }
 
 /*  Insert a new entry at the end of the list linked via 'next'. */
-extern void
+void
 d_insert(dest **listp, dest *new)
 {
 	dest *head;
@@ -82,7 +78,7 @@ d_insert(dest **listp, dest *new)
 }
 
 /*  Get first element from a circular list linked via 'same'. */
-extern dest *
+dest*
 d_rm_same(dest **listp)
 {
 	dest *dp;
@@ -114,17 +110,20 @@ d_same_dup(dest *dp, dest *new)
 	return 0;
 }
 
-/* Insert an entry into the corresponding list linked by 'same'.  Note that
+/*
+ * Insert an entry into the corresponding list linked by 'same'.  Note that
  * the basic structure is a list of lists.
  */
-extern void
+void
 d_same_insert(dest **listp, dest *new)
 {
 	dest *dp;
 	int len;
 
 	if(new->status == d_pipe || new->status == d_cat) {
-		len = new->repl2 ? strlen(s_to_c(new->repl2)) : 0;
+		len = 0;
+		if(new->repl2)
+			len = strlen(s_to_c(new->repl2));
 		if(*listp != 0){
 			dp = (*listp)->next;
 			do {
@@ -146,7 +145,10 @@ d_same_insert(dest **listp, dest *new)
 				dp = dp->next;
 			} while (dp != (*listp)->next);
 		}
-		new->nchar = strlen(s_to_c(new->repl1)) + len + 1;
+		if(s_to_c(new->repl1))
+			new->nchar = strlen(s_to_c(new->repl1)) + len + 1;
+		else
+			new->nchar = 0;
 	}
 	new->next = new;
 	d_insert(listp, new);
@@ -157,7 +159,7 @@ d_same_insert(dest **listp, dest *new)
  *  The local! and !local! checks are artificial intelligence,
  *  there should be a better way.
  */
-extern String*
+String*
 d_to(dest *list)
 {
 	dest *np, *sp;
@@ -197,33 +199,6 @@ d_to(dest *list)
 	return unescapespecial(s);
 }
 
-/* expand a String of destinations into a linked list of destiniations */
-extern dest *
-s_to_dest(String *sp, dest *parent)
-{
-	String *addr;
-	dest *list=0;
-	dest *new;
-
-	if (sp == 0)
-		return 0;
-	addr = s_new();
-	while (s_parseq(sp, addr)!=0) {
-		addr = escapespecial(addr);
-		if(shellchars(s_to_c(addr))){
-			while(new = d_rm(&list))
-				d_free(new);
-			break;
-		}
-		new = d_new(addr);
-		new->parent = parent;
-		new->authorized = parent->authorized;
-		d_insert(&list, new);
-		addr = s_new();
-	}
-	s_free(addr);
-	return list;
-}
 
 #define isspace(c) ((c)==' ' || (c)=='\t' || (c)=='\n')
 
@@ -256,4 +231,32 @@ s_parseq(String *from, String *to)
 		from->ptr++;
 
 	return to;
+}
+
+/* expand a String of destinations into a linked list of destiniations */
+dest*
+s_to_dest(String *sp, dest *parent)
+{
+	String *addr;
+	dest *list=0;
+	dest *new;
+
+	if (sp == 0)
+		return 0;
+	addr = s_new();
+	while (s_parseq(sp, addr)!=0) {
+		addr = escapespecial(addr);
+		if(shellchars(s_to_c(addr))){
+			while(new = d_rm(&list))
+				d_free(new);
+			break;
+		}
+		new = d_new(addr);
+		new->parent = parent;
+		new->authorized = parent->authorized;
+		d_insert(&list, new);
+		addr = s_new();
+	}
+	s_free(addr);
+	return list;
 }

@@ -2,94 +2,82 @@
 #include "send.h"
 
 /* globals to all files */
-int rmail;
-char *thissys, *altthissys;
-int nflg;
-int xflg;
-int debug;
-int rflg;
-int iflg = 1;
-int nosummary;
+int	flagn;
+int	flagx;
+int	debug;
+int	flagi  = 1;
+int	rmail;
+int	nosummary;
+char	*thissys;
+char	*altthissys;
 
 /* global to this file */
-static String *errstring;
-static message *mp;
-static int interrupt;
-static int savemail;
-static Biobuf in;
-static int forked;
-static int add822headers = 1;
-static String *arglist;
+static	String	*errstring;
+static	message	*mp;
+static	int	interrupt;
+static	int	savemail;
+static	Biobuf	in;
+static	int	forked;
+static	int	add822headers = 1;
+static	String	*arglist;
 
 /* predeclared */
-static int	send(dest *, message *, int);
-static void	lesstedious(void);
-static void	save_mail(message *);
-static int	complain_mail(dest *, message *);
-static int	pipe_mail(dest *, message *);
-static void	appaddr(String *, dest *);
-static void	mkerrstring(String *, message *, dest *, dest *, char *, int);
-static int	replymsg(String *, message *, dest *);
-static int	catchint(void*, char*);
+static	int	send(dest*, message*, int);
+static	void	lesstedious(void);
+static	void	save_mail(message*);
+static	int	complain_mail(dest*, message*);
+static	int	pipe_mail(dest*, message*);
+static	int	catchint(void*, char*);
 
 void
 usage(void)
 {
-	fprint(2, "usage: mail [-birtx] list-of-addresses\n");
+	fprint(2, "usage: send [-#bdirx] list-of-addresses\n");
 	exits("usage");
 }
 
 void
 main(int argc, char *argv[])
 {
-	dest *dp=0;
-	int checkforward;
-	char *base;
 	int rv;
+	dest *dp;
 
-	/* process args */
 	ARGBEGIN{
 	case '#':
-		nflg = 1;
+		flagn = 1;
 		break;
 	case 'b':
 		add822headers = 0;
-		break;
-	case 'x':
-		nflg = 1;
-		xflg = 1;
 		break;
 	case 'd':
 		debug = 1;
 		break;
 	case 'i':
-		iflg = 0;
+		flagi = 0;
 		break;
 	case 'r':
-		rflg = 1;
+		rmail++;
+		break;
+	case 'x':
+		flagn = 1;
+		flagx = 1;
 		break;
 	default:
 		usage();
 	}ARGEND
 
-	while(*argv){
+	if(*argv == 0)
+		usage();
+	dp = 0;
+	for(; *argv; argv++){
 		if(shellchars(*argv)){
 			fprint(2, "illegal characters in destination\n");
 			exits("syntax");
 		}
-		d_insert(&dp, d_new(s_copy(*argv++)));
+		d_insert(&dp, d_new(s_copy(*argv)));
 	}
-
-	if (dp == 0)
-		usage();
 	arglist = d_to(dp);
 
-	/*
-	 * get context:
-	 *	- whether we're rmail or mail
-	 */
-	base = basename(argv0);
-	checkforward = rmail = (strcmp(base, "rmail")==0) | rflg;
 	thissys = sysname_read();
 	altthissys = alt_sysname_read();
 	if(rmail)
@@ -99,22 +87,22 @@ main(int argc, char *argv[])
 	 *  read the mail.  If an interrupt occurs while reading, save in
 	 *  dead.letter
 	 */
-	if (!nflg) {
+	if (!flagn) {
 		Binit(&in, 0, OREAD);
 		if(!rmail)
 			atnotify(catchint, 1);
-		mp = m_read(&in, rmail, !iflg);
+		mp = m_read(&in, rmail, !flagi);
 		if (mp == 0)
-			exit(0);
+			exits(0);
 		if (interrupt != 0) {
 			save_mail(mp);
-			exit(1);
+			exits("interrupt");
 		}
 	} else {
 		mp = m_new();
 		if(default_from(mp) < 0){
 			fprint(2, "%s: can't determine login name\n", argv0);
-			exit(1);
+			exits("fail");
 		}
 	}
 	errstring = s_new();
@@ -132,7 +120,7 @@ main(int argc, char *argv[])
 	 *  security reasons.
 	 */
 	mp->sender = escapespecial(mp->sender);
-	if (shellchars(s_to_c(mp->sender)))
+	if(shellchars(s_to_c(mp->sender)))
 		mp->replyaddr = s_copy("postmaster");
 	else
 		mp->replyaddr = s_clone(mp->sender);
@@ -141,21 +129,21 @@ main(int argc, char *argv[])
 	 *  reject messages that have been looping for too long
 	 */
 	if(mp->received > 32)
-		exit(refuse(dp, mp, "possible forward loop", 0, 0));
+		exits(refuse(dp, mp, "possible forward loop", 0, 0)? "refuse": "");
 
 	/*
 	 *  reject messages that are too long.  We don't do it earlier
 	 *  in m_read since we haven't set up enough things yet.
 	 */
 	if(mp->size < 0)
-		exit(refuse(dp, mp, "message too long", 0, 0));
+		exits(refuse(dp, mp, "message too long", 0, 0)? "refuse": "");
 
-	rv = send(dp, mp, checkforward);
+	rv = send(dp, mp, rmail);
 	if(savemail)
 		save_mail(mp);
 	if(mp)
 		m_free(mp);
-	exit(rv);
+	exits(rv? "fail": "");
 }
 
 /* send a message to a list of sites */
@@ -183,10 +171,7 @@ send(dest *destp, message *mp, int checkforward)
 			break;
 		case d_pipeto:
 		case d_pipe:
-			if (!rmail && !nflg && !forked) {
-				forked = 1;
-				lesstedious();
-			}
+			lesstedious();
 			errors += pipe_mail(dp, mp);
 			break;
 		default:
@@ -206,7 +191,8 @@ lesstedious(void)
 
 	if(debug)
 		return;
-
+	if(rmail || flagn || forked)
+		return;
 	switch(fork()){
 	case -1:
 		break;
@@ -215,9 +201,10 @@ lesstedious(void)
 		for(i=0; i<3; i++)
 			close(i);
 		savemail = 0;
+		forked = 1;
 		break;
 	default:
-		exit(0);
+		exits("");
 	}
 }
 
@@ -226,26 +213,23 @@ lesstedious(void)
 static void
 save_mail(message *mp)
 {
+	char buf[Pathlen];
 	Biobuf *fp;
-	String *file;
 
-	file = s_new();
-	deadletter(file);
-	fp = sysopen(s_to_c(file), "cAt", 0660);
+	mboxpathbuf(buf, sizeof buf, getlog(), "dead.letter");
+	fp = sysopen(buf, "cAt", 0660);
 	if (fp == 0)
 		return;
 	m_bprint(mp, fp);
 	sysclose(fp);
-	fprint(2, "saved in %s\n", s_to_c(file));
-	s_free(file);
+	fprint(2, "saved in %s\n", buf);
 }
 
 /* remember the interrupt happened */
 
 static int
-catchint(void *a, char *msg)
+catchint(void*, char *msg)
 {
-	USED(a);
 	if(strstr(msg, "interrupt") || strstr(msg, "hangup")) {
 		interrupt = 1;
 		return 1;
@@ -303,7 +287,7 @@ complain_mail(dest *dp, message *mp)
 		msg = "unknown d_";
 		break;
 	}
-	if (nflg) {
+	if (flagn) {
 		print("%s: %s\n", msg, s_to_c(dp->addr));
 		return 0;
 	}
@@ -314,12 +298,22 @@ complain_mail(dest *dp, message *mp)
 static int
 pipe_mail(dest *dp, message *mp)
 {
-	dest *next, *list=0;
-	String *cmd;
-	process *pp;
-	int status, r;
+	int status;
 	char *none;
-	String *errstring=s_new();
+	dest *next, *list;
+	process *pp;
+	String *cmd;
+	String *errstring;
+
+	errstring = s_new();
+	list = 0;
+
+	/*
+	 * we're just protecting users from their own
+	 * pipeto scripts with this none business.
+	 * this depends on none being able to append
+	 * to a mail file.
+	 */
 
 	if (dp->status == d_pipeto)
 		none = "none";
@@ -329,12 +323,12 @@ pipe_mail(dest *dp, message *mp)
 	 *  collect the arguments
 	 */
 	next = d_rm_same(&dp);
-	if(xflg)
+	if(flagx)
 		cmd = s_new();
 	else
 		cmd = s_clone(next->repl1);
 	for(; next != 0; next = d_rm_same(&dp)){
-		if(xflg){
+		if(flagx){
 			s_append(cmd, s_to_c(next->addr));
 			s_append(cmd, "\n");
 		} else {
@@ -346,8 +340,8 @@ pipe_mail(dest *dp, message *mp)
 		d_insert(&list, next);
 	}
 
-	if (nflg) {
-		if(xflg)
+	if (flagn) {
+		if(flagx)
 			print("%s", s_to_c(cmd));
 		else
 			print("%s\n", s_to_c(cmd));
@@ -375,125 +369,10 @@ pipe_mail(dest *dp, message *mp)
 	/*
 	 *  return status
 	 */
-	if (status != 0) {
-		r = refuse(list, mp, s_to_c(errstring), status, 0);
-		s_free(errstring);
-		return r;
-	}
-	s_free(errstring);
+	if (status != 0)
+		return refuse(list, mp, s_to_c(errstring), status, 0);
 	loglist(list, mp, "remote");
 	return 0;
-}
-
-static void
-appaddr(String *sp, dest *dp)
-{
-	dest *parent;
-	String *s;
-
-	if (dp->parent != 0) {
-		for(parent=dp->parent; parent->parent!=0; parent=parent->parent)
-			;
-		s = unescapespecial(s_clone(parent->addr));
-		s_append(sp, s_to_c(s));
-		s_free(s);
-		s_append(sp, "' alias `");
-	}
-	s = unescapespecial(s_clone(dp->addr));
-	s_append(sp, s_to_c(s));
-	s_free(s);
-}
-
-/*
- *  reject delivery
- *
- *  returns	0	- if mail has been disposed of
- *		other	- if mail has not been disposed
- */
-int
-refuse(dest *list, message *mp, char *cp, int status, int outofresources)
-{
-	String *errstring=s_new();
-	dest *dp;
-	int rv;
-
-	dp = d_rm(&list);
-	mkerrstring(errstring, mp, dp, list, cp, status);
-
-	/*
-	 *  log first in case we get into trouble
-	 */
-	logrefusal(dp, mp, s_to_c(errstring));
-
-	/*
-	 *  bulk mail is never replied to, if we're out of resources,
-	 *  let the sender try again
-	 */
-	if(rmail){
-		/* accept it or request a retry */
-		if(outofresources){
-			fprint(2, "Mail %s\n", s_to_c(errstring));
-			rv = 1;					/* try again later */
-		} else if(mp->bulk)
-			rv = 0;					/* silently discard bulk */
-		else
-			rv = replymsg(errstring, mp, dp);	/* try later if we can't reply */
-	} else {
-		/* aysnchronous delivery only happens if !rmail */
-		if(forked){
-			/*
-			 *  if spun off for asynchronous delivery, we own the mail now.
-			 *  return it or dump it on the floor.  rv really doesn't matter.
-			 */
-			rv = 0;
-			if(!outofresources && !mp->bulk)
-				replymsg(errstring, mp, dp);
-		} else {
-			fprint(2, "Mail %s\n", s_to_c(errstring));
-			savemail = 1;
-			rv = 1;
-		}
-	}
-
-	s_free(errstring);
-	return rv;
-}
-
-/* make the error message */
-static void
-mkerrstring(String *errstring, message *mp, dest *dp, dest *list, char *cp, int status)
-{
-	dest *next;
-	char smsg[64];
-	String *sender;
-
-	sender = unescapespecial(s_clone(mp->sender));
-
-	/* list all aliases */
-	s_append(errstring, " from '");
-	s_append(errstring, s_to_c(sender));
-	s_append(errstring, "'\nto '");
-	appaddr(errstring, dp);
-	for(next = d_rm(&list); next != 0; next = d_rm(&list)) {
-		s_append(errstring, "'\nand '");
-		appaddr(errstring, next);
-		d_insert(&dp, next);
-	}
-	s_append(errstring, "'\nfailed with error '");
-	s_append(errstring, cp);
-	s_append(errstring, "'.\n");
-
-	/* >> and | deserve different flavored messages */
-	switch(dp->status) {
-	case d_pipe:
-		s_append(errstring, "The mailer `");
-		s_append(errstring, s_to_c(dp->repl1));
-		sprint(smsg, "' returned error status %x.\n\n", status);
-		s_append(errstring, smsg);
-		break;
-	}
-
-	s_free(sender);
 }
 
 /*
@@ -542,30 +421,30 @@ replymsg(String *errstring, message *mp, dest *dp)
 	refp->haveto = 1;
 	s_append(refp->body, "To: ");
 	s_append(refp->body, rcvr);
-	s_append(refp->body, "\n");
-	s_append(refp->body, "Subject: bounced mail\n");
-	s_append(refp->body, "MIME-Version: 1.0\n");
-	s_append(refp->body, "Content-Type: multipart/mixed;\n");
-	s_append(refp->body, "\tboundary=\"");
+	s_append(refp->body, "\n"
+		"Subject: bounced mail\n"
+		"MIME-Version: 1.0\n"
+		"Content-Type: multipart/mixed;\n"
+		"\tboundary=\"");
 	s_append(refp->body, s_to_c(boundary));
-	s_append(refp->body, "\"\n");
-	s_append(refp->body, "Content-Disposition: inline\n");
-	s_append(refp->body, "\n");
-	s_append(refp->body, "This is a multi-part message in MIME format.\n");
-	s_append(refp->body, "--");
+	s_append(refp->body, "\"\n"
+		"Content-Disposition: inline\n"
+		"\n"
+		"This is a multi-part message in MIME format.\n"
+		"--");
 	s_append(refp->body, s_to_c(boundary));
-	s_append(refp->body, "\n");
-	s_append(refp->body, "Content-Disposition: inline\n");
-	s_append(refp->body, "Content-Type: text/plain; charset=\"US-ASCII\"\n");
-	s_append(refp->body, "Content-Transfer-Encoding: 7bit\n");
-	s_append(refp->body, "\n");
-	s_append(refp->body, "The attached mail");
+	s_append(refp->body, "\n"
+		"Content-Disposition: inline\n"
+		"Content-Type: text/plain; charset=\"US-ASCII\"\n"
+		"Content-Transfer-Encoding: 7bit\n"
+		"\n"
+		"The attached mail");
 	s_append(refp->body, s_to_c(errstring));
 	s_append(refp->body, "--");
 	s_append(refp->body, s_to_c(boundary));
-	s_append(refp->body, "\n");
-	s_append(refp->body, "Content-Type: message/rfc822\n");
-	s_append(refp->body, "Content-Disposition: inline\n\n");
+	s_append(refp->body, "\n"
+		"Content-Type: message/rfc822\n"
+		"Content-Disposition: inline\n\n");
 	s_append(refp->body, s_to_c(mp->body));
 	s_append(refp->body, "--");
 	s_append(refp->body, s_to_c(boundary));
@@ -575,5 +454,115 @@ replymsg(String *errstring, message *mp, dest *dp)
 	rv = send(ndp, refp, 0);
 	m_free(refp);
 	d_free(ndp);
+	return rv;
+}
+
+static void
+appaddr(String *sp, dest *dp)
+{
+	dest *p;
+	String *s;
+
+	if (dp->parent != 0) {
+		for(p = dp->parent; p->parent; p = p->parent)
+			;
+		s = unescapespecial(s_clone(p->addr));
+		s_append(sp, s_to_c(s));
+		s_free(s);
+		s_append(sp, "' alias `");
+	}
+	s = unescapespecial(s_clone(dp->addr));
+	s_append(sp, s_to_c(s));
+	s_free(s);
+}
+
+/* make the error message */
+static void
+mkerrstring(String *errstring, message *mp, dest *dp, dest *list, char *cp, int status)
+{
+	dest *next;
+	char smsg[64];
+	String *sender;
+
+	sender = unescapespecial(s_clone(mp->sender));
+
+	/* list all aliases */
+	s_append(errstring, " from '");
+	s_append(errstring, s_to_c(sender));
+	s_append(errstring, "'\nto '");
+	appaddr(errstring, dp);
+	for(next = d_rm(&list); next != 0; next = d_rm(&list)) {
+		s_append(errstring, "'\nand '");
+		appaddr(errstring, next);
+		d_insert(&dp, next);
+	}
+	s_append(errstring, "'\nfailed with error '");
+	s_append(errstring, cp);
+	s_append(errstring, "'.\n");
+
+	/* >> and | deserve different flavored messages */
+	switch(dp->status) {
+	case d_pipe:
+		s_append(errstring, "The mailer `");
+		s_append(errstring, s_to_c(dp->repl1));
+		sprint(smsg, "' returned error status %x.\n\n", status);
+		s_append(errstring, smsg);
+		break;
+	}
+
+	s_free(sender);
+}
+
+/*
+ *  reject delivery
+ *
+ *  returns	0	- if mail has been disposed of
+ *		other	- if mail has not been disposed
+ */
+int
+refuse(dest *list, message *mp, char *cp, int status, int outofresources)
+{
+	int rv;
+	String *errstring;
+	dest *dp;
+
+	errstring = s_new();
+	dp = d_rm(&list);
+	mkerrstring(errstring, mp, dp, list, cp, status);
+
+	/*
+	 *  log first in case we get into trouble
+	 */
+	logrefusal(dp, mp, s_to_c(errstring));
+
+	rv = 1;
+	if(rmail){
+		/* accept it or request a retry */
+		if(outofresources){
+			fprint(2, "Mail %s\n", s_to_c(errstring));
+		} else {
+			/*
+			 *  reject without generating a reply, smtpd returns
+			 *  5.0.0 status when it sees "mail refused"
+			 */
+			fprint(2, "mail refused: %s\n",  s_to_c(errstring));
+		}
+	} else {
+		/* aysnchronous delivery only happens if !rmail */
+		if(forked){
+			/*
+			 *  if spun off for asynchronous delivery, we own the mail now.
+			 *  return it or dump it on the floor.  rv really doesn't matter.
+			 */
+			rv = 0;
+			if(!outofresources && !mp->bulk)
+				replymsg(errstring, mp, dp);
+		} else {
+			fprint(2, "Mail %s\n", s_to_c(errstring));
+			savemail = 1;
+		}
+	}
+
+	s_free(errstring);
 	return rv;
 }

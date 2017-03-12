@@ -1,0 +1,11 @@
+#!/bin/rc
+
+f=$*
+if(~ $#f 0)
+	f=/mail/fs/mbox/[0-9]*
+f=`{echo $f|sed s:/mail/fs/mbox/::g}
+
+{
+	for(i in $f)
+		echo $i p
+} | upas/nedmail >[2=]

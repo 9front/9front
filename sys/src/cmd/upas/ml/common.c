@@ -4,10 +4,9 @@
 String*
 getaddr(Node *p)
 {
-	for(; p; p = p->next){
+	for(; p; p = p->next)
 		if(p->s && p->addr)
 			return p->s;
-	}
 	return nil;
 }
 
@@ -42,14 +41,15 @@ writeaddr(char *file, char *addr, int rem, char *listname)
 		dirwstat(file, &nd);
 	} else
 		seek(fd, 0, 2);
-	if(rem)
-		fprint(fd, "!%s\n", addr);
-	else
-		fprint(fd, "%s\n", addr);
-	close(fd);
-
-	if(*addr != '#')
+	if(rem){
 		sendnotification(addr, listname, rem);
+		fprint(fd, "!%s\n", addr);
+	}else{
+		fprint(fd, "%s\n", addr);
+		if(*addr != '#')
+			sendnotification(addr, listname, rem);
+	}
+	close(fd);
 }
 
 void
@@ -75,10 +75,9 @@ addaddr(char *addr)
 	Addr **l;
 	Addr *a;
 
-	for(l = &al; *l; l = &(*l)->next){
+	for(l = &al; *l; l = &(*l)->next)
 		if(strcmp(addr, (*l)->addr) == 0)
 			return 0;
-	}
 	na++;
 	*l = a = malloc(sizeof(*a)+strlen(addr)+1);
 	if(a == nil)
@@ -113,27 +112,25 @@ readaddrs(char *file)
 	Bterm(b);
 }
 
-/* start a mailer sending to all the receivers for list `name' */
+static void
+setsender(char *name)
+{
+	char *s;
+
+	s = smprint("%s-bounces", name);
+	putenv("upasname", s);
+	free(s);
+}
+
+/* start a mailer sending to all the receivers */
 int
 startmailer(char *name)
 {
-	int pfd[2];
 	char **av;
-	int ac;
+	int pfd[2], ac;
 	Addr *a;
 
-	/*
-	 * we used to send mail to the list from /dev/null,
-	 * which is equivalent to an smtp return address of <>,
-	 * but such a return address should only be used when
-	 * sending a bounce to a single address.  our smtpd lets
-	 * such mail through, but refuses mail from <> to multiple
-	 * addresses, since that's not allowed and is likely spam.
-	 * thus mailing list mail to another upas system with
-	 * multiple addressees was being rejected.
-	 */
-	putenv("upasname", smprint("%s-owner", name));
-
+	setsender(name);
 	if(pipe(pfd) < 0)
 		sysfatal("creating pipe: %r");
 	switch(fork()){
@@ -171,7 +168,7 @@ sendnotification(char *addr, char *listname, int rem)
 	int pfd[2];
 	Waitmsg *w;
 
-	putenv("upasname", smprint("%s-owner", listname));
+	setsender(listname);
 	if(pipe(pfd) < 0)
 		sysfatal("creating pipe: %r");
 	switch(fork()){

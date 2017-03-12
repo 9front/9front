@@ -1,4 +1,5 @@
 #include "common.h"
+#include <regexp.h>
 #include "spam.h"
 
 int	cflag;
@@ -35,7 +36,7 @@ int	optoutofspamfilter(char*);
 void
 usage(void)
 {
-	fprint(2, "missing or bad arguments to qer\n");
+	fprint(2, "usage: scanmail [-cdhnstv] [-p pattern] [-q queuename] sender dest sys\n");
 	exits("usage");
 }
 
@@ -51,8 +52,8 @@ Malloc(long n)
 	void *p;
 
 	p = malloc(n);
-	if(p == 0)
-		exits("malloc");
+	if(p == nil)
+		sysfatal("malloc: %r");
 	return p;
 }
 
@@ -60,8 +61,9 @@ void*
 Realloc(void *p, ulong n)
 {
 	p = realloc(p, n);
-	if(p == 0)
-		exits("realloc");
+	if(p == nil)
+		sysfatal("malloc: %r");
+	setrealloctag(p, getcallerpc(&p));
 	return p;
 }
 
@@ -76,10 +78,10 @@ main(int argc, char *argv[])
 
 	optout = 1;
 	a = args = Malloc((argc+1)*sizeof(char*));
-	sprint(patfile, "%s/patterns", UPASLIB);
-	sprint(linefile, "%s/lines", UPASLOG);
-	sprint(holdqueue, "%s/queue.hold", SPOOL);
-	sprint(copydir, "%s/copy", SPOOL);
+	snprint(patfile, sizeof patfile, "%s/patterns", UPASLIB);
+	snprint(linefile, sizeof linefile, "%s/lines", UPASLOG);
+	snprint(holdqueue, sizeof holdqueue, "%s/queue.hold", SPOOL);
+	snprint(copydir, sizeof copydir, "%s/copy", SPOOL);
 
 	*a++ = argv[0];
 	for(argc--, argv++; argv[0] && argv[0][0] == '-'; argc--, argv++){
@@ -142,7 +144,7 @@ main(int argc, char *argv[])
 	qdir = a;
 	sender = argv[2];
 
-		/* copy the rest of argv, acummulating the recipients as we go */
+	/* copy the rest of argv, acummulating the recipients as we go */
 	for(i = 0; argv[i]; i++){
 		*a++ = argv[i];
 		if(i < 4)	/* skip queue, 'mail', sender, dest sys */
@@ -161,41 +163,41 @@ main(int argc, char *argv[])
 			optout = 0;
 	}
 	*a = 0;
-		/* construct a command string for matching */
+	/* construct a command string for matching */
 	snprint(cmd, sizeof(cmd)-1, "%s %s", sender, s_to_c(recips));
 	cmd[sizeof(cmd)-1] = 0;
 	for(cp = cmd; *cp; cp++)
 		*cp = tolower(*cp);
 
-		/* canonicalize a copy of the header and body.
-		 * buf points to orginal message and n contains
-		 * number of bytes of original message read during
-		 * canonicalization.
-		 */
+	/* canonicalize a copy of the header and body.
+	 * buf points to orginal message and n contains
+	 * number of bytes of original message read during
+	 * canonicalization.
+	 */
 	*body = 0;
 	*header = 0;
 	buf = canon(&bin, header+1, body+1, &n);
 	if (buf == 0)
 		exits("read");
 
-		/* if all users opt out, don't try matches */
+	/* if all users opt out, don't try matches */
 	if(optout){
 		if(cflag)
 			cout = opencopy(sender);
 		exits(qmail(args, buf, n, cout));
 	}
 
-		/* Turn off line logging, if command line matches */
+	/* Turn off line logging, if command line matches */
 	nolines = matchaction(Lineoff, cmd, match);
 
 	for(i = 0; patterns[i].action; i++){
-			/* Lineoff patterns were already done above */
+		/* Lineoff patterns were already done above */
 		if(i == Lineoff)
 			continue;
-			/* don't apply "Line" patterns if excluded above */
+		/* don't apply "Line" patterns if excluded above */
 		if(nolines && i == SaveLine)
 			continue;
-			/* apply patterns to the sender/recips, header and body */
+		/* apply patterns to the sender/recips, header and body */
 		if(matchaction(i, cmd, match))
 			break;
 		if(matchaction(i, header+1, match))
@@ -407,9 +409,9 @@ opendump(char *sender)
 	cp[7] = 0;
 	cp[10] = 0;
 	if(cp[8] == ' ')
-		sprint(buf, "%s/queue.dump/%s%c", SPOOL, cp+4, cp[9]);
+		snprint(buf, sizeof buf, "%s/queue.dump/%s%c", SPOOL, cp+4, cp[9]);
 	else
-		sprint(buf, "%s/queue.dump/%s%c%c", SPOOL, cp+4, cp[8], cp[9]);
+		snprint(buf, sizeof buf, "%s/queue.dump/%s%c%c", SPOOL, cp+4, cp[8], cp[9]);
 	cp = buf+strlen(buf);
 	if(access(buf, 0) < 0 && sysmkdir(buf, 0777) < 0){
 		syslog(0, "smtpd", "couldn't dump mail from %s: %r", sender);
@@ -421,7 +423,7 @@ opendump(char *sender)
 		h = h*257 + *sender++;
 	for(i = 0; i < 50; i++){
 		h += lrand();
-		sprint(cp, "/%lud", h);
+		seprint(cp, buf+sizeof buf, "/%lud", h);
 		b = sysopen(buf, "wlc", 0644);
 		if(b){
 			if(vflag)
@@ -445,7 +447,7 @@ opencopy(char *sender)
 		h = h*257 + *sender++;
 	for(i = 0; i < 50; i++){
 		h += lrand();
-		sprint(buf, "%s/%lud", copydir, h);
+		snprint(buf, sizeof buf, "%s/%lud", copydir, h);
 		b = sysopen(buf, "wlc", 0600);
 		if(b)
 			return b;

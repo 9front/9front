@@ -1,18 +1,73 @@
 #include "common.h"
 #include "send.h"
 
+static String*
+mboxpath(char *path, char *user, String *to)
+{
+	char buf[Pathlen];
+
+	mboxpathbuf(buf, sizeof buf, user, path);
+	return s_append(to, buf);
+}
+
 static void
 mboxfile(dest *dp, String *user, String *path, char *file)
 {
 	char *cp;
 
-	mboxpath(s_to_c(user), s_to_c(dp->addr), path, 0);
+	mboxpath(s_to_c(user), s_to_c(dp->addr), path);
 	cp = strrchr(s_to_c(path), '/');
 	if(cp)
 		path->ptr = cp+1;
 	else
 		path->ptr = path->base;
 	s_append(path, file);
+}
+
+/*
+ * BOTCH, BOTCH
+ * the problem is that we don't want to say a user exists
+ * just because the user has a mail box directory.  that
+ * precludes using mode bits to disable mailboxes.
+ *
+ * botch #1: we pretend like we know that there must be a
+ * corresponding file or directory /mail/box/$user[/folder]/mbox
+ * this is wrong, but we get away with this for local mail boxes.
+ *
+ * botch #2: since the file server and not the auth server owns
+ * groups, it's not possible to get groups right.  this means that
+ * a mailbox that only allows members of a group to post but
+ * not read wouldn't work.
+ */
+static uint accesstx[] = {
+[OREAD]	1<<2,
+[OWRITE]	1<<1,
+[ORDWR]	3<<1,
+[OEXEC]	1<<0
+};
+
+static int
+accessmbox(char *f, int m)
+{
+	int r, n;
+	Dir *d;
+
+	d = dirstat(f);
+	if(d == nil)
+		return -1;
+	n = 0;
+	if(m < nelem(accesstx))
+		n = accesstx[m];
+	if(d->mode & DMDIR)
+		n |= OEXEC;
+	r = (d->mode & n<<0) == n<<0;
+//	if(r == 0 && inlist(mygids(), d->gid) == 0)
+//		r = (d->mode & n<<3) == n<<3;
+	if(r == 0 && strcmp(getlog(), d->uid) == 0)
+		r = (d->mode & n<<6) == n<<6;
+	r--;
+	free(d);
+	return r;
 }
 
 /*
@@ -43,7 +98,7 @@ expand_local(dest *dp)
 	/* if no replacement string, plug in user's name */
 	if(dp->repl1 == 0){
 		dp->repl1 = s_new();
-		mboxname(user, dp->repl1);
+		mboxpath("mbox", user, dp->repl1);
 	}
 
 	s = unescapespecial(s_clone(dp->repl1));
@@ -95,7 +150,7 @@ expand_local(dest *dp)
 	 *  name passes through a shell.  tdb.
 	 */
 	mboxfile(dp, dp->repl1, s_reset(file), "pipeto");
-	if(sysexist(s_to_c(file))){
+	if(access(s_to_c(file), AEXEC) == 0){
 		if(debug)
 			fprint(2, "found a pipeto file\n");
 		dp->status = d_pipeto;
@@ -118,8 +173,8 @@ expand_local(dest *dp)
 	/*
 	 *  see if the mailbox directory exists
 	 */
-	mboxfile(dp, s, s_reset(file), ".");
-	if(sysexist(s_to_c(file)))
+	mboxfile(dp, s, s_reset(file), "mbox");
+	if(accessmbox(s_to_c(file), OWRITE) != -1)
 		dp->status = d_cat;
 	else
 		dp->status = d_unknown;

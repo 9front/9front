@@ -1,151 +1,188 @@
 #include "common.h"
-#include <ctype.h>
-#include <plumb.h>
 #include <libsec.h>
 #include "dat.h"
 
-enum {
-	Buffersize = 64*1024,
-};
+typedef struct {
+	Biobuf	*in;
+	char	*shift;
+} Inbuf;
 
-typedef struct Inbuf Inbuf;
-struct Inbuf
+/*
+ *  parse a Unix style header
+ */
+static int
+memtotm(char *p, int n, Tm *t)
 {
-	int	fd;
-	uchar	*lim;
-	uchar	*rptr;
-	uchar	*wptr;
-	uchar	data[Buffersize+7];
-};
+	char buf[128];
+
+	if(n > sizeof buf - 1)
+		n = sizeof buf -1;
+	memcpy(buf, p, n);
+	buf[n] = 0;
+	return strtotm(buf, t);
+}
+
+static int
+chkunix0(char *s, int n)
+{
+	char *p;
+	Tm tm;
+
+	if(n > 256)
+		return -1;
+	if((p = memchr(s, ' ', n)) == nil)
+		return -1;
+	if(memtotm(p, n - (p - s), &tm) < 0)
+		return -1;
+	if(tm2sec(&tm) < 1000000)
+		return -1;
+	return 0;
+}
+
+static int
+chkunix(char *s, int n)
+{
+	int r;
+
+	r = chkunix0(s, n);
+	if(r == -1)
+		eprint("plan9: warning naked from [%.*s]\n", n, s);
+	return r;
+}
+
+static char*
+parseunix(Message *m)
+{
+	char *s, *p, *q;
+	int l;
+	Tm tm;
+
+	l = m->header - m->start;
+	m->unixheader = smprint("%.*s", l, m->start);
+	s = m->start + 5;
+	if((p = strchr(s, ' ')) == nil)
+		return s;
+	*p = 0;
+	m->unixfrom = strdup(s);
+	*p++ = ' ';
+	if(q = strchr(p, '\n'))
+		*q = 0;
+	if(strtotm(p, &tm) < 0)
+		return p;
+	if(q)
+		*q = '\n';
+	m->fileid = (uvlong)tm2sec(&tm) << 8;
+	return 0;
+}
 
 static void
-addtomessage(Message *m, uchar *p, int n, int done)
+addtomessage(Message *m, char *p, int n)
 {
 	int i, len;
 
-	// add to message (+1 in malloc is for a trailing NUL)
+	if(n == 0)
+		return;
+	/* add to message (+1 in malloc is for a trailing NUL) */
 	if(m->lim - m->end < n){
 		if(m->start != nil){
-			i = m->end-m->start;
-			if(done)
-				len = i + n;
-			else
-				len = (4*(i+n))/3;
+			i = m->end - m->start;
+			len = (4*(i + n))/3;
 			m->start = erealloc(m->start, len + 1);
 			m->end = m->start + i;
 		} else {
-			if(done)
-				len = n;
-			else
-				len = 2*n;
+			len = 2*n;
 			m->start = emalloc(len + 1);
 			m->end = m->start;
 		}
 		m->lim = m->start + len;
-		*m->lim = '\0';
+		*m->lim = 0;
 	}
 
 	memmove(m->end, p, n);
 	m->end += n;
-	*m->end = '\0';
+	*m->end = 0;
 }
 
-//
-//  read in a single message
-//
+/*
+ *   read in a single message
+ */
 static int
-readmessage(Message *m, Inbuf *inb)
+okmsg(Mailbox *mb, Message *m, Inbuf *b)
 {
-	int i, n, done;
-	uchar *p, *np;
-	char sdigest[SHA1dlen*2+1];
-	char tmp[64];
+	char e[ERRMAX], buf[128];
 
-	for(done = 0; !done;){
-		n = inb->wptr - inb->rptr;
-		if(n < 6){
-			if(n)
-				memmove(inb->data, inb->rptr, n);
-			inb->rptr = inb->data;
-			inb->wptr = inb->rptr + n;
-			i = read(inb->fd, inb->wptr, Buffersize);
-			if(i < 0){
-				if(fd2path(inb->fd, tmp, sizeof tmp) < 0)
-					strcpy(tmp, "unknown mailbox");
-				fprint(2, "error reading '%s': %r\n", tmp);
-				return -1;
-			}
-			if(i == 0){
-				if(n != 0)
-					addtomessage(m, inb->rptr, n, 1);
-				if(m->end == m->start)
-					return -1;
-				break;
-			}
-			inb->wptr += i;
-		}
-
-		// look for end of message
-		for(p = inb->rptr; p < inb->wptr; p = np+1){
-			// first part of search for '\nFrom '
-			np = memchr(p, '\n', inb->wptr - p);
-			if(np == nil){
-				p = inb->wptr;
-				break;
-			}
-
-			/*
-			 *  if we've found a \n but there's
-			 *  not enough room for '\nFrom ', don't do
-			 *  the comparison till we've read in more.
-			 */
-			if(inb->wptr - np < 6){
-				p = np;
-				break;
-			}
-
-			if(strncmp((char*)np, "\nFrom ", 6) == 0){
-				done = 1;
-				p = np+1;
-				break;
-			}
-		}
-
-		// add to message (+ 1 in malloc is for a trailing null)
-		n = p - inb->rptr;
-		addtomessage(m, inb->rptr, n, done);
-		inb->rptr += n;
-	}
-
-	// if it doesn't start with a 'From ', this ain't a mailbox
-	if(strncmp(m->start, "From ", 5) != 0)
+	rerrstr(e, sizeof e);
+	if(strlen(e)){
+		if(fd2path(Bfildes(b->in), buf, sizeof buf) < 0)
+			strcpy(buf, "unknown mailbox");
+		eprint("plan9: error reading %s: %r\n", buf);
 		return -1;
-
-	// dump trailing newline, make sure there's a trailing null
-	// (helps in body searches)
-	if(*(m->end-1) == '\n')
+	}
+	if(m->end == m->start)
+		return -1;
+	if(m->end[-1] == '\n')
 		m->end--;
 	*m->end = 0;
+	m->size = m->end - m->start;
+	if(m->size >= Maxmsg)
+		return -1;
 	m->bend = m->rbend = m->end;
-
-	// digest message
-	sha1((uchar*)m->start, m->end - m->start, m->digest, nil);
-	for(i = 0; i < SHA1dlen; i++)
-		sprint(sdigest+2*i, "%2.2ux", m->digest[i]);
-	m->sdigest = s_copy(sdigest);
-
+	if(m->digest == 0)
+		digestmessage(mb, m);
 	return 0;
 }
 
+static char*
+inbread(Inbuf *b)
+{
+	if(b->shift)
+		return b->shift;
+	return b->shift = Brdline(b->in, '\n');
+}
 
-// throw out deleted messages.  return number of freshly deleted messages
+void
+inbconsume(Inbuf *b)
+{
+	b->shift = 0;
+}
+
+/*
+ * bug: very long line with From at the buffer break.
+ */
+static int
+readmessage(Mailbox *mb, Message *m, Inbuf *b)
+{
+	char *s, *n;
+	long l, state;
+
+	werrstr("");
+	state = 0;
+	for(;;){
+		s = inbread(b);
+		if(s == 0)
+			break;
+		n = s + (l = Blinelen(b->in)) - 1;
+		if(l >= 28 + 7 && n[0] == '\n')
+		if(strncmp(s, "From ", 5) == 0)
+		if(!chkunix(s + 5, l - 5))
+		if(++state == 2)
+			break;
+		if(state == 0)
+			return -1;
+		addtomessage(m, s, l);
+		inbconsume(b);
+	}
+	return okmsg(mb, m, b);
+}
+
+/* throw out deleted messages.  return number of freshly deleted messages */
 int
 purgedeleted(Mailbox *mb)
 {
 	Message *m, *next;
 	int newdels;
 
-	// forget about what's no longer in the mailbox
+	/* forget about what's no longer in the mailbox */
 	newdels = 0;
 	for(m = mb->root->part; m != nil; m = next){
 		next = m->next;
@@ -158,44 +195,51 @@ purgedeleted(Mailbox *mb)
 	return newdels;
 }
 
-//
-//  read in the mailbox and parse into messages.
-//
-static char*
-_readmbox(Mailbox *mb, int doplumb, Mlock *lk)
+static void
+mergemsg(Message *m, Message *x)
 {
-	int fd, n;
-	String *tmp;
+	assert(m->start == 0);
+	m->mallocd = 1;
+	m->inmbox = 1;
+	m->lim = x->lim;
+	m->start = x->start;
+	m->end = x->end;
+	m->bend = x->bend;
+	m->rbend = x->rbend;
+	x->lim = 0;
+	x->start = 0;
+	x->end = 0;
+	x->bend = 0;
+	x->rbend = 0;
+}
+
+/*
+ *   read in the mailbox and parse into messages.
+ */
+static char*
+readmbox(Mailbox *mb, int doplumb, int *new, Mlock *lk)
+{
+	char *p, *x, buf[Pathlen];
+	int nnew;
+	Biobuf *in;
 	Dir *d;
-	static char err[Errlen];
+	Inbuf b;
 	Message *m, **l;
-	Inbuf *inb;
-	char *x;
+	static char err[ERRMAX];
 
 	l = &mb->root->part;
 
 	/*
 	 *  open the mailbox.  If it doesn't exist, try the temporary one.
 	 */
-	n = 0;
 retry:
-	fd = open(mb->path, OREAD);
-	if(fd < 0){
-		rerrstr(err, sizeof(err));
-		if(strstr(err, "locked") != nil
-		|| strstr(err, "exclusive lock") != nil)
-			if(n++ < 20){
-				sleep(500);	/* wait for lock to go away */
+	in = Bopen(mb->path, OREAD);
+	if(in == nil){
+		errstr(err, sizeof(err));
+		if(strstr(err, "exist") != 0){
+			snprint(buf, sizeof buf, "%s.tmp", mb->path);
+			if(sysrename(buf, mb->path) == 0)
 				goto retry;
-			}
-		if(strstr(err, "exist") != nil){
-			tmp = s_copy(mb->path);
-			s_append(tmp, ".tmp");
-			if(sysrename(s_to_c(tmp), mb->path) == 0){
-				s_free(tmp);
-				goto retry;
-			}
-			s_free(tmp);
 		}
 		return err;
 	}
@@ -204,173 +248,170 @@ retry:
 	 *  a new qid.path means reread the mailbox, while
 	 *  a new qid.vers means read any new messages
 	 */
-	d = dirfstat(fd);
+	d = dirfstat(Bfildes(in));
 	if(d == nil){
-		close(fd);
-		errstr(err, sizeof(err));
+		Bterm(in);
+		errstr(err, sizeof err);
 		return err;
 	}
 	if(mb->d != nil){
 		if(d->qid.path == mb->d->qid.path && d->qid.vers == mb->d->qid.vers){
-			close(fd);
+			*new = 0;
+			Bterm(in);
 			free(d);
 			return nil;
 		}
 		if(d->qid.path == mb->d->qid.path){
 			while(*l != nil)
 				l = &(*l)->next;
-			seek(fd, mb->d->length, 0);
+			Bseek(in, mb->d->length, 0);
 		}
 		free(mb->d);
 	}
 	mb->d = d;
-	mb->vers++;
-	henter(PATH(0, Qtop), mb->name,
-		(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
 
-	inb = emalloc(sizeof(Inbuf));
-	inb->rptr = inb->wptr = inb->data;
-	inb->fd = fd;
+	memset(&b, 0, sizeof b);
+	b.in = in;
+	b.shift = 0;
 
-	//  read new messages
-	snprint(err, sizeof err, "reading '%s'", mb->path);
-	logmsg(err, nil);
+	/*  read new messages */
+	logmsg(nil, "reading %s", mb->path);
+	nnew = 0;
 	for(;;){
 		if(lk != nil)
 			syslockrefresh(lk);
 		m = newmessage(mb->root);
 		m->mallocd = 1;
 		m->inmbox = 1;
-		if(readmessage(m, inb) < 0){
-			delmessage(mb, m);
-			mb->root->subname--;
+		if(readmessage(mb, m, &b) < 0){
+			unnewmessage(mb, mb->root, m);
 			break;
 		}
-
-		// merge mailbox versions
+		/* merge mailbox versions */
 		while(*l != nil){
 			if(memcmp((*l)->digest, m->digest, SHA1dlen) == 0){
-				// matches mail we already read, discard
-				logmsg("duplicate", *l);
-				delmessage(mb, m);
-				mb->root->subname--;
-				m = nil;
-				l = &(*l)->next;
+				if((*l)->start == nil){
+					logmsg(*l, "read indexed");
+					mergemsg(*l, m);
+					unnewmessage(mb, mb->root, m);
+					m = *l;
+				}else{
+					logmsg(*l, "duplicate");
+					m->inmbox = 1;		/* remove it */
+					unnewmessage(mb, mb->root, m);
+					m = nil;
+					l = &(*l)->next;
+				}
 				break;
 			} else {
-				// old mail no longer in box, mark deleted
-				logmsg("disappeared", *l);
+				/* old mail no longer in box, mark deleted */
+				logmsg(*l, "disappeared");
 				if(doplumb)
 					mailplumb(mb, *l, 1);
 				(*l)->inmbox = 0;
-				(*l)->deleted = 1;
+				(*l)->deleted = Disappear;
 				l = &(*l)->next;
 			}
 		}
 		if(m == nil)
 			continue;
-
-		x = strchr(m->start, '\n');
-		if(x == nil)
-			m->header = m->end;
-		else
+		m->header = m->end;
+		if(x = strchr(m->start, '\n'))
 			m->header = x + 1;
+		if(p = parseunix(m))
+			sysfatal("%s:%lld naked From in body? [%s]", mb->path, seek(Bfildes(in), 0, 1), p);
 		m->mheader = m->mhend = m->header;
-		parseunix(m);
-		parse(m, 0, mb, 0);
-		logmsg("new", m);
-
+		parse(mb, m, 0, 0);
+		if(m != *l && m->deleted != Dup){
+			logmsg(m, "new");
+			newcachehash(mb, m, doplumb);
+			putcache(mb, m);
+			nnew++;
+		}
 		/* chain in */
 		*l = m;
 		l = &m->next;
-		if(doplumb)
-			mailplumb(mb, m, 0);
-
 	}
-	logmsg("mbox read", nil);
+	logmsg(nil, "mbox read");
 
-	// whatever is left has been removed from the mbox, mark deleted
+	/* whatever is left has been removed from the mbox, mark deleted */
 	while(*l != nil){
 		if(doplumb)
 			mailplumb(mb, *l, 1);
 		(*l)->inmbox = 0;
-		(*l)->deleted = 1;
+		(*l)->deleted = Deleted;
 		l = &(*l)->next;
 	}
 
-	close(fd);
-	free(inb);
+	Bterm(in);
+	*new = nnew;
 	return nil;
 }
 
 static void
-_writembox(Mailbox *mb, Mlock *lk)
+writembox(Mailbox *mb, Mlock *lk)
 {
-	Dir *d;
-	Message *m;
-	String *tmp;
+	char buf[Pathlen];
 	int mode, errs;
 	Biobuf *b;
+	Dir *d;
+	Message *m;
 
-	tmp = s_copy(mb->path);
-	s_append(tmp, ".tmp");
+	snprint(buf, sizeof buf, "%s.tmp", mb->path);
 
 	/*
 	 * preserve old files permissions, if possible
 	 */
-	d = dirstat(mb->path);
-	if(d != nil){
-		mode = d->mode&0777;
+	mode = Mboxmode;
+	if(d = dirstat(mb->path)){
+		mode = d->mode & 0777;
 		free(d);
-	} else
-		mode = MBOXMODE;
+	}
 
-	sysremove(s_to_c(tmp));
-	b = sysopen(s_to_c(tmp), "alc", mode);
+	remove(buf);
+	b = sysopen(buf, "alc", mode);
 	if(b == 0){
-		fprint(2, "can't write temporary mailbox %s: %r\n", s_to_c(tmp));
+		eprint("plan9: can't write temporary mailbox %s: %r\n", buf);
 		return;
 	}
 
-	logmsg("writing new mbox", nil);
+	logmsg(nil, "writing new mbox");
 	errs = 0;
 	for(m = mb->root->part; m != nil; m = m->next){
 		if(lk != nil)
 			syslockrefresh(lk);
 		if(m->deleted)
 			continue;
-		logmsg("writing", m);
+		logmsg(m, "writing");
 		if(Bwrite(b, m->start, m->end - m->start) < 0)
 			errs = 1;
 		if(Bwrite(b, "\n", 1) < 0)
 			errs = 1;
 	}
-	logmsg("wrote new mbox", nil);
+	logmsg(nil, "wrote new mbox");
 
 	if(sysclose(b) < 0)
 		errs = 1;
 
 	if(errs){
-		fprint(2, "error writing temporary mail file\n");
-		s_free(tmp);
+		eprint("plan9: error writing temporary mail file\n");
 		return;
 	}
 
-	sysremove(mb->path);
-	if(sysrename(s_to_c(tmp), mb->path) < 0)
-		fprint(2, "%s: can't rename %s to %s: %r\n", argv0,
-			s_to_c(tmp), mb->path);
-	s_free(tmp);
+	remove(mb->path);
+	if(sysrename(buf, mb->path) < 0)
+		eprint("plan9: can't rename %s to %s: %r\n",
+			buf, mb->path);
 	if(mb->d != nil)
 		free(mb->d);
 	mb->d = dirstat(mb->path);
 }
 
 char*
-plan9syncmbox(Mailbox *mb, int doplumb)
+plan9syncmbox(Mailbox *mb, int doplumb, int *new)
 {
-	Mlock *lk;
 	char *rv;
+	Mlock *lk;
 
 	lk = nil;
 	if(mb->dolock){
@@ -379,9 +420,9 @@ plan9syncmbox(Mailbox *mb, int doplumb)
 			return "can't lock mailbox";
 	}
 
-	rv = _readmbox(mb, doplumb, lk);		/* interpolate */
+	rv = readmbox(mb, doplumb, new, lk);		/* interpolate */
 	if(purgedeleted(mb) > 0)
-		_writembox(mb, lk);
+		writembox(mb, lk);
 
 	if(lk != nil)
 		sysunlock(lk);
@@ -389,26 +430,30 @@ plan9syncmbox(Mailbox *mb, int doplumb)
 	return rv;
 }
 
-//
-//  look to see if we can open this mail box
-//
+void
+plan9decache(Mailbox*, Message *m)
+{
+	m->lim = 0;
+}
+
+/*
+ *   look to see if we can open this mail box
+ */
 char*
 plan9mbox(Mailbox *mb, char *path)
 {
-	static char err[Errlen];
-	String *tmp;
+	char buf[Pathlen];
+	static char err[Pathlen];
 
 	if(access(path, AEXIST) < 0){
-		errstr(err, sizeof(err));
-		tmp = s_copy(path);
-		s_append(tmp, ".tmp");
-		if(access(s_to_c(tmp), AEXIST) < 0){
-			s_free(tmp);
+		errstr(err, sizeof err);
+		snprint(buf, sizeof buf, "%s.tmp", path);
+		if(access(buf, AEXIST) < 0)
 			return err;
-		}
-		s_free(tmp);
 	}
-
 	mb->sync = plan9syncmbox;
+	mb->remove = localremove;
+	mb->rename = localrename;
+	mb->decache = plan9decache;
 	return nil;
 }

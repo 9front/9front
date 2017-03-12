@@ -1,4 +1,5 @@
 </$objtype/mkfile
+<../mkupas
 
 TARG=ml\
 	mlowner\
@@ -7,7 +8,7 @@ TARG=ml\
 OFILES=\
 	common.$O\
 
-LIB=../common/libcommon.av\
+LIB=../common/libcommon.a$O\
 
 UHFILES= ../common/common.h\
 	../common/sys.h\
@@ -17,8 +18,6 @@ HFILES=$UHFILES\
 	../smtp/y.tab.h\
 
 LIB=../common/libcommon.a$O\
-
-BIN=/$objtype/bin/upas
 
 UPDATE=\
 	mkfile\
@@ -34,7 +33,4 @@ $O.ml: ../smtp/rfc822.tab.$O
 $O.mlowner: ../smtp/rfc822.tab.$O
 
 ../smtp/y.tab.h ../smtp/rfc822.tab.$O:
-	@{
-		cd ../smtp
-		mk rfc822.tab.$O
-	}
+	cd ../smtp && mk rfc822.tab.$O

@@ -1,54 +1,64 @@
 #include "common.h"
-#include <ctype.h>
-#include <plumb.h>
 #include <libsec.h>
 #include <auth.h>
 #include "dat.h"
 
 #pragma varargck type "M" uchar*
 #pragma varargck argpos pop3cmd 2
+#define pdprint(p, ...)	if((p)->debug) fprint(2, __VA_ARGS__); else{}
+
+typedef struct Popm Popm;
+struct Popm{
+	int	mesgno;
+};
 
 typedef struct Pop Pop;
 struct Pop {
-	char *freep;	// free this to free the strings below
+	char	*freep;		/* free this to free the strings below */
+	char	*host;
+	char	*user;
+	char	*port;
 
-	char *host;
-	char *user;
-	char *port;
+	int	ppop;
+	int	refreshtime;
+	int	debug;
+	int	pipeline;
+	int	encrypted;
+	int	needtls;
+	int	notls;
+	int	needssl;
 
-	int ppop;
-	int refreshtime;
-	int debug;
-	int pipeline;
-	int encrypted;
-	int needtls;
-	int notls;
-	int needssl;
-
-	// open network connection
-	Biobuf bin;
-	Biobuf bout;
-	int fd;
-	char *lastline;	// from Brdstr
-
+	Biobuf	bin;		/* open network connection */
+	Biobuf	bout;
+	int	fd;
+	char	*lastline;		/* from Brdstr */
 	Thumbprint *thumb;
 };
 
-char*
+static int
+mesgno(Message *m)
+{
+	Popm *a;
+
+	a = m->aux;
+	return a->mesgno;
+}
+
+static char*
 geterrstr(void)
 {
-	static char err[Errlen];
+	static char err[64];
 
 	err[0] = '\0';
 	errstr(err, sizeof(err));
 	return err;
 }
 
-//
-// get pop3 response line , without worrying
-// about multiline responses; the clients
-// will deal with that.
-//
+/*
+ *  get pop3 response line , without worrying
+ *  about multiline responses; the clients
+ *  will deal with that.
+ */
 static int
 isokay(char *s)
 {
@@ -62,15 +72,13 @@ pop3cmd(Pop *pop, char *fmt, ...)
 	va_list va;
 
 	va_start(va, fmt);
-	vseprint(buf, buf+sizeof(buf), fmt, va);
+	vseprint(buf, buf + sizeof buf, fmt, va);
 	va_end(va);
 
-	p = buf+strlen(buf);
-	if(p > (buf+sizeof(buf)-3))
+	p = buf + strlen(buf);
+	if(p > buf + sizeof buf - 3)
 		sysfatal("pop3 command too long");
-
-	if(pop->debug)
-		fprint(2, "<- %s\n", buf);
+	pdprint(pop, "<- %s\n", buf);
 	strcpy(p, "\r\n");
 	Bwrite(&pop->bout, buf, strlen(buf));
 	Bflush(&pop->bout);
@@ -83,20 +91,19 @@ pop3resp(Pop *pop)
 	char *p;
 
 	alarm(60*1000);
-	s = Brdstr(&pop->bin, '\n', 0);
-	alarm(0);
-	if(s == nil){
+	if((s = Brdstr(&pop->bin, '\n', 0)) == nil){
 		close(pop->fd);
 		pop->fd = -1;
+		alarm(0);
 		return "unexpected eof";
 	}
+	alarm(0);
 
-	p = s+strlen(s)-1;
+	p = s + strlen(s) - 1;
 	while(p >= s && (*p == '\r' || *p == '\n'))
 		*p-- = '\0';
 
-	if(pop->debug)
-		fprint(2, "-> %s\n", s);
+	pdprint(pop, "-> %s\n", s);
 	free(pop->lastline);
 	pop->lastline = s;
 	return s;
@@ -119,40 +126,35 @@ pop3pushtls(Pop *pop)
 	int fd;
 	uchar digest[SHA1dlen];
 	TLSconn conn;
-	char *err;
 
-	err = nil;
 	memset(&conn, 0, sizeof conn);
 	// conn.trace = pop3log;
 	fd = tlsClient(pop->fd, &conn);
-	if(fd < 0){
-		err = "tls error";
-		goto out;
-	}
-	pop->fd = fd;
-	Binit(&pop->bin, pop->fd, OREAD);
-	Binit(&pop->bout, pop->fd, OWRITE);
+	if(fd < 0)
+		return "tls error";
 	if(conn.cert==nil || conn.certlen <= 0){
-		err = "server did not provide TLS certificate";
-		goto out;
+		close(fd);
+		return "server did not provide TLS certificate";
 	}
 	sha1(conn.cert, conn.certlen, digest, nil);
 	if(!pop->thumb || !okThumbprint(digest, pop->thumb)){
-		fmtinstall('H', encodefmt);
-		fprint(2, "upas/fs pop3: server certificate %.*H not recognized\n", SHA1dlen, digest);
-		err = "bad server certificate";
-		goto out;
+		close(fd);
+		free(conn.cert);
+		eprint("pop3: server certificate %.*H not recognized\n", SHA1dlen, digest);
+		return "bad server certificate";
 	}
-	pop->encrypted = 1;
-out:
-	free(conn.sessionID);
 	free(conn.cert);
-	return err;
+	close(pop->fd);
+	pop->fd = fd;
+	pop->encrypted = 1;
+	Binit(&pop->bin, pop->fd, OREAD);
+	Binit(&pop->bout, pop->fd, OWRITE);
+	return nil;
 }
 
-//
-// get capability list, possibly start tls
-//
+/*
+ *  get capability list, possibly start tls
+ */
 static char*
 pop3capa(Pop *pop)
 {
@@ -186,9 +188,9 @@ pop3capa(Pop *pop)
 	return nil;
 }
 
-//
-// log in using APOP if possible, password if allowed by user
-//
+/*
+ *  log in using APOP if possible, password if allowed by user
+ */
 static char*
 pop3login(Pop *pop)
 {
@@ -207,10 +209,10 @@ pop3login(Pop *pop)
 	else
 		ubuf[0] = '\0';
 
-	// look for apop banner
-	if(pop->ppop==0 && (p = strchr(s, '<')) && (q = strchr(p+1, '>'))) {
+	/* look for apop banner */
+	if(pop->ppop == 0 && (p = strchr(s, '<')) && (q = strchr(p + 1, '>'))) {
 		*++q = '\0';
-		if((n=auth_respond(p, q-p, user, sizeof user, buf, sizeof buf, auth_getkey, "proto=apop role=client server=%q%s",
+		if((n=auth_respond(p, q - p, user, sizeof user, buf, sizeof buf, auth_getkey, "proto=apop role=client server=%q%s",
 			pop->host, ubuf)) < 0)
 			return "factotum failed";
 		if(user[0]=='\0')
@@ -253,83 +255,75 @@ pop3login(Pop *pop)
 	}
 }
 
-//
-// dial and handshake with pop server
-//
+/*
+ *  dial and handshake with pop server
+ */
 static char*
 pop3dial(Pop *pop)
 {
 	char *err;
 
-	if(pop->fd >= 0){
-		close(pop->fd);
-		pop->fd = -1;
-	}
 	if((pop->fd = dial(netmkaddr(pop->host, "net", pop->needssl ? "pop3s" : "pop3"), 0, 0, 0)) < 0)
 		return geterrstr();
 
 	if(pop->needssl){
 		if((err = pop3pushtls(pop)) != nil)
-			goto Out;
+			return err;
 	}else{
 		Binit(&pop->bin, pop->fd, OREAD);
 		Binit(&pop->bout, pop->fd, OWRITE);
 	}
-	err = pop3login(pop);
-Out:
-	if(err != nil){
-		if(pop->fd >= 0){
-			close(pop->fd);
-			pop->fd = -1;
-		}
+
+	if(err = pop3login(pop)) {
+		close(pop->fd);
+		return err;
 	}
-	return err;
+
+	return nil;
 }
 
-//
-// close connection
-//
+/*
+ *  close connection
+ */
 static void
 pop3hangup(Pop *pop)
 {
-	if(pop->fd < 0)
-		return;
 	pop3cmd(pop, "QUIT");
 	pop3resp(pop);
 	close(pop->fd);
-	pop->fd = -1;
 }
 
-//
-// download a single message
-//
+/*
+ *  download a single message
+ */
 static char*
-pop3download(Pop *pop, Message *m)
+pop3download(Mailbox *mb, Pop *pop, Message *m)
 {
 	char *s, *f[3], *wp, *ep;
-	char sdigest[SHA1dlen*2+1];
-	int i, l, sz;
+	int l, sz, pos, n;
+	Popm *a;
 
+	a = m->aux;
 	if(!pop->pipeline)
-		pop3cmd(pop, "LIST %d", m->mesgno);
+		pop3cmd(pop, "LIST %d", a->mesgno);
 	if(!isokay(s = pop3resp(pop)))
 		return s;
 
 	if(tokenize(s, f, 3) != 3)
 		return "syntax error in LIST response";
 
-	if(atoi(f[1]) != m->mesgno)
+	if(atoi(f[1]) != a->mesgno)
 		return "out of sync with pop3 server";
 
-	sz = atoi(f[2])+200;	/* 200 because the plan9 pop3 server lies */
+	sz = atoi(f[2]) + 200;	/* 200 because the plan9 pop3 server lies */
 	if(sz == 0)
 		return "invalid size in LIST response";
 
-	m->start = wp = emalloc(sz+1);
-	ep = wp+sz;
+	m->start = wp = emalloc(sz + 1);
+	ep = wp + sz;
 
 	if(!pop->pipeline)
-		pop3cmd(pop, "RETR %d", m->mesgno);
+		pop3cmd(pop, "RETR %d", a->mesgno);
 	if(!isokay(s = pop3resp(pop))) {
 		m->start = nil;
 		free(wp);
@@ -347,7 +341,7 @@ pop3download(Pop *pop, Message *m)
 		if(strcmp(s, ".") == 0)
 			break;
 
-		l = strlen(s)+1;
+		l = strlen(s) + 1;
 		if(s[0] == '.') {
 			s++;
 			l--;
@@ -356,14 +350,17 @@ pop3download(Pop *pop, Message *m)
 		 * grow by 10%/200bytes - some servers
 		 *  lie about message sizes
 		 */
-		if(wp+l > ep) {
-			int pos = wp - m->start;
-			sz += ((sz / 10) < 200)? 200: sz/10;
-			m->start = erealloc(m->start, sz+1);
-			wp = m->start+pos;
-			ep = m->start+sz;
+		if(wp + l > ep) {
+			pos = wp - m->start;
+			n = sz/10;
+			if(n < 200)
+				n = 200;
+			sz += n;
+			m->start = erealloc(m->start, sz + 1);
+			wp = m->start + pos;
+			ep = m->start + sz;
 		}
-		memmove(wp, s, l-1);
+		memmove(wp, s, l - 1);
 		wp[l-1] = '\n';
 		wp += l;
 	}
@@ -373,40 +370,41 @@ pop3download(Pop *pop, Message *m)
 
 	m->end = wp;
 
-	// make sure there's a trailing null
-	// (helps in body searches)
+	/*
+	 *  make sure there's a trailing null
+	 *  (helps in body searches)
+	 */
 	*m->end = 0;
 	m->bend = m->rbend = m->end;
 	m->header = m->start;
-
-	// digest message
-	sha1((uchar*)m->start, m->end - m->start, m->digest, nil);
-	for(i = 0; i < SHA1dlen; i++)
-		sprint(sdigest+2*i, "%2.2ux", m->digest[i]);
-	m->sdigest = s_copy(sdigest);
+	m->size = m->end - m->start;
+	if(m->digest == nil)
+		digestmessage(mb, m);
 
 	return nil;
 }
 
-//
-// check for new messages on pop server
-// UIDL is not required by RFC 1939, but 
-// netscape requires it, so almost every server supports it.
-// we'll use it to make our lives easier.
-//
+/*
+ *  check for new messages on pop server
+ *  UIDL is not required by RFC 1939, but
+ *  netscape requires it, so almost every server supports it.
+ *  we'll use it to make our lives easier.
+ */
 static char*
-pop3read(Pop *pop, Mailbox *mb, int doplumb)
+pop3read(Pop *pop, Mailbox *mb, int doplumb, int *new)
 {
 	char *s, *p, *uidl, *f[2];
-	int mesgno, ignore, nnew;
+	int mno, ignore, nnew;
 	Message *m, *next, **l;
+	Popm *a;
 
-	// Some POP servers disallow UIDL if the maildrop is empty.
+	*new = 0;
+	/* Some POP servers disallow UIDL if the maildrop is empty. */
 	pop3cmd(pop, "STAT");
 	if(!isokay(s = pop3resp(pop)))
 		return s;
 
-	// fetch message listing; note messages to grab
+	/* fetch message listing; note messages to grab */
 	l = &mb->root->part;
 	if(strncmp(s, "+OK 0 ", 6) != 0) {
 		pop3cmd(pop, "UIDL");
@@ -421,25 +419,32 @@ pop3read(Pop *pop, Mailbox *mb, int doplumb)
 			if(tokenize(p, f, 2) != 2)
 				continue;
 
-			mesgno = atoi(f[0]);
+			mno = atoi(f[0]);
 			uidl = f[1];
-			if(strlen(uidl) > 75)	// RFC 1939 says 70 characters max
+			if(strlen(uidl) > 75)	/* RFC 1939 says 70 characters max */
 				continue;
 
 			ignore = 0;
 			while(*l != nil) {
-				if(strcmp((*l)->uidl, uidl) == 0) {
-					// matches mail we already have, note mesgno for deletion
-					(*l)->mesgno = mesgno;
+				a = (*l)->aux;
+				if(strcmp((*l)->idxaux, uidl) == 0){
+					if(a == 0){
+						m = *l;
+						m->mallocd = 1;
+						m->inmbox = 1;
+						m->aux = a = emalloc(sizeof *a);
+					}
+					/* matches mail we already have, note mesgno for deletion */
+					a->mesgno = mno;
 					ignore = 1;
 					l = &(*l)->next;
 					break;
-				} else {
-					// old mail no longer in box mark deleted
+				}else{
+					/* old mail no longer in box mark deleted */
 					if(doplumb)
 						mailplumb(mb, *l, 1);
 					(*l)->inmbox = 0;
-					(*l)->deleted = 1;
+					(*l)->deleted = Deleted;
 					l = &(*l)->next;
 				}
 			}
@@ -449,30 +454,31 @@ pop3read(Pop *pop, Mailbox *mb, int doplumb)
 			m = newmessage(mb->root);
 			m->mallocd = 1;
 			m->inmbox = 1;
-			m->mesgno = mesgno;
-			strcpy(m->uidl, uidl);
+			m->idxaux = strdup(uidl);
+			m->aux = a = emalloc(sizeof *a);
+			a->mesgno = mno;
 
-			// chain in; will fill in message later
+			/* chain in; will fill in message later */
 			*l = m;
 			l = &m->next;
 		}
 	}
 
-	// whatever is left has been removed from the mbox, mark as deleted
+	/* whatever is left has been removed from the mbox, mark as deleted */
 	while(*l != nil) {
 		if(doplumb)
 			mailplumb(mb, *l, 1);
 		(*l)->inmbox = 0;
-		(*l)->deleted = 1;
+		(*l)->deleted = Disappear;
 		l = &(*l)->next;
 	}
 
-	// download new messages
+	/* download new messages */
 	nnew = 0;
 	if(pop->pipeline){
 		switch(rfork(RFPROC|RFMEM)){
 		case -1:
-			fprint(2, "rfork: %r\n");
+			eprint("pop3: rfork: %r\n");
 			pop->pipeline = 0;
 
 		default:
@@ -480,49 +486,41 @@ pop3read(Pop *pop, Mailbox *mb, int doplumb)
 
 		case 0:
 			for(m = mb->root->part; m != nil; m = m->next){
-				if(m->start != nil)
+				if(m->start != nil || m->deleted)
 					continue;
-				Bprint(&pop->bout, "LIST %d\r\nRETR %d\r\n", m->mesgno, m->mesgno);
+				Bprint(&pop->bout, "LIST %d\r\nRETR %d\r\n", mesgno(m), mesgno(m));
 			}
 			Bflush(&pop->bout);
-			_exits(nil);
+			_exits("");
 		}
 	}
 
 	for(m = mb->root->part; m != nil; m = next) {
 		next = m->next;
 
-		if(m->start != nil)
+		if(m->start != nil || m->deleted)
 			continue;
-
-		if(s = pop3download(pop, m)) {
-			// message disappeared? unchain
-			fprint(2, "download %d: %s\n", m->mesgno, s);
+		if(s = pop3download(mb, pop, m)) {
+			/* message disappeared? unchain */
+			eprint("pop3: download %d: %s\n", mesgno(m), s);
 			delmessage(mb, m);
 			mb->root->subname--;
 			continue;
 		}
 		nnew++;
-		parse(m, 0, mb, 1);
-
-		if(doplumb)
-			mailplumb(mb, m, 0);
+		parse(mb, m, 1, 0);
+		newcachehash(mb, m, doplumb);
+		putcache(mb, m);
 	}
 	if(pop->pipeline)
 		waitpid();
-
-	if(nnew || mb->vers == 0) {
-		mb->vers++;
-		henter(PATH(0, Qtop), mb->name,
-			(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
-	}
-
+	*new = nnew;
 	return nil;	
 }
 
-//
-// delete marked messages
-//
+/*
+ *  delete marked messages
+ */
 static void
 pop3purge(Pop *pop, Mailbox *mb)
 {
@@ -531,7 +529,7 @@ pop3purge(Pop *pop, Mailbox *mb)
 	if(pop->pipeline){
 		switch(rfork(RFPROC|RFMEM)){
 		case -1:
-			fprint(2, "rfork: %r\n");
+			eprint("pop3: rfork: %r\n");
 			pop->pipeline = 0;
 
 		default:
@@ -542,11 +540,11 @@ pop3purge(Pop *pop, Mailbox *mb)
 				next = m->next;
 				if(m->deleted && m->refs == 0){
 					if(m->inmbox)
-						Bprint(&pop->bout, "DELE %d\r\n", m->mesgno);
+						Bprint(&pop->bout, "DELE %d\r\n", mesgno(m));
 				}
 			}
 			Bflush(&pop->bout);
-			_exits(nil);
+			_exits("");
 		}
 	}
 	for(m = mb->root->part; m != nil; m = next) {
@@ -554,7 +552,7 @@ pop3purge(Pop *pop, Mailbox *mb)
 		if(m->deleted && m->refs == 0) {
 			if(m->inmbox) {
 				if(!pop->pipeline)
-					pop3cmd(pop, "DELE %d", m->mesgno);
+					pop3cmd(pop, "DELE %d", mesgno(m));
 				if(isokay(pop3resp(pop)))
 					delmessage(mb, m);
 			} else
@@ -564,19 +562,21 @@ pop3purge(Pop *pop, Mailbox *mb)
 }
 
 
-// connect to pop3 server, sync mailbox
+/* connect to pop3 server, sync mailbox */
 static char*
-pop3sync(Mailbox *mb, int doplumb)
+pop3sync(Mailbox *mb, int doplumb, int *new)
 {
 	char *err;
 	Pop *pop;
 
 	pop = mb->aux;
+
 	if(err = pop3dial(pop)) {
 		mb->waketime = time(0) + pop->refreshtime;
 		return err;
 	}
-	if((err = pop3read(pop, mb, doplumb)) == nil){
+
+	if((err = pop3read(pop, mb, doplumb, new)) == nil){
 		pop3purge(pop, mb);
 		mb->d->atime = mb->d->mtime = time(0);
 	}
@@ -629,7 +629,7 @@ pop3ctl(Mailbox *mb, int argc, char **argv)
 	return Epop3ctl;
 }
 
-// free extra memory associated with mb
+/* free extra memory associated with mb */
 static void
 pop3close(Mailbox *mb)
 {
@@ -640,9 +640,18 @@ pop3close(Mailbox *mb)
 	free(pop);
 }
 
-//
-// open mailboxes of the form /pop/host/user or /apop/host/user
-//
+static char*
+mkmbox(Pop *pop, char *p, char *e)
+{
+	p = seprint(p, e, "%s/box/%s/pop.%s", MAILROOT, getlog(), pop->host);
+	if(pop->user && strcmp(pop->user, getlog()))
+		p = seprint(p, e, ".%s", pop->user);
+	return p;
+}
+
+/*
+ *  open mailboxes of the form /pop/host/user or /apop/host/user
+ */
 char*
 pop3mbox(Mailbox *mb, char *path)
 {
@@ -650,7 +659,6 @@ pop3mbox(Mailbox *mb, char *path)
 	int nf, apop, ppop, popssl, apopssl, apoptls, popnotls, apopnotls, poptls;
 	Pop *pop;
 
-	quotefmtinstall();
 	popssl = strncmp(path, "/pops/", 6) == 0;
 	apopssl = strncmp(path, "/apops/", 7) == 0;
 	poptls = strncmp(path, "/poptls/", 8) == 0;
@@ -673,8 +681,7 @@ pop3mbox(Mailbox *mb, char *path)
 		return "bad pop3 path syntax /[a]pop[tls|ssl]/system[/user]";
 	}
 
-	pop = emalloc(sizeof(*pop));
-	pop->fd = -1;
+	pop = emalloc(sizeof *pop);
 	pop->freep = path;
 	pop->host = f[2];
 	if(nf < 4)
@@ -688,12 +695,13 @@ pop3mbox(Mailbox *mb, char *path)
 	pop->notls = popnotls || apopnotls;
 	pop->thumb = initThumbprints("/sys/lib/tls/mail", "/sys/lib/tls/mail.exclude");
 
+	mkmbox(pop, mb->path, mb->path + sizeof mb->path);
 	mb->aux = pop;
 	mb->sync = pop3sync;
 	mb->close = pop3close;
 	mb->ctl = pop3ctl;
-	mb->d = emalloc(sizeof(*mb->d));
-
+	mb->d = emalloc(sizeof *mb->d);
+	mb->addfrom = 1;
 	return nil;
 }
 

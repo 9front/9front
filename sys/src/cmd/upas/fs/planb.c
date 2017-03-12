@@ -15,12 +15,37 @@
 #include <libsec.h>
 #include "dat.h"
 
+static char*
+parseunix(Message *m)
+{
+	char *s, *p, *q;
+	int l;
+	Tm tm;
+
+	l = m->header - m->start;
+	m->unixheader = smprint("%.*s", l, m->start);
+	s = m->start + 5;
+	if((p = strchr(s, ' ')) == nil)
+		return s;
+	*p = 0;
+	m->unixfrom = strdup(s);
+	*p++ = ' ';
+	if(q = strchr(p, '\n'))
+		*q = 0;
+	if(strtotm(p, &tm) < 0)
+		return p;
+	if(q)
+		*q = '\n';
+	m->fileid = (uvlong)tm2sec(&tm) << 8;
+	return 0;
+}
+
 static int
 readmessage(Message *m, char *msg)
 {
-	int fd, i, n;
+	int fd, n;
 	char *buf, *name, *p;
-	char hdr[128], sdigest[SHA1dlen*2+1];
+	char hdr[128];
 	Dir *d;
 
 	buf = nil;
@@ -29,8 +54,10 @@ readmessage(Message *m, char *msg)
 	if(name == nil)
 		return -1;
 	if(m->filename != nil)
-		s_free(m->filename);
-	m->filename = s_copy(name);
+		free(m->filename);
+	m->filename = strdup(name);
+	if(m->filename == nil)
+		sysfatal("malloc: %r");
 	fd = open(name, OREAD);
 	if(fd < 0)
 		goto Fail;
@@ -75,10 +102,7 @@ readmessage(Message *m, char *msg)
 		m->end--;
 	*m->end = 0;
 	m->bend = m->rbend = m->end;
-	sha1((uchar*)m->start, m->end - m->start, m->digest, nil);
-	for(i = 0; i < SHA1dlen; i++)
-		sprint(sdigest+2*i, "%2.2ux", m->digest[i]);
-	m->sdigest = s_copy(sdigest);
+
 	return 0;
 Fail:
 	if(fd >= 0)
@@ -98,7 +122,7 @@ archive(Message *m)
 	char *dir, *p, *nname;
 	Dir d;
 
-	dir = strdup(s_to_c(m->filename));
+	dir = strdup(m->filename);
 	nname = nil;
 	if(dir == nil)
 		return;
@@ -162,21 +186,20 @@ mustshow(char* name)
 }
 
 static int
-readpbmessage(Mailbox *mb, char *msg, int doplumb)
+readpbmessage(Mailbox *mb, char *msg, int doplumb, int *nnew)
 {
 	Message *m, **l;
-	char *x;
+	char *x, *p;
 
 	m = newmessage(mb->root);
 	m->mallocd = 1;
 	m->inmbox = 1;
 	if(readmessage(m, msg) < 0){
-		delmessage(mb, m);
-		mb->root->subname--;
+		unnewmessage(mb, mb->root, m);
 		return -1;
 	}
 	for(l = &mb->root->part; *l != nil; l = &(*l)->next)
-		if(strcmp(s_to_c((*l)->filename), s_to_c(m->filename)) == 0 &&
+		if(strcmp((*l)->filename, m->filename) == 0 &&
 		    *l != m){
 			if((*l)->deleted < 0)
 				(*l)->deleted = 0;
@@ -184,15 +207,19 @@ readpbmessage(Mailbox *mb, char *msg, int doplumb)
 			mb->root->subname--;
 			return -1;
 		}
-	x = strchr(m->start, '\n');
-	if(x == nil)
-		m->header = m->end;
-	else
+	m->header = m->end;
+	if(x = strchr(m->start, '\n'))
 		m->header = x + 1;
+	if(p = parseunix(m))
+		sysfatal("%s:%s naked From in body? [%s]", mb->path, (*l)->filename, p);
 	m->mheader = m->mhend = m->header;
-	parseunix(m);
-	parse(m, 0, mb, 0);
-	logmsg("new", m);
+	parse(mb, m, 0, 0);
+	if(m != *l && m->deleted != Dup){
+		logmsg(m, "new");
+		newcachehash(mb, m, doplumb);
+		putcache(mb, m);
+		nnew[0]++;
+	}
 
 	/* chain in */
 	*l = m;
@@ -215,17 +242,18 @@ dcmp(Dir *a, Dir *b)
 	return strcmp(an, bn);
 }
 
-static void
-readpbmbox(Mailbox *mb, int doplumb)
+static char*
+readpbmbox(Mailbox *mb, int doplumb, int *new)
 {
-	int fd, i, j, nd, nmd;
 	char *month, *msg;
+	int fd, i, j, nd, nmd;
 	Dir *d, *md;
+	static char err[ERRMAX];
 
 	fd = open(mb->path, OREAD);
 	if(fd < 0){
-		fprint(2, "%s: %s: %r\n", argv0, mb->path);
-		return;
+		errstr(err, sizeof err);
+		return err;
 	}
 	nd = dirreadall(fd, &d);
 	close(fd);
@@ -249,7 +277,7 @@ readpbmbox(Mailbox *mb, int doplumb)
 			for(j = 0; j < nmd; j++)
 				if(mustshow(md[j].name)){
 					msg = smprint("%s/%s", month, md[j].name);
-					readpbmessage(mb, msg, doplumb);
+					readpbmessage(mb, msg, doplumb, new);
 					free(msg);
 				}
 		}
@@ -259,45 +287,45 @@ readpbmbox(Mailbox *mb, int doplumb)
 		md = nil;
 	}
 	free(d);
+	return nil;
 }
 
-static void
-readpbvmbox(Mailbox *mb, int doplumb)
+static char*
+readpbvmbox(Mailbox *mb, int doplumb, int *new)
 {
+	char *data, *ln, *p, *nln, *msg;
 	int fd, nr;
 	long sz;
-	char *data, *ln, *p, *nln, *msg;
 	Dir *d;
+	static char err[ERRMAX];
 
 	fd = open(mb->path, OREAD);
 	if(fd < 0){
-		fprint(2, "%s: %s: %r\n", argv0, mb->path);
-		return;
+		errstr(err, sizeof err);
+		return err;
 	}
 	d = dirfstat(fd);
 	if(d == nil){
-		fprint(2, "%s: %s: %r\n", argv0, mb->path);
-		close(fd);
-		return;
+		errstr(err, sizeof err);
+		return err;
 	}
 	sz = d->length;
 	free(d);
 	if(sz > 2 * 1024 * 1024){
 		sz = 2 * 1024 * 1024;
-		fprint(2, "%s: %s: bug: folder too big\n", argv0, mb->path);
+		fprint(2, "upas/fs: %s: bug: folder too big\n", mb->path);
 	}
 	data = malloc(sz+1);
 	if(data == nil){
-		close(fd);
-		fprint(2, "%s: no memory\n", argv0);
-		return;
+		errstr(err, sizeof err);
+		return err;
 	}
 	nr = readn(fd, data, sz);
 	close(fd);
 	if(nr < 0){
-		fprint(2, "%s: %s: %r\n", argv0, mb->path);
+		errstr(err, sizeof err);
 		free(data);
-		return;
+		return err;
 	}
 	data[nr] = 0;
 
@@ -318,22 +346,24 @@ readpbvmbox(Mailbox *mb, int doplumb)
 			*p = 0;
 		msg = smprint("/mail/box/%s/msgs/%s", user, ln);
 		if(msg == nil){
-			fprint(2, "%s: no memory\n", argv0);
+			fprint(2, "upas/fs: malloc: %r\n");
 			continue;
 		}
-		readpbmessage(mb, msg, doplumb);
+		readpbmessage(mb, msg, doplumb, new);
 		free(msg);
 	}
 	free(data);
+	return nil;
 }
 
 static char*
-readmbox(Mailbox *mb, int doplumb, int virt)
+readmbox(Mailbox *mb, int doplumb, int virt, int *new)
 {
+	char *mberr;
 	int fd;
 	Dir *d;
 	Message *m;
-	static char err[Errlen];
+	static char err[128];
 
 	if(debug)
 		fprint(2, "read mbox %s\n", mb->path);
@@ -364,45 +394,45 @@ readmbox(Mailbox *mb, int doplumb, int virt)
 	henter(PATH(0, Qtop), mb->name,
 		(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
 	snprint(err, sizeof err, "reading '%s'", mb->path);
-	logmsg(err, nil);
+	logmsg(nil, err, nil);
 
 	for(m = mb->root->part; m != nil; m = m->next)
 		if(m->deleted == 0)
 			m->deleted = -1;
 	if(virt == 0)
-		readpbmbox(mb, doplumb);
+		mberr = readpbmbox(mb, doplumb, new);
 	else
-		readpbvmbox(mb, doplumb);
+		mberr = readpbvmbox(mb, doplumb, new);
 
 	/*
 	 * messages removed from the mbox; flag them to go.
 	 */
 	for(m = mb->root->part; m != nil; m = m->next)
 		if(m->deleted < 0 && doplumb){
-			m->inmbox = 0;
-			m->deleted = 1;
-			mailplumb(mb, m, 1);
+			delmessage(mb, m);
+			if(doplumb)
+				mailplumb(mb, m, 1);
 		}
-	logmsg("mbox read", nil);
-	return nil;
+	logmsg(nil, "mbox read");
+	return mberr;
 }
 
 static char*
-mbsync(Mailbox *mb, int doplumb)
+mbsync(Mailbox *mb, int doplumb, int *new)
 {
 	char *rv;
 
-	rv = readmbox(mb, doplumb, 0);
+	rv = readmbox(mb, doplumb, 0, new);
 	purgembox(mb, 0);
 	return rv;
 }
 
 static char*
-mbvsync(Mailbox *mb, int doplumb)
+mbvsync(Mailbox *mb, int doplumb, int *new)
 {
 	char *rv;
 
-	rv = readmbox(mb, doplumb, 1);
+	rv = readmbox(mb, doplumb, 1, new);
 	purgembox(mb, 1);
 	return rv;
 }

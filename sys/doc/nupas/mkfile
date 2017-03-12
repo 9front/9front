@@ -1,0 +1,20 @@
+TARG=nupas.ps nupas.pdf
+
+all:V: $TARG
+
+%.ps:DQ:	%.ms
+	eval `{doctype macros.ms $stem.ms} | \
+	lp -m.9 -dstdout >$target
+
+%.pdf:DQ: %.ps
+	cat ../docfonts $stem.ps >_$stem.ps
+	ps2pdf _$stem.ps $stem.pdf && rm -f _$stem.ps
+
+%.show:VQ:	%.ps
+	page -w $stem.ps
+
+#install:VQ: fs4.man fs.man fsrecover.man fsconfig.man
+#	cp fs4.man /sys/man/4/fs
+#	cp fs.man /sys/man/8/fs
+#	cp fsconfig.man /sys/man/8/fsconfig
+#	cp fsrecover.man /sys/man/8/fsrecover

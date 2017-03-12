@@ -1,4 +1,5 @@
 </$objtype/mkfile
+<../mkupas
 
 TARG=marshal
 
@@ -7,8 +8,6 @@ LIB=../common/libcommon.a$O\
 HFILES=	../common/common.h\
 
 OFILES= marshal.$O
-
-BIN=/$objtype/bin/upas
 
 UPDATE=\
 	mkfile\

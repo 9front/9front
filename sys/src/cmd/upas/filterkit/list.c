@@ -2,8 +2,8 @@
 #include <libc.h>
 #include <regexp.h>
 #include <libsec.h>
-#include <String.h>
 #include <bio.h>
+#include <String.h>
 #include "dat.h"
 
 int debug;

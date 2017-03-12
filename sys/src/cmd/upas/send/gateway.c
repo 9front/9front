@@ -1,13 +1,11 @@
 #include "common.h"
 #include "send.h"
 
-#define isspace(c) ((c)==' ' || (c)=='\t' || (c)=='\n')
-
 /*
  *  Translate the last component of the sender address.  If the translation
  *  yields the same address, replace the sender with its last component.
  */
-extern void
+void
 gateway(message *mp)
 {
 	char *base;
