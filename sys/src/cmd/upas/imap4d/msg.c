@@ -463,36 +463,6 @@ msgstruct(Msg *m, int top)
 }
 
 /*
- *  stolen from upas/marshal; base64 encodes from one fd to another.
- *
- *  the size of buf is very important to enc64.  Anything other than
- *  a multiple of 3 will cause enc64 to output a termination sequence.
- *  To ensure that a full buf corresponds to a multiple of complete lines,
- *  we make buf a multiple of 3*18 since that's how many enc64 sticks on
- *  a single line.  This avoids short lines in the output which is pleasing
- *  but not necessary.
- */
-static int
-enc64x18(char *out, int lim, uchar *in, int n)
-{
-	int m, mm, nn;
-
-	nn = 0;
-	for(; n > 0; n -= m){
-		m = 18 * 3;
-		if(m > n)
-			m = n;
-		mm = enc64(out, lim - nn, in, m);
-		in += m;
-		out += mm;
-		*out++ = '\r';
-		*out++ = '\n';
-		nn += mm + 2;
-	}
-	return nn;
-}
-
-/*
  * read in the message body to count \n without a preceding \r
  */
 static int

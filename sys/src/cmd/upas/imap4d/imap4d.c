@@ -223,6 +223,10 @@ main(int argc, char *argv[])
 	fmtinstall('Y', Zfmt);
 	fmtinstall('Z', Zfmt);
 
+	/* for auth */
+	fmtinstall('H', encodefmt);
+	fmtinstall('[', encodefmt);
+
 	preauth = 0;
 	allowpass = 0;
 	allowcr = 0;

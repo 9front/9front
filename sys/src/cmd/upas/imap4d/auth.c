@@ -151,19 +151,13 @@ char*
 cramauth(void)
 {
 	char *s, *t;
-	int n;
 	AuthInfo *ai;
 	Chalstate *cs;
 
 	if((cs = auth_challenge("proto=cram role=server")) == nil)
 		return Ebadch;
 
-	n = cs->nchal;
-	s = binalloc(&parsebin, n * 2, 0);
-	n = enc64(s, n * 2, (uchar*)cs->chal, n);
-	Bprint(&bout, "+ ");
-	Bwrite(&bout, s, n);
-	Bprint(&bout, "\r\n");
+	Bprint(&bout, "+ %.*[\r\n", cs->nchal, cs->chal);
 	if(Bflush(&bout) < 0)
 		writeerr();
 
@@ -221,7 +215,6 @@ passauth(char *u, char *secret)
 {
 	char response[2*MD5dlen + 1];
 	uchar digest[MD5dlen];
-	int i;
 	AuthInfo *ai;
 	Chalstate *cs;
 
@@ -229,8 +222,7 @@ passauth(char *u, char *secret)
 		return Ebadch;
 	hmac_md5((uchar*)cs->chal, strlen(cs->chal),
 		(uchar*)secret, strlen(secret), digest, nil);
-	for(i = 0; i < MD5dlen; i++)
-		snprint(response + 2*i, sizeof response - 2*i, "%2.2ux", digest[i]);
+	snprint(response, sizeof(response), "%.*H", MD5dlen, digest);
 	cs->user = u;
 	cs->resp = response;
 	cs->nresp = strlen(response);
