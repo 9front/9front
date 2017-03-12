@@ -149,7 +149,6 @@ typedef struct Mailbox Mailbox;
 struct Mailbox {
 	QLock;
 	long	idxsem;		/* abort on concurrent index access */
-	long	syncsem;		/* abort on concurrent syncs */
 	int	refs;
 	Mailbox	*next;
 	int	id;

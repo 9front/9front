@@ -66,15 +66,12 @@ syncmbox(Mailbox *mb, int doplumb)
 	int n, d, y, a;
 	Message *m, *next;
 
-	if(semacquire(&mb->syncsem, 0) <= 0)
-		return nil;
+	assert(canqlock(mb) == 0);
 	a = mb->root->subname;
 	if(rdidxfile(mb, doplumb) == -2)
 		wridxfile(mb);
-	if(s = mb->sync(mb, doplumb, &n)){
-		semrelease(&mb->syncsem, 1);
+	if(s = mb->sync(mb, doplumb, &n))
 		return s;
-	}
 	d = 0;
 	y = 0;
 	for(m = mb->root->part; m; m = next){
@@ -102,7 +99,6 @@ syncmbox(Mailbox *mb, int doplumb)
 		henter(PATH(0, Qtop), mb->name,
 			(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
 	}
-	semrelease(&mb->syncsem, 1);
 	return nil;
 }
 
@@ -182,7 +178,6 @@ newmbox(char *path, char *name, int flags, Mailbox **r)
 	initheaders();
 	mb = emalloc(sizeof *mb);
 	mb->idxsem = 1;
-	mb->syncsem = 1;
 	mb->flags = flags;
 	strncpy(mb->path, path, sizeof mb->path - 1);
 	p = name;
@@ -1184,8 +1179,8 @@ mbrmidx(char *path, int flags)
 void
 mboxdecref(Mailbox *mb)
 {
-	assert(mb->refs > 0);
 	qlock(mb);
+	assert(mb->refs > 0);
 	mb->refs--;
 	if(mb->refs == 0){
 		syncmbox(mb, 1);

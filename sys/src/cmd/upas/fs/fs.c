@@ -1244,6 +1244,7 @@ sanefid(f);
 		return nil;
 	}
 
+	qlock(f->mb);
 	switch(t){
 	case Qctl:
 		rhdr.count = 0;
@@ -1251,7 +1252,6 @@ sanefid(f);
 	case Qmboxctl:
 		i = mboxctlread(f->mb, &p);
 		goto output;
-		break;
 	case Qheader:
 		cacheheaders(f->mb, f->m);
 		rhdr.count = readheader(f->m, (char*)mbuf, off, cnt);
@@ -1287,6 +1287,7 @@ sanefid(f);
 		}
 		break;
 	}
+	qunlock(f->mb);
 	return nil;
 }
 
@@ -1410,7 +1411,10 @@ rwrite(Fid *f)
 			argc = tokenize(thdr.data, argv, nelem(argvbuf));
 			if(argc == 0)
 				return Ebadctl;
-			return f->mb->ctl(f->mb, argc, argv);
+			qlock(f->mb);
+			err = f->mb->ctl(f->mb, argc, argv);
+			qunlock(f->mb);
+			return err;
 		}
 		break;
 	case Qflags:
@@ -1419,11 +1423,10 @@ rwrite(Fid *f)
 		 */
 		if(!f->mb || !f->m)
 			break;
+		qlock(f->mb);
 		m = gettopmsg(f->mb, f->m);
 		err = modflags(f->mb, m, thdr.data);
-//		premature optimization?  flags not written immediately.
-//		if(err == nil && f->m->cstate&Cidxstale)
-//			wridxfile(f->mb);		/* syncmbox(f->mb, 1); */
+		qunlock(f->mb);
 		return err;
 	}
 	return Eperm;
@@ -1607,28 +1610,24 @@ reader(void)
 		t = time(0);
 		qlock(&mbllock);
 		for(mb = mbl; mb != nil; mb = mb->next){
-			assert(mb->refs > 0);
+			if(!canqlock(mb))
+				continue;
 			if(mb->waketime != 0 && t >= mb->waketime){
-				qlock(mb);
 				mb->waketime = 0;
 				break;
 			}
-
-			if(mb->d == nil || mb->d->name == nil)
-				continue;
-			d = dirstat(mb->path);
-			if(d == nil)
-				continue;
-
-			qlock(mb);
-			if(mb->d)
-			if(d->qid.path != mb->d->qid.path
-			   || d->qid.vers != mb->d->qid.vers){
-				free(d);
-				break;
+			if(mb->d != nil && mb->d->name != nil){
+				d = dirstat(mb->path);
+				if(d != nil){
+					if(d->qid.path != mb->d->qid.path
+					|| d->qid.vers != mb->d->qid.vers){
+						free(d);
+						break;
+					}
+					free(d);
+				}
 			}
 			qunlock(mb);
-			free(d);
 		}
 		qunlock(&mbllock);
 		if(mb != nil){
