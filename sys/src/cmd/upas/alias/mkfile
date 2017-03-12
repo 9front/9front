@@ -1,4 +1,5 @@
 </$objtype/mkfile
+<../mkupas
 
 TARG=aliasmail
 
@@ -9,8 +10,6 @@ LIB=../common/libcommon.a$O\
 HFILES=../common/common.h\
 	 ../common/sys.h\
 
-
-BIN=/$objtype/bin/upas
 
 UPDATE=\
 	mkfile\

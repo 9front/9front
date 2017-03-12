@@ -1,0 +1,25 @@
+#!/bin/rc
+# anti-topposting defense
+
+# sed '/^[ 	]*>[ 	]*>[ 	]*>/q'
+
+awk '
+{
+	if(l[i] ~ /^[ 	]*>[ 	]*>[ 	]*>/)
+		q = 1
+	if(q == 0)
+		l[i = NR] = $0;
+}
+END{
+	for(; i > 1; i--)
+		if(l[i] !~ /^([ 	]*>)*[ 	]*$/)
+			break;
+	for(; i > 1; i--)
+		if(l[i] !~ /^[ 	]*>[ 	]*>/)
+			break;
+	for(; i > 1; i--)
+		if(l[i] !~ /^([ 	]*>)*[ 	]*$/)
+			break;
+	for(j = 1; j <= i; j++)
+		print l[j]
+}' |dd -conv block >[2=]

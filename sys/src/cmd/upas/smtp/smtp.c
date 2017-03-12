@@ -5,7 +5,7 @@
 #include <libsec.h>
 #include <auth.h>
 
-static	char*	connect(char*);
+static	char*	connect(char*, Mx*);
 static	char*	wraptls(void);
 static	char*	dotls(char*);
 static	char*	doauth(char*);
@@ -15,7 +15,7 @@ String*	bangtoat(char*);
 String*	convertheader(String*);
 int	dBprint(char*, ...);
 int	dBputc(int);
-char*	data(String*, Biobuf*);
+char*	data(String*, Biobuf*, Mx*);
 char*	domainify(char*, char*);
 String*	fixrouteaddr(String*, Node*, Node*);
 char*	getcrnl(String*);
@@ -27,7 +27,7 @@ int	printheader(void);
 void	putcrnl(char*, int);
 void	quit(char*);
 char*	rcptto(char*);
-char*	rewritezone(char *);
+char	*rewritezone(char *);
 
 #define Retry	"Retry, Temporary Failure"
 #define Giveup	"Permanent Failure"
@@ -53,13 +53,33 @@ char	*uneaten;	/* first character after rfc822 headers */
 char	*farend;	/* system we are trying to send to */
 char	*user;		/* user we are authenticating as, if authenticating */
 char	hostdomain[256];
+Mx	*tmmx;		/* global for timeout */
 
 Biobuf	bin;
 Biobuf	bout;
 Biobuf	berr;
 Biobuf	bfile;
 
-static int bustedmx;
+int
+Dfmt(Fmt *fmt)
+{
+	Mx *mx;
+
+	mx = va_arg(fmt->args, Mx*);
+	if(mx == nil || mx->host[0] == 0)
+		return fmtstrcpy(fmt, "");
+	else
+		return fmtprint(fmt, "(%s:%s)", mx->host, mx->ip);
+}
+#pragma	varargck	type	"D"	Mx*
+
+char*
+deliverytype(void)
+{
+	if(ping)
+		return "ping";
+	return "delivery";
+}
 
 void
 usage(void)
@@ -70,10 +90,9 @@ usage(void)
 }
 
 int
-timeout(void *x, char *msg)
+timeout(void *, char *msg)
 {
-	USED(x);
-	syslog(0, "smtp.fail", "interrupt: %s: %s", farend,  msg);
+	syslog(0, "smtp.fail", "%s interrupt: %s: %s %D", deliverytype(), farend,  msg, tmmx);
 	if(strstr(msg, "alarm")){
 		fprint(2, "smtp timeout: connection to %s timed out\n", farend);
 		if(quitting)
@@ -81,12 +100,12 @@ timeout(void *x, char *msg)
 		exits(Retry);
 	}
 	if(strstr(msg, "closed pipe")){
-			/* call _exits() to prevent Bio from trying to flush closed pipe */
 		fprint(2, "smtp timeout: connection closed to %s\n", farend);
 		if(quitting){
-			syslog(0, "smtp.fail", "closed pipe to %s", farend);
+			syslog(0, "smtp.fail", "%s closed pipe to %s %D", deliverytype(), farend, tmmx);
 			_exits(quitrv);
 		}
+		/* call _exits() to prevent Bio from trying to flush closed pipe */
 		_exits(Retry);
 	}
 	return 0;
@@ -95,7 +114,7 @@ timeout(void *x, char *msg)
 void
 removenewline(char *p)
 {
-	int n = strlen(p)-1;
+	int n = strlen(p) - 1;
 
 	if(n < 0)
 		return;
@@ -106,18 +125,21 @@ removenewline(char *p)
 void
 main(int argc, char **argv)
 {
-	int i, ok, rcvrs;
-	char *addr, *rv, *trv, *host, *domain;
-	char **errs;
-	char hellodomain[256];
+	char *phase, *addr, *rv, *trv, *host, *domain;
+	char **errs, *p, *e, hellodomain[256], allrx[512];
+	int i, ok, rcvrs, bustedmx;
 	String *from, *fromm, *sender;
+	Mx mx;
 
 	alarmscale = 60*1000;	/* minutes */
 	quotefmtinstall();
+	mailfmtinstall();		/* 2047 encoding */
+	fmtinstall('D', Dfmt);
 	fmtinstall('[', encodefmt);
 	errs = malloc(argc*sizeof(char*));
 	reply = s_new();
 	host = 0;
+	bustedmx = 0;
 	ARGBEGIN{
 	case 'a':
 		tryauth = 1;
@@ -128,7 +150,7 @@ main(int argc, char **argv)
 		autistic = 1;
 		break;
 	case 'b':
-		if (bustedmx >= Maxbustedmx)
+		if(bustedmx >= Maxbustedmx)
 			sysfatal("more than %d busted mxs given", Maxbustedmx);
 		bustedmxs[bustedmx++] = EARGF(usage());
 		break;
@@ -172,7 +194,7 @@ main(int argc, char **argv)
 	/*
 	 *  get domain and add to host name
 	 */
-	if(*argv && **argv=='.') {
+	if(*argv && **argv=='.'){
 		domain = *argv;
 		argv++; argc--;
 	} else
@@ -189,6 +211,11 @@ main(int argc, char **argv)
 		usage();
 	addr = *argv++; argc--;
 	farend = addr;
+	if((rv = strrchr(addr, '!')) && rv[1] == '['){
+		syslog(0, "smtp.fail", "%s to %s failed: illegal address",
+			deliverytype(), addr);
+		exits(Giveup);
+	}
 
 	/*
 	 *  get sender's machine.
@@ -209,30 +236,40 @@ main(int argc, char **argv)
 	/*
 	 *  send the mail
 	 */
+	rcvrs = 0;
+	phase = "";
+	USED(phase);			/* just in case */
 	if(filter){
 		Binit(&bout, 1, OWRITE);
-		rv = data(from, &bfile);
-		if(rv != 0)
+		rv = data(from, &bfile, nil);
+		if(rv != 0){
+			phase = "filter";
 			goto error;
+		}
 		exits(0);
 	}
 
 	/* mxdial uses its own timeout handler */
-	if((rv = connect(addr)) != 0)
+	if((rv = connect(addr, &mx)) != 0)
 		exits(rv);
 
+	tmmx = &mx;
 	/* 10 minutes to get through the initial handshake */
 	atnotify(timeout, 1);
 	alarm(10*alarmscale);
-	if((rv = hello(hellodomain, 0)) != 0)
+	if((rv = hello(hellodomain, 0)) != 0){
+		phase = "hello";
 		goto error;
+	}
 	alarm(10*alarmscale);
-	if((rv = mailfrom(s_to_c(from))) != 0)
+	if((rv = mailfrom(s_to_c(from))) != 0){
+		phase = "mailfrom";
 		goto error;
+	}
 
 	ok = 0;
-	rcvrs = 0;
 	/* if any rcvrs are ok, we try to send the message */
+	phase = "rcptto";
 	for(i = 0; i < argc; i++){
 		if((trv = rcptto(argv[i])) != 0){
 			/* remember worst error */
@@ -248,6 +285,8 @@ main(int argc, char **argv)
 	}
 
 	/* if no ok rcvrs or worst error is retry, give up */
+	if(ok == 0 && rcvrs == 0)
+		phase = "rcptto; no addresses";
 	if(ok == 0 || rv == Retry)
 		goto error;
 
@@ -256,7 +295,7 @@ main(int argc, char **argv)
 		exits(0);
 	}
 
-	rv = data(from, &bfile);
+	rv = data(from, &bfile, &mx);
 	if(rv != 0)
 		goto error;
 	quit(0);
@@ -266,10 +305,11 @@ main(int argc, char **argv)
 	/*
 	 *  here when some but not all rcvrs failed
 	 */
-	fprint(2, "%s connect to %s:\n", thedate(), addr);
+	fprint(2, "%s connect to %s: %D %s:\n", thedate(), addr, &mx, phase);
 	for(i = 0; i < rcvrs; i++){
 		if(errs[i]){
-			syslog(0, "smtp.fail", "delivery to %s at %s failed: %s", argv[i], addr, errs[i]);
+			syslog(0, "smtp.fail", "delivery to %s at %s %D %s, failed: %s",
+				argv[i], addr, &mx, phase, errs[i]);
 			fprint(2, "  mail to %s failed: %s", argv[i], errs[i]);
 		}
 	}
@@ -279,11 +319,19 @@ main(int argc, char **argv)
 	 *  here when all rcvrs failed
 	 */
 error:
+	alarm(0);
 	removenewline(s_to_c(reply));
-	syslog(0, "smtp.fail", "%s to %s failed: %s",
-		ping ? "ping" : "delivery",
-		addr, s_to_c(reply));
-	fprint(2, "%s connect to %s:\n%s\n", thedate(), addr, s_to_c(reply));
+	if(rcvrs > 0){
+		p = allrx;
+		e = allrx + sizeof allrx;
+		seprint(p, e, "to ");
+		for(i = 0; i < rcvrs - 1; i++)
+			p = seprint(p, e, "%s,", argv[i]);
+		seprint(p, e, "%s ", argv[i]);
+	}
+	syslog(0, "smtp.fail", "%s %s at %s %D %s failed: %s",
+		deliverytype(), allrx, addr, &mx, phase, s_to_c(reply));
+	fprint(2, "%s connect to %s %D %s:\n%s\n", thedate(), addr, &mx, phase, s_to_c(reply));
 	if(!filter)
 		quit(rv);
 	exits(rv);
@@ -293,17 +341,17 @@ error:
  *  connect to the remote host
  */
 static char *
-connect(char* net)
+connect(char* net, Mx *mx)
 {
-	char buf[Errlen];
+	char buf[ERRMAX];
 	int fd;
 
-	fd = mxdial(net, ddomain, gdomain);
+	fd = mxdial(net, ddomain, gdomain, mx);
 
 	if(fd < 0){
-		rerrstr(buf, sizeof(buf));
-		Bprint(&berr, "smtp: %s (%s)\n", buf, net);
-		syslog(0, "smtp.fail", "%s (%s)", buf, net);
+		rerrstr(buf, sizeof buf);
+		Bprint(&berr, "smtp: %s (%s) %D\n", buf, net, mx);
+		syslog(0, "smtp.fail", "%s %s (%s) %D", deliverytype(), buf, net, mx);
 		if(strstr(buf, "illegal")
 		|| strstr(buf, "unknown")
 		|| strstr(buf, "can't translate"))
@@ -320,7 +368,20 @@ connect(char* net)
 static char smtpthumbs[] =	"/sys/lib/tls/smtp";
 static char smtpexclthumbs[] =	"/sys/lib/tls/smtp.exclude";
 
-static char *
+static int
+tracetls(char *fmt, ...)
+{
+	va_list ap;
+	
+	va_start(ap, fmt);
+	Bvprint(&berr, fmt, ap);
+	Bprint(&berr, "\n");
+	Bflush(&berr);
+	va_end(ap);
+	return 0;
+}
+
+static char*
 wraptls(void)
 {
 	TLSconn *c;
@@ -334,6 +395,9 @@ wraptls(void)
 	c = mallocz(sizeof(*c), 1);
 	if (c == nil)
 		return err;
+
+	if (debug)
+		c->trace = tracetls;
 
 	fd = tlsClient(Bfildes(&bout), c);
 	if (fd < 0) {
@@ -396,6 +460,36 @@ dotls(char *me)
 	return(hello(me, 1));
 }
 
+static char*
+smtpcram(DS *ds)
+{
+	char *p, ch[128], usr[64], rbuf[128], ubuf[128], ebuf[192];
+	int i, n, l;
+
+	dBprint("AUTH CRAM-MD5\r\n");
+	if(getreply() != 3)
+		return Retry;
+	p = s_to_c(reply) + 4;
+	l = dec64((uchar*)ch, sizeof ch, p, strlen(p));
+	ch[l] = 0;
+	n = auth_respond(ch, l, usr, sizeof usr, rbuf, sizeof rbuf, auth_getkey,
+		user?"proto=cram role=client server=%q user=%q":"proto=cram role=client server=%q",
+		ds->host, user);
+	if(n == -1)
+		return "cannot find SMTP password";
+	if(usr[0] == 0)
+		return "cannot find user name";
+	for(i = 0; i < n; i++)
+		rbuf[i] = tolower(rbuf[i]);
+	l = snprint(ubuf, sizeof ubuf, "%s %.*s", usr, n, rbuf);
+	snprint(ebuf, sizeof ebuf, "%.*[", l, ubuf);
+
+	dBprint("%s\r\n", ch);
+	if(getreply() != 2)
+		return Retry;
+	return nil;
+}
+
 static char *
 doauth(char *methods)
 {
@@ -404,14 +498,13 @@ doauth(char *methods)
 	int n;
 	DS ds;
 
-	dial_string_parse(ddomain, &ds);
+	dialstringparse(ddomain, &ds);
+	if(strstr(methods, "CRAM-MD5"))
+		return smtpcram(&ds);
 
-	if(user != nil)
-		p = auth_getuserpasswd(nil,
-	  	  "proto=pass service=smtp server=%q user=%q", ds.host, user);
-	else
-		p = auth_getuserpasswd(nil,
-	  	  "proto=pass service=smtp server=%q", ds.host);
+	p = auth_getuserpasswd(nil,
+		user?"proto=pass service=smtp server=%q user=%q":"proto=pass service=smtp server=%q",
+		ds.host, user);
 	if (p == nil)
 		return Giveup;
 
@@ -455,14 +548,14 @@ out:
 	return err;
 }
 
-char *
+char*
 hello(char *me, int encrypted)
 {
+	char *ret, *s, *t;
 	int ehlo;
 	String *r;
-	char *ret, *s, *t;
 
-	if (!encrypted) {
+	if(!encrypted){
 		if(trysecure > 1){
 			if((ret = wraptls()) != nil)
 				return ret;
@@ -474,7 +567,7 @@ hello(char *me, int encrypted)
 		 * answers a call.  Send a no-op in the hope of making it
 		 * talk.
 		 */
-		if (autistic) {
+		if(autistic){
 			dBprint("NOOP\r\n");
 			getreply();	/* consume the smtp greeting */
 			/* next reply will be response to noop */
@@ -495,7 +588,7 @@ hello(char *me, int encrypted)
 		dBprint("EHLO %s\r\n", me);
 	else
 		dBprint("HELO %s\r\n", me);
-	switch (getreply()) {
+	switch(getreply()){
 	case 2:
 		break;
 	case 5:
@@ -514,17 +607,15 @@ hello(char *me, int encrypted)
 	/* Invariant: every line has a newline, a result of getcrlf() */
 	for(s = s_to_c(r); (t = strchr(s, '\n')) != nil; s = t + 1){
 		*t = '\0';
-		for (t = s; *t != '\0'; t++)
-			*t = toupper(*t);
 		if(!encrypted && trysecure &&
-		    (strcmp(s, "250-STARTTLS") == 0 ||
-		     strcmp(s, "250 STARTTLS") == 0)){
+		    (cistrcmp(s, "250-STARTTLS") == 0 ||
+		     cistrcmp(s, "250 STARTTLS") == 0)){
 			s_free(r);
 			return dotls(me);
 		}
 		if(tryauth && (encrypted || insecure) &&
-		    (strncmp(s, "250 AUTH", strlen("250 AUTH")) == 0 ||
-		     strncmp(s, "250-AUTH", strlen("250 AUTH")) == 0)){
+		    (cistrncmp(s, "250 AUTH", strlen("250 AUTH")) == 0 ||
+		     cistrncmp(s, "250-AUTH", strlen("250 AUTH")) == 0)){
 			ret = doauth(s + strlen("250 AUTH "));
 			s_free(r);
 			return ret;
@@ -542,20 +633,18 @@ mailfrom(char *from)
 {
 	if(!returnable(from))
 		dBprint("MAIL FROM:<>\r\n");
-	else
-	if(strchr(from, '@'))
+	else if(strchr(from, '@'))
 		dBprint("MAIL FROM:<%s>\r\n", from);
 	else
 		dBprint("MAIL FROM:<%s@%s>\r\n", from, hostdomain);
 	switch(getreply()){
 	case 2:
-		break;
+		return 0;
 	case 5:
 		return Giveup;
 	default:
 		return Retry;
 	}
-	return 0;
 }
 
 /*
@@ -597,13 +686,11 @@ static char hex[] = "0123456789abcdef";
  *  send the damn thing
  */
 char *
-data(String *from, Biobuf *b)
+data(String *from, Biobuf *b, Mx *mx)
 {
-	char *buf, *cp;
+	char *buf, *cp, errmsg[ERRMAX], id[40];
 	int i, n, nbytes, bufsize, eof, r;
 	String *fromline;
-	char errmsg[Errlen];
-	char id[40];
 
 	/*
 	 *  input the header.
@@ -623,12 +710,12 @@ data(String *from, Biobuf *b)
 			break;
 		}
 		nbytes = Blinelen(b);
-		buf = realloc(buf, n+nbytes+1);
+		buf = realloc(buf, n + nbytes + 1);
 		if(buf == 0){
 			s_append(s_restart(reply), "out of memory");
 			return Retry;
 		}
-		strncpy(buf+n, cp, nbytes);
+		strncpy(buf + n, cp, nbytes);
 		n += nbytes;
 		if(nbytes == 1)		/* end of header */
 			break;
@@ -669,10 +756,10 @@ data(String *from, Biobuf *b)
 
 	srand(truerand());
 	if(messageid == 0){
-		for(i=0; i<16; i++){
-			r = rand()&0xFF;
-			id[2*i] = hex[r&0xF];
-			id[2*i+1] = hex[(r>>4)&0xF];
+		for(i = 0; i < 16; i++){
+			r = rand() & 0xff;
+			id[2*i] = hex[r & 0xf];
+			id[2*i + 1] = hex[(r>>4) & 0xf];
 		}
 		id[2*i] = '\0';
 		nbytes += Bprint(&bout, "Message-ID: <%s@%s>\r\n", id, hostdomain);
@@ -680,7 +767,7 @@ data(String *from, Biobuf *b)
 			Bprint(&berr, "Message-ID: <%s@%s>\r\n", id, hostdomain);
 	}
 
-	if(originator==0){
+	if(originator == 0){
 		nbytes += Bprint(&bout, "From: %s\r\n", s_to_c(fromline));
 		if(debug)
 			Bprint(&berr, "From: %s\r\n", s_to_c(fromline));
@@ -698,20 +785,20 @@ data(String *from, Biobuf *b)
 				Bprint(&berr, "To: %s\r\n", s_to_c(toline));
 		}
 
-	if(date==0 && udate)
+	if(date == 0 && udate)
 		nbytes += printdate(udate);
-	if (usys)
+	if(usys)
 		uneaten = usys->end + 1;
 	nbytes += printheader();
-	if (*uneaten != '\n')
+	if(*uneaten != '\n')
 		putcrnl("\n", 1);
 
 	/*
 	 *  send body
 	 */
 
-	putcrnl(uneaten, buf+n - uneaten);
-	nbytes += buf+n - uneaten;
+	putcrnl(uneaten, buf + n - uneaten);
+	nbytes += buf + n - uneaten;
 	if(eof == 0){
 		for(;;){
 			n = Bread(b, buf, bufsize);
@@ -743,8 +830,8 @@ data(String *from, Biobuf *b)
 		default:
 			return Retry;
 		}
-		syslog(0, "smtp", "%s sent %d bytes to %s", s_to_c(from),
-				nbytes, s_to_c(toline));/**/
+		syslog(0, "smtp", "%s sent %d bytes to %s %D", s_to_c(from),
+				nbytes, s_to_c(toline), mx);
 	}
 	return 0;
 }
@@ -806,10 +893,9 @@ addhostdom(String *buf, char *host)
 String *
 bangtoat(char *addr)
 {
-	String *buf;
-	register int i;
-	int j, d;
 	char *field[128];
+	int i, j, d;
+	String *buf;
 
 	/* parse the '!' format address */
 	buf = s_new();
@@ -819,7 +905,7 @@ bangtoat(char *addr)
 		if(addr)
 			*addr++ = 0;
 	}
-	if (i==1) {
+	if(i == 1){
 		s_append(buf, field[0]);
 		return buf;
 	}
@@ -827,8 +913,8 @@ bangtoat(char *addr)
 	/*
 	 *  count leading domain fields (non-domains don't count)
 	 */
-	for(d = 0; d<i-1; d++)
-		if(strchr(field[d], '.')==0)
+	for(d = 0; d < i - 1; d++)
+		if(strchr(field[d], '.') == 0)
 			break;
 	/*
 	 *  if there are more than 1 leading domain elements,
@@ -836,7 +922,7 @@ bangtoat(char *addr)
 	 */
 	if(d > 1){
 		addhostdom(buf, field[0]);
-		for(j=1; j<d-1; j++){
+		for(j = 1; j< d - 1; j++){
 			s_append(buf, ",");
 			s_append(buf, "@");
 			s_append(buf, field[j]);
@@ -848,7 +934,7 @@ bangtoat(char *addr)
 	 *  throw in the non-domain elements separated by '!'s
 	 */
 	s_append(buf, field[d]);
-	for(j=d+1; j<=i-1; j++) {
+	for(j = d + 1; j <= i - 1; j++){
 		s_append(buf, "!");
 		s_append(buf, field[j]);
 	}
@@ -865,6 +951,7 @@ bangtoat(char *addr)
 String*
 convertheader(String *from)
 {
+	char *s, buf[64];
 	Field *f;
 	Node *p, *lastp;
 	String *a;
@@ -875,8 +962,10 @@ convertheader(String *from)
 		addhostdom(from, hostdomain);
 	} else
 	if(strchr(s_to_c(from), '@') == 0){
-		a = username(from);
-		if(a) {
+		if(s = username(s_to_c(from))){
+			/* this has always been here, but username() was broken */
+			snprint(buf, sizeof buf, "%U", s);
+			s_append(a = s_new(), buf);
 			s_append(a, " <");
 			s_append(a, s_to_c(from));
 			addhostdom(a, hostdomain);
@@ -929,11 +1018,10 @@ fixrouteaddr(String *raddr, Node *next, Node *last)
 int
 printheader(void)
 {
+	char *cp, c[1];
 	int n, len;
 	Field *f;
 	Node *p;
-	char *cp;
-	char c[1];
 
 	n = 0;
 	for(f = firstfield; f; f = f->next){
@@ -966,10 +1054,10 @@ printheader(void)
 char *
 domainify(char *name, char *domain)
 {
-	static String *s;
 	char *p;
+	static String *s;
 
-	if(domain==0 || strchr(name, '.')!=0)
+	if(domain == 0 || strchr(name, '.') != 0)
 		return name;
 
 	s = s_reset(s);
@@ -1008,8 +1096,7 @@ putcrnl(char *cp, int n)
 char *
 getcrnl(String *s)
 {
-	int c;
-	int count;
+	int c, count;
 
 	count = 0;
 	for(;;){
@@ -1052,16 +1139,17 @@ getcrnl(String *s)
 int
 printdate(Node *p)
 {
-	int n, sep = 0;
+	int n, sep;
 
 	n = dBprint("Date: %s,", s_to_c(p->s));
+	sep = 0;
 	for(p = p->next; p; p = p->next){
 		if(p->s){
-			if(sep == 0) {
+			if(sep == 0){
 				dBputc(' ');
 				n++;
 			}
-			if (p->next)
+			if(p->next)
 				n += dBprint("%s", s_to_c(p->s));
 			else
 				n += dBprint("%s", rewritezone(s_to_c(p->s)));
@@ -1079,8 +1167,8 @@ printdate(Node *p)
 char *
 rewritezone(char *z)
 {
-	int mindiff;
 	char s;
+	int mindiff;
 	Tm *tm;
 	static char x[7];
 
@@ -1104,22 +1192,22 @@ rewritezone(char *z)
 /*
  *  stolen from libc/port/print.c
  */
-#define	SIZE	4096
+
 int
 dBprint(char *fmt, ...)
 {
-	char buf[SIZE], *out;
-	va_list arg;
+	char buf[4096], *out;
 	int n;
+	va_list arg;
 
 	va_start(arg, fmt);
-	out = vseprint(buf, buf+SIZE, fmt, arg);
+	out = vseprint(buf, buf + sizeof buf, fmt, arg);
 	va_end(arg);
 	if(debug){
-		Bwrite(&berr, buf, (long)(out-buf));
+		Bwrite(&berr, buf, out - buf);
 		Bflush(&berr);
 	}
-	n = Bwrite(&bout, buf, (long)(out-buf));
+	n = Bwrite(&bout, buf,out - buf);
 	Bflush(&bout);
 	return n;
 }

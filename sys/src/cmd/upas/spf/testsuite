@@ -1,0 +1,9 @@
+#!/bin/rc
+for(i in '%{s}' '%{o}' '%{d}' '%{d4}' '%{d3}' '%{d2}' '%{d1}' '%{dr}' '%{d2r}' '%{l}' '%{l-}' '%{lr}' '%{lr-}' '%{l1r-}')
+	mtest $i 'strong-bad@email.example.com' email.example.com helounknown 192.0.2.3 
+for(i in '%{i}')
+	mtest $i 'strong-bad@email.example.com' email.example.com helounknown 2001:db8::cb01
+for(i in '%{ir}.%{v}._spf.%{d2}' '%{lr-}.lp._spf.%{d2}' '%{lr-}.lp.%{ir}.%{v}._spf.%{d2}' '%{ir}.%{v}.%{lr-}.lp._spf.%{d2}')	
+	mtest $i 'strong-bad@email.example.com' email.example.com helounknown 2001:db8::cb01
+for(i in '%{ir}.%{v}._spf.%{d2}' '%{lr-}.lp._spf.%{d2}' '%{lr-}.lp.%{ir}.%{v}._spf.%{d2}' '%{ir}.%{v}.%{lr-}.lp._spf.%{d2}')	
+	mtest $i 'strong-bad@email.example.com' email.example.com helounknown 192.0.2.3 

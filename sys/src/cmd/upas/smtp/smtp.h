@@ -24,14 +24,36 @@ struct Field {
 };
 
 typedef struct DS	DS;
+typedef struct Mx	Mx;
+typedef struct Mxtab	Mxtab;
+
 struct DS {
-	/* dist string */
+	/* dial string */
 	char	buf[128];
 	char	expand[128];
 	char	*netdir;
 	char	*proto;
 	char	*host;
 	char	*service;
+};
+
+struct Mx
+{
+	char	*netdir;
+	char	host[256];
+	char	ip[24];
+	int	pref;
+	int	valid;
+};
+
+struct Mxtab
+{
+	DS	ds[2];
+	int	nmx;
+	int	amx;
+	int	pmx;
+	int	fd;
+	Mx	*mx;
 };
 
 extern Field	*firstfield;
@@ -51,7 +73,6 @@ Node*	address(Node*);
 int	badfieldname(Node*);
 Node*	bang(Node*, Node*);
 Node*	colon(Node*, Node*);
-int	cistrcmp(char*, char*);
 Node*	link2(Node*, Node*);
 Node*	link3(Node*, Node*, Node*);
 void	freenode(Node*);
@@ -63,5 +84,9 @@ int	yylex(void);
 String*	yywhite(void);
 Node*	whiten(Node*);
 void	yycleanup(void);
-int	mxdial(char*, char*, char*);
-void	dial_string_parse(char*, DS*);
+int	mxdial0(char*, char*, char*, Mxtab*);
+int	mxdial(char*, char*, char*, Mx*);
+void	mxtabfree(Mxtab*);
+void	dialstringparse(char*, DS*);
+
+#define dprint(...)	do if(debug)print(__VA_ARGS__); while(0)

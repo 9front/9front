@@ -1,13 +1,14 @@
 </$objtype/mkfile
+<../mkupas
 
 TARG=\
-	token\
-	list\
 	deliver\
+	list\
+	mbappend\
+	token\
 
 LIB=../common/libcommon.a$O\
 
-BIN=/$objtype/bin/upas
 OFILES=readaddrs.$O
 UPDATE=\
 	mkfile\

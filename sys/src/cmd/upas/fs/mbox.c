@@ -5,104 +5,188 @@
 #include "dat.h"
 
 typedef struct Header Header;
-
 struct Header {
-	char *type;
-	void (*f)(Message*, Header*, char*);
-	int len;
+	char	*type;
+	uintptr	offset;
+	char	*(*f)(Message*, Header*, char*, char*);
+	int	len;
+	int	str;
 };
 
 /* headers */
-static	void	ctype(Message*, Header*, char*);
-static	void	cencoding(Message*, Header*, char*);
-static	void	cdisposition(Message*, Header*, char*);
-static	void	date822(Message*, Header*, char*);
-static	void	from822(Message*, Header*, char*);
-static	void	to822(Message*, Header*, char*);
-static	void	sender822(Message*, Header*, char*);
-static	void	replyto822(Message*, Header*, char*);
-static	void	subject822(Message*, Header*, char*);
-static	void	inreplyto822(Message*, Header*, char*);
-static	void	cc822(Message*, Header*, char*);
-static	void	bcc822(Message*, Header*, char*);
-static	void	messageid822(Message*, Header*, char*);
-static	void	mimeversion(Message*, Header*, char*);
-static	void	nullsqueeze(Message*);
-enum
-{
-	Mhead=	11,	/* offset of first mime header */
-};
-
-Header head[] =
-{
-	{ "date:", date822, },
-	{ "from:", from822, },
-	{ "to:", to822, },
-	{ "sender:", sender822, },
-	{ "reply-to:", replyto822, },
-	{ "subject:", subject822, },
-	{ "cc:", cc822, },
-	{ "bcc:", bcc822, },
-	{ "in-reply-to:", inreplyto822, },
-	{ "mime-version:", mimeversion, },
-	{ "message-id:", messageid822, },
-
-[Mhead]	{ "content-type:", ctype, },
-	{ "content-transfer-encoding:", cencoding, },
-	{ "content-disposition:", cdisposition, },
-	{ 0, },
-};
-
-static	void	fatal(char *fmt, ...);
-static	void	initquoted(void);
-static	void	startheader(Message*);
-static	void	startbody(Message*);
-static	char*	skipwhite(char*);
-static	char*	skiptosemi(char*);
-static	char*	getstring(char*, String*, int);
-static	void	setfilename(Message*, char*);
-static	char*	lowercase(char*);
-static	int	is8bit(Message*);
-static	int	headerline(char**, String*);
-static	void	initheaders(void);
-static void	parseattachments(Message*, Mailbox*);
-
-int		debug;
-
-char *Enotme = "path not served by this file server";
+static	char	*ctype(Message*, Header*, char*, char*);
+static	char	*cencoding(Message*, Header*, char*, char*);
+static	char	*cdisposition(Message*, Header*, char*, char*);
+static	char	*from822(Message*, Header*, char*, char*);
+static	char	*replace822(Message*, Header*, char*, char*);
+static	char	*concat822(Message*, Header*, char*, char*);
+static	char	*copy822(Message*, Header*, char*, char*);
+static	char	*ref822(Message*, Header*, char*, char*);
 
 enum
 {
-	Chunksize = 1024,
+	Mhead	= 11,	/* offset of first mime header */
 };
 
-Mailboxinit *boxinit[] = {
+#define O(x)	offsetof(Message, x)
+static Header head[] =
+{
+	"date:",		O(date822),	copy822,		0,	0,
+	"from:", 		O(from),		from822,	0,	1,
+	"to:", 		O(to),		concat822,	0,	1,
+	"sender:",	O(sender),	replace822,	0,	1,
+	"reply-to:",	O(replyto),	replace822,	0,	1,
+	"subject:",	O(subject),	copy822,		0,	1,
+	"cc:", 		O(cc),		concat822,	0,	1,
+	"bcc:",		O(bcc),		concat822,	0,	1,
+	"in-reply-to:",	O(inreplyto),	replace822,	0,	1,
+	"message-id:",	O(messageid),	replace822,	0,	1,
+	"references:",	~0,		ref822,		0,	0,
+
+[Mhead]	"content-type:", 	~0,		ctype,		0, 	0,
+	"content-transfer-encoding:", ~0,	cencoding,	0,	0,
+	"content-disposition:", ~0,		cdisposition,	0,	0,
+};
+
+static Mailboxinit *boxinit[] = {
 	imap4mbox,
 	pop3mbox,
-	planbmbox,
-	planbvmbox,
+	mdirmbox,
+//	planbmbox,
 	plan9mbox,
 };
 
+/*
+ * do we want to plumb flag changes?
+ */
 char*
 syncmbox(Mailbox *mb, int doplumb)
 {
-	return (*mb->sync)(mb, doplumb);
+	char *s;
+	int n, d, y, a;
+	Message *m, *next;
+
+	if(semacquire(&mb->syncsem, 0) <= 0)
+		return nil;
+	a = mb->root->subname;
+	if(rdidxfile(mb, doplumb) == -2)
+		wridxfile(mb);
+	if(s = mb->sync(mb, doplumb, &n)){
+		semrelease(&mb->syncsem, 1);
+		return s;
+	}
+	d = 0;
+	y = 0;
+	for(m = mb->root->part; m; m = next){
+		next = m->next;
+		if(m->cstate & Cidxstale)
+			y++;
+		if(m->deleted == 0 || m->refs > 0)
+			continue;
+		if(mb->delete && m->inmbox && m->deleted & Deleted)
+			mb->delete(mb, m);
+		if(!m->inmbox){
+			delmessage(mb, m);
+			d++;
+		}
+	}
+	a = mb->root->subname - a;
+	assert(a >= 0);
+	if(n + d + y + a){
+		iprint("deleted: %d; new %d; stale %d\n", d, n, y);
+		logmsg(nil, "deleted: %d; new %d; stale %d", d, n, y);
+		wridxfile(mb);
+	}
+	if(n + d + y + a){
+		mb->vers++;
+		henter(PATH(0, Qtop), mb->name,
+			(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
+	}
+	semrelease(&mb->syncsem, 1);
+	return nil;
 }
 
-/* create a new mailbox */
+/*
+ * not entirely clear where the locking should take place, if
+ * it is required.
+ */
 char*
-newmbox(char *path, char *name, int std)
+mboxrename(char *a, char *b, int flags)
 {
-	Mailbox *mb, **l;
+	char f0[Pathlen + 4], f1[Pathlen + 4], *err, *p0, *p1;
+	Mailbox *mb;
+
+	snprint(f0, sizeof f0, "%s", a);
+	snprint(f1, sizeof f1, "%s", b);
+	err = newmbox(f0, nil, 0, &mb);
+	dprint("mboxrename %s %s -> %s\n", f0, f1, err);
+	if(!err && !mb->rename)
+		err = "rename not supported";
+	if(err)
+		goto done;
+	err = mb->rename(mb, f1, flags);
+	if(err)
+		goto done;
+	if(flags & Rtrunc)
+		/* we're comitted, so forget bailing */
+		err = newmbox(f0, nil, DMcreate, 0);
+	p0 = f0 + strlen(f0);
+	p1 = f1 + strlen(f1);
+
+	strcat(f0, ".idx");
+	strcat(f1, ".idx");
+	rename(f0, f1, 0);
+
+	*p0 = *p1 = 0;
+	strcat(f0, ".imp");
+	strcat(f1, ".imp");
+	rename(f0, f1, 0);
+
+	snprint(mb->path, sizeof mb->path, "%s", b);
+	hfree(PATH(0, Qtop), mb->name);
+	p0 = strrchr(mb->path, '/') + 1;
+	if(p0 == (char*)1)
+		p0 = mb->path;
+	snprint(mb->name, sizeof mb->name, "%s", p0);
+	henter(PATH(0, Qtop), mb->name,
+		(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
+done:
+	if(!mb)
+		return err;
+	qunlock(mb);
+//	if(err)
+//		mboxdecref(mb);
+	return err;
+}
+
+static void
+initheaders(void)
+{
+	int i;
+	static int already;
+
+	if(already)
+		return;
+	already = 1;
+	for(i = 0; i < nelem(head); i++)
+		head[i].len = strlen(head[i].type);
+}
+
+char*
+newmbox(char *path, char *name, int flags, Mailbox **r)
+{
 	char *p, *rv;
 	int i;
+	Mailbox *mb, **l;
 
 	initheaders();
-
-	mb = emalloc(sizeof(*mb));
-	strncpy(mb->path, path, sizeof(mb->path)-1);
-	if(name == nil){
+	mb = emalloc(sizeof *mb);
+	mb->idxsem = 1;
+	mb->syncsem = 1;
+	mb->flags = flags;
+	strncpy(mb->path, path, sizeof mb->path - 1);
+	p = name;
+	if(p == nil){
 		p = strrchr(path, '/');
 		if(p == nil)
 			p = path;
@@ -112,401 +196,539 @@ newmbox(char *path, char *name, int std)
 			free(mb);
 			return "bad mbox name";
 		}
-		strncpy(mb->name, p, sizeof(mb->name)-1);
-	} else {
-		strncpy(mb->name, name, sizeof(mb->name)-1);
 	}
+	strncpy(mb->name, p, sizeof mb->name - 1);
+	mb->idxread = genericidxread;
+	mb->idxwrite = genericidxwrite;
+	mb->idxinvalid = genericidxinvalid;
 
-	rv = nil;
-	// check for a mailbox type
-	for(i=0; i<nelem(boxinit); i++)
-		if((rv = (*boxinit[i])(mb, path)) != Enotme)
+	/* check for a mailbox type */
+	rv = Enotme;	/* can't happen; shut compiler up */
+	for(i = 0; i < nelem(boxinit); i++)
+		if((rv = boxinit[i](mb, path)) != Enotme)
 			break;
-	if(i == nelem(boxinit)){
-		free(mb);
-		return "bad path";
-	}
-
-	// on error, give up
 	if(rv){
 		free(mb);
 		return rv;
 	}
 
-	// make sure name isn't taken
+	/* make sure name isn't taken */
 	qlock(&mbllock);
-	for(l = &mbl; *l != nil; l = &(*l)->next){
+	for(l = &mbl; *l != nil; l = &(*l)->next)
 		if(strcmp((*l)->name, mb->name) == 0){
 			if(strcmp(path, (*l)->path) == 0)
 				rv = nil;
 			else
 				rv = "mbox name in use";
 			if(mb->close)
-				(*mb->close)(mb);
+				mb->close(mb);
 			free(mb);
 			qunlock(&mbllock);
 			return rv;
 		}
-	}
 
-	// always try locking
+	/* always try locking */
 	mb->dolock = 1;
-
 	mb->refs = 1;
 	mb->next = nil;
 	mb->id = newid();
 	mb->root = newmessage(nil);
-	mb->std = std;
+	mb->mtree = avlcreate(mtreecmp);
+
 	*l = mb;
 	qunlock(&mbllock);
 
 	qlock(mb);
-	if(mb->ctl){
+	henter(PATH(0, Qtop), mb->name,
+		(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
+	if(mb->ctl)
 		henter(PATH(mb->id, Qmbox), "ctl",
 			(Qid){PATH(mb->id, Qmboxctl), 0, QTFILE}, nil, mb);
-	}
 	rv = syncmbox(mb, 0);
-	qunlock(mb);
+	if(r)
+		*r = mb;
+	else
+		qunlock(mb);
 
 	return rv;
 }
 
-// close the named mailbox
+/* close the named mailbox */
 void
 freembox(char *name)
 {
 	Mailbox **l, *mb;
 
 	qlock(&mbllock);
-	for(l=&mbl; *l != nil; l=&(*l)->next){
+	for(l=&mbl; *l != nil; l=&(*l)->next)
 		if(strcmp(name, (*l)->name) == 0){
 			mb = *l;
 			*l = mb->next;
 			mboxdecref(mb);
 			break;
 		}
-	}
 	hfree(PATH(0, Qtop), name);
 	qunlock(&mbllock);
 }
 
-static void
-initheaders(void)
+void
+syncallmboxes(void)
 {
-	Header *h;
-	static int already;
+	char *err;
+	Mailbox *m;
 
-	if(already)
-		return;
-	already = 1;
+	qlock(&mbllock);
+	for(m = mbl; m != nil; m = m->next)
+		if(err = syncmbox(m, 1))
+			eprint("syncmbox: %s\n", err);
+	qunlock(&mbllock);
+}
 
-	for(h = head; h->type != nil; h++)
-		h->len = strlen(h->type);
+
+char*
+removembox(char *name, int flags)
+{
+	int found;
+	Mailbox **l, *mb;
+
+	found = 0;
+	qlock(&mbllock);
+	for(l=&mbl; *l != nil; l=&(*l)->next)
+		if(strcmp(name, (*l)->path) == 0){
+			mb = *l;
+			*l = mb->next;
+			mb->flags |= ORCLOSE;
+			mb->rmflags = flags;
+			mboxdecref(mb);
+			found = 1;
+			break;
+		}
+	hfree(PATH(0, Qtop), name);
+	qunlock(&mbllock);
+
+	if(found == 0)
+		return "maibox not found";
+	return 0;
 }
 
 /*
- *  parse a Unix style header
+ *  look for the date in the first Received: line.
+ *  it's likely to be the right time zone (it's
+ *  the local system) and in a convenient format.
  */
-void
-parseunix(Message *m)
+static int
+rxtotm(Message *m, Tm *tm)
 {
-	char *p;
-	String *h;
+	char *p, *q;
+	int r;
 
-	h = s_new();
-	for(p = m->start + 5; *p && *p != '\r' && *p != '\n'; p++)
-		s_putc(h, *p);
-	s_terminate(h);
-	s_restart(h);
+	if(cistrncmp(m->header, "received:", 9))
+		return -1;
+	q = strchr(m->header, ';');
+	if(!q)
+		return -1;
+	p = q;
+	while((p = strchr(p, '\n')) != nil){
+		if(p[1] != ' ' && p[1] != '\t' && p[1] != '\n')
+			break;
+		p++;
+	}
+	if(!p)
+		return -1;
+	*p = '\0';
+	r = strtotm(q + 1, tm);
+	*p = '\n';
+	return r;
+}
 
-	m->unixfrom = s_parse(h, s_reset(m->unixfrom));
-	m->unixdate = s_append(s_reset(m->unixdate), h->ptr);
+Message*
+gettopmsg(Mailbox *mb, Message *m)
+{
+	while(!Topmsg(mb, m))
+		m = m->whole;
+	return m;
+}
 
-	s_free(h);
+void
+datesec(Mailbox *mb, Message *m)
+{
+	char *s;
+	vlong v;
+	Tm tm;
+
+	if(m->fileid > 1000000ull<<8)
+		return;
+	if(m->unixfrom && strtotm(m->unixfrom, &tm) >= 0)
+		v = tm2sec(&tm);
+	else if(m->date822 && strtotm(m->date822, &tm) >= 0)
+		v = tm2sec(&tm);
+	else if(rxtotm(m, &tm) >= 0)
+		v = tm2sec(&tm);
+	else{
+		s = rtab[m->type].s;
+		logmsg(gettopmsg(mb, m), "%s:%s: datasec %s %s\n", mb->path,
+			m->whole? m->whole->name: "?",
+			m->name, s);
+		if(Topmsg(mb, m) || strcmp(s, "message/rfc822") == 0)
+			abort();
+		v = 0;
+	}
+	m->fileid = v<<8;
 }
 
 /*
  *  parse a message
  */
-void
-parseheaders(Message *m, int justmime, Mailbox *mb, int addfrom)
+extern void sanemsg(Message*);
+extern void sanembmsg(Mailbox*, Message*);
+
+static Message*
+haschild(Message *m, int i)
 {
-	String *hl;
-	Header *h;
-	char *p, *q;
-	int i;
-
-	if(m->whole == m->whole->whole){
-		henter(PATH(mb->id, Qmbox), m->name,
-			(Qid){PATH(m->id, Qdir), 0, QTDIR}, m, mb);
-	} else {
-		henter(PATH(m->whole->id, Qdir), m->name,
-			(Qid){PATH(m->id, Qdir), 0, QTDIR}, m, mb);
-	}
-	for(i = 0; i < Qmax; i++)
-		henter(PATH(m->id, Qdir), dirtab[i],
-			(Qid){PATH(m->id, i), 0, QTFILE}, m, mb);
-
-	// parse mime headers
-	p = m->header;
-	hl = s_new();
-	while(headerline(&p, hl)){
-		if(justmime)
-			h = &head[Mhead];
-		else
-			h = head;
-		for(; h->type; h++){
-			if(cistrncmp(s_to_c(hl), h->type, h->len) == 0){
-				(*h->f)(m, h, s_to_c(hl));
-				break;
-			}
-		}
-		s_reset(hl);
-	}
-	s_free(hl);
-
-	// the blank line isn't really part of the body or header
-	if(justmime){
-		m->mhend = p;
-		m->hend = m->header;
-	} else {
-		m->hend = p;
-	}
-	if(*p == '\n')
-		p++;
-	m->rbody = m->body = p;
-
-	// if type is text, get any nulls out of the body.  This is
-	// for the two seans and imap clients that get confused.
-	if(strncmp(s_to_c(m->type), "text/", 5) == 0)
-		nullsqueeze(m);
-
-	//
-	// cobble together Unix-style from line
-	// for local mailbox messages, we end up recreating the
-	// original header.
-	// for pop3 messages, the best we can do is 
-	// use the From: information and the RFC822 date.
-	//
-	if(m->unixdate == nil || strcmp(s_to_c(m->unixdate), "???") == 0
-	|| strcmp(s_to_c(m->unixdate), "Thu Jan 1 00:00:00 GMT 1970") == 0){
-		if(m->unixdate){
-			s_free(m->unixdate);
-			m->unixdate = nil;
-		}
-		// look for the date in the first Received: line.
-		// it's likely to be the right time zone (it's
-	 	// the local system) and in a convenient format.
-		if(cistrncmp(m->header, "received:", 9)==0){
-			if((q = strchr(m->header, ';')) != nil){
-				p = q;
-				while((p = strchr(p, '\n')) != nil){
-					if(p[1] != ' ' && p[1] != '\t' && p[1] != '\n')
-						break;
-					p++;
-				}
-				if(p){
-					*p = '\0';
-					m->unixdate = date822tounix(q+1);
-					*p = '\n';
-				}
-			}
-		}
-
-		// fall back on the rfc822 date	
-		if(m->unixdate==nil && m->date822)
-			m->unixdate = date822tounix(s_to_c(m->date822));
-	}
-
-	if(m->unixheader != nil)
-		s_free(m->unixheader);
-
-	// only fake header for top-level messages for pop3 and imap4
-	// clients (those protocols don't include the unix header).
-	// adding the unix header all the time screws up mime-attached
-	// rfc822 messages.
-	if(!addfrom && !m->unixfrom){
-		m->unixheader = nil;
-		return;
-	}
-
-	m->unixheader = s_copy("From ");
-	if(m->unixfrom && strcmp(s_to_c(m->unixfrom), "???") != 0)
-		s_append(m->unixheader, s_to_c(m->unixfrom));
-	else if(m->from822)
-		s_append(m->unixheader, s_to_c(m->from822));
-	else
-		s_append(m->unixheader, "???");
-
-	s_append(m->unixheader, " ");
-	if(m->unixdate)
-		s_append(m->unixheader, s_to_c(m->unixdate));
-	else
-		s_append(m->unixheader, "Thu Jan  1 00:00:00 GMT 1970");
-
-	s_append(m->unixheader, "\n");
-}
-
-String*
-promote(String **sp)
-{
-	String *s;
-
-	if(*sp != nil)
-		s = s_clone(*sp);
-	else
-		s = nil;
-	return s;
-}
-
-void
-parsebody(Message *m, Mailbox *mb)
-{
-	Message *nm;
-
-	// recurse
-	if(strncmp(s_to_c(m->type), "multipart/", 10) == 0){
-		parseattachments(m, mb);
-	} else if(strcmp(s_to_c(m->type), "message/rfc822") == 0){
-		decode(m);
-		parseattachments(m, mb);
-		nm = m->part;
-
-		// promote headers
-		if(m->replyto822 == nil && m->from822 == nil && m->sender822 == nil){
-			m->from822 = promote(&nm->from822);
-			m->to822 = promote(&nm->to822);
-			m->date822 = promote(&nm->date822);
-			m->sender822 = promote(&nm->sender822);
-			m->replyto822 = promote(&nm->replyto822);
-			m->subject822 = promote(&nm->subject822);
-			m->unixdate = promote(&nm->unixdate);
-		}
-	}
-}
-
-void
-parse(Message *m, int justmime, Mailbox *mb, int addfrom)
-{
-	parseheaders(m, justmime, mb, addfrom);
-	parsebody(m, mb);
+	for(m = m->part; m && i; i--)
+		m = m->next;
+	if(m)
+		m->mimeflag = 0;
+	return m;
 }
 
 static void
 parseattachments(Message *m, Mailbox *mb)
 {
-	Message *nm, **l;
 	char *p, *x;
+	int i;
+	Message *nm, **l;
 
-	// if there's a boundary, recurse...
+	/* if there's a boundary, recurse... */
+sanemsg(m);
+//	dprint("parseattachments %p %ld\n", m->start, m->end - m->start);
 	if(m->boundary != nil){
 		p = m->body;
 		nm = nil;
 		l = &m->part;
-		for(;;){
-			x = strstr(p, s_to_c(m->boundary));
-
+		for(i = 0;;){
+sanemsg(m);
+			x = strstr(p, m->boundary);
+			/* two sequential boundaries; ignore nil message */
+			if(nm && x == p){
+				p = strchr(x, '\n');
+				if(p == nil){
+					nm->rbend = nm->bend = nm->end = x;
+					sanemsg(nm);
+					break;
+				}
+				p = p + 1;
+				continue;
+			}
 			/* no boundary, we're done */
 			if(x == nil){
-				if(nm != nil)
+				if(nm != nil){
 					nm->rbend = nm->bend = nm->end = m->bend;
+sanemsg(nm);
+					if(nm->end == nm->start)
+						nm->mimeflag |= Mtrunc;
+				}
 				break;
 			}
-
 			/* boundary must be at the start of a line */
-			if(x != m->body && *(x-1) != '\n'){
-				p = x+1;
+			if(x != m->body && x[-1] != '\n'){
+				p = x + 1;
 				continue;
 			}
 
 			if(nm != nil)
+{
 				nm->rbend = nm->bend = nm->end = x;
-			x += strlen(s_to_c(m->boundary));
+sanemsg(nm);}
+			x += strlen(m->boundary);
 
 			/* is this the last part? ignore anything after it */
 			if(strncmp(x, "--", 2) == 0)
 				break;
-
 			p = strchr(x, '\n');
 			if(p == nil)
 				break;
-			nm = newmessage(m);
-			nm->start = nm->header = nm->body = nm->rbody = ++p;
-			nm->mheader = nm->header;
-			*l = nm;
-			l = &nm->next;
+			if((nm = haschild(m, i++)) == nil){
+				nm = newmessage(m);
+				*l = nm;
+				l = &nm->next;
+			}
+			nm->start = ++p;
+			assert(nm->ballocd == 0);
+			nm->mheader = nm->header = nm->body = nm->rbody = nm->start;
 		}
-		for(nm = m->part; nm != nil; nm = nm->next)
-			parse(nm, 1, mb, 0);
+		for(nm = m->part; nm != nil; nm = nm->next){
+			parse(mb, nm, 0, 1);
+			cachehash(mb, nm);		/* botchy place for this */
+		}
 		return;
 	}
 
-	// if we've got an rfc822 message, recurse...
-	if(strcmp(s_to_c(m->type), "message/rfc822") == 0){
-		nm = newmessage(m);
-		m->part = nm;
+	/* if we've got an rfc822 message, recurse... */
+	if(strcmp(rtab[m->type].s, "message/rfc822") == 0){
+		if((nm = haschild(m, 0)) == nil){
+			nm = newmessage(m);
+			m->part = nm;
+		}
+		assert(nm->ballocd == 0);
 		nm->start = nm->header = nm->body = nm->rbody = m->body;
 		nm->end = nm->bend = nm->rbend = m->bend;
-		parse(nm, 0, mb, 0);
+		if(nm->end == nm->start)
+			nm->mimeflag |= Mtrunc;
+		parse(mb, nm, 0, 0);
+		cachehash(mb, nm);			/* botchy place for this */
 	}
 }
 
-/*
- *  pick up a header line
- */
-static int
-headerline(char **pp, String *hl)
+void
+parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 {
-	char *p, *x;
+	char *p, *e, *o, *t, *s;
+	int i, i0, n;
+	uintptr a;
 
-	s_reset(hl);
-	p = *pp;
-	x = strpbrk(p, ":\n");
-	if(x == nil || *x == '\n')
-		return 0;
-	for(;;){
-		x = strchr(p, '\n');
-		if(x == nil)
-			x = p + strlen(p);
-		s_nappend(hl, p, x-p);
-		p = x;
-		if(*p != '\n' || *++p != ' ' && *p != '\t')
-			break;
-		while(*p == ' ' || *p == '\t')
-			p++;
-		s_putc(hl, ' ');
+/*sanembmsg(mb, m);	/* fails with pop but i want this debugging for now */
+
+	/* parse mime headers */
+	p = m->header;
+	i0 = 0;
+	if(justmime)
+		i0 = Mhead;
+	s = emalloc(2048);
+	e = s + 2048 - 1;
+	while((n = hdrlen(p, m->end)) != 0){
+		if(n > e - s){
+			s = erealloc(s, n);
+			e = s + n - 1;
+		}
+		rfc2047(s, e, p, n, 1);
+		p += n;
+
+		for(i = i0; i < nelem(head); i++)
+			if(!cistrncmp(s, head[i].type, head[i].len)){
+				a = head[i].offset;
+				if(a != ~0){
+					if(o = *(char**)((char*)m + a))
+						continue;
+					t = head[i].f(m, head + i, o, s);
+					*(char**)((char*)m + a) = t;
+				}else
+					head[i].f(m, head + i, 0, s);
+				break;
+			}
 	}
-	*pp = p;
-	return 1;
+	free(s);
+/*sanembmsg(mb, m);	/* fails with pop but i want this debugging for now */
+	/* the blank line isn't really part of the body or header */
+	if(justmime){
+		m->mhend = p;
+		m->hend = m->header;
+	} else{
+		m->hend = p;
+		m->mhend = m->header;
+	}
+	/*
+	 * not all attachments have mime headers themselves.
+	 */
+	if(!m->mheader)
+		m->mhend = 0;
+	if(*p == '\n')
+		p++;
+	m->rbody = m->body = p;
+
+	if(!justmime)
+		datesec(mb, m);
+
+	/*
+	 *  only fake header for top-level messages for pop3 and imap4
+	 *  clients (those protocols don't include the unix header).
+	 *  adding the unix header all the time screws up mime-attached
+	 *  rfc822 messages.
+	 */
+/*sanembmsg(mb, m);	/* fails with pop but i want this debugging for now */
+	if(!addfrom && !m->unixfrom)
+		m->unixheader = nil;
+	else if(m->unixheader == nil){
+		if(m->unixfrom && strcmp(m->unixfrom, "???") != 0)
+			p = m->unixfrom;
+		else if(m->from)
+			p = m->from;
+		else
+			p = "???";
+		m->unixheader = smprint("From %s %Δ\n", p, m->fileid);
+	}
+	m->cstate |= Cheader;
+sanembmsg(mb, m);
 }
 
-/* returns nil iff there are no addressees */
-static String*
-addr822(char *p)
+char*
+promote(char *s)
 {
-	String *s, *list;
-	int incomment, addrdone, inanticomment, quoted;
-	int n;
+	return s? strdup(s): nil;
+}
+
+void
+parsebody(Message *m, Mailbox *mb)
+{
+	char *s;
+	int l;
+	Message *nm;
+
+	/* recurse */
+	s = rtab[m->type].s;
+	l = rtab[m->type].l;
+	if(l >= 10 && strncmp(s, "multipart/", 10) == 0)
+		parseattachments(m, mb);
+	else if(l == 14 && strcmp(s, "message/rfc822") == 0){
+		decode(m);
+		parseattachments(m, mb);
+		nm = m->part;
+
+		/* promote headers */
+		if(m->replyto == nil && m->from == nil && m->sender == nil){
+			m->from = promote(nm->from);
+			m->to = promote(nm->to);
+			m->date822 = promote(nm->date822);
+			m->sender = promote(nm->sender);
+			m->replyto = promote(nm->replyto);
+			m->subject = promote(nm->subject);
+		}
+	}else if(strncmp(rtab[m->type].s, "text/", 5) == 0)
+		sanemsg(m);
+	m->rawbsize = m->rbend - m->rbody;
+	m->cstate |= Cbody;
+}
+
+void
+parse(Mailbox *mb, Message *m, int addfrom, int justmime)
+{
+	sanemsg(m);
+	assert(m->end - m->start > 0 || m->mimeflag&Mtrunc && m->end - m->start == 0);
+	if((m->cstate & Cheader) == 0)
+		parseheaders(mb, m, addfrom, justmime);
+	parsebody(m, mb);
+	sanemsg(m);
+}
+
+static char*
+skipwhite(char *p)
+{
+	while(isascii(*p) && isspace(*p))
+		p++;
+	return p;
+}
+
+static char*
+skiptosemi(char *p)
+{
+	while(*p && *p != ';')
+		p++;
+	while(*p == ';' || (isascii(*p) && isspace(*p)))
+		p++;
+	return p;
+}
+
+static char*
+getstring(char *p, char *s, char *e, int dolower)
+{
 	int c;
 
-	list = s_new();
-	s = s_new();
-	quoted = incomment = addrdone = inanticomment = 0;
-	n = 0;
-	for(; *p; p++){
-		c = *p;
+	p = skipwhite(p);
+	if(*p == '"'){
+		for(p++; (c = *p) != '"'; p++){
+			if(c == '\\')
+				c = *++p;
+			/*
+			 * 821 says <x> after \ can be anything at all.
+			 * we just don't care.
+			 */
+			if(c == 0)
+				break;
+			if(c < ' ')
+				continue;
+			if(dolower && c >= 'A' && c <= 'Z')
+				c += 0x20;
+			s = sputc(s, e, c);
+		}
+		if(*p == '"')
+			p++;
+	}else{
+		for(; (c = *p) && !isspace(c) && c != ';'; p++){
+			if(c == '\\')
+				c = *++p;
+			/*
+			 * 821 says <x> after \ can be anything at all.
+			 * we just don't care.
+			 */
+			if(c == 0)
+				break;
+			if(c < ' ')
+				continue;
+			if(dolower && c >= 'A' && c <= 'Z')
+				c += 0x20;
+			s = sputc(s, e, c);
+		}
+	}
+	*s = 0;
+	return p;
+}
 
-		// whitespace is ignored
+static void
+setfilename(Message *m, char *p)
+{
+	char buf[Pathlen];
+
+	free(m->filename);
+	getstring(p, buf, buf + sizeof buf - 1, 0);
+	m->filename = smprint("%s", buf);
+	for(p = m->filename; *p; p++)
+		if(*p == ' ' || *p == '\t' || *p == ';')
+			*p = '_';
+}
+
+static char*
+rtrim(char *p)
+{
+	char *e;
+
+	if(p == 0)
+		return p;
+	e = p + strlen(p) - 1;
+	while(e > p && isascii(*e) && isspace(*e))
+		*e-- = 0;
+	return p;
+}
+
+static char*
+addr822(char *p, char **ac)
+{
+	int n, c, space, incomment, addrdone, inanticomment, quoted;
+	char s[128+1], *ps, *e, *x, *list;
+
+	list = 0;
+	s[0] = 0;
+	ps = s;
+	e = s + sizeof s;
+	space = quoted = incomment = addrdone = inanticomment = 0;
+	n = 0;
+	for(; c = *p; p++){
+		if(!inanticomment && !quoted && !space && ps != s && c == ' '){
+			ps = sputc(ps, e, c);
+			space = 1;
+			continue;
+		}
+		space = 0;
 		if(!quoted && isspace(c) || c == '\r')
 			continue;
-
-		// strings are always treated as atoms
+		/* strings are always treated as atoms */
 		if(!quoted && c == '"'){
-			if(!addrdone && !incomment)
-				s_putc(s, c);
-			for(p++; *p; p++){
+			if(!addrdone && !incomment && !ac)
+				ps = sputc(ps, e, c);
+			for(p++; c = *p; p++){
+				if(ac && c == '"')
+					break;
 				if(!addrdone && !incomment)
-					s_putc(s, *p);
+					ps = sputc(ps, e, c);
 				if(!quoted && *p == '"')
 					break;
 				if(*p == '\\')
@@ -514,13 +736,13 @@ addr822(char *p)
 				else
 					quoted = 0;
 			}
-			if(*p == 0)
+			if(c == 0)
 				break;
 			quoted = 0;
 			continue;
 		}
 
-		// ignore everything in an expicit comment
+		/* ignore everything in an expicit comment */
 		if(!quoted && c == '('){
 			incomment = 1;
 			continue;
@@ -532,10 +754,21 @@ addr822(char *p)
 			continue;
 		}
 
-		// anticomments makes everything outside of them comments
+		/* anticomments makes everything outside of them comments */
 		if(!quoted && c == '<' && !inanticomment){
+			if(ac){
+				*ps-- = 0;
+				if(ps > s && *ps == ' ')
+					*ps = 0;
+				if(*ac){
+					*ac = smprint("%s, %s", x=*ac, s);
+					free(x);
+				}else
+					*ac = smprint("%s", s);
+			}
+
 			inanticomment = 1;
-			s = s_reset(s);
+			ps = s;
 			continue;
 		}
 		if(!quoted && c == '>' && inanticomment){
@@ -544,21 +777,23 @@ addr822(char *p)
 			continue;
 		}
 
-		// commas separate addresses
+		/* commas separate addresses */
 		if(!quoted && c == ',' && !inanticomment){
-			s_terminate(s);
+			*ps = 0;
 			addrdone = 0;
-			if(n++ != 0)
-				s_append(list, " ");
-			s_append(list, s_to_c(s));
-			s = s_reset(s);
+			if(n++ != 0){
+				list = smprint("%s %s", x=list, s);
+				free(x);
+			}else
+				list = smprint("%s", s);
+			ps = s;
 			continue;
 		}
 
-		// what's left is part of the address
-		s_putc(s, c);
+		/* what's left is part of the address */
+		ps = sputc(ps, e, c);
 
-		// quoted characters are recognized only as characters
+		/* quoted characters are recognized only as characters */
 		if(c == '\\')
 			quoted = 1;
 		else
@@ -566,19 +801,15 @@ addr822(char *p)
 
 	}
 
-	if(*s_to_c(s) != 0){
-		s_terminate(s);
-		if(n++ != 0)
-			s_append(list, " ");
-		s_append(list, s_to_c(s));
+	if(ps > s){
+		*ps = 0;
+		if(n != 0){
+			list = smprint("%s %s", x=list, s);
+			free(x);
+		}else
+			list = smprint("%s", s);
 	}
-	s_free(s);
-
-	if(n == 0){		/* no addressees given, just the keyword */
-		s_free(list);
-		return nil;
-	}
-	return list;
+	return rtrim(list);
 }
 
 /*
@@ -586,138 +817,95 @@ addr822(char *p)
  * concatenating their values.
  */
 
-static void
-to822(Message *m, Header *h, char *p)
+static char*
+concat822(Message*, Header *h, char *o, char *p)
 {
-	String *s;
+	char *s, *n;
 
 	p += strlen(h->type);
-	s = addr822(p);
-	if (m->to822 == nil)
-		m->to822 = s;
-	else if (s != nil) {
-		s_append(m->to822, " ");
-		s_append(m->to822, s_to_c(s));
-		s_free(s);
+	s = addr822(p, 0);
+	if(o){
+		n = smprint("%s %s", o, s);
+		free(s);
+	}else
+		n = s;
+	return n;
+}
+
+static char*
+from822(Message *m, Header *h, char*, char *p)
+{
+	if(m->ffrom)
+		free(m->ffrom);
+	m->from = 0;
+	return addr822(p + h->len, &m->ffrom);
+}
+
+static char*
+replace822(Message *, Header *h, char*, char *p)
+{
+	return addr822(p + h->len, 0);
+}
+
+static char*
+copy822(Message*, Header *h, char*, char *p)
+{
+	return rtrim(strdup(skipwhite(p + h->len)));
+}
+
+/*
+ * firefox, e.g. doesn't keep references unique
+ */
+static int
+uniqarray(char **a, int n, int allocd)
+{
+	int i, j;
+
+	for(i = 0; i < n; i++)
+		for(j = i + 1; j < n; j++)
+			if(strcmp(a[i], a[j]) == 0){
+				if(allocd)
+					free(a[j]);
+				memmove(a + j, a + j + 1, sizeof *a*(n - (j + 1)));
+				a[--n] = 0;
+			}
+	return n;
+}
+
+static char*
+ref822(Message *m, Header *h, char*, char *p)
+{
+	char **a, *s, *f[Nref + 1];
+	int i, j, k, n;
+
+	s = strdup(skipwhite(p + h->len));
+	n = getfields(s, f, nelem(f), 1, "<> \n\t\r,");
+	if(n > Nref)
+		n = Nref;
+	n = uniqarray(f, n, 0);
+	a = m->references;
+	for(i = 0; i < Nref; i++)
+		if(a[i] == 0)
+			break;
+	/*
+	 * if there are too many references, drop from the beginning
+	 * of the list.
+	 */
+	j = i + n - Nref;
+	if(j > 0){
+		if(j > Nref)
+			j = Nref;
+		for(k = 0; k < j; k++)
+			free(a[k]);
+		memmove(a, a + j, sizeof a[0]*(Nref - j));
+		memset(a + j, 0, Nref - j);
+		i -= j;
 	}
-}
-
-static void
-cc822(Message *m, Header *h, char *p)
-{
-	String *s;
-
-	p += strlen(h->type);
-	s = addr822(p);
-	if (m->cc822 == nil)
-		m->cc822 = s;
-	else if (s != nil) {
-		s_append(m->cc822, " ");
-		s_append(m->cc822, s_to_c(s));
-		s_free(s);
-	}
-}
-
-static void
-bcc822(Message *m, Header *h, char *p)
-{
-	String *s;
-
-	p += strlen(h->type);
-	s = addr822(p);
-	if (m->bcc822 == nil)
-		m->bcc822 = s;
-	else if (s != nil) {
-		s_append(m->bcc822, " ");
-		s_append(m->bcc822, s_to_c(s));
-		s_free(s);
-	}
-}
-
-static void
-from822(Message *m, Header *h, char *p)
-{
-	p += strlen(h->type);
-	s_free(m->from822);
-	m->from822 = addr822(p);
-}
-
-static void
-sender822(Message *m, Header *h, char *p)
-{
-	p += strlen(h->type);
-	s_free(m->sender822);
-	m->sender822 = addr822(p);
-}
-
-static void
-replyto822(Message *m, Header *h, char *p)
-{
-	p += strlen(h->type);
-	s_free(m->replyto822);
-	m->replyto822 = addr822(p);
-}
-
-static void
-mimeversion(Message *m, Header *h, char *p)
-{
-	p += strlen(h->type);
-	s_free(m->mimeversion);
-	m->mimeversion = addr822(p);
-}
-
-static void
-killtrailingwhite(char *p)
-{
-	char *e;
-
-	e = p + strlen(p) - 1;
-	while(e > p && isspace(*e))
-		*e-- = 0;
-}
-
-static void
-date822(Message *m, Header *h, char *p)
-{
-	p += strlen(h->type);
-	p = skipwhite(p);
-	s_free(m->date822);
-	m->date822 = s_copy(p);
-	p = s_to_c(m->date822);
-	killtrailingwhite(p);
-}
-
-static void
-subject822(Message *m, Header *h, char *p)
-{
-	p += strlen(h->type);
-	p = skipwhite(p);
-	s_free(m->subject822);
-	m->subject822 = s_copy(p);
-	p = s_to_c(m->subject822);
-	killtrailingwhite(p);
-}
-
-static void
-inreplyto822(Message *m, Header *h, char *p)
-{
-	p += strlen(h->type);
-	p = skipwhite(p);
-	s_free(m->inreplyto822);
-	m->inreplyto822 = s_copy(p);
-	p = s_to_c(m->inreplyto822);
-	killtrailingwhite(p);
-}
-
-static void
-messageid822(Message *m, Header *h, char *p)
-{
-	p += strlen(h->type);
-	p = skipwhite(p);
-	s_free(m->messageid822);
-	m->messageid822 = s_copy(p);
-	p = s_to_c(m->messageid822);
-	killtrailingwhite(p);
+	for(j = 0; j < n;)
+		a[i++] = strdup(f[j++]);
+	free(s);
+	uniqarray(a, i, 1);
+	return (char*)~0;
 }
 
 static int
@@ -741,24 +929,20 @@ isattribute(char **pp, char *attr)
 	return 1;
 }
 
-static void
-ctype(Message *m, Header *h, char *p)
+static char*
+ctype(Message *m, Header *h, char*, char *p)
 {
-	String *s;
+	char buf[128], *e;
 
-	p += h->len;
-	p = skipwhite(p);
+	e = buf + sizeof buf - 1;
+	p = getstring(skipwhite(p + h->len), buf, e, 1);
+	m->type = newrefs(buf);
 
-	p = getstring(p, m->type, 1);
-	
-	while(*p){
+	for(; *p; p = skiptosemi(p))
 		if(isattribute(&p, "boundary")){
-			s = s_new();
-			p = getstring(p, s, 0);
-			m->boundary = s_reset(m->boundary);
-			s_append(m->boundary, "--");
-			s_append(m->boundary, s_to_c(s));
-			s_free(s);
+			p = getstring(p, buf, e, 0);
+			free(m->boundary);
+			m->boundary = smprint("--%s", buf);
 		} else if(cistrncmp(p, "multipart", 9) == 0){
 			/*
 			 *  the first unbounded part of a multipart message,
@@ -768,44 +952,41 @@ ctype(Message *m, Header *h, char *p)
 			if(m->filename == nil)
 				setfilename(m, p);
 		} else if(isattribute(&p, "charset")){
-			p = getstring(p, s_reset(m->charset), 0);
+			p = getstring(p, buf, e, 0);
+			lowercase(buf);
+			m->charset = newrefs(buf);
 		}
-		
-		p = skiptosemi(p);
-	}
+	return (char*)~0;
 }
 
-static void
-cencoding(Message *m, Header *h, char *p)
+static char*
+cencoding(Message *m, Header *h, char*, char *p)
 {
-	p += h->len;
-	p = skipwhite(p);
+	p = skipwhite(p + h->len);
 	if(cistrncmp(p, "base64", 6) == 0)
 		m->encoding = Ebase64;
 	else if(cistrncmp(p, "quoted-printable", 16) == 0)
 		m->encoding = Equoted;
+	return (char*)~0;
 }
 
-static void
-cdisposition(Message *m, Header *h, char *p)
+static char*
+cdisposition(Message *m, Header *h, char*, char *p)
 {
-	p += h->len;
-	p = skipwhite(p);
-	while(*p){
-		if(cistrncmp(p, "inline", 6) == 0){
+	for(p = skipwhite(p + h->len); *p; p = skiptosemi(p))
+		if(cistrncmp(p, "inline", 6) == 0)
 			m->disposition = Dinline;
-		} else if(cistrncmp(p, "attachment", 10) == 0){
+		else if(cistrncmp(p, "attachment", 10) == 0)
 			m->disposition = Dfile;
-		} else if(cistrncmp(p, "filename=", 9) == 0){
+		else if(cistrncmp(p, "filename=", 9) == 0){
 			p += 9;
 			setfilename(m, p);
 		}
-		p = skiptosemi(p);
-	}
-
+	return (char*)~0;
 }
 
-ulong msgallocd, msgfreed;
+ulong	msgallocd;
+ulong	msgfreed;
 
 Message*
 newmessage(Message *parent)
@@ -815,14 +996,16 @@ newmessage(Message *parent)
 
 	msgallocd++;
 
-	m = emalloc(sizeof(*m));
-	memset(m, 0, sizeof(*m));
+	m = emalloc(sizeof *m);
+	dprint("newmessage %ld	%p	%p\n", msgallocd, parent, m);
 	m->disposition = Dnone;
-	m->type = s_copy("text/plain");
-	m->charset = s_copy("iso-8859-1");
+	m->type = newrefs("text/plain");
+	m->charset = newrefs("iso-8859-1");
+	m->cstate = Cidxstale;
+	m->flags = Frecent;
 	m->id = newid();
 	if(parent)
-		sprint(m->name, "%d", ++(parent->subname));
+		snprint(m->name, sizeof m->name, "%d", ++(parent->subname));
 	if(parent == nil)
 		parent = m;
 	m->whole = parent;
@@ -830,74 +1013,65 @@ newmessage(Message *parent)
 	return m;
 }
 
-// delete a message from a mailbox
+/* delete a message from a mailbox */
 void
 delmessage(Mailbox *mb, Message *m)
 {
 	Message **l;
-	int i;
 
 	mb->vers++;
 	msgfreed++;
 
 	if(m->whole != m){
-		// unchain from parent
+		/* unchain from parent */
 		for(l = &m->whole->part; *l && *l != m; l = &(*l)->next)
 			;
 		if(*l != nil)
 			*l = m->next;
 
-		// clear out of name lookup hash table
+		/* clear out of name lookup hash table */
 		if(m->whole->whole == m->whole)
 			hfree(PATH(mb->id, Qmbox), m->name);
 		else
 			hfree(PATH(m->whole->id, Qdir), m->name);
-		for(i = 0; i < Qmax; i++)
-			hfree(PATH(m->id, Qdir), dirtab[i]);
+		hfree(PATH(m->id, Qdir), "xxx");		/* sleezy speedup */
 	}
-
-	/* recurse through sub-parts */
+	if(Topmsg(mb, m)){
+		if(m != mb->root)
+			mtreedelete(mb, m);
+		cachefree(mb, m, 1);
+	}
+	delrefs(m->type);
+	delrefs(m->charset);
+	idxfree(m);
 	while(m->part)
 		delmessage(mb, m->part);
-
-	/* free memory */
-	if(m->mallocd)
-		free(m->start);
-	if(m->hallocd)
-		free(m->header);
-	if(m->ballocd)
-		free(m->body);
-	s_free(m->unixfrom);
-	s_free(m->unixdate);
-	s_free(m->unixheader);
-	s_free(m->from822);
-	s_free(m->sender822);
-	s_free(m->to822);
-	s_free(m->bcc822);
-	s_free(m->cc822);
-	s_free(m->replyto822);
-	s_free(m->date822);
-	s_free(m->inreplyto822);
-	s_free(m->subject822);
-	s_free(m->messageid822);
-	s_free(m->addrs);
-	s_free(m->mimeversion);
-	s_free(m->sdigest);
-	s_free(m->boundary);
-	s_free(m->type);
-	s_free(m->charset);
-	s_free(m->filename);
+	free(m->unixfrom);
+	free(m->unixheader);
+	free(m->date822);
+	free(m->inreplyto);
+	free(m->boundary);
+	free(m->filename);
 
 	free(m);
 }
 
-// mark messages (identified by path) for deletion
 void
+unnewmessage(Mailbox *mb, Message *parent, Message *m)
+{
+	assert(parent->subname > 0);
+	m->deleted = Dup;
+	delmessage(mb, m);
+	parent->subname -= 1;
+}
+
+/* mark messages (identified by path) for deletion */
+char*
 delmessages(int ac, char **av)
 {
+	int i, needwrite;
 	Mailbox *mb;
 	Message *m;
-	int i, needwrite;
 
 	qlock(&mbllock);
 	for(mb = mbl; mb != nil; mb = mb->next)
@@ -907,24 +1081,59 @@ delmessages(int ac, char **av)
 		}
 	qunlock(&mbllock);
 	if(mb == nil)
-		return;
+		return "no such mailbox";
 
 	needwrite = 0;
-	for(i = 1; i < ac; i++){
+	for(i = 1; i < ac; i++)
 		for(m = mb->root->part; m != nil; m = m->next)
 			if(strcmp(m->name, av[i]) == 0){
 				if(!m->deleted){
 					mailplumb(mb, m, 1);
 					needwrite = 1;
-					m->deleted = 1;
-					logmsg("deleting", m);
+					m->deleted = Deleted;
+					logmsg(m, "deleting");
 				}
 				break;
 			}
-	}
 	if(needwrite)
 		syncmbox(mb, 1);
 	qunlock(mb);
+	return 0;
+}
+
+char*
+flagmessages(int argc, char **argv)
+{
+	char *err, *rerr;
+	int i, needwrite;
+	Mailbox *mb;
+	Message *m;
+
+	if(argc%2)
+		return "bad flags";
+	qlock(&mbllock);
+	for(mb = mbl; mb; mb = mb->next)
+		if(strcmp(*argv, mb->name) == 0){
+			qlock(mb);
+			break;
+		}
+	qunlock(&mbllock);
+	if(mb == nil)
+		return "no such mailbox";
+	needwrite = 0;
+	rerr = 0;
+	for(i = 1; i < argc; i += 2)
+		for(m = mb->root->part; m; m = m->next)
+			if(strcmp(m->name, argv[i]) == 0){
+				if(err = modflags(mb, m, argv[i + 1]))
+					rerr = err;
+				else
+					needwrite = 1;
+			}
+	if(needwrite)
+		syncmbox(mb, 1);
+	qunlock(mb);
+	return rerr;
 }
 
 /*
@@ -935,12 +1144,18 @@ msgincref(Message *m)
 {
 	m->refs++;
 }
+
 void
 msgdecref(Mailbox *mb, Message *m)
 {
+	assert(m->refs > 0);
 	m->refs--;
-	if(m->refs == 0 && m->deleted)
-		syncmbox(mb, 1);
+	if(m->refs == 0){
+		if(m->deleted)
+			syncmbox(mb, 1);
+		else
+			putcache(mb, m);
+	}
 }
 
 /*
@@ -952,6 +1167,20 @@ mboxincref(Mailbox *mb)
 	assert(mb->refs > 0);
 	mb->refs++;
 }
+
+static void
+mbrmidx(char *path, int flags)
+{
+	char buf[Pathlen];
+
+	snprint(buf, sizeof buf, "%s.idx", path);
+	vremove(buf);
+	if((flags & Rtrunc) == 0){
+		snprint(buf, sizeof buf, "%s.imp", path);
+		vremove(buf);
+	}
+}
+
 void
 mboxdecref(Mailbox *mb)
 {
@@ -959,98 +1188,41 @@ mboxdecref(Mailbox *mb)
 	qlock(mb);
 	mb->refs--;
 	if(mb->refs == 0){
+		syncmbox(mb, 1);
 		delmessage(mb, mb->root);
 		if(mb->ctl)
 			hfree(PATH(mb->id, Qmbox), "ctl");
 		if(mb->close)
-			(*mb->close)(mb);
+			mb->close(mb);
+		if(mb->flags & ORCLOSE && mb->remove)
+		if(mb->remove(mb, mb->rmflags))
+			rmidx(mb->path, mb->rmflags);
+		free(mb->mtree);
+		free(mb->d);
 		free(mb);
 	} else
 		qunlock(mb);
 }
 
+/* just space over \r.  sleezy but necessary for ms email. */
 int
-cistrncmp(char *a, char *b, int n)
+deccr(char *x, int len)
 {
-	while(n-- > 0){
-		if(tolower(*a++) != tolower(*b++))
-			return -1;
-	}
-	return 0;
-}
+	char *e;
 
-int
-cistrcmp(char *a, char *b)
-{
+	e = x + len;
 	for(;;){
-		if(tolower(*a) != tolower(*b++))
-			return -1;
-		if(*a++ == 0)
+		x = memchr(x, '\r', e - x);
+		if(x == nil)
 			break;
+		*x = ' ';
 	}
-	return 0;
+	return len;
 }
 
-static char*
-skipwhite(char *p)
-{
-	while(isspace(*p))
-		p++;
-	return p;
-}
-
-static char*
-skiptosemi(char *p)
-{
-	while(*p && *p != ';')
-		p++;
-	while(*p == ';' || isspace(*p))
-		p++;
-	return p;
-}
-
-static char*
-getstring(char *p, String *s, int dolower)
-{
-	s = s_reset(s);
-	p = skipwhite(p);
-	if(*p == '"'){
-		p++;
-		for(;*p && *p != '"'; p++)
-			if(dolower)
-				s_putc(s, tolower(*p));
-			else
-				s_putc(s, *p);
-		if(*p == '"')
-			p++;
-		s_terminate(s);
-
-		return p;
-	}
-
-	for(; *p && !isspace(*p) && *p != ';'; p++)
-		if(dolower)
-			s_putc(s, tolower(*p));
-		else
-			s_putc(s, *p);
-	s_terminate(s);
-
-	return p;
-}
-
-static void
-setfilename(Message *m, char *p)
-{
-	m->filename = s_reset(m->filename);
-	getstring(p, m->filename, 0);
-	for(p = s_to_c(m->filename); *p; p++)
-		if(*p == ' ' || *p == '\t' || *p == ';')
-			*p = '_';
-}
-
-//
-// undecode message body
-//
+/*
+ *  undecode message body
+ */
 void
 decode(Message *m)
 {
@@ -1062,9 +1234,15 @@ decode(Message *m)
 	switch(m->encoding){
 	case Ebase64:
 		len = m->bend - m->body;
-		i = (len*3)/4+1;	// room for max chars + null
+		i = (len*3)/4 + 1;	/* room for max chars + null */
 		x = emalloc(i);
 		len = dec64((uchar*)x, i, m->body, len);
+		if(len == -1){
+			free(x);
+			break;
+		}
+		if(strncmp(rtab[m->type].s, "text/", 5) == 0)
+			len = deccr(x, len);
 		if(m->ballocd)
 			free(m->body);
 		m->body = x;
@@ -1073,7 +1251,7 @@ decode(Message *m)
 		break;
 	case Equoted:
 		len = m->bend - m->body;
-		x = emalloc(len+2);	// room for null and possible extra nl
+		x = emalloc(len + 2);	/* room for null and possible extra nl */
 		len = decquoted(x, m->body, m->bend, 0);
 		if(m->ballocd)
 			free(m->body);
@@ -1087,22 +1265,20 @@ decode(Message *m)
 	m->decoded = 1;
 }
 
-// convert latin1 to utf
+/* convert x to utf8 */
 void
 convert(Message *m)
 {
 	int len;
 	char *x;
 
-	// don't convert if we're not a leaf, not text, or already converted
+	/* don't convert if we're not a leaf, not text, or already converted */
 	if(m->converted)
 		return;
-	if(m->part != nil)
+	m->converted = 1;
+	if(m->part != nil || cistrncmp(rtab[m->type].s, "text", 4) != 0)
 		return;
-	if(cistrncmp(s_to_c(m->type), "text", 4) != 0)
-		return;
-
-	len = xtoutf(s_to_c(m->charset), &x, m->body, m->bend);
+	len = xtoutf(rtab[m->charset].s, &x, m->body, m->bend);
 	if(len > 0){
 		if(m->ballocd)
 			free(m->body);
@@ -1110,7 +1286,6 @@ convert(Message *m)
 		m->bend = x + len;
 		m->ballocd = 1;
 	}
-	m->converted = 1;
 }
 
 static int
@@ -1119,18 +1294,20 @@ hex2int(int x)
 	if(x >= '0' && x <= '9')
 		return x - '0';
 	if(x >= 'A' && x <= 'F')
-		return (x - 'A') + 10;
+		return x - 'A' + 10;
 	if(x >= 'a' && x <= 'f')
-		return (x - 'a') + 10;
+		return x - 'a' + 10;
 	return -1;
 }
 
-// underscores are translated in 2047 headers (uscores=1) 
-// but not in the body (uscores=0)
+/*
+ *  underscores are translated in 2047 headers (uscores=1)
+ *  but not in the body (uscores=0)
+ */
 static char*
 decquotedline(char *out, char *in, char *e, int uscores)
 {
-	int c, c2, soft;
+	int c, soft;
 
 	/* dump trailing white space */
 	while(e >= in && (*e == ' ' || *e == '\t' || *e == '\r' || *e == '\n'))
@@ -1155,11 +1332,11 @@ decquotedline(char *out, char *in, char *e, int uscores)
 			*out++ = c;
 			break;
 		case '=':
-			c  = hex2int(*in++);
-			c2 = hex2int(*in++);
-			if (c != -1 && c2 != -1)
-				*out++ = c<<4 | c2;
-			else {
+			c = hex2int(*in++)<<4;
+			c |= hex2int(*in++);
+			if(c != -1)
+				*out++ = c;
+			else{
 				*out++ = '=';
 				in -= 2;
 			}
@@ -1184,10 +1361,10 @@ decquoted(char *out, char *in, char *e, int uscores)
 		in = nl + 1;
 	}
 	if(in < e)
-		p = decquotedline(p, in, e-1, uscores);
+		p = decquotedline(p, in, e - 1, uscores);
 
-	// make sure we end with a new line
-	if(*(p-1) != '\n'){
+	/* make sure we end with a new line */
+	if(*(p - 1) != '\n'){
 		*p++ = '\n';
 		*p = 0;
 	}
@@ -1195,7 +1372,7 @@ decquoted(char *out, char *in, char *e, int uscores)
 	return p - out;
 }
 
-static char*
+char*
 lowercase(char *p)
 {
 	char *op;
@@ -1207,7 +1384,7 @@ lowercase(char *p)
 	return op;
 }
 
-// translate latin1 directly since it fits neatly in utf
+/* translate latin1 directly since it fits neatly in utf */
 static int
 latin1toutf(char **out, char *in, char *e)
 {
@@ -1222,38 +1399,35 @@ latin1toutf(char **out, char *in, char *e)
 	if(n == 0)
 		return 0;
 
-	n += e-in;
-	*out = p = malloc(UTFmax*n+1);
+	n += e - in;
+	*out = p = malloc(n + 1);
 	if(p == nil)
 		return 0;
 
 	for(; in < e; in++){
-		r = (*in) & 0xff;
+		r = (uchar)*in;
 		p += runetochar(p, &r);
 	}
 	*p = 0;
 	return p - *out;
 }
 
-// translate any thing using the tcs program
+/* translate any thing using the tcs program */
 int
 xtoutf(char *charset, char **out, char *in, char *e)
 {
-	char *av[4];
-	int totcs[2];
-	int fromtcs[2];
-	int n, len, sofar;
-	char *p;
+	char *av[4], *p;
+	int totcs[2], fromtcs[2], n, len, sofar;
 
-	// might not need to convert
+	/* might not need to convert */
 	if(cistrcmp(charset, "us-ascii") == 0 || cistrcmp(charset, "utf-8") == 0)
 		return 0;
 	if(cistrcmp(charset, "iso-8859-1") == 0)
 		return latin1toutf(out, in, e);
 
-	len = e-in+1;
+	len = e - in + 1;
 	sofar = 0;
-	*out = p = malloc(len+1);
+	*out = p = malloc(len + 1);
 	if(p == nil)
 		return 0;
 
@@ -1279,7 +1453,7 @@ xtoutf(char *charset, char **out, char *in, char *e)
 		close(fromtcs[1]); close(totcs[0]);
 		dup(open("/dev/null", OWRITE), 2);
 		exec("/bin/tcs", av);
-		_exits(0);
+		_exits("");
 	default:
 		close(fromtcs[1]); close(totcs[0]);
 		switch(rfork(RFPROC|RFFDG|RFNOWAIT)){
@@ -1289,24 +1463,24 @@ xtoutf(char *charset, char **out, char *in, char *e)
 		case 0:
 			close(fromtcs[0]);
 			while(in < e){
-				n = write(totcs[1], in, e-in);
+				n = write(totcs[1], in, e - in);
 				if(n <= 0)
 					break;
 				in += n;
 			}
 			close(totcs[1]);
-			_exits(0);
+			_exits("");
 		default:
 			close(totcs[1]);
 			for(;;){
-				n = read(fromtcs[0], &p[sofar], len-sofar);
+				n = read(fromtcs[0], &p[sofar], len - sofar);
 				if(n <= 0)
 					break;
 				sofar += n;
 				p[sofar] = 0;
 				if(sofar == len){
 					len += 1024;
-					p = realloc(p, len+1);
+					p = realloc(p, len + 1);
 					if(p == nil)
 						goto error;
 					*out = p;
@@ -1333,10 +1507,8 @@ emalloc(ulong n)
 	void *p;
 
 	p = mallocz(n, 1);
-	if(!p){
-		fprint(2, "%s: out of memory alloc %lud\n", argv0, n);
-		exits("out of memory");
-	}
+	if(!p)
+		sysfatal("malloc %lud: %r", n);
 	setmalloctag(p, getcallerpc(&n));
 	return p;
 }
@@ -1347,53 +1519,57 @@ erealloc(void *p, ulong n)
 	if(n == 0)
 		n = 1;
 	p = realloc(p, n);
-	if(!p){
-		fprint(2, "%s: out of memory realloc %lud\n", argv0, n);
-		exits("out of memory");
-	}
+	if(!p)
+		sysfatal("realloc %lud: %r", n);
 	setrealloctag(p, getcallerpc(&p));
 	return p;
+}
+
+int
+myplumbsend(int fd, Plumbmsg *m)
+{
+	char *buf;
+	int n;
+
+	buf = plumbpack(m, &n);
+	if(buf == nil)
+		return -1;
+	n = write(fd, buf, n);
+	free(buf);
+	return n;
 }
 
 void
 mailplumb(Mailbox *mb, Message *m, int delete)
 {
+	char buf[256], dbuf[SHA1dlen*2 + 1], len[10], date[30], *from, *subject;
+	int ai, cache;
 	Plumbmsg p;
 	Plumbattr a[7];
-	char buf[256];
-	int ai;
-	char lenstr[10], *from, *subject, *date;
 	static int fd = -1;
 
-	if(m->subject822 == nil)
+	cache = insurecache(mb, m) == 0;	/* living dangerously if deleted */
+	subject = m->subject;
+	if(subject == nil)
 		subject = "";
-	else
-		subject = s_to_c(m->subject822);
 
-	if(m->from822 != nil)
-		from = s_to_c(m->from822);
+	if(m->from != nil)
+		from = m->from;
 	else if(m->unixfrom != nil)
-		from = s_to_c(m->unixfrom);
+		from = m->unixfrom;
 	else
 		from = "";
 
-	if(m->unixdate != nil)
-		date = s_to_c(m->unixdate);
-	else
-		date = "";
-
-	sprint(lenstr, "%zd", m->end-m->start);
-
+	sprint(len, "%lud", m->size);
 	if(biffing && !delete)
-		print("[ %s / %s / %s ]\n", from, subject, lenstr);
-
+		fprint(2, "[ %s / %s / %s ]\n", from, subject, len);
 	if(!plumbing)
-		return;
+		goto out;
 
 	if(fd < 0)
 		fd = plumbopen("send", OWRITE);
 	if(fd < 0)
-		return;
+		goto out;
 
 	p.src = "mailfs";
 	p.dst = "seemail";
@@ -1409,102 +1585,123 @@ mailplumb(Mailbox *mb, Message *m, int delete)
 	a[ai-1].next = &a[ai];
 
 	a[++ai].name = "length";
-	a[ai].value = lenstr;
+	a[ai].value = len;
 	a[ai-1].next = &a[ai];
 
 	a[++ai].name = "mailtype";
-	a[ai].value = delete?"delete":"new";
+	a[ai].value = delete? "delete": "new";
 	a[ai-1].next = &a[ai];
 
+	snprint(date, sizeof date, "%Δ", m->fileid);
 	a[++ai].name = "date";
 	a[ai].value = date;
 	a[ai-1].next = &a[ai];
 
-	if(m->sdigest){
+	if(m->digest){
+		snprint(dbuf, sizeof dbuf, "%A", m->digest);
 		a[++ai].name = "digest";
-		a[ai].value = s_to_c(m->sdigest);
+		a[ai].value = dbuf;
 		a[ai-1].next = &a[ai];
 	}
-
 	a[ai].next = nil;
-
 	p.attr = a;
-	snprint(buf, sizeof(buf), "%s/%s/%s",
+	snprint(buf, sizeof buf, "%s/%s/%s",
 		mntpt, mb->name, m->name);
 	p.ndata = strlen(buf);
 	p.data = buf;
 
-	plumbsend(fd, &p);
-}
-
-//
-// count the number of lines in the body (for imap4)
-//
-void
-countlines(Message *m)
-{
-	int i;
-	char *p;
-
-	i = 0;
-	for(p = strchr(m->rbody, '\n'); p != nil && p < m->rbend; p = strchr(p+1, '\n'))
-		i++;
-	sprint(m->lines, "%d", i);
-}
-
-char *LOG = "fs";
-
-void
-logmsg(char *s, Message *m)
-{
-	int pid;
-
-	if(!logging)
-		return;
-	pid = getpid();
-	if(m == nil)
-		syslog(0, LOG, "%s.%d: %s", user, pid, s);
-	else
-		syslog(0, LOG, "%s.%d: %s msg from %s digest %s",
-			user, pid, s,
-			m->from822 ? s_to_c(m->from822) : "?",
-			s_to_c(m->sdigest));
+	myplumbsend(fd, &p);
+out:
+	if(cache)
+		msgdecref(mb, m);
 }
 
 /*
- *  squeeze nulls out of the body
+ *  count the number of lines in the body (for imap4)
  */
-static void
-nullsqueeze(Message *m)
+ulong
+countlines(Message *m)
 {
-	char *p, *q;
+	char *p;
+	ulong i;
 
-	q = memchr(m->body, 0, m->end-m->body);
-	if(q == nil)
-		return;
-
-	for(p = m->body; q < m->end; q++){
-		if(*q == 0)
-			continue;
-		*p++ = *q;
-	}
-	m->bend = m->rbend = m->end = p;
+	i = 0;
+	for(p = strchr(m->rbody, '\n'); p != nil && p < m->rbend; p = strchr(p + 1, '\n'))
+		i++;
+	return i;
 }
 
+static char *logf = "fs";
 
-//
-// convert an RFC822 date into a Unix style date
-// for when the Unix From line isn't there (e.g. POP3).
-// enough client programs depend on having a Unix date
-// that it's easiest to write this conversion code once, right here.
-//
-// people don't follow RFC822 particularly closely,
-// so we use strtotm, which is a bunch of heuristics.
-//
+void
+logmsg(Message *m, char *fmt, ...)
+{
+	char buf[256], *p, *e;
+	va_list args;
 
-extern int strtotm(char*, Tm*);
-String*
-date822tounix(char *s)
+	if(!lflag)
+		return;
+	e = buf + sizeof buf;
+	p = seprint(buf, e, "%s.%d: ", user, getpid());
+	if(m)
+		p = seprint(p, e, "from %s digest %A ",
+			m->from, m->digest);
+	va_start(args, fmt);
+	vseprint(p, e, fmt, args);
+	va_end(args);
+
+	if(Sflag)
+		fprint(2, "%s\n", buf);
+	syslog(Sflag, logf, "%s", buf);
+}
+
+void
+iprint(char *fmt, ...)
+{
+	char buf[256], *p, *e;
+	va_list args;
+
+	if(!iflag)
+		return;
+	e = buf + sizeof buf;
+	p = seprint(buf, e, "%s.%d: ", user, getpid());
+	va_start(args, fmt);
+	vseprint(p, e, fmt, args);
+	vfprint(2, fmt, args);
+	va_end(args);
+	syslog(Sflag, logf, "%s", buf);
+}
+
+void
+eprint(char *fmt, ...)
+{
+	char buf[256], buf2[256], *p, *e;
+	va_list args;
+
+	e = buf + sizeof buf;
+	p = seprint(buf, e, "%s.%d: ", user, getpid());
+	va_start(args, fmt);
+	vseprint(p, e, fmt, args);
+	e = buf2 + sizeof buf2;
+	p = seprint(buf2, e, "upas/fs: ");
+	vseprint(p, e, fmt, args);
+	va_end(args);
+	syslog(Sflag, logf, "%s", buf);
+	fprint(2, "%s", buf2);
+}
+
+/*
+ *  convert an RFC822 date into a Unix style date
+ *  for when the Unix From line isn't there (e.g. POP3).
+ *  enough client programs depend on having a Unix date
+ *  that it's easiest to write this conversion code once, right here.
+ *
+ *  people don't follow RFC822 particularly closely,
+ *  so we use strtotm, which is a bunch of heuristics.
+ */
+
+char*
+date822tounix(Message *, char *s)
 {
 	char *p, *q;
 	Tm tm;
@@ -1515,6 +1712,5 @@ date822tounix(char *s)
 	p = asctime(&tm);
 	if(q = strchr(p, '\n'))
 		*q = '\0';
-	return s_copy(p);
+	return strdup(p);
 }
-

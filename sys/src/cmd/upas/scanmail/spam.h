@@ -1,4 +1,3 @@
-
 enum{
 	Dump		= 0,		/* Actions must be in order of descending importance */
 	HoldHeader,

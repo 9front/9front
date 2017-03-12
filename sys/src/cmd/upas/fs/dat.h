@@ -1,191 +1,313 @@
-typedef struct Message Message;
-struct Message
-{
-	int	id;
-	int	refs;
-	int	subname;
-	char	name[Elemlen];
+#include <avl.h>
 
-	// pointers into message
-	char	*start;		// start of message
-	char	*end;		// end of message
-	char	*header;	// start of header
-	char	*hend;		// end of header
-	int	hlen;		// length of header minus ignored fields
-	char	*mheader;	// start of mime header
-	char	*mhend;		// end of mime header
-	char	*body;		// start of body
-	char	*bend;		// end of body
-	char	*rbody;		// raw (unprocessed) body
-	char	*rbend;		// end of raw (unprocessed) body
-	char	*lim;
-	char	deleted;
-	char	inmbox;
-	char	mallocd;	// message is malloc'd
-	char	ballocd;	// body is malloc'd
-	char	hallocd;	// header is malloce'd
+enum {
+	/* cache states */
+	Cidx		= 1<<0,
+	Cidxstale	= 1<<1,
+	Cheader 	= 1<<2,
+	Cbody		= 1<<3,
 
-	// mail info
-	String	*unixheader;
-	String	*unixfrom;
-	String	*unixdate;
-	String	*from822;
-	String	*sender822;
-	String	*to822;
-	String	*bcc822;
-	String	*cc822;
-	String	*replyto822;
-	String	*date822;
-	String	*inreplyto822;
-	String	*subject822;
-	String	*messageid822;
-	String	*addrs;
-	String	*mimeversion;
-	String	*sdigest;
-
-	// mime info
-	String	*boundary;
-	String	*type;
-	int	encoding;
-	int	disposition;
-	String	*charset;
-	String	*filename;
-	int	converted;
-	int	decoded;
-	char	lines[10];	// number of lines in rawbody
-
-	Message	*next;		// same level
-	Message	*part;		// down a level
-	Message	*whole;		// up a level
-
-	uchar	digest[SHA1dlen];
-
-	vlong	imapuid;	// used by imap4
-
-	char		uidl[80];	// used by pop3
-	int		mesgno;
-};
-
-enum
-{
-	// encodings
+	/* encodings */
 	Enone=	0,
 	Ebase64,
 	Equoted,
 
-	// disposition possibilities
+	/* dispositions */
 	Dnone=	0,
 	Dinline,
 	Dfile,
 	Dignore,
 
-	PAD64=	'=',
+	/* mb create flags */
+	DMcreate	=  0x02000000,
+
+	/* rm flags */
+	Rrecur		= 1<<0,
+	Rtrunc		= 1<<1,
+
+	/* m->deleted flags */
+	Deleted		= 1<<0,
+	Dup		= 1<<1,
+	Dead		= 1<<2,
+	Disappear	= 1<<3,
+	Dmark		= 1<<4,	/* temporary mark for idx scan */
+
+	/* mime flags */
+	Mtrunc		= 1<<0,	/* message had no boundary */
+
+	Maxmsg		= 75*1024*1024,	/* maxmessage size; debugging */
+	Maxcache	= 512*1024,	/* target cache size; set low for debugging */
+	Nctab		= 15,		/* max # of cached messages >10 */
+	Nref		= 10,
+};
+
+typedef struct Idx Idx;
+struct Idx {
+	char	*str;			/* as read from idx file */
+	uchar	*digest;
+	uchar	flags;
+	uvlong	fileid;
+	ulong	lines;
+	ulong	size;
+	ulong	rawbsize;			/* nasty imap4d */
+	ulong	ibadchars;
+
+	char	*ffrom;
+	char	*from;
+	char	*to;
+	char	*cc;
+	char	*bcc;
+	char	*replyto;
+	char	*messageid;
+	char	*subject;
+	char	*sender;
+	char	*inreplyto;
+	char	*idxaux;			/* mailbox specific */
+
+	int	type;			/* very few types: refstring */
+	int	disposition;		/* very few types: refstring */
+	int	nparts;
+};
+
+typedef struct Message Message;
+struct Message {
+	int	id;
+	int	refs;
+	int	subname;
+	char	name[12];
+
+	/* top-level indexed information */
+	Idx;
+
+	/* caching help */
+	uchar	cstate;
+	ulong	infolen;
+	ulong	csize;
+
+	/*
+	 * a plethoria of pointers into message
+	 * and some status.  not valid unless cached
+	 */
+	char	*start;		/* start of message */
+	char	*end;		/* end of message */
+	char	*header;		/* start of header */
+	char	*hend;		/* end of header */
+	int	hlen;		/* length of header minus ignored fields */
+	char	*mheader;	/* start of mime header */
+	char	*mhend;		/* end of mime header */
+	char	*body;		/* start of body */
+	char	*bend;		/* end of body */
+	char	*rbody;		/* raw (unprocessed) body */
+	char	*rbend;		/* end of raw (unprocessed) body */
+	char	mallocd;		/* message is malloc'd */
+	char	ballocd;		/* body is malloc'd */
+	char	hallocd;		/* header is malloc'd */
+	int	badchars;	/* running count of bad chars. */
+
+	char	deleted;
+	char	inmbox;
+
+	/* mail info */
+	char	*unixheader;
+	char	*unixfrom;
+	char	*date822;
+	char	*references[Nref];
+
+	/* mime info */
+	char	*boundary;
+	int	charset;
+	char	*filename;
+	char	encoding;
+	char	converted;
+	char	decoded;
+	char	mimeflag;
+
+	Message	*next;
+	Message	*part;
+	Message	*whole;
+
+	union{
+		char	*lim;	/* used by plan9; not compatable with cache */
+		vlong	imapuid;	/* used by imap4 */
+		void	*aux;
+	};
+};
+
+typedef struct {
+	Avl;
+	Message *m;
+} Mtree;
+
+typedef struct Mcache Mcache;
+struct Mcache {
+	uvlong	cached;
+	int	ntab;
+	Message	*ctab[Nctab];
 };
 
 typedef struct Mailbox Mailbox;
-struct Mailbox
-{
+struct Mailbox {
 	QLock;
+	long	idxsem;		/* abort on concurrent index access */
+	long	syncsem;		/* abort on concurrent syncs */
 	int	refs;
 	Mailbox	*next;
 	int	id;
-	int	dolock;		// lock when syncing?
-	int	std;
+	int	flags;
+	char	rmflags;
+	char	dolock;		/* lock when syncing? */
+	char	addfrom;
 	char	name[Elemlen];
 	char	path[Pathlen];
 	Dir	*d;
 	Message	*root;
-	int	vers;		// goes up each time mailbox is read
+	Avltree	*mtree;
+	ulong	vers;		/* goes up each time mailbox is changed */
 
-	ulong waketime;
-	char	*(*sync)(Mailbox*, int);
+	/* cache tracking */
+	Mcache;
+
+	/* index tracking */
+	Qid	qid;
+
+	ulong	waketime;
 	void	(*close)(Mailbox*);
-	char	*(*fetch)(Mailbox*, Message*);
+	void	(*decache)(Mailbox*, Message*);
+	int	(*fetch)(Mailbox*, Message*, uvlong, ulong);
+	void	(*delete)(Mailbox*, Message*);
 	char	*(*ctl)(Mailbox*, int, char**);
-	void	*aux;		// private to Mailbox implementation
+	char	*(*remove)(Mailbox *, int);
+	char	*(*rename)(Mailbox*, char*, int);
+	char	*(*sync)(Mailbox*, int, int*);
+	void	(*modflags)(Mailbox*, Message*, int);
+	void	(*idxwrite)(Biobuf*, Mailbox*);
+	int	(*idxread)(char*, Mailbox*);
+	void	(*idxinvalid)(Mailbox*);
+	void	*aux;		/* private to Mailbox implementation */
 };
+
+/* print argument tango; can't varargck 2 types.  should fix compiler */
+typedef struct Mpair Mpair;
+struct Mpair {
+	Mailbox	*mb;
+	Message	*m;
+};
+Mpair mpair(Mailbox*, Message*);
 
 typedef char *Mailboxinit(Mailbox*, char*);
 
-extern Message	*root;
-extern Mailboxinit	plan9mbox;
-extern Mailboxinit	pop3mbox;
-extern Mailboxinit	imap4mbox;
-extern Mailboxinit	planbmbox;
-extern Mailboxinit	planbvmbox;
+Mailboxinit	plan9mbox;
+Mailboxinit	planbmbox;
+Mailboxinit	pop3mbox;
+Mailboxinit	imap4mbox;
+Mailboxinit	mdirmbox;
 
+void		genericidxwrite(Biobuf*, Mailbox*);
+int		genericidxread(char*, Mailbox*);
+void		genericidxinvalid(Mailbox*);
+
+void		cachehash(Mailbox*, Message*);
+void		newcachehash(Mailbox*, Message*, int);
+int		cacheheaders(Mailbox*, Message*);		/* "getcache" */
+int		cachebody(Mailbox*, Message*);
+int		cacheidx(Mailbox*, Message*);
+int		insurecache(Mailbox*, Message*);
+
+/**/
+void		putcache(Mailbox*, Message*);		/* asymmetricial */
+long		cachefree(Mailbox*, Message*, int);
+
+Message*	gettopmsg(Mailbox*, Message*);
 char*		syncmbox(Mailbox*, int);
-char*		geterrstr(void);
 void*		emalloc(ulong);
 void*		erealloc(void*, ulong);
 Message*	newmessage(Message*);
+void		unnewmessage(Mailbox*, Message*, Message*);
 void		delmessage(Mailbox*, Message*);
-void		delmessages(int, char**);
+char*		delmessages(int, char**);
+char		*flagmessages(int, char**);
+void		digestmessage(Mailbox*, Message*);
+
+uintptr		absbos(void);
+void		eprint(char*, ...);
+void		iprint(char *, ...);
 int		newid(void);
 void		mailplumb(Mailbox*, Message*, int);
-char*		newmbox(char*, char*, int);
+char*		newmbox(char*, char*, int, Mailbox**);
 void		freembox(char*);
-void		logmsg(char*, Message*);
+char*		removembox(char*, int);
+void		syncallmboxes(void);
+void		logmsg(Message*, char*, ...);
 void		msgincref(Message*);
 void		msgdecref(Mailbox*, Message*);
 void		mboxincref(Mailbox*);
 void		mboxdecref(Mailbox*);
+char		*mboxrename(char*, char*, int);
 void		convert(Message*);
 void		decode(Message*);
-int		cistrncmp(char*, char*, int);
-int		cistrcmp(char*, char*);
 int		decquoted(char*, char*, char*, int);
 int		xtoutf(char*, char**, char*, char*);
-void		countlines(Message*);
-int		headerlen(Message*);
-void		parse(Message*, int, Mailbox*, int);
-void		parseheaders(Message*, int, Mailbox*, int);
+ulong		countlines(Message*);
+void		parse(Mailbox*, Message*, int, int);
+void		parseheaders(Mailbox*, Message*, int, int);
 void		parsebody(Message*, Mailbox*);
-void		parseunix(Message*);
-String*	date822tounix(char*);
+char*		date822tounix(Message*, char*);
 int		fidmboxrefs(Mailbox*);
 int		hashmboxrefs(Mailbox*);
+void		checkmboxrefs(void);
+int		strtotm(char*, Tm*);
+char*		lowercase(char*);
 
-extern int	debug;
-extern int	fflag;
-extern int	logging;
-extern char	user[Elemlen];
-extern char	stdmbox[Pathlen];
-extern QLock	mbllock;
-extern Mailbox	*mbl;
-extern char	*mntpt;
-extern int	biffing;
-extern int	plumbing;
-extern char*	Enotme;
+char*		sputc(char*, char*, int);
+char*		seappend(char*, char*, char*, int);
 
-enum
-{
-	/* mail subobjects */
-	Qbody,
+int		hdrlen(char*, char*);
+char*		rfc2047(char*, char*, char*, int, int);
+
+char*		localremove(Mailbox*, int);
+char*		localrename(Mailbox*, char*, int);
+void		rmidx(char*, int);
+int		vremove(char*);
+int		rename(char *, char*, int);
+
+int		mtreecmp(Avl*, Avl*);
+int		mtreeisdup(Mailbox *, Message *);
+Message*	mtreefind(Mailbox*, uchar*);
+void		mtreeadd(Mailbox*, Message*);
+void		mtreedelete(Mailbox*, Message*);
+
+enum {
+	/* mail sub-objects; must be sorted */
 	Qbcc,
+	Qbody,
 	Qcc,
 	Qdate,
 	Qdigest,
 	Qdisposition,
+	Qffrom,
+	Qfileid,
 	Qfilename,
+	Qflags,
 	Qfrom,
 	Qheader,
+	Qinfo,
 	Qinreplyto,
 	Qlines,
-	Qmimeheader,
 	Qmessageid,
+	Qmimeheader,
 	Qraw,
 	Qrawbody,
 	Qrawheader,
 	Qrawunix,
+	Qreferences,
 	Qreplyto,
 	Qsender,
+	Qsize,
 	Qsubject,
 	Qto,
 	Qtype,
-	Qunixheader,
-	Qinfo,
 	Qunixdate,
+	Qunixheader,
 	Qmax,
 
 	/* other files */
@@ -196,12 +318,10 @@ enum
 	Qmboxctl,
 };
 
-#define PATH(id, f)	((((id)&0xfffff)<<10) | (f))
+#define PATH(id, f)	((((id) & 0xfffff)<<10) | (f))
 #define FILE(p)		((p) & 0x3ff)
 
-char *dirtab[];
-
-// hash table to aid in name lookup, all files have an entry
+/* hash table to aid in name lookup, all files have an entry */
 typedef struct Hash Hash;
 struct Hash {
 	Hash	*next;
@@ -216,5 +336,50 @@ Hash	*hlook(ulong, char*);
 void	henter(ulong, char*, Qid, Message*, Mailbox*);
 void	hfree(ulong, char*);
 
-ulong msgallocd, msgfreed;
+typedef struct {
+	char	*s;
+	int	l;
+	ulong	ref;
+} Refs;
+
+int	newrefs(char*);
+void	delrefs(int);
+void	refsinit(void);
+int	prrefs(Biobuf*);
+int	rdrefs(Biobuf*);
+
+void	idxfree(Idx*);
+int	rdidxfile(Mailbox*, int);
+int	wridxfile(Mailbox*);
+
+char	*modflags(Mailbox*, Message*, char*);
+int	getmtokens(char *, char**, int, int);
+
+extern char	Enotme[];
+extern char	*mntpt;
+extern char	user[Elemlen];
+extern char 	*dirtab[];
+extern int	Sflag;
+extern int	iflag;
+extern int	biffing;
+extern ulong	cachetarg;
+extern int	debug;
+extern int	lflag;
+extern int	plumbing;
+extern ulong	msgallocd;
+extern ulong	msgfreed;
+extern Mailbox	*mbl;
+extern Message	*root;
+extern QLock	mbllock;
+extern Refs	*rtab;
+
+#define	dprint(...)	if(debug) fprint(2, __VA_ARGS__); else {}
+#define	Topmsg(mb, m)	(m->whole == mb->root)
+#pragma	varargck	type	"A"	uchar*
+#pragma	varargck	type	"D"	uvlong
+#pragma	varargck	type	"P"	Mpair
+#pragma	varargck	type	"Δ"	uvlong
+#pragma	varargck	argpos	eprint	1
+#pragma	varargck	argpos	iprint	1
+#pragma	varargck	argpos	logmsg	2
 

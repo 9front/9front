@@ -23,7 +23,7 @@ usage(void)
 void
 error(char *f, char *a)
 {
-	char err[Errlen+1];
+	char err[ERRMAX];
 	char buf[256];
 
 	rerrstr(err, sizeof(err));

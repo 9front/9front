@@ -1,4 +1,5 @@
 </$objtype/mkfile
+<../mkupas
 
 TARG=send\
 	filter
@@ -12,16 +13,19 @@ OFILES=\
 	$UOFILES\
 	../smtp/rfc822.tab.$O\
 
-SMOBJ=main.$O\
-	bind.$O\
-	rewrite.$O\
-	local.$O\
-	translate.$O\
+SOBJ=\
 	authorize.$O\
+	bind.$O\
+	cat_mail.$O\
 	gateway.$O\
+	local.$O\
+	main.$O\
+	rewrite.$O\
+	translate.$O\
+
+FOBJ=\
 	cat_mail.$O\
 
-LIB=../common/libcommon.av\
 
 HFILES=send.h\
 	../common/common.h\
@@ -29,24 +33,22 @@ HFILES=send.h\
 
 LIB=../common/libcommon.a$O\
 
-BIN=/$objtype/bin/upas
 UPDATE=\
 	mkfile\
 	$HFILES\
 	${UOFILES:%.$O=%.c}\
-	${SMOBJ:%.$O=%.c}\
+	${SOBJ:%.$O=%.c}\
 	${TARG:%=%.c}\
 
 </sys/src/cmd/mkmany
 CFLAGS=$CFLAGS -I../common
 
-$O.send: $SMOBJ $OFILES
+$O.send: $SOBJ $OFILES
 	$LD $LDFLAGS -o $target $prereq $LIB
+
+$O.filter: $FOBJ
 
 message.$O:	../smtp/y.tab.h
 
 ../smtp/y.tab.h ../smtp/rfc822.tab.$O: ../smtp/rfc822.y
-	@{
-		cd ../smtp
-		mk rfc822.tab.$O
-	}
+	cd ../smtp && mk rfc822.tab.$O

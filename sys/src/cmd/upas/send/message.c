@@ -1,49 +1,51 @@
 #include "common.h"
 #include "send.h"
-
+#include <regexp.h>
 #include "../smtp/smtp.h"
 #include "../smtp/y.tab.h"
+
+enum{
+	VMLIMIT	= 64*1024,
+	MSGLIMIT	= 128*1024*1024,
+};
 
 /* global to this file */
 static Reprog *rfprog;
 static Reprog *fprog;
-
-#define VMLIMIT (64*1024)
-#define MSGLIMIT (128*1024*1024)
 
 int received;	/* from rfc822.y */
 
 static String*	getstring(Node *p);
 static String*	getaddr(Node *p);
 
-extern int
+int
 default_from(message *mp)
 {
 	char *cp, *lp;
 
 	cp = getenv("upasname");
 	lp = getlog();
-	if(lp == nil)
+	if(lp == nil){
+		free(cp);
 		return -1;
-
+	}
 	if(cp && *cp)
 		s_append(mp->sender, cp);
 	else
 		s_append(mp->sender, lp);
+	free(cp);
 	s_append(mp->date, thedate());
 	return 0;
 }
 
-extern message *
+message*
 m_new(void)
 {
 	message *mp;
 
-	mp = (message *)mallocz(sizeof(message), 1);
-	if (mp == 0) {
-		perror("message:");
-		exit(1);
-	}
+	mp = (message*)mallocz(sizeof(message), 1);
+	if (mp == 0)
+		sysfatal("m_new: %r");
 	mp->sender = s_new();
 	mp->replyaddr = s_new();
 	mp->date = s_new();
@@ -53,14 +55,11 @@ m_new(void)
 	return mp;
 }
 
-extern void
+void
 m_free(message *mp)
 {
-	if(mp->fd >= 0){
+	if(mp->fd >= 0)
 		close(mp->fd);
-		sysremove(s_to_c(mp->tmp));
-		s_free(mp->tmp);
-	}
 	s_free(mp->sender);
 	s_free(mp->date);
 	s_free(mp->body);
@@ -68,34 +67,28 @@ m_free(message *mp)
 	s_free(mp->havesender);
 	s_free(mp->havereplyto);
 	s_free(mp->havesubject);
-	free((char *)mp);
+	free(mp);
 }
 
 /* read a message into a temp file, return an open fd to it in mp->fd */
 static int
 m_read_to_file(Biobuf *fp, message *mp)
 {
-	int fd;
-	int n;
-	String *file;
-	char buf[4*1024];
+	char buf[4*1024], file[Pathlen];
+	int fd, n;
 
-	file = s_new();
+	snprint(file, sizeof file, "%s/mtXXXXXX", UPASTMP);
 	/*
 	 *  create temp file to be removed on close
 	 */
-	abspath("mtXXXXXX", UPASTMP, file);
-	mktemp(s_to_c(file));
-	if((fd = syscreate(s_to_c(file), ORDWR|ORCLOSE, 0600))<0){
-		s_free(file);
+	mktemp(file);
+	if((fd = create(file, ORDWR|ORCLOSE, 0600))<0)
 		return -1;
-	}
-	mp->tmp = file;
 
 	/*
 	 *  read the rest into the temp file
 	 */
-	while((n = Bread(fp, buf, sizeof(buf))) > 0){
+	while((n = Bread(fp, buf, sizeof buf)) > 0){
 		if(write(fd, buf, n) != n){
 			close(fd);
 			return -1;
@@ -132,9 +125,9 @@ getstring(Node *p)
 		return s;
 
 	for(p = p->next; p; p = p->next){
-		if(p->s){
+		if(p->s)
 			s_append(s, s_to_c(p->s));
-		}else{
+		else{
 			s_putc(s, p->c);
 			s_terminate(s);
 		}
@@ -143,35 +136,6 @@ getstring(Node *p)
 	}
 	return s;
 }
-
-static char *fieldname[] =
-{
-[WORD-WORD]	"WORD",
-[DATE-WORD]	"DATE",
-[RESENT_DATE-WORD]	"RESENT_DATE",
-[RETURN_PATH-WORD]	"RETURN_PATH",
-[FROM-WORD]	"FROM",
-[SENDER-WORD]	"SENDER",
-[REPLY_TO-WORD]	"REPLY_TO",
-[RESENT_FROM-WORD]	"RESENT_FROM",
-[RESENT_SENDER-WORD]	"RESENT_SENDER",
-[RESENT_REPLY_TO-WORD]	"RESENT_REPLY_TO",
-[SUBJECT-WORD]	"SUBJECT",
-[TO-WORD]	"TO",
-[CC-WORD]	"CC",
-[BCC-WORD]	"BCC",
-[RESENT_TO-WORD]	"RESENT_TO",
-[RESENT_CC-WORD]	"RESENT_CC",
-[RESENT_BCC-WORD]	"RESENT_BCC",
-[REMOTE-WORD]	"REMOTE",
-[PRECEDENCE-WORD]	"PRECEDENCE",
-[MIMEVERSION-WORD]	"MIMEVERSION",
-[CONTENTTYPE-WORD]	"CONTENTTYPE",
-[MESSAGEID-WORD]	"MESSAGEID",
-[RECEIVED-WORD]	"RECEIVED",
-[MAILER-WORD]	"MAILER",
-[BADTOKEN-WORD]	"BADTOKEN",
-};
 
 /* fix 822 addresses */
 static void
@@ -251,8 +215,35 @@ rfc822cruft(message *mp)
 	mp->body = body;
 }
 
+/* append a sub-expression match onto a String */
+static void
+append_match(Resub *subexp, String *sp, int se)
+{
+	char *cp, *ep;
+
+	cp = subexp[se].sp;
+	ep = subexp[se].ep;
+	for (; cp < ep; cp++)
+		s_putc(sp, *cp);
+	s_terminate(sp);
+}
+
+
+static char *REMFROMRE =
+	"^>?From[ \t]+((\".*\")?[^\" \t]+?(\".*\")?[^\" \t]+?)[ \t]+(.+)[ \t]+remote[ \t]+from[ \t]+(.*)\n$";
+static char *FROMRE =
+	"^>?From[ \t]+((\".*\")?[^\" \t]+?(\".*\")?[^\" \t]+?)[ \t]+(.+)\n$";
+
+enum{
+	REMSENDERMATCH 	= 1,
+	SENDERMATCH	= 1,
+	REMDATEMATCH 	= 4,
+	DATEMATCH		= 4,
+	REMSYSMATCH	= 5,
+};
+
 /* read in a message, interpret the 'From' header */
-extern message *
+message*
 m_read(Biobuf *fp, int rmail, int interactive)
 {
 	message *mp;
@@ -326,18 +317,12 @@ m_read(Biobuf *fp, int rmail, int interactive)
 		 */
 		mp->size = mp->body->ptr - mp->body->base;
 		n = s_read(fp, mp->body, VMLIMIT);
-		if(n < 0){
-			perror("m_read");
-			exit(1);
-		}
+		if(n < 0)
+			sysfatal("m_read: %r");
 		mp->size += n;
-		if(n == VMLIMIT){
-			if(m_read_to_file(fp, mp) < 0){
-				perror("m_read");
-				exit(1);
-			}
-		}
-
+		if(n == VMLIMIT)
+			if(m_read_to_file(fp, mp) < 0)
+				sysfatal("m_read: %r");
 	}
 
 	/*
@@ -352,8 +337,8 @@ m_read(Biobuf *fp, int rmail, int interactive)
 }
 
 /* return a piece of message starting at `offset' */
-extern int
-m_get(message *mp, long offset, char **pp)
+int
+m_get(message *mp, vlong offset, char **pp)
 {
 	static char buf[4*1024];
 
@@ -377,10 +362,8 @@ m_get(message *mp, long offset, char **pp)
 	offset -= s_len(mp->body);
 	if(mp->fd < 0)
 		return -1;
-	if(seek(mp->fd, offset, 0)<0)
-		return -1;
 	*pp = buf;
-	return read(mp->fd, buf, sizeof buf);
+	return pread(mp->fd, buf, sizeof buf, offset);
 }
 
 /* output the message body without ^From escapes */
@@ -444,20 +427,22 @@ m_escape(message *mp, Biobuf *fp)
 static int
 printfrom(message *mp, Biobuf *fp)
 {
-	String *s;
+//	char *p;
 	int rv;
+	String *s;
 
 	if(!returnable(s_to_c(mp->sender)))
 		return Bprint(fp, "From: Postmaster\n");
 
-	s = username(mp->sender);
-	if(s) {
-		s_append(s, " <");
-		s_append(s, s_to_c(mp->sender));
-		s_append(s, ">");
-	} else {
+//	p = username(s_to_c(mp->sender));
+//	if(p) {
+//		s_append(s = s_new(), p);
+//		s_append(s, " <");
+//		s_append(s, s_to_c(mp->sender));
+//		s_append(s, ">");
+//	} else {
 		s = s_copy(s_to_c(mp->sender));
-	}
+//	}
 	s = unescapespecial(s);
 	rv = Bprint(fp, "From: %s\n", s_to_c(s));
 	s_free(s);
@@ -509,34 +494,30 @@ printutf8mime(Biobuf *b)
 }
 
 /* output a message */
-extern int
+int
 m_print(message *mp, Biobuf *fp, char *remote, int mbox)
 {
-	String *date, *sender;
-	char *f[6];
-	int n;
+	char *date, *d, *f[6];
+	int n, r;
+	String *sender;
 
 	sender = unescapespecial(s_clone(mp->sender));
-
-	if (remote != 0){
-		if(print_remote_header(fp,s_to_c(sender),s_to_c(mp->date),remote) < 0){
-			s_free(sender);
-			return -1;
-		}
-	} else {
-		if(print_header(fp, s_to_c(sender), s_to_c(mp->date)) < 0){
-			s_free(sender);
-			return -1;
-		}
-	}
+	date = s_to_c(mp->date);
+	if(remote)
+		r = Bprint(fp, "From %s %s remote from %s\n", s_to_c(sender), date, remote);
+	else
+		r = Bprint(fp, "From %s %s\n", s_to_c(sender), date);
 	s_free(sender);
+	if(r < 0)
+		return -1;
 	if(!rmail && !mp->havedate){
 		/* add a date: line Date: Sun, 19 Apr 1998 12:27:52 -0400 */
-		date = s_copy(s_to_c(mp->date));
-		n = getfields(s_to_c(date), f, 6, 1, " \t");
+		d = strdup(date);
+		n = getfields(date, f, 6, 1, " \t");
 		if(n == 6)
 			Bprint(fp, "Date: %s, %s %s %s %s %s\n", f[0], f[2], f[1],
 			 f[5], f[3], rewritezone(f[4]));
+		free(d);
 	}
 	if(!rmail && !mp->havemime && isutf8(mp->body))
 		printutf8mime(fp);
@@ -559,13 +540,13 @@ m_print(message *mp, Biobuf *fp, char *remote, int mbox)
 				return -1;
 	}
 
-	if (!mbox)
+	if(!mbox)
 		return m_noescape(mp, fp);
 	return m_escape(mp, fp);
 }
 
 /* print just the message body */
-extern int
+int
 m_bprint(message *mp, Biobuf *fp)
 {
 	return m_noescape(mp, fp);

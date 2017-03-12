@@ -1,11 +1,8 @@
 #include "common.h"
 #include "send.h"
 
-/* configuration */
-#define LOGBiobuf "log/status"
-
 /* log mail delivery */
-extern void
+void
 logdelivery(dest *list, char *rcvr, message *mp)
 {
 	dest *parent;
@@ -29,7 +26,7 @@ logdelivery(dest *list, char *rcvr, message *mp)
 }
 
 /* log mail forwarding */
-extern void
+void
 loglist(dest *list, message *mp, char *tag)
 {
 	dest *next;
@@ -57,7 +54,7 @@ loglist(dest *list, message *mp, char *tag)
 }
 
 /* log a mail refusal */
-extern void
+void
 logrefusal(dest *dp, message *mp, char *msg)
 {
 	char buf[2048];
@@ -67,7 +64,7 @@ logrefusal(dest *dp, message *mp, char *msg)
 	srcvr = unescapespecial(s_clone(dp->addr));
 	sender = unescapespecial(s_clone(mp->sender));
 
-	sprint(buf, "error %.256s From %.256s %.256s\nerror+ ", s_to_c(srcvr),
+	snprint(buf, sizeof buf, "error %.256s From %.256s %.256s\nerror+ ", s_to_c(srcvr),
 		s_to_c(sender), s_to_c(mp->date));
 	s_free(srcvr);
 	s_free(sender);

@@ -20,7 +20,7 @@ pop3, imap4d \- Internet mail servers
 .B -p
 ]
 .PP
-.B ip/imap4d
+.B upas/imap4d
 .RB [ -acpv ]
 .RB [ -d
 .IR smtpdomain ]
@@ -142,7 +142,7 @@ debugging output
 .SH SOURCE
 .B /sys/src/cmd/upas/pop3
 .br
-.B /sys/src/cmd/ip/imap4d
+.B /sys/src/cmd/upas/imap4d
 .SH "SEE ALSO"
 .IR aliasmail (8),
 .IR faces (1),

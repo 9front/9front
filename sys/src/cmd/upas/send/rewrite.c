@@ -1,5 +1,6 @@
 #include "common.h"
 #include "send.h"
+#include <regexp.h>
 
 extern int debug;
 
@@ -32,7 +33,7 @@ static rule *findrule(String *, int);
  *  Get the next token from `line'.  The symbol `\l' is replaced by
  *  the name of the local system.
  */
-extern String *
+String*
 rule_parse(String *line, char *system, int *backl)
 {
 	String *token;
@@ -80,10 +81,8 @@ getrule(String *line, String *type, char *system)
 	if(re == 0)
 		return 0;
 	rp = (rule *)malloc(sizeof(rule));
-	if(rp == 0) {
-		perror("getrules:");
-		exit(1);
-	}
+	if(rp == 0)
+		sysfatal("malloc: %r");
 	rp->next = 0;
 	s_tolower(re);
 	rp->matchre = s_new();
@@ -123,16 +122,15 @@ getrule(String *line, String *type, char *system)
  *  rules are of the form:
  *	<reg exp> <String> <repl exp> [<repl exp>]
  */
-extern int
+int
 getrules(void)
 {
-	Biobuf	*rfp;
-	String	*line;
-	String	*type;
-	String	*file;
+	char file[Pathlen];
+	Biobuf *rfp;
+	String *line, *type;
 
-	file = abspath("rewrite", UPASLIB, (String *)0);
-	rfp = sysopen(s_to_c(file), "r", 0);
+	snprint(file, sizeof file, "%s/rewrite", UPASLIB);
+	rfp = sysopen(file, "r", 0);
 	if(rfp == 0) {
 		rulep = 0;
 		return -1;
@@ -145,7 +143,6 @@ getrules(void)
 			getrule(s_restart(line), type, altthissys);
 	s_free(type);
 	s_free(line);
-	s_free(file);
 	sysclose(rfp);
 	return 0;
 }
@@ -168,8 +165,7 @@ findrule(String *addrp, int authorized)
 			continue;
 		memset(rp->subexp, 0, sizeof(rp->subexp));
 		if(debug)
-			fprint(2, "matching %s against %s\n", s_to_c(addrp),
-				rp->matchre->base);
+			fprint(2, "matching %s aginst %s\n", s_to_c(addrp), rp->matchre->base);
 		if(regexec(rp->program, s_to_c(addrp), rp->subexp, NSUBEXP))
 		if(s_to_c(addrp) == rp->subexp[0].sp)
 		if((s_to_c(addrp) + strlen(s_to_c(addrp))) == rp->subexp[0].ep)
@@ -183,7 +179,7 @@ findrule(String *addrp, int authorized)
  *		 0 ifaddress matched and ok to forward
  *		 1 ifaddress matched and not ok to forward
  */
-extern int
+int
 rewrite(dest *dp, message *mp)
 {
 	rule *rp;		/* rewriting rule */
@@ -279,40 +275,39 @@ substitute(String *source, Resub *subexp, message *mp)
 	return s_restart(stp);
 }
 
-extern void
+void
 regerror(char* s)
 {
 	fprint(2, "rewrite: %s\n", s);
 	/* make sure the message is seen locally */
-	syslog(0, "mail", "regexp error in rewrite: %s", s);
+	syslog(0, "mail", "error in rewrite: %s", s);
 }
 
-extern void
-dumprules(void)
-{
-	rule *rp;
-
-	for (rp = rulep; rp != 0; rp = rp->next) {
-		fprint(2, "'%s'", rp->matchre->base);
-		switch (rp->type) {
-		case d_pipe:
-			fprint(2, " |");
-			break;
-		case d_cat:
-			fprint(2, " >>");
-			break;
-		case d_alias:
-			fprint(2, " alias");
-			break;
-		case d_translate:
-			fprint(2, " translate");
-			break;
-		default:
-			fprint(2, " UNKNOWN");
-			break;
-		}
-		fprint(2, " '%s'", rp->repl1 ? rp->repl1->base:"...");
-		fprint(2, " '%s'\n", rp->repl2 ? rp->repl2->base:"...");
-	}
-}
-
+//void
+//dumprules(void)
+//{
+//	rule *rp;
+//
+//	for (rp = rulep; rp != 0; rp = rp->next) {
+//		fprint(2, "'%s'", rp->matchre->base);
+//		switch (rp->type) {
+//		case d_pipe:
+//			fprint(2, " |");
+//			break;
+//		case d_cat:
+//			fprint(2, " >>");
+//			break;
+//		case d_alias:
+//			fprint(2, " alias");
+//			break;
+//		case d_translate:
+//			fprint(2, " translate");
+//			break;
+//		default:
+//			fprint(2, " UNKNOWN");
+//			break;
+//		}
+//		fprint(2, " '%s'", rp->repl1 ? rp->repl1->base:"...");
+//		fprint(2, " '%s'\n", rp->repl2 ? rp->repl2->base:"...");
+//	}
+//}

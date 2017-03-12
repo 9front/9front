@@ -53,7 +53,7 @@ onwhitelist(void)
 
 	wl = Bopen(whitelist, OREAD);
 	if (wl == nil)
-		return 1;
+		return 0;
 	while ((line = Brdline(wl, '\n')) != nil) {
 		lnlen = Blinelen(wl);
 		line[lnlen-1] = '\0';		/* clobber newline */

@@ -1,11 +1,5 @@
-/*
- * these limits are intended to stay within those imposed by SMTP
- * and avoid tickling bugs in other mail systems.
- * they both pertain to attempts to group recipients for the same
- * destination together in a single copy of a message.
- */
-#define MAXSAME 32	/* max recipients; was 16 */
-#define MAXSAMECHAR 1024 /* max chars in the list of recipients */
+#define MAXSAME 16
+#define MAXSAMECHAR 1024
 
 /* status of a destination*/
 typedef enum {
@@ -47,43 +41,35 @@ struct message {
 	String	*replyaddr;
 	String	*date;
 	String	*body;
-	String	*tmp;		/* name of temp file */
 	String	*to;
 	int	size;
 	int	fd;		/* if >= 0, the file the message is stored in*/
-	char	haveto;
 	String	*havefrom;
 	String	*havesender;
 	String	*havereplyto;
 	char	havedate;
 	char	havemime;
 	String	*havesubject;
-	char	bulk;		/* if Precedence: Bulk in header */
 	char	rfc822headers;
-	int	received;	/* number of received lines */
 	char	*boundary;	/* bondary marker for attachments */
+	char	haveto;
+	char	bulk;		/* if Precedence: Bulk in header */
+	char	received;	/* number of received lines */
 };
 
-/*
- *  exported variables
- */
-extern int rmail;
-extern int onatty;
-extern char *thissys, *altthissys;
-extern int xflg;
-extern int nflg;
-extern int tflg;
-extern int debug;
-extern int nosummary;
+extern	int	rmail;
+extern	int	onatty;
+extern	char	*thissys;
+extern	char	*altthissys;
+extern	int	debug;
+extern	int	nosummary;
+extern	int	flagn;
+extern	int	flagx;
 
-/*
- *  exported procedures
- */
 extern void	authorize(dest*);
 extern int	cat_mail(dest*, message*);
 extern dest	*up_bind(dest*, message*, int);
 extern int	ok_to_forward(char*);
-extern int	lookup(char*, char*, Biobuf**, char*, Biobuf**);
 extern dest	*d_new(String*);
 extern void	d_free(dest*);
 extern dest	*d_rm(dest**);
@@ -101,7 +87,7 @@ extern int	default_from(message*);
 extern message	*m_new(void);
 extern void	m_free(message*);
 extern message	*m_read(Biobuf*, int, int);
-extern int	m_get(message*, long, char**);
+extern int	m_get(message*, vlong, char**);
 extern int	m_print(message*, Biobuf*, char*, int);
 extern int	m_bprint(message*, Biobuf*);
 extern String	*rule_parse(String*, char*, int*);

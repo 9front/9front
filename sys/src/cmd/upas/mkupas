@@ -1,0 +1,5 @@
+BIN=/$objtype/bin/upas
+ABIN=/acme/bin/$objtype
+
+../common/libcommon.a$O:
+	cd ../common; mk; mk clean

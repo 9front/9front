@@ -1,36 +1,58 @@
 #include "common.h"
 #include "send.h"
+#include <regexp.h>
 
 Biobuf	bin;
-int rmail, tflg;
-char *subjectarg;
+int	flagn;
+int	flagx;
+int	rmail;
+int	tflg;
+char	*subjectarg;
 
-char *findbody(char*);
+char*
+findbody(char *p)
+{
+	if(*p == '\n')
+		return p;
+
+	while(*p){
+		if(*p == '\n' && *(p+1) == '\n')
+			return p+1;
+		p++;
+	}
+	return p;
+}
+
+int
+refuse(dest*, message *, char *cp, int, int)
+{
+	fprint(2, "%s", cp);
+	exits("error");
+	return 0;
+}
 
 void
 usage(void)
 {
-	fprint(2, "usage: upas/filter [-bh] rcvr mailbox [regexp file] ...\n");
+	fprint(2, "usage: upas/filter [-nbh] rcvr mailbox [regexp file] ...\n");
 	exits("usage");
 }
 
 void
 main(int argc, char *argv[])
 {
+	char *cp, file[Pathlen];
+	int i, header, body;
 	message *mp;
 	dest *dp;
 	Reprog *p;
 	Resub match[10];
-	char file[MAXPATHLEN];
-	Biobuf *fp;
-	char *rcvr, *cp;
-	Mlock *l;
-	String *tmp;
-	int i;
-	int header, body;
 
 	header = body = 0;
 	ARGBEGIN {
+	case 'n':
+		flagn = 1;
+		break;
 	case 'h':
 		header = 1;
 		break;
@@ -54,7 +76,6 @@ main(int argc, char *argv[])
 		mp->sender = s_copy(cp);
 	}
 
-	dp = d_new(s_copy(argv[0]));
 	strecpy(file, file+sizeof file, argv[1]);
 	cp = findbody(s_to_c(mp->body));
 	for(i = 2; i < argc; i += 2){
@@ -74,62 +95,9 @@ main(int argc, char *argv[])
 			break;
 		}
 	}
-
-	/*
-	 *  always lock the normal mail file to avoid too many lock files
-	 *  lying about.  This isn't right but it's what the majority prefers.
-	 */
-	l = syslock(argv[1]);
-	if(l == 0){
-		fprint(2, "can't lock mail file %s\n", argv[1]);
-		exit(1);
-	}
-
-	/*
-	 *  open the destination mail file
-	 */
-	fp = sysopen(file, "ca", MBOXMODE);
-	if (fp == 0){
-		tmp = s_append(0, file);
-		s_append(tmp, ".tmp");
-		fp = sysopen(s_to_c(tmp), "cal", MBOXMODE);
-		if(fp == 0){
-			sysunlock(l);
-			fprint(2, "can't open mail file %s\n", file);
-			exit(1);
-		}
-		syslog(0, "mail", "error: used %s", s_to_c(tmp));
-		s_free(tmp);
-	}
-	Bseek(fp, 0, 2);
-	if(m_print(mp, fp, (char *)0, 1) < 0
-	|| Bprint(fp, "\n") < 0
-	|| Bflush(fp) < 0){
-		sysclose(fp);
-		sysunlock(l);
-		fprint(2, "can't write mail file %s\n", file);
-		exit(1);
-	}
-	sysclose(fp);
-
-	sysunlock(l);
-	rcvr = argv[0];
-	if(cp = strrchr(rcvr, '!'))
-		rcvr = cp+1;
-	logdelivery(dp, rcvr, mp);
-	exit(0);
-}
-
-char*
-findbody(char *p)
-{
-	if(*p == '\n')
-		return p;
-
-	while(*p){
-		if(*p == '\n' && *(p+1) == '\n')
-			return p+1;
-		p++;
-	}
-	return p;
+	dp = d_new(s_copy(argv[0]));
+	dp->repl1 = s_copy(file);
+	if(cat_mail(dp, mp) != 0)
+		exits("fail");
+	exits("");
 }

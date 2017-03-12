@@ -5,28 +5,30 @@
  *  local ones.
  */
 
-/* predeclared */
-static String	*getdbfiles(void);
-static int	translate(char*, char**, String*, String*);
-static int	lookup(String**, String*, String*);
-static int	compare(String*, char*);
-static char*	mklower(char*);
+static	String	*getdbfiles(void);
+static	int	translate(char*, char**, String*, String*);
+static	int	lookup(String**, String*, String*);
+static	char	*mklower(char*);
 
-static int debug;
-static int from;
-static char *namefiles = "namefiles";
-#define DEBUG if(debug)
+static	int	debug;
+static	int	from;
+static	char	*namefiles = "namefiles";
 
-/* loop through the names to be translated */
+#define dprint(...) if(debug)fprint(2, __VA_ARGS__); else {}
+
+void
+usage(void)
+{
+	fprint(2, "usage: aliasmail [-df] [-n namefile] [names ...]\n");
+	exits("usage");
+}
+
 void
 main(int argc, char *argv[])
 {
-	String *s;
-	String *alias;		/* the alias for the name */
-	char **names;		/* names of this system */
-	String *files;		/* list of files to search */
+	char *alias, **names, *p;		/* names of this system */
 	int i, rv;
-	char *p;
+	String *s, *salias, *files;
 
 	ARGBEGIN {
 	case 'd':
@@ -36,50 +38,46 @@ main(int argc, char *argv[])
 		from = 1;
 		break;
 	case 'n':
-		namefiles = ARGF();
+		namefiles = EARGF(usage());
 		break;
+	default:
+		usage();
 	} ARGEND
-	if (chdir(UPASLIB) < 0) {
-		perror("translate(chdir):");
-		exit(1);
-	}
+	if (chdir(UPASLIB) < 0)
+		sysfatal("chdir: %r");
 
-	/* get environmental info */
 	names = sysnames_read();
 	files = getdbfiles();
-	alias = s_new();
+	salias = s_new();
 
 	/* loop through the names to be translated (from standard input) */
 	for(i=0; i<argc; i++) {
 		s = unescapespecial(s_copy(mklower(argv[i])));
 		if(strchr(s_to_c(s), '!') == 0)
-			rv = translate(s_to_c(s), names, files, alias);
+			rv = translate(s_to_c(s), names, files, salias);
 		else
 			rv = -1;
+		alias = s_to_c(salias);
 		if(from){
-			if (rv >= 0 && *s_to_c(alias) != '\0'){
-				p = strchr(s_to_c(alias), '\n');
-				if(p)
+			if (rv >= 0 && *alias != '\0'){
+				if(p = strchr(alias, '\n'))
 					*p = 0;
-				p = strchr(s_to_c(alias), '!');
-				if(p) {
+				if(p = strchr(alias, '!')) {
 					*p = 0;
-					print("%s", s_to_c(alias));
+					print("%s", alias);
 				} else {
-					p = strchr(s_to_c(alias), '@');
-					if(p)
+					if(p = strchr(alias, '@'))
 						print("%s", p+1);
 					else
-						print("%s", s_to_c(alias));
+						print("%s", alias);
 				}
 			}
 		} else {
-			if (rv < 0 || *s_to_c(alias) == '\0')
+			if (rv < 0 || *alias == '\0')
 				print("local!%s\n", s_to_c(s));
-			else {
+			else
 				/* this must be a write, not a print */
-				write(1, s_to_c(alias), strlen(s_to_c(alias)));
-			}
+				write(1, alias, strlen(alias));
 		}
 		s_free(s);
 	}
@@ -90,9 +88,9 @@ main(int argc, char *argv[])
 static String *
 getdbfiles(void)
 {
-	Sinstack *sp;
-	String *files = s_new();
 	char *nf;
+	Sinstack *sp;
+	String *files;
 
 	if(from)
 		nf = "fromfiles";
@@ -100,37 +98,34 @@ getdbfiles(void)
 		nf = namefiles;
 
 	/* system wide aliases */
+	files = s_new();
 	if ((sp = s_allocinstack(nf)) != 0){
 		while(s_rdinstack(sp, files))
 			s_append(files, " ");
 		s_freeinstack(sp);
 	}
 
-
-	DEBUG print("files are %s\n", s_to_c(files));
-
+	dprint("files are %s\n", s_to_c(files));
 	return files;
 }
 
 /* loop through the translation files */
 static int
-translate(char *name,		/* name to translate */
-	char **namev,		/* names of this system */
-	String *files,		/* names of system alias files */
-	String *alias)		/* where to put the alias */
+translate(char *name, char **namev,	String *files, String *alias)
 {
-	String *file = s_new();
-	String **fullnamev;
 	int n, rv;
+	String *file, **fullnamev;
 
 	rv = -1;
+	file = s_new();
 
-	DEBUG print("translate(%s, %s, %s)\n", name,
+	dprint("translate(%s, %s, %s)\n", name,
 		s_to_c(files), s_to_c(alias));
 
 	/* create the full name to avoid loops (system!name) */
 	for(n = 0; namev[n]; n++)
 		;
+
 	fullnamev = (String**)malloc(sizeof(String*)*(n+2));
 	n = 0;
 	fullnamev[n++] = s_copy(name);
@@ -144,12 +139,11 @@ translate(char *name,		/* name to translate */
 
 	/* look at system-wide names */
 	s_restart(files);
-	while (s_parse(files, s_restart(file)) != 0) {
+	while (s_parse(files, s_restart(file)) != 0)
 		if (lookup(fullnamev, file, alias)==0) {
 			rv = 0;
 			goto out;
 		}
-	}
 
 out:
 	for(n = 0; fullnamev[n]; n++)
@@ -183,29 +177,30 @@ attobang(String *token)
 /*  Loop through the entries in a translation file looking for a match.
  *  Return 0 if found, -1 otherwise.
  */
+#define compare(a, b) cistrcmp(s_to_c(a), b)
+
 static int
-lookup(
-	String **namev,
-	String *file,
-	String *alias)	/* returned String */
+lookup(String **namev, String *file, String *alias)
 {
-	String *line = s_new();
-	String *token = s_new();
-	String *bangtoken;
-	int i, rv = -1;
-	char *name =  s_to_c(namev[0]);
+	char *name;
+	int i, rv;
+	String *line, *token, *bangtoken;
 	Sinstack *sp;
 
-	DEBUG print("lookup(%s, %s, %s, %s)\n", s_to_c(namev[0]), s_to_c(namev[1]),
+	dprint("lookup(%s, %s, %s, %s)\n", s_to_c(namev[0]), s_to_c(namev[1]),
 		s_to_c(file), s_to_c(alias));
 
+	rv = -1;
+	name = s_to_c(namev[0]);
+	line = s_new();
+	token = s_new();
 	s_reset(alias);
 	if ((sp = s_allocinstack(s_to_c(file))) == 0)
 		return -1;
 
 	/* look for a match */
 	while (s_rdinstack(sp, s_restart(line))!=0) {
-		DEBUG print("line is %s\n", s_to_c(line));
+		dprint("line is %s\n", s_to_c(line));
 		s_restart(token);
 		if (s_parse(s_restart(line), token)==0)
 			continue;
@@ -247,35 +242,13 @@ lookup(
 	return rv;
 }
 
-#define lower(c) ((c)>='A' && (c)<='Z' ? (c)-('A'-'a'):(c))
-
-/* compare two Strings (case insensitive) */
-static int
-compare(String *s1,
-	char *p2)
-{
-	char *p1 = s_to_c(s1);
-	int rv;
-
-	DEBUG print("comparing %s to %s\n", p1, p2);
-	while((rv = lower(*p1) - lower(*p2)) == 0) {
-		if (*p1 == '\0')
-			break;
-		p1++;
-		p2++;
-	}
-	return rv;
-}
-
 static char*
 mklower(char *name)
 {
-	char *p;
-	char c;
+	char c, *p;
 
-	for(p = name; *p; p++){
-		c = *p;
-		*p = lower(c);
-	}
+	for(p = name; c = *p; p++)
+		if(c >= 'A' && c <= 'Z')
+			*p = c + 0x20;
 	return name;
 }

@@ -11,7 +11,7 @@ translate(dest *dp)
 	char *cp;
 	int n;
 
-	pp = proc_start(s_to_c(dp->repl1), (stream *)0, outstream(), outstream(), 1, 0);
+	pp = proc_start(s_to_c(dp->repl1), 0, outstream(), outstream(), 1, 0);
 	if (pp == 0) {
 		dp->status = d_resource;
 		return 0;

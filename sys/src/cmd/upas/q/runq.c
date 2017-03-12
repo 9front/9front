@@ -136,7 +136,7 @@ emptydir(char *name)
 		if(debug)
 			fprint(2, "removing directory %s\n", name);
 		syslog(0, runqlog, "rmdir %s", name);
-		sysremove(name);
+		remove(name);
 		return 1;
 	}
 	return 0;
@@ -184,7 +184,7 @@ doalldirs(void)
 		warning("reading %s", root);
 		return;
 	}
-	n = sysdirreadall(fd, &db);
+	n = dirreadall(fd, &db);
 	if(n > 0){
 		for(i=0; i<n; i++){
 			if(db[i].qid.type & QTDIR){
@@ -245,7 +245,7 @@ rundir(char *name)
 		warning("reading %s", name);
 		return;
 	}
-	nfiles = sysdirreadall(fd, &dirbuf);
+	nfiles = dirreadall(fd, &dirbuf);
 	if(nfiles > 0){
 		for(i=0; i<nfiles; i++){
 			if(dirbuf[i].name[0]!='C' || dirbuf[i].name[1]!='.')
@@ -272,13 +272,13 @@ remmatch(char *name)
 
 	for(i=0; i<nfiles; i++){
 		if(strcmp(&dirbuf[i].name[1], &name[1]) == 0)
-			sysremove(dirbuf[i].name);
+			remove(dirbuf[i].name);
 	}
 
 	/* error file (may have) appeared after we read the directory */
 	/* stomp on data file in case of phase error */
-	sysremove(file(name, 'D'));
-	sysremove(file(name, 'E'));
+	remove(file(name, 'D'));
+	remove(file(name, 'E'));
 }
 
 /*
@@ -295,8 +295,7 @@ keeplockalive(char *path, int fd)
 	if(l == 0)
 		return 0;
 	l->fd = fd;
-	l->name = s_new();
-	s_append(l->name, path);
+	snprint(l->name, sizeof l->name, "%s", path);
 
 	/* fork process to keep lock alive until sysunlock(l) */
 	switch(l->pid = rfork(RFPROC)){
@@ -356,11 +355,7 @@ dofile(Dir *dp)
 	if(!Eflag && (d = dirstat(file(dp->name, 'E'))) != nil){
 		etime = d->mtime;
 		free(d);
-		if(etime - dtime < 15*60){
-			/* up to the first 15 minutes, every 30 seconds */
-			if(time(0) - etime < 30)
-				return;
-		} else if(etime - dtime < 60*60){
+		if(etime - dtime < 60*60){
 			/* up to the first hour, try every 15 minutes */
 			if(time(0) - etime < 15*60)
 				return;
@@ -517,11 +512,7 @@ dofile(Dir *dp)
 		if(wm->msg[0]){
 			if(debug)
 				fprint(2, "[%d] wm->msg == %s\n", getpid(), wm->msg);
-			syslog(0, runqlog, "message: %s", wm->msg);
-			if(strstr(wm->msg, "Ignore") != nil){
-				/* fix for fish/chips, leave message alone */
-				logit("ignoring", dp->name, av);
-			}else if(!Rflag && strstr(wm->msg, "Retry")==0){
+			if(!Rflag && strstr(wm->msg, "Retry")==0){
 				/* return the message and remove it */
 				if(returnmail(av, dp->name, wm->msg) != 0)
 					logit("returnmail failed", dp->name, av);
@@ -572,15 +563,11 @@ file(char *name, char type)
 int
 returnmail(char **av, char *name, char *msg)
 {
-	int pfd[2];
-	Waitmsg *wm;
-	int fd;
-	char buf[256];
-	char attachment[256];
-	int i;
+	char buf[256], attachment[Pathlen], *sender;
+	int i, fd, pfd[2];
 	long n;
+	Waitmsg *wm;
 	String *s;
-	char *sender;
 
 	if(av[1] == 0 || av[2] == 0){
 		logit("runq - dumping bad file", name, av);
@@ -665,7 +652,7 @@ out:
 void
 warning(char *f, void *a)
 {
-	char err[65];
+	char err[ERRMAX];
 	char buf[256];
 
 	rerrstr(err, sizeof(err));
@@ -679,7 +666,7 @@ warning(char *f, void *a)
 void
 error(char *f, void *a)
 {
-	char err[Errlen];
+	char err[ERRMAX];
 	char buf[256];
 
 	rerrstr(err, sizeof(err));

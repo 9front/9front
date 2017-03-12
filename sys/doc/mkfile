@@ -40,6 +40,7 @@ ALL=\
 	spin\
 	port\
 	colophon\
+	nupas/nupas\
 
 ALLPS=${ALL:%=%.ps}
 HTML=${ALL:%=%.html} release3.html release4.html

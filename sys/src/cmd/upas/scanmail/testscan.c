@@ -1,4 +1,5 @@
-#include "sys.h"
+#include "common.h"
+#include <regexp.h>
 #include "spam.h"
 
 int 	debug;
@@ -13,7 +14,7 @@ int	matchaction(Patterns*, char*);
 void
 usage(void)
 {
-	fprint(2, "missing or bad arguments to qer\n");
+	fprint(2, "usage: testscan -avd [-p pattern] ...\n");
 	exits("usage");
 }
 
@@ -23,10 +24,9 @@ Malloc(long n)
 	void *p;
 
 	p = malloc(n);
-	if(p == 0){
-		fprint(2, "malloc error");
-		exits("malloc");
-	}
+	if(p == nil)
+		sysfatal("malloc: %r");
+	setmalloctag(p, getcallerpc(&n));
 	return p;
 }
 
@@ -34,10 +34,9 @@ void*
 Realloc(void *p, ulong n)
 {
 	p = realloc(p, n);
-	if(p == 0){
-		fprint(2, "realloc error");
-		exits("realloc");
-	}
+	if(p == nil)
+		sysfatal("malloc: %r");
+	setrealloctag(p, getcallerpc(&p));
 	return p;
 }
 
@@ -79,7 +78,7 @@ main(int argc, char *argv[])
 	char body[Bodysize+2], *raw, *ret;
 	Biobuf *bp;
 
-	sprint(patfile, "%s/patterns", UPASLIB);
+	snprint(patfile, sizeof patfile, "%s/patterns", UPASLIB);
 	aflag = -1;
 	vflag = 0;
 	ARGBEGIN {
@@ -93,7 +92,7 @@ main(int argc, char *argv[])
 		debug++;
 		break;
 	case 'p':
-		strcpy(patfile,ARGF());
+		snprint(patfile, sizeof patfile, "%s", EARGF(usage()));
 		break;
 	} ARGEND
 

@@ -1,4 +1,5 @@
 </$objtype/mkfile
+<../mkupas
 
 TARG = qer\
 	runq\
@@ -9,8 +10,6 @@ HFILES=../common/common.h\
 	../common/sys.h\
 
 LIB=../common/libcommon.a$O\
-
-BIN=/$objtype/bin/upas
 
 UPDATE=\
 	mkfile\

@@ -1,10 +1,10 @@
 </$objtype/mkfile
+<../mkupas
 
 TARG=pop3
 
 OFILES=pop3.$O
 
-BIN=/$objtype/bin/upas
 LIB=../common/libcommon.a$O
 
 UPDATE=\

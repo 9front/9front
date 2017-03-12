@@ -96,6 +96,7 @@ main(int argc, char **argv)
 	int fd;
 	char *arg, cmdbuf[1024];
 	Cmd *c;
+	NetConnInfo *n;
 
 	rfork(RFNAMEG);
 	Binit(&in, 0, OREAD);
@@ -114,9 +115,6 @@ main(int argc, char **argv)
 			close(fd);
 		}
 		break;
-	case 'p':
-		passwordinclear = 1;
-		break;
 	case 'r':
 		strecpy(tmpaddr, tmpaddr+sizeof tmpaddr, EARGF(usage()));
 		if(arg = strchr(tmpaddr, '!'))
@@ -130,11 +128,17 @@ main(int argc, char **argv)
 			exits(nil);
 		}
 		break;
+	case 'p':
+		passwordinclear = 1;
+		break;
 	}ARGEND
 
 	/* do before TLS */
 	if(peeraddr == nil)
-		peeraddr = remoteaddr(0,0);
+	if(n = getnetconninfo(0, 0)){
+		peeraddr = strdup(n->rsys);
+		freenetconninfo(n);
+	}
 
 	hello();
 
@@ -167,7 +171,7 @@ static int
 readmbox(char *box)
 {
 	int fd, i, n, nd, lines, pid;
-	char buf[100], err[Errlen];
+	char buf[100], err[ERRMAX];
 	char *p;
 	Biobuf *b;
 	Dir *d, *draw;
@@ -245,9 +249,8 @@ readmbox(char *box)
 		for(;;){
 			p = Brdline(b, '\n');
 			if(p == nil){
-				if((n = Blinelen(b)) == 0)
+				if(Blinelen(b) == 0)
 					break;
-				Bseek(b, n, 1);
 			}else
 				lines++;
 		}
@@ -434,9 +437,8 @@ listcmd(char *arg)
 }
 
 static int
-noopcmd(char *arg)
+noopcmd(char*)
 {
-	USED(arg);
 	sendok("");
 	return 0;
 }
@@ -551,31 +553,27 @@ trace(char *fmt, ...)
 static int
 stlscmd(char*)
 {
-	TLSconn conn;
 	int fd;
+	TLSconn conn;
 
 	if(didtls)
 		return senderr("tls already started");
 	if(!tlscert)
 		return senderr("don't have any tls credentials");
-	memset(&conn, 0, sizeof conn);
-	conn.certlen = ntlscert;
-	conn.cert = malloc(ntlscert);
-	if(conn.cert == nil)
-		return senderr("out of memory");
-	memmove(conn.cert, tlscert, ntlscert);
-	if(debug)
-		conn.trace = trace;
 	sendok("");
 	Bflush(&out);
+
+	memset(&conn, 0, sizeof conn);
+	conn.cert = tlscert;
+	conn.certlen = ntlscert;
+	if(debug)
+		conn.trace = trace;
 	fd = tlsServer(0, &conn);
 	if(fd < 0)
 		sysfatal("tlsServer: %r");
 	dup(fd, 0);
 	dup(fd, 1);
 	close(fd);
-	free(conn.cert);
-	free(conn.sessionID);
 	Binit(&in, 0, OREAD);
 	Binit(&out, 1, OWRITE);
 	didtls = 1;
@@ -665,9 +663,9 @@ nextarg(char *p)
  * authentication
  */
 Chalstate *chs;
-char user[256];
-char box[256];
-char cbox[256];
+char user[Pathlen];
+char box[Pathlen];
+char cbox[Pathlen];
 
 static void
 hello(void)
@@ -686,6 +684,7 @@ setuser(char *arg)
 {
 	char *p;
 
+	*user = 0;
 	strcpy(box, "/mail/box/");
 	strecpy(box+strlen(box), box+sizeof box-7, arg);
 	strcpy(cbox, box);
@@ -707,8 +706,11 @@ usercmd(char *arg)
 		return senderr("already authenticated");
 	if(*arg == 0)
 		return senderr("USER requires argument");
-	if(setuser(arg) < 0)
-		return -1;
+	if(setuser(arg) < 0){
+		sleep(15*1000);
+		senderr("you are not expected to understand this");	/* pop3 attack. */
+		exits("");
+	}
 	return sendok("");
 }
 
@@ -728,7 +730,7 @@ enableaddr(void)
 	 * if the address is already there and the user owns it,
 	 * remove it and recreate it to give him a new time quanta.
 	 */
-	if(access(buf, 0) >= 0  && remove(buf) < 0)
+	if(access(buf, 0) >= 0 && remove(buf) < 0)
 		return;
 
 	fd = create(buf, OREAD, 0666);
@@ -776,7 +778,7 @@ dologin(char *response)
 		senderr("newns failed: %r; server exiting");
 		exits(nil);
 	}
-	syslog(0, "pop3", "user %s logged in", user);
+
 	enableaddr();
 	if(readmbox(box) < 0)
 		exits(nil);
@@ -789,6 +791,12 @@ passcmd(char *arg)
 	DigestState *s;
 	uchar digest[MD5dlen];
 	char response[2*MD5dlen+1];
+
+	if(*user == 0){
+		senderr("inscrutable phase error");	// pop3 attack.
+		sleep(15*1000);
+		exits("");
+	}
 
 	if(passwordinclear==0 && didtls==0)
 		return senderr("password in the clear disallowed");
@@ -810,8 +818,11 @@ apopcmd(char *arg)
 	char *resp;
 
 	resp = nextarg(arg);
-	if(setuser(arg) < 0)
-		return -1;
+	if(setuser(arg) < 0){
+		senderr("i before e except after c");	// pop3 attack.
+		sleep(15*1000);
+		exits("");
+	}
 	return dologin(resp);
 }
 

@@ -6,11 +6,10 @@
  *  become powerless user
  */
 int
-become(char **cmd, char *who)
+become(char **, char *who)
 {
 	int fd;
 
-	USED(cmd);
 	if(strcmp(who, "none") == 0) {
 		fd = open("#c/user", OWRITE);
 		if(fd < 0 || write(fd, "none", strlen("none")) < 0) {

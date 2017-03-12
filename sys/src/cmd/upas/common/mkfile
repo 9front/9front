@@ -1,13 +1,17 @@
 </$objtype/mkfile
+<../mkupas
 
 LIB=libcommon.a$O
-OFILES=aux.$O\
+OFILES=\
+	aux.$O\
 	become.$O\
-	mail.$O\
-	process.$O\
-	libsys.$O\
 	config.$O\
-	appendfiletombox.$O\
+	folder.$O\
+	flags.$O\
+	fmt.$O\
+	libsys.$O\
+	process.$O\
+	totm.$O\
 
 HFILES=common.h\
 	sys.h\
@@ -18,3 +22,7 @@ UPDATE=\
 	$HFILES\
 
 </sys/src/cmd/mklib
+
+nuke:V:
+	mk clean
+	rm -f libcommon.a[$OS]

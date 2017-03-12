@@ -22,6 +22,8 @@ main(int argc, char **argv)
 	char *listname;
 
 	ARGBEGIN{
+	default:
+		usage();
 	}ARGEND;
 
 	rfork(RFENVG|RFREND);
