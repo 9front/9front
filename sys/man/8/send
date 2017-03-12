@@ -44,8 +44,10 @@ is remote, it queues the mail for remote delivery.
 .IP \(bu
 If the
 .B -r
-option is given and the mail is undeliverable, it
-returns the mail to the sender.
+option is given and the mail is undeliverable,
+the message
+.B "mail rejected:"
+is printed on standard error, setting exit status.
 .IP \(bu
 if the
 .B -r
