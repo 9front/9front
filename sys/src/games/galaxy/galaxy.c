@@ -357,13 +357,13 @@ dozoom(void)
 	setcursor(mc, &zoomcursor);
 	oxy = mc->xy;
 	oscale = scale;
+	sc = screencenter();
 	for(;;) {
 		readmouse(mc);
 		if(mc->buttons != 2)
 			break;
 		d = subpt(mc->xy, oxy);
 		z = tanh((double)d.y/200) + 1;
-		sc = screencenter();
 		gsc = tovector(sc);
 		pause(0, 0);
 		scale = z*oscale;
