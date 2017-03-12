@@ -1,0 +1,39 @@
+.TH SPLITMBOX 8
+.SH NAME
+splitmbox \- split a mailbox into mdir format
+.SH SYNOPSIS
+.B splitmbox
+[
+.B -l
+]
+[
+.I mbox
+] 
+.SH DESCRIPTION
+Splitmbox converts a mailbox in mbox format
+into
+.IR mdir (6)
+format.
+.I Mbox
+is the mailbox to convert.
+The default is
+.B /mail/box/\f2user\f5/mbox
+and the temporary destination is
+.BR /mail/box/\f2user\f5/mboxdir .
+.PP
+After conversion, commands are printed
+to remove the old mailbox and replace it
+with the new.  These must be executed by
+hand to complete the conversion.  The
+.B -l
+flag executes these commands rather than
+printing them.
+.SH "SEE ALSO"
+.IR mdir (6),
+.IR pop3 (8)
+.SH BUGS
+Curious manumatic process.
+.PP
+It's imperative that one close all imap
+clients using the old upas system on
+.BR imap.coraid.com .

@@ -1,0 +1,37 @@
+.TH MDIR 6
+.SH NAME
+mdir \- mail directory format
+.SH SYNOPSIS
+The
+.I mdir
+format is used by Upas as a replacement
+for tradition mailbox format.  An
+.I mdir
+mailbox is a directory containing any
+number of messages stored one message
+per file.  Individual messages are stored
+in the same format they would be in a
+traditional mailbox; each message is a
+valid mailbox with a single message.
+The message files are named with the
+UNIX seconds corresponding to the date
+on the
+.LR From 
+line, a “.” separator and a two digit
+sequence starting with
+.LR 00 .
+.PP
+One
+.I mdir
+may contain other
+.I mdirs
+but (currently) this relationship is in name only.
+The mail box
+.B /mail/box/\f2a\f5
+does not contain any messages from
+.BR /mail/box/\f2a\f5/\f2b\f5 ,
+according to
+.IR upasfs (4).
+.SH "SEE ALSO"
+.IR splitmbox (8),
+.IR upasfs (4)
