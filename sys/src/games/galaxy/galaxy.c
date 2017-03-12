@@ -265,6 +265,7 @@ dobody(void)
 	}
 
 	b = body();
+	b->Vector = tovector(mc->xy);
 	setvel(b);
 	setsize(b);
 	b->col = randcol();
