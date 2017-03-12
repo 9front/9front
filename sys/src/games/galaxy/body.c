@@ -31,14 +31,23 @@ body(void)
 	return b;
 }
 
+Point
+topoint(Vector v)
+{
+	Point p;
+
+	p.x = v.x/scale + orig.x;
+	p.y = v.y/scale + orig.y;
+	return p;
+}
+
 void
 drawbody(Body *b)
 {
 	Point pos, v;
 	int s;
 
-	pos.x = b->x / scale + orig.x;
-	pos.y = b->y / scale + orig.y;
+	pos = topoint(b->Vector);
 	s = b->size/scale;
 	fillellipse(screen, pos, s, s, b->col, ZP);
 	v.x = b->v.x/scale*10;

@@ -55,14 +55,16 @@ Body ZB;
 QB space;
 
 Image *randcol(void);
+Point topoint(Vector);
+Vector tovector(Point);
 
 Body *body(void);
 void drawbody(Body*);
 Vector center(void);
 void glxyinit(void);
+int Bfmt(Fmt*);
 void readglxy(int);
 void writeglxy(int);
-int Bfmt(Fmt*);
 
 void quadcalc(Body*, QB, double);
 int quadins(Body*, double);

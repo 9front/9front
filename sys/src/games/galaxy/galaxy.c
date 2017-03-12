@@ -171,8 +171,7 @@ drawglxy(void)
 
 	draw(screen, screen->r, display->black, 0, ZP);
 	for(b = glxy.a; b < glxy.a + glxy.l; b++) {
-		pos.x = b->x / scale + orig.x;
-		pos.y = b->y / scale + orig.y;
+		pos = topoint(b->Vector);
 		s = b->size/scale;
 		fillellipse(screen, pos, s, s, b->col, ZP);
 		if(showv) {
@@ -198,8 +197,7 @@ setsize(Body *b)
 	Point pos, d;
 	double h;
 
-	pos.x = b->x / scale + orig.x;
-	pos.y = b->y / scale + orig.y;
+	pos = topoint(b->Vector);
 	d = subpt(mc->xy, pos);
 	h = hypot(d.x, d.y);
 	b->size = h == 0 ? scale : h*scale;
@@ -211,18 +209,10 @@ setvel(Body *b)
 {
 	Point pos, d;
 
-	pos.x = b->x / scale + orig.x;
-	pos.y = b->y / scale + orig.y;
+	pos = topoint(b->Vector);
 	d = subpt(mc->xy, pos);
-	b->v.x = (double)d.x*scale/10;
-	b->v.y = (double)d.y*scale/10;
-}
-
-void
-setpos(Body *b)
-{
-	b->x = (mc->xy.x - orig.x) * scale;
-	b->y = (mc->xy.y - orig.y) * scale;
+	b->v.x = d.x*scale/10;
+	b->v.y = d.y*scale/10;
 }
 
 void
@@ -275,7 +265,6 @@ dobody(void)
 	}
 
 	b = body();
-	setpos(b);
 	setvel(b);
 	setsize(b);
 	b->col = randcol();
@@ -290,7 +279,7 @@ dobody(void)
 		else if(mc->buttons == 5)
 			dovel(b);
 		else
-			setpos(b);
+			b->Vector = tovector(mc->xy);
 	}
 
 	CHECKLIM(b, f);
@@ -349,30 +338,41 @@ domove(void)
 	setcursor(mc, cursor);
 }
 
+Point
+screencenter(void)
+{
+	Point sc;
+
+	sc = divpt(subpt(screen->r.max, screen->r.min), 2);
+	return addpt(screen->r.min, sc);
+}
+
 void
 dozoom(void)
 {
-	Point z, d;
-	double f, olds;
+	Point oxy, d, sc, off;
+	Vector gsc;
+	double z, oscale;
 
 	setcursor(mc, &zoomcursor);
-
-	z = mc->xy;
-	olds = scale;
+	oxy = mc->xy;
+	oscale = scale;
 	for(;;) {
 		readmouse(mc);
 		if(mc->buttons != 2)
 			break;
-		d = subpt(mc->xy, z);
-		f = tanh((double)d.y/200) + 1;
+		d = subpt(mc->xy, oxy);
+		z = tanh((double)d.y/200) + 1;
+		sc = screencenter();
+		gsc = tovector(sc);
 		pause(0, 0);
-		scale = f*olds;
+		scale = z*oscale;
+		off = subpt(topoint(gsc), sc);
+		orig = subpt(orig, off);
 		drawglxy();
 		pause(1, 0);
 	}
-
 	setcursor(mc, cursor);
-	pause(1, 0);
 }
 
 void
@@ -579,6 +579,16 @@ Again:
 	}
 }
 
+Vector
+tovector(Point p)
+{
+	Vector v;
+
+	v.x = (p.x-orig.x) * scale;
+	v.y = (p.y-orig.y) * scale;
+	return v;
+}
+
 void
 usage(void)
 {
@@ -632,8 +642,7 @@ threadmain(int argc, char **argv)
 		sysfatal("initmouse failed: %r");
 
 	dt² = dt*dt;
-	orig = divpt(subpt(screen->r.max, screen->r.min), 2);
-	orig = addpt(orig, screen->r.min);
+	orig = screencenter();
 	glxyinit();
 	quadsinit();
 	if(doload)
