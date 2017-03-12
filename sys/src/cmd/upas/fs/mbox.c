@@ -273,9 +273,12 @@ syncallmboxes(void)
 	Mailbox *m;
 
 	qlock(&mbllock);
-	for(m = mbl; m != nil; m = m->next)
+	for(m = mbl; m != nil; m = m->next){
+		qlock(m);
 		if(err = syncmbox(m, 1))
 			eprint("syncmbox: %s\n", err);
+		qunlock(m);
+	}
 	qunlock(&mbllock);
 }
 
