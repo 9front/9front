@@ -147,25 +147,6 @@ spfadd(int type, char *s)
 	return p;
 }
 
-char *badcidr[] = {
-	"0.0.0.0/8",
-	"1.0.0.0/8",
-	"2.0.0.0/8",
-	"5.0.0.0/8",
-	"10.0.0.0/8",
-	"127.0.0.0/8",
-	"255.0.0.0/8",
-	"192.168.0.0/16",
-	"169.254.0.0/16",
-	"172.16.0.0/20",
-	"224.0.0.0/24",		/*rfc 3330 says this is /4.  not sure */
-	"fc00::/7",
-};
-
-char *okcidr[] = {
-	"17.0.0.0/8",		/* apple.  seems dubious. */
-};
-
 int
 parsecidr(uchar *addr, uchar *mask, char *from)
 {
@@ -225,65 +206,6 @@ cidrmatch(char *x, char *y)
 }
 
 int
-cidrmatchtab(char *addr, char **tab, int ntab)
-{
-	int i;
-
-	for(i = 0; i < ntab; i++)
-		if(cidrmatch(addr, tab[i]))
-			return 1;
-	return 0;
-}
-
-int
-okcidrlen(char *cidr, int i)
-{
-	if(i >= 14 && i <= 128)
-		return 1;
-	if(cidrmatchtab(cidr, okcidr, nelem(okcidr)))
-		return 1;
-	return 0;
-}
-
-int
-cidrokay0(char *cidr)
-{
-	char *p, buf[40];
-	uchar addr[IPaddrlen];
-	int l, i;
-
-	p = strchr(cidr, '/');
-	if(p)
-		l = p-cidr;
-	else
-		l = strlen(cidr);
-	if(l > 39)
-		return 0;
-	if(p){
-		i = atoi(p+1);
-		if(!okcidrlen(cidr, i))
-			return 0;
-	}
-	memcpy(buf, cidr, l);
-	buf[l] = 0;
-	if(parseip(addr, buf) == -1)
-		return 0;
-	if(cidrmatchtab(cidr, badcidr, nelem(badcidr)))
-		return 0;
-	return 1;
-}
-
-int
-cidrokay(char *cidr)
-{
-	if(!cidrokay0(cidr)){
-		fprint(2, "spf: naughty cidr %s\n", cidr);
-		return 0;
-	}
-	return 1;
-}
-
-int
 ptrmatch(Squery *q, char *s)
 {
 	if(!q->ptrmatch || !strcmp(q->ptrmatch, s))
@@ -300,7 +222,7 @@ spfaddcidr(Squery *q, int type, char *s)
 		snprint(buf, sizeof buf, "%s/%s", s, q->cidrtail);
 		s = buf;
 	}
-	if(cidrokay(s) && ptrmatch(q, s))
+	if(ptrmatch(q, s))
 		return spfadd(type, s);
 	return 0;
 }
