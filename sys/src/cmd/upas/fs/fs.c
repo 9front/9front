@@ -1442,17 +1442,17 @@ sanefid(f);
 	/* coherence(); */
 	f->fid = -1;
 	f->open = 0;
-	if(f->mtop){
-		qlock(f->mb);
-		msgdecref(f->mb, f->mtop);
-		qunlock(f->mb);
-	}
-	if(f->m)
-		msgdecref(f->mb, gettopmsg(f->mb, f->m));
-	f->m = f->mtop = nil;
 	mb = f->mb;
+	if(mb != nil)
+		qlock(mb);
+	if(f->mtop)
+		msgdecref(mb, f->mtop);
+	if(f->m)
+		msgdecref(mb, gettopmsg(mb, f->m));
+	f->m = f->mtop = nil;
 	if(mb != nil){
 		f->mb = nil;
+		qunlock(mb);
 		assert(mb->refs > 0);
 		qlock(&mbllock);
 		mboxdecref(mb);
