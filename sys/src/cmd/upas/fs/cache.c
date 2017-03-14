@@ -362,7 +362,6 @@ top:
 void
 cachehash(Mailbox *mb, Message *m)
 {
-//	fprint(2, "cachehash %P\n", mpair(mb, m));
 	if(m->whole == m->whole->whole)
 		henter(PATH(mb->id, Qmbox), m->name,
 			(Qid){PATH(m->id, Qdir), 0, QTDIR}, m, mb);

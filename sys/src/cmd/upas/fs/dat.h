@@ -184,18 +184,9 @@ struct Mailbox {
 	void	*aux;		/* private to Mailbox implementation */
 };
 
-/* print argument tango; can't varargck 2 types.  should fix compiler */
-typedef struct Mpair Mpair;
-struct Mpair {
-	Mailbox	*mb;
-	Message	*m;
-};
-Mpair mpair(Mailbox*, Message*);
-
 typedef char *Mailboxinit(Mailbox*, char*);
 
 Mailboxinit	plan9mbox;
-Mailboxinit	planbmbox;
 Mailboxinit	pop3mbox;
 Mailboxinit	imap4mbox;
 Mailboxinit	mdirmbox;
@@ -226,7 +217,6 @@ char*		delmessages(int, char**);
 char		*flagmessages(int, char**);
 void		digestmessage(Mailbox*, Message*);
 
-uintptr		absbos(void);
 void		eprint(char*, ...);
 void		iprint(char *, ...);
 int		newid(void);
@@ -250,9 +240,6 @@ void		parse(Mailbox*, Message*, int, int);
 void		parseheaders(Mailbox*, Message*, int, int);
 void		parsebody(Message*, Mailbox*);
 char*		date822tounix(Message*, char*);
-int		fidmboxrefs(Mailbox*);
-int		hashmboxrefs(Mailbox*);
-void		checkmboxrefs(void);
 int		strtotm(char*, Tm*);
 char*		lowercase(char*);
 
@@ -375,7 +362,6 @@ extern Refs	*rtab;
 #define	Topmsg(mb, m)	(m->whole == mb->root)
 #pragma	varargck	type	"A"	uchar*
 #pragma	varargck	type	"D"	uvlong
-#pragma	varargck	type	"P"	Mpair
 #pragma	varargck	type	"Δ"	uvlong
 #pragma	varargck	argpos	eprint	1
 #pragma	varargck	argpos	iprint	1

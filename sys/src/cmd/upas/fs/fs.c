@@ -211,51 +211,6 @@ Dfmt(Fmt *f)
 	return fmtstrcpy(f, buf);
 }
 
-Mpair
-mpair(Mailbox *mb, Message *m)
-{
-	Mpair mp;
-
-	mp.mb = mb;
-	mp.m = m;
-	return mp;
-}
-
-static int
-Pfmt(Fmt *f)
-{
-	char buf[128], *p, *e;
-	int i, dots;
-	Mailbox *mb;
-	Message *t[32], *m;
-	Mpair mp;
-
-	mp = va_arg(f->args, Mpair);
-	mb = mp.mb;
-	m = mp.m;
-	if(m == nil || mb == nil)
-		return fmtstrcpy(f, "<P nil>");
-	i = 0;
-	for(; !Topmsg(mb, m); m = m->whole){
-		t[i++] = m;
-		if(i == nelem(t)-1)
-			break;
-	}
-	t[i++] = m;
-	dots = 0;
-	if(i == nelem(t))
-		dots = 1;
-	e = buf + sizeof buf;
-	p = buf;
-	if(dots)
-		p = seprint(p, e, ".../");
-	while(--i >= 1)
-		p = seprint(p, e, "%s/", t[i]->name);
-	if(i == 0)
-		seprint(p, e, "%s", t[0]->name);
-	return fmtstrcpy(f, buf);
-}
-
 void
 usage(void)
 {
@@ -375,7 +330,6 @@ main(int argc, char *argv[])
 	fmtinstall(L'Δ', Δfmt);
 	fmtinstall('F', fcallfmt);
 	fmtinstall('H', encodefmt);		/* forces tls stuff */
-	fmtinstall('P', Pfmt);
 	quotefmtinstall();
 	if(pipe(p) < 0)
 		error("pipe failed");
@@ -833,9 +787,8 @@ doclone(Fid *f, int nfid)
 	if(nf->mtop = f->mtop)
 		msgincref(nf->mtop);
 	nf->qid = f->qid;
-	if(nf->mb){
+	if(nf->mb)
 		qunlock(nf->mb);
-	}
 	return nf;
 }
 
@@ -1413,9 +1366,8 @@ rclunk(Fid *f)
 	f->fid = -1;
 	f->open = 0;
 	mb = f->mb;
-	if(mb){
+	if(mb)
 		qlock(mb);
-	}
 	if(f->mtop)
 		msgdecref(mb, f->mtop);
 	if(f->m)
@@ -1749,7 +1701,6 @@ henter(ulong ppath, char *name, Qid qid, Message *m, Mailbox *mb)
 	int h;
 	Hash *hp, **l;
 
-//if(m)sanemsg(m);
 	qlock(&hashlock);
 	h = hash(ppath, name);
 	for(l = &htab[h]; *l != nil; l = &(*l)->next){
@@ -1790,22 +1741,6 @@ hfree(ulong ppath, char *name)
 		}
 	}
 	qunlock(&hashlock);
-}
-
-int
-hashmboxrefs(Mailbox *mb)
-{
-	int h;
-	Hash *hp;
-	int refs = 0;
-
-	qlock(&hashlock);
-	for(h = 0; h < Hsize; h++)
-		for(hp = htab[h]; hp != nil; hp = hp->next)
-			if(hp->mb == mb)
-				refs++;
-	qunlock(&hashlock);
-	return refs;
 }
 
 void
