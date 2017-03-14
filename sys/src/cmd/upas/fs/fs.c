@@ -133,21 +133,13 @@ static	Hash	*htab[Hsize];
 static	Fcall	rhdr;
 static	Fcall	thdr;
 static	Fid	*fids;
-static	uintptr	bos = 0xd0000000;		/* pc kernel specific */
 
-#define onstack(x)	((uintptr)(x) >= bos)
-#define intext(x)		((char*)(x) <= end)
-#define validgptr(x)	assert(!onstack(x) && !intext(x))
 void
 sanemsg(Message *m)
 {
-	if(bos == 0)
-		bos = absbos();
-	assert(m->refs < 100);
-	validgptr(m->whole);
 	if(debug)
 		poolcheck(mainmem);
-	validgptr(m);
+	assert(m->refs < 100);
 	assert(m->next != m);
 	if(m->end < m->start)
 		abort();

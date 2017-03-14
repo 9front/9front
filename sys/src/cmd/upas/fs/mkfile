@@ -4,7 +4,6 @@
 TARG=	fs\
 
 OFILES=\
-	bos.$O\
 	cache.$O\
 	fs.$O\
 	header.$O\

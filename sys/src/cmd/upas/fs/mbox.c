@@ -483,8 +483,6 @@ parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 	int i, i0, n;
 	uintptr a;
 
-/*sanembmsg(mb, m);	/* fails with pop but i want this debugging for now */
-
 	/* parse mime headers */
 	p = m->header;
 	i0 = 0;
@@ -514,7 +512,6 @@ parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 			}
 	}
 	free(s);
-/*sanembmsg(mb, m);	/* fails with pop but i want this debugging for now */
 	/* the blank line isn't really part of the body or header */
 	if(justmime){
 		m->mhend = p;
@@ -541,7 +538,6 @@ parseheaders(Mailbox *mb, Message *m, int addfrom, int justmime)
 	 *  adding the unix header all the time screws up mime-attached
 	 *  rfc822 messages.
 	 */
-/*sanembmsg(mb, m);	/* fails with pop but i want this debugging for now */
 	if(!addfrom && !m->unixfrom)
 		m->unixheader = nil;
 	else if(m->unixheader == nil){
