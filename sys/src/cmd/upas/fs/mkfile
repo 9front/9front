@@ -14,7 +14,6 @@ OFILES=\
 	mdir.$O\
 	mtree.$O\
 	plan9.$O\
-	planb.$O\
 	pop3.$O\
 	ref.$O\
 	remove.$O\

@@ -52,7 +52,6 @@ static Mailboxinit *boxinit[] = {
 	imap4mbox,
 	pop3mbox,
 	mdirmbox,
-//	planbmbox,
 	plan9mbox,
 };
 
@@ -66,7 +65,7 @@ syncmbox(Mailbox *mb, int doplumb)
 	int n, d, y, a;
 	Message *m, *next;
 
-	assert(canqlock(mb) == 0);
+	assert(!canqlock(mb));
 	a = mb->root->subname;
 	if(rdidxfile(mb, doplumb) == -2)
 		wridxfile(mb);
@@ -116,7 +115,7 @@ mboxrename(char *a, char *b, int flags)
 	snprint(f1, sizeof f1, "%s", b);
 	err = newmbox(f0, nil, 0, &mb);
 	dprint("mboxrename %s %s -> %s\n", f0, f1, err);
-	if(!err && !mb->rename)
+	if(err == nil && mb->rename == nil)
 		err = "rename not supported";
 	if(err)
 		goto done;
@@ -147,11 +146,9 @@ mboxrename(char *a, char *b, int flags)
 	henter(PATH(0, Qtop), mb->name,
 		(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
 done:
-	if(!mb)
+	if(mb == nil)
 		return err;
 	qunlock(mb);
-//	if(err)
-//		mboxdecref(mb);
 	return err;
 }
 
@@ -175,6 +172,8 @@ newmbox(char *path, char *name, int flags, Mailbox **r)
 	int i;
 	Mailbox *mb, **l;
 
+	if(r)
+		*r = nil;
 	initheaders();
 	mb = emalloc(sizeof *mb);
 	mb->idxsem = 1;
@@ -1146,6 +1145,7 @@ msgincref(Message *m)
 void
 msgdecref(Mailbox *mb, Message *m)
 {
+	assert(!canqlock(mb));
 	assert(m->refs > 0);
 	m->refs--;
 	if(m->refs == 0){
@@ -1201,6 +1201,7 @@ mboxdecref(Mailbox *mb)
 	} else
 		qunlock(mb);
 }
+
 
 /* just space over \r.  sleezy but necessary for ms email. */
 int
