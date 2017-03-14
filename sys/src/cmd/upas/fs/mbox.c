@@ -176,7 +176,6 @@ newmbox(char *path, char *name, int flags, Mailbox **r)
 		*r = nil;
 	initheaders();
 	mb = emalloc(sizeof *mb);
-	mb->idxsem = 1;
 	mb->flags = flags;
 	strncpy(mb->path, path, sizeof mb->path - 1);
 	p = name;

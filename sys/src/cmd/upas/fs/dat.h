@@ -148,7 +148,6 @@ struct Mcache {
 typedef struct Mailbox Mailbox;
 struct Mailbox {
 	QLock;
-	long	idxsem;		/* abort on concurrent index access */
 	int	refs;
 	Mailbox	*next;
 	int	id;

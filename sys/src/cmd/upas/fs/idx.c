@@ -216,7 +216,6 @@ wridxfile(Mailbox *mb)
 	Biobuf b;
 	Dir *d;
 
-	assert(semacquire(&mb->idxsem, 0) != -1);
 	snprint(buf, sizeof buf, "%s.idx", mb->path);
 	iprint("wridxfile %s\n", buf);
 	if((fd = exopen(buf)) == -1){
@@ -224,7 +223,6 @@ wridxfile(Mailbox *mb)
 		if(strcmp(buf, "no creates") != 0)
 		if(strstr(buf, "file system read only") == 0)
 			eprint("wridxfile: %r\n");
-		semrelease(&mb->idxsem, 1);
 		return -1;
 	}
 	seek(fd, 0, 0);
@@ -237,7 +235,6 @@ wridxfile(Mailbox *mb)
 	mb->qid = d->qid;
 	free(d);
 	close(fd);
-	semrelease(&mb->idxsem, 1);
 	return r;
 }
 
@@ -526,10 +523,8 @@ rdidxfile(Mailbox *mb, int doplumb)
 {
 	int r;
 
-	assert(semacquire(&mb->idxsem, 0) > 0);
 	r = rdidxfile0(mb, doplumb);
 	if(r == -1 && mb->idxinvalid)
 		mb->idxinvalid(mb);
-	semrelease(&mb->idxsem, 1);
 	return r;
 }
