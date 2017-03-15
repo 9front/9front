@@ -109,7 +109,6 @@ enum
 	Hsize=	1999,
 };
 
-
 char	*mntpt;
 char	user[Elemlen];
 int	Dflag;
@@ -121,7 +120,6 @@ int	debug;
 int	plumbing = 1;
 ulong	cachetarg = Maxcache;
 Mailbox	*mbl;
-QLock	mbllock;
 
 static	int	messagesize = 8*1024 + IOHDRSZ;
 static	int	mfd[2];
@@ -133,6 +131,7 @@ static	Hash	*htab[Hsize];
 static	Fcall	rhdr;
 static	Fcall	thdr;
 static	Fid	*fids;
+static QLock	synclock;
 
 void
 sanemsg(Message *m)
@@ -778,17 +777,13 @@ doclone(Fid *f, int nfid)
 	nf->busy = 1;
 	nf->open = 0;
 	nf->mb = f->mb;
-	if(nf->mb){
-		qlock(nf->mb);
+	if(nf->mb)
 		mboxincref(nf->mb);
-	}
 	if(nf->m = f->m)
 		msgincref(gettopmsg(nf->mb, nf->m));
 	if(nf->mtop = f->mtop)
 		msgincref(nf->mtop);
 	nf->qid = f->qid;
-	if(nf->mb)
-		qunlock(nf->mb);
 	return nf;
 }
 
@@ -816,10 +811,6 @@ dowalk(Fid *f, char *name)
 	t = FILE(f->qid.path);
 	rv = Enotexist;
 
-	qlock(&mbllock);
-	if(f->mb)
-		qlock(f->mb);
-
 	/* this must catch everything except . and .. */
 retry:
 	t1 = FILE(f->qid.path);
@@ -833,12 +824,8 @@ retry:
 	if(h != nil){
 		if(f->m)
 			msgdecref(f->mb, gettopmsg(f->mb, f->m));
-		if(f->mb && f->mb != h->mb){
-			qunlock(f->mb);
+		if(f->mb && f->mb != h->mb)
 			mboxdecref(f->mb);
-		}
-		if(h->mb && h->mb != f->mb)
-			qlock(h->mb);
 		f->mb = h->mb;
 		f->m = h->m;
 		if(f->m)
@@ -864,10 +851,6 @@ retry:
 		goto retry;
 	}
 
-	if(f->mb)
-		qunlock(f->mb);
-	qunlock(&mbllock);
-
 	if(rv == nil)
 		return rv;
 
@@ -890,12 +873,9 @@ retry:
 			f->qid.vers = 0;
 			mb = f->mb;
 			f->mb = nil;
-			qlock(&mbllock);
 			mboxdecref(mb);
-			qunlock(&mbllock);
 			break;
 		case Qdir:
-			qlock(f->mb);
 			if(Topmsg(f->mb, f->m)){
 				f->qid.path = PATH(f->mb->id, Qmbox);
 				f->qid.type = QTDIR;
@@ -909,7 +889,6 @@ retry:
 				f->qid.path = PATH(f->m->id, Qdir);
 				f->qid.type = QTDIR;
 			}
-			qunlock(f->mb);
 			break;
 		}
 		rv = nil;
@@ -975,12 +954,10 @@ ropen(Fid *f)
 
 	/* make sure we've decoded */
 	if(file == Qbody){
-		qlock(f->mb);
 		cachebody(f->mb, f->m);
 		decode(f->m);
 		convert(f->m);
 		putcache(f->mb, f->m);
-		qunlock(f->mb);
 	}
 
 	rhdr.iounit = 0;
@@ -1003,24 +980,20 @@ readtopdir(Fid*, uchar *buf, long off, int cnt, int blen)
 	long pos;
 	Mailbox *mb;
 
-	qlock(&mbllock);
-
 	n = 0;
 	pos = 0;
 	mkstat(&d, nil, nil, Qctl);
 	m = convD2M(&d, &buf[n], blen);
 	if(off <= pos){
 		if(m <= BIT16SZ || m > cnt)
-			goto out;
+			return n;
 		n += m;
 		cnt -= m;
 	}
 	pos += m;
 		
 	for(mb = mbl; mb != nil; mb = mb->next){
-		qlock(mb);
 		mkstat(&d, mb, nil, Qmbox);
-		qunlock(mb);
 		m = convD2M(&d, &buf[n], blen - n);
 		if(off <= pos){
 			if(m <= BIT16SZ || m > cnt)
@@ -1030,8 +1003,6 @@ readtopdir(Fid*, uchar *buf, long off, int cnt, int blen)
 		}
 		pos += m;
 	}
-out:
-	qlock(&mbllock);
 	return n;
 }
 
@@ -1043,7 +1014,6 @@ readmboxdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 	long pos;
 	Message *msg;
 
-	qlock(f->mb);
 	if(off == 0)
 		syncmbox(f->mb, 1);
 
@@ -1054,7 +1024,7 @@ readmboxdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 		if(off == 0){
 			if(m <= BIT16SZ || m > cnt){
 				f->fptr = nil;
-				goto out;
+				return n;
 			}
 			n += m;
 			cnt -= m;
@@ -1091,8 +1061,6 @@ readmboxdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 	f->foff = pos;
 	f->fptr = msg;
 	f->fvers = f->mb->vers;
-out:
-	qunlock(f->mb);
 	return n;
 }
 
@@ -1104,7 +1072,6 @@ readmsgdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 	long pos;
 	Message *msg;
 
-	qlock(f->mb);
 	n = 0;
 	pos = 0;
 	for(i = 0; i < Qmax; i++){
@@ -1112,7 +1079,7 @@ readmsgdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 		m = convD2M(&d, &buf[n], blen - n);
 		if(off <= pos){
 			if(m <= BIT16SZ || m > cnt)
-				goto out;
+				return n;
 			n += m;
 			cnt -= m;
 		}
@@ -1129,8 +1096,6 @@ readmsgdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 		}
 		pos += m;
 	}
-out:
-	qunlock(f->mb);
 	return n;
 }
 
@@ -1171,7 +1136,6 @@ rread(Fid *f)
 		return nil;
 	}
 
-	qlock(f->mb);
 	switch(t){
 	case Qctl:
 		rhdr.count = 0;
@@ -1214,7 +1178,6 @@ rread(Fid *f)
 		}
 		break;
 	}
-	qunlock(f->mb);
 	return nil;
 }
 
@@ -1335,10 +1298,7 @@ rwrite(Fid *f)
 			argc = tokenize(thdr.data, argv, nelem(argvbuf));
 			if(argc == 0)
 				return Ebadctl;
-			qlock(f->mb);
-			err = f->mb->ctl(f->mb, argc, argv);
-			qunlock(f->mb);
-			return err;
+			return f->mb->ctl(f->mb, argc, argv);
 		}
 		break;
 	case Qflags:
@@ -1347,11 +1307,8 @@ rwrite(Fid *f)
 		 */
 		if(!f->mb || !f->m)
 			break;
-		qlock(f->mb);
 		m = gettopmsg(f->mb, f->m);
-		err = modflags(f->mb, m, thdr.data);
-		qunlock(f->mb);
-		return err;
+		return modflags(f->mb, m, thdr.data);
 	}
 	return Eperm;
 }
@@ -1366,8 +1323,6 @@ rclunk(Fid *f)
 	f->fid = -1;
 	f->open = 0;
 	mb = f->mb;
-	if(mb)
-		qlock(mb);
 	if(f->mtop)
 		msgdecref(mb, f->mtop);
 	if(f->m)
@@ -1375,10 +1330,7 @@ rclunk(Fid *f)
 	f->m = f->mtop = nil;
 	if(mb){
 		f->mb = nil;
-		qunlock(mb);
-		qlock(&mbllock);
 		mboxdecref(mb);
-		qunlock(&mbllock);
 	}
 	f->busy = 0;
 	return 0;
@@ -1388,11 +1340,9 @@ char *
 rremove(Fid *f)
 {
 	if(f->m != nil){
-		qlock(f->mb);
 		if(!f->m->deleted)
 			mailplumb(f->mb, f->m, 1);
 		f->m->deleted = Deleted;
-		qunlock(f->mb);
 	}
 	return rclunk(f);
 }
@@ -1402,15 +1352,11 @@ rstat(Fid *f)
 {
 	Dir d;
 
-	if(f->mb)
-		qlock(f->mb);
 	if(FILE(f->qid.path) == Qmbox)
 		syncmbox(f->mb, 1);
 	mkstat(&d, f->mb, f->m, FILE(f->qid.path));
 	rhdr.nstat = convD2M(&d, mbuf, messagesize - IOHDRSZ);
 	rhdr.stat = mbuf;
-	if(f->mb)
-		qunlock(f->mb);
 	return 0;
 }
 
@@ -1473,6 +1419,7 @@ io(void)
 		if(Dflag)
 			fprint(2, "%s:<-%F\n", argv0, &thdr);
 
+		qlock(&synclock);
 		rhdr.data = (char*)mdata + messagesize;
 		if(!fcalls[thdr.type])
 			err = "bad fcall type";
@@ -1486,6 +1433,8 @@ io(void)
 			rhdr.fid = thdr.fid;
 		}
 		rhdr.tag = thdr.tag;
+		qunlock(&synclock);
+
 		if(Dflag)
 			fprint(2, "%s:->%F\n", argv0, &rhdr);
 		n = convS2M(&rhdr, mdata, messagesize);
@@ -1506,11 +1455,9 @@ reader(void)
 	setname(readerargv);
 	sleep(15*1000);
 	for(;;){
+		qlock(&synclock);
 		t = time(0);
-		qlock(&mbllock);
 		for(mb = mbl; mb != nil; mb = mb->next){
-			if(!canqlock(mb))
-				continue;
 			if(mb->waketime != 0 && t >= mb->waketime){
 				mb->waketime = 0;
 				break;
@@ -1526,14 +1473,14 @@ reader(void)
 					free(d);
 				}
 			}
-			qunlock(mb);
 		}
-		qunlock(&mbllock);
-		if(mb != nil){
+		if(mb != nil) {
 			syncmbox(mb, 1);
-			qunlock(mb);
-		} else
+			qunlock(&synclock);
+		} else {
+			qunlock(&synclock);
 			sleep(15*1000);
+		}
 	}
 }
 
@@ -1662,8 +1609,6 @@ readheader(Message *m, char *buf, int off, int cnt)
 	return to - buf;
 }
 
-QLock hashlock;
-
 uint
 hash(ulong ppath, char *name)
 {
@@ -1684,14 +1629,10 @@ hlook(ulong ppath, char *name)
 	int h;
 	Hash *hp;
 
-	qlock(&hashlock);
 	h = hash(ppath, name);
 	for(hp = htab[h]; hp != nil; hp = hp->next)
-		if(ppath == hp->ppath && strcmp(name, hp->name) == 0){
-			qunlock(&hashlock);
+		if(ppath == hp->ppath && strcmp(name, hp->name) == 0)
 			return hp;
-		}
-	qunlock(&hashlock);
 	return nil;
 }
 
@@ -1701,7 +1642,6 @@ henter(ulong ppath, char *name, Qid qid, Message *m, Mailbox *mb)
 	int h;
 	Hash *hp, **l;
 
-	qlock(&hashlock);
 	h = hash(ppath, name);
 	for(l = &htab[h]; *l != nil; l = &(*l)->next){
 		hp = *l;
@@ -1709,18 +1649,15 @@ henter(ulong ppath, char *name, Qid qid, Message *m, Mailbox *mb)
 			hp->m = m;
 			hp->mb = mb;
 			hp->qid = qid;
-			qunlock(&hashlock);
 			return;
 		}
 	}
-
 	*l = hp = emalloc(sizeof(*hp));
 	hp->m = m;
 	hp->mb = mb;
 	hp->qid = qid;
 	hp->name = name;
 	hp->ppath = ppath;
-	qunlock(&hashlock);
 }
 
 void
@@ -1729,7 +1666,6 @@ hfree(ulong ppath, char *name)
 	int h;
 	Hash *hp, **l;
 
-	qlock(&hashlock);
 	h = hash(ppath, name);
 	for(l = &htab[h]; *l != nil; l = &(*l)->next){
 		hp = *l;
@@ -1740,7 +1676,6 @@ hfree(ulong ppath, char *name)
 			break;
 		}
 	}
-	qunlock(&hashlock);
 }
 
 void

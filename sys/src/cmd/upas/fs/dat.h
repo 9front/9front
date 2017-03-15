@@ -147,7 +147,6 @@ struct Mcache {
 
 typedef struct Mailbox Mailbox;
 struct Mailbox {
-	QLock;
 	int	refs;
 	Mailbox	*next;
 	int	id;
@@ -355,7 +354,6 @@ extern ulong	msgallocd;
 extern ulong	msgfreed;
 extern Mailbox	*mbl;
 extern Message	*root;
-extern QLock	mbllock;
 extern Refs	*rtab;
 
 #define	dprint(...)	if(debug) fprint(2, __VA_ARGS__); else {}

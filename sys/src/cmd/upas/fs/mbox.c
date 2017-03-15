@@ -65,7 +65,6 @@ syncmbox(Mailbox *mb, int doplumb)
 	int n, d, y, a;
 	Message *m, *next;
 
-	assert(!canqlock(mb));
 	a = mb->root->subname;
 	if(rdidxfile(mb, doplumb) == -2)
 		wridxfile(mb);
@@ -146,9 +145,6 @@ mboxrename(char *a, char *b, int flags)
 	henter(PATH(0, Qtop), mb->name,
 		(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
 done:
-	if(mb == nil)
-		return err;
-	qunlock(mb);
 	return err;
 }
 
@@ -206,7 +202,6 @@ newmbox(char *path, char *name, int flags, Mailbox **r)
 	}
 
 	/* make sure name isn't taken */
-	qlock(&mbllock);
 	for(l = &mbl; *l != nil; l = &(*l)->next)
 		if(strcmp((*l)->name, mb->name) == 0){
 			if(strcmp(path, (*l)->path) == 0)
@@ -216,7 +211,6 @@ newmbox(char *path, char *name, int flags, Mailbox **r)
 			if(mb->close)
 				mb->close(mb);
 			free(mb);
-			qunlock(&mbllock);
 			return rv;
 		}
 
@@ -229,9 +223,7 @@ newmbox(char *path, char *name, int flags, Mailbox **r)
 	mb->mtree = avlcreate(mtreecmp);
 
 	*l = mb;
-	qunlock(&mbllock);
 
-	qlock(mb);
 	henter(PATH(0, Qtop), mb->name,
 		(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
 	if(mb->ctl)
@@ -240,8 +232,6 @@ newmbox(char *path, char *name, int flags, Mailbox **r)
 	rv = syncmbox(mb, 0);
 	if(r)
 		*r = mb;
-	else
-		qunlock(mb);
 
 	return rv;
 }
@@ -252,7 +242,6 @@ freembox(char *name)
 {
 	Mailbox **l, *mb;
 
-	qlock(&mbllock);
 	for(l=&mbl; *l != nil; l=&(*l)->next)
 		if(strcmp(name, (*l)->name) == 0){
 			mb = *l;
@@ -261,7 +250,6 @@ freembox(char *name)
 			break;
 		}
 	hfree(PATH(0, Qtop), name);
-	qunlock(&mbllock);
 }
 
 void
@@ -270,14 +258,9 @@ syncallmboxes(void)
 	char *err;
 	Mailbox *m;
 
-	qlock(&mbllock);
-	for(m = mbl; m != nil; m = m->next){
-		qlock(m);
+	for(m = mbl; m != nil; m = m->next)
 		if(err = syncmbox(m, 1))
 			eprint("syncmbox: %s\n", err);
-		qunlock(m);
-	}
-	qunlock(&mbllock);
 }
 
 
@@ -288,7 +271,6 @@ removembox(char *name, int flags)
 	Mailbox **l, *mb;
 
 	found = 0;
-	qlock(&mbllock);
 	for(l=&mbl; *l != nil; l=&(*l)->next)
 		if(strcmp(name, (*l)->path) == 0){
 			mb = *l;
@@ -300,7 +282,6 @@ removembox(char *name, int flags)
 			break;
 		}
 	hfree(PATH(0, Qtop), name);
-	qunlock(&mbllock);
 
 	if(found == 0)
 		return "maibox not found";
@@ -1065,13 +1046,9 @@ delmessages(int ac, char **av)
 	Mailbox *mb;
 	Message *m;
 
-	qlock(&mbllock);
 	for(mb = mbl; mb != nil; mb = mb->next)
-		if(strcmp(av[0], mb->name) == 0){
-			qlock(mb);
+		if(strcmp(av[0], mb->name) == 0)
 			break;
-		}
-	qunlock(&mbllock);
 	if(mb == nil)
 		return "no such mailbox";
 
@@ -1089,7 +1066,6 @@ delmessages(int ac, char **av)
 			}
 	if(needwrite)
 		syncmbox(mb, 1);
-	qunlock(mb);
 	return 0;
 }
 
@@ -1103,13 +1079,9 @@ flagmessages(int argc, char **argv)
 
 	if(argc%2)
 		return "bad flags";
-	qlock(&mbllock);
 	for(mb = mbl; mb; mb = mb->next)
-		if(strcmp(*argv, mb->name) == 0){
-			qlock(mb);
+		if(strcmp(*argv, mb->name) == 0)
 			break;
-		}
-	qunlock(&mbllock);
 	if(mb == nil)
 		return "no such mailbox";
 	needwrite = 0;
@@ -1124,13 +1096,9 @@ flagmessages(int argc, char **argv)
 			}
 	if(needwrite)
 		syncmbox(mb, 1);
-	qunlock(mb);
 	return rerr;
 }
 
-/*
- *  the following are called with the mailbox qlocked
- */
 void
 msgincref(Message *m)
 {
@@ -1140,7 +1108,6 @@ msgincref(Message *m)
 void
 msgdecref(Mailbox *mb, Message *m)
 {
-	assert(!canqlock(mb));
 	assert(m->refs > 0);
 	m->refs--;
 	if(m->refs == 0){
@@ -1151,9 +1118,6 @@ msgdecref(Mailbox *mb, Message *m)
 	}
 }
 
-/*
- *  the following are called with mbllock'd
- */
 void
 mboxincref(Mailbox *mb)
 {
@@ -1177,7 +1141,6 @@ mbrmidx(char *path, int flags)
 void
 mboxdecref(Mailbox *mb)
 {
-	qlock(mb);
 	assert(mb->refs > 0);
 	mb->refs--;
 	if(mb->refs == 0){
@@ -1193,8 +1156,7 @@ mboxdecref(Mailbox *mb)
 		free(mb->mtree);
 		free(mb->d);
 		free(mb);
-	} else
-		qunlock(mb);
+	}
 }
 
 
