@@ -216,6 +216,8 @@ char*		delmessages(int, char**);
 char		*flagmessages(int, char**);
 void		digestmessage(Mailbox*, Message*);
 
+int		wraptls(int);
+
 void		eprint(char*, ...);
 void		iprint(char *, ...);
 int		newid(void);

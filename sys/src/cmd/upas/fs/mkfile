@@ -18,6 +18,7 @@ OFILES=\
 	remove.$O\
 	rename.$O\
 	strtotm.$O\
+	tls.$O\
 
 LIB=../common/libcommon.a$O\
 

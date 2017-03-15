@@ -60,8 +60,6 @@ struct Imap {
 	int	nuid;
 	int	muid;
 
-	Thumbprint *thumb;
-
 	/* open network connection */
 	Biobuf	bin;
 	Biobuf	bout;
@@ -760,44 +758,6 @@ imaperrstr(char *host, char *port)
 	return buf;
 }
 
-static int
-starttls(Imap *imap, TLSconn *tls)
-{
-	char buf[Pathlen];
-	uchar digest[SHA1dlen];
-	int sfd, fd;
-
-	memset(tls, 0, sizeof *tls);
-	sfd = tlsClient(imap->fd, tls);
-	if(sfd < 0){
-		werrstr("tlsClient: %r");
-		return -1;
-	}
-	if(tls->cert == nil || tls->certlen <= 0){
-		close(sfd);
-		werrstr("server did not provide TLS certificate");
-		return -1;
-	}
-	sha1(tls->cert, tls->certlen, digest, nil);
-	if(!imap->thumb || !okThumbprint(digest, imap->thumb)){
-		close(sfd);
-		werrstr("server certificate %.*H not recognized",
-			SHA1dlen, digest);
-		return -1;
-	}
-	close(imap->fd);
-	imap->fd = sfd;
-
-	if(imap->flags & Fdebug){
-		snprint(buf, sizeof buf, "%s/ctl", tls->dir);
-		fd = open(buf, OWRITE);
-		fprint(fd, "debug");
-		close(fd);
-	}
-
-	return 1;
-}
-
 static void
 imap4disconnect(Imap *imap)
 {
@@ -806,8 +766,10 @@ imap4disconnect(Imap *imap)
 		Bterm(&imap->bout);
 		imap->binit = 0;
 	}
-	close(imap->fd);
-	imap->fd = -1;
+	if(imap->fd >= 0){
+		close(imap->fd);
+		imap->fd = -1;
+	}
 }
 
 char*
@@ -827,7 +789,6 @@ static char*
 imap4dial(Imap *imap)
 {
 	char *err, *port;
-	TLSconn conn;
 
 	if(imap->fd >= 0){
 		imap4cmd(imap, "noop");
@@ -841,9 +802,8 @@ imap4dial(Imap *imap)
 		port = "imap";
 	if((imap->fd = dial(netmkaddr(imap->host, "net", port), 0, 0, 0)) < 0)
 		return imaperrstr(imap->host, port);
-	if(imap->flags & Fssl && starttls(imap, &conn) == -1){
+	if(imap->flags & Fssl && (imap->fd = wraptls(imap->fd)) < 0){
 		err = imaperrstr(imap->host, port);
-		free(conn.cert);
 		imap4disconnect(imap);
 		return err;
 	}
@@ -1074,7 +1034,6 @@ out:
 static char*
 imap4ctl(Mailbox *mb, int argc, char **argv)
 {
-	char *a, *b;
 	Imap *imap;
 
 	imap = mb->aux;
@@ -1083,26 +1042,6 @@ imap4ctl(Mailbox *mb, int argc, char **argv)
 
 	if(argc == 1 && strcmp(argv[0], "debug") == 0){
 		imap->flags ^= Fdebug;
-		return nil;
-	}
-	if(strcmp(argv[0], "thumbprint") == 0){
-		if(imap->thumb){
-			freeThumbprints(imap->thumb);
-			imap->thumb = 0;
-		}
-		a = "/sys/lib/tls/mail";
-		b = "/sys/lib/tls/mail.exclude";
-		switch(argc){
-		default:
-			return Eimap4ctl;
-		case 4:
-			b = argv[2];
-		case 3:
-			a = argv[1];
-		case 2:
-			break;
-		}
-		imap->thumb = initThumbprints(a, b);
 		return nil;
 	}
 	if(argc == 2 && strcmp(argv[0], "uid") == 0){
@@ -1253,9 +1192,6 @@ imap4mbox(Mailbox *mb, char *path)
 	else
 		imap->mbox = strdup(f[4]);
 	mkmbox(imap, mb->path, mb->path + sizeof mb->path);
-	if(imap->flags & Fssl)
-		imap->thumb = initThumbprints("/sys/lib/tls/mail", "/sys/lib/tls/mail.exclude");
-
 	mb->aux = imap;
 	mb->sync = imap4sync;
 	mb->close = imap4close;

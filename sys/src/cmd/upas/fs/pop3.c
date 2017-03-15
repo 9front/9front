@@ -32,7 +32,6 @@ struct Pop {
 	Biobuf	bout;
 	int	fd;
 	char	*lastline;		/* from Brdstr */
-	Thumbprint *thumb;
 };
 
 static int
@@ -120,38 +119,6 @@ pop3log(char *fmt, ...)
 	return 0;
 }
 
-static char*
-pop3pushtls(Pop *pop)
-{
-	int fd;
-	uchar digest[SHA1dlen];
-	TLSconn conn;
-
-	memset(&conn, 0, sizeof conn);
-	// conn.trace = pop3log;
-	fd = tlsClient(pop->fd, &conn);
-	if(fd < 0)
-		return "tls error";
-	if(conn.cert==nil || conn.certlen <= 0){
-		close(fd);
-		return "server did not provide TLS certificate";
-	}
-	sha1(conn.cert, conn.certlen, digest, nil);
-	if(!pop->thumb || !okThumbprint(digest, pop->thumb)){
-		close(fd);
-		free(conn.cert);
-		eprint("pop3: server certificate %.*H not recognized\n", SHA1dlen, digest);
-		return "bad server certificate";
-	}
-	free(conn.cert);
-	close(pop->fd);
-	pop->fd = fd;
-	pop->encrypted = 1;
-	Binit(&pop->bin, pop->fd, OREAD);
-	Binit(&pop->bout, pop->fd, OWRITE);
-	return nil;
-}
-
 /*
  *  get capability list, possibly start tls
  */
@@ -182,8 +149,13 @@ pop3capa(Pop *pop)
 		pop3cmd(pop, "STLS");
 		if(!isokay(s = pop3resp(pop)))
 			return s;
-		if((s = pop3pushtls(pop)) != nil)
-			return s;
+		Bterm(&pop->bin);
+		Bterm(&pop->bout);
+		if((pop->fd = wraptls(pop->fd)) < 0)
+			return geterrstr();
+		pop->encrypted = 1;
+		Binit(&pop->bin, pop->fd, OREAD);
+		Binit(&pop->bout, pop->fd, OWRITE);
 	}
 	return nil;
 }
@@ -265,15 +237,11 @@ pop3dial(Pop *pop)
 
 	if((pop->fd = dial(netmkaddr(pop->host, "net", pop->needssl ? "pop3s" : "pop3"), 0, 0, 0)) < 0)
 		return geterrstr();
-
-	if(pop->needssl){
-		if((err = pop3pushtls(pop)) != nil)
-			return err;
-	}else{
-		Binit(&pop->bin, pop->fd, OREAD);
-		Binit(&pop->bout, pop->fd, OWRITE);
-	}
-
+	if(pop->needssl && (pop->fd = wraptls(pop->fd)) < 0)
+		return geterrstr();
+	pop->encrypted = pop->needssl;
+	Binit(&pop->bin, pop->fd, OREAD);
+	Binit(&pop->bout, pop->fd, OWRITE);
 	if(err = pop3login(pop)) {
 		close(pop->fd);
 		return err;
@@ -607,11 +575,6 @@ pop3ctl(Mailbox *mb, int argc, char **argv)
 		return nil;
 	}
 
-	if(argc==1 && strcmp(argv[0], "thumbprint")==0){
-		if(pop->thumb)
-			freeThumbprints(pop->thumb);
-		pop->thumb = initThumbprints("/sys/lib/tls/mail", "/sys/lib/tls/mail.exclude");
-	}
 	if(strcmp(argv[0], "refresh")==0){
 		if(argc==1){
 			pop->refreshtime = 60;
@@ -693,8 +656,6 @@ pop3mbox(Mailbox *mb, char *path)
 	pop->needtls = poptls || apoptls;
 	pop->refreshtime = 60;
 	pop->notls = popnotls || apopnotls;
-	pop->thumb = initThumbprints("/sys/lib/tls/mail", "/sys/lib/tls/mail.exclude");
-
 	mkmbox(pop, mb->path, mb->path + sizeof mb->path);
 	mb->aux = pop;
 	mb->sync = pop3sync;
@@ -704,4 +665,3 @@ pop3mbox(Mailbox *mb, char *path)
 	mb->addfrom = 1;
 	return nil;
 }
-
