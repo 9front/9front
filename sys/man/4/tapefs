@@ -61,10 +61,7 @@ the VAX (512 byte block size, the default), and also pre-FFS Berkeley VAX system
 .I Cpiofs
 interprets
 .B cpio
-tape images (constructed with
-.BI cpio 's
-.B c
-flag).
+tape images.
 .PP
 .I Tarfs
 interprets
