@@ -802,7 +802,7 @@ imap4dial(Imap *imap)
 		port = "imap";
 	if((imap->fd = dial(netmkaddr(imap->host, "net", port), 0, 0, 0)) < 0)
 		return imaperrstr(imap->host, port);
-	if(imap->flags & Fssl && (imap->fd = wraptls(imap->fd)) < 0){
+	if(imap->flags & Fssl && (imap->fd = wraptls(imap->fd, imap->host)) < 0){
 		err = imaperrstr(imap->host, port);
 		imap4disconnect(imap);
 		return err;

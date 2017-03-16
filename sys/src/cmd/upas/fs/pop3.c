@@ -151,7 +151,7 @@ pop3capa(Pop *pop)
 			return s;
 		Bterm(&pop->bin);
 		Bterm(&pop->bout);
-		if((pop->fd = wraptls(pop->fd)) < 0)
+		if((pop->fd = wraptls(pop->fd, pop->host)) < 0)
 			return geterrstr();
 		pop->encrypted = 1;
 		Binit(&pop->bin, pop->fd, OREAD);
@@ -237,7 +237,7 @@ pop3dial(Pop *pop)
 
 	if((pop->fd = dial(netmkaddr(pop->host, "net", pop->needssl ? "pop3s" : "pop3"), 0, 0, 0)) < 0)
 		return geterrstr();
-	if(pop->needssl && (pop->fd = wraptls(pop->fd)) < 0)
+	if(pop->needssl && (pop->fd = wraptls(pop->fd, pop->host)) < 0)
 		return geterrstr();
 	pop->encrypted = pop->needssl;
 	Binit(&pop->bin, pop->fd, OREAD);

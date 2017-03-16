@@ -4,7 +4,7 @@
 #include "dat.h"
 
 int
-wraptls(int ofd)
+wraptls(int ofd, char *host)
 {
 	uchar digest[SHA1dlen];
 	Thumbprint *thumb;
@@ -12,6 +12,7 @@ wraptls(int ofd)
 	int fd;
 
 	memset(&conn, 0, sizeof conn);
+	conn.serverName = host;
 	fd = tlsClient(ofd, &conn);
 	if(fd < 0){
 		close(ofd);
