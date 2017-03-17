@@ -450,7 +450,7 @@ void I_PlaySong(musicinfo_t *m, int loop)
 	char name[64];
 	int n;
 
-	if(M_CheckParm("-nomusic"))
+	if(M_CheckParm("-nomusic") || audio_fd < 0)
 		return;
 	I_ShutdownMusic();
 	if(pipe(mpfd) < 0)
