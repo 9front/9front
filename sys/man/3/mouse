@@ -151,6 +151,18 @@ unlike
 clears the mouse
 to its default state.
 .TP
+.B blank
+Blank the screen.
+The screen also blanks after 30 minutes of inactivity.
+The screen can be unblanked by moving the mouse.
+.TP
+.BI blanktime " minutes"
+Set the timeout before the
+screen blanks; the default is 30 minutes.
+If
+.I minutes
+is zero, blanking is disabled.
+.TP
 .B twitch
 unblanks the screen and resets the idle timeout as if the
 mouse was twitched.

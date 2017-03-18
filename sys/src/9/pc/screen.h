@@ -118,7 +118,6 @@ struct VGAscr {
 	int	(*scroll)(VGAscr*, Rectangle, Rectangle);
 	void	(*blank)(VGAscr*, int);
 	ulong	id;	/* internal identifier for driver use */
-	int	isblank;
 	int	overlayinit;
 	int	softscreen;
 };
@@ -130,9 +129,9 @@ enum {
 };
 
 /* mouse.c */
-extern void mousectl(Cmdbuf*);
-extern void mouseresize(void);
-extern void mouseredraw(void);
+extern void	mousectl(Cmdbuf*);
+extern void	mouseresize(void);
+extern void	mouseredraw(void);
 
 /* screen.c */
 extern int		hwaccel;	/* use hw acceleration */
@@ -162,10 +161,8 @@ extern void swcursorunhide(void);
 extern void	deletescreenimage(void);
 extern void	resetscreenimage(void);
 extern int		drawhasclients(void);
-extern ulong	blanktime;
 extern void	setscreenimageclipr(Rectangle);
 extern void	drawflush(void);
-extern int drawidletime(void);
 extern QLock	drawlock;
 
 /* vga.c */
@@ -174,7 +171,6 @@ extern void	vgaimageinit(ulong);
 extern void	vgalinearpci(VGAscr*);
 extern void	vgalinearaddr(VGAscr*, ulong, int);
 
-extern void	drawblankscreen(int);
 extern void	vgablank(VGAscr*, int);
 
 extern Lock	vgascreenlock;

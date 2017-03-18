@@ -141,22 +141,6 @@ which must be either
 or
 .BR 8 .
 .TP
-.B blank
-Blank the screen.
-This consists of setting the hardware
-color map to all black as well as, on some controllers, setting the
-VGA hsync and vsync signals so as to turn off
-VESA DPMS-compliant monitors.
-The screen also blanks after 30 minutes of inactivity.
-The screen can be unblanked by moving the mouse.
-.TP
-.BI blanktime " minutes"
-Set the timeout before the
-screen blanks; the default is 30 minutes.
-If
-.I minutes
-is zero, blanking is disabled.
-.TP
 .BI hwaccel " mode"
 Depending on whether
 .I mode
@@ -195,8 +179,7 @@ or
 .BR off ,
 enable or disable the use of DPMS blanking
 (see
-.B blank
-above).
+.IR mouse (3)).
 .TP
 .BI linear " size align"
 Use a linear screen aperture of size

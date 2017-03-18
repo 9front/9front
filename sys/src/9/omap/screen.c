@@ -394,8 +394,6 @@ screeninit(void)
 	gscreen->width = Wid * (Depth / BI2BY) / BY2WD;
 	flushmemscreen(gscreen->r);
 
-	blanktime = 3;				/* minutes */
-
 	if (first) {
 		iprint("on: blue for 3 seconds...");
 		delay(3*1000);

@@ -42,10 +42,8 @@ extern void swcursorunhide(void);
 extern void	deletescreenimage(void);
 extern void	resetscreenimage(void);
 extern int		drawhasclients(void);
-extern ulong	blanktime;
 extern void	setscreenimageclipr(Rectangle);
 extern void	drawflush(void);
-extern int drawidletime(void);
 extern QLock	drawlock;
 
 #define ishwimage(i)	0		/* for ../port/devdraw.c */

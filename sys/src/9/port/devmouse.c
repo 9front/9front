@@ -53,6 +53,8 @@ enum
 	CMbuttonmap,
 	CMscrollswap,
 	CMswap,
+	CMblank,
+	CMblanktime,
 	CMtwitch,
 	CMwildcard,
 };
@@ -62,7 +64,9 @@ static Cmdtab mousectlmsg[] =
 	CMbuttonmap,	"buttonmap",	0,
 	CMscrollswap,	"scrollswap",	0,
 	CMswap,		"swap",		1,
-	CMtwitch,	"twitch",	0,
+	CMblank,	"blank",	1,
+	CMblanktime,	"blanktime",	2,
+	CMtwitch,	"twitch",	1,
 	CMwildcard,	"*",		0,
 };
 
@@ -71,6 +75,7 @@ Cursorinfo	cursor;
 Cursor		curs;
 
 void	Cursortocursor(Cursor*);
+void	mouseblankscreen(int);
 int	mousechanged(void*);
 void	mouseredraw(void);
 
@@ -96,6 +101,7 @@ static uchar buttonmap[8] = {
 static int mouseswap;
 static int scrollswap;
 static ulong mousetime;
+static ulong blanktime = 30;	/* in minutes; a half hour */
 
 extern Memimage* gscreen;
 
@@ -197,6 +203,7 @@ mouseopen(Chan *c, int omode)
 			error(Einuse);
 		mouse.lastcounter = mouse.counter;
 		mouse.resize = 0;
+		mousetime = seconds();
 		/* wet floor */
 	case Qcursor:
 		incref(&mouse);
@@ -220,6 +227,7 @@ mouseclose(Chan *c)
 		return;
 	case Qmouse:
 		mouse.open = 0;
+		mouseblankscreen(0);
 		/* wet floor */
 	case Qcursor:
 		if(decref(&mouse) != 0)
@@ -259,9 +267,14 @@ mouseread(Chan *c, void *va, long n, vlong off)
 		return n;
 
 	case Qmouse:
-		while(mousechanged(0) == 0)
-			sleep(&mouse.r, mousechanged, 0);
+		while(!mousechanged(nil)){
+			tsleep(&mouse.r, mousechanged, nil, 30*1000);
+			if(blanktime && !mousechanged(nil) &&
+			   (seconds() - mousetime) >= blanktime*60)
+				mouseblankscreen(1);
+		}
 		mousetime = seconds();
+		mouseblankscreen(0);
 
 		ilock(&mouse);
 		if(mouse.ri != mouse.wi)
@@ -399,8 +412,16 @@ mousewrite(Chan *c, void *va, long n, vlong)
 				setbuttonmap(cb->f[1]);
 			break;
 
+		case CMblank:
+			mouseblankscreen(1);
+			break;
+
+		case CMblanktime:
+			blanktime = strtoul(cb->f[1], 0, 0);
+			/* wet floor */
 		case CMtwitch:
-			drawactive(1);
+			mousetime = seconds();
+			mouseblankscreen(0);
 			break;
 
 		case CMwildcard:
@@ -501,6 +522,20 @@ Cursortocursor(Cursor *c)
 	qunlock(&drawlock);
 }
 
+void
+mouseblankscreen(int blank)
+{
+	static int blanked;
+
+	if(blank == blanked)
+		return;
+	qlock(&drawlock);
+	if(blanked != blank){
+		blankscreen(blank);
+		blanked = blank;
+	}
+	qunlock(&drawlock);
+}
 
 static int
 shouldredraw(void*)
@@ -514,22 +549,13 @@ shouldredraw(void*)
 static void
 mouseproc(void*)
 {
-	ulong counter;
-
-	counter = ~0;
 	while(waserror())
 		;
 	for(;;){
-		if(mouse.redraw){
-			mouse.redraw = 0;
-			cursoroff();
-			cursoron();
-		}
-
-		drawactive(mouse.counter != counter);
-		counter = mouse.counter;
-
-		tsleep(&mouse.redrawr, shouldredraw, 0, 20*1000);
+		sleep(&mouse.redrawr, shouldredraw, nil);
+		mouse.redraw = 0;
+		cursoroff();
+		cursoron();
 	}
 }
 

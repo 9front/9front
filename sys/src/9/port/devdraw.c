@@ -50,8 +50,6 @@ typedef struct Refresh Refresh;
 typedef struct Refx Refx;
 typedef struct DName DName;
 
-ulong blanktime = 30;	/* in minutes; a half hour */
-
 struct Draw
 {
 	int		clientid;
@@ -61,8 +59,6 @@ struct Draw
 	DName*		name;
 	int		vers;
 	int		softscreen;
-	int		blanked;	/* screen turned off */
-	ulong		blanktime;	/* time of last operation */
 };
 
 struct Client
@@ -2146,37 +2142,4 @@ drawcmap(void)
 				cr*0x01010101, cg*0x01010101, cb*0x01010101);
 		    }
 	}
-}
-
-void
-drawblankscreen(int blank)
-{
-	if(blank == sdraw.blanked)
-		return;
-	if(up != nil && islo() && candlock()){
-		blankscreen(blank);
-		sdraw.blanked = blank;
-		dunlock();
-	}
-}
-
-/*
- * record activity on screen, changing blanking as appropriate
- */
-void
-drawactive(int active)
-{
-	if(active){
-		drawblankscreen(0);
-		sdraw.blanktime = MACHP(0)->ticks;
-	}else{
-		if(blanktime && sdraw.blanktime && TK2SEC(MACHP(0)->ticks - sdraw.blanktime)/60 >= blanktime)
-			drawblankscreen(1);
-	}
-}
-
-int
-drawidletime(void)
-{
-	return TK2SEC(MACHP(0)->ticks - sdraw.blanktime)/60;
 }

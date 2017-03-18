@@ -33,8 +33,6 @@ static Dirtab vgadir[] = {
 
 enum {
 	CMactualsize,
-	CMblank,
-	CMblanktime,
 	CMdrawinit,
 	CMhwaccel,
 	CMhwblank,
@@ -45,15 +43,12 @@ enum {
 	CMsize,
 	CMtextmode,
 	CMtype,
-	CMunblank,
 	CMsoftscreen,
 	CMpcidev,
 };
 
 static Cmdtab vgactlmsg[] = {
 	CMactualsize,	"actualsize",	2,
-	CMblank,	"blank",	1,
-	CMblanktime,	"blanktime",	2,
 	CMdrawinit,	"drawinit",	1,
 	CMhwaccel,	"hwaccel",	2,
 	CMhwblank,	"hwblank",	2,
@@ -64,7 +59,6 @@ static Cmdtab vgactlmsg[] = {
 	CMsize,		"size",		3,
 	CMtextmode,	"textmode",	1,
 	CMtype,		"type",		2,
-	CMunblank,	"unblank",	1,
 	CMsoftscreen,	"softscreen",	2,
 	CMpcidev,	"pcidev",	2,
 };
@@ -212,8 +206,6 @@ vgaread(Chan* c, void* a, long n, vlong off)
 					physgscreenr.max.x, physgscreenr.max.y);
 		}
 
-		len += snprint(p+len, READSTR-len, "blank time %lud idle %d state %s\n",
-			blanktime, drawidletime(), scr->isblank ? "off" : "on");
 		len += snprint(p+len, READSTR-len, "hwaccel %s\n", hwaccel ? "on" : "off");
 		len += snprint(p+len, READSTR-len, "hwblank %s\n", hwblank ? "on" : "off");
 		len += snprint(p+len, READSTR-len, "panning %s\n", panning ? "on" : "off");
@@ -430,18 +422,6 @@ vgactl(Cmdbuf *cb)
 			align = strtoul(cb->f[2], 0, 0);
 		if(screenaperture(size, align) < 0)
 			error("not enough free address space");
-		return;
-
-	case CMblank:
-		drawblankscreen(1);
-		return;
-	
-	case CMunblank:
-		drawblankscreen(0);
-		return;
-	
-	case CMblanktime:
-		blanktime = strtoul(cb->f[1], 0, 0);
 		return;
 
 	case CMpanning:
