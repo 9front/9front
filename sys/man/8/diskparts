@@ -5,7 +5,7 @@ diskparts \- prepare disks for use
 .B diskparts
 .SH DESCRIPTION
 .I Diskparts
-configures FDISK and Plan 9 partitions on any disks named
+configures EFI, FDISK and Plan 9 partitions on any disks named
 .BR /dev/sd* ,
 then configures
 .IR fs (3)
@@ -29,7 +29,7 @@ yet, they are first bound after the current contents.
 storage interface control files for IDE devices
 .PD
 .SH SOURCE
-.B /rc/bin
+.B /rc/bin/diskparts
 .SH SEE ALSO
 .IR sd (3),
 .IR partfs (8)
