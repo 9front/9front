@@ -7,8 +7,7 @@ mus \- MUS to MIDI converter
 .I musfile
 ]
 .SH DESCRIPTION
-The MUS format is a simplified MIDI music format used in
-.IR doom (1)
+The MUS format is a simplified MIDI music format used in doom
 and several related games.
 .PP
 .I Mus
@@ -16,8 +15,7 @@ decodes MIDI music encoded in MUS format, either from
 .B musfile
 or from standard input, and produces a MIDI format file on standard output.
 .SH "SEE ALSO"
-.IR doom (1) ,
-.IR midi (1)
+.IR games (1)
 .SH SOURCE
 .B /sys/src/games/mus.c
 .SH HISTORY
