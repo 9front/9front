@@ -83,19 +83,27 @@ driver has no effect.
 Set the type of VGA controller being used.
 .I Ctlr
 is one of 
+.BR 3dfx ,
 .BR ark200pv ,
 .BR clgd542x ,
 .BR clgd546x ,
 .BR ct65545 ,
 .BR cyber938x ,
+.BR et4000 ,
+.BR geode ,
 .BR hiqvideo ,
+.BR i81x ,
+.BR igfx ,
 .BR mach64xx ,
 .BR mga2164w ,
+.BR mga4xx ,
 .BR neomagic ,
 .BR nvidia ,
+.BR radeon ,
 .BR s3 ,
+.BR t2r4
 and
-.BR t2r4 .
+.BR vmware .
 .IP
 Note that this list does not indicate the full set of VGA chips
 supported. For example,
@@ -110,27 +118,34 @@ appropriately.
 Set the type of hardware graphics cursor being used.
 .I Gc
 is one of
+.BR soft ,
+.BR 3dfxhwgc ,
 .BR ark200pvhwgc ,
 .BR bt485hwgc ,
 .BR clgd542xhwgc ,
 .BR clgd546xhwgc ,
 .BR ct65545hwgc ,
 .BR cyber938xhwgc ,
+.BR et4000hwgc ,
+.BR geodehwgc ,
 .BR hiqvideohwgc ,
-.BR mach64xxhwgc ,
+.BR i81xhwgc ,
+.BR igfxhwgc ,
 .BR mga2164whwgc ,
+.BR mach64xxhwgc ,
 .BR neomagichwgc ,
 .BR nvidiahwgc ,
+.BR radeonhwgc ,
 .BR rgb524hwgc ,
 .BR s3hwgc ,
 .BR t2r4hwgc ,
 .BR tvp3020hwgc ,
+.BR tvp3026hwgc
 and
-.BR tvp3026hwgc .
+.BR vmwarehwgc .
 A value of
 .B off
 disables the cursor.
-There is no software cursor.
 .TP
 .BI palettedepth " d"
 Set the number of bits of precision used by the 
