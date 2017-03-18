@@ -95,7 +95,7 @@ mkdir -p lib/audio/icon
 mkdir -p lib/firmware
 mkdir -p lib/ndb
 mkdir -p lib/tftpd
-mkdir -p mail/box/glenda
+mkdir -p mail/box/glenda/mbox
 mkdir -p mail/faxoutqueue
 mkdir -p mail/faxqueue
 mkdir -p mail/fs

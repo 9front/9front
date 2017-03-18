@@ -45,7 +45,7 @@ mail	d775 upas upas
 	gid=upas
 	box	d775
 		glenda	d775 glenda glenda
-			mbox	a662 glenda glenda /sys/lib/dist/empty
+			mbox	d777 glenda glenda
 	faxoutqueue	d775
 	faxqueue	d775
 	fs	d555
@@ -320,8 +320,6 @@ $objtype	d775
 acme	d775
 	*
 	acid	d775
-		+
-	mail	d775
 		+
 	news	d775
 		+
