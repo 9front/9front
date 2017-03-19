@@ -82,6 +82,7 @@ struct	Sym
 	short	become;
 	short	frame;
 	uchar	subtype;
+	char	dupok;
 	ushort	file;
 	long	value;
 	long	sig;

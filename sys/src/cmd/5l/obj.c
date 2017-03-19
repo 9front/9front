@@ -868,6 +868,8 @@ loop:
 			diag("GLOBL must have a name\n%P", p);
 			errorexit();
 		}
+		if(p->reg & DUPOK)
+			s->dupok = 1;
 		if(s->type == 0 || s->type == SXREF) {
 			s->type = SBSS;
 			s->value = 0;
@@ -1113,6 +1115,7 @@ lookup(char *symb, int v)
 	s->version = v;
 	s->value = 0;
 	s->sig = 0;
+	s->dupok = 0;
 	hash[h] = s;
 	return s;
 }

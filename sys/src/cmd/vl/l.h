@@ -74,6 +74,7 @@ struct	Sym
 	short	version;
 	short	become;
 	short	frame;
+	char	dupok;
 	long	value;
 	Sym*	link;
 };

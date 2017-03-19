@@ -23,6 +23,7 @@ Pconv(Fmt *fp)
 	bigP = p;
 	switch(p->as) {
 	case ATEXT:
+	case AGLOBL:
 		if(p->from.scale) {
 			snprint(str, sizeof(str), "(%ld)	%A	%D,%d,%D",
 				p->line, p->as, &p->from, p->from.scale, &p->to);

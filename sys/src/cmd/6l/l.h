@@ -79,6 +79,7 @@ struct	Sym
 	short	version;
 	short	become;
 	short	frame;
+	char	dupok;
 	uchar	subtype;
 	ushort	file;
 	vlong	value;

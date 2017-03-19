@@ -578,7 +578,7 @@ datblk(long s, long n, int str)
 		}
 		if(l >= n)
 			continue;
-		if(p->as != AINIT && p->as != ADYNT) {
+		if(p->as != AINIT && p->as != ADYNT && !p->from.sym->dupok) {
 			for(j=l+(c-i)-1; j>=l; j--)
 				if(buf.dbuf[j]) {
 					print("%P\n", p);
