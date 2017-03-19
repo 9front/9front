@@ -35,7 +35,7 @@ main(int argc, char *argv[])
 				print("Misfortune?\n");
 				exits("misfortune");
 			}
-			if(ixbuf->length == 0){
+			if(ixbuf->length < sizeof(offs)){
 				/* someone else is rewriting the index */
 				goto NoIndex;
 			}
@@ -56,13 +56,13 @@ main(int argc, char *argv[])
 		}
 	}
 	if(oldindex){
-		seek(ix, truerand()%(ixbuf->length/sizeof(offs))*sizeof(offs), 0);
+		seek(ix, ntruerand(ixbuf->length/sizeof(offs))*sizeof(offs), 0);
 		read(ix, off, sizeof(off));
 		Bseek(f, off[0]|(off[1]<<8)|(off[2]<<16)|(off[3]<<24), 0);
 		p = Brdline(f, '\n');
 		if(p){
 			p[Blinelen(f)-1] = 0;
-			strcpy(choice, p);
+			strncpy(choice, p, sizeof(choice)-1);
 		}else
 			strcpy(choice, "Misfortune!");
 	}else{
@@ -83,8 +83,8 @@ NoIndex:
 				off[3] = offs>>24;
 				Bwrite(&g, off, sizeof(off));
 			}
-			if(lrand()%i==0)
-				strcpy(choice, p);
+			if(nrand(i)==0)
+				strncpy(choice, p, sizeof(choice)-1);
 		}
 	}
 	print("%s\n", choice);
