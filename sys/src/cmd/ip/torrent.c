@@ -1352,6 +1352,9 @@ main(int argc, char *argv[])
 	while(waitpid() >= 0)
 		;
 
+	if(finished() && !sflag)
+		exits(0);
+
 	srand(truerand());
 	atnotify(catch, 1);
 	switch(i = rfork(RFPROC|RFMEM|RFNOTEG)){
