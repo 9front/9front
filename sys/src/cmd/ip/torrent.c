@@ -1352,7 +1352,7 @@ main(int argc, char *argv[])
 	while(waitpid() >= 0)
 		;
 
-	srand(time(0));
+	srand(truerand());
 	atnotify(catch, 1);
 	switch(i = rfork(RFPROC|RFMEM|RFNOTEG)){
 	case -1:
