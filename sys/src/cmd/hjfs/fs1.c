@@ -106,8 +106,7 @@ getfree(Fs *fs, uvlong *r)
 					b->refs[j] = 1;
 					*r = l;
 					have = 1;
-				}
-				else if(nbsend(fs->freelist, &l) <= 0)
+				}else if(nbsend(fs->freelist, &l) <= 0)
 					goto found;
 			}
 		if(have)
@@ -259,7 +258,7 @@ ream(Fs *fs)
 	b->sb.size = d->size;
 	b->sb.fstart = SUPERBLK + 1;
 	fs->fstart = b->sb.fstart;
-	b->sb.fend = b->sb.fstart + HOWMANY(b->sb.size * 3, RBLOCK);
+	b->sb.fend = b->sb.fstart + HOWMANY(b->sb.size * REFSIZ);
 	b->sb.qidpath = DUMPROOTQID + 1;
 	firsti = b->sb.fstart + SUPERBLK / REFPERBLK;
 	lasti = b->sb.fstart + b->sb.fend / REFPERBLK;
@@ -267,7 +266,7 @@ ream(Fs *fs)
 		c = getbuf(d, i, TREF, 1);
 		if(c == nil)
 			goto err;
-		memset(c->refs, 0, sizeof(b->data));
+		memset(c->refs, 0, sizeof(c->refs));
 		if(i >= firsti && i <= lasti){
 			j = 0;
 			je = REFPERBLK;
@@ -760,7 +759,7 @@ trunc(Fs *fs, FLoc *ll, Buf *bd, uvlong size)
 		return -1;
 	if(size >= d->size)
 		goto done;
-	blk = HOWMANY(size, RBLOCK);
+	blk = HOWMANY(size);
 	while(blk < NDIRECT){
 		if(d->db[blk] != 0){
 			putfree(fs, d->db[blk]);

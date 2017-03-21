@@ -80,7 +80,8 @@ enum {
 	DENTRYSIZ = NAMELEN + 4 * sizeof(ushort) + 13 + (3 + NDIRECT + NINDIRECT) * sizeof(uvlong),
 	DEPERBLK = RBLOCK / DENTRYSIZ,
 	OFFPERBLK = RBLOCK / 12,
-	REFPERBLK = RBLOCK / 3,
+	REFSIZ = 3,
+	REFPERBLK = RBLOCK / REFSIZ,
 };
 
 struct BufReq {
@@ -232,5 +233,4 @@ enum { /* getblk modes */
 	GBOVERWR = 3,
 };
 
-#define HOWMANY(a, b) (((a)+((b)-1))/(b))
-#define ROUNDUP(a, b) (HOWMANY(a,b)*(b))
+#define HOWMANY(a) (((a)+(RBLOCK-1))/RBLOCK)
