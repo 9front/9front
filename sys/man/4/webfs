@@ -66,7 +66,7 @@ The following global parameters can be set:
 Sets the HTTP user agent string.
 .TP
 .B timeout
-Sets the request timeout in seconds.
+Sets the request timeout in milliseconds.
 .TP
 .BI flushauth " url"
 Flushes any associated authentication information for
