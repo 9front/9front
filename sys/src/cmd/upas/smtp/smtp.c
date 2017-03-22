@@ -493,20 +493,26 @@ smtpcram(DS *ds)
 static char *
 doauth(char *methods)
 {
-	char *buf, *err;
+	static char buf[1024];
+	char *s, *se, *err;
 	UserPasswd *p;
 	int n;
 	DS ds;
 
-	dialstringparse(ddomain, &ds);
+	dialstringparse(farend, &ds);
 	if(strstr(methods, "CRAM-MD5"))
 		return smtpcram(&ds);
 
-	p = auth_getuserpasswd(nil,
-		user?"proto=pass service=smtp server=%q user=%q":"proto=pass service=smtp server=%q",
-		ds.host, user);
-	if (p == nil)
+	se = buf+sizeof(buf);
+	s = seprint(buf, se, "proto=pass service=smtp server=%q", ds.host);
+	if(user)
+		seprint(s, se, " user=%q", user);
+
+	p = auth_getuserpasswd(nil, "%s", buf);
+	if (p == nil) {
+		syslog(0, "smtp.fail", "failed to get userpasswd for %s", buf);
 		return Giveup;
+	}
 
 	err = Retry;
 	if (strstr(methods, "LOGIN")){
@@ -524,18 +530,9 @@ doauth(char *methods)
 
 		err = nil;
 	}
-	else
-	if (strstr(methods, "PLAIN")){
-		n = strlen(p->user) + strlen(p->passwd) + 2;
-		buf = malloc(n+1);
-		if (buf == nil) {
-			free(buf);
-			goto out;	/* Out of memory */
-		}
-		snprint(buf, n, "%c%s%c%s", 0, p->user, 0, p->passwd);
-		dBprint("AUTH PLAIN %.*[\r\n", n, buf);
-		memset(buf, 0, n);
-		free(buf);
+	else if (strstr(methods, "PLAIN")){
+		s = seprint(buf, se, "%c%s%c%s", 0, p->user, 0, p->passwd);
+		dBprint("AUTH PLAIN %.*[\r\n", s-buf, buf);
 		if (getreply() != 2)
 			goto out;
 		err = nil;
