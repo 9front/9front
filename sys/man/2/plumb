@@ -218,7 +218,7 @@ appends the
 (which may be a list) to the attribute list
 .IR a
 and returns the new list.
-.I Plumbattr
+.I Plumbdelattr
 searches the list
 .I a
 for the first attribute with name
