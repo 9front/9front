@@ -136,6 +136,7 @@ main(int argc, char **argv)
 	mailfmtinstall();		/* 2047 encoding */
 	fmtinstall('D', Dfmt);
 	fmtinstall('[', encodefmt);
+	fmtinstall('H', encodefmt);
 	errs = malloc(argc*sizeof(char*));
 	reply = s_new();
 	host = 0;
@@ -496,7 +497,6 @@ doauth(char *methods)
 	static char buf[1024];
 	char *s, *se, *err;
 	UserPasswd *p;
-	int n;
 	DS ds;
 
 	dialstringparse(farend, &ds);
@@ -677,16 +677,14 @@ rcptto(char *to)
 	return 0;
 }
 
-static char hex[] = "0123456789abcdef";
-
 /*
  *  send the damn thing
  */
 char *
 data(String *from, Biobuf *b, Mx *mx)
 {
-	char *buf, *cp, errmsg[ERRMAX], id[40];
-	int i, n, nbytes, bufsize, eof, r;
+	char *buf, *cp, errmsg[ERRMAX];
+	int n, nbytes, bufsize, eof;
 	String *fromline;
 
 	/*
@@ -751,36 +749,24 @@ data(String *from, Biobuf *b, Mx *mx)
 	fromline = convertheader(from);
 	uneaten = buf;
 
-	srand(truerand());
 	if(messageid == 0){
-		for(i = 0; i < 16; i++){
-			r = rand() & 0xff;
-			id[2*i] = hex[r & 0xf];
-			id[2*i + 1] = hex[(r>>4) & 0xf];
-		}
-		id[2*i] = '\0';
-		nbytes += Bprint(&bout, "Message-ID: <%s@%s>\r\n", id, hostdomain);
-		if(debug)
-			Bprint(&berr, "Message-ID: <%s@%s>\r\n", id, hostdomain);
+		uchar id[16];
+
+		genrandom(id, sizeof(id));
+		nbytes += dBprint("Message-ID: <%.*H@%s>\r\n",
+			sizeof(id), id, hostdomain);
 	}
 
-	if(originator == 0){
-		nbytes += Bprint(&bout, "From: %s\r\n", s_to_c(fromline));
-		if(debug)
-			Bprint(&berr, "From: %s\r\n", s_to_c(fromline));
-	}
+	if(originator == 0)
+		nbytes += dBprint("From: %s\r\n", s_to_c(fromline));
 	s_free(fromline);
 
-	if(destination == 0 && toline)
-		if(*s_to_c(toline) == '@'){	/* route addr */
-			nbytes += Bprint(&bout, "To: <%s>\r\n", s_to_c(toline));
-			if(debug)
-				Bprint(&berr, "To: <%s>\r\n", s_to_c(toline));
-		} else {
-			nbytes += Bprint(&bout, "To: %s\r\n", s_to_c(toline));
-			if(debug)
-				Bprint(&berr, "To: %s\r\n", s_to_c(toline));
-		}
+	if(destination == 0 && toline){
+		if(*s_to_c(toline) == '@')	/* route addr */
+			nbytes += dBprint("To: <%s>\r\n", s_to_c(toline));
+		else
+			nbytes += dBprint("To: %s\r\n", s_to_c(toline));
+	}
 
 	if(date == 0 && udate)
 		nbytes += printdate(udate);
