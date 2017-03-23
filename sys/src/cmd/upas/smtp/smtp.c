@@ -14,6 +14,7 @@ void	addhostdom(String*, char*);
 String*	bangtoat(char*);
 String*	convertheader(String*);
 int	dBprint(char*, ...);
+#pragma varargck argpos dBprint 1
 int	dBputc(int);
 char*	data(String*, Biobuf*, Mx*);
 char*	domainify(char*, char*);
@@ -474,7 +475,9 @@ smtpcram(DS *ds)
 	l = dec64((uchar*)ch, sizeof ch, p, strlen(p));
 	ch[l] = 0;
 	n = auth_respond(ch, l, usr, sizeof usr, rbuf, sizeof rbuf, auth_getkey,
-		user?"proto=cram role=client server=%q user=%q":"proto=cram role=client server=%q",
+		user!=nil?
+		"proto=cram role=client server=%q user=%q":
+		"proto=cram role=client server=%q",
 		ds->host, user);
 	if(n == -1)
 		return "cannot find SMTP password";
@@ -485,7 +488,7 @@ smtpcram(DS *ds)
 	l = snprint(ubuf, sizeof ubuf, "%s %.*s", usr, n, rbuf);
 	snprint(ebuf, sizeof ebuf, "%.*[", l, ubuf);
 
-	dBprint("%s\r\n", ch);
+	dBprint("%s\r\n", ebuf);
 	if(getreply() != 2)
 		return Retry;
 	return nil;
@@ -494,45 +497,43 @@ smtpcram(DS *ds)
 static char *
 doauth(char *methods)
 {
-	static char buf[1024];
-	char *s, *se, *err;
+	char buf[1024], *err;
 	UserPasswd *p;
 	DS ds;
+	int n;
 
 	dialstringparse(farend, &ds);
 	if(strstr(methods, "CRAM-MD5"))
 		return smtpcram(&ds);
-
-	se = buf+sizeof(buf);
-	s = seprint(buf, se, "proto=pass service=smtp server=%q", ds.host);
-	if(user)
-		seprint(s, se, " user=%q", user);
-
-	p = auth_getuserpasswd(nil, "%s", buf);
+	p = auth_getuserpasswd(nil,
+		user!=nil?
+		"proto=pass service=smtp server=%q user=%q":
+		"proto=pass service=smtp server=%q",
+		ds.host, user);
 	if (p == nil) {
-		syslog(0, "smtp.fail", "failed to get userpasswd for %s", buf);
+		syslog(0, "smtp.fail", "failed to get userpasswd: %r");
 		return Giveup;
 	}
-
 	err = Retry;
 	if (strstr(methods, "LOGIN")){
 		dBprint("AUTH LOGIN\r\n");
 		if (getreply() != 3)
 			goto out;
 
-		dBprint("%.*[\r\n", strlen(p->user), p->user);
+		dBprint("%.*[\r\n", (int)strlen(p->user), p->user);
 		if (getreply() != 3)
 			goto out;
 
-		dBprint("%.*[\r\n", strlen(p->passwd), p->passwd);
+		dBprint("%.*[\r\n", (int)strlen(p->passwd), p->passwd);
 		if (getreply() != 2)
 			goto out;
 
 		err = nil;
 	}
 	else if (strstr(methods, "PLAIN")){
-		s = seprint(buf, se, "%c%s%c%s", 0, p->user, 0, p->passwd);
-		dBprint("AUTH PLAIN %.*[\r\n", s-buf, buf);
+		n = snprint(buf, sizeof(buf), "%c%s%c%s", 0, p->user, 0, p->passwd);
+		dBprint("AUTH PLAIN %.*[\r\n", n, buf);
+		memset(buf, 0, sizeof(buf));
 		if (getreply() != 2)
 			goto out;
 		err = nil;
