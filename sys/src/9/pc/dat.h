@@ -267,6 +267,8 @@ typedef struct KMap		KMap;
 KMap*	kmap(Page*);
 void	kunmap(KMap*);
 
+extern u32int MemMin;
+
 struct
 {
 	char	machs[MAXMACH];		/* active CPUs */

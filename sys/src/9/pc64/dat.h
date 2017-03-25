@@ -230,6 +230,8 @@ struct Mach
 typedef void KMap;
 #define	VA(k)		((void*)k)
 
+extern u32int MemMin;
+
 struct
 {
 	char	machs[MAXMACH];		/* bitmap of active CPUs */

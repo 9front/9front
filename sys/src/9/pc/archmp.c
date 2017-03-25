@@ -383,6 +383,7 @@ identify(void)
 {
 	char *cp;
 	_MP_ *_mp_;
+	ulong len;
 
 	if((cp = getconf("*nomp")) != nil && strcmp(cp, "0") != 0)
 		return 1;
@@ -394,16 +395,32 @@ identify(void)
 	 * if correct, check the version.
 	 * To do: check extended table checksum.
 	 */
-	if((_mp_ = sigsearch("_MP_")) == 0 || checksum(_mp_, _MP_sz) || 
-	   (_mp_->physaddr == 0))
+	if((_mp_ = sigsearch("_MP_")) == nil || checksum(_mp_, _MP_sz) != 0 || _mp_->physaddr == 0)
 		return 1;
 
-	pcmp = KADDR(_mp_->physaddr);
-	if(memcmp(pcmp, "PCMP", 4) || checksum(pcmp, pcmp->length) ||
-	   (pcmp->version != 1 && pcmp->version != 4)) {
+	len = PCMPsz;
+	if(_mp_->physaddr < MemMin)
+		pcmp = KADDR(_mp_->physaddr);
+	else if((pcmp = vmap(_mp_->physaddr, len)) == nil)
+		return 1;
+	if(pcmp->length < len
+	|| memcmp(pcmp, "PCMP", 4) != 0
+	|| (pcmp->version != 1 && pcmp->version != 4)){
+Bad:
+		if((uintptr)pcmp < KZERO)
+			vunmap(pcmp, len);
 		pcmp = nil;
 		return 1;
 	}
+	len = pcmp->length;
+	if((uintptr)pcmp < KZERO)
+		vunmap(pcmp, PCMPsz);
+	if(_mp_->physaddr < MemMin)
+		pcmp = KADDR(_mp_->physaddr);
+	else if((pcmp = vmap(_mp_->physaddr, len)) == nil)
+		return 1;
+	if(checksum(pcmp, len) != 0)
+		goto Bad;
 
 	if(m->havetsc && getconf("*notsc") == nil)
 		archmp.fastclock = tscticks;
