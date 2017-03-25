@@ -46,7 +46,6 @@ Cursor pausecursor={
 };
 
 enum {
-	STK = 8192,
 	DOBODY = 0,
 	SPEED,
 	GRAV,
@@ -68,7 +67,7 @@ double
 	LIM = 10,
 	dt²;
 char *file;
-int showv, showa, throttle, paused;
+int showv, showa, paused;
 
 char *menustr[] = {
 	[DOBODY]	"new body",
@@ -149,7 +148,7 @@ drawstats(void)
 	Point p;
 	static char buf[1024];
 
-	snprint(buf, sizeof(buf), "Number of bodies: %d", glxy.l);
+	snprint(buf, sizeof(buf), "Number of bodies: %d", glxy.nb);
 	p = addpt(screen->r.min, (Point){5, 3});
 	string(screen, p, display->white, ZP, font, buf);
 
@@ -170,7 +169,7 @@ drawglxy(void)
 	int s;
 
 	draw(screen, screen->r, display->black, 0, ZP);
-	for(b = glxy.a; b < glxy.a + glxy.l; b++) {
+	for(b = glxy.a; b < glxy.a + glxy.nb; b++) {
 		pos = topoint(b->Vector);
 		s = b->size/scale;
 		fillellipse(screen, pos, s, s, b->col, ZP);
@@ -529,57 +528,6 @@ kbdthread(void*)
 	}
 }
 
-/* verlet barnes-hut */
-void
-simulate(void*)
-{
-	Body *b;
-	double f;
-
-	threadsetname("simulate");
-
-	for(;;) {
-		qlock(&glxy);
-
-		if(throttle)
-			sleep(throttle);
-
-		drawglxy();
-
-Again:
-		space.t = EMPTY;
-		quads.l = 0;
-		STATS(quaddepth = 0;)
-		for(b = glxy.a; b < glxy.a + glxy.l; b++) {
-			if(quadins(b, LIM) == -1) {
-				growquads();
-				goto Again;
-			}
-		}
-
-		STATS(avgcalcs = 0;)
-		for(b = glxy.a; b < glxy.a + glxy.l; b++) {
-			b->a.x = b->newa.x;
-			b->a.y = b->newa.y;
-			b->newa.x = b->newa.y = 0;
-			STATS(calcs = 0;)
-			quadcalc(b, space, LIM);
-			STATS(avgcalcs += calcs;)
-		}
-		STATS(avgcalcs /= glxy.l;)
-
-		for(b = glxy.a; b < glxy.a + glxy.l; b++) {
-			b->x += dt*b->v.x + dt²*b->a.x/2;
-			b->y += dt*b->v.y + dt²*b->a.y/2;
-			b->v.x += dt*(b->a.x + b->newa.x)/2;
-			b->v.y += dt*(b->a.y + b->newa.y)/2;
-			CHECKLIM(b, f);
-		}
-
-		qunlock(&glxy);
-	}
-}
-
 Vector
 tovector(Point p)
 {
@@ -600,12 +548,16 @@ usage(void)
 void
 threadmain(int argc, char **argv)
 {
+	char* nproc;
 	int doload;
 
 	doload = 0;
 	ARGBEGIN {
 	default:
 		usage();
+		break;
+	case 'p':
+		extraproc = strtol(EARGF(usage()), nil, 0);
 		break;
 	case 't':
 		throttle = strtol(EARGF(usage()), nil, 0);
@@ -635,6 +587,16 @@ threadmain(int argc, char **argv)
 		close(0);
 		if(open(file, OREAD) != 0)
 			sysfatal("threadmain: could not open file: %r");
+	}
+
+	if(extraproc < 0) {
+		nproc = getenv("NPROC");
+		if(nproc == nil)
+			extraproc = 0;
+		else
+			extraproc = strtol(nproc, nil, 10) - 1;
+		if(extraproc < 0)
+			extraproc = 0;
 	}
 
 	if(initdraw(nil, nil, "Galaxy") < 0)

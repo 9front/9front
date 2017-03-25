@@ -152,7 +152,7 @@ main(int argc, char **argv)
 	if(argc != 1)
 		usage();
 
-	new = glxy.l;
+	new = glxy.nb;
 	lim = strtod(*argv, nil);
 	mkbodies(lim);
 
@@ -160,7 +160,7 @@ main(int argc, char **argv)
 	for(b = glxy.a; b < glxy.a + new; b++)
 		Bprint(&bout, "%B\n", b);
 
-	for(b = glxy.a+new; b < glxy.a+glxy.l; b++) {
+	for(b = glxy.a+new; b < glxy.a+glxy.nb; b++) {
 		b->x += o.x;
 		b->y += o.y;
 		Bprint(&bout, "%B\n", b);

@@ -102,22 +102,10 @@ Exit the simulator.
 Certain aspects of the galaxy simulator are controlled by
 the following options:
 .TP
-.BI -t " throttle"
-Causes the process that calculates forces to relinquish
-the processor for
-.I throttle
-milliseconds after each calculation.
-.TP
 .BI -G " gravity"
 Sets the gravitational constant to
 .I gravity.
 The default value is 1.
-.TP
-.BI -ε " softening"
-Sets the
-.I softening
-factor to prevent gravitational singularities during
-collisions or near-collisions. The default value is 500.
 .TP
 .BI -f " file"
 Reads the galaxy file
@@ -127,6 +115,25 @@ Reads the galaxy file
 .TP
 .B -i
 Reads a galaxy file from standard input.
+.TP
+.BI -p " procs"
+Specifies the number of extra processes to use in order
+to calculate the gravitational force on each body in
+parallel.
+The default value is
+.BR $NPROC-1 .
+.TP
+.BI -t " throttle"
+Causes the process that calculates forces to relinquish
+the processor for
+.I throttle
+milliseconds after each calculation.
+.TP
+.BI -ε " softening"
+Sets the
+.I softening
+factor to prevent gravitational singularities during
+collisions or near-collisions. The default value is 500.
 .SS Mkgalaxy
 .I Mkgalaxy
 is a utility to create galaxies for simulation.
