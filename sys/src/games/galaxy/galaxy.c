@@ -442,7 +442,7 @@ domenu(void)
 		G *= z;
 		break;
 	case EXIT:
-		threadexitsall(nil);
+		quit(nil);
 		break;
 	}
 	drawglxy();
@@ -496,14 +496,14 @@ kbdthread(void*)
 
 	for(;;) {
 		recv(realkc->c, &r);
-		if(r == Kdel) {
-			threadexitsall(nil);
-		}
+		if(r == Kdel)
+			quit(nil);
+
 		if(kc.c != nil)
 			send(kc.c, &r);
 		else switch(r) {
 		case 'q':
-			threadexitsall(nil);
+			quit(nil);
 			break;
 		case 's':
 			stats ^= 1;
@@ -539,9 +539,16 @@ tovector(Point p)
 }
 
 void
+quit(char *e)
+{
+	pause(0, 0);
+	threadexitsall(e);
+}
+
+void
 usage(void)
 {
-	fprint(2, "Usage: %s [-t throttle] [-G gravity] [-ε smooth] [-i] [file]\n", argv0);
+	fprint(2, "Usage: %s [-t throttle] [-G gravity] [-ε smooth] [-p extraproc] [-i] [file]\n", argv0);
 	threadexitsall("usage");
 }
 

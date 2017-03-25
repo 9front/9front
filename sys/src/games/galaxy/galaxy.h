@@ -49,6 +49,8 @@ enum {
 	BODY,
 };
 
+void quit(char*);
+
 Image *randcol(void);
 Point topoint(Vector);
 Vector tovector(Point);
