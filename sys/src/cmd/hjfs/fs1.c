@@ -449,7 +449,7 @@ freeit:
 		if((l->flags & LGONE) != 0){
 			/*
 			 * safe to unlock here, the file is gone and
-			 * we'r the last reference.
+			 * we're the last reference.
 			 */
 			qunlock(&fs->loctree);
 			b = getbuf(fs->d, l->blk, TDENTRY, 0);

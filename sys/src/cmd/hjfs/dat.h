@@ -79,6 +79,11 @@ struct Dentry {
 enum {
 	DENTRYSIZ = NAMELEN + 4 * sizeof(ushort) + 13 + (3 + NDIRECT + NINDIRECT) * sizeof(uvlong),
 	DEPERBLK = RBLOCK / DENTRYSIZ,
+	/* Given any opportunity to make a breaking change to hjfs,
+	 * make this 12 an 8. Indirect offsets to blocks used to
+	 * hold an incrementing  4 byte generation number. That
+	 * design has changed.
+	 */
 	OFFPERBLK = RBLOCK / 12,
 	REFSIZ = 3,
 	REFPERBLK = RBLOCK / REFSIZ,
@@ -185,8 +190,8 @@ enum {
 	CHREAD = 1,
 	CHWRITE = 2,
 	CHRCLOSE = 4,
-	CHFDUMP = 1,
 
+	CHFDUMP = 1,
 	CHFNOLOCK = 2,
 	CHFRO = 4,
 	CHFNOPERM = 8,
