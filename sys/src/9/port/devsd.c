@@ -306,8 +306,8 @@ sdgetunit(SDev* sdev, int subno)
 		unit->subno = subno;
 		unit->dev = sdev;
 	
-		if(sdev->enabled == 0 && sdev->ifc->enable)
-			sdev->enabled = sdev->ifc->enable(sdev);
+		if(sdev->enabled == 0)
+			sdev->enabled = sdev->ifc->enable == nil || sdev->ifc->enable(sdev);
 
 		/*
 		 * No need to lock anything here as this is only
