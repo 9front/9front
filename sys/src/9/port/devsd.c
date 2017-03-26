@@ -293,30 +293,31 @@ sdgetunit(SDev* sdev, int subno)
 			qunlock(&sdev->unitlock);
 			return nil;
 		}
+
 		if((unit = malloc(sizeof(SDunit))) == nil){
 			qunlock(&sdev->unitlock);
 			return nil;
 		}
 		sdev->unitflg[subno] = 1;
-
 		snprint(buf, sizeof buf, "%s%x", sdev->name, subno);
 		kstrdup(&unit->name, buf);
 		kstrdup(&unit->user, eve);
 		unit->perm = 0555;
 		unit->subno = subno;
 		unit->dev = sdev;
-
+	
 		if(sdev->enabled == 0 && sdev->ifc->enable)
-			sdev->ifc->enable(sdev);
-		sdev->enabled = 1;
+			sdev->enabled = sdev->ifc->enable(sdev);
 
 		/*
 		 * No need to lock anything here as this is only
 		 * called before the unit is made available in the
 		 * sdunit[] array.
 		 */
-		if(unit->dev->ifc->verify(unit) == 0){
+		if(sdev->enabled == 0 || unit->dev->ifc->verify(unit) == 0){
 			qunlock(&sdev->unitlock);
+			free(unit->name);
+			free(unit->user);
 			free(unit);
 			return nil;
 		}
