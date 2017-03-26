@@ -579,7 +579,7 @@ vioenable(SDev *sd)
 	snprint(name, sizeof(name), "%s (%s)", sd->name, sd->ifc->name);
 	intrenable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, name);
 	outb(vd->port+Status, inb(vd->port+Status) | DriverOk);
-	return 0;
+	return 1;
 }
 
 static int
@@ -591,7 +591,7 @@ viodisable(SDev *sd)
 	vd = sd->ctlr;
 	snprint(name, sizeof(name), "%s (%s)", sd->name, sd->ifc->name);
 	intrdisable(vd->pci->intl, viointerrupt, vd, vd->pci->tbdf, name);
-	return 0;
+	return 1;
 }
 
 static SDev*
