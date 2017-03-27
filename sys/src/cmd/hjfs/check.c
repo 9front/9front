@@ -16,14 +16,16 @@ checkdir(FLoc *l, Buf *b)
 	d = getdent(l, b);
 	for(i = 0; i < d->size; i++){
 		if(getblk(fsmain, l, b, i, &r, GBREAD) <= 0) {
-			dprint("hjfs: directory %s in block %ulld at index %d has a bad block reference at %ulld\n", d->name, l->blk, l->deind, i);
+			dprint("hjfs: directory in block %ulld at index %d has a bad block %ulld at directory index %ulld\n", l->blk, l->deind, r, i);
 			continue;
 		}
 		c = getbuf(fsmain->d, r, TDENTRY, 0);
 		if(c == nil) {
-			dprint("hjfs: directory %s in block %ulld at index %d has a block %ulld that is not a directory entry\n", d->name, l->blk, l->deind, i);
+			dprint("hjfs: directory in block %ulld at index %d has a block %ulld at directory index %ulld that is not a directory entry\n", l->blk, l->deind, r, i);
 			continue;
 		}
+		if(chref(fsmain, r, 0) == 0)
+			dprint("hjfs: directory in block %ulld at index %d has a block %ulld at index %ulld whose reference count is 0");
 	}
 }
 

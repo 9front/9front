@@ -127,7 +127,7 @@ cmdcheck(int, char**)
 			continue;
 		}
 		for(j = 0; j < REFPERBLK; j++, blk++)
-			if(b->refs[j] == 0)
+			if(b->refs[j] > 0)
 				checkblk(blk);
 		putbuf(b);
 	}
