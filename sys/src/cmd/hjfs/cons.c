@@ -104,6 +104,38 @@ cmdchatty(int, char **)
 }
 
 int
+cmdcheck(int, char**)
+{
+	uvlong fblk, fend, blk;
+	int j;
+	Buf *b, *sb;
+
+	wlock(fsmain);
+	sb = getbuf(fsmain->d, SUPERBLK, TSUPERBLOCK, 0);
+	if(sb == nil){
+		wunlock(fsmain);
+		return -1;
+	}
+	fblk = sb->sb.fstart;
+	fend = sb->sb.fend;
+	putbuf(sb);
+
+	for(blk = 0; fblk < fend; fblk++){
+		b = getbuf(fsmain->d, fblk, TREF, 0);
+		if(b == nil){
+			blk += REFPERBLK;
+			continue;
+		}
+		for(j = 0; j < REFPERBLK; j++, blk++)
+			if(b->refs[j] == 0)
+				checkblk(blk);
+		putbuf(b);
+	}
+	wunlock(fsmain);
+	return 1;
+}
+
+int
 cmddisallow(int, char **)
 {
 	fsmain->flags &= ~(FSNOPERM | FSCHOWN);

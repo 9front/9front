@@ -211,7 +211,7 @@ writeusers(Fs *fs)
 error:
 	if(ch != nil)
 		chanclunk(ch);
-	dprint("writeusers: %r\n");
+	dprint("hjfs: writeusers: %r\n");
 }
 
 void
