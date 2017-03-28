@@ -67,7 +67,7 @@ int
 cmdsync(int, char **)
 {
 	sync(1);
-	dprint("hjfs: sync\n");
+	dprint("sync\n");
 	return 0;
 }
 
@@ -82,7 +82,7 @@ int
 cmddump(int, char **)
 {
 	fsdump(fsmain);
-	dprint("hjfs: dumped\n");
+	dprint("dumped\n");
 	return 0;
 }
 
@@ -90,7 +90,7 @@ int
 cmdallow(int, char **)
 {
 	fsmain->flags |= FSNOPERM | FSCHOWN;
-	dprint("hjfs: allow\n");
+	dprint("allow\n");
 	return 0;
 }
 
@@ -123,15 +123,15 @@ checkfile(FLoc *l, Buf *b)
 
 	for(i = 0; i < d->size; i++){
 		if(getblk(fsmain, l, b, i, &r, GBREAD) <= 0){
-			dprint("hjfs: %s in block %ulld at index %d has a bad block at index %ulld: %r\n", ftype, l->blk, l->deind, i);
+			dprint("%s in block %ulld at index %d has a bad block at index %ulld: %r\n", ftype, l->blk, l->deind, i);
 			continue;
 		}
 		c = getbuf(fsmain->d, r, btype, 0);
 		if(c == nil)
-			dprint("hjfs: %s in block %ulld at index %d has a bad block %ulld at directory index %ulld: %r\n", ftype, l->blk, l->deind, r, i);
+			dprint("%s in block %ulld at index %d has a bad block %ulld at directory index %ulld: %r\n", ftype, l->blk, l->deind, r, i);
 		putbuf(c);
 		if(chref(fsmain, r, 0) == 0)
-			dprint("hjfs: %s in block %ulld at index %d has a block %ulld at index %ulld whose reference count is 0", ftype, l->blk, l->deind, r, i);
+			dprint("%s in block %ulld at index %d has a block %ulld at index %ulld whose reference count is 0", ftype, l->blk, l->deind, r, i);
 	}
 }
 
@@ -148,7 +148,7 @@ checkblk(uvlong blk)
 		return -1;
 	switch(type = b->type){
 	case TSUPERBLOCK:
-		dprint("hjfs: checkblk: should not have found superblock at %ulld\n", blk);
+		dprint("checkblk: should not have found superblock at %ulld\n", blk);
 		break;
 	case TDENTRY:
 		l.blk = blk;
@@ -214,11 +214,11 @@ cmdcheck(int, char**)
 		putbuf(b);
 	}
 	wunlock(fsmain);
-	dprint("hjfs: %T block count %ulld\n", TDENTRY, ndentry);
-	dprint("hjfs: %T block count %ulld\n", TINDIR, nindir);
-	dprint("hjfs: %T block count %ulld\n", TRAW, nraw);
-	dprint("hjfs: %T block count %ulld\n", TREF, nref);
-	dprint("hjfs: %T block count %ulld\n", TSUPERBLOCK, nsuperblock);
+	dprint("%T block count %ulld\n", TDENTRY, ndentry);
+	dprint("%T block count %ulld\n", TINDIR, nindir);
+	dprint("%T block count %ulld\n", TRAW, nraw);
+	dprint("%T block count %ulld\n", TREF, nref);
+	dprint("%T block count %ulld\n", TSUPERBLOCK, nsuperblock);
 	return 1;
 }
 
@@ -226,7 +226,7 @@ int
 cmddisallow(int, char **)
 {
 	fsmain->flags &= ~(FSNOPERM | FSCHOWN);
-	dprint("hjfs: disallow\n");
+	dprint("disallow\n");
 	return 0;
 }
 
@@ -235,9 +235,9 @@ cmdnoauth(int, char **)
 {
 	fsmain->flags ^= FSNOAUTH;
 	if((fsmain->flags & FSNOAUTH) == 0)
-		dprint("hjfs: auth enabled\n");
+		dprint("auth enabled\n");
 	else
-		dprint("hjfs: auth disabled\n");
+		dprint("auth disabled\n");
 	return 1;
 }
 
@@ -317,8 +317,8 @@ cmddf(int, char **)
 				n++;
 		putbuf(b);
 	}
-	dprint("hjfs: (blocks) free %ulld, used %ulld, total %ulld\n", n, sb->sb.size - n, sb->sb.size);
-	dprint("hjfs: (MB) free %ulld, used %ulld, total %ulld\n", n * BLOCK / 1048576, (sb->sb.size - n) * BLOCK / 1048576, sb->sb.size * BLOCK / 1048576);
+	dprint("(blocks) free %ulld, used %ulld, total %ulld\n", n, sb->sb.size - n, sb->sb.size);
+	dprint("(MB) free %ulld, used %ulld, total %ulld\n", n * BLOCK / 1048576, (sb->sb.size - n) * BLOCK / 1048576, sb->sb.size * BLOCK / 1048576);
 	putbuf(sb);
 	wunlock(fsmain);
 	return 1;
@@ -338,18 +338,18 @@ cmddebugdeind(int, char **argv)
 	if(walkpath(ch, argv[1], nil) < 0)
 		goto error;
 	rlock(fsmain);
-	dprint("hjfs: loc %ulld / %uld, offset %ulld\n", ch->loc->blk, ch->loc->deind, BLOCK * ch->loc->blk + (RBLOCK - BLOCK) + DENTRYSIZ * ch->loc->deind);
+	dprint("loc %ulld / %uld, offset %ulld\n", ch->loc->blk, ch->loc->deind, BLOCK * ch->loc->blk + (RBLOCK - BLOCK) + DENTRYSIZ * ch->loc->deind);
 	b = getbuf(fsmain->d, ch->loc->blk, TDENTRY, 0);
 	if(b == nil){
 		runlock(fsmain);
 		goto error;
 	}
 	d = &b->de[ch->loc->deind];
-	dprint("hjfs: name %s\n", d->name);
-	dprint("hjfs: uid %d, muid %d, gid %d\n", d->uid, d->muid, d->gid);
-	dprint("hjfs: mode %#o, qid %ulld, type %#x, version %d\n", d->mode, d->path, d->type, d->vers);
-	dprint("hjfs: size %d\n", d->size);
-	dprint("hjfs: atime %ulld, mtime %ulld\n", d->atime, d->mtime);
+	dprint("name %s\n", d->name);
+	dprint("uid %d, muid %d, gid %d\n", d->uid, d->muid, d->gid);
+	dprint("mode %#o, qid %ulld, type %#x, version %d\n", d->mode, d->path, d->type, d->vers);
+	dprint("size %d\n", d->size);
+	dprint("atime %ulld, mtime %ulld\n", d->atime, d->mtime);
 	putbuf(b);
 	runlock(fsmain);
 	chanclunk(ch);
@@ -384,7 +384,7 @@ cmddebugchdeind(int, char **argv)
 		goto error;
 	}
 	c = (uchar *) &b->de[ch->loc->deind];
-	dprint("hjfs: loc %d, old value %#.2x, new value %#.2x\n", loc, c[loc], new);
+	dprint("loc %d, old value %#.2x, new value %#.2x\n", loc, c[loc], new);
 	c[loc] = new;
 	b->op |= BDELWRI;
 	putbuf(b);
@@ -426,11 +426,11 @@ cmddebuggetblk(int argc, char **argv)
 	for(i = start; i <= end; i++){
 		rc = getblk(fsmain, ch->loc, b, i, &r, GBREAD);
 		if(rc > 0)
-			dprint("hjfs: getblk %ulld = %ulld\n", i, r);
+			dprint("getblk %ulld = %ulld\n", i, r);
 		if(rc == 0)
-			dprint("hjfs: getblk %ulld not found\n", i);
+			dprint("getblk %ulld not found\n", i);
 		if(rc < 0)
-			dprint("hjfs: getblk %ulld: %r\n", i);
+			dprint("getblk %ulld: %r\n", i);
 	}
 	putbuf(b);
 	runlock(fsmain);
@@ -484,7 +484,7 @@ consproc(void *v)
 		if(s == nil)
 			continue;
 		if(echo)
-			dprint("hjfs: >%s\n", s);
+			dprint(">%s\n", s);
 		rc = tokenize(s, args, MAXARGS);
 		if(rc == 0)
 			goto syntax;
@@ -497,12 +497,12 @@ consproc(void *v)
 					if(rc == -9001)
 						goto syntax;
 					if(rc < 0)
-						dprint("hjfs: %r\n");
+						dprint("%r\n");
 					goto done;
 				}
 			}
 	syntax:
-		dprint("hjfs: syntax error\n");
+		dprint("syntax error\n");
 	done:
 		free(s);
 	}

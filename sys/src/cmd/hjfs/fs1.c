@@ -50,13 +50,13 @@ getdent(FLoc *l, Buf *b)
 
 	d = &b->de[l->deind];
 	if((d->mode & (DGONE | DALLOC)) == 0){
-		dprint("hjfs: getdent: file gone, d=%llux, l=%llud/%d %llux, callerpc %#p\n",
+		dprint("getdent: file gone, d=%llux, l=%llud/%d %llux, callerpc %#p\n",
 			d->path, l->blk, l->deind, l->path, getcallerpc(&l));
 		werrstr("phase error -- directory entry for nonexistent file");
 		return nil;
 	}
 	if(qidcmp(d, l) != 0){
-		dprint("hjfs: getdent: wrong qid d=%llux != l=%llud/%d %llux, callerpc %#p\n",
+		dprint("getdent: wrong qid d=%llux != l=%llud/%d %llux, callerpc %#p\n",
 			d->path, l->blk, l->deind, l->path, getcallerpc(&l));
 		werrstr("phase error -- qid mismatch");
 		return nil;
@@ -213,7 +213,7 @@ writeusers(Fs *fs)
 error:
 	if(ch != nil)
 		chanclunk(ch);
-	dprint("hjfs: writeusers: %r\n");
+	dprint("writeusers: %r\n");
 }
 
 void
@@ -238,7 +238,7 @@ readusers(Fs *fs)
 err:
 	if(ch != nil)
 		chanclunk(ch);
-	dprint("hjfs: readusers: %r\nhjfs: using default user db\n");
+	dprint("readusers: %r\nhjfs: using default user db\n");
 }
 
 void
@@ -250,7 +250,7 @@ ream(Fs *fs)
 	int j, je;
 	
 	d = fs->d;
-	dprint("hjfs: reaming %s\n", d->name);
+	dprint("reaming %s\n", d->name);
 	b = getbuf(d, SUPERBLK, TSUPERBLOCK, 1);
 	if(b == nil)
 	err:
@@ -292,7 +292,7 @@ ream(Fs *fs)
 	putbuf(b);
 	createroot(fs);
 	sync(1);
-	dprint("hjfs: ream successful\n");
+	dprint("ream successful\n");
 }
 
 Fs *
@@ -326,7 +326,7 @@ initfs(Dev *d, int doream, int flags)
 	if(doream)
 		writeusers(fs);
 	readusers(fs);
-	dprint("hjfs: fs is %s\n", d->name);
+	dprint("fs is %s\n", d->name);
 	return fs;
 
 error:
@@ -569,7 +569,7 @@ getblk(Fs *fs, FLoc *L, Buf *bd, uvlong blk, uvlong *r, int mode)
 	b = bd;
 	d = getdent(L, b);
 	if(d == nil){
-		dprint("hjfs: getblk: dirent gone\n");
+		dprint("getblk: dirent gone\n");
 		return -1;
 	}
 	if(blk < NDIRECT){
@@ -654,7 +654,7 @@ found:
 		if(rc < 0)
 			goto end;
 		if(rc == 0){
-			dprint("hjfs: getblk: block %lld has refcount 0\n");
+			dprint("getblk: block %lld has refcount 0\n");
 			werrstr("phase error -- getblk");
 			rc = -1;
 			goto end;
