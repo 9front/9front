@@ -207,7 +207,7 @@ release(Proc *p)
 }
 
 static void
-releaseintr(Ureg*, Timer *t)
+releaseintr(Ureg *u, Timer *t)
 {
 	Proc *p;
 	extern int panicking;
@@ -254,9 +254,7 @@ releaseintr(Ureg*, Timer *t)
 	case Wakeme:
 		release(p);
 		edfunlock();
-		if(p->trend)
-			wakeup(p->trend);
-		p->trend = nil;
+		twakeup(u, t);
 		if(up){
 			up->delaysched++;
 			delayedscheds++;
@@ -445,8 +443,7 @@ edfstop(Proc *p)
 		if(p->trace && (pt = proctrace))
 			pt(p, SExpel, 0);
 		e->flags &= ~Admitted;
-		if(e->tt)
-			timerdel(e);
+		timerdel(e);
 		edfunlock();
 	}
 }
@@ -479,20 +476,23 @@ edfyield(void)
 	e->r = e->t;
 	e->flags |= Yield;
 	e->d = now;
-	if (up->tt == nil){
-		n = e->t - now;
-		if(n < 20)
-			n = 20;
-		up->tns = 1000LL * n;
-		up->tf = releaseintr;
-		up->tmode = Trelative;
-		up->ta = up;
-		up->trend = &up->sleep;
-		timeradd(up);
-	}else if(up->tf != releaseintr)
-		print("edfyield: surprise! %#p\n", up->tf);
+	n = e->t - now;
+	if(n < 20)
+		n = 20;
+	up->tns = 1000LL * n;
+	up->tf = releaseintr;
+	up->tmode = Trelative;
+	up->ta = up;
+	up->trend = &up->sleep;
+	timeradd(up);
 	edfunlock();
+	if(waserror()){
+		up->trend = nil;
+		timerdel(up);
+		nexterror();
+	}
 	sleep(&up->sleep, yfn, nil);
+	poperror();
 }
 
 int

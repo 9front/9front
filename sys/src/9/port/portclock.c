@@ -112,8 +112,12 @@ timeradd(Timer *nt)
 void
 timerdel(Timer *dt)
 {
+	Mach *mp;
 	Timers *tt;
 	uvlong when;
+
+	/* avoid Tperiodic getting re-added */
+	dt->tmode = Trelative;
 
 	ilock(dt);
 	if(tt = dt->tt){
@@ -123,7 +127,16 @@ timerdel(Timer *dt)
 			timerset(tt->head->twhen);
 		iunlock(tt);
 	}
+	if((mp = dt->tactive) == nil || mp->machno == m->machno){
+		iunlock(dt);
+		return;
+	}
 	iunlock(dt);
+
+	/* rare, but tf can still be active on another cpu */
+	while(dt->tactive == mp && dt->tt == nil)
+		if(up->nlocks == 0 && islo())
+			sched();
 }
 
 void
@@ -190,12 +203,14 @@ timerintr(Ureg *u, Tval)
 		tt->head = t->tnext;
 		assert(t->tt == tt);
 		t->tt = nil;
+		t->tactive = MACHP(m->machno);
 		fcallcount[m->machno]++;
 		iunlock(tt);
 		if(t->tf)
 			(*t->tf)(u, t);
 		else
 			callhzclock++;
+		t->tactive = nil;
 		ilock(tt);
 		if(t->tmode == Tperiodic)
 			tadd(tt, t);

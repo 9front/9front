@@ -822,28 +822,17 @@ tfn(void *arg)
 	return up->trend == nil || up->tfn(arg);
 }
 
-static void
+void
 twakeup(Ureg*, Timer *t)
 {
 	Proc *p;
 	Rendez *trend;
 
-	ilock(t);
 	p = t->ta;
 	trend = p->trend;
 	if(trend != nil){
-		wakeup(trend);
 		p->trend = nil;
-	}
-	iunlock(t);
-}
-
-static void
-stoptimer(void)
-{
-	if(up->trend != nil){
-		up->trend = nil;
-		timerdel(up);
+		wakeup(trend);
 	}
 }
 
@@ -864,11 +853,13 @@ tsleep(Rendez *r, int (*fn)(void*), void *arg, ulong ms)
 	timeradd(up);
 
 	if(waserror()){
-		stoptimer();
+		up->trend = nil;
+		timerdel(up);
 		nexterror();
 	}
 	sleep(r, tfn, arg);
-	stoptimer();
+	up->trend = nil;
+	timerdel(up);
 	poperror();
 }
 
@@ -1102,8 +1093,7 @@ pexit(char *exitstr, int freemem)
 	void (*pt)(Proc*, int, vlong);
 
 	up->alarm = 0;
-	if(up->tt != nil)
-		timerdel(up);
+	timerdel(up);
 	pt = proctrace;
 	if(pt != nil)
 		pt(up, SDead, 0);

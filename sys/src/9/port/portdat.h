@@ -556,6 +556,7 @@ struct Timer
 	void	*ta;
 	/* Internal */
 	Lock;
+	Mach	*tactive;	/* The cpu that tf is active on */
 	Timers	*tt;		/* Timers queue this timer runs on */
 	Tval	tticks;		/* tns converted to ticks */
 	Tval	twhen;		/* ns represented in fastticks */
