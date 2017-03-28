@@ -44,14 +44,14 @@ meminit(void)
 	
 	p = rom;
 	if(diag){
-		bp = Bopen("diagbits", OREAD);
+		bp = Bopen("/sys/lib/blit/diagbits", OREAD);
 		if(bp == nil) sysfatal("Bopen: %r");
 		Bread(bp, rom, sizeof(rom));
 		Bterm(bp);
 		return;
 	}
 	for(i = 0; i < 6; i++){
-		bp = Bopen(smprint("rom%d", i), OREAD);
+		bp = Bopen(smprint("/sys/lib/blit/rom%d", i), OREAD);
 		if(bp == nil) sysfatal("Bopen: %r");
 		q = p;
 		for(;;){
