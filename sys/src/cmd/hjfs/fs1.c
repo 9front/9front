@@ -52,13 +52,13 @@ getdent(FLoc *l, Buf *b)
 	if((d->mode & (DGONE | DALLOC)) == 0){
 		dprint("hjfs: getdent: file gone, d=%llux, l=%llud/%d %llux, callerpc %#p\n",
 			d->path, l->blk, l->deind, l->path, getcallerpc(&l));
-		werrstr("phase error -- getdent");
+		werrstr("phase error -- directory entry for nonexistent file");
 		return nil;
 	}
 	if(qidcmp(d, l) != 0){
 		dprint("hjfs: getdent: wrong qid d=%llux != l=%llud/%d %llux, callerpc %#p\n",
 			d->path, l->blk, l->deind, l->path, getcallerpc(&l));
-		werrstr("phase error -- getdent");
+		werrstr("phase error -- qid mismatch");
 		return nil;
 	}
 	return d;
@@ -88,8 +88,10 @@ getfree(Fs *fs, uvlong *r)
 	}
 
 	b = getbuf(d, SUPERBLK, TSUPERBLOCK, 0);
-	if(b == nil)
+	if(b == nil) {
+		werrstr("could not find superblock");
 		return -1;
+	}
 	e = b->sb.fend;
 	putbuf(b);
 

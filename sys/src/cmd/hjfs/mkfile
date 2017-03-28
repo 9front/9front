@@ -13,7 +13,6 @@ OFILES=\
 	9p.$O\
 	dump.$O\
 	cons.$O\
-	check.$O\
 
 HFILES=\
 	dat.h\

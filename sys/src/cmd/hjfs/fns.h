@@ -54,4 +54,3 @@ int	ingroup(Fs *, short, short, int);
 void	workerinit(void);
 void	writeusers(Fs *);
 void	readusers(Fs *);
-int	checkblk(uvlong);
