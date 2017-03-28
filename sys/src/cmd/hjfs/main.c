@@ -70,12 +70,12 @@ dprint(char *fmt, ...)
 	va_list va;
 	int rc;
 
-	qlock(lk);
+	qlock(&lk);
 	va_start(va, fmt);
 	snprint(buf, 2048, "hjfs: %s", fmt);
 	rc = vfprint(2, buf, va);
 	va_end(va);
-	qunlock(lk);
+	qunlock(&lk);
 	return rc;
 }
 
