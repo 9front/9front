@@ -3,7 +3,6 @@
 TARG=4s\
 	5s\
 	ana\
-	blit\
 	catclock\
 	festoon\
 	geigerstats\
@@ -25,6 +24,7 @@ BIN=/$objtype/bin/games
 
 DIRS=\
 	blabs\
+	blit\
 	c64\
 	doom\
 	galaxy\
