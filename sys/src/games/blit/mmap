@@ -1,0 +1,88 @@
+- main CPU is a MC68000 running at 8 MHz.
+    the exact clock speed is most likely one of: 7.9872, 7.68 or 7.3728 MHz (to divide to 19200 baud)
+- display is 800x1024, refreshed at 30 Hz (60 Hz interlaced).
+    it simply displays the 100K framebuffer from the address given in register 030.
+- the host is connected through a UART running at 19200 baud.
+- the keyboard is connected through a UART running at an unknown baudrate.
+- the mouse is connected through some unknown circuitry.
+
+memory map
+
+start		end		purpose
+0x00000		0x00008		see register 050 below
+0x00008		0x40000		RAM (256K)
+0x40000		???		ROM (24K ?) (not known if mirrored)
+0x60000		???		memory mapped I/O
+
+mmio addresses (in *octal*):
+
+0000	16-bit	mouse y
+0002	16-bit	mouse x
+
+0011	8-bit	terminal UART status/control (MC 6850 ACIA)
+0013	8-bit	terminal UART data
+	the software uses 2 stop bits, no parity, 8 bits; clock divided by 16
+
+0021	8-bit	mouse buttons
+			bit 0: rmb
+			bit 1: mmb
+			bit 2: lmb
+			reading clears the mouse interrupt
+
+0025	8-bit	second copy of 0021 (?)
+0027	8-bit	???
+		only the ROM binaries contain references to 0025, 0027 in buttons.c.
+		the corresponding source code appears to have been deleted.
+		possibly some older variant of the button hardware?
+
+0030	16-bit	start address of framebuffer divided by 4 (800*1024/8 = 100K bytes)
+0040	16-bit	status/control register of display
+			bit 0: invert display
+			with this bit set 0 bits are white and 1 bits are black (most software does this).
+
+0050	16-bit	writing different values makes 0-8 either mapped to 0x40000 or error out (details unclear)
+		resets so that they map to the reset vector at 0x40000.
+
+0056	8-bit	some kind of sound-making device (standard programmable timer + piezoelectric speaker?)
+0156		referenced by demo pacman.
+0256
+	
+0060	8-bit	keyboard status/control register (MC 6850 ACIA)
+	the software uses 2 stop bits, no parity, 8 bits; clock divided by 16
+0062	8-bit	keyboard data register
+
+0070	16-bit?	acknowledge vblank interrupt; software writes 0
+
+tx to the keyboard sets the 7 lights and can also ring the bell.
+could deduce the order of lights from diag.c.
+writing 2 is used to sound the bell.
+
+irq lines; using the 68k autovectoring
+
+vector 1 (0x64) is vblank
+vector 2 (0x68) is keyboard
+vector 4 (0x70) is mouse buttons
+vector 5 (0x74) is uart
+
+MC 6850 bits:
++0 (r)	status register
+	bit 0: receive buffer full
+	bit 1: transmit buffer empty
+	bit 2: data carrier detected (inverted)
+	bit 3: clear-to-send (inverted)
+	bit 4: framing error
+	bit 5: receiver overrun
+	bit 6: parity error
+	bit 7: irq active
++0 (w)	control register
+	bit 1-0: clock divider
+		00: /1
+		01: /16
+		10: /64
+		11: master reset
+	bit 4-2: parity and stop bits (see datasheet)
+	bit 6-5:
+		RTS/ is high only if these bits are 10
+		TX interrupts are enabled only if these bits are 01
+		break is transmitted continuously if these bits are 11
+	bit 7: RX interrupt enabled

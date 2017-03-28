@@ -3,6 +3,7 @@
 TARG=4s\
 	5s\
 	ana\
+	blit\
 	catclock\
 	festoon\
 	geigerstats\
