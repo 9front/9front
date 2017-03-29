@@ -109,7 +109,7 @@ checkfile(FLoc *l, Buf *b)
 	Buf *c;
 	Dentry *d;
 	char *ftype;
-	int btype;
+	int btype, rc;
 	uvlong i, r, blocks;
 
 	d = getdent(l, b);
@@ -128,16 +128,21 @@ checkfile(FLoc *l, Buf *b)
 	}
 
 	for(i = 0; i < blocks; i++){
-		if(getblk(fsmain, l, b, i, &r, GBREAD) <= 0){
-			dprint("%s %s in block %ulld at index %d has a bad block at index %ulld: %r\n", ftype, d->name, l->blk, l->deind, i);
+		rc = getblk(fsmain, l, b, i, &r, GBREAD);
+		if(rc < 0){
+			dprint("bad block %ulld of %ulld in %s %s with directory entry index %d in block %ulld: %r\n", i, blocks, ftype, d->name, l->deind, l->blk);
+			continue;
+		}
+		if(rc == 0){
+			dprint("block %ulld of %ulld not found in %s %s with directory index %d in block %ulld\n", i, blocks, ftype, d->name, l->deind, l->blk);
 			continue;
 		}
 		c = getbuf(fsmain->d, r, btype, 0);
 		if(c == nil)
-			dprint("%s in block %ulld at index %d has a bad block %ulld at directory index %ulld: %r\n", ftype, l->blk, l->deind, r, i);
+			dprint("bad block %ulld of %ulld in %s %s with directory entry index %d in block %ulld: %r\n", i, blocks, ftype, d->name, l->deind, l->blk);
 		putbuf(c);
 		if(chref(fsmain, r, 0) == 0)
-			dprint("%s in block %ulld at index %d has a block %ulld at index %ulld whose reference count is 0", ftype, l->blk, l->deind, r, i);
+			dprint("block %ulld of %ulld in %s %s with directory entry index %d in block %ulld has a reference count of 0", i, blocks, ftype, d->name, l->deind, l->blk);
 	}
 }
 
