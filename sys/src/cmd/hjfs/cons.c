@@ -469,7 +469,7 @@ Cmd cmds[] = {
 	{"allow", 1, cmdallow},
 	{"noauth", 1, cmdnoauth},
 	{"chatty", 1, cmdchatty},
-	{"check", 0, cmdcheck},
+//	{"check", 0, cmdcheck},
 	{"create", 0, cmdcreate},
 	{"disallow", 1, cmddisallow},
 	{"dump", 1, cmddump},
