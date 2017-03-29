@@ -273,7 +273,7 @@ getbuf(Dev *d, uvlong off, int type, int nodata)
 	}
 	if(nodata)
 		b->type = type;
-	if(b->type != type && type != -1){
+	if(b->type != type && type != TDONTCARE){
 		dprint("type mismatch, dev %s, block %lld, got %T, want %T, caller %#p\n",
 			d->name, off, b->type, type, getcallerpc(&d));
 		werrstr("phase error -- type mismatch");

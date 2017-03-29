@@ -110,20 +110,26 @@ checkfile(FLoc *l, Buf *b)
 	Dentry *d;
 	char *ftype;
 	int btype;
-	uvlong i, r;
+	uvlong i, r, blocks;
 
 	d = getdent(l, b);
+	if(d == nil){
+		dprint("checkfile: bad entry: %r\n");
+		return;
+	}
 	if((d->type & QTDIR) == 0){
 		ftype = "file";
 		btype = TRAW;
+		blocks = HOWMANY(d->size);
 	}else{
 		ftype = "directory";
 		btype = TDENTRY;
+		blocks = d->size;
 	}
 
-	for(i = 0; i < d->size; i++){
+	for(i = 0; i < blocks; i++){
 		if(getblk(fsmain, l, b, i, &r, GBREAD) <= 0){
-			dprint("%s in block %ulld at index %d has a bad block at index %ulld: %r\n", ftype, l->blk, l->deind, i);
+			dprint("%s %s in block %ulld at index %d has a bad block at index %ulld: %r\n", ftype, d->name, l->blk, l->deind, i);
 			continue;
 		}
 		c = getbuf(fsmain->d, r, btype, 0);
@@ -148,18 +154,19 @@ checkblk(uvlong blk)
 		return -1;
 	switch(type = b->type){
 	case TSUPERBLOCK:
-		dprint("checkblk: should not have found superblock at %ulld\n", blk);
+		if(blk != SUPERBLK)
+			dprint("checkblk: should not have found superblock at %ulld\n", blk);
 		break;
 	case TDENTRY:
 		l.blk = blk;
 		for(i = 0; i < DEPERBLK; i++){
 			d = &b->de[i];
+			if((d->mode & (DGONE | DALLOC)) == 0)
+				break;
 			l.deind = i;
 			l.Qid = d->Qid;
 			checkfile(&l, b);
 		}
-		break;
-	case TINDIR:
 		break;
 	}
 	putbuf(b);
@@ -169,6 +176,7 @@ checkblk(uvlong blk)
 int
 cmdcheck(int, char**)
 {
+	static ulong refs[REFPERBLK];
 	uvlong fblk, fend, blk;
 	uvlong ndentry, nindir, nraw, nref, nsuperblock;
 	int j;
@@ -191,9 +199,11 @@ cmdcheck(int, char**)
 			blk += REFPERBLK;
 			continue;
 		}
-		for(j = 0; j < REFPERBLK; j++, blk++) {
-			if(b->refs[j] > 0)
-				switch(checkblk(blk)) {
+		memcpy(refs, b->refs, sizeof(refs));
+		putbuf(b);
+		for(j = 0; j < REFPERBLK; j++, blk++){
+			if(refs[j] > 0 && refs[j] != REFSENTINEL){
+				switch(checkblk(blk)){
 				case TDENTRY:
 					ndentry++;
 					break;
@@ -210,8 +220,8 @@ cmdcheck(int, char**)
 					nsuperblock++;
 					break;
 				}
+			}
 		}
-		putbuf(b);
 	}
 	wunlock(fsmain);
 	dprint("%T block count %ulld\n", TDENTRY, ndentry);
@@ -454,6 +464,7 @@ Cmd cmds[] = {
 	{"allow", 1, cmdallow},
 	{"noauth", 1, cmdnoauth},
 	{"chatty", 1, cmdchatty},
+	{"check", 0, cmdcheck},
 	{"create", 0, cmdcreate},
 	{"disallow", 1, cmddisallow},
 	{"dump", 1, cmddump},

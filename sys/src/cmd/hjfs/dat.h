@@ -87,6 +87,7 @@ enum {
 	OFFPERBLK = RBLOCK / 12,
 	REFSIZ = 3,
 	REFPERBLK = RBLOCK / REFSIZ,
+	REFSENTINEL = (1 << 8*REFSIZ) - 1,
 };
 
 struct BufReq {
