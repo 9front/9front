@@ -101,6 +101,7 @@ misc
 	sdodin		pci sdscsi led
 	sdvirtio	pci sdscsi
 	sdmmc		pci pmmc
+	sdnvme		pci
 	sdloop
 
 	vga3dfx		+cur
