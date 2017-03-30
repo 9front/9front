@@ -165,7 +165,7 @@ nvmeintr(Ureg *, void *arg)
 		if(cq->base == nil)
 			continue;
 		phaseshift = 16 - cq->shift;
-		for(;; cq->head++){
+		for(;;){
 			e = &cq->base[(cq->head & cq->mask)<<2];
 			if(((e[3] ^ (cq->head << phaseshift)) & 0x10000) == 0)
 				break;
@@ -183,11 +183,9 @@ nvmeintr(Ureg *, void *arg)
 				*wp = nil;
 				wakeup(z);
 			}
+			ctlr->reg[DBell + ((cq-ctlr->cq)*2+1 << ctlr->dstrd)] = ++cq->head & cq->mask;
 		}
-		ctlr->reg[DBell + ((cq-ctlr->cq)*2+1 << ctlr->dstrd)] = cq->head & cq->mask;
 	}
-	if((ctlr->reg[CSts] & 3) != 1)
-		iprint("nvmeintr: fatal controller error\n");
 	ctlr->reg[IntMc] = ctlr->ints;
 	iunlock(&ctlr->intr);
 }
