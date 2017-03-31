@@ -266,7 +266,7 @@ vendorread(Serialport *p, int val, int index, uchar *buf)
 		val, index, buf);
 	res = usbcmd(ser->dev,  Rd2h | Rvendor | Rdev, VendorReadReq,
 		val, index, buf, 1);
-	dsprint(2, "serial: vendorread res:%d\n", res);
+	if(res != 1) fprint(2, "serial: vendorread failed with res=%d\n", res);
 	return res;
 }
 
@@ -281,7 +281,7 @@ vendorwrite(Serialport *p, int val, int index)
 	dsprint(2, "serial: vendorwrite val: 0x%x idx:%d\n", val, index);
 	res = usbcmd(ser->dev, Rh2d | Rvendor | Rdev, VendorWriteReq,
 		val, index, nil, 0);
-	dsprint(2, "serial: vendorwrite res:%d\n", res);
+	if(res != 8) fprint(2, "serial: vendorwrite failed with res=%d\n", res);
 	return res;
 }
 
@@ -319,6 +319,8 @@ plgetparam(Serialport *p)
 
 	res = usbcmd(ser->dev, Rd2h | Rclass | Riface, GetLineReq,
 		0, 0, buf, sizeof buf);
+	if(res != ParamReqSz)
+		memset(buf, 0, sizeof(buf));
 	p->baud = GET4(buf);
 
 	/*
@@ -340,8 +342,12 @@ plgetparam(Serialport *p)
 	dsprint(2, "serial: getparam: ");
 	if(serialdebug)
 		dumpbuf(buf, sizeof buf);
-	dsprint(2, "serial: getparam res: %d\n", res);
-	return res;
+
+	if(res == ParamReqSz)
+		return 0;
+	fprint(2, "serial: plgetparam failed with res=%d\n", res);
+	if(res >= 0) werrstr("plgetparam failed with res=%d", res);
+	return -1;
 }
 
 static int
@@ -367,11 +373,16 @@ plsetparam(Serialport *p)
 		dumpbuf(buf, sizeof buf);
 	res = usbcmd(ser->dev, Rh2d | Rclass | Riface, SetLineReq,
 		0, 0, buf, sizeof buf);
+	if(res != 8+ParamReqSz){
+		fprint(2, "serial: plsetparam failed with res=%d\n", res);
+		if(res >= 0) werrstr("plsetparam failed with res=%d", res);
+		return -1;
+	}
 	plmodemctl(p, p->mctl);
-	plgetparam(p);		/* make sure our state corresponds */
+	if(plgetparam(p) < 0)		/* make sure our state corresponds */
+		return -1;
 
-	dsprint(2, "serial: setparam res: %d\n", res);
-	return res;
+	return 0;
 }
 
 static int
