@@ -68,7 +68,6 @@ meminit(void)
 		if((i & 1) == 0) p = q;
 		Bterm(bp);
 	}
-	write(3, rom, sizeof(rom));
 }
 
 void
