@@ -858,7 +858,7 @@ ftdiread(Serialport *p, int index, int req, uchar *buf, int len)
 		index |= p->interfc + 1;
 	dsprint(2, "serial: ftdiread %#p [%d] req: %#x val: %#x idx:%d buf:%p len:%d\n",
 		p, p->interfc, req, 0, index, buf, len);
-	res = usbcmd(ser->dev,  Rd2h | Rftdireq | Rdev, req, 0, index, buf, len);
+	res = usbcmd(ser->dev, Rd2h | Rftdireq | Rdev, req, 0, index, buf, len);
 	dsprint(2, "serial: ftdiread res:%d\n", res);
 	return res;
 }

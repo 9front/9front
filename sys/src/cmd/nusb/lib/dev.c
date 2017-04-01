@@ -396,14 +396,13 @@ cmdreq(Dev *d, int type, int req, int value, int index, uchar *data, int count)
 	}else{
 		ndata = count;
 		wp = emallocz(8+ndata, 0);
+		memmove(wp+8, data, ndata);
 	}
 	wp[0] = type;
 	wp[1] = req;
 	PUT2(wp+2, value);
 	PUT2(wp+4, index);
 	PUT2(wp+6, count);
-	if(data != nil)
-		memmove(wp+8, data, ndata);
 	if(usbdebug>2){
 		hd = hexstr(wp, ndata+8);
 		rs = reqstr(type, req);
@@ -421,7 +420,7 @@ cmdreq(Dev *d, int type, int req, int value, int index, uchar *data, int count)
 		dprint(2, "%s: cmd: short write: %d\n", argv0, n);
 		return -1;
 	}
-	return n;
+	return ndata;
 }
 
 static int
@@ -430,7 +429,7 @@ cmdrep(Dev *d, void *buf, int nb)
 	char *hd;
 
 	nb = read(d->dfd, buf, nb);
-	if(nb >0 && usbdebug > 2){
+	if(nb > 0 && usbdebug > 2){
 		hd = hexstr(buf, nb);
 		fprint(2, "%s: in[%d] %s\n", d->dir, nb, hd);
 		free(hd);
@@ -455,7 +454,7 @@ usbcmd(Dev *d, int type, int req, int value, int index, uchar *data, int count)
 			r = cmdreq(d, type, req, value, index, nil, count);
 		else
 			r = cmdreq(d, type, req, value, index, data, count);
-		if(r > 0){
+		if(r >= 0){
 			if((type & Rd2h) == 0)
 				break;
 			r = cmdrep(d, data, count);
@@ -469,7 +468,7 @@ usbcmd(Dev *d, int type, int req, int value, int index, uchar *data, int count)
 			rerrstr(err, sizeof(err));
 		sleep(Ucdelay);
 	}
-	if(r > 0 && i >= 2)
+	if(r >= 0 && i >= 2)
 		/* let the user know the device is not in good shape */
 		fprint(2, "%s: usbcmd: %s: required %d attempts (%s)\n",
 			argv0, d->dir, i, err);
