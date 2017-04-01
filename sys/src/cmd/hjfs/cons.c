@@ -197,7 +197,11 @@ cmdcheck(int, char**)
 	fend = sb->sb.fend;
 	putbuf(sb);
 
-	ndentry = nindir = nraw = nref = nsuperblock = 0;
+	ndentry = 0;
+	nindir = 0;
+	nraw = 0;
+	nref = 0;
+	nsuperblock = 0;
 	for(blk = 0; fblk < fend; fblk++){
 		b = getbuf(fsmain->d, fblk, TREF, 0);
 		if(b == nil){
