@@ -26,13 +26,8 @@ enum
 	 * primarily for the benefit of remote nameservers querying us
 	 * during times of bad connectivity.
 	 */
-//	Maxtrans=	3,	/* maximum transmissions to a server */
-//	Maxretries=	3, /* cname+actual resends: was 32; have pity on user */
-//	Maxwaitms=	1000,	/* wait no longer for a remote dns query */
-//	Minwaitms=	100,	/* willing to wait for a remote dns query */
-
 	Maxtrans=	5,	/* maximum transmissions to a server */
-	Maxretries=	5, /* cname+actual resends: was 32; have pity on user */
+	Maxretries=	10,	/* cname+actual resends: was 32; have pity on user */
 	Maxwaitms=	5000,	/* wait no longer for a remote dns query */
 	Minwaitms=	500,	/* willing to wait for a remote dns query */
 };
