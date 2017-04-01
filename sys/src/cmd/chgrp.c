@@ -1,7 +1,6 @@
 #include <u.h>
 #include <libc.h>
 
-int	readgid(char*);
 int	uflag;
 
 void
