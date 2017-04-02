@@ -142,20 +142,6 @@ vgaclose(Chan* c)
 		}
 }
 
-static void
-checkport(int start, int end)
-{
-	/* standard vga regs are OK */
-	if(start >= 0x2b0 && end <= 0x2df+1)
-		return;
-	if(start >= 0x3c0 && end <= 0x3da+1)
-		return;
-
-	if(iounused(start, end))
-		return;
-	error(Eperm);
-}
-
 static long
 vgaread(Chan* c, void* a, long n, vlong off)
 {
