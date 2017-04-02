@@ -159,8 +159,7 @@ checkport(int start, int end)
 static long
 vgaread(Chan* c, void* a, long n, vlong off)
 {
-	int len;
-	char *p, *s;
+	char *p, *s, *e;
 	VGAscr *scr;
 	ulong offset = off;
 	char chbuf[30];
@@ -181,41 +180,34 @@ vgaread(Chan* c, void* a, long n, vlong off)
 	case Qvgactl:
 		scr = &vgascreen[0];
 
-		p = smalloc(READSTR);
+		s = smalloc(READSTR);
 		if(waserror()){
-			free(p);
+			free(s);
 			nexterror();
 		}
-
-		len = 0;
-
-		if(scr->dev)
-			s = scr->dev->name;
-		else
-			s = "cga";
-		len += snprint(p+len, READSTR-len, "type %s\n", s);
-
-		if(scr->gscreen) {
-			len += snprint(p+len, READSTR-len, "size %dx%dx%d %s\n",
+		p = s, e = s+READSTR;
+		p = seprint(p, e, "type %s\n",
+			scr->dev != nil ? scr->dev->name : "cga");
+		if(scr->gscreen != nil) {
+			p = seprint(p, e, "size %dx%dx%d %s\n",
 				scr->gscreen->r.max.x, scr->gscreen->r.max.y,
 				scr->gscreen->depth, chantostr(chbuf, scr->gscreen->chan));
-
 			if(Dx(scr->gscreen->r) != Dx(physgscreenr) 
 			|| Dy(scr->gscreen->r) != Dy(physgscreenr))
-				len += snprint(p+len, READSTR-len, "actualsize %dx%d\n",
+				p = seprint(p, e, "actualsize %dx%d\n",
 					physgscreenr.max.x, physgscreenr.max.y);
 		}
-
-		len += snprint(p+len, READSTR-len, "hwaccel %s\n", hwaccel ? "on" : "off");
-		len += snprint(p+len, READSTR-len, "hwblank %s\n", hwblank ? "on" : "off");
-		len += snprint(p+len, READSTR-len, "panning %s\n", panning ? "on" : "off");
-		len += snprint(p+len, READSTR-len, "addr p %#p v %#p size %#ux\n", scr->paddr, scr->vaddr, scr->apsize);
-		len += snprint(p+len, READSTR-len, "softscreen %s\n", scr->softscreen ? "on" : "off");
-		USED(len);
-
-		n = readstr(offset, a, n, p);
+		p = seprint(p, e, "hwgc %s\n",
+			scr->cur != nil ? scr->cur->name : "off");
+		p = seprint(p, e, "hwaccel %s\n", hwaccel ? "on" : "off");
+		p = seprint(p, e, "hwblank %s\n", hwblank ? "on" : "off");
+		p = seprint(p, e, "panning %s\n", panning ? "on" : "off");
+		p = seprint(p, e, "addr p %#p v %#p size %#ux\n",
+			scr->paddr, scr->vaddr, scr->apsize);
+		p = seprint(p, e, "softscreen %s\n", scr->softscreen ? "on" : "off");
+		n = readstr(offset, a, p - s, s);
 		poperror();
-		free(p);
+		free(s);
 
 		return n;
 
