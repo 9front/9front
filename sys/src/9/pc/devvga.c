@@ -205,7 +205,8 @@ vgaread(Chan* c, void* a, long n, vlong off)
 		p = seprint(p, e, "addr p %#p v %#p size %#ux\n",
 			scr->paddr, scr->vaddr, scr->apsize);
 		p = seprint(p, e, "softscreen %s\n", scr->softscreen ? "on" : "off");
-		n = readstr(offset, a, p - s, s);
+		USED(p);
+		n = readstr(offset, a, n, s);
 		poperror();
 		free(s);
 
