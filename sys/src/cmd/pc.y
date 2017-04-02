@@ -310,15 +310,28 @@ numprint(Num *n)
 	free(t);
 }
 
+void
+numdecrefs(int n, Num **x)
+{
+	int i;
+	
+	for(i = 0; i < n; i++)
+		numdecref(x[i]);
+}
+
 Num *
 fncall(Symbol *s, int n, Num **x)
 {
 	int i;
 
-	if(s->t != SYMFUNC)
+	if(s->t != SYMFUNC){
+		numdecrefs(n, x);
 		return error("%s: not a function", s->name);
-	else if(s->nargs >= 0 && s->nargs != n)
+	}
+	else if(s->nargs >= 0 && s->nargs != n){
+		numdecrefs(n, x);
 		return error("%s: wrong number of arguments", s->name);
+	}
 	for(i = 0; i < n; i++)
 		if(x[i] == nil)
 			return nil;
@@ -820,6 +833,39 @@ fnxtend(int, Num **a)
 }
 
 Num *
+fnclog(int n, Num **a)
+{
+	int r;
+
+	if(n != 1 && n != 2){
+		numdecrefs(n, a);
+		return error("clog: wrong number of arguments");
+	}
+	if(mpcmp(a[0], mpzero) <= 0 || n == 2 && mpcmp(a[1], mpone) <= 0){
+		numdecref(a[0]);
+		return error("invalid argument");
+	}
+	if(n == 1 || mpcmp(a[1], mptwo) == 0){
+		a[0] = nummod(a[0]);
+		mpsub(a[0], mpone, a[0]);
+		itomp(mpsignif(a[0]), a[0]);
+		a[0]->b = 0;
+		if(n == 2) numdecref(a[1]);
+		return a[0];
+	}
+	a[0] = nummod(a[0]);
+	for(r = 0; mpcmp(a[0], mpone) > 0; r++){
+		mpadd(a[0], a[1], a[0]);
+		mpsub(a[0], mpone, a[0]);
+		mpdiv(a[0], a[1], a[0], nil);
+	}
+	itomp(r, a[0]);
+	a[0]->b = 0;
+	numdecref(a[1]);
+	return a[0];
+}
+
+Num *
 fnubits(int, Num **a)
 {
 	if(a[0]->sign < 0){
@@ -986,6 +1032,7 @@ main(int argc, char **argv)
 	regfunc("ceil", fnceil, 2);
 	regfunc("trunc", fntrunc, 2);
 	regfunc("xtend", fnxtend, 2);
+	regfunc("clog", fnclog, -1);
 	regfunc("ubits", fnubits, 1);
 	regfunc("sbits", fnsbits, 1);
 	regfunc("nsa", fnnsa, 1);

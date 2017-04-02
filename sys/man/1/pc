@@ -105,6 +105,9 @@ Truncate each of the \fIa\d\s7i\s0\u\fR arguments to \fIn\d\s7i\s0\u\fR bits and
 .I gcd(n,m)
 The greatest common divisor of \fIn\fR and \fIm\fR.
 .TP
+.I clog(a,b)
+The ceiling of the logarithm of \fIa\fR with respect to base \fIb\fR. \fIb\fR can be omitted, in which case it defaults to 2.
+.TP
 .I minv(n,m)
 The inverse of \fIn\fR mod \fIm\fR.
 .TP
