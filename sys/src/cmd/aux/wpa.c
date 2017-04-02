@@ -86,12 +86,17 @@ Cipher	ccmp = { "ccmp", 16 };
 Cipher	*peercipher;
 Cipher	*groupcipher;
 
-int	background;
+int	forked;
 int	prompt;
 int	debug;
 int	fd, cfd;
 char	*dev;
-int	ispsk;
+enum {
+	AuthNone,
+	AuthPSK,
+	AuthWPA,
+};
+int	authtype;
 char	devdir[40];
 uchar	ptk[PTKlen];
 char	essid[32+1];
@@ -345,7 +350,7 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 				break;
 			/* look for WPA oui */
 			if(memcmp(p, rsnawpaoui, 4) == 0){
-				ispsk = 0;
+				authtype = AuthWPA;
 				break;
 			}
 		} else {
@@ -354,7 +359,7 @@ trunc:		sysfatal("invalid or truncated RSNE; brsne: %s", buf);
 				break;
 			/* look for WPA oui */
 			if(memcmp(p, wpaawpaoui, 4) == 0){
-				ispsk = 0;
+				authtype = AuthWPA;
 				break;
 			}
 		}
@@ -1146,6 +1151,23 @@ usage(void)
 }
 
 void
+background(void)
+{
+	if(forked || debug)
+		return;
+	switch(rfork(RFNOTEG|RFREND|RFPROC|RFNOWAIT)){
+	default:
+		exits(nil);
+	case -1:
+		sysfatal("fork: %r");
+		return;
+	case 0:
+		break;
+	}
+	forked = 1;
+}
+
+void
 main(int argc, char *argv[])
 {
 	uchar mac[Eaddrlen], buf[4096], snonce[Noncelen], anonce[Noncelen];
@@ -1207,41 +1229,37 @@ main(int argc, char *argv[])
 	if(essid[0] != 0){
 		if(fprint(cfd, "essid %q", essid) < 0)
 			sysfatal("write essid: %r");
-	} else {
+	} else if(prompt) {
 		getessid();
 		if(essid[0] == 0)
 			sysfatal("no essid set");
 	}
+	if(!prompt)
+		background();
 
 Connect:
  	/* bss scan might not be complete yet, so check for 10 seconds.	*/
-	for(try = 100; (background || try >= 0) && !connected(); try--)
+	for(try = 100; (forked || try >= 0) && !connected(); try--)
 		sleep(100);
 
-	ispsk = 1;
+	authtype = AuthPSK;
 	if(rsnelen <= 0 || rsne == brsne){
 		rsne = brsne;
 		rsnelen = buildrsne(rsne);
 	}
-
-	if(rsnelen <= 0){
-		/* default is WPA */
-		rsne = wpaie;
-		rsnelen = sizeof(wpaie);
-		peercipher = &tkip;
-		groupcipher = &tkip;
+	if(rsnelen > 0){
+		if(debug)
+			fprint(2, "rsne: %.*H\n", rsnelen, rsne);
+		/*
+		 * we use write() instead of fprint so the message gets written
+		 * at once and not chunked up on fprint buffer.
+		 */
+		n = sprint((char*)buf, "auth %.*H", rsnelen, rsne);
+		if(write(cfd, buf, n) != n)
+			sysfatal("write auth: %r");
+	} else {
+		authtype = AuthNone;
 	}
-
-	if(debug)
-		fprint(2, "rsne: %.*H\n", rsnelen, rsne);
-
-	/*
-	 * we use write() instead of fprint so the message gets written
-	 * at once and not chunked up on fprint buffer.
-	 */
-	n = sprint((char*)buf, "auth %.*H", rsnelen, rsne);
-	if(write(cfd, buf, n) != n)
-		sysfatal("write auth: %r");
 
 	conn.fd = fd;
 	conn.write = eapwrite;
@@ -1251,36 +1269,29 @@ Connect:
 	getbssid(conn.amac);
 
 	if(prompt){
+		UserPasswd *up;
 		prompt = 0;
-		if(ispsk){
+		switch(authtype){
+		case AuthNone:
+			print("no authentication required\n");
+			break;
+		case AuthPSK:
 			/* dummy to for factotum keyprompt */
 			genrandom(anonce, sizeof(anonce));
 			genrandom(snonce, sizeof(snonce));
 			getptk(auth_getkey, conn.smac, conn.amac, snonce, anonce, ptk);
-		} else {
-			UserPasswd *up;
-
-			if((up = auth_getuserpasswd(auth_getkey, "proto=pass service=wpa essid=%q", essid)) != nil){
-				factotumctl("key proto=mschapv2 role=client service=wpa essid=%q user=%q !password=%q\n",
+			break;
+		case AuthWPA:
+			up = auth_getuserpasswd(auth_getkey, "proto=pass service=wpa essid=%q", essid);
+			if(up != nil){
+				factotumctl("key proto=mschapv2 role=client service=wpa"
+					" essid=%q user=%q !password=%q\n",
 					essid, up->user, up->passwd);
 				freeup(up);
 			}
+			break;
 		}
-	}
-
-	if(!background){
-		background = 1;
-		if(!debug){
-			switch(rfork(RFNOTEG|RFREND|RFPROC|RFNOWAIT)){
-			default:
-				exits(nil);
-			case -1:
-				sysfatal("fork: %r");
-				return;
-			case 0:
-				break;
-			}
-		}
+		background();
 	}
 
 	lastrepc = 0ULL;
@@ -1330,7 +1341,10 @@ Connect:
 		if(debug)
 			fprint(2, "\nrecv(v%d,t%d) %E <- %E: ", conn.version, conn.type, conn.smac, conn.amac);
 
-		if(conn.type == 0x00 && !ispsk){
+		if(authtype == AuthNone)
+			continue;
+
+		if(conn.type == 0x00 && authtype == AuthWPA){
 			uchar code, id;
 
 			if(n < 4)
