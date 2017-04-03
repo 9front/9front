@@ -1402,12 +1402,10 @@ msgSend(TlsConnection *c, Msg *m, int act)
 		if(m->u.clientKeyExchange.key == nil)
 			break;
 		n = m->u.clientKeyExchange.key->len;
-		if(c->version != SSL3Version){
-			if(isECDHE(c->cipher))
-				*p++ = n;
-			else
-				put16(p, n), p += 2;
-		}
+		if(isECDHE(c->cipher))
+			*p++ = n;
+		else if(isDHE(c->cipher) || c->version != SSL3Version)
+			put16(p, n), p += 2;
 		memmove(p, m->u.clientKeyExchange.key->data, n);
 		p += n;
 		break;
@@ -1786,18 +1784,14 @@ msgRecv(TlsConnection *c, Msg *m)
 			if(n == 0)
 				break;
 		}
-		if(c->version == SSL3Version)
+		if(n < 2)
+			goto Short;
+		if(isECDHE(c->cipher))
+			nn = *p++, n--;
+		else if(isDHE(c->cipher) || c->version != SSL3Version)
+			nn = get16(p), p += 2, n -= 2;
+		else
 			nn = n;
-		else{
-			if(n < 2)
-				goto Short;
-			if(isECDHE(c->cipher))
-				nn = *p++, n--;
-			else {
-				nn = get16(p);
-				p += 2, n -= 2;
-			}
-		}
 		if(n < nn)
 			goto Short;
 		m->u.clientKeyExchange.key = makebytes(p, nn);
