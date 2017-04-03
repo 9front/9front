@@ -207,7 +207,7 @@ or
 .IR thread (2)),
 using the
 .BR RFFDG ,
-.RR RFNOTEG ,
+.BR RFNOTEG ,
 .BR RFNAMEG ,
 and
 .BR RFMEM
