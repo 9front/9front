@@ -440,6 +440,7 @@ checkpagerefs(void)
 	iprint("%lud mistakes found\n", nwrong);
 	unlock(&palloc);
 	splx(s);
+	free(ref);
 }
 
 void
