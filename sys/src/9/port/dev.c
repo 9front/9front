@@ -176,18 +176,17 @@ devwalk(Chan *c, Chan *nc, char **name, int nname, Dirtab *tab, int ntab, Devgen
 	if(nname > 0)
 		isdir(c);
 
-	alloc = 0;
+	alloc = (nc == nil);
 	wq = smalloc(sizeof(Walkqid)+(nname-1)*sizeof(Qid));
 	if(waserror()){
-		if(alloc && wq->clone!=nil)
+		if(alloc && wq->clone != nil)
 			cclose(wq->clone);
 		free(wq);
 		return nil;
 	}
-	if(nc == nil){
+	if(alloc){
 		nc = devclone(c);
 		nc->type = 0;	/* device doesn't know about this channel yet */
-		alloc = 1;
 	}
 	wq->clone = nc;
 
@@ -252,7 +251,7 @@ Done:
 		if(alloc)
 			cclose(wq->clone);
 		wq->clone = nil;
-	}else if(wq->clone){
+	}else if(wq->clone != nil){
 		/* attach cloned channel to same device */
 		wq->clone->type = c->type;
 	}
