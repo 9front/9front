@@ -99,7 +99,7 @@ typedef struct TlsConnection{
 	HandshakeHash	handhash;
 	Finished	finished;
 
-	uchar *sendp, *recvp, *recvw;
+	uchar *sendp;
 	uchar buf[1<<16];
 } TlsConnection;
 
@@ -691,7 +691,6 @@ tlsServer2(int ctl, int hand,
 	c->trace = trace;
 	c->version = ProtocolVersion;
 	c->sendp = c->buf;
-	c->recvp = c->recvw = &c->buf[sizeof(c->buf)];
 
 	memset(&m, 0, sizeof(m));
 	if(!msgRecv(c, &m)){
@@ -996,7 +995,6 @@ tlsClient2(int ctl, int hand,
 	c->trace = trace;
 	c->cert = nil;
 	c->sendp = c->buf;
-	c->recvp = c->recvw = &c->buf[sizeof(c->buf)];
 
 	c->version = ProtocolVersion;
 	tlsSecInitc(c->sec, c->version);
@@ -1264,7 +1262,7 @@ msgSend(TlsConnection *c, Msg *m, int act)
 	int n, i;
 
 	p = c->sendp;
-	e = c->recvp;
+	e = &c->buf[sizeof(c->buf)];
 	if(c->trace)
 		c->trace("send %s", msgPrint((char*)p, e - p, m));
 
@@ -1440,28 +1438,17 @@ Err:
 static uchar*
 tlsReadN(TlsConnection *c, int n)
 {
-	uchar *p, *e;
+	uchar *p, *w, *e;
 
-	p = c->recvp;
-	if(n <= c->recvw - p){
-		c->recvp += n;
-		return p;
-	}
 	e = &c->buf[sizeof(c->buf)];
-	c->recvp = e - n;
-	if(c->recvp < c->sendp || n > sizeof(c->buf)){
+	p = e - n;
+	if(n > sizeof(c->buf) || p < c->sendp){
 		tlsError(c, EDecodeError, "handshake message too long %d", n);
 		return nil;
 	}
-	memmove(c->recvp, p, c->recvw - p);
-	c->recvw -= p - c->recvp;
-	p = c->recvp;
-	c->recvp += n;
-	while(c->recvw < c->recvp){
-		if((n = read(c->hand, c->recvw, e - c->recvw)) <= 0)
+	for(w = p; w < e; w += n)
+		if((n = read(c->hand, w, e - w)) <= 0)
 			return nil;
-		c->recvw += n;
-	}
 	return p;
 }
 
@@ -1804,7 +1791,7 @@ msgRecv(TlsConnection *c, Msg *m)
 		goto Short;
 Ok:
 	if(c->trace)
-		c->trace("recv %s", msgPrint((char*)c->sendp, c->recvp - c->sendp, m));
+		c->trace("recv %s", msgPrint((char*)c->sendp, &c->buf[sizeof(c->buf)] - c->sendp, m));
 	return 1;
 Short:
 	tlsError(c, EDecodeError, "handshake message (%d) has invalid length", type);
