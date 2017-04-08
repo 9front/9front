@@ -14,11 +14,12 @@ slurp(char *f, char *b, uvlong o, long l)
 
 	if((fd = open(f, OREAD)) == -1)
 		return -1;
-
-	seek(fd, o, 0);
-	r = readn(fd, b, l) != l;
+	if(seek(fd, o, 0) == o)
+		r = readn(fd, b, l);
+	else
+		r = 0;
 	close(fd);
-	return r? -1: 0;
+	return r != l ? -1: 0;
 }
 
 static void
@@ -67,32 +68,18 @@ mdirfetch(Mailbox *mb, Message *m, uvlong o, ulong l)
 	return 0;
 }
 
-static int
-setsize(Mailbox *mb, Message *m)
-{
-	char buf[Pathlen];
-	Dir *d;
-
-	snprint(buf, sizeof buf, "%s/%D", mb->path, m->fileid);
-	if((d = dirstat(buf)) == nil)
-		return -1;
-	m->size = d->length;
-	free(d);
-	return 0;
-}
-
 /* must be [0-9]+(\..*)? */
 int
 dirskip(Dir *a, uvlong *uv)
 {
 	char *p;
 
-	if(a->length == 0)
+	if(a->length == 0 || (a->qid.type & QTDIR) != 0)
 		return 1;
 	*uv = strtoul(a->name, &p, 0);
 	if(*uv < 1000000 || *p != '.')
 		return 1;
-	*uv = *uv<<8 | strtoul(p + 1, &p, 10);
+	*uv = *uv<<8 | strtoul(p + 1, &p, 10) & 0xFF;
 	if(*p)
 		return 1;
 	return 0;
@@ -114,8 +101,10 @@ dircmp(Dir *a, Dir *b)
 {
 	uvlong x, y;
 
-	dirskip(a, &x);
-	dirskip(b, &y);
+	if(dirskip(a, &x))
+		x = 0;
+	if(dirskip(b, &y))
+		y = 0;
 	return vcmp(x, y);
 }
 
@@ -128,7 +117,6 @@ mdirread(Mdir* mdir, Mailbox* mb, int doplumb, int *new)
 	Message *m, **ll;
 	static char err[ERRMAX];
 
-	mdprint(mdir, "mdirread()\n");
 	if((fd = open(mb->path, OREAD)) == -1){
 		errstr(err, sizeof err);
 		return err;
@@ -162,7 +150,7 @@ mdirread(Mdir* mdir, Mailbox* mb, int doplumb, int *new)
 	qsort(d, n, sizeof *d, (int(*)(void*, void*))dircmp);
 	ndel = 0;
 	ll = &mb->root->part;
-	for(i = 0; *ll || i < n; ){
+	for(i = 0; (m = *ll) != nil || i < n; ){
 		if(i < n && dirskip(d + i, &uv)){
 			i++;
 			continue;
@@ -170,48 +158,41 @@ mdirread(Mdir* mdir, Mailbox* mb, int doplumb, int *new)
 		c = -1;
 		if(i >= n)
 			c = 1;
-		else if(*ll)
-			c = vcmp(uv, (*ll)->fileid);
-		mdprint(mdir, "consider %s and %D -> %d\n", i<n? d[i].name: 0, *ll? (*ll)->fileid: 1ull, c);
+		else if(m)
+			c = vcmp(uv, m->fileid);
+		mdprint(mdir, "consider %s and %D -> %d\n", i<n? d[i].name: 0, m? m->fileid: 1ull, c);
 		if(c < 0){
 			/* new message */
-			mdprint(mdir, "new: %s (%D)\n", d[i].name, *ll? (*ll)->fileid: 0);
+			mdprint(mdir, "new: %s\n", d[i].name);
+			if(d[i].length > Maxmsg){
+				mdprint(mdir, "skipping bad size: %llud\n", d[i].length);
+				i++;
+				continue;
+			}
+			nnew++;
 			m = newmessage(mb->root);
 			m->fileid = uv;
-			if(setsize(mb, m) < 0 || m->size >= Maxmsg){
-				/* message disappeared?  unchain */
-				mdprint(mdir, "deleted → %r (%D)\n", m->fileid);
-				logmsg(m, "disappeared");
-				if(doplumb)
-					mailplumb(mb, m, 1); /* redundant */
-				unnewmessage(mb, mb->root, m);
-				/* we're out of sync; note this by dropping cached qid */
-				mb->d->qid.path = 0;
-				break;
-			}
+			m->size = d[i].length;
 			m->inmbox = 1;
-			nnew++;
 			m->next = *ll;
 			*ll = m;
 			ll = &m->next;
-			logmsg(m, "new %s", d[i].name);
-			i++;
 			newcachehash(mb, m, doplumb);
 			putcache(mb, m);
+			i++;
 		}else if(c > 0){
 			/* deleted message; */
-			mdprint(mdir, "deleted: %s (%D)\n", i<n? d[i].name: 0, *ll? (*ll)->fileid: 0);
+			mdprint(mdir, "deleted: %s (%D)\n", i<n? d[i].name: 0, m? m->fileid: 0);
 			ndel++;
-			logmsg(*ll, "deleted (refs=%d)", *ll? (*ll)->refs: -42);
 			if(doplumb)
-				mailplumb(mb, *ll, 1);
-			(*ll)->inmbox = 0;
-			(*ll)->deleted = Disappear;
-			ll = &(*ll)->next;
+				mailplumb(mb, m, 1);
+			m->inmbox = 0;
+			m->deleted = Disappear;
+			ll = &m->next;
 		}else{
 			//logmsg(*ll, "duplicate %s", d[i].name);
+			ll = &m->next;
 			i++;
-			ll = &(*ll)->next;
 		}
 	}
 
