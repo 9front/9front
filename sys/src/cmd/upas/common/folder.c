@@ -12,6 +12,7 @@ struct Folder{
 	int	type;
 	Biobuf	*out;
 	Mlock	*l;
+	long	t;
 };
 static Folder ftab[5];
 
@@ -44,12 +45,12 @@ putfolder(Folder *f)
 	r = 0;
 	if(f->l)
 		sysunlock(f->l);
-	if(f->out)
+	if(f->out){
 		r |= Bterm(f->out);
-	if(f->ofd > 0){
-		close(f->ofd);
 		free(f->out);
 	}
+	if(f->ofd >= 0)
+		close(f->ofd);
 	memset(f, 0, sizeof *f);
 	return r;
 }
@@ -59,7 +60,7 @@ mboxopen(char *s)
 {
 	Folder *f;
 
-	f = getfolder(0);
+	f = getfolder(nil);
 	f->l = syslock(s);		/* traditional botch: ignore failure */
 	if((f->ofd = open(s, OWRITE)) == -1)
 	if((f->ofd = create(s, OWRITE|OEXCL, DMAPPEND|0600)) == -1){
@@ -79,13 +80,13 @@ mboxopen(char *s)
 static Biobuf*
 mdiropen(char *s, long t)
 {
-	char buf[64];
-	long i;
+	char buf[Pathlen];
 	Folder *f;
+	int i;
 
-	f = getfolder(0);
+	f = getfolder(nil);
 	for(i = 0; i < 100; i++){
-		snprint(buf, sizeof buf, "%s/%lud.%.2ld", s, t, i);
+		snprint(buf, sizeof buf, "%s/%lud.%.2d.tmp", s, t, i);
 		if((f->ofd = create(buf, OWRITE|OEXCL, DMAPPEND|0660)) != -1)
 			goto found;
 	}
@@ -96,6 +97,7 @@ found:
 	f->out = malloc(sizeof *f->out);
 	Binit(f->out, f->ofd, OWRITE);
 	f->type = Mdir;
+	f->t = t;
 	return f->out;
 }
 
@@ -122,30 +124,29 @@ openfolder(char *s, long t)
 }
 
 int
-renamefolder(Biobuf *b, long t)
-{
-	char buf[32];
-	int i;
-	Dir d;
-	Folder *f;
-
-	f = getfolder(b);
-	if(f->type != Mdir)
-		return 0;
-	for(i = 0; i < 100; i++){
-		nulldir(&d);
-		snprint(buf, sizeof buf, "%lud.%.2d", t, i);
-		d.name = buf;
-		if(dirfwstat(Bfildes(b), &d) > 0)
-			return 0;
-	}
-	return -1;
-}
-
-int
 closefolder(Biobuf *b)
 {
-	return putfolder(getfolder(b));
+	char buf[32];
+	Folder *f;
+	Dir d;
+	int i;
+
+	if(b == nil)
+		return 0;
+	f = getfolder(b);
+	if(f->type != Mdir)
+		return putfolder(f);
+	if(Bflush(b) == 0){
+		for(i = 0; i < 100; i++){
+			nulldir(&d);
+			snprint(buf, sizeof buf, "%lud.%.2d", f->t, i);
+			d.name = buf;
+			if(dirfwstat(f->ofd, &d) > 0)
+				return putfolder(f);
+		}
+	}
+	putfolder(f);
+	return -1;
 }
 
 /*
@@ -181,7 +182,7 @@ mboxesc(Biobuf *in, Biobuf *out, int type)
 }
 
 int
-appendfolder(Biobuf *b, char *addr, long *t, int fd)
+appendfolder(Biobuf *b, char *addr, int fd)
 {
 	char *s;
 	int r;
@@ -194,9 +195,9 @@ appendfolder(Biobuf *b, char *addr, long *t, int fd)
 	Binit(&bin, fd, OREAD);
 	s = Brdstr(&bin, '\n', 0);
 	if(!s || strncmp(s, "From ", 5))
-		Bprint(f->out, "From %s %.28s\n", addr, ctime(*t));
+		Bprint(f->out, "From %s %.28s\n", addr, ctime(f->t));
 	else if(fromtotm(s, &tm) >= 0)
-		*t = tm2sec(&tm);
+		f->t = tm2sec(&tm);
 	if(s)
 		Bwrite(f->out, s, strlen(s));
 	free(s);
@@ -207,16 +208,13 @@ appendfolder(Biobuf *b, char *addr, long *t, int fd)
 int
 fappendfolder(char *addr, long t, char *s, int fd)
 {
-	long t0, r;
 	Biobuf *b;
+	int r;
 
 	b = openfolder(s, t);
 	if(b == nil)
 		return -1;
-	t0 = t;
-	r = appendfolder(b, addr, &t, fd);
-	if(t != t0)
-		renamefolder(b, t);
+	r = appendfolder(b, addr, fd);
 	r |= closefolder(b);
 	return r;
 }

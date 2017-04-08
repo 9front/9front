@@ -41,7 +41,7 @@ int	returnable(char*);
 /* folder.c */
 Biobuf	*openfolder(char*, long);
 int	closefolder(Biobuf*);
-int	appendfolder(Biobuf*, char*, long*, int);
+int	appendfolder(Biobuf*, char*, int);
 int	fappendfolder(char*, long, char *, int);
 int	fappendfile(char*, char*, int);
 char*	foldername(char*, char*, char*);
