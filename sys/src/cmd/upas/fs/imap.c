@@ -904,15 +904,6 @@ fetchicmp(Fetchi *f1, Fetchi *f2)
 	return vcmp(f1->uid, f2->uid);
 }
 
-static int
-setsize(Mailbox *, Message *m, Fetchi *f)
-{
-	if(f->sizes >= Maxmsg)
-		return -1;
-//	if(!gmailmbox(mb))
-	return m->size = f->sizes;
-}
-
 static char*
 imap4read(Imap *imap, Mailbox *mb, int doplumb, int *new)
 {
@@ -944,53 +935,46 @@ imap4read(Imap *imap, Mailbox *mb, int doplumb, int *new)
 	qsort(f, n, sizeof f[0], (int(*)(void*, void*))fetchicmp);
 	nnew = ndel = 0;
 	ll = &mb->root->part;
-	for(i = 0; *ll || i < n; ){
+	for(i = 0; (m = *ll) != nil || i < n; ){
 		c = -1;
 		if(i >= n)
 			c = 1;
-		else if(*ll){
-			if((*ll)->imapuid == 0)
-				(*ll)->imapuid = strtoull((*ll)->idxaux, 0, 0);
-			c = vcmp(f[i].uid, (*ll)->imapuid);
+		else if(m){
+			if(m->imapuid == 0)
+				m->imapuid = strtoull(m->idxaux, 0, 0);
+			c = vcmp(f[i].uid, m->imapuid);
 		}
-		idprint(imap, "consider %U and %U -> %d\n", i<n? f[i].uid: 0, *ll? (*ll)->imapuid: 1, c);
+		idprint(imap, "consider %U and %U -> %d\n", i<n? f[i].uid: 0, m? m->imapuid: 1, c);
 		if(c < 0){
 			/* new message */
-			idprint(imap, "new: %U (%U)\n", f[i].uid, *ll? (*ll)->imapuid: 0);
+			idprint(imap, "new: %U (%U)\n", f[i].uid, m? m->imapuid: 0);
+			if(f[i].sizes > Maxmsg){
+				idprint(imap, "skipping bad size: %lud\n", f[i].sizes);
+				i++;
+				continue;
+			}
+			nnew++;
 			m = newmessage(mb->root);
 			m->inmbox = 1;
 			m->idxaux = smprint("%llud", f[i].uid);
 			m->imapuid = f[i].uid;
 			m->fileid = datesec(imap, i);
-			if(setsize(mb, m, f + i) < 0 || m->size >= Maxmsg){
-				/* message disappeared?  unchain */
-				idprint(imap, "deleted → %r (%U)\n", m->imapuid);
-				logmsg(m, "disappeared");
-				if(doplumb)
-					mailplumb(mb, m, 1); /* redundant */
-				unnewmessage(mb, mb->root, m);
-				/* we're out of sync; here's were to signal that */
-				break;
-			}
-			nnew++;
-			logmsg(m, "new %s", m->idxaux);
+			m->size = f[i].sizes;
 			m->next = *ll;
 			*ll = m;
 			ll = &m->next;
-			i++;
 			newcachehash(mb, m, doplumb);
 			putcache(mb, m);
+			i++;
 		}else if(c > 0){
 			/* deleted message; */
-			idprint(imap, "deleted: %U (%U)\n", i<n? f[i].uid: 0, *ll? (*ll)->imapuid: 0);
+			idprint(imap, "deleted: %U (%U)\n", i<n? f[i].uid: 0, m? m->imapuid: 0);
 			ndel++;
-			logmsg(*ll, "deleted");
-			markdel(mb, *ll, doplumb);
-			ll = &(*ll)->next;
+			markdel(mb, m, doplumb);
+			ll = &m->next;
 		}else{
-			//logmsg(*ll, "duplicate %s", d[i].name);
+			ll = &m->next;
 			i++;
-			ll = &(*ll)->next;
 		}
 	}
 
