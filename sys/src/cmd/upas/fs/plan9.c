@@ -124,7 +124,7 @@ okmsg(Mailbox *mb, Message *m, Inbuf *b)
 		m->end--;
 	*m->end = 0;
 	m->size = m->end - m->start;
-	if(m->size >= Maxmsg)
+	if(m->size > Maxmsg)
 		return -1;
 	m->bend = m->rbend = m->end;
 	if(m->digest == 0)

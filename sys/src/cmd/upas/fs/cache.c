@@ -75,7 +75,7 @@ static void
 notecache(Mailbox *mb, Message *m, long sz)
 {
 	assert(Topmsg(mb, m));
-	assert(sz >= 0 && sz < Maxmsg);
+	assert(sz >= 0 && sz <= Maxmsg);
 	m->csize += sz;
 	mb->cached += sz;
 	addcache(mb, m);
@@ -310,7 +310,6 @@ top:
 	l0 = m->end - m->start;
 	assert(l0 >= 0);
 	dprint("fetch %lud sz %lud o %llud l %lud badchars %d\n", l0, m->size, o, l, m->badchars);
-	assert(m->badchars < Maxmsg/10);
 	if(l0 == m->size || o > m->size)
 		return 0;
 	expand = 0;
