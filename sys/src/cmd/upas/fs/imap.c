@@ -39,8 +39,6 @@ typedef struct {
 
 typedef struct Imap Imap;
 struct Imap {
-	ulong	lastread;
-
 	char	*mbox;
 	/* free this to free the strings below */
 	char	*freep;
@@ -913,9 +911,6 @@ imap4read(Imap *imap, Mailbox *mb, int doplumb, int *new)
 	Message *m, **ll;
 
 	*new = 0;
-	if((ulong)time(0) - imap->lastread < 10)
-		return nil;
-	imap->lastread = time(0);
 	imap4cmd(imap, "status %Z (messages uidvalidity)", imap->mbox);
 	if(!isokay(s = imap4resp(imap)))
 		return s;
