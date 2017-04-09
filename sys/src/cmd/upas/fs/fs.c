@@ -879,7 +879,7 @@ retry:
 			if(Topmsg(f->mb, f->m)){
 				f->qid.path = PATH(f->mb->id, Qmbox);
 				f->qid.type = QTDIR;
-				f->qid.vers = f->mb->d->qid.vers;
+				f->qid.vers = f->mb->vers;
 				msgdecref(f->mb, f->mtop);
 				msgdecref(f->mb, f->m);
 				f->m = f->mtop = nil;
@@ -1462,7 +1462,7 @@ reader(void)
 				mb->waketime = 0;
 				break;
 			}
-			if(mb->d != nil && mb->d->name != nil){
+			if(mb->d != nil){
 				d = dirstat(mb->path);
 				if(d != nil){
 					if(d->qid.path != mb->d->qid.path

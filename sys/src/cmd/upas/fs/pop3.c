@@ -539,17 +539,13 @@ pop3sync(Mailbox *mb, int doplumb, int *new)
 
 	pop = mb->aux;
 
-	if(err = pop3dial(pop)) {
-		mb->waketime = time(0) + pop->refreshtime;
-		return err;
-	}
-
-	if((err = pop3read(pop, mb, doplumb, new)) == nil){
+	if(err = pop3dial(pop))
+		goto out;
+	if((err = pop3read(pop, mb, doplumb, new)) == nil)
 		pop3purge(pop, mb);
-		mb->d->atime = mb->d->mtime = time(0);
-	}
 	pop3hangup(pop);
-	mb->waketime = time(0) + pop->refreshtime;
+out:
+	mb->waketime = (ulong)time(0) + pop->refreshtime;
 	return err;
 }
 
@@ -661,7 +657,6 @@ pop3mbox(Mailbox *mb, char *path)
 	mb->sync = pop3sync;
 	mb->close = pop3close;
 	mb->ctl = pop3ctl;
-	mb->d = emalloc(sizeof *mb->d);
 	mb->addfrom = 1;
 	return nil;
 }

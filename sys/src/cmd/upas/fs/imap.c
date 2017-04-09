@@ -39,7 +39,7 @@ typedef struct {
 
 typedef struct Imap Imap;
 struct Imap {
-	long	lastread;
+	ulong	lastread;
 
 	char	*mbox;
 	/* free this to free the strings below */
@@ -913,7 +913,7 @@ imap4read(Imap *imap, Mailbox *mb, int doplumb, int *new)
 	Message *m, **ll;
 
 	*new = 0;
-	if(time(0) - imap->lastread < 10)
+	if((ulong)time(0) - imap->lastread < 10)
 		return nil;
 	imap->lastread = time(0);
 	imap4cmd(imap, "status %Z (messages uidvalidity)", imap->mbox);
@@ -1008,10 +1008,9 @@ imap4sync(Mailbox *mb, int doplumb, int *new)
 	imap = mb->aux;
 	if(err = imap4dial(imap))
 		goto out;
-	if((err = imap4read(imap, mb, doplumb, new)) == nil)
-		mb->d->atime = mb->d->mtime = time(0);
+	err = imap4read(imap, mb, doplumb, new);
 out:
-	mb->waketime = time(0) + imap->refreshtime;
+	mb->waketime = (ulong)time(0) + imap->refreshtime;
 	return err;
 }
 
@@ -1185,7 +1184,6 @@ imap4mbox(Mailbox *mb, char *path)
 	mb->rename = imap4rename;
 //	mb->remove = imap4remove;
 	mb->modflags = imap4modflags;
-	mb->d = emalloc(sizeof *mb->d);
 	mb->addfrom = 1;
 	return nil;
 }
