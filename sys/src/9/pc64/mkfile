@@ -107,9 +107,9 @@ etheryuk.$O:			yukdump.h
 $VGA mouse.$O:			screen.h /sys/include/memdraw.h
 vgavesa.$O:			/386/include/ureg.h
 
-archmp.$O mp.$O:		apbootstrap.h
-apic.$O archmp.$O mp.$O:	mp.h
-squidboy.$O:			mp.h
+mp.$O:				mp.h apbootstrap.h 
+apic.$O squidboy.$O:		mp.h
+archmp.$O archacpi.$O:		mp.h
 
 $SDEV:				../port/sd.h
 sdiahci.$O:			ahci.h
