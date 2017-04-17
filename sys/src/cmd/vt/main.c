@@ -269,7 +269,7 @@ initialize(int argc, char **argv)
 	if((cs = consctl()) == nil)
 		sysfatal("consctl failed: %r");
 	cs->raw = rflag;
-	hc = chancreate(sizeof(Rune*), 0);
+	hc = chancreate(sizeof(Rune*), 1);
 	if((hostfd = start_host()) >= 0)
 		proccreate(hostreader, nil, BSIZE+1024);
 
