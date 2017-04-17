@@ -149,7 +149,7 @@ rsaread(Fsstate *fss, void *va, uint *n)
 			return failure(fss, nil);
 		s->off++;
 		priv = s->key->priv;
-		*n = snprint(va, *n, "%B", priv->pub.n);
+		*n = snprint(va, *n, "%B %B", priv->pub.n, priv->pub.ek);
 		return RpcOk;
 	case CHaveResp:
 		*n = snprint(va, *n, "%B", s->resp);
