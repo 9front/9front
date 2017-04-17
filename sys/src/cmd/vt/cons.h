@@ -10,7 +10,7 @@ extern Consstate*	cs;
 
 #define	INSET	2
 #define	BUFS	32
-#define	HISTSIZ	4096	/* number of history characters */
+#define	HISTSIZ	65536	/* number of history characters */
 #define BSIZE	1000
 
 #define	SCROLL	2
