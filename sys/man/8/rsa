@@ -33,9 +33,6 @@ rsagen, rsafill, asn12rsa, rsa2pub, rsa2ssh, rsa2x509, rsa2csr \- generate and f
 .PP
 .B rsa2ssh
 [
-.B -2
-]
-[
 .B -c
 .I comment
 ]
