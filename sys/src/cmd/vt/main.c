@@ -47,6 +47,7 @@ Menu	menu2;
 Menu	menu3;
 Rune	*histp;
 Rune	hist[HISTSIZ];
+Rune	*onscreen;
 int	yscrmin, yscrmax;
 int	attr, defattr;
 int	wctlout;
@@ -56,10 +57,12 @@ Image	*cursback;
 Image	*colors[8];
 Image	*hicolors[8];
 Image	*red;
+Image	*green;
 Image	*fgcolor;
 Image	*bgcolor;
 Image	*fgdefault;
 Image	*bgdefault;
+Image	*highlight;
 
 uint rgbacolors[8] = {
 	0x000000FF,	/* black */
@@ -88,6 +91,8 @@ struct ttystate ttystate[2] = { {0, 1}, {0, 1} };
 
 int	NS;
 int	CW;
+int	XMARGIN;
+int	YMARGIN;
 Consstate *cs;
 Mouse	mouse;
 
@@ -119,11 +124,13 @@ void	set_input(char *);
 void	set_host(Event *);
 void	bigscroll(void);
 void	readmenu(void);
+void	selection(void);
 void	eresized(int);
 void	resize(void);
 void	send_interrupt(void);
 int	alnum(int);
 void	escapedump(int,uchar *,int);
+Rune*	onscreenp(int, int);
 
 void
 main(int argc, char **argv)
@@ -210,8 +217,10 @@ initialize(int argc, char **argv)
 	CW = stringwidth(font, "m");
 
 	red = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DRed);
+	green = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DGreen);
 	bordercol = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xCCCCCCCC);
 	cursback = allocimage(display, Rect(0, 0, CW+1, NS+1), screen->chan, 0, DNofill);
+	highlight = allocimage(display, Rect(0,0,1,1), CHAN1(CAlpha,8), 1, 0x80);
 
 	for(i=0; i<8; i++){
 		colors[i] = allocimage(display, Rect(0,0,1,1), screen->chan, 1,
@@ -234,14 +243,23 @@ initialize(int argc, char **argv)
 }
 
 void
-clear(Rectangle r)
+clear(int x1, int y1, int x2, int y2)
 {
-	draw(screen, r, bgcolor, nil, ZP);
+	draw(screen, Rpt(pt(x1,y1), pt(x2,y2)), bgcolor, nil, ZP);
+	while(y1 < y2){
+		if(x1 < x2)
+			memset(onscreenp(x1, y1), 0, (x2-x1)*sizeof(Rune));
+		if(x2 > xmax)
+			*onscreenp(xmax+1, y1) = '\n';
+		y1++;
+	}
 }
 
 void
 newline(void)
 {
+	if(x > xmax)
+		*onscreenp(xmax+1, y) = 0;	/* wrap arround, remove hidden newline */
 	nbacklines--;
 	if(y >= yscrmax) {
 		y = yscrmax;
@@ -427,8 +445,12 @@ waitchar(void)
 		wasblocked = blocked;
 		if(backp)
 			return(0);
-		if(ecanmouse() && (button2() || button3()))
-			readmenu();
+		if(ecanmouse()){
+			if(button1())
+				selection();
+			else if(button2() || button3())
+				readmenu();
+		}
 		if(snarffp) {
 			static Rune lastc = ~0;
 
@@ -535,13 +557,16 @@ waitchar(void)
 			continue;
 		}
 		curson(wasblocked);	/* turn on cursor while we're waiting */
+		flushimage(display, 1);
 		do {
 			newmouse = 0;
 			switch(eread(blocked ? Emouse|Ekeyboard : 
 					       Emouse|Ekeyboard|Ehost, &e)) {
 			case Emouse:
 				mouse = e.mouse;
-				if(button2() || button3())
+				if(button1())
+					selection();
+				else if(button2() || button3())
 					readmenu();
 				else if(resize_flag == 0) {
 					/* eresized() is triggered by special mouse event */
@@ -581,8 +606,8 @@ putenvint(char *name, int x)
 void
 exportsize(void)
 {
-	putenvint("XPIXELS", Dx(screen->r)-2*XMARGIN);
-	putenvint("YPIXELS", Dy(screen->r)-2*XMARGIN);
+	putenvint("XPIXELS", (xmax+1)*CW);
+	putenvint("YPIXELS", (ymax+1)*NS);
 	putenvint("LINES", ymax+1);
 	putenvint("COLS", xmax+1);
 	putenv("TERM", term);
@@ -595,17 +620,20 @@ resize(void)
 		fprint(2, "can't reattach to window: %r\n");
 		exits("can't reattach to window");
 	}
-	xmax = (Dx(screen->r)-2*XMARGIN)/CW-1;
-	ymax = (Dy(screen->r)-2*YMARGIN)/NS-1;
-	if(xmax == 0 || ymax == 0)
-		exits("window gone");
+	draw(screen, screen->r, bgcolor, nil, ZP);
+	xmax = (Dx(screen->r) - 2*INSET)/CW-1;
+	ymax = (Dy(screen->r) - 2*INSET)/NS-1;
+	XMARGIN = (Dx(screen->r) - (xmax+1)*CW) / 2;
+	YMARGIN = (Dy(screen->r) - (ymax+1)*NS) / 2;
 	x = 0;
 	y = 0;
 	yscrmin = 0;
 	yscrmax = ymax;
+	free(onscreen);
+	onscreen = mallocz((ymax+1)*(xmax+2)*sizeof(Rune), 1);
 	olines = 0;
 	exportsize();
-	clear(screen->r);
+	clear(0,0,xmax+1,ymax+1);
 	if(resize_flag > 1)
 		backup(backc);
 	resize_flag = 0;
@@ -622,19 +650,100 @@ setdim(int ht, int wid)
 		ymax = ht-1;
 	if(wid != -1)
 		xmax = wid-1;
-
 	r.min = screen->r.min;
-	r.max = addpt(screen->r.min,
-			Pt((xmax+1)*CW+2*XMARGIN+2*INSET,
-				(ymax+1)*NS+2*YMARGIN+2*INSET));
+	r.max = addpt(screen->r.min, Pt((xmax+1)*CW+2*INSET, (ymax+1)*NS+2*INSET));
 	fd = open("/dev/wctl", OWRITE);
-	if(fd < 0 || fprint(fd, "resize -dx %d -dy %d\n", Dx(r)+2*Borderwidth,
-	    Dy(r)+2*Borderwidth) < 0){
-		border(screen, r, INSET, bordercol, ZP);
-		exportsize();
-	}
+	if(fd < 0 || fprint(fd, "resize -dx %d -dy %d\n", Dx(r)+2*Borderwidth, Dy(r)+2*Borderwidth) < 0)
+		resize();
 	if(fd >= 0)
 		close(fd);
+}
+
+void
+sendsnarf(void)
+{
+	if(snarffp == nil)
+		snarffp = Bopen("/dev/snarf",OREAD);
+}
+
+int
+writesnarf(Rune *s, Rune *e)
+{
+	Biobuf *b;
+	int z, p;
+
+	if(s >= e)
+		return 0;
+	b = Bopen("/dev/snarf", OWRITE|OTRUNC);
+	if(b == nil)
+		return 0;
+	for(z = p = 0; s < e; s++){
+		if(*s){
+			if(*s == '\n')
+				z = p = 0;
+			else if(p++ == 0){
+				while(z-- > 0) Bputc(b, ' ');
+			}
+			Bputrune(b, *s);
+		} else {
+			z++;
+		}
+	}
+	Bterm(b);
+	return 1;
+}
+
+Rectangle
+drawselection(Rectangle r, Rectangle d, Image *color)
+{
+	while(r.min.y < r.max.y){
+		d = drawselection(Rect(r.min.x, r.min.y, xmax+1, r.min.y), d, color);
+		r.min.x = 0;
+		r.min.y++;
+	}
+	if(r.min.x >= r.max.x)
+		return d;
+	r = Rpt(pt(r.min.x, r.min.y), pt(r.max.x, r.max.y+1));
+	draw(screen, r, color, highlight, r.min);
+	combinerect(&d, r);
+	return d;
+}
+
+void
+selection(void)
+{
+	Point p, q;
+	Rectangle r, d;
+	Image *backup;
+
+	backup = allocimage(display, screen->r, screen->chan, 0, DNofill);
+	draw(backup, backup->r, screen, nil, backup->r.min);
+	p = pos(mouse.xy);
+	do {
+		q = pos(mouse.xy);
+		if(onscreenp(p.x, p.y) > onscreenp(q.x, q.y)){
+			r.min = q;
+			r.max = p;
+		} else {
+			r.min = p;
+			r.max = q;
+		}
+		if(r.max.y > ymax)
+			r.max.x = 0;
+		d = drawselection(r, ZR, red);
+		flushimage(display, 1);
+		mouse = emouse();
+		draw(screen, d, backup, nil, d.min);
+	} while(button1());
+	if((mouse.buttons & 07) == 5)
+		sendsnarf();
+	else if(writesnarf(onscreenp(r.min.x, r.min.y), onscreenp(r.max.x, r.max.y))){
+		d = drawselection(r, ZR, green);
+		flushimage(display, 1);
+		sleep(200);
+		draw(screen, d, backup, nil, d.min);
+	}
+	freeimage(backup);
 }
 
 void
@@ -693,7 +802,7 @@ readmenu(void)
 		return;
 
 	case 4:		/* send the snarf buffer */
-		snarffp = Bopen("/dev/snarf",OREAD);
+		sendsnarf();
 		return;
 
 	case 5:		/* pause and clear at end of screen */
@@ -745,12 +854,36 @@ pt(int x, int y)
 	return addpt(screen->r.min, Pt(x*CW+XMARGIN,y*NS+YMARGIN));
 }
 
+Point
+pos(Point pt)
+{
+	pt.x -= screen->r.min.x + XMARGIN;
+	pt.y -= screen->r.min.y + YMARGIN;
+	pt.x /= CW;
+	pt.y /= NS;
+	if(pt.x < 0)
+		pt.x = 0;
+	else if(pt.x > xmax+1)
+		pt.x = xmax+1;
+	if(pt.y < 0)
+		pt.y = 0;
+	else if(pt.y > ymax+1)
+		pt.y = ymax+1;
+	return pt;
+}
+
+Rune*
+onscreenp(int x, int y)
+{
+	return onscreen + (y*(xmax+2) + x);
+}
+
 void
 scroll(int sy, int ly, int dy, int cy)	/* source, limit, dest, which line to clear */
 {
+	memmove(onscreenp(0, dy), onscreenp(0, sy), (ly-sy)*(xmax+2)*sizeof(Rune));
 	draw(screen, Rpt(pt(0, dy), pt(xmax+1, dy+ly-sy)), screen, nil, pt(0, sy));
-	clear(Rpt(pt(0, cy), pt(xmax+1, cy+1)));
-	flushimage(display, 1);
+	clear(0, cy, xmax+1, cy+1);
 }
 
 void
@@ -761,16 +894,16 @@ bigscroll(void)			/* scroll up half a page */
 	if(x == 0 && y == 0)
 		return;
 	if(y < half) {
-		clear(Rpt(pt(0,0),pt(xmax+1,ymax+1)));
+		clear(0, 0, xmax+1, ymax+1);
 		x = y = 0;
 		return;
 	}
 	draw(screen, Rpt(pt(0, 0), pt(xmax+1, ymax+1)), screen, nil, pt(0, half));
-	clear(Rpt(pt(0,y-half+1),pt(xmax+1,ymax+1)));
+	memmove(onscreenp(0, 0), onscreenp(0, half), (ymax-half+1)*(xmax+2)*sizeof(Rune));
+	clear(0, y-half+1, xmax+1, ymax+1);
 	y -= half;
 	if(olines)
 		olines -= half;
-	flushimage(display, 1);
 }
 
 int
@@ -888,11 +1021,12 @@ funckey(int key)
 
 
 void
-drawstring(Point p, Rune *str, int attr)
+drawstring(Rune *str, int n, int attr)
 {
 	int i;
 	Image *txt, *bg, *tmp;
-	
+	Point p;
+
 	txt = fgcolor;
 	bg = bgcolor;
 	if(attr & TReverse){
@@ -905,7 +1039,8 @@ drawstring(Point p, Rune *str, int attr)
 			if(txt == colors[i])
 				txt = hicolors[i];
 	}
-
+	p = pt(x, y);
 	draw(screen, Rpt(p, addpt(p, runestringsize(font, str))), bg, nil, p);
 	runestring(screen, p, txt, ZP, font, str);
+	memmove(onscreenp(x, y), str, n*sizeof(Rune));
 }

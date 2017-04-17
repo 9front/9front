@@ -8,9 +8,7 @@ struct Consstate{
 extern Consstate*	consctl(void);
 extern Consstate*	cs;
 
-#define	XMARGIN	5	/* inset from border of layer */
-#define	YMARGIN	5
-#define	INSET	3
+#define	INSET	2
 #define	BUFS	32
 #define	HISTSIZ	4096	/* number of history characters */
 #define BSIZE	1000
@@ -30,8 +28,8 @@ enum {
 	TReverse = (1<<3),
 	TInvisible = (1<<4),
 };
-	
 
+#define	button1()	((mouse.buttons & 07)==1)
 #define	button2()	((mouse.buttons & 07)==2)
 #define	button3()	((mouse.buttons & 07)==4)
 
@@ -55,7 +53,7 @@ extern char*	term;
 
 extern void	emulate(void);
 extern int	host_avail(void);
-extern void	clear(Rectangle);
+extern void	clear(int,int,int,int);
 extern void	newline(void);
 extern int	get_next_char(void);
 extern void	ringbell(void);
@@ -64,8 +62,9 @@ extern void	scroll(int,int,int,int);
 extern void	backup(int);
 extern void	sendnchars(int, char *);
 extern Point	pt(int, int);
+extern Point	pos(Point);
 extern void	funckey(int);
-extern void	drawstring(Point, Rune*, int);
+extern void	drawstring(Rune*, int, int);
 
 extern int	debug;
 extern int	yscrmin, yscrmax;

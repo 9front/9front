@@ -687,21 +687,21 @@ print("resetterminal\n");
 							 * operand 2:  whole screen.
 							 */
 							case 2:
-								clear(Rpt(pt(0, 0), pt(xmax+1, ymax+1)));
+								clear(0, 0, xmax+1, ymax+1);
 								break;
 							/*
 							 * operand 1: start of screen to active position, inclusive.
 							 */
 							case 1:
-								clear(Rpt(pt(0, 0), pt(xmax+1, y)));
-								clear(Rpt(pt(0, y), pt(x+1, y+1)));
+								clear(0, 0, xmax+1, y);
+								clear(0, y, x+1, y+1);
 								break;
 							/*
 							 * Default:  active position to end of screen, inclusive.
 							 */
 							default:
-								clear(Rpt(pt(x, y), pt(xmax+1, y+1)));
-								clear(Rpt(pt(0, y+1), pt(xmax+1, ymax+1)));
+								clear(x, y, xmax+1, y+1);
+								clear(0, y+1, xmax+1, ymax+1);
 								break;
 						}
 						break;
@@ -715,19 +715,19 @@ print("resetterminal\n");
 							 * operand 2: whole line.
 							 */
 							case 2:
-								clear(Rpt(pt(0, y), pt(xmax+1, y+1)));
+								clear(0, y, xmax+1, y+1);
 								break;
 							/*
 							 * operand 1: start of line to active position, inclusive.
 							 */
 							case 1:
-								clear(Rpt(pt(0, y), pt(x+1, y+1)));
+								clear(0, y, x+1, y+1);
 								break;
 							/*
 							 * Default: active position to end of line, inclusive.
 							 */
 							default:
-								clear(Rpt(pt(x, y), pt(xmax+1, y+1)));
+								clear(x, y, xmax+1, y+1);
 								break;
 						}
 						break;
@@ -739,7 +739,7 @@ print("resetterminal\n");
 						fixops(operand);
 						i = x + operand[0];
 						draw(screen, Rpt(pt(x, y), pt(xmax+1, y+1)), screen, nil, pt(i, y));
-						clear(Rpt(pt(xmax-operand[0], y), pt(xmax+1, y+1)));
+						clear(xmax-operand[0], y, xmax+1, y+1);
 						break;
 
 					/*
@@ -749,7 +749,7 @@ print("resetterminal\n");
 						fixops(operand);
 						i = x + operand[0];
 						draw(screen, Rpt(pt(i, y), pt(xmax+1, y+1)), screen, nil, pt(x, y));
-						clear(Rpt(pt(x, y), pt(i, y+1)));
+						clear(x, y, i, y+1);
 						break;
 
 
@@ -759,7 +759,7 @@ print("resetterminal\n");
 					case 'X':
 						fixops(operand);
 						i = x + operand[0];
-						clear(Rpt(pt(x, y), pt(i, y+1)));
+						clear(x, y, i, y+1);
 						break;
 
 					/*
@@ -844,8 +844,8 @@ Default:
 			/* line wrap */
 			if (x > xmax){
 				if(wraparound){
-					x = 0;
 					newline();
+					x = 0;
 				}else{
 					continue;
 				}
@@ -858,7 +858,7 @@ Default:
 				c = 0;
 			}
 			buf[n] = 0;
-			drawstring(pt(x, y), buf, attr);
+			drawstring(buf, n, attr);
 			x += n;
 			peekc = c;
 			break;
