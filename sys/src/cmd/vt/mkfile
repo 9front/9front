@@ -4,7 +4,6 @@ TARG=vt
 
 OFILES=\
 	consctl.$O\
-	event.$O\
 	main.$O\
 	vt.$O\
 

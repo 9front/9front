@@ -1,21 +1,18 @@
 #include <u.h>
 #include <libc.h>
 #include <draw.h>
-#include <event.h>
-#include <bio.h>
+#include <thread.h>
+#include <mouse.h>
 #include <keyboard.h>
+#include <bio.h>
 #include "cons.h"
-
-enum{
-	Ehost		= 4,
-};
 
 char	*menutext2[] = {
 	"backup",
 	"forward",
 	"reset",
 	"clear",
-	"send",
+	"paste",
 	"page",
 	0
 };
@@ -93,48 +90,117 @@ int	NS;
 int	CW;
 int	XMARGIN;
 int	YMARGIN;
-Consstate *cs;
+
 Mouse	mouse;
+Rune	kbdchar;
+
+Mousectl	*mc;
+Keyboardctl	*kc;
+Channel		*hc;
+Consstate	*cs;
 
 int	debug;
 int	nocolor;
 int	logfd = -1;
-int	outfd = -1;
+int	hostfd = -1;
+int	hostpid;
 Biobuf	*snarffp = 0;
-
-char	*host_buf;
-char	*hostp;				/* input from host */
-
-int	host_bsize = 2*BSIZE;
-int	hostlength;			/* amount of input from host */
+Rune	*hostbuf, *hostbufp;
 char	echo_input[BSIZE];
 char	*echop = echo_input;		/* characters to echo, after canon */
 char	sendbuf[BSIZE];	/* hope you can't type ahead more than BSIZE chars */
-char	*sendp = sendbuf;
+char	*sendbufp = sendbuf;
 
 char *term;
 struct funckey *fk;
 
 /* functions */
 void	initialize(int, char **);
-void	ebegin(int);
 int	waitchar(void);
+void	waitio(void);
 int	rcvchar(void);
-void	set_input(char *);
-void	set_host(Event *);
 void	bigscroll(void);
 void	readmenu(void);
 void	selection(void);
-void	eresized(int);
 void	resize(void);
 void	send_interrupt(void);
 int	alnum(int);
 void	escapedump(int,uchar *,int);
 Rune*	onscreenp(int, int);
 
-void
-main(int argc, char **argv)
+int
+start_host(void)
 {
+	int	fd;
+
+	switch((hostpid = rfork(RFPROC|RFNAMEG|RFFDG|RFNOTEG))) {
+	case 0:
+		fd = open("/dev/cons", OREAD);
+		dup(fd,0);
+		if(fd != 0)
+			close(fd);
+		fd = open("/dev/cons", OWRITE);
+		dup(fd,1);
+		dup(fd,2);
+		if(fd != 1 && fd !=2)
+			close(fd);
+		execl("/bin/rc","rcX",nil);
+		fprint(2,"failed to start up rc\n");
+		_exits("rc");
+	case -1:
+		fprint(2,"rc startup: fork error\n");
+		_exits("rc_fork");
+	}
+	return open("/mnt/cons/data", ORDWR);
+}
+
+void
+send_interrupt(void)
+{
+	postnote(PNGROUP, hostpid, "interrupt");
+}
+
+void
+hostreader(void*)
+{
+	char cb[BSIZE+1], *cp;
+	Rune *rb, *rp;
+	int n, r;
+
+	n = 0;
+	while((r = read(hostfd, cb+n, BSIZE-n)) > 0){
+		n += r;
+		rb = mallocz((n+1)*sizeof(Rune), 0);
+		for(rp = rb, cp = cb; n > 0; n -= r, cp += r){
+			if(!fullrune(cp, n))
+				break;
+			r = chartorune(rp, cp);
+			if(*rp != 0)
+				rp++;
+		}
+		if(rp > rb){
+			*rp = 0;
+			sendp(hc, rb);
+		} else {
+			free(rb);
+		}
+		if(n > 0) memmove(cb, cp, n);
+	}
+	sendp(hc, nil);
+}
+
+static void
+shutdown(void)
+{
+	postnote(PNGROUP, getpid(), "exit");
+	threadexitsall(nil);
+}
+
+void
+threadmain(int argc, char **argv)
+{
+	rfork(RFNAMEG|RFNOTEG|RFENVG);
+	atexit(shutdown);
 	initialize(argc, argv);
 	emulate();
 }
@@ -152,8 +218,6 @@ initialize(int argc, char **argv)
 	int rflag;
 	int i, blkbg;
 	char *fontname, *p;
-
-	rfork(RFNAMEG|RFNOTEG|RFENVG);
 
 	fontname = nil;
 	term = "vt100";
@@ -196,18 +260,19 @@ initialize(int argc, char **argv)
 		break;
 	}ARGEND;
 
-	host_buf = mallocz(host_bsize, 1);
-	hostp = host_buf;
-	hostlength = 0;
-
-	if(initdraw(0, fontname, term) < 0){
-		fprint(2, "%s: initdraw failed: %r\n", term);
-		exits("initdraw");
-	}
-	werrstr("");		/* clear spurious error messages */
-	ebegin(Ehost);
-
+	if(initdraw(0, fontname, term) < 0)
+		sysfatal("inidraw failed: %r");
+	if((mc = initmouse("/dev/mouse", screen)) == nil)
+		sysfatal("initmouse failed: %r");
+	if((kc = initkeyboard("/dev/cons")) == nil)
+		sysfatal("initkeyboard failed: %r");
+	if((cs = consctl()) == nil)
+		sysfatal("consctl failed: %r");
 	cs->raw = rflag;
+	hc = chancreate(sizeof(Rune*), 0);
+	if((hostfd = start_host()) >= 0)
+		proccreate(hostreader, nil, BSIZE+1024);
+
 	histp = hist;
 	menu2.item = menutext2;
 	menu3.item = menutext3;
@@ -276,25 +341,19 @@ newline(void)
 void
 cursoff(void)
 {
-	draw(screen, Rpt(pt(x, y), addpt(pt(x, y), Pt(CW,NS))), 
-		cursback, nil, cursback->r.min);
+	draw(screen, Rpt(pt(x, y), addpt(pt(x, y), Pt(CW,NS))), cursback, nil, cursback->r.min);
 }
 
 void
-curson(int bl)
+curson(void)
 {
-	Image *col;
+	Image *col = (blocked || hostfd < 0) ? red : bordercol;
 
 	if(!cursoron){
 		cursoff();
 		return;
 	}
-
 	draw(cursback, cursback->r, screen, nil, pt(x, y));
-	if(bl)
-		col = red;
-	else
-		col = bordercol;
 	border(screen, Rpt(pt(x, y), addpt(pt(x, y), Pt(CW,NS))), 2, col, ZP);
 }
 
@@ -357,58 +416,58 @@ canon(char *ep, Rune c)
 	case Kpgdown:
 		return SCROLL;
 	case '\b':
-		if(sendp > sendbuf){
-			sendp = backrune(sendbuf, sendp);
+		if(sendbufp > sendbuf){
+			sendbufp = backrune(sendbuf, sendbufp);
 			*ep++ = '\b';
 			*ep++ = ' ';
 			*ep++ = '\b';
 		}
 		break;
 	case 0x15:	/* ^U line kill */
-		sendp = sendbuf;
+		sendbufp = sendbuf;
 		*ep++ = '^';
 		*ep++ = 'U';
 		*ep++ = '\n';
 		break;
 	case 0x17:	/* ^W word kill */
-		while(sendp > sendbuf && !alnum(*sendp)) {
-			sendp = backrune(sendbuf, sendp);
+		while(sendbufp > sendbuf && !alnum(*sendbufp)) {
+			sendbufp = backrune(sendbuf, sendbufp);
 			*ep++ = '\b';
 			*ep++ = ' ';
 			*ep++ = '\b';
 		}
-		while(sendp > sendbuf && alnum(*sendp)) {
-			sendp = backrune(sendbuf, sendp);
+		while(sendbufp > sendbuf && alnum(*sendbufp)) {
+			sendbufp = backrune(sendbuf, sendbufp);
 			*ep++ = '\b';
 			*ep++ = ' ';
 			*ep++ = '\b';
 		}
 		break;
 	case '\177':	/* interrupt */
-		sendp = sendbuf;
+		sendbufp = sendbuf;
 		send_interrupt();
 		return(NEWLINE);
 	case '\021':	/* quit */
 	case '\r':
 	case '\n':
-		if(sendp < &sendbuf[BSIZE])
-			*sendp++ = '\n';
-		sendnchars((int)(sendp-sendbuf), sendbuf);
-		sendp = sendbuf;
+		if(sendbufp < &sendbuf[BSIZE])
+			*sendbufp++ = '\n';
+		sendnchars((int)(sendbufp-sendbuf), sendbuf);
+		sendbufp = sendbuf;
 		if(c == '\n' || c == '\r')
 			*ep++ = '\n';
 		*ep = 0;
 		return(NEWLINE);
 	case '\004':	/* EOT */
-		if(sendp == sendbuf) {
+		if(sendbufp == sendbuf) {
 			sendnchars(0,sendbuf);
 			*ep = 0;
 			return(NEWLINE);
 		}
 		/* fall through */
 	default:
-		if(sendp < &sendbuf[BSIZE-UTFmax])
-			sendp += runetochar(sendp, &c);
+		if(sendbufp < &sendbuf[BSIZE-UTFmax])
+			sendbufp += runetochar(sendbufp, &c);
 		ep += runetochar(ep, &c);
 		break;
 	}
@@ -432,53 +491,30 @@ sendfk(char *name)
 int
 waitchar(void)
 {
-	Event e;
-	int c;
-	int newmouse;
-	int wasblocked;
-	Rune kbdchar = 0;
-	char echobuf[4*BSIZE];
+	static char echobuf[4*BSIZE];
 
 	for(;;) {
 		if(resize_flag)
 			resize();
-		wasblocked = blocked;
 		if(backp)
 			return(0);
-		if(ecanmouse()){
-			if(button1())
-				selection();
-			else if(button2() || button3())
-				readmenu();
-		}
 		if(snarffp) {
-			static Rune lastc = ~0;
+			int c;
 
 			if((c = Bgetrune(snarffp)) < 0) {
-				if(lastc != '\n')
-					write(outfd,"\n",1);
 				Bterm(snarffp);
-				snarffp = 0;
-				if(lastc != '\n') {
-					lastc = ~0;
-					return('\n');
-				}
-				lastc = ~0;
+				snarffp = nil;
 				continue;
 			}
-			lastc = c;
-			write(outfd, echobuf, runetochar(echobuf, &lastc));
-			return(c);
+			kbdchar = c;
 		}
-		if(!blocked && host_avail())
-			return(rcvchar());
-		if(kbdchar > 0) {
+		if(kbdchar) {
 			if(backc){
 				backc = 0;
 				backup(backc);
 			}
 			if(blocked)
-				resize();
+				resize_flag = 1;
 			if(cs->raw) {
 				switch(kbdchar){
 				case Kup:
@@ -547,51 +583,65 @@ waitchar(void)
 					sendnchars(runetochar(echobuf, &kbdchar), echobuf);
 					break;
 				}
-			} else if(canon(echobuf,kbdchar) == SCROLL) {
-				if(!blocked)
-					bigscroll();
-			} else
-				strcat(echo_input,echobuf);
+			} else {
+				switch(canon(echobuf, kbdchar)){
+				case SCROLL:
+					if(!blocked)
+						bigscroll();
+					break;
+				default:
+					strcat(echo_input,echobuf);
+				}
+			}
 			blocked = 0;
 			kbdchar = 0;
 			continue;
 		}
-		curson(wasblocked);	/* turn on cursor while we're waiting */
-		flushimage(display, 1);
-		do {
-			newmouse = 0;
-			switch(eread(blocked ? Emouse|Ekeyboard : 
-					       Emouse|Ekeyboard|Ehost, &e)) {
-			case Emouse:
-				mouse = e.mouse;
-				if(button1())
-					selection();
-				else if(button2() || button3())
-					readmenu();
-				else if(resize_flag == 0) {
-					/* eresized() is triggered by special mouse event */
-					newmouse = 1;
-				}
-				break;
-			case Ekeyboard:
-				kbdchar = e.kbdc;
-				break;
-			case Ehost:
-				set_host(&e);
-				break;
-			default:
-				perror("protocol violation");
-				exits("protocol violation");
-			}
-		} while(newmouse == 1);
-		cursoff();	/* turn cursor back off */
+		if(!blocked){
+			if(host_avail())
+				return(rcvchar());
+			free(hostbuf);
+			hostbuf = hostbufp = nil;
+		}
+		waitio();
 	}
 }
 
 void
-eresized(int new)
+waitio(void)
 {
-	resize_flag = 1+new;
+	enum { AMOUSE, ARESIZE, AKBD, AHOST, AEND, };
+	Alt a[AEND+1] = {
+		{ mc->c, &mouse, CHANRCV },
+		{ mc->resizec, nil, CHANRCV },
+		{ kc->c, &kbdchar, CHANRCV },
+		{ hc, &hostbuf, CHANNOP },
+		{ nil, nil, CHANEND },
+	};
+
+	if(hostbuf == nil) a[AHOST].op = CHANRCV;
+
+	curson();	/* turn on cursor while we're waiting */
+	flushimage(display, 1);
+	switch(alt(a)){
+	case AMOUSE:
+		if(button1())
+			selection();
+		else if(button2() || button3())
+			readmenu();
+		break;
+	case ARESIZE:
+		resize_flag = 2;
+		break;
+	case AHOST:
+		hostbufp = hostbuf;
+		if(hostbufp == nil){
+			close(hostfd);
+			hostfd = -1;
+		}
+		break;
+	}
+	cursoff();	/* turn cursor back off */
 }
 
 void
@@ -620,7 +670,6 @@ resize(void)
 		fprint(2, "can't reattach to window: %r\n");
 		exits("can't reattach to window");
 	}
-	draw(screen, screen->r, bgcolor, nil, ZP);
 	xmax = (Dx(screen->r) - 2*INSET)/CW-1;
 	ymax = (Dy(screen->r) - 2*INSET)/NS-1;
 	XMARGIN = (Dx(screen->r) - (xmax+1)*CW) / 2;
@@ -629,10 +678,11 @@ resize(void)
 	y = 0;
 	yscrmin = 0;
 	yscrmax = ymax;
-	free(onscreen);
-	onscreen = mallocz((ymax+1)*(xmax+2)*sizeof(Rune), 1);
 	olines = 0;
 	exportsize();
+	free(onscreen);
+	onscreen = mallocz((ymax+1)*(xmax+2)*sizeof(Rune), 1);
+	border(screen, screen->r, XMARGIN+YMARGIN, bgcolor, ZP);
 	clear(0,0,xmax+1,ymax+1);
 	if(resize_flag > 1)
 		backup(backc);
@@ -732,7 +782,8 @@ selection(void)
 			r.max.x = 0;
 		d = drawselection(r, ZR, red);
 		flushimage(display, 1);
-		mouse = emouse();
+		readmouse(mc);
+		mouse = mc->Mouse;
 		draw(screen, d, backup, nil, d.min);
 	} while(button1());
 	if((mouse.buttons & 07) == 5)
@@ -754,7 +805,7 @@ readmenu(void)
 		menu3.item[2] = ttystate[cs->raw].nlcr ? "nl" : "nlcr";
 		menu3.item[3] = cs->raw ? "cooked" : "raw";
 
-		switch(emenuhit(3, &mouse, &menu3)) {
+		switch(menuhit(3, mc, &menu3, nil)) {
 		case 0:		/* 24x80 */
 			setdim(24, 80);
 			return;
@@ -775,7 +826,7 @@ readmenu(void)
 
 	menu2.item[5] = pagemode? "scroll": "page";
 
-	switch(emenuhit(2, &mouse, &menu2)) {
+	switch(menuhit(2, mc, &menu2, nil)) {
 
 	case 0:		/* back up */
 		if(atend == 0) {
@@ -798,7 +849,7 @@ readmenu(void)
 		return;
 
 	case 3:		/* clear screen */
-		eresized(0);
+		resize_flag = 1;
 		return;
 
 	case 4:		/* send the snarf buffer */
@@ -808,7 +859,7 @@ readmenu(void)
 	case 5:		/* pause and clear at end of screen */
 		pagemode = 1-pagemode;
 		if(blocked && !pagemode) {
-			eresized(0);
+			resize_flag = 1;
 			blocked = 0;
 		}
 		return;
@@ -821,7 +872,7 @@ backup(int count)
 	Rune *cp;
 	int n;
 
-	eresized(0);
+	resize_flag = 1;
 	if(count == 0 && !pagemode) {
 		n = ymax;
 		nbacklines = HISTSIZ;	/* make sure we scroll to the very end */
@@ -927,12 +978,11 @@ number(Rune *p, int *got)
 void
 sendnchars(int n,char *p)
 {
-	if(write(outfd,p,n) < 0) {
-		close(outfd);
-		close(0);
-		close(1);
-		close(2);
-		exits("write");
+	if(hostfd < 0)
+		return;
+	if(write(hostfd,p,n) < 0){
+		close(hostfd);
+		hostfd = -1;
 	}
 }
 
@@ -941,9 +991,7 @@ host_avail(void)
 {
 	if(*echop != 0 && fullrune(echop, strlen(echop)))
 		return 1;
-	if((hostp - host_buf) < hostlength)
-		return fullrune(hostp, hostlength - (hostp - host_buf));
-	return 0;
+	return hostbufp != nil && *hostbufp != 0;
 }
 
 int
@@ -959,24 +1007,7 @@ rcvchar(void)
 		}
 		return r;
 	}
-	hostp += chartorune(&r, hostp);
-	return r;
-}
-
-void
-set_host(Event *e)
-{
-	hostlength -= (hostp - host_buf);
-	if(hostlength > 0)
-		memmove(host_buf, hostp, hostlength);
-	hostlength += e->n;
-	if(hostlength >= host_bsize) {
-		host_bsize = BSIZE*((hostlength + BSIZE)/BSIZE);
-		host_buf = realloc(host_buf, host_bsize);
-	}
-	memmove(host_buf + hostlength - e->n, e->data, e->n);
-	host_buf[hostlength] = 0;
-	hostp = host_buf;
+	return *hostbufp++;
 }
 
 void
