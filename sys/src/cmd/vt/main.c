@@ -131,24 +131,18 @@ Rune*	onscreenp(int, int);
 int
 start_host(void)
 {
-	int	fd;
-
 	switch((hostpid = rfork(RFPROC|RFNAMEG|RFFDG|RFNOTEG))) {
 	case 0:
-		fd = open("/dev/cons", OREAD);
-		dup(fd,0);
-		if(fd != 0)
-			close(fd);
-		fd = open("/dev/cons", OWRITE);
-		dup(fd,1);
-		dup(fd,2);
-		if(fd != 1 && fd !=2)
-			close(fd);
+		close(0);
+		open("/dev/cons", OREAD);
+		close(1);
+		open("/dev/cons", OWRITE);
+		dup(1, 2);
 		execl("/bin/rc","rcX",nil);
-		fprint(2,"failed to start up rc\n");
+		fprint(2, "failed to start up rc: %r\n");
 		_exits("rc");
 	case -1:
-		fprint(2,"rc startup: fork error\n");
+		fprint(2,"rc startup: fork: %r\n");
 		_exits("rc_fork");
 	}
 	return open("/mnt/cons/data", ORDWR);
@@ -192,6 +186,7 @@ hostreader(void*)
 static void
 shutdown(void)
 {
+	send_interrupt();
 	postnote(PNGROUP, getpid(), "exit");
 	threadexitsall(nil);
 }
@@ -208,7 +203,7 @@ threadmain(int argc, char **argv)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-2abcrx] [-f font] [-l logfile]\n", argv0);
+	fprint(2, "usage: %s [-2abcrx] [-f font] [-l logfile] [cmd...]\n", argv0);
 	exits("usage");
 }
 
@@ -244,7 +239,7 @@ initialize(int argc, char **argv)
 		break;
 	case 'l':
 		p = EARGF(usage());
-		logfd = create(p, OWRITE, 0666);
+		logfd = create(p, OWRITE|OCEXEC, 0666);
 		if(logfd < 0)
 			sysfatal("could not create log file: %s: %r", p);
 		break;
@@ -269,9 +264,6 @@ initialize(int argc, char **argv)
 	if((cs = consctl()) == nil)
 		sysfatal("consctl failed: %r");
 	cs->raw = rflag;
-	hc = chancreate(sizeof(Rune*), 1);
-	if((hostfd = start_host()) >= 0)
-		proccreate(hostreader, nil, BSIZE+1024);
 
 	histp = hist;
 	menu2.item = menutext2;
@@ -301,9 +293,18 @@ initialize(int argc, char **argv)
 
 	resize();
 
-	if(argc > 0) {
-		sendnchars(strlen(argv[0]),argv[0]);
-		sendnchars(1,"\n");
+	hc = chancreate(sizeof(Rune*), 1);
+	if((hostfd = start_host()) >= 0)
+		proccreate(hostreader, nil, BSIZE+1024);
+
+	while(*argv != nil){
+		sendnchars(strlen(*argv), *argv);
+		if(argv[1] == nil){
+			sendnchars(1, "\n");
+			break;
+		}
+		sendnchars(1, " ");
+		argv++;
 	}
 }
 
