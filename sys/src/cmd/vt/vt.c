@@ -143,7 +143,6 @@ emulate(void)
 	int savex, savey, saveattr, saveisgraphics;
 	int isgraphics;
 	int g0set, g1set;
-	int dch;
 
 	isgraphics = 0;
 	g0set = 'B';	/* US ASCII */
@@ -237,7 +236,7 @@ emulate(void)
 			break;
 
 		case '\033':
-			switch(dch = get_next_char()){
+			switch(get_next_char()){
 			/*
 			 * 1 - graphic processor option on (no-op; not installed)
 			 */
@@ -254,7 +253,6 @@ emulate(void)
 			 * 7 - save cursor position.
 			 */
 			case '7':
-//print("save\n");
 				savex = x;
 				savey = y;
 				saveattr = attr;
@@ -265,7 +263,6 @@ emulate(void)
 			 * 8 - restore cursor position.
 			 */
 			case '8':
-//print("restore\n");
 				x = savex;
 				y = savey;
 				attr = saveattr;
@@ -276,7 +273,6 @@ emulate(void)
 			 * c - Reset terminal.
 			 */
 			case 'c':
-print("resetterminal\n");
 				cursoron = 1;
 				ttystate[cs->raw].nlcr = 0;
 				break;
@@ -401,7 +397,7 @@ print("resetterminal\n");
 				/*
 				 * do escape2 stuff
 				 */
-				switch(dch = buf[0]){
+				switch(buf[0]){
 					/*
 					 * c - same as ESC Z: what are you?
 					 */
@@ -803,13 +799,6 @@ print("resetterminal\n");
 							break;
 						}
 						break;
-
-					/*
-					 * Anything else we ignore for now...
-					 */
-					default:
-print("unknown escape2 '%c' (0x%x)\n", dch, dch);
-						break;
 				}
 
 				break;
@@ -825,14 +814,6 @@ print("unknown escape2 '%c' (0x%x)\n", dch, dch);
 			case ']':
 				osc();
 				break;
-
-			/*
-			 * Ignore other commands.
-			 */
-			default:
-print("unknown command '%c' (0x%x)\n", dch, dch);
-				break;
-
 			}
 			break;
 
@@ -858,7 +839,7 @@ Default:
 				c = 0;
 			}
 			buf[n] = 0;
-			drawstring(buf, n, attr);
+			drawstring(buf, n);
 			x += n;
 			peekc = c;
 			break;
@@ -875,8 +856,6 @@ setattr(int argc, int *argv)
 		switch(argv[i]) {
 		case 0:
 			attr = defattr;
-			fgcolor = fgdefault;
-			bgcolor = bgdefault;
 			break;
 		case 1:
 			attr |= THighIntensity;
@@ -916,10 +895,10 @@ setattr(int argc, int *argv)
 		case 35:	/* purple */
 		case 36:	/* cyan */
 		case 37:	/* white */
-			fgcolor = (nocolor? fgdefault: colors[argv[i]-30]);
+			attr = (attr & ~0xF000) | 0x1000 | (argv[i]-30)<<13;
 			break;
-		case 39:
-			fgcolor = fgdefault;
+		case 39:	/* default */
+			attr &= ~0xF000;
 			break;
 		case 40:	/* black */
 		case 41:	/* red */
@@ -929,10 +908,10 @@ setattr(int argc, int *argv)
 		case 45:	/* purple */
 		case 46:	/* cyan */
 		case 47:	/* white */
-			bgcolor = (nocolor? bgdefault: colors[argv[i]-40]);
+			attr = (attr & ~0x0F00) | 0x0100 | (argv[i]-40)<<9;
 			break;
-		case 49:
-			bgcolor = bgdefault;
+		case 49:	/* default */
+			attr &= ~0x0F00;
 			break;
 		}
 	}
@@ -964,9 +943,6 @@ osc(void)
 				fprint(fd, "%S", buf);
 				close(fd);
 			}
-			break;
-		default:
-			fprint(2, "unknown osc escape %d\n", osc);
 			break;
 		}
 	}

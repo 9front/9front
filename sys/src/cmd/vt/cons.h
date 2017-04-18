@@ -10,8 +10,8 @@ extern Consstate*	cs;
 
 #define	INSET	2
 #define	BUFS	32
-#define	HISTSIZ	65536	/* number of history characters */
-#define BSIZE	1000
+#define	HISTSIZ	(64*1024)	/* number of history characters */
+#define BSIZE	(8*1024)
 
 #define	SCROLL	2
 #define NEWLINE	1
@@ -22,16 +22,12 @@ extern Consstate*	cs;
 
 /* text attributes */
 enum {
-	THighIntensity = (1<<0),
-	TUnderline = (1<<1),
-	TBlink = (1<<2),
-	TReverse = (1<<3),
-	TInvisible = (1<<4),
+	THighIntensity = 1<<0,
+	TUnderline = 1<<1,
+	TBlink = 1<<2,
+	TReverse = 1<<3,
+	TInvisible = 1<<4,
 };
-
-#define	button1()	((mouse.buttons & 07)==1)
-#define	button2()	((mouse.buttons & 07)==2)
-#define	button3()	((mouse.buttons & 07)==4)
 
 struct ttystate {
 	int	crnl;
@@ -64,9 +60,8 @@ extern void	sendnchars(int, char *);
 extern Point	pt(int, int);
 extern Point	pos(Point);
 extern void	funckey(int);
-extern void	drawstring(Rune*, int, int);
+extern void	drawstring(Rune*, int);
 
-extern int	debug;
 extern int	yscrmin, yscrmax;
 extern int	attr;
 extern int	defattr;
@@ -75,13 +70,9 @@ extern Image *fgcolor;
 extern Image *bgcolor;
 extern Image *colors[];
 extern Image *hicolors[];
-extern Image *bgdefault;
-extern Image *fgdefault;
 
 extern int cursoron;
 extern int nocolor;
 
-extern void curson(void);
-extern void cursoff(void);
 extern void setdim(int, int);
 

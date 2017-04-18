@@ -44,21 +44,19 @@ Menu	menu2;
 Menu	menu3;
 Rune	*histp;
 Rune	hist[HISTSIZ];
-Rune	*onscreen;
+Rune	*onscreenrbuf;
+uchar	*onscreenabuf;
+uchar	*onscreencbuf;
 int	yscrmin, yscrmax;
 int	attr, defattr;
-int	wctlout;
 
 Image	*bordercol;
-Image	*cursback;
 Image	*colors[8];
 Image	*hicolors[8];
 Image	*red;
 Image	*green;
 Image	*fgcolor;
 Image	*bgcolor;
-Image	*fgdefault;
-Image	*bgdefault;
 Image	*highlight;
 
 uint rgbacolors[8] = {
@@ -91,15 +89,17 @@ int	CW;
 int	XMARGIN;
 int	YMARGIN;
 
-Mouse	mouse;
 Rune	kbdchar;
+
+#define	button1()	((mc->buttons & 07)==1)
+#define	button2()	((mc->buttons & 07)==2)
+#define	button3()	((mc->buttons & 07)==4)
 
 Mousectl	*mc;
 Keyboardctl	*kc;
 Channel		*hc;
 Consstate	*cs;
 
-int	debug;
 int	nocolor;
 int	logfd = -1;
 int	hostfd = -1;
@@ -126,7 +126,6 @@ void	resize(void);
 void	send_interrupt(void);
 int	alnum(int);
 void	escapedump(int,uchar *,int);
-Rune*	onscreenp(int, int);
 
 int
 start_host(void)
@@ -219,6 +218,7 @@ initialize(int argc, char **argv)
 	fk = vt100fk;
 	blkbg = nocolor = 0;
 	rflag = 0;
+	attr = defattr;
 	ARGBEGIN{
 	case '2':
 		term = "vt220";
@@ -276,7 +276,6 @@ initialize(int argc, char **argv)
 	red = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DRed);
 	green = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DGreen);
 	bordercol = allocimage(display, Rect(0,0,1,1), screen->chan, 1, 0xCCCCCCCC);
-	cursback = allocimage(display, Rect(0, 0, CW+1, NS+1), screen->chan, 0, DNofill);
 	highlight = allocimage(display, Rect(0,0,1,1), CHAN1(CAlpha,8), 1, 0x80);
 
 	for(i=0; i<8; i++){
@@ -285,15 +284,11 @@ initialize(int argc, char **argv)
 		hicolors[i] = allocimage(display, Rect(0,0,1,1), screen->chan, 1,
 			rgbahicolors[i]);
 	}
-
-	bgdefault = (blkbg? display->black: display->white);
-	fgdefault = (blkbg? display->white: display->black);
-	bgcolor = bgdefault;
-	fgcolor = fgdefault;
-
+	bgcolor = (blkbg? display->black: display->white);
+	fgcolor = (blkbg? display->white: display->black);
 	resize();
 
-	hc = chancreate(sizeof(Rune*), 1);
+	hc = chancreate(sizeof(Rune*), 5);
 	if((hostfd = start_host()) >= 0)
 		proccreate(hostreader, nil, BSIZE+1024);
 
@@ -308,15 +303,81 @@ initialize(int argc, char **argv)
 	}
 }
 
+#define onscreenr(x, y) &onscreenrbuf[((y)*(xmax+2) + (x))]
+#define onscreena(x, y) &onscreenabuf[((y)*(xmax+2) + (x))]
+#define onscreenc(x, y) &onscreencbuf[((y)*(xmax+2) + (x))]
+
+#define bgcol(a, c) (((a)&TReverse)!=0 ? (c)>>4 : (c&15))
+#define fgcol(a, c) ((((a)&TReverse)==0 ? (c)>>4 : (c&15)) | (((a)&THighIntensity)!=0)<<4)
+
+void
+drawscreen(void)
+{
+	int x, y, n;
+	uchar c, *ap, *cp;
+	Rune *rp;
+	Point p;
+
+	/* draw background */
+	draw(screen, screen->r, bgcolor, nil, ZP);
+	for(y = 0; y <= ymax; y++){
+		for(x = 0; x <= xmax; x += n){
+			cp = onscreenc(x, y);
+			if((*cp & 1) == 0){
+				n = 1;
+				continue;
+			}
+			ap = onscreena(x, y);
+			c = bgcol(*ap, *cp);
+			for(n = 1; x+n <= xmax && bgcol(ap[n], cp[n]) == c; n++)
+				;
+			p = pt(x, y);
+			draw(screen, Rpt(p, Pt(p.x+CW, p.y+NS)), colors[c>>1], nil, ZP);
+		}
+	}
+
+	/* draw foreground */
+	for(y = 0; y <= ymax; y++){
+		for(x = 0; x <= xmax; x += n){
+			rp = onscreenr(x, y);
+			if(*rp == 0){
+				n = 1;
+				continue;
+			}
+			ap = onscreena(x, y);
+			cp = onscreenc(x, y);
+			c = fgcol(*ap, *cp);
+			for(n = 1; x+n <= xmax && rp[n] != 0 && fgcol(ap[n], cp[n]) == c; n++)
+				;
+			runestringn(screen, pt(x, y),
+				(c&1) ? (((c&16) ? hicolors : colors)[(c&15)>>1]) : fgcolor,
+				ZP, font, rp, n);
+		}
+		if(*onscreenr(x, y) == 0)
+			runestringn(screen, pt(x, y),
+				bordercol,
+				ZP, font, L">", 1);
+	}
+}
+
+void
+drawcursor(void)
+{
+	Image *col = (blocked || hostfd < 0) ? red : bordercol;
+	border(screen, Rpt(pt(x, y), pt(x+1, y+1)), 2, col, ZP);
+}
+
 void
 clear(int x1, int y1, int x2, int y2)
 {
-	draw(screen, Rpt(pt(x1,y1), pt(x2,y2)), bgcolor, nil, ZP);
 	while(y1 < y2){
-		if(x1 < x2)
-			memset(onscreenp(x1, y1), 0, (x2-x1)*sizeof(Rune));
+		if(x1 < x2){
+			memset(onscreenr(x1, y1), 0, (x2-x1)*sizeof(Rune));
+			memset(onscreena(x1, y1), 0, x2-x1);
+			memset(onscreenc(x1, y1), 0, x2-x1);
+		}
 		if(x2 > xmax)
-			*onscreenp(xmax+1, y1) = '\n';
+			*onscreenr(xmax+1, y1) = '\n';
 		y1++;
 	}
 }
@@ -325,7 +386,7 @@ void
 newline(void)
 {
 	if(x > xmax)
-		*onscreenp(xmax+1, y) = 0;	/* wrap arround, remove hidden newline */
+		*onscreenr(xmax+1, y) = 0;	/* wrap arround, remove hidden newline */
 	nbacklines--;
 	if(y >= yscrmax) {
 		y = yscrmax;
@@ -337,25 +398,6 @@ newline(void)
 	} else
 		y++;
 	olines++;
-}
-
-void
-cursoff(void)
-{
-	draw(screen, Rpt(pt(x, y), addpt(pt(x, y), Pt(CW,NS))), cursback, nil, cursback->r.min);
-}
-
-void
-curson(void)
-{
-	Image *col = (blocked || hostfd < 0) ? red : bordercol;
-
-	if(!cursoron){
-		cursoff();
-		return;
-	}
-	draw(cursback, cursback->r, screen, nil, pt(x, y));
-	border(screen, Rpt(pt(x, y), addpt(pt(x, y), Pt(CW,NS))), 2, col, ZP);
 }
 
 int
@@ -602,8 +644,12 @@ waitchar(void)
 			if(host_avail())
 				return(rcvchar());
 			free(hostbuf);
-			hostbuf = hostbufp = nil;
+			hostbufp = hostbuf = nbrecvp(hc);
+			if(host_avail())
+				return(rcvchar());
 		}
+		drawscreen();
+		drawcursor();
 		waitio();
 	}
 }
@@ -613,36 +659,36 @@ waitio(void)
 {
 	enum { AMOUSE, ARESIZE, AKBD, AHOST, AEND, };
 	Alt a[AEND+1] = {
-		{ mc->c, &mouse, CHANRCV },
+		{ mc->c, &mc->Mouse, CHANRCV },
 		{ mc->resizec, nil, CHANRCV },
 		{ kc->c, &kbdchar, CHANRCV },
 		{ hc, &hostbuf, CHANNOP },
 		{ nil, nil, CHANEND },
 	};
-
 	if(hostbuf == nil) a[AHOST].op = CHANRCV;
-
-	curson();	/* turn on cursor while we're waiting */
-	flushimage(display, 1);
+Next:
+	if(display->bufp > display->buf)
+		flushimage(display, 1);
 	switch(alt(a)){
 	case AMOUSE:
 		if(button1())
 			selection();
 		else if(button2() || button3())
 			readmenu();
+		else if(resize_flag == 0)
+			goto Next;
 		break;
 	case ARESIZE:
 		resize_flag = 2;
 		break;
 	case AHOST:
 		hostbufp = hostbuf;
-		if(hostbufp == nil){
+		if(hostbuf == nil){
 			close(hostfd);
 			hostfd = -1;
 		}
 		break;
 	}
-	cursoff();	/* turn cursor back off */
 }
 
 void
@@ -681,9 +727,14 @@ resize(void)
 	yscrmax = ymax;
 	olines = 0;
 	exportsize();
-	free(onscreen);
-	onscreen = mallocz((ymax+1)*(xmax+2)*sizeof(Rune), 1);
-	border(screen, screen->r, XMARGIN+YMARGIN, bgcolor, ZP);
+
+	free(onscreenrbuf);
+	onscreenrbuf = mallocz((ymax+1)*(xmax+2)*sizeof(Rune), 1);
+	free(onscreenabuf);
+	onscreenabuf = mallocz((ymax+1)*(xmax+2), 1);
+	free(onscreencbuf);
+	onscreencbuf = mallocz((ymax+1)*(xmax+2), 1);
+
 	clear(0,0,xmax+1,ymax+1);
 	if(resize_flag > 1)
 		backup(backc);
@@ -694,20 +745,18 @@ resize(void)
 void
 setdim(int ht, int wid)
 {
-	int fd;
 	Rectangle r;
+	int fd;
 
-	if(ht != -1)
-		ymax = ht-1;
-	if(wid != -1)
-		xmax = wid-1;
+	if(wid <= 0) wid = xmax+1;
+	if(ht <= 0) ht = ymax+1;
 	r.min = screen->r.min;
-	r.max = addpt(screen->r.min, Pt((xmax+1)*CW+2*INSET, (ymax+1)*NS+2*INSET));
+	r.max = addpt(screen->r.min, Pt(wid*CW+2*INSET, ht*NS+2*INSET));
 	fd = open("/dev/wctl", OWRITE);
-	if(fd < 0 || fprint(fd, "resize -dx %d -dy %d\n", Dx(r)+2*Borderwidth, Dy(r)+2*Borderwidth) < 0)
-		resize();
-	if(fd >= 0)
+	if(fd >= 0){
+		fprint(fd, "resize -dx %d -dy %d\n", Dx(r)+2*Borderwidth, Dy(r)+2*Borderwidth);
 		close(fd);
+	}
 }
 
 void
@@ -769,10 +818,10 @@ selection(void)
 
 	backup = allocimage(display, screen->r, screen->chan, 0, DNofill);
 	draw(backup, backup->r, screen, nil, backup->r.min);
-	p = pos(mouse.xy);
+	p = pos(mc->xy);
 	do {
-		q = pos(mouse.xy);
-		if(onscreenp(p.x, p.y) > onscreenp(q.x, q.y)){
+		q = pos(mc->xy);
+		if(onscreenr(p.x, p.y) > onscreenr(q.x, q.y)){
 			r.min = q;
 			r.max = p;
 		} else {
@@ -784,12 +833,11 @@ selection(void)
 		d = drawselection(r, ZR, red);
 		flushimage(display, 1);
 		readmouse(mc);
-		mouse = mc->Mouse;
 		draw(screen, d, backup, nil, d.min);
 	} while(button1());
-	if((mouse.buttons & 07) == 5)
+	if((mc->buttons & 07) == 5)
 		sendsnarf();
-	else if(writesnarf(onscreenp(r.min.x, r.min.y), onscreenp(r.max.x, r.max.y))){
+	else if(writesnarf(onscreenr(r.min.x, r.min.y), onscreenr(r.max.x, r.max.y))){
 		d = drawselection(r, ZR, green);
 		flushimage(display, 1);
 		sleep(200);
@@ -924,17 +972,12 @@ pos(Point pt)
 	return pt;
 }
 
-Rune*
-onscreenp(int x, int y)
-{
-	return onscreen + (y*(xmax+2) + x);
-}
-
 void
 scroll(int sy, int ly, int dy, int cy)	/* source, limit, dest, which line to clear */
 {
-	memmove(onscreenp(0, dy), onscreenp(0, sy), (ly-sy)*(xmax+2)*sizeof(Rune));
-	draw(screen, Rpt(pt(0, dy), pt(xmax+1, dy+ly-sy)), screen, nil, pt(0, sy));
+	memmove(onscreenr(0, dy), onscreenr(0, sy), (ly-sy)*(xmax+2)*sizeof(Rune));
+	memmove(onscreena(0, dy), onscreena(0, sy), (ly-sy)*(xmax+2));
+	memmove(onscreenc(0, dy), onscreenc(0, sy), (ly-sy)*(xmax+2));
 	clear(0, cy, xmax+1, cy+1);
 }
 
@@ -950,8 +993,9 @@ bigscroll(void)			/* scroll up half a page */
 		x = y = 0;
 		return;
 	}
-	draw(screen, Rpt(pt(0, 0), pt(xmax+1, ymax+1)), screen, nil, pt(0, half));
-	memmove(onscreenp(0, 0), onscreenp(0, half), (ymax-half+1)*(xmax+2)*sizeof(Rune));
+	memmove(onscreenr(0, 0), onscreenr(0, half), (ymax-half+1)*(xmax+2)*sizeof(Rune));
+	memmove(onscreena(0, 0), onscreena(0, half), (ymax-half+1)*(xmax+2));
+	memmove(onscreenc(0, 0), onscreenc(0, half), (ymax-half+1)*(xmax+2));
 	clear(0, y-half+1, xmax+1, ymax+1);
 	y -= half;
 	if(olines)
@@ -992,7 +1036,9 @@ host_avail(void)
 {
 	if(*echop != 0 && fullrune(echop, strlen(echop)))
 		return 1;
-	return hostbufp != nil && *hostbufp != 0;
+	if(hostbuf == nil)
+		return 0;
+	return *hostbufp != 0;
 }
 
 int
@@ -1051,28 +1097,10 @@ funckey(int key)
 	sendnchars(strlen(fk[key].sequence), fk[key].sequence);
 }
 
-
 void
-drawstring(Rune *str, int n, int attr)
+drawstring(Rune *str, int n)
 {
-	int i;
-	Image *txt, *bg, *tmp;
-	Point p;
-
-	txt = fgcolor;
-	bg = bgcolor;
-	if(attr & TReverse){
-		tmp = txt;
-		txt = bg;
-		bg = tmp;
-	}
-	if(attr & THighIntensity){
-		for(i=0; i<8; i++)
-			if(txt == colors[i])
-				txt = hicolors[i];
-	}
-	p = pt(x, y);
-	draw(screen, Rpt(p, addpt(p, runestringsize(font, str))), bg, nil, p);
-	runestring(screen, p, txt, ZP, font, str);
-	memmove(onscreenp(x, y), str, n*sizeof(Rune));
+	memmove(onscreenr(x, y), str, n*sizeof(Rune));
+	memset(onscreena(x, y), attr & 0xFF, n);
+	memset(onscreenc(x, y), attr >> 8, n);
 }
