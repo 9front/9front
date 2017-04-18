@@ -997,7 +997,7 @@ main(int argc, char *argv[])
 					buf, n);
 			}
 			send.eof = 1;
-			sendpkt("bu", MSG_CHANNEL_EOF, 0);
+			sendpkt("bu", raw ? MSG_CHANNEL_CLOSE : MSG_CHANNEL_EOF, 0);
 			qunlock(&sl);
 			break;
 		case MSG_CHANNEL_REQUEST:
