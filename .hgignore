@@ -16,4 +16,3 @@ syntax: regexp
 ^sys/man/(searchindex|[1-8]/INDEX.*)$
 ^sys/src/.*\.(bits|debug|output|tab\.[hc])$
 ^sys/src/pkg(/|$)
-^home
