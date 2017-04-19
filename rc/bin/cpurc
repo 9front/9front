@@ -72,6 +72,12 @@ if(~ $#auth 0){
 	auth=`{ndb/query sys $sysname auth}
 	. <{ndb/ipquery sys $sysname auth | sed 's, +,\n,g'}
 }
+if(test -d /cfg/$sysname/service)
+	serviced=/cfg/$sysname/service
+if not if(test -d /cfg/default/service)
+	serviced=/cfg/default/service
+if not
+	serviced=/rc/bin/service
 switch($auth){
 case `{	echo $sysname; ndb/query sys $sysname dom
 	if(test -r /net/ipselftab){
@@ -81,10 +87,10 @@ case `{	echo $sysname; ndb/query sys $sysname dom
 
 	# cpu+auth server
 	auth/keyfs -wp -m /mnt/keys /adm/keys
-	aux/listen -q -t /rc/bin/service.auth -d /rc/bin/service tcp
+	aux/listen -q -t /rc/bin/service.auth -d $serviced tcp
 case *
 	# cpu server
-	aux/listen -q -d /rc/bin/service tcp
+	aux/listen -q -d $serviced tcp
 }
 
 if(test -f /dev/apm)
