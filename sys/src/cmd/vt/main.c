@@ -35,7 +35,7 @@ int	atend;
 int	nbacklines;
 int	xmax, ymax;
 int	blocked;
-int	resize_flag;
+int	resize_flag = 1;
 int	pagemode;
 int	olines;
 int	peekc;
@@ -84,10 +84,8 @@ ulong rgbahicolors[8] = {
 /* terminal control */
 struct ttystate ttystate[2] = { {0, 1}, {0, 1} };
 
-int	NS;
-int	CW;
-int	XMARGIN;
-int	YMARGIN;
+Point	margin;
+Point	ftsize;
 
 Rune	kbdchar;
 
@@ -270,8 +268,8 @@ initialize(int argc, char **argv)
 	menu3.item = menutext3;
 	pagemode = 0;
 	blocked = 0;
-	NS = font->height;
-	CW = stringwidth(font, "m");
+	ftsize.y = font->height;
+	ftsize.x = stringwidth(font, "m");
 
 	red = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DRed);
 	green = allocimage(display, Rect(0,0,1,1), screen->chan, 1, DGreen);
@@ -332,7 +330,7 @@ drawscreen(void)
 			for(n = 1; x+n <= xmax && bgcol(ap[n], cp[n]) == c; n++)
 				;
 			p = pt(x, y);
-			draw(screen, Rpt(p, Pt(p.x+CW, p.y+NS)), colors[c>>1], nil, ZP);
+			draw(screen, Rpt(p, addpt(p, ftsize)), colors[c>>1], nil, ZP);
 		}
 	}
 
@@ -363,7 +361,11 @@ drawscreen(void)
 void
 drawcursor(void)
 {
-	Image *col = (blocked || hostfd < 0) ? red : bordercol;
+	Image *col;
+
+	if(cursoron == 0)
+		return;
+	col = (blocked || hostfd < 0) ? red : bordercol;
 	border(screen, Rpt(pt(x, y), pt(x+1, y+1)), 2, col, ZP);
 }
 
@@ -706,11 +708,50 @@ putenvint(char *name, int x)
 void
 exportsize(void)
 {
-	putenvint("XPIXELS", (xmax+1)*CW);
-	putenvint("YPIXELS", (ymax+1)*NS);
+	putenvint("XPIXELS", (xmax+1)*ftsize.x);
+	putenvint("YPIXELS", (ymax+1)*ftsize.y);
 	putenvint("LINES", ymax+1);
 	putenvint("COLS", xmax+1);
 	putenv("TERM", term);
+}
+
+void
+setdim(int ht, int wid)
+{
+	int fd;
+ 
+	if(wid > 0) xmax = wid-1;
+	if(ht > 0) ymax = ht-1;
+
+	x = 0;
+	y = 0;
+	yscrmin = 0;
+	yscrmax = ymax;
+	olines = 0;
+
+	margin.x = (Dx(screen->r) - (xmax+1)*ftsize.x) / 2;
+	margin.y = (Dy(screen->r) - (ymax+1)*ftsize.y) / 2;
+
+	free(onscreenrbuf);
+	onscreenrbuf = mallocz((ymax+1)*(xmax+2)*sizeof(Rune), 1);
+	free(onscreenabuf);
+	onscreenabuf = mallocz((ymax+1)*(xmax+2), 1);
+	free(onscreencbuf);
+	onscreencbuf = mallocz((ymax+1)*(xmax+2), 1);
+	clear(0,0,xmax+1,ymax+1);
+
+	if(resize_flag || backc)
+		return;
+
+	exportsize();
+
+	fd = open("/dev/wctl", OWRITE);
+	if(fd >= 0){
+		ht = (ymax+1) * ftsize.y + 2*INSET + 2*Borderwidth;
+		wid = (xmax+1) * ftsize.x + ftsize.x + 2*INSET + 2*Borderwidth;
+		fprint(fd, "resize -dx %d -dy %d\n", wid, ht);
+		close(fd);
+	}
 }
 
 void
@@ -720,46 +761,12 @@ resize(void)
 		fprint(2, "can't reattach to window: %r\n");
 		exits("can't reattach to window");
 	}
-	xmax = (Dx(screen->r) - 2*INSET)/CW-1;
-	ymax = (Dy(screen->r) - 2*INSET)/NS-1;
-	XMARGIN = (Dx(screen->r) - (xmax+1)*CW) / 2;
-	YMARGIN = (Dy(screen->r) - (ymax+1)*NS) / 2;
-	x = 0;
-	y = 0;
-	yscrmin = 0;
-	yscrmax = ymax;
-	olines = 0;
+	setdim((Dy(screen->r) - 2*INSET)/ftsize.y, (Dx(screen->r) - 2*INSET - ftsize.x)/ftsize.x);
 	exportsize();
-
-	free(onscreenrbuf);
-	onscreenrbuf = mallocz((ymax+1)*(xmax+2)*sizeof(Rune), 1);
-	free(onscreenabuf);
-	onscreenabuf = mallocz((ymax+1)*(xmax+2), 1);
-	free(onscreencbuf);
-	onscreencbuf = mallocz((ymax+1)*(xmax+2), 1);
-
-	clear(0,0,xmax+1,ymax+1);
 	if(resize_flag > 1)
 		backup(backc);
 	resize_flag = 0;
 	werrstr("");		/* clear spurious error messages */
-}
-
-void
-setdim(int ht, int wid)
-{
-	Rectangle r;
-	int fd;
-
-	if(wid <= 0) wid = xmax+1;
-	if(ht <= 0) ht = ymax+1;
-	r.min = screen->r.min;
-	r.max = addpt(screen->r.min, Pt(wid*CW+2*INSET, ht*NS+2*INSET));
-	fd = open("/dev/wctl", OWRITE);
-	if(fd >= 0){
-		fprint(fd, "resize -dx %d -dy %d\n", Dx(r)+2*Borderwidth, Dy(r)+2*Borderwidth);
-		close(fd);
-	}
 }
 
 void
@@ -954,16 +961,16 @@ backup(int count)
 Point
 pt(int x, int y)
 {
-	return addpt(screen->r.min, Pt(x*CW+XMARGIN,y*NS+YMARGIN));
+	return addpt(screen->r.min, Pt(x*ftsize.x+margin.x,y*ftsize.y+margin.y));
 }
 
 Point
 pos(Point pt)
 {
-	pt.x -= screen->r.min.x + XMARGIN;
-	pt.y -= screen->r.min.y + YMARGIN;
-	pt.x /= CW;
-	pt.y /= NS;
+	pt.x -= screen->r.min.x + margin.x;
+	pt.y -= screen->r.min.y + margin.y;
+	pt.x /= ftsize.x;
+	pt.y /= ftsize.y;
 	if(pt.x < 0)
 		pt.x = 0;
 	else if(pt.x > xmax+1)
