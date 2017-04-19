@@ -645,7 +645,7 @@ waitchar(void)
 				return(rcvchar());
 			free(hostbuf);
 			hostbufp = hostbuf = nbrecvp(hc);
-			if(host_avail())
+			if(host_avail() && nrand(8))
 				return(rcvchar());
 		}
 		drawscreen();
@@ -662,10 +662,13 @@ waitio(void)
 		{ mc->c, &mc->Mouse, CHANRCV },
 		{ mc->resizec, nil, CHANRCV },
 		{ kc->c, &kbdchar, CHANRCV },
-		{ hc, &hostbuf, CHANNOP },
+		{ hc, &hostbuf, CHANRCV },
 		{ nil, nil, CHANEND },
 	};
-	if(hostbuf == nil) a[AHOST].op = CHANRCV;
+	if(blocked)
+		a[AHOST].op = CHANNOP;
+	else if(hostbuf != nil)
+		a[AHOST].op = CHANNOBLK;
 Next:
 	if(display->bufp > display->buf)
 		flushimage(display, 1);
