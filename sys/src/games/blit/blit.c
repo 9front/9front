@@ -30,6 +30,14 @@ screeninit(void)
 
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
 	picr = (Rectangle){subpt(p, Pt(scale * SX/2, scale * SY/2)), addpt(p, Pt(scale * SX/2, scale * SY/2))};
+	if(picr.min.x < screen->r.min.x){
+		picr.max.x += screen->r.min.x - picr.min.x;
+		picr.min.x = screen->r.min.x;
+	}
+	if(picr.min.y < screen->r.min.y){
+		picr.max.y += screen->r.min.y - picr.min.y;
+		picr.min.y = screen->r.min.y;
+	}
 	if(tmp != nil) freeimage(tmp);
 	tmp = allocimage(display, Rect(0, 0, scale * SX, scale > 1 ? 1 : scale * SY), CHAN1(CMap, 1), scale > 1, 0);
 	if(bg != nil) freeimage(bg);
@@ -157,12 +165,13 @@ usage(void)
 void
 threadmain(int argc, char **argv)
 {
-	int n;
+	int n, ms;
 	static Cursor blank;
 	char *telnet;
 	char *p;
 	extern int diag;
 	
+	ms = 0;
 	telnet = nil;
 	ARGBEGIN{
 	case 'b':
@@ -184,6 +193,9 @@ threadmain(int argc, char **argv)
 	case 'd':
 		diag++;
 		break;
+	case 'm':
+		ms++;
+		break;
 	default: usage();
 	}ARGEND;
 	if(argc != 0) usage();
@@ -201,7 +213,8 @@ threadmain(int argc, char **argv)
 	mc = initmouse(nil, screen);
 	if(mc == nil)
 		sysfatal("initmouse: %r");
-	setcursor(mc, &blank);
+	if(ms == 0)
+		setcursor(mc, &blank);
 
 	cpureset();
 	for(;;){
