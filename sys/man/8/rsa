@@ -175,21 +175,9 @@ Comment attributes are preserved.
 .PP
 .I Rsa2ssh
 reads a Plan 9 RSA public or private key and prints the public portion 
-in the format used by SSH: three space-separated decimal numbers
-.BR size ,
-.BR ek ,
-and
-.BR n .
-The
-.B -2
-option will change the output to SSH2 RSA public key format. The
+in the format used by SSH2. The
 .B -c
 option will set the comment.
-For compatibility with external SSH implementations, the public keys in
-.B /sys/lib/ssh/keyring
-and
-.B $home/lib/keyring
-are stored in this format.
 .PP
 .I Rsa2x509
 reads a Plan 9 RSA private key and writes a self-signed X.509 certificate
