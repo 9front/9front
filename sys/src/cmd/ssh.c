@@ -1128,7 +1128,7 @@ Next0:	switch(recvpkt()){
 	sendpkt("bsuuu", MSG_CHANNEL_OPEN,
 		"session", 7,
 		0,
-		sizeof(buf),
+		8*sizeof(buf),
 		sizeof(buf));
 
 Next1:	switch(recvpkt()){
