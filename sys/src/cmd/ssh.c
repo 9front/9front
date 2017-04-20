@@ -622,9 +622,10 @@ static char *authnext;
 int
 authok(char *meth)
 {
-	if(authnext == nil || strstr(authnext, meth) != nil)
-		return 1;
-	return 0;
+	int ok = authnext == nil || strstr(authnext, meth) != nil;
+if(debug)
+	fprint(2, "userauth %s %s\n", meth, ok ? "ok" : "skipped");
+	return ok;
 }
 
 int
@@ -658,9 +659,6 @@ pubkeyauth(void)
 
 	if(!authok(authmeth))
 		return -1;
-
-if(debug)
-	fprint(2, "%s...\n", authmeth);
 
 	if((afd = open("/mnt/factotum/rpc", ORDWR)) < 0)
 		return -1;
@@ -774,9 +772,6 @@ passauth(void)
 	if(!authok(authmeth))
 		return -1;
 
-if(debug)
-	fprint(2, "%s...\n", authmeth);
-
 	up = auth_getuserpasswd(auth_getkey, "proto=pass servive=ssh user=%q server=%q thumb=%q",
 		user, host, thumb);
 	if(up == nil)
@@ -817,9 +812,6 @@ kbintauth(void)
 
 	if(!authok(authmeth))
 		return -1;
-
-if(debug)
-	fprint(2, "%s...\n", authmeth);
 
 	sendpkt("bsssss", MSG_USERAUTH_REQUEST,
 		user, strlen(user),
