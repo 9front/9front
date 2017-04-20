@@ -3,6 +3,7 @@
 #include <mp.h>
 #include <libsec.h>
 #include <auth.h>
+#include <authsrv.h>
 
 enum {
 	MSG_DISCONNECT = 1,
@@ -24,6 +25,8 @@ enum {
 	MSG_USERAUTH_BANNER,
 
 	MSG_USERAUTH_PK_OK = 60,
+	MSG_USERAUTH_INFO_REQUEST = 60,
+	MSG_USERAUTH_INFO_RESPONSE = 61,
 
 	MSG_GLOBAL_REQUEST = 80,
 	MSG_REQUEST_SUCCESS,
@@ -59,9 +62,10 @@ typedef struct
 
 int nsid;
 uchar sid[256];
+char thumb[2*SHA2_256dlen+1];
 
 int fd, intr, raw, debug;
-char *user, *status, *host, *cmd;
+char *user, *service, *status, *host, *cmd;
 
 Oneway recv, send;
 void dispatch(void);
@@ -302,7 +306,8 @@ readall(int fd, uchar *data, int len)
 			if(n < 0 && wasintr()){
 				n = 0;
 				continue;
-			}
+			} else if(n == 0)
+				werrstr("eof");
 			break;
 		}
 	}
@@ -481,7 +486,7 @@ kex(int gotkexinit)
 
 	uchar cookie[16], x[32], yc[32], z[32], k[32+1], h[SHA2_256dlen], *ys, *ks, *sig;
 	uchar k12[2*ChachaKeylen];
-	int nk, nys, nks, nsig;
+	int i, nk, nys, nks, nsig;
 	DigestState *ds;
 	mpint *S, *K;
 	RSApub *pub;
@@ -558,6 +563,14 @@ Next1:	switch(recvpkt()){
 	ds = hashstr(yc, 32, ds);
 	ds = hashstr(ys, 32, ds);
 
+	sha2_256(ks, nks, h, nil);
+	i = snprint(thumb, sizeof(thumb), "%.*[", sizeof(h), h);
+	while(i > 0 && thumb[i-1] == '=')
+		thumb[--i] = '\0';
+
+if(debug)
+	fprint(2, "host fingerprint: %s\n", thumb);
+
 	if((pub = ssh2rsapub(ks, nks)) == nil)
 		sysfatal("bad server public key");
 	if((S = ssh2rsasig(sig, nsig)) == nil)
@@ -605,10 +618,9 @@ Next2:	switch(recvpkt()){
 }
 
 int
-auth(char *username, char *servicename)
+pubkeyauth(void)
 {
-	static char sshuserauth[] = "ssh-userauth";
-	static char publickey[] = "publickey";
+	static char authmeth[] = "publickey";
 
 	uchar pk[4096], sig[4096];
 	int npk, nsig;
@@ -619,14 +631,8 @@ auth(char *username, char *servicename)
 	AuthRpc *rpc;
 	RSApub *pub;
 
-	sendpkt("bs", MSG_SERVICE_REQUEST, sshuserauth, sizeof(sshuserauth)-1);
-Next0:	switch(recvpkt()){
-	default:
-		dispatch();
-		goto Next0;
-	case MSG_SERVICE_ACCEPT:
-		break;
-	}
+if(debug)
+	fprint(2, "%s...\n", authmeth);
 
 	if((afd = open("/mnt/factotum/rpc", ORDWR)) < 0)
 		return -1;
@@ -657,9 +663,9 @@ Next0:	switch(recvpkt()){
 		npk = rsapub2ssh(pub, pk, sizeof(pk));
 
 		sendpkt("bsssbss", MSG_USERAUTH_REQUEST,
-			username, strlen(username),
-			servicename, strlen(servicename),
-			publickey, sizeof(publickey)-1,
+			user, strlen(user),
+			service, strlen(service),
+			authmeth, sizeof(authmeth)-1,
 			0,
 			sshrsa, sizeof(sshrsa)-1,
 			pk, npk);
@@ -678,9 +684,9 @@ Next1:		switch(recvpkt()){
 		n = pack(send.b, sizeof(send.b), "sbsssbss",
 			sid, nsid,
 			MSG_USERAUTH_REQUEST,
-			username, strlen(username),
-			servicename, strlen(servicename),
-			publickey, sizeof(publickey)-1,
+			user, strlen(user),
+			service, strlen(service),
+			authmeth, sizeof(authmeth)-1,
 			1,
 			sshrsa, sizeof(sshrsa)-1,
 			pk, npk);
@@ -699,9 +705,9 @@ Next1:		switch(recvpkt()){
 
 		/* send final userauth request with the signature */
 		sendpkt("bsssbsss", MSG_USERAUTH_REQUEST,
-			username, strlen(username),
-			servicename, strlen(servicename),
-			publickey, sizeof(publickey)-1,
+			user, strlen(user),
+			service, strlen(service),
+			authmeth, sizeof(authmeth)-1,
 			1,
 			sshrsa, sizeof(sshrsa)-1,
 			pk, npk,
@@ -724,6 +730,132 @@ Next2:		switch(recvpkt()){
 	auth_freerpc(rpc);
 	close(afd);
 	return -1;	
+}
+
+int
+passauth(void)
+{
+	static char authmeth[] = "password";
+	UserPasswd *up;
+
+if(debug)
+	fprint(2, "%s...\n", authmeth);
+
+	up = auth_getuserpasswd(auth_getkey, "proto=pass servive=ssh user=%q server=%q thumb=%q",
+		user, host, thumb);
+	if(up == nil)
+		return -1;
+
+	sendpkt("bsssbs", MSG_USERAUTH_REQUEST,
+		user, strlen(user),
+		service, strlen(service),
+		authmeth, sizeof(authmeth)-1,
+		0,
+		up->passwd, strlen(up->passwd));
+
+	memset(up->passwd, 0, strlen(up->passwd));
+	free(up);
+
+Next0:	switch(recvpkt()){
+	default:
+		dispatch();
+		goto Next0;
+	case MSG_USERAUTH_FAILURE:
+		werrstr("%s authentication failed", authmeth);
+		return -1;
+	case MSG_USERAUTH_SUCCESS:
+		return 0;
+	}
+}
+
+int
+kbintauth(void)
+{
+	static char authmeth[] = "keyboard-interactive";
+
+	char *name, *inst, *s, *a;
+	int fd, i, n, m;
+	int nquest, echo;
+	uchar *ans, *answ;
+
+if(debug)
+	fprint(2, "%s...\n", authmeth);
+
+	sendpkt("bsssss", MSG_USERAUTH_REQUEST,
+		user, strlen(user),
+		service, strlen(service),
+		authmeth, sizeof(authmeth)-1,
+		"", 0,
+		"", 0);
+
+Next0:	switch(recvpkt()){
+	default:
+		dispatch();
+		goto Next0;
+	case MSG_USERAUTH_FAILURE:
+		werrstr("%s authentication failed", authmeth);
+		return -1;
+	case MSG_USERAUTH_SUCCESS:
+		return 0;
+	case MSG_USERAUTH_INFO_REQUEST:
+		break;
+	}
+
+	if((fd = open("/dev/cons", OWRITE)) < 0)
+		return -1;
+
+	if(unpack(recv.r, recv.w-recv.r, "_ss.", &name, &n, &inst, &m, &recv.r) < 0)
+		sysfatal("bad info request: name, inst");
+
+	while(n > 0 && strchr("\r\n\t ", name[n-1]) != nil)
+		n--;
+	while(m > 0 && strchr("\r\n\t ", inst[m-1]) != nil)
+		m--;
+
+	if(n > 0)
+		fprint(fd, "%.*s\n", n, name);
+	if(m > 0)
+		fprint(fd, "%.*s\n", m, inst);
+
+	/* lang, nprompt */
+	if(unpack(recv.r, recv.w-recv.r, "su.", &s, &n, &nquest, &recv.r) < 0)
+		sysfatal("bad info request: lang, #quest");
+
+	ans = answ = nil;
+	for(i = 0; i < nquest; i++){
+		if(unpack(recv.r, recv.w-recv.r, "sb.", &s, &n, &echo, &recv.r) < 0)
+			sysfatal("bad info request: question [%d]", i);
+
+		while(n > 0 && strchr("\r\n\t :", s[n-1]) != nil)
+			n--;
+		s[n] = '\0';
+
+		if((a = readcons(s, nil, !echo)) == nil)
+			sysfatal("readcons: %r");
+
+		n = answ - ans;
+		m = strlen(a)+4;
+		if((s = realloc(ans, n + m)) == nil)
+			sysfatal("realloc: %r");
+		ans = (uchar*)s;
+		answ = ans+n;
+		answ += pack(answ, m, "s", a, m-4);
+	}
+
+	sendpkt("bu[", MSG_USERAUTH_INFO_RESPONSE, i, ans, answ - ans);
+	free(ans);
+	close(fd);
+
+Next1:	switch(recvpkt()){
+	default:
+		dispatch();
+		goto Next1;
+	case MSG_USERAUTH_FAILURE:
+		werrstr("%s authentication failed", authmeth);
+		return -1;
+	case MSG_USERAUTH_SUCCESS:
+		return 0;
+	}
 }
 
 void
@@ -886,6 +1018,7 @@ main(int argc, char *argv[])
 	quotefmtinstall();
 	fmtinstall('B', mpfmt);
 	fmtinstall('H', encodefmt);
+	fmtinstall('[', encodefmt);
 
 	s = getenv("TERM");
 	raw = s != nil && strcmp(s, "dumb") != 0;
@@ -940,9 +1073,21 @@ main(int argc, char *argv[])
 	recv.v = strdup(recv.v);
 
 	kex(0);
+
 	if(user == nil)
 		user = getuser();
-	if(auth(user, "ssh-connection") < 0)
+	service = "ssh-connection";
+
+	sendpkt("bs", MSG_SERVICE_REQUEST, "ssh-userauth", 12);
+Next0:	switch(recvpkt()){
+	default:
+		dispatch();
+		goto Next0;
+	case MSG_SERVICE_ACCEPT:
+		break;
+	}
+
+	if(pubkeyauth() < 0 && passauth() < 0 && kbintauth() < 0)
 		sysfatal("auth: %r");
 
 	/* open hailing frequencies */
@@ -952,10 +1097,10 @@ main(int argc, char *argv[])
 		sizeof(buf),
 		sizeof(buf));
 
-Next0:	switch(recvpkt()){
+Next1:	switch(recvpkt()){
 	default:
 		dispatch();
-		goto Next0;
+		goto Next1;
 	case MSG_CHANNEL_OPEN_FAILURE:
 		if(unpack(recv.r, recv.w-recv.r, "_uus", &c, &b, &s, &n) < 0)
 			n = strlen(s = "???");
