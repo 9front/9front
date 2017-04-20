@@ -617,6 +617,31 @@ Next2:	switch(recvpkt()){
 	setupChachastate(&recv.cs2, k12+0*ChachaKeylen, ChachaKeylen, nil, 64/8, 20);
 }
 
+static char *authnext;
+
+int
+authok(char *meth)
+{
+	if(authnext == nil || strstr(authnext, meth) != nil)
+		return 1;
+	return 0;
+}
+
+int
+authfailure(char *meth)
+{
+	char *s;
+	int n, partial;
+
+	if(unpack(recv.r, recv.w-recv.r, "_sb", &s, &n, &partial) < 0)
+		sysfatal("bad auth failure response");
+	free(authnext);
+	authnext = smprint("%.*s", n, s);
+if(debug)
+	fprint(2, "userauth %s failed: partial=%d, next=%s\n", meth, partial, authnext);
+	return partial != 0 || !authok(meth);
+}
+
 int
 pubkeyauth(void)
 {
@@ -630,6 +655,9 @@ pubkeyauth(void)
 	mpint *S;
 	AuthRpc *rpc;
 	RSApub *pub;
+
+	if(!authok(authmeth))
+		return -1;
 
 if(debug)
 	fprint(2, "%s...\n", authmeth);
@@ -674,6 +702,8 @@ Next1:		switch(recvpkt()){
 			dispatch();
 			goto Next1;
 		case MSG_USERAUTH_FAILURE:
+			if(authfailure(authmeth))
+				goto Failed;
 			continue;
 		case MSG_USERAUTH_SUCCESS:
 		case MSG_USERAUTH_PK_OK:
@@ -717,6 +747,8 @@ Next2:		switch(recvpkt()){
 			dispatch();
 			goto Next2;
 		case MSG_USERAUTH_FAILURE:
+			if(authfailure(authmeth))
+				goto Failed;
 			continue;
 		case MSG_USERAUTH_SUCCESS:
 			break;
@@ -726,6 +758,7 @@ Next2:		switch(recvpkt()){
 		close(afd);
 		return 0;
 	}
+Failed:
 	rsapubfree(pub);
 	auth_freerpc(rpc);
 	close(afd);
@@ -737,6 +770,9 @@ passauth(void)
 {
 	static char authmeth[] = "password";
 	UserPasswd *up;
+
+	if(!authok(authmeth))
+		return -1;
 
 if(debug)
 	fprint(2, "%s...\n", authmeth);
@@ -761,7 +797,8 @@ Next0:	switch(recvpkt()){
 		dispatch();
 		goto Next0;
 	case MSG_USERAUTH_FAILURE:
-		werrstr("%s authentication failed", authmeth);
+		werrstr("wrong password");
+		authfailure(authmeth);
 		return -1;
 	case MSG_USERAUTH_SUCCESS:
 		return 0;
@@ -778,6 +815,9 @@ kbintauth(void)
 	int nquest, echo;
 	uchar *ans, *answ;
 
+	if(!authok(authmeth))
+		return -1;
+
 if(debug)
 	fprint(2, "%s...\n", authmeth);
 
@@ -793,14 +833,14 @@ Next0:	switch(recvpkt()){
 		dispatch();
 		goto Next0;
 	case MSG_USERAUTH_FAILURE:
-		werrstr("%s authentication failed", authmeth);
+		authfailure(authmeth);
 		return -1;
 	case MSG_USERAUTH_SUCCESS:
 		return 0;
 	case MSG_USERAUTH_INFO_REQUEST:
 		break;
 	}
-
+Retry:
 	if((fd = open("/dev/cons", OWRITE)) < 0)
 		return -1;
 
@@ -850,8 +890,10 @@ Next1:	switch(recvpkt()){
 	default:
 		dispatch();
 		goto Next1;
+	case MSG_USERAUTH_INFO_REQUEST:
+		goto Retry;
 	case MSG_USERAUTH_FAILURE:
-		werrstr("%s authentication failed", authmeth);
+		authfailure(authmeth);
 		return -1;
 	case MSG_USERAUTH_SUCCESS:
 		return 0;
