@@ -555,7 +555,7 @@ getnode(Req *r, uvlong path)
 		x->handle = NUM(path);
 		x->store = GET4(p);
 		x->format = GET2(p+4);
-		if(x->format == 0x3001 && GET2(p+42) == 1){
+		if(x->format == 0x3001){
 			x->d.qid.type = QTDIR;
 			x->d.mode = DMDIR|0777;
 		} else {
