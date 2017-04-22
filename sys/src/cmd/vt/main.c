@@ -314,7 +314,6 @@ drawscreen(void)
 	int x, y, n;
 	uchar c, *ap, *cp;
 	Rune *rp;
-	Point p;
 
 	/* draw background */
 	draw(screen, screen->r, bgcolor, nil, ZP);
@@ -329,8 +328,7 @@ drawscreen(void)
 			c = bgcol(*ap, *cp);
 			for(n = 1; x+n <= xmax && bgcol(ap[n], cp[n]) == c; n++)
 				;
-			p = pt(x, y);
-			draw(screen, Rpt(p, addpt(p, ftsize)), colors[c>>1], nil, ZP);
+			draw(screen, Rpt(pt(x, y), pt(x+n, y+1)), colors[c>>1], nil, ZP);
 		}
 	}
 
@@ -372,11 +370,13 @@ drawcursor(void)
 void
 clear(int x1, int y1, int x2, int y2)
 {
+	int c = (attr & 0x0F00)>>8; /* bgcolor */
+	
 	while(y1 < y2){
 		if(x1 < x2){
 			memset(onscreenr(x1, y1), 0, (x2-x1)*sizeof(Rune));
 			memset(onscreena(x1, y1), 0, x2-x1);
-			memset(onscreenc(x1, y1), 0, x2-x1);
+			memset(onscreenc(x1, y1), c, x2-x1);
 		}
 		if(x2 > xmax)
 			*onscreenr(xmax+1, y1) = '\n';
