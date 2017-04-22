@@ -35,13 +35,12 @@ struct ttystate {
 };
 extern struct ttystate ttystate[];
 
-#define NKEYS 32	/* max key definitions */
 struct funckey {
 	char	*name;
 	char	*sequence;
 };
-extern struct funckey *fk;
-extern struct funckey vt100fk[], vt220fk[], ansifk[], xtermfk[];
+extern struct funckey *fk, *appfk;
+extern struct funckey ansifk[], ansiappfk[], xtermfk[];
 
 extern int	x, y, xmax, ymax, olines;
 extern int	peekc, attribute;

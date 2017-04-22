@@ -32,14 +32,7 @@ int	originrelative = 0;
 
 int	tabcol[200];
 
-struct funckey vt100fk[NKEYS] = {
-	{ "up key",		"\033OA", },
-	{ "down key",		"\033OB", },
-	{ "left key",		"\033OD", },
-	{ "right key",		"\033OC", },
-};
-
-struct funckey ansifk[NKEYS] = {
+struct funckey ansifk[] = {
 	{ "up key",		"\033[A", },
 	{ "down key",		"\033[B", },
 	{ "left key",		"\033[D", },
@@ -56,22 +49,24 @@ struct funckey ansifk[NKEYS] = {
 	{ "F10",		"\033OY", },
 	{ "F11",		"\033OZ", },
 	{ "F12",		"\033O1", },
+	{ 0 },
 };
 
-struct funckey vt220fk[NKEYS] = {
-	{ "up key",		"\033[A", },
-	{ "down key",		"\033[B", },
-	{ "left key",		"\033[D", },
-	{ "right key",		"\033[C", },
-};
-
-struct funckey xtermfk[NKEYS] = {
-	{ "page up",		"\033[5~", },
-	{ "page down",		"\033[6~", },
+struct funckey ansiappfk[] = {
 	{ "up key",		"\033OA", },
 	{ "down key",		"\033OB", },
 	{ "left key",		"\033OD", },
 	{ "right key",		"\033OC", },
+	{ 0 },
+};
+
+struct funckey xtermfk[] = {
+	{ "page up",		"\033[5~", },
+	{ "page down",		"\033[6~", },
+	{ "up key",		"\033[A", },
+	{ "down key",		"\033[B", },
+	{ "left key",		"\033[D", },
+	{ "right key",		"\033[C", },
 	{ "F1",			"\033OP", },
 	{ "F2",			"\033OQ", },
 	{ "F3",			"\033OR", },
@@ -84,6 +79,7 @@ struct funckey xtermfk[NKEYS] = {
 	{ "F10",		"\033[21~", },
 	{ "F11",		"\033[23~", },
 	{ "F12",		"\033[24~", },
+	{ 0 },
 };
 
 char gmap[256] = {
@@ -433,6 +429,7 @@ emulate(void)
 						}else while(--noperand > 0){
 							switch(operand[noperand]){
 							case 1:	/* set cursor keys to send ANSI functions: ESC [ A..D */
+								appfk = nil;
 								break;
 							case 2:	/* set VT52 mode (not implemented) */
 								break;
@@ -486,6 +483,7 @@ emulate(void)
 							default:
 								break;
 							case 1:	/* set cursor keys to send application function: ESC O A..D */
+								appfk = ansiappfk;
 								break;
 							case 2:	/* set ANSI */
 								break;

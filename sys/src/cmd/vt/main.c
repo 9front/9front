@@ -110,7 +110,7 @@ char	sendbuf[BSIZE];	/* hope you can't type ahead more than BSIZE chars */
 char	*sendbufp = sendbuf;
 
 char *term;
-struct funckey *fk;
+struct funckey *fk, *appfk;
 
 /* functions */
 void	initialize(int, char **);
@@ -212,19 +212,17 @@ initialize(int argc, char **argv)
 	char *fontname, *p;
 
 	fontname = nil;
+	fk = ansifk;
 	term = "vt100";
-	fk = vt100fk;
 	blkbg = 0;
 	rflag = 0;
 	attr = defattr;
 	ARGBEGIN{
 	case '2':
 		term = "vt220";
-		fk = vt220fk;
 		break;
 	case 'a':
 		term = "ansi";
-		fk = ansifk;
 		break;
 	case 'b':
 		blkbg = 1;		/* e.g., for linux colored output */
@@ -521,17 +519,26 @@ canon(char *ep, Rune c)
 	return(OTHER);
 }
 
+char*
+lookfk(struct funckey *fk, char *name)
+{
+	int i;
+
+	for(i=0; fk[i].name; i++){
+		if(strcmp(name, fk[i].name)==0)
+			return fk[i].sequence;
+	}
+	return nil;
+}
+
 void
 sendfk(char *name)
 {
-	int i;
-	static int fd;
-
-	for(i=0; fk[i].name; i++)
-		if(strcmp(name, fk[i].name)==0){
-			sendnchars(strlen(fk[i].sequence), fk[i].sequence);
-			return;
-		}
+	char *s = lookfk(appfk != nil ? appfk : fk, name);
+	if(s == nil && appfk != nil)
+		s = lookfk(fk, name);
+	if(s != nil)
+		sendnchars(strlen(s), s);
 }
 
 int
@@ -1108,16 +1115,6 @@ escapedump(int fd,uchar *str,int len)
 		else if(str[i] == '\n') fprint(fd,"^J\n");
 		else fprint(fd,"%c",str[i]);
 	}
-}
-
-void
-funckey(int key)
-{
-	if(key >= NKEYS)
-		return;
-	if(fk[key].name == 0)
-		return;
-	sendnchars(strlen(fk[key].sequence), fk[key].sequence);
 }
 
 void
