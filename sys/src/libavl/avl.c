@@ -310,3 +310,32 @@ walk1(int a, Avl *q)
 		q = p;
 	return p;
 }
+
+static Avl *bottom(Avltree*,int);
+
+Avl*
+avlmin(Avltree *t)
+{
+	return bottom(t, 0);
+}
+
+Avl*
+avlmax(Avltree *t)
+{
+	return bottom(t, 1);
+}
+
+static Avl*
+bottom(Avltree *t, int d)
+{
+	Avl *n;
+
+	if(t == nil)
+		return nil;
+	if(t->root == nil)
+		return nil;
+
+	for(n = t->root; n->c[d] != nil; n = n->c[d])
+		;
+	return n;
+}

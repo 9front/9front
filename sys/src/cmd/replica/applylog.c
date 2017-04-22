@@ -175,7 +175,6 @@ main(int argc, char **argv)
 	ulong now;
 	Biobuf bin;
 	Dir dbd, ld, nd, rd;
-	Avlwalk *w;
 	Entry *e;
 
 	membogus(argv);
@@ -706,8 +705,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	w = avlwalk(copyerr->avl);
-	while(e = (Entry*)avlnext(w))
+	for(e = (Entry*)avlmin(copyerr->avl); e != nil; e = (Entry*)avlnext(e))
 		error("copying %q: %s\n", e->name, e->d.name);
 
 	if(timefile)

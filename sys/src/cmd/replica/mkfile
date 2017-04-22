@@ -15,7 +15,6 @@ TARG=\
 	$SCRIPTS\
 
 OFILES=\
-	avl.$O\
 	db.$O\
 	util.$O\
 

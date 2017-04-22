@@ -65,6 +65,12 @@ is less than, equal to, or greater than zero, respectively.
 removes the node matching the key from the tree and returns
 it. It returns nil if no matching key is found.
 .PP
+.I Avlmin
+returns the minimum
+.B Avl
+node in the tree and
+.I avlmax
+returns the maximum node.
 .I Avlnext
 returns the next 
 .B Avl 

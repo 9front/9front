@@ -15,7 +15,6 @@ usage(void)
 void
 main(int argc, char **argv)
 {
-	Avlwalk *w;
 	Biobuf bout;
 	Entry *e;
 
@@ -30,8 +29,7 @@ main(int argc, char **argv)
 
 	Binit(&bout, 1, OWRITE);
 	db = opendb(argv[0]);
-	w = avlwalk(db->avl);
-	while(e = (Entry*)avlnext(w))
+	for(e = (Entry*)avlmin(db->avl); e != nil; e = (Entry*)avlnext(e))
 		Bprint(&bout, "%q %q %luo %q %q %lud %lld\n",
 			e->name, strcmp(e->name, e->d.name)==0 ? "-" : e->d.name, e->d.mode,
 			e->d.uid, e->d.gid, e->d.mtime, e->d.length);

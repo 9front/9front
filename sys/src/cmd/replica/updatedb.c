@@ -140,7 +140,6 @@ void
 main(int argc, char **argv)
 {
 	char *proto;
-	Avlwalk *w;
 	Dir d;
 	Entry *e;
 
@@ -188,8 +187,7 @@ main(int argc, char **argv)
 		sysfatal("rdproto: %r");
 
 	if(!changesonly){
-		w = avlwalk(db->avl);
-		while(e = (Entry*)avlprev(w)){
+		for(e = (Entry*)avlmax(db->avl); e != nil; e = (Entry*)avlprev(e)){
 			if(!ismatch(e->name))
 				continue;
 			if(!e->d.mark){		/* not visited during walk */

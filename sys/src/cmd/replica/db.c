@@ -35,8 +35,7 @@ _removedb(Db *db, char *name)
 
 	memset(&k, 0, sizeof k);
 	k.name = name;
-	e = nil;
-	deleteavl(db->avl, (Avl*)&k, (Avl**)&e);
+	e = (Entry*)avldelete(db->avl, &k);
 	if(e)
 		freeentry(e);
 }
@@ -48,8 +47,7 @@ _insertdb(Db *db, Entry *e)
 
 	ne = allocentry();
 	*ne = *e;
-	o = nil;
-	insertavl(db->avl, (Avl*)ne, (Avl**)&o);
+	o = (Entry*)avlinsert(db->avl, ne);
 	if(o)
 		freeentry(o);
 }
@@ -78,7 +76,7 @@ opendb(char *file)
 	else if((fd = open(file, ORDWR)) < 0)
 		sysfatal("opendb %s: %r", file);
 	db = emalloc(sizeof(Db));
-	db->avl = mkavltree(entrycmp);
+	db->avl = avlcreate(entrycmp);
 	db->fd = fd;
 	if(fd < 0)
 		return db;
@@ -118,7 +116,7 @@ _finddb(Db *db, char *name, Dir *d, int domark)
 	memset(&k, 0, sizeof k);
 	k.name = name;
 
-	e = (Entry*)lookupavl(db->avl, (Avl*)&k);
+	e = (Entry*)avllookup(db->avl, &k, 0);
 	if(e == nil)
 		return -1;
 	memset(d, 0, sizeof *d);
