@@ -14,6 +14,8 @@ ssh - secure shell remote login client
 .IR user @] host
 [
 .I cmd
+.I args
+.I ...
 ]
 .SH DESCRIPTION
 .I Ssh
@@ -24,10 +26,13 @@ on the computer
 logged in as
 .IR user .
 The input file descriptor is forwarded to the
-remote side and output and error descriptor
+remote side and output and error descriptors
 are forwarded to the local side.
+.PP
 The connection is authenticated and encrypted
-using the SSH2 protocol.
+using the SSH2 protocol. The user authenticates
+itself to the host using his RSA keypair or plaintext 
+passwords.
 .PP
 When no
 .I cmd
@@ -48,4 +53,8 @@ option enables debug output.
 .SH SOURCE
 .B /sys/src/cmd/ssh.c
 .SH SEE ALSO
-.IR vt (1)
+.IR vt (1),
+.IR rsa (8),
+.IR factotum (4)
+.SH BUGS
+The host is not authenticated.
