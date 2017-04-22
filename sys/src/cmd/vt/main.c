@@ -219,6 +219,7 @@ initialize(int argc, char **argv)
 	attr = defattr;
 	ARGBEGIN{
 	case '2':
+		fk = vt220fk;
 		term = "vt220";
 		break;
 	case 'a':
@@ -240,7 +241,7 @@ initialize(int argc, char **argv)
 			sysfatal("could not create log file: %s: %r", p);
 		break;
 	case 'x':
-		fk = xtermfk;
+		fk = vt220fk;
 		term = "xterm";
 		break;
 	case 'r':
@@ -531,14 +532,17 @@ lookfk(struct funckey *fk, char *name)
 	return nil;
 }
 
-void
+int
 sendfk(char *name)
 {
 	char *s = lookfk(appfk != nil ? appfk : fk, name);
 	if(s == nil && appfk != nil)
 		s = lookfk(fk, name);
-	if(s != nil)
+	if(s != nil){
 		sendnchars(strlen(s), s);
+		return 1;
+	}
+	return 0;
 }
 
 int
@@ -570,6 +574,30 @@ waitchar(void)
 				resize_flag = 1;
 			if(cs->raw) {
 				switch(kbdchar){
+				case Kins:
+					if(!sendfk("insert"))
+						goto Send;
+					break;
+				case Kdel:
+					if(!sendfk("delete"))
+						goto Send;
+					break;
+				case Khome:
+					if(!sendfk("home"))
+						goto Send;
+					break;
+				case Kend:
+					if(!sendfk("end"))
+						goto Send;
+					break;
+
+				case Kpgup:
+					sendfk("page up");
+					break;
+				case Kpgdown:
+					sendfk("page down");
+					break;
+
 				case Kup:
 					sendfk("up key");
 					break;
@@ -582,12 +610,7 @@ waitchar(void)
 				case Kright:
 					sendfk("right key");
 					break;
-				case Kpgup:
-					sendfk("page up");
-					break;
-				case Kpgdown:
-					sendfk("page down");
-					break;
+
 				case KF|1:
 					sendfk("F1");
 					break;
@@ -624,6 +647,7 @@ waitchar(void)
 				case KF|12:
 					sendfk("F12");
 					break;
+
 				case '\n':
 					echobuf[0] = '\r';
 					sendnchars(1, echobuf);
@@ -633,6 +657,7 @@ waitchar(void)
 					sendnchars(1, echobuf);
 					break;
 				default:
+				Send:
 					sendnchars(runetochar(echobuf, &kbdchar), echobuf);
 					break;
 				}

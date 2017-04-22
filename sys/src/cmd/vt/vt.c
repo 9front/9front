@@ -57,16 +57,23 @@ struct funckey ansiappfk[] = {
 	{ "down key",		"\033OB", },
 	{ "left key",		"\033OD", },
 	{ "right key",		"\033OC", },
+	
 	{ 0 },
 };
 
-struct funckey xtermfk[] = {
+struct funckey vt220fk[] = {
+	{ "insert",		"\033[2~", },
+	{ "delete",		"\033[3~", },
+	{ "home",		"\033[1~", },
+	{ "end",		"\033[4~", },
 	{ "page up",		"\033[5~", },
 	{ "page down",		"\033[6~", },
+
 	{ "up key",		"\033[A", },
 	{ "down key",		"\033[B", },
 	{ "left key",		"\033[D", },
 	{ "right key",		"\033[C", },
+
 	{ "F1",			"\033OP", },
 	{ "F2",			"\033OQ", },
 	{ "F3",			"\033OR", },
@@ -79,6 +86,7 @@ struct funckey xtermfk[] = {
 	{ "F10",		"\033[21~", },
 	{ "F11",		"\033[23~", },
 	{ "F12",		"\033[24~", },
+
 	{ 0 },
 };
 
