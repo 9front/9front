@@ -54,6 +54,7 @@ extern void	newline(void);
 extern int	get_next_char(void);
 extern void	ringbell(void);
 extern int	number(Rune *, int *);
+extern void	shift(int,int,int,int);
 extern void	scroll(int,int,int,int);
 extern void	backup(int);
 extern void	sendnchars(int, char *);

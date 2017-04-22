@@ -214,7 +214,7 @@ initialize(int argc, char **argv)
 	fontname = nil;
 	term = "vt100";
 	fk = vt100fk;
-	blkbg = nocolor = 0;
+	blkbg = 0;
 	rflag = 0;
 	attr = defattr;
 	ARGBEGIN{
@@ -315,8 +315,9 @@ drawscreen(void)
 	uchar c, *ap, *cp;
 	Rune *rp;
 
-	/* draw background */
 	draw(screen, screen->r, bgcolor, nil, ZP);
+
+	/* draw background */
 	for(y = 0; y <= ymax; y++){
 		for(x = 0; x <= xmax; x += n){
 			cp = onscreenc(x, y);
@@ -980,6 +981,18 @@ pos(Point pt)
 	else if(pt.y > ymax+1)
 		pt.y = ymax+1;
 	return pt;
+}
+
+void
+shift(int x1, int y, int x2, int w)
+{
+	if(x1+w > xmax+1)
+		w = xmax+1 - x1;
+	if(x2+w > xmax+1)
+		w = xmax+1 - x2;
+	memmove(onscreenr(x1, y), onscreenr(x2, y), w*sizeof(Rune));
+	memmove(onscreena(x1, y), onscreena(x2, y), w);
+	memmove(onscreenc(x1, y), onscreenc(x2, y), w);
 }
 
 void
