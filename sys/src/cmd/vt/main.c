@@ -47,6 +47,11 @@ Rune	hist[HISTSIZ];
 Rune	*onscreenrbuf;
 uchar	*onscreenabuf;
 uchar	*onscreencbuf;
+
+#define onscreenr(x, y) &onscreenrbuf[((y)*(xmax+2) + (x))]
+#define onscreena(x, y) &onscreenabuf[((y)*(xmax+2) + (x))]
+#define onscreenc(x, y) &onscreencbuf[((y)*(xmax+2) + (x))]
+
 int	yscrmin, yscrmax;
 int	attr, defattr;
 
@@ -300,18 +305,40 @@ initialize(int argc, char **argv)
 	}
 }
 
-#define onscreenr(x, y) &onscreenrbuf[((y)*(xmax+2) + (x))]
-#define onscreena(x, y) &onscreenabuf[((y)*(xmax+2) + (x))]
-#define onscreenc(x, y) &onscreencbuf[((y)*(xmax+2) + (x))]
+Image*
+bgcol(int a, int c)
+{
+	if(nocolor || (c & (1<<0)) == 0){
+		if(a & TReverse)
+			return fgcolor;
+		return bgcolor;
+	}
+	if((a & TReverse) != 0)
+		c >>= 4;
+	return colors[(c>>1)&7];
+}
 
-#define bgcol(a, c) (((a)&TReverse)!=0 ? (c)>>4 : (c&15))
-#define fgcol(a, c) ((((a)&TReverse)==0 ? (c)>>4 : (c&15)) | (((a)&THighIntensity)!=0)<<4)
+Image*
+fgcol(int a, int c)
+{
+	if(nocolor || (c & (1<<4)) == 0){
+		if(a & TReverse)
+			return bgcolor;
+		return fgcolor;
+	}
+	if((a & TReverse) == 0)
+		c >>= 4;
+	if(a & THighIntensity)
+		return hicolors[(c>>1)&7];
+	return colors[(c>>1)&7];
+}
 
 void
 drawscreen(void)
 {
 	int x, y, n;
-	uchar c, *ap, *cp;
+	uchar *ap, *cp;
+	Image *c;
 	Rune *rp;
 
 	draw(screen, screen->r, bgcolor, nil, ZP);
@@ -320,15 +347,15 @@ drawscreen(void)
 	for(y = 0; y <= ymax; y++){
 		for(x = 0; x <= xmax; x += n){
 			cp = onscreenc(x, y);
-			if((*cp & 1) == 0){
+			ap = onscreena(x, y);
+			c = bgcol(*ap, *cp);
+			if(c == bgcolor){
 				n = 1;
 				continue;
 			}
-			ap = onscreena(x, y);
-			c = bgcol(*ap, *cp);
 			for(n = 1; x+n <= xmax && bgcol(ap[n], cp[n]) == c; n++)
 				;
-			draw(screen, Rpt(pt(x, y), pt(x+n, y+1)), colors[c>>1], nil, ZP);
+			draw(screen, Rpt(pt(x, y), pt(x+n, y+1)), c, nil, ZP);
 		}
 	}
 
@@ -345,9 +372,7 @@ drawscreen(void)
 			c = fgcol(*ap, *cp);
 			for(n = 1; x+n <= xmax && rp[n] != 0 && fgcol(ap[n], cp[n]) == c; n++)
 				;
-			runestringn(screen, pt(x, y),
-				(c&1) ? (((c&16) ? hicolors : colors)[(c&15)>>1]) : fgcolor,
-				ZP, font, rp, n);
+			runestringn(screen, pt(x, y), c, ZP, font, rp, n);
 		}
 		if(*onscreenr(x, y) == 0)
 			runestringn(screen, pt(x, y),
