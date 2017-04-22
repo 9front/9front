@@ -340,6 +340,7 @@ drawscreen(void)
 	uchar *ap, *cp;
 	Image *c;
 	Rune *rp;
+	Point p, q;
 
 	draw(screen, screen->r, bgcolor, nil, ZP);
 
@@ -370,9 +371,16 @@ drawscreen(void)
 			ap = onscreena(x, y);
 			cp = onscreenc(x, y);
 			c = fgcol(*ap, *cp);
-			for(n = 1; x+n <= xmax && rp[n] != 0 && fgcol(ap[n], cp[n]) == c; n++)
+			for(n = 1; x+n <= xmax && rp[n] != 0 && fgcol(ap[n], cp[n]) == c
+			&& (ap[n] ^ *ap) & TUnderline == 0; n++)
 				;
-			runestringn(screen, pt(x, y), c, ZP, font, rp, n);
+			p = pt(x, y);
+			q = runestringn(screen, p, c, ZP, font, rp, n);
+			if(*ap & TUnderline){
+				p.y += font->ascent+1;
+				q.y += font->ascent+2;
+				draw(screen, Rpt(p, q), c, nil, ZP);
+			}
 		}
 		if(*onscreenr(x, y) == 0)
 			runestringn(screen, pt(x, y),
