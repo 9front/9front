@@ -68,10 +68,10 @@ struct funckey vt220fk[NKEYS] = {
 struct funckey xtermfk[NKEYS] = {
 	{ "page up",		"\033[5~", },
 	{ "page down",		"\033[6~", },
-	{ "up key",		"\033[A", },
-	{ "down key",		"\033[B", },
-	{ "left key",		"\033[D", },
-	{ "right key",		"\033[C", },
+	{ "up key",		"\033OA", },
+	{ "down key",		"\033OB", },
+	{ "left key",		"\033OD", },
+	{ "right key",		"\033OC", },
 	{ "F1",			"\033OP", },
 	{ "F2",			"\033OQ", },
 	{ "F3",			"\033OR", },
@@ -326,7 +326,6 @@ emulate(void)
 			case 'Z':
 			Ident:
 				sendnchars(7, "\033[?1;2c");	/* VT100 with AVO option */
-//				sendnchars(5, "\033[?6c");	/* VT102 (insert/delete-char, etc.) */
 				break;
 
 			/*
@@ -734,7 +733,7 @@ emulate(void)
 					case 'P':
 						fixops(operand);
 						i = x + operand[0];
-						draw(screen, Rpt(pt(x, y), pt(xmax+1, y+1)), screen, nil, pt(i, y));
+						shift(x, y, i, xmax+1 - i);
 						clear(xmax-operand[0], y, xmax+1, y+1);
 						break;
 
@@ -744,7 +743,7 @@ emulate(void)
 					case '@':
 						fixops(operand);
 						i = x + operand[0];
-						draw(screen, Rpt(pt(i, y), pt(xmax+1, y+1)), screen, nil, pt(x, y));
+						shift(i, y, x, xmax+1 - i);
 						clear(x, y, i, y+1);
 						break;
 
