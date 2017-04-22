@@ -1,0 +1,51 @@
+.TH SSH 1
+.SH NAME
+ssh - secure shell remote login client
+.SH SYNOPSIS
+.B ssh 
+[
+.B -d
+] [
+.B -R
+] [
+.B -u
+.I user
+] [
+.IR user @] host
+[
+.I cmd
+]
+.SH DESCRIPTION
+.I Ssh
+starts a remote shell or
+.I cmd
+on the computer 
+.I host
+logged in as
+.IR user .
+The input file descriptor is forwarded to the
+remote side and output and error descriptor
+are forwarded to the local side.
+The connection is authenticated and encrypted
+using the SSH2 protocol.
+.PP
+When no
+.I cmd
+is specified then ssh starts a shell on the
+remote side.
+.PP
+If the
+.B $TERM
+environment variable is set then a pseudo terminal
+will be requested for the shell.
+This can be disabled with the
+.B -R
+option.
+.PP
+The
+.B -d
+option enables debug output.
+.SH SOURCE
+.B /sys/src/cmd/ssh.c
+.SH SEE ALSO
+.IR vt (1)
