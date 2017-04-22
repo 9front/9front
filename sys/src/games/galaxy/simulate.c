@@ -6,9 +6,9 @@
 
 int extraproc = -1, throttle;
 
-static QLock* golock;
-static Rendez* gorend;
-static int* go;
+static QLock *golock;
+static Rendez *gorend;
+static int *go;
 
 static QLock runninglock;
 static Rendez runningrend;

@@ -413,7 +413,7 @@ sym(char *name)
 	Sym *s, l;
 
 	l.name = name;
-	s = (Sym*)avllookup(syms, &l);
+	s = (Sym*)avllookup(syms, &l, 0);
 	if(s != nil)
 		return s;
 

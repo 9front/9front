@@ -30,7 +30,7 @@ struct Avltree {
 Avltree *avlcreate(int(*cmp)(Avl*, Avl*));
 Avl     *avlinsert(Avltree *tree, Avl *new);
 Avl     *avldelete(Avltree *tree, Avl *key);
-Avl     *avllookup(Avltree *tree, Avl *key);
+Avl     *avllookup(Avltree *tree, Avl *key, int dir);
 Avl     *avlnext(Avl *n);
 Avl     *avlprev(Avl *n);
 
@@ -55,13 +55,15 @@ node into the tree and returns an existing
 node with the same key that has been removed
 from the tree and may be freed.
 .I Avllookup
-returns the
-node that matches the key or
-.B nil
-if no node matches.
+searches for a given key and returns
+the closest node less than the given key, 
+.BR nil ,
+or the closest node greater than the key depending on whether
+.I dir
+is less than, equal to, or greater than zero, respectively.
 .I Avldelete
 removes the node matching the key from the tree and returns
-it. It returns nil of no matching key is found.
+it. It returns nil if no matching key is found.
 .PP
 .I Avlnext
 returns the next 

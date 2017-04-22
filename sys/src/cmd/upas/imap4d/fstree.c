@@ -25,7 +25,7 @@ fstreefind(Box *mb, int id)
 	memset(&t, 0, sizeof t);
 	m0.id = id;
 	t.m = &m0;
-	if(p = (Fstree*)avllookup(mb->fstree, &t))
+	if(p = (Fstree*)avllookup(mb->fstree, &t, 0))
 		return p->m;
 	return nil;
 }

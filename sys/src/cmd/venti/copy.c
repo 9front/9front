@@ -51,7 +51,7 @@ havevisited(uchar score[VtScoreSize], int type)
 		return 0;
 	memmove(a.score, score, VtScoreSize);
 	a.type = type;
-	return avllookup(scoretree, &a) != nil;
+	return avllookup(scoretree, &a, 0) != nil;
 }
 
 static void

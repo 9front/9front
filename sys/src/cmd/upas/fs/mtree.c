@@ -22,7 +22,7 @@ mtreeisdup(Mailbox *mb, Message *m)
 		return 0;
 	memset(&t, 0, sizeof t);
 	t.m = m;
-	if(avllookup(mb->mtree, &t))
+	if(avllookup(mb->mtree, &t, 0))
 		return 1;
 	return 0;
 }
@@ -36,7 +36,7 @@ mtreefind(Mailbox *mb, uchar *digest)
 	m0.digest = digest;
 	memset(&t, 0, sizeof t);
 	t.m = &m0;
-	if(p = (Mtree*)avllookup(mb->mtree, &t))
+	if(p = (Mtree*)avllookup(mb->mtree, &t, 0))
 		return p->m;
 	return nil;
 }
@@ -65,7 +65,7 @@ mtreedelete(Mailbox *mb, Message *m)
 	if(m->deleted & ~Deleted){
 		if(m->digest == nil)
 			return;
-		p = (Mtree*)avllookup(mb->mtree, &t);
+		p = (Mtree*)avllookup(mb->mtree, &t, 0);
 		if(p == nil || p->m != m)
 			return;
 		p = (Mtree*)avldelete(mb->mtree, &t);

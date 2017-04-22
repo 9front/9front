@@ -100,7 +100,7 @@ rdimp(Biobuf *b, Box *box)
 		memset(&t, 0, sizeof t);
 		m0.info[Idigest] = f[0];
 		t.m = &m0;
-		p = (Mtree*)avllookup(mtree, &t);
+		p = (Mtree*)avllookup(mtree, &t, 0);
 		if(p){
 			m = p->m;
 			if(m->uid && m->uid != u){
