@@ -461,7 +461,8 @@ DSApriv*	asn1toDSApriv(uchar*, int);
  */
 typedef struct Thumbprint{
 	struct Thumbprint *next;
-	uchar	sha1[SHA1dlen];
+	uchar	hash[SHA2_256dlen];
+	uchar	len;
 } Thumbprint;
 
 typedef struct TLSconn{
@@ -487,9 +488,10 @@ int tlsClient(int fd, TLSconn *c);
 int tlsServer(int fd, TLSconn *c);
 
 /* thumb.c */
-Thumbprint* initThumbprints(char *ok, char *crl);
+Thumbprint* initThumbprints(char *ok, char *crl, char *tag);
 void	freeThumbprints(Thumbprint *ok);
-int	okThumbprint(uchar *sha1, Thumbprint *ok);
+int	okThumbprint(uchar *hash, int len, Thumbprint *ok);
+int	okCertificate(uchar *cert, int len, Thumbprint *ok);
 
 /* readcert.c */
 uchar	*readcert(char *filename, int *pcertlen);

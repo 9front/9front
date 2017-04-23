@@ -12,6 +12,7 @@ install all:V:
 	}
 
 clean:V:
+	rm -f [$OS].* *.[$OS]
 	for(i in $DIRS)@{
 		echo $i
 		cd $i
@@ -34,5 +35,6 @@ everything:V:
 
 APE=/sys/src/ape
 <$APE/config
+
 $O.tlsclient: tlsclient.c
 	$CC -o $target $CFLAGS -D_POSIX_SOURCE -D_PLAN9_SOURCE -D_NET_EXTENSION tlsclient.c

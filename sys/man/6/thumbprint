@@ -8,6 +8,8 @@ for example by calling
 .B tlsClient
 and
 .B okThumbprint
+or
+.B okCertificate
 (see
 .IR pushtls (2)),
 check the remote side's public key by comparing against
@@ -25,13 +27,21 @@ attribute/value pairs of the form
 .IB attr = value
 or
 .IR attr .
-The first attribute must be
+The first attribute must be the application tag:
 .B x509
-and the second must be
-.BI sha1= {hex checksum of binary certificate}.
+for tls applications or
+.B ssh
+for ssh server fingerprints.
+The second attribute must be a hash type of
+.B sha1=
+or
+.BI sha256=
+followed by the hex or base64 encoded hash of binary certificate
+or public key.
 All other attributes are treated as comments.
 The file may also contain lines of the form
-.BI #include file
+.B #include
+.I file
 .PP
 For example, a web server might have thumbprint
 .EX

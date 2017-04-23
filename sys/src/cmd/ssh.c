@@ -4,7 +4,6 @@
 #include <libsec.h>
 #include <auth.h>
 #include <authsrv.h>
-#include <bio.h>
 
 enum {
 	MSG_DISCONNECT = 1,
@@ -84,7 +83,6 @@ char *user, *service, *status, *host, *cmd;
 
 Oneway recv, send;
 void dispatch(void);
-int checkthumb(char*, uchar*);
 
 void
 shutdown(void)
@@ -580,22 +578,25 @@ Next1:	switch(recvpkt()){
 	ds = hashstr(ys, 32, ds);
 
 	if(thumb[0] == 0){
+		Thumbprint *ok;
+
 		sha2_256(ks, nks, h, nil);
-		i = snprint(thumb, sizeof(thumb), "%.*[", sizeof(h), h);
+		i = enc64(thumb, sizeof(thumb), h, sizeof(h));
 		while(i > 0 && thumb[i-1] == '=')
-			thumb[--i] = '\0';
+			i--;
+		thumb[i] = '\0';
+
 		if(debug)
 			fprint(2, "host fingerprint: %s\n", thumb);
-		switch(checkthumb(thumbfile, h)){
-		case 0:
-			werrstr("host unknown");
-		default:
+
+		ok = initThumbprints(thumbfile, nil, "ssh");
+		if(ok == nil || !okThumbprint(h, sizeof(h), ok)){
+			if(ok != nil) werrstr("unknown host");
 			fprint(2, "%s: %r, to add after verification:\n", argv0);
-			fprint(2, "\techo 'ssh sha256=%s # %s' >> %q\n", thumb, host, thumbfile);
+			fprint(2, "\techo 'ssh sha256=%s server=%s' >> %q\n", thumb, host, thumbfile);
 			sysfatal("checking hostkey failed: %r");
-		case 1:
-			break;
 		}
+		freeThumbprints(ok);
 	}
 
 	if((pub = ssh2rsapub(ks, nks)) == nil)
@@ -1074,39 +1075,6 @@ rawon(void)
 	}
 }
 
-int
-checkthumb(char *file, uchar hash[SHA2_256dlen])
-{
-	uchar sum[SHA2_256dlen];
-	char *line, *field[50];
-	Biobuf *bin;
-
-	if((bin = Bopen(file, OREAD)) == nil)
-		return -1;
-	for(; (line = Brdstr(bin, '\n', 1)) != nil; free(line)){
-		if(tokenize(line, field, nelem(field)) < 2)
-			continue;
-		if(strcmp(field[0], "ssh") != 0 || strncmp(field[1], "sha256=", 7) != 0)
-			continue;
-		field[1] += 7;
-		if(dec64(sum, SHA2_256dlen, field[1], strlen(field[1])) != SHA2_256dlen){
-			werrstr("malformed ssh entry in %s: %s", file, field[1]);
-			goto err;
-		}
-		if(memcmp(sum, hash, SHA2_256dlen) == 0){
-			free(line);
-			Bterm(bin);
-			return 1;
-		}
-	}
-	Bterm(bin);
-	return 0;
-err:
-	free(line);
-	Bterm(bin);
-	return -1;
-}
-
 void
 usage(void)
 {
@@ -1124,7 +1092,6 @@ main(int argc, char *argv[])
 	quotefmtinstall();
 	fmtinstall('B', mpfmt);
 	fmtinstall('H', encodefmt);
-	fmtinstall('[', encodefmt);
 
 	s = getenv("TERM");
 	raw = s != nil && strcmp(s, "dumb") != 0;

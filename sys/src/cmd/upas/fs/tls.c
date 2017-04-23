@@ -6,7 +6,6 @@
 int
 wraptls(int ofd, char *host)
 {
-	uchar digest[SHA1dlen];
 	Thumbprint *thumb;
 	TLSconn conn;
 	int fd;
@@ -18,16 +17,10 @@ wraptls(int ofd, char *host)
 		close(ofd);
 		return -1;
 	}
-	thumb = initThumbprints("/sys/lib/tls/mail", "/sys/lib/tls/mail.exclude");
+	thumb = initThumbprints("/sys/lib/tls/mail", "/sys/lib/tls/mail.exclude", "x509");
 	if(thumb != nil){
-		if(conn.cert == nil || conn.certlen <= 0){
-			werrstr("server did not provide TLS certificate");
-			goto Err;
-		}
-		sha1(conn.cert, conn.certlen, digest, nil);
-		if(!okThumbprint(digest, thumb)){
-			werrstr("server certificate %.*H not recognized",
-				SHA1dlen, digest);
+		if(!okCertificate(conn.cert, conn.certlen, thumb)){
+			werrstr("cert for %s not recognized: %r", host);
 		Err:
 			close(fd);
 			fd = -1;

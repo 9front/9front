@@ -107,7 +107,7 @@ main(int argc, char **argv)
 		sysfatal("specifying -x without -t is useless");
 
 	if(file){
-		thumb = initThumbprints(file, filex);
+		thumb = initThumbprints(file, filex, "x509");
 		if(thumb == nil)
 			sysfatal("initThumbprints: %r");
 	} else
@@ -144,13 +144,8 @@ main(int argc, char **argv)
 		sysfatal("tlsclient: %r");
 
 	if(thumb){
-		uchar digest[20];
-
-		if(conn->cert==nil || conn->certlen<=0)
-			sysfatal("server did not provide TLS certificate");
-		sha1(conn->cert, conn->certlen, digest, nil);
-		if(!okThumbprint(digest, thumb))
-			sysfatal("server certificate %.*H not recognized", SHA1dlen, digest);
+		if(!okCertificate(conn->cert, conn->certlen, thumb))
+			sysfatal("cert for %s not recognized: %r", servername ? servername : addr);
 		freeThumbprints(thumb);
 	}
 

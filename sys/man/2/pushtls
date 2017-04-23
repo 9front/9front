@@ -1,6 +1,6 @@
 .TH PUSHTLS 2
 .SH NAME
-pushtls, tlsClient, tlsServer, initThumbprints, freeThumbprints, okThumbprint, readcert, readcertchain \- attach TLS1 or SSL3 encryption to a communication channel
+pushtls, tlsClient, tlsServer, initThumbprints, freeThumbprints, okThumbprint, okCertificate, readcert, readcertchain \- attach TLS1 or SSL3 encryption to a communication channel
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -29,13 +29,16 @@ uchar *readcert(char *filename, int *pcertlen)
 PEMchain *readcertchain(char *filename)
 .PP
 .B
-Thumbprint *initThumbprints(char *ok, char *crl)
+Thumbprint *initThumbprints(char *ok, char *crl, char *tag)
 .PP
 .B
 void	freeThumbprints(Thumbprint *table)
 .PP
 .B
-int	okThumbprint(uchar *hash, Thumbprint *table)
+int	okThumbprint(uchar *hash, int len, Thumbprint *table)
+.PP
+.B
+int	okCertificate(uchar *cert, int len, Thumbprint *table)
 .SH DESCRIPTION
 Transport Layer Security (TLS) comprises a record layer protocol,
 doing message digesting and encrypting in the kernel,
@@ -213,13 +216,10 @@ be freed by the application whenever convenient.
 Start the client half of TLS and check the remote certificate:
 .IP
 .EX
-uchar hash[SHA1dlen];
-
 conn = (TLSconn*)mallocz(sizeof *conn, 1);
 fd = tlsClient(fd, conn);
-sha1(conn->cert, conn->certlen, hash, nil);
-if(!okThumbprint(hash,table))
-	exits("suspect server");
+if(!okCertificate(conn->cert, conn->certlen, table))
+	sysfatal("suspect server: %r");
 \fI...application begins...\fP
 .EE
 .PP

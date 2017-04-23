@@ -5,9 +5,9 @@
 enum{ ThumbTab = 1<<10 };
 
 static Thumbprint*
-tablehead(uchar *sum, Thumbprint *table)
+tablehead(uchar *hash, Thumbprint *table)
 {
-	return &table[((sum[0]<<8) + sum[1]) & (ThumbTab-1)];
+	return &table[((hash[0]<<8) + hash[1]) & (ThumbTab-1)];
 }
 
 void
@@ -27,15 +27,15 @@ freeThumbprints(Thumbprint *table)
 }
 
 int
-okThumbprint(uchar *sum, Thumbprint *table)
+okThumbprint(uchar *hash, int len, Thumbprint *table)
 {
 	Thumbprint *hd, *p;
 
 	if(table == nil)
 		return 0;
-	hd = tablehead(sum, table);
+	hd = tablehead(hash, table);
 	for(p = hd->next; p; p = p->next){
-		if(memcmp(sum, p->sha1, SHA1dlen) == 0)
+		if(p->len == len && memcmp(hash, p->hash, len) == 0)
 			return 1;
 		if(p == hd)
 			break;
@@ -43,14 +43,51 @@ okThumbprint(uchar *sum, Thumbprint *table)
 	return 0;
 }
 
+int
+okCertificate(uchar *cert, int len, Thumbprint *table)
+{
+	uchar hash[SHA2_256dlen];
+	char thumb[2*SHA2_256dlen+1];
+
+	if(table == nil){
+		werrstr("no thumbprints provided");
+		return 0;
+	}
+	if(cert == nil || len <= 0){
+		werrstr("no certificate provided");
+		return 0;
+	}
+
+	sha1(cert, len, hash, nil);
+	if(okThumbprint(hash, SHA1dlen, table))
+		return 1;
+
+	sha2_256(cert, len, hash, nil);
+	if(okThumbprint(hash, SHA2_256dlen, table))
+		return 1;
+
+	len = enc64(thumb, sizeof(thumb), hash, SHA2_256dlen);
+	while(len > 0 && thumb[len-1] == '=')
+		len--;
+	thumb[len] = '\0';
+	werrstr("sha256=%s", thumb);
+
+	return 0;
+}
+
 static int
-loadThumbprints(char *file, Thumbprint *table, Thumbprint *crltab)
+loadThumbprints(char *file, char *tag, Thumbprint *table, Thumbprint *crltab, int depth)
 {
 	Thumbprint *hd, *entry;
 	char *line, *field[50];
-	uchar sum[SHA1dlen];
+	uchar hash[SHA2_256dlen];
 	Biobuf *bin;
+	int len, n;
 
+	if(depth > 8){
+		werrstr("too many includes, last file %s", file);
+		return -1;
+	}
 	if(access(file, AEXIST) < 0)
 		return 0;	/* not an error */
 	if((bin = Bopen(file, OREAD)) == nil)
@@ -59,20 +96,30 @@ loadThumbprints(char *file, Thumbprint *table, Thumbprint *crltab)
 		if(tokenize(line, field, nelem(field)) < 2)
 			continue;
 		if(strcmp(field[0], "#include") == 0){
-			if(loadThumbprints(field[1], table, crltab) < 0)
+			if(loadThumbprints(field[1], tag, table, crltab, depth+1) < 0)
 				goto err;
 			continue;
 		}
-		if(strcmp(field[0], "x509") != 0 || strncmp(field[1], "sha1=", 5) != 0)
+		if(strcmp(field[0], tag) != 0)
 			continue;
-		field[1] += 5;
-		if(dec16(sum, SHA1dlen, field[1], strlen(field[1])) != SHA1dlen){
-			werrstr("malformed x509 entry in %s: %s", file, field[1]);
+		if(strncmp(field[1], "sha1=", 5) == 0){
+			field[1] += 5;
+			len = SHA1dlen;
+		} else if(strncmp(field[1], "sha256=", 7) == 0){
+			field[1] += 7;
+			len = SHA2_256dlen;
+		} else {
+			continue;
+		}
+		n = strlen(field[1]);
+		if((n != len*2 || dec16(hash, len, field[1], n) != len)
+		&& dec64(hash, len, field[1], n) != len){
+			werrstr("malformed %s entry in %s: %s", tag, file, field[1]);
 			goto err;
 		}
-		if(crltab && okThumbprint(sum, crltab))
+		if(crltab && okThumbprint(hash, len, crltab))
 			continue;
-		hd = tablehead(sum, table);
+		hd = tablehead(hash, table);
 		if(hd->next == nil)
 			entry = hd;
 		else {
@@ -81,7 +128,8 @@ loadThumbprints(char *file, Thumbprint *table, Thumbprint *crltab)
 			entry->next = hd->next;
 		}
 		hd->next = entry;
-		memcpy(entry->sha1, sum, SHA1dlen);
+		entry->len = len;
+		memcpy(entry->hash, hash, len);
 	}
 	Bterm(bin);
 	return 0;
@@ -92,7 +140,7 @@ err:
 }
 
 Thumbprint *
-initThumbprints(char *ok, char *crl)
+initThumbprints(char *ok, char *crl, char *tag)
 {
 	Thumbprint *table, *crltab;
 
@@ -101,13 +149,13 @@ initThumbprints(char *ok, char *crl)
 		if((crltab = malloc(ThumbTab * sizeof(*crltab))) == nil)
 			goto err;
 		memset(crltab, 0, ThumbTab * sizeof(*crltab));
-		if(loadThumbprints(crl, crltab, nil) < 0)
+		if(loadThumbprints(crl, tag, crltab, nil, 0) < 0)
 			goto err;
 	}
 	if((table = malloc(ThumbTab * sizeof(*table))) == nil)
 		goto err;
 	memset(table, 0, ThumbTab * sizeof(*table));
-	if(loadThumbprints(ok, table, crltab) < 0){
+	if(loadThumbprints(ok, tag, table, crltab, 0) < 0){
 		freeThumbprints(table);
 		table = nil;
 	}
