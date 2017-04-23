@@ -492,7 +492,6 @@ void
 kex(int gotkexinit)
 {
 	static char kexalgs[] = "curve25519-sha256,curve25519-sha256@libssh.org";
-	static char hostkeyalgs[] = "ssh-rsa";
 	static char cipheralgs[] = "chacha20-poly1305@openssh.com";
 	static char zipalgs[] = "none";
 	static char macalgs[] = "";
@@ -512,7 +511,7 @@ kex(int gotkexinit)
 	sendpkt("b[ssssssssssbu", MSG_KEXINIT,
 		cookie, sizeof(cookie),
 		kexalgs, sizeof(kexalgs)-1,
-		hostkeyalgs, sizeof(hostkeyalgs)-1,
+		sshrsa, sizeof(sshrsa)-1,
 		cipheralgs, sizeof(cipheralgs)-1,
 		cipheralgs, sizeof(cipheralgs)-1,
 		macalgs, sizeof(macalgs)-1,
@@ -592,7 +591,9 @@ Next1:	switch(recvpkt()){
 		ok = initThumbprints(thumbfile, nil, "ssh");
 		if(ok == nil || !okThumbprint(h, sizeof(h), ok)){
 			if(ok != nil) werrstr("unknown host");
-			fprint(2, "%s: %r, to add after verification:\n", argv0);
+			fprint(2, "%s: %r\n", argv0);
+			fprint(2, "verify hostkey: %s %.*[\n", sshrsa, nks, ks);
+			fprint(2, "add thumbprint after verification:\n");
 			fprint(2, "\techo 'ssh sha256=%s server=%s' >> %q\n", thumb, host, thumbfile);
 			sysfatal("checking hostkey failed: %r");
 		}
@@ -1092,6 +1093,7 @@ main(int argc, char *argv[])
 	quotefmtinstall();
 	fmtinstall('B', mpfmt);
 	fmtinstall('H', encodefmt);
+	fmtinstall('[', encodefmt);
 
 	s = getenv("TERM");
 	raw = s != nil && strcmp(s, "dumb") != 0;
