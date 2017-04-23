@@ -34,13 +34,14 @@ are forwarded to the local side.
 .PP
 The connection is authenticated and encrypted
 using the SSH2 protocol. The user authenticates
-itself to the host using his RSA keypair or plaintext 
-passwords. To authenticate the host to the user,
-the hosts RSA public key is hashed and compared
-to the entries in
+itself to the host using his RSA key pair (stored
+in factotum) or plaintext  passwords. To authenticate
+the host to the user, the hosts RSA public key is
+hashed and compared to the entries in
 .B $home/lib/sshthumbs
-file. The thumb files location can be changed
-with the
+file. The 
+.I thumbfile
+location can be changed with the
 .B -t
 option.
 .PP
@@ -60,6 +61,11 @@ option.
 The
 .B -d
 option enables debug output.
+.SH FILES
+.TF $home/lib/sshthumbs
+.TP
+.B $home/lib/sshthumbs
+the user's thumbfile of known host fingerprints
 .SH SOURCE
 .B /sys/src/cmd/ssh.c
 .SH SEE ALSO
