@@ -8,6 +8,9 @@ ssh - secure shell remote login client
 ] [
 .B -R
 ] [
+.B -t
+.I thumbfile
+] [
 .B -u
 .I user
 ] [
@@ -32,7 +35,14 @@ are forwarded to the local side.
 The connection is authenticated and encrypted
 using the SSH2 protocol. The user authenticates
 itself to the host using his RSA keypair or plaintext 
-passwords.
+passwords. To authenticate the host to the user,
+the hosts RSA public key is hashed and compared
+to the entries in
+.B $home/lib/sshthumbs
+file. The thumb files location can be changed
+with the
+.B -t
+option.
 .PP
 When no
 .I cmd
@@ -56,5 +66,3 @@ option enables debug output.
 .IR vt (1),
 .IR rsa (8),
 .IR factotum (4)
-.SH BUGS
-The host is not authenticated.
