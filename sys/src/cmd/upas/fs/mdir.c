@@ -32,7 +32,7 @@ parseunix(Message *m)
 	m->unixheader = smprint("%.*s", l, m->start);
 	s = m->start + 5;
 	if((p = strchr(s, ' ')) == nil)
-		abort();
+		return;
 	*p = 0;
 	m->unixfrom = strdup(s);
 	*p = ' ';
@@ -117,6 +117,7 @@ mdirread(Mdir* mdir, Mailbox* mb, int doplumb, int *new)
 	Message *m, **ll;
 	static char err[ERRMAX];
 
+	err[0] = '\0';
 	if((fd = open(mb->path, OREAD)) == -1){
 		errstr(err, sizeof err);
 		return err;
