@@ -39,7 +39,9 @@ in factotum) or plaintext  passwords. To authenticate
 the host to the user, the hosts RSA public key is
 hashed and compared to the entries in
 .B $home/lib/sshthumbs
-file. The 
+file (see
+.IR thumbprint (6)).
+The 
 .I thumbfile
 location can be changed with the
 .B -t
@@ -68,7 +70,8 @@ option enables debug output.
 the user's thumbfile of known host fingerprints
 .SH SOURCE
 .B /sys/src/cmd/ssh.c
-.SH SEE ALSO
+.SH "SEE ALSO"
 .IR vt (1),
 .IR rsa (8),
+.IR thumbprint (6),
 .IR factotum (4)
