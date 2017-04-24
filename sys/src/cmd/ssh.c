@@ -52,6 +52,10 @@ enum {
 	WinPackets = 8,		// (1<<15) * 8 = 256K
 };
 
+enum {
+	MaxPwTries = 3 // retry this often for keyboard-interactive
+};
+
 typedef struct
 {
 	u32int		seq;
@@ -859,15 +863,21 @@ int
 kbintauth(void)
 {
 	static char authmeth[] = "keyboard-interactive";
+	int tries;
 
 	char *name, *inst, *s, *a;
 	int fd, i, n, m;
 	int nquest, echo;
 	uchar *ans, *answ;
+	tries = 0;
 
 	if(!authok(authmeth))
 		return -1;
 
+Loop:
+	if(++tries > MaxPwTries)
+		return -1;
+		
 	sendpkt("bsssss", MSG_USERAUTH_REQUEST,
 		user, strlen(user),
 		service, strlen(service),
@@ -880,8 +890,10 @@ Next0:	switch(recvpkt()){
 		dispatch();
 		goto Next0;
 	case MSG_USERAUTH_FAILURE:
-		authfailure(authmeth);
-		return -1;
+		werrstr("keyboard-interactive failed");
+		if(authfailure(authmeth))
+			return -1;
+		goto Loop;
 	case MSG_USERAUTH_SUCCESS:
 		return 0;
 	case MSG_USERAUTH_INFO_REQUEST:
@@ -940,8 +952,10 @@ Next1:	switch(recvpkt()){
 	case MSG_USERAUTH_INFO_REQUEST:
 		goto Retry;
 	case MSG_USERAUTH_FAILURE:
-		authfailure(authmeth);
-		return -1;
+		werrstr("keyboard-interactive failed");
+		if(authfailure(authmeth))
+			return -1;
+		goto Loop;
 	case MSG_USERAUTH_SUCCESS:
 		return 0;
 	}
