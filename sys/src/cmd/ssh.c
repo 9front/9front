@@ -827,7 +827,7 @@ passauth(void)
 	if(!authok(authmeth))
 		return -1;
 
-	up = auth_getuserpasswd(auth_getkey, "proto=pass servive=ssh user=%q server=%q thumb=%q",
+	up = auth_getuserpasswd(auth_getkey, "proto=pass service=ssh user=%q server=%q thumb=%q",
 		user, host, thumb);
 	if(up == nil)
 		return -1;
