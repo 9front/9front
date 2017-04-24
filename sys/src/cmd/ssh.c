@@ -52,9 +52,7 @@ enum {
 	WinPackets = 8,		// (1<<15) * 8 = 256K
 };
 
-enum {
-	MaxPwTries = 3 // retry this often for keyboard-interactive
-};
+int MaxPwTries = 3; // retry this often for keyboard-interactive
 
 typedef struct
 {
@@ -1151,6 +1149,10 @@ main(int argc, char *argv[])
 		break;
 	case 't':
 		thumbfile = EARGF(usage());
+		break;
+	case 'T':
+		MaxPwTries = strtol(EARGF(usage()), &s, 0);
+		if(*s != 0) usage();
 		break;
 	} ARGEND;
 

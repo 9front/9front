@@ -60,6 +60,13 @@ This can be disabled with the
 .B -R
 option.
 .PP
+If
+.I keyboard-interactive
+authentication fails, by default it is retried three times.
+The number of tries can be changed with
+.BR -T .
+Setting it to zero disables keyboard-interactive authentication.
+.PP
 The
 .B -d
 option enables debug output.
