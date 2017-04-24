@@ -673,6 +673,32 @@ if(debug)
 }
 
 int
+noneauth(void)
+{
+	static char authmeth[] = "none";
+
+	if(!authok(authmeth))
+		return -1;
+
+	sendpkt("bsss", MSG_USERAUTH_REQUEST,
+		user, strlen(user),
+		service, strlen(service),
+		authmeth, sizeof(authmeth)-1);
+
+Next0:	switch(recvpkt()){
+	default:
+		dispatch();
+		goto Next0;
+	case MSG_USERAUTH_FAILURE:
+		werrstr("authentication needed");
+		authfailure(authmeth);
+		return -1;
+	case MSG_USERAUTH_SUCCESS:
+		return 0;
+	}
+}
+
+int
 pubkeyauth(void)
 {
 	static char authmeth[] = "publickey";
@@ -1171,7 +1197,7 @@ Next0:	switch(recvpkt()){
 		break;
 	}
 
-	if(pubkeyauth() < 0 && passauth() < 0 && kbintauth() < 0)
+	if(noneauth() < 0 && pubkeyauth() < 0 && passauth() < 0 && kbintauth() < 0)
 		sysfatal("auth: %r");
 
 	recv.pkt = MaxPacket;
