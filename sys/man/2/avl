@@ -57,10 +57,13 @@ from the tree and may be freed.
 .I Avllookup
 searches for a given key and returns
 the closest node less than the given key, 
-.BR nil ,
+equal to,
 or the closest node greater than the key depending on whether
 .I dir
-is less than, equal to, or greater than zero, respectively.
+is less than, equal to, or greater than zero, respectively. If
+.I dir
+is zero and there is no matching key, it returns
+.BR nil .
 .I Avldelete
 removes the node matching the key from the tree and returns
 it. It returns nil if no matching key is found.
