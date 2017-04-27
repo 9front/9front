@@ -1,0 +1,57 @@
+.TH BLIT 1
+.SH NAME
+blit \- Blit emulator
+.SH SYNOPSIS
+.B games/blit
+[
+.B -m
+]
+[
+.B -b
+.I baud
+]
+[
+.B -C
+.I bg,fg
+]
+.B -d
+|
+.B -t
+.I [net!]machine[!port]
+.SH DESCRIPTION
+.I Blit
+is an emulator for the Blit terminal.
+It connects to the host specified by the
+.IR dial (2)
+string
+.IR [net!]machine[!port].
+.PP
+The colors are configurable with the
+.B -C
+option in the format 
+.IR rrggbb,rrggbb,
+where the first color is the background (normally white) and the second color is the foreground (normally black).
+.PP
+The emulator has accurate relative timing but runs as fast as it can.
+By default, however, it uses a baudrate of 40,000 baud (real hardware used 19,200).
+This is configurable with the
+.B -b
+option.
+Beware that the Blit software is not able to handle baud rates that are too high.
+.PP
+If the
+.B -m
+option is set, the Plan 9 mouse cursor is not hidden.
+.PP
+If 
+.B -d
+is specified instead of
+.BR -t ,
+the diagnostic ROM is booted instead.
+.SH SOURCE
+.B /sys/src/games/blit
+.SH BUGS
+It should support connections via a pipe rather than telnet.
+.SH HISTORY
+.I Blit
+first appeared in 9front (Mar, 2017).
