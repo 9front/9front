@@ -344,7 +344,7 @@ rot(u32int v, int m, int n, int s)
 {
 	int l, ll, x, vf;
 	u32int msb;
-
+	
 	msb = 1 << ((8 << s) - 1);
 	v &= (msb << 1) - 1;
 	if(m == 0)
@@ -458,12 +458,11 @@ trap(int n, u32int pcv)
 	
 	sr = rS;
 	if(n < 0){
-		for(l = 7; l >= ((rS >> 8) & 7); l--)
+		for(l = 7; l > ((rS >> 8) & 7); l--)
 			if((irql[l] & irq) != 0)
 				break;
 		v = intack(l);
 		rS = rS & ~0x700 | l << 8;
-		irq = 0;
 		tim += 44;
 	}else{
 		switch(n){
@@ -496,8 +495,10 @@ cpureset(void)
 	ra[7] = memread(0) << 16 | memread(2);
 	pc = memread(4) << 16 | memread(6);
 	rS = 0x2700;
-	for(i = 7, v = 0; i >= 0; i--)
-		irqla[i] = v |= irql[i];
+	for(i = 7, v = 0; i >= 0; i--){
+		irqla[i] = v;
+		v |= irql[i];
+	}
 }
 
 int
@@ -509,7 +510,7 @@ step(void)
 	int n, m, d;
 	static int cnt;
 
-	if(0 && pc == 0x59500){
+	if(0 && pc == 0x4118c){
 		trace++;
 		print("%x\n", curpc);
 	}
@@ -523,7 +524,7 @@ step(void)
 		return 1;
 	op = fetch16();
 	if(trace)
-		print("%.6ux %.6uo %.4ux %.8ux | %.8ux %.8ux %.8ux %.8ux | %.8ux %.8ux %.8ux\n", curpc, op, rS, memread(ra[7])<<16|memread(ra[7]+2), r[0], r[1], r[2], r[3], ra[0], ra[1], ra[7]);
+		print("%.6ux %.6uo %.4ux %.8ux | %.8ux %.8ux %.8ux %.8ux | %.8ux %.8ux %.8ux\n", curpc, op, rS, memread(ra[7])<<16|memread(ra[7]+2), r[0], r[1], r[2], r[3], ra[0], ra[6], ra[7]);
 	s = op >> 6 & 3;
 	n = op >> 9 & 7;
 	switch(op >> 12){
@@ -729,7 +730,7 @@ step(void)
 			a = amode(op >> 3, op, s);
 			m = (rS & FLAGX) != 0;
 			d = 1<<(8<<s)-1;
-			v = -rmode(a, s);
+			v = rmode(a, s);
 			w = -(v+m) & (d << 1) - 1;
 			rS &= ~(FLAGC|FLAGX|FLAGN|FLAGV);
 			if((w & d) != 0)
@@ -740,7 +741,7 @@ step(void)
 				rS |= FLAGC|FLAGX;
 				rS &= ~FLAGZ;
 			}
-			wmode(a, s, v);
+			wmode(a, s, w);
 			stime(a < 0, s);
 			break;
 		case 2: /* CLR */
@@ -758,6 +759,7 @@ step(void)
 			a = amode(op >> 3, op, s);
 			v = -rmode(a, s);
 			nz(v, s);
+			rS = rS & ~FLAGX | ~rS << 2 & FLAGX | ~rS >> 2 & FLAGC;
 			wmode(a, s, v);
 			stime(a < 0, s);
 			break;
@@ -943,6 +945,7 @@ step(void)
 			v = add(v, n, 0, s);
 		else
 			v = sub(v, n, 0, s);
+		rS = rS & ~FLAGX | rS << 4 & FLAGX;
 		if(a < 0)
 			tim += s == 2 || (op & 0x130) == 0x110 ? 8 : 4;
 		else
@@ -1134,7 +1137,7 @@ step(void)
 			else
 				v = sub(v, w, (rS & FLAGX) != 0, s);
 			wmode(a, s, v);
-			rS = rS & ~FLAGX | rS & FLAGC << 4;
+			rS = rS & ~FLAGX | rS << 4 & FLAGX;
 			break;
 		} /* ADD, SUB */
 		a = amode(op >> 3, op, s);
@@ -1145,7 +1148,7 @@ step(void)
 			v = add(v, r[n], 0, s);
 		else
 			v = sub(d ? r[n] : v, d ? v : r[n], 0, s);
-		rS = rS & ~FLAGX | rS & FLAGC << 4;
+		rS = rS & ~FLAGX | rS << 4 & FLAGX;
 		if(d)
 			a = ~n;
 		wmode(a, s, v);
