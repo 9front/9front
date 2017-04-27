@@ -21,7 +21,6 @@ wraptls(int ofd, char *host)
 	if(thumb != nil){
 		if(!okCertificate(conn.cert, conn.certlen, thumb)){
 			werrstr("cert for %s not recognized: %r", host);
-		Err:
 			close(fd);
 			fd = -1;
 		}
