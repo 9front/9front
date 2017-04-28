@@ -1286,6 +1286,12 @@ Next1:	switch(recvpkt()){
 			send.chan,
 			"shell", 5,
 			0);
+	} else if(*cmd == '#') {
+		sendpkt("busbs", MSG_CHANNEL_REQUEST,
+			send.chan,
+			"subsystem", 9,
+			0,
+			cmd+1, strlen(cmd)-1);
 	} else {
 		sendpkt("busbs", MSG_CHANNEL_REQUEST,
 			send.chan,
