@@ -1224,7 +1224,6 @@ readfile(char *fn)
 		switch(recvpkt()){
 		case SSH_FXP_STATUS:
 			if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto err;
-			print("%d\n", code);
 			if(code == SSH_FX_EOF) goto out;
 		default:
 			goto err;
