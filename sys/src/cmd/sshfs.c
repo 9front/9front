@@ -938,18 +938,19 @@ recvproc(void *)
 		}
 		id = GET4(rxpkt + 1);
 		if(id >= MAXREQID){
-			fprint(2, "sshfs: received response with id out of range, %d > %d\n", id, MAXREQID);
+			fprint(2, "sshfs: received %Σ response with id out of range, %d > %d\n", t, id, MAXREQID);
 			continue;
 		}
 		qlock(&sreqidlock);
 		r = sreqrd[id];
 		if(r != nil){
 			sreqrd[id] = nil;
+			r->reqid = -1;
 			rwakeup(&sreqidrend);
 		}
 		qunlock(&sreqidlock);
 		if(r == nil){
-			fprint(2, "sshfs: received response to non-existent request (req id = %d)\n", id);
+			fprint(2, "sshfs: received %Σ response to non-existent request (req id = %d)\n", t, id);
 			continue;
 		}
 		if(r->closefid != nil){
