@@ -1,0 +1,133 @@
+.TH SSHFS 4
+.SH NAME
+sshfs - secure file transfer protocol client
+.SH SYNOPSIS
+.B sshfs
+[
+.B -abdRUG
+]
+[
+.B -s
+.I service
+]
+[
+.B -m
+.I mtpt
+]
+[
+.B -u
+.I uidfile
+]
+[
+.B -g
+.I gidfile
+]
+.IP ""
+[
+.B --
+.I ssh-options
+]
+.I [user@]host
+|
+.B -c
+.I cmdline
+|
+.B -p
+.SH DESCRIPTION
+.I Sshfs
+makes the file system on a remote host accessible through the secure file transfer protocol (SFTP).
+By default
+.I sshfs
+launches
+.IR ssh (1)
+to connect to
+.I host
+and log in as
+.I user.
+If
+.B -c
+is specified,
+.I sshfs
+will instead launch the command specified by
+.IR cmdline
+and if
+.B -p
+is specified,
+.I sshfs
+communicates with an SFTP server via stdin and stdout.
+.PP
+.I Sshfs
+will mount itself under the mountpoint specified by
+.IR mtpt ,
+or under
+.B /n/ssh
+if
+.B -m
+is not specified.
+The default mount options are equivalent to calling
+.IR mount (1)
+with
+.BR -c .
+.B -a
+and
+.B -b
+have the same function as they do with
+.IR mount (1).
+.PP
+If
+.B -s
+is specified,
+it will post itself in
+.IR srv (3)
+with service name
+.IR service .
+If the service file is mounted, the
+.IR attach (5)
+name can be used to specify which directory on the remote host will be mounted.
+If it is omitted or empty, the user's home directory is used.
+Relative paths are also relative to this directory.
+.PP
+Since the only supported version 3 of the SFTP protocol has no way to look up numeric user and group IDs,
+.I sshfs
+will read the files
+.B /etc/passwd
+and
+.B /etc/group
+on the remote host to create a lookup table for them.
+The location of these files can be changed with
+.B -u
+and
+.BR -g,
+whereas
+.B -U
+and
+.B -G
+will inhibit reading them entirely.
+If these files cannot be accessed for any reason, numeric IDs simply remain untranslated.
+.PP
+Further options:
+.TP
+-R
+Read-only access only.
+.TP
+-d
+Enable debugging output.
+.SH SOURCE
+.B /sys/src/cmd/sshfs.c
+.SH BUGS
+Currently only version 3 of the SFTP protocol is supported (which is the most common version in use and the latest supported by openssh).
+Unfortunately there are problems with the version 3 specification and the code relies on openssh-specific behaviour in some corner cases.
+Version 4 and later also handle uid/gid translation at the server end which would remove the ugly dependence on reading remote configuration files.
+.PP
+Some 9P operations that should be atomic are not atomic because they do not map 1:1 to SFTP operations.
+In particular there is no guarantee that a failed
+.IR wstat (5)
+did not change some of the fields.
+.PP
+The code is naive about links and assumes files with distinct names to be distinct, assigning them different QIDs.
+.SH HISTORY
+.I
+Sshfs
+first appeared in 9front (Apr, 2017).
+.SH SEE ALSO
+.IR ssh(1)
