@@ -15,7 +15,8 @@ enum {
 	MAXWRITE = 32768,
 	MAXATTRIB = 64,
 	VERSION = 3,
-	MAXREQID = 32
+	MAXREQID = 32,
+	HASH = 64
 };
 
 enum {
@@ -84,6 +85,7 @@ char *errors[] = {
 
 typedef struct SFid SFid;
 typedef struct SReq SReq;
+typedef struct IDEnt IDEnt;
 
 struct SFid {
 	RWLock;
@@ -102,6 +104,13 @@ struct SReq {
 	int reqid;
 	SReq *next;
 };
+
+struct IDEnt {
+	char *name;
+	int id;
+	IDEnt *next;
+};
+IDEnt *uidtab[HASH], *gidtab[HASH];
 
 int rdfd, wrfd;
 SReq *sreqrd[MAXREQID];
@@ -152,6 +161,34 @@ fxpfmt(Fmt *f)
 	default: fmtprint(f, "%d", n);
 	}
 	return 0;
+}
+
+char *
+idlookup(IDEnt **tab, int id)
+{
+	IDEnt *p;
+	
+	for(p = tab[(ulong)id % HASH]; p != nil; p = p->next)
+		if(p->id == id)
+			return strdup(p->name);
+	return smprint("%d", id);
+}
+
+int
+namelookup(IDEnt **tab, char *name)
+{
+	IDEnt *p;
+	int i;
+	char *q;
+	
+	for(i = 0; i < HASH; i++)
+		for(p = tab[i]; p != nil; p = p->next)
+			if(strcmp(p->name, name) == 0)
+				return p->id;
+	i = strtol(name, &q, 10);
+	if(*q == 0) return i;
+	werrstr("unknown %s '%s'", tab == uidtab ? "user" : "group", name);
+	return -1;
 }
 
 int
@@ -471,8 +508,8 @@ attrib2dir(uchar *p0, uchar *ep, Dir *d)
 	}
 	if((flags & SSH_FILEXFER_ATTR_UIDGID) != 0){
 		rc = unpack(p, ep - p, "uu", &uid, &gid); if(rc < 0) return -1; p += rc;
-		d->uid = smprint("%d", uid);
-		d->gid = smprint("%d", gid);
+		d->uid = idlookup(uidtab, uid);
+		d->gid = idlookup(gidtab, gid);
 	}else{
 		d->uid = strdup("sshfs");
 		d->gid = strdup("sshfs");
@@ -502,7 +539,6 @@ dir2attrib(Dir *d, uchar **rp)
 {
 	int rc;
 	uchar *r, *p, *e;
-	char *pp;
 	u32int fl;
 	int uid, gid;
 	
@@ -518,19 +554,15 @@ dir2attrib(Dir *d, uchar **rp)
 	if(d->uid != nil && *d->uid != 0 || d->gid != nil && *d->gid != 0){
 		/* FIXME: sending -1 for "don't change" works with openssh, but violates the spec */
 		if(d->uid != nil && *d->uid != 0){
-			uid = strtol(d->uid, &pp, 10);
-			if(*pp != 0){
-				werrstr("uid not a number");
+			uid = namelookup(uidtab, d->uid);
+			if(uid == -1)
 				return -1;
-			}
 		}else
 			uid = -1;
 		if(d->gid != nil && *d->gid != 0){
-			gid = strtol(d->gid, &pp, 10);
-			if(*pp != 0){
-				werrstr("gid not a number");
+			gid = namelookup(gidtab, d->gid);
+			if(gid == -1)
 				return -1;
-			}
 		}else
 			gid = -1;
 		fl |= SSH_FILEXFER_ATTR_UIDGID;
@@ -1113,6 +1145,79 @@ Srv sshfssrv = {
 	.end sshfsend
 };
 
+char *
+readfile(char *fn)
+{
+	char *hand, *dat;
+	int handn, datn;
+	u32int code;
+	char *p;
+	int off;
+	
+	if(fn == nil) return nil;
+	sendpkt("busuu", SSH_FXP_OPEN, 0, fn, strlen(fn), SSH_FXF_READ, 0);
+	if(recvpkt() != SSH_FXP_HANDLE) return nil;
+	if(unpack(rxpkt, rxlen, "_____s", &dat, &handn) < 0) return nil;
+	hand = emalloc9p(handn);
+	memcpy(hand, dat, handn);
+	off = 0;
+	p = nil;
+	for(;;){
+		sendpkt("busvu", SSH_FXP_READ, 0, hand, handn, (uvlong)off, MAXWRITE);
+		switch(recvpkt()){
+		case SSH_FXP_STATUS:
+			if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto err;
+			print("%d\n", code);
+			if(code == SSH_FX_EOF) goto out;
+		default:
+			goto err;
+		case SSH_FXP_DATA:
+			if(unpack(rxpkt, rxlen, "_____s", &dat, &datn) < 0) goto err;
+			break;
+		}
+		p = erealloc9p(p, off + datn + 1);
+		memcpy(p + off, dat, datn);
+		off += datn;
+		p[off] = 0;
+	}
+err:
+	p = nil;
+out:
+	sendpkt("bus", SSH_FXP_CLOSE, 0, hand, handn);
+	free(hand);
+	recvpkt();
+	return p;
+}
+
+void
+passwdparse(IDEnt **tab, char *s)
+{
+	char *p;
+	char *n;
+	int id;
+	IDEnt *e, **b;
+
+	p = s;
+	for(;;){
+		n = p;
+		p = strpbrk(p, ":\n"); if(p == nil) break; if(*p != ':'){ p++; continue; }
+		*p = 0;
+		p = strpbrk(p+1, ":\n");
+		p = strpbrk(p, ":\n"); if(p == nil) break; if(*p != ':'){ p++; continue; }
+		id = strtol(p+1, &p, 10);
+		p = strchr(p, '\n');
+		if(p == nil) break;
+		p++;
+		e = emalloc9p(sizeof(IDEnt));
+		e->name = strdup(n);
+		e->id = id;
+		b = &tab[((ulong)e->id) % HASH];
+		e->next = *b;
+		*b = e;
+	}
+	free(s);
+}
+
 int pfd[2];
 int sshargc;
 char **sshargv;
@@ -1137,9 +1242,10 @@ startssh(void *)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-abdR] [-s service] [-m mtpt] [-- ssh options] host\n", argv0);
-	fprint(2, "       %s [-abdR] [-s service] [-m mtpt] -c cmdline\n", argv0);
-	fprint(2, "       %s [-abdR] [-s service] [-m mtpt] -p\n", argv0);
+	static char *common = "[-abdRUG] [-s service] [-m mtpt] [-u uidfile] [-g gidfile]";
+	fprint(2, "usage: %s %s [-- ssh-options] host\n", argv0, common);
+	fprint(2, "       %s %s -c cmdline\n", argv0, common);
+	fprint(2, "       %s %s -p\n", argv0, common);
 	exits("usage");
 }
 
@@ -1150,10 +1256,13 @@ threadmain(int argc, char **argv)
 	static int pflag, cflag;
 	static char *svc, *mtpt;
 	static int mflag;
+	static char *uidfile, *gidfile;
 	
 	fmtinstall(L'Σ', fxpfmt);
 	
 	mtpt = "/n/ssh";
+	uidfile = "/etc/passwd";
+	gidfile = "/etc/group";
 	ARGBEGIN{
 	case 'R': readonly++; break;
 	case 'd': debug++; chatty9p++; break;
@@ -1163,6 +1272,10 @@ threadmain(int argc, char **argv)
 	case 'a': mflag |= MAFTER; break;
 	case 'b': mflag |= MBEFORE; break;
 	case 'm': mtpt = EARGF(usage()); break;
+	case 'u': uidfile = EARGF(usage()); break;
+	case 'U': uidfile = nil; break;
+	case 'g': gidfile = EARGF(usage()); break;
+	case 'G': gidfile = nil; break;
 	default: usage();
 	}ARGEND;
 	
@@ -1197,6 +1310,9 @@ threadmain(int argc, char **argv)
 	sendpkt("bu", SSH_FXP_INIT, VERSION);
 	if(recvpkt() != SSH_FXP_VERSION || unpack(rxpkt, rxlen, "_u", &x) < 0) sysfatal("received garbage");
 	if(x != VERSION) sysfatal("server replied with incompatible version %d", x);
+	
+	passwdparse(uidtab, readfile(uidfile));
+	passwdparse(gidtab, readfile(gidfile));
 	
 	procrfork(sendproc, 0, mainstacksize, RFNOTEG);
 	procrfork(recvproc, 0, mainstacksize, RFNOTEG);
