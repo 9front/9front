@@ -1,0 +1,1204 @@
+#include <u.h>
+#include <libc.h>
+#include <fcall.h>
+#include <thread.h>
+#include <9p.h>
+#include <libsec.h>
+
+int readonly;
+int debug;
+#define dprint(...) if(debug) fprint(2, __VA_ARGS__)
+#pragma	varargck	type	"Σ"	int
+
+enum {
+	MAXPACK = 34000,
+	MAXWRITE = 32768,
+	MAXATTRIB = 64,
+	VERSION = 3,
+	MAXREQID = 32
+};
+
+enum {
+	SSH_FXP_INIT = 1,
+	SSH_FXP_VERSION = 2,
+	SSH_FXP_OPEN = 3,
+	SSH_FXP_CLOSE = 4,
+	SSH_FXP_READ = 5,
+	SSH_FXP_WRITE = 6,
+	SSH_FXP_LSTAT = 7,
+	SSH_FXP_FSTAT = 8,
+	SSH_FXP_SETSTAT = 9,
+	SSH_FXP_FSETSTAT = 10,
+	SSH_FXP_OPENDIR = 11,
+	SSH_FXP_READDIR = 12,
+	SSH_FXP_REMOVE = 13,
+	SSH_FXP_MKDIR = 14,
+	SSH_FXP_RMDIR = 15,
+	SSH_FXP_REALPATH = 16,
+	SSH_FXP_STAT = 17,
+	SSH_FXP_RENAME = 18,
+	SSH_FXP_READLINK = 19,
+	SSH_FXP_SYMLINK = 20,
+	SSH_FXP_STATUS = 101,
+	SSH_FXP_HANDLE = 102,
+	SSH_FXP_DATA = 103,
+	SSH_FXP_NAME = 104,
+	SSH_FXP_ATTRS = 105,
+	SSH_FXP_EXTENDED = 200,
+	SSH_FXP_EXTENDED_REPLY = 201,
+	
+	SSH_FXF_READ = 0x00000001,
+	SSH_FXF_WRITE = 0x00000002,
+	SSH_FXF_APPEND = 0x00000004,
+	SSH_FXF_CREAT = 0x00000008,
+	SSH_FXF_TRUNC = 0x00000010,
+	SSH_FXF_EXCL = 0x00000020,
+	SSH_FILEXFER_ATTR_SIZE = 0x00000001,
+	SSH_FILEXFER_ATTR_UIDGID = 0x00000002,
+	SSH_FILEXFER_ATTR_PERMISSIONS = 0x00000004,
+	SSH_FILEXFER_ATTR_ACMODTIME = 0x00000008,
+	SSH_FILEXFER_ATTR_EXTENDED = 0x80000000,
+
+	SSH_FX_OK = 0,
+	SSH_FX_EOF = 1,
+	SSH_FX_NO_SUCH_FILE = 2,
+	SSH_FX_PERMISSION_DENIED = 3,
+	SSH_FX_FAILURE = 4,
+	SSH_FX_BAD_MESSAGE = 5,
+	SSH_FX_NO_CONNECTION = 6,
+	SSH_FX_CONNECTION_LOST = 7,
+	SSH_FX_OP_UNSUPPORTED = 8,
+};
+
+char *errors[] = {
+	[SSH_FX_OK] "success",
+	[SSH_FX_EOF] "end of file",
+	[SSH_FX_NO_SUCH_FILE] "file does not exist",
+	[SSH_FX_PERMISSION_DENIED] "permission denied",
+	[SSH_FX_FAILURE] "failure",
+	[SSH_FX_BAD_MESSAGE] "bad message",
+	[SSH_FX_NO_CONNECTION] "no connection",
+	[SSH_FX_CONNECTION_LOST] "connection lost",
+	[SSH_FX_OP_UNSUPPORTED] "unsupported operation",
+};
+
+typedef struct SFid SFid;
+typedef struct SReq SReq;
+
+struct SFid {
+	RWLock;
+	char *fn;
+	uchar *hand;
+	int handn;
+	Qid qid;
+	Dir *dirent;
+	int ndirent;
+	uchar direof;
+};
+
+struct SReq {
+	Req *req;
+	SFid *closefid;
+	int reqid;
+	SReq *next;
+};
+
+int rdfd, wrfd;
+SReq *sreqrd[MAXREQID];
+QLock sreqidlock;
+Rendez sreqidrend = {.l = &sreqidlock};
+
+SReq *sreqwr, **sreqlast = &sreqwr;
+QLock sreqwrlock;
+Rendez writerend = {.l = &sreqwrlock};
+
+#define PUT4(p, u) (p)[0] = (u)>>24, (p)[1] = (u)>>16, (p)[2] = (u)>>8, (p)[3] = (u)
+#define GET4(p)	((u32int)(p)[3] | (u32int)(p)[2]<<8 | (u32int)(p)[1]<<16 | (u32int)(p)[0]<<24)
+
+int
+fxpfmt(Fmt *f)
+{
+	int n;
+	
+	n = va_arg(f->args, int);
+	switch(n){
+	case SSH_FXP_INIT: fmtstrcpy(f, "SSH_FXP_INIT"); break;
+	case SSH_FXP_VERSION: fmtstrcpy(f, "SSH_FXP_VERSION"); break;
+	case SSH_FXP_OPEN: fmtstrcpy(f, "SSH_FXP_OPEN"); break;
+	case SSH_FXP_CLOSE: fmtstrcpy(f, "SSH_FXP_CLOSE"); break;
+	case SSH_FXP_READ: fmtstrcpy(f, "SSH_FXP_READ"); break;
+	case SSH_FXP_WRITE: fmtstrcpy(f, "SSH_FXP_WRITE"); break;
+	case SSH_FXP_LSTAT: fmtstrcpy(f, "SSH_FXP_LSTAT"); break;
+	case SSH_FXP_FSTAT: fmtstrcpy(f, "SSH_FXP_FSTAT"); break;
+	case SSH_FXP_SETSTAT: fmtstrcpy(f, "SSH_FXP_SETSTAT"); break;
+	case SSH_FXP_FSETSTAT: fmtstrcpy(f, "SSH_FXP_FSETSTAT"); break;
+	case SSH_FXP_OPENDIR: fmtstrcpy(f, "SSH_FXP_OPENDIR"); break;
+	case SSH_FXP_READDIR: fmtstrcpy(f, "SSH_FXP_READDIR"); break;
+	case SSH_FXP_REMOVE: fmtstrcpy(f, "SSH_FXP_REMOVE"); break;
+	case SSH_FXP_MKDIR: fmtstrcpy(f, "SSH_FXP_MKDIR"); break;
+	case SSH_FXP_RMDIR: fmtstrcpy(f, "SSH_FXP_RMDIR"); break;
+	case SSH_FXP_REALPATH: fmtstrcpy(f, "SSH_FXP_REALPATH"); break;
+	case SSH_FXP_STAT: fmtstrcpy(f, "SSH_FXP_STAT"); break;
+	case SSH_FXP_RENAME: fmtstrcpy(f, "SSH_FXP_RENAME"); break;
+	case SSH_FXP_READLINK: fmtstrcpy(f, "SSH_FXP_READLINK"); break;
+	case SSH_FXP_SYMLINK: fmtstrcpy(f, "SSH_FXP_SYMLINK"); break;
+	case SSH_FXP_STATUS: fmtstrcpy(f, "SSH_FXP_STATUS"); break;
+	case SSH_FXP_HANDLE: fmtstrcpy(f, "SSH_FXP_HANDLE"); break;
+	case SSH_FXP_DATA: fmtstrcpy(f, "SSH_FXP_DATA"); break;
+	case SSH_FXP_NAME: fmtstrcpy(f, "SSH_FXP_NAME"); break;
+	case SSH_FXP_ATTRS: fmtstrcpy(f, "SSH_FXP_ATTRS"); break;
+	case SSH_FXP_EXTENDED: fmtstrcpy(f, "SSH_FXP_EXTENDED"); break;
+	case SSH_FXP_EXTENDED_REPLY: fmtstrcpy(f, "SSH_FXP_EXTENDED_REPLY");
+	default: fmtprint(f, "%d", n);
+	}
+	return 0;
+}
+
+int
+vpack(uchar *p, int n, char *fmt, va_list a)
+{
+	uchar *p0 = p, *e = p+n;
+	u32int u;
+	u64int v;
+	void *s;
+	int c;
+
+	for(;;){
+		switch(c = *fmt++){
+		case '\0':
+			return p - p0;
+		case '_':
+			if(++p > e) goto err;
+			break;
+		case '.':
+			*va_arg(a, void**) = p;
+			break;
+		case 'b':
+			if(p >= e) goto err;
+			*p++ = va_arg(a, int);
+			break;
+		case '[':
+		case 's':
+			s = va_arg(a, void*);
+			u = va_arg(a, int);
+			if(c == 's'){
+				if(p+4 > e) goto err;
+				PUT4(p, u), p += 4;
+			}
+			if(u > e-p) goto err;
+			memmove(p, s, u);
+			p += u;
+			break;
+		case 'u':
+			u = va_arg(a, int);
+			if(p+4 > e) goto err;
+			PUT4(p, u), p += 4;
+			break;
+		case 'v':
+			v = va_arg(a, vlong);
+			if(p+8 > e) goto err;
+			u = v>>32; PUT4(p, u), p += 4;
+			u = v; PUT4(p, u), p += 4;
+			break;
+		}
+	}
+err:
+	return -1;
+}
+
+int
+vunpack(uchar *p, int n, char *fmt, va_list a)
+{
+	uchar *p0 = p, *e = p+n;
+	u32int u;
+	u64int v;
+	void *s;
+
+	for(;;){
+		switch(*fmt++){
+		case '\0':
+			return p - p0;
+		case '_':
+			if(++p > e) goto err;
+			break;
+		case '.':
+			*va_arg(a, void**) = p;
+			break;
+		case 'b':
+			if(p >= e) goto err;
+			*va_arg(a, int*) = *p++;
+			break;
+		case 's':
+			if(p+4 > e) goto err;
+			u = GET4(p), p += 4;
+			if(u > e-p) goto err;
+			*va_arg(a, void**) = p;
+			*va_arg(a, int*) = u;
+			p += u;
+			break;
+		case '[':
+			s = va_arg(a, void*);
+			u = va_arg(a, int);
+			if(u > e-p) goto err;
+			memmove(s, p, u);
+			p += u;
+			break;
+		case 'u':
+			if(p+4 > e) goto err;
+			u = GET4(p);
+			*va_arg(a, int*) = u;
+			p += 4;
+			break;
+		case 'v':
+			if(p+8 > e) goto err;
+			v = (u64int)GET4(p) << 32;
+			v |= (u32int)GET4(p+4);
+			*va_arg(a, vlong*) = v;
+			p += 8;
+			break;
+		}
+	}
+err:
+	return -1;
+}
+
+int
+pack(uchar *p, int n, char *fmt, ...)
+{
+	va_list a;
+	va_start(a, fmt);
+	n = vpack(p, n, fmt, a);
+	va_end(a);
+	return n;
+}
+int
+unpack(uchar *p, int n, char *fmt, ...)
+{
+	va_list a;
+	va_start(a, fmt);
+	n = vunpack(p, n, fmt, a);
+	va_end(a);
+	return n;
+}
+
+void
+sendpkt(char *fmt, ...)
+{
+	static uchar buf[MAXPACK];
+	int n;
+	va_list a;
+
+	va_start(a, fmt);
+	n = vpack(buf+4, sizeof(buf)-4, fmt, a);
+	va_end(a);
+	if(n < 0) {
+		sysfatal("sendpkt: message too big");
+		return;
+	}
+	PUT4(buf, n);
+	n += 4;
+
+	dprint("SFTP --> %Σ\n", (int)buf[4]);
+	if(write(wrfd, buf, n) != n)
+		sysfatal("write: %r");
+}
+
+static uchar rxpkt[MAXPACK];
+static int rxlen;
+
+int
+recvpkt(void)
+{
+	static uchar rxbuf[MAXPACK];
+	static int rxfill;
+	int rc;
+	
+	while(rxfill < 4 || rxfill < (rxlen = GET4(rxbuf) + 4) && rxlen <= MAXPACK){
+		rc = read(rdfd, rxbuf + rxfill, MAXPACK - rxfill);
+		if(rc < 0) sysfatal("read: %r");
+		if(rc == 0) sysfatal("read: eof");
+		rxfill += rc;
+	}
+	if(rxlen > MAXPACK) sysfatal("received garbage");
+	memmove(rxpkt, rxbuf + 4, rxlen - 4);
+	memmove(rxbuf, rxbuf + rxlen, rxfill - rxlen);
+	rxfill -= rxlen;
+	rxlen -= 4;
+	dprint("SFTP <-- %Σ\n", (int)rxpkt[0]);
+	return rxpkt[0];
+}
+
+void
+putsfid(SFid *s)
+{
+	int i;
+	Dir *d;
+
+	if(s == nil) return;
+	free(s->fn);
+	free(s->hand);
+	for(i = 0; i < s->ndirent; i++){
+		d = &s->dirent[i];
+		free(d->name);
+		free(d->uid);
+		free(d->gid);
+		free(d->muid);
+	}
+	free(s->dirent);
+	free(s);
+}
+
+void
+putsreq(SReq *s)
+{
+	if(s == nil) return;
+	if(s->reqid != -1){
+		qlock(&sreqidlock);
+		sreqrd[s->reqid] = nil;
+		rwakeup(&sreqidrend);
+		qunlock(&sreqidlock);
+	}
+	putsfid(s->closefid);
+	free(s);
+}
+
+void
+submitsreq(SReq *s)
+{
+	qlock(&sreqwrlock);
+	*sreqlast = s;
+	sreqlast = &s->next;
+	rwakeup(&writerend);
+	qunlock(&sreqwrlock);
+}
+
+
+void
+submitreq(Req *r)
+{
+	SReq *s;
+	
+	s = emalloc9p(sizeof(SReq));
+	s->reqid = -1;
+	s->req = r;
+	submitsreq(s);
+}
+
+char *
+pathcat(char *p, char *c)
+{
+	if(strcmp(p, ".") == 0)
+		return strdup(c);
+	return smprint("%s/%s", p, c);
+}
+
+char *
+parentdir(char *p)
+{
+	char *q, *r;
+	
+	if(strcmp(p, ".") == 0) return strdup(".");
+	if(strcmp(p, "/") == 0) return strdup("/");
+	q = strdup(p);
+	r = strrchr(q, '/');
+	if(r != nil) *r = 0;
+	return q;
+}
+
+char *
+finalelem(char *p)
+{
+	char *q;
+	
+	q = strrchr(p, '/');
+	if(q == nil) return strdup(p);
+	return strdup(q+1);
+}
+
+u64int
+qidcalc(char *c)
+{
+	uchar dig[SHA1dlen];
+
+	sha1((uchar *) c, strlen(c), dig, nil);
+	return dig[0] | dig[1] << 8 | dig[2] << 16 | dig[3] << 24 | (uvlong)dig[4] << 32 | (uvlong)dig[5] << 40 | (uvlong)dig[6] << 48 | (uvlong)dig[7] << 56;
+}
+
+void
+walkprocess(Req *r, int isdir, char *e)
+{
+	char *p;
+	SFid *sf;
+	
+	sf = r->newfid->aux;
+	if(e != nil){
+		r->ofcall.nwqid--;
+		if(r->ofcall.nwqid == 0){
+			respond(r, e);
+			return;
+		}
+		p = r->aux;
+		r->aux = parentdir(p);
+		free(p);
+		submitreq(r);
+	}else{
+		assert(r->ofcall.nwqid > 0);
+		if(!isdir)
+			r->ofcall.wqid[r->ofcall.nwqid - 1].type = 0;
+		wlock(sf);
+		free(sf->fn);
+		sf->fn = r->aux;
+		r->aux = nil;
+		sf->qid = r->ofcall.wqid[r->ofcall.nwqid - 1];
+		wunlock(sf);
+		respond(r, nil);
+	}
+}
+
+int
+attrib2dir(uchar *p0, uchar *ep, Dir *d)
+{
+	uchar *p;
+	int i, rc, extn, extvn;
+	u32int flags, uid, gid, perm, next;
+	uchar *exts,  *extvs;
+	
+	p = p0;
+	if(p + 4 > ep) return -1;
+	flags = GET4(p), p += 4;
+	if((flags & SSH_FILEXFER_ATTR_SIZE) != 0){
+		rc = unpack(p, ep - p, "v", &d->length); if(rc < 0) return -1; p += rc;
+	}
+	if((flags & SSH_FILEXFER_ATTR_UIDGID) != 0){
+		rc = unpack(p, ep - p, "uu", &uid, &gid); if(rc < 0) return -1; p += rc;
+		d->uid = smprint("%d", uid);
+		d->gid = smprint("%d", gid);
+	}else{
+		d->uid = strdup("sshfs");
+		d->gid = strdup("sshfs");
+	}
+	d->muid = strdup(d->uid);
+	if((flags & SSH_FILEXFER_ATTR_PERMISSIONS) != 0){
+		rc = unpack(p, ep - p, "u", &perm); if(rc < 0) return -1; p += rc;
+		d->mode = perm & 0777;
+		if((perm & 0040000) != 0) d->mode |= DMDIR;
+	}
+	d->qid.type = d->mode >> 24;
+	if((flags & SSH_FILEXFER_ATTR_ACMODTIME) != 0){
+		rc = unpack(p, ep - p, "uu", &d->atime, &d->mtime); if(rc < 0) return -1; p += rc;
+	}
+	if((flags & SSH_FILEXFER_ATTR_EXTENDED) != 0){
+		rc = unpack(p, ep - p, "u", &next); if(rc < 0) return -1; p += rc;
+		for(i = 0; i < next; i++){
+			rc = unpack(p, ep - p, "ss", &exts, &extn, &extvs, &extvn); if(rc < 0) return -1; p += rc;
+			exts[extn] = extvs[extvn] = 0;
+		}
+	}
+	return p - p0;
+}
+
+int
+dir2attrib(Dir *d, uchar **rp)
+{
+	int rc;
+	uchar *r, *p, *e;
+	char *pp;
+	u32int fl;
+	int uid, gid;
+	
+	werrstr("phase error");
+	r = emalloc9p(MAXATTRIB);
+	e = r + MAXATTRIB;
+	fl = 0;
+	p = r + 4;
+	if(d->length != (uvlong)-1){
+		fl |= SSH_FILEXFER_ATTR_SIZE;
+		rc = pack(p, e - p, "v", d->length); if(rc < 0) return -1; p += rc;
+	}
+	if(d->uid != nil && *d->uid != 0 || d->gid != nil && *d->gid != 0){
+		/* FIXME: sending -1 for "don't change" works with openssh, but violates the spec */
+		if(d->uid != nil && *d->uid != 0){
+			uid = strtol(d->uid, &pp, 10);
+			if(*pp != 0){
+				werrstr("uid not a number");
+				return -1;
+			}
+		}else
+			uid = -1;
+		if(d->gid != nil && *d->gid != 0){
+			gid = strtol(d->gid, &pp, 10);
+			if(*pp != 0){
+				werrstr("gid not a number");
+				return -1;
+			}
+		}else
+			gid = -1;
+		fl |= SSH_FILEXFER_ATTR_UIDGID;
+		rc = pack(p, e - p, "uu", uid, gid); if(rc < 0) return -1; p += rc;
+	}
+	if(d->mode != (ulong)-1){
+		fl |= SSH_FILEXFER_ATTR_PERMISSIONS;
+		rc = pack(p, e - p, "u", d->mode); if(rc < 0) return -1; p += rc;
+	}
+	if(d->atime != (ulong)-1 || d->mtime != (ulong)-1){
+		/* FIXME: see above */
+		fl |= SSH_FILEXFER_ATTR_ACMODTIME;
+		rc = pack(p, e - p, "uu", d->atime, d->mtime); if(rc < 0) return -1; p += rc;
+	}
+	PUT4(r, fl);
+	*rp = r;
+	return p - r;
+}
+
+int
+parsedir(SFid *sf)
+{
+	int i, rc;
+	Dir *d;
+	u32int c;
+	uchar *p, *ep;
+	char *fn, *ln;
+	int fns, lns;
+	char *s;
+
+	if(unpack(rxpkt, rxlen, "_____u", &c) < 0) return -1;
+	wlock(sf);
+	sf->dirent = erealloc9p(sf->dirent, (sf->ndirent + c) * sizeof(Dir));
+	d = sf->dirent + sf->ndirent;
+	p = rxpkt + 9;
+	ep = rxpkt + rxlen;
+	for(i = 0; i < c; i++){
+		rc = unpack(p, ep - p, "ss", &fn, &fns, &ln, &lns); if(rc < 0) goto err; p += rc;
+		memset(d, 0, sizeof(Dir));
+		rc = attrib2dir(p, ep, d); if(rc < 0) goto err; p += rc;
+		if(fn[0] == '.' && (fns == 1 || fns == 2 && fn[1] == '.')){
+			free(d->uid);
+			free(d->gid);
+			free(d->muid);
+			continue;
+		}
+		d->name = emalloc9p(fns + 1);
+		memcpy(d->name, fn, fns);
+		s = pathcat(sf->fn, d->name);
+		d->qid.path = qidcalc(s);
+		free(s);
+		sf->ndirent++;
+		d++;
+	}
+	wunlock(sf);
+	return 0;
+err:
+	wunlock(sf);
+	return -1;
+}
+
+void
+readprocess(Req *r)
+{
+	int start;
+	uchar *p, *ep;
+	uint rv;
+	SFid *sf;
+
+	if((r->fid->qid.type & QTDIR) == 0){
+		submitreq(r);
+		return;
+	}
+
+	if(r->ifcall.offset == 0)
+		start = 0;
+	else
+		start = r->fid->dirindex;
+
+	p = (uchar*)r->ofcall.data;
+	ep = p+r->ifcall.count;
+	sf = r->fid->aux;
+
+	rlock(sf);
+	while(p < ep){
+		if(start >= sf->ndirent)
+			if(sf->direof)
+				break;
+			else{
+				runlock(sf);
+				submitreq(r);
+				return;
+			}
+		rv = convD2M(&sf->dirent[start], p, ep-p);
+		if(rv <= BIT16SZ)
+			break;
+		p += rv;
+		start++;
+	}
+	runlock(sf);
+	r->fid->dirindex = start;
+	r->ofcall.count = p - (uchar*)r->ofcall.data;
+	respond(r, nil);
+}
+
+void
+sshfsattach(Req *r)
+{
+	SFid *sf;
+
+	if(r->ifcall.aname != nil && *r->ifcall.aname != 0 && r->aux == nil){
+		submitreq(r);
+		return;
+	}
+	sf = emalloc9p(sizeof(SFid));
+	if(r->ifcall.aname != nil && *r->ifcall.aname != 0)
+		sf->fn = strdup(r->ifcall.aname);
+	else
+		sf->fn = strdup(".");
+	sf->qid = (Qid){qidcalc(sf->fn), 0, QTDIR};
+	r->ofcall.qid = sf->qid;
+	r->fid->qid = sf->qid;
+	r->fid->aux = sf;
+	respond(r, nil);
+}
+
+void
+sendproc(void *)
+{
+	SReq *r;
+	SFid *sf;
+	int i;
+	int x, y;
+	char *s, *t;
+
+	threadsetname("send");
+
+	for(;;){
+		qlock(&sreqwrlock);
+		while(sreqwr == nil)
+			rsleep(&writerend);
+		r = sreqwr;
+		sreqwr = r->next;
+		if(sreqwr == nil) sreqlast = &sreqwr;
+		qunlock(&sreqwrlock);
+		
+		qlock(&sreqidlock);
+	idagain:
+		for(i = 0; i < MAXREQID; i++)
+			if(sreqrd[i] == nil){
+				sreqrd[i] = r;
+				r->reqid = i;
+				break;
+			}
+		if(i == MAXREQID){
+			rsleep(&sreqidrend);
+			goto idagain;
+		}
+		qunlock(&sreqidlock);
+
+		if(r->closefid != nil){
+			sendpkt("bus", SSH_FXP_CLOSE, r->reqid, r->closefid->hand, r->closefid->handn);
+			continue;
+		}
+		if(r->req == nil)
+			sysfatal("nil request in queue");
+
+		sf = r->req->fid != nil ? r->req->fid->aux : nil;
+		switch(r->req->ifcall.type){
+		case Tattach:
+			sendpkt("bus", SSH_FXP_STAT, r->reqid, r->req->ifcall.aname, strlen(r->req->ifcall.aname));
+			break;
+		case Twalk:
+			sendpkt("bus", SSH_FXP_STAT, r->reqid, r->req->aux, strlen(r->req->aux));
+			break;
+		case Topen:
+			rlock(sf);
+			if((r->req->ofcall.qid.type & QTDIR) != 0)
+				sendpkt("bus", SSH_FXP_OPENDIR, r->reqid, sf->fn, strlen(sf->fn));
+			else{
+				x = r->req->ifcall.mode;
+				y = 0;
+				switch(x & 3){
+				case OREAD: y = SSH_FXF_READ; break;
+				case OWRITE: y = SSH_FXF_WRITE; break;
+				case ORDWR: y = SSH_FXF_READ | SSH_FXF_WRITE; break;
+				}
+				if(readonly && (y & SSH_FXF_WRITE) != 0){
+					respond(r->req, "mounted read-only");
+					runlock(sf);
+					putsreq(r);
+					break;
+				}
+				if((x & OTRUNC) != 0)
+					y |= SSH_FXF_TRUNC;
+				sendpkt("busuu", SSH_FXP_OPEN, r->reqid, sf->fn, strlen(sf->fn), y, 0);
+			}
+			runlock(sf);
+			break;
+		case Tcreate:
+			rlock(sf);
+			s = pathcat(sf->fn, r->req->ifcall.name);
+			runlock(sf);
+			if((r->req->ifcall.perm & DMDIR) != 0){
+				if(r->req->aux == nil){
+					sendpkt("busuu", SSH_FXP_MKDIR, r->reqid, s, strlen(s),
+						SSH_FILEXFER_ATTR_PERMISSIONS, r->req->ifcall.perm & 0777);
+					r->req->aux = (void*)-1;
+				}else{
+					sendpkt("bus", SSH_FXP_OPENDIR, r->reqid, s, strlen(s));
+					r->req->aux = (void*)-2;
+				}
+				free(s);
+				break;
+			}
+			x = r->req->ifcall.mode;
+			y = SSH_FXF_CREAT | SSH_FXF_EXCL;
+			switch(x & 3){
+			case OREAD: y |= SSH_FXF_READ; break;
+			case OWRITE: y |= SSH_FXF_WRITE; break;
+			case ORDWR: y |= SSH_FXF_READ | SSH_FXF_WRITE; break;
+			}
+			sendpkt("busuuu", SSH_FXP_OPEN, r->reqid, s, strlen(s), y,
+				SSH_FILEXFER_ATTR_PERMISSIONS, r->req->ifcall.perm & 0777);
+			free(s);
+			break;
+		case Tread:
+			rlock(sf);
+			if((r->req->fid->qid.type & QTDIR) != 0)
+				sendpkt("bus", SSH_FXP_READDIR, r->reqid, sf->hand, sf->handn);
+			else
+				sendpkt("busvuu", SSH_FXP_READ, r->reqid, sf->hand, sf->handn,
+					r->req->ifcall.offset, r->req->ifcall.count);
+			runlock(sf);
+			break;
+		case Twrite:
+			x = r->req->ifcall.count - r->req->ofcall.count;
+			if(x >= MAXWRITE) x = MAXWRITE;
+			rlock(sf);
+			sendpkt("busvs", SSH_FXP_WRITE, r->reqid, sf->hand, sf->handn,
+				r->req->ifcall.offset + r->req->ofcall.count,
+				r->req->ifcall.data + r->req->ofcall.count,
+				x);
+			runlock(sf);
+			r->req->ofcall.offset = x;
+			break;
+		case Tstat:
+			rlock(sf);
+			r->req->d.name = finalelem(sf->fn);
+			r->req->d.qid = sf->qid;
+			if(sf->handn > 0)
+				sendpkt("bus", SSH_FXP_FSTAT, r->reqid, sf->hand, sf->handn);
+			else
+				sendpkt("bus", SSH_FXP_STAT, r->reqid, sf->fn, strlen(sf->fn));
+			runlock(sf);
+			break;
+		case Twstat:
+			if(r->req->aux == (void *) -1){
+				rlock(sf);
+				s = parentdir(sf->fn);
+				t = pathcat(s, r->req->d.name);
+				sendpkt("buss", SSH_FXP_RENAME, r->reqid, sf->fn, strlen(sf->fn), t, strlen(t));
+				free(s);
+				r->req->aux = t;
+				runlock(sf);
+				break;
+			}
+			x = dir2attrib(&r->req->d, (uchar **) &s);
+			if(x < 0){
+				responderror(r->req);
+				putsreq(r);
+				break;
+			}
+			rlock(sf);
+			if(sf->handn > 0)
+				sendpkt("bus[", SSH_FXP_FSETSTAT, r->reqid, sf->hand, sf->handn, s, x);
+			else
+				sendpkt("bus[", SSH_FXP_SETSTAT, r->reqid, sf->fn, strlen(sf->fn), s, x);
+			runlock(sf);
+			break;
+		case Tremove:
+			rlock(sf);
+			if((sf->qid.type & QTDIR) != 0)
+				sendpkt("bus", SSH_FXP_RMDIR, r->reqid, sf->fn, strlen(sf->fn));
+			else
+				sendpkt("bus", SSH_FXP_REMOVE, r->reqid, sf->fn, strlen(sf->fn));
+			runlock(sf);
+			break;
+		default:
+			fprint(2, "sendproc: unimplemented 9p request %F in queue\n", &r->req->ifcall);
+			respond(r->req, "phase error");
+			putsreq(r);
+		}
+	}
+}
+
+void
+recvproc(void *)
+{
+	static char ebuf[256];
+
+	SReq *r;
+	SFid *sf;
+	int t, id;
+	u32int code;
+	char *msg, *lang, *hand;
+	int msgn, langn, handn;
+	uchar *p;
+	char *e;
+	
+	threadsetname("recv");
+	
+	for(;;){
+		e = "phase error";
+		switch(t = recvpkt()){
+		case SSH_FXP_STATUS:
+		case SSH_FXP_HANDLE:
+		case SSH_FXP_DATA:
+		case SSH_FXP_NAME:
+		case SSH_FXP_ATTRS:
+			break;
+		default:
+			fprint(2, "sshfs: received unexpected packet of type %Σ\n", t);
+			continue;
+		}
+		id = GET4(rxpkt + 1);
+		if(id >= MAXREQID){
+			fprint(2, "sshfs: received response with id out of range, %d > %d\n", id, MAXREQID);
+			continue;
+		}
+		qlock(&sreqidlock);
+		r = sreqrd[id];
+		if(r != nil){
+			sreqrd[id] = nil;
+			rwakeup(&sreqidrend);
+		}
+		qunlock(&sreqidlock);
+		if(r == nil){
+			fprint(2, "sshfs: received response to non-existent request (req id = %d)\n", id);
+			continue;
+		}
+		if(r->closefid != nil){
+			putsreq(r);
+			continue;
+		}
+		if(r->req == nil)
+			sysfatal("recvproc: r->req == nil");
+
+		sf = r->req->fid != nil ? r->req->fid->aux : nil;
+		switch(r->req->ifcall.type){
+		case Tattach:
+			if(t != SSH_FXP_ATTRS) goto common;
+			if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto garbage;
+			r->req->aux = (void*)-1;
+			if((code & 4) == 0){
+				fprint(2, "sshfs: can't determine if %s is a directory\n", r->req->ifcall.aname);
+				sshfsattach(r->req);
+				break;
+			}
+			p = rxpkt + 9;
+			if(code & 1) p += 8;
+			if(code & 2) p += 8;
+			if(p + 4 > rxpkt + rxlen) goto garbage;
+			if((GET4(p) & 0040000) == 0)
+				respond(r->req, "not a directory");
+			else
+				sshfsattach(r->req);
+			break;
+		case Twalk:
+			if(t != SSH_FXP_ATTRS) goto common;
+			if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto garbage;
+			if((code & 4) == 0){
+				fprint(2, "sshfs: can't determine if %s is a directory\n", ((SFid*)r->req->fid)->fn);
+				walkprocess(r->req, 0, nil);
+				break;
+			}
+			p = rxpkt + 9;
+			if(code & 1) p += 8;
+			if(code & 2) p += 8;
+			if(p + 4 > rxpkt + rxlen) goto garbage;
+			walkprocess(r->req, GET4(p) & 0040000, nil);
+			break;
+		case Tcreate:
+			if(t == SSH_FXP_STATUS && r->req->aux == (void*)-1){
+				if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto garbage;
+				if(code != SSH_FX_OK) goto common;
+				submitreq(r->req);
+				break;
+			}
+			/* wet floor */
+		case Topen:
+			if(t != SSH_FXP_HANDLE) goto common;
+			if(unpack(rxpkt, rxlen, "_____s", &hand, &handn) < 0) goto garbage;
+			wlock(sf);
+			sf->handn = handn;
+			sf->hand = emalloc9p(sf->handn);
+			memcpy(sf->hand, hand, sf->handn);
+			wunlock(sf);
+			respond(r->req, nil);
+			break;
+		case Tread:
+			if((r->req->fid->qid.type & QTDIR) != 0){
+				if(t != SSH_FXP_NAME) goto common;
+				if(parsedir(sf) < 0) goto garbage;
+				readprocess(r->req);
+				break;
+			}
+			if(t != SSH_FXP_DATA) goto common;
+			if(unpack(rxpkt, rxlen, "_____s", &msg, &msgn) < 0) goto garbage;
+			if(msgn > r->req->ifcall.count) msgn = r->req->ifcall.count;
+			r->req->ofcall.count = msgn;
+			memcpy(r->req->ofcall.data, msg, msgn);
+			respond(r->req, nil);
+			break;
+		case Twrite:
+			if(t != SSH_FXP_STATUS) goto common;
+			if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto garbage;
+			if(code == SSH_FX_OK){
+				r->req->ofcall.count += r->req->ofcall.offset;
+				if(r->req->ofcall.count == r->req->ifcall.count)
+					respond(r->req, nil);
+				else
+					submitreq(r->req);
+				break;
+			}
+			if(r->req->ofcall.count == 0) goto common;
+			respond(r->req, nil);
+			break;
+		case Tstat:
+			if(t != SSH_FXP_ATTRS) goto common;
+			if(attrib2dir(rxpkt + 5, rxpkt + rxlen, &r->req->d) < 0) goto garbage;
+			respond(r->req, nil);
+			break;
+		case Twstat:
+			if(t != SSH_FXP_STATUS || r->req->d.name == nil || *r->req->d.name == 0) goto common;
+			if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto garbage;
+			if(code != SSH_FX_OK) goto common;
+			if(r->req->aux == nil){
+				r->req->aux = (void *) -1;
+				submitreq(r->req);
+			}else{
+				wlock(sf);
+				free(sf->fn);
+				sf->fn = r->req->aux;
+				wunlock(sf);
+				respond(r->req, nil);
+			}
+			break;
+		case Tremove:
+			goto common;
+		default:
+			fprint(2, "sendproc: unimplemented 9p request %F in queue\n", &r->req->ifcall);
+			respond(r->req, "phase error");
+		}
+		putsreq(r);
+		continue;
+		
+	common:
+		switch(t){
+		case SSH_FXP_STATUS:
+			if(unpack(rxpkt, rxlen, "_____uss", &code, &msg, &msgn, &lang, &langn) < 0){
+	garbage:
+				fprint(2, "sshfs: garbled packet in response to 9p request %F\n", &r->req->ifcall);
+				break;
+			}
+			if(code == SSH_FX_OK)
+				e = nil;
+			else if(code == SSH_FX_EOF && r->req->ifcall.type == Tread){
+				if((r->req->fid->qid.type & QTDIR) != 0){
+					wlock(sf);
+					sf->direof = 1;
+					wunlock(sf);
+					readprocess(r->req);
+					putsreq(r);
+					continue;
+				}
+				r->req->ofcall.count = 0;
+				e = nil;
+			}else if(msgn > 0){
+				e = msg;
+				e[msgn] = 0;
+			}else if(code < nelem(errors))
+				e = errors[code];
+			else{
+				snprint(ebuf, sizeof(ebuf), "error code %d", code);
+				e = ebuf;
+			}
+			break;
+		default:
+			fprint(2, "sshfs: received unexpected packet %Σ for 9p request %F\n", t, &r->req->ifcall);
+		}
+		if(r->req->ifcall.type == Twalk)
+			walkprocess(r->req, 0, e);
+		else
+			respond(r->req, e);
+		putsreq(r);
+		continue;
+	}
+}
+
+void
+sshfswalk(Req *r)
+{
+	SFid *s, *t;
+	char *p, *q;
+	int i;
+
+	if(r->fid != r->newfid){
+		r->newfid->qid = r->fid->qid;
+		s = r->fid->aux;
+		t = emalloc9p(sizeof(SFid));
+		t->fn = strdup(s->fn);
+		t->qid = s->qid;
+		r->newfid->aux = t;
+	}else
+		t = r->fid->aux;
+	if(r->ifcall.nwname == 0){
+		respond(r, nil);
+		return;
+	}
+	p = strdup(t->fn);
+	for(i = 0; i < r->ifcall.nwname; i++){
+		if(strcmp(r->ifcall.wname[i], "..") == 0)
+			q = parentdir(p);
+		else
+			q = pathcat(p, r->ifcall.wname[i]);
+		free(p);
+		p = q;
+		r->ofcall.wqid[i] = (Qid){qidcalc(p), 0, QTDIR};
+	}
+	r->ofcall.nwqid = r->ifcall.nwname;
+	r->aux = p;
+	submitreq(r);
+}
+
+void
+sshfsdestroyfid(Fid *f)
+{
+	SFid *sf;
+	SReq *sr;
+
+	sf = f->aux;
+	if(sf == nil)
+		return;
+	if(sf->hand != nil){
+		sr = emalloc9p(sizeof(SReq));
+		sr->reqid = -1;
+		sr->closefid = sf;
+		submitsreq(sr);
+	}else
+		putsfid(sf);
+}
+
+void
+sshfsdestroyreq(Req *r)
+{
+	if(r->ifcall.type == Twalk)
+		free(r->aux);
+}
+
+void
+sshfsend(Srv *)
+{
+	dprint("sshfs: ending\n");
+	threadexitsall(nil);
+}
+
+Srv sshfssrv = {
+	.attach sshfsattach,
+	.walk sshfswalk,
+	.open submitreq,
+	.create submitreq,
+	.read readprocess,
+	.write submitreq,
+	.stat submitreq,
+	.wstat submitreq,
+	.remove submitreq,
+	.destroyfid sshfsdestroyfid,
+	.destroyreq sshfsdestroyreq,
+	.end sshfsend
+};
+
+int pfd[2];
+int sshargc;
+char **sshargv;
+
+void
+startssh(void *)
+{
+	char *f;
+
+	close(pfd[0]);
+	dup(pfd[1], 0);
+	dup(pfd[1], 1);
+	close(pfd[1]);
+	if(strncmp(sshargv[0], "./", 2) != 0)
+		f = smprint("/bin/%s", sshargv[0]);
+	else
+		f = sshargv[0];
+	procexec(nil, f, sshargv);
+	sysfatal("exec: %r");
+}
+
+void
+usage(void)
+{
+	fprint(2, "usage: %s [-abdR] [-s service] [-m mtpt] [-- ssh options] host\n", argv0);
+	fprint(2, "       %s [-abdR] [-s service] [-m mtpt] -c cmdline\n", argv0);
+	fprint(2, "       %s [-abdR] [-s service] [-m mtpt] -p\n", argv0);
+	exits("usage");
+}
+
+void
+threadmain(int argc, char **argv)
+{
+	u32int x;
+	static int pflag, cflag;
+	static char *svc, *mtpt;
+	static int mflag;
+	
+	fmtinstall(L'Σ', fxpfmt);
+	
+	mtpt = "/n/ssh";
+	ARGBEGIN{
+	case 'R': readonly++; break;
+	case 'd': debug++; chatty9p++; break;
+	case 'p': pflag++; break;
+	case 'c': cflag++; break;
+	case 's': svc = EARGF(usage()); break;
+	case 'a': mflag |= MAFTER; break;
+	case 'b': mflag |= MBEFORE; break;
+	case 'm': mtpt = EARGF(usage()); break;
+	default: usage();
+	}ARGEND;
+	
+	if(readonly){
+		sshfssrv.create = nil;
+		sshfssrv.write = nil;
+		sshfssrv.wstat = nil;
+		sshfssrv.remove = nil;
+	}
+	
+	if(pflag){
+		rdfd = 0;
+		wrfd = 1;
+	}else{
+		if(argc == 0) usage();
+		if(cflag){
+			sshargc = argc;
+			sshargv = argv;
+		}else{
+			sshargc = argc + 2;
+			sshargv = emalloc9p(sizeof(char *) * (sshargc + 1));
+			sshargv[0] = "ssh";
+			memcpy(sshargv + 1, argv, argc * sizeof(char *));
+			sshargv[sshargc - 1] = "#sftp";
+		}
+		pipe(pfd);
+		rdfd = wrfd = pfd[0];
+		procrfork(startssh, nil, mainstacksize, RFFDG|RFNOTEG);
+		close(pfd[1]);
+	}
+
+	sendpkt("bu", SSH_FXP_INIT, VERSION);
+	if(recvpkt() != SSH_FXP_VERSION || unpack(rxpkt, rxlen, "_u", &x) < 0) sysfatal("received garbage");
+	if(x != VERSION) sysfatal("server replied with incompatible version %d", x);
+	
+	procrfork(sendproc, 0, mainstacksize, RFNOTEG);
+	procrfork(recvproc, 0, mainstacksize, RFNOTEG);
+	threadpostmountsrv(&sshfssrv, svc, mtpt, MCREATE | mflag);
+}
