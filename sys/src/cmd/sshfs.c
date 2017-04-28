@@ -93,8 +93,9 @@ struct SFid {
 	uchar *hand;
 	int handn;
 	Qid qid;
+	int dirreads;
 	Dir *dirent;
-	int ndirent;
+	int ndirent, dirpos;
 	uchar direof;
 };
 
@@ -366,14 +367,11 @@ recvpkt(void)
 }
 
 void
-putsfid(SFid *s)
+freedir(SFid *s)
 {
 	int i;
 	Dir *d;
 
-	if(s == nil) return;
-	free(s->fn);
-	free(s->hand);
 	for(i = 0; i < s->ndirent; i++){
 		d = &s->dirent[i];
 		free(d->name);
@@ -382,6 +380,19 @@ putsfid(SFid *s)
 		free(d->muid);
 	}
 	free(s->dirent);
+	s->dirent = nil;
+	s->ndirent = 0;
+	s->dirpos = 0;
+}
+
+
+void
+putsfid(SFid *s)
+{
+	if(s == nil) return;
+	free(s->fn);
+	free(s->hand);
+	freedir(s);
 	free(s);
 }
 
@@ -595,8 +606,9 @@ parsedir(SFid *sf)
 
 	if(unpack(rxpkt, rxlen, "_____u", &c) < 0) return -1;
 	wlock(sf);
-	sf->dirent = erealloc9p(sf->dirent, (sf->ndirent + c) * sizeof(Dir));
-	d = sf->dirent + sf->ndirent;
+	freedir(sf);
+	sf->dirent = emalloc9p(c * sizeof(Dir));
+	d = sf->dirent;
 	p = rxpkt + 9;
 	ep = rxpkt + rxlen;
 	for(i = 0; i < c; i++){
@@ -624,48 +636,68 @@ err:
 	return -1;
 }
 
+
 void
 readprocess(Req *r)
 {
-	int start;
+	int i;
 	uchar *p, *ep;
 	uint rv;
+	SFid *sf;
+	
+	sf = r->fid->aux;
+	wlock(sf);
+	if(sf->direof){
+		wunlock(sf);
+		respond(r, nil);
+		return;
+	}
+	i = sf->dirpos;
+	p = (uchar*)r->ofcall.data + r->ofcall.count;
+	ep = (uchar*)r->ofcall.data + r->ifcall.count;
+	rv = ep - p;
+	while(p < ep){
+		if(i >= sf->ndirent)
+			break;
+		rv = convD2M(&sf->dirent[i], p, ep-p);
+		if(rv <= BIT16SZ)
+			break;
+		p += rv;
+		i++;
+	}
+	sf->dirpos = i;
+	if(i >= sf->ndirent)
+		freedir(sf);
+	wunlock(sf);
+	r->ofcall.count = p - (uchar*)r->ofcall.data;
+	if(rv <= BIT16SZ)
+		respond(r, nil);
+	else
+		submitreq(r);
+}
+
+void
+sshfsread(Req *r)
+{
 	SFid *sf;
 
 	if((r->fid->qid.type & QTDIR) == 0){
 		submitreq(r);
 		return;
 	}
-
-	if(r->ifcall.offset == 0)
-		start = 0;
-	else
-		start = r->fid->dirindex;
-
-	p = (uchar*)r->ofcall.data;
-	ep = p+r->ifcall.count;
-	sf = r->fid->aux;
-
-	rlock(sf);
-	while(p < ep){
-		if(start >= sf->ndirent)
-			if(sf->direof)
-				break;
-			else{
-				runlock(sf);
-				submitreq(r);
-				return;
-			}
-		rv = convD2M(&sf->dirent[start], p, ep-p);
-		if(rv <= BIT16SZ)
-			break;
-		p += rv;
-		start++;
+	sf = r->fid->aux;	
+	if(r->ifcall.offset == 0){
+		wlock(sf);
+		freedir(sf);
+		if(sf->dirreads > 0){
+			r->aux = (void*)-1;
+			submitreq(r);
+			wunlock(sf);
+			return;
+		}
+		wunlock(sf);
 	}
-	runlock(sf);
-	r->fid->dirindex = start;
-	r->ofcall.count = p - (uchar*)r->ofcall.data;
-	respond(r, nil);
+	readprocess(r);
 }
 
 void
@@ -790,13 +822,28 @@ sendproc(void *)
 			free(s);
 			break;
 		case Tread:
-			rlock(sf);
-			if((r->req->fid->qid.type & QTDIR) != 0)
-				sendpkt("bus", SSH_FXP_READDIR, r->reqid, sf->hand, sf->handn);
-			else
+			if((r->req->fid->qid.type & QTDIR) != 0){
+				wlock(sf);
+				if(r->req->aux == (void*)-1){
+					sendpkt("bus", SSH_FXP_CLOSE, r->reqid, sf->hand, sf->handn);
+					free(sf->hand);
+					sf->hand = nil;
+					sf->handn = 0;
+					sf->direof = 0;
+					sf->dirreads = 0;
+				}else if(r->req->aux == (void*)-2){
+					sendpkt("bus", SSH_FXP_OPENDIR, r->reqid, sf->fn, strlen(sf->fn));
+				}else{
+					sendpkt("bus", SSH_FXP_READDIR, r->reqid, sf->hand, sf->handn);
+					sf->dirreads++;
+				}
+				wunlock(sf);
+			}else{
+				rlock(sf);
 				sendpkt("busvuu", SSH_FXP_READ, r->reqid, sf->hand, sf->handn,
 					r->req->ifcall.offset, r->req->ifcall.count);
-			runlock(sf);
+				runlock(sf);
+			}
 			break;
 		case Twrite:
 			x = r->req->ifcall.count - r->req->ofcall.count;
@@ -870,6 +917,7 @@ recvproc(void *)
 	u32int code;
 	char *msg, *lang, *hand;
 	int msgn, langn, handn;
+	int okresp;
 	uchar *p;
 	char *e;
 	
@@ -912,6 +960,7 @@ recvproc(void *)
 			sysfatal("recvproc: r->req == nil");
 
 		sf = r->req->fid != nil ? r->req->fid->aux : nil;
+		okresp = rxlen >= 9 && t == SSH_FXP_STATUS && GET4(rxpkt+5) == SSH_FX_OK;
 		switch(r->req->ifcall.type){
 		case Tattach:
 			if(t != SSH_FXP_ATTRS) goto common;
@@ -946,14 +995,12 @@ recvproc(void *)
 			walkprocess(r->req, GET4(p) & 0040000, nil);
 			break;
 		case Tcreate:
-			if(t == SSH_FXP_STATUS && r->req->aux == (void*)-1){
-				if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto garbage;
-				if(code != SSH_FX_OK) goto common;
+			if(okresp && r->req->aux == (void*)-1){
 				submitreq(r->req);
 				break;
 			}
 			/* wet floor */
-		case Topen:
+		case Topen: opendir:
 			if(t != SSH_FXP_HANDLE) goto common;
 			if(unpack(rxpkt, rxlen, "_____s", &hand, &handn) < 0) goto garbage;
 			wlock(sf);
@@ -961,13 +1008,26 @@ recvproc(void *)
 			sf->hand = emalloc9p(sf->handn);
 			memcpy(sf->hand, hand, sf->handn);
 			wunlock(sf);
-			respond(r->req, nil);
+			if(r->req->ifcall.type == Tread){
+				r->req->aux = nil;
+				readprocess(r->req);
+			}else
+				respond(r->req, nil);
 			break;
 		case Tread:
 			if((r->req->fid->qid.type & QTDIR) != 0){
-				if(t != SSH_FXP_NAME) goto common;
-				if(parsedir(sf) < 0) goto garbage;
-				readprocess(r->req);
+				if(r->req->aux == (void*)-1){
+					if(t != SSH_FXP_STATUS) goto common;
+					/* reopen even if close failed */
+					r->req->aux = (void*)-2;
+					submitreq(r->req);
+				}else if(r->req->aux == (void*)-2)
+					goto opendir;
+				else{
+					if(t != SSH_FXP_NAME) goto common;
+					if(parsedir(sf) < 0) goto garbage;
+					readprocess(r->req);
+				}
 				break;
 			}
 			if(t != SSH_FXP_DATA) goto common;
@@ -979,8 +1039,7 @@ recvproc(void *)
 			break;
 		case Twrite:
 			if(t != SSH_FXP_STATUS) goto common;
-			if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto garbage;
-			if(code == SSH_FX_OK){
+			if(okresp){
 				r->req->ofcall.count += r->req->ofcall.offset;
 				if(r->req->ofcall.count == r->req->ifcall.count)
 					respond(r->req, nil);
@@ -997,9 +1056,7 @@ recvproc(void *)
 			respond(r->req, nil);
 			break;
 		case Twstat:
-			if(t != SSH_FXP_STATUS || r->req->d.name == nil || *r->req->d.name == 0) goto common;
-			if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto garbage;
-			if(code != SSH_FX_OK) goto common;
+			if(!okresp) goto common;
 			if(r->req->aux == nil){
 				r->req->aux = (void *) -1;
 				submitreq(r->req);
@@ -1135,7 +1192,7 @@ Srv sshfssrv = {
 	.walk sshfswalk,
 	.open submitreq,
 	.create submitreq,
-	.read readprocess,
+	.read sshfsread,
 	.write submitreq,
 	.stat submitreq,
 	.wstat submitreq,
