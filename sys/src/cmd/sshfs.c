@@ -450,6 +450,7 @@ parentdir(char *p)
 	q = strdup(p);
 	r = strrchr(q, '/');
 	if(r != nil) *r = 0;
+	else strcpy(q, ".");
 	return q;
 }
 
@@ -529,7 +530,7 @@ attrib2dir(uchar *p0, uchar *ep, Dir *d)
 	if((flags & SSH_FILEXFER_ATTR_PERMISSIONS) != 0){
 		rc = unpack(p, ep - p, "u", &perm); if(rc < 0) return -1; p += rc;
 		d->mode = perm & 0777;
-		if((perm & 0040000) != 0) d->mode |= DMDIR;
+		if((perm & 0170000) == 0040000) d->mode |= DMDIR;
 	}
 	d->qid.type = d->mode >> 24;
 	if((flags & SSH_FILEXFER_ATTR_ACMODTIME) != 0){
@@ -591,6 +592,24 @@ dir2attrib(Dir *d, uchar **rp)
 	PUT4(r, fl);
 	*rp = r;
 	return p - r;
+}
+
+int
+attribisdir(char *fn)
+{
+	u32int code;
+	uchar *p;
+	
+	if(unpack(rxpkt, rxlen, "_____u", &code) < 0) return -1;
+	if((code & 4) == 0){
+		fprint(2, "sshfs: can't determine if %s is a directory\n", fn);
+		return 1;
+	}
+	p = rxpkt + 9;
+	if(code & 1) p += 8;
+	if(code & 2) p += 8;
+	if(p + 4 > rxpkt + rxlen) return -1;
+	return (GET4(p) & 0170000) == 0040000;
 }
 
 int
@@ -860,7 +879,7 @@ sendproc(void *)
 			rlock(sf);
 			r->req->d.name = finalelem(sf->fn);
 			r->req->d.qid = sf->qid;
-			if(sf->handn > 0)
+			if(sf->handn > 0 && (sf->qid.type & QTDIR) == 0)
 				sendpkt("bus", SSH_FXP_FSTAT, r->reqid, sf->hand, sf->handn);
 			else
 				sendpkt("bus", SSH_FXP_STAT, r->reqid, sf->fn, strlen(sf->fn));
@@ -913,12 +932,11 @@ recvproc(void *)
 
 	SReq *r;
 	SFid *sf;
-	int t, id;
+	int t, id, rc;
 	u32int code;
 	char *msg, *lang, *hand;
 	int msgn, langn, handn;
 	int okresp;
-	uchar *p;
 	char *e;
 	
 	threadsetname("recv");
@@ -965,35 +983,20 @@ recvproc(void *)
 		switch(r->req->ifcall.type){
 		case Tattach:
 			if(t != SSH_FXP_ATTRS) goto common;
-			if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto garbage;
+			rc = attribisdir(r->req->ifcall.aname);
 			r->req->aux = (void*)-1;
-			if((code & 4) == 0){
-				fprint(2, "sshfs: can't determine if %s is a directory\n", r->req->ifcall.aname);
-				sshfsattach(r->req);
-				break;
-			}
-			p = rxpkt + 9;
-			if(code & 1) p += 8;
-			if(code & 2) p += 8;
-			if(p + 4 > rxpkt + rxlen) goto garbage;
-			if((GET4(p) & 0040000) == 0)
+			if(rc < 0)
+				goto garbage;
+			if(rc == 0)
 				respond(r->req, "not a directory");
 			else
 				sshfsattach(r->req);
 			break;
 		case Twalk:
 			if(t != SSH_FXP_ATTRS) goto common;
-			if(unpack(rxpkt, rxlen, "_____u", &code) < 0) goto garbage;
-			if((code & 4) == 0){
-				fprint(2, "sshfs: can't determine if %s is a directory\n", ((SFid*)r->req->fid)->fn);
-				walkprocess(r->req, 0, nil);
-				break;
-			}
-			p = rxpkt + 9;
-			if(code & 1) p += 8;
-			if(code & 2) p += 8;
-			if(p + 4 > rxpkt + rxlen) goto garbage;
-			walkprocess(r->req, GET4(p) & 0040000, nil);
+			rc = attribisdir(((SFid*)r->req->fid)->fn);
+			if(rc < 0) goto garbage;
+			walkprocess(r->req, rc, nil);
 			break;
 		case Tcreate:
 			if(okresp && r->req->aux == (void*)-1){
