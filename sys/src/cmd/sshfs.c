@@ -1252,13 +1252,13 @@ out:
 void
 passwdparse(IDEnt **tab, char *s)
 {
-	char *p;
-	char *n;
-	int id;
 	IDEnt *e, **b;
+	char *p, *n;
+	int id;
 
-	p = s;
-	for(;;){
+	if(s == nil)
+		return;
+	for(p = s;;){
 		n = p;
 		p = strpbrk(p, ":\n"); if(p == nil) break; if(*p != ':'){ p++; continue; }
 		*p = 0;
