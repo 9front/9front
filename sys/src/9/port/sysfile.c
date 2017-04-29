@@ -655,7 +655,7 @@ read(int fd, uchar *p, long n, vlong *offp)
 		error(Enegoff);
 
 	if(off == 0){	/* rewind to the beginning of the directory */
-		if(offp == nil){
+		if(offp == nil || (c->qid.type & QTDIR)){
 			c->offset = 0;
 			c->devoffset = 0;
 		}
@@ -677,7 +677,7 @@ read(int fd, uchar *p, long n, vlong *offp)
 	}else
 		nnn = nn = devtab[c->type]->read(c, p, n, off);
 
-	if((c->qid.type & QTDIR) || offp == nil){
+	if(offp == nil || (c->qid.type & QTDIR)){
 		lock(c);
 		c->devoffset += nn;
 		c->offset += nnn;
