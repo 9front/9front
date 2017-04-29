@@ -176,14 +176,6 @@ extern	Memcmap	*memdefcmap;
 void		memimagemove(void*, void*);
 
 /*
- * Kernel cruft
- */
-extern void	rdb(void);
-extern int		iprint(char*, ...);
-#pragma varargck argpos iprint 1
-extern int		drawdebug;
-
-/*
  * doprint interface: numbconv bit strings
  */
 #pragma varargck type "llb" vlong

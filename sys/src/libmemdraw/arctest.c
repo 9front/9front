@@ -4,7 +4,6 @@
 #include <memdraw.h>
 #include <memlayer.h>
 
-extern int drawdebug;
 void
 main(int argc, char **argv)
 {
@@ -40,26 +39,3 @@ main(int argc, char **argv)
 	t1 = nsec();
 	print("%lld %lld\n", t1-t0-del, del);
 }
-
-int drawdebug = 0;
-
-void
-rdb(void)
-{
-}
-
-int
-iprint(char *fmt, ...)
-{
-	int n;	
-	va_list va;
-	char buf[1024];
-
-	va_start(va, fmt);
-	n = vseprint(buf, buf+sizeof buf, fmt, va) - buf;
-	va_end(va);
-
-	write(1,buf,n);
-	return 1;
-}
-

@@ -26,7 +26,6 @@ ulong rgbatopix(uchar, uchar, uchar, uchar);
 char *dchan, *schan, *mchan;
 int dbpp, sbpp, mbpp;
 
-int drawdebug=0;
 int	seed;
 int	niters = 100;
 int	dbpp;	/* bits per pixel in destination */
@@ -48,26 +47,6 @@ uchar	*dstbits;
 uchar	*srcbits;
 uchar	*maskbits;
 ulong	*savedstbits;
-
-void
-rdb(void)
-{
-}
-
-int
-iprint(char *fmt, ...)
-{
-	int n;	
-	va_list va;
-	char buf[1024];
-
-	va_start(va, fmt);
-	n = vseprint(buf, buf+sizeof buf, fmt, va) - buf;
-	va_end(va);
-
-	write(1,buf,n);
-	return 1;
-}
 
 void
 main(int argc, char *argv[])
