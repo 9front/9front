@@ -1477,7 +1477,6 @@ drawmesg(Client *client, void *av, int n)
 			m = 1+1;
 			if(n < m)
 				error(Eshortdraw);
-			drawdebug = a[1];
 			continue;
 
 		/* ellipse: 'e' dstid[4] srcid[4] center[2*4] a[4] b[4] thick[4] sp[2*4] alpha[4] phi[4]*/
