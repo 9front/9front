@@ -7,6 +7,7 @@
 
 int readonly;
 int debug;
+char *root = ".";
 #define dprint(...) if(debug) fprint(2, __VA_ARGS__)
 #pragma	varargck	type	"Σ"	int
 
@@ -732,7 +733,8 @@ sshfsattach(Req *r)
 	if(r->ifcall.aname != nil && *r->ifcall.aname != 0)
 		sf->fn = strdup(r->ifcall.aname);
 	else
-		sf->fn = strdup(".");
+		sf->fn = strdup(root);
+	root = ".";
 	sf->qid = (Qid){qidcalc(sf->fn), 0, QTDIR};
 	r->ofcall.qid = sf->qid;
 	r->fid->qid = sf->qid;
@@ -1332,10 +1334,12 @@ threadmain(int argc, char **argv)
 	case 'a': mflag |= MAFTER; break;
 	case 'b': mflag |= MBEFORE; break;
 	case 'm': mtpt = EARGF(usage()); break;
+	case 'M': mtpt = nil; break;
 	case 'u': uidfile = EARGF(usage()); break;
 	case 'U': uidfile = nil; break;
 	case 'g': gidfile = EARGF(usage()); break;
 	case 'G': gidfile = nil; break;
+	case 'r': root = EARGF(usage()); break;
 	default: usage();
 	}ARGEND;
 	

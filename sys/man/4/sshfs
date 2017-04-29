@@ -4,7 +4,7 @@ sshfs - secure file transfer protocol client
 .SH SYNOPSIS
 .B sshfs
 [
-.B -abdRUG
+.B -abdRUGM
 ]
 [
 .B -s
@@ -13,6 +13,10 @@ sshfs - secure file transfer protocol client
 [
 .B -m
 .I mtpt
+]
+[
+.B -r
+.I root
 ]
 [
 .B -u
@@ -56,7 +60,10 @@ is specified,
 .I sshfs
 communicates with an SFTP server via stdin and stdout.
 .PP
-.I Sshfs
+Unless
+.B -M
+is specified,
+.I sshfs
 will mount itself under the mountpoint specified by
 .IR mtpt ,
 or under
@@ -73,6 +80,8 @@ and
 .B -b
 have the same function as they do with
 .IR mount (1).
+The default remote root is the user's home directory but can be changed with
+.BR -r .
 .PP
 If
 .B -s
@@ -108,7 +117,7 @@ If these files cannot be accessed for any reason, numeric IDs simply remain untr
 Further options:
 .TP
 -R
-Read-only access only.
+Read access only.
 .TP
 -d
 Enable debugging output.
@@ -125,6 +134,11 @@ In particular there is no guarantee that a failed
 did not change some of the fields.
 .PP
 The code is naive about links and assumes files with distinct names to be distinct, assigning them different QIDs.
+.PP
+File names with null bytes in them will confuse
+.I sshfs.
+.I Sshfs
+should probably escape them, as well as control characters that might confuse other software.
 .SH HISTORY
 .I
 Sshfs
