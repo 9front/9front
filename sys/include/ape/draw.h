@@ -509,7 +509,6 @@ extern	Font		*font;
 extern	Image	*screen;
 extern	Screen	*_screen;
 extern	int	_cursorfd;
-extern	int	_drawdebug;	/* set to 1 to see errors from flushimage */
 extern	void	_setdrawop(Display*, Drawop);
 
 #define	BGSHORT(p)	((p)[0]|((p)[1]<<8))
