@@ -1506,16 +1506,11 @@ fs_wstat(Chan* chan, Fcall* f, Fcall*, char* strs)
 
 	/*
 	 * Get the file.
-	 * If user 'none' (uid == 0), can't do anything;
 	 * if filesystem is read-only, can't change anything.
 	 */
 	if((file = filep(chan, f->fid, 0)) == nil)
 		return Efid;
 	p = p1 = nil;
-	if(file->uid == 0){
-		error = Eaccess;
-		goto out;
-	}
 	if(file->fs->dev->type == Devro){
 		error = Eronly;
 		goto out;
