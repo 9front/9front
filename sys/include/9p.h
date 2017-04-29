@@ -162,7 +162,7 @@ int		removefile(File*);
 void		closefile(File*);
 File*		walkfile(File*, char*);
 Readdir*	opendirfile(File*);
-long		readdirfile(Readdir*, uchar*, long);
+long		readdirfile(Readdir*, uchar*, long, long);
 void		closedirfile(Readdir*);
 
 /*

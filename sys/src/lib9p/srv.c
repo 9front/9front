@@ -512,7 +512,7 @@ sread(Srv *srv, Req *r)
 		return;
 	}
 	if((r->fid->qid.type&QTDIR) && r->fid->file){
-		r->ofcall.count = readdirfile(r->fid->rdir, r->rbuf, r->ifcall.count);
+		r->ofcall.count = readdirfile(r->fid->rdir, r->rbuf, r->ifcall.count, r->ifcall.offset);
 		respond(r, nil);
 		return;
 	}
@@ -525,7 +525,7 @@ static void
 rread(Req *r, char *error)
 {
 	if(error==nil && (r->fid->qid.type&QTDIR))
-		r->fid->diroffset += r->ofcall.count;
+		r->fid->diroffset = r->ifcall.offset + r->ofcall.count;
 }
 
 static void

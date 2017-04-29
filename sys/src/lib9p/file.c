@@ -394,12 +394,16 @@ opendirfile(File *dir)
 }
 
 long
-readdirfile(Readdir *r, uchar *buf, long n)
+readdirfile(Readdir *r, uchar *buf, long n, long o)
 {
 	long x, m;
 	Filelist *fl;
 
-	for(fl=r->fl, m=0; fl && m+2<=n; fl=fl->link, m+=x){
+	if(o == 0)
+		fl = r->dir->filelist;
+	else
+		fl = r->fl;
+	for(m=0; fl && m+2<=n; fl=fl->link, m+=x){
 		if(fl->f == nil)
 			x = 0;
 		else if((x=convD2M(fl->f, buf+m, n-m)) <= BIT16SZ)
