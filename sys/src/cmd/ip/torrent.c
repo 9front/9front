@@ -55,7 +55,7 @@ int port = 6881;
 char *deftrack = "http://exodus.desync.com/announce";
 char *mntweb = "/mnt/web";
 char *useragent = "torrent";
-uchar infohash[20];
+uchar infohash[SHA1dlen];
 uchar peerid[20];
 int blocksize;
 
@@ -212,9 +212,9 @@ rwpiece(int wr, int index, uchar *data, int len, int poff)
 }
 
 int
-havepiece(int x)
+havepiece(int x, char *from)
 {
-	uchar *p, m, hash[20];
+	uchar *p, m, hash[SHA1dlen];
 	int n;
 
 	m = 0x80>>(x&7);
@@ -228,8 +228,11 @@ havepiece(int x)
 	}
 	sha1(p, n, hash, nil);
 	free(p);
-	if(memcmp(hash, pieces[x].hash, 20))
+	if(memcmp(hash, pieces[x].hash, sizeof(hash))){
+		if(debug && from != nil)
+			fprint(2, "peer %s: damaged piece %d\n", from, x);
 		return 0;
+	}
 	lock(&stats);
 	if((havemap[x>>3] & m) == 0){
 		havemap[x>>3] |= m;
@@ -237,6 +240,8 @@ havepiece(int x)
 		stats.left -= pieces[x].len;
 	}
 	unlock(&stats);
+	if(debug && from != nil)
+		fprint(2, "peer %s: completed piece %d\n", from, x);
 	return 1;
 }
 
@@ -382,7 +387,7 @@ peer(int fd, int incoming, char *addr)
 	uchar buf[64+MAXIO], *map, *told, *p, m;
 	int mechoking, hechoking;
 	int mewant, hewant;
-	int workpiece;
+	int workpiece, workoffset;
 	int i, o, l, x, n;
 
 	if(debug) fprint(2, "peer %s: %s connected\n", addr, incoming ? "incoming" : "outgoing");
@@ -419,6 +424,8 @@ peer(int fd, int incoming, char *addr)
 	mewant = 0;
 	hewant = 0;
 	workpiece = -1;
+	workoffset = 0;
+
 	map = mallocz(nhavemap, 1);
 	told = malloc(nhavemap);
 
@@ -451,18 +458,15 @@ peer(int fd, int incoming, char *addr)
 		}
 		if(!hechoking && mewant){
 			x = workpiece;
-			if(x < 0 || (havemap[x>>3]&(0x80>>(x&7))) != 0)
+			if(x < 0 || (havemap[x>>3]&(0x80>>(x&7))) != 0 || workoffset >= pieces[x].len)
 				x = pickpiece(map);
 			if(x >= 0){
-				workpiece = x;
-				o = pieces[x].brk;
-				if(o < 0 || o >= pieces[x].len){
-					pieces[x].brk = 0;
-					o = 0;
-				}
+				o = workpiece != x ? pieces[x].brk : workoffset;
 				l = pieces[x].len - o;
 				if(l > MAXIO)
 					l = MAXIO;
+				workpiece = x;
+				workoffset = o + l; 
 				if(debug) fprint(2, "peer %s: -> request %d %d %d\n", addr, x, o, l);
 				n = pack(buf, sizeof(buf), "lblll", 1+4+4+4, 0x06, x, o, l);
 				if(write(fd, buf, n) != n)
@@ -566,7 +570,8 @@ peer(int fd, int incoming, char *addr)
 			if(n <= 0)
 				continue;
 			pieces[x].brk = o+n;
-			if(o+n >= pieces[x].len && !havepiece(x)){
+			if(o+n >= pieces[x].len && !havepiece(x, addr)){
+				pieces[x].brk = 0;
 				/* backoff from this piece for a while */
 				if(x == workpiece)
 					workpiece = -1;
@@ -797,7 +802,7 @@ Error:
 			o += m;
 			n -= m;
 			p = 0;
-			if(havepiece(x++))
+			if(havepiece(x++, w->str))
 				continue;
 			if(++err > 10){
 				close(fd);
@@ -806,8 +811,8 @@ Error:
 			}
 		}
 	}
-	havepiece(off / blocksize);
-	havepiece(f->off / blocksize);
+	havepiece(off / blocksize, w->str);
+	havepiece(f->off / blocksize, w->str);
 	close(fd);
 	exits(0);
 }
@@ -1033,7 +1038,7 @@ Hfmt(Fmt *f)
 int
 mktorrent(int fd, Dict *alist, Dict *wlist)
 {
-	uchar *b, h[20];
+	uchar *b, h[SHA1dlen];
 	Dir *d;
 	int n;
 
@@ -1321,14 +1326,14 @@ main(int argc, char *argv[])
 	if((blocksize = atoi(s)) <= 0)
 		sysfatal("bogus piece length in meta info");
 	d = dlook(info, "pieces");
-	if(d == nil || d->typ != 's' || d->len <= 0 || d->len % 20)
+	if(d == nil || d->typ != 's' || d->len <= 0 || d->len % SHA1dlen)
 		sysfatal("bad or no pices in meta info");
-	npieces = d->len / 20;
+	npieces = d->len / SHA1dlen;
 	pieces = mallocz(sizeof(Piece) * npieces, 1);
 	nhavemap = (npieces+7) / 8;
 	havemap = mallocz(nhavemap, 1);
 	for(i = 0; i<npieces; i++){
-		pieces[i].hash = (uchar*)d->str + i*20;
+		pieces[i].hash = (uchar*)d->str + i*SHA1dlen;
 		if(len < blocksize)
 			pieces[i].len = len;
 		else
@@ -1345,7 +1350,7 @@ main(int argc, char *argv[])
 			sysfatal("fork: %r");
 		case 0:
 			for(; i<npieces; i+=nproc)
-				havepiece(i);
+				havepiece(i, nil);
 			exits(0);
 		}
 	}
