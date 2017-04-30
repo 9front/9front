@@ -1265,7 +1265,7 @@ printmesg(char *fmt, uchar *a, int plsprnt)
 	char *p, *q;
 	int s;
 
-	if(1|| plsprnt==0){
+	if(plsprnt==0){
 		SET(s,q,p);
 		USED(fmt, a, buf, p, q, s);
 		return;
@@ -1305,7 +1305,7 @@ printmesg(char *fmt, uchar *a, int plsprnt)
 	}
 	*q++ = '\n';
 	*q = 0;
-	iprint("%.*s", (int)(q-buf), buf);
+	fprint(2, "%.*s", (int)(q-buf), buf);
 }
 
 void
@@ -1333,7 +1333,6 @@ drawmesg(Client *client, void *av, int n)
 	fmt = nil;
 	if(waserror()){
 		if(fmt) printmesg(fmt, a, 1);
-	/*	iprint("error: %s\n", up->error);	*/
 		nexterror();
 	}
 	while((n-=m) > 0){
