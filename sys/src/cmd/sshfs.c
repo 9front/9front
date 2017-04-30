@@ -172,7 +172,7 @@ idlookup(IDEnt **tab, int id)
 	
 	for(p = tab[(ulong)id % HASH]; p != nil; p = p->next)
 		if(p->id == id)
-			return strdup(p->name);
+			return estrdup9p(p->name);
 	return smprint("%d", id);
 }
 
@@ -368,18 +368,21 @@ recvpkt(void)
 }
 
 void
+freedir1(Dir *d)
+{
+	free(d->name);
+	free(d->uid);
+	free(d->gid);
+	free(d->muid);
+}
+
+void
 freedir(SFid *s)
 {
 	int i;
-	Dir *d;
 
-	for(i = 0; i < s->ndirent; i++){
-		d = &s->dirent[i];
-		free(d->name);
-		free(d->uid);
-		free(d->gid);
-		free(d->muid);
-	}
+	for(i = 0; i < s->ndirent; i++)
+		freedir1(&s->dirent[i]);
 	free(s->dirent);
 	s->dirent = nil;
 	s->ndirent = 0;
@@ -436,23 +439,13 @@ submitreq(Req *r)
 char *
 pathcat(char *p, char *c)
 {
-	if(strcmp(p, ".") == 0)
-		return strdup(c);
-	return smprint("%s/%s", p, c);
+	return cleanname(smprint("%s/%s", p, c));
 }
 
 char *
 parentdir(char *p)
 {
-	char *q, *r;
-	
-	if(strcmp(p, ".") == 0) return strdup(".");
-	if(strcmp(p, "/") == 0) return strdup("/");
-	q = strdup(p);
-	r = strrchr(q, '/');
-	if(r != nil) *r = 0;
-	else strcpy(q, ".");
-	return q;
+	return pathcat(p, "..");
 }
 
 char *
@@ -461,8 +454,8 @@ finalelem(char *p)
 	char *q;
 	
 	q = strrchr(p, '/');
-	if(q == nil) return strdup(p);
-	return strdup(q+1);
+	if(q == nil) return estrdup9p(p);
+	return estrdup9p(q+1);
 }
 
 u64int
@@ -524,10 +517,10 @@ attrib2dir(uchar *p0, uchar *ep, Dir *d)
 		d->uid = idlookup(uidtab, uid);
 		d->gid = idlookup(gidtab, gid);
 	}else{
-		d->uid = strdup("sshfs");
-		d->gid = strdup("sshfs");
+		d->uid = estrdup9p("sshfs");
+		d->gid = estrdup9p("sshfs");
 	}
-	d->muid = strdup(d->uid);
+	d->muid = estrdup9p(d->uid);
 	if((flags & SSH_FILEXFER_ATTR_PERMISSIONS) != 0){
 		rc = unpack(p, ep - p, "u", &perm); if(rc < 0) return -1; p += rc;
 		d->mode = perm & 0777;
@@ -632,17 +625,16 @@ parsedir(SFid *sf)
 	p = rxpkt + 9;
 	ep = rxpkt + rxlen;
 	for(i = 0; i < c; i++){
-		rc = unpack(p, ep - p, "ss", &fn, &fns, &ln, &lns); if(rc < 0) goto err; p += rc;
 		memset(d, 0, sizeof(Dir));
+		rc = unpack(p, ep - p, "ss", &fn, &fns, &ln, &lns); if(rc < 0) goto err; p += rc;
 		rc = attrib2dir(p, ep, d); if(rc < 0) goto err; p += rc;
 		if(fn[0] == '.' && (fns == 1 || fns == 2 && fn[1] == '.')){
-			free(d->uid);
-			free(d->gid);
-			free(d->muid);
+			freedir1(d);
 			continue;
 		}
 		d->name = emalloc9p(fns + 1);
 		memcpy(d->name, fn, fns);
+		d->name[fns] = 0;
 		s = pathcat(sf->fn, d->name);
 		d->qid.path = qidcalc(s);
 		free(s);
@@ -652,6 +644,7 @@ parsedir(SFid *sf)
 	wunlock(sf);
 	return 0;
 err:
+	freedir1(d);
 	wunlock(sf);
 	return -1;
 }
@@ -731,9 +724,9 @@ sshfsattach(Req *r)
 	}
 	sf = emalloc9p(sizeof(SFid));
 	if(r->ifcall.aname != nil && *r->ifcall.aname != 0)
-		sf->fn = strdup(r->ifcall.aname);
+		sf->fn = estrdup9p(r->ifcall.aname);
 	else
-		sf->fn = strdup(root);
+		sf->fn = estrdup9p(root);
 	root = ".";
 	sf->qid = (Qid){qidcalc(sf->fn), 0, QTDIR};
 	r->ofcall.qid = sf->qid;
@@ -855,8 +848,8 @@ sendproc(void *)
 				}else if(r->req->aux == (void*)-2){
 					sendpkt("bus", SSH_FXP_OPENDIR, r->reqid, sf->fn, strlen(sf->fn));
 				}else{
-					sendpkt("bus", SSH_FXP_READDIR, r->reqid, sf->hand, sf->handn);
 					sf->dirreads++;
+					sendpkt("bus", SSH_FXP_READDIR, r->reqid, sf->hand, sf->handn);
 				}
 				wunlock(sf);
 			}else{
@@ -892,9 +885,9 @@ sendproc(void *)
 				rlock(sf);
 				s = parentdir(sf->fn);
 				t = pathcat(s, r->req->d.name);
-				sendpkt("buss", SSH_FXP_RENAME, r->reqid, sf->fn, strlen(sf->fn), t, strlen(t));
 				free(s);
 				r->req->aux = t;
+				sendpkt("buss", SSH_FXP_RENAME, r->reqid, sf->fn, strlen(sf->fn), t, strlen(t));
 				runlock(sf);
 				break;
 			}
@@ -1137,7 +1130,7 @@ sshfswalk(Req *r)
 		r->newfid->qid = r->fid->qid;
 		s = r->fid->aux;
 		t = emalloc9p(sizeof(SFid));
-		t->fn = strdup(s->fn);
+		t->fn = estrdup9p(s->fn);
 		t->qid = s->qid;
 		r->newfid->aux = t;
 	}else
@@ -1146,12 +1139,9 @@ sshfswalk(Req *r)
 		respond(r, nil);
 		return;
 	}
-	p = strdup(t->fn);
+	p = estrdup9p(t->fn);
 	for(i = 0; i < r->ifcall.nwname; i++){
-		if(strcmp(r->ifcall.wname[i], "..") == 0)
-			q = parentdir(p);
-		else
-			q = pathcat(p, r->ifcall.wname[i]);
+		q = pathcat(p, r->ifcall.wname[i]);
 		free(p);
 		p = q;
 		r->ofcall.wqid[i] = (Qid){qidcalc(p), 0, QTDIR};
@@ -1271,7 +1261,7 @@ passwdparse(IDEnt **tab, char *s)
 		if(p == nil) break;
 		p++;
 		e = emalloc9p(sizeof(IDEnt));
-		e->name = strdup(n);
+		e->name = estrdup9p(n);
 		e->id = id;
 		b = &tab[((ulong)e->id) % HASH];
 		e->next = *b;
