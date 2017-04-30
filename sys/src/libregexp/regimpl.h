@@ -23,7 +23,7 @@ enum {
 	TSTAR,
 	TSUB,
 
-	NSUBEXPM = 32
+	NSUBEXPM = 32,
 };
 
 typedef struct Parselex Parselex;
@@ -31,30 +31,22 @@ typedef struct Renode Renode;
 
 struct Parselex {
 	/* Parse */
-	Renode *next;
-	Renode *nodes;
-	int sub;
-	int instrs;
+	Renode *next, *nodes;
+	int sub, instrs;
 	jmp_buf exitenv;
 	/* Lex */
 	void (*getnextr)(Parselex*);
-	char *rawexp;
-	char *orig;
+	char *rawexp, *orig;
 	Rune rune;
-	Rune peek;
-	int peeklex;
-	int done;
-	int literal;
+	int peek, peeklex, done, literal, nc;
 	Rune cpairs[400+2];
-	int nc;
 };
 
 struct Renode {
 	int op;
 	Renode *left;
 	Rune r;
-	union
-	{
+	union {
 		Rune r1;
 		int sub;
 		Renode *right;
@@ -73,13 +65,11 @@ struct Reinst {
 	char op;
 	int gen;
 	Reinst *a;
-	union
-	{
+	union {
 		Rune r;
 		int sub;
 	};
-	union
-	{
+	union {
 		Rune r1;
 		Reinst *b;
 	};

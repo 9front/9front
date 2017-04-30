@@ -210,6 +210,8 @@ if
 is not matched.
 .SH BUGS
 There is no way to specify or match a NUL character; NULs terminate patterns and strings.
+The size of a character class and the number of sub-expression matches are hard-coded
+limits. The library uses the worst-case space estimate for allocating VM runtime threads.
 .SH HISTORY
 .IR Regexp (2)
 first appeared in Plan 9 from Bell Labs. This implementation was written from

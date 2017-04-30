@@ -308,7 +308,7 @@ getnextr(Parselex *l)
 {
 	l->literal = 0;
 	if(l->done) {
-		l->rune = 0;
+		l->rune = L'\0';
 		return;
 	}
 	l->rawexp += chartorune(&l->rune, l->rawexp);
@@ -327,7 +327,7 @@ getnextrlit(Parselex *l)
 	l->literal = 1;
 	if(l->done) {
 		l->literal = 0;
-		l->rune = 0;
+		l->rune = L'\0';
 		return;
 	}
 	l->rawexp += chartorune(&l->rune, l->rawexp);
@@ -347,7 +347,7 @@ lex(Parselex *l)
 	if(l->literal)
 		return l->peeklex = LRUNE;
 	switch(l->rune){
-	case 0:
+	case L'\0':
 		return l->peeklex = LEND;
 	case L'*':
 	case L'?':
@@ -375,16 +375,20 @@ lex(Parselex *l)
 static int
 pcmp(void *va, void *vb)
 {
-	vlong n;
 	Rune *a, *b;
 
 	a = va;
 	b = vb;
 
-	n = (vlong)b[0] - (vlong)a[0];
-	if(n)
-		return n;
-	return (vlong)b[1] - (vlong)a[1];
+	if(a[0] < b[0])
+		return 1;
+	if(a[0] > b[0])
+		return -1;
+	if(a[1] < b[1])
+		return 1;
+	if(a[1] > b[1])
+		return -1;
+	return 0;
 }
 
 static void
@@ -460,7 +464,7 @@ getclass(Parselex *l)
 	q[2] = 0;
 }
 
-/* classes are in descending order */
+/* classes are in descending order see pcmp */
 static Renode*
 buildclassn(Parselex *l)
 {
