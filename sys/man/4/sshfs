@@ -144,4 +144,4 @@ should probably escape them, as well as control characters that might confuse ot
 Sshfs
 first appeared in 9front (Apr, 2017).
 .SH SEE ALSO
-.IR ssh(1)
+.IR ssh (1)
