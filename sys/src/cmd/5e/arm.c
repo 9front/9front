@@ -35,29 +35,60 @@ evenaddr(u32int addr, u32int mask)
 }
 
 static u32int
-doshift(u32int instr)
+doshift(u32int instr, u8int *carry)
 {
 	ulong amount, val;
-	
-	if((instr & (1<<4)) && (instr & (1<<7)))
-		invalid(instr);
-	
-	if(instr & (1<<4))
-		amount = P->R[(instr >> 8) & 15];
-	else
-		amount = (instr >> 7) & 31;
+
 	val = P->R[instr & 15];
-	switch((instr >> 5) & 3) {
-	case 0:
-		return val << amount;
-	case 1:
-		return val >> amount;
-	case 2:
-		return ((long) val) >> amount;
-	case 3:
-		return (val >> amount) | (val << (32 - amount));
+	if(instr & (1<<4)) {
+		if(instr & (1<<7))
+			invalid(instr);
+		amount = P->R[(instr >> 8) & 15] & 0xFF;
+		if(amount == 0)
+			return val;
+	} else {
+		amount = (instr >> 7) & 31;
+		if(amount == 0 && (instr & (3<<5)) != 0)
+			amount = 32;
 	}
-	return 0;
+	switch((instr >> 5) & 3) {
+	default:
+		if(amount == 0)
+			return val;
+		if(amount < 32) {
+			*carry = (val >> (32 - amount)) & 1;
+			return val << amount;
+		}
+		*carry = val & 1;
+		return 0;
+	case 1:
+		if(amount < 32){
+			*carry = (val >> (amount - 1)) & 1;
+			return val >> amount;
+		}
+		*carry = val >> 31;
+		return 0;
+	case 2:
+		if(amount < 32){
+			*carry = (val >> (amount - 1)) & 1;
+			return ((long) val) >> amount;
+		}
+		if((long)val < 0){
+			*carry = 1;
+			return -1;
+		}
+		*carry = 0;
+		return 0;
+	case 3:
+		amount &= 31;
+		if(amount){
+			*carry = (val >> (amount - 1)) & 1;
+			return (val >> amount) | (val << (32 - amount));
+		}
+		amount = *carry & 1;
+		*carry = val & 1;
+		return (val>>1) | (amount<<31);
+	}
 }
 
 static void
@@ -70,9 +101,10 @@ single(u32int instr)
 	Segment *seg;
 	
 	if(instr & fI) {
+		u8int carry = 0;
 		if(instr & (1<<4))
 			invalid(instr);
-		offset = doshift(instr);
+		offset = doshift(instr, &carry);
 	} else
 		offset = instr & ((1<<12) - 1);
 	if(!(instr & fU))
@@ -165,12 +197,14 @@ add(u32int a, u32int b, u8int type, u8int *carry, u8int *overflow)
 		res2 = (u64int)a - b + *carry - 1;
 		res1 = res2;
 		if(((a ^ b) & (1<<31)) && !((b ^ res1) & (1<<31))) *overflow = 1;
+		else *overflow = 0;
 		if(res2 & 0x100000000LL) *carry = 0;
 		else *carry = 1;	
 	} else {
 		res2 = (u64int)a + b + *carry;
 		res1 = res2;
 		if(!((a ^ b) & (1<<31)) && ((b ^ res1) & (1<<31))) *overflow = 1;
+		else *overflow = 0;
 		if(res2 & 0x100000000LL) *carry = 1;
 		else *carry = 0;
 	}
@@ -192,30 +226,31 @@ alu(u32int instr)
 	}
 	if(Rd == P->R + 15 && (instr & fS))
 		invalid(instr);
+
+	carry = (P->CPSR & flC) != 0;
+	overflow = (P->CPSR & flV) != 0;
+
 	if(instr & fI) {
 		operand = instr & 0xFF;
 		shift = ((instr >> 8) & 15) << 1;
-		operand = (operand >> shift) | (operand << (32 - shift));
+		if(shift){
+			operand = (operand >> shift) | (operand << (32 - shift));
+			carry = operand >> 31;
+		}
 	} else
-		operand = doshift(instr);
+		operand = doshift(instr, &carry);
+
 	op = (instr >> 21) & 15;
-	carry = 0;
 	if(op >= 8 && op <= 11 && !(instr & fS))
 		sysfatal("no PSR transfers plz");
-	if(op >= 5 && op < 8) {
-		if(P->CPSR & flC)
-			carry = 1;
-	} else {
-		if(op != 4 && op != 5 && op != 11)
-			carry = 1;
-	}
-	overflow = 0;
+	if(op >= 5 && op < 8)
+		carry = (P->CPSR & flC) != 0;
 	switch(op) {
 	case 0: case 8: result = Rn & operand; break;
 	case 1: case 9: result = Rn ^ operand; break;
-	case 2: case 6: case 10: result = add(Rn, operand, 1, &carry, &overflow); break;
-	case 3: case 7: result = add(operand, Rn, 1, &carry, &overflow); break;
-	case 4: case 5: case 11: result = add(operand, Rn, 0, &carry, &overflow); break;
+	case 2: case 10: carry = 1; case 6: result = add(Rn, operand, 1, &carry, &overflow); break;
+	case 3:          carry = 1; case 7: result = add(operand, Rn, 1, &carry, &overflow); break;
+	case 4: case 11: carry = 0; case 5: result = add(operand, Rn, 0, &carry, &overflow); break;
 	case 12: result = Rn | operand; break;
 	case 13: result = operand; break;
 	case 14: result = Rn & ~operand; break;
@@ -228,7 +263,7 @@ alu(u32int instr)
 			P->CPSR |= flZ;
 		if(result & (1<<31))
 			P->CPSR |= flN;
-		if(carry && op > 1 && op < 12)
+		if(carry)
 			P->CPSR |= flC;
 		if(overflow)
 			P->CPSR |= flV;
