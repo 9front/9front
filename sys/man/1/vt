@@ -107,11 +107,11 @@ to the end.
 Clear the screen.  Previous contents can be recovered using
 .BR backup .
 .TP
-.B send
-Send the contents of the
+.B paste
+Pastes the contents of the
 .B rio
 snarf buffer, just as
-.B send
+.B paste
 in the
 .B rio
 menu.
