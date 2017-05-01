@@ -372,6 +372,9 @@ gre=ppp port=34827
 # their visibility everywhere.
 #
 
+# bell labs
+auth=sources.cs.bell-labs.com authdom=outside.plan9.bell-labs.com
+
 # for geoff
 auth=www.9netics.com authdom=9netics.com
 auth=newcpu.9netics.net authdom=9netics.net

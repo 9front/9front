@@ -6,11 +6,24 @@ database=
 	file=/lib/ndb/local
 	file=/lib/ndb/common
 
-auth=sources.cs.bell-labs.com authdom=outside.plan9.bell-labs.com
-
-#auth=cirno authdom=9front
-
-#ntp=pool.ntp.org
+#
+#  entries defining the dns root.  these will be overridden by any
+#  authentic info obtained from the root.
+#
+dom=
+	ns=A.ROOT-SERVERS.NET
+	ns=B.ROOT-SERVERS.NET
+	ns=C.ROOT-SERVERS.NET
+	ns=D.ROOT-SERVERS.NET
+	ns=E.ROOT-SERVERS.NET
+	ns=F.ROOT-SERVERS.NET
+	ns=G.ROOT-SERVERS.NET
+	ns=H.ROOT-SERVERS.NET
+	ns=I.ROOT-SERVERS.NET
+	ns=J.ROOT-SERVERS.NET
+	ns=K.ROOT-SERVERS.NET
+	ns=L.ROOT-SERVERS.NET
+	ns=M.ROOT-SERVERS.NET
 
 #
 #  because the public demands the name localsource
@@ -18,12 +31,14 @@ auth=sources.cs.bell-labs.com authdom=outside.plan9.bell-labs.com
 ip=127.0.0.1 sys=localhost dom=localhost
 
 # example: adjust to fit your network
+#auth=cirno authdom=9front
 #ipnet=9front ip=192.168.0.0 ipmask=255.255.255.0
+#	ipgw=192.168.0.1
+#	dns=192.168.0.1
 #	auth=cirno
-#	cpu=cirno
-#	dns=192.168.0.2
 #	dnsdom=9front
+#	cpu=cirno
 #	smtp=cirno
 #
-#ip=192.168.0.1 sys=gw dom=gw.9front
-#ip=192.168.0.2 sys=cirno dom=cirno.9front
+#ip=192.168.0.99 sys=cirno dom=cirno.9front ether=112233445566 
+
