@@ -796,9 +796,6 @@ mach64hwfill(VGAscr *scr, Rectangle r, ulong sval)
 	ulong pitch;
 	ulong ctl;
 
-if(drawdebug)
-	iprint("hwfill %R val %lux...\n", r, sval);
-
 	/* shouldn't happen */
 	if(scr->io == 0x2EC || scr->io == 0x1C8 || scr->io == 0)
 		return 0;
