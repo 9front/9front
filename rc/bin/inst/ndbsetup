@@ -28,15 +28,18 @@ case go
 	cp /n/newfs/lib/ndb/local /tmp/ndb.local
 	{
 		ssam 'x/^.*ether='^$etheraddr^'.*$/ d' /tmp/ndb.local
+		
+		se = ('sys='^$sysname 'ether='^$etheraddr)
 
 		echo
 		switch($ethermethod){
 		case dhcp
-			echo 'sys='^$sysname 'ether='^$etheraddr
-
+			echo $se
 		case manual
-			echo 'sys='^$sysname 'ether='^$etheraddr \
-				'ip='^$ipaddr 'ipmask='^$ipmask 'ipgw='^$gwaddr
+			echo $se 'ip='^$ipaddr 'ipmask='^$ipmask 'ipgw='^$gwaddr
+			if(! ~ $#DNSSERVER 0){
+				echo '	'	'dns='^$DNSSERVER
+			}
 		}
 		echo
 	} >/n/newfs/lib/ndb/local

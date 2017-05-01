@@ -21,6 +21,10 @@ case go
 		prompt 'network mask'; ipmask=$rd
 		prompt 'gateway address'; gwaddr=$rd
 		export ipaddr ipmask gwaddr
+		if(~ $#DNSSERVER 0){
+			prompt -d $gwaddr 'dns server'; DNSSERVER=$rd
+			export DNSSERVER
+		}
 	}
 	export ethermethod gwaddr ipaddr ipmask dhcphost
 	exec ./startether go
