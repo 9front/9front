@@ -918,15 +918,15 @@ imap4read(Imap *imap, Mailbox *mb, int doplumb, int *new)
 	imap->nuid = 0;
 	imap->muid = imap->nmsg;
 	imap->f = erealloc(imap->f, imap->nmsg*sizeof imap->f[0]);
-	f = imap->f;
-	n = imap->nmsg;
-
 	if(imap->nmsg > 0){
 		imap4cmd(imap, "uid fetch 1:* (uid rfc822.size internaldate)");
 		if(!isokay(s = imap4resp(imap)))
 			return s;
 	}
 
+	f = imap->f;
+	n = imap->nuid;
+	if(n < imap->nmsg) idprint(imap, "partial sync %d < %d\n", n, imap->nmsg);
 	qsort(f, n, sizeof f[0], (int(*)(void*, void*))fetchicmp);
 	nnew = ndel = 0;
 	ll = &mb->root->part;
@@ -943,7 +943,7 @@ imap4read(Imap *imap, Mailbox *mb, int doplumb, int *new)
 		if(c < 0){
 			/* new message */
 			idprint(imap, "new: %U (%U)\n", f[i].uid, m? m->imapuid: 0);
-			if(f[i].sizes > Maxmsg){
+			if(f[i].sizes == 0 || f[i].sizes > Maxmsg){
 				idprint(imap, "skipping bad size: %lud\n", f[i].sizes);
 				i++;
 				continue;
