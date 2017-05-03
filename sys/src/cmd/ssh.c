@@ -1070,13 +1070,7 @@ static struct {
 	int	ypixels;
 	int	lines;
 	int	cols;
-} tty = {
-	"dumb",
-	0,
-	0,
-	0,
-	0,
-};
+} tty;
 
 void
 rawon(void)
@@ -1093,31 +1087,49 @@ rawon(void)
 	dup(1, 2);
 	if((ctl = open("/dev/consctl", OWRITE)) >= 0)
 		write(ctl, "rawon", 5);
-	if(s = getenv("TERM")){
-		tty.term = s;
-		if(s = getenv("XPIXELS")){
-			tty.xpixels = atoi(s);
-			free(s);
-		}
-		if(s = getenv("YPIXELS")){
-			tty.ypixels = atoi(s);
-			free(s);
-		}
-		if(s = getenv("LINES")){
-			tty.lines = atoi(s);
-			free(s);
-		}
-		if(s = getenv("COLS")){
-			tty.cols = atoi(s);
-			free(s);
-		}
+	if(s = getenv("XPIXELS")){
+		tty.xpixels = atoi(s);
+		free(s);
 	}
+	if(s = getenv("YPIXELS")){
+		tty.ypixels = atoi(s);
+		free(s);
+	}
+	if(s = getenv("LINES")){
+		tty.lines = atoi(s);
+		free(s);
+	}
+	if(s = getenv("COLS")){
+		tty.cols = atoi(s);
+		free(s);
+	}
+}
+
+#pragma	   varargck    type  "k"   char*
+
+kfmt(Fmt *f)
+{
+	char *s, *p;
+	int n;
+
+	s = va_arg(f->args, char*);
+	n = fmtstrcpy(f, "'");
+	while((p = strchr(s, '\'')) != nil){
+		*p = '\0';
+		n += fmtstrcpy(f, s);
+		*p = '\'';
+		n += fmtstrcpy(f, "'\\''");
+		s = p+1;
+	}
+	n += fmtstrcpy(f, s);
+	n += fmtstrcpy(f, "'");
+	return n;
 }
 
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-dR] [-t thumbfile] [-u user] [user@]host [cmd]\n", argv0);
+	fprint(2, "usage: %s [-dR] [-t thumbfile] [-T tries] [-u user] [user@]host [cmd args...]\n", argv0);
 	exits("usage");
 }
 
@@ -1132,10 +1144,10 @@ main(int argc, char *argv[])
 	fmtinstall('B', mpfmt);
 	fmtinstall('H', encodefmt);
 	fmtinstall('[', encodefmt);
+	fmtinstall('k', kfmt);
 
-	s = getenv("TERM");
-	raw = s != nil && strcmp(s, "dumb") != 0;
-	free(s);
+	tty.term = getenv("TERM");
+	raw = tty.term != nil && *tty.term != 0;
 
 	ARGBEGIN {
 	case 'd':
@@ -1168,17 +1180,17 @@ main(int argc, char *argv[])
 			host = s;
 		}
 	}
+
 	for(cmd = nil; *argv != nil; argv++){
-		if(cmd == nil)
+		if(cmd == nil){
 			cmd = strdup(*argv);
-		else {
-			s = smprint("%s %q", cmd, *argv);
+			raw = 0;
+		}else {
+			s = smprint("%s %k", cmd, *argv);
 			free(cmd);
 			cmd = s;
 		}
 	}
-	if(cmd != nil)
-		raw = 0;
 
 	if((fd = dial(netmkaddr(host, nil, "ssh"), nil, nil, nil)) < 0)
 		sysfatal("dial: %r");
@@ -1201,9 +1213,6 @@ main(int argc, char *argv[])
 
 	kex(0);
 
-
-	service = "ssh-connection";
-
 	sendpkt("bs", MSG_SERVICE_REQUEST, "ssh-userauth", 12);
 Next0:	switch(recvpkt()){
 	default:
@@ -1213,6 +1222,7 @@ Next0:	switch(recvpkt()){
 		break;
 	}
 
+	service = "ssh-connection";
 	if(noneauth() < 0 && pubkeyauth() < 0 && passauth() < 0 && kbintauth() < 0)
 		sysfatal("auth: %r");
 
