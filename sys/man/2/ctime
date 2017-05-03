@@ -110,7 +110,8 @@ EST -18000 EDT -14400
 Greenwich Mean Time is represented by
 .IP
 .EX
-GMT 0
+GMT 0 GMT 0
+0
 .EE
 .SH SOURCE
 .B /sys/src/libc/9sys
