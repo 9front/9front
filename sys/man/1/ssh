@@ -11,6 +11,9 @@ ssh - secure shell remote login client
 .B -t
 .I thumbfile
 ] [
+.B -T
+.I tries
+] [
 .B -u
 .I user
 ] [
@@ -47,25 +50,30 @@ location can be changed with the
 .B -t
 option.
 .PP
-When no
+When
 .I cmd
-is specified then ssh starts a shell on the
-remote side.
+is specified, it is concatenated with the list of quoted
+.I args
+and run on the remote side. No pseudo terminal will be requested.
+A
+.I cmd
+beginning with
+.B #
+is interpreted as a subsystem name such as sftp (see
+.IR sshfs (4)).
 .PP
-If the
+Without
+.IR cmd ,
+a shell is started on the remote side.
+When the
 .B $TERM
-environment variable is set then a pseudo terminal
-will be requested for the shell.
+environment variable is set (such as when started under
+a terminal emulator like
+.IR vt (1)),
+a pseudo terminal will be requested for the shell.
 This can be disabled with the
 .B -R
 option.
-.PP
-If
-.I keyboard-interactive
-authentication fails, by default it is retried three times.
-The number of tries can be changed with
-.BR -T .
-Setting it to zero disables keyboard-interactive authentication.
 .PP
 The
 .B -d
@@ -77,8 +85,18 @@ option enables debug output.
 the user's thumbfile of known host fingerprints
 .SH SOURCE
 .B /sys/src/cmd/ssh.c
+.SH BUGS
+If
+.I keyboard-interactive
+authentication fails, by default it is retried three times.
+The number of
+.I tries
+can be changed with
+.BR -T .
+Setting it to zero disables keyboard-interactive authentication.
 .SH "SEE ALSO"
 .IR vt (1),
 .IR rsa (8),
 .IR thumbprint (6),
-.IR factotum (4)
+.IR factotum (4),
+.IR sshfs (4)
