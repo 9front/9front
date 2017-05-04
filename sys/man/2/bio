@@ -85,7 +85,7 @@ int	Bbuffered(Biobufhdr *bp)
 void	Blethal(Biobufhdr *bp, void (*errorf)(char *))
 .PP
 .B
-void	Biofn(Biobufhdr *bp, int (*iof)(Biohdr *, void *, long))
+void	Biofn(Biobufhdr *bp, int (*iof)(Biobufhdr *, void *, long))
 .PP
 .SH DESCRIPTION
 These routines implement fast buffered I/O.
