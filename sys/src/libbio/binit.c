@@ -50,6 +50,18 @@ install(Biobufhdr *bp)
 	}
 }
 
+static int
+bioread(Biobufhdr *bp, void *v, long n)
+{
+	return read(bp->fid, v, n);
+}
+
+static int
+biowrite(Biobufhdr *bp, void *v, long n)
+{
+	return write(bp->fid, v, n);
+}
+
 int
 Binits(Biobufhdr *bp, int f, int mode, uchar *p, int size)
 {
@@ -64,12 +76,14 @@ Binits(Biobufhdr *bp, int f, int mode, uchar *p, int size)
 	case OREAD:
 		bp->state = Bractive;
 		bp->ocount = 0;
+		bp->iof = bioread;
 		break;
 
 	case OWRITE:
 		install(bp);
 		bp->state = Bwactive;
 		bp->ocount = -size;
+		bp->iof = biowrite;
 		break;
 	}
 	bp->bbuf = p;
@@ -153,4 +167,16 @@ Bterm(Biobufhdr *bp)
 	}
 	/* otherwise opened with Binit(s) */
 	return r;
+}
+
+void
+Biofn(Biobufhdr *bp, int (*f)(Biobufhdr *, void *, long))
+{
+	if(f == nil)
+		if(bp->state == Bwactive)
+			bp->iof = biowrite;
+		else
+			bp->iof = bioread;
+	else
+		bp->iof = f;
 }

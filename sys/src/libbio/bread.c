@@ -20,7 +20,7 @@ Bread(Biobufhdr *bp, void *ap, long count)
 		if(n == 0) {
 			if(bp->state != Bractive)
 				break;
-			i = read(bp->fid, bp->bbuf, bp->bsize);
+			i = bp->iof(bp, bp->bbuf, bp->bsize);
 			if(i <= 0) {
 				bp->state = Bracteof;
 				if(i < 0) {

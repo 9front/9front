@@ -84,6 +84,9 @@ int	Bbuffered(Biobufhdr *bp)
 .B
 void	Blethal(Biobufhdr *bp, void (*errorf)(char *))
 .PP
+.B
+void	Biofn(Biobufhdr *bp, int (*iof)(Biohdr *, void *, long))
+.PP
 .SH DESCRIPTION
 These routines implement fast buffered I/O.
 I/O on different file descriptors is independent.
@@ -338,6 +341,18 @@ to be called in case of an error happening on read/write.
 An argument of
 .B nil
 will have the program terminated in case of error.
+.PP
+If
+.I Biofn
+is called with a non-nil
+.I iof
+function, then that function is called for I/O in lieu of
+.IR read (2)
+and
+.IR write (2).
+A nil argument for
+.I iof
+restores normal behaviour.
 .SH SOURCE
 .B /sys/src/libbio
 .SH SEE ALSO

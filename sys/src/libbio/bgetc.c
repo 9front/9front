@@ -24,7 +24,7 @@ loop:
 	 * buffer to allow that many ungets.
 	 */
 	memmove(bp->bbuf-Bungetsize, bp->ebuf-Bungetsize, Bungetsize);
-	i = read(bp->fid, bp->bbuf, bp->bsize);
+	i = bp->iof(bp, bp->bbuf, bp->bsize);
 	bp->gbuf = bp->bbuf;
 	if(i <= 0) {
 		bp->state = Bracteof;

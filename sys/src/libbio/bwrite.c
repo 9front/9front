@@ -21,7 +21,7 @@ Bwrite(Biobufhdr *bp, void *ap, long count)
 		if(n == 0) {
 			if(bp->state != Bwactive)
 				return Beof;
-			i = write(bp->fid, bp->bbuf, bp->bsize);
+			i = bp->iof(bp, bp->bbuf, bp->bsize);
 			if(i != bp->bsize) {
 				errstr(errbuf, sizeof errbuf);
 				if(strstr(errbuf, "interrupt") == nil) {
