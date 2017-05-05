@@ -10,7 +10,8 @@ int newwin(char*);
 int nokill;
 int textmode;
 char *title = nil;
-char message[1024];
+char *message = nil;
+Biobuf *bout;
 
 Image *light;
 Image *text;
@@ -30,8 +31,9 @@ drawmsg(void)
 		static int last = 0;
 
 		while(last-- > 0)
-			write(1, "\b", 1);
-		write(1, message, strlen(message));
+			Bputc(bout, '\b');
+		Bwrite(bout, message, strlen(message));
+		Bflush(bout);
 		last = utflen(message);
 		return;
 	}
@@ -70,8 +72,9 @@ msg(Biobuf *b)
 	if(textmode){
 		child = -1;
 		if(title){
-			write(1, title, strlen(title));
-			write(1, ": ", 2);
+			Bwrite(bout, title, strlen(title));
+			Bwrite(bout, ": ", 2);
+			Bflush(bout);
 		}
 	} else
 	switch(child = rfork(RFMEM|RFPROC)) {
@@ -86,12 +89,14 @@ msg(Biobuf *b)
 		}
 		_exits(0);
 	}
-	while(!die && (p = Brdline(b, '\n'))) {
-		snprint(message, sizeof(message), "%.*s", Blinelen(b)-1, p);
+	while(!die && (p = Brdline(b, '\n'))){
+		snprint(message, Bsize, "%.*s", Blinelen(b)-1, p);
 		drawmsg();
 	}
-	if(textmode)
-		write(1, "\n", 1);
+	if(textmode){
+		Bwrite(bout, "\n", 1);
+		Bterm(bout);
+	}
 	postnote(PNPROC, child, "kill");
 }
 
@@ -140,11 +145,16 @@ main(int argc, char **argv)
 	while(q = strchr(p, ','))
 		*q = ' ';
 	Binit(&b, lfd, OREAD);
+	if((message = malloc(Bsize)) == nil)
+		sysfatal("malloc: %r");
+	memset(message, 0, Bsize);
 	if(textmode || newwin(p) < 0){
 		textmode = 1;
+		if((bout = Bfdopen(1, OWRITE)) == nil)
+			sysfatal("Bfdopen: %r");
 	}else{
 		if(initdraw(0, 0, title) < 0)
-			exits("initdraw");
+			sysfatal("initdraw: %r");
 		initcolor();
 		einit(Emouse|Ekeyboard);
 		eresized(0);
