@@ -1212,6 +1212,8 @@ procstopwait(Proc *p, int ctl)
 		error(Eprocdied);
 	if(ctl != 0)
 		p->procctl = ctl;
+	if(p == up)
+		return;
 	p->pdbg = up;
 	qunlock(&p->debug);
 	up->psstate = "Stopwait";
