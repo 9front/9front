@@ -96,6 +96,8 @@ SedCom pspace[MAXCMDS];			/* Command storage */
 SedCom *pend = pspace+MAXCMDS;		/* End of command storage */
 SedCom *rep = pspace;			/* Current fill point */
 
+int	dollars;			/* Number of dollar addresses */
+
 Reprog	*lastre;			/* Last regular expression */
 Resub	subexp[MAXSUB];			/* sub-patterns of pattern match*/
 
@@ -136,6 +138,7 @@ Rune	*hspend = holdsp;		/* End of hold data */
 
 int	nflag;				/* Command line flags */
 int	gflag;
+int	uflag;
 
 int	dolflag;			/* Set when at true EOF */
 int	sflag;				/* Set when substitution done */
@@ -232,6 +235,9 @@ main(int argc, char **argv)
 		continue;
 	case 'n':
 		nflag++;
+		continue;
+	case 'u':
+		uflag++;
 		continue;
 	default:
 		quit("Unknown flag: %c", ARGC());
@@ -681,6 +687,16 @@ regerror(char *s)
 	quit(CGMES, L"r.e.-using", linebuf);
 }
 
+int
+flushout(Biobufhdr *bp, void *v, long n)
+{
+	int i;
+	
+	for(i = 0; i < nfiles; i++)
+		Bflush(fcode[i]);
+	return read(bp->fid, v, n);
+}
+
 void
 newfile(enum PTYPE type, char *name)
 {
@@ -690,6 +706,7 @@ newfile(enum PTYPE type, char *name)
 		if ((prog.bp = Bopen(name, OREAD)) == 0)
 			quit("Cannot open pattern-file: %s\n", name);
 		Blethal(prog.bp, nil);
+		if(uflag) Biofn(prog.bp, flushout);
 	}
 	prog.type = type;
 }
@@ -748,9 +765,10 @@ address(Addr *ap)
 	int c;
 	long lno;
 
-	if((c = *cp++) == '$')
+	if((c = *cp++) == '$'){
 		ap->type = A_DOL;
-	else if(c == '/') {
+		dollars++;
+	}else if(c == '/') {
 		seof = c;
 		if (ap->rp = compile())
 			ap->type = A_RE;
@@ -1341,6 +1359,7 @@ arout(void)
 			if((fi = Bopen(buf, OREAD)) == 0)
 				continue;
 			Blethal(fi, nil);
+			if(uflag) Biofn(fi, flushout);
 			while((c = Bgetc(fi)) >= 0)
 				Bputc(&fout, c);
 			Bterm(fi);
@@ -1389,7 +1408,7 @@ gline(Rune *addr)
 		p = addr;
 		for (c = (peekc? peekc: Bgetrune(f)); c >= 0; c = Bgetrune(f)) {
 			if (c == '\n') {
-				if ((peekc = Bgetrune(f)) < 0 && fhead == nil)
+				if (dollars != 0 && (peekc = Bgetrune(f)) < 0 && fhead == nil)
 					dolflag = 1;
 				*p = '\0';
 				return p;
@@ -1445,6 +1464,7 @@ opendata(void)
 		f = &stdin;
 	}
 	Blethal(f, nil);
+	if(uflag) Biofn(f, flushout);
 	fhead = fhead->next;
 	return 1;
 }

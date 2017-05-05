@@ -10,6 +10,9 @@ sed \- stream editor
 .B -g
 ]
 [
+.B -u
+]
+[
 .B -e
 .I script
 ]
@@ -44,6 +47,11 @@ option suppresses the default output;
 .B -g
 causes all substitutions to be global, as if suffixed
 .BR g .
+If
+.B -u
+is specified,
+.I sed
+flushes its output buffers before reading in further input.
 .PP
 A script consists of editing commands, one per line,
 of the following form:
@@ -411,3 +419,8 @@ If input is from a pipe, buffering may consume
 characters beyond a line on which a
 .L q
 command is executed.
+.PP
+.B -u
+does not work as expected if
+.B $
+addressing is used.
