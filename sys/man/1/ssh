@@ -17,6 +17,8 @@ ssh - secure shell remote login client
 .B -u
 .I user
 ] [
+.B -h
+] [
 .IR user @] host
 [
 .I cmd

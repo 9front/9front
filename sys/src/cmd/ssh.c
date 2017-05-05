@@ -1129,7 +1129,7 @@ kfmt(Fmt *f)
 void
 usage(void)
 {
-	fprint(2, "usage: %s [-dR] [-t thumbfile] [-T tries] [-u user] [user@]host [cmd args...]\n", argv0);
+	fprint(2, "usage: %s [-dR] [-t thumbfile] [-T tries] [-u user] [-h] [user@]host [cmd args...]\n", argv0);
 	exits("usage");
 }
 
@@ -1159,6 +1159,9 @@ main(int argc, char *argv[])
 	case 'u':
 		user = EARGF(usage());
 		break;
+	case 'h':
+		host = EARGF(usage());
+		break;
 	case 't':
 		thumbfile = EARGF(usage());
 		break;
@@ -1168,10 +1171,12 @@ main(int argc, char *argv[])
 		break;
 	} ARGEND;
 
-	if(argc == 0)
-		usage();
+	if(host == nil){
+		if(argc == 0)
+			usage();
+		host = *argv++;
+	}
 
-	host = *argv++;
 	if(user == nil){
 		s = strchr(host, '@');
 		if(s != nil){
