@@ -68,6 +68,7 @@ enum	/* control messages */
 	Rawoff,
 	Holdon,
 	Holdoff,
+	Truncate,
 	Deleted,
 	Exited,
 };

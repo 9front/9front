@@ -250,6 +250,10 @@ xfidopen(Xfid *x)
 		return;
 	}
 	switch(FILE(x->f->qid)){
+	case Qtext:
+		if(x->mode&OTRUNC)
+			wsendctlmesg(w, Truncate, ZR, nil);
+		break;
 	case Qconsctl:
 		if(w->ctlopen){
 			filsysrespond(x->fs, x, &t, Einuse);
@@ -386,6 +390,7 @@ xfidwrite(Xfid *x)
 	x->data[cnt] = 0;
 	switch(qid){
 	case Qcons:
+	case Qtext:
 		alts[CWdata].c = w->conswrite;
 		alts[CWdata].v = &cwm;
 		alts[CWdata].op = CHANRCV;

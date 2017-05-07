@@ -32,7 +32,7 @@ Dirtab dirtab[]=
 	{ "mouse",	QTFILE,	Qmouse,		0600 },
 	{ "screen",		QTFILE,	Qscreen,		0400 },
 	{ "snarf",		QTFILE,	Qsnarf,		0600 },
-	{ "text",		QTFILE,	Qtext,		0400 },
+	{ "text",		QTFILE,	Qtext,		0600 },
 	{ "wdir",		QTFILE,	Qwdir,		0600 },
 	{ "wctl",		QTFILE,	Qwctl,		0600 },
 	{ "window",	QTFILE,	Qwindow,		0400 },
@@ -494,12 +494,14 @@ filsysopen(Filsys *fs, Xfid *x, Fid *f)
 	Fcall t;
 	int m;
 
-	/* can't truncate anything, so just disregard */
-	x->mode &= ~(OTRUNC|OCEXEC);
+	/* can't truncate anything but Qtext, so just disregard */
+	if(FILE(f->qid) != Qtext)
+		x->mode &= ~OTRUNC;
+	x->mode &= ~OCEXEC;
 	/* can't execute or remove anything */
 	if(x->mode==OEXEC || (x->mode&ORCLOSE))
 		goto Deny;
-	switch(x->mode){
+	switch(x->mode & ~OTRUNC){
 	default:
 		goto Deny;
 	case OREAD:

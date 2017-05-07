@@ -1198,6 +1198,9 @@ wctlmesg(Window *w, int m, Rectangle r, void *p)
 		wrepaint(w);
 		flushimage(display, 1);
 		break;
+	case Truncate:
+		wdelete(w, 0, w->nr);
+		break;
 	case Deleted:
 		wclunk(w);
 		if(w->notefd >= 0)
