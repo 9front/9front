@@ -1204,19 +1204,7 @@ parsename(char *aname, Elemlist *e)
 	}
 }
 
-void*
-memrchr(void *va, int c, long n)
-{
-	uchar *a, *e;
-
-	a = va;
-	for(e=a+n-1; e>a; e--)
-		if(*e == c)
-			return e;
-	return nil;
-}
-
-void
+static void
 namelenerror(char *aname, int len, char *err)
 {
 	char *ename, *name, *next;
@@ -1237,9 +1225,11 @@ namelenerror(char *aname, int len, char *err)
 		next = ename;
 		do{
 			name = next;
-			next = memrchr(aname, '/', name-aname);
-			if(next == nil)
-				next = aname;
+			if(next == aname)
+				break;
+			while(next > aname)
+				if(*--next == '/')
+					break;
 			len = ename-next;
 		}while(len < ERRMAX/3 || len + errlen < 2*ERRMAX/3);
 
