@@ -73,7 +73,7 @@ colophon.ps:D:	/sys/lib/man/colophon
 	cleanps $target
 
 # troff gets some scary-looking errors but they're okay
-%.ps:D:	%.ms
+&.ps:D:	&.ms
 	mac=(-ms)
 	if(~ $stem comp utf 9 contents) mac=(-ms -mnihongo)
 	{ echo $FONTS; cat $stem.ms } | pic | tbl | eqn | 
@@ -98,6 +98,11 @@ index.html: contents.html
 &.html:D:	&.ms
 	pic $stem.ms | tbl | eqn | htmlroff -ms -mhtml >$target
 
+&.pdf:D:	&.ps
+	cat docfonts $stem.ps >_$stem.ps
+	# distill _$stem.ps && mv _$stem.pdf $stem.pdf
+	ps2pdf _$stem.ps $stem.pdf && rm -f _$stem.ps
+
 pdf:V: $PDF
 
 ^(8½|acme|fs|il|net|sam|venti)/([^/]*\.(pdf|ps|html))'$':R:
@@ -106,11 +111,6 @@ pdf:V: $PDF
 
 ^(8½|acme|fs|il|net|sam|venti)\.html'$':R: \1/\1.html
 	cp $stem1/$stem1.html .
-
-%.pdf: %.ps
-	cat docfonts $stem.ps >_$stem.ps
-	# distill _$stem.ps && mv _$stem.pdf $stem.pdf
-	ps2pdf _$stem.ps $stem.pdf && rm -f _$stem.ps
 
 %.all:V:
 	mk $stem.ps $stem.pdf $stem.html

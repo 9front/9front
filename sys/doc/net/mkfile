@@ -16,6 +16,11 @@ tree.pout:D:	tree
 net.html:D:	$DEPS
 	tbl net.ms | htmlroff -ms -mhtml >net.html
 
+%.pdf:D:	%.ps
+	cat ../docfonts $stem.ps >_$stem.ps
+	# distill _$stem.ps && mv _$stem.pdf $stem.pdf
+	ps2pdf _$stem.ps $stem.pdf && rm -f _$stem.ps
+
 clean:V:
 	rm -f net.ps tree.pout net.trout
 
