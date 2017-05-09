@@ -1,4 +1,4 @@
-/build_rH {
+/build_rh {
 pop
 gsave
 size .0022 mul dup scale
