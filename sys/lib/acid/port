@@ -154,7 +154,7 @@ defn line(addr)
 		return {};
 	}
 	line = pcline(addr)-1;
-	print(file, ":", src[line], "\n");
+	print(file, ":", line+1, ":", src[line], "\n");
 }
 
 defn addsrcdir(dir)
