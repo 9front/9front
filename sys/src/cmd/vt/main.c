@@ -707,7 +707,8 @@ waitchar(void)
 			blocked = 0;
 			kbdchar = 0;
 			continue;
-		}
+		} else if(nbrecv(kc->c, &kbdchar))
+			continue;
 		if(!blocked){
 			if(host_avail())
 				return(rcvchar());
