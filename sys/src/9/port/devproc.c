@@ -921,7 +921,7 @@ procread(Chan *c, void *va, long n, vlong off)
 				continue;
 			j += sprint(statbuf+j, "%-6s %c%c %8p %8p %4ld\n",
 				sname[sg->type&SG_TYPE],
-				sg->type&SG_RONLY ? 'R' : ' ',
+				sg->type&SG_FAULT ? 'F' : (sg->type&SG_RONLY ? 'R' : ' '),
 				sg->profile ? 'P' : ' ',
 				sg->base, sg->top, sg->ref);
 		}

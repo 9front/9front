@@ -40,6 +40,8 @@ fault(uintptr addr, int read)
 		if((attr & SG_FAULT) != 0 || !read && (attr & SG_RONLY) != 0) {
 			qunlock(s);
 			up->psstate = sps;
+			if(up->kp && up->nerrlab)	/* for segio */
+				error(Eio);
 			return -1;
 		}
 
