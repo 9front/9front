@@ -51,7 +51,7 @@ main(int argc, char** argv) {
 			(datab[3] << 24) | ((vlong)datab[4] << 32) |
 			((vlong)datab[5] << 40) | ((vlong)datab[6] << 48) | 
 			((vlong)datab[7] << 56);
-		print("0x%llx\n", data);
+		print("0x%ullx\n", data);
 	}
 	exits(nil);
 }
