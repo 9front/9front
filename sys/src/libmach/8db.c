@@ -302,9 +302,13 @@ static Optable optab0F01[8]=
 [0x07]	0,0,		"INVLPG	%e",		/* or SWAPGS */
 };
 
-static Optable optab0F01F8[1]=
-{
-[0x00]	0,0,		"SWAPGS",
+static Optable optab0F01xx[256] = {
+[0xC1]	0,0,		"VMCALL",
+[0xC2]	0,0,		"VMLAUNCH",
+[0xC3]	0,0,		"VMRESUME",
+[0xC4]	0,0,		"VMXOFF",
+[0xD4]	0,0,		"VMFUNC",
+[0xF8]	0,0,		"SWAPGS",
 };
 
 /* 0F71 */
@@ -363,6 +367,8 @@ static Optable optab0F0F[256]=
 static Optable optab0FC7[8]=
 {
 [0x01]	0,0,		"CMPXCHG8B	%e",
+[0x06]	0,0,		"VMPTRLD	%e",
+[0x07]	0,0,		"VMPTRST	%e",
 };
 
 static Optable optab660F71[8]=
@@ -408,6 +414,7 @@ static Optable optab660F[256]=
 [0x7F]	RM,0,		"MOVO	%X,%x",
 [0xC4]	RM,Ib,		"PINSRW	%i,%e,%X",
 [0xC5]	RMR,Ib,		"PEXTRW	%i,%X,%e",
+[0xC7]	RMM,0,		"VMCLEAR	%e",
 [0xD4]	RM,0,		"PADDQ	%x,%X",
 [0xD5]	RM,0,		"PMULLW	%x,%X",
 [0xD6]	RM,0,		"MOVQ	%X,%x",
@@ -446,6 +453,7 @@ static Optable optabF30F[256]=
 [0x7F]	RM,0,		"MOVOU	%X,%x",
 [0xD6]	RM,0,		"MOVQOZX	%m*,%X",
 [0xE6]	RM,0,		"CVTPL2PD	%x,%X",
+[0xC7]	RM,0,		"VMXON	%e",
 };
 
 static Optable optab0F[256]=
@@ -536,6 +544,8 @@ static Optable optab0F[256]=
 [0x75]	RM,0,		"PCMPEQW %m,%M",
 [0x76]	RM,0,		"PCMPEQL %m,%M",
 [0x77]	0,0,		"EMMS",
+[0x78]	RM,0,		"VMREAD	%r,%e",
+[0x79]	RM,0,		"VMWRITE	%e,%r",
 [0x7E]	RM,0,		"MOV%S %M,%e",
 [0x7F]	RM,0,		"MOVQ %M,%m",
 [0xAE]	RMOP,0,		optab0FAE,
@@ -1581,8 +1591,8 @@ badop:
 			if (modrm(map, ip, c) < 0)
 				return 0;
 			obase = (Optable*)op->proto;
-			if(ip->amd64 && obase == optab0F01 && c == 0xF8)
-				return optab0F01F8;
+			if(obase == optab0F01 && optab0F01xx[c].proto != 0)
+				return &optab0F01xx[c];
 			c = ip->reg;
 			goto newop;
 		case FRMOP:	/* FP R/M field with op code (/digit) */
@@ -1774,8 +1784,6 @@ plocal(Instr *ip)
 	}
 	if (ret)
 		bprint(ip, "%s+", s.name);
-	else
-		offset = ip->disp;
 	bprint(ip, "%lux%s", offset, reg);
 }
 
