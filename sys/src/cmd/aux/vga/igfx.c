@@ -25,6 +25,7 @@ enum {
 	TypeG45,
 	TypeIVB,		/* Ivy Bridge */
 	TypeSNB,		/* Sandy Bridge (unfinished) */
+	TypeHSW,		/* Haswell */
 };
 
 enum {
@@ -34,6 +35,7 @@ enum {
 	PortDPB	= 3,
 	PortDPC	= 4,
 	PortDPD	= 5,
+	PortDPE	= 6,
 };
 
 struct Reg {
@@ -67,6 +69,7 @@ struct Trans {
 	Reg	dpctl;		/* TRANS_DP_CTL_x */
 
 	Dpll	*dpll;		/* this transcoders dpll */
+	Reg	clksel;		/* HSW: PIPE_CLK_SEL_x: transcoder clock select */
 };
 
 struct Hdmi {
@@ -75,7 +78,13 @@ struct Hdmi {
 };
 
 struct Dp {
-	Reg	ctl;
+	/* HSW */
+	int	hdmi;
+	Reg	stat;
+	Reg	bufctl;		/* DDI_BUF_CTL_x */
+	Reg	buftrans[20];	/* DDI_BUF_TRANS */
+
+	Reg	ctl;		/* HSW: DP_TP_CTL_x */
 	Reg	auxctl;
 	Reg	auxdat[5];
 
@@ -107,6 +116,7 @@ struct Plane {
 	Reg	stride;		/* DSPxSTRIDE */
 	Reg	surf;		/* DSPxSURF */
 	Reg	tileoff;	/* DSPxTILEOFF */
+	Reg	leftsurf;	/* HSW: PRI_LEFT_SURF_x */
 
 	Reg	pos;
 	Reg	size;
@@ -119,7 +129,7 @@ struct Curs {
 };
 
 struct Pipe {
-	Trans;
+	Trans;			/* cpu transcoder */
 
 	Reg	src;		/* PIPExSRC */
 
@@ -144,16 +154,20 @@ struct Igfx {
 	int	npipe;
 	Pipe	pipe[4];
 
-	Dpll	dpll[2];
+	Dpll	dpll[4];
 	Pfit	pfit[3];
 
+	/* HSW */
+	int	isult;
+
+	Reg	dpllsel[5];	/* DPLL_SEL (IVB), PORT_CLK_SEL_DDIx (HSW) */
+
 	/* IVB */
-	Reg	dpllsel;	/* DPLL_SEL */
 	Reg	drefctl;	/* DREF_CTL */
 	Reg	rawclkfreq;	/* RAWCLK_FREQ */
 	Reg	ssc4params;	/* SSC4_PARAMS */
 
-	Dp	dp[4];
+	Dp	dp[5];
 	Hdmi	hdmi[4];
 
 	Reg	ppcontrol;
@@ -252,6 +266,18 @@ snarftrans(Igfx *igfx, Trans *t, u32int o)
 		t->lm[1] = snarfreg(igfx, o + 0x48);
 		t->ln[1] = snarfreg(igfx, o + 0x4c);
 		break;
+	case TypeHSW:
+		t->dm[0] = snarfreg(igfx, o + 0x30);
+		t->dn[0] = snarfreg(igfx, o + 0x34);
+		t->lm[0] = snarfreg(igfx, o + 0x40);
+		t->ln[0] = snarfreg(igfx, o + 0x44);
+		if(t == &igfx->pipe[3]){			/* eDP pipe */
+			t->dm[1] = snarfreg(igfx, o + 0x38);
+			t->dn[1] = snarfreg(igfx, o + 0x3C);
+			t->lm[1] = snarfreg(igfx, o + 0x48);
+			t->ln[1] = snarfreg(igfx, o + 0x4C);
+		}
+		break;
 	}
 }
 
@@ -263,12 +289,21 @@ snarfpipe(Igfx *igfx, int x)
 
 	p = &igfx->pipe[x];
 
-	o = 0x60000 + x*0x1000;
+	o = x == 3 ? 0x6F000 : 0x60000 + x*0x1000;
 	snarftrans(igfx, p, o);
 
-	p->src = snarfreg(igfx, o + 0x0001C);
+	if(igfx->type != TypeHSW || x != 3)
+		p->src = snarfreg(igfx, o + 0x0001C);
 
-	if(igfx->type == TypeIVB || igfx->type == TypeSNB) {
+	if(igfx->type == TypeHSW) {
+		p->dpctl = snarfreg(igfx, o + 0x400);	/* PIPE_DDI_FUNC_CTL_x */
+		p->dpll = &igfx->dpll[0];
+		if(x == 3){
+			x = 0;	/* use plane/cursor a */
+			p->src = snarfreg(igfx, 0x6001C);
+		}else
+			p->clksel = snarfreg(igfx, 0x46140 + x*4);
+	} else if(igfx->type == TypeIVB || igfx->type == TypeSNB) {
 		p->fdi->txctl = snarfreg(igfx, o + 0x100);
 
 		o = 0xE0000 | x*0x1000;
@@ -287,7 +322,7 @@ snarfpipe(Igfx *igfx, int x)
 
 		p->fdi->chicken = snarfreg(igfx, o + 0x10064);
 
-		p->fdi->dpll = &igfx->dpll[(igfx->dpllsel.v>>(x*4)) & 1];
+		p->fdi->dpll = &igfx->dpll[(igfx->dpllsel[0].v>>(x*4)) & 1];
 		p->dpll = nil;
 	} else {
 		p->dpll = &igfx->dpll[x & 1];
@@ -299,10 +334,13 @@ snarfpipe(Igfx *igfx, int x)
 	p->dsp->stride		= snarfreg(igfx, 0x70188 + x*0x1000);
 	p->dsp->tileoff		= snarfreg(igfx, 0x701A4 + x*0x1000);
 	p->dsp->surf		= snarfreg(igfx, 0x7019C + x*0x1000);
+	if(igfx->type == TypeHSW)
+		p->dsp->leftsurf = snarfreg(igfx, 0x701B0 + x*0x1000);
 
 	/* cursor plane */
 	switch(igfx->type){
 	case TypeIVB:
+	case TypeHSW:
 		p->cur->cntr	= snarfreg(igfx, 0x70080 + x*0x1000);
 		p->cur->base	= snarfreg(igfx, 0x70084 + x*0x1000);
 		p->cur->pos	= snarfreg(igfx, 0x70088 + x*0x1000);
@@ -325,6 +363,11 @@ devtype(Igfx *igfx)
 	if(igfx->pci->vid != 0x8086)
 		return -1;
 	switch(igfx->pci->did){
+	case 0x0a16:	/* HD 4400 - 4th Gen Core (ULT) */
+		igfx->isult = 1;
+		/* wet floor */
+	case 0x0412:	/* HD 4600 - 4th Gen Core */
+		return TypeHSW;
 	case 0x0166:	/* 3rd Gen Core - ThinkPad X230 */
 	case 0x0152:	/* 2nd/3rd Gen Core - Core-i3 */
 		return TypeIVB;
@@ -414,13 +457,14 @@ snarf(Vga* vga, Ctlr* ctlr)
 	case TypeSNB:
 		igfx->npipe = 2;	/* A,B */
 		igfx->cdclk = 300;	/* MHz */
-		goto PCHcommon;
+		goto IVBcommon;
 
 	case TypeIVB:
 		igfx->npipe = 3;	/* A,B,C */
 		igfx->cdclk = 400;	/* MHz */
+		goto IVBcommon;
 
-	PCHcommon:
+	IVBcommon:
 		igfx->dpll[0].ctrl	= snarfreg(igfx, 0xC6014);
 		igfx->dpll[0].fp0	= snarfreg(igfx, 0xC6040);
 		igfx->dpll[0].fp1	= snarfreg(igfx, 0xC6044);
@@ -428,44 +472,14 @@ snarf(Vga* vga, Ctlr* ctlr)
 		igfx->dpll[1].fp0	= snarfreg(igfx, 0xC6048);
 		igfx->dpll[1].fp1	= snarfreg(igfx, 0xC604c);
 
-		igfx->dpllsel		= snarfreg(igfx, 0xC7000);
+		igfx->dpllsel[0]	= snarfreg(igfx, 0xC7000);
 
 		igfx->drefctl		= snarfreg(igfx, 0xC6200);
-		igfx->rawclkfreq	= snarfreg(igfx, 0xC6204);
 		igfx->ssc4params	= snarfreg(igfx, 0xC6210);
 
-		/* cpu displayport A */
 		igfx->dp[0].ctl		= snarfreg(igfx, 0x64000);
-		igfx->dp[0].auxctl	= snarfreg(igfx, 0x64010);
-		igfx->dp[0].auxdat[0]	= snarfreg(igfx, 0x64014);
-		igfx->dp[0].auxdat[1]	= snarfreg(igfx, 0x64018);
-		igfx->dp[0].auxdat[2]	= snarfreg(igfx, 0x6401C);
-		igfx->dp[0].auxdat[3]	= snarfreg(igfx, 0x64020);
-		igfx->dp[0].auxdat[4]	= snarfreg(igfx, 0x64024);
-
-		/* pch displayport B,C,D */
-		for(x=1; x<4; x++){
-			igfx->dp[x].ctl		= snarfreg(igfx, 0xE4000 + 0x100*x);
-			igfx->dp[x].auxctl	= snarfreg(igfx, 0xE4010 + 0x100*x);
-			igfx->dp[x].auxdat[0]	= snarfreg(igfx, 0xE4014 + 0x100*x);
-			igfx->dp[x].auxdat[1]	= snarfreg(igfx, 0xE4018 + 0x100*x);
-			igfx->dp[x].auxdat[2]	= snarfreg(igfx, 0xE401C + 0x100*x);
-			igfx->dp[x].auxdat[3]	= snarfreg(igfx, 0xE4020 + 0x100*x);
-			igfx->dp[x].auxdat[4]	= snarfreg(igfx, 0xE4024 + 0x100*x);
-		}
-
-		for(x=0; x<igfx->npipe; x++){
-			igfx->pfit[x].pwrgate	= snarfreg(igfx, 0x68060 + 0x800*x);
-			igfx->pfit[x].winpos	= snarfreg(igfx, 0x68070 + 0x800*x);
-			igfx->pfit[x].winsize	= snarfreg(igfx, 0x68074 + 0x800*x);
-			igfx->pfit[x].ctrl	= snarfreg(igfx, 0x68080 + 0x800*x);
-
-			y = (igfx->pfit[x].ctrl.v >> 29) & 3;
-			if(igfx->pipe[y].pfit == nil)
-				igfx->pipe[y].pfit = &igfx->pfit[x];
-		}
-		igfx->ppstatus		= snarfreg(igfx, 0xC7200);
-		igfx->ppcontrol		= snarfreg(igfx, 0xC7204);
+		for(x=1; x<4; x++)
+			igfx->dp[x].ctl	= snarfreg(igfx, 0xE4000 + 0x100*x);
 
 		igfx->hdmi[1].ctl	= snarfreg(igfx, 0x0E1140);	/* HDMI_CTL_B */
 		igfx->hdmi[1].bufctl[0]	= snarfreg(igfx, 0x0FC810);	/* HTMI_BUF_CTL_0 */
@@ -485,13 +499,76 @@ snarf(Vga* vga, Ctlr* ctlr)
 		igfx->hdmi[3].bufctl[2]	= snarfreg(igfx, 0x0FD018);	/* HTMI_BUF_CTL_10 */
 		igfx->hdmi[3].bufctl[3]	= snarfreg(igfx, 0x0FD024);	/* HTMI_BUF_CTL_11 */
 
+		igfx->lvds		= snarfreg(igfx, 0x0E1180);	/* LVDS_CTL */
+		goto PCHcommon;
+
+	case TypeHSW:
+		igfx->npipe = 4;	/* A,B,C,eDP */
+		igfx->cdclk = igfx->isult ? 450 : 540;	/* MHz */
+
+		igfx->dpll[0].ctrl	= snarfreg(igfx, 0x130040);	/* LCPLL_CTL */
+		igfx->dpll[1].ctrl	= snarfreg(igfx, 0x46040);	/* WRPLL_CTL1 */
+		igfx->dpll[2].ctrl	= snarfreg(igfx, 0x46060);	/* WRPLL_CTL2 */
+		igfx->dpll[3].ctrl	= snarfreg(igfx, 0x46020);	/* SPLL_CTL */
+
+		for(x=0; x<nelem(igfx->dp); x++){
+			if(x == 3 && igfx->isult)	/* no DDI D */
+				continue;
+			igfx->dp[x].bufctl 	= snarfreg(igfx, 0x64000 + 0x100*x);
+			igfx->dp[x].ctl 	= snarfreg(igfx, 0x64040 + 0x100*x);
+			if(x > 0)
+				igfx->dp[x].stat	= snarfreg(igfx, 0x64044 + 0x100*x);
+			for(y=0; y<nelem(igfx->dp[x].buftrans); y++)
+				igfx->dp[x].buftrans[y]	= snarfreg(igfx, 0x64E00 + 0x60*x + 4*y);
+			igfx->dpllsel[x]	= snarfreg(igfx, 0x46100 + 4*x);
+		}
+
+		goto PCHcommon;
+
+	PCHcommon:
+		igfx->rawclkfreq	= snarfreg(igfx, 0xC6204);
+
+		/* cpu displayport A */
+		igfx->dp[0].auxctl	= snarfreg(igfx, 0x64010);
+		igfx->dp[0].auxdat[0]	= snarfreg(igfx, 0x64014);
+		igfx->dp[0].auxdat[1]	= snarfreg(igfx, 0x64018);
+		igfx->dp[0].auxdat[2]	= snarfreg(igfx, 0x6401C);
+		igfx->dp[0].auxdat[3]	= snarfreg(igfx, 0x64020);
+		igfx->dp[0].auxdat[4]	= snarfreg(igfx, 0x64024);
+
+		/* pch displayport B,C,D */
+		for(x=1; x<4; x++){
+			igfx->dp[x].auxctl	= snarfreg(igfx, 0xE4010 + 0x100*x);
+			igfx->dp[x].auxdat[0]	= snarfreg(igfx, 0xE4014 + 0x100*x);
+			igfx->dp[x].auxdat[1]	= snarfreg(igfx, 0xE4018 + 0x100*x);
+			igfx->dp[x].auxdat[2]	= snarfreg(igfx, 0xE401C + 0x100*x);
+			igfx->dp[x].auxdat[3]	= snarfreg(igfx, 0xE4020 + 0x100*x);
+			igfx->dp[x].auxdat[4]	= snarfreg(igfx, 0xE4024 + 0x100*x);
+		}
+
+		for(x=0; x<igfx->npipe; x++){
+			if(igfx->type == TypeHSW && x == 3){
+				igfx->pipe[x].pfit = &igfx->pfit[0];
+				continue;
+			}
+			igfx->pfit[x].pwrgate	= snarfreg(igfx, 0x68060 + 0x800*x);
+			igfx->pfit[x].winpos	= snarfreg(igfx, 0x68070 + 0x800*x);
+			igfx->pfit[x].winsize	= snarfreg(igfx, 0x68074 + 0x800*x);
+			igfx->pfit[x].ctrl	= snarfreg(igfx, 0x68080 + 0x800*x);
+
+			y = (igfx->pfit[x].ctrl.v >> 29) & 3;
+			if(igfx->pipe[y].pfit == nil)
+				igfx->pipe[y].pfit = &igfx->pfit[x];
+		}
+
+		igfx->ppstatus		= snarfreg(igfx, 0xC7200);
+		igfx->ppcontrol		= snarfreg(igfx, 0xC7204);
+
 		for(x=0; x<5; x++)
 			igfx->gmbus[x]	= snarfreg(igfx, 0xC5100 + x*4);
 		igfx->gmbus[x]	= snarfreg(igfx, 0xC5120);
 
 		igfx->adpa		= snarfreg(igfx, 0x0E1100);	/* DAC_CTL */
-		igfx->lvds		= snarfreg(igfx, 0x0E1180);	/* LVDS_CTL */
-
 		igfx->vgacntrl		= snarfreg(igfx, 0x041000);
 		break;
 	}
@@ -513,15 +590,26 @@ snarf(Vga* vga, Ctlr* ctlr)
 			for(l = vga->edid[x]->modelist; l != nil; l = l->next)
 				l->attr = mkattr(l->attr, "lcd", "1");
 			break;
+		case PortDPD:
+			if(igfx->type == TypeHSW && igfx->isult)
+				continue;
 		case PortDPA:
 		case PortDPB:
 		case PortDPC:
-		case PortDPD:
 			vga->edid[x] = snarfdpedid(igfx, &igfx->dp[x-PortDPA], 0x50);
 			break;
-		}
-		if(vga->edid[x] == nil)
+		default:
 			continue;
+		}
+
+		if(vga->edid[x] == nil){
+			if(x < PortDPB)
+				continue;
+			vga->edid[x] = snarfgmedid(igfx, x + 1 & ~1 | x >> 1 & 1, 0x50);
+			if(vga->edid[x] == nil)
+				continue;
+			igfx->dp[x-PortDPA].hdmi = 1;
+		}
 		for(l = vga->edid[x]->modelist; l != nil; l = l->next)
 			l->attr = mkattr(l->attr, "display", "%d", x+1);
 	}
@@ -534,6 +622,85 @@ options(Vga* vga, Ctlr* ctlr)
 {
 	USED(vga);
 	ctlr->flag |= Hlinear|Ulinear|Foptions;
+}
+
+enum {
+	Lcpll = 2700,
+	Lcpll2k = Lcpll * 2000,
+};
+
+static int
+wrbudget(int freq)
+{
+	static int b[] = {
+		25175000,0, 25200000,0, 27000000,0, 27027000,0,
+		37762500,0, 37800000,0, 40500000,0, 40541000,0,
+		54000000,0, 54054000,0, 59341000,0, 59400000,0,
+		72000000,0, 74176000,0, 74250000,0, 81000000,0,
+		81081000,0, 89012000,0, 89100000,0, 108000000,0,
+		108108000,0, 111264000,0, 111375000,0, 148352000,0,
+		148500000,0, 162000000,0, 162162000,0, 222525000,0,
+		222750000,0, 296703000,0, 297000000,0, 233500000,1500,
+		245250000,1500, 247750000,1500, 253250000,1500, 298000000,1500,
+		169128000,2000, 169500000,2000, 179500000,2000, 202000000,2000,
+		256250000,4000, 262500000,4000, 270000000,4000, 272500000,4000,
+		273750000,4000, 280750000,4000, 281250000,4000, 286000000,4000,
+		291750000,4000, 267250000,5000, 268500000,5000
+	};
+	int *i;
+
+	for(i=b; i<b+nelem(b); i+=2)
+		if(i[0] == freq)
+			return i[1];
+	return 1000;
+}
+
+static void
+genwrpll(int freq, int *n2, int *p, int *r2)
+{
+	int budget, N2, P, R2;
+	vlong f2k, a, b, c, d, Δ, bestΔ;
+
+	f2k = freq / 100;
+	if(f2k == Lcpll2k){	/* bypass wrpll entirely and use lcpll */
+		*n2 = 2;
+		*p = 1;
+		*r2 = 2;
+		return;
+	}
+	budget = wrbudget(freq);
+	*p = 0;
+	for(R2=Lcpll*2/400+1; R2<=Lcpll*2/48; R2++)
+	for(N2=2400*R2/Lcpll+1; N2<=4800*R2/Lcpll; N2++)
+		for(P=2; P<=64; P+=2){
+			if(*p == 0){
+				*n2 = N2;
+				*p = P;
+				*r2 = R2;
+				continue;
+			}
+			Δ = f2k * P * R2;
+			Δ -= N2 * Lcpll2k;
+			if(Δ < 0)
+				Δ = -Δ;
+			bestΔ = f2k * *p * *r2;
+			bestΔ -= *n2 * Lcpll2k;
+			if(bestΔ < 0)
+				bestΔ = -bestΔ;
+			a = f2k * budget;
+			b = a;
+			a *= P * R2;
+			b *= *p * *r2;
+			c = Δ * MHz;
+			d = bestΔ * MHz;
+			if(a < c && b < d && *p * *r2 * Δ < P * R2 * bestΔ
+			|| a >= c && b < d
+			|| a >= c && b >= d && N2 * *r2 * *r2 > *n2 * R2 * R2){
+				*n2 = N2;
+				*p = P;
+				*r2 = R2;
+			}
+		}
 }
 
 static int
@@ -596,7 +763,7 @@ getcref(Igfx *igfx, int x)
 static int
 initdpll(Igfx *igfx, int x, int freq, int port)
 {
-	int cref, m1, m2, n, p1, p2;
+	int cref, m1, m2, n, n2, p1, p2, r2;
 	Dpll *dpll;
 
 	switch(igfx->type){
@@ -609,7 +776,7 @@ initdpll(Igfx *igfx, int x, int freq, int port)
 	case TypeSNB:
 	case TypeIVB:
 		/* transcoder dpll enable */
-		igfx->dpllsel.v |= 8<<(x*4);
+		igfx->dpllsel[0].v |= 8<<(x*4);
 		/* program rawclock to 125MHz */
 		igfx->rawclkfreq.v = 125;
 
@@ -636,6 +803,33 @@ initdpll(Igfx *igfx, int x, int freq, int port)
 		dpll->ctrl.v &= ~(7<<13);
 		dpll->ctrl.v |= (port == PortLCD ? 3 : 0) << 13;
 		break;
+	case TypeHSW:
+		/* select port clock to pipe */
+		igfx->pipe[x].clksel.v = port+1-PortDPA<<29;
+
+		if(igfx->dp[port-PortDPA].hdmi){
+			/* select port clock */
+			igfx->dpllsel[port-PortDPA].v = 1<<31;	/* WRPLL1 */
+			igfx->pipe[x].dpll = &igfx->dpll[1];
+
+			dpll = igfx->pipe[x].dpll;
+			/* enable pll */
+			dpll->ctrl.v = 1<<31;
+			/* LCPLL 2700 (non scc) reference */
+			dpll->ctrl.v |= 3<<28;
+
+			genwrpll(freq, &n2, &p1, &r2);
+			dpll->ctrl.v |= n2 << 16;
+			dpll->ctrl.v |= p1 << 8;
+			dpll->ctrl.v |= r2;
+		}else{
+			/* select port clock */
+			igfx->dpllsel[port-PortDPA].v = 1<<29;	/* LCPLL 1350 */
+			/* keep preconfigured frequency settings, keep cdclk */
+			dpll = igfx->pipe[x].dpll;
+			dpll->ctrl.v &= ~(1<<31) & ~(1<<28) & ~(1<<26);
+		}
+		return 0;
 	default:
 		return -1;
 	}
@@ -755,7 +949,7 @@ inittrans(Trans *t, Mode *m)
 }
 
 static void
-initpipe(Pipe *p, Mode *m, int bpc)
+initpipe(Igfx *igfx, Pipe *p, Mode *m, int bpc, int port)
 {
 	static uchar bpctab[4] = { 8, 10, 6, 12 };
 	int i, tu, lanes;
@@ -809,13 +1003,44 @@ initpipe(Pipe *p, Mode *m, int bpc)
 		fdi->rxtu[0].v = (tu-1)<<25;
 		fdi->rxtu[1].v = (tu-1)<<25;
 		initdatalinkmn(fdi, m->frequency, 270*MHz, lanes, tu, 3*bpc);
+	}else if(igfx->type == TypeHSW){
+		p->dpctl.v &= 0xf773733e;	/* mbz */
+		/* transcoder enable */
+		p->dpctl.v |= 1<<31;
+		/* DDI select (ignored by eDP) */
+		p->dpctl.v &= ~(7<<28);
+		p->dpctl.v |= (port-PortDPA)<<28;
+		/* displayport SST or hdmi mode */
+		p->dpctl.v &= ~(7<<24);
+		if(!igfx->dp[port-PortDPA].hdmi)
+			p->dpctl.v |= 2<<24;
+		/* sync polarity */
+		p->dpctl.v |= 3<<16;
+		if(m->hsync == '-')
+			p->dpctl.v ^= 1<<16;
+		if(m->vsync == '-')
+			p->dpctl.v ^= 1<<17;
+		/* eDP input select: always on power well */
+		p->dpctl.v &= ~(7<<12);
+		/* dp port width */
+		if(igfx->dp[port-PortDPA].hdmi)
+			lanes = 4;
+		else{
+			p->dpctl.v &= ~(7<<1);
+			p->dpctl.v |= lanes-1 << 1;
+		}
 	}
 
 	/* bits per color for cpu pipe */
 	for(i=0; i<nelem(bpctab); i++){
 		if(bpctab[i] == bpc){
-			p->conf.v &= ~(7<<5);
-			p->conf.v |= i<<5;
+			if(igfx->type == TypeHSW){
+				p->dpctl.v &= ~(7<<20);
+				p->dpctl.v |= i<<20;
+			}else{
+				p->conf.v &= ~(7<<5);
+				p->conf.v |= i<<5;
+			}
 			break;
 		}
 	}
@@ -825,7 +1050,7 @@ initpipe(Pipe *p, Mode *m, int bpc)
 static void
 init(Vga* vga, Ctlr* ctlr)
 {
-	int x, port, bpc;
+	int x, nl, port, bpc;
 	char *val;
 	Igfx *igfx;
 	Pipe *p;
@@ -844,29 +1069,44 @@ init(Vga* vga, Ctlr* ctlr)
 	igfx->vgacntrl.v |= (1<<31);
 
 	/* disable all pipes and ports */
-	igfx->ppcontrol.v &= 0xFFFF;
-	igfx->ppcontrol.v &= ~5;
+	igfx->ppcontrol.v &= 10;	/* 15:4 mbz; unset 5<<0 */
 	igfx->lvds.v &= ~(1<<31);
 	igfx->adpa.v &= ~(1<<31);
 	if(igfx->type == TypeG45)
 		igfx->adpa.v |= (3<<10);	/* Monitor DPMS: off */
-	for(x=0; x<nelem(igfx->dp); x++)
+	if(igfx->type == TypeHSW){
+		for(x=1; x<nelem(igfx->dpll); x++)
+			igfx->dpll[x].ctrl.v &= ~(1<<31);
+		for(x=0; x<nelem(igfx->dpllsel); x++)
+			igfx->dpllsel[x].v = 7<<29;
+	}
+	for(x=0; x<nelem(igfx->dp); x++){
 		igfx->dp[x].ctl.v &= ~(1<<31);
+		igfx->dp[x].bufctl.v &= ~(1<<31);
+	}
 	for(x=0; x<nelem(igfx->hdmi); x++)
 		igfx->hdmi[x].ctl.v &= ~(1<<31);
 	for(x=0; x<igfx->npipe; x++){
 		/* disable displayport transcoders */
 		igfx->pipe[x].dpctl.v &= ~(1<<31);
-		igfx->pipe[x].dpctl.v |= (3<<29);
 		igfx->pipe[x].fdi->dpctl.v &= ~(1<<31);
-		igfx->pipe[x].fdi->dpctl.v |= (3<<29);
+		if(igfx->type == TypeHSW){
+			igfx->pipe[x].dpctl.v &= ~(7<<28);
+			igfx->pipe[x].fdi->dpctl.v &= ~(7<<28);
+		}else{
+			igfx->pipe[x].dpctl.v |= (3<<29);
+			igfx->pipe[x].fdi->dpctl.v |= (3<<29);
+		}
 		/* disable transcoder/pipe */
 		igfx->pipe[x].conf.v &= ~(1<<31);
+		igfx->pipe[x].fdi->conf.v &= ~(1<<31);
 	}
 
-	if((val = dbattr(m->attr, "display")) != nil)
+	if((val = dbattr(m->attr, "display")) != nil){
 		port = atoi(val)-1;
-	else if(dbattr(m->attr, "lcd") != nil)
+		if(igfx->type == TypeHSW && !igfx->dp[port-PortDPA].hdmi)
+			bpc = 6;
+	}else if(dbattr(m->attr, "lcd") != nil)
 		port = PortLCD;
 	else
 		port = PortVGA;
@@ -880,6 +1120,8 @@ init(Vga* vga, Ctlr* ctlr)
 		break;
 
 	case PortVGA:
+		if(igfx->type == TypeHSW)	/* unimplemented */
+			goto Badport;
 		if(igfx->type == TypeG45)
 			x = (igfx->adpa.v >> 30) & 1;
 		else
@@ -898,6 +1140,8 @@ init(Vga* vga, Ctlr* ctlr)
 		break;
 
 	case PortLCD:
+		if(igfx->type == TypeHSW)
+			goto Badport;
 		if(igfx->type == TypeG45)
 			x = (igfx->lvds.v >> 30) & 1;
 		else
@@ -922,11 +1166,75 @@ init(Vga* vga, Ctlr* ctlr)
 	case PortDPB:
 	case PortDPC:
 	case PortDPD:
+	case PortDPE:
 		r = &igfx->dp[port - PortDPA].ctl;
 		if(r->a == 0)
 			goto Badport;
 		/* port enable */
 		r->v |= 1<<31;
+		/* use PIPE_A for displayport */
+		x = 0;
+
+		if(igfx->type == TypeHSW){
+			if(port == PortDPA){
+				/* only enable panel for eDP */
+				igfx->ppcontrol.v |= 5;
+				/* use eDP pipe */
+				x = 3;
+			}
+
+			/* reserved MBZ */
+			r->v &= ~(7<<28) & ~(1<<26) & ~(63<<19) & ~(3<<16) & ~(15<<11) & ~(1<<7) & ~31;
+			/* displayport SST mode */
+			r->v &= ~(1<<27);
+			/* link not in training, send normal pixels */
+			r->v |= 3<<8;
+			if(igfx->dp[port-PortDPA].hdmi){
+				/* hdmi: do not configure displayport */
+				r->a = 0;
+				r->v &= ~(1<<31);
+			}
+
+			r = &igfx->dp[port - PortDPA].bufctl;
+			/* buffer enable */
+			r->v |= 1<<31;
+			/* reserved MBZ */
+			r->v &= ~(7<<28) & ~(127<<17) & ~(255<<8) & ~(3<<5);
+			/* grab lanes shared with port e when using port a */
+			if(port == PortDPA)
+				r->v |= 1<<4;
+			else if(port == PortDPE)
+				igfx->dp[0].bufctl.v &= ~(1<<4);
+			/* dp port width */
+			r->v &= ~(15<<1);
+			if(!igfx->dp[port-PortDPA].hdmi){
+				nl = needlanes(m->frequency, 270*MHz, 3*bpc);
+				/* x4 unsupported on port e */
+				if(nl > 2 && port == PortDPE)
+					goto Badport;
+				r->v |= nl-1 << 1;
+			}
+			/* port reversal: off */
+			r->v &= ~(1<<16);
+
+			/* buffer translation (vsl/pel) */
+			r = igfx->dp[port - PortDPA].buftrans;
+			r[1].v  = 0x0006000E;	r[0].v  = 0x00FFFFFF;
+			r[3].v  = 0x0005000A;	r[2].v  = 0x00D75FFF;
+			r[5].v  = 0x00040006;	r[4].v  = 0x00C30FFF;
+			r[7].v  = 0x000B0000;	r[6].v  = 0x80AAAFFF;
+			r[9].v  = 0x0005000A;	r[8].v  = 0x00FFFFFF;
+			r[11].v = 0x000C0004;	r[10].v = 0x00D75FFF;
+			r[13].v = 0x000B0000;	r[12].v = 0x80C30FFF;
+			r[15].v = 0x00040006;	r[14].v = 0x00FFFFFF;
+			r[17].v = 0x000B0000;	r[16].v = 0x80D75FFF;
+			r[19].v = 0x00040006;	r[18].v = 0x00FFFFFF;
+			break;
+		}
+
+		if(port == PortDPE)
+			goto Badport;
+
 		/* port width selection */
 		r->v &= ~(7<<19);
 		r->v |= needlanes(m->frequency, 270*MHz, 3*bpc)-1 << 19;
@@ -935,10 +1243,10 @@ init(Vga* vga, Ctlr* ctlr)
 		r->v &= ~(1<<15);
 		/* reserved MBZ */
 		r->v &= ~(15<<11);
-		/* use PIPE_A for displayport */
-		x = 0;
 		/* displayport transcoder */
 		if(port == PortDPA){
+			/* reserved MBZ */
+			r->v &= ~(15<<10);
 			/* pll frequency: 270mhz */
 			r->v &= ~(3<<16);
 			/* pll enable */
@@ -947,6 +1255,8 @@ init(Vga* vga, Ctlr* ctlr)
 			r->v &= ~(3<<29);
 			r->v |= x<<29;
 		} else if(igfx->pipe[x].fdi->dpctl.a != 0){
+			/* reserved MBZ */
+			r->v &= ~(15<<11);
 			/* audio output: disable */
 			r->v &= ~(1<<6);
 			/* transcoder displayport configuration */
@@ -971,6 +1281,8 @@ init(Vga* vga, Ctlr* ctlr)
 	p->dsp->cntr.v = (1<<31) | (6<<26);
 	if(igfx->type == TypeG45)
 		p->dsp->cntr.v |= x<<24;	/* pipe assign */
+	else
+		p->dsp->cntr.v &= ~511;	/* mbz */
 
 	/* stride must be 64 byte aligned */
 	p->dsp->stride.v = m->x * (m->z / 8);
@@ -987,6 +1299,7 @@ init(Vga* vga, Ctlr* ctlr)
 	p->dsp->surf.v = 0;
 	p->dsp->linoff.v = 0;
 	p->dsp->tileoff.v = 0;
+	p->dsp->leftsurf.v = 0;
 
 	/* cursor plane off */
 	p->cur->cntr.v = 0;
@@ -998,7 +1311,7 @@ init(Vga* vga, Ctlr* ctlr)
 	if(initdpll(igfx, x, m->frequency, port) < 0)
 		error("%s: frequency %d out of range\n", ctlr->name, m->frequency);
 
-	initpipe(p, m, bpc);
+	initpipe(igfx, p, m, bpc, port);
 
 	ctlr->flag |= Finit;
 }
@@ -1007,6 +1320,9 @@ static void
 loadtrans(Igfx *igfx, Trans *t)
 {
 	int i;
+
+	if(t->conf.a == 0)
+		return;
 
 	/* program trans/pipe timings */
 	loadreg(igfx, t->ht);
@@ -1026,7 +1342,7 @@ loadtrans(Igfx *igfx, Trans *t)
 	loadreg(igfx, t->lm[1]);
 	loadreg(igfx, t->ln[1]);
 
-	if(t->dpll != nil){
+	if(t->dpll != nil && igfx->type != TypeHSW){
 		/* program dpll */
 		t->dpll->ctrl.v &= ~(1<<31);
 		loadreg(igfx, t->dpll->ctrl);
@@ -1065,6 +1381,9 @@ enablepipe(Igfx *igfx, int x)
 	p = &igfx->pipe[x];
 	if((p->conf.v & (1<<31)) == 0)
 		return;	/* pipe is disabled, done */
+
+	/* select pipe clock */
+	loadreg(igfx, p->clksel);
 
 	if(p->fdi->rxctl.a != 0){
 		p->fdi->rxctl.v &= ~(1<<31);
@@ -1107,6 +1426,7 @@ enablepipe(Igfx *igfx, int x)
 	loadreg(igfx, p->dsp->size);
 	loadreg(igfx, p->dsp->pos);
 	loadreg(igfx, p->dsp->surf);	/* arm */
+	loadreg(igfx, p->dsp->leftsurf);
 
 	/* program cursor */
 	loadreg(igfx, p->cur->cntr);
@@ -1192,8 +1512,21 @@ disabletrans(Igfx *igfx, Trans *t)
 {
 	int i;
 
+	/* deselect pipe clock */
+	csr(igfx, t->clksel.a, 7<<29, 0);
+
 	/* disable displayport transcoder */
-	csr(igfx, t->dpctl.a, 1<<31, 3<<29);
+	if(igfx->type == TypeHSW){
+		csr(igfx, t->dpctl.a, 15<<28, 0);
+		csr(igfx, t->ht.a, ~0, 0);
+		csr(igfx, t->hb.a, ~0, 0);
+		csr(igfx, t->hs.a, ~0, 0);
+		csr(igfx, t->vt.a, ~0, 0);
+		csr(igfx, t->vb.a, ~0, 0);
+		csr(igfx, t->vs.a, ~0, 0);
+		csr(igfx, t->vss.a, ~0, 0);
+	}else
+		csr(igfx, t->dpctl.a, 1<<31, 3<<29);
 
 	/* disable transcoder / pipe */
 	csr(igfx, t->conf.a, 1<<31, 0);
@@ -1206,7 +1539,7 @@ disabletrans(Igfx *igfx, Trans *t)
 	csr(igfx, t->chicken.a, 1<<31, 0);
 
 	/* disable dpll  */
-	if(t->dpll != nil)
+	if(igfx->type != TypeHSW && t->dpll != nil)
 		csr(igfx, t->dpll->ctrl.a, 1<<31, 0);
 }
 
@@ -1221,12 +1554,16 @@ disablepipe(Igfx *igfx, int x)
 	csr(igfx, p->dsp->cntr.a, 1<<31, 0);
 	wr(igfx, p->dsp->surf.a, 0);	/* arm */
 	/* cursor off */
-	csr(igfx, p->cur->cntr.a, 1<<5 | 7, 0);
+	if(igfx->type == TypeHSW)
+		csr(igfx, p->cur->cntr.a, 0x3F, 0);
+	else
+		csr(igfx, p->cur->cntr.a, 1<<5 | 7, 0);
 	wr(igfx, p->cur->base.a, 0);	/* arm */
 
 	/* display/overlay/cursor planes off */
 	if(igfx->type == TypeG45)
 		csr(igfx, p->conf.a, 0, 3<<18);
+	csr(igfx, p->src.a, ~0, 0);
 
 	/* disable cpu pipe */
 	disabletrans(igfx, p);
@@ -1243,14 +1580,15 @@ disablepipe(Igfx *igfx, int x)
 	disabletrans(igfx, p->fdi);
 
 	/* disable pch dpll enable bit */
-	csr(igfx, igfx->dpllsel.a, 8<<(x*4), 0);
+	if(igfx->type != TypeHSW)
+		csr(igfx, igfx->dpllsel[0].a, 8<<(x*4), 0);
 }
 
 static void
 load(Vga* vga, Ctlr* ctlr)
 {
 	Igfx *igfx;
-	int x;
+	int x, y;
 
 	igfx = vga->private;
 
@@ -1269,8 +1607,18 @@ load(Vga* vga, Ctlr* ctlr)
 	csr(igfx, igfx->sdvoc.a, (1<<29) | (1<<31), 0);
 	csr(igfx, igfx->adpa.a, 1<<31, 0);
 	csr(igfx, igfx->lvds.a, 1<<31, 0);
-	for(x = 0; x < nelem(igfx->dp); x++)
+	for(x = 0; x < nelem(igfx->dp); x++){
 		csr(igfx, igfx->dp[x].ctl.a, 1<<31, 0);
+		if(igfx->dp[x].bufctl.a != 0){
+			csr(igfx, igfx->dp[x].bufctl.a, 1<<31, 0);
+			/* wait for buffers to return to idle */
+			for(y=0; y<5; y++){
+				sleep(10);
+				if(rr(igfx, igfx->dp[x].bufctl.a) & 1<<7)
+					break;
+			}
+		}
+	}
 	for(x = 0; x < nelem(igfx->hdmi); x++)
 		csr(igfx, igfx->hdmi[x].ctl.a, 1<<31, 0);
 
@@ -1291,16 +1639,31 @@ load(Vga* vga, Ctlr* ctlr)
 		csr(igfx, igfx->pipe[0].conf.a, 0, 3<<18);
 	}
 
+	if(igfx->type == TypeHSW){
+		/* deselect port clock */
+		for(x=0; x<nelem(igfx->dpllsel); x++)
+			csr(igfx, igfx->dpllsel[x].a, 0, 7<<29);
+
+		/* disable dpll's other than LCPLL */
+		for(x=1; x<nelem(igfx->dpll); x++)
+			csr(igfx, igfx->dpll[x].ctrl.a, 1<<31, 0);
+	}
+
 	/* program new clock sources */
 	loadreg(igfx, igfx->rawclkfreq);
 	loadreg(igfx, igfx->drefctl);
+	/* program cpu pll */
+	if(igfx->type == TypeHSW)
+		for(x=0; x<nelem(igfx->dpll); x++)
+			loadreg(igfx, igfx->dpll[x].ctrl);
 	sleep(10);
 
 	/* set lvds before enabling dpll */
 	loadreg(igfx, igfx->lvds);
 
 	/* new dpll setting */
-	loadreg(igfx, igfx->dpllsel);
+	for(x=0; x<nelem(igfx->dpllsel); x++)
+		loadreg(igfx, igfx->dpllsel[x]);
 
 	/* program all pipes */
 	for(x = 0; x < igfx->npipe; x++)
@@ -1314,6 +1677,9 @@ load(Vga* vga, Ctlr* ctlr)
 	loadreg(igfx, igfx->sdvob);
 	loadreg(igfx, igfx->sdvoc);
 	for(x = 0; x < nelem(igfx->dp); x++){
+		for(y=0; y<nelem(igfx->dp[x].buftrans); y++)
+			loadreg(igfx, igfx->dp[x].buftrans[y]);
+		loadreg(igfx, igfx->dp[x].bufctl);
 		if(enabledp(igfx, &igfx->dp[x]) < 0)
 			ctlr->flag |= Ferror;
 	}
@@ -1403,6 +1769,7 @@ dumptrans(char *name, Trans *t)
 	dumpreg(name, "vss", t->vss);
 
 	dumpreg(name, "dpctl", t->dpctl);
+	dumpreg(name, "clksel", t->clksel);
 }
 
 static void
@@ -1431,6 +1798,7 @@ dumppipe(Igfx *igfx, int x)
 	dumpreg(name, "stride", p->dsp->stride);
 	dumpreg(name, "surf", p->dsp->surf);
 	dumpreg(name, "tileoff", p->dsp->tileoff);
+	dumpreg(name, "leftsurf", p->dsp->leftsurf);
 	dumpreg(name, "pos", p->dsp->pos);
 	dumpreg(name, "size", p->dsp->size);
 
@@ -1455,6 +1823,9 @@ dumpdpll(Igfx *igfx, int x)
 	dumpreg(name, "ctrl", dpll->ctrl);
 	dumpreg(name, "fp0", dpll->fp0);
 	dumpreg(name, "fp1", dpll->fp1);
+
+	if(igfx->type == TypeHSW)
+		return;
 
 	p2 = ((dpll->ctrl.v >> 13) & 3) == 3 ? 14 : 10;
 	if(((dpll->ctrl.v >> 24) & 3) == 1)
@@ -1493,7 +1864,7 @@ dump(Vga* vga, Ctlr* ctlr)
 {
 	char name[32];
 	Igfx *igfx;
-	int x;
+	int x, y;
 
 	if((igfx = vga->private) == nil)
 		return;
@@ -1504,7 +1875,10 @@ dump(Vga* vga, Ctlr* ctlr)
 	for(x=0; x<nelem(igfx->dpll); x++)
 		dumpdpll(igfx, x);
 
-	dumpreg(ctlr->name, "dpllsel", igfx->dpllsel);
+	for(x=0; x<nelem(igfx->dpllsel); x++){
+		snprint(name, sizeof(name), "%s dpllsel %c", ctlr->name, 'a'+x);
+		dumpreg(name, "dpllsel", igfx->dpllsel[x]);
+	}
 
 	dumpreg(ctlr->name, "drefctl", igfx->drefctl);
 	dumpreg(ctlr->name, "rawclkfreq", igfx->rawclkfreq);
@@ -1515,7 +1889,13 @@ dump(Vga* vga, Ctlr* ctlr)
 			continue;
 		snprint(name, sizeof(name), "%s dp %c", ctlr->name, 'a'+x);
 		dumpreg(name, "ctl", igfx->dp[x].ctl);
+		dumpreg(name, "bufctl", igfx->dp[x].bufctl);
+		dumpreg(name, "stat", igfx->dp[x].stat);
 		dumphex(name, "dpcd", igfx->dp[x].dpcd, sizeof(igfx->dp[x].dpcd));
+		for(y=0; y<nelem(igfx->dp[x].buftrans); y++){
+			snprint(name, sizeof(name), "%s buftrans %c %d", ctlr->name, 'a'+x, y);
+			dumpreg(name, "ctl", igfx->dp[x].buftrans[y]);
+		}
 	}
 	for(x=0; x<nelem(igfx->hdmi); x++){
 		snprint(name, sizeof(name), "%s hdmi %c", ctlr->name, 'a'+x);
@@ -1645,7 +2025,9 @@ dpauxtra(Igfx *igfx, Dp *dp, int cmd, int addr, uchar *data, int len)
 	if(data != nil && len > 0){
 		if((cmd & CmdRead) == 0)
 			memmove(buf+4, data, len);
-		r = 4 + len;
+		r = 4;
+		if((cmd & CmdRead) == 0)
+			r += len;
 	}
 	if((r = dpauxio(igfx, dp, buf, r)) < 0){
 		trace("%s: dpauxio: dp %c, cmd %x, addr %x, len %d: %r\n",
@@ -1682,15 +2064,21 @@ static int
 enabledp(Igfx *igfx, Dp *dp)
 {
 	int try, r;
+	u32int w;
 
 	if(dp->ctl.a == 0)
 		return 0;
 	if((dp->ctl.v & (1<<31)) == 0)
 		return 0;
 
+	/* FIXME: always times out */
+	if(igfx->type == TypeHSW && dp == &igfx->dp[0])
+		goto Skip;
+
 	/* Link configuration */
 	wdpaux(igfx, dp, 0x100, (270*MHz) / 27000000);
-	wdpaux(igfx, dp, 0x101, ((dp->ctl.v>>19)&7)+1);
+	w = dp->ctl.v >> (igfx->type == TypeHSW ? 1 : 19) & 7;
+	wdpaux(igfx, dp, 0x101, w+1);
 
 	r = 0;
 
@@ -1727,6 +2115,19 @@ enabledp(Igfx *igfx, Dp *dp)
 	}
 	trace("pattern2 finished: %x\n", r);
 
+	if(igfx->type == TypeHSW){
+		/* set link training to idle pattern and wait for 5 idle
+		 * patterns */
+		dp->ctl.v &= ~(7<<8);
+		dp->ctl.v |= 2<<8;
+		loadreg(igfx, dp->ctl);
+		for(try=0; try<10; try++){
+			sleep(10);
+			if(rr(igfx, dp->stat.a) & (1<<25))
+				break;
+		}
+	}
+Skip:
 	/* stop training */
 	dp->ctl.v &= ~(7<<8);
 	dp->ctl.v |= 3<<8;
@@ -1768,6 +2169,7 @@ snarfdpedid(Igfx *igfx, Dp *dp, int addr)
 {
 	uchar buf[256];
 	int i;
+	Edid *e;
 
 	for(i=0; i<sizeof(dp->dpcd); i+=16)
 		if(dpauxtra(igfx, dp, CmdNative|CmdRead, i, dp->dpcd+i, 16) != 16)
@@ -1795,7 +2197,9 @@ snarfdpedid(Igfx *igfx, Dp *dp, int addr)
 
 	dpauxtra(igfx, dp, CmdRead, addr, nil, 0);
 
-	return parseedid128(edidshift(buf));
+	if((e = parseedid128(edidshift(buf))) == nil)
+		trace("%s: snarfdpedid: dp %c: %r\n", igfx->ctlr->name, 'a'+(int)(dp - &igfx->dp[0]));
+	return e;
 }
 
 enum {
