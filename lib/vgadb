@@ -367,11 +367,6 @@ ctlr
 	link=vga
 	ctlr=3dfx linear=1
 	hwgc=3dfxhwgc
-ctlr
-	vid=0x10DE did=*			# NVidia cards all talk the same
-	link=vga
-	ctlr=nvidia linear=1
-	hwgc=nvidiahwgc
 
 ctlr
 	vid=0x15AD did=0x0710		# VMware 1
@@ -437,6 +432,8 @@ ctlr
 ctlr
 	vid=0x8086 did=0x0166	# Intel 3rd Gen Core
 	vid=0x8086 did=0x2a42	# Intel 4 Series Mobile
+	vid=0x8086 did=0x0a16	# Intel 4th Gen Core (HD 4400)
+	vid=0x8086 did=0x0412	# Intel 4th Gen Core (HD 4600)
 	link=vga
 	hwgc=igfxhwgc
 	ctlr=igfx linear=1
@@ -446,6 +443,11 @@ ctlr
 	vid=0x8086 did=0x2a02	# Intel GM965/GL960/X3100 (hardware cursor broken)
 	link=vga
 	ctlr=igfx linear=1
+ctlr
+	vid=0x10DE did=*			# NVidia cards all talk the same
+	link=vga
+	ctlr=nvidia linear=1
+	hwgc=nvidiahwgc
 
 #
 # mode:
