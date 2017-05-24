@@ -371,6 +371,11 @@ static Optable optab0FC7[8]=
 [0x07]	0,0,		"VMPTRST	%e",
 };
 
+static Optable optab660F38[256] = {
+[0x80]	RM,0,		"INVEPT %r,%e",
+[0x81]	RM,0,		"INVVPID %r,%e",
+};
+
 static Optable optab660F71[8]=
 {
 [0x02]	Ib,0,		"PSRLW	%i,%X",
@@ -398,6 +403,7 @@ static Optable optab660F[256]=
 [0x2B]	RM,0,		"MOVNTPD	%x,%e",
 [0x2E]	RM,0,		"UCOMISD	%x,%X",
 [0x2F]	RM,0,		"COMISD	%x,%X",
+[0x38]	AUX,0,		optab660F38,
 [0x5A]	RM,0,		"CVTPD2PS	%x,%X",
 [0x5B]	RM,0,		"CVTPS2PL	%x,%X",
 [0x6A]	RM,0,		"PUNPCKHLQ %x,%X",
