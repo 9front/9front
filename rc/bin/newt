@@ -6,6 +6,8 @@ ramfs
 argv0=$0
 if(~ $#editor 0)
 	editor=hold
+if(~ $#pager 0)
+	pager=cat
 group=alt/test
 maxposts=30
 mnt=/mnt/news
@@ -97,7 +99,8 @@ fn k{
 	f $mnt/$* |
 		grep -v -e '\/([0-9]+|article|body|header|post|xover)$' |
 		sed 's/^'$"kmnt'\//  g	/g' |
-		sort
+		sort |
+		eval $pager
 }
 fn nshift{ shift; echo $* }
 fn printhelp{
@@ -121,14 +124,14 @@ y		synchronize message list with server
 ||cmd		pipe raw message to a command
 ?		print debug information'
 }
-fn p{
+fn np{
 	if(test $1 -le $#rposts && test -f $mnt/$group/$rposts($1)^/body){
 		{ # don't stutter
 			grep -e '(^From|^Newsgroups|^Subject|^Date)' $rposts($1)^/header
 			echo
 			cat $rposts($1)^/body
 		} >/tmp/p
-		cat /tmp/p
+		eval $pager /tmp/p
 	}
 	echo
 	go=1
@@ -138,7 +141,7 @@ fn p{
 }
 fn P{
 	if(test $1 -le $#rposts && test -f $mnt/$group/$rposts($1)^/article)
-		cat $rposts($1)^/article
+		eval $pager $rposts($1)^/article
 	echo
 	go=1
 	r=$1
@@ -262,10 +265,11 @@ while(){
 		k `{nshift $cmd | sed 's/\./\//g'}
 	case kf' '*
 		grep -e `{nshift $cmd} $home/lib/newsgroups |
-			sed 's/^/  g	/g'
+			sed 's/^/  g	/g' |
+			eval $pager
 	case p
 		for(i in $r)
-			p $i
+			np $i
 	case P
 		for(i in $r)
 			P $i
@@ -291,6 +295,8 @@ while(){
 		cmd=`{echo $"cmd | sed 's/^\|//g'}
 		cat $mnt/$group/^$rposts($post)^/body | eval $cmd
 	case '?'
+		echo editor: $editor
+		echo pager: $pager
 		echo mnt: $mnt
 		echo group: $group
 		echo maxposts: $maxposts
@@ -302,12 +308,12 @@ while(){
 		echo r: $r
 	case *
 		if(~ $post $posts(1) && ~ $#go 0)
-			p $post
+			np $post
 		if not if(! ~ $post $posts($#posts)){
 			post=`{echo $post^+1 | bc}
 			if(test $post -gt $posts($#posts))
 				post=$posts($#posts)
-			p $post
+			np $post
 		}
 	}	
 }
