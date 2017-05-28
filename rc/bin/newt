@@ -122,6 +122,7 @@ y		synchronize message list with server
 "		print message in quoted form, suitable for reply
 |cmd		pipe message body to a command
 ||cmd		pipe raw message to a command
+!cmd		run a command
 ?		print debug information'
 }
 fn np{
@@ -294,6 +295,8 @@ while(){
 	case '|'*
 		cmd=`{echo $"cmd | sed 's/^\|//g'}
 		cat $mnt/$group/^$rposts($post)^/body | eval $cmd
+	case '!'*
+		eval `{echo $"cmd | sed 's/^\!//g'}
 	case '?'
 		echo editor: $editor
 		echo pager: $pager
