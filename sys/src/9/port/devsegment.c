@@ -337,7 +337,7 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 			error(Ebadctl);
 		free(cb);
 		poperror();
-		break;
+		return n;
 	case Qdata:
 		return segio(g, g->s, a, n, voff, 0);
 	default:
