@@ -554,3 +554,141 @@ Dev etherdevtab = {
 	devremove,
 	etherwstat,
 };
+
+enum { PktHdr = 42 };
+typedef struct Netconsole Netconsole;
+struct Netconsole {
+	char buf[512];
+	int n;
+	Lock;
+	Ether *ether;
+};
+static Netconsole *netcons;
+
+extern ushort ipcsum(uchar *);
+
+void
+netconsputc(Uart *, int c)
+{
+	char *p;
+	u16int cs;
+
+	ilock(netcons);
+	netcons->buf[netcons->n++] = c;
+	if(c != '\n' && netcons->n < sizeof(netcons->buf)){
+		iunlock(netcons);
+		return;
+	}
+	p = netcons->buf;
+	p[16] = netcons->n - 14 >> 8;
+	p[17] = netcons->n - 14;
+	p[24] = 0;
+	p[25] = 0;
+	cs = ipcsum((uchar*) p + 14);
+	p[24] = cs >> 8;
+	p[25] = cs;
+	p[38] = netcons->n - 34 >> 8;
+	p[39] = netcons->n - 34;
+	memmove(p+Eaddrlen, netcons->ether->ea, Eaddrlen);
+	qiwrite(netcons->ether->oq, p, netcons->n);
+	netcons->n = PktHdr;
+	iunlock(netcons);
+	if(netcons->ether->transmit != nil)
+		netcons->ether->transmit(netcons->ether);
+}
+
+PhysUart netconsphys = {
+	.putc = netconsputc,
+};
+Uart netconsuart = { .phys = &netconsphys };
+
+void
+netconsole(void)
+{
+	char *p;
+	char *r;
+	int i;
+	int srcport, devno, dstport;
+	u8int srcip[4], dstip[4];
+	u64int dstmac;
+	Netconsole *nc;
+
+	if((p = getconf("console")) == nil || strncmp(p, "net ", 4) != 0)
+		return;
+	p += 4;
+	for(i = 0; i < 4; i++){
+		srcip[i] = strtol(p, &r, 0);
+		p = r + 1;
+		if(i == 3) break;
+		if(*r != '.') goto err;
+	}
+	if(*r == '!'){
+		srcport = strtol(p, &r, 0);
+		p = r + 1;
+	}else
+		srcport = 6665;
+	if(*r == '/'){
+		devno = strtol(p, &r, 0);
+		p = r + 1;
+	}else
+		devno = 0;
+	if(*r != ',') goto err;
+	for(i = 0; i < 4; i++){
+		dstip[i] = strtol(p, &r, 0);
+		p = r + 1;
+		if(i == 3) break;
+		if(*r != '.') goto err;
+	}
+	if(*r == '!'){
+		dstport = strtol(p, &r, 0);
+		p = r + 1;
+	}else
+		dstport = 6666;
+	if(*r == '/'){
+		dstmac = strtoull(p, &r, 16);
+		if(r - p != 12) goto err;
+	}else
+		dstmac = ((uvlong)-1) >> 16;
+	if(*r != 0) goto err;
+	
+	if(devno >= MaxEther || etherxx[devno] == nil){
+		print("netconsole: no device #l%d\n", devno);
+		return;
+	}
+	
+	nc = malloc(sizeof(Netconsole));
+	if(nc == nil){
+		print("netconsole: out of memory");
+		return;
+	}
+	memset(nc, 0, sizeof(Netconsole));
+	nc->ether = etherxx[devno];
+	
+	uchar header[PktHdr] = {
+		/* 0 */ dstmac >> 40, dstmac >> 32, dstmac >> 24, dstmac >> 16, dstmac >> 8, dstmac >> 0,
+		/* 6 */ 0, 0, 0, 0, 0, 0,
+		/* 12 */ 0x08, 0x00,
+		/* 14 */ 0x45, 0x00,
+		/* 16 */ 0x00, 0x00, /* total length */
+		/* 18 */ 0x00, 0x00, 0x00, 0x00,
+		/* 22 */ 64, /* ttl */
+		/* 23 */ 0x11, /* protocol */
+		/* 24 */ 0x00, 0x00, /* checksum */
+		/* 26 */ srcip[0], srcip[1], srcip[2], srcip[3],
+		/* 30 */ dstip[0], dstip[1], dstip[2], dstip[3],
+		/* 34 */ srcport >> 8, srcport, dstport >> 8, dstport,
+		/* 38 */ 0x00, 0x00, /* length */
+		/* 40 */ 0x00, 0x00 /* checksum */
+	};
+	
+	memmove(nc->buf, header, PktHdr);
+	nc->n = PktHdr;
+	
+	netcons = nc;
+	consuart = &netconsuart;
+	return;
+
+err:
+	print("netconsole: invalid string %#q\n", getconf("console"));
+	print("netconsole: usage: srcip[!srcport][/srcdev],dstip[!dstport][/dstmac]\n");
+}
