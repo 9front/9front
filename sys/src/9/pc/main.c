@@ -164,6 +164,7 @@ main(void)
 	}else
 		links();
 	chandevreset();
+	netconsole();
 	pageinit();
 	swapinit();
 	userinit();
