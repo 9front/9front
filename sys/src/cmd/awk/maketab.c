@@ -133,8 +133,8 @@ void main(int, char**)
 	i = 0;
 	while ((buf = Brdline(fp, '\n')) != nil) {
 		buf[Blinelen(fp)-1] = '\0';
-		tokenize(buf, toks, 3);
-		if (toks[0] == nil || strcmp("#define", toks[0]) != 0)	/* not a valid #define */
+		if (tokenize(buf, toks, 3) != 3
+		|| strcmp("#define", toks[0]) != 0)	/* not a valid #define */
 			continue;
 		tok = strtol(toks[2], nil, 10);
 		if (tok < FIRSTTOKEN || tok > LASTTOKEN) {
