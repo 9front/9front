@@ -248,6 +248,6 @@ if not {
 	tlsclient tcp!$server!$port <>$p/data1 >[1=0] &
 }
 netdir=$p
-cat $netdir/data | tr -d '\x2\xd\x1f' | pretty &
+cat $netdir/data | tr -d '\x2\x8\xd\x1f' | pretty &
 work
 
