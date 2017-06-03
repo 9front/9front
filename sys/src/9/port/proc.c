@@ -14,9 +14,9 @@ void updatecpu(Proc*);
 int reprioritize(Proc*);
 
 ulong	delayedscheds;	/* statistics */
-long skipscheds;
-long preempts;
-ulong load;
+ulong	skipscheds;
+ulong	preempts;
+ulong	load;
 
 static struct Procalloc
 {
