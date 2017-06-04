@@ -254,8 +254,10 @@ while(){
 		if not
 			echo !$ngroup does not exist
 	case h
-		for(i in $r)
-			h $i
+		{
+			for(i in $r)
+				h $i
+		} | eval $pager
 		post=$r($#r)
 		prompt=$post
 	case help
