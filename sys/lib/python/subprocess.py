@@ -991,7 +991,10 @@ class Popen(object):
                 args = list(args)
 
             if shell:
-                args = ["/bin/sh", "-c"] + args
+                if sys.platform == 'plan9':
+                    args = ["/bin/ape/sh", "-c"] + args
+                else:
+                    args = ["/bin/sh", "-c"] + args
 
             if executable is None:
                 executable = args[0]
