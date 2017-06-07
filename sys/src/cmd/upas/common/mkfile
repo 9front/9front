@@ -1,5 +1,4 @@
 </$objtype/mkfile
-<../mkupas
 
 LIB=libcommon.a$O
 OFILES=\
