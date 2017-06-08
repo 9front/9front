@@ -548,7 +548,6 @@ initmach(Machine *m, char *name)
 		int pid;
 
 		snprint(mpt, sizeof mpt, "/n/%s", p);
-		snprint(buf, sizeof buf, "rimport %q / %q || import %q / %q", name, mpt, name, mpt);
 
 		pid = fork();
 		switch(pid){
@@ -556,7 +555,7 @@ initmach(Machine *m, char *name)
 			fprint(2, "can't fork: %r\n");
 			return 0;
 		case 0:
-			execl("/bin/rc", "rc", "-c", buf, nil);
+			execl("/bin/rimport", "rimport", name, "/", mpt, nil);
 			fprint(2, "can't exec: %r\n");
 			exits("exec");
 		}
