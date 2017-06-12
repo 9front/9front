@@ -629,7 +629,7 @@ dumpstack(void)
 }
 
 static void
-debugexc(Ureg *, void *)
+debugexc(Ureg *ureg, void *)
 {
 	u32int dr6, m;
 	char buf[ERRMAX];
@@ -640,12 +640,16 @@ debugexc(Ureg *, void *)
 	if(up == nil)
 		panic("kernel debug exception dr6=%#.8ux", dr6);
 	putdr6(up->dr[6]);
+	if(userureg(ureg))
+		qlock(&up->debug);
+	else if(!canqlock(&up->debug))
+		return;
 	m = up->dr[7];
 	m = (m >> 4 | m >> 3) & 8 | (m >> 3 | m >> 2) & 4 | (m >> 2 | m >> 1) & 2 | (m >> 1 | m) & 1;
 	m &= dr6;
 	if(m == 0){
 		sprint(buf, "sys: debug exception dr6=%#.8ux", dr6);
-		postnote(up, 1, buf, NDebug);
+		postnote(up, 0, buf, NDebug);
 	}else{
 		p = buf;
 		e = buf + sizeof(buf);
@@ -653,8 +657,9 @@ debugexc(Ureg *, void *)
 		for(i = 0; i < 4; i++)
 			if((m & 1<<i) != 0)
 				p = seprint(p, e, "%d%s", i, (m >> i + 1 != 0) ? "," : "");
-		postnote(up, 1, buf, NDebug);
+		postnote(up, 0, buf, NDebug);
 	}
+	qunlock(&up->debug);
 }
 
 static void

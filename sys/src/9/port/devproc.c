@@ -820,9 +820,9 @@ writewatchpt(Proc *pr, char *buf, int nbuf, uvlong offset)
 		if(f[1] == q || *q != 0 || x != (uintptr) x) error("invalid address");
 		wq->addr = x;
 		x = strtoull(f[2], &q, 0);
-		if(f[2] == q || *q != 0 || x != (uintptr) x) error("invalid length");
+		if(f[2] == q || *q != 0 || x > (uintptr)-wq->addr) error("invalid length");
 		wq->len = x;
-		if(!okaddr(wq->addr, wq->len, 0)) error("bad address");
+		if(wq->addr + wq->len > USTKTOP) error("bad address");
 		wq++;
 	}
 	nwp = wq - (wp + nwp0);

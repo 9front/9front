@@ -877,6 +877,133 @@ TEXT putdr7(SB), $0
 	MOVL	AX, DR7
 	RET
 
+/* VMX instructions */
+TEXT vmxon(SB), $0
+	/* VMXON 4(SP) */
+	BYTE	$0xf3; BYTE $0x0f; BYTE $0xc7; BYTE $0x74; BYTE $0x24; BYTE $0x04
+	JMP	_vmout
+
+TEXT vmxoff(SB), $0
+	BYTE	$0x0f; BYTE $0x01; BYTE $0xc4
+	JMP	_vmout
+
+TEXT vmclear(SB), $0
+	/* VMCLEAR 4(SP) */
+	BYTE	$0x66; BYTE $0x0f; BYTE $0xc7; BYTE $0x74; BYTE $0x24; BYTE $0x04
+	JMP	_vmout
+
+TEXT vmlaunch(SB), $0
+	PUSHFL
+	CLI
+	
+	MOVL	$0x6C14, DI
+	MOVL	SP, DX
+	BYTE	$0x0f; BYTE $0x79; BYTE $0xfa /* VMWRITE DX, DI */
+	JBE	_launchout
+	MOVL	$0x6C16, DI
+	MOVL	$vmrestore+1(SB), DX /* add 1 to skip extra PUSHFL */
+	BYTE	$0x0f; BYTE $0x79; BYTE $0xfa /* VMWRITE DX, DI */
+	JBE	_launchout
+	
+	FPON
+	MOVL	fp+8(FP), AX
+	FXRSTOR	0(AX)
+	
+	MOVL	resume+4(FP), AX
+	TESTL	AX, AX
+	MOVL	ureg+0(FP), DI
+	MOVL	32(DI), AX
+	MOVL	AX, CR2
+	MOVL	4(DI), SI
+	MOVL	8(DI), BP
+	MOVL	16(DI), BX
+	MOVL	20(DI), DX
+	MOVL	24(DI), CX
+	MOVL	28(DI), AX
+	MOVL	0(DI), DI
+	JNE	_vmresume
+	BYTE	$0x0f; BYTE $0x01; BYTE	$0xc2 /* VMLAUNCH	*/
+	JMP	_launchout
+_vmresume:
+	BYTE	$0x0f; BYTE $0x01; BYTE $0xc3 /* VMRESUME	*/
+_launchout:
+	JC	_launchout1
+	JZ	_launchout2
+	XORL	AX, AX
+_launchret:
+	FPOFF
+	POPFL
+	RET
+_launchout1:
+	MOVL	$-1, AX
+	JMP	_launchret
+_launchout2:
+	MOVL	$-2, AX
+	JMP	_launchret
+
+TEXT vmrestore(SB), $0
+	PUSHFL /* stupid hack to make 8l happy; nexer executed */
+	PUSHL	DI
+	MOVL	ureg+0(FP), DI
+	POPL	0(DI)
+	MOVL	SI, 4(DI)
+	MOVL	BP, 8(DI)
+	MOVL	BX, 16(DI)
+	MOVL	DX, 20(DI)
+	MOVL	CX, 24(DI)
+	MOVL	AX, 28(DI)
+	MOVL	CR2, AX
+	MOVL	AX, 32(DI)
+	MOVL	fp+8(FP), AX
+	FXSAVE	0(AX)
+	FPOFF
+	XORL	AX, AX
+	POPFL
+	RET
+
+TEXT vmptrld(SB), $0
+	/* VMPTRLD 4(SP) */
+	BYTE $0x0f; BYTE $0xc7; BYTE $0x74; BYTE $0x24; BYTE $0x04
+	JMP _vmout
+
+TEXT vmwrite(SB), $0
+	MOVL addr+0(FP),DI
+	MOVL val+4(FP),DX
+	/* VMWRITE DX, DI */
+	BYTE $0x0f; BYTE $0x79; BYTE $0xfa
+	JMP _vmout
+
+TEXT vmread(SB), $0
+	MOVL addr+0(FP),DI
+	MOVL valp+4(FP),SI
+	/* VMREAD (SI), DI */
+	BYTE $0x0f; BYTE $0x78; BYTE $0x3e
+	JMP _vmout
+
+TEXT invept(SB), $0
+	MOVL type+0(FP), AX
+	/* INVEPT AX, 8(SP) */
+	BYTE $0x66; BYTE $0x0f; BYTE $0x38; BYTE $0x80; BYTE $0x44; BYTE $0x24; BYTE $0x08
+	JMP _vmout
+
+TEXT invvpid(SB), $0
+	MOVL type+0(FP), AX
+	/* INVVPID AX, 8(SP) */
+	BYTE $0x66; BYTE $0x0f; BYTE $0x38; BYTE $0x81; BYTE $0x44; BYTE $0x24; BYTE $0x08
+	JMP _vmout
+
+_vmout:
+	JC _vmout1
+	JZ _vmout2
+	XORL AX, AX
+	RET
+_vmout1:
+	MOVL $-1, AX
+	RET
+_vmout2:
+	MOVL $-2, AX
+	RET
+
 /*
  *  Used to get to the first process:
  * 	set up an interrupt return frame and IRET to user level.
