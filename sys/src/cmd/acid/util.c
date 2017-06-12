@@ -189,6 +189,7 @@ loadvars(void)
 
 	l = mkvar("proclist");		/* Attached processes */
 	l->v->type = TLIST;
+	l->v->set = 1;
 }
 
 uvlong
