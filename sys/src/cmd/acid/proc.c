@@ -189,6 +189,8 @@ install(int pid)
 	l->next = s->v->l;
 	s->v->l = l;
 	s->v->set = 1;
+	
+	callhook("procattach");
 }
 
 void

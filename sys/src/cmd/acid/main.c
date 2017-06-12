@@ -178,6 +178,8 @@ die(void)
 
 	Bprint(bout, "\n");
 
+	if(setjmp(err) == 0)
+		callhook("dying");
 	s = look("proclist");
 	if(s && s->v->type == TLIST) {
 		for(f = s->v->l; f; f = f->next)
@@ -196,11 +198,26 @@ loadmoduleobjtype(void)
 	free(buf);
 }
 
-void
-userinit(void)
+int
+callhook(char *name)
 {
 	Lsym *l;
 	Node *n;
+
+	l = look(name);
+	if(l && l->proc) {
+		n = an(ONAME, ZN, ZN);
+		n->sym = l;
+		n = an(OCALL, n, ZN);
+		execute(n);
+		return 0;
+	}
+	return -1;
+}
+
+void
+userinit(void)
+{
 	char *buf, *p;
 
 	p = getenv("home");
@@ -216,13 +233,7 @@ userinit(void)
 		unwind();
 		return;
 	}
-	l = look("acidinit");
-	if(l && l->proc) {
-		n = an(ONAME, ZN, ZN);
-		n->sym = l;
-		n = an(OCALL, n, ZN);
-		execute(n);
-	}
+	callhook("acidinit");
 }
 
 void

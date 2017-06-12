@@ -178,6 +178,7 @@ void	append(Node*, Node*, Node*);
 int	bool(Node*);
 void	build(Node*);
 void	call(char*, Node*, Node*, Node*, Node*);
+int	callhook(char*);
 void	catcher(void*, char*);
 void	checkqid(int, int);
 void	cmd(void);
