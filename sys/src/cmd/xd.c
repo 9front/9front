@@ -58,6 +58,13 @@ char *afmt[2][3] = {
 Biobuf	bin;
 Biobuf	bout;
 
+int
+flushout(Biobufhdr *bp, void *v, long n)
+{
+	Bflush(&bout);
+	return read(bp->fid, v, n);
+}
+
 void
 main(int argc, char *argv[])
 {
@@ -206,6 +213,7 @@ xd(char *name, int title)
 		bp = &bin;
 		Binit(bp, fd, OREAD);
 	}
+	if(flush) Biofn(bp, flushout);
 	Blethal(bp, nil);
 	if(title)
 		xprint("%s\n", name);
@@ -237,15 +245,11 @@ xd(char *name, int title)
 			xprint(ap->afmt, addr);
 			(*ap->fn)(ap->fmt);
 			xprint("\n", 0);
-			if(flush)
-				Bflush(&bout);
 		}
 		addr += ndata;
 		if(ndata<16){
 			xprint(afmt[0][abase], addr);
 			xprint("\n", 0);
-			if(flush)
-				Bflush(&bout);
 			break;
 		}
 	}
