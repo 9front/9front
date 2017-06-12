@@ -4,6 +4,7 @@
 #define X86FAMILY(x)	((((x)>>8) & 0x0F) | (((x)>>20) & 0xFF)<<4)
 
 enum {
+	VectorDE	= 1,		/* debug exception */
 	VectorNMI	= 2,		/* non-maskable interrupt */
 	VectorBPT	= 3,		/* breakpoint */
 	VectorUD	= 6,		/* invalid opcode exception */

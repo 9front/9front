@@ -1209,6 +1209,10 @@ pexit(char *exitstr, int freemem)
 		free(up->syscalltrace);
 		up->syscalltrace = nil;
 	}
+	if(up->watchpt != nil){
+		free(up->watchpt);
+		up->watchpt = nil;
+	}
 	qunlock(&up->debug);
 
 	/* Sched must not loop for these locks */

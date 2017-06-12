@@ -49,6 +49,9 @@ enum {				/* cpuid standard function codes */
 	Procsig,
 	Proctlbcache,
 	Procserial,
+	
+	Highextfunc = 0x80000000,
+	Procextfeat,
 };
 
 typedef long Rdwrfn(Chan*, void*, long, vlong);
@@ -874,6 +877,23 @@ cpuidentify(void)
 		hwrandbuf = rdrandbuf;
 	else
 		hwrandbuf = nil;
+	
+	/* 8-byte watchpoints are supported in Long Mode */
+	if(sizeof(uintptr) == 8)
+		m->havewatchpt8 = 1;
+	else if(strcmp(m->cpuidid, "GenuineIntel") == 0){
+		/* some random CPUs that support 8-byte watchpoints */
+		if(family == 15 && (model == 3 || model == 4 || model == 6)
+		|| family == 6 && (model == 15 || model == 23 || model == 28))
+			m->havewatchpt8 = 1;
+		/* Intel SDM claims amd64 support implies 8-byte watchpoint support */
+		cpuid(Highextfunc, regs);
+		if(regs[0] >= Procextfeat){
+			cpuid(Procextfeat, regs);
+			if((regs[3] & 1<<29) != 0)
+				m->havewatchpt8 = 1;
+		}
+	}
 
 	cputype = t;
 	return t->family;
@@ -1227,5 +1247,63 @@ dumpmcregs(void)
 			iprint(" MISC %.16llux", w);
 		}
 		iprint("\n");
+	}
+}
+
+void
+setupwatchpts(Proc *pr, Watchpt *wp, int nwp)
+{
+	int i;
+	u8int cfg;
+	Watchpt *p;
+
+	if(nwp > 4)
+		error("there are four watchpoints.");
+	if(nwp == 0){
+		memset(pr->dr, 0, sizeof(pr->dr));
+		return;
+	}
+	for(p = wp; p < wp + nwp; p++){
+		switch(p->type){
+		case WATCHRD|WATCHWR: case WATCHWR:
+			break;
+		case WATCHEX:
+			if(p->len != 1)
+				error("length must be 1 on breakpoints");
+			break;
+		default:
+			error("type must be rw-, -w- or --x");
+		}
+		switch(p->len){
+		case 1: case 2: case 4:
+			break;
+		case 8:
+			if(m->havewatchpt8) break;
+		default:
+			error(m->havewatchpt8 ? "length must be 1,2,4,8" : "length must be 1,2,4");
+		}
+		if((p->addr & p->len - 1) != 0)
+			error("address must be aligned according to length");
+	}
+	
+	memset(pr->dr, 0, sizeof(pr->dr));
+	pr->dr[6] = 0xffff8ff0;
+	for(i = 0; i < nwp; i++){
+		pr->dr[i] = wp[i].addr;
+		switch(wp[i].type){
+			case WATCHRD|WATCHWR: cfg = 3; break;
+			case WATCHWR: cfg = 1; break;
+			case WATCHEX: cfg = 0; break;
+			default: continue;
+		}
+		switch(wp[i].len){
+			case 1: break;
+			case 2: cfg |= 4; break;
+			case 4: cfg |= 12; break;
+			case 8: cfg |= 8; break;
+			default: continue;
+		}
+		pr->dr[7] |= cfg << 16 + 4 * i;
+		pr->dr[7] |= 1 << 2 * i + 1;
 	}
 }

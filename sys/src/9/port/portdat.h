@@ -49,6 +49,7 @@ typedef struct Timers	Timers;
 typedef struct Uart	Uart;
 typedef struct Waitq	Waitq;
 typedef struct Walkqid	Walkqid;
+typedef struct Watchpt	Watchpt;
 typedef struct Watchdog	Watchdog;
 typedef int    Devgen(Chan*, char*, Dirtab*, int, int, Dir*);
 
@@ -772,6 +773,9 @@ struct Proc
 	PMMU;
 
 	char	*syscalltrace;	/* syscall trace */
+	
+	Watchpt	*watchpt; /* watchpoints */
+	int nwatchpt;
 };
 
 enum
@@ -960,6 +964,16 @@ struct Watchdog
 	void	(*disable)(void);	/* watchdog disable */
 	void	(*restart)(void);	/* watchdog restart */
 	void	(*stat)(char*, char*);	/* watchdog statistics */
+};
+
+struct Watchpt
+{
+	enum {
+		WATCHRD = 1,
+		WATCHWR = 2,
+		WATCHEX = 4,
+	} type;
+	uintptr addr, len;
 };
 
 

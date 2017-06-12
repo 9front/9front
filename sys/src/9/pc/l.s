@@ -845,6 +845,38 @@ _rndbytes:
 _rnddone:
 	RET
 
+/* debug register access */
+
+TEXT putdr(SB), $0
+	MOVL	p+0(FP), SI
+	MOVL	28(SI), AX
+	MOVL	AX, DR7
+	MOVL	0(SI), AX
+	MOVL	AX, DR0
+	MOVL	4(SI), AX
+	MOVL	AX, DR1
+	MOVL	8(SI), AX
+	MOVL	AX, DR2
+	MOVL	12(SI), AX
+	MOVL	AX, DR3
+	MOVL	24(SI), AX
+	MOVL	AX, DR6
+	RET
+
+TEXT getdr6(SB), $0
+	MOVL	DR6, AX
+	RET
+
+TEXT putdr6(SB), $0
+	MOVL	p+0(FP), AX
+	MOVL	AX, DR6
+	RET
+	
+TEXT putdr7(SB), $0
+	MOVL	p+0(FP), AX
+	MOVL	AX, DR7
+	RET
+
 /*
  *  Used to get to the first process:
  * 	set up an interrupt return frame and IRET to user level.

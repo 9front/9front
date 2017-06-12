@@ -13,6 +13,7 @@ static int trapinited;
 
 void	noted(Ureg*, ulong);
 
+static void debugexc(Ureg*, void*);
 static void debugbpt(Ureg*, void*);
 static void fault386(Ureg*, void*);
 static void doublefault(Ureg*, void*);
@@ -222,6 +223,7 @@ trapinit(void)
 	 * Special traps.
 	 * Syscall() is called directly without going through trap().
 	 */
+	trapenable(VectorDE, debugexc, 0, "debugexc");
 	trapenable(VectorBPT, debugbpt, 0, "debugpt");
 	trapenable(VectorPF, fault386, 0, "fault386");
 	trapenable(Vector2F, doublefault, 0, "doublefault");
@@ -624,6 +626,35 @@ void
 dumpstack(void)
 {
 	callwithureg(_dumpstack);
+}
+
+static void
+debugexc(Ureg *, void *)
+{
+	u32int dr6, m;
+	char buf[ERRMAX];
+	char *p, *e;
+	int i;
+
+	dr6 = getdr6();
+	if(up == nil)
+		panic("kernel debug exception dr6=%#.8ux", dr6);
+	putdr6(up->dr[6]);
+	m = up->dr[7];
+	m = (m >> 4 | m >> 3) & 8 | (m >> 3 | m >> 2) & 4 | (m >> 2 | m >> 1) & 2 | (m >> 1 | m) & 1;
+	m &= dr6;
+	if(m == 0){
+		sprint(buf, "sys: debug exception dr6=%#.8ux", dr6);
+		postnote(up, 1, buf, NDebug);
+	}else{
+		p = buf;
+		e = buf + sizeof(buf);
+		p = seprint(p, e, "sys: watchpoint ");
+		for(i = 0; i < 4; i++)
+			if((m & 1<<i) != 0)
+				p = seprint(p, e, "%d%s", i, (m >> i + 1 != 0) ? "," : "");
+		postnote(up, 1, buf, NDebug);
+	}
 }
 
 static void

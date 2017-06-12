@@ -801,6 +801,8 @@ procsetup(Proc *p)
 	memset(p->gdt, 0, sizeof(p->gdt));
 	p->ldt = nil;
 	p->nldt = 0;
+	
+	memset(p->dr, 0, sizeof(p->dr));
 }
 
 void
@@ -831,6 +833,9 @@ procfork(Proc *p)
 		p->fpsave = up->fpsave;
 		p->fpstate = FPinactive;
 	}
+	
+	/* clear debug registers */
+	memset(p->dr, 0, sizeof(p->dr));
 	splx(s);
 }
 
@@ -838,6 +843,9 @@ void
 procrestore(Proc *p)
 {
 	uvlong t;
+	
+	if(p->dr[7] != 0)
+		putdr(p->dr);
 
 	if(p->kp)
 		return;
@@ -854,6 +862,9 @@ void
 procsave(Proc *p)
 {
 	uvlong t;
+	
+	if(p->dr[7] != 0)
+		putdr7(0);
 
 	cycles(&t);
 	p->kentry -= t;

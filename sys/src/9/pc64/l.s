@@ -692,6 +692,35 @@ ones:
 f3:
 	RET
 
+/* debug register access */
+
+TEXT putdr(SB), $0
+	MOVQ	56(BP), AX
+	MOVQ	AX, DR7
+	MOVQ	0(BP), AX
+	MOVQ	AX, DR0
+	MOVQ	8(BP), AX
+	MOVQ	AX, DR1
+	MOVQ	16(BP), AX
+	MOVQ	AX, DR2
+	MOVQ	24(BP), AX
+	MOVQ	AX, DR3
+	MOVQ	48(BP), AX
+	MOVQ	AX, DR6
+	RET
+
+TEXT getdr6(SB), $0
+	MOVQ	DR6, AX
+	RET
+
+TEXT putdr6(SB), $0
+	MOVQ	BP, DR6
+	RET
+
+TEXT putdr7(SB), $0
+	MOVQ	BP, DR7
+	RET
+
 /*
  */
 TEXT touser(SB), 1, $-4

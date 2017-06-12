@@ -797,6 +797,9 @@ void
 procrestore(Proc *p)
 {
 	uvlong t;
+	
+	if(p->dr[7] != 0)
+		putdr(p->dr);
 
 	if(p->kp)
 		return;
@@ -810,6 +813,9 @@ void
 procsave(Proc *p)
 {
 	uvlong t;
+	
+	if(p->dr[7] != 0)
+		putdr7(0);
 
 	cycles(&t);
 	p->kentry -= t;

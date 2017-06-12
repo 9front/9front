@@ -638,3 +638,10 @@ cmpswap(long *addr, long old, long new)
 {
 	return cas32(addr, old, new);
 }
+
+void
+setupwatchpts(Proc *, Watchpt *, int n)
+{
+	if(n > 0)
+		error("no watchpoints");
+}

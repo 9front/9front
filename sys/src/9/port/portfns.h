@@ -319,6 +319,7 @@ void		setmalloctag(void*, uintptr);
 void		setrealloctag(void*, uintptr);
 void		setregisters(Ureg*, char*, char*, int);
 void		setswapchan(Chan*);
+void		setupwatchpts(Proc*, Watchpt*, int);
 char*		skipslash(char*);
 void		sleep(Rendez*, int(*)(void*), void*);
 void*		smalloc(ulong);

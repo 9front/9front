@@ -159,6 +159,8 @@ struct PMMU
 	Segdesc	gdt[NPROCSEG];	/* per process descriptors */
 	Segdesc	*ldt;	/* local descriptor table */
 	int	nldt;	/* number of ldt descriptors allocated */
+	
+	u32int	dr[8];			/* debug registers */
 };
 
 /*
@@ -252,6 +254,7 @@ struct Mach
 	char*	cpuidtype;
 	int	havetsc;
 	int	havepge;
+	int	havewatchpt8;
 	uvlong	tscticks;
 	int	pdballoc;
 	int	pdbfree;

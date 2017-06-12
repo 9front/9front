@@ -144,6 +144,8 @@ struct PMMU
 	ulong	kmapcount;
 	ulong	kmapindex;
 	ulong	mmucount;
+	
+	u64int	dr[8];
 };
 
 /*
@@ -219,6 +221,7 @@ struct Mach
 	char*	cpuidtype;
 	int	havetsc;
 	int	havepge;
+	int	havewatchpt8;
 	uvlong	tscticks;
 
 	uintptr	stack[1];
