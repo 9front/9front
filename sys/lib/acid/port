@@ -707,7 +707,6 @@ defn dying()
 {
 	wplist = {};
 	wpflush();
-	derp();
 }
 
 progargs="";
