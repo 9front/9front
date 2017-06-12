@@ -252,6 +252,16 @@ Set a breakpoint in the current process at the given address.
 .BI bpdel( address )
 Delete a breakpoint from the current process.
 .TP
+.BI wptab()
+List watchpoints set in the current process.
+.TP
+\fLwpset(\fItype\fL,\fIaddr\fL,\fIlen\fL)
+Set a watchpoint for the \fIlen\fR bytes at the given address.
+\fItype\fR is \fL"r"\fR, \fL"w"\fR or \fL"rw"\fR to trap read accesses, write accesses or both, respectively.
+.TP
+.BI wpdel( address )
+Delete all watchpoints set for the given address.
+.TP
 .B cont()
 Continue execution of current process and wait for it to stop.
 .TP

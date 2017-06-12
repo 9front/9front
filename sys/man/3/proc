@@ -251,6 +251,22 @@ and a
 and
 .BR /sys/src/cmd/trace.c ).
 .
+.PP
+The \fLwatchpt\fR file contains a list of the watchpoints set for the process.
+If supported by the hardware, watchpoints can be used to trap accesses to specific addresses.
+Each line in the file has the form "\fItype\fR \fIaddress\fR \fIlength\fR",
+where \fItype\fR consists of the characters \fLr\fR (read), \fLw\fR (write), \fLx\fR (execute) or \fL-\fR (padding character).
+The watchpoint triggers on an access to the \fIlength\fR bytes starting at \fIaddress\fR if the type of the access must match one of the characters in the \fItype\fR field.
+.PP
+Writing to the file either replaces (offset zero) or adds to (offset non-zero) the list of watchpoints.
+Each line written must be terminated by a newline.
+If and only if all lines written comply with the (usually rather idiosyncratic) hardware restrictions, the list is updated; otherwise all changes are discarded.
+Watchpoints can also be cleared by opening the file with \fLOTRUNC\fR (see
+.IR open (2)).
+.PP
+A triggered watchpoint will deliver a \fLsys: watchpoint\fR note which includes a comma-separated list of the watchpoints that were triggered, where 0 corresponds to the first line in the
+.B watchpt
+file, 1 to the second and so forth.
 .SS Control messages
 Textual messages written to the
 .B ctl
