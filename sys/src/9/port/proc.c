@@ -1213,6 +1213,7 @@ pexit(char *exitstr, int freemem)
 		free(up->watchpt);
 		up->watchpt = nil;
 	}
+	up->nwatchpt = 0;
 	qunlock(&up->debug);
 
 	/* Sched must not loop for these locks */
