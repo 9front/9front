@@ -722,8 +722,10 @@ TEXT syscallentry(SB), 1, $-4
 	PUSHQ	R11				/* old flags */
 	PUSHQ	$UESEL				/* old code segment */
 	PUSHQ	CX				/* old ip */
+	PUSHQ	$0				/* error code */
+	PUSHQ	$64				/* trap number (VectorSYSCALL) */
 
-	SUBQ	$(8 + 23*8-5*8), SP		/* arg + sizeof(Ureg)-pushed */
+	SUBQ	$(8 + 23*8-7*8), SP		/* arg + sizeof(Ureg)-pushed */
 
 	MOVQ	RMACH, (15*8)(SP)		/* old r15 */
 	MOVQ	RUSER, (14*8)(SP)		/* old r14 */
