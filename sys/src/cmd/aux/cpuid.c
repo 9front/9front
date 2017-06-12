@@ -71,6 +71,7 @@ void
 func1(ulong)
 {
 	Res r;
+	int family, model;
 	static char *bitsdx[32] = {
 		[0]		"fpu",  "vme",   "de",   "pse",
 		[4]		"tsc",  "msr",   "pae",  "mce",
@@ -94,6 +95,13 @@ func1(ulong)
 
 	r = cpuid(1, 0);
 	Bprint(out, "procmodel %.8ulx / %.8ulx\n", r.ax, r.bx);
+	family = r.ax >> 8 & 0xf;
+	model = r.ax >> 8 & 0xf;
+	if(family == 15)
+		family += r.ax >> 20 & 0xff;
+	if(family == 6 || family == 15)
+		model += r.ax >> 12 & 0xf0;
+	Bprint(out, "typefammod %.1x %.2x %.3x %.1x\n", (int)(r.ax >> 12 & 3), family, model, (int)(r.ax & 0xf));
 	printbits("features", r.dx, bitsdx);
 	printbits("features", r.cx, bitscx);
 }
