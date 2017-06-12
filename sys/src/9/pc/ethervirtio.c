@@ -324,7 +324,7 @@ rxproc(void *v)
 
 			blocks[i] = nil;
 
-			b->wp = b->rp + u->len;
+			b->wp = b->rp + u->len - VheaderSize;
 			etheriq(edev, b, 1);
 			q->lastused++;
 		}
@@ -591,12 +591,20 @@ pciprobe(int typ)
 		for(i=0; i<nelem(c->queue); i++){
 			outs(c->port+Qselect, i);
 			n = ins(c->port+Qsize);
-			if(n == 0 || (n & (n-1)) != 0)
+			if(n == 0 || (n & (n-1)) != 0){
+				if(i < 2)
+					print("ethervirtio: queue %d has invalid size %d\n", i, n);
 				break;
+			}
 			if(initqueue(&c->queue[i], n) < 0)
 				break;
 			coherence();
 			outl(c->port+Qaddr, PADDR(c->queue[i].desc)/VBY2PG);
+		}
+		if(i < 2){
+			print("ethervirtio: no queues\n");
+			free(c);
+			continue;
 		}
 		c->nqueue = i;		
 	
