@@ -267,6 +267,7 @@ defn step()					// single step the process
 		bput = fmt(*PC, bpfmt);
 		*bput = @bput;
 	}
+	wpupdate(0);
 
 	lst = follow(*PC);
 
@@ -336,6 +337,134 @@ defn bpdel(addr)				// delete a breakpoint
 	bplist = nbplist;			// delete from memory
 }
 
+defn wpflush()					// copy wplist to /proc/$pid/watchpt
+{
+	local s, lst, el;
+
+	lst = wplist;
+	s = "";
+	while lst do {
+		el = head lst;
+		s = s + (el[0] + " " + itoa(el[1]) + " " + itoa(el[2]) + "\n");
+		lst = tail lst;
+	}
+	lst = proclist;
+	while lst do {
+		if access("/proc/"+itoa(head lst)+"/watchpt") then
+			printto("/proc/"+itoa(head lst)+"/watchpt", s);
+		lst = tail lst;
+	}
+}
+
+defn wpset(type, addr, len)			// set a watchpoint
+{
+	local lst;
+
+	if status(pid) != "Stopped" then {
+		print("Waiting...\n");
+		stop(pid);
+	}
+	if !regexp("^[rwx\\-]+$", type) then {
+		print("invalid type\n");
+		return {};
+	}
+	lst = proclist;
+	while lst do {
+		if rc("echo '"+type+" "+itoa(addr)+" "+itoa(len)+"' >> /proc/"+itoa(head lst)+"/watchpt") != "" then
+			return {};
+		lst = tail lst;
+	}
+	wplist = append wplist, {type, addr, len, {}};
+}
+
+defn wptab()					// print a table of watchpoints
+{
+	local lst, el;
+
+	lst = wplist;
+	while lst do {
+		el = head lst;
+		print("\t", el[0], " ", fmt(el[1], 'A'), " ", fmt(el[1], 'a'), " ", fmt(el[2], 'd'), "\n");
+		lst = tail lst;
+	}
+}
+
+defn wpdel(addr)
+{
+	local lst, el, found, nwplist;
+	
+	lst = wplist;
+	found = 0;
+	nwplist = {};
+	while lst do {
+		el = head lst;
+		if el[1] == addr then
+			found = 1;
+		else
+			nwplist = append nwplist, el;
+		lst = tail lst;
+	}
+	if found == 0 then {
+		print("no watchpoint at ", fmt(addr, 'a'), "\n");
+		return {};
+	}
+	wplist = nwplist;
+	wpflush();
+}
+
+defn bytes(b)
+{
+	local s;
+	
+	s = "";
+	while b do {
+		s = s + itoa(head b, "%#.2x ");
+		b = tail b;
+	}
+	return s;
+}
+
+defn wpupdate(ch)				// update remembered values
+{
+	local el, nwplist, mem, lst, i;
+	
+	lst = wplist;
+	nwplist = {};
+	while lst do {
+		el = head lst;
+		i = 0;
+		mem = {};
+		while i < el[2] do {
+			mem = append mem, *((el[1] + i)\b);
+			i = i + 1;
+		}
+		if ch && el[3] != {} && el[3] != mem then {
+			print("\t", fmt(el[1], 'a'), "\twas ", bytes(el[3]), "\n");
+			print("\t", fmt(el[1], 'a'), "\tis  ", bytes(mem), "\n");
+		}
+		nwplist = append nwplist, {el[0], el[1], el[2], mem};
+		lst = tail lst;
+	}
+	wplist = nwplist;
+}
+
+defn wpprocess()				// trapped at watchpoint
+{
+	local pts;
+	local el;
+	
+	pts = getfields(getfields(notes[0], " ", 1)[2], ",", 1);
+	while pts do {
+		el = head pts;
+		el = wplist[atoi(el)];
+		if el != {} then {
+			print("\ttriggered ", el[0], " watchpoint at ", fmt(el[1], 'a'), " (", fmt(el[1], 'A'), ")\n");
+		}
+		pts = tail pts;
+	}
+	wpupdate(1);
+}
+
 defn cont()					// continue execution
 {
 	local addr;
@@ -346,6 +475,7 @@ defn cont()					// continue execution
 		step();				// Step over
 		*addr = bpinst;
 	}
+	wpupdate(0);
 	startstop(pid);				// Run
 }
 
@@ -405,6 +535,7 @@ defn win()
 	local npid, estr;
 
 	bplist = {};
+	wplist = {};
 	notes = {};
 
 	estr = "/sys/lib/acid/window '0 0 600 400' "+textfile;
@@ -425,6 +556,7 @@ defn win2()
 	local npid, estr;
 
 	bplist = {};
+	wplist = {};
 	notes = {};
 
 	estr = "/sys/lib/acid/transcript '0 0 600 400' '100 100 700 500' "+textfile;
@@ -443,6 +575,7 @@ defn win2()
 defn new()
 {
 	bplist = {};
+	wplist = {};
 	newproc(progargs);
 	// Dont miss the delay slot calls
 	bpset(follow(main)[0]);
@@ -563,6 +696,18 @@ defn spsrch(len)
 			pfl(a);
 		}			
 	}
+}
+
+defn procattach()
+{
+	wpflush();
+}
+
+defn dying()
+{
+	wplist = {};
+	wpflush();
+	derp();
 }
 
 progargs="";

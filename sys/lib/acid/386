@@ -4,6 +4,8 @@ defn acidinit()			// Called after all the init modules are loaded
 {
 	bplist = {};
 	bpfmt = 'b';
+	wplist = {};
+	wpflush();
 
 	srcpath = {
 		"./",
@@ -84,13 +86,18 @@ defn pstop(pid)
 	local l;
 	local pc;
 
-	pc = *PC;
+	pc = (*PC)\i;
+	
+	if notes && regexp("^sys: watchpoint ", notes[0]) then
+		pc--;
 
 	print(pid,": ", reason(*TRAP), "\t");
-	print(fmt(pc, 'a'), "\t", fmt(pc, 'i'), "\n");
+	print(fmt(pc, 'a'), "\t", pc, "\n");
 
 	if notes then {
-		if notes[0] != "sys: breakpoint" then {
+		if regexp("^sys: watchpoint ", notes[0]) then
+			wpprocess();
+		else if notes[0] != "sys: breakpoint" then {
 			print("Notes pending:\n");
 			l = notes;
 			while l do {

@@ -4,6 +4,8 @@ defn acidinit()			// Called after all the init modules are loaded
 {
 	bplist = {};
 	bpfmt = 'X';
+	wplist = {};
+	wpflush();
 
 	srcpath = {
 		"./",
