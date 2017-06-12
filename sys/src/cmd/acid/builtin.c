@@ -42,6 +42,7 @@ void	regexp(Node*, Node*);
 void	dosysr1(Node*, Node*);
 void	fmtof(Node*, Node*) ;
 void	dofmtsize(Node*, Node*) ;
+void	dogetfields(Node*, Node*);
 
 typedef struct Btab Btab;
 struct Btab
@@ -60,6 +61,7 @@ struct Btab
 	"fnbound",	funcbound,
 	"fmt",		fmt,
 	"follow",	follow,
+	"getfields",	dogetfields,
 	"itoa",		cvtitoa,
 	"kill",		kill,
 	"match",	match,
@@ -1313,4 +1315,39 @@ void dofmtsize(Node *r, Node *args)
 	r->type = TINT ;
 	r->ival = fmtsize(&v) ;
 	r->fmt = 'D';
+}
+
+void
+dogetfields(Node  *r, Node *args)
+{
+	Node *av[Maxarg], nstr, ndelim, nmultif;
+	char *buf;
+	char *f[128];
+	int rc, i;
+	List *l, **lp;
+	
+	na = 0;
+	flatten(av, args);
+	if(na != 3)
+		error("getfields(str, delims, multiflag): arg count");
+	expr(av[0], &nstr);
+	expr(av[1], &ndelim);
+	expr(av[2], &nmultif);
+	if(nstr.type != TSTRING || ndelim.type != TSTRING)
+		error("getfields(str, delims, multiflag): arg type");
+	buf = strdup(nstr.string->string);
+	if(buf == nil)
+		fatal("out of memory");
+	rc = getfields(buf, f, nelem(f), bool(&nmultif), ndelim.string->string);
+	lp = &r->l;
+	for(i = 0; i < rc; i++){
+		l = al(TSTRING);
+		l->fmt = 's';
+		l->string = strnode(f[i]);
+		*lp = l;
+		lp = &l->next;
+	}
+	r->op = OCONST;
+	r->type = TLIST;
+	free(buf);
 }
