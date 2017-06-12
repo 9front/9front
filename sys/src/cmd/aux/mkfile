@@ -20,6 +20,7 @@ TARG=\
 	esd\
 	getflags\
 	icanhasmsi\
+	icanhasvmx\
 	lines\
 	listen\
 	listen1\
