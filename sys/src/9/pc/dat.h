@@ -258,6 +258,8 @@ struct Mach
 	uvlong	tscticks;
 	int	pdballoc;
 	int	pdbfree;
+	
+	u32int	dr7;			/* shadow copy of dr7 */
 
 	int	stack[1];
 };

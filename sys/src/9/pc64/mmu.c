@@ -425,8 +425,6 @@ mmurelease(Proc *proc)
 		proc->kmapcount = proc->kmapindex = 0;
 	}
 	mmufree(proc);
-	if(proc->dr[7] != 0)
-		putdr7(0);
 	taskswitch((uintptr)m+MACHSIZE);
 }
 

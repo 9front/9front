@@ -387,8 +387,6 @@ mmurelease(Proc* proc)
 		proc->ldt = nil;
 		proc->nldt = 0;
 	}
-	if(proc->dr[7] != 0)
-		putdr7(0);
 }
 
 /*

@@ -223,6 +223,8 @@ struct Mach
 	int	havepge;
 	int	havewatchpt8;
 	uvlong	tscticks;
+	
+	u64int	dr7;			/* shadow copy of dr7 */
 
 	uintptr	stack[1];
 };
