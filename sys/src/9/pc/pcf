@@ -38,6 +38,7 @@ dev
 	usb
 	
 	segment
+	vmx
 
 link
 	segdesc
