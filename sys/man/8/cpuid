@@ -1,10 +1,15 @@
 .TH CPUID 8
 .SH NAME
-cpuid \- print processor information
+cpuid, icanhasvmx \- print processor information
 .SH SYNOPSIS
 .B aux/cpuid
 [
 .B -ar
+]
+
+.B aux/icanhasvmx
+[
+.B -r
 ]
 .SH DESCRIPTION
 Intel and compatible processors since the
@@ -52,6 +57,13 @@ Processor name string
 .TP
 .B physbits, virtbits, guestbits
 Address lines, decimal in bits
+.PP
+.I Icanhasvmx
+queries the virtual machine extension (VMX) capabilities.
+If
+.B -r
+is specified, it prints the results in raw hexadecimal; otherwise it produces a human-readable format.
+In any case it prints a summary on fd 2.
 .SH EXAMPLE
 .EX
 term% aux/cpuid

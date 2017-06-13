@@ -1,0 +1,109 @@
+.TH VMX 1
+.SH NAME
+vmx \- virtual PC
+.SH SYNOPSIS
+.B vmx
+[
+.B -M
+.I mem
+]
+[
+.B -c
+.I com1
+]
+[
+.B -C
+.I com2
+]
+[
+.B -n
+.I nic
+]
+[
+.B -d
+.I blockfile
+]
+[
+.B -v
+.I vga
+]
+[
+.B -m
+.I bootmod
+]
+kernel
+[
+.I args ...
+]
+.SH DESCRIPTION
+.I Vmx
+uses Intel VT-x through
+.IR vmx (3)
+to simulate a virtual PC, running the specified kernel (which must be Multiboot compliant).
+.PP
+By default the virtual PC has 64 MB of memory.
+The amount of memory can be changed with the
+.B -M
+option,
+the argument of which is interpreted in bytes unless suffixed by
+.BR K ,
+.BR M ,
+or
+.B G
+to change the unit to kilobytes, megabytes or gigabytes, respectively.
+.PP
+.I Args
+is passed to the kernel as its command line.
+Boot modules can be specified with the
+.B -m
+argument.
+.PP
+If
+.B -v
+is specified, a graphics device is simulated.
+The argument to
+.B -v
+is either
+.IR text,
+which simulates a CGA text-mode console, or
+"\fIwidth\fLx\fIheight\fLx\fIchan\fL@\fIaddr\fR",
+which simulates a framebuffer at address \fIaddr\fR of the specified size and channel format \fIchan\fR (see
+.IR image (6)).
+.PP
+The
+.B -c
+and
+.B -C
+options specify the targets for the COM1 and COM2 devices.
+The argument consists of two fields separated by a comma, which specify the file to be used for input and output, respectively.
+Either field can be left empty.
+If there is no comma in the argument, the same value is used for both fields.
+.PP
+A
+.B -n
+option adds a network card.
+The argument to
+.B -n
+specifies a physical network device (such as
+.BR ether0 )
+to use.
+.PP
+A
+.B -d
+option adds a
+.I virtio
+block device (a hard disk)
+with the argument as a disk image.
+.SH SOURCE
+.B /sys/src/cmd/vmx
+.SH SEE ALSO
+.IR vmx (3),
+.IR cpuid (8)
+.SH BUGS
+.I Vmx
+can and will crash your kernel.
+.PP
+Currently only one core and only one VM at a time is supported.
+.SH HISTORY
+.I Vmx
+first appeared in 9front (June, 2017).

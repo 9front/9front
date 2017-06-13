@@ -1,0 +1,168 @@
+.TH VMX 3
+.SH NAME
+vmx \- x86 virtualization interface
+.SH SYNOPSIS
+.nf
+.B #X/ctl
+.B #X/fpregs
+.B #X/map
+.B #X/regs
+.B #X/status
+.B #X/wait
+.fi
+.SH DESCRIPTION
+The
+.I vmx
+device supports "virtual CPUs" using the Intel VT-x extension (a.k.a. VMX instruction set).
+This is used by
+.IR vmx (3)
+to implement virtual machines.
+Access to the
+.I vmx
+device is restricted to the hostowner.
+.PP
+The
+.B ctl
+file provides the main control interface.
+See below for a list of commands.
+The
+.B status
+file contains the current status of the virtual CPU, which is one of
+.TF \fLinactive\fR
+.TP
+\fLinactive\fR
+No virtual CPU.
+.TP
+\fLinit\fR
+The virtual CPU is being initialized.
+.TP
+\fLready\fR
+The virtual CPU is idle and waiting for commands from user space.
+.TP
+\fLrunning\fR
+The virtual CPU is busy.
+.TP
+\fLdead\fR
+The virtual CPU suffered a fatal error.
+This state may be followed by an error message.
+.TP
+\fLending\fR
+The virtual CPU is shutting down.
+
+.LP
+The
+.B map
+file contains the memory map that the virtual CPU will see.
+It consists of lines of the form
+.IP
+\fIaccess\fR \fIcache\fR \fIlowaddr\fR \fIhighaddr\fR \fIsegment\fR \fIoffset\fR
+.LP
+\fILowaddr\fR specifies the lowest address in the region and \fIhighaddr\fR one past the highest address.
+The region is mapped to a region of the same size in the global segment \fIsegment\fR (see
+.IR segment (3)),
+starting at \fIoffset\fR.
+The \fIaccess\fR field specifies the permitted types of access using the characters \fLr\fR (read), \fLw\fR (write), \fLx\fR (execute) and \fL-\fR (padding character).
+The \fIcache\fR field specifies the cacheability of the region, it must be one of \fLuc\fR, \fLwc\fR, \fLwt\fR, \fLwp\fR and \fLwb\fR (as defined in the Intel SDM).
+
+.PP
+Writes to the
+.B map
+file append lines to the end.
+Multiple lines can be written at once but all lines written must be newline terminated.
+Regions can be overlapping, in which case later definitions always override earlier ones.
+The map can be cleared by opening the file with
+.B OTRUNC
+(see 
+.IB open
+(2)).
+
+.PP
+The
+.B regs
+file contains the registers of the virtual CPU in the format \fIname value\fR.
+Writes to the file (in the same format) write to the referenced registers (if possible).
+Multiple lines can be written at once but all lines written must be newline terminated.
+
+.PP
+Reading the
+.B wait
+file will stall the reading process until the virtual CPU reaches a point where it cannot continue (a "VM exit").
+This may be due to the an access to hardware or a software exception.
+Each exit is indicated by a single line in a format compatible with
+.IR tokenize (2).
+The first column contains the cause of the exit and the second column contains the "exit qualification" field that may contain more details on the exit (see Intel SDM).
+The remaining columns come in pairs and contain further info and the values of relevant registers.
+
+.LP
+Some notable exit causes are (see kernel source code for a complete list)
+.TF ".\fL#\fR\fIexception\fR"
+.TP
+\fL#\fR\fIexception\fR
+Exception of the specified type (e.g. \fL#gp\fR for general protection fault).
+.TP
+\fLtriplef\fR
+Triple fault.
+.TP
+\fLeptfault\fR
+The virtual CPU attempted a memory access that does not match any entry in the \Lmap\fR file.
+.IP "\fL.\fR\fIinstr\fR"
+The virtual CPU attempted to execute the instruction \fIinstr\fR.
+.TP
+\fL*ack\fR
+Not an actual exit, but acknowledgement that an interrupt request (IRQ) was posted.
+
+.PP
+The
+.B fpregs
+file contains the virtual CPU's floating point registers, in the same binary format used by
+.IR proc (3).
+
+.SS Control messages
+.TF "\fLexc\fR \fI[excep]\fR"
+.TP
+.B init
+Create a new virtual CPU.
+.TP
+.B quit
+Destroy the current virtual CPU.
+.TP
+.BI go [regs]
+Launch the virtual CPU.
+\fIRegs\fR is an optional list of register changes in the format \fIname\fL=\fIvalue\fL;\fR that will be applied before launching.
+.TP
+\fLstep\fR [ \fL-map\fR \fIaddr segment offset\fR \fB]\fR
+Executes a single instruction with the virtual CPU.
+If the \fL-map\fR option is specified, a 4 KB page at address \fIaddr\fR will be temporarily (for the duration of the step) mapped to the spceified \fIsegment\fR and \fIoffset\fR.
+A step can fail, in which case a VM exit message is sent to
+.BR wait .
+.TP
+.BI exc excep
+The exception \fIexcep\fR is triggered in the virtual CPU.
+\fIExcep\fR can either be a named exception (such as \fL#gp\fR, in lower case) or an exception number.
+A number may be preeded by \fL#\fR to mark it as an exception, otherwise it is delivered as an interrupt (but always disregarding whether interrupts are enabled).
+.TP
+.BI irq [excep]
+An Interrupt is posted, i.e. the exception \fIexcep\fR will be triggered the next time interrupts are enabled in the virtual CPU, at which point a
+.B *ack
+message is sent to
+.BR wait.
+.IExcep\fR uses the same format as the argument of \fBexc\fR.
+.B Irq
+cancels any interrupts that have been previously posted but not yet delivered and it can be called with no argument to cancel an interrupt.
+.SH SOURCE
+.B /sys/src/9/pc/devvmx.c
+.SH "SEE ALSO"
+.IR vmx (1),
+.IR cpuid (8)
+
+Intel 64 and IA-32 Architectures Software Developer's Manual, Volume 3B, Chapters 23-33.
+.SH BUGS
+Currently only one virtual CPU is supported and it is tied to the bootstrap processor.
+.PP
+The interface will almost certainly change in the future.
+.PP
+.I Devvmx
+can and will crash your kernel.
+.SH HISTORY
+.I Devvmx
+first appeared in 9front (June, 2017).
