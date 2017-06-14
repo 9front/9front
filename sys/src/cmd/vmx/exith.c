@@ -240,6 +240,7 @@ cpuid(ExitInfo *ei)
 	case 5: goto zero; /* monitor/mwait */
 	case 6: goto zero; /* thermal management */
 	case 7: goto zero; /* more features */
+	case 10: goto zero; /* performance counters */
 	case 0x80000000: /* highest register */
 		ax = 0x80000008;
 		bx = cx = dx = 0;
@@ -290,16 +291,25 @@ rdwrmsr(ExitInfo *ei)
 	cx = rget(RCX);
 	val = (uvlong)rget(RDX) << 32 | rget(RAX);
 	switch(cx){
+	case 0x277:
+		if(rd) val = rget("pat");
+		else rset("pat", val);
+		break;
+	case 0xC0000080:
+		if(rd) val = rget("efer");
+		else rset("efer", val);
+		break;
 	default:
-		if(rd)
-			vmerror("read from unknown MSR %#x ignored", cx);
-		else
-			vmerror("write to unknown MSR %#x ignored (val=%#ullx)", cx, val);
+		if(rd){
+			vmerror("read from unknown MSR %#ux ignored", cx);
+			val = 0;
+		}else
+			vmerror("write to unknown MSR %#ux ignored (val=%#ullx)", cx, val);
 		break;
 	}
 	if(rd){
-		rset(RAX, val);
-		rset(RDX, val >> 32);
+		rset(RAX, (u32int)val);
+		rset(RDX, (u32int)(val >> 32));
 	}
 	skipinstr(ei);
 }
@@ -350,7 +360,6 @@ processexit(char *msg)
 	memset(&ei, 0, sizeof(ei));
 	ei.raw = msg;
 	ei.name = f[0];
-	if(strcmp(ei.name, "io") != 0 && strcmp(ei.name, "eptfault") != 0 && strcmp(ei.name, "*ack") != 0 && strcmp(ei.name, ".hlt") != 0) vmdebug("exit: %s", msg);
 	ei.qual = strtoull(f[1], nil, 0);
 	for(i = 2; i < nf; i += 2){
 		if(strcmp(f[i], "pc") == 0)
@@ -383,5 +392,5 @@ processexit(char *msg)
 		vmerror("vmx: unknown notification %s", f[0]+1);
 		return;
 	}
-	sysfatal("vmx: unknown exit: %s", msg);
+	sysfatal("unknown exit: %s", msg);
 }
