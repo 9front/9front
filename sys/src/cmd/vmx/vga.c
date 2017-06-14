@@ -20,9 +20,77 @@ static Image *img, *bg;
 static Mousectl *mc;
 static Rectangle picr;
 Channel *kbdch, *mousech;
-static u16int cursorpos;
 u8int mousegrab;
 static uchar *sfb;
+
+typedef struct VGA VGA;
+struct VGA {
+	u8int miscout;
+	u8int cidx;
+	u8int aidx; /* bit 7: access flipflop */
+	u16int rdidx, wdidx; /* bit 0-1: color */
+	u8int attr[32];
+	u32int pal[256];
+	Image *col[256];
+	Image *acol[16];
+	u8int crtc[0x18];
+} vga = {
+	.miscout 1,
+	.attr { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
+	.crtc { [11] 15 },
+	.pal {
+		0x000000ff, 0x0000a8ff, 0x00a800ff, 0x00a8a8ff, 0xa80000ff, 0xa800a8ff, 0xa85400ff, 0xa8a8a8ff,
+		0x545454ff, 0x5454fcff, 0x54fc54ff, 0x54fcfcff, 0xfc5454ff, 0xfc54fcff, 0xfcfc54ff, 0xfcfcfcff,
+		0x000000ff, 0x141414ff, 0x202020ff, 0x2c2c2cff, 0x383838ff, 0x444444ff, 0x505050ff, 0x606060ff,
+		0x707070ff, 0x808080ff, 0x909090ff, 0xa0a0a0ff, 0xb4b4b4ff, 0xc8c8c8ff, 0xe0e0e0ff, 0xfcfcfcff,
+		0x0000fcff, 0x4000fcff, 0x7c00fcff, 0xbc00fcff, 0xfc00fcff, 0xfc00bcff, 0xfc007cff, 0xfc0040ff,
+		0xfc0000ff, 0xfc4000ff, 0xfc7c00ff, 0xfcbc00ff, 0xfcfc00ff, 0xbcfc00ff, 0x7cfc00ff, 0x40fc00ff,
+		0x00fc00ff, 0x00fc40ff, 0x00fc7cff, 0x00fcbcff, 0x00fcfcff, 0x00bcfcff, 0x007cfcff, 0x0040fcff,
+		0x7c7cfcff, 0x9c7cfcff, 0xbc7cfcff, 0xdc7cfcff, 0xfc7cfcff, 0xfc7cdcff, 0xfc7cbcff, 0xfc7c9cff,
+		0xfc7c7cff, 0xfc9c7cff, 0xfcbc7cff, 0xfcdc7cff, 0xfcfc7cff, 0xdcfc7cff, 0xbcfc7cff, 0x9cfc7cff,
+		0x7cfc7cff, 0x7cfc9cff, 0x7cfcbcff, 0x7cfcdcff, 0x7cfcfcff, 0x7cdcfcff, 0x7cbcfcff, 0x7c9cfcff,
+		0xb4b4fcff, 0xc4b4fcff, 0xd8b4fcff, 0xe8b4fcff, 0xfcb4fcff, 0xfcb4e8ff, 0xfcb4d8ff, 0xfcb4c4ff,
+		0xfcb4b4ff, 0xfcc4b4ff, 0xfcd8b4ff, 0xfce8b4ff, 0xfcfcb4ff, 0xe8fcb4ff, 0xd8fcb4ff, 0xc4fcb4ff,
+		0xb4fcb4ff, 0xb4fcc4ff, 0xb4fcd8ff, 0xb4fce8ff, 0xb4fcfcff, 0xb4e8fcff, 0xb4d8fcff, 0xb4c4fcff,
+		0x000070ff, 0x1c0070ff, 0x380070ff, 0x540070ff, 0x700070ff, 0x700054ff, 0x700038ff, 0x70001cff,
+		0x700000ff, 0x701c00ff, 0x703800ff, 0x705400ff, 0x707000ff, 0x547000ff, 0x387000ff, 0x1c7000ff,
+		0x007000ff, 0x00701cff, 0x007038ff, 0x007054ff, 0x007070ff, 0x005470ff, 0x003870ff, 0x001c70ff,
+		0x383870ff, 0x443870ff, 0x543870ff, 0x603870ff, 0x703870ff, 0x703860ff, 0x703854ff, 0x703844ff,
+		0x703838ff, 0x704438ff, 0x705438ff, 0x706038ff, 0x707038ff, 0x607038ff, 0x547038ff, 0x447038ff,
+		0x387038ff, 0x387044ff, 0x387054ff, 0x387060ff, 0x387070ff, 0x386070ff, 0x385470ff, 0x384470ff,
+		0x505070ff, 0x585070ff, 0x605070ff, 0x685070ff, 0x705070ff, 0x705068ff, 0x705060ff, 0x705058ff,
+		0x705050ff, 0x705850ff, 0x706050ff, 0x706850ff, 0x707050ff, 0x687050ff, 0x607050ff, 0x587050ff,
+		0x507050ff, 0x507058ff, 0x507060ff, 0x507068ff, 0x507070ff, 0x506870ff, 0x506070ff, 0x505870ff,
+		0x000040ff, 0x100040ff, 0x200040ff, 0x300040ff, 0x400040ff, 0x400030ff, 0x400020ff, 0x400010ff,
+		0x400000ff, 0x401000ff, 0x402000ff, 0x403000ff, 0x404000ff, 0x304000ff, 0x204000ff, 0x104000ff,
+		0x004000ff, 0x004010ff, 0x004020ff, 0x004030ff, 0x004040ff, 0x003040ff, 0x002040ff, 0x001040ff,
+		0x202040ff, 0x282040ff, 0x302040ff, 0x382040ff, 0x402040ff, 0x402038ff, 0x402030ff, 0x402028ff,
+		0x402020ff, 0x402820ff, 0x403020ff, 0x403820ff, 0x404020ff, 0x384020ff, 0x304020ff, 0x284020ff,
+		0x204020ff, 0x204028ff, 0x204030ff, 0x204038ff, 0x204040ff, 0x203840ff, 0x203040ff, 0x202840ff,
+		0x2c2c40ff, 0x302c40ff, 0x342c40ff, 0x3c2c40ff, 0x402c40ff, 0x402c3cff, 0x402c34ff, 0x402c30ff,
+		0x402c2cff, 0x40302cff, 0x40342cff, 0x403c2cff, 0x40402cff, 0x3c402cff, 0x34402cff, 0x30402cff,
+		0x2c402cff, 0x2c4030ff, 0x2c4034ff, 0x2c403cff, 0x2c4040ff, 0x2c3c40ff, 0x2c3440ff, 0x2c3040ff,
+		0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff, 0x000000ff,
+	},
+};
+
+static void
+newpal(int l, int n, int dofree)
+{
+	int x;
+
+	for(; n-- > 0; l++){
+		if(dofree)
+			freeimage(vga.col[l]);
+		vga.col[l] = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, vga.pal[l]);
+	}
+	for(l = 0; l < 16; l++){
+		x = vga.attr[0x14] << 4 & 0xc0 | vga.attr[l] & 0x3f;
+		if((vga.attr[0x10] & 0x80) != 0)
+			x = x & 0xcf | vga.attr[0x14] << 4 & 0x30;
+		vga.acol[l] = vga.col[x];
+	}
+}
 
 static void
 screeninit(void)
@@ -34,42 +102,66 @@ screeninit(void)
 	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
 	img = allocimage(display, Rect(0, 0, picw, pich), screenchan == 0 ? screen->chan : screenchan, 0, 0);
 	draw(screen, screen->r, bg, nil, ZP);
+	newpal(0, 256, 0);
 }
 
 u32int
 vgaio(int isin, u16int port, u32int val, int sz, void *)
 {
-	static u8int cgaidx;
+	u32int m;
 
+	iowhine(isin, port, val, sz, "vga");
+	if(sz != 1) vmdebug("vga: non-byte access to port %#ux, sz=%d", port, sz);
 	val = (u8int) val;
 	switch(isin << 16 | port){
-	case 0x3d4:
-		cgaidx = val;
+	case 0x3c0:
+		if((vga.aidx & 0x80) != 0){
+			vmdebug("vga: attribute write %#.2x = %#.2x", vga.aidx & 0x1f, val);
+			vga.attr[vga.aidx & 0x1f] = val;
+			newpal(0, 0, 0);
+		}else
+			vga.aidx = val & 0x3f;
+		vga.aidx ^= 0x80;
 		return 0;
-	case 0x103d4:
-		return cgaidx;
+	case 0x3c2: vga.miscout = val; return 0;
+	case 0x3c7: vga.rdidx = val << 2; return 0;
+	case 0x3c8: vga.wdidx = val << 2; return 0;
+	case 0x3c9:
+		vga.pal[vga.wdidx >> 2] = vga.pal[vga.wdidx >> 2] & ~(0xff << (~vga.wdidx << 3 & 24)) | val << 2 + (~vga.wdidx << 3 & 24);
+		newpal(vga.wdidx >> 2, 1, 1);
+		vga.wdidx = vga.wdidx + 1 + (vga.wdidx >> 1 & 1) & 0x3ff;
+		return 0;
+	case 0x3d4: vga.cidx = val; return 0;
 	case 0x3d5:
-		switch(cgaidx){
-		case 14:
-			cursorpos = cursorpos >> 8 | val << 8;
-			break;
-		case 15:
-			cursorpos = cursorpos & 0xff00 | val;
-			break;
+		switch(vga.cidx){
+		case 10: case 11: case 12: case 13: case 14: case 15:
+			vga.crtc[vga.cidx] = val;
+			return 0;
 		default:
-			vmerror("write to unknown VGA register, 3d5/%#ux (val=%#ux)", cgaidx, val);
+			vmerror("write to unknown VGA register, 3d5/%#ux (val=%#ux)", vga.cidx, val);
 		}
 		return 0;
+	case 0x103c0: return vga.aidx & 0x3f;
+	case 0x103c1: return vga.attr[vga.aidx & 0x1f];
+	case 0x103c7: return vga.rdidx >> 2;
+	case 0x103c8: return vga.wdidx >> 2;
+	case 0x103c9:
+		m = vga.pal[vga.rdidx >> 2] >> (~vga.rdidx << 3 & 24) + 2;
+		vga.rdidx = vga.rdidx + 1 + (vga.rdidx >> 1 & 1) & 0x3ff;
+		return m;
+	case 0x103cc: return vga.miscout;
+	case 0x103d4: return vga.cidx;
 	case 0x103d5:
-		switch(cgaidx){
-		case 14:
-			return cursorpos >> 8;
-		case 15:
-			return (u8int)cursorpos;
+		switch(vga.cidx){
+		case 10: case 11: case 12: case 13: case 14: case 15:
+			return vga.crtc[vga.cidx];
 		default:
-			vmerror("read from unknown VGA register, 3d5/%#ux", cgaidx);
+			vmerror("read from unknown VGA register, 3d5/%#ux", vga.cidx);
 			return 0;
-		}		
+		}
+	case 0x103da:
+		vga.aidx &= ~0x7f;
+		return 0;		
 	}
 	return iowhine(isin, port, val, sz, "vga");
 }
@@ -290,22 +382,41 @@ static void
 drawtext(void)
 {
 	Rune buf[80];
-	uchar *p;
-	int y, x;
-	Point pt;
+	uchar *p, attr;
+	int y, x, x1;
+	Rectangle r;
+	u16int cp;
+	static uchar rbuf[80*25*2];
+	u16int sa;
 	
-	draw(img, img->r, display->black, nil, ZP);
+	sa = vga.crtc[12] << 8 | vga.crtc[13];
+	if(sa + 80*25 >= 0x10000){
+		memset(rbuf, 0, sizeof(rbuf));
+		memmove(rbuf, fb + sa * 2, 0x10000 - 80*25 - sa);
+		p = rbuf;
+	}else
+		p = fb + sa * 2;
 	for(y = 0; y < 25; y++){
-		p = &fb[y * 160];
 		for(x = 0; x < 80; x++)
 			buf[x] = cp437[p[2*x]];
-		runestringn(img, Pt(0, 16 * y), display->white, ZP, display->defaultfont, buf, 80);
+		for(x = 0; x < 80; x = x1){
+			attr = p[2*x+1];
+			for(x1 = x; x1 < 80 && p[2*x1+1] == attr; x1++)
+				;
+			r = Rect(x * 8, y * 16, x1 * 8, (y + 1) * 16);
+			draw(img, r, vga.acol[attr >> 4], nil, ZP);
+			runestringn(img, r.min, vga.acol[attr & 0xf], ZP, display->defaultfont, buf + x, x1 - x);
+		}
+		p += 160;
 	}
-	if(cursorpos < 80*25){
-		buf[0] = cp437[fb[cursorpos*2]];
-		pt = Pt(cursorpos % 80 * 8, cursorpos / 80 * 16);
-		draw(img, Rect(pt.x, pt.y, pt.x + 8, pt.y + 16), display->white, nil, ZP);
-		runestringn(img, pt, display->black, ZP, display->defaultfont, buf, 1);
+	cp = (vga.crtc[14] << 8 | vga.crtc[15]);
+	if(cp >= sa && cp < sa + 80*25 && (vga.crtc[10] & 0x20) == 0){
+		buf[0] = cp437[fb[cp*2]];
+		attr = fb[cp*2+1];
+		r.min = Pt((cp - sa) % 80 * 8, (cp - sa) / 80 * 16);
+		r.max = Pt(r.min.x + 8, r.min.y + (vga.crtc[11] & 0x1f) + 1);
+		r.min.y += vga.crtc[10] & 0x1f;
+		draw(img, r, vga.acol[attr & 0xf], nil, ZP);
 	}
 	draw(screen, picr, img, nil, ZP);
 	flushimage(display, 1);	
@@ -411,11 +522,15 @@ void
 vgainit(void)
 {
 	char buf[512];
+	int i;
 
 	if(picw == 0) return;
 	fb = gptr(fbaddr, fbsz);
 	if(fb == nil)
 		sysfatal("got nil ptr for framebuffer");
+	if(textmode)
+		for(i = 0; i < 0x8000; i += 2)
+			PUT16(fb, i, 0x0700);
 	snprint(buf, sizeof(buf), "-dx %d -dy %d", picw+50, pich+50);
 	newwindow(buf);
 	initdraw(nil, nil, "vmx");
