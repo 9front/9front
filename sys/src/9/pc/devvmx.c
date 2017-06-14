@@ -72,12 +72,20 @@ enum {
 	
 	VMEXIT_CTLS = 0x400c,
 	VMEXIT_HOST64 = 1<<9,
+	VMEXIT_LD_IA32_PERF_GLOBAL_CTRL = 1<<12,
+	VMEXIT_ST_IA32_PAT = 1<<18,
+	VMEXIT_LD_IA32_PAT = 1<<19,
+	VMEXIT_ST_IA32_EFER = 1<<20,
+	VMEXIT_LD_IA32_EFER = 1<<21,	
 	
 	VMEXIT_MSRSTCNT = 0x400e,
 	VMEXIT_MSRLDCNT = 0x4010,
 	
 	VMENTRY_CTLS = 0x4012,
 	VMENTRY_GUEST64 = 1<<9,
+	VMENTRY_LD_IA32_PERF_GLOBAL_CTRL = 1<<13,
+	VMENTRY_LD_IA32_PAT = 1<<14,
+	VMENTRY_LD_IA32_EFER = 1<<15,
 	
 	VMENTRY_MSRLDCNT = 0x4014,
 	VMENTRY_INTRINFO = 0x4016,
@@ -133,6 +141,10 @@ enum {
 	GUEST_RSP = 0x681C,
 	GUEST_RIP = 0x681E,
 	GUEST_RFLAGS = 0x6820,
+	GUEST_IA32_DEBUGCTL = 0x2802,
+	GUEST_IA32_PAT = 0x2804,
+	GUEST_IA32_EFER = 0x2806,
+	GUEST_IA32_PERF_GLOBAL_CTRL = 0x2808,
 	
 	HOST_ES = 0xC00,
 	HOST_CS = 0xC02,
@@ -151,6 +163,9 @@ enum {
 	HOST_IDTR = 0x6C0E,
 	HOST_RSP = 0x6C14,
 	HOST_RIP = 0x6C16,
+	HOST_IA32_PAT = 0x2C00,
+	HOST_IA32_EFER = 0x2C02,
+	HOST_IA32_PERF_GLOBAL_CTRL = 0x2C04,
 	
 	GUEST_CANINTR = 0x4824,
 	
@@ -177,6 +192,18 @@ enum {
 	VM_EPTPLA = 0x2024,
 	
 	INVLOCAL = 1,
+};
+
+enum {
+	CR0RSVD = 0x1ffaffc0,
+	CR4RSVD = 0xff889000,
+	CR4MCE = 1<<6,
+	CR4VMXE = 1<<13,
+	CR4SMXE = 1<<14,
+	CR4PKE = 1<<22,
+	
+	CR0KERNEL = CR0RSVD | (uintptr)0xFFFFFFFF00000000ULL,
+	CR4KERNEL = CR4RSVD | CR4VMXE | CR4SMXE | CR4MCE | CR4PKE | (uintptr)0xFFFFFFFF00000000ULL
 };
 
 typedef struct Vmx Vmx;
@@ -299,8 +326,20 @@ vmcswrite(u32int addr, u64int val)
 	}
 }
 
+static uvlong
+parseval(char *s, int sz)
+{
+	uvlong v;
+	char *p;
+	
+	if(sz == 0) sz = sizeof(uintptr);
+	v = strtoull(s, &p, 0);
+	if(p == s || *p != 0 || v >> sz * 8 != 0) error("invalid value");
+	return v;
+}
+
 static char *
-cr0read(char *p, char *e)
+cr0fakeread(char *p, char *e)
 {
 	uvlong guest, mask, shadow;
 	
@@ -311,7 +350,7 @@ cr0read(char *p, char *e)
 }
 
 static char *
-cr4read(char *p, char *e)
+cr4fakeread(char *p, char *e)
 {
 	uvlong guest, mask, shadow;
 	
@@ -319,6 +358,46 @@ cr4read(char *p, char *e)
 	mask = vmcsread(GUEST_CR4MASK);
 	shadow = vmcsread(GUEST_CR4SHADOW);
 	return seprint(p, e, "%#.*ullx", sizeof(uintptr) * 2, guest & mask | shadow & ~mask);
+}
+
+static int
+cr0realwrite(char *s)
+{
+	uvlong v;
+	
+	v = parseval(s, 8);
+	vmcswrite(GUEST_CR0, vmcsread(GUEST_CR0) & CR0KERNEL | v & ~CR0KERNEL);
+	return 0;
+}
+
+static int
+cr0maskwrite(char *s)
+{
+	uvlong v;
+	
+	v = parseval(s, 8);
+	vmcswrite(GUEST_CR0MASK, vmcsread(GUEST_CR0MASK) | CR0KERNEL);
+	return 0;
+}
+
+static int
+cr4realwrite(char *s)
+{
+	uvlong v;
+	
+	v = parseval(s, 8);
+	vmcswrite(GUEST_CR4, vmcsread(GUEST_CR4) & CR4KERNEL | v & ~CR4KERNEL);
+	return 0;
+}
+
+static int
+cr4maskwrite(char *s)
+{
+	uvlong v;
+	
+	v = parseval(s, 8);
+	vmcswrite(GUEST_CR4MASK, vmcsread(GUEST_CR4MASK) | CR4KERNEL);
+	return 0;
 }
 
 static int
@@ -383,10 +462,16 @@ static GuestReg guestregs[] = {
 	{GUEST_LDTRBASE, 0, "ldtrbase"},
 	{GUEST_LDTRLIMIT, 4, "ldtrlimit"},
 	{GUEST_LDTRPERM, 4, "ldtrperm"},
-	{GUEST_CR0, 0, "cr0", cr0read, readonly},
+	{GUEST_CR0, 0, "cr0real", nil, cr0realwrite},
+	{GUEST_CR0SHADOW, 0, "cr0fake", cr0fakeread},
+	{GUEST_CR0MASK, 0, "cr0mask", nil, cr0maskwrite},
 	{UREG(trap), 0, "cr2"},
 	{GUEST_CR3, 0, "cr3"},
-	{GUEST_CR4, 0, "cr4", cr4read, readonly},
+	{GUEST_CR4, 0, "cr4real", nil, cr4realwrite},
+	{GUEST_CR4SHADOW, 0, "cr4fake", cr4fakeread},
+	{GUEST_CR4MASK, 0, "cr4mask", nil, cr4maskwrite},
+	{GUEST_IA32_PAT, 8, "pat"},
+	{GUEST_IA32_EFER, 8, "efer"},
 	{VM_INSTRERR, 4, "instructionerror", nil, readonly},
 	{VM_EXREASON, 4, "exitreason", nil, readonly},
 	{VM_EXQUALIF, 0, "exitqualification", nil, readonly},
@@ -655,12 +740,14 @@ vmcsinit(void)
 	if(rdmsr(VMX_VMEXIT_CTLS_MSR, &msr) < 0) error("rdmsr(VMX_VMEXIT_CTLS_MSR failed");
 	x = (u32int)msr;
 	if(sizeof(uintptr) == 8) x |= VMEXIT_HOST64;
+	x |= VMEXIT_LD_IA32_PAT | VMEXIT_LD_IA32_EFER;
 	x &= msr >> 32;
 	vmcswrite(VMEXIT_CTLS, x);
 	
 	if(rdmsr(VMX_VMENTRY_CTLS_MSR, &msr) < 0) error("rdmsr(VMX_VMENTRY_CTLS_MSR failed");
 	x = (u32int)msr;
 	if(sizeof(uintptr) == 8) x |= VMENTRY_GUEST64;
+	x |= VMENTRY_LD_IA32_PAT | VMENTRY_LD_IA32_EFER;
 	x &= msr >> 32;
 	vmcswrite(VMENTRY_CTLS, x);
 	
@@ -688,6 +775,10 @@ vmcsinit(void)
 	vmcswrite(HOST_TRBASE, (uintptr) m->tss);
 	vmcswrite(HOST_GDTR, (uintptr) m->gdt);
 	vmcswrite(HOST_IDTR, IDTADDR);
+	if(rdmsr(0x277, &msr) < 0) error("rdmsr(IA32_PAT) failed");
+	vmcswrite(HOST_IA32_PAT, msr);
+	if(rdmsr(0xc0000080, &msr) < 0) error("rdmsr(IA32_EFER) failed");
+	vmcswrite(HOST_IA32_EFER, msr);
 	
 	vmcswrite(EXC_BITMAP, 1<<18);
 	vmcswrite(PFAULT_MASK, 0);
@@ -713,19 +804,16 @@ vmcsinit(void)
 	vmcswrite(GUEST_SSPERM, (SEGG|SEGB|SEGP|SEGPL(0)|SEGDATA|SEGW) >> 8 | 1);
 	vmcswrite(GUEST_LDTRPERM, 1<<16);
 
-	enum {
-		CR0RSVD = 0x1ffaffc0,
-		CR4RSVD = 0xff889000,
-		CR4VMXE = 1<<13,
-		CR4SMXE = 1<<14,
-	};
-	vmcswrite(GUEST_CR0MASK, CR0RSVD | (uintptr)0xFFFFFFFF00000000ULL);
-	vmcswrite(GUEST_CR4MASK, CR4RSVD | CR4VMXE | CR4SMXE | (uintptr)0xFFFFFFFF00000000ULL);
+	vmcswrite(GUEST_CR0MASK, CR0KERNEL);
+	vmcswrite(GUEST_CR4MASK, CR4KERNEL);
 	vmcswrite(GUEST_CR0, getcr0() & ~(1<<31));
 	vmcswrite(GUEST_CR3, 0);
 	vmcswrite(GUEST_CR4, getcr4());
 	vmcswrite(GUEST_CR0SHADOW, getcr0());
 	vmcswrite(GUEST_CR4SHADOW, getcr4() & ~CR4VMXE);
+	
+	vmcswrite(GUEST_IA32_PAT, 0x0007040600070406ULL);
+	vmcswrite(GUEST_IA32_EFER, 0);
 	
 	vmcswrite(GUEST_TRBASE, (uintptr) m->tss);
 	vmcswrite(GUEST_TRLIMIT, 0xffff);
@@ -919,7 +1007,7 @@ setregs(char *p0, char rs, char *fs)
 		val = strtoull(f[1], &rp, 0);
 		sz = r->size;
 		if(sz == 0) sz = sizeof(uintptr);
-		if(*rp != 0 || val >> 8 * sz != 0) error("invalid value");
+		if(rp == f[1] || *rp != 0 || val >> 8 * sz != 0) error("invalid value");
 		if(r->offset >= 0)
 			vmcswrite(r->offset, val);
 		else{
