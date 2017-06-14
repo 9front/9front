@@ -8,6 +8,15 @@ static int fd;
 
 extern int bootmodn;
 extern char **bootmod;
+extern int cmdlinen;
+extern char **cmdlinev;
+
+
+static int
+isusermem(Region *r)
+{
+	return r->type == REGMEM;
+}
 
 static int
 putmmap(uchar *p0)
@@ -17,7 +26,7 @@ putmmap(uchar *p0)
 	
 	p = (u32int *) p0;
 	for(r = mmap; r != nil; r = r->next){
-		if(r->type != REGMEM) continue;
+		if(!isusermem(r)) continue;
 		if(gavail(p) < 20) sysfatal("out of guest memory");
 		p[0] = 20;
 		p[1] = r->start;
@@ -32,8 +41,6 @@ putcmdline(uchar *p0)
 {
 	int i;
 	char *p, *e;
-	extern int cmdlinen;
-	extern char **cmdlinev;
 	
 	if(cmdlinen == 0) return 0;
 	p = (char*)p0;
@@ -155,6 +162,431 @@ trymultiboot(void)
 	return 1;
 }
 
+static int elf64;
+typedef struct ELFHeader ELFHeader;
+struct ELFHeader {
+	uintptr entry, phoff, shoff;
+	u32int flags;
+	u16int ehsize;
+	u16int phentsize, phnum;
+	u16int shentsize, shnum, shstrndx;
+};
+typedef struct ELFPHeader ELFPHeader;
+struct ELFPHeader {
+	u32int type, flags;
+	uintptr offset, vaddr, paddr, filesz, memsz, align;
+};
+enum {
+	PT_NULL, PT_LOAD, PT_DYNAMIC, PT_INTERP, PT_NOTE,
+	PT_SHLIB, PT_PHDR, PT_TLS,
+	PT_GNU_EH_FRAME = 0x6474e550,
+	PT_GNU_RELRO = 0x6474e552,
+	PT_OPENBSD_RANDOMIZE = 0x65a3dbe6,
+};
+typedef struct ELFSHeader ELFSHeader;
+struct ELFSHeader {
+	u32int iname, type;
+	uintptr flags, addr, offset, size;
+	u32int link, info;
+	uintptr addralign, entsize;
+	char *name;
+};
+enum {
+	SHT_SYMTAB = 2,
+	SHT_STRTAB = 3,
+};
+typedef struct ELFSymbol ELFSymbol;
+struct ELFSymbol {
+	u32int iname;
+	uintptr addr, size;
+	u8int info, other;
+	u16int shndx;
+	char *name;
+};
+static ELFHeader eh;
+static ELFPHeader *ph;
+static ELFSHeader *sh;
+static ELFSymbol *sym;
+static int nsym;
+static uintptr elfmax;
+
+
+static u64int
+elff(uchar **p, uchar *e, int sz)
+{
+	u64int rc;
+
+	if(sz == -1)
+		sz = elf64 ? 8 : 4;
+	if(*p + sz > e){
+		print("out of bounds: %p > %p", *p + sz, e);
+		return 0;
+	}
+	switch(sz){
+	case 1: rc = GET8(*p, 0); break;
+	case 2: rc = GET16(*p, 0); break;
+	case 3: case 4: rc = GET32(*p, 0); break;
+	default: rc = GET64(*p, 0); break;
+	}
+	*p += sz;
+	return rc;
+}
+
+static void
+elfheader(ELFHeader *eh, uchar *p, uchar *e)
+{
+	eh->entry = elff(&p, e, -1);
+	eh->phoff = elff(&p, e, -1);
+	eh->shoff = elff(&p, e, -1);
+	eh->flags = elff(&p, e, 4);
+	eh->ehsize = elff(&p, e, 2);
+	eh->phentsize = elff(&p, e, 2);
+	eh->phnum = elff(&p, e, 2);
+	eh->shentsize = elff(&p, e, 2);
+	eh->shnum = elff(&p, e, 2);
+	eh->shstrndx = elff(&p, e, 2);
+}
+
+static void
+elfpheader(ELFPHeader *ph, uchar *p, uchar *e)
+{
+	ph->type = elff(&p, e, 4);
+	if(elf64) ph->flags = elff(&p, e, 4);
+	ph->offset = elff(&p, e, -1);
+	ph->vaddr = elff(&p, e, -1);
+	ph->paddr = elff(&p, e, -1);
+	ph->filesz = elff(&p, e, -1);
+	ph->memsz = elff(&p, e, -1);
+	if(!elf64) ph->flags = elff(&p, e, 4);
+	ph->align = elff(&p, e, -1);
+}
+
+static void
+elfsheader(ELFSHeader *sh, uchar *p, uchar *e)
+{
+	sh->iname = elff(&p, e, 4);
+	sh->type = elff(&p, e, 4);
+	sh->flags = elff(&p, e, -1);
+	sh->addr = elff(&p, e, -1);
+	sh->offset = elff(&p, e, -1);
+	sh->size = elff(&p, e, -1);
+	sh->link = elff(&p, e, 4);
+	sh->info = elff(&p, e, 4);
+	sh->addralign = elff(&p, e, -1);
+	sh->entsize = elff(&p, e, -1);
+}
+
+static void
+elfsymbol(ELFSymbol *s, uchar *p, uchar *e)
+{
+	s->iname = elff(&p, e, 4);
+	s->addr = elff(&p, e, -1);
+	s->size = elff(&p, e, -1);
+	s->info = elff(&p, e, 1);
+	s->other = elff(&p, e, 1);
+	s->shndx = elff(&p, e, 2);
+}
+
+static void
+epreadn(void *buf, ulong sz, vlong off, char *fn)
+{
+	seek(fd, off, 0);
+	werrstr("eof");
+	if(readn(fd, buf, sz) < sz)
+		sysfatal("%s: read: %r", fn);
+}
+
+static int
+elfheaders(void)
+{
+	uchar *buf;
+	int i;
+	ELFSHeader *s;
+
+	if(GET32(hdr, 0) != 0x464c457f) return 0;
+	if(hdr[5] != 1 || hdr[6] != 1 || hdr[0x14] != 1) return 0;
+	switch(hdr[4]){
+	case 1: elf64 = 0; break;
+	case 2: elf64 = 1; break;
+	default: return 0;
+	}
+	elfheader(&eh, hdr + 0x18, hdr + sizeof(hdr));
+	buf = emalloc(eh.phentsize > eh.shentsize ? eh.phentsize : eh.shentsize);
+	ph = emalloc(sizeof(ELFPHeader) * eh.phnum);
+	for(i = 0; i < eh.phnum; i++){
+		epreadn(buf, eh.phentsize, eh.phoff + i * eh.phentsize, "elfheaders");
+		elfpheader(&ph[i], buf, buf + eh.phentsize);
+	}
+	sh = emalloc(sizeof(ELFSHeader) * eh.shnum);
+	for(i = 0; i < eh.shnum; i++){
+		epreadn(buf, eh.shentsize, eh.shoff + i * eh.shentsize, "elfheaders");
+		elfsheader(&sh[i], buf, buf + eh.shentsize);
+	}
+	free(buf);
+	
+	if(eh.shstrndx != 0 && eh.shstrndx < eh.shnum){
+		s = &sh[eh.shstrndx];
+		if(s->type != SHT_STRTAB)
+			sysfatal("elfheaders: section string table is not a string table");
+		buf = emalloc(s->size + 1);
+		epreadn(buf, s->size, s->offset, "elfheaders");
+		for(i = 0; i < eh.shnum; i++){
+			if(sh[i].iname < s->size)
+				sh[i].name = (char *) &buf[sh[i].iname];
+		}
+	}
+	
+	return 1;
+}
+
+static void
+elfdata(void)
+{
+	int i;
+	void *v;
+
+	for(i = 0; i < eh.phnum; i++){
+		switch(ph[i].type){
+		case PT_NULL:
+		case PT_GNU_RELRO:
+		case PT_OPENBSD_RANDOMIZE:
+		case PT_NOTE:
+			continue;
+		case PT_DYNAMIC:
+		case PT_INTERP:
+			sysfatal("elf: dynamically linked");
+		default:
+			sysfatal("elf: unknown program header type %#ux", (int)ph[i].type);
+		case PT_LOAD:
+		case PT_PHDR:
+			break;
+		}
+		v = gptr(ph[i].paddr, ph[i].memsz);
+		if(v == nil)
+			sysfatal("invalid address %p (length=%p) in elf", (void*)ph[i].paddr, (void*)ph[i].memsz);
+		if(ph[i].filesz > ph[i].memsz)
+			sysfatal("elf: header entry shorter in memory than in the file (%p < %p)", (void*)ph[i].memsz, (void*)ph[i].filesz);
+		if(ph[i].filesz != 0)
+			epreadn(v, ph[i].filesz, ph[i].offset, "elfdata");
+		if(ph[i].filesz < ph[i].memsz)
+			memset((uchar*)v + ph[i].filesz, 0, ph[i].memsz - ph[i].filesz);
+		if(ph[i].paddr + ph[i].memsz > elfmax)
+			elfmax = ph[i].paddr + ph[i].memsz;
+	}
+}
+
+static int
+elfsymbols(void)
+{
+	ELFSHeader *s, *sy, *st;
+	char *str;
+	uchar *buf, *p;
+	int i;
+	
+	sy = nil;
+	st = nil;
+	for(s = sh; s < sh + eh.shnum; s++){
+		if(s->type == SHT_SYMTAB && s->name != nil && strcmp(s->name, ".symtab") == 0) 
+			sy = s;
+		if(s->type == SHT_STRTAB && s->name != nil && strcmp(s->name, ".strtab") == 0)
+			st = s;
+	}
+	if(sy == nil || st == nil)
+		return 0;
+	if(sy->entsize == 0 || (sy->size % sy->entsize) != 0)
+		sysfatal("symbol section: invalid headers");
+	str = emalloc(st->size);
+	epreadn(str, st->size, st->offset, "elfsymbols");
+	buf = emalloc(sy->size);
+	epreadn(buf, sy->size, sy->offset, "elfsymbols");
+	nsym = sy->size / sy->entsize;
+	sym = emalloc(sizeof(ELFSymbol) * nsym);
+	for(i = 0; i < nsym; i++){
+		p = buf + i * sy->entsize;
+		elfsymbol(sym + i, p, p + sy->entsize);
+		if(sym[i].iname < st->size)
+			sym[i].name = &str[sym[i].iname];
+	}
+	free(buf);
+	return 1;
+}
+
+static ELFSymbol *
+elfsym(char *n)
+{
+	ELFSymbol *s;
+	
+	for(s = sym; s < sym + nsym; s++)
+		if(s->name != nil && strcmp(s->name, n) == 0)
+			return s;
+	return nil;
+}
+
+static void *
+symaddr(ELFSymbol *s)
+{
+	ELFPHeader *p;
+
+	if(s == nil) return nil;
+	for(p = ph; p < ph + eh.phnum; p++)
+		if(s->addr >= p->vaddr && s->addr < p->vaddr + p->memsz)
+			return gptr(p->paddr + (s->addr - p->vaddr), s->size);
+	return nil;
+}
+
+static uchar *obsdarg, *obsdarg0, *obsdargnext;
+static int obsdargc;
+
+enum {
+	BOOTARG_MEMMAP,
+	BOOTARG_DISKINFO,
+	BOOTARG_APMINFO,
+	BOOTARG_CKSUMLEN,
+	BOOTARG_PCIINFO,
+	BOOTARG_CONSDEV,
+	BOOTARG_SMPINFO,
+	BOOTARG_BOOTMAC,
+	BOOTARG_DDB,
+	BOOTARG_BOOTDUID,
+	BOOTARG_BOOTSR,
+	BOOTARG_EFIINFO,
+	BOOTARG_END = -1,
+	
+	BIOS_MAP_END = 0,
+	BIOS_MAP_FREE,
+	BIOS_MAP_RES,
+	BIOS_MAP_ACPI,
+	BIOS_MAP_NVS,
+};
+
+static void *
+pack(void *v, char *fmt, ...)
+{
+	uchar *p;
+	va_list va;
+	
+	p = v;
+	va_start(va, fmt);
+	for(; *fmt != 0; fmt++)
+		switch(*fmt){
+		case 'i': PUT32(p, 0, va_arg(va, u32int)); p += 4; break;
+		case 'v': PUT64(p, 0, va_arg(va, u64int)); p += 8; break;
+		default: sysfatal("pack: unknown fmt character %c", *fmt);
+		}
+	va_end(va);
+	return p;
+}
+
+#define obsdpack(...) (obsdarg = pack(obsdarg, __VA_ARGS__))
+
+static void
+obsdstart(int type)
+{
+	obsdarg0 = obsdarg;
+	PUT32(obsdarg, 0, type);
+	PUT32(obsdarg, 8, 0); /* next */
+	obsdarg += 12;
+}
+
+static void
+obsdend(void)
+{
+	if(obsdarg == obsdarg0 + 12) obsdarg += 4;
+	PUT32(obsdarg0, 4, obsdarg - obsdarg0); /* size */
+	PUT32(obsdargnext, 0, gpa(obsdarg0));
+	obsdargnext = obsdarg0 + 8;
+	obsdarg0 = nil;	
+	obsdargc++;
+}
+
+static void
+obsdargs(void)
+{
+	Region *r;
+	uvlong s, e;
+
+	obsdstart(BOOTARG_MEMMAP);
+	for(r = mmap; r != nil; r = r->next){
+		s = r->start;
+		e = r->end;
+		if(s < (1<<20)) s = 1<<20;
+		if(e <= s) continue;
+		obsdpack("vvi", s, e - s, isusermem(r) ? BIOS_MAP_FREE : BIOS_MAP_RES);
+	}
+	obsdpack("vvi", 0ULL, 0ULL, BIOS_MAP_END);
+	obsdend();
+	obsdstart(BOOTARG_END); obsdend();
+}
+
+static int
+obsdcmdline(int argc, char **argv)
+{
+	char *p;
+	int howto;
+	
+	howto = 0;
+	while(argc-- > 0){
+		p = *argv++;
+		if(*p++ != '-') goto usage;
+		for(; *p != 0; p++)
+			switch(*p){
+			case 'a': howto |= 0x0001; break; /* RB_ASKNAME */
+			case 's': howto |= 0x0002; break; /* RB_SINGLE */
+			case 'd': howto |= 0x0040; break; /* RB_DDB */
+			case 'c': howto |= 0x0400; break; /* RB_CONFIG */
+			default: goto usage;
+			}
+	}
+	return howto;
+usage:
+	sysfatal("openbsd cmdline usage: kernel [-asdc]");
+	return 0;
+}
+
+static int
+obsdload(void)
+{
+	int sp;
+	int howto;
+	uchar *v;
+	
+	sp = 0xfffc;
+	sp -= 36;
+	v = gptr(sp, 36);
+	howto = obsdcmdline(cmdlinen, cmdlinev);
+	assert(v != nil);
+	PUT32(v, 4, howto); /* howto */
+	PUT32(v, 8, 0); /* bootdev */
+	PUT32(v, 12, 0xa); /* bootapiver */
+	PUT32(v, 16, elfmax); /* esym */
+	PUT32(v, 20, 0); /* extmem */
+	PUT32(v, 24, 0); /* cnvmem */
+	PUT32(v, 32, 0); /* bootargv */
+	obsdarg = gptr(0x10000, 4096);
+	assert(obsdarg != nil);
+	obsdargnext = &v[32]; /* bootargv */
+	obsdargs();
+	assert(obsdarg0 == nil);
+	PUT32(v, 28, obsdargc); /* bootargc */
+	rset(RSP, sp);
+	rset(RPC, eh.entry);
+	return 1;
+}
+
+static int
+tryelf(void)
+{
+	char *s;
+
+	if(!elfheaders()) return 0;
+	elfdata();
+	if(!elfsymbols()) return 0;
+	s = symaddr(elfsym("ostype"));
+	if(s != nil && strcmp(s, "OpenBSD") == 0)
+		return obsdload();
+	return 0;
+}
+
 void
 loadkernel(char *fn)
 {
@@ -162,7 +594,7 @@ loadkernel(char *fn)
 	if(fd < 0) sysfatal("open: %r");
 	if(readn(fd, hdr, sizeof(hdr)) <= 0)
 		sysfatal("readn: %r");
-	if(!trymultiboot())
+	if(!trymultiboot() && !tryelf())
 		sysfatal("%s: unknown format", fn);
 	close(fd);
 }

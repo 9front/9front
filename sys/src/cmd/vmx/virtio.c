@@ -10,15 +10,6 @@ typedef struct VIOBuf VIOBuf;
 typedef struct VIONetDev VIONetDev;
 typedef struct VIOBlkDev VIOBlkDev;
 
-#define GET8(p,n) (*((u8int*)(p)+(n)))
-#define GET16(p,n) (*(u16int*)((u8int*)(p)+(n)))
-#define GET32(p,n) (*(u32int*)((u8int*)(p)+(n)))
-#define GET64(p,n) (*(u64int*)((u8int*)(p)+(n)))
-#define PUT8(p,n,v) (*((u8int*)(p)+(n)) = (v))
-#define PUT16(p,n,v) (*(u16int*)((u8int*)(p)+(n)) = (v))
-#define PUT32(p,n,v) (*(u32int*)((u8int*)(p)+(n)) = (v))
-#define PUT64(p,n,v) (*(u64int*)((u8int*)(p)+(n)) = (v))
-
 enum {
 	BUFCHAIN = 1,
 	BUFWR = 2,
