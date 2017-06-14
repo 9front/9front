@@ -62,3 +62,8 @@ struct PCICap {
 	void (*write)(PCICap *, u8int, u32int, u32int);
 	PCICap *next;
 };
+
+enum {
+	IRQLTOGGLE = -1,
+	IRQLLOHI = -2,
+};

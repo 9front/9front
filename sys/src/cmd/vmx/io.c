@@ -144,16 +144,18 @@ irqline(int n, int s)
 	n %= 8;
 	ol = p->lines;
 	m = 1<<n;
-	if(s == 1)
-		p->lines |= m;
-	else if(s == 0)
-		p->lines &= ~m;
-	else if(s == -1)
-		p->lines ^= m;
+	switch(s){
+	case 1: case IRQLLOHI: p->lines |= m; break;
+	case 0: p->lines &= ~m; break;
+	case IRQLTOGGLE: p->lines ^= m; break;
+	default: assert(0);
+	}
 	if((p->elcr & m) != 0)
 		p->irr = p->irr & ~m | ~p->lines & m;
 	else
 		p->irr |= p->lines & ~ol & m;
+	if(s == IRQLLOHI && (p->elcr & m) == 0)
+		p->irr |= m;
 	picupdate(p);
 }
 
@@ -329,7 +331,9 @@ struct PITChannel {
 	u8int writestate;
 	vlong lastnsec;
 };
-PITChannel pit[3];
+PITChannel pit[3] = {
+	[0] { .state 1 },
+};
 enum { PERIOD = 838 };
 
 void
@@ -366,6 +370,35 @@ pitadvance(void)
 		t = nt - p->lastnsec;
 		p->lastnsec = nt;
 		switch(p->mode){
+		case 0:
+			if(p->state != 0){
+				nc = t / PERIOD;
+				if(p->count <= nc && i == 0)
+					irqline(0, 1);
+				p->count -= nc;
+				p->lastnsec -= t % PERIOD;
+				if(i == 0 && (pic[0].lines & 1<<0) == 0)
+					settimer(p->lastnsec + p->count * PERIOD);
+			}
+			break;
+		case 2:
+			if(p->state != 0){
+				nc = t / PERIOD;
+				if(p->count == 0 || p->count - 1 > nc)
+					p->count -= nc;
+				else{
+					rel = p->reload - 1;
+					if(rel <= 0) rel = 65535;
+					nc -= p->count - 1;
+					nc %= rel;
+					p->count = rel - nc + 1;
+					if(i == 0)
+						irqline(0, IRQLLOHI);
+				}
+				p->lastnsec -= t % PERIOD;
+				settimer(p->lastnsec + p->count * PERIOD);
+			}
+			break;
 		case 3:
 			if(p->state != 0){
 				nc = 2 * (t / PERIOD);
@@ -378,7 +411,7 @@ pitadvance(void)
 					nc %= rel;
 					p->count = rel - nc;
 					if(i == 0)
-						irqline(0, -1);
+						irqline(0, IRQLTOGGLE);
 				}
 				p->lastnsec -= t % PERIOD;
 				settimer(p->lastnsec + p->count / 2 * PERIOD);
@@ -399,11 +432,24 @@ pitsetreload(int n, int hi, u8int v)
 	else
 		p->reload = p->reload & 0xff00 | v;
 	switch(p->mode){
+	case 0:
+		if(n == 0)
+			irqline(0, 0);
+		if(p->access != 3 || hi){
+			p->count = p->reload;
+			p->state = 1;
+			p->lastnsec = nsec();
+			settimer(p->lastnsec + p->count * PERIOD);
+		}else
+			p->state = 0;
+		break;
+	case 2:
 	case 3:
 		if(p->state == 0 && (p->access != 3 || hi)){
 			p->count = p->reload;
 			p->state = 1;
 			p->lastnsec = nsec();
+			pitadvance();
 		}
 		break;
 	default:
@@ -468,6 +514,12 @@ pitio(int isin, u16int port, u32int val, int sz, void *)
 			pit[n].mode = val >> 1 & 7;
 			pit[n].access = val >> 4 & 3;
 			pit[n].bcd = val & 1;
+			if(pit[n].bcd != 0)
+				vmerror("pit: bcd mode not implemented");
+			switch(pit[n].mode){
+			case 0: case 2: case 3: break;
+			default: vmerror("pit: mode %d not implemented", pit[n].mode);
+			}
 			pit[n].state = 0;
 			pit[n].count = 0;
 			pit[n].reload = 0;
@@ -475,7 +527,13 @@ pitio(int isin, u16int port, u32int val, int sz, void *)
 			pit[n].writestate = pit[n].access == 1 ? READHI : READLO;
 			pit[n].lastnsec = nsec();
 			if(n == 0)
-				irqline(0, 1);
+				switch(pit[n].mode){
+				case 0:
+					irqline(0, 0);
+					break;
+				default:
+					irqline(0, 1);
+				}
 		}
 		return 0;
 	}
@@ -494,6 +552,13 @@ struct I8042 {
 	.cmd -1,
 };
 Channel *kbdch, *mousech;
+typedef struct PCKeyb PCKeyb;
+struct PCKeyb {
+	u8int buf[64];
+	u8int bufr, bufw;
+	u8int actcmd;
+	u8int quiet;
+} kbd;
 typedef struct PCMouse PCMouse;
 struct PCMouse {
 	Mouse;
@@ -513,6 +578,7 @@ struct PCMouse {
 	.res = 2,
 	.rate = 100
 };
+#define keyputc(c) kbd.buf[kbd.bufw++ & 63] = (c)
 #define mouseputc(c) mouse.buf[mouse.bufw++ & 63] = (c)
 
 static void
@@ -541,7 +607,30 @@ i8042putbuf(u16int val)
 static void
 kbdcmd(u8int val)
 {
-	vmerror("unknown kbd command %#ux", val);
+	switch(kbd.actcmd){
+	case 0xf0: /* set scancode set */
+		keyputc(0xfa);
+		if(val == 0) keyputc(1);
+		kbd.actcmd = 0;
+		break;
+	case 0x3d: /* set leds */
+		keyputc(0xfa);
+		kbd.actcmd = 0;
+		break;
+	default:
+		switch(val){
+		case 0xed: case 0xf0: kbd.actcmd = val; keyputc(0xfa); break;
+
+		case 0xff: keyputc(0xfa); break; /* reset */
+		case 0xf5: kbd.quiet = 1; keyputc(0xfa); break; /* disable scanning */
+		case 0xf4: kbd.quiet = 0; keyputc(0xfa); break; /* enable scanning */
+		case 0xf2: keyputc(0xfa); keyputc(0xab); keyputc(0x83); break; /* keyboard id */
+		case 0xee: keyputc(0xee); break; /* echo */
+		default:
+			vmerror("unknown kbd command %#ux", val);
+		}
+	}
+	i8042kick(nil);
 }
 
 static void
@@ -666,7 +755,9 @@ i8042kick(void *)
 	ulong ch;
 	
 	if((i8042.cfg & 0x10) == 0 && i8042.buf == 0)
-		if(nbrecv(kbdch, &ch) > 0)
+		if(kbd.bufr != kbd.bufw)
+			i8042putbuf(0x100 | kbd.buf[kbd.bufr++ & 63]);
+		else if(!kbd.quiet && nbrecv(kbdch, &ch) > 0)
 			i8042putbuf(0x100 | (u8int)ch);
 	if((i8042.cfg & 0x20) == 0 && i8042.buf == 0){
 		if(mouse.bufr == mouse.bufw)
@@ -813,7 +904,7 @@ uartio(int isin, u16int port, u32int val, int sz, void *)
 		if((p->lcr & 1<<7) != 0) return p->dlh;
 		return p->ier;
 	case 0x12:
-		rc = (p->fcr & 1) != 0 ? 0x40 : 0;
+		rc = 0;
 		uartkick(p);
 		if((p->irq & UARTRXIRQ) != 0)
 			return rc | 4;
@@ -881,7 +972,7 @@ uarttxproc(void *uv)
 		while(sendnotif((void(*)(void*))uartkick, u), p < buf+sizeof(buf) && nbrecv(u->outch, p) > 0)
 			p++;
 		if(write(u->outfd, buf, p - buf) < p - buf)
-			vmdebug("write(uarttx): %r");
+			vmerror("write(uarttx): %r");
 	}
 }
 
@@ -948,20 +1039,26 @@ IOHandler handlers[] = {
 	0x60, 0x60, i8042io, nil,
 	0x64, 0x64, i8042io, nil,
 	0x2f8, 0x2ff, uartio, nil,
-	0x3d4, 0x3d5, vgaio, nil,
+	0x3b0, 0x3bb, vgaio, nil,
+	0x3c0, 0x3df, vgaio, nil,
 	0x3f8, 0x3ff, uartio, nil,
 	0x4d0, 0x4d1, picio, nil,
 	0xcf8, 0xcff, pciio, nil,
 
 	0x061, 0x061, nopio, nil, /* pc speaker */
-	0x110, 0x110, nopio, nil, /* elnk3 */
+	0x084, 0x084, nopio, nil, /* dma -- used by openbsd for delay by dummy read */
+	0x100, 0x110, nopio, nil, /* elnk3 */
 	0x170, 0x177, nopio, nil, /* ide secondary */
 	0x1f0, 0x1f7, nopio, nil, /* ide primary */
+	0x279, 0x279, nopio, nil, /* isa pnp */
 	0x280, 0x28f, nopio, nil, /* 8003 */
+	0x2e8, 0x2ef, nopio, nil, /* COM4 */
 	0x378, 0x37a, nopio, nil, /* LPT1 */
 	0x3e0, 0x3e3, nopio, nil, /* cardbus */
-	0x3f0, 0x3f5, nopio, nil, /* floppy */
+	0x3e8, 0x3ef, nopio, nil, /* COM3 */
+	0x3f0, 0x3f7, nopio, nil, /* floppy */
 	0x778, 0x77a, nopio, nil, /* LPT1 (ECP) */
+	0xa79, 0xa79, nopio, nil, /* isa pnp */
 };
 
 u32int
