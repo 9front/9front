@@ -110,7 +110,6 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 {
 	u32int m;
 
-	iowhine(isin, port, val, sz, "vga");
 	if(sz != 1) vmdebug("vga: non-byte access to port %#ux, sz=%d", port, sz);
 	val = (u8int) val;
 	switch(isin << 16 | port){
