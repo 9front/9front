@@ -15,6 +15,8 @@ enum {
 	BUFWR = 2,
 	
 	USEDNOIRQ = 1,
+	
+	DRIVEROK = 4, /* devstat */
 };
 
 struct VIOBuf {
@@ -37,6 +39,8 @@ struct VIOQueue {
 	u32int addr;
 	u16int availidx, usedidx;
 	void (*notify)(VIOQueue*);
+	int livebuf;
+	Rendez livebufrend;
 };
 
 struct VIONetDev {
@@ -66,6 +70,7 @@ struct VIODev {
 	VIOQueue *qu;
 	int nqu;
 	u32int (*io)(int, u16int, u32int, int, VIODev *);
+	void (*reset)(VIODev *);
 	union {
 		VIONetDev net;
 		VIOBlkDev blk;
@@ -119,7 +124,7 @@ viogetbuf(VIOQueue *q, int wait)
 	
 	qlock(q);
 waitloop:
-	while(q->desc == nil || (gidx = GET16(q->avail, 2), gidx == q->availidx)){
+	while((q->d->devstat & DRIVEROK) == 0 || q->desc == nil || (gidx = GET16(q->avail, 2), gidx == q->availidx)){
 		if(!wait){
 			qunlock(q);
 			return nil;
@@ -151,6 +156,7 @@ waitloop:
 	}
 	q->availidx++;
 	if(rb == nil) goto waitloop;
+	q->livebuf++;
 	qunlock(q);
 	return rb;
 }
@@ -165,6 +171,10 @@ vioputbuf(VIOBuf *b)
 	if(b == nil) return;
 	q = b->qu;
 	qlock(q);
+	if((q->d->devstat & DRIVEROK) == 0){
+		qunlock(q);
+		goto end;
+	}
 	if(q->used == nil)
 		vmerror("virtio device %#x: address was set to an invalid value while holding buffer", q->d->pci->bdf);
 	else{
@@ -173,9 +183,12 @@ vioputbuf(VIOBuf *b)
 		PUT32(p, 0, b->idx);
 		PUT16(q->used, 2, ++q->usedidx);
 	}
+	if(--q->livebuf <= 0)
+		rwakeup(&q->livebufrend);
 	qunlock(q);
 	if(q->avail != nil && (GET16(q->avail, 0) & USEDNOIRQ) == 0)
 		vioirq(q->d, 1);
+end:
 	while(b != nil){
 		bn = b->next;
 		free(b);
@@ -292,6 +305,29 @@ vioqaddrset(VIOQueue *q, u64int addr)
 	qunlock(q);
 }
 
+static void
+viodevstatset(VIODev *v, u32int val)
+{
+	int i;
+
+	v->devstat = val;
+	if(val == 0){
+		if(v->reset != nil)
+			v->reset(v);
+		v->guestfeat = 0;
+		vioirq(v, 0);
+		for(i = 0; i < v->nqu; i++){
+			qlock(&v->qu[i]);
+			while(v->qu[i].livebuf > 0)
+				rsleep(&v->qu[i].livebufrend);
+			qunlock(&v->qu[i]);
+		}
+	}else{
+		for(i = 0; i < v->nqu; i++)
+			v->qu[i].notify(&v->qu[i]);
+	}
+}
+
 u32int
 vioio(int isin, u16int port, u32int val, int sz, void *vp)
 {
@@ -305,7 +341,7 @@ vioio(int isin, u16int port, u32int val, int sz, void *vp)
 	case 0x8: if(v->qsel < v->nqu) vioqaddrset(&v->qu[v->qsel], val); return 0;
 	case 0xe: v->qsel = val; return 0;
 	case 0x10: if(val < v->nqu) v->qu[val].notify(&v->qu[val]); return 0;
-	case 0x12: v->devstat = val; return 0;
+	case 0x12: viodevstatset(v, val); return 0;
 	case 0x10000: return v->devfeat;
 	case 0x10004: return v->guestfeat;
 	case 0x10008: return v->qsel >= v->nqu ? 0 : v->qu[v->qsel].addr;
@@ -353,6 +389,7 @@ mkvioqueue(VIODev *d, int sz, void (*fn)(VIOQueue*))
 	q = d->qu + d->nqu++;
 	memset(q, 0, sizeof(VIOQueue));
 	q->Rendez.l = q;
+	q->livebufrend.l = q;
 	q->size = sz;
 	q->d = d;
 	q->notify = fn;
@@ -475,7 +512,7 @@ vionetwproc(void *vp)
 			continue;
 		}
 		if(rc < len){
-			vmerror("write(vionetwproc): incomplete write");
+			vmerror("write(vionetwproc): incomplete write (%d < %d)", rc, len);
 			continue;
 		}
 	}
@@ -562,6 +599,14 @@ vionetcmd(VIOQueue *q)
 	}
 }
 
+void
+vionetreset(VIODev *d)
+{
+	d->net.flags = 0;
+	d->net.macbloom = 0;
+	d->net.multibloom = 0;
+}
+
 int
 mkvionet(char *net)
 {
@@ -581,6 +626,7 @@ mkvionet(char *net)
 	d->net.mac[0] = d->net.mac[0] & ~1 | 2;
 	d->devfeat = 1<<5|1<<16|1<<17|1<<18|1<<20;
 	d->io = vionetio;
+	d->reset = vionetreset;
 	d->net.readfd = d->net.writefd = fd;
 	proccreate(vionetrproc, d, 8192);
 	proccreate(vionetwproc, d, 8192);
