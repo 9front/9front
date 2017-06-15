@@ -1,5 +1,6 @@
 #include <u.h>
 #include <libc.h>
+#include <thread.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -436,6 +437,7 @@ symaddr(ELFSymbol *s)
 
 static uchar *obsdarg, *obsdarg0, *obsdargnext;
 static int obsdargc;
+static int obsdconsdev = 12 << 8, obsddbcons = -1;
 
 enum {
 	BOOTARG_MEMMAP,
@@ -515,6 +517,10 @@ obsdargs(void)
 	}
 	obsdpack("vvi", 0ULL, 0ULL, BIOS_MAP_END);
 	obsdend();
+	obsdstart(BOOTARG_CONSDEV); obsdpack("iiii", obsdconsdev, -1, -1, 0); obsdend();
+	if(obsddbcons != -1){
+		obsdstart(BOOTARG_DDB); obsdpack("i", obsddbcons); obsdend();
+	}
 	obsdstart(BOOTARG_END); obsdend();
 }
 
@@ -522,24 +528,48 @@ static int
 obsdcmdline(int argc, char **argv)
 {
 	char *p;
+	char *q;
 	int howto;
 	
 	howto = 0;
 	while(argc-- > 0){
 		p = *argv++;
-		if(*p++ != '-') goto usage;
-		for(; *p != 0; p++)
-			switch(*p){
-			case 'a': howto |= 0x0001; break; /* RB_ASKNAME */
-			case 's': howto |= 0x0002; break; /* RB_SINGLE */
-			case 'd': howto |= 0x0040; break; /* RB_DDB */
-			case 'c': howto |= 0x0400; break; /* RB_CONFIG */
-			default: goto usage;
-			}
+		if(*p == '-'){
+			while(*++p != 0)
+				switch(*p){
+				case 'a': howto |= 0x0001; break; /* RB_ASKNAME */
+				case 's': howto |= 0x0002; break; /* RB_SINGLE */
+				case 'd': howto |= 0x0040; break; /* RB_DDB */
+				case 'c': howto |= 0x0400; break; /* RB_CONFIG */
+				default: goto usage;
+				}
+			continue;
+		}
+		q = strchr(p, '=');
+		if(q == nil) goto usage;
+		*q++ = 0;
+		if(strcmp(p, "tty") == 0){
+			if(strcmp(q, "com0") == 0)
+				obsdconsdev = 8 << 8;
+			else if(strcmp(q, "com1") == 0)
+				obsdconsdev = 8 << 8 | 1;
+			else if(strcmp(q, "pc0") == 0)
+				obsdconsdev = 12 << 8;
+			else
+				sysfatal("tty must be one of com0, com1, pc0");
+		}else if(strcmp(p, "db_console") == 0){
+			if(strcmp(q, "on") == 0)
+				obsddbcons = 1;
+			else if(strcmp(q, "off") == 0)
+				obsddbcons = 0;
+			else
+				sysfatal("db_console must be one of on, off");
+		}else goto usage;
 	}
 	return howto;
 usage:
-	sysfatal("openbsd cmdline usage: kernel [-asdc]");
+	fprint(2, "openbsd cmdline usage: kernel [-asdc] [var=value ...]\nsupported vars: tty db_console\n");
+	threadexitsall("usage");
 	return 0;
 }
 
