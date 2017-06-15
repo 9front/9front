@@ -208,7 +208,7 @@ vioqread(VIOBuf *b, void *v, ulong n)
 		if(m > n - rc) m = n - rc;
 		memmove(v, (u8int*)c->p + p, m);
 		p += m, rc += m;
-		v = (u8int*)v + p;
+		v = (u8int*)v + m;
 		b->rptr += m;
 	}
 }
@@ -238,9 +238,31 @@ vioqwrite(VIOBuf *b, void *v, ulong n)
 		if(m > n - rc) m = n - rc;
 		memmove((u8int*)c->p + p, v, m);
 		p += m, rc += m;
-		v = (u8int*)v + p;
+		v = (u8int*)v + m;
 		b->wptr += m;
 	}
+}
+
+ulong
+vioqrem(VIOBuf *b, int wr)
+{
+	VIOBuf *c;
+	u32int p;
+	ulong rc;
+	
+	p = wr ? b->wptr : b->rptr;
+	for(c = b;; c = c->next){
+		if(c == nil) return 0;
+		if(((c->flags & BUFWR) != 0) == wr){
+			if(p < c->len) break;
+			p -= c->len;
+		}
+	}
+	rc = c->len - p;
+	for(c = c->next; c != nil; c = c->next)
+		if(((c->flags & BUFWR) != 0) == wr)
+			rc += c->len;
+	return rc;
 }
 
 static void
@@ -448,12 +470,12 @@ vionetwproc(void *vp)
 		}	
 		rc = write(v->net.writefd, txbuf, len);
 		vioputbuf(vb);
-		if(rc < len){
-			vmerror("write(vionetwproc): incomplete write");
-			continue;
-		}
 		if(rc < 0){
 			vmerror("write(vionetwproc): %r");
+			continue;
+		}
+		if(rc < len){
+			vmerror("write(vionetwproc): incomplete write");
 			continue;
 		}
 	}
@@ -585,9 +607,9 @@ vioblkproc(void *vp)
 	VIOBuf *b;
 	u8int cmd[16];
 	u8int ack;
-	char buf[512];
+	char buf[8192];
 	uvlong addr;
-	int rc;
+	int rc, n, m;
 	
 	threadsetname("vioblkproc");
 	v = vp;
@@ -603,21 +625,40 @@ vioblkproc(void *vp)
 		addr = GET64(cmd, 8);
 		switch(GET32(cmd, 0)){
 		case 0:
-			if(addr >> 55 != 0) rc = 0;
-			else rc = pread(v->blk.fd, buf, 512, addr << 9);
-			if(rc < 0) vmerror("pread(vioblkproc): %r");
-			if(rc < 512){
-				memset(buf, 0, 512);
+			n = vioqrem(b, 1) - 1;
+			if(n < 0 || addr * 512 + n > v->blk.size * 512){
 				ack = 1;
+				break;
 			}
-			vioqwrite(b, buf, 512);
+			seek(v->blk.fd, addr << 9, 0);
+			for(; n > 0; n -= rc){
+				rc = sizeof(buf);
+				if(n < rc) rc = n;
+				rc = read(v->blk.fd, buf, rc);
+				if(rc < 0) vmerror("read(vioblkproc): %r");
+				if(rc <= 0){
+					ack = 1;
+					break;
+				}
+				vioqwrite(b, buf, rc);
+			}
 			break;
 		case 1:
-			if(vioqread(b, buf, 512) < 512) rc = 0;
-			else if(addr >> 55 != 0) rc = 0;
-			else rc = pwrite(v->blk.fd, buf, 512, addr << 9);
-			if(rc < 0) vmerror("pwrite(vioblkproc): %r");
-			if(rc < 512) ack = 1;
+			n = vioqrem(b, 0);
+			if(addr * 512 + n > v->blk.size * 512){
+				ack = 1;
+				break;
+			}
+			seek(v->blk.fd, addr << 9, 0);
+			for(; n > 0; n -= rc){
+				m = vioqread(b, buf, sizeof(buf));
+				rc = write(v->blk.fd, buf, m);
+				if(rc < 0) vmerror("write(vioblkproc): %r");
+				if(rc < m){
+					ack = 1;
+					break;
+				}
+			}
 			break;
 		default:
 		nope:
@@ -641,6 +682,6 @@ mkvioblk(char *fn)
 	d->io = vioblkio;
 	d->blk.fd = fd;
 	d->blk.size = seek(fd, 0, 2) >> 9;
-	proccreate(vioblkproc, d, 8192);
+	proccreate(vioblkproc, d, 16384);
 	return 0;
 }
