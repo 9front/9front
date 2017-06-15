@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <libsec.h>
 #include "dat.h"
 #include "fns.h"
 
@@ -195,6 +196,7 @@ struct ELFSHeader {
 enum {
 	SHT_SYMTAB = 2,
 	SHT_STRTAB = 3,
+	SHF_ALLOC = 2,
 };
 typedef struct ELFSymbol ELFSymbol;
 struct ELFSymbol {
@@ -210,7 +212,6 @@ static ELFSHeader *sh;
 static ELFSymbol *sym;
 static int nsym;
 static uintptr elfmax;
-
 
 static u64int
 elff(uchar **p, uchar *e, int sz)
@@ -308,7 +309,7 @@ elfheaders(void)
 	if(hdr[5] != 1 || hdr[6] != 1 || hdr[0x14] != 1) return 0;
 	switch(hdr[4]){
 	case 1: elf64 = 0; break;
-	case 2: elf64 = 1; break;
+	case 2: elf64 = 1; if(sizeof(uintptr) == 4) sysfatal("64-bit binaries not supported on 32-bit host"); break;
 	default: return 0;
 	}
 	elfheader(&eh, hdr + 0x18, hdr + sizeof(hdr));
@@ -350,7 +351,6 @@ elfdata(void)
 		switch(ph[i].type){
 		case PT_NULL:
 		case PT_GNU_RELRO:
-		case PT_OPENBSD_RANDOMIZE:
 		case PT_NOTE:
 			continue;
 		case PT_DYNAMIC:
@@ -360,17 +360,22 @@ elfdata(void)
 			sysfatal("elf: unknown program header type %#ux", (int)ph[i].type);
 		case PT_LOAD:
 		case PT_PHDR:
+		case PT_OPENBSD_RANDOMIZE:
 			break;
 		}
 		v = gptr(ph[i].paddr, ph[i].memsz);
 		if(v == nil)
 			sysfatal("invalid address %p (length=%p) in elf", (void*)ph[i].paddr, (void*)ph[i].memsz);
-		if(ph[i].filesz > ph[i].memsz)
-			sysfatal("elf: header entry shorter in memory than in the file (%p < %p)", (void*)ph[i].memsz, (void*)ph[i].filesz);
-		if(ph[i].filesz != 0)
-			epreadn(v, ph[i].filesz, ph[i].offset, "elfdata");
-		if(ph[i].filesz < ph[i].memsz)
-			memset((uchar*)v + ph[i].filesz, 0, ph[i].memsz - ph[i].filesz);
+		if(ph[i].type == PT_OPENBSD_RANDOMIZE)
+			genrandom(v, ph[i].memsz);
+		else{
+			if(ph[i].filesz > ph[i].memsz)
+				sysfatal("elf: header entry shorter in memory than in the file (%p < %p)", (void*)ph[i].memsz, (void*)ph[i].filesz);
+			if(ph[i].filesz != 0)
+				epreadn(v, ph[i].filesz, ph[i].offset, "elfdata");
+			if(ph[i].filesz < ph[i].memsz)
+				memset((uchar*)v + ph[i].filesz, 0, ph[i].memsz - ph[i].filesz);
+		}
 		if(ph[i].paddr + ph[i].memsz > elfmax)
 			elfmax = ph[i].paddr + ph[i].memsz;
 	}
@@ -437,7 +442,7 @@ symaddr(ELFSymbol *s)
 
 static uchar *obsdarg, *obsdarg0, *obsdargnext;
 static int obsdargc;
-static int obsdconsdev = 12 << 8, obsddbcons = -1;
+static int obsdconsdev = 12 << 8, obsddbcons = -1, obsdbootdev;
 
 enum {
 	BOOTARG_MEMMAP,
@@ -471,12 +476,57 @@ pack(void *v, char *fmt, ...)
 	va_start(va, fmt);
 	for(; *fmt != 0; fmt++)
 		switch(*fmt){
+		case '.': p++; break;
+		case 's': PUT16(p, 0, va_arg(va, int)); p += 2; break;
 		case 'i': PUT32(p, 0, va_arg(va, u32int)); p += 4; break;
 		case 'v': PUT64(p, 0, va_arg(va, u64int)); p += 8; break;
+		case 'z': if(elf64) {PUT64(p, 0, va_arg(va, uintptr)); p += 8;} else {PUT32(p, 0, va_arg(va, uintptr)); p += 4;} break;
 		default: sysfatal("pack: unknown fmt character %c", *fmt);
 		}
 	va_end(va);
 	return p;
+}
+
+static void
+obsdelfload(void)
+{
+	void *v, *w, *hdrfix;
+	int shentsize;
+	int saddr;
+	ELFSHeader *s;
+	uintptr off;
+	
+	saddr = elf64 ? 8 : 4;
+	elfmax = -(-elfmax & -saddr);
+	v = gptr(elfmax, eh.ehsize);
+	if(v == nil)
+space:		sysfatal("out of space for kernel");
+	epreadn(v, eh.ehsize, 0, "obsdelfload");
+	elfmax += -(-eh.ehsize & -saddr);
+	hdrfix = (uchar*)v + (elf64 ? 0x20 : 0x1c);
+	
+	shentsize = 40 + 24*elf64;
+	v = gptr(elfmax, shentsize * eh.shnum);
+	if(v == nil) goto space;
+	off = shentsize * eh.shnum;
+	elfmax += off;
+	off += -(-eh.ehsize & -saddr);
+	for(s = sh; s < sh + eh.shnum; s++)
+		if(s->type == SHT_SYMTAB || s->type == SHT_STRTAB ||
+		s->name != nil && (strcmp(s->name, ".debug_line") == 0 || strcmp(s->name, ".SUNW_ctf") == 0)){
+			w = gptr(elfmax, s->size);
+			if(w == nil) goto space;
+			epreadn(w, s->size, s->offset, "obsdelfload");
+			v = pack(v, "iizzzziizz",
+				s->iname, s->type, s->flags | SHF_ALLOC, (uintptr)0,
+				off, s->size, s->link, s->info, s->addralign, s->entsize);
+			elfmax += -(-s->size & -saddr);
+			off += -(-s->size & -saddr);
+		}else{
+			memset(v, 0, shentsize);
+			v = (uchar*)v + shentsize;
+		}
+	pack(hdrfix, "zz......sss", (uintptr)0, -(-eh.ehsize & -saddr), 0, 0, shentsize);
 }
 
 #define obsdpack(...) (obsdarg = pack(obsdarg, __VA_ARGS__))
@@ -528,7 +578,7 @@ static int
 obsdcmdline(int argc, char **argv)
 {
 	char *p;
-	char *q;
+	char *q, *r;
 	int howto;
 	
 	howto = 0;
@@ -548,7 +598,25 @@ obsdcmdline(int argc, char **argv)
 		q = strchr(p, '=');
 		if(q == nil) goto usage;
 		*q++ = 0;
-		if(strcmp(p, "tty") == 0){
+		if(strcmp(p, "device") == 0){
+			obsdbootdev = 0;
+			switch(*q){
+			case 'w': break;
+			case 'f': obsdbootdev = 2; break;
+			case 's': obsdbootdev = 4; break;
+			case 'c': obsdbootdev = 6; break;
+			case 'r': obsdbootdev = 17; break;
+			case 'v': obsdbootdev = 14; if(*++q != 'n') goto nodev; break;
+			default: nodev: sysfatal("invalid device");
+			}
+			if(*++q != 'd') goto nodev;
+			obsdbootdev |= strtoul(++q, &r, 10) << 16;
+			if(r == q || (obsdbootdev & 0xfff00000) != 0) goto nodev;
+			if(*r < 'a' || *r > 'p') goto nodev;
+			obsdbootdev |= *r - 'a' << 8;
+			if(*++r != 0) goto nodev;
+			obsdbootdev |= 0xa0000000;
+		}else if(strcmp(p, "tty") == 0){
 			if(strcmp(q, "com0") == 0)
 				obsdconsdev = 8 << 8;
 			else if(strcmp(q, "com1") == 0)
@@ -568,7 +636,7 @@ obsdcmdline(int argc, char **argv)
 	}
 	return howto;
 usage:
-	fprint(2, "openbsd cmdline usage: kernel [-asdc] [var=value ...]\nsupported vars: tty db_console\n");
+	fprint(2, "openbsd cmdline usage: kernel [-asdc] [var=value ...]\nsupported vars: device tty db_console\n");
 	threadexitsall("usage");
 	return 0;
 }
@@ -580,13 +648,14 @@ obsdload(void)
 	int howto;
 	uchar *v;
 	
+	obsdelfload();
 	sp = 0xfffc;
 	sp -= 36;
 	v = gptr(sp, 36);
 	howto = obsdcmdline(cmdlinen, cmdlinev);
 	assert(v != nil);
 	PUT32(v, 4, howto); /* howto */
-	PUT32(v, 8, 0); /* bootdev */
+	PUT32(v, 8, obsdbootdev); /* bootdev */
 	PUT32(v, 12, 0xa); /* bootapiver */
 	PUT32(v, 16, elfmax); /* esym */
 	PUT32(v, 20, 0); /* extmem */
