@@ -18,17 +18,41 @@ rtcio(int isin, u16int port, u32int val, int sz, void *)
 {
 	static u8int addr;
 	uintptr basemem, extmem;
+	static uchar cmos[0x30] = {
+		[1] 0xff, [3] 0xff, [5] 0xff, 
+		[0xa] 0x26,
+		[0xb] 0,
+		[0xd] 1<<7, /* cmos valid */
+		[0xf] 0x56, /* cmos tests pass */
+		[0x11] 0x80, /* mouse enabled */
+		[0x14] 0x2e, /* cga 80-column */
+		[0x2d] 0x1c, /* caches + fpu enabled */
+	};
+	static int cmosinit;
+	int i, s;
 	Tm *tm;
 	
+	if(cmosinit == 0){
+		basemem = gavail(gptr(0, 0)) >> 10;
+		if(basemem > 640) basemem = 640;
+		extmem = gavail(gptr(1<<20, 0)) >> 10;
+		if(extmem >= 65535) extmem = 65535;
+		cmos[0x15] = basemem;
+		cmos[0x16] = basemem >> 8;
+		cmos[0x17] = extmem;
+		cmos[0x18] = extmem >> 8;
+		s = 0;
+		for(i = 0x10; i < 0x2e; i++)
+			s += cmos[i];
+		cmos[0x2e] = s >> 8;
+		cmos[0x2f] = s;
+		cmosinit = 1;
+	}
 	switch(isin << 16 | port){
 	case 0x10070: return addr;
 	case 0x70: addr = val; return 0;
 	case 0x10071:
 		tm = gmtime(time(nil));
-		basemem = gavail(gptr(0, 0)) >> 10;
-		if(basemem > 640) basemem = 640;
-		extmem = gavail(gptr(1<<20, 0)) >> 10;
-		if(extmem >= 65535) extmem = 65535;
 		switch(addr){
 		case 0x00: return bcd(tm->sec);
 		case 0x02: return bcd(tm->min);
@@ -37,17 +61,12 @@ rtcio(int isin, u16int port, u32int val, int sz, void *)
 		case 0x07: return bcd(tm->mday);
 		case 0x08: return bcd(tm->mon + 1);
 		case 0x09: return bcd(tm->year % 100);
-		case 0x0a: return 0x26;
-		case 0x0b: return 1<<1 | 1<<2;
-		case 0x0d: return 1<<7; /* cmos valid */
-		case 0x0e: return 0; /* diagnostics ok */
-		case 0x10: return 0; /* no floppies */
-		case 0x15: return basemem;
-		case 0x16: return basemem >> 8;
-		case 0x17: return extmem;
-		case 0x18: return extmem >> 8;
 		case 0x32: return bcd(tm->year / 100 + 19);
-		default: vmerror("rtc read from unknown address %#x", addr); return 0;
+		default:
+			if(addr < nelem(cmos))
+				return cmos[addr];
+			vmerror("rtc read from unknown address %#x", addr);
+			return 0;
 		}
 	}
 	return iowhine(isin, port, val, sz, "rtc");
