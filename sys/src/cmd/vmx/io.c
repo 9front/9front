@@ -224,7 +224,7 @@ picio(int isin, u16int port, u32int val, int sz, void *)
 			case 2: /* no operation */
 				break;
 			case 3: /* specific eoi command */
-				p->isr &= 1<<(val & 7);
+				p->isr &= ~(1<<(val & 7));
 				break;
 			case 4: /* rotate in automatic eoi mode (set) */
 				p->flags |= ROTAEOI;
@@ -236,7 +236,7 @@ picio(int isin, u16int port, u32int val, int sz, void *)
 				p->prio = val & 7;
 				break;
 			case 7: /* rotate on specific eoi command */
-				p->isr &= 1<<(val & 7);
+				p->isr &= ~(1<<(val & 7));
 				p->prio = val & 7;
 				break;
 			}
@@ -621,7 +621,7 @@ kbdcmd(u8int val)
 		switch(val){
 		case 0xed: case 0xf0: kbd.actcmd = val; keyputc(0xfa); break;
 
-		case 0xff: keyputc(0xfa); break; /* reset */
+		case 0xff: keyputc(0xfa); keyputc(0xaa); break; /* reset */
 		case 0xf5: kbd.quiet = 1; keyputc(0xfa); break; /* disable scanning */
 		case 0xf4: kbd.quiet = 0; keyputc(0xfa); break; /* enable scanning */
 		case 0xf2: keyputc(0xfa); keyputc(0xab); keyputc(0x83); break; /* keyboard id */
@@ -826,8 +826,8 @@ struct UART {
 	u8int ier, fcr, lcr, lsr, mcr, scr, dll, dlh;
 	u8int rbr, tbr;
 	enum {
-		UARTTXIRQ = 1,
-		UARTRXIRQ = 2,
+		UARTTXIRQ = 2,
+		UARTRXIRQ = 1,
 	} irq;
 	int infd, outfd;
 	Channel *inch, *outch;
@@ -924,8 +924,8 @@ uartio(int isin, u16int port, u32int val, int sz, void *)
 		return rc;
 	case 0x16: /* modem status */
 		if((p->mcr & 0x10) != 0)
-			return p->mcr << 1 & 2 | p->mcr >> 1 & 1 | p->mcr & 0xc;
-		return 0;
+			return (p->mcr << 1 & 2 | p->mcr >> 1 & 1 | p->mcr & 0xc) << 4;
+		return 0x90; /* DCD + CTS asserted */
 	case 0x17: return p->scr;
 	}
 	return iowhine(isin, port, val, sz, "uart");
@@ -1007,9 +1007,85 @@ uartinit(int n, char *cfg)
 }
 
 static u32int
+ideio(int, u16int port, u32int, int, void *)
+{
+	switch(port & 7){
+	case 7: return 0x71;
+	default: return -1;
+	}
+}
+
+/* floppy dummy controller */
+typedef struct Floppy Floppy;
+struct Floppy {
+	u8int dor;
+	u8int dump, irq;
+	u8int fdc;
+	u8int inq[16];
+	u8int inqr, inqw;
+} fdc;
+#define fdcputc(c) (fdc.inq[fdc.inqw++ & 15] = (c))
+
+static void
+fdccmd(u8int val)
+{
+	vmdebug("fdc: cmd %#x", val);
+	switch(val){
+	case 0x03:
+		fdc.dump = 2;
+		break;
+	case 0x07:
+		fdc.dump = 1;
+		fdc.irq = 1;
+		break;
+	case 0x08:
+		irqline(6, 0);
+		fdcputc(0x80);
+		fdcputc(0);
+		break;
+	default:
+		vmerror("unknown fdc command %.2x", val);
+	}
+}
+
+static u32int
+fdcio(int isin, u16int port, u32int val, int sz, void *)
+{
+	u8int rc;
+
+	if(sz != 1) vmerror("fdc: access size %d != 1", sz);
+	val = (u8int) val;
+	switch(isin << 4 | port & 7){
+	case 0x02: fdc.dor = val; return 0;
+	case 0x05:
+		if(fdc.dump > 0){
+			if(--fdc.dump == 0 && fdc.inqr == fdc.inqw && fdc.irq != 0){
+				irqline(6, 1);
+				fdc.irq = 0;
+			}
+		}else if(fdc.inqr == fdc.inqw)
+			fdccmd(val);
+		return 0;
+	case 0x12: return fdc.dor;
+	case 0x14:
+		rc = 0x80;
+		if(fdc.dump == 0 && fdc.inqr != fdc.inqw)
+			rc |= 0x40;
+		if(fdc.dump != 0 || fdc.inqr != fdc.inqw)
+			rc |= 0x10;
+		return rc;
+	case 0x15:
+		if(fdc.dump == 0 && fdc.inqr != fdc.inqw)
+			return fdc.inq[fdc.inqr++ & 15];
+		return 0;
+	}
+	return iowhine(isin, port, val, sz, "fdc");
+}
+
+static u32int
 nopio(int, u16int, u32int, int, void *)
 {
-	return 0;
+	return -1;
 }
 
 u32int
@@ -1019,7 +1095,7 @@ iowhine(int isin, u16int port, u32int val, int sz, void *mod)
 		vmerror("%s%sread from unknown i/o port %#ux ignored (sz=%d)", mod != nil ? mod : "", mod != nil ? ": " : "", port, sz);
 	else
 		vmerror("%s%swrite to unknown i/o port %#ux ignored (val=%#ux, sz=%d)", mod != nil ? mod : "", mod != nil ? ": " : "", port, val, sz);
-	return 0;
+	return -1;
 }
 
 typedef struct IOHandler IOHandler;
@@ -1045,18 +1121,19 @@ IOHandler handlers[] = {
 	0x4d0, 0x4d1, picio, nil,
 	0xcf8, 0xcff, pciio, nil,
 
+	0x170, 0x177, ideio, nil, /* ide secondary */
+	0x1f0, 0x1f7, ideio, nil, /* ide primary */
+	0x3f0, 0x3f7, fdcio, nil, /* floppy */
+
 	0x061, 0x061, nopio, nil, /* pc speaker */
 	0x084, 0x084, nopio, nil, /* dma -- used by openbsd for delay by dummy read */
 	0x100, 0x110, nopio, nil, /* elnk3 */
-	0x170, 0x177, nopio, nil, /* ide secondary */
-	0x1f0, 0x1f7, nopio, nil, /* ide primary */
 	0x279, 0x279, nopio, nil, /* isa pnp */
 	0x280, 0x28f, nopio, nil, /* 8003 */
 	0x2e8, 0x2ef, nopio, nil, /* COM4 */
 	0x378, 0x37a, nopio, nil, /* LPT1 */
 	0x3e0, 0x3e3, nopio, nil, /* cardbus */
 	0x3e8, 0x3ef, nopio, nil, /* COM3 */
-	0x3f0, 0x3f7, nopio, nil, /* floppy */
 	0x778, 0x77a, nopio, nil, /* LPT1 (ECP) */
 	0xa79, 0xa79, nopio, nil, /* isa pnp */
 };
