@@ -318,10 +318,14 @@ mksegment(char *sn)
 }
 
 void
-postexc(char *name, u32int)
+postexc(char *name, vlong code)
 {
-	if(ctl("exc %s", name) < 0)
-		sysfatal("ctl(postexc): %r");
+	if(code >= 0){
+		if(ctl("exc %s,%#ux", name, (u32int)code) < 0)
+			sysfatal("ctl(postexc): %r");
+	}else
+		if(ctl("exc %s", name) < 0)
+			sysfatal("ctl(postexc): %r");
 }
 
 void

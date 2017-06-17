@@ -75,7 +75,7 @@ iohandler(ExitInfo *ei)
 	isin = (ei->qual & 8) != 0;
 	if((ei->qual & 1<<4) != 0){
 		vmerror("i/o string instruction not implemented");
-		postexc("#ud", 0);
+		postexc("#ud", NOERRC);
 		return;
 	}
 	if(isin){
@@ -321,6 +321,37 @@ rdwrmsr(ExitInfo *ei)
 }
 
 static void
+movdr(ExitInfo *ei)
+{
+	static char *reg[16] = {
+		RAX, RCX, RDX, RBX,
+		RSP, RBP, RSI, RDI,
+		R8, R9, R10, R11,
+		R12, R13, R14, R15
+	};
+	static char *dr[8] = { "dr0", "dr1", "dr2", "dr3", nil, nil, "dr6", "dr7" };
+	int q;
+	
+	q = ei->qual;
+	if((q & 6) == 4){
+		postexc("#gp", 0);
+		return;
+	}
+	if((q & 16) != 0)
+		rset(reg[q >> 8 & 15], rget(dr[q & 7]));
+	else
+		rset(dr[q & 7], rget(reg[q >> 8 & 15]));
+	skipinstr(ei);
+}
+
+static void
+dbgexc(ExitInfo *ei)
+{
+	rset("dr6", rget("dr6") | ei->qual);
+	postexc("#db", NOERRC);
+}
+
+static void
 hlt(ExitInfo *ei)
 {
 	if(irqactive == 0)
@@ -347,6 +378,8 @@ static ExitType etypes[] = {
 	{"*ack", irqackhand},
 	{".rdmsr", rdwrmsr},
 	{".wrmsr", rdwrmsr},
+	{".movdr", movdr},
+	{"#db", dbgexc},
 };
 
 void
@@ -391,7 +424,7 @@ processexit(char *msg)
 		}
 	if(*f[0] == '.'){
 		vmerror("vmx: unknown instruction %s", f[0]+1);
-		postexc("#ud", 0);
+		postexc("#ud", NOERRC);
 		return;
 	}
 	if(*f[0] == '*'){

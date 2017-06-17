@@ -13,7 +13,7 @@ int ctl(char *, ...);
 void registermmio(uvlong, uvlong, uvlong (*)(int, uvlong, uvlong));
 void irqline(int, int);
 void irqack(int);
-void postexc(char *, u32int);
+void postexc(char *, vlong);
 void vgaresize(void);
 void uartinit(int, char *);
 void sendnotif(void (*)(void *), void *);

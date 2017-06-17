@@ -15,6 +15,17 @@ enum {
 #define RBX "bx"
 #define RCX "cx"
 #define RDX "dx"
+#define RBP "bp"
+#define RSI "si"
+#define RDI "di"
+#define R8 "r8"
+#define R9 "r9"
+#define R10 "r10"
+#define R11 "r11"
+#define R12 "r12"
+#define R13 "r13"
+#define R14 "r14"
+#define R15 "r15"
 
 enum {
 	MMIORD = 0,
@@ -72,8 +83,12 @@ struct PCICap {
 };
 
 enum {
+	/* irqline argument */
 	IRQLTOGGLE = -1,
 	IRQLLOHI = -2,
+	
+	/* postexc */
+	NOERRC = -1,
 };
 
 typedef struct VgaMode VgaMode;
