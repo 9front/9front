@@ -557,9 +557,9 @@ drawproc(void *)
 
 	threadsetname("draw");
 	sfb = emalloc(fbsz);
+	event = 4;
 	for(;; sleep(20)){
 		qlock(&vga);
-		event = 0;
 		m = nextmode;
 		if(m != curmode){
 			event |= 1;
@@ -572,7 +572,7 @@ drawproc(void *)
 		}
 		while(nbrecv(mc->resizec, &ul) > 0)
 			event |= 2;
-		if(event != 0){
+		if((event & 3) != 0){
 			if((event & 2) != 0 && getwindow(display, Refnone) < 0)
 				sysfatal("resize failed: %r");
 			screeninit((event & 2) != 0);
@@ -581,6 +581,7 @@ drawproc(void *)
 			drawtext();
 		else
 			drawfb(event != 0);
+		event = 0;
 		qunlock(&vga);
 	}
 }
@@ -704,6 +705,7 @@ vgainit(void)
 
 	if(curmode == nil) return;
 	nextmode = curmode;
+	nexthbytes = curhbytes;
 	tfb = gptr(0xb8000, 0x8000);
 	if(tfb == nil)
 		sysfatal("got nil ptr for text framebuffer");
