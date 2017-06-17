@@ -7,10 +7,60 @@
 #include "dat.h"
 #include "fns.h"
 
+static uchar cmos[0x30] = {
+	[1] 0xff, [3] 0xff, [5] 0xff, 
+	[0xa] 0x26,
+	[0xb] 1<<1,
+	[0xd] 1<<7, /* cmos valid */
+	[0xf] 0x56, /* cmos tests pass */
+	[0x11] 0x80, /* mouse enabled */
+	[0x14] 0x2e, /* cga 80-column */
+	[0x2d] 0x1c, /* caches + fpu enabled */
+};
+static vlong rtcnext = -1;
+
 static uchar
-bcd(uchar c)
+bcd(uchar m, uchar c)
 {
-	return c / 10 << 4 | c % 10;
+	return (m & 1) != 0 ? c : c / 10 << 4 | c % 10;
+}
+
+void
+rtcadvance(void)
+{
+	vlong t;
+	
+	if(rtcnext != -1){
+		t = nsec();
+		if(t >= rtcnext){
+			cmos[0xc] |= 0x40;
+			rtcnext = -1;
+		}else
+			settimer(rtcnext);
+	}
+	irqline(8, (cmos[0xc] & cmos[0xb] & 0x70) != 0); 
+}
+
+static void
+rtcset(void)
+{
+	vlong t, b;
+	int d;
+
+	rtcadvance();
+	if((cmos[0xa] >> 4) > 2 || (cmos[0xa] & 15) == 0 || (cmos[0xc] & 0x40) != 0){
+		rtcnext = -1;
+		return;
+	}
+	switch(cmos[0xa]){
+	case 0x21: d = 12; break;
+	case 0x22: d = 13; break;
+	default: d = 4 + (cmos[0xa] & 0xf);
+	}
+	b = (1000000000ULL << d) / 1048576;
+	t = nsec();
+	rtcnext = t + b - t % b;
+	settimer(rtcnext);
 }
 
 static u32int
@@ -18,16 +68,7 @@ rtcio(int isin, u16int port, u32int val, int sz, void *)
 {
 	static u8int addr;
 	uintptr basemem, extmem;
-	static uchar cmos[0x30] = {
-		[1] 0xff, [3] 0xff, [5] 0xff, 
-		[0xa] 0x26,
-		[0xb] 0,
-		[0xd] 1<<7, /* cmos valid */
-		[0xf] 0x56, /* cmos tests pass */
-		[0x11] 0x80, /* mouse enabled */
-		[0x14] 0x2e, /* cga 80-column */
-		[0x2d] 0x1c, /* caches + fpu enabled */
-	};
+
 	static int cmosinit;
 	int i, s;
 	Tm *tm;
@@ -48,24 +89,43 @@ rtcio(int isin, u16int port, u32int val, int sz, void *)
 		cmos[0x2f] = s;
 		cmosinit = 1;
 	}
+	if(sz != 1) vmerror("rtc: access size %d != 1", sz);
+	val = (u8int) val;
 	switch(isin << 16 | port){
-	case 0x10070: return addr;
 	case 0x70: addr = val; return 0;
+	case 0x71:
+		switch(addr){
+		case 0xa: cmos[addr] = val & 0x7f; rtcset(); break;
+		case 0xb: cmos[addr] = val | 2; rtcadvance(); break;
+		case 0xc: case 0xd: goto no;
+		default:
+			if(addr < nelem(cmos))
+				cmos[addr] = val;
+			else no:
+				vmerror("rtc: write to unknown address %#x (val=%#x)", addr, val);
+			return 0;
+		}
+	case 0x10070: return addr;
 	case 0x10071:
 		tm = gmtime(time(nil));
 		switch(addr){
-		case 0x00: return bcd(tm->sec);
-		case 0x02: return bcd(tm->min);
-		case 0x04: return bcd(tm->hour);
-		case 0x06: return bcd(tm->wday + 1);
-		case 0x07: return bcd(tm->mday);
-		case 0x08: return bcd(tm->mon + 1);
-		case 0x09: return bcd(tm->year % 100);
-		case 0x32: return bcd(tm->year / 100 + 19);
+		case 0x00: return bcd(cmos[0xb], tm->sec);
+		case 0x02: return bcd(cmos[0xb], tm->min);
+		case 0x04: return bcd(cmos[0xb], tm->hour);
+		case 0x06: return bcd(cmos[0xb], tm->wday + 1);
+		case 0x07: return bcd(cmos[0xb], tm->mday);
+		case 0x08: return bcd(cmos[0xb], tm->mon + 1);
+		case 0x09: return bcd(cmos[0xb], tm->year % 100);
+		case 0x0c:
+			i = cmos[0xc] | ((cmos[0xc] & cmos[0xb] & 0x70) != 0) << 7;
+			cmos[0xc] = 0;
+			rtcset();
+			return i;
+		case 0x32: return bcd(cmos[0xb], tm->year / 100 + 19);
 		default:
 			if(addr < nelem(cmos))
 				return cmos[addr];
-			vmerror("rtc read from unknown address %#x", addr);
+			vmerror("rtc: read from unknown address %#x", addr);
 			return 0;
 		}
 	}
@@ -191,7 +251,10 @@ irqack(int n)
 		p = &pic[1];
 	else
 		return;
-	if(p == &pic[1]) irqack(pic[0].base + 2);
+	if(p == &pic[1]){
+		irqack(pic[0].base + 2);
+		irqline(2, 0);
+	}
 	n &= 7;
 	p->irr &= ~(1<<n);
 	p->isr |= 1<<n;
@@ -307,6 +370,7 @@ picio(int isin, u16int port, u32int val, int sz, void *)
 		}
 		break;
 	case 0x10020:
+	case 0x100a0:
 		if((p->flags & READSR) != 0)
 			return p->isr;
 		if((p->flags & POLL) != 0){
@@ -322,7 +386,6 @@ picio(int isin, u16int port, u32int val, int sz, void *)
 			return 0;
 		}
 		return p->irr;
-	case 0x100a0:
 	case 0x10021:
 	case 0x100a1:
 		return p->imr;
@@ -571,6 +634,7 @@ struct I8042 {
 	.cmd -1,
 };
 Channel *kbdch, *mousech;
+u8int mouseactive;
 typedef struct PCKeyb PCKeyb;
 struct PCKeyb {
 	u8int buf[64];
@@ -632,7 +696,7 @@ kbdcmd(u8int val)
 		if(val == 0) keyputc(1);
 		kbd.actcmd = 0;
 		break;
-	case 0x3d: /* set leds */
+	case 0xed: /* set leds */
 		keyputc(0xfa);
 		kbd.actcmd = 0;
 		break;
@@ -684,8 +748,8 @@ mousepacket(int force)
 	dx = mouse.xy.x;
 	dy = -mouse.xy.y;
 	b0 = 8;
-	if((ulong)(dx + 256) > 511) dx = dx >> 31 & 0x1ff ^ 0xff;
-	if((ulong)(dy + 256) > 511) dy = dy >> 31 & 0x1ff ^ 0xff;
+	if((ulong)(dx + 256) > 511) dx = dx >> 31 ^ 0xff;
+	if((ulong)(dy + 256) > 511) dy = dy >> 31 ^ 0xff;
 	b0 |= dx >> 5 & 0x10 | dy >> 4 & 0x20;
 	b0 |= (mouse.buttons * 0x111 & 0x421) % 7;
 	mouseputc(b0);
@@ -693,7 +757,7 @@ mousepacket(int force)
 	mouseputc((u8int)dy);
 	mouse.xy.x -= dx;
 	mouse.xy.y += dy;
-	mouse.gotmouse = 0;
+	mouse.gotmouse = mouse.xy.x != 0 || mouse.xy.y != 0;
 }
 
 static void
@@ -796,7 +860,7 @@ i8042io(int isin, u16int port, u32int val, int sz, void *)
 	case 0x60:
 		i8042.stat &= ~8;
 		switch(i8042.cmd){
-		case 0x60: i8042.cfg = val; break;
+		case 0x60: i8042.cfg = val; mouseactive = (val & 0x20) == 0; break;
 		case 0xd1:
 			i8042.oport = val;
 			irqline(1, i8042.oport >> 4 & 1);
@@ -819,8 +883,8 @@ i8042io(int isin, u16int port, u32int val, int sz, void *)
 		switch(val){
 		case 0x20: i8042putbuf(0x400 | i8042.cfg); return 0;
 		case 0xa1: i8042putbuf(0x4f1); return 0; /* no keyboard password */
-		case 0xa7: i8042.cfg |= 1<<5; return 0;
-		case 0xa8: i8042.cfg &= ~(1<<5); return 0;
+		case 0xa7: i8042.cfg |= 1<<5; mouseactive = 0; return 0;
+		case 0xa8: i8042.cfg &= ~(1<<5); mouseactive = 1; return 0;
 		case 0xa9: i8042putbuf(0x400); return 0; /* test second port */
 		case 0xaa: i8042putbuf(0x455); return 0; /* test controller */
 		case 0xab: i8042putbuf(0x400); return 0; /* test first port */
@@ -1111,9 +1175,9 @@ u32int
 iowhine(int isin, u16int port, u32int val, int sz, void *mod)
 {
 	if(isin)
-		vmerror("%s%sread from unknown i/o port %#ux ignored (sz=%d)", mod != nil ? mod : "", mod != nil ? ": " : "", port, sz);
+		vmerror("%s%sread from unknown i/o port %#ux ignored (sz=%d, pc=%#ullx)", mod != nil ? mod : "", mod != nil ? ": " : "", port, sz, rget(RPC));
 	else
-		vmerror("%s%swrite to unknown i/o port %#ux ignored (val=%#ux, sz=%d)", mod != nil ? mod : "", mod != nil ? ": " : "", port, val, sz);
+		vmerror("%s%swrite to unknown i/o port %#ux ignored (val=%#ux, sz=%d, pc=%#ullx)", mod != nil ? mod : "", mod != nil ? ": " : "", port, val, sz, rget(RPC));
 	return -1;
 }
 
@@ -1126,6 +1190,7 @@ struct IOHandler {
 
 u32int vgaio(int, u16int, u32int, int, void *);
 u32int pciio(int, u16int, u32int, int, void *);
+u32int vesaio(int, u16int, u32int, int, void *);
 IOHandler handlers[] = {
 	0x20, 0x21, picio, nil,
 	0x40, 0x43, pitio, nil,
@@ -1139,20 +1204,30 @@ IOHandler handlers[] = {
 	0x3f8, 0x3ff, uartio, nil,
 	0x4d0, 0x4d1, picio, nil,
 	0xcf8, 0xcff, pciio, nil,
+	0xfee0, 0xfeef, vesaio, nil,
 
 	0x170, 0x177, ideio, nil, /* ide secondary */
+	0x376, 0x376, ideio, nil, /* ide secondary (aux) */
 	0x1f0, 0x1f7, ideio, nil, /* ide primary */
+	0x3f6, 0x3f6, ideio, nil, /* ide primary (aux) */
 	0x3f0, 0x3f7, fdcio, nil, /* floppy */
 
 	0x061, 0x061, nopio, nil, /* pc speaker */
 	0x084, 0x084, nopio, nil, /* dma -- used by openbsd for delay by dummy read */
 	0x100, 0x110, nopio, nil, /* elnk3 */
+	0x240, 0x25f, nopio, nil, /* ne2000 */
 	0x279, 0x279, nopio, nil, /* isa pnp */
-	0x280, 0x28f, nopio, nil, /* 8003 */
+	0x280, 0x29f, nopio, nil, /* ne2000 */
 	0x2e8, 0x2ef, nopio, nil, /* COM4 */
+	0x300, 0x31f, nopio, nil, /* ne2000 */
+	0x320, 0x32f, nopio, nil, /* etherexpress */
+	0x330, 0x33f, nopio, nil, /* uha scsi */
+	0x340, 0x35f, nopio, nil, /* adaptec scsi */
+	0x360, 0x373, nopio, nil, /* isolan */
 	0x378, 0x37a, nopio, nil, /* LPT1 */
-	0x3e0, 0x3e3, nopio, nil, /* cardbus */
+	0x3e0, 0x3e5, nopio, nil, /* cardbus or isa pci bridges */
 	0x3e8, 0x3ef, nopio, nil, /* COM3 */
+	0x650, 0x65f, nopio, nil, /* 3c503 ethernet */
 	0x778, 0x77a, nopio, nil, /* LPT1 (ECP) */
 	0xa79, 0xa79, nopio, nil, /* isa pnp */
 };

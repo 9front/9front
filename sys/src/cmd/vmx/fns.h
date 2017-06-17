@@ -5,6 +5,8 @@ void rpoke(char *, uvlong, int);
 #define rset(a,b) rpoke(a,b,0)
 void processexit(char *);
 void pitadvance(void);
+void rtcadvance(void);
+void settimer(vlong targ);
 void vmerror(char *, ...);
 #define vmdebug vmerror
 int ctl(char *, ...);
@@ -16,7 +18,7 @@ void vgaresize(void);
 void uartinit(int, char *);
 void sendnotif(void (*)(void *), void *);
 PCIDev *mkpcidev(u32int, u32int, u32int, int);
-PCIBar *mkpcibar(PCIDev *, u8int, u32int, void *, void *);
+PCIBar *mkpcibar(PCIDev *, u8int, u32int, u32int, void *, void *);
 PCICap *mkpcicap(PCIDev *, u8int, u32int (*)(PCICap *, u8int), void(*)(PCICap *, u8int, u32int, u32int));
 u32int allocbdf(void);
 void *gptr(u64int, u64int);
@@ -38,3 +40,6 @@ void i8042kick(void *);
 #define PUT16(p,n,v) (*(u16int*)((u8int*)(p)+(n)) = (v))
 #define PUT32(p,n,v) (*(u32int*)((u8int*)(p)+(n)) = (v))
 #define PUT64(p,n,v) (*(u64int*)((u8int*)(p)+(n)) = (v))
+u32int roundpow2(u32int);
+u32int vgagetpal(u8int);
+void vgasetpal(u8int, u32int);

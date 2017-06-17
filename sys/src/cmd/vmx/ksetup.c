@@ -221,7 +221,7 @@ elff(uchar **p, uchar *e, int sz)
 	if(sz == -1)
 		sz = elf64 ? 8 : 4;
 	if(*p + sz > e){
-		print("out of bounds: %p > %p", *p + sz, e);
+		fprint(2, "out of bounds: %p > %p", *p + sz, e);
 		return 0;
 	}
 	switch(sz){
@@ -558,11 +558,12 @@ obsdargs(void)
 	uvlong s, e;
 
 	obsdstart(BOOTARG_MEMMAP);
+	obsdpack("vvi", (uvlong)0, (uvlong)0xa0000, BIOS_MAP_FREE);
 	for(r = mmap; r != nil; r = r->next){
 		s = r->start;
 		e = r->end;
 		if(s < (1<<20)) s = 1<<20;
-		if(e <= s) continue;
+		if(e <= s || r->type == REGFB) continue;
 		obsdpack("vvi", s, e - s, isusermem(r) ? BIOS_MAP_FREE : BIOS_MAP_RES);
 	}
 	obsdpack("vvi", 0ULL, 0ULL, BIOS_MAP_END);

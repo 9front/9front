@@ -11,5 +11,6 @@ OFILES=\
 	vga.$O \
 	pci.$O \
 	virtio.$O \
+	vesa.$O \
 
 </sys/src/cmd/mkone

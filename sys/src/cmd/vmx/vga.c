@@ -6,38 +6,48 @@
 #include <cursor.h>
 #include <mouse.h>
 #include <keyboard.h>
+#include <ctype.h>
 #include "dat.h"
 #include "fns.h"
 
-static uchar *fb;
+static uchar *fb, *tfb;
 uintptr fbsz;
 uintptr fbaddr;
-int textmode;
-static ulong screenchan;
 
-static int picw, pich, hbytes;
+VgaMode *curmode, *nextmode, *modes, **modeslast = &modes;
+int curhbytes, nexthbytes;
+int vesamode, maxw, maxh;
+
+VgaMode textmode = {
+	.w 640, .h 400, .no 3
+};
+
 static Image *img, *bg;
 static Mousectl *mc;
 static Rectangle picr;
 Channel *kbdch, *mousech;
 u8int mousegrab;
+extern u8int mouseactive;
 static uchar *sfb;
 
 typedef struct VGA VGA;
 struct VGA {
 	u8int miscout;
-	u8int cidx;
-	u8int aidx; /* bit 7: access flipflop */
+	u8int cidx; /* crtc */
+	u8int aidx; /* attribute (bit 7: access flipflop) */
+	u8int gidx; /* graphics */
+	u8int sidx; /* sequencer */
 	u16int rdidx, wdidx; /* bit 0-1: color */
 	u8int attr[32];
 	u32int pal[256];
 	Image *col[256];
 	Image *acol[16];
 	u8int crtc[0x18];
+	QLock;
 } vga = {
 	.miscout 1,
 	.attr { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 },
-	.crtc { [11] 15 },
+	.crtc { [10] 13, [11] 14 },
 	.pal {
 		0x000000ff, 0x0000a8ff, 0x00a800ff, 0x00a8a8ff, 0xa80000ff, 0xa800a8ff, 0xa85400ff, 0xa8a8a8ff,
 		0x545454ff, 0x5454fcff, 0x54fc54ff, 0x54fcfcff, 0xfc5454ff, 0xfc54fcff, 0xfcfc54ff, 0xfcfcfcff,
@@ -79,10 +89,12 @@ newpal(int l, int n, int dofree)
 {
 	int x;
 
+	assert(l >= 0 && n + l <= 256);
 	for(; n-- > 0; l++){
 		if(dofree)
 			freeimage(vga.col[l]);
 		vga.col[l] = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, vga.pal[l]);
+		if(vga.col[l] == nil) sysfatal("allocimage: %r");
 	}
 	for(l = 0; l < 16; l++){
 		x = vga.attr[0x14] << 4 & 0xc0 | vga.attr[l] & 0x3f;
@@ -92,17 +104,47 @@ newpal(int l, int n, int dofree)
 	}
 }
 
+u32int
+vgagetpal(u8int n)
+{
+	return vga.pal[n];
+}
+
+void
+vgasetpal(u8int n, u32int v)
+{
+	qlock(&vga);
+	vga.pal[n] = v;
+	newpal(n, 1, 1);
+	qunlock(&vga);
+}
+
 static void
-screeninit(void)
+screeninit(int resize)
 {
 	Point p;
+	int ch;
 
+	if(!resize)
+		freeimage(img);
+	else{
+		bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
+		newpal(0, 256, 0);
+	}
 	p = divpt(addpt(screen->r.min, screen->r.max), 2);
-	picr = (Rectangle){subpt(p, Pt(picw/2, pich/2)), addpt(p, Pt((picw+1)/2, (pich+1)/2))};
-	bg = allocimage(display, Rect(0, 0, 1, 1), screen->chan, 1, 0xCCCCCCFF);
-	img = allocimage(display, Rect(0, 0, picw, pich), screenchan == 0 ? screen->chan : screenchan, 0, 0);
+	picr = (Rectangle){subpt(p, Pt(curmode->w/2, curmode->h/2)), addpt(p, Pt((curmode->w+1)/2, (curmode->h+1)/2))};
+	switch(curmode->chan){
+	case 0: ch = screen->chan; break;
+	case CHAN1(CMap, 4): case CMAP8:
+		if(vesamode){
+			ch = RGBA32;
+			break;
+		}
+		/* wet floor */
+	default: ch = curmode->chan; break;
+	}
+	img = allocimage(display, Rect(0, 0, curmode->w, curmode->h), ch, 0, 0);
 	draw(screen, screen->r, bg, nil, ZP);
-	newpal(0, 256, 0);
 }
 
 u32int
@@ -117,19 +159,24 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		if((vga.aidx & 0x80) != 0){
 			vmdebug("vga: attribute write %#.2x = %#.2x", vga.aidx & 0x1f, val);
 			vga.attr[vga.aidx & 0x1f] = val;
-			newpal(0, 0, 0);
+			qlock(&vga); newpal(0, 0, 0); qunlock(&vga);
 		}else
 			vga.aidx = val & 0x3f;
 		vga.aidx ^= 0x80;
 		return 0;
 	case 0x3c2: vga.miscout = val; return 0;
+	case 0x3c4: vga.sidx = val; return 0;
+	case 0x3c5: vmerror("vga: write to unknown sequencer register %#ux (val=%#ux)", vga.sidx, val); return 0;
+	case 0x3c6: return 0;
 	case 0x3c7: vga.rdidx = val << 2; return 0;
 	case 0x3c8: vga.wdidx = val << 2; return 0;
 	case 0x3c9:
 		vga.pal[vga.wdidx >> 2] = vga.pal[vga.wdidx >> 2] & ~(0xff << (~vga.wdidx << 3 & 24)) | val << 2 + (~vga.wdidx << 3 & 24);
-		newpal(vga.wdidx >> 2, 1, 1);
+		qlock(&vga); newpal(vga.wdidx >> 2, 1, 1); qunlock(&vga);
 		vga.wdidx = vga.wdidx + 1 + (vga.wdidx >> 1 & 1) & 0x3ff;
 		return 0;
+	case 0x3ce: vga.gidx = val; return 0;
+	case 0x3cf: vmerror("vga: write to unknown graphics register %#ux (val=%#ux)", vga.gidx, val); return 0;
 	case 0x3d4: vga.cidx = val; return 0;
 	case 0x3d5:
 		switch(vga.cidx){
@@ -137,11 +184,14 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 			vga.crtc[vga.cidx] = val;
 			return 0;
 		default:
-			vmerror("write to unknown VGA register, 3d5/%#ux (val=%#ux)", vga.cidx, val);
+			vmerror("vga: write to unknown CRTC register %#ux (val=%#ux)", vga.cidx, val);
 		}
 		return 0;
 	case 0x103c0: return vga.aidx & 0x3f;
 	case 0x103c1: return vga.attr[vga.aidx & 0x1f];
+	case 0x103c4: return vga.sidx;
+	case 0x103c5: vmerror("vga: read from unknown sequencer register %#ux (val=%#ux)", vga.sidx, val); return 0;
+	case 0x103c6: return 0xff;
 	case 0x103c7: return vga.rdidx >> 2;
 	case 0x103c8: return vga.wdidx >> 2;
 	case 0x103c9:
@@ -149,18 +199,21 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		vga.rdidx = vga.rdidx + 1 + (vga.rdidx >> 1 & 1) & 0x3ff;
 		return m;
 	case 0x103cc: return vga.miscout;
+	case 0x103ce: return vga.gidx;
+	case 0x103cf: vmerror("vga: read from unknown graphics register %#ux", vga.gidx); return 0;
 	case 0x103d4: return vga.cidx;
 	case 0x103d5:
 		switch(vga.cidx){
 		case 10: case 11: case 12: case 13: case 14: case 15:
 			return vga.crtc[vga.cidx];
 		default:
-			vmerror("read from unknown VGA register, 3d5/%#ux", vga.cidx);
+			vmerror("vga: read from unknown CRTC register %#ux", vga.cidx);
 			return 0;
 		}
+	case 0x103ca:
 	case 0x103da:
-		vga.aidx &= ~0x7f;
-		return 0;		
+		vga.aidx &= 0x7f;
+		return 0;
 	}
 	return iowhine(isin, port, val, sz, "vga");
 }
@@ -242,6 +295,8 @@ kbdlayout(char *fn)
 	Bterm(bp);
 }
 
+static vlong kbwatchdog; /* used to release mouse grabbing if keyproc is stuck */
+
 void
 keyproc(void *)
 {
@@ -264,9 +319,11 @@ keyproc(void *)
 			memmove(buf, buf+n, sizeof(buf)-n);
 		}
 		if(buf[0] == 0){
+			kbwatchdog = 0;
 			n = read(fd, buf, sizeof(buf)-1);
 			if(n <= 0)
 				sysfatal("read /dev/kbd: %r");
+			kbwatchdog = nsec();
 			buf[n-1] = 0;
 			buf[n] = 0;
 		}
@@ -332,13 +389,15 @@ mousethread(void *)
 				break;
 			}
 			if(!mousegrab){
-				if(clicked && (m.buttons & 1) == 0 && !textmode){
+				if(clicked && (m.buttons & 1) == 0 && mouseactive){
 					mousegrab = 1;
 					setcursor(mc, &blank);
 				}
 				clicked = m.buttons & 1;
 				break;
 			}
+			if(kbwatchdog != 0 && nsec() - kbwatchdog > 1000ULL*1000*1000)
+				mousegrab = 0;
 			gotm = 1;
 			if(!ptinrect(m.xy, grabout)){
 				moveto(mc, mid);
@@ -391,10 +450,10 @@ drawtext(void)
 	sa = vga.crtc[12] << 8 | vga.crtc[13];
 	if(sa + 80*25 >= 0x10000){
 		memset(rbuf, 0, sizeof(rbuf));
-		memmove(rbuf, fb + sa * 2, 0x10000 - 80*25 - sa);
+		memmove(rbuf, tfb + sa * 2, 0x10000 - 80*25 - sa);
 		p = rbuf;
 	}else
-		p = fb + sa * 2;
+		p = tfb + sa * 2;
 	for(y = 0; y < 25; y++){
 		for(x = 0; x < 80; x++)
 			buf[x] = cp437[p[2*x]];
@@ -409,9 +468,9 @@ drawtext(void)
 		p += 160;
 	}
 	cp = (vga.crtc[14] << 8 | vga.crtc[15]);
-	if(cp >= sa && cp < sa + 80*25 && (vga.crtc[10] & 0x20) == 0){
-		buf[0] = cp437[fb[cp*2]];
-		attr = fb[cp*2+1];
+	if(cp >= sa && cp < sa + 80*25 && (vga.crtc[10] & 0x20) == 0 && nsec() / 500000000 % 2 == 0){
+		buf[0] = cp437[tfb[cp*2]];
+		attr = tfb[cp*2+1];
 		r.min = Pt((cp - sa) % 80 * 8, (cp - sa) / 80 * 16);
 		r.max = Pt(r.min.x + 8, r.min.y + (vga.crtc[11] & 0x1f) + 1);
 		r.min.y += vga.crtc[10] & 0x1f;
@@ -422,39 +481,70 @@ drawtext(void)
 }
 
 static void
-drawfb(void)
+drawfb(int redraw)
 {
 	u32int *p, *q;
 	Rectangle upd;
-	int xb, y;
+	int xb, y, hb;
+	u32int v;
+	uchar *cp;
+	u32int *buf, *bp;
 
 	p = (u32int *) fb;
 	q = (u32int *) sfb;
 	upd.min.y = upd.max.y = -1;
 	xb = 0;
 	y = 0;
-	while(p < (u32int*)(fb + fbsz)){
-		if(*p != *q){
+	hb = curhbytes;
+	while(p < (u32int*)(fb + curmode->sz)){
+		if(*p != *q || redraw){
 			if(upd.min.y < 0) upd.min.y = y;
-			upd.max.y = y + 1 + (xb + 4 > hbytes);
+			upd.max.y = y + 1 + (xb + 4 > hb);
 			*q = *p;
 		}
 		p++;
 		q++;
 		xb += 4;
-		if(xb >= hbytes){
-			xb -= hbytes;
+		if(xb >= hb){
+			xb -= hb;
 			y++;
 		}
 	}
 	if(upd.min.y == upd.max.y) return;
 	upd.min.x = 0;
-	upd.max.x = picw;
-	if(screenchan != screen->chan){
-		loadimage(img, upd, sfb + upd.min.y * hbytes, (upd.max.y - upd.min.y) * hbytes);
+	upd.max.x = curmode->w;
+	if(vesamode && (curmode->chan >> 4 == CMap)){
+		buf = emalloc(curmode->w * 4 * (upd.max.y - upd.min.y));
+		bp = buf;
+		for(y = upd.min.y; y < upd.max.y; y++){
+			cp = sfb + y * hb;
+			for(xb = 0; xb < curmode->w; xb++){
+				if(curmode->chan == CMAP8)
+					v = *cp++;
+				else if((xb & 1) == 0)
+					v = *cp & 0xf;
+				else
+					v = *cp++ >> 4;
+				*bp++ = vga.pal[v];
+			}
+		}
+		loadimage(img, upd, (void *) buf, curmode->w * 4 * (upd.max.y - upd.min.y));
+		free(buf);
 		draw(screen, rectaddpt(upd, picr.min), img, nil, upd.min);
-	}else
-		loadimage(screen, rectaddpt(upd, picr.min), sfb + upd.min.y * hbytes, (upd.max.y - upd.min.y) * hbytes);
+	}else if(curmode->chan != screen->chan || !rectinrect(picr, screen->r)){
+		if(curmode->hbytes != hb){
+			for(y = upd.min.y; y < upd.max.y; y++)
+				loadimage(img, Rect(0, y, curmode->w, y+1), sfb + y * hb, curmode->hbytes);
+		}else
+			loadimage(img, upd, sfb + upd.min.y * hb, (upd.max.y - upd.min.y) * hb);
+		draw(screen, rectaddpt(upd, picr.min), img, nil, upd.min);
+	}else{
+		if(curmode->hbytes != hb){
+			for(y = upd.min.y; y < upd.max.y; y++)
+				loadimage(screen, Rect(picr.min.x, picr.min.y + y, picr.max.x, picr.min.y + y + 1), sfb + y * hb, curmode->hbytes);
+		}else
+			loadimage(screen, rectaddpt(upd, picr.min), sfb + upd.min.y * hb, (upd.max.y - upd.min.y) * hb);
+	}
 	flushimage(display, 1);
 }
 
@@ -462,78 +552,172 @@ void
 drawproc(void *)
 {
 	ulong ul;
+	int event;
+	VgaMode *m;
 
 	threadsetname("draw");
 	sfb = emalloc(fbsz);
 	for(;; sleep(20)){
-		while(nbrecv(mc->resizec, &ul) > 0){
-			if(getwindow(display, Refnone) < 0)
-				sysfatal("resize failed: %r");
-			screeninit();
+		qlock(&vga);
+		event = 0;
+		m = nextmode;
+		if(m != curmode){
+			event |= 1;
+			curmode = m;
+			curhbytes = m->hbytes;
 		}
-		if(textmode)
+		if(nexthbytes != curhbytes){
+			event |= 1;
+			curhbytes = nexthbytes;
+		}
+		while(nbrecv(mc->resizec, &ul) > 0)
+			event |= 2;
+		if(event != 0){
+			if((event & 2) != 0 && getwindow(display, Refnone) < 0)
+				sysfatal("resize failed: %r");
+			screeninit((event & 2) != 0);
+		}
+		if(curmode == &textmode)
 			drawtext();
 		else
-			drawfb();
+			drawfb(event != 0);
+		qunlock(&vga);
 	}
+}
+
+static int
+chancheck(u32int ch)
+{
+	u8int got;
+	int i, t;
+	
+	got = 0;
+	for(i = 0; i < 4; i++){
+		t = ch >> 8 * i + 4 & 15;
+		if((ch >> 8 * i & 15) == 0) continue;
+		if(t >= NChan) return 0;
+		if((got & 1<<t) != 0) return 0;
+		got |= 1<<t;
+	}
+	if(!vesamode) return 1;
+	switch(got){
+	case 1<<CRed|1<<CGreen|1<<CBlue:
+	case 1<<CRed|1<<CGreen|1<<CBlue|1<<CAlpha:
+	case 1<<CRed|1<<CGreen|1<<CBlue|1<<CIgnore:
+		return 1;
+	case 1<<CMap:
+		return chantodepth(ch) == 4 || chantodepth(ch) == 8;
+	default:
+		return 0;
+	}
+}
+
+static char *
+vgamodeparse(char *p, VgaMode **mp)
+{
+	char *r;
+	VgaMode *m;
+	char c;
+	
+	m = emalloc(sizeof(VgaMode));
+	*mp = m;
+	*modeslast = m;
+	modeslast = &m->next;
+	m->w = strtoul(p, &r, 10);
+	if(*r != 'x')
+	nope:
+		sysfatal("invalid mode specifier");
+	p = r + 1;
+	m->h = strtoul(p, &r, 10);
+	if(*r != 'x'){
+		m->chan = XRGB32;
+		goto out;
+	}
+	p = r + 1;
+	while(isalnum(*r))
+		r++;
+	c = *r;
+	*r = 0;
+	m->chan = strtochan(p);
+	*r = c;
+	if(m->chan == 0 || !chancheck(m->chan))
+		goto nope;
+out:
+	if(m->w > maxw) maxw = m->w;
+	if(m->h > maxh) maxh = m->h;
+	return r;
 }
 
 void
 vgafbparse(char *fbstring)
 {
-	char buf[512];
 	char *p, *q;
-	uvlong addr;
+	VgaMode *m;
 
-	if(picw != 0) sysfatal("vga specified twice");
 	if(strcmp(fbstring, "text") == 0){
-		picw = 640;
-		pich = 400;
-		fbsz = 80*25*2;
-		fbaddr = 0xb8000;
-		textmode++;
-		screenchan = 0;
+		curmode = &textmode;
+		return;
+	}else if(strncmp(fbstring, "vesa:", 5) == 0){
+		vesamode = 1;
+		p = fbstring + 5;
+	}else
+		p = fbstring;
+	do{
+		q = vgamodeparse(p, &m);
+		if(p == q || m->w <= 0 || m->h <= 0)
+			no: sysfatal("invalid mode specifier");
+		m->hbytes = chantodepth(m->chan) * m->w + 7 >> 3;
+		m->sz = m->hbytes * m->h;
+		if(m->sz > fbsz) fbsz = m->sz;
+		p = q;
+	}while(*p++ == ',');
+	if(*--p == '@'){
+		p++;
+		fbaddr = strtoul(p, &q, 0);
+		if(p == q) goto no;
+		p = q;
+	}else
+		fbaddr = 0xf0000000;
+	if(*p != 0) goto no;
+	if(modes == nil || vesamode == 0 && modes->next != nil)
+		goto no;
+	if(vesamode == 0){
+		curmode = modes;
+		curhbytes = curmode->hbytes;
 	}else{
-		strecpy(buf, buf + nelem(buf), fbstring);
-		picw = strtol(buf, &p, 10);
-		if(*p != 'x')
-		nope:
-			sysfatal("vgafbparse: invalid framebuffer specifier: %#q (should be WxHxCHAN@ADDR or 'text')", fbstring);
-		pich = strtol(p+1, &p, 10);
-		if(*p != 'x') goto nope;
-		q = strchr(p+1, '@');
-		if(q == nil) goto nope;
-		*q = 0;
-		screenchan = strtochan(p+1);
-		if(screenchan == 0) goto nope;
-		p = q + 1;
-		if(*p == 0) goto nope;
-		addr = strtoull(p, &p, 0);
-		fbaddr = addr;
-		if(fbaddr != addr) goto nope;
-		if(*p != 0) goto nope;
-		hbytes = chantodepth(screenchan) * picw + 7 >> 3;
-		fbsz = hbytes * pich;
+		curmode = &textmode;
+		if(fbsz < (1<<22))
+			fbsz = 1<<22;
+		else
+			fbsz = roundpow2(fbsz);
 	}
 }
+
 
 void
 vgainit(void)
 {
 	char buf[512];
 	int i;
+	PCIDev *d;
+	extern void vesainit(void);
 
-	if(picw == 0) return;
-	fb = gptr(fbaddr, fbsz);
-	if(fb == nil)
-		sysfatal("got nil ptr for framebuffer");
-	if(textmode)
-		for(i = 0; i < 0x8000; i += 2)
-			PUT16(fb, i, 0x0700);
-	snprint(buf, sizeof(buf), "-dx %d -dy %d", picw+50, pich+50);
+	if(curmode == nil) return;
+	nextmode = curmode;
+	tfb = gptr(0xb8000, 0x8000);
+	if(tfb == nil)
+		sysfatal("got nil ptr for text framebuffer");
+	for(i = 0; i < 0x8000; i += 2)
+		PUT16(tfb, i, 0x0720);
+	if(fbsz != 0){
+		fb = gptr(fbaddr, fbsz);
+		if(fb == nil)
+			sysfatal("got nil ptr for framebuffer");
+	}
+	snprint(buf, sizeof(buf), "-dx %d -dy %d", maxw+50, maxh+50);
 	newwindow(buf);
 	initdraw(nil, nil, "vmx");
-	screeninit();
+	screeninit(1);
 	flushimage(display, 1);
 	kbdlayout("/sys/lib/kbmap/us");
 	mc = initmouse(nil, screen);
@@ -542,4 +726,9 @@ vgainit(void)
 	proccreate(mousethread, nil, 4096);
 	proccreate(keyproc, nil, 4096);
 	proccreate(drawproc, nil, 4096);
+	if(vesamode){
+		d = mkpcidev(allocbdf(), 0x06660666, 0x03000000, 0);
+		mkpcibar(d, BARMEM32 | BARPREF, fbaddr, fbsz, nil, nil);
+		vesainit();
+	}
 }

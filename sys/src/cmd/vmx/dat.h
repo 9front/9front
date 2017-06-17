@@ -44,6 +44,14 @@ struct PCIBar {
 	void *aux;
 };
 
+enum {
+	/* type */
+	BARIO = 1,
+	BARMEM32 = 0,
+	BARMEM64 = 4,
+	BARPREF = 8,
+};
+
 struct PCIDev {
 	u32int bdf, viddid, clrev, subid;
 	u16int ctrl;
@@ -66,4 +74,12 @@ struct PCICap {
 enum {
 	IRQLTOGGLE = -1,
 	IRQLLOHI = -2,
+};
+
+typedef struct VgaMode VgaMode;
+struct VgaMode {
+	u16int no;
+	int w, h, hbytes, sz;
+	u32int chan;
+	VgaMode *next;
 };

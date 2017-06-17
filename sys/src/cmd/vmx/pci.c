@@ -37,8 +37,20 @@ allocbdf(void)
 	return BDF(0, dev++, 0);
 }
 
+u32int
+roundpow2(u32int l)
+{
+	l = -l;
+	l &= (int)l >> 16;
+	l &= (int)l >> 8;
+	l &= (int)l >> 4;
+	l &= (int)l >> 2;
+	l &= (int)l >> 1;
+	return -l;
+}
+
 PCIBar *
-mkpcibar(PCIDev *d, u8int t, u32int l, void *fn, void *aux)
+mkpcibar(PCIDev *d, u8int t, u32int a, u32int l, void *fn, void *aux)
 {
 	PCIBar *b;
 
@@ -46,16 +58,14 @@ mkpcibar(PCIDev *d, u8int t, u32int l, void *fn, void *aux)
 	assert((t & 1) != 0 || (t & 6) == 0);
 	if((t & 1) != 0 && l < 4) l = 4;
 	if((t & 1) == 0 && l < 4096) l = 4096;
-	if((l & l-1) != 0){
-		do
-			l &= l-1;
-		while((l & l-1) == 0);
-		l <<= 1;
-		assert(l != 0);
-	}
+	if((l & l-1) != 0)
+		l = roundpow2(l);
 	for(b = d->bar; b < d->bar + nelem(d->bar); b++)
 		if(b->length == 0)
 			break;
+	if(b == d->bar + nelem(d->bar))
+		sysfatal("pci bdf %6ux: too many bars", d->bdf);
+	b->addr = a;
 	b->type = t;
 	b->length = l;
 	b->busnext = b;
@@ -207,6 +217,7 @@ pciwrite(PCIDev *d, int addr, u32int val, u32int mask)
 		d->bar[n].addr = (d->bar[n].addr & ~mask | val & mask) & ~(d->bar[n].length - 1);
 		updatebar(&d->bar[n]);
 		return;
+	case 0x30: return;
 	case 0x3c: d->irqno = (d->irqno & ~mask | val & mask) & 0xff; pciirqupdate(); return;
 	}
 	c = findpcicap(d, addr);
@@ -275,7 +286,7 @@ pcibusmap(void)
 	for(d = pcidevs; d != nil; d = d->next){
 		d->ctrl |= 3;
 		for(b = d->bar; b < d->bar + nelem(d->bar); b++){
-			if(b->length == 0)
+			if(b->length == 0 || b->addr != 0)
 				continue;
 			if((b->type & 1) == 0){
 				vmerror("pci device %.6ux: memory bars unsupported", d->bdf);

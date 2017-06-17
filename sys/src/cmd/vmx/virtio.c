@@ -365,7 +365,7 @@ mkviodev(u16int devid, u32int pciclass, u32int subid)
 	d = emalloc(sizeof(VIODev));
 	d->pci = mkpcidev(allocbdf(), devid << 16 | 0x1AF4, pciclass << 8, 1);
 	d->pci->subid = subid << 16;
-	mkpcibar(d->pci, 1, 256, vioio, d);
+	mkpcibar(d->pci, BARIO, 0, 256, vioio, d);
 	return d;
 }
 
@@ -501,9 +501,14 @@ vionetwproc(void *vp)
 			continue;
 		}
 		if(len < 14){
-			vmerror("virtio net: ignoring short packet (length=%d)", len);
+			/* openbsd ends up sending lots of zero length packets sometimes */
+			if(len != 0)
+				vmerror("virtio net: ignoring short packet (length=%d)", len);
 			vioputbuf(vb);
 			continue;
+		}else if(len < 60){ /* openbsd doesn't seem to know about ethernet minimum packet lengths either */
+			memset(txbuf + len, 0, 60 - len);
+			len = 60;
 		}	
 		rc = write(v->net.writefd, txbuf, len);
 		vioputbuf(vb);

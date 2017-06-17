@@ -61,6 +61,8 @@ stepmmio(uvlong pa, uvlong *val, int size, ExitInfo *ei)
 
 extern u32int io(int, u16int, u32int, int);
 
+u32int iodebug[32];
+
 static void
 iohandler(ExitInfo *ei)
 {
@@ -88,7 +90,11 @@ iohandler(ExitInfo *ei)
 		if(len == 1) ax = (u8int) ax;
 		else if(len == 2) ax = (u16int) ax;
 		io(0, port, ax, len);
+		SET(val);
 	}
+	if(port < 0x400 && (iodebug[port >> 5] >> (port & 31) & 1) != 0)
+		if(isin) vmdebug("in  %#.4ux <- %#ux", port, val);
+		else vmdebug("out %#.4ux <- %#ux", port, (int)ax);
 	skipinstr(ei);
 }
 
@@ -232,7 +238,7 @@ cpuid(ExitInfo *ei)
 		ax = cp->ax;
 		bx = cp->bx & 0xffff;
 		cx = cp->cx & 0x60de2203;
-		dx = cp->dx & 0x0682a179;
+		dx = cp->dx & 0x0782a179;
 		break;
 	case 2: goto literal; /* cache stuff */
 	case 3: goto zero; /* processor serial number */

@@ -331,7 +331,7 @@ launch(void)
 
 	s = rcflush(1);
 	if(ctl("go %s", s == nil ? "" : s) < 0)
-		sysfatal("go: %r");
+		sysfatal("go %s: %r", s == nil ? "" : s);
 	getexit++;
 }
 
@@ -414,6 +414,7 @@ runloop(void)
 			break;
 		case SLEEP:
 			pitadvance();
+			rtcadvance();
 			break;
 		case NOTIF:
 			notif.f(notif.arg);
@@ -486,7 +487,6 @@ threadmain(int argc, char **argv)
 	static int edevn;
 	static uvlong gmemsz = 64*1024*1024;
 	extern uintptr fbsz, fbaddr;
-	extern int textmode;
 	int i;
 
 	quotefmtinstall();
@@ -534,7 +534,7 @@ threadmain(int argc, char **argv)
 	cmdlinev = argv + 1;
 	
 	mkregion(0, gmemsz, REGMEM);
-	if(fbsz != 0 && textmode == 0){
+	if(fbsz != 0){
 		if(fbaddr + fbsz < fbaddr) sysfatal("invalid fb address");
 		if(fbaddr + fbsz < gmemsz) sysfatal("framebuffer overlaps with physical memory");
 		mkregion(fbaddr, fbsz, REGFB);
