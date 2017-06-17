@@ -10,7 +10,7 @@ extern int vmxon(u64int);
 extern int vmxoff(void);
 extern int vmclear(u64int);
 extern int vmptrld(u64int);
-extern int vmlaunch(Ureg *, int, FPsave *);
+extern int vmlaunch(Ureg *, int);
 extern int vmread(u32int, uintptr *);
 extern int vmwrite(u32int, uintptr);
 extern int invept(u32int, uvlong, uvlong);
@@ -71,6 +71,7 @@ enum {
 	CR3_TARGCNT = 0x400a,
 	
 	VMEXIT_CTLS = 0x400c,
+	VMEXIT_ST_DEBUG = 1<<2,
 	VMEXIT_HOST64 = 1<<9,
 	VMEXIT_LD_IA32_PERF_GLOBAL_CTRL = 1<<12,
 	VMEXIT_ST_IA32_PAT = 1<<18,
@@ -82,6 +83,7 @@ enum {
 	VMEXIT_MSRLDCNT = 0x4010,
 	
 	VMENTRY_CTLS = 0x4012,
+	VMENTRY_LD_DEBUG = 1<<2,
 	VMENTRY_GUEST64 = 1<<9,
 	VMENTRY_LD_IA32_PERF_GLOBAL_CTRL = 1<<13,
 	VMENTRY_LD_IA32_PAT = 1<<14,
@@ -235,6 +237,7 @@ struct Vmx {
 	} state;
 	char errstr[ERRMAX];
 	Ureg ureg;
+	uintptr dr[8]; /* DR7 is also kept in VMCS */
 	FPsave *fp;
 	u8int launched;
 	u8int vpid;
@@ -401,9 +404,29 @@ cr4maskwrite(char *s)
 }
 
 static int
+dr7write(char *s)
+{
+	uvlong v;
+	
+	v = (u32int) parseval(s, 8);
+	vmcswrite(GUEST_DR7, vmx.dr[7] = (u32int) v);
+	return 0;
+}
+
+static int
 readonly(char *)
 {
 	return -1;
+}
+
+static int
+dr6write(char *s)
+{
+	uvlong v;
+	
+	v = parseval(s, 8);
+	vmx.dr[6] = (u32int) v;
+	return 0;
 }
 
 typedef struct GuestReg GuestReg;
@@ -414,7 +437,8 @@ struct GuestReg {
 	char *(*read)(char *, char *);
 	int (*write)(char *);
 };
-#define UREG(x) ~(ulong)&((Ureg*)0)->x
+#define VMXVAR(x) ~(ulong)&(((Vmx*)0)->x)
+#define UREG(x) VMXVAR(ureg.x)
 static GuestReg guestregs[] = {
 	{GUEST_RIP, 0, "pc"},
 	{GUEST_RSP, 0, "sp"},
@@ -472,6 +496,12 @@ static GuestReg guestregs[] = {
 	{GUEST_CR4MASK, 0, "cr4mask", nil, cr4maskwrite},
 	{GUEST_IA32_PAT, 8, "pat"},
 	{GUEST_IA32_EFER, 8, "efer"},
+	{VMXVAR(dr[0]), 0, "dr0"},
+	{VMXVAR(dr[1]), 0, "dr1"},
+	{VMXVAR(dr[2]), 0, "dr2"},
+	{VMXVAR(dr[3]), 0, "dr3"},
+	{VMXVAR(dr[6]), 0, "dr6", nil, dr6write},
+	{GUEST_DR7, 0, "dr7", nil, dr7write},
 	{VM_INSTRERR, 4, "instructionerror", nil, readonly},
 	{VM_EXREASON, 4, "exitreason", nil, readonly},
 	{VM_EXQUALIF, 0, "exitqualification", nil, readonly},
@@ -740,14 +770,14 @@ vmcsinit(void)
 	if(rdmsr(VMX_VMEXIT_CTLS_MSR, &msr) < 0) error("rdmsr(VMX_VMEXIT_CTLS_MSR failed");
 	x = (u32int)msr;
 	if(sizeof(uintptr) == 8) x |= VMEXIT_HOST64;
-	x |= VMEXIT_LD_IA32_PAT | VMEXIT_LD_IA32_EFER;
+	x |= VMEXIT_LD_IA32_PAT | VMEXIT_LD_IA32_EFER | VMEXIT_ST_DEBUG;
 	x &= msr >> 32;
 	vmcswrite(VMEXIT_CTLS, x);
 	
 	if(rdmsr(VMX_VMENTRY_CTLS_MSR, &msr) < 0) error("rdmsr(VMX_VMENTRY_CTLS_MSR failed");
 	x = (u32int)msr;
 	if(sizeof(uintptr) == 8) x |= VMENTRY_GUEST64;
-	x |= VMENTRY_LD_IA32_PAT | VMENTRY_LD_IA32_EFER;
+	x |= VMENTRY_LD_IA32_PAT | VMENTRY_LD_IA32_EFER | VMENTRY_LD_DEBUG;
 	x &= msr >> 32;
 	vmcswrite(VMENTRY_CTLS, x);
 	
@@ -780,7 +810,7 @@ vmcsinit(void)
 	if(rdmsr(0xc0000080, &msr) < 0) error("rdmsr(IA32_EFER) failed");
 	vmcswrite(HOST_IA32_EFER, msr);
 	
-	vmcswrite(EXC_BITMAP, 1<<18);
+	vmcswrite(EXC_BITMAP, 1<<18|1<<1);
 	vmcswrite(PFAULT_MASK, 0);
 	vmcswrite(PFAULT_MATCH, 0);
 	
@@ -967,7 +997,7 @@ cmdgetregs(VmCmd *, va_list va)
 		if(r->offset >= 0)
 			val = vmcsread(r->offset);
 		else
-			val = *(uintptr*)((uchar*)&vmx.ureg + ~r->offset);
+			val = *(uintptr*)((uchar*)&vmx + ~r->offset);
 		s = r->size;
 		if(s == 0) s = sizeof(uintptr);
 		p = seprint(p, e, "%s %#.*llux\n", r->name, s * 2, val);
@@ -1011,12 +1041,12 @@ setregs(char *p0, char rs, char *fs)
 		if(r->offset >= 0)
 			vmcswrite(r->offset, val);
 		else{
-			assert((u32int)~r->offset + sz <= sizeof(Ureg)); 
+			assert((u32int)~r->offset + sz <= sizeof(Vmx)); 
 			switch(sz){
-			case 1: *(u8int*)((u8int*)&vmx.ureg + (u32int)~r->offset) = val; break;
-			case 2: *(u16int*)((u8int*)&vmx.ureg + (u32int)~r->offset) = val; break;
-			case 4: *(u32int*)((u8int*)&vmx.ureg + (u32int)~r->offset) = val; break;
-			case 8: *(u64int*)((u8int*)&vmx.ureg + (u32int)~r->offset) = val; break;
+			case 1: *(u8int*)((u8int*)&vmx + (u32int)~r->offset) = val; break;
+			case 2: *(u16int*)((u8int*)&vmx + (u32int)~r->offset) = val; break;
+			case 4: *(u32int*)((u8int*)&vmx + (u32int)~r->offset) = val; break;
+			case 8: *(u64int*)((u8int*)&vmx + (u32int)~r->offset) = val; break;
 			default: error(Egreg);
 			}
 		}
@@ -1367,7 +1397,7 @@ dostep(int setup)
 static void
 vmxproc(void *)
 {
-	int init;
+	int init, rc, x;
 	u32int procbctls, defprocbctls;
 
 	procwired(up, 0);
@@ -1425,7 +1455,15 @@ vmxproc(void *)
 			}
 			vmcswrite(PROCB_CTLS, procbctls);
 			vmx.got &= ~GOTEXIT;
-			if(vmlaunch(&vmx.ureg, vmx.launched, vmx.fp) < 0)
+			
+			x = splhi();
+			if((vmx.dr[7] & ~0xd400) != 0)
+				putdr01236(vmx.dr);
+			fpsserestore0(vmx.fp);
+			rc = vmlaunch(&vmx.ureg, vmx.launched);
+			fpssesave0(vmx.fp);
+			splx(x);
+			if(rc < 0)
 				error("vmlaunch failed");
 			vmx.launched = 1;
 			if((vmx.onentry & STEP) != 0){

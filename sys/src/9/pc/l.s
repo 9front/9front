@@ -851,6 +851,7 @@ TEXT putdr(SB), $0
 	MOVL	p+0(FP), SI
 	MOVL	28(SI), AX
 	MOVL	AX, DR7
+_putdr01236:
 	MOVL	0(SI), AX
 	MOVL	AX, DR0
 	MOVL	4(SI), AX
@@ -862,6 +863,10 @@ TEXT putdr(SB), $0
 	MOVL	24(SI), AX
 	MOVL	AX, DR6
 	RET
+
+TEXT putdr01236(SB), $0
+	MOVL p+0(FP), SI
+	JMP _putdr01236
 
 TEXT getdr6(SB), $0
 	MOVL	DR6, AX
@@ -893,21 +898,14 @@ TEXT vmclear(SB), $0
 	JMP	_vmout
 
 TEXT vmlaunch(SB), $0
-	PUSHFL
-	CLI
-	
 	MOVL	$0x6C14, DI
 	MOVL	SP, DX
 	BYTE	$0x0f; BYTE $0x79; BYTE $0xfa /* VMWRITE DX, DI */
-	JBE	_launchout
+	JBE	_vmout
 	MOVL	$0x6C16, DI
-	MOVL	$vmrestore+1(SB), DX /* add 1 to skip extra PUSHFL */
+	MOVL	$vmrestore(SB), DX
 	BYTE	$0x0f; BYTE $0x79; BYTE $0xfa /* VMWRITE DX, DI */
-	JBE	_launchout
-	
-	FPON
-	MOVL	fp+8(FP), AX
-	FXRSTOR	0(AX)
+	JBE	_vmout
 	
 	MOVL	resume+4(FP), AX
 	TESTL	AX, AX
@@ -923,26 +921,12 @@ TEXT vmlaunch(SB), $0
 	MOVL	0(DI), DI
 	JNE	_vmresume
 	BYTE	$0x0f; BYTE $0x01; BYTE	$0xc2 /* VMLAUNCH	*/
-	JMP	_launchout
+	JMP	_vmout
 _vmresume:
 	BYTE	$0x0f; BYTE $0x01; BYTE $0xc3 /* VMRESUME	*/
-_launchout:
-	JC	_launchout1
-	JZ	_launchout2
-	XORL	AX, AX
-_launchret:
-	FPOFF
-	POPFL
-	RET
-_launchout1:
-	MOVL	$-1, AX
-	JMP	_launchret
-_launchout2:
-	MOVL	$-2, AX
-	JMP	_launchret
+	JMP _vmout
 
 TEXT vmrestore(SB), $0
-	PUSHFL /* stupid hack to make 8l happy; nexer executed */
 	PUSHL	DI
 	MOVL	ureg+0(FP), DI
 	POPL	0(DI)
@@ -954,11 +938,7 @@ TEXT vmrestore(SB), $0
 	MOVL	AX, 28(DI)
 	MOVL	CR2, AX
 	MOVL	AX, 32(DI)
-	MOVL	fp+8(FP), AX
-	FXSAVE	0(AX)
-	FPOFF
 	XORL	AX, AX
-	POPFL
 	RET
 
 TEXT vmptrld(SB), $0

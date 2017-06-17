@@ -167,6 +167,7 @@ void	putcr0(ulong);
 void	putcr3(ulong);
 void	putcr4(ulong);
 void	putdr(u32int*);
+void	putdr01236(uintptr*);
 void	putdr6(u32int);
 void	putdr7(u32int);
 void*	rampage(void);
