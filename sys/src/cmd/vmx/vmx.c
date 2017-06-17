@@ -304,7 +304,7 @@ mksegment(char *sn)
 		gmem = segattach(0, sn, nil, sz);
 		if(gmem == (void*)-1) sysfatal("segattach: %r");
 	}
-	memset(gmem, 0, sz);
+	memset(gmem, 0, sz > 1>>24 ? 1>>24 : sz);
 	p = gmem;
 	for(r = mmap; r != nil; r = r->next){
 		if(r->segname == nil) continue;

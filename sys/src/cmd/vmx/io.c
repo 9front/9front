@@ -1020,9 +1020,11 @@ uartrxproc(void *uv)
 	UART *u;
 	char buf[128], *p;
 	int rc;
+	int eofctr;
 	
 	threadsetname("uart rx");
 	u = uv;
+	eofctr = 0;
 	for(;;){
 		rc = read(u->infd, buf, sizeof(buf));
 		if(rc < 0){
@@ -1030,9 +1032,12 @@ uartrxproc(void *uv)
 			threadexits("read: %r");
 		}
 		if(rc == 0){
-			vmerror("read(uartrx): eof");
-			threadexits("read: eof");
-		}
+			if(++eofctr == 100){ /* keep trying but give up eventually */
+				vmerror("read(uartrx): eof");
+				threadexits("read: eof");
+			}
+			continue;
+		}else eofctr = 0;
 		for(p = buf; p < buf + rc; p++){
 			send(u->inch, p);
 			sendnotif((void(*)(void*))uartkick, u);
@@ -1052,6 +1057,8 @@ uarttxproc(void *uv)
 		p = buf;
 		recv(u->outch, p);
 		p++;
+		sendnotif((void(*)(void*))uartkick, u);
+		sleep(1);
 		while(sendnotif((void(*)(void*))uartkick, u), p < buf+sizeof(buf) && nbrecv(u->outch, p) > 0)
 			p++;
 		if(write(u->outfd, buf, p - buf) < p - buf)
@@ -1216,7 +1223,7 @@ IOHandler handlers[] = {
 	0x084, 0x084, nopio, nil, /* dma -- used by openbsd for delay by dummy read */
 	0x100, 0x110, nopio, nil, /* elnk3 */
 	0x240, 0x25f, nopio, nil, /* ne2000 */
-	0x279, 0x279, nopio, nil, /* isa pnp */
+	0x278, 0x27a, nopio, nil, /* LPT1 / ISA PNP */
 	0x280, 0x29f, nopio, nil, /* ne2000 */
 	0x2e8, 0x2ef, nopio, nil, /* COM4 */
 	0x300, 0x31f, nopio, nil, /* ne2000 */
