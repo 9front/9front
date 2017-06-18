@@ -109,9 +109,9 @@ dircmp(Dir *a, Dir *b)
 }
 
 static char*
-mdirread(Mdir* mdir, Mailbox* mb, int doplumb, int *new)
+mdirread(Mdir* mdir, Mailbox* mb)
 {
-	int i, nnew, ndel, fd, n, c;
+	int i, fd, n, c;
 	uvlong uv;
 	Dir *d;
 	Message *m, **ll;
@@ -127,7 +127,6 @@ mdirread(Mdir* mdir, Mailbox* mb, int doplumb, int *new)
 		close(fd);
 		return err;
 	}
-	*new = nnew = 0;
 	if(mb->d){
 		if(d->qid.path == mb->d->qid.path)
 		if(d->qid.vers == mb->d->qid.vers){
@@ -149,7 +148,6 @@ mdirread(Mdir* mdir, Mailbox* mb, int doplumb, int *new)
 	}
 
 	qsort(d, n, sizeof *d, (int(*)(void*, void*))dircmp);
-	ndel = 0;
 	ll = &mb->root->part;
 	for(i = 0; (m = *ll) != nil || i < n; ){
 		if(i < n && dirskip(d + i, &uv)){
@@ -170,7 +168,6 @@ mdirread(Mdir* mdir, Mailbox* mb, int doplumb, int *new)
 				i++;
 				continue;
 			}
-			nnew++;
 			m = newmessage(mb->root);
 			m->fileid = uv;
 			m->size = d[i].length;
@@ -178,15 +175,10 @@ mdirread(Mdir* mdir, Mailbox* mb, int doplumb, int *new)
 			m->next = *ll;
 			*ll = m;
 			ll = &m->next;
-			newcachehash(mb, m, doplumb);
-			putcache(mb, m);
 			i++;
 		}else if(c > 0){
 			/* deleted message; */
 			mdprint(mdir, "deleted: %s (%D)\n", i<n? d[i].name: 0, m? m->fileid: 0);
-			ndel++;
-			if(doplumb)
-				mailplumb(mb, m, 1);
 			m->inmbox = 0;
 			m->deleted = Disappear;
 			ll = &m->next;
@@ -196,11 +188,8 @@ mdirread(Mdir* mdir, Mailbox* mb, int doplumb, int *new)
 			i++;
 		}
 	}
-
 	free(d);
-	logmsg(nil, "mbox read: %d new %d deleted", nnew, ndel);
 finished:
-	*new = nnew;
 	return nil;
 }
 
@@ -220,13 +209,13 @@ mdirdelete(Mailbox *mb, Message *m)
 }
 
 static char*
-mdirsync(Mailbox* mb, int doplumb, int *new)
+mdirsync(Mailbox* mb)
 {
 	Mdir *mdir;
 
 	mdir = mb->aux;
 	mdprint(mdir, "mdirsync()\n");
-	return mdirread(mdir, mb, doplumb, new);
+	return mdirread(mdir, mb);
 }
 
 static char*

@@ -371,18 +371,6 @@ cachehash(Mailbox *mb, Message *m)
 		(Qid){PATH(m->id, Qmax), 0, QTFILE}, m, mb);	/* sleezy speedup */
 }
 
-void
-newcachehash(Mailbox *mb, Message *m, int doplumb)
-{
-	if(doplumb)
-		mailplumb(mb, m, 0);
-	else
-		if(insurecache(mb, m) == 0)
-			msgdecref(mb, m);
-	/* avoid cachehash on error? */
-	cachehash(mb, m);
-}
-
 static char *itab[] = {
 	"idx",
 	"stale",
@@ -424,7 +412,7 @@ middlecache(Mailbox *mb, Message *m)
 	}
 	if(y == 0)
 		return 0;
-	dprint("middlecache %d [%D] %lud %lud\n", m->id, m->fileid, m->end - m->start, m->size);
+	dprint("middlecache %d [%D] %lud %lud\n", m->id, m->fileid, (ulong)(m->end - m->start), m->size);
 	return cachebody(mb, m);
 }
 
@@ -487,7 +475,7 @@ cachebody(Mailbox *mb, Message *m)
 	if(!mb->fetch || m->cstate&Cbody)
 		return 0;
 	o = m->end - m->start;
-	dprint("cachebody %d [%D] %lud %lud %s\n", m->id, m->fileid, o, m->size, cstate(m));
+	dprint("cachebody %d [%D] %lud %lud %s", m->id, m->fileid, o, m->size, cstate(m));
 	if(o < m->size)
 	if(fetch(mb, m, o, m->size - o) < 0)
 		return -1;

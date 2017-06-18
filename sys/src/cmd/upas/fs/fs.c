@@ -104,11 +104,6 @@ char *dirtab[] = {
 [Qmboxctl]	"ctl",
 };
 
-enum
-{
-	Hsize=	1999,
-};
-
 char	*mntpt;
 char	user[Elemlen];
 int	Dflag;
@@ -127,7 +122,7 @@ static	char	hbuf[32*1024];
 static	uchar	mbuf[16*1024 + IOHDRSZ];
 static	uchar	mdata[16*1024 + IOHDRSZ];
 static	ulong	path;		/* incremented for each new file */
-static	Hash	*htab[Hsize];
+static	Hash	*htab[1024];
 static	Fcall	rhdr;
 static	Fcall	thdr;
 static	Fid	*fids;
@@ -136,8 +131,6 @@ static QLock	synclock;
 void
 sanemsg(Message *m)
 {
-	if(debug)
-		poolcheck(mainmem);
 	assert(m->refs < 100);
 	assert(m->next != m);
 	if(m->end < m->start)
@@ -294,8 +287,8 @@ main(int argc, char *argv[])
 		cachetarg = ntoi(EARGF(usage()));
 		break;
 	case 'd':
-		debug = 1;
-		mainmem->flags |= POOL_PARANOIA;
+		if(++debug > 1)
+			mainmem->flags |= POOL_PARANOIA;
 		break;
 	case 'f':
 		mboxfile = EARGF(usage());
@@ -527,8 +520,8 @@ fileinfo(Mailbox *mb, Message *m, int t, char **pp)
 		p = m->to;
 		break;
 	case Qtype:
-		p = rtab[m->type].s;
-		len = rtab[m->type].l;
+		p = m->type;
+		len = strlen(m->type);
 		break;
 	case Qunixdate:
 		p = buf;
@@ -1015,7 +1008,7 @@ readmboxdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 	Message *msg;
 
 	if(off == 0)
-		syncmbox(f->mb, 1);
+		syncmbox(f->mb);
 
 	n = 0;
 	if(f->mb->ctl){
@@ -1339,11 +1332,8 @@ rclunk(Fid *f)
 char *
 rremove(Fid *f)
 {
-	if(f->m != nil){
-		if(!f->m->deleted)
-			mailplumb(f->mb, f->m, 1);
+	if(f->m != nil && f->m->deleted == 0)
 		f->m->deleted = Deleted;
-	}
 	return rclunk(f);
 }
 
@@ -1353,7 +1343,7 @@ rstat(Fid *f)
 	Dir d;
 
 	if(FILE(f->qid.path) == Qmbox)
-		syncmbox(f->mb, 1);
+		syncmbox(f->mb);
 	mkstat(&d, f->mb, f->m, FILE(f->qid.path));
 	rhdr.nstat = convD2M(&d, mbuf, messagesize - IOHDRSZ);
 	rhdr.stat = mbuf;
@@ -1475,7 +1465,7 @@ reader(void)
 			}
 		}
 		if(mb != nil) {
-			syncmbox(mb, 1);
+			syncmbox(mb);
 			qunlock(&synclock);
 		} else {
 			qunlock(&synclock);
@@ -1610,17 +1600,15 @@ readheader(Message *m, char *buf, int off, int cnt)
 }
 
 uint
-hash(ulong ppath, char *name)
+hash(char *s)
 {
-	uchar *p;
-	uint h;
+	uint c, h;
 
 	h = 0;
-	for(p = (uchar*)name; *p; p++)
-		h = h*7 + *p;
-	h += ppath;
+	while(c = *s++)
+		h = h*131 + c;
 
-	return h % Hsize;
+	return h;
 }
 
 Hash*
@@ -1629,7 +1617,7 @@ hlook(ulong ppath, char *name)
 	int h;
 	Hash *hp;
 
-	h = hash(ppath, name);
+	h = (hash(name)+ppath) % nelem(htab);
 	for(hp = htab[h]; hp != nil; hp = hp->next)
 		if(ppath == hp->ppath && strcmp(name, hp->name) == 0)
 			return hp;
@@ -1642,7 +1630,7 @@ henter(ulong ppath, char *name, Qid qid, Message *m, Mailbox *mb)
 	int h;
 	Hash *hp, **l;
 
-	h = hash(ppath, name);
+	h = (hash(name)+ppath) % nelem(htab);
 	for(l = &htab[h]; *l != nil; l = &(*l)->next){
 		hp = *l;
 		if(ppath == hp->ppath && strcmp(name, hp->name) == 0){
@@ -1666,7 +1654,7 @@ hfree(ulong ppath, char *name)
 	int h;
 	Hash *hp, **l;
 
-	h = hash(ppath, name);
+	h = (hash(name)+ppath) % nelem(htab);
 	for(l = &htab[h]; *l != nil; l = &(*l)->next){
 		hp = *l;
 		if(ppath == hp->ppath && strcmp(name, hp->name) == 0){

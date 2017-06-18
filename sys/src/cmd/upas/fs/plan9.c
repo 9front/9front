@@ -179,17 +179,15 @@ readmessage(Mailbox *mb, Message *m, Inbuf *b)
 int
 purgedeleted(Mailbox *mb)
 {
-	Message *m, *next;
+	Message *m;
 	int newdels;
 
 	/* forget about what's no longer in the mailbox */
 	newdels = 0;
-	for(m = mb->root->part; m != nil; m = next){
-		next = m->next;
-		if(m->deleted && m->refs == 0){
-			if(m->inmbox)
-				newdels++;
-			delmessage(mb, m);
+	for(m = mb->root->part; m != nil; m = m->next){
+		if(m->deleted && m->inmbox){
+			newdels++;
+			m->inmbox = 0;
 		}
 	}
 	return newdels;
@@ -217,10 +215,9 @@ mergemsg(Message *m, Message *x)
  *   read in the mailbox and parse into messages.
  */
 static char*
-readmbox(Mailbox *mb, int doplumb, int *new, Mlock *lk)
+readmbox(Mailbox *mb, Mlock *lk)
 {
 	char *p, *x, buf[Pathlen];
-	int nnew;
 	Biobuf *in;
 	Dir *d;
 	Inbuf b;
@@ -256,7 +253,6 @@ retry:
 	}
 	if(mb->d != nil){
 		if(d->qid.path == mb->d->qid.path && d->qid.vers == mb->d->qid.vers){
-			*new = 0;
 			Bterm(in);
 			free(d);
 			return nil;
@@ -276,7 +272,6 @@ retry:
 
 	/*  read new messages */
 	logmsg(nil, "reading %s", mb->path);
-	nnew = 0;
 	for(;;){
 		if(lk != nil)
 			syslockrefresh(lk);
@@ -306,8 +301,6 @@ retry:
 			} else {
 				/* old mail no longer in box, mark deleted */
 				logmsg(*l, "disappeared");
-				if(doplumb)
-					mailplumb(mb, *l, 1);
 				(*l)->inmbox = 0;
 				(*l)->deleted = Disappear;
 				l = &(*l)->next;
@@ -324,9 +317,6 @@ retry:
 		parse(mb, m, 0, 0);
 		if(m != *l && m->deleted != Dup){
 			logmsg(m, "new");
-			newcachehash(mb, m, doplumb);
-			putcache(mb, m);
-			nnew++;
 		}
 		/* chain in */
 		*l = m;
@@ -336,15 +326,12 @@ retry:
 
 	/* whatever is left has been removed from the mbox, mark deleted */
 	while(*l != nil){
-		if(doplumb)
-			mailplumb(mb, *l, 1);
 		(*l)->inmbox = 0;
 		(*l)->deleted = Deleted;
 		l = &(*l)->next;
 	}
 
 	Bterm(in);
-	*new = nnew;
 	return nil;
 }
 
@@ -408,7 +395,7 @@ writembox(Mailbox *mb, Mlock *lk)
 }
 
 char*
-plan9syncmbox(Mailbox *mb, int doplumb, int *new)
+plan9syncmbox(Mailbox *mb)
 {
 	char *rv;
 	Mlock *lk;
@@ -420,7 +407,7 @@ plan9syncmbox(Mailbox *mb, int doplumb, int *new)
 			return "can't lock mailbox";
 	}
 
-	rv = readmbox(mb, doplumb, new, lk);		/* interpolate */
+	rv = readmbox(mb, lk);		/* interpolate */
 	if(purgedeleted(mb) > 0)
 		writembox(mb, lk);
 

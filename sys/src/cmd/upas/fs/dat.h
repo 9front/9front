@@ -62,10 +62,12 @@ struct Idx {
 	char	*subject;
 	char	*sender;
 	char	*inreplyto;
-	char	*idxaux;			/* mailbox specific */
+	char	*idxaux;		/* mailbox specific */
 
-	int	type;			/* very few types: refstring */
-	int	disposition;		/* very few types: refstring */
+	char	*type;			/* mime info */
+	char	disposition;
+	char	*filename;
+
 	int	nparts;
 };
 
@@ -114,10 +116,9 @@ struct Message {
 	char	*references[Nref];
 
 	/* mime info */
-	char	*boundary;
-	int	charset;
-	char	*filename;
+	char	*charset;		
 	char	encoding;
+	char	*boundary;
 	char	converted;
 	char	decoded;
 	char	mimeflag;
@@ -175,12 +176,14 @@ struct Mailbox {
 	char	*(*ctl)(Mailbox*, int, char**);
 	char	*(*remove)(Mailbox *, int);
 	char	*(*rename)(Mailbox*, char*, int);
-	char	*(*sync)(Mailbox*, int, int*);
+	char	*(*sync)(Mailbox*);
 	void	(*modflags)(Mailbox*, Message*, int);
 	void	(*idxwrite)(Biobuf*, Mailbox*);
 	int	(*idxread)(char*, Mailbox*);
 	void	(*idxinvalid)(Mailbox*);
 	void	*aux;		/* private to Mailbox implementation */
+
+	int	syncing;	/* currently syncing? */
 };
 
 typedef char *Mailboxinit(Mailbox*, char*);
@@ -195,7 +198,6 @@ int		genericidxread(char*, Mailbox*);
 void		genericidxinvalid(Mailbox*);
 
 void		cachehash(Mailbox*, Message*);
-void		newcachehash(Mailbox*, Message*, int);
 int		cacheheaders(Mailbox*, Message*);		/* "getcache" */
 int		cachebody(Mailbox*, Message*);
 int		cacheidx(Mailbox*, Message*);
@@ -206,12 +208,11 @@ void		putcache(Mailbox*, Message*);		/* asymmetricial */
 long		cachefree(Mailbox*, Message*, int);
 
 Message*	gettopmsg(Mailbox*, Message*);
-char*		syncmbox(Mailbox*, int);
+char*		syncmbox(Mailbox*);
 void*		emalloc(ulong);
 void*		erealloc(void*, ulong);
 Message*	newmessage(Message*);
 void		unnewmessage(Mailbox*, Message*, Message*);
-void		delmessage(Mailbox*, Message*);
 char*		delmessages(int, char**);
 char		*flagmessages(int, char**);
 void		digestmessage(Mailbox*, Message*);
@@ -221,7 +222,6 @@ int		wraptls(int, char*);
 void		eprint(char*, ...);
 void		iprint(char *, ...);
 int		newid(void);
-void		mailplumb(Mailbox*, Message*, int);
 char*		newmbox(char*, char*, int, Mailbox**);
 void		freembox(char*);
 char*		removembox(char*, int);
@@ -318,24 +318,14 @@ struct Hash {
 	Message	*m;
 };
 
+uint	hash(char*);
 Hash	*hlook(ulong, char*);
 void	henter(ulong, char*, Qid, Message*, Mailbox*);
 void	hfree(ulong, char*);
 
-typedef struct {
-	char	*s;
-	int	l;
-	ulong	ref;
-} Refs;
-
-int	newrefs(char*);
-void	delrefs(int);
-void	refsinit(void);
-int	prrefs(Biobuf*);
-int	rdrefs(Biobuf*);
-
+char	*intern(char*);
 void	idxfree(Idx*);
-int	rdidxfile(Mailbox*, int);
+int	rdidxfile(Mailbox*);
 int	wridxfile(Mailbox*);
 
 char	*modflags(Mailbox*, Message*, char*);
@@ -356,7 +346,6 @@ extern ulong	msgallocd;
 extern ulong	msgfreed;
 extern Mailbox	*mbl;
 extern Message	*root;
-extern Refs	*rtab;
 
 #define	dprint(...)	if(debug) fprint(2, __VA_ARGS__); else {}
 #define	Topmsg(mb, m)	(m->whole == mb->root)

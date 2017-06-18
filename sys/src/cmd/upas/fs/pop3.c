@@ -359,14 +359,13 @@ pop3download(Mailbox *mb, Pop *pop, Message *m)
  *  we'll use it to make our lives easier.
  */
 static char*
-pop3read(Pop *pop, Mailbox *mb, int doplumb, int *new)
+pop3read(Pop *pop, Mailbox *mb)
 {
 	char *s, *p, *uidl, *f[2];
-	int mno, ignore, nnew;
+	int mno, ignore;
 	Message *m, *next, **l;
 	Popm *a;
 
-	*new = 0;
 	/* Some POP servers disallow UIDL if the maildrop is empty. */
 	pop3cmd(pop, "STAT");
 	if(!isokay(s = pop3resp(pop)))
@@ -409,8 +408,6 @@ pop3read(Pop *pop, Mailbox *mb, int doplumb, int *new)
 					break;
 				}else{
 					/* old mail no longer in box mark deleted */
-					if(doplumb)
-						mailplumb(mb, *l, 1);
 					(*l)->inmbox = 0;
 					(*l)->deleted = Deleted;
 					l = &(*l)->next;
@@ -434,15 +431,12 @@ pop3read(Pop *pop, Mailbox *mb, int doplumb, int *new)
 
 	/* whatever is left has been removed from the mbox, mark as deleted */
 	while(*l != nil) {
-		if(doplumb)
-			mailplumb(mb, *l, 1);
 		(*l)->inmbox = 0;
 		(*l)->deleted = Disappear;
 		l = &(*l)->next;
 	}
 
 	/* download new messages */
-	nnew = 0;
 	if(pop->pipeline){
 		switch(rfork(RFPROC|RFMEM)){
 		case -1:
@@ -469,20 +463,14 @@ pop3read(Pop *pop, Mailbox *mb, int doplumb, int *new)
 		if(m->start != nil || m->deleted)
 			continue;
 		if(s = pop3download(mb, pop, m)) {
-			/* message disappeared? unchain */
 			eprint("pop3: download %d: %s\n", mesgno(m), s);
-			delmessage(mb, m);
-			mb->root->subname--;
+			unnewmessage(mb, mb->root, m);
 			continue;
 		}
-		nnew++;
 		parse(mb, m, 1, 0);
-		newcachehash(mb, m, doplumb);
-		putcache(mb, m);
 	}
 	if(pop->pipeline)
 		waitpid();
-	*new = nnew;
 	return nil;	
 }
 
@@ -492,7 +480,7 @@ pop3read(Pop *pop, Mailbox *mb, int doplumb, int *new)
 static void
 pop3purge(Pop *pop, Mailbox *mb)
 {
-	Message *m, *next;
+	Message *m;
 
 	if(pop->pipeline){
 		switch(rfork(RFPROC|RFMEM)){
@@ -504,27 +492,21 @@ pop3purge(Pop *pop, Mailbox *mb)
 			break;
 
 		case 0:
-			for(m = mb->root->part; m != nil; m = next){
-				next = m->next;
-				if(m->deleted && m->refs == 0){
-					if(m->inmbox)
-						Bprint(&pop->bout, "DELE %d\r\n", mesgno(m));
-				}
+			for(m = mb->root->part; m != nil; m = m->next){
+				if(m->deleted && m->inmbox)
+					Bprint(&pop->bout, "DELE %d\r\n", mesgno(m));
 			}
 			Bflush(&pop->bout);
 			_exits("");
 		}
 	}
-	for(m = mb->root->part; m != nil; m = next) {
-		next = m->next;
-		if(m->deleted && m->refs == 0) {
-			if(m->inmbox) {
-				if(!pop->pipeline)
-					pop3cmd(pop, "DELE %d", mesgno(m));
-				if(isokay(pop3resp(pop)))
-					delmessage(mb, m);
-			} else
-				delmessage(mb, m);
+	for(m = mb->root->part; m != nil; m = m->next) {
+		if(m->deleted && m->inmbox) {
+			if(!pop->pipeline)
+				pop3cmd(pop, "DELE %d", mesgno(m));
+			if(!isokay(pop3resp(pop)))
+				continue;
+			m->inmbox = 0;
 		}
 	}
 }
@@ -532,16 +514,15 @@ pop3purge(Pop *pop, Mailbox *mb)
 
 /* connect to pop3 server, sync mailbox */
 static char*
-pop3sync(Mailbox *mb, int doplumb, int *new)
+pop3sync(Mailbox *mb)
 {
 	char *err;
 	Pop *pop;
 
 	pop = mb->aux;
-
 	if(err = pop3dial(pop))
 		goto out;
-	if((err = pop3read(pop, mb, doplumb, new)) == nil)
+	if((err = pop3read(pop, mb)) == nil)
 		pop3purge(pop, mb);
 	pop3hangup(pop);
 out:

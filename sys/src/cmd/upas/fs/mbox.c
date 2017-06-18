@@ -55,25 +55,42 @@ static Mailboxinit *boxinit[] = {
 	plan9mbox,
 };
 
+static void delmessage(Mailbox*, Message*);
+static void mailplumb(Mailbox*, Message*);
+
 /*
  * do we want to plumb flag changes?
  */
 char*
-syncmbox(Mailbox *mb, int doplumb)
+syncmbox(Mailbox *mb)
 {
 	char *s;
 	int n, d, y, a;
 	Message *m, *next;
 
+	if(mb->syncing)
+		return nil;
+
+	mb->syncing = 1;
+
 	a = mb->root->subname;
-	if(rdidxfile(mb, doplumb) == -2)
+	if(rdidxfile(mb) == -2)
 		wridxfile(mb);
-	if(s = mb->sync(mb, doplumb, &n))
+	if(s = mb->sync(mb))
 		return s;
+	n = 0;
 	d = 0;
 	y = 0;
 	for(m = mb->root->part; m; m = next){
 		next = m->next;
+		if((m->cstate & Cidx) == 0 && m->deleted == 0){
+			cachehash(mb, m);
+			if(insurecache(mb, m) == 0){
+				mailplumb(mb, m);
+				msgdecref(mb, m);
+			}
+			n++;
+		}
 		if(m->cstate & Cidxstale)
 			y++;
 		if(m->deleted == 0 || m->refs > 0)
@@ -81,6 +98,7 @@ syncmbox(Mailbox *mb, int doplumb)
 		if(mb->delete && m->inmbox && m->deleted & Deleted)
 			mb->delete(mb, m);
 		if(!m->inmbox){
+			mailplumb(mb, m);
 			delmessage(mb, m);
 			d++;
 		}
@@ -97,6 +115,9 @@ syncmbox(Mailbox *mb, int doplumb)
 		henter(PATH(0, Qtop), mb->name,
 			(Qid){PATH(mb->id, Qmbox), mb->vers, QTDIR}, nil, mb);
 	}
+
+	mb->syncing = 0;
+
 	return nil;
 }
 
@@ -229,11 +250,10 @@ newmbox(char *path, char *name, int flags, Mailbox **r)
 	if(mb->ctl)
 		henter(PATH(mb->id, Qmbox), "ctl",
 			(Qid){PATH(mb->id, Qmboxctl), 0, QTFILE}, nil, mb);
-	rv = syncmbox(mb, 0);
 	if(r)
 		*r = mb;
 
-	return rv;
+	return syncmbox(mb);
 }
 
 /* close the named mailbox */
@@ -259,7 +279,7 @@ syncallmboxes(void)
 	Mailbox *m;
 
 	for(m = mbl; m != nil; m = m->next)
-		if(err = syncmbox(m, 1))
+		if(err = syncmbox(m))
 			eprint("syncmbox: %s\n", err);
 }
 
@@ -329,7 +349,6 @@ gettopmsg(Mailbox *mb, Message *m)
 void
 datesec(Mailbox *mb, Message *m)
 {
-	char *s;
 	vlong v;
 	Tm tm;
 
@@ -342,11 +361,10 @@ datesec(Mailbox *mb, Message *m)
 	else if(rxtotm(m, &tm) >= 0)
 		v = tm2sec(&tm);
 	else{
-		s = rtab[m->type].s;
 		logmsg(gettopmsg(mb, m), "%s:%s: datasec %s %s\n", mb->path,
 			m->whole? m->whole->name: "?",
-			m->name, s);
-		if(Topmsg(mb, m) || strcmp(s, "message/rfc822") == 0)
+			m->name, m->type);
+		if(Topmsg(mb, m) || strcmp(m->type, "message/rfc822") == 0)
 			abort();
 		v = 0;
 	}
@@ -377,14 +395,12 @@ parseattachments(Message *m, Mailbox *mb)
 	Message *nm, **l;
 
 	/* if there's a boundary, recurse... */
-sanemsg(m);
-//	dprint("parseattachments %p %ld\n", m->start, m->end - m->start);
+	dprint("parseattachments %p %ld bonudary %s\n", m->start, (ulong)(m->end - m->start), m->boundary);
 	if(m->boundary != nil){
 		p = m->body;
 		nm = nil;
 		l = &m->part;
 		for(i = 0;;){
-sanemsg(m);
 			x = strstr(p, m->boundary);
 			/* two sequential boundaries; ignore nil message */
 			if(nm && x == p){
@@ -401,7 +417,6 @@ sanemsg(m);
 			if(x == nil){
 				if(nm != nil){
 					nm->rbend = nm->bend = nm->end = m->bend;
-sanemsg(nm);
 					if(nm->end == nm->start)
 						nm->mimeflag |= Mtrunc;
 				}
@@ -414,9 +429,7 @@ sanemsg(nm);
 			}
 
 			if(nm != nil)
-{
 				nm->rbend = nm->bend = nm->end = x;
-sanemsg(nm);}
 			x += strlen(m->boundary);
 
 			/* is this the last part? ignore anything after it */
@@ -435,6 +448,7 @@ sanemsg(nm);}
 			nm->mheader = nm->header = nm->body = nm->rbody = nm->start;
 		}
 		for(nm = m->part; nm != nil; nm = nm->next){
+			nm->size = nm->end - nm->start;
 			parse(mb, nm, 0, 1);
 			cachehash(mb, nm);		/* botchy place for this */
 		}
@@ -442,7 +456,7 @@ sanemsg(nm);}
 	}
 
 	/* if we've got an rfc822 message, recurse... */
-	if(strcmp(rtab[m->type].s, "message/rfc822") == 0){
+	if(strcmp(m->type, "message/rfc822") == 0){
 		if((nm = haschild(m, 0)) == nil){
 			nm = newmessage(m);
 			m->part = nm;
@@ -452,6 +466,7 @@ sanemsg(nm);}
 		nm->end = nm->bend = nm->rbend = m->bend;
 		if(nm->end == nm->start)
 			nm->mimeflag |= Mtrunc;
+		nm->size = nm->end - nm->start;
 		parse(mb, nm, 0, 0);
 		cachehash(mb, nm);			/* botchy place for this */
 	}
@@ -543,16 +558,12 @@ promote(char *s)
 void
 parsebody(Message *m, Mailbox *mb)
 {
-	char *s;
-	int l;
 	Message *nm;
 
 	/* recurse */
-	s = rtab[m->type].s;
-	l = rtab[m->type].l;
-	if(l >= 10 && strncmp(s, "multipart/", 10) == 0)
+	if(strncmp(m->type, "multipart/", 10) == 0)
 		parseattachments(m, mb);
-	else if(l == 14 && strcmp(s, "message/rfc822") == 0){
+	else if(strcmp(m->type, "message/rfc822") == 0){
 		decode(m);
 		parseattachments(m, mb);
 		nm = m->part;
@@ -566,7 +577,7 @@ parsebody(Message *m, Mailbox *mb)
 			m->replyto = promote(nm->replyto);
 			m->subject = promote(nm->subject);
 		}
-	}else if(strncmp(rtab[m->type].s, "text/", 5) == 0)
+	}else if(strncmp(m->type, "text/", 5) == 0)
 		sanemsg(m);
 	m->rawbsize = m->rbend - m->rbody;
 	m->cstate |= Cbody;
@@ -651,7 +662,9 @@ setfilename(Message *m, char *p)
 {
 	char buf[Pathlen];
 
-	free(m->filename);
+	dprint("setfilename %p %s -> %s\n", m, m->filename, p);
+	if(m->filename != nil)
+		return;
 	getstring(p, buf, buf + sizeof buf - 1, 0);
 	m->filename = smprint("%s", buf);
 	for(p = m->filename; *p; p++)
@@ -909,7 +922,7 @@ ctype(Message *m, Header *h, char*, char *p)
 
 	e = buf + sizeof buf - 1;
 	p = getstring(skipwhite(p + h->len), buf, e, 1);
-	m->type = newrefs(buf);
+	m->type = intern(buf);
 
 	for(; *p; p = skiptosemi(p))
 		if(isattribute(&p, "boundary")){
@@ -922,12 +935,10 @@ ctype(Message *m, Header *h, char*, char *p)
 			 *  the preamble, is not displayed or saved
 			 */
 		} else if(isattribute(&p, "name")){
-			if(m->filename == nil)
-				setfilename(m, p);
+			setfilename(m, p);
 		} else if(isattribute(&p, "charset")){
-			p = getstring(p, buf, e, 0);
-			lowercase(buf);
-			m->charset = newrefs(buf);
+			p = getstring(p, buf, e, 1);
+			m->charset = intern(buf);
 		}
 	return (char*)~0;
 }
@@ -971,9 +982,8 @@ newmessage(Message *parent)
 
 	m = emalloc(sizeof *m);
 	dprint("newmessage %ld	%p	%p\n", msgallocd, parent, m);
-	m->disposition = Dnone;
-	m->type = newrefs("text/plain");
-	m->charset = newrefs("iso-8859-1");
+	m->type = intern("text/plain");
+	m->charset = intern("iso-8859-1");
 	m->cstate = Cidxstale;
 	m->flags = Frecent;
 	m->id = newid();
@@ -987,7 +997,7 @@ newmessage(Message *parent)
 }
 
 /* delete a message from a mailbox */
-void
+static void
 delmessage(Mailbox *mb, Message *m)
 {
 	Message **l;
@@ -1014,17 +1024,13 @@ delmessage(Mailbox *mb, Message *m)
 			mtreedelete(mb, m);
 		cachefree(mb, m, 1);
 	}
-	delrefs(m->type);
-	delrefs(m->charset);
 	idxfree(m);
 	while(m->part)
 		delmessage(mb, m->part);
 	free(m->unixfrom);
 	free(m->unixheader);
 	free(m->date822);
-	free(m->inreplyto);
 	free(m->boundary);
-	free(m->filename);
 
 	free(m);
 }
@@ -1057,7 +1063,6 @@ delmessages(int ac, char **av)
 		for(m = mb->root->part; m != nil; m = m->next)
 			if(strcmp(m->name, av[i]) == 0){
 				if(!m->deleted){
-					mailplumb(mb, m, 1);
 					needwrite = 1;
 					m->deleted = Deleted;
 					logmsg(m, "deleting");
@@ -1065,7 +1070,7 @@ delmessages(int ac, char **av)
 				break;
 			}
 	if(needwrite)
-		syncmbox(mb, 1);
+		syncmbox(mb);
 	return 0;
 }
 
@@ -1095,7 +1100,7 @@ flagmessages(int argc, char **argv)
 					needwrite = 1;
 			}
 	if(needwrite)
-		syncmbox(mb, 1);
+		syncmbox(mb);
 	return rerr;
 }
 
@@ -1112,7 +1117,7 @@ msgdecref(Mailbox *mb, Message *m)
 	m->refs--;
 	if(m->refs == 0){
 		if(m->deleted)
-			syncmbox(mb, 1);
+			syncmbox(mb);
 		else
 			putcache(mb, m);
 	}
@@ -1144,7 +1149,7 @@ mboxdecref(Mailbox *mb)
 	assert(mb->refs > 0);
 	mb->refs--;
 	if(mb->refs == 0){
-		syncmbox(mb, 1);
+		syncmbox(mb);
 		delmessage(mb, mb->root);
 		if(mb->ctl)
 			hfree(PATH(mb->id, Qmbox), "ctl");
@@ -1187,6 +1192,7 @@ decode(Message *m)
 
 	if(m->decoded)
 		return;
+	dprint("decode %d %p\n", m->encoding, m);
 	switch(m->encoding){
 	case Ebase64:
 		len = m->bend - m->body;
@@ -1197,7 +1203,7 @@ decode(Message *m)
 			free(x);
 			break;
 		}
-		if(strncmp(rtab[m->type].s, "text/", 5) == 0)
+		if(strncmp(m->type, "text/", 5) == 0)
 			len = deccr(x, len);
 		if(m->ballocd)
 			free(m->body);
@@ -1231,10 +1237,11 @@ convert(Message *m)
 	/* don't convert if we're not a leaf, not text, or already converted */
 	if(m->converted)
 		return;
+	dprint("convert type=%q charset=%q %p\n", m->type, m->charset, m);
 	m->converted = 1;
-	if(m->part != nil || cistrncmp(rtab[m->type].s, "text", 4) != 0)
+	if(m->part != nil || strncmp(m->type, "text", 4) != 0 || *m->charset == 0)
 		return;
-	len = xtoutf(rtab[m->charset].s, &x, m->body, m->bend);
+	len = xtoutf(m->charset, &x, m->body, m->bend);
 	if(len > 0){
 		if(m->ballocd)
 			free(m->body);
@@ -1376,9 +1383,9 @@ xtoutf(char *charset, char **out, char *in, char *e)
 	int totcs[2], fromtcs[2], n, len, sofar;
 
 	/* might not need to convert */
-	if(cistrcmp(charset, "us-ascii") == 0 || cistrcmp(charset, "utf-8") == 0)
+	if(strcmp(charset, "us-ascii") == 0 || strcmp(charset, "utf-8") == 0)
 		return 0;
-	if(cistrcmp(charset, "iso-8859-1") == 0)
+	if(strcmp(charset, "iso-8859-1") == 0)
 		return latin1toutf(out, in, e);
 
 	len = e - in + 1;
@@ -1495,16 +1502,15 @@ myplumbsend(int fd, Plumbmsg *m)
 	return n;
 }
 
-void
-mailplumb(Mailbox *mb, Message *m, int delete)
+static void
+mailplumb(Mailbox *mb, Message *m)
 {
 	char buf[256], dbuf[SHA1dlen*2 + 1], len[10], date[30], *from, *subject;
-	int ai, cache;
+	int ai;
 	Plumbmsg p;
 	Plumbattr a[7];
 	static int fd = -1;
 
-	cache = insurecache(mb, m) == 0;	/* living dangerously if deleted */
 	subject = m->subject;
 	if(subject == nil)
 		subject = "";
@@ -1517,15 +1523,15 @@ mailplumb(Mailbox *mb, Message *m, int delete)
 		from = "";
 
 	sprint(len, "%lud", m->size);
-	if(biffing && !delete)
+	if(biffing && m->inmbox)
 		fprint(2, "[ %s / %s / %s ]\n", from, subject, len);
 	if(!plumbing)
-		goto out;
+		return;
 
 	if(fd < 0)
 		fd = plumbopen("send", OWRITE);
 	if(fd < 0)
-		goto out;
+		return;
 
 	p.src = "mailfs";
 	p.dst = "seemail";
@@ -1545,7 +1551,7 @@ mailplumb(Mailbox *mb, Message *m, int delete)
 	a[ai-1].next = &a[ai];
 
 	a[++ai].name = "mailtype";
-	a[ai].value = delete? "delete": "new";
+	a[ai].value = !m->inmbox ? "delete": "new";
 	a[ai-1].next = &a[ai];
 
 	snprint(date, sizeof date, "%Δ", m->fileid);
@@ -1567,9 +1573,6 @@ mailplumb(Mailbox *mb, Message *m, int delete)
 	p.data = buf;
 
 	myplumbsend(fd, &p);
-out:
-	if(cache)
-		msgdecref(mb, m);
 }
 
 /*

@@ -876,15 +876,6 @@ datesec(Imap *imap, int i)
 	return v;
 }
 
-static void
-markdel(Mailbox *mb, Message *m, int doplumb)
-{
-	if(doplumb)
-		mailplumb(mb, m, 1);
-	m->inmbox = 0;
-	m->deleted = Disappear;
-}
-
 static int
 vcmp(vlong a, vlong b)
 {
@@ -903,14 +894,13 @@ fetchicmp(Fetchi *f1, Fetchi *f2)
 }
 
 static char*
-imap4read(Imap *imap, Mailbox *mb, int doplumb, int *new)
+imap4read(Imap *imap, Mailbox *mb)
 {
 	char *s;
-	int i, n, c, nnew, ndel;
+	int i, n, c;
 	Fetchi *f;
 	Message *m, **ll;
 
-	*new = 0;
 	imap4cmd(imap, "status %Z (messages uidvalidity)", imap->mbox);
 	if(!isokay(s = imap4resp(imap)))
 		return s;
@@ -928,7 +918,6 @@ imap4read(Imap *imap, Mailbox *mb, int doplumb, int *new)
 	n = imap->nuid;
 	if(n < imap->nmsg) idprint(imap, "partial sync %d < %d\n", n, imap->nmsg);
 	qsort(f, n, sizeof f[0], (int(*)(void*, void*))fetchicmp);
-	nnew = ndel = 0;
 	ll = &mb->root->part;
 	for(i = 0; (m = *ll) != nil || i < n; ){
 		c = -1;
@@ -948,7 +937,6 @@ imap4read(Imap *imap, Mailbox *mb, int doplumb, int *new)
 				i++;
 				continue;
 			}
-			nnew++;
 			m = newmessage(mb->root);
 			m->inmbox = 1;
 			m->idxaux = smprint("%llud", f[i].uid);
@@ -958,22 +946,18 @@ imap4read(Imap *imap, Mailbox *mb, int doplumb, int *new)
 			m->next = *ll;
 			*ll = m;
 			ll = &m->next;
-			newcachehash(mb, m, doplumb);
-			putcache(mb, m);
 			i++;
 		}else if(c > 0){
 			/* deleted message; */
 			idprint(imap, "deleted: %U (%U)\n", i<n? f[i].uid: 0, m? m->imapuid: 0);
-			ndel++;
-			markdel(mb, m, doplumb);
+			m->inmbox = 0;
+			m->deleted = Disappear;
 			ll = &m->next;
 		}else{
 			ll = &m->next;
 			i++;
 		}
 	}
-
-	*new = nnew;
 	return nil;
 }
 
@@ -995,7 +979,7 @@ imap4delete(Mailbox *mb, Message *m)
 }
 
 static char*
-imap4sync(Mailbox *mb, int doplumb, int *new)
+imap4sync(Mailbox *mb)
 {
 	char *err;
 	Imap *imap;
@@ -1003,7 +987,7 @@ imap4sync(Mailbox *mb, int doplumb, int *new)
 	imap = mb->aux;
 	if(err = imap4dial(imap))
 		goto out;
-	err = imap4read(imap, mb, doplumb, new);
+	err = imap4read(imap, mb);
 out:
 	mb->waketime = (ulong)time(0) + imap->refreshtime;
 	return err;

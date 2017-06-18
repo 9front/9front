@@ -14,7 +14,6 @@ OFILES=\
 	mtree.$O\
 	plan9.$O\
 	pop3.$O\
-	ref.$O\
 	remove.$O\
 	rename.$O\
 	strtotm.$O\
@@ -36,6 +35,3 @@ CFLAGS=$CFLAGS  -I../common
 
 acid:V:
 	$CC -a $CFLAGS fs.c>a$O
-
-chkidx: mtree.$O chkidx.$O
-	$LD $LDFLAGS -o $target $prereq

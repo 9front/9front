@@ -5,14 +5,41 @@
 #define idprint(...)	if(iflag > 1) fprint(2, __VA_ARGS__); else {}
 #define iprint(...)		if(iflag) fprint(2, __VA_ARGS__); else {}
 
-static char *magic		= "idx magic v7\n";
+static char *magic	= "idx magic v8\n";
 static char *mbmagic	= "genericv1";
 enum {
-	Idxfields		= 21,
+	Idxfields		= 22,
 
 	Idxto		= 30000,		/* index timeout in ms */
 	Idxstep		= 300,		/* sleep between tries */
 };
+
+typedef struct Intern Intern;
+struct Intern
+{
+	Intern	*next;
+	char	str[];
+};
+
+static Intern *itab[64];
+
+char*
+intern(char *s)
+{
+	Intern *i, **h;
+	int n;
+
+	h = &itab[hash(s) % nelem(itab)];
+	for(i = *h; i != nil; i = i->next)
+		if(strcmp(s, i->str) == 0)
+			return i->str;
+	n = strlen(s)+1;
+	i = emalloc(sizeof(*i) + n);
+	memmove(i->str, s, n);
+	i->next = *h;
+	*h = i;
+	return i->str;
+}
 
 void
 idxfree(Idx *i)
@@ -32,6 +59,7 @@ idxfree(Idx *i)
 		free(i->sender);
 		free(i->inreplyto);
 		free(i->idxaux);
+		free(i->filename);
 	}
 	memset(i, 0, sizeof *i);
 }
@@ -50,7 +78,7 @@ pridxmsg(Biobuf *b, Idx *x)
 	Bprint(b, "%#A %ux %D %lud ", x->digest, x->flags&~Frecent, x->fileid, x->lines);
 	Bprint(b, "%q %q %q %q %q ", ∂(x->ffrom), ∂(x->from), ∂(x->to), ∂(x->cc), ∂(x->bcc));
 	Bprint(b, "%q %q %q %q %q ", ∂(x->replyto), ∂(x->messageid), ∂(x->subject), ∂(x->sender), ∂(x->inreplyto));
-	Bprint(b, "%s %d %lud %lud ", rtab[x->type].s, x->disposition, x->size, x->rawbsize);
+	Bprint(b, "%s %d %q %lud %lud ", x->type, x->disposition, ∂(x->filename), x->size, x->rawbsize);
 	Bprint(b, "%lud %q %d\n", x->ibadchars, ∂(x->idxaux), x->nparts);
 	return 0;
 }
@@ -87,7 +115,6 @@ pridx(Biobuf *b, Mailbox *mb)
 
 	Bprint(b, magic);
 	mb->idxwrite(b, mb);
-//	prrefs(b);
 	i = pridx0(b, mb, mb->root->part, 0);
 	return i;
 }
@@ -304,7 +331,7 @@ static char*
  */
 
 static int
-rdidx(Biobuf *b, Mailbox *mb, Message *parent, int npart, int level, int doplumb)
+rdidx(Biobuf *b, Mailbox *mb, Message *parent, int npart, int level)
 {
 	char *f[Idxfields + 1], *s;
 	uchar *digest;
@@ -345,7 +372,7 @@ dead:
 			if(level == 0)
 				m->deleted &= ~Dmark;
 			if(m->nparts)
-			if(rdidx(b, mb, m, m->nparts, level + 1, 0) == -1)
+			if(rdidx(b, mb, m, m->nparts, level + 1) == -1)
 				goto dead;
 			ll = &m->next;
 			idprint("%d seen before %d... %.2ux", level, m->id, m->cstate);
@@ -375,17 +402,20 @@ dead:
 		m->subject = ∫(f[11]);
 		m->sender = ∫(f[12]);
 		m->inreplyto = ∫(f[13]);
-		m->type = newrefs(f[14]);
+		m->type = intern(f[14]);
 		m->disposition = atoi(f[15]);
-		m->size = strtoul(f[16], 0, 0);
-		m->rawbsize = strtoul(f[17], 0, 0);
-		m->ibadchars = strtoul(f[18], 0, 0);
-		m->idxaux = ∫(f[19]);
-		m->nparts = strtoul(f[20], 0, 0);
+		m->filename = ∫(f[16]);
+		m->size = strtoul(f[17], 0, 0);
+		m->rawbsize = strtoul(f[18], 0, 0);
+		m->ibadchars = strtoul(f[19], 0, 0);
+		m->idxaux = ∫(f[20]);
+		m->nparts = strtoul(f[21], 0, 0);
+
 		m->cstate &= ~Cidxstale;
 		m->cstate |= Cidx;
 		m->str = s;
 		s = 0;
+
 		if(!validmessage(mb, m, level))
 			goto dead;
 		if(level == 0){
@@ -400,10 +430,8 @@ dead:
 		good++;
 
 		if(m->nparts)
-		if(rdidx(b, mb, m, m->nparts, level + 1, 0) == -1)
+		if(rdidx(b, mb, m, m->nparts, level + 1) == -1)
 			goto dead;
-		if(doplumb && level == 0)
-			mailplumb(mb, m, 0);
 	}
 	if(level == 0 && bad + redux > 0)
 		iprint("idx: %d %d %d\n", good, bad, redux);
@@ -493,7 +521,7 @@ unmark(Mailbox *mb)
 }
 
 int
-rdidxfile0(Mailbox *mb, int doplumb)
+rdidxfile0(Mailbox *mb)
 {
 	char buf[Pathlen + 4];
 	int r, v;
@@ -509,7 +537,7 @@ rdidxfile0(Mailbox *mb, int doplumb)
 		r = -1;
 	else{
 		mark(mb);
-		r = rdidx(b, mb, mb->root, -1, 0, doplumb);
+		r = rdidx(b, mb, mb->root, -1, 0);
 		v = unmark(mb);
 		if(r == 0 && v > 0)
 			r = -1;
@@ -519,11 +547,11 @@ rdidxfile0(Mailbox *mb, int doplumb)
 }
 
 int
-rdidxfile(Mailbox *mb, int doplumb)
+rdidxfile(Mailbox *mb)
 {
 	int r;
 
-	r = rdidxfile0(mb, doplumb);
+	r = rdidxfile0(mb);
 	if(r == -1 && mb->idxinvalid)
 		mb->idxinvalid(mb);
 	return r;
