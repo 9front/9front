@@ -657,6 +657,8 @@ vgafbparse(char *fbstring)
 
 	if(strcmp(fbstring, "text") == 0){
 		curmode = &textmode;
+		maxw = 640;
+		maxh = 400;
 		return;
 	}else if(strncmp(fbstring, "vesa:", 5) == 0){
 		vesamode = 1;
