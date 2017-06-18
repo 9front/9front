@@ -349,7 +349,7 @@ cr0fakeread(char *p, char *e)
 	guest = vmcsread(GUEST_CR0);
 	mask = vmcsread(GUEST_CR0MASK);
 	shadow = vmcsread(GUEST_CR0SHADOW);
-	return seprint(p, e, "%#.*ullx", sizeof(uintptr) * 2, guest & mask | shadow & ~mask);
+	return seprint(p, e, "%#.*ullx", sizeof(uintptr) * 2, guest & ~mask | shadow & mask);
 }
 
 static char *
@@ -360,7 +360,7 @@ cr4fakeread(char *p, char *e)
 	guest = vmcsread(GUEST_CR4);
 	mask = vmcsread(GUEST_CR4MASK);
 	shadow = vmcsread(GUEST_CR4SHADOW);
-	return seprint(p, e, "%#.*ullx", sizeof(uintptr) * 2, guest & mask | shadow & ~mask);
+	return seprint(p, e, "%#.*ullx", sizeof(uintptr) * 2, guest & ~mask | shadow & mask);
 }
 
 static int
@@ -757,7 +757,7 @@ vmcsinit(void)
 	if(rdmsr(VMX_PROCB_CTLS_MSR, &msr) < 0) error("rdmsr(VMX_PROCB_CTLS_MSR failed");
 	x = (u32int)procb_ctls | 1<<1 | 7<<4 | 1<<8 | 1<<13 | 1<<14 | 1<<26; /* currently reserved default1 bits */
 	x |= PROCB_EXITHLT | PROCB_EXITMWAIT;
-	x |= PROCB_EXITMOVDR | PROCB_EXITIO | PROCB_EXITMONITOR | PROCB_EXITPAUSE;
+	x |= PROCB_EXITMOVDR | PROCB_EXITIO | PROCB_EXITMONITOR;
 	x |= PROCB_USECTLS2;
 	x &= msr >> 32;
 	vmcswrite(PROCB_CTLS, x);
@@ -993,15 +993,20 @@ cmdgetregs(VmCmd *, va_list va)
 	p0 = va_arg(va, char *);
 	e = va_arg(va, char *);
 	p = p0;
-	for(r = guestregs; r < guestregs + nelem(guestregs); r++){
-		if(r->offset >= 0)
-			val = vmcsread(r->offset);
-		else
-			val = *(uintptr*)((uchar*)&vmx + ~r->offset);
-		s = r->size;
-		if(s == 0) s = sizeof(uintptr);
-		p = seprint(p, e, "%s %#.*llux\n", r->name, s * 2, val);
-	}
+	for(r = guestregs; r < guestregs + nelem(guestregs); r++)
+		if(r->read != nil){
+			p = seprint(p, e, "%s ", r->name);
+			p = r->read(p, e);
+			p = strecpy(p, e, "\n");
+		}else{
+			if(r->offset >= 0)
+				val = vmcsread(r->offset);
+			else
+				val = *(uintptr*)((uchar*)&vmx + ~r->offset);
+			s = r->size;
+			if(s == 0) s = sizeof(uintptr);
+			p = seprint(p, e, "%s %#.*llux\n", r->name, s * 2, val);
+		}
 	return p - p0;
 }
 
