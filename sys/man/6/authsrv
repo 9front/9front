@@ -545,6 +545,30 @@ protocol, followed by the agreed-upon protocol.
 The negotiation protocol is:
 .TP
 .I S→C:
+.IB proto@authdom
+.IB proto@authdom
+.I ...
+.TP
+.I C→S:
+.I proto
+.I dom
+.PP
+Each message is a NUL-terminated UTF string.
+The server begins by sending a list of
+.IR proto ,
+.I authdom
+pairs it is willing to use.
+The client
+responds with its choice.
+.PP
+A second version of this protocol exists (indicated
+by the
+.B v.2
+prefix before the list) where the server sends
+an explicit confirmation with a OK message before
+the agreed-upon protocol starts.
+.TP
+.I S→C:
 .B v.2
 .IB proto@authdom
 .IB proto@authdom
@@ -556,28 +580,6 @@ The negotiation protocol is:
 .TP
 .I S→C:
 .B OK
-.PP
-Each message is a NUL-terminated UTF string.
-The server begins by sending a list of
-.IR proto ,
-.I authdom
-pairs it is willing to use.
-The client
-responds with its choice.
-Requiring the client to wait for the final
-.B OK
-ensures that the client will not start
-the chosen protocol until the server is ready.
-.PP
-The above is version 2 of the protocol.
-Version 1,
-no longer used,
-omitted the first message's
-.B v.2
-prefix
-and the 
-.B OK
-message.
 .PP
 The
 .I p9any
