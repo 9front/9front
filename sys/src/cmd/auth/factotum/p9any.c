@@ -158,6 +158,8 @@ p9anyread(Fsstate *fss, void *a, uint *n)
 	case SHaveProtos:
 		m = 0;
 		negstr = s_new();
+		if(s->version == 2)
+			s_append(negstr, "v.2 ");
 		mkkeyinfo(&ki, fss, nil);
 		ki.attr = nil;
 		ki.noconf = 1;
