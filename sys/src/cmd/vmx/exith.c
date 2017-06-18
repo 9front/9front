@@ -14,6 +14,13 @@ struct ExitInfo {
 	u32int ilen, iinfo;
 };
 
+static char *x86reg[16] = {
+	RAX, RCX, RDX, RBX,
+	RSP, RBP, RSI, RDI,
+	R8, R9, R10, R11,
+	R12, R13, R14, R15
+};
+
 static void
 skipinstr(ExitInfo *ei)
 {
@@ -242,7 +249,7 @@ cpuid(ExitInfo *ei)
 		break;
 	case 2: goto literal; /* cache stuff */
 	case 3: goto zero; /* processor serial number */
-	case 4: goto literal; /* cache stuff */
+	case 4: goto zero; /* cache stuff */
 	case 5: goto zero; /* monitor/mwait */
 	case 6: goto zero; /* thermal management */
 	case 7: goto zero; /* more features */
@@ -305,6 +312,7 @@ rdwrmsr(ExitInfo *ei)
 		if(rd) val = rget("efer");
 		else rset("efer", val);
 		break;
+	case 0x8B: val = 0; break; /* microcode update */
 	default:
 		if(rd){
 			vmerror("read from unknown MSR %#ux ignored", cx);
@@ -323,12 +331,6 @@ rdwrmsr(ExitInfo *ei)
 static void
 movdr(ExitInfo *ei)
 {
-	static char *reg[16] = {
-		RAX, RCX, RDX, RBX,
-		RSP, RBP, RSI, RDI,
-		R8, R9, R10, R11,
-		R12, R13, R14, R15
-	};
 	static char *dr[8] = { "dr0", "dr1", "dr2", "dr3", nil, nil, "dr6", "dr7" };
 	int q;
 	
@@ -338,10 +340,62 @@ movdr(ExitInfo *ei)
 		return;
 	}
 	if((q & 16) != 0)
-		rset(reg[q >> 8 & 15], rget(dr[q & 7]));
+		rset(x86reg[q >> 8 & 15], rget(dr[q & 7]));
 	else
-		rset(dr[q & 7], rget(reg[q >> 8 & 15]));
+		rset(dr[q & 7], rget(x86reg[q >> 8 & 15]));
 	skipinstr(ei);
+}
+
+static void
+movcr(ExitInfo *ei)
+{
+	u32int q;
+	
+	q = ei->qual;
+	switch(q & 15){
+	case 0:
+		switch(q >> 4 & 3){
+		case 0:
+			vmdebug("illegal CR0 write, value %#ux", rget(x86reg[q >> 8 & 15]));
+			rset("cr0real", rget(x86reg[q >> 8 & 15]));
+			skipinstr(ei);
+			break;
+		case 1:
+			vmerror("shouldn't happen: trap on MOV from CR0");
+			rset(x86reg[q >> 8 & 15], rget("cr0fake"));
+			skipinstr(ei);
+			break;
+		case 2:
+			vmerror("shouldn't happen: trap on CLTS");
+			rset("cr0real", rget("cr0real") & ~8);
+			skipinstr(ei);
+			break;
+		case 3:
+			vmerror("LMSW handler unimplemented");
+			postexc("#ud", NOERRC);
+		}
+		break;
+	case 4:
+		switch(ei->qual >> 4 & 3){
+		case 0:
+			vmdebug("illegal CR4 write, value %#ux", rget(x86reg[q >> 8 & 15]));
+			rset("cr4real", rget(x86reg[q >> 8 & 15]));
+			skipinstr(ei);
+			break;
+		case 1:
+			vmerror("shouldn't happen: trap on MOV from CR4");
+			rset(x86reg[q >> 8 & 15], rget("cr3fake"));
+			skipinstr(ei);
+			break;
+		default:
+			vmerror("unknown CR4 operation %d", q);
+			postexc("#ud", NOERRC);
+		}
+		break;
+	default:
+		vmerror("access to unknown control register CR%d", ei->qual & 15);
+		postexc("#ud", NOERRC);
+	}
 }
 
 static void
@@ -380,6 +434,7 @@ static ExitType etypes[] = {
 	{".wrmsr", rdwrmsr},
 	{".movdr", movdr},
 	{"#db", dbgexc},
+	{"movcr", movcr},
 };
 
 void

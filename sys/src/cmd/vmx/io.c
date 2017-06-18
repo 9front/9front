@@ -363,6 +363,7 @@ picio(int isin, u16int port, u32int val, int sz, void *)
 			p->init = 4;
 			picupdate(p);
 			return 0;
+		case 0:
 		case 4:
 			p->imr = val;
 			picupdate(p); 
@@ -412,10 +413,12 @@ struct PITChannel {
 	enum { READLO, READHI, READLATLO, READLATHI } readstate;
 	u8int writestate;
 	vlong lastnsec;
+	u8int output;
 };
 PITChannel pit[3] = {
 	[0] { .state 1 },
 };
+u8int port61;
 enum { PERIOD = 838 };
 
 void
@@ -437,6 +440,18 @@ settimer(vlong targ)
 		threadint(timerid);
 }
 
+static void
+pitout(int n, int v)
+{
+	if(n == 0)
+		irqline(0, v);
+	switch(v){
+	case IRQLLOHI: case 1: pit[n].output = 1; break;
+	case 0: pit[n].output = 0; break;
+	case IRQLTOGGLE: pit[n].output ^= 1; break;
+	}
+}
+
 void
 pitadvance(void)
 {
@@ -455,11 +470,11 @@ pitadvance(void)
 		case 0:
 			if(p->state != 0){
 				nc = t / PERIOD;
-				if(p->count <= nc && i == 0)
-					irqline(0, 1);
+				if(p->count <= nc)
+					pitout(i, 1);
 				p->count -= nc;
 				p->lastnsec -= t % PERIOD;
-				if(i == 0 && (pic[0].lines & 1<<0) == 0)
+				if(!p->output)
 					settimer(p->lastnsec + p->count * PERIOD);
 			}
 			break;
@@ -474,8 +489,7 @@ pitadvance(void)
 					nc -= p->count - 1;
 					nc %= rel;
 					p->count = rel - nc + 1;
-					if(i == 0)
-						irqline(0, IRQLLOHI);
+					pitout(i, IRQLLOHI);
 				}
 				p->lastnsec -= t % PERIOD;
 				settimer(p->lastnsec + p->count * PERIOD);
@@ -492,8 +506,7 @@ pitadvance(void)
 					nc -= p->count;
 					nc %= rel;
 					p->count = rel - nc;
-					if(i == 0)
-						irqline(0, IRQLTOGGLE);
+					pitout(i, IRQLTOGGLE);
 				}
 				p->lastnsec -= t % PERIOD;
 				settimer(p->lastnsec + p->count / 2 * PERIOD);
@@ -515,8 +528,7 @@ pitsetreload(int n, int hi, u8int v)
 		p->reload = p->reload & 0xff00 | v;
 	switch(p->mode){
 	case 0:
-		if(n == 0)
-			irqline(0, 0);
+		pitout(n, 0);
 		if(p->access != 3 || hi){
 			p->count = p->reload;
 			p->state = 1;
@@ -569,6 +581,7 @@ pitio(int isin, u16int port, u32int val, int sz, void *)
 			return pit[n].latch >> 8;
 		}
 		return 0;
+	case 0x10061: return port61 | pit[2].output << 5;
 	case 0x40:
 	case 0x41:
 	case 0x42:
@@ -608,15 +621,17 @@ pitio(int isin, u16int port, u32int val, int sz, void *)
 			pit[n].readstate = pit[n].access == 1 ? READHI : READLO;
 			pit[n].writestate = pit[n].access == 1 ? READHI : READLO;
 			pit[n].lastnsec = nsec();
-			if(n == 0)
-				switch(pit[n].mode){
-				case 0:
-					irqline(0, 0);
-					break;
-				default:
-					irqline(0, 1);
-				}
+			switch(pit[n].mode){
+			case 0:
+				pitout(n, 0);
+				break;
+			default:
+				pitout(n, 1);
+			}
 		}
+		return 0;
+	case 0x61:
+		port61 = port61 & 0xf0 | val & 0x0f;
 		return 0;
 	}
 	return iowhine(isin, port, val, sz, "pit");
@@ -628,7 +643,7 @@ struct I8042 {
 	int cmd;
 	u16int buf; /* |0x100 == kbd, |0x200 == mouse, |0x400 == cmd */
 } i8042 = {
-	.cfg 0x34,
+	.cfg 0x74,
 	.stat 0x10,
 	.oport 0x01,
 	.cmd -1,
@@ -809,7 +824,13 @@ mousecmd(u8int val)
 			break;
 		case 0xe7: mouseputc(0xfa); mouse.scaling21 = 1; break; /* set 2:1 scaling */
 		case 0xe6: mouseputc(0xfa); mouse.scaling21 = 0; break; /* set 1:1 scaling */
-		default: vmerror("unknown mouse command %#ux", val); mouseputc(0xfc);
+		
+		case 0x88: case 0x00: case 0x0a: /* sentelic & cypress */
+		case 0xe1: /* trackpoint */
+			mouseputc(0xfe);
+			break;
+
+		default: vmerror("unknown mouse command %#ux", val); mouseputc(0xfe);
 		}
 	}
 	i8042kick(nil);
@@ -893,6 +914,12 @@ i8042io(int isin, u16int port, u32int val, int sz, void *)
 		case 0xd0: i8042putbuf(0x400 | i8042.oport); return 0;
 		case 0x60: case 0xd1: case 0xd2: case 0xd3: case 0xd4:
 			i8042.cmd = val;
+			return 0;
+		case 0xf0: case 0xf2: case 0xf4: case 0xf6: /* pulse reset line */
+		case 0xf8: case 0xfa: case 0xfc: case 0xfe:
+			sysfatal("i8042: system reset");
+		case 0xf1: case 0xf3: case 0xf5: case 0xf7: /* no-op */
+		case 0xf9: case 0xfb: case 0xfd: case 0xff:
 			return 0;
 		}
 		vmerror("unknown i8042 command %#ux", val);
@@ -1204,6 +1231,7 @@ IOHandler handlers[] = {
 	0x70, 0x71, rtcio, nil,
 	0xa0, 0xa1, picio, nil,
 	0x60, 0x60, i8042io, nil,
+	0x61, 0x61, pitio, nil, /* pc speaker */
 	0x64, 0x64, i8042io, nil,
 	0x2f8, 0x2ff, uartio, nil,
 	0x3b0, 0x3bb, vgaio, nil,
@@ -1219,7 +1247,7 @@ IOHandler handlers[] = {
 	0x3f6, 0x3f6, ideio, nil, /* ide primary (aux) */
 	0x3f0, 0x3f7, fdcio, nil, /* floppy */
 
-	0x061, 0x061, nopio, nil, /* pc speaker */
+	0x080, 0x080, nopio, nil, /* dma -- used by linux for delay by dummy write */
 	0x084, 0x084, nopio, nil, /* dma -- used by openbsd for delay by dummy read */
 	0x100, 0x110, nopio, nil, /* elnk3 */
 	0x240, 0x25f, nopio, nil, /* ne2000 */

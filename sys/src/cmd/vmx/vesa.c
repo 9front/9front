@@ -258,6 +258,7 @@ vesamodeget(int addr, u16int mode, u16int *retv)
 	pos = 0;
 	for(i = 0; i < 4; i++){
 		s = p->chan >> 8 * i & 15;
+		if(s == 0) continue;
 		switch(p->chan >> 8 * i + 4 & 15){
 		case CRed: nred = s; pred = pos; break;
 		case CGreen: ngreen = s; pgreen = pos; break;

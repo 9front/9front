@@ -53,6 +53,8 @@ struct VIONetDev {
 		VNETNOMULTI = 8,
 		VNETNOUNI = 16,
 		VNETNOBCAST = 32,
+		
+		VNETHEADER = 1<<31,
 	} flags;
 	u64int macbloom, multibloom;
 };
@@ -447,6 +449,7 @@ vionetrproc(void *vp)
 	threadsetname("vionetrproc");
 	v = vp;
 	q = &v->qu[0];
+	memset(rxhead, 0, sizeof(rxhead));
 	for(;;){
 		rc = read(v->net.readfd, rxbuf, sizeof(rxbuf));
 		if(rc == 0){
@@ -481,8 +484,9 @@ vionetwproc(void *vp)
 	VIOQueue *q;
 	VIOBuf *vb;
 	uchar txhead[10];
-	uchar txbuf[1600];
+	uchar txbuf[1610];
 	int rc, len;
+	uvlong ns;
 	
 	threadsetname("vionetwproc");
 	v = vp;
@@ -494,8 +498,8 @@ vionetwproc(void *vp)
 			threadexits("viogetbuf: %r");
 		}
 		vioqread(vb, txhead, sizeof(txhead));
-		len = vioqread(vb, txbuf, sizeof(txbuf));
-		if(len == sizeof(txbuf)){
+		len = vioqread(vb, txbuf+10, sizeof(txbuf)-10);
+		if(len == sizeof(txbuf)-10){
 			vmerror("virtio net: ignoring excessively long packet");
 			vioputbuf(vb);
 			continue;
@@ -507,10 +511,24 @@ vionetwproc(void *vp)
 			vioputbuf(vb);
 			continue;
 		}else if(len < 60){ /* openbsd doesn't seem to know about ethernet minimum packet lengths either */
-			memset(txbuf + len, 0, 60 - len);
+			memset(txbuf + 10 + len, 0, 60 - len);
 			len = 60;
-		}	
-		rc = write(v->net.writefd, txbuf, len);
+		}
+		if((v->net.flags & VNETHEADER) != 0){
+			txbuf[0] = len  >> 8;
+			txbuf[1] = len;
+			ns = nsec();
+			txbuf[2] = ns >> 56;
+			txbuf[3] = ns >> 48;
+			txbuf[4] = ns >> 40;
+			txbuf[5] = ns >> 32;
+			txbuf[6] = ns >> 24;
+			txbuf[7] = ns >> 16;
+			txbuf[8] = ns >> 8;
+			txbuf[9] = ns;
+			rc = write(v->net.writefd, txbuf, len + 10);
+		}else
+			rc = write(v->net.writefd, txbuf + 10, len);
 		vioputbuf(vb);
 		if(rc < 0){
 			vmerror("write(vionetwproc): %r");
@@ -607,7 +625,7 @@ vionetcmd(VIOQueue *q)
 void
 vionetreset(VIODev *d)
 {
-	d->net.flags = 0;
+	d->net.flags &= VNETHEADER;
 	d->net.macbloom = 0;
 	d->net.multibloom = 0;
 }
@@ -618,10 +636,30 @@ mkvionet(char *net)
 	int fd, cfd;
 	VIODev *d;
 	int i;
+	int flags;
+	enum { VNETFILE = 1 };
 
-	fd = dial(netmkaddr("-1", net, nil), nil, nil, &cfd);
-	if(fd < 0) return -1;
-	if(cfd >= 0) fprint(cfd, "promiscuous");
+	flags = 0;
+	for(;;){
+		if(strncmp(net, "hdr!", 4) == 0){
+			net += 4;
+			flags |= VNETHEADER;
+		}else if(strncmp(net, "file!", 5) == 0){
+			net += 5;
+			flags |= VNETFILE;
+		}else
+			break;
+	}
+	if((flags & VNETFILE) != 0){
+		flags &= ~VNETFILE;
+		fd = open(net, ORDWR);
+		if(fd < 0) return -1;
+	}else{
+		fd = dial(netmkaddr("-1", net, nil), nil, nil, &cfd);
+		if(fd < 0) return -1;
+		if(cfd >= 0) fprint(cfd, "promiscuous");
+	}
+	
 	d = mkviodev(0x1000, 0x020000, 1);
 	mkvioqueue(d, 1024, viowakeup);
 	mkvioqueue(d, 1024, viowakeup);
@@ -629,6 +667,7 @@ mkvionet(char *net)
 	for(i = 0; i < 6; i++)
 		d->net.mac[i] = rand();
 	d->net.mac[0] = d->net.mac[0] & ~1 | 2;
+	d->net.flags = flags;
 	d->devfeat = 1<<5|1<<16|1<<17|1<<18|1<<20;
 	d->io = vionetio;
 	d->reset = vionetreset;

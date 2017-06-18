@@ -152,6 +152,10 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 {
 	u32int m;
 
+	if(port == 0x3d4 && sz == 2 && !isin){
+		vgaio(0, 0x3d4, (u8int)val, 1, nil);
+		return vgaio(0, 0x3d5, (u8int)(val >> 8), 1, nil);
+	}
 	if(sz != 1) vmdebug("vga: non-byte access to port %#ux, sz=%d", port, sz);
 	val = (u8int) val;
 	switch(isin << 16 | port){

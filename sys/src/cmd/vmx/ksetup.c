@@ -1,6 +1,7 @@
 #include <u.h>
 #include <libc.h>
 #include <thread.h>
+#include <draw.h>
 #include <libsec.h>
 #include "dat.h"
 #include "fns.h"
@@ -687,6 +688,208 @@ tryelf(void)
 	return 0;
 }
 
+static void
+linuxbootmod(char *fn, void *zp, u32int kend)
+{
+	u32int addr;
+	uintptr memend;
+	int fd;
+	vlong sz;
+	void *v;
+	int rc;
+	
+	fd = open(fn, OREAD);
+	if(fd < 0) sysfatal("linux: initrd: open: %r");
+	sz = seek(fd, 0, 2);
+	if(sz < 0) sysfatal("linux: initrd: seek: %r");
+	if(sz == 0) sysfatal("linux: empty initrd");
+	addr = GET32(zp, 0x22c);
+	memend = (1<<20) + gavail(gptr(1<<20, 0));
+	if(addr >= memend) addr = memend - 1;
+	if((addr - (sz - 1) & -4) < kend) sysfatal("linux: no room for initrd");
+	addr = addr - (sz - 1) & -4;
+	print("%#ux %#ux\n", addr, (u32int)sz);
+	v = gptr(addr, sz);
+	if(v == nil) sysfatal("linux: initrd: gptr failed");
+	seek(fd, 0, 0);
+	rc = readn(fd, v, sz);
+	if(rc < 0) sysfatal("linux: initrd: read: %r");
+	if(rc < sz) sysfatal("linux: initrd: short read");
+	close(fd);
+	PUT32(zp, 0x218, addr);
+	PUT32(zp, 0x21C, sz);
+}
+
+static void
+linuxscreeninfo(void *zp)
+{
+	extern VgaMode *curmode, textmode;
+	extern uintptr fbaddr, fbsz;
+	uintptr extmem;
+	int i, p, s;
+	
+	extmem = gavail(gptr(1<<20, 0)) >> 10;
+	if(extmem >= 65535) extmem = 65535;
+	PUT16(zp, 0x02, extmem);
+	
+	if(curmode == nil) return;
+	if(curmode == &textmode){
+		PUT8(zp, 0x06, 3); /* mode 3 */
+		PUT8(zp, 0x07, 80); /* 80 cols */
+		PUT8(zp, 0x0e, 25); /* 25 rows */
+		PUT8(zp, 0x0f, 0x22); /* VGA */
+		PUT16(zp, 0x10, 16); /* characters are 16 pixels high */
+	}else{
+		PUT8(zp, 0x0f, 0x23); /* VESA linear framebuffer */
+		PUT16(zp, 0x12, curmode->w);
+		PUT16(zp, 0x14, curmode->h);
+		PUT16(zp, 0x16, chantodepth(curmode->chan));
+		PUT32(zp, 0x18, fbaddr);
+		PUT32(zp, 0x1C, fbsz);
+		PUT16(zp, 0x24, curmode->hbytes);
+		for(i = 0, p = 0; i < 4; i++){
+			s = curmode->chan >> 8 * i & 15;
+			if(s == 0) continue;
+			switch(curmode->chan >> 8 * i + 4 & 15){
+			case CRed: PUT16(zp, 0x26, s | p << 8); break;
+			case CGreen: PUT16(zp, 0x28, s | p << 8); break;
+			case CBlue: PUT16(zp, 0x2a, s | p << 8); break;
+			case CAlpha: case CIgnore:  PUT16(zp, 0x2c, s | p << 8); ; break;
+			}
+			p += s;
+		}
+		PUT16(zp, 0x34, 1<<0|1<<1|1<<3|1<<4|1<<5|1<<6|1<<7); /* attributes */
+	}
+}
+
+enum {
+	GDTRW = 2<<8,
+	GDTRX = 10<<8,
+	GDTS = 1<<12,
+	GDTP = 1<<15,
+	GDT64 = 1<<21,
+	GDT32 = 1<<22,
+	GDTG = 1<<23,
+};
+#define GDTLIM0(l) ((l) & 0x0ffff)
+#define GDTLIM1(l) ((l) & 0xf0000)
+#define GDTBASE0(b) ((b) << 16)
+#define GDTBASE1(b) ((b) >> 16 & 0xff | (b) & 0xff000000)
+
+static void
+linuxgdt(void *v)
+{
+	u32int base;
+	
+	base = gpa(v);
+	rset("gdtrbase", base);
+	v = pack(v, "ii", 0, 0);
+	v = pack(v, "ii", 0, 0);
+	v = pack(v, "ii", GDTLIM0(-1) | GDTBASE0(0), GDTLIM1(-1) | GDTBASE1(0) | GDTRX | GDTG | GDTS | GDTP | GDT32);
+	v = pack(v, "ii", GDTLIM0(-1) | GDTBASE0(0), GDTLIM1(-1) | GDTBASE1(0) | GDTRW | GDTG | GDTS | GDTP | GDT32);
+	rset("gdtrlimit", gpa(v) - base - 1);
+	rset("cs", 0x10);
+	rset("ds", 0x18);
+	rset("es", 0x18);
+	rset("ss", 0x18);
+}
+
+static void
+linuxe820(uchar *zp)
+{
+	Region *r;
+	uchar *v;
+	uvlong s, e;
+	int n;
+	
+	v = zp + 0x2d0;
+	v = pack(v, "vvi", (uvlong)0, (uvlong)0xa0000, BIOS_MAP_FREE);
+	n = 1;
+	for(r = mmap; r != nil; r = r->next){
+		s = r->start;
+		e = r->end;
+		if(s < (1<<20)) s = 1<<20;
+		if(e <= s || r->type == REGFB) continue;
+		v = pack(v, "vvi", s, e - s, isusermem(r) ? BIOS_MAP_FREE : BIOS_MAP_RES);
+		n++;
+	}
+	PUT8(zp, 0x1e8, n);
+}
+
+static int
+trylinux(void)
+{
+	char buf[1024];
+	u8int loadflags;
+	u16int version;
+	uchar *zp;
+	void *v;
+	u32int ncmdline, cmdlinemax, syssize, setupsects;
+	
+	seek(fd, 0, 0);
+	if(readn(fd, buf, sizeof(buf)) < 1024) return 0;
+	if(GET16(buf, 0x1FE) != 0xAA55 || GET32(buf, 0x202) != 0x53726448) return 0;
+	version = GET16(buf, 0x206);
+	if(version < 0x206){
+		vmerror("linux: kernel too old (boot protocol version %d.%.2d, needs to be 2.06 or newer)", version >> 8, version & 0xff);
+		return 0;
+	}
+	loadflags = GET8(buf, 0x211);
+	if((loadflags & 1) == 0){
+		vmerror("linux: zImage is not supported");
+		return 0;
+	}
+	zp = gptr(0x1000, 0x1000);
+	if(zp == nil) sysfatal("linux: gptr for zeropage failed");
+	rset(RSI, 0x1000);
+	memset(zp, 0, 0x1000);
+	memmove(zp + 0x1f1, buf + 0x1f1, 0x202 + GET8(buf, 0x201) - 0x1f1);
+	setupsects = GET8(zp, 0x1F1);
+	if(setupsects == 0) setupsects = 4;
+	syssize = GET32(zp, 0x1F4);
+	cmdlinemax = GET32(zp, 0x238);
+	
+	v = gptr(1<<20, syssize << 4);
+	if(v == nil) sysfatal("linux: not enough room for kernel");
+	epreadn(v, syssize << 4, (setupsects + 1) * 512, "trylinux");
+	
+	v = gptr(0x20000, 1);
+	if(v == nil) sysfatal("linux: gptr for cmdline failed");
+	ncmdline = putcmdline(v);
+	if(ncmdline == 0)
+		*(uchar*)v = 0;
+	else
+		if(ncmdline - 1 > cmdlinemax) sysfatal("linux: cmdline too long (%d > %d)", ncmdline, cmdlinemax);
+	PUT32(zp, 0x228, 0x20000);
+	
+	switch(bootmodn){
+	case 0: break;
+	default:
+		vmerror("linux: ignoring extra boot modules (only one supported)");
+		/* wet floor */
+	case 1:
+		linuxbootmod(*bootmod, zp, (1<<20) + (syssize << 4));
+	}
+	
+	linuxscreeninfo(zp);
+	v = gptr(0x3000, 256);
+	if(v == nil) sysfatal("linux: gptr for gdt failed");
+	linuxgdt(v);
+	
+	linuxe820(zp);
+	
+	PUT16(zp, 0x1FA, 0xffff);
+	PUT8(zp, 0x210, 0xFF); /* bootloader ID */
+	PUT8(zp, 0x211, loadflags | 0x80); /* kernel can use heap */
+
+	PUT32(zp, 0x224, 0xfe00); /* kernel can use full segment */
+	rset(RPC, GET32(zp, 0x214));
+	rset(RBP, 0);
+	rset(RDI, 0);
+	rset(RBX, 0);
+	return 1;
+}
+
 void
 loadkernel(char *fn)
 {
@@ -694,7 +897,7 @@ loadkernel(char *fn)
 	if(fd < 0) sysfatal("open: %r");
 	if(readn(fd, hdr, sizeof(hdr)) <= 0)
 		sysfatal("readn: %r");
-	if(!trymultiboot() && !tryelf())
+	if(!trymultiboot() && !tryelf() && !trylinux())
 		sysfatal("%s: unknown format", fn);
 	close(fd);
 }
