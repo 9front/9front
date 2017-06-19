@@ -370,7 +370,7 @@ getval(uvlong a)
 {
 	char buf[256];
 	int i, n;
-	uvlong r;
+	uvlong r, m;
 
 	if(interactive){
 		print("// data at %#8.8llux? ", a);
@@ -379,17 +379,25 @@ getval(uvlong a)
 			return 0;
 		buf[n] = '\0';
 		r = strtoull(buf, 0, 16);
-		switch(fhdr.magic){
-		case S_MAGIC:
-			r = (long)r;	// sign extend
-			break;
-		}
 	}else{
 		r = 0;
+		switch(fhdr.magic){
+		case S_MAGIC:
+			m = 0xffffffff00000000ULL;
+			break;
+		default:
+			m = 0;
+		}
 		for(i=0; i<naddr; i++)
-			if(addr[i] == a)
+			if((addr[i]|m) == a)
 				r = val[i];
 	}
+	switch(fhdr.magic){
+	case S_MAGIC:
+		r = (long)r;	// sign extend
+		break;
+	}
+
 
 	return r;
 }
