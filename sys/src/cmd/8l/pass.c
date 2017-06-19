@@ -492,8 +492,10 @@ dostkoff(void)
 		if(p->as == ATEXT) {
 			curtext = p;
 			autoffset = p->to.offset;
-			if(autoffset < 0)
+			if(autoffset < 0) {
 				autoffset = 0;
+				p->to.offset = 0;
+			}
 			if(autoffset) {
 				p = appendp(p);
 				p->as = AADJSP;
