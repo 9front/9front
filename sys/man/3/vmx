@@ -37,10 +37,10 @@ No virtual CPU.
 The virtual CPU is being initialized.
 .TP
 \fLready\fR
-The virtual CPU is idle and waiting for commands from user space.
+The virtual CPU is idle.
 .TP
 \fLrunning\fR
-The virtual CPU is busy.
+The virtual CPU is executing code.
 .TP
 \fLdead\fR
 The virtual CPU suffered a fatal error.
@@ -84,6 +84,12 @@ Writes to the file (in the same format) write to the referenced registers (if po
 Multiple lines can be written at once but all lines written must be newline terminated.
 
 .PP
+Some registers (\fLCR0\fR and \fLCR4\fR) are split into three registers, suffixed \fLreal\fR, \fLfake\fR and \fLmask\fR.
+In this case, \fLreal\fR corresponds to the bits that affect actual CPU execution, \fLfake\fR corresponds to the bits read back by the guest and the bits set in \fLmask\fR are those "owned" by the host.
+The guest is free to modify the bits that it owns (in which case it always has the same value in both \fLreal\fR and \fLfake\fR), but attempting to change a host-owned bit from the status in \fLfake\fR causes a VM exit.
+Certain bits are owned by the kernel, which means they are fixed in both \fLmask\fR and \fLreal\fR.
+
+.PP
 Reading the
 .B wait
 file will stall the reading process until the virtual CPU reaches a point where it cannot continue (a "VM exit").
@@ -99,12 +105,16 @@ Some notable exit causes are (see kernel source code for a complete list)
 .TP
 \fL#\fR\fIexception\fR
 Exception of the specified type (e.g. \fL#gp\fR for general protection fault).
+Currently only debug exceptions are configured to cause VM exits.
 .TP
 \fLtriplef\fR
 Triple fault.
 .TP
 \fLeptfault\fR
-The virtual CPU attempted a memory access that does not match any entry in the \Lmap\fR file.
+The virtual CPU attempted a memory access that does not match any entry in the \fLmap\fR file.
+.TP
+\fLmovcr\fR
+Illegal access to a control register (see above).
 .IP "\fL.\fR\fIinstr\fR"
 The virtual CPU attempted to execute the instruction \fIinstr\fR.
 .TP
@@ -118,7 +128,7 @@ file contains the virtual CPU's floating point registers, in the same binary for
 .IR proc (3).
 
 .SS Control messages
-.TF "\fLexc\fR \fI[excep]\fR"
+.TF "\fLirq\fR [ \fIexcep\fR ]"
 .TP
 .B init
 Create a new virtual CPU.
@@ -126,22 +136,25 @@ Create a new virtual CPU.
 .B quit
 Destroy the current virtual CPU.
 .TP
-.BI go [regs]
+\fLgo\fR [ \fIregs\fR ]
 Launch the virtual CPU.
 \fIRegs\fR is an optional list of register changes in the format \fIname\fL=\fIvalue\fL;\fR that will be applied before launching.
 .TP
-\fLstep\fR [ \fL-map\fR \fIaddr segment offset\fR \fB]\fR
+.B stop
+Stop the virtual CPU.
+.TP
+\fLstep\fR [ \fL-map\fR \fIaddr segment offset\fR ]\fR
 Executes a single instruction with the virtual CPU.
 If the \fL-map\fR option is specified, a 4 KB page at address \fIaddr\fR will be temporarily (for the duration of the step) mapped to the spceified \fIsegment\fR and \fIoffset\fR.
 A step can fail, in which case a VM exit message is sent to
 .BR wait .
 .TP
-.BI exc excep
+\fLexc\fR \fIexcep\fR
 The exception \fIexcep\fR is triggered in the virtual CPU.
 \fIExcep\fR can either be a named exception (such as \fL#gp\fR, in lower case) or an exception number.
 A number may be preeded by \fL#\fR to mark it as an exception, otherwise it is delivered as an interrupt (but always disregarding whether interrupts are enabled).
 .TP
-.BI irq [excep]
+\fLirq\fR [ \fIexcep\fR ]
 An Interrupt is posted, i.e. the exception \fIexcep\fR will be triggered the next time interrupts are enabled in the virtual CPU, at which point a
 .B *ack
 message is sent to
