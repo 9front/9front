@@ -722,7 +722,7 @@ kbdcmd(u8int val)
 		case 0xff: keyputc(0xfa); keyputc(0xaa); break; /* reset */
 		case 0xf5: kbd.quiet = 1; keyputc(0xfa); break; /* disable scanning */
 		case 0xf4: kbd.quiet = 0; keyputc(0xfa); break; /* enable scanning */
-		case 0xf2: keyputc(0xfa); keyputc(0xab); keyputc(0x83); break; /* keyboard id */
+		case 0xf2: keyputc(0xfa); keyputc(0xab); keyputc(0x41); break; /* keyboard id */
 		case 0xee: keyputc(0xee); break; /* echo */
 		default:
 			vmerror("unknown kbd command %#ux", val);
