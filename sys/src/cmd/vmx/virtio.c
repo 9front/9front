@@ -86,7 +86,7 @@ vioirq_(void *arg)
 	int val;
 	
 	d = ((void**)arg)[0];
-	val = (int) ((void**)arg)[1];
+	val = (uintptr)((void**)arg)[1];
 	if(val != 0)
 		d->isrstat |= val;
 	else

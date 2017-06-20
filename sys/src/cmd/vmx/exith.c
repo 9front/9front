@@ -33,7 +33,7 @@ stepmmio(uvlong pa, uvlong *val, int size, ExitInfo *ei)
 	extern uchar *tmp;
 	extern uvlong tmpoff;
 	void *targ;
-	uvlong pc, si;
+	uvlong pc;
 	char buf[ERRMAX];
 	extern int getexit;
 	
@@ -46,7 +46,6 @@ stepmmio(uvlong pa, uvlong *val, int size, ExitInfo *ei)
 	case 8: *(u64int*)targ = *val; break;
 	}
 	pc = rget(RPC);
-	si = rget("si");
 	rcflush(0);
 	if(ctl("step -map %#ullx vm %#ullx", pa & ~0xfff, tmpoff) < 0){
 		rerrstr(buf, sizeof(buf));
@@ -262,7 +261,10 @@ cpuid(ExitInfo *ei)
 		ax = cp->ax;
 		bx = 0;
 		cx = cp->cx & 0x121;
-		dx = cp->dx & 0x04100000;
+		if(sizeof(uintptr) == 8)
+			dx = cp->dx & 0x24100800;
+		else
+			dx = cp->dx & 0x04100000;
 		break;
 	case 0x80000002: goto literal; /* brand string */
 	case 0x80000003: goto literal; /* brand string */
@@ -307,10 +309,6 @@ rdwrmsr(ExitInfo *ei)
 	case 0x277:
 		if(rd) val = rget("pat");
 		else rset("pat", val);
-		break;
-	case 0xC0000080:
-		if(rd) val = rget("efer");
-		else rset("efer", val);
 		break;
 	case 0x8B: val = 0; break; /* microcode update */
 	default:
@@ -376,7 +374,7 @@ movcr(ExitInfo *ei)
 		}
 		break;
 	case 4:
-		switch(ei->qual >> 4 & 3){
+		switch(q >> 4 & 3){
 		case 0:
 			vmdebug("illegal CR4 write, value %#ux", rget(x86reg[q >> 8 & 15]));
 			rset("cr4real", rget(x86reg[q >> 8 & 15]));

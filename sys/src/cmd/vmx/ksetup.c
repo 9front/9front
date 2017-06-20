@@ -14,27 +14,48 @@ extern char **bootmod;
 extern int cmdlinen;
 extern char **cmdlinev;
 
+static int elf64;
 
 static int
-isusermem(Region *r)
+biostype(Region *r)
 {
-	return r->type == REGMEM;
+	return r->type >> 8 & 0xff;
+}
+
+static void *
+pack(void *v, char *fmt, ...)
+{
+	uchar *p;
+	va_list va;
+	
+	p = v;
+	va_start(va, fmt);
+	for(; *fmt != 0; fmt++)
+		switch(*fmt){
+		case '.': p++; break;
+		case 's': PUT16(p, 0, va_arg(va, int)); p += 2; break;
+		case 'i': PUT32(p, 0, va_arg(va, u32int)); p += 4; break;
+		case 'v': PUT64(p, 0, va_arg(va, u64int)); p += 8; break;
+		case 'z': if(elf64) {PUT64(p, 0, va_arg(va, uintptr)); p += 8;} else {PUT32(p, 0, va_arg(va, uintptr)); p += 4;} break;
+		default: sysfatal("pack: unknown fmt character %c", *fmt);
+		}
+	va_end(va);
+	return p;
 }
 
 static int
 putmmap(uchar *p0)
 {
-	u32int *p;
+	uchar *p;
 	Region *r;
+	int t;
 	
-	p = (u32int *) p0;
+	p = p0;
 	for(r = mmap; r != nil; r = r->next){
-		if(!isusermem(r)) continue;
-		if(gavail(p) < 20) sysfatal("out of guest memory");
-		p[0] = 20;
-		p[1] = r->start;
-		p[2] = r->end - r->start;
-		p[3] = 1;
+		t = biostype(r);
+		if(t == 0) continue;
+		if(gavail(p) < 24) sysfatal("out of guest memory");
+		p = pack(p, "ivvi", 20, (uvlong) r->start, (uvlong)(r->end - r->start), t);
 	}
 	return (uchar *) p - p0;
 }
@@ -131,6 +152,7 @@ trymultiboot(void)
 	bssend = -(-bssend & -BY2PG);
 	p = gptr(bssend, 128);
 	if(p == nil) sysfatal("no space for multiboot structure");
+	memset(p, 0, 128);
 	p[0] = 1<<0;
 	p[1] = gavail(gptr(0, 0)) >> 10;
 	if(p[1] > 640) p[1] = 640;
@@ -165,7 +187,6 @@ trymultiboot(void)
 	return 1;
 }
 
-static int elf64;
 typedef struct ELFHeader ELFHeader;
 struct ELFHeader {
 	uintptr entry, phoff, shoff;
@@ -283,11 +304,19 @@ static void
 elfsymbol(ELFSymbol *s, uchar *p, uchar *e)
 {
 	s->iname = elff(&p, e, 4);
-	s->addr = elff(&p, e, -1);
-	s->size = elff(&p, e, -1);
-	s->info = elff(&p, e, 1);
-	s->other = elff(&p, e, 1);
-	s->shndx = elff(&p, e, 2);
+	if(elf64){
+		s->info = elff(&p, e, 1);
+		s->other = elff(&p, e, 1);
+		s->shndx = elff(&p, e, 2);
+		s->addr = elff(&p, e, -1);
+		s->size = elff(&p, e, -1);
+	}else{
+		s->addr = elff(&p, e, -1);
+		s->size = elff(&p, e, -1);
+		s->info = elff(&p, e, 1);
+		s->other = elff(&p, e, 1);
+		s->shndx = elff(&p, e, 2);
+	}
 }
 
 static void
@@ -442,7 +471,7 @@ symaddr(ELFSymbol *s)
 }
 
 static uchar *obsdarg, *obsdarg0, *obsdargnext;
-static int obsdargc;
+static int obsdarglen;
 static int obsdconsdev = 12 << 8, obsddbcons = -1, obsdbootdev;
 
 enum {
@@ -459,34 +488,7 @@ enum {
 	BOOTARG_BOOTSR,
 	BOOTARG_EFIINFO,
 	BOOTARG_END = -1,
-	
-	BIOS_MAP_END = 0,
-	BIOS_MAP_FREE,
-	BIOS_MAP_RES,
-	BIOS_MAP_ACPI,
-	BIOS_MAP_NVS,
 };
-
-static void *
-pack(void *v, char *fmt, ...)
-{
-	uchar *p;
-	va_list va;
-	
-	p = v;
-	va_start(va, fmt);
-	for(; *fmt != 0; fmt++)
-		switch(*fmt){
-		case '.': p++; break;
-		case 's': PUT16(p, 0, va_arg(va, int)); p += 2; break;
-		case 'i': PUT32(p, 0, va_arg(va, u32int)); p += 4; break;
-		case 'v': PUT64(p, 0, va_arg(va, u64int)); p += 8; break;
-		case 'z': if(elf64) {PUT64(p, 0, va_arg(va, uintptr)); p += 8;} else {PUT32(p, 0, va_arg(va, uintptr)); p += 4;} break;
-		default: sysfatal("pack: unknown fmt character %c", *fmt);
-		}
-	va_end(va);
-	return p;
-}
 
 static void
 obsdelfload(void)
@@ -546,28 +548,25 @@ obsdend(void)
 {
 	if(obsdarg == obsdarg0 + 12) obsdarg += 4;
 	PUT32(obsdarg0, 4, obsdarg - obsdarg0); /* size */
+	obsdarglen += obsdarg - obsdarg0;
 	PUT32(obsdargnext, 0, gpa(obsdarg0));
 	obsdargnext = obsdarg0 + 8;
 	obsdarg0 = nil;	
-	obsdargc++;
 }
 
 static void
 obsdargs(void)
 {
 	Region *r;
-	uvlong s, e;
+	int t;
 
 	obsdstart(BOOTARG_MEMMAP);
-	obsdpack("vvi", (uvlong)0, (uvlong)0xa0000, BIOS_MAP_FREE);
 	for(r = mmap; r != nil; r = r->next){
-		s = r->start;
-		e = r->end;
-		if(s < (1<<20)) s = 1<<20;
-		if(e <= s || r->type == REGFB) continue;
-		obsdpack("vvi", s, e - s, isusermem(r) ? BIOS_MAP_FREE : BIOS_MAP_RES);
+		t = biostype(r);
+		if(t == 0) continue;
+		obsdpack("vvi", (uvlong)r->start, (uvlong)(r->end - r->start), t);
 	}
-	obsdpack("vvi", 0ULL, 0ULL, BIOS_MAP_END);
+	obsdpack("vvi", 0ULL, 0ULL, 0);
 	obsdend();
 	obsdstart(BOOTARG_CONSDEV); obsdpack("iiii", obsdconsdev, -1, -1, 0); obsdend();
 	if(obsddbcons != -1){
@@ -668,7 +667,7 @@ obsdload(void)
 	obsdargnext = &v[32]; /* bootargv */
 	obsdargs();
 	assert(obsdarg0 == nil);
-	PUT32(v, 28, obsdargc); /* bootargc */
+	PUT32(v, 28, obsdarglen); /* bootargc */
 	rset(RSP, sp);
 	rset(RPC, eh.entry);
 	return 1;
@@ -708,7 +707,6 @@ linuxbootmod(char *fn, void *zp, u32int kend)
 	if(addr >= memend) addr = memend - 1;
 	if((addr - (sz - 1) & -4) < kend) sysfatal("linux: no room for initrd");
 	addr = addr - (sz - 1) & -4;
-	print("%#ux %#ux\n", addr, (u32int)sz);
 	v = gptr(addr, sz);
 	if(v == nil) sysfatal("linux: initrd: gptr failed");
 	seek(fd, 0, 0);
@@ -799,18 +797,15 @@ linuxe820(uchar *zp)
 {
 	Region *r;
 	uchar *v;
-	uvlong s, e;
+	int t;
 	int n;
 	
 	v = zp + 0x2d0;
-	v = pack(v, "vvi", (uvlong)0, (uvlong)0xa0000, BIOS_MAP_FREE);
 	n = 1;
 	for(r = mmap; r != nil; r = r->next){
-		s = r->start;
-		e = r->end;
-		if(s < (1<<20)) s = 1<<20;
-		if(e <= s || r->type == REGFB) continue;
-		v = pack(v, "vvi", s, e - s, isusermem(r) ? BIOS_MAP_FREE : BIOS_MAP_RES);
+		t = biostype(r);
+		if(t == 0) continue;
+		v = pack(v, "vvi", r->start, r->end - r->start, t);
 		n++;
 	}
 	PUT8(zp, 0x1e8, n);

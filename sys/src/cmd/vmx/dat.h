@@ -35,7 +35,14 @@ enum {
 
 struct Region {
 	uintptr start, end;
-	enum { REGNO, REGMEM, REGFB } type;
+	enum {
+		REGALLOC = 1, /* allocate memory for region */
+		REGRO = 2, /* read-only */
+		
+		/* E820 types, 0 == omitted from memory map */
+		REGFREE = 1<<8, /* report to OS as free */
+		REGRES = 2<<8, /* report to OS as reserved */
+	} type;
 	char *segname;
 	uvlong segoff;
 	void *v, *ve;

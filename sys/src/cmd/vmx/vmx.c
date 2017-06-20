@@ -64,7 +64,9 @@ vmxsetup(void)
 	static int fd;
 	static char buf[128];
 	Region *r;
-	int rc;
+	uvlong start, end, off;
+	char *name;
+	int rc, type;
 	
 	fd = open("#X/status", OREAD);
 	if(fd < 0) sysfatal("open: %r");
@@ -85,9 +87,26 @@ vmxsetup(void)
 	
 	fd = open("#X/map", OWRITE|OTRUNC);
 	if(fd < 0) sysfatal("open: %r");
-	for(r = mmap; r != nil; r = r->next)
-		if(r->segname != nil && fprint(fd, "rwx wb %#ullx %#ullx %s %#ullx\n", (uvlong)r->start, (uvlong)r->end, r->segname, r->segoff) < 0)
+	for(r = mmap; r != nil; ){
+		if(r->segname == nil){
+			r = r->next;
+			continue;
+		}
+		start = r->start;
+		end = r->end;
+		name = r->segname;
+		off = r->segoff;
+		type = r->type;
+		while(r = r->next, r != nil){
+			if(r->segname == nil)
+				continue;
+			if(r->start != end || r->segoff != off + end - start || ((r->type ^ type) & REGRO) != 0)
+				break;
+			end = r->end;
+		}
+		if(fprint(fd, "r%cx wb %#ullx %#ullx %s %#ullx\n", (type & REGRO) != 0 ? '-' : 'w', start, end, name, off) < 0)
 			sysfatal("writing memory map: %r");
+	}
 	close(fd);
 	
 	waitfd = open("#X/wait", OREAD);
@@ -205,16 +224,15 @@ goti:
 }
 
 Region *
-mkregion(u64int pa, u64int len, int type)
+mkregion(u64int pa, u64int end, int type)
 {
 	Region *r, **rp;
-	
-	assert(pa + len >= pa);
+
 	r = emalloc(sizeof(Region));
-	if((pa & BY2PG-1) != 0) sysfatal("address %p not page aligned", (void*)pa);
+	if(end < pa) sysfatal("end of region %p before start of region %p", (void*)end, (void*)pa);
+	if((pa & BY2PG-1) != 0 || (end & BY2PG-1) != 0) sysfatal("address %p not page aligned", (void*)pa);
 	r->start = pa;
-	len = -(-len & -BY2PG);
-	r->end = pa + len;
+	r->end = end;
 	r->type = type;
 	for(rp = &mmap; *rp != nil; rp = &(*rp)->next)
 		;
@@ -245,7 +263,7 @@ gpa(void *v)
 
 	for(r = mmap; r != nil; r = r->next)
 		if(v >= r->v && v < r->ve)
-			return (uchar *) v - (uchar *) r->v;
+			return (uchar *) v - (uchar *) r->v + r->start;
 	return -1;
 }
 
@@ -280,10 +298,8 @@ mksegment(char *sn)
 
 	sz = BY2PG;
 	for(r = mmap; r != nil; r = r->next){
-		switch(r->type){
-		case REGMEM: case REGFB: break;
-		default: continue;
-		}
+		if((r->type & REGALLOC) == 0)
+			continue;
 		r->segname = sn;
 		if(sz + (r->end - r->start) < sz)
 			sysfatal("out of address space");
@@ -304,7 +320,7 @@ mksegment(char *sn)
 		gmem = segattach(0, sn, nil, sz);
 		if(gmem == (void*)-1) sysfatal("segattach: %r");
 	}
-	memset(gmem, 0, sz > 1>>24 ? 1>>24 : sz);
+	memset(gmem, 0, sz > 1<<24 ? 1<<24 : sz);
 	p = gmem;
 	for(r = mmap; r != nil; r = r->next){
 		if(r->segname == nil) continue;
@@ -537,11 +553,19 @@ threadmain(int argc, char **argv)
 	cmdlinen = argc - 1;
 	cmdlinev = argv + 1;
 	
-	mkregion(0, gmemsz, REGMEM);
+	if(gmemsz < 1<<20) sysfatal("640 KB of RAM is not enough for everyone");
+	mkregion(0, 0xa0000, REGALLOC|REGFREE);
+	mkregion(0xa0000, 0xc0000, REGALLOC);
+	mkregion(0xc0000, 0x100000, REGALLOC|REGRES);
+	if(fbsz != 0 && fbaddr < gmemsz){
+		mkregion(0x100000, fbaddr, REGALLOC|REGFREE);
+		mkregion(fbaddr + fbsz, gmemsz, REGALLOC|REGFREE);
+	}else
+		mkregion(0x100000, gmemsz, REGALLOC|REGFREE);
 	if(fbsz != 0){
-		if(fbaddr + fbsz < fbaddr) sysfatal("invalid fb address");
-		if(fbaddr + fbsz < gmemsz) sysfatal("framebuffer overlaps with physical memory");
-		mkregion(fbaddr, fbsz, REGFB);
+		if(fbaddr < 1<<20) sysfatal("framebuffer must not be within first 1 MB");
+		if(fbaddr != (u32int) fbaddr || (u32int)(fbaddr+fbsz) < fbaddr) sysfatal("framebuffer must be within first 4 GB");
+		mkregion(fbaddr, fbaddr+fbsz, REGALLOC);
 	}
 	mksegment("vm");
 	vmxsetup();
