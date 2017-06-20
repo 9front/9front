@@ -562,7 +562,7 @@ obsdfb(void)
 	extern VgaMode *curmode, textmode;
 	extern uintptr fbaddr, fbsz;
 
-	if(curmode == &textmode) return;
+	if(curmode == nil || curmode == &textmode) return;
 	p = r = g = b = a = 0;
 	for(i = 0; i < 4; i++){
 		s = curmode->chan >> 8 * i & 0xf;
