@@ -68,10 +68,19 @@ Optionally,
 .I type
 can be specified as
 .B fixed
-to create a physically continuous segment with a fixed
-physical base address suitable for hardware DMA access.
-When the segment
-is attached using
+or
+.BR sticky .
+Fixed segments are uncached and physically continuous
+with a fixed physical base address suitable for hardware
+DMA access.
+Sticky segments are like normal shared segments but
+preallocated at creation time and never swapped out.
+Only the hostower is allowed to create
+.B fixed
+or
+.B sticky
+segments.
+.PP
 .IR segattach,
 the address and length arguments are ignored in the call;
 they are defined only by the
