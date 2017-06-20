@@ -155,6 +155,7 @@ dupseg(Segment **seg, int segno, int share)
 	case SG_SHARED:
 	case SG_PHYSICAL:
 	case SG_FIXED:
+	case SG_STICKY:
 		goto sameseg;
 
 	case SG_STACK:
@@ -499,6 +500,7 @@ mfreeseg(Segment *s, uintptr start, ulong pages)
 	switch(s->type&SG_TYPE){
 	case SG_PHYSICAL:
 	case SG_FIXED:
+	case SG_STICKY:
 		return;
 	}
 

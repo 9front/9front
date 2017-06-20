@@ -773,6 +773,7 @@ syssegbrk(va_list list)
 		case SG_STACK:
 		case SG_PHYSICAL:
 		case SG_FIXED:
+		case SG_STICKY:
 			error(Ebadarg);
 		default:
 			return ibrk(va_arg(list, uintptr), i);

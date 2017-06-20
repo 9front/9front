@@ -284,6 +284,8 @@ segmentread(Chan *c, void *a, long n, vlong voff)
 		if((g->s->type&SG_TYPE) == SG_FIXED)
 			snprint(buf, sizeof(buf), "va %#p %#p fixed %#p\n", g->s->base, g->s->top-g->s->base,
 				g->s->map[0]->pages[0]->pa);
+		else if((g->s->type&SG_TYPE) == SG_STICKY)
+			snprint(buf, sizeof(buf), "va %#p %#p sticky\n", g->s->base, g->s->top-g->s->base);
 		else
 			snprint(buf, sizeof(buf), "va %#p %#p\n", g->s->base, g->s->top-g->s->base);
 		return readstr(voff, a, n, buf);
@@ -331,6 +333,20 @@ segmentwrite(Chan *c, void *a, long n, vlong voff)
 				if(!iseve())
 					error(Eperm);
 				g->s = fixedseg(va, len/BY2PG);
+			} else if(cb->nf >= 4 && strcmp(cb->f[3], "sticky") == 0){
+				Segment *s;
+
+				if(!iseve())
+					error(Eperm);
+				s = newseg(SG_STICKY, va, len/BY2PG);
+				if(waserror()){
+					putseg(s);
+					nexterror();
+				}
+				for(; va < s->top; va += BY2PG)
+					segpage(s, newpage(1, nil, va));
+				poperror();
+				g->s = s;
 			} else
 				g->s = newseg(SG_SHARED, va, len/BY2PG);
 		} else

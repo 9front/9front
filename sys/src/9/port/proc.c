@@ -1595,6 +1595,7 @@ killbig(char *why)
 		case SG_SHARED:
 		case SG_PHYSICAL:
 		case SG_FIXED:
+		case SG_STICKY:
 			continue;
 		}
 		qlock(s);

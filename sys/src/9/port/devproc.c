@@ -138,7 +138,7 @@ Cmdtab proccmd[] = {
 };
 
 /* Segment type from portdat.h */
-static char *sname[]={ "Text", "Data", "Bss", "Stack", "Shared", "Phys", "Fixed", };
+static char *sname[]={ "Text", "Data", "Bss", "Stack", "Shared", "Phys", "Fixed", "Sticky" };
 
 /*
  * Qids are, in path:

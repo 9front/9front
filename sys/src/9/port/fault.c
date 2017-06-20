@@ -270,6 +270,8 @@ fixfault(Segment *s, uintptr addr, int read)
 			copypage(old, *pg);
 			putpage(old);
 		}
+		/* wet floor */
+	case SG_STICKY:			/* Never paged out */
 		mmuphys = PPN((*pg)->pa) | PTEWRITE | PTEVALID;
 		(*pg)->modref = PG_MOD|PG_REF;
 		break;
