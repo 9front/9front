@@ -379,6 +379,10 @@ TEXT getcr2(SB), 1, $-4				/* #PF Linear Address */
 	MOVQ	CR2, AX
 	RET
 
+TEXT putcr2(SB), 1, $-4
+	MOVQ	BP, CR2
+	RET
+
 TEXT getcr3(SB), 1, $-4				/* PML4 Base */
 	MOVQ	CR3, AX
 	RET
@@ -694,9 +698,11 @@ f3:
 
 /* debug register access */
 
-TEXT putdr(SB), $0
+TEXT putdr(SB), 1, $-4
 	MOVQ	56(BP), AX
 	MOVQ	AX, DR7
+	/* wet floor */
+TEXT putdr01236(SB), 1, $-4
 	MOVQ	0(BP), AX
 	MOVQ	AX, DR0
 	MOVQ	8(BP), AX
@@ -709,16 +715,132 @@ TEXT putdr(SB), $0
 	MOVQ	AX, DR6
 	RET
 
-TEXT getdr6(SB), $0
+TEXT getdr6(SB), 1, $-4
 	MOVQ	DR6, AX
 	RET
 
-TEXT putdr6(SB), $0
+TEXT putdr6(SB), 1, $-4
 	MOVQ	BP, DR6
 	RET
 
-TEXT putdr7(SB), $0
+TEXT putdr7(SB), 1, $-4
 	MOVQ	BP, DR7
+	RET
+
+/* VMX instructions */
+TEXT vmxon(SB), 1, $-4
+	MOVQ	BP, 8(SP)
+	/* VMXON 8(SP) */
+	BYTE	$0xf3; BYTE $0x0f; BYTE $0xc7; BYTE $0x74; BYTE $0x24; BYTE $0x08
+	JMP	_vmout
+
+TEXT vmxoff(SB), 1, $-4
+	BYTE	$0x0f; BYTE $0x01; BYTE $0xc4
+	JMP	_vmout
+
+TEXT vmclear(SB), 1, $-4
+	MOVQ	BP, 8(SP)
+	/* VMCLEAR 8(SP) */
+	BYTE	$0x66;	BYTE $0x0f; BYTE $0xc7; BYTE $0x74; BYTE $0x24; BYTE $0x08
+	JMP	_vmout
+
+TEXT vmlaunch(SB), 1, $-4
+	MOVL	$0x6C14, DI
+	MOVQ	SP, DX
+	BYTE	$0x0f; BYTE $0x79; BYTE $0xfa /* VMWRITE DX, DI */
+	JBE	_vmout
+	MOVL	$0x6C16, DI
+	MOVQ	$vmrestore(SB), DX
+	BYTE	$0x0f; BYTE $0x79; BYTE $0xfa /* VMWRITE DX, DI */
+	JBE	_vmout
+	
+	MOVQ	BP, ureg+0(FP)
+	MOVL	resume+8(FP), AX
+	TESTL	AX, AX
+	MOVQ	0x00(BP), AX
+	MOVQ	0x08(BP), BX
+	MOVQ	0x10(BP), CX
+	MOVQ	0x18(BP), DX
+	MOVQ	0x20(BP), SI
+	MOVQ	0x28(BP), DI
+	MOVQ	0x38(BP), R8
+	MOVQ	0x40(BP), R9
+	MOVQ	0x48(BP), R10
+	MOVQ	0x50(BP), R11
+	MOVQ	0x58(BP), R12
+	MOVQ	0x60(BP), R13
+	MOVQ	0x68(BP), R14
+	MOVQ	0x70(BP), R15
+	MOVQ	0x30(BP), BP
+	JNE	_vmresume
+	BYTE	$0x0f; BYTE $0x01; BYTE	$0xc2 /* VMLAUNCH */
+	JMP	_vmout
+_vmresume:
+	BYTE	$0x0f; BYTE $0x01; BYTE $0xc3 /* VMRESUME */
+	JMP _vmout
+	
+TEXT vmrestore(SB), 1, $-4
+	PUSHQ	BP
+	MOVQ	ureg+0(FP), BP
+	MOVQ	AX, 0x00(BP)
+	MOVQ	BX, 0x08(BP)
+	MOVQ	CX, 0x10(BP)
+	MOVQ	DX, 0x18(BP)
+	MOVQ	SI, 0x20(BP)
+	MOVQ	DI, 0x28(BP)
+	POPQ	0x30(BP)
+	MOVQ	R8, 0x38(BP)
+	MOVQ	R9, 0x40(BP)
+	MOVQ	R10, 0x48(BP)
+	MOVQ	R11, 0x50(BP)
+	MOVQ	R12, 0x58(BP)
+	MOVQ	R13, 0x60(BP)
+	MOVQ	R14, 0x68(BP)
+	MOVQ	R15, 0x70(BP)
+	
+	BYTE	$0x65; MOVQ 0, RMACH /* MOVQ GS:(0), RMACH */
+	MOVQ	16(RMACH), RUSER
+	XORL	AX, AX
+	RET
+
+TEXT vmptrld(SB), 1, $-4
+	MOVQ	BP, 8(SP)
+	/* VMMPTRLD 8(SP) */
+	BYTE	$0x0f; BYTE $0xc7; BYTE $0x74; BYTE $0x24; BYTE $0x08
+	JMP _vmout
+
+TEXT vmwrite(SB), 1, $-4
+	MOVQ	val+8(FP), DX
+	/* VMWRITE DX, BP */
+	BYTE	$0x0f; BYTE $0x79; BYTE $0xea
+	JMP _vmout
+
+TEXT vmread(SB), 1, $-4
+	MOVQ	valp+8(FP), DI
+	/* VMREAD BP, (DI) */
+	BYTE	$0x0f; BYTE $0x78; BYTE $0x2f
+	JMP _vmout
+
+TEXT invept(SB), 1, $-4
+	/* INVEPT BP, 16(SP) */
+	BYTE	$0x66; BYTE $0x0f; BYTE $0x38; BYTE $0x80; BYTE $0x6c; BYTE $0x24; BYTE $0x10
+	JMP _vmout
+
+TEXT invvpid(SB), 1, $-4
+	/* INVVPID BP, 16(SP) */
+	BYTE	$0x66; BYTE $0x0f; BYTE $0x38; BYTE $0x81; BYTE $0x6c; BYTE $0x24; BYTE $0x10
+	JMP _vmout
+
+_vmout:
+	JC	_vmout1
+	JZ	_vmout2
+	XORL	AX, AX
+	RET
+_vmout1:
+	MOVQ	$-1, AX
+	RET
+_vmout2:
+	MOVQ	$-2, AX
 	RET
 
 /*

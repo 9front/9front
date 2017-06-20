@@ -57,7 +57,7 @@ multibootargs(void)
 	if((multiboot[0] & (1<<6)) != 0 && (l = multiboot[11]) >= 24){
 		cp = seprint(cp, ep, "*e820=");
 		m = KADDR(multiboot[12]);
-		while(m[0] >= 20 && m[0] <= l-4){
+		while(m[0] >= 20 && m[0]+4 <= l){
 			uvlong base, size;
 			m++;
 			base = ((uvlong)m[0] | (uvlong)m[1]<<32);
@@ -514,6 +514,7 @@ main()
 	}else
 		links();
 	chandevreset();
+	netconsole();
 	preallocpages();
 	pageinit();
 	swapinit();
@@ -688,6 +689,24 @@ simderror(Ureg *ureg, void*)
 	mathnote(up->fpsave.mxcsr & 0x3f, ureg->pc);
 }
 
+void
+fpinit(void)
+{
+	/*
+	 * A process tries to use the FPU for the
+	 * first time and generates a 'device not available'
+	 * exception.
+	 * Turn the FPU on and initialise it for use.
+	 * Set the precision and mask the exceptions
+	 * we don't care about from the generic Mach value.
+	 */
+	_clts();
+	_fninit();
+	_fwait();
+	_fldcw(0x0232);
+	_ldmxcsr(0x1900);
+}
+
 /*
  *  math coprocessor emulation fault
  */
@@ -703,19 +722,7 @@ mathemu(Ureg *ureg, void*)
 	}
 	switch(up->fpstate){
 	case FPinit:
-		/*
-		 * A process tries to use the FPU for the
-		 * first time and generates a 'device not available'
-		 * exception.
-		 * Turn the FPU on and initialise it for use.
-		 * Set the precision and mask the exceptions
-		 * we don't care about from the generic Mach value.
-		 */
-		_clts();
-		_fninit();
-		_fwait();
-		_fldcw(0x0232);
-		_ldmxcsr(0x1900);
+		fpinit();
 		up->fpstate = FPactive;
 		break;
 	case FPinactive:

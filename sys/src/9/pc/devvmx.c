@@ -55,6 +55,7 @@ enum {
 	PROCB_EXITMOVDR = 1<<23,
 	PROCB_EXITIO = 1<<24,
 	PROCB_MONTRAP = 1<<27,
+	PROCB_MSRBITMAP = 1<<28,
 	PROCB_EXITMONITOR = 1<<29,
 	PROCB_EXITPAUSE = 1<<30,
 	PROCB_USECTLS2 = 1<<31,
@@ -69,6 +70,7 @@ enum {
 	PFAULT_MASK = 0x4006,
 	PFAULT_MATCH = 0x4008,
 	CR3_TARGCNT = 0x400a,
+	MSR_BITMAP = 0x2004,
 	
 	VMEXIT_CTLS = 0x400c,
 	VMEXIT_ST_DEBUG = 1<<2,
@@ -81,6 +83,9 @@ enum {
 	
 	VMEXIT_MSRSTCNT = 0x400e,
 	VMEXIT_MSRLDCNT = 0x4010,
+	VMEXIT_MSRSTADDR = 0x2006,
+	VMEXIT_MSRLDADDR = 0x2008,
+	VMENTRY_MSRLDADDR = 0x200A,
 	
 	VMENTRY_CTLS = 0x4012,
 	VMENTRY_LD_DEBUG = 1<<2,
@@ -204,8 +209,12 @@ enum {
 	CR4SMXE = 1<<14,
 	CR4PKE = 1<<22,
 	
-	CR0KERNEL = CR0RSVD | (uintptr)0xFFFFFFFF00000000ULL,
+	CR0KERNEL = CR0RSVD | 0x30 | (uintptr)0xFFFFFFFF00000000ULL,
 	CR4KERNEL = CR4RSVD | CR4VMXE | CR4SMXE | CR4MCE | CR4PKE | (uintptr)0xFFFFFFFF00000000ULL
+};
+
+enum {
+	MAXMSR = 512,
 };
 
 typedef struct Vmx Vmx;
@@ -237,9 +246,11 @@ struct Vmx {
 	} state;
 	char errstr[ERRMAX];
 	Ureg ureg;
+	uintptr cr2;
 	uintptr dr[8]; /* DR7 is also kept in VMCS */
 	FPsave *fp;
 	u8int launched;
+	u8int on;
 	u8int vpid;
 	enum {
 		FLUSHVPID = 1,
@@ -264,6 +275,10 @@ struct Vmx {
 	} got;
 	VmMem *stepmap;
 	VmIntr exc, irq, irqack;
+	
+	u64int *msrhost, *msrguest;
+	u32int *msrbits;
+	int nmsr;
 };
 
 struct VmCmd {
@@ -330,14 +345,13 @@ vmcswrite(u32int addr, u64int val)
 }
 
 static uvlong
-parseval(char *s, int sz)
+parseval(char *s)
 {
 	uvlong v;
 	char *p;
-	
-	if(sz == 0) sz = sizeof(uintptr);
+
 	v = strtoull(s, &p, 0);
-	if(p == s || *p != 0 || v >> sz * 8 != 0) error("invalid value");
+	if(p == s || *p != 0) error("invalid value");
 	return v;
 }
 
@@ -363,13 +377,30 @@ cr4fakeread(char *p, char *e)
 	return seprint(p, e, "%#.*ullx", sizeof(uintptr) * 2, guest & ~mask | shadow & mask);
 }
 
+static void
+updatelma(void)
+{
+	uvlong cr0, efer, nefer, ectrl;
+
+	if(sizeof(uintptr) != 8) return;
+	cr0 = vmcsread(GUEST_CR0);
+	efer = vmcsread(GUEST_IA32_EFER);
+	nefer = efer & ~0x400 | efer << 2 & cr0 >> 21 & 0x400;
+	if(efer == nefer) return;
+	vmcswrite(GUEST_IA32_EFER, nefer);
+	ectrl = vmcsread(VMENTRY_CTLS);
+	ectrl = ectrl & ~0x200 | nefer >> 1 & 0x200;
+	vmcswrite(VMENTRY_CTLS, ectrl);
+}
+
 static int
 cr0realwrite(char *s)
 {
 	uvlong v;
 	
-	v = parseval(s, 8);
+	v = parseval(s);
 	vmcswrite(GUEST_CR0, vmcsread(GUEST_CR0) & CR0KERNEL | v & ~CR0KERNEL);
+	updatelma();
 	return 0;
 }
 
@@ -378,8 +409,19 @@ cr0maskwrite(char *s)
 {
 	uvlong v;
 	
-	v = parseval(s, 8);
-	vmcswrite(GUEST_CR0MASK, vmcsread(GUEST_CR0MASK) | CR0KERNEL);
+	v = parseval(s);
+	vmcswrite(GUEST_CR0MASK, v | CR0KERNEL);
+	return 0;
+}
+
+static int
+eferwrite(char *s)
+{
+	uvlong v;
+	
+	v = parseval(s);
+	vmcswrite(GUEST_IA32_EFER, v);
+	updatelma();
 	return 0;
 }
 
@@ -388,7 +430,7 @@ cr4realwrite(char *s)
 {
 	uvlong v;
 	
-	v = parseval(s, 8);
+	v = parseval(s);
 	vmcswrite(GUEST_CR4, vmcsread(GUEST_CR4) & CR4KERNEL | v & ~CR4KERNEL);
 	return 0;
 }
@@ -398,8 +440,8 @@ cr4maskwrite(char *s)
 {
 	uvlong v;
 	
-	v = parseval(s, 8);
-	vmcswrite(GUEST_CR4MASK, vmcsread(GUEST_CR4MASK) | CR4KERNEL);
+	v = parseval(s);
+	vmcswrite(GUEST_CR4MASK, v | CR4KERNEL);
 	return 0;
 }
 
@@ -408,7 +450,7 @@ dr7write(char *s)
 {
 	uvlong v;
 	
-	v = (u32int) parseval(s, 8);
+	v = (u32int) parseval(s);
 	vmcswrite(GUEST_DR7, vmx.dr[7] = (u32int) v);
 	return 0;
 }
@@ -424,7 +466,7 @@ dr6write(char *s)
 {
 	uvlong v;
 	
-	v = parseval(s, 8);
+	v = parseval(s);
 	vmx.dr[6] = (u32int) v;
 	return 0;
 }
@@ -450,6 +492,16 @@ static GuestReg guestregs[] = {
 	{UREG(bp), 0, "bp"},
 	{UREG(si), 0, "si"},
 	{UREG(di), 0, "di"},
+#ifdef RMACH
+	{UREG(r8), 0, "r8"},
+	{UREG(r9), 0, "r9"},
+	{UREG(r10), 0, "r10"},
+	{UREG(r11), 0, "r11"},
+	{UREG(r12), 0, "r12"},
+	{UREG(r13), 0, "r13"},
+	{UREG(r14), 0, "r14"},
+	{UREG(r15), 0, "r15"},
+#endif
 	{GUEST_GDTRBASE, 0, "gdtrbase"},
 	{GUEST_GDTRLIMIT, 4, "gdtrlimit"},
 	{GUEST_IDTRBASE, 0, "idtrbase"},
@@ -489,13 +541,13 @@ static GuestReg guestregs[] = {
 	{GUEST_CR0, 0, "cr0real", nil, cr0realwrite},
 	{GUEST_CR0SHADOW, 0, "cr0fake", cr0fakeread},
 	{GUEST_CR0MASK, 0, "cr0mask", nil, cr0maskwrite},
-	{UREG(trap), 0, "cr2"},
+	{VMXVAR(cr2), 0, "cr2"},
 	{GUEST_CR3, 0, "cr3"},
 	{GUEST_CR4, 0, "cr4real", nil, cr4realwrite},
 	{GUEST_CR4SHADOW, 0, "cr4fake", cr4fakeread},
 	{GUEST_CR4MASK, 0, "cr4mask", nil, cr4maskwrite},
 	{GUEST_IA32_PAT, 8, "pat"},
-	{GUEST_IA32_EFER, 8, "efer"},
+	{GUEST_IA32_EFER, 8, "efer", nil, eferwrite},
 	{VMXVAR(dr[0]), 0, "dr0"},
 	{VMXVAR(dr[1]), 0, "dr1"},
 	{VMXVAR(dr[2]), 0, "dr2"},
@@ -529,6 +581,7 @@ eptwalk(uvlong addr)
 	int i;
 	
 	tab = vmx.pml4;
+	if(tab == nil) error(Egreg);
 	for(i = 3; i >= 1; i--){
 		tab += addr >> 12 + 9 * i & 0x1ff;
 		v = *tab;
@@ -550,6 +603,7 @@ eptfree(uvlong *tab, int level)
 	int i;
 	uvlong v, *t;
 	
+	if(tab == nil) error(Egreg);
 	if(level < 3){
 		for(i = 0; i < 512; i++){
 			v = tab[i];
@@ -611,7 +665,7 @@ static int
 cmdclearmeminfo(VmCmd *, va_list)
 {
 	VmMem *mp, *mn;
-	
+
 	eptfree(vmx.pml4, 0);
 	for(mp = vmx.mem.next; mp != &vmx.mem; mp = mn){
 		mn = mp->next;
@@ -633,7 +687,9 @@ cmdsetmeminfo(VmCmd *, va_list va)
 	char *f[10];
 	VmMem *mp;
 	int rc;
-	
+
+	if(vmx.pml4 == nil)
+		error(Egreg);	
 	p0 = va_arg(va, char *);
 	p = p0;
 	mp = nil;
@@ -725,8 +781,46 @@ vmxreset(void)
 static void
 vmxshutdown(void)
 {
-	if(vmx.state != NOVMX && vmx.state != VMXINACTIVE)
+	if(vmx.on){
 		vmxoff();
+		vmx.on = 0;
+	}
+}
+
+static void
+vmxaddmsr(u32int msr, u64int gval)
+{
+	int i;
+
+	if(vmx.nmsr >= MAXMSR)
+		error("too many MSRs");
+	i = 2 * vmx.nmsr++;
+	vmx.msrhost[i] = msr;
+	rdmsr(msr, (vlong *) &vmx.msrhost[i+1]);
+	vmx.msrguest[i] = msr;
+	vmx.msrguest[i+1] = gval;
+	vmcswrite(VMENTRY_MSRLDCNT, vmx.nmsr);
+	vmcswrite(VMEXIT_MSRSTCNT, vmx.nmsr);
+	vmcswrite(VMEXIT_MSRLDCNT, vmx.nmsr);
+}
+
+static void
+vmxtrapmsr(u32int msr, enum { TRAPRD = 1, TRAPWR = 2 } state)
+{
+	u32int m;
+	
+	if(msr >= 0x2000 && (u32int)(msr - 0xc0000000) >= 0x2000)
+		return;
+	msr = msr & 0x1fff | msr >> 18 & 0x2000;
+	m = 1<<(msr & 31);
+	if((state & TRAPRD) != 0)
+		vmx.msrbits[msr / 32] |= m;
+	else
+		vmx.msrbits[msr / 32] &= ~m;
+	if((state & TRAPWR) != 0)
+		vmx.msrbits[msr / 32 + 512] |= m;
+	else
+		vmx.msrbits[msr / 32 + 512] &= ~m;
 }
 
 static void
@@ -737,7 +831,7 @@ vmcsinit(void)
 	
 	memset(&vmx.ureg, 0, sizeof(vmx.ureg));
 	vmx.launched = 0;
-	vmx.onentry = 0;
+	vmx.onentry = 0;	
 	
 	if(rdmsr(VMX_BASIC_MSR, &msr) < 0) error("rdmsr(VMX_BASIC_MSR) failed");
 	if((msr & 1ULL<<55) != 0){
@@ -757,7 +851,7 @@ vmcsinit(void)
 	if(rdmsr(VMX_PROCB_CTLS_MSR, &msr) < 0) error("rdmsr(VMX_PROCB_CTLS_MSR failed");
 	x = (u32int)procb_ctls | 1<<1 | 7<<4 | 1<<8 | 1<<13 | 1<<14 | 1<<26; /* currently reserved default1 bits */
 	x |= PROCB_EXITHLT | PROCB_EXITMWAIT;
-	x |= PROCB_EXITMOVDR | PROCB_EXITIO | PROCB_EXITMONITOR;
+	x |= PROCB_EXITMOVDR | PROCB_EXITIO | PROCB_EXITMONITOR | PROCB_MSRBITMAP;
 	x |= PROCB_USECTLS2;
 	x &= msr >> 32;
 	vmcswrite(PROCB_CTLS, x);
@@ -770,21 +864,17 @@ vmcsinit(void)
 	if(rdmsr(VMX_VMEXIT_CTLS_MSR, &msr) < 0) error("rdmsr(VMX_VMEXIT_CTLS_MSR failed");
 	x = (u32int)msr;
 	if(sizeof(uintptr) == 8) x |= VMEXIT_HOST64;
-	x |= VMEXIT_LD_IA32_PAT | VMEXIT_LD_IA32_EFER | VMEXIT_ST_DEBUG;
+	x |= VMEXIT_LD_IA32_PAT | VMEXIT_LD_IA32_EFER | VMEXIT_ST_DEBUG | VMEXIT_ST_IA32_EFER;
 	x &= msr >> 32;
 	vmcswrite(VMEXIT_CTLS, x);
 	
 	if(rdmsr(VMX_VMENTRY_CTLS_MSR, &msr) < 0) error("rdmsr(VMX_VMENTRY_CTLS_MSR failed");
 	x = (u32int)msr;
-	if(sizeof(uintptr) == 8) x |= VMENTRY_GUEST64;
 	x |= VMENTRY_LD_IA32_PAT | VMENTRY_LD_IA32_EFER | VMENTRY_LD_DEBUG;
 	x &= msr >> 32;
 	vmcswrite(VMENTRY_CTLS, x);
 	
 	vmcswrite(CR3_TARGCNT, 0);
-	vmcswrite(VMEXIT_MSRLDCNT, 0);
-	vmcswrite(VMEXIT_MSRSTCNT, 0);
-	vmcswrite(VMENTRY_MSRLDCNT, 0);
 	vmcswrite(VMENTRY_INTRINFO, 0);
 	vmcswrite(VMCS_LINK, -1);
 	
@@ -798,16 +888,16 @@ vmcsinit(void)
 	vmcswrite(HOST_CR0, getcr0() & ~0xe);
 	vmcswrite(HOST_CR3, getcr3());
 	vmcswrite(HOST_CR4, getcr4());
-	rdmsr(0xc0000100, &msr);
+	rdmsr(FSbase, &msr);
 	vmcswrite(HOST_FSBASE, msr);
-	rdmsr(0xc0000101, &msr);
+	rdmsr(GSbase, &msr);
 	vmcswrite(HOST_GSBASE, msr);
 	vmcswrite(HOST_TRBASE, (uintptr) m->tss);
 	vmcswrite(HOST_GDTR, (uintptr) m->gdt);
 	vmcswrite(HOST_IDTR, IDTADDR);
 	if(rdmsr(0x277, &msr) < 0) error("rdmsr(IA32_PAT) failed");
 	vmcswrite(HOST_IA32_PAT, msr);
-	if(rdmsr(0xc0000080, &msr) < 0) error("rdmsr(IA32_EFER) failed");
+	if(rdmsr(Efer, &msr) < 0) error("rdmsr(IA32_EFER) failed");
 	vmcswrite(HOST_IA32_EFER, msr);
 	
 	vmcswrite(EXC_BITMAP, 1<<18|1<<1);
@@ -836,16 +926,16 @@ vmcsinit(void)
 
 	vmcswrite(GUEST_CR0MASK, CR0KERNEL);
 	vmcswrite(GUEST_CR4MASK, CR4KERNEL);
-	vmcswrite(GUEST_CR0, getcr0() & ~(1<<31));
+	vmcswrite(GUEST_CR0, getcr0() & CR0KERNEL | 0x31);
 	vmcswrite(GUEST_CR3, 0);
-	vmcswrite(GUEST_CR4, getcr4());
-	vmcswrite(GUEST_CR0SHADOW, getcr0());
-	vmcswrite(GUEST_CR4SHADOW, getcr4() & ~CR4VMXE);
+	vmcswrite(GUEST_CR4, getcr4() & CR4KERNEL);
+	vmcswrite(GUEST_CR0SHADOW, getcr0() & CR0KERNEL | 0x31);
+	vmcswrite(GUEST_CR4SHADOW, getcr4() & ~CR4VMXE & CR4KERNEL);
 	
 	vmcswrite(GUEST_IA32_PAT, 0x0007040600070406ULL);
 	vmcswrite(GUEST_IA32_EFER, 0);
 	
-	vmcswrite(GUEST_TRBASE, (uintptr) m->tss);
+	vmcswrite(GUEST_TRBASE, 0);
 	vmcswrite(GUEST_TRLIMIT, 0xffff);
 	vmcswrite(GUEST_TRPERM, (SEGTSS|SEGPL(0)|SEGP) >> 8 | 2);
 	
@@ -864,15 +954,53 @@ vmcsinit(void)
 		error(Enomem);
 	fpinit();
 	fpsave(vmx.fp);
+	
+	vmx.msrhost = mallocalign(MAXMSR*16, 16, 0, 0);
+	vmx.msrguest = mallocalign(MAXMSR*16, 16, 0, 0);
+	vmx.msrbits = mallocalign(4096, 4096, 0, 0);
+	if(vmx.msrhost == nil || vmx.msrguest == nil || vmx.msrbits == nil)
+		error(Enomem);
+	memset(vmx.msrbits, -1, 4096);
+	vmxtrapmsr(Efer, 0);
+	vmcswrite(VMENTRY_MSRLDADDR, PADDR(vmx.msrguest));
+	vmcswrite(VMEXIT_MSRSTADDR, PADDR(vmx.msrguest));
+	vmcswrite(VMEXIT_MSRLDADDR, PADDR(vmx.msrhost));
+	vmcswrite(MSR_BITMAP, PADDR(vmx.msrbits));
+	
+	if(sizeof(uintptr) == 8){
+		vmxaddmsr(Star, 0);
+		vmxaddmsr(Lstar, 0);
+		vmxaddmsr(Cstar, 0);
+		vmxaddmsr(Sfmask, 0);
+		vmxaddmsr(KernelGSbase, 0);
+		vmxtrapmsr(Star, 0);
+		vmxtrapmsr(Lstar, 0);
+		vmxtrapmsr(Cstar, 0);
+		vmxtrapmsr(Sfmask, 0);
+		vmxtrapmsr(FSbase, 0);
+		vmxtrapmsr(GSbase, 0);
+		vmxtrapmsr(KernelGSbase, 0);
+	}
 }
 
 static void
 vmxstart(void)
 {
 	static uchar *vmcs; /* also vmxon region */
+	vlong msr, msr2;
+	uintptr cr;
 	vlong x;
 
-	putcr4(getcr4() | 0x2000);
+	putcr4(getcr4() | 0x2000); /* set VMXE */
+	putcr0(getcr0() | 0x20); /* set NE */
+	cr = getcr0();
+	if(rdmsr(VMX_CR0_FIXED0, &msr) < 0) error("rdmsr(VMX_CR0_FIXED0) failed");
+	if(rdmsr(VMX_CR0_FIXED1, &msr2) < 0) error("rdmsr(VMX_CR0_FIXED1) failed");
+	if((cr & ~msr & ~msr2 | ~cr & msr & msr2) != 0) error("invalid CR0 value");
+	cr = getcr4();
+	if(rdmsr(VMX_CR4_FIXED0, &msr) < 0) error("rdmsr(VMX_CR4_FIXED0) failed");
+	if(rdmsr(VMX_CR4_FIXED1, &msr2) < 0) error("rdmsr(VMX_CR4_FIXED1) failed");
+	if((cr & ~msr & ~msr2 | ~cr & msr & msr2) != 0) error("invalid CR4 value");
 
 	if(vmcs == nil){
 		vmcs = mallocalign(8192, 4096, 0, 0);
@@ -885,6 +1013,7 @@ vmxstart(void)
 	*(ulong*)&vmcs[4096] = x;
 	if(vmxon(PADDR(vmcs + 4096)) < 0)
 		error("vmxon failed");
+	vmx.on = 1;
 	if(vmclear(PADDR(vmcs)) < 0)
 		error("vmclear failed");
 	if(vmptrld(PADDR(vmcs)) < 0)
@@ -931,16 +1060,25 @@ static int
 cmdquit(VmCmd *p, va_list va)
 {
 	vmx.state = VMXENDING;
-	cmdclearmeminfo(p, va);
 	killcmds(p);
 
-	free(vmx.pml4);
-	vmx.pml4 = nil;
+	if(vmx.pml4 != nil){
+		cmdclearmeminfo(p, va);
+		free(vmx.pml4);
+		vmx.pml4 = nil;
+	}
 	vmx.got = 0;
 	vmx.onentry = 0;
 	vmx.stepmap = nil;
+	
+	free(vmx.msrhost);
+	free(vmx.msrguest);
+	vmx.msrhost = nil;
+	vmx.msrguest = nil;
+	vmx.nmsr = 0;
 
-	vmxoff();
+	if(vmx.on)
+		vmxoff();
 	vmx.state = VMXINACTIVE;
 	cmdrelease(p, 0);
 	pexit(Equit, 1);
@@ -973,7 +1111,7 @@ processexit(void)
 			break;
 		}
 	if((vmx.onentry & STEP) != 0){
-		iprint("VMX: exit reason %#x when expected step...\n", reason & 0xffff);
+		print("VMX: exit reason %#x when expected step...\n", reason & 0xffff);
 		vmx.onentry &= ~STEP;
 		vmx.got |= GOTSTEP|GOTSTEPERR;
 	}
@@ -1042,7 +1180,7 @@ setregs(char *p0, char rs, char *fs)
 		val = strtoull(f[1], &rp, 0);
 		sz = r->size;
 		if(sz == 0) sz = sizeof(uintptr);
-		if(rp == f[1] || *rp != 0 || val >> 8 * sz != 0) error("invalid value");
+		if(rp == f[1] || *rp != 0) error("invalid value");
 		if(r->offset >= 0)
 			vmcswrite(r->offset, val);
 		else{
@@ -1192,7 +1330,7 @@ cmdstep(VmCmd *cp, va_list va)
 		if((vmx.got & GOTSTEP) != 0 || (vmx.onentry & STEP) != 0)
 			error(Einuse);
 		if(vmx.state != VMXREADY){
-			iprint("pre-step in state %s\n", statenames[vmx.state]);
+			print("pre-step in state %s\n", statenames[vmx.state]);
 			error("not ready");
 		}
 		vmx.stepmap = va_arg(va, VmMem *);
@@ -1202,7 +1340,7 @@ cmdstep(VmCmd *cp, va_list va)
 		return 1;
 	case 1:
 		if(vmx.state != VMXREADY){
-			iprint("post-step in state %s\n", statenames[vmx.state]);
+			print("post-step in state %s\n", statenames[vmx.state]);
 			vmx.onentry &= ~STEP;
 			vmx.got &= ~(GOTSTEP|GOTSTEPERR);
 			error("not ready");
@@ -1404,6 +1542,7 @@ vmxproc(void *)
 {
 	int init, rc, x;
 	u32int procbctls, defprocbctls;
+	vlong v;
 
 	procwired(up, 0);
 	sched();
@@ -1462,11 +1601,17 @@ vmxproc(void *)
 			vmx.got &= ~GOTEXIT;
 			
 			x = splhi();
+			if(sizeof(uintptr) == 8){
+				rdmsr(FSbase, &v);
+				vmwrite(HOST_FSBASE, v);
+			}
 			if((vmx.dr[7] & ~0xd400) != 0)
 				putdr01236(vmx.dr);
-			fpsserestore0(vmx.fp);
+			fpsserestore(vmx.fp);
+			putcr2(vmx.cr2);
 			rc = vmlaunch(&vmx.ureg, vmx.launched);
-			fpssesave0(vmx.fp);
+			vmx.cr2 = getcr2();
+			fpssesave(vmx.fp);
 			splx(x);
 			if(rc < 0)
 				error("vmlaunch failed");

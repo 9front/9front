@@ -36,6 +36,9 @@ dev
 #	i82365		cis
 	uart
 	usb
+	
+	segment
+	vmx
 
 link
 #	devpccard

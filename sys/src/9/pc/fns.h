@@ -164,6 +164,7 @@ void	procsave(Proc*);
 void	procsetup(Proc*);
 void	procfork(Proc*);
 void	putcr0(ulong);
+void	putcr2(ulong);
 void	putcr3(ulong);
 void	putcr4(ulong);
 void	putdr(u32int*);

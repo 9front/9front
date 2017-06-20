@@ -332,6 +332,18 @@ enum {
 	Rdrnd	= 1<<30,	/* RDRAND support bit */
 };
 
+/* model-specific registers, for compatibility with pc64 code */
+enum {
+	Efer		= 0xc0000080,		/* Extended Feature Enable */
+	Star		= 0xc0000081,		/* Legacy Target IP and [CS]S */
+	Lstar		= 0xc0000082,		/* Long Mode Target IP */
+	Cstar		= 0xc0000083,		/* Compatibility Target IP */
+	Sfmask		= 0xc0000084,		/* SYSCALL Flags Mask */
+	FSbase		= 0xc0000100,		/* 64-bit FS Base Address */
+	GSbase		= 0xc0000101,		/* 64-bit GS Base Address */
+	KernelGSbase	= 0xc0000102,		/* SWAPGS instruction */
+};
+
 /*
  *  a parsed plan9.ini line
  */

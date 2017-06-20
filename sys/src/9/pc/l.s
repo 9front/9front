@@ -437,6 +437,11 @@ TEXT getcr2(SB), $0				/* CR2 - page fault linear address */
 	MOVL	CR2, AX
 	RET
 
+TEXT putcr2(SB), $0
+	MOVL	cr2+0(FP), AX
+	MOVL	AX, CR2
+	RET
+
 TEXT getcr3(SB), $0				/* CR3 - page directory base */
 	MOVL	CR3, AX
 	RET
@@ -910,8 +915,6 @@ TEXT vmlaunch(SB), $0
 	MOVL	resume+4(FP), AX
 	TESTL	AX, AX
 	MOVL	ureg+0(FP), DI
-	MOVL	32(DI), AX
-	MOVL	AX, CR2
 	MOVL	4(DI), SI
 	MOVL	8(DI), BP
 	MOVL	16(DI), BX
@@ -920,10 +923,10 @@ TEXT vmlaunch(SB), $0
 	MOVL	28(DI), AX
 	MOVL	0(DI), DI
 	JNE	_vmresume
-	BYTE	$0x0f; BYTE $0x01; BYTE	$0xc2 /* VMLAUNCH	*/
+	BYTE	$0x0f; BYTE $0x01; BYTE	$0xc2 /* VMLAUNCH */
 	JMP	_vmout
 _vmresume:
-	BYTE	$0x0f; BYTE $0x01; BYTE $0xc3 /* VMRESUME	*/
+	BYTE	$0x0f; BYTE $0x01; BYTE $0xc3 /* VMRESUME */
 	JMP _vmout
 
 TEXT vmrestore(SB), $0
@@ -936,8 +939,6 @@ TEXT vmrestore(SB), $0
 	MOVL	DX, 20(DI)
 	MOVL	CX, 24(DI)
 	MOVL	AX, 28(DI)
-	MOVL	CR2, AX
-	MOVL	AX, 32(DI)
 	XORL	AX, AX
 	RET
 

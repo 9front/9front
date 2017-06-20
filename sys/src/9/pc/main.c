@@ -54,7 +54,7 @@ multibootargs(void)
 	if((multiboot[0] & (1<<6)) != 0 && (l = multiboot[11]) >= 24){
 		cp = seprint(cp, ep, "*e820=");
 		m = KADDR(multiboot[12]);
-		while(m[0] >= 20 && m[0] <= l-4){
+		while(m[0] >= 20 && m[0]+4 <= l){
 			uvlong base, size;
 			m++;
 			base = ((uvlong)m[0] | (uvlong)m[1]<<32);
