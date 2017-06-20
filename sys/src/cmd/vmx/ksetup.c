@@ -555,6 +555,34 @@ obsdend(void)
 }
 
 static void
+obsdfb(void)
+{
+	int i, s, p;
+	u32int r, g, b, a, m;
+	extern VgaMode *curmode, textmode;
+	extern uintptr fbaddr, fbsz;
+
+	if(curmode == &textmode) return;
+	p = r = g = b = a = 0;
+	for(i = 0; i < 4; i++){
+		s = curmode->chan >> 8 * i & 0xf;
+		if(s == 0) continue;
+		m = (1<<s)-1 << p;
+		p += s;
+		switch(curmode->chan >> 4 + 8 * i & 0xf){
+		case CRed: r |= m; break;
+		case CGreen: g |= m; break;
+		case CBlue: b |= m; break;
+		case CAlpha: case CIgnore: a |= m; break;
+		default: return;
+		}
+	}
+	obsdstart(BOOTARG_EFIINFO);
+	obsdpack("vvvviiiiiii", 0ULL, 0ULL, (uvlong)fbaddr, (uvlong)fbsz, curmode->h, curmode->w, curmode->w, r, g, b, a);
+	obsdend();
+}
+
+static void
 obsdargs(void)
 {
 	Region *r;
@@ -572,6 +600,7 @@ obsdargs(void)
 	if(obsddbcons != -1){
 		obsdstart(BOOTARG_DDB); obsdpack("i", obsddbcons); obsdend();
 	}
+	obsdfb();
 	obsdstart(BOOTARG_END); obsdend();
 }
 

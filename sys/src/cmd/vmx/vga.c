@@ -17,6 +17,7 @@ uintptr fbaddr;
 VgaMode *curmode, *nextmode, *modes, **modeslast = &modes;
 int curhbytes, nexthbytes;
 int vesamode, maxw, maxh;
+int novga;
 
 VgaMode textmode = {
 	.w 640, .h 400, .no 3
@@ -152,6 +153,8 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 {
 	u32int m;
 
+	if(novga)
+		return 0;
 	if(port == 0x3d4 && sz == 2 && !isin){
 		vgaio(0, 0x3d4, (u8int)val, 1, nil);
 		return vgaio(0, 0x3d5, (u8int)(val >> 8), 1, nil);
@@ -691,6 +694,8 @@ vgafbparse(char *fbstring)
 	if(vesamode == 0){
 		curmode = modes;
 		curhbytes = curmode->hbytes;
+		fbsz = -(-fbsz & -4096);
+		novga = 1;
 	}else{
 		curmode = &textmode;
 		if(fbsz < (1<<22))
