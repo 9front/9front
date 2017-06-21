@@ -9,7 +9,7 @@ Region *mmap;
 int ctlfd, regsfd, waitfd;
 Channel *waitch, *sleepch, *notifch;
 enum { MSEC = 1000*1000, MinSleep = MSEC, SleeperPoll = 2000*MSEC } ;
-int getexit, halt;
+int getexit, state;
 typedef struct VmxNotif VmxNotif;
 struct VmxNotif {
 	void (*f)(void *);
@@ -440,7 +440,7 @@ runloop(void)
 			notif.f(notif.arg);
 			break;
 		}
-		if(getexit == 0 && halt == 0)
+		if(getexit == 0 && state == VMRUNNING)
 			launch();
 	}
 }
@@ -463,6 +463,7 @@ extern void pciinit(void);
 extern void pcibusmap(void);
 extern void cpuidinit(void);
 extern void vgafbparse(char *);
+extern void init9p(char *);
 
 int cmdlinen;
 char **cmdlinev;
@@ -494,7 +495,7 @@ usage(void)
 	for(p = blanks; *p != 0; p++)
 		*p = ' ';
 	fprint(2, "usage: %s [ -M mem ] [ -c com1rd[,com1wr] ] [ -C com2rd[,com2r] ] [ -n nic ]\n", argv0);
-	fprint(2, "       %s [ -d blockfile ] [ -m module ] [ -v vga ] kernel [ args ... ]\n", blanks);
+	fprint(2, "       %s [ -d blockfile ] [ -m module ] [ -v vga ] [ -9 srv ] kernel [ args ... ]\n", blanks);
 	threadexitsall("usage");
 }
 
@@ -506,6 +507,7 @@ threadmain(int argc, char **argv)
 	static char *edevaux[nelem(edev)];
 	static int edevn;
 	static uvlong gmemsz = 64*1024*1024;
+	static char *srvname;
 	extern uintptr fbsz, fbaddr;
 	int i;
 
@@ -546,6 +548,10 @@ threadmain(int argc, char **argv)
 	case 'v':
 		vgafbparse(EARGF(usage()));
 		break;
+	case '9':
+		if(srvname != nil) usage();
+		srvname = EARGF(usage());
+		break;
 	default:
 		usage();
 	} ARGEND;
@@ -578,6 +584,8 @@ threadmain(int argc, char **argv)
 			sysfatal("%s: %r", edevt[i]);
 
 	pcibusmap();
+	
+	if(srvname != nil) init9p(srvname);
 	runloop();
 	exits(nil);
 }

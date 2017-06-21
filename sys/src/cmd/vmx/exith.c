@@ -5,6 +5,8 @@
 #include "dat.h"
 #include "fns.h"
 
+int persist = 0;
+
 typedef struct ExitInfo ExitInfo;
 struct ExitInfo {
 	char *raw;
@@ -407,7 +409,7 @@ static void
 hlt(ExitInfo *ei)
 {
 	if(irqactive == 0)
-		halt = 1;
+		state = VMHALT;
 	skipinstr(ei);
 }
 
@@ -484,5 +486,9 @@ processexit(char *msg)
 		vmerror("vmx: unknown notification %s", f[0]+1);
 		return;
 	}
-	sysfatal("unknown exit: %s", msg);
+	if(persist){
+		vmerror("unknown exit: %s", msg);
+		state = VMDEAD;
+	}else
+		sysfatal("unknown exit: %s", msg);
 }

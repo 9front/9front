@@ -12,5 +12,15 @@ OFILES=\
 	pci.$O \
 	virtio.$O \
 	vesa.$O \
+	9p.$O \
+	x86.$O \
 
 </sys/src/cmd/mkone
+
+install:V:	$BIN/vmxgdb
+
+$BIN/vmxgdb: $O.vmxgdb
+	cp $prereq $BIN/vmxgdb
+
+$O.vmxgdb: vmxgdb.$O
+	$LD $LDFLAGS -o $target $prereq

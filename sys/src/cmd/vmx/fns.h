@@ -43,3 +43,4 @@ void i8042kick(void *);
 u32int roundpow2(u32int);
 u32int vgagetpal(u8int);
 void vgasetpal(u8int, u32int);
+uintptr vmemread(void *, uintptr, uintptr);

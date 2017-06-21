@@ -5,6 +5,7 @@
 #include <libsec.h>
 #include "dat.h"
 #include "fns.h"
+#include "x86.h"
 
 static uchar hdr[8192];
 static int fd;
@@ -789,20 +790,6 @@ linuxscreeninfo(void *zp)
 	}
 }
 
-enum {
-	GDTRW = 2<<8,
-	GDTRX = 10<<8,
-	GDTS = 1<<12,
-	GDTP = 1<<15,
-	GDT64 = 1<<21,
-	GDT32 = 1<<22,
-	GDTG = 1<<23,
-};
-#define GDTLIM0(l) ((l) & 0x0ffff)
-#define GDTLIM1(l) ((l) & 0xf0000)
-#define GDTBASE0(b) ((b) << 16)
-#define GDTBASE1(b) ((b) >> 16 & 0xff | (b) & 0xff000000)
-
 static void
 linuxgdt(void *v)
 {
@@ -810,10 +797,10 @@ linuxgdt(void *v)
 	
 	base = gpa(v);
 	rset("gdtrbase", base);
-	v = pack(v, "ii", 0, 0);
-	v = pack(v, "ii", 0, 0);
-	v = pack(v, "ii", GDTLIM0(-1) | GDTBASE0(0), GDTLIM1(-1) | GDTBASE1(0) | GDTRX | GDTG | GDTS | GDTP | GDT32);
-	v = pack(v, "ii", GDTLIM0(-1) | GDTBASE0(0), GDTLIM1(-1) | GDTBASE1(0) | GDTRW | GDTG | GDTS | GDTP | GDT32);
+	v = pack(v, "vvvv", 0, 0,
+		GDTBASE(0) | GDTLIM(-1) | GDTRX | GDTG | GDTP | GDT32,
+		GDTBASE(0) | GDTLIM(-1) | GDTRW | GDTG | GDTP | GDT32
+	);
 	rset("gdtrlimit", gpa(v) - base - 1);
 	rset("cs", 0x10);
 	rset("ds", 0x18);
@@ -914,6 +901,7 @@ trylinux(void)
 	return 1;
 }
 
+
 void
 loadkernel(char *fn)
 {
@@ -921,7 +909,13 @@ loadkernel(char *fn)
 	if(fd < 0) sysfatal("open: %r");
 	if(readn(fd, hdr, sizeof(hdr)) <= 0)
 		sysfatal("readn: %r");
-	if(!trymultiboot() && !tryelf() && !trylinux())
-		sysfatal("%s: unknown format", fn);
+	if(trymultiboot())
+		goto done;
+	if(tryelf())
+		goto done;
+	if(trylinux())
+		goto done;
+	sysfatal("%s: unknown format", fn);
+done:
 	close(fd);
 }

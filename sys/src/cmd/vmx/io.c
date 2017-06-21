@@ -202,7 +202,8 @@ picupdate(Pic *p)
 		if(m != 0 && irqactive != n){
 			if(ctl("irq %d", n) < 0)
 				sysfatal("ctl: %r");
-			halt = 0;
+			if(state == VMHALT)
+				state = VMRUNNING;
 			irqactive = n;
 		}else if(m == 0 && irqactive >= 0){
 			if(ctl("irq") < 0)

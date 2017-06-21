@@ -3,7 +3,14 @@ typedef struct PCICap PCICap;
 typedef struct PCIBar PCIBar;
 typedef struct Region Region;
 
-extern int halt, irqactive;
+extern int irqactive;
+
+enum {
+	VMRUNNING,
+	VMHALT,
+	VMDEAD,
+};
+extern int state;
 
 enum {
 	BY2PG = 4096
