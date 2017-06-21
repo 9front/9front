@@ -226,6 +226,7 @@ struct VmMem {
 	uvlong lo, hi;
 	Segment *seg;
 	uintptr off;
+	char *name;
 	VmMem *next, *prev;
 	u16int attr;
 };
@@ -656,7 +657,10 @@ cmdgetmeminfo(VmCmd *, va_list va)
 		*(ushort*)mt = *(u16int*)mtype[mp->attr >> 3 & 7];
 		mt[2] = (mp->attr & 0x40) != 0 ? '!' : 0;
 		mt[3] = 0;
-		p = seprint(p, e, "%s %s %#llux %#llux %p %#llux\n", attr, mt, mp->lo, mp->hi, mp->seg, (uvlong)mp->off);
+		if(mp->name == nil)
+			p = seprint(p, e, "%s %s %#llux %#llux\n", attr, mt, mp->lo, mp->hi);
+		else
+			p = seprint(p, e, "%s %s %#llux %#llux %s %#llux\n", attr, mt, mp->lo, mp->hi, mp->name, (uvlong)mp->off);
 	}
 	return p - p0;
 }
@@ -668,6 +672,8 @@ cmdclearmeminfo(VmCmd *, va_list)
 
 	eptfree(vmx.pml4, 0);
 	for(mp = vmx.mem.next; mp != &vmx.mem; mp = mn){
+		free(mp->name);
+		putseg(mp->seg);
 		mn = mp->next;
 		free(mp);
 	}
@@ -700,6 +706,7 @@ cmdsetmeminfo(VmCmd *, va_list va)
 		if(mp == nil)
 			mp = malloc(sizeof(VmMem));
 		if(waserror()){
+			free(mp->name);
 			free(mp);
 			nexterror();
 		}
@@ -735,6 +742,7 @@ cmdsetmeminfo(VmCmd *, va_list va)
 			mp->seg = _globalsegattach(f[4]);
 			if(mp->seg == nil) error("no such segment");
 			if(mp->seg->base + mp->off + (mp->hi - mp->lo) > mp->seg->top) error("out of bounds");
+			kstrdup(&mp->name, f[4]);
 		}
 		epttranslate(mp);
 		mp->prev = vmx.mem.prev;
