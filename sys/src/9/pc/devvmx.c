@@ -703,9 +703,14 @@ cmdsetmeminfo(VmCmd *, va_list va)
 		q = strchr(p, '\n');
 		if(q == 0) break;
 		*q = 0;
-		if(mp == nil)
+		if(mp == nil){
 			mp = malloc(sizeof(VmMem));
+			if(mp == nil)
+				error(Enomem);
+		}
+		memset(mp, 0, sizeof(VmMem));
 		if(waserror()){
+			putseg(mp->seg);
 			free(mp->name);
 			free(mp);
 			nexterror();
@@ -714,7 +719,6 @@ cmdsetmeminfo(VmCmd *, va_list va)
 		p = q + 1;
 		if(rc == 0) goto next;
 		if(rc != 4 && rc != 6) error("number of fields wrong");
-		memset(mp, 0, sizeof(VmMem));
 		for(q = f[0]; *q != 0; q++)
 			switch(*q){
 			case 'r': if((mp->attr & 1) != 0) goto tinval; mp->attr |= 1; break;
