@@ -1445,6 +1445,18 @@ cmdirq(VmCmd *, va_list va)
 	return 0;
 }
 
+static int
+cmdextrap(VmCmd *, va_list va)
+{
+	char *p, *q;
+	u32int v;
+	
+	p = va_arg(va, char *);
+	v = strtoul(p, &q, 0);
+	if(q == p || *q != 0) error(Ebadarg);
+	vmcswrite(EXC_BITMAP, v);
+	return 0;
+}
 
 static int
 gotcmd(void *)
@@ -1669,6 +1681,7 @@ enum {
 	CMstep,
 	CMexc,
 	CMirq,
+	CMextrap,
 };
 
 static Cmdtab vmxctlmsg[] = {
@@ -1679,6 +1692,7 @@ static Cmdtab vmxctlmsg[] = {
 	CMstep,		"step",		0,
 	CMexc,		"exc",		2,
 	CMirq,		"irq",		0,
+	CMextrap,	"extrap",	2,
 };
 
 static int
@@ -1921,6 +1935,18 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 			poperror();
 			free(s);
 			break;
+		case CMextrap:
+			s = nil;
+			kstrdup(&s, cb->f[1]);
+			if(waserror()){
+				free(s);
+				nexterror();
+			}
+			vmxcmd(cmdextrap, s);
+			poperror();
+			free(s);
+			break;
+
 		default:
 			error(Egreg);
 		}
