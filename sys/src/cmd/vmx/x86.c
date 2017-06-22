@@ -16,10 +16,11 @@ struct VMemReq {
 static uintptr
 translateflat(uintptr va, uintptr *pa, uintptr)
 {
+	if(sizeof(uintptr) != 4 && va >> 32 != 0) return 0;
 	*pa = va;
 	if(va == 0)
-		return -1;
-	return 0;
+		return 0xFFFFFFFFUL;
+	return -va;
 }
 
 static uintptr
