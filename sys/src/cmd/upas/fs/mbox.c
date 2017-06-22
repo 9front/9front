@@ -62,7 +62,7 @@ static void mailplumb(Mailbox*, Message*);
  * do we want to plumb flag changes?
  */
 char*
-syncmbox(Mailbox *mb)
+syncmbox(Mailbox *mb, int doplumb)
 {
 	char *s;
 	int n, d, y, a;
@@ -83,13 +83,20 @@ syncmbox(Mailbox *mb)
 	y = 0;
 	for(m = mb->root->part; m; m = next){
 		next = m->next;
-		if((m->cstate & Cidx) == 0 && m->deleted == 0){
-			cachehash(mb, m);
-			if(insurecache(mb, m) == 0){
-				mailplumb(mb, m);
-				msgdecref(mb, m);
+		if(m->deleted == 0){
+			if((m->cstate & Cidx) == 0){
+				cachehash(mb, m);
+				m->cstate |= Cnew;
+				n++;
+			} else if(!doplumb)
+				m->cstate &= ~Cnew;
+			if(m->cstate & Cnew){
+				if(insurecache(mb, m) == 0){
+					mailplumb(mb, m);
+					msgdecref(mb, m);
+				}
+				m->cstate &= ~Cnew;
 			}
-			n++;
 		}
 		if(m->cstate & Cidxstale)
 			y++;
@@ -98,7 +105,8 @@ syncmbox(Mailbox *mb)
 		if(mb->delete && m->inmbox && m->deleted & Deleted)
 			mb->delete(mb, m);
 		if(!m->inmbox){
-			mailplumb(mb, m);
+			if(doplumb)
+				mailplumb(mb, m);
 			delmessage(mb, m);
 			d++;
 		}
@@ -253,7 +261,7 @@ newmbox(char *path, char *name, int flags, Mailbox **r)
 	if(r)
 		*r = mb;
 
-	return syncmbox(mb);
+	return syncmbox(mb, 0);
 }
 
 /* close the named mailbox */
@@ -279,7 +287,7 @@ syncallmboxes(void)
 	Mailbox *m;
 
 	for(m = mbl; m != nil; m = m->next)
-		if(err = syncmbox(m))
+		if(err = syncmbox(m, 0))
 			eprint("syncmbox: %s\n", err);
 }
 
@@ -1070,7 +1078,7 @@ delmessages(int ac, char **av)
 				break;
 			}
 	if(needwrite)
-		syncmbox(mb);
+		syncmbox(mb, 1);
 	return 0;
 }
 
@@ -1100,7 +1108,7 @@ flagmessages(int argc, char **argv)
 					needwrite = 1;
 			}
 	if(needwrite)
-		syncmbox(mb);
+		syncmbox(mb, 1);
 	return rerr;
 }
 
@@ -1117,7 +1125,7 @@ msgdecref(Mailbox *mb, Message *m)
 	m->refs--;
 	if(m->refs == 0){
 		if(m->deleted)
-			syncmbox(mb);
+			syncmbox(mb, 1);
 		else
 			putcache(mb, m);
 	}
@@ -1149,7 +1157,7 @@ mboxdecref(Mailbox *mb)
 	assert(mb->refs > 0);
 	mb->refs--;
 	if(mb->refs == 0){
-		syncmbox(mb);
+		syncmbox(mb, 1);
 		delmessage(mb, mb->root);
 		if(mb->ctl)
 			hfree(PATH(mb->id, Qmbox), "ctl");
