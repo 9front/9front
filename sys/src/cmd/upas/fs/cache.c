@@ -375,7 +375,8 @@ static char *itab[] = {
 	"idx",
 	"stale",
 	"header",
-	"body"
+	"body",
+	"new",
 };
 
 char*

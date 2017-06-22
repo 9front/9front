@@ -1008,7 +1008,7 @@ readmboxdir(Fid *f, uchar *buf, long off, int cnt, int blen)
 	Message *msg;
 
 	if(off == 0)
-		syncmbox(f->mb);
+		syncmbox(f->mb, 1);
 
 	n = 0;
 	if(f->mb->ctl){
@@ -1343,7 +1343,7 @@ rstat(Fid *f)
 	Dir d;
 
 	if(FILE(f->qid.path) == Qmbox)
-		syncmbox(f->mb);
+		syncmbox(f->mb, 1);
 	mkstat(&d, f->mb, f->m, FILE(f->qid.path));
 	rhdr.nstat = convD2M(&d, mbuf, messagesize - IOHDRSZ);
 	rhdr.stat = mbuf;
@@ -1465,7 +1465,7 @@ reader(void)
 			}
 		}
 		if(mb != nil) {
-			syncmbox(mb);
+			syncmbox(mb, 1);
 			qunlock(&synclock);
 		} else {
 			qunlock(&synclock);

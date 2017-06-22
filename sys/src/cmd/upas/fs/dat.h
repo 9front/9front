@@ -6,6 +6,7 @@ enum {
 	Cidxstale	= 1<<1,
 	Cheader 	= 1<<2,
 	Cbody		= 1<<3,
+	Cnew		= 1<<4,
 
 	/* encodings */
 	Enone=	0,
@@ -65,8 +66,8 @@ struct Idx {
 	char	*idxaux;		/* mailbox specific */
 
 	char	*type;			/* mime info */
-	char	disposition;
 	char	*filename;
+	char	disposition;
 
 	int	nparts;
 };
@@ -117,9 +118,9 @@ struct Message {
 
 	/* mime info */
 	char	*charset;		
-	char	encoding;
 	char	*boundary;
 	char	converted;
+	char	encoding;
 	char	decoded;
 	char	mimeflag;
 
@@ -208,7 +209,7 @@ void		putcache(Mailbox*, Message*);		/* asymmetricial */
 long		cachefree(Mailbox*, Message*, int);
 
 Message*	gettopmsg(Mailbox*, Message*);
-char*		syncmbox(Mailbox*);
+char*		syncmbox(Mailbox*, int);
 void*		emalloc(ulong);
 void*		erealloc(void*, ulong);
 Message*	newmessage(Message*);

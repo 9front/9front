@@ -383,7 +383,6 @@ dead:
 			m->cstate |= Cidx;
 			idprint("→%.2ux\n", m->cstate);
 			free(s);
-			// s = 0;
 			continue;
 		}
 		m = newmessage(parent);
@@ -412,7 +411,7 @@ dead:
 		m->nparts = strtoul(f[21], 0, 0);
 
 		m->cstate &= ~Cidxstale;
-		m->cstate |= Cidx;
+		m->cstate |= Cidx|Cnew;
 		m->str = s;
 		s = 0;
 
