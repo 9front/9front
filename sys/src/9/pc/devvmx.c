@@ -621,18 +621,26 @@ eptfree(uvlong *tab, int level)
 static void
 epttranslate(VmMem *mp)
 {
-	uvlong p, hpa;
+	uvlong p, v;
 
-	if(mp->seg != nil && (mp->seg->type & SG_TYPE) != SG_FIXED || (mp->lo & 0xfff) != 0 || (mp->hi & 0xfff) != 0 || (uint)mp->attr >= 0x1000)
+	if((mp->lo & 0xfff) != 0 || (mp->hi & 0xfff) != 0 || (uint)mp->attr >= 0x1000)
 		error(Egreg);
 	if(mp->seg != nil){
+		switch(mp->seg->type & SG_TYPE){
+		default:
+			error(Egreg);
+		case SG_FIXED:
+		case SG_STICKY:
+			break;
+		}
 		if(mp->seg->base + mp->off + (mp->hi - mp->lo) > mp->seg->top)
 			error(Egreg);
-		hpa = mp->seg->map[0]->pages[0]->pa + mp->off;
-	}else
-		hpa = 0;
-	for(p = mp->lo; p < mp->hi; p += BY2PG)
-		*eptwalk(p) = hpa + (p - mp->lo) + mp->attr;
+		for(p = mp->lo, v = mp->off; p < mp->hi; p += BY2PG, v += BY2PG)
+			*eptwalk(p) = mp->seg->map[v/PTEMAPMEM]->pages[(v & PTEMAPMEM-1)/BY2PG]->pa | mp->attr;
+	}else {
+		for(p = mp->lo; p < mp->hi; p += BY2PG)
+			*eptwalk(p) = mp->attr;
+	}
 	vmx.onentry |= FLUSHEPT;
 }
 
