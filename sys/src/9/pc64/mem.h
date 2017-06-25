@@ -81,6 +81,17 @@
 #define	MACHSIZE	(2*KSTACK)
 
 /*
+ * Where configuration info is left for the loaded programme.
+ * This will turn into a structure as more is done by the boot loader
+ * (e.g. why parse the .ini file twice?).
+ * There are 3584 bytes available at CONFADDR.
+ */
+#define BOOTLINE	((char*)CONFADDR)
+#define BOOTLINELEN	64
+#define BOOTARGS	((char*)(CONFADDR+BOOTLINELEN))
+#define BOOTARGSLEN	(4096-0x200-BOOTLINELEN)
+
+/*
  *  known x86 segments (in GDT) and their selectors
  */
 #define	NULLSEG	0	/* null segment */

@@ -50,6 +50,7 @@ OBJ=\
 	memory.$O\
 	mmu.$O\
 	trap.$O\
+	bootargs.$O\
 	$CONF.root.$O\
 	$CONF.rootc.$O\
 	$DEVS\

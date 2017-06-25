@@ -11,131 +11,28 @@
 #include	"reboot.h"
 
 Mach *m;
-
-/*
- * Where configuration info is left for the loaded programme.
- * This will turn into a structure as more is done by the boot loader
- * (e.g. why parse the .ini file twice?).
- * There are 3584 bytes available at CONFADDR.
- */
-#define BOOTLINE	((char*)CONFADDR)
-#define BOOTLINELEN	64
-#define BOOTARGS	((char*)(CONFADDR+BOOTLINELEN))
-#define	BOOTARGSLEN	(4096-0x200-BOOTLINELEN)
-#define	MAXCONF		64
-
 Conf conf;
-char *confname[MAXCONF];
-char *confval[MAXCONF];
-int nconf;
+
 char *sp;	/* user stack of init proc */
 int delaylink;
 int idle_spin;
 
-static void
-multibootargs(void)
-{
-	char *cp, *ep;
-	ulong *m, l;
-
-	extern ulong *multiboot;
-
-	if(multiboot == nil)
-		return;
-
-	/* command line */
-	if((multiboot[0] & (1<<2)) != 0)
-		strncpy(BOOTLINE, KADDR(multiboot[4]), BOOTLINELEN-1);
-
-	cp = BOOTARGS;
-	ep = cp + BOOTARGSLEN-1;
-
-	/* memory map */
-	if((multiboot[0] & (1<<6)) != 0 && (l = multiboot[11]) >= 24){
-		cp = seprint(cp, ep, "*e820=");
-		m = KADDR(multiboot[12]);
-		while(m[0] >= 20 && m[0]+4 <= l){
-			uvlong base, size;
-			m++;
-			base = ((uvlong)m[0] | (uvlong)m[1]<<32);
-			size = ((uvlong)m[2] | (uvlong)m[3]<<32);
-			cp = seprint(cp, ep, "%.1lux %.16llux %.16llux ",
-				m[4] & 0xF, base, base+size);
-			l -= m[-1]+4;
-			m = (ulong*)((ulong)m + m[-1]);
-		}
-		cp[-1] = '\n';
-	}
-
-	/* plan9.ini passed as the first module */
-	if((multiboot[0] & (1<<3)) != 0 && multiboot[5] > 0){
-		m = KADDR(multiboot[6]);
-		l = m[1] - m[0];
-		m = KADDR(m[0]);
-		if(cp+l > ep)
-			l = ep - cp;
-		memmove(cp, m, l);
-		cp += l;
-	}
-	*cp = 0;
-}
-
-static void
-options(void)
-{
-	long i, n;
-	char *cp, *line[MAXCONF], *p, *q;
-
-	multibootargs();
-
-	/*
-	 *  parse configuration args from dos file plan9.ini
-	 */
-	cp = BOOTARGS;	/* where b.com leaves its config */
-	cp[BOOTARGSLEN-1] = 0;
-
-	/*
-	 * Strip out '\r', change '\t' -> ' '.
-	 */
-	p = cp;
-	for(q = cp; *q; q++){
-		if(*q == '\r')
-			continue;
-		if(*q == '\t')
-			*q = ' ';
-		*p++ = *q;
-	}
-	*p = 0;
-
-	n = getfields(cp, line, MAXCONF, 1, "\n");
-	for(i = 0; i < n; i++){
-		if(*line[i] == '#')
-			continue;
-		cp = strchr(line[i], '=');
-		if(cp == nil)
-			continue;
-		*cp++ = '\0';
-		confname[nconf] = line[i];
-		confval[nconf] = cp;
-		nconf++;
-	}
-}
-
 extern void (*i8237alloc)(void);
 extern void bootscreeninit(void);
+extern void multibootdebug(void);
 
 void
 main(void)
 {
 	mach0init();
-	options();
+	bootargsinit();
 	ioinit();
 	i8250console();
 	quotefmtinstall();
 	screeninit();
 
 	print("\nPlan 9\n");
-
+	
 	trapinit0();
 	i8253init();
 	cpuidentify();
@@ -213,7 +110,6 @@ machinit(void)
 void
 init0(void)
 {
-	int i;
 	char buf[2*KNAMELEN];
 
 	up->nerrlab = 0;
@@ -239,15 +135,47 @@ init0(void)
 			ksetenv("service", "cpu", 0);
 		else
 			ksetenv("service", "terminal", 0);
-		for(i = 0; i < nconf; i++){
-			if(confname[i][0] != '*')
-				ksetenv(confname[i], confval[i], 0);
-			ksetenv(confname[i], confval[i], 1);
-		}
+		setconfenv();
 		poperror();
 	}
 	kproc("alarm", alarmkproc, 0);
 	touser(sp);
+}
+
+void
+userbootargs(void *base)
+{
+	char *argv[8];
+	int i, argc;
+
+#define UA(ka)	((char*)(ka) + ((uintptr)(USTKTOP - BY2PG) - (uintptr)base))
+	sp = (char*)base + BY2PG - sizeof(Tos);
+
+	/* push boot command line onto the stack */
+	sp -= BOOTLINELEN;
+	sp[BOOTLINELEN-1] = '\0';
+	memmove(sp, BOOTLINE, BOOTLINELEN-1);
+
+	/* parse boot command line */
+	argc = tokenize(sp, argv, nelem(argv));
+	if(argc < 1){
+		strcpy(sp, "boot");
+		argc = 0;
+		argv[argc++] = sp;
+	}
+
+	/* 4 byte word align stack */
+	sp = (char*)((uintptr)sp & ~3);
+
+	/* build argv on stack */
+	sp -= (argc+1)*BY2WD;
+	for(i=0; i<argc; i++)
+		((char**)sp)[i] = UA(argv[i]);
+	((char**)sp)[i] = nil;
+
+	sp = UA(sp);
+#undef UA
+	sp -= BY2WD;
 }
 
 void
@@ -294,7 +222,7 @@ userinit(void)
 	v = tmpmap(pg);
 	memset(v, 0, BY2PG);
 	segpage(s, pg);
-	bootargs(v);
+	userbootargs(v);
 	tmpunmap(v);
 
 	/*
@@ -312,82 +240,6 @@ userinit(void)
 	tmpunmap(v);
 
 	ready(p);
-}
-
-void
-bootargs(void *base)
-{
-	char *argv[8];
-	int i, argc;
-
-#define UA(ka)	((char*)(ka) + ((uintptr)(USTKTOP - BY2PG) - (uintptr)base))
-	sp = (char*)base + BY2PG - sizeof(Tos);
-
-	/* push boot command line onto the stack */
-	sp -= BOOTLINELEN;
-	sp[BOOTLINELEN-1] = '\0';
-	memmove(sp, BOOTLINE, BOOTLINELEN-1);
-
-	/* parse boot command line */
-	argc = tokenize(sp, argv, nelem(argv));
-	if(argc < 1){
-		strcpy(sp, "boot");
-		argc = 0;
-		argv[argc++] = sp;
-	}
-
-	/* 4 byte word align stack */
-	sp = (char*)((uintptr)sp & ~3);
-
-	/* build argv on stack */
-	sp -= (argc+1)*BY2WD;
-	for(i=0; i<argc; i++)
-		((char**)sp)[i] = UA(argv[i]);
-	((char**)sp)[i] = nil;
-
-	sp = UA(sp);
-#undef UA
-	sp -= BY2WD;
-}
-
-char*
-getconf(char *name)
-{
-	int i;
-
-	for(i = 0; i < nconf; i++)
-		if(cistrcmp(confname[i], name) == 0)
-			return confval[i];
-	return 0;
-}
-
-static void
-writeconf(void)
-{
-	char *p, *q;
-	int n;
-
-	p = getconfenv();
-
-	if(waserror()) {
-		free(p);
-		nexterror();
-	}
-
-	/* convert to name=value\n format */
-	for(q=p; *q; q++) {
-		q += strlen(q);
-		*q = '=';
-		q += strlen(q);
-		*q = '\n';
-	}
-	n = q - p + 1;
-	if(n >= BOOTARGSLEN)
-		error("kernel configuration too large");
-	memset(BOOTLINE, 0, BOOTLINELEN);
-	memmove(BOOTARGS, p, n);
-	poperror();
-	free(p);
 }
 
 void

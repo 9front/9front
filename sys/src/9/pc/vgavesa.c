@@ -31,6 +31,17 @@ static Chan *creg, *cmem;
 #define PWORD(p, v) (p)[0] = (v); (p)[1] = (v)>>8
 #define PLONG(p, v) (p)[0] = (v); (p)[1] = (v)>>8; (p)[2] = (v)>>16; (p)[3] = (v)>>24
 
+typedef struct Vmode Vmode;
+struct Vmode
+{
+	char	chan[32];
+	int	attr;	/* flags */
+	int	bpl;
+	int	dx, dy;
+	int	depth;
+	ulong	paddr;
+};
+
 static uchar*
 vbesetup(Ureg386 *u, int ax)
 {
@@ -95,13 +106,37 @@ vbemodeinfo(int mode)
 	return p;
 }
 
+static char*
+vmode(Vmode *m, uchar *p)
+{
+	m->attr = WORD(p);
+	if(!(m->attr & (1<<4)))
+		return "not in VESA graphics mode";
+	if(!(m->attr & (1<<7)))
+		return "not in linear graphics mode";
+	m->bpl = WORD(p+16);
+	m->dx = WORD(p+18);
+	m->dy = WORD(p+20);
+	m->depth = p[25];
+	m->paddr = LONG(p+40);
+	if(m->depth <= 8)
+		snprint(m->chan, sizeof m->chan, "%c%d", 
+			(m->attr & (1<<3)) ? 'm' : 'k', m->depth);
+	else
+		rgbmask2chan(m->chan, m->depth,
+			(1UL<<p[31])-1 << p[32],
+			(1UL<<p[33])-1 << p[34],
+			(1UL<<p[35])-1 << p[36]);
+	return nil;
+}
+
 static void
 vesalinear(VGAscr *scr, int, int)
 {
 	int i, mode, size, havesize;
-	ulong paddr;
 	Pcidev *pci;
-	uchar *p;
+	char *err;
+	Vmode m;
 
 	vbecheck();
 	mode = vbegetmode();
@@ -111,14 +146,10 @@ vesalinear(VGAscr *scr, int, int)
 		error("not in linear graphics mode");
 	 */
 	mode &= 0x3FFF;
-	p = vbemodeinfo(mode);
-	if(!(WORD(p+0) & (1<<4)))
-		error("not in VESA graphics mode");
-	if(!(WORD(p+0) & (1<<7)))
-		error("not in linear graphics mode");
+	if((err = vmode(&m, vbemodeinfo(mode))) != nil)
+		error(err);
 
-	paddr = LONG(p+40);
-	size = WORD(p+20)*WORD(p+16);
+	size = m.dy * m.bpl;
 
 	/*
 	 * figure out max size of memory so that we have
@@ -136,8 +167,8 @@ vesalinear(VGAscr *scr, int, int)
 				continue;
 			a = pci->mem[i].bar & ~0xF;
 			e = a + pci->mem[i].size;
-			if(paddr >= a && (paddr+size) <= e){
-				size = e - paddr;
+			if(m.paddr >= a && (m.paddr+size) <= e){
+				size = e - m.paddr;
 				havesize = 1;
 				break;
 			}
@@ -151,7 +182,7 @@ vesalinear(VGAscr *scr, int, int)
 		else
 			size = ROUND(size, 1024*1024);
 
-	vgalinearaddr(scr, paddr, size);
+	vgalinearaddr(scr, m.paddr, size);
 	if(scr->apsize)
 		addvgaseg("vesascreen", scr->paddr, scr->apsize);
 
@@ -222,3 +253,19 @@ VGAdev vgavesadev = {
 	vesalinear,
 	vesadrawinit,
 };
+
+/*
+ * called from multibootargs() to convert
+ * vbe mode info (passed from bootloader)
+ * to *bootscreen= parameter
+ */
+char*
+vesabootscreenconf(char *s, char *e, uchar *p)
+{
+	Vmode m;
+
+	if(vmode(&m, p) != nil)
+		return s;
+	return seprint(s, e, "*bootscreen=%dx%dx%d %s %#lux\n",
+		m.bpl * 8 / m.depth, m.dy, m.depth, m.chan, m.paddr);
+}

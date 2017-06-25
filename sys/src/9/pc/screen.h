@@ -147,6 +147,7 @@ extern int	screensize(int, int, int, ulong);
 extern int	screenaperture(int, int);
 extern Rectangle physgscreenr;	/* actual monitor size */
 extern void	blankscreen(int);
+extern char*	rgbmask2chan(char *buf, int depth, u32int rm, u32int gm, u32int bm);
 
 extern void	bootscreeninit(void);
 extern void	bootscreenconf(VGAscr*);

@@ -37,8 +37,8 @@ TEXT _protected<>(SB), 1, $-4
  */
 TEXT _multibootheader<>(SB), 1, $-4
 	LONG	$0x1BADB002			/* magic */
-	LONG	$0x00010003			/* flags */
-	LONG	$-(0x1BADB002 + 0x00010003)	/* checksum */
+	LONG	$0x00010007			/* flags */
+	LONG	$-(0x1BADB002 + 0x00010007)	/* checksum */
 	LONG	$_multibootheader<>-KZERO(SB)	/* header_addr */
 	LONG	$_protected<>-KZERO(SB)		/* load_addr */
 	LONG	$edata-KZERO(SB)		/* load_end_addr */
@@ -47,7 +47,7 @@ TEXT _multibootheader<>(SB), 1, $-4
 	LONG	$0				/* mode_type */
 	LONG	$0				/* width */
 	LONG	$0				/* height */
-	LONG	$0				/* depth */
+	LONG	$32				/* depth */
 
 /* 
  * the kernel expects the data segment to be page-aligned

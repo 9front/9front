@@ -587,6 +587,36 @@ bootmapfb(VGAscr *scr, ulong pa, ulong sz)
 	return vgalinearaddr0(scr, pa, sz);
 }
 
+char*
+rgbmask2chan(char *buf, int depth, u32int rm, u32int gm, u32int bm)
+{
+	u32int m[4], dm;	/* r,g,b,x */
+	char tmp[32];
+	int c, n;
+
+	dm = 1<<depth-1;
+	dm |= dm-1;
+
+	m[0] = rm & dm;
+	m[1] = gm & dm;
+	m[2] = bm & dm;
+	m[3] = (~(m[0] | m[1] | m[2])) & dm;
+
+	buf[0] = 0;
+Next:
+	for(c=0; c<4; c++){
+		for(n = 0; m[c] & (1<<n); n++)
+			;
+		if(n){
+			m[0] >>= n, m[1] >>= n, m[2] >>= n, m[3] >>= n;
+			snprint(tmp, sizeof tmp, "%c%d%s", "rgbx"[c], n, buf);
+			strcpy(buf, tmp);
+			goto Next;
+		}
+	}
+	return buf;
+}
+
 /*
  * called early on boot to attach to framebuffer
  * setup by bootloader/firmware or plan9.
@@ -682,11 +712,10 @@ bootscreenconf(VGAscr *scr)
 	char conf[100], chan[30];
 
 	conf[0] = '\0';
-	if(scr != nil && scr->paddr != 0)
+	if(scr != nil && scr->paddr != 0 && scr->gscreen != nil)
 		snprint(conf, sizeof(conf), "%dx%dx%d %s %#p %d\n",
 			scr->gscreen->r.max.x, scr->gscreen->r.max.y,
 			scr->gscreen->depth, chantostr(chan, scr->gscreen->chan),
 			scr->paddr, scr->apsize);
-
 	ksetenv("*bootscreen", conf, 1);
 }

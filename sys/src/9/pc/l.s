@@ -42,8 +42,8 @@ TEXT _startKADDR(SB), $0
  */
 TEXT _multibootheader(SB), $0
 	LONG	$0x1BADB002			/* magic */
-	LONG	$0x00010003			/* flags */
-	LONG	$-(0x1BADB002 + 0x00010003)	/* checksum */
+	LONG	$0x00010007			/* flags */
+	LONG	$-(0x1BADB002 + 0x00010007)	/* checksum */
 	LONG	$_multibootheader-KZERO(SB)	/* header_addr */
 	LONG	$_startKADDR-KZERO(SB)		/* load_addr */
 	LONG	$edata-KZERO(SB)		/* load_end_addr */
@@ -52,7 +52,7 @@ TEXT _multibootheader(SB), $0
 	LONG	$0				/* mode_type */
 	LONG	$0				/* width */
 	LONG	$0				/* height */
-	LONG	$0				/* depth */
+	LONG	$32				/* depth */
 
 /* 
  * the kernel expects the data segment to be page-aligned
@@ -70,14 +70,13 @@ TEXT _multibootentry(SB), $0
 	INCL	CX	/* one more for post decrement */
 	STD
 	REP; MOVSB
-	ADDL	$KZERO, BX
-	MOVL	BX, multiboot-KZERO(SB)
+	MOVL	BX, multibootptr-KZERO(SB)
 	MOVL	$_startPADDR(SB), AX
 	ANDL	$~KZERO, AX
 	JMP*	AX
 
-/* multiboot structure pointer */
-TEXT multiboot(SB), $0
+/* multiboot structure pointer (physical address) */
+TEXT multibootptr(SB), $0
 	LONG	$0
 
 /*
