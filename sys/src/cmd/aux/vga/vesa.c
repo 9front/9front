@@ -36,8 +36,6 @@ struct Vmode
 	int	dx, dy;
 	int	depth;
 	char	*model;
-	int	r, g, b, x;
-	int	ro, go, bo, xo;
 	int	directcolor;	/* flags */
 	ulong	paddr;
 };
@@ -117,6 +115,36 @@ cracksize(char *size, char **scale, int *display)
 			error("bad size option: %s for %s\n", f[i], f[0]);
 	}
 	return f[0];
+}
+
+static char*
+rgbmask2chan(char *buf, int depth, u32int rm, u32int gm, u32int bm)
+{
+	u32int m[4], dm;	/* r,g,b,x */
+	char tmp[32];
+	int c, n;
+
+	dm = 1<<depth-1;
+	dm |= dm-1;
+
+	m[0] = rm & dm;
+	m[1] = gm & dm;
+	m[2] = bm & dm;
+	m[3] = (~(m[0] | m[1] | m[2])) & dm;
+
+	buf[0] = 0;
+Next:
+	for(c=0; c<4; c++){
+		for(n = 0; m[c] & (1<<n); n++)
+			;
+		if(n){
+			m[0] >>= n, m[1] >>= n, m[2] >>= n, m[3] >>= n;
+			snprint(tmp, sizeof tmp, "%c%d%s", "rgbx"[c], n, buf);
+			strcpy(buf, tmp);
+			goto Next;
+		}
+	}
+	return buf;
 }
 
 Mode*
@@ -732,14 +760,6 @@ vbemodeinfo(Vbe *vbe, int id, Vmode *m)
 		m->model = modelstr[mod];
 		break;
 	}
-	m->r = p[31];
-	m->g = p[33];
-	m->b = p[35];
-	m->x = p[37];
-	m->ro = p[32];
-	m->go = p[34];
-	m->bo = p[36];
-	m->xo = p[38];
 	m->directcolor = p[39];
 	m->paddr = LONG(p+40);
 
@@ -747,45 +767,11 @@ vbemodeinfo(Vbe *vbe, int id, Vmode *m)
 	if(m->depth <= 8)
 		snprint(m->chan, sizeof m->chan, "%c%d", 
 			(m->attr & AttrColor) ? 'm' : 'k', m->depth);
-	else {
-		int o;
-		ulong d, c, x;
-
-		m->xo = m->x = 0;
-		d = 1<<m->depth-1;
-		d |= d-1;
-		c = ((1<<m->r)-1) << m->ro;
-		c |= ((1<<m->g)-1) << m->go;
-		c |= ((1<<m->b)-1) << m->bo;
-		if(x = d ^ c){
-			for(; (x & 1) == 0; x >>= 1)
-				m->xo++;
-			for(; (x & 1) == 1; x >>= 1)
-				m->x++;
-		}
-
-		o = 0;
-		m->chan[0] = 0;
-		while(o < m->depth){
-			char tmp[sizeof m->chan];
-
-			if(m->r && m->ro == o){
-				snprint(tmp, sizeof tmp, "r%d%s", m->r, m->chan);
-				o += m->r;
-			}else if(m->g && m->go == o){
-				snprint(tmp, sizeof tmp, "g%d%s", m->g, m->chan);
-				o += m->g;
-			}else if(m->b && m->bo == o){
-				snprint(tmp, sizeof tmp, "b%d%s", m->b, m->chan);
-				o += m->b;
-			}else if(m->x && m->xo == o){
-				snprint(tmp, sizeof tmp, "x%d%s", m->x, m->chan);
-				o += m->x;
-			}else
-				break;
-			strncpy(m->chan, tmp, sizeof m->chan);
-		}
-	}
+	else
+		rgbmask2chan(m->chan, m->depth,
+			(1UL<<p[31])-1 << p[32],
+			(1UL<<p[33])-1 << p[34],
+			(1UL<<p[35])-1 << p[36]);
 	return 0;
 }
 
