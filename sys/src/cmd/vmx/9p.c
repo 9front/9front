@@ -25,7 +25,7 @@ srvread(Req *r)
 {
 	int rc;
 
-	switch(r->fid->qid.path){
+	switch((int)r->fid->qid.path){
 	case Qregs:
 		rc = pread(regsfd, r->ofcall.data, r->ifcall.count, r->ifcall.offset);
 		if(rc < 0)
