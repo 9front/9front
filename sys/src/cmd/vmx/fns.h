@@ -3,6 +3,8 @@ void loadkernel(char *);
 uvlong rget(char *);
 void rpoke(char *, uvlong, int);
 #define rset(a,b) rpoke(a,b,0)
+void rsetsz(char *, uvlong, int);
+uvlong rgetsz(char *, int);
 void processexit(char *);
 void pitadvance(void);
 void rtcadvance(void);
@@ -30,6 +32,7 @@ u32int iowhine(int, u16int, u32int, int, void *);
 void elcr(u16int);
 int mkvionet(char *);
 int mkvioblk(char *);
+int mkideblk(char *);
 char* rcflush(int);
 void i8042kick(void *);
 #define GET8(p,n) (*((u8int*)(p)+(n)))
@@ -44,3 +47,6 @@ u32int roundpow2(u32int);
 u32int vgagetpal(u8int);
 void vgasetpal(u8int, u32int);
 uintptr vmemread(void *, uintptr, uintptr);
+uintptr vmemwrite(void *, uintptr, uintptr);
+int x86access(int, uintptr, int, uvlong*, int, int, TLB *);
+u32int io(int, u16int, u32int, int);

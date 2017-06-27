@@ -244,7 +244,7 @@ elff(uchar **p, uchar *e, int sz)
 	if(sz == -1)
 		sz = elf64 ? 8 : 4;
 	if(*p + sz > e){
-		fprint(2, "out of bounds: %p > %p", *p + sz, e);
+		fprint(2, "out of bounds: %#p > %#p", *p + sz, e);
 		return 0;
 	}
 	switch(sz){
@@ -396,12 +396,12 @@ elfdata(void)
 		}
 		v = gptr(ph[i].paddr, ph[i].memsz);
 		if(v == nil)
-			sysfatal("invalid address %p (length=%p) in elf", (void*)ph[i].paddr, (void*)ph[i].memsz);
+			sysfatal("invalid address %#p (length=%#p) in elf", (void*)ph[i].paddr, (void*)ph[i].memsz);
 		if(ph[i].type == PT_OPENBSD_RANDOMIZE)
 			genrandom(v, ph[i].memsz);
 		else{
 			if(ph[i].filesz > ph[i].memsz)
-				sysfatal("elf: header entry shorter in memory than in the file (%p < %p)", (void*)ph[i].memsz, (void*)ph[i].filesz);
+				sysfatal("elf: header entry shorter in memory than in the file (%#p < %#p)", (void*)ph[i].memsz, (void*)ph[i].filesz);
 			if(ph[i].filesz != 0)
 				epreadn(v, ph[i].filesz, ph[i].offset, "elfdata");
 			if(ph[i].filesz < ph[i].memsz)

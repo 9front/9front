@@ -5,7 +5,7 @@
 #include "dat.h"
 #include "fns.h"
 
-int persist = 0;
+int persist = 1;
 
 typedef struct ExitInfo ExitInfo;
 struct ExitInfo {
@@ -67,43 +67,67 @@ stepmmio(uvlong pa, uvlong *val, int size, ExitInfo *ei)
 	return 0;
 }
 
-extern u32int io(int, u16int, u32int, int);
-
-u32int iodebug[32];
-
 static void
 iohandler(ExitInfo *ei)
 {
-	int port, len, isin;
+	int port, len, inc, isin;
+	int asz, seg;
+	uintptr addr;
 	u32int val;
-	u64int ax;
+	uvlong vval;
+	uintptr cx;
+	static int seglook[8] = {SEGES, SEGCS, SEGSS, SEGDS, SEGFS, SEGGS};
+	TLB tlb;
 	
 	port = ei->qual >> 16 & 0xffff;
 	len = (ei->qual & 7) + 1;
 	isin = (ei->qual & 8) != 0;
-	if((ei->qual & 1<<4) != 0){
-		vmerror("i/o string instruction not implemented");
-		postexc("#ud", NOERRC);
+	if((ei->qual & 1<<4) == 0){ /* not a string instruction */
+		if(isin){
+			val = io(1, port, 0, len);
+			rsetsz(RAX, val, len);
+		}else
+			io(0, port, rget(RAX), len);
+		skipinstr(ei);
 		return;
 	}
-	if(isin){
-		val = io(1, port, 0, len);
-		ax = rget(RAX);
-		if(len == 1) ax = ax & ~0xff | val & 0xff;
-		else if(len == 2) ax = ax & ~0xffff | val & 0xffff;
-		else ax = val;
-		rset(RAX, ax);
-	}else{
-		ax = rget(RAX);
-		if(len == 1) ax = (u8int) ax;
-		else if(len == 2) ax = (u16int) ax;
-		io(0, port, ax, len);
-		SET(val);
+	if((rget("flags") & 0x400) != 0) inc = -len;
+	else inc = len;
+	switch(ei->iinfo >> 7 & 7){
+	case 0: asz = 2; break;
+	default: asz = 4; break;
+	case 2: asz = 8; break;
 	}
-	if(port < 0x400 && (iodebug[port >> 5] >> (port & 31) & 1) != 0)
-		if(isin) vmdebug("in  %#.4ux <- %#ux", port, val);
-		else vmdebug("out %#.4ux <- %#ux", port, (int)ax);
+	if((ei->qual & 1<<5) != 0)
+		cx = rgetsz(RCX, asz);
+	else
+		cx = 1;
+	addr = isin ? rget(RDI) : rget(RSI);
+	if(isin)
+		seg = SEGES;
+	else
+		seg = seglook[ei->iinfo >> 15 & 7];
+	memset(&tlb, 0, sizeof(TLB));
+	for(; cx > 0; cx--){
+		if(isin){
+			vval = io(1, port, 0, len);
+			if(x86access(seg, addr, asz, &vval, len, ACCW, &tlb) < 0)
+				goto err;
+		}else{
+			if(x86access(seg, addr, asz, &vval, len, ACCR, &tlb) < 0)
+				goto err;
+			io(0, port, vval, len);
+		}
+		addr += inc;
+	}
 	skipinstr(ei);
+err:
+	if((ei->qual & 1<<5) != 0)
+		rsetsz(RCX, cx, asz);
+	if(isin)
+		rsetsz(RDI, addr, asz);
+	else
+		rsetsz(RSI, addr, asz);
 }
 
 typedef struct MemHandler MemHandler;
@@ -225,6 +249,8 @@ getcpuid(ulong idx)
 	return nil;
 }
 
+int maxcpuid = 7;
+
 static void
 cpuid(ExitInfo *ei)
 {
@@ -237,7 +263,7 @@ cpuid(ExitInfo *ei)
 	if(cp == nil) cp = &def;
 	switch(ax){
 	case 0: /* highest register & GenuineIntel */
-		ax = 7;
+		ax = maxcpuid;
 		bx = cp->bx;
 		dx = cp->dx;
 		cx = cp->cx;

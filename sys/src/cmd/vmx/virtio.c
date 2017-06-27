@@ -145,7 +145,7 @@ waitloop:
 		b->flags = GET16(dp, 12);
 		b->p = gptr(b->addr, b->len);
 		if(b->p == nil){
-			vmerror("virtio device %#x: invalid buffer pointer %p in queue, ignoring descriptor", q->d->pci->bdf, (void*)b->addr);
+			vmerror("virtio device %#x: invalid buffer pointer %#p in queue, ignoring descriptor", q->d->pci->bdf, (void*)b->addr);
 			free(b);
 			break;
 		}
@@ -291,7 +291,7 @@ vioqaddrset(VIOQueue *q, u64int addr)
 	sz = sz1 + (-(-(8 * q->size + 6) & -4096));
 	p = gptr(addr, sz);
 	if(p == nil)
-		vmerror("virtio device %#x: attempt to set queue to invalid address %p", q->d->pci->bdf, (void *) addr);
+		vmerror("virtio device %#x: attempt to set queue to invalid address %#p", q->d->pci->bdf, (void *) addr);
 	qlock(q);
 	q->addr = addr;
 	if(p == nil){

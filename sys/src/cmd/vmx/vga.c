@@ -40,6 +40,8 @@ struct VGA {
 	u8int sidx; /* sequencer */
 	u16int rdidx, wdidx; /* bit 0-1: color */
 	u8int attr[32];
+	u8int seq[5];
+	u8int graph[9];
 	u32int pal[256];
 	Image *col[256];
 	Image *acol[16];
@@ -155,9 +157,9 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 
 	if(novga)
 		return 0;
-	if(port == 0x3d4 && sz == 2 && !isin){
-		vgaio(0, 0x3d4, (u8int)val, 1, nil);
-		return vgaio(0, 0x3d5, (u8int)(val >> 8), 1, nil);
+	if(port != 0x3df && sz == 2 && !isin){
+		vgaio(0, port, (u8int)val, 1, nil);
+		return vgaio(0, port+1, (u8int)(val >> 8), 1, nil);
 	}
 	if(sz != 1) vmdebug("vga: non-byte access to port %#ux, sz=%d", port, sz);
 	val = (u8int) val;
@@ -173,7 +175,12 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		return 0;
 	case 0x3c2: vga.miscout = val; return 0;
 	case 0x3c4: vga.sidx = val; return 0;
-	case 0x3c5: vmerror("vga: write to unknown sequencer register %#ux (val=%#ux)", vga.sidx, val); return 0;
+	case 0x3c5:
+		switch(vga.sidx){
+		case 0: vga.seq[vga.sidx] = val & 3; return 0;
+		case 4: vga.seq[vga.sidx] = val & 0xe; return 0;
+		default: vmerror("vga: write to unknown sequencer register %#ux (val=%#ux)", vga.sidx, val); return 0;
+		}
 	case 0x3c6: return 0;
 	case 0x3c7: vga.rdidx = val << 2; return 0;
 	case 0x3c8: vga.wdidx = val << 2; return 0;
@@ -183,7 +190,14 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		vga.wdidx = vga.wdidx + 1 + (vga.wdidx >> 1 & 1) & 0x3ff;
 		return 0;
 	case 0x3ce: vga.gidx = val; return 0;
-	case 0x3cf: vmerror("vga: write to unknown graphics register %#ux (val=%#ux)", vga.gidx, val); return 0;
+	case 0x3cf:
+		switch(vga.gidx){
+		case 4: vga.graph[vga.gidx] = val & 3; break;
+		case 8: vga.graph[vga.gidx] = val; break;
+		default:
+			vmerror("vga: write to unknown graphics register %#ux (val=%#ux)", vga.gidx, val);
+		}
+		return 0;
 	case 0x3d4: vga.cidx = val; return 0;
 	case 0x3d5:
 		switch(vga.cidx){
@@ -197,7 +211,13 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 	case 0x103c0: return vga.aidx & 0x3f;
 	case 0x103c1: return vga.attr[vga.aidx & 0x1f];
 	case 0x103c4: return vga.sidx;
-	case 0x103c5: vmerror("vga: read from unknown sequencer register %#ux (val=%#ux)", vga.sidx, val); return 0;
+	case 0x103c5:	
+		switch(vga.sidx){
+		case 0:
+		case 4:
+			return vga.seq[vga.sidx];
+		default: vmerror("vga: read from unknown sequencer register %#ux (val=%#ux)", vga.sidx, val); return 0;
+		}
 	case 0x103c6: return 0xff;
 	case 0x103c7: return vga.rdidx >> 2;
 	case 0x103c8: return vga.wdidx >> 2;
@@ -207,7 +227,15 @@ vgaio(int isin, u16int port, u32int val, int sz, void *)
 		return m;
 	case 0x103cc: return vga.miscout;
 	case 0x103ce: return vga.gidx;
-	case 0x103cf: vmerror("vga: read from unknown graphics register %#ux", vga.gidx); return 0;
+	case 0x103cf:
+		switch(vga.gidx){
+		case 4:
+		case 8:
+			return vga.graph[vga.gidx];
+		default:
+			vmerror("vga: read from unknown graphics register %#ux", vga.gidx);
+			return 0;
+		}
 	case 0x103d4: return vga.cidx;
 	case 0x103d5:
 		switch(vga.cidx){

@@ -223,19 +223,52 @@ goti:
 		rcdirty[i>>6] |= 1ULL<<(i&63);
 }
 
+uvlong
+rgetsz(char *reg, int sz)
+{
+	switch(sz){
+	case 1: return (u8int)rget(reg);
+	case 2: return (u16int)rget(reg);
+	case 4: return (u32int)rget(reg);
+	case 8: return rget(reg);
+	default:
+		vmerror("invalid size operand for rgetsz");
+		assert(0);
+		return 0;
+	}
+}
+
+void
+rsetsz(char *reg, uvlong val, int sz)
+{
+	switch(sz){
+	case 1: rset(reg, (u8int)val | rget(reg) & ~0xffULL); break;
+	case 2: rset(reg, (u16int)val | rget(reg) & ~0xffffULL); break;
+	case 4: rset(reg, (u32int)val); break;
+	case 8: rset(reg, val); break;
+	default:
+		vmerror("invalid size operand for rsetsz");
+		assert(0);
+	}
+}
+
 Region *
 mkregion(u64int pa, u64int end, int type)
 {
-	Region *r, **rp;
+	Region *r, *s, **rp;
 
 	r = emalloc(sizeof(Region));
-	if(end < pa) sysfatal("end of region %p before start of region %p", (void*)end, (void*)pa);
-	if((pa & BY2PG-1) != 0 || (end & BY2PG-1) != 0) sysfatal("address %p not page aligned", (void*)pa);
+	if(end < pa) sysfatal("end of region %p before start of region %#p", (void*)end, (void*)pa);
+	if((pa & BY2PG-1) != 0 || (end & BY2PG-1) != 0) sysfatal("address %#p not page aligned", (void*)pa);
 	r->start = pa;
 	r->end = end;
 	r->type = type;
-	for(rp = &mmap; *rp != nil; rp = &(*rp)->next)
+	for(s = mmap; s != nil; s = s->next)
+		if(!(pa < s->start && end < s->end || pa >= s->start && pa >= s->end))
+			sysfatal("region %#p-%#p overlaps region %#p-%#p", pa, end, s->start, s->end);
+	for(rp = &mmap; (*rp) != nil && (*rp)->start < end; rp = &(*rp)->next)
 		;
+	r->next = *rp;
 	*rp = r;
 	return r;
 }
@@ -487,6 +520,39 @@ siparse(char *s)
 }
 
 static void
+setiodebug(char *s)
+{
+	char *p;
+	int n, m, neg;
+	extern u32int iodebug[32];
+	
+	do{
+		if(neg = *s == '!')
+			s++;
+		n = strtoul(s, &p, 0);
+		if(s == p)
+no:			sysfatal("invalid iodebug argument (error at %#q)", s);
+		if(n >= sizeof(iodebug)*8)
+range:			sysfatal("out of iodebug range (0-%#ux)", sizeof(iodebug)*8-1);
+		s = p + 1;
+		if(*p == '-'){
+			m = strtoul(s, &p, 0);
+			if(m >= sizeof(iodebug)*8)
+				goto range;
+			if(s == p || m < n) goto no;
+			s = p + 1;
+		}else
+			m = n;
+		for(; n <= m; n++)
+			if(neg)
+				iodebug[n>>5] &= ~(1<<(n&31));
+			else
+				iodebug[n>>5] |= 1<<(n&31);
+	}while(*p == ',');
+	if(*p != 0) goto no;
+}
+
+static void
 usage(void)
 {
 	char *blanks, *p;
@@ -498,6 +564,8 @@ usage(void)
 	fprint(2, "       %s [ -d blockfile ] [ -m module ] [ -v vga ] [ -9 srv ] kernel [ args ... ]\n", blanks);
 	threadexitsall("usage");
 }
+
+void (*kconfig)(void);
 
 void
 threadmain(int argc, char **argv)
@@ -537,9 +605,16 @@ threadmain(int argc, char **argv)
 		break;
 	case 'd':
 		assert(edevn < nelem(edev));
-		edev[edevn] = mkvioblk;
-		edevt[edevn] = "virtio block";
-		edevaux[edevn++] = strdup(EARGF(usage()));
+		edevaux[edevn] = strdup(EARGF(usage()));
+		if(strncmp(edevaux[edevn], "ide:", 4) == 0){
+			edevaux[edevn] += 4;
+			edev[edevn] = mkideblk;
+			edevt[edevn] = "ide block";
+		}else{
+			edev[edevn] = mkvioblk;
+			edevt[edevn] = "virtio block";
+		}
+		edevn++;
 		break;
 	case 'M':
 		gmemsz = siparse(EARGF(usage()));
@@ -551,6 +626,9 @@ threadmain(int argc, char **argv)
 	case '9':
 		if(srvname != nil) usage();
 		srvname = EARGF(usage());
+		break;
+	case L'ι':
+		setiodebug(EARGF(usage()));
 		break;
 	default:
 		usage();
@@ -586,6 +664,7 @@ threadmain(int argc, char **argv)
 	pcibusmap();
 	
 	if(srvname != nil) init9p(srvname);
+	if(kconfig != nil) kconfig();
 	runloop();
 	exits(nil);
 }

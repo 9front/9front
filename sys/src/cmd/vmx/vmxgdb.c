@@ -162,6 +162,7 @@ regpacket(void)
 			pos += 4;
 		}
 		if(i == nelem(regname)) continue;
+		if(f[0][1] == 's' && f[0][2] == 0) v = 0;
 		l = 4;
 		while(l--){
 			sprint(tbuf, "%.2ux", (u8int)v);

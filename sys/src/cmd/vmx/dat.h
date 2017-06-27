@@ -112,3 +112,32 @@ struct VgaMode {
 	u32int chan;
 	VgaMode *next;
 };
+
+extern uchar cmos[0x30];
+
+extern void (*kconfig)(void);
+
+/* arguments for x86access */
+enum {
+	SEGCS,
+	SEGDS,
+	SEGES,
+	SEGFS,
+	SEGGS,
+	SEGSS,
+	SEGMAX,
+};
+
+enum {
+	ACCR,
+	ACCW,
+	ACCX,
+};
+
+/* used to speed up consecutive x86access calls */
+typedef struct TLB TLB;
+struct TLB {
+	int asz, seg, acc;
+	uintptr start, end;
+	uchar *base;
+};

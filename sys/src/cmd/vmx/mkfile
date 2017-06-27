@@ -8,6 +8,7 @@ OFILES=\
 	ksetup.$O \
 	exith.$O \
 	io.$O \
+	ide.$O \
 	vga.$O \
 	pci.$O \
 	virtio.$O \

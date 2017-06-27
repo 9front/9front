@@ -7,7 +7,7 @@
 #include "dat.h"
 #include "fns.h"
 
-static uchar cmos[0x30] = {
+uchar cmos[0x30] = {
 	[1] 0xff, [3] 0xff, [5] 0xff, 
 	[0xa] 0x26,
 	[0xb] 1<<1,
@@ -727,6 +727,7 @@ kbdcmd(u8int val)
 		case 0xee: keyputc(0xee); break; /* echo */
 		default:
 			vmerror("unknown kbd command %#ux", val);
+			keyputc(0xfe);
 		}
 	}
 	i8042kick(nil);
@@ -1124,14 +1125,6 @@ uartinit(int n, char *cfg)
 	}
 }
 
-static u32int
-ideio(int, u16int port, u32int, int, void *)
-{
-	switch(port & 7){
-	case 7: return 0x71;
-	default: return -1;
-	}
-}
 
 /* floppy dummy controller */
 typedef struct Floppy Floppy;
@@ -1226,6 +1219,7 @@ struct IOHandler {
 u32int vgaio(int, u16int, u32int, int, void *);
 u32int pciio(int, u16int, u32int, int, void *);
 u32int vesaio(int, u16int, u32int, int, void *);
+u32int ideio(int, u16int, u32int, int, void *);
 IOHandler handlers[] = {
 	0x20, 0x21, picio, nil,
 	0x40, 0x43, pitio, nil,
@@ -1268,8 +1262,8 @@ IOHandler handlers[] = {
 	0xa79, 0xa79, nopio, nil, /* isa pnp */
 };
 
-u32int
-io(int dir, u16int port, u32int val, int size)
+static u32int
+io0(int dir, u16int port, u32int val, int size)
 {
 	IOHandler *h;
 	extern PCIBar iobars;
@@ -1282,4 +1276,29 @@ io(int dir, u16int port, u32int val, int size)
 		if(port >= p->addr && port < p->addr + p->length)
 			return p->io(dir, port - p->addr, val, size, p->aux);
 	return iowhine(dir, port, val, size, nil);
+}
+
+u32int iodebug[32];
+
+u32int
+io(int isin, u16int port, u32int val, int sz)
+{
+	int dbg;
+	
+	dbg = port < 0x400 && (iodebug[port >> 5] >> (port & 31) & 1) != 0;
+	if(isin){
+		val = io0(isin, port, val, sz);
+		if(sz == 1) val = (u8int)val;
+		else if(sz == 2) val = (u16int)val;
+		if(dbg)
+			vmdebug("in  %#.4ux <- %#.*ux", port, sz*2, val);
+		return val;
+	}else{
+		if(sz == 1) val = (u8int)val;
+		else if(sz == 2) val = (u16int)val;
+		io0(isin, port, val, sz);
+		if(dbg)
+			vmdebug("out %#.4ux <- %#.*ux", port, sz*2, val);
+		return 0;
+	}
 }
