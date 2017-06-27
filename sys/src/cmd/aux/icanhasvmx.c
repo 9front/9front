@@ -202,10 +202,11 @@ main(int argc, char **argv)
 {
 	u64int msr, msr2;
 	int ext;
-	static int no, raw;
+	static int no, raw, verbose;
 	
 	ARGBEGIN {
-	case 'r': raw++; break;
+	case 'r': raw++; verbose++; break;
+	case 'v': verbose++; break;
 	default: goto usage;
 	} ARGEND;
 	if(argc != 0){
@@ -219,31 +220,33 @@ main(int argc, char **argv)
 	msrfd = open("#P/msr", OREAD);
 	if(msrfd < 0) sysfatal("open: %r");
 	if(cpuidcheck() < 0) sysfatal("CPU does not support VMX");
-	msr = rdmsr(0x3a);
-	if((msr & 5) == 0) wrmsr(0x3a, msr | 5);
-	if((rdmsr(0x3a) & 5) != 5){
-		fprint(2, "VMX disabled by BIOS");
-		no++;
-	}
-	msr = rdmsr(VMX_PROCB_CTLS_MSR);
-	if((vlong)msr >= 0){
-		fprint(2, "no secondary controls");
-		no++;
-	}else{
-		msr = rdmsr(VMX_PROCB_CTLS2_MSR);
-		if((msr >> 32 & PROCB_EPT) == 0){
-			fprint(2, "no EPT support");
+	if(!verbose){
+		msr = rdmsr(0x3a);
+		if((msr & 5) == 0) wrmsr(0x3a, msr | 5);
+		if((rdmsr(0x3a) & 5) != 5){
+			print("VMX disabled by BIOS\n");
 			no++;
 		}
-		if((msr >> 32 & PROCB_VPID) == 0){
-			fprint(2, "no VPID support");
+		msr = rdmsr(VMX_PROCB_CTLS_MSR);
+		if((vlong)msr >= 0){
+			print("no secondary controls\n");
 			no++;
+		}else{
+			msr = rdmsr(VMX_PROCB_CTLS2_MSR);
+			if((msr >> 32 & PROCB_EPT) == 0){
+				print("no EPT support\n");
+				no++;
+			}
+			if((msr >> 32 & PROCB_VPID) == 0){
+				print("no VPID support\n");
+				no++;
+			}
 		}
-	}
-	if(no == 0)
-		fprint(2, "VMX is supported\n");
-	
-	if(!raw){
+		if(no == 0)
+			print("VMX is supported\n");
+		else
+			print("Some needed features are missing\n");
+	}else if(!raw){
 		msr = rdmsr(VMX_BASIC_MSR);
 		Bprint(out, "vmcsrev %#ux\n", (u32int)msr & 0x7fffffff);
 		Bprint(out, "vmxonsz %d\n", (u32int)(msr >> 32) & 0x1fff);
@@ -296,7 +299,6 @@ main(int argc, char **argv)
 		if(no == 0)
 			rawprint("vpidept", VMX_VPIDEPT_MSR);
 	}
-	
-	Bterm(out);
+
 	exits(nil);
 }
