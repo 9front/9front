@@ -28,10 +28,6 @@ multibootargs(void)
 
 	multiboot = (ulong*)KADDR(multibootptr);
 
-	/* command line */
-	if((multiboot[0] & (1<<2)) != 0)
-		strncpy(BOOTLINE, KADDR(multiboot[4]), BOOTLINELEN-1);
-
 	cp = BOOTARGS;
 	ep = cp + BOOTARGSLEN-1;
 
@@ -79,15 +75,18 @@ multibootargs(void)
 		cp = vesabootscreenconf(cp, ep, KADDR(multiboot[19]));
 
 	/* plan9.ini passed as the first module */
-	if((multiboot[0] & (1<<3)) != 0 && multiboot[5] > 0){
+	if((multiboot[0] & (1<<3)) != 0 && multiboot[5] > 0 && multiboot[6] != 0){
 		m = KADDR(multiboot[6]);
-		l = m[1] - m[0];
-		m = KADDR(m[0]);
-		if(cp+l > ep)
-			l = ep - cp;
-		memmove(cp, m, l);
-		cp += l;
+		cp = seprint(cp, ep, "%.*s\n", (int)(m[1] - m[0]), (char*)KADDR(m[0]));
 	}
+
+	/* command line */
+	if((multiboot[0] & (1<<2)) != 0 && multiboot[4] != 0){
+		int i, n = tokenize(KADDR(multiboot[4]), confval, MAXCONF);
+		for(i=0; i<n; i++)
+			cp = seprint(cp, ep, "%s\n", confval[i]);
+	}
+
 	*cp = 0;
 }
 
@@ -182,8 +181,8 @@ writeconf(void)
 	n = q - p + 1;
 	if(n >= BOOTARGSLEN)
 		error("kernel configuration too large");
-	memset(BOOTLINE, 0, BOOTLINELEN);
 	memmove(BOOTARGS, p, n);
+	memset(BOOTLINE, 0, BOOTLINELEN);
 	poperror();
 	free(p);
 }

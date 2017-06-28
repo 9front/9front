@@ -32,21 +32,6 @@ readn(Chan *c, void *vp, long n)
 	}
 }
 
-static void
-setbootcmd(int argc, char *argv[])
-{
-	char *buf, *p, *ep;
-	int i;
-
-	p = buf = smalloc(1024);
-	ep = buf + 1024;
-	for(i=0; i<argc; i++)
-		p = seprint(p, ep, "%q ", argv[i]);
-	*p = 0;
-	ksetenv("bootcmd", buf, 1);
-	free(buf);
-}
-
 void
 rebootcmd(int argc, char *argv[])
 {
@@ -100,7 +85,6 @@ rebootcmd(int argc, char *argv[])
 	readn(c, p + rtext, data);
 
 	ksetenv("bootfile", argv[0], 1);
-	setbootcmd(argc-1, argv+1);
 
 	reboot((void*)entry, p, size);
 	error(Egreg);

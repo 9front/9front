@@ -3,18 +3,6 @@
 boot, bootrc \- connect to the root file server
 .SH SYNOPSIS
 .B /boot/boot
-[
-.B -fkm
-]
-[
-.BI -u username
-]
-[
-.IB method ! device
-]
-[
-.I args
-]
 .SH DESCRIPTION
 .I Boot
 is the first program run after a kernel has been loaded. It
@@ -71,10 +59,6 @@ of the form
 .IB name = value
 is passed to the boot program as an environment
 variable with the same name and value.
-The command line is
-.IP
-.B /boot/boot
-.IB method ! device
 .PP
 After
 .I boot
@@ -125,9 +109,7 @@ set.
 If not specified with the
 .B user=
 .IR plan9.ini (8)
-parameter or the
-.B -u
-option,
+parameter,
 .I boot
 will prompt for one on the console:
 .IP
@@ -186,22 +168,12 @@ then
 will insert a user level cache
 process between the remote server and the local namespace
 that caches all remote accesses on the local partition.
-The
-.B -f
-flag commands
-.IR cfs (4)
-to reformat the cache partition.
 .SS CPU Servers
 The user owning devices and console processes on CPU servers
 and that user's domain and encryption key are
 read from NVRAM on all machines except PCs.
 PCs keep the information in the disk partition
 .BI /dev/sd XX /nvram.
-If a
-.B -k
-option is given or if no stored information is found
-.I boot
-will prompt for all three items and store them.
 .IP
 .EX
 password: 

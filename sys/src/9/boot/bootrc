@@ -189,42 +189,6 @@ for(i in /rc/lib/*.rc){
 # add partitions and binds
 configlocal
 
-# boot(8) command line arguments
-ff=()
-aa=()
-while(! ~ $#* 0){
-	if(~ $1 -*){
-		if(~ $1 -u*){
-			if(~ $1 -u){
-				user=$2
-				shift
-			}
-			if not {
-				user=`{echo $1 | sed 's,^-u,,g'}
-			}
-		}
-		if not {
-			if(~ $1 -*f*)
-				ff=($ff -f)
-			if(~ $1 -*k*)
-				ff=($ff -k)
-			if(~ $1 -*m*)
-				ff=($ff -m)
-		}
-		shift
-	}
-	if not {
-		while(! ~ $#* 0){
-			aa=($aa $1)
-			shift
-		}
-	}
-}
-if(! ~ $#aa 0 && ~ $#bootargs 0 && ~ $#nobootprompt 0){
-	bootargs=$aa
-	nobootprompt=$aa
-}
-
 while(){
 	@{main}
 

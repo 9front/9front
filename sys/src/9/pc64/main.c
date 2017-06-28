@@ -14,8 +14,6 @@ Conf conf;
 int delaylink;
 int idle_spin;
 
-char *sp;	/* user stack of init proc */
-
 extern void (*i8237alloc)(void);
 extern void bootscreeninit(void);
 
@@ -189,7 +187,7 @@ mach0init(void)
 void
 init0(void)
 {
-	char buf[2*KNAMELEN];
+	char buf[2*KNAMELEN], **sp;
 
 	up->nerrlab = 0;
 
@@ -219,43 +217,11 @@ init0(void)
 	}
 	kproc("alarm", alarmkproc, 0);
 
+	sp = (char**)(USTKTOP - sizeof(Tos) - 8 - sizeof(sp[0])*4);
+	sp[3] = sp[2] = nil;
+	strcpy(sp[1] = (char*)&sp[4], "boot");
+	sp[0] = nil;
 	touser(sp);
-}
-
-void
-userbootargs(void *base)
-{
-	char *argv[8];
-	int i, argc;
-
-#define UA(ka)	((char*)(ka) + ((uintptr)(USTKTOP - BY2PG) - (uintptr)base))
-	sp = (char*)base + BY2PG - sizeof(Tos);
-
-	/* push boot command line onto the stack */
-	sp -= BOOTLINELEN;
-	sp[BOOTLINELEN-1] = '\0';
-	memmove(sp, BOOTLINE, BOOTLINELEN-1);
-
-	/* parse boot command line */
-	argc = tokenize(sp, argv, nelem(argv));
-	if(argc < 1){
-		strcpy(sp, "boot");
-		argc = 0;
-		argv[argc++] = sp;
-	}
-
-	/* 8 byte word align stack */
-	sp = (char*)((uintptr)sp & ~7);
-
-	/* build argv on stack */
-	sp -= (argc+1)*BY2WD;
-	for(i=0; i<argc; i++)
-		((char**)sp)[i] = UA(argv[i]);
-	((char**)sp)[i] = nil;
-
-	sp = UA(sp);
-#undef UA
-	sp -= BY2WD;
 }
 
 void
@@ -299,10 +265,9 @@ userinit(void)
 	s = newseg(SG_STACK, USTKTOP-USTKSIZE, USTKSIZE/BY2PG);
 	p->seg[SSEG] = s;
 	pg = newpage(0, 0, USTKTOP-BY2PG);
+	segpage(s, pg);
 	v = kmap(pg);
 	memset(v, 0, BY2PG);
-	segpage(s, pg);
-	userbootargs(v);
 	kunmap(v);
 
 	/*
