@@ -11,7 +11,6 @@
 
 Conf conf;
 int normalprint, delaylink;
-uchar *sp;
 
 enum { MAXCONF = 64 };
 
@@ -191,42 +190,10 @@ confinit(void)
 	imagmem->maxsize = kmem - (kmem/10);
 }
 
-static uchar *
-pusharg(char *p)
-{
-	int n;
-	
-	n = strlen(p) + 1;
-	sp -= n;
-	memmove(sp, p, n);
-	return sp;
-}
-
-static void
-bootargs(void *base)
-{
-	int i, ac;
-	uchar *av[32];
-	uchar **lsp;
-	
-	sp = (uchar *) base + BY2PG - sizeof(Tos);
-	
-	ac = 0;
-	av[ac++] = pusharg("boot");
-	sp = (uchar *) ((ulong) sp & ~3);
-	sp -= (ac + 1) * sizeof(sp);
-	lsp = (uchar **) sp;
-	for(i = 0; i < ac; i++)
-		lsp[i] = av[i] + ((USTKTOP - BY2PG) - (ulong) base);
-	lsp[i] = 0;
-	sp += (USTKTOP - BY2PG) - (ulong) base;
-	sp -= BY2WD;
-}
-
 static void
 init0(void)
 {
-	char buf[ERRMAX];
+	char buf[ERRMAX], **sp;
 	int i;
 
 	up->nerrlab = 0;
@@ -257,6 +224,11 @@ init0(void)
 		poperror();
 	}
 	kproc("alarm", alarmkproc, 0);
+
+	sp = (char**)(USTKTOP - sizeof(Tos) - 8 - sizeof(sp[0])*4);
+	sp[3] = sp[2] = nil;
+	strcpy(sp[1] = (char*)&sp[4], "boot");
+	sp[0] = nil;
 	touser(sp);
 }
 
@@ -288,10 +260,9 @@ userinit(void)
 	s = newseg(SG_STACK, USTKTOP - USTKSIZE, USTKSIZE / BY2PG);
 	p->seg[SSEG] = s;
 	pg = newpage(0, 0, USTKTOP - BY2PG);
+	segpage(s, pg);
 	v = tmpmap(pg->pa);
 	memset(v, 0, BY2PG);
-	segpage(s, pg);
-	bootargs(v);
 	tmpunmap(v);
 	
 	s = newseg(SG_TEXT, UTZERO, 1);
