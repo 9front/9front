@@ -798,8 +798,8 @@ The string for a variable entry has the variable's name followed by
 .B =
 and its value.
 If the value has more than one component, these
-are separated by ctrl-a
-.RB ( '\e001' )
+are separated by nul
+.RB ( '\e000' )
 characters.
 The string for a function is just the
 .I rc
