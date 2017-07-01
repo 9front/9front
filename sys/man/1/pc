@@ -8,7 +8,7 @@ pc \- programmer's calculator
 ]
 .SH DESCRIPTION
 .I Pc
-is an arbitrary precision calculator with a special emphasis on supporting two's complement bit operations and working with different number bases.
+is an arbitrary precision integer calculator with a special emphasis on supporting two's complement bit operations and working with different number bases.
 .PP
 .I Pc
 reads input statements which are either expressions or control statements.
