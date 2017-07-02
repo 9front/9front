@@ -380,3 +380,5 @@ Often the reason something was done is more important than what was done.
 I believe this is not a Go issue.
 Are you running Xcode 8.3?
 I don't think so.
+Yup.
+Code comments can be helpful with unusual situations like this.

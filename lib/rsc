@@ -234,3 +234,5 @@ You said you were going to write some benchmarks.
 Is anyone else having a hard time getting through all.bash on Sierra?
 Please don't.
 You are speaking like a compiler author instead of a user.
+Just make sure to use an identifying User-Agent line when you make requests from your back end.
+I don't want ordinary users to be making choices about "how much debug info is enough".
