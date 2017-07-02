@@ -198,6 +198,7 @@ Each interprets the flags
 .BR h ,
 .BR hh ,
 .BR l ,
+.BR ll ,
 .BR u ,
 .BR + ,
 .BR - ,
@@ -205,7 +206,7 @@ Each interprets the flags
 and
 .B #
 to mean pad with zeros,
-short, byte, long, unsigned, always print a sign, left justified, commas every three digits,
+short, byte, long, vlong, unsigned, always print a sign, left justified, commas every three digits,
 and alternate format.
 Also, a space character in the flag
 position is like
@@ -218,12 +219,6 @@ then the argument is an
 If unsigned is specified,
 then the argument is interpreted as a
 positive number and no sign is output.
-If two
-.B l
-flags are given,
-then the argument is interpreted as a
-.B vlong
-(usually an 8-byte, sometimes a 4-byte integer).
 If
 .I precision
 is not omitted, the number is padded on the left with zeros
