@@ -160,6 +160,7 @@ static char *ttname[] =
 
 static char *spname[] =
 {
+	[Superspeed]	"super",
 	[Fullspeed]	"full",
 	[Lowspeed]	"low",
 	[Highspeed]	"high",
@@ -295,6 +296,7 @@ seprintep(char *s, char *se, Ep *ep, int all)
 	s = seprint(s, se, " hz %ld", ep->hz);
 	s = seprint(s, se, " hub %d", ep->dev->hub);
 	s = seprint(s, se, " port %d", ep->dev->port);
+	s = seprint(s, se, " addr %d", ep->dev->addr);
 	if(ep->inuse)
 		s = seprint(s, se, " busy");
 	else
@@ -374,29 +376,33 @@ putep(Ep *ep)
 {
 	Udev *d;
 
-	if(ep != nil && decref(ep) == 0){
-		d = ep->dev;
-		deprint("usb: ep%d.%d %#p released\n", d->nb, ep->nb, ep);
-		qlock(&epslck);
-		eps[ep->idx] = nil;
-		if(ep->idx == epmax-1)
-			epmax--;
-		if(ep == ep->ep0 && ep->dev != nil && ep->dev->nb == usbidgen)
-			usbidgen--;
-		qunlock(&epslck);
-		if(d != nil){
-			qlock(ep->ep0);
-			d->eps[ep->nb] = nil;
-			qunlock(ep->ep0);
-		}
-		if(ep->ep0 != ep){
-			putep(ep->ep0);
-			ep->ep0 = nil;
-		}
-		free(ep->info);
-		free(ep->name);
-		free(ep);
+	if(ep == nil || decref(ep) > 0)
+		return;
+	d = ep->dev;
+	deprint("usb: ep%d.%d %#p released\n", d->nb, ep->nb, ep);
+	qlock(&epslck);
+	eps[ep->idx] = nil;
+	if(ep->idx == epmax-1)
+		epmax--;
+	if(ep == ep->ep0 && ep->dev != nil && ep->dev->nb == usbidgen)
+		usbidgen--;
+	qunlock(&epslck);
+	if(d != nil){
+		qlock(ep->ep0);
+		d->eps[ep->nb] = nil;
+		qunlock(ep->ep0);
 	}
+	if(ep->ep0 != ep){
+		putep(ep->ep0);
+		ep->ep0 = nil;
+	} else if(d != nil){
+		if(d->free != nil)
+			(*d->free)(d->aux);
+		free(d);
+	}
+	free(ep->info);
+	free(ep->name);
+	free(ep);
 }
 
 static void
@@ -460,11 +466,15 @@ newdev(Hci *hp, int ishub, int isroot)
 	ep = epalloc(hp);
 	d = ep->dev = smalloc(sizeof(Udev));
 	d->nb = newusbid(hp);
+	d->addr = 0;
 	d->eps[0] = ep;
 	ep->nb = 0;
 	ep->toggle[0] = ep->toggle[1] = 0;
 	d->ishub = ishub;
 	d->isroot = isroot;
+	d->rootport = 0;
+	d->routestr = 0;
+	d->depth = 0;
 	if(hp->highspeed != 0)
 		d->speed = Highspeed;
 	else
@@ -1156,8 +1166,11 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 		nep->dev->speed = l;
 		if(nep->dev->speed  != Lowspeed)
 			nep->maxpkt = 64;	/* assume full speed */
-		nep->dev->hub = d->nb;
+		nep->dev->hub = d->addr;
 		nep->dev->port = atoi(cb->f[2]);
+		nep->dev->depth = d->depth+1;
+		nep->dev->rootport = d->depth == 0 ? nep->dev->port : d->rootport;
+		nep->dev->routestr = d->routestr | ((nep->dev->port&15) << 4*d->depth) >> 4;
 		/* next read request will read
 		 * the name for the new endpoint
 		 */
@@ -1265,6 +1278,8 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 		break;
 	case CMaddress:
 		deprint("usb epctl %s\n", cb->f[0]);
+		if(ep->dev->addr == 0)
+			ep->dev->addr = ep->dev->nb;
 		ep->dev->state = Denabled;
 		break;
 	case CMdetach:

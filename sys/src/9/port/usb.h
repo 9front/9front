@@ -41,6 +41,7 @@ enum
 	Lowspeed,
 	Highspeed,
 	Nospeed,
+	Superspeed,
 
 	/* request type */
 	Rh2d = 0<<7,
@@ -184,8 +185,16 @@ struct Udev
 	int	ishub;		/* hubs can allocate devices */
 	int	isroot;		/* is a root hub */
 	int	speed;		/* Full/Low/High/No -speed */
-	int	hub;		/* dev number for the parent hub */
+	int	hub;		/* device address for the parent hub */
 	int	port;		/* port number in the parent hub */
+	int	addr;		/* device address */
+	int	depth;		/* hub depth from root port */
+	int	rootport;	/* port number on root hub */
+	int	routestr;	/* route string */
+
+	void	*aux;
+	void	(*free)(void*);
+
 	Ep*	eps[Ndeveps];	/* end points for this device (cached) */
 };
 
