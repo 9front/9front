@@ -118,7 +118,7 @@ devaoe.$O sdaoe.$O:		../port/aoe.h
 
 main.$O:			init.h reboot.h
 
-devusb.$O usbuhci.$O usbohci.$O usbehci.$O: ../port/usb.h
+devusb.$O usbuhci.$O usbohci.$O usbehci.$O usbehcipc.$O usbxhci.$O: ../port/usb.h
 usbehci.$O usbehcipc.$O:	usbehci.h
 
 trap.$O:			/sys/include/tos.h
