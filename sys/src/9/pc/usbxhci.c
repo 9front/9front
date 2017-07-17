@@ -159,6 +159,10 @@ struct Wait
 
 struct Ring
 {
+	int	id;
+
+	Slot	*slot;
+
 	u32int	*base;
 
 	u32int	size;
@@ -168,10 +172,8 @@ struct Ring
 	u32int	rp;
 	u32int	wp;
 
-	struct {
-		u32int	*r;
-		u32int	v;
-	}	doorbell;
+	u32int	*ctx;
+	u32int	*doorbell;
 
 	Wait	*pending;
 	Lock;
@@ -264,8 +266,10 @@ freering(Ring *r)
 static void
 initring(Ring *r, int shift)
 {
-	r->doorbell.v = 0;
-	r->doorbell.r = nil;
+	r->id = 0;
+	r->ctx = nil;
+	r->slot = nil;
+	r->doorbell = nil;
 	r->pending = nil;
 	r->shift = shift;
 	r->size = 1<<shift;
@@ -337,8 +341,8 @@ init(Hci *hp)
 	ctlr->setrptr(&ctlr->opr[DCBAAP], PADDR(ctlr->dcba));
 
 	initring(ctlr->cr, 8);		/* 256 entries */
-	ctlr->cr->doorbell.r = &ctlr->dba[0];
-	ctlr->cr->doorbell.v = 0;
+	ctlr->cr->doorbell = &ctlr->dba[0];
+	ctlr->cr->id = 0;
 	coherence();
 	ctlr->setrptr(&ctlr->opr[CRCR], PADDR(ctlr->cr[0].base) | 1);
 
@@ -464,7 +468,7 @@ static void
 kickring(Ring *r)
 {
 	coherence();
-	*r->doorbell.r = r->doorbell.v;
+	*r->doorbell = r->id;
 }
 
 static char*
@@ -742,8 +746,10 @@ initep(Ep *ep)
 	}
 	if(ep->mode != OREAD){
 		initring(io->ring[OWRITE] = &slot->epr[ep->nb*2-1], 8);
-		io->ring[OWRITE]->doorbell.r = &ctlr->dba[slot->id];
-		io->ring[OWRITE]->doorbell.v = ep->nb*2;
+		io->ring[OWRITE]->doorbell = &ctlr->dba[slot->id];
+		io->ring[OWRITE]->slot = slot;
+		io->ring[OWRITE]->ctx = &slot->obase[(ep->nb*2+0)*8<<ctlr->csz];
+		io->ring[OWRITE]->id = ep->nb*2;
 
 		w[1] |= 1 << ep->nb*2;
 		if(ep->nb*2 > slot->nep)
@@ -751,8 +757,10 @@ initep(Ep *ep)
 	}
 	if(ep->mode != OWRITE){
 		initring(io->ring[OREAD] = &slot->epr[ep->nb*2], 8);
-		io->ring[OREAD]->doorbell.r = &ctlr->dba[slot->id];
-		io->ring[OREAD]->doorbell.v = ep->nb*2+1;
+		io->ring[OREAD]->doorbell = &ctlr->dba[slot->id];
+		io->ring[OREAD]->slot = slot;
+		io->ring[OREAD]->ctx = &slot->obase[(ep->nb*2+1)*8<<ctlr->csz];
+		io->ring[OREAD]->id = ep->nb*2+1;
 
 		w[1] |= 2 << ep->nb*2;
 		if(ep->nb*2+1 > slot->nep)
@@ -849,8 +857,10 @@ epopen(Ep *ep)
 
 	/* allocate control ep 0 ring */
 	initring(io->ring[OWRITE] = &slot->epr[0], 8);
-	io->ring[OWRITE]->doorbell.r = &ctlr->dba[slot->id];
-	io->ring[OWRITE]->doorbell.v = 1;
+	io->ring[OWRITE]->doorbell = &ctlr->dba[slot->id];
+	io->ring[OWRITE]->slot = slot;
+	io->ring[OWRITE]->ctx = &slot->obase[8];
+	io->ring[OWRITE]->id = 1;
 	slot->nep = 1;
 
 	/* (input) control context */
@@ -905,60 +915,21 @@ epopen(Ep *ep)
 }
 
 static void
-resetring(Ring *r)
+unstall(Ring *r)
 {
-	ilock(r);
-	r->rp--;	/* assume previous td halted */
-	while((int)(r->wp - r->rp) > 0){
-		u32int *td = &r->base[4*(--r->wp & r->mask)];
-		td[0] = td[1] = td[2] = 0;
-		td[3] = (r->wp>>r->shift)&1;
+	u64int qp;
+
+	switch(r->ctx[0]&7){
+	case 2:
+	case 4:
+		ilock(r);
+		r->rp = r->wp;
+		qp = PADDR(&r->base[4*(r->wp & r->mask)]) | ((~r->wp>>r->shift) & 1);
+		iunlock(r);
+
+		ctlrcmd(r->slot->ctlr, CR_RESETEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
+		ctlrcmd(r->slot->ctlr, CR_SETTRDQP | (r->id<<16) | (r->slot->id<<24), 0, qp, nil);
 	}
-	iunlock(r);
-}
-
-static int
-epunstall(Ep *ep, int mode)
-{
-	Ctlr *ctlr;
-	Slot *slot;
-	Epio *io;
-	u32int *w;
-	int dci, ret;
-
-	ret = 0;
-	io = ep->aux;
-	slot = ep->dev->aux;
-	ctlr = slot->ctlr;
-
-	if(ep->nb == 0)
-		dci = 1;
-	else
-		dci = ep->nb*2;	
-
-	/* (output) ep context */
-	w = slot->obase;
-	w += dci*8<<ctlr->csz;
-	if(mode != OREAD && io->ring[OWRITE] != nil){
-		switch(w[0]&7){
-		case 2:
-		case 4:
-			resetring(io->ring[OWRITE]);
-			ctlrcmd(ctlr, CR_RESETEP | (dci<<16) | (slot->id<<24), 0, 0, nil);
-			ret++;
-		}
-	}
-	w += 8<<ctlr->csz, dci++;
-	if(mode != OWRITE && io->ring[OREAD] != nil){
-		switch(w[0]&7){
-		case 2:
-		case 4:
-			resetring(io->ring[OREAD]);
-			ctlrcmd(ctlr, CR_RESETEP | (dci<<16) | (slot->id<<24), 0, 0, nil);
-			ret++;
-		}
-	}
-	return ret;
 }
 
 static long
@@ -972,6 +943,7 @@ epread(Ep *ep, void *va, long n)
 
 	p = va;
 	io = ep->aux;
+
 	if(ep->ttype == Tctl){
 		qlock(io);
 		if(io->cb == nil || BLEN(io->cb) == 0){
@@ -1001,8 +973,8 @@ epread(Ep *ep, void *va, long n)
 		return n;
 	}
 
-	epunstall(ep, OREAD);
 	ring = io->ring[OREAD];
+	unstall(ring);
 	ilock(ring);
 	queuetd(ring, TR_NORMAL | 1<<16 | 1<<5, n, PADDR(p), ws);
 	iunlock(ring);
@@ -1028,6 +1000,7 @@ epwrite(Ep *ep, void *va, long n)
 
 	p = va;
 	io = ep->aux;
+
 	if(ep->ttype == Tctl){
 		int dir, len;
 
@@ -1059,8 +1032,8 @@ epwrite(Ep *ep, void *va, long n)
 			}
 		}
 
-		epunstall(ep, OWRITE);
 		ring = io->ring[OWRITE];
+		unstall(ring);
 		ilock(ring);
 		queuetd(ring, TR_SETUPSTAGE | (len > 0 ? 2+dir : 0)<<16 | 1<<6 | 1<<5, 8,
 			p[0] | p[1]<<8 | GET2(&p[2])<<16 |
@@ -1104,8 +1077,8 @@ epwrite(Ep *ep, void *va, long n)
 		return n;
 	}
 
-	epunstall(ep, OWRITE);
 	ring = io->ring[OWRITE];
+	unstall(ring);
 	ilock(ring);
 	queuetd(ring, TR_NORMAL | 1<<16 | 1<<5, n, PADDR(p), ws);
 	iunlock(ring);
@@ -1237,8 +1210,6 @@ reset(Hci *hp)
 
 	if(getconf("*nousbxhci"))
 		return -1;
-
-	fmtinstall(L'H', encodefmt);
 
 	scanpci();
 
