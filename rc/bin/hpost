@@ -63,7 +63,7 @@ fn menc {
 		echo 'Content-Disposition: form-data; name="'$"k'"'$"cr
 		echo $"cr
 		i=$"i$"cr
-		sed 's!^[^:]+:!!' /env/i
+		sed '1s!^[^:]+:!!' /env/i
 	}
 	for(i in $af){
 		k=`{sed 's!@.*$!!; q' /env/i}
