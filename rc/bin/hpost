@@ -67,7 +67,8 @@ fn menc {
 	}
 	for(i in $af){
 		k=`{sed 's!@.*$!!; q' /env/i}
-		v=`{sed 's!^[^@]+@!!' /env/i}
+	ifs='
+'	v=`{sed 's!^[^@]+@!!' /env/i}
 		t=`{file -m $v}
 		n=`{basename $v}
 		echo '--'$"f$"cr
