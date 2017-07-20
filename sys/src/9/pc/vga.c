@@ -53,7 +53,7 @@ vgascreenputc(VGAscr* scr, char* buf, Rectangle *flushr)
 	int h, w, pos;
 	Rectangle r;
 
-	if(xp < xbuf || xp >= &xbuf[sizeof(xbuf)])
+	if(xp < xbuf || xp >= &xbuf[nelem(xbuf)])
 		xp = xbuf;
 
 	h = scr->memdefont->height;
