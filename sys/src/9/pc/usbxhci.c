@@ -165,7 +165,6 @@ struct Ring
 
 	u32int	*base;
 
-	u32int	size;
 	u32int	mask;
 	u32int	shift;
 
@@ -234,7 +233,7 @@ struct Epio
 {
 	QLock;
 	Block	*cb;
-	Ring	*ring[2];	/* OREAD, OWRITE */
+	Ring	*ring;
 };
 
 static char Ebadlen[] = "bad usb request length";
@@ -263,7 +262,7 @@ freering(Ring *r)
 	memset(r, 0, sizeof(*r));
 }
 
-static void
+static Ring*
 initring(Ring *r, int shift)
 {
 	r->id = 0;
@@ -272,14 +271,14 @@ initring(Ring *r, int shift)
 	r->doorbell = nil;
 	r->pending = nil;
 	r->shift = shift;
-	r->size = 1<<shift;
-	r->mask = r->size-1;
+	r->mask = (1<<shift)-1;
 	r->rp = r->wp = 0;
-	r->base = mallocalign(r->size*16, 64, 0, 64*1024);
+	r->base = mallocalign(4*4<<shift, 64, 0, 64*1024);
 	if(r->base == nil){
 		freering(r);
 		error(Enomem);
 	}
+	return r;
 }
 
 static void
@@ -341,8 +340,8 @@ init(Hci *hp)
 	ctlr->setrptr(&ctlr->opr[DCBAAP], PADDR(ctlr->dcba));
 
 	initring(ctlr->cr, 8);		/* 256 entries */
-	ctlr->cr->doorbell = &ctlr->dba[0];
 	ctlr->cr->id = 0;
+	ctlr->cr->doorbell = &ctlr->dba[0];
 	coherence();
 	ctlr->setrptr(&ctlr->opr[CRCR], PADDR(ctlr->cr[0].base) | 1);
 
@@ -358,7 +357,7 @@ init(Hci *hp)
 		initring(&ctlr->er[i], 8);	/* 256 entries */
 		ctlr->erst[i] = mallocalign(16, 64, 0, 0);
 		*((u64int*)ctlr->erst[i]) = PADDR(ctlr->er[i].base);
-		ctlr->erst[i][2] = ctlr->er[i].size;
+		ctlr->erst[i][2] = ctlr->er[i].mask+1;
 		ctlr->erst[i][3] = 0;
 
 		irs[ERSTSZ] = 1;	/* just one segment */
@@ -464,23 +463,34 @@ waitdone(void *a)
 	return ((Wait*)a)->z == nil;
 }
 
-static void
-kickring(Ring *r)
-{
-	coherence();
-	*r->doorbell = r->id;
-}
+static char*
+ctlrcmd(Ctlr *ctlr, u32int c, u32int s, u64int p, u32int *er);
 
 static char*
-waittd(Wait *w, u32int *er)
+waittd(Ctlr *ctlr, Wait *w, int tmout, u32int *er)
 {
-	while(!waitdone(w)){
-		while(waserror())
-			;
-		kickring(w->ring);
-		sleep(&up->sleep, waitdone, w);
-		poperror();
+	Ring *ring = w->ring;
+
+	coherence();
+	*ring->doorbell = ring->id;
+
+	while(waserror()){
+		if(ring == ctlr->cr)
+			ctlr->opr[CRCR] |= CA;
+		else
+			ctlrcmd(ctlr, CR_STOPEP | (ring->id<<16) | (ring->slot->id<<24), 0, 0, nil);
+		tmout = 0;
 	}
+	if(tmout > 0){
+		tsleep(&up->sleep, waitdone, w, tmout);
+		if(!waitdone(w))
+			error("timed out");
+	} else {
+		while(!waitdone(w))
+			sleep(&up->sleep, waitdone, w);
+	}
+	poperror();
+
 	if(er != nil)
 		memmove(er, w->er, 4*4);
 	return ccerrstr(w->er[2]>>24);
@@ -489,12 +499,13 @@ waittd(Wait *w, u32int *er)
 static char*
 ctlrcmd(Ctlr *ctlr, u32int c, u32int s, u64int p, u32int *er)
 {
-	Wait w[1];
+	Wait ws[1];
 
 	ilock(ctlr->cr);
-	queuetd(ctlr->cr, c, s, p, w);
+	queuetd(ctlr->cr, c, s, p, ws);
 	iunlock(ctlr->cr);
-	return waittd(w, er);
+
+	return waittd(ctlr, ws, 5000, er);
 }
 
 static void
@@ -569,10 +580,12 @@ interrupt(Ureg*, void *arg)
 				break;
 			completering(&slot->epr[(td[3]>>16)-1&31], td);
 			break;
+		case ER_HCE:
+			iprint("xhci: host controller error: %ux %ux %ux %ux\n", td[0], td[1], td[2], td[3]);
+			break;
 		case ER_PORTSC:
 		case ER_BWREQ:
 		case ER_DOORBELL:
-		case ER_HCE:
 		case ER_DEVNOTE:
 		case ER_MFINDEXWRAP:
 		default:
@@ -679,21 +692,21 @@ epclose(Ep *ep)
 	ctlr = ep->hp->aux;
 	slot = ep->dev->aux;
 
-	if(ep->nb > 0 && (io->ring[OREAD] != nil || io->ring[OWRITE] != nil)){
+	if(ep->nb > 0 && (io[OREAD].ring != nil || io[OWRITE].ring != nil)){
 		u32int *w;
 
 		/* input control context */
 		w = slot->ibase;
 		memset(w, 0, 32<<ctlr->csz);
 		w[1] = 1;
-		if(io->ring[OREAD] != nil){
-			w[0] |= 2 << ep->nb*2;
-			if(ep->nb*2+1 == slot->nep)
+		if(io[OREAD].ring != nil){
+			w[0] |= 1 << io[OREAD].ring->id;
+			if(io[OREAD].ring->id == slot->nep)
 				slot->nep--;
 		}
-		if(io->ring[OWRITE] != nil){
-			w[0] |= 1 << ep->nb*2;
-			if(ep->nb*2 == slot->nep)
+		if(io[OWRITE].ring != nil){
+			w[0] |= 1 << io[OWRITE].ring->id;
+			if(io[OWRITE].ring->id == slot->nep)
 				slot->nep--;
 		}
 
@@ -707,10 +720,10 @@ epclose(Ep *ep)
 
 		ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0, PADDR(slot->ibase), nil);
 
-		freering(io->ring[OREAD]);
-		freering(io->ring[OWRITE]);
+		freering(io[OREAD].ring);
+		freering(io[OWRITE].ring);
 	}
-	freeb(io->cb);
+	freeb(io[OREAD].cb);
 	free(io);
 }
 
@@ -720,6 +733,7 @@ initep(Ep *ep)
 	Epio *io;
 	Ctlr *ctlr;
 	Slot *slot;
+	Ring *ring;
 	u32int *w;
 	int ival;
 	char *err;
@@ -728,9 +742,9 @@ initep(Ep *ep)
 	slot = ep->dev->aux;
 	ctlr = ep->hp->aux;
 
-	io->ring[OREAD] = io->ring[OWRITE] = nil;
+	io[OREAD].ring = io[OWRITE].ring = nil;
 	if(ep->nb == 0){
-		io->ring[OWRITE] = &slot->epr[0];
+		io[OWRITE].ring = &slot->epr[0];
 		return;
 	}
 
@@ -740,31 +754,29 @@ initep(Ep *ep)
 	w[1] = 1;
 
 	if(waserror()){
-		freering(io->ring[OWRITE]), io->ring[OWRITE] = nil;
-		freering(io->ring[OREAD]), io->ring[OREAD] = nil;
+		freering(io[OWRITE].ring), io[OWRITE].ring = nil;
+		freering(io[OREAD].ring), io[OREAD].ring = nil;
 		nexterror();
 	}
 	if(ep->mode != OREAD){
-		initring(io->ring[OWRITE] = &slot->epr[ep->nb*2-1], 8);
-		io->ring[OWRITE]->doorbell = &ctlr->dba[slot->id];
-		io->ring[OWRITE]->slot = slot;
-		io->ring[OWRITE]->ctx = &slot->obase[(ep->nb*2+0)*8<<ctlr->csz];
-		io->ring[OWRITE]->id = ep->nb*2;
-
-		w[1] |= 1 << ep->nb*2;
-		if(ep->nb*2 > slot->nep)
-			slot->nep = ep->nb*2;
+		ring = initring(io[OWRITE].ring = &slot->epr[ep->nb*2-1], 8);
+		ring->id = ep->nb*2;
+		if(ring->id > slot->nep)
+			slot->nep = ring->id;
+		ring->slot = slot;
+		ring->doorbell = &ctlr->dba[slot->id];
+		ring->ctx = &slot->obase[ring->id*8<<ctlr->csz];
+		w[1] |= 1 << ring->id;
 	}
 	if(ep->mode != OWRITE){
-		initring(io->ring[OREAD] = &slot->epr[ep->nb*2], 8);
-		io->ring[OREAD]->doorbell = &ctlr->dba[slot->id];
-		io->ring[OREAD]->slot = slot;
-		io->ring[OREAD]->ctx = &slot->obase[(ep->nb*2+1)*8<<ctlr->csz];
-		io->ring[OREAD]->id = ep->nb*2+1;
-
-		w[1] |= 2 << ep->nb*2;
-		if(ep->nb*2+1 > slot->nep)
-			slot->nep = ep->nb*2+1;
+		ring = initring(io[OREAD].ring = &slot->epr[ep->nb*2], 8);
+		ring->id = ep->nb*2+1;
+		if(ring->id > slot->nep)
+			slot->nep = ring->id;
+		ring->slot = slot;
+		ring->doorbell = &ctlr->dba[slot->id];
+		ring->ctx = &slot->obase[ring->id*8<<ctlr->csz];
+		w[1] |= 1 << ring->id;
 	}
 
 	/* (input) slot context */
@@ -784,19 +796,19 @@ initep(Ep *ep)
 	}
 
 	/* out */
-	if(io->ring[OWRITE] != nil){
+	if(io[OWRITE].ring != nil){
 		w[0] = ival<<16;
 		w[1] = 3<<1 | ((ep->ttype - Tctl)|0)<<3 | ep->maxpkt<<16;
-		*((u64int*)&w[2]) = PADDR(io->ring[OWRITE]->base) | 1;
+		*((u64int*)&w[2]) = PADDR(io[OWRITE].ring->base) | 1;
 		w[4] = 1;
 	}
 
 	/* in */
 	w += 8<<ctlr->csz;
-	if(io->ring[OREAD] != nil){
+	if(io[OREAD].ring != nil){
 		w[0] = ival<<16;
 		w[1] = 3<<1 | ((ep->ttype - Tctl)|4)<<3 | ep->maxpkt<<16;
-		*((u64int*)&w[2]) = PADDR(io->ring[OREAD]->base) | 1;
+		*((u64int*)&w[2]) = PADDR(io[OREAD].ring->base) | 1;
 		w[4] = 1;
 	}
 
@@ -824,6 +836,7 @@ epopen(Ep *ep)
 {
 	Ctlr *ctlr = ep->hp->aux;
 	Slot *slot, *hub;
+	Ring *ring;
 	Epio *io;
 	Udev *dev;
 	char *err;
@@ -833,7 +846,7 @@ epopen(Ep *ep)
 	if(ep->dev->isroot)
 		return;
 
-	io = malloc(sizeof(Epio));
+	io = malloc(sizeof(Epio)*2);
 	if(io == nil)
 		error(Enomem);
 	ep->aux = io;
@@ -856,12 +869,12 @@ epopen(Ep *ep)
 	slot = allocslot(ctlr, dev);
 
 	/* allocate control ep 0 ring */
-	initring(io->ring[OWRITE] = &slot->epr[0], 8);
-	io->ring[OWRITE]->doorbell = &ctlr->dba[slot->id];
-	io->ring[OWRITE]->slot = slot;
-	io->ring[OWRITE]->ctx = &slot->obase[8];
-	io->ring[OWRITE]->id = 1;
+	ring = initring(io[OWRITE].ring = &slot->epr[0], 4);
+	ring->id = 1;
 	slot->nep = 1;
+	ring->slot = slot;
+	ring->doorbell = &ctlr->dba[slot->id];
+	ring->ctx = &slot->obase[8];
 
 	/* (input) control context */
 	w = slot->ibase;
@@ -901,7 +914,7 @@ epopen(Ep *ep)
 	/* (input) ep context 0 */
 	w += 8<<ctlr->csz;
 	w[1] = 3<<1 | 4<<3 | ep->maxpkt<<16;
-	*((u64int*)&w[2]) = PADDR(io->ring[OWRITE]->base) | 1;
+	*((u64int*)&w[2]) = PADDR(io[OWRITE].ring->base) | 1;
 
 	if((err = ctlrcmd(ctlr, CR_ADDRESSDEV | (slot->id<<24), 0,
 		PADDR(slot->ibase), nil)) != nil){
@@ -914,22 +927,34 @@ epopen(Ep *ep)
 	poperror();
 }
 
-static void
+static char*
 unstall(Ring *r)
 {
 	u64int qp;
+	char *err;
 
 	switch(r->ctx[0]&7){
-	case 2:
-	case 4:
+	case 0:	/* disabled */
+	case 1:	/* running */
+	case 3:	/* stopped */
+		break;
+	case 2:	/* halted */
+	case 4:	/* error */
 		ilock(r);
 		r->rp = r->wp;
 		qp = PADDR(&r->base[4*(r->wp & r->mask)]) | ((~r->wp>>r->shift) & 1);
 		iunlock(r);
 
-		ctlrcmd(r->slot->ctlr, CR_RESETEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
+		err = ctlrcmd(r->slot->ctlr, CR_RESETEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
 		ctlrcmd(r->slot->ctlr, CR_SETTRDQP | (r->id<<16) | (r->slot->id<<24), 0, qp, nil);
+		if(err != nil)
+			return err;
 	}
+
+	if(r->wp - r->rp >= r->mask)
+		return "Ring Full";
+
+	return nil;
 }
 
 static long
@@ -937,12 +962,11 @@ epread(Ep *ep, void *va, long n)
 {
 	Epio *io;
 	uchar *p;
-	Ring *ring;
 	char *err;
 	Wait ws[1];
 
 	p = va;
-	io = ep->aux;
+	io = (Epio*)ep->aux + OREAD;
 
 	if(ep->ttype == Tctl){
 		qlock(io);
@@ -973,13 +997,17 @@ epread(Ep *ep, void *va, long n)
 		return n;
 	}
 
-	ring = io->ring[OREAD];
-	unstall(ring);
-	ilock(ring);
-	queuetd(ring, TR_NORMAL | 1<<16 | 1<<5, n, PADDR(p), ws);
-	iunlock(ring);
+	qlock(io);
+	if((err = unstall(io->ring)) != nil){
+		qunlock(io);
+		error(err);
+	}
+	ilock(io->ring);
+	queuetd(io->ring, TR_NORMAL | 1<<16 | 1<<5, n, PADDR(p), ws);
+	iunlock(io->ring);
+	qunlock(io);
 
-	if((err = waittd(ws, nil)) != nil)
+	if((err = waittd((Ctlr*)ep->hp->aux, ws, ep->tmout, nil)) != nil)
 		error(err);
 
 	n -= (ws->er[2] & 0xFFFFFF);
@@ -993,16 +1021,14 @@ static long
 epwrite(Ep *ep, void *va, long n)
 {
 	Wait ws[3];
-	Ring *ring;
 	Epio *io;
 	uchar *p;
 	char *err;
 
 	p = va;
-	io = ep->aux;
-
 	if(ep->ttype == Tctl){
 		int dir, len;
+		Ring *ring;
 
 		if(n < 8)
 			error(Eshort);
@@ -1010,6 +1036,7 @@ epwrite(Ep *ep, void *va, long n)
 		if(p[0] == 0x00 && p[1] == 0x05)
 			return n;
 
+		io = (Epio*)ep->aux + OREAD;
 		qlock(io);
 		if(waserror()){
 			qunlock(io);
@@ -1032,8 +1059,10 @@ epwrite(Ep *ep, void *va, long n)
 			}
 		}
 
-		ring = io->ring[OWRITE];
-		unstall(ring);
+		ring = io[OWRITE-OREAD].ring;
+		if((err = unstall(ring)) != nil)
+			error(err);
+
 		ilock(ring);
 		queuetd(ring, TR_SETUPSTAGE | (len > 0 ? 2+dir : 0)<<16 | 1<<6 | 1<<5, 8,
 			p[0] | p[1]<<8 | GET2(&p[2])<<16 |
@@ -1044,10 +1073,10 @@ epwrite(Ep *ep, void *va, long n)
 		queuetd(ring, TR_STATUSSTAGE | (len == 0 || !dir)<<16 | 1<<5, 0, 0, &ws[2]);
 		iunlock(ring);
 
-		if((err = waittd(&ws[0], nil)) != nil)
+		if((err = waittd((Ctlr*)ep->hp->aux, &ws[0], ep->tmout, nil)) != nil)
 			error(err);
 		if(len > 0){
-			if((err = waittd(&ws[1], nil)) != nil)
+			if((err = waittd((Ctlr*)ep->hp->aux, &ws[1], ep->tmout, nil)) != nil)
 				error(err);
 			if(dir != 0){
 				io->cb->wp -= (ws[1].er[2] & 0xFFFFFF);
@@ -1055,10 +1084,12 @@ epwrite(Ep *ep, void *va, long n)
 					io->cb->wp = io->cb->rp;
 			}
 		}
-		if((err = waittd(&ws[2], nil)) != nil)
+		if((err = waittd((Ctlr*)ep->hp->aux, &ws[2], ep->tmout, nil)) != nil)
 			error(err);
+
 		qunlock(io);
 		poperror();
+
 		return n;
 	}
 
@@ -1077,13 +1108,18 @@ epwrite(Ep *ep, void *va, long n)
 		return n;
 	}
 
-	ring = io->ring[OWRITE];
-	unstall(ring);
-	ilock(ring);
-	queuetd(ring, TR_NORMAL | 1<<16 | 1<<5, n, PADDR(p), ws);
-	iunlock(ring);
+	io = (Epio*)ep->aux + OWRITE;
+	qlock(io);
+	if((err = unstall(io->ring)) != nil){
+		qunlock(io);
+		error(err);
+	}
+	ilock(io->ring);
+	queuetd(io->ring, TR_NORMAL | 1<<16 | 1<<5, n, PADDR(p), ws);
+	iunlock(io->ring);
+	qunlock(io);
 
-	if((err = waittd(ws, nil)) != nil)
+	if((err = waittd((Ctlr*)ep->hp->aux, ws, ep->tmout, nil)) != nil)
 		error(err);
 
 	return n;
