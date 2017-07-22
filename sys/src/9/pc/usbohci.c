@@ -2571,7 +2571,7 @@ reset(Hci *hp)
 	for(i = 0; i < Nhcis && ctlrs[i] != nil; i++){
 		ctlr = ctlrs[i];
 		if(ctlr->active == 0)
-		if(hp->port == 0 || hp->port == (uintptr)ctlr->ohci){
+		if(hp->port == 0 || hp->port == PADDR(ctlr->ohci)){
 			ctlr->active = 1;
 			break;
 		}
@@ -2585,7 +2585,7 @@ reset(Hci *hp)
 
 	p = ctlr->pcidev;
 	hp->aux = ctlr;
-	hp->port = (uintptr)ctlr->ohci;
+	hp->port = PADDR(ctlr->ohci);
 	hp->irq = p->intl;
 	hp->tbdf = p->tbdf;
 	ctlr->nports = hp->nports = ctlr->ohci->rhdesca & 0xff;

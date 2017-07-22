@@ -180,7 +180,7 @@ scanpci(void)
 				p->vid, p->did);
 			continue;
 		}
-		dprint("usbehci: %#x %#x: port %#p size %#x irq %d\n",
+		print("usbehci: %#x %#x: port %#p size %#x irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 
 		ctlr = malloc(sizeof(Ctlr));
@@ -239,7 +239,7 @@ reset(Hci *hp)
 	for(i = 0; i < Nhcis && ctlrs[i] != nil; i++){
 		ctlr = ctlrs[i];
 		if(ctlr->active == 0)
-		if(hp->port == 0 || hp->port == (uintptr)ctlr->capio){
+		if(hp->port == 0 || hp->port == PADDR(ctlr->capio)){
 			ctlr->active = 1;
 			break;
 		}
@@ -250,7 +250,7 @@ reset(Hci *hp)
 
 	p = ctlr->pcidev;
 	hp->aux = ctlr;
-	hp->port = (uintptr)ctlr->capio;
+	hp->port = PADDR(ctlr->capio);
 	hp->irq = p->intl;
 	hp->tbdf = p->tbdf;
 

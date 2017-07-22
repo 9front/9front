@@ -2144,7 +2144,7 @@ scanpci(void)
 			continue;
 		}
 
-		dprint("uhci: %#x %#x: port %#ux size %#x irq %d\n",
+		print("uhci: %#x %#x: port %#ux size %#x irq %d\n",
 			p->vid, p->did, io, p->mem[4].size, p->intl);
 
 		ctlr = malloc(sizeof(Ctlr));
