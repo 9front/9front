@@ -648,7 +648,7 @@ allocslot(Ctlr *ctlr, Udev *dev)
 	if((err = ctlrcmd(ctlr, CR_ENABLESLOT, 0, 0, r)) != nil)
 		error(err);
 	slot->id = r[3]>>24;
-	if(slot->id <= 0 || slot->id > ctlr->nslots){
+	if(slot->id <= 0 || slot->id > ctlr->nslots || ctlr->slot[slot->id] != nil){
 		slot->id = 0;
 		error("bad slot id from controller");
 	}
@@ -728,6 +728,26 @@ epclose(Ep *ep)
 }
 
 static void
+initepctx(u32int *w, Ring *r, Ep *ep)
+{
+	int ival;
+
+	if(ep->ttype == Tintr && (ep->dev->speed == Fullspeed || ep->dev->speed == Lowspeed)){
+		for(ival=3; ival < 11 && (1<<ival) < ep->pollival; ival++)
+			;
+	} else {
+		for(ival=0; ival < 15 && (1<<ival) < ep->pollival; ival++)
+			;
+	}
+	w[0] = ival<<16;
+	w[1] = ((ep->ttype-Tctl)|(r->id&1)<<2)<<3 | (ep->ntds-1)<<8 | ep->maxpkt<<16;
+	if(ep->ttype != Tiso)
+		w[1] |= 3<<1;
+	*((u64int*)&w[2]) = PADDR(r->base) | 1;
+	w[4] = ep->maxpkt;
+}
+
+static void
 initep(Ep *ep)
 {
 	Epio *io;
@@ -735,12 +755,11 @@ initep(Ep *ep)
 	Slot *slot;
 	Ring *ring;
 	u32int *w;
-	int ival;
 	char *err;
 
 	io = ep->aux;
-	slot = ep->dev->aux;
 	ctlr = ep->hp->aux;
+	slot = ep->dev->aux;
 
 	io[OREAD].ring = io[OWRITE].ring = nil;
 	if(ep->nb == 0){
@@ -786,31 +805,12 @@ initep(Ep *ep)
 	/* (input) ep context */
 	w += ep->nb*2*8<<ctlr->csz;
 	memset(w, 0, 2*32<<ctlr->csz);
+	if(io[OWRITE].ring != nil)
+		initepctx(w, io[OWRITE].ring, ep);
 
-	if(ep->ttype == Tintr && (ep->dev->speed == Fullspeed || ep->dev->speed == Lowspeed)){
-		for(ival=3; ival < 11 && (1<<ival) < ep->pollival; ival++)
-			;
-	} else {
-		for(ival=0; ival < 15 && (1<<ival) < ep->pollival; ival++)
-			;
-	}
-
-	/* out */
-	if(io[OWRITE].ring != nil){
-		w[0] = ival<<16;
-		w[1] = 3<<1 | ((ep->ttype - Tctl)|0)<<3 | ep->maxpkt<<16;
-		*((u64int*)&w[2]) = PADDR(io[OWRITE].ring->base) | 1;
-		w[4] = 1;
-	}
-
-	/* in */
 	w += 8<<ctlr->csz;
-	if(io[OREAD].ring != nil){
-		w[0] = ival<<16;
-		w[1] = 3<<1 | ((ep->ttype - Tctl)|4)<<3 | ep->maxpkt<<16;
-		*((u64int*)&w[2]) = PADDR(io[OREAD].ring->base) | 1;
-		w[4] = 1;
-	}
+	if(io[OREAD].ring != nil)
+		initepctx(w, io[OREAD].ring, ep);
 
 	if((err = ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0,
 		PADDR(slot->ibase), nil)) != nil){
@@ -913,8 +913,7 @@ epopen(Ep *ep)
 
 	/* (input) ep context 0 */
 	w += 8<<ctlr->csz;
-	w[1] = 3<<1 | 4<<3 | ep->maxpkt<<16;
-	*((u64int*)&w[2]) = PADDR(io[OWRITE].ring->base) | 1;
+	initepctx(w, io[OWRITE].ring, ep);
 
 	if((err = ctlrcmd(ctlr, CR_ADDRESSDEV | (slot->id<<24), 0,
 		PADDR(slot->ibase), nil)) != nil){
@@ -1224,7 +1223,7 @@ scanpci(void)
 			continue;
 		}
 		print("usbxhci: %#x %#x: port %#p size %#x irq %d\n",
-			p->vid, p->did, mmio, p->mem[0].size, p->intl);
+			p->vid, p->did, io, p->mem[0].size, p->intl);
 		ctlr->active = nil;
 		ctlr->pcidev = p;
 		ctlr->mmio = mmio;
@@ -1256,7 +1255,7 @@ reset(Hci *hp)
 	for(i = 0; i < nelem(ctlrs) && ctlrs[i] != nil; i++){
 		ctlr = ctlrs[i];
 		if(ctlr->active == nil)
-		if(hp->port == 0 || hp->port == (uintptr)ctlr->mmio){
+		if(hp->port == 0 || hp->port == PADDR(ctlr->mmio)){
 			ctlr->active = hp;
 			goto Found;
 		}
@@ -1265,7 +1264,7 @@ reset(Hci *hp)
 
 Found:
 	hp->aux = ctlr;
-	hp->port = (uintptr)ctlr->mmio;
+	hp->port = PADDR(ctlr->mmio);
 	hp->irq = ctlr->pcidev->intl;
 	hp->tbdf = ctlr->pcidev->tbdf;
 
