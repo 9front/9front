@@ -1062,12 +1062,24 @@ epwrite(Ep *ep, void *va, long n)
 		if((err = unstall(ring)) != nil)
 			error(err);
 
+		if((ring->ctx[1]>>16) != ep->maxpkt){
+			Slot *slot = ring->slot;
+			Ctlr *ctlr = slot->ctlr;
+			u32int *w = slot->ibase;
+			w[0] = 0;
+			w[1] = 1<<ring->id;
+			w += (ring->id+1)*8<<ctlr->csz;
+			initepctx(w, ring, ep);
+			if((err = ctlrcmd(ctlr, CR_EVALCTX | (slot->id<<24), 0, PADDR(slot->ibase), nil)) != nil)
+				error(err);
+		}
+
 		ilock(ring);
 		queuetd(ring, TR_SETUPSTAGE | (len > 0 ? 2+dir : 0)<<16 | 1<<6 | 1<<5, 8,
 			p[0] | p[1]<<8 | GET2(&p[2])<<16 |
 			(u64int)(GET2(&p[4]) | len<<16)<<32, &ws[0]);
 		if(len > 0)
-			queuetd(ring, TR_DATASTAGE | dir<<16 | 0<<6 | 1<<5 | 0<<2, len,
+			queuetd(ring, TR_DATASTAGE | dir<<16 | 1<<5, len,
 				PADDR(io->cb->rp), &ws[1]);
 		queuetd(ring, TR_STATUSSTAGE | (len == 0 || !dir)<<16 | 1<<5, 0, 0, &ws[2]);
 		iunlock(ring);
@@ -1085,7 +1097,6 @@ epwrite(Ep *ep, void *va, long n)
 		}
 		if((err = waittd((Ctlr*)ep->hp->aux, &ws[2], ep->tmout, nil)) != nil)
 			error(err);
-
 		qunlock(io);
 		poperror();
 
