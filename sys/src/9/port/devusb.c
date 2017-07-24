@@ -1084,18 +1084,12 @@ usbread(Chan *c, void *a, long n, vlong offset)
 	return n;
 }
 
-static long
-pow2(int n)
-{
-	return 1 << n;
-}
-
 static void
 setmaxpkt(Ep *ep, char* s)
 {
-	long spp;	/* samples per packet */
+	long spp, max;	/* samples per packet */
 
-	if(ep->dev->speed == Highspeed)
+	if(ep->dev->speed == Highspeed || ep->dev->speed == Superspeed)
 		spp = (ep->hz * ep->pollival * ep->ntds + 7999) / 8000;
 	else
 		spp = (ep->hz * ep->pollival + 999) / 1000;
@@ -1104,9 +1098,24 @@ setmaxpkt(Ep *ep, char* s)
 		" ntds %d %s speed -> spp %ld maxpkt %ld\n", s,
 		ep->hz, ep->pollival, ep->ntds, spname[ep->dev->speed],
 		spp, ep->maxpkt);
-	if(ep->maxpkt > 1024){
-		print("usb: %s: maxpkt %ld > 1024. truncating\n", s, ep->maxpkt);
-		ep->maxpkt = 1024;
+
+	switch(ep->dev->speed){
+	case Fullspeed:
+		max = 1024;
+		break;
+	case Highspeed:
+		max = 3*1024;
+		break;
+	case Superspeed:
+		max = 48*1024;
+		break;
+	default:
+		return;
+	}
+	if(ep->maxpkt*ep->ntds > max){
+		print("usb: %s: maxpkt %ld > %ld for %s, truncating\n",
+			s, ep->maxpkt*ep->ntds, max, spname[ep->dev->speed]);
+		ep->maxpkt = max/ep->ntds;
 	}
 }
 
@@ -1164,7 +1173,7 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 			error("speed must be full|low|high");
 		nep = newdev(ep->hp, 0, 0);
 		nep->dev->speed = l;
-		if(nep->dev->speed  != Lowspeed)
+		if(nep->dev->speed != Lowspeed)
 			nep->maxpkt = 64;	/* assume full speed */
 		nep->dev->hub = d->addr;
 		nep->dev->port = atoi(cb->f[2]);
@@ -1214,14 +1223,14 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 			error("not an intr or iso endpoint");
 		l = strtoul(cb->f[1], nil, 0);
 		deprint("usb epctl %s %d\n", cb->f[0], l);
-		if(ep->ttype == Tiso ||
-		   (ep->ttype == Tintr && ep->dev->speed == Highspeed)){
+		if(ep->dev->speed == Highspeed || ep->dev->speed == Superspeed){
 			if(l < 1 || l > 16)
 				error("pollival power not in [1:16]");
-			l = pow2(l-1);
-		}else
+			l = 1 << l-1;
+		} else {
 			if(l < 1 || l > 255)
 				error("pollival not in [1:255]");
+		}
 		qlock(ep);
 		ep->pollival = l;
 		if(ep->ttype == Tiso)

@@ -162,11 +162,11 @@ struct Ep
 	char*	info;		/* for humans to read */
 	long	maxpkt;		/* maximum packet size */
 	int	ttype;		/* tranfer type */
-	ulong	load;		/* in µs, for a fransfer of maxpkt bytes */
+	ulong	load;		/* in µs, for a transfer of maxpkt bytes */
 	void*	aux;		/* for controller specific info */
 	int	rhrepl;		/* fake root hub replies */
 	int	toggle[2];	/* saved toggles (while ep is not in use) */
-	long	pollival;		/* poll interval ([µ]frames; intr/iso) */
+	long	pollival;	/* poll interval ([µ]frames; intr/iso) */
 	long	hz;		/* poll frequency (iso) */
 	long	samplesz;	/* sample size (iso) */
 	int	ntds;		/* nb. of Tds per µframe */

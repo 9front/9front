@@ -45,11 +45,6 @@ openep(Dev *d, int id)
 		return nil;
 	}
 	ep = ud->ep[id];
-	mode = "rw";
-	if(ep->dir == Ein)
-		mode = "r";
-	if(ep->dir == Eout)
-		mode = "w";
 	snprint(name, sizeof(name), "/dev/usb/ep%d.%d", d->id, id);
 	if(access(name, AEXIST) == 0){
 		dprint(2, "%s: %s already exists; trying to open\n", argv0, name);
@@ -60,6 +55,11 @@ openep(Dev *d, int id)
 		}
 		return epd;
 	}
+	mode = "rw";
+	if(ep->dir == Ein)
+		mode = "r";
+	if(ep->dir == Eout)
+		mode = "w";
 	if(devctl(d, "new %d %d %s", id, ep->type, mode) < 0){
 		dprint(2, "%s: %s: new: %r\n", argv0, d->dir);
 		return nil;
@@ -78,13 +78,6 @@ openep(Dev *d, int id)
 		fprint(2, "%s: %s: openep: ntds: %r\n", argv0, epd->dir);
 	else
 		dprint(2, "%s: %s: ntds %d\n", argv0, epd->dir, ep->ntds);
-
-	/*
-	 * For iso endpoints and high speed interrupt endpoints the pollival is
-	 * actually 2ⁿ and not n.
-	 * The kernel usb driver must take that into account.
-	 * It's simpler this way.
-	 */
 
 	if(ac != nil && (ep->type == Eintr || ep->type == Eiso) && ac->interval != 0)
 		if(devctl(epd, "pollival %d", ac->interval) < 0)
