@@ -213,6 +213,8 @@ struct Ctlr
 	Ring	er[1];		/* event ring segment */
 	Ring	cr[1];		/* command ring segment */
 
+	u32int	mfwrap;
+
 	QLock	slotlock;
 	Slot	**slot;		/* slots by slot id */
 	
@@ -232,8 +234,15 @@ struct Ctlr
 struct Epio
 {
 	QLock;
-	Block	*cb;
+
 	Ring	*ring;
+	Block	*b;
+
+	/* iso */
+	int	nleft;
+	u32int	frame;
+	u32int	incr;
+	u32int	tdsz;
 };
 
 static char Ebadlen[] = "bad usb request length";
@@ -250,6 +259,18 @@ static void
 setrptr64(u32int *reg, u64int pa)
 {
 	*((u64int*)reg) = pa;
+}
+
+static u32int
+mfindex(Ctlr *ctlr)
+{
+	u32int lo, hi;
+
+	do {
+		hi = ctlr->mfwrap;
+		lo = ctlr->rts[MFINDEX];
+	} while(hi != ctlr->mfwrap);
+	return (lo & (1<<14)-1) | hi<<14;
 }
 
 static void
@@ -370,7 +391,9 @@ init(Hci *hp)
 		irs[IMOD] = 0;
 	}	
 
-	ctlr->opr[USBCMD] = RUNSTOP|INTE|HSEE;
+	ctlr->mfwrap = 0;
+
+	ctlr->opr[USBCMD] = RUNSTOP|INTE|HSEE|EWE;
 	while(ctlr->opr[USBSTS] & (CNR|HCH))
 		tsleep(&up->sleep, return0, nil, 10);
 }
@@ -512,16 +535,18 @@ static void
 completering(Ring *r, u32int *er)
 {
 	Wait *w, **wp;
-	u32int *td;
+	u32int *td, x;
 	u64int pa;
 
 	pa = (*(u64int*)er) & ~15ULL;
 	ilock(r);
 
-	while((int)(r->wp - r->rp) > 0){
-		td = &r->base[4*(r->rp++ & r->mask)];
-		if((u64int)PADDR(td) == pa)
+	for(x = r->rp; (int)(r->wp - x) > 0; x++){
+		td = &r->base[4*(x++ & r->mask)];
+		if((u64int)PADDR(td) == pa){
+			r->rp = x;
 			break;
+		}
 	}
 
 	wp = &r->pending;
@@ -564,9 +589,6 @@ interrupt(Ureg*, void *arg)
 		if((((x>>ring->shift)^td[3])&1) == 0)
 			break;
 
-		if(0) iprint("xhci interrupt: event %ud: %ux %ux %ux %ux\n",
-			x, td[0], td[1], td[2], td[3]);
-
 		switch(td[3] & 0xFC00){
 		case ER_CMDCOMPL:
 			completering(ctlr->cr, td);
@@ -580,16 +602,21 @@ interrupt(Ureg*, void *arg)
 				break;
 			completering(&slot->epr[(td[3]>>16)-1&31], td);
 			break;
+		case ER_MFINDEXWRAP:
+			ctlr->mfwrap++;
+			break;
 		case ER_HCE:
-			iprint("xhci: host controller error: %ux %ux %ux %ux\n", td[0], td[1], td[2], td[3]);
+			iprint("xhci: host controller error: %ux %ux %ux %ux\n",
+				td[0], td[1], td[2], td[3]);
 			break;
 		case ER_PORTSC:
+			break;
 		case ER_BWREQ:
 		case ER_DOORBELL:
 		case ER_DEVNOTE:
-		case ER_MFINDEXWRAP:
 		default:
-			break;
+			iprint("xhci: event %ud: %ux %ux %ux %ux\n",
+				x, td[0], td[1], td[2], td[3]);
 		}
 	}
 
@@ -679,6 +706,7 @@ epclose(Ep *ep)
 {
 	Ctlr *ctlr;
 	Slot *slot;
+	Ring *ring;
 	Epio *io;
 
 	if(ep->dev->isroot)
@@ -699,15 +727,17 @@ epclose(Ep *ep)
 		w = slot->ibase;
 		memset(w, 0, 32<<ctlr->csz);
 		w[1] = 1;
-		if(io[OREAD].ring != nil){
-			w[0] |= 1 << io[OREAD].ring->id;
-			if(io[OREAD].ring->id == slot->nep)
+		if((ring = io[OREAD].ring) != nil){
+			w[0] |= 1 << ring->id;
+			if(ring->id == slot->nep)
 				slot->nep--;
+			ctlrcmd(ctlr, CR_STOPEP | (ring->id<<16) | (slot->id<<24), 0, 0, nil);
 		}
-		if(io[OWRITE].ring != nil){
-			w[0] |= 1 << io[OWRITE].ring->id;
-			if(io[OWRITE].ring->id == slot->nep)
+		if((ring = io[OWRITE].ring) != nil){
+			w[0] |= 1 << ring->id;
+			if(ring->id == slot->nep)
 				slot->nep--;
+			ctlrcmd(ctlr, CR_STOPEP | (ring->id<<16) | (slot->id<<24), 0, 0, nil);
 		}
 
 		/* (input) slot context */
@@ -723,7 +753,8 @@ epclose(Ep *ep)
 		freering(io[OREAD].ring);
 		freering(io[OWRITE].ring);
 	}
-	freeb(io[OREAD].cb);
+	freeb(io[OREAD].b);
+	freeb(io[OWRITE].b);
 	free(io);
 }
 
@@ -732,7 +763,7 @@ initepctx(u32int *w, Ring *r, Ep *ep)
 {
 	int ival;
 
-	if(ep->ttype == Tintr && (ep->dev->speed == Fullspeed || ep->dev->speed == Lowspeed)){
+	if(ep->dev->speed == Lowspeed || ep->dev->speed == Fullspeed){
 		for(ival=3; ival < 11 && (1<<ival) < ep->pollival; ival++)
 			;
 	} else {
@@ -744,7 +775,23 @@ initepctx(u32int *w, Ring *r, Ep *ep)
 	if(ep->ttype != Tiso)
 		w[1] |= 3<<1;
 	*((u64int*)&w[2]) = PADDR(r->base) | 1;
+
 	w[4] = ep->maxpkt;
+	if(ep->ttype == Tintr || ep->ttype == Tiso)
+		w[4] |= (ep->maxpkt*ep->ntds)<<16;
+}
+
+static void
+initisoio(Epio *io, Ep *ep)
+{
+	if(io->ring == nil)
+		return;
+	io->frame = 0;
+	io->incr = (ep->hz<<8)/1000;
+	io->tdsz = (io->incr+255>>8)*ep->samplesz;
+	if(io->tdsz > ep->maxpkt*ep->ntds)
+		error(Egreg);
+	io->b = allocb((io->ring->mask+1)*io->tdsz);
 }
 
 static void
@@ -815,6 +862,10 @@ initep(Ep *ep)
 	if((err = ctlrcmd(ctlr, CR_CONFIGEP | (slot->id<<24), 0,
 		PADDR(slot->ibase), nil)) != nil){
 		error(err);
+	}
+	if(ep->ttype == Tiso){
+		initisoio(io+OWRITE, ep);
+		initisoio(io+OREAD, ep);
 	}
 	poperror();
 }
@@ -957,6 +1008,77 @@ unstall(Ring *r)
 }
 
 static long
+isoread(Ep *, uchar *, long)
+{
+	error(Egreg);
+	return 0;
+}
+
+static long
+isowrite(Ep *ep, uchar *p, long n)
+{
+	uchar *s, *d;
+	Ctlr *ctlr;
+	Epio *io;
+	u32int x;
+	long m;
+
+	s = p;
+	io = (Epio*)ep->aux + OWRITE;
+	qlock(io);
+	if(waserror()){
+		qunlock(io);
+		nexterror();
+	}
+
+	ctlr = ep->hp->aux;
+	for(x = io->frame;; x++){
+		for(;;){
+			m = (int)(io->ring->wp - io->ring->rp);
+			if(m <= 0)
+				x = 10 + mfindex(ctlr)/8;
+			if(m < io->ring->mask-1)
+				break;
+			coherence();
+			*io->ring->doorbell = io->ring->id;
+			tsleep(&up->sleep, return0, nil, 5);
+		}
+		m = ((io->incr + (x*io->incr&255))>>8)*ep->samplesz;
+		d = io->b->rp + (x&io->ring->mask)*io->tdsz;
+		m -= io->nleft, d += io->nleft;
+		if(n < m){
+			memmove(d, p, n);
+			p += n;
+			io->nleft += n;
+			break;
+		}
+		memmove(d, p, m);
+		p += m, n -= m;
+		m += io->nleft, d -= io->nleft;
+		io->nleft = 0;
+
+		ilock(io->ring);
+		queuetd(io->ring, TR_ISOCH | (x & 0x7ff)<<20 | 1<<5, m, PADDR(d), nil);
+		iunlock(io->ring);
+	}
+	io->frame = x;
+	coherence();
+	*io->ring->doorbell = io->ring->id;
+	qunlock(io);
+	poperror();
+
+	for(;;){
+		int d = (int)(x - mfindex(ctlr)/8);
+		d -= ep->sampledelay*1000 / ep->hz;
+		if(d < 5)
+			break;
+		tsleep(&up->sleep, return0, nil, d);
+	}
+
+	return p - s;
+}
+
+static long
 epread(Ep *ep, void *va, long n)
 {
 	Epio *io;
@@ -965,21 +1087,21 @@ epread(Ep *ep, void *va, long n)
 	Wait ws[1];
 
 	p = va;
-	io = (Epio*)ep->aux + OREAD;
-
 	if(ep->ttype == Tctl){
+		io = (Epio*)ep->aux + OREAD;
 		qlock(io);
-		if(io->cb == nil || BLEN(io->cb) == 0){
+		if(io->b == nil || BLEN(io->b) == 0){
 			qunlock(io);
 			return 0;
 		}
-		if(n > BLEN(io->cb))
-			n = BLEN(io->cb);
-		memmove(p, io->cb->rp, n);
-		io->cb->rp += n;
+		if(n > BLEN(io->b))
+			n = BLEN(io->b);
+		memmove(p, io->b->rp, n);
+		io->b->rp += n;
 		qunlock(io);
 		return n;
-	}
+	} else if(ep->ttype == Tiso)
+		return isoread(ep, p, n);
 
 	if((uintptr)p <= KZERO){
 		Block *b;
@@ -996,6 +1118,7 @@ epread(Ep *ep, void *va, long n)
 		return n;
 	}
 
+	io = (Epio*)ep->aux + OREAD;
 	qlock(io);
 	if((err = unstall(io->ring)) != nil){
 		qunlock(io);
@@ -1041,20 +1164,20 @@ epwrite(Ep *ep, void *va, long n)
 			qunlock(io);
 			nexterror();
 		}
-		if(io->cb != nil){
-			freeb(io->cb);
-			io->cb = nil;
+		if(io->b != nil){
+			freeb(io->b);
+			io->b = nil;
 		}
 		len = GET2(&p[6]);
 		dir = (p[0] & Rd2h) != 0;
 		if(len > 0){
-			io->cb = allocb(len);		
+			io->b = allocb(len);		
 			if(dir == 0){	/* out */
 				assert(len >= n-8);
-				memmove(io->cb->wp, p+8, n-8);
+				memmove(io->b->wp, p+8, n-8);
 			} else {
-				memset(io->cb->wp, 0, len);
-				io->cb->wp += len;
+				memset(io->b->wp, 0, len);
+				io->b->wp += len;
 			}
 		}
 
@@ -1080,7 +1203,7 @@ epwrite(Ep *ep, void *va, long n)
 			(u64int)(GET2(&p[4]) | len<<16)<<32, &ws[0]);
 		if(len > 0)
 			queuetd(ring, TR_DATASTAGE | dir<<16 | 1<<5, len,
-				PADDR(io->cb->rp), &ws[1]);
+				PADDR(io->b->rp), &ws[1]);
 		queuetd(ring, TR_STATUSSTAGE | (len == 0 || !dir)<<16 | 1<<5, 0, 0, &ws[2]);
 		iunlock(ring);
 
@@ -1090,9 +1213,9 @@ epwrite(Ep *ep, void *va, long n)
 			if((err = waittd((Ctlr*)ep->hp->aux, &ws[1], ep->tmout, nil)) != nil)
 				error(err);
 			if(dir != 0){
-				io->cb->wp -= (ws[1].er[2] & 0xFFFFFF);
-				if(io->cb->wp < io->cb->rp)
-					io->cb->wp = io->cb->rp;
+				io->b->wp -= (ws[1].er[2] & 0xFFFFFF);
+				if(io->b->wp < io->b->rp)
+					io->b->wp = io->b->rp;
 			}
 		}
 		if((err = waittd((Ctlr*)ep->hp->aux, &ws[2], ep->tmout, nil)) != nil)
@@ -1101,7 +1224,8 @@ epwrite(Ep *ep, void *va, long n)
 		poperror();
 
 		return n;
-	}
+	} else if(ep->ttype == Tiso)
+		return isowrite(ep, p, n);
 
 	if((uintptr)p <= KZERO){
 		Block *b;
