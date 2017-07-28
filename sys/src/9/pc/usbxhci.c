@@ -147,6 +147,7 @@ typedef struct Wait Wait;
 typedef struct Ring Ring;
 typedef struct Slot Slot;
 typedef struct Epio Epio;
+typedef struct Port Port;
 
 struct Wait
 {
@@ -193,6 +194,14 @@ struct Slot
 	Ring	epr[32];
 };
 
+struct Port
+{
+	char	spec[4];
+	int	proto;
+
+	u32int	*reg;
+};
+
 struct Ctlr
 {
 	Pcidev	*pcidev;
@@ -200,7 +209,6 @@ struct Ctlr
 	u32int	*mmio;
 
 	u32int	*opr;	/* operational registers */
-	u32int	*prt;	/* port register set */
 	u32int	*rts;	/* runtime registers */
 	u32int	*dba;	/* doorbell array */
 
@@ -213,10 +221,11 @@ struct Ctlr
 	Ring	er[1];		/* event ring segment */
 	Ring	cr[1];		/* command ring segment */
 
-	u32int	mfwrap;
+	u32int	µframe;
 
 	QLock	slotlock;
 	Slot	**slot;		/* slots by slot id */
+	Port	*port;
 	
 	u32int	hccparams;
 
@@ -239,10 +248,12 @@ struct Epio
 	Block	*b;
 
 	/* iso */
-	int	nleft;
 	u32int	frame;
+	u32int	period;
 	u32int	incr;
 	u32int	tdsz;
+
+	int	nleft;
 };
 
 static char Ebadlen[] = "bad usb request length";
@@ -262,15 +273,14 @@ setrptr64(u32int *reg, u64int pa)
 }
 
 static u32int
-mfindex(Ctlr *ctlr)
+µframe(Ctlr *ctlr)
 {
-	u32int lo, hi;
-
+	u32int µ;
 	do {
-		hi = ctlr->mfwrap;
-		lo = ctlr->rts[MFINDEX];
-	} while(hi != ctlr->mfwrap);
-	return (lo & (1<<14)-1) | hi<<14;
+		µ = (ctlr->rts[MFINDEX] & (1<<14)-1) |
+			(ctlr->µframe & ~((1<<14)-1));
+	} while((int)(µ - ctlr->µframe) < 0);
+	return µ;
 }
 
 static void
@@ -302,44 +312,102 @@ initring(Ring *r, int shift)
 	return r;
 }
 
+static u32int*
+xecp(Ctlr *ctlr, uchar id, u32int *p)
+{
+	u32int x;
+
+	if(p != nil) {
+		x = *p;
+		goto Next;
+	}
+	x = ctlr->hccparams>>16;
+	if(x == 0)
+		return nil;
+	p = ctlr->mmio + x;
+	while(((x = *p) & 255) != id){
+	Next:
+		x >>= 8, x &= 255;
+		if(x == 0)
+			return nil;
+		p += x;
+	}
+	return p;
+}
+
+static void
+handoff(Ctlr *ctlr)
+{
+	u32int *r;
+	int i;
+
+	if((r = xecp(ctlr, 1, nil)) == nil)
+		return;
+	r[0] |= 1<<24;		/* request ownership */
+	for(i = 0; (r[0] & (1<<16)) != 0 && i<100; i++)
+		tsleep(&up->sleep, return0, nil, 10);
+	r[1] = 0;		/* disable SMI interrupts */
+	r[0] &= ~(1<<16);	/* in case of timeout */
+}
+
 static void
 init(Hci *hp)
 {
 	Ctlr *ctlr;
+	Port *pp;
+	u32int *x;
 	uchar *p;
-	int i;
+	int i, j;
 
 	ctlr = hp->aux;
 
 	ctlr->opr = &ctlr->mmio[(ctlr->mmio[CAPLENGTH]&0xFF)/4];
-	ctlr->prt = &ctlr->opr[0x400/4];
 	ctlr->dba = &ctlr->mmio[ctlr->mmio[DBOFF]/4];
 	ctlr->rts = &ctlr->mmio[ctlr->mmio[RTSOFF]/4];
 
-	while(ctlr->opr[USBSTS] & CNR)
+	ctlr->hccparams = ctlr->mmio[HCCPARAMS];
+	handoff(ctlr);
+
+	for(i=0; (ctlr->opr[USBSTS] & CNR) != 0 && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
 
 	ctlr->opr[USBCMD] = HCRST;
-	while((ctlr->opr[USBSTS] & (CNR|HCH)) != HCH)
+	for(i=0; (ctlr->opr[USBSTS] & (CNR|HCH)) != HCH && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
 
 	pcisetbme(ctlr->pcidev);
 	pcisetpms(ctlr->pcidev, 0);
 	intrenable(ctlr->pcidev->intl, hp->interrupt, hp, ctlr->pcidev->tbdf, hp->type);
 
-	ctlr->hccparams = ctlr->mmio[HCCPARAMS];
 	ctlr->csz = (ctlr->hccparams & CSZ) != 0;
 	if(ctlr->hccparams & AC64)
 		ctlr->setrptr = setrptr64;
 	else
 		ctlr->setrptr = setrptr32;
-
 	ctlr->pagesize = ctlr->opr[PAGESIZE]<<12;
 
 	ctlr->nscratch = (ctlr->mmio[HCSPARAMS2] >> 27) & 0x1F;
 	ctlr->nintrs = (ctlr->mmio[HCSPARAMS1] >> 8) & 0x7FF;
 	ctlr->nslots = (ctlr->mmio[HCSPARAMS1] >> 0) & 0xFF;
 	hp->nports = (ctlr->mmio[HCSPARAMS1] >> 24) & 0xFF;
+
+	ctlr->port = malloc(hp->nports * sizeof(Port));
+	for(i=0; i<hp->nports; i++)
+		ctlr->port[i].reg = &ctlr->opr[0x400/4 + i*4];
+
+	x = nil;
+	while((x = xecp(ctlr, 2, x)) != nil){
+		i = x[2]&255;
+		j = (x[2]>>8)&255;
+		while(j--){
+			if(i < 1 || i > hp->nports)
+				break;
+			pp = &ctlr->port[i-1];
+			pp->proto = x[0]>>16;
+			memmove(pp->spec, &x[1], 4);
+			i++;
+		}
+	}
 
 	ctlr->slot = malloc((1+ctlr->nslots)*sizeof(ctlr->slot[0]));
 	ctlr->dcba = mallocalign((1+ctlr->nslots)*8, 64, 0, ctlr->pagesize);
@@ -391,10 +459,9 @@ init(Hci *hp)
 		irs[IMOD] = 0;
 	}	
 
-	ctlr->mfwrap = 0;
-
+	ctlr->µframe = 0;
 	ctlr->opr[USBCMD] = RUNSTOP|INTE|HSEE|EWE;
-	while(ctlr->opr[USBSTS] & (CNR|HCH))
+	for(i=0; (ctlr->opr[USBSTS] & (CNR|HCH)) != 0 && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
 }
 
@@ -580,6 +647,9 @@ interrupt(Ureg*, void *arg)
 	Slot *slot;
 	u32int *irs, *td, x;
 
+	if(ring->base == nil)
+		return;
+
 	irs = &ctlr->rts[IR0];
 	x = irs[IMAN];
 	if(x & 1) irs[IMAN] = x & 3;
@@ -603,7 +673,8 @@ interrupt(Ureg*, void *arg)
 			completering(&slot->epr[(td[3]>>16)-1&31], td);
 			break;
 		case ER_MFINDEXWRAP:
-			ctlr->mfwrap++;
+			ctlr->µframe = (ctlr->rts[MFINDEX] & (1<<14)-1) | 
+				(ctlr->µframe+(1<<14) & ~((1<<14)-1));
 			break;
 		case ER_HCE:
 			iprint("xhci: host controller error: %ux %ux %ux %ux\n",
@@ -787,10 +858,9 @@ initisoio(Epio *io, Ep *ep)
 	if(io->ring == nil)
 		return;
 	io->frame = 0;
-	io->incr = (ep->hz<<8)/1000;
+	io->period = ep->pollival<<3*(ep->dev->speed == Fullspeed);
+	io->incr = (ep->hz*io->period<<8)/8000;
 	io->tdsz = (io->incr+255>>8)*ep->samplesz;
-	if(io->tdsz > ep->maxpkt*ep->ntds)
-		error(Egreg);
 	io->b = allocb((io->ring->mask+1)*io->tdsz);
 }
 
@@ -977,6 +1047,74 @@ epopen(Ep *ep)
 	poperror();
 }
 
+static long
+isoread(Ep *, uchar *, long)
+{
+	error(Egreg);
+	return 0;
+}
+
+static long
+isowrite(Ep *ep, uchar *p, long n)
+{
+	uchar *s, *d;
+	Ctlr *ctlr;
+	Epio *io;
+	u32int i, µ;
+	long m;
+
+	s = p;
+	io = (Epio*)ep->aux + OWRITE;
+	qlock(io);
+	if(waserror()){
+		qunlock(io);
+		nexterror();
+	}
+	µ = io->period;
+	ctlr = ep->hp->aux;
+	for(i = io->frame;; i++){
+		for(;;){
+			m = (int)(io->ring->wp - io->ring->rp);
+			if(m <= 0)
+				i = (80 + µframe(ctlr))/µ;
+			if(m < io->ring->mask)
+				break;
+			*io->ring->doorbell = io->ring->id;
+			tsleep(&up->sleep, return0, nil, 5);
+		}
+		m = ((io->incr + (i*io->incr&255))>>8)*ep->samplesz;
+		d = io->b->rp + (i&io->ring->mask)*io->tdsz;
+		m -= io->nleft, d += io->nleft;
+		if(n < m){
+			memmove(d, p, n);
+			p += n;
+			io->nleft += n;
+			break;
+		}
+		memmove(d, p, m);
+		p += m, n -= m;
+		m += io->nleft, d -= io->nleft;
+		io->nleft = 0;
+		coherence();
+		ilock(io->ring);
+		queuetd(io->ring, TR_ISOCH | (i*µ/8 & 0x7ff)<<20 | 1<<5, m, PADDR(d), nil);
+		iunlock(io->ring);
+	}
+	io->frame = i;
+	while(io->ring->rp != io->ring->wp){
+		int d = (int)(i*µ - µframe(ctlr))/8;
+		d -= ep->sampledelay*1000 / ep->hz;
+		if(d < 5)
+			break;
+		*io->ring->doorbell = io->ring->id;
+		tsleep(&up->sleep, return0, nil, d);
+	}
+	qunlock(io);
+	poperror();
+
+	return p - s;
+}
+
 static char*
 unstall(Ring *r)
 {
@@ -1005,77 +1143,6 @@ unstall(Ring *r)
 		return "Ring Full";
 
 	return nil;
-}
-
-static long
-isoread(Ep *, uchar *, long)
-{
-	error(Egreg);
-	return 0;
-}
-
-static long
-isowrite(Ep *ep, uchar *p, long n)
-{
-	uchar *s, *d;
-	Ctlr *ctlr;
-	Epio *io;
-	u32int x;
-	long m;
-
-	s = p;
-	io = (Epio*)ep->aux + OWRITE;
-	qlock(io);
-	if(waserror()){
-		qunlock(io);
-		nexterror();
-	}
-
-	ctlr = ep->hp->aux;
-	for(x = io->frame;; x++){
-		for(;;){
-			m = (int)(io->ring->wp - io->ring->rp);
-			if(m <= 0)
-				x = 10 + mfindex(ctlr)/8;
-			if(m < io->ring->mask-1)
-				break;
-			coherence();
-			*io->ring->doorbell = io->ring->id;
-			tsleep(&up->sleep, return0, nil, 5);
-		}
-		m = ((io->incr + (x*io->incr&255))>>8)*ep->samplesz;
-		d = io->b->rp + (x&io->ring->mask)*io->tdsz;
-		m -= io->nleft, d += io->nleft;
-		if(n < m){
-			memmove(d, p, n);
-			p += n;
-			io->nleft += n;
-			break;
-		}
-		memmove(d, p, m);
-		p += m, n -= m;
-		m += io->nleft, d -= io->nleft;
-		io->nleft = 0;
-
-		ilock(io->ring);
-		queuetd(io->ring, TR_ISOCH | (x & 0x7ff)<<20 | 1<<5, m, PADDR(d), nil);
-		iunlock(io->ring);
-	}
-	io->frame = x;
-	coherence();
-	*io->ring->doorbell = io->ring->id;
-	qunlock(io);
-	poperror();
-
-	for(;;){
-		int d = (int)(x - mfindex(ctlr)/8);
-		d -= ep->sampledelay*1000 / ep->hz;
-		if(d < 5)
-			break;
-		tsleep(&up->sleep, return0, nil, d);
-	}
-
-	return p - s;
 }
 
 static long
@@ -1269,8 +1336,12 @@ static int
 portstatus(Hci *hp, int port)
 {
 	Ctlr *ctlr = hp->aux;
-	u32int psc = ctlr->prt[PORTSC + (port-1)*4];
+	Port *pp = &ctlr->port[port-1];
+	u32int psc = pp->reg[PORTSC];
 	int ps = 0;
+
+	if(memcmp(pp->spec, "USB", 3) != 0 || pp->proto > 0x0200)
+		return 0;
 
 	if(psc & CCS)	ps |= HPpresent;
 	if(psc & PED)	ps |= HPenable;
@@ -1287,8 +1358,7 @@ portstatus(Hci *hp, int port)
 		case 3:
 			ps |= HPhigh;
 			break;
-		case 4:
-			/* super speed */
+		case 4:	/* super speed */
 			break;
 		}
 	}
@@ -1310,10 +1380,13 @@ static int
 portreset(Hci *hp, int port, int on)
 {
 	Ctlr *ctlr = hp->aux;
-	u32int *r = &ctlr->prt[PORTSC + (port-1)*4];
+	Port *pp = &ctlr->port[port-1];
+
+	if(memcmp(pp->spec, "USB", 3) != 0 || pp->proto > 0x0200)
+		return 0;
 
 	if(on){
-		*r |= PR;
+		pp->reg[PORTSC] |= PR;
 		tsleep(&up->sleep, return0, nil, 200);
 	}
 
