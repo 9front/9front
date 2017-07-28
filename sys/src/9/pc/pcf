@@ -83,6 +83,7 @@ link
 	usbuhci
 	usbohci
 	usbehci		usbehcipc
+	usbxhci		pci
 
 	audiosb16	dma
 	audioac97	audioac97mix
