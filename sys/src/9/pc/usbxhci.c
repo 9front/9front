@@ -317,22 +317,20 @@ xecp(Ctlr *ctlr, uchar id, u32int *p)
 {
 	u32int x;
 
-	if(p != nil) {
-		x = *p;
-		goto Next;
-	}
-	x = ctlr->hccparams>>16;
-	if(x == 0)
-		return nil;
-	p = ctlr->mmio + x;
-	while(((x = *p) & 255) != id){
-	Next:
-		x >>= 8, x &= 255;
-		if(x == 0)
-			return nil;
+	if(p == nil){
+		p = ctlr->mmio;
+		x = ctlr->hccparams>>16;
+	} else
+		x = (*p>>8) & 255;
+	while(x != 0){
 		p += x;
+		x = *p;
+		if((x & 255) == id)
+			return p;
+		x >>= 8;
+		x &= 255;
 	}
-	return p;
+	return nil;
 }
 
 static void
