@@ -1,6 +1,6 @@
-int	attachdev(Hub*, Port*);
-void	detachdev(Hub*, Port*);
+int	attachdev(Port*);
+void	detachdev(Port*);
 void	work(void);
-Hub*	newhub(char *, Dev*, Hub*);
+Hub*	newhub(char *, Dev*);
 void	hname(char *);
 void	checkidle(void);

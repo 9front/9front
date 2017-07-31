@@ -310,8 +310,6 @@ closedev(Dev *d)
 	if(d==nil || decref(d) != 0)
 		return;
 	dprint(2, "%s: closedev %#p %s\n", argv0, d, d->dir);
-	if(d->free != nil)
-		d->free(d->aux);
 	if(d->cfd >= 0)
 		close(d->cfd);
 	if(d->dfd >= 0)

@@ -83,7 +83,7 @@ configusb3hub(Hub *h, DSSHub *dd, int nr)
 		mask = 1<<(i%8);
 		pp->removable = (dd->DeviceRemovable[offset] & mask) != 0;
 	}
-	if(usbcmd(h->dev, Rh2d|Rclass|Rdev, Rsethubdepth, h->depth, 0, nil, 0) < 0){
+	if(usbcmd(h->dev, Rh2d|Rclass|Rdev, Rsethubdepth, h->dev->depth, 0, nil, 0) < 0){
 		fprint(2, "%s: %s: sethubdepth: %r\n", argv0, h->dev->dir);
 		return -1;
 	}
@@ -106,21 +106,26 @@ confighub(Hub *h)
 		dt = Dhub;
 		dl = Dhublen;
 	}
-	for(i = 0; i < nelem(d->ddesc); i++)
+	for(i = 0; i < nelem(d->ddesc); i++){
 		if(d->ddesc[i] == nil)
 			break;
-		else if(d->ddesc[i]->data.bDescriptorType == dt){
+		if(d->ddesc[i]->data.bDescriptorType == dt){
 			dd = &d->ddesc[i]->data;
-			nr = dl;
+			nr = d->ddesc[i]->data.bLength;
 			goto Config;
 		}
+	}
 	nr = usbcmd(h->dev, Rd2h|Rclass|Rdev, Rgetdesc, dt<<8|0, 0, buf, sizeof buf);
-	if(nr < dl){
+	if(nr < 0){
 		fprint(2, "%s: %s: getdesc hub: %r\n", argv0, h->dev->dir);
 		return -1;
 	}
 	dd = buf;
 Config:
+	if(nr < dl){
+		fprint(2, "%s: %s: hub descriptor too small (%d < %d)\n", argv0, h->dev->dir, nr, dl);
+		return -1;
+	}
 	if(h->dev->isusb3)
 		return configusb3hub(h, dd, nr);
 	else
@@ -160,7 +165,7 @@ Done:
 }
 
 Hub*
-newhub(char *fn, Dev *d, Hub *ph)
+newhub(char *fn, Dev *d)
 {
 	Hub *h;
 	int i;
@@ -169,12 +174,12 @@ newhub(char *fn, Dev *d, Hub *ph)
 	h = emallocz(sizeof(Hub), 1);
 	h->isroot = (d == nil);
 	if(h->isroot){
-		h->depth = -1;
 		h->dev = opendev(fn);
 		if(h->dev == nil){
 			fprint(2, "%s: opendev: %s: %r", argv0, fn);
 			goto Fail;
 		}
+		h->dev->depth = -1;
 		configroothub(h);	/* never fails */
 		if(opendevdata(h->dev, ORDWR) < 0){
 			fprint(2, "%s: opendevdata: %s: %r\n", argv0, fn);
@@ -182,7 +187,6 @@ newhub(char *fn, Dev *d, Hub *ph)
 			goto Fail;
 		}
 	}else{
-		h->depth = ph->depth+1;
 		h->dev = d;
 		if(confighub(h) < 0){
 			fprint(2, "%s: %s: config: %r\n", argv0, fn);
@@ -416,6 +420,8 @@ portattach(Hub *h, int p, u32int sts)
 		fprint(2, "%s: %s: port %d: opendev: %r\n", argv0, d->dir, p);
 		goto Fail;
 	}
+	nd->depth = h->dev->depth+1;
+	nd->isusb3 = h->dev->isusb3;
 	if(usbdebug > 2)
 		devctl(nd, "debug 1");
 	if(opendevdata(nd, ORDWR) < 0){
@@ -430,7 +436,6 @@ portattach(Hub *h, int p, u32int sts)
 		dprint(2, "%s: %s: port %d: set address: %r\n", argv0, d->dir, p);
 		goto Fail;
 	}
-	nd->isusb3 = h->dev->isusb3;
 	mp=getmaxpkt(nd, strcmp(sp, "low") == 0);
 	if(mp < 0){
 		dprint(2, "%s: %s: port %d: getmaxpkt: %r\n", argv0, d->dir, p);
@@ -491,7 +496,7 @@ portdetach(Hub *h, int p)
 		pp->hub = nil;
 	}
 	if(pp->dev != nil){
-		detachdev(h, pp);
+		detachdev(pp);
 
 		devctl(pp->dev, "detach");
 		closedev(pp->dev);
@@ -639,7 +644,7 @@ enumhub(Hub *h, int p)
 	}
 	if((pp->sts & PSpresent) == 0 && (sts & PSpresent) != 0){
 		if(portattach(h, p, sts) != nil)
-			if(attachdev(h, pp) < 0)
+			if(attachdev(pp) < 0)
 				portdetach(h, p);
 	}else if(portgone(pp, sts)){
 		portdetach(h, p);
@@ -680,7 +685,7 @@ work(void)
 	hubs = nil;
 	while((fn = rendezvous(work, nil)) != nil){
 		dprint(2, "%s: %s starting\n", argv0, fn);
-		h = newhub(fn, nil, nil);
+		h = newhub(fn, nil);
 		if(h == nil)
 			fprint(2, "%s: %s: newhub failed: %r\n", argv0, fn);
 		free(fn);

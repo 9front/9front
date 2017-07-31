@@ -84,7 +84,6 @@ struct Hub
 	Port	*port;
 	int	failed;		/* I/O error while enumerating */
 	int	isroot;		/* set if root hub */
-	int	depth;		/* hub depth */
 	Dev	*dev;		/* for this hub */
 	Hub	*next;		/* in list of hubs */
 };

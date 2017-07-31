@@ -373,7 +373,7 @@ assignhname(Dev *dev)
 }
 
 int
-attachdev(Hub *h, Port *p)
+attachdev(Port *p)
 {
 	Dev *d = p->dev;
 	int id;
@@ -385,7 +385,7 @@ attachdev(Hub *h, Port *p)
 		 * has the config address in use.
 		 * We cancel kernel debug for these eps. too chatty.
 		 */
-		if((p->hub = newhub(d->dir, d, h)) == nil)
+		if((p->hub = newhub(d->dir, d)) == nil)
 			return -1;
 		return 0;
 	}
@@ -417,7 +417,7 @@ attachdev(Hub *h, Port *p)
 }
 
 void
-detachdev(Hub *, Port *p)
+detachdev(Port *p)
 {
 	Dev *d = p->dev;
 

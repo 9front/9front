@@ -174,11 +174,10 @@ struct Dev
 	int	dfd;		/* descriptor for the data file */
 	int	cfd;		/* descriptor for the control file */
 	int	isusb3;		/* this is a usb3 device */
+	int	depth;		/* hub depth for usb3 hubs */
 	int	maxpkt;		/* cached from usb description */
-	Ref	nerrs;		/* number of errors in requests */
 	Usbdev*	usb;		/* USB description */
 	void*	aux;		/* for the device driver */
-	void	(*free)(void*);	/* idem. to release aux */
 	char*	hname;		/* hash name, unique for device */
 };
 

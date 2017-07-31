@@ -1002,20 +1002,6 @@ usage(void)
 	exits("usage");
 }
 
-static void
-umsdevfree(void *a)
-{
-	Ums *ums = a;
-
-	if(ums == nil)
-		return;
-	closedev(ums->epin);
-	closedev(ums->epout);
-	ums->epin = ums->epout = nil;
-	free(ums->lun);
-	free(ums);
-}
-
 /*
  * some devices like usb modems appear as mass storage
  * for windows driver installation. switch mode here
@@ -1068,7 +1054,6 @@ main(int argc, char **argv)
 	notreallyums(dev);
 	ums = dev->aux = emallocz(sizeof(Ums), 1);
 	ums->maxlun = -1;
-	dev->free = umsdevfree;
 	if(findendpoints(ums) < 0)
 		sysfatal("endpoints not found");
 
