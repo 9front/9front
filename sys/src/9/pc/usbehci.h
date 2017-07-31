@@ -170,6 +170,7 @@ struct Ctlr
 	Lock;			/* for ilock. qh lists and basic ctlr I/O */
 	QLock	portlck;	/* for port resets/enable... (and doorbell) */
 	int	active;		/* in use or not */
+	uintptr	base;
 	Pcidev*	pcidev;
 	Ecapio*	capio;		/* Capability i/o regs */
 	Eopio*	opio;		/* Operational i/o regs */

@@ -175,11 +175,9 @@ scanpci(void)
 		default:
 			continue;
 		}
-		if(io == 0){
-			print("usbehci: %x %x: failed to map registers\n",
-				p->vid, p->did);
+		if(io == 0)
 			continue;
-		}
+
 		print("usbehci: %#x %#x: port %#p size %#x irq %d\n",
 			p->vid, p->did, io, p->mem[0].size, p->intl);
 
@@ -189,6 +187,7 @@ scanpci(void)
 			continue;
 		}
 		ctlr->pcidev = p;
+		ctlr->base = io;
 		capio = ctlr->capio = vmap(io, p->mem[0].size);
 		ctlr->opio = (Eopio*)((uintptr)capio + (capio->cap & 0xff));
 		pcisetbme(p);
@@ -239,7 +238,7 @@ reset(Hci *hp)
 	for(i = 0; i < Nhcis && ctlrs[i] != nil; i++){
 		ctlr = ctlrs[i];
 		if(ctlr->active == 0)
-		if(hp->port == 0 || hp->port == PADDR(ctlr->capio)){
+		if(hp->port == 0 || hp->port == ctlr->base){
 			ctlr->active = 1;
 			break;
 		}
@@ -250,7 +249,7 @@ reset(Hci *hp)
 
 	p = ctlr->pcidev;
 	hp->aux = ctlr;
-	hp->port = PADDR(ctlr->capio);
+	hp->port = ctlr->base;
 	hp->irq = p->intl;
 	hp->tbdf = p->tbdf;
 

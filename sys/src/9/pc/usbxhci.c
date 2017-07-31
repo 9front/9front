@@ -238,6 +238,7 @@ struct Ctlr
 	void	(*setrptr)(u32int*, u64int);
 
 	void	*active;
+	uintptr	base;
 };
 
 struct Epio
@@ -1437,6 +1438,8 @@ scanpci(void)
 		io = p->mem[0].bar & ~0x0f;
 		if(io == 0)
 			continue;
+		print("usbxhci: %#x %#x: port %#p size %#x irq %d\n",
+			p->vid, p->did, io, p->mem[0].size, p->intl);
 		mmio = vmap(io, p->mem[0].size);
 		if(mmio == nil){
 			print("usbxhci: cannot map registers\n");
@@ -1448,8 +1451,7 @@ scanpci(void)
 			vunmap(mmio, p->mem[0].size);
 			continue;
 		}
-		print("usbxhci: %#x %#x: port %#p size %#x irq %d\n",
-			p->vid, p->did, io, p->mem[0].size, p->intl);
+		ctlr->base = io;
 		ctlr->active = nil;
 		ctlr->pcidev = p;
 		ctlr->mmio = mmio;
@@ -1481,7 +1483,7 @@ reset(Hci *hp)
 	for(i = 0; i < nelem(ctlrs) && ctlrs[i] != nil; i++){
 		ctlr = ctlrs[i];
 		if(ctlr->active == nil)
-		if(hp->port == 0 || hp->port == PADDR(ctlr->mmio)){
+		if(hp->port == 0 || hp->port == ctlr->base){
 			ctlr->active = hp;
 			goto Found;
 		}
@@ -1490,7 +1492,7 @@ reset(Hci *hp)
 
 Found:
 	hp->aux = ctlr;
-	hp->port = PADDR(ctlr->mmio);
+	hp->port = ctlr->base;
 	hp->irq = ctlr->pcidev->intl;
 	hp->tbdf = ctlr->pcidev->tbdf;
 

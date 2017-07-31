@@ -350,6 +350,7 @@ struct Ctlr
 	Qtree*	tree;		/* tree for t Ep i/o */
 	int	ntree;		/* number of dummy Eds in tree */
 	Pcidev*	pcidev;
+	uintptr	base;
 };
 
 #define dqprint		if(debug || io && io->debug)print
@@ -2378,7 +2379,7 @@ init(Hci *hp)
 static void
 scanpci(void)
 {
-	ulong mem;
+	uintptr io;
 	Ctlr *ctlr;
 	Pcidev *p;
 	int i;
@@ -2392,24 +2393,21 @@ scanpci(void)
 		/*
 		 * Find Ohci controllers (Programming Interface = 0x10).
 		 */
-		if(p->ccrb != Pcibcserial || p->ccru != Pciscusb ||
-		    p->ccrp != 0x10)
+		if(p->ccrb != Pcibcserial || p->ccru != Pciscusb || p->ccrp != 0x10)
 			continue;
-		mem = p->mem[0].bar & ~0x0F;
-		dprint("ohci: %x/%x port 0x%lux size 0x%x irq %d\n",
-			p->vid, p->did, mem, p->mem[0].size, p->intl);
-		if(mem == 0){
-			print("ohci: failed to map registers\n");
+		io = p->mem[0].bar & ~0x0F;
+		if(io == 0)
 			continue;
-		}
-
+		print("usbohci: %#x %#x: port %#p size %#x irq %d\n",
+			p->vid, p->did, io, p->mem[0].size, p->intl);
 		ctlr = malloc(sizeof(Ctlr));
 		if(ctlr == nil){
 			print("ohci: no memory\n");
 			continue;
 		}
 		ctlr->pcidev = p;
-		ctlr->ohci = vmap(mem, p->mem[0].size);
+		ctlr->base = io;
+		ctlr->ohci = vmap(io, p->mem[0].size);
 		dprint("scanpci: ctlr %#p, ohci %#p\n", ctlr, ctlr->ohci);
 		pcisetbme(p);
 		pcisetpms(p, 0);
@@ -2571,7 +2569,7 @@ reset(Hci *hp)
 	for(i = 0; i < Nhcis && ctlrs[i] != nil; i++){
 		ctlr = ctlrs[i];
 		if(ctlr->active == 0)
-		if(hp->port == 0 || hp->port == PADDR(ctlr->ohci)){
+		if(hp->port == 0 || hp->port == ctlr->base){
 			ctlr->active = 1;
 			break;
 		}
@@ -2585,7 +2583,7 @@ reset(Hci *hp)
 
 	p = ctlr->pcidev;
 	hp->aux = ctlr;
-	hp->port = PADDR(ctlr->ohci);
+	hp->port = ctlr->base;
 	hp->irq = p->intl;
 	hp->tbdf = p->tbdf;
 	ctlr->nports = hp->nports = ctlr->ohci->rhdesca & 0xff;
