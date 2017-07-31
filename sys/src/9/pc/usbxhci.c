@@ -765,8 +765,16 @@ allocslot(Ctlr *ctlr, Udev *dev)
 }
 
 static void
-shutdown(Hci *)
+shutdown(Hci *hp)
 {
+	Ctlr *ctlr = hp->aux;
+	int i;
+
+	ctlr->opr[USBCMD] = 0;
+	for(i=0; (ctlr->opr[USBSTS] & HCH) == 0 && i < 10; i++)
+		delay(10);
+	intrdisable(ctlr->pcidev->intl, hp->interrupt, hp, ctlr->pcidev->tbdf, hp->type);
+	pciclrbme(ctlr->pcidev);
 }
 
 static void
@@ -1384,7 +1392,7 @@ portstatus(Hci *hp, int port)
 }
 	
 static int
-portenable(Hci *, int port, int on)
+portenable(Hci*, int, int)
 {
 	return 0;
 }
