@@ -50,9 +50,7 @@ enum
 	Pconfiged,
 
 	/* Delays, timeouts (ms) */
-//	Spawndelay	= 1000,		/* how often may we re-spawn a driver */
 	Spawndelay	= 250,		/* how often may we re-spawn a driver */
-//	Connectdelay	= 1000,		/* how much to wait after a connect */
 	Connectdelay	= 500,		/* how much to wait after a connect */
 	Resetdelay	= 20,		/* how much to wait after a reset */
 	Enabledelay	= 20,		/* how much to wait after an enable */
@@ -82,6 +80,7 @@ struct Hub
 	Port	*port;
 	int	failed;		/* I/O error while enumerating */
 	int	isroot;		/* set if root hub */
+	int	depth;		/* hub depth */
 	Dev	*dev;		/* for this hub */
 	Hub	*next;		/* in list of hubs */
 };
@@ -89,13 +88,11 @@ struct Hub
 struct Port
 {
 	int	state;		/* state of the device */
-	int	sts;		/* old port status */
+	u32int	sts;		/* old port status */
 	uchar	removable;
 	uchar	pwrctl;
 	Dev	*dev;		/* attached device (if non-nil) */
 	Hub	*hub;		/* non-nil if hub attached */
-	int	devnb;		/* device number */
-	uvlong	*devmaskp;	/* ptr to dev mask */
 };
 
 /* USB HUB descriptor */

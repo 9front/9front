@@ -27,7 +27,12 @@ parsedev(Dev *xd, uchar *b, int n)
 		return -1;
 	}
 	d->csp = CSP(dd->bDevClass, dd->bDevSubClass, dd->bDevProtocol);
-	d->ep[0]->maxpkt = xd->maxpkt = dd->bMaxPacketSize0;
+	d->ver = GET2(dd->bcdUSB);
+	xd->isusb3 = (d->ver >= 0x0300);
+	if(xd->isusb3)
+		d->ep[0]->maxpkt = xd->maxpkt = 1<<dd->bMaxPacketSize0;
+	else
+		d->ep[0]->maxpkt = xd->maxpkt = dd->bMaxPacketSize0;
 	d->class = dd->bDevClass;
 	d->nconf = dd->bNumConfigurations;
 	if(d->nconf == 0)

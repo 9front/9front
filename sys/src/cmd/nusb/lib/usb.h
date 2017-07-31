@@ -36,7 +36,7 @@ enum {
 	Rep	= 2,		/* endpoint */
 	Rother	= 3,
 
-	/* standard requests */
+	/* standard requests (USB2.0) */
 	Rgetstatus	= 0,
 	Rclearfeature	= 1,
 	Rsetfeature	= 3,
@@ -48,6 +48,10 @@ enum {
 	Rgetiface	= 10,
 	Rsetiface	= 11,
 	Rsynchframe	= 12,
+
+	/* standard requests (USB3.0) */
+	Rsethubdepth	= 12,
+	Rgetporterrcnt	= 13,
 
 	Rgetcur	= 0x81,
 	Rgetmin	= 0x82,
@@ -169,6 +173,7 @@ struct Dev
 	int	id;		/* usb id for device or ep. number */
 	int	dfd;		/* descriptor for the data file */
 	int	cfd;		/* descriptor for the control file */
+	int	isusb3;		/* this is a usb3 device */
 	int	maxpkt;		/* cached from usb description */
 	Ref	nerrs;		/* number of errors in requests */
 	Usbdev*	usb;		/* USB description */
@@ -182,6 +187,7 @@ struct Dev
  */
 struct Usbdev
 {
+	int	ver;		/* usb version */
 	ulong	csp;		/* USB class/subclass/proto */
 	int	vid;		/* vendor id */
 	int	did;		/* product (device) id */

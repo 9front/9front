@@ -373,9 +373,10 @@ assignhname(Dev *dev)
 }
 
 int
-attachdev(Port *p)
+attachdev(Hub *h, Port *p)
 {
 	Dev *d = p->dev;
+	int id;
 
 	if(d->usb->class == Clhub){
 		/*
@@ -384,9 +385,19 @@ attachdev(Port *p)
 		 * has the config address in use.
 		 * We cancel kernel debug for these eps. too chatty.
 		 */
-		if((p->hub = newhub(d->dir, d)) == nil)
+		if((p->hub = newhub(d->dir, d, h)) == nil)
 			return -1;
 		return 0;
+	}
+
+	/* create all endpoint files for default conf #1 */
+	for(id=1; id<nelem(d->usb->ep); id++){
+		Ep *ep = d->usb->ep[id];
+		if(ep != nil && ep->conf != nil && ep->conf->cval == 1){
+			Dev *epd = openep(d, id);
+			if(epd != nil)
+				closedev(epd);
+		}
 	}
 
 	/* close control endpoint so driver can open it */
@@ -406,7 +417,7 @@ attachdev(Port *p)
 }
 
 void
-detachdev(Port *p)
+detachdev(Hub *, Port *p)
 {
 	Dev *d = p->dev;
 
