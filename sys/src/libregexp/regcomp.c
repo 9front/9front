@@ -312,13 +312,10 @@ getnextr(Parselex *l)
 		return;
 	}
 	l->rawexp += chartorune(&l->rune, l->rawexp);
-	if(l->rune == L'\\') {
-		l->rawexp += chartorune(&l->rune, l->rawexp);
-		l->literal = 1;
-	}
 	if(*l->rawexp == 0)
 		l->done = 1;
-	return;
+	if(l->rune == L'\\')
+		getnextrlit(l);
 }
 
 static void
@@ -333,7 +330,6 @@ getnextrlit(Parselex *l)
 	l->rawexp += chartorune(&l->rune, l->rawexp);
 	if(*l->rawexp == 0)
 		l->done = 1;
-	return;
 }
 
 static int
