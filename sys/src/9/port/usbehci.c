@@ -2000,7 +2000,7 @@ episoread(Ep *ep, Isoio *iso, void *a, long count)
 	iunlock(ctlr);
 	qunlock(iso);
 	poperror();
-	diprint("uhci: episoread: %#p %uld bytes err '%s'\n", iso, tot, iso->err);
+	diprint("ehci: episoread: %#p %uld bytes err '%s'\n", iso, tot, iso->err);
 	if(iso->err != nil)
 		error(iso->err);
 	return tot;
@@ -2691,6 +2691,7 @@ isofsinit(Ep *ep, Isoio *iso)
 	ulong frno;
 	Ctlr *ctlr;
 
+	iso->hs = 0;
 	ctlr = ep->hp->aux;
 	left = 0;
 	ltd = nil;
@@ -2742,9 +2743,7 @@ isohsinit(Ep *ep, Isoio *iso)
 	Ctlr *ctlr;
 
 	iso->hs = 1;
-	ival = 1;
-	if(ep->pollival > 8)
-		ival = ep->pollival/8;
+	ival = (ep->pollival+7)/8;
 	ctlr = ep->hp->aux;
 	left = 0;
 	ltd = nil;
@@ -2807,19 +2806,17 @@ isoopen(Ctlr *ctlr, Ep *ep)
 	iso->state = Qidle;
 	coherence();
 	iso->debug = ep->debug;
-	ival = ep->pollival;
 	tpf = 1;
+	ival = ep->pollival;
 	if(ep->dev->speed == Highspeed){
 		tpf = 8;
-		if(ival <= 8)
-			ival = 1;
-		else
-			ival /= 8;
+		ival = (ival+7)/8;
 	}
-	assert(ival != 0);
+	if(ival < 1)
+		error("bad pollival");
 	iso->nframes = Nisoframes / ival;
 	if(iso->nframes < 3)
-		error("uhci isoopen bug");	/* we need at least 3 tds */
+		error("ehci isoopen bug");	/* we need at least 3 tds */
 	iso->maxsize = ep->ntds * ep->maxpkt;
 	if(ctlr->load + ep->load > 800)
 		print("usb: ehci: bandwidth may be exceeded\n");
@@ -2871,7 +2868,7 @@ isoopen(Ctlr *ctlr, Ep *ep)
 	for(w = 0; w < n; w++){
 		frno = iso->td0frno;
 		woff = w * Nisoframes;
-		for(i = 0; i < iso->nframes ; i++){
+		for(i = 0; i < iso->nframes; i++){
 			assert(woff+frno < ctlr->nframes);
 			assert(iso->tdps[frno] != nil);
 			if(ep->dev->speed == Highspeed)
@@ -2881,7 +2878,7 @@ isoopen(Ctlr *ctlr, Ep *ep)
 				ctlr->frames[woff+frno] = PADDR(iso->tdps[frno])
 					|Lsitd;
 			coherence();
-			frno = TRUNC(frno+ep->pollival, Nisoframes);
+			frno = TRUNC(frno+ival, Nisoframes);
 		}
 	}
 	coherence();
@@ -3002,7 +2999,7 @@ cancelio(Ctlr *ctlr, Qio *io)
 }
 
 static void
-cancelisoio(Ctlr *ctlr, Isoio *iso, int pollival, ulong load)
+cancelisoio(Ctlr *ctlr, Isoio *iso, int ival, ulong load)
 {
 	int frno, i, n, t, w, woff;
 	ulong *lp, *tp;
@@ -3031,6 +3028,8 @@ cancelisoio(Ctlr *ctlr, Isoio *iso, int pollival, ulong load)
 		panic("cancleiso: not found");
 	*il = iso->next;
 
+	if(iso->hs)
+		ival = (ival+7)/8;
 	frno = iso->td0frno;
 	for(i = 0; i < iso->nframes; i++){
 		tp = iso->tdps[frno];
@@ -3062,7 +3061,7 @@ cancelisoio(Ctlr *ctlr, Isoio *iso, int pollival, ulong load)
 			}
 		}
 		coherence();
-		frno = TRUNC(frno+pollival, Nisoframes);
+		frno = TRUNC(frno+ival, Nisoframes);
 	}
 	iunlock(ctlr);
 
@@ -3085,7 +3084,7 @@ cancelisoio(Ctlr *ctlr, Isoio *iso, int pollival, ulong load)
 		else
 			sitdfree(ctlr, iso->sitdps[frno]);
 		iso->tdps[frno] = nil;
-		frno = TRUNC(frno+pollival, Nisoframes);
+		frno = TRUNC(frno+ival, Nisoframes);
 	}
 	free(iso->tdps);
 	iso->tdps = nil;
