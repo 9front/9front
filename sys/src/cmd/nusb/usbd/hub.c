@@ -26,37 +26,12 @@ hubfeature(Hub *h, int port, int f, int on)
 }
 
 static int
-confighub(Hub *h)
+configusb2hub(Hub *h, DHub *dd, int nr)
 {
-	int type;
-	uchar buf[128];	/* room for extra descriptors */
-	int i;
-	Usbdev *d;
-	DHub *dd;
-	Port *pp;
-	int nr;
-	int nmap;
 	uchar *PortPwrCtrlMask;
-	int offset;
-	int mask;
+	int i, offset, mask, nmap;
+	Port *pp;
 
-	d = h->dev->usb;
-	for(i = 0; i < nelem(d->ddesc); i++)
-		if(d->ddesc[i] == nil)
-			break;
-		else if(d->ddesc[i]->data.bDescriptorType == Dhub){
-			dd = (DHub*)&d->ddesc[i]->data;
-			nr = Dhublen;
-			goto Config;
-		}
-	type = Rd2h|Rclass|Rdev;
-	nr = usbcmd(h->dev, type, Rgetdesc, Dhub<<8|0, 0, buf, sizeof buf);
-	if(nr < Dhublen){
-		dprint(2, "%s: %s: getdesc hub: %r\n", argv0, h->dev->dir);
-		return -1;
-	}
-	dd = (DHub*)buf;
-Config:
 	h->nport = dd->bNbrPorts;
 	nmap = 1 + h->nport/8;
 	if(nr < 7 + 2*nmap){
@@ -79,11 +54,77 @@ Config:
 		pp->removable = (dd->DeviceRemovable[offset] & mask) != 0;
 		pp->pwrctl = (PortPwrCtrlMask[offset] & mask) != 0;
 	}
-	if(h->dev->isusb3){
-		type = Rh2d|Rclass|Rdev;
-		usbcmd(h->dev, type, Rsethubdepth, h->depth, 0, nil, 0);
+	return 0;
+}
+
+static int
+configusb3hub(Hub *h, DSSHub *dd, int nr)
+{
+	int i, offset, mask, nmap;
+	Port *pp;
+
+	h->nport = dd->bNbrPorts;
+	nmap = 1 + h->nport/8;
+	if(nr < 10 + nmap){
+		fprint(2, "%s: %s: descr. too small\n", argv0, h->dev->dir);
+		return -1;
+	}
+	h->port = emallocz((h->nport+1)*sizeof(Port), 1);
+	h->pwrms = dd->bPwrOn2PwrGood*2;
+	if(h->pwrms < Powerdelay)
+		h->pwrms = Powerdelay;
+	h->maxcurrent = dd->bHubContrCurrent;
+	h->pwrmode = dd->wHubCharacteristics[0] & 3;
+	h->compound = (dd->wHubCharacteristics[0] & (1<<2))!=0;
+	h->leds = (dd->wHubCharacteristics[0] & (1<<7)) != 0;
+	for(i = 1; i <= h->nport; i++){
+		pp = &h->port[i];
+		offset = i/8;
+		mask = 1<<(i%8);
+		pp->removable = (dd->DeviceRemovable[offset] & mask) != 0;
+	}
+	if(usbcmd(h->dev, Rh2d|Rclass|Rdev, Rsethubdepth, h->depth, 0, nil, 0) < 0){
+		fprint(2, "%s: %s: sethubdepth: %r\n", argv0, h->dev->dir);
+		return -1;
 	}
 	return 0;
+}
+
+static int
+confighub(Hub *h)
+{
+	uchar buf[128];	/* room for extra descriptors */
+	int i, dt, dl, nr;
+	Usbdev *d;
+	void *dd;
+
+	d = h->dev->usb;
+	if(h->dev->isusb3){
+		dt = Dsshub;
+		dl = Dsshublen;
+	} else {
+		dt = Dhub;
+		dl = Dhublen;
+	}
+	for(i = 0; i < nelem(d->ddesc); i++)
+		if(d->ddesc[i] == nil)
+			break;
+		else if(d->ddesc[i]->data.bDescriptorType == dt){
+			dd = &d->ddesc[i]->data;
+			nr = dl;
+			goto Config;
+		}
+	nr = usbcmd(h->dev, Rd2h|Rclass|Rdev, Rgetdesc, dt<<8|0, 0, buf, sizeof buf);
+	if(nr < dl){
+		fprint(2, "%s: %s: getdesc hub: %r\n", argv0, h->dev->dir);
+		return -1;
+	}
+	dd = buf;
+Config:
+	if(h->dev->isusb3)
+		return configusb3hub(h, dd, nr);
+	else
+		return configusb2hub(h, dd, nr);
 }
 
 static void
