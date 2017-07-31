@@ -1803,7 +1803,7 @@ seprintep(char *s, char *e, Ep *ep)
 	case Tctl:
 		cio = ep->aux;
 		s = seprintio(s, e, cio, "c");
-		s = seprint(s, e, "\trepl %d ndata %d\n", ep->rhrepl, cio->ndata);
+		s = seprint(s, e, "\trepl %llux ndata %d\n", ep->rhrepl, cio->ndata);
 		break;
 	case Tbulk:
 	case Tintr:

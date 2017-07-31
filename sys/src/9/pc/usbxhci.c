@@ -387,8 +387,10 @@ init(Hci *hp)
 	ctlr->nscratch = (ctlr->mmio[HCSPARAMS2] >> 27) & 0x1F;
 	ctlr->nintrs = (ctlr->mmio[HCSPARAMS1] >> 8) & 0x7FF;
 	ctlr->nslots = (ctlr->mmio[HCSPARAMS1] >> 0) & 0xFF;
-	hp->nports = (ctlr->mmio[HCSPARAMS1] >> 24) & 0xFF;
 
+	hp->highspeed = 1;
+	hp->superspeed = 0;
+	hp->nports = (ctlr->mmio[HCSPARAMS1] >> 24) & 0xFF;
 	ctlr->port = malloc(hp->nports * sizeof(Port));
 	for(i=0; i<hp->nports; i++)
 		ctlr->port[i].reg = &ctlr->opr[0x400/4 + i*4];
@@ -403,6 +405,8 @@ init(Hci *hp)
 			pp = &ctlr->port[i-1];
 			pp->proto = x[0]>>16;
 			memmove(pp->spec, &x[1], 4);
+			if(memcmp(pp->spec, "USB ", 4) == 0 && pp->proto >= 0x0300)
+				hp->superspeed |= 1<<(i-1);
 			i++;
 		}
 	}
@@ -1151,6 +1155,9 @@ epread(Ep *ep, void *va, long n)
 	char *err;
 	Wait ws[1];
 
+	if(ep->dev->isroot)
+		error(Egreg);
+
 	p = va;
 	if(ep->ttype == Tctl){
 		io = (Epio*)ep->aux + OREAD;
@@ -1211,6 +1218,9 @@ epwrite(Ep *ep, void *va, long n)
 	Epio *io;
 	uchar *p;
 	char *err;
+
+	if(ep->dev->isroot)
+		error(Egreg);
 
 	p = va;
 	if(ep->ttype == Tctl){
@@ -1335,41 +1345,46 @@ portstatus(Hci *hp, int port)
 {
 	Ctlr *ctlr = hp->aux;
 	Port *pp = &ctlr->port[port-1];
-	u32int psc = pp->reg[PORTSC];
-	int ps = 0;
+	u32int psc, ps = 0;
 
-	if(memcmp(pp->spec, "USB", 3) != 0 || pp->proto > 0x0200)
-		return 0;
-
+	psc = pp->reg[PORTSC];
 	if(psc & CCS)	ps |= HPpresent;
 	if(psc & PED)	ps |= HPenable;
 	if(psc & OCA)	ps |= HPovercurrent;
 	if(psc & PR)	ps |= HPreset;
-	else {
-		switch((psc>>10)&0xF){
-		case 1:
-			/* full speed */
-			break;
-		case 2:
-			ps |= HPslow;
-			break;
-		case 3:
-			ps |= HPhigh;
-			break;
-		case 4:	/* super speed */
-			break;
-		}
-	}
-	if(psc & PP)	ps |= HPpower;
 
-	if(psc & CSC)	ps |= HPstatuschg;
-	if(psc & PRC)	ps |= HPchange;
+	if((hp->superspeed & (1<<(port-1))) != 0){
+		ps |= psc & (PLS|PP);
+		if(psc & CSC)	ps |= 1<<0+16;
+		if(psc & OCC)	ps |= 1<<3+16;
+		if(psc & PRC)	ps |= 1<<4+16;
+		if(psc & WRC)	ps |= 1<<5+16;
+		if(psc & PLC)	ps |= 1<<6+16;
+		if(psc & CEC)	ps |= 1<<7+16;
+	} else {
+		if((ps & HPreset) == 0){
+			switch((psc>>10)&15){
+			case 1:
+				/* full speed */
+				break;
+			case 2:
+				ps |= HPslow;
+				break;
+			case 3:
+				ps |= HPhigh;
+				break;
+			}
+		}
+		if(psc & PP)	ps |= HPpower;
+		if(psc & CSC)	ps |= HPstatuschg;
+		if(psc & PRC)	ps |= HPchange;
+	}
 
 	return ps;
 }
 	
 static int
-portenable(Hci *, int, int)
+portenable(Hci *, int port, int on)
 {
 	return 0;
 }
@@ -1379,9 +1394,6 @@ portreset(Hci *hp, int port, int on)
 {
 	Ctlr *ctlr = hp->aux;
 	Port *pp = &ctlr->port[port-1];
-
-	if(memcmp(pp->spec, "USB", 3) != 0 || pp->proto > 0x0200)
-		return 0;
 
 	if(on){
 		pp->reg[PORTSC] |= PR;

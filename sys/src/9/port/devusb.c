@@ -73,7 +73,7 @@ enum
 
 	/* Ep. ctls */
 	CMnew = 0,		/* new nb ctl|bulk|intr|iso r|w|rw (endpoint) */
-	CMnewdev,		/* newdev full|low|high portnb (allocate new devices) */
+	CMnewdev,		/* newdev full|low|high|super portnb (allocate new devices) */
 	CMhub,			/* hub (set the device as a hub) */
 	CMspeed,		/* speed full|low|high|no */
 	CMmaxpkt,		/* maxpkt size */
@@ -296,6 +296,7 @@ seprintep(char *s, char *se, Ep *ep, int all)
 	s = seprint(s, se, " hz %ld", ep->hz);
 	s = seprint(s, se, " hub %d", ep->dev->hub);
 	s = seprint(s, se, " port %d", ep->dev->port);
+	s = seprint(s, se, " rootport %d", ep->dev->rootport);
 	s = seprint(s, se, " addr %d", ep->dev->addr);
 	if(ep->inuse)
 		s = seprint(s, se, " busy");
@@ -474,11 +475,8 @@ newdev(Hci *hp, int ishub, int isroot)
 	d->isroot = isroot;
 	d->rootport = 0;
 	d->routestr = 0;
-	d->depth = 0;
-	if(hp->highspeed != 0)
-		d->speed = Highspeed;
-	else
-		d->speed = Fullspeed;
+	d->depth = -1;
+	d->speed = Fullspeed;
 	d->state = Dconfig;		/* address not yet set */
 	ep->dev = d;
 	ep->ep0 = ep;			/* no ref counted here */
@@ -746,6 +744,17 @@ usbreset(void)
 		print("usbreset: bug: Nhcis (%d) too small\n", Nhcis);
 }
 
+static int
+numbits(uint n)
+{
+	int c = 0;
+	while(n != 0){
+		c++;
+		n = (n-1) & n;
+	}
+	return c;
+}
+
 static void
 usbinit(void)
 {
@@ -758,13 +767,31 @@ usbinit(void)
 	for(ctlrno = 0; ctlrno < Nhcis; ctlrno++){
 		hp = hcis[ctlrno];
 		if(hp != nil){
+			int n;
+
 			if(hp->init != nil)
 				hp->init(hp);
-			d = newdev(hp, 1, 1);		/* new root hub */
-			d->dev->state = Denabled;	/* although addr == 0 */
-			d->maxpkt = 64;
-			snprint(info, sizeof(info), "ports %d", hp->nports);
-			kstrdup(&d->info, info);
+
+			hp->superspeed &= (1<<hp->nports)-1;
+			n = hp->nports - numbits(hp->superspeed);
+			if(n > 0){
+				d = newdev(hp, 1, 1);		/* new LS/FS/HS root hub */
+				d->maxpkt = 64;
+				if(hp->highspeed != 0)
+					d->dev->speed = Highspeed;
+				d->dev->state = Denabled;	/* although addr == 0 */
+				snprint(info, sizeof(info), "roothub ports %d", n);
+				kstrdup(&d->info, info);
+			}
+			n = numbits(hp->superspeed);
+			if(n > 0){
+				d = newdev(hp, 1, 1);		/* new SS root hub */
+				d->maxpkt = 512;
+				d->dev->speed = Superspeed;
+				d->dev->state = Denabled;	/* although addr == 0 */
+				snprint(info, sizeof(info), "roothub ports %d", n);
+				kstrdup(&d->info, info);
+			}
 		}
 	}
 }
@@ -805,6 +832,7 @@ usbload(int speed, int maxpkt)
 	l = 0;
 	bs = 10UL * maxpkt;
 	switch(speed){
+	case Superspeed:
 	case Highspeed:
 		l = 55*8*2 + 2 * (3 + bs) + Hostns;
 		break;
@@ -985,18 +1013,55 @@ ctlread(Chan *c, void *a, long n, vlong offset)
 static long
 rhubread(Ep *ep, void *a, long n)
 {
-	char *b;
+	uchar b[8];
 
-	if(ep->dev->isroot == 0 || ep->nb != 0 || n < 2)
-		return -1;
-	if(ep->rhrepl < 0)
+	if(ep->dev->isroot == 0 || ep->nb != 0 || n < 2 || ep->rhrepl == -1)
 		return -1;
 
-	b = a;
-	memset(b, 0, n);
-	PUT2(b, ep->rhrepl);
+	b[0] = ep->rhrepl;
+	b[1] = ep->rhrepl>>8;
+	b[2] = ep->rhrepl>>16;
+	b[3] = ep->rhrepl>>24;
+	b[4] = ep->rhrepl>>32;
+	b[5] = ep->rhrepl>>40;
+	b[6] = ep->rhrepl>>48;
+	b[7] = ep->rhrepl>>56;
+
 	ep->rhrepl = -1;
+
+	if(n > sizeof(b))
+		n = sizeof(b);
+	memmove(a, b, n);
+
 	return n;
+}
+
+static int
+rootport(Ep *ep, int port)
+{
+	Hci *hp;
+	Udev *hub;
+	uint mask;
+	int rootport;
+
+	hp = ep->hp;
+	hub = ep->dev;
+	if(!hub->isroot)
+		return hub->rootport;
+
+	mask = hp->superspeed;
+	if(hub->speed != Superspeed)
+		mask = (1<<hp->nports)-1 & ~mask;
+
+	for(rootport = 1; mask != 0; rootport++){
+		if(mask & 1){
+			if(--port == 0)
+				return rootport;
+		}
+		mask >>= 1;
+	}
+
+	return 0;
 }
 
 static long
@@ -1019,8 +1084,8 @@ rhubwrite(Ep *ep, void *a, long n)
 	hp = ep->hp;
 	cmd = s[Rreq];
 	feature = GET2(s+Rvalue);
-	port = GET2(s+Rindex);
-	if(port < 1 || port > hp->nports)
+	port = rootport(ep, GET2(s+Rindex));
+	if(port == 0)
 		error("bad hub port number");
 	switch(feature){
 	case Rportenable:
@@ -1089,16 +1154,15 @@ setmaxpkt(Ep *ep, char* s)
 {
 	long spp, max;	/* samples per packet */
 
-	if(ep->dev->speed == Highspeed || ep->dev->speed == Superspeed)
-		spp = (ep->hz * ep->pollival * ep->ntds + 7999) / 8000;
-	else
+	if(ep->dev->speed == Fullspeed)
 		spp = (ep->hz * ep->pollival + 999) / 1000;
+	else
+		spp = (ep->hz * ep->pollival * ep->ntds + 7999) / 8000;
 	ep->maxpkt = spp * ep->samplesz;
 	deprint("usb: %s: setmaxpkt: hz %ld poll %ld"
 		" ntds %d %s speed -> spp %ld maxpkt %ld\n", s,
 		ep->hz, ep->pollival, ep->ntds, spname[ep->dev->speed],
 		spp, ep->maxpkt);
-
 	switch(ep->dev->speed){
 	case Fullspeed:
 		max = 1024;
@@ -1170,16 +1234,20 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 			error("not a hub setup endpoint");
 		l = name2speed(cb->f[1]);
 		if(l == Nospeed)
-			error("speed must be full|low|high");
+			error("speed must be full|low|high|super");
+		if(l != d->speed && (l == Superspeed || d->speed == Superspeed))
+			error("wrong speed for superspeed hub/device");
 		nep = newdev(ep->hp, 0, 0);
 		nep->dev->speed = l;
-		if(nep->dev->speed != Lowspeed)
+		if(l == Superspeed)
+			nep->maxpkt = 512;
+		else if(l != Lowspeed)
 			nep->maxpkt = 64;	/* assume full speed */
 		nep->dev->hub = d->addr;
 		nep->dev->port = atoi(cb->f[2]);
 		nep->dev->depth = d->depth+1;
-		nep->dev->rootport = d->depth == 0 ? nep->dev->port : d->rootport;
-		nep->dev->routestr = d->routestr | ((nep->dev->port&15) << 4*d->depth) >> 4;
+		nep->dev->rootport = rootport(ep, nep->dev->port);
+		nep->dev->routestr = d->routestr | (((nep->dev->port&15) << 4*nep->dev->depth) >> 4);
 		/* next read request will read
 		 * the name for the new endpoint
 		 */
@@ -1195,7 +1263,9 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 		l = name2speed(cb->f[1]);
 		deprint("usb epctl %s %d\n", cb->f[0], l);
 		if(l == Nospeed)
-			error("speed must be full|low|high");
+			error("speed must be full|low|high|super");
+		if(l != d->speed && (l == Superspeed || d->speed == Superspeed))
+			error("cannot change speed on superspeed device");
 		qlock(ep->ep0);
 		d->speed = l;
 		qunlock(ep->ep0);
@@ -1223,13 +1293,13 @@ epctl(Ep *ep, Chan *c, void *a, long n)
 			error("not an intr or iso endpoint");
 		l = strtoul(cb->f[1], nil, 0);
 		deprint("usb epctl %s %d\n", cb->f[0], l);
-		if(ep->dev->speed == Highspeed || ep->dev->speed == Superspeed){
+		if(ep->dev->speed == Fullspeed || ep->dev->speed == Lowspeed){
+			if(l < 1 || l > 255)
+				error("pollival not in [1:255]");
+		} else {
 			if(l < 1 || l > 16)
 				error("pollival power not in [1:16]");
 			l = 1 << l-1;
-		} else {
-			if(l < 1 || l > 255)
-				error("pollival not in [1:255]");
 		}
 		qlock(ep);
 		ep->pollival = l;

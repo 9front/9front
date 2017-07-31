@@ -128,7 +128,8 @@ struct Hci
 	int	tbdf;				/* type+busno+devno+funcno */
 	int	ctlrno;				/* controller number */
 	int	nports;				/* number of ports in hub */
-	int	highspeed;
+	int	highspeed;			/* supports highspeed devices */
+	uint	superspeed;			/* bitmap of superspeed ports */
 	Hciimpl;					/* HCI driver  */
 };
 
@@ -164,7 +165,7 @@ struct Ep
 	int	ttype;		/* tranfer type */
 	ulong	load;		/* in µs, for a transfer of maxpkt bytes */
 	void*	aux;		/* for controller specific info */
-	int	rhrepl;		/* fake root hub replies */
+	u64int	rhrepl;		/* fake root hub replies */
 	int	toggle[2];	/* saved toggles (while ep is not in use) */
 	long	pollival;	/* poll interval ([µ]frames; intr/iso) */
 	long	hz;		/* poll frequency (iso) */
@@ -184,7 +185,7 @@ struct Udev
 	int	state;		/* state for the device */
 	int	ishub;		/* hubs can allocate devices */
 	int	isroot;		/* is a root hub */
-	int	speed;		/* Full/Low/High/No -speed */
+	int	speed;		/* Full/Low/High/Super/No -speed */
 	int	hub;		/* device address for the parent hub */
 	int	port;		/* port number in the parent hub */
 	int	addr;		/* device address */
