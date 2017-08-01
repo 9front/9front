@@ -98,7 +98,7 @@ static uchar	zeros[16];
 	((d)>>8)&255,(d)&255, \
 	((e)>>40)&255, ((e)>>32)&255, ((e)>>24)&255, ((e)>>16)&255, ((e)>>8)&255, (e)&255}
 
-static Type	types[100] = {
+static Type	types[256] = {
 {UU(0x00000000,0x0000,0x0000,0x0000,0x000000000000ULL), "", "Unused entry"},
 {UU(0x024DEE41,0x33E7,0x11D3,0x9D69,0x0008C781F39FULL), "mbr", "MBR partition"},
 {UU(0xC12A7328,0xF81F,0x11D2,0xBA4B,0x00A0C93EC93BULL), "esp", "EFI System Partition"},
