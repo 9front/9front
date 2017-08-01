@@ -175,6 +175,8 @@ struct Ring
 	u32int	*ctx;
 	u32int	*doorbell;
 
+	int	stopped;
+
 	Wait	*pending;
 	Lock;
 };
@@ -302,6 +304,7 @@ initring(Ring *r, int shift)
 	r->slot = nil;
 	r->doorbell = nil;
 	r->pending = nil;
+	r->stopped = 0;
 	r->shift = shift;
 	r->mask = (1<<shift)-1;
 	r->rp = r->wp = 0;
@@ -474,30 +477,30 @@ dump(Hci *)
 }
 
 static void
-queuetd(Ring *ring, u32int c, u32int s, u64int p, Wait *w)
+queuetd(Ring *r, u32int c, u32int s, u64int p, Wait *w)
 {
 	u32int *td, x;
 
-	x = ring->wp++;
-	if((x & ring->mask) == ring->mask){
-		td = ring->base + 4*(x & ring->mask);
-		*(u64int*)td = PADDR(ring->base);
+	x = r->wp++;
+	if((x & r->mask) == r->mask){
+		td = r->base + 4*(x & r->mask);
+		*(u64int*)td = PADDR(r->base);
 		td[2] = 0;
-		td[3] = ((~x>>ring->shift)&1) | (1<<1) | TR_LINK;
-		x = ring->wp++;
+		td[3] = ((~x>>r->shift)&1) | (1<<1) | TR_LINK;
+		x = r->wp++;
 	}
-	td = ring->base + 4*(x & ring->mask);
+	td = r->base + 4*(x & r->mask);
 	if(w != nil){
-		memset(w->er, 0, 4*4);
-		w->ring = ring;
+		w->er[0] = w->er[1] = w->er[2] = w->er[3] = 0;
+		w->ring = r;
 		w->td = td;
 		w->z = &up->sleep;
-		w->next = ring->pending;
-		ring->pending = w;
+		w->next = r->pending;
+		r->pending = w;
 	}
 	*(u64int*)td = p;
 	td[2] = s;
-	td[3] = ((~x>>ring->shift)&1) | c;
+	td[3] = ((~x>>r->shift)&1) | c;
 }
 
 static char *ccerrtab[] = {
@@ -556,22 +559,45 @@ waitdone(void *a)
 	return ((Wait*)a)->z == nil;
 }
 
+static void
+flushring(Ring *r)
+{
+	Rendez *z;
+	Wait *w;
+
+	while((w = r->pending) != nil){
+		r->pending = w->next;
+		w->next = nil;
+		if((z = w->z) != nil){
+			w->z = nil;
+			wakeup(z);
+		}
+	}
+}
+
 static char*
 ctlrcmd(Ctlr *ctlr, u32int c, u32int s, u64int p, u32int *er);
 
 static char*
-waittd(Ctlr *ctlr, Wait *w, int tmout, u32int *er)
+waittd(Ctlr *ctlr, Wait *w, int tmout, QLock *q)
 {
-	Ring *ring = w->ring;
+	Ring *r = w->ring;
 
 	coherence();
-	*ring->doorbell = ring->id;
+	*r->doorbell = r->id;
 
 	while(waserror()){
-		if(ring == ctlr->cr)
-			ctlr->opr[CRCR] |= CA;
-		else
-			ctlrcmd(ctlr, CR_STOPEP | (ring->id<<16) | (ring->slot->id<<24), 0, 0, nil);
+		if(q != nil)
+			qlock(q);
+		if(!r->stopped) {
+			if(r == ctlr->cr)
+				ctlr->opr[CRCR] |= CA;
+			else
+				ctlrcmd(ctlr, CR_STOPEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
+			r->stopped = 1;
+		}
+		if(q != nil)
+			qunlock(q);
 		tmout = 0;
 	}
 	if(tmout > 0){
@@ -584,8 +610,12 @@ waittd(Ctlr *ctlr, Wait *w, int tmout, u32int *er)
 	}
 	poperror();
 
-	if(er != nil)
-		memmove(er, w->er, 4*4);
+	if(r->stopped) {
+		ilock(r);
+		flushring(r);
+		iunlock(r);
+	}
+
 	return ccerrstr(w->er[2]>>24);
 }
 
@@ -593,12 +623,21 @@ static char*
 ctlrcmd(Ctlr *ctlr, u32int c, u32int s, u64int p, u32int *er)
 {
 	Wait ws[1];
+	char *err;
 
 	ilock(ctlr->cr);
+	if(ctlr->cr->stopped){
+		flushring(ctlr->cr);
+		ctlr->cr->stopped = 0;
+	}
 	queuetd(ctlr->cr, c, s, p, ws);
 	iunlock(ctlr->cr);
 
-	return waittd(ctlr, ws, 5000, er);
+	err = waittd(ctlr, ws, 5000, nil);
+	if(er != nil)
+		memmove(er, ws->er, 4*4);
+
+	return err;
 }
 
 static void
@@ -682,6 +721,10 @@ interrupt(Ureg*, void *arg)
 		case ER_HCE:
 			iprint("xhci: host controller error: %ux %ux %ux %ux\n",
 				td[0], td[1], td[2], td[3]);
+			ilock(ctlr->cr);
+			ctlr->cr->stopped = 1;
+			flushring(ctlr->cr);
+			iunlock(ctlr->cr);
 			break;
 		case ER_PORTSC:
 			break;
@@ -1133,21 +1176,27 @@ unstall(Ring *r)
 	char *err;
 
 	switch(r->ctx[0]&7){
-	case 0:	/* disabled */
-	case 1:	/* running */
-	case 3:	/* stopped */
-		break;
 	case 2:	/* halted */
 	case 4:	/* error */
+		r->stopped = 1;
+
+		err = ctlrcmd(r->slot->ctlr, CR_RESETEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
+		if(err != nil)
+			return err;
+	}
+
+	if(r->stopped){
 		ilock(r);
+		flushring(r);
 		r->rp = r->wp;
 		qp = PADDR(&r->base[4*(r->wp & r->mask)]) | ((~r->wp>>r->shift) & 1);
 		iunlock(r);
 
-		err = ctlrcmd(r->slot->ctlr, CR_RESETEP | (r->id<<16) | (r->slot->id<<24), 0, 0, nil);
-		ctlrcmd(r->slot->ctlr, CR_SETTRDQP | (r->id<<16) | (r->slot->id<<24), 0, qp, nil);
+		err = ctlrcmd(r->slot->ctlr, CR_SETTRDQP | (r->id<<16) | (r->slot->id<<24), 0, qp, nil);
 		if(err != nil)
 			return err;
+
+		r->stopped = 0;
 	}
 
 	if(r->wp - r->rp >= r->mask)
@@ -1210,7 +1259,7 @@ epread(Ep *ep, void *va, long n)
 	iunlock(io->ring);
 	qunlock(io);
 
-	if((err = waittd((Ctlr*)ep->hp->aux, ws, ep->tmout, nil)) != nil)
+	if((err = waittd((Ctlr*)ep->hp->aux, ws, ep->tmout, io)) != nil)
 		error(err);
 
 	n -= (ws->er[2] & 0xFFFFFF);
@@ -1243,8 +1292,13 @@ epwrite(Ep *ep, void *va, long n)
 			return n;
 
 		io = (Epio*)ep->aux + OREAD;
+		ring = io[OWRITE-OREAD].ring;
 		qlock(io);
 		if(waserror()){
+			ilock(ring);
+			ring->pending = nil;
+			iunlock(ring);
+
 			qunlock(io);
 			nexterror();
 		}
@@ -1264,8 +1318,6 @@ epwrite(Ep *ep, void *va, long n)
 				io->b->wp += len;
 			}
 		}
-
-		ring = io[OWRITE-OREAD].ring;
 		if((err = unstall(ring)) != nil)
 			error(err);
 
@@ -1304,6 +1356,7 @@ epwrite(Ep *ep, void *va, long n)
 		}
 		if((err = waittd((Ctlr*)ep->hp->aux, &ws[2], ep->tmout, nil)) != nil)
 			error(err);
+
 		qunlock(io);
 		poperror();
 
@@ -1337,7 +1390,7 @@ epwrite(Ep *ep, void *va, long n)
 	iunlock(io->ring);
 	qunlock(io);
 
-	if((err = waittd((Ctlr*)ep->hp->aux, ws, ep->tmout, nil)) != nil)
+	if((err = waittd((Ctlr*)ep->hp->aux, ws, ep->tmout, io)) != nil)
 		error(err);
 
 	return n;
