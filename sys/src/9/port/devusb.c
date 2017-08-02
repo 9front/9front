@@ -769,8 +769,14 @@ usbinit(void)
 		if(hp != nil){
 			int n;
 
-			if(hp->init != nil)
+			if(hp->init != nil){
+				if(waserror()){
+					print("usbinit: %s: %s\n", hp->type, up->errstr);
+					continue;
+				}
 				hp->init(hp);
+				poperror();
+			}
 
 			hp->superspeed &= (1<<hp->nports)-1;
 			n = hp->nports - numbits(hp->superspeed);

@@ -303,8 +303,7 @@ freering(Ring *r)
 {
 	if(r == nil)
 		return;
-	if(r->base != nil)
-		free(r->base);
+	free(r->base);
 	memset(r, 0, sizeof(*r));
 }
 
@@ -395,6 +394,19 @@ handoff(Ctlr *ctlr)
 }
 
 static void
+shutdown(Hci *hp)
+{
+	Ctlr *ctlr = hp->aux;
+	int i;
+
+	ctlr->opr[USBCMD] = 0;
+	for(i=0; (ctlr->opr[USBSTS] & HCH) == 0 && i < 10; i++)
+		delay(10);
+	intrdisable(ctlr->pcidev->intl, hp->interrupt, hp, ctlr->pcidev->tbdf, hp->type);
+	pciclrbme(ctlr->pcidev);
+}
+
+static void
 init(Hci *hp)
 {
 	Ctlr *ctlr;
@@ -423,6 +435,22 @@ init(Hci *hp)
 	pcisetpms(ctlr->pcidev, 0);
 	intrenable(ctlr->pcidev->intl, hp->interrupt, hp, ctlr->pcidev->tbdf, hp->type);
 
+	if(waserror()){
+		shutdown(hp);
+		freering(ctlr->cr);
+		for(i=0; i<nelem(ctlr->er); i++){
+			freering(&ctlr->er[i]);
+			free(ctlr->erst[i]);
+			ctlr->erst[i] = nil;
+		}
+		free(ctlr->port), ctlr->port = nil;
+		free(ctlr->slot), ctlr->slot = nil;
+		free(ctlr->dcba), ctlr->dcba = nil;
+		free(ctlr->sba), ctlr->sba = nil;
+		free(ctlr->sbp), ctlr->sbp = nil;
+		nexterror();
+	}
+
 	ctlr->csz = (ctlr->hccparams & CSZ) != 0;
 	if(ctlr->hccparams & AC64)
 		ctlr->setrptr = setrptr64;
@@ -438,6 +466,8 @@ init(Hci *hp)
 	hp->superspeed = 0;
 	hp->nports = (ctlr->mmio[HCSPARAMS1] >> 24) & 0xFF;
 	ctlr->port = malloc(hp->nports * sizeof(Port));
+	if(ctlr->port == nil)
+		error(Enomem);
 	for(i=0; i<hp->nports; i++)
 		ctlr->port[i].reg = &ctlr->opr[0x400/4 + i*4];
 
@@ -459,9 +489,13 @@ init(Hci *hp)
 
 	ctlr->slot = malloc((1+ctlr->nslots)*sizeof(ctlr->slot[0]));
 	ctlr->dcba = mallocalign((1+ctlr->nslots)*8, 64, 0, ctlr->pagesize);
+	if(ctlr->slot == nil || ctlr->dcba == nil)
+		error(Enomem);
 	if(ctlr->nscratch != 0){
 		ctlr->sba = mallocalign(ctlr->nscratch*8, 64, 0, ctlr->pagesize);
 		ctlr->sbp = mallocalign(ctlr->nscratch*ctlr->pagesize, ctlr->pagesize, 0, 0);
+		if(ctlr->sba == nil || ctlr->sbp == nil)
+			error(Enomem);
 		for(i=0, p = ctlr->sbp; i<ctlr->nscratch; i++, p += ctlr->pagesize){
 			memset(p, 0, ctlr->pagesize);
 			ctlr->sba[i] = PADDR(p);
@@ -491,6 +525,8 @@ init(Hci *hp)
 		/* allocate and link into event ring segment table */
 		initring(&ctlr->er[i], 8);	/* 256 entries */
 		ctlr->erst[i] = mallocalign(16, 64, 0, 0);
+		if(ctlr->erst[i] == nil)
+			error(Enomem);
 		*((u64int*)ctlr->erst[i]) = PADDR(ctlr->er[i].base);
 		ctlr->erst[i][2] = ctlr->er[i].mask+1;
 		ctlr->erst[i][3] = 0;
@@ -501,7 +537,8 @@ init(Hci *hp)
 
 		irs[IMAN] = 3;
 		irs[IMOD] = 0;
-	}	
+	}
+	poperror();
 
 	ctlr->µframe = 0;
 	ctlr->opr[USBCMD] = RUNSTOP|INTE|HSEE|EWE;
@@ -827,19 +864,6 @@ allocslot(Ctlr *ctlr, Udev *dev)
 	dev->free = freeslot;
 
 	return slot;
-}
-
-static void
-shutdown(Hci *hp)
-{
-	Ctlr *ctlr = hp->aux;
-	int i;
-
-	ctlr->opr[USBCMD] = 0;
-	for(i=0; (ctlr->opr[USBSTS] & HCH) == 0 && i < 10; i++)
-		delay(10);
-	intrdisable(ctlr->pcidev->intl, hp->interrupt, hp, ctlr->pcidev->tbdf, hp->type);
-	pciclrbme(ctlr->pcidev);
 }
 
 static void
