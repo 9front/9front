@@ -2,7 +2,7 @@
 
 # desc: choose and mount file system partition
 
-service=cwfs
+sname=cwfs.newfs
 
 switch($1){
 case go
@@ -56,13 +56,13 @@ case go
 
 	log Starting $fstype file server for $fs
 	unmount /n/newfs >[2]/dev/null
-	echo halt >>/srv/$service.cmd >[2]/dev/null
-	rm -f /srv/$service /srv/$service.cmd
+	echo halt >>/srv/$sname.cmd >[2]/dev/null
+	rm -f /srv/$sname /srv/$sname.cmd
 
 	if(~ $ream yes){
 		if(! test -f /tmp/fsconfig){
 			{
-				echo service $service
+				echo service cwfs
 				echo config $fs
 				echo noauth
 				echo filsys main c'('$fs')('$fsworm')'
@@ -76,7 +76,7 @@ case go
 			} >/tmp/fsconfig
 		}
 		echo 'Reaming filesystem'
-		if(! $fstype -f $fs -C -c </tmp/fsconfig){
+		if(! $fstype -n $sname -f $fs -C -c </tmp/fsconfig){
 			mountfs=ready
 			export mountfs
 			exit oops
@@ -84,7 +84,7 @@ case go
 	}
 	if not {
 		echo 'Entering manual configuration mode. when done, type end'
-		if(! $fstype -n $service -f $fs -c){
+		if(! $fstype -n $sname -f $fs -c){
 			mountfs=ready
 			export mountfs
 			exit oops
@@ -114,19 +114,19 @@ case go
 		}
 		echo noattach
 		sleep 2
-	} >>/srv/$service.cmd
+	} >>/srv/$sname.cmd
 
 	log Mounting $fstype file server for $fs
-	while(! logprog mount -c /srv/$service /n/newfs)
+	while(! logprog mount -c /srv/$sname /n/newfs)
 		sleep 2
 	if(! ~ $fsother ''){
 		log Mounting $fstype file server for $fsother
-		logprog mount -c /srv/$service /n/other other
+		logprog mount -c /srv/$sname /n/other other
 	}
 
 case checkready checkdone
 	if(! ~ $fstype '' && ~ $#fs 1 && test -f $fs){
-		if(test -f /srv/$service && test -d /n/newfs/dist){
+		if(test -f /srv/$sname && test -d /n/newfs/dist){
 			mountfs=done
 			export mountfs
 			exit
