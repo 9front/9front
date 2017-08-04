@@ -12,5 +12,6 @@ case checkdone
 case go
 	echo 'Congratulations; you''ve completed the install.'
 	echo
-	exec ./halt
+	fshalt -r
+	while(){}
 }
