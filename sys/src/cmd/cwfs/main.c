@@ -132,12 +132,12 @@ srvfd(char *s, int mode, int sfd)
 }
 
 static void
-postservice(void)
+postservice(char *name)
 {
 	char buf[3*NAMELEN];
 	int p[2];
 
-	if(service[0] == 0)
+	if(name == nil || *name == 0)
 		panic("no service name");
 
 	/* serve 9p for -s */
@@ -149,7 +149,7 @@ postservice(void)
 	/* post 9p service */
 	if(pipe(p) < 0)
 		panic("can't make a pipe");
-	snprint(buf, sizeof(buf), "#s/%s", service);
+	snprint(buf, sizeof(buf), "#s/%s", name);
 	srvfd(buf, 0666, p[0]);
 	close(p[0]);
 	srvchan(p[1], buf);
@@ -157,7 +157,7 @@ postservice(void)
 	/* post cmd service */
 	if(pipe(p) < 0)
 		panic("can't make a pipe");
-	snprint(buf, sizeof(buf), "#s/%s.cmd", service);
+	snprint(buf, sizeof(buf), "#s/%s.cmd", name);
 	srvfd(buf, 0660, p[0]);
 	close(p[0]);
 
@@ -250,7 +250,7 @@ void
 main(int argc, char **argv)
 {
 	int i, nets = 0;
-	char *ann;
+	char *ann, *sname = nil;
 	
 	rfork(RFNOTEG);
 	formatinit();
@@ -269,7 +269,7 @@ main(int argc, char **argv)
 		annstrs[nets++] = ann;
 		break;
 	case 'n':
-		strcpy(service, EARGF(usage()));
+		sname = EARGF(usage());
 		break;
 	case 's':
 		dup(0, -1);
@@ -343,7 +343,7 @@ main(int argc, char **argv)
 	/*
 	 * post filedescriptors to /srv
 	 */
-	postservice();
+	postservice(sname != nil ? sname : service);
 
 	/*
 	 * processes to read the console
