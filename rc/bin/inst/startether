@@ -5,25 +5,25 @@
 
 switch($1) {
 case checkready
-	if(isipdevup /net/ether0) {
+	if(isipdevup $netdev) {
 		startether=done
 		export startether
 	}
 
 case go
-	if(isipdevup /net/ether0)
+	if(isipdevup $netdev)
 		exit
 
 	log starting ethernet $ethermethod config
 	switch($ethermethod) {
 	case manual
-		ip/ipconfig -g $gwaddr ether /net/ether0 $ipaddr $ipmask >>[2]/srv/log
+		ip/ipconfig -g $gwaddr ether $netdev $ipaddr $ipmask >>[2]/srv/log
 	case dhcp
 		ip/ipconfig >>[2]/srv/log
 	}
 
 case checkdone
-	if(! isipdevup /net/ether0) {
+	if(! isipdevup $netdev) {
 		startether=notdone
 		export startether
 	}

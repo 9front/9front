@@ -4,9 +4,12 @@
 
 switch($1){
 case checkready checkdone
+	netdev=/net/ether*
+	netdev=$netdev(1)
 	if(~ $netisfrom none){
+		netdev=/dev/null
 		confignet=done
-		export confignet
+		export confignet netdev
 		exit
 	}
 	if(~ $netisfrom ether){
@@ -14,15 +17,15 @@ case checkready checkdone
 		$x=done
 		./config$netisfrom checkdone
 		confignet=$$x
-		export confignet
+		export confignet netdev
 		exit
 	}
 	confignet=ready
-	export confignet
+	export confignet netdev
 	exit
 
 case go
-	if(! test -d /net/ether0 >[2]/dev/null){
+	if(! test -d $netdev >[2]/dev/null){
 		echo
 		echo 'Could not find ethernet card.'
 		echo
