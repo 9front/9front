@@ -249,6 +249,7 @@ struct Ctlr
 
 	void	(*setrptr)(u32int*, u64int);
 
+	Rendez	recover;	
 	void	*active;
 	uintptr	base;
 };
@@ -271,6 +272,7 @@ struct Epio
 
 static char Ebadlen[] = "bad usb request length";
 static char Enotconfig[] = "usb endpoint not configured";
+static char Erecover[] = "xhci controller needs reset";
 
 static void
 setrptr32(u32int *reg, u64int pa)
@@ -407,6 +409,26 @@ shutdown(Hci *hp)
 }
 
 static void
+release(Ctlr *ctlr)
+{
+	int i;
+
+	freering(ctlr->cr);
+	for(i=0; i<nelem(ctlr->er); i++){
+		freering(&ctlr->er[i]);
+		free(ctlr->erst[i]);
+		ctlr->erst[i] = nil;
+	}
+	free(ctlr->port), ctlr->port = nil;
+	free(ctlr->slot), ctlr->slot = nil;
+	free(ctlr->dcba), ctlr->dcba = nil;
+	free(ctlr->sba), ctlr->sba = nil;
+	free(ctlr->sbp), ctlr->sbp = nil;
+}
+
+static void recover(void *arg);
+
+static void
 init(Hci *hp)
 {
 	Ctlr *ctlr;
@@ -437,17 +459,7 @@ init(Hci *hp)
 
 	if(waserror()){
 		shutdown(hp);
-		freering(ctlr->cr);
-		for(i=0; i<nelem(ctlr->er); i++){
-			freering(&ctlr->er[i]);
-			free(ctlr->erst[i]);
-			ctlr->erst[i] = nil;
-		}
-		free(ctlr->port), ctlr->port = nil;
-		free(ctlr->slot), ctlr->slot = nil;
-		free(ctlr->dcba), ctlr->dcba = nil;
-		free(ctlr->sba), ctlr->sba = nil;
-		free(ctlr->sbp), ctlr->sbp = nil;
+		release(ctlr);
 		nexterror();
 	}
 
@@ -544,6 +556,80 @@ init(Hci *hp)
 	ctlr->opr[USBCMD] = RUNSTOP|INTE|HSEE|EWE;
 	for(i=0; (ctlr->opr[USBSTS] & (CNR|HCH)) != 0 && i<100; i++)
 		tsleep(&up->sleep, return0, nil, 10);
+
+	kproc("xhcirecover", recover, hp);
+}
+
+static int
+needrecover(void *arg)
+{
+	Ctlr *ctlr = arg;
+	return 	ctlr->er->stopped || 
+		(ctlr->opr[USBSTS] & (HCH|HCE|HSE)) != 0;
+}
+
+static void
+recover(void *arg)
+{
+	Hci *hp = arg;
+	Ctlr *ctlr = hp->aux;
+
+	while(waserror())
+		;
+	while(!needrecover(ctlr))
+		tsleep(&ctlr->recover, needrecover, ctlr, 1000);
+
+	shutdown(hp);
+
+	/*
+	 * flush all transactions and wait until all devices have
+	 * been detached by usbd.
+	 */
+	for(;;){
+		int i, j, active;
+
+		ilock(ctlr->cr);
+		ctlr->cr->stopped = 1;
+		flushring(ctlr->cr);
+		iunlock(ctlr->cr);
+
+		active = 0;
+		qlock(&ctlr->slotlock);
+		for(i=1; i<=ctlr->nslots; i++){
+			Slot *slot = ctlr->slot[i];
+			if(slot == nil)
+				continue;
+			active++;
+			for(j=0; j < slot->nep; j++){
+				Ring *ring = &slot->epr[j];
+				if(ring->base == nil)
+					continue;
+				ilock(ring);
+				ring->stopped = 1;
+				flushring(ring);
+				iunlock(ring);
+			}
+		}
+		qunlock(&ctlr->slotlock);
+		if(active == 0)
+			break;
+
+		tsleep(&up->sleep, return0, nil, 100);
+	}
+
+	qlock(&ctlr->slotlock);
+	qlock(&ctlr->cmdlock);
+
+	release(ctlr);
+	if(waserror()) {
+		print("xhci recovery failed: %s\n", up->errstr);
+	} else {
+		init(hp);
+		poperror();
+	}
+
+	qunlock(&ctlr->cmdlock);
+	qunlock(&ctlr->slotlock);
 }
 
 static void
@@ -679,14 +765,11 @@ ctlrcmd(Ctlr *ctlr, u32int c, u32int s, u64int p, u32int *er)
 	char *err;
 
 	qlock(&ctlr->cmdlock);
-
-	if((ctlr->opr[USBSTS] & (HCH|HCE|HSE)) != 0){
+	if(needrecover(ctlr)){
 		qunlock(&ctlr->cmdlock);
-		return "xhci busted";
+		return Erecover;
 	}
-
 	ctlr->cr->stopped = 0;
-
 	queuetd(ctlr->cr, c, s, p, w);
 	err = waittd(ctlr, w, 5000);
 
@@ -779,11 +862,9 @@ interrupt(Ureg*, void *arg)
 		case ER_HCE:
 			iprint("xhci: host controller error: %ux %ux %ux %ux\n",
 				td[0], td[1], td[2], td[3]);
-			ilock(ctlr->cr);
-			ctlr->cr->stopped = 1;
-			flushring(ctlr->cr);
-			iunlock(ctlr->cr);
-			break;
+			ctlr->er->stopped = 1;
+			wakeup(&ctlr->recover);
+			return;
 		case ER_PORTSC:
 			break;
 		case ER_BWREQ:
@@ -802,17 +883,18 @@ static void
 freeslot(void *arg)
 {
 	Slot *slot;
-	Ctlr *ctlr;
 
 	if(arg == nil)
 		return;
 	slot = arg;
-	ctlr = slot->ctlr;
 	if(slot->id != 0){
+		Ctlr *ctlr = slot->ctlr;
 		qlock(&ctlr->slotlock);
-		ctlrcmd(ctlr, CR_DISABLESLOT | (slot->id<<24), 0, 0, nil);
-		ctlr->dcba[slot->id] = 0;
-		ctlr->slot[slot->id] = nil;
+		if(ctlr->slot != nil && ctlr->slot[slot->id] == slot){
+			ctlrcmd(ctlr, CR_DISABLESLOT | (slot->id<<24), 0, 0, nil);
+			ctlr->dcba[slot->id] = 0;
+			ctlr->slot[slot->id] = nil;
+		}
 		qunlock(&ctlr->slotlock);
 	}
 	freering(&slot->epr[0]);
@@ -843,6 +925,8 @@ allocslot(Ctlr *ctlr, Udev *dev)
 		freeslot(slot);
 		nexterror();
 	}
+	if(ctlr->slot == nil)
+		error(Erecover);
 	slot->ibase = mallocalign(32*33 << ctlr->csz, 64, 0, ctlr->pagesize);
 	slot->obase = mallocalign(32*32 << ctlr->csz, 64, 0, ctlr->pagesize);
 	if(slot->ibase == nil || slot->obase == nil)
@@ -1065,7 +1149,8 @@ epopen(Ep *ep)
 
 	if(ep->dev->isroot)
 		return;
-
+	if(needrecover(ctlr))
+		error(Erecover);
 	io = malloc(sizeof(Epio)*2);
 	if(io == nil)
 		error(Enomem);
@@ -1171,6 +1256,8 @@ isowrite(Ep *ep, uchar *p, long n)
 	}
 	µ = io->period;
 	ctlr = ep->hp->aux;
+	if(needrecover(ctlr))
+		error(Erecover);
 	for(i = io->frame;; i++){
 		for(;;){
 			m = (int)(io->ring->wp - io->ring->rp);
@@ -1439,10 +1526,13 @@ static int
 portstatus(Hci *hp, int port)
 {
 	Ctlr *ctlr = hp->aux;
-	Port *pp = &ctlr->port[port-1];
-	u32int psc, ps = 0;
+	u32int psc, ps;
 
-	psc = pp->reg[PORTSC];
+	if(ctlr->port == nil || needrecover(ctlr))
+		return 0;
+
+	ps = 0;
+	psc = ctlr->port[port-1].reg[PORTSC];
 	if(psc & CCS)	ps |= HPpresent;
 	if(psc & PED)	ps |= HPenable;
 	if(psc & OCA)	ps |= HPovercurrent;
@@ -1488,13 +1578,14 @@ static int
 portreset(Hci *hp, int port, int on)
 {
 	Ctlr *ctlr = hp->aux;
-	Port *pp = &ctlr->port[port-1];
+
+	if(ctlr->port == nil || needrecover(ctlr))
+		return 0;
 
 	if(on){
-		pp->reg[PORTSC] |= PR;
+		ctlr->port[port-1].reg[PORTSC] |= PR;
 		tsleep(&up->sleep, return0, nil, 200);
 	}
-
 	return 0;
 }
 
