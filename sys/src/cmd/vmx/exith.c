@@ -434,7 +434,7 @@ dbgexc(ExitInfo *ei)
 static void
 hlt(ExitInfo *ei)
 {
-	if(irqactive == 0)
+	if(irqactive < 0)
 		state = VMHALT;
 	skipinstr(ei);
 }

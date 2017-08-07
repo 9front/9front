@@ -282,7 +282,7 @@ picio(int isin, u16int port, u32int val, int sz, void *)
 	case 0x20:
 	case 0xa0:
 		if((val & 1<<4) != 0){ /* ICW1 */
-			if(irqactive){
+			if(irqactive >= 0){
 				if(ctl("irq") < 0)
 					sysfatal("ctl: %r");
 				irqactive = -1;
