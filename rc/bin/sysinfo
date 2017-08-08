@@ -21,6 +21,7 @@ fn print{
 	logprog pci -v
 	logprog aux/cpuid
 	logprog aux/icanhasmsi
+	logprog aux/icanhasvmx
 	logprog aux/pcmcia
 	logprog cat '#u/usb/ctl'
 	logprog cat '#S/sdctl'
@@ -33,10 +34,13 @@ fn print{
 			logprog cat $i/ifstats
 		}
 	}
-	logprog cat '#v/vgactl'
-	echo '@{rfork n; aux/realemu; aux/vga -p}'
-	@{rfork n; aux/realemu; aux/vga -p}
-	logprog xd -x1 '#r/nvram'
+	if(test -e '#v/vgactl'){
+		logprog cat '#v/vgactl'
+		echo '@{rfork n; aux/realemu; aux/vga -p}'
+		@{rfork n; aux/realemu; aux/vga -p}
+	}
+	if(~ $cputype 386 amd64)
+		logprog xd -x1 '#r/nvram'
 	logprog cat '#A/audiostat'
 	logprog cat '#A/volume'
 	logprog cat /mnt/apm/ctl
