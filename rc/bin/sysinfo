@@ -21,7 +21,7 @@ fn print{
 	logprog pci -v
 	logprog aux/cpuid
 	logprog aux/icanhasmsi
-	logprog aux/icanhasvmx
+	logprog aux/icanhasvmx -v
 	logprog aux/pcmcia
 	logprog cat '#u/usb/ctl'
 	logprog cat '#S/sdctl'

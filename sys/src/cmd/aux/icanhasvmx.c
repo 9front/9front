@@ -211,7 +211,7 @@ main(int argc, char **argv)
 	} ARGEND;
 	if(argc != 0){
 	usage:
-		fprint(2, "usage: %s [-r]\n", argv0);
+		fprint(2, "usage: %s [-rv]\n", argv0);
 		exits("usage");
 	}
 	
