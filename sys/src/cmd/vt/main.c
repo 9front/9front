@@ -372,7 +372,7 @@ drawscreen(void)
 			cp = onscreenc(x, y);
 			c = fgcol(*ap, *cp);
 			for(n = 1; x+n <= xmax && rp[n] != 0 && fgcol(ap[n], cp[n]) == c
-			&& (ap[n] ^ *ap) & TUnderline == 0; n++)
+			&& ((ap[n] ^ *ap) & TUnderline) == 0; n++)
 				;
 			p = pt(x, y);
 			q = runestringn(screen, p, c, ZP, font, rp, n);
