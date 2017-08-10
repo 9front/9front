@@ -838,7 +838,6 @@ usbload(int speed, int maxpkt)
 	l = 0;
 	bs = 10UL * maxpkt;
 	switch(speed){
-	case Superspeed:
 	case Highspeed:
 		l = 55*8*2 + 2 * (3 + bs) + Hostns;
 		break;
@@ -897,7 +896,7 @@ usbopen(Chan *c, int omode)
 		error(Enotconf);
 	ep->clrhalt = 0;
 	ep->rhrepl = -1;
-	if(ep->load == 0)
+	if(ep->load == 0 && ep->dev->speed != Superspeed)
 		ep->load = usbload(ep->dev->speed, ep->maxpkt);
 	ep->hp->epopen(ep);
 
