@@ -208,14 +208,6 @@ int exabyte, force6bytecmds;
 
 int diskdebug;
 
-static void
-ding(void *, char *msg)
-{
-	if(strstr(msg, "alarm") != nil)
-		noted(NCONT);
-	noted(NDFLT);
-}
-
 static int
 getmaxlun(void)
 {
@@ -243,6 +235,7 @@ umsreset(void)
 		fprint(2, "disk: reset: %r\n");
 		return -1;
 	}
+	sleep(100);
 	return 0;
 }
 
@@ -253,13 +246,11 @@ umsrecover(void)
 		return -1;
 	if(unstall(dev, ums->epin, Ein) < 0)
 		dprint(2, "disk: unstall epin: %r\n");
-
 	/* do we need this when epin == epout? */
 	if(unstall(dev, ums->epout, Eout) < 0)
 		dprint(2, "disk: unstall epout: %r\n");
 	return 0;
 }
-
 
 static int
 ispow2(uvlong ul)
@@ -379,7 +370,7 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 {
 	Cbw cbw;
 	Csw csw;
-	int n, nio, left;
+	int n, nio;
 	Ums *ums;
 
 	ums = umsc->ums;
@@ -418,9 +409,8 @@ umsrequest(Umsc *umsc, ScsiPtr *cmd, ScsiPtr *data, int *status)
 			n = write(ums->epout->dfd, data->p, nio);
 		else{
 			n = read(ums->epin->dfd, data->p, nio);
-			left = nio - n;
-			if (n >= 0 && left > 0)	/* didn't fill data->p? */
-				memset(data->p + n, 0, left);
+			if (n >= 0 && n < nio)	/* didn't fill data->p? */
+				memset(data->p + n, 0, nio - n);
 		}
 		nio = n;
 		if(diskdebug)
@@ -1047,7 +1037,6 @@ main(int argc, char **argv)
 	}ARGEND
 	if(argc != 1)
 		usage();
-	
 	dev = getdev(*argv);
 	if(dev == nil)
 		sysfatal("getdev: %r");
