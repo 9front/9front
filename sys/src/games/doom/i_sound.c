@@ -463,8 +463,8 @@ void I_PlaySong(musicinfo_t *m, int loop)
 		dup(mpfd[1], 1);
 		for(n=3; n<20; n++) close(n);
 		close(0);
-		snprint(name, sizeof(name), "/tmp/%s.mus", m->name);
-		if(create(name, ORDWR, 0666) != 0)
+		snprint(name, sizeof(name), "/tmp/doom.%d", getpid());
+		if(create(name, ORDWR|ORCLOSE, 0666) != 0)
 			sysfatal("create: %r");
 		n = W_LumpLength(m->lumpnum);
 		if(write(0, m->data, n) != n)
