@@ -15,6 +15,7 @@ TARG=4s\
 	packet\
 	mandel\
 	midi\
+	wadfs\
 
 OFILES=
 HFILES=

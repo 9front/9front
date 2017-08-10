@@ -1,0 +1,192 @@
+.TH WADFS 4
+.SH NAME
+wadfs \- WAD file system
+.SH SYNOPSIS
+.B wadfs
+[
+.B -Dr
+] [
+.B -m
+.I mtpt
+] [
+.B -S
+.I srvname
+] [
+.I WAD
+]
+.SH DESCRIPTION
+.I Wadfs
+serves a file tree mounted at
+.I mtpt
+(default
+.BR /mnt/wad )
+that provides access to a
+.I WAD
+file's contents.
+.PP
+The command line options are:
+.TF "-S srvname"
+.TP
+.B -D
+Enable 9P debugging messages.
+.TP
+.B -r
+Set read-only file tree.
+.TP
+.BI -S \ srvname
+Post channel on
+.RI /srv/ srvname .
+.TP
+.BI -m \ mtpt
+Set mountpoint.
+.PD
+.PP
+A
+.I WAD
+is a concatenation of uncompressed files, referred to as lumps.
+A lump may contain either data,
+or be used as a marker to indicate the beginning or end of a section,
+segregating lumps of the same format.
+.PP
+.I Wadfs
+represents section start markers as directories,
+and regular lumps and end markers as files.
+For convenience, lump file names are in lower case,
+and are translated to the upper case internally.
+.PP
+At startup, if the path to a
+.I WAD
+file is provided as argument,
+.I wadfs
+will attempt to parse it and construct a file tree.
+Otherwise,
+.I wadfs
+starts with a blank tree instead.
+.PP
+Two additional files are provided in the file system's root directory:
+.L SIG
+and
+.LR WAD .
+Reading from and writing to
+.L SIG
+allows accessing and changing the
+.IR WAD 's
+type.
+The only possible values are
+.L PWAD
+(the default) and
+.LR IWAD .
+.PP
+.L WAD
+returns the new
+.I WAD
+file resulting from the recompilation of the lump tree.
+.SS "WAD file structure"
+There are few restrictions on the structure of
+.I WAD
+files.
+Excepting maps, sections can nest and may have no end marker,
+or one named differently than the section itself.
+Regular sections typically have one-letter names,
+and nested sections use the same name appended by a digit.
+By convention,
+lump names may only contain visible printing
+.SM ASCII
+characters,
+excepting lower-case letters.
+Map sections do not end at a marker but at the next non map lump,
+and use hardcoded names, depending on game version.
+.PP
+.I Wadfs
+imposes a number of additional restrictions on structure and naming:
+.IP • 3
+Lump names may not contain upper-case letters and the
+.L /
+character.
+.IP •
+A map section may only contain map lumps, which use hardcoded names.
+Ordering is significant, but is handled automatically.
+Map sections may not nest.
+.IP •
+Regular sections may not nest beyond one level,
+and may not contain more than one end marker.
+End markers may not exist outside of a section.
+Directory names omit the start marker's
+.L "_START"
+suffix.
+.IP •
+Excepting map lumps, no two lumps, including markers,
+may have the same name.
+.IP •
+Once created, a lump may not be renamed so as to change its type.
+.SS "Error recovery"
+Upon parsing the initial
+.I WAD
+file, if one of the restrictions for
+.I WAD
+file structure outlined in the sections above is not respected,
+a warning is issued, and the offending lump is potentially skipped.
+Some recovery is attempted,
+but one must systematically recheck the tree.
+When duplicate non marker lumps are encountered,
+each will overwrite the previous entry.
+.SH EXAMPLES
+Open
+.B doom2.wad
+and play a MUS file:
+.IP
+.EX
+% wadfs /sys/games/lib/doom/doom2.wad
+createfile SW18_7: file already exists
+% games/mus /mnt/wad/d_romero | games/midi
+.EE
+.PP
+Now create a blank
+.IR WAD ,
+then one section
+.LR FF ;
+copy a flat from
+.B doom2.wad
+to the directory,
+then rename the end marker to
+.L F_END
+to have the
+.B doom
+engine find the flat;
+finally, compile and save the new
+.I WAD
+file.
+.IP
+.EX
+% wadfs -m /mnt/wad2
+% cd /mnt/wad2
+% mkdir ff
+adding end marker FF_END
+% cp ../wad/f/f1/f_sky1 ff/
+% mv ff/ff_end ff/f_end
+% cp WAD /sys/games/lib/doom/sky.wad
+.EE
+.SH SOURCE
+.B /sys/src/games/wadfs.c
+.SH "SEE ALSO"
+.IR games (1),
+.IR mus (1)
+.SH HISTORY
+.I Wadfs
+first appeared in 9front (August, 2017).
+.SH BUGS
+Many
+.I WAD
+files in the wild do not conform to all the rules exposed above,
+in particular ones using
+.SM DeHackEd
+engine modifications.
+.IR WAD 's
+using end markers outside of a section,
+typically 
+.LR F_END ,
+will lose them.
+.PP
+Repairing broken
+.I WAD
+files can be a pain.
