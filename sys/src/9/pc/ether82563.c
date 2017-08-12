@@ -105,6 +105,9 @@ enum {
 	Torl		= 0xC0/4,	/* Total Octets Received */
 	Totl		= 0xC8/4,	/* Total Octets Transmitted */
 	Nstatistics	= 0x124/4,
+
+	/* iNVM (i211) */
+	Invmdata0	= 0x12120,
 };
 
 enum {					/* Ctrl */
@@ -128,6 +131,7 @@ enum {					/* Status */
 enum {					/* Eec */
 	Nvpres		= 1<<8,
 	Autord		= 1<<9,
+	Flupd		= 1<<19,
 	Sec1val		= 1<<22,
 };
 
@@ -1687,6 +1691,40 @@ out:
 	return sum;
 }
 
+static int
+invmload(Ctlr *c)
+{
+	int i, a;
+	u32int w;
+
+	memset(c->eeprom, 0xFF, sizeof(c->eeprom));
+	for(i=0; i<64; i++){
+		w = csr32r(c, Invmdata0 + i*4);
+		switch(w & 7){
+		case 0:	// uninitialized structure
+			break;
+		case 1:	// word auto load
+			a = (w & 0xFE00) >> 9;
+			if(a < nelem(c->eeprom))
+				c->eeprom[a] = w >> 16;
+			continue;
+		case 2:	// csr auto load
+			i++;
+		case 3:	// phy auto load
+			continue;
+		case 4:	// rsa key sha256
+			i += 256/32;
+		case 5:	// invalidated structure
+			continue;
+		default:
+			print("invm: %.2x %.8ux\n", i, w);
+			continue;
+		}
+		break;
+	}
+	return 0;
+}
+
 static void
 defaultea(Ctlr *ctlr, uchar *ra)
 {
@@ -1716,17 +1754,22 @@ static int
 i82563reset(Ctlr *ctlr)
 {
 	uchar *ra;
-	int i, r;
+	int i, r, flag;
 
 	if(i82563detach(ctlr))
 		return -1;
-	if(cttab[ctlr->type].flag & Fload)
+	flag = cttab[ctlr->type].flag;
+
+	if(ctlr->type == i210 && (csr32r(ctlr, Eec) & Flupd) == 0)
+		r = invmload(ctlr);
+	else if(flag & Fload)
 		r = fload(ctlr);
 	else
 		r = eeload(ctlr);
+
 	if(r != 0 && r != 0xbaba){
 		print("%s: bad eeprom checksum - %#.4ux", cname(ctlr), r);
-		if(cttab[ctlr->type].flag & Fbadcsum)
+		if(flag & Fbadcsum)
 			print("; ignored\n");
 		else {
 			print("\n");
@@ -1747,12 +1790,12 @@ i82563reset(Ctlr *ctlr)
 		csr32w(ctlr, Mta + i*4, 0);
 	csr32w(ctlr, Fcal, 0x00C28001);
 	csr32w(ctlr, Fcah, 0x0100);
-	if((cttab[ctlr->type].flag & Fnofct) == 0)
+	if((flag & Fnofct) == 0)
 		csr32w(ctlr, Fct, 0x8808);
 	csr32w(ctlr, Fcttv, 0x0100);
 	csr32w(ctlr, Fcrtl, ctlr->fcrtl);
 	csr32w(ctlr, Fcrth, ctlr->fcrth);
-	if(cttab[ctlr->type].flag & F75)
+	if(flag & F75)
 		csr32w(ctlr, Eitr, 128<<2);		/* 128 ¼ microsecond intervals */
 	return 0;
 }
@@ -1919,6 +1962,7 @@ didtype(int d)
 	case 0x150c:		/* untested */
 		return i82583;
 	case 0x1533:		/* copper */
+	case 0x1539:		/* i211 copper */
 		return i210;
 	case 0x153a:		/* i217-lm */
 	case 0x153b:		/* i217-v */
