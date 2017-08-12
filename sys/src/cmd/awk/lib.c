@@ -466,7 +466,7 @@ void recbld(void)	/* create $0 from $1..$NF if necessary */
 	donerec = 1;
 }
 
-int	errorflag	= 0;
+char	*exitstatus	= nil;
 
 void yyerror(char *s)
 {
@@ -492,7 +492,7 @@ void SYNTAX(char *fmt, ...)
 	if (curfname != nil)
 		Bprint(&stderr, " in function %s", curfname);
 	Bprint(&stderr, "\n");
-	errorflag = 2;
+	exitstatus = "syntax error";
 	eprint();
 }
 

@@ -98,7 +98,7 @@ Node	*arglist = 0;	/* list of args for current function */
 %%
 
 program:
-	  pas	{ if (errorflag==0)
+	  pas	{ if (exitstatus==nil)
 			winner = (Node *)stat3(PROGRAM, beginloc, $1, endloc); }
 	| error	{ yyclearin; bracecheck(); SYNTAX("bailing out"); }
 	;

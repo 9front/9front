@@ -217,7 +217,7 @@ Node *linkum(Node *a, Node *b)
 {
 	Node *c;
 
-	if (errorflag)	/* don't link things that are wrong */
+	if (exitstatus != nil)	/* don't link things that are wrong */
 		return a;
 	if (a == nil)
 		return(b);

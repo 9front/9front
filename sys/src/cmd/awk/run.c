@@ -353,9 +353,11 @@ Cell *jump(Node **a, int n)	/* break, continue, next, nextfile, return */
 	case EXIT:
 		if (a[0] != nil) {
 			y = execute(a[0]);
-			errorflag = (int) getfval(y);
-			if (istemp(y))
-				tfree(y);
+			if((y->tval & (NUM|STR)) == STR) {
+				exitstatus = getsval(y);
+			} else if((int) getfval(y) != 0) {
+				exitstatus = "error";
+			}
 		}
 		longjmp(env, 1);
 	case RETURN:

@@ -355,12 +355,15 @@ int string(void)
 	if (buf == 0 && (buf = (char *) malloc(bufsz)) == nil)
 		FATAL("out of space for strings");
 	for (bp = buf; (c = input()) != '"'; ) {
-		if (!adjbuf(&buf, &bufsz, bp-buf+2, 500, &bp, 0))
+		if (!adjbuf(&buf, &bufsz, bp-buf+2, 500, &bp, 0)){
+			*bp = 0;
 			FATAL("out of space for string %.10s...", buf);
+		}
 		switch (c) {
 		case '\n':
 		case '\r':
-		case 0:
+		case 0:		
+			*bp = 0;
 			SYNTAX( "non-terminated string %.10s...", buf );
 			lineno++;
 			RET(0);

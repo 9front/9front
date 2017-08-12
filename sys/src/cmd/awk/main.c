@@ -40,7 +40,6 @@ int	dbg	= 0;
 char	*cmdname;	/* gets argv[0] for error messages */
 extern	Biobuf	*yyin;	/* lex input file */
 char	*lexprog;	/* points to program argument if it exists */
-extern	int errorflag;	/* non-zero if any syntax errors; set by yyerror */
 int	compile_time = 2;	/* for error printing: */
 				/* 2 = cmdline, 1 = compile, 0 = running */
 
@@ -161,15 +160,13 @@ void main(int argc, char *argv[])
 	yyparse();
 	if (fs)
 		*FS = qstring(fs, '\0');
-	   dprint( ("errorflag=%d\n", errorflag) );
-	if (errorflag == 0) {
+	   dprint( ("exitstatus=%s\n", exitstatus) );
+	if (exitstatus == nil) {
 		compile_time = 0;
 		run(winner);
 	} else
 		bracecheck();
-	if(errorflag)
-		exits("error");
-	exits(0);
+	exits(exitstatus);
 }
 
 int pgetc(void)		/* get 1 character from awk program */
