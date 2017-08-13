@@ -14,6 +14,8 @@ extern int bootmodn;
 extern char **bootmod;
 extern int cmdlinen;
 extern char **cmdlinev;
+extern VgaMode *curmode, textmode;
+extern uintptr fbaddr, fbsz;
 
 static int elf64;
 
@@ -180,7 +182,29 @@ trymultiboot(void)
 		p[6] = gpa(modp);
 		modp += len + 7 & -8;
 	}
-	
+
+	if(curmode != nil && curmode != &textmode){
+		int i, o, n;
+		u16int r, g, b;
+
+		o = 0;
+		r = g = b = 0;
+		for(i = 0; i < 4; i++){
+			n = curmode->chan >> 8*i & 0xf;
+			if(n == 0) continue;
+			switch(curmode->chan >> 4 + 8*i & 0xf){
+			case CRed:	r = o | n<<8; break;
+			case CGreen:	g = o | n<<8; break;
+			case CBlue:	b = o | n<<8; break;
+			}
+			o += n;
+		}
+		p[0] |= 1<<12;
+		pack(&p[22], "viiiisss", (u64int)fbaddr,
+			curmode->hbytes, curmode->w, curmode->h,
+			chantodepth(curmode->chan) | 1<<8, r, g, b);
+	}
+
 	USED(modp);
 	rset(RPC, entry);
 	rset(RAX, 0x2badb002);
@@ -560,8 +584,6 @@ obsdfb(void)
 {
 	int i, s, p;
 	u32int r, g, b, a, m;
-	extern VgaMode *curmode, textmode;
-	extern uintptr fbaddr, fbsz;
 
 	if(curmode == nil || curmode == &textmode) return;
 	p = r = g = b = a = 0;
