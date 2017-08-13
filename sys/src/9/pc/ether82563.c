@@ -1961,8 +1961,14 @@ didtype(int d)
 	case 0x1506:		/* v */
 	case 0x150c:		/* untested */
 		return i82583;
-	case 0x1533:		/* copper */
+	case 0x1533:		/* i210-t1 */
+	case 0x1534:		/* i210 */
+	case 0x1536:		/* i210-fiber */
+	case 0x1537:		/* i210-backplane */
+	case 0x1538:		/* i210 sgmii */
 	case 0x1539:		/* i211 copper */
+	case 0x157b:		/* i210 copper flashless */
+	case 0x157c:		/* i210 serdes flashless */
 		return i210;
 	case 0x153a:		/* i217-lm */
 	case 0x153b:		/* i217-v */
@@ -1984,12 +1990,16 @@ didtype(int d)
 	case 0x15d8:		/* i219-v */
 	case 0x15e3:		/* i219-lm */
 		return i219;
-	case 0x151f:		/* “powerville” eeprom-less */
-	case 0x1521:		/* copper */
-	case 0x1522:		/* fiber */
-	case 0x1523:		/* serdes */
-	case 0x1524:		/* sgmii */
-	case 0x1546:		/* untested */
+	case 0x151f:		/* i350 “powerville” eeprom-less */
+	case 0x1521:		/* i350 copper */
+	case 0x1522:		/* i350 fiber */
+	case 0x1523:		/* i350 serdes */
+	case 0x1524:		/* i350 sgmii */
+	case 0x1546:		/* i350 DA4 (untested) */
+	case 0x1f40:		/* i354 backplane */
+	case 0x1f41:		/* i354 sgmii */
+	case 0x1f42:		/* i354 sgmii (c2000) */
+	case 0x1f45:		/* i354 backplane 2.5 */
 		return i350;
 	}
 	return -1;
