@@ -347,7 +347,7 @@ mksegment(char *sn)
 		snprint(buf, sizeof(buf), "#g/%s/ctl", sn);
 		fd = open(buf, OWRITE|OTRUNC);
 		if(fd < 0) sysfatal("open: %r");
-		snprint(buf, sizeof(buf), "va %#ullx %#ullx fixed", 0x10000000ULL, (uvlong)sz);
+		snprint(buf, sizeof(buf), "va %#ullx %#ullx sticky", 0x10000000ULL, (uvlong)sz);
 		if(write(fd, buf, strlen(buf)) < 0) sysfatal("write: %r");
 		close(fd);
 		gmem = segattach(0, sn, nil, sz);
