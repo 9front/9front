@@ -869,7 +869,8 @@ initdpll(Igfx *igfx, int x, int freq, int port)
 		dpll->ctrl.v &= ~(1<<30);
 
 	/* VGA Mode Disable */
-	dpll->ctrl.v |= (1<<28);
+	if(igfx->type == TypeG45)
+		dpll->ctrl.v |= (1<<28);
 
 	dpll->fp0.v &= ~(0x3f<<16);
 	dpll->fp0.v |= n << 16;
@@ -1394,7 +1395,11 @@ enablepipe(Igfx *igfx, int x)
 		p->fdi->rxctl.v |= (1<<4);	/* pcdclk */
 		loadreg(igfx, p->fdi->rxctl);
 		sleep(5);
-		p->fdi->txctl.v &= ~(7<<8 | 1);	/* clear auto training bits */
+		/* clear auto training bits */
+		if(igfx->type == TypeSNB)
+			p->fdi->txctl.v &= ~(3<<28 | 1<<10 | 1);
+		else
+			p->fdi->txctl.v &= ~(7<<8 | 1);
 		p->fdi->txctl.v &= ~(1<<31);	/* disable */
 		p->fdi->txctl.v |= (1<<14);	/* enable pll */
 		loadreg(igfx, p->fdi->txctl);
@@ -1449,13 +1454,13 @@ enablepipe(Igfx *igfx, int x)
 			/* unmask bit lock and symbol lock bits */
 			csr(igfx, p->fdi->rximr.a, 3<<8, 0);
 
+			p->fdi->txctl.v &= ~(3<<28);	/* link train pattern1 */
+			p->fdi->txctl.v |= 1<<31;	/* enable */
+			loadreg(igfx, p->fdi->txctl);
+
 			p->fdi->rxctl.v &= ~(3<<8);	/* link train pattern1 */
 			p->fdi->rxctl.v |= 1<<31;	/* enable */
 			loadreg(igfx, p->fdi->rxctl);
-
-			p->fdi->txctl.v &= ~(3<<8);	/* link train pattern1 */
-			p->fdi->txctl.v |= 1<<31;	/* enable */
-			loadreg(igfx, p->fdi->txctl);
 
 			/* wait for bit lock */
 			for(i=0; i<10; i++){
@@ -1466,8 +1471,8 @@ enablepipe(Igfx *igfx, int x)
 			csr(igfx, p->fdi->rxiir.a, 0, 1<<8);
 	
 			/* switch to link train pattern2 */
+			csr(igfx, p->fdi->txctl.a, 3<<28, 1<<28);
 			csr(igfx, p->fdi->rxctl.a, 3<<8, 1<<8);
-			csr(igfx, p->fdi->txctl.a, 3<<8, 1<<8);
 
 			/* wait for symbol lock */
 			for(i=0; i<10; i++){
@@ -1478,8 +1483,8 @@ enablepipe(Igfx *igfx, int x)
 			csr(igfx, p->fdi->rxiir.a, 0, 1<<9);
 
 			/* switch to link train normal */
+			csr(igfx, p->fdi->txctl.a, 0, 3<<28);
 			csr(igfx, p->fdi->rxctl.a, 0, 3<<8);
-			csr(igfx, p->fdi->txctl.a, 0, 3<<8);
 
 			/* wait idle pattern time */
 			sleep(5);
