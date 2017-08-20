@@ -83,6 +83,9 @@ Enter raw (no echo, no interpretation) character mode for input.
 .B cooked
 Leave raw mode.
 .TP
+.B blocksel
+Toggle block selection for mode for rio snarf buffer.
+.TP
 .B exit
 Exit
 .IR vt .

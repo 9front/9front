@@ -27,6 +27,7 @@ char	*menutext3[] = {
 	"crnl",
 	"nl",
 	"raw",
+	"blocksel",
 	"exit",
 	0
 };
@@ -44,6 +45,7 @@ int	resize_flag = 1;
 int	pagemode;
 int	olines;
 int	peekc;
+int	blocksel = 0;
 int	cursoron = 1;
 int	hostclosed = 0;
 Menu	menu2;
@@ -867,17 +869,13 @@ sendsnarf(void)
 		snarffp = Bopen("/dev/snarf",OREAD);
 }
 
-int
-writesnarf(Rune *s, Rune *e)
+void
+seputrunes(Biobuf *b, Rune *s, Rune *e)
 {
-	Biobuf *b;
 	int z, p;
 
 	if(s >= e)
-		return 0;
-	b = Bopen("/dev/snarf", OWRITE|OTRUNC);
-	if(b == nil)
-		return 0;
+		return;
 	for(z = p = 0; s < e; s++){
 		if(*s){
 			if(*s == '\n')
@@ -890,6 +888,25 @@ writesnarf(Rune *s, Rune *e)
 			z++;
 		}
 	}
+}
+
+int
+snarfrect(Rectangle r)
+{
+	Biobuf *b;
+
+	b = Bopen("/dev/snarf", OWRITE|OTRUNC);
+	if(b == nil)
+		return 0;
+	if(blocksel){
+		while(r.min.y <= r.max.y){
+			seputrunes(b, onscreenr(r.min.x, r.min.y), onscreenr(r.max.x, r.min.y));
+			Bputrune(b, L'\n');
+			r.min.y++;
+		}
+	} else {
+		seputrunes(b, onscreenr(r.min.x, r.min.y), onscreenr(r.max.x, r.max.y));
+	}
 	Bterm(b);
 	return 1;
 }
@@ -897,10 +914,12 @@ writesnarf(Rune *s, Rune *e)
 Rectangle
 drawselection(Rectangle r, Rectangle d, Image *color)
 {
-	while(r.min.y < r.max.y){
-		d = drawselection(Rect(r.min.x, r.min.y, xmax+1, r.min.y), d, color);
-		r.min.x = 0;
-		r.min.y++;
+	if(!blocksel){
+		while(r.min.y < r.max.y){
+			d = drawselection(Rect(r.min.x, r.min.y, xmax+1, r.min.y), d, color);
+			r.min.x = 0;
+			r.min.y++;
+		}
 	}
 	if(r.min.x >= r.max.x)
 		return d;
@@ -938,7 +957,7 @@ selection(void)
 	} while(button1());
 	if((mc->buttons & 07) == 5)
 		sendsnarf();
-	else if(writesnarf(onscreenr(r.min.x, r.min.y), onscreenr(r.max.x, r.max.y))){
+	else if(snarfrect(r)){
 		d = drawselection(r, ZR, green);
 		flushimage(display, 1);
 		sleep(200);
@@ -954,6 +973,7 @@ readmenu(void)
 		menu3.item[1] = ttystate[cs->raw].crnl ? "cr" : "crnl";
 		menu3.item[2] = ttystate[cs->raw].nlcr ? "nl" : "nlcr";
 		menu3.item[3] = cs->raw ? "cooked" : "raw";
+		menu3.item[4] = blocksel ? "linesel" : "blocksel";
 
 		switch(menuhit(3, mc, &menu3, nil)) {
 		case 0:		/* 24x80 */
@@ -969,6 +989,9 @@ readmenu(void)
 			cs->raw = !cs->raw;
 			return;
 		case 4:
+			blocksel = !blocksel;
+			return;
+		case 5:
 			exits(0);
 		}
 		return;
