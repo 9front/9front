@@ -97,7 +97,7 @@ shutdown(void)
 void
 catch(void*, char *msg)
 {
-	if(strstr(msg, "interrupt") != nil){
+	if(strcmp(msg, "interrupt") == 0){
 		intr = 1;
 		noted(NCONT);
 	}
@@ -114,7 +114,7 @@ wasintr(void)
 		return 1;
 	memset(err, 0, sizeof(err));
 	errstr(err, sizeof(err));
-	r = strstr(err, "interrupt") != nil;
+	r = strcmp(err, "interrupted") == 0;
 	errstr(err, sizeof(err));
 	return r;
 }
@@ -1073,20 +1073,10 @@ static struct {
 } tty;
 
 void
-rawon(void)
+getdim(void)
 {
-	int ctl;
 	char *s;
 
-	close(0);
-	if(open("/dev/cons", OREAD) != 0)
-		sysfatal("open: %r");
-	close(1);
-	if(open("/dev/cons", OWRITE) != 1)
-		sysfatal("open: %r");
-	dup(1, 2);
-	if((ctl = open("/dev/consctl", OWRITE)) >= 0)
-		write(ctl, "rawon", 5);
 	if(s = getenv("XPIXELS")){
 		tty.xpixels = atoi(s);
 		free(s);
@@ -1103,6 +1093,25 @@ rawon(void)
 		tty.cols = atoi(s);
 		free(s);
 	}
+}
+
+void
+rawon(void)
+{
+	int ctl;
+
+	close(0);
+	if(open("/dev/cons", OREAD) != 0)
+		sysfatal("open: %r");
+	close(1);
+	if(open("/dev/cons", OWRITE) != 1)
+		sysfatal("open: %r");
+	dup(1, 2);
+	if((ctl = open("/dev/consctl", OWRITE)) >= 0){
+		write(ctl, "rawon", 5);
+		write(ctl, "winchon", 7);	/* vt(1): interrupt note on window change */
+	}
+	getdim();
 }
 
 #pragma	   varargck    type  "k"   char*
@@ -1323,12 +1332,23 @@ Next1:	switch(recvpkt()){
 			break;
 		if(n < 0 && wasintr()){
 			if(!raw) break;
-			sendpkt("busbs", MSG_CHANNEL_REQUEST,
-				send.chan,
-				"signal", 6,
-				0,
-				"INT", 3);
-			intr = 0;
+			if(intr){
+				getdim();
+				sendpkt("busbuuuu", MSG_CHANNEL_REQUEST,
+					send.chan,
+					"window-change", 13,
+					0,
+					tty.cols,
+					tty.lines,
+					tty.xpixels,
+					tty.ypixels);
+				sendpkt("busbs", MSG_CHANNEL_REQUEST,
+					send.chan,
+					"signal", 6,
+					0,
+					"INT", 3);
+				intr = 0;
+			}
 			continue;
 		}
 		if(n <= 0)
