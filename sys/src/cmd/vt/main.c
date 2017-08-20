@@ -1,11 +1,16 @@
 #include <u.h>
 #include <libc.h>
 #include <draw.h>
+
+#include "cons.h"
+
 #include <thread.h>
+#include <fcall.h>
+#include <9p.h>
+
+#include <bio.h>
 #include <mouse.h>
 #include <keyboard.h>
-#include <bio.h>
-#include "cons.h"
 
 char	*menutext2[] = {
 	"backup",
@@ -40,6 +45,7 @@ int	pagemode;
 int	olines;
 int	peekc;
 int	cursoron = 1;
+int	hostclosed = 0;
 Menu	menu2;
 Menu	menu3;
 Rune	*histp;
@@ -52,9 +58,15 @@ uchar	*onscreencbuf;
 #define onscreena(x, y) &onscreenabuf[((y)*(xmax+2) + (x))]
 #define onscreenc(x, y) &onscreencbuf[((y)*(xmax+2) + (x))]
 
+uchar	*screenchangebuf;
+uint	scrolloff;
+
+#define	screenchange(y)	screenchangebuf[((y)+scrolloff) % (ymax+1)]
+
 int	yscrmin, yscrmax;
 int	attr, defattr;
 
+Image	*cursorsave;
 Image	*bordercol;
 Image	*colors[8];
 Image	*hicolors[8];
@@ -100,13 +112,12 @@ Rune	kbdchar;
 
 Mousectl	*mc;
 Keyboardctl	*kc;
-Channel		*hc;
-Consstate	*cs;
+Channel		*hc[2];
+Consstate	cs[1];
 
 int	nocolor;
 int	logfd = -1;
-int	hostfd = -1;
-int	hostpid;
+int	hostpid = -1;
 Biobuf	*snarffp = 0;
 Rune	*hostbuf, *hostbufp;
 char	echo_input[BSIZE];
@@ -118,7 +129,6 @@ char *term;
 struct funckey *fk, *appfk;
 
 /* functions */
-void	initialize(int, char **);
 int	waitchar(void);
 void	waitio(void);
 int	rcvchar(void);
@@ -130,76 +140,60 @@ void	send_interrupt(void);
 int	alnum(int);
 void	escapedump(int,uchar *,int);
 
-int
-start_host(void)
+static Channel *pidchan;
+
+static void
+runcmd(void *args)
 {
-	switch((hostpid = rfork(RFPROC|RFNAMEG|RFFDG|RFNOTEG))) {
-	case 0:
-		close(0);
-		open("/dev/cons", OREAD);
-		close(1);
-		open("/dev/cons", OWRITE);
-		dup(1, 2);
-		execl("/bin/rc","rcX",nil);
-		fprint(2, "failed to start up rc: %r\n");
-		_exits("rc");
-	case -1:
-		fprint(2,"rc startup: fork: %r\n");
-		_exits("rc_fork");
+	char **argv = args;
+	char *cmd;
+
+	rfork(RFNAMEG);
+	mountcons();
+
+	rfork(RFFDG);
+	close(0);
+	open("/dev/cons", OREAD);
+	close(1);
+	open("/dev/cons", OWRITE);
+	dup(1, 2);
+
+	cmd = nil;
+	while(*argv != nil){
+		if(cmd == nil)
+			cmd = strdup(*argv);
+		else
+			cmd = smprint("%s %q", cmd, *argv);
+		argv++;
 	}
-	return open("/mnt/cons/data", ORDWR);
+
+	procexecl(pidchan, "/bin/rc", "rcX", cmd == nil ? nil : "-c", cmd, nil);
+	sysfatal("%r");
 }
 
 void
 send_interrupt(void)
 {
-	postnote(PNGROUP, hostpid, "interrupt");
+	if(hostpid > 0)
+		postnote(PNGROUP, hostpid, "interrupt");
 }
 
 void
-hostreader(void*)
+sendnchars(int n, char *p)
 {
-	char cb[BSIZE+1], *cp;
-	Rune *rb, *rp;
-	int n, r;
+	Buf *b;
 
-	n = 0;
-	while((r = read(hostfd, cb+n, BSIZE-n)) > 0){
-		n += r;
-		rb = mallocz((n+1)*sizeof(Rune), 0);
-		for(rp = rb, cp = cb; n > 0; n -= r, cp += r){
-			if(!fullrune(cp, n))
-				break;
-			r = chartorune(rp, cp);
-			if(*rp != 0)
-				rp++;
-		}
-		if(rp > rb){
-			*rp = 0;
-			sendp(hc, rb);
-		} else {
-			free(rb);
-		}
-		if(n > 0) memmove(cb, cp, n);
-	}
-	sendp(hc, nil);
+	b = emalloc9p(sizeof(Buf)+n);
+	memmove(b->s = b->b, p, b->n = n);
+	if(nbsendp(hc[0], b) < 0)
+		free(b);
 }
 
 static void
 shutdown(void)
 {
 	send_interrupt();
-	postnote(PNGROUP, getpid(), "exit");
 	threadexitsall(nil);
-}
-
-void
-threadmain(int argc, char **argv)
-{
-	rfork(RFNAMEG|RFNOTEG|RFENVG);
-	atexit(shutdown);
-	initialize(argc, argv);
-	emulate();
 }
 
 void
@@ -210,7 +204,7 @@ usage(void)
 }
 
 void
-initialize(int argc, char **argv)
+threadmain(int argc, char **argv)
 {
 	int rflag;
 	int i, blkbg;
@@ -257,14 +251,19 @@ initialize(int argc, char **argv)
 		break;
 	}ARGEND;
 
+	quotefmtinstall();
+	atexit(shutdown);
+
 	if(initdraw(0, fontname, term) < 0)
 		sysfatal("inidraw failed: %r");
 	if((mc = initmouse("/dev/mouse", screen)) == nil)
 		sysfatal("initmouse failed: %r");
 	if((kc = initkeyboard("/dev/cons")) == nil)
 		sysfatal("initkeyboard failed: %r");
-	if((cs = consctl()) == nil)
-		sysfatal("consctl failed: %r");
+
+	hc[0] = chancreate(sizeof(Buf*), 8);	/* input to host */
+	hc[1] = chancreate(sizeof(Rune*), 8);	/* output from host */
+
 	cs->raw = rflag;
 
 	histp = hist;
@@ -290,19 +289,11 @@ initialize(int argc, char **argv)
 	fgcolor = (blkbg? display->white: display->black);
 	resize();
 
-	hc = chancreate(sizeof(Rune*), 5);
-	if((hostfd = start_host()) >= 0)
-		proccreate(hostreader, nil, BSIZE+1024);
+	pidchan = chancreate(sizeof(int), 0);
+	proccreate(runcmd, argv, 16*1024);
+	hostpid = recvul(pidchan);
 
-	while(*argv != nil){
-		sendnchars(strlen(*argv), *argv);
-		if(argv[1] == nil){
-			sendnchars(1, "\n");
-			break;
-		}
-		sendnchars(1, " ");
-		argv++;
-	}
+	emulate();
 }
 
 Image*
@@ -334,6 +325,16 @@ fgcol(int a, int c)
 }
 
 void
+hidecursor(void)
+{
+	if(cursorsave == nil)
+		return;
+	draw(screen, cursorsave->r, cursorsave, nil, cursorsave->r.min);
+	freeimage(cursorsave);
+	cursorsave = nil;
+}
+
+void
 drawscreen(void)
 {
 	int x, y, n;
@@ -342,26 +343,28 @@ drawscreen(void)
 	Rune *rp;
 	Point p, q;
 
-	draw(screen, screen->r, bgcolor, nil, ZP);
+	hidecursor();
+	
+	if(scrolloff != 0){
+		n = scrolloff % (ymax+1);
+		draw(screen, Rpt(pt(0,0), pt(xmax+2, ymax+1-n)), screen, nil, pt(0, n));
+	}
 
-	/* draw background */
 	for(y = 0; y <= ymax; y++){
+		if(!screenchange(y))
+			continue;
+		screenchange(y) = 0;
+
 		for(x = 0; x <= xmax; x += n){
 			cp = onscreenc(x, y);
 			ap = onscreena(x, y);
 			c = bgcol(*ap, *cp);
-			if(c == bgcolor){
-				n = 1;
-				continue;
-			}
 			for(n = 1; x+n <= xmax && bgcol(ap[n], cp[n]) == c; n++)
 				;
 			draw(screen, Rpt(pt(x, y), pt(x+n, y+1)), c, nil, ZP);
 		}
-	}
+		draw(screen, Rpt(pt(x, y), pt(x+1, y+1)), bgcolor, nil, ZP);
 
-	/* draw foreground */
-	for(y = 0; y <= ymax; y++){
 		for(x = 0; x <= xmax; x += n){
 			rp = onscreenr(x, y);
 			if(*rp == 0){
@@ -387,25 +390,40 @@ drawscreen(void)
 				bordercol,
 				ZP, font, L">", 1);
 	}
+
+	scrolloff = 0;
 }
 
 void
 drawcursor(void)
 {
 	Image *col;
+	Rectangle r;
 
+	hidecursor();
 	if(cursoron == 0)
 		return;
-	col = (blocked || hostfd < 0) ? red : bordercol;
-	border(screen, Rpt(pt(x, y), pt(x+1, y+1)), 2, col, ZP);
+
+	col = (blocked || hostclosed) ? red : bordercol;
+	r = Rpt(pt(x, y), pt(x+1, y+1));
+
+	cursorsave = allocimage(display, r, screen->chan, 0, DNofill);
+	draw(cursorsave, r, screen, nil, r.min);
+
+	border(screen, r, 2, col, ZP);
+	
 }
 
 void
 clear(int x1, int y1, int x2, int y2)
 {
 	int c = (attr & 0x0F00)>>8; /* bgcolor */
+
+	if(y1 < 0 || y1 > ymax || x1 < 0 || x1 > xmax || y2 <= y1 || x2 <= x1)
+		return;
 	
 	while(y1 < y2){
+		screenchange(y1) = 1;
 		if(x1 < x2){
 			memset(onscreenr(x1, y1), 0, (x2-x1)*sizeof(Rune));
 			memset(onscreena(x1, y1), 0, x2-x1);
@@ -713,8 +731,8 @@ waitchar(void)
 			if(host_avail())
 				return(rcvchar());
 			free(hostbuf);
-			hostbufp = hostbuf = nbrecvp(hc);
-			if(host_avail() && nrand(8))
+			hostbufp = hostbuf = nbrecvp(hc[1]);
+			if(host_avail() && nrand(32))
 				return(rcvchar());
 		}
 		drawscreen();
@@ -731,7 +749,7 @@ waitio(void)
 		{ mc->c, &mc->Mouse, CHANRCV },
 		{ mc->resizec, nil, CHANRCV },
 		{ kc->c, &kbdchar, CHANRCV },
-		{ hc, &hostbuf, CHANRCV },
+		{ hc[1], &hostbuf, CHANRCV },
 		{ nil, nil, CHANEND },
 	};
 	if(blocked)
@@ -755,10 +773,8 @@ Next:
 		break;
 	case AHOST:
 		hostbufp = hostbuf;
-		if(hostbuf == nil){
-			close(hostfd);
-			hostfd = -1;
-		}
+		if(hostbuf == nil)
+			hostclosed = 1;
 		break;
 	}
 }
@@ -780,6 +796,8 @@ exportsize(void)
 	putenvint("LINES", ymax+1);
 	putenvint("COLS", xmax+1);
 	putenv("TERM", term);
+	if(cs->winch)
+		send_interrupt();
 }
 
 void
@@ -799,13 +817,19 @@ setdim(int ht, int wid)
 	margin.x = (Dx(screen->r) - (xmax+1)*ftsize.x) / 2;
 	margin.y = (Dy(screen->r) - (ymax+1)*ftsize.y) / 2;
 
+	free(screenchangebuf);
+	screenchangebuf = emalloc9p(ymax+1);
+	scrolloff = 0;
+
 	free(onscreenrbuf);
-	onscreenrbuf = mallocz((ymax+1)*(xmax+2)*sizeof(Rune), 1);
+	onscreenrbuf = emalloc9p((ymax+1)*(xmax+2)*sizeof(Rune));
 	free(onscreenabuf);
-	onscreenabuf = mallocz((ymax+1)*(xmax+2), 1);
+	onscreenabuf = emalloc9p((ymax+1)*(xmax+2));
 	free(onscreencbuf);
-	onscreencbuf = mallocz((ymax+1)*(xmax+2), 1);
+	onscreencbuf = emalloc9p((ymax+1)*(xmax+2));
 	clear(0,0,xmax+1,ymax+1);
+
+	draw(screen, screen->r, bgcolor, nil, ZP);
 
 	if(resize_flag || backc)
 		return;
@@ -1052,10 +1076,15 @@ pos(Point pt)
 void
 shift(int x1, int y, int x2, int w)
 {
+	if(y < 0 || y > ymax || x1 < 0 || x2 < 0 || w <= 0)
+		return;
+
 	if(x1+w > xmax+1)
 		w = xmax+1 - x1;
 	if(x2+w > xmax+1)
 		w = xmax+1 - x2;
+
+	screenchange(y) = 1;
 	memmove(onscreenr(x1, y), onscreenr(x2, y), w*sizeof(Rune));
 	memmove(onscreena(x1, y), onscreena(x2, y), w);
 	memmove(onscreenc(x1, y), onscreenc(x2, y), w);
@@ -1064,9 +1093,30 @@ shift(int x1, int y, int x2, int w)
 void
 scroll(int sy, int ly, int dy, int cy)	/* source, limit, dest, which line to clear */
 {
-	memmove(onscreenr(0, dy), onscreenr(0, sy), (ly-sy)*(xmax+2)*sizeof(Rune));
-	memmove(onscreena(0, dy), onscreena(0, sy), (ly-sy)*(xmax+2));
-	memmove(onscreenc(0, dy), onscreenc(0, sy), (ly-sy)*(xmax+2));
+	int n, d, i;
+
+	if(sy < 0 || sy > ymax || dy < 0 || dy > ymax)
+		return;
+
+	n = ly - sy;
+	if(sy + n > ymax+1)
+		n = ymax+1 - sy;
+	if(dy + n > ymax+1)
+		n = ymax+1 - dy;
+
+	d = sy - dy;
+	if(n > 0 && d != 0){
+		if(d > 0 && dy == 0 && n >= ymax){
+			scrolloff += d;
+		} else {
+			for(i = 0; i < n; i++)
+				screenchange(dy+i) = 1;
+		}
+		memmove(onscreenr(0, dy), onscreenr(0, sy), n*(xmax+2)*sizeof(Rune));
+		memmove(onscreena(0, dy), onscreena(0, sy), n*(xmax+2));
+		memmove(onscreenc(0, dy), onscreenc(0, sy), n*(xmax+2));
+	}
+
 	clear(0, cy, xmax+1, cy+1);
 }
 
@@ -1079,13 +1129,13 @@ bigscroll(void)			/* scroll up half a page */
 		return;
 	if(y < half) {
 		clear(0, 0, xmax+1, ymax+1);
+		scrolloff = 0;
 		x = y = 0;
 		return;
 	}
-	memmove(onscreenr(0, 0), onscreenr(0, half), (ymax-half+1)*(xmax+2)*sizeof(Rune));
-	memmove(onscreena(0, 0), onscreena(0, half), (ymax-half+1)*(xmax+2));
-	memmove(onscreenc(0, 0), onscreenc(0, half), (ymax-half+1)*(xmax+2));
+	scroll(half, ymax+1, 0, ymax);
 	clear(0, y-half+1, xmax+1, ymax+1);
+
 	y -= half;
 	if(olines)
 		olines -= half;
@@ -1108,17 +1158,6 @@ number(Rune *p, int *got)
 }
 
 /* stubs */
-
-void
-sendnchars(int n,char *p)
-{
-	if(hostfd < 0)
-		return;
-	if(write(hostfd,p,n) < 0){
-		close(hostfd);
-		hostfd = -1;
-	}
-}
 
 int
 host_avail(void)
@@ -1179,6 +1218,7 @@ escapedump(int fd,uchar *str,int len)
 void
 drawstring(Rune *str, int n)
 {
+	screenchange(y) = 1;
 	memmove(onscreenr(x, y), str, n*sizeof(Rune));
 	memset(onscreena(x, y), attr & 0xFF, n);
 	memset(onscreenc(x, y), attr >> 8, n);
