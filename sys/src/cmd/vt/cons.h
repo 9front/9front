@@ -3,10 +3,17 @@ typedef struct Consstate	Consstate;
 struct Consstate{
 	int raw;
 	int hold;
+	int winch;
 };
+extern Consstate cs[];
 
-extern Consstate*	consctl(void);
-extern Consstate*	cs;
+typedef struct Buf	Buf;
+struct Buf
+{
+	int	n;
+	char	*s;
+	char	b[];
+};
 
 #define	INSET	2
 #define	BUFS	32
@@ -75,4 +82,4 @@ extern int cursoron;
 extern int nocolor;
 
 extern void setdim(int, int);
-
+extern void mountcons(void);

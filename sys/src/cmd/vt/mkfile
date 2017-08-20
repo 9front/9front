@@ -3,9 +3,9 @@
 TARG=vt
 
 OFILES=\
-	consctl.$O\
 	main.$O\
 	vt.$O\
+	fs.$O\
 
 HFILES=cons.h
 

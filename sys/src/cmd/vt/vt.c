@@ -23,9 +23,10 @@
 #include <u.h>
 #include <libc.h>
 #include <draw.h>
-#include <bio.h>
-#include <ctype.h>
+
 #include "cons.h"
+
+#include <ctype.h>
 
 int	wraparound = 1;
 int	originrelative = 0;
