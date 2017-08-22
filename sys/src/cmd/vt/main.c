@@ -101,7 +101,7 @@ ulong rgbahicolors[8] = {
 };
 
 /* terminal control */
-struct ttystate ttystate[2] = { {0, 1}, {0, 1} };
+struct ttystate ttystate[2] = { {0, 1}, {0, 0} };
 
 Point	margin;
 Point	ftsize;
@@ -347,10 +347,9 @@ drawscreen(void)
 
 	hidecursor();
 	
-	if(scrolloff != 0){
-		n = scrolloff % (ymax+1);
-		draw(screen, Rpt(pt(0,0), pt(xmax+2, ymax+1-n)), screen, nil, pt(0, n));
-	}
+	if(scrolloff && scrolloff <= ymax)
+		draw(screen, Rpt(pt(0,0), pt(xmax+2, ymax+1-scrolloff)),
+			screen, nil, pt(0, scrolloff));
 
 	for(y = 0; y <= ymax; y++){
 		if(!screenchange(y))
