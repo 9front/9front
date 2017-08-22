@@ -456,7 +456,7 @@ snarf(Vga* vga, Ctlr* ctlr)
 
 	case TypeSNB:
 		igfx->npipe = 2;	/* A,B */
-		igfx->cdclk = 300;	/* MHz */
+		igfx->cdclk = 400;	/* MHz */
 		goto IVBcommon;
 
 	case TypeIVB:
@@ -843,6 +843,10 @@ initdpll(Igfx *igfx, int x, int freq, int port)
 	dpll->ctrl.v &= ~(3<<24);
 	if(port == PortLCD){
 		p2 = 14;
+		if(freq > 112*MHz){
+			p2 >>= 1;
+			dpll->ctrl.v |= (1<<24);
+		}
 		if(genpll(freq, cref, p2, &m1, &m2, &n, &p1) < 0)
 			return -1;
 	} else {
