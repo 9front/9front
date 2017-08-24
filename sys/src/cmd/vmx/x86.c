@@ -186,7 +186,7 @@ x86access(int seg, uintptr addr0, int asz, uvlong *val, int sz, int acc, TLB *tl
 	if(sizeof(uintptr) == 8 && asz == 8){
 		if(seg == SEGFS || seg == SEGGS)
 			addr += rget(baser[seg]);
-		if((u16int)((addr >> 48) + 1) > 1){
+		if((u16int)(((u64int)addr >> 48) + 1) > 1){
 		gpf:
 			if((acc & ACCSAFE) == 0){
 				vmdebug("gpf");
@@ -1060,7 +1060,7 @@ x86step(void)
 //	print("flags=%#ux modrm=%#ux sib=%#ux disp=%#ullx imm=%#ullx\n", step.flags, step.modrm, step.sib, step.disp, step.imm);
 //	print("op0: type=%#ux addr=%#ullx val=%#ullx sz=%d\n", , );
 //	print("op1: type=%#ux addr=%#ullx val=%#ullx sz=%d\n", step.op[1].type, step.op[1].addr, step.op[1].val, step.op[1].sz);
-	print("%#.*p %s (%#ux,%d,%#ullx,%#ullx) (%#ux,%d,%#ullx,%#ullx) si %#llux di %#llux\n", 2*step.mode, step.pc, enumconv((u8int)step.inf,buf,onames), step.op[0].type, step.op[0].sz, step.op[0].addr, step.op[0].val, step.op[1].type, step.op[1].sz, step.op[1].addr, step.op[1].val, rget(RSI), rget(RDI));
+	print("%#.*p %s (%#ux,%d,%#ullx,%#ullx) (%#ux,%d,%#ullx,%#ullx) si %#llux di %#llux\n", 2*step.mode, step.pc, enumconv((u8int)step.inf,buf,onames), step.op[0].type, step.op[0].sz, (uvlong)step.op[0].addr, step.op[0].val, step.op[1].type, step.op[1].sz, (uvlong)step.op[1].addr, step.op[1].val, rget(RSI), rget(RDI));
 	switch((u8int)step.inf){
 	case OMOV:
 		if((step.flags & (INSREP|INSREPNE|INSLOCK)) != 0) {giveup(); return 0;}

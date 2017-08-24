@@ -62,14 +62,14 @@ void
 modregion(Region *r)
 {
 	if(r->segname == nil){
-		if(fprint(mapfd, "--- wb %#ullx %#ullx\n", r->start, r->end) < 0)
+		if(fprint(mapfd, "--- wb %#ullx %#ullx\n", (uvlong)r->start, (uvlong)r->end) < 0)
 			vmerror("updating memory map: %r");
 	}else
 		if(fprint(mapfd, "%c%c%c wb %#ullx %#ullx %s %#ullx\n",
 			(r->type & REGR) != 0 ? 'r' : '-',
 			(r->type & REGW) != 0 ? 'w' : '-',
 			(r->type & REGX) != 0 ? 'x' : '-',
-			r->start, r->end, r->segname, r->segoff) < 0)
+			(uvlong)r->start, (uvlong)r->end, r->segname, (uvlong)r->segoff) < 0)
 			vmerror("updating memory map: %r");
 }
 
@@ -259,7 +259,7 @@ mkregion(u64int pa, u64int end, int type)
 	r->type = type;
 	for(s = mmap; s != nil; s = s->next)
 		if(!(pa < s->start && end < s->end || pa >= s->start && pa >= s->end))
-			sysfatal("region %#p-%#p overlaps region %#p-%#p", pa, end, s->start, s->end);
+			sysfatal("region %#p-%#p overlaps region %#p-%#p", (void*)pa, (void*)end, (void*)s->start, (void*)s->end);
 	for(rp = &mmap; (*rp) != nil && (*rp)->start < end; rp = &(*rp)->next)
 		;
 	r->next = *rp;
