@@ -372,6 +372,12 @@ idecmd(IDE *d, u8int cmd)
 	case 0x30: case 0x31: /* write (pio) */
 		idegoio(d, 1);
 		break;
+	case 0x40: case 0x41: /* read verify */
+		while(--d->cnt != 0)
+			ideincaddr(d);
+		d->stat = IDEDRDY|IDEDSC;
+		ideirq(d, 1);
+		break;
 	case 0x90: /* diagnostics */
 		d = (d - ide & ~1) + ide;
 		d[0].err = 0;

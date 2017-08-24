@@ -1,3 +1,7 @@
+typedef char s8int;
+typedef short s16int;
+typedef int s32int;
+
 typedef struct PCIDev PCIDev;
 typedef struct PCICap PCICap;
 typedef struct PCIBar PCIBar;
@@ -33,6 +37,7 @@ enum {
 #define R13 "r13"
 #define R14 "r14"
 #define R15 "r15"
+#define RFLAGS "flags"
 
 enum {
 	MMIORD = 0,
@@ -44,7 +49,12 @@ struct Region {
 	uintptr start, end;
 	enum {
 		REGALLOC = 1, /* allocate memory for region */
-		REGRO = 2, /* read-only */
+		REGR = 2, /* can read */
+		REGW = 4, /* can write */
+		REGX = 8, /* can execute */
+		
+		REGRWX = REGR|REGW|REGX,
+		REGRX = REGR|REGX,
 		
 		/* E820 types, 0 == omitted from memory map */
 		REGFREE = 1<<8, /* report to OS as free */
@@ -54,6 +64,7 @@ struct Region {
 	uvlong segoff;
 	void *v, *ve;
 	Region *next;
+	int (*mmio)(uintptr, void *, int, int);
 };
 
 extern Region *mmap;
@@ -132,6 +143,7 @@ enum {
 	ACCR,
 	ACCW,
 	ACCX,
+	ACCSAFE = 0x100, /* don't post exceptions on fault */
 };
 
 /* used to speed up consecutive x86access calls */
@@ -139,5 +151,7 @@ typedef struct TLB TLB;
 struct TLB {
 	int asz, seg, acc;
 	uintptr start, end;
+	uintptr pabase;
+	Region *reg;
 	uchar *base;
 };

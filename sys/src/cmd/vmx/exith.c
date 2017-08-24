@@ -16,55 +16,20 @@ struct ExitInfo {
 	u32int ilen, iinfo;
 };
 
-static char *x86reg[16] = {
+char *x86reg[16] = {
 	RAX, RCX, RDX, RBX,
 	RSP, RBP, RSI, RDI,
 	R8, R9, R10, R11,
 	R12, R13, R14, R15
+};
+char *x86segreg[8] = {
+	"cs", "ds", "es", "fs", "gs", "ss",
 };
 
 static void
 skipinstr(ExitInfo *ei)
 {
 	rset(RPC, rget(RPC) + ei->ilen);
-}
-
-static int
-stepmmio(uvlong pa, uvlong *val, int size, ExitInfo *ei)
-{
-	extern uchar *tmp;
-	extern uvlong tmpoff;
-	void *targ;
-	uvlong pc;
-	char buf[ERRMAX];
-	extern int getexit;
-	
-	memset(tmp, 0, BY2PG);
-	targ = tmp + (pa & 0xfff);
-	switch(size){
-	case 1: *(u8int*)targ = *val; break;
-	case 2: *(u16int*)targ = *val; break;
-	case 4: *(u32int*)targ = *val; break;
-	case 8: *(u64int*)targ = *val; break;
-	}
-	pc = rget(RPC);
-	rcflush(0);
-	if(ctl("step -map %#ullx vm %#ullx", pa & ~0xfff, tmpoff) < 0){
-		rerrstr(buf, sizeof(buf));
-		if(strcmp(buf, "step failed") == 0){
-			vmerror("vmx step failure (old pc=%#ullx, new pc=%#ullx, cause=%#q)", pc, rget(RPC), ei->raw);
-			getexit++;
-			return -1;
-		}
-		sysfatal("ctl(stepmmio): %r");
-	}
-	switch(size){
-	case 1: *val = *(u8int*)targ; break;
-	case 2: *val = *(u16int*)targ; break;
-	case 4: *val = *(u32int*)targ; break;
-	case 8: *val = *(u64int*)targ; break;
-	}
-	return 0;
 }
 
 static void
@@ -130,15 +95,6 @@ err:
 		rsetsz(RSI, addr, asz);
 }
 
-typedef struct MemHandler MemHandler;
-struct MemHandler {
-	uvlong lo, hi;
-	uvlong (*f)(int, uvlong, uvlong);
-};
-
-MemHandler memh[32];
-int nmemh;
-
 static uvlong
 defaultmmio(int op, uvlong addr, uvlong val)
 {
@@ -156,36 +112,8 @@ defaultmmio(int op, uvlong addr, uvlong val)
 static void
 eptfault(ExitInfo *ei)
 {
-	MemHandler *h;
-	static MemHandler def = {.f defaultmmio};
-	int size;
-	uvlong val;
-	
-	for(h = memh; h < memh + nmemh; h++)
-		if(ei->pa >= h->lo && ei->pa <= h->hi)
-			break;
-	if(h == memh + nmemh)
-		h = &def;
-	size = 8;
-	if((ei->qual & 5) != 0){
-		val = h->f(MMIORD, ei->pa, 0);
-		stepmmio(ei->pa, &val, size, ei);
-	}else{
-		val = h->f(MMIOWRP, ei->pa, 0);
-		if(stepmmio(ei->pa, &val, size, ei) < 0)
-			return;
-		h->f(MMIOWR, ei->pa, val);
-	}
-}
-
-void
-registermmio(uvlong lo, uvlong hi, uvlong (*f)(int, uvlong, uvlong))
-{
-	assert(nmemh < nelem(memh));
-	memh[nmemh].lo = lo;
-	memh[nmemh].hi = hi;
-	memh[nmemh].f = f;
-	nmemh++;
+	if(x86step() > 0)
+		skipinstr(ei);
 }
 
 typedef struct CPUID CPUID;

@@ -6,7 +6,7 @@
 #include "fns.h"
 
 Region *mmap;
-int ctlfd, regsfd, waitfd;
+int ctlfd, regsfd, mapfd, waitfd;
 Channel *waitch, *sleepch, *notifch;
 enum { MSEC = 1000*1000, MinSleep = MSEC, SleeperPoll = 2000*MSEC } ;
 int getexit, state;
@@ -58,15 +58,28 @@ ctl(char *fmt, ...)
 	return rc;
 }
 
+void
+modregion(Region *r)
+{
+	if(r->segname == nil){
+		if(fprint(mapfd, "--- wb %#ullx %#ullx\n", r->start, r->end) < 0)
+			vmerror("updating memory map: %r");
+	}else
+		if(fprint(mapfd, "%c%c%c wb %#ullx %#ullx %s %#ullx\n",
+			(r->type & REGR) != 0 ? 'r' : '-',
+			(r->type & REGW) != 0 ? 'w' : '-',
+			(r->type & REGX) != 0 ? 'x' : '-',
+			r->start, r->end, r->segname, r->segoff) < 0)
+			vmerror("updating memory map: %r");
+}
+
 static void
 vmxsetup(void)
 {
-	static int fd;
+	int fd;
 	static char buf[128];
 	Region *r;
-	uvlong start, end, off;
-	char *name;
-	int rc, type;
+	int rc;
 	
 	fd = open("#X/status", OREAD);
 	if(fd < 0) sysfatal("open: %r");
@@ -85,29 +98,10 @@ vmxsetup(void)
 	regsfd = open("#X/regs", ORDWR);
 	if(regsfd < 0) sysfatal("open: %r");
 	
-	fd = open("#X/map", OWRITE|OTRUNC);
-	if(fd < 0) sysfatal("open: %r");
-	for(r = mmap; r != nil; ){
-		if(r->segname == nil){
-			r = r->next;
-			continue;
-		}
-		start = r->start;
-		end = r->end;
-		name = r->segname;
-		off = r->segoff;
-		type = r->type;
-		while(r = r->next, r != nil){
-			if(r->segname == nil)
-				continue;
-			if(r->start != end || r->segoff != off + end - start || ((r->type ^ type) & REGRO) != 0)
-				break;
-			end = r->end;
-		}
-		if(fprint(fd, "r%cx wb %#ullx %#ullx %s %#ullx\n", (type & REGRO) != 0 ? '-' : 'w', start, end, name, off) < 0)
-			sysfatal("writing memory map: %r");
-	}
-	close(fd);
+	mapfd = open("#X/map", OWRITE|OTRUNC);
+	if(mapfd < 0) sysfatal("open: %r");
+	for(r = mmap; r != nil; r = r->next)
+		modregion(r);
 	
 	waitfd = open("#X/wait", OREAD);
 	if(waitfd < 0) sysfatal("open: %r");
@@ -273,6 +267,17 @@ mkregion(u64int pa, u64int end, int type)
 	return r;
 }
 
+Region *
+regptr(u64int addr)
+{
+	Region *r;
+
+	for(r = mmap; r != nil; r = r->next)
+		if(addr >= r->start && addr < r->end)
+			return r;
+	return nil;
+}
+
 void *
 gptr(u64int addr, u64int len)
 {
@@ -317,8 +322,8 @@ gend(void *v)
 	return (u8int *) v + gavail(v);
 }
 
-void *tmp;
-uvlong tmpoff;
+void *tmp, *vgamem;
+uvlong tmpoff, vgamemoff;
 
 static void
 mksegment(char *sn)
@@ -329,7 +334,8 @@ mksegment(char *sn)
 	char buf[256];
 	u8int *gmem, *p;
 
-	sz = BY2PG;
+	sz = BY2PG; /* temporary page */
+	sz += 256*1024; /* vga */
 	for(r = mmap; r != nil; r = r->next){
 		if((r->type & REGALLOC) == 0)
 			continue;
@@ -362,6 +368,12 @@ mksegment(char *sn)
 		p += r->end - r->start;
 		r->ve = p;
 	}
+	vgamem = p;
+	vgamemoff = p - gmem;
+	regptr(0xa0000)->segoff = vgamemoff;
+	regptr(0xa0000)->v = vgamem;
+	p += 256*1024;
+	regptr(0xa0000)->ve = p;
 	tmp = p;
 	tmpoff = p - gmem;
 }
@@ -638,18 +650,18 @@ threadmain(int argc, char **argv)
 	cmdlinev = argv + 1;
 	
 	if(gmemsz < 1<<20) sysfatal("640 KB of RAM is not enough for everyone");
-	mkregion(0, 0xa0000, REGALLOC|REGFREE);
+	mkregion(0, 0xa0000, REGALLOC|REGFREE|REGRWX);
 	mkregion(0xa0000, 0xc0000, REGALLOC);
-	mkregion(0xc0000, 0x100000, REGALLOC|REGRES);
+	mkregion(0xc0000, 0x100000, REGALLOC|REGRES|REGRWX);
 	if(fbsz != 0 && fbaddr < gmemsz){
-		mkregion(0x100000, fbaddr, REGALLOC|REGFREE);
-		mkregion(fbaddr + fbsz, gmemsz, REGALLOC|REGFREE);
+		mkregion(0x100000, fbaddr, REGALLOC|REGFREE|REGRWX);
+		mkregion(fbaddr + fbsz, gmemsz, REGALLOC|REGFREE|REGRWX);
 	}else
-		mkregion(0x100000, gmemsz, REGALLOC|REGFREE);
+		mkregion(0x100000, gmemsz, REGALLOC|REGFREE|REGRWX);
 	if(fbsz != 0){
 		if(fbaddr < 1<<20) sysfatal("framebuffer must not be within first 1 MB");
 		if(fbaddr != (u32int) fbaddr || (u32int)(fbaddr+fbsz) < fbaddr) sysfatal("framebuffer must be within first 4 GB");
-		mkregion(fbaddr, fbaddr+fbsz, REGALLOC);
+		mkregion(fbaddr, fbaddr+fbsz, REGALLOC|REGRWX);
 	}
 	mksegment("vm");
 	vmxsetup();

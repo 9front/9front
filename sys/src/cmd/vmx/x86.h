@@ -27,3 +27,15 @@ enum {
 	
 	EferLme	= 1<<8,
 };
+
+extern char *x86reg[16];
+extern char *x86segreg[8];
+
+enum {
+	CF	= 1<<0,
+	PF	= 1<<2,
+	AF	= 1<<4,
+	ZF	= 1<<6,
+	SF	= 1<<7,
+	OF	= 1<<11,
+};
