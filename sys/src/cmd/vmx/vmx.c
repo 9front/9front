@@ -651,7 +651,7 @@ threadmain(int argc, char **argv)
 	
 	if(gmemsz < 1<<20) sysfatal("640 KB of RAM is not enough for everyone");
 	mkregion(0, 0xa0000, REGALLOC|REGFREE|REGRWX);
-	mkregion(0xa0000, 0xc0000, REGALLOC);
+	mkregion(0xa0000, 0xc0000, REGALLOC|REGRWX);
 	mkregion(0xc0000, 0x100000, REGALLOC|REGRES|REGRWX);
 	if(fbsz != 0 && fbaddr < gmemsz){
 		mkregion(0x100000, fbaddr, REGALLOC|REGFREE|REGRWX);
