@@ -223,7 +223,7 @@ typedef struct VmMem VmMem;
 typedef struct VmIntr VmIntr;
 
 struct VmMem {
-	uvlong lo, hi;
+	uvlong addr;
 	Segment *seg;
 	uintptr off;
 	char *name;
@@ -271,10 +271,7 @@ struct Vmx {
 	enum {
 		GOTEXIT = 1,
 		GOTIRQACK = 2,
-		GOTSTEP = 4,
-		GOTSTEPERR = 8,
 	} got;
-	VmMem *stepmap;
 	VmIntr exc, irq, irqack;
 	
 	u64int *msrhost, *msrguest;
@@ -619,11 +616,11 @@ eptfree(uvlong *tab, int level)
 }
 
 static void
-epttranslate(VmMem *mp)
+epttranslate(VmMem *mp, uvlong end)
 {
 	uvlong p, v;
 
-	if((mp->lo & 0xfff) != 0 || (mp->hi & 0xfff) != 0 || (uint)mp->attr >= 0x1000)
+	if((mp->addr & 0xfff) != 0 || (end & 0xfff) != 0 || (uint)mp->attr >= 0x1000)
 		error(Egreg);
 	if(mp->seg != nil){
 		switch(mp->seg->type & SG_TYPE){
@@ -633,13 +630,13 @@ epttranslate(VmMem *mp)
 		case SG_STICKY:
 			break;
 		}
-		if(mp->seg->base + mp->off + (mp->hi - mp->lo) > mp->seg->top)
+		if(mp->seg->base + mp->off + (end - mp->addr) > mp->seg->top)
 			error(Egreg);
-		for(p = mp->lo, v = mp->off; p < mp->hi; p += BY2PG, v += BY2PG)
+		for(p = mp->addr, v = mp->off; p != end; p += BY2PG, v += BY2PG)
 			*eptwalk(p) = mp->seg->map[v/PTEMAPMEM]->pages[(v & PTEMAPMEM-1)/BY2PG]->pa | mp->attr;
 	}else {
-		for(p = mp->lo; p < mp->hi; p += BY2PG)
-			*eptwalk(p) = mp->attr;
+		for(p = mp->addr; p != end; p += BY2PG)
+			*eptwalk(p) = 0;
 	}
 	vmx.onentry |= FLUSHEPT;
 }
@@ -657,7 +654,10 @@ cmdgetmeminfo(VmCmd *, va_list va)
 	p0 = va_arg(va, char *);
 	e = va_arg(va, char *);
 	p = p0;
+	if(p < e) *p = 0;
 	for(mp = vmx.mem.next; mp != &vmx.mem; mp = mp->next){
+		if(mp->seg == nil)
+			continue;
 		attr[0] = (mp->attr & 1) != 0 ? 'r' : '-';
 		attr[1] = (mp->attr & 2) != 0 ? 'w' : '-';
 		attr[2] = (mp->attr & 4) != 0 ? 'x' : '-';
@@ -665,30 +665,81 @@ cmdgetmeminfo(VmCmd *, va_list va)
 		*(ushort*)mt = *(u16int*)mtype[mp->attr >> 3 & 7];
 		mt[2] = (mp->attr & 0x40) != 0 ? '!' : 0;
 		mt[3] = 0;
-		if(mp->name == nil)
-			p = seprint(p, e, "%s %s %#llux %#llux\n", attr, mt, mp->lo, mp->hi);
-		else
-			p = seprint(p, e, "%s %s %#llux %#llux %s %#llux\n", attr, mt, mp->lo, mp->hi, mp->name, (uvlong)mp->off);
+		p = seprint(p, e, "%s %s %#llux %#llux %s %#llux\n", attr, mt, mp->addr, mp->next->addr, mp->name, (uvlong)mp->off);
 	}
 	return p - p0;
+}
+
+static void
+vmmeminsert(VmMem *l, VmMem *p)
+{
+	p->prev = l->prev;
+	p->next = l;
+	p->prev->next = p;
+	p->next->prev = p;
+}
+
+static VmMem *
+vmmemremove(VmMem *p)
+{
+	VmMem *r;
+	
+	r = p->next;
+	p->next->prev = p->prev;
+	p->prev->next = p->next;
+	free(p->name);
+	putseg(p->seg);
+	free(p);
+	return r;
 }
 
 static int
 cmdclearmeminfo(VmCmd *, va_list)
 {
-	VmMem *mp, *mn;
+	VmMem *mp;
 
 	eptfree(vmx.pml4, 0);
-	for(mp = vmx.mem.next; mp != &vmx.mem; mp = mn){
-		free(mp->name);
-		putseg(mp->seg);
-		mn = mp->next;
-		free(mp);
-	}
+	for(mp = vmx.mem.next; mp != &vmx.mem; )
+		mp = vmmemremove(mp);
 	vmx.mem.prev = &vmx.mem;
 	vmx.mem.next = &vmx.mem;
 	vmx.onentry |= FLUSHEPT;
 	return 0;
+}
+
+
+static void
+vmmemupdate(VmMem *mp, uvlong end)
+{
+	VmMem *p, *q;
+	
+	for(p = vmx.mem.prev; p != &vmx.mem; p = p->prev)
+		if(p->addr <= end || end == 0)
+			break;
+	if(p == &vmx.mem || p->addr < mp->addr){
+		q = smalloc(sizeof(VmMem));
+		*q = *p;
+		if(p->seg != nil){
+			incref(q->seg);
+			kstrdup(&q->name, p->name);
+		}
+		vmmeminsert(p->next, q);
+	}else
+		q = p;
+	if(q->seg != nil)
+		q->off += end - q->addr;
+	q->addr = end;
+	for(p = vmx.mem.next; p != &vmx.mem; p = p->next)
+		if(p->addr >= mp->addr)
+			break;
+	vmmeminsert(p, mp);
+	while(p != q)
+		p = vmmemremove(p);
+	for(p = vmx.mem.next; p != &vmx.mem; )
+		if(p->seg == p->prev->seg && (p->seg == nil || p->addr - p->prev->addr == p->off - p->prev->off))
+			p = vmmemremove(p);
+		else
+			p = p->next;
 }
 
 extern Segment* (*_globalsegattach)(char*);
@@ -701,6 +752,7 @@ cmdsetmeminfo(VmCmd *, va_list va)
 	char *f[10];
 	VmMem *mp;
 	int rc;
+	uvlong end;
 
 	if(vmx.pml4 == nil)
 		error(Egreg);	
@@ -725,7 +777,10 @@ cmdsetmeminfo(VmCmd *, va_list va)
 		}
 		rc = tokenize(p, f, nelem(f));
 		p = q + 1;
-		if(rc == 0) goto next;
+		if(rc == 0){
+			poperror();
+			continue;
+		}
 		if(rc != 4 && rc != 6) error("number of fields wrong");
 		for(q = f[0]; *q != 0; q++)
 			switch(*q){
@@ -743,27 +798,23 @@ cmdsetmeminfo(VmCmd *, va_list va)
 		if(j == 8 || strlen(f[1]) > 3) error("invalid memory type");
 		if(f[1][2] == '!') mp->attr |= 0x40;
 		else if(f[1][2] != 0) error("invalid memory type");
-		mp->lo = strtoull(f[2], &r, 0);
-		if(*r != 0 || !vmokpage(mp->lo)) error("invalid low guest physical address");
-		mp->hi = strtoull(f[3], &r, 0);
-		if(*r != 0 || !vmokpage(mp->hi) || mp->hi <= mp->lo) error("invalid high guest physical address");
-		mp->off = strtoull(f[5], &r, 0);
-		if(*r != 0 || !vmokpage(mp->off)) error("invalid offset");
+		mp->addr = strtoull(f[2], &r, 0);
+		if(*r != 0 || !vmokpage(mp->addr)) error("invalid low guest physical address");
+		end = strtoull(f[3], &r, 0);
+		if(*r != 0 || !vmokpage(end) || end <= mp->addr) error("invalid high guest physical address");
 		if((mp->attr & 7) != 0){
 			if(rc != 6) error("number of fields wrong");
 			mp->seg = _globalsegattach(f[4]);
 			if(mp->seg == nil) error("no such segment");
-			if(mp->seg->base + mp->off + (mp->hi - mp->lo) > mp->seg->top) error("out of bounds");
+			if(mp->seg->base + mp->off + (end - mp->addr) > mp->seg->top) error("out of bounds");
 			kstrdup(&mp->name, f[4]);
+			mp->off = strtoull(f[5], &r, 0);
+			if(*r != 0 || !vmokpage(mp->off)) error("invalid offset");
 		}
-		epttranslate(mp);
-		mp->prev = vmx.mem.prev;
-		mp->next = &vmx.mem;
-		mp->prev->next = mp;
-		mp->next->prev = mp;
-		mp = nil;
-	next:
 		poperror();
+		epttranslate(mp, end);
+		vmmemupdate(mp, end);
+		mp = nil;
 	}
 	free(mp);
 	return p - p0;
@@ -1089,7 +1140,6 @@ cmdquit(VmCmd *p, va_list va)
 	}
 	vmx.got = 0;
 	vmx.onentry = 0;
-	vmx.stepmap = nil;
 	
 	free(vmx.msrhost);
 	free(vmx.msrguest);
@@ -1121,22 +1171,10 @@ processexit(void)
 		case 7: /* IRQ window */
 		case 8: /* NMI window */
 			return;
-		case 37:
-			if((vmx.onentry & STEP) != 0){
-				vmx.state = VMXREADY;
-				vmx.got |= GOTSTEP;
-				vmx.onentry &= ~STEP;
-				return;
-			}
-			break;
 		}
-	if((vmx.onentry & STEP) != 0){
-		print("VMX: exit reason %#x when expected step...\n", reason & 0xffff);
-		vmx.onentry &= ~STEP;
-		vmx.got |= GOTSTEP|GOTSTEPERR;
-	}
 	vmx.state = VMXREADY;
 	vmx.got |= GOTEXIT;
+	vmx.onentry &= ~STEP;
 }
 
 static int
@@ -1252,12 +1290,15 @@ cmdsetfpregs(VmCmd *, va_list va)
 static int
 cmdgo(VmCmd *, va_list va)
 {
+	int step;
 	char *r;
 
 	if(vmx.state != VMXREADY)
 		error("VM not ready");
+	step = va_arg(va, int);
 	r = va_arg(va, char *);
 	if(r != nil) setregs(r, ';', "=");
+	if(step) vmx.onentry |= STEP;
 	vmx.state = VMXRUNNING;
 	return 0;
 }
@@ -1340,43 +1381,6 @@ cmdwait(VmCmd *cp, va_list va)
 	if(rno == 30) p = seprint(p, e, " ax %#ullx", (uvlong)vmx.ureg.ax);
 	p = seprint(p, e, "\n");
 	return p - p0;
-}
-
-static int
-cmdstep(VmCmd *cp, va_list va)
-{
-	switch(cp->retval){
-	case 0:
-		if((vmx.got & GOTSTEP) != 0 || (vmx.onentry & STEP) != 0)
-			error(Einuse);
-		if(vmx.state != VMXREADY){
-			print("pre-step in state %s\n", statenames[vmx.state]);
-			error("not ready");
-		}
-		vmx.stepmap = va_arg(va, VmMem *);
-		vmx.onentry |= STEP;
-		vmx.state = VMXRUNNING;
-		cp->flags |= CMDFPOSTP;
-		return 1;
-	case 1:
-		if(vmx.state != VMXREADY){
-			print("post-step in state %s\n", statenames[vmx.state]);
-			vmx.onentry &= ~STEP;
-			vmx.got &= ~(GOTSTEP|GOTSTEPERR);
-			error("not ready");
-		}
-		if((vmx.got & GOTSTEP) == 0){
-			cp->flags |= CMDFPOSTP;
-			return 1;
-		}
-		if((vmx.got & GOTSTEPERR) != 0){
-			vmx.got &= ~(GOTSTEP|GOTSTEPERR);
-			error("step failed");
-		}
-		vmx.got &= ~(GOTSTEP|GOTSTEPERR);
-		return 1;
-	}
-	return 0;
 }
 
 static void
@@ -1548,28 +1552,6 @@ runcmd(void)
 }
 
 static void
-dostep(int setup)
-{
-	static uvlong oldmap;
-	static uvlong *mapptr;
-
-	if(setup){
-		if(vmx.stepmap != nil){
-			mapptr = eptwalk(vmx.stepmap->lo);
-			oldmap = *mapptr;
-			epttranslate(vmx.stepmap);
-		}
-	}else{
-		vmcswrite(PROCB_CTLS, vmcsread(PROCB_CTLS) & ~(uvlong)PROCB_MONTRAP);
-		if(vmx.stepmap != nil){
-			*mapptr = oldmap;
-			vmx.stepmap = nil;
-			vmx.onentry |= FLUSHEPT;
-		}
-	}
-}
-
-static void
 vmxproc(void *)
 {
 	int init, rc, x;
@@ -1594,14 +1576,8 @@ vmxproc(void *)
 		runcmd();
 		if(vmx.state == VMXRUNNING){
 			procbctls = defprocbctls;
-			if((vmx.onentry & STEP) != 0){
-				procbctls |= PROCB_MONTRAP;
-				dostep(1);
-				if(waserror()){
-					dostep(0);
-					nexterror();
-				}
-			}
+			if((vmx.onentry & STEP) != 0)
+				defprocbctls |= PROCB_MONTRAP;
 			if((vmx.onentry & POSTEX) != 0){
 				vmcswrite(VMENTRY_INTRINFO, vmx.exc.info);
 				vmcswrite(VMENTRY_INTRCODE, vmx.exc.code);
@@ -1648,10 +1624,6 @@ vmxproc(void *)
 			if(rc < 0)
 				error("vmlaunch failed");
 			vmx.launched = 1;
-			if((vmx.onentry & STEP) != 0){
-				dostep(0);
-				poperror();
-			}
 			processexit();
 		}else{
 			up->psstate = "Idle";
@@ -1853,8 +1825,6 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 	Cmdtab *ct;
 	char *s;
 	int rc;
-	int i;
-	VmMem tmpmem;
 
 	switch((ulong)c->qid.path){
 	case Qdir:
@@ -1886,6 +1856,7 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 			vmxcmd(cmdquit);
 			break;
 		case CMgo:
+		case CMstep:
 			s = nil;
 			if(cb->nf == 2) kstrdup(&s, cb->f[1]);
 			else if(cb->nf != 1) error(Ebadarg);
@@ -1893,32 +1864,12 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 				free(s);
 				nexterror();
 			}
-			vmxcmd(cmdgo, s);
+			vmxcmd(cmdgo, ct->index == CMstep, s);
 			poperror();
 			free(s);
 			break;
 		case CMstop:
 			vmxcmd(cmdstop);
-			break;
-		case CMstep:
-			rc = 0;
-			for(i = 1; i < cb->nf; i++)
-				if(strcmp(cb->f[i], "-map") == 0){
-					rc = 1;
-					if(i+4 > cb->nf) error("missing argument");
-					memset(&tmpmem, 0, sizeof(tmpmem));
-					tmpmem.lo = strtoull(cb->f[i+1], &s, 0);
-					if(*s != 0 || !vmokpage(tmpmem.lo)) error("invalid address");
-					tmpmem.hi = tmpmem.lo + BY2PG;
-					tmpmem.attr = 0x407;
-					tmpmem.seg = _globalsegattach(cb->f[i+2]);
-					if(tmpmem.seg == nil) error("unknown segment");
-					tmpmem.off = strtoull(cb->f[i+3], &s, 0);
-					if(*s != 0 || !vmokpage(tmpmem.off)) error("invalid offset");
-					i += 3;
-				}else
-					error(Ebadctl);
-			vmxcmd(cmdstep, rc ? &tmpmem : nil);
 			break;
 		case CMexc:
 			s = nil;
