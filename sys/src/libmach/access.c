@@ -42,7 +42,7 @@ get8(Map *map, uvlong addr, uvlong *x)
 		return -1;
 	}
 
-	if (map->nsegs == 1 && map->seg[0].fd < 0) {
+	if (map->nsegs == 1 && map->seg[0].fd < 0 && map->seg[0].read == nil) {
 		*x = addr;
 		return 1;
 	}
@@ -60,7 +60,7 @@ get4(Map *map, uvlong addr, ulong *x)
 		return -1;
 	}
 
-	if (map->nsegs == 1 && map->seg[0].fd < 0) {
+	if (map->nsegs == 1 && map->seg[0].fd < 0 && map->seg[0].read == nil) {
 		*x = addr;
 		return 1;
 	}
@@ -78,7 +78,7 @@ get2(Map *map, uvlong addr, ushort *x)
 		return -1;
 	}
 
-	if (map->nsegs == 1 && map->seg[0].fd < 0) {
+	if (map->nsegs == 1 && map->seg[0].fd < 0 && map->seg[0].read == nil) {
 		*x = addr;
 		return 1;
 	}
@@ -98,7 +98,7 @@ get1(Map *map, uvlong addr, uchar *x, int size)
 		return -1;
 	}
 
-	if (map->nsegs == 1 && map->seg[0].fd < 0) {
+	if (map->nsegs == 1 && map->seg[0].fd < 0 && map->seg[0].read == nil) {
 		cp = (uchar*)&addr;
 		while (cp < (uchar*)(&addr+1) && size-- > 0)
 			*x++ = *cp++;
@@ -171,6 +171,9 @@ spread(struct segment *s, void *buf, int n, uvlong off)
 		char a[8192];
 		uvlong off;
 	} cache;
+	
+	if(s->read != nil)
+		return s->read(s->fd, buf, n, off);
 
 	if(s->cache){
 		base = off&~(sizeof cache.a-1);
@@ -204,7 +207,7 @@ mget(Map *map, uvlong addr, void *buf, int size)
 	s = reloc(map, addr, (vlong*)&off);
 	if (!s)
 		return -1;
-	if (s->fd < 0) {
+	if (s->fd < 0 && s->read == nil) {
 		werrstr("unreadable map");
 		return -1;
 	}

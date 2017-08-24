@@ -130,6 +130,7 @@ struct Map {
 	struct segment {		/* per-segment map */
 		char	*name;		/* the segment name */
 		int	fd;		/* file descriptor */
+		long	(*read)(int, void *, long, vlong);
 		int	inuse;		/* in use - not in use */
 		int	cache;		/* should cache reads? */
 		uvlong	b;		/* base */
