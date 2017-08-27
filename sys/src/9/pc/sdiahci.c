@@ -353,7 +353,7 @@ asleep(int ms)
 		esleep(ms);
 }
 
-static int
+static void
 ahciportreset(Aportc *c, uint mode)
 {
 	ulong *cmd, i;
@@ -372,7 +372,6 @@ ahciportreset(Aportc *c, uint mode)
 	p->sctl = 3*Aipm | 0*Aspd | Adet;
 	delay(1);
 	p->sctl = 3*Aipm | mode*Aspd;
-	return 0;
 }
 
 static int
@@ -788,12 +787,6 @@ clearci(Aport *p)
 }
 
 static int
-intel(Ctlr *c)
-{
-	return c->pci->vid == 0x8086;
-}
-
-static int
 ignoreahdrs(Drive *d)
 {
 	return d->portm.feat & Datapi && d->ctlr->type == Tsb600;
@@ -1011,9 +1004,9 @@ lose:
 
 enum {
 	Nms		= 256,
+	Mcomrwait	=  1*1024/Nms - 1,
 	Mphywait	=  2*1024/Nms - 1,
 	Midwait		= 16*1024/Nms - 1,
-	Mcomrwait	= 64*1024/Nms - 1,
 };
 
 static void
@@ -1110,6 +1103,7 @@ reset:
 			else
 				d->mode--;
 			if(d->mode == DMautoneg){
+				d->wait = 0;
 				d->state = Dportreset;
 				goto portreset;
 			}
@@ -1141,7 +1135,6 @@ reset:
 	case Doffline:
 		if(d->wait++ & Mcomrwait)
 			break;
-		/* fallthrough */
 	case Derror:
 	case Dreset:
 		dprint("%s: reset [%s]: mode %d; status %.3ux\n",
@@ -1152,8 +1145,12 @@ reset:
 		break;
 	case Dportreset:
 portreset:
-		if(d->wait++ & 0xff && (s & Iactive) == 0)
+		if(d->wait++ & Mcomrwait)
 			break;
+		if(d->wait > Mcomrwait && (s & Iactive) == 0){
+			d->state = Dnull;	/* stuck in portreset */
+			break;
+		}
 		dprint("%s: portreset [%s]: mode %d; status %.3ux\n",
 			dnam(d), diskstates[d->state], d->mode, s);
 		d->portm.flag |= Ferror;
@@ -1957,20 +1954,6 @@ iaataio(SDreq *r)
 	return r->status = SDeio;
 }
 
-/*
- * configure drives 0-5 as ahci sata  (c.f. errata)
- */
-static int
-iaahcimode(Pcidev *p)
-{
-	uint u;
-
-	u = pcicfgr16(p, 0x92);
-	dprint("ahci: %T: iaahcimode %.2ux %.4ux\n", p->tbdf, pcicfgr8(p, 0x91), u);
-	pcicfgw16(p, 0x92, u | 0xf);	/* ports 0-15 */
-	return 0;
-}
-
 enum{
 	Ghc	= 0x04/4,	/* global host control */
 	Pi	= 0x0c/4,	/* ports implemented */
@@ -1983,14 +1966,20 @@ enum{
 static void
 iasetupahci(Ctlr *c)
 {
+	if(c->type != Tich)
+		return;
+
 	pcicfgw16(c->pci, 0x40, pcicfgr16(c->pci, 0x40) & ~Cmddec);
 	pcicfgw16(c->pci, 0x42, pcicfgr16(c->pci, 0x42) & ~Cmddec);
 
 	c->lmmio[Ghc] |= Ahcien;
-	c->lmmio[Pi] = (1 << 6) - 1;	/* 5 ports (supposedly ro pi reg) */
+	c->lmmio[Pi] = (1 << 6) - 1;	/* 6 ports (supposedly ro pi reg) */
 
 	/* enable ahci mode; from ich9 datasheet */
 	pcicfgw16(c->pci, 0x90, 1<<6 | 1<<5);
+
+	/* configure drives 0-5 as ahci sata  (c.f. errata) */
+	pcicfgw16(c->pci, 0x92, pcicfgr16(c->pci, 0x92) | 0xf);
 }
 
 static void
@@ -2187,11 +2176,10 @@ iapnp(void)
 		c->sdev = s;
 
 		ahcihandoff((Ahba*)c->mmio);
-		if(intel(c) && p->did != 0x2681)
+		if(p->vid == 0x8086)
 			iasetupahci(c);
-//		ahcihbareset((Ahba*)c->mmio);
 		nunit = ahciconf(c);
-		if(intel(c) && iaahcimode(p) == -1 || nunit < 1){
+		if(nunit < 1){
 			vunmap(c->mmio, p->mem[Abar].size);
 			continue;
 		}
