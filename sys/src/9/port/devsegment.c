@@ -177,8 +177,9 @@ segmentopen(Chan *c, int omode)
 	Globalseg *g;
 
 	switch(TYPE(c)){
-	case Qtopdir:
 	case Qsegdir:
+		omode &= ~ORCLOSE;
+	case Qtopdir:
 		if(omode != 0)
 			error(Eisdir);
 		break;
@@ -199,20 +200,43 @@ segmentopen(Chan *c, int omode)
 		panic("segmentopen");
 	}
 	c->mode = openmode(omode);
-	c->offset = 0;
 	c->flag |= COPEN;
+	c->offset = 0;
+
 	return c;
+}
+
+static void
+segmentremove(Chan *c)
+{
+	Globalseg *g;
+	int x;
+
+	if(TYPE(c) != Qsegdir)
+		error(Eperm);
+	lock(&globalseglock);
+	x = SEG(c);
+	g = globalseg[x];
+	globalseg[x] = nil;
+	unlock(&globalseglock);
+	if(g != nil)
+		putgseg(g);
 }
 
 static void
 segmentclose(Chan *c)
 {
-	switch(TYPE(c)){
-	case Qctl:
-	case Qdata:
-		if(c->flag & COPEN){
+	if(c->flag & COPEN){
+		switch(TYPE(c)){
+		case Qsegdir:
+			if(c->flag & CRCLOSE)
+				segmentremove(c);
+			break;
+		case Qctl:
+		case Qdata:
 			putgseg(c->aux);
 			c->aux = nil;
+			break;
 		}
 	}
 }
@@ -235,35 +259,39 @@ segmentcreate(Chan *c, char *name, int omode, ulong perm)
 	if((perm & DMDIR) == 0)
 		error(Ebadarg);
 
+	g = smalloc(sizeof(Globalseg));
+	g->ref = 1;
+	g->perm = 0660;
+	kstrdup(&g->name, name);
+	kstrdup(&g->uid, up->user);
+
+	lock(&globalseglock);
 	if(waserror()){
 		unlock(&globalseglock);
+		putgseg(g);
 		nexterror();
 	}
-	lock(&globalseglock);
 	xfree = -1;
 	for(x = 0; x < nelem(globalseg); x++){
-		g = globalseg[x];
-		if(g == nil){
+		if(globalseg[x] == nil){
 			if(xfree < 0)
 				xfree = x;
-		} else if(strcmp(g->name, name) == 0)
+		} else if(strcmp(globalseg[x]->name, name) == 0)
 			error(Eexist);
 	}
 	if(xfree < 0)
 		error("too many global segments");
-	g = smalloc(sizeof(Globalseg));
-	g->ref = 1;
-	kstrdup(&g->name, name);
-	kstrdup(&g->uid, up->user);
-	g->perm = 0660; 
 	globalseg[xfree] = g;
 	unlock(&globalseglock);
 	poperror();
 
-	c->qid.path = PATH(x, Qsegdir);
+	c->qid.path = PATH(xfree, Qsegdir);
 	c->qid.type = QTDIR;
 	c->qid.vers = 0;
 	c->mode = openmode(omode);
+	c->flag |= COPEN;
+	c->offset = 0;
+
 	return c;
 }
 
@@ -371,16 +399,18 @@ segmentwstat(Chan *c, uchar *dp, int n)
 	if(c->qid.type == QTDIR)
 		error(Eperm);
 
-	d = nil;
 	g = getgseg(c);
 	if(waserror()){
-		free(d);
 		putgseg(g);
 		nexterror();
 	}
 	if(strcmp(g->uid, up->user) && !iseve())
 		error(Eperm);
 	d = smalloc(sizeof(Dir)+n);
+	if(waserror()){
+		free(d);
+		nexterror();
+	}
 	n = convM2D(dp, n, &d[0], (char*)&d[1]);
 	if(n == 0)
 		error(Eshortstat);
@@ -389,27 +419,11 @@ segmentwstat(Chan *c, uchar *dp, int n)
 	if(d->mode != ~0UL)
 		g->perm = d->mode&0777;
 	free(d);
+	poperror();
 	putgseg(g);
 	poperror();
 
 	return n;
-}
-
-static void
-segmentremove(Chan *c)
-{
-	Globalseg *g;
-	int x;
-
-	if(TYPE(c) != Qsegdir)
-		error(Eperm);
-	lock(&globalseglock);
-	x = SEG(c);
-	g = globalseg[x];
-	globalseg[x] = nil;
-	unlock(&globalseglock);
-	if(g != nil)
-		putgseg(g);
 }
 
 /*
@@ -422,11 +436,11 @@ globalsegattach(char *name)
 	Globalseg *g;
 	Segment *s;
 
+	lock(&globalseglock);
 	if(waserror()){
 		unlock(&globalseglock);
 		nexterror();
 	}
-	lock(&globalseglock);
 	for(x = 0; x < nelem(globalseg); x++){
 		g = globalseg[x];
 		if(g != nil && strcmp(g->name, name) == 0)
