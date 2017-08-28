@@ -667,6 +667,9 @@ procrestore(Proc *p)
 		m->dr7 = p->dr[7];
 		putdr(p->dr);
 	}
+	
+	if(p->vmx != nil)
+		vmxprocrestore(p);
 
 	if(p->kp)
 		return;

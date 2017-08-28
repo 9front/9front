@@ -146,6 +146,7 @@ struct PMMU
 	ulong	mmucount;
 	
 	u64int	dr[8];
+	void	*vmx;
 };
 
 /*
@@ -225,6 +226,8 @@ struct Mach
 	uvlong	tscticks;
 	
 	u64int	dr7;			/* shadow copy of dr7 */
+	
+	void*	vmx;
 
 	uintptr	stack[1];
 };

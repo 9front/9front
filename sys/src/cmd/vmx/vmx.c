@@ -5,6 +5,8 @@
 #include "dat.h"
 #include "fns.h"
 
+char *segname;
+int segrclose;
 Region *mmap;
 int ctlfd, regsfd, mapfd, waitfd;
 Channel *waitch, *sleepch, *notifch;
@@ -76,34 +78,31 @@ modregion(Region *r)
 static void
 vmxsetup(void)
 {
-	int fd;
 	static char buf[128];
-	Region *r;
+	static char name[128];
 	int rc;
 	
-	fd = open("#X/status", OREAD);
-	if(fd < 0) sysfatal("open: %r");
-	rc = read(fd, buf, sizeof(buf)-1);
-	if(rc < 0) sysfatal("read: %r");
-	close(fd);
-	buf[rc] = 0;
-
-	ctlfd = open("#X/ctl", ORDWR);
+	ctlfd = open("#X/clone", ORDWR|ORCLOSE);
 	if(ctlfd < 0) sysfatal("open: %r");
-	if(strcmp(buf, "inactive\n") != 0)
-		if(ctl("quit") < 0)
-			sysfatal("ctl: %r");
-	if(ctl("init") < 0)
-		sysfatal("ctl: %r");
-	regsfd = open("#X/regs", ORDWR);
+	rc = read(ctlfd, name, sizeof(name) - 1);
+	if(rc < 0) sysfatal("read: %r");
+	name[rc] = 0;
+	srand(atoi(name));
+	if(segname == nil){
+		segname = smprint("vm.%s", name);
+		segrclose = ORCLOSE;
+	}
+	
+	snprint(buf, sizeof(buf), "#X/%s/regs", name);
+	regsfd = open(buf, ORDWR);
 	if(regsfd < 0) sysfatal("open: %r");
 	
-	mapfd = open("#X/map", OWRITE|OTRUNC);
+	snprint(buf, sizeof(buf), "#X/%s/map", name);
+	mapfd = open(buf, OWRITE|OTRUNC);
 	if(mapfd < 0) sysfatal("open: %r");
-	for(r = mmap; r != nil; r = r->next)
-		modregion(r);
 	
-	waitfd = open("#X/wait", OREAD);
+	snprint(buf, sizeof(buf), "#X/%s/wait", name);
+	waitfd = open(buf, OREAD);
 	if(waitfd < 0) sysfatal("open: %r");
 }
 
@@ -347,9 +346,8 @@ mksegment(char *sn)
 	gmem = segattach(0, sn, nil, sz);
 	if(gmem == (void*)-1){
 		snprint(buf, sizeof(buf), "#g/%s", sn);
-		fd = create(buf, OREAD, DMDIR | 0777);
+		fd = create(buf, OREAD|segrclose, DMDIR | 0777);
 		if(fd < 0) sysfatal("create: %r");
-		close(fd);
 		snprint(buf, sizeof(buf), "#g/%s/ctl", sn);
 		fd = open(buf, OWRITE|OTRUNC);
 		if(fd < 0) sysfatal("open: %r");
@@ -376,6 +374,10 @@ mksegment(char *sn)
 	regptr(0xa0000)->ve = p;
 	tmp = p;
 	tmpoff = p - gmem;
+
+	for(r = mmap; r != nil; r = r->next)
+		modregion(r);
+
 }
 
 void
@@ -603,6 +605,10 @@ threadmain(int argc, char **argv)
 		bootmod = realloc(bootmod, (bootmodn + 1) * sizeof(char *));
 		bootmod[bootmodn++] = strdup(EARGF(usage()));
 		break;
+	case 's':
+		segname = strdup(EARGF(usage()));
+		segrclose = 0;
+		break;
 	case 'c':
 		uartinit(0, EARGF(usage()));
 		break;
@@ -663,8 +669,8 @@ threadmain(int argc, char **argv)
 		if(fbaddr != (u32int) fbaddr || (u32int)(fbaddr+fbsz) < fbaddr) sysfatal("framebuffer must be within first 4 GB");
 		mkregion(fbaddr, fbaddr+fbsz, REGALLOC|REGRWX);
 	}
-	mksegment("vm");
 	vmxsetup();
+	mksegment(segname);
 	loadkernel(argv[0]);
 	pciinit();
 

@@ -161,6 +161,7 @@ struct PMMU
 	int	nldt;	/* number of ldt descriptors allocated */
 	
 	u32int	dr[8];			/* debug registers */
+	void	*vmx;
 };
 
 /*
@@ -260,6 +261,8 @@ struct Mach
 	int	pdbfree;
 	
 	u32int	dr7;			/* shadow copy of dr7 */
+	
+	void*	vmx;
 
 	int	stack[1];
 };

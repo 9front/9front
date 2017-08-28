@@ -16,6 +16,7 @@ extern int vmwrite(u32int, uintptr);
 extern int invept(u32int, uvlong, uvlong);
 extern int invvpid(u32int, uvlong, uvlong);
 
+static int gotvmx;
 static vlong procb_ctls, pinb_ctls;
 
 enum {
@@ -217,6 +218,7 @@ enum {
 	MAXMSR = 512,
 };
 
+typedef struct VmxMach VmxMach;
 typedef struct Vmx Vmx;
 typedef struct VmCmd VmCmd;
 typedef struct VmMem VmMem;
@@ -231,27 +233,40 @@ struct VmMem {
 	u16int attr;
 };
 
+struct VmxMach {
+	char vmxon[4096]; /* has to be at the start for alignment */
+	QLock;
+	int vms;
+	Vmx *active;
+};
+#define vmxmach ((VmxMach*)((m)->vmx))
+#define vmxmachp(n) ((VmxMach*)(MACHP(n)->vmx))
+
 struct VmIntr {
 	u32int info, code, ilen;
 };
 
 struct Vmx {
+	uchar vmcs[4096]; /* page aligned */
+	uvlong pml4[512]; /* page aligned */
+	u32int msrbits[1024]; /* page aligned */
+	FPsave fp; /* page aligned */
+	u64int msrhost[MAXMSR*2]; /* 16 byte aligned */
+	u64int msrguest[MAXMSR*2]; /* 16 byte aligned */
+
 	enum {
-		NOVMX,
-		VMXINACTIVE,
 		VMXINIT,
 		VMXREADY,
 		VMXRUNNING,
 		VMXDEAD,
 		VMXENDING,
 	} state;
+	int index, machno;
 	char errstr[ERRMAX];
 	Ureg ureg;
 	uintptr cr2;
 	uintptr dr[8]; /* DR7 is also kept in VMCS */
-	FPsave *fp;
 	u8int launched;
-	u8int on;
 	u8int vpid;
 	enum {
 		FLUSHVPID = 1,
@@ -265,7 +280,6 @@ struct Vmx {
 	Lock cmdlock;
 	VmCmd *firstcmd, **lastcmd;
 	VmCmd *postponed;
-	uvlong *pml4;
 	VmMem mem;
 	
 	enum {
@@ -273,9 +287,7 @@ struct Vmx {
 		GOTIRQACK = 2,
 	} got;
 	VmIntr exc, irq, irqack;
-	
-	u64int *msrhost, *msrguest;
-	u32int *msrbits;
+
 	int nmsr;
 };
 
@@ -293,13 +305,12 @@ struct VmCmd {
 	char *errstr;
 	va_list va;
 	VmCmd *next;
+	Vmx *vmx;
 };
 
 static char Equit[] = "vmx: ending";
 
 static char *statenames[] = {
-	[NOVMX] "novmx",
-	[VMXINACTIVE] "inactive",
 	[VMXINIT] "init",
 	[VMXREADY] "ready",
 	[VMXRUNNING] "running",
@@ -307,7 +318,26 @@ static char *statenames[] = {
 	[VMXENDING]"ending"
 };
 
-static Vmx vmx;
+static Vmx *moribund;
+static QLock vmxtablock;
+static Vmx **vmxtab;
+static int nvmxtab;
+
+void
+vmxprocrestore(Proc *p)
+{
+	int s;
+	Vmx *vmx;
+	
+	s = splhi();
+	vmx = p->vmx;
+	if(vmxmach->active != vmx){
+		if(vmx != nil && vmptrld(PADDR(vmx->vmcs)) < 0)
+			panic("VMPTRLD(%p) failed", vmx->vmcs);
+		vmxmach->active = vmx;
+	}
+	splx(s);
+}
 
 static u64int
 vmcsread(u32int addr)
@@ -354,7 +384,7 @@ parseval(char *s)
 }
 
 static char *
-cr0fakeread(char *p, char *e)
+cr0fakeread(Vmx *, char *p, char *e)
 {
 	uvlong guest, mask, shadow;
 	
@@ -365,7 +395,7 @@ cr0fakeread(char *p, char *e)
 }
 
 static char *
-cr4fakeread(char *p, char *e)
+cr4fakeread(Vmx *, char *p, char *e)
 {
 	uvlong guest, mask, shadow;
 	
@@ -392,7 +422,7 @@ updatelma(void)
 }
 
 static int
-cr0realwrite(char *s)
+cr0realwrite(Vmx *, char *s)
 {
 	uvlong v;
 	
@@ -403,7 +433,7 @@ cr0realwrite(char *s)
 }
 
 static int
-cr0maskwrite(char *s)
+cr0maskwrite(Vmx *, char *s)
 {
 	uvlong v;
 	
@@ -413,7 +443,7 @@ cr0maskwrite(char *s)
 }
 
 static int
-eferwrite(char *s)
+eferwrite(Vmx *, char *s)
 {
 	uvlong v;
 	
@@ -424,7 +454,7 @@ eferwrite(char *s)
 }
 
 static int
-cr4realwrite(char *s)
+cr4realwrite(Vmx *, char *s)
 {
 	uvlong v;
 	
@@ -434,7 +464,7 @@ cr4realwrite(char *s)
 }
 
 static int
-cr4maskwrite(char *s)
+cr4maskwrite(Vmx *, char *s)
 {
 	uvlong v;
 	
@@ -444,28 +474,28 @@ cr4maskwrite(char *s)
 }
 
 static int
-dr7write(char *s)
+dr7write(Vmx *vmx, char *s)
 {
 	uvlong v;
 	
 	v = (u32int) parseval(s);
-	vmcswrite(GUEST_DR7, vmx.dr[7] = (u32int) v);
+	vmcswrite(GUEST_DR7, vmx->dr[7] = (u32int) v);
 	return 0;
 }
 
 static int
-readonly(char *)
+readonly(Vmx *, char *)
 {
 	return -1;
 }
 
 static int
-dr6write(char *s)
+dr6write(Vmx *vmx, char *s)
 {
 	uvlong v;
 	
 	v = parseval(s);
-	vmx.dr[6] = (u32int) v;
+	vmx->dr[6] = (u32int) v;
 	return 0;
 }
 
@@ -474,8 +504,8 @@ struct GuestReg {
 	int offset;
 	u8int size; /* in bytes; 0 means == uintptr */
 	char *name;
-	char *(*read)(char *, char *);
-	int (*write)(char *);
+	char *(*read)(Vmx *, char *, char *);
+	int (*write)(Vmx *, char *);
 };
 #define VMXVAR(x) ~(ulong)&(((Vmx*)0)->x)
 #define UREG(x) VMXVAR(ureg.x)
@@ -572,13 +602,13 @@ vmokpage(u64int addr)
 }
 
 static uvlong *
-eptwalk(uvlong addr)
+eptwalk(Vmx *vmx, uvlong addr)
 {
 	uvlong *tab, *nt;
 	uvlong v;
 	int i;
 	
-	tab = vmx.pml4;
+	tab = vmx->pml4;
 	if(tab == nil) error(Egreg);
 	for(i = 3; i >= 1; i--){
 		tab += addr >> 12 + 9 * i & 0x1ff;
@@ -616,7 +646,7 @@ eptfree(uvlong *tab, int level)
 }
 
 static void
-epttranslate(VmMem *mp, uvlong end)
+epttranslate(Vmx *vmx, VmMem *mp, uvlong end)
 {
 	uvlong p, v;
 
@@ -633,18 +663,18 @@ epttranslate(VmMem *mp, uvlong end)
 		if(mp->seg->base + mp->off + (end - mp->addr) > mp->seg->top)
 			error(Egreg);
 		for(p = mp->addr, v = mp->off; p != end; p += BY2PG, v += BY2PG)
-			*eptwalk(p) = mp->seg->map[v/PTEMAPMEM]->pages[(v & PTEMAPMEM-1)/BY2PG]->pa | mp->attr;
+			*eptwalk(vmx, p) = mp->seg->map[v/PTEMAPMEM]->pages[(v & PTEMAPMEM-1)/BY2PG]->pa | mp->attr;
 	}else {
 		for(p = mp->addr; p != end; p += BY2PG)
-			*eptwalk(p) = 0;
+			*eptwalk(vmx, p) = 0;
 	}
-	vmx.onentry |= FLUSHEPT;
+	vmx->onentry |= FLUSHEPT;
 }
 
 static char *mtype[] = {"uc", "wc", "02", "03", "wt", "wp", "wb", "07"};
 
 static int
-cmdgetmeminfo(VmCmd *, va_list va)
+cmdgetmeminfo(VmCmd *cmd, va_list va)
 {
 	VmMem *mp;
 	char *p0, *e, *p;
@@ -655,7 +685,7 @@ cmdgetmeminfo(VmCmd *, va_list va)
 	e = va_arg(va, char *);
 	p = p0;
 	if(p < e) *p = 0;
-	for(mp = vmx.mem.next; mp != &vmx.mem; mp = mp->next){
+	for(mp = cmd->vmx->mem.next; mp != &cmd->vmx->mem; mp = mp->next){
 		if(mp->seg == nil)
 			continue;
 		attr[0] = (mp->attr & 1) != 0 ? 'r' : '-';
@@ -694,29 +724,31 @@ vmmemremove(VmMem *p)
 }
 
 static int
-cmdclearmeminfo(VmCmd *, va_list)
+cmdclearmeminfo(VmCmd *cmd, va_list)
 {
 	VmMem *mp;
+	Vmx *vmx;
 
-	eptfree(vmx.pml4, 0);
-	for(mp = vmx.mem.next; mp != &vmx.mem; )
+	vmx = cmd->vmx;
+	eptfree(cmd->vmx->pml4, 0);
+	for(mp = vmx->mem.next; mp != &vmx->mem; )
 		mp = vmmemremove(mp);
-	vmx.mem.prev = &vmx.mem;
-	vmx.mem.next = &vmx.mem;
-	vmx.onentry |= FLUSHEPT;
+	vmx->mem.prev = &vmx->mem;
+	vmx->mem.next = &vmx->mem;
+	vmx->onentry |= FLUSHEPT;
 	return 0;
 }
 
 
 static void
-vmmemupdate(VmMem *mp, uvlong end)
+vmmemupdate(Vmx *vmx, VmMem *mp, uvlong end)
 {
 	VmMem *p, *q;
 	
-	for(p = vmx.mem.prev; p != &vmx.mem; p = p->prev)
+	for(p = vmx->mem.prev; p != &vmx->mem; p = p->prev)
 		if(p->addr <= end || end == 0)
 			break;
-	if(p == &vmx.mem || p->addr < mp->addr){
+	if(p == &vmx->mem || p->addr < mp->addr){
 		q = smalloc(sizeof(VmMem));
 		*q = *p;
 		if(p->seg != nil){
@@ -729,13 +761,13 @@ vmmemupdate(VmMem *mp, uvlong end)
 	if(q->seg != nil)
 		q->off += end - q->addr;
 	q->addr = end;
-	for(p = vmx.mem.next; p != &vmx.mem; p = p->next)
+	for(p = vmx->mem.next; p != &vmx->mem; p = p->next)
 		if(p->addr >= mp->addr)
 			break;
 	vmmeminsert(p, mp);
 	while(p != q)
 		p = vmmemremove(p);
-	for(p = vmx.mem.next; p != &vmx.mem; )
+	for(p = vmx->mem.next; p != &vmx->mem; )
 		if(p->seg == p->prev->seg && (p->seg == nil || p->addr - p->prev->addr == p->off - p->prev->off))
 			p = vmmemremove(p);
 		else
@@ -745,7 +777,7 @@ vmmemupdate(VmMem *mp, uvlong end)
 extern Segment* (*_globalsegattach)(char*);
 
 static int
-cmdsetmeminfo(VmCmd *, va_list va)
+cmdsetmeminfo(VmCmd *cmd, va_list va)
 {
 	char *p0, *p, *q, *r;
 	int j;
@@ -753,9 +785,7 @@ cmdsetmeminfo(VmCmd *, va_list va)
 	VmMem *mp;
 	int rc;
 	uvlong end;
-
-	if(vmx.pml4 == nil)
-		error(Egreg);	
+	
 	p0 = va_arg(va, char *);
 	p = p0;
 	mp = nil;
@@ -812,8 +842,8 @@ cmdsetmeminfo(VmCmd *, va_list va)
 			if(*r != 0 || !vmokpage(mp->off)) error("invalid offset");
 		}
 		poperror();
-		epttranslate(mp, end);
-		vmmemupdate(mp, end);
+		epttranslate(cmd->vmx, mp, end);
+		vmmemupdate(cmd->vmx, mp, end);
 		mp = nil;
 	}
 	free(mp);
@@ -825,6 +855,7 @@ vmxreset(void)
 {
 	ulong regs[4];
 	vlong msr;
+	int i;
 
 	cpuid(1, regs);
 	if((regs[2] & 1<<5) == 0) return;
@@ -843,40 +874,33 @@ vmxreset(void)
 	if((vlong)msr >= 0) return;
 	if(rdmsr(VMX_PROCB_CTLS2_MSR, &msr) < 0) return;
 	if((msr >> 32 & PROCB_EPT) == 0 || (msr >> 32 & PROCB_VPID) == 0) return;
-	vmx.state = VMXINACTIVE;
-	vmx.lastcmd = &vmx.firstcmd;
-	vmx.mem.next = &vmx.mem;
-	vmx.mem.prev = &vmx.mem;
-}
-
-static void
-vmxshutdown(void)
-{
-	if(vmx.on){
-		vmxoff();
-		vmx.on = 0;
+	for(i = 0; i < conf.nmach; i++){
+		MACHP(i)->vmx = mallocalign(sizeof(VmxMach), 4096, 0, 0);
+		if(vmxmachp(i) == nil)
+			error(Enomem);
 	}
+	gotvmx = 1;
 }
 
 static void
-vmxaddmsr(u32int msr, u64int gval)
+vmxaddmsr(Vmx *vmx, u32int msr, u64int gval)
 {
 	int i;
 
-	if(vmx.nmsr >= MAXMSR)
+	if(vmx->nmsr >= MAXMSR)
 		error("too many MSRs");
-	i = 2 * vmx.nmsr++;
-	vmx.msrhost[i] = msr;
-	rdmsr(msr, (vlong *) &vmx.msrhost[i+1]);
-	vmx.msrguest[i] = msr;
-	vmx.msrguest[i+1] = gval;
-	vmcswrite(VMENTRY_MSRLDCNT, vmx.nmsr);
-	vmcswrite(VMEXIT_MSRSTCNT, vmx.nmsr);
-	vmcswrite(VMEXIT_MSRLDCNT, vmx.nmsr);
+	i = 2 * vmx->nmsr++;
+	vmx->msrhost[i] = msr;
+	rdmsr(msr, (vlong *) &vmx->msrhost[i+1]);
+	vmx->msrguest[i] = msr;
+	vmx->msrguest[i+1] = gval;
+	vmcswrite(VMENTRY_MSRLDCNT, vmx->nmsr);
+	vmcswrite(VMEXIT_MSRSTCNT, vmx->nmsr);
+	vmcswrite(VMEXIT_MSRLDCNT, vmx->nmsr);
 }
 
 static void
-vmxtrapmsr(u32int msr, enum { TRAPRD = 1, TRAPWR = 2 } state)
+vmxtrapmsr(Vmx *vmx, u32int msr, enum { TRAPRD = 1, TRAPWR = 2 } state)
 {
 	u32int m;
 	
@@ -885,24 +909,24 @@ vmxtrapmsr(u32int msr, enum { TRAPRD = 1, TRAPWR = 2 } state)
 	msr = msr & 0x1fff | msr >> 18 & 0x2000;
 	m = 1<<(msr & 31);
 	if((state & TRAPRD) != 0)
-		vmx.msrbits[msr / 32] |= m;
+		vmx->msrbits[msr / 32] |= m;
 	else
-		vmx.msrbits[msr / 32] &= ~m;
+		vmx->msrbits[msr / 32] &= ~m;
 	if((state & TRAPWR) != 0)
-		vmx.msrbits[msr / 32 + 512] |= m;
+		vmx->msrbits[msr / 32 + 512] |= m;
 	else
-		vmx.msrbits[msr / 32 + 512] &= ~m;
+		vmx->msrbits[msr / 32 + 512] &= ~m;
 }
 
 static void
-vmcsinit(void)
+vmcsinit(Vmx *vmx)
 {
 	vlong msr;
 	u32int x;
 	
-	memset(&vmx.ureg, 0, sizeof(vmx.ureg));
-	vmx.launched = 0;
-	vmx.onentry = 0;	
+	memset(&vmx->ureg, 0, sizeof(vmx->ureg));
+	vmx->launched = 0;
+	vmx->onentry = 0;	
 	
 	if(rdmsr(VMX_BASIC_MSR, &msr) < 0) error("rdmsr(VMX_BASIC_MSR) failed");
 	if((msr & 1ULL<<55) != 0){
@@ -1009,55 +1033,43 @@ vmcsinit(void)
 	vmcswrite(GUEST_TRBASE, 0);
 	vmcswrite(GUEST_TRLIMIT, 0xffff);
 	vmcswrite(GUEST_TRPERM, (SEGTSS|SEGPL(0)|SEGP) >> 8 | 2);
-	
-	vmx.pml4 = mallocalign(BY2PG, BY2PG, 0, 0);
-	memset(vmx.pml4, 0, BY2PG);
-	vmcswrite(VM_EPTP, PADDR(vmx.pml4) | 3<<3);
-	vmx.vpid = 1;
-	vmcswrite(VM_VPID, vmx.vpid);
+
+	vmcswrite(VM_EPTP, PADDR(vmx->pml4) | 3<<3);
+	vmx->vpid = 1;
+	vmcswrite(VM_VPID, vmx->vpid);
 	
 	vmcswrite(GUEST_RFLAGS, 2);
 	
-	vmx.onentry = FLUSHVPID | FLUSHEPT;
-	
-	vmx.fp = mallocalign(512, 512, 0, 0);
-	if(vmx.fp == nil)
-		error(Enomem);
+	vmx->onentry = FLUSHVPID | FLUSHEPT;
 	fpinit();
-	fpsave(vmx.fp);
+	fpsave(&vmx->fp);
 	
-	vmx.msrhost = mallocalign(MAXMSR*16, 16, 0, 0);
-	vmx.msrguest = mallocalign(MAXMSR*16, 16, 0, 0);
-	vmx.msrbits = mallocalign(4096, 4096, 0, 0);
-	if(vmx.msrhost == nil || vmx.msrguest == nil || vmx.msrbits == nil)
-		error(Enomem);
-	memset(vmx.msrbits, -1, 4096);
-	vmxtrapmsr(Efer, 0);
-	vmcswrite(VMENTRY_MSRLDADDR, PADDR(vmx.msrguest));
-	vmcswrite(VMEXIT_MSRSTADDR, PADDR(vmx.msrguest));
-	vmcswrite(VMEXIT_MSRLDADDR, PADDR(vmx.msrhost));
-	vmcswrite(MSR_BITMAP, PADDR(vmx.msrbits));
+	memset(vmx->msrbits, -1, 4096);
+	vmxtrapmsr(vmx, Efer, 0);
+	vmcswrite(VMENTRY_MSRLDADDR, PADDR(vmx->msrguest));
+	vmcswrite(VMEXIT_MSRSTADDR, PADDR(vmx->msrguest));
+	vmcswrite(VMEXIT_MSRLDADDR, PADDR(vmx->msrhost));
+	vmcswrite(MSR_BITMAP, PADDR(vmx->msrbits));
 	
 	if(sizeof(uintptr) == 8){
-		vmxaddmsr(Star, 0);
-		vmxaddmsr(Lstar, 0);
-		vmxaddmsr(Cstar, 0);
-		vmxaddmsr(Sfmask, 0);
-		vmxaddmsr(KernelGSbase, 0);
-		vmxtrapmsr(Star, 0);
-		vmxtrapmsr(Lstar, 0);
-		vmxtrapmsr(Cstar, 0);
-		vmxtrapmsr(Sfmask, 0);
-		vmxtrapmsr(FSbase, 0);
-		vmxtrapmsr(GSbase, 0);
-		vmxtrapmsr(KernelGSbase, 0);
+		vmxaddmsr(vmx, Star, 0);
+		vmxaddmsr(vmx, Lstar, 0);
+		vmxaddmsr(vmx, Cstar, 0);
+		vmxaddmsr(vmx, Sfmask, 0);
+		vmxaddmsr(vmx, KernelGSbase, 0);
+		vmxtrapmsr(vmx, Star, 0);
+		vmxtrapmsr(vmx, Lstar, 0);
+		vmxtrapmsr(vmx, Cstar, 0);
+		vmxtrapmsr(vmx, Sfmask, 0);
+		vmxtrapmsr(vmx, FSbase, 0);
+		vmxtrapmsr(vmx, GSbase, 0);
+		vmxtrapmsr(vmx, KernelGSbase, 0);
 	}
 }
 
 static void
-vmxstart(void)
+vmxstart(Vmx *vmx)
 {
-	static uchar *vmcs; /* also vmxon region */
 	vlong msr, msr2;
 	uintptr cr;
 	vlong x;
@@ -1072,24 +1084,30 @@ vmxstart(void)
 	if(rdmsr(VMX_CR4_FIXED0, &msr) < 0) error("rdmsr(VMX_CR4_FIXED0) failed");
 	if(rdmsr(VMX_CR4_FIXED1, &msr2) < 0) error("rdmsr(VMX_CR4_FIXED1) failed");
 	if((cr & ~msr & ~msr2 | ~cr & msr & msr2) != 0) error("invalid CR4 value");
-
-	if(vmcs == nil){
-		vmcs = mallocalign(8192, 4096, 0, 0);
-		if(vmcs == nil)
-			error(Enomem);
-	}
-	memset(vmcs, 0, 8192);
+	
 	rdmsr(VMX_BASIC_MSR, &x);
-	*(ulong*)vmcs = x;
-	*(ulong*)&vmcs[4096] = x;
-	if(vmxon(PADDR(vmcs + 4096)) < 0)
-		error("vmxon failed");
-	vmx.on = 1;
-	if(vmclear(PADDR(vmcs)) < 0)
+	qlock(vmxmach);
+	if(waserror()){
+		qunlock(vmxmach);
+		nexterror();
+	}
+	if(vmxmach->vms == 0){
+		memset(vmxmach->vmxon, 0, sizeof(vmxmach->vmxon));
+		*(ulong*)vmxmach->vmxon = x;
+		if(vmxon(PADDR(vmxmach->vmxon)) < 0)
+			error("vmxon failed");
+	}
+	vmxmach->vms++;
+	qunlock(vmxmach);
+	poperror();
+
+	memset(vmx->vmcs, 0, sizeof(vmx->vmcs));
+	*(ulong*)vmx->vmcs = x;
+	if(vmclear(PADDR(vmx->vmcs)) < 0)
 		error("vmclear failed");
-	if(vmptrld(PADDR(vmcs)) < 0)
-		error("vmptrld failed");
-	vmcsinit();
+	up->vmx = vmx;
+	vmxprocrestore(up);
+	vmcsinit(vmx);
 }
 
 static void
@@ -1102,61 +1120,65 @@ cmdrelease(VmCmd *p, int f)
 }
 
 static void
-killcmds(VmCmd *notme)
+killcmds(Vmx *vmx, VmCmd *notme)
 {
 	VmCmd *p, *pn;
 	
-	for(p = vmx.postponed; p != nil; p = pn){
+	for(p = vmx->postponed; p != nil; p = pn){
 		pn = p->next;
 		p->next = nil;
 		if(p == notme) continue;
 		kstrcpy(p->errstr, Equit, ERRMAX);
 		cmdrelease(p, CMDFFAIL);
 	}
-	vmx.postponed = nil;
-	ilock(&vmx.cmdlock);
-	for(p = vmx.firstcmd; p != nil; p = pn){
+	vmx->postponed = nil;
+	ilock(&vmx->cmdlock);
+	for(p = vmx->firstcmd; p != nil; p = pn){
 		pn = p->next;
 		p->next = nil;
 		if(p == notme) continue;
 		kstrcpy(p->errstr, Equit, ERRMAX);
 		cmdrelease(p, CMDFFAIL);
 	}
-	vmx.firstcmd = nil;
-	vmx.lastcmd = &vmx.firstcmd;
-	iunlock(&vmx.cmdlock);
+	vmx->firstcmd = nil;
+	vmx->lastcmd = &vmx->firstcmd;
+	iunlock(&vmx->cmdlock);
 }
 
 static int
 cmdquit(VmCmd *p, va_list va)
 {
-	vmx.state = VMXENDING;
-	killcmds(p);
-
-	if(vmx.pml4 != nil){
-		cmdclearmeminfo(p, va);
-		free(vmx.pml4);
-		vmx.pml4 = nil;
-	}
-	vmx.got = 0;
-	vmx.onentry = 0;
+	Vmx *vmx;
 	
-	free(vmx.msrhost);
-	free(vmx.msrguest);
-	vmx.msrhost = nil;
-	vmx.msrguest = nil;
-	vmx.nmsr = 0;
+	vmx = p->vmx;
+	vmx->state = VMXENDING;
+	killcmds(vmx, p);
 
-	if(vmx.on)
+	cmdclearmeminfo(p, va);
+	
+	up->vmx = nil;
+	vmxprocrestore(up);
+	vmclear(PADDR(vmx->vmcs));
+	
+	qlock(vmxmach);
+	if(--vmxmach->vms == 0)
 		vmxoff();
-	vmx.state = VMXINACTIVE;
+	qunlock(vmxmach);
+	
+	qlock(&vmxtablock);
+	if(moribund == vmx)
+		moribund = nil;
+	vmxtab[vmx->index] = nil;
+	qunlock(&vmxtablock);
+	free(vmx);
+	
 	cmdrelease(p, 0);
 	pexit(Equit, 1);
 	return 0;
 }
 
 static void
-processexit(void)
+processexit(Vmx *vmx)
 {
 	u32int reason;
 	
@@ -1172,13 +1194,13 @@ processexit(void)
 		case 8: /* NMI window */
 			return;
 		}
-	vmx.state = VMXREADY;
-	vmx.got |= GOTEXIT;
-	vmx.onentry &= ~STEP;
+	vmx->state = VMXREADY;
+	vmx->got |= GOTEXIT;
+	vmx->onentry &= ~STEP;
 }
 
 static int
-cmdgetregs(VmCmd *, va_list va)
+cmdgetregs(VmCmd *cmd, va_list va)
 {
 	char *p0, *e;
 	GuestReg *r;
@@ -1192,13 +1214,13 @@ cmdgetregs(VmCmd *, va_list va)
 	for(r = guestregs; r < guestregs + nelem(guestregs); r++)
 		if(r->read != nil){
 			p = seprint(p, e, "%s ", r->name);
-			p = r->read(p, e);
+			p = r->read(cmd->vmx, p, e);
 			p = strecpy(p, e, "\n");
 		}else{
 			if(r->offset >= 0)
 				val = vmcsread(r->offset);
 			else
-				val = *(uintptr*)((uchar*)&vmx + ~r->offset);
+				val = *(uintptr*)((uchar*)cmd->vmx + ~r->offset);
 			s = r->size;
 			if(s == 0) s = sizeof(uintptr);
 			p = seprint(p, e, "%s %#.*llux\n", r->name, s * 2, val);
@@ -1207,7 +1229,7 @@ cmdgetregs(VmCmd *, va_list va)
 }
 
 static int
-setregs(char *p0, char rs, char *fs)
+setregs(Vmx *vmx, char *p0, char rs, char *fs)
 {
 	char *p, *q, *rp;
 	char *f[10];
@@ -1232,7 +1254,7 @@ setregs(char *p0, char rs, char *fs)
 		if(r == guestregs + nelem(guestregs))
 			error("unknown register");
 		if(r->write != nil){
-			r->write(f[1]);
+			r->write(vmx, f[1]);
 			continue;
 		}
 		val = strtoull(f[1], &rp, 0);
@@ -1244,10 +1266,10 @@ setregs(char *p0, char rs, char *fs)
 		else{
 			assert((u32int)~r->offset + sz <= sizeof(Vmx)); 
 			switch(sz){
-			case 1: *(u8int*)((u8int*)&vmx + (u32int)~r->offset) = val; break;
-			case 2: *(u16int*)((u8int*)&vmx + (u32int)~r->offset) = val; break;
-			case 4: *(u32int*)((u8int*)&vmx + (u32int)~r->offset) = val; break;
-			case 8: *(u64int*)((u8int*)&vmx + (u32int)~r->offset) = val; break;
+			case 1: *(u8int*)((u8int*)vmx + (u32int)~r->offset) = val; break;
+			case 2: *(u16int*)((u8int*)vmx + (u32int)~r->offset) = val; break;
+			case 4: *(u32int*)((u8int*)vmx + (u32int)~r->offset) = val; break;
+			case 8: *(u64int*)((u8int*)vmx + (u32int)~r->offset) = val; break;
 			default: error(Egreg);
 			}
 		}
@@ -1256,23 +1278,23 @@ setregs(char *p0, char rs, char *fs)
 }
 
 static int
-cmdsetregs(VmCmd *, va_list va)
+cmdsetregs(VmCmd *cmd, va_list va)
 {
-	return setregs(va_arg(va, char *), '\n', " \t");
+	return setregs(cmd->vmx, va_arg(va, char *), '\n', " \t");
 }
 
 static int
-cmdgetfpregs(VmCmd *, va_list va)
+cmdgetfpregs(VmCmd *cmd, va_list va)
 {
 	uchar *p;
 	
 	p = va_arg(va, uchar *);
-	memmove(p, vmx.fp, sizeof(FPsave));
+	memmove(p, &cmd->vmx->fp, sizeof(FPsave));
 	return sizeof(FPsave);
 }
 
 static int
-cmdsetfpregs(VmCmd *, va_list va)
+cmdsetfpregs(VmCmd *cmd, va_list va)
 {
 	uchar *p;
 	ulong n;
@@ -1283,40 +1305,45 @@ cmdsetfpregs(VmCmd *, va_list va)
 	off = va_arg(va, vlong);
 	if(off < 0 || off >= sizeof(FPsave)) n = 0;
 	else if(off + n > sizeof(FPsave)) n = sizeof(FPsave) - n;
-	memmove((uchar*)vmx.fp + off, p, n);
+	memmove((uchar*)&cmd->vmx->fp + off, p, n);
 	return n;
 }
 
 static int
-cmdgo(VmCmd *, va_list va)
+cmdgo(VmCmd *cmd, va_list va)
 {
 	int step;
 	char *r;
-
-	if(vmx.state != VMXREADY)
+	Vmx *vmx;
+	
+	vmx = cmd->vmx;
+	if(vmx->state != VMXREADY)
 		error("VM not ready");
 	step = va_arg(va, int);
 	r = va_arg(va, char *);
-	if(r != nil) setregs(r, ';', "=");
-	if(step) vmx.onentry |= STEP;
-	vmx.state = VMXRUNNING;
+	if(r != nil) setregs(vmx, r, ';', "=");
+	if(step) vmx->onentry |= STEP;
+	vmx->state = VMXRUNNING;
 	return 0;
 }
 
 static int
-cmdstop(VmCmd *, va_list)
+cmdstop(VmCmd *cmd, va_list)
 {
-	if(vmx.state != VMXREADY && vmx.state != VMXRUNNING)
+	Vmx *vmx;
+	
+	vmx = cmd->vmx;
+	if(vmx->state != VMXREADY && vmx->state != VMXRUNNING)
 		error("VM not ready or running");
-	vmx.state = VMXREADY;
+	vmx->state = VMXREADY;
 	return 0;
 }
 
 static int
-cmdstatus(VmCmd *, va_list va)
+cmdstatus(VmCmd *cmd, va_list va)
 {	
-	kstrcpy(va_arg(va, char *), vmx.errstr, ERRMAX);
-	return vmx.state;
+	kstrcpy(va_arg(va, char *), cmd->vmx->errstr, ERRMAX);
+	return cmd->vmx->state;
 }
 
 static char *exitreasons[] = {
@@ -1344,21 +1371,23 @@ cmdwait(VmCmd *cp, va_list va)
 	u32int reason, intr;
 	uvlong qual;
 	u16int rno;
+	Vmx *vmx;
 
 	if(cp->scratched)
 		error(Eintr);
+	vmx = cp->vmx;
 	p0 = p = va_arg(va, char *);
 	e = va_arg(va, char *);
-	if((vmx.got & GOTIRQACK) != 0){
-		p = seprint(p, e, "*ack %d\n", vmx.irqack.info & 0xff);
-		vmx.got &= ~GOTIRQACK;
+	if((vmx->got & GOTIRQACK) != 0){
+		p = seprint(p, e, "*ack %d\n", vmx->irqack.info & 0xff);
+		vmx->got &= ~GOTIRQACK;
 		return p - p0;
 	}
-	if((vmx.got & GOTEXIT) == 0){
+	if((vmx->got & GOTEXIT) == 0){
 		cp->flags |= CMDFPOSTP;
 		return -1;
 	}
-	vmx.got &= ~GOTEXIT;
+	vmx->got &= ~GOTEXIT;
 	reason = vmcsread(VM_EXREASON);
 	qual = vmcsread(VM_EXQUALIF);
 	rno = reason;
@@ -1378,7 +1407,7 @@ cmdwait(VmCmd *cp, va_list va)
 	if((intr & 1<<11) != 0) p = seprint(p, e, " excode %#ullx", vmcsread(VM_EXINTRCODE));
 	if(rno == 48 && (qual & 0x80) != 0) p = seprint(p, e, " va %#ullx", vmcsread(VM_GUESTVA));
 	if(rno == 48 || rno == 49) p = seprint(p, e, " pa %#ullx", vmcsread(VM_GUESTPA));
-	if(rno == 30) p = seprint(p, e, " ax %#ullx", (uvlong)vmx.ureg.ax);
+	if(rno == 30) p = seprint(p, e, " ax %#ullx", (uvlong)vmx->ureg.ax);
 	p = seprint(p, e, "\n");
 	return p - p0;
 }
@@ -1430,29 +1459,34 @@ out:
 static int
 cmdexcept(VmCmd *cp, va_list va)
 {
+	Vmx *vmx;
+	
+	vmx = cp->vmx;
 	if(cp->scratched) error(Eintr);
-	if((vmx.onentry & POSTEX) != 0){
+	if((vmx->onentry & POSTEX) != 0){
 		cp->flags |= CMDFPOSTP;
 		return 0;
 	}
-	eventparse(va_arg(va, char *), &vmx.exc);
-	vmx.onentry |= POSTEX;
+	eventparse(va_arg(va, char *), &vmx->exc);
+	vmx->onentry |= POSTEX;
 	return 0;
 }
 
 static int
-cmdirq(VmCmd *, va_list va)
+cmdirq(VmCmd *cmd, va_list va)
 {
 	char *p;
 	VmIntr vi;
+	Vmx *vmx;
 	
+	vmx = cmd->vmx;
 	p = va_arg(va, char *);
 	if(p == nil)
-		vmx.onentry &= ~POSTIRQ;
+		vmx->onentry &= ~POSTIRQ;
 	else{
 		eventparse(p, &vi);
-		vmx.irq = vi;
-		vmx.onentry |= POSTIRQ;
+		vmx->irq = vi;
+		vmx->onentry |= POSTIRQ;
 	}
 	return 0;
 }
@@ -1471,13 +1505,15 @@ cmdextrap(VmCmd *, va_list va)
 }
 
 static int
-gotcmd(void *)
+gotcmd(void *vmxp)
 {
 	int rc;
+	Vmx *vmx;
 
-	ilock(&vmx.cmdlock);
-	rc = vmx.firstcmd != nil;
-	iunlock(&vmx.cmdlock);
+	vmx = vmxp;
+	ilock(&vmx->cmdlock);
+	rc = vmx->firstcmd != nil;
+	iunlock(&vmx->cmdlock);
 	return rc;
 }
 
@@ -1510,11 +1546,11 @@ markppcmddone(VmCmd **pp)
 
 
 static void
-runcmd(void)
+runcmd(Vmx *vmx)
 {
 	VmCmd *p, **pp;
 	
-	for(pp = &vmx.postponed; p = *pp, p != nil; ){
+	for(pp = &vmx->postponed; p = *pp, p != nil; ){
 		if(waserror()){
 			kstrcpy(p->errstr, up->errstr, ERRMAX);
 			p->flags |= CMDFFAIL;
@@ -1527,16 +1563,16 @@ runcmd(void)
 		pp = markppcmddone(pp);
 	}
 	for(;;){
-		ilock(&vmx.cmdlock);
-		p = vmx.firstcmd;
+		ilock(&vmx->cmdlock);
+		p = vmx->firstcmd;
 		if(p == nil){
-			iunlock(&vmx.cmdlock);
+			iunlock(&vmx->cmdlock);
 			break;
 		}
-		vmx.firstcmd = p->next;
-		if(vmx.lastcmd == &p->next)
-			vmx.lastcmd = &vmx.firstcmd;
-		iunlock(&vmx.cmdlock);
+		vmx->firstcmd = p->next;
+		if(vmx->lastcmd == &p->next)
+			vmx->lastcmd = &vmx->firstcmd;
+		iunlock(&vmx->cmdlock);
 		p->next = nil;
 		if(waserror()){
 			kstrcpy(p->errstr, up->errstr, ERRMAX);
@@ -1552,86 +1588,93 @@ runcmd(void)
 }
 
 static void
-vmxproc(void *)
+vmxproc(void *vmxp)
 {
 	int init, rc, x;
 	u32int procbctls, defprocbctls;
 	vlong v;
+	Vmx *vmx;
 
-	procwired(up, 0);
+	vmx = vmxp;
+	procwired(up, vmx->machno);
 	sched();
 	init = 0;
 	defprocbctls = 0;
 	while(waserror()){
-		kstrcpy(vmx.errstr, up->errstr, ERRMAX);
-		vmx.state = VMXDEAD;
+		kstrcpy(vmx->errstr, up->errstr, ERRMAX);
+		vmx->state = VMXDEAD;
 	}
 	for(;;){
 		if(!init){
 			init = 1;
-			vmxstart();
-			vmx.state = VMXREADY;
+			vmxstart(vmx);
+			vmx->state = VMXREADY;
 			defprocbctls = vmcsread(PROCB_CTLS);
 		}
-		runcmd();
-		if(vmx.state == VMXRUNNING){
+		runcmd(vmx);
+		if(vmx->state == VMXRUNNING){
 			procbctls = defprocbctls;
-			if((vmx.onentry & STEP) != 0)
+			if((vmx->onentry & STEP) != 0)
 				defprocbctls |= PROCB_MONTRAP;
-			if((vmx.onentry & POSTEX) != 0){
-				vmcswrite(VMENTRY_INTRINFO, vmx.exc.info);
-				vmcswrite(VMENTRY_INTRCODE, vmx.exc.code);
-				vmcswrite(VMENTRY_INTRILEN, vmx.exc.ilen);
-				vmx.onentry &= ~POSTEX;
+			if((vmx->onentry & POSTEX) != 0){
+				vmcswrite(VMENTRY_INTRINFO, vmx->exc.info);
+				vmcswrite(VMENTRY_INTRCODE, vmx->exc.code);
+				vmcswrite(VMENTRY_INTRILEN, vmx->exc.ilen);
+				vmx->onentry &= ~POSTEX;
 			}
-			if((vmx.onentry & POSTIRQ) != 0 && (vmx.onentry & STEP) == 0){
-				if((vmx.onentry & POSTEX) == 0 && (vmcsread(GUEST_RFLAGS) & 1<<9) != 0 && (vmcsread(GUEST_CANINTR) & 3) == 0){
-					vmcswrite(VMENTRY_INTRINFO, vmx.irq.info);
-					vmcswrite(VMENTRY_INTRCODE, vmx.irq.code);
-					vmcswrite(VMENTRY_INTRILEN, vmx.irq.ilen);
-					vmx.onentry &= ~POSTIRQ;
-					vmx.got |= GOTIRQACK;
-					vmx.irqack = vmx.irq;
+			if((vmx->onentry & POSTIRQ) != 0 && (vmx->onentry & STEP) == 0){
+				if((vmx->onentry & POSTEX) == 0 && (vmcsread(GUEST_RFLAGS) & 1<<9) != 0 && (vmcsread(GUEST_CANINTR) & 3) == 0){
+					vmcswrite(VMENTRY_INTRINFO, vmx->irq.info);
+					vmcswrite(VMENTRY_INTRCODE, vmx->irq.code);
+					vmcswrite(VMENTRY_INTRILEN, vmx->irq.ilen);
+					vmx->onentry &= ~POSTIRQ;
+					vmx->got |= GOTIRQACK;
+					vmx->irqack = vmx->irq;
 				}else
 					procbctls |= PROCB_IRQWIN;
 			}
-			if((vmx.onentry & FLUSHVPID) != 0){
-				if(invvpid(INVLOCAL, vmx.vpid, 0) < 0)
+			if((vmx->onentry & FLUSHVPID) != 0){
+				if(invvpid(INVLOCAL, vmx->vpid, 0) < 0)
 					error("invvpid failed");
-				vmx.onentry &= ~FLUSHVPID;
+				vmx->onentry &= ~FLUSHVPID;
 			}
-			if((vmx.onentry & FLUSHEPT) != 0){
-				if(invept(INVLOCAL, PADDR(vmx.pml4) | 3<<3, 0) < 0)
+			if((vmx->onentry & FLUSHEPT) != 0){
+				if(invept(INVLOCAL, PADDR(vmx->pml4) | 3<<3, 0) < 0)
 					error("invept failed");
-				vmx.onentry &= ~FLUSHEPT;
+				vmx->onentry &= ~FLUSHEPT;
 			}
 			vmcswrite(PROCB_CTLS, procbctls);
-			vmx.got &= ~GOTEXIT;
+			vmx->got &= ~GOTEXIT;
 			
 			x = splhi();
 			if(sizeof(uintptr) == 8){
 				rdmsr(FSbase, &v);
 				vmwrite(HOST_FSBASE, v);
 			}
-			if((vmx.dr[7] & ~0xd400) != 0)
-				putdr01236(vmx.dr);
-			fpsserestore(vmx.fp);
-			putcr2(vmx.cr2);
-			rc = vmlaunch(&vmx.ureg, vmx.launched);
-			vmx.cr2 = getcr2();
-			fpssesave(vmx.fp);
+			if((vmx->dr[7] & ~0xd400) != 0)
+				putdr01236(vmx->dr);
+			fpsserestore(&vmx->fp);
+			putcr2(vmx->cr2);
+			rc = vmlaunch(&vmx->ureg, vmx->launched);
+			vmx->cr2 = getcr2();
+			fpssesave(&vmx->fp);
 			splx(x);
 			if(rc < 0)
 				error("vmlaunch failed");
-			vmx.launched = 1;
-			processexit();
+			vmx->launched = 1;
+			processexit(vmx);
 		}else{
 			up->psstate = "Idle";
-			sleep(&vmx.cmdwait, gotcmd, nil);
+			sleep(&vmx->cmdwait, gotcmd, vmx);
 			up->psstate = nil;
 		}
 	}
 }
+
+enum {
+	/* Qdir */
+	Qclone = 1,
+};
 
 enum {
 	Qdir,
@@ -1654,7 +1697,6 @@ static Dirtab vmxdir[] = {
 };
 
 enum {
-	CMinit,
 	CMquit,
 	CMgo,
 	CMstop,
@@ -1665,7 +1707,6 @@ enum {
 };
 
 static Cmdtab vmxctlmsg[] = {
-	CMinit,		"init",		1,
 	CMquit,		"quit",		1,
 	CMgo,		"go",		0,
 	CMstop,		"stop",		1,
@@ -1675,6 +1716,34 @@ static Cmdtab vmxctlmsg[] = {
 	CMextrap,	"extrap",	2,
 };
 
+enum { AUXSIZE = 4096 };
+
+static Vmx *
+vmxlook(vlong n)
+{
+	if(n < 0) return nil;
+	if(n >= nvmxtab) return nil;
+	return vmxtab[n];
+}
+#define QIDPATH(q,e) ((q) + 1 << 8 | (e)) 
+#define SLOT(q) ((vlong)((q).path >> 8) - 1)
+#define FILE(q) ((int)(q).path & 0xff)
+static Vmx *
+vmxent(Qid q)
+{
+	Vmx *vmx;
+
+	eqlock(&vmxtablock);
+	if(waserror()){
+		qunlock(&vmxtablock);
+		nexterror();
+	}
+	vmx = vmxlook(SLOT(q));
+	qunlock(&vmxtablock);
+	poperror();
+	return vmx;
+}
+
 static int
 iscmddone(void *cp)
 {
@@ -1682,32 +1751,31 @@ iscmddone(void *cp)
 }
 
 static int
-vmxcmd(int (*f)(VmCmd *, va_list), ...)
+vmxcmd(Vmx *vmx, int (*f)(VmCmd *, va_list), ...)
 {
 	VmCmd cmd;
-	
-	if(vmx.state == VMXINACTIVE)
-		error("no VM");
-	if(vmx.state == VMXENDING)
+
+	if(vmx->state == VMXENDING)
 	ending:
 		error(Equit);
 	memset(&cmd, 0, sizeof(VmCmd));
+	cmd.vmx = vmx;
 	cmd.errstr = up->errstr;
 	cmd.cmd = f;
 	va_start(cmd.va, f);
 	 
-	ilock(&vmx.cmdlock);
-	if(vmx.state == VMXENDING){
-		iunlock(&vmx.cmdlock);
+	ilock(&vmx->cmdlock);
+	if(vmx->state == VMXENDING){
+		iunlock(&vmx->cmdlock);
 		goto ending;
 	}
-	*vmx.lastcmd = &cmd;
-	vmx.lastcmd = &cmd.next;
-	iunlock(&vmx.cmdlock);
+	*vmx->lastcmd = &cmd;
+	vmx->lastcmd = &cmd.next;
+	iunlock(&vmx->cmdlock);
 	
 	while(waserror())
 		cmd.scratched = 1;
-	wakeup(&vmx.cmdwait);
+	wakeup(&vmx->cmdwait);
 	do
 		sleep(&cmd, iscmddone, &cmd);
 	while(!iscmddone(&cmd));
@@ -1719,71 +1787,264 @@ vmxcmd(int (*f)(VmCmd *, va_list), ...)
 	return cmd.retval;
 }
 
+static Vmx *
+vmxnew(void)
+{
+	Vmx *vmx;
+	Vmx **newtab;
+	int i, mi, mv;
+	
+	vmx = mallocalign(sizeof(Vmx), 4096, 0, 0);
+	if(waserror()){
+
+		free(vmx);
+		nexterror();
+	}
+	vmx->state = VMXINIT;
+	vmx->lastcmd = &vmx->firstcmd;
+	vmx->mem.next = &vmx->mem;
+	vmx->mem.prev = &vmx->mem;
+	vmx->index = -1;
+	
+	eqlock(&vmxtablock);
+	if(waserror()){
+		if(vmx->index >= 0)
+			vmxtab[vmx->index] = 0;
+		qunlock(&vmxtablock);
+		nexterror();
+	}
+	for(i = 0; i < nvmxtab; i++)
+		if(vmxtab[i] == nil){
+			vmxtab[i] = vmx;
+			vmx->index = i;
+			break;
+		}
+	if(i == nvmxtab){
+		newtab = realloc(vmxtab, (nvmxtab + 1) * sizeof(Vmx *));
+		if(newtab == nil)
+			error(Enomem);
+		vmxtab = newtab;
+		vmxtab[nvmxtab] = vmx;
+		vmx->index = nvmxtab++;
+	}
+	kproc("kvmx", vmxproc, vmx);
+	qunlock(&vmxtablock);
+	poperror();
+	poperror();
+	mi = 0;
+	mv = 0x7fffffff;
+	for(i = 0; i < conf.nmach; i++)
+		if(vmxmachp(i)->vms < mv){
+			mi = i;
+			mv = vmxmachp(i)->vms;
+		}
+	vmx->machno = mi;
+	if(vmxcmd(vmx, cmdstatus, up->errstr) == VMXDEAD)
+		error(up->errstr);
+	return vmx;
+}
+
+static void
+vmxshutdown(void)
+{
+	int i;
+	
+	for(i = 0; i < nvmxtab; i++)
+		if(vmxtab[i] != nil)
+			vmxcmd(vmxtab[i], cmdquit);
+}
+
 static Chan *
 vmxattach(char *spec)
 {
-	if(vmx.state == NOVMX) error(Enodev);
+	if(!gotvmx) error(Enodev);
 	return devattach('X', spec);
+}
+
+static int
+vmxgen(Chan *c, char *, Dirtab *, int, int s, Dir *dp)
+{
+	Dirtab *tab;
+	int path;
+
+	if(s == DEVDOTDOT){
+		devdir(c, (Qid){Qdir, 0, QTDIR}, "#X", 0, eve, 0555, dp);
+		return 1;
+	}
+	if(c->qid.path == Qdir){
+		if(s-- == 0) goto clone;
+		if(s >= nvmxtab)
+			return -1;
+		if(vmxlook(s) == nil)
+			return 0;
+		sprint(up->genbuf, "%d", s);
+		devdir(c, (Qid){QIDPATH(s, Qdir), 0, QTDIR}, up->genbuf, 0, eve, DMDIR|0555, dp);
+		return 1;
+	}
+	if(c->qid.path == Qclone){
+	clone:
+		strcpy(up->genbuf, "clone");
+		devdir(c, (Qid){Qclone, 0, QTFILE}, up->genbuf, 0, eve, 0444, dp);
+		return 1;
+	}
+	if(s >= nelem(vmxdir))
+		return -1;
+	tab = &vmxdir[s];
+	path = QIDPATH(SLOT(c->qid), 0);
+	devdir(c, (Qid){tab->qid.path|path, tab->qid.vers, tab->qid.type}, tab->name, tab->length, eve, tab->perm, dp);
+	return 1;
 }
 
 static Walkqid*
 vmxwalk(Chan *c, Chan *nc, char **name, int nname)
 {
-	return devwalk(c, nc, name, nname, vmxdir, nelem(vmxdir), devgen);
+	Walkqid *rc;
+
+	eqlock(&vmxtablock);
+	if(waserror()){
+		qunlock(&vmxtablock);
+		nexterror();
+	}
+	rc = devwalk(c, nc, name, nname, nil, 0, vmxgen);
+	qunlock(&vmxtablock);
+	poperror();
+	return rc;
 }
 
 static int
 vmxstat(Chan *c, uchar *dp, int n)
 {
-	return devstat(c, dp, n, vmxdir, nelem(vmxdir), devgen);
+	int rc;
+	
+	eqlock(&vmxtablock);
+	if(waserror()){
+		qunlock(&vmxtablock);
+		nexterror();
+	}
+	rc = devstat(c, dp, n, nil, 0, vmxgen);
+	qunlock(&vmxtablock);
+	poperror();
+	return rc;
 }
 
 static Chan*
 vmxopen(Chan* c, int omode)
 {
 	Chan *ch;
+	Vmx *vmx;
 
-	if(c->qid.path != Qdir && !iseve()) error(Eperm);
-	ch = devopen(c, omode, vmxdir, nelem(vmxdir), devgen);
-	if(ch->qid.path == Qmap){
+	if(c->qid.path == Qclone){
+		if(!iseve()) error(Eperm);
+		vmx = vmxnew();
+		c->qid.path = QIDPATH(vmx->index, Qctl);
+	}
+	eqlock(&vmxtablock);
+	if(waserror()){
+		qunlock(&vmxtablock);
+		nexterror();
+	}
+	vmx = vmxlook(SLOT(c->qid));
+	if(SLOT(c->qid) >= 0 && vmx == nil) error(Enonexist);
+	if(FILE(c->qid) != Qdir && !iseve()) error(Eperm);
+	ch = devopen(c, omode, nil, 0, vmxgen);
+	qunlock(&vmxtablock);
+	poperror();
+	ch->aux = smalloc(AUXSIZE);
+	if(SLOT(ch->qid) >= 0 && FILE(ch->qid) == Qmap){
 		if((omode & OTRUNC) != 0)
-			vmxcmd(cmdclearmeminfo);
+			vmxcmd(vmx, cmdclearmeminfo);
 	}
 	return ch;
 }
 
 static void
-vmxclose(Chan*)
+vmxclunk(Chan *ch)
 {
+	free(ch->aux);
+	ch->aux = nil;
 }
+
+static void
+vmxremove(Chan *ch)
+{
+	Vmx *vmx, *old;
+
+	vmxclunk(ch);
+	if(SLOT(ch->qid) == -1 || FILE(ch->qid) != Qctl)
+		error(Eperm);
+	vmx = vmxent(ch->qid);
+	if(vmx == nil)
+		error(Enonexist);
+	qlock(&vmxtablock);
+	old = moribund;
+	moribund = vmx;
+	qunlock(&vmxtablock);
+	if(old != nil)
+		vmxcmd(old, cmdquit);
+}
+
+static void
+vmxclose(Chan *ch)
+{
+	if((ch->flag & CRCLOSE) != 0)
+		vmxremove(ch);
+	else
+		vmxclunk(ch);
+}
+
 
 static long
 vmxread(Chan* c, void* a, long n, vlong off)
 {
-	static char regbuf[4096];
-	static char membuf[4096];
 	int rc;
+	Vmx *vmx;
 
-	switch((ulong)c->qid.path){
+	if(SLOT(c->qid) == -1){
+		switch((int)c->qid.path){
+		case Qdir:
+		dirread:
+			eqlock(&vmxtablock);
+			if(waserror()){
+				qunlock(&vmxtablock);
+				nexterror();
+			}
+			rc = devdirread(c, a, n, nil, 0, vmxgen);
+			qunlock(&vmxtablock);
+			poperror();
+			return rc;
+		default:
+			error(Egreg);
+		}
+	}
+	vmx = vmxent(c->qid);
+	if(vmx == nil) error(Enonexist);
+	switch(FILE(c->qid)){
 	case Qdir:
-		return devdirread(c, a, n, vmxdir, nelem(vmxdir), devgen);
+		goto dirread;
+	case Qctl:
+		{
+			char buf[20];
+			
+			sprint(buf, "%d", vmx->index);
+			return readstr(off, a, n, buf);
+		}
 	case Qregs:
 		if(off == 0)
-			vmxcmd(cmdgetregs, regbuf, regbuf + sizeof(regbuf));
-		return readstr(off, a, n, regbuf);
+			vmxcmd(vmx, cmdgetregs, c->aux, (char *) c->aux + AUXSIZE);
+		return readstr(off, a, n, c->aux);
 	case Qmap:
 		if(off == 0)
-			vmxcmd(cmdgetmeminfo, membuf, membuf + sizeof(membuf));
-		return readstr(off, a, n, membuf);
+			vmxcmd(vmx, cmdgetmeminfo, c->aux, (char *) c->aux + AUXSIZE);
+		return readstr(off, a, n, c->aux);
 	case Qstatus:
 		{
 			char buf[ERRMAX+128];
 			char errbuf[ERRMAX];
 			int status;
 			
-			status = vmx.state;
+			status = vmx->state;
 			if(status == VMXDEAD){
-				vmxcmd(cmdstatus, errbuf);
+				vmxcmd(vmx, cmdstatus, errbuf);
 				snprint(buf, sizeof(buf), "%s %#q\n", statenames[status], errbuf);
 			}else if(status >= 0 && status < nelem(statenames))
 				snprint(buf, sizeof(buf), "%s\n", statenames[status]);
@@ -1795,7 +2056,7 @@ vmxread(Chan* c, void* a, long n, vlong off)
 		{
 			char buf[512];
 			
-			rc = vmxcmd(cmdwait, buf, buf + sizeof(buf));
+			rc = vmxcmd(vmx, cmdwait, buf, buf + sizeof(buf));
 			if(rc > n) rc = n;
 			if(rc > 0) memmove(a, buf, rc);
 			return rc;
@@ -1804,7 +2065,7 @@ vmxread(Chan* c, void* a, long n, vlong off)
 		{
 			char buf[sizeof(FPsave)];
 			
-			vmxcmd(cmdgetfpregs, buf);
+			vmxcmd(vmx, cmdgetfpregs, buf);
 			if(n < 0 || off < 0 || off >= sizeof(buf)) n = 0;
 			else if(off + n > sizeof(buf)) n = sizeof(buf) - off;
 			if(n != 0) memmove(a, buf + off, n);
@@ -1820,13 +2081,23 @@ vmxread(Chan* c, void* a, long n, vlong off)
 static long
 vmxwrite(Chan* c, void* a, long n, vlong off)
 {
-	static QLock initlock;
 	Cmdbuf *cb;
 	Cmdtab *ct;
 	char *s;
 	int rc;
+	Vmx *vmx;
 
-	switch((ulong)c->qid.path){
+	if(SLOT(c->qid) == -1){
+		switch((int)c->qid.path){
+		case Qdir:
+			error(Eperm);
+		default:
+			error(Egreg);
+		}
+	}
+	vmx = vmxent(c->qid);
+	if(vmx == nil) error(Enonexist);
+	switch(FILE(c->qid)){
 	case Qdir:
 		error(Eperm);
 	case Qctl:
@@ -1837,23 +2108,8 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 		}
 		ct = lookupcmd(cb, vmxctlmsg, nelem(vmxctlmsg));
 		switch(ct->index){
-		case CMinit:
-			qlock(&initlock);
-			if(waserror()){
-				qunlock(&initlock);
-				nexterror();
-			}
-			if(vmx.state != VMXINACTIVE)
-				error("vmx already active");
-			vmx.state = VMXINIT;
-			kproc("kvmx", vmxproc, nil);
-			poperror();
-			qunlock(&initlock);
-			if(vmxcmd(cmdstatus, up->errstr) == VMXDEAD)
-				error(up->errstr);
-			break;
 		case CMquit:
-			vmxcmd(cmdquit);
+			vmxcmd(vmx, cmdquit);
 			break;
 		case CMgo:
 		case CMstep:
@@ -1864,12 +2120,12 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 				free(s);
 				nexterror();
 			}
-			vmxcmd(cmdgo, ct->index == CMstep, s);
+			vmxcmd(vmx, cmdgo, ct->index == CMstep, s);
 			poperror();
 			free(s);
 			break;
 		case CMstop:
-			vmxcmd(cmdstop);
+			vmxcmd(vmx, cmdstop);
 			break;
 		case CMexc:
 			s = nil;
@@ -1878,7 +2134,7 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 				free(s);
 				nexterror();
 			}
-			vmxcmd(cmdexcept, s);
+			vmxcmd(vmx, cmdexcept, s);
 			poperror();
 			free(s);
 			break;
@@ -1890,7 +2146,7 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 				free(s);
 				nexterror();
 			}
-			vmxcmd(cmdirq, s);
+			vmxcmd(vmx, cmdirq, s);
 			poperror();
 			free(s);
 			break;
@@ -1901,7 +2157,7 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 				free(s);
 				nexterror();
 			}
-			vmxcmd(cmdextrap, s);
+			vmxcmd(vmx, cmdextrap, s);
 			poperror();
 			free(s);
 			break;
@@ -1922,7 +2178,7 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 		}
 		memmove(s, a, n);
 		s[n] = 0;
-		rc = vmxcmd((ulong)c->qid.path == Qregs ? cmdsetregs : cmdsetmeminfo, s);
+		rc = vmxcmd(vmx, FILE(c->qid) == Qregs ? cmdsetregs : cmdsetmeminfo, s);
 		poperror();
 		free(s);
 		return rc;
@@ -1932,7 +2188,7 @@ vmxwrite(Chan* c, void* a, long n, vlong off)
 			
 			if(n > sizeof(FPsave)) n = sizeof(FPsave);
 			memmove(buf, a, n);
-			return vmxcmd(cmdsetfpregs, buf, n, off);
+			return vmxcmd(vmx, cmdsetfpregs, buf, n, off);
 		}
 	default:
 		error(Egreg);
@@ -1958,6 +2214,6 @@ Dev vmxdevtab = {
 	devbread,
 	vmxwrite,
 	devbwrite,
-	devremove,
+	vmxremove,
 	devwstat,
 };
