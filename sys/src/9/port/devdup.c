@@ -86,8 +86,6 @@ dupopen(Chan *c, int omode)
 		f = fdtochan(fd, openmode(omode), 0, 1);
 		cclose(c);
 	}
-	if(omode & OCEXEC)
-		f->flag |= CCEXEC;
 	return f;
 }
 
