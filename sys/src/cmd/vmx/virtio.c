@@ -70,7 +70,7 @@ struct VIODev {
 	u16int qsel;
 	u8int devstat, isrstat;
 	VIOQueue *qu;
-	int nqu;
+	int nqu, allocqu;
 	u32int (*io)(int, u16int, u32int, int, VIODev *);
 	void (*reset)(VIODev *);
 	union {
@@ -360,7 +360,7 @@ vioio(int isin, u16int port, u32int val, int sz, void *vp)
 }
 
 VIODev *
-mkviodev(u16int devid, u32int pciclass, u32int subid)
+mkviodev(u16int devid, u32int pciclass, u32int subid, int queues)
 {
 	VIODev *d;
 	
@@ -368,6 +368,8 @@ mkviodev(u16int devid, u32int pciclass, u32int subid)
 	d->pci = mkpcidev(allocbdf(), devid << 16 | 0x1AF4, pciclass << 8, 1);
 	d->pci->subid = subid << 16;
 	mkpcibar(d->pci, BARIO, 0, 256, vioio, d);
+	d->qu = emalloc(queues * sizeof(VIOQueue));
+	d->allocqu = queues;
 	return d;
 }
 
@@ -384,12 +386,8 @@ mkvioqueue(VIODev *d, int sz, void (*fn)(VIOQueue*))
 {
 	VIOQueue *q;
 
-	assert(sz > 0 && sz <= 32768 && (sz & sz - 1) == 0 && fn != nil);
-	d->qu = realloc(d->qu, (d->nqu + 1) * sizeof(VIOQueue));
-	if(d->qu == nil)
-		sysfatal("realloc: %r");
+	assert(sz > 0 && sz <= 32768 && (sz & sz - 1) == 0 && fn != nil && d->nqu < d->allocqu);
 	q = d->qu + d->nqu++;
-	memset(q, 0, sizeof(VIOQueue));
 	q->Rendez.l = q;
 	q->livebufrend.l = q;
 	q->size = sz;
@@ -660,7 +658,7 @@ mkvionet(char *net)
 		if(cfd >= 0) fprint(cfd, "promiscuous");
 	}
 	
-	d = mkviodev(0x1000, 0x020000, 1);
+	d = mkviodev(0x1000, 0x020000, 1, 3);
 	mkvioqueue(d, 1024, viowakeup);
 	mkvioqueue(d, 1024, viowakeup);
 	mkvioqueue(d, 32, vionetcmd);
@@ -767,7 +765,7 @@ mkvioblk(char *fn)
 	
 	fd = open(fn, ORDWR);
 	if(fd < 0) return -1;
-	d = mkviodev(0x1000, 0x018000, 2);
+	d = mkviodev(0x1000, 0x018000, 2, 1);
 	mkvioqueue(d, 32, viowakeup);
 	d->io = vioblkio;
 	d->blk.fd = fd;
