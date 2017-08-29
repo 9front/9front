@@ -1177,6 +1177,13 @@ sshfsdestroyreq(Req *r)
 }
 
 void
+sshfsstart(Srv *)
+{
+	proccreate(sendproc, nil, mainstacksize);
+	proccreate(recvproc, nil, mainstacksize);
+}
+
+void
 sshfsend(Srv *)
 {
 	dprint("sshfs: ending\n");
@@ -1184,6 +1191,7 @@ sshfsend(Srv *)
 }
 
 Srv sshfssrv = {
+	.start sshfsstart,
 	.attach sshfsattach,
 	.walk sshfswalk,
 	.open submitreq,
@@ -1195,7 +1203,7 @@ Srv sshfssrv = {
 	.remove submitreq,
 	.destroyfid sshfsdestroyfid,
 	.destroyreq sshfsdestroyreq,
-	.end sshfsend
+	.end sshfsend,
 };
 
 char *
@@ -1368,7 +1376,5 @@ threadmain(int argc, char **argv)
 	passwdparse(uidtab, readfile(uidfile));
 	passwdparse(gidtab, readfile(gidfile));
 	
-	procrfork(sendproc, 0, mainstacksize, RFNOTEG);
-	procrfork(recvproc, 0, mainstacksize, RFNOTEG);
 	threadpostmountsrv(&sshfssrv, svc, mtpt, MCREATE | mflag);
 }
