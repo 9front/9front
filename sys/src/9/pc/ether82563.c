@@ -494,7 +494,7 @@ static Ctlrtype cttab[Nctlrtype] = {
 [i210]		"i210",		9728,	F75|Fnofct|Fert,
 [i217]		"i217",		9728,	Fload|Fnofct|Fert|Fbadcsum,
 [i218]		"i218",		9728,	Fload|Fert|F79phy|Fnofct|Fbadcsum,
-[i219]		"i219",		9728,	Fload|Fert|F79phy|Fnofct,
+[i219]		"i219",		9728,	Fload|Fert|F79phy|Fnofct|Fbadcsum,
 [i350]		"i350",		9728,	F75|F79phy|Fnofct,
 };
 
