@@ -1365,7 +1365,7 @@ threadmain(int argc, char **argv)
 		}
 		pipe(pfd);
 		rdfd = wrfd = pfd[0];
-		procrfork(startssh, nil, mainstacksize, RFFDG|RFNOTEG);
+		procrfork(startssh, nil, mainstacksize, RFFDG|RFNOTEG|RFNAMEG);
 		close(pfd[1]);
 	}
 
