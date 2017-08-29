@@ -394,7 +394,7 @@ setupqueues(Ctlr *ctlr)
 	/* CQID1: shared completion queue */
 	cq = &ctlr->cq[1];
 	cqalloc(ctlr, cq, lgsize);
-	e = qcmd(&ws, ctlr, 1, 0x05, ~0, nil, cq->base, 1<<lgsize);
+	e = qcmd(&ws, ctlr, 1, 0x05, 0, nil, cq->base, 1<<lgsize);
 	e[10] = (cq - ctlr->cq) | cq->mask<<16;
 	e[11] = 3; /* IEN | PC */
 	checkstatus(wcmd(&ws), "create completion queue");
@@ -403,7 +403,7 @@ setupqueues(Ctlr *ctlr)
 	for(i=1; i<=conf.nmach; i++){
 		sq = &ctlr->sq[i];
 		sqalloc(ctlr, sq, 12);
-		e = qcmd(&ws, ctlr, 1, 0x01, ~0, nil, sq->base, 0x1000);
+		e = qcmd(&ws, ctlr, 1, 0x01, 0, nil, sq->base, 0x1000);
 		e[10] = i | sq->mask<<16;
 		e[11] = (cq - ctlr->cq)<<16 | 1;	/* CQID<<16 | PC */
 		checkstatus(wcmd(&ws), "create submission queue");
@@ -428,7 +428,7 @@ identify(Ctlr *ctlr)
 		if((ctlr->nsid = mallocalign(0x1000, ctlr->mps, 0, 0)) == nil)
 			error(Enomem);
 
-	e = qcmd(&ws, ctlr, 1, 0x06, ~0, nil, ctlr->ident, 0x1000);
+	e = qcmd(&ws, ctlr, 1, 0x06, 0, nil, ctlr->ident, 0x1000);
 	e[10] = 1; // identify controller
 	checkstatus(wcmd(&ws), "identify controller");
 
