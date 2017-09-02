@@ -1844,7 +1844,7 @@ vmxnew(void)
 	return vmx;
 }
 
-static void
+void
 vmxshutdown(void)
 {
 	int i;
@@ -2203,7 +2203,7 @@ Dev vmxdevtab = {
 	
 	vmxreset,
 	devinit,
-	vmxshutdown,
+	devshutdown,
 	vmxattach,
 	vmxwalk,
 	vmxstat,

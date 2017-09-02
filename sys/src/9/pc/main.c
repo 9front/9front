@@ -735,6 +735,7 @@ reboot(void *entry, void *code, ulong size)
 	ulong *pdb;
 
 	writeconf();
+	vmxshutdown();
 
 	/*
 	 * the boot processor is cpu0.  execute this function on it

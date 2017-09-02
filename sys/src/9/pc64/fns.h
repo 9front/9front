@@ -190,6 +190,7 @@ void	upafree(uintptr, int);
 void	upareserve(uintptr, int);
 void	vectortable(void);
 void	vmxprocrestore(Proc *);
+void	vmxshutdown(void);
 void*	vmap(uintptr, int);
 void	vunmap(void*, int);
 void	wbinvd(void);

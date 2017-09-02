@@ -198,6 +198,7 @@ void	vectortable(void);
 void*	vmap(ulong, int);
 int	vmapsync(ulong);
 void	vmxprocrestore(Proc *);
+void	vmxshutdown(void);
 void	vunmap(void*, int);
 void	wbinvd(void);
 void	writeconf(void);

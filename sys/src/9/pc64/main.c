@@ -350,6 +350,7 @@ reboot(void *entry, void *code, ulong size)
 	void (*f)(uintptr, uintptr, ulong);
 
 	writeconf();
+	vmxshutdown();
 
 	/*
 	 * the boot processor is cpu0.  execute this function on it
