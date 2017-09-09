@@ -1750,6 +1750,7 @@ hdamatch(Pcidev *p)
 		case (0x8086 << 16) | 0x9c20:	/* Intel 8 Series Lynx Point */
 		case (0x8086 << 16) | 0x9ca0:	/* Intel Wildcat Point */
 		case (0x8086 << 16) | 0xa170:   /* Intel Sunrise Point-H */
+		case (0x8086 << 16) | 0x3a6e:	/* Intel ICH10 */
 
 		case (0x10de << 16) | 0x026c:	/* NVidia MCP51 (untested) */
 		case (0x10de << 16) | 0x0371:	/* NVidia MCP55 (untested) */
