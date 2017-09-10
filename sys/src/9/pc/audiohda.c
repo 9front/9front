@@ -1759,6 +1759,7 @@ hdamatch(Pcidev *p)
 		case (0x10de << 16) | 0x03f0:	/* NVidia MCP61A (untested) */
 		case (0x10de << 16) | 0x044a:	/* NVidia MCP65 (untested) */
 		case (0x10de << 16) | 0x055c:	/* NVidia MCP67 (untested) */
+		case (0x10de << 16) | 0x0fbb:	/* NVidia GM204 (untested) */
 
 		case (0x1002 << 16) | 0x437b:	/* ATI SB450 (untested) */
 		case (0x1002 << 16) | 0x4383:	/* ATI SB600 */
