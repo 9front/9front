@@ -3,12 +3,14 @@
 vmx \- x86 virtualization interface
 .SH SYNOPSIS
 .nf
-.B #X/ctl
-.B #X/fpregs
-.B #X/map
-.B #X/regs
-.B #X/status
-.B #X/wait
+.B #X/clone
+.B #X/n
+.B #X/n/ctl
+.B #X/n/fpregs
+.B #X/n/map
+.B #X/n/regs
+.B #X/n/status
+.B #X/n/wait
 .fi
 .SH DESCRIPTION
 The
@@ -21,17 +23,25 @@ Access to the
 .I vmx
 device is restricted to the hostowner.
 .PP
+The top level directory contains a
+.B clone
+file and numbered subdirectories representing the
+allocated virtual CPUs.
+Opening the clone file allocates a new virtual CPU
+and returns the file descriptor to its
+.B ctl
+file.
 The
 .B ctl
-file provides the main control interface.
-See below for a list of commands.
+file provides the main control interface. See below for
+a list of commands. Reading returns the subdirectory number.
+Removing the
+.B ctl
+file marks the virtual CPU as moribund.
 The
 .B status
 file contains the current status of the virtual CPU, which is one of
-.TF \fLinactive\fR
-.TP
-\fLinactive\fR
-No virtual CPU.
+.TF \fLrunning\fR
 .TP
 \fLinit\fR
 The virtual CPU is being initialized.
@@ -128,10 +138,7 @@ file contains the virtual CPU's floating point registers, in the same binary for
 .IR proc (3).
 
 .SS Control messages
-.TF "\fLirq\fR [ \fIexcep\fR ]"
-.TP
-.B init
-Create a new virtual CPU.
+.TF "\fLextrap\fR [ \fIexcep\fR ]"
 .TP
 .B quit
 Destroy the current virtual CPU.
@@ -143,11 +150,9 @@ Launch the virtual CPU.
 .B stop
 Stop the virtual CPU.
 .TP
-\fLstep\fR [ \fL-map\fR \fIaddr segment offset\fR ]\fR
+\fLstep\fR [ \fIregs\fR ]
 Executes a single instruction with the virtual CPU.
-If the \fL-map\fR option is specified, a 4 KB page at address \fIaddr\fR will be temporarily (for the duration of the step) mapped to the spceified \fIsegment\fR and \fIoffset\fR.
-A step can fail, in which case a VM exit message is sent to
-.BR wait .
+\fIRegs\fR is optinal, same as \fLgo\fR.
 .TP
 \fLexc\fR \fIexcep\fR
 The exception \fIexcep\fR is triggered in the virtual CPU.
@@ -162,6 +167,9 @@ message is sent to
 .IExcep\fR uses the same format as the argument of \fBexc\fR.
 .B Irq
 cancels any interrupts that have been previously posted but not yet delivered and it can be called with no argument to cancel an interrupt.
+.TP
+\fLextrap\fR \fIbitmap\fR
+Changes the exception bitmap. Set bits cause a VM exits.
 .SH SOURCE
 .B /sys/src/9/pc/devvmx.c
 .SH "SEE ALSO"
@@ -170,10 +178,6 @@ cancels any interrupts that have been previously posted but not yet delivered an
 
 Intel 64 and IA-32 Architectures Software Developer's Manual, Volume 3B, Chapters 23-33.
 .SH BUGS
-Currently only one virtual CPU is supported and it is tied to the bootstrap processor.
-.PP
-The interface will almost certainly change in the future.
-.PP
 .I Devvmx
 can and will crash your kernel.
 .SH HISTORY
