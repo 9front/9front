@@ -1747,6 +1747,7 @@ hdamatch(Pcidev *p)
 		case (0x8086 << 16) | 0x1c20:	/* Intel PCH */
 		case (0x8086 << 16) | 0x1e20:	/* Intel (Thinkpad x230t) */
 		case (0x8086 << 16) | 0x8c20:	/* Intel 8 Series/C220 Series */
+		case (0x8086 << 16) | 0x8ca0:	/* Intel 9 Series */
 		case (0x8086 << 16) | 0x9c20:	/* Intel 8 Series Lynx Point */
 		case (0x8086 << 16) | 0x9ca0:	/* Intel Wildcat Point */
 		case (0x8086 << 16) | 0xa170:   /* Intel Sunrise Point-H */
@@ -1871,6 +1872,7 @@ Found:
 		case 0x811b:	/* SCH */
 		case 0x080a:
 		case 0x8c20:
+		case 0x8ca0:
 		case 0x9c20:
 		case 0x9ca0:
 		case 0xa170:
