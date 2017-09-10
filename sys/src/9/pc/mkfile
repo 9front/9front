@@ -1,6 +1,5 @@
-CONF=pcf
-CONFLIST=pcf pccpuf
-CRAPLIST=pc pccpu pccd pcflop
+CONF=pc
+CONFLIST=pc pcf pccpuf
 EXTRACOPIES=
 #EXTRACOPIES=lookout boundary	# copy to these servers on install
 

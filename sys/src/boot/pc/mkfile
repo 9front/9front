@@ -62,7 +62,7 @@ test.iso: 9bootiso 9boothyb 9bootfat mbr pbs
 	mkdir tmp/386
 	mkdir tmp/cfg
 	cp 9bootiso tmp/386
-	cp /386/9pcf tmp/386
+	cp /386/9pc tmp/386
 	cp /sys/lib/dist/cfg/plan9.ini tmp/cfg/plan9.ini
 	echo wait >>tmp/cfg/plan9.ini
 	disk/mk9660 -B 386/9bootiso -p <{echo +} -s tmp $target
@@ -86,8 +86,8 @@ test.dsk: 9bootfat mbr pbs test.iso
 	mkdir tmp
 	cp test.iso 9bootfat tmp
 	mkdir tmp/386
-	cp /386/9pcf tmp/386
-	echo 'bootfile=/386/9pcf' >tmp/plan9.ini
+	cp /386/9pc tmp/386
+	echo 'bootfile=/386/9pc' >tmp/plan9.ini
 	dd -if /dev/zero -of $target -bs 512 -count 32768
 	disk/partfs -m /n/$target $target
 	disk=/n/$target/sdXX

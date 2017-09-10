@@ -21,7 +21,7 @@ To bootstrap a diskless terminal or a CPU server, a file server must be running.
 On a PC, the
 .IR 9boot (8)
 program is used to load the kernel
-.B /386/9pcf
+.B /386/9pc
 into memory.
 .PP
 Once the kernel is booted, it behaves like the others.
@@ -32,8 +32,10 @@ for details.
 The Plan 9 CPU servers are multi-user, so they do not request a user name
 when booting.
 .SS PC CPU Server
-Proceed as for the PC terminal, but load
-.B /386/9pccpuf .
+Proceed as for the PC terminal, but have
+.B service=cpu
+set in
+.IR plan9.ini (8).
 .SS SGI Challenge multiprocessor CPU Server
 The Challenge ROM monitor can boot from the Ethernet.
 To boot from the Ethernet, type

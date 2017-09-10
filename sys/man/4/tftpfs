@@ -66,7 +66,7 @@ dot in the kernel path).
 .IP
 .EX
 ip/tftpfs 10.192.254.53
-echo reboot /n/tftp/386/9pcf. >/dev/reboot
+echo reboot /n/tftp/386/9pc. >/dev/reboot
 .EE
 .SH SOURCE
 .B /sys/src/cmd/ip/tftpfs.c
