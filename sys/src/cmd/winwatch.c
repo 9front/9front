@@ -117,7 +117,7 @@ refreshwin(void)
 			n = atoi(pd[i].name);
 			if(n == mywinid)
 				continue;
-			if(readfile(label, sizeof(label), "/dev/wsys/%d/label", n) <= 0)
+			if(readfile(label, sizeof(label), "/dev/wsys/%d/label", n) < 0)
 				continue;
 			if(exclude != nil && regexec(exclude,label,nil,0))
 				continue;
