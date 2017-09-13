@@ -127,6 +127,7 @@ struct Message {
 	Message	*next;
 	Message	*part;
 	Message	*whole;
+	Message	*lru;		/* least recently use chain */
 
 	union{
 		char	*lim;	/* used by plan9; not compatable with cache */
@@ -143,8 +144,8 @@ typedef struct {
 typedef struct Mcache Mcache;
 struct Mcache {
 	uvlong	cached;
-	int	ntab;
-	Message	*ctab[Nctab];
+	int	nlru;
+	Message	*lru;
 };
 
 typedef struct Mailbox Mailbox;
@@ -206,7 +207,7 @@ int		insurecache(Mailbox*, Message*);
 
 /**/
 void		putcache(Mailbox*, Message*);		/* asymmetricial */
-long		cachefree(Mailbox*, Message*, int);
+void		cachefree(Mailbox*, Message*, int);
 
 Message*	gettopmsg(Mailbox*, Message*);
 char*		syncmbox(Mailbox*, int);

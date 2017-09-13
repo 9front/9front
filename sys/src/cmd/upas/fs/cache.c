@@ -2,73 +2,23 @@
 #include <libsec.h>
 #include "dat.h"
 
-int
-findcache(Mcache *c, Message *m)
-{
-	int i;
-
-	for(i = 0; i < c->ntab; i++)
-		if(c->ctab[i] == m)
-			return i;
-	return -1;
-}
-
 static void
-prcache(Mcache *c, char *prefix)
+addlru(Mcache *c, Message *m)
 {
-	int j;
-	Message *m;
+	Message *l, **ll;
 
-	if(!debug)
-		return;
-	for(j = 0; j < c->ntab; j++){
-		m = c->ctab[j];
-		dprint("%s%d/%s\t%p\t%d\t%ld\n", prefix, j, m->name, m, m->refs, m->csize);
+	c->nlru++;
+	ll = &c->lru;
+	while((l = *ll) != nil){
+		if(l == m){
+			c->nlru--;
+			*ll = m->lru;
+		} else {
+			ll = &l->lru;
+		}
 	}
-}
-
-/* debugging only */
-static void
-dupchk(Mcache *c)
-{
-	int i, j;
-
-	if(!debug)
-		return;
-	for(i = 0; i < c->ntab; i++)
-		for(j = i + 1; j < c->ntab; j++)
-			if(c->ctab[i] == c->ctab[j])
-				goto lose;
-	return;
-lose:
-	for(j = 0; j < c->ntab; j++)
-		dprint("%d\t%p	%d\t%ld\n", j, c->ctab[j], c->ctab[j]->refs, c->ctab[j]->size);
-	abort();
-}
-	
-int
-addcache(Mcache *c, Message *m)
-{
-	int i;
-
-	if((i = findcache(c, m)) < 0){
-		if(c->ntab + 1 == nelem(c->ctab))
-			abort();
-		i = c->ntab++;
-	}else{
-		/* rotate */
-		if(i == c->ntab - 1)
-			return i;		/* silly shortcut to prevent excessive printage. */
-		dprint("addcache rotate %d %d\n", i, c->ntab);
-		prcache(c, "");
-		memmove(c->ctab + i, c->ctab + i + 1, (c->ntab - i - 1)*sizeof c->ctab[0]);
-		i = c->ntab - 1;
-c->ctab[i] = m;
-dupchk(c);
-	}
-	dprint("addcache %d %d 	%p\n", i, c->ntab, m);
-	c->ctab[i] = m;
-	return i;
+	m->lru = nil;
+	*ll = m;
 }
 
 static void
@@ -78,17 +28,17 @@ notecache(Mailbox *mb, Message *m, long sz)
 	assert(sz >= 0 && sz <= Maxmsg);
 	m->csize += sz;
 	mb->cached += sz;
-	addcache(mb, m);
+	addlru(mb, m);
 }
 
-static long
+static void
 cachefree0(Mailbox *mb, Message *m, int force)
 {
 	long sz, i;
 	Message *s;
 
-	if(!force && !mb->fetch)
-		return 0;
+	if(!force && mb->fetch == nil)
+		return;
 	for(s = m->part; s; s = s->next)
 		cachefree(mb, s, force);
 	dprint("cachefree: %D	%p,	%p\n", m->fileid, m, m->start);
@@ -127,126 +77,39 @@ cachefree0(Mailbox *mb, Message *m, int force)
 	m->cstate &= ~(Cheader|Cbody);
 	if(Topmsg(mb, m))
 		mb->cached -= sz;
-	return sz;
 }
 
-long
+void
 cachefree(Mailbox *mb, Message *m, int force)
 {
-	long sz, i;
+	Message **ll;
 
-	sz = cachefree0(mb, m, force);
-	for(i = 0; i < mb->ntab; i++)
-		if(m == mb->ctab[i]){
-			mb->ntab--;
-			memmove(mb->ctab + i, mb->ctab + i + 1, sizeof m*mb->ntab - i);
-			dupchk(mb);
+	for(ll = &mb->lru; *ll != nil; ll = &((*ll)->lru)){
+		if(*ll == m){
+			mb->nlru--;
+			*ll = m->lru;
+			m->lru = nil;
 			break;
 		}
-	return sz;
-}
-
-enum{
-	Maxntab	= nelem(mbl->ctab) - 10,
-};
-
-vlong
-sumcache(Mcache *c)
-{
-	int i;
-	vlong sz;
-
-	sz = 0;
-	for(i = 0; i < c->ntab; i++)
-		sz += c->ctab[i]->csize;
-	return sz;
-}
-
-int
-scancache(Mcache *c)
-{
-	int i;
-
-	for(i = 0; i < c->ntab; i++)
-		if(c->ctab[i]->csize > Maxmsg)
-			return -1;
-	return 0;
-}
-
-/* debugging only */
-static void
-chkcsize(Mailbox *mb, vlong sz, vlong sz0)
-{
-	int j;
-	Mcache *c;
-	Message *m;
-
-	if(sumcache(mb) == mb->cached)
-	if(scancache(mb) == 0)
-		return;
-	eprint("sz0 %lld sz %lld sum %lld sumca %lld\n", sz0, sz, sumcache(mb), mb->cached);
-	eprint("%lld\n", sumcache(mb));
-	c = mb;
-	for(j = 0; j < c->ntab; j++){
-		m = c->ctab[j];
-		eprint("%d	%p	%d	%ld	%ld\n", j, m, m->refs, m->csize, m->size);
 	}
-	abort();
+	cachefree0(mb, m, force);
 }
 
-/*
- * strategy: start with i = 0. while cache exceeds limits,
- * find j so that all the [i:j] elements have refs == 0.
- * uncache all the [i:j], reduce ntab by i-j.  the tail
- * [j+1:ntab] is shifted to [i:ntab], and finally i = i+1.
- * we may safely skip the new i, since the condition
- * that stopped our scan there still holds.
- */
 void
 putcache(Mailbox *mb, Message *m)
 {
-	int i, j, k;
-	vlong sz, sz0;
-	Message **p;
+	int n;
 
-	p = mb->ctab;
-	sz0 = mb->cached;
-	dupchk(mb);
-	for(i = 0;; i++){
-		sz = mb->cached;
-		for(j = i;; j++){
-			if(j >= mb->ntab ||
-			sz < cachetarg && mb->ntab - (j - i) < Maxntab){
-				if(j != i)
-					break;
-chkcsize(mb, sz, sz0);
+	addlru(mb, m);
+	while(mb->lru != nil && (mb->cached > cachetarg || mb->nlru > 10)){
+		n = 0;
+		while(mb->lru->refs > 0){
+			if(++n >= mb->nlru)
 				return;
-			}
-			if(p[j]->refs > 0)
-				break;
-			sz -= p[j]->csize;
+			addlru(mb, mb->lru);
 		}
-		if(sz == mb->cached){
-			if(i >= mb->ntab)
-				break;
-			continue;
-		}
-		for(k = i; k < j; k++)
-			cachefree0(mb, p[k], 0);
-		mb->ntab -= j - i;
-		memmove(p + i, p + j, (mb->ntab - i)*sizeof *p);
+		cachefree(mb, mb->lru, 0);
 	}
-chkcsize(mb, sz, sz0);
-	k = 0;
-	for(i = 0; i < mb->ntab; i++)
-		k += p[i]->refs > 0;
-	if((mb->ntab > 1 || k != mb->ntab) && Topmsg(mb, m))
-		eprint("cache overflow: %D %llud bytes; %d entries\n", 
-			m? m->fileid: 1ll, mb->cached, mb->ntab);
-	if(k == mb->ntab)
-		return;
-	debug = 1; prcache(mb, "");
-	abort();
 }
 
 static int
