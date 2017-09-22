@@ -468,7 +468,7 @@ qidcalc(char *c)
 }
 
 void
-walkprocess(Req *r, int isdir, char *e)
+walkprocess(Req *r, char *e)
 {
 	char *p;
 	SFid *sf;
@@ -486,8 +486,6 @@ walkprocess(Req *r, int isdir, char *e)
 		submitreq(r);
 	}else{
 		assert(r->ofcall.nwqid > 0);
-		if(!isdir)
-			r->ofcall.wqid[r->ofcall.nwqid - 1].type = 0;
 		wlock(sf);
 		free(sf->fn);
 		sf->fn = r->aux;
@@ -529,6 +527,7 @@ attrib2dir(uchar *p0, uchar *ep, Dir *d)
 	d->qid.type = d->mode >> 24;
 	if((flags & SSH_FILEXFER_ATTR_ACMODTIME) != 0){
 		rc = unpack(p, ep - p, "uu", &d->atime, &d->mtime); if(rc < 0) return -1; p += rc;
+		d->qid.vers = d->mtime;
 	}
 	if((flags & SSH_FILEXFER_ATTR_EXTENDED) != 0){
 		rc = unpack(p, ep - p, "u", &next); if(rc < 0) return -1; p += rc;
@@ -547,7 +546,7 @@ dir2attrib(Dir *d, uchar **rp)
 	uchar *r, *p, *e;
 	u32int fl;
 	int uid, gid;
-	
+
 	werrstr("phase error");
 	r = emalloc9p(MAXATTRIB);
 	e = r + MAXATTRIB;
@@ -589,21 +588,26 @@ dir2attrib(Dir *d, uchar **rp)
 }
 
 int
-attribisdir(char *fn)
+attrfixupqid(Qid *qid)
 {
-	u32int code;
+	u32int flags;
 	uchar *p;
-	
-	if(unpack(rxpkt, rxlen, "_____u", &code) < 0) return -1;
-	if((code & 4) == 0){
-		fprint(2, "sshfs: can't determine if %s is a directory\n", fn);
-		return 1;
-	}
+
+	if(unpack(rxpkt, rxlen, "_____u", &flags) < 0) return -1;
 	p = rxpkt + 9;
-	if(code & 1) p += 8;
-	if(code & 2) p += 8;
-	if(p + 4 > rxpkt + rxlen) return -1;
-	return (GET4(p) & 0170000) == 0040000;
+	if(flags & SSH_FILEXFER_ATTR_SIZE) p += 8;
+	if(flags & SSH_FILEXFER_ATTR_UIDGID) p += 8;
+	if(flags & SSH_FILEXFER_ATTR_PERMISSIONS){
+		if(p + 4 > rxpkt + rxlen) return -1;
+		if((GET4(p) & 0170000) != 0040000) qid->type = 0;
+		p += 4;
+	}
+	if(flags & SSH_FILEXFER_ATTR_ACMODTIME){
+		if(p + 8 > rxpkt + rxlen) return -1;
+		p += 4;
+		qid->vers = GET4(p);	/* mtime for qid.vers */
+	}
+	return 0;
 }
 
 int
@@ -903,6 +907,7 @@ sendproc(void *)
 			else
 				sendpkt("bus[", SSH_FXP_SETSTAT, r->reqid, sf->fn, strlen(sf->fn), s, x);
 			runlock(sf);
+			free(s);
 			break;
 		case Tremove:
 			rlock(sf);
@@ -927,7 +932,7 @@ recvproc(void *)
 
 	SReq *r;
 	SFid *sf;
-	int t, id, rc;
+	int t, id;
 	u32int code;
 	char *msg, *lang, *hand;
 	int msgn, langn, handn;
@@ -978,20 +983,20 @@ recvproc(void *)
 		switch(r->req->ifcall.type){
 		case Tattach:
 			if(t != SSH_FXP_ATTRS) goto common;
-			rc = attribisdir(r->req->ifcall.aname);
-			r->req->aux = (void*)-1;
-			if(rc < 0)
+			if(attrfixupqid(&r->req->ofcall.qid) < 0)
 				goto garbage;
-			if(rc == 0)
+			r->req->aux = (void*)-1;
+			if((r->req->ofcall.qid.type & QTDIR) == 0)
 				respond(r->req, "not a directory");
 			else
 				sshfsattach(r->req);
 			break;
 		case Twalk:
 			if(t != SSH_FXP_ATTRS) goto common;
-			rc = attribisdir(((SFid*)r->req->fid)->fn);
-			if(rc < 0) goto garbage;
-			walkprocess(r->req, rc, nil);
+			if(r->req->ofcall.nwqid <= 0
+			|| attrfixupqid(&r->req->ofcall.wqid[r->req->ofcall.nwqid - 1]) < 0)
+				goto garbage;
+			walkprocess(r->req, nil);
 			break;
 		case Tcreate:
 			if(okresp && r->req->aux == (void*)-1){
@@ -1056,6 +1061,10 @@ recvproc(void *)
 			break;
 		case Twstat:
 			if(!okresp) goto common;
+			if(!r->req->d.name[0]){
+				respond(r->req, nil);
+				break;
+			}
 			if(r->req->aux == nil){
 				r->req->aux = (void *) -1;
 				submitreq(r->req);
@@ -1111,7 +1120,7 @@ recvproc(void *)
 			fprint(2, "sshfs: received unexpected packet %Σ for 9p request %F\n", t, &r->req->ifcall);
 		}
 		if(r->req->ifcall.type == Twalk)
-			walkprocess(r->req, 0, e);
+			walkprocess(r->req, e);
 		else
 			respond(r->req, e);
 		putsreq(r);
