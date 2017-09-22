@@ -362,15 +362,20 @@ resetring(Ring *r)
 static u32int*
 xecp(Ctlr *ctlr, uchar id, u32int *p)
 {
-	u32int x;
+	u32int x, *e;
 
+	e = &ctlr->mmio[ctlr->pcidev->mem[0].size/4];
 	if(p == nil){
 		p = ctlr->mmio;
 		x = ctlr->hccparams>>16;
-	} else
+	} else {
+		assert(p < e);
 		x = (*p>>8) & 255;
+	}
 	while(x != 0){
 		p += x;
+		if(p >= e)
+			break;
 		x = *p;
 		if((x & 255) == id)
 			return p;
@@ -438,6 +443,8 @@ init(Hci *hp)
 	int i, j;
 
 	ctlr = hp->aux;
+	if(ctlr->mmio[CAPLENGTH] == -1)
+		error("controller vanished");
 
 	ctlr->opr = &ctlr->mmio[(ctlr->mmio[CAPLENGTH]&0xFF)/4];
 	ctlr->dba = &ctlr->mmio[ctlr->mmio[DBOFF]/4];
