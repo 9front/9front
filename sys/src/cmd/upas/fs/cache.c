@@ -100,6 +100,7 @@ putcache(Mailbox *mb, Message *m)
 {
 	int n;
 
+	while(!Topmsg(mb, m)) m = m->whole;
 	addlru(mb, m);
 	while(mb->lru != nil && (mb->cached > cachetarg || mb->nlru > 10)){
 		n = 0;
