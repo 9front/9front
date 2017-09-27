@@ -1182,13 +1182,17 @@ idlehands(void)
 int
 isaconfig(char *class, int ctlrno, ISAConf *isa)
 {
-	char cc[32], *p;
+	char cc[32], *p, *x;
 	int i;
 
 	snprint(cc, sizeof cc, "%s%d", class, ctlrno);
 	p = getconf(cc);
 	if(p == nil)
 		return 0;
+
+	x = nil;
+	kstrdup(&x, p);
+	p = x;
 
 	isa->type = "";
 	isa->nopt = tokenize(p, isa->opt, NISAOPT);
