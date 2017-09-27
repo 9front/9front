@@ -34,8 +34,6 @@ enum {
 	Extl2,
 	Extapm,
 	Extaddrsz,
-
-	Paerange = 1LL << 36,
 };
 
 enum {
@@ -116,16 +114,7 @@ physmask(void)
 		cpuid(Extaddrsz, regs);
 		mask = (1LL << (regs[0] & 0xFF)) - 1;	/* ax */
 	}
-	mask &= Paerange - 1;				/* x86 sanity */
 	return mask;
-}
-
-/* limit physical addresses to 36 bits on the x86 */
-static void
-sanity(Mtrreg *mtrr)
-{
-	mtrr->base &= Paerange - 1;
-	mtrr->mask &= Paerange - 1;
 }
 
 static int
@@ -138,7 +127,6 @@ ispow2(uvlong ul)
 static int
 mtrrdec(Mtrreg *mtrr, uvlong *ptr, uvlong *size, int *type)
 {
-	sanity(mtrr);
 	*ptr =  mtrr->base & ~(BY2PG-1);
 	*type = mtrr->base & 0xff;
 	*size = (physmask() ^ (mtrr->mask & ~(BY2PG-1))) + 1;
@@ -150,7 +138,6 @@ mtrrenc(Mtrreg *mtrr, uvlong ptr, uvlong size, int type, int ok)
 {
 	mtrr->base = ptr | (type & 0xff);
 	mtrr->mask = (physmask() & ~(size - 1)) | (ok? 1<<11: 0);
-	sanity(mtrr);
 }
 
 /*
@@ -162,13 +149,11 @@ mtrrget(Mtrreg *mtrr, uint i)
 {
 	rdmsr(MTRRPhysBase0 + 2*i, &mtrr->base);
 	rdmsr(MTRRPhysMask0 + 2*i, &mtrr->mask);
-	sanity(mtrr);
 }
 
 static void
 mtrrput(Mtrreg *mtrr, uint i)
 {
-	sanity(mtrr);
 	wrmsr(MTRRPhysBase0 + 2*i, mtrr->base);
 	wrmsr(MTRRPhysMask0 + 2*i, mtrr->mask);
 }
@@ -275,8 +260,6 @@ mtrr0(uvlong base, uvlong size, char *tstr)
 		return "mtrrs not supported";
 	if(base & (BY2PG-1) || size & (BY2PG-1) || size == 0)
 		return "mtrr base or size not 4k aligned or zero size";
-	if(base + size >= Paerange)
-		return "mtrr range exceeds 36 bits";
 	if(!ispow2(size))
 		return "mtrr size not power of 2";
 	if(base & (size - 1))
