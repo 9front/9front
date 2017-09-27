@@ -434,7 +434,8 @@ identify(Ctlr *ctlr)
 
 	e = qcmd(&ws, ctlr, 1, 0x06, 0, nil, ctlr->nsid, 0x1000);
 	e[10] = 2; // namespace list 
-	checkstatus(wcmd(&ws), "namespace list");
+	if(wcmd(&ws) != 0)
+		ctlr->nsid[0] = 1;	/* assume namespace #1 */
 
 	ctlr->nnsid = 0;
 	while(ctlr->nnsid < 1024 && ctlr->nsid[ctlr->nnsid] != 0)
