@@ -101,7 +101,8 @@ enum {
 	Txdctl		= 0x06028/4,	/* " control */
 	Tdwbal		= 0x06038/4,	/* " write-back address low */
 	Tdwbah		= 0x0603c/4,
-
+	Dmatxctl	= 0x04a80/4,
+	
 	Dtxctl		= 0x07e00/4,	/* tx dma control */
 	Tdcatxctrl	= 0x07200/4,	/* tx dca register (0-15) */
 	Tipg		= 0x0cb00/4,	/* tx inter-packet gap */
@@ -140,6 +141,9 @@ enum {
 	Hthresh		= 8,		/* host buffer minimum threshold " */
 	Wthresh		= 16,		/* writeback threshold */
 	Renable		= 1<<25,
+
+	/* Dmatxctl */
+	Txen		= 1<<0,
 
 	/* Rxctl */
 	Rxen		= 1<<0,
@@ -263,6 +267,7 @@ enum {
 typedef struct {
 	Pcidev	*p;
 	Ether	*edev;
+	uintptr	io;
 	u32int	*reg;
 	u32int	*regmsi;
 	uchar	flag;
@@ -708,7 +713,6 @@ static int
 reset(Ctlr *c)
 {
 	int i;
-	uchar *p;
 
 	if(detach(c)){
 		print("82598: reset timeout\n");
@@ -716,11 +720,8 @@ reset(Ctlr *c)
 	}
 	if(eeload(c)){
 		print("82598: eeprom failure\n");
-		return -1;
+		memset(c->ra, 0, Eaddrlen);
 	}
-	p = c->ra;
-	c->reg[Ral] = p[3]<<24 | p[2]<<16 | p[1]<<8 | p[0];
-	c->reg[Rah] = p[5]<<8 | p[4] | 1<<31;
 
 	readstats(c);
 	for(i = 0; i<nelem(c->stats); i++)
@@ -766,6 +767,8 @@ txinit(Ctlr *c)
 	c->tdh = c->ntd - 1;
 	c->tdt = 0;
 	c->reg[Txdctl] |= Ten;
+
+	c->reg[Dmatxctl] |= Txen;
 }
 
 static void
@@ -845,7 +848,7 @@ interrupt(Ureg*, void *v)
 static void
 scan(void)
 {
-	ulong io, iomsi;
+	uintptr io, iomsi;
 	void *mem, *memmsi;
 	int pciregs, pcimsix;
 	Ctlr *c;
@@ -862,8 +865,10 @@ scan(void)
 			pcimsix = 3;
 			break;
 		case 0x10fb:		/* 82599 */
+		case 0x1528:		/* T540-T1 */
 			pcimsix = 4;
 			break;
+
 		default:
 			continue;
 		}
@@ -880,19 +885,20 @@ scan(void)
 		io = p->mem[pciregs].bar & ~0xf;
 		mem = vmap(io, p->mem[pciregs].size);
 		if(mem == nil){
-			print("i82598: can't map regs %#p\n", p->mem[pciregs].bar);
+			print("i82598: can't map regs %#p\n", io);
 			free(c);
 			continue;
 		}
 		iomsi = p->mem[pcimsix].bar & ~0xf;
 		memmsi = vmap(iomsi, p->mem[pcimsix].size);
 		if(memmsi == nil){
-			print("i82598: can't map msi-x regs %#p\n", p->mem[pcimsix].bar);
+			print("i82598: can't map msi-x regs %#p\n", iomsi);
 			vunmap(mem, p->mem[pciregs].size);
 			free(c);
 			continue;
 		}
 		c->p = p;
+		c->io = io;
 		c->reg = (u32int*)mem;
 		c->regmsi = (u32int*)memmsi;
 		c->rbsz = Rbsz;
@@ -911,8 +917,10 @@ scan(void)
 static int
 pnp(Ether *e)
 {
+	static uchar zeros[Eaddrlen];
 	int i;
 	Ctlr *c = nil;
+	uchar *p;
 
 	if(nctlr == 0)
 		scan();
@@ -920,11 +928,19 @@ pnp(Ether *e)
 		c = ctlrtab[i];
 		if(c == nil || c->flag & Factive)
 			continue;
-		if(e->port == 0 || e->port == (ulong)c->reg)
+		if(e->port == 0 || e->port == c->io)
 			break;
 	}
 	if (i >= nctlr)
 		return -1;
+
+	if(memcmp(c->ra, zeros, Eaddrlen) != 0)
+		memmove(e->ea, c->ra, Eaddrlen);
+
+	p = e->ea;
+	c->reg[Ral] = p[3]<<24 | p[2]<<16 | p[1]<<8 | p[0];
+	c->reg[Rah] = p[5]<<8 | p[4] | 1<<31;
+
 	c->flag |= Factive;
 	e->ctlr = c;
 	e->port = (uintptr)c->reg;
@@ -932,7 +948,7 @@ pnp(Ether *e)
 	e->tbdf = c->p->tbdf;
 	e->mbps = 10000;
 	e->maxmtu = c->rbsz;
-	memmove(e->ea, c->ra, Eaddrlen);
+
 	e->arg = e;
 	e->attach = attach;
 	e->ctl = ctl;
