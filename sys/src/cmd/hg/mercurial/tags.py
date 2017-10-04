@@ -97,7 +97,7 @@ def findglobaltags2(ui, repo, alltags, tagtypes):
         _writetagcache(ui, repo, heads, tagfnode, alltags)
 
 # Set this to findglobaltags1 to disable tag caching.
-findglobaltags = findglobaltags2
+findglobaltags = findglobaltags1
 
 def readlocaltags(ui, repo, alltags, tagtypes):
     '''Read local tags in repo.  Update alltags and tagtypes.'''
