@@ -6,11 +6,10 @@ import os
 
 class Webconn:
 	def __init__(self, mnt, req):
-		loop = True
-		while loop:
-			loop = False
+		while True:
 			try:
 				self.open(mnt, req)
+				return
 			except IOError, e:
 				try:
 					errstr = e.strerror
@@ -19,7 +18,6 @@ class Webconn:
 						raise e
 					if os.spawnl(os.P_WAIT, "/boot/factotum", "getkey", "-g", params) != 0:
 						raise e
-					loop = True
 				except:
 					raise e
 
