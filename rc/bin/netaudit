@@ -64,6 +64,13 @@ fn checknet {
 		authok=1
 		echo '	auth='$auth 'looks ok'
 	}
+	fs=`{ndb/ipquery sys $sysname fs | sed 's/^fs=//'}
+	if(~ $fs '')
+		echo '	no fs= entry (needed for tls boot)'
+	if not if(! ip/ping -n 1 $fs >/dev/null >[2=1])
+		echo '	fs='$fs 'does not reply to ping (needed for tls boot)'
+	if not
+		echo '	fs='$fs 'looks ok'
 }
 fn checkauth {
 	echo 'checking auth server configuration:'
