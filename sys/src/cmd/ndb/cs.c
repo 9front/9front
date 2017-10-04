@@ -1525,8 +1525,12 @@ iptrans(Ndbtuple *t, Network *np, char *serv, char *rem, int hack)
 		snprint(reply, sizeof(reply), "%s/%s/clone %s%s",
 			mntpt, np->net, ts, x);
 	else {
-		/* il only supports ipv4 addresses */
-		if(strcmp(np->net, "il") == 0 && !isv4str(t->val))
+		/* il and icmp only supports ipv4 addresses */
+		if((strcmp(np->net, "il") == 0 || strcmp(np->net, "icmp") == 0) && !isv4str(t->val))
+			return nil;
+
+		/* icmpv6 does not support ipv4 addresses */
+		if(strcmp(np->net, "icmpv6") == 0 && isv4str(t->val))
 			return nil;
 
 		snprint(reply, sizeof(reply), "%s/%s/clone %s!%s%s%s",
