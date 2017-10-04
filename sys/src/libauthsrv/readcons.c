@@ -37,8 +37,13 @@ readcons(char *prompt, char *def, int raw)
 			s = p, p += n;
 		}
 
-		if(read(fdin, p, 1) <= 0 || *p == 0x7f)
+		n = read(fdin, p, 1);
+		if(n < 0)
 			break;
+		if(n == 0 || *p == 0x7f){
+			werrstr("input aborted");
+			break;
+		}
 
 		if(*p == '\n' || *p == '\r'){
 			if(p == s && def != nil){
