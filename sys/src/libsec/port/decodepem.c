@@ -25,13 +25,15 @@ decodePEM(char *s, char *type, int *len, char **new_s)
 			t++;
 		if(strncmp(tt, "-----BEGIN ", STRLEN("-----BEGIN ")) == 0
 		&& strncmp(&tt[STRLEN("-----BEGIN ")], type, n) == 0
-		&& strncmp(&tt[STRLEN("-----BEGIN ")+n], "-----\n", STRLEN("-----\n")) == 0)
+		&& strncmp(&tt[STRLEN("-----BEGIN ")+n], "-----", STRLEN("-----")) == 0
+		&& strchr("\r\n", tt[STRLEN("-----BEGIN ")+n+STRLEN("-----")]) != nil)
 			break;
 	}
 	for(tt = t; tt != nil && tt < e; tt++){
 		if(strncmp(tt, "-----END ", STRLEN("-----END ")) == 0
 		&& strncmp(&tt[STRLEN("-----END ")], type, n) == 0
-		&& strncmp(&tt[STRLEN("-----END ")+n], "-----\n", STRLEN("-----\n")) == 0)
+		&& strncmp(&tt[STRLEN("-----END ")+n], "-----", STRLEN("-----")) == 0
+		&& strchr("\r\n", tt[STRLEN("-----END ")+n+STRLEN("-----")]) != nil)
 			break;
 		tt = strchr(tt, '\n');
 		if(tt == nil)
