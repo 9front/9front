@@ -426,11 +426,6 @@ ssh2rsasig(uchar *data, int len)
 	return m;
 }
 
-/* libsec */
-extern mpint* pkcs1padbuf(uchar *buf, int len, mpint *modulus, int blocktype);
-extern int asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*),
-	uchar *digest, uchar *buf, int len);
-
 mpint*
 pkcs1digest(uchar *data, int len, RSApub *pub)
 {
