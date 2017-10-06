@@ -1,6 +1,6 @@
 .TH RSA 8
 .SH NAME
-rsagen, rsafill, asn12rsa, rsa2pub, rsa2ssh, rsa2x509, rsa2csr \- generate and format rsa keys
+rsagen, rsafill, asn12rsa, rsa2asn1, rsa2pub, rsa2ssh, rsa2x509, rsa2csr \- generate and format rsa keys
 .SH SYNOPSIS
 .B rsagen
 [
@@ -22,6 +22,11 @@ rsagen, rsafill, asn12rsa, rsa2pub, rsa2ssh, rsa2x509, rsa2csr \- generate and f
 .B -t
 .I tag
 ]
+[
+.I file
+]
+.PP
+.B rsa2asn1
 [
 .I file
 ]
@@ -172,6 +177,11 @@ converts it to a Plan 9 RSA key.
 reads a Plan 9 RSA public or private key,
 removes the private attributes, and prints the resulting public key.
 Comment attributes are preserved.
+.PP
+.I Rsa2asn1
+is like
+.I rsa2pub
+but outputs the public key in ASN.1/DER format.
 .PP
 .I Rsa2ssh
 reads a Plan 9 RSA public or private key and prints the public portion 
