@@ -1971,15 +1971,15 @@ errret:
  *		publicExponent INTEGER
  *	}
  */
-static RSApub*
-decode_rsapubkey(Bytes* a)
+RSApub*
+asn1toRSApub(uchar *buf, int len)
 {
 	Elem e;
 	Elist *el;
 	RSApub* key;
 
 	key = nil;
-	if(decode(a->data, a->len, &e) != ASN_OK)
+	if(decode(buf, len, &e) != ASN_OK)
 		goto errret;
 	if(!is_seq(&e, &el) || elistlen(el) != 2)
 		goto errret;
@@ -1997,6 +1997,13 @@ errret:
 	freevalfields(&e.val);
 	rsapubfree(key);
 	return nil;
+
+}
+
+static RSApub*
+decode_rsapubkey(Bytes* a)
+{
+	return asn1toRSApub(a->data, a->len);
 }
 
 /*
@@ -2777,12 +2784,40 @@ splitalts(char *s)
 	return nil;
 }
 
+static Bytes*
+encode_rsapubkey(RSApub *pk)
+{
+	Bytes *b = nil;
+	Elem e = mkseq(
+		mkel(mkbigint(pk->n),
+		mkel(mpsignif(pk->ek)<32 ? mkint(mptoi(pk->ek)) : mkbigint(pk->ek),
+		nil)));
+	encode(e, &b);
+	freevalfields(&e.val);
+	return b;
+}
+
+int
+asn1encodeRSApub(RSApub *pk, uchar *buf, int len)
+{
+	Bytes *b = encode_rsapubkey(pk);
+	if(b == nil)
+		return -1;
+	if(b->len > len){
+		freebytes(b);
+		werrstr("buffer too small");
+		return -1;
+	}
+	memmove(buf, b->data, len = b->len);
+	freebytes(b);
+	return len;
+}
+
 uchar*
 X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 {
 	int serial = 0, sigalg = ALG_sha256WithRSAEncryption;
 	uchar *cert = nil;
-	RSApub *pk = rsaprivtopub(priv);
 	Bytes *certbytes, *pkbytes, *certinfobytes, *sigbytes;
 	Elem e, certinfo;
 	DigestAlg *da;
@@ -2791,13 +2826,11 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	mpint *pkcs1;
 	char *alts;
 
+	if((pkbytes = encode_rsapubkey(&priv->pub)) == nil)
+		return nil;
+
 	subj = estrdup(subj);
 	alts = splitalts(subj);
-
-	e = mkseq(mkel(mkbigint(pk->n),mkel(mkint(mptoi(pk->ek)),nil)));
-	if(encode(e, &pkbytes) != ASN_OK)
-		goto errret;
-	freevalfields(&e.val);
 
 	e = mkseq(
 		mkel(mkcont(mkint(2), 0),
@@ -2826,7 +2859,7 @@ X509rsagen(RSApriv *priv, char *subj, ulong valid[2], int *certlen)
 	sigbytes = encode_digest(da, digest);
 	if(sigbytes == nil)
 		goto errret;
-	pkcs1 = pkcs1padbuf(sigbytes->data, sigbytes->len, pk->n, 1);
+	pkcs1 = pkcs1padbuf(sigbytes->data, sigbytes->len, priv->pub.n, 1);
 	freebytes(sigbytes);
 	if(pkcs1 == nil)
 		goto errret;
@@ -2860,7 +2893,6 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 	/* RFC 2314, PKCS #10 Certification Request Syntax */
 	int version = 0, sigalg = ALG_sha256WithRSAEncryption;
 	uchar *cert = nil;
-	RSApub *pk = rsaprivtopub(priv);
 	Bytes *certbytes, *pkbytes, *certinfobytes, *sigbytes;
 	Elem e, certinfo;
 	DigestAlg *da;
@@ -2869,13 +2901,12 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 	mpint *pkcs1;
 	char *alts;
 
+	if((pkbytes = encode_rsapubkey(&priv->pub)) == nil)
+		return nil;
+
 	subj = estrdup(subj);
 	alts = splitalts(subj);
 
-	e = mkseq(mkel(mkbigint(pk->n),mkel(mkint(mptoi(pk->ek)),nil)));
-	if(encode(e, &pkbytes) != ASN_OK)
-		goto errret;
-	freevalfields(&e.val);
 	e = mkseq(
 		mkel(mkint(version),
 		mkel(mkDN(subj),
@@ -2895,7 +2926,7 @@ X509rsareq(RSApriv *priv, char *subj, int *certlen)
 	sigbytes = encode_digest(da, digest);
 	if(sigbytes == nil)
 		goto errret;
-	pkcs1 = pkcs1padbuf(sigbytes->data, sigbytes->len, pk->n, 1);
+	pkcs1 = pkcs1padbuf(sigbytes->data, sigbytes->len, priv->pub.n, 1);
 	freebytes(sigbytes);
 	if(pkcs1 == nil)
 		goto errret;

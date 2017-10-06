@@ -445,11 +445,6 @@ static Ints* newints(int len);
 static void freeints(Ints* b);
 static int lookupid(Ints* b, int id);
 
-/* x509.c */
-extern mpint*	pkcs1padbuf(uchar *buf, int len, mpint *modulus, int blocktype);
-extern int	pkcs1unpadbuf(uchar *buf, int len, mpint *modulus, int blocktype);
-extern int	asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*), uchar *digest, uchar *buf, int len);
-
 //================= client/server ========================
 
 //	push TLS onto fd, returning new (application) file descriptor
