@@ -364,6 +364,7 @@ void		rsaprivfree(RSApriv*);
 RSApub*		rsaprivtopub(RSApriv*);
 RSApub*		X509toRSApub(uchar*, int, char*, int);
 RSApriv*	asn1toRSApriv(uchar*, int);
+RSApub*		asn1toRSApub(uchar*, int);
 void		asn1dump(uchar *der, int len);
 uchar*		decodePEM(char *s, char *type, int *len, char **new_s);
 PEMChain*	decodepemchain(char *s, char *type);
@@ -374,6 +375,12 @@ char*		X509rsaverifydigest(uchar *sig, int siglen, uchar *edigest, int edigestle
 
 void		X509dump(uchar *cert, int ncert);
 
+mpint*		pkcs1padbuf(uchar *buf, int len, mpint *modulus, int blocktype);
+int		pkcs1unpadbuf(uchar *buf, int len, mpint *modulus, int blocktype);
+int		asn1encodeRSApub(RSApub *pk, uchar *buf, int len);
+int		asn1encodedigest(DigestState* (*fun)(uchar*, ulong, uchar*, DigestState*),
+			uchar *digest, uchar *buf, int len);
+ 
 /*
  * elgamal
  */
