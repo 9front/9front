@@ -629,7 +629,7 @@ aesunwrap(uchar *key, int nkey, uchar *data, int len)
 			memmove(R, B+8, 8);
 		}
 	} while(t > 0);
-	if(memcmp(B, IV, 8) != 0)
+	if(tsmemcmp(B, IV, 8) != 0)
 		return -1;
 	return n*8;
 }
@@ -666,7 +666,7 @@ checkmic(Keydescr *kd, uchar *msg, int msglen)
 	memmove(tmp, kd->mic, MIClen);
 	if(calcmic(kd, msg, msglen) != 0)
 		return -1;
-	return memcmp(tmp, kd->mic, MIClen) != 0;
+	return tsmemcmp(tmp, kd->mic, MIClen) != 0;
 }
 
 void
@@ -1175,6 +1175,7 @@ main(int argc, char *argv[])
 	static Eapconn conn;
 	char addr[128];
 	uchar *rsne;
+	int newptk; /* gate key reinstallation */
 	int rsnelen;
 	int n, try;
 
@@ -1294,6 +1295,9 @@ Connect:
 		background();
 	}
 
+	genrandom(ptk, sizeof(ptk));
+	newptk = 0;
+
 	lastrepc = 0ULL;
 	for(;;){
 		uchar *p, *e, *m;
@@ -1391,6 +1395,8 @@ Connect:
 					fprint(2, "getptk: %r\n");
 				continue;
 			}
+			/* allow installation of new keys */	
+			newptk = 1;
 
 			/* ack key exchange with mic */
 			memset(kd->rsc, 0, sizeof(kd->rsc));
@@ -1477,28 +1483,31 @@ Connect:
 			}
 
 			if((flags & (Fptk|Fack)) == (Fptk|Fack)){
+				if(!newptk)	/* a retransmit, already installed PTK */
+					continue;
 				if(vers != 1)	/* in WPA2, RSC is for group key only */
 					tsc = 0LL;
 				else {
 					tsc = rsc;
 					rsc = 0LL;
 				}
-				/* install pairwise receive key */
+				/* install pairwise receive key (PTK) */
 				if(fprint(cfd, "rxkey %.*H %s:%.*H@%llux", Eaddrlen, conn.amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write rxkey: %r");
 
-				tsc = 0LL;
 				memset(kd->rsc, 0, sizeof(kd->rsc));
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
 				replykey(&conn, flags & ~(Fack|Fenc|Fins), kd, nil, 0);
 				sleep(100);
 
-				/* install pairwise transmit key */ 
+				tsc = 0LL;
+				/* install pairwise transmit key (PTK) */ 
 				if(fprint(cfd, "txkey %.*H %s:%.*H@%llux", Eaddrlen, conn.amac,
 					peercipher->name, peercipher->keylen, ptk+32, tsc) < 0)
 					sysfatal("write txkey: %r");
+				newptk = 0; /* prevent PTK re-installation on (replayed) retransmits */
 			} else
 			if((flags & (Fptk|Fsec|Fack)) == (Fsec|Fack)){
 				if(kd->type[0] == 0xFE){
@@ -1511,21 +1520,18 @@ Connect:
 					memmove(gtk, kd->data, gtklen);
 					gtkkid = (flags >> 4) & 3;
 				}
-
 				memset(kd->rsc, 0, sizeof(kd->rsc));
 				memset(kd->eapoliv, 0, sizeof(kd->eapoliv));
 				memset(kd->nonce, 0, sizeof(kd->nonce));
 				replykey(&conn, flags & ~(Fenc|Fack), kd, nil, 0);
 			} else
 				continue;
-
-			if(gtklen >= groupcipher->keylen && gtkkid != -1){
-				/* install group key */
+			/* install group key (GTK) */
+			if(gtklen >= groupcipher->keylen && gtkkid != -1)
 				if(fprint(cfd, "rxkey%d %.*H %s:%.*H@%llux",
 					gtkkid, Eaddrlen, conn.amac, 
 					groupcipher->name, groupcipher->keylen, gtk, rsc) < 0)
 					sysfatal("write rxkey%d: %r", gtkkid);
-			}
 		}
 	}
 }
