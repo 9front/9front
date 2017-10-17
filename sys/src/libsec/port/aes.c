@@ -42,20 +42,6 @@ static const u32 Td1[256];
 static const u32 Td2[256];
 static const u32 Td3[256];
 static const u8  Te4[256];
-static uchar basekey[3][16] = {
-	{
-	0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-	0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
-	},
-	{
-	0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
-	0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,
-	},
-	{
-	0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03,
-	0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03,
-	},
-};
 
 static int aes_setupEnc(ulong rk[/*4*(Nr + 1)*/], const uchar cipherKey[],
 		int keyBits);
@@ -64,6 +50,11 @@ static int aes_setup(ulong erk[/*4*(Nr + 1)*/], ulong drk[/*4*(Nr + 1)*/],
 
 void	aes_encrypt(const ulong rk[], int Nr, const uchar pt[16], uchar ct[16]);
 void	aes_decrypt(const ulong rk[], int Nr, const uchar ct[16], uchar pt[16]);
+
+#define GETU32(pt) (((u32)(pt)[0]<<24) ^ ((u32)(pt)[1]<<16) ^ \
+		    ((u32)(pt)[2]<< 8) ^ ((u32)(pt)[3]))
+#define PUTU32(ct, st) { (ct)[0] = (u8)((st)>>24); (ct)[1] = (u8)((st)>>16); \
+			 (ct)[2] = (u8)((st)>> 8); (ct)[3] = (u8)(st); }
 
 void
 setupAESstate(AESstate *s, uchar key[], int keybytes, uchar *ivec)
@@ -79,141 +70,6 @@ setupAESstate(AESstate *s, uchar key[], int keybytes, uchar *ivec)
 	if(keybytes==16 || keybytes==24 || keybytes==32)
 		s->setup = 0xcafebabe;
 	/* else aes_setup was invalid */
-}
-
-/*
- * AES-XCBC-MAC-96 message authentication, per rfc3566.
- */
-
-void
-setupAESXCBCstate(AESstate *s)		/* was setupmac96 */
-{
-	int i, j;
-	uint q[16 / sizeof(uint)];
-	uchar *p;
-
-	assert(s->keybytes == 16);
-	for(i = 0; i < 3; i++)
-		aes_encrypt(s->ekey, s->rounds, basekey[i],
-			s->mackey + AESbsize*i);
-
-	p = s->mackey;
-	memset(q, 0, AESbsize);
-
-	/*
-	 * put the in the right endian.  once figured, probably better
-	 * to use some fcall macros.
-	 * keys for encryption in local endianness for the algorithm...
-	 * only key1 is used for encryption;
-	 * BUG!!: I think this is what I got wrong.
-	 */
-	for(i = 0; i < 16 / sizeof(uint); i ++){
-		for(j = 0; j < sizeof(uint); j++)
-			q[i] |= p[sizeof(uint)-j-1] << 8*j;
-		p += sizeof(uint);
-	}
-	memmove(s->mackey, q, 16);
-}
-
-/*
- * Not dealing with > 128-bit keys, not dealing with strange corner cases like
- * empty message.  Should be fine for AES-XCBC-MAC-96.
- */
-uchar*
-aesXCBCmac(uchar *p, int len, AESstate *s)
-{
-	uchar *p2, *ip, *eip, *mackey;
-	uchar q[AESbsize];
-
-	assert(s->keybytes == 16);	/* more complicated for bigger */
-	memset(s->ivec, 0, AESbsize);	/* E[0] is 0+ */
-
-	for(; len > AESbsize; len -= AESbsize){
-		memmove(q, p, AESbsize);
-		p2 = q;
-		ip = s->ivec;
-		for(eip = ip + AESbsize; ip < eip; )
-			*p2++ ^= *ip++;
-		aes_encrypt((ulong *)s->mackey, s->rounds, q, s->ivec);
-		p += AESbsize;
-	}
-	/* the last one */
-
-	memmove(q, p, len);
-	p2 = q+len;
-	if(len == AESbsize)
-		mackey = s->mackey + AESbsize;	/* k2 */
-	else{
-		mackey = s->mackey+2*AESbsize;	/* k3 */
-		*p2++ = 1 << 7;			/* padding */
-		len = AESbsize - len - 1;
-		memset(p2, 0, len);
-	}
-
-	ip = s->ivec;
-	p2 = q;
-	for(eip = ip + AESbsize; ip < eip; )
-		*p2++ ^= *ip++ ^ *mackey++;
-	aes_encrypt((ulong *)s->mackey, s->rounds, q, s->ivec);
-	return s->ivec;			/* only the 12 bytes leftmost */
-}
-
-/*
- * Define by analogy with desCBCencrypt;  AES modes are not standardized yet.
- * Because of the way that non-multiple-of-16 buffers are handled,
- * the decryptor must be fed buffers of the same size as the encryptor.
- */
-void
-aesCBCencrypt(uchar *p, int len, AESstate *s)
-{
-	uchar *p2, *ip, *eip;
-	uchar q[AESbsize];
-
-	for(; len >= AESbsize; len -= AESbsize){
-		p2 = p;
-		ip = s->ivec;
-		for(eip = ip+AESbsize; ip < eip; )
-			*p2++ ^= *ip++;
-		aes_encrypt(s->ekey, s->rounds, p, q);
-		memmove(s->ivec, q, AESbsize);
-		memmove(p, q, AESbsize);
-		p += AESbsize;
-	}
-
-	if(len > 0){
-		ip = s->ivec;
-		aes_encrypt(s->ekey, s->rounds, ip, q);
-		memmove(s->ivec, q, AESbsize);
-		for(eip = ip+len; ip < eip; )
-			*p++ ^= *ip++;
-	}
-}
-
-void
-aesCBCdecrypt(uchar *p, int len, AESstate *s)
-{
-	uchar *ip, *eip, *tp;
-	uchar tmp[AESbsize], q[AESbsize];
-
-	for(; len >= AESbsize; len -= AESbsize){
-		memmove(tmp, p, AESbsize);
-		aes_decrypt(s->dkey, s->rounds, p, q);
-		memmove(p, q, AESbsize);
-		tp = tmp;
-		ip = s->ivec;
-		for(eip = ip+AESbsize; ip < eip; ){
-			*p++ ^= *ip;
-			*ip++ = *tp++;
-		}
-	}
-
-	if(len > 0){
-		ip = s->ivec;
-		aes_encrypt(s->ekey, s->rounds, ip, q);
-		memmove(s->ivec, q, AESbsize);
-		for(eip = ip+len; ip < eip; )
-			*p++ ^= *ip++;
-	}
 }
 
 /*
@@ -954,11 +810,6 @@ static const u32 rcon[] = {
 	0x1B000000, 0x36000000,
 	/* for 128-bit blocks, Rijndael never uses more than 10 rcon values */
 };
-
-#define GETU32(pt) (((u32)(pt)[0]<<24) ^ ((u32)(pt)[1]<<16) ^ \
-		    ((u32)(pt)[2]<< 8) ^ ((u32)(pt)[3]))
-#define PUTU32(ct, st) { (ct)[0] = (u8)((st)>>24); (ct)[1] = (u8)((st)>>16); \
-			 (ct)[2] = (u8)((st)>> 8); (ct)[3] = (u8)(st); }
 
 /*
  * Expand the cipher key into the encryption key schedule.

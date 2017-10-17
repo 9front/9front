@@ -1,6 +1,6 @@
 .TH AES 2
 .SH NAME
-setupAESstate, aesCBCencrypt, aesCBCdecrypt, setupAESXCBCstate, aesXCBCmac, setupAESGCMstate - advanced encryption standard (rijndael)
+setupAESstate, aesCBCencrypt, aesCBCdecrypt, aesCFBencrypt, aesCFBdecrypt, aesOFBencrypt, setupAESXCBCstate, aesXCBCmac, setupAESGCMstate - advanced encryption standard (rijndael)
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -28,6 +28,15 @@ void	aesCBCencrypt(uchar *p, int len, AESstate *s)
 void	aesCBCdecrypt(uchar *p, int len, AESstate *s)
 .PP
 .B
+void	aesCFBencrypt(uchar *p, int len, AESstate *s)
+.PP
+.B
+void	aesCFBdecrypt(uchar *p, int len, AESstate *s)
+.PP
+.B
+void	aesOFBencrypt(uchar *p, int len, AESstate *s)
+.PP
+.B
 void	setupAESXCBCstate(AESstate *s)
 .PP
 .B
@@ -53,11 +62,18 @@ and
 are the block ciphers, corresponding to
 .IR des (2)'s
 .IR block_cipher .
-.IR SetupAESstate ,
-.IR aesCBCencrypt ,
+.IR AesCBCencrypt ,
 and
 .I aesCBCdecrypt
 implement cipher-block-chaining encryption.
+.IR AesCFBencrypt ,
+.I aesCFBdecrypt
+and
+.I aesOFBencrypt
+implement cipher-feedback- and output-feedback-mode
+stream cipher encryption.
+.IR SetupAESstate
+is used to initialize the state of the above encryption modes.
 .I SetupAESXCBCstate
 and
 .I aesXCBCmac
