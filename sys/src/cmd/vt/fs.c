@@ -19,17 +19,16 @@ static void
 fsreader(void*)
 {
 	Req *r, *fr;
-	Buf *b;
-	int n;
+	char *s, *p;
 
-	b = nil;
 	r = nil;
+	s = p = nil;
 	for(;;){
 		Alt a[] = {
 			{ flushreq, &fr, CHANRCV },
 			{ readreq, &r, r == nil ? CHANRCV : CHANNOP },
-			{ hc[0], &b, b == nil ? CHANRCV : CHANNOP },
-			{ nil, nil, b == nil || r == nil ? CHANEND : CHANNOBLK },
+			{ hc[0], &s, s == nil ? CHANRCV : CHANNOP },
+			{ nil, nil, s == nil || r == nil ? CHANEND : CHANNOBLK },
 		};
 		if(alt(a) == 0){
 			if(fr->oldreq == r){
@@ -38,18 +37,18 @@ fsreader(void*)
 			}
 			respond(fr, nil);
 		}
-		if(b == nil || r == nil)
+		if(s == nil || r == nil)
 			continue;
+		if(p == nil)
+			p = s;
 		r->ofcall.count = 0;
-		while((n = r->ifcall.count - r->ofcall.count) > 0){
-			if(n > b->n)
-				n = b->n;
-			memmove((char*)r->ofcall.data + r->ofcall.count, b->s, n);
-			r->ofcall.count += n;
-			b->s += n, b->n -= n;
-			if(b->n <= 0){
-				free(b);
-				if((b = nbrecvp(hc[0])) == nil)
+		while(r->ifcall.count > r->ofcall.count){
+			if(*p == 0)
+				break;
+			r->ofcall.data[r->ofcall.count++] = *p++;
+			if(*p == 0){
+				free(s);
+				if((p = s = nbrecvp(hc[0])) == nil)
 					break;
 			}
 		}

@@ -7,14 +7,6 @@ struct Consstate{
 };
 extern Consstate cs[];
 
-typedef struct Buf	Buf;
-struct Buf
-{
-	int	n;
-	char	*s;
-	char	b[];
-};
-
 #define	INSET	2
 #define	BUFS	32
 #define	HISTSIZ	(64*1024)	/* number of history characters */

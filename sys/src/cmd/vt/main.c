@@ -122,6 +122,7 @@ int	logfd = -1;
 int	hostpid = -1;
 Biobuf	*snarffp = 0;
 Rune	*hostbuf, *hostbufp;
+char	*hostin;
 char	echo_input[BSIZE];
 char	*echop = echo_input;		/* characters to echo, after canon */
 char	sendbuf[BSIZE];	/* hope you can't type ahead more than BSIZE chars */
@@ -138,6 +139,7 @@ void	bigscroll(void);
 void	readmenu(void);
 void	selection(void);
 void	resize(void);
+void	drawcursor(void);
 void	send_interrupt(void);
 int	alnum(int);
 void	escapedump(int,uchar *,int);
@@ -183,12 +185,17 @@ send_interrupt(void)
 void
 sendnchars(int n, char *p)
 {
-	Buf *b;
-
-	b = emalloc9p(sizeof(Buf)+n);
-	memmove(b->s = b->b, p, b->n = n);
-	if(nbsendp(hc[0], b) < 0)
-		free(b);
+	hostin = smprint("%.*s", n, p);
+	while(hostin != nil){
+		if(nbsendp(hc[0], hostin)){
+			hostin = nil;
+			break;
+		}
+		drawcursor();
+		waitio();
+		if(resize_flag)
+			resize();
+	}
 }
 
 static void
@@ -263,7 +270,7 @@ threadmain(int argc, char **argv)
 	if((kc = initkeyboard("/dev/cons")) == nil)
 		sysfatal("initkeyboard failed: %r");
 
-	hc[0] = chancreate(sizeof(Buf*), 8);	/* input to host */
+	hc[0] = chancreate(sizeof(char*), 256);	/* input to host */
 	hc[1] = chancreate(sizeof(Rune*), 8);	/* output from host */
 
 	cs->raw = rflag;
@@ -405,7 +412,7 @@ drawcursor(void)
 	if(cursoron == 0)
 		return;
 
-	col = (blocked || hostclosed) ? red : bordercol;
+	col = (hostin != nil || blocked || hostclosed) ? red : bordercol;
 	r = Rpt(pt(x, y), pt(x+1, y+1));
 
 	cursorsave = allocimage(display, r, screen->chan, 0, DNofill);
@@ -745,18 +752,23 @@ waitchar(void)
 void
 waitio(void)
 {
-	enum { AMOUSE, ARESIZE, AKBD, AHOST, AEND, };
+	enum { AMOUSE, ARESIZE, AKBD, AHOSTIN, AHOSTOUT, AEND, };
 	Alt a[AEND+1] = {
 		{ mc->c, &mc->Mouse, CHANRCV },
 		{ mc->resizec, nil, CHANRCV },
 		{ kc->c, &kbdchar, CHANRCV },
+		{ hc[0], &hostin, CHANSND },
 		{ hc[1], &hostbuf, CHANRCV },
 		{ nil, nil, CHANEND },
 	};
+	if(kbdchar != 0)
+		a[AKBD].op = CHANNOP;
+	if(hostin == nil)
+		a[AHOSTIN].op = CHANNOP;
 	if(blocked)
-		a[AHOST].op = CHANNOP;
+		a[AHOSTOUT].op = CHANNOP;
 	else if(hostbuf != nil)
-		a[AHOST].op = CHANNOBLK;
+		a[AHOSTOUT].op = CHANNOBLK;
 Next:
 	if(display->bufp > display->buf)
 		flushimage(display, 1);
@@ -772,7 +784,10 @@ Next:
 	case ARESIZE:
 		resize_flag = 2;
 		break;
-	case AHOST:
+	case AHOSTIN:
+		hostin = nil;
+		break;
+	case AHOSTOUT:
 		hostbufp = hostbuf;
 		if(hostbuf == nil)
 			hostclosed = 1;
