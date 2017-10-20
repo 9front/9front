@@ -14,7 +14,6 @@ void	exits(char *msg)
 .PP
 .B
 int	atexit(void(*)(void))
-.PP
 .B
 void	atexitdont(void(*)(void))
 .fi
@@ -75,6 +74,8 @@ returns 0 if that limit has been reached.
 .I Atexitdont
 cancels a previous registration of an exit function.
 .SH SOURCE
+.B /sys/src/libc/port/exits.c
+.br
 .B /sys/src/libc/port/atexit.c
 .SH "SEE ALSO"
 .IR fork (2),
