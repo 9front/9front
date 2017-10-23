@@ -55,23 +55,12 @@ static int
 catchalarm(void*, char *msg)
 {
 	int ign;
-	static int chattycathy;
 
 	ign = strstr(msg, "closed pipe") != nil;
 	if(ign)
 		return 0;
-	if(chattycathy++ < 5){
-		if(senders.first && rcvers.first)
-			syslog(0, "smtpd", "note: %s->%s: %s",
-				s_to_c(senders.first->p),
-				s_to_c(rcvers.first->p), msg);
-		else
-			syslog(0, "smtpd", "note: %s", msg);
-	}
-	if(pp){
+	if(pp)
 		syskill(pp->pid);
-	//	pp = 0;
-	}
 	return strstr(msg, "alarm") != nil;
 }
 
