@@ -175,8 +175,8 @@ runlock(RWLock *q)
 	if(p->state != QueuingW)
 		abort();
 	q->head = p->next;
-	if(q->head == 0)
-		q->tail = 0;
+	if(q->head == nil)
+		q->tail = nil;
 	q->writer = 1;
 	unlock(&q->lock);
 
@@ -233,7 +233,7 @@ canwlock(RWLock *q)
 void
 wunlock(RWLock *q)
 {
-	QLp *p;
+	QLp *p, *x;
 
 	lock(&q->lock);
 	if(q->writer == 0)
@@ -254,24 +254,31 @@ wunlock(RWLock *q)
 			;
 		return;
 	}
-
 	if(p->state != QueuingR)
 		abort();
 
-	q->writer = 0;
-	do {
-		/* wake waiting readers */
-		q->head = p->next;
-		if(q->head == nil)
-			q->tail = nil;
+	/* collect waiting readers */
+	q->readers = 1;
+	for(x = p->next; x != nil && x->state == QueuingR; x = x->next){
 		q->readers++;
-		unlock(&q->lock);
+		p = x;
+	}
+	p->next = nil;
+	p = q->head;
+
+	/* queue remaining writers */
+	q->head = x;
+	if(x == nil)
+		q->tail = nil;
+	q->writer = 0;
+	unlock(&q->lock);
+
+	/* wakeup waiting readers */
+	for(; p != nil; p = x){
+		x = p->next;
 		while((*_rendezvousp)(p, 0) == (void*)~0)
 			;
-		lock(&q->lock);
-		p = q->head;
-	} while(p != nil && p->state == QueuingR && q->writer == 0);
-	unlock(&q->lock);
+	}
 }
 
 void
