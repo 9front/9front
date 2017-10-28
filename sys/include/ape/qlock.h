@@ -13,8 +13,8 @@ typedef struct QLp QLp;
 struct QLp
 {
 	int	inuse;
+	int	state;
 	QLp	*next;
-	char	state;
 };
 
 typedef

@@ -39,10 +39,10 @@ getqlp(void)
 			abort();
 		if(_tas(&(p->inuse)) == 0){
 			ql.p = p;
-			p->next = nil;
 			break;
 		}
 	}
+	p->next = nil;
 	return p;
 }
 
@@ -128,12 +128,11 @@ rlock(RWLock *q)
 
 	mp = getqlp();
 	p = q->tail;
-	if(p == 0)
+	if(p == nil)
 		q->head = mp;
 	else
 		p->next = mp;
 	q->tail = mp;
-	mp->next = nil;
 	mp->state = QueuingR;
 	unlock(&q->lock);
 
@@ -199,14 +198,13 @@ wlock(RWLock *q)
 	}
 
 	/* wait */
-	p = q->tail;
 	mp = getqlp();
+	p = q->tail;
 	if(p == nil)
 		q->head = mp;
 	else
 		p->next = mp;
 	q->tail = mp;
-	mp->next = nil;
 	mp->state = QueuingW;
 	unlock(&q->lock);
 
@@ -286,7 +284,7 @@ rsleep(Rendez *r)
 {
 	QLp *t, *me;
 
-	if(!r->l)
+	if(r->l == nil)
 		abort();
 	lock(&r->l->lock);
 	/* we should hold the qlock */
@@ -300,12 +298,11 @@ rsleep(Rendez *r)
 		r->head = me;
 	else
 		r->tail->next = me;
-	me->next = nil;
 	r->tail = me;
 
 	/* pass the qlock to the next guy */
 	t = r->l->head;
-	if(t){
+	if(t != nil){
 		r->l->head = t->next;
 		if(r->l->head == nil)
 			r->l->tail = nil;
@@ -333,7 +330,7 @@ rwakeup(Rendez *r)
 	 * put on front so guys that have been waiting will not get starved
 	 */
 
-	if(!r->l)
+	if(r->l == nil)
 		abort();
 	lock(&r->l->lock);
 	if(!r->l->locked)
