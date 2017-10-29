@@ -1,70 +1,83 @@
-// Author Taru Karttunen <taruti@taruti.net>
-// This file can be used as both Public Domain or Creative Commons CC0.
 #include "os.h"
 #include <libsec.h>
 
-static void
-xor128(uchar *o, uchar *i1, uchar *i2) {
-	((ulong*)o)[0] = ((ulong*)i1)[0] ^ ((ulong*)i2)[0];
-	((ulong*)o)[1] = ((ulong*)i1)[1] ^ ((ulong*)i2)[1];
-	((ulong*)o)[2] = ((ulong*)i1)[2] ^ ((ulong*)i2)[2];
-	((ulong*)o)[3] = ((ulong*)i1)[3] ^ ((ulong*)i2)[3];
-}
+/* little-endian data order */
+#define	GET4(p)		((p)[0]|((p)[1]<<8)|((p)[2]<<16)|((p)[3]<<24))
+#define	PUT4(p,v)	(p)[0]=(v);(p)[1]=(v)>>8;(p)[2]=(v)>>16;(p)[3]=(v)>>24
 
 static void
-gf_mulx(uchar *x) {
-    ulong t = ((((ulong*)(x))[3] & 0x80000000u) ? 0x00000087u : 0);;
-    ((ulong*)(x))[3] = (((ulong*)(x))[3] << 1) | (((ulong*)(x))[2] & 0x80000000u ? 1 : 0);
-    ((ulong*)(x))[2] = (((ulong*)(x))[2] << 1) | (((ulong*)(x))[1] & 0x80000000u ? 1 : 0);
-    ((ulong*)(x))[1] = (((ulong*)(x))[1] << 1) | (((ulong*)(x))[0] & 0x80000000u ? 1 : 0);
-    ((ulong*)(x))[0] = (((ulong*)(x))[0] << 1) ^ t;
+gf_mulx(uchar *x)
+{
+	ulong t0, t1, t2, t3, t4;
 
+	t0 = GET4(x);
+	t1 = GET4(x+4);
+	t2 = GET4(x+8);
+	t3 = GET4(x+12);
+
+	t4 =             (t3 >> 31);
+	t3 = (t3 << 1) | (t2 >> 31);
+	t2 = (t2 << 1) | (t1 >> 31);
+	t1 = (t1 << 1) | (t0 >> 31);
+	t0 = (t0 << 1) ^ (t4*135);
+
+	PUT4(x, t0);
+	PUT4(x+4, t1);
+	PUT4(x+8, t2);
+	PUT4(x+12, t3);
 }
 
-int
-aes_xts_encrypt(ulong tweak[], ulong ecb[], uvlong sectorNumber, uchar *input, uchar *output, ulong len) {
-	uchar T[16], x[16];
+static void
+xor128(uchar *o, uchar *i1, uchar *i2)
+{
 	int i;
-	
-	if(len % 16 != 0)
-		return -1;
 
-	for(i=0; i<AESbsize; i++) {
-		T[i] = (uchar)(sectorNumber & 0xFF);
-		sectorNumber = sectorNumber >> 8;
-	}
-	
-	aes_encrypt(tweak, 10, T, T);
-
-	for (i=0; i<len; i+=AESbsize) {
-		xor128(&x[0], &input[i], &T[0]);
-		aes_encrypt(ecb, 10, x, x);
-		xor128(&output[i], &x[0], &T[0]);
-		gf_mulx(&T[0]);
-	}
-	return 0;
+	for(i=0; i<16; i++)
+		o[i] = i1[i] ^ i2[i];
 }
 
-int
-aes_xts_decrypt(ulong tweak[], ulong ecb[], uvlong sectorNumber, uchar *input, uchar *output, ulong len) {
-	uchar T[16], x[16];
-	int i;
-	
-	if(len % 16 != 0)
-		return -1;
+static void
+setupT(AESstate *tweak, uvlong sectorNumber, uchar T[AESbsize])
+{
+	PUT4(T+0, (ulong)sectorNumber), sectorNumber >>= 32;
+	PUT4(T+4, (ulong)sectorNumber);
+	PUT4(T+8, 0);
+	PUT4(T+12, 0);
+	aes_encrypt(tweak->ekey, tweak->rounds, T, T);
+}
 
-	for(i=0; i<AESbsize; i++) {
-		T[i] = (uchar)(sectorNumber & 0xFF);
-		sectorNumber = sectorNumber >> 8;
-	}
+void
+aes_xts_encrypt(AESstate *tweak, AESstate *ecb,
+	uvlong sectorNumber, uchar *input, uchar *output, ulong len)
+{
+	uchar T[AESbsize], x[AESbsize];
 	
-	aes_encrypt(tweak, 10, T, T);
+	if(len % AESbsize)
+		abort();
 
-	for (i=0; i<len; i+=AESbsize) {
-		xor128(&x[0], &input[i], &T[0]);
-		aes_decrypt(ecb, 10, x, x);
-		xor128(&output[i], &x[0], &T[0]);
-		gf_mulx(&T[0]);
+	setupT(tweak, sectorNumber, T);
+	for (; len > 0; len -= AESbsize, input += AESbsize, output += AESbsize) {
+		xor128(x, input, T);
+		aes_encrypt(ecb->ekey, ecb->rounds, x, x);
+		xor128(output, x, T);
+		gf_mulx(T);
 	}
-	return 0;
+}
+
+void
+aes_xts_decrypt(AESstate *tweak, AESstate *ecb,
+	uvlong sectorNumber, uchar *input, uchar *output, ulong len)
+{
+	uchar T[AESbsize], x[AESbsize];
+	
+	if(len % AESbsize)
+		abort();
+
+	setupT(tweak, sectorNumber, T);
+	for (; len > 0; len -= AESbsize, input += AESbsize, output += AESbsize) {
+		xor128(x, input, T);
+		aes_decrypt(ecb->dkey, ecb->rounds, x, x);
+		xor128(output, x, T);
+		gf_mulx(T);
+	}
 }
