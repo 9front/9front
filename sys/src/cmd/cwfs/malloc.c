@@ -13,7 +13,7 @@ memsize(void)
 
 	mpcnt = 25;
 	pgsize = userpgs = userused = 0;
-	if(bp = Bopen("#c/swap", OREAD)) {
+	if(bp = Bopen("/dev/swap", OREAD)) {
 		while(s = Brdline(bp, '\n')) {
 			if((n = Blinelen(bp)) < 1)
 				continue;
