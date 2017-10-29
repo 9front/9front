@@ -21,9 +21,8 @@
 #include "io.h"
 #include "ureg.h"
 #include "../port/error.h"
+#include "../port/sd.h"
 #include <libsec.h>
-
-int  dec16(uchar *out, int lim, char *in, int n);
 
 enum
 {
@@ -39,6 +38,7 @@ enum
 
 	Sectorsz = 1,
 	Blksize	= 8*1024,	/* for Finter only */
+	Cryptsectsz = 512,	/* for Fcrypt only */
 
 	Incr = 5,		/* Increments for the dev array */
 
@@ -447,11 +447,9 @@ setdsize(Fsdev* mp, vlong *ilen)
 			}
 			break;
 		case Fcrypt:
-			if(inlen > (64*1024)) {
-				mp->size = inlen - (64 * 1024);
-			} else {
-				mp->size = 0;
-			}
+			if(mp->start > inlen)
+				error("crypt starts after device end");
+			mp->size = (inlen - mp->start) & ~((vlong)Cryptsectsz-1);
 			break;
 		}
 	}
@@ -552,7 +550,8 @@ mconfig(char* a, long n)
 	vlong	size, start;
 	vlong	*ilen;
 	char	*tname, *dname, *fakef[4];
-	uchar	key[32];
+	uchar	key[2*256/8];
+	int	keylen;
 	Chan	**idev;
 	Cmdbuf	*cb;
 	Cmdtab	*ct;
@@ -571,6 +570,7 @@ mconfig(char* a, long n)
 	cb = nil;
 	idev = nil;
 	ilen = nil;
+	keylen = 0;
 
 	if(waserror()){
 		free(cb);
@@ -600,8 +600,19 @@ mconfig(char* a, long n)
 		mdelctl("*", "*");		/* del everything */
 		return;
 	case Fcrypt:
-		if(dec16(key, 32, cb->f[2], strlen(cb->f[2])) != 32)
+		if(cb->nf >= 4) {
+			start = strtoul(cb->f[3], 0, 0);
+			cb->nf = 3;
+		} else
+			start = 64*1024;	/* cryptsetup header */
+		keylen = dec16(key, sizeof(key), cb->f[2], strlen(cb->f[2]));
+		switch(keylen){
+		default:
 			error("bad hexkey");
+		case 2*128/8:
+		case 2*256/8:
+			break;
+		}
 		cb->nf -= 1;
 		break;
 	case Fpart:
@@ -694,10 +705,11 @@ Fail:
 	}
 	if(mp->type == Fcrypt) {
 		Key *k = secalloc(sizeof(Key));
-		setupAESstate(&k->tweak, &key[0], 16, nil);
-		setupAESstate(&k->ecb, &key[16], 16, nil);
-		memset(key, 0, 32);
+		setupAESstate(&k->tweak, &key[0], keylen/2, nil);
+		setupAESstate(&k->ecb, &key[keylen/2], keylen/2, nil);
+		memset(key, 0, sizeof(key));
 		mp->key = k;
+		mp->start = start;
 	}
 	for(i = 1; i < cb->nf; i++){
 		inprv = mp->inner[i-1] = mallocz(sizeof(Inner), 1);
@@ -1014,62 +1026,47 @@ io(Fsdev *mp, Inner *in, int isread, void *a, long l, vlong off)
 }
 
 static long
-cryptio(Fsdev *mp, int isread, uchar *a, long l, vlong off)
+cryptio(Fsdev *mp, int isread, uchar *a, long n, vlong off)
 {
-	long wl, ws, wo, wb;
-	uchar *buf;
-	Chan *mc;
-	Inner *in;
-	Key *k;
-	enum {
-		Sectsz = 512,
-		Maxbuf = 32*Sectsz,
-	};
+	long l, m, o, nb;
+	uchar *b;
 
-	if(off < 0 || l <= 0 || ((off|l) & (Sectsz-1)))
+	if((((ulong)off|n) & (Cryptsectsz-1)))
 		error(Ebadarg);
-
-	k = mp->key;
-	in = mp->inner[0];
-	mc = in->idev;
-	if(mc == nil)
-		error(Egone);
-	off += 64*1024;	// Header
-	wb = l;
-	if(wb > Maxbuf)
-		wb = Maxbuf;
-	buf = smalloc(wb);
+	if(isread){
+		l = io(mp, mp->inner[0], Isread, a, n, off);
+		if(l > 0){
+			l &= ~(Cryptsectsz-1);
+			for(o=0; o<l; o+=Cryptsectsz)
+				aes_xts_decrypt(&mp->key->tweak, &mp->key->ecb,
+					off+o, a+o, a+o, Cryptsectsz);
+		}
+		return l;
+	}
+	nb = n < SDmaxio ? n : SDmaxio;
+	while((b = sdmalloc(nb)) == nil){
+		if(!waserror()){
+			resrcwait("no memory for cryptio");
+			poperror();
+		}
+	}
 	if(waserror()) {
-		free(buf);
-		print("#k: %s: byte %,lld count %ld (of #k/%s): %s error: %s\n",
-			in->iname, off, l, mp->name, (isread? "read": "write"),
-			(up && up->errstr? up->errstr: ""));
+		sdfree(b);
 		nexterror();
 	}
-	for(ws = 0; ws < l; ws += wo){
-		wo = l - ws;
-		if(wo > wb)
-			wo = wb;
-		if (isread) {
-			wo = devtab[mc->type]->read(mc, buf, wo, off);
-			if(wo < Sectsz)
-				break;
-			wo &= ~(Sectsz-1);
-			for(wl=0; wl<wo; wl+=Sectsz)
-				aes_xts_decrypt(k->tweak.ekey, k->ecb.dkey, off+wl, buf+wl, a+wl, Sectsz);
-		} else {
-			for(wl=0; wl<wo; wl+=Sectsz)
-				aes_xts_encrypt(k->tweak.ekey, k->ecb.ekey, off+wl, a+wl, buf+wl, Sectsz);
-			if(devtab[mc->type]->write(mc, buf, wo, off) != wo)
-				error(Eio);
-		}
-		off += wo;
-		a += wo;
+	for(l = 0; (m = n - l) > 0; l += m){
+		if(m > nb) m = nb;
+		for(o=0; o<m; o+=Cryptsectsz)
+			aes_xts_encrypt(&mp->key->tweak, &mp->key->ecb,
+				off+o, a+o, b+o, Cryptsectsz);
+		if(io(mp, mp->inner[0], Iswrite, b, m, off) != m)
+			error(Eio);
+		off += m;
+		a += m;
 	}
+	sdfree(b);
 	poperror();
-	free(buf);
-
-	return ws;
+	return l;
 }
 
 /* NB: a transfer could span multiple inner devices */
@@ -1243,7 +1240,7 @@ mread(Chan *c, void *a, long n, vlong off)
 				(up && up->errstr? up->errstr: ""));
 		break;
 	case Fcrypt:
-		res = cryptio(mp, Isread, a, n, off);
+		res = cryptio(mp, Isread, a, n, mp->start + off);
 		break;
 	}
 Done:
@@ -1341,7 +1338,7 @@ mwrite(Chan *c, void *a, long n, vlong off)
 
 		break;
 	case Fcrypt:
-		res = cryptio(mp, Iswrite, a, n, off);
+		res = cryptio(mp, Iswrite, a, n, mp->start + off);
 		break;
 	}
 Done:
