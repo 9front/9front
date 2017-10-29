@@ -84,7 +84,6 @@ main(void)
 	links();
 	chandevreset();
 	pageinit();
-	swapinit();
 	sharedseginit();
 	fpsave(&initfp);
 	initfp.fpscr = 0;

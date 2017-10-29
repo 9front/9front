@@ -22,7 +22,6 @@ cons \- console, clocks, process/process group ids, user, null, reboot, etc.
 .B /dev/ppid
 .B /dev/random
 .B /dev/reboot
-.B /dev/swap
 .B /dev/sysname
 .B /dev/sysstat
 .B /dev/time
@@ -239,41 +238,6 @@ holds one line per processor.
 Writing anything to
 .B sysstat
 resets all of the counts on all processors.
-.PP
-The
-.B swap
-device holds a text block giving memory usage statistics:
-.IP
-.EX
-\fIn\fP memory
-\fIn\fP pagesize
-\fIn\fP kernel
-\fIn\fP/\fIm\fP user
-\fIn\fP/\fIm\fP swap
-\fIa\fP/\fIn\fP/\fIm\fP kernel malloc
-\fIa\fP/\fIn\fP/\fIm\fP kernel draw
-.EE
-.PP
-These are total memory (bytes), system page size (bytes),
-kernel memory (pages), user memory (pages), swap space (pages),
-kernel malloced data (bytes), and kernel graphics data (bytes).
-The expression
-.IR n / m
-indicates
-.I n
-used out of
-.I m
-available.
-For kernel malloc and kernel draw,
-.IR a
-indicates the current allocation in bytes.
-These numbers are not blank padded.
-.PP
-To turn on swapping, write to
-.B swap
-the textual file descriptor number of a file or device on which to swap.
-See
-.IR swap (8).
 .PP
 Reads and writes to
 .IR mordor

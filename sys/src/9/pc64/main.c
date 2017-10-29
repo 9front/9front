@@ -332,7 +332,6 @@ main()
 	netconsole();
 	preallocpages();
 	pageinit();
-	swapinit();
 	userinit();
 	schedinit();
 }

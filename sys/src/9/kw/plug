@@ -3,6 +3,7 @@
 dev
 	root
 	cons
+	swap
 	env
 	pipe
 	proc

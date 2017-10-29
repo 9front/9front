@@ -35,4 +35,5 @@ will lead to deadlock if the process isn't made non-swappable
 ctl-message in
 .IR proc (3)).
 .SH "SEE ALSO"
+.IR swap (3),
 .IR proc (3)

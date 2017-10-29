@@ -192,8 +192,6 @@ main(void)
 	initseg();
 	links();
 	chandevreset();
-
-	swapinit();
 	userinit();
 	schedinit();
 	panic("schedinit returned");

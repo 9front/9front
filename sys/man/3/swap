@@ -1,0 +1,46 @@
+.TH SWAP 3
+.SH NAME
+swap \- memory usage statistics and pagefile control
+.SH SYNOPSIS
+.nf
+.B bind -a #¶ /dev
+
+.B /dev/swap
+.fi
+.SH DESCRIPTION
+The
+.B swap
+device holds a text block giving memory usage statistics:
+.IP
+.EX
+\fIn\fP memory
+\fIn\fP pagesize
+\fIn\fP kernel
+\fIn\fP/\fIm\fP user
+\fIn\fP/\fIm\fP swap
+\fIa\fP/\fIn\fP/\fIm\fP kernel malloc
+\fIa\fP/\fIn\fP/\fIm\fP kernel draw
+.EE
+.PP
+These are total memory (bytes), system page size (bytes),
+kernel memory (pages), user memory (pages), swap space (pages),
+kernel malloced data (bytes), and kernel graphics data (bytes).
+The expression
+.IR n / m
+indicates
+.I n
+used out of
+.I m
+available.
+For kernel malloc and kernel draw,
+.IR a
+indicates the current allocation in bytes.
+These numbers are not blank padded.
+.PP
+To turn on swapping, write to
+.B swap
+the textual file descriptor number of a file or device on which to swap.
+.SH SEE ALSO
+.IR swap (8).
+.SH SOURCE
+.B /sys/src/9/port/devswap.c

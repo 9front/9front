@@ -5,7 +5,6 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
-#include	<pool.h>
 #include	<authsrv.h>
 
 void	(*consdebug)(void) = nil;
@@ -324,7 +323,6 @@ enum{
 	Qppid,
 	Qrandom,
 	Qreboot,
-	Qswap,
 	Qsysname,
 	Qsysstat,
 	Qtime,
@@ -357,7 +355,6 @@ static Dirtab consdir[]={
 	"ppid",		{Qppid},	NUMSIZE,	0444,
 	"random",	{Qrandom},	0,		0444,
 	"reboot",	{Qreboot},	0,		0664,
-	"swap",		{Qswap},	0,		0664,
 	"sysname",	{Qsysname},	0,		0664,
 	"sysstat",	{Qsysstat},	0,		0666,
 	"time",		{Qtime},	NUMSIZE+3*VLNUMSIZE,	0664,
@@ -471,8 +468,6 @@ consread(Chan *c, void *buf, long n, vlong off)
 	int i, k, id;
 	vlong offset = off;
 	extern char configfile[];
-	extern Image fscache;
-	extern Image swapimage;
 
 	if(n <= 0)
 		return n;
@@ -592,33 +587,6 @@ consread(Chan *c, void *buf, long n, vlong off)
 		poperror();
 		return n;
 
-	case Qswap:
-		snprint(tmp, sizeof tmp,
-			"%llud memory\n"
-			"%llud pagesize\n"
-			"%lud kernel\n"
-			"%lud/%lud user\n"
-			"%lud/%lud swap\n"
-			"%llud/%llud/%llud kernel malloc\n"
-			"%llud/%llud/%llud kernel draw\n"
-			"%llud/%llud/%llud kernel secret\n",
-			(uvlong)conf.npage*BY2PG,
-			(uvlong)BY2PG,
-			conf.npage-conf.upages,
-			palloc.user-palloc.freecount-fscache.pgref-swapimage.pgref, palloc.user,
-			conf.nswap-swapalloc.free, conf.nswap,
-			(uvlong)mainmem->curalloc,
-			(uvlong)mainmem->cursize,
-			(uvlong)mainmem->maxsize,
-			(uvlong)imagmem->curalloc,
-			(uvlong)imagmem->cursize,
-			(uvlong)imagmem->maxsize,
-			(uvlong)secrmem->curalloc,
-			(uvlong)secrmem->cursize,
-			(uvlong)secrmem->maxsize);
-
-		return readstr((ulong)offset, buf, n, tmp);
-
 	case Qsysname:
 		if(sysname == nil)
 			return 0;
@@ -669,8 +637,7 @@ conswrite(Chan *c, void *va, long n, vlong off)
 	long l, bp;
 	char *a;
 	Mach *mp;
-	int id, fd;
-	Chan *swc;
+	int id;
 	ulong offset;
 	Cmdbuf *cb;
 	Cmdtab *ct;
@@ -763,25 +730,6 @@ conswrite(Chan *c, void *va, long n, vlong off)
 				mp->tlbpurge = 0;
 			}
 		}
-		break;
-
-	case Qswap:
-		if(n >= sizeof buf)
-			error(Egreg);
-		memmove(buf, va, n);	/* so we can NUL-terminate */
-		buf[n] = 0;
-		/* start a pager if not already started */
-		if(strncmp(buf, "start", 5) == 0){
-			kickpager();
-			break;
-		}
-		if(!iseve())
-			error(Eperm);
-		if(buf[0]<'0' || '9'<buf[0])
-			error(Ebadarg);
-		fd = strtoul(buf, 0, 0);
-		swc = fdtochan(fd, ORDWR, 1, 1);
-		setswapchan(swc);
 		break;
 
 	case Qsysname:

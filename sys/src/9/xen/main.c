@@ -103,8 +103,6 @@ main(void)
 //	conf.monitor = 1;
 	chandevreset();
 	pageinit();
-
-	swapinit();
 	userinit();
 	schedinit();
 }

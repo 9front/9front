@@ -1,6 +1,7 @@
 dev
 	root		netif
 	cons
+	swap
 	uart
 	arch
 	env

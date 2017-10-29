@@ -276,7 +276,6 @@ wave('l');
 //	i8250console();			/* too early; see init0 */
 
 	pageinit();
-	swapinit();
 	userinit();
 	schedinit();
 }

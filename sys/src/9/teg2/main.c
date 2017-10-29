@@ -455,7 +455,6 @@ main(void)
 //	i8250console();			/* too early; see init0 */
 
 	pageinit();			/* prints "1020M memory: ⋯ */
-	swapinit();
 	userinit();
 
 	/*

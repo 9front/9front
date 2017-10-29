@@ -10,7 +10,7 @@ unmount /root
 
 bind -q '#d' /fd
 bind -q '#p' /proc
-for(i in S f k æ t b m)
+for(i in ¶ P S f k æ t b m)
 	bind -qa '#'^$i /dev
 
 # bind in an ip interface

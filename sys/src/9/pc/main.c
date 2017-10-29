@@ -62,7 +62,6 @@ main(void)
 	chandevreset();
 	netconsole();
 	pageinit();
-	swapinit();
 	userinit();
 	schedinit();
 }

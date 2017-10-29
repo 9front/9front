@@ -38,7 +38,6 @@ PORT=\
 	rdb.$O\
 	rebootcmd.$O\
 	segment.$O\
-	swap.$O\
 	syscallfmt.$O\
 	sysfile.$O\
 	sysproc.$O\

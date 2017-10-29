@@ -393,7 +393,6 @@ main(void)
 	archinit();
 	chandevreset();
 	pageinit();
-	swapinit();
 	screeninit();
 	userinit();
 	schedinit();

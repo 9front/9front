@@ -35,7 +35,6 @@ main(void)
 	links();
 	chandevreset();
 	pageinit();
-	swapinit();
 	fpsave(&initfp);
 	initfp.fpscr = 0;
 	userinit();

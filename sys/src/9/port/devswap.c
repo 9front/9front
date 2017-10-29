@@ -5,21 +5,29 @@
 #include	"fns.h"
 #include	"../port/error.h"
 
+#include	<libsec.h>
+#include	<pool.h>
+
 static int	canflush(Proc*, Segment*);
 static void	executeio(void);
 static void	pageout(Proc*, Segment*);
 static void	pagepte(int, Page**);
 static void	pager(void*);
 
-Image 	swapimage;
+Image 	swapimage = {
+	.notext = 1,
+};
 
-static 	int	swopen;
-static	Page	**iolist;
-static	int	ioptr;
+static Chan	*swapchan;
+static uchar	*swapbuf;
+static AESstate *swapkey;
 
-static	ushort	ageclock;
+static Page	**iolist;
+static int	ioptr;
 
-void
+static ushort	ageclock;
+
+static void
 swapinit(void)
 {
 	swapalloc.swmap = xalloc(conf.nswap);
@@ -30,10 +38,8 @@ swapinit(void)
 	swapalloc.xref = 0;
 
 	iolist = xalloc(conf.nswppo*sizeof(Page*));
-	if(swapalloc.swmap == 0 || iolist == 0)
+	if(swapalloc.swmap == nil || iolist == nil)
 		panic("swapinit: not enough memory");
-
-	swapimage.notext = 1;
 }
 
 static uintptr
@@ -216,13 +222,8 @@ pageout(Proc *p, Segment *s)
 	if(!canqlock(s))	/* We cannot afford to wait, we will surely deadlock */
 		return;
 
-	if(!canflush(p, s)) {	/* Able to invalidate all tlbs with references */
-		qunlock(s);
-		putseg(s);
-		return;
-	}
-
-	if(waserror()) {
+	if(!canflush(p, s)	/* Able to invalidate all tlbs with references */
+	|| waserror()) {
 		qunlock(s);
 		putseg(s);
 		return;
@@ -389,10 +390,10 @@ needpages(void*)
 	return palloc.freecount < swapalloc.headroom;
 }
 
-void
+static void
 setswapchan(Chan *c)
 {
-	uchar dirbuf[sizeof(Dir)+100];
+	uchar buf[sizeof(Dir)+100];
 	Dir d;
 	int n;
 
@@ -412,8 +413,8 @@ setswapchan(Chan *c)
 	 *  to be at most the size of the partition
 	 */
 	if(devtab[c->type]->dc != L'M'){
-		n = devtab[c->type]->stat(c, dirbuf, sizeof dirbuf);
-		if(n <= 0 || convM2D(dirbuf, n, &d, nil) == 0)
+		n = devtab[c->type]->stat(c, buf, sizeof buf);
+		if(n <= 0 || convM2D(buf, n, &d, nil) == 0)
 			error("stat failed in setswapchan");
 		if(d.length < conf.nswppo*BY2PG)
 			error("swap device too small");
@@ -425,6 +426,187 @@ setswapchan(Chan *c)
 	}
 	c->flag &= ~CCACHE;
 	cclunk(c);
-	swapimage.c = c;
 	poperror();
+
+	swapchan = c;
+	swapimage.c = namec("#¶/swapfile", Aopen, ORDWR, 0);
 }
+
+enum {
+	Qdir,
+	Qswap,
+	Qswapfile,
+};
+
+static Dirtab swapdir[]={
+	".",		{Qdir, 0, QTDIR},	0,		DMDIR|0555,
+	"swap",		{Qswap},		0,		0664,
+	"swapfile",	{Qswapfile},		0,		0600,
+};
+
+static Chan*
+swapattach(char *spec)
+{
+	return devattach(L'¶', spec);
+}
+
+static Walkqid*
+swapwalk(Chan *c, Chan *nc, char **name, int nname)
+{
+	return devwalk(c, nc, name, nname, swapdir, nelem(swapdir), devgen);
+}
+
+static int
+swapstat(Chan *c, uchar *dp, int n)
+{
+	return devstat(c, dp, n, swapdir, nelem(swapdir), devgen);
+}
+
+static Chan*
+swapopen(Chan *c, int omode)
+{
+	uchar key[128/8];
+
+	switch((ulong)c->qid.path){
+	case Qswapfile:
+		if(!iseve() || omode != ORDWR)
+			error(Eperm);
+		if(swapimage.c != nil)
+			error(Einuse);
+		if(swapchan == nil)
+			error(Egreg);
+
+		c->mode = openmode(omode);
+		c->flag |= COPEN;
+		c->offset = 0;
+
+		swapbuf = mallocalign(BY2PG, BY2PG, 0, 0);
+		swapkey = secalloc(sizeof(AESstate)*2);
+		if(swapbuf == nil || swapkey == nil)
+			error(Enomem);
+
+		genrandom(key, sizeof(key));
+		setupAESstate(&swapkey[0], key, sizeof(key), nil);
+		genrandom(key, sizeof(key));
+		setupAESstate(&swapkey[1], key, sizeof(key), nil);
+		memset(key, 0, sizeof(key));
+
+		return c;
+	}
+	return devopen(c, omode, swapdir, nelem(swapdir), devgen);
+}
+
+static void
+swapclose(Chan *c)
+{
+	if((c->flag & COPEN) == 0)
+		return;
+	switch((ulong)c->qid.path){
+	case Qswapfile:
+		cclose(swapchan);
+		swapchan = nil;
+		secfree(swapkey);
+		swapkey = nil;
+		free(swapbuf);
+		swapbuf = nil;
+		break;
+	}
+}
+
+static long
+swapread(Chan *c, void *va, long n, vlong off)
+{
+	char tmp[256];		/* must be >= 18*NUMSIZE (Qswap) */
+
+	switch((ulong)c->qid.path){
+	case Qdir:
+		return devdirread(c, va, n, swapdir, nelem(swapdir), devgen);
+	case Qswap:
+		snprint(tmp, sizeof tmp,
+			"%llud memory\n"
+			"%llud pagesize\n"
+			"%lud kernel\n"
+			"%lud/%lud user\n"
+			"%lud/%lud swap\n"
+			"%llud/%llud/%llud kernel malloc\n"
+			"%llud/%llud/%llud kernel draw\n"
+			"%llud/%llud/%llud kernel secret\n",
+			(uvlong)conf.npage*BY2PG,
+			(uvlong)BY2PG,
+			conf.npage-conf.upages,
+			palloc.user-palloc.freecount-fscache.pgref-swapimage.pgref, palloc.user,
+			conf.nswap-swapalloc.free, conf.nswap,
+			(uvlong)mainmem->curalloc,
+			(uvlong)mainmem->cursize,
+			(uvlong)mainmem->maxsize,
+			(uvlong)imagmem->curalloc,
+			(uvlong)imagmem->cursize,
+			(uvlong)imagmem->maxsize,
+			(uvlong)secrmem->curalloc,
+			(uvlong)secrmem->cursize,
+			(uvlong)secrmem->maxsize);
+		return readstr((ulong)off, va, n, tmp);
+	case Qswapfile:
+		if(n != BY2PG)
+			error(Ebadarg);
+		if(devtab[swapchan->type]->read(swapchan, va, n, off) != n)
+			error(Eio);
+		aes_xts_decrypt(&swapkey[0], &swapkey[1], off, va, va, n);
+		return n;
+	}
+	error(Egreg);
+	return 0;
+}
+
+static long
+swapwrite(Chan *c, void *va, long n, vlong off)
+{
+	char buf[256];
+	
+	switch((ulong)c->qid.path){
+	case Qswap:
+		if(!iseve())
+			error(Eperm);
+		if(n >= sizeof buf)
+			error(Egreg);
+		memmove(buf, va, n);	/* so we can NUL-terminate */
+		buf[n] = 0;
+		/* start a pager if not already started */
+		if(strncmp(buf, "start", 5) == 0)
+			kickpager();
+		else if(buf[0]>='0' && '9'<=buf[0])
+			setswapchan(fdtochan(strtoul(buf, nil, 0), ORDWR, 1, 1));
+		else
+			error(Ebadctl);
+		return n;
+	case Qswapfile:
+		if(n != BY2PG)
+			error(Ebadarg);
+		aes_xts_encrypt(&swapkey[0], &swapkey[1], off, va, swapbuf, n);
+		if(devtab[swapchan->type]->write(swapchan, swapbuf, n, off) != n)
+			error(Eio);
+		return n;
+	}
+	error(Egreg);
+	return 0;
+}
+
+Dev swapdevtab = {
+	L'¶',
+	"swap",
+	devreset,
+	swapinit,
+	devshutdown,
+	swapattach,
+	swapwalk,
+	swapstat,
+	swapopen,
+	devcreate,
+	swapclose,
+	swapread,
+	devbread,
+	swapwrite,
+	devbwrite,
+	devremove,
+	devwstat,
+};

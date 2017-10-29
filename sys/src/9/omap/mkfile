@@ -33,7 +33,6 @@ PORT=\
 	qio.$O\
 	qlock.$O\
 	segment.$O\
-	swap.$O\
 	sysfile.$O\
 	sysproc.$O\
 	taslock.$O\

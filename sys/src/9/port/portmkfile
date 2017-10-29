@@ -62,15 +62,15 @@ errstr.h:	../port/mkerrstr ../port/error.h
 %.db:		main.$O
 	$CC -s$stem main.c | dbfmt > $stem.db
 
-alloc.$O:	/sys/include/pool.h
+alloc.$O devswap.$O:	/sys/include/pool.h
 devmnt.$O:	/sys/include/fcall.h
 proc.$O proc.acid:	errstr.h
 devroot.$O:	errstr.h
 devaudio.$O:	../port/audioif.h
-devaoe.$O:	/$objtype/include/ureg.h
-devfs.$O:	/$objtype/include/ureg.h
-devsd.$O:	/$objtype/include/ureg.h
-sdscsi.$O:	/$objtype/include/ureg.h
+devaoe.$O:	../port/sd.h /$objtype/include/ureg.h
+devfs.$O:	../port/sd.h /$objtype/include/ureg.h
+devsd.$O:	../port/sd.h /$objtype/include/ureg.h
+sdscsi.$O:	../port/sd.h /$objtype/include/ureg.h
 trap.$O:	/$objtype/include/ureg.h
 devproc.$O:	/$objtype/include/ureg.h
 main.$O:	init.h
@@ -87,3 +87,5 @@ unthwack.$O:	../port/thwack.h
 devsdp.$O:	../port/thwack.h
 devproc.$O sysproc.$O:	/sys/include/tos.h
 devproc.$O edf.$O proc.$O: /sys/include/trace.h
+devcons.$O:	/sys/include/authsrv.h
+devcap.$O devfs.$O devsdp.$O devssl.$O devtls.$O devswap.$O random.$O: /sys/include/libsec.h

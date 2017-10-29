@@ -270,7 +270,6 @@ main(void)
 	links();
 	chandevreset();			/* most devices are discovered here */
 	pageinit();
-	swapinit();
 	userinit();
 	gpiomeminit();
 	schedinit();

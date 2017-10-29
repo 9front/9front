@@ -1,6 +1,7 @@
 dev
 	root
 	cons
+	swap
 	env
 	flash
 	pipe

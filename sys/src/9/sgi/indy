@@ -1,6 +1,7 @@
 dev
 	root
 	cons
+	swap
 	uart
 	mnt
 	srv

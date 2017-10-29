@@ -10,6 +10,7 @@ bind #p /proc
 bind -c #s /srv
 bind -q #σ /shr
 bind -a #¤ /dev
+bind -qa #¶ /dev
 
 # authentication
 mount -b /srv/factotum /mnt

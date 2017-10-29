@@ -322,7 +322,6 @@ wave(' ');
 	chandevreset();			/* most devices are discovered here */
 
 	pageinit();
-	swapinit();
 	userinit();
 	schedinit();
 	panic("schedinit returned");

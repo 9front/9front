@@ -1,6 +1,7 @@
 dev
 	root
 	cons
+	swap
 	arch
 	pnp		pci
 	env
