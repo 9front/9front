@@ -574,7 +574,7 @@ swapwrite(Chan *c, void *va, long n, vlong off)
 		/* start a pager if not already started */
 		if(strncmp(buf, "start", 5) == 0)
 			kickpager();
-		else if(buf[0]>='0' && '9'<=buf[0])
+		else if(buf[0]>='0' && buf[0]<='9')
 			setswapchan(fdtochan(strtoul(buf, nil, 0), ORDWR, 1, 1));
 		else
 			error(Ebadctl);
