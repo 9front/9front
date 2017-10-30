@@ -1,6 +1,16 @@
 .TH AES 2
 .SH NAME
-setupAESstate, aesCBCencrypt, aesCBCdecrypt, aesCFBencrypt, aesCFBdecrypt, aesOFBencrypt, setupAESXCBCstate, aesXCBCmac, setupAESGCMstate - advanced encryption standard (rijndael)
+setupAESstate, \
+aesCBCencrypt, \
+aesCBCdecrypt, \
+aesCFBencrypt, \
+aesCFBdecrypt, \
+aesOFBencrypt, \
+aes_xts_encrypt, aes_xts_decrypt, \
+setupAESXCBCstate, aesXCBCmac, \
+setupAESGCMstate, \
+aesgcm_setiv, aesgcm_encrypt, aesgcm_decrypt \
+- advanced encryption standard (rijndael)
 .SH SYNOPSIS
 .B #include <u.h>
 .br
@@ -35,6 +45,12 @@ void	aesCFBdecrypt(uchar *p, int len, AESstate *s)
 .PP
 .B
 void	aesOFBencrypt(uchar *p, int len, AESstate *s)
+.PP
+.B
+void	aes_xts_encrypt(AESstate *tweak, AESstate *ecb, uvlong sectorNumber, uchar *input, uchar *output, ulong len)
+.PP
+.B
+void	aes_xts_decrypt(AESstate *tweak, AESstate *ecb, uvlong sectorNumber, uchar *input, uchar *output, ulong len)
 .PP
 .B
 void	setupAESXCBCstate(AESstate *s)
@@ -72,6 +88,10 @@ and
 .I aesOFBencrypt
 implement cipher-feedback- and output-feedback-mode
 stream cipher encryption.
+.I Aes_xts_encrypt
+and
+.I aes_xts_decrypt
+implement the XTS-AES tweakable block cipher, per IEEE 1619-2017 (see bugs below).
 .IR SetupAESstate
 is used to initialize the state of the above encryption modes.
 .I SetupAESXCBCstate
@@ -137,3 +157,10 @@ Because of the way that non-multiple-of-16 buffers are handled,
 must be fed buffers of the same size as the
 .I aesCBCencrypt
 calls that encrypted it.
+.PP
+The functions
+.I aes_xts_encrypt
+an
+.I aes_xts_decrypt
+abort on a non-multiple-of-16 length as ciphertext stealing
+is not implemented.
