@@ -464,7 +464,7 @@ consread(Chan *c, void *buf, long n, vlong off)
 	ulong l;
 	Mach *mp;
 	char *b, *bp;
-	char tmp[256];		/* must be >= 18*NUMSIZE (Qswap) */
+	char tmp[256];
 	int i, k, id;
 	vlong offset = off;
 	extern char configfile[];
