@@ -62,7 +62,7 @@ errstr.h:	../port/mkerrstr ../port/error.h
 %.db:		main.$O
 	$CC -s$stem main.c | dbfmt > $stem.db
 
-alloc.$O devswap.$O:	/sys/include/pool.h
+alloc.$O ucalloc.$O devswap.$O devproc.$O:	/sys/include/pool.h
 devmnt.$O:	/sys/include/fcall.h
 proc.$O proc.acid:	errstr.h
 devroot.$O:	errstr.h
@@ -71,6 +71,7 @@ devaoe.$O:	../port/sd.h /$objtype/include/ureg.h
 devfs.$O:	../port/sd.h /$objtype/include/ureg.h
 devsd.$O:	../port/sd.h /$objtype/include/ureg.h
 sdscsi.$O:	../port/sd.h /$objtype/include/ureg.h
+sdaoe.$O:	../port/sd.h /$objtype/include/ureg.h
 trap.$O:	/$objtype/include/ureg.h
 devproc.$O:	/$objtype/include/ureg.h
 main.$O:	init.h
@@ -78,14 +79,24 @@ trap.$O:	../port/systab.h
 devpipe.$O:	../port/netif.h
 netif.$O:	../port/netif.h
 devuart.$O:	../port/netif.h
-devmouse.$O:	screen.h /sys/include/memdraw.h
-devdraw.$O:	screen.h /sys/include/memdraw.h
-screen.$O:	screen.h /sys/include/memdraw.h
-swcursor.$O:	screen.h /sys/include/memdraw.h
+devdraw.$O:	screen.h /sys/include/draw.h /sys/include/memdraw.h /sys/include/memlayer.h /sys/include/cursor.h
+devmouse.$O:	screen.h /sys/include/draw.h /sys/include/memdraw.h /sys/include/cursor.h
+swcursor.$O:	screen.h /sys/include/draw.h /sys/include/memdraw.h /sys/include/cursor.h
+screen.$O:	screen.h /sys/include/draw.h /sys/include/memdraw.h /sys/include/cursor.h
 thwack.$O:	../port/thwack.h
 unthwack.$O:	../port/thwack.h
 devsdp.$O:	../port/thwack.h
 devproc.$O sysproc.$O:	/sys/include/tos.h
-devproc.$O edf.$O proc.$O: /sys/include/trace.h
-devcons.$O:	/sys/include/authsrv.h
-devcap.$O devfs.$O devsdp.$O devssl.$O devtls.$O devswap.$O random.$O: /sys/include/libsec.h
+devproc.$O edf.$O proc.$O:	/sys/include/trace.h
+auth.$O devcons.$O:	/sys/include/authsrv.h
+devcap.$O:	/sys/include/libsec.h
+devfs.$O:	/sys/include/libsec.h
+devsdp.$O:	/sys/include/libsec.h
+devssl.$O:	/sys/include/libsec.h
+devtls.$O:	/sys/include/libsec.h
+devswap.$O:	/sys/include/libsec.h
+random.$O:	/sys/include/libsec.h
+devaoe.$O sdaoe.$O:	/sys/include/fis.h
+sysproc.$O:	/sys/include/a.out.h
+syscallfmt.$O:	/sys/src/libc/9syscall/sys.h
+devusb.$O:	../port/usb.h
