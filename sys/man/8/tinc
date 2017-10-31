@@ -81,7 +81,7 @@ and
 The options:
 .TP
 .B -d
-Enable debug outout and do not fork to the background.
+Enable debug output and do not fork to the background.
 .TP
 .B -p
 Limit the number of client processes to
