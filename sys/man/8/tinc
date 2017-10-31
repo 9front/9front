@@ -1,0 +1,119 @@
+.TH TINC 8
+.SH NAME
+tinc - mash peer to peer VPN
+.SH SYNOPSIS
+.B ip/tinc
+[
+.B -d
+] [
+.B -p
+.I maxprocs
+] [
+.B -x
+.I inside
+] [
+.B -o
+.I outside
+] [
+.B -c
+.I confdir
+] [
+.B -n
+.I myname
+]
+.I localip
+.I localmask
+[
+.I hosts...
+]
+.SH DESCRIPTION
+Tinc implements the mash peer to peer VPN protocol from
+.I https://www.tinc-vpn.org/
+as of version 1.0.32. Within a tinc VPN one can reach all
+the subnets of all hosts within the network even when not
+directly connected to the owning host of the subnet.
+.PP
+Each host that is directly connected to us has its own hostfile under
+.IR confdir /hosts/ hostname
+containing its public address, owned subnets, options and RSA public key.
+The hostfile format is the same as the original tinc implementation.
+The
+.I confdir
+is specified with the
+.B -c
+option or defaults to the current working directory.
+Other hosts might exist behind these directly connected nodes but
+this information is distributed automatically within the protocol.
+.PP
+On startup,
+.I tinc
+creates an ip interface with the address
+.I localip
+and network mask
+.I localmask
+on the
+.I inside
+ip stack (specified with
+.B -x
+option) and starts listening for incoming connections on the
+.I outside
+ip stack (specified with the
+.B -o
+option). When optional
+.I hosts
+are specified on the command line, then it will also do outgoing connections
+using the
+.I outside
+ip stack. The
+.I localmask
+usually is a supernet of all the subnets within the VPN. Our own hostname
+.I myhost
+can be specified with
+.B -n
+option or is asssumed to be the
+.I sysname
+when not specified.
+This hosts RSA private key needs to be present in factotum and tagged with
+.BR "service=tinc"
+and
+.BI "host=" myhost .
+.PP
+The options:
+.TP
+.B -d
+Enable debug outout and do not fork to the background.
+.TP
+.B -p
+Limit the number of client processes to
+.IR  maxprocs .
+.TP
+.B -x
+Specifies the
+.I inside
+and
+.I outside
+network stack directory where the tinc ip interface it bound. Defaults to
+.BR /net .
+.TP
+.B -o
+Specifies the
+.I outside
+network stack directory where incoming and outgoing tinc connections
+are made. Defaults to
+.BR inside .
+.TP
+.B -c
+Specifies the configuration directory
+.I confdir
+for the VPN.
+.TP
+.B -n
+Sets our hostname to
+.IR myhost .
+.SH "SEE ALSO"
+.IR rsa (8),
+.IR ip (3)
+.br
+.I https://www.tinc-vpn.org/documentation/
+.SH SOURCE
+.B /sys/src/cmd/ip/tinc.c

@@ -21,6 +21,7 @@ TARG = 	6in4\
 	telnetd\
 	tftpd\
 	tftpfs\
+	tinc\
 	traceroute\
 	torrent\
 	udpecho\
