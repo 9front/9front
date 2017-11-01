@@ -73,7 +73,7 @@ can be specified with
 option or is asssumed to be the
 .I sysname
 when not specified.
-This hosts RSA private key needs to be present in factotum and tagged with
+This host's RSA private key needs to be present in factotum and tagged with
 .BR "service=tinc"
 and
 .BI "host=" myhost .
@@ -84,7 +84,8 @@ The options:
 Enable debug output and do not fork to the background.
 .TP
 .B -p
-Limit the number of client processes to
+Limit the number of client processes (incoming and
+outgoing connections per protocol) to
 .IR  maxprocs .
 .TP
 .B -x
@@ -92,7 +93,7 @@ Specifies the
 .I inside
 and
 .I outside
-network stack directory where the tinc ip interface it bound. Defaults to
+network stack directory where the tinc ip interface is bound. Defaults to
 .BR /net .
 .TP
 .B -o
