@@ -70,7 +70,7 @@ usually is a supernet of all the subnets within the VPN. Our own hostname
 .I myhost
 can be specified with
 .B -n
-option or is asssumed to be the
+option or is assumed to be the
 .I sysname
 when not specified.
 This host's RSA private key needs to be present in factotum and tagged with
