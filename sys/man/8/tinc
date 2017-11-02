@@ -1,6 +1,6 @@
 .TH TINC 8
 .SH NAME
-tinc - mash peer to peer VPN
+tinc - mesh peer to peer VPN
 .SH SYNOPSIS
 .B ip/tinc
 [
@@ -27,7 +27,7 @@ tinc - mash peer to peer VPN
 .I hosts...
 ]
 .SH DESCRIPTION
-Tinc implements the mash peer to peer VPN protocol from
+Tinc implements the mesh peer to peer VPN protocol from
 .I https://www.tinc-vpn.org/
 as of version 1.0.32. Within a tinc VPN one can reach all
 the subnets of all hosts within the network even when not
