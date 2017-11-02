@@ -236,3 +236,6 @@ Please don't.
 You are speaking like a compiler author instead of a user.
 Just make sure to use an identifying User-Agent line when you make requests from your back end.
 I don't want ordinary users to be making choices about "how much debug info is enough".
+Thanks for letting us know.
+This doesn't seem worthwhile.
+It only works when we're in the process of preparing a release.
