@@ -1,11 +1,12 @@
 typedef struct Conf	Conf;
+typedef struct Confmem	Confmem;
 typedef struct FPsave	FPsave;
+typedef struct PFPU	PFPU;
 typedef struct ISAConf	ISAConf;
 typedef struct Imap	Imap;
 typedef struct Label	Label;
 typedef struct Lock	Lock;
 typedef struct Mach	Mach;
-typedef struct Notsave	Notsave;
 typedef struct PCArch	PCArch;
 typedef struct PMMU	PMMU;
 typedef struct Page	Page;
@@ -14,6 +15,7 @@ typedef struct Proc	Proc;
 typedef struct Sys	Sys;
 typedef struct Ureg	Ureg;
 typedef struct Vctl	Vctl;
+typedef long		Tval;
 
 #pragma incomplete Ureg
 #pragma incomplete Imap
@@ -46,19 +48,6 @@ struct Label
 };
 
 /*
- * Proc.fpstate
- */
-enum
-{
-	/* Floating point states */
-	FPinit = 0,
-	FPactive = 1,
-	FPinactive = 2,
-	/* Bit that's or-ed in during note handling (FP is illegal in note handlers) */
-	FPillegal = 0x100,
-};
-
-/*
  * This structure must agree with fpsave and fprestore asm routines
  */
 struct FPsave
@@ -73,15 +62,36 @@ struct FPsave
 	};
 };
 
+struct PFPU
+{
+	int	fpstate;
+	FPsave	fpsave[1];
+};
+
+enum
+{
+	/* Floating point states */
+	FPinit = 0,
+	FPactive = 1,
+	FPinactive = 2,
+	/* Bit that's or-ed in during note handling (FP is illegal in note handlers) */
+	FPillegal = 0x100,
+};
+
+struct Confmem
+{
+	ulong	base;
+	ulong	npage;
+	ulong	kbase;
+	ulong	klimit;
+};
+
 struct Conf
 {
 	ulong	nmach;		/* processors */
 	ulong	nproc;		/* processes */
-	ulong	npage0;		/* total physical pages of memory */
-	ulong	npage1;		/* total physical pages of memory */
+	Confmem	mem[2];
 	ulong	npage;		/* total physical pages of memory */
-	ulong	base0;		/* base of bank 0 */
-	ulong	base1;		/* base of bank 1 */
 	ulong	upages;		/* user page pool */
 	ulong	nimage;		/* number of page cache image headers */
 	ulong	nswap;		/* number of swap pages */
@@ -100,14 +110,6 @@ struct PMMU
 {
 	int	mmupid;
 	Ureg	*mmureg;		/* pointer to ureg structure */
-};
-
-/*
- *  things saved in the Proc structure during a notify
- */
-struct Notsave
-{
-	ulong	UNUSED;
 };
 
 #include "../port/portdat.h"

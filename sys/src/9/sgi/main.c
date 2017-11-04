@@ -396,7 +396,7 @@ void
 procsetup(Proc *p)
 {
 	p->fpstate = FPinit;
-	p->fpsave = initfp;
+	memmove(p->fpsave, &initfp, sizeof(FPsave));
 
 	cycles(&p->kentry);
 	p->pcycles = -p->kentry;
@@ -413,11 +413,11 @@ procfork(Proc *p)
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
 	case FPactive:
-		savefpregs(&up->fpsave);
+		savefpregs(up->fpsave);
 		up->fpstate = FPinactive;
 		/* wet floor */
 	case FPinactive:
-		p->fpsave = up->fpsave;
+		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
 		p->fpstate = FPinactive;
 	}
 	splx(s);
@@ -430,7 +430,7 @@ procsave(Proc *p)
 
 	if(p->fpstate == FPactive){
 		if(p->state != Moribund) {
-			savefpregs(&p->fpsave);
+			savefpregs(p->fpsave);
 			p->fpstate = FPinactive;
 		}
 	}

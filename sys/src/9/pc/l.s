@@ -622,13 +622,13 @@ TEXT fpclear(SB), $0				/* clear pending exceptions */
 	FPOFF
 	RET
 
-TEXT fpssesave0(SB), $0				/* save state and disable */
+TEXT fpssesave(SB), $0				/* save state and disable */
 	MOVL	p+0(FP), AX
 	FXSAVE	0(AX)				/* no WAIT */
 	FPOFF
 	RET
 
-TEXT fpsserestore0(SB), $0			/* enable and restore state */
+TEXT fpsserestore(SB), $0			/* enable and restore state */
 	FPON
 	MOVL	p+0(FP), AX
 	FXRSTOR	0(AX)

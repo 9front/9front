@@ -24,6 +24,7 @@ enum {
 typedef struct Conf	Conf;
 typedef struct Confmem	Confmem;
 typedef struct FPsave	FPsave;
+typedef struct PFPU	PFPU;
 typedef struct ISAConf	ISAConf;
 typedef struct Isolated Isolated;
 typedef struct Label	Label;
@@ -33,7 +34,6 @@ typedef struct Memcache	Memcache;
 typedef struct MMMU	MMMU;
 typedef struct Mach	Mach;
 typedef u32int Mreg;				/* Msr - bloody UART */
-typedef struct Notsave	Notsave;
 typedef struct Page	Page;
 typedef struct Pcisiz Pcisiz;
 typedef struct Pcidev Pcidev;
@@ -72,14 +72,14 @@ struct Label
 	uintptr	pc;
 };
 
+/*
+ * emulated or vfp3 floating point
+ */
 enum {
 	Maxfpregs	= 32,	/* could be 16 or 32, see Mach.fpnregs */
 	Nfpctlregs	= 16,
 };
 
-/*
- * emulated or vfp3 floating point
- */
 struct FPsave
 {
 	ulong	status;
@@ -94,9 +94,12 @@ struct FPsave
 	uintptr	pc;		/* of failed fp instr. */
 };
 
-/*
- * FPsave.fpstate
- */
+struct PFPU
+{
+	int	fpstate;
+	FPsave	fpsave[1];
+};
+
 enum
 {
 	FPinit,
@@ -133,13 +136,6 @@ struct Conf
 	ulong	hz;		/* processor cycle freq */
 	ulong	mhz;
 	int	monitor;	/* flag */
-};
-
-/*
- *  things saved in the Proc structure during a notify
- */
-struct Notsave {
-	int	emptiness;
 };
 
 /*

@@ -3,14 +3,14 @@ typedef struct BIOS32ci	BIOS32ci;
 typedef struct Conf	Conf;
 typedef struct Confmem	Confmem;
 typedef union FPsave	FPsave;
+typedef struct FPx87state FPx87state;
 typedef struct FPssestate FPssestate;
-typedef struct FPstate	FPstate;
+typedef struct PFPU	PFPU;
 typedef struct ISAConf	ISAConf;
 typedef struct Label	Label;
 typedef struct Lock	Lock;
 typedef struct MMU	MMU;
 typedef struct Mach	Mach;
-typedef struct Notsave	Notsave;
 typedef struct PCArch	PCArch;
 typedef struct Pcidev	Pcidev;
 typedef struct PCMmap	PCMmap;
@@ -51,22 +51,7 @@ struct Label
 	ulong	pc;
 };
 
-
-/*
- * FPsave.status
- */
-enum
-{
-	/* this is a state */
-	FPinit=		0,
-	FPactive=	1,
-	FPinactive=	2,
-
-	/* the following is a bit that can be or'd into the state */
-	FPillegal=	0x100,
-};
-
-struct	FPstate
+struct	FPx87state		/* x87 fp state */
 {
 	ushort	control;
 	ushort	r1;
@@ -98,16 +83,28 @@ struct	FPssestate		/* SSE fp state */
 	ulong	mxcsr;		/* MXCSR register state */
 	ulong	mxcsr_mask;	/* MXCSR mask register */
 	uchar	xregs[480];	/* extended registers */
-	uchar	alignpad[FPalign];
 };
 
-/*
- * the FP regs must be stored here, not somewhere pointed to from here.
- * port code assumes this.
- */
 union FPsave {
-	FPstate;
+	FPx87state;
 	FPssestate;
+};
+
+struct PFPU
+{
+	int	fpstate;
+	FPsave	*fpsave;
+};
+
+enum
+{
+	/* this is a state */
+	FPinit=		0,
+	FPactive=	1,
+	FPinactive=	2,
+
+	/* the following is a bit that can be or'd into the state */
+	FPillegal=	0x100,
 };
 
 struct Confmem
@@ -162,16 +159,6 @@ struct PMMU
 	
 	u32int	dr[8];			/* debug registers */
 	void	*vmx;
-};
-
-/*
- *  things saved in the Proc structure during a notify
- */
-struct Notsave
-{
-	ulong	svflags;
-	ulong	svcs;
-	ulong	svss;
 };
 
 #include "../port/portdat.h"

@@ -29,7 +29,7 @@ fptrap(Ureg *ur)
 {
 	ulong iw, npc;
 
-	if((up->fpsave.fpstatus&(1<<17)) == 0)
+	if((up->fpsave->fpstatus&(1<<17)) == 0)
 		return;
 
 	if(ur->cause & (1<<31))
@@ -41,7 +41,7 @@ fptrap(Ureg *ur)
 		return;
 
 	if(ur->cause & (1<<31)){
-		npc = branch(ur, up->fpsave.fpstatus);
+		npc = branch(ur, up->fpsave->fpstatus);
 		if(npc == 0)
 			return;
 		ur->pc = npc;
@@ -49,7 +49,7 @@ fptrap(Ureg *ur)
 	else
 		ur->pc += 4;
 
-	up->fpsave.fpstatus &= ~(1<<17);
+	up->fpsave->fpstatus &= ~(1<<17);
 }
 
 static void
@@ -107,8 +107,8 @@ fpunimp(ulong iw)
 	ft = (iw>>16) & ((1<<5)-1);
 	fs = (iw>>11) & ((1<<5)-1);
 	fd = (iw>>6) & ((1<<5)-1);
-	unpack(&up->fpsave, fmt, fs, &ss, &es);
-	unpack(&up->fpsave, fmt, ft, &st, &et);
+	unpack(up->fpsave, fmt, fs, &ss, &es);
+	unpack(up->fpsave, fmt, ft, &st, &et);
 	ed = 0;
 	maxe = 0;
 	maxm = 0;
@@ -124,11 +124,11 @@ fpunimp(ulong iw)
 	}
 	switch(op){
 	case ABS:
-		up->fpsave.reg[fd] &= ~0x80000000;
+		up->fpsave->reg[fd] &= ~0x80000000;
 		return 1;
 
 	case NEG:
-		up->fpsave.reg[fd] ^= 0x80000000;
+		up->fpsave->reg[fd] ^= 0x80000000;
 		return 1;
 
 	case SUB:
@@ -164,9 +164,9 @@ fpunimp(ulong iw)
 		return 0;
 	}
 	if(ed <= -(maxe-5)){	/* guess: underflow */
-		zeroreg(&up->fpsave, fmt, fd, sd);
+		zeroreg(up->fpsave, fmt, fd, sd);
 		/* Set underflow exception and sticky */
-		up->fpsave.fpstatus |= (1<<3)|(1<<13);
+		up->fpsave->fpstatus |= (1<<3)|(1<<13);
 		return 1;
 	}
 	return 0;

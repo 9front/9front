@@ -243,7 +243,7 @@ trap(Ureg *ureg)
 			up->fpstate = FPactive;
 			break;
 		case FPinactive:
-			fprestore(&up->fpsave);
+			fprestore(up->fpsave);
 			up->fpstate = FPactive;
 			break;
 		case FPactive:
@@ -711,7 +711,7 @@ notify(Ureg* ur)
 		return 0;
 
 	if(up->fpstate == FPactive){
-		fpsave(&up->fpsave);
+		fpsave(up->fpsave);
 		up->fpstate = FPinactive;
 	}
 	up->fpstate |= FPillegal;

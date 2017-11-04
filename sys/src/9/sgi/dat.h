@@ -1,6 +1,7 @@
 typedef struct Conf	Conf;
 typedef struct Confmem	Confmem;
 typedef struct FPsave	FPsave;
+typedef struct PFPU	PFPU;
 typedef struct KMap	KMap;
 typedef struct Lance	Lance;
 typedef struct Lancemem	Lancemem;
@@ -8,7 +9,6 @@ typedef struct Label	Label;
 typedef struct Lock	Lock;
 typedef struct Mach	Mach;
 typedef struct MMU	MMU;
-typedef struct Notsave	Notsave;
 typedef struct PMMU	PMMU;
 typedef struct Softtlb	Softtlb;
 typedef struct Ureg	Ureg;
@@ -73,18 +73,6 @@ struct Conf
 /*
  * floating point registers
  */
-enum
-{
-	/* floating point state */
-	FPinit,
-	FPactive,
-	FPinactive,
-	FPemu,
-
-	/* bit meaning floating point illegal */
-	FPillegal= 0x100,
-};
-
 enum {
 	Nfpregs		= 32,		/* floats; half as many doubles */
 };
@@ -111,20 +99,30 @@ struct FPsave
 	int	fpcnt;			/* how many consecutive at that addr */
 };
 
+struct PFPU
+{
+	int	fpstate;
+	FPsave	fpsave[1];
+};
+
+enum
+{
+	/* floating point state */
+	FPinit,
+	FPactive,
+	FPinactive,
+	FPemu,
+
+	/* bit meaning floating point illegal */
+	FPillegal= 0x100,
+};
+
 /*
  *  mmu goo in the Proc structure
  */
 struct PMMU
 {
 	int	pidonmach[MAXMACH];
-};
-
-/*
- *  things saved in the Proc structure during a notify
- */
-struct Notsave
-{
-	ulong	nonempty;
 };
 
 #include "../port/portdat.h"

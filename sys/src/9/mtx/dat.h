@@ -1,11 +1,11 @@
 typedef struct Conf	Conf;
 typedef struct Confmem	Confmem;
 typedef struct FPsave	FPsave;
+typedef struct PFPU	PFPU;
 typedef struct ISAConf	ISAConf;
 typedef struct Label	Label;
 typedef struct Lock	Lock;
 typedef struct Mach	Mach;
-typedef struct Notsave	Notsave;
 typedef struct Page	Page;
 typedef struct PCArch	PCArch;
 typedef struct Pcidev	Pcidev;
@@ -46,16 +46,6 @@ struct Label
 };
 
 /*
- * Proc.fpstate
- */
-enum
-{
-	FPinit,
-	FPactive,
-	FPinactive,
-};
-
-/*
  * This structure must agree with fpsave and fprestore asm routines
  */
 struct	FPsave
@@ -68,6 +58,19 @@ struct	FPsave
 			ulong	fpscr;
 		};
 	};
+};
+
+struct	PFPU
+{
+	int	fpstate;
+	FPsave	fpsave[1];
+};
+
+enum
+{
+	FPinit,
+	FPactive,
+	FPinactive,
 };
 
 struct Confmem
@@ -101,14 +104,6 @@ struct Conf
 struct PMMU
 {
 	int	mmupid;
-};
-
-/*
- *  things saved in the Proc structure during a notify
- */
-struct Notsave
-{
-	ulong	UNUSED;
 };
 
 #include "../port/portdat.h"

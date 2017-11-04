@@ -676,6 +676,8 @@ struct Proc
 	Fgrp	*closingfgrp;	/* used during teardown */
 
 	ulong	parentpid;
+
+	int	insyscall;
 	ulong	time[6];	/* User, Sys, Real; child U, S, R */
 
 	uvlong	kentry;		/* Kernel entry time stamp (for profiling) */
@@ -688,9 +690,6 @@ struct Proc
 	 * (procrestores and procsaves balance), it is pcycles.
 	 */
 	vlong	pcycles;
-
-	int	insyscall;
-	int	fpstate;
 
 	QLock	debug;		/* to access debugging elements of User */
 	Proc	*pdbg;		/* the debugging process */
@@ -720,9 +719,8 @@ struct Proc
 	void	(*kpfun)(void*);
 	void	*kparg;
 
-	FPsave	fpsave;		/* address of this is known by db */
-	int	scallnr;	/* sys call number - known by db */
-	Sargs	s;		/* address of this is known by db */
+	int	scallnr;	/* sys call number */
+	Sargs	s;		/* syscall arguments */
 	int	nerrlab;
 	Label	errlab[NERR];
 	char	*syserrstr;	/* last error from a system call, errbuf0 or 1 */
@@ -766,17 +764,14 @@ struct Proc
 
 	void	*ureg;		/* User registers for notes */
 	void	*dbgreg;	/* User registers for devproc */
-	Notsave;
 
-	/*
-	 *  machine specific MMU
-	 */
-	PMMU;
+	PFPU;			/* machine specific fpu state */
+	PMMU;			/* machine specific mmu state */
 
 	char	*syscalltrace;	/* syscall trace */
 	
-	Watchpt	*watchpt; /* watchpoints */
-	int nwatchpt;
+	Watchpt	*watchpt;	/* watchpoints */
+	int	nwatchpt;
 };
 
 enum
