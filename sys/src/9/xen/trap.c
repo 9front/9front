@@ -674,7 +674,7 @@ syscall(Ureg* ureg)
 	scallnr = ureg->ax;
 	up->scallnr = scallnr;
 	if(scallnr == RFORK && up->fpstate == FPactive){
-		fpsave(&up->fpsave);
+		fpsave(up->fpsave);
 		up->fpstate = FPinactive;
 	}
 	spllo();
@@ -764,7 +764,7 @@ notify(Ureg* ureg)
 		return 0;
 
 	if(up->fpstate == FPactive){
-		fpsave(&up->fpsave);
+		fpsave(up->fpsave);
 		up->fpstate = FPinactive;
 	}
 	up->fpstate |= FPillegal;

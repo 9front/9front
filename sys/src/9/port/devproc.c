@@ -1012,7 +1012,9 @@ procread(Chan *c, void *va, long n, vlong off)
 		goto regread;
 
 	case Qfpregs:
-		rptr = (uchar*)&p->fpsave;
+		if(p->fpstate != FPinactive)
+			error(Enoreg);
+		rptr = (uchar*)p->fpsave;
 		rsize = sizeof(FPsave);
 	regread:
 		if(rptr == nil)
@@ -1232,7 +1234,9 @@ procwrite(Chan *c, void *va, long n, vlong off)
 			n = 0;
 		else if(offset+n > sizeof(FPsave))
 			n = sizeof(FPsave) - offset;
-		memmove((uchar*)&p->fpsave+offset, va, n);
+		if(p->fpstate != FPinactive || p->fpsave == nil)
+			error(Enoreg);
+		memmove((uchar*)p->fpsave+offset, va, n);
 		break;
 
 	case Qctl:

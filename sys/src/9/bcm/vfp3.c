@@ -222,7 +222,7 @@ void
 fpunotify(Ureg*)
 {
 	if(up->fpstate == FPactive){
-		fpsave(&up->fpsave);
+		fpsave(up->fpsave);
 		up->fpstate = FPinactive;
 	}
 	up->fpstate |= FPillegal;
@@ -259,11 +259,11 @@ fprestore(Proc *p)
 	int n;
 
 	fpon();
-	fpwr(Fpscr, p->fpsave.control);
+	fpwr(Fpscr, p->fpsave->control);
 	m->fpscr = fprd(Fpscr) & ~Allcc;
 	assert(m->fpnregs);
 	for (n = 0; n < m->fpnregs; n++)
-		fprestreg(n, *(uvlong *)p->fpsave.regs[n]);
+		fprestreg(n, *(uvlong *)p->fpsave->regs[n]);
 }
 
 /*
@@ -288,7 +288,7 @@ fpuprocsave(Proc *p)
 			 * until the process runs again and generates an
 			 * emulation fault to activate the FPU.
 			 */
-			fpsave(&p->fpsave);
+			fpsave(p->fpsave);
 		}
 		p->fpstate = FPinactive;
 	}
@@ -317,11 +317,11 @@ fpuprocfork(Proc *p)
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
 	case FPactive:
-		fpsave(&up->fpsave);
+		fpsave(up->fpsave);
 		up->fpstate = FPinactive;
 		/* no break */
 	case FPinactive:
-		p->fpsave = up->fpsave;
+		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
 		p->fpstate = FPinactive;
 	}
 	splx(s);
@@ -345,7 +345,7 @@ mathnote(void)
 	ulong status;
 	char *msg, note[ERRMAX];
 
-	status = up->fpsave.status;
+	status = up->fpsave->status;
 
 	/*
 	 * Some attention should probably be paid here to the
@@ -364,7 +364,7 @@ mathnote(void)
 	else
 		msg = "spurious";
 	snprint(note, sizeof note, "sys: fp: %s fppc=%#p status=%#lux",
-		msg, up->fpsave.pc, status);
+		msg, up->fpsave->pc, status);
 	postnote(up, 1, note, NDebug);
 }
 
@@ -388,7 +388,7 @@ mathemu(Ureg *)
 		 * More attention should probably be paid here to the
 		 * exception masks and error summary.
 		 */
-		if(up->fpsave.status & (FPAINEX|FPAUNFL|FPAOVFL|FPAZDIV|FPAINVAL)){
+		if(up->fpsave->status & (FPAINEX|FPAUNFL|FPAOVFL|FPAZDIV|FPAINVAL)){
 			mathnote();
 			break;
 		}

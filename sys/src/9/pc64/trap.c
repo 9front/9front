@@ -823,7 +823,7 @@ notify(Ureg* ureg)
 		return 0;
 
 	if(up->fpstate == FPactive){
-		fpsave(&up->fpsave);
+		fpsave(up->fpsave);
 		up->fpstate = FPinactive;
 	}
 	up->fpstate |= FPillegal;

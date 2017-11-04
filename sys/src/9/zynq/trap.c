@@ -134,7 +134,7 @@ mathtrap(Ureg *, ulong)
 		break;
 	case FPinactive:
 		s = splhi();
-		fprestore(&up->fpsave);
+		fprestore(up->fpsave);
 		up->fpstate = FPactive;
 		splx(s);
 		break;
@@ -304,7 +304,7 @@ notify(Ureg *ureg)
 		return 0;
 
 	if(up->fpstate == FPactive){
-		fpsave(&up->fpsave);
+		fpsave(up->fpsave);
 		up->fpstate = FPinactive;
 	}
 	up->fpstate |= FPillegal;
@@ -517,7 +517,7 @@ procsave(Proc *p)
 		if(p->state == Moribund)
 			fpclear();
 		else
-			fpsave(&p->fpsave);
+			fpsave(p->fpsave);
 		p->fpstate = FPinactive;
 	}
 	cycles(&t);

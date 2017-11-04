@@ -392,15 +392,13 @@ reboot(void *entry, void *code, ulong size)
  * SIMD Floating Point.
  * Assembler support to get at the individual instructions
  * is in l.s.
- * There are opportunities to be lazier about saving and
- * restoring the state and allocating the storage needed.
  */
 extern void _clts(void);
 extern void _fldcw(u16int);
 extern void _fnclex(void);
 extern void _fninit(void);
-extern void _fxrstor(Fxsave*);
-extern void _fxsave(Fxsave*);
+extern void _fxrstor(void*);
+extern void _fxsave(void*);
 extern void _fwait(void);
 extern void _ldmxcsr(u32int);
 extern void _stts(void);
@@ -418,24 +416,16 @@ fpx87restore(FPsave*)
 }
 
 void
-fpssesave(FPsave *fps)
+fpssesave(FPsave *s)
 {
-	Fxsave *fx = (Fxsave*)ROUND(((uintptr)fps), FPalign);
-
-	_fxsave(fx);
+	_fxsave(s);
 	_stts();
-	if(fx != (Fxsave*)fps)
-		memmove((Fxsave*)fps, fx, sizeof(Fxsave));
 }
 void
-fpsserestore(FPsave *fps)
+fpsserestore(FPsave *s)
 {
-	Fxsave *fx = (Fxsave*)ROUND(((uintptr)fps), FPalign);
-
-	if(fx != (Fxsave*)fps)
-		memmove(fx, (Fxsave*)fps, sizeof(Fxsave));
 	_clts();
-	_fxrstor(fx);
+	_fxrstor(s);
 }
 
 static char* mathmsg[] =
@@ -488,9 +478,9 @@ matherror(Ureg*, void*)
 	/*
 	 * Save FPU state to check out the error.
 	 */
-	fpsave(&up->fpsave);
+	fpsave(up->fpsave);
 	up->fpstate = FPinactive;
-	mathnote(up->fpsave.fsw, up->fpsave.rip);
+	mathnote(up->fpsave->fsw, up->fpsave->rip);
 }
 
 /*
@@ -499,9 +489,9 @@ matherror(Ureg*, void*)
 static void
 simderror(Ureg *ureg, void*)
 {
-	fpsave(&up->fpsave);
+	fpsave(up->fpsave);
 	up->fpstate = FPinactive;
-	mathnote(up->fpsave.mxcsr & 0x3f, ureg->pc);
+	mathnote(up->fpsave->mxcsr & 0x3f, ureg->pc);
 }
 
 void
@@ -538,6 +528,8 @@ mathemu(Ureg *ureg, void*)
 	switch(up->fpstate){
 	case FPinit:
 		fpinit();
+		while(up->fpsave == nil)
+			up->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
 		up->fpstate = FPactive;
 		break;
 	case FPinactive:
@@ -548,13 +540,13 @@ mathemu(Ureg *ureg, void*)
 		 * More attention should probably be paid here to the
 		 * exception masks and error summary.
 		 */
-		status = up->fpsave.fsw;
-		control = up->fpsave.fcw;
+		status = up->fpsave->fsw;
+		control = up->fpsave->fcw;
 		if((status & ~control) & 0x07F){
-			mathnote(status, up->fpsave.rip);
+			mathnote(status, up->fpsave->rip);
 			break;
 		}
-		fprestore(&up->fpsave);
+		fprestore(up->fpsave);
 		up->fpstate = FPactive;
 		break;
 	case FPactive:
@@ -605,10 +597,12 @@ procfork(Proc *p)
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
 	case FPactive:
-		fpsave(&up->fpsave);
+		fpsave(up->fpsave);
 		up->fpstate = FPinactive;
 	case FPinactive:
-		p->fpsave = up->fpsave;
+		while(p->fpsave == nil)
+			p->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
+		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
 		p->fpstate = FPinactive;
 	}
 	splx(s);
@@ -665,7 +659,7 @@ procsave(Proc *p)
 			 * until the process runs again and generates an
 			 * emulation fault to activate the FPU.
 			 */
-			fpsave(&p->fpsave);
+			fpsave(p->fpsave);
 		}
 		p->fpstate = FPinactive;
 	}

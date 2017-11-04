@@ -650,7 +650,7 @@ fpiarm(Ureg *ur)
 
 	if(up == nil)
 		panic("fpiarm not in a process");
-	ufp = &up->fpsave;
+	ufp = up->fpsave;
 	/*
 	 * because all the emulated fp state is in the proc structure,
 	 * it need not be saved/restored

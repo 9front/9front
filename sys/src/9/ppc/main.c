@@ -292,7 +292,7 @@ procsave(Proc *p)
 	p->kentry -= t;
 	if(p->fpstate == FPactive){
 		if(p->state != Moribund)
-			fpsave(&up->fpsave);
+			fpsave(up->fpsave);
 		p->fpstate = FPinactive;
 	}
 }

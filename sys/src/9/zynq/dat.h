@@ -1,13 +1,13 @@
 typedef struct Conf	Conf;
 typedef struct Confmem	Confmem;
 typedef struct FPsave	FPsave;
+typedef struct PFPU	PFPU;
 typedef struct L1	L1;
 typedef struct Label	Label;
 typedef struct Lock	Lock;
 typedef struct KMap	KMap;
 typedef struct MMMU	MMMU;
 typedef struct Mach	Mach;
-typedef struct Notsave	Notsave;
 typedef struct Page	Page;
 typedef struct Proc	Proc;
 typedef struct PMMU	PMMU;
@@ -43,9 +43,12 @@ struct FPsave
 	uchar	regs[256];
 };
 
-/*
- * FPsave.status
- */
+struct PFPU
+{
+	int	fpstate;
+	FPsave	fpsave[1];
+};
+
 enum
 {
 	FPinit,
@@ -77,13 +80,6 @@ struct Conf
 	ulong	nswap;		/* number of swap pages */
 	int	nswppo;		/* max # of pageouts per segment pass */
 	int	monitor;
-};
-
-/*
- *  things saved in the Proc structure during a notify
- */
-struct Notsave {
-	int	emptiness;
 };
 
 /*

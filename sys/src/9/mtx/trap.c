@@ -246,7 +246,7 @@ trap(Ureg *ureg)
 			up->fpstate = FPactive;
 			break;
 		case FPinactive:
-			fprestore(&up->fpsave);
+			fprestore(up->fpsave);
 			up->fpstate = FPactive;
 			break;
 		default:

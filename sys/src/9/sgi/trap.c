@@ -212,7 +212,7 @@ trap(Ureg *ur)
 		if(!user)
 			goto Default;
 		if(up->fpstate == FPactive){
-			savefpregs(&up->fpsave);
+			savefpregs(up->fpsave);
 			up->fpstate = FPinactive;
 		}
 		clrfpintr();
@@ -257,7 +257,7 @@ trap(Ureg *ur)
 				break;
 			}
 			if(up->fpstate == FPinit || up->fpstate == FPinactive){
-				restfpregs(&up->fpsave, up->fpsave.fpstatus&~FPEXPMASK);
+				restfpregs(up->fpsave, up->fpsave->fpstatus&~FPEXPMASK);
 				up->fpstate = FPactive;
 				ur->status |= CU1;
 				break;
@@ -289,7 +289,7 @@ trap(Ureg *ur)
 	}
 
 	if(fpchk) {
-		fpfcr31 = up->fpsave.fpstatus;
+		fpfcr31 = up->fpsave->fpstatus;
 		if((fpfcr31>>12) & ((fpfcr31>>7)|0x20) & 0x3f) {
 			spllo();
 			fpexcep	= fpexcname(ur, fpfcr31, buf1, sizeof buf1);
@@ -501,7 +501,7 @@ notify(Ureg *ur)
 		return 0;
 
 	if(up->fpstate == FPactive){
-		savefpregs(&up->fpsave);
+		savefpregs(up->fpsave);
 		up->fpstate = FPinactive;
 	}
 	up->fpstate |= FPillegal;

@@ -311,12 +311,8 @@ confinit(void)
 }
 
 /*
- * we keep FPsave structure in sse format emulating FXSAVE / FXRSTOR
+ * we keep FPsave structure in SSE format emulating FXSAVE / FXRSTOR
  * instructions for legacy x87 fpu.
- *
- * Note that fpx87restore() and fpxsserestore() do modify the FPsave
- * data structure for conversion / realignment shuffeling. this means
- * that p->fpsave is only valid when p->fpstate == FPinactive.
  */
 void
 fpx87save(FPsave *fps)
@@ -441,32 +437,6 @@ fpx87restore(FPsave *fps)
 	fpx87restore0(fps);
 }
 
-/*
- * sse fp save and restore buffers have to be 16-byte (FPalign) aligned,
- * so we shuffle the data up and down as needed or make copies.
- */
-void
-fpssesave(FPsave *fps)
-{
-	FPsave *afps;
-
-	afps = (FPsave *)ROUND(((uintptr)fps), FPalign);
-	fpssesave0(afps);
-	if(fps != afps)  /* not aligned? shuffle down from aligned buffer */
-		memmove(fps, afps, sizeof(FPssestate) - FPalign);
-}
-
-void
-fpsserestore(FPsave *fps)
-{
-	FPsave *afps;
-
-	afps = (FPsave *)ROUND(((uintptr)fps), FPalign);
-	if(fps != afps)  /* shuffle up to make aligned */
-		memmove(afps, fps, sizeof(FPssestate) - FPalign);
-	fpsserestore0(afps);
-}
-
 static char* mathmsg[] =
 {
 	nil,	/* handled below */
@@ -524,9 +494,9 @@ matherror(Ureg*, void*)
 	/*
 	 *  get floating point state to check out error
 	 */
-	fpsave(&up->fpsave);
+	fpsave(up->fpsave);
 	up->fpstate = FPinactive;
-	mathnote(up->fpsave.fsw, up->fpsave.fpuip);
+	mathnote(up->fpsave->fsw, up->fpsave->fpuip);
 }
 
 /*
@@ -535,9 +505,9 @@ matherror(Ureg*, void*)
 static void
 simderror(Ureg *ureg, void*)
 {
-	fpsave(&up->fpsave);
+	fpsave(up->fpsave);
 	up->fpstate = FPinactive;
-	mathnote(up->fpsave.mxcsr & 0x3f, ureg->pc);
+	mathnote(up->fpsave->mxcsr & 0x3f, ureg->pc);
 }
 
 /*
@@ -558,6 +528,8 @@ mathemu(Ureg *ureg, void*)
 		fpinit();
 		if(fpsave == fpssesave)
 			ldmxcsr(0);	/* no simd exceptions on 386 */
+		while(up->fpsave == nil)
+			up->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
 		up->fpstate = FPactive;
 		break;
 	case FPinactive:
@@ -568,13 +540,13 @@ mathemu(Ureg *ureg, void*)
 		 * More attention should probably be paid here to the
 		 * exception masks and error summary.
 		 */
-		status = up->fpsave.fsw;
-		control = up->fpsave.fcw;
+		status = up->fpsave->fsw;
+		control = up->fpsave->fcw;
 		if((status & ~control) & 0x07F){
-			mathnote(status, up->fpsave.fpuip);
+			mathnote(status, up->fpsave->fpuip);
 			break;
 		}
-		fprestore(&up->fpsave);
+		fprestore(up->fpsave);
 		up->fpstate = FPactive;
 		break;
 	case FPactive:
@@ -645,10 +617,12 @@ procfork(Proc *p)
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
 	case FPactive:
-		fpsave(&up->fpsave);
+		fpsave(up->fpsave);
 		up->fpstate = FPinactive;
 	case FPinactive:
-		p->fpsave = up->fpsave;
+		while(p->fpsave == nil)
+			p->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
+		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
 		p->fpstate = FPinactive;
 	}
 	
@@ -708,7 +682,7 @@ procsave(Proc *p)
 			 * until the process runs again and generates an
 			 * emulation fault to activate the FPU.
 			 */
-			fpsave(&p->fpsave);
+			fpsave(p->fpsave);
 		}
 		p->fpstate = FPinactive;
 	}

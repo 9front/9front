@@ -450,7 +450,7 @@ mathnote(void)
 	ulong status;
 	char *msg, note[ERRMAX];
 
-	status = up->fpsave.status;
+	status = up->fpsave->status;
 
 	/*
 	 * Some attention should probably be paid here to the
@@ -473,7 +473,7 @@ mathnote(void)
 			msg = "invalid operation";
 	}
  	snprint(note, sizeof note, "sys: fp: %s fppc=0x%lux status=0x%lux",
- 		msg, up->fpsave.pc, status);
+ 		msg, up->fpsave->pc, status);
 	postnote(up, 1, note, NDebug);
 }
 
@@ -493,12 +493,12 @@ matherror(Ureg *ur, void*)
 	/*
 	 *  save floating point state to check out error
 	 */
-	fpenv(&up->fpsave);
+	fpenv(up->fpsave);
 	mathnote();
 
 	if(ur->pc & KZERO)
 		panic("fp: status %ux fppc=0x%lux pc=0x%lux",
-			up->fpsave.status, up->fpsave.pc, ur->pc);
+			up->fpsave->status, up->fpsave->pc, ur->pc);
 }
 
 /*
@@ -515,6 +515,8 @@ mathemu(Ureg *ureg, void*)
 	switch(up->fpstate){
 	case FPinit:
 		fpinit();
+		while(up->fpsave == nil)
+			up->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
 		up->fpstate = FPactive;
 		break;
 	case FPinactive:
@@ -525,11 +527,11 @@ mathemu(Ureg *ureg, void*)
 		 * More attention should probably be paid here to the
 		 * exception masks and error summary.
 		 */
-		if((up->fpsave.status & ~up->fpsave.control) & 0x07F){
+		if((up->fpsave->status & ~up->fpsave->control) & 0x07F){
 			mathnote();
 			break;
 		}
-		fprestore(&up->fpsave);
+		fprestore(up->fpsave);
 		up->fpstate = FPactive;
 		break;
 	case FPactive:
@@ -580,10 +582,12 @@ procfork(Proc *p)
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
 	case FPactive:
-		fpsave(&up->fpsave);
+		fpsave(up->fpsave);
 		up->fpstate = FPinactive;
 	case FPinactive:
-		p->fpsave = up->fpsave;
+		while(p->fpsave == nil)
+			p->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
+		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
 		p->fpstate = FPinactive;
 	}
 	splx(s);
@@ -622,7 +626,7 @@ procsave(Proc *p)
 			 * until the process runs again and generates an
 			 * emulation fault to activate the FPU.
 			 */
-			fpsave(&p->fpsave);
+			fpsave(p->fpsave);
 		}
 		p->fpstate = FPinactive;
 	}
