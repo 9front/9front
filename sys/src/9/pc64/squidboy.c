@@ -8,6 +8,8 @@
 
 #include "mp.h"
 
+extern void _stts(void);
+
 static void
 squidboy(Apic* apic)
 {
@@ -21,6 +23,7 @@ squidboy(Apic* apic)
 	lapicinit(apic);
 	lapiconline();
 	timersinit();
+	_stts();
 	schedinit();
 }
 
