@@ -7,7 +7,6 @@ aesCFBencrypt, \
 aesCFBdecrypt, \
 aesOFBencrypt, \
 aes_xts_encrypt, aes_xts_decrypt, \
-setupAESXCBCstate, aesXCBCmac, \
 setupAESGCMstate, \
 aesgcm_setiv, aesgcm_encrypt, aesgcm_decrypt \
 - advanced encryption standard (rijndael)
@@ -22,14 +21,15 @@ aesgcm_setiv, aesgcm_encrypt, aesgcm_decrypt \
 .PP
 .in +0.5i
 .ti -0.5i
-.B
-void	aes_encrypt(ulong rk[], int Nr, uchar pt[16], uchar ct[16]);
 .PP
 .B
-void	aes_decrypt(ulong rk[], int Nr, uchar ct[16], uchar pt[16]);
+void	aes_encrypt(ulong rk[], int Nr, uchar pt[16], uchar ct[16])
 .PP
 .B
-void	setupAESstate(AESstate *s, uchar key[], int keybytes, uchar *ivec)
+void	aes_decrypt(ulong rk[], int Nr, uchar ct[16], uchar pt[16])
+.PP
+.B
+void	setupAESstate(AESstate *s, uchar key[], int nkey, uchar *ivec)
 .PP
 .B
 void	aesCBCencrypt(uchar *p, int len, AESstate *s)
@@ -53,12 +53,6 @@ void	aes_xts_encrypt(AESstate *tweak, AESstate *ecb, uvlong sectorNumber, uchar 
 void	aes_xts_decrypt(AESstate *tweak, AESstate *ecb, uvlong sectorNumber, uchar *input, uchar *output, ulong len)
 .PP
 .B
-void	setupAESXCBCstate(AESstate *s)
-.PP
-.B
-void	aesXCBCmac(uchar *p, int len, AESstate *s)
-.PP
-.B
 void	setupAESGCMstate(AESGCMstate *s, uchar *key, int keylen, uchar *iv, int ivlen)
 .PP
 .B
@@ -78,7 +72,7 @@ and
 are the block ciphers, corresponding to
 .IR des (2)'s
 .IR block_cipher .
-.IR AesCBCencrypt ,
+.I AesCBCencrypt
 and
 .I aesCBCdecrypt
 implement cipher-block-chaining encryption.
@@ -94,10 +88,20 @@ and
 implement the XTS-AES tweakable block cipher, per IEEE 1619-2017 (see bugs below).
 .IR SetupAESstate
 is used to initialize the state of the above encryption modes.
-.I SetupAESXCBCstate
+The expanded roundkey parameters
+.I rk
 and
-.I aesXCBCmac
-implement AES XCBC message authentication, per RFC 3566.
+.I Nr
+of
+.I aes_encrypt
+and
+.I aes_decrypt
+are returned in
+.I AESstate.ekey
+and
+.I AESstate.dkey
+with the corresponding number of rounds in
+.IR AESstate.rounds .
 .IR SetupAESGCMstate ,
 .IR aesgcm_setiv ,
 .I aesgcm_encrypt
@@ -116,7 +120,8 @@ arguments.
 Aesgcm_decrypt returns zero when authentication and decryption where successfull and
 non-zero otherwise.
 All ciphering is performed in place.
-.I Keybytes
+The byte keysize
+.I nkey
 should be 16, 24, or 32.
 The initialization vector
 .I ivec
@@ -144,14 +149,6 @@ in
 .br
 .B http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf
 .SH BUGS
-The functions
-.IR aes_encrypt ,
-.IR aes_decrypt ,
-.IR setupAESXCBCstate ,
-and
-.IR aesXCBCmac
-have not yet been verified by running test vectors through them.
-.PP
 Because of the way that non-multiple-of-16 buffers are handled,
 .I aesCBCdecrypt
 must be fed buffers of the same size as the

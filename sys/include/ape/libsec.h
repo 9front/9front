@@ -32,26 +32,24 @@ struct AESstate
 	ulong	offset;
 	int	rounds;
 	int	keybytes;
+	void	*ekey;				/* expanded encryption round key */
+	void	*dkey;				/* expanded decryption round key */
 	uchar	key[AESmaxkey];			/* unexpanded key */
-	ulong	ekey[4*(AESmaxrounds + 1)];	/* encryption key */
-	ulong	dkey[4*(AESmaxrounds + 1)];	/* decryption key */
 	uchar	ivec[AESbsize];			/* initialization vector */
-	uchar	mackey[3 * AESbsize];	/* 3 XCBC mac 96 keys */
+	uchar	storage[512];			/* storage for expanded keys */
 };
 
 /* block ciphers */
-void	aes_encrypt(ulong rk[], int Nr, uchar pt[16], uchar ct[16]);
-void	aes_decrypt(ulong rk[], int Nr, uchar ct[16], uchar pt[16]);
+extern void (*aes_encrypt)(ulong rk[], int Nr, uchar pt[16], uchar ct[16]);
+extern void (*aes_decrypt)(ulong rk[], int Nr, uchar ct[16], uchar pt[16]);
 
-void	setupAESstate(AESstate *s, uchar key[], int keybytes, uchar *ivec);
+void	setupAESstate(AESstate *s, uchar key[], int nkey, uchar *ivec);
+
 void	aesCBCencrypt(uchar *p, int len, AESstate *s);
 void	aesCBCdecrypt(uchar *p, int len, AESstate *s);
 void	aesCFBencrypt(uchar *p, int len, AESstate *s);
 void	aesCFBdecrypt(uchar *p, int len, AESstate *s);
 void	aesOFBencrypt(uchar *p, int len, AESstate *s);
-
-void	setupAESXCBCstate(AESstate *s);
-uchar*	aesXCBCmac(uchar *p, int len, AESstate *s);
 
 typedef struct AESGCMstate AESGCMstate;
 struct AESGCMstate

@@ -5,6 +5,7 @@ LIB=/$objtype/lib/libsec.a
 FILES=\
 	md5block\
 	sha1block\
+	aesni\
 
 HFILES=/sys/include/libsec.h
 

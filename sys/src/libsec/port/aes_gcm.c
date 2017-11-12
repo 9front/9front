@@ -150,9 +150,10 @@ setupAESGCMstate(AESGCMstate *s, uchar *key, int keylen, uchar *iv, int ivlen)
 {
 	setupAESstate(s, key, keylen, nil);
 
-	memset(s->mackey, 0, AESbsize);
-	aes_encrypt(s->ekey, s->rounds, s->mackey, s->mackey);
-	load128(s->mackey, s->H);
+	memset(s->ivec, 0, AESbsize);
+	aes_encrypt(s->ekey, s->rounds, s->ivec, s->ivec);
+	load128(s->ivec, s->H);
+	memset(s->ivec, 0, AESbsize);
 	prepareM(s->H, s->M);
 
 	if(iv != nil && ivlen > 0)
