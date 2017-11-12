@@ -41,6 +41,8 @@ void	fpsserestore(FPsave*);
 void	fpssesave(FPsave*);
 void	fpx87restore(FPsave*);
 void	fpx87save(FPsave*);
+int	fpusave(void);
+void	fpurestore(int);
 u64int	getcr0(void);
 u64int	getcr2(void);
 u64int	getcr3(void);

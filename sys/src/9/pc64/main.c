@@ -473,13 +473,13 @@ mathnote(ulong status, uintptr pc)
  *  math coprocessor error
  */
 static void
-matherror(Ureg*, void*)
+matherror(Ureg *, void*)
 {
 	/*
 	 * Save FPU state to check out the error.
 	 */
 	fpsave(up->fpsave);
-	up->fpstate = FPinactive;
+	up->fpstate = FPinactive | (up->fpstate & (FPnouser|FPkernel|FPindexm));
 	mathnote(up->fpsave->fsw, up->fpsave->rip);
 }
 
@@ -490,7 +490,7 @@ static void
 simderror(Ureg *ureg, void*)
 {
 	fpsave(up->fpsave);
-	up->fpstate = FPinactive;
+	up->fpstate = FPinactive | (up->fpstate & (FPnouser|FPkernel|FPindexm));
 	mathnote(up->fpsave->mxcsr & 0x3f, ureg->pc);
 }
 
@@ -519,18 +519,37 @@ static void
 mathemu(Ureg *ureg, void*)
 {
 	ulong status, control;
+	int index;
 
 	if(up->fpstate & FPillegal){
 		/* someone did floating point in a note handler */
 		postnote(up, 1, "sys: floating point in note handler", NDebug);
 		return;
 	}
-	switch(up->fpstate){
+	switch(up->fpstate & ~(FPnouser|FPkernel|FPindexm)){
+	case FPactive	| FPpush:
+		_clts();
+		fpsave(up->fpsave);
+	case FPinactive	| FPpush:
+		up->fpstate += FPindex1;
+	case FPinit	| FPpush:
 	case FPinit:
 		fpinit();
-		while(up->fpsave == nil)
-			up->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
-		up->fpstate = FPactive;
+		index = up->fpstate >> FPindexs;
+		if(index < 0 || index > FPindexm)
+			panic("fpslot index overflow: %d", index);
+		if(userureg(ureg)){
+			if(index != 0)
+				panic("fpslot index %d != 0 for user", index);
+		} else {
+			if(index == 0)
+				up->fpstate |= FPnouser;
+			up->fpstate |= FPkernel;
+		}
+		while(up->fpslot[index] == nil)
+			up->fpslot[index] = mallocalign(sizeof(FPsave), FPalign, 0, 0);
+		up->fpsave = up->fpslot[index];
+		up->fpstate = FPactive | (up->fpstate & (FPnouser|FPkernel|FPindexm));
 		break;
 	case FPinactive:
 		/*
@@ -547,7 +566,7 @@ mathemu(Ureg *ureg, void*)
 			break;
 		}
 		fprestore(up->fpsave);
-		up->fpstate = FPactive;
+		up->fpstate = FPactive | (up->fpstate & (FPnouser|FPkernel|FPindexm));
 		break;
 	case FPactive:
 		panic("math emu pid %ld %s pc %#p", 
@@ -596,17 +615,21 @@ procfork(Proc *p)
 	/* save floating point state */
 	s = splhi();
 	switch(up->fpstate & ~FPillegal){
+	case FPactive	| FPpush:
+		_clts();
 	case FPactive:
 		fpsave(up->fpsave);
-		up->fpstate = FPinactive;
+		up->fpstate = FPinactive | (up->fpstate & FPpush);
+	case FPactive	| FPkernel:
+	case FPinactive	| FPkernel:
+	case FPinactive	| FPpush:
 	case FPinactive:
-		while(p->fpsave == nil)
-			p->fpsave = mallocalign(sizeof(FPsave), FPalign, 0, 0);
-		memmove(p->fpsave, up->fpsave, sizeof(FPsave));
+		while(p->fpslot[0] == nil)
+			p->fpslot[0] = mallocalign(sizeof(FPsave), FPalign, 0, 0);
+		memmove(p->fpsave = p->fpslot[0], up->fpslot[0], sizeof(FPsave));
 		p->fpstate = FPinactive;
 	}
 	splx(s);
-
 }
 
 void
@@ -644,24 +667,26 @@ procsave(Proc *p)
 	p->kentry -= t;
 	p->pcycles += t;
 
-	if(p->fpstate == FPactive){
+	switch(p->fpstate & ~(FPnouser|FPkernel|FPindexm)){
+	case FPactive	| FPpush:
+		_clts();
+	case FPactive:
 		if(p->state == Moribund){
-			_clts();
 			_fnclex();
 			_stts();
+			break;
 		}
-		else{
-			/*
-			 * Fpsave() stores without handling pending
-			 * unmasked exeptions. Postnote() can't be called
-			 * here as sleep() already has up->rlock, so
-			 * the handling of pending exceptions is delayed
-			 * until the process runs again and generates an
-			 * emulation fault to activate the FPU.
-			 */
-			fpsave(p->fpsave);
-		}
-		p->fpstate = FPinactive;
+		/*
+		 * Fpsave() stores without handling pending
+		 * unmasked exeptions. Postnote() can't be called
+		 * here as sleep() already has up->rlock, so
+		 * the handling of pending exceptions is delayed
+		 * until the process runs again and generates an
+		 * emulation fault to activate the FPU.
+		 */
+		fpsave(p->fpsave);
+		p->fpstate = FPinactive | (p->fpstate & (FPpush|FPnouser|FPkernel|FPindexm));
+		break;
 	}
 
 	/*
@@ -676,4 +701,33 @@ procsave(Proc *p)
 	 * especially on VMware, but it turns out not to matter.
 	 */
 	mmuflushtlb();
+}
+
+/*
+ * Fpusave and fpurestore lazily save and restore FPU state across
+ * system calls and the pagefault handler so that we can take
+ * advantage of SSE instructions such as AES-NI in the kernel.
+ */
+int
+fpusave(void)
+{
+	int ostate = up->fpstate;
+	if((up->fpstate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
+		_stts();
+	up->fpstate = FPpush | (up->fpstate & ~FPillegal);
+	return ostate;
+}
+void
+fpurestore(int ostate)
+{
+	if((up->fpstate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
+		_stts();
+	if((ostate & FPindexm) == (up->fpstate & FPindexm)){
+		if((ostate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
+			_clts();
+	} else {
+		up->fpsave = up->fpslot[ostate>>FPindexs];
+		ostate = FPinactive | (ostate & (FPillegal|FPpush|FPnouser|FPkernel|FPindexm));
+	}
+	up->fpstate = ostate;
 }

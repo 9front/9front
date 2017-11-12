@@ -649,11 +649,12 @@ unexpected(Ureg* ureg, void*)
 }
 
 extern void checkpages(void);
+
 static void
 faultamd64(Ureg* ureg, void*)
 {
 	uintptr addr;
-	int read, user, n, insyscall;
+	int read, user, n, insyscall, f;
 	char buf[ERRMAX];
 
 	addr = getcr2();
@@ -670,6 +671,14 @@ faultamd64(Ureg* ureg, void*)
 
 	insyscall = up->insyscall;
 	up->insyscall = 1;
+	f = fpusave();
+	if(!user && waserror()){
+		int s = splhi();
+		fpurestore(f);
+		up->insyscall = insyscall;
+		splx(s);
+		nexterror();
+	}
 	n = fault(addr, read);
 	if(n < 0){
 		if(!user){
@@ -681,6 +690,9 @@ faultamd64(Ureg* ureg, void*)
 			read ? "read" : "write", addr);
 		postnote(up, 1, buf, NDebug);
 	}
+	if(!user) poperror();
+	splhi();
+	fpurestore(f);
 	up->insyscall = insyscall;
 }
 
@@ -698,7 +710,7 @@ syscall(Ureg* ureg)
 	char *e;
 	uintptr	sp;
 	long long ret;
-	int	i, s;
+	int	i, s, f;
 	ulong scallnr;
 	vlong startns, stopns;
 
@@ -715,11 +727,12 @@ syscall(Ureg* ureg)
 	sp = ureg->sp;
 	scallnr = ureg->bp;	/* RARG */
 	up->scallnr = scallnr;
-
+	f = fpusave();
 	spllo();
+
+	ret = -1;
 	startns = 0;
 	up->nerrlab = 0;
-	ret = -1;
 	if(!waserror()){
 		if(sp<(USTKTOP-BY2PG) || sp>(USTKTOP-sizeof(Sargs)-BY2WD))
 			validaddr(sp, sizeof(Sargs)+BY2WD, 0);
@@ -778,12 +791,13 @@ syscall(Ureg* ureg)
 		splx(s);
 	}
 
+	splhi();
+	fpurestore(f);
 	up->insyscall = 0;
 	up->psstate = 0;
 
 	if(scallnr == NOTED){
 		noted(ureg, *((ulong*)up->s.args));
-
 		/*
 		 * normally, syscall() returns to forkret()
 		 * not restoring general registers when going
@@ -796,10 +810,10 @@ syscall(Ureg* ureg)
 	}
 
 	if(scallnr!=RFORK && (up->procctl || up->nnote)){
-		splhi();
 		notify(ureg);
 		((void**)&ureg)[-1] = (void*)noteret;	/* loads RARG */
 	}
+
 	/* if we delayed sched because we held a lock, sched now */
 	if(up->delaysched)
 		sched();
@@ -813,7 +827,7 @@ syscall(Ureg* ureg)
 int
 notify(Ureg* ureg)
 {
-	int l, s;
+	int l;
 	uintptr sp;
 	Note *n;
 
@@ -821,14 +835,7 @@ notify(Ureg* ureg)
 		procctl();
 	if(up->nnote == 0)
 		return 0;
-
-	if(up->fpstate == FPactive){
-		fpsave(up->fpsave);
-		up->fpstate = FPinactive;
-	}
-	up->fpstate |= FPillegal;
-
-	s = spllo();
+	spllo();
 	qlock(&up->debug);
 	up->notepending = 0;
 	n = &up->note[0];
@@ -887,11 +894,14 @@ if(0) print("%s %lud: notify %#p %#p %#p %s\n",
 	up->nnote--;
 	memmove(&up->lastnote, &up->note[0], sizeof(Note));
 	memmove(&up->note[0], &up->note[1], up->nnote*sizeof(Note));
-
 	qunlock(&up->debug);
-	splx(s);
+	splhi();
+	if(up->fpstate == FPactive){
+		fpsave(up->fpsave);
+		up->fpstate = FPinactive;
+	}
+	up->fpstate |= FPillegal;
 	return 1;
-
 }
 
 /*
@@ -903,6 +913,8 @@ noted(Ureg* ureg, ulong arg0)
 	Ureg *nureg;
 	uintptr oureg, sp;
 
+	up->fpstate &= ~FPillegal;
+	spllo();
 	qlock(&up->debug);
 	if(arg0!=NRSTR && !up->notified) {
 		qunlock(&up->debug);
@@ -912,8 +924,6 @@ noted(Ureg* ureg, ulong arg0)
 	up->notified = 0;
 
 	nureg = up->ureg;	/* pointer to user returned Ureg struct */
-
-	up->fpstate &= ~FPillegal;
 
 	/* sanity clause */
 	oureg = (uintptr)nureg;

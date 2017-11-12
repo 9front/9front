@@ -65,12 +65,6 @@ struct FPsave
 	uchar	ign[96];		/* reserved, ignored */
 };
 
-struct PFPU
-{
-	int	fpstate;
-	FPsave	*fpsave;
-};
-
 enum
 {
 	/* this is a state */
@@ -78,8 +72,27 @@ enum
 	FPactive=	1,
 	FPinactive=	2,
 
-	/* the following is a bit that can be or'd into the state */
-	FPillegal=	0x100,
+	/*
+	 * the following are bits that can be or'd into the state.
+	 *
+	 * this is biased so that FPinit, FPactive and FPinactive
+	 * without any flags refer to user fp state in fpslot[0].
+	 */
+	FPillegal=	1<<8,	/* fp forbidden in note handler */
+	FPpush=		2<<8,	/* trap on use and initialize new fpslot */
+	FPnouser=	4<<8,	/* fpslot[0] is kernel regs */
+	FPkernel=	8<<8,	/* fp use in kernel (user in fpslot[0] when !FPnouser) */
+
+	FPindexs=	16,
+	FPindex1=	1<<FPindexs,
+	FPindexm=	3<<FPindexs,
+};
+
+struct PFPU
+{
+	int	fpstate;
+	FPsave	*fpsave;	/* fpslot[fpstate>>FPindexs] */
+	FPsave	*fpslot[(FPindexm+1)>>FPindexs];
 };
 
 struct Confmem
