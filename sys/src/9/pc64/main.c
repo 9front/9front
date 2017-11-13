@@ -712,20 +712,25 @@ int
 fpusave(void)
 {
 	int ostate = up->fpstate;
-	if((up->fpstate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
+	if((ostate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
 		_stts();
-	up->fpstate = FPpush | (up->fpstate & ~FPillegal);
+	up->fpstate = FPpush | (ostate & ~FPillegal);
 	return ostate;
 }
 void
 fpurestore(int ostate)
 {
-	if((up->fpstate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
+	int astate = up->fpstate;
+	if((astate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
 		_stts();
-	if((ostate & FPindexm) == (up->fpstate & FPindexm)){
-		if((ostate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
+	if((astate & FPindexm) == (ostate & FPindexm)){
+		if((ostate & ~(FPnouser|FPkernel|FPindexm)) == FPactive){
+			if((astate & ~(FPpush|FPnouser|FPkernel|FPindexm)) != FPactive)
+				goto saved;
 			_clts();
+		}
 	} else {
+	saved:
 		up->fpsave = up->fpslot[ostate>>FPindexs];
 		ostate = FPinactive | (ostate & (FPillegal|FPpush|FPnouser|FPkernel|FPindexm));
 	}
