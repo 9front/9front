@@ -721,16 +721,14 @@ void
 fpurestore(int ostate)
 {
 	int astate = up->fpstate;
-	if((astate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
-		_stts();
-	if((astate & FPindexm) == (ostate & FPindexm)){
-		if((ostate & ~(FPnouser|FPkernel|FPindexm)) == FPactive){
-			if((astate & ~(FPpush|FPnouser|FPkernel|FPindexm)) != FPactive)
-				goto saved;
+	if(astate == (FPpush | (ostate & ~FPillegal))){
+		if((ostate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
 			_clts();
-		}
 	} else {
-	saved:
+		if(astate == FPinit)	/* don't restore on procexec()/procsetup() */
+			return;
+		if((astate & ~(FPnouser|FPkernel|FPindexm)) == FPactive)
+			_stts();
 		up->fpsave = up->fpslot[ostate>>FPindexs];
 		ostate = FPinactive | (ostate & (FPillegal|FPpush|FPnouser|FPkernel|FPindexm));
 	}
