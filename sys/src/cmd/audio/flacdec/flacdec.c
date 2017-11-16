@@ -119,13 +119,19 @@ decerror(FLAC__StreamDecoder *dec, FLAC__StreamDecoderErrorStatus status, void *
 	fprintf(stderr, "decode error: %s (%d)\n", FLAC__StreamDecoderErrorStatusString[status], status);
 }
 
+static FLAC__bool
+checkeof(const FLAC__StreamDecoder*, void*)
+{
+	return feof(stdin);
+}
+
 int main(int argc, char *argv[])
 {
 	FLAC__bool ok = true;
 	FLAC__StreamDecoder *dec = 0;
 
 	dec = FLAC__stream_decoder_new();
-	FLAC__stream_decoder_init_stream(dec, decinput, NULL, NULL, NULL, NULL, decoutput, NULL, decerror, NULL);
+	FLAC__stream_decoder_init_stream(dec, decinput, NULL, NULL, NULL, checkeof, decoutput, NULL, decerror, NULL);
 	FLAC__stream_decoder_process_until_end_of_stream(dec);
 	FLAC__stream_decoder_finish(dec);
 	return 0;
