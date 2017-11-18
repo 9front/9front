@@ -76,6 +76,8 @@ struct AYIYA
 
 AYIYA	conf;
 
+int mtu = 1500-8;
+
 int gateway;
 int debug;
 
@@ -283,7 +285,7 @@ ayiyarquery(char *q)
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-g] [-x mtpt] [-k secret] local6[/mask] remote4 remote6\n",
+	fprint(2, "usage: %s [-g] [-m mtu] [-x mtpt] [-k secret] local6[/mask] remote4 remote6\n",
 		argv0);
 	exits("Usage");
 }
@@ -363,8 +365,8 @@ setup(int *v6net)
 	*v6net = open(path, ORDWR);
 	if (*v6net < 0 || fprint(cfd, "bind pkt") < 0)
 		sysfatal("can't bind packet interface: %r");
-	/* 1280 is MTU, apparently from rfc2460 */
-	if (fprint(cfd, "add %I %M %I 1280", local6, localmask, remote6) <= 0)
+	if (fprint(cfd, "add %I %M %I %d", local6, localmask, remote6,
+		mtu - (IPV4HDR_LEN+8) - (8+conf.idlen+conf.siglen)) <= 0)
 		sysfatal("can't set local ipv6 address: %r");
 	close(cfd);
 	if (debug)
@@ -423,6 +425,9 @@ main(int argc, char **argv)
 		break;
 	case 'g':
 		gateway++;
+		break;
+	case 'm':
+		mtu = atoi(EARGF(usage()));
 		break;
 	case 'x':
 		inside = EARGF(usage());

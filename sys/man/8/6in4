@@ -6,6 +6,9 @@
 [
 .B -ag
 ] [
+.B -m
+.I mtu
+] [
 .B -x
 .I netmtpt
 ] [
@@ -25,6 +28,9 @@
 .B ip/ayiya
 [
 .B -g
+] [
+.B -m
+.I mtu
 ] [
 .B -x
 .I netmtpt
@@ -103,6 +109,11 @@ non-loopback address of the outside IP stack.
 .TP
 .B -g
 use the tunnel as the default route for global IPv6 addresses
+.TP
+.B -m
+.I mtu
+specifies the outside MTU in bytes from which the inside
+tunnel MTU is derived. Deaults to 1500 - 8 (Ethernet - PPPoE).
 .TP
 .B -x
 use the network mounted at

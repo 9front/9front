@@ -46,6 +46,8 @@ struct Iphdr
 
 #define STFHDR offsetof(Iphdr, payload[0])
 
+int mtu = 1500-8;
+
 int anysender;
 int gateway;
 int debug;
@@ -71,7 +73,7 @@ static void	tunnel2ip(int, int);
 static void
 usage(void)
 {
-	fprint(2, "usage: %s [-ag] [-x mtpt] [-o mtpt] [-i local4] [local6[/mask]] [remote4 [remote6]]\n",
+	fprint(2, "usage: %s [-ag] [-m mtu] [-x mtpt] [-o mtpt] [-i local4] [local6[/mask]] [remote4 [remote6]]\n",
 		argv0);
 	exits("Usage");
 }
@@ -191,8 +193,8 @@ setup(int *v6net, int *tunp)
 	*v6net = open(path, ORDWR);
 	if (*v6net < 0 || fprint(cfd, "bind pkt") < 0)
 		sysfatal("can't bind packet interface: %r");
-	/* 1280 is MTU, apparently from rfc2460 */
-	if (fprint(cfd, "add %I %M %I 1280", local6, localmask, remote6) <= 0)
+	if (fprint(cfd, "add %I %M %I %d", local6, localmask, remote6,
+		mtu - IPV4HDR_LEN) <= 0)
 		sysfatal("can't set local ipv6 address: %r");
 	close(cfd);
 	if (debug)
@@ -254,6 +256,9 @@ main(int argc, char **argv)
 		break;
 	case 'g':
 		gateway++;
+		break;
+	case 'm':
+		mtu = atoi(EARGF(usage()));
 		break;
 	case 'x':
 		outside = inside = EARGF(usage());
