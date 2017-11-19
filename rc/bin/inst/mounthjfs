@@ -22,7 +22,7 @@ case go
 	fs=$rd
 	export fs
 
-	mem=`{awk ' $2 == "pagesize" { p = $1 } $2 == "user" { split($1, a, "/"); print int((a[2] * p / 4 + 1048575) / 1048576)  } ' '#c'/swap}
+	mem=`{awk ' $2 == "pagesize" { p = $1 } $2 == "user" { split($1, a, "/"); print int((a[2] * p / 4 + 1048575) / 1048576)  } ' /dev/swap}
 	prompt -d $mem 'Size of RAM filesystem cache (MB)?'
 	fsflags=(-m $rd)
 	export fsflags
