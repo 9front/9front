@@ -378,24 +378,24 @@ static Optable optab660F38[256] = {
 
 static Optable optab660F71[8]=
 {
-[0x02]	Ib,0,		"PSRLW	%i,%X",
-[0x04]	Ib,0,		"PSRAW	%i,%X",
-[0x06]	Ib,0,		"PSLLW	%i,%X",
+[0x02]	Ib,0,		"PSRLW	%i,%x",
+[0x04]	Ib,0,		"PSRAW	%i,%x",
+[0x06]	Ib,0,		"PSLLW	%i,%x",
 };
 
 static Optable optab660F72[8]=
 {
-[0x02]	Ib,0,		"PSRLL	%i,%X",
-[0x04]	Ib,0,		"PSRAL	%i,%X",
-[0x06]	Ib,0,		"PSLLL	%i,%X",
+[0x02]	Ib,0,		"PSRLL	%i,%x",
+[0x04]	Ib,0,		"PSRAL	%i,%x",
+[0x06]	Ib,0,		"PSLLL	%i,%x",
 };
 
 static Optable optab660F73[8]=
 {
-[0x02]	Ib,0,		"PSRLQ	%i,%X",
-[0x03]	Ib,0,		"PSRLO	%i,%X",
-[0x06]	Ib,0,		"PSLLQ	%i,%X",
-[0x07]	Ib,0,		"PSLLO	%i,%X",
+[0x02]	Ib,0,		"PSRLQ	%i,%x",
+[0x03]	Ib,0,		"PSRLO	%i,%x",
+[0x06]	Ib,0,		"PSLLQ	%i,%x",
+[0x07]	Ib,0,		"PSLLO	%i,%x",
 };
 
 static Optable optab660F[256]=
