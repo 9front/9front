@@ -3,6 +3,7 @@ APE=/sys/src/ape
 
 LIB=/$objtype/lib/ape/libsec.a
 FILES=\
+	chachablock\
 	md5block\
 	sha1block\
 	aesni\

@@ -10,25 +10,12 @@ and including the changes to block number and nonce defined in RFC7539
 #include "os.h"
 #include <libsec.h>
 
-enum{
-	Blockwords=	ChachaBsize/sizeof(u32int)
-};
+/* from chachablock.$O */
+extern void _chachablock(u32int x[16], int rounds);
 
 /* little-endian data order */
 #define	GET4(p)		((p)[0]|((p)[1]<<8)|((p)[2]<<16)|((p)[3]<<24))
 #define	PUT4(p,v)	(p)[0]=(v);(p)[1]=(v)>>8;(p)[2]=(v)>>16;(p)[3]=(v)>>24
-
-#define ROTATE(v,c) ((u32int)((v) << (c)) | ((v) >> (32 - (c))))
-
-#define QUARTERROUND(ia,ib,ic,id) { \
-	u32int a, b, c, d, t; \
-	a = x[ia]; b = x[ib]; c = x[ic]; d = x[id]; \
-	a += b; t = d^a; d = ROTATE(t,16); \
-	c += d; t = b^c; b = ROTATE(t,12); \
-	a += b; t = d^a; d = ROTATE(t, 8); \
-	c += d; t = b^c; b = ROTATE(t, 7); \
-	x[ia] = a; x[ib] = b; x[ic] = c; x[id] = d; \
-}
 
 #define ENCRYPT(s, x, y, d) {\
 	u32int v; \
@@ -88,22 +75,6 @@ setupChachastate(Chachastate *s, uchar *key, ulong keylen, uchar *iv, ulong ivle
 }
 
 static void
-dorounds(u32int x[Blockwords], int rounds)
-{
-	for(; rounds > 0; rounds -= 2) {
-		QUARTERROUND(0, 4, 8,12)
-		QUARTERROUND(1, 5, 9,13)
-		QUARTERROUND(2, 6,10,14)
-		QUARTERROUND(3, 7,11,15)
-
-		QUARTERROUND(0, 5,10,15)
-		QUARTERROUND(1, 6,11,12)
-		QUARTERROUND(2, 7, 8,13)
-		QUARTERROUND(3, 4, 9,14)
-	}
-}
-
-static void
 hchachablock(uchar h[32], Chachastate *s)
 {
 	u32int x[16];
@@ -125,7 +96,7 @@ hchachablock(uchar h[32], Chachastate *s)
 	x[14] = s->input[14];
 	x[15] = s->input[15];
 
-	dorounds(x, s->rounds);
+	_chachablock(x, s->rounds);
 
 	PUT4(h+0*4, x[0]);
 	PUT4(h+1*4, x[1]);
@@ -183,7 +154,7 @@ chacha_setblock(Chachastate *s, u64int blockno)
 static void
 encryptblock(Chachastate *s, uchar *src, uchar *dst)
 {
-	u32int x[Blockwords];
+	u32int x[16];
 	int i;
 
 	x[0] = s->input[0];
@@ -202,7 +173,7 @@ encryptblock(Chachastate *s, uchar *src, uchar *dst)
 	x[13] = s->input[13];
 	x[14] = s->input[14];
 	x[15] = s->input[15];
-	dorounds(x, s->rounds);
+	_chachablock(x, s->rounds);
 
 	for(i=0; i<nelem(x); i+=4){
 		ENCRYPT(src, x[i], s->input[i], dst);
