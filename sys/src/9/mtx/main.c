@@ -360,14 +360,19 @@ getcfields(char* lp, char** fields, int n, char* sep)
 int
 isaconfig(char *class, int ctlrno, ISAConf *isa)
 {
+	char cc[32], *p, *x;
 	int i;
-	char cc[KNAMELEN], *p;
 
-	sprint(cc, "%s%d", class, ctlrno);
-
+	snprint(cc, sizeof cc, "%s%d", class, ctlrno);
 	p = getconf(cc);
-	if(p == 0)
+	if(p == nil)
 		return 0;
+
+	x = nil;
+	kstrdup(&x, p);
+	p = x;
+
+	isa->type = "";
 	isa->nopt = tokenize(p, isa->opt, NISAOPT);
 	for(i = 0; i < isa->nopt; i++){
 		p = isa->opt[i];
